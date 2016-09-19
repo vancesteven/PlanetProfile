@@ -1,5 +1,4 @@
-%profileGanymede
-% cd ~/Dropbox/Developer/MatlabFiles/PlanetProfile
+%PPGanymede
 Planet.name='Ganymede';
 Planet.rho_kgm3 = 1936; % Schubert et al. 2004: 1942.0±4.8 claimed to be 4x more accurate than Anderson 1996 of 1936 ± 22
 Planet.R_m = 2634.1e3;
