@@ -83,9 +83,10 @@ rho_kgm3(kt,1) = rho_kgm3(kt,2); %continuity
     save(savefile); % save the progress at each step
 end  
 else
+    cnr = Params.CALC_NEW_REFPROFILES;
     load(savefile);
+    Params.CALC_NEW_REFPROFILES=cnr;
 end
-Params.CALC_NEW_REFPROFILES=0;
 %% Save in a file the densities of adiabats corresponding to different ocean concentrations
 str_ref_densities = ['ref_densities' Planet.name '_' Planet.Ocean.comp '.mat'];
 if Params.CALC_NEW_REFPROFILES
@@ -93,10 +94,11 @@ if Params.CALC_NEW_REFPROFILES
 %calculate the densities of liquid solution on the liquidus lines
 %corresponding to different concentrations
         wref = Params.wref;
+        lw = length(wref);
         Pref_MPa=linspace(0,Params.Pseafloor_MPa,nPr);
-        Tref_K = zeros(nTbs,nPr);
+        Tref_K = zeros(lw,nPr);
         rho_ref_kgm3 = Tref_K; %allocate      
-        for jr=1:length(wref)
+        for jr=1:lw
            parfor il=1:nPr
               try 
                  if ~isfield(Planet.Ocean,'fnTfreeze_K')
@@ -112,9 +114,9 @@ if Params.CALC_NEW_REFPROFILES
               rho_ref_kgm3(jr,il) = fluidEOS(Pref_MPa(il),Tref_K(jr,il),wref(jr),Planet.Ocean.comp);            
            end           
         end
-    save(str_ref_densities,'rho_ref_kgm3','Pref_MPa','Tref_K')
+    save([str_ref_densities],'rho_ref_kgm3','Pref_MPa','Tref_K')
 else
-    load(str_ref_densities);
+    load([str_ref_densities]);
 end
 
 %%%%%%%%%%%%%%%%%%%%%
@@ -232,13 +234,19 @@ if ~Planet.FeCore
         R_sil_m(:,iz) = r_m(:,iz+npre);
         rho_sil_kgm3(:,iz) = 3/4/pi*(M_Planet_kg-M_above_kg(:,iz+npre))./power(R_sil_m(:,iz),3);
         C1(:,iz) = C_H2O(:,iz+1)+8/15*pi*power(R_sil_m(:,iz),5).*rho_sil_kgm3(:,iz);
-    end   
-    % Plot the results
+    end
+    for iT = 1:nTbs
+        C2inds{iT} = find(C1(iT,:)/MR2>Planet.Cmeasured-Planet.Cuncertainty & C1(iT,:)/MR2<Planet.Cmeasured+Planet.Cuncertainty);
+        C2mean(iT) = round(mean(C2inds{iT}));
+        C2max(iT) = max(C2inds{iT});
+        C2min(iT) = min(C2inds{iT});
+        R_sil_mean_m(iT) = R_sil_m(iT,C2mean(iT));
+    end
+    R_Fe_mean_m = zeros(1,nTbs);
+   % Plot the results
     figure(2295);clf;hold all
     for iT=1:nTbs
-        inds(iT,:) = C1(iT,:)/MR2>Planet.Cmeasured-Planet.Cuncertainty & ...
-            C1(iT,:)/MR2<Planet.Cmeasured+Planet.Cuncertainty;
-        plot(rho_sil_kgm3(iT,inds(iT,:))',R_sil_m(iT,inds(iT,:))'*1e-3);
+        plot(rho_sil_kgm3(iT,C2inds{iT})',R_sil_m(iT,C2inds{iT})'*1e-3);
     end
     lstr_3 = {};
     for iT = 1:nTbs
@@ -248,7 +256,7 @@ if ~Planet.FeCore
     box on
     xlabel('\rho_{sil} (kg m^{-3})');
     ylabel('R_{sil} (km)')
-    title(['No Fe core ; C/MR2=' num2str(Cmeasured) '\pm' num2str(Cuncertainty) '; W =' num2str(wo) ' Wt%'])
+    title(['No Fe core ; C/MR2=' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) '; W =' num2str(wo) ' Wt%'])
 else % With a core
     rho_Fe_kgm3 = Planet.rhoFe*Planet.rhoFeS/(Planet.xFeS*(Planet.rhoFe-Planet.rhoFeS)+Planet.rhoFeS); 
     C2 = zeros(nTbs,nR);
@@ -358,8 +366,10 @@ QS_overfgamma_iceVI = Seismic.B_aniso_iceVI*....
 for iT = 1:nTbs % determine where the silicate should start
     indSil(iT) = find(R_sil_m(iT,:)==R_sil_mean_m(iT));
 end
-if nTbs>1 % this makes sure that the mantle length matrices are all the same length.  assumes 
+if nTbs>1 % this makes sure that the mantle length matrices are all the same length.   
     nsteps_mantle = [Params.nsteps_mantle Params.nsteps_mantle*ones(1,nTbs-1)+(indSil(1)-indSil(2:end))];% this needs to be reconsidered if nsteps!=100
+else
+    nsteps_mantle = Params.nsteps_mantle;
 end
 
 mprops = load(Seismic.MantleEOS);
@@ -452,23 +462,28 @@ end
 
 
 %% Sound Speeds in the Ice and Ocean
-disp('Computing sound speeds')
-velsIce = iceVelsGagnon1990(P_MPa,T_K);
-for iT = 1:nTbs
-    for ir = find(phase(iT,:)==0)
-        vfluid_kms(iT,ir) = fluidSoundSpeeds(P_MPa(iT,ir),T_K(iT,ir),wo,Planet.Ocean.comp);
+if Params.CALC_NEW_SOUNDSPEEDS
+    disp('Computing sound speeds')
+    velsIce = iceVelsGagnon1990(P_MPa,T_K);
+    for iT = 1:nTbs
+        for ir = find(phase(iT,:)==0)
+            vfluid_kms(iT,ir) = fluidSoundSpeeds(P_MPa(iT,ir),T_K(iT,ir),wo,Planet.Ocean.comp);
+        end
+        vfluid_kms(iT,vfluid_kms(iT,:)==0)=NaN;
+        velsIce.VIl_kms(iT,phase(iT,:)~=1) =NaN;
+        velsIce.VIt_kms(iT,phase(iT,:)~=1) =NaN;
+        velsIce.VIIl_kms(iT,phase(iT,:)~=2) =NaN;
+        velsIce.VIIt_kms(iT,phase(iT,:)~=2) =NaN;
+        velsIce.VIIIl_kms(iT,phase(iT,:)~=3) =NaN;
+        velsIce.VIIIt_kms(iT,phase(iT,:)~=3) =NaN;
+        velsIce.VVl_kms(iT,phase(iT,:)~=5) =NaN;
+        velsIce.VVt_kms(iT,phase(iT,:)~=5) =NaN;
+        velsIce.VVIl_kms(iT,phase(iT,:)~=6) =NaN;
+        velsIce.VVIt_kms(iT,phase(iT,:)~=6) =NaN;
     end
-    vfluid_kms(iT,vfluid_kms(iT,:)==0)=NaN;
-    velsIce.VIl_kms(iT,phase(iT,:)~=1) =NaN;
-    velsIce.VIt_kms(iT,phase(iT,:)~=1) =NaN;
-    velsIce.VIIl_kms(iT,phase(iT,:)~=2) =NaN;
-    velsIce.VIIt_kms(iT,phase(iT,:)~=2) =NaN;
-    velsIce.VIIIl_kms(iT,phase(iT,:)~=3) =NaN;
-    velsIce.VIIIt_kms(iT,phase(iT,:)~=3) =NaN;
-    velsIce.VVl_kms(iT,phase(iT,:)~=5) =NaN;
-    velsIce.VVt_kms(iT,phase(iT,:)~=5) =NaN;
-    velsIce.VVIl_kms(iT,phase(iT,:)~=6) =NaN;
-    velsIce.VVIt_kms(iT,phase(iT,:)~=6) =NaN;
+    save([savefile 'Vels'],'velsIce','vfluid_kms');
+else
+    load([savefile 'Vels']);
 end
 
 %% Electrical Conductivity
@@ -517,10 +532,10 @@ for iT=1:nTbs
     elseif  ~isnan(velsIce.VVl_kms(iT,indSil(iT)))
         velT = velsIce.VVt_kms(iT,indSil(iT));
         velL = velsIce.VVl_kms(iT,indSil(iT));
-    elseif  ~isnan(velsIce.III_kms(iT,indSil(iT)))
+    elseif  ~isnan(velsIce.VIIIl_kms(iT,indSil(iT)))
         velT = velsIce.VIIIt_kms(iT,indSil(iT));
         velL = velsIce.VIIIl_kms(iT,indSil(iT));
-    elseif  ~isnan(velsIce.VII_kms(iT,indSil(iT)))
+    elseif  ~isnan(velsIce.VIIl_kms(iT,indSil(iT)))
         velT = velsIce.VIIt_kms(iT,indSil(iT));
         velL = velsIce.VIIl_kms(iT,indSil(iT));
     elseif  ~isnan(vfluid_kms(iT,indSil(iT)))
@@ -567,15 +582,22 @@ for iT = 1:nTbs
         QS_overfgamma_iceIII(iT,indsIII) QS_overfgamma_iceV(iT,indsV) QS_overfgamma_iceVI(iT,indsVI) ...
         interior(iT).QS_overfgamma Seismic.QScore*ones(1,Params.nsteps_core)];    
     Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [P_Planet_MPa(iT,:)', T_Planet_K(iT,:)', r_Planet_m(iT,:)'*1e-3, rho_pPlanet_kgm3(iT,:)',VP_Planet_kms(iT,:)',VS_Planet_kms(iT,:)',QS_overfgamma_Planet(iT,:)'];
-    save([Planet.name 'Zb' strLow num2str(1e-3*Zb2(iT),'%0.0f') 'km' num2str(wo,'%0.0f') 'WtPctMgSO4'],...
-        'Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma','-ascii');
+    thissavestr = [Planet.name 'Zb' strLow num2str(1e-3*Zb2(iT),'%0.0f') 'km' num2str(wo,'%0.0f') 'WtPctMgSO4'];
+    save(thissavestr,'Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma','-ascii');
     figure(nfig+iT)
     hp = subplot(1,2,2);plot(T_Planet_K(iT,:)',r_Planet_m(iT,:)'*1e-3,rho_pPlanet_kgm3(iT,:)',r_Planet_m(iT,:)'*1e-3);
 %     xlabel('Temperature (K) and Density (kg m^{-3})');
     legend(hp,'Temperature (K)','Density (kg m^{-3})');
     title(['z_b ' num2str(1e-3*Zb2(iT),'%0.0f') ' km; W_{MgSO4}' num2str(wo) 'WtPct'])
-    subplot(1,2,1);plot(VS_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3,VP_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3)
+    axis tight
+    
+    hp = subplot(1,2,1);plot(VS_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3,VP_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3)
         set(gcf,'color','w')
+        legend(hp,'VP','VS');
+        xlabel('Sound Speeds (km s^{-1})')
+        ylabel(['r_{' Planet.name '} (km)']);
+        axis tight
+    saveas(gcf,[thissavestr 'TPrhoVsVp' Params.savefigformat]);
 
     figure(nfig+10+iT);
     hp = plot(QS_overfgamma_Planet(iT,:)',r_Planet_m(iT,:)'*1e-3);
@@ -583,7 +605,9 @@ for iT = 1:nTbs
     set(gca,'xscale','log')
     xlabel('Q_S/\omega^{\gamma}')
     ylabel('r (km)');
-    set(gcf,'color','w')
+        set(gcf,'color','w')
+    saveas(gcf,[thissavestr 'QS' Params.savefigformat]);
+
 end
 
 
@@ -718,7 +742,7 @@ function Pfreeze_MPa = getPfreeze(T_K,wo,str_comp)
         case 'MgSO4'             
             Pfreeze_MPa = fzero(@(P) L_IceMgSO4(P,T_K,wo,1),[0 250]);
         case 'NH3'
-            Pfreeze_MPa = fzero(@(P) L_IceNH3(P,P,T_K,1),[0 250]);
+            Pfreeze_MPa = fzero(@(P) L_IceNH3(P,T_K,wo,1),[0 250]);
     end
 
 %% fluid properties
@@ -729,6 +753,7 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
             mo=1000./W_MgSO4./(1./(0.01.*wo)-1); %conversion to molality from Wt%
             [rho_kgm3,Cp,alpha_Km1]=MgSO4_EOS2_planetary_smaller(mo,P_MPa,T_K-273.15);
         case 'NH3'
+            [rho_kgm3,Cp,alpha_Km1,~]=NH3_EOS(P_MPa,T_K,wo);
     end
 function vel_kms = fluidSoundSpeeds(P_MPa,T_K,wo,str_comp)
     switch str_comp
@@ -737,6 +762,7 @@ function vel_kms = fluidSoundSpeeds(P_MPa,T_K,wo,str_comp)
             mo=1000./W_MgSO4./(1./(0.01.*wo)-1); %conversion to molality from Wt%
             vel_kms = MgSO4_EOS2_planetary_velocity_smaller(mo,P_MPa,T_K-273.15);
         case 'NH3'
+            [~,~,~,vel_out]=NH3_EOS(P_MPa,T_K,wo);
     end
 
 %% Core Size

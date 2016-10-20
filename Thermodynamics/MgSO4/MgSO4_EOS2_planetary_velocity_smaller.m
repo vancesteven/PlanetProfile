@@ -1,32 +1,12 @@
 function [vel]=MgSO4_EOS2_planetary_velocity_smaller(m,P,T)
- 
-%,Videal,Vex,Vw,VDH
-%function [rho,Vs,vel,Cp,alpha,Videal,Vex]=MgSO4_EOS2(m,P,T)
+% specialized from of MgSO4EOS2:
+% function [rho,Vs,vel,Cp,alpha,Videal,Vex]=MgSO4_EOS2(m,P,T)
 % usage:
 %  [rho,Vs,Videal,Vex,Vw,vel,Cp,alpha]=MgSO4_EOS(m,P,T,parms)
-%   units: P in MPa, T in �C, volumes in cc/g Cp in J/kg/C, rho in gm/cc
+%   units: P in MPa, T in oC, volumes in cc/g Cp in J/kg/C, rho in gm/cc
 %   velocities in km/s
  
 % set up the EOS on the parameter grid
-% load MgSO4_EOS_parms6_AC
-% load MgSO4_EOS_parms6_HD
-% load MgSO4_EOS_parms6_AC
-%  load MgSO4_EOS_parms8_IAPWS2 
-% load MgSO4_EOS_parms
-% load MgSO4_EOS_parms8_Cp
-% load MgSO4_EOS_parms_2012_relaxed
-% load MgSO4_EOS_parms_2012
-% load MgSO4_EOS_parms_2012_R3
-%  load MgSO4_EOS_parms_2012_27
-%  load MgSO4_EOS_parms_2012_27_SV % this one has phi as phi/m
-%  load MgSO4_EOS_parms_2012_27Mill
-% load MgSO4_EOS_parms_2012_22fine
-% load MgSO4_EOS_parms_2012_24fine
-% load MgSO4_EOS_parms_2012_24fine46
-% load MgSO4_EOS_parms_2012_25_20_LT
-% load MgSO4_EOS_parms_2012_25_50_LT
-% load MgSO4_EOS_parms_2012_25_17_LT
-% load MgSO4_EOS_parms_2012_25_17_LT2
  load MgSO4_EOS_parms_2012_26_17_LT
 %load MgSO4EOS2_planetary_smaller_20121116
 
