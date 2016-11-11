@@ -19,10 +19,10 @@ Planet.rhoFeS = 5150; %5150
 
 Planet.Ocean.comp='MgSO4';
 Planet.Ocean.w_ocean_pct=0;
-Planet.Tb_K = [255 260 265 270 273]; % pure water, temperatures at the bottom of the Ice Ih
+% Planet.Tb_K = [255 260 265 270 273]; % pure water, temperatures at the bottom of the Ice Ih
 %Planet.Tb_K = [250 255 260 265 270]; % 15 Wt% temperatures at the bottom of the Ice Ih
-% Planet.Ocean.w_ocean_pct=10;
-% Planet.Tb_K = [252.5 255 260 265 270]; % 10 Wt% temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=10;
+Planet.Tb_K = [252.5 255 260 265 270]; % 10 Wt% temperatures at the bottom of the Ice Ih
 %Planet.Tb_K = [252.5 255 260 265 270]; %3 and 5 Wt% temperatures at the bottom of the Ice Ih
 %shell for the 3 Wt% case
 
@@ -51,7 +51,7 @@ Planet.QHmantle = 0;
 
 %% Seismic
 Seismic.LOW_ICE_Q = 1; % divide Ice Q value by this number
-Seismic.MantleEOS = 'ChondriteLL_Stx11.ext';
+Seismic.mantleEOS = 'ChondriteLL_Stx11.ext';
 Seismic.QScore = 1e4;
 
 %Attenuation Parameters Based on those Described in Cammarano et al. 2006
@@ -59,6 +59,10 @@ Seismic.QScore = 1e4;
 Seismic.B_aniso_iceI = 0.56;
 Seismic.gamma_aniso_iceI = 0.2;
 Seismic.g_aniso_iceI = 22; %C2006
+% ice II
+Seismic.B_aniso_iceIII = 0.56;
+Seismic.gamma_aniso_iceIII = 0.2;
+Seismic.g_aniso_iceIII = 30; 
 % ice III
 Seismic.B_aniso_iceIII = 0.56;
 Seismic.gamma_aniso_iceIII = 0.2;
@@ -79,16 +83,18 @@ Seismic.g_aniso_mantle = 30; %C2006
 %% Model Parameters
 Params.CALC_NEW =0;
 Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW_SOUNDSPEEDS=0;
 Params.Pseafloor_MPa = 1800;
 Params.nsteps_iceI = 20;
 Params.nsteps_ocean = 450; 
 Params.nsteps_ref_rho = 30;
 Params.nsteps_mantle = 100;
 Params.nsteps_core = 10;
+Params.savefigformat = 'epsc';
 Params.wref=[0 5 10 15];
 Params.colororder = 'mcbkgrm';
 Params.Temps = [250 252.5 255 260 265 270 273];
 colororder = Params.colororder(find(Params.Temps==Planet.Tb_K(1)):end);
 
 %% Run the Calculation!
-PlanetaryProfile(Planet,Seismic,Params)
+PlanetProfile(Planet,Seismic,Params)

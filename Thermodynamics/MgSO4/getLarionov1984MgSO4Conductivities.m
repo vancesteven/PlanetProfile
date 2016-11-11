@@ -67,7 +67,7 @@ colors = 'brkg';
 % for iT = 1:3
 % plot(LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p01m.k_S_m(:,iT),[colors(iT) '-o'],LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p005m.k_S_m(:,iT),[colors(iT) '--*'])
 % end
-clf
+figure(2296);clf
 hold on
 for iT = 1:3
 plot(LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p01m.k_S_m(:,iT),[colors(iT) '-o'],LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p005m.k_S_m(:,iT),[colors(iT) '--*']);

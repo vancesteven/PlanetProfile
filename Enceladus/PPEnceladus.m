@@ -2,8 +2,8 @@
  % this is the master program, and should be run from its containing
  % directory
 Planet.name='Enceladus';
-Planet.rho_kgm3 = 1610; % Iess et al. 2014, "The Gravity Field and Interior Structure of Enceladus", Science 344
-Planet.R_m = 252e3; 
+Planet.rho_kgm3 = 1610; % Thomas 2010
+Planet.R_m = 252e3; %± 200 Thomas  2010
 Planet.M_kg =1.08022e20; 
 Planet.gsurf_ms2 = 0.113; 
 Planet.Tsurf_K = 75; 
@@ -14,13 +14,14 @@ Planet.FeCore=false;
     Planet.xFeS = 0.25; %0.25
     Planet.rhoFe = 8000; %8000
     Planet.rhoFeS = 5150; %5150
-Planet.rho_sil_withcore_kgm3 = 2400; % Iess et al. 2014
+% Planet.rho_sil_withcore_kgm3 = 2400; % Iess et al. 2014
+Planet.rho_sil_withcore_kgm3 = 3300; % Iess et al. 2014
 
 Planet.Ocean.comp='MgSO4';
 load L_Ice_MgSO4.mat
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
-Planet.Ocean.w_ocean_pct=0;
-Planet.Tb_K = [273.1]; % pure water, temperatures at the bottom of the Ice Ih
+% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [273.1]; % pure water, temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=10;Planet.Tb_K = [273]; % pure water, temperatures at the bottom of the Ice Ih
 
 
 % Planet.Ocean.comp='NH3';
@@ -51,7 +52,7 @@ Planet.QHmantle = 0;
 
 %% Seismic
 Seismic.LOW_ICE_Q = 1; % divide Ice Q value by this number
-Seismic.MantleEOS = 'ChondriteLL_Stx11.ext';
+Seismic.mantleEOS = 'ChondriteLL_Stx11.ext';
 Seismic.QScore = 1e4;
 
 %Attenuation Parameters Based on those Described in Cammarano et al. 2006
@@ -77,10 +78,11 @@ Seismic.gamma_aniso_mantle = 0.2;
 Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
-Params.CALC_NEW=0;
+Params.CALC_NEW=1;
 Params.CALC_NEW_REFPROFILES=0;
-Params.CALC_NEW_SOUNDSPEEDS=0;
-Params.savefigformat = 'png';
+Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 0;
+Params.savefigformat = 'eps';
 Params.Pseafloor_MPa = 100;
 Params.nsteps_iceI = 20;
 Params.nsteps_ocean = 450; 
@@ -93,4 +95,4 @@ Params.Temps = [245 250 252.5 255 260 265 270];
 colororder = Params.colororder(find(Params.Temps==Planet.Tb_K(1)):end);
 
 %% Run the Calculation!
-PlanetaryProfile(Planet,Seismic,Params)
+PlanetProfile(Planet,Seismic,Params)
