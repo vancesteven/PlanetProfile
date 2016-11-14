@@ -70,9 +70,10 @@ colors = 'brkg';
 figure(2296);clf
 hold on
 for iT = 1:3
-plot(LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p01m.k_S_m(:,iT),[colors(iT) '-o'],LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p005m.k_S_m(:,iT),[colors(iT) '--*']);
+plot(LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p01m.k_S_m(:,iT),[colors(iT) '-o'],...
+    LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p005m.k_S_m(:,iT),[colors(iT) '--*']);
 end
 box on
 xlabel('Pressure (MPa)')
-ylabel('Electrical Conductivity (S/m)')
+ylabel('Electrical Conductivity (S m^{-1})')
 legend('273 K; 0.01 g/kg','273 K; 0.005 g/kg','298 K; 0.01 g/kg','298 K; 0.005 g/kg','323 K; 0.01 g/kg','323 K; 0.005 g/kg')

@@ -540,7 +540,11 @@ for iT = 1:nTbs
     QS_overfgamma_Planet(iT,:) = [QS_overfgamma_iceI(iT,:) 0*vfluid_kms(iT,indsLiquid)...
         QS_overfgamma_iceIII(iT,indsIII) QS_overfgamma_iceV(iT,indsV) QS_overfgamma_iceVI(iT,indsVI) ...
         interior(iT).QS_overfgamma Seismic.QScore*ones(1,Params.nsteps_core)];    
-    Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [P_Planet_MPa(iT,:)', T_Planet_K(iT,:)', r_Planet_m(iT,:)'*1e-3, rho_pPlanet_kgm3(iT,:)',VP_Planet_kms(iT,:)',VS_Planet_kms(iT,:)',QS_overfgamma_Planet(iT,:)'];
+    k_S_m(iT,:) = [0*QS_overfgamma_iceI(iT,:) k_S_mMgSO4p01Planet(iT,indsLiquid)...
+        0*QS_overfgamma_iceIII(iT,indsIII) 0*QS_overfgamma_iceV(iT,indsV) 0*QS_overfgamma_iceVI(iT,indsVI) ...
+        0*interior(iT).QS_overfgamma 0*Seismic.QScore*ones(1,Params.nsteps_core)];
+    %     Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [P_Planet_MPa(iT,:)', T_Planet_K(iT,:)', r_Planet_m(iT,:)'*1e-3, rho_pPlanet_kgm3(iT,:)',VP_Planet_kms(iT,:)',VS_Planet_kms(iT,:)',QS_overfgamma_Planet(iT,:)'];
+    Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [P_Planet_MPa(iT,:)', T_Planet_K(iT,:)', r_Planet_m(iT,:)'*1e-3, rho_pPlanet_kgm3(iT,:)',VP_Planet_kms(iT,:)',VS_Planet_kms(iT,:)',QS_overfgamma_Planet(iT,:)' k_S_m(iT,:)'];
     thissavestr = [savefile 'Zb' strLow num2str(1e-3*Zb2(iT),'%0.0f') 'km'];
     save(thissavestr,'Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma','-ascii');
 
@@ -603,7 +607,7 @@ for iT = 1:nTbs
     end
 end
 set(gca,'ydir','reverse','xlim',[0 5],'ylim',[0 1.1*max(Dsil_km)]);%,'xlim',[1 4]);
-xlabel('Sound Speed (km s^{-1}) and Conductivity (k S^{-1} m^{-1})');
+xlabel('Sound Speed (km s^{-1}) and Conductivity (S m^{-1})');
 ylabel('Depth (km)');
 box on
 
@@ -668,7 +672,7 @@ Psil_MPa = diag(P_MPa(:,R2ind(:)));
 for iT=1:nTbs
     ht(iT)=  plot(P_MPa(iT,:),rho_kgm3(iT,:),Params.colororder(iT)); 
 %     vline(P(iT,C2mean(iT)),Params.colororder(iT));
-    plot(Psil_MPa(iT),interp1(P_MPa(iT,:),rho_kgm3(iT,:),P_MPa(kt,R2ind(iT))),[Params.colororder(iT) 'o']);
+    plot(Psil_MPa(iT),interp1(P_MPa(iT,:),rho_kgm3(iT,:),Psil_MPa(iT)),[Params.colororder(iT) 'o']);
 end
 
 hw(1) = plot(Pref_MPa,rho_ref_kgm3(1,:),'k--');
