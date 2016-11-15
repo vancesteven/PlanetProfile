@@ -28,7 +28,7 @@ nsteps = n_iceI+n_ocean;
 [T_K,P_MPa,rho_kgm3] = deal(zeros(nTbs,nsteps));
 
 phase = zeros(nTbs,nsteps);
-phase(:,1:20)=1;
+phase(:,1:n_iceI)=1;
 wo = Planet.Ocean.w_ocean_pct;
 Tb_K = Planet.Tb_K;
 
@@ -58,10 +58,13 @@ for il =1:n_ocean
     disp(['kt: ' num2str(kt) '; il: ' num2str(il) '; P_MPa: ' num2str(round(P_MPa(kt,ill-1)))]);
     P_MPa(kt,ill) = Pb_MPa(kt) + il*deltaP;
 
-    if il ==1
+    if il ==1 % establish the phase vector
         phase(kt,ill) = getIcePhase(P_MPa(kt,ill),T_K(kt,ill-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
     elseif phase(kt,ill-1)~=6
         phase(kt,ill) = getIcePhase(P_MPa(kt,ill),T_K(kt,ill-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
+        if phase(kt,ill-1)==3 && phase(kt,ill)==0 % fix to instabilities in the phase lookup for ice III
+            phase(kt,ill)=3;
+        end
     else
         phase(kt,ill) = 6;
     end
@@ -333,8 +336,8 @@ for iT = 1:nTbs
     if CONVECTION_FLAG(iT)
         %conductive upper layer
         inds_eTBL = find(z_m(iT,1:n_iceI)<=eTBL_m(iT));
-        Plith_IceI_MPa(iT) = eTBL_m(iT)*rhoIce(iT)*g_ms2(iT,1)*1e-6;
-        T_K(iT,inds_eTBL) = (Tc(iT).^(P_MPa(iT,inds_eTBL)./Plith_IceI_MPa(iT))).*(Planet.Tsurf_K.^(1-P_MPa(iT,inds_eTBL)./Plith_IceI_MPa(iT)));
+        Pterm = P_MPa(iT,inds_eTBL)./P_MPa(iT,inds_eTBL(end));
+        T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
         %convective region
         for iconv = inds_eTBL(end)+1:n_iceI
             rho = 1000./getVspChoukroun2010(P_MPa(iT,iconv),T_K(iT,iconv-1),2);
@@ -515,6 +518,13 @@ end
         % ice                           ocean                                            mantle         core 
 [P_Planet_MPa,T_Planet_K,r_Planet_m,rho_pPlanet_kgm3,VP_Planet_kms,VS_Planet_kms,QS_overfgamma_Planet]=...
     deal(zeros(nTbs,indSil(1)-1+nsteps_mantle(1)+Params.nsteps_core));
+%% Plot settings
+LineWidth=1;
+SoundLineWidth=1.5;
+if Params.HOLD
+    LineWidth = LineWidth+0.5;
+    SoundLineWidth = SoundLineWidth+0.5;
+end
        
 ymax = 1.05*R_Planet_m*1e-3;
 nfig = 3000;
@@ -548,12 +558,18 @@ for iT = 1:nTbs
     thissavestr = [savefile 'Zb' strLow num2str(1e-3*Zb2(iT),'%0.0f') 'km'];
     save(thissavestr,'Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma','-ascii');
 
-    %% plot the seismic data and attenuation
+%% plot the seismic data and attenuation
     figure(nfig+iT);
+    if ~Params.HOLD
+        clf
+    end
     set(gcf,'Position', [476   662   560   220],'Name',thissavestr)
     hp = subplot(1,3,1);
+    if Params.HOLD
+        hold on
+    end
     plot(VS_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3,...
-        VP_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3,'--')
+        VP_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3,'--','LineWidth',LineWidth)
         set(gcf,'color','w')
         xlabel('Sound Speeds (km s^{-1})')
         ylabel(['r_{' Planet.name '} (km)']);
@@ -562,14 +578,20 @@ for iT = 1:nTbs
 
     
     hp = subplot(1,3,2);
+    if Params.HOLD
+        hold on
+    end
     plot(T_Planet_K(iT,:)',r_Planet_m(iT,:)'*1e-3,...
-        rho_pPlanet_kgm3(iT,:)',r_Planet_m(iT,:)'*1e-3,'--');
+        rho_pPlanet_kgm3(iT,:)',r_Planet_m(iT,:)'*1e-3,'--','LineWidth',LineWidth);
     xlabel('Temperature (K), Density (kg m^{-3})');
     set(gca,'ylim',[0 ymax],'xlim',[0 max(rho_pPlanet_kgm3(iT,:))]);
     grid on
     
     subplot(1,3,3)
-    hp = plot(QS_overfgamma_Planet(iT,:)',r_Planet_m(iT,:)'*1e-3);
+    if Params.HOLD
+        hold on
+    end
+    hp = plot(QS_overfgamma_Planet(iT,:)',r_Planet_m(iT,:)'*1e-3,'LineWidth',LineWidth);
     set(gca,'xscale','log','ylim',[0 ymax],'xlim',[10 1e7],'XTick',[10 100 1000 1e4 1e5 1e6 1e7])
     grid on
     xlabel('Q_S/\omega^{\gamma}')
@@ -579,13 +601,15 @@ for iT = 1:nTbs
 
 end
 
-SoundLineWidth=1.5;
 
 %% 
-figure(229);clf;
+figure(229);
+if ~Params.HOLD
+    clf;
+end
     set(gcf,'Position', [411    52   764   468])
-subplot(1,2,2);
-hold on
+    subplot(1,2,2);
+    hold on
 
 Dsil_km=(R_Planet_m-R_sil_mean_m(:))*1e-3;
 
@@ -603,11 +627,11 @@ for iT = 1:nTbs
     line(velsIce.VVIt_kms(iT,:),z_m(iT,:)*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',SoundLineWidth);
     
     if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
-        line(k_S_mMgSO4p01Planet(iT,:)*25,z_m(iT,:)*1e-3,'Color',Params.colororder(iT),'LineStyle','--');
+        line(k_S_mMgSO4p01Planet(iT,:)*25,z_m(iT,:)*1e-3,'Color',Params.colororder(iT),'LineStyle','--','LineWidth',LineWidth);
     end
 end
 set(gca,'ydir','reverse','xlim',[0 5],'ylim',[0 1.1*max(Dsil_km)]);%,'xlim',[1 4]);
-xlabel('Sound Speed (km s^{-1}) and Conductivity (S m^{-1})');
+xlabel('Conductivity (S m^{-1} \times 25) and Sound Speed (km s^{-1})');
 ylabel('Depth (km)');
 box on
 
@@ -651,7 +675,7 @@ ax2 = axes('Position',ax1_pos,...
 
 % figure(230);clf;hold
 for iT = 1:nTbs
-    line(ax2,T_K(iT,:),z_m(iT,:)*1e-3,'Color',Params.colororder(iT));
+    line(ax2,T_K(iT,:),z_m(iT,:)*1e-3,'Color',Params.colororder(iT),'LineWidth',LineWidth);
 end
 set(gca,'ydir','reverse','xlim',[245 320],'ylim',[0 1.1*max(Dsil_km)]);
 xlabel('Temperature (K)');
@@ -670,7 +694,7 @@ hold all
 R2ind = C2mean+npre; % map the index for R_sil_mean back to the indices for P, D, r_m, z_m, etc...
 Psil_MPa = diag(P_MPa(:,R2ind(:)));
 for iT=1:nTbs
-    ht(iT)=  plot(P_MPa(iT,:),rho_kgm3(iT,:),Params.colororder(iT)); 
+    ht(iT)=  plot(P_MPa(iT,:),rho_kgm3(iT,:),Params.colororder(iT),'LineWidth',LineWidth); 
 %     vline(P(iT,C2mean(iT)),Params.colororder(iT));
     plot(Psil_MPa(iT),interp1(P_MPa(iT,:),rho_kgm3(iT,:),Psil_MPa(iT)),[Params.colororder(iT) 'o']);
 end
@@ -681,7 +705,8 @@ hw(3) = plot(Pref_MPa,rho_ref_kgm3(3,:),'k--');
 hw(4) = plot(Pref_MPa,rho_ref_kgm3(4,:),'k--');
 
 
-hleg1 = legend([ht hw],{lstr_2{:},'0 wt%','5 wt%','10 wt%','15 wt%'});%,'20 wt%');
+% hleg1 = legend([ht hw],{lstr_2{:},'0 wt%','5 wt%','10 wt%','15 wt%'});%,'20 wt%');
+hleg1 = legend([ht],lstr_2{:});
 set(hleg1,'location','southeast','box','off')
 
 axis tight; box on;

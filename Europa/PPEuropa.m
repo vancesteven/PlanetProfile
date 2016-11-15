@@ -24,8 +24,8 @@ Planet.rhoFeS = 5150; %5150
 % the vector of Tb needs to be monotonically increasing for the calculation
 % of fluid electrical conductivities.
 Planet.Ocean.comp='MgSO4';
-Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [270.4 273.1]; % pure water, 
-% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [269.8 272.7];
+% Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [270.4 273.1]; % pure water, 
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [269.8 272.7];
 
 load L_Ice_MgSO4.mat
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
@@ -85,6 +85,7 @@ Params.CALC_NEW =0;
 Params.CALC_NEW_REFPROFILES=0;
 Params.CALC_NEW_SOUNDSPEEDS=0;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
+Params.HOLD = 0;
 Params.Pseafloor_MPa = 300;
 Params.nsteps_iceI = 20;
 Params.nsteps_ocean = 350; 
