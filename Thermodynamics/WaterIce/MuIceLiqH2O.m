@@ -29,11 +29,6 @@ for iP = 1:lP
         end
     end
 end
-%if dmu > 0
-%    phase = 3;
-%else 
-%    phase = 2;
-%end
 phase(phase==5) = 6;
 phase(phase==4) = 5;
 mu = dmu;
@@ -46,7 +41,6 @@ global parms nsteps
     for i=1:6
         Ho(i)=parms(i,1).*parms(i,5)./0.01815;
     end
-      %Ho = (1E3./0.018).*[0 0 0.75 0.17 0];
     deltaMu = NaN*ones(length(P_MPa),length(T_K),5);
     
     nP = length(P_MPa);
@@ -73,8 +67,6 @@ for ind = 2:6
             Vsp_S(iPi,:) = 1E3*getVspChoukroun2010(P_int_MPa(iPi),T_K,ind);    
             Vsp_L(iPi,:) = 1E3*getVspChoukroun2010(P_int_MPa(iPi),T_K,1);    
         end
-          %Vsp_SII(iPi,:) = 1E3*getVspChoukroun2010(P_int_MPa(iPi),T_K,3);
-          %Vsp_SIII(iPi,:) = 1E3*getVspChoukroun2010(P_int_MPa(iPi),T_K,4);
         for iT = 1:length(T_K)
             if To(ind) ~= T_K(iT)
                 T_int_K = linspace(To(ind),T_K(iT),nsteps);  % set up integrating range for temperature
@@ -84,8 +76,6 @@ for ind = 2:6
                 for iTi = 1:length(T_int_K) % get liquid and solid state heat capacities for integration
                     Cp_S(:,iTi) = CpH2O_Choukroun(P_MPa,T_int_K(iTi),ind);
                     Cp_L(:,iTi) = getCpH2O_liquidChoukroun2010(T_int_K(iTi));
-                    %Cp_SII(:,iTi) = CpH2O_Choukroun(P_MPa,T_int_K(iTi),3);
-                    %Cp_SIII(:,iTi) = CpH2O_Choukroun(P_MPa,T_int_K(iTi),4);
                 end            
             intVspdP_S(iP,iT) = integrate(P_int_MPa,Vsp_S(:,iT),[Po(ind) P_MPa(iP)]);
             intVspdP_L(iP,iT) = integrate(P_int_MPa,Vsp_L(:,iT),[Po(ind) P_MPa(iP)]);
@@ -99,10 +89,6 @@ for ind = 2:6
     muL(ind-1,:,:) = -0.5.*Ho(ind) + intCpdT_L -T_K.*(-0.5.*So(ind) +intCpTdT_L)+intVspdP_L;
 end
 deltaMu = muS - muL;
-%deltaMu = muS - muI;
-%muII = 0.5.*920./0.018 + integrate(T_int_K,Cp_SII,[238.45 T_K]) -T_K.*(0.5.*3.8./0.018 +integrate(T_int_K,Cp_SII./T_int_K,[238.45 T_K]))+integrate(P_int_MPa,Vsp_SII,[212.9 P_MPa]);
-%muIII = -0.5.*920./0.018 + integrate(T_int_K,Cp_SIII,[238.45 T_K]) -T_K.*(-0.5.*3.8./0.018 +integrate(T_int_K,Cp_SIII./T_int_K,[238.45 T_K]))+integrate(P_int_MPa,Vsp_SIII,[212.9 P_MPa]);
-%deltaMu = muII-muIII
 
 
 function integral = integrate(x,y,range)

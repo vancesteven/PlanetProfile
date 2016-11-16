@@ -78,11 +78,11 @@ Seismic.gamma_aniso_mantle = 0.2;
 Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
-Params.CALC_NEW=1;
+Params.CALC_NEW=0;
 Params.CALC_NEW_REFPROFILES=0;
-Params.CALC_NEW_SOUNDSPEEDS=1;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 0;
-Params.savefigformat = 'eps';
+Params.CALC_NEW_SOUNDSPEEDS=0;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
+Params.savefigformat = 'epsc';
 Params.Pseafloor_MPa = 100;
 Params.nsteps_iceI = 20;
 Params.nsteps_ocean = 450; 

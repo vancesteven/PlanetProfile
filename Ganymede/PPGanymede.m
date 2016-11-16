@@ -18,15 +18,14 @@ Planet.rhoFe = 8000; %8000
 Planet.rhoFeS = 5150; %5150
 
 Planet.Ocean.comp='MgSO4';
-Planet.Ocean.w_ocean_pct=0;
-% Planet.Tb_K = [255 260 265 270 273]; % pure water, temperatures at the bottom of the Ice Ih
+% Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = [255 260 265 270 273]; % pure water, temperatures at the bottom of the Ice Ih
 %Planet.Tb_K = [250 255 260 265 270]; % 15 Wt% temperatures at the bottom of the Ice Ih
-Planet.Ocean.w_ocean_pct=10;
-Planet.Tb_K = [252.5 255 260 265 270]; % 10 Wt% temperatures at the bottom of the Ice Ih
+ Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252.5 255 260 265 270]; % 10 Wt% temperatures at the bottom of the Ice Ih
 %Planet.Tb_K = [252.5 255 260 265 270]; %3 and 5 Wt% temperatures at the bottom of the Ice Ih
 %shell for the 3 Wt% case
 
 load L_Ice_MgSO4.mat
+% rmfield(Planet.Ocean,'fnTfreeze_K');
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 
 %%  Interior constraints imposed in Vance et al. 2014
@@ -85,6 +84,7 @@ Params.CALC_NEW =0;
 Params.CALC_NEW_REFPROFILES=0;
 Params.CALC_NEW_SOUNDSPEEDS=0;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
+Params.HOLD = 0;
 Params.Pseafloor_MPa = 1800;
 Params.nsteps_iceI = 20;
 Params.nsteps_ocean = 450; 

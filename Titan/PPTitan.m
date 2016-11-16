@@ -18,13 +18,13 @@ Planet.rhoFe = 8000; %8000
 Planet.rhoFeS = 5150; %5150
 
 Planet.Ocean.comp='MgSO4';
-Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % pure water, temperatures at the bottom of the Ice Ih
-% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 265]; % 10 Wt% temperatures at the bottom of the Ice Ih
+% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % pure water, temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 265]; % 10 Wt% temperatures at the bottom of the Ice Ih
 
 load L_Ice_MgSO4.mat
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 
-%%  Interior constraints imposed in Vance et al. 2014
+%  Interior constraints imposed in Vance et al. 2014
 mSi = 28.0855; mS = 32.065; mFe = 55.845; mMg = 24.305;
 xOl = 0.44; % percentage of olivine - Javoy (1995) - Fe/Si = 0.909 Mg/Si = 0.531, Mg# = 0.369
 %mOl = 2*((1-0.369)*58.85+0.369*24.31)+28.0855+4*16=184.295
@@ -69,12 +69,12 @@ Seismic.gamma_aniso_mantle = 0.2;
 Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
-Params.CALC_NEW =0;
+Params.CALC_NEW =1;
 Params.CALC_NEW_REFPROFILES=0;
-Params.CALC_NEW_SOUNDSPEEDS=0;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
-Params.Pseafloor_MPa = 1800;
-Params.nsteps_iceI = 20;
+Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
+Params.Pseafloor_MPa = 1000;
+Params.nsteps_iceI = 100;
 Params.nsteps_ocean = 450; 
 Params.nsteps_ref_rho = 30;
 Params.nsteps_mantle = 100;
