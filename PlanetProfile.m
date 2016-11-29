@@ -180,7 +180,7 @@ end
 
     % figure out the indices for different ice layers
 for iT = 1:nTbs
-    theseinds = find(phase(iT,:)==4);
+    theseinds = find(phase(iT,:)==3);
     if ~isempty(theseinds)
         indsIII(iT) = theseinds(1);
         zIII_m(iT) = z_m(iT,indsIII(iT));
@@ -196,10 +196,7 @@ for iT = 1:nTbs
         zVI_m(iT) = z_m(iT,indsVI(iT));
     end
 end
-dzOcean_m = zeros(1,nTbs);
-dzIII_m = dzOcean_m;
-dzV_m = dzOcean_m;
-dzVI_m = dzOcean_m;
+[dzOcean_m,dzIII_m,dzV_m,dzVI_m] = deal(zeros(1,nTbs));
 
 dindsIII = zIII_m>0;
 dzOcean_m(dindsIII) = zIII_m(dindsIII)-zI_m(dindsIII);
@@ -209,7 +206,6 @@ dzOcean_m(~dindsIII & dindsV) = zV_m(~dindsIII & dindsV)-zI_m(~dindsIII & dindsV
 dzIII_m(dindsIII & dindsV) = zV_m(dindsV & dindsIII)- zIII_m(dindsV & dindsIII);
 dindsVI = zVI_m>0;
 dzOcean_m(dindsVI & ~dindsV) = zVI_m(dindsVI & ~dindsV) - zI_m(dindsVI & ~dindsV);
-dzOcean_m(~dindsVI) = 800e3-zI_m(~dindsVI);
 dzV_m(dindsV) = zVI_m(dindsV) - zV_m(dindsV);
 
 %% Deeper Interior
@@ -237,6 +233,10 @@ if ~Planet.FeCore
         R_sil_mean_m(iT) = R_sil_m(iT,C2mean(iT));
     end
     R_Fe_mean_m = zeros(1,nTbs);
+   
+    dzOcean_m(~dindsVI & ~dindsV) = R_Planet_m - R_sil_mean_m(~dindsVI & ~dindsV)-zI_m(~dindsVI & ~dindsV);
+
+    
    % Plot the results
     figure(2295);clf;hold all
     for iT=1:nTbs
@@ -298,8 +298,15 @@ else % With a core
             dzV_m(iT) = 0;
             dzVI_m(iT) = 0;
             dzIII_m(iT) = R_Planet_m-R_sil_mean_m(dindsIII(iT)) - zVI_m(dindsIII(iT));
+%         elseif ~isempty(dindsII(iT)) && dindsIII(iT)>0
+%             dzV_m(iT) = 0;
+%             dzVI_m(iT) = 0;
+%             dzIII_m(iT) = R_Planet_m-R_sil_mean_m(dindsIII(iT)) - zVI_m(dindsIII(iT));
+%             
         end
     end
+
+    dzOcean_m(~dindsVI & ~dindsV) = R_Planet_m - R_sil_mean_m(~dindsVI & ~dindsV)-zI_m(~dindsVI & ~dindsV);
 
     zTotal_m = zI_m+dzOcean_m+dzIII_m+dzV_m+dzVI_m;
 
@@ -318,6 +325,7 @@ else % With a core
     disp(['R sil (km):            ' num2str(R_sil_mean_m*1e-3,'\t%0.0f')])  
     disp(['span R sil (km):       ' num2str(R_sil_range_m*1e-3,'\t%0.0f')])  
 end
+
 
 %% Iterative Calculation for Adding Details to the Seismic Profile 
 % consider, if appropriate, a convective ice shell of the same thickness
@@ -396,8 +404,11 @@ for iT = 1:nTbs
     Tmantle_K = T_K(iT,indSil(iT));
     r_mantle_m = linspace(R_sil_mean_m(iT),R_Fe_mean_m(iT),nsteps_mantle(iT));
     % cold case 
-    Tmantle_K = conductiveMantleTemperature(r_mantle_m,R_Fe_mean_m(iT),R_sil_mean_m(iT),Planet.kr_mantle,Planet.rho_sil_withcore_kgm3,Tmantle_K,Planet.Qmantle+Planet.QHmantle,0);
-
+    if Planet.FeCore
+        Tmantle_K = conductiveMantleTemperature(r_mantle_m,R_Fe_mean_m(iT),R_sil_mean_m(iT),Planet.kr_mantle,Planet.rho_sil_withcore_kgm3,Tmantle_K,Planet.Qmantle+Planet.QHmantle,0);
+    else
+        Tmantle_K = conductiveMantleTemperature(r_mantle_m,0,R_sil_mean_m(iT),Planet.kr_mantle,rho_sil_kgm3(iT,C2mean(iT)),Tmantle_K,Planet.Qmantle+Planet.QHmantle,0);
+    end
     % COMMON FUNCTIONALITY HERE IS TO PROPAGATE PRESSURE, GRAVITY AND
     % DENSITY DOWNWARD FOR A CONDUCTIVELY COOLING LAYER WITH NO SOLID STATE
     % CONVECTION
@@ -454,6 +465,53 @@ for iT = 1:nTbs
     interior(iT).QS_overfgamma = Seismic.B_aniso_mantle*exp(Seismic.gamma_aniso_mantle*Hp_mantle./Tmantle_K);
 end
 
+%% create the table of depths and heat flux values
+% multirow{4}{*}{5 Wt\%} &Ice Ih &-&141& 127  & 96 & 63  & 24 \\
+% & Liquid &-&63&92&128&244&539\\
+% & Ice III &-&29&-&-&-&-\\
+% & Ice V &-&158&134&49&-&-\\
+% & Ice VI &-&409&411&411&355&237\\
+
+Tb_str = getTableStr(Planet.Tb_K,Planet.Tb_K); %multiplying by 1e6 as a kluge to use the getDStr function
+Qb_str = getTableStr(Planet.Tb_K,Qb*1e3); %multiplying by 1e6 as a kluge to use the getDStr function
+Qc_str = getTableStr(Planet.Tb_K,Q_Wm2*1e3); %multiplying by 1e6 as a kluge to use the getDStr function
+dzI_str = getTableStr(Planet.Tb_K,zI_m*1e-3);
+dzOcean_str = getTableStr(Planet.Tb_K,dzOcean_m*1e-3);
+dzIII_str = getTableStr(Planet.Tb_K,dzIII_m*1e-3);
+dzV_str = getTableStr(Planet.Tb_K,dzV_m*1e-3);
+dzVI_str = getTableStr(Planet.Tb_K,dzVI_m*1e-3);
+R_Fe_str = getTableStr(Planet.Tb_K,R_Fe_mean_m*1e-3);
+R_sil_str = getTableStr(Planet.Tb_K,(R_sil_mean_m)*1e-3);
+
+disp('\hline')
+disp(['\multirow{10}{*}{' num2str(wo) ' Wt\%}'])
+if Planet.FeCore
+    rhorockstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(Planet.rho_sil_withcore_kgm3) '}'];
+    disp(['&$\rho_{rock}$ (kg m$^{-3}$)&' rhorockstr '\\']);
+else
+    rhorockstr = getTableStr(Planet.Tb_K,rho_sil_kgm3(:,C2mean(:)));
+    disp(['&$\rho_{rock}$ (kg m$^{-3}$)' rhorockstr{:} '\\']);
+end
+disp(['\cline{3-' num2str(nTbs+2) '}'])
+disp(['&T$_{b}$ (K)  ' Tb_str{:} ' \\'])
+disp(['&q$_{b}$ mW m$^{-2}$  ' Qb_str{:} ' \\'])
+disp(['&q$_{c}$ mW m$^{-2}$  ' Qc_str{:} ' \\'])
+disp(['&$D_{Ih}$ (km)' dzI_str{:} ' \\'])  
+disp(['&$D_{ocean}$ (km)' dzOcean_str{:} ' \\'])
+disp(['&$D_{III}$ (km)' dzIII_str{:} ' \\'])
+disp(['&$D_{V}$ (km)' dzV_str{:} ' \\'])
+disp(['&$D_{VI}$ (km)' dzVI_str{:} ' \\'])
+disp(['&$R_{rock}$ (km)' R_sil_str{:} ' \\'])
+if Planet.FeCore
+    R_Fe_range_str = getTableStr(Planet.Tb_K,R_Fe_range_m*1e-3);
+    R_sil_range_str = getTableStr(Planet.Tb_K,R_sil_range_m*1e-3);
+    disp(['&R$_{core}$ (km)' R_Fe_str{:} ' \\'])
+    disp(['&$\Delta$R$_{core} (km)$' R_Fe_range_str{:} ' \\'])
+    disp(['&$\Delta$R$_{mantle}$ (km)' R_sil_range_str{:} ' \\'])
+end
+disp('\hline')
+
+
 
 %% Sound Speeds in the Ice and Ocean
 if Params.CALC_NEW_SOUNDSPEEDS
@@ -461,9 +519,13 @@ if Params.CALC_NEW_SOUNDSPEEDS
     velsIce = iceVelsGagnon1990(P_MPa,T_K);
     vfluid_kms = deal(zeros(nTbs,nsteps));
     for iT = 1:nTbs
-        for ir = find(phase(iT,:)==0)
-            vfluid_kms(iT,ir) = fluidSoundSpeeds(P_MPa(iT,ir),T_K(iT,ir),wo,Planet.Ocean.comp);
-        end
+        tic;
+        ir = find(phase(iT,:)==0);
+        vfluid_kms(iT,ir) = fluidSoundSpeeds(P_MPa(iT,ir),T_K(iT,ir),wo,Planet.Ocean.comp);
+%         for ir = find(phase(iT,:)==0)
+%             vfluid_kms(iT,ir) = fluidSoundSpeeds(P_MPa(iT,ir),T_K(iT,ir),wo,Planet.Ocean.comp);
+%         end
+        toc
         vfluid_kms(iT,vfluid_kms(iT,:)==0)=NaN;
         velsIce.VIl_kms(iT,phase(iT,:)~=1) =NaN;
         velsIce.VIt_kms(iT,phase(iT,:)~=1) =NaN;
@@ -484,26 +546,13 @@ end
 %% Electrical Conductivity
 if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
     LarionovMgSO4 = getLarionov1984MgSO4Conductivities;
-    Textrap = [Tb_K(Tb_K<273) LarionovMgSO4.T_K(1:3)];
-    Pextrap = 0.1:100:2000;
-    method = 'pchip';
-    for iT = 1:3 
-        k_S_m_extrapP(iT,:) = interp1(LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p01m.k_S_m(:,iT),Pextrap,method,'extrap');
-    end
-    method = 'pchip';
-    k_S_m_extrap = ones(length(Textrap),length(Pextrap));
-    for iP = 1:length(Pextrap)
-        k_S_m_extrap(:,iP) = interp1(LarionovMgSO4.T_K(1:3),k_S_m_extrapP(:,iP),Textrap,method,'extrap');
-    end    
-
+    Pextrap = LarionovMgSO4.Pextrap_MPa;
+    Textrap = LarionovMgSO4.Textrap_K;
+    k_S_m_extrap = LarionovMgSO4.k_S_m_extrap_p01m;
     [Pgg,Tgg]=meshgrid(Pextrap,Textrap);
     k_S_mMgSO4p01Planet = NaN*ones(size(P_MPa)); 
-    for iP =1:length(P_MPa)
-        for iTb = 1:length(Planet.Tb_K)
-            if phase(iTb,iP)==0 %&& T_K(iTb,iP)>=273
-                k_S_mMgSO4p01Planet(iTb,iP) = interp2(Pgg,Tgg,k_S_m_extrap,P_MPa(iTb,iP),T_K(iTb,iP),'spline');
-            end
-        end
+    for iTb = 1:length(Planet.Tb_K)
+        k_S_mMgSO4p01Planet(iTb,phase(iTb,:)==0) = interp2(Pextrap,Textrap,k_S_m_extrap,P_MPa(iTb,phase(iTb,:)==0),T_K(iTb,phase(iTb,:)==0),'spline');
     end
 end
 
@@ -517,6 +566,9 @@ SoundLineWidth=1.5;
 if Params.HOLD
     LineWidth = LineWidth+0.5;
     SoundLineWidth = SoundLineWidth+0.5;
+    LineStyle='--';
+else
+    LineStyle='-';    
 end
        
 ymax = 1.05*R_Planet_m*1e-3;
@@ -543,17 +595,22 @@ for iT = 1:nTbs
     QS_overfgamma_Planet(iT,:) = [QS_overfgamma_iceI(iT,:) 0*vfluid_kms(iT,indsLiquid)...
         QS_overfgamma_iceIII(iT,indsIII) QS_overfgamma_iceV(iT,indsV) QS_overfgamma_iceVI(iT,indsVI) ...
         interior(iT).QS_overfgamma Seismic.QScore*ones(1,Params.nsteps_core)];    
-    k_S_m(iT,:) = [0*QS_overfgamma_iceI(iT,:) k_S_mMgSO4p01Planet(iT,indsLiquid)...
-        0*QS_overfgamma_iceIII(iT,indsIII) 0*QS_overfgamma_iceV(iT,indsV) 0*QS_overfgamma_iceVI(iT,indsVI) ...
-        0*interior(iT).QS_overfgamma 0*Seismic.QScore*ones(1,Params.nsteps_core)];
-    %     Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [P_Planet_MPa(iT,:)', T_Planet_K(iT,:)', r_Planet_m(iT,:)'*1e-3, rho_pPlanet_kgm3(iT,:)',VP_Planet_kms(iT,:)',VS_Planet_kms(iT,:)',QS_overfgamma_Planet(iT,:)'];
-    Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [P_Planet_MPa(iT,:)', T_Planet_K(iT,:)', r_Planet_m(iT,:)'*1e-3, rho_pPlanet_kgm3(iT,:)',VP_Planet_kms(iT,:)',VS_Planet_kms(iT,:)',QS_overfgamma_Planet(iT,:)' k_S_m(iT,:)'];
-    thissavestr = [savefile 'Zb' strLow num2str(1e-3*Zb2(iT),'%0.0f') 'km.txt'];
+    if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
+        k_S_m(iT,:) = [0*QS_overfgamma_iceI(iT,:) k_S_mMgSO4p01Planet(iT,indsLiquid)...
+            0*QS_overfgamma_iceIII(iT,indsIII) 0*QS_overfgamma_iceV(iT,indsV) 0*QS_overfgamma_iceVI(iT,indsVI) ...
+            0*interior(iT).QS_overfgamma 0*Seismic.QScore*ones(1,Params.nsteps_core)];
+        Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [P_Planet_MPa(iT,:)', T_Planet_K(iT,:)', r_Planet_m(iT,:)'*1e-3, rho_pPlanet_kgm3(iT,:)',VP_Planet_kms(iT,:)',VS_Planet_kms(iT,:)',QS_overfgamma_Planet(iT,:)' k_S_m(iT,:)'];
+        header = sprintf('%s\t\t%s\t\t%s\t\t%s\t%s\t%s\t%s\t%s\t',...
+            'P (MPa)','T (K)','r (km)','rho (kg m-3)','VP (km s-1)','VS (km s-1)','QS/gamma','k for 0.01 mol/kg MgSO4 (S m-1)');
+    else
+        Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [P_Planet_MPa(iT,:)', T_Planet_K(iT,:)', r_Planet_m(iT,:)'*1e-3, rho_pPlanet_kgm3(iT,:)',VP_Planet_kms(iT,:)',VS_Planet_kms(iT,:)',QS_overfgamma_Planet(iT,:)'];
+        header = sprintf('%s\t\t%s\t\t%s\t\t%s\t%s\t%s\t%s\t',...
+            'P (MPa)','T (K)','r (km)','rho (kg m-3)','VP (km s-1)','VS (km s-1)','QS/gamma');
+    end
+    thissavestr = [savefile 'Zb' strLow num2str(1e-3*Zb2(iT),'%0.0f') 'km'];
 %     save(thissavestr,'Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma','-ascii');
-    header = sprintf('%s\t\t%s\t\t%s\t\t%s\t%s\t%s\t%s\t%s\t',...
-        'P (MPa)','T (K)','r (km)','rho (kg m-3)','VP (km s-1)','VS (km s-1)','QS/gamma','k for 0.01 mol/kg MgSO4 (S m-1)');
-    dlmwrite(thissavestr,header,'delimiter','');
-     dlmwrite(thissavestr,Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma,...
+    dlmwrite([thissavestr '.txt'],header,'delimiter','');
+     dlmwrite([thissavestr '.txt'],Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma,...
              'delimiter','\t',...
              'precision','%3.5e',...
              '-append');
@@ -561,14 +618,14 @@ for iT = 1:nTbs
 
 %% plot the seismic data and attenuation
     figure(nfig+iT);
-    if ~Params.HOLD
-        clf
-    end
+%     if ~Params.HOLD
+%         clf
+%     end
     set(gcf,'Position', [476   662   560   220],'Name',thissavestr)
     hp = subplot(1,3,1);
-    if Params.HOLD
-        hold on
-    end
+%     if Params.HOLD
+%         hold on
+%     end
     plot(VS_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3,...
         VP_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3,'--','LineWidth',LineWidth)
         set(gcf,'color','w')
@@ -579,9 +636,9 @@ for iT = 1:nTbs
 
     
     hp = subplot(1,3,2);
-    if Params.HOLD
-        hold on
-    end
+%     if Params.HOLD
+%         hold on
+%     end
     plot(T_Planet_K(iT,:)',r_Planet_m(iT,:)'*1e-3,...
         rho_pPlanet_kgm3(iT,:)',r_Planet_m(iT,:)'*1e-3,'--','LineWidth',LineWidth);
     xlabel('Temperature (K), Density (kg m^{-3})');
@@ -589,9 +646,9 @@ for iT = 1:nTbs
     grid on
     
     subplot(1,3,3)
-    if Params.HOLD
-        hold on
-    end
+%     if Params.HOLD
+%         hold on
+%     end
     hp = plot(QS_overfgamma_Planet(iT,:)',r_Planet_m(iT,:)'*1e-3,'LineWidth',LineWidth);
     set(gca,'xscale','log','ylim',[0 ymax],'xlim',[10 1e7],'XTick',[10 100 1000 1e4 1e5 1e6 1e7])
     grid on
@@ -609,7 +666,196 @@ for iT = 1:nTbs
         num2str(1e3*Qb(iT),'%0.0f') '/' num2str(1e3*Q_Wm2(iT),'%0.0f') ' mW m^{-2}, z_{b}:' num2str(1e-3*Zb2(iT),'%0.0f') ' km']};
 end
 
+%%  plot profile with 4 subplots
 %% 
+if Params.foursubplots
+Dsil_km=(R_Planet_m-R_sil_mean_m(:))*1e-3;
+
+figure(229);
+    ymaxScale = 1.01;
+if ~Params.HOLD
+    clf;
+end
+    set(gcf,'Position', [411    52   764   468])
+    subplot(3,2,2);
+%     subplot(1,2,2);
+    hold on
+for iT = 1:nTbs
+    line(T_K(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineWidth',LineWidth,'LineStyle',LineStyle);
+    hm = line(T_K(iT,indSil(iT)),z_m(iT,indSil(iT))*1e-3,'Color',Params.colororder(iT),'Marker','o');
+    if ~Params.HOLD
+        hm.MarkerFaceColor=Params.colororder(iT);
+    end
+end
+if Params.HOLD
+    ax = gca;
+    if max(max(T_K))>ax.XLim
+        ax.XLim(2)=max(max(T_K));        
+    end
+    if ymaxScale*max(Dsil_km)>ax.YLim
+        ax.YLim(2) = ymaxScale*max(Dsil_km);
+    end
+else
+    set(gca,'ydir','reverse','xlim',[245 max(max(T_K))],'ylim',[0 ymaxScale*max(Dsil_km)]);
+end
+xlabel('Temperature (K)');
+ylabel('Depth (km)');
+% for iT=1:nTbs
+%     hline(Dsil_km(iT),Params.colororder(iT));
+% end
+box on;
+    
+    subplot(3,2,4); hold on;
+
+for iT = 1:nTbs
+    hp(iT) =  line(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)),z_m(iT,Params.nsteps_iceI+1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
+    line(velsIce.VIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
+    line(velsIce.VIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
+    line(velsIce.VIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
+    line(velsIce.VIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
+    line(velsIce.VIIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
+    line(velsIce.VIIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
+    line(velsIce.VVl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
+    line(velsIce.VVt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
+    line(velsIce.VVIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
+    line(velsIce.VVIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
+end
+if Params.HOLD
+    ax = gca;
+    if ymaxScale*max(Dsil_km)>ax.YLim
+        ax.YLim(2) = ymaxScale*max(Dsil_km);
+    end
+else
+    set(gca,'ydir','reverse','xlim',[1.3 5],'ylim',[0 ymaxScale*max(Dsil_km)]);%,'xlim',[1 4]);
+end
+ylabel('Depth (km)');
+xlabel('Sound Speed (km s^{-1})');
+box on
+
+
+
+for iT=1:nTbs
+    if ~isnan(velsIce.VVIl_kms(iT,indSil(iT)))
+        velT = velsIce.VVIt_kms(iT,indSil(iT));
+        velL = velsIce.VVIl_kms(iT,indSil(iT));
+    elseif  ~isnan(velsIce.VVl_kms(iT,indSil(iT)))
+        velT = velsIce.VVt_kms(iT,indSil(iT));
+        velL = velsIce.VVl_kms(iT,indSil(iT));
+    elseif  ~isnan(velsIce.VIIIl_kms(iT,indSil(iT)))
+        velT = velsIce.VIIIt_kms(iT,indSil(iT));
+        velL = velsIce.VIIIl_kms(iT,indSil(iT));
+    elseif  ~isnan(velsIce.VIIl_kms(iT,indSil(iT)))
+        velT = velsIce.VIIt_kms(iT,indSil(iT));
+        velL = velsIce.VIIl_kms(iT,indSil(iT));
+    elseif  ~isnan(vfluid_kms(iT,indSil(iT)))
+        velT = vfluid_kms(iT,indSil(iT));
+        velL = vfluid_kms(iT,indSil(iT));
+    else
+        velT = velsIce.VIt_kms(iT,indSil(iT));
+        velL = velsIce.VIt_kms(iT,indSil(iT));
+    end        
+end
+
+% ax1 = gca;
+% ax1.XAxisLocation = 'top';
+% ax1.YAxisLocation = 'right';
+% ax1_pos = ax1.Position;
+% ax2 = axes('Position',ax1_pos,...
+%     'XAxisLocation','bottom',...
+%     'YAxisLocation','left',...
+%     'YColor','none',...
+%     'Color','none');
+
+
+    if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
+        subplot(3,2,6);hold on
+        for iT = 1:nTbs
+            line(k_S_mMgSO4p01Planet(iT,1:indSil(iT))*25,z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',LineWidth);
+        end
+        if Params.HOLD
+            ax = gca;
+            if ymaxScale*max(Dsil_km)>ax.YLim
+                ax.YLim(2) = ymaxScale*max(Dsil_km);
+            end
+        else
+            set(gca,'ydir','reverse','xlim',[0.5 3],'ylim',[0 ymaxScale*max(Dsil_km)]);%,'xlim',[1 4]);
+        end
+        xlabel('Electrical Conductivity (S m^{-1} \times 25)');
+        ylabel('Depth (km)');
+        box on
+    end
+
+
+
+% subplot(1,2,1);
+subplot(3,2,[1 3 5]);
+hold all 
+ if Params.HOLD
+    ax = gca;
+ end
+R2ind = C2mean+npre; % map the index for R_sil_mean back to the indices for P, D, r_m, z_m, etc...
+Psil_MPa = diag(P_MPa(:,R2ind(:)));
+for iT=1:nTbs
+    ht(iT)=  plot(P_MPa(iT,1:indSil(iT)),rho_kgm3(iT,1:indSil(iT)),Params.colororder(iT),'LineWidth',LineWidth,'LineStyle',LineStyle); 
+    hm = plot(Psil_MPa(iT),interp1(P_MPa(iT,:),rho_kgm3(iT,:),Psil_MPa(iT)),[Params.colororder(iT) 'o']);
+    if ~Params.HOLD
+        hm.MarkerFaceColor=Params.colororder(iT);
+    end
+end
+
+hw(1) = plot(Pref_MPa,rho_ref_kgm3(1,:),'k--');
+hw(2) = plot(Pref_MPa,rho_ref_kgm3(2,:),'k--');
+hw(3) = plot(Pref_MPa,rho_ref_kgm3(3,:),'k--');
+hw(4) = plot(Pref_MPa,rho_ref_kgm3(4,:),'k--');
+
+
+% hleg1 = legend([ht hw],{lstr_2{:},'0 wt%','5 wt%','10 wt%','15 wt%'});%,'20 wt%');
+if Params.Legend
+    hleg1 = legend([ht],lstr_2{:});
+    set(hleg1,'location',Params.LegendPosition,'box','off')
+end
+
+box on;
+ if Params.HOLD
+    if ymaxScale*max(max((rho_kgm3(:,1:indSil(:)))))>ax.YLim
+        ax.YLim(2) = ymaxScale*max(max((rho_kgm3(:,1:indSil(:)))));
+    end
+ else
+    set(gca,'xlim',[0 ymaxScale*max(Psil_MPa)],'ylim',Params.ylim)
+ end
+xlabel('Pressure (MPa)')
+ylabel('Density (kg m^{-3})')
+
+% ax(1) = gca;
+% ax(2)=axes('Position',get(ax(1),'Position'),...
+%    'XAxisLocation','top',...
+%    'YAxisLocation','right',...
+%    'XColor','none',...
+%    'Color','none');
+% 
+% % add the sound speeds
+% for iT = 1:nTbs
+%     line(P_MPa(iT,:),vfluid_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',SoundLineWidth);
+%     line(P_MPa(iT,:),velsIce.VIl_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',SoundLineWidth);
+%     line(P_MPa(iT,:),velsIce.VIt_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',SoundLineWidth);
+%     line(P_MPa(iT,:),velsIce.VIIl_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',SoundLineWidth);
+%     line(P_MPa(iT,:),velsIce.VIIt_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',SoundLineWidth);
+%     line(P_MPa(iT,:),velsIce.VIIIl_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',SoundLineWidth);
+%     line(P_MPa(iT,:),velsIce.VIIIt_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',SoundLineWidth);
+%     line(P_MPa(iT,:),velsIce.VVl_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',SoundLineWidth);
+%     line(P_MPa(iT,:),velsIce.VVt_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',SoundLineWidth);
+%     line(P_MPa(iT,:),velsIce.VVIl_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',SoundLineWidth);
+%     line(P_MPa(iT,:),velsIce.VVIt_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',SoundLineWidth);
+% end
+% set(ax(2),'ylim',[1.5 5])
+% set(ax(2),'xlim',[0 1800])
+% ylabel('Sound Speeds (km s^{-1})')
+
+    saveas(gcf,['figures/' savefile],Params.savefigformat);
+
+
+%% plot profile with 2 subplots
+else
 figure(229);
 ymaxScale = 1.01;
 if ~Params.HOLD
@@ -633,14 +879,19 @@ for iT = 1:nTbs
     line(velsIce.VVt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',SoundLineWidth);
     line(velsIce.VVIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',SoundLineWidth);
     line(velsIce.VVIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',SoundLineWidth);
-    
+end
+for iT = 1:nTbs
     if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
         line(k_S_mMgSO4p01Planet(iT,1:indSil(iT))*25,z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','--','LineWidth',LineWidth);
     end
 end
 set(gca,'ydir','reverse','xlim',[0 5],'ylim',[0 ymaxScale*max(Dsil_km)]);%,'xlim',[1 4]);
-xlabel('Conductivity (S m^{-1} \times 25) and Sound Speed (km s^{-1})');
-ylabel('Depth (km)');
+    if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
+        xlabel('Conductivity (S m^{-1} \times 25) and Sound Speed (km s^{-1})');
+    else
+        xlabel('Sound Speed (km s^{-1})');
+    end
+    ylabel('Depth (km)');
 box on
 
 
@@ -690,9 +941,7 @@ ylabel('Depth (km)');
 %     hline(Dsil_km(iT),Params.colororder(iT));
 % end
 box on;
-% legend(lstr_2,'location','southwest')
-%%    
-% figure(231);clf;
+
 
 
 subplot(1,2,1);
@@ -712,8 +961,10 @@ hw(4) = plot(Pref_MPa,rho_ref_kgm3(4,:),'k--');
 
 
 % hleg1 = legend([ht hw],{lstr_2{:},'0 wt%','5 wt%','10 wt%','15 wt%'});%,'20 wt%');
-hleg1 = legend([ht],lstr_2{:});
-set(hleg1,'location','southeast','box','off')
+if Params.Legend
+    hleg1 = legend([ht],lstr_2{:});
+    set(hleg1,'location','southeast','box','off')
+end
 
 axis tight; box on;
 set(gca,'xlim',[0 ymaxScale*max(Psil_MPa)])
@@ -746,7 +997,7 @@ ylabel('Density (kg m^{-3})')
 % ylabel('Sound Speeds (km s^{-1})')
 
     saveas(gcf,['figures/' savefile],Params.savefigformat);
-
+end
 %%    
 % figure(232);clf;
 % subplot(2,1,2)
@@ -838,7 +1089,8 @@ function vel_kms = fluidSoundSpeeds(P_MPa,T_K,wo,str_comp)
         case 'MgSO4'
             W_Mg = 24.3050; W_SO4 =  96.0636; W_MgSO4 = W_Mg + W_SO4;
             mo=1000./W_MgSO4./(1./(0.01.*wo)-1); %conversion to molality from Wt%
-            vel_kms = MgSO4_EOS2_planetary_velocity_smaller(mo,P_MPa,T_K-273.15);
+             vel_kms = MgSO4_EOS2_planetary_velocity_smaller_vector(mo,P_MPa,T_K-273.15); % assumes P and T are the same length.
+%             vel_kms = MgSO4_EOS2_planetary_velocity_smaller(mo,P_MPa,T_K-273.15);
         case 'NH3'
             [~,~,~,vel_out]=NH3_EOS(P_MPa,T_K,wo);
     end
@@ -857,3 +1109,13 @@ C2MR2 = C_H2O+8/15*pi*((R_s.^5-R_fe.^5)*rho_s+rho_fe*R_fe.^5);%/M_Planet_kg/R_Pl
     global M_Planet_kg 
     drho = rho_fe-rho_s;
     zero_me = 4*pi/3*rho_fe*R_fe.^3 - (M_Planet_kg - M_above_kg-4*pi/3*rho_s*(R_s.^3-R_fe.^3));
+%% formatting for output
+function d_str = getTableStr(Tb,Xin)
+d_str = {};
+for iT = 1:length(Tb)
+    if Xin(iT)
+        d_str{iT} = [' &' num2str(Xin(iT),'%0.0f') ];
+    else
+        d_str{iT} = '& -';
+    end
+end

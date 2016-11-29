@@ -1,3 +1,4 @@
+function PPCallisto
 %PPCallisto
  % this is the master program, and should be run from its containing
  % directory
@@ -8,18 +9,12 @@ Planet.M_kg =1.4819e23;
 Planet.gsurf_ms2 = 1.428; 
 Planet.Tsurf_K = 110; 
 Planet.Psurf_MPa = 0; 
-Planet.Cmeasured = 0.3549; 
-% Planet.Cmeasured = 0.9*0.3549; % as suggested by Gao and Stevenson 2013
-Planet.Cuncertainty = 0.0042;% Anderson et al. 2001 and Schubert et al. 2004 
 Planet.FeCore=false;
-Planet.rho_sil_withcore_kgm3 = 2600; %3250
 Planet.xFeS = 0.25; %0.25
 Planet.rhoFe = 8000; %8000
 Planet.rhoFeS = 5150; %5150
 
 Planet.Ocean.comp='MgSO4';
-% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270 273]; % pure water, temperatures at the bottom of the Ice Ih
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252.5 255 260 265]; % 10 Wt% temperatures at the bottom of the Ice Ih
 %Planet.Tb_K = [252.5 255 260 265 270]; %3 and 5 Wt% temperatures at the bottom of the Ice Ih
 %shell for the 3 Wt% case
 
@@ -72,10 +67,15 @@ Seismic.gamma_aniso_mantle = 0.2;
 Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
-Params.CALC_NEW =1;
+Params.CALC_NEW =0;
 Params.CALC_NEW_REFPROFILES=0;
-Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.CALC_NEW_SOUNDSPEEDS=0;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
+Params.foursubplots =1;
+Params.HOLD = 0; % overlay previous run
+Params.Legend =0;
+Params.LegendPosition = 'north';
+Params.ylim = [925 1350];
 Params.Pseafloor_MPa = 1000;
 Params.nsteps_iceI = 100;
 Params.nsteps_ocean = 450; 
@@ -86,7 +86,36 @@ Params.savefigformat = 'epsc';
 Params.wref=[0 5 10 15];
 Params.colororder = 'mcbkgrm';
 Params.Temps = [245 250 252.5 255 260 265 270 273];
-colororder = Params.colororder(find(Params.Temps==Planet.Tb_K(1)):end);
 
 %% Run the Calculation!
+Planet.Cmeasured = 0.3549; 
+Planet.Cuncertainty = 0.0042;% Anderson et al. 2001 and Schubert et al. 2004 
+Planet.FeCore = false; % C/MR2 is too high to produce a realistic interior structure
+Planet.rho_sil_withcore_kgm3 = 3400; 
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260]; % 10 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
+
+Params.HOLD = 1;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
+Params.CALC_NEW = 0;
+
+Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265]; % pure water, temperatures at the bottom of the Ice Ih
+PlanetProfile(Planet,Seismic,Params)
+% 
+% 
+% Planet.Cmeasured = 0.32; % rounded from the 0.9*.3549; as suggested by Gao and Stevenson 2013
+% Planet.Cuncertainty = 0.0042;% Anderson et al. 2001 and Schubert et al. 2004 
+% Planet.FeCore = true;
+% Planet.rho_sil_withcore_kgm3 = 3400; 
+% 
+% Params.CALC_NEW = 0;
+% Params.HOLD = 0;
+% 
+% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 ]; % 10 Wt% temperatures at the bottom of the Ice Ih
+% PlanetProfile(Planet,Seismic,Params)
+% 
+% Params.HOLD = 1;
+% Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
+% 
+% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265]; % pure water, temperatures at the bottom of the Ice Ih
+% PlanetProfile(Planet,Seismic,Params)

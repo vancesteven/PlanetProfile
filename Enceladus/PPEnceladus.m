@@ -1,4 +1,5 @@
-%PPCallisto
+function PPEnceladus
+%PPEnceladus
  % this is the master program, and should be run from its containing
  % directory
 Planet.name='Enceladus';
@@ -15,13 +16,11 @@ Planet.FeCore=false;
     Planet.rhoFe = 8000; %8000
     Planet.rhoFeS = 5150; %5150
 % Planet.rho_sil_withcore_kgm3 = 2400; % Iess et al. 2014
-Planet.rho_sil_withcore_kgm3 = 3300; % Iess et al. 2014
+Planet.rho_sil_withcore_kgm3 = 3300; 
 
 Planet.Ocean.comp='MgSO4';
 load L_Ice_MgSO4.mat
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
-% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [273.1]; % pure water, temperatures at the bottom of the Ice Ih
-Planet.Ocean.w_ocean_pct=10;Planet.Tb_K = [273]; % pure water, temperatures at the bottom of the Ice Ih
 
 
 % Planet.Ocean.comp='NH3';
@@ -83,16 +82,31 @@ Params.CALC_NEW_REFPROFILES=0;
 Params.CALC_NEW_SOUNDSPEEDS=0;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
 Params.savefigformat = 'epsc';
-Params.Pseafloor_MPa = 100;
+Params.foursubplots =1;
+Params.HOLD = 0; % overlay previous run
+Params.Legend = false;
+Params.LegendPosition = 'North';
+Params.ylim = [910 1170];
+Params.Pseafloor_MPa = 10;
 Params.nsteps_iceI = 20;
-Params.nsteps_ocean = 450; 
+Params.nsteps_ocean = 45; 
 Params.nsteps_ref_rho = 30;
 Params.nsteps_mantle = 100;
 Params.nsteps_core = 10;
 Params.wref=[0 5 10 15];
 Params.colororder = 'mcbkgrm';
 Params.Temps = [245 250 252.5 255 260 265 270];
-colororder = Params.colororder(find(Params.Temps==Planet.Tb_K(1)):end);
 
 %% Run the Calculation!
+Planet.Ocean.w_ocean_pct=10;Planet.Tb_K = [272.8 272.9 273 273.1]; % pure water, temperatures at the bottom of the Ice Ih
+PlanetProfile(Planet,Seismic,Params)
+
+
+Params.HOLD = true;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = false;
+
+Params.CALC_NEW=0;
+Params.CALC_NEW_SOUNDSPEEDS=1;
+
+Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [273.1 273.15]; % pure water, temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)

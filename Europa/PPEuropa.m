@@ -1,3 +1,4 @@
+function PPEuropa
 %PPEuropa
 Planet.name='Europa';
 Planet.rho_kgm3 = 2989; % ±46 (Schubert et al. 2004)
@@ -24,8 +25,6 @@ Planet.rhoFeS = 5150; %5150
 % the vector of Tb needs to be monotonically increasing for the calculation
 % of fluid electrical conductivities.
 Planet.Ocean.comp='MgSO4';
-% Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [270.4 273.1]; % pure water, 
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [269.8 272.7];
 
 load L_Ice_MgSO4.mat
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
@@ -81,11 +80,15 @@ Seismic.gamma_aniso_mantle = 0.2;
 Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
-Params.CALC_NEW =1;
+Params.CALC_NEW =0;
 Params.CALC_NEW_REFPROFILES=0;
-Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.CALC_NEW_SOUNDSPEEDS=0;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
-Params.HOLD = 0;
+Params.foursubplots =1;
+Params.HOLD = 0; % overlay previous run
+Params.Legend = 0;
+Params.LegendPosition = 'North'; 
+Params.ylim = [910 1230];
 Params.Pseafloor_MPa = 300;
 Params.nsteps_iceI = 20;
 Params.nsteps_ocean = 350; 
@@ -96,7 +99,11 @@ Params.savefigformat = 'epsc';
 Params.wref=[0 5 10 15];
 Params.colororder = 'mcbkgrm';
 Params.Temps = [250 252.5 255 260 265 270 273];
-colororder = Params.colororder(find(Params.Temps==Planet.Tb_K(1)):end);
 
 %% Run the Calculation!
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [265 269.8 272.7];
+PlanetProfile(Planet,Seismic,Params)
+Params.HOLD = 1;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 0;
+Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [265.7 270.4 273.1]; % pure water, 
 PlanetProfile(Planet,Seismic,Params)

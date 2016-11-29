@@ -1,3 +1,4 @@
+function PPGanymede
 %PPGanymede
 Planet.name='Ganymede';
 Planet.rho_kgm3 = 1936; % Schubert et al. 2004: 1942.0±4.8 claimed to be 4x more accurate than Anderson 1996 of 1936 ± 22
@@ -18,12 +19,6 @@ Planet.rhoFe = 8000; %8000
 Planet.rhoFeS = 5150; %5150
 
 Planet.Ocean.comp='MgSO4';
-% Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = [255 260 265 270 273]; % pure water, temperatures at the bottom of the Ice Ih
-%Planet.Tb_K = [250 255 260 265 270]; % 15 Wt% temperatures at the bottom of the Ice Ih
- Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252.5 255 260 265 270]; % 10 Wt% temperatures at the bottom of the Ice Ih
-%Planet.Tb_K = [252.5 255 260 265 270]; %3 and 5 Wt% temperatures at the bottom of the Ice Ih
-%shell for the 3 Wt% case
-
 load L_Ice_MgSO4.mat
 % rmfield(Planet.Ocean,'fnTfreeze_K');
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
@@ -80,12 +75,16 @@ Seismic.gamma_aniso_mantle = 0.2;
 Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
-Params.CALC_NEW =0;
+Params.CALC_NEW =1;
 Params.CALC_NEW_REFPROFILES=0;
-Params.CALC_NEW_SOUNDSPEEDS=0;
+Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
-Params.HOLD = 0;
+Params.foursubplots =1;
+Params.HOLD = 0; % overlay previous run
+Params.Legend=0;
 Params.Pseafloor_MPa = 1800;
+Params.LegendPosition = 'southeast';
+Params.ylim = [925 1375];
 Params.nsteps_iceI = 20;
 Params.nsteps_ocean = 450; 
 Params.nsteps_ref_rho = 30;
@@ -95,7 +94,19 @@ Params.savefigformat = 'epsc';
 Params.wref=[0 5 10 15];
 Params.colororder = 'mcbkgrm';
 Params.Temps = [250 252.5 255 260 265 270 273];
-colororder = Params.colororder(find(Params.Temps==Planet.Tb_K(1)):end);
 
 %% Run the Calculation!
+%Planet.Tb_K = [250 255 260 265 270]; % 15 Wt% temperatures at the bottom of the Ice Ih
+% %Planet.Tb_K = [252.5 255 260 265 270]; %3 and 5 Wt% temperatures at the bottom of the Ice Ih
+%  Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 265 270]; % 10 Wt% temperatures at the bottom of the Ice Ih
+ Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252  260  270]; % 10 Wt% temperatures at the bottom of the Ice Ih
+PlanetProfile(Planet,Seismic,Params)
+
+Params.CALC_NEW =1;
+Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
+
+Params.HOLD = 1; % overlay previous run
+Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = [255  265  273]; % pure water, temperatures at the bottom of the Ice Ih
+% Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = [255 260 265 270 273]; % pure water, temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)

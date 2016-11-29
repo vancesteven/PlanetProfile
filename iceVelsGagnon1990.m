@@ -1,49 +1,94 @@
 function vels_kms = iceVelsGagnon1990(P_MPa,T_K,ind)
 
 if nargin == 3
-    [Vl_kms,Vt_kms] = getV(P_MPa,T_K,ind);
-    vels_kms.Vl_kms = Vl_kms;
-    vels_kms.Vt_kms = Vt_kms;
+    [vels_kms.Vl_kms,vels_kms.Vt_kms] = getV(P_MPa,T_K,ind);
 elseif nargin==2
-    [VIl_kms,VIt_kms] = getV(P_MPa,T_K,2);
-    [VIIl_kms,VIIt_kms] = getV(P_MPa,T_K,3);
-    [VIIIl_kms,VIIIt_kms] = getV(P_MPa,T_K,4);    
-    [VVl_kms,VVt_kms] = getV(P_MPa,T_K,5);
-    [VVIl_kms,VVIt_kms] = getV(P_MPa,T_K,6);
+    [vels_kms.VIl_kms,vels_kms.VIt_kms] = getV(P_MPa,T_K,2);
+    [vels_kms.VIIl_kms,vels_kms.VIIt_kms] = getV(P_MPa,T_K,3);
+    [vels_kms.VIIIl_kms,vels_kms.VIIIt_kms] = getV(P_MPa,T_K,4);    
+    [vels_kms.VVl_kms,vels_kms.VVt_kms] = getV(P_MPa,T_K,5);
+    [vels_kms.VVIl_kms,vels_kms.VVIt_kms] = getV(P_MPa,T_K,6);
     
-    vels_kms = struct('VIl_kms',VIl_kms,'VIt_kms',VIt_kms,...
-        'VIIl_kms',VIIl_kms,'VIIt_kms',VIIt_kms,...
-        'VIIIl_kms',VIIIl_kms,'VIIIt_kms',VIIIt_kms,...
-        'VVl_kms',VVl_kms,'VVt_kms',VVt_kms,...
-        'VVIl_kms',VVIl_kms,'VVIt_kms',VVIt_kms);
+%     vels_kms = struct('VIl_kms',VIl_kms,'VIt_kms',VIt_kms,...
+%         'VIIl_kms',VIIl_kms,'VIIt_kms',VIIt_kms,...
+%         'VIIIl_kms',VIIIl_kms,'VIIIt_kms',VIIIt_kms,...
+%         'VVl_kms',VVl_kms,'VVt_kms',VVt_kms,...
+%         'VVIl_kms',VVIl_kms,'VVIt_kms',VVIt_kms);
 else
-    [VVl_kms,VVt_kms,VVIl_kms,VVIt_kms] = getvGagnon(P_MPa);
-    vels_kms = struct('VVl_kms',VVl_kms,'VVt_kms',VVt_kms,...
-        'VVIl_kms',VVIl_kms,'VVIt_kms',VVIt_kms);
+    [vels_kms.VIl_kms,vels_kms.VIt_kms,vels_kms.VIIl_kms,vels_kms.VIIt_kms,vels_kms.VIIIl_kms,vels_kms.VIIIt_kms,vels_kms.VVl_kms,vels_kms.VVt_kms,vels_kms.VVIl_kms,vels_kms.VVIt_kms] = getvGagnon(P_MPa);
 end
     
 function [Vl_kms,Vt_kms] = getV(P_MPa,T_K,ind)
 %be careful with inds: liquid = 1 (not treated here), Ice I = 2, II = 3, III = 4, V = 5, VI = 6    
     rho_iceV = 1000./getVspChoukroun2010(P_MPa,T_K,ind);
     [Ks,mu]=getBulkShearMod(P_MPa,T_K,ind);
-    Vt_ms = sqrt(mu*1e9./rho_iceV);    
+%     deltamu=.001*P_MPa;
+    deltamu= 0;
+    Vt_ms = sqrt((mu+deltamu)*1e9./rho_iceV);   %playing with pressure dependent mu
     Vt_kms = Vt_ms*1e-3;
     Vl_kms = 1e-3*sqrt(Ks*1e9./rho_iceV+4/3*Vt_ms.^2);
         
-%from Sotin1998 (compiling Shaw1986, Gagnon 1988, Polian1983) 
-% GPa     oC      GPa     GPa
 function [Ks,mu] = getBulkShearMod(P_MPa,T_K,ind)
 %from Gagnon 1990, table II
+% Ksmu = [
+%     0      0
+%     9.96  3.6 % Ih
+%     13.89 6.2 % II
+%     9.87  4.6 % III
+%     14.19 6.1 % V
+%     18.14 7.5 % VI    
+%     ];
+% from Shaw 1986
+% Ksmu = [
+%     0      0
+%     9.5  3.3 % Ih
+%     13.89 6.2 % II
+%     8.5  4.8 % III
+%     13.2 6.0 % V
+%     16.0 8.5 % VI    
+%     ];
+% svance 2016 11/23
 Ksmu = [
     0      0
-    9.96  3.6 % Ih
-    13.89 6.2 % II
-    9.87  4.6 % III
-    14.19 6.1 % V
-    18.14 7.5 % VI    
+    9.5  3.3 % Ih
+    13.89 5.15 % II
+    8.9  2.7 % III
+    11.8 5.7 % V
+    14.6 5 % VI    
     ];
 Ks = Ksmu(ind,1);
 mu = Ksmu(ind,2);
+% from Shaw 1986, Table II, mup is inferred. corrections in pressure are
+% due to the fact that the intercept values are relative to a high
+% pressure.  Adopted intercept values from Gagnon 1990 are larger than
+% those of Shaw 1986
+% Kspmup= [
+%   0     0
+%   5.3   0 % Ih
+%   0     0 % II
+%   5.7-.21   2.3-.21 %III
+%   5.2-.34   1.1-.34
+%   6.6-.62   1.1-.62
+% ];
+% svance 2016 11/23
+Kspmup= [
+  0     0
+  5.3   0 % Ih
+  1.6     3.5 % II
+  3.65   6.55 %III
+  4.8   0.9
+  4.1   3
+];
+if ind==2 %from Gagnon 1988
+%     Ks=0.1*(92.3+5.55*P_MPa*1e-2-0.26*(P_MPa*1e-2).^2);
+    Ks=0.1*(92.4+3.3*P_MPa*1e-2-0.26*(P_MPa*1e-2).^2);
+    mu=0.04*(89.7+5.37*P_MPa*1e-2-0.25*(P_MPa*1e-2).^2);
+else
+    Ks=Ks+Kspmup(ind,1)*P_MPa*0.001;
+    mu=mu+Kspmup(ind,2)*P_MPa*0.001;
+end
+%from Sotin1998 (compiling Shaw1986, Gagnon 1988, Polian1983) 
+% GPa     oC      GPa     GPa
 % PTKsMuI[
 %     0   -25     9.5     3.3     
 %     .21 -25     10.6    3.3
@@ -78,10 +123,17 @@ mu = Ksmu(ind,2);
 %     1    25
 %     2    25
 %     ];
-function [VVl_kms,VVt_kms,VVIl_kms,VVIt_kms] = getvGagnon(P_MPa)
-%from Gagnon et al. 1990
+function [VIl_kms,VIt_kms,VIIl_kms,VIIt_kms,VIIIl_kms,VIIIt_kms,VVl_kms,VVt_kms,VVIl_kms,VVIt_kms] = getvGagnon(P_MPa)
+%from Gagnon et al. 1988 (I) and 1990
+    VIl_kms = 3.914 +0.000452*P_MPa-0.0031*(P_MPa*1e-2).^2;
+    VIt_kms = 1.997 +0.000250*P_MPa-0.0011*(P_MPa*1e-2).^2;
+    VIIl_kms = 4.323 +0.000060*P_MPa;
+    VIIt_kms = 2.085 +0.000669*P_MPa;
+    VIIIl_kms = 3.461 +0.000853*P_MPa;
+    VIIIt_kms = 1.507 +0.001705*P_MPa;    
     VVl_kms = 4.108 +0.000203*P_MPa;
     VVt_kms = 2.198 +0.000006*P_MPa;
     VVIl_kms = 4.193 +0.000456*P_MPa;
     VVIt_kms = 1.987 +0.000463*P_MPa;
+
     

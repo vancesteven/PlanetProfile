@@ -67,12 +67,35 @@ colors = 'brkg';
 % for iT = 1:3
 % plot(LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p01m.k_S_m(:,iT),[colors(iT) '-o'],LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p005m.k_S_m(:,iT),[colors(iT) '--*'])
 % end
+
+    Textrap = [250:5:270 LarionovMgSO4.T_K(1:3)];
+    Pextrap = 0.1:100:2000;
+    method = 'linear';
+    for iT = 1:3 
+        k_S_m_extrapP(iT,:) = interp1(LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p01m.k_S_m(:,iT),Pextrap,method,'extrap');
+    end
+    method = 'linear';
+    k_S_m_extrap = ones(length(Textrap),length(Pextrap));
+    for iP = 1:length(Pextrap)
+        k_S_m_extrap(:,iP) = interp1(LarionovMgSO4.T_K(1:3),k_S_m_extrapP(:,iP),Textrap,method,'extrap');
+    end    
+LarionovMgSO4.Pextrap_MPa = Pextrap;
+LarionovMgSO4.Textrap_K = Textrap;
+LarionovMgSO4.k_S_m_extrap_p01m = k_S_m_extrap;
+
+    
 figure(2296);clf
 hold on
 for iT = 1:3
 plot(LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p01m.k_S_m(:,iT),[colors(iT) '-o'],...
     LarionovMgSO4.P_MPa,LarionovMgSO4.Larionov_p005m.k_S_m(:,iT),[colors(iT) '--*']);
 end
+hp = plot(Pextrap,k_S_m_extrap,'k');
+Pind = 10;
+for iT = 1:length(Textrap)
+    text(Pextrap(Pind),k_S_m_extrap(iT,Pind),[num2str(Textrap(iT)) ' K']);
+end
+
 box on
 xlabel('Pressure (MPa)')
 ylabel('Electrical Conductivity (S m^{-1})')
