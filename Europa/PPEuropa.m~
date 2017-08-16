@@ -116,7 +116,7 @@ Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
 % 
 
 Seismic.mantleEOS = 'pyrohy_678_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries
-Planet.rho_sil_withcore_kgm3 = 3425;
+Planet.rho_sil_withcore_kgm3 = 3400;
 % Seismic.mantleEOS = 'chonhp_sat_678.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 % Planet.rho_sil_withcore_kgm3 = 2975;
 
@@ -132,12 +132,14 @@ Params.CALC_NEW_REFPROFILES=0;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.colororder = 'cm';
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [269.8  272.7]; % 265
+Planet.rho_sil_withcore_kgm3 = 2975; 
 PlanetProfile(Planet,Seismic,Params)
 
 Params.HOLD = 1; % overlay previous runs
 Params.LineStyle='-';
 Params.colororder = 'cm';
 Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [270.4 273.1]; % pure water,  265.7
+Planet.rho_sil_withcore_kgm3 = 2975; 
 PlanetProfile(Planet,Seismic,Params)
 
 Planet.Ocean.comp='Seawater';
