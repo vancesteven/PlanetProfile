@@ -33,8 +33,9 @@ end
 %Vex=interp3(Pgg,mgg,Tgg,Vexg,Pc,mc,Tc,'spline');
 %Videal=interp3(Pgg,mgg,Tgg,Videalg,Pc,mc,Tc,'spline');
 %Vs=interp3(Pgg,mgg,Tgg,Vsg,Pc,mc,Tc,'spline');
-% rho=interp3(Pgg,mgg,Tgg,rhog,Pc,mc,Tc,'spline');
-vel=interp3(Pg_MPa,mg,Tg_C,velg,P,mvec,T,'spline');
+% rho=interp3(Pg_MPa,mg,Tg_C,rhog,P,mvec,T,'spline'); %gcc
+vel=interp3(Pg_MPa,mg,Tg_C,velg,P,mvec,T,'spline'); %kms
+% Ks = 1e-3*rho.*vel.^2; %GPa
 % alpha=interp3(Pgg,mgg,Tgg,alphag,Pc,mc,Tc,'spline');
 % Cp=interp3(Pgg,mgg,Tgg,Cpg,Pc,mc,Tc,'spline');
 
