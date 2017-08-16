@@ -1,0 +1,52 @@
+
+Perple_X version 6.7.8, source updated June 7, 2017.
+
+Perple_X computational option settings for WERAMI:
+
+    Keyword:               Value:     Permitted values [default]:
+
+  Input/Output options:
+
+    aqueous_output         T          [F] T
+    aqeuous_species         20        [20] 0-100
+    aq_solvent_composition y          [y] m: y => mol fraction, m => molality
+    aq_solute_composition  m          y [m]: y => mol fraction, m => molality
+    spreadsheet            T          [F] T
+    logarithmic_p          F          [F] T
+    bad_number             NaN        [0.0]
+    composition_constant   F          [F] T
+    composition_phase      mol        [mol] wt
+    composition_system     wt         [wt] mol
+    proportions            vol        [vol] wt mol
+    interpolation          on         [on] off 
+    melt_is_fluid          F          [F] T
+    solution_names         mod        [model] abbreviation full
+    species_output         T          [T] F
+    species_Gibbs_energies F          [F] T
+    seismic_output         som        [some] none all
+    pause_on_error         T          [T] F
+    poisson_test           F          [F] T
+
+  Information file output options:
+
+    option_list_files      T          [F] T; echo computational options
+
+  Thermodynamic options:
+
+    approx_alpha           T          [T] F
+    Anderson-Gruneisen     F          [F] T
+    hybrid_EoS_H2O            0       [7] 0-2, 4-8
+    hybrid_EoS_CO2            4       [7] 0-4
+    hybrid_EoS_CH4            4       [1] 0-1
+    fd_expansion_factor    2.0        >0 [2.]
+    finite_difference_p    0.1D+05    >0 [1d4]; fraction = 0.1D-01 [1d-2]
+
+  Seismic velocity options:
+
+    bounds                 VRH        [VRH] HS
+    vrh/hs_weighting       0.5        [0.5] 0->1
+    explicit_bulk_modulus  T          [F] T
+    poisson_ratio          on         [on] all off; Poisson ratio = 0.35
+
+To change these options see: www.perplex.ethz.ch/perplex_options.html
+
