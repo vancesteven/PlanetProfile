@@ -63,8 +63,7 @@ Params.nsteps_mantle = 100;
 Params.nsteps_core = 10;
 Params.savefigformat = 'epsc';
 Params.wref=[0 5 10 15];
-
-Params.colororder = 'cbmkgrm';
+Params.colororder = 'mcbkgrm';
 Params.Temps = [250 252.5 255 260 265 270 273];
 
 Params.wrefLine = '--';
@@ -96,7 +95,7 @@ Hrad0 = 24e12*xSi/xSiEarth/M_Earth_kg;
 %cold case  
 Planet.EQUIL_Q = 0;
 Planet.kr_mantle = 4; % rock conductivity (Cammarano et al. 2006, Table 4)
-Planet.Qmantle_Wm2 = 1e11/4/pi/Planet.R_m^2; 
+Planet.Qmantle_Wm2 = 4e10/4/pi/Planet.R_m^2; 
 Planet.QHmantle = 0;
 %hot case Qm = 2.1e11+8.5e11; %W
 % Qmantle = 1.3e11; 
@@ -123,8 +122,7 @@ Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250  260  270]; % 10 Wt% temperatures at the bottom of the Ice Ih
-% Planet.rho_sil_withcore_kgm3 = 3340; % for the saturated echondrite
-Planet.rho_sil_withcore_kgm3 = 3520;
+Planet.rho_sil_withcore_kgm3 = 3340;
 PlanetProfile(Planet,Seismic,Params)
 
 Planet.FeCore=true;
@@ -137,6 +135,6 @@ Params.HOLD = 1; % overlay previous run
 Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = [255  265  273]; % pure water, temperatures at the bottom of the Ice Ih
 % Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = [255 260 265 270 273]; % pure water, temperatures at the bottom of the Ice Ih
 Params.LineStyle='-';
-% Planet.rho_sil_withcore_kgm3 = 3360; % for the saturated echondrite
+Planet.rho_sil_withcore_kgm3 = 3360; % for the saturated echondrite
 Planet.rho_sil_withcore_kgm3 = 3530; % for the saturated echondrite
 PlanetProfile(Planet,Seismic,Params)
