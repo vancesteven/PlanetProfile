@@ -18,10 +18,6 @@ Planet.FeCore=false;
 % Planet.rho_sil_withcore_kgm3 = 2400; % Iess et al. 2014
 Planet.rho_sil_withcore_kgm3 = 3300; 
 
-Planet.Ocean.comp='MgSO4';
-load L_Ice_MgSO4.mat
-Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
-
 
 % Planet.Ocean.comp='NH3';
 % % load L_IceNH3.mat
@@ -45,14 +41,34 @@ Hrad0 = 24e12*xSi/xSiEarth/M_Earth_kg;
 %% Mantle Heat
 %cold case  
 Planet.kr_mantle = 4; % rock conductivity (Cammarano et al. 2006, Table 4)
-Planet.Qmantle = 2.7e8; % Chen et al. 2014
+Planet.EQUIL_Q = 0;
+Planet.Qmantle_Wm2 = 2.7e8/4/pi/Planet.R_m^2; % Chen et al. 2014
+% Planet.Qmantle_Wm2 = 2.7e8/4/pi/Planet.R_m^2; % Chen et al. 2014
+Planet.Qmantle_Wm2 = 16e9/4/pi/Planet.R_m^2; % Howett et al. 2011
 Planet.QHmantle = 0;
 %hot case Qm = 2.1e11+8.5e11; %W
 
 %% Seismic
 Seismic.LOW_ICE_Q = 1; % divide Ice Q value by this number
-Seismic.mantleEOS = 'ChondriteLL_Stx11.ext';
+% Seismic.mantleEOS = 'ChondriteLL_Stx11.ext'; % this was the original
+% chondrite function built by svance
+
+% this is the porous model described in the paper 2017:
+Planet.POROUS_ROCK = 1;
+Seismic.mantleEOS = 'echon_678_1.tab'; Planet.phi_surface = 0.8;% 
+% Seismic.mantleEOS = 'pyrohp_sat_678_1.tab'; Planet.phi_surface = 0.5;% this uses the procedure implemented by F. Cammarano
+
+% % this is the hydrated model described in the paper 2017:
+% Planet.POROUS_ROCK = 0;
+% Seismic.mantleEOS = 'pyrohp_sat_678_1.tab'; % this uses the procedure implemented by F. Cammarano
+% % Seismic.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab'; % this uses the procedure implemented by F. Cammarano
+
+
+% Seismic.mantleEOS = 'echonhp_sat_1.tab'; % this uses the procedure implemented by F. Cammarano
+
 Seismic.QScore = 1e4;
+Seismic.SMOOTH_VROCK = 5; % smooth over N neighboring rows and columns in vp and vs
+
 
 %Attenuation Parameters Based on those Described in Cammarano et al. 2006
 % ice I
@@ -77,10 +93,6 @@ Seismic.gamma_aniso_mantle = 0.2;
 Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
-Params.CALC_NEW=0;
-Params.CALC_NEW_REFPROFILES=0;
-Params.CALC_NEW_SOUNDSPEEDS=0;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
 Params.savefigformat = 'epsc';
 Params.foursubplots =1;
 Params.HOLD = 0; % overlay previous run
@@ -93,20 +105,76 @@ Params.nsteps_ocean = 45;
 Params.nsteps_ref_rho = 30;
 Params.nsteps_mantle = 100;
 Params.nsteps_core = 10;
-Params.wref=[0 5 10 15];
-Params.colororder = 'mcbkgrm';
 Params.Temps = [245 250 252.5 255 260 265 270];
 
 %% Run the Calculation!
-Planet.Ocean.w_ocean_pct=10;Planet.Tb_K = [272.8 272.9 273 273.1]; % pure water, temperatures at the bottom of the Ice Ih
-PlanetProfile(Planet,Seismic,Params)
-
-
-Params.HOLD = true;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = false;
-
-Params.CALC_NEW=0;
+% Planet.Ocean.w_ocean_pct=10;Planet.Tb_K = [272.8 272.9 273 273.1]; % pure water, temperatures at the bottom of the Ice Ih
+% PlanetProfile(Planet,Seismic,Params)
+% 
+% 
+% Params.HOLD = true;
+% Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = false;
+% 
+% Params.CALC_NEW=0;
+% Params.CALC_NEW_SOUNDSPEEDS=1;
+% 
+% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [273.1 273.15]; % pure water, temperatures at the bottom of the Ice Ih
+% PlanetProfile(Planet,Seismic,Params)
+% 
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
+% 
+Params.CALC_NEW =0;
+Params.CALC_NEW_REFPROFILES=0;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 
-Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [273.1 273.15]; % pure water, temperatures at the bottom of the Ice Ih
+Planet.Ocean.comp='MgSO4';
+load L_Ice_MgSO4.mat
+Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
+Params.LineStyle='--';
+Params.colororder = 'cm';
+Params.wrefLine = '--';
+Params.wref=[0 5 10 15];
+% 
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [272.72 273.12];
 PlanetProfile(Planet,Seismic,Params)
+
+% running pure water for the MgSO4 case illustrates >1oC error in the Margules parameterization
+% Params.HOLD = 1; % overlay previous runs
+% Params.LineStyle='-';
+% Params.colororder = 'cm';
+% Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [273.1 273.15]; % pure water, 
+% PlanetProfile(Planet,Seismic,Params)
+
+Params.HOLD = 1; 
+Planet.Ocean.comp='Seawater';
+Params.LineStyle='-.';
+Params.wref=[0 34 68];
+Params.wrefLine = '-.';
+Params.colororder = 'cm';
+
+Params.CALC_NEW =1;
+Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW_SOUNDSPEEDS=1;
+Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [270.82 271.08 271.16];
+PlanetProfile(Planet,Seismic,Params)
+
+Params.HOLD = 1; % overlay previous runs
+Params.LineStyle='-';
+Params.colororder = 'cm';
+Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [272.74 273.08]; % pure water, 
+PlanetProfile(Planet,Seismic,Params)
+
+Params.wrefLine =  ':';
+Params.wref=[3 5 10];
+Planet.Ocean.comp='NH3';
+load L_IceNH3_DATA.mat
+Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
+Params.CALC_NEW =0;
+Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.HOLD = 1;
+Params.LineStyle =  ':';
+Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [269.535 269.905]; % 0 Wt% temperatures at the bottom of the Ice Ih
+PlanetProfile(Planet,Seismic,Params)
+
+
