@@ -127,8 +127,8 @@ Params.LineStyle='--';
 Params.wrefLine = '--';
 Params.wref=[0 5 10 15];
 
-Params.CALC_NEW =0;
-Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW =1;	% Set CALC_NEW parameters to 0 to re-use past profile data
+Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.colororder = 'cm';
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [269.8  272.7]; % 265
@@ -146,8 +146,8 @@ Params.wref=[0 34 68];
 Params.wrefLine = '-.';
 Params.colororder = 'cm';
 
-Params.CALC_NEW =0;
-Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW =1;
+Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [268.2 270.8 ];
  

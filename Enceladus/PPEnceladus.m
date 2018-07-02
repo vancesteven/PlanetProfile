@@ -115,7 +115,7 @@ Params.Temps = [245 250 252.5 255 260 265 270];
 % Params.HOLD = true;
 % Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = false;
 % 
-% Params.CALC_NEW=0;
+% Params.CALC_NEW=1;
 % Params.CALC_NEW_SOUNDSPEEDS=1;
 % 
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [273.1 273.15]; % pure water, temperatures at the bottom of the Ice Ih
@@ -123,8 +123,8 @@ Params.Temps = [245 250 252.5 255 260 265 270];
 % 
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
 % 
-Params.CALC_NEW =0;
-Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW =1;	% Set CALC_NEW parameters to 0 to re-use past profile data
+Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 
 Planet.Ocean.comp='MgSO4';
@@ -153,7 +153,7 @@ Params.wrefLine = '-.';
 Params.colororder = 'cm';
 
 Params.CALC_NEW =1;
-Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [270.82 271.08 271.16];
 PlanetProfile(Planet,Seismic,Params)
@@ -169,8 +169,8 @@ Params.wref=[3 5 10];
 Planet.Ocean.comp='NH3';
 load L_IceNH3_DATA.mat
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
-Params.CALC_NEW =0;
-Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW =1;
+Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.HOLD = 1;
 Params.LineStyle =  ':';

@@ -67,9 +67,9 @@ Seismic.gamma_aniso_mantle = 0.2;
 Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
-Params.CALC_NEW =0;
-Params.CALC_NEW_REFPROFILES=0;
-Params.CALC_NEW_SOUNDSPEEDS=0;
+Params.CALC_NEW =1;	% Set CALC_NEW parameters to 0 to re-use past profile data
+Params.CALC_NEW_REFPROFILES=1;
+Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 Params.foursubplots =1;
 Params.HOLD = 0; % overlay previous run
@@ -96,8 +96,8 @@ Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260]; % 10 Wt% temperatures 
 PlanetProfile(Planet,Seismic,Params)
 
 Params.HOLD = 1;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
-Params.CALC_NEW = 0;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
+Params.CALC_NEW = 1;
 
 Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265]; % pure water, temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
@@ -108,7 +108,7 @@ PlanetProfile(Planet,Seismic,Params)
 % Planet.FeCore = true;
 % Planet.rho_sil_withcore_kgm3 = 3400; 
 % 
-% Params.CALC_NEW = 0;
+% Params.CALC_NEW = 1;
 % Params.HOLD = 0;
 % 
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 ]; % 10 Wt% temperatures at the bottom of the Ice Ih

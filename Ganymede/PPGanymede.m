@@ -117,8 +117,8 @@ Params.LineStyle='--';
 Seismic.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab';% (3450)
 Seismic.mantleEOS = 'pyro_678_1.tab'; % (3430) this uses the procedure implemented by F. Cammarano
 
-Params.CALC_NEW =0;
-Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW =1;	% Set CALC_NEW parameters to 0 to re-use past profile data
+Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 
@@ -129,7 +129,7 @@ PlanetProfile(Planet,Seismic,Params)
 
 Planet.FeCore=true;
 
-Params.CALC_NEW =0;
+Params.CALC_NEW =1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 

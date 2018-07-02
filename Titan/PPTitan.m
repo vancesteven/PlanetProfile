@@ -99,10 +99,10 @@ Planet.FeCore=false;
 % EOS.  There are diffences in both the melting temperatures and fluid
 % thermodynamics
 Params.HOLD = 0;
-Params.CALC_NEW =1;
-Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW =1;	% Set CALC_NEW parameters to 0 to re-use past profile data
+Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 
 Params.LineStyle =  '--';
 Params.wrefLine =  '--';
@@ -120,9 +120,9 @@ PlanetProfile(Planet,Seismic,Params)
 %==
 Params.HOLD = 1;
 Params.CALC_NEW =1;
-Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 
 Params.wrefLine =  '-.';
 Params.wref=[3 5 10];
@@ -150,9 +150,9 @@ PlanetProfile(Planet,Seismic,Params)
 % PlanetProfile(Planet,Seismic,Params)
 
 % Params.HOLD = 0;
-% Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
+% Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 % 
-% Params.CALC_NEW =0;
+% Params.CALC_NEW =1;
 % Params.wrefine =  '--';
 % Params.LineStyle =  '-';
 % 
