@@ -1,7 +1,20 @@
 # PlanetProfile
 Matlab software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs.
 
-The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model.  
+The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
+
+To create a profile with default parameters, follow these steps:
+  @ In Matlab, add the PlanetProfile directory and subdirectories to your path.
+      $ In the ribbon, go to Home -> Set Path -> Add with Subfolders... -> PlanetProfile
+  @ Set your active path to the directory of the body to simulate.
+      $ Just below the ribbon, click the arrows to select the correct body's folder in the PlanetProfile directory.
+  @ Open the PP_____.m file for your selected body in the Matlab editor.
+  @ Run the PP_____.m file.
+      $ In the ribbon, go to Editor -> Run.
+
+NOTE:
+  @ The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.
+  @ To re-use data from past profiles, which dramatically speeds up runtime, search for Params.CALC_NEW in the PP_____.m input file. Set the CALC_NEW options you do not need to recalculate to 0 to re-use previous run data.
 
 Some calculations use Matlab's Parallel Computing package.  If you don't have access to this package then parfor loops should be changed to for loops.  A future version will check and do this automatically.
 
