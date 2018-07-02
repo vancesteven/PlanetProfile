@@ -1,0 +1,76 @@
+hpha02ver.dat     thermodynamic data file                                                                                                   
+no_print | print generates print output
+plot     | no_plot suppresses plot output
+solution_model.dat     | solution model file, blank = none                                                                                                                                                                                                      
+L_sat_678                                                                                                                                                                                                                                                       
+perplex_option.dat     | Perple_X option file                                                                                                                                                                                                                   
+    5 calculation type: 0 - composition, 1 - Schreinemakers, 3 - Mixed, 4 - swash, 5 - gridded min, 7 - 1d fract, 8 - gwash, 9 - 2d fract, 10 - 7 w/file input
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 number component transformations
+   15 number of components in the data base
+    1 component amounts, 0 - molar, 1 weight
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 05
+    5 ifug EoS for saturated phase
+    2 gridded minimization dimension (1 or 2)
+    0 special dependencies: 0 - P and T independent, 1 - P(T), 2 - T(P)
+ 0.00000      0.00000      0.00000      0.00000      0.00000     Geothermal gradient polynomial coeffs.
+
+begin thermodynamic component list
+SIO2  1  39.7200      0.00000      0.00000     weight amount
+AL2O3 1  2.25000      0.00000      0.00000     weight amount
+FEO   1  14.4600      0.00000      0.00000     weight amount
+MGO   1  24.7300      0.00000      0.00000     weight amount
+CAO   1  1.85000      0.00000      0.00000     weight amount
+NA2O  1 0.950000      0.00000      0.00000     weight amount
+end thermodynamic component list
+
+
+begin saturated component list
+H2O   0  0.00000      0.00000      0.00000     unconstrained amount
+end saturated component list
+
+
+begin saturated phase component list
+end saturated phase component list
+
+
+begin independent potential/fugacity/activity list
+end independent potential list
+
+
+begin excluded phase list
+stv     
+coe     
+end excluded phase list
+
+
+begin solution phase list
+Opx(HP)   
+O(HP)     
+Sp(HP)    
+Cpx(HP)   
+Gt(HP)    
+Wus       
+Atg(PN)   
+Amph(DHP) 
+Chum      
+St(HP)    
+melt(HP)  
+end solution phase list
+
+0.14000E+06  3000.0     0.00000000  0.0000      0.0000     max p, t, xco2, u1, u2
+ 1.0000      250.00     0.00000000  0.0000      0.0000     min p, t, xco2, u1, u2
+ 0.0000      0.0000     0.00000000  0.0000      0.0000     unused place holder post 06
+
+ 1  2  4  5  3   indices of 1st & 2nd independent & sectioning variables
+

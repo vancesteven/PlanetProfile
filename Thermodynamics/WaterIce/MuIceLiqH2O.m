@@ -1,10 +1,28 @@
-function mu = MuIceLiqH2O(P_MPa,T_K)
+% function [dmu,muS,muL] = MuIceLiqH2O(input)
+function [dmu,muS,muL] = MuIceLiqH2O(P_MPa,T_K)
+% 
+% %Determine whether gridded or scattered points
+% % and if this is P-T or P-T-m spline 
+% if iscell(input) % gridded data
+%    nd=length(input);  
+% else % scattered data in columns
+%    [~,nd]=size(input);
+% end
+% if iscell(input)  % gridded output
+%     P=input{1};T=input{2};    
+%     [P_MPa,T_K]=ndgrid(P,T);
+% else % scatter output
+%     T_K=input(:,2);
+%     P_MPa=input(:,1);
+% end
+% mu=[];
+
 
 %from Choukron and Grasset, 2010, Table I
 global parms nsteps
 nsteps = 40;
 DEBUG = 0;
-% columns: liquid, Ih, II, III, V, VI
+% rows: I, II, III, V, VI
 parms = [
     0           0           0           0       0
     251.16  209.9   NaN     -21.58  -18.79
@@ -13,7 +31,7 @@ parms = [
     256.16  350.1   -13.1   -18.30  -17.43
     273.31 632.4   -16.2   -19.34  -18.78
     ];
-dmu = getDeltaMu(P_MPa,T_K);
+[dmu,muS,muL] = getDeltaMu(P_MPa,T_K);
 lP = length(P_MPa);
 lT = length(T_K);
 phase = NaN*ones(lP,lT);
@@ -22,24 +40,27 @@ for iP = 1:lP
         thisset = squeeze(dmu(:,iP,iT));
         phase(iP,iT) = find(thisset == min(thisset));
         if DEBUG
-            thisset           
+            disp('dmu')
+            disp(thisset)           
         end
         if dmu(phase(iP,iT),iP,iT)>0
            phase(iP,iT) = 0;
         end
     end
 end
-phase(phase==5) = 6;
-phase(phase==4) = 5;
-mu = dmu;
+% phase(phase==5) = 6;
+% phase(phase==4) = 5;
 
-function deltaMu = getDeltaMu(P_MPa,T_K)
+
+function [deltaMu,muS,muL] = getDeltaMu(P_MPa,T_K)
 global parms nsteps
     Po = parms(:,2);
     To = parms(:,1);
     So = parms(:,5)./0.01815;
     for i=1:6
-        Ho(i)=parms(i,1).*parms(i,5)./0.01815;
+        Ho(i)=parms(i,1).*parms(i,5)./0.01815; % 
+%         Ho(i)=parms(i,5)./0.01815./parms(i,1); % consistency with
+%         Choukroun et al. 2010 Eq. 3 but incorrect
     end
     deltaMu = NaN*ones(length(P_MPa),length(T_K),5);
     
@@ -85,8 +106,15 @@ for ind = 2:6
             intCpTdT_L(iP,iT) = integrate(T_int_K,Cp_L./T_int_K,[To(ind) T_K(iT)]);
         end
     end
+%     muS(ind-1,:,:) = 0.5.*Ho(ind) + intCpdT_S -T_K.*(0.5.*So(ind) +intCpTdT_S)+intVspdP_S;
+%     muL(ind-1,:,:) = -0.5.*Ho(ind) + intCpdT_L -T_K.*(-0.5.*So(ind) +intCpTdT_L)+intVspdP_L;
     muS(ind-1,:,:) = 0.5.*Ho(ind) + intCpdT_S -T_K.*(0.5.*So(ind) +intCpTdT_S)+intVspdP_S;
     muL(ind-1,:,:) = -0.5.*Ho(ind) + intCpdT_L -T_K.*(-0.5.*So(ind) +intCpTdT_L)+intVspdP_L;
+
+    % from the 2009 iapws release on water ice : 
+    % g (T = 0 K, p ) = ?0.632 020 233 335 886 ×106 J kg?1 0
+    % s(T =0K,p )=0.18913×103 Jkg?1 K?1
+    % p0 = 101325Pa
 end
 deltaMu = muS - muL;
 
