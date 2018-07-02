@@ -16,7 +16,13 @@ Planet.FeCore=false;
     Planet.rhoFe = 8000; %8000
     Planet.rhoFeS = 5150; %5150
 % Planet.rho_sil_withcore_kgm3 = 2400; % Iess et al. 2014
-Planet.rho_sil_withcore_kgm3 = 3300; 
+Planet.rho_sil_withcore_kgm3 = 2700; 
+
+% WARNING: The following line was copied from PPCallisto.m because it is
+% required by PlanetProfile.m in the current version and does not appear in
+% this file. An issue has been opened on GitHub. Delete this comment when
+% the value has been corrected.
+Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 
 
 % Planet.Ocean.comp='NH3';
@@ -101,10 +107,10 @@ Params.LegendPosition = 'North';
 Params.ylim = [910 1170];
 Params.Pseafloor_MPa = 10;
 Params.nsteps_iceI = 20;
-Params.nsteps_ocean = 45; 
+Params.nsteps_ocean = 100; 
 Params.nsteps_ref_rho = 30;
-Params.nsteps_mantle = 100;
-Params.nsteps_core = 10;
+Params.nsteps_mantle = 1500;
+Params.nsteps_core = 100;
 Params.Temps = [245 250 252.5 255 260 265 270];
 
 %% Run the Calculation!
@@ -123,7 +129,7 @@ Params.Temps = [245 250 252.5 255 260 265 270];
 % 
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
 % 
-Params.CALC_NEW =1;	% Set CALC_NEW parameters to 0 to re-use past profile data
+Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
 Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 
@@ -152,10 +158,9 @@ Params.wref=[0 34 68];
 Params.wrefLine = '-.';
 Params.colororder = 'cm';
 
-Params.CALC_NEW =1;
 Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
-Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [270.82 271.08 271.16];
+Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [270.82  271.16];
 PlanetProfile(Planet,Seismic,Params)
 
 Params.HOLD = 1; % overlay previous runs
@@ -169,12 +174,10 @@ Params.wref=[3 5 10];
 Planet.Ocean.comp='NH3';
 load L_IceNH3_DATA.mat
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
-Params.CALC_NEW =1;
+
 Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.HOLD = 1;
 Params.LineStyle =  ':';
 Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [269.535 269.905]; % 0 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
-
-

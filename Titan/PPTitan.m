@@ -79,7 +79,7 @@ Params.ylim = [925 1350];
 Params.nsteps_iceI = 100;
 Params.nsteps_ocean = 450; 
 Params.nsteps_ref_rho = 30;
-Params.nsteps_mantle = 50;
+Params.nsteps_mantle = 100;
 Params.nsteps_core = 10;
 Params.savefigformat = 'epsc';
 
@@ -95,11 +95,18 @@ Planet.FeCore=false;
 % Planet.FeCore=true;
 % Planet.rho_sil_withcore_kgm3 = 2500;
 
+% placeholder so Matlab doesn't complain about missing fields
+Planet.xFeS_meteoritic = 0.0676; %CM2 mean from Jarosewich 1990
+Planet.xFeS = 1; %0.25
+Planet.xFe_core = 0.0463 ; % this is the total Fe  in Fe and FeS
+Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+
+
 % Comparison of MgSO4 EOS pure water values is close to values for ammonia
 % EOS.  There are diffences in both the melting temperatures and fluid
 % thermodynamics
 Params.HOLD = 0;
-Params.CALC_NEW =1;	% Set CALC_NEW parameters to 0 to re-use past profile data
+Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
 Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
@@ -117,6 +124,25 @@ Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 262 266]; % 10 Wt% temperatures 
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [251.1 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
 
+% %==
+
+Planet.Ocean.comp='NaCl';
+Params.HOLD = 1;
+Params.CALC_NEW =1;
+Params.CALC_NEW_REFPROFILES=1;
+Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.LineStyle =  ':';
+Params.wrefLine =  ':';
+Params.wref=[0 5 10 15];
+load L_Ice_MgSO4.mat
+Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
+
+% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % 0 Wt% temperatures at the bottom of the Ice Ih
+% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 262]; % 10 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript
+% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [251.1 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
+PlanetProfile(Planet,Seismic,Params)
+% 
 %==
 Params.HOLD = 1;
 Params.CALC_NEW =1;
@@ -135,22 +161,22 @@ Params.LineStyle =  '-';
 Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 265 268]; % 0 Wt% temperatures at the bottom of the Ice Ih; for the paper
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [254 265 268]; % 0 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
-
-Params.HOLD = 1;
-Params.CALC_NEW =1;
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
-Params.LineStyle =  '-.';
-
-Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [250 260 264]; % 3 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript, thicknest ice is 150 km
-% Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [249 260 264]; % 3 Wt% temperatures at the bottom of the Ice Ih
-PlanetProfile(Planet,Seismic,Params)
+% 
+% Params.HOLD = 1;
+% Params.CALC_NEW =1;
+% Params.CALC_NEW_REFPROFILES=1;
+% Params.CALC_NEW_SOUNDSPEEDS=1;
+% Params.LineStyle =  '-.';
+% 
+% Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [250 260 264]; % 3 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript, thicknest ice is 150 km
+% % Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [249 260 264]; % 3 Wt% temperatures at the bottom of the Ice Ih
+% PlanetProfile(Planet,Seismic,Params)
 % 
 % Planet.Ocean.w_ocean_pct=7; Planet.Tb_K = [250 260]; % 7 Wt% temperatures at the bottom of the Ice Ih
 % PlanetProfile(Planet,Seismic,Params)
 
 % Params.HOLD = 0;
-% Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
+% Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
 % 
 % Params.CALC_NEW =1;
 % Params.wrefine =  '--';

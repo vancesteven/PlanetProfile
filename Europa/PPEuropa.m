@@ -16,7 +16,6 @@ Planet.Cuncertainty = 0.005;
 %is incorrect, as the value cited everywhere else is consistent with the
 %Anderson et al. (1996) value of C/MR2=0.3105\pm0.0028 used here
 Planet.FeCore=true;
-Planet.xFeS = 0; %0.25
 Planet.rhoFe = 8000; %8000
 Planet.rhoFeS = 5150; %5150
 
@@ -37,8 +36,8 @@ xK = 1; %enrichment in K
 %% Mantle Heat
 %cold case  
 Planet.kr_mantle = 4; % rock conductivity (Cammarano et al. 2006, Table 4)
-Planet.Qmantle_Wm2 = 1e11/4/pi/Planet.R_m^2; % the sat chondrite densities are too low for this heat flux
-% Planet.Qmantle_Wm2 = 2.2e11/4/pi/Planet.R_m^2; 
+% Planet.Qmantle_Wm2 = 1e11/4/pi/Planet.R_m^2; %
+Planet.Qmantle_Wm2 = 2.2e11/4/pi/Planet.R_m^2; % this is more reasonable for radiogenic only
 Planet.QHmantle = 0;
 Planet.EQUIL_Q = 0;
 %hot case Qm = 2.1e11+8.5e11; %W
@@ -47,7 +46,7 @@ Planet.EQUIL_Q = 0;
 
 %% Porosity of the rock
 Planet.POROUS_ROCK = 0;
-Planet.phi_surface = 0.8;
+% Planet.PEFF =0;
 
 %% Seismic
 Seismic.LOW_ICE_Q = 1; % divide Ice Q value by this number
@@ -105,7 +104,7 @@ Params.Pseafloor_MPa = 350;
 Params.nsteps_iceI = 20;
 Params.nsteps_ocean = 350; 
 Params.nsteps_ref_rho = 30;
-Params.nsteps_mantle = 100;
+Params.nsteps_mantle = 500;
 Params.nsteps_core = 10;
 Params.savefigformat = 'epsc';
 Params.colororder = 'mcbkgrm';
@@ -114,31 +113,32 @@ Params.Temps = [250 252.5 255 260 265 270 273];
 %% Run the Calculation!
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
 % 
-
-Seismic.mantleEOS = 'pyrohy_678_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries
-Planet.rho_sil_withcore_kgm3 = 3425;
+Seismic.mantleEOS = 'chon_678_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries
+Planet.rho_sil_withcore_kgm3 = 3539;
+% Seismic.mantleEOS = 'pyrohy_678v2_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries
+% Planet.rho_sil_withcore_kgm3 = 3425;
 % Seismic.mantleEOS = 'chonhp_sat_678.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 % Planet.rho_sil_withcore_kgm3 = 2975;
 
-Planet.Ocean.comp='MgSO4';
-load L_Ice_MgSO4.mat
-Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
-Params.LineStyle='--';
-Params.wrefLine = '--';
-Params.wref=[0 5 10 15];
+% Planet.Ocean.comp='MgSO4';
+% load L_Ice_MgSO4.mat
+% Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
+% Params.LineStyle='--';
+% Params.wrefLine = '--';
+% Params.wref=[0 5 10 15];
+% 
+% Params.CALC_NEW =1;
+% Params.CALC_NEW_REFPROFILES=1;
+% Params.CALC_NEW_SOUNDSPEEDS=1;
+% Params.colororder = 'cm';
+% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [269.8  272.7]; % 265
+% PlanetProfile(Planet,Seismic,Params)
 
-Params.CALC_NEW =1;	% Set CALC_NEW parameters to 0 to re-use past profile data
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
-Params.colororder = 'cm';
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [269.8  272.7]; % 265
-PlanetProfile(Planet,Seismic,Params)
-
-Params.HOLD = 1; % overlay previous runs
-Params.LineStyle='-';
-Params.colororder = 'cm';
-Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [270.4 273.1]; % pure water,  265.7
-PlanetProfile(Planet,Seismic,Params)
+Params.HOLD = 0; % overlay previous runs
+% Params.LineStyle='-';
+% Params.colororder = 'cm';
+% Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [270.4 273.1]; % pure water,  265.7
+% PlanetProfile(Planet,Seismic,Params)
 
 Planet.Ocean.comp='Seawater';
 Params.LineStyle='-.';
@@ -146,11 +146,61 @@ Params.wref=[0 34 68];
 Params.wrefLine = '-.';
 Params.colororder = 'cm';
 
-Params.CALC_NEW =1;
+Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
 Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [268.2 270.8 ];
  
+% Seismic.mantleEOS = 'chon_678_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries
+% Planet.rho_sil_withcore_kgm3 = 3539;
+% Planet.phi_surface = 0;
+% PlanetProfile(Planet,Seismic,Params)
+% Params.HOLD = 1;
+% % Planet.PEFF =1;
+% % PlanetProfile(Planet,Seismic,Params)
+% % Planet.PEFF =0;
+% % 
+% Planet.phi_surface = 0.8;
+% PlanetProfile(Planet,Seismic,Params)
+% % Planet.PEFF =1;
+% % PlanetProfile(Planet,Seismic,Params)
+% % Planet.PEFF =0;
+
+% Seismic.mantleEOS = 'chonhp_sat_678.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
+% Seismic.mantleEOS = 'CI_expanded_678.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
+% 
+% Seismic.mantleEOS = 'CM2hy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
+% Planet.xFeS_meteoritic = 0.0676; %CM2 mean from Jarosewich 1990
+% Planet.xFeS = 0.2; %0.25
+% Planet.xFe_core = 0.0463 ; % this is the total Fe  in Fe and FeS
+% Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+% Planet.rho_sil_withcore_kgm3 = 3630;
+% Planet.phi_surface = 0;
+% PlanetProfile(Planet,Seismic,Params)
+
+% Planet.PEFF =1;
+% PlanetProfile(Planet,Seismic,Params)
+% Planet.PEFF =0;
+% 
+% Planet.phi_surface = 0.8;
+% PlanetProfile(Planet,Seismic,Params)
+% % Planet.PEFF =1;
+% % PlanetProfile(Planet,Seismic,Params)
+% 
+Seismic.mantleEOS = 'CV3hy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
+Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
+Planet.xFeS = 0.55; %0.25
+Planet.xFe_core = 0.0279 ; % this is the total Fe  in Fe and FeS
+Planet.XH2O = 0.0035; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+Planet.rho_sil_withcore_kgm3 = 3644;
+Planet.phi_surface = 0;
 PlanetProfile(Planet,Seismic,Params)
-
-
+% 
+% Seismic.mantleEOS = 'CIhy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
+% Planet.xFeS_meteoritic = 0.0908; %CM2 mean from Jarosewich 1990
+% Planet.xFeS = 0.2; %0.25
+% Planet.xFe_core = 0.0583 ; % this is the total Fe  in Fe and FeS
+% Planet.XH2O = 0.169; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+% Planet.rho_sil_withcore_kgm3 = 3644;
+% Planet.phi_surface = 0;
+% PlanetProfile(Planet,Seismic,Params)

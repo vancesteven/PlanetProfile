@@ -10,7 +10,7 @@ Planet.gsurf_ms2 = 1.428;
 Planet.Tsurf_K = 110; 
 Planet.Psurf_MPa = 0; 
 Planet.FeCore=false;
-Planet.xFeS = 0.25; %0.25
+Planet.xFeS = 0; %0.25
 Planet.rhoFe = 8000; %8000
 Planet.rhoFeS = 5150; %5150
 
@@ -34,14 +34,21 @@ Hrad0 = 24e12*xSi/xSiEarth/M_Earth_kg;
 
 %% Mantle Heat
 %cold case  
+Planet.EQUIL_Q = 0;
 Planet.kr_mantle = 4; % rock conductivity (Cammarano et al. 2006, Table 4)
-Planet.Qmantle = 1.3e11; 
+% Planet.Qmantle_Wm2 = 1.1e8/4/pi/Planet.R_m^2; % this also works for the
+% saturated pyrolite, and marginally for the saturated chondrite
+Planet.Qmantle_Wm2 = 1.3e11/4/pi/Planet.R_m^2; % this works for the saturated pyrolite
+% Planet.Qmantle_Wm2 = 1.1e12/4/pi/Planet.R_m^2; % test
 Planet.QHmantle = 0;
-%hot case Qm = 2.1e11+8.5e11; %W
+
+%% Porosity of the rock
+Planet.POROUS_ROCK = 0;
+
 
 %% Seismic
 Seismic.LOW_ICE_Q = 1; % divide Ice Q value by this number
-Seismic.mantleEOS = 'ChondriteLL_Stx11.ext';
+Seismic.SMOOTH_VROCK = 1; % smooth over N neighboring rows and columns in vp and vs
 Seismic.QScore = 1e4;
 
 %Attenuation Parameters Based on those Described in Cammarano et al. 2006
@@ -67,10 +74,6 @@ Seismic.gamma_aniso_mantle = 0.2;
 Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
-Params.CALC_NEW =1;	% Set CALC_NEW parameters to 0 to re-use past profile data
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 Params.foursubplots =1;
 Params.HOLD = 0; % overlay previous run
 Params.Legend =0;
@@ -84,38 +87,85 @@ Params.nsteps_mantle = 100;
 Params.nsteps_core = 10;
 Params.savefigformat = 'epsc';
 Params.wref=[0 5 10 15];
-Params.colororder = 'mcbkgrm';
+Params.colororder = 'cbmkgrm';
 Params.Temps = [245 250 252.5 255 260 265 270 273];
 
 %% Run the Calculation!
+Params.HOLD =0;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
+Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+Params.CALC_NEW_REFPROFILES=1;
+Params.CALC_NEW_SOUNDSPEEDS=1;
+
 Planet.Cmeasured = 0.3549; 
 Planet.Cuncertainty = 0.0042;% Anderson et al. 2001 and Schubert et al. 2004 
+Seismic.mantleEOS = 'pyrohp_sat_678_1.tab';% this was used in the published paper (Vance et al. JGR 2017)
+% Seismic.mantleEOS = 'chonhp_sat_678.tab';% (3300)
+
 Planet.FeCore = false; % C/MR2 is too high to produce a realistic interior structure
-Planet.rho_sil_withcore_kgm3 = 3400; 
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260]; % 10 Wt% temperatures at the bottom of the Ice Ih
+% Planet.FeCore = true; % C/MR2 is too high to produce a realistic interior structure
+
+% Seismic.mantleEOS = 'CV3hy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
+% Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
+% Planet.xFeS = 0.55; %0.25
+% Planet.xFe_core = 0.0279 ; % this is the total Fe  in Fe and FeS
+% Planet.XH2O = 0.0035; % total fraction of water in CV3; use this to compute the excess or deficit indicated by the mineralogical model
+% Planet.rho_sil_withcore_kgm3 = 3644;
+% Planet.phi_surface = 0;
+
+% Seismic.mantleEOS = 'CIhy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
+% Planet.xFeS_meteoritic = 0.0908; %CM2 mean from Jarosewich 1990
+% Planet.xFeS = 0.2; %0.25
+% Planet.xFe_core = 0.0583 ; % this is the total Fe  in Fe and FeS
+% Planet.XH2O = 0.169; % total fraction of water in CI; use this to compute the excess or deficit indicated by the mineralogical model
+% Planet.rho_sil_withcore_kgm3 = 3440;
+
+
+% Seismic.mantleEOS = 'CM2hy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
+Planet.xFeS_meteoritic = 0.0676; %CM2 mean from Jarosewich 1990
+Planet.xFeS = 1; %0.25
+Planet.xFe_core = 0.0463 ; % this is the total Fe  in Fe and FeS
+Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+Planet.rho_sil_withcore_kgm3 = 3000;
+
+% Seismic.mantleEOS = 'CM2hy1wt_678_1.tab';
+
+Params.LineStyle='--';
+Params.wrefLine = '--';
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
 
 Params.HOLD = 1;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 Params.CALC_NEW = 1;
-
-Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265]; % pure water, temperatures at the bottom of the Ice Ih
+Params.LineStyle='-';
+Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [253.1 257.4]; % pure water, temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
+
 % 
 % 
+% Planet.FeCore = true;
 % Planet.Cmeasured = 0.32; % rounded from the 0.9*.3549; as suggested by Gao and Stevenson 2013
 % Planet.Cuncertainty = 0.0042;% Anderson et al. 2001 and Schubert et al. 2004 
-% Planet.FeCore = true;
-% Planet.rho_sil_withcore_kgm3 = 3400; 
+% % Seismic.mantleEOS = 'epyro_678_1.tab'; % (3500) this uses the procedure implemented by F. Cammarano
+% % Seismic.mantleEOS = 'echon_678_1.tab'; % (3500) this uses the procedure implemented by F. Cammarano
+% % Seismic.mantleEOS = 'chon_678_1.tab'; % (3500) this uses the procedure implemented by F. Cammarano
+% % Seismic.mantleEOS = 'pyro_678_1.tab'; % (3500) this uses the procedure implemented by F. Cammarano
+% % Seismic.mantleEOS = 'chonhp_sat_678.tab'; % (3500) this uses the procedure implemented by F. Cammarano
+% % Seismic.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab'; % this uses the procedure implemented by F. Cammarano; this includes Ks and Gs. I had to rerun perlex (6.6.3). not sure why
+% % Seismic.mantleEOS = 'pyrohy_678_1.tab'; % (3500) this uses the procedure implemented by F. Cammarano
+% % 
 % 
-% Params.CALC_NEW = 1;
-% Params.HOLD = 0;
-% 
-% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 ]; % 10 Wt% temperatures at the bottom of the Ice Ih
+% Params.HOLD = 1;
+% Params.LineStyle='--';
+% Params.wrefLine = '--';
+% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
+% Planet.rho_sil_withcore_kgm3 = 3525;
 % PlanetProfile(Planet,Seismic,Params)
 % 
 % Params.HOLD = 1;
-% Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
-% 
-% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265]; % pure water, temperatures at the bottom of the Ice Ih
+% Params.CALC_NEW = 1;
+% Params.LineStyle='-';
+% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [253.1 257.4]; % pure water, temperatures at the bottom of the Ice Ih
+% Planet.rho_sil_withcore_kgm3 = 3525;
 % PlanetProfile(Planet,Seismic,Params)
+% % 
