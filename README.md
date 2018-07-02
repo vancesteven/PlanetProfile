@@ -1,7 +1,7 @@
 # PlanetProfile
 Matlab software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs.
 
-The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
+The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model. Python 3 is required for NH3 solutions; see the detailed note below for more information.
 
 To create a profile with default parameters, follow these steps:
   @ In Matlab, add the PlanetProfile directory and subdirectories to your path.
@@ -22,7 +22,7 @@ Calculations with seawater solutions use the Gibbs Seawater package for Matlab: 
 
 Calculations with NH3 solutions use REFPROP and require a compiled dynamic library based on the REFPROP source code (see below for placement of files).  The source can be obtained from the National Institute of Standards and Technology https://www.nist.gov/refprop
 Access to REFPROP functions is through python 3 using librefprop.so: https://github.com/jowr/librefprop.so
-The python capabilities of are employed using the included matlab code refproppy.m
+Python capabilities are employed using the included matlab code refproppy.m
 REFPROP version 10, expected in October 2017, will provide matlab functions and Mac modules, which may eliminate the need for the above workarounds.
 
 Rock properties are from Perple_X: http://www.perplex.ethz.ch/
