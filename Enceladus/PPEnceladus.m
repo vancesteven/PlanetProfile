@@ -180,4 +180,4 @@ Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.HOLD = 1;
 Params.LineStyle =  ':';
 Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [269.535 269.905]; % 0 Wt% temperatures at the bottom of the Ice Ih
-PlanetProfile(Planet,Seismic,Params)
+%PlanetProfile(Planet,Seismic,Params)
