@@ -30,7 +30,6 @@ savefile = [Planet.name 'Profile_' Planet.Ocean.comp ...
 datpath = strcat(Planet.name,'/');
 figpath = strcat(Planet.name,'/figures/');
 
-
 Gg = 6.67300e-11; % m3 kg-1 s-2
 
 n_iceI=Params.nsteps_iceI;
