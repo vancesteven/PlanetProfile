@@ -1,8 +1,8 @@
 # For installing and running PlanetProfile.
 # USAGE:
 #	make: Print available command line arguments.
-#	make installpp: Copy necessary files for running PlanetProfile.
-#	make uninstallpp: Remove files outside the PlanetProfile directory that were placed by 'install'.
+#	make install: Copy necessary files for running PlanetProfile.
+#	make uninstall: Remove files outside the PlanetProfile directory that were placed by 'install'.
 #	make clean: Remove files ignored by GitHub (output data and figures).
 #	make pp: Open Matlab with default arguments.
 #	make <body>: Same as pp, but opens and runs the input file for the named body.
@@ -31,9 +31,8 @@ default:
 	@echo "Your command line argument should look like: make command"
 	@echo 
 	@echo "<no command>:	Print this list."
-	@echo "installppmac:	Copy necessary files for running PlanetProfile on Mac OS."
-	@echo "installppunix:	Copy necessary files for running PlanetProfile on other Unix."
-	@echo "uninstall-pp:	Remove files outside the PlanetProfile directory"
+	@echo "install:	Copy necessary files for running PlanetProfile."
+	@echo "uninstall:	Remove files outside the PlanetProfile directory"
 	@echo "		  that were placed by 'install'."
 	@echo "clean:		Remove files ignored by GitHub (output data and figures)."
 	@echo "pp:		Open Matlab with default arguments."
@@ -63,26 +62,31 @@ pp:
 	matlab -r "folder='.'"
 	@echo "WIP: Not finished yet."
 
-installpp:
+install:
 	@if [ -z $$(which matlab) ] ; then \
 		echo " " >> $$HOME/.bash_profile ; \
 		echo "# Added by PlanetProfile" >> $$HOME/.bash_profile ; \
 		echo "export PATH=\$$PATH:$$(echo $(matlabpath))" >> $$HOME/.bash_profile ; \
 	fi
 
-	mkdir /opt/refprop
+	mkdir -p /opt/refprop
 	cp Thermodynamics/librefprop.so-master/librefprop.dylib /opt/
-	mkdir /opt/refprop/fluids /opt/refprop/mixtures
-	cp Thermodynamics/librefprop.so-master/files/*.fld /opt/fluids/
-	cp Thermodynamics/librefprop.so-master/files/*.mix /opt/mixtures/
+	mkdir -p /opt/refprop/fluids /opt/refprop/mixtures
+	cp Thermodynamics/librefprop.so-master/files/*.fld /opt/refprop/fluids/
+	cp Thermodynamics/librefprop.so-master/files/*.mix /opt/refprop/mixtures/
 	@echo " "
-	@echo "To complete installation, open a new Terminal window, or type the following command:"
+	@echo "To complete installation, relaunch Terminal or type the following command:"
 	@echo "	source ~/.bash_profile"
+	@echo " "
 
-uninstallpp:
+uninstall:
 	rm /opt/librefprop.dylib
-	rm /opt/fluids/*.fld
-	rm /opt/mixtures/*.mix
+	rm /opt/refprop/fluids/*.fld
+	rm /opt/refprop/mixtures/*.mix
 	rmdir /opt/refprop/fluids /opt/refprop/mixtures	
 	rmdir /opt/refprop
+	@echo " "
+	@echo "Uninstall complete. Files within this directory have not been modified."
+	@echo "Delete this directory and all subdirectories to finish purge."
 	@echo "You may also want to delete the lines inserted into your ~/.bash_profile."
+	@echo " "
