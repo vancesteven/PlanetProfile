@@ -3,7 +3,14 @@ Matlab software for constructing 1D interior structure models based on planetary
 
 The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model. Python 3 is required for NH3 solutions; see the detailed note below for more information.
 
-To create a profile with default parameters, follow these steps:
+SETUP:
+  @ Find the path to the python3 executable (example command: which python3 ), and copy the full path
+  @ In a fresh Matlab session, at the console type pyversion("/path/to/python3/executable")
+  @ Copy the following files into the directories below:
+      $ ( For Windows, get instructions from the librefprop GitHub page. Some files are missing. )
+      $ PlanetProfile/Thermodynamics/Refprop/librefprop.dylib to /opt/
+      $ PlanetProfile/Thermodynamics/Refprop/files/*.fld to /opt/refprop/fluids/
+      $ PlanetProfile/Thermodynamics/Refprop/files/*.mix to /opt/refprop/mixtures/
   @ In Matlab, add the PlanetProfile directory and subdirectories to your path.
       $ In the ribbon, go to Home -> Set Path -> Add with Subfolders... -> PlanetProfile
   @ Set your active path to the directory of the body to simulate.
@@ -24,9 +31,10 @@ Calculations with NH3 solutions use REFPROP and require a compiled dynamic libra
 Access to REFPROP functions is through python 3 using librefprop.so: https://github.com/jowr/librefprop.so
 Python capabilities are employed using the included matlab code refproppy.m
 REFPROP version 10, expected in October 2017, will provide matlab functions and Mac modules, which may eliminate the need for the above workarounds.
+Instructions for installing Python 3 on a Mac can be found at http://docs.python-guide.org/en/latest/starting/install3/osx/
 
 Rock properties are from Perple_X: http://www.perplex.ethz.ch/
-Input files were developed by Fabio Cammarano. Version 6.7.8 is currently being used.
+Input files were developed by Fabio Cammarano. Version 6.7.9 is currently being used.
 
 TODOs:
 Modularization is not complete. 
