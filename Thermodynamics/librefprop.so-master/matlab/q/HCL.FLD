@@ -1,0 +1,141 @@
+hydrogen chloride  !short name
+7647-01-0          !CAS number
+hydrogen chloride  !full name
+HCl                !chemical formula
+hydrogen chloride  !synonym
+36.460939169       !molecular weight [g/mol]
+131.40             !triple point temperature [K]
+188.199            !normal boiling point [K]
+324.55             !critical temperature [K]
+8263.00            !critical pressure [kPa]
+11.2715            !critical density [mol/L]
+0.12875            !acentric factor
+1.079              !dipole moment [Debye]; DIPPR DIADEM 2012
+NBP                !default reference state
+8.0                !version number
+
+
+! compiled by M. Thol, Thermodynamics, Ruhr-Universitaet Bochum, Germany
+! 05-02-11  MT, original version
+! 05-03-11  MT, add ancillary equations
+! 04-06-13 EWL, add dipole moment
+
+
+#EOS               !equation of state specification
+FEQ  Helmholtz equation of state for HCl of Thol et al. (2013).
+?LITERATURE REFERENCE \
+?Thol, M., Piazza, L., and Span, R.
+? "A New Functional Form for Equations of State for Some Polar and Weakly
+? Associating Fluids,"
+? to be submitted to J. Chem. Eng. Data, 2013.
+?\
+!end of info section
+155.00             !lower temperature limit [K]
+330.00             !upper temperature limit [K]
+20000.00           !upper pressure limit [kPa]
+33.8145            !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+36.460939169                           !molecular weight [g/mol]
+131.400                                !triple point temperature [K]
+0.70                                   !pressure at triple point [kPa]
+33.8145                                !density at triple point [mol/L]
+188.199                                !normal boiling point temperature [K]
+0.12875                                !acentric factor
+324.55    8263.00   11.27151437583969  !Tc [K], pc [kPa], rhoc [mol/L]
+324.55              11.27151437583969  !reducing parameters [K, mol/L]
+8.314471989                            !gas constant [J/mol-K]
+  16  4      0  0      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+-.40937324976033D+00 -0.750   1.000  0 !a(i),t(i),d(i),l(i)
+0.94399457447835D+00 -0.250   1.00   0
+-.17883047746198D+01  1.250   1.00   0
+0.12861904445157D+00  0.750   2.00   0
+0.43901842682022D-02 -1.000   3.00   0
+0.13048090816140D-01 -0.375   3.00   0
+0.16938778195057D-02  1.250   5.00   0
+0.75155906045471D+00  2.375   1.00   1
+-.80000742674245D+00  3.000   1.00   1
+0.43093593894956D+00  2.625   2.00   1
+0.45431945743362D-02  1.875   5.00   1
+-.15217225901373D+00  4.500   1.00   2
+-.43617405929386D-01  5.750   3.00   2
+-.97062596401943D-02  5.375   4.00   2
+0.10114409821330D-01  2.750   5.00   2
+0.37699164395035D-02 14.500   2.00   3
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function for HCl of Thol et al. (2013).
+?LITERATURE REFERENCE \
+?see EOS of Thol et al. (2013)
+?\
+!end of info section
+131.40             !lower temperature limit [K]
+20000.00           !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314471989               !reducing parameters for T, Cp0
+  3  1    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+  3.50000000000000D+00     0.
+  2.55734825459015D-05     1.
+ -4.56792726641497D-08     2.
+  1.05439208014600D+00  4028.11233273057
+
+
+#PS         !vapor pressure equation
+PS6  vapor pressure equation of Thol et al. (2012).
+?LITERATURE REFERENCE \
+?M. Thol 2008
+?\
+!end of info section
+131.400            !lower temperature limit [K]
+324.550            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+324.55   8263.1    !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+   -0.01065138         1.00000
+   -6.15979914         2.00000
+    1.55860976         6.00000
+   -8.42734117        11.00000
+
+
+#DL         !saturated liquid density equation
+DL2  saturated liquid density equation of Thol et al. (2012).
+?LITERATURE REFERENCE \
+?M. Thol 2008
+?\
+!end of info section
+131.400            !lower temperature limit [K]
+324.550            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+324.55  11.27151   !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+    1.89232034         1.00000
+    0.83621066         2.00000
+   -0.22094602         4.00000
+    4.70971253        11.00000
+   -5.34396174        13.00000
+
+
+#DV         !saturated vapor density equation
+DV4  saturated vapor density equation of Thol et al. (2012).
+?LITERATURE REFERENCE \
+?L. Piazza 2008
+?\
+!end of info section
+131.400            !lower temperature limit [K]
+324.550            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+324.55  11.27151   !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+   -2.95523223         1.29000
+   -8.10448179         4.20000
+  -14.78392979        11.10000
+  -87.13352586        24.00000
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

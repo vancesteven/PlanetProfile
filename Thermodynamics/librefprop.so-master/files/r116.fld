@@ -1,0 +1,512 @@
+R116               !short name
+76-16-4            !CAS number
+hexafluoroethane   !full name
+CF3CF3             !chemical formula {C2F6}
+FC-116             !synonym
+138.01182          !molecular weight [g/mol]
+173.1              !triple point temperature [K]
+195.06             !normal boiling point [K]
+293.03             !critical temperature [K]
+3048.0             !critical pressure [kPa]
+4.444              !critical density [mol/L]
+0.2566             !acentric factor
+0.0                !dipole moment [Debye]
+IIR                !default reference state
+8.0                !version number
+2193               !UN Number
+halocb             !family
+12200.             !GWP (IPCC 2007)
+97000.             !RCL (ppm v/v, ASHRAE Standard 34, 2010)
+A1                 !Safety Group (ASHRAE Standard 34, 2010)
+
+
+! compiled by E.W. Lemmon, NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 12-02-96 EWL, original version
+! 01-31-97  MM, change pointer for ECS reference viscosity from VS3 to VS1
+!               modify ncoeff line for FEQ to accommodate critical region terms
+! 02-20-97  MM, add default reference state
+! 02-26-97  MM, add version number (future use)
+! 03-11-97  MM, modify ECS-transport to new format
+! 10-24-97  MM, read in f_int term in Eucken correlation in ECS method for t.c.
+!               change reference fluid EOS for ECS-transport from BWR to FEQ
+! 05-21-02 MLH, added coefficients for fit to transport data
+! 07-11-02 EWL, add new equation of Lemmon and Span
+! 01-23-03 EWL, update cp0 equation
+! 01-30-04 EWL, update EOS coefficients
+! 04-19-04 MLH, update transport reference
+! 08-17-10 IDC, add ancillary equations
+! 10-15-10 MLH, revised lower t limits on visc and therm. cond.
+! 10-18-10 MLH, revised viscosity and thermal conductivity estimation method
+! 12-06-12 EWL, add surface tension coefficients of Mulero et al. (2012)
+
+
+#EOS               !equation of state specification
+FEQ  short Helmholtz equation of state for R-116 of Lemmon and Span (2006).
+?LITERATURE REFERENCE \
+?Lemmon, E.W. and Span, R.,
+? "Short Fundamental Equations of State for 20 Industrial Fluids,"
+? J. Chem. Eng. Data, 51:785-850, 2006.
+?\
+?The uncertainties in the equation are 0.5% in density for liquid and vapor
+?states and 1% in density or pressure for supercritical states.  For vapor
+?pressure, the uncertainty is 0.3%, that for vapor phase speed of sounds is
+?0.2%, and the uncertainty for heat capacities is 5%.
+?\
+!end of info section
+173.1              !lower temperature limit [K]
+425.0              !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+12.31              !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+138.01182                              !molecular weight [g/mol]
+173.1                                  !triple point temperature [K]
+26.08                                  !pressure at triple point [kPa]
+12.30                                  !density at triple point [mol/L]
+195.06                                 !normal boiling point temperature [K]
+0.2566                                 !acentric factor
+293.03        3048.0      4.444        !Tc [K], pc [kPa], rhoc [mol/L]
+293.03                    4.444        !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  12  4      0  0      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  1.1632          0.25    1.0   0      !a(i),t(i),d(i),l(i)
+ -2.8123          1.125   1.0   0
+  0.77202         1.5     1.0   0
+ -0.14331         1.375   2.0   0
+  0.10227         0.25    3.0   0
+  0.00024629      0.875   7.0   0
+  0.30893         0.625   2.0   1
+ -0.028499        1.75    5.0   1
+ -0.30343         3.625   1.0   2
+ -0.068793        3.625   4.0   2
+ -0.027218       14.5     3.0   3
+  0.010665       12.0     4.0   3
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?Lemmon, E.W. and Span, R. (see eos for reference)
+?\
+!end of info section
+50.0               !lower temperature limit [K]
+3000.0             !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  1  3    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 4.0         0.0
+ 2.4818    190.0
+ 7.0622    622.0
+ 7.9951   1470.0
+
+
+#AUX               !auxiliary model specification
+PH0  Helmholtz form for the ideal-gas state
+?LITERATURE REFERENCE \
+?Lemmon, E.W. and Span, R. (see eos for reference)
+?\
+!end of info section
+50.0               !lower temperature limit [K]
+3000.0             !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1 2  3  0 0  0 0 0 !Nterms:  ai*log(tau**ti); ai*tau**ti; ai*log(1-exp(bi*tau))
+    3.0000000000    1.0000000000   !ai, ti for [ai*log(tau**ti)] terms
+  -10.7088650331    0.0000000000   !aj, ti for [ai*tau**ti] terms
+    8.9148979056    1.0000000000
+    2.4818000000   -0.6483977750   !aj, ti for [ai*log(1-exp(ti*tau)] terms
+    7.0622000000   -2.1226495581
+    7.9951000000   -5.0165512064
+
+
+@EOS               !equation of state specification
+FE1  Helmholtz equation of state for R-116 of Kozlov (1996).
+?LITERATURE REFERENCE \
+?private communication with Dr. Alexander  D. Kozlov, Director,
+?VNITs SMV Russian Research Center for Standardization Information
+?and Certification of Materials, Nahimovsky prospect, 31, bld. 2
+?Moscow 117418, Russia.
+?aldrkozlov@mail.ru
+?\
+!end of info section
+176.0              !lower temperature limit [K]
+425.0              !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+12.23              !maximum density [mol/L]
+CP1                                    !pointer to Cp0 model
+138.01                                 !molecular weight [g/mol]
+176.0                                  !triple point temperature [K]
+32.09                                  !pressure at triple point [kPa]
+12.231                                 !density at triple point [mol/L]
+194.98                                 !normal boiling point temperature [K]
+0.25396                                !acentric factor
+293.03       3042.0       4.5069198    !Tc [K], pc [kPa], rhoc [mol/L]
+293.03                    4.5069198    !reducing parameters [K, mol/L]
+8.31451                                !gas constant [J/mol-K]
+      23  4      0  0       0  0       !# terms, # coeff/term for:  "normal" terms, critical, spare
+  2.1775273D0       0.25    1.     0   !a(i),t(i),d(i),l(i)
+ -5.5052198D0       1.00    1.     0
+ -1.3675742D0       3.00    1.     0
+ -8.1284229D-1      4.00    1.     0
+ -4.0207525D-1      0.25    2.     0
+  2.5890073D0       1.00    2.     0
+  1.4500537D0       3.50    2.     0
+ -1.0445036D0       1.50    3.     0
+  9.8965288D-1      2.50    3.     0
+ -8.6794888D-1      3.00    4.     0
+  2.8240917D-1      3.00    5.     0
+  4.5154220D-2      1.00    6.     0
+ -3.0294024D-2      3.00    6.     0
+ -1.7668398D-2      1.00    7.     0
+  2.0592774D-3      1.00    8.     0
+  4.2059839D0       2.00    1.     1
+  2.1500380D-1      5.00    1.     2
+ -1.6449561D-1      2.00    4.     2
+ -1.2396086D-1      4.00    4.     2
+  1.5814552D-1      8.00    5.     3
+ -1.4362345D-1      10.0    5.     3
+  1.8637877D-2      10.0    8.     3
+  1.6342835D-2      18.0    4.     4
+
+
+#AUX               !auxiliary model specification
+CP1  ideal gas heat capacity function of Kozlov (1996).
+?LITERATURE REFERENCES \
+?private communication with Dr. Alexander  D. Kozlov, Director,
+?VNITs SMV Russian Research Center for Standardization Information
+?and Certification of Materials, Nahimovsky prospect, 31, bld. 2
+?Moscow 117418, Russia.
+?aldrkozlov@mail.ru
+?
+!end of info section
+100.0              !lower temperature limit [K]
+1000.0             !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.31451                   !reducing parameters for T, Cp0
+  6  0    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 27.4009901        0.00                !c(i), power of T
+-2.6057376855D-06  2.00
+ 9.7501305219D-10  3.00
+-6559.250418      -1.00
+ 787904.9649      -2.00
+-34166787.86      -3.00
+
+
+#ETA               !viscosity model specification
+VS1  estimation based on pure fluid viscosity model of Huber, Laesecke and Perkins (2003), scaled to R116.
+?LITERATURE REFERENCE \
+?The model is based on a scaling of the correlation presented below.
+?Huber, M.L., Laesecke, A., and Perkins, R.A.,
+? "Model for the Viscosity and Thermal Conductivity of Refrigerants,
+? Including a New Correlation for the Viscosity of R134a",
+? Ind. Eng. Chem. Res., 42:3163-3178, 2003.
+?\
+? The estimated uncertainty in the liquid phase along the saturation boundary is 25 %,
+? and of the vapor phase is 5 %
+?\
+!end of info section
+173.1              !lower temperature limit [K]
+425.0              !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+12.31              !maximum density [mol/L]
+1                  !number of terms associated with dilute-gas function
+CI1                !pointer to reduced effective collision cross-section model
+0.5249             !Lennard-Jones coefficient sigma [nm]
+226.16             !Lennard-Jones coefficient epsilon/kappa [K]
+1.0    1.10         !reducing parameters for T, eta  scaled
+0.25090d0  0.50d0  !=0.021357*SQRT(MW)  [Chapman-Enskog term]
+9                  !number of terms for initial density dependence
+226.16    0.08709         !reducing parameters for T (=eps/k), etaB2 (= 0.6022137*sigma**3)
+-0.19572881d+2   0.00d0   !coeff, power in T* = T/(eps/k)
+ 0.21973999d+3  -0.25d0
+-0.10153226d+4  -0.50d0
+ 0.24710125d+4  -0.75d0
+-0.33751717d+4  -1.00d0
+ 0.24916597d+4  -1.25d0
+-0.78726086d+3  -1.50d0
+ 0.14085455d+2  -2.50d0
+-0.34664158d+0  -5.50d0
+ -3 7 1 2 0 0        !# resid terms:  close-packed density;  simple poly; numerator of rational poly; denominator of rat. poly; numerator of exponential; denominator of exponential
+293.03    4.444     1.22d3         !reducing parameters for T, rho, eta sacling for R116 (Laesecke correlation in terms of mPa-s, convert to uPa-s)
+ 3.163695635587490      0.00       !alternative form for del10; numerator term
+-0.8901733752064137d-1  1.00       !alternative form for del10; denominator terms
+ 0.1000352946668359     2.00       !alternative form for del10; denominator terms
+-0.2069007192080741d-1  0.00  1.00  0.00  0  !beta1; powers of tau, del, del0; power of del in exponential [0 indicated no exponential term present]
+ 0.3560295489828222d-3 -6.00  2.00  0.00  0  !beta2
+ 0.2111018162451597d-2 -2.00  2.00  0.00  0  !beta3
+ 0.1396014148308975d-1 -0.50  2.00  0.00  0  !beta4
+-0.4564350196734897d-2  2.00  2.00  0.00  0  !beta5
+-0.3515932745836890d-2  0.00  3.00  0.00  0  !beta6
+-0.2147633195397038     0.00  0.00 -1.00  0  !beta7
+ 0.2147633195397038     0.00  0.00  0.00  0  !beta7 in non-simple poly term
+ 1.000000d+0            0.00  0.00  1.00  0  !del0 term in denominator
+-1.000000d+0            0.00  1.00  0.00  0  !-del term in denominator
+NUL                !pointer to critical enhancement auxiliary function (none used)
+
+
+#AUX               !reduced effective collision cross-section model specification
+CI1  reduced effective collision cross-section model (empirical form in terms of log(T*))
+?LITERATURE REFERENCE \
+?reduced effective collision cross-section of Wilhelm & Vogel as reported by:\
+?Laesecke, A.,(laesecke@boulder.nist.gov); Unpublished correlation R134aFitSelDV
+? see ftp://ftp.boulder.nist.gov/pub/fluids/NIST_Data/Viscosity/StandardReferenceCorrelations/
+?\
+!end of info section
+134.86             !lower temperature limit [K]
+500.0              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+3                  !number of terms
+ 0.355404d+0  0   !coeff, power of Tstar
+-0.464337d+0  1
+ 0.257353d-1  2
+
+
+#TCX               !thermal conductivity model specification
+TC1  pure fluid thermal conductivity model of Perkins et al. (2000), scaled to R116.
+?LITERATURE REFERENCE \
+?The model is based on a scaling of the correlation presented below.
+?Perkins, R.A., Laesecke, A., Howley, J., Ramires, M.L.V., Gurova, A.N., and
+? Cusco, L., "Experimental thermal conductivity values for the IUPAC
+? round-robin sample of 1,1,1,2-tetrafluoroethane (R134a),"
+? NISTIR, 2000.
+?\
+?The estimated uncertainty in thermal conductivity is 5%.
+?\
+!end of info section
+173.1              !lower temperature limit [K]
+425.0              !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+12.31              !maximum density [mol/L]
+2   0              !# terms for dilute gas function:  numerator, denominator
+1.0    1.05 ! 1.0        !reducing parameters for T, tcx
+-1.05248d-2    0.00d0   !coeff, power in T
+ 8.00982d-5    1.00d0
+4   0              !# terms for background gas function:  numerator, denominator
+1.0    4.444     1.64d-3  !2.055d-03             !reducing par for T, rho (rho_c), tcx
+ 1.836526       0.0  1.0  0.0 !coeff, powers of T, rho, spare for future use
+ 5.126143d+0   0.00d0   2.00d0   0.00d0
+-1.436883d+0   0.00d0   3.00d0   0.00d0
+ 6.261441d-1   0.00d0   4.00d0   0.00d0
+TK3                !pointer to critical enhancement auxiliary function
+
+
+@TRN               !transport model specification
+ECS  Extended Corresponding States model (R134a reference);     fitted to limited data.
+?LITERATURE REFERENCES \
+?Huber, M.L., Laesecke, A., and Perkins, R.A.,
+? "Model for the Viscosity and Thermal Conductivity of Refrigerants,
+? Including a New Correlation for the Viscosity of R134a",
+? Industrial and Engineering Chemistry Research, 42:3163-3178, 2003.
+?\
+?DATA SOURCES FOR THERMAL CONDUCTIVITY\
+?The ECS parameters for thermal conductivity were based in part on the data of:\
+?\
+?Tauscher, W. (1967). "Thermal conductivity of liquid refrigerants
+? measured by an unsteady state hot wire method".Kaltetechnik, 19:288-292.
+?
+?Gunchuk, B.V., Zhelezny, V.P., Zhosul, I. (1989). "Study of density, viscosity, thermal conductivity,
+? surface tension of refrigerants R116, R132B2, R318, R329 and azeotropic mixtures of
+? R116-R23, R116-R13 at the boiling line", Teplofizicheskiye svoysta veshchestv i materialov,
+? part 28,93-106.
+?
+?Potapov, M.D. (1988). "The thermal conductivity of liquid binary mixtures of halogenated
+? hydrocarbons", PhD Thesis, OTIPP, Odessa.
+?
+?Clifford, A.A., Dickinson, E. and Gray, P. (1996)."Thermal conductivity of gaseous alkanes
+? + perfluoroalkane mixtures", J. Chem. Soc. Far. Trans. I, 1997.
+?\
+?Average absolute deviations of the fit from the experimental data were:\
+?  Tauscher:  2.57%; Gunchuk: 1.15%; Potapov: 1.20%; Clifford: 3.93%
+?  Overall:  1.37%\
+?\
+?DATA SOURCES FOR VISCOSITY\
+?The ECS parameters for viscosity were based in part on the data of:\
+?\
+?Gunchuk, B.V., Zhelezny, V.P., Zhosul, I. (1989). "Study of density, viscosity, thermal conductivity,
+? surface tension of refrigerants R116, R132B2, R318, R329 and azeotropic mixtures of
+? R116-R23, R116-R13 at the boiling line", Teplofizicheskiye svoysta veshchestv i materialov,
+? part 28,93-106.
+?
+?Dunlop, P.J. (1994). "Viscosities of a series of gaseous fluorocarbons at 25C", J.Chem.Phys. 100(4):3149-3151.
+?
+?Average absolute deviations of the fit from the experimental data were:\
+?   Gunchuk:  0.88%; Dunlop: 1.06%
+?   Overall:   0.89%\
+?\
+?The Lennard-Jones parameters are estimated.\
+?
+!end of info section
+173.1              !lower temperature limit [K]
+425.0              !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+12.31              !maximum density [mol/L]
+FEQ R134a.fld
+VS1                !model for reference fluid viscosity
+TC1                !model for reference fluid thermal conductivity
+1                  !Lennard-Jones flag (0 or 1) (0 => use estimates)
+0.5249             !Lennard-Jones coefficient sigma [nm] for ECS method !from scaling R134a
+226.16             !Lennard-Jones coefficient epsilon/kappa [K] for ECS method !from scaling R134a
+1  0  0                       !number of terms in f_int term in Eucken correlation, spare1, spare2
+ 1.3200d-3      0.0  0.0  0.0 !coeff, power of T, spare 1, spare 2
+2  0  0                       !number of terms in psi (visc shape factor): poly,spare1,spare2
+ 1.21996        0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+-6.47835d-2     0.0  1.0  0.0 !coeff, power of Tr, power of Dr, spare
+2  0  0                       !number of terms in chi (t.c. shape factor): poly,spare1,spare2
+ 0.118041d1     0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+-0.539975d-1    0.0  1.0  0.0 !coeff, power of Tr, power of Dr, spare
+TK3                           !pointer to critical enhancement auxiliary function
+
+
+#AUX               !thermal conductivity critical enhancement model
+TK3  simplified thermal conductivity critical enhancement of Olchowy and Sengers
+?LITERATURE REFERENCE \
+?Olchowy, G.A. and Sengers, J.V.,
+? "A simplified representation for the thermal conductivity of fluids in the
+? critical region,"
+? Int. J. Thermophysics, 10:417-426, 1989.
+?\
+?as applied to CO2 by:
+?\
+?Vesovic, V., Wakeham, W.A., Olchowy, G.A., Sengers, J.V., Watson, J.T.R.
+? and Millat, J.,
+? "The transport properties of carbon dioxide,"
+? J. Phys. Chem. Ref. Data, 19:763-808, 1990.
+?\
+!end of info section
+173.1              !lower temperature limit [K]
+425.0              !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+12.31              !maximum density [mol/L]
+9  0  0  0         !# terms:  CO2-terms, spare, spare, spare
+1.0     1.0     1.0      !reducing par for T, rho, tcx (mW/m-K)
+0.630d0            !gnu (universal exponent)
+1.239d0            !gamma (universal exponent)
+1.03d0             !R0 (universal amplitude)
+0.063d0            !z (universal exponent--not used for t.c., only viscosity)
+1.00d0             !c (constant in viscosity eqn = 1/[2 - (alpha + gamma)/(2*nu)], but often set to 1)
+0.194d-9           !xi0 (amplitude) [m]
+0.0496             !gam0 (amplitude) [-]
+0.5d-09            !qd_inverse (modified effective cutoff parameter) [m] generic number, not fit to data
+439.545d+00        !tref (reference temperature)=1.5*Tc [K]
+
+
+#STN        !surface tension specification
+ST1  surface tension model of Mulero et al. (2012)
+?LITERATURE REFERENCE \
+?Mulero, A., Cachadiña, I., and Parra, M.I.
+? "Recommended Correlations for the Surface Tension of Common Fluids,"
+? J. Phys. Chem. Ref. Data, 41, 043105, 2012.
+?\
+!end of info section
+0.0                !lower temperature limit [K]
+293.03             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+2                           !number of terms in surface tension model
+293.03                      !critical temperature used in fit (dummy)
+ 0.047593    1.2666         !sigma0 and n
+-0.0073402   1.9892
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+173.1              !lower temperature limit [K]
+293.03             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+293.03  3048.0     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-0.73997D+01   1.0
+ 0.22554D+01   1.5
+-0.23385D+01   2.2
+-0.35244D+01   4.8
+ 0.40350D+00   6.2
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+173.1              !lower temperature limit [K]
+293.03             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+293.03  4.444      !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+ 0.68490D+02   0.64     !coefficients and exponents
+-0.24772D+03   0.79
+ 0.35824D+03   0.95
+-0.25290D+03   1.14
+ 0.76880D+02   1.33
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+173.1              !lower temperature limit [K]
+293.03             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+293.03  4.444      !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+-0.34135D+01   0.428     !coefficients and exponents
+-0.14529D+03   2.0
+ 0.23651D+03   2.24
+-0.22276D+03   3.0
+ 0.23103D+03   4.0
+-0.17433D+03   5.0
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890
+
+
+@EOS               !equation of state specification
+ECS  Thermodynamic Extended Corresponding States model w/ T- and rho-dependent shape factors.
+?LITERATURE REFERENCE \
+?Huber, M.L. and Ely, J.F.,
+? "A predictive extended corresponding states model for pure and mixed
+? refrigerants including an equation of state for R134a,"
+? Int. J. Refrigeration, 17:18-31, 1994.\
+?\
+?extended by the addition of density-dependent shape factors based on
+? fit by E.W. Lemmon, 12-2-96\
+?
+!end of info section
+173.1              !lower temperature limit [K]
+500.0              !upper temperature limit [K]
+60000.0            !upper pressure limit [kPa]
+12.29              !maximum density [mol/L]
+CPP                !pointer to Cp0 model
+r134a.fld
+BWR                !pointer to reference fluid model
+0.32668            !acentric factor for R134a used in shape factor correlation
+0.259147           !critical compressibility for R134a used in correlation
+0.256              !acentric factor for fluid used in shape factor correlation
+293.03             !critical temperature [K]
+3042.0             !critical pressure [kPa]
+4.5069198          !critical density [mol/L]
+2                         !number of temperature coefficients for 'f' shape factor
+  0.463297447E+00  0      !alpha1 of Huber & Ely
+ -0.511776783E+00  1      !alpha2 of Huber & Ely (log(Tr) term)
+1                         !number of density coefficients for 'f' shape factor
+  0.707956644E-02  1
+3                         !number of temperature coefficients for 'h' shape factor
+ -0.404678693E+01  0      !beta1 of Huber & Ely
+ -0.239087880E+01  1      !beta2 of Huber & Ely (log(Tr) term)
+ -0.169059282E+00  1
+0                         !number of density coefficients for 'h' shape factor
+
+

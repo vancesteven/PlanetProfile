@@ -1,0 +1,308 @@
+cyclopentane       !short name
+287-92-3           !CAS number
+cyclopentane       !full name
+C5H10              !chemical formula
+C5H10              !synonym
+70.1329            !molecular weight [g/mol]
+179.7              !triple point temperature [K]
+322.405            !normal boiling point [K]
+511.72             !critical temperature [K]
+4571.2             !critical pressure [kPa]
+3.82               !critical density [mol/L]
+0.201              !acentric factor
+0.0                !dipole moment [Debye]
+NBP                !default reference state
+8.0                !version number
+1146               !UN Number
+naphthene          !family
+
+
+! compiled at NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 09-02-08 EWL, original version
+! 07-01-10 MLH, add preliminary transport
+! 08-23-10 IDC, add ancillary equations
+! 02-22-10 EWL, add new equation of state
+
+
+#EOS               !equation of state specification
+FEQ  Helmholtz equation of state for cyclopentane of Gedanitz et al. (2013).
+?LITERATURE REFERENCE \
+?Gedanitz, H., Davila, M.J., Lemmon, E.W.
+?  unpublished equation, 2013.
+?\
+?The uncertainty in density of the equation of state ranges from 0.2% at low
+?temperatures in the liquid to 0.5% at the highest temperatures and in the vapor.
+?Between 280 and 315 K, the uncertainty in saturated liquid density decreases to
+?0.05%.  The uncertainty in the speed of sound is 0.1% and in heat capacities is
+?1%.  The uncertainty in vapor pressure is 0.1% at temperatures between 280 and
+?325 K. This uncertainty increases to possibly 0.5% at other temperatures due to
+?a lack of reliable experimental data.  In the critical region, the uncertainties
+?are higher for all properties.
+?\
+!end of info section
+179.7              !lower temperature limit [K]
+550.               !upper temperature limit [K]
+250000.            !upper pressure limit [kPa]
+12.11              !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+70.1329                                !molecular weight [g/mol]
+179.7                                  !triple point temperature [K]
+0.008854                               !pressure at triple point [kPa]
+12.1                                   !density at triple point [mol/L]
+322.405                                !normal boiling point temperature [K]
+0.201                                  !acentric factor
+511.72        4571.2         3.82      !Tc [K], pc [kPa], rhoc [mol/L]
+511.72                       3.82      !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  10  4      4 12      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  0.0536938      1.0    4.   0.        !a(i),t(i),d(i),l(i)
+  1.60394        0.29   1.   0.
+ -2.41244        0.8    1.   0.
+ -0.474009       1.14   2.   0.
+  0.203482       0.5    3.   0.
+ -0.965616       2.0    1.   2.
+ -0.344543       1.5    3.   2.
+  0.353975       1.0    2.   1.
+ -0.231373       3.36   2.   2.
+ -0.0379099      0.95   7.   1.
+  0.867586       1.0    1.   2. 2.  -0.82  -1.15  1.08  0.68   0. 0. 0.
+ -0.381827       2.5    1.   2. 2.  -1.19  -1.61  0.36  0.97   0. 0. 0.
+ -0.108741       2.5    3.   2. 2.  -0.79  -0.66  0.09  0.84   0. 0. 0.
+ -0.0976984      1.5    3.   2. 2.  -1.52  -2.72  1.48  0.66   0. 0. 0.
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function of Gedanitz et al. (2013).
+?LITERATURE REFERENCE \
+?see EOS
+?\
+!end of info section
+1.                 !lower temperature limit [K]
+5000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  1  4    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 1.96      0.0
+ 3.34    120.0
+ 18.6   1300.0
+ 13.9   2700.0
+ 4.86   5300.0
+
+
+#AUX               !auxiliary model specification
+PH0  Helmholtz form for the ideal-gas state
+?LITERATURE REFERENCE \
+?\
+!end of info section
+1.                 !lower temperature limit [K]
+5000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1 2  4  0 0  0 0 0 !Nterms:  ai*log(tau**ti); ai*tau**ti; ai*log(1-exp(bi*tau))
+    0.96            1.0            !ai, ti for [ai*log(tau**ti)] terms
+    3.2489131288    0.0            !aj, ti for [ai*tau**ti] terms
+    2.6444166315    1.0
+    3.34           -0.2345032440   !aj, ti for [ai*log(1-exp(ti*tau)] terms
+   18.6            -2.5404518096
+   13.9            -5.2763229891
+    4.86          -10.3572266083
+
+
+@EOS               !equation of state specification
+FEQ  Helmholtz equation of state for cyclopentane
+?LITERATURE REFERENCE \
+?Lemmon, E.W., unpublished equation, 2008.
+?\
+!end of info section
+179.722            !lower temperature limit [K]
+600.               !upper temperature limit [K]
+200000.            !upper pressure limit [kPa]
+12.2               !maximum density [mol/L]
+CP1                                    !pointer to Cp0 model
+70.1329                                !molecular weight [g/mol]
+179.722                                !triple point temperature [K]
+0.0089                                 !pressure at triple point [kPa]
+12.1                                   !density at triple point [mol/L]
+322.40                                 !normal boiling point temperature [K]
+0.195                                  !acentric factor
+511.69        4515.0       3.82        !Tc [K], pc [kPa], rhoc [mol/L]
+511.69                     3.82        !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  10  4      4 12      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  0.4909331D-01   1.00   4.   0.       !a(i),t(i),d(i),l(i)
+  0.1244679D+01   0.23   1.   0.
+ -0.1990222D+01   0.94   1.   0.
+ -0.5245596D+00   1.08   2.   0.
+  0.1764215D+00   0.53   3.   0.
+ -0.1066798D+01   1.67   1.   2.
+ -0.5028152D+00   1.80   3.   2.
+  0.8484762D+00   1.30   2.   1.
+ -0.4547443D+00   2.50   2.   2.
+ -0.2767817D-01   1.00   7.   1.
+  0.9455318D+00   0.87   1.   2.0  2.0   -1.023  -1.70   1.10   0.713 0. 0. 0.
+ -0.3014822D+00   1.40   1.   2.0  2.0   -1.383  -1.55   0.64   0.917 0. 0. 0.
+ -0.1675668D+00   2.40   3.   2.0  2.0   -0.996  -1.07   0.50   0.688 0. 0. 0.
+ -0.6377070D+00   1.30   3.   2.0  2.0   -7.038 -87.17   1.26   0.748 0. 0. 0.
+
+
+#AUX               !auxiliary model specification
+CP1  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?\
+!end of info section
+179.722            !lower temperature limit [K]
+5000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  1  4    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 3.263      0.0
+ 2.151    179.0
+ 19.55   1336.0
+ 14.45   2911.0
+ 3.594   6420.0
+
+
+#TRN               !transport model specification
+ECS  Extended Corresponding States model (Propane reference)
+?LITERATURE REFERENCES \
+?
+? *** ESTIMATION METHOD--- NOT STANDARD REFERENCE QUALITY---
+?
+? Uses method described in the following reference:
+? Huber, M.L., Laesecke, A., and Perkins, R.A.,
+? "Model for the Viscosity and Thermal Conductivity of Refrigerants,
+? Including a New Correlation for the Viscosity of R134a",
+? Ind. Eng. Chem. Res., 42:3163-3178, 2003.
+?
+? Thermal conductivity:
+? Comparisons with liquid data of Assael, M. J.; Dalaouti, N. K.
+? "Thermal Conductivity of Toluene+Cyclopentane Mixtures: Measurements and Prediction"
+? Int. J. Thermophys., 2001, 22(3), 659-678 indicate an estimated
+? uncertainty of 2 % along the saturation boundary and at pressures to 15 MPa
+?
+? Viscosity:
+? Comparisons with the liquid data of Assael, M. J.; Dalaouti, N. K.
+? "Measurement of the viscosity of cyclopentane  from 210 to 310 K and pressures up to 25 MPa"
+? High Temp. - High Pressures, 2000, 32, 179-184 indicate an estimated
+? uncertainty of 2 % along the saturation boundary and at pressures to 25 MPa
+?
+?\
+?Lennard-Jones parameters are estimated from method of Chung.
+?\
+!end of info section
+179.722            !lower temperature limit [K]
+600.               !upper temperature limit [K]
+200000.            !upper pressure limit [kPa]
+12.2               !maximum density [mol/L]
+FEQ propane.fld
+VS1                !model for reference fluid viscosity
+TC1                !model for reference fluid thermal conductivity
+1                  !Lennard-Jones flag (0 or 1) (0 => use estimates)
+0.518              !Lennard-Jones coefficient sigma [nm]
+406.33             !Lennard-Jones coefficient epsilon/kappa [K] for ECS method
+1  0  0                       !number of terms in f_int term in Eucken correlation, spare1, spare2
+ 1.32d-3        0.0  0.0  0.0 !coeff, power of T, spare 1, spare 2
+3  0  0                       !number of terms in psi (visc shape factor): poly,spare1,spare2
+ 0.419310       0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+ 0.428236       0.0  1.0  0.0 !coeff, power of Tr, power of Dr, spare
+-7.31587d-2     0.0  2.0  0.0 !coeff, power of Tr, power of Dr, spare
+2  0  0                       !number of terms in chi (t.c. shape factor): poly,spare1,spare2
+ 1.01979         0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+ 4.32795d-03     0.0  1.0  0.0 !coeff, power of Tr, power of Dr, spare
+TK3                           !pointer to critical enhancement auxiliary function
+
+
+#AUX               !thermal conductivity critical enhancement model
+TK3  simplified thermal conductivity critical enhancement of Olchowy and Sengers
+?LITERATURE REFERENCE \
+?Olchowy, G.A. and Sengers, J.V.,
+? "A simplified representation for the thermal conductivity of fluids in the
+? critical region,"
+? Int. J. Thermophysics, 10:417-426, 1989.
+?\
+?as applied to CO2 by:
+?\
+?Vesovic, V., Wakeham, W.A., Olchowy, G.A., Sengers, J.V., Watson, J.T.R.
+? and Millat, J.,
+? "The transport properties of carbon dioxide,"
+? J. Phys. Chem. Ref. Data, 19:763-808, 1990.
+?\
+!end of info section
+179.722            !lower temperature limit [K]
+600.               !upper temperature limit [K]
+200000.            !upper pressure limit [kPa]
+12.2               !maximum density [mol/L]
+9  0  0  0         !# terms:  CO2-terms, spare, spare, spare
+1.0     1.0     1.0      !reducing par for T, rho, tcx (mW/m-K)
+ 0.630d+00         !gnu (universal exponent)
+ 1.2415d+00        !gamma (universal exponent)
+ 1.01d+00          !R0 (universal amplitude)
+ 0.065d+00         !z (universal exponent--not used for t.c., only viscosity)
+ 1.00d+00          !c (constant in viscosity eqn = 1/[2 - (alpha + gamma)/(2*nu)], but often set to 1)
+ 1.5d-10           !xi0 (amplitude) [m]
+ 0.052d+00         !gam0 (amplitude) [-]
+ 0.5d-09           !qd_inverse (modified effective cutoff parameter) [m] generic number, not fit to data
+ 767.535d+00       !tref (reference temperature)=1.5*Tc [K]
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Gedanitz et al. (2011).
+?LITERATURE REFERENCE \
+?see eos
+?\
+!end of info section
+1.                 !lower temperature limit [K]
+1000.              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+511.72    4571.2   !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+-7.1905   1.0      !coefficients and exponents
+ 1.8637   1.5
+-1.6442   5.5
+-2.7200   2.9
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Gedanitz et al. (2011).
+?LITERATURE REFERENCE \
+?see eos
+?\
+!end of info section
+1.                 !lower temperature limit [K]
+1000.              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+511.72  3.82       !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+ 0.0741   0.1      !coefficients and exponents
+ 81.968   0.9
+ 173.88   1.25
+-68.519   1.4
+-184.74   1.05
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Gedanitz et al. (2011).
+?LITERATURE REFERENCE \
+?see eos
+?\
+!end of info section
+1.                 !lower temperature limit [K]
+1000.              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+511.72  3.82       !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-0.0559   0.1      !coefficients and exponents
+-6.4211   0.65
+-46.926   3.2
+ 28.082   3.55
+-70.838   7.5
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

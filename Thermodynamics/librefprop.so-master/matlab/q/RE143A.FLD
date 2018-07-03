@@ -1,0 +1,143 @@
+RE143a                                !short name
+421-14-7                              !CAS number
+methyl trifluoromethyl ether          !full name
+CH3-O-CF3                             !chemical formula {C2H3F3O}
+HFE-143a                              !synonym
+100.0398           !molecular weight [g/mol]
+240.               !triple point temperature [K]
+249.572            !normal boiling point [K]
+377.921            !critical temperature [K]
+3635.              !critical pressure [kPa]
+4.648140744        !critical density [mol/L]
+0.289              !acentric factor
+2.32               !dipole moment [Debye]; calculated by M. Huber, April, 2013.
+IIR                !default reference state
+8.0                !version number
+
+
+! compiled at NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 12-14-11 EWL, original version
+! 04-06-13 MLH, add dipole moment
+
+
+#EOS               !equation of state specification
+FEQ  Helmholtz equation of state for HFE-143m of Akasaka and Kayukawa (2012).
+?LITERATURE REFERENCE \
+?Akasaka, R. and Kayukawa, Y.
+? "A Fundamental Equation of State for Trifluoromethyl Methyl Ether
+?  (HFE-143m) and Its Application to Refrigeration Cycle Analysis,"
+? Int. J. Refrig., 35(4):1003-1013, 2012.
+?\
+?Typical uncertainties are 0.1% for liquid density, 0.3% in pressure of the
+?vapor phase, and 0.1% for vapor pressure, except in the critical region.
+?\
+!end of info section
+240.               !lower temperature limit [K]
+420.               !upper temperature limit [K]
+7200.              !upper pressure limit [kPa]
+12.62              !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+100.0398                               !molecular weight [g/mol]
+240.                                   !triple point temperature [K]
+65.35                                  !pressure at triple point [kPa]
+12.62                                  !density at triple point [mol/L]
+249.572                                !normal boiling point temperature [K]
+0.289                                  !acentric factor
+377.921         3635.    4.648140744   !Tc [K], pc [kPa], rhoc [mol/L]
+377.921                  4.648140744   !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  17  4      0  0      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  0.77715884d+01 0.682 1 0
+ -0.87042750d+01 0.851 1 0
+ -0.28095049d+00 1.84  1 0
+  0.14540153d+00 1.87  2 0
+  0.92291277d-02 0.353 5 0
+ -0.21416510d+00 3.92  1 1
+  0.99475155d-01 1.14  3 1
+  0.23247135d-01 0.104 5 1
+ -0.12873573d-01 1.19  7 1
+ -0.57366549d-01 6.58  1 2
+  0.36504650d+00 6.73  2 2
+ -0.25433763d+00 7.99  2 2
+ -0.90896436d-01 7.31  3 2
+  0.83503619d-01 7.45  4 2
+  0.15477603d-01 16.5  2 3
+ -0.16641941d-01 24.8  3 3
+  0.52410163d-02 10.5  5 3
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function for HFE-143m of Akasaka and Kayukawa (2012).
+?LITERATURE REFERENCE \
+?see EOS of Akasaka and Kayukawa (2012).
+?\
+!end of info section
+1.                 !lower temperature limit [K]
+5000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          1.0                       !reducing parameters for T, Cp0
+  4  0    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 20.37       0.
+ 0.2918      1.
+-1.950d-4    2.
+ 4.650d-8    3.
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation for HFE-143m of Akasaka and Kayukawa (2012).
+?LITERATURE REFERENCE \
+?See EOS
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+377.921            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+377.921 3635.0     !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+-7.44314   1.0     !coefficients and exponents
+ 1.69164   1.5
+-2.27778   2.5
+-4.09400   5.0
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation for HFE-143m of Akasaka and Kayukawa (2012).
+?LITERATURE REFERENCE \
+?See EOS
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+377.921            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+377.921 4.64814    !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+ 1.20552    0.33   !coefficients and exponents
+ 1.33568    0.5
+ 0.0981486  1.5
+ 0.248917   2.5
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation for HFE-143m of Akasaka and Kayukawa (2012).
+?LITERATURE REFERENCE \
+?See EOS
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+377.921            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+377.921 4.64814    !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+-3.02576   0.38    !coefficients and exponents
+-6.97239   1.24
+-20.2601   3.2
+-53.4441   6.9
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

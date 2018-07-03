@@ -1,0 +1,166 @@
+R407C              !short name
+                   !CAS number
+23% R32/25% R125/52% R134a   !full name
+R407C              !chemical formula
+R407C              !synonym
+86.2036            !molecular weight [g/mol]
+200.0              !triple point temperature [K]
+229.52             !normal boiling point [K]
+359.345            !critical temperature [K]
+4631.7             !critical pressure [kPa]
+5.26               !critical density [mol/L]
+0.363              !acentric factor
+-1.                !dipole moment [Debye]     (not yet calculated)
+IIR                !default reference state
+8.0                !version number
+
+! compiled by E.W. Lemmon, NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 11-14-02 EWL, original version
+
+
+#EOS               !equation of state specification
+FEQ  Helmholtz equation of state for R-407C of Lemmon (2003).
+?LITERATURE REFERENCE \
+?Lemmon, E.W.,
+? "Pseudo Pure-Fluid Equations of State for the Refrigerant Blends R-410A,
+? R-404A, R-507A, and R-407C,"
+? Int. J. Thermophys., 24(4):991-1006, 2003.
+?\
+?The estimated uncertainty of density values calculated with the
+?equation of state is 0.1%.  The estimated uncertainty of calculated
+?heat capacities and speed of sound values is 0.5%.  Uncertainties of
+?bubble and dew point pressures are 0.5%.
+?\
+!end of info section
+200.0              !lower temperature limit [K]
+500.0              !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+17.04              !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+86.2036                                !molecular weight [g/mol]
+200.0                                  !triple point temperature [K]
+19.2                                   !pressure at triple point [kPa]
+17.04                                  !density at triple point [mol/L]
+229.52                                 !normal boiling point temperature [K]
+0.363                                  !acentric factor
+359.345       4631.7      5.26         !Tc [K], pc [kPa], rhoc [mol/L]
+359.345                   5.26         !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  21  4      0 12      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  0.105880E+01   0.241   1.   0.       !a(i),t(i),d(i),l(i)
+ -0.112018E+01   0.69    1.   0.
+  0.629064E+00   2.58    1.   0.
+ -0.351953E+00   1.15    2.   0.
+  0.455978E-02   0.248   5.   0.
+ -0.175725E+01   2.15    1.   1.
+ -0.112009E+01   2.43    2.   1.
+  0.277353E-01   5.3     2.   1.
+  0.898881E+00   0.76    3.   1.
+ -0.117591E+01   1.48    3.   1.
+  0.818591E-01   0.24    5.   1.
+ -0.794097E-01   2.86    5.   1.
+ -0.104047E-04   8.0     5.   1.
+  0.233779E+00   3.3     1.   2.
+ -0.291790E+00   4.7     1.   2.
+  0.154776E-01   0.45    4.   2.
+ -0.314579E-01   8.4     4.   2.
+ -0.442552E-02  16.2     2.   3.
+ -0.101254E-01  26.0     4.   3.
+  0.915953E-02  16.0     5.   3.
+ -0.361575E-02   8.7     6.   3.
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?Lemmon, E.W.,
+? (see EOS)
+?\
+!end of info section
+100.0              !lower temperature limit [K]
+1000.0             !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  1  3    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 0.76575      0.4
+ 1.4245     864.0
+ 3.9419    1887.0
+ 3.1209    4802.0
+
+
+#AUX               !auxiliary model specification
+PH0  Helmholtz form for the ideal-gas state
+?LITERATURE REFERENCE \
+?Lemmon, E.W.,
+? (see EOS)
+?\
+!end of info section
+100.0              !lower temperature limit [K]
+1000.0             !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1 3  3  0 0  0 0 0 !Nterms:  ai*log(tau**ti); ai*tau**ti; ai*log(1-exp(bi*tau))
+   -1.0             1.0            !ai, ti for [ai*log(tau**ti)] terms
+    2.13194         0.0            !aj, ti for [ai*tau**ti] terms
+    8.05008         1.0
+  -14.3914         -0.4
+    1.4245         -2.40437        !aj, ti for [ai*log(1-exp(ti*tau)] terms
+    3.9419         -5.25122
+    3.1209        -13.3632
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation
+?LITERATURE REFERENCE \
+? (see EOS)
+?\
+!end of info section
+100.0              !lower temperature limit [K]
+359.345            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+359.345   4631.7   !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+-0.086077   0.4
+-6.6364     0.965
+-2.4648     3.1
+-3.4776     5.0
+
+
+#PL         !liquid pressure equation
+PL5  liquid pressure equation
+?LITERATURE REFERENCE \
+? (see EOS)
+?\
+!end of info section
+100.0              !lower temperature limit [K]
+359.345            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+359.345   4631.7   !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+ 0.48722   0.54
+-6.6959    0.925
+-1.4165    2.7
+-2.5109    4.7
+
+
+#STN        !surface tension specification
+ST1  surface tension model of Lemmon (2003).
+?LITERATURE REFERENCE \
+?  preliminary equation, 2003.
+?\
+!end of info section
+200.0              !lower temperature limit [K]
+359.345            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+1                           !number of terms in surface tension model
+359.345                     !critical temperature used in fit (dummy)
+0.064017    1.2557          !sigma0 and n
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

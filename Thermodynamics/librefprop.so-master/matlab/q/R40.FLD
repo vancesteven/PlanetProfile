@@ -1,0 +1,146 @@
+R40                !short name
+74-87-3            !CAS number
+methyl chloride    !full name
+CH3Cl              !chemical formula
+methyl chloride    !synonym
+50.48752           !molecular weight [g/mol]
+175.00             !triple point temperature [K]
+249.173            !normal boiling point [K]
+416.3              !critical temperature [K]
+6677.3             !critical pressure [kPa]
+7.194233347        !critical density [mol/L]
+0.243              !acentric factor
+1.871              !dipole moment [Debye]; DIPPR DIADEM 2012
+NBP                !default reference state
+8.0                !version number
+
+
+! compiled by M. Thol, Thermodynamics, Ruhr-Universitaet Bochum, Germany
+! 06-10-11  MT, original version
+! 04-01-13  SH, add ancillary equations
+! 04-06-13 EWL, add dipole moment
+
+
+#EOS               !equation of state specification
+FEQ  Helmholtz equation of state for R40 of Thol et al. (2013).
+?LITERATURE REFERENCE \
+?Thol, M., Piazza, L., and Span, R.
+? "A New Functional Form for Equations of State for Some Polar and Weakly
+? Associating Fluids,"
+? to be submitted to J. Chem. Eng. Data, 2013.
+?\
+!end of info section
+230.00             !lower temperature limit [K]
+630.               !upper temperature limit [K]
+100000.            !upper pressure limit [kPa]
+21.78756           !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+50.48752                               !molecular weight [g/mol]
+131.400                                !triple point temperature [K]
+0.9                                    !pressure at triple point [kPa]
+21.78756                               !density at triple point [mol/L]
+249.173                                !normal boiling point temperature [K]
+0.243                                  !acentric factor
+416.3          8263.00   7.194233347   !Tc [K], pc [kPa], rhoc [mol/L]
+416.3                    7.194233347   !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  16  4      0  0      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+ .27457205781040D+00 -0.750   1.000  0 !a(i),t(i),d(i),l(i)
+ .10423592357508D-01 -0.250   1.00   0
+-.12572771013916D+01  1.250   1.00   0
+ .22560919939033D-02  0.750   2.00   0
+-.33183042124358D-01 -1.000   3.00   0
+ .91844087817759D-01 -0.375   3.00   0
+ .26105960803632D-02  1.250   5.00   0
+-.94888096563758D-01  2.375   1.00   1
+-.84363483561506D-01  3.000   1.00   1
+ .22626365996238D+00  2.625   2.00   1
+-.47076594044962D-01  1.875   5.00   1
+-.19661040452502D+00  4.500   1.00   2
+-.20431892937837D-01  5.750   3.00   2
+-.69214500893541D-01  5.375   4.00   2
+ .14897484369073D-01  2.750   5.00   2
+-.64254448546645D-02 14.500   2.00   3
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function for R40 of Thol et al. (2013).
+?LITERATURE REFERENCE \
+?see EOS of Thol et al. (2013)
+?\
+!end of info section
+175.00             !lower temperature limit [K]
+630.0              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  4  1    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 3.92517993668556D+00        0.
+ 2.92297677427185D-04        1.
+ 3.99005020161051D-06        2.
+-1.80347433882749D-09        3.
+ 3.76499651236361D+00     1544.51842424484
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+416.30             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+416.30  6695.00    !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-6.5074  1.0       !coefficients and exponents
+ 0.7520  1.5
+-9.4148  4.5
+ 19.654  5.8
+-20.190  7.1
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+416.30             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+416.30  7.1942     !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+ 2.1809  0.37      !coefficients and exponents
+ 0.9228  1.16
+-2.4615  2.0
+ 7.9722  2.9
+-13.023  3.9
+ 9.2840  5.1
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+416.30             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+416.30  7.1942     !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+-0.9433  0.18      !coefficients and exponents
+-6.8001  0.9
+-82.752  3.7
+ 202.14  4.6
+-264.16  5.6
+ 99.135  6.7
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

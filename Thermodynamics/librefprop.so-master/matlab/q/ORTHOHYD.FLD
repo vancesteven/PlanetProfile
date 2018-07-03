@@ -1,0 +1,177 @@
+orthohydrogen      !short name
+1333-74-0o         !CAS number
+orthohydrogen      !full name
+H2                 !chemical formula
+R-702              !synonym
+2.01594            !molecular weight [g/mol]
+14.008             !triple point temperature [K]
+20.380             !normal boiling point [K]
+33.22              !critical temperature [K]
+1310.65            !critical pressure [kPa]
+15.445             !critical density [mol/L]
+-0.218             !acentric factor
+0.0                !dipole moment [Debye]
+NBP                !default reference state
+8.0                !version number
+1049               !UN Number
+other              !family
+285.83             !heating value (gross or superior) [kJ/mol]
+A3                 !Safety Group (ASHRAE Standard 34, 2010)
+
+
+! compiled by E.W. Lemmon, NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 01-01-10 EWL, original version
+! 06-17-10 CKL, add ancillary equations for sat. densities
+
+
+#EOS               !equation of state specification
+FEQ  Helmholtz equation of state for orthohydrogen of Leachman et al. (2009).
+?LITERATURE REFERENCE \
+?Leachman, J.W., Jacobsen, R.T, Penoncello, S.G., Lemmon, E.W.
+?"Fundamental Equations of State for Parahydrogen, Normal Hydrogen, and
+?Orthohydrogen,"
+?J. Phys. Chem. Ref. Data, 38(3):721-748, 2009.
+?\
+?The orthohydrogen formulation is based purely on predicted properties.  Uncertainties
+?are the same to those for the normal hydrogen formulation from this work.
+?\
+!end of info section
+14.008             !lower temperature limit [K]
+1000.0             !upper temperature limit [K]
+2000000.0          !upper pressure limit [kPa]
+38.2               !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+2.01594                                !molecular weight [g/mol]
+14.008                                 !triple point temperature [K]
+7.560                                  !pressure at triple point [kPa]
+38.2                                   !density at triple point [mol/L]
+20.38                                  !normal boiling point temperature [K]
+-0.218                                 !acentric factor
+33.22         1310.65     15.445       !Tc [K], pc [kPa], rhoc [mol/L]
+33.22                     15.445       !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+   9  4      5 12      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+ -0.683148D+01  0.7333   1.0  0.0      !a(i),t(i),d(i),l(i)
+  0.100000D-01  1.0000   4.0  0.0
+  0.211505D+01  1.1372   1.0  0.0
+  0.438353D+01  0.5136   1.0  0.0
+  0.211292D+00  0.5638   2.0  0.0
+ -0.100939D+01  1.6248   2.0  0.0
+  0.142086D+00  1.8290   3.0  0.0
+ -0.876960D+00  2.4040   1.0  1.0
+  0.804927D+00  2.1050   3.0  1.0
+ -0.710775D+00  4.1000   2.0  2.0  2.0  -1.169   -0.4555  1.5444  0.6366  0. 0. 0.
+  0.639688D-01  7.6580   1.0  2.0  2.0  -0.894   -0.4046  0.6627  0.3876  0. 0. 0.
+  0.710858D-01  1.2590   3.0  2.0  2.0  -0.040   -0.0869  0.7630  0.9437  0. 0. 0.
+ -0.876540D-01  7.5890   1.0  2.0  2.0  -2.072   -0.4415  0.6587  0.3976  0. 0. 0.
+  0.647088D+00  3.9460   1.0  2.0  2.0  -1.306   -0.5743  1.4327  0.9626  0. 0. 0.
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?Leachman, J.W., Jacobsen, R.T, Penoncello, S.G., Lemmon, E.W.
+?"Fundamental Equations of State for Parahydrogen, Normal Hydrogen, and
+?Orthohydrogen,"
+?J. Phys. Chem. Ref. Data, 38(3):721-748, 2009.
+?\
+!end of info section
+14.008             !lower temperature limit [K]
+1000.0             !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  1  4    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 0.250000D+01      0.0
+ 0.254151D+01    856.0
+-0.236610D+01   1444.0
+ 0.100365D+01   2194.0
+ 0.122447D+01   6968.0
+
+
+#AUX               !auxiliary model specification
+PH0  Helmholtz form for the ideal-gas state
+?LITERATURE REFERENCE \
+?Leachman, J.W., Jacobsen, R.T, Penoncello, S.G., Lemmon, E.W.
+?"Fundamental Equations of State for Parahydrogen, Normal Hydrogen, and
+?Orthohydrogen,"
+?J. Phys. Chem. Ref. Data, 38(3):721-748, 2009.
+?\
+!end of info section
+14.008             !lower temperature limit [K]
+1000.0             !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1 2  4  0 0  0 0 0 !Nterms:  ai*log(tau**ti); ai*tau**ti; ai*log(1-exp(bi*tau))
+    1.5             1.0            !ai, ti for [ai*log(tau**ti)] terms
+   -1.4675442336    0.0            !aj, ti for [ai*tau**ti] terms
+    1.8845068862    1.0
+    2.54151       -25.7676098736   !aj, ti for [ai*log(1-exp(ti*tau)] terms
+   -2.36610       -43.4677904877
+    1.00365       -66.0445514750
+    1.22447      -209.7531607465
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation
+?LITERATURE REFERENCE \
+?Leachman, J.W., Jacobsen, R.T, Penoncello, S.G., Lemmon, E.W.
+?"Fundamental Equations of State for Parahydrogen, Normal Hydrogen, and
+?Orthohydrogen,"
+?J. Phys. Chem. Ref. Data, 38(3):721-748, 2009.
+?\
+!end of info section
+ 1.                !lower temperature limit [K]
+33.22              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+33.22     1310.65  !reducing parameters
+ 4 0 0 0 0 0       !number of terms in equation
+-0.488684D+01   1.0
+ 0.105310D+01   1.5
+ 0.856947D+00   2.7
+-0.185355D+00   6.2
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+14.008             !lower temperature limit [K]
+33.22              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+33.22   15.445     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+ 0.43911D+01   0.53     !coefficients and exponents
+-0.75872D+01   0.93
+ 0.10402D+02   1.35
+-0.72651D+01   1.8
+ 0.18302D+01   2.4
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+14.008             !lower temperature limit [K]
+33.22              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+33.22   15.445     !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+-0.31463D+01   0.491         !coefficients and exponents
+-0.16183D+02   2.1
+ 0.31803D+02   2.9
+-0.21961D+03   4.4
+ 0.43123D+03   5.0
+-0.25591D+03   5.5
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

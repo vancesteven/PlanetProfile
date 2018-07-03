@@ -1,0 +1,379 @@
+deuterium          !short name
+7782-39-0          !CAS number
+deuterium          !full name
+D2                 !chemical formula
+deuterium          !synonym
+4.0282             !molecular weight [g/mol]
+18.724             !triple point temperature [K]
+23.661             !normal boiling point [K]
+38.34              !critical temperature [K]
+1679.6             !critical pressure [kPa]
+17.23              !critical density [mol/L]
+-0.136             !acentric factor
+0.0                !dipole moment [Debye]
+NBP                !default reference state
+8.0                !version number
+1957               !UN Number
+other              !family
+
+
+! compiled by E.W. Lemmon, NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 04-03-98 EWL, original version
+! 11-13-98 EWL, update format to version 6.1
+! 10-14-99 EWL, change ECS reference fluid to nitrogen
+! 05-24-00 EWL, remove predictive ECS model, do NOT calculate transport props.
+! 06-21-10 CKL, add ancillary equations
+! 12-06-12 EWL, add surface tension coefficients of Mulero et al. (2012)
+! 02-14-13 IAR, add ancillary equations
+! 02-14-13 IAR, add new equation of state of Richardson
+! 02-28-13 MLH, add scaled hydrogen viscosity and thermal conductivity as estimates for deuterium
+
+
+#EOS               !equation of state specification
+FEQ  Helmholtz equation of state for deuterium of Richardson et al. (2013).
+?LITERATURE REFERENCE \
+?Richardson, I.A., Leachman, J.W., and Lemmon, E.W.
+?  J. Phys. Chem. Ref. Data, in preparation (2013).
+?\
+!end of info section
+18.724             !lower temperature limit [K]
+600.0              !upper temperature limit [K]
+2000000.0          !upper pressure limit [kPa]
+43.351             !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+4.0282                                 !molecular weight [g/mol]
+18.724                                 !triple point temperature [K]
+17.189                                 !pressure at triple point [kPa]
+43.351                                 !density at triple point [mol/L]
+23.661                                 !normal boiling point temperature [K]
+-0.136                                 !acentric factor
+ 38.34        1679.6        17.23      !Tc [K], pc [kPa], rhoc [mol/L]
+ 38.34                      17.23      !reducing parameters [K, mol/L]
+8.3144621                              !gas constant [J/mol-K]
+  14  4      7 12      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  0.006267958     1.        4.  0.     !a(i),t(i),d(i),l(i)
+  10.53609        0.462     1.  0.
+ -10.14149        0.5584    1.  0.
+  0.3560610       0.627     2.  0.
+  0.1824472       1.201     3.  0.
+ -1.129638        0.309     1.  0.
+ -0.0549812       1.314     3.  0.
+ -0.6791329       1.1166    2.  0.
+  1.347918        1.25      2.  1.
+ -0.8657582       1.25      2.  1.
+  1.719146        1.395     1.  2.
+ -1.917977        1.627     1.  2.
+  0.1233365       1.0       3.  2.
+ -0.07936891      2.5       2.  2.
+  1.686617        0.635     1.  2.  2.     -0.868 -0.613  0.6306  1.460   0. 0. 0.
+ -4.240326        0.664     1.  2.  2.     -0.636 -0.584  0.7110  1.7864  0. 0. 0.
+  1.857114        0.7082    2.  2.  2.     -0.668 -0.570  0.6446  1.647   0. 0. 0.
+ -0.5903705       2.25      3.  2.  2.     -0.650 -1.056  0.8226  0.541   0. 0. 0.
+  1.520171        1.524     3.  2.  2.     -0.745 -1.010  0.9920  0.969   0. 0. 0.
+  2.361373        0.67      1.  2.  2.     -0.782 -1.025  1.2184  1.892   0. 0. 0.
+ -2.297315        0.709     3.  2.  2.     -0.693 -1.029  1.2030  1.076   0. 0. 0.
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?see EOS of Richardson et al. (2013)
+?\
+!end of info section
+1.                 !lower temperature limit [K]
+2000.              !upper temperature limit [K]
+0.                 !upper pressure limit [kPa]
+0.                 !maximum density [mol/L]
+1.0          8.3144621                 !reducing parameters for T, Cp0
+  1 12    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 2.5          0.0
+-3.54145   7174.1
+ 3.03260   8635.0
+-3.52422    902.7
+-1.73421    181.1
+-3.57135    438.5
+ 2.14858   5034.2
+ 6.23107    269.9
+-3.30425    229.9
+ 6.23098    666.4
+-3.57137    452.8
+ 3.32901    192.0
+ 0.97782   1187.6
+
+
+@EOS               !equation of state specification
+BWR  MBWR equation of state for deuterium of McCarty (1989).
+?LITERATURE REFERENCE \
+?McCarty, R.D.,
+? "Correlations for the Thermophysical Properties of Deuterium,"
+? unpublished correlation.
+? National Institute of Standards and Technology, Boulder, CO, 1989.
+?\
+?N.B.  all temperatures on IPTS-68
+?\
+!end of info section
+18.71              !lower temperature limit [K]
+423.0              !upper temperature limit [K]
+320000.0           !upper pressure limit [kPa]
+43.38              !maximum density [mol/L]
+CP1                                    !pointer to Cp0 model
+4.0282                                 !molecular weight [g/mol]
+18.71                                  !triple point temperature [K]
+19.462                                 !pressure at triple point [kPa]
+43.365                                 !density at triple point [mol/L]
+23.3097                                !normal boiling point temperature [K]
+-0.175                                 !acentric factor
+38.34        1665.3       17.327       !Tc [K], pc [kPa], rhoc [mol/L]
+38.34                     17.327       !reducing parameters [K, mol/L]
+17.3279988559019                       !gamma
+0.0831434                              !gas constant [L-bar/mol-K]
+      32       1                       !Nterm, Ncoeff per term
+ 0.4894244053982d-04     0.5600164604601d-01     -0.6301493491211d-00
+ 0.2538329946038d+01     0.1723475985309d+03      0.2956238369436d-04
+-0.3926317169317d-02     0.1195764193293d-01      0.1136916678824d+05
+-0.1916378195727d-06     0.3153535946452d-03      0.2122937335070d-01
+-0.1057999371607d-05    -0.6722062598854d-04     -0.3030166828627d-00
+ 0.1980817195099d-05    -0.1453922641871d-07      0.1780919116891d-03
+-0.1823145348424d-05    -0.1135358616578d+05     -0.1943542941899d+04
+-0.3632847669580d+02     0.1087745118380d+03     -0.4078276062687d-01
+ 0.6460021864005d-02    -0.4480242189217d-04     -0.2475011206216d-03
+-0.8834384656760d-08    -0.1081622159862d-08     -0.1478159334303d-10
+ 0.7926922356112d-11     0.5721547329378d-11
+
+
+#AUX               !auxiliary model specification
+CP1  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?refit by EWL from calculations of piecewise fit of Cp0 by McCarty
+?\
+!end of info section
+18.71              !lower temperature limit [K]
+423.0              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.31434                   !reducing parameters for T, Cp0
+  6  3    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 0.24512991d+01    0.00
+ 0.43563077d-02    1.00
+-0.53169470d-03    1.50
+ 0.17067184d-04    2.00
+-0.53819932d-08    3.00
+ 0.89310438d-12    4.00
+ 0.18403263d+02    319.00
+-0.21257617d+02    361.00
+ 0.41091635d+01    518.00
+
+
+#ETA               !viscosity model specification
+VS0  pure fluid viscosity model of Muzny, Huber and Kazakov (2013).
+?LITERATURE REFERENCE \
+? unpublished; based on scaling the Muzny hydrogen correlation
+? Muzny, C.D., Huber, M.L., and Kazakov, A.F.,
+? "Correlation for the Viscosity of normal hydrogen obtained from symbolic regression"
+? submitted to J. Chem. Eng. Data, 2013
+?\
+? The uncertainties for deuterium are estimated to be approximately 5% in the gas and supercritical regions
+? with larger deviations near the critical region and in the liquid phase.
+?\
+!end of info section
+18.724             !lower temperature limit [K]
+600.0              !upper temperature limit [K]
+2000000.0          !upper pressure limit [kPa]
+43.351             !maximum density [mol/L]
+D2                 !pointer to hardcoded thermal conductivity model
+0 1 1 0 0 0 0 0    !number of terms for various pieces
+1.0      1.0      1.0             !reducing parameters for T, rho, eta
+0.0                   0. 0. 0. 0 !dilute gas coeffs
+0.0                   0. 0. 0. 0 !residual coeffs
+NUL                !pointer to critical enhancement auxiliary function
+
+
+#TCX               !thermal conductivity model specification
+TC1  pure fluid thermal conductivity model of Assael et al. (2011).
+?LITERATURE REFERENCE \
+? unpublished; based on scaling the Assael correlation
+? Assael, M.J., Assael. J.-A.M., Huber, M.L., Perkins, R.A. and Takata, Y.
+? "Correlation of the Thermal Conductivity of Normal and Parahydrogen
+? from the Triple Point to 1000 K and up to 100 MPa",
+? J. Phys. Chem. Ref. Data, Vol.40, No. 3(2011) pp.1-13.
+?
+? The uncertainties for deuterium are estimated to be approximately 5% in the gas and supercritical regions
+? with larger deviations near the critical region and in the liquid phase.
+?\
+!end of info section
+18.724             !lower temperature limit [K]
+600.0              !upper temperature limit [K]
+2000000.0          !upper pressure limit [kPa]
+43.351             !maximum density [mol/L]
+7   4              !# terms for dilute gas function:  numerator, denominator
+ 1.0    1.0d-03    !reducing parameters for T, tcx dilute gas divided by sqrt2
+-8.77937E+06      0.00E+00
+ 3.56421E+06      0.10E+01
+-3.40025E+04      0.20E+01
+ 2.30795E+02      0.30E+01
+ 6.76148E-02      0.40E+01
+ 1.22675E-04      0.50e+01
+-2.21184E-08      0.60E+01
+ 5.04305d+006     0.00E+00
+-2.43753d+004     0.10E+01
+ 1.51523d+002     0.20E+01
+ 1.00000d+000     0.30E+01
+10  0               !# terms for background gas function:  numerator, denominator
+33.145  15.508  1.0                          !reducing par for T, rho, tcx
+  .36308100E-01     .00E+00     .10E+01     .00E+00
+ -.20762900E-01     .00E+00     .20E+01     .00E+00
+  .31481000E-01     .00E+00     .30E+01     .00E+00
+ -.14309700E-01     .00E+00     .40E+01     .00E+00
+  .17498000E-02     .00E+00     .50E+01     .00E+00
+  .18337000E-02     .10E+01     .10E+01     .00E+00
+ -.88671600E-02     .10E+01     .20E+01     .00E+00
+  .15826000E-01     .10E+01     .30E+01     .00E+00
+ -.10628300E-01     .10E+01     .40E+01     .00E+00
+  .28067300E-02     .10E+01     .50E+01     .00E+00
+TK3                !pointer to critical enhancement auxiliary function
+
+
+#AUX               !thermal conductivity critical enhancement model
+TK3  thermal conductivity critical enhancement of Assael et al. (2011).
+?LITERATURE REFERENCE \
+?\
+!end of info section
+18.724             !lower temperature limit [K]
+600.0              !upper temperature limit [K]
+2000000.0          !upper pressure limit [kPa]
+43.351             !maximum density [mol/L]
+9  0  0  0         !# terms:  terms, spare, spare, spare
+1.0    1.0  1.0    !reducing par for T, rho, tcx (mW/m-K)
+ 0.630d+00         !gnu (universal exponent)
+ 1.2415d+00        !gamma (universal exponent)
+ 1.01d+00          !R0 (universal amplitude)
+ 0.065d+00         !z (universal exponent--not used for t.c., only viscosity)
+ 1.00d+00          !c (constant in viscosity eqn = 1/[2 - (alpha + gamma)/(2*nu)], but often set to 1)
+ 1.5d-10           !xi0 (amplitude) [m]
+ 0.052d+00         !gam0 (amplitude) [-]
+ 0.40d-09          !qd_inverse (modified effective cutoff parameter) [m]
+ 57.51d0           !tref (reference temperature) [K]
+
+
+@TRN               !transport model specification
+ECS  Extended Corresponding States model (nitrogen reference);  fit to limited data.
+?LITERATURE REFERENCES \
+?
+? *** PRELIMINARY MODEL--- NOT STANDARD REFERENCE QUALITY---
+?     estimated uncertainty 50%
+?
+? Uses method described in the following reference:
+? Huber, M.L., Laesecke, A., and Perkins, R.A.,
+? "Model for the Viscosity and Thermal Conductivity of Refrigerants,
+? Including a New Correlation for the Viscosity of R134a",
+? Ind. Eng. Chem. Res., 42:3163-3178, 2003.
+?\
+?the Lennard-Jones parameters are taken from:
+? Kestin, J. and Nagashima, A.,"Viscosity of the isotopes of hydrogen and their interatomic force
+? potentials", Physics of Fluids, 7, pp730-734 (1964).
+? 1964, p1110.
+?\
+!end of info section
+18.724             !lower temperature limit [K]
+600.0              !upper temperature limit [K]
+2000000.0          !upper pressure limit [kPa]
+43.351             !maximum density [mol/L]
+FEQ nitrogen.fld
+VS1                !model for reference fluid viscosity
+TC1                !model for reference fluid thermal conductivity
+1                  !Lennard-Jones flag (0 or 1) (0 => use estimates)
+0.2952             !Lennard-Jones coefficient sigma [nm]
+35.2               !Lennard-Jones coefficient epsilon/kappa [K]
+1  0  0                       !number of terms in f_int term in Eucken correlation, spare1, spare2
+ 1.32d-3        0.0  0.0  0.0 !coeff, power of T, spare 1, spare 2
+1  0  0                       !number of terms in psi (visc shape factor): poly,spare1,spare2
+ 1.0            0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+1  0  0                       !number of terms in chi (t.c. shape factor): poly,spare1,spare2
+ 1.0            0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+NUL                           !pointer to critical enhancement auxiliary function
+
+
+#STN        !surface tension specification
+ST1  surface tension model of Mulero et al. (2012)
+?LITERATURE REFERENCE \
+?Mulero, A., Cachadiña, I., and Parra, M.I.
+? "Recommended Correlations for the Surface Tension of Common Fluids,"
+? J. Phys. Chem. Ref. Data, 41, 043105, 2012.
+?\
+!end of info section
+0.0                !lower temperature limit [K]
+38.34              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+1                           !number of terms in surface tension model
+38.34                       !critical temperature used in fit (dummy)
+ 0.009376    1.258          !sigma0 and n
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Richardson et al. (2013).
+?LITERATURE REFERENCE \
+?see EOS for reference
+?equation fit by Stefan Herrig, 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+38.34              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+38.34   1679.6     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-5.5706   1.0      !coefficients and exponents
+ 1.7631   1.5
+-0.5458   2.83
+ 1.2154   4.06
+-1.1556   5.4
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Richardson et al. (2013).
+?LITERATURE REFERENCE \
+?see EOS for reference
+?equation fit by Stefan Herrig, 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+38.34              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+38.34   17.23      !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+ 3.3769   0.512    !coefficients and exponents
+-5.3693   1.12
+ 11.943   1.8
+-17.361   2.55
+ 15.170   3.4
+-6.3079   4.4
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Richardson et al. (2013).
+?LITERATURE REFERENCE \
+?see EOS for reference
+?equation fit by Stefan Herrig, 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+38.34              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+38.34   17.23      !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+-3.8111   0.528    !coefficients and exponents
+-7.3624   2.03
+ 2.2294   3.6
+-21.443   5.0
+ 12.796   6.5
+-31.334   9.0
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890
+0.2948             !Lennard-Jones coefficient sigma [nm] for ECS method
+39.3               !Lennard-Jones coefficient epsilon/kappa [K] for ECS method

@@ -1,0 +1,256 @@
+methyl linolenate                                    !short name
+301-00-8                                             !CAS number
+methyl (Z,Z,Z)-9,12,15-octadecatrienoate             !full name
+C19H32O2                                             !chemical formula
+methyl ester linolenic acid                          !synonym
+292.45618          !molecular weight [g/mol]
+218.65             !triple point temperature [K]
+629.13             !normal boiling point [K]
+772.0              !critical temperature [K]
+1369.0             !critical pressure [kPa]
+0.8473             !critical density [mol/L]
+1.14               !acentric factor
+1.54               !dipole moment [Debye]
+NBP                !default reference state
+8.0                !version number
+other              !family
+
+
+! compiled at NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 03-25-08 MLH, original version
+! 08-27-08 EWL, add equation of state.
+! 11-21-08 MLH, add preliminary predictive transport
+! 08-20-10 IDC, add ancillary equations
+! 10-25-10 MLH, revised thermal conductivity estimation, based on methyl oleate
+! 11-6-10  MLH, revised ecs viscosity based on knothe 2007 data
+
+#EOS               !equation of state specification
+FEQ  Helmholtz equation of state for methyl linolenate of Huber et al. (2009).
+?LITERATURE REFERENCE \
+? Huber, M.L., Lemmon, E.W., Kazakov, A., Ott, L.S., and Bruno, T.J.
+? "Model for the Thermodynamic Properties of a Biodiesel Fuel,"
+? Energy & Fuels, 23:3790-3797, 2009.
+?\
+!end of info section
+218.65             !lower temperature limit [K]
+1000.0             !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+3.29               !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+292.45618                              !molecular weight [g/mol]
+218.65                                 !triple point temperature [K]
+0.00000000000000828                    !pressure at triple point [kPa]
+3.28                                   !density at triple point [mol/L]
+629.13                                 !normal boiling point temperature [K]
+1.14                                   !acentric factor
+772.0         1369.0       0.8473      !Tc [K], pc [kPa], rhoc [mol/L]
+772.0                      0.8473      !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  10  4      3 12      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  0.4070829D-01   1.00   4.   0.       !a(i),t(i),d(i),l(i)
+  0.2412375D+01   0.15   1.   0.
+ -0.3756194D+01   1.24   1.   0.
+ -0.1526466D+00   1.60   2.   0.
+  0.4682918D-01   1.28   3.   0.
+ -0.1470958D+01   2.90   1.   2.
+ -0.7645500D+00   3.15   3.   2.
+  0.1908964D+01   2.16   2.   1.
+ -0.1629366D+01   2.80   2.   2.
+ -0.1242073D-01   1.40   7.   1.
+  0.2180707D+01   2.50   1.   2. 2.   -1.1 -0.90 1.14 0.79   0. 0. 0.
+ -0.7537264D+00   3.00   1.   2. 2.   -1.6 -0.65 0.65 0.90   0. 0. 0.
+ -0.4347781D+00   3.10   3.   2. 2.   -1.1 -0.75 0.77 0.76   0. 0. 0.
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+? TDE 3.0 internal version, March 2008, Planck-Einstein form
+? based on estimation from Joback method, uncertainty 10%
+?\
+!end of info section
+200.0              !lower temperature limit [K]
+2000.0             !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          1.0d0                     !reducing parameters for T, Cp0
+  1  3    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 79.5913  0.214648
+ 290.379  1213.24
+ 81.4323  578.752
+ 474.881  2799.79
+
+
+#TCX               !thermal conductivity model specification
+TC1  pure fluid thermal conductivity model of Perkins, R.A. and Huber, M.L. (2010).
+?LITERATURE REFERENCE \
+?  The correlation below is an estimation, based on results for methyl oleate,adjusted for
+?  application to methyl linolenate.
+?\
+? The estimated uncertainty of the correlation for the liquid phase is 5%. The dilute gas is
+? based on predicted values and uncertainties are larger, on the order of 10-30 %.
+?
+?DATA SOURCES FOR THERMAL CONDUCTIVITY\
+?The parameters for thermal conductivity were based on the data of:\
+?\
+!end of info section
+250.0              !lower temperature limit [K]
+1000.0             !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+3.29               !maximum density [mol/L]
+4   0              !# terms for dilute gas function:  numerator, denominator
+772.0      1.0     !reducing parameters for T, tcx
+-0.27125000E-03     .00E+00
+ 0.25936500E-02     .10E+01
+ 0.35024100E-01     .20E+01
+-0.90227300E-02     .30E+01
+10  0                     !# terms for background gas function:  numerator, denominator
+772.0    0.8473    1.0    !reducing par for T, rho, tcx
+-0.41010600E-01     .00E+00     .10E+01     .00E+00
+ 0.32844300E-01     .00E+00     .20E+01     .00E+00
+-0.41850600E-02     .00E+00     .30E+01     .00E+00
+ 0.00000000E+00     .00E+00     .40E+01     .00E+00
+ 0.00000000E+00     .00E+00     .50E+01     .00E+00
+ 0.60665700E-01     .10E+01     .10E+01     .00E+00
+-0.49840700E-01     .10E+01     .20E+01     .00E+00
+ 0.12175200E-01     .10E+01     .30E+01     .00E+00
+ 0.00000000E+00     .10E+01     .40E+01     .00E+00
+ 0.00000000E+00     .10E+01     .50E+01     .00E+00
+TK3                !pointer to critical enhancement auxiliary function
+
+
+@TRN               !transport model specification
+ECS  Extended Corresponding States model (propane reference)
+?LITERATURE REFERENCES \
+?Huber, M.L., Laesecke, A., and Perkins, R.A., Model for the viscosity
+? and thermal conductivity of refrigerants, including a new correlation
+? for the viscosity of R134a, Ind.Eng.Chem.Res. 42: 3163-3178 (2003).
+?\
+?DATA SOURCES FOR VISCOSITY\
+? Values based on estimation method of  extended corresponding states;
+? Estimated uncertainty of liquid at atmospheric pressure is 3 %,
+? Estimated uncertainty otherwise approximately 10-50%
+?
+?DATA SOURCES FOR THERMAL CONDUCTIVITY\
+? Values based on estimation method of
+? extended corresponding states; Estimated uncertainty approximately 10-50%
+?\
+?The Lennard-Jones parameters are estimated using the method of chung
+?\
+!end of info section
+250.0              !lower temperature limit [K]
+1000.0             !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+3.29               !maximum density [mol/L]
+FEQ propane.fld
+VS1                !model for reference fluid viscosity
+TC1                !model for reference fluid thermal conductivity
+1                  !Lennard-Jones flag (0 or 1) (0 => use estimates)
+0.8547d0           !Lennard-Jones coefficient sigma [nm] from method chung=0.809vc*(1/3)A
+613.04d0           !Lennard-Jones coefficient epsilon/kappa [K] from chung=Tc/1.2593
+1  0  0            !number of terms in f_int term in Eucken correlation, spare1, spare 2
+ 1.3200d-3      0.0   0.0   0.0  !coeff, power of T, spare 1, spare 2
+3  0  0                          !number of terms in psi (visc shape factor): poly,spare1,spare2
+  2.076360      0.0   0.0   0.0  !coeff, power of Tr, power of Dr, spare
+ -0.6037320     0.0   1.0   0.0  !coeff, power of Tr, power of Dr, spare
+ 8.10588d-02    0.0   2.0   0.0  !coeff, power of Tr, power of Dr, spare
+1  0  0                          !number of terms in phi (thermal cond. shape factor):poly,spare1,spare2
+ 1.200          0.0   0.0   0.0  !coeff, power of Tr, power of Dr, spare
+TK3                !pointer to critical enhancement auxiliary function
+
+
+#AUX               !thermal conductivity critical enhancement model
+TK3  simplified thermal conductivity critical enhancement of Olchowy and Sengers
+?LITERATURE REFERENCE \
+?Olchowy, G.A. and Sengers, J.V.,
+? "A simplified representation for the thermal conductivity of fluids in the
+? critical region,"
+? Int. J. Thermophysics, 10:417-426, 1989.
+?\
+?as applied to CO2 by:
+?\
+?Vesovic, V., Wakeham, W.A., Olchowy, G.A., Sengers, J.V., Watson, J.T.R.
+? and Millat, J.,
+? "The transport properties of carbon dioxide,"
+? J. Phys. Chem. Ref. Data, 19:763-808, 1990.
+?\
+!end of info section
+250.0              !lower temperature limit [K]
+1000.0             !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+3.29               !maximum density [mol/L]
+9  0  0  0         !# terms:  CO2-terms, spare, spare, spare
+1.0     1.0     1.0      !reducing par for T, rho, tcx (mW/m-K)
+0.630d0            !gnu (universal exponent)
+1.239d0            !gamma (universal exponent)
+1.03d0             !R0 (universal amplitude)
+0.063d0            !z (universal exponent--not used for t.c., only viscosity)
+1.00d0             !c (constant in viscosity eqn = 1/[2 - (alpha + gamma)/(2*nu)], but often set to 1)
+0.194d-9           !xi0 (amplitude) [m]
+0.0496             !gam0 (amplitude) [-]
+0.875d-09          !qd_inverse (modified effective cutoff parameter) [m] value for butane
+1158.0d+00         !tref (reference temperature)=1.5*Tc [K]
+
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+218.65             !lower temperature limit [K]
+772.0              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+772.0   1369.0     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-0.14239D+02   1.0
+ 0.85361D+01   1.5
+-0.29678D+02   2.86
+ 0.29106D+02   3.5
+-0.16922D+02   4.6
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+218.65             !lower temperature limit [K]
+772.0              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+772.0   0.8473     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+ 0.16258D+02   0.681         !coefficients and exponents
+-0.19465D+03   1.26
+ 0.14231D+04   1.58
+-0.22420D+04   1.7
+ 0.10012D+04   1.8
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+218.65             !lower temperature limit [K]
+772.0              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+772.0   0.8473     !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+-0.11463D+02   0.65     !coefficients and exponents
+ 0.45192D+02   1.55
+-0.65779D+02   1.8
+-0.18386D+04   6.6
+ 0.40689D+04   7.2
+-0.25124D+04   7.8
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

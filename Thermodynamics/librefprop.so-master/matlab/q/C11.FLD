@@ -1,0 +1,221 @@
+undecane           !short name
+1120-21-4          !CAS number
+undecane           !full name
+CH3-9(CH2)-CH3     !chemical formula {C11H24}
+n-undecane         !synonym
+156.30826          !molecular weight [g/mol]
+247.541            !triple point temperature [K] from DIPPR DIADEM 4.0.0
+468.934            !normal boiling point [K]
+638.8              !critical temperature [K]
+1990.4             !critical pressure [kPa]
+1.5149             !critical density [mol/L]
+0.539              !acentric factor
+0.0                !dipole moment [Debye]
+NBP                !default reference state
+8.0                !version number
+n-alkane           !family
+
+! compiled by E.W. Lemmon, NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 10-28-03 EWL, original version
+! 09-01-06 MLH, added CPP, ECS predictive transport, modified ttp
+! 04-25-07 MLH, added prelim ECS fit for k, vis
+! 11-04-09 MLH, added Planck-Einstein cp0
+! 03-20-13 EWL, add EOS of Aleksandrov et al.
+! 04-01-13  SH, add ancillary equations
+! 04-06-13 EWL, add dipole moment
+
+
+#EOS               !equation of state specification
+FEQ  short Helmholtz equation of state for undecane of Aleksandrov et al. (2011)
+?LITERATURE REFERENCE \
+?Aleksandrov, I.S., Gerasimov, A.A., and Grigor’ev, B.A.
+? "Using Fundamental Equations of State for Calculating the Thermodynamic
+? Properties of Normal Undecane,"
+? Thermal Engineering, 58(8):691-698, 2011.
+?\
+?The average relative errors of the thermodynamic quantities calculated from the
+?fundamental EOS have the following values:  saturated vapor pressure, 0.2-0.8%
+?(values larger than 0.4% are observed only at temperatures above 500 K);
+?saturated liquid density, 0.05-0.15%; saturated vapor density, 0.2-0.4% at
+?temperatures below 500 K, and at higher temperatures the error reaches 3-4%;
+?liquid phase density, 0.1-0.3%; gaseous phase density, 0.20-0.35%; and heat
+?capacities and speed of sound, 0.4-0.8%.
+?\
+!end of info section
+247.541            !lower temperature limit [K]
+700.0              !upper temperature limit [K]
+500000.0           !upper pressure limit [kPa]
+4.97               !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+156.30826                              !molecular weight [g/mol]
+247.541                                !triple point temperature [K]
+0.0004461                              !pressure at triple point [kPa]
+4.962                                  !density at triple point [mol/L]
+468.934                                !normal boiling point temperature [K]
+0.539                                  !acentric factor
+638.8         1990.4      1.5149       !Tc [K], pc [kPa], rhoc [mol/L]
+638.8                     1.5149       !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  14  4      0 12      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+ -0.66172706       1.5    1.  0.       !a(i),t(i),d(i),l(i)
+  1.3375396        0.25   1.  0.
+ -2.5608399        1.25   1.  0.
+  0.10678910       0.25   3.  0.
+  0.28873614d-3    0.875  7.  0.
+  0.49587209d-1    1.375  2.  0.
+  0.55407101d-7    0.     1.  1.
+  0.99754712       2.375  1.  1.
+  1.5774025        2.     2.  1.
+  0.13108354d-2    2.125  5.  1.
+ -0.59326961       3.5    1.  2.
+ -0.93001876d-1    6.5    1.  2.
+ -0.17960228       4.75   4.  2.
+ -0.22560853d-1   12.5    2.  3.
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function for undecane of Aleksandrov et al. (2011)
+?LITERATURE REFERENCE \
+?see EOS
+?\
+!end of info section
+200.               !lower temperature limit [K]
+1500.0             !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  6  0    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ -1158848.     -2.
+  20321.8      -1.
+ -119.4274      0.
+  0.4284215     1.
+ -4.157728d-4   2.
+  1.61828d-7    3.
+
+
+#TRN               !transport model specification
+ECS  Extended Corresponding States model (C12 reference); predictive mode.
+?LITERATURE REFERENCES \
+?Huber, M.L., Laesecke, A., and Perkins, R.A., Model for the viscosity
+? and thermal conductivity of refrigerants, including a new correlation
+? for the viscosity of R134a, Ind.Eng.Chem.Res. 42: 3163-3178 (2003).
+?\
+? Predicted values; estimated uncertainty: viscosity 10%, thermal conductivity 10%.
+?
+?The Lennard-Jones parameters are estimated using the method of Chung.\
+?\
+!end of info section
+247.541            !lower temperature limit [K]
+800.               !upper temperature limit [K]
+700000.            !upper pressure limit [kPa]
+5.                 !maximum density [mol/L]
+FEQ c12.FLD
+VS1                !model for reference fluid viscosity
+TC1                !model for reference fluid thermal conductivity
+1                  !Lennard-Jones flag (0 or 1) (0 => use estimates)
+0.7143             !Lennard-Jones coefficient sigma [nm] for ECS method
+507.24             !Lennard-Jones coefficient epsilon/kappa [K] for ECS method
+1  0  0            !number of terms in f_int term in Eucken correlation, spare1, spare 2
+ 1.3200d-3      0.0   0.0   0.0  !coeff, power of T, spare 1, spare 2
+3  0  0                          !number of terms in psi (visc shape factor): poly,spare1,spare2
+  1.40724       0.0   0.0   0.0  !coeff, power of Tr, power of Dr, spare
+ -0.259842      0.0   1.0   0.0  !coeff, power of Tr, power of Dr, spare
+  4.15069d-2    0.0   2.0   0.0  !coeff, power of Tr, power of Dr, spare
+2  0  0                          !number of terms in phi (thermal cond. shape factor): poly,spare1,spare2
+   0.831704     0.0   0.0   0.0  !coeff, power of Tr, power of Dr, spare
+   4.24768d-2   0.0   1.0   0.0  !coeff, power of Tr, power of Dr, spare
+TK3                !pointer to critical enhancement auxiliary function
+
+
+#AUX               !thermal conductivity critical enhancement model
+TK3  simplified thermal conductivity critical enhancement of Olchowy and Sengers
+?LITERATURE REFERENCE \
+?Olchowy, G.A. and Sengers, J.V.,
+? "A simplified representation for the thermal conductivity of fluids in the
+? critical region,"
+? Int. J. Thermophysics, 10:417-426, 1989.
+?\
+?as applied to CO2 by:
+?\
+?Vesovic, V., Wakeham, W.A., Olchowy, G.A., Sengers, J.V., Watson, J.T.R.
+? and Millat, J.,
+? "The transport properties of carbon dioxide,"
+? J. Phys. Chem. Ref. Data, 19:763-808, 1990.
+?\
+!end of info section
+247.541            !lower temperature limit [K]
+800.               !upper temperature limit [K]
+700000.            !upper pressure limit [kPa]
+5.                 !maximum density [mol/L]
+9  0  0  0         !# terms:  CO2-terms, spare, spare, spare
+1.0     1.0     1.0      !reducing par for T, rho, tcx (mW/m-K)
+0.630d0            !gnu (universal exponent)
+1.239d0            !gamma (universal exponent)
+1.03d0             !R0 (universal amplitude)
+0.063d0            !z (universal exponent--not used for t.c., only viscosity)
+1.00d0             !c (constant in viscosity eqn = 1/[2 - (alpha + gamma)/(2*nu)], but often set to 1)
+0.194d-9           !xi0 (amplitude) [m]
+0.0496             !gam0 (amplitude) [-]
+1.803d-09          !qd_inverse (modified effective cutoff parameter) [m] estimated
+958.15d+00         !tref (reference temperature)=1.5*Tc [K]
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+638.8              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+638.8   1990.4     !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+-9.3961   1.0      !coefficients and exponents
+ 4.4531   1.5
+-5.2658   2.2
+-4.7352   4.5
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+638.8              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+638.8   1.5149     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+ 4.5273   0.46     !coefficients and exponents
+-7.5714   0.84
+ 13.920   1.25
+-13.464   1.7
+ 5.8411   2.2
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+638.8              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+638.8   1.5149     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-4.3093   0.466    !coefficients and exponents
+-3.4358   1.02
+-17.473   2.4
+-58.573   5.3
+-133.83  11.4
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

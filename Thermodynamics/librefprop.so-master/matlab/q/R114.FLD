@@ -1,0 +1,239 @@
+R114                                   !short name
+76-14-2                                !CAS number
+1,2-dichloro-1,1,2,2-tetrafluoroethane !full name
+CClF2CClF2                             !chemical formula {C2Cl2F4}
+CFC-114                                !synonym
+170.921            !molecular weight [g/mol]
+180.63             !triple point temperature [K]
+276.741            !normal boiling point [K]
+418.83             !critical temperature [K]
+3257.0             !critical pressure [kPa]
+3.3932             !critical density [mol/L]
+0.2523             !acentric factor
+0.658              !dipole moment [Debye]; value from REFPROP v5.10 eval at NBP
+IIR                !default reference state
+8.0                !version number
+1958               !UN Number
+halocb             !family
+10000.             !GWP (IPCC 2007)
+0.58               !ODP (WMO 2010)
+20000.             !RCL (ppm v/v, ASHRAE Standard 34, 2010)
+A1                 !Safety Group (ASHRAE Standard 34, 2010)
+
+
+! compiled by E.W. Lemmon, NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 07-02-97 EWL, original version
+! 07-11-97  MM, add surface tension correlation
+! 10-24-97  MM, read in f_int term in Eucken correlation in ECS method for t.c.
+!               change reference fluid EOS for ECS-transport from BWR to FEQ
+! 11-13-97  MM, enter thermal conductivity shape factor fitted to data
+! 08-01-05 EWL, update triple point temperature
+! 11-13-06 MLH, added LJ parameters
+! 08-17-10 IDC, add ancillary equations
+! 12-06-12 EWL, add surface tension coefficients of Mulero et al. (2012)
+
+
+#EOS               !equation of state specification
+FEQ  Bender equation of state for R-114 of Platzer et al. (1990).
+?LITERATURE REFERENCE \
+?Platzer, B., Polt, A., and Maurer, G.,
+? "Thermophysical properties of refrigerants,"
+? Berlin,  Springer-Verlag, 1990.\
+?\
+?The uncertainty in density is 0.2% up to 400 K and 1% at higher temperatures.
+? The vapor pressure uncertainty is 1.5%.  In the liquid phase, the uncertainty
+? in isobaric heat capacity is 3%.
+?\
+!end of info section
+273.15             !lower temperature limit [K]
+507.0              !upper temperature limit [K]
+21000.0            !upper pressure limit [kPa]
+8.942              !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+170.921                                !molecular weight [g/mol]
+180.63                                 !triple point temperature [K]
+0.2021                                 !pressure at triple point [kPa]
+10.4                                   !density at triple point [mol/L]
+276.741                                !normal boiling point temperature [K]
+0.2523                                 !acentric factor
+418.83       3257.0       3.3932       !Tc [K], pc [kPa], rhoc [mol/L]
+418.83                    3.3932       !reducing parameters [K, mol/L]
+8.31451                                !gas constant [J/mol-K]
+      22  5      0  0       0  0       !# terms, # coeff/term for:  "normal" terms, critical, spare
+-0.340776521414d+0  3.000   0.00    0   0.0 !a(i),t(i),d(i),l(i),g(i)
+ 0.323001398420d+0  4.000   0.00    0   0.0
+-0.424950537596d-1  5.000   0.00    0   0.0
+ 0.107938879710d+1  0.000   1.00    0   0.0
+-0.199243619673d+1  1.000   1.00    0   0.0
+-0.155135133506d+0  2.000   1.00    0   0.0
+-0.121465790553d+0  3.000   1.00    0   0.0
+-0.165038582393d-1  4.000   1.00    0   0.0
+-0.186915808643d+0  0.000   2.00    0   0.0
+ 0.308074612567d+0  1.000   2.00    0   0.0
+ 0.115861416115d+0  2.000   2.00    0   0.0
+ 0.276358316589d-1  0.000   3.00    0   0.0
+ 0.108043243088d+0  1.000   3.00    0   0.0
+ 0.460683793064d-1  0.000   4.00    0   0.0
+-0.174821616881d+0  1.000   4.00    0   0.0
+ 0.317530854287d-1  1.000   5.00    0   0.0
+ 0.340776521414d+0  3.000   0.00    2   1.21103865d0
+-0.323001398420d+0  4.000   0.00    2   1.21103865d0
+ 0.424950537596d-1  5.000   0.00    2   1.21103865d0
+-0.166940100976d+1  3.000   2.00    2   1.21103865d0
+ 0.408693082002d+1  4.000   2.00    2   1.21103865d0
+-0.241738963889d+1  5.000   2.00    2   1.21103865d0
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?Platzer, B., Polt, A., and Maurer, G.,
+? "Thermophysical properties of refrigerants,"
+? Berlin,  Springer-Verlag, 1990.\
+?\
+!end of info section
+273.15             !lower temperature limit [K]
+507.0              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          170.93                    !reducing parameters for T, Cp0
+  5  0    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 0.97651380d-01    0.0
+ 0.32408610d-02    1.0
+-0.58953640d-05    2.0
+ 0.67379290d-08    3.0
+-0.35463640d-11    4.0
+
+
+#TRN               !transport model specification
+ECS  Extended Corresponding States model (R134a reference);     fitted to data.
+?LITERATURE REFERENCES \
+?Klein, S.A., McLinden, M.O., and Laesecke, A.,
+? "An improved extended corresponding states method for estimation of
+? viscosity of pure refrigerants and mixtures,"
+? Int. J. Refrigeration, 20:208-217, 1997.
+?\
+?McLinden, M.O., Klein, S.A., and Perkins, R.A.,
+? "An extended corresponding states model for the thermal conductivity
+? of refrigerants and refrigerant mixtures,"
+? Int. J. Refrigeration, 23:43-63, 2000.
+?\
+?DATA SOURCES FOR THERMAL CONDUCTIVITY\
+?The ECS parameters for thermal conductivity were based on the data of:\
+?\
+?Donaldson, A.B. (1975). On the estimation of thermal conductivity of organic vapors.
+? Ind. Eng. Chem., 14:325-328.\
+?\
+?Keyes, F.G. (1954). Thermal conductivity of gases. Trans. ASME, 76:809-816.\
+?\
+?Shankland, I.R. (1990). Transport properties of CFC alternatives.
+? paper presented at AIChE Spring National Meeting, Orlando, Florida.\
+?\
+?Yata, J., Minamiyama, T., and Tanaka, S. (1984).
+? Measurement of thermal conductivity of liquid fluorocarbons.
+? Int. J. Thermophysics, 5:209-218.\
+?\
+?Average absolute deviations of the fit from the experimental data were:\
+?  Donaldson:  9.27%; Keyes:  1.89%; Shankland:  1.29%; Yata:  1.19%; Overall:  2.95%\
+?\
+?Lennard-Jones parameters are estimated from ECS with R134a and 298K reference.
+?\
+!end of info section
+273.15             !lower temperature limit [K]
+507.0              !upper temperature limit [K]
+21000.0            !upper pressure limit [kPa]
+8.942              !maximum density [mol/L]
+FEQ r134a.fld
+VS1                !model for reference fluid viscosity
+TC1                !model for reference fluid thermal conductivity
+1                  !Lennard-Jones flag (0 or 1) (0 => use estimates)
+0.5770             !Lennard-Jones coefficient sigma [nm] for ECS method
+323.26             !Lennard-Jones coefficient epsilon/kappa [K] for ECS method
+1  0  0                       !number of terms in f_int term in Eucken correlation, spare1, spare2
+ 1.32d-3        0.0  0.0  0.0 !coeff, power of T, spare 1, spare 2
+1  0  0                       !number of terms in psi (visc shape factor): poly,spare1,spare2
+ 1.0            0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+2  0  0                       !number of terms in chi (t.c. shape factor): poly,spare1,spare2
+ 1.0961         0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+-3.4899d-2      0.0  1.0  0.0 !coeff, power of Tr, power of Dr, spare
+NUL                           !pointer to critical enhancement auxiliary function
+
+
+#STN        !surface tension specification
+ST1  surface tension model of Mulero et al. (2012)
+?LITERATURE REFERENCE \
+?Mulero, A., Cachadiña, I., and Parra, M.I.
+? "Recommended Correlations for the Surface Tension of Common Fluids,"
+? J. Phys. Chem. Ref. Data, 41, 043105, 2012.
+?\
+!end of info section
+0.0                !lower temperature limit [K]
+418.83             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+1                           !number of terms in surface tension model
+418.83                      !critical temperature used in fit (dummy)
+ 0.05239     1.258          !sigma0 and n
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+273.15             !lower temperature limit [K]
+418.83             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+418.83  3257.0     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-0.72195D+01   1.0
+ 0.16357D+01   1.5
+-0.14576D+01   2.2
+-0.69580D+01   4.8
+ 0.57181D+01   6.2
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+273.15             !lower temperature limit [K]
+418.83             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+418.83  3.3932     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+ 0.43023D+00   0.095     !coefficients and exponents
+ 0.22722D+02   0.93
+-0.27118D+02   1.1
+ 0.13247D+02   2.0
+-0.90529D+01   3.0
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+273.15             !lower temperature limit [K]
+418.83             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+418.83  3.3932     !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+-0.46609D+00   0.09     !coefficients and exponents
+-0.68355D+01   0.76
+-0.16715D+03   4.0
+ 0.15805D+05   6.5
+-0.31859D+05   7.0
+ 0.21548D+05   8.0
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

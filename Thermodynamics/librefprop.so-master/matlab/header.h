@@ -1,0 +1,116 @@
+void setupdll_ ( long *, char [ 10000 ], char [ 255 ], char [ 3 ], long *, char [ 255 ], long , long , long , long );
+void setrefdll_ ( char [ 3 ], long *, double *, double *, double *, double *, double *, long *, char [ 255 ], long , long );
+void setmixdll_ ( char [ 255 ], char [ 255 ], char [ 3 ], long *, char [ 10000 ], double *, long *, char [ 255 ], long , long , long , long , long );
+void setmoddll_ ( long *, char [ 3 ], char [ 3 ], char [ 60 ], long *, char [ 255 ], long , long , long , long );
+void setpathdll_ ( char [ 255 ], long );
+void gerg04dll_ ( long *, long *, long *, char [ 255 ], long );
+void setktvdll_ ( long *, long *, char [ 3 ], double *, char [ 255 ], long *, char [ 255 ], long , long , long );
+void getktvdll_ ( long *, long *, char [ 3 ], double *, char [ 255 ], char [ 255 ], char [ 255 ], char [ 255 ], long , long , long , long , long );
+void getfijdll_ ( char [ 3 ], double *, char [ 255 ], char [ 255 ], long , long , long );
+void preosdll_ ( long *);
+void setagadll_ ( long *, char [ 255 ], long );
+void unsetagadll_ ();
+void namedll_ ( long *, char [ 12 ], char [ 80 ], char [ 12 ], long , long , long );
+void pureflddll_ ( long *);
+void setncdll_ ( long *);
+void rpversion_ ( char [ 255 ], long );
+
+void critpdll_ ( double *, double *, double *, double *, long *, char [ 255 ], long );
+
+void thermdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *);
+void therm2dll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *);
+void therm3dll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *);
+void therm0dll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *);
+void pressdll_ ( double *, double *, double *, double *);
+void enthaldll_ ( double *, double *, double *, double *);
+void entrodll_ ( double *, double *, double *, double *);
+void cvcpdll_ ( double *, double *, double *, double *, double *);
+void gibbsdll_ ( double *, double *, double *, double *, double *);
+void agdll_ ( double *, double *, double *, double *, double *);
+void residualdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *);
+void cp0dll_ ( double *, double *, double *);
+
+void dpdddll_ ( double *, double *, double *, double *);
+void dpdd2dll_ ( double *, double *, double *, double *);
+void dpdtdll_ ( double *, double *, double *, double *);
+void dddpdll_ ( double *, double *, double *, double *);
+void dddtdll_ ( double *, double *, double *, double *);
+void dhd1dll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *);
+void virbdll_ ( double *, double *, double *);
+void vircdll_ ( double *, double *, double *);
+void virbadll_ ( double *, double *, double *);
+void vircadll_ ( double *, double *, double *);
+void dbdtdll_ ( double *, double *, double *);
+void b12dll_ ( double *, double *, double *);
+
+void fgctydll_ ( double *, double *, double *, double *);
+void fgcty2dll_ ( double *, double *, double *, double *, long *, char [ 255 ], long );
+void fugcofdll_ ( double *, double *, double *, double *, long *, char [ 255 ], long );
+void chempotdll_ ( double *, double *, double *, double *, long *, char [ 255 ], long );
+void actvydll_ ( double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void excessdll_ ( double *, double *, double *, long *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+
+void satsplndll_ ( double *, long *, char [ 255 ], long );
+void sattpdll_ ( double *, double *, double *, long *, long *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void sattdll_ ( double *, double *, long *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void satpdll_ ( double *, double *, long *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void satddll_ ( double *, double *, long *, long *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void sathdll_ ( double *, double *, long *, long *, long *, double *, double *, double *, long *, double *, double *, double *, long *, char [ 255 ], long );
+void satedll_ ( double *, double *, long *, long *, long *, double *, double *, double *, long *, double *, double *, double *, long *, char [ 255 ], long );
+void satsdll_ ( double *, double *, long *, long *, long *, double *, double *, double *, long *, double *, double *, double *, long *, double *, double *, double *, long *, char [ 255 ], long );
+void cv2pkdll_ ( long *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void csatkdll_ ( long *, double *, long *, double *, double *, double *, long *, char [ 255 ], long );
+void dptsatkdll_ ( long *, double *, long *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void psatkdll_ ( long *, double *, double *, long *, char [ 255 ], long );
+void dlsatkdll_ ( long *, double *, double *, long *, char [ 255 ], long );
+void dvsatkdll_ ( long *, double *, double *, long *, char [ 255 ], long );
+
+void melttdll_ ( double *, double *, double *, long *, char [ 255 ], long );
+void mlth2odll_ ( double *, double *, double *);
+void meltpdll_ ( double *, double *, double *, long *, char [ 255 ], long );
+void subltdll_ ( double *, double *, double *, long *, char [ 255 ], long );
+void sublpdll_ ( double *, double *, double *, long *, char [ 255 ], long );
+
+void tprhodll_ ( double *, double *, double *, long *, long *, double *, long *, char [ 255 ], long );
+void tpflshdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void tdflshdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void pdflshdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void phflshdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void psflshdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void peflshdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void thflshdll_ ( double *, double *, double *, long *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void tsflshdll_ ( double *, double *, double *, long *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void teflshdll_ ( double *, double *, double *, long *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void dhflshdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void dsflshdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void deflshdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void hsflshdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void esflshdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void tqflshdll_ ( double *, double *, double *, long *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void pqflshdll_ ( double *, double *, double *, long *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void abfl1dll_ ( double *, double *, double *, long *, char [ 2 ], double *, double *, double *, double *, double *, long *, char [ 255 ], long , long );
+void abfl2dll_ ( double *, double *, double *, long *, long *, char [ 2 ], double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long , long );
+void dbfl1dll_ ( double *, double *, double *, char [ 2 ], double *, double *, long *, char [ 255 ], long , long );
+void dbfl2dll_ ( double *, double *, double *, long *, char [ 2 ], double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long , long );
+void pdfl1dll_ ( double *, double *, double *, double *, long *, char [ 255 ], long );
+void phfl1dll_ ( double *, double *, double *, long *, double *, double *, long *, char [ 255 ], long );
+void psfl1dll_ ( double *, double *, double *, long *, double *, double *, long *, char [ 255 ], long );
+
+void trnprpdll_ ( double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void dielecdll_ ( double *, double *, double *, double *);
+void surftdll_ ( double *, double *, double *, double *, long *, char [ 255 ], long );
+void surtendll_ ( double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void heatdll_ ( double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void cstardll_ ( double *, double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void fpvdll_ ( double *, double *, double *, double *, double *);
+
+
+void wmoldll_ ( double *, double *);
+void xmassdll_ ( double *, double *, double *);
+void xmoledll_ ( double *, double *, double *);
+void qmassdll_ ( double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void qmoledll_ ( double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long );
+void infodll_ ( long *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *);
+void limitsdll_ ( char [ 3 ], double *, double *, double *, double *, double *, long );
+void limitxdll_ ( char [ 3 ], double *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long , long );
+void limitkdll_ ( char [ 3 ], long *, double *, double *, double *, double *, double *, double *, double *, long *, char [ 255 ], long , long );

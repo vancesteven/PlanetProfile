@@ -1,0 +1,185 @@
+nitrogen trifluoride !short name
+7783-54-2            !CAS number
+nitrogen trifluoride !full name
+NF3                  !chemical formula {F3N}
+Trifluoroamine       !synonym
+71.019             !molecular weight [g/mol]
+66.36              !triple point temperature [K]
+144.138            !normal boiling point [K]
+234.0              !critical temperature [K]
+4460.7             !critical pressure [kPa]
+7.92               !critical density [mol/L]
+0.126              !acentric factor
+0.235              !dipole moment [Debye]
+NBP                !default reference state
+8.0                !version number
+2451               !UN Number
+other              !family
+
+
+! compiled by E.W. Lemmon, NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 12-04-97 EWL, original version
+! 11-13-98 EWL, update format to version 6.1
+! 11-22-99 EWL, change ECS reference fluid to nitrogen
+! 01-24-00 EWL, change Tlow to 85 K and Dmax to 25.3 mol/L to avoid eos problems
+!               at low temperatures
+! 05-24-00 EWL, remove predictive ECS model, do NOT calculate transport props.
+! 10-06-03 AHH, update dipole moment
+! 08-17-10 IDC, add ancillary equations
+
+
+#EOS               !equation of state specification
+BWR  MBWR equation of state for nitrogen trifluoride of Younglove (1982).
+?LITERATURE REFERENCE \
+?Younglove, B.A.,
+? "Thermophysical Properties of Fluids.  I. Argon, Ethylene,
+? Parahydrogen, Nitrogen, Nitrogen Trifluoride, and Oxygen,"
+? J. Phys. Chem. Ref. Data, Vol. 11, Suppl. 1, pp. 1-11, 1982.
+?\
+?The uncertainties in density are 0.25% in the liquid phase and 0.3% in the
+?vapor and supercritical regions.  The uncertainty in speed of sound and
+?heat capacity is 5%.
+?\
+?N.B.  all temperatures on IPTS-68
+?\
+!end of info section
+85.0               !lower temperature limit [K]
+500.0              !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+25.3               !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+71.019                                 !molecular weight [g/mol]
+66.36                                  !triple point temperature [K]
+0.0001863                              !pressure at triple point [kPa]
+26.32                                  !density at triple point [mol/L]
+144.138                                !normal boiling point temperature [K]
+0.126                                  !acentric factor
+234.0        4460.7       7.92         !Tc [K], pc [kPa], rhoc [mol/L]
+234.0                     7.92         !reducing parameters [K, mol/L]
+13.3630620956                          !gamma
+0.0831441                              !gas constant [L-bar/mol-K]
+      32       1                       !Nterm, Ncoeff per term
+  0.1774353868d-01    -0.5409379418d-00      0.3976634466d+01
+ -0.5209476694d+03    -0.3286322888d+05     -0.5990517411d-03
+  0.9217525601d-00    -0.4848977075d+03     -0.4235892691d+07
+ -0.9824248063d-05     0.5432235989d-01     -0.1462388500d+02
+ -0.3366180440d-02     0.2801374599d-00      0.8435288597d+01
+ -0.1324421452d-01     0.1875604377d-03      0.2959643991d-00
+ -0.7009976870d-02     0.4365820912d+07     -0.1111397536d+08
+  0.2411866612d+05     0.3179136276d+07      0.6166849090d+02
+  0.4260854720d+02     0.1090598789d-00     -0.3340951059d+02
+  0.8597429644d-04     0.1240544214d-02      0.1286224248d-06
+ -0.8941104276d-06     0.3353054595d-04
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?Younglove, B.A.,
+? "Thermophysical Properties of Fluids.  I. Argon, Ethylene,
+? Parahydrogen, Nitrogen, Nitrogen Trifluoride, and Oxygen,"
+? J. Phys. Chem. Ref. Data, Vol. 11, Suppl. 1, pp. 1-11, 1982.
+?\
+!end of info section
+85.0               !lower temperature limit [K]
+500.0              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.31441                   !reducing parameters for T, Cp0
+  7  1    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 0.7427518245951d+06   -3.00
+-0.4389825372134d+05   -2.00
+ 0.1012629224351d+04   -1.00
+-0.7140693612211d+01    0.00
+ 0.5481339146452d-01    1.00
+-0.7677196006769d-04    2.00
+ 0.4203630864340d-07    3.00
+-0.6328752997967d+00   3000.00
+
+
+#TCX               !thermal conductivity model specification
+NUL
+?LITERATURE REFERENCE \
+?No thermal conductivity equation is available for nitrogen trifluoride.
+?\
+!end of info section
+85.0               !lower temperature limit [K]
+500.0              !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+25.3               !maximum density [mol/L]
+
+
+#ETA               !viscosity model specification
+NUL
+?LITERATURE REFERENCE \
+?No viscosity equation is available for nitrogen trifluoride.
+!end of info section
+85.0               !lower temperature limit [K]
+500.0              !upper temperature limit [K]
+50000.0            !upper pressure limit [kPa]
+25.3               !maximum density [mol/L]
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+85.0               !lower temperature limit [K]
+234.0              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+234.0   4460.7     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-0.66672D+01   1.0
+ 0.33864D+01   1.5
+-0.28222D+01   1.7
+-0.50602D+01   5.5
+ 0.32481D+01   7.0
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+85.0               !lower temperature limit [K]
+234.0              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+234.0   7.92       !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+ 0.22080D+01   0.35     !coefficients and exponents
+ 0.35709D+02   2.4
+-0.92868D+02   2.7
+ 0.66666D+02   3.0
+-0.93589D+01   4.0
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+85.0               !lower temperature limit [K]
+234.0              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+234.0   7.92       !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+-0.30610D+01   0.421     !coefficients and exponents
+-0.80541D+01   1.48
+-0.19619D+02   3.9
+-0.13432D+02   7.0
+-0.32760D+02   8.0
+-0.67907D+02  15.0
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890
+0.4154             !Lennard-Jones coefficient sigma [nm] for ECS method
+175.0              !Lennard-Jones coefficient epsilon/kappa [K] for ECS method

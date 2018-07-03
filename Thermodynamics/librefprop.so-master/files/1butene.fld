@@ -1,0 +1,228 @@
+butene             !short name
+106-98-9           !CAS number
+1-butene           !full name
+CH3-CH2-CH=CH2     !chemical formula {C4H8}
+1-butylene         !synonym
+56.10632           !molecular weight [g/mol]
+87.8               !triple point temperature [K]
+266.84             !normal boiling point [K]
+419.29             !critical temperature [K]
+4005.1             !critical pressure [kPa]
+4.24               !critical density [mol/L]
+0.192              !acentric factor
+0.339              !dipole moment [Debye]
+NBP                !default reference state
+8.0                !version number
+1012               !UN Number
+n-alkene           !family
+
+
+! compiled by M.L. Huber, NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 11-06-02 MLH, original version
+! 03-08-04 EWL, add short EOS
+! 10-14-04 MLH, add family
+! 11-16-06 MLH, add LJ parameters
+! 06-10-10 CKL, add ancillary equations
+! 12-06-12 EWL, add surface tension coefficients of Mulero et al. (2012)
+
+
+#EOS               !equation of state specification
+FEQ  short Helmholtz equation of state for 1-butene of Lemmon and Ihmels (2005).
+?LITERATURE REFERENCE \
+?Lemmon, E.W. and Ihmels, E.C.,
+? "Thermodynamic Properties of the Butenes.  Part II. Short Fundamental
+? Equations of State,"
+? Fluid Phase Equilibria, 228-229C:173-187, 2005.
+?\
+?The uncertainties of densities calculated by the equation of state
+?(based on a coverage factor of 2) are 0.1% in the liquid phase at
+?temperatures above 270 K (rising to 0.5% in density at temperatures
+?below 200 K), 0.2% at temperatures above the critical temperature and
+?at pressures above 10 MPa, and 0.5% in the vapor phase, including
+?supercritical conditions below 10 MPa. The uncertainty in vapor
+?pressure is 0.25% above 200 K. The uncertainty in heat capacities is
+?0.5% at saturated liquid conditions, rising to 5% at much higher
+?pressures and at temperatures above 350 K.
+?\
+!end of info section
+87.8               !lower temperature limit [K]
+525.               !upper temperature limit [K]
+70000.             !upper pressure limit [kPa]
+14.59              !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+56.10632                               !molecular weight [g/mol]
+87.8                                   !triple point temperature [K]
+0.0000000005945                        !pressure at triple point [kPa]
+14.58                                  !density at triple point [mol/L]
+266.84                                 !normal boiling point temperature [K]
+0.192                                  !acentric factor
+419.29        4005.1      4.24         !Tc [K], pc [kPa], rhoc [mol/L]
+419.29                    4.24         !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  12  4      0  0      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  0.78084         0.12    1.0   0      !a(i),t(i),d(i),l(i)
+ -2.8258          1.3     1.0   0
+  0.99403         1.74    1.0   0
+  0.017951        2.1     2.0   0
+  0.088889        0.28    3.0   0
+  0.00024673      0.69    7.0   0
+  0.22846         0.75    2.0   1
+ -0.074009        2.0     5.0   1
+ -0.22913         4.4     1.0   2
+ -0.062334        4.7     4.0   2
+ -0.025385       15.0     3.0   3
+  0.011040       14.0     4.0   3
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?Lemmon, E.W. and Ihmels, E.C.,
+?\
+!end of info section
+87.8               !lower temperature limit [K]
+6000.0             !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  1  4    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 3.9197      0.0
+ 2.9406    274.0
+ 6.5395    951.0
+ 14.535   2127.0
+ 5.8971   5752.0
+
+
+#AUX               !auxiliary model specification
+PH0  Helmholtz form for the ideal-gas state
+?LITERATURE REFERENCE \
+?Lemmon, E.W. and Ihmels, E.C.,
+?\
+!end of info section
+87.8               !lower temperature limit [K]
+6000.0             !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1 2  4  0 0  0 0 0 !Nterms:  ai*log(tau**ti); ai*tau**ti; ai*log(1-exp(bi*tau))
+    2.9197          1.0000000000   !ai, ti for [ai*log(tau**ti)] terms
+   14.87266         0.0000000000   !aj, ti for [ai*tau**ti] terms
+   -4.167698        1.0000000000
+    2.9406         -0.6534856543   !aj, ti for [ai*log(1-exp(ti*tau)] terms
+    6.5395         -2.2681199170
+   14.5350         -5.0728612655
+    5.8971        -13.7184287724
+
+
+#TRN               !transport model specification
+ECS  Extended Corresponding States model (Propane reference);   predictive mode.
+?LITERATURE REFERENCES \
+?
+? *** ESTIMATION METHOD--- NOT STANDARD REFERENCE QUALITY---
+?     estimated uncertainty 10%
+?
+? Uses method described in the following reference:
+? Huber, M.L., Laesecke, A., and Perkins, R.A.,
+? "Model for the Viscosity and Thermal Conductivity of Refrigerants,
+? Including a New Correlation for the Viscosity of R134a",
+? Ind. Eng. Chem. Res., 42:3163-3178, 2003.
+?\
+?Lennard-Jones parameters are estimated with method of Chung.
+?\
+!end of info section
+87.8               !lower temperature limit [K]
+525.               !upper temperature limit [K]
+70000.             !upper pressure limit [kPa]
+14.59              !maximum density [mol/L]
+FEQ propane.fld
+VS1                !model for reference fluid viscosity
+TC1                !model for reference fluid thermal conductivity
+1                  !Lennard-Jones flag (0 or 1) (0 => use estimates)
+0.4998             !Lennard-Jones coefficient sigma [nm] for ECS method (estimated)
+332.95             !Lennard-Jones coefficient epsilon/kappa [K] for ECS method (estimated)
+1  0  0                       !number of terms in f_int term in Eucken correlation, spare1, spare2
+ 1.32d-3        0.0  0.0  0.0 !coeff, power of T, spare 1, spare 2
+1  0  0                       !number of terms in psi (visc shape factor): poly,spare1,spare2
+ 1.0            0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+1  0  0                       !number of terms in chi (t.c. shape factor): poly,spare1,spare2
+ 1.0            0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+NUL                           !pointer to critical enhancement auxiliary function
+
+
+#STN        !surface tension specification
+ST1  surface tension model of Mulero et al. (2012)
+?LITERATURE REFERENCE \
+?Mulero, A., Cachadiña, I., and Parra, M.I.
+? "Recommended Correlations for the Surface Tension of Common Fluids,"
+? J. Phys. Chem. Ref. Data, 41, 043105, 2012.
+?\
+!end of info section
+0.0                !lower temperature limit [K]
+419.29             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+1                           !number of terms in surface tension model
+419.29                      !critical temperature used in fit (dummy)
+ 0.05644     1.248          !sigma0 and n
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Lemmon (2010).
+?LITERATURE REFERENCE \
+?Lemmon, C.K. and Lemmon, E.W., 2010.
+?\
+!end of info section
+87.8               !lower temperature limit [K]
+419.29             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+419.29  4005.1     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-0.71727D+01       1.0
+ 0.26360D+01       1.5
+-0.20781D+01       2.0
+-0.28860D+01       4.35
+-0.13041D+01       16.0
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Lemmon (2010).
+?LITERATURE REFERENCE \
+?Lemmon, C.K. and Lemmon, E.W., 2010.
+?\
+!end of info section
+87.8               !lower temperature limit [K]
+419.29             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+419.29  4.24       !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+ 0.16857D+02       0.547         !coefficients and exponents
+-0.46280D+02       0.73
+ 0.53727D+02       0.92
+-0.23314D+02       1.14
+ 0.18889D+01       2.1
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Lemmon (2010).
+?LITERATURE REFERENCE \
+?Lemmon, C.K. and Lemmon, E.W., 2010.
+?\
+!end of info section
+87.8               !lower temperature limit [K]
+419.29             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+419.29  4.24       !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+-0.31106D+01       0.415         !coefficients and exponents
+-0.63103D+01       1.27
+-0.19272D+02       3.34
+-0.48739D+02       7.0
+-0.99898D+02      14.5
+-0.19001D+03      28.0
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

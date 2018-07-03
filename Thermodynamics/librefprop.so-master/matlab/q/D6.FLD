@@ -1,0 +1,219 @@
+D6                            !short name
+540-97-6                      !CAS number
+dodecamethylcyclohexasiloxane !full name
+C12H36Si6O6                   !chemical formula
+D6                            !synonym
+444.924            !molecular weight [g/mol]
+270.2              !triple point temperature [K]
+518.11             !normal boiling point [K]
+645.78             !critical temperature [K]
+961.0              !critical pressure [kPa]
+0.6272885478       !critical density [mol/L]
+0.736              !acentric factor
+1.559              !dipole moment [Debye]; DIPPR DIADEM 2012
+NBP                !default reference state
+8.0                !version number
+other              !family
+
+
+! compiled by T.M. Blackham, NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 04-19-10 TMB, original version
+! 08-23-10 IDC, add ancillary equations
+! 02-15-11 MLH, add preliminary transport
+! 04-06-13 EWL, add dipole moment
+
+
+#EOS               !equation of state specification
+FEQ  short Helmholtz equation of state for D6 of Colonna et al. (2008)
+?LITERATURE REFERENCE \
+?Colonna, P., Nannan, N.R., and Guardone, A.,
+? "Multiparameter Equations of State for Siloxanes,"
+? Fluid Phase Equilibria, 263:115-130, 2008.
+?\
+!end of info section
+270.2              !lower temperature limit [K]
+673.               !upper temperature limit [K]
+30000.0            !upper pressure limit [kPa]
+2.246              !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+444.924                                !molecular weight [g/mol]
+270.2                                  !triple point temperature [K]
+0.0001597                              !pressure at triple point [kPa]
+2.245                                  !density at triple point [mol/L]
+518.11                                 !normal boiling point temperature [K]
+0.736                                  !acentric factor
+645.78        961.0       0.6272885478 !Tc [K], pc [kPa], rhoc [mol/L]
+645.78                    0.6272885478 !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  12  4      0  0      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  1.69156186      0.25    1.0   0      !a(i),t(i),d(i),l(i)
+ -3.37962568      1.125   1.0   0
+  0.38609039      1.5     1.0   0
+  0.64598995D-1   1.375   2.0   0
+  0.10589012      0.25    3.0   0
+  0.45456825D-4   0.875   7.0   0
+  0.74169279      0.625   2.0   1
+ -0.88102648D-1   1.75    5.0   1
+ -0.17373336      3.625   1.0   2
+ -0.10951368      3.625   4.0   2
+ -0.62695695D-1  14.5     3.0   3
+  0.37459986D-1  12.0     4.0   3
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?Colonna, P., Nannan, N.R., and Guardone, A.,
+? "Multiparameter Equations of State for Siloxanes,"
+? Fluid Phase Equilibria, 263:115-130, 2008.
+?\
+!end of info section
+100.               !lower temperature limit [K]
+1000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          1.0                       !reducing parameters for T, Cp0
+  1  0    1  1    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+468.7             0.0
+425104546.6      -2.0  786.8       -1.0  -2.0
+3151243909.0     -2.0  1792.1      -1.0  -2.0
+
+
+#TRN               !transport model specification
+ECS  Extended Corresponding States model (c12 reference); fit to very limited data.
+?LITERATURE REFERENCES \
+?Huber, M.L., Laesecke, A., and Perkins, R.A., Model for the viscosity
+? and thermal conductivity of refrigerants, including a new correlation
+? for the viscosity of R134a, Ind.Eng.Chem.Res. 42: 3163-3178 (2003).
+?\
+?DATA SOURCES FOR VISCOSITY\
+? Wilcock, D.F., "Vapor Pressure-Viscosity Relations in Methylpolysiloxanes,
+?  " J. Amer. Chem. Soc., 68, 691 (1946)
+? Waterman, H.I., Van Herwijen, W., Denhartog, H.W., "Statistical-Graphical Survey of Series of Linear and Cyclic Dimethylsiloxanes,
+?  " J. Appl. Chem., 8, 625 (1958)
+? Hurd, C.B., "Studies on Siloxanes. I. The Specific Volume and Viscosity in Relation to Temperature and Constitution,
+?  " J. Amer. Chem. Soc., 68, 364 (1946)
+? Estimated uncertainty: the estimated uncertainty in the liquid phase is <5 %, based on comparisons
+? with the data listed above. Vapor phase data unavailable; estimated uncertainty in vapor phase 10%
+?
+?DATA SOURCES FOR THERMAL CONDUCTIVITY\
+? Experimental data not found. Predictions based on family behavior.
+? Estimated uncertainty: the estimated uncertainty is 30%.
+?\
+?The Lennard-Jones parameters are estimated using the method of chung.
+?\
+!end of info section
+270.2              !lower temperature limit [K]
+673.               !upper temperature limit [K]
+30000.0            !upper pressure limit [kPa]
+2.246              !maximum density [mol/L]
+FEQ c12.fld
+VS1                !model for reference fluid viscosity
+TC1                !model for reference fluid thermal conductivity
+1                  !Lennard-Jones flag (0 or 1) (0 => use estimates)
+0.945              !Lennard-Jones coefficient sigma [nm] for ECS method
+512.81             !Lennard-Jones coefficient epsilon/kappa [K] for ECS method
+1  0  0            !number of terms in f_int term in Eucken correlation, spare1, spare 2
+ 1.3200d-3      0.0   0.0   0.0  !coeff, power of T, spare 1, spare 2
+2  0  0                          !number of terms in psi (visc shape factor): poly,spare1,spare2
+ 1.51373        0.0   0.0   0.0  !coeff, power of Tr, power of Dr, spare
+-0.123564       0.0   1.0   0.0  !coeff, power of Tr, power of Dr, spare
+1  0  0                          !number of terms in phi (thermal cond. shape factor): poly,spare1,spare2
+ 1.34           0.0   0.0   0.0  !coeff, power of Tr, power of Dr, spare
+TK3                !pointer to critical enhancement auxiliary function
+
+
+#AUX               !thermal conductivity critical enhancement model
+TK3  simplified thermal conductivity critical enhancement of Olchowy and Sengers
+?LITERATURE REFERENCE \
+?Olchowy, G.A. and Sengers, J.V.,
+? "A simplified representation for the thermal conductivity of fluids in the
+? critical region,"
+? Int. J. Thermophysics, 10:417-426, 1989.
+?\
+?as applied to CO2 by:
+?\
+?Vesovic, V., Wakeham, W.A., Olchowy, G.A., Sengers, J.V., Watson, J.T.R.
+? and Millat, J.,
+? "The transport properties of carbon dioxide,"
+? J. Phys. Chem. Ref. Data, 19:763-808, 1990.
+?\
+!end of info section
+270.2              !lower temperature limit [K]
+673.               !upper temperature limit [K]
+30000.0            !upper pressure limit [kPa]
+2.246              !maximum density [mol/L]
+9  0  0  0         !# terms:  CO2-terms, spare, spare, spare
+1.0     1.0     1.0      !reducing par for T, rho, tcx (mW/m-K)
+0.630d0            !gnu (universal exponent)
+1.239d0            !gamma (universal exponent)
+1.03d0             !R0 (universal amplitude)
+0.063d0            !z (universal exponent--not used for t.c., only viscosity)
+1.00d0             !c (constant in viscosity eqn = 1/[2 - (alpha + gamma)/(2*nu)], but often set to 1)
+0.194d-9           !xi0 (amplitude) [m]
+0.0496             !gam0 (amplitude) [-]
+5.d-09             !qd_inverse (modified effective cutoff parameter) [m] estimated
+968.67d+00         !tref (reference temperature)=1.5*Tc [K]
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+270.2              !lower temperature limit [K]
+645.78             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+645.78  961.0      !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-0.96557D+01   1.0
+ 0.62155D+00   1.5
+ 0.17863D+01   1.72
+-0.10496D+02   3.18
+-0.84102D+01  11.0
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+270.2              !lower temperature limit [K]
+645.78             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+645.78 0.6272885478 !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+ 0.42563D+02   0.537     !coefficients and exponents
+-0.15707D+03   0.68
+ 0.29502D+03   0.85
+-0.24191D+03   1.0
+ 0.65145D+02   1.2
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Cullimore (2010).
+?LITERATURE REFERENCE \
+?Cullimore, I.D., 2010.
+?\
+!end of info section
+270.2              !lower temperature limit [K]
+645.78             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+645.78 0.6272885478 !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+-0.20930D+01   0.338         !coefficients and exponents
+-0.94442D+01   1.02
+-0.44731D+02   3.46
+-0.57898D+02   7.1
+-0.35144D+02   7.4
+-0.29661D+03  15.0
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

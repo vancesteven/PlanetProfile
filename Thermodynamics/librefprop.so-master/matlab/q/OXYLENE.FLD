@@ -1,0 +1,177 @@
+o-xylene                              !short name
+95-47-6                               !CAS number
+1,2-dimethylbenzene                   !full name
+C8H10                                 !chemical formula
+o-xylene                              !synonym
+106.165            !molecular weight [g/mol]
+247.985            !triple point temperature [K]
+417.521            !normal boiling point [K]
+630.259            !critical temperature [K]
+3737.5             !critical pressure [kPa]
+2.6845             !critical density [mol/L]
+0.312              !acentric factor
+0.630              !dipole moment [Debye]; DIPPR DIADEM 2012
+NBP                !default reference state
+8.0                !version number
+
+
+! compiled at NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 03-03-09 EWL, original version
+! 04-01-13  SH, add ancillary equations
+! 04-06-13 EWL, add dipole moment
+
+
+#EOS               !equation of state specification
+FEQ  Helmholtz equation of state for o-xylene of Zhou et al. (2012).
+?LITERATURE REFERENCE \
+?Zhou, Y., Lemmon, E.W., and Wu, J.
+?"Thermodynamic Properties of o-Xylene, m-Xylene, p-Xylene, and Ethylbenzene"
+?J. Phys. Chem. Ref. Data, 41(023103):1-26, 2012.
+?\
+?The uncertainty of the equation of state for o-xylene in vapor pressure is
+?estimated to be 0.5% above 300 K. The uncertainty in saturated liquid
+?density is 0.1% below 500 K, and increases to 0.5% at higher temperatures,
+?due to a lack of experimental data.  The uncertainties in density of the
+?equation of state range from 0.1% in the compressed-liquid region to 1.0%
+?in the critical and vapor regions.  The uncertainty in sound speed is
+?estimated to be 1.0%.  The uncertainties in heat of vaporization,
+?saturation heat capacity, and isobaric heat capacity are estimated to be
+?0.5%, 0.5%, and 1.0%, respectively.  In the critical region, the
+?uncertainties are higher for all properties.
+?\
+!end of info section
+247.985             !lower temperature limit [K]
+700.000             !upper temperature limit [K]
+70000.0             !upper pressure limit [kPa]
+8.648               !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+106.165                                !molecular weight [g/mol]
+247.985                                !triple point temperature [K]
+0.0228                                 !pressure at triple point [kPa]
+8.647                                  !density at triple point [mol/L]
+417.521                                !normal boiling point temperature [K]
+0.312                                  !acentric factor
+630.259        3737.5       2.6845     !Tc [K], pc [kPa], rhoc [mol/L]
+630.259                     2.6845     !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  12  4      4 12      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  0.0036765156 1.0   5  0              !a(i),t(i),d(i),l(i)
+ -0.13918171   0.6   1  0
+  0.014104203  0.91  4  0
+  1.5398899    0.3   1  0
+ -2.3600925    0.895 1  0
+ -0.44359159   1.167 2  0
+  0.19596977   0.435 3  0
+ -1.0909408    2.766 1  2
+ -0.21890801   3.8   3  2
+  1.1179223    1.31  2  1
+ -0.93563815   3.0   2  2
+ -0.018102996  0.77  7  1
+  1.4172368    1.41  1  2 2  -1.1723   -2.442  1.2655 0.552    0. 0. 0.
+ -0.57134695   4.8   1  2 2  -1.095    -1.342  0.3959 0.728    0. 0. 0.
+ -0.081944041  1.856 3  2 2  -1.6166   -3.0    0.7789 0.498    0. 0. 0.
+ -40.682878    2.0   3  2 2  -20.4     -450.0  1.162  0.894    0. 0. 0.
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function for o-xylene of Zhou et al. (2012).
+?LITERATURE REFERENCE \
+?see EOS for reference
+?\
+!end of info section
+50.                !lower temperature limit [K]
+5000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  1  4    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+   3.748798    0.0
+   4.754892  225.0
+   6.915052  627.0
+  25.84813  1726.0
+  10.93886  4941.0
+
+
+#AUX               !auxiliary model specification
+PH0  Helmholtz form for the ideal-gas state for o-xylene of Zhou et al. (2012).
+?LITERATURE REFERENCE \
+?see EOS for reference
+?\
+!end of info section
+50.                !lower temperature limit [K]
+5000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1 2  4  0 0  0 0 0 !Nterms:  ai*log(tau**ti); ai*tau**ti; ai*log(1-exp(bi*tau))
+    2.748798        1.0            !ai, ti for [ai*log(tau**ti)] terms
+   10.137376        0.0            !aj, ti for [ai*tau**ti] terms
+   -0.91282993      1.0
+    4.754892       -0.3569960921   !aj, ti for [ai*log(1-exp(ti*tau)] terms
+    6.915052       -0.9948291099
+   25.84813        -2.7385566886
+   10.93886        -7.8396341821
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+630.259            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+630.259 3737.5     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-7.2834   1.0      !coefficients and exponents
+-1.5813   1.5
+ 7.6516   1.9
+-7.9953   2.4
+-2.2277   6.0
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+630.259            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+630.259 2.6845     !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+ 0.9743   0.3      !coefficients and exponents
+ 16.511   0.96
+-52.934   1.4
+ 87.962   1.9
+-71.719   2.4
+ 22.569   3.0
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+630.259            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+630.259 2.6845     !reducing parameters
+7 0 0 0 0 0        !number of terms in equation
+-1.29038  0.32     !coefficients and exponents
+-33.3428  1.14
+ 142.046  1.7
+-292.211  2.2
+ 293.950  2.8
+-159.504  3.5
+-88.2170  9.8
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

@@ -1,0 +1,367 @@
+krypton            !short name
+7439-90-9          !CAS number
+krypton            !full name
+Kr                 !chemical formula
+R-784              !synonym
+83.798             !molecular weight [g/mol]
+115.775            !triple point temperature [K]
+119.73             !normal boiling point [K]
+209.48             !critical temperature [K]
+5525.0             !critical pressure [kPa]
+10.85              !critical density [mol/L]
+-0.000894          !acentric factor
+0.0                !dipole moment [Debye]
+NBP                !default reference state
+8.0                !version number
+1056, 1970         !UN Number
+other              !family
+
+
+! compiled by E.W. Lemmon, NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 04-06-98 EWL, original version
+! 11-13-98 EWL, update format to version 6.1
+! 11-18-98 EWL, add equation of state of Polt et al. (1992)
+! 10-14-99 EWL, add L-J parameters
+! 11-02-99 EWL, change Tlow to 115.77 for Polt equation
+! 11-10-99 EWL, add extra digits to melting equation to get ptp at ttp
+! 11-22-99 EWL, change ECS reference fluid to nitrogen
+! 01-25-00 EWL, drop upper temperature limit from 800 to 400 K
+! 03-20-00 EWL, change max density to the density at p=2*pmax along melting line
+! 07-11-00 EWL, remove Juza equation and replace with Lemmon and Span equation
+! 04-12-00 EWL, update Lemmon and Span short EOS
+! 05-20-01 EWL, add sublimation line
+! 03-29-04 EWL, update Lemmon and Span short EOS
+! 07-07-04 EWL, update Tmax for transport equations
+! 08-05-04 EWL, add Harvey and Lemmon dielectric correlation
+! 08-08-05 EWL, first coef. in melting line equation changed slightly to match EOS at Ttrp
+! 01-30-07 EWL, change triple point from 115.77 to 115.775 in accordance with Bedford et al., Metrologia, 33:133, 1996.
+! 07-01-10 CKL, add ancillary equations
+! 12-06-12 EWL, add surface tension coefficients of Mulero et al. (2012)
+
+
+#EOS               !equation of state specification
+FEQ  short Helmholtz equation of state for krypton of Lemmon and Span (2006).
+?LITERATURE REFERENCE \
+?Lemmon, E.W. and Span, R.,
+? "Short Fundamental Equations of State for 20 Industrial Fluids,"
+? J. Chem. Eng. Data, 51:785-850, 2006.
+?\
+?The equation of state is valid from the triple point to 750 K with
+?pressures to 200 MPa, although the uncertainties increase substantially
+?above 100 MPa. The uncertainties in density are typically 0.2% below 100
+?MPa, increasing to 1% at pressures up to 200 MPa. The uncertainty in vapor
+?pressure is 0.2% and the uncertainties in speed of sound are 0.01% in the
+?vapor phase (including supercritical conditions) at low pressures, 1% below
+?20 MPa in the liquid phase, and 3% below 100 MPa at other state points.
+?The limited amount of heat capacity data show that the uncertainty is 1%
+?near the triple point, and uncertainties in heat capacities at other states
+?are probably within 2%, at least at pressures up to 20 MPa.
+?\
+!end of info section
+115.775            !lower temperature limit [K]
+750.0              !upper temperature limit [K]
+200000.0           !upper pressure limit [kPa]
+33.42              !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+83.798                                 !molecular weight [g/mol]
+115.775                                !triple point temperature [K]
+73.53                                  !pressure at triple point [kPa]
+29.2                                   !density at triple point [mol/L]
+119.73                                 !normal boiling point temperature [K]
+-0.000894                              !acentric factor
+209.48        5525.0     10.85         !Tc [K], pc [kPa], rhoc [mol/L]
+209.48                   10.85         !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  12  4      0  0      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  0.83561         0.25    1.0   0      !a(i),t(i),d(i),l(i)
+ -2.3725          1.125   1.0   0
+  0.54567         1.5     1.0   0
+  0.014361        1.375   2.0   0
+  0.066502        0.25    3.0   0
+  0.00019310      0.875   7.0   0
+  0.16818         0.625   2.0   1
+ -0.033133        1.75    5.0   1
+ -0.15008         3.625   1.0   2
+ -0.022897        3.625   4.0   2
+ -0.021454       14.5     3.0   3
+  0.0069397      12.0     4.0   3
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?Lemmon, E.W. and Span, R. (see eos for reference)
+?\
+!end of info section
+115.775            !lower temperature limit [K]
+800.0              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  1  0    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 2.5         0.0
+
+
+#AUX               !auxiliary model specification
+PH0  Helmholtz form for the ideal-gas state
+?LITERATURE REFERENCE \
+?Lemmon, E.W. and Span, R. (see eos for reference)
+?\
+!end of info section
+115.775            !lower temperature limit [K]
+800.0              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1 2  0  0 0  0 0 0 !Nterms:  ai*log(tau**ti); ai*tau**ti; ai*log(1-exp(bi*tau))
+    1.5000000000    1.0            !ai, ti for [ai*log(tau**ti)] terms
+   -3.7506412806    0.0            !aj, ti for [ai*tau**ti] terms
+    3.7798018435    1.0
+
+
+@EOS               !equation of state specification
+FE1  Helmholtz equation of state for krypton of Polt et al. (1992).
+?LITERATURE REFERENCE \
+?Polt, A., Platzer, B., and Maurer, G.,
+? "Parameter der thermischen Zustandsgleichung von Bender fuer 14
+? mehratomige reine Stoffe,"
+? Chem. Tech. (Leipzig), 44(6):216-224, 1992.
+?\
+!end of info section
+115.775            !lower temperature limit [K]
+780.0              !upper temperature limit [K]
+375000.0           !upper pressure limit [kPa]
+33.55              !maximum density [mol/L]
+CP1                                    !pointer to Cp0 model
+83.7                                   !molecular weight [g/mol]
+115.775                                !triple point temperature [K]
+73.476                                 !pressure at triple point [kPa]
+29.249                                 !density at triple point [mol/L]
+119.73                                 !normal boiling point temperature [K]
+-0.0015                                !acentric factor
+209.4        5502.2       10.860215    !Tc [K], pc [kPa], rhoc [mol/L]
+209.4                     10.860215    !reducing parameters [K, mol/L]
+8.3143                                 !gas constant [J/mol-K]
+      22  4      0  0       0  0       !# terms, # coeff/term for:  "normal" terms, critical, spare
+-0.402218741560d+0  3.0     0.0     0  !a(i),t(i),d(i),l(i)
+ 0.679250544381d+0  4.0     0.0     0
+-0.187886980286d+0  5.0     0.0     0
+ 0.603399982935d+0  0.0     1.0     0
+-0.177297564389d+1  1.0     1.0     0
+ 0.581208430222d+0  2.0     1.0     0
+-0.733585469788d+0  3.0     1.0     0
+ 0.164651929067d+0  4.0     1.0     0
+-0.319923148922d-1  0.0     2.0     0
+ 0.333278228743d+0  1.0     2.0     0
+ 0.219652478083d-1  2.0     2.0     0
+ 0.751994891628d-1  0.0     3.0     0
+-0.212109737251d+0  1.0     3.0     0
+-0.645185506524d-2  0.0     4.0     0
+ 0.409175610200d-1  1.0     4.0     0
+ 0.169416098754d-2  1.0     5.0     0
+ 0.402218741560d+0  3.0     0.0     2
+-0.679250544381d+0  4.0     0.0     2
+ 0.187886980286d+0  5.0     0.0     2
+ 0.108265263587d+0  3.0     2.0     2
+-0.137102675805d+0  4.0     2.0     2
+-0.110549803007d+0  5.0     2.0     2
+
+
+#AUX               !auxiliary model specification
+CP1  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?Polt, A., Platzer, B., and Maurer, G.,
+? "Parameter der thermischen Zustandsgleichung von Bender fuer 14
+? mehratomige reine Stoffe,"
+? Chem. Tech. (Leipzig), 44(6):216-224, 1992.
+?\
+!end of info section
+115.775            !lower temperature limit [K]
+780.0              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          83.7                      !reducing parameters for T, Cp0
+  1  0    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 0.2483363d0    0.00
+
+
+#TRN               !transport model specification
+ECS  Extended Corresponding States model (Nitrogen reference);  predictive mode.
+?LITERATURE REFERENCES \
+?
+? *** ESTIMATION METHOD--- NOT STANDARD REFERENCE QUALITY---
+?     estimated uncertainty 10%
+?
+? Uses method described in the following reference:
+? Huber, M.L., Laesecke, A., and Perkins, R.A.,
+? "Model for the Viscosity and Thermal Conductivity of Refrigerants,
+? Including a New Correlation for the Viscosity of R134a",
+? Ind. Eng. Chem. Res., 42:3163-3178, 2003.
+?\
+?the Lennard-Jones parameters are taken from:
+?\
+?Reid, R.C., Prausnitz, J.M., and Poling, B.E.,
+? "The Properties of Gases and Liquids,"
+? 4th edition, New York, McGraw-Hill Book Company, 1987.
+?\
+?Although the ECS model as used here for krypton is in a predictive mode,
+? the values of viscosity and thermal conductivity are generally within 10%
+? of calculated values from:
+?   Rabinovich, V.A., Vasserman, A.A., Nedostup, V.I., and Veksler, L.S.,
+?   "Thermophysical Properties of Neon, Argon, Krypton, and Xenon,"
+?   Hemisphere Publishing Corp., 1988.
+? except at low temperatures in the liquid region where differences in the
+? thermal conductivity can be as high as 20%.
+?\
+!end of info section
+115.775            !lower temperature limit [K]
+750.0              !upper temperature limit [K]
+300000.0           !upper pressure limit [kPa]
+35.42              !maximum density [mol/L]
+FEQ nitrogen.fld
+VS1                !model for reference fluid viscosity
+TC1                !model for reference fluid thermal conductivity
+1                  !Lennard-Jones flag (0 or 1) (0 => use estimates)
+0.3655             !Lennard-Jones coefficient sigma [nm] for ECS method
+178.9              !Lennard-Jones coefficient epsilon/kappa [K] for ECS method
+1  0  0                       !number of terms in f_int term in Eucken correlation, spare1, spare2
+ 1.32d-3        0.0  0.0  0.0 !coeff, power of T, spare 1, spare 2
+1  0  0                       !number of terms in psi (visc shape factor): poly,spare1,spare2
+ 1.0            0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+1  0  0                       !number of terms in chi (t.c. shape factor): poly,spare1,spare2
+ 1.0            0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+NUL                           !pointer to critical enhancement auxiliary function
+
+
+#STN        !surface tension specification
+ST1  surface tension model of Mulero et al. (2012)
+?LITERATURE REFERENCE \
+?Mulero, A., Cachadiña, I., and Parra, M.I.
+? "Recommended Correlations for the Surface Tension of Common Fluids,"
+? J. Phys. Chem. Ref. Data, 41, 043105, 2012.
+?\
+!end of info section
+0.0                !lower temperature limit [K]
+209.48             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+1                           !number of terms in surface tension model
+209.48                      !critical temperature used in fit (dummy)
+ 0.0447      1.245          !sigma0 and n
+
+
+#DE         !dielectric constant specification
+DE3  dielectric constant model of Harvey and Lemmon (2005).
+?LITERATURE REFERENCE \
+?Harvey, A.H. and Lemmon, E.W.
+? "Method for Estimating the Dielectric Constant of Natural Gas Mixtures,"
+? Int. J. Thermophys., 26(1):31-46, 2005.
+?\
+!end of info section
+0.0                !lower temperature limit [K]
+2000.0             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+273.16 1000.0 1.0  !reducing parameters for t and d
+0 1 4 0 0 0                         !number of terms in dielectric constant model
+ 6.273            0.    1.    0.    !coef, t exp, d exp
+ 6.485            0.    2.    0.
+ 13.48            1.    2.    0.
+-82.51            0.    2.7   0.
+-170.4            1.    2.7   0.
+
+
+#MLT        !melting line specification
+ML1  melting line model of Michels and Prins (1962).
+?LITERATURE REFERENCE \
+?Michels, A. and Prins, C.,
+? "The Melting Lines of Argon, Krypton and Xenon up to 1500 Atm;
+? Representation of the Results by a Law of Corresponding States,"
+? Physica, 28:101-116, 1962.
+?\
+!end of info section
+115.775            !lower temperature limit [K]
+800.0              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+1.       101.325   !reducing temperature and pressure
+2 0 0 0 0 0                 !number of terms in melting line equation
+-2345.757     0.            !coefficients and exponents
+ 1.080476685  1.6169841
+
+
+#SBL        !sublimation line specification
+SB3  sublimation line model of Lemmon (2002).
+?LITERATURE REFERENCE \
+?Lemmon, E.W., 2002.
+?\
+!end of info section
+115.775            !lower temperature limit [K]
+115.775            !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+115.775  73.197    !reducing temperature and pressure
+0 1 0 0 0 0                 !number of terms in sublimation line equation
+-11.5616        1.          !coefficients and exponents
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Lemmon (2010).
+?LITERATURE REFERENCE \
+?Lemmon, C.K. and Lemmon, E.W., 2010.
+?\
+!end of info section
+115.775            !lower temperature limit [K]
+209.48             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+209.48   5525.0    !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-0.59697D+01      1.0
+ 0.12673D+01      1.5
+-0.95609D+00      2.95
+-0.35630D+02      9.3
+ 0.56884D+02     10.4
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Lemmon (2010).
+?LITERATURE REFERENCE \
+?Lemmon, C.K. and Lemmon, E.W., 2010.
+?\
+!end of info section
+115.775            !lower temperature limit [K]
+209.48             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+209.48   10.85     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+ 0.20593D+02       0.62        !coefficients and exponents
+-0.65490D+02       0.84
+ 0.94407D+02       1.07
+-0.69678D+02       1.34
+ 0.22810D+02       1.6
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Lemmon (2010).
+?LITERATURE REFERENCE \
+?Lemmon, C.K. and Lemmon, E.W., 2010.
+?\
+!end of info section
+115.775            !lower temperature limit [K]
+209.48             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+209.48   10.85     !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+-0.64163D+01   0.525     !coefficients and exponents
+ 0.89956D+01   0.77
+-0.10216D+02   1.04
+-0.13477D+02   3.2
+-0.21152D+03   8.3
+ 0.21375D+03   9.0
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

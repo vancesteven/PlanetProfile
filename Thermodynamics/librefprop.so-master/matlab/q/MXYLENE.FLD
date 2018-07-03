@@ -1,0 +1,232 @@
+m-xylene                              !short name
+108-38-3                              !CAS number
+1,3-dimethylbenzene                   !full name
+C8H10                                 !chemical formula
+m-xylene                              !synonym
+106.165            !molecular weight [g/mol]
+225.3              !triple point temperature [K]
+412.214            !normal boiling point [K]
+616.89             !critical temperature [K]
+3534.6             !critical pressure [kPa]
+2.665              !critical density [mol/L]
+0.326              !acentric factor
+0.300              !dipole moment [Debye]; DIPPR DIADEM 2012
+NBP                !default reference state
+8.0                !version number
+
+
+! compiled at NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 08-01-08 EWL, original version
+! 01-11-13 MLH, added transport
+! 04-01-13  SH, add ancillary equations
+! 04-06-13 EWL, add dipole moment
+
+
+#EOS               !equation of state specification
+FEQ  Helmholtz equation of state for m-xylene of Zhou et al. (2012).
+?LITERATURE REFERENCE \
+?Zhou, Y., Lemmon, E.W., and Wu, J.
+?"Thermodynamic Properties of o-Xylene, m-Xylene, p-Xylene, and Ethylbenzene"
+?J. Phys. Chem. Ref. Data, 41(023103):1-26, 2012.
+?\
+?The uncertainty of the equation of state for m-xylene in vapor pressure is
+?0.2% above 300 K. The uncertainty in saturated liquid density is 0.1%
+?between 230 K and 400 K, and increases to 0.2% at higher and lower
+?temperatures, due to a lack of experimental data.  The uncertainty in
+?density is 0.2% in the compressed-liquid region, and 1.0% elsewhere,
+?including the critical and vapor regions.  The uncertainty in sound speed
+?in the liquid phase is estimated to be 0.5%.  The uncertainty in
+?saturation and isobaric heat capacity is 0.5%.
+?\
+!end of info section
+225.3              !lower temperature limit [K]
+700.0              !upper temperature limit [K]
+200000.0           !upper pressure limit [kPa]
+8.677              !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+106.165                                !molecular weight [g/mol]
+225.3                                  !triple point temperature [K]
+0.003123                               !pressure at triple point [kPa]
+8.677                                  !density at triple point [mol/L]
+412.214                                !normal boiling point temperature [K]
+0.326                                  !acentric factor
+616.89          3534.6       2.665     !Tc [K], pc [kPa], rhoc [mol/L]
+616.89                       2.665     !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  11  4      4 12      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  0.000012791017 1.0 8  0              !a(i),t(i),d(i),l(i)
+  0.041063111  0.91  4  0
+  1.505996     0.231 1  0
+ -2.3095875    0.772 1  0
+ -0.46969      1.205 2  0
+  0.171031     0.323 3  0
+ -1.001728     2.7   1  2
+ -0.3945766    3.11  3  2
+  0.6970578    0.768 2  1
+ -0.3002876    4.1   2  2
+ -0.024311     0.818 7  1
+  0.815488     2.0   1  2 2  -1.0244   -1.66   1.1013 0.713    0. 0. 0.
+ -0.330647     2.9   1  2 2  -1.3788   -1.9354 0.6515 0.9169   0. 0. 0.
+ -0.123393     3.83  3  2 2  -0.9806   -1.0323 0.4975 0.6897   0. 0. 0.
+ -0.54661      0.5   3  2 2  -6.3563   -78.0   1.26   0.7245   0. 0. 0.
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function for m-xylene of Zhou et al. (2012).
+?LITERATURE REFERENCE \
+?see EOS for reference
+?\
+!end of info section
+50.                !lower temperature limit [K]
+5000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  1  4    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+  2.169909  0.0
+  4.443120  160.0
+  2.862794  190.0
+  24.83298  1333.0
+  16.26077  3496.0
+
+
+#AUX               !auxiliary model specification
+PH0  Helmholtz form for the ideal-gas state for m-xylene of Zhou et al. (2012).
+?LITERATURE REFERENCE \
+?see EOS for reference
+?\
+!end of info section
+50.                !lower temperature limit [K]
+5000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1 2  4  0 0  0 0 0 !Nterms:  ai*log(tau**ti); ai*tau**ti; ai*log(1-exp(bi*tau))
+    1.169909        1.0            !ai, ti for [ai*log(tau**ti)] terms
+   12.652887        0.0            !aj, ti for [ai*tau**ti] terms
+   -0.45975624      1.0
+    4.443120       -0.2593655271   !aj, ti for [ai*log(1-exp(ti*tau)] terms
+    2.862794       -0.3079965634
+   24.83298        -2.1608390475
+   16.26077        -5.6671367667
+
+
+#TRN               !transport model specification
+ECS  Extended Corresponding States model (R134a reference);   fitted to limited data.
+?LITERATURE REFERENCES \
+?Huber, M.L., Laesecke, A., and Perkins, R.A., Model for the viscosity
+? and thermal conductivity of refrigerants, including a new correlation
+? for the viscosity of R134a, Ind.Eng.Chem.Res. 42: 3163-3178 (2003).
+?\
+?DATA SOURCES FOR VISCOSITY\
+? Thorpe, T. E.; Rodger, J. W., Philos. Trans. R. Soc. London, Ser. A, 1894, 185, 397-710
+?
+? Estimated uncertainty in liquid phase at atmospheric pressure for 273-403 K approximately <3 %;
+?\
+?DATA SOURCES FOR THERMAL CONDUCTIVITY
+? Watanabe, H.; Kato, H., Thermal Conductivity and Thermal Diffusivity of Twenty-Nine Liquids:
+? Alkenes, Cyclic (Alkanes, Alkenes, Alkadienes, Aromatics), and Deuterated Hydrocarbons
+? J. Chem. Eng. Data, 2004, 49, 809-825
+?
+? Estimated uncertainty for the saturated liquid phase between 258 and 330 K is 3%
+?\
+?Lennard-Jones parameters are estimated with method of Chung.
+?\
+!end of info section
+225.3              !lower temperature limit [K]
+700.0              !upper temperature limit [K]
+200000.0           !upper pressure limit [kPa]
+8.677              !maximum density [mol/L]
+FEQ propane.fld
+VS1                !model for reference fluid viscosity
+TC1                !model for reference fluid thermal conductivity
+1                  !Lennard-Jones flag (0 or 1) (0 => use estimates)
+0.58               !Lennard-Jones coefficient sigma [nm] for ECS method (estimated) sigma [nm] =0.809vc*(1/3)A
+489.87             !Lennard-Jones coefficient epsilon/kappa [K] for ECS method (estimated) eps/kappa [K] =Tc/1.2593
+1  0  0                       !number of terms in f_int term in Eucken correlation, spare1, spare2
+ 1.32d-3        0.0  0.0  0.0 !coeff, power of T, spare 1, spare 2
+3  0  0                       !number of terms in psi (visc shape factor): poly,spare1,spare2
+ 1.63201d0      0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+-0.515072d0     0.0  1.0  0.0 !coeff, power of Tr, power of Dr, spare
+9.84148d-02     0.0  2.0  0.0 !coeff, power of Tr, power of Dr, spare
+2  0  0                       !number of terms in chi (t.c. shape factor): poly,spare1,spare2
+ 0.957985d0     0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+ 3.66063d-02    0.0  1.0  0.0 !coeff, power of Tr, power of Dr, spare
+NUL                           !pointer to critical enhancement auxiliary function
+
+
+#STN        !surface tension specification
+ST1  surface tension model
+?LITERATURE REFERENCE \
+? Estimated uncertainty 1%
+? Comparisons with data in Chen, Z.; Ma, P.; Xia, S.; Yin, D.
+? Surface Tension of o-Xylene + Acetic Acid and m-Xylene + Acetic Acid Binary Mixtures from 303.15 K to 343.15 K
+? J. Chem. Eng. Data, 2007, 52, 454-457
+?\
+!end of info section
+225.0              !lower temperature limit [K]
+616.0              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+1                           !number of terms in surface tension model
+616.89                      !critical temperature used in fit (dummy)
+ 0.0661      1.29           !sigma0 and n
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+616.89             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+616.89  3534.6     !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+-7.5635   1.0      !coefficients and exponents
+ 1.2857   1.5
+-3.2346   3.1
+-1.9018   5.6
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+616.89             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+616.89  2.665      !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+ 0.43346  0.16     !coefficients and exponents
+ 3.8716   0.6
+-3.0144   1.0
+ 1.6190   1.5
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+616.89             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+616.89  2.665      !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-1.1597   0.26     !coefficients and exponents
+-6.0358   0.78
+-16.712   2.6
+-45.482   5.7
+-98.418  11.7
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

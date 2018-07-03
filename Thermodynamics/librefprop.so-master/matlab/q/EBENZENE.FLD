@@ -1,0 +1,168 @@
+ethylbenzene                          !short name
+100-41-4                              !CAS number
+phenylethane                          !full name
+C8H10                                 !chemical formula
+benzene, ethyl-                       !synonym
+106.165            !molecular weight [g/mol]
+178.2              !triple point temperature [K]
+409.314            !normal boiling point [K]
+617.12             !critical temperature [K]
+3622.4             !critical pressure [kPa]
+2.741016           !critical density [mol/L]
+0.305              !acentric factor
+0.600              !dipole moment [Debye]; DIPPR DIADEM 2012
+NBP                !default reference state
+8.0                !version number
+
+
+! compiled at NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 08-01-08 EWL, original version
+! 04-01-13  SH, add ancillary equations
+! 04-06-13 EWL, add dipole moment
+
+
+#EOS               !equation of state specification
+FEQ  Helmholtz equation of state for ethylbenzene of Zhou et al. (2012).
+?LITERATURE REFERENCE \
+?Zhou, Y., Lemmon, E.W., and Wu, J.
+?"Thermodynamic Properties of o-Xylene, m-Xylene, p-Xylene, and Ethylbenzene"
+?J. Phys. Chem. Ref. Data, 41(023103):1-26, 2012.
+?\
+?The uncertainty of the equation of state for ethylbenzene in vapor pressure
+?is 0.3%.  The uncertainties in saturated liquid density are 0.1% below
+?350 K and 0.2% at higher temperatures.  The uncertainties in density are
+?0.1% below 5 MPa, 0.2% at higher pressures in the liquid region, and 1.0%
+?in the critical and vapor regions.  The uncertainties in saturation and
+?isobaric heat capacities and in the speed of sound are estimated to be
+?1.0%.
+?\
+!end of info section
+178.2              !lower temperature limit [K]
+700.0              !upper temperature limit [K]
+60000.0            !upper pressure limit [kPa]
+9.124              !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+106.165                                !molecular weight [g/mol]
+178.2                                  !triple point temperature [K]
+0.000004002                            !pressure at triple point [kPa]
+9.123                                  !density at triple point [mol/L]
+409.314                                !normal boiling point temperature [K]
+0.305                                  !acentric factor
+617.12     3622.4       2.741016       !Tc [K], pc [kPa], rhoc [mol/L]
+617.12                  2.741016       !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  12  4      4 12      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  0.0018109418 1.0   5  0              !a(i),t(i),d(i),l(i)
+ -0.076824284  1.0   1  0
+  0.041823789  0.92  4  0
+  1.5059649    0.27  1  0
+ -2.4122441    0.962 1  0
+ -0.47788846   1.033 2  0
+  0.18814732   0.513 3  0
+ -1.0657412    2.31  1  2
+ -0.20797007   3.21  3  2
+  1.1222031    1.26  2  1
+ -0.99300799   2.29  2  2
+ -0.027300984  1.0   7  1
+  1.3757894    0.6   1  2 2  -1.178    -2.437  1.2667 0.5494   0. 0. 0.
+ -0.44477155   3.6   1  2 2  -1.07     -1.488  0.4237 0.7235   0. 0. 0.
+ -0.07769742   2.1   3  2 2  -1.775    -4.0    0.8573 0.493    0. 0. 0.
+ -2.16719      0.5   3  2 2  -15.45    -418.6  1.15   0.8566   0. 0. 0.
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function for ethylbenzene of Zhou et al. (2012).
+?LITERATURE REFERENCE \
+?see EOS for reference
+?\
+!end of info section
+50.                !lower temperature limit [K]
+5000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  1  3    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+   5.2557889     0.0
+   9.7329909   585.0
+  11.201832   4420.0
+  25.440749   1673.0
+
+
+#AUX               !auxiliary model specification
+PH0  Helmholtz form for the ideal-gas state for ethylbenzene of Zhou et al. (2012).
+?LITERATURE REFERENCE \
+?see EOS for reference
+?\
+!end of info section
+50.                !lower temperature limit [K]
+5000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1 2  3  0 0  0 0 0 !Nterms:  ai*log(tau**ti); ai*tau**ti; ai*log(1-exp(bi*tau))
+    4.2557889       1.0            !ai, ti for [ai*log(tau**ti)] terms
+    5.7040900       0.0            !aj, ti for [ai*tau**ti] terms
+   -0.52414353      1.0
+    9.7329909      -0.9479517760   !aj, ti for [ai*log(1-exp(ti*tau)] terms
+   11.201832       -7.1623023075
+   25.440749       -2.7109800363
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+617.12             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+617.12  3622.4     !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+-7.8411   1.0      !coefficients and exponents
+ 2.5921   1.5
+-3.5020   2.5
+-2.7613   5.4
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+617.12             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+617.12  2.7410     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+ 3.5146   0.43     !coefficients and exponents
+-3.7537   0.83
+ 5.4760   1.3
+-3.4724   1.9
+ 1.2141   3.1
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+617.12             !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+617.12  2.7410     !reducing parameters
+5 0 0 0 0 0        !number of terms in equation
+-3.2877   0.42     !coefficients and exponents
+-3.6071   0.98
+-15.878   2.48
+-53.363   5.9
+-128.57  13.4
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890

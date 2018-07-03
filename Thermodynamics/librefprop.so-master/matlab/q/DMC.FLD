@@ -1,0 +1,266 @@
+dimethyl carbonate            !short name
+616-38-6                      !CAS number
+dimethyl ester carbonic acid  !full name
+C3H6O3                        !chemical formula
+DMC                           !synonym
+90.0779            !molecular weight [g/mol]
+277.06             !triple point temperature [K]
+363.256            !normal boiling point [K]
+557.0              !critical temperature [K]
+4908.8             !critical pressure [kPa]
+4.0                !critical density [mol/L]
+0.346              !acentric factor
+0.899              !dipole moment [Debye]; DIPPR DIADEM 2012
+NBP                !default reference state
+8.0                !version number
+1161               !UN Number
+other              !family
+
+
+! compiled at NIST Physical and Chemical Properties Division, Boulder, Colorado
+! 08-01-08 EWL, original version
+! 08-23-09 Yong Zhou, Fit equation of state
+! 08-25-09 Yong Zhou, Add vapor pressure ancillary equation
+! 08-19-10 IDC, add density ancillary equations
+! 05-16-11 EWL, add final equation of state of Zhou et al.
+! 04-06-13 EWL, add dipole moment
+
+
+#EOS               !equation of state specification
+FEQ  Helmholtz equation of state for DMC of Zhou et al. (2011).
+?LITERATURE REFERENCE \
+?Zhou, Y., Wu, J., and Lemmon, E.W.
+? "Thermodynamic Properties of Dimethyl Carbonate,"
+? J. Phys. Chem. Ref. Data, 40(043106):1-11, 2011.
+?\
+?The uncertainties (k = 2, indicating a level of confidence of 95 %) of the
+?equation of state in density are 0.05 % for saturated-liquid states below 350
+?K, rising to 0.1 % in the single phase between 278 K and 400 K at pressures
+?up to 60 MPa. Due to the lack of reliable data outside this region, the
+?estimated uncertainties increase to 0.5 % to 1 % in the vapor and critical
+?regions.  The uncertainties in vapor pressure are 0.6 % from 310 K to 400 K,
+?and increase to 1 % at higher temperatures and to 2 % at lower temperatures
+?due to a lack of experimental data.  The uncertainty in isobaric heat
+?capacity and speed of sound in the liquid phase at saturation or atmospheric
+?pressure is 0.5 % from 280 K to 335 K. The uncertainties are higher for all
+?properties in the critical region.
+?\
+!end of info section
+277.06                    !lower temperature limit [K]
+600.0                     !upper temperature limit [K]
+60000.0                   !upper pressure limit [kPa]
+12.112                    !maximum density [mol/L]
+CPP                                    !pointer to Cp0 model
+90.0779                                !molecular weight [g/mol]
+277.06                                 !triple point temperature [K]
+2.2265                                 !pressure at triple point [kPa]
+12.111                                 !density at triple point [mol/L]
+363.256                                !normal boiling point temperature [K]
+0.346                                  !acentric factor
+557.0     4908.8      4.0              !Tc [K], pc [kPa], rhoc [mol/L]
+557.0                 4.0              !reducing parameters [K, mol/L]
+8.314472                               !gas constant [J/mol-K]
+  12  4      6 12      0  0            !# terms, # coeff/term for:  "normal" terms, critical, spare
+  0.52683187D-03   1.0      5.0  0.0   !a(i),t(i),d(i),l(i)
+  1.353396         0.227    1.0  0.0
+ -2.649283         1.05     1.0  0.0
+ -0.2785412        1.06     2.0  0.0
+  0.1742554        0.5      3.0  0.0
+  0.031606252      0.78     4.0  0.0
+  0.399866         1.3      1.0  1.0
+  1.178144         1.347    2.0  1.0
+ -0.0235281        0.706    7.0  1.0
+ -1.015            2.0      1.0  2.0
+ -0.7880436        2.5      2.0  2.0
+ -0.12696          4.262    3.0  2.0
+  1.2198           1.0      1.0  2.0  2.0   -0.9667    -1.240  1.2827  0.6734 0. 0. 0.
+ -0.4883           2.124    1.0  2.0  2.0   -1.5154    -0.821  0.4317  0.9239 0. 0. 0.
+ -0.0033293        0.4      2.0  2.0  2.0   -1.0591   -15.450  1.1217  0.8636 0. 0. 0.
+ -0.0035387        3.5      2.0  2.0  2.0   -1.6642    -2.210  1.1871  1.0507 0. 0. 0.
+ -0.51172          0.5      3.0  2.0  2.0  -12.4856  -437.000  1.1243  0.8482 0. 0. 0.
+ -0.16882          2.7      3.0  2.0  2.0   -0.9662    -0.743  0.4203  0.7522 0. 0. 0.
+
+
+#AUX               !auxiliary model specification
+CPP  ideal gas heat capacity function
+?LITERATURE REFERENCE \
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+5000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1.0          8.314472                  !reducing parameters for T, Cp0
+  1  4    0  0    0  0  0              !Nterms:  polynomial, exponential, cosh, sinh
+ 9.28421          0.0
+ 1.48525         21.0
+ 0.822585      1340.0
+ 16.2453       1672.0
+ 1.15925       7395.0
+
+
+#AUX               !auxiliary model specification
+PH0  Helmholtz form for the ideal-gas state
+?LITERATURE REFERENCE \
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+5000.              !upper temperature limit [K]
+0.0                !upper pressure limit [kPa]
+0.0                !maximum density [mol/L]
+1 2  4  0 0  0 0 0 !Nterms:  ai*log(tau**ti); ai*tau**ti; ai*log(1-exp(bi*tau))
+    8.28421         1.0            !ai, ti for [ai*log(tau**ti)] terms
+    4.9916462       0.0            !aj, ti for [ai*tau**ti] terms
+   -0.1709449       1.0
+    1.48525        -0.0377019749   !aj, ti for [ai*log(1-exp(ti*tau)] terms
+    0.822585       -2.4057450628
+   16.24530        -3.0017953321
+    1.15925       -13.2764811490
+
+
+#ETA               !viscosity model specification
+VS1  pure fluid viscosity model
+?LITERATURE REFERENCE \
+?Zhou, Y., Wu, J., and Lemmon, E.W.
+? "Equations for the Thermophysical Properties of Dimethyl Carbonate,"
+? submitted to J. Phys. Chem. Ref. Data, 2010.
+?
+?The uncertainties of the transport equations are generally less than 5.0%, with
+?smaller uncertainties (as low as 2%) between 260 and 360 K in the liquid phase.
+!end of info section
+277.06             !lower temperature limit [K] allow for extrapolation to low T
+400.00             !upper temperature limit [K]
+60000.0            !upper pressure limit [kPa]
+12.107             !maximum density [mol/L]
+1                  !number of terms associated with dilute-gas function
+CI0                !pointer to reduced effective collision cross-section model
+0.510747           !Lennard-Jones coefficient sigma [nm]
+0.442309E+03       !Lennard-Jones coefficient epsilon/kappa [K]
+1.0    1.0         !reducing parameters for T, eta
+0.20555 0.50d0     !=0.021357*SQRT(MW)  [Chapman-Enskog term]
+0                  !number of terms for initial density dependence
+ 0 5 0 0 0 0        !# resid terms:  close-packed density;  simple poly; numerator of rational poly; denominator of rat. poly; numerator of exponential; denominator of exponential
+557.376000    3.9749    1.0           !reducing parameters for T, rho, eta
+5.07808000   -0.1000    4.0  0  0
+-0.0567340   -3.0968   10.0  0  1
+0.00832177   -2.8945   12.0  0  1
+35.4598380    0.0731    2.0  0  2
+0.05135280   -3.9871    0.0  0  3
+NUL                !pointer to critical enhancement auxiliary function (none used)
+
+
+@TRN               !transport model specification
+ECS  Extended Corresponding States model (Propane reference);   fitted to data.
+?LITERATURE REFERENCES \
+?Zhou, Y., Wu, J., and Lemmon, E.W.
+? "Equations for the Thermophysical Properties of Dimethyl Carbonate,"
+? submitted to J. Phys. Chem. Ref. Data, 2010.
+?
+?The uncertainties of the transport equations are generally less than 5.0%, with
+?smaller uncertainties (as low as 2%) between 260 and 360 K in the liquid phase.
+!end of info section
+277.06                    !lower temperature limit [K]
+400.00                    !upper temperature limit [K]
+60000.0                   !upper pressure limit [kPa]
+12.107                    !maximum density [mol/L]
+FEQ R134A.fld
+VS1                !model for reference fluid viscosity
+TC1                !model for reference fluid thermal conductivity
+1                  !Lennard-Jones flag (0 or 1) (0 => use estimates)
+0.510747           !Lennard-Jones coefficient sigma [nm]
+0.442309E+03       !Lennard-Jones coefficient epsilon/kappa [K]
+1  0  0                       !number of terms in f_int term in Eucken correlation, spare1, spare2
+ 1.32000d-3     0.0  0.0  0.0 !coeff, power of T, spare 1, spare 2
+2  0  0                       !number of terms in psi (visc shape factor): poly,spare1,spare2
+0.922569        0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+0.00985955      0.0  1.0  0.0 !coeff, power of Tr, power of Dr, spare
+2  0  0                       !number of terms in chi (t.c. shape factor): poly,spare1,spare2
+1.11485         0.0  0.0  0.0 !coeff, power of Tr, power of Dr, spare
+-0.0252180      0.   1.0  0.0
+TK3                               !pointer to critical enhancement auxiliary function
+
+
+#AUX               !thermal conductivity critical enhancement model
+TK3  simplified thermal conductivity critical enhancement of Olchowy and Sengers
+?LITERATURE REFERENCE\
+?\
+!end of info section
+277.06                    !lower temperature limit [K]
+400.00                    !upper temperature limit [K]
+60000.0                   !upper pressure limit [kPa]
+12.107                    !maximum density [mol/L]
+9  0  0  0         !# terms:  CO2-terms, spare, spare, spare
+1.0     1.0     1.0      !reducing par for T, rho, tcx (mW/m-K)
+0.630d0            !gnu (universal exponent)
+1.239d0            !gamma (universal exponent)
+1.03d0             !R0 (universal amplitude)
+0.063d0            !z (universal exponent--not used for t.c., only viscosity)
+1.00d0             !c (constant in viscosity eqn = 1/[2 - (alpha + gamma)/(2*nu)], but often set to 1)
+ 0.19400000D-09    !xi0 (amplitude) [m]
+ 0.49600000D-01    !gam0 (amplitude) [-]
+ 0.50000000D-09    !qd_inverse (modified effective cutoff parameter) [m]; fit to data
+835.5d+00          !tref (reference temperature)=1.5*Tc [K]
+
+
+#PS         !vapor pressure equation
+PS5  vapor pressure equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+557.0              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+557.0   4908.8     !reducing parameters
+4 0 0 0 0 0        !number of terms in equation
+-8.3197   1.0      !coefficients and exponents
+ 3.4260   1.5
+-3.5905   2.3
+-3.3194   4.7
+
+
+#DL         !saturated liquid density equation
+DL1  saturated liquid density equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+557.0              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+557.0   4.0        !reducing parameters
+6 0 0 0 0 0        !number of terms in equation
+ 1.1572   0.27     !coefficients and exponents
+ 4.9690   0.77
+-14.451   1.29
+ 27.569   1.85
+-26.223   2.46
+ 10.526   3.16
+
+
+#DV         !saturated vapor density equation
+DV3  saturated vapor density equation of Herrig (2013).
+?LITERATURE REFERENCE \
+?Herrig, S., 2013.
+?\
+!end of info section
+0.                 !lower temperature limit [K]
+557.0              !upper temperature limit [K]
+0.0                !(dummy) upper pressure limit
+0.0                !(dummy) maximum density
+557.0   4.0        !reducing parameters
+7 0 0 0 0 0        !number of terms in equation
+-0.54715  0.197    !coefficients and exponents
+-5.19277  0.6
+-94.0480  2.86
+ 327.210  3.65
+-676.871  4.5
+ 716.072  5.4
+-379.799  6.4
+
+
+@END
+c        1         2         3         4         5         6         7         8
+c2345678901234567890123456789012345678901234567890123456789012345678901234567890
