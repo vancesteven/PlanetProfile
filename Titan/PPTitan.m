@@ -160,7 +160,7 @@ Params.LineStyle =  '-';
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % 0 Wt% temperatures at the bottom of the Ice Ih
 Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 265 268]; % 0 Wt% temperatures at the bottom of the Ice Ih; for the paper
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [254 265 268]; % 0 Wt% temperatures at the bottom of the Ice Ih
-PlanetProfile(Planet,Seismic,Params)
+%PlanetProfile(Planet,Seismic,Params)
 % 
 % Params.HOLD = 1;
 % Params.CALC_NEW =1;

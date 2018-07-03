@@ -1356,39 +1356,44 @@ box on
                 for iT = 1:nTbs                 
                     line(k_S_m(iT,1:indSil(iT))*(1+4*wo),z_m(iT,1:indSil(iT))*1e-3,... % empirical scaling from 1 bar values compiled in Hand and Chyba 2007
                         'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',LineWidth);
-                    mink(iT) = min(k_S_m(iT,1:indSil(iT))*(1+4*wo));
-                    maxk(iT) = max(k_S_m(iT,1:indSil(iT))*(1+4*wo));
+                    mink_val(iT) = min(k_S_m(iT,1:indSil(iT))*(1+4*wo));
+                    maxk_val(iT) = max(k_S_m(iT,1:indSil(iT))*(1+4*wo));
                 end
             case 'Seawater'
                 for iT = 1:nTbs
                     line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),...
                         'LineStyle',LineStyle,'LineWidth',LineWidth);
-                    mink(iT) = min(k_S_m(iT,1:indSil(iT)));
-                    maxk(iT) = max(k_S_m(iT,1:indSil(iT)));
+                    mink_val(iT) = min(k_S_m(iT,1:indSil(iT)));
+                    maxk_val(iT) = max(k_S_m(iT,1:indSil(iT)));
                 end
             case 'NH3'
                 for iT = 1:nTbs
 %                     line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',LineWidth);
-                    mink(iT) = nan;
-                    maxk(iT) = nan;
+                    mink_val(iT) = NaN;
+                    maxk_val(iT) = NaN;
+                end
+            case 'NaCl'
+                for iT = 1:nTbs
+                    mink_val(iT) = NaN;
+                    maxk_val(iT) = NaN;
                 end
         end             
-        mink = min(mink);maxk = max(maxk);
+        mink_val = min(mink_val);maxk_val = max(maxk_val);
 
         ax = gca;
         if Params.HOLD
             if max(Dsil_km)>ax.YLim(2)
                 ax.YLim(2) = max(Dsil_km);
             end
-            if maxk>ax.XLim(2)
-                ax.XLim(2) = maxk;
+            if maxk_val>ax.XLim(2)
+                ax.XLim(2) = maxk_val;
             end
-            if mink<ax.XLim(1)
-                ax.XLim(1) = mink;
+            if mink_val<ax.XLim(1)
+                ax.XLim(1) = mink_val;
             end
         else
-            if ~isnan(mink)
-                ax.XLim = [mink maxk];
+            if ~isnan(mink_val)
+                ax.XLim = [mink_val maxk_val];
                 ax.YLim = [0 max(Dsil_km)];            
             end
         end
