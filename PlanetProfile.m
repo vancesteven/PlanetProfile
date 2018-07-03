@@ -143,9 +143,11 @@ end
     z_m = zeros(nTbs,nsteps);
     g_ms2 = z_m;
     [M_above_kg,M_below_kg] = deal(rho_kgm3); % mass above and below the silicate interface
+    M_above_kg(:,1) = 0;
+    M_below_kg(:,1) = M_Planet_kg;
     [z_m,r_m] = deal(zeros(nTbs,nsteps)); 
     r_m(:,1) = Planet.R_m;
-    g_ms2(1:nTbs,1) = Gg*M_Planet_kg/R_Planet_m^2; 
+    g_ms2(1:nTbs,1) = Gg*M_Planet_kg/R_Planet_m^2;
 
 for kt = 1:nTbs
     deltaP = Pb_MPa(kt)/n_iceI;
