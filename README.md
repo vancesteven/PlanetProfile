@@ -43,7 +43,7 @@ Update to work with REFPROP V10
 
 The source files and library for REFPROP should be placed in the top-level directory under /opt, as per below
 $ls /opt
-librefprop.dylib refprop
+librefprop.dylib refprop/
 
 $ls /opt/refprop
 fluids   mixtures
