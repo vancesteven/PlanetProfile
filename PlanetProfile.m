@@ -10,7 +10,8 @@ function PlanetProfile(Planet,Seismic,Params)
 set(0,'defaultfigurecolor',[1 1 1]) % white background for figures
 
 %% globals for functions in fzero
-global M_Planet_kg R_Planet_m
+global M_Planet_kg R_Planet_m extrapflag
+extrapflag = 0; % for seawater thermodynamics above 120 MPa
 if strcmp(Planet.Ocean.comp,'Seawater')
     global swEOS
     swEOS.gsw = swEOS_chooser('gsw305');
@@ -1748,11 +1749,25 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
             Cp=Gout.Cp;
             alpha_Km1 = Gout.alpha;
         case 'Seawater'
-            global swEOS
+            global swEOS extrapflag
             % expect that wo is absolute salinity
             rho_kgm3=swEOS.gsw.dens(wo,T_K,P_MPa*10);
             Cp = swEOS.gsw.cp(wo,T_K,P_MPa*10);
             alpha_Km1 = swEOS.gsw.alpha(wo,T_K,P_MPa*10);
+            if isnan(rho_kgm3)
+                if ~extrapflag % only warn once
+                    disp('warning: extrapolating fluid rho, Cp, and alpha; this is seawater above 120 MPa, right?')
+                    extrapflag = 1;
+                end
+                Pin = [110 115 120];
+                rhoin=swEOS.gsw.dens(ones(1,3)*wo,ones(1,3)*T_K,Pin*10);
+                Cpin = swEOS.gsw.cp(ones(1,3)*wo,ones(1,3)*T_K,Pin*10);
+                alphain = swEOS.gsw.alpha(ones(1,3)*wo,ones(1,3)*T_K,Pin*10);
+                
+                rho_kgm3 = interp1(Pin,rhoin,P_MPa,'linear','extrap');
+                Cp = interp1(Pin,Cpin,P_MPa,'linear','extrap');
+                alpha_Km1 = interp1(Pin,alphain,P_MPa,'linear','extrap');                
+            end
         case 'NH3'
 %             [rho_kgm3,Cp,alpha_Km1,~]=NH3_EOS(P_MPa,T_K,wo);
             [rho_kgm3,~,~,Cp,~,alpha_Km1] = ...
