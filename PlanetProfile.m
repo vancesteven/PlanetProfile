@@ -27,6 +27,10 @@ R_Planet_m = Planet.R_m;
 savefile = [Planet.name 'Profile_' Planet.Ocean.comp ...
     num2str(round(Planet.Ocean.w_ocean_pct)) 'WtPct'];
 
+datpath = strcat(Planet.name,'/');
+figpath = strcat(Planet.name,'/figures/');
+
+
 Gg = 6.67300e-11; % m3 kg-1 s-2
 
 n_iceI=Params.nsteps_iceI;
@@ -98,10 +102,10 @@ for il =1:n_ocean
     end
 end
 rho_kgm3(kt,1) = rho_kgm3(kt,2); %continuity
-    save(savefile,'P_MPa','Pb_MPa','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps'); % save the progress at each step
+    save(strcat(datpath,savefile),'P_MPa','Pb_MPa','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps'); % save the progress at each step
 end  
 else
-    load(savefile);
+    load(strcat(datpath,savefile));
 end
 %% Save in a file the densities of adiabats corresponding to different ocean concentrations
 str_ref_densities = ['ref_densities' Planet.name '_' Planet.Ocean.comp '.mat'];
@@ -130,9 +134,9 @@ if Params.CALC_NEW_REFPROFILES
               rho_ref_kgm3(jr,il) = fluidEOS(Pref_MPa(il),Tref_K(jr,il),wref(jr),Planet.Ocean.comp);            
            end           
         end
-    save([str_ref_densities],'rho_ref_kgm3','Pref_MPa','Tref_K')
+    save([datpath str_ref_densities],'rho_ref_kgm3','Pref_MPa','Tref_K')
 else
-    load([str_ref_densities]);
+    load([datpath str_ref_densities]);
 end
 
 %%%%%%%%%%%%%%%%%%%%%
@@ -931,9 +935,9 @@ if Params.CALC_NEW_SOUNDSPEEDS
         velsIce.VVIl_kms(iT,phase(iT,:)~=6) =NaN;
         velsIce.VVIt_kms(iT,phase(iT,:)~=6) =NaN;
     end
-    save([savefile 'Vels'],'velsIce','vfluid_kms');
+    save([datpath savefile 'Vels'],'velsIce','vfluid_kms');
 else
-    load([savefile 'Vels']);
+    load([datpath savefile 'Vels']);
 end
 
 %% Electrical Conductivity
@@ -1035,13 +1039,13 @@ for iT = 1:nTbs
     end
     thissavestr = [savefile 'Zb' strLow num2str(1e-3*Zb2(iT),'%0.0f') 'km'];
 %     save(thissavestr,'Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma','-ascii');
-    dlmwrite([thissavestr '.txt'],header,'delimiter','');
-    dlmwrite([thissavestr '.txt'],Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma,...
+    dlmwrite([datpath thissavestr '.txt'],header,'delimiter','');
+    dlmwrite([datpath thissavestr '.txt'],Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma,...
              'delimiter','\t',...
              'precision','%3.5e',...
              '-append');
 
-         dlmwrite([thissavestr '_mantle.dat'],[10*interior(iT).Pmantle_MPa' interior(iT).Tmantle_K'],'delimiter','\t');
+         dlmwrite([datpath thissavestr '_mantle.dat'],[10*interior(iT).Pmantle_MPa' interior(iT).Tmantle_K'],'delimiter','\t');
 
 
 %% plot the seismic data and attenuation
@@ -1094,11 +1098,11 @@ for iT = 1:nTbs
     grid on
     xlabel('Q_S/\omega^{\gamma}')
     set(gcf,'color','w')
-        
+    
     try
-        saveas(gcf,['figures/' thissavestr 'QS'],Params.savefigformat);
+        saveas(gcf,[figpath thissavestr 'QS'],Params.savefigformat);
     catch
-        error(['Couldn''t save file ' thissavestr ' to the ''figures'' directory. Maybe it doesn''t exist in the PP folder?']);
+        error(['Couldn''t save file ' thissavestr ' to the ''figures'' directory. Try setting active folder to PlanetProfile directory in Matlab.']);
     end
     
     figure(nfig+iT+50);
@@ -1113,9 +1117,9 @@ for iT = 1:nTbs
     xlabel('G_S and K_S (GPa)','FontSize',lFontSize);
     axis tight
    try
-        saveas(gcf,['figures/' thissavestr 'GsKs'],Params.savefigformat);
+        saveas(gcf,[figpath thissavestr 'GsKs'],Params.savefigformat);
     catch
-        error(['Couldn''t save file ' thissavestr ' to the ''figures'' directory. Maybe it doesn''t exist in the PP folder?']);
+        error(['Couldn''t save file ' thissavestr ' to the ''figures'' directory. Try setting active folder to PlanetProfile directory in Matlab.']);
     end
 end
 
@@ -1123,7 +1127,7 @@ end
 figure(1111)
 thiseos = split(Seismic.mantleEOS,'.tab');
 thiseos = char(thiseos(1));
-saveas(gcf,['figures/' thissavestr 'MineralProps_' thiseos],Params.savefigformat);
+saveas(gcf,[figpath thissavestr 'MineralProps_' thiseos],Params.savefigformat);
 
 %% create the legend that describes tb, z_b, and heat flux
 lstr_2 = {};
@@ -1457,7 +1461,7 @@ xlabel('Pressure (MPa)','FontSize',lFontSize)
 ylabel('Density (kg m^{-3})','FontSize',lFontSize)
 
     try
-        saveas(gcf,['figures/' savefile],Params.savefigformat);
+        saveas(gcf,[figpath savefile],Params.savefigformat);
     catch
         error(['Couldn''t save file ' savefile ' to the ''figures'' directory. Maybe it doesn''t exist in the PP folder?']);
     end
@@ -1605,7 +1609,7 @@ ylabel('Density (kg m^{-3})')
 % set(ax(2),'xlim',[0 1800])
 % ylabel('Sound Speeds (km s^{-1})')
 
-    saveas(gcf,['figures/' savefile],Params.savefigformat);
+    saveas(gcf,[figpath savefile],Params.savefigformat);
 end
 %%
 figure(228)
