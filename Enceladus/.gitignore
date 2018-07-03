@@ -1,6 +1,6 @@
 *~
 .DS_Store
-EnceladusProfile*.mat
-EnceladusProfile*.dat
-EnceladusProfile*.txt
+*Profile*.mat
+*Profile*.dat
+*Profile*.txt
 ref_densities*.mat

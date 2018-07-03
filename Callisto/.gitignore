@@ -1,6 +1,6 @@
 *~
 .DS_Store
-CallistoProfile*.mat
-CallistoProfile*.dat
-CallistoProfile*.txt
+*Profile*.mat
+*Profile*.dat
+*Profile*.txt
 ref_densities*.mat
