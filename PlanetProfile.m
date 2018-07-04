@@ -20,6 +20,8 @@ elseif strcmp(Planet.Ocean.comp,'NaCl')
 %     swEOS.NaCl = readh5spline('NaCl.h5');
     load('NaCl_LBF');
     swEOS.NaCl.sp = sp_NaCl_8GPa;
+elseif strcmp(Planet.Ocean.comp,'NH3')
+    error(['NH3 is not currently implemented due to complications with Refprop software.'])
 end
 M_Planet_kg = Planet.M_kg;
 R_Planet_m = Planet.R_m;
