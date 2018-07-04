@@ -70,6 +70,12 @@ ifeq ($(refprop),1)
 	cp Thermodynamics/librefprop.so-master/files/*.mix /opt/refprop/mixtures/
 endif
 
+ifneq ($(uname),Darwin)
+	@echo "Warning: If your Matlab install location differs from the default"
+	@echo "  at ~/usr/local/MATLAB, you will need to edit the makefile"
+	@echo "  to match."
+endif
+
 	@pathdirs=($$(find * -type d -not -path *version* -not -path *input*)) ; \
 	if [ -z $(matlabpath)/startup.m ] ; then \
 		echo "cd $(ppdir)" > startup.m ; \
