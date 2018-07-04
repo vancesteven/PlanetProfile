@@ -1,16 +1,11 @@
 # PlanetProfile
 Matlab software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs.
 
-The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model. Python 3 is required for NH3 solutions; see the detailed note below for more information.
+The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model. Refprop is required for NH3 solutions, but due to complications it is not currently implemented.
 
 SETUP:
-  @ Find the path to the python3 executable (example command: which python3 ), and copy the full path
-  @ In a fresh Matlab session, at the console type pyversion("/path/to/python3/executable")
-  @ Copy the following files into the directories below:
-      $ ( For Windows, get instructions from the librefprop GitHub page. Some files are missing. )
-      $ PlanetProfile/Thermodynamics/Refprop/librefprop.dylib to /opt/
-      $ PlanetProfile/Thermodynamics/Refprop/files/*.fld to /opt/refprop/fluids/
-      $ PlanetProfile/Thermodynamics/Refprop/files/*.mix to /opt/refprop/mixtures/
+  @ Open a Terminal and navigate to the PlanetProfile directory.
+  @ Type "make install" (no quotes) and hit enter. Close and relaunch your Terminal.
   @ In Matlab, add the PlanetProfile directory and subdirectories to your path.
       $ In the ribbon, go to Home -> Set Path -> Add with Subfolders... -> PlanetProfile
   @ Set your active path to the directory of the body to simulate.
@@ -18,6 +13,10 @@ SETUP:
   @ Open the PP_____.m file for your selected body in the Matlab editor.
   @ Run the PP_____.m file.
       $ In the ribbon, go to Editor -> Run.
+
+Python 3 instructions (may be necessary in a future update):
+  @ Find the path to the python3 executable (example command: which python3 ), and copy the full path
+  @ In a fresh Matlab session, at the console type pyversion("/path/to/python3/executable")
 
 NOTE:
   @ The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.
