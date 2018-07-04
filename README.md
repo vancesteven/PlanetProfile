@@ -5,18 +5,13 @@ The main code is called from an input file containing all the planetary data.  I
 
 SETUP:
   @ Open a Terminal and navigate to the PlanetProfile directory.
-  @ Type "make install" (no quotes) and hit enter. Close and relaunch your Terminal.
-  @ In Matlab, add the PlanetProfile directory and subdirectories to your path.
-      $ In the ribbon, go to Home -> Set Path -> Add with Subfolders... -> PlanetProfile
-  @ Set your active path to the directory of the body to simulate.
-      $ Just below the ribbon, click the arrows to select the correct body's folder in the PlanetProfile directory.
+  @ Type "make install" (no quotes) and hit enter.
+  @ In Matlab, run "startup" (no quotes) at the command line, or close and relaunch.
   @ Open the PP_____.m file for your selected body in the Matlab editor.
+  @ Check that your current directory is the PlanetProfile directory in Matlab.
+      $ The last dir in the address bar just above the editor should say "PlanetProfile".
   @ Run the PP_____.m file.
       $ In the ribbon, go to Editor -> Run.
-
-Python 3 instructions (may be necessary in a future update):
-  @ Find the path to the python3 executable (example command: which python3 ), and copy the full path
-  @ In a fresh Matlab session, at the console type pyversion("/path/to/python3/executable")
 
 NOTE:
   @ The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.
@@ -34,6 +29,10 @@ Instructions for installing Python 3 on a Mac can be found at http://docs.python
 
 Rock properties are from Perple_X: http://www.perplex.ethz.ch/
 Input files were developed by Fabio Cammarano. Version 6.7.9 is currently being used.
+
+Python 3 instructions (may be necessary in a future update):
+  @ Find the path to the python3 executable (example command: which python3 ), and copy the full path
+  @ In a fresh Matlab session, at the console type pyversion("/path/to/python3/executable")
 
 TODOs:
 Modularization is not complete. 

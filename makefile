@@ -14,17 +14,19 @@
 
 SHELL := /bin/bash
 
-mbodies = "Callisto" "Enceladus" "Europa" "Ganymede" "Titan"
-figs = "figures"
 refprop=0
+
+mbodies="Callisto" "Enceladus" "Europa" "Ganymede" "Titan"
+figs="figures"
+ppdir=$(shell pwd)
 
 uname=$(shell uname -s)
 ifeq ($(uname),Darwin)
 	# Mac OS
-	matlabpath=/Applications/MATLAB*/bin
+	matlabpath=$(shell matlabp=($$(find /Applications/MATLAB*/toolbox/local -type d)) ; echo $$matlabp)
 else
 	# Other Unix
-	matlabpath=$$HOME/usr/local/MATLAB/*/bin
+	matlabpath=$(shell matlabp=($$(find $$HOME/usr/local/MATLAB/*/toolbox/local -type d)) ; echo $$matlabp)
 endif
 
 default:
@@ -68,6 +70,27 @@ ifeq ($(refprop),1)
 	cp Thermodynamics/librefprop.so-master/files/*.mix /opt/refprop/mixtures/
 endif
 
+	@pathdirs=($$(find * -type d -not -path *version* -not -path *input*)) ; \
+	if [ -z $(matlabpath)/startup.m ] ; then \
+		echo "cd $(ppdir)" > startup.m ; \
+		for subdir in $${pathdirs[@]} ; do \
+			echo "addpath('$$subdir')" >> startup.m ; \
+		done ; \
+		mv startup.m $(matlabpath)/ ; \
+		echo "Matlab startup file created with PlanetProfile folders in path:" ; \
+		echo "  $(matlabpath)/startup.m" ; \
+	else \
+		echo "cd $(ppdir)" >> $(matlabpath)/startup.m ; \
+		for subdir in $${pathdirs[@]} ; do \
+			echo "addpath('$$subdir')" >> $(matlabpath)/startup.m ; \
+		done ; \
+		echo "PlanetProfile folders added to Matlab path in startup file:" ; \
+		echo "  $(matlabpath)/startup.m" ; \
+	fi
+	@echo " "
+	@echo "Installation complete. In Matlab, run startup command, or close and"
+	@echo "  relaunch, to automatically add PlanetProfile dirs to your Matlab path."
+
 uninstall:
 ifeq ($(refprop),1)
 	rm /opt/librefprop.dylib
@@ -75,8 +98,22 @@ ifeq ($(refprop),1)
 	rm /opt/refprop/mixtures/*.mix
 	rmdir /opt/refprop/fluids /opt/refprop/mixtures	
 	rmdir /opt/refprop
+	@echo "Refprop files removed."
 endif
+
+	@pathdirs=($$(find * -type d -not -path *version* -not -path *input*)) ; \
+	echo "cd $(ppdir)" > startup.m ; \
+	for subdir in $${pathdirs[@]} ; do \
+		echo "addpath('$$subdir')" >> startup.m ; \
+	done
+	@if diff startup.m $(matlabpath)/startup.m >/dev/null 2>&1 ; then \
+		rm $(matlabpath)/startup.m ; \
+		echo "Matlab startup.m removed." ; \
+	else \
+		echo "$(matlabpath)/startup.m contains more than just the PlanetProfile path. Matlab startup.m not modified." ; \
+	fi
+	rm startup.m
 	@echo " "
-	@echo "Uninstall complete. Files within this directory have not been modified."
+	@echo "Uninstall complete."
 	@echo "Delete this directory and all subdirectories to finish purge."
 	@echo " "
