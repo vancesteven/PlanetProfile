@@ -112,6 +112,8 @@ Params.nsteps_ref_rho = 30;
 Params.nsteps_mantle = 1500;
 Params.nsteps_core = 100;
 Params.Temps = [245 250 252.5 255 260 265 270];
+Params.NOPLOTS = 1; %allows user to limit recreating plots & figures after each run
+
 
 %% Run the Calculation!
 % Planet.Ocean.w_ocean_pct=10;Planet.Tb_K = [272.8 272.9 273 273.1]; % pure water, temperatures at the bottom of the Ice Ih

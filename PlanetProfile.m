@@ -223,6 +223,7 @@ if ~Planet.FeCore
 
     
    % Plot the results
+if ~Params.NOPLOTS
     figure(2295);clf;hold all
     for iT=1:nTbs
         plot(rho_sil_kgm3(iT,C2inds{iT})',R_sil_m(iT,C2inds{iT})'*1e-3);
@@ -236,6 +237,7 @@ if ~Planet.FeCore
     xlabel('\rho_{sil} (kg m^{-3})');
     ylabel('R_{sil} (km)')
     title(['No Fe core ; C/MR2=' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) '; W =' num2str(wo) ' Wt%'])
+end
 else % With a core
     rho_Fe_kgm3 = Planet.rhoFe*Planet.rhoFeS/(Planet.xFeS*(Planet.rhoFe-Planet.rhoFeS)+Planet.rhoFeS); 
     C2 = zeros(nTbs,nR);
@@ -248,7 +250,9 @@ else % With a core
             [C2(iT,iz),R_Fe_m(iT,iz)] = CoreSize(Planet.rho_sil_withcore_kgm3,rho_Fe_kgm3,C_H2O(iT,iz+1),M_above_kg(iT,iz+npre),R_sil_m(iT,iz));
         end
     end
+if ~Params.NOPLOTS    
     figure(2296);clf;hold all
+end
     for iT=1:nTbs
         C2inds{iT} = find(C2(iT,:)/MR2>Planet.Cmeasured-Planet.Cuncertainty & C2(iT,:)/MR2<Planet.Cmeasured+Planet.Cuncertainty);
         if isempty(C2inds{iT})
@@ -262,20 +266,23 @@ else % With a core
         M_H2O_mean_kg(iT) = M_above_kg(iT,C2mean(iT));
         R_Fe_range_m(iT) = R_Fe_m(iT,C2max(iT))-R_Fe_m(iT,C2min(iT));
         R_sil_range_m(iT) = R_sil_m(iT,C2min(iT))-R_sil_m(iT,C2max(iT));
+if ~Params.NOPLOTS
         plot(R_Fe_m(iT,C2inds{iT})'*1e-3,R_sil_m(iT,C2inds{iT})'*1e-3);
+end
     end
-
+if ~Params.NOPLOTS
     lstr_3 = {};
     for iT = 1:nTbs
         lstr_3 = {lstr_3{:} ['T_{b}:' num2str(Planet.Tb_K(iT),'%0.1f') 'K']};
     end
+
     legend(lstr_3)
     box on
     xlabel('R_{Fe} (km)');
     ylabel('R_{sil} (km)')
     title(['Fe core ; C/MR2=' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) '; W =' num2str(wo) ' Wt%; \rho_{sil}: ' num2str(Planet.rho_sil_withcore_kgm3,'%0.0f') '; \rho_{Fe}: ' num2str(rho_Fe_kgm3,'%0.0f')])
 end
-
+end
 
 
 %% Display the depths to the various layers
@@ -485,6 +492,7 @@ if isfield(Seismic,'SMOOTH_ROCK') && Params.SMOOTH_VROCK
     mantle.vs = smooth2a(mantle.vs,ncr,ncr);
 end
 
+if ~Params.NOPLOTS
 figure(1111);clf
 subplot(2,3,1);
 pcolor(mantle.t,mantle.p*1e3,mantle.den);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Density (kg m^{-3})')
@@ -510,7 +518,7 @@ if isfield(mantle,'ks')
         subplot(2,2,4);
         pcolor(mantle.t,mantle.p,mantle.gs);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('G_S (GPa)','FontSize',14)
 end
-
+end
 
 %% Core
 % Iron properties
@@ -714,6 +722,7 @@ strLow = '';
 lFontSize = 18;
 LineWidth = 2;
     if POROUS
+        if ~Params.NOPLOTS
         figure(230+iT);
         if ~Params.HOLD
             clf
@@ -732,8 +741,10 @@ LineWidth = 2;
 %         legend('\phi','\rho','V_P','V_S')
         box on
         axis tight
+        end     
         
-                figure(270+iT);
+        if ~Params.NOPLOTS
+            figure(270+iT);
         if ~Params.HOLD
             clf
         end
@@ -754,8 +765,9 @@ LineWidth = 2;
 %         legend('\phi','\rho','V_P','V_S')
         box on
         axis tight
-        
-                        figure(280+iT);
+        end
+        if ~Params.NOPLOTS
+            figure(280+iT);
         if ~Params.HOLD
             clf
         end
@@ -776,6 +788,7 @@ LineWidth = 2;
 %         ylabel('v-v_{porous} (m s^{-1})');
         xlabel('log$_{10}$ permeability','interpreter','latex');
         box on
+        end
     end
 end
 
@@ -946,7 +959,7 @@ if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
     k_S_m = NaN*ones(size(P_MPa)); 
     switch Planet.Ocean.comp
         case 'MgSO4'
-            LarionovMgSO4 = getLarionov1984MgSO4Conductivities;
+            LarionovMgSO4 = getLarionov1984MgSO4Conductivities(Params.NOPLOTS);
             Pextrap = LarionovMgSO4.Pextrap_MPa;
             Textrap = LarionovMgSO4.Textrap_K;
             k_S_m_extrap = LarionovMgSO4.k_S_m_extrap_p01m;
@@ -1050,6 +1063,7 @@ for iT = 1:nTbs
 
 
 %% plot the seismic data and attenuation
+if ~Params.NOPLOTS
     figure(nfig+iT);
     if ~Params.HOLD
         clf
@@ -1105,7 +1119,7 @@ for iT = 1:nTbs
     catch
         error(['Couldn''t save file ' thissavestr ' to the ''figures'' directory. Try setting active folder to PlanetProfile directory in Matlab.']);
     end
-    
+    if ~Params.NOPLOTS
     figure(nfig+iT+50);
     if ~Params.HOLD
         clf;
@@ -1117,18 +1131,22 @@ for iT = 1:nTbs
     ylabel(['r_{' Planet.name '} (km)'],'FontSize',lFontSize);
     xlabel('G_S and K_S (GPa)','FontSize',lFontSize);
     axis tight
-   try
+    try
         saveas(gcf,[figpath thissavestr 'GsKs'],Params.savefigformat);
     catch
         error(['Couldn''t save file ' thissavestr ' to the ''figures'' directory. Try setting active folder to PlanetProfile directory in Matlab.']);
     end
+   end
+end
 end
 
 % save the mineral compositions plot 
+if ~Params.NOPLOTS
 figure(1111)
 thiseos = split(Seismic.mantleEOS,'.tab');
 thiseos = char(thiseos(1));
 saveas(gcf,[figpath thissavestr 'MineralProps_' thiseos],Params.savefigformat);
+end
 
 %% create the legend that describes tb, z_b, and heat flux
 lstr_2 = {};
@@ -1139,6 +1157,7 @@ end
 
 %%  plot profile with 4 subplots
 %% 
+if ~Params.NOPLOTS
 if Params.foursubplots
 Dsil_km=(R_Planet_m-R_sil_mean_m(:))*1e-3;
 
@@ -1320,7 +1339,7 @@ end
 
 
 box on
-
+end
 % not sure this is used anymore. flagged for deletion
 % for iT=1:nTbs
 %     if ~isnan(velsIce.VVIl_kms(iT,indSil(iT)))
@@ -1355,7 +1374,8 @@ box on
 %     'Color','none');
 
 
-    if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
+ if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
+     if ~Params.NOPLOTS  
         if wo>0
         subplot(3,6,16:18);hold on
         switch Planet.Ocean.comp
@@ -1408,15 +1428,16 @@ box on
         ax.FontSize = aFontSize;
         ax.YAxisLocation = 'right';
 
-        xlabel('Electrical Conductivity (S m^{-1})','FontSize',aFontSize);
-        ylabel('Depth (km)','FontSize',aFontSize);
+        ylabel('Electrical Conductivity (S m^{-1})','FontSize',aFontSize);
+        xlabel('Depth (km)','FontSize',aFontSize);
         box on
         end
     end
-
+end
 
 
 % subplot(3,2,[1 3 5]);
+if ~Params.NOPLOTS
 if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
     subplot(3,6,[1:3 7:9 13:15]);
 else
@@ -1466,10 +1487,11 @@ ylabel('Density (kg m^{-3})','FontSize',lFontSize)
     catch
         error(['Couldn''t save file ' savefile ' to the ''figures'' directory. Maybe it doesn''t exist in the PP folder?']);
     end
-
+end
 
 %% plot profile with 2 subplots
 else
+if ~Params.NOPLOTS
 figure(229);
 maxScale = 1.01;
 if ~Params.HOLD
@@ -1612,7 +1634,9 @@ ylabel('Density (kg m^{-3})')
 
     saveas(gcf,[figpath savefile],Params.savefigformat);
 end
+end
 %%
+if ~Params.NOPLOTS
 figure(228)
 if ~Params.HOLD
     clf;
@@ -1660,7 +1684,7 @@ axis tight
 % %     title('Temperature as a function of Pressure in Planet for T_{s} = 110 K, T_{b} = 260K')
 % xlabel('Pressure (MPa)')
 % ylabel('Temperature (K)')
-
+end
 %% properties of water ice
 %Note: for VspChoukroun inds: liquid = 1, Ice I = 2, II = 3, III = 4, V = 5, VI = 6
 function rho_kgm3 = getRhoIce(P_MPa,T_K,ind)

@@ -109,6 +109,7 @@ Params.nsteps_core = 10;
 Params.savefigformat = 'epsc';
 Params.colororder = 'mcbkgrm';
 Params.Temps = [250 252.5 255 260 265 270 273];
+Params.NOPLOTS = 1; %allows user to control recreating & display of plots/figures after each run
 
 %% Run the Calculation!
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;

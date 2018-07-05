@@ -1,4 +1,4 @@
-function LarionovMgSO4 = getLarionov1984MgSO4Conductivities
+function LarionovMgSO4 = getLarionov1984MgSO4Conductivities(hidePlots)
 
 
 TwentyFive2ZeroDegC=0.525; % Hand and Chyba 2007
@@ -83,7 +83,7 @@ LarionovMgSO4.Pextrap_MPa = Pextrap;
 LarionovMgSO4.Textrap_K = Textrap;
 LarionovMgSO4.k_S_m_extrap_p01m = k_S_m_extrap;
 
-    
+if ~hidePlots    
 figure(2296);clf
 hold on
 for iT = 1:3
@@ -100,3 +100,4 @@ box on
 xlabel('Pressure (MPa)')
 ylabel('Electrical Conductivity (S m^{-1})')
 legend('273 K; 0.01 g/kg','273 K; 0.005 g/kg','298 K; 0.01 g/kg','298 K; 0.005 g/kg','323 K; 0.01 g/kg','323 K; 0.005 g/kg')
+end
