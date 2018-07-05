@@ -1,6 +1,6 @@
 function PPTitan
 %PPTitan
- % this is the master program, and should be run from its containing
+ % this is the master program, and should be run from the main PlanetProfile
  % directory
 Planet.name='Titan';
 % Planet.rho_kgm3 = 1879.8; %+/- 0.2, Jacobson et al. 2006
