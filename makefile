@@ -30,12 +30,16 @@ ifeq ($(shell [ -d /Applications/MATLAB* ] ; echo $$?),0)
 else ifeq ($(shell [ -d /mnt/c/Program\ Files/MATLAB* ] ; echo $$?),0)
 	# Windows
 	matlabdir=/mnt/c/Program\ Files/MATLAB*
-	cdpp=$(shell wslpath -a $$(pwd))
+	driveltr=$(shell ppdir=$$(pwd) ; echo $${ppdir:5:1} | tr "[:lower:]" "[:upper:]")
+	rempath=$(shell ppdir=$$(pwd) ; echo $${ppdir:6})
+	cdpp=cd $(driveltr):$(rempath)
 	foundmatlab=0
-else ifeq ($(shell [ -d /mnt/c/Program\ Files\ (x86)/MATLAB* ] ; echo $$?),0)
+else ifeq ($(shell [ -d /mnt/c/Program\ Files\ \(x86\)/MATLAB* ] ; echo $$?),0)
 	# Windows
-	matlabdir=/mnt/c/Program\ Files/MATLAB*
-	cdpp=$(shell wslpath -a $$(pwd))
+	matlabdir=/mnt/c/Program\ Files\ \(x86\)/MATLAB*
+	driveltr=$(shell ppdir=$$(pwd) ; echo $${ppdir:5:1} | tr "[:lower:]" "[:upper:]")
+	rempath=$(shell ppdir=$$(pwd) ; echo $${ppdir:6})
+	cdpp=cd $(driveltr):$(rempath)
 	foundmatlab=0
 else ifeq ($(shell [ -d /usr/local/MATLAB/* ] ; echo $$?),0)
 	# Linux
@@ -86,6 +90,8 @@ ifeq ($(refprop),0)
 	cp Thermodynamics/librefprop.so-master/files/*.fld /opt/refprop/fluids/
 	cp Thermodynamics/librefprop.so-master/files/*.mix /opt/refprop/mixtures/
 endif
+
+	echo $(cdpp)
 
 	@# Get list of PlanetProfile directories containing important files
 	@#   and print them into a file named startup.m
