@@ -91,8 +91,6 @@ ifeq ($(refprop),0)
 	cp Thermodynamics/librefprop.so-master/files/*.mix /opt/refprop/mixtures/
 endif
 
-	echo $(cdpp)
-
 	@# Get list of PlanetProfile directories containing important files
 	@#   and print them into a file named startup.m
 	@pathdirs=($$(find * -type d -not -path *version* -not -path *input*)) ; \
