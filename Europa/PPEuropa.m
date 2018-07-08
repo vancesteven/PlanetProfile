@@ -109,6 +109,7 @@ Params.nsteps_core = 10;
 Params.savefigformat = 'epsc';
 Params.colororder = 'mcbkgrm';
 Params.Temps = [250 252.5 255 260 265 270 273];
+Params.NOPLOTS = 1; %allows user to control recreating & display of plots/figures after each run
 
 %% Run the Calculation!
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
@@ -187,7 +188,7 @@ Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [268.2 270.8 ];
 % % Planet.PEFF =1;
 % % PlanetProfile(Planet,Seismic,Params)
 % 
-Seismic.mantleEOS = 'CV3hy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
+Seismic.mantleEOS = 'Simple_CI_HS_green_PP.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
 Planet.xFeS = 0.55; %0.25
 Planet.xFe_core = 0.0279 ; % this is the total Fe  in Fe and FeS
