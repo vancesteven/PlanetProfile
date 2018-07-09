@@ -36,6 +36,11 @@ Gg = 6.67300e-11; % m3 kg-1 s-2
 
 n_iceI=Params.nsteps_iceI;
 n_ocean = Params.nsteps_ocean;
+wo = Planet.Ocean.w_ocean_pct;
+
+if strcmp(Planet.Ocean.comp,'MgSO4')
+    conduct_scaling_MgSO4 = (1+4*wo); % empirical scaling from 1 bar values compiled in Hand and Chyba 2007
+end
 
 %%
 if Params.CALC_NEW
@@ -46,7 +51,6 @@ nsteps = n_iceI+n_ocean;
 
 phase = zeros(nTbs,nsteps);
 phase(:,1:n_iceI)=1;
-wo = Planet.Ocean.w_ocean_pct;
 Tb_K = Planet.Tb_K;
 
 %%
@@ -523,8 +527,8 @@ end
 %% Core
 % Iron properties
     %gamma (fcc) Fe in Table 3 of C2006. derivatives are  rounded off values for alpha (bcc) Fe 
-    % gamma Fe should be the correct phase between 1394°C (iron allotropes
-    % wiki; 1667 K) and 912 °C (1185 K).  Minimum Tcore in C2006 is
+    % gamma Fe should be the correct phase between 1394 C (iron allotropes
+    % wiki; 1667 K) and 912 C (1185 K).  Minimum Tcore in C2006 is
     % 1200K.    
 %     rhoo_iron_kgm3 = 8e3;
 if Planet.FeCore
@@ -965,7 +969,7 @@ if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
             k_S_m_extrap = LarionovMgSO4.k_S_m_extrap_p01m;
             [Pgg,Tgg]=meshgrid(Pextrap,Textrap);
             for iTb = 1:length(Planet.Tb_K)
-                k_S_m(iTb,phase(iTb,:)==0) = interp2(Pextrap,Textrap,k_S_m_extrap,P_MPa(iTb,phase(iTb,:)==0),T_K(iTb,phase(iTb,:)==0),'spline');
+                k_S_m(iTb,phase(iTb,:)==0) = interp2(Pextrap,Textrap,k_S_m_extrap,P_MPa(iTb,phase(iTb,:)==0),T_K(iTb,phase(iTb,:)==0),'spline') * conduct_scaling_MgSO4;
             end
         case 'Seawater'
             if wo>2
@@ -1381,10 +1385,10 @@ end
         switch Planet.Ocean.comp
             case 'MgSO4'
                 for iT = 1:nTbs                 
-                    line(k_S_m(iT,1:indSil(iT))*(1+4*wo),z_m(iT,1:indSil(iT))*1e-3,... % empirical scaling from 1 bar values compiled in Hand and Chyba 2007
+                    line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,...
                         'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',LineWidth);
-                    mink_val(iT) = min(k_S_m(iT,1:indSil(iT))*(1+4*wo));
-                    maxk_val(iT) = max(k_S_m(iT,1:indSil(iT))*(1+4*wo));
+                    mink_val(iT) = min(k_S_m(iT,1:indSil(iT)));
+                    maxk_val(iT) = max(k_S_m(iT,1:indSil(iT)));
                 end
             case 'Seawater'
                 for iT = 1:nTbs
@@ -1428,8 +1432,8 @@ end
         ax.FontSize = aFontSize;
         ax.YAxisLocation = 'right';
 
-        ylabel('Electrical Conductivity (S m^{-1})','FontSize',aFontSize);
-        xlabel('Depth (km)','FontSize',aFontSize);
+        xlabel('Electrical Conductivity (S m^{-1})','FontSize',aFontSize);
+        ylabel('Depth (km)','FontSize',aFontSize);
         box on
         end
     end
