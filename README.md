@@ -1,7 +1,12 @@
 # PlanetProfile
 Matlab software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs.
 
-The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model. Refprop is required for NH3 solutions, but due to complications it is not currently implemented.
+The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
+
+PREREQUISITES:
+  @ Matlab, with Curve Fitting Toolbox
+  @ Refprop is required for NH3 solutions: https://www.nist.gov/refprop
+      $ Due to various complications it is not currently implemented.
 
 SETUP:
   @ Open a Terminal and navigate to the PlanetProfile directory.
