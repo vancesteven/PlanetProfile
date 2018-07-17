@@ -374,7 +374,7 @@ if Planet.FeCore
     Mcore = 4/3*pi*R_Fe_mean_m.^3.*rho_Fe_kgm3;
     Wtcore = Mcore/M_Planet_kg;
     dWtcore = Planet.xFe_core-Wtcore;
-    XS = 32.065/87.91*Planet.xFeS; %fraction of S in the core
+    XS = 32.065/87.91*Planet.xFeS; %mass fraction of S in the core
     Msulfur = Mcore.*XS; % mass of sulfur in the core
     WtS = Msulfur/M_Planet_kg; % as a fraction of Europa's mass
     dWtS = Planet.xFeS_meteoritic*32.065/87.91-WtS;
@@ -536,7 +536,7 @@ if Planet.FeCore
 else
     rhoo_iron_kgm3 = nan;
 end
-    if Planet.xFeS<0.05
+    if Planet.xFeS<0.05 %Weight fraction of sulfur in the core
         alpha_iron_K = 5e-5;
     %     Bulk modulus and derivatives?
         Kso_iron_GPa = 156;
@@ -547,7 +547,7 @@ end
         dGdP_iron = 2;
         dGdT_iron_PaK = -0.023;
     else
-        rhoo_iron_kgm3 = 5150-50*(100*Planet.xFeS-10);
+        rhoo_iron_kgm3 = 5150-50*(100*Planet.xFeS-10); %Only really valid for Planet.xFeS<0.2 (Cammarano et al., 2006, Table 3)
         alpha_iron_K = 9.2e-5;
     %     Bulk modulus and derivatives?
         Kso_iron_GPa = 53.2-2*(100*Planet.xFeS-10);

@@ -5,6 +5,8 @@ Planet.rho_kgm3 = 2989; % ±46 (Schubert et al. 2004)
 %note: Schubert et al. 2004 cite the Anderson C/MR2 as 0.3115±0.0028.  This
 %is incorrect, as the value cited everywhere else is consistent with the
 %Anderson et al. (1996) value of C/MR2=0.3105\pm0.0028 used here
+%MMD note July 17 2018: But Anderson et al. 1998 (Science) reported a
+%preferred value of C/MR2=0.346, which is actually used here.
 Planet.R_m = 1561.0e3;% ±8.0 km
 Planet.M_kg =4.7991e22;
 Planet.gsurf_ms2 = 1.428; 
@@ -15,9 +17,16 @@ Planet.Cuncertainty = 0.005;
 %note: Schubert et al. 2004 cite the Anderson C/MR2 as 0.3115±0.0028.  This
 %is incorrect, as the value cited everywhere else is consistent with the
 %Anderson et al. (1996) value of C/MR2=0.3105\pm0.0028 used here
+%MMD note July 17 2018: But Anderson et al. 1998 (Science) reported a
+%preferred value of C/MR2=0.346, which is actually used here.
 Planet.FeCore=true;
 Planet.rhoFe = 8000; %8000
 Planet.rhoFeS = 5150; %5150
+%Planet.rhoPoFeFCC = 5455; %±40; WIP July 17 2018; Density of pyrrhottite plus 
+%face-centered cubic iron predicted to stable allowing the maximum amount 
+%of sulfur in Europa's current core without crossing the solidus, according 
+%to our calculation using the Saxena and Eriksson 2015 (CALPHAD) EoS, 
+%modified by Eleanor Green and Jamie Connolly for PerpleX 6.8.3.
 
 %% salinities and temperatures at the bottom of the Ice Ih
 % the vector of Tb needs to be monotonically increasing for the calculation
@@ -120,6 +129,12 @@ Planet.rho_sil_withcore_kgm3 = 3539;
 % Planet.rho_sil_withcore_kgm3 = 3425;
 % Seismic.mantleEOS = 'chonhp_sat_678.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 % Planet.rho_sil_withcore_kgm3 = 2975;
+% Seismic.mantleEOS = 'Simple_CI_HS_green_PP.tab';% CI chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
+% Planet.rho_sil_withcore_kgm3 = 2975;
+% Seismic.mantleEOS = 'Simple_CM_HS_green_PP.tab';% CM chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
+% Planet.rho_sil_withcore_kgm3 = 2975;
+% Seismic.mantleEOS = 'Simple_CV_HS_green_PP.tab';% CV chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
+% Planet.rho_sil_withcore_kgm3 = 2975;
 
 % Planet.Ocean.comp='MgSO4';
 % load L_Ice_MgSO4.mat
@@ -172,7 +187,7 @@ Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [268.2 270.8 ];
 % 
 % Seismic.mantleEOS = 'CM2hy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 % Planet.xFeS_meteoritic = 0.0676; %CM2 mean from Jarosewich 1990
-% Planet.xFeS = 0.2; %0.25
+% Planet.xFeS = 0.2; %0.25, mass fraction of sulfur in the core
 % Planet.xFe_core = 0.0463 ; % this is the total Fe  in Fe and FeS
 % Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 % Planet.rho_sil_withcore_kgm3 = 3630;
@@ -188,9 +203,9 @@ Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [268.2 270.8 ];
 % % Planet.PEFF =1;
 % % PlanetProfile(Planet,Seismic,Params)
 % 
-Seismic.mantleEOS = 'Simple_CI_HS_green_PP.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
+Seismic.mantleEOS = 'CV3hy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
-Planet.xFeS = 0.55; %0.25
+Planet.xFeS = 0.55; %0.25, mass fraction of sulfur in the core
 Planet.xFe_core = 0.0279 ; % this is the total Fe  in Fe and FeS
 Planet.XH2O = 0.0035; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 Planet.rho_sil_withcore_kgm3 = 3644;
@@ -199,9 +214,36 @@ PlanetProfile(Planet,Seismic,Params)
 % 
 % Seismic.mantleEOS = 'CIhy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 % Planet.xFeS_meteoritic = 0.0908; %CM2 mean from Jarosewich 1990
-% Planet.xFeS = 0.2; %0.25
+% Planet.xFeS = 0.2; %0.25, mass fraction of sulfur in the core
 % Planet.xFe_core = 0.0583 ; % this is the total Fe  in Fe and FeS
 % Planet.XH2O = 0.169; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+% Planet.rho_sil_withcore_kgm3 = 3644;
+% Planet.phi_surface = 0;
+% PlanetProfile(Planet,Seismic,Params)
+% 
+% Seismic.mantleEOS = 'Simple_CI_HS_green_PP.tab';% CI chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
+% Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
+% Planet.xFeS = 0.0; %mass fraction of sulfur in the core
+% Planet.xFe_core = 0.0279 ; % this is the total Fe in Fe and FeS
+% Planet.XH2O = 0.0035; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+% Planet.rho_sil_withcore_kgm3 = 3644;
+% Planet.phi_surface = 0;
+% PlanetProfile(Planet,Seismic,Params)
+
+% Seismic.mantleEOS = 'Simple_CM_HS_green_PP.tab';% CM chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
+% Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
+% Planet.xFeS = 0.0; %mass fraction of sulfur in the core
+% Planet.xFe_core = 0.0279 ; % this is the total Fe in Fe and FeS
+% Planet.XH2O = 0.0035; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+% Planet.rho_sil_withcore_kgm3 = 3644;
+% Planet.phi_surface = 0;
+% PlanetProfile(Planet,Seismic,Params)
+
+% Seismic.mantleEOS = 'Simple_CV_HS_green_PP.tab';% CV chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
+% Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
+% Planet.xFeS = 0.0; %mass fraction of sulfur in the core
+% Planet.xFe_core = 0.0279 ; % this is the total Fe in Fe and FeS
+% Planet.XH2O = 0.0035; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 % Planet.rho_sil_withcore_kgm3 = 3644;
 % Planet.phi_surface = 0;
 % PlanetProfile(Planet,Seismic,Params)
