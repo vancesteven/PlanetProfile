@@ -48,9 +48,9 @@ Hrad0 = 24e12*xSi/xSiEarth/M_Earth_kg;
 %cold case  
 Planet.kr_mantle = 4; % rock conductivity (Cammarano et al. 2006, Table 4)
 Planet.EQUIL_Q = 0;
-Planet.Qmantle_Wm2 = 2.7e8/4/pi/Planet.R_m^2; % Chen et al. 2014
 % Planet.Qmantle_Wm2 = 2.7e8/4/pi/Planet.R_m^2; % Chen et al. 2014
-Planet.Qmantle_Wm2 = 16e9/4/pi/Planet.R_m^2; % Howett et al. 2011
+ Planet.Qmantle_Wm2 = 2.7e4/4/pi/Planet.R_m^2; % kluge
+% Planet.Qmantle_Wm2 = 16e9/4/pi/Planet.R_m^2; % Howett et al. 2011
 Planet.QHmantle = 0;
 %hot case Qm = 2.1e11+8.5e11; %W
 
@@ -67,7 +67,7 @@ Seismic.mantleEOS = 'echon_678_1.tab'; Planet.phi_surface = 0.8;%
 % % this is the hydrated model described in the paper 2017:
 % Planet.POROUS_ROCK = 0;
 % Seismic.mantleEOS = 'pyrohp_sat_678_1.tab'; % this uses the procedure implemented by F. Cammarano
-% % Seismic.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab'; % this uses the procedure implemented by F. Cammarano
+Seismic.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab'; % this uses the procedure implemented by F. Cammarano
 
 
 % Seismic.mantleEOS = 'echonhp_sat_1.tab'; % this uses the procedure implemented by F. Cammarano
@@ -132,7 +132,7 @@ Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
 Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
 Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
-
+% 
 Planet.Ocean.comp='MgSO4';
 load L_Ice_MgSO4.mat
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
@@ -145,11 +145,11 @@ Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [272.72 273.12];
 PlanetProfile(Planet,Seismic,Params)
 
 % running pure water for the MgSO4 case illustrates >1oC error in the Margules parameterization
-% Params.HOLD = 1; % overlay previous runs
-% Params.LineStyle='-';
-% Params.colororder = 'cm';
-% Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [273.1 273.15]; % pure water, 
-% PlanetProfile(Planet,Seismic,Params)
+Params.HOLD = 1; % overlay previous runs
+Params.LineStyle='-';
+Params.colororder = 'cm';
+Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [273.1 273.15]; % pure water, 
+PlanetProfile(Planet,Seismic,Params)
 
 Params.HOLD = 1; 
 Planet.Ocean.comp='Seawater';

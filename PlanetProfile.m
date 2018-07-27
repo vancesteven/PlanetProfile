@@ -599,7 +599,7 @@ for iT = 1:nTbs
 %             g_ms2_sil(ij) = g_ms2_sil(ij-1);
 %         end
         Pmantle_MPa(ij) = Pmantle_MPa(ij-1)+1e-6*(rho_mantle_kgm3(ij-1))*g_ms2_sil(ij)*(r_mantle_m(ij-1)-r_mantle_m(ij));
-         M_above_mantle(ij) = M_above_mantle(ij-1)+4/3*pi*(r_mantle_m(ij-1)^3-r_mantle_m(ij)^3)*rho_mantle_kgm3(ij-1);
+        M_above_mantle(ij) = M_above_mantle(ij-1)+4/3*pi*(r_mantle_m(ij-1)^3-r_mantle_m(ij)^3)*rho_mantle_kgm3(ij-1);
         
         if isfield(Seismic,'mantleEOS_dry') & rho_mantle_kgm3(ij-1)>rhofn_kgm3(Pmantle_MPa(ij),Tmantle_K(ij))
             rhofn_kgm3 = mantleDry.rhofn_kgm3;
@@ -619,10 +619,6 @@ for iT = 1:nTbs
              Pmantle_MPa(ij) = NaN;
          end
 
-    end
-    mtest = find(M_above_mantle>M_Planet_kg);
-    if mtest
-        disp(['Exceeded planet mass at mantle radius of ' num2str(1e-3*r_mantle_m(mtest(1)),'%0.0f') ' km']);
     end
     
     
@@ -644,6 +640,23 @@ for iT = 1:nTbs
         VS_mantle_kms = por_out(iT).vs;
         disp(['Average Porosity: ' num2str(mean(por_out(iT).por))])
         disp(['Porosity: ' num2str(por_out(iT).por)])
+        %recalculate mass above in light of reduced density. This should
+        %really be done in a recursive way that acknowledges the reduced
+        %overburden pressure.
+        for ij = 2:nsteps_mantle(iT) 
+%         if r_mantle_m(ij-1)>0.3*Planet.R_m
+%             g_ms2_sil(ij)=(Gg*(M_Planet_kg-M_above_mantle(ij-1))/r_mantle_m(ij-1)^2);
+%         else
+%             g_ms2_sil(ij) = g_ms2_sil(ij-1);
+%         end
+%         Pmantle_MPa(ij) = Pmantle_MPa(ij-1)+1e-6*(rho_mantle_kgm3(ij-1))*g_ms2_sil(ij)*(r_mantle_m(ij-1)-r_mantle_m(ij));
+          M_above_mantle(ij) = M_above_mantle(ij-1)+4/3*pi*(r_mantle_m(ij-1)^3-r_mantle_m(ij)^3)*rho_mantle_kgm3(ij-1);
+        end
+    end
+    
+    mtest = find(M_above_mantle>M_Planet_kg);
+    if mtest
+        disp(['Exceeded planet mass at mantle radius of ' num2str(1e-3*r_mantle_m(mtest(1)),'%0.0f') ' km']);
     end
     
     if find(g_ms2_sil<0)
