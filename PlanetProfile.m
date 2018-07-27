@@ -20,6 +20,8 @@ elseif strcmp(Planet.Ocean.comp,'NaCl')
 %     swEOS.NaCl = readh5spline('NaCl.h5');
     load('NaCl_LBF');
     swEOS.NaCl.sp = sp_NaCl_8GPa;
+elseif strcmp(Planet.Ocean.comp,'NH3')
+    error(['NH3 is not currently implemented due to complications with Refprop software.'])
 end
 M_Planet_kg = Planet.M_kg;
 R_Planet_m = Planet.R_m;
@@ -34,6 +36,11 @@ Gg = 6.67300e-11; % m3 kg-1 s-2
 
 n_iceI=Params.nsteps_iceI;
 n_ocean = Params.nsteps_ocean;
+wo = Planet.Ocean.w_ocean_pct;
+
+if strcmp(Planet.Ocean.comp,'MgSO4')
+    conduct_scaling_MgSO4 = (1+4*wo); % empirical scaling from 1 bar values compiled in Hand and Chyba 2007
+end
 
 %%
 if Params.CALC_NEW
@@ -44,7 +51,6 @@ nsteps = n_iceI+n_ocean;
 
 phase = zeros(nTbs,nsteps);
 phase(:,1:n_iceI)=1;
-wo = Planet.Ocean.w_ocean_pct;
 Tb_K = Planet.Tb_K;
 
 %%
@@ -221,6 +227,7 @@ if ~Planet.FeCore
 
     
    % Plot the results
+if ~Params.NOPLOTS
     figure(2295);clf;hold all
     for iT=1:nTbs
         plot(rho_sil_kgm3(iT,C2inds{iT})',R_sil_m(iT,C2inds{iT})'*1e-3);
@@ -234,6 +241,7 @@ if ~Planet.FeCore
     xlabel('\rho_{sil} (kg m^{-3})');
     ylabel('R_{sil} (km)')
     title(['No Fe core ; C/MR2=' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) '; W =' num2str(wo) ' Wt%'])
+end
 else % With a core
     rho_Fe_kgm3 = Planet.rhoFe*Planet.rhoFeS/(Planet.xFeS*(Planet.rhoFe-Planet.rhoFeS)+Planet.rhoFeS); 
     C2 = zeros(nTbs,nR);
@@ -246,7 +254,9 @@ else % With a core
             [C2(iT,iz),R_Fe_m(iT,iz)] = CoreSize(Planet.rho_sil_withcore_kgm3,rho_Fe_kgm3,C_H2O(iT,iz+1),M_above_kg(iT,iz+npre),R_sil_m(iT,iz));
         end
     end
+if ~Params.NOPLOTS    
     figure(2296);clf;hold all
+end
     for iT=1:nTbs
         C2inds{iT} = find(C2(iT,:)/MR2>Planet.Cmeasured-Planet.Cuncertainty & C2(iT,:)/MR2<Planet.Cmeasured+Planet.Cuncertainty);
         if isempty(C2inds{iT})
@@ -260,20 +270,23 @@ else % With a core
         M_H2O_mean_kg(iT) = M_above_kg(iT,C2mean(iT));
         R_Fe_range_m(iT) = R_Fe_m(iT,C2max(iT))-R_Fe_m(iT,C2min(iT));
         R_sil_range_m(iT) = R_sil_m(iT,C2min(iT))-R_sil_m(iT,C2max(iT));
+if ~Params.NOPLOTS
         plot(R_Fe_m(iT,C2inds{iT})'*1e-3,R_sil_m(iT,C2inds{iT})'*1e-3);
+end
     end
-
+if ~Params.NOPLOTS
     lstr_3 = {};
     for iT = 1:nTbs
         lstr_3 = {lstr_3{:} ['T_{b}:' num2str(Planet.Tb_K(iT),'%0.1f') 'K']};
     end
+
     legend(lstr_3)
     box on
     xlabel('R_{Fe} (km)');
     ylabel('R_{sil} (km)')
     title(['Fe core ; C/MR2=' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) '; W =' num2str(wo) ' Wt%; \rho_{sil}: ' num2str(Planet.rho_sil_withcore_kgm3,'%0.0f') '; \rho_{Fe}: ' num2str(rho_Fe_kgm3,'%0.0f')])
 end
-
+end
 
 
 %% Display the depths to the various layers
@@ -361,7 +374,7 @@ if Planet.FeCore
     Mcore = 4/3*pi*R_Fe_mean_m.^3.*rho_Fe_kgm3;
     Wtcore = Mcore/M_Planet_kg;
     dWtcore = Planet.xFe_core-Wtcore;
-    XS = 32.065/87.91*Planet.xFeS; %fraction of S in the core
+    XS = 32.065/87.91*Planet.xFeS; %mass fraction of S in the core
     Msulfur = Mcore.*XS; % mass of sulfur in the core
     WtS = Msulfur/M_Planet_kg; % as a fraction of Europa's mass
     dWtS = Planet.xFeS_meteoritic*32.065/87.91-WtS;
@@ -483,6 +496,7 @@ if isfield(Seismic,'SMOOTH_ROCK') && Params.SMOOTH_VROCK
     mantle.vs = smooth2a(mantle.vs,ncr,ncr);
 end
 
+if ~Params.NOPLOTS
 figure(1111);clf
 subplot(2,3,1);
 pcolor(mantle.t,mantle.p*1e3,mantle.den);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Density (kg m^{-3})')
@@ -508,13 +522,13 @@ if isfield(mantle,'ks')
         subplot(2,2,4);
         pcolor(mantle.t,mantle.p,mantle.gs);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('G_S (GPa)','FontSize',14)
 end
-
+end
 
 %% Core
 % Iron properties
     %gamma (fcc) Fe in Table 3 of C2006. derivatives are  rounded off values for alpha (bcc) Fe 
-    % gamma Fe should be the correct phase between 1394°C (iron allotropes
-    % wiki; 1667 K) and 912 °C (1185 K).  Minimum Tcore in C2006 is
+    % gamma Fe should be the correct phase between 1394 C (iron allotropes
+    % wiki; 1667 K) and 912 C (1185 K).  Minimum Tcore in C2006 is
     % 1200K.    
 %     rhoo_iron_kgm3 = 8e3;
 if Planet.FeCore
@@ -522,7 +536,7 @@ if Planet.FeCore
 else
     rhoo_iron_kgm3 = nan;
 end
-    if Planet.xFeS<0.05
+    if Planet.xFeS<0.05 %Weight fraction of sulfur in the core
         alpha_iron_K = 5e-5;
     %     Bulk modulus and derivatives?
         Kso_iron_GPa = 156;
@@ -533,7 +547,7 @@ end
         dGdP_iron = 2;
         dGdT_iron_PaK = -0.023;
     else
-        rhoo_iron_kgm3 = 5150-50*(100*Planet.xFeS-10);
+        rhoo_iron_kgm3 = 5150-50*(100*Planet.xFeS-10); %Only really valid for Planet.xFeS<0.2 (Cammarano et al., 2006, Table 3)
         alpha_iron_K = 9.2e-5;
     %     Bulk modulus and derivatives?
         Kso_iron_GPa = 53.2-2*(100*Planet.xFeS-10);
@@ -725,6 +739,7 @@ strLow = '';
 lFontSize = 18;
 LineWidth = 2;
     if POROUS
+        if ~Params.NOPLOTS
         figure(230+iT);
         if ~Params.HOLD
             clf
@@ -743,8 +758,10 @@ LineWidth = 2;
 %         legend('\phi','\rho','V_P','V_S')
         box on
         axis tight
+        end     
         
-                figure(270+iT);
+        if ~Params.NOPLOTS
+            figure(270+iT);
         if ~Params.HOLD
             clf
         end
@@ -765,8 +782,9 @@ LineWidth = 2;
 %         legend('\phi','\rho','V_P','V_S')
         box on
         axis tight
-        
-                        figure(280+iT);
+        end
+        if ~Params.NOPLOTS
+            figure(280+iT);
         if ~Params.HOLD
             clf
         end
@@ -787,6 +805,7 @@ LineWidth = 2;
 %         ylabel('v-v_{porous} (m s^{-1})');
         xlabel('log$_{10}$ permeability','interpreter','latex');
         box on
+        end
     end
 end
 
@@ -957,13 +976,13 @@ if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
     k_S_m = NaN*ones(size(P_MPa)); 
     switch Planet.Ocean.comp
         case 'MgSO4'
-            LarionovMgSO4 = getLarionov1984MgSO4Conductivities;
+            LarionovMgSO4 = getLarionov1984MgSO4Conductivities(Params.NOPLOTS);
             Pextrap = LarionovMgSO4.Pextrap_MPa;
             Textrap = LarionovMgSO4.Textrap_K;
             k_S_m_extrap = LarionovMgSO4.k_S_m_extrap_p01m;
             [Pgg,Tgg]=meshgrid(Pextrap,Textrap);
             for iTb = 1:length(Planet.Tb_K)
-                k_S_m(iTb,phase(iTb,:)==0) = interp2(Pextrap,Textrap,k_S_m_extrap,P_MPa(iTb,phase(iTb,:)==0),T_K(iTb,phase(iTb,:)==0),'spline');
+                k_S_m(iTb,phase(iTb,:)==0) = interp2(Pextrap,Textrap,k_S_m_extrap,P_MPa(iTb,phase(iTb,:)==0),T_K(iTb,phase(iTb,:)==0),'spline') * conduct_scaling_MgSO4;
             end
         case 'Seawater'
             if wo>2
@@ -1061,6 +1080,7 @@ for iT = 1:nTbs
 
 
 %% plot the seismic data and attenuation
+if ~Params.NOPLOTS
     figure(nfig+iT);
     if ~Params.HOLD
         clf
@@ -1116,7 +1136,7 @@ for iT = 1:nTbs
     catch
         error(['Couldn''t save file ' thissavestr ' to the ''figures'' directory. Try setting active folder to PlanetProfile directory in Matlab.']);
     end
-    
+    if ~Params.NOPLOTS
     figure(nfig+iT+50);
     if ~Params.HOLD
         clf;
@@ -1128,18 +1148,22 @@ for iT = 1:nTbs
     ylabel(['r_{' Planet.name '} (km)'],'FontSize',lFontSize);
     xlabel('G_S and K_S (GPa)','FontSize',lFontSize);
     axis tight
-   try
+    try
         saveas(gcf,[figpath thissavestr 'GsKs'],Params.savefigformat);
     catch
         error(['Couldn''t save file ' thissavestr ' to the ''figures'' directory. Try setting active folder to PlanetProfile directory in Matlab.']);
     end
+   end
+end
 end
 
 % save the mineral compositions plot 
+if ~Params.NOPLOTS
 figure(1111)
 thiseos = split(Seismic.mantleEOS,'.tab');
 thiseos = char(thiseos(1));
 saveas(gcf,[figpath thissavestr 'MineralProps_' thiseos],Params.savefigformat);
+end
 
 %% create the legend that describes tb, z_b, and heat flux
 lstr_2 = {};
@@ -1150,6 +1174,7 @@ end
 
 %%  plot profile with 4 subplots
 %% 
+if ~Params.NOPLOTS
 if Params.foursubplots
 Dsil_km=(R_Planet_m-R_sil_mean_m(:))*1e-3;
 
@@ -1331,7 +1356,7 @@ end
 
 
 box on
-
+end
 % not sure this is used anymore. flagged for deletion
 % for iT=1:nTbs
 %     if ~isnan(velsIce.VVIl_kms(iT,indSil(iT)))
@@ -1366,16 +1391,17 @@ box on
 %     'Color','none');
 
 
-    if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
+ if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
+     if ~Params.NOPLOTS  
         if wo>0
         subplot(3,6,16:18);hold on
         switch Planet.Ocean.comp
             case 'MgSO4'
                 for iT = 1:nTbs                 
-                    line(k_S_m(iT,1:indSil(iT))*(1+4*wo),z_m(iT,1:indSil(iT))*1e-3,... % empirical scaling from 1 bar values compiled in Hand and Chyba 2007
+                    line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,...
                         'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',LineWidth);
-                    mink_val(iT) = min(k_S_m(iT,1:indSil(iT))*(1+4*wo));
-                    maxk_val(iT) = max(k_S_m(iT,1:indSil(iT))*(1+4*wo));
+                    mink_val(iT) = min(k_S_m(iT,1:indSil(iT)));
+                    maxk_val(iT) = max(k_S_m(iT,1:indSil(iT)));
                 end
             case 'Seawater'
                 for iT = 1:nTbs
@@ -1424,10 +1450,11 @@ box on
         box on
         end
     end
-
+end
 
 
 % subplot(3,2,[1 3 5]);
+if ~Params.NOPLOTS
 if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
     subplot(3,6,[1:3 7:9 13:15]);
 else
@@ -1477,10 +1504,11 @@ ylabel('Density (kg m^{-3})','FontSize',lFontSize)
     catch
         error(['Couldn''t save file ' savefile ' to the ''figures'' directory. Maybe it doesn''t exist in the PP folder?']);
     end
-
+end
 
 %% plot profile with 2 subplots
 else
+if ~Params.NOPLOTS
 figure(229);
 maxScale = 1.01;
 if ~Params.HOLD
@@ -1623,7 +1651,9 @@ ylabel('Density (kg m^{-3})')
 
     saveas(gcf,[figpath savefile],Params.savefigformat);
 end
+end
 %%
+if ~Params.NOPLOTS
 figure(228)
 if ~Params.HOLD
     clf;
@@ -1671,7 +1701,7 @@ axis tight
 % %     title('Temperature as a function of Pressure in Planet for T_{s} = 110 K, T_{b} = 260K')
 % xlabel('Pressure (MPa)')
 % ylabel('Temperature (K)')
-
+end
 %% properties of water ice
 %Note: for VspChoukroun inds: liquid = 1, Ice I = 2, II = 3, III = 4, V = 5, VI = 6
 function rho_kgm3 = getRhoIce(P_MPa,T_K,ind)

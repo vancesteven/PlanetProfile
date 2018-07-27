@@ -1,21 +1,21 @@
 # PlanetProfile
 Matlab software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs.
 
-The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model. Python 3 is required for NH3 solutions; see the detailed note below for more information.
+The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
+
+PREREQUISITES:
+  @ Matlab Curve Fitting Toolbox
+  @ Matlab Optimization Toolbox
+  @ Refprop is required for NH3 solutions: https://www.nist.gov/refprop
+      $ Due to various complications it is not currently implemented.
 
 SETUP:
-  @ Find the path to the python3 executable (example command: which python3 ), and copy the full path
-  @ In a fresh Matlab session, at the console type pyversion("/path/to/python3/executable")
-  @ Copy the following files into the directories below:
-      $ ( For Windows, get instructions from the librefprop GitHub page. Some files are missing. )
-      $ PlanetProfile/Thermodynamics/Refprop/librefprop.dylib to /opt/
-      $ PlanetProfile/Thermodynamics/Refprop/files/*.fld to /opt/refprop/fluids/
-      $ PlanetProfile/Thermodynamics/Refprop/files/*.mix to /opt/refprop/mixtures/
-  @ In Matlab, add the PlanetProfile directory and subdirectories to your path.
-      $ In the ribbon, go to Home -> Set Path -> Add with Subfolders... -> PlanetProfile
-  @ Set your active path to the directory of the body to simulate.
-      $ Just below the ribbon, click the arrows to select the correct body's folder in the PlanetProfile directory.
+  @ Open a Terminal and navigate to the PlanetProfile directory.
+  @ Type "make install" (no quotes) and hit enter.
+  @ In Matlab, run "startup" (no quotes) at the command line, or close and relaunch.
   @ Open the PP_____.m file for your selected body in the Matlab editor.
+  @ Check that your current directory is the PlanetProfile directory in Matlab.
+      $ The last dir in the address bar just above the editor should say "PlanetProfile".
   @ Run the PP_____.m file.
       $ In the ribbon, go to Editor -> Run.
 
@@ -35,6 +35,10 @@ Instructions for installing Python 3 on a Mac can be found at http://docs.python
 
 Rock properties are from Perple_X: http://www.perplex.ethz.ch/
 Input files were developed by Fabio Cammarano. Version 6.7.9 is currently being used.
+
+Python 3 instructions (may be necessary in a future update):
+  @ Find the path to the python3 executable (example command: which python3 ), and copy the full path
+  @ In a fresh Matlab session, at the console type pyversion("/path/to/python3/executable")
 
 TODOs:
 Modularization is not complete. 

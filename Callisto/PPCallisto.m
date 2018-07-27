@@ -89,6 +89,8 @@ Params.savefigformat = 'epsc';
 Params.wref=[0 5 10 15];
 Params.colororder = 'cbmkgrm';
 Params.Temps = [245 250 252.5 255 260 265 270 273];
+Params.NOPLOTS = 1; %allows user to limit recreating plots & figures after each run
+
 
 %% Run the Calculation!
 Params.HOLD =0;

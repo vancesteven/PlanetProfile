@@ -1,6 +1,6 @@
 function PPTitan
 %PPTitan
- % this is the master program, and should be run from its containing
+ % this is the master program, and should be run from the main PlanetProfile
  % directory
 Planet.name='Titan';
 % Planet.rho_kgm3 = 1879.8; %+/- 0.2, Jacobson et al. 2006
@@ -110,6 +110,7 @@ Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when poss
 Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
+Params.NOPLOTS = 1; %allows user to limit recreating plots & figures after each run
 
 Params.LineStyle =  '--';
 Params.wrefLine =  '--';
