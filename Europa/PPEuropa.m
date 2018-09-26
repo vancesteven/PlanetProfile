@@ -77,6 +77,8 @@ Seismic.LOW_ICE_Q = 1; % divide Ice Q value by this number
 % Seismic.mantleEOS = 'chon_1.tab'; % too dense (3500) this uses the procedure implemented by F. Cammarano
 Seismic.QScore = 1e4;
 
+Seismic.coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab';
+
 %Attenuation Parameters Based on those Described in Cammarano et al. 2006
 % ice I
 Seismic.B_aniso_iceI = 0.56;
@@ -118,7 +120,7 @@ Params.nsteps_core = 10;
 Params.savefigformat = 'epsc';
 Params.colororder = 'mcbkgrm';
 Params.Temps = [250 252.5 255 260 265 270 273];
-Params.NOPLOTS = 1; %allows user to control recreating & display of plots/figures after each run
+Params.NOPLOTS = 0; %allows user to control recreating & display of plots/figures after each run
 
 %% Run the Calculation!
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;

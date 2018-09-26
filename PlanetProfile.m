@@ -136,8 +136,12 @@ if Params.CALC_NEW_REFPROFILES
                   disp(['il = ' num2str(il)])
                  Tref_K(jr,il) = NaN;
               end            
-              rho_ref_kgm3(jr,il) = fluidEOS(Pref_MPa(il),Tref_K(jr,il),wref(jr),Planet.Ocean.comp);            
-           end           
+              rho_ref_kgm3(jr,il) = fluidEOS(Pref_MPa(il),Tref_K(jr,il),wref(jr),Planet.Ocean.comp);                    
+           end
+           if strcmp(Planet.Ocean.comp,'Seawater')
+               isreal = find(~isnan(rho_ref_kgm3(jr,:)));
+               rho_ref_kgm3(jr,:)=interp1(Pref_MPa(isreal),rho_ref_kgm3(jr,isreal),Pref_MPa,'linear','extrap');
+           end
         end
     save([datpath str_ref_densities],'rho_ref_kgm3','Pref_MPa','Tref_K')
 else
@@ -590,8 +594,6 @@ for iT = 1:nTbs
     Ra_mantle = g_ms2_sil(1)*rhom_rough*alpha_rough*MantleHeat/MantleMass*Dm^5/nu_mantle/Kappa_rough^2/Cp_rough; % bunge 1997
     % parmentier and sotin 1994
     Ra_mantle = alpha_rough*rhom_rough*g_ms2_sil(1)*DeltaT*Dm^3/Kappa_rough/nu_mantle;% as per Hussmann and Spohn 2004
-    
- 
 
     % COMMON FUNCTIONALITY HERE IS TO PROPAGATE PRESSURE, GRAVITY AND
     % DENSITY DOWNWARD FOR A CONDUCTIVELY COOLING LAYER WITH NO SOLID STATE
@@ -690,28 +692,47 @@ strLow = '';
     % AS ABOVE, NOW FOR THE METALLIC CORE; THESE VALUES AREN'T USED IF PLANET.FECORE IS FALSE   
 %     g_ms2_core(iT,1) = g_ms2_sil(nsteps_mantle(iT));
 %     M_above_core(iT,1) = M_above_mantle(nsteps_mantle(iT));
-
     if Planet.FeCore
         M_above_core(iT,1) = M_above_mantle(nsteps_mantle(iT));
         r_core_m(iT,:) = linspace(R_Fe_mean_m(iT),0,Params.nsteps_core);
         g_ms2_core(iT,:)=(Gg*(M_Planet_kg-M_above_core(iT))/r_core_m(iT)^2)*ones(1,Params.nsteps_core);
+
         Tcore_K(iT,:) = linspace(Tmantle_K(end),1.01*Tmantle_K(end),Params.nsteps_core);
         Pcore_MPa(iT,1) = Pmantle_MPa(nsteps_mantle(iT)); 
-        Ks_iron_GPa(iT,1) = Kso_iron_GPa+1e-3*Pcore_MPa(iT,1)*dKsdP_iron+1e-9*Tcore_K(iT,1)*dKsdT_PaK;
-        G_iron_GPa(iT,1) = Go_iron_GPa+1e-3*Pcore_MPa(iT,1)*dGdP_iron+1e-9*Tcore_K(iT,1)*dGdT_iron_PaK;
-        rhocore_kgm3(iT,:) = rhoo_iron_kgm3; 
-        for ij = 2:Params.nsteps_core
-    %          g_ms2_core(iT,ij)=(Gg*(M_Planet_kg-M_above_core(iT,ij-1))/r_core_m(iT,ij-1)^2);
-    %          Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT,ij)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
-             Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
-             Ks_iron_GPa(iT,ij) = Kso_iron_GPa+1e-3*Pcore_MPa(iT,ij-1)*dKsdP_iron+1e-9*Tcore_K(iT,ij-1)*dKsdT_PaK;
-             G_iron_GPa(iT,ij) = Go_iron_GPa+1e-3*Pcore_MPa(iT,ij-1)*dGdP_iron+1e-9*Tcore_K(iT,ij-1)*dGdT_iron_PaK;
-%              rhocore_kgm3(iT,ij) = rhocore_kgm3(iT,ij-1)*(1+1./(1e-3*Pcore_MPa(iT,ij)*Ks_iron_GPa(iT,ij))); 
-    %          M_above_core(iT,ij) = M_above_core(iT,ij-1)+4/3*pi*(r_core_m(iT,ij-1)^3-r_core_m(iT,ij)^3)*rhocore_kgm3(iT,ij-1);
+        if isfield(Seismic,'coreEOS')
+            core = loadMantleEOS(Seismic.coreEOS);
+            rhocore_kgm3(iT,1) = core.rhofn_kgm3(Pcore_MPa(iT,1),Tcore_K(iT,1));
+            
+            for ij = 2:Params.nsteps_core
+        %          g_ms2_core(iT,ij)=(Gg*(M_Planet_kg-M_above_core(iT,ij-1))/r_core_m(iT,ij-1)^2);
+        %          Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT,ij)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
+                 Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
+                 rhocore_kgm3(iT,ij) = core.rhofn_kgm3(Pcore_MPa(iT,ij),Tcore_K(iT,ij));
+    %              rhocore_kgm3(iT,ij) = rhocore_kgm3(iT,ij-1)*(1+1./(1e-3*Pcore_MPa(iT,ij)*Ks_iron_GPa(iT,ij))); 
+        %          M_above_core(iT,ij) = M_above_core(iT,ij-1)+4/3*pi*(r_core_m(iT,ij-1)^3-r_core_m(iT,ij)^3)*rhocore_kgm3(iT,ij-1);
+            end
+            Ks_iron_GPa(iT,:) = core.KSfn_GPa(Pcore_MPa(iT,:),Tcore_K(iT,:));
+            G_iron_GPa(iT,:) = core.GSfn_GPa(Pcore_MPa(iT,:),Tcore_K(iT,:));            
+            VS_core_kms(iT,:) = core.VSfn_kms(Pcore_MPa(iT,:),Tcore_K(iT,:));
+            VP_core_kms(iT,:) = core.VPfn_kms(Pcore_MPa(iT,:),Tcore_K(iT,:));
+        else
+            Ks_iron_GPa(iT,1) = Kso_iron_GPa+1e-3*Pcore_MPa(iT,1)*dKsdP_iron+1e-9*Tcore_K(iT,1)*dKsdT_PaK;
+            G_iron_GPa(iT,1) = Go_iron_GPa+1e-3*Pcore_MPa(iT,1)*dGdP_iron+1e-9*Tcore_K(iT,1)*dGdT_iron_PaK;
+            rhocore_kgm3(iT,:) = rhoo_iron_kgm3; 
+
+            for ij = 2:Params.nsteps_core
+        %          g_ms2_core(iT,ij)=(Gg*(M_Planet_kg-M_above_core(iT,ij-1))/r_core_m(iT,ij-1)^2);
+        %          Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT,ij)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
+                 Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
+                 Ks_iron_GPa(iT,ij) = Kso_iron_GPa+1e-3*Pcore_MPa(iT,ij)*dKsdP_iron+1e-9*Tcore_K(iT,ij)*dKsdT_PaK;
+                 G_iron_GPa(iT,ij) = Go_iron_GPa+1e-3*Pcore_MPa(iT,ij)*dGdP_iron+1e-9*Tcore_K(iT,ij)*dGdT_iron_PaK;
+    %              rhocore_kgm3(iT,ij) = rhocore_kgm3(iT,ij-1)*(1+1./(1e-3*Pcore_MPa(iT,ij)*Ks_iron_GPa(iT,ij))); 
+        %          M_above_core(iT,ij) = M_above_core(iT,ij-1)+4/3*pi*(r_core_m(iT,ij-1)^3-r_core_m(iT,ij)^3)*rhocore_kgm3(iT,ij-1);
+            end
+            VS_core_kms(iT,:) = 1e-3*sqrt(G_iron_GPa(iT,:)*1e9./rhocore_kgm3(iT,:));
+            VP_core_kms(iT,:) = 1e-3*sqrt(Ks_iron_GPa(iT,:)*1e9./rhocore_kgm3(iT,:)+4/3*(VS_core_kms(iT,:)*1e3).^2);    
         end
-        VS_core_kms(iT,:) = 1e-3*sqrt(G_iron_GPa(iT,:)*1e9./rhocore_kgm3(iT,:));
-        VP_core_kms(iT,:) = 1e-3*sqrt(Ks_iron_GPa(iT,:)*1e9./rhocore_kgm3(iT,:)+4/3*(VS_core_kms(iT,:)*1e3).^2);    
-    end 
+    end
 
 %     kluge
     rho_mantle_kgm3(isnan(rho_mantle_kgm3))=0;
