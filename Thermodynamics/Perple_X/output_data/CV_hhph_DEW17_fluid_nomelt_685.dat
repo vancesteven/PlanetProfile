@@ -3,7 +3,7 @@ print    | no_print suppresses print output
 plot     | obsolete 6.8.4+
 solution_model.dat     | solution model file, blank = none                                                                                                                                                                                                      
 Undifferentiated CV body, no melt                                                                                                                                                                                                                               
-CV_hhph_DEW17_fluid_nomelt_685_perplex_option.dat     | Perple_X option file                                                                                                                                                                                                                   
+hhph_DEW17_fluid_nomelt_685_perplex_option.dat     | Perple_X option file                                                                                                                                                                                                                   
     5 calculation type: 0 - composition, 1 - Schreinemakers, 3 - Mixed, 4 - swash, 5 - gridded min, 7 - 1d fract, 8 - gwash, 9 - 2d fract, 10 - 7 w/file input 12 - 0d infiltration
     0 unused place holder, post 06
     0 unused place holder, post 06
