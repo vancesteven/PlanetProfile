@@ -41,8 +41,27 @@ Planet.phi_surface = 1;
 Seismic.LOW_ICE_Q = 1; % divide Ice Q value by this number
 % Seismic.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab'; % this uses the procedure implemented by F. Cammarano; this includes Ks and Gs. I had to rerun perlex (6.6.3). not sure why
 % Seismic.mantleEOS = 'chonhp_sat_678.tab';% (3300)
-Seismic.mantleEOS = 'pyrohp_sat_678_1.tab'; %  (3000) this uses the procedure implemented by F. Cammarano; this includes Ks and Gs. I had to rerun perlex (6.6.3). not sure why
 
+% Seismic.mantleEOS = 'pyrohp_sat_678_1.tab'; %  (3000) this uses the procedure implemented by F. Cammarano; this includes Ks and Gs. I had to rerun perlex (6.6.3). not sure why
+% Seismic.mantleEOSname = 'pyrohpsat';
+
+% Seismic.mantleEOS = 'CV_hhph_DEW17_nofluid_nomelt_685.tab';
+% Seismic.mantleEOSname = 'CV_hhphD17nofluid';
+
+Seismic.mantleEOS = 'CV_hhph_DEW17_fluid_nomelt_685.tab';
+% Seismic.mantleEOSname = 'CV_hhphD17fluid';
+
+% Seismic.mantleEOS = 'CM_hhph_DEW17_nofluid_nomelt_685.tab';
+% Seismic.mantleEOSname = 'CM_hhphD17nofluid';
+
+% Seismic.mantleEOS = 'CM_hhph_DEW17_fluid_nomelt_685.tab';
+% Seismic.mantleEOSname = 'CM_hhphD17fluid';
+
+% Seismic.mantleEOS = 'CI_hhph_DEW17_nofluid_nomelt_685.tab';
+% Seismic.mantleEOSname = 'CI_hhphD17nofluid';
+
+% Seismic.mantleEOS = 'CI_hhph_DEW17_fluid_nomelt_685.tab';
+% Seismic.mantleEOSname = 'CI_hhphD17fluid';
 
 Seismic.QScore = 1e4;
 Seismic.SMOOTH_VROCK = 1; % smooth over N neighboring rows and columns in vp and vs
@@ -89,6 +108,7 @@ Params.Temps = [245 250 252.5 255 260 265 270 273];
 %% Run the Calculation!
 Planet.Cuncertainty = 0.0005;%
 Planet.Cmeasured = 0.3438; % Fortes 2012, Iess 2010, 2012
+% Planet.Cmeasured = 0.3318; % in prep Sotin
 
 Planet.FeCore=false;
 % 
@@ -101,16 +121,16 @@ Planet.xFeS = 1; %0.25
 Planet.xFe_core = 0.0463 ; % this is the total Fe  in Fe and FeS
 Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 
+Params.NOPLOTS = 0; %allows user to limit recreating plots & figures after each run
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 
 % Comparison of MgSO4 EOS pure water values is close to values for ammonia
 % EOS.  There are diffences in both the melting temperatures and fluid
 % thermodynamics
 Params.HOLD = 0;
-Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+Params.CALC_NEW =0; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
 Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
-Params.NOPLOTS = 1; %allows user to limit recreating plots & figures after each run
 
 Params.LineStyle =  '--';
 Params.wrefLine =  '--';
@@ -126,42 +146,41 @@ Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 262 266]; % 10 Wt% temperatures 
 PlanetProfile(Planet,Seismic,Params)
 
 % %==
-
 Planet.Ocean.comp='NaCl';
 Params.HOLD = 1;
-Params.CALC_NEW =1;
-Params.CALC_NEW_REFPROFILES=1;
+Params.CALC_NEW = 0;
+Params.CALC_NEW_REFPROFILES=0;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.LineStyle =  ':';
 Params.wrefLine =  ':';
 Params.wref=[0 5 10 15];
-load L_Ice_MgSO4.mat
-Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
+% load L_Ice_MgSO4.mat
+% Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % 0 Wt% temperatures at the bottom of the Ice Ih
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 262]; % 10 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [246.9 260]; % 10 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [251.1 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
 % 
 %==
-Params.HOLD = 1;
-Params.CALC_NEW =1;
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
-
-Params.wrefLine =  '-.';
-Params.wref=[3 5 10];
-Planet.Ocean.comp='NH3';
-load L_IceNH3_DATA.mat
-Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
-
-Params.LineStyle =  '-';
-% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % 0 Wt% temperatures at the bottom of the Ice Ih
-Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 265 268]; % 0 Wt% temperatures at the bottom of the Ice Ih; for the paper
-% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [254 265 268]; % 0 Wt% temperatures at the bottom of the Ice Ih
-%PlanetProfile(Planet,Seismic,Params)
+% Params.HOLD = 1;
+% Params.CALC_NEW =0;
+% Params.CALC_NEW_REFPROFILES=0;
+% Params.CALC_NEW_SOUNDSPEEDS=0;
+% Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
+% 
+% Params.wrefLine =  '-.';
+% Params.wref=[3 5 10];
+% Planet.Ocean.comp='NH3';
+% load L_IceNH3_DATA.mat
+% Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
+% 
+% Params.LineStyle =  '-';
+% % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % 0 Wt% temperatures at the bottom of the Ice Ih
+% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 265 268]; % 0 Wt% temperatures at the bottom of the Ice Ih; for the paper
+% % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [254 265 268]; % 0 Wt% temperatures at the bottom of the Ice Ih
+% PlanetProfile(Planet,Seismic,Params)
 % 
 % Params.HOLD = 1;
 % Params.CALC_NEW =1;

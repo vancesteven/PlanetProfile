@@ -57,7 +57,7 @@ else  % spline in P, T and compositions
         m(m==0)=eps; % add eps to zero concentrations
         mflg=0;
         if mu_flg
-        if (m(1)~=eps)
+        if (m(1)>eps)
           m=[eps;m(:)];  % add in a zero value in order to calculate apparent quantities and remove it later
           mflg=1;
         end
@@ -106,6 +106,7 @@ else  % spline in P, T and compositions
 end
 
 Cp=-d2T.*Tm;
+Cv= Cp + Tm.*dPT.^2./d2P;
 S=-d1T;
 vel=real(sqrt(d1P.^2./(dPT.^2./d2T - d2P))); % MPa-Pa units conversion cancels
 rho=1e6*d1P.^(-1);  % 1e6 for MPa to Pa
@@ -167,6 +168,7 @@ else  % Scattered data
       Cpm=M*Cp - f.* d3Tm.*Tm;
       Cpa=(Cp.*f - Cp0)./mm;
       Va=1e6*(V.*f - V0)./mm;
+
    else
      mus=[];
      muw=[];
@@ -183,6 +185,7 @@ Results.Va=Va;
 Results.Cpa=Cpa;
 Results.Cp=Cp;
 Results.G=G;
+Results.Cv=Cv;
 Results.vel=vel;
 Results.Kt=Kt;
 Results.Ks=Ks;

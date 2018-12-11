@@ -3,6 +3,10 @@ function [header,out] = read_perplex_table(mp_table)
 % mp_table is table name
 % output are header, out is a structure with den,vp,vs, specific cp and thermal expansion
 
+% use inpaintn to fill NaN and Inf values in the constructed grids
+ALLOW_INPAINT = 1;
+
+
 a=fopen(mp_table);
  but=fscanf(a,'%s',2);
  f=fscanf(a,'%d',1);but=fscanf(a,'%s',1);
@@ -48,11 +52,21 @@ else
 end
 [t,p]=meshgrid(xax,yax);
 
-
 % t=reshape(t,tstep,pstep);p=reshape(p,tstep,pstep);
 
 den=reshape(den,pstep,tstep);vp=reshape(vp,pstep,tstep);vs=reshape(vs,pstep,tstep);cp=reshape(cp,pstep,tstep);alpha=reshape(alpha,pstep,tstep);
 
+if ALLOW_INPAINT
+inpaint =0;
+   if find(isnan(den))
+       inpaint = 1;
+       den = inpaintn(den);
+       cp = inpaintn(cp);
+       alpha = inpaintn(alpha);
+       vs = inpaintn(vs);
+       vp = inpaintn(vp);
+   end
+end
 p=p.*1e-4;
 
 header=[minT steT tstep minP steP pstep colu-2];
@@ -65,9 +79,15 @@ out.cp=cp;
 out.alpha=alpha;
 if exist('Ks')
     Ks=reshape(Ks,pstep,tstep);Gs=reshape(Gs,pstep,tstep);
-    ks=Ks*1e-4;Gs=Gs*1e-4; % values in in GPa
+    ks=Ks*1e-4;gs=Gs*1e-4; % values in in GPa
+    if ALLOW_INPAINT
+    if inpaint
+        ks = inpaintn(ks);
+        gs = inpaintn(gs);
+    end
+    end
     out.ks = ks;
-    out.gs = Gs;
+    out.gs = gs;
 end
 
 end

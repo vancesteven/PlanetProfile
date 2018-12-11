@@ -70,6 +70,9 @@ Seismic.mantleEOS = 'echon_678_1.tab'; Planet.phi_surface = 0.8;%
 Seismic.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab'; % this uses the procedure implemented by F. Cammarano
 
 
+% Seismic.mantleEOS = 'CM_hhph_DEW17_fluid_nomelt_685.tab';
+Seismic.mantleEOS = 'CM_hhph_DEW17_nofluid_nomelt_685.tab';
+
 % Seismic.mantleEOS = 'echonhp_sat_1.tab'; % this uses the procedure implemented by F. Cammarano
 
 Seismic.QScore = 1e4;
@@ -112,7 +115,7 @@ Params.nsteps_ref_rho = 30;
 Params.nsteps_mantle = 1500;
 Params.nsteps_core = 100;
 Params.Temps = [245 250 252.5 255 260 265 270];
-Params.NOPLOTS = 1; %allows user to limit recreating plots & figures after each run
+Params.NOPLOTS = 0; %allows user to limit recreating plots & figures after each run
 
 
 %% Run the Calculation!
@@ -152,24 +155,24 @@ Params.LineStyle='-';
 Params.colororder = 'cm';
 Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [273.1 273.15]; % pure water, 
 PlanetProfile(Planet,Seismic,Params)
+% 
+% Params.HOLD = 1; 
+% Planet.Ocean.comp='Seawater';
+% Params.LineStyle='-.';
+% Params.wref=[0 34 68];
+% Params.wrefLine = '-.';
+% Params.colororder = 'cm';
+% 
+% Params.CALC_NEW_REFPROFILES=1;
+% Params.CALC_NEW_SOUNDSPEEDS=1;
+% Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [270.82  271.16];
+% PlanetProfile(Planet,Seismic,Params)
 
-Params.HOLD = 1; 
-Planet.Ocean.comp='Seawater';
-Params.LineStyle='-.';
-Params.wref=[0 34 68];
-Params.wrefLine = '-.';
-Params.colororder = 'cm';
-
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
-Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [270.82  271.16];
-PlanetProfile(Planet,Seismic,Params)
-
-Params.HOLD = 1; % overlay previous runs
-Params.LineStyle='-';
-Params.colororder = 'cm';
-Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [272.74 273.08]; % pure water, 
-PlanetProfile(Planet,Seismic,Params)
+% Params.HOLD = 1; % overlay previous runs
+% Params.LineStyle='-';
+% Params.colororder = 'cm';
+% Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [272.74 273.08]; % pure water, 
+% PlanetProfile(Planet,Seismic,Params)
 
 Params.wrefLine =  ':';
 Params.wref=[3 5 10];
