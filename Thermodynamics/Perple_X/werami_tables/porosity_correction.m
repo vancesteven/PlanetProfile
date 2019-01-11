@@ -24,7 +24,7 @@ end
  if (vit==1) % (Vitovtova et al. 2014)
      disp('Applying Vitovtova et al. 2014 porosity model')
      por = NaN(size(dep,1),size(dep,2));
-     limde=26; % below this depth decrease become linear until 80km
+     limde=26; % below this depth decrease becomes linear until 80km
     for l = 1:size(dep,1)
         for m = 1:size(dep,2)
             if (dep(l,m)<=limde)
