@@ -112,7 +112,7 @@ Params.Legend = 0;
 Params.LegendPosition = 'North'; 
 Params.ylim = [910 1230];
 Params.Pseafloor_MPa = 350;
-Params.nsteps_iceI = 20;
+Params.nsteps_iceI = 200;
 Params.nsteps_ocean = 350; 
 Params.nsteps_ref_rho = 30;
 Params.nsteps_mantle = 500;
@@ -138,21 +138,30 @@ Planet.rho_sil_withcore_kgm3 = 3539;
 % Seismic.mantleEOS = 'Simple_CV_HS_green_PP.tab';% CV chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
 % Planet.rho_sil_withcore_kgm3 = 2975;
 
-% Planet.Ocean.comp='MgSO4';
-% load L_Ice_MgSO4.mat
-% Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
-% Params.LineStyle='--';
-% Params.wrefLine = '--';
-% Params.wref=[0 5 10 15];
-% 
-% Params.CALC_NEW =1;
-% Params.CALC_NEW_REFPROFILES=1;
-% Params.CALC_NEW_SOUNDSPEEDS=1;
-% Params.colororder = 'cm';
-% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [269.8  272.7]; % 265
-% PlanetProfile(Planet,Seismic,Params)
+Planet.Ocean.comp='MgSO4';
+load L_Ice_MgSO4.mat
+Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
+Params.LineStyle='--';
+Params.wrefLine = '--';
+Params.wref=[0 5 10 15];
 
-Params.HOLD = 0; % overlay previous runs
+Params.CALC_NEW =1;
+Params.CALC_NEW_REFPROFILES=1;
+Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.colororder = 'cm';
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [269.8  272.7]; % 265
+
+
+Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
+Planet.xFeS = 0.55; %0.25, mass fraction of sulfur in the core
+Planet.xFe_core = 0.0279 ; % this is the total Fe  in Fe and FeS
+Planet.XH2O = 0.0035; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+Planet.rho_sil_withcore_kgm3 = 3644;
+Planet.phi_surface = 0;
+
+PlanetProfile(Planet,Seismic,Params)
+
+Params.HOLD = 1; % overlay previous runs
 % Params.LineStyle='-';
 % Params.colororder = 'cm';
 % Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [270.4 273.1]; % pure water,  265.7
@@ -167,6 +176,14 @@ Params.colororder = 'cm';
 Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
 Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
+
+Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
+Planet.xFeS = 0.55; %0.25, mass fraction of sulfur in the core
+Planet.xFe_core = 0.0279 ; % this is the total Fe  in Fe and FeS
+Planet.XH2O = 0.0035; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+Planet.rho_sil_withcore_kgm3 = 3644;
+Planet.phi_surface = 0;
+
 Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [268.2 270.8 ];
  
 % Seismic.mantleEOS = 'chon_678_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries

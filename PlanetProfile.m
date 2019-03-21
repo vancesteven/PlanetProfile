@@ -34,14 +34,17 @@ elseif strcmp(Planet.Ocean.comp,'MgSO4')
     conduct_scaling_MgSO4 = (1+4*wo); % empirical scaling of electrical conductivity from 1 bar values compiled in Hand and Chyba 2007
 end
 
+thiseos = split(Seismic.mantleEOS,'.tab');
+thiseos = char(thiseos(1));
+
 M_Planet_kg = Planet.M_kg;
 R_Planet_m = Planet.R_m;
 Gg = 6.67300e-11; % m3 kg-1 s-2
 
 % implementing a feature to track silicate composition in output files
 % because it's getting confusing as we investigate k2, Q, etc.... 
-if isfield(Seismic,mantleEOSname)
-    minEOS = mantleEOSname;
+if isfield(Seismic,'mantleEOSname')
+    minEOS = Seismic.mantleEOSname;
 else
     minEOS = [];
 end
@@ -523,34 +526,6 @@ if isfield(Seismic,'SMOOTH_ROCK') && Params.SMOOTH_VROCK
     mantle.vs = smooth2a(mantle.vs,ncr,ncr);
 end
 
-if ~Params.NOPLOTS
-figure(1111);clf
-subplot(2,3,1);
-pcolor(mantle.t,mantle.p*1e3,mantle.den);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Density (kg m^{-3})')
-subplot(2,3,2);
-pcolor(mantle.t,mantle.p*1e3,mantle.cp);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Cp (J m^{-3} K^{-1})')
-subplot(2,3,3);
-pcolor(mantle.t,mantle.p*1e3,mantle.alpha);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('\alpha (K^{-1})')
-subplot(2,3,4);
-pcolor(mantle.t,mantle.p*1e3,mantle.vp);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('V_P (km s^{-1})')
-subplot(2,3,5);
-pcolor(mantle.t,mantle.p*1e3,mantle.vs);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('V_S (km s^{-1})')
-if isfield(mantle,'ks')
-    subplot(2,3,6);
-    pcolor(mantle.t,mantle.p*1e3,mantle.ks);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('K_S (GPa)')
-    
-    figure(1112); clf; hold on
-        subplot(2,2,1);
-        pcolor(mantle.t,mantle.p,mantle.den);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('Density (kg m^{-3})','FontSize',14)
-        subplot(2,2,2);
-        pcolor(mantle.t,mantle.p,mantle.cp);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('Cp (J m^{-3} K^{-1})','FontSize',14)
-        subplot(2,2,3);
-        pcolor(mantle.t,mantle.p,mantle.ks);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('K_S (GPa)','FontSize',14)
-        subplot(2,2,4);
-        pcolor(mantle.t,mantle.p,mantle.gs);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('G_S (GPa)','FontSize',14)
-end
-end
-
 %% Core
 % Iron properties
     %gamma (fcc) Fe in Table 3 of C2006. derivatives are  rounded off values for alpha (bcc) Fe 
@@ -765,14 +740,16 @@ strLow = '';
     interior(iT).rho_mantle_kgm3 = rho_mantle_kgm3;
     interior(iT).Tmantle_K = Tmantle_K;
     interior(iT).Pmantle_MPa = Pmantle_MPa;
-    interior(iT).VS_mantle_kms = VS_mantle_kms;
-    interior(iT).VP_mantle_kms = VP_mantle_kms;
+    interior(iT).VS_mantle_kms = interp1nan(Pmantle_MPa,VS_mantle_kms);
+    interior(iT).VP_mantle_kms = interp1nan(Pmantle_MPa,VP_mantle_kms);
     if POROUS
         interior(iT).permeability = permeability;
     end
     if isfield(mantle,'KSfn_GPa')
     interior(iT).Ks_GPa = mantle.KSfn_GPa(Pmantle_MPa,Tmantle_K);
+    interior(iT).Ks_GPa = interp1nan(Pmantle_MPa,interior(iT).Ks_GPa);
     interior(iT).Gs_GPa = mantle.GSfn_GPa(Pmantle_MPa,Tmantle_K);
+    interior(iT).Gs_GPa = interp1nan(Pmantle_MPa,interior(iT).Gs_GPa);
     end
         % compute seismic attenuation, as per C2006, 
     % Rb = 8.314462175; % J/K/mol
@@ -1111,7 +1088,7 @@ for iT = 1:nTbs
         header = sprintf('%s\t\t%s\t\t%s\t\t%s\t%s\t%s\t%s\t%s\t%s\t',...
             'P (MPa)','T (K)','r (km)','rho (kg m-3)','VP (km s-1)','VS (km s-1)','QS/gamma','KS (GPa)','GS (GPa)');
     end
-    thissavestr = [savefile 'Zb' strLow num2str(1e-3*Zb2(iT),'%0.0f') 'km'];
+    thissavestr = [savefile 'Zb' strLow num2str(1e-3*Zb2(iT),'%0.0f') 'kmQm' num2str(1000*Planet.Qmantle_Wm2(iT),'%0.0f') 'mWm2_CMR2p' num2str(10000*Planet.Cmeasured,'%0.0f') '_xFeS' num2str(100*Planet.xFeS) '_' thiseos];
 %     save(thissavestr,'Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma','-ascii');
     dlmwrite([datpath thissavestr '.txt'],header,'delimiter','');
     dlmwrite([datpath thissavestr '.txt'],Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma,...
@@ -1200,12 +1177,48 @@ if ~Params.NOPLOTS
 end
 end
 
+if ~Params.NOPLOTS
+figure(1111);clf
+subplot(2,3,1);
+pcolor(mantle.t,mantle.p*1e3,mantle.den);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Density (kg m^{-3})')
+    hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+subplot(2,3,2);
+pcolor(mantle.t,mantle.p*1e3,mantle.cp);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Cp (J m^{-3} K^{-1})')
+    hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+subplot(2,3,3);
+pcolor(mantle.t,mantle.p*1e3,mantle.alpha);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('\alpha (K^{-1})')
+    hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+subplot(2,3,4);
+pcolor(mantle.t,mantle.p*1e3,mantle.vp);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('V_P (km s^{-1})')
+    hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+subplot(2,3,5);
+pcolor(mantle.t,mantle.p*1e3,mantle.vs);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('V_S (km s^{-1})')
+    hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+if isfield(mantle,'ks')
+    subplot(2,3,6);
+    pcolor(mantle.t,mantle.p*1e3,mantle.ks);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('K_S (GPa)')
+        hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+    
+    figure(1112); clf; hold on
+        subplot(2,2,1);
+        pcolor(mantle.t,mantle.p,mantle.den);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('Density (kg m^{-3})','FontSize',14)
+            hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+        subplot(2,2,2);
+        pcolor(mantle.t,mantle.p,mantle.cp);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('Cp (J m^{-3} K^{-1})','FontSize',14)
+            hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+        subplot(2,2,3);
+        pcolor(mantle.t,mantle.p,mantle.ks);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('K_S (GPa)','FontSize',14)
+            hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+        subplot(2,2,4);
+        pcolor(mantle.t,mantle.p,mantle.gs);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('G_S (GPa)','FontSize',14)
+            hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+end
+end
+
 % save the mineral compositions plot 
 if ~Params.NOPLOTS
 figure(1111)
-thiseos = split(Seismic.mantleEOS,'.tab');
-thiseos = char(thiseos(1));
-saveas(gcf,[figpath thissavestr 'MineralProps_' thiseos],Params.savefigformat);
+saveas(gcf,[figpath thissavestr],Params.savefigformat);
 end
 
 %% create the legend that describes tb, z_b, and heat flux
@@ -1822,7 +1835,8 @@ function Pfreeze_MPa = getPfreeze(T_K,wo,str_comp)
         case 'MgSO4'             
             Pfreeze_MPa = fzero(@(P) L_IceMgSO4(P,T_K,wo,1),[0 250]);
         case 'NaCl'
-            Pfreeze_MPa = fzero(@(P) 0.5-LBFIcePhase(P,T_K,wo,'NaCl'),[0.1 200]);
+%             Pfreeze_MPa = fzero(@(P) 0.5-LBFIcePhase(P,T_K,wo,'NaCl'),[0.1 200]);
+            Pfreeze_MPa = fzero(@(P) 0.5-LBFIcePhase(P,T_K,wo,'NaCl'),[0.1 300]);
         case 'Seawater'
             global swEOS
             Pfreeze_MPa = 0.1*swEOS.gsw.pfreezing(wo,T_K);
@@ -1904,9 +1918,15 @@ catch
 end
 C2MR2 = C_H2O+8/15*pi*((R_s.^5-R_fe.^5)*rho_s+rho_fe*R_fe.^5);%/M_Planet_kg/R_Planet_m^2;
 
-    function zero_me = getR_fe(rho_s,rho_fe,C_H2O,M_above_kg,R_s,R_fe)
-    global M_Planet_kg 
-    zero_me = 4*pi/3*rho_fe*R_fe.^3 - (M_Planet_kg - M_above_kg-4*pi/3*rho_s*(R_s.^3-R_fe.^3));
+function zero_me = getR_fe(rho_s,rho_fe,C_H2O,M_above_kg,R_s,R_fe)
+global M_Planet_kg 
+zero_me = 4*pi/3*rho_fe*R_fe.^3 - (M_Planet_kg - M_above_kg-4*pi/3*rho_s*(R_s.^3-R_fe.^3));
+
+function intout = interp1nan(x,y) % perplex outputs for VP, VS, KS, and GS seem to often have a few nans
+    ninds = isnan(y);
+    intout = interp1(x(~ninds),y(~ninds),x);
+            
+            
 %% formatting for output
 function d_str = getTableStr(Tb,Xin)
 d_str = {};
