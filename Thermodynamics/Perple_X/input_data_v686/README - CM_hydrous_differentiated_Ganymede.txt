@@ -1,21 +1,64 @@
-This is a description file for the CI_hydrous_differentiated_Ganymede Perple_X run.
+This is a description file for all CM_hydrous_differentiated_Ganymede_CoreXFe_YS Perple_X runs.
 
-It was run with Perple_X 6.8.6.
+They was run with Perple_X version 6.8.6.
 
-The composition represents the bulk silicate portion of Ganymede, based on CM chondrite (From Lodders and Fegley, 1998), minus Fe + S to make a 80 wt.% Fe + 20 wt % S core. The amount of water is equivalent to the concentration in CM chondrites.
+The compositions represent the bulk silicate portion of Ganymede, based on CM chondrite (From Lodders and Fegley, 1998), minus Fe + S to make a Fe + S core, with varying amounts of S partitioned into the core, from 20 wt. % to 0 wt. %. The amount of water is equivalent to the concentration in CM chondrites. See the complementary XFeYS_core Perple_X runs for corresponding core properties.
 
 The thermodynamic database used was DEW13HP622ver_elements.dat.
 
 Solution models included, and phases excluded, were based on the FRAC2D model for aqueous solution speciation implemented in Perple_X 6.8.6. Namely, melt(H) phases were allowed, among others.
 
+Compositions:
+
+CM_hydrous_differentiated_Ganymede_Core80Fe20S
 Element	Wt. %
-H     1.54800
-C     2.43200
-Mg    12.7140
-Si    14.0410
-S     1.30800
-Fe    16.8410
-O     51.1160
+H     1  1.60200      0.00000      0.00000     mass  amount
+C     1  2.51700      0.00000      0.00000     mass  amount
+Mg    1  13.1560      0.00000      0.00000     mass  amount
+Si    1  14.5280      0.00000      0.00000     mass  amount
+S     1  1.35300      0.00000      0.00000     mass  amount
+Fe    1  17.4250      0.00000      0.00000     mass  amount
+O     1  49.4190      0.00000      0.00000     mass  amount
+
+CM_hydrous_differentiated_Ganymede_Core85Fe15S
+Element	Wt. %
+H     1  1.60200      0.00000      0.00000     mass  amount
+C     1  2.51700      0.00000      0.00000     mass  amount
+Mg    1  13.1560      0.00000      0.00000     mass  amount
+Si    1  14.5280      0.00000      0.00000     mass  amount
+S     1  1.78700      0.00000      0.00000     mass  amount
+Fe    1  16.9910      0.00000      0.00000     mass  amount
+O     1  49.4190      0.00000      0.00000     mass  amount
+
+CM_hydrous_differentiated_Ganymede_Core90Fe10S
+Element	Wt. %
+H     1  1.60200      0.00000      0.00000     mass  amount
+C     1  2.51700      0.00000      0.00000     mass  amount
+Mg    1  13.1560      0.00000      0.00000     mass  amount
+Si    1  14.5280      0.00000      0.00000     mass  amount
+S     1  2.22100      0.00000      0.00000     mass  amount
+Fe    1  16.5570      0.00000      0.00000     mass  amount
+O     1  49.4190      0.00000      0.00000     mass  amount
+
+CM_hydrous_differentiated_Ganymede_Core95Fe5S
+Element	Wt. %
+H     1  1.60200      0.00000      0.00000     mass  amount
+C     1  2.51700      0.00000      0.00000     mass  amount
+Mg    1  13.1560      0.00000      0.00000     mass  amount
+Si    1  14.5280      0.00000      0.00000     mass  amount
+S     1  2.65500      0.00000      0.00000     mass  amount
+Fe    1  16.1230      0.00000      0.00000     mass  amount
+O     1  49.4190      0.00000      0.00000     mass  amount
+
+CM_hydrous_differentiated_Ganymede_Core95Fe5S
+Element	Wt. %
+H     1  1.60200      0.00000      0.00000     mass  amount
+C     1  2.51700      0.00000      0.00000     mass  amount
+Mg    1  13.1560      0.00000      0.00000     mass  amount
+Si    1  14.5280      0.00000      0.00000     mass  amount
+S     1  3.08900      0.00000      0.00000     mass  amount
+Fe    1  15.6900      0.00000      0.00000     mass  amount
+O     1  49.4190      0.00000      0.00000     mass  amount
 
 Excluded phases:
 h2oL    
@@ -110,4 +153,4 @@ M(HP)
 O(HP)
 Po(HP)     
 
-Note that fluids and melt are allowed and that WERAMI tables show bulk (aggregate) properties of fluids and solids, unless specified. Be aware of bad seismic properties for the table including fluid properties.
+Note that fluids and melt are allowed and that WERAMI tables show bulk (aggregate) properties of fluids and solids (including_fluid), unless specified (excluding_fluid). Be aware of bad seismic properties for the table that includes fluid properties. An assumption can be made that all fluid in the interior and that is not locked in mineral phases is extracted into the ocean, therefore, the seismic properties excluding fluid are correct.
