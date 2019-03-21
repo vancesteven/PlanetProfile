@@ -1,0 +1,161 @@
+DEW13HP622ver_elements.dat     thermodynamic data file                                                                                      
+print    | no_print suppresses print output
+plot     | obsolete 6.8.4+
+solution_model.dat     | solution model file, blank = none                                                                                                                                                                                                      
+Differentiated CM simple bulk, with full amount of CM water. Solutions and phases based on FRAC2D benchmark. Fe and S removed to make 80Fe20S core.                                                                                                                                                           
+CM_differentiated_Ganymede_perplex_option     | Perple_X option file                                                                                                                                                                                       
+    5 calculation type: 0- composition, 1- Schreinemakers, 3- Mixed, 4- swash, 5- gridded min, 7- 1d fract, 8- gwash, 9- 2d fract, 10- 7 w/file input, 11- 9 w/file input, 12- 0d infiltration
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    3 number component transformations
+   19 number of components in the data base
+H     14 component transformation
+  0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00
+  0.50   0.00   0.00   0.00   0.00   0.00
+O     13 component transformation
+  0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.50
+  0.00   0.00   0.00   0.00   0.00   0.00
+S     18 component transformation
+  0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00
+  0.00   0.00   0.00   0.00   0.50   0.00
+    1 component amounts, 0 - molar, 1 weight
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 05
+    0 ifug EoS for saturated phase
+    2 gridded minimization dimension (1 or 2)
+    0 special dependencies: 0 - P and T independent, 1 - P(T), 2 - T(P)
+ 0.00000      0.00000      0.00000      0.00000      0.00000     Geothermal gradient polynomial coeffs.
+
+begin thermodynamic component list
+H     1  1.60200      0.00000      0.00000     mass  amount
+C     1  2.51700      0.00000      0.00000     mass  amount
+Mg    1  13.1560      0.00000      0.00000     mass  amount
+Si    1  14.5280      0.00000      0.00000     mass  amount
+S     1  1.35300      0.00000      0.00000     mass  amount
+Fe    1  17.4250      0.00000      0.00000     mass  amount
+O     1  49.4190      0.00000      0.00000     mass  amount
+end thermodynamic component list
+
+
+begin saturated component list
+end saturated component list
+
+
+begin saturated phase component list
+end saturated phase component list
+
+
+begin independent potential/fugacity/activity list
+end independent potential list
+
+
+begin excluded phase list
+h2oL    
+SO2     
+CO      
+FeC4H6O4
+FeC2H3O2
+CO,aq   
+Fe+2    
+Fe+3    
+CO3-2   
+H+      
+HCO3-   
+HS-     
+HSiO3-  
+HSO3-   
+HSO4-   
+HSO5-   
+Mg(HCO3)
+Mg(HSiO3
+Mg+2    
+MgCO3,aq
+MgOH+   
+MgSO4,aq
+O2,aq   
+OH-     
+S2-2    
+S2O3-2  
+S2O4-2  
+S2O5-2  
+S2O6-2  
+S2O8-2  
+S3-2    
+S3O6-2  
+S4-2    
+S4O6-2  
+S5-2    
+S5O6-2  
+Si2O4,aq
+SiO2,aq 
+SO2,aq  
+SO3-2   
+SO4-2   
+LACTATE,
+GLUTARAT
+GLYCOLAT
+FORMATE,
+PROPANOA
+ACETATE 
+CO2,aq  
+H2,aq   
+O2,aq   
+CO,aq   
+H2S,aq  
+SO2,aq  
+METHANE,
+ACETIC-A
+PROPANE,
+HEXANE,A
+ETHANE,A
+ETHANOL,
+ETHYLENE
+FORMIC-A
+BENZENE 
+METHANOL
+LACTIC-A
+LACTATE,
+GLUTARIC
+GLYCOLIC
+PROPANOL
+PROPANOI
+TOLUENE,
+faTL
+foTL
+fa8L
+fo8L
+fojL
+fajL
+qjL
+q8L
+hmjL
+sil8L
+end excluded phase list
+
+
+begin solution phase list
+COH-Fluid+
+melt(H)   
+Cpx(H)    
+Opx(W)    
+T         
+Atg(PN)   
+M(HP)     
+O(HP)
+Po(HP)     
+end solution phase list
+
+   86500.0        2000.00        0.00000        0.00000        0.00000     max p, t, xco2, u1, u2
+   1.00000        273.150        0.00000        0.00000        0.00000     min p, t, xco2, u1, u2
+   0.00000        0.00000        0.00000        0.00000        0.00000     unused place holder post 06
+
+ 2  1  4  5  3   indices of 1st & 2nd independent & sectioning variables
+
