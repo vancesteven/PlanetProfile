@@ -154,3 +154,7 @@ O(HP)
 Po(HP)     
 
 Note that fluids and melt are allowed and that WERAMI tables show bulk (aggregate) properties of fluids and solids (including_fluid), unless specified (excluding_fluid). Be aware of bad seismic properties for the table that includes fluid properties. An assumption can be made that all fluid in the interior and that is not locked in mineral phases is extracted into the ocean, therefore, the seismic properties excluding fluid are correct.
+
+Werami tables with extension "_wt_percent_phases.tab" contain the weight percent of all phases (including fluid) at each P-T point.
+
+Werami tables with extension "_mass_fraction_fluid.tab" contain the mass fraction (normalized to 1) of the fluid solution at each P-T point. Where there are immiscible fluid solutions (COH-Fluid+_1 and COH-Fluid_2, or Fluid_1 and Fluid_2), the maximum mass fraction of the value of the endmember (e.g., CO2, CH4, H2S, H2, H2O) is given.
