@@ -38,7 +38,8 @@ if Ra>10^5 % Convection % this may be a kluge; check nu and Kappa, and read the 
     Ra_del = 0.28*Ra^0.21; % DS2001 Eq. 8
     deltaTBL_m=(nu*Kappa/alphaIce/rhoIce/g_ms2/(Tm-Tc)*Ra_del)^(1/3); % thermal boundary layer thickness, DS2001 Eq. 19
     Q_Wm2=kIce*(Tm-Tc)/deltaTBL_m; % DS2001 Eq. 20
-    eTBL_m = kIce*(Tlith-Ttop)/Q_Wm2;
+    eTBL_m = kIce*(Tc-Ttop)/Q_Wm2;
+%     eTBL_m = kIce*(Tlith-Ttop)/Q_Wm2;
 else % Conduction 
     CONVECTION_FLAG=0;
     Tc = DeltaT;
