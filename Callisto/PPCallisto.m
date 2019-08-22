@@ -89,7 +89,7 @@ Params.savefigformat = 'epsc';
 Params.wref=[0 5 10 15];
 Params.colororder = 'cbmkgrm';
 Params.Temps = [245 250 252.5 255 260 265 270 273];
-Params.NOPLOTS = 1; %allows user to limit recreating plots & figures after each run
+Params.NOPLOTS = 0; %allows user to limit recreating plots & figures after each run
 
 
 %% Run the Calculation!
@@ -134,14 +134,28 @@ Planet.rho_sil_withcore_kgm3 = 3000;
 
 Params.LineStyle='--';
 Params.wrefLine = '--';
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
+% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
+% PlanetProfile(Planet,Seismic,Params)
+% 
+
+
+Params.HOLD = 0;
+
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [249.8]; % 10 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
 
 Params.HOLD = 1;
-Params.CALC_NEW = 1;
-Params.LineStyle='-';
-Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [253.1 257.4]; % pure water, temperatures at the bottom of the Ice Ih
+
+Params.LineStyle=':';
+Planet.Ocean.w_ocean_pct=13; Planet.Tb_K = [249]; % 10 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
+
+
+% Params.HOLD = 1;
+% Params.CALC_NEW = 1;
+% Params.LineStyle='-';
+% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [253.1 257.4]; % pure water, temperatures at the bottom of the Ice Ih
+% PlanetProfile(Planet,Seismic,Params)
 
 % 
 % 
