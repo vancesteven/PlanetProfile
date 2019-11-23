@@ -23,7 +23,7 @@ Seismic.LOW_ICE_Q = 1; % divide Ice Q value by this number
 Seismic.QScore = 1e4;
 Seismic.SMOOTH_VROCK = 1; % smooth over N neighboring rows and columns in vp and vs
 
-%Attenuation Parameters Based on those Described in Cammarano et al. 2006
+%Attenuation Parameters Based on those described in Cammarano et al. 2006
 % ice I
 Seismic.B_aniso_iceI = 0.56;
 Seismic.gamma_aniso_iceI = 0.2;
@@ -142,7 +142,8 @@ Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the e
 Planet.rho_sil_withcore_kgm3 = 3730;
 
 
-Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+Params.HOLD = 0; % overlay previous run
+Params.CALC_NEW =0; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
 Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
@@ -152,9 +153,15 @@ Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250  260  270]; % 10 Wt% temperature
 % Planet.rho_sil_withcore_kgm3 = 3520; % used in the 2017 JGR paper
 PlanetProfile(Planet,Seismic,Params)
 
-Planet.FeCore=true;
+Params.HOLD = 1; % overlay previous run
+Params.CALC_NEW =0; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+Planet.Ocean.w_ocean_pct=1; Planet.Tb_K = [261.4  270.7]; % 1 Wt% temperatures at the bottom of the Ice Ih
+% Planet.rho_sil_withcore_kgm3 = 3340; % for the saturated echondrite
+% Planet.rho_sil_withcore_kgm3 = 3520; % used in the 2017 JGR paper
+PlanetProfile(Planet,Seismic,Params)
 
-Params.CALC_NEW =1;
+
+Params.CALC_NEW =0;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 
