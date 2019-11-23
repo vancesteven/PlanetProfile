@@ -98,64 +98,81 @@ Planet.QHmantle = 0;
 
 
 
-%Planet.Tb_K = [250 255 260 265 270]; % 15 Wt% temperatures at the bottom of the Ice Ih
-% %Planet.Tb_K = [252.5 255 260 265 270]; %3 and 5 Wt% temperatures at the bottom of the Ice Ih
-%  Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 265 270]; % 10 Wt% temperatures at the bottom of the Ice Ih
 Params.LineStyle='--';
-% Seismic.mantleEOS = 'chon_678_1.tab'; %(3500)
-% Seismic.mantleEOS = 'epyro_678_1.tab'; %(3450)
-% Seismic.mantleEOS = 'pyrohp_sat_678_1.tab'; %(3305)
-% Seismic.mantleEOS = 'epyro_678_1.tab'; % (3450) this uses the procedure implemented by F. Cammarano
-% Seismic.mantleEOS = 'chonhp_sat_678.tab';% (3450)
-
-Seismic.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab';% (3450)
-Seismic.mantleEOS = 'pyro_678_1.tab'; % (3430) this uses the procedure implemented by F. Cammarano
-
-% Seismic.mantleEOS = 'CV3hy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
-% Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
-% Planet.xFeS = 0.55; %0.25
-% Planet.xFe_core = 0.0279 ; % this is the total Fe  in Fe and FeS
-% Planet.XH2O = 0.0035; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
-% Planet.rho_sil_withcore_kgm3 = 3740; 
-
-% Seismic.mantleEOS = 'CIhy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
-% Planet.xFeS_meteoritic = 0.0908; %CM2 mean from Jarosewich 1990
-% Planet.xFeS = 0.2; %0.25
-% Planet.xFe_core = 0.0583 ; % this is the total Fe  in Fe and FeS
-% Planet.XH2O = 0.169; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
-% Planet.rho_sil_withcore_kgm3 = 3440;
 
 
-Seismic.mantleEOS = 'CM2hy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
+
+% these need to be adjusted.
 Planet.xFeS_meteoritic = 0.0676; %CM2 mean from Jarosewich 1990
 Planet.xFeS = 0.2; %0.25
 Planet.xFe_core = 0.0463 ; % this is the total Fe  in Fe and FeS
 Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 Planet.rho_sil_withcore_kgm3 = 3730;
 
-interiors = {
-% 'CI_hhph_DEW17_fluid_nomelt_685.tab'  
-'CI_hhph_DEW17_nofluid_nomelt_685.tab'
-% 'CM_hhph_DEW17_fluid_nomelt_685.tab'  
-'CM_hhph_DEW17_nofluid_nomelt_685.tab'
-% 'CV_hhph_DEW17_fluid_nomelt_685.tab'  
-'CV_hhph_DEW17_nofluid_nomelt_685.tab'
-% 'H_hhph_DEW17_685_fluid_nomelt.tab'   
-'H_hhph_DEW17_685_nofluid_nomelt.tab'   
-% 'L_hhph_DEW17_685_v1_fluid_nomelt.tab'  
-'L_hhph_DEW17_685_v1_nofluid_nomelt.tab'
-'Simple_CI_HS_green_PP.tab'
-'Simple_CM_HS_green_PP.tab'
-'Simple_CV_HS_green_PP.tab'
+silicates = {
+% % 'CI_hhph_DEW17_fluid_nomelt_685.tab'  
+% 'CI_hhph_DEW17_nofluid_nomelt_685.tab'
+% % 'CM_hhph_DEW17_fluid_nomelt_685.tab'  
+% 'CM_hhph_DEW17_nofluid_nomelt_685.tab'
+% % 'CV_hhph_DEW17_fluid_nomelt_685.tab'  
+% 'CV_hhph_DEW17_nofluid_nomelt_685.tab'
+% % 'H_hhph_DEW17_685_fluid_nomelt.tab'   
+% 'H_hhph_DEW17_685_nofluid_nomelt.tab'   
+% % 'L_hhph_DEW17_685_v1_fluid_nomelt.tab'  
+% 'L_hhph_DEW17_685_v1_nofluid_nomelt.tab'
+% 'Simple_CI_HS_green_PP.tab'
+% 'Simple_CM_HS_green_PP.tab'
+% 'Simple_CV_HS_green_PP.tab'
+'CM_hydrous_differentiated_Ganymede_Core100Fe0S_excluding_fluid_properties.tab'
+'CM_hydrous_differentiated_Ganymede_Core95Fe5S_excluding_fluid_properties.tab'
+'CM_hydrous_differentiated_Ganymede_Core90Fe10S_excluding_fluid_properties.tab'
+'CM_hydrous_differentiated_Ganymede_Core85Fe15S_excluding_fluid_properties.tab'
+'CM_hydrous_differentiated_Ganymede_Core80Fe20S_excluding_fluid_properties.tab'
+};
+silicates_wFluids = {
+'CM_hydrous_differentiated_Ganymede_Core100Fe0S_including_fluid_properties.tab'
+'CM_hydrous_differentiated_Ganymede_Core95Fe5S_including_fluid_properties.tab'
+'CM_hydrous_differentiated_Ganymede_Core90Fe10S_including_fluid_properties.tab'
+'CM_hydrous_differentiated_Ganymede_Core85Fe15S_including_fluid_properties.tab'
+'CM_hydrous_differentiated_Ganymede_Core80Fe20S_including_fluid_properties.tab'    
 };
 
+mphases = {
+    'CM_hydrous_differentiated_Ganymede_Core100Fe0S_wt_percent_phases.tab'
+    'CM_hydrous_differentiated_Ganymede_Core95Fe5S_wt_percent_phases.tab'
+    'CM_hydrous_differentiated_Ganymede_Core90Fe10S_wt_percent_phases.tab'
+    'CM_hydrous_differentiated_Ganymede_Core85Fe15S_wt_percent_phases.tab'
+    'CM_hydrous_differentiated_Ganymede_Core80Fe20S_wt_percent_phases.tab'    
+    };
+mfluids = {
+    'CM_hydrous_differentiated_Ganymede_Core100Fe0S_mass_fraction_Fluid.tab'
+    'CM_hydrous_differentiated_Ganymede_Core95Fe5S_mass_fraction_Fluid.tab'
+    'CM_hydrous_differentiated_Ganymede_Core90Fe10S_mass_fraction_Fluid.tab'
+    'CM_hydrous_differentiated_Ganymede_Core85Fe15S_mass_fraction_Fluid.tab'
+    'CM_hydrous_differentiated_Ganymede_Core80Fe20S_mass_fraction_Fluid.tab'
+};
+mvolumes = {
+    'CM_hydrous_differentiated_Ganymede_Core100Fe0S_vol_percent_phases.tab'
+    'CM_hydrous_differentiated_Ganymede_Core80Fe20S_vol_percent_phases.tab' 
+    'CM_hydrous_differentiated_Ganymede_Core85Fe15S_vol_percent_phases.tab'
+    'CM_hydrous_differentiated_Ganymede_Core90Fe10S_vol_percent_phases.tab'
+    'CM_hydrous_differentiated_Ganymede_Core95Fe5S_vol_percent_phases.tab'
+};
+cores={
+  '100Fe0S_core.tab'  
+  '95Fe5S_core.tab'  
+  '90Fe10S_core.tab'  
+  '85Fe15S_core.tab'  
+  '80Fe20S_core.tab'    
+ };
 
 % [125 100 75 50]
 Params.NOPLOTS = 0; %allows user to limit recreating plots & figures after each run
 
 % Planet.Cmeasured = 0.3115;
 cmr2 = 0.3115+[-0.0028 0 0.0028];
-xfes = [0 .05 .01 0.15 0.20];
+% cmr2 = 0.3115+[0.0028];
+xS = [0 .05 0.10 0.15 0.20];
 Planet.Cmeasured = 0.3115;
 Planet.xFeS = 0.2; %0.25
 
@@ -164,53 +181,38 @@ load L_Ice_MgSO4.mat
 % rmfield(Planet.Ocean,'fnTfreeze_K');
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 
-Params.CALC_NEW =0; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
 Params.CALC_NEW_REFPROFILES=0;
 Params.CALC_NEW_SOUNDSPEEDS=1;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 Planet.FeCore=true;
-% Seismic.coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'; 
 
-% Seismic.mantleEOS = 'CM_hhph_DEW17_nofluid_nomelt_685.tab'; Planet.rho_sil_withcore_kgm3 = 3505; % this needs to be substituted with
-% the version that partitions Fe and S between the core and silicates
-% Seismic.mantleEOS = 'CI_hydrous_differentiated_Ganymede_including_fluid_properties.tab';
-Seismic.mantleEOS = 'CI_anhydrous_differentiated_Ganymede_including_fluid_properties.tab';
-% Seismic.mantleEOS = 'CI_hydrous_differentiated_Ganymede_excluding_fluid_properties.tab';
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [254.75 259.05 263.1 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
-% rhos = [3378 3378 3381 3571 3388
-%         3357 3360 3357 3367 3367
-%         3335 3335 3337 3342 3344];
-% for ic = 1:length(cmr2)
-%     Planet.Cmeasured = cmr2(ic);
-%     for ifs = 1:length(xfes)
-%         Planet.xFeS = xfes(ifs);
-%         if rhos(ic,ifs)
-%             disp([ic ifs])
-%             Planet.rho_sil_withcore_kgm3 = rhos(ic,ifs);
-%             PlanetProfile(Planet,Seismic,Params);
-%         end
-%     end
-% end
-
-Seismic.mantleEOS = 'CM_anhydrous_differentiated_Ganymede_including_fluid_properties.tab';
-% Seismic.mantleEOS = 'CM_hydrous_differentiated_Ganymede_including_fluid_properties.tab';
-% Seismic.mantleEOS = 'CM_hydrous_differentiated_Ganymede_excluding_fluid_properties.tab';
-rhos = [3378 3378 3381 3571 3388
-        3357 3360 3357 3367 3367
-        3335 3335 3337 3342 3344];
+rhos = [3524 3522 3523 3523 3522
+        3529 3528 3528 3526 3526
+        3528 3532 3531 3529 3529];
 for ic = 1:length(cmr2)
     Planet.Cmeasured = cmr2(ic);
-    for ifs = 1:length(xfes)
-        Planet.xFeS = xfes(ifs);
-        if rhos(ic,ifs)
-            disp([ic ifs])
-            Planet.rho_sil_withcore_kgm3 = rhos(ic,ifs);
+%     for iS = 1:length(xS)
+    for iS = length(xS)
+        Planet.xS = xS(iS);
+        Seismic.mantleEOS = silicates{iS};
+        Seismic.coreEOS = cores{iS};
+        Seismic.mantlefluidsEOS = silicates_wFluids{iS};
+        Seismic.mfluids = mfluids{iS};
+        Seismic.mphases = mphases{iS};
+        Seismic.mvolumes = mvolumes{iS};
+        disp(['input S%: ' num2str(Planet.xS)])
+        disp(['silicates: ' silicates{iS} ])
+        disp(['cores:     ' cores{iS} ])
+        if rhos(ic,iS)
+            disp([ic iS])
+            Planet.rho_sil_withcore_kgm3 = rhos(ic,iS);
             PlanetProfile(Planet,Seismic,Params);
+            Params.CALC_NEW =0; % only need to do this once. CALC_NEW only pertains to the volatile part. The rest of the calculation is quick and so is done every time.
         end
     end
 end
-
-
 
 Params.CALC_NEW =0;
 Params.CALC_NEW_REFPROFILES=0;
@@ -218,26 +220,26 @@ Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
 Params.HOLD = 0; % overlay previous run
 Planet.FeCore=true;
-% Seismic.mantleEOS = 'CM_hhph_DEW17_nofluid_nomelt_685.tab'; % this needs to be substituted with the version that conserves Planet.rho_sil_withcore_kgm3 = 3518;
-Seismic.mantleEOS = 'CI_anhydrous_differentiated_Ganymede_including_fluid_properties.tab';Planet.rho_sil_withcore_kgm3 = 3370;
 Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = [256.5  260.6  264.4 267.7]; % pure water, temperatures at the bottom of the Ice Ih
 Params.LineStyle='-';
 % PlanetProfile(Planet,Seismic,Params)
-rhos = [3348 3351 3349 3357 3359
-        3327 3329 3327 3334 3335
-        3304 3307 3304 3309 3313];
+rhos = [3529 3529 3528 3527 3525
+        3524 3531 3529 3528 3527
+        3525 3533 3531 3529 3528];
 for ic = 1:length(cmr2)
     Planet.Cmeasured = cmr2(ic);
-    for ifs = 1:length(xfes)
-        Planet.xFeS = xfes(ifs);
-        if rhos(ic,ifs)
-            disp([ic ifs])
-            Planet.rho_sil_withcore_kgm3 = rhos(ic,ifs);
+    for iS = 1:length(xS)
+        Planet.xS = xS(iS);
+        Seismic.mantleEOS = silicates{iS};
+        Seismic.coreEOS = cores{iS};
+        if rhos(ic,iS)
+            disp([ic iS])
+            Planet.rho_sil_withcore_kgm3 = rhos(ic,iS);
             PlanetProfile(Planet,Seismic,Params);
+            Params.CALC_NEW =0; % only need to do this once. CALC_NEW only pertains to the volatile part. The rest of the calculation is quick and so is done every time.
         end
     end
 end
-
 
 Params.CALC_NEW =0;
 Params.CALC_NEW_REFPROFILES=0;
@@ -255,11 +257,13 @@ rhos = [3352 3355 3353 3360 3363
         3308 3309 3307 3313 3317];
 for ic = 1:length(cmr2)
     Planet.Cmeasured = cmr2(ic);
-    for ifs = 1:length(xfes)
-        Planet.xFeS = xfes(ifs);
-        if rhos(ic,ifs)
-            disp([ic ifs])
-            Planet.rho_sil_withcore_kgm3 = rhos(ic,ifs);
+     for iS = 1:length(xS)
+        Planet.xS = xS(iS);
+        Seismic.mantleEOS = silicates{iS};
+        Seismic.coreEOS = cores{iS};
+       if rhos(ic,iS)
+            disp([ic iS])
+            Planet.rho_sil_withcore_kgm3 = rhos(ic,iS);
             PlanetProfile(Planet,Seismic,Params);
         end
     end
