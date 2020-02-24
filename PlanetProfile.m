@@ -96,6 +96,10 @@ if ~Planet.NoH2O
             nIceIIILithosphere=0;
             PbI_MPa = Pb_MPa;
         catch
+            disp('PlanetProfile failed to get Pb! Here''s why:')
+            disp(lasterr)            
+            disp('Maybe it''s okay? If execution stopped, then probably not. Sorry.')
+            
             if isfield(Params,'BOTTOM_ICEIII') && Params.BOTTOM_ICEIII % this will elicit an error if one has set the temperature too low but one hasn't specified ice III or V under the ice I
                 disp('Adding ice III to the bottom of ice Ih. Make sure the ocean salinity is high enough that doing this makes sense')
                 nIceIIILithosphere=5;
@@ -1318,7 +1322,9 @@ for iT = 1:nTbs
         Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma k_S_mPlanet(iT,:)']; %#ok<AGROW>
         header = sprintf('%s%s\t%s\t',header,'k (S m-1)');
     end
-    thissavestr = [savefile 'Zb' strLow num2str(Zb2(iT),'%0.0f') 'mQm' num2str(1000*Planet.Qmantle_Wm2(iT),'%0.0f') 'mWm2_CMR2p' num2str(10000*Planet.Cmeasured,'%0.0f') '_xFeS' num2str(100*Planet.xFeS) '_' thiseos];
+    thissavestr = [savefile 'Zb' strLow num2str(Zb2(iT),'%0.0f') ...
+        'mQm' num2str(1000*Planet.Qmantle_Wm2(iT),'%0.0f') 'mWm2_CMR2p' ...
+        num2str(10000*Planet.Cmeasured,'%0.0f') '_' thiseos];
 %     save(thissavestr,'Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma','-ascii');
     dlmwrite([datpath thissavestr '.txt'],header,'delimiter','');
     dlmwrite([datpath thissavestr '.txt'],Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma,...
@@ -1457,6 +1463,22 @@ for iT = 1:nTbs
     lstr_2 = {lstr_2{:} ['T_{b}:' num2str(Planet.Tb_K(iT),'%0.2f') ' K, q_{b}/q_{c}:'...
         num2str(1e3*Qb(iT),'%0.0f') '/' num2str(1e3*Q_Wm2(iT),'%0.0f') ' mW m^{-2}, z_{b}:' num2str(1e-3*Zb2(iT),'%0.0f') ' km']};
 end
+
+figure(1122);clf;
+for iT = 1:nTbs
+    subplot(1,nTbs,iT); hold on
+    input.phase = phasePlanet(iT,:);
+    input.r_m = r_Planet_m(iT,:);
+    PlanetWedge(input);
+    box off
+    if iT==1
+        ylabel(Planet.name,'FontSize',24)
+    else
+      set(gca,'XTick',[],'YTick',[],'XColor','none','YColor','none')
+    end
+    title(['T_b = ' num2str(Tb_K(iT)) ' K'],'FontSize',16,'FontWeight','normal')
+end
+    
 
 %%  plot profile with 4 subplots
 %% 
