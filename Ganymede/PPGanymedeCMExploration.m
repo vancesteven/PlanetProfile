@@ -59,6 +59,8 @@ Params.nsteps_mantle = 100;
 Params.nsteps_core = 10;
 Params.savefigformat = 'epsc';
 Params.wref=[0 5 10 15];
+Params.BOTTOM_ICEIII=0;
+Params.BOTTOM_ICEV=0;
 
 
 Params.colororder = 'cbmkgrm';
@@ -167,7 +169,7 @@ cores={
  };
 
 % [125 100 75 50]
-Params.NOPLOTS = 0; %allows user to limit recreating plots & figures after each run
+Params.NOPLOTS = 1; %allows user to limit recreating plots & figures after each run
 
 % Planet.Cmeasured = 0.3115;
 cmr2 = 0.3115+[-0.0028 0 0.0028];
@@ -182,7 +184,11 @@ load L_Ice_MgSO4.mat
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 
 Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+<<<<<<< HEAD
 Params.CALC_NEW_REFPROFILES=0;
+=======
+Params.CALC_NEW_REFPROFILES=1;
+>>>>>>> ee144b8c4a5cdb93c30a88553ad5b735300303c1
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 Planet.FeCore=true;
@@ -214,8 +220,15 @@ for ic = 1:length(cmr2)
     end
 end
 
+<<<<<<< HEAD
 Params.CALC_NEW =0;
 Params.CALC_NEW_REFPROFILES=0;
+=======
+
+
+Params.CALC_NEW =1;
+Params.CALC_NEW_REFPROFILES=1;
+>>>>>>> ee144b8c4a5cdb93c30a88553ad5b735300303c1
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
 Params.HOLD = 0; % overlay previous run
@@ -241,8 +254,14 @@ for ic = 1:length(cmr2)
     end
 end
 
+<<<<<<< HEAD
 Params.CALC_NEW =0;
 Params.CALC_NEW_REFPROFILES=0;
+=======
+
+Params.CALC_NEW =1;
+Params.CALC_NEW_REFPROFILES=1;
+>>>>>>> ee144b8c4a5cdb93c30a88553ad5b735300303c1
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
 Params.HOLD = 1; % overlay previous run
@@ -272,8 +291,8 @@ end
 Planet.Ocean.comp='NaCl';
 rmfield(Planet.Ocean,'fnTfreeze_K');
 Params.LineStyle='-';
-Params.CALC_NEW =0;
-Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW =1;
+Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
 Params.HOLD = 0; % overlay previous run
