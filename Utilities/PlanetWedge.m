@@ -23,7 +23,7 @@ if  ~isempty(radii.Ocean)
     Ocean = wedgeR(radii.Ocean);Ocean.FaceColor = colors.Ocean;
 end
 if ~isempty(radii.IceIII)
-    IceIII = wedgeR(radii.Rock);IceIII.FaceColor = colors.IceIII;
+    IceIII = wedgeR(radii.IceIII);IceIII.FaceColor = colors.IceIII;
 end
 if ~isempty(radii.IceV)
     IceV = wedgeR(radii.IceV);IceV.FaceColor = colors.IceV;
