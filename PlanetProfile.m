@@ -98,7 +98,7 @@ if ~Planet.NoH2O
         catch
             disp('PlanetProfile failed to get Pb! Here''s why:')
             disp(lasterr)            
-            disp('Maybe it''s okay? If execution stopped, then probably not. Sorry.')
+            disp('Maybe it''s okay? If execution stopped, then probably not. Try looking where getPfreeze is called.')
             
             if isfield(Params,'BOTTOM_ICEIII') && Params.BOTTOM_ICEIII % this will elicit an error if one has set the temperature too low but one hasn't specified ice III or V under the ice I
                 disp('Adding ice III to the bottom of ice Ih. Make sure the ocean salinity is high enough that doing this makes sense')
@@ -866,9 +866,9 @@ strLow = '';
         end
     end
     if isfield(mantle,'Ks_fn')
-    interior(iT).Ks_GPa = mantle.Ks_fn(Pmantle_MPa,Tmantle_K);
+    interior(iT).Ks_GPa = 1e-4*mantle.Ks_fn(Pmantle_MPa,Tmantle_K);
     interior(iT).Ks_GPa = interp1nan(Pmantle_MPa,interior(iT).Ks_GPa);
-    interior(iT).Gs_GPa = mantle.Gs_fn(Pmantle_MPa,Tmantle_K);
+    interior(iT).Gs_GPa = 1e-4*mantle.Gs_fn(Pmantle_MPa,Tmantle_K);
     interior(iT).Gs_GPa = interp1nan(Pmantle_MPa,interior(iT).Gs_GPa);
     end
         % compute seismic attenuation, as per C2006, 
