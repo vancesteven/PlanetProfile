@@ -39,6 +39,7 @@ end
 
 thiseos = split(Seismic.mantleEOS,'.tab');
 thiseos = char(thiseos(1));
+bar2GPa = 1e-4;
 
 M_Planet_kg = Planet.M_kg;
 R_Planet_m = Planet.R_m;
@@ -196,7 +197,16 @@ if ~Planet.NoH2O
 
         if phase(kt,ill) == 0 %if ocean
           [rho_ocean,Cp,alpha_o]= fluidEOS(P_MPa(kt,ill),T_K(kt,ill-1),wo,Planet.Ocean.comp);
-          T_K(kt,ill) = T_K(kt,ill-1)+ alpha_o*T_K(kt,ill-1)./(Cp)./(rho_ocean)*deltaP*1e6; %adiabatic gradient in ocean; this introduces an error, in that we are using the temperature from the previous step
+          if alpha_o<=0
+              disp('Ocean alpha at ice interface is less than zero. adjusting temperature upward.')
+              disp('This means there''s a conductive layer at the interface with thickness inversely proportional to the heat flow.')
+              disp('The thickness is likely less than a few 100 m. See Melosh et al. 2004.')
+              Tnew = fzero(@(T) alphaAdjust(P_MPa(kt,ill),T,wo,Planet.Ocean.comp),273);
+              disp(['The new temperature is ' num2str(Tnew) ', or delta T = ' num2str(Tnew-T_K(kt,ill-1)) '.'])
+              T_K(kt,ill)=Tnew;
+          else
+              T_K(kt,ill) = T_K(kt,ill-1)+ alpha_o*T_K(kt,ill-1)./(Cp)./(rho_ocean)*deltaP*1e6; %adiabatic gradient in ocean; this introduces an error, in that we are using the temperature from the previous step
+          end
           rho_kgm3(kt,ill) = fluidEOS(P_MPa(kt,ill),T_K(kt,ill),wo,Planet.Ocean.comp);    % THIS IS REDUNDANT TO THE CALCULATION OF RHO_OCEAN ABOVE
         else %if ice
             % allow for stable dense fluid under high pressure ice --> this
@@ -546,9 +556,10 @@ end
 % this introduces an error in the gravity profile and thus the moment of inertia, since the overlying mass will be
 % less
 for iT = 1:nTbs
-    [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),CONVECTION_FLAG(iT)]=...
+    % Ice I
+    [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),CONVECTION_FLAG_I(iT)]=...
         ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,Zb2(iT),g_ms2(iT,1),2);
-    if CONVECTION_FLAG(iT)
+    if CONVECTION_FLAG_I(iT)
         %conductive upper layer
         nConvectIce=n_iceI-nIceIIILithosphere-1;
         inds_eTBL = find(z_m(iT,1:nConvectIce)<=eTBL_m(iT));
@@ -569,6 +580,14 @@ for iT = 1:nTbs
        inds_deltaTBL = find(z_m(iT,1:nConvectIce)>=z_m(iT,nConvectIce)-deltaTBL_m(iT));
        T_K(iT,inds_deltaTBL) = (Planet.Tb_K(iT).^(P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT))).*(T_K(iT,inds_deltaTBL(1)-1).^(1-P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT)));   
        rho_kgm3(iT,inds_deltaTBL) = getRhoIce(P_MPa(iT,inds_deltaTBL),T_K(iT,inds_deltaTBL),1); 
+       
+       if find(phase(iT,:)>1)
+%         indVI = find(phase(iT,:)==6);   
+%         Ttop = T_K(iT,indsVI(iT));
+%         Tbottom = zVI_m
+%         [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),CONVECTION_FLAG_I(iT)]=...
+%         ConvectionHPIceKalousova2018(Ttop,,PbI_MPa(iT)/2,Zb2(iT),g_ms2(iT,1),2);
+       end
        
        if Planet.EQUIL_Q
            Planet.Qmantle_Wm2(iT) = Q_Wm2(iT);
@@ -799,8 +818,8 @@ strLow = '';
     %              rhocore_kgm3(iT,ij) = rhocore_kgm3(iT,ij-1)*(1+1./(1e-3*Pcore_MPa(iT,ij)*Ks_iron_GPa(iT,ij))); 
         %          M_above_core(iT,ij) = M_above_core(iT,ij-1)+4/3*pi*(r_core_m(iT,ij-1)^3-r_core_m(iT,ij)^3)*rhocore_kgm3(iT,ij-1);
             end
-            Ks_iron_GPa(iT,:) = core.Ks_fn(Pcore_MPa(iT,:),Tcore_K(iT,:));
-            G_iron_GPa(iT,:) = core.Gs_fn(Pcore_MPa(iT,:),Tcore_K(iT,:));            
+            Ks_iron_GPa(iT,:) = bar2GPa*core.Ks_fn(Pcore_MPa(iT,:),Tcore_K(iT,:));
+            G_iron_GPa(iT,:) = bar2GPa*core.Gs_fn(Pcore_MPa(iT,:),Tcore_K(iT,:));            
             VS_core_kms(iT,:) = core.vs_fn(Pcore_MPa(iT,:),Tcore_K(iT,:));
             VP_core_kms(iT,:) = core.vp_fn(Pcore_MPa(iT,:),Tcore_K(iT,:));
         else
@@ -859,6 +878,7 @@ strLow = '';
         masscheck = 0;
         for im = 1:length(mvnames) % count only the names, not the interpolating functions or p or t
             if ~endsWith(mvnames{im},'_fn') & ~(strcmp(mvnames{im},'p') | strcmp(mvnames{im},'t'))
+                disp(mvnames{im})
                 interior(iT).(['vol_' mvnames{im}]) = mvolumes.(mvnames{im+1})(Pmantle_MPa,Tmantle_K); %vol pct of each constituent
                 interior(iT).(['rho_' mvnames{im}]) = interior(iT).(['wt_' mpnames{im}])./interior(iT).(['vol_' mvnames{im}]).*rho_mantle_kgm3; %dens fraction of each constituent
                 interior(iT).(['mass_' mvnames{im}]) = 4/3*pi*interior(iT).(['rho_' mvnames{im}]).*-gradient(r_mantle_m.^3); %mass in each spherical layer of the mantle                
@@ -866,9 +886,9 @@ strLow = '';
         end
     end
     if isfield(mantle,'Ks_fn')
-    interior(iT).Ks_GPa = 1e-4*mantle.Ks_fn(Pmantle_MPa,Tmantle_K);
+    interior(iT).Ks_GPa = bar2GPa*mantle.Ks_fn(Pmantle_MPa,Tmantle_K);
     interior(iT).Ks_GPa = interp1nan(Pmantle_MPa,interior(iT).Ks_GPa);
-    interior(iT).Gs_GPa = 1e-4*mantle.Gs_fn(Pmantle_MPa,Tmantle_K);
+    interior(iT).Gs_GPa = bar2GPa*mantle.Gs_fn(Pmantle_MPa,Tmantle_K);
     interior(iT).Gs_GPa = interp1nan(Pmantle_MPa,interior(iT).Gs_GPa);
     end
         % compute seismic attenuation, as per C2006, 
@@ -1322,7 +1342,7 @@ for iT = 1:nTbs
         Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma k_S_mPlanet(iT,:)']; %#ok<AGROW>
         header = sprintf('%s%s\t%s\t',header,'k (S m-1)');
     end
-    thissavestr = [savefile 'Zb' strLow num2str(Zb2(iT),'%0.0f') ...
+    thissavestr = [savefile 'Ts' num2str(Planet.Tsurf_K,'%0.0f') 'Zb' strLow num2str(Zb2(iT),'%0.0f') ...
         'mQm' num2str(1000*Planet.Qmantle_Wm2(iT),'%0.0f') 'mWm2_CMR2p' ...
         num2str(10000*Planet.Cmeasured,'%0.0f') '_' thiseos];
 %     save(thissavestr,'Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma','-ascii');
@@ -2238,7 +2258,9 @@ function [vel_kms,Ks_GPa] = fluidSoundSpeeds(P_MPa,T_K,wo,str_comp)
                     refproppy32([P_MPa(iP) T_K(iP)],{'ammonia' 'water'},[wo 100-wo]/100,-1);
             end
     end
-
+function zero_alpha = alphaAdjust(P_MPa,T_K,wo,comp)
+[~,~,zero_alpha]= fluidEOS(P_MPa,T_K,wo,comp); 
+    
 %% Core Size
 function [C2MR2,R_fe] = CoreSize(rho_s,rho_fe,C_H2O,M_above_kg,R_s)
 global M_Planet_kg R_Planet_m
