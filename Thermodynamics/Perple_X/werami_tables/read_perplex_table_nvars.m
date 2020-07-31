@@ -78,7 +78,8 @@ if ~isempty(paintfile)
     load(savefile);
 else
     for iv = 1:nvars
-        out.(columns{iv+npt}) = reshape(output(:,iv+npt),pstep,tstep); %read each column of data, and reshape it into a matrix of p and t
+%         out.(columns{iv+npt}) = reshape(output(:,iv+npt),pstep,tstep); %read each column of data, and reshape it into a matrix of p and t
+        out.(columns{iv+npt}) = reshape(output(:,iv+npt),tstep,pstep)'; %read each column of data, and reshape it into a matrix of p and t
         if ALLOW_INPAINT & find(isnan(out.(columns{iv+2})))
             out.(columns{iv+2})=inpaintn(out.(columns{iv+2}));
         end
