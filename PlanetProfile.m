@@ -567,14 +567,15 @@ for iT = 1:nTbs
         T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
         %convective region
         for iconv = inds_eTBL(end)+1:nConvectIce
-            rho = 1000./getVspChoukroun2010(P_MPa(iT,iconv),T_K(iT,iconv-1),2);
+%             rho = 1000./getVspChoukroun2010(P_MPa(iT,iconv),T_K(iT,iconv-1),2);
+            rho = getRhoIce(P_MPa(iT,iconv),T_K(iT,iconv-1),1);
             try
-            Cp = getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),2);
+            [Cp,alpha_K] = getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),1);
             catch
                 x =1;
             end
-            aK = 1.56e-4;
-            T_K(iT,iconv) = T_K(iT,iconv-1)+aK*T_K(iT,iconv)/Cp/rho*deltaP*1e6;
+%             aK = 1.56e-4;
+            T_K(iT,iconv) = T_K(iT,iconv-1)+alpha_K*T_K(iT,iconv)/Cp/rho*deltaP*1e6;
         end
        % conductive lower layer
        inds_deltaTBL = find(z_m(iT,1:nConvectIce)>=z_m(iT,nConvectIce)-deltaTBL_m(iT));
@@ -1097,33 +1098,33 @@ disp('\hline')
 %% Sound Speeds in the Ice and Ocean
 if Params.CALC_NEW_SOUNDSPEEDS
     disp('Computing sound speeds')
-%     velsIce = iceVelsGagnon1990(P_MPa,T_K);
+    velsIce = iceVelsGagnon1990(P_MPa,T_K);
     [vfluid_kms,Ksfluid_GPa] = deal(zeros(nTbs,nsteps));
     for iT = 1:nTbs
         tic
-        out=SeaFreeze([P_MPa(iT,:)' T_K(iT,:)'],'Ih');
-        velsIce.VIl_kms(iT,:) = 1e-3*out.Vp;
-        velsIce.VIt_kms(iT,:) = 1e-3*out.Vs;
-        velsIce.KsI_GPa(iT,:) = 1e-3*out.Ks;
-        velsIce.GsI_GPa(iT,:) = 1e-3*out.shear;
-
-        out=SeaFreeze([P_MPa(iT,:)' T_K(iT,:)'],'III');
-        velsIce.VIIIl_kms(iT,:) = 1e-3*out.Vp;
-        velsIce.VIIIt_kms(iT,:) = 1e-3*out.Vs;
-        velsIce.KsIII_GPa(iT,:) = 1e-3*out.Ks;
-        velsIce.GsIII_GPa(iT,:) = 1e-3*out.shear;
-
-        out=SeaFreeze([P_MPa(iT,:)' T_K(iT,:)'],'V');
-        velsIce.VVl_kms(iT,:) = 1e-3*out.Vp;
-        velsIce.VVt_kms(iT,:) = 1e-3*out.Vs;
-        velsIce.KsV_GPa(iT,:) = 1e-3*out.Ks;
-        velsIce.GsV_GPa(iT,:) = 1e-3*out.shear;
-        
-        out=SeaFreeze([P_MPa(iT,:)' T_K(iT,:)'],'VI');
-        velsIce.VVIl_kms(iT,:) = 1e-3*out.Vp;
-        velsIce.VVIt_kms(iT,:) = 1e-3*out.Vs;
-        velsIce.KsVI_GPa(iT,:) = 1e-3*out.Ks;
-        velsIce.GsVI_GPa(iT,:) = 1e-3*out.shear;
+%         out=SeaFreeze([P_MPa(iT,:)' T_K(iT,:)'],'Ih');
+%         velsIce.VIl_kms(iT,:) = 1e-3*out.Vp;
+%         velsIce.VIt_kms(iT,:) = 1e-3*out.Vs;
+%         velsIce.KsI_GPa(iT,:) = 1e-3*out.Ks;
+%         velsIce.GsI_GPa(iT,:) = 1e-3*out.shear;
+% 
+%         out=SeaFreeze([P_MPa(iT,:)' T_K(iT,:)'],'III');
+%         velsIce.VIIIl_kms(iT,:) = 1e-3*out.Vp;
+%         velsIce.VIIIt_kms(iT,:) = 1e-3*out.Vs;
+%         velsIce.KsIII_GPa(iT,:) = 1e-3*out.Ks;
+%         velsIce.GsIII_GPa(iT,:) = 1e-3*out.shear;
+% 
+%         out=SeaFreeze([P_MPa(iT,:)' T_K(iT,:)'],'V');
+%         velsIce.VVl_kms(iT,:) = 1e-3*out.Vp;
+%         velsIce.VVt_kms(iT,:) = 1e-3*out.Vs;
+%         velsIce.KsV_GPa(iT,:) = 1e-3*out.Ks;
+%         velsIce.GsV_GPa(iT,:) = 1e-3*out.shear;
+%         
+%         out=SeaFreeze([P_MPa(iT,:)' T_K(iT,:)'],'VI');
+%         velsIce.VVIl_kms(iT,:) = 1e-3*out.Vp;
+%         velsIce.VVIt_kms(iT,:) = 1e-3*out.Vs;
+%         velsIce.KsVI_GPa(iT,:) = 1e-3*out.Ks;
+%         velsIce.GsVI_GPa(iT,:) = 1e-3*out.shear;
         
         ir = find(phase(iT,:)==0);
         vfluid_kms(iT,ir) = fluidSoundSpeeds(P_MPa(iT,ir),T_K(iT,ir),wo,Planet.Ocean.comp);
@@ -1339,7 +1340,7 @@ for iT = 1:nTbs
         if Planet.FeCore
             k_S_mPlanet(iT,start_core:start_core-1+length(thisVPcore)) = 0*thisQScore;
         end
-        Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma k_S_mPlanet(iT,:)']; %#ok<AGROW>
+        Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma k_S_mPlanet(iT,:)' ]; %#ok<AGROW>
         header = sprintf('%s%s\t%s\t',header,'k (S m-1)');
     end
     thissavestr = [savefile 'Ts' num2str(Planet.Tsurf_K,'%0.0f') 'Zb' strLow num2str(Zb2(iT),'%0.0f') ...
@@ -1434,40 +1435,117 @@ end
 end
 
 if ~Params.NOPLOTS
+
+    revcop =    colormap('copper');
+revcop = revcop(256:-1:1,:);
+colormap(revcop);
+inferno_data = CM_inferno;
+colormap(inferno_data);
+
 figure(1111);clf
+if Planet.FeCore
+pinds = find(mantle.p(:,1)*1e3>=thisPcore(1));
+pcore = mantle.p(pinds,:)*1e3; tcore = mantle.t(pinds,:);
+end
 subplot(2,3,1);
-pcolor(mantle.t,mantle.p*1e3,mantle.rho);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Density (kg m^{-3})')
-    hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+pcolor(mantle.t,mantle.p*1e3,mantle.rho);
+    hold on; 
+if Planet.FeCore
+    rhocore = core.rho_fn(pcore,tcore);
+    pcolor(tcore,pcore,rhocore);    
+end
+plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Density (kg m^{-3})')
+
 subplot(2,3,2);
-pcolor(mantle.t,mantle.p*1e3,mantle.cp);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Cp (J m^{-3} K^{-1})')
-    hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+pcolor(mantle.t,mantle.p*1e3,mantle.cp); 
+    hold on
+if Planet.FeCore
+    pcolor(tcore,pcore,cpcore);        
+    cpcore = core.cp_fn(pcore,tcore);
+end
+plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Cp (J m^{-3} K^{-1})')
+
 subplot(2,3,3);
-pcolor(mantle.t,mantle.p*1e3,mantle.alpha);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('\alpha (K^{-1})')
-    hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
-subplot(2,3,4);
-pcolor(mantle.t,mantle.p*1e3,mantle.vp);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('V_P (km s^{-1})')
-    hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
-subplot(2,3,5);
-pcolor(mantle.t,mantle.p*1e3,mantle.vs);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('V_S (km s^{-1})')
-    hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
-if isfield(mantle,'ks')
-    subplot(2,3,6);
-    pcolor(mantle.t,mantle.p*1e3,mantle.ks);shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('K_S (GPa)')
-        hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+pcolor(mantle.t,mantle.p*1e3,mantle.alpha);
+hold on;
+if Planet.FeCore
+    alphacore = core.alpha_fn(pcore,tcore);
+    pcolor(tcore,pcore,alphacore);        
+end
+plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('\alpha (K^{-1})')
     
-    figure(1112); clf; hold on
+    
+subplot(2,3,4);
+pcolor(mantle.t,mantle.p*1e3,mantle.vp);
+hold on; 
+if Planet.FeCore
+    vpcore = core.vp_fn(pcore,tcore);
+    pcolor(tcore,pcore,vpcore);        
+end
+plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('V_P (km s^{-1})')
+
+subplot(2,3,5);
+pcolor(mantle.t,mantle.p*1e3,mantle.vs);
+hold on; 
+if Planet.FeCore
+    vscore = core.vs_fn(pcore,tcore);
+    pcolor(tcore,pcore,vscore);      
+end
+    plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('V_S (km s^{-1})')
+
+if isfield(mantle,'Ks')
+    subplot(2,3,6);
+    pcolor(mantle.t,mantle.p*1e3,mantle.Ks);
+     hold on;
+    if Planet.FeCore
+        kscore = core.Ks_fn(pcore,tcore);
+        pcolor(tcore,pcore,kscore);      
+    end
+            plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+    shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('K_S (GPa)')
+    
+    figure(1112); clf;
+    colormap(inferno_data);
         subplot(2,2,1);
-        pcolor(mantle.t,mantle.p,mantle.rho);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('Density (kg m^{-3})','FontSize',14)
-            hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
-        subplot(2,2,2);
-        pcolor(mantle.t,mantle.p,mantle.cp);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('Cp (J m^{-3} K^{-1})','FontSize',14)
-            hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+        pcolor(mantle.t,mantle.p,mantle.rho);
+            hold on; 
+        if Planet.FeCore
+        pcolor(tcore,1e-3*pcore,rhocore);        
+        end
+            plot(T_Planet_K',1e-3*P_Planet_MPa','LineWidth',1);
+        shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('Density (kg m^{-3})','FontSize',14)
+        
+            subplot(2,2,2);
+        pcolor(mantle.t,mantle.p,mantle.cp);hold on;
+        if Planet.FeCore
+            pcolor(tcore,1e-3*pcore,cpcore);        
+        end
+        plot(T_Planet_K',1e-3*P_Planet_MPa','LineWidth',1);
+        shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('Cp (J m^{-3} K^{-1})','FontSize',14)
+
         subplot(2,2,3);
-        pcolor(mantle.t,mantle.p,mantle.ks);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('K_S (GPa)','FontSize',14)
-            hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+        pcolor(mantle.t,mantle.p,mantle.Ks);
+        hold on
+        if Planet.FeCore
+            pcolor(tcore,1e-3*pcore,kscore);        
+        end
+            plot(T_Planet_K',1e-3*P_Planet_MPa','LineWidth',1);
+        shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('K_S (GPa)','FontSize',14)
+
         subplot(2,2,4);
-        pcolor(mantle.t,mantle.p,mantle.gs);shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('G_S (GPa)','FontSize',14)
-            hold on; plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+        pcolor(mantle.t,mantle.p,mantle.Gs);
+        hold on
+        if Planet.FeCore
+           gscore = core.Gs_fn(pcore,tcore);
+            pcolor(tcore,1e-3*pcore,gscore);     
+        end
+            plot(T_Planet_K',1e-3*P_Planet_MPa','LineWidth',1);
+        shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('G_S (GPa)','FontSize',14)
 end
 end
 
@@ -1556,7 +1634,9 @@ else
     subplot(2,6,10);
 end
 hold on;
-
+% clear hp; % putting this here because an error was raised when running
+% Triton models. May 4 2020. I think the problem is the model I'm running
+% doesn't have any liquid. yep. 
 for iT = 1:nTbs
     hp(iT) =  line(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)),z_m(iT,Params.nsteps_iceI+1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
     maxV(iT) = max(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)));
@@ -2082,7 +2162,7 @@ function rho_kgm3 = getRhoIce(P_MPa,T_K,ind)
         end
     end
 
-function Cp = getCpIce(P_MPa,T_K,ind)
+function [Cp,alpha] = getCpIce(P_MPa,T_K,ind)
     % convert to appropriate phase using our nomenclature
     if ~(ind==5 || ind==6)
         ind = ind+1;
@@ -2104,9 +2184,11 @@ function Cp = getCpIce(P_MPa,T_K,ind)
     try
         out = SeaFreeze([P_MPa,T_K],material);
         Cp = out.Cp;
+        alpha = out.alpha;
     catch
         disp(['T_ice = ' num2str(T_K) '. This seems to be too low for SeaFreeze. Using Choukroun and Grasset (2010) instead.']);
         Cp = CpH2O_Choukroun(P_MPa,T_K,ind);
+        alpha = [];
     end
             
 function phase = getIcePhase(P_MPa,T_K,w_pct,str_comp)
