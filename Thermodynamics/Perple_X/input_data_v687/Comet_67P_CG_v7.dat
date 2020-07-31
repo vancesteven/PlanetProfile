@@ -1,0 +1,105 @@
+DEW17HP622ver_elements_687_20191118_Europa_v3.dat     thermodynamic data file                                                               
+no_print | print generates print output
+plot     | obsolete 6.8.4+
+solution_model_687_20191118.dat     | solution model file, blank = none                                                                                                                                                                                         
+Organics_allowed_Comet_67P changed P-T range for Triton                                                                                                                                                                                                                                      
+perplex_option_687_20191118.dat     | Perple_X option file                                                                                                                                                                                                      
+    5 calculation type: 0- composition, 1- Schreinemakers, 3- Mixed, 4- swash, 5- gridded min, 7- 1d fract, 8- gwash, 9- 2d fract, 10- 7 w/file input, 11- 9 w/file input, 12- 0d infiltration
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    5 number component transformations
+   20 number of components in the data base
+O     13 component transformation
+  0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   1.00
+  0.00   0.00   0.00   0.00   0.00   0.00   0.00
+O     13 component transformation
+  0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.50
+  0.00   0.00   0.00   0.00   0.00   0.00   0.00
+H     14 component transformation
+  0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00
+  0.50   0.00   0.00   0.00   0.00   0.00   0.00
+S     18 component transformation
+  0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00
+  0.00   0.00   0.00   0.00   0.50   0.00   0.00
+N     20 component transformation
+  0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00   0.00
+  0.00   0.00   0.00   0.00   0.00   0.00   0.50
+    1 component amounts, 0 - molar, 1 weight
+    0 unused place holder, post 06
+    0 unused place holder, post 06
+    0 unused place holder, post 05
+    0 ifug EoS for saturated phase
+    2 gridded minimization dimension (1 or 2)
+    0 special dependencies: 0 - P and T independent, 1 - P(T), 2 - T(P)
+ 0.00000      0.00000      0.00000      0.00000      0.00000     Geothermal gradient polynomial coeffs.
+
+begin thermodynamic component list
+H     1  11.4000      0.00000      0.00000     mass  amount
+O     1  41.0600      0.00000      0.00000     mass  amount
+C     1  27.0800      0.00000      0.00000     mass  amount
+Fe    1  6.10000      0.00000      0.00000     mass  amount
+Si    1  10.5400      0.00000      0.00000     mass  amount
+Mg    1  0.99000      0.00000      0.00000     mass  amount
+N     1  1.03000      0.00000      0.00000     mass  amount
+S     1  1.81000      0.00000      0.00000     mass  amount
+end thermodynamic component list
+
+
+begin saturated component list
+end saturated component list
+
+
+begin saturated phase component list
+end saturated phase component list
+
+
+begin independent potential/fugacity/activity list
+end independent potential list
+
+
+begin excluded phase list
+foTL    
+faTL    
+fa8L    
+fo8L    
+fojL    
+fajL    
+qjL     
+q8L     
+hmjL    
+ma
+geik
+end excluded phase list
+
+
+begin solution phase list   
+Cpx(HGP)  
+Pl(I1,HP) 
+Fsp(C1) 
+melt(HGP) 
+O(HGP)    
+Opx(HGP)  
+Sp(HGP)
+Gt(HGP)
+Crd(HGP)
+Bi(HGP)
+Mica(W)
+Ep(HP11)
+cAmph(G)
+Ilm(WPH)
+Chl(W)  
+end solution phase list
+
+   50000.0        1000.00        0.00000        0.00000        0.00000     max p, t, xco2, u1, u2
+   1.00000        273.150        0.00000        0.00000        0.00000     min p, t, xco2, u1, u2
+   0.00000        0.00000        0.00000        0.00000        0.00000     unused place holder post 06
+
+ 2  1  4  5  3   indices of 1st & 2nd independent & sectioning variables
+

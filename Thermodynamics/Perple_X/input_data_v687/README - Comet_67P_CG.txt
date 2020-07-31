@@ -11,7 +11,7 @@ The composition represents the bulk composition of comet 67P/Churyumov Gerasimen
 
 The thermodynamic database used was DEW17HP622ver_elements.dat, version 2019-11-18.
 
-Solution models included, and phases excluded, were based on the recommended settings in J.F. Moyen's Excel spreadsheet for the "igneous set" of models from "Holland, TJB, Green, ECR & Powell, R (2018). Melting of peridotites through to granites: a simple thermodynamic model in the system KNCFMASHTOCr. Journal of Petrology 59 881-900". Namely, melt(H) phases were allowed, among others. Organics were allowed because their stoichiometry has been corrected. CaCl2 stoichiometry has also been corrected.
+Solution models included, and phases excluded, were based on the recommended settings in J.F. Moyen's Excel spreadsheet for the "igneous set" of models from "Holland, TJB, Green, ECR & Powell, R (2018). Melting of peridotites through to granites: a simple thermodynamic model in the system KNCFMASHTOCr. Journal of Petrology 59 881-900". Namely, melt(H) phases were allowed, among others. Organics were allowed because their stoichiometry has been corrected. CaCl2 stoichiometry has also been corrected. Comet_67P_CG_v6 and Comet_67P_CG_v7 are identical, but Comet_67P_CG_v7 has an extended P-T range (perhaps adequate for modeling Triton).
 
 Compositions:
 
