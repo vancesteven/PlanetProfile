@@ -49,15 +49,19 @@ set(gca,'XLim',radii.R/2*[-1 1],'YLim',[0 radii.R*1.02],'XTick',[],'XColor','non
 
 function radii = Test
 figure(1);clf; hold on
-R = 2556;
+R = 2556; % Ganymede
+R = 1354; % Triton 
 radii.R = R;
-radii.Ocean = R-100;
-radii.III = R-200;
-radii.V = R-300;
-radii.VI = R-600;
-radii.Rock = R-900;
-radii.Core = 500;
-radii.VII = [];
+radii.Ocean = 1197;
+% radii.IceIII = R-200;
+% radii.IceV = R-300;
+% radii.IceVI = R-600;
+radii.IceIII = [];
+radii.IceV = [];
+radii.IceVI = [];
+radii.Rock = 1017;
+radii.Core = [];
+radii.IceVII = [];
 
 
 function P = wedgeR(R)
