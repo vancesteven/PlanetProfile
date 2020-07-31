@@ -1454,7 +1454,7 @@ if Planet.FeCore
     rhocore = core.rho_fn(pcore,tcore);
     pcolor(tcore,pcore,rhocore);    
 end
-plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+hp = plot(T_Planet_K',P_Planet_MPa','w-','LineWidth',1);
 shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Density (kg m^{-3})')
 
 subplot(2,3,2);
@@ -1464,7 +1464,7 @@ if Planet.FeCore
     pcolor(tcore,pcore,cpcore);        
     cpcore = core.cp_fn(pcore,tcore);
 end
-plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+plot(T_Planet_K',P_Planet_MPa','w-','LineWidth',1);
 shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Cp (J m^{-3} K^{-1})')
 
 subplot(2,3,3);
@@ -1474,7 +1474,7 @@ if Planet.FeCore
     alphacore = core.alpha_fn(pcore,tcore);
     pcolor(tcore,pcore,alphacore);        
 end
-plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+plot(T_Planet_K',P_Planet_MPa','w-','LineWidth',1);
 shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('\alpha (K^{-1})')
     
     
@@ -1485,7 +1485,7 @@ if Planet.FeCore
     vpcore = core.vp_fn(pcore,tcore);
     pcolor(tcore,pcore,vpcore);        
 end
-plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+plot(T_Planet_K',P_Planet_MPa','w-','LineWidth',1);
 shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('V_P (km s^{-1})')
 
 subplot(2,3,5);
@@ -1495,7 +1495,7 @@ if Planet.FeCore
     vscore = core.vs_fn(pcore,tcore);
     pcolor(tcore,pcore,vscore);      
 end
-    plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+    plot(T_Planet_K',P_Planet_MPa','w-','LineWidth',1);
 shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('V_S (km s^{-1})')
 
 if isfield(mantle,'Ks')
@@ -1506,7 +1506,7 @@ if isfield(mantle,'Ks')
         kscore = core.Ks_fn(pcore,tcore);
         pcolor(tcore,pcore,kscore);      
     end
-            plot(T_Planet_K',P_Planet_MPa','LineWidth',1);
+            plot(T_Planet_K',P_Planet_MPa','w-','LineWidth',1);
     shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('K_S (GPa)')
     
     figure(1112); clf;
@@ -1517,7 +1517,7 @@ if isfield(mantle,'Ks')
         if Planet.FeCore
         pcolor(tcore,1e-3*pcore,rhocore);        
         end
-            plot(T_Planet_K',1e-3*P_Planet_MPa','LineWidth',1);
+            plot(T_Planet_K',1e-3*P_Planet_MPa','w-','LineWidth',1);
         shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('Density (kg m^{-3})','FontSize',14)
         
             subplot(2,2,2);
@@ -1525,7 +1525,7 @@ if isfield(mantle,'Ks')
         if Planet.FeCore
             pcolor(tcore,1e-3*pcore,cpcore);        
         end
-        plot(T_Planet_K',1e-3*P_Planet_MPa','LineWidth',1);
+        plot(T_Planet_K',1e-3*P_Planet_MPa','w-','LineWidth',1);
         shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('Cp (J m^{-3} K^{-1})','FontSize',14)
 
         subplot(2,2,3);
@@ -1534,7 +1534,7 @@ if isfield(mantle,'Ks')
         if Planet.FeCore
             pcolor(tcore,1e-3*pcore,kscore);        
         end
-            plot(T_Planet_K',1e-3*P_Planet_MPa','LineWidth',1);
+            plot(T_Planet_K',1e-3*P_Planet_MPa','w-','LineWidth',1);
         shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('K_S (GPa)','FontSize',14)
 
         subplot(2,2,4);
@@ -1544,7 +1544,7 @@ if isfield(mantle,'Ks')
            gscore = core.Gs_fn(pcore,tcore);
             pcolor(tcore,1e-3*pcore,gscore);     
         end
-            plot(T_Planet_K',1e-3*P_Planet_MPa','LineWidth',1);
+            plot(T_Planet_K',1e-3*P_Planet_MPa','w-','LineWidth',1);
         shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('G_S (GPa)','FontSize',14)
 end
 end
@@ -2120,6 +2120,7 @@ axis tight
 % xlabel('Pressure (MPa)')
 % ylabel('Temperature (K)')
 end
+end %PlanetProfile
 %% properties of water ice
 %Note: for VspChoukroun inds: liquid = 1, Ice I = 2, II = 3, III = 4, V = 5, VI = 6
 function rho_kgm3 = getRhoIce(P_MPa,T_K,ind)
@@ -2161,7 +2162,7 @@ function rho_kgm3 = getRhoIce(P_MPa,T_K,ind)
             end
         end
     end
-
+end %getRhoIce
 function [Cp,alpha] = getCpIce(P_MPa,T_K,ind)
     % convert to appropriate phase using our nomenclature
     if ~(ind==5 || ind==6)
@@ -2190,7 +2191,7 @@ function [Cp,alpha] = getCpIce(P_MPa,T_K,ind)
         Cp = CpH2O_Choukroun(P_MPa,T_K,ind);
         alpha = [];
     end
-            
+end %getCpIce     
 function phase = getIcePhase(P_MPa,T_K,w_pct,str_comp)
     switch str_comp
         case 'MgSO4' 
@@ -2217,6 +2218,7 @@ function phase = getIcePhase(P_MPa,T_K,w_pct,str_comp)
         case 'NH3'
             phase = getIcePhaseNH3(P_MPa,T_K,w_pct);
     end
+end % getIcePhase
 function Tfreeze_K = getTfreeze(P_MPa,wo,str_comp,Tprior)
     switch str_comp
         case 'MgSO4'
@@ -2243,6 +2245,7 @@ function Tfreeze_K = getTfreeze(P_MPa,wo,str_comp,Tprior)
         case 'NH3'
             Tfreeze_K = fzero(@(T) L_IceNH3(P_MPa,T,wo,1),[200 350]);
     end
+end % getTfreeze
 function Pfreeze_MPa = getPfreeze(T_K,wo,str_comp)
     switch str_comp
         case 'MgSO4'             
@@ -2264,6 +2267,7 @@ function Pfreeze_MPa = getPfreeze(T_K,wo,str_comp)
         case 'NH3'
             Pfreeze_MPa = fzero(@(P) L_IceNH3(P,T_K,wo,1),[0 250]);
     end
+end %getPfreeze
 function Pfreeze_MPa = getPfreezeIII(T_K,wo,str_comp)
     switch str_comp
        case 'MgSO4'             
@@ -2273,6 +2277,7 @@ function Pfreeze_MPa = getPfreezeIII(T_K,wo,str_comp)
        case 'NH3'
            Pfreeze_MPa = fzero(@(P) L_IceNH3(P,T_K,wo,3),[0 500]);
     end
+end %getPfreezeIII
 %% fluid properties
 function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
     switch str_comp
@@ -2315,6 +2320,7 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
             [rho_kgm3,~,~,Cp,~,alpha_Km1] = ...
                 refproppy32([P_MPa T_K],{'ammonia' 'water'},[wo 100-wo]/100,-1);
     end
+end %fluidEOS
 function [vel_kms,Ks_GPa] = fluidSoundSpeeds(P_MPa,T_K,wo,str_comp)
     switch str_comp
         case 'MgSO4'
@@ -2340,46 +2346,47 @@ function [vel_kms,Ks_GPa] = fluidSoundSpeeds(P_MPa,T_K,wo,str_comp)
                     refproppy32([P_MPa(iP) T_K(iP)],{'ammonia' 'water'},[wo 100-wo]/100,-1);
             end
     end
+end % fluidSoundSpeeds
 function zero_alpha = alphaAdjust(P_MPa,T_K,wo,comp)
-[~,~,zero_alpha]= fluidEOS(P_MPa,T_K,wo,comp); 
-    
+    [~,~,zero_alpha]= fluidEOS(P_MPa,T_K,wo,comp); 
+end % alphaAdjust
 %% Core Size
 function [C2MR2,R_fe] = CoreSize(rho_s,rho_fe,C_H2O,M_above_kg,R_s)
-global M_Planet_kg R_Planet_m
-try
-    R_fe = fzero(@(R_fe) getR_fe(rho_s,rho_fe,M_above_kg,R_s,R_fe),[0 R_Planet_m]);
-catch
-    R_fe = NaN;
-end
-C2MR2 = C_H2O+8/15*pi*((R_s.^5-R_fe.^5)*rho_s+rho_fe*R_fe.^5);%/M_Planet_kg/R_Planet_m^2;
-
+    global M_Planet_kg R_Planet_m
+    try
+        R_fe = fzero(@(R_fe) getR_fe(rho_s,rho_fe,M_above_kg,R_s,R_fe),[0 R_Planet_m]);
+    catch
+        R_fe = NaN;
+    end
+    C2MR2 = C_H2O+8/15*pi*((R_s.^5-R_fe.^5)*rho_s+rho_fe*R_fe.^5);%/M_Planet_kg/R_Planet_m^2;
+end %CoreSize
 function zero_me = getR_fe(rho_s,rho_fe,M_above_kg,R_s,R_fe)
-global M_Planet_kg 
-zero_me = 4*pi/3*rho_fe*R_fe.^3 - (M_Planet_kg - M_above_kg-4*pi/3*rho_s*(R_s.^3-R_fe.^3));
-
+    global M_Planet_kg 
+    zero_me = 4*pi/3*rho_fe*R_fe.^3 - (M_Planet_kg - M_above_kg-4*pi/3*rho_s*(R_s.^3-R_fe.^3));
+end %getR_fe
 function intout = interp1nan(x,y) % perplex outputs for VP, VS, KS, and GS seem to often have a few nans
     ninds = isnan(y);
     intout = interp1(x(~ninds),y(~ninds),x);
     if isnan(intout(end))
         intout(end)=intout(end-1);
     end
-            
+end %interp1nan
             
 %% formatting for output
 function d_str = getTableStr(Tb,Xin)
-d_str = {};
-for iT = 1:length(Tb)
-    if Xin(iT)
-        if mod(Xin(iT),1)
-            d_str{iT} = [' &' num2str(Xin(iT),'%0.2f') ];
+    d_str = {};
+    for iT = 1:length(Tb)
+        if Xin(iT)
+            if mod(Xin(iT),1)
+                d_str{iT} = [' &' num2str(Xin(iT),'%0.2f') ];
+            else
+                d_str{iT} = [' &' num2str(Xin(iT),'%0.0f') ];
+            end
         else
-            d_str{iT} = [' &' num2str(Xin(iT),'%0.0f') ];
-        end
-    else
-        d_str{iT} = '& -';
-    end 
-end
-
+            d_str{iT} = '& -';
+        end 
+    end
+end % getTableStr
 function mantle = loadMantleEOS(str_meos)
 [~,mantle]=read_perplex_table_nvars(str_meos);
 %    [~,mantle]=read_perplex_table(str_meos);
@@ -2393,7 +2400,7 @@ function mantle = loadMantleEOS(str_meos)
 %         mantle.KSfn_GPa = griddedInterpolant(1e3*mantle.p,mantle.t,mantle.ks);
 %         mantle.GSfn_GPa = griddedInterpolant(1e3*mantle.p,mantle.t,mantle.gs); 
 %     end
-    
+end %loadMantleEOS
 function mfluids = loadMantleFluids(str_mfluids)
 [~,mfluids]=read_perplex_table_nvars(str_mfluids);
 % [~,mfluids]=read_perplex_mantlefluids_table(str_mfluids);
@@ -2403,6 +2410,9 @@ function mfluids = loadMantleFluids(str_mfluids)
 % mfluids.h2s_fn = griddedInterpolant(1e3*mfluids.p,mfluids.t,mfluids.h2s);
 % mfluids.h2_fn = griddedInterpolant(1e3*mfluids.p,mfluids.t,mfluids.h2);
 % mfluids.h2o_fn = griddedInterpolant(1e3*mfluids.p,mfluids.t,mfluids.h2o);
-
+end %loadMantleFluids
 function mphases = loadMantlePhases(str_mphases)
 [~,mphases]=read_perplex_table_nvars(str_mphases);
+end %loadMantlePhases
+
+%% Plotting
