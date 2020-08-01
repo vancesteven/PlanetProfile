@@ -745,7 +745,6 @@ for iT = 1:nTbs
 
     end
     
-    
     if POROUS
     % correction for porosity
         por_in(iT).p=Pmantle_MPa*1e-3;
@@ -798,7 +797,10 @@ for iT = 1:nTbs
 strLow = '';
 %%
     % AS ABOVE, NOW FOR THE METALLIC CORE; THESE VALUES AREN'T USED IF PLANET.FECORE IS FALSE   
-%     g_ms2_core(iT,1) = g_ms2_sil(nsteps_mantle(iT));
+%     g_ms2_core(iT,1) = g_ms2_sil(nsteps_mantle(iT)); % depth dependent
+%     gravity was used previously, but this can result in negative gravity
+%     approaching the center of the core due to imperfect matching of the
+%     moment of inertia.
 %     M_above_core(iT,1) = M_above_mantle(nsteps_mantle(iT));
     if Planet.FeCore
         M_above_core(iT,1) = M_above_mantle(nsteps_mantle(iT));
@@ -858,7 +860,7 @@ strLow = '';
     if POROUS
         interior(iT).permeability = permeability;
     end
-    if isfield(Seismic,'mfluids')
+    if isfield(Seismic,'mfluids') % still under development. A goal is to more realistically track the loss of fluids along the geotherm.
         mfluids = loadMantleFluids(Seismic.mfluids);
         mphases = loadMantlePhases(Seismic.mphases);
         mvolumes = loadMantlePhases(Seismic.mvolumes);
@@ -1442,110 +1444,31 @@ colormap(revcop);
 inferno_data = CM_inferno;
 colormap(inferno_data);
 
-figure(1111);clf
+figure(1111);clf; clear opts
+opts.Punits = 'MPa';
+opts.Ttight = true;
 if Planet.FeCore
-pinds = find(mantle.p(:,1)*1e3>=thisPcore(1));
-pcore = mantle.p(pinds,:)*1e3; tcore = mantle.t(pinds,:);
+    pinds = find(mantle.p(:,1)*1e3>=thisPcore(1));
+    pcore = mantle.p(pinds,:)*1e3; tcore = mantle.t(pinds,:);
+else
+    [core,tcore,pcore]=[];
 end
-subplot(2,3,1);
-pcolor(mantle.t,mantle.p*1e3,mantle.rho);
-    hold on; 
-if Planet.FeCore
-    rhocore = core.rho_fn(pcore,tcore);
-    pcolor(tcore,pcore,rhocore);    
-end
-hp = plot(T_Planet_K',P_Planet_MPa','w-','LineWidth',1);
-shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Density (kg m^{-3})')
-
-subplot(2,3,2);
-pcolor(mantle.t,mantle.p*1e3,mantle.cp); 
-    hold on
-if Planet.FeCore
-    pcolor(tcore,pcore,cpcore);        
-    cpcore = core.cp_fn(pcore,tcore);
-end
-plot(T_Planet_K',P_Planet_MPa','w-','LineWidth',1);
-shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('Cp (J m^{-3} K^{-1})')
-
-subplot(2,3,3);
-pcolor(mantle.t,mantle.p*1e3,mantle.alpha);
-hold on;
-if Planet.FeCore
-    alphacore = core.alpha_fn(pcore,tcore);
-    pcolor(tcore,pcore,alphacore);        
-end
-plot(T_Planet_K',P_Planet_MPa','w-','LineWidth',1);
-shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('\alpha (K^{-1})')
-    
-    
-subplot(2,3,4);
-pcolor(mantle.t,mantle.p*1e3,mantle.vp);
-hold on; 
-if Planet.FeCore
-    vpcore = core.vp_fn(pcore,tcore);
-    pcolor(tcore,pcore,vpcore);        
-end
-plot(T_Planet_K',P_Planet_MPa','w-','LineWidth',1);
-shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('V_P (km s^{-1})')
-
-subplot(2,3,5);
-pcolor(mantle.t,mantle.p*1e3,mantle.vs);
-hold on; 
-if Planet.FeCore
-    vscore = core.vs_fn(pcore,tcore);
-    pcolor(tcore,pcore,vscore);      
-end
-    plot(T_Planet_K',P_Planet_MPa','w-','LineWidth',1);
-shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('V_S (km s^{-1})')
+subplot(2,3,1); plotSolidInterior('rho','Density (kg m^{-3})',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
+subplot(2,3,2); plotSolidInterior('cp','Cp (J m^{-3} K^{-1})',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
+subplot(2,3,3); plotSolidInterior('alpha','\alpha (K^{-1})',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
+subplot(2,3,4); plotSolidInterior('vp','V_P (km s^{-1})',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
+subplot(2,3,5); plotSolidInterior('vs','V_S (km s^{-1})',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
 
 if isfield(mantle,'Ks')
-    subplot(2,3,6);
-    pcolor(mantle.t,mantle.p*1e3,mantle.Ks);
-     hold on;
-    if Planet.FeCore
-        kscore = core.Ks_fn(pcore,tcore);
-        pcolor(tcore,pcore,kscore);      
-    end
-            plot(T_Planet_K',P_Planet_MPa','w-','LineWidth',1);
-    shading interp; colorbar; box on; set(gca,'ydir','reverse'); ylabel('Pressure (MPa)');xlabel('Temperature (K)');title('K_S (GPa)')
+    subplot(2,3,6); plotSolidInterior('Ks','K_S (GPa)',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
     
     figure(1112); clf;
+    opts.Punits = 'GPa';
     colormap(inferno_data);
-        subplot(2,2,1);
-        pcolor(mantle.t,mantle.p,mantle.rho);
-            hold on; 
-        if Planet.FeCore
-        pcolor(tcore,1e-3*pcore,rhocore);        
-        end
-            plot(T_Planet_K',1e-3*P_Planet_MPa','w-','LineWidth',1);
-        shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('Density (kg m^{-3})','FontSize',14)
-        
-            subplot(2,2,2);
-        pcolor(mantle.t,mantle.p,mantle.cp);hold on;
-        if Planet.FeCore
-            pcolor(tcore,1e-3*pcore,cpcore);        
-        end
-        plot(T_Planet_K',1e-3*P_Planet_MPa','w-','LineWidth',1);
-        shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('Cp (J m^{-3} K^{-1})','FontSize',14)
-
-        subplot(2,2,3);
-        pcolor(mantle.t,mantle.p,mantle.Ks);
-        hold on
-        if Planet.FeCore
-            pcolor(tcore,1e-3*pcore,kscore);        
-        end
-            plot(T_Planet_K',1e-3*P_Planet_MPa','w-','LineWidth',1);
-        shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('K_S (GPa)','FontSize',14)
-
-        subplot(2,2,4);
-        pcolor(mantle.t,mantle.p,mantle.Gs);
-        hold on
-        if Planet.FeCore
-           gscore = core.Gs_fn(pcore,tcore);
-            pcolor(tcore,1e-3*pcore,gscore);     
-        end
-            plot(T_Planet_K',1e-3*P_Planet_MPa','w-','LineWidth',1);
-        shading interp; colorbar; box on; set(gca,'ydir','reverse','FontSize',14); ylabel('Pressure (GPa)','FontSize',14);xlabel('Temperature (K)','FontSize',14);title('G_S (GPa)','FontSize',14)
+        subplot(2,2,1); plotSolidInterior('rho','Density (kg m^{-3})',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)        
+        subplot(2,2,2); plotSolidInterior('cp','Cp (J m^{-3} K^{-1})',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
+        subplot(2,2,3); plotSolidInterior('Ks','K_S (GPa)',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
+        subplot(2,2,4); plotSolidInterior('Gs','G_S (GPa)',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
 end
 end
 
@@ -2389,17 +2312,6 @@ function d_str = getTableStr(Tb,Xin)
 end % getTableStr
 function mantle = loadMantleEOS(str_meos)
 [~,mantle]=read_perplex_table_nvars(str_meos);
-%    [~,mantle]=read_perplex_table(str_meos);
-% 
-%     mantle.rhofn_kgm3 = griddedInterpolant(1e3*mantle.p,mantle.t,mantle.den);%
-%     mantle.Cpfn_JKm3 = griddedInterpolant(1e3*mantle.p,mantle.t,mantle.cp);
-%     mantle.alphafn_K = griddedInterpolant(1e3*mantle.p,mantle.t,mantle.alpha);
-%     mantle.VPfn_kms = griddedInterpolant(1e3*mantle.p,mantle.t,mantle.vp);
-%     mantle.VSfn_kms = griddedInterpolant(1e3*mantle.p,mantle.t,mantle.vs);
-%     if isfield(mantle,'ks')
-%         mantle.KSfn_GPa = griddedInterpolant(1e3*mantle.p,mantle.t,mantle.ks);
-%         mantle.GSfn_GPa = griddedInterpolant(1e3*mantle.p,mantle.t,mantle.gs); 
-%     end
 end %loadMantleEOS
 function mfluids = loadMantleFluids(str_mfluids)
 [~,mfluids]=read_perplex_table_nvars(str_mfluids);
@@ -2416,3 +2328,26 @@ function mphases = loadMantlePhases(str_mphases)
 end %loadMantlePhases
 
 %% Plotting
+function plotSolidInterior(prop,title_str,T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
+if strcmp(opts.Punits,'GPa')
+    xp = 1e-3;
+else
+    xp = 1;
+end
+pcolor(mantle.t,mantle.p*1e3*xp,mantle.(prop));
+    hold on; 
+if ~isempty('core')
+    propcore = core.([prop '_fn'])(pcore,tcore);
+    pcolor(tcore,pcore*xp,propcore);    
+end
+hp = plot(T_Planet_K',P_Planet_MPa'*xp,'w-','LineWidth',1);
+shading interp; colorbar; 
+box on; set(gca,'ydir','reverse'); 
+if opts.Ttight
+    xlims = get(gca,'XLim');
+    set(gca,'XLim',[xlims(1) max(max(T_Planet_K))*1.01])
+end
+ylabel(['Pressure (' opts.Punits ')']);xlabel('Temperature (K)');
+title(title_str)
+
+end %plotSolidInterior
