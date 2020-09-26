@@ -34,6 +34,7 @@ else ifeq ($(shell [ -d /mnt/c/Program\ Files/MATLAB* ] ; echo $$?),0)
 	matlabdir=/mnt/c/Program\ Files/MATLAB/*
 	driveltr=$(shell ppdir=$$(pwd) ; echo $${ppdir:5:1} | tr "[:lower:]" "[:upper:]")
 	rempath=$(shell ppdir=$$(pwd) ; echo $${ppdir:6})
+	[ $(driveltr) == "/" ] && echo "WARNING: You appear to be using Ubuntu-on-Windows. This install script will not install properly unless PlanetProfile is placed in the standard Windows directory structure."
 	cdpp=cd $(driveltr):$(rempath)
 	foundmatlab=0
 else ifeq ($(shell [ -d /mnt/c/Program\ Files\ \(x86\)/MATLAB* ] ; echo $$?),0)
@@ -42,6 +43,7 @@ else ifeq ($(shell [ -d /mnt/c/Program\ Files\ \(x86\)/MATLAB* ] ; echo $$?),0)
 	matlabdir=/mnt/c/Program\ Files\ \(x86\)/MATLAB/*
 	driveltr=$(shell ppdir=$$(pwd) ; echo $${ppdir:5:1} | tr "[:lower:]" "[:upper:]")
 	rempath=$(shell ppdir=$$(pwd) ; echo $${ppdir:6})
+	[ $(driveltr) == "/" ] && echo "WARNING: You appear to be using Ubuntu-on-Windows. This install script will not install properly unless PlanetProfile is placed in the standard Windows directory structure."
 	cdpp=cd $(driveltr):$(rempath)
 	foundmatlab=0
 else ifeq ($(shell [ -d /usr/local/MATLAB/* ] ; echo $$?),0)
