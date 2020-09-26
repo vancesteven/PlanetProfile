@@ -557,7 +557,7 @@ end
 % less
 for iT = 1:nTbs
     % Ice I
-    [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),CONVECTION_FLAG_I(iT)]=...
+    [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
         ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,Zb2(iT),g_ms2(iT,1),2);
     if CONVECTION_FLAG_I(iT)
         %conductive upper layer
@@ -1450,8 +1450,11 @@ opts.Ttight = true;
 if Planet.FeCore
     pinds = find(mantle.p(:,1)*1e3>=thisPcore(1));
     pcore = mantle.p(pinds,:)*1e3; tcore = mantle.t(pinds,:);
+    if ~exist('core')
+        [core]=deal([]);
+    end
 else
-    [core,tcore,pcore]=[];
+    [core,tcore,pcore]=deal([]);
 end
 subplot(2,3,1); plotSolidInterior('rho','Density (kg m^{-3})',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
 subplot(2,3,2); plotSolidInterior('cp','Cp (J m^{-3} K^{-1})',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
