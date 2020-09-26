@@ -22,6 +22,8 @@ load L_Ice_MgSO4.mat
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 
 %%  Interior constraints imposed in Vance et al. 2014
+% this information is not used here but set to keep PlanetProfile from
+% throwing errors
 mSi = 28.0855; mS = 32.065; mFe = 55.845; mMg = 24.305;
 xOl = 0.44; % percentage of olivine - Javoy (1995) - Fe/Si = 0.909 Mg/Si = 0.531, Mg# = 0.369
 %mOl = 2*((1-0.369)*58.85+0.369*24.31)+28.0855+4*16=184.295
@@ -138,16 +140,23 @@ Params.wrefLine = '--';
 % PlanetProfile(Planet,Seismic,Params)
 % 
 
-
+% plots from Vance et al. 2018
+Params.BOTTOM_ICEIII = 0;
 Params.HOLD = 0;
 
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [249.8]; % 10 Wt% temperatures at the bottom of the Ice Ih
+Params.HOLD = 1;
+Params.CALC_NEW = 1;
+Params.LineStyle='--';
+Params.wrefLine = '--';
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
+Planet.rho_sil_withcore_kgm3 = 3525;
 PlanetProfile(Planet,Seismic,Params)
 
+% similar but 1 wt%
+Params.CALC_NEW = 1;
 Params.HOLD = 1;
-
-Params.LineStyle=':';
-Planet.Ocean.w_ocean_pct=13; Planet.Tb_K = [249]; % 10 Wt% temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=1; Planet.Tb_K = [250.8 257.4]; % 1 Wt% temperatures at the bottom of the Ice Ih
+Planet.rho_sil_withcore_kgm3 = 3525;
 PlanetProfile(Planet,Seismic,Params)
 
 

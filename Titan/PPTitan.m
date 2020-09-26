@@ -128,7 +128,7 @@ Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 % EOS.  There are diffences in both the melting temperatures and fluid
 % thermodynamics
 Params.HOLD = 0;
-Params.CALC_NEW =0; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
 Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 
@@ -145,23 +145,24 @@ Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 262 266]; % 10 Wt% temperatures 
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [251.1 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
 
-% %==
-Planet.Ocean.comp='NaCl';
-Params.HOLD = 1;
-Params.CALC_NEW = 0;
-Params.CALC_NEW_REFPROFILES=0;
-Params.CALC_NEW_SOUNDSPEEDS=1;
-Params.LineStyle =  ':';
-Params.wrefLine =  ':';
-Params.wref=[0 5 10 15];
-% load L_Ice_MgSO4.mat
-% Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
-
-% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % 0 Wt% temperatures at the bottom of the Ice Ih
-% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [246.9 260]; % 10 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript
-% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [251.1 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
-PlanetProfile(Planet,Seismic,Params)
+% %==   Pure NaCl not currently implemented. Use 'Seawater' if that's
+% desired.
+% Planet.Ocean.comp='NaCl';
+% Params.HOLD = 1;
+% Params.CALC_NEW = 1;
+% Params.CALC_NEW_REFPROFILES=1;
+% Params.CALC_NEW_SOUNDSPEEDS=1;
+% Params.LineStyle =  ':';
+% Params.wrefLine =  ':';
+% Params.wref=[0 5 10 15];
+% % load L_Ice_MgSO4.mat
+% % Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
+% 
+% % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % 0 Wt% temperatures at the bottom of the Ice Ih
+% % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
+% Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [246.9 260]; % 10 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript
+% % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [251.1 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
+% PlanetProfile(Planet,Seismic,Params)
 % 
 %==
 % Params.HOLD = 1;
