@@ -9,8 +9,8 @@ set(0,'defaultfigurecolor',[1 1 1])
 set(0,'defaultAxesFontSize',16)
 
 CALC_NEW = 1;
-DO_EUROPA = 0;
-DO_GANYMEDE = 0;
+DO_EUROPA = 1;
+DO_GANYMEDE = 1;
 DO_CALLISTO = 1;
 
 PLOT_PERIODS  = 1;
