@@ -197,7 +197,11 @@ if ~Planet.NoH2O
 
         if phase(kt,ill) == 0 %if ocean
           [rho_ocean,Cp,alpha_o]= fluidEOS(P_MPa(kt,ill),T_K(kt,ill-1),wo,Planet.Ocean.comp);
-          if alpha_o<=0
+          % Forbidding MgSO4 in the check below avoids a problem in
+          % application of the EOS for low-salinity MgSO4 oceans.
+          % Negative thermal expansivity regions in the MgSO4 EOS may be
+          % artifacts of the current EOS calculation. See Vance et al. 2014
+          if alpha_o<=0 && ~strcmp(Planet.Ocean.comp,'MgSO4')
               disp('Ocean alpha at ice interface is less than zero. adjusting temperature upward.')
               disp('This means there''s a conductive layer at the interface with thickness inversely proportional to the heat flow.')
               disp('The thickness is likely less than a few 100 m. See Melosh et al. 2004.')
