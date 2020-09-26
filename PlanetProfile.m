@@ -55,8 +55,8 @@ end
 savefile = [Planet.name 'Profile_' Planet.Ocean.comp ...
     num2str(round(Planet.Ocean.w_ocean_pct)) 'WtPct_' minEOS];
 
-datpath = strcat(Planet.name,'/');
-figpath = strcat(Planet.name,'/figures/');
+datpath = [Planet.name '/'];
+figpath = [Planet.name '/figures/'];
 
 if ~isfield(Planet,'NoH2O') % backward compatibility--haven't finished implementing water-free worldsc
     Planet.NoH2O =0;
@@ -235,10 +235,10 @@ if ~Planet.NoH2O
         end
     end
     rho_kgm3(kt,1) = rho_kgm3(kt,2); %continuity
-        save(strcat(datpath,savefile),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps'); % save the progress at each step
+        save(fullfile([datpath savefile]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps'); % save the progress at each step
     end  
     else
-        load(strcat(datpath,savefile));
+        load(fullfile([datpath savefile]));
     end
     %% Save in a file the densities of adiabats corresponding to different ocean concentrations
     str_ref_densities = ['ref_densities' Planet.name '_' Planet.Ocean.comp '.mat'];
@@ -271,9 +271,9 @@ if ~Planet.NoH2O
                    rho_ref_kgm3(jr,:)=interp1(Pref_MPa(isreal),rho_ref_kgm3(jr,isreal),Pref_MPa,'linear','extrap');
                end
             end
-        save([datpath str_ref_densities],'rho_ref_kgm3','Pref_MPa','Tref_K')
+        save(fullfile([datpath str_ref_densities]),'rho_ref_kgm3','Pref_MPa','Tref_K')
     else
-        load([datpath str_ref_densities]);
+        load(fullfile([datpath str_ref_densities]));
     end
 
     %%%%%%%%%%%%%%%%%%%%%
@@ -1165,9 +1165,9 @@ if Params.CALC_NEW_SOUNDSPEEDS
         velsIce.VVIl_kms(iT,phase(iT,:)~=6) =NaN;
         velsIce.VVIt_kms(iT,phase(iT,:)~=6) =NaN;
     end
-    save([datpath savefile 'Vels'],'Ksfluid_GPa','velsIce','vfluid_kms');
+    save(fullfile([datpath savefile 'Vels']),'Ksfluid_GPa','velsIce','vfluid_kms');
 else
-    load([datpath savefile 'Vels']);
+    load(fullfile([datpath savefile 'Vels']));
 end
 
 %% Electrical Conductivity
