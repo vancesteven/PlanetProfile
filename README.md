@@ -4,13 +4,15 @@ Matlab software for constructing 1D interior structure models based on planetary
 The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
 
 # FOR THIS BRANCH:
-The files contained in this branch of the repository are meant as a release version to accompany Vance et al. 2020, "Magnetic Induction Responses of Jupiter's Ocean Moons Including Effects from Adiabatic Convection". Figures 1-7 in the main text, Tables 1-4 in the main text, Figures S3-S7, and all Tables in the supplemental material have been generated using this Matlab code. Several other figures and most of the data have been derived from numbers calculated using this code.
+The files contained in this branch of the repository are meant as a release version to accompany Vance et al. 2020, "Magnetic Induction Responses of Jupiter's Ocean Moons Including Effects from Adiabatic Convection". Figures 1, 5-7 in the main text, Tables 1-4 in the main text, Figures S3-S7, and all Tables in the supplemental material have been generated using this Matlab code. Several other figures and most of the data have been derived from numbers calculated using this code.
 
 To reproduce the plots and latex source for the tables described above, run the "go" function in Matlab using the "go.m" file. Be sure to first install PlanetProfile and dependencies by following the instructions below.
 
 PREREQUISITES:
-  @ Matlab Curve Fitting Toolbox
-  @ Matlab Optimization Toolbox
+  @ Matlab "Curve Fitting Toolbox"
+  @ Matlab "Image Processing Toolbox"
+  @ Matlab "Optimization Toolbox"
+  @ Matlab "Parallel Computing Toolbox" (optional, for select applications)
   @ Refprop is required for NH3 solutions: https://www.nist.gov/refprop
       $ Due to various complications it is not currently implemented.
 
