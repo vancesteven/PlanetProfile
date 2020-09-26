@@ -1,2 +1,2 @@
 .DS_Store
-output_data/*
+output_data/*.mat
