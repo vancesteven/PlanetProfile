@@ -70,30 +70,22 @@ end
 p=p.*1e-4; % set units of GPa
 
 nvars = length(columns)-1-npt; % subtract columns of P and T, and the erroneous empty string for the endline
-% clean up the file if needed and if npaint is turned on
-mpsplit = strsplit(mp_table,'.');
-savefile = ['Thermodynamics/Perple_X/output_data/' mpsplit{1} '.mat'];
-paintfile = dir(savefile);
-if ~isempty(paintfile)
-    load(savefile);
-else
-    for iv = 1:nvars
-%         out.(columns{iv+npt}) = reshape(output(:,iv+npt),pstep,tstep); %read each column of data, and reshape it into a matrix of p and t
-        out.(columns{iv+npt}) = reshape(output(:,iv+npt),tstep,pstep)'; %read each column of data, and reshape it into a matrix of p and t
-        if ALLOW_INPAINT & find(isnan(out.(columns{iv+2})))
+for iv = 1:nvars
+  out.(columns{iv+npt}) = reshape(output(:,iv+npt),pstep,tstep); %read each column of data, and reshape it into a matrix of p and t
+    if ALLOW_INPAINT
+        if find(isnan(out.(columns{iv+2})))
             out.(columns{iv+2})=inpaintn(out.(columns{iv+2}));
         end
-        try
-            out.([columns{iv+npt} '_fn']) = griddedInterpolant(1e3*p,t,out.(columns{iv+npt})); %interpolant with P in MPa
-        catch
-            out.([columns{iv+npt} '_fn']) = scatteredInterpolant(1e3*p(:),t(:),out.(columns{iv+npt})(:)); %interpolant with P in MPa
-        end
     end
-    header=[minT steT tstep minP steP pstep colu-2];
-    out.p=p;
-    out.t=t;
-    save(savefile);
+    try
+        out.([columns{iv+npt} '_fn']) = griddedInterpolant(1e3*p,t,out.(columns{iv+npt})); %interpolant with P in MPa
+    catch
+        out.([columns{iv+npt} '_fn']) = scatteredInterpolant(1e3*p(:),t(:),out.(columns{iv+npt})(:)); %interpolant with P in MPa
+    end
 end
 
+header=[minT steT tstep minP steP pstep colu-2];
+out.p=p;
+out.t=t;
 
 
