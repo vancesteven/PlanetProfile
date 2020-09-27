@@ -3,10 +3,12 @@ function MagResponseParamSpaceJupiter
 CALC_NEW = 0;
 PLOT_CONTOURS = 1;  % Set to 0 for surfaces
 DO_LEGEND = 1;
+PLOT_V2020s = 0; 
 
 DO_EUROPA = 1;
 DO_GANYMEDE = 1;
 DO_CALLISTO = 1;
+
 
 km = 1e3;
 
@@ -66,6 +68,13 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
         ccolors = colors([10 100 200],:);
         LW = [2 2 2];
         clines = {':','-','-.'};
+        
+                    color_warmSW = 	[176,0,255]/255;
+        V2020.km = [91 117 96 124 91 117 91 119 ];
+        V2020.Sm = [0.4132 0.4533 3.3661 3.7646 0.3651 0.3855 2.8862 3.0760];
+        V2020.MFCs = {'none','none','b','m','none','none','c',color_warmSW};
+        V2020.MECs = {'b','m','k','k','c',color_warmSW,'k','k'};
+        V2020.symbols = '^v^v^v^v';
     end
     
     if DO_GANYMEDE && ( (ibody - DO_EUROPA) == 1 )
@@ -96,6 +105,12 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
         ccolors = colors([10 100 200],:);
         LW = [2 2 2];
         clines = {':','-','-.'};
+        
+        V2020.km = [442 276 458 282];
+        V2020.Sm = [0.3890 0.2623 3.1150 1.9483];
+        V2020.MFCs = {'none','none','b','m'};
+        V2020.MECs = {'b','m','k','k'};
+        V2020.symbols = '^v^v';
     end
     
     if DO_CALLISTO && ( (ibody - DO_EUROPA - DO_GANYMEDE) == 1 )
@@ -131,6 +146,13 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
         ccolors = colors([10 100 200],:);
         LW = [2 2 2];
         clines = {':','-','-.'};
+        
+        V2020.km = [132 21 130 21];
+        V2020.Sm = [0.2307 0.0895 1.5256 0.6025];
+        V2020.MFCs = {'none','none','b','m'};
+        V2020.MECs = {'b','m','k','k'};
+        V2020.symbols = '^v^v';
+
     end
 
     k_Sm = logspace(log10(klims(1)),log10(klims(2)),npts_k);
@@ -163,6 +185,7 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
         als = alevels;
         pls = plevels;
         
+        
         load(fullfile([fname 'Dice' num2str(D_ice_km) 'km']));
         
         CALC_NEW = 0;
@@ -180,6 +203,7 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
 
     figno = 111+ibody;
     figure(figno);clf
+        set(gcf,'Position',[245   362   852   420]);
     kfine = logspace(log10(k_Sm(1)),log10(k_Sm(end)),np_intp);
     Dfine = logspace(log10(D_ocean_km(1)),log10(D_ocean_km(end)),np_intp);
 
@@ -189,13 +213,30 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
     ylabel('$D_\mathrm{ocean}$ (km)','Interpreter','latex')
     xlim(klims)
     ylim(Dlims)
+    
+    if PLOT_V2020s
+        for ip = 1:length(V2020.km)
+            hp = plot(V2020.Sm(ip),V2020.km(ip),V2020.symbols(ip));
+            hp.MarkerFaceColor = V2020.MFCs{ip};
+            hp.MarkerEdgeColor = V2020.MECs{ip};
+        end
+    end
 
-    subplot(1,2,2);hold on;title({'Phase Delay (Â°)'})
+    subplot(1,2,2);hold on;title({'Phase Delay (°)'})
     set(gca,'xscale','log','yscale','log');box on
     xlabel('$\sigma_\mathrm{ocean}$ (S/m)','Interpreter','latex')
     %ylabel('$D_\mathrm{ocean}$ (km)','Interpreter','latex')
     xlim(klims)
     ylim(Dlims)
+    
+    if PLOT_V2020s
+        for ip = 1:length(V2020.km)
+            hp = plot(V2020.Sm(ip),V2020.km(ip),V2020.symbols(ip));
+            hp.MarkerFaceColor = V2020.MFCs{ip};
+            hp.MarkerEdgeColor = V2020.MECs{ip};
+        end
+    end
+
 
     H = gobjects(1,lw);
     for iw = 1:lw
@@ -221,16 +262,22 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
         hl.Interpreter = 'latex';
         hl.Location = 'northeast';
         hl.FontWeight = 'bold';
+    end
         
         % Add text label
         ht = text(0.003850892987281,38.68764451136161,0,lname);
         ht.FontSize = 30;
         ht.BackgroundColor = 'w';
-    end
 
     annotation('textbox', pos, 'string', plotText)
     
     fprintf("Printed figure: %d\n", figno)
+    
+    str2020 = '';
+    if PLOT_V2020s
+        str2020 = '_WithV2020Models';
+    end
+    saveas(gcf,['MagPhase' lname str2020 '.eps'],'epsc')
 end
 end
 
