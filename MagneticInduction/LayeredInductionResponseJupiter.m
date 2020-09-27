@@ -1,6 +1,5 @@
 function LayeredInductionResponseJupiter
 
-close all
 warning('off','all')
 disp('All warnings are turned off. Turn them on again to check for NaN values in the input data.')
 
