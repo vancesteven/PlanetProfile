@@ -882,14 +882,17 @@ for in = 1:length(fnames)
     printTableStr(Waveforms.(fnames{in}).Name,FData,Waveforms.(fnames{in}).main,table_opts);
     table_opts.INCLUDE_TDs = false;
 
-    table_opts.PERCENT = 0;
-    % list the results for the main calculation, adding the ionospheric
+    if strcmp(FData.Name,'Callisto')
+      table_opts.PERCENT = 0;
+    else
+      table_opts.PERCENT = 1;
+    end
+        % list the results for the main calculation, adding the ionospheric
     % effects
     printTableStr('Pedersen',FData,Waveforms.(fnames{in}).ionosPedersen,table_opts);
     if isfield(Waveforms.(fnames{in}),'ionosCowling')
         printTableStr('Cowling',FData,Waveforms.(fnames{in}).ionosCowling,table_opts);                
     end
-    table_opts.PERCENT = 0;
     
     table_opts.PERCENT = 1;
     %mean ocean
