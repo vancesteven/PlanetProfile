@@ -9,7 +9,7 @@ function PlanetProfile(Planet,Seismic,Params)
 %
 % Expanded in
 % S. D. Vance, M. P. Panning, S. Staehler, F. Cammarano, B. G. Bills, G. Tobie, S..
-% Kamata, S. Kedar, C. Sotin, W. T. Pike, and et al. 
+% Kamata, S. Kedar, C. Sotin, W. T. Pike, et al. 
 % Geophysical investigations of habitability in ice-covered ocean worlds. 
 % Journal of Geophysical Research: Planets, Nov 2018.
 
@@ -25,11 +25,11 @@ if strcmp(Planet.Ocean.comp,'Seawater')
     swEOS.gsw = swEOS_chooser('gsw305');
 elseif strcmp(Planet.Ocean.comp,'NaCl')
     global swEOS
-%     swEOS.NaCl = readh5spline('NaCl.h5');
-%     load('NaCl_LBF');
-%     swEOS.NaCl.sp = sp_NaCl_8GPa;
-    load('NaClLBF');
-    swEOS.NaCl.sp = NaCl_LBF; % up to 4GPa and down to 250 K
+     swEOS.NaCl = readh5spline('NaCl.h5');
+     load('NaCl_LBF');
+     swEOS.NaCl.sp = sp_NaCl_8GPa;
+%    load('NaClLBF');
+%    swEOS.NaCl.sp = NaCl_LBF; % up to 4GPa and down to 250 K
 elseif strcmp(Planet.Ocean.comp,'NH3')
     %comment out the line below if your have REFPROP installed.
 %     error(['NH3 is not currently implemented due to complications with Refprop software.'])
@@ -55,8 +55,8 @@ end
 savefile = [Planet.name 'Profile_' Planet.Ocean.comp ...
     num2str(round(Planet.Ocean.w_ocean_pct)) 'WtPct_' minEOS];
 
-datpath = strcat(Planet.name,'/');
-figpath = strcat(Planet.name,'/figures/');
+datpath = [Planet.name '/'];
+figpath = [Planet.name '/figures/'];
 
 if ~isfield(Planet,'NoH2O') % backward compatibility--haven't finished implementing water-free worldsc
     Planet.NoH2O =0;
@@ -197,7 +197,11 @@ if ~Planet.NoH2O
 
         if phase(kt,ill) == 0 %if ocean
           [rho_ocean,Cp,alpha_o]= fluidEOS(P_MPa(kt,ill),T_K(kt,ill-1),wo,Planet.Ocean.comp);
-          if alpha_o<=0
+          % Forbidding MgSO4 in the check below avoids a problem in
+          % application of the EOS for low-salinity MgSO4 oceans.
+          % Negative thermal expansivity regions in the MgSO4 EOS may be
+          % artifacts of the current EOS calculation. See Vance et al. 2014
+          if alpha_o<=0 && ~strcmp(Planet.Ocean.comp,'MgSO4')
               disp('Ocean alpha at ice interface is less than zero. adjusting temperature upward.')
               disp('This means there''s a conductive layer at the interface with thickness inversely proportional to the heat flow.')
               disp('The thickness is likely less than a few 100 m. See Melosh et al. 2004.')
@@ -235,10 +239,10 @@ if ~Planet.NoH2O
         end
     end
     rho_kgm3(kt,1) = rho_kgm3(kt,2); %continuity
-        save(strcat(datpath,savefile),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps'); % save the progress at each step
+        save(fullfile([datpath savefile]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps'); % save the progress at each step
     end  
     else
-        load(strcat(datpath,savefile));
+        load(fullfile([datpath savefile]));
     end
     %% Save in a file the densities of adiabats corresponding to different ocean concentrations
     str_ref_densities = ['ref_densities' Planet.name '_' Planet.Ocean.comp '.mat'];
@@ -271,9 +275,9 @@ if ~Planet.NoH2O
                    rho_ref_kgm3(jr,:)=interp1(Pref_MPa(isreal),rho_ref_kgm3(jr,isreal),Pref_MPa,'linear','extrap');
                end
             end
-        save([datpath str_ref_densities],'rho_ref_kgm3','Pref_MPa','Tref_K')
+        save(fullfile([datpath str_ref_densities]),'rho_ref_kgm3','Pref_MPa','Tref_K')
     else
-        load([datpath str_ref_densities]);
+        load(fullfile([datpath str_ref_densities]));
     end
 
     %%%%%%%%%%%%%%%%%%%%%
@@ -551,7 +555,8 @@ end
     end
 
 
-%% consider, if appropriate, a convective ice shell of the same thickness
+%% Iterative Calculation for Adding Details to the Seismic Profile 
+% consider, if appropriate, a convective ice shell of the same thickness
 % this introduces an error in the gravity profile and thus the moment of inertia, since the overlying mass will be
 % less
 for iT = 1:nTbs
@@ -559,59 +564,60 @@ for iT = 1:nTbs
     [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
         ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,Zb2(iT),g_ms2(iT,1),2);
     if ~isfield(Params,'NO_ICEI_CONVECTION') || Params.NO_ICEI_CONVECTION == false
-    if CONVECTION_FLAG_I(iT) || (isfield(Params,'FORCE_ICEI_CONVECTION') && Params.FORCE_ICEI_CONVECTION == true)
-        %conductive upper layer
-        nConvectIce=n_iceI-nIceIIILithosphere-1;
-        inds_eTBL = find(z_m(iT,1:nConvectIce)<=eTBL_m(iT));
-        Pterm = P_MPa(iT,inds_eTBL)./P_MPa(iT,inds_eTBL(end));
-        T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
-        %convective region
-        for iconv = inds_eTBL(end)+1:nConvectIce
-%             rho = 1000./getVspChoukroun2010(P_MPa(iT,iconv),T_K(iT,iconv-1),2);
-            rho = getRhoIce(P_MPa(iT,iconv),T_K(iT,iconv-1),1);
-            try
-            [Cp,alpha_K] = getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),1);
-            catch
-                x =1;
+        if CONVECTION_FLAG_I(iT) || (isfield(Params,'FORCE_ICEI_CONVECTION') && Params.FORCE_ICEI_CONVECTION == true)
+            %conductive upper layer
+            nConvectIce=n_iceI-nIceIIILithosphere-1;
+            inds_eTBL = find(z_m(iT,1:nConvectIce)<=eTBL_m(iT));
+            Pterm = P_MPa(iT,inds_eTBL)./P_MPa(iT,inds_eTBL(end));
+            T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
+            %convective region
+            for iconv = inds_eTBL(end)+1:nConvectIce
+    %             rho = 1000./getVspChoukroun2010(P_MPa(iT,iconv),T_K(iT,iconv-1),2);
+                rho = getRhoIce(P_MPa(iT,iconv),T_K(iT,iconv-1),1);
+                try
+                [Cp,alpha_K] = getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),1);
+                catch
+                    x =1;
+                end
+    %             aK = 1.56e-4;
+                T_K(iT,iconv) = T_K(iT,iconv-1)+alpha_K*T_K(iT,iconv)/Cp/rho*deltaP*1e6;
             end
-%             aK = 1.56e-4;
-            T_K(iT,iconv) = T_K(iT,iconv-1)+alpha_K*T_K(iT,iconv)/Cp/rho*deltaP*1e6;
+           % conductive lower layer
+           inds_deltaTBL = find(z_m(iT,1:nConvectIce)>=z_m(iT,nConvectIce)-deltaTBL_m(iT));
+           T_K(iT,inds_deltaTBL) = (Planet.Tb_K(iT).^(P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT))).*(T_K(iT,inds_deltaTBL(1)-1).^(1-P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT)));   
+           rho_kgm3(iT,inds_deltaTBL) = getRhoIce(P_MPa(iT,inds_deltaTBL),T_K(iT,inds_deltaTBL),1); 
+
+           if find(phase(iT,:)>1)
+    %         indVI = find(phase(iT,:)==6);   
+    %         Ttop = T_K(iT,indsVI(iT));
+    %         Tbottom = zVI_m
+    %         [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),CONVECTION_FLAG_I(iT)]=...
+    %         ConvectionHPIceKalousova2018(Ttop,,PbI_MPa(iT)/2,Zb2(iT),g_ms2(iT,1),2);
+           end
+
+           if Planet.EQUIL_Q
+               Planet.Qmantle_Wm2(iT) = Q_Wm2(iT);
+           else
+               Planet.Qmantle_Wm2(iT) = Planet.Qmantle_Wm2(1);
+           end
+        else
+           if Planet.EQUIL_Q
+               Planet.Qmantle_Wm2(iT) = Qb(iT);
+           else
+               Planet.Qmantle_Wm2(iT) = Planet.Qmantle_Wm2(1);
+           end
+
         end
-       % conductive lower layer
-       inds_deltaTBL = find(z_m(iT,1:nConvectIce)>=z_m(iT,nConvectIce)-deltaTBL_m(iT));
-       T_K(iT,inds_deltaTBL) = (Planet.Tb_K(iT).^(P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT))).*(T_K(iT,inds_deltaTBL(1)-1).^(1-P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT)));   
-       rho_kgm3(iT,inds_deltaTBL) = getRhoIce(P_MPa(iT,inds_deltaTBL),T_K(iT,inds_deltaTBL),1); 
-       
-       if find(phase(iT,:)>1)
-%         indVI = find(phase(iT,:)==6);   
-%         Ttop = T_K(iT,indsVI(iT));
-%         Tbottom = zVI_m
-%         [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),CONVECTION_FLAG_I(iT)]=...
-%         ConvectionHPIceKalousova2018(Ttop,,PbI_MPa(iT)/2,Zb2(iT),g_ms2(iT,1),2);
-       end
-       
-       if Planet.EQUIL_Q
-           Planet.Qmantle_Wm2(iT) = Q_Wm2(iT);
-       else
-           Planet.Qmantle_Wm2(iT) = Planet.Qmantle_Wm2(1);
-       end
     else
-       if Planet.EQUIL_Q
+        if Planet.EQUIL_Q
            Planet.Qmantle_Wm2(iT) = Qb(iT);
-       else
+        else
            Planet.Qmantle_Wm2(iT) = Planet.Qmantle_Wm2(1);
-       end
+        end
+        Q_Wm2(iT) = Planet.Qmantle_Wm2(1); 
     end
-    else
-    if Planet.EQUIL_Q
-       Planet.Qmantle_Wm2(iT) = Qb(iT);
-    else
-       Planet.Qmantle_Wm2(iT) = Planet.Qmantle_Wm2(1);
-    end
-        Q_Wm2(iT) = Planet.Qmantle_Wm2(1);    
-    end  
 end
-%%
+
 indSil=zeros(1,nTbs);
 for iT = 1:nTbs % determine where the silicate should start
     indSil(iT) = find(R_sil_m(iT,:)==R_sil_mean_m(iT));
@@ -1142,7 +1148,7 @@ if Params.CALC_NEW_SOUNDSPEEDS
         vfluid_kms(iT,ir) = fluidSoundSpeeds(P_MPa(iT,ir),T_K(iT,ir),wo,Planet.Ocean.comp);
         ireal = find(~isnan(vfluid_kms(iT,:)));
         if length(ireal)<length(ir)
-            disp('warning: extrapolating fluid sound speeds; this is seawater above 120 MPa, right?')
+            disp('WARNING: extrapolating fluid sound speeds; this is seawater above 120 MPa, right?')
             vfluid_kms(iT,ir) = interp1(P_MPa(iT,ireal),vfluid_kms(iT,ireal),P_MPa(iT,ir),'linear','extrap');
         end
 %         for ir = find(phase(iT,:)==0)
@@ -1163,9 +1169,9 @@ if Params.CALC_NEW_SOUNDSPEEDS
         velsIce.VVIl_kms(iT,phase(iT,:)~=6) =NaN;
         velsIce.VVIt_kms(iT,phase(iT,:)~=6) =NaN;
     end
-    save([datpath savefile 'Vels'],'Ksfluid_GPa','velsIce','vfluid_kms');
+    save(fullfile([datpath savefile 'Vels']),'Ksfluid_GPa','velsIce','vfluid_kms');
 else
-    load([datpath savefile 'Vels']);
+    load(fullfile([datpath savefile 'Vels']));
 end
 
 %% Electrical Conductivity
@@ -1460,6 +1466,9 @@ opts.Ttight = true;
 if Planet.FeCore
     pinds = find(mantle.p(:,1)*1e3>=thisPcore(1));
     pcore = mantle.p(pinds,:)*1e3; tcore = mantle.t(pinds,:);
+    if ~exist('core','var')
+        core=deal([]);
+    end
 else
     [core,tcore,pcore]=deal([]);
 end
@@ -2220,14 +2229,7 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
             [rho_kgm3,Cp,alpha_Km1]=MgSO4_EOS2_planetary_smaller(mo,P_MPa,T_K-273.15);
         case 'NaCl'
             global swEOS
-            W_NaCl = 58.4;
-            mo=1000./W_NaCl./(1./(0.01.*wo)-1); %conversion to molality from Wt%
-           rmpath('/Users/svance/Dropbox/PlanetProfile/Thermodynamics/SeaFreeze/Matlab')            
-            out=fnGval(swEOS.NaCl.sp,{P_MPa,T_K,mo});
-            addpath('/Users/svance/Dropbox/PlanetProfile/Thermodynamics/SeaFreeze/Matlab')
-            rho_kgm3=out.rho;
-            Cp=out.Cp;
-            alpha_Km1 = out.alpha;
+            disp('WARNING: NaCl is not yet implemented for fluidEOS.')
         case 'Seawater'
             global swEOS extrapflag
             % expect that wo is absolute salinity
@@ -2236,7 +2238,7 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
             alpha_Km1 = swEOS.gsw.alpha(wo,T_K,P_MPa*10);
             if isnan(rho_kgm3)
                 if ~extrapflag % only warn once
-                    disp('warning: extrapolating fluid rho, Cp, and alpha; this is seawater above 120 MPa, right?')
+                    disp('WARNING: extrapolating fluid rho, Cp, and alpha; this is seawater above 120 MPa, right?')
                     extrapflag = 1;
                 end
                 Pin = [110 115 120];
@@ -2249,9 +2251,7 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
                 alpha_Km1 = interp1(Pin,alphain,P_MPa,'linear','extrap');                
             end
         case 'NH3'
-%             [rho_kgm3,Cp,alpha_Km1,~]=NH3_EOS(P_MPa,T_K,wo);
-            [rho_kgm3,~,~,Cp,~,alpha_Km1] = ...
-                refproppy32([P_MPa T_K],{'ammonia' 'water'},[wo 100-wo]/100,-1);
+           disp('WARNING: NH3 is not yet implemented for fluidEOS.')
     end
 end %fluidEOS
 function [vel_kms,Ks_GPa] = fluidSoundSpeeds(P_MPa,T_K,wo,str_comp)
@@ -2262,22 +2262,13 @@ function [vel_kms,Ks_GPa] = fluidSoundSpeeds(P_MPa,T_K,wo,str_comp)
             vel_kms = MgSO4_EOS2_planetary_velocity_smaller_vector(mo,P_MPa,T_K-273.15); % assumes P and T are the same length.
         case 'NaCl'
             global swEOS
-            W_NaCl = 58.4;
-            mo=1000./W_NaCl./(1./(0.01.*wo)-1); %conversion to molality from Wt%
-           rmpath('/Users/svance/Dropbox/PlanetProfile/Thermodynamics/SeaFreeze/Matlab')            
-            Gout=fnGval(swEOS.NaCl.sp,[P_MPa',T_K',mo*ones(length(T_K),1)]);
-           addpath('/Users/svance/Dropbox/PlanetProfile/Thermodynamics/SeaFreeze/Matlab')            
-            [vel_kms]=1e-3*Gout.vel;
+            disp('WARNING: NaCl is not yet implemented for fluidSoundSpeeds.')
         case 'Seawater'
             global swEOS
             % expect that wo is absolute salinity
             vel_kms=1e-3*swEOS.gsw.vel(wo*ones(1,length(T_K)),T_K,P_MPa*10);
         case 'NH3'
-%             [~,~,~,vel_out]=NH3_EOS(P_MPa,T_K,wo);
-            parfor iP = 1:length(P_MPa)
-            [~,vel_kms(iP),~,~,~] = ...
-                    refproppy32([P_MPa(iP) T_K(iP)],{'ammonia' 'water'},[wo 100-wo]/100,-1);
-            end
+            disp('WARNING: NH3 is not yet implemented for fluidSoundSpeeds.')
     end
 end % fluidSoundSpeeds
 function zero_alpha = alphaAdjust(P_MPa,T_K,wo,comp)
@@ -2344,18 +2335,20 @@ if strcmp(opts.Punits,'GPa')
 else
     xp = 1;
 end
-    if strcmp(prop,'Ks') || strcmp(prop,'Gs')
-        pcolor(mantle.t,mantle.p*1e3*xp,mantle.(prop)*1e-4);
-    else
-        pcolor(mantle.t,mantle.p*1e3*xp,mantle.(prop));
-    end
-    hold on; 
+
+if strcmp(prop,'Ks') || strcmp(prop,'Gs')
+    pcolor(mantle.t,mantle.p*1e3*xp,mantle.(prop)*1e-4);
+else
+    pcolor(mantle.t,mantle.p*1e3*xp,mantle.(prop));
+end
+
+hold on; 
 if ~isempty(core)
     propcore = core.([prop '_fn'])(pcore,tcore);
     if strcmp(prop,'Ks') || strcmp(prop,'Gs')
         pcolor(tcore,pcore*xp,propcore*1e-4);   
     else
-        pcolor(tcore,pcore*xp,propcore);   
+        pcolor(tcore,pcore*xp,propcore);
     end
 end
 hp = plot(T_Planet_K',P_Planet_MPa'*xp,'w-','LineWidth',1);
