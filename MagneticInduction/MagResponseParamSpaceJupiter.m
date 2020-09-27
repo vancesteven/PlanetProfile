@@ -276,7 +276,7 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
     if PLOT_V2020s
         str2020 = '_WithV2020Models';
     end
-    saveas(gcf,fullfile([lname '/' 'MagPhase' lname str2020 '.eps']),'epsc')
+    saveas(gcf,fullfile([lname '/figures/' 'MagPhase' lname str2020 '.eps']),'epsc')
 end
 end
 
