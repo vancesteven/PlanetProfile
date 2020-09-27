@@ -858,6 +858,10 @@ function printWaveformTables(FData,Waveforms,dir)
 makeTableHeader(FData,dir)
 fnames = fieldnames(Waveforms);
 for in = 1:length(fnames)
+    plot_opts = getPlotOpts(FData.Name,fnames{in});
+    if isfield(plot_opts,'Tb_colorTex')
+        table_opts.Tb_colorTex = plot_opts.Tb_colorTex;
+    end
     table_opts.dir = dir;
     table_opts.main = Waveforms.(fnames{in}).main; % used for printing PERCENT values
     if isfield(Waveforms.(fnames{in}),'ionos_onlyPedersen')
@@ -933,9 +937,11 @@ switch pname
             if strfind(fname,'30')
                 [plot_opts.LC,plot_opts.MEC] = deal('b');
                 plot_opts.point = '^';
+                plot_opts.Tb_colorTex = '\color{blue}';
             else
                 [plot_opts.LC,plot_opts.MEC] = deal('m');
                 plot_opts.point = 'v';
+                plot_opts.Tb_colorTex = '\color{magenta}';
             end
             if strfind(fname,'10')
                 plot_opts.MFC = plot_opts.MEC;
@@ -949,11 +955,13 @@ switch pname
             color_warmSW = 	[176,0,255]/255;
             plot_opts.line='-';
             if strfind(fname,'30')
-            [plot_opts.LC,plot_opts.MEC] = deal('c');
+                [plot_opts.LC,plot_opts.MEC] = deal('c');
                 plot_opts.point = '^';
+                plot_opts.Tb_colorTex = '\color{cyan}';
             else
-             [plot_opts.LC,plot_opts.MEC] = deal(color_warmSW);
+               [plot_opts.LC,plot_opts.MEC] = deal(color_warmSW);
                plot_opts.point = 'v';
+               plot_opts.Tb_colorTex = '\color[HTML]{b000ff}';
             end
             if strfind(fname,'_1')
                 plot_opts.MFC = plot_opts.MEC;
@@ -969,9 +977,11 @@ switch pname
         if strfind(fname,'95')
             [plot_opts.LC,plot_opts.MEC] = deal('b');
             plot_opts.point = '^';
+            plot_opts.Tb_colorTex = '\color{blue}';
         else
             [plot_opts.LC,plot_opts.MEC] = deal('m');
             plot_opts.point = 'v';
+            plot_opts.Tb_colorTex = '\color{magenta}';
         end
         if strfind(fname,'10')
             plot_opts.MFC = plot_opts.MEC;
@@ -986,9 +996,11 @@ switch pname
         if strfind(fname,'130')
             [plot_opts.LC,plot_opts.MEC] = deal('b');
             plot_opts.point = '^';
+            plot_opts.Tb_colorTex = '\color{blue}';
         else
             [plot_opts.LC,plot_opts.MEC] = deal('m');
             plot_opts.point = 'v';
+            plot_opts.Tb_colorTex = '\color{magenta}';
         end
         if strfind(fname,'10_')
             plot_opts.MFC = plot_opts.MEC;
@@ -1304,7 +1316,12 @@ if opts.INCLUDE_TDs
         disp(['\multicolumn{4}{l}{' Name '} & \textbf{Re Im} & \textbf{Re Im} & \textbf{Re Im}\\'])
         disp(['\hline'])
     end
-    d_str = [num2str(Planet.Tb_K,'%0.1f')];
+    if isfield(opts,'Tb_colorTex')
+        col = opts.Tb_colorTex;
+    else
+        col = '';
+    end
+    d_str = ['{' col num2str(Planet.Tb_K,'%0.1f') '}'];
     d_str = [d_str ' &' num2str(Planet.Tmean_K,'%0.1f')];
     d_str = [d_str ' &' num2str(Planet.D_Ih_km,'%0.0f')];
     d_str = [d_str ' &' num2str(Planet.D_ocean_km,'%0.0f')];
