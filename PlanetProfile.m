@@ -201,7 +201,12 @@ if ~Planet.NoH2O
           % application of the EOS for low-salinity MgSO4 oceans.
           % Negative thermal expansivity regions in the MgSO4 EOS may be
           % artifacts of the current EOS calculation. See Vance et al. 2014
-          if alpha_o<=0 && ~strcmp(Planet.Ocean.comp,'MgSO4')
+          % For Vance et al. 2020, we also forbid this check for Seawater,
+          % because exploring its effects are beyond the scope of that
+          % work. It is a documented effect that may lead to significant
+          % effects on magnetic induction and should be explored in future
+          % work.
+          if alpha_o<=0 && ~strcmp(Planet.Ocean.comp,'MgSO4') && ~strcmp(Planet.Ocean.comp,'Seawater')
               disp('Ocean alpha at ice interface is less than zero. adjusting temperature upward.')
               disp('This means there''s a conductive layer at the interface with thickness inversely proportional to the heat flow.')
               disp('The thickness is likely less than a few 100 m. See Melosh et al. 2004.')
