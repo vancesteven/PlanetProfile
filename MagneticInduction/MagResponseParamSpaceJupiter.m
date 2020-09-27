@@ -207,7 +207,7 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
     kfine = logspace(log10(k_Sm(1)),log10(k_Sm(end)),np_intp);
     Dfine = logspace(log10(D_ocean_km(1)),log10(D_ocean_km(end)),np_intp);
 
-    subplot(1,2,1);hold on;title({'Amplitude (nT) '})
+    subplot(1,2,1);hold on;title({'\textbf{Amplitude (nT)} '},'Interpreter','latex')
     set(gca,'xscale','log','yscale','log');box on
     xlabel('$\sigma_\mathrm{ocean}$ (S/m)','Interpreter','latex')
     ylabel('$D_\mathrm{ocean}$ (km)','Interpreter','latex')
@@ -222,7 +222,7 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
         end
     end
 
-    subplot(1,2,2);hold on;title({'Phase Delay (°)'})
+    subplot(1,2,2);hold on;title({'\textbf{Phase Delay ($\bf ^\circ$)}'},'Interpreter','latex')
     set(gca,'xscale','log','yscale','log');box on
     xlabel('$\sigma_\mathrm{ocean}$ (S/m)','Interpreter','latex')
     %ylabel('$D_\mathrm{ocean}$ (km)','Interpreter','latex')
@@ -236,7 +236,6 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
             hp.MarkerEdgeColor = V2020.MECs{ip};
         end
     end
-
 
     H = gobjects(1,lw);
     for iw = 1:lw
@@ -277,7 +276,7 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
     if PLOT_V2020s
         str2020 = '_WithV2020Models';
     end
-    saveas(gcf,['MagPhase' lname str2020 '.eps'],'epsc')
+    saveas(gcf,fullfile([lname '/' 'MagPhase' lname str2020 '.eps']),'epsc')
 end
 end
 
