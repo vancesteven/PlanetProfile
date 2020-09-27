@@ -90,9 +90,9 @@ Params.NOPLOTS = 0; %allows user to limit recreating plots & figures after each 
 %% Run the Calculation!
 Params.HOLD =0;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
-Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.CALC_NEW =0; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW_SOUNDSPEEDS=0;
 
 Planet.Cmeasured = 0.3549; 
 Planet.Cuncertainty = 0.0042;% Anderson et al. 2001 and Schubert et al. 2004 
