@@ -3,5 +3,6 @@ function go
     PPEuropa
     PPGanymede
     PPCallisto
+    MagResponseParamSpaceJupiter
     LayeredInductionResponseJupiter
 end
