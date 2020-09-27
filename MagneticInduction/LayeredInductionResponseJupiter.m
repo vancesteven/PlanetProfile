@@ -8,7 +8,7 @@ disp('All warnings are turned off. Turn them on again to check for NaN values in
 set(0,'defaultfigurecolor',[1 1 1])
 set(0,'defaultAxesFontSize',16)
 
-CALC_NEW = 1;
+CALC_NEW = 0;
 DO_EUROPA = 1;
 DO_GANYMEDE = 1;
 DO_CALLISTO = 1;

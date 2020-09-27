@@ -116,7 +116,7 @@ Params.wrefLine = '--';
 % plots from Vance et al. 2018
 Params.BOTTOM_ICEIII = 0;
 Params.HOLD = 0;
-Params.CALC_NEW = 1;
+Params.CALC_NEW = 0;
 Params.LineStyle='--';
 Params.wrefLine = '--';
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
@@ -124,7 +124,7 @@ Planet.rho_sil_withcore_kgm3 = 3525;
 PlanetProfile(Planet,Seismic,Params)
 
 % new plots for induction
-Params.CALC_NEW = 1;
+Params.CALC_NEW = 0;
 Params.HOLD = 1;
 Planet.Ocean.w_ocean_pct=1; Planet.Tb_K = [250.8 257.4]; % 1 Wt% temperatures at the bottom of the Ice Ih
 Planet.rho_sil_withcore_kgm3 = 3525;

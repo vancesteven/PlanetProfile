@@ -111,15 +111,15 @@ Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the e
 Planet.rho_sil_withcore_kgm3 = 3730;
 
 Params.HOLD = 0; % overlay previous run
-Params.CALC_NEW = 1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.CALC_NEW = 0; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW_SOUNDSPEEDS=0;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [260  270.1]; % 10 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
 
 Params.HOLD = 1; % overlay previous run
-Params.CALC_NEW = 1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+Params.CALC_NEW = 0; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
 Planet.Ocean.w_ocean_pct=1; Planet.Tb_K = [261.5  270.7]; % 1 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)

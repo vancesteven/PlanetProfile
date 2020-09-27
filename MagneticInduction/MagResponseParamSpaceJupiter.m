@@ -1,6 +1,6 @@
 function MagResponseParamSpaceJupiter
 
-CALC_NEW = 1;
+CALC_NEW = 0;
 PLOT_CONTOURS = 1;  % Set to 0 for surfaces
 DO_LEGEND = 1;
 
