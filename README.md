@@ -4,12 +4,16 @@ Matlab software for constructing 1D interior structure models based on planetary
 The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
 
 PREREQUISITES:
-  @ Matlab Curve Fitting Toolbox
-  @ Matlab Optimization Toolbox
+  @ SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze
+  @ Matlab "Curve Fitting Toolbox"
+  @ Matlab "Image Processing Toolbox"
+  @ Matlab "Optimization Toolbox"
+  @ Matlab "Parallel Computing Toolbox" (optional, for select applications)
   @ Refprop is required for NH3 solutions: https://www.nist.gov/refprop
       $ Due to various complications it is not currently implemented.
 
 SETUP:
+  @ Install SeaFreeze by copying the contents of the Matlab folder at https://github.com/Bjournaux/SeaFreeze into the Thermodynamics/SeaFreeze folder of PlanetProfile.
   @ Open a Terminal and navigate to the PlanetProfile directory.
   @ Type "make install" (no quotes) and hit enter.
   @ In Matlab, run "startup" (no quotes) at the command line, or close and relaunch.
