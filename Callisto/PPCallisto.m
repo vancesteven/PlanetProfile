@@ -141,13 +141,13 @@ Params.wrefLine = '--';
 
 Params.HOLD = 0;
 
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [249.8]; % 10 Wt% temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
 
 Params.HOLD = 1;
 
 Params.LineStyle=':';
-Planet.Ocean.w_ocean_pct=13; Planet.Tb_K = [249]; % 10 Wt% temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=13; Planet.Tb_K = [250.8 257.4]; % 10 Wt% temperatures at the bottom of the Ice Ih
 PlanetProfile(Planet,Seismic,Params)
 
 

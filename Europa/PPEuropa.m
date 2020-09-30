@@ -169,7 +169,7 @@ Params.HOLD = 1; % overlay previous runs
 
 Planet.Ocean.comp='Seawater';
 Params.LineStyle='-.';
-Params.wref=[0 34 68];
+Params.wref=[0 34];
 Params.wrefLine = '-.';
 Params.colororder = 'cm';
 
