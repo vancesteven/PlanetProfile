@@ -28,7 +28,7 @@ NOTES:
 * As of 2020-09-28, PlanetProfile v1.1.0 was released along with code for making calculations regarding magnetic induction. The development (master) branch of PlanetProfile is set up to generate profiles from minimal inputs. Output profiles that may be used along with the induction calculations may be found in the v1.1.0 release.
 * The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.
 * To re-use data from past profiles, which dramatically speeds up runtime, set the calc_new flags in the config.m input file to 0. If you are using git, use the following command to avoid editing the repository version of the config file:
-    git update-index --assume-unchanged config.m
+> git update-index --assume-unchanged config.m
 
 Some calculations use Matlab's Parallel Computing package.  If you don't have access to this package then parfor loops should be changed to for loops.  A future version will check and do this automatically.
 
