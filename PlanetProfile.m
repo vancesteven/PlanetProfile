@@ -369,7 +369,7 @@ if ~Planet.FeCore
    % Plot the results
     if ~Params.NOPLOTS
         figure(2295);clf;hold all
-        set(gcf,'Position', [335 133 696 547], 'Name', lbl.densi)
+        set(gcf,'Position', [335 133 696 547], 'Name', lbl.mantl)
         for iT=1:nTbs
             plot(rho_sil_kgm3(iT,C2inds{iT})',R_sil_m(iT,C2inds{iT})'*1e-3);
         end
@@ -398,7 +398,7 @@ else % WITH A CORE
     end
 if ~Params.NOPLOTS    
     figure(2296);clf;hold all
-    set(gcf,'Position', [335 133 696 547], 'Name', lbl.densi)
+    set(gcf,'Position', [335 133 854 547], 'Name', lbl.corsz)
 end
     for iT=1:nTbs
         C2inds{iT} = find(C2(iT,:)/MR2>Planet.Cmeasured-Planet.Cuncertainty & C2(iT,:)/MR2<Planet.Cmeasured+Planet.Cuncertainty);
@@ -2398,7 +2398,8 @@ function [nm, bnm, math, lbl] = getPlotLabels(dft_font, dft_math, interpreter)
 
     % Figure and axis labels
     lbl.inter = 'P-T dependences';
-    lbl.densi = 'Mass density';
+    lbl.mantl = 'Mantle size vs. density';
+    lbl.corsz = 'Core size vs. mantle size';
     lbl.seism = 'Seismic data and attenuation';
     lbl.panl4 = 'Conductivity with interior properties';
     lbl.wedge = 'Interior wedge diagrams';
