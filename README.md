@@ -9,7 +9,6 @@ PREREQUISITES:
 * Matlab "Image Processing Toolbox"
 * Matlab "Optimization Toolbox"
 * Matlab "Parallel Computing Toolbox" (optional, for select applications)
-* Latex interpreter -- see https://www.latex-project.org/
 * Refprop is required for NH3 solutions: https://www.nist.gov/refprop
   * Due to various complications it is not currently implemented.
 
