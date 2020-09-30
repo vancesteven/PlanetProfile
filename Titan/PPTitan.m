@@ -14,6 +14,15 @@ Planet.xFeS = 0; %0.25
 Planet.rhoFe = 8000; %8000
 Planet.rhoFeS = 5150; %5150
 
+% Fetch this information from an external file so we don't track
+% runtime settings in this file
+cfg = config;
+Params.NOPLOTS = cfg.no_plots;
+Params.CALC_NEW = cfg.calc_new; 
+Params.CALC_NEW_REFPROFILES = cfg.calc_new_ref;
+Params.CALC_NEW_SOUNDSPEEDS = cfg.calc_new_sound;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = cfg.conduct;
+
 %  Interior constraints imposed in Vance et al. 2014
 mSi = 28.0855; mS = 32.065; mFe = 55.845; mMg = 24.305;
 xOl = 0.44; % percentage of olivine - Javoy (1995) - Fe/Si = 0.909 Mg/Si = 0.531, Mg# = 0.369
@@ -121,16 +130,10 @@ Planet.xFeS = 1; %0.25
 Planet.xFe_core = 0.0463 ; % this is the total Fe  in Fe and FeS
 Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 
-Params.NOPLOTS = 0; %allows user to limit recreating plots & figures after each run
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
-
 % Comparison of MgSO4 EOS pure water values is close to values for ammonia
 % EOS.  There are diffences in both the melting temperatures and fluid
 % thermodynamics
 Params.HOLD = 0;
-Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
 
 Params.LineStyle =  '--';
 Params.wrefLine =  '--';

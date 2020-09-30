@@ -28,6 +28,15 @@ Planet.rhoFeS = 5150; %5150
 %to our calculation using the Saxena and Eriksson 2015 (CALPHAD) EoS, 
 %modified by Eleanor Green and Jamie Connolly for PerpleX 6.8.3.
 
+% Fetch this information from an external file so we don't track
+% runtime settings in this file
+cfg = config;
+Params.NOPLOTS = cfg.no_plots;
+Params.CALC_NEW = cfg.calc_new; 
+Params.CALC_NEW_REFPROFILES = cfg.calc_new_ref;
+Params.CALC_NEW_SOUNDSPEEDS = cfg.calc_new_sound;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = cfg.conduct;
+
 %% salinities and temperatures at the bottom of the Ice Ih
 % the vector of Tb needs to be monotonically increasing for the calculation
 % of fluid electrical conductivities.
@@ -120,10 +129,8 @@ Params.nsteps_core = 10;
 Params.savefigformat = 'epsc';
 Params.colororder = 'mcbkgrm';
 Params.Temps = [250 252.5 255 260 265 270 273];
-Params.NOPLOTS = 0; %allows user to control recreating & display of plots/figures after each run
 
 %% Run the Calculation!
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
 % 
 Seismic.mantleEOS = 'chon_678_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries
 Planet.rho_sil_withcore_kgm3 = 3539;
@@ -145,9 +152,6 @@ Params.LineStyle='--';
 Params.wrefLine = '--';
 Params.wref=[0 5 10 15];
 
-Params.CALC_NEW =1;
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.colororder = 'cm';
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [269.8  272.7]; % 265
 
@@ -172,10 +176,6 @@ Params.LineStyle='-.';
 Params.wref=[0 34];
 Params.wrefLine = '-.';
 Params.colororder = 'cm';
-
-Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
 
 Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
 Planet.xFeS = 0.55; %0.25, mass fraction of sulfur in the core

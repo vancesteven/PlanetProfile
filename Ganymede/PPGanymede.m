@@ -13,6 +13,15 @@ load L_Ice_MgSO4.mat
 % rmfield(Planet.Ocean,'fnTfreeze_K');
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 
+% Fetch this information from an external file so we don't track
+% runtime settings in this file
+cfg = config;
+Params.NOPLOTS = cfg.no_plots;
+Params.CALC_NEW = cfg.calc_new; 
+Params.CALC_NEW_REFPROFILES = cfg.calc_new_ref;
+Params.CALC_NEW_SOUNDSPEEDS = cfg.calc_new_sound;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = cfg.conduct;
+
 
 %% Porosity of the rock
 Planet.POROUS_ROCK = 0;
@@ -64,8 +73,6 @@ Params.nsteps_core = 10;
 Params.savefigformat = 'epsc';
 Params.wref=[0 5 10 15];
 
-Params.NOPLOTS = 1; %allows user to limit recreating plots & figures after each run
-
 Params.colororder = 'cbmkgrm';
 Params.Temps = [250 252.5 255 260 265 270 273];
 
@@ -105,7 +112,6 @@ Planet.QHmantle = 0;
 % QHmantle = 8.5e11;
 
 
-
 %Planet.Tb_K = [250 255 260 265 270]; % 15 Wt% temperatures at the bottom of the Ice Ih
 % %Planet.Tb_K = [252.5 255 260 265 270]; %3 and 5 Wt% temperatures at the bottom of the Ice Ih
 %  Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 265 270]; % 10 Wt% temperatures at the bottom of the Ice Ih
@@ -141,11 +147,7 @@ Planet.xFe_core = 0.0463 ; % this is the total Fe  in Fe and FeS
 Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 Planet.rho_sil_withcore_kgm3 = 3730;
 
-
 Params.HOLD = 0; % overlay previous run
-Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250  260  270]; % 10 Wt% temperatures at the bottom of the Ice Ih
@@ -154,16 +156,10 @@ Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250  260  270]; % 10 Wt% temperature
 PlanetProfile(Planet,Seismic,Params)
 
 Params.HOLD = 1; % overlay previous run
-Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
 Planet.Ocean.w_ocean_pct=1; Planet.Tb_K = [261.4  270.7]; % 1 Wt% temperatures at the bottom of the Ice Ih
 % Planet.rho_sil_withcore_kgm3 = 3340; % for the saturated echondrite
 % Planet.rho_sil_withcore_kgm3 = 3520; % used in the 2017 JGR paper
 PlanetProfile(Planet,Seismic,Params)
-
-
-Params.CALC_NEW =1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 
 Params.HOLD = 1; % overlay previous run
 Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = [255  265  273]; % pure water, temperatures at the bottom of the Ice Ih

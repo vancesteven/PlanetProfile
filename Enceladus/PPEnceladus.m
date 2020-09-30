@@ -18,6 +18,15 @@ Planet.FeCore=false;
 % Planet.rho_sil_withcore_kgm3 = 2400; % Iess et al. 2014
 Planet.rho_sil_withcore_kgm3 = 2700; 
 
+% Fetch this information from an external file so we don't track
+% runtime settings in this file
+cfg = config;
+Params.NOPLOTS = cfg.no_plots;
+Params.CALC_NEW = cfg.calc_new; 
+Params.CALC_NEW_REFPROFILES = cfg.calc_new_ref;
+Params.CALC_NEW_SOUNDSPEEDS = cfg.calc_new_sound;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = cfg.conduct;
+
 % WARNING: The following line was copied from PPCallisto.m because it is
 % required by PlanetProfile.m in the current version and does not appear in
 % this file. An issue has been opened on GitHub. Delete this comment when
@@ -115,7 +124,6 @@ Params.nsteps_ref_rho = 30;
 Params.nsteps_mantle = 1500;
 Params.nsteps_core = 100;
 Params.Temps = [245 250 252.5 255 260 265 270];
-Params.NOPLOTS = 0; %allows user to limit recreating plots & figures after each run
 
 
 %% Run the Calculation!
@@ -124,19 +132,10 @@ Params.NOPLOTS = 0; %allows user to limit recreating plots & figures after each 
 % 
 % 
 % Params.HOLD = true;
-% Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = false;
-% 
-% Params.CALC_NEW=1;
-% Params.CALC_NEW_SOUNDSPEEDS=1;
 % 
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [273.1 273.15]; % pure water, temperatures at the bottom of the Ice Ih
 % PlanetProfile(Planet,Seismic,Params)
 % 
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = 1;
-% 
-Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
 % 
 Planet.Ocean.comp='MgSO4';
 load L_Ice_MgSO4.mat
@@ -163,8 +162,6 @@ PlanetProfile(Planet,Seismic,Params)
 % Params.wrefLine = '-.';
 % Params.colororder = 'cm';
 % 
-% Params.CALC_NEW_REFPROFILES=1;
-% Params.CALC_NEW_SOUNDSPEEDS=1;
 % Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [270.82  271.16];
 % PlanetProfile(Planet,Seismic,Params)
 
@@ -180,8 +177,6 @@ Planet.Ocean.comp='NH3';
 load L_IceNH3_DATA.mat
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.HOLD = 1;
 Params.LineStyle =  ':';
 Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [269.535 269.905]; % 0 Wt% temperatures at the bottom of the Ice Ih
