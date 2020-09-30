@@ -14,15 +14,6 @@ Planet.xFeS = 0; %0.25
 Planet.rhoFe = 8000; %8000
 Planet.rhoFeS = 5150; %5150
 
-% Fetch this information from an external file so we don't track
-% runtime settings in this file
-cfg = config;
-Params.NOPLOTS = cfg.no_plots;
-Params.CALC_NEW = cfg.calc_new; 
-Params.CALC_NEW_REFPROFILES = cfg.calc_new_ref;
-Params.CALC_NEW_SOUNDSPEEDS = cfg.calc_new_sound;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = cfg.conduct;
-
 %  Interior constraints imposed in Vance et al. 2014
 mSi = 28.0855; mS = 32.065; mFe = 55.845; mMg = 24.305;
 xOl = 0.44; % percentage of olivine - Javoy (1995) - Fe/Si = 0.909 Mg/Si = 0.531, Mg# = 0.369
@@ -109,7 +100,6 @@ Params.nsteps_ocean = 450;
 Params.nsteps_ref_rho = 30;
 Params.nsteps_mantle = 100;
 Params.nsteps_core = 10;
-Params.savefigformat = 'epsc';
 
 Params.colororder = 'cbmkgrm';
 Params.Temps = [245 250 252.5 255 260 265 270 273];

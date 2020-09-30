@@ -13,15 +13,6 @@ load L_Ice_MgSO4.mat
 % rmfield(Planet.Ocean,'fnTfreeze_K');
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 
-% Fetch this information from an external file so we don't track
-% runtime settings in this file
-cfg = config;
-Params.NOPLOTS = cfg.no_plots;
-Params.CALC_NEW = cfg.calc_new; 
-Params.CALC_NEW_REFPROFILES = cfg.calc_new_ref;
-Params.CALC_NEW_SOUNDSPEEDS = cfg.calc_new_sound;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = cfg.conduct;
-
 
 %% Porosity of the rock
 Planet.POROUS_ROCK = 0;
@@ -70,7 +61,6 @@ Params.nsteps_ocean = 600;
 Params.nsteps_ref_rho = 30;
 Params.nsteps_mantle = 100;
 Params.nsteps_core = 10;
-Params.savefigformat = 'epsc';
 Params.wref=[0 5 10 15];
 
 Params.colororder = 'cbmkgrm';
