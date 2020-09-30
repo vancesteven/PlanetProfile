@@ -20,9 +20,9 @@ SETUP:
 1. In Matlab, run "startup" (no quotes) at the command line, or close and relaunch.
 1. Open the PP_____.m file for your selected body in the Matlab editor.
 1. Check that your current directory is the PlanetProfile directory in Matlab.
-  1. The last dir in the address bar just above the editor should say "PlanetProfile".
+   1. The last dir in the address bar just above the editor should say "PlanetProfile".
 1. Run the PP_____.m file.
-  1. In the ribbon, go to Editor -> Run.
+   1. In the ribbon, go to Editor -> Run.
 
 NOTES:
 * As of 2020-09-28, PlanetProfile v1.1.0 was released along with code for making calculations regarding magnetic induction. The development (master) branch of PlanetProfile is set up to generate profiles from minimal inputs. Output profiles that may be used along with the induction calculations may be found in the v1.1.0 release.
