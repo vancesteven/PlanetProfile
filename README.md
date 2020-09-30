@@ -1,7 +1,7 @@
 # PlanetProfile
 Matlab software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs.
 
-The main code is called from an input file containing all the planetary data.  Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
+The main code is called from an input file containing all the planetary data. Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
 
 PREREQUISITES:
   @ SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze
@@ -23,7 +23,8 @@ SETUP:
   @ Run the PP_____.m file.
       $ In the ribbon, go to Editor -> Run.
 
-NOTE:
+NOTES:
+  @ As of 2020-09-28, PlanetProfile v1.1.0 was released along with code for making calculations regarding magnetic induction. The development (master) branch of PlanetProfile is set up to generate profiles from minimal inputs. Output profiles that may be used along with the induction calculations may be found in the v1.1.0 release.
   @ The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.
   @ To re-use data from past profiles, which dramatically speeds up runtime, search for Params.CALC_NEW in the PP_____.m input file. Set the CALC_NEW options you do not need to recalculate to 0 to re-use previous run data.
 
