@@ -4,31 +4,31 @@ Matlab software for constructing 1D interior structure models based on planetary
 The main code is called from an input file containing all the planetary data. Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
 
 PREREQUISITES:
-  @ SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze
-  @ Matlab "Curve Fitting Toolbox"
-  @ Matlab "Image Processing Toolbox"
-  @ Matlab "Optimization Toolbox"
-  @ Matlab "Parallel Computing Toolbox" (optional, for select applications)
-  @ Latex interpreter -- see https://www.latex-project.org/
-  @ Refprop is required for NH3 solutions: https://www.nist.gov/refprop
-      $ Due to various complications it is not currently implemented.
+* SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze
+* Matlab "Curve Fitting Toolbox"
+* Matlab "Image Processing Toolbox"
+* Matlab "Optimization Toolbox"
+* Matlab "Parallel Computing Toolbox" (optional, for select applications)
+* Latex interpreter -- see https://www.latex-project.org/
+* Refprop is required for NH3 solutions: https://www.nist.gov/refprop
+  * Due to various complications it is not currently implemented.
 
 SETUP:
-  @ Install SeaFreeze by copying the contents of the Matlab folder at https://github.com/Bjournaux/SeaFreeze into the Thermodynamics/SeaFreeze folder of PlanetProfile.
-  @ Open a Terminal and navigate to the PlanetProfile directory.
-  @ Type "make install" (no quotes) and hit enter.
-  @ In Matlab, run "startup" (no quotes) at the command line, or close and relaunch.
-  @ Open the PP_____.m file for your selected body in the Matlab editor.
-  @ Check that your current directory is the PlanetProfile directory in Matlab.
-      $ The last dir in the address bar just above the editor should say "PlanetProfile".
-  @ Run the PP_____.m file.
-      $ In the ribbon, go to Editor -> Run.
+1. Install SeaFreeze by copying the contents of the Matlab folder at https://github.com/Bjournaux/SeaFreeze into the Thermodynamics/SeaFreeze folder of PlanetProfile.
+1. Open a Terminal and navigate to the PlanetProfile directory.
+1. Type "make install" (no quotes) and hit enter.
+1. In Matlab, run "startup" (no quotes) at the command line, or close and relaunch.
+1. Open the PP_____.m file for your selected body in the Matlab editor.
+1. Check that your current directory is the PlanetProfile directory in Matlab.
+  * The last dir in the address bar just above the editor should say "PlanetProfile".
+1. Run the PP_____.m file.
+  * In the ribbon, go to Editor -> Run.
 
 NOTES:
-  @ As of 2020-09-28, PlanetProfile v1.1.0 was released along with code for making calculations regarding magnetic induction. The development (master) branch of PlanetProfile is set up to generate profiles from minimal inputs. Output profiles that may be used along with the induction calculations may be found in the v1.1.0 release.
-  @ The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.
-  @ To re-use data from past profiles, which dramatically speeds up runtime, set the calc_new flags in the config.m input file to 0. If you are using git, use the following command to avoid editing the repository version of the config file:
-  git update-index --assume-unchanged config.m
+* As of 2020-09-28, PlanetProfile v1.1.0 was released along with code for making calculations regarding magnetic induction. The development (master) branch of PlanetProfile is set up to generate profiles from minimal inputs. Output profiles that may be used along with the induction calculations may be found in the v1.1.0 release.
+* The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.
+* To re-use data from past profiles, which dramatically speeds up runtime, set the calc_new flags in the config.m input file to 0. If you are using git, use the following command to avoid editing the repository version of the config file:
+    git update-index --assume-unchanged config.m
 
 Some calculations use Matlab's Parallel Computing package.  If you don't have access to this package then parfor loops should be changed to for loops.  A future version will check and do this automatically.
 
