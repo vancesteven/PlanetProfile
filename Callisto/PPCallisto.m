@@ -14,6 +14,15 @@ Planet.xFeS = 0; %0.25
 Planet.rhoFe = 8000; %8000
 Planet.rhoFeS = 5150; %5150
 
+% Fetch this information from an external file so we don't track
+% runtime settings in this file
+cfg = config;
+Params.NOPLOTS = cfg.no_plots;
+Params.CALC_NEW = cfg.calc_new; 
+Params.CALC_NEW_REFPROFILES = cfg.calc_new_ref;
+Params.CALC_NEW_SOUNDSPEEDS = cfg.calc_new_sound;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = cfg.conduct;
+
 Planet.Ocean.comp='MgSO4';
 %Planet.Tb_K = [252.5 255 260 265 270]; %3 and 5 Wt% temperatures at the bottom of the Ice Ih
 %shell for the 3 Wt% case
@@ -89,15 +98,10 @@ Params.savefigformat = 'epsc';
 Params.wref=[0 5 10 15];
 Params.colororder = 'cbmkgrm';
 Params.Temps = [245 250 252.5 255 260 265 270 273];
-Params.NOPLOTS = 0; %allows user to limit recreating plots & figures after each run
 
 
 %% Run the Calculation!
 Params.HOLD =0;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
-Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
 
 Planet.Cmeasured = 0.3549; 
 Planet.Cuncertainty = 0.0042;% Anderson et al. 2001 and Schubert et al. 2004 
@@ -152,7 +156,6 @@ PlanetProfile(Planet,Seismic,Params)
 
 
 % Params.HOLD = 1;
-% Params.CALC_NEW = 1;
 % Params.LineStyle='-';
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [253.1 257.4]; % pure water, temperatures at the bottom of the Ice Ih
 % PlanetProfile(Planet,Seismic,Params)
@@ -179,7 +182,6 @@ PlanetProfile(Planet,Seismic,Params)
 % PlanetProfile(Planet,Seismic,Params)
 % 
 % Params.HOLD = 1;
-% Params.CALC_NEW = 1;
 % Params.LineStyle='-';
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [253.1 257.4]; % pure water, temperatures at the bottom of the Ice Ih
 % Planet.rho_sil_withcore_kgm3 = 3525;
