@@ -24,15 +24,9 @@ if strcmp(Planet.Ocean.comp,'Seawater')
     global swEOS
     swEOS.gsw = swEOS_chooser('gsw305');
 elseif strcmp(Planet.Ocean.comp,'NaCl')
-    global swEOS
-     swEOS.NaCl = readh5spline('NaCl.h5');
-     load('NaCl_LBF');
-     swEOS.NaCl.sp = sp_NaCl_8GPa;
-%    load('NaClLBF');
-%    swEOS.NaCl.sp = NaCl_LBF; % up to 4GPa and down to 250 K
+    error(['NaCl is not currently implemented.'])
 elseif strcmp(Planet.Ocean.comp,'NH3')
-    %comment out the line below if your have REFPROP installed.
-%     error(['NH3 is not currently implemented due to complications with Refprop software.'])
+    error(['NH3 is not currently implemented.'])
 elseif strcmp(Planet.Ocean.comp,'MgSO4')
     conduct_scaling_MgSO4 = (1+4*wo); % empirical scaling of electrical conductivity from 1 bar values compiled in Hand and Chyba 2007
 end
@@ -379,8 +373,8 @@ if ~Params.NOPLOTS
     end
     legend(lstr_3)
     box on
-    xlabel('\rho_{sil} (kg m^{-3})');
-    ylabel('R_{sil} (km)')
+    xlabel('$\rho_\mathrm{sil}$ (kg m$^{-3}$)','interpreter','latex');
+    ylabel('$R_{sil}$ (km)','interpreter','latex')
     title(['No Fe core ; C/MR2=' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) '; W =' num2str(wo) ' Wt%'])
 end
 % =====
@@ -424,8 +418,8 @@ if ~Params.NOPLOTS
 
     legend(lstr_3)
     box on
-    xlabel('R_{Fe} (km)');
-    ylabel('R_{sil} (km)')
+    xlabel('$R_\mathrm{Fe}$ (km)','interpreter','latex');
+    ylabel('$R_\mathrm{sil}$ (km)','interpreter','latex')
     title(['Fe core ; C/MR2=' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) '; W =' num2str(wo) ' Wt%; \rho_{sil}: ' num2str(Planet.rho_sil_withcore_kgm3,'%0.0f') '; \rho_{Fe}: ' num2str(rho_Fe_kgm3,'%0.0f')])
 end
 end
@@ -929,10 +923,10 @@ LineWidth = 2;
 %         plot(Pmantle_MPa,(por_in(iT).den-por_out(iT).den)./por_in(iT).den*100)
 %         plot(Pmantle_MPa,(por_in(iT).vp-por_out(iT).vp)./por_in(iT).vp*100)
 %         plot(Pmantle_MPa,(por_in(iT).vs-por_out(iT).vs)./por_in(iT).vs*100,'--')    
-        xlabel('P_{rock} (MPa)','FontSize',lFontSize)
+        xlabel('$P_\mathrm{rock}$ (MPa)','interpreter','latex','FontSize',lFontSize)
 %         ylabel('v-v_{porous} (m s^{-1})');
 %         ylabel('$\frac{X-X_{porous}}{X}$ (\%)','interpreter','latex');
-        ylabel('Porosity \phi (\%)','interpreter','latex','FontSize',lFontSize);
+        ylabel('Porosity $\phi$ (\%)','interpreter','latex','FontSize',lFontSize);
 %         legend('\phi','\rho','V_P','V_S')
         box on
         axis tight
@@ -952,10 +946,10 @@ LineWidth = 2;
 %         plot((por_in(iT).vp-por_out(iT).vp)./por_in(iT).vp*100,r_mantle_m*1e-3)
 %         plot((por_in(iT).vs-por_out(iT).vs)./por_in(iT).vs*100,r_mantle_m*1e-3,'--')   
 %         set(gca,'ydir','reverse');
-        ylabel('r_{rock} (km)','FontSize',lFontSize)
+        ylabel('$r_\mathrm{rock}$ (km)','interpreter','latex','FontSize',lFontSize)
 %         ylabel('v-v_{porous} (m s^{-1})');
 %         xlabel('$\frac{X-X_{porous}}{X}$ (\%)','interpreter','latex');
-                xlabel('Porosity $\phi$ ($\%$)','interpreter','latex','FontSize',lFontSize);
+                xlabel('Porosity $\phi$ (\%)','interpreter','latex','FontSize',lFontSize);
 
 %         legend('\phi','\rho','V_P','V_S')
         box on
@@ -979,9 +973,9 @@ LineWidth = 2;
         legend({'Crust in general','Upper crust in general','Low permeability upper crust','Disturbed crust','Oceanic crust'});
 
 %         set(gca,'ydir','reverse');
-        ylabel('r_{mantle} (km)')
+        ylabel('$r_\mathrm{mantle}$ (km)','interpreter','latex')
 %         ylabel('v-v_{porous} (m s^{-1})');
-        xlabel('log$_{10}$ permeability','interpreter','latex');
+        xlabel('$\log_{10}$ permeability','interpreter','latex');
         box on
         end
     end
@@ -1388,8 +1382,8 @@ if ~Params.NOPLOTS
     plot(VS_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3,...
         VP_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3,'--','LineWidth',LineWidth)
         set(gcf,'color','w')
-        xlabel('Sound Speeds (km s^{-1})')
-        ylabel(['r_{' Planet.name '} (km)']);
+        xlabel('Sound Speeds (km s$^{-1}$)','interpreter','latex')
+        ylabel(['$r_\mathrm{' Planet.name '}$ (km)'],'interpreter','latex');
         set(gca,'xlim',[0 1.1*max(VP_Planet_kms(iT,:))],'ylim',[0 ymax])
         grid on
 
@@ -1403,14 +1397,14 @@ if ~Params.NOPLOTS
             T_Planet_K(iT,:)',r_Planet_m(iT,:)'*1e-3,'--',...
             rho_pPlanet_kgm3(iT,:)',r_Planet_m(iT,:)'*1e-3,'k-.',...
         'LineWidth',LineWidth);
-        xlabel('P (bar), T (K), \rho (kg m^{-3})');
+        xlabel('$P$ (bar), $T$ (K), $\rho$ (kg m$^{-3}$)','interpreter','latex');
         xmax = max([max(rho_pPlanet_kgm3(iT,:)) max(10*P_Planet_MPa(iT,:)) max(T_Planet_K(iT,:))]);
     else
         plot(P_Planet_MPa(iT,:)',r_Planet_m(iT,:)'*1e-3,...
             T_Planet_K(iT,:)',r_Planet_m(iT,:)'*1e-3,'--',...
             rho_pPlanet_kgm3(iT,:)',r_Planet_m(iT,:)'*1e-3,'k-.',...
         'LineWidth',LineWidth);
-        xlabel('P (MPa), T (K), \rho (kg m^{-3})');
+        xlabel('$P$ (MPa), $T$ (K), $\rho$ (kg m$^{-3}$)','interpreter','latex');
         xmax = max([max(rho_pPlanet_kgm3(iT,:)) max(P_Planet_MPa(iT,:)) max(T_Planet_K(iT,:))]);
     end
     set(gca,'ylim',[0 ymax],'xlim',[0 xmax]);
@@ -1423,7 +1417,7 @@ if ~Params.NOPLOTS
     hp = plot(QS_overfgamma_Planet(iT,:)',r_Planet_m(iT,:)'*1e-3,'LineWidth',LineWidth);
     set(gca,'xscale','log','ylim',[0 ymax],'xlim',[10 1e7],'XTick',[10 100 1000 1e4 1e5 1e6 1e7])
     grid on
-    xlabel('Q_S/\omega^{\gamma}')
+    xlabel('$Q_S/\omega^{\gamma}$','interpreter','latex')
     set(gcf,'color','w')
     
     try
@@ -1440,8 +1434,8 @@ if ~Params.NOPLOTS
     hp = plot(Ks_Planet_GPa(iT,:)',r_Planet_m(iT,:)'*1e-3,...
         Gs_Planet_GPa(iT,:)',r_Planet_m(iT,:)'*1e-3,'--','LineWidth',LineWidth);
     set(hp,'LineWidth',LineWidth);
-    ylabel(['r_{' Planet.name '} (km)'],'FontSize',lFontSize);
-    xlabel('G_S and K_S (GPa)','FontSize',lFontSize);
+    ylabel(['$r_\mathrm{' Planet.name '}$ (km)'],'interpreter','latex','FontSize',lFontSize);
+    xlabel('$G_S$ and $K_S$ (GPa)','interpreter','latex','FontSize',lFontSize);
     axis tight
     try
         saveas(gcf,[figpath thissavestr 'GsKs'],Params.savefigformat);
@@ -1653,7 +1647,7 @@ end
    ax.FontSize = aFontSize;
    ax.YTickLabel = [];
 box on
-xlabel('Sound Speed (km s^{-1})','FontSize',lFontSize);
+xlabel('Sound Speed (km s$^{-1}$)','interpreter','latex','FontSize',lFontSize);
 
 
 if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
@@ -1795,7 +1789,7 @@ end
         ax.FontSize = aFontSize;
         ax.YAxisLocation = 'right';
 
-        xlabel('Electrical Conductivity (S m^{-1})','FontSize',aFontSize);
+        xlabel('Electrical Conductivity (S m$^{-1}$)','interpreter','latex','FontSize',aFontSize);
         ylabel('Depth (km)','FontSize',aFontSize);
         box on
         end
@@ -1847,7 +1841,7 @@ ax.FontSize = aFontSize;
     ax.YLim = Params.ylim;
  end
 xlabel('Pressure (MPa)','FontSize',lFontSize)
-ylabel('Density (kg m^{-3})','FontSize',lFontSize)
+ylabel('Density (kg m$^{-3}$)','interpreter','latex','FontSize',lFontSize)
 
     try
         saveas(gcf,[figpath savefile],Params.savefigformat);
@@ -1890,9 +1884,9 @@ for iT = 1:nTbs
 end
 set(gca,'ydir','reverse','xlim',[0 5],'ylim',[0 maxScale*max(Dsil_km)]);%,'xlim',[1 4]);
     if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
-        xlabel('Conductivity (S m^{-1} \times 25) and Sound Speed (km s^{-1})');
+        xlabel('Conductivity (S m$^{-1}$ $\times$ 25) and Sound Speed (km s$^{-1}$)','interpreter','latex');
     else
-        xlabel('Sound Speed (km s^{-1})');
+        xlabel('Sound Speed (km s$^{-1}$)','interpreter','latex');
     end
     ylabel('Depth (km)');
 box on
@@ -1972,7 +1966,7 @@ end
 axis tight; box on;
 set(gca,'xlim',[0 maxScale*max(Psil_MPa)])
 xlabel('Pressure (MPa)')
-ylabel('Density (kg m^{-3})')
+ylabel('Density (kg m$^{-3}$)','interpreter','latex')
 
 % ax(1) = gca;
 % ax(2)=axes('Position',get(ax(1),'Position'),...
@@ -2024,7 +2018,7 @@ for iT = 1:nTbs
     set(hl(iT),'LineWidth',LineWidth,'LineStyle',LineStyle,'Color',Params.colororder(iT));
     set(hp,'Color',Params.colororder(iT));
 end
-xlabel('g (m s^{-2})')
+xlabel('g (m s$^{-2}$)','interpreter','latex')
 ylabel('R (km)')
 axis tight
 
@@ -2038,7 +2032,7 @@ for iT = 1:nTbs
 end
 
  xlabel('Pressure (MPa)')
- ylabel('r_{Planet} (km)')
+ ylabel(['$r_\mathrm{' Planet.name '}$ (km)'],'interpreter','latex')
 axis tight
 
 %%    
@@ -2153,7 +2147,7 @@ function phase = getIcePhase(P_MPa,T_K,w_pct,str_comp)
 %             end
         case 'NaCl'
 %             phase = getIcePhaseMgSO4(P_MPa,T_K,w_pct);
-            phase = LBFIcePhase(P_MPa,T_K,w_pct,'NaCl');
+            %phase = LBFIcePhase(P_MPa,T_K,w_pct,'NaCl');
         case 'Seawater'
             global swEOS
             phase=swEOS.gsw.tfreezing(w_pct,10*P_MPa)>T_K; 
@@ -2180,7 +2174,7 @@ function Tfreeze_K = getTfreeze(P_MPa,wo,str_comp,Tprior)
             else
                 Trange = Tprior + [-1 1]*4;
             end
-                Tfreeze_K = fzero(@(T) 0.5-LBFIcePhase(P_MPa,T,wo,'NaCl'),Trange,options);
+                %Tfreeze_K = fzero(@(T) 0.5-LBFIcePhase(P_MPa,T,wo,'NaCl'),Trange,options);
         case 'Seawater'
             global swEOS
             Tfreeze_K = swEOS.gsw.tfreezing(wo,10*P_MPa);
@@ -2202,7 +2196,7 @@ function Pfreeze_MPa = getPfreeze(T_K,wo,str_comp)
 % while fb ~= 0 && a ~= b
 % it occurred while trying to find Pfreeze for 5wt% NaCl on Titan with Tb
 % =258K and TolX = 1e-15
-            Pfreeze_MPa = fzero(@(P) 0.5-LBFIcePhase(P,T_K,wo,'NaCl'),[0.1 209],options); % the P bounds are sensitive because multivalued solutions (ices Ih and III) will cause fzero to fail
+            %Pfreeze_MPa = fzero(@(P) 0.5-LBFIcePhase(P,T_K,wo,'NaCl'),[0.1 209],options); % the P bounds are sensitive because multivalued solutions (ices Ih and III) will cause fzero to fail
         case 'Seawater'
             global swEOS
             Pfreeze_MPa = 0.1*swEOS.gsw.pfreezing(wo,T_K);
@@ -2217,7 +2211,7 @@ function Pfreeze_MPa = getPfreezeIII(T_K,wo,str_comp)
        case 'NaCl'
 %            Pfreeze_MPa = fzero(@(P) 0.5-LBFIcePhase(P,T_K,wo,'NaCl'),[0.1 500]);
        case 'NH3'
-           Pfreeze_MPa = fzero(@(P) L_IceNH3(P,T_K,wo,3),[0 500]);
+           %Pfreeze_MPa = fzero(@(P) L_IceNH3(P,T_K,wo,3),[0 500]);
     end
 end %getPfreezeIII
 %% fluid properties
@@ -2229,7 +2223,7 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
             [rho_kgm3,Cp,alpha_Km1]=MgSO4_EOS2_planetary_smaller(mo,P_MPa,T_K-273.15);
         case 'NaCl'
             global swEOS
-            disp('WARNING: NaCl is not yet implemented for fluidEOS.')
+            error('ERROR: NaCl is not yet implemented for fluidEOS.')
         case 'Seawater'
             global swEOS extrapflag
             % expect that wo is absolute salinity
@@ -2251,7 +2245,9 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
                 alpha_Km1 = interp1(Pin,alphain,P_MPa,'linear','extrap');                
             end
         case 'NH3'
-           disp('WARNING: NH3 is not yet implemented for fluidEOS.')
+           %[rho_kgm3,~,~,Cp,~,alpha_Km1] = ...	
+           %     refproppy32([P_MPa T_K],{'ammonia' 'water'},[wo 100-wo]/100,-1);
+            error('ERROR: NH3 is not yet implemented for fluidEOS.')
     end
 end %fluidEOS
 function [vel_kms,Ks_GPa] = fluidSoundSpeeds(P_MPa,T_K,wo,str_comp)
