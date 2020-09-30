@@ -28,15 +28,6 @@ Planet.rhoFeS = 5150; %5150
 %to our calculation using the Saxena and Eriksson 2015 (CALPHAD) EoS, 
 %modified by Eleanor Green and Jamie Connolly for PerpleX 6.8.3.
 
-% Fetch this information from an external file so we don't track
-% runtime settings in this file
-cfg = config;
-Params.NOPLOTS = cfg.no_plots;
-Params.CALC_NEW = cfg.calc_new; 
-Params.CALC_NEW_REFPROFILES = cfg.calc_new_ref;
-Params.CALC_NEW_SOUNDSPEEDS = cfg.calc_new_sound;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = cfg.conduct;
-
 %% salinities and temperatures at the bottom of the Ice Ih
 % the vector of Tb needs to be monotonically increasing for the calculation
 % of fluid electrical conductivities.
@@ -126,7 +117,6 @@ Params.nsteps_ocean = 350;
 Params.nsteps_ref_rho = 30;
 Params.nsteps_mantle = 500;
 Params.nsteps_core = 10;
-Params.savefigformat = 'epsc';
 Params.colororder = 'mcbkgrm';
 Params.Temps = [250 252.5 255 260 265 270 273];
 

@@ -13,13 +13,66 @@ function PlanetProfile(Planet,Seismic,Params)
 % Geophysical investigations of habitability in ice-covered ocean worlds. 
 % Journal of Geophysical Research: Planets, Nov 2018.
 
+% First, get runtime config information
+% Fetch this information from an external file so we don't track
+% runtime settings in this file
+cfg = config;
+Params.NOPLOTS = cfg.no_plots;
+Params.CALC_NEW = cfg.calc_new; 
+Params.CALC_NEW_REFPROFILES = cfg.calc_new_ref;
+Params.CALC_NEW_SOUNDSPEEDS = cfg.calc_new_sound;
+Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = cfg.conduct;
+Params.savefigformat = cfg.fig_fmt;
+
+% Find out how many profiles we will compare
+nTbs = length(Planet.Tb_K);
+% Check for porosity so we know if we will need those plots
+POROUS = isfield(Planet,'POROUS_ROCK') && Planet.POROUS_ROCK;
+
+%% Figure generation
+% Pre-generate all the figures so that we can work with them in the
+% background, instead of popping up as they are focused.
+% If the windows are still open, we can reuse them
+% without grabbing focus by checking ishandle.
+
+gravfig = 228; % gravity
+condfig = 229; % conductivity
+pvt6fig = 1111; % P-T x 6
+pvt4fig = 1112; % P-T x 4
+wedgfig = 1122; % wedge diagrams
+
+if ~ishandle(gravfig); figure(gravfig); end % gravity
+if ~ishandle(condfig); figure(condfig); end % conductivity
+if ~ishandle(pvt6fig); figure(pvt6fig); end % P-T x 6
+if ~ishandle(pvt4fig); figure(pvt4fig); end % P-T x 4
+if ~ishandle(wedgfig); figure(wedgfig); end % wedge diagrams
+
+mantfig = 2295; % mantle density vs r
+corefig = 2296; % core size vs mantle size
+if ~Planet.FeCore
+    if ~ishandle(mantfig); figure(mantfig); end % mantle density vs r
+else
+    if ~ishandle(corefig); figure(corefig); end % core size vs mantle size
+end
+porPfig = 230; % porosity vs P
+porRfig = 270; % porosity vs R
+permfig = 280; % permeability
+seisfig = 3000; % seismic
+gsksfig = 3050; % G_S and K_S
+for iT=1:nTbs
+    if POROUS
+        if ~ishandle(porPfig+iT); figure(porPfig+iT); end % porosity vs P
+        if ~ishandle(porRfig+iT); figure(porRfig+iT); end % porosity vs R
+        if ~ishandle(permfig+iT); figure(permfig+iT); end % permeability
+    end
+    if ~ishandle(seisfig+iT); figure(seisfig+iT); end % seismic
+    if ~ishandle(gsksfig+iT); figure(gsksfig+iT); end % G_S and K_S
+end
+
 %% Figure label settings
 set(0,'defaultfigurecolor',[1 1 1]) % white background for figures
 
-dft_font = 'Arial';
-dft_math = 'STIX Math';
-interpreter = 'tex';
-[nm, bnm, math, lbl] = getPlotLabels(dft_font, dft_math, interpreter);
+[nm, bnm, math, lbl] = getPlotLabels(cfg.dft_font, cfg.dft_math, cfg.interpreter);
 
 %% globals for functions in fzero
 global M_Planet_kg R_Planet_m extrapflag
@@ -66,7 +119,6 @@ if ~Planet.NoH2O
     n_ocean = Params.nsteps_ocean;
 
     if Params.CALC_NEW
-    nTbs = length(Planet.Tb_K);
 
     nsteps = n_iceI+n_ocean;
     [T_K,P_MPa,rho_kgm3] = deal(zeros(nTbs,nsteps));
@@ -367,22 +419,21 @@ if ~Planet.FeCore
 
     
    % Plot the results
-    if ~Params.NOPLOTS
-        figure(2295);clf;hold all
-        set(gcf,'Position', [335 133 696 547], 'Name', lbl.mantl)
-        for iT=1:nTbs
-            plot(rho_sil_kgm3(iT,C2inds{iT})',R_sil_m(iT,C2inds{iT})'*1e-3);
-        end
-        lstr_3 = {};
-        for iT = 1:nTbs
-            lstr_3 = {lstr_3{:} [math 'T_{b}' nm ':' nm num2str(Planet.Tb_K(iT),'%0.1f') ' K']};
-        end
-        legend(lstr_3,'Fontsize',lbl.smtext)
-        box on
-        xlabel([math '\rho_{' nm 'sil}' nm ' (kg m^{−3})'],'Fontsize',lbl.mltext);
-        ylabel([math 'R_{' nm 'sil}' nm ' (km)'],'Fontsize',lbl.mltext)
-        title(['No Fe core ; ' math 'C/MR^2' bnm ' = ' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) ';' math ' W ' bnm ' = ' num2str(wo) ' wt%'],'Fontsize',lbl.lgtext)
+    set(0, 'CurrentFigure', mantfig);
+    clf;hold all
+    set(gcf,'Position', [335 133 696 547], 'Name', lbl.mantl)
+    for iT=1:nTbs
+        plot(rho_sil_kgm3(iT,C2inds{iT})',R_sil_m(iT,C2inds{iT})'*1e-3);
     end
+    lstr_3 = {};
+    for iT = 1:nTbs
+        lstr_3 = {lstr_3{:} [math 'T_{b}' nm ': ' num2str(Planet.Tb_K(iT),'%0.1f') ' K']};
+    end
+    legend(lstr_3,'Fontsize',lbl.smtext)
+    box on
+    xlabel([math '\rho_{' nm 'sil}' nm ' (kg m^{−3})'],'Fontsize',lbl.mltext);
+    ylabel([math 'R_{' nm 'sil}' nm ' (km)'],'Fontsize',lbl.mltext)
+    title(['No Fe core ; ' math 'C/MR^2' bnm ' = ' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) ';' math ' W ' bnm ' = ' num2str(wo) ' wt%'],'Fontsize',lbl.lgtext)
 % =====
 else % WITH A CORE
     rho_Fe_kgm3 = Planet.rhoFe*Planet.rhoFeS/(Planet.xFeS*(Planet.rhoFe-Planet.rhoFeS)+Planet.rhoFeS); 
@@ -396,16 +447,16 @@ else % WITH A CORE
             [C2(iT,iz),R_Fe_m(iT,iz)] = CoreSize(Planet.rho_sil_withcore_kgm3,rho_Fe_kgm3,C_H2O(iT,iz+1),M_above_kg(iT,iz+npre),R_sil_m(iT,iz));
         end
     end
-if ~Params.NOPLOTS    
-    figure(2296);clf;hold all
+    
+    set(0, 'CurrentFigure', corefig);
+    clf;hold all
     set(gcf,'Position', [335 133 854 547], 'Name', lbl.corsz)
-end
     for iT=1:nTbs
         C2inds{iT} = find(C2(iT,:)/MR2>Planet.Cmeasured-Planet.Cuncertainty & C2(iT,:)/MR2<Planet.Cmeasured+Planet.Cuncertainty);
         if isempty(C2inds{iT})
             error(['C/MR2=' num2str(Planet.Cmeasured) ' not found. min:' num2str(min(C2(iT,:)/MR2)) '; max:' num2str(max(C2(iT,:)/MR2))])
         end
-       C2mean(iT) = round(mean(C2inds{iT}));
+        C2mean(iT) = round(mean(C2inds{iT}));
         C2max(iT) = max(C2inds{iT});
         C2min(iT) = min(C2inds{iT});
         R_Fe_mean_m(iT) = R_Fe_m(iT,C2mean(iT));
@@ -413,14 +464,12 @@ end
         M_H2O_mean_kg(iT) = M_above_kg(iT,C2mean(iT));
         R_Fe_range_m(iT) = R_Fe_m(iT,C2max(iT))-R_Fe_m(iT,C2min(iT));
         R_sil_range_m(iT) = R_sil_m(iT,C2min(iT))-R_sil_m(iT,C2max(iT));
-if ~Params.NOPLOTS
         plot(R_Fe_m(iT,C2inds{iT})'*1e-3,R_sil_m(iT,C2inds{iT})'*1e-3);
-end
     end
-if ~Params.NOPLOTS
+
     lstr_3 = {};
     for iT = 1:nTbs
-        lstr_3 = {lstr_3{:} [math 'T_{b}' nm ':' num2str(Planet.Tb_K(iT),'%0.1f') ' K']};
+        lstr_3 = {lstr_3{:} [math 'T_{b}' nm ': ' num2str(Planet.Tb_K(iT),'%0.1f') ' K']};
     end
 
     legend(lstr_3,'Fontsize',lbl.smtext)
@@ -428,7 +477,6 @@ if ~Params.NOPLOTS
     xlabel([math 'R_{' nm 'Fe}' nm ' (km)'],'Fontsize',lbl.mltext);
     ylabel([math 'R_{' nm 'sil}' nm ' (km)'],'Fontsize',lbl.mltext);
     title(['Fe core ; ' math 'C/MR^2' bnm ' = ' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) '; ' math ' W ' bnm ' = ' num2str(wo) ' wt%; ' math '\rho_{' bnm 'sil}' bnm ': ' num2str(Planet.rho_sil_withcore_kgm3,'%0.0f') '; ' math '\rho_{' bnm 'Fe}' bnm ': ' num2str(rho_Fe_kgm3,'%0.0f')],'Fontsize',lbl.lgtext)
-end
 end
 
 
@@ -688,7 +736,7 @@ end
 
 [Pcore_MPa,Tcore_K,rhocore_kgm3,M_above_core,VP_core_kms,VS_core_kms,g_ms2_core,Ks_iron_GPa,G_iron_GPa] = deal(zeros(nTbs,Params.nsteps_core));
 clear g_ms2_core M_above_core
-    POROUS = isfield(Planet,'POROUS_ROCK') && Planet.POROUS_ROCK;
+    
 for iT = 1:nTbs
     [Pmantle_MPa,rho_mantle_kgm3,M_above_mantle,VP_mantle_kms,VS_mantle_kms,g_ms2_sil] = deal(zeros(1,nsteps_mantle(iT)));
     Tmantle_K = T_K(iT,indSil(iT));
@@ -917,8 +965,7 @@ strLow = '';
 %%
 LineWidth = 2;
     if POROUS
-        if ~Params.NOPLOTS
-        figure(230+iT);
+        set(0, 'CurrentFigure', porPfig+iT);
         set(gcf, 'Name', [lbl.porvP ' Tb = ' num2str(Planet.Tb_K(iT))])
         if ~Params.HOLD
             clf
@@ -936,14 +983,12 @@ LineWidth = 2;
         ylabel(['Porosity ' math '\phi' nm ' (%)'],'Fontsize',lbl.mltext);
 %         legend('\phi','\rho','V_P','V_S')
         box on
-        axis tight
-        end     
+        axis tight    
         
-        if ~Params.NOPLOTS
-            figure(270+iT);
-            set(gcf, 'Name', [lbl.porvR ' Tb = ' num2str(Planet.Tb_K(iT))])
+        set(0, 'CurrentFigure', porRfig+iT);
+        set(gcf, 'Name', [lbl.porvR ' Tb = ' num2str(Planet.Tb_K(iT))])
         if ~Params.HOLD
-            clf
+            clf;
         end
         hold on
 %         plot(Pmantle_MPa,[por_in(iT).vp]-[por_out(iT).vp])
@@ -962,12 +1007,11 @@ LineWidth = 2;
 %         legend('\phi','\rho','V_P','V_S')
         box on
         axis tight
-        end
-        if ~Params.NOPLOTS
-            figure(280+iT);
-            set(gcf, 'Name', [lbl.perme ' Tb = ' num2str(Planet.Tb_K(iT))])
+        
+        set(0, 'CurrentFigure', permfig+iT);
+        set(gcf, 'Name', [lbl.perme ' Tb = ' num2str(Planet.Tb_K(iT))])
         if ~Params.HOLD
-            clf
+            clf;
         end
         hold on
 %         plot(Pmantle_MPa,[por_in(iT).vp]-[por_out(iT).vp])
@@ -986,7 +1030,6 @@ LineWidth = 2;
 %         ylabel('v-v_{porous} (m s^{-1})');
         xlabel([math '\rm log_{10}' nm ' permeability'],'Fontsize',lbl.mltext);
         box on
-        end
     end
 end
 
@@ -1378,8 +1421,7 @@ for iT = 1:nTbs
 
 
 %% plot the seismic data and attenuation
-if ~Params.NOPLOTS
-    figure(nfig+iT);
+    set(0, 'CurrentFigure', seisfig+iT);
     if ~Params.HOLD
         clf
     end
@@ -1430,12 +1472,12 @@ if ~Params.NOPLOTS
     set(gcf,'color','w')
     
     try
-        saveas(gcf,[figpath thissavestr 'QS'],Params.savefigformat);
+        print(seisfig+iT,Params.savefigformat,fullfile([figpath thissavestr 'QS' cfg.xtn]));
     catch
         error(['Couldn''t save file ' thissavestr ' to the ''figures'' directory. Try setting active folder to PlanetProfile directory in Matlab.']);
     end
-    if ~Params.NOPLOTS
-    figure(nfig+iT+50);
+    
+    set(0, 'CurrentFigure', gsksfig+iT);
     set(gcf, 'Name', [lbl.gs_ks ' Tb = ' num2str(Planet.Tb_K(iT))])
     if ~Params.HOLD
         clf;
@@ -1448,15 +1490,12 @@ if ~Params.NOPLOTS
     xlabel([math 'G_S' nm ' and ' math 'K_S' nm ' (GPa)'],'Fontsize',lbl.mltext);
     axis tight
     try
-        saveas(gcf,[figpath thissavestr 'GsKs'],Params.savefigformat);
+        print(gsksfig+iT,Params.savefigformat,fullfile([figpath thissavestr 'GsKs' cfg.xtn]));
     catch
         error(['Couldn''t save file ' thissavestr ' to the ''figures'' directory. Try setting active folder to PlanetProfile directory in Matlab.']);
     end
-   end
-end
 end
 
-if ~Params.NOPLOTS
 
 revcop = colormap('copper');
 revcop = revcop(256:-1:1,:);
@@ -1464,7 +1503,8 @@ colormap(revcop);
 inferno_data = CM_inferno;
 colormap(inferno_data);
 
-figure(1111);clf; clear opts
+set(0, 'CurrentFigure', pvt6fig);
+clf; clear opts
 set(gcf,'Position', [496   642   824   678],'Name',[lbl.inter ' x 6'])
 opts.Punits = 'MPa';
 opts.Ttight = true;
@@ -1486,7 +1526,8 @@ subplot(2,3,5); plotSolidInterior('vs',[math 'V_S' bnm ' (km s^{−1})'],T_Plane
 if isfield(mantle,'Ks')
     subplot(2,3,6); plotSolidInterior('Ks',[math 'K_S' bnm ' (GPa)'],T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
     
-    figure(1112); clf;
+    set(0, 'CurrentFigure', pvt4fig);
+    clf;
     set(gcf,'Position', [426   542   549   678],'Name',[lbl.inter ' x 4'])
     opts.Punits = 'GPa';
     colormap(inferno_data);
@@ -1495,22 +1536,20 @@ if isfield(mantle,'Ks')
         subplot(2,2,3); plotSolidInterior('Ks',[math 'K_S' bnm ' (GPa)'],T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
         subplot(2,2,4); plotSolidInterior('Gs',[math 'G_S' bnm ' (GPa)'],T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
 end
-end
 
 % save the mineral compositions plot 
-if ~Params.NOPLOTS
-figure(1111)
-saveas(gcf,[figpath thissavestr],Params.savefigformat);
-end
+set(0, 'CurrentFigure', pvt6fig);
+print(pvt6fig,Params.savefigformat,fullfile([figpath thissavestr cfg.xtn]));
 
 %% create the legend that describes tb, z_b, and heat flux
 lstr_2 = {};
 for iT = 1:nTbs
-    lstr_2 = {lstr_2{:} [math 'T_{b}' nm ':' num2str(Planet.Tb_K(iT),'%0.2f') ' K, ' math 'q_{b}/q_{c}' nm ':'...
+    lstr_2 = {lstr_2{:} [math 'T_{b}' nm ': ' num2str(Planet.Tb_K(iT),'%0.2f') ' K, ' math 'q_{b}/q_{c}' nm ':'...
         num2str(1e3*Qb(iT),'%0.0f') '/' num2str(1e3*Q_Wm2(iT),'%0.0f') ' mW m^{−2}, ' math 'z_{b}' nm ':' num2str(1e-3*Zb2(iT),'%0.0f') ' km']};
 end
 
-figure(1122);clf;
+set(0, 'CurrentFigure', wedgfig);
+clf;
 for iT = 1:nTbs
     subplot(1,nTbs,iT); hold on
     input.phase = phasePlanet(iT,:);
@@ -1530,11 +1569,10 @@ end
 
 %%  plot profile with 4 subplots
 %% 
-if ~Params.NOPLOTS
 if Params.foursubplots
 Dsil_km=(R_Planet_m-R_sil_mean_m(:))*1e-3;
 
-figure(229);
+set(0, 'CurrentFigure', condfig);
 maxScale = 1.01;
 minScale = 0.99;
 if ~Params.HOLD
@@ -1618,9 +1656,10 @@ end
 
    if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
     subplot(3,6,11); 
-else
+    else
     subplot(2,6,11);
-end
+   end
+    
 hold on;
 for iT = 1:nTbs
     line(velsIce.VIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',SoundLineWidth);
@@ -1711,9 +1750,8 @@ end
 
    ylabel('Depth (km)','Fontsize',lbl.mltext);
 
-
 box on
-end
+
 % not sure this is used anymore. flagged for deletion
 % for iT=1:nTbs
 %     if ~isnan(velsIce.VVIl_kms(iT,indSil(iT)))
@@ -1749,69 +1787,66 @@ end
 
 
  if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
-     if ~Params.NOPLOTS  
-        if wo>0
-        subplot(3,6,16:18);hold on
-        switch Planet.Ocean.comp
-            case 'MgSO4'
-                for iT = 1:nTbs                 
-                    line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,...
-                        'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',LineWidth);
-                    mink_val(iT) = min(k_S_m(iT,1:indSil(iT)));
-                    maxk_val(iT) = max(k_S_m(iT,1:indSil(iT)));
-                end
-            case 'Seawater'
-                for iT = 1:nTbs
-                    line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),...
-                        'LineStyle',LineStyle,'LineWidth',LineWidth);
-                    mink_val(iT) = min(k_S_m(iT,1:indSil(iT)));
-                    maxk_val(iT) = max(k_S_m(iT,1:indSil(iT)));
-                end
-            case 'NH3'
-                for iT = 1:nTbs
+   if wo>0
+    subplot(3,6,16:18);hold on
+    switch Planet.Ocean.comp
+        case 'MgSO4'
+            for iT = 1:nTbs                 
+                line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,...
+                    'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',LineWidth);
+                mink_val(iT) = min(k_S_m(iT,1:indSil(iT)));
+                maxk_val(iT) = max(k_S_m(iT,1:indSil(iT)));
+            end
+        case 'Seawater'
+            for iT = 1:nTbs
+                line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),...
+                    'LineStyle',LineStyle,'LineWidth',LineWidth);
+                mink_val(iT) = min(k_S_m(iT,1:indSil(iT)));
+                maxk_val(iT) = max(k_S_m(iT,1:indSil(iT)));
+            end
+        case 'NH3'
+            for iT = 1:nTbs
 %                     line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',LineWidth);
-                    mink_val(iT) = NaN;
-                    maxk_val(iT) = NaN;
-                end
-            case 'NaCl'
-                for iT = 1:nTbs
-                    mink_val(iT) = NaN;
-                    maxk_val(iT) = NaN;
-                end
-        end             
-        mink_val = min(mink_val);maxk_val = max(maxk_val);
+                mink_val(iT) = NaN;
+                maxk_val(iT) = NaN;
+            end
+        case 'NaCl'
+            for iT = 1:nTbs
+                mink_val(iT) = NaN;
+                maxk_val(iT) = NaN;
+            end
+    end             
+    mink_val = min(mink_val);maxk_val = max(maxk_val);
 
-        ax = gca;
-        if Params.HOLD
-            if max(Dsil_km)>ax.YLim(2)
-                ax.YLim(2) = max(Dsil_km);
-            end
-            if maxk_val>ax.XLim(2)
-                ax.XLim(2) = maxk_val;
-            end
-            if mink_val<ax.XLim(1)
-                ax.XLim(1) = mink_val;
-            end
-        else
-            if ~isnan(mink_val)
-                ax.XLim = [mink_val maxk_val];
-                ax.YLim = [0 max(Dsil_km)];            
-            end
+    ax = gca;
+    if Params.HOLD
+        if max(Dsil_km)>ax.YLim(2)
+            ax.YLim(2) = max(Dsil_km);
         end
-        ax.YDir = 'reverse';
-        ax.FontSize = lbl.mdtext;
-        ax.YAxisLocation = 'right';
-
-        xlabel('Electrical Conductivity (S m^{−1})','Fontsize',lbl.mltext);
-        ylabel('Depth (km)','Fontsize',lbl.mltext);
-        box on
+        if maxk_val>ax.XLim(2)
+            ax.XLim(2) = maxk_val;
+        end
+        if mink_val<ax.XLim(1)
+            ax.XLim(1) = mink_val;
+        end
+    else
+        if ~isnan(mink_val)
+            ax.XLim = [mink_val maxk_val];
+            ax.YLim = [0 max(Dsil_km)];            
         end
     end
+    ax.YDir = 'reverse';
+    ax.FontSize = lbl.mdtext;
+    ax.YAxisLocation = 'right';
+
+    xlabel('Electrical Conductivity (S m^{−1})','Fontsize',lbl.mltext);
+    ylabel('Depth (km)','Fontsize',lbl.mltext);
+    box on
+   end
 end
 
 
 % subplot(3,2,[1 3 5]);
-if ~Params.NOPLOTS
 if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
     subplot(3,6,[1:3 7:9 13:15]);
 else
@@ -1857,16 +1892,15 @@ xlabel('Pressure (MPa)','Fontsize',lbl.mltext)
 ylabel('Density (kg m^{−3})','Fontsize',lbl.mltext)
 
     try
-        saveas(gcf,[figpath savefile],Params.savefigformat);
+        print(condfig,Params.savefigformat,fullfile([figpath savefile cfg.xtn]));
     catch
         error(['Couldn''t save file ' savefile ' to the ''figures'' directory. Maybe it doesn''t exist in the PP folder?']);
     end
-end
 
 %% plot profile with 2 subplots
 else
-if ~Params.NOPLOTS
-figure(229);
+
+set(0, 'CurrentFigure', condfig);
 maxScale = 1.01;
 if ~Params.HOLD
     clf;
@@ -1953,7 +1987,6 @@ ylabel('Depth (km)','Fontsize',lbl.mltext);
 box on;
 
 
-
 subplot(1,2,1);
 hold all 
 R2ind = C2mean+npre; % map the index for R_sil_mean back to the indices for P, D, r_m, z_m, etc...
@@ -2006,12 +2039,11 @@ ylabel('Density (kg m^{−3})','Fontsize',lbl.mltext)
 % set(ax(2),'xlim',[0 1800])
 % ylabel('Sound Speeds (km s^{-1})')
 
-    saveas(gcf,[figpath savefile],Params.savefigformat);
-end
+    print(condfig,Params.savefigformat,fullfile([figpath savefile cfg.xtn]));
 end
 %%
-if ~Params.NOPLOTS
-figure(228)
+
+set(0, 'CurrentFigure', gravfig);
 set(gcf, 'Name', lbl.gravg)
 if ~Params.HOLD
     clf;
@@ -2069,7 +2101,7 @@ axis tight
 % %     title('Temperature as a function of Pressure in Planet for T_{s} = 110 K, T_{b} = 260K')
 % xlabel('Pressure (MPa)')
 % ylabel('Temperature (K)')
-end
+
 end %PlanetProfile
 %% properties of water ice
 %Note: for VspChoukroun inds: liquid = 1, Ice I = 2, II = 3, III = 4, V = 5, VI = 6

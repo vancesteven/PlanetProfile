@@ -18,15 +18,6 @@ Planet.FeCore=false;
 % Planet.rho_sil_withcore_kgm3 = 2400; % Iess et al. 2014
 Planet.rho_sil_withcore_kgm3 = 2700; 
 
-% Fetch this information from an external file so we don't track
-% runtime settings in this file
-cfg = config;
-Params.NOPLOTS = cfg.no_plots;
-Params.CALC_NEW = cfg.calc_new; 
-Params.CALC_NEW_REFPROFILES = cfg.calc_new_ref;
-Params.CALC_NEW_SOUNDSPEEDS = cfg.calc_new_sound;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = cfg.conduct;
-
 % WARNING: The following line was copied from PPCallisto.m because it is
 % required by PlanetProfile.m in the current version and does not appear in
 % this file. An issue has been opened on GitHub. Delete this comment when
@@ -111,7 +102,6 @@ Seismic.gamma_aniso_mantle = 0.2;
 Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
-Params.savefigformat = 'epsc';
 Params.foursubplots =1;
 Params.HOLD = 0; % overlay previous run
 Params.Legend = false;
