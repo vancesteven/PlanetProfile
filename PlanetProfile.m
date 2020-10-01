@@ -7,16 +7,22 @@ function PlanetProfile(Planet,Seismic,Params)
 % Planetary And Space Science, 96:62-70, 2014.    
 % (http://dx.doi.org/10.1016/j.pss.2014.03.011)]
 %
-% Expanded in
+% Expanded in -- Github Release 1.0
 % S. D. Vance, M. P. Panning, S. Staehler, F. Cammarano, B. G. Bills, G. Tobie, S..
 % Kamata, S. Kedar, C. Sotin, W. T. Pike, et al. 
 % Geophysical investigations of habitability in ice-covered ocean worlds. 
 % Journal of Geophysical Research: Planets, Nov 2018.
 
+
+
 % First, get runtime config information
 % Fetch this information from an external file so we don't track
 % runtime settings in this file
-cfg = config;
+if ~isfield(Params,'cfg')
+    cfg = config;
+else
+    cfg = Params.cfg;
+end
 Params.NOPLOTS = cfg.no_plots;
 Params.CALC_NEW = cfg.calc_new; 
 Params.CALC_NEW_REFPROFILES = cfg.calc_new_ref;
@@ -624,9 +630,9 @@ for iT = 1:nTbs
     %             rho = 1000./getVspChoukroun2010(P_MPa(iT,iconv),T_K(iT,iconv-1),2);
                 rho = getRhoIce(P_MPa(iT,iconv),T_K(iT,iconv-1),1);
                 try
-                [Cp,alpha_K] = getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),1);
+                    [Cp,alpha_K] = getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),1);
                 catch
-                    x =1;
+                    warning('Seafreeze couldn''t get Cp, alpha for ice. Is it installed?');
                 end
     %             aK = 1.56e-4;
                 T_K(iT,iconv) = T_K(iT,iconv-1)+alpha_K*T_K(iT,iconv)/Cp/rho*deltaP*1e6;
@@ -2169,7 +2175,7 @@ function [Cp,alpha] = getCpIce(P_MPa,T_K,ind)
         Cp = out.Cp;
         alpha = out.alpha;
     catch
-        disp(['T_ice = ' num2str(T_K) '. This seems to be too low for SeaFreeze. Using Choukroun and Grasset (2010) instead.']);
+        disp(['T_ice = ' num2str(T_K) '. SeaFreeze may not be installed. You should install it. Using Choukroun and Grasset (2010) instead.']);
         Cp = CpH2O_Choukroun(P_MPa,T_K,ind);
         alpha = [];
     end
