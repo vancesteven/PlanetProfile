@@ -9,7 +9,8 @@
 #	Various commands for setting up and running PlanetProfile.
 #	Designed for accessibility for new users and ease of use for advanced users.
 # 
-# AUTHOR: Marshall Styczinski (mjstyczi@uw.edu), 2018-07-03
+# AUTHOR: Marshall J. Styczinski (mjstyczi@uw.edu), 2018-07-03
+#	Last updated 2020-10-01
 
 SHELL := /bin/bash
 
@@ -72,16 +73,10 @@ default:
 
 clean:
 	@bodies=($(mbodies)) ; \
-	echo "Clearing .gitignore files for:" $${bodies[@]} ; \
+	echo "Clearing data and figure files for:" $${bodies[@]} ; \
 	for body in $${bodies[@]} ; do \
-		flist1=$$(cat $$body/.gitignore) ; \
-		flist2=$$(cat $$body/$(figs)/.gitignore) ; \
-		for line in $$flist1 ; do \
-			rm -f $$body/$$line ; \
-		done ; \
-		for line in $$flist2 ; do \
-			rm -f $$body/$(figs)/$$line ; \
-		done ; \
+		rm -f $$body/*.dat $$body/*.txt $$body/*.mat ; \
+		rm -f $$body/$(figs)/*.eps $$body/$(figs)/*.fig $$body/$(figs)/*.png ; \
 	done
 
 install:
