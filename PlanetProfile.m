@@ -671,6 +671,7 @@ iceSig = 1e-16;
 mantleSig = 1e-16;
 coreSig = 1e-16;
 
+if ~Planet.FeCore; nsteps_tot = nsteps_tot - Params.nsteps_core; end
 [r_Planet_m, sig] = deal(zeros(nTbs,nsteps_tot));
 [ocean_thk, ind_Ih, ind_Obot, kmean, ktop] = deal(zeros(1,nTbs));
 Planet.ice_thk = strings(1,nTbs);
@@ -689,14 +690,16 @@ for iT=1:nTbs
     sig(iT,indsV) = iceSig;
     sig(iT,indsVI) = iceSig;
     sig(iT,indSil(iT):indSil(iT)+nsteps_mantle(iT)) = mantleSig;
+    r_mantle_m = linspace(R_sil_mean_m(iT),R_Fe_mean_m(iT),nsteps_mantle(iT));
     if Planet.FeCore
         sig(iT,(nsteps_tot - Params.nsteps_core):end) = coreSig;
+        r_Planet_m(iT,:) = [r_m(iT,1:indSil(iT)-1) r_mantle_m r_core_m(iT,:)];
+    else
+        r_Planet_m(iT,:) = [r_m(iT,1:indSil(iT)-1) r_mantle_m];
     end
     sig(sig==0) = 1e-16; % zeros make the integration unstable
     sig(isnan(sig)) = 1e-16;
 
-    r_mantle_m = linspace(R_sil_mean_m(iT),R_Fe_mean_m(iT),nsteps_mantle(iT));
-    r_Planet_m(iT,:) = [r_m(iT,1:indSil(iT)-1) r_mantle_m r_core_m(iT,:)];
     ocean_thk(iT) = r_Planet_m(iT,indsLiquid(1)) - r_Planet_m(iT,indsLiquid(end)+1);
     ind_Ih(iT) = indsI(end);
     ind_Obot(iT) = indsLiquid(end);
@@ -704,8 +707,8 @@ for iT=1:nTbs
     ktop(iT) = sig(ind_Ih(iT));
 end
 
-Planet.boundaries = r_Planet_m(:,end:-1:1);
-Planet.sig = sig(:,end:-1:1);
+Planet.boundaries = flip(r_Planet_m,2);
+Planet.sig = flip(sig,2);
 Planet.kmean = kmean(:);
 Planet.ktop = ktop(:);
 
