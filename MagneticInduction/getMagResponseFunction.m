@@ -16,18 +16,13 @@ function [k,Q] = getMagResponseFunction(r,n,nE,w,sig,boundaries,R_m,r0,y0,opts)
     end
 end %getMagResponseFunction
 function Q = getQ(n,nEw,sig,boundaries,R_m,r0,y0,opts)
-% [~,Qv] = ode15s(@(vr,Q) getdQdr(vr,Q,n,nEw,sig,boundaries),[r0 R_m],y0,opts); % chosen becuase this ode was deemed to be stiff
-[~,Qv] = ode45(@(vr,Q) getdQdr(vr,Q,n,nEw,sig,boundaries),[r0 R_m],y0,opts); % this yielded values within 0.1% of those from ode15s. It's the first recommended solution and may work in general. Needs more testing to see if it breaks for some inputs.
-% [~,Qv] = ode113(@(vr,Q) getdQdr(vr,Q,n,nEw,sig,boundaries),[r0 R_m],y0,opts); % this yielded values within 0.1% of those from ode15s. It's the first recommended solution and may work in general. Needs more testing to see if it breaks for some inputs.
+[~,Qv] = ode45(@(vr,Q) getdQdr(vr,Q,n,nEw,sig,boundaries),[r0 R_m],y0,opts);
 Q = Qv(end);    
 end % get Q
 function dQdr = getdQdr(r,Q,n,w,sig,boundaries)
     k = fnkRad(w,sig,r,boundaries);
     dQdr = -n*r.*k.^2/(1+n)/(1+2*n) - Q.*(1+4*n+4*n^2-2*r.^2.*k.^2)/(1+2*n)./r - Q.^2.*(1+n).*r.*k.^2/n/(1+2*n);
 %     dQdr = (n+1)/n/(2*n+1)*k.^2.*r.*(n/(n+1)-Q).^2-(2*n+1)./r.*Q; %eckhardt's form is slightly slower
-%    dQdr = -r.*k.^2/6 - Q.*(9-2*r.^2.*k.^2)/3./r - Q.^2.*2.*r.*k.^2/3; n =
-%    1
-%    dipole response
 end % fndQrk
 function k = sig2k(w,sig)
     mu0 = 4*pi*1e-7;

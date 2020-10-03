@@ -2,7 +2,13 @@ function PPTitan
 %PPTitan
  % this is the master program, and should be run from the main PlanetProfile
  % directory
+  
+Params.cfg = config;
+if Params.cfg.hold; clrAllProfiles; end
+
 Planet.name='Titan';
+
+%% &&& Bulk and surface properties
 % Planet.rho_kgm3 = 1879.8; %+/- 0.2, Jacobson et al. 2006
 Planet.R_m= 2574.7e3; % christophe's value
 Planet.M_kg = 1.3453e23; %christophe's value
@@ -90,7 +96,6 @@ Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
 Params.foursubplots =1;
-Params.HOLD = 0; % overlay previous run
 Params.Pseafloor_MPa = 1800;
 Params.Legend = false;
 Params.LegendPosition = 'southeast';
@@ -123,7 +128,6 @@ Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the e
 % Comparison of MgSO4 EOS pure water values is close to values for ammonia
 % EOS.  There are diffences in both the melting temperatures and fluid
 % thermodynamics
-Params.HOLD = 0;
 
 Params.LineStyle =  '--';
 Params.wrefLine =  '--';
@@ -136,14 +140,10 @@ Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [251.1 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
-PlanetProfile(Planet,Seismic,Params)
+outPlanet = PlanetProfile(Planet,Seismic,Params);
 
 % %== Supporting pure NaCl oceans is in development.
 % Planet.Ocean.comp='NaCl';
-% Params.HOLD = 1;
-% Params.CALC_NEW = 0;
-% Params.CALC_NEW_REFPROFILES=0;
-% Params.CALC_NEW_SOUNDSPEEDS=1;
 % Params.LineStyle =  ':';
 % Params.wrefLine =  ':';
 % Params.wref=[0 5 10 15];
@@ -154,14 +154,9 @@ PlanetProfile(Planet,Seismic,Params)
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
 %Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [246.9 260]; % 10 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [251.1 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
-%PlanetProfile(Planet,Seismic,Params)
+%outPlanet = PlanetProfile(Planet,Seismic,Params);
 % 
 %==
-% Params.HOLD = 1;
-% Params.CALC_NEW =0;
-% Params.CALC_NEW_REFPROFILES=0;
-% Params.CALC_NEW_SOUNDSPEEDS=0;
-% Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
 % 
 % Params.wrefLine =  '-.';
 % Params.wref=[3 5 10];
@@ -173,30 +168,22 @@ PlanetProfile(Planet,Seismic,Params)
 % % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % 0 Wt% temperatures at the bottom of the Ice Ih
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 265 268]; % 0 Wt% temperatures at the bottom of the Ice Ih; for the paper
 % % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [254 265 268]; % 0 Wt% temperatures at the bottom of the Ice Ih
-% PlanetProfile(Planet,Seismic,Params)
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 % 
-% Params.HOLD = 1;
-% Params.CALC_NEW =1;
-% Params.CALC_NEW_REFPROFILES=1;
-% Params.CALC_NEW_SOUNDSPEEDS=1;
 % Params.LineStyle =  '-.';
 % 
 % Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [250 260 264]; % 3 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript, thicknest ice is 150 km
 % % Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [249 260 264]; % 3 Wt% temperatures at the bottom of the Ice Ih
-% PlanetProfile(Planet,Seismic,Params)
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 % 
 % Planet.Ocean.w_ocean_pct=7; Planet.Tb_K = [250 260]; % 7 Wt% temperatures at the bottom of the Ice Ih
-% PlanetProfile(Planet,Seismic,Params)
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 
-% Params.HOLD = 0;
-% Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
-% 
-% Params.CALC_NEW =1;
 % Params.wrefine =  '--';
 % Params.LineStyle =  '-';
 % 
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % pure water, temperatures at the bottom of the Ice Ih
-% PlanetProfile(Planet,Seismic,Params)
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 % 
 
 % TESTING THE INFLUENCE OF A LOWER MOMENT OF INERTIA
@@ -206,10 +193,7 @@ PlanetProfile(Planet,Seismic,Params)
 % Planet.rho_sil_withcore_kgm3 = 3400; %3250
 % 
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 265]; % 10 Wt% temperatures at the bottom of the Ice Ih
-% PlanetProfile(Planet,Seismic,Params)
-% 
-% Params.HOLD = 1;
-% Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 % 
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % pure water, temperatures at the bottom of the Ice Ih
-% PlanetProfile(Planet,Seismic,Params)
+% outPlanet = PlanetProfile(Planet,Seismic,Params);

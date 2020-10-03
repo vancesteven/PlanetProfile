@@ -2,7 +2,12 @@ function PPEnceladus
 %PPEnceladus
  % this is the master program, and should be run from its containing
  % directory
+Params.cfg = config;
+if Params.cfg.hold; clrAllProfiles; end
+
 Planet.name='Enceladus';
+
+%% &&& Bulk and surface properties
 Planet.rho_kgm3 = 1610; % Thomas 2010
 Planet.R_m = 252e3; %± 200 Thomas  2010
 Planet.M_kg =1.08022e20; 
@@ -103,7 +108,6 @@ Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
 Params.foursubplots =1;
-Params.HOLD = 0; % overlay previous run
 Params.Legend = false;
 Params.LegendPosition = 'North';
 Params.ylim = [910 1170];
@@ -118,13 +122,11 @@ Params.Temps = [245 250 252.5 255 260 265 270];
 
 %% Run the Calculation!
 % Planet.Ocean.w_ocean_pct=10;Planet.Tb_K = [272.8 272.9 273 273.1]; % pure water, temperatures at the bottom of the Ice Ih
-% PlanetProfile(Planet,Seismic,Params)
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 % 
-% 
-% Params.HOLD = true;
 % 
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [273.1 273.15]; % pure water, temperatures at the bottom of the Ice Ih
-% PlanetProfile(Planet,Seismic,Params)
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 % 
 % 
 Planet.Ocean.comp='MgSO4';
@@ -136,16 +138,14 @@ Params.wrefLine = '--';
 Params.wref=[0 5 10 15];
 % 
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [272.72 273.12];
-PlanetProfile(Planet,Seismic,Params)
+outPlanet = PlanetProfile(Planet,Seismic,Params);
 
 % running pure water for the MgSO4 case illustrates >1oC error in the Margules parameterization
-Params.HOLD = 1; % overlay previous runs
 Params.LineStyle='-';
 Params.colororder = 'cm';
 Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [273.1 273.15]; % pure water, 
-PlanetProfile(Planet,Seismic,Params)
+outPlanet = PlanetProfile(Planet,Seismic,Params);
 % 
-% Params.HOLD = 1; 
 % Planet.Ocean.comp='Seawater';
 % Params.LineStyle='-.';
 % Params.wref=[0 34 68];
@@ -153,13 +153,12 @@ PlanetProfile(Planet,Seismic,Params)
 % Params.colororder = 'cm';
 % 
 % Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [270.82  271.16];
-% PlanetProfile(Planet,Seismic,Params)
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 
-% Params.HOLD = 1; % overlay previous runs
 % Params.LineStyle='-';
 % Params.colororder = 'cm';
 % Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [272.74 273.08]; % pure water, 
-% PlanetProfile(Planet,Seismic,Params)
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 
 Params.wrefLine =  ':';
 Params.wref=[3 5 10];
@@ -167,7 +166,6 @@ Planet.Ocean.comp='NH3';
 load L_IceNH3_DATA.mat
 Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 
-Params.HOLD = 1;
 Params.LineStyle =  ':';
 Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [269.535 269.905]; % 0 Wt% temperatures at the bottom of the Ice Ih
-%PlanetProfile(Planet,Seismic,Params)
+%outPlanet = PlanetProfile(Planet,Seismic,Params);
