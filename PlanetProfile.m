@@ -66,7 +66,8 @@ if ~cfg.skip_profiles
     figs = getProfileFigRefs(lbl, Planet.Tb_K, Planet.FeCore, POROUS, cfg.hold, cfg.no_plots);
     % Also grab the layered induction figures in order to pregenerate them
     % since we will be a moment in this function
-    if cfg.calc_new_induc
+    if cfg.calc_new_induc && ...
+            (strcmp(Planet.name,'Europa') || strcmp(Planet.name,'Ganymede') || strcmp(Planet.name,'Callisto'))
         [~] = getLayeredFigRefs(lbl, Planet.Tb_K, Planet.name, Planet.PLOT_SIGS, cfg.hold, cfg.no_plots);
     end
     
@@ -720,7 +721,10 @@ Planet.Ocean.indTop = nsteps_tot - ind_Ih(:); % Index in Planet.boundaries for o
 Planet.Ocean.indSil = nsteps_tot - ind_Obot(:); % Index in Planet.boundaries for outer radius of silicate mantle
 Planet.Ocean.indBot = nsteps_tot - ind_Obot(:) + 1; % Index in Planet.boundaries for outer radius of first ocean layer
 
-Planet.peaks_hr = 1./Planet.peaks_Hz/3600;
+% Layered induction not yet implemented for other than the Galilean moons.
+if (strcmp(Planet.name,'Europa') || strcmp(Planet.name,'Ganymede') || strcmp(Planet.name,'Callisto'))
+    Planet.peaks_hr = 1./Planet.peaks_Hz/3600;
+end
     
 % Exit now if we intend to skip creating profiles and just do layered
 % induction calculations.
