@@ -1,6 +1,22 @@
 function PPGanymede
 %PPGanymede
 Planet.name='Ganymede';
+
+Params.cfg = config;
+if Params.cfg.hold; clrAllProfiles; clrAllLayered(Planet.name); end
+%% &&& Orbital and plotting parameters for use in LayeredInductionResponse
+Planet.peaks_Hz = [5.274e-5 2.637e-5 1.617e-6];
+Planet.f_orb = 2*pi/7.15/86400; % radians per second
+Params.wlims = [log(0.001) log(1000)];
+% Get Fourier spectrum data
+load(['FTdata' Planet.name],'FTdata');
+Planet.ionos_bounds = 100e3;
+Planet.ionosPedersen_sig = 30/100e3;
+Planet.ionos_only = [];
+Planet.PLOT_SIGS = true;
+Planet.ADD_TRANSITION_BOUNDS = false;
+
+%% &&& Bulk and surface properties
 Planet.rho_kgm3 = 1936; % Schubert et al. 2004: 1942.0±4.8 claimed to be 4x more accurate than Anderson 1996 of 1936 ± 22
 Planet.R_m = 2634.1e3;
 Planet.M_kg =1.4819e23;
@@ -51,7 +67,6 @@ Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
 Params.foursubplots =1;
-Params.HOLD = 0; % overlay previous run
 Params.Legend=0;
 Params.Pseafloor_MPa = 2000;
 Params.LegendPosition = 'southeast';
@@ -137,24 +152,22 @@ Planet.xFe_core = 0.0463 ; % this is the total Fe  in Fe and FeS
 Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 Planet.rho_sil_withcore_kgm3 = 3730;
 
-Params.HOLD = 0; % overlay previous run
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
-
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250  260  270]; % 10 Wt% temperatures at the bottom of the Ice Ih
 % Planet.rho_sil_withcore_kgm3 = 3340; % for the saturated echondrite
 % Planet.rho_sil_withcore_kgm3 = 3520; % used in the 2017 JGR paper
-PlanetProfile(Planet,Seismic,Params)
+outPlanet = PlanetProfile(Planet,Seismic,Params);
+outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 
-Params.HOLD = 1; % overlay previous run
 Planet.Ocean.w_ocean_pct=1; Planet.Tb_K = [261.4  270.7]; % 1 Wt% temperatures at the bottom of the Ice Ih
 % Planet.rho_sil_withcore_kgm3 = 3340; % for the saturated echondrite
 % Planet.rho_sil_withcore_kgm3 = 3520; % used in the 2017 JGR paper
-PlanetProfile(Planet,Seismic,Params)
+outPlanet = PlanetProfile(Planet,Seismic,Params);
+outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 
-Params.HOLD = 1; % overlay previous run
 Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = [255  265  273]; % pure water, temperatures at the bottom of the Ice Ih
 % Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = [255 260 265 270 273]; % pure water, temperatures at the bottom of the Ice Ih
 Params.LineStyle='-';
 % Planet.rho_sil_withcore_kgm3 = 3360; % for the saturated echondrite
 % Planet.rho_sil_withcore_kgm3 = 3530; % for the saturated echondrite
-PlanetProfile(Planet,Seismic,Params)
+outPlanet = PlanetProfile(Planet,Seismic,Params);
+outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);

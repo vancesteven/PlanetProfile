@@ -1,643 +1,78 @@
-function LayeredInductionResponseJupiter
+function outWaveforms = LayeredInductionResponseJupiter(Planet,FTdata,Params)
 
 warning('off','all')
 disp('All warnings are turned off. Turn them on again to check for NaN values in the input data.')
 
- % white background for figures
-set(0,'defaultfigurecolor',[1 1 1])
-set(0,'defaultAxesFontSize',16)
-
 cfg = config;
 
-CALC_NEW = cfg.calc_new;
-PLOT_PERIODS  = cfg.do_per;
 PLOT_WAVEFORMS = cfg.plot_fft;
-PRINT_TABLES = cfg.tables;
+Planet.PLOT_SIGS = 1;
+if ~cfg.calc_new_induc && Planet.PLOT_SIGS; Planet.PLOT_SIGS = 0; end
 
-DO_EUROPA = cfg.do_eur;
-DO_GANYMEDE = cfg.do_gan;
-DO_CALLISTO = cfg.do_cal;
-nbodies = (DO_EUROPA+DO_GANYMEDE+DO_CALLISTO);
+nTbs = length(Planet.Tb_K);
 
 % Pregenerate figures
-aphifig = 125;
-fftsfig = 4000;
-eurfig = aphifig + 1;
-ganfig = aphifig + 1 + DO_EUROPA;
-calfig = aphifig + 1 + DO_EUROPA + DO_GANYMEDE;
-for ibody = 1:nbodies
-    if ~ishandle(aphifig+ibody); figure(aphifig+ibody); end
-    if ~ishandle(fftsfig+ibody); figure(fftsfig+ibody); end
-    for ixyz = 1:3
-        if ~ishandle((aphifig+ibody)*20+ixyz); figure((aphifig+ibody)*20+ixyz); end
-    end
-end
+lbl = getPlotLabels(cfg.dft_font, cfg.dft_math, cfg.interpreter);
+figs = getLayeredFigRefs(lbl, Planet.Tb_K, Planet.name, Planet.PLOT_SIGS, cfg.hold, cfg.no_plots);
+set(0,'defaultAxesFontSize',16)
 
 %% increments of distance
 km = 1e3;
-opts = odeset('RelTol',1e-8,'AbsTol',1e-10,'MaxStep',10*km,'InitialStep',1e-2); % defaults are 1e-3 and 1e-6; maxstep of 10km leads to fast calculations that are satisfactory everwhere to about 0.001%
+r0 = km; y0 = 0; n = 1;
+opts = cfg.opts_odeLayers;
 
-% w = linspace(log(0.001),log(60),75); used in previous cc
-w = linspace(log(0.001),log(1000),75); 
+r = linspace(km,2*Planet.R_m,100);
+w = linspace(Params.wlims(1),Params.wlims(2),cfg.npts_w); 
 w = exp(w); % cycles per orbit
 
-r0 = km;
-y0 = 0;
-n = 1;
+set(0, 'CurrentFigure', figs.amph);
+set(gcf, 'Name', [lbl.amphs ' ' Planet.name]);
 
-% previous data
-% FieldData = load('GalileanFrequencyData.mat');
-% %% switch Bx and By to be consistent with IAU convention used in other work
-% deleteme = FieldData.BxFFT_Europa;
-% FieldData.BxFFT_Europa = FieldData.ByFFT_Europa;
-% FieldData.ByFFT_Europa = deleteme;
-% deleteme = FieldData.BxFFT_Ganymede;
-% FieldData.BxFFT_Ganymede = FieldData.ByFFT_Ganymede;
-% FieldData.ByFFT_Ganymede = deleteme;
-% deleteme = FieldData.BxFFT_Callisto;
-% FieldData.BxFFT_Callisto = FieldData.ByFFT_Callisto;
-% FieldData.ByFFT_Callisto = deleteme;
-% clear deleteme;
+if ~cfg.hold; warning('WARNING: cfg.hold=0 is not currently implemented in LayeredInductionResponse. Only one overlayed plot will be printed for each body.'); end
+%clf;
 
-%% get the FFT data processed by Corey Cochrane. 
-% Notes:
-% all data are in IAU reference frame of reference
-
-% 10 year duration ...
-%    data points: 524288
-%    Sep 1, 2018 12:00:00 AM UTC
-%    Sep 1, 2028 12:00:00 AM UTC
-%    Time Resolution: 0.0016611 Hz, 601.9958 seconds, 10.0333 minutes, 0.16722 hours 
-FieldData = ReadGalileanFFTData;
-%% set up the peaks to plot and analyze
-Europa.peaks_Hz =   [4.946e-5 2.473e-5 3.259e-6];
-Ganymede.peaks_Hz = [5.274e-5 2.637e-5 1.617e-6];
-Callisto.peaks_Hz = [5.4584e-05 2.7294e-5 6.892e-7];
-% Callisto.peaks_Hz = [8.188e-5 2.7294e-5 6.892e-7];
-
-Europa.peaks_hr =   1./Europa.peaks_Hz/3600;
-Ganymede.peaks_hr = 1./Ganymede.peaks_Hz/3600;
-Callisto.peaks_hr = 1./Callisto.peaks_Hz/3600;
-Europa.Name =   'Europa';
-Ganymede.Name = 'Ganymede';
-Callisto.Name = 'Callisto';
-
-%% create frequency plots similar to those in Seufert et al. 2011
-if PLOT_PERIODS
-    disp('\begin{table}[]')
-    disp('\centering')
-    disp('    \hline')
-    disp('\begin{tabular}{c | c c c}')
-    disp('&     \multicolumn{3}{c}{\textbf{Period (hr)}}\\')
-    disp('     &     $B_{x,y,z}$ (nT)&     $B_{x,y,z}$ (nT)&     $B_{x,y,z}$ (nT)\\')
-    disp('    \hline')
-
-    if DO_EUROPA;   plotPeriods(fftsfig+1,Europa,FieldData); end
-    if DO_GANYMEDE; plotPeriods(fftsfig+2,Ganymede,FieldData); end
-    if DO_CALLISTO; plotPeriods(fftsfig+3,Callisto,FieldData); end
-
-    disp('   \end{tabular}')
-    disp('    \caption{Caption}')
-    disp('     \label{tab:my_label}')
-    disp('\end{table}')
-end
-
-%%
-if DO_EUROPA
-Re_km = 1561;
-r = linspace(km,2*Re_km*1e3,100);
-
-f_orb = 2*pi/3.55/86400; % radians per second
-EData.f_orb = f_orb;
-
-    set(0, 'CurrentFigure', eurfig);
-    set(gcf, 'Name', 'Amplitude and phase Europa');
-    clf;
-
-    %get the field data
-EData.frequency = FieldData.frequency;
-EData.peaks_Hz = Europa.peaks_Hz;
-    
-meanEuropa = (FieldData.BxFFT_Europa.^2+FieldData.ByFFT_Europa.^2+FieldData.BzFFT_Europa.^2).^(1/2);
-EData.Name = 'Europa';
-EData.Bx = FieldData.BxFFT_Europa;
-EData.By = FieldData.ByFFT_Europa;
-EData.Bz = FieldData.BzFFT_Europa;
-EData.meanField_nT = meanEuropa;
-
-if CALC_NEW
-    EuropaWaveforms = [];
-else
-    try
-        load(fullfile('Europa','EuropaWaveforms'))
-    catch loadWaveformsError
-        disp('ERROR: EuropaWaveforms.mat was not found.')
-        disp('It probably has not been generated. Set CALC_NEW to 1 to correct this.')
-        rethrow(loadWaveformsError)
+for iT = nTbs:-1:1 % Do this loop in descending order to avoid preallocating structs
+    fname = [Planet.name 'Waveforms_' char(Planet.Profile_ID(iT))];
+    if cfg.calc_new_induc
+        disp(['== ' Planet.Ocean.comp ' - ' char(Planet.ice_thk(iT)) ' km'])
+        SaveWaveforms = getPlanetMagWaveforms(figs,lbl,r,n,w,Planet.sig(iT,:),Planet.boundaries(iT,:),r0,y0,opts,Planet.f_orb,Planet);
+        save(fullfile(Planet.name,fname),'SaveWaveforms')
+    else
+        try
+            load(fullfile(Planet.name,fname),'SaveWaveforms')
+        catch loadWaveformsError
+            disp(['ERROR: ' fname '.mat was not found.'])
+            disp('It probably has not been generated. Set cfg.calc_new_induc to 1 to correct this.')
+            rethrow(loadWaveformsError)
+        end
     end
+    outWaveforms(iT) = SaveWaveforms;
 end
 
-color_warmSW = 	[176,0,255]/255;
-
-%% WARNING: ALL OF THESE PROFILES ARE JUST LIFTED FROM THE BODY'S STANDARD OUTPUTS
-%% AND THE LABELS DON'T MATCH
-%% MgSO4 1wt% 5km ice
-if ~isfield(EuropaWaveforms,'M1_5km')
-[boundaries,sig,E_M1_5km] = readData('Europa','EuropaProfile_MgSO410WtPct_Ts110Zb29667mQm7mWm2_CMR2p3460_chon_678_1.txt');
-
-E_M1_5km.ionos_bounds = 100e3;
-E_M1_5km.ionosPedersen_sig = 30/100e3;
-E_M1_5km.ionos_only = [];
-
-E_M1_5km.R = Re_km;
-E_M1_5km.PLOT_SIGS = true;
-E_M1_5km.ADD_TRANSITION_BOUNDS = false; 
-disp('==MgSO4 1 wt% - 5 km')
-M1_5km = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,EData,E_M1_5km);
-M1_5km.Name = '\textbf{MgSO$_{4}$ 1 wt\%}';
-EuropaWaveforms.M1_5km = M1_5km;
-end
-%% MgSO4 1wt% 30 km thick ice
-if ~isfield(EuropaWaveforms,'M1_30km')
-[boundaries,sig,E_M1_30km] = readData('Europa','EuropaProfile_MgSO410WtPct_Ts110Zb4679mQm7mWm2_CMR2p3460_chon_678_1.txt');
-
-E_M1_30km.ionos_bounds = 100e3;
-E_M1_30km.ionosPedersen_sig = 30/100e3;
-
-E_M1_30km.R = Re_km;
-E_M1_30km.PLOT_SIGS = false;
-E_M1_30km.ADD_TRANSITION_BOUNDS = false; 
-disp('==MgSO4 1 wt% - 30 km')
-M1_30km = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,EData,E_M1_30km);
-M1_30km.Name = '';
-EuropaWaveforms.M1_30km = M1_30km;
-end
-%%
-%% Seawater 3.5ppt 5km ice
-if ~isfield(EuropaWaveforms,'Sw_p1_5km')
-[boundaries,sig,E_Sw_p1_5km] = readData('Europa','EuropaProfile_Seawater35WtPct_Ts110Zb30488mQm7mWm2_CMR2p3460_CV3hy1wt_678_1.txt');
-
-E_Sw_p1_5km.ionos_bounds = 100e3;
-E_Sw_p1_5km.ionosPedersen_sig = 30/100e3;
-
-E_Sw_p1_5km.R = Re_km;
-E_Sw_p1_5km.PLOT_SIGS = false;
-E_Sw_p1_5km.ADD_TRANSITION_BOUNDS = false; 
-disp('==Seawater 0.35165 wt% - 5 km')
-Sw_p1_5km = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,EData,E_Sw_p1_5km);
-Sw_p1_5km.Name = '\textbf{Seawater 0.35165 wt\%}';
-EuropaWaveforms.Sw_p1_5km = Sw_p1_5km;
-end
-%% Seawater 3.5ppt 30km ice
-if ~isfield(EuropaWaveforms,'Sw_p1_30km')
-[boundaries,sig,E_Sw_p1_30km] = readData('Europa','EuropaProfile_Seawater35WtPct_Ts110Zb4741mQm7mWm2_CMR2p3460_CV3hy1wt_678_1.txt');
-
-E_Sw_p1_30km.ionos_bounds = 100e3;
-E_Sw_p1_30km.ionosPedersen_sig = 30/100e3;
-
-E_Sw_p1_30km.R = Re_km;
-E_Sw_p1_30km.PLOT_SIGS = false;
-E_Sw_p1_30km.ADD_TRANSITION_BOUNDS = false; 
-disp('==Seawater 0.35165 wt% - 30 km')
-Sw_p1_30km = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,EData,E_Sw_p1_30km);
-Sw_p1_30km.Name = '';
-EuropaWaveforms.Sw_p1_30km = Sw_p1_30km;
-end
-%%
-save(fullfile('Europa','EuropaWaveforms'),'EuropaWaveforms')
-%% Table output
-if PRINT_TABLES
-disp('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
-printWaveformTables(EData,EuropaWaveforms,'x');
-disp('YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY')
-printWaveformTables(EData,EuropaWaveforms,'y');
-disp('ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ')
-printWaveformTables(EData,EuropaWaveforms,'z');
-disp('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-end
 %% Figures
-if PLOT_WAVEFORMS
-plotWaveformData(eurfig,EData,EuropaWaveforms,cfg)
-end
-%%
-% figure(nfig+10);clf;%hold on
-% set(gcf,'Position',[157   432   717   583])
-% subplot(2,1,1);hold on
-% loglog(1./3600./EData.frequency,pdiff(E_M1_5km.InPhaseY,E_M1_5km_mean.InPhaseY),'m--');
-% hp(2) = loglog(1./3600./EData.frequency,pdiff(E_M1_30km.InPhaseY,E_M1_30km_mean.InPhaseY),'b--');
-% hp(3) = loglog(1./3600./EData.frequency,pdiff(E_M10_5km.InPhaseY,E_M10_5km_mean.InPhaseY),'m--','LineWidth',3);
-% hp(4) = loglog(1./3600./EData.frequency,pdiff(E_M10_30km.InPhaseY,E_M10_30km_mean.InPhaseY),'b--','LineWidth',3);
-% 
-% hp(5) = loglog(1./3600./EData.frequency,pdiff(E_p1Sw_5km.InPhaseY,E_p1Sw_5km_mean.InPhaseY),'c-.');
-% hp(6) = loglog(1./3600./EData.frequency,pdiff(E_p1Sw_30km.InPhaseY,E_p1Sw_30km_mean.InPhaseY),'c-.');
-% hp(7) = loglog(1./3600./EData.frequency,pdiff(E_Sw_5km.InPhaseY,E_Sw_5km_mean.InPhaseY),'c-.','LineWidth',3);
-% hp(8) = loglog(1./3600./EData.frequency,pdiff(E_Sw_31km.InPhaseY,E_Sw_31km_mean.InPhaseY),'c-.','LineWidth',3);
-% hvl = vline(1./3600./EData.peaks_Hz,'r');
-% set(gca,'xscale','log')
-% axis tight
-% box on
-% % xlabel('Frequency (Hz)')
-% ylabel('$\Delta(\mathcal{A}_1^e)_\mathrm{Adiabat,Mean}$ ($\%$)','Interpreter','latex')
-% 
-% % saveas(gcf,'EuropaMeanVsAdiabat.eps','epsc');
-% 
-% % figure(nfig+20);clf;hold on
-% subplot(2,1,2);hold on
-% hp(1) = loglog(1./3600./EData.frequency,pdiff(E_M1_5km.Qinterp,E_M1_5km_top.Qinterp),'m--');
-% hp(2) = loglog(1./3600./EData.frequency,pdiff(E_M1_30km.Qinterp,E_M1_30km_top.Qinterp),'b--');
-% hp(3) = loglog(1./3600./EData.frequency,pdiff(E_M10_30km.Qinterp,E_M10_30km_top.Qinterp),'b--','LineWidth',3);
-% hp(4) = loglog(1./3600./EData.frequency,pdiff(E_M10_5km.Qinterp,E_M10_5km_top.Qinterp),'m--','LineWidth',3);
-% 
-% hp(5) = loglog(1./3600./EData.frequency,pdiff(E_p1Sw_5km.Qinterp,E_p1Sw_5km_top.Qinterp),'c-.');
-% hp(6) = loglog(1./3600./EData.frequency,pdiff(E_p1Sw_30km.Qinterp,E_p1Sw_30km_top.Qinterp),'b-.');
-% hp(7) = loglog(1./3600./EData.frequency,pdiff(E_Sw_5km.Qinterp,E_Sw_5km_top.Qinterp),'c-.','LineWidth',3);
-% hp(8) = loglog(1./3600./EData.frequency,pdiff(E_Sw_31km.Qinterp,E_Sw_31km_top.Qinterp),'b-.','LineWidth',3);
-% 
-% hvl = vline(1./3600./EData.peaks_Hz,'r');
-% set(gca,'xscale','log')
-% xlabel('Period (hr)')
-% % xlabel('Frequency (Hz)')
-% ylabel('$\Delta(\mathcal{A}_1^e)_\mathrm{Adiabat,Top}$ ($\%$)','Interpreter','latex')
-% % ylabel('$(B_\mathrm{Adiabat}-B_\mathrm{Top})/B_\mathrm{Top}$ ($\%$)','Interpreter','latex')
-% axis tight
-% box on
-% % saveas(gcf,'EuropaTopVsAdiabat.eps','epsc');
-% saveas(gcf,'EuropaTopMeanVsAdiabat.eps','epsc');
+if PLOT_WAVEFORMS; plotWaveformData(figs,lbl,outWaveforms,FTdata,Planet,cfg); end
 
-end
-
-if DO_GANYMEDE
-    %%%%% Ganymede
-Rg_km = 2634;
-r = linspace(km,2*Rg_km*1e3,200);
-
-f_orb = 2*pi/7.15/86400; % orbit in Hz
-GData.f_orb = f_orb;
-
-    set(0, 'CurrentFigure', ganfig);
-    set(gcf, 'Name', 'Amplitude and phase Ganymede');
-    clf;
-
-    %get the mean field data
-GData.frequency = FieldData.frequency;
-GData.peaks_Hz = Ganymede.peaks_Hz;
-
-meanGanymede = (FieldData.BxFFT_Ganymede.^2+FieldData.ByFFT_Ganymede.^2+FieldData.BzFFT_Ganymede.^2).^(1/2);
-GData.Name = 'Ganymede';
-GData.Bx = FieldData.BxFFT_Ganymede;
-GData.By = FieldData.ByFFT_Ganymede;
-GData.Bz = FieldData.BzFFT_Ganymede;
-GData.meanField_nT = meanGanymede;
-
-%Liu 2016 in situ, measured electrical conductivity of ices: ice V
-
-if CALC_NEW
-    GanymedeWaveforms = [];
-else
-    try
-        load(fullfile('Ganymede','GanymedeWaveforms'))
-    catch loadWaveformsError
-        disp('ERROR: GanymedeWaveforms.mat was not found.')
-        disp('It probably has not been generated. Set CALC_NEW to 1 to correct this.')
-        rethrow(loadWaveformsError)
-    end
-end
-
-
-%% WARNING: ALL OF THESE PROFILES ARE JUST LIFTED FROM THE BODY'S STANDARD OUTPUTS
-%% AND THE LABELS DON'T MATCH
-%create the input from planet profile data
-%% MgSO4 1wt% 26km ice
-if ~isfield(GanymedeWaveforms,'M1_26km')
-[boundaries,sig,G_M1_26km] = readData('Ganymede','GanymedeProfile_MgSO40WtPct_Ts110Zb133782mQm1mWm2_CMR2p3115_CM2hy1wt_678_1.txt');
-
-G_M1_26km.ionos_bounds = 100e3;
-G_M1_26km.ionosPedersen_sig = 2/100e3;
-G_M1_26km.ionos_only = [];
-
-G_M1_26km.R = Rg_km;
-G_M1_26km.PLOT_SIGS = true;
-G_M1_26km.ADD_TRANSITION_BOUNDS = false; 
-disp('==MgSO4 1 wt% - 26 km')
-M1_26km = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,GData,G_M1_26km);
-M1_26km.Name = '\textbf{MgSO$_4$ 1 wt\%}';
-GanymedeWaveforms.M1_26km = M1_26km;
-end
-
-%% MgSO4 1wt& 95km ice
-if ~isfield(GanymedeWaveforms,'M1_95km')
-[boundaries,sig,G_M1_95km] = readData('Ganymede','GanymedeProfile_MgSO40WtPct_Ts110Zb5378mQm1mWm2_CMR2p3115_CM2hy1wt_678_1.txt');
-
-G_M1_95km.ionos_bounds = 100e3;
-G_M1_95km.ionosPedersen_sig = 2/100e3;
-
-G_M1_95km.R = Rg_km;
-G_M1_95km.PLOT_SIGS = true;
-G_M1_95km.ADD_TRANSITION_BOUNDS = false; 
-disp('==MgSO4 1 wt% - 26 km')
-M1_95km = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,GData,G_M1_95km);
-M1_95km.Name = '';
-GanymedeWaveforms.M1_95km = M1_95km;
-end
-%% MgSO4 10wt% 26 km ice
-if ~isfield(GanymedeWaveforms,'M10_26km')
-[boundaries,sig,G_M10_26km] = readData('Ganymede','GanymedeProfile_MgSO40WtPct_Ts110Zb70281mQm1mWm2_CMR2p3115_CM2hy1wt_678_1.txt');
-
-G_M10_26km.ionos_bounds = 100e3;
-G_M10_26km.ionosPedersen_sig = 2/100e3;
-
-G_M10_26km.R = Rg_km;
-G_M10_26km.PLOT_SIGS = true;
-G_M10_26km.ADD_TRANSITION_BOUNDS = false; 
-disp('==MgSO4 10 wt% - 26 km')
-M10_26km = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,GData,G_M10_26km);
-M10_26km.Name = '\textbf{MgSO$_4$ 10 wt\%}';
-GanymedeWaveforms.M10_26km = M10_26km;
-end
-%% MgSO4 10wt% 95km ice
-% thick ice, the intermediate case from Vance et al. 2018, with 528 km of
-% ice VI
-if ~isfield(GanymedeWaveforms,'M10_95km')
-[boundaries,sig,G_M10_95km] = readData('Ganymede','GanymedeProfile_MgSO410WtPct_Ts110Zb94548mQm1mWm2_CMR2p3115_CM2hy1wt_678_1.txt');
-
-G_M10_95km.ionos_bounds = 100e3;
-G_M10_95km.ionosPedersen_sig = 2/100e3;
-
-G_M10_95km.sub_ocean.Depth_km = 500;
-G_M10_95km.sub_ocean.Thickness_km = 30;
-G_M10_95km.sub_ocean.sig = 20;
-
-G_M10_95km.R = Rg_km;
-G_M10_95km.PLOT_SIGS = true;
-G_M10_95km.ADD_TRANSITION_BOUNDS = false; 
-disp('==MgSO4 10 wt% - 95 km')
-M10_95km = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,GData,G_M10_95km);
-M10_95km.Name = '';
-GanymedeWaveforms.M10_95km = M10_95km;
-end
-%%
-save(fullfile('Ganymede','GanymedeWaveforms'),'GanymedeWaveforms')
-%% add items to the APhi figure
 %% Table output
-if PRINT_TABLES
-disp('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
-printWaveformTables(GData,GanymedeWaveforms,'x');
-disp('YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY')
-printWaveformTables(GData,GanymedeWaveforms,'y');
-disp('ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ')
-printWaveformTables(GData,GanymedeWaveforms,'z');
-disp('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-end
-%% Figures
-if PLOT_WAVEFORMS
-plotWaveformData(ganfig,GData,GanymedeWaveforms,cfg)
-end
-%%
-% figure(nfig+10);clf;
-% set(gcf,'Position',[157   432   717   583])
-% subplot(2,1,1);hold on
-% hp(1) = loglog(1./3600./GData.frequency,pdiff(G_M1_26km.Qinterp,G_M1_26km_mean.Qinterp),'m--');
-% hp(2) = loglog(1./3600./GData.frequency,pdiff(G_M1_95km.Qinterp,G_M1_95km_mean.Qinterp),'b--');
-% hp(3) = loglog(1./3600./GData.frequency,pdiff(G_M10_26km.Qinterp,G_M10_26km_mean.Qinterp),'m--','LineWidth',3);
-% hp(4) = loglog(1./3600./GData.frequency,pdiff(G_M10_95km.Qinterp,G_M10_95km_mean.Qinterp),'b--','LineWidth',3);
-% hvl = vline(1./3600./GData.peaks_Hz,'r');
-% set(gca,'xscale','log')
-% axis tight
-% box on
-% % xlabel('Period (hr)')
-% % xlabel('Frequency (Hz)')
-% ylabel('$\Delta(\mathcal{A}_1^e)_\mathrm{Adiabat,Mean}$ ($\%$)','Interpreter','latex')
-% % saveas(gcf,'GanymedeMeanVsAdiabat.eps','epsc');
-% 
-% 
-% % figure(nfig+20);clf;hold on
-% subplot(2,1,2);hold on
-% hp(1) = loglog(1./3600./GData.frequency,pdiff(G_M1_26km.Qinterp,G_M1_26km_top.Qinterp),'m--');
-% hp(2) = loglog(1./3600./GData.frequency,pdiff(G_M1_95km.Qinterp,G_M1_95km_top.Qinterp),'b--');
-% hp(3) = loglog(1./3600./GData.frequency,pdiff(G_M10_26km.Qinterp,G_M10_26km_top.Qinterp),'b--','LineWidth',3);
-% hp(4) = loglog(1./3600./GData.frequency,pdiff(G_M10_95km.Qinterp,G_M10_95km_top.Qinterp),'m--','LineWidth',3);
-% hvl = vline(1./3600./GData.peaks_Hz,'r');
-% set(gca,'xscale','log')
-% xlabel('Period (hr)')
-% % xlabel('Frequency (Hz)')
-% ylabel('$\Delta(\mathcal{A}_1^e)_\mathrm{Adiabat,Top}$ ($\%$)','Interpreter','latex')
-% axis tight 
-% box on
-% % saveas(gcf,'GanymedeTopVsAdiabat.eps','epsc');
-% saveas(gcf,'GanymedeTopMeanVsAdiabat.eps','epsc');
-
-
+% MJS 2020-10-03:
+% Since this portion was written, this function has changed implementation
+% dramatically. Previously, a large number of Waveforms files were imported
+% and compared, but now we only do 1 composition, 1 body at a time. It
+% probably makes sense to cut this, as a working implementation is archived
+% with the 1.1.0 release for Vance et al. 2020.
+if cfg.disp_tables && cfg.deprecated
+    disp('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+    printWaveformTables(FTdata,outWaveforms,'x');
+    disp('YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY')
+    printWaveformTables(FTdata,outWaveforms,'y');
+    disp('ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ')
+    printWaveformTables(FTdata,outWaveforms,'z');
+    disp('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
 end
 
-%%%%% Callisto
-if DO_CALLISTO
-w = linspace(log(0.01),log(100000),100); 
-w = exp(w); % cycles per orbit
-
-Rc_km = 2410.3;
-r = linspace(km,2*Rc_km*km,100);
-
-f_orb = 2*pi/17/86400; % orbit in Hz
-CData.f_orb = f_orb;
-
-set(0, 'CurrentFigure', calfig);
-set(gcf, 'Name', 'Amplitude and phase Callisto');
-clf;
-
-CData.frequency = FieldData.frequency;
-indFreqEnd = find(FieldData.frequency>max(Callisto.peaks_Hz));
-finds = 1:indFreqEnd(1)+100; % the padding index of 100 is so the max-finder near the end of this file can search within the index space set by the variable hw
-CData.frequency = FieldData.frequency(finds);
-CData.peaks_Hz = Callisto.peaks_Hz;
-
-    %get the mean field data
-    meanCallisto = (FieldData.BxFFT_Callisto.^2+FieldData.ByFFT_Callisto.^2+FieldData.BzFFT_Callisto.^2).^(1/2);
-CData.meanField_nT = meanCallisto(finds);
-CData.Name = 'Callisto';
-CData.Bx = FieldData.BxFFT_Callisto(finds);
-CData.By = FieldData.ByFFT_Callisto(finds);
-CData.Bz = FieldData.BzFFT_Callisto(finds);
-
-if CALC_NEW
-    CallistoWaveforms = [];
-else
-    try
-        load(fullfile('Callisto','CallistoWaveforms'))
-    catch loadWaveformsError
-        disp('ERROR: CallistoWaveforms.mat was not found.')
-        disp('It probably has not been generated. Set CALC_NEW to 1 to correct this.')
-        rethrow(loadWaveformsError)
-    end
-end
-
-
-if ~isfield(CallistoWaveforms,'M1_100km')
-[boundaries,sig,C_M1_100km] = readData('Callisto','CallistoProfile_MgSO410WtPct_Ts110Zb130337mQm2mWm2_CMR2p3549_pyrohp_sat_678_1.txt');
-
-C_M1_100km.ionos_bounds = 100e3;
-C_M1_100km.ionosPedersen_sig = 800/100e3;
-C_M1_100km.ionosCowling_sig = 6850/100e3;
-C_M1_100km.ionos_only = [];
-
-C_M1_100km.R = Rc_km;
-C_M1_100km.PLOT_SIGS = true;
-C_M1_100km.ADD_TRANSITION_BOUNDS = false; 
-disp('==MgSO4 1 wt% - 100 km')
-M1_100km = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,CData,C_M1_100km);
-M1_100km.Name = '\textbf{MgSO$_{4}$ 1 wt\%}';
-CallistoWaveforms.M1_100km = M1_100km;
-end
-%% MgSO4 1wt% 130km ice
-if ~isfield(CallistoWaveforms,'M1_130km')
-[boundaries,sig,C_M1_130km] = readData('Callisto','CallistoProfile_MgSO410WtPct_Ts110Zb99804mQm2mWm2_CMR2p3549_pyrohp_sat_678_1.txt');
-
-C_M1_130km.ionos_bounds = 100e3;
-C_M1_130km.ionosPedersen_sig = 800/100e3;
-C_M1_130km.ionosCowling_sig = 6850/100e3;
-
-C_M1_130km.R = Rc_km;
-C_M1_130km.PLOT_SIGS = true;
-C_M1_130km.ADD_TRANSITION_BOUNDS = false; 
-disp('==MgSO4 1 wt% - 130 km')
-M1_130km = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,CData,C_M1_130km);
-M1_130km.Name = '';
-CallistoWaveforms.M1_130km = M1_130km;
-end
-%% MgSO4 10wt% 100 km ice
-if ~isfield(CallistoWaveforms,'M10_100km')
-[boundaries,sig,C_M10_100km] = readData('Callisto','CallistoProfile_MgSO413WtPct_Ts110Zb85873mQm2mWm2_CMR2p3549_pyrohp_sat_678_1.txt');
-
-C_M10_100km.ionos_bounds = 100e3;
-C_M10_100km.ionosPedersen_sig = 800/100e3;
-C_M10_100km.ionosCowling_sig = 6850/100e3;
-
-C_M10_100km.R = Rc_km;
-C_M10_100km.PLOT_SIGS = true;
-C_M10_100km.ADD_TRANSITION_BOUNDS = false; 
-disp('==MgSO4 10 wt% - 100 km')
-M10_100km = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,CData,C_M10_100km);
-M10_100km.Name = '\textbf{MgSO$_{4}$ 10 wt\%}';
-CallistoWaveforms.M10_100km = M10_100km;
-end
-%% MgSO4 10wt% 130km ice
-if ~isfield(CallistoWaveforms,'M10_130km')
-[boundaries,sig,C_M10_130km] = readData('Callisto','CallistoProfile_MgSO413WtPct_Ts110Zb120952mQm2mWm2_CMR2p3549_pyrohp_sat_678_1.txt');
-
-C_M10_130km.ionos_bounds = 100e3;
-C_M10_130km.ionosPedersen_sig = 800/100e3;
-C_M10_130km.ionosCowling_sig = 6850/100e3;
-
-C_M10_130km.R = Rc_km;
-C_M10_130km.PLOT_SIGS = true;
-C_M10_130km.ADD_TRANSITION_BOUNDS = false; 
-disp('==MgSO4 1 wt% - 130 km')
-M10_130km = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,CData,C_M1_130km);
-M10_130km.Name = '';
-CallistoWaveforms.M10_130km = M10_130km;
-end
-
-save(fullfile('Callisto','CallistoWaveforms'),'CallistoWaveforms')
-%% add items to the APhi figure
-%% Table output
-if PRINT_TABLES
-disp('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
-printWaveformTables(CData,CallistoWaveforms,'x');
-disp('YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY')
-printWaveformTables(CData,CallistoWaveforms,'y');
-disp('ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ')
-printWaveformTables(CData,CallistoWaveforms,'z');
-disp('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-end
-%% Figures
-if PLOT_WAVEFORMS
-    plotWaveformData(calfig,CData,CallistoWaveforms,cfg)
-end
-%%
-% figure(nfig+10);clf;
-% set(gcf,'Position',[157   432   717   583])
-% subplot(2,1,1);hold on
-% hp(1) = loglog(1./3600./CData.frequency,pdiff(C_M1_100km.Qinterp,C_M1_100km_mean.Qinterp),'m--');
-% hp(2) = loglog(1./3600./CData.frequency,pdiff(C_M1_130km.Qinterp,C_M1_130km_mean.Qinterp),'b--');
-% hp(3) = loglog(1./3600./CData.frequency,pdiff(C_M10_100km.Qinterp,C_M10_100km_mean.Qinterp),'m--','LineWidth',3);
-% hp(4) = loglog(1./3600./CData.frequency,pdiff(C_M10_130km.Qinterp,C_M10_130km_mean.Qinterp),'b--','LineWidth',3);
-% hvl = vline(1./3600./CData.peaks_Hz,'r');
-% set(gca,'xscale','log')
-% % xlabel('Period (hr)')
-% % xlabel('Frequency (Hz)')
-% ylabel('$\Delta(\mathcal{A}_1^e)_\mathrm{Adiabat,Mean}$ ($\%$)','Interpreter','latex')
-% axis tight
-% box on
-% % saveas(gcf,'CallistoMeanVsAdiabat.eps','epsc');
-% 
-% 
-% % figure(nfig+20);clf;hold on
-% subplot(2,1,2);hold on
-% hp(1) = loglog(1./3600./CData.frequency,pdiff(C_M1_100km.Qinterp,C_M1_100km_top.Qinterp),'m--');
-% hp(1) = loglog(1./3600./CData.frequency,pdiff(C_M1_130km.Qinterp,C_M1_130km_top.Qinterp),'b--');
-% hp(1) = loglog(1./3600./CData.frequency,pdiff(C_M10_100km.Qinterp,C_M10_100km_top.Qinterp),'b--','LineWidth',3);
-% hp(2) = loglog(1./3600./CData.frequency,pdiff(C_M10_130km.Qinterp,C_M10_130km_top.Qinterp),'m--','LineWidth',3);
-% hvl = vline(1./3600./CData.peaks_Hz,'r');
-% set(gca,'xscale','log')
-% xlabel('Period (hr)')
-% % xlabel('Frequency (Hz)')
-% ylabel('$\Delta(\mathcal{A}_1^e)_\mathrm{Adiabat,Top}$ ($\%$)','Interpreter','latex')
-% axis tight
-% % set(gca,'xlim',1./3600./[8.6426e-09 3.4885e-05],'ylim',1./3600./[-16.5431 21.8272])
-% box on
-% % saveas(gcf,'CallistoTopVsAdiabat.eps','epsc');
-% saveas(gcf,'CallistoTopMeanVsAdiabat.eps','epsc');
-
-end
 warning('on','all');
+disp('Finished call to LayeredInductionResponse.')
 end % LayeredInductionResponse 
 
-function plotPeriods(nfig,Planet,FData)
-    Period = 1./FData.frequency./3600;
-    Bx = FData.(['BxFFT_' Planet.Name]);
-    By = FData.(['ByFFT_' Planet.Name]);
-    Bz = FData.(['BzFFT_' Planet.Name]);
-
-    xlims.Europa = [1.5 2e2];
-    xlims.Ganymede = [1 2e3];
-    xlims.Callisto = [1 2e3];
-   set(0, 'CurrentFigure', nfig);
-   set(gcf, 'Name', ['Fourier spectrum ' Planet.Name]);
-   clf; hold on;    box on
-    set(gcf,'Position',[ 73         207        1097         337])
-    set(gca,'xscale','log','yscale','log','xlim',xlims.(Planet.Name),'ylim',[1e-5 300])
-    text(1.7,40,Planet.Name,'FontSize',40)
-    xlabel('Period (hr)');
-    ylabel('Component Amplitude (nT)')
-    plot(Period,Bx,'b',Period,By,'k',Period,Bz,'g');
-
-    [peaksX_hr,peaksX_nT] = localMax(Period,Bx,Planet.peaks_hr);
-    [peaksY_hr,peaksY_nT] = localMax(Period,By,Planet.peaks_hr);
-    [peaksZ_hr,peaksZ_nT] = localMax(Period,Bz,Planet.peaks_hr);
-
-    hp = plot(peaksY_hr,peaksY_nT,'ko');
-    hp.MarkerFaceColor = 'k';
-    for it = 1:length(peaksY_hr)
-        ht = text(peaksY_hr(it),peaksY_nT(it),{[num2str(peaksY_hr(it),'%0.2f') ' hr'],['$B_y$: ' num2str(peaksY_nT(it),'%0.2f') ' nT']});
-        ht.Interpreter = 'latex';
-        ht.FontSize = 16;
-        ht.HorizontalAlignment = 'right';
-    end
-
-    hl = legend({'$B_x$','$B_y$','$B_z$'},'Interpreter','latex');
-    
-    % print the tabular information
-    dstr = ['\textbf{' Planet.Name '} '];
-    for in = 1:3 % count from lowest period (highest frequency)
-        dstr = [dstr ' & \textbf{' num2str(peaksY_hr(in),'%0.2f') '}' ];
-    end
-    disp([dstr ' \\'])
-    dstr = '             ';
-    for in = 1:3
-        dstr = [dstr ' & ' num2str([peaksX_nT(in) peaksY_nT(in) peaksZ_nT(in)],'%8.2f') ];
-    end
-    disp([dstr ' \\'])
-    disp('    \hline')
-end %plotPeriods
 %%
 function [boundaries,sig,Planet] = readData(datpath, savefile)
 fdat = importdata(fullfile(datpath,savefile));
@@ -691,30 +126,29 @@ Planet.kmean = mean(fdat.data(inds(1):inds2(2),kind));
 
 end % readData
 %%
-function outPlanet = getSw(r,n,w,sig,boundaries,R_m,r0,y0,opts,FData,Planet)
+function outWaveforms = getSw(r,n,w,sig,boundaries,R_m,r0,y0,opts,f_orb,Planet)
     opts.hiprec = true;
     opts.par = false;
 %     Q = MagComplexA(boundaries,sig,nE*w,n,opts);
-    [k,Q] = getMagResponseFunction(r,n,FData.f_orb,w,sig,boundaries,R_m,r0,y0,opts);
+    [k,Q] = getMagResponseFunction(r,n,f_orb,w,sig,boundaries,R_m,r0,y0,opts);
     nbound = length(boundaries(:,1));
-    outPlanet = Planet;
-        for lm = 1:nbound
-            Amplitude(lm,:) = 2*abs(squeeze(Q(:,:,lm)));
-            if isfield(Planet,'SURF_NORM') && Planet.SURF_NORM
-                Amplitude = Amplitude*(Planet.Rtop/Planet.R)^3;
-            end
-            Phase(lm,:) = -angle(squeeze(Q(:,:,lm)));                
+    for lm = 1:nbound
+        Amplitude(lm,:) = 2*abs(squeeze(Q(:,:,lm)));
+        if isfield(Planet,'SURF_NORM') && Planet.SURF_NORM
+            Amplitude = Amplitude*(Planet.Rtop/Planet.R_m)^3;
         end
-        outPlanet.Amplitude = Amplitude;
-        outPlanet.Phase = Phase;
-    outPlanet.Q = Q;
-    outPlanet.k = k;
-    outPlanet.w = w;
-    outPlanet.sig = sig;
-    outPlanet.boundaries = boundaries;
+        Phase(lm,:) = -angle(squeeze(Q(:,:,lm)));                
+    end
+    outWaveforms.Amplitude = Amplitude;
+    outWaveforms.Phase = Phase;
+    outWaveforms.Q = Q;
+    outWaveforms.k = k;
+    outWaveforms.w = w;
+    outWaveforms.sig = sig;
+    outWaveforms.boundaries = boundaries;
 end % getSw    
 %%
-function outPlanet = getPlanetMagWaveforms(r,n,w,sig,boundaries,r0,y0,opts,FData,Planet)
+function outWaveforms = getPlanetMagWaveforms(figs,lbl,r,n,w,sig,boundaries,r0,y0,opts,f_orb,Planet)
 % get Sw for the different configurations related to the main input model
 if Planet.ADD_TRANSITION_BOUNDS
     % Adding discrete transitions makes a more intuitive looking plot of the sigma values. 
@@ -724,16 +158,16 @@ if Planet.ADD_TRANSITION_BOUNDS
     boundaries = [boundaries(1) boundaries(2)-btrans boundaries(2:end-1) boundaries(end-1)+btrans boundaries(end)];  
     sig = [sig(1) eps sig(2:end-1) eps sig(end)];
 
-    b_mionos = [boundaries boundaries(end)+btrans Planet.R*1e3+Planet.ionos_bounds];
+    b_mionos = [boundaries boundaries(end)+btrans Planet.R_m+Planet.ionos_bounds];
     sPedersen_mionos = [sig Planet.ionosPedersen_sig(1) Planet.ionosPedersen_sig];
 
-    b_ionos = [boundaries boundaries(end)+btrans Planet.R*1e3+Planet.ionos_bounds];
+    b_ionos = [boundaries boundaries(end)+btrans Planet.R_m+Planet.ionos_bounds];
     sPedersen_ionos = [eps*ones(1,length(sig))  Planet.ionosPedersen_sig(1) Planet.ionosPedersen_sig];
 else
-    b_mionos = [boundaries Planet.R*1e3+Planet.ionos_bounds];
+    b_mionos = [boundaries Planet.R_m+Planet.ionos_bounds];
     sPedersen_mionos = [sig Planet.ionosPedersen_sig];
 
-    b_ionos = [boundaries Planet.R*1e3+Planet.ionos_bounds];
+    b_ionos = [boundaries Planet.R_m+Planet.ionos_bounds];
     sPedersen_ionos = [1e-16*ones(1,length(sig)) Planet.ionosPedersen_sig];
 end
 
@@ -744,7 +178,7 @@ if isfield(Planet,'sub_ocean')
     b_subo = [boundaries(1)-Dice-Dlayer boundaries(1)-Dice boundaries];
     sPedersen_subo = [1e-16,sig_layer,1e-16,sig(2:end-1),1e-16];
     
-    b_subo_ionos = [b_subo Planet.R*1e3+Planet.ionos_bounds];
+    b_subo_ionos = [b_subo Planet.R_m+Planet.ionos_bounds];
     sPedersen_subo_ionos = [sPedersen_subo Planet.ionosPedersen_sig];
 end
 
@@ -767,12 +201,9 @@ end
 
 
 if Planet.PLOT_SIGS
-    if ~ishandle(3000)
-        figure(3000);
-    else
-        set(0, 'CurrentFigure', 3000);
-    end
-    set(gcf, 'Name', 'Radial conductivity function')
+    
+    set(0, 'CurrentFigure', figs.sigs);
+    set(gcf, 'Name', [lbl.sigsr ' ' Planet.name])
     clf; box on; hold on;
     plot(sig,boundaries/1e3,...
         sPedersen_mionos,b_mionos/1e3,...
@@ -786,47 +217,46 @@ if Planet.PLOT_SIGS
     end
     legend({'main field','with ionosphere','ionosphere only','mean ocean','top ocean'},'NumColumns',2,'Location','northwest');
 %     legend('boxoff')
-    xlabel('\sigma (S/m)')
-    ylabel('r (km)')
+    xlabel(lbl.sigma)
+    ylabel(lbl.r_kms)
     set(gca,'xscale','log')
     xlim([1e-6 Inf])
 end
 
 Planet.SURF_NORM = false;
-disp(' (o)  getting main field');outPlanet.main = getSw(r,n,w,sig,boundaries,Planet.R*1e3,r0,y0,opts,FData,Planet);
+disp(' (o)  getting main field');outWaveforms.main = getSw(r,n,w,sig,boundaries,Planet.R_m,r0,y0,opts,f_orb,Planet);
 
 Planet.SURF_NORM = true; 
-Planet.Rtop = b_mionos(end)/1e3;
-disp(' +o+  with Pedersen ionsphere');outPlanet.ionosPedersen = getSw(r,n,w,sPedersen_mionos,b_mionos,b_mionos(end),r0,y0,opts,FData,Planet);
+Planet.Rtop = b_mionos(end);
+disp(' +o+  with Pedersen ionsphere');outWaveforms.ionosPedersen = getSw(r,n,w,sPedersen_mionos,b_mionos,b_mionos(end),r0,y0,opts,f_orb,Planet);
 if isfield(Planet,'ionosCowling_sig')
-    disp('-+o+- with Cowling ionsphere');outPlanet.ionosCowling = getSw(r,n,w,sCowling_mionos,b_mionos,b_mionos(end),r0,y0,opts,FData,Planet);
+    disp('-+o+- with Cowling ionsphere');outWaveforms.ionosCowling = getSw(r,n,w,sCowling_mionos,b_mionos,b_mionos(end),r0,y0,opts,f_orb,Planet);
 end
 if isfield(Planet,'ionos_only') % only create the ionosphere without the ocean in the few places it's specified among the inputs
-    Planet.Rtop = b_mionos(end)/1e3;
-    disp(' + +  Pedersen ionsphere only');    outPlanet.ionos_onlyPedersen = getSw(r,n,w,sPedersen_ionos,b_ionos,b_ionos(end),r0,y0,opts,FData,Planet);
+    disp(' + +  Pedersen ionsphere only');    outWaveforms.ionos_onlyPedersen = getSw(r,n,w,sPedersen_ionos,b_ionos,b_ionos(end),r0,y0,opts,f_orb,Planet);
     if isfield(Planet,'ionosCowling_sig')
-        disp('-+o+- Cowling ionsphere only');outPlanet.ionos_onlyCowling = getSw(r,n,w,sCowling_ionos,b_mionos,b_mionos(end),r0,y0,opts,FData,Planet);
+        disp('-+o+- Cowling ionsphere only');outWaveforms.ionos_onlyCowling = getSw(r,n,w,sCowling_ionos,b_mionos,b_mionos(end),r0,y0,opts,f_orb,Planet);
     end
 end
 
 
 Planet.SURF_NORM = false;
-disp('  -   mean ocean');outPlanet.mean = getSw(r,n,w,s_mean,b_mean,Planet.R*1e3,r0,y0,opts,FData,Planet);
-disp('  ^   top ocean');outPlanet.top = getSw(r,n,w,s_top,b_top,Planet.R*1e3,r0,y0,opts,FData,Planet);
+disp('  -   mean ocean');outWaveforms.mean = getSw(r,n,w,s_mean,b_mean,Planet.R_m,r0,y0,opts,f_orb,Planet);
+disp('  ^   top ocean');outWaveforms.top = getSw(r,n,w,s_top,b_top,Planet.R_m,r0,y0,opts,f_orb,Planet);
 
 if isfield(Planet,'sub_ocean')
-    disp(' - -  two oceans');    outPlanet.sub_ocean = getSw(r,n,w,sPedersen_subo,b_subo,Planet.R*1e3,r0,y0,opts,FData,Planet);
+    disp(' - -  two oceans');    outWaveforms.sub_ocean = getSw(r,n,w,sPedersen_subo,b_subo,Planet.R_m,r0,y0,opts,f_orb,Planet);
     Planet.SURF_NORM = true; 
-    disp(' -+-  two oceans, with ionosphere');    outPlanet.sub_ocean_ionos = getSw(r,n,w,sPedersen_subo_ionos,b_subo_ionos,b_subo_ionos(end),r0,y0,opts,FData,Planet);    
+    disp(' -+-  two oceans, with ionosphere');    outWaveforms.sub_ocean_ionos = getSw(r,n,w,sPedersen_subo_ionos,b_subo_ionos,b_subo_ionos(end),r0,y0,opts,f_orb,Planet);    
 end
 end %getPlanetMagWaveforms
 
 %% Output the data as LaTeX tables. The \end{} parts of the tables need to be supplied
-function printWaveformTables(FData,Waveforms,dir)
-makeTableHeader(FData,dir)
+function printWaveformTables(FTdata,Waveforms,dir)
+makeTableHeader(FTdata,dir)
 fnames = fieldnames(Waveforms);
 for in = 1:length(fnames)
-    plot_opts = getPlotOpts(FData.Name,fnames{in});
+    plot_opts = getPlotOpts(FTdata.Name,fnames{in},cfg);
     if isfield(plot_opts,'Tb_colorTex')
         table_opts.Tb_colorTex = plot_opts.Tb_colorTex;
     end
@@ -835,10 +265,10 @@ for in = 1:length(fnames)
     if isfield(Waveforms.(fnames{in}),'ionos_onlyPedersen')
         table_opts.IONOSPHERE_ONLY = true;
         table_opts.INCLUDE_TDs = false;
-        printTableStr('Pedersen',FData,Waveforms.(fnames{in}).ionos_onlyPedersen,table_opts);    
+        printTableStr('Pedersen',FTdata,Waveforms.(fnames{in}).ionos_onlyPedersen,table_opts);    
         if isfield(Waveforms.(fnames{in}),'ionos_onlyCowling')
             table_opts.IONOSPHERE_ONLY = false;
-            printTableStr('Cowling',FData,Waveforms.(fnames{in}).ionos_onlyCowling,table_opts);                
+            printTableStr('Cowling',FTdata,Waveforms.(fnames{in}).ionos_onlyCowling,table_opts);                
         end
         disp(['\hline']) % end the section providing ionosphere strengths
     end
@@ -847,27 +277,27 @@ for in = 1:length(fnames)
     % adiabat--this is the main data source. others can be listed in
     % percent of this value
     table_opts.INCLUDE_TDs = true;
-    printTableStr(Waveforms.(fnames{in}).Name,FData,Waveforms.(fnames{in}).main,table_opts);
+    printTableStr(Waveforms.(fnames{in}).Name,FTdata,Waveforms.(fnames{in}).main,table_opts);
     table_opts.INCLUDE_TDs = false;
 
-    if strcmp(FData.Name,'Callisto')
+    if strcmp(FTdata.Name,'Callisto')
       table_opts.PERCENT = 0;
     else
       table_opts.PERCENT = 1;
     end
         % list the results for the main calculation, adding the ionospheric
     % effects
-    printTableStr('Pedersen',FData,Waveforms.(fnames{in}).ionosPedersen,table_opts);
+    printTableStr('Pedersen',FTdata,Waveforms.(fnames{in}).ionosPedersen,table_opts);
     if isfield(Waveforms.(fnames{in}),'ionosCowling')
-        printTableStr('Cowling',FData,Waveforms.(fnames{in}).ionosCowling,table_opts);                
+        printTableStr('Cowling',FTdata,Waveforms.(fnames{in}).ionosCowling,table_opts);                
     end
     
     table_opts.PERCENT = 1;
     %mean ocean
     table_opts.main = Waveforms.(fnames{in}).main;
-    printTableStr(['$\overline{\sigma}=$ ' num2str(Waveforms.(fnames{in}).mean.sig(end-3),'%0.4f') ' S/m'],FData,Waveforms.(fnames{in}).mean,table_opts);
+    printTableStr(['$\overline{\sigma}=$ ' num2str(Waveforms.(fnames{in}).mean.sig(end-3),'%0.4f') ' S/m'],FTdata,Waveforms.(fnames{in}).mean,table_opts);
     %top ocean
-    printTableStr(['$\sigma_\mathrm{top}=$ ' num2str(Waveforms.(fnames{in}).top.sig(end-3),'%0.4f') ' S/m'],FData,Waveforms.(fnames{in}).top,table_opts);
+    printTableStr(['$\sigma_\mathrm{top}=$ ' num2str(Waveforms.(fnames{in}).top.sig(end-3),'%0.4f') ' S/m'],FTdata,Waveforms.(fnames{in}).top,table_opts);
     table_opts.PERCENT = 0;
 
     table_opts.PERCENT = 1;
@@ -875,115 +305,145 @@ for in = 1:length(fnames)
     if isfield(Waveforms.(fnames{in}),'sub_ocean')
         d_layer = Waveforms.(fnames{in}).sub_ocean.sub_ocean.Thickness_km;
         sig_layer = Waveforms.(fnames{in}).sub_ocean.sub_ocean.sig;
-         printTableStr(['\textbf{bottom layer: ' num2str(d_layer) ' km ' num2str(sig_layer) ' S/m}'],FData,Waveforms.(fnames{in}).sub_ocean,table_opts); 
-         printTableStr('Pedersen',FData,Waveforms.(fnames{in}).sub_ocean_ionos,table_opts); 
+         printTableStr(['\textbf{bottom layer: ' num2str(d_layer) ' km ' num2str(sig_layer) ' S/m}'],FTdata,Waveforms.(fnames{in}).sub_ocean,table_opts); 
+         printTableStr('Pedersen',FTdata,Waveforms.(fnames{in}).sub_ocean_ionos,table_opts); 
     end
     table_opts.PERCENT = 0;
     disp('\hline')
 end
 end %printWaveformTables
 %%
-function plotWaveformData(nfig,FData,Waveforms,cfg)
-fnames = fieldnames(Waveforms);
-for in = 1:length(fnames)
-    plot_opts = getPlotOpts(FData.Name,fnames{in});
-    plotAPhi(nfig,plot_opts,FData,Waveforms.(fnames{in}));
+function plotWaveformData(figs,lbl,Waveforms,FTdata,Planet,cfg)
+for in = 1:length(Waveforms)
+    plot_opts = getPlotOpts(Planet.name,Planet.Ocean.comp,Planet.Ocean.w_ocean_pct,Planet.D_Ih_km(in),cfg);
+    plotAPhi(figs,lbl,plot_opts,Waveforms(in),FTdata,Planet);
 end
 
-% Add labels and save the Aphi figure
-set(0, 'CurrentFigure', nfig*20+1);
-set(gcf, 'Name', ['BxAe complex plane ' FData.Name]);
-labelWaveformFigs('x',FData.Name,cfg)
-set(0, 'CurrentFigure', nfig*20+2);
-set(gcf, 'Name', ['ByAe complex plane ' FData.Name]);
-labelWaveformFigs('y',FData.Name,cfg)
-set(0, 'CurrentFigure', nfig*20+3);
-set(gcf, 'Name', ['BzAe complex plane ' FData.Name]);
-labelWaveformFigs('z',FData.Name,cfg)
+% Add labels and save the Aphi figures
+savename = [Planet.name '/figures/Ae_' Planet.name];
+set(0, 'CurrentFigure', figs.amph);
+set(gcf, 'Name', [lbl.amphs ' ' Planet.name]);
+print(figs.amph,cfg.fig_fmt,fullfile([savename '_Response' cfg.xtn]));
+
+set(0, 'CurrentFigure', figs.BxAe);
+set(gcf, 'Name', ['Bx' lbl.Aecpx ' ' Planet.name]);
+labelWaveformFigs('x',Planet.name)
+print(figs.BxAe,cfg.fig_fmt,fullfile([savename '_Bx' cfg.xtn]));
+set(0, 'CurrentFigure', figs.ByAe);
+set(gcf, 'Name', ['By' lbl.Aecpx ' ' Planet.name]);
+labelWaveformFigs('y',Planet.name)
+print(figs.ByAe,cfg.fig_fmt,fullfile([savename '_By' cfg.xtn]));
+set(0, 'CurrentFigure', figs.BzAe);
+set(gcf, 'Name', ['Bz' lbl.Aecpx ' ' Planet.name]);
+labelWaveformFigs('z',Planet.name)
+print(figs.BzAe,cfg.fig_fmt,fullfile([savename '_Bz' cfg.xtn]));
+
 end %plotWaveformData
 %% Set the line and marker styles. Conditional formatting strongly depends on the choice and labeling of model inputs. This needs to be generalized for future work.
-function plot_opts = getPlotOpts(pname,fname)
-switch pname
-    case 'Europa'
-        switch fname(1) 
-        case 'M'
-            plot_opts.line='--';
-            if strfind(fname,'30')
-                [plot_opts.LC,plot_opts.MEC] = deal('b');
-                plot_opts.point = '^';
-                plot_opts.Tb_colorTex = '\color{blue}';
-            else
-                [plot_opts.LC,plot_opts.MEC] = deal('m');
-                plot_opts.point = 'v';
-                plot_opts.Tb_colorTex = '\color{magenta}';
-            end
-            if strfind(fname,'10')
-                plot_opts.MFC = plot_opts.MEC;
-                plot_opts.MEC = 'k';
-                plot_opts.LW = 3;
-            else
-                plot_opts.MFC = 'none';
-                plot_opts.LW = 1;
-            end
-        case 'S'
-            color_warmSW = 	[176,0,255]/255;
-            plot_opts.line='-';
-            if strfind(fname,'30')
-                [plot_opts.LC,plot_opts.MEC] = deal('c');
-                plot_opts.point = '^';
-                plot_opts.Tb_colorTex = '\color{cyan}';
-            else
-               [plot_opts.LC,plot_opts.MEC] = deal(color_warmSW);
-               plot_opts.point = 'v';
-               plot_opts.Tb_colorTex = '\color[HTML]{b000ff}';
-            end
-            if strfind(fname,'_1')
-                plot_opts.MFC = plot_opts.MEC;
-                plot_opts.MEC = 'k';
-                plot_opts.LW = 3;
-            else
-                plot_opts.MFC = 'none';
-                plot_opts.LW = 1;
-            end
-        end
-    case 'Ganymede'
-        plot_opts.line='--';
-        if strfind(fname,'95')
-            [plot_opts.LC,plot_opts.MEC] = deal('b');
+function plot_opts = getPlotOpts(body_name,o_comp,o_wtpc,ice_thk,cfg)
+plot_opts.intp = cfg.intMethod;
+plot_opts.fine = cfg.np_wfine;
+switch body_name
+case 'Europa'
+    switch o_comp(1) 
+    case 'M'
+        plot_opts.line=cfg.ls_Mg;
+        if ice_thk > 15
+            [plot_opts.LC,plot_opts.MEC] = deal(cfg.col_coldestMgSO4);
             plot_opts.point = '^';
-            plot_opts.Tb_colorTex = '\color{blue}';
+            plot_opts.Tb_colorTex = rgbTex(cfg.col_coldestMgSO4);
         else
-            [plot_opts.LC,plot_opts.MEC] = deal('m');
+            [plot_opts.LC,plot_opts.MEC] = deal(cfg.col_warmestMgSO4);
             plot_opts.point = 'v';
-            plot_opts.Tb_colorTex = '\color{magenta}';
+            plot_opts.Tb_colorTex = rgbTex(cfg.col_warmestMgSO4);
         end
-        if strfind(fname,'10')
+        if o_wtpc > 5
             plot_opts.MFC = plot_opts.MEC;
             plot_opts.MEC = 'k';
-            plot_opts.LW = 3;
+            plot_opts.LW = cfg.lw_sal;
         else
             plot_opts.MFC = 'none';
-            plot_opts.LW = 1;
+            plot_opts.LW = cfg.lw_dil;
         end
-    case 'Callisto'
-        plot_opts.line='--';
-        if strfind(fname,'130')
-            [plot_opts.LC,plot_opts.MEC] = deal('b');
+    case 'S'
+        plot_opts.line=cfg.ls_Sw;
+        if ice_thk > 15
+            [plot_opts.LC,plot_opts.MEC] = deal(cfg.col_coldestSw);
             plot_opts.point = '^';
-            plot_opts.Tb_colorTex = '\color{blue}';
+            plot_opts.Tb_colorTex = rgbTex(cfg.col_coldestSw);
         else
-            [plot_opts.LC,plot_opts.MEC] = deal('m');
-            plot_opts.point = 'v';
-            plot_opts.Tb_colorTex = '\color{magenta}';
+           [plot_opts.LC,plot_opts.MEC] = deal(cfg.col_warmestSw);
+           plot_opts.point = 'v';
+           plot_opts.Tb_colorTex = rgbTex(cfg.col_warmestSw);
         end
-        if strfind(fname,'10_')
+        if o_wtpc > 5
             plot_opts.MFC = plot_opts.MEC;
             plot_opts.MEC = 'k';
-            plot_opts.LW = 3;
+            plot_opts.LW = cfg.lw_sal;
         else
             plot_opts.MFC = 'none';
-            plot_opts.LW = 1;
+            plot_opts.LW = cfg.lw_dil;
         end
+    end
+    % Set zoom level
+    plot_opts.Bxxlim = [0 12];
+    plot_opts.Bxylim = [0 1.7];
+    plot_opts.Byxlim = [0 16];
+    plot_opts.Byylim = [0 5];
+    plot_opts.Bzxlim = [3 10];
+    plot_opts.Bzylim = [0 0.7];
+case 'Ganymede'
+    plot_opts.line=cfg.ls_Mg;
+    if ice_thk > 90
+        [plot_opts.LC,plot_opts.MEC] = deal(cfg.col_coldestMgSO4);
+        plot_opts.point = '^';
+        plot_opts.Tb_colorTex = rgbTex(cfg.col_coldestMgSO4);
+    else
+        [plot_opts.LC,plot_opts.MEC] = deal(cfg.col_warmestMgSO4);
+        plot_opts.point = 'v';
+        plot_opts.Tb_colorTex = rgbTex(cfg.col_warmestMgSO4);
+    end
+    if o_wtpc > 5
+        plot_opts.MFC = plot_opts.MEC;
+        plot_opts.MEC = 'k';
+        plot_opts.LW = cfg.lw_sal;
+    else
+        plot_opts.MFC = 'none';
+        plot_opts.LW = cfg.lw_dil;
+    end
+    % Set zoom level
+    plot_opts.Bxxlim = [0 1.8];
+    plot_opts.Bxylim = [0 0.12];
+    plot_opts.Byxlim = [0 2.5];
+    plot_opts.Byylim = [0 0.6];
+    plot_opts.Bzxlim = [0 1.8];
+    plot_opts.Bzylim = [0 0.08];
+case 'Callisto'
+    plot_opts.line=cfg.ls_Mg;
+    if ice_thk > 90
+        [plot_opts.LC,plot_opts.MEC] = deal(cfg.col_coldestMgSO4);
+        plot_opts.point = '^';
+        plot_opts.Tb_colorTex = rgbTex(cfg.col_coldestMgSO4);
+    else
+        [plot_opts.LC,plot_opts.MEC] = deal(cfg.col_warmestMgSO4);
+        plot_opts.point = 'v';
+        plot_opts.Tb_colorTex = rgbTex(cfg.col_warmestMgSO4);
+    end
+    if o_wtpc > 5
+        plot_opts.MFC = plot_opts.MEC;
+        plot_opts.MEC = 'k';
+        plot_opts.LW = cfg.lw_sal;
+    else
+        plot_opts.MFC = 'none';
+        plot_opts.LW = cfg.lw_dil;
+    end
+    % Set zoom level
+    plot_opts.Bxxlim = [0 0.008];
+    plot_opts.Bxylim = [0 0.01];
+    plot_opts.Byxlim = [0 0.2];
+    plot_opts.Byylim = [0 0.3];
+    plot_opts.Bzxlim = [0 0.002];
+    plot_opts.Bzylim = [0 0.012];
 end
 end %getPlotOpts
 %%
@@ -1026,104 +486,82 @@ zlabel('Im(k)')
 end %plotDiagnostics
 
 %% main plots ++++++++++
-function plotAPhi(nfig,plot_opts,FData,Planet)
+function plotAPhi(figs,lbl,plot_opts,Waveforms,FTdata,Planet)
 %     global FREQUENCY_AXIS
-    f_orb = FData.f_orb;
-    f_small = f_orb/2/pi*Planet.main.w; % frequency spectrum
+    f_orb = Planet.f_orb;
+    f_small = f_orb/2/pi*Waveforms.main.w; % frequency spectrum
     p_small = 1./f_small./3600;
-    Period = 1./FData.frequency./3600;
-    PeriodsOfInterest = 1./FData.peaks_Hz./3600;
+    
+    % Chop off zero point to avoid infinite period
+    Period = 1./FTdata.frequency(2:end)/3600;
+    Bx = FTdata.By_fft(2:end); % FTdata is in IAU coordinates, so x and y
+    By = FTdata.Bx_fft(2:end); % amplitudes are swapped for phiO coordinates.
+    Bz = FTdata.Bz_fft(2:end);
     
     LineWidth = plot_opts.LW;
 
-    itype = 'spline';
-    Amp = interp1(p_small,Planet.main.Amplitude,Period,itype);
-    Phase = interp1(p_small,Planet.main.Phase,Period,itype);
-    A1e_adiabat = interp1(p_small,Planet.main.Q,Period,itype);
-    A1e_mean = interp1(p_small,Planet.mean.Q,Period,itype);
-    A1e_top = interp1(p_small,Planet.top.Q,Period,itype);
+    itype = plot_opts.intp;
+    Amp = interp1(p_small,Waveforms.main.Amplitude,Period,itype);
+    Phase = interp1(p_small,Waveforms.main.Phase,Period,itype);
+    A1e_adiabat = interp1(p_small,Waveforms.main.Q,Period,itype);
+    A1e_mean = interp1(p_small,Waveforms.mean.Q,Period,itype);
+    A1e_top = interp1(p_small,Waveforms.top.Q,Period,itype);
 
-     ReA1e = Amp.*cos(Phase);
-     ImA1e = Amp.*sin(Phase);
-%     ReA1e = real(A1e_adiabat);
-%     ImA1e = imag(A1e_adiabat);
+    ReA1e = Amp.*cos(Phase);
+    ImA1e = Amp.*sin(Phase);
+%    ReA1e = real(A1e_adiabat);
+%    ImA1e = imag(A1e_adiabat);
 
-    InPhaseX = FData.Bx.*ReA1e;
-    InPhaseY = FData.By.*ReA1e;
-    InPhaseZ = FData.Bz.*ReA1e;
+    InPhaseX = Bx.*ReA1e; 
+    InPhaseY = By.*ReA1e;
+    InPhaseZ = Bz.*ReA1e;
 
-    QuadX = FData.Bx.*ImA1e;
-    QuadY = FData.By.*ImA1e;
-    QuadZ = FData.Bz.*ImA1e;
-
-    set(0, 'CurrentFigure', nfig);
-    subplot(2,1,1);hold on; hl = [];
-            hthis = semilogx(Period,Amp,'LineWidth',LineWidth,'LineStyle',plot_opts.line,'Color',plot_opts.LC); 
-            xlabel(['Period (hr)']);
-        ylabel('Normalized Amplitude')
-        axis tight
+    QuadX = Bx.*ImA1e; % Same as above, x and y are exchanged here.
+    QuadY = By.*ImA1e;
+    QuadZ = Bz.*ImA1e;
     
-    ylim([0 1])
-    yticks(0:0.2:1)
-            hv = vline(PeriodsOfInterest,'r'); 
-%             hv = vline(nE/2/pi*wOfInterest,'r'); 
-        [hv.Color] = deal('r');
-        [hv.LineWidth] = deal(1);
-        set(gca,'xscale','log')
-    box on
-
-    subplot(2,1,2); hold on
-            hpf = semilogx(Period,Phase*180/pi,'LineWidth',LineWidth,'LineStyle',plot_opts.line,'Color',plot_opts.LC);
-            xlabel(['Period (hr)']);
-        ylabel('Phase Delay (degrees)')
-        axis tight
-    ylim([0 90])
-            hv = vline(PeriodsOfInterest,'r'); 
-        [hv.LineWidth] = deal(1);
-        set(gca,'xscale','log')
-    box on    
-
-    hold on
-    switch FData.Name % set the zoom level for each plot
-        case 'Europa'
-            plot_opts.Bxxlim = [0 12];
-            plot_opts.Bxylim = [0 1.7];
-            plot_opts.Byxlim = [0 16];
-            plot_opts.Byylim = [0 5];
-            plot_opts.Bzxlim = [3 10];
-            plot_opts.Bzylim = [0 0.7];
-        case 'Ganymede'
-            plot_opts.Bxxlim = [0 1.8];
-            plot_opts.Bxylim = [0 0.12];
-            plot_opts.Byxlim = [0 2.5];
-            plot_opts.Byylim = [0 0.6];
-            plot_opts.Bzxlim = [0 1.8];
-            plot_opts.Bzylim = [0 0.08];
-        case 'Callisto'
-            plot_opts.Bxxlim = [0 0.008];
-            plot_opts.Bxylim = [0 0.01];
-            plot_opts.Byxlim = [0 0.2];
-            plot_opts.Byylim = [0 0.3];
-            plot_opts.Bzxlim = [0 0.002];
-            plot_opts.Bzylim = [0 0.012];
-    end
-        
     if ~isfield(plot_opts,'MarkerSize')
         plot_opts.MarkerSize = 10;
     end
-        [~,peaksInPhaseX_nT] = localMax(Period,InPhaseX,PeriodsOfInterest);
-        [~,peaksInPhaseY_nT] = localMax(Period,InPhaseY,PeriodsOfInterest);
-        [~,peaksInPhaseZ_nT] = localMax(Period,InPhaseZ,PeriodsOfInterest);
+    [~,peaksInPhaseX_nT] = localMax(Period,InPhaseX,Planet.peaks_hr);
+    [~,peaksInPhaseY_nT] = localMax(Period,InPhaseY,Planet.peaks_hr);
+    [~,peaksInPhaseZ_nT] = localMax(Period,InPhaseZ,Planet.peaks_hr);
 
-        [~,peaksQuadX_nT] = localMax(Period,QuadX,PeriodsOfInterest);
-        [~,peaksQuadY_nT] = localMax(Period,QuadY,PeriodsOfInterest);
-        [~,peaksQuadZ_nT] = localMax(Period,QuadZ,PeriodsOfInterest);
-        plot_opts.MS = [4 7 12];
-        plot_opts.symbols = '  o';
+    [~,peaksQuadX_nT] = localMax(Period,QuadX,Planet.peaks_hr);
+    [~,peaksQuadY_nT] = localMax(Period,QuadY,Planet.peaks_hr);
+    [~,peaksQuadZ_nT] = localMax(Period,QuadZ,Planet.peaks_hr);
+    plot_opts.MS = [4 7 12];
+    plot_opts.symbols = '  o';
 
-        plotInductionWaveforms(peaksInPhaseX_nT,peaksQuadX_nT,plot_opts,'x',nfig*20+1);
-        plotInductionWaveforms(peaksInPhaseY_nT,peaksQuadY_nT,plot_opts,'y',nfig*20+2);
-        plotInductionWaveforms(peaksInPhaseZ_nT,peaksQuadZ_nT,plot_opts,'z',nfig*20+3);
+    plotInductionWaveforms(peaksInPhaseX_nT,peaksQuadX_nT,plot_opts,'x',figs.BxAe);
+    plotInductionWaveforms(peaksInPhaseY_nT,peaksQuadY_nT,plot_opts,'y',figs.ByAe);
+    plotInductionWaveforms(peaksInPhaseZ_nT,peaksQuadZ_nT,plot_opts,'z',figs.BzAe);
+
+    set(0, 'CurrentFigure', figs.amph);
+    subplot(2,1,1);hold on; hl = [];
+    hthis = semilogx(Period,Amp,'LineWidth',LineWidth,'LineStyle',plot_opts.line,'Color',plot_opts.LC); 
+    xlabel(lbl.T_hrs);
+    ylabel(lbl.normA);
+    axis tight
+    
+    ylim([0 1])
+    yticks(0:0.2:1)
+    hv = vline(Planet.peaks_hr,'r');  
+    [hv.Color] = deal('r');
+    [hv.LineWidth] = deal(1);
+    set(gca,'xscale','log')
+    box on
+
+    subplot(2,1,2); hold on
+    hpf = semilogx(Period,Phase*180/pi,'LineWidth',LineWidth,'LineStyle',plot_opts.line,'Color',plot_opts.LC);
+    xlabel(lbl.T_hrs);
+    ylabel(lbl.ttphs)
+    axis tight
+    ylim([0 90])
+    hv = vline(Planet.peaks_hr,'r'); 
+    [hv.LineWidth] = deal(1);
+    set(gca,'xscale','log')
+    box on    
 end %plotAPhi
 %%
 function plotInductionWaveforms(pInPhase,pQuad,plot_opts,dir,nfig)
@@ -1155,11 +593,10 @@ ylabel(['Im (nT)'],'Interpreter','latex')
 axis tight; box on; grid on
 end %plotInductionWaveforms
 %% puts labels on the plots of the real and imaginary components of the induction response
-function labelWaveformFigs(dir,Name,cfg)
+function labelWaveformFigs(dir,Name)
 hf = gcf;
 switch Name
     case 'Europa'
-    gfxdir = 'Europa/figures/';
     ht = title(['$|B_{' dir '}|\mathcal{A}_1^e$, $\mathcal{A}_1^e=Ae^{-i\phi}$'],'Interpreter','latex','FontSize',18);
     % [ -6.4312   12.4896         0]);
 
@@ -1176,9 +613,7 @@ switch Name
     annotation(hf,'textarrow',[0.87088915956151 0.892813641900122],...
         [0.744769874476987 0.820083682008368],'String',{'synodic','harmonic'},...
         'FontSize',15);
-    print(hf,cfg.fig_fmt,fullfile([gfxdir 'AeEuropa' dir cfg.xtn]));
     case 'Ganymede'
-        gfxdir = 'Ganymede/figures/';
         annotation(hf,'textbox',...
         [0.143509135200974 0.717573221757318 0.222289890377588 0.190376569037657],...
         'String',{'Ganymede'},...
@@ -1192,9 +627,7 @@ switch Name
     annotation(hf,'textarrow',[0.87088915956151 0.892813641900122],...
         [0.744769874476987 0.820083682008368],'String',{'synodic','harmonic'},...
         'FontSize',15);
-    print(hf,cfg.fig_fmt,fullfile([gfxdir 'AeGanymede' dir cfg.xtn]));
     case 'Callisto'
-        gfxdir = 'Callisto/figures/';
         annotation(hf,'textbox',...
         [0.143509135200974 0.717573221757318 0.222289890377588 0.190376569037657],...
         'String',{'Callisto'},...
@@ -1208,7 +641,6 @@ switch Name
     annotation(hf,'textarrow',[0.87088915956151 0.892813641900122],...
         [0.744769874476987 0.820083682008368],'String',{'synodic','harmonic'},...
         'FontSize',15);
-    print(hf,cfg.fig_fmt,fullfile([gfxdir 'AeCallisto' dir cfg.xtn]));
 end
 end %labelWaveformFigs
 %% formatting for output
@@ -1265,25 +697,25 @@ disp([d_str ' \\']);
 disp('\hline');
 end % printTableFreqs
 %%
-function printTableStr(Name,FData,Planet,opts)
-    f_orb = FData.f_orb;
+function printTableStr(Name,FTdata,Planet,opts)
+    f_orb = FTdata.f_orb;
     f_small = f_orb/2/pi*Planet.w;
-    Period = 1./FData.frequency./3600;
-    PeakPeriods = 1./FData.peaks_Hz/3600;
+    Period = 1./FTdata.frequency./3600;
+    PeakPeriods = 1./FTdata.peaks_Hz/3600;
     
-    Amp = interp1(f_small,Planet.Amplitude,FData.frequency,'spline');
-    Phase = interp1(f_small,Planet.Phase,FData.frequency,'spline');
+    Amp = interp1(f_small,Planet.Amplitude,FTdata.frequency,'spline');
+    Phase = interp1(f_small,Planet.Phase,FTdata.frequency,'spline');
 
     if isfield(opts,'PERCENT') && opts.PERCENT ==1
         format = '%0.2f'; % output to 0.01% precision
-        Amp_main = interp1(f_small,opts.main.Amplitude,FData.frequency,'spline');
-        Phase_main = interp1(f_small,opts.main.Phase,FData.frequency,'spline');
+        Amp_main = interp1(f_small,opts.main.Amplitude,FTdata.frequency,'spline');
+        Phase_main = interp1(f_small,opts.main.Phase,FTdata.frequency,'spline');
         InPhase = pdiff(Amp.*cos(Phase),Amp_main.*cos(Phase_main));
         Quad = pdiff(Amp.*sin(Phase),Amp_main.*sin(Phase_main));
     else
         format = '%0.3f';
-        InPhase = Amp.*cos(Phase).*FData.(['B' (opts.dir)]);
-        Quad = Amp.*sin(Phase).*FData.(['B' (opts.dir)]);  
+        InPhase = Amp.*cos(Phase).*FTdata.(['B' (opts.dir)]);
+        Quad = Amp.*sin(Phase).*FTdata.(['B' (opts.dir)]);  
     end
     
 if opts.IONOSPHERE_ONLY    
@@ -1322,13 +754,6 @@ if opts.INCLUDE_TDs
 end
 end %printTableStr
 %%
-function [out_Hz,out_nT] = localMax(fr,dat,target_fr)
-for it = 1:length(target_fr)
-    hw = 20; %half-width
-    ind = find((abs(fr-target_fr(it))) == min(abs(fr-target_fr(it))));
-    inds = ind-hw:ind+hw;
-    lmax = find(dat(inds) == max(dat(inds)));
-    out_Hz(it) = fr(inds(lmax));
-    out_nT(it) = dat(inds(lmax));
+function texCol = rgbTex(rgbVec)
+    texCol = ['\color[rgb]{' sprintf("%f,%f,%f",rgbVec) '}'];
 end
-end %localMax

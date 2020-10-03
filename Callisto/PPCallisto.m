@@ -3,6 +3,22 @@ function PPCallisto
  % this is the master program, and should be run from its containing
  % directory
 Planet.name='Callisto';
+
+Params.cfg = config;
+if Params.cfg.hold; clrAllProfiles; clrAllLayered(Planet.name); end
+%% &&& Orbital and plotting parameters for use in LayeredInductionResponse
+Planet.peaks_Hz = [5.4584e-05 2.7294e-5 6.892e-7];
+Planet.f_orb = 2*pi/17/86400; % radians per second
+Planet.wlims = [log(0.01) log(100000)];
+% Get Fourier spectrum data
+load(['FTdata' Planet.name],'FTdata');
+Planet.ionos_bounds = 100e3;
+Planet.ionosPedersen_sig = 30/100e3;
+Planet.ionos_only = [];
+Planet.PLOT_SIGS = true;
+Planet.ADD_TRANSITION_BOUNDS = false;
+ 
+%% &&& Bulk and surface properties
 Planet.rho_kgm3 = 1834.4; % Schubert et al. 2004, Anderson et al. 2001; ±3.4
 Planet.R_m = 2410.3e3; %±1.5e3
 Planet.M_kg =1.4819e23; 
@@ -75,7 +91,6 @@ Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
 Params.foursubplots =1;
-Params.HOLD = 0; % overlay previous run
 Params.Legend =0;
 Params.LegendPosition = 'north';
 Params.ylim = [925 1350];
@@ -91,8 +106,6 @@ Params.Temps = [245 250 252.5 255 260 265 270 273];
 
 
 %% Run the Calculation!
-Params.HOLD =0;
-
 Planet.Cmeasured = 0.3549; 
 Planet.Cuncertainty = 0.0042;% Anderson et al. 2001 and Schubert et al. 2004 
 Seismic.mantleEOS = 'pyrohp_sat_678_1.tab';% this was used in the published paper (Vance et al. JGR 2017)
@@ -129,26 +142,21 @@ Planet.rho_sil_withcore_kgm3 = 3000;
 Params.LineStyle='--';
 Params.wrefLine = '--';
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
-% PlanetProfile(Planet,Seismic,Params)
-% 
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 
-
-Params.HOLD = 0;
 
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
-PlanetProfile(Planet,Seismic,Params)
-
-Params.HOLD = 1;
+outPlanet = PlanetProfile(Planet,Seismic,Params);
+outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 
 Params.LineStyle=':';
 Planet.Ocean.w_ocean_pct=13; Planet.Tb_K = [250.8 257.4]; % 10 Wt% temperatures at the bottom of the Ice Ih
-PlanetProfile(Planet,Seismic,Params)
+outPlanet = PlanetProfile(Planet,Seismic,Params);
+outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 
-
-% Params.HOLD = 1;
 % Params.LineStyle='-';
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [253.1 257.4]; % pure water, temperatures at the bottom of the Ice Ih
-% PlanetProfile(Planet,Seismic,Params)
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 
 % 
 % 
@@ -163,17 +171,14 @@ PlanetProfile(Planet,Seismic,Params)
 % % Seismic.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab'; % this uses the procedure implemented by F. Cammarano; this includes Ks and Gs. I had to rerun perlex (6.6.3). not sure why
 % % Seismic.mantleEOS = 'pyrohy_678_1.tab'; % (3500) this uses the procedure implemented by F. Cammarano
 % % 
-% 
-% Params.HOLD = 1;
 % Params.LineStyle='--';
 % Params.wrefLine = '--';
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
 % Planet.rho_sil_withcore_kgm3 = 3525;
-% PlanetProfile(Planet,Seismic,Params)
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 % 
-% Params.HOLD = 1;
 % Params.LineStyle='-';
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [253.1 257.4]; % pure water, temperatures at the bottom of the Ice Ih
 % Planet.rho_sil_withcore_kgm3 = 3525;
-% PlanetProfile(Planet,Seismic,Params)
+% outPlanet = PlanetProfile(Planet,Seismic,Params);
 % % 
