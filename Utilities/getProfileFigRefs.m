@@ -11,8 +11,8 @@ function figs = getProfileFigRefs(lbl, Tbs, thereIsCore, porous, overlay, hidepl
 
     if isempty(figs.grav); figs.grav = figure('visible',vis); set(gcf,'Name',lbl.gravg); end % gravity
     if isempty(figs.cond); figs.cond = figure('visible',vis); set(gcf,'Name',lbl.panl4); end % conductivity
-    if isempty(figs.pvt6); figs.pvt6 = figure('visible',vis); set(gcf,'Name',lbl.[lbl.inter ' x 6']); end % P-T x 6
-    if isempty(figs.pvt4); figs.pvt4 = figure('visible',vis); set(gcf,'Name',lbl.[lbl.inter ' x 4']); end % P-T x 4
+    if isempty(figs.pvt6); figs.pvt6 = figure('visible',vis); set(gcf,'Name',[lbl.inter ' x 6']); end % P-T x 6
+    if isempty(figs.pvt4); figs.pvt4 = figure('visible',vis); set(gcf,'Name',[lbl.inter ' x 4']); end % P-T x 4
     if isempty(figs.wedg); figs.wedg = figure('visible',vis); set(gcf,'Name',lbl.wedge); end % wedge diagrams
 
     figs.mant = findobj('type','figure','Name',lbl.mantl); % mantle density vs r
