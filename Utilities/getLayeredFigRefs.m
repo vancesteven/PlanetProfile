@@ -11,6 +11,12 @@ function figs = getLayeredFigRefs(lbl, Tb_K, name, PLOT_SIGS, overlay, hideplots
         if isempty(figs.sigs); figs.sigs = figure('visible',vis); set(gcf,'Name',sigsName); end % sigma(r) plot
     end
     
+    if ~overlay
+        warning('on','all')
+        warning('WARNING: cfg.hold=0 is not currently implemented in LayeredInductionResponse. Only one overlayed plot will be printed for each body.');
+        overlay = 1;
+    end
+    
     if overlay
         amphName = [lbl.amphs ' ' name];
         BxAeName = ['Bx' lbl.Aecpx ' ' name];

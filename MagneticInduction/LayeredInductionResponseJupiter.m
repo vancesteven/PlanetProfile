@@ -1,13 +1,13 @@
 function outWaveforms = LayeredInductionResponseJupiter(Planet,FTdata,Params)
 
-warning('off','all')
-disp('All warnings are turned off. Turn them on again to check for NaN values in the input data.')
-
 cfg = config;
 
 PLOT_WAVEFORMS = cfg.plot_fft;
 Planet.PLOT_SIGS = 1;
 if ~cfg.calc_new_induc && Planet.PLOT_SIGS; Planet.PLOT_SIGS = 0; end
+
+warning('off','all')
+disp('All warnings are turned off. Turn them on again to check for NaN values in the input data.')
 
 nTbs = length(Planet.Tb_K);
 
@@ -27,9 +27,6 @@ w = exp(w); % cycles per orbit
 
 set(0, 'CurrentFigure', figs.amph);
 set(gcf, 'Name', [lbl.amphs ' ' Planet.name]);
-
-if ~cfg.hold; warning('WARNING: cfg.hold=0 is not currently implemented in LayeredInductionResponse. Only one overlayed plot will be printed for each body.'); end
-%clf;
 
 for iT = nTbs:-1:1 % Do this loop in descending order to avoid preallocating structs
     fname = [Planet.name 'Waveforms_' char(Planet.Profile_ID(iT))];
@@ -70,7 +67,7 @@ if cfg.disp_tables && cfg.deprecated
 end
 
 warning('on','all');
-disp('Finished call to LayeredInductionResponse.')
+disp(['Finished call to LayeredInductionResponse for ' Planet.salt ' ' Planet.name '.'])
 end % LayeredInductionResponse 
 
 %%
@@ -538,7 +535,12 @@ function plotAPhi(figs,lbl,plot_opts,Waveforms,FTdata,Planet)
     plotInductionWaveforms(peaksInPhaseZ_nT,peaksQuadZ_nT,plot_opts,'z',figs.BzAe);
 
     set(0, 'CurrentFigure', figs.amph);
-    subplot(2,1,1);hold on; hl = [];
+    try
+        subplot(2,1,1);
+    catch
+        error('ERROR: There appear to be multiple figures with the same name. Close duplicate figures (or close all) and re-run.');
+    end
+    hold on; hl = [];
     hthis = semilogx(Period,Amp,'LineWidth',LineWidth,'LineStyle',plot_opts.line,'Color',plot_opts.LC); 
     xlabel(lbl.T_hrs);
     ylabel(lbl.normA);
