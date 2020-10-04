@@ -67,7 +67,7 @@ if cfg.disp_tables && cfg.deprecated
 end
 
 warning('on','all');
-disp(['Finished call to LayeredInductionResponse for ' Planet.salt ' ' Planet.name '.'])
+disp(['Finished call to LayeredInductionResponse for ' char(Planet.salt) ' ' Planet.name '.'])
 end % LayeredInductionResponse 
 
 %%
