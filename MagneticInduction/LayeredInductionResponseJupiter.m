@@ -38,9 +38,7 @@ for iT = nTbs:-1:1 % Do this loop in descending order to avoid preallocating str
         try
             load(fullfile(Planet.name,fname),'SaveWaveforms')
         catch loadWaveformsError
-            disp(['ERROR: ' fname '.mat was not found.'])
-            disp('It probably has not been generated. Set cfg.calc_new_induc to 1 to correct this.')
-            rethrow(loadWaveformsError)
+            error(['ERROR: ' fname '.mat was not found. It probably has not been generated. Set cfg.calc_new_induc=1 to correct this.'])
         end
     end
     outWaveforms(iT) = SaveWaveforms;

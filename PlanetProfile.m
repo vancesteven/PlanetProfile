@@ -349,7 +349,11 @@ if ~Planet.NoH2O
             end
         save(fullfile([datpath str_ref_densities]),'rho_ref_kgm3','Pref_MPa','Tref_K')
     else
-        load(fullfile([datpath str_ref_densities]));
+        try
+            load(fullfile([datpath str_ref_densities]));
+        catch
+            error(['ERROR: A reference density file for ' Planet.name ' ' Planet.Ocean.comp ' was not found. Re-run with calc_new_ref=1 to generate the needed file.'])
+        end
     end
 
     %%%%%%%%%%%%%%%%%%%%%
@@ -1371,7 +1375,11 @@ if Params.CALC_NEW_SOUNDSPEEDS
     end
     save(fullfile([datpath savefile '_Vels']),'Ksfluid_GPa','velsIce','vfluid_kms');
 else
-    load(fullfile([datpath savefile '_Vels']),'Ksfluid_GPa','velsIce','vfluid_kms');
+    try
+        load(fullfile([datpath savefile '_Vels']),'Ksfluid_GPa','velsIce','vfluid_kms');
+    catch
+        error(['ERROR: A soundspeeds file was not found for ' char(Planet.salt) '. Re-run with calc_new_sound=1 to generate the needed file.'])
+    end
 end
 
 
