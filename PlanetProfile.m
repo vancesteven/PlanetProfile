@@ -156,7 +156,7 @@ if ~Planet.NoH2O
 % maxiumum depth if specified
    if isfield(Params,'Clathrate')
        disp('Running with clathrate parameters')
-       n_clath=Params.nsteps_clath
+       n_clath=Params.nsteps_clath;
         if isfield(Params,'Clathrate_set_depth') % checks if clathrates have set depth
             max_clath_depth=Params.Clathrate_set_depth;
             Check_clath_depth=1;
@@ -643,7 +643,7 @@ if ~Planet.NoH2O
         % us to skip unnecessary calculations in the case of
         % cfg.skip_profiles=1
         [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
-            ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,Planet.Zb2(iT),g_ms2(iT,1),2);
+            ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,Planet.Zb2(iT),g_ms2(iT,1),phase(iT,1)+1);
         % Make this calculation now in order to get Planet.Qmantle_Wm2 for making
         % filenames shortly
         
@@ -2520,7 +2520,7 @@ if ~cfg.skip_profiles
     for iT=1:nTbs
         ht(iT)= plot(P_MPa(iT,1:indSil(iT)),rho_kgm3(iT,1:indSil(iT)),Params.colororder(iT),...
             'LineWidth',cfg.lw_std,'LineStyle',LineStyle);
-        hm = plot(Psil_MPa(iT),interp1(P_MPa(iT,:),rho_kgm3(iT,:),Psil_MPa(iT)),[Params.colororder(iT) 'o']);
+        hm = plot(Psil_MPa(iT),interp1(P_MPa(iT,1:end-2),rho_kgm3(iT,1:end-2),Psil_MPa(iT)),[Params.colororder(iT) 'o']);
         if ~Params.HOLD
             hm.MarkerFaceColor=Params.colororder(iT);
         end
