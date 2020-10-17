@@ -1,11 +1,9 @@
 %PPTitan
- % this is the master program, and should be run from the main PlanetProfile
- % directory
+clear
+Planet.name='Titan';
   
 Params.cfg = config;
-if Params.cfg.hold; clrAllProfiles; end
-
-Planet.name='Titan';
+if Params.cfg.HOLD; clrAllProfiles; end
 
 %% &&& Bulk and surface properties
 % Planet.rho_kgm3 = 1879.8; %+/- 0.2, Jacobson et al. 2006
