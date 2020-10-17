@@ -1,8 +1,9 @@
 %PPEuropa
+clear
 Planet.name='Europa';
 
 Params.cfg = config;
-if Params.cfg.hold; clrAllProfiles; clrAllLayered(Planet.name); end
+if Params.cfg.HOLD; clrAllProfiles; clrAllLayered(Planet.name); end
 %% &&& Orbital and plotting parameters for use in LayeredInductionResponse
 Planet.peaks_Hz = [4.946e-5 2.473e-5 3.259e-6];
 Planet.f_orb = 2*pi/3.55/86400; % radians per second

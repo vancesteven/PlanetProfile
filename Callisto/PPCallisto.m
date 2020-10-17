@@ -1,10 +1,9 @@
 %PPCallisto
- % this is the master program, and should be run from its containing
- % directory
+clear
 Planet.name='Callisto';
 
 Params.cfg = config;
-if Params.cfg.hold; clrAllProfiles; clrAllLayered(Planet.name); end
+if Params.cfg.HOLD; clrAllProfiles; clrAllLayered(Planet.name); end
 %% &&& Orbital and plotting parameters for use in LayeredInductionResponse
 Planet.peaks_Hz = [5.4584e-05 2.7294e-5 6.892e-7];
 Planet.f_orb = 2*pi/17/86400; % radians per second

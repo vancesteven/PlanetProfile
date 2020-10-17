@@ -1,10 +1,9 @@
 %PPEnceladus
- % this is the master program, and should be run from its containing
- % directory
-Params.cfg = config;
-if Params.cfg.hold; clrAllProfiles; end
-
+clear
 Planet.name='Enceladus';
+
+Params.cfg = config;
+if Params.cfg.HOLD; clrAllProfiles; end
 
 %% &&& Bulk and surface properties
 Planet.rho_kgm3 = 1610; % Thomas 2010

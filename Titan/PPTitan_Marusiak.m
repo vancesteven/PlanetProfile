@@ -5,7 +5,7 @@
    clear
    close all
 Params.cfg = config;
-if Params.cfg.hold; clrAllProfiles; end
+if Params.cfg.HOLD; clrAllProfiles; end
 
 Planet.name='Titan';
 % Planet.rho_kgm3 = 1879.8; %+/- 0.2, Jacobson et al. 2006
@@ -128,11 +128,6 @@ Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the e
 % Comparison of MgSO4 EOS pure water values is close to values for ammonia
 % EOS.  There are diffences in both the melting temperatures and fluid
 % thermodynamics
-Params.HOLD = 0;
-Params.CALC_NEW =1;
-Params.CALC_NEW_REFPROFILES=0;
-Params.CALC_NEW_SOUNDSPEEDS=1;
-Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=0;
 
 Params.LineStyle =  '--';
 Params.wrefLine =  '--';
@@ -151,7 +146,7 @@ close all
 
 
 % Trying out with new clathrates
-Params.Clathrate=1;
+Planet.Clathrate=1;
 Params.nsteps_iceI=0;
 Params.nsteps_clath = 100;
 %Params.Clathrate_set_depth=20000; %set depth in meters
