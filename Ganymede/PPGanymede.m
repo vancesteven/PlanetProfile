@@ -1,4 +1,3 @@
-function PPGanymede
 %PPGanymede
 Planet.name='Ganymede';
 

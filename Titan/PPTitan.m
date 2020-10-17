@@ -1,4 +1,3 @@
-function PPTitan
 %PPTitan
  % this is the master program, and should be run from the main PlanetProfile
  % directory
