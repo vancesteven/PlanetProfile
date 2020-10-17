@@ -141,8 +141,6 @@ Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 262 266]; % 10 Wt% temperatures 
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [251.1 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
 
 %Pure_ice=PlanetProfile(Planet,Seismic,Params)
-close all
-
 
 % Trying out with new clathrates
 Planet.Clathrate=1;
