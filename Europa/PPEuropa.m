@@ -1,4 +1,3 @@
-function PPEuropa
 %PPEuropa
 Planet.name='Europa';
 
