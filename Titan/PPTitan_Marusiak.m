@@ -3,7 +3,6 @@
  % this is the master program, and should be run from its containing
  % directory
    clear
-   close all
 Params.cfg = config;
 if Params.cfg.HOLD; clrAllProfiles; end
 
