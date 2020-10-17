@@ -2,9 +2,12 @@ function outWaveforms = LayeredInductionResponseJupiter(Planet,FTdata,Params)
 
 cfg = config;
 
-PLOT_WAVEFORMS = cfg.plot_fft;
 Planet.PLOT_SIGS = 1;
-if ~cfg.calc_new_induc && Planet.PLOT_SIGS; Planet.PLOT_SIGS = 0; end
+if ~cfg.CALC_NEW_INDUC && Planet.PLOT_SIGS; Planet.PLOT_SIGS = 0; end
+
+%interior_model = table();
+%writetable()
+%return
 
 warning('off','all')
 disp('All warnings are turned off. Turn them on again to check for NaN values in the input data.')
@@ -13,7 +16,7 @@ nTbs = length(Planet.Tb_K);
 
 % Pregenerate figures
 lbl = getPlotLabels(cfg.dft_font, cfg.dft_math, cfg.interpreter);
-figs = getLayeredFigRefs(lbl, Planet.Tb_K, Planet.name, Planet.PLOT_SIGS, cfg.hold, cfg.no_plots);
+figs = getLayeredFigRefs(lbl, Planet.Tb_K, Planet.name, Planet.PLOT_SIGS, cfg.HOLD, cfg.NO_PLOTS);
 set(0,'defaultAxesFontSize',16)
 
 %% increments of distance
@@ -30,7 +33,7 @@ set(gcf, 'Name', [lbl.amphs ' ' Planet.name]);
 
 for iT = nTbs:-1:1 % Do this loop in descending order to avoid preallocating structs
     fname = [Planet.name 'Waveforms_' char(Planet.Profile_ID(iT))];
-    if cfg.calc_new_induc
+    if cfg.CALC_NEW_INDUC
         disp(['== ' Planet.Ocean.comp ' - ' char(Planet.ice_thk(iT)) ' km'])
         SaveWaveforms = getPlanetMagWaveforms(figs,lbl,r,n,w,Planet.sig(iT,:),Planet.boundaries(iT,:),r0,y0,opts,Planet.f_orb,Planet);
         save(fullfile(Planet.name,fname),'SaveWaveforms')
@@ -38,14 +41,14 @@ for iT = nTbs:-1:1 % Do this loop in descending order to avoid preallocating str
         try
             load(fullfile(Planet.name,fname),'SaveWaveforms')
         catch loadWaveformsError
-            error(['ERROR: ' fname '.mat was not found. It probably has not been generated. Set cfg.calc_new_induc=1 to correct this.'])
+            error(['ERROR: ' fname '.mat was not found. It probably has not been generated. Set cfg.CALC_NEW_INDUC=1 to correct this.'])
         end
     end
     outWaveforms(iT) = SaveWaveforms;
 end
 
 %% Figures
-if PLOT_WAVEFORMS; plotWaveformData(figs,lbl,outWaveforms,FTdata,Planet,cfg); end
+if cfg.PLOT_FFT; plotWaveformData(figs,lbl,outWaveforms,FTdata,Planet,cfg); end
 
 %% Table output
 % MJS 2020-10-03:
@@ -54,7 +57,7 @@ if PLOT_WAVEFORMS; plotWaveformData(figs,lbl,outWaveforms,FTdata,Planet,cfg); en
 % and compared, but now we only do 1 composition, 1 body at a time. It
 % probably makes sense to cut this, as a working implementation is archived
 % with the 1.1.0 release for Vance et al. 2020.
-if cfg.disp_tables && cfg.deprecated
+if cfg.DISP_TABLES && cfg.DEPRECATED
     disp('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
     printWaveformTables(FTdata,outWaveforms,'x');
     disp('YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY')
@@ -122,8 +125,10 @@ Planet.kmean = mean(fdat.data(inds(1):inds2(2),kind));
 end % readData
 %%
 function outWaveforms = getSw(r,n,w,sig,boundaries,R_m,r0,y0,opts,f_orb,Planet)
-    opts.hiprec = true;
-    opts.par = false;
+    % These opts settings are only used by MagComplexA, which is not
+    % currently implemented.
+    %opts.HIPREC = true;
+    %opts.PAR = false;
 %     Q = MagComplexA(boundaries,sig,nE*w,n,opts);
     [k,Q] = getMagResponseFunction(r,n,f_orb,w,sig,boundaries,R_m,r0,y0,opts);
     nbound = length(boundaries(:,1));
@@ -234,7 +239,6 @@ if isfield(Planet,'ionos_only') % only create the ionosphere without the ocean i
     end
 end
 
-
 Planet.SURF_NORM = false;
 disp('  -   mean ocean');outWaveforms.mean = getSw(r,n,w,s_mean,b_mean,Planet.R_m,r0,y0,opts,f_orb,Planet);
 disp('  ^   top ocean');outWaveforms.top = getSw(r,n,w,s_top,b_top,Planet.R_m,r0,y0,opts,f_orb,Planet);
@@ -300,8 +304,8 @@ for in = 1:length(fnames)
     if isfield(Waveforms.(fnames{in}),'sub_ocean')
         d_layer = Waveforms.(fnames{in}).sub_ocean.sub_ocean.Thickness_km;
         sig_layer = Waveforms.(fnames{in}).sub_ocean.sub_ocean.sig;
-         printTableStr(['\textbf{bottom layer: ' num2str(d_layer) ' km ' num2str(sig_layer) ' S/m}'],FTdata,Waveforms.(fnames{in}).sub_ocean,table_opts); 
-         printTableStr('Pedersen',FTdata,Waveforms.(fnames{in}).sub_ocean_ionos,table_opts); 
+        printTableStr(['\textbf{bottom layer: ' num2str(d_layer) ' km ' num2str(sig_layer) ' S/m}'],FTdata,Waveforms.(fnames{in}).sub_ocean,table_opts); 
+        printTableStr('Pedersen',FTdata,Waveforms.(fnames{in}).sub_ocean_ionos,table_opts); 
     end
     table_opts.PERCENT = 0;
     disp('\hline')
@@ -342,7 +346,7 @@ switch body_name
 case 'Europa'
     switch o_comp(1) 
     case 'M'
-        plot_opts.line=cfg.ls_Mg;
+        plot_opts.line=cfg.LS_Mg;
         if ice_thk > 15
             [plot_opts.LC,plot_opts.MEC] = deal(cfg.col_coldestMgSO4);
             plot_opts.point = '^';
@@ -355,13 +359,13 @@ case 'Europa'
         if o_wtpc > 5
             plot_opts.MFC = plot_opts.MEC;
             plot_opts.MEC = 'k';
-            plot_opts.LW = cfg.lw_sal;
+            plot_opts.LW = cfg.LW_sal;
         else
             plot_opts.MFC = 'none';
-            plot_opts.LW = cfg.lw_dil;
+            plot_opts.LW = cfg.LW_dil;
         end
     case 'S'
-        plot_opts.line=cfg.ls_Sw;
+        plot_opts.line=cfg.LS_Sw;
         if ice_thk > 15
             [plot_opts.LC,plot_opts.MEC] = deal(cfg.col_coldestSw);
             plot_opts.point = '^';
@@ -374,10 +378,10 @@ case 'Europa'
         if o_wtpc > 5
             plot_opts.MFC = plot_opts.MEC;
             plot_opts.MEC = 'k';
-            plot_opts.LW = cfg.lw_sal;
+            plot_opts.LW = cfg.LW_sal;
         else
             plot_opts.MFC = 'none';
-            plot_opts.LW = cfg.lw_dil;
+            plot_opts.LW = cfg.LW_dil;
         end
     end
     % Set zoom level
@@ -388,7 +392,7 @@ case 'Europa'
     plot_opts.Bzxlim = [3 10];
     plot_opts.Bzylim = [0 0.7];
 case 'Ganymede'
-    plot_opts.line=cfg.ls_Mg;
+    plot_opts.line=cfg.LS_Mg;
     if ice_thk > 90
         [plot_opts.LC,plot_opts.MEC] = deal(cfg.col_coldestMgSO4);
         plot_opts.point = '^';
@@ -401,10 +405,10 @@ case 'Ganymede'
     if o_wtpc > 5
         plot_opts.MFC = plot_opts.MEC;
         plot_opts.MEC = 'k';
-        plot_opts.LW = cfg.lw_sal;
+        plot_opts.LW = cfg.LW_sal;
     else
         plot_opts.MFC = 'none';
-        plot_opts.LW = cfg.lw_dil;
+        plot_opts.LW = cfg.LW_dil;
     end
     % Set zoom level
     plot_opts.Bxxlim = [0 1.8];
@@ -414,7 +418,7 @@ case 'Ganymede'
     plot_opts.Bzxlim = [0 1.8];
     plot_opts.Bzylim = [0 0.08];
 case 'Callisto'
-    plot_opts.line=cfg.ls_Mg;
+    plot_opts.line=cfg.LS_Mg;
     if ice_thk > 90
         [plot_opts.LC,plot_opts.MEC] = deal(cfg.col_coldestMgSO4);
         plot_opts.point = '^';
@@ -427,10 +431,10 @@ case 'Callisto'
     if o_wtpc > 5
         plot_opts.MFC = plot_opts.MEC;
         plot_opts.MEC = 'k';
-        plot_opts.LW = cfg.lw_sal;
+        plot_opts.LW = cfg.LW_sal;
     else
         plot_opts.MFC = 'none';
-        plot_opts.LW = cfg.lw_dil;
+        plot_opts.LW = cfg.LW_dil;
     end
     % Set zoom level
     plot_opts.Bxxlim = [0 0.008];

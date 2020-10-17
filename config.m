@@ -4,27 +4,27 @@ function cfg = config
     % such as layer thicknesses will not change between runs.
     
     % Runtime options
-    cfg.calc_new =       1;
-    cfg.calc_new_ref =   1;
-    cfg.calc_new_sound = 1;
-    cfg.calc_new_induc = 1;
-    cfg.skip_profiles =  0; % Whether to skip past all PlanetProfile.m plotting and calculations
-    cfg.no_plots =       0;
-    cfg.hold =           1; % Whether to overlay runs when possible
-    cfg.conduct =        1; % Calculate electrical conductivity
-    cfg.disp_layers =    1; % Whether to display layer depths and heat fluxes for user
-    cfg.disp_tables =    1; % Whether to print latex-formatted tables to Matlab command line
-    cfg.deprecated =     0; % Whether to allow deprecated code to run. Will often cause errors.
+    cfg.CALC_NEW =       1;
+    cfg.CALC_NEW_REF =   1;
+    cfg.CALC_NEW_SOUND = 1;
+    cfg.CALC_NEW_INDUC = 1;
+    cfg.SKIP_PROFILES =  1; % Whether to skip past all PlanetProfile.m plotting and calculations
+    cfg.NO_PLOTS =       0;
+    cfg.HOLD =           1; % Whether to overlay runs when possible
+    cfg.CONDUCT =        1; % Calculate electrical conductivity
+    cfg.DISP_LAYERS =    0; % Whether to display layer depths and heat fluxes for user
+    cfg.DISP_TABLES =    0; % Whether to print latex-formatted tables to Matlab command line
+    cfg.DEPRECATED =     0; % Whether to allow deprecated code to run. Will often cause errors.
     
     % Magnetic induction calculation settings
-    cfg.do_eur = 1;
-    cfg.do_gan = 1;
-    cfg.do_cal = 1;
-    cfg.do_per = 1; % Convert frequency axes to periods
-    cfg.do_legend = 1;
-    cfg.plot_fft = 1; % Whether to show plots of fourier space
-    cfg.plot_contours = 1; % Contours or surfaces
-    cfg.plot_V2020s = 1; % Mark the selected ocean/conductivity combos used in Vance et al. 2020
+    cfg.DO_EUR = 1;
+    cfg.DO_GAN = 1;
+    cfg.DO_CAL = 1;
+    cfg.DO_PER = 1; % Convert frequency axes to periods
+    cfg.DO_LEGEND = 1;
+    cfg.PLOT_FFT = 1; % Whether to show plots of fourier space
+    cfg.PLOT_CONTOURS = 1; % Contours or surfaces
+    cfg.PLOT_V2020S = 1; % Mark the selected ocean/conductivity combos used in Vance et al. 2020
     cfg.intMethod = 'makina'; % Interpolation method. Certain ones can cause wiggles, notably 'linear'.
     cfg.npts_k = 50;
     cfg.npts_D = 60;
@@ -67,18 +67,18 @@ function cfg = config
     cfg.col_warmestMgSO4 = cfg.col_MgSO4(99,:);
     
     % Linestyle options
-    cfg.ls_syn = '-';
-    cfg.ls_orb = ':';
-    cfg.ls_hrm = '-.';
-    cfg.ls_Sw  = '-';
-    cfg.ls_Mg = '--';
-    cfg.ls_sp =  ':';
-    cfg.lw_syn = 2;
-    cfg.lw_orb = 2;
-    cfg.lw_hrm = 2;
-    cfg.lw_sal = 3;
-    cfg.lw_dil = 1;
-    cfg.lw_std = 2;
-    cfg.lw_sound = 1.5;
-    cfg.lw_seism = 1;
+    cfg.LS_syn = '-';
+    cfg.LS_orb = ':';
+    cfg.LS_hrm = '-.';
+    cfg.LS_Sw  = '-';
+    cfg.LS_Mg = '--';
+    cfg.LS_sp =  ':';
+    cfg.LW_syn = 2;
+    cfg.LW_orb = 2;
+    cfg.LW_hrm = 2;
+    cfg.LW_sal = 3;
+    cfg.LW_dil = 1;
+    cfg.LW_std = 2;
+    cfg.LW_sound = 1.5;
+    cfg.LW_seism = 1;
 end

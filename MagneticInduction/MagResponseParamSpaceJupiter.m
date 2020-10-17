@@ -2,20 +2,14 @@ function MagResponseParamSpaceJupiter
 
 cfg = config;
 
-PLOT_CONTOURS = cfg.plot_contours;  % Set to 0 for surfaces
-DO_LEGEND = cfg.do_legend;
-PLOT_V2020s = cfg.plot_V2020s;
-PLOT_PERIODS  = cfg.do_per;
+DO_LEGEND = cfg.DO_LEGEND;
 
-DO_EUROPA = cfg.do_eur;
-DO_GANYMEDE = cfg.do_gan;
-DO_CALLISTO = cfg.do_cal;
 ccolors = [cfg.col_contOrb; cfg.col_contSyn; cfg.col_contHrm];
-clines = {cfg.ls_orb, cfg.ls_syn, cfg.ls_hrm};
-LW =     [cfg.lw_orb; cfg.lw_syn; cfg.lw_hrm];
+clines = {cfg.LS_orb, cfg.LS_syn, cfg.LS_hrm};
+LW =     [cfg.LW_orb; cfg.LW_syn; cfg.LW_hrm];
 
 km = 1e3;
-nbodies = (DO_EUROPA+DO_GANYMEDE+DO_CALLISTO);
+nbodies = (cfg.DO_EUR + cfg.DO_GAN + cfg.DO_CAL);
 r0 = km; y0 = 0; n = 1; opts = cfg.opts_odeParams;
 ice_thk.eur = 20;
 ice_thk.gan = 50;
@@ -23,15 +17,15 @@ ice_thk.cal = 50;
 
 bnames = strings(1,nbodies);
 D_ice_km = zeros(1,nbodies);
-if cfg.do_eur; ei=1; bnames(ei) = 'Europa'; D_ice_km(ei) = ice_thk.eur; end
-if cfg.do_gan; gi=cfg.do_eur+cfg.do_gan; bnames(gi) = 'Ganymede'; D_ice_km(gi) = ice_thk.gan; end
-if cfg.do_cal; ci=cfg.do_eur+cfg.do_gan+cfg.do_cal; bnames(ci) = 'Callisto'; D_ice_km(ci) = ice_thk.cal; end
+if cfg.DO_EUR; ei=1; bnames(ei) = 'Europa'; D_ice_km(ei) = ice_thk.eur; end
+if cfg.DO_GAN; gi=cfg.DO_EUR+cfg.DO_GAN; bnames(gi) = 'Ganymede'; D_ice_km(gi) = ice_thk.gan; end
+if cfg.DO_CAL; ci=cfg.DO_EUR+cfg.DO_GAN+cfg.DO_CAL; bnames(ci) = 'Callisto'; D_ice_km(ci) = ice_thk.cal; end
 
 % Pregenerate figures and get labels
 lbl = getPlotLabels(cfg.dft_font, cfg.dft_math, cfg.interpreter);
-figs = getMagResFigRefs(lbl, bnames, cfg.no_plots);
+figs = getMagResFigRefs(lbl, bnames, cfg.NO_PLOTS);
 
-if ~cfg.no_plots
+if ~cfg.NO_PLOTS
     for iFig=1:numel(figs.cont)
         set(figs.cont(iFig), 'visible', 'on');
     end
@@ -152,7 +146,7 @@ for ibody = 1:nbodies
     k_Sm = logspace(log10(klims(1)),log10(klims(2)),cfg.npts_k);
     D_ocean_km = logspace(log10(Dlims(1)),log10(Dlims(2)),cfg.npts_D);
     
-    if cfg.calc_new
+    if cfg.CALC_NEW
         r = linspace(km,R_outer_km*km,5*R_outer_km);
         wsmall = 2*pi/nE./Periods_hr./3600;
 
@@ -190,8 +184,9 @@ for ibody = 1:nbodies
         save(fullfile(thisSaveStr), 'nbodies', 'k_Sm', 'D_ocean_km', 'amp', 'phi', 'lw');
     else
         load(fullfile(thisSaveStr), 'nbodies', 'k_Sm', 'D_ocean_km', 'amp', 'phi', 'lw');
-        if nbodies ~= cfg.do_eur + cfg.do_gan + cfg.do_cal
-            error('ERROR: The file we loaded with calc_new = 0 had the wrong number of bodies saved. Re-run with calc_new=1. Aborting.')
+        if nbodies ~= cfg.DO_EUR + cfg.DO_GAN + cfg.DO_CAL
+            error(['ERROR: The file we loaded with CALC_NEW = 0 had the wrong number of bodies saved. ' ...
+                'Re-run with CALC_NEW=1. Aborting.'])
         end
     end
 
@@ -208,7 +203,7 @@ for ibody = 1:nbodies
     xlim(klims)
     ylim(Dlims)
     
-    if PLOT_V2020s
+    if cfg.PLOT_V2020S
         for ip = 1:length(V2020.km)
             hp = plot(V2020.Sm(ip),V2020.km(ip),V2020.symbols(ip));
             hp.MarkerFaceColor = V2020.MFCs{ip};
@@ -223,7 +218,7 @@ for ibody = 1:nbodies
     xlim(klims)
     ylim(Dlims)
     
-    if PLOT_V2020s
+    if cfg.PLOT_V2020S
         for ip = 1:length(V2020.km)
             hp = plot(V2020.Sm(ip),V2020.km(ip),V2020.symbols(ip));
             hp.MarkerFaceColor = V2020.MFCs{ip};
@@ -237,7 +232,7 @@ for ibody = 1:nbodies
         [k_interp,D_interp] = meshgrid(kfine,Dfine);
         ampfine = interp2(k_grid,D_grid,amp(:,:,iw)',k_interp,D_interp,cfg.intMethod);
         phifine = interp2(k_grid,D_grid,phi(:,:,iw)',k_interp,D_interp,cfg.intMethod);
-        if PLOT_CONTOURS
+        if cfg.PLOT_CONTOURS
             H(iw) = plotTheContours(kfine,Dfine,BnT(iw),ampfine,phifine,alevels{iw,:},plevels{iw,:},ccolors(iw,:),clines{iw},LW(iw));
         else
             H(iw) = plotSurf(kfine,Dfine,BnT(iw),ampfine,phifine);
@@ -266,7 +261,7 @@ for ibody = 1:nbodies
     fprintf('Printed contour plot for %s\n', bodyName)
     
     str2020 = '';
-    if PLOT_V2020s
+    if cfg.PLOT_V2020S
         str2020 = '_WithV2020Models';
     end
     print(figs.cont(ibody),cfg.fig_fmt,fullfile([bodyName '/figures/MagPhase' bodyName str2020 '.eps']));
@@ -285,9 +280,9 @@ end
 %% set up the peaks to plot and analyze
 
 %% create frequency plots similar to those in Seufert et al. 2011
-if PLOT_PERIODS
+if cfg.DO_PER
     
-    if cfg.disp_tables
+    if cfg.DISP_TABLES
         disp('\begin{table}[]')
         disp('\centering')
         disp('    \hline')
@@ -309,7 +304,7 @@ if PLOT_PERIODS
         peaks(ibody,:) = plotPeriods(figs.ffts(ibody),body_name,fftxlims,peaks_hr(ibody,:),FTdata,Periods,lbl);
     end
     
-    if cfg.disp_tables
+    if cfg.DISP_TABLES
         for ibody=1:nbodies
             dstr = ['\textbf{' char(bnames(ibody)) '} '];
             for in = 1:3 % count from lowest period (highest frequency)
