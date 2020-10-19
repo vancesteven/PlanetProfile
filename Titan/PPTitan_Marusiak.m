@@ -3,6 +3,7 @@
  % this is the master program, and should be run from its containing
  % directory
    clear
+   close all
 Params.cfg = config;
 if Params.cfg.HOLD; clrAllProfiles; end
 
@@ -140,8 +141,8 @@ Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [251.1 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
 
-%Pure_ice=PlanetProfile(Planet,Seismic,Params)
-
+Pure_ice=PlanetProfile(Planet,Seismic,Params)
+close all
 % Trying out with new clathrates
 Planet.Clathrate=1;
 Params.nsteps_iceI=0;

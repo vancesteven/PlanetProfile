@@ -99,14 +99,16 @@ Gg = 6.67300e-11; % m3 kg-1 s-2
 % because it's getting confusing as we investigate k2, Q, etc....
 if isfield(Seismic,'mantleEOSname'); minEOS = ['_' Seismic.mantleEOSname]; else; minEOS = ''; end
 % adjust file name based on keywords(clathrates, porous)
-if isfield(Planet,'Clathrate'); clathStr = '_Clathrates'; else; clathStr = ''; end
+%if isfield(Planet,'Clathrate'); clathStr = '_Clathrates'; else; clathStr = ''; end
 
 POROUS_ICE = isfield(Planet,'POROUS_ICE') && Planet.POROUS_ICE;
 if POROUS_ICE; porIceStr = '_PorousIce'; else; porIceStr = ''; end   
 
 savebase = [Planet.name 'Profile_'];
+if isfield(Planet,'Clathrate'); savebase = [savebase 'Clathrates_']; end
+%savebase = [Planet.name 'Profile_' clathStr];
 savefile = [savebase Planet.Ocean.comp ...
-    '_' num2str(round(Planet.Ocean.w_ocean_pct)) 'WtPct' minEOS clathStr porIceStr];
+    '_' num2str(round(Planet.Ocean.w_ocean_pct)) 'WtPct' minEOS porIceStr];
 
 % MJS 2020-10-02:
 % strLow is a placeholder for a calculation that places a relevant string
@@ -2064,6 +2066,7 @@ for iT = 1:nTbs
         axis tight
 
         if ~cfg.HOLD
+            
             print(figs.seis(iT),Params.savefigformat,fullfile([figpath thissavestr '_' vseis cfg.xtn]));
             print(figs.gsks(iT),Params.savefigformat,fullfile([figpath thissavestr '_' vgsks cfg.xtn]));
             if POROUS % Saved from earlier -- now we have thissavestr.
@@ -2086,6 +2089,8 @@ Planet.boundaries = flip(r_Planet_m,2);
 if ~cfg.SKIP_PROFILES
     
     % Save plots special if we are overlaying
+    if isfield(Planet,'Clathrate'); clathID = ['_Clathrates']; else; clathID = ''; end
+    thissavestr = [savefile clathID ];
     if cfg.HOLD
         print(figs.seis,Params.savefigformat,fullfile([figpath savebase vseis cfg.xtn]));
         print(figs.gsks,Params.savefigformat,fullfile([figpath savebase vgsks cfg.xtn]));
