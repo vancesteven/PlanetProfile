@@ -13,6 +13,14 @@ function outPlanet = PlanetProfile(Planet,Seismic,Params)
 % Geophysical investigations of habitability in ice-covered ocean worlds.
 % Journal of Geophysical Research: Planets, Nov 2018.
 
+vernum = PPversion;
+disp(['PlanetProfile version ' vernum])
+if all(vernum(end-2:end) == 'dev'); disp('This version is in development.'); end
+% Check SeaFreeze compatibility and presence on path
+% This version of PlanetProfile is compatible with the version number
+% below.
+seaVer = '0.9.2';
+checkSeaFreeze(seaVer);
 
 % First, get runtime config information
 % Fetch this information from an external file so we don't track
@@ -119,11 +127,11 @@ strLow = '';
 datpath = strcat(Planet.name,'/');
 figpath = strcat(Planet.name,'/figures/');
 
-if ~exist(figpath)
+if ~exist(figpath,'dir')
     error(['Figure path ' figpath ' does not exist. Check your Matlab path ' ...
         ' settings and add-with-subfolders the main PlanetProfile directory.'])
 end
-if ~exist(datpath)
+if ~exist(datpath,'dir')
     error(['Data path ' datpath ' does not exist. Check your Matlab path ' ...
         ' settings and add-with-subfolders the main PlanetProfile directory.'])
 end
