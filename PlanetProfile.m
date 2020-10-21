@@ -2089,8 +2089,6 @@ Planet.boundaries = flip(r_Planet_m,2);
 if ~cfg.SKIP_PROFILES
     
     % Save plots special if we are overlaying
-    if isfield(Planet,'Clathrate'); clathID = ['_Clathrates']; else; clathID = ''; end
-    thissavestr = [savefile clathID ];
     if cfg.HOLD
         print(figs.seis,Params.savefigformat,fullfile([figpath savebase vseis cfg.xtn]));
         print(figs.gsks,Params.savefigformat,fullfile([figpath savebase vgsks cfg.xtn]));
@@ -2141,11 +2139,11 @@ if ~cfg.SKIP_PROFILES
             subplot(2,2,3); plotSolidInterior('Ks',[math 'K_S' bnm ' (GPa)'],T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
             subplot(2,2,4); plotSolidInterior('Gs',[math 'G_S' bnm ' (GPa)'],T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
 
-        print(figs.pvt4,Params.savefigformat,fullfile([figpath thissavestr '_' vpvt4 cfg.xtn]));
+        print(figs.pvt4,Params.savefigformat,fullfile([figpath savefile '_' vpvt4 cfg.xtn]));
     end
 
     % save the mineral compositions plot
-    print(figs.pvt6,Params.savefigformat,fullfile([figpath thissavestr '_' vpvt6 cfg.xtn]));
+    print(figs.pvt6,Params.savefigformat,fullfile([figpath savefile '_' vpvt6 cfg.xtn]));
 
     %% create the legend that describes tb, z_b, and heat flux
     lstr_2 = {};
@@ -2171,7 +2169,7 @@ if ~cfg.SKIP_PROFILES
         end
         title([math 'T_b' nm ' = ' num2str(Tb_K(iT)) ' K'],'FontSize',lbl.lgtext)
     end
-    print(figs.wedg,Params.savefigformat,fullfile([figpath thissavestr '_' vwedg cfg.xtn]));
+    print(figs.wedg,Params.savefigformat,fullfile([figpath savefile '_' vwedg cfg.xtn]));
 
 
     %%  plot profile with 4 subplots
