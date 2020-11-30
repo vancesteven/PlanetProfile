@@ -107,8 +107,8 @@ for ibody = 1:nbodies
         
         V2020.km = [442 276 458 282];
         V2020.Sm = [0.3890 0.2623 3.1150 1.9483];
-        V2020.MFCs = {'none','none',cfg.col_coldestMgSO4,cfg.col_warmestMgSO4};
-        V2020.MECs = {cfg.col_coldestMgSO4,cfg.col_warmestMgSO4,'k','k'};
+        V2020.MFCs = {'none','none',cfg.col_warmestMgSO4,cfg.col_coldestMgSO4};
+        V2020.MECs = {cfg.col_warmestMgSO4,cfg.col_coldestMgSO4,'k','k'};
         V2020.symbols = '^v^v';
     
     case 'Callisto'
@@ -138,8 +138,8 @@ for ibody = 1:nbodies
                 
         V2020.km = [132 21 130 21];
         V2020.Sm = [0.2307 0.0895 1.5256 0.6025];
-        V2020.MFCs = {'none','none',cfg.col_coldestMgSO4,cfg.col_warmestMgSO4};
-        V2020.MECs = {cfg.col_coldestMgSO4,cfg.col_warmestMgSO4,'k','k'};
+        V2020.MFCs = {'none','none',cfg.col_warmestMgSO4,cfg.col_coldestMgSO4};
+        V2020.MECs = {cfg.col_warmestMgSO4,cfg.col_coldestMgSO4,'k','k'};
         V2020.symbols = '^v^v';
     end
 
