@@ -31,14 +31,16 @@ function checkSeaFreeze(compatVer)
     seaDigits = split(seaVer,'.');
     seaMaj = str2double(char(seaDigits(1)));
     seaMin = str2double(char(seaDigits(2)));
+    seaSub = str2double(char(seaDigits(3)));
     compatDigits = split(compatVer,'.');
     compatMaj = str2double(char(compatDigits(1)));
     compatMin = str2double(char(compatDigits(2)));
+    compatSub = str2double(char(compatDigits(3)));
     
     % Compare the version numbers
-    if compatMaj == seaMaj && compatMin == seaMin
+    if compatMaj == seaMaj && compatMin == seaMin && compatSub == seaSub
         return
-    elseif compatMaj > seaMaj || (compatMaj == seaMaj && compatMin > seaMin)
+    elseif compatMaj > seaMaj || (compatMaj == seaMaj && compatMin > seaMin) || (compatMaj == seaMaj && compatMin == seaMin && compatSub > seaSub)
     warning(['WARNING: This version of PlanetProfile is compatible with a newer version of SeaFreeze, ' ...
         'version ' compatVer ', but the installed version of SeaFreeze is ' seaVer '. Upgrading to version ' ...
         compatVer ' is strongly recommended, as missing features are likely to cause errors.'])

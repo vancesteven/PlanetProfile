@@ -842,7 +842,20 @@ end
 if cfg.CONDUCT
     k_S_m = NaN*ones(size(P_MPa));
     switch Planet.Ocean.comp
-    case 'MgSO4'
+    case 'MgSO4' 
+        if wo==10 && isfield(Planet.Ocean,'Electrical') && strcmp(Planet.Ocean.Electrical,'Pan2020')
+        % use values from Pan et al. 2020
+        for iTb = 1:length(Planet.Tb_K)
+            thisP = P_MPa(iTb,phase(iTb,:)==0);
+            thisT = T_K(iTb,phase(iTb,:)==0);
+            for iP = 1:length(thisP)
+               kvals(iP)  = getSigmaMgSO4_Pan(thisP(iP),thisT(iP));
+            end
+                k_S_m(iTb,phase(iTb,:)==0) = kvals;
+        end
+        else
+        % Extrapolation from Larionov 1984 to high concentration and low
+        % temperature
         LarionovMgSO4 = getLarionov1984MgSO4Conductivities(1);
         Pextrap = LarionovMgSO4.Pextrap_MPa;
         Textrap = LarionovMgSO4.Textrap_K;
@@ -850,6 +863,7 @@ if cfg.CONDUCT
         [Pgg,Tgg]=meshgrid(Pextrap,Textrap);
         for iTb = 1:length(Planet.Tb_K)
             k_S_m(iTb,phase(iTb,:)==0) = interp2(Pextrap,Textrap,k_S_m_extrap,P_MPa(iTb,phase(iTb,:)==0),T_K(iTb,phase(iTb,:)==0),'spline') * conduct_scaling_MgSO4;
+        end
         end
     case 'Seawater'
         if wo>2
