@@ -78,7 +78,7 @@ if ~cfg.SKIP_PROFILES
         [~] = getLayeredFigRefs(lbl, Planet.Tb_K, Planet.name, Planet.PLOT_SIGS, cfg.HOLD, cfg.NO_PLOTS);
     end
     
-end % ~cfg.SKIP_PROFILES
+end % ~cfg.SKIP_PROxFILES
 
 %% globals for functions in fzero
 global M_Planet_kg R_Planet_m extrapflag
@@ -212,11 +212,15 @@ if ~Planet.NoH2O
             if n_clath(iT)>0
                 clath_out{iT,1} = Helgerud_sI(P_MPa(iT,1),T_K(iT,1));
                 rho_kgm3(iT,1)=clath_out{iT,1}.rho;
+                [Cp(iT,1) alpha_K(iT,1)]= getCpIce(P_MPa(iT,1),T_K(iT,1),phase(iT,1)) ;
             else
                 rho_kgm3(iT,1) = getRhoIce(P_MPa(iT,1),T_K(iT,1),1);
+                [Cp(iT,1) alpha_K(iT,1)]= getCpIce(P_MPa(iT,1),T_K(iT,1),phase(iT,1)) ;
             end
             try
                 Pb_MPa(iT) = getPfreeze(Tb_K(iT),wo,Planet.Ocean.comp);
+                %[Cp(iT,1) alpha_K(iT,1)]= getCpIce(P_MPa(iT,1),T_K(iT,1),phase(iT,1)) ;
+
 
                 deltaP = Pb_MPa(iT)/(n_clath(iT)+n_iceI(iT)-1);
                 % assumes Pressure gradient doesnt change betweeen clathrates
@@ -228,6 +232,8 @@ if ~Planet.NoH2O
                     clath_out{iT,il} = Helgerud_sI(P_MPa(iT,il),T_K(iT,il));
 
                     rho_kgm3(iT,il)=clath_out{iT,il}.rho;
+                    [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,il)) ;
+
                     z_m(iT,il) = z_m(iT,il-1)+ (P_MPa(iT,il)-P_MPa(iT,il-1))*1e6/g_ms2(iT,il-1)/rho_kgm3(iT,il-1);
                     r_m(iT,il) = Planet.R_m-z_m(iT,il);
 
@@ -254,6 +260,7 @@ if ~Planet.NoH2O
                     P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
                     T_K(iT,il) = (Planet.Tb_K(iT).^(P_MPa(iT,il)./Pb_MPa(iT))).*(Planet.Tsurf_K.^(1-P_MPa(iT,il)./Pb_MPa(iT)));
                     rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
+                    [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,il)) ;
 
                     %rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
                 end
@@ -281,6 +288,7 @@ if ~Planet.NoH2O
                     rho_kgm3(iT,il)=clath_out{iT,il}.rho;
                      z_m(iT,il) = z_m(iT,il-1)+ (P_MPa(iT,il)-P_MPa(iT,il-1))*1e6/g_ms2(iT,il-1)/rho_kgm3(iT,il-1);
                      r_m(iT,il) = Planet.R_m-z_m(iT,il);
+                     [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,il))
 
                      % determine local gravity
                      M_above_kg(iT,il) = M_above_kg(iT,il-1) + 4/3*pi*(r_m(iT,il-1)^3-r_m(iT,il)^3)*rho_kgm3(iT,il);
@@ -305,6 +313,7 @@ if ~Planet.NoH2O
                        P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
                      T_K(iT,il) = (Planet.Tb_K(iT).^(P_MPa(iT,il)./Pb_MPa(iT))).*(Planet.Tsurf_K.^(1-P_MPa(iT,il)./Pb_MPa(iT)));
                         rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
+                        [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,il)) ;
 
                     %rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
                     end
@@ -317,6 +326,7 @@ if ~Planet.NoH2O
                         P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
                         T_K(iT,il) = (TbIII.^(P_MPa(iT,il)./Pb_MPa(iT))).*(TbIII(iT).^(1-P_MPa(iT,il)./Pb_MPa(iT)));
                         rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),3);
+                        [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),3) ;
                     end
 
                 elseif isfield(Params,'BOTTOM_ICEV') && Params.BOTTOM_ICEV
@@ -336,6 +346,7 @@ if ~Planet.NoH2O
                           clath_out{iT,il} = Helgerud_sI(P_MPa(iT,il),T_K(iT,il));
 
                           rho_kgm3(iT,il)=clath_out{iT,il}.rho;
+                          [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,il))
                           z_m(iT,il) = z_m(iT,il-1)+ (P_MPa(iT,il)-P_MPa(iT,il-1))*1e6/g_ms2(iT,il-1)/rho_kgm3(iT,il-1);
                           r_m(iT,il) = Planet.R_m-z_m(iT,il);
 
@@ -363,7 +374,8 @@ if ~Planet.NoH2O
                     for il=ii:(n_iceI(iT)+n_clath(iT))-nIceVLithosphere % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
                         P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
                         T_K(iT,il) = (Planet.Tb_K(iT).^(P_MPa(iT,il)./Pb_MPa(iT))).*(Planet.Tsurf_K.^(1-P_MPa(iT,il)./Pb_MPa(iT)));
-                        rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
+                        rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),phase(iT,ill));
+                        [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,ill)) ;
                         %rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
                     end
                     
@@ -375,6 +387,7 @@ if ~Planet.NoH2O
                         P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
                         T_K(iT,il) = (TbIII.^(P_MPa(iT,il)./Pb_MPa(iT))).*(TbIII(iT).^(1-P_MPa(iT,il)./Pb_MPa(iT)));
                         rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),3);
+                        [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),3) ;
                     end
 
                     %ice V
@@ -385,6 +398,7 @@ if ~Planet.NoH2O
                         P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
                         T_K(iT,il) = (TbV.^(P_MPa(iT,il)./Pb_MPa(iT))).*(TbV(iT).^(1-P_MPa(iT,il)./Pb_MPa(iT)));
                         rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),3);
+                        [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),3) ;
                     end
 
                     %adjusts for surface porosity if set
@@ -445,7 +459,7 @@ if ~Planet.NoH2O
 
 
                 if phase(iT,ill) == 0 %if ocean
-                    [rho_ocean,Cp,alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
+                    [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
                     % Forbidding MgSO4 in the check below avoids a problem in
                     % application of the EOS for low-salinity MgSO4 oceans.
                     % Negative thermal expansivity regions in the MgSO4 EOS may be
@@ -458,9 +472,11 @@ if ~Planet.NoH2O
                         disp(['The new temperature is ' num2str(Tnew) ', or delta T = ' num2str(Tnew-T_K(iT,ill-1)) '.'])
                         T_K(iT,ill)=Tnew;
                     else
-                        T_K(iT,ill) = T_K(iT,ill-1)+ alpha_o*T_K(iT,ill-1)./(Cp)./(rho_ocean)*deltaP*1e6; %adiabatic gradient in ocean; this introduces an error, in that we are using the temperature from the previous step
+                        T_K(iT,ill) = T_K(iT,ill-1)+ alpha_o*T_K(iT,ill-1)./(Cp(iT,ill))./(rho_ocean)*deltaP*1e6; %adiabatic gradient in ocean; this introduces an error, in that we are using the temperature from the previous step
                     end
-                    rho_kgm3(iT,ill) = fluidEOS(P_MPa(iT,ill),T_K(iT,ill),wo,Planet.Ocean.comp);    % THIS IS REDUNDANT TO THE CALCULATION OF RHO_OCEAN ABOVE
+                    rho_kgm3(iT,ill) = fluidEOS(P_MPa(iT,ill),T_K(iT,ill),wo,Planet.Ocean.comp); 
+                    
+                        [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);% THIS IS REDUNDANT TO THE CALCULATION OF RHO_OCEAN ABOVE
                 else %if ice
                     % allow for stable dense fluid under high pressure ice --> this
                     % was added for the callisto study. Commented out currently
@@ -482,12 +498,18 @@ if ~Planet.NoH2O
                     end
                     if phase(iT,ill)==0
                         rho_kgm3(iT,ill) = rhoocean;
+                        
+                        [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
                     else
                         rho_kgm3(iT,ill) = getRhoIce(P_MPa(iT,ill),T_K(iT,ill),phase(iT,ill));
+                        
+                        [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
+                        %[Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,ill)) ;
                     end
                 end
             end
             rho_kgm3(iT,1) = rho_kgm3(iT,2); %continuity
+            Cp(iT,1)=Cp(iT,2);
                 save(fullfile([datpath savefile]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps','n_clath','n_iceI','n_ocean'); % save the progress at each step
         end
     else
@@ -714,7 +736,7 @@ if ~Planet.NoH2O
                         ill=il+inds_deltaTBL(end);
                         % adjust for new ocean layers if necessary
                         P_MPa(iT,ill) = Pb_MPa(iT) + il*deltaP;
-                        [rho_ocean,Cp,alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
+                        [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
                         if alpha_o<=0
 
                             disp('Ocean alpha at ice interface is less than zero. adjusting temperature upward.')
@@ -724,7 +746,7 @@ if ~Planet.NoH2O
                             disp(['The new temperature is ' num2str(Tnew) ', or delta T = ' num2str(Tnew-T_K(iT,ill-1)) '.'])
                             T_K(iT,ill)=Tnew;
                         else
-                            T_K(iT,ill) = T_K(iT,ill-1)+ alpha_o*T_K(iT,ill-1)./(Cp)./(rho_ocean)*deltaP*1e6; %adiabatic gradient in ocean; this introduces an error, in that we are using the temperature from the previous step
+                            T_K(iT,ill) = T_K(iT,ill-1)+ alpha_o*T_K(iT,ill-1)./(Cp(iT,ill))./(rho_ocean)*deltaP*1e6; %adiabatic gradient in ocean; this introduces an error, in that we are using the temperature from the previous step
                         end
 
 
@@ -732,8 +754,11 @@ if ~Planet.NoH2O
 
                         if phase(iT,ill)==0
                             rho_kgm3(iT,ill) = rho_ocean;
+                             [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
+                   
                         else
                             rho_kgm3(iT,ill) = getRhoIce(P_MPa(iT,ill),T_K(iT,ill),phase(iT,ill));
+                            
                             if ~isfield(Planet.Ocean,'fnTfreeze_K')
 
                                 T_K(iT,ill) = getTfreeze(P_MPa(iT,ill),wo,Planet.Ocean.comp,T_K(iT,ill-1)); %find the temperature on the liquidus line corresponding to P(k,i+nIceI); should really use a conductive profile here, but that would seem to naturally bring us back to the liquidus. Steve wants to confirm.
@@ -743,6 +768,8 @@ if ~Planet.NoH2O
                             if T_K(iT,ill)<T_K(iT,ill-1)
                                 T_K(iT,ill) = T_K(iT,ill-1);
                             end
+                           [Cp(iT,ill) alpha_K(iT,ill)]= getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),phase(iT,ill)) ;
+                  
 
                         end
 
@@ -763,6 +790,8 @@ if ~Planet.NoH2O
                 T_K(iT,inds_deltaTBL) = (Planet.Tb_K(iT).^(P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT))).*(T_K(iT,inds_deltaTBL(1)-1).^(1-P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT)));
                 %           end
                 rho_kgm3(iT,inds_deltaTBL) = getRhoIce(P_MPa(iT,inds_deltaTBL),T_K(iT,inds_deltaTBL),phase(iT,inds_deltaTBL));
+                 %[Cp(iT,inds_deltaTBL) alpha_K(iT,inds_deltaTBL)]= getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),phase(iT,inds_deltaTBL)) ;
+                        
 
                 Zocean(iT)= z_m(iT,inds_deltaTBL(end)+1);
 
@@ -2128,7 +2157,8 @@ if ~cfg.SKIP_PROFILES
     else
         [core,tcore,pcore]=deal([]);
     end
-    subplot(2,3,1); plotSolidInterior('rho','Density (kg m^{-3})',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
+    subplot(2,3,1);
+    plotSolidInterior('rho','Density (kg m^{-3})',T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
     subplot(2,3,2); plotSolidInterior('cp',[math 'C_p' bnm ' (J m^{-3} K^{-1})'],T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
     subplot(2,3,3); plotSolidInterior('alpha',[math '\alpha' bnm ' (K^{-1})'],T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
     subplot(2,3,4); plotSolidInterior('vp',[math 'V_P' bnm ' (km s^{-1})'],T_Planet_K,P_Planet_MPa,mantle,core,tcore,pcore,opts)
@@ -2151,7 +2181,7 @@ if ~cfg.SKIP_PROFILES
     end
 
     % save the mineral compositions plot
-    print(figs.pvt6,Params.savefigformat,fullfile([figpath savefile '_' vpvt6 cfg.xtn]));
+    test=print(figs.pvt6,Params.savefigformat,fullfile([figpath savefile '_' vpvt6 cfg.xtn]));
 
     %% create the legend that describes tb, z_b, and heat flux
     lstr_2 = {};
@@ -2816,7 +2846,9 @@ function [Cp alpha]= getCpIce(P_MPa,T_K,ind)
     catch
         %disp(['T_ice = ' num2str(T_K) '. This seems to be too low for SeaFreeze. Using Choukroun and Grasset (2010) instead.']);
         Cp = CpH2O_Choukroun(P_MPa,T_K,ind);
-        alpha = NaN;
+         cpout=Helgerud_sI(P_MPa,T_K);
+ 
+          alpha=cpout.alpha; % use better alpha
     end
 end %getCpIce
 function phase = getIcePhase(P_MPa,T_K,w_pct,str_comp)
