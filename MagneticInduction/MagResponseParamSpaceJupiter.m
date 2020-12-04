@@ -106,7 +106,7 @@ for ibody = 1:nbodies
                     [10 20 40 60 80]};
         
         V2020.km = [442 276 458 282];
-        V2020.Sm = [0.3890 0.2623 3.1150 1.9483];
+        V2020.Sm = [0.5166 0.3322 4.0699 2.3476];
         V2020.MFCs = {'none','none',cfg.col_warmestMgSO4,cfg.col_coldestMgSO4};
         V2020.MECs = {cfg.col_warmestMgSO4,cfg.col_coldestMgSO4,'k','k'};
         V2020.symbols = '^v^v';
