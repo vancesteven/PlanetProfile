@@ -2195,7 +2195,7 @@ if ~cfg.SKIP_PROFILES
     end
 
     % save the mineral compositions plot
-    test=print(figs.pvt6,Params.savefigformat,fullfile([figpath savefile '_' vpvt6 cfg.xtn]));
+    print(figs.pvt6,Params.savefigformat,fullfile([figpath savefile '_' vpvt6 cfg.xtn]));
 
     %% create the legend that describes tb, z_b, and heat flux
     lstr_2 = {};
