@@ -3,7 +3,3 @@
 *asv
 *.eps
 *.fig
-*.dat
-*.png
-*.txt
-*pycache*
