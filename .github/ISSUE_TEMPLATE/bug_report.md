@@ -12,6 +12,7 @@ Please answer the following questions for yourself before submitting an issue. *
 - [ ] I am running the latest version, on the appropriate branch (usually master)
 - [ ] I checked to make sure that this issue has not already been filed
 - [ ] I checked that my config.m flags are set as intended, and re-running with all CALC_NEW set to 1 does not solve the problem
+- [ ] I checked that my Matlab 'Path' and active directory are set correctly (see README)
 
 **Description**
 A clear and concise description of what the bug is. 
