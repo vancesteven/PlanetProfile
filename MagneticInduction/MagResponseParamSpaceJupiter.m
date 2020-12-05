@@ -243,10 +243,15 @@ for ibody = 1:nbodies
     % Create legend
     if DO_LEGEND
         lstr = strings(1,lw);
+        Hlines = gobjects(1,lw);
         for in = 1:lw
             lstr(in) = ['\begin{tabular}{p{6mm}r}' num2str(Periods_hr(in),'%0.2f') '&hr\end{tabular}'];
+            % The following line is a workaround to get Matlab to print
+            % straight lines in the legend instead of ellipses for
+            % contours.
+            Hlines(in) = line([NaN,NaN],[1,1],'Color',ccolors(in,:), 'Linestyle',clines{in}, 'Linewidth',LW(in));
         end
-        hl = legend(H,lstr,'FontSize',20);
+        hl = legend(Hlines,lstr,'FontSize',20);
         hl.Interpreter = 'latex';
         hl.Location = 'northeast';
         hl.FontWeight = 'bold';
