@@ -166,7 +166,7 @@ ifeq ($(foundmatlab),1)
 	@echo "  and delete this repository to complete uninstall."
 else
 	@# Recreate startup.m file to check against the one Matlab is using
-	@pathdirs=($$(find * -type d -not -path *version* -not -path *input*)) ; \
+	@pathdirs=($$(find * -type d -not -path *version*)) ; \
 	echo "$(cdpp)" > startup.m ; \
 	for subdir in $${pathdirs[@]} ; do \
 		echo "addpath('$$subdir')" >> startup.m ; \

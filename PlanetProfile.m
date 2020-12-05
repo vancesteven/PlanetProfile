@@ -13,6 +13,14 @@ function PlanetProfile(Planet,Seismic,Params)
 % Geophysical investigations of habitability in ice-covered ocean worlds. 
 % Journal of Geophysical Research: Planets, Nov 2018.
 
+vernum = '1.1.1';
+disp(['PlanetProfile version ' vernum])
+% Check SeaFreeze compatibility and presence on path
+% This version of PlanetProfile is compatible with the version number
+% below.
+seaVer = '0.9.2';
+checkSeaFreeze(seaVer);
+
 
 set(0,'defaultfigurecolor',[1 1 1]) % white background for figures
 

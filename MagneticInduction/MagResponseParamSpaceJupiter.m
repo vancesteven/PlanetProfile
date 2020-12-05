@@ -3,7 +3,7 @@ function MagResponseParamSpaceJupiter
 CALC_NEW = 0;
 PLOT_CONTOURS = 1;  % Set to 0 for surfaces
 DO_LEGEND = 1;
-PLOT_V2020s = 0; 
+PLOT_V2020s = 1; 
 
 DO_EUROPA = 1;
 DO_GANYMEDE = 1;
@@ -107,9 +107,9 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
         clines = {':','-','-.'};
         
         V2020.km = [442 276 458 282];
-        V2020.Sm = [0.3890 0.2623 3.1150 1.9483];
-        V2020.MFCs = {'none','none','b','m'};
-        V2020.MECs = {'b','m','k','k'};
+        V2020.Sm = [0.5166 0.3322 4.0699 2.3476];
+        V2020.MFCs = {'none','none','m','b'};
+        V2020.MECs = {'m','b','k','k'};
         V2020.symbols = '^v^v';
     end
     
@@ -149,8 +149,8 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
         
         V2020.km = [132 21 130 21];
         V2020.Sm = [0.2307 0.0895 1.5256 0.6025];
-        V2020.MFCs = {'none','none','b','m'};
-        V2020.MECs = {'b','m','k','k'};
+        V2020.MFCs = {'none','none','m','b'};
+        V2020.MECs = {'m','b','k','k'};
         V2020.symbols = '^v^v';
 
     end
@@ -178,28 +178,12 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
                 phi(ik,io,:) = -angle(Q(ik,io,:))*180/pi;
             end
         end
-        save(fullfile([fname 'Dice' num2str(D_ice_km) 'km']));
+        save(fullfile([fname 'Dice' num2str(D_ice_km) 'km']), 'klims', 'Dlims', 'k_Sm', 'D_ocean_km', 'amp', 'phi', 'lw');
     else
-        sv_opt = [PLOT_CONTOURS, DO_LEGEND, DO_EUROPA, DO_GANYMEDE, DO_CALLISTO];
-        ibsv = ibody;
-        als = alevels;
-        pls = plevels;
-        
-        
-        load(fullfile([fname 'Dice' num2str(D_ice_km) 'km']));
-        
-        CALC_NEW = 0;
-        ibody = ibsv;
-        alevels = als;
-        plevels = pls;
-        PLOT_CONTOURS = sv_opt(1);
-        DO_LEGEND = sv_opt(2);
-        DO_EUROPA = sv_opt(3);
-        DO_GANYMEDE = sv_opt(4);
-        DO_CALLISTO = sv_opt(5);
+        load(fullfile([fname 'Dice' num2str(D_ice_km) 'km']), 'klims', 'Dlims', 'k_Sm', 'D_ocean_km', 'amp', 'phi', 'lw');
     end
 
-    intMethod = 'makina';
+    intMethod = 'makima';
 
     figno = 111+ibody;
     figure(figno);clf
@@ -254,10 +238,16 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
     % Create legend
     if DO_LEGEND
         lstr = strings(1,lw);
+        Hlines = gobjects(1,lw);
         for in = 1:lw
             lstr(in) = ['\begin{tabular}{p{6mm}r}' num2str(Periods_hr(in),'%0.2f') '&hr\end{tabular}'];
+            % The following line is a workaround to get Matlab to print
+            % straight lines in the legend instead of ellipses for
+            % contours.
+            Hlines(in) = line([NaN,NaN],[1,1],'Color',ccolors(in,:), 'Linestyle',clines{in}, 'Linewidth',LW(in));
         end
-        hl = legend(H,lstr,'FontSize',20);
+        
+        hl = legend(Hlines,lstr,'FontSize',20);
         hl.Interpreter = 'latex';
         hl.Location = 'northeast';
         hl.FontWeight = 'bold';
@@ -276,7 +266,7 @@ for ibody = 1:(DO_EUROPA+DO_GANYMEDE+DO_CALLISTO)
     if PLOT_V2020s
         str2020 = '_WithV2020Models';
     end
-    saveas(gcf,fullfile([lname '/' 'MagPhase' lname str2020 '.eps']),'epsc')
+    saveas(gcf,fullfile([lname '/figures/MagPhase' lname str2020 '.eps']),'epsc')
 end
 end
 
