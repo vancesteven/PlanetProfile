@@ -1,6 +1,7 @@
 *~
 .DS_Store
-*.mat
-*.dat
-*.txt
+*Profile*.mat
+*Profile*.dat
+*Profile*.txt
+ref_densities*.mat
 *.asv

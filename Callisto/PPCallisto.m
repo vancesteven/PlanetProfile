@@ -90,9 +90,9 @@ Params.NOPLOTS = 0; %allows user to limit recreating plots & figures after each 
 %% Run the Calculation!
 Params.HOLD =0;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY=1;
-Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.CALC_NEW =0; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW_SOUNDSPEEDS=0;
 
 Planet.Cmeasured = 0.3549; 
 Planet.Cuncertainty = 0.0042;% Anderson et al. 2001 and Schubert et al. 2004 
@@ -116,7 +116,7 @@ Params.wrefLine = '--';
 % plots from Vance et al. 2018
 Params.BOTTOM_ICEIII = 0;
 Params.HOLD = 0;
-Params.CALC_NEW = 1;
+Params.CALC_NEW = 0;
 Params.LineStyle='--';
 Params.wrefLine = '--';
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
@@ -124,7 +124,7 @@ Planet.rho_sil_withcore_kgm3 = 3525;
 PlanetProfile(Planet,Seismic,Params)
 
 % new plots for induction
-Params.CALC_NEW = 1;
+Params.CALC_NEW = 0;
 Params.HOLD = 1;
 Planet.Ocean.w_ocean_pct=1; Planet.Tb_K = [250.8 257.4]; % 1 Wt% temperatures at the bottom of the Ice Ih
 Planet.rho_sil_withcore_kgm3 = 3525;

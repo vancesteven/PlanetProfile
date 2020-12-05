@@ -118,9 +118,9 @@ Params.LineStyle='--';
 Params.wrefLine = '--';
 Params.wref=[0 5 10 15];
 
-Params.CALC_NEW =1;
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.CALC_NEW =0;
+Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW_SOUNDSPEEDS=0;
 Params.colororder = 'bm';
 
 %10 wt%
@@ -129,7 +129,7 @@ PlanetProfile(Planet,Seismic,Params);
 
 %1 wt%
 Params.HOLD = 1; % overlay previous runs
-Params.CALC_NEW =1;
+Params.CALC_NEW =0;
 Planet.Ocean.w_ocean_pct=1; Planet.Tb_K = [270.4  273.1]; % 265
 PlanetProfile(Planet,Seismic,Params)
 
@@ -141,12 +141,12 @@ Params.wref=[0 34];
 Params.wrefLine = '-.';
 Params.colororder = 'cb';
 
-Params.CALC_NEW =1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
-Params.CALC_NEW_REFPROFILES=1;
-Params.CALC_NEW_SOUNDSPEEDS=1;
+Params.CALC_NEW =0; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+Params.CALC_NEW_REFPROFILES=0;
+Params.CALC_NEW_SOUNDSPEEDS=0;
 Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [268.2 270.8 ];
 PlanetProfile(Planet,Seismic,Params)
 
-Params.CALC_NEW = 1; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
+Params.CALC_NEW = 0; % Set CALC_NEW options to 0 to re-use profile data when possible. It is recommended to keep CALC_NEW=1 except when intermediate parameters such as layer thicknesses will not change between runs.
 Planet.Ocean.w_ocean_pct=0.1*gsw_SSO; Planet.Tb_K = [270.0 272.5 ];
 PlanetProfile(Planet,Seismic,Params)
