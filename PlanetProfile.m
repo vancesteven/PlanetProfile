@@ -659,6 +659,56 @@ if ~Planet.NoH2O
             inds_eTBL = find(z_m(iT,1:nConvectIce)<=eTBL_m(iT));
             Pterm = P_MPa(iT,inds_eTBL)./P_MPa(iT,inds_eTBL(end));
             T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
+            P_bound=P_MPa(iT,inds_eTBL(end));
+            T_K_ccbound=T_K(iT,inds_eTBL(end));
+            % test to see if conductive is split between ice and clathrates
+            if z_m(iT,inds_eTBL(end))>max_clath_depth;
+            inds_eTBL = 1:n_clath(iT);
+            
+            Pterm = P_MPa(iT,inds_eTBL)./P_MPa(iT,inds_eTBL(end));
+            T_K(iT,inds_eTBL) = (T_K(iT,inds_eTBL(end)).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
+            T_K_bound=T_K(iT,inds_eTBL(end));
+           
+            % recalculate conductive/convective latyering for pure ice
+            %replace surface temp, with temp at clath/ice boundary
+            [Q_Wm2_new(iT),deltaTBL_m(iT),eTBL_m_new(iT),Tc_new(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
+            ConvectionDeschampsSotin2001(T_K_bound,Planet.Tb_K(iT),PbI_MPa(iT)/2,(Planet.Zb2(iT)-max_clath_depth),g_ms2(iT,inds_eTBL(end)+1),phase(iT,n_clath(iT)+1)+1);
+            
+            nConvectIce=(n_iceI(iT)+n_clath(iT))-nIceIIILithosphere-1; % indices were ice/claths exist in upper layer
+            nconold=nConvectIce;
+            inds_eTBL = find(z_m(iT,1:nConvectIce)<=(eTBL_m_new(iT)+z_m(iT,n_clath(iT))));
+            P_cc=P_MPa(iT,inds_eTBL(end));
+            while abs(Tc(iT)-Tc_new(iT))>2 | abs(P_bound-P_cc)>7.5
+            Tc(iT)=Tc_new(iT);
+            P_bound=P_cc;
+            %P_cc=P_MPa(iT,inds_eTBL(end)); % pressure at convective interface
+            inds_eTBL = 1:n_clath(iT);
+            Pterm = P_MPa(iT,inds_eTBL)./P_bound;
+       
+            T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
+            T_K_bound=T_K(iT,inds_eTBL(end));
+            
+           % P_bound=P_MPa(iT,inds_eTBL(end));
+            % recalculate conductive/convective latyering for pure ice
+            %replace surface temp, with temp at clath/ice boundary
+            [Q_Wm2_new(iT),deltaTBL_m(iT),eTBL_m_new(iT),Tc_new(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
+            ConvectionDeschampsSotin2001(T_K_bound,Planet.Tb_K(iT),PbI_MPa(iT)/2,(Planet.Zb2(iT)-max_clath_depth),g_ms2(iT,n_clath(iT)+1),phase(iT,n_clath(iT)+1)+1);
+            
+            nConvectIce=(n_iceI(iT)+n_clath(iT))-nIceIIILithosphere-1; % indices were ice/claths exist in upper layer
+            nconold=nConvectIce;
+            inds_eTBL = find(z_m(iT,1:nConvectIce)<=(eTBL_m_new(iT)+z_m(iT,n_clath(iT))));
+            P_cc=P_MPa(iT,inds_eTBL(end));
+                
+            end
+            
+            Pterm = (P_MPa(iT,inds_eTBL(n_clath(iT):end))-P_MPa(iT,inds_eTBL(n_clath(iT))))./(P_MPa(iT,inds_eTBL(end))-P_MPa(iT,inds_eTBL(n_clath(iT))));
+
+           % Pterm = (P_MPa(iT,n_clath(iT)+1:inds_eTBL(end))./P_MPa(iT,inds_eTBL(end)));
+            T_K(iT,n_clath(iT):inds_eTBL(end)) = (Tc_new(iT).^(Pterm)).*(T_K_bound.^(1-Pterm));
+             end
+     
+            
+           
             %convective region
 
             for iconv = inds_eTBL(end)+1:nConvectIce
@@ -2195,7 +2245,7 @@ if ~cfg.SKIP_PROFILES
     end
 
     % save the mineral compositions plot
-    test=print(figs.pvt6,Params.savefigformat,fullfile([figpath savefile '_' vpvt6 cfg.xtn]));
+    print(figs.pvt6,Params.savefigformat,fullfile([figpath savefile '_' vpvt6 cfg.xtn]));
 
     %% create the legend that describes tb, z_b, and heat flux
     lstr_2 = {};
@@ -2718,7 +2768,7 @@ if ~cfg.SKIP_PROFILES
     if Params.HOLD
         hold on;
     end
-    % plot(g_ms2',r_m'*1e-3,gp,R_sil_mean_m*1e-3,'o');
+    % plot(g_ms2',r_m'*1e-3,gp,R_sil_mean_m*1e-3,'o')
     hl = plot(g_Planet_ms2',r_Planet_m'*1e-3);
     hold on
     for iT = 1:nTbs
