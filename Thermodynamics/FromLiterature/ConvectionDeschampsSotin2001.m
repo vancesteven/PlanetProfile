@@ -32,7 +32,6 @@ if ind<15 % not clathrates
     B = E_Jmol(ind)/2/Rg/c1;
     C = c2*DeltaT;
     Tc = B*(sqrt(1+2/B*(Tm-C))-1); %DS2001 Eq. 18
-    
     A = E_Jmol(ind)/Rg/Tm; % dimensionless
     nu = nu0(ind)*exp(A*(Tm/Tc-1)); % DS2001 Eq. 11., also Durham et al. 1997 %viscosity
     SF=SeaFreeze([Pmid_MPa,Tc],varstrs{ind});
@@ -42,11 +41,9 @@ if ind<15 % not clathrates
     alphaIce=SF.alpha; %coefficent of thermal expansion
     %**CpIce = CpH2O_Choukroun(Pmid_MPa,Tc,ind); % J/kg/K
     CpIce=SF.Cp; % specific heat
-    
     kIce = getK_Andersson2005(Pmid_MPa,Tc,varstrs{ind},'T'); % W/m/K
 else % if clathrates
     E_Jmol(7)=90000; %Durham 2003
-    
     B = E_Jmol(7)/2/Rg/c1;
     C = c2*DeltaT;
     Tc = B*(sqrt(1+2/B*(Tm-C))-1); %DS2001 Eq. 18
@@ -56,8 +53,10 @@ else % if clathrates
     Vcm=19; %cm3 per mol acitvation volume Durham 2003
     nu0(7)=(1e14)*20; %Durham 2003
     %nu0=nu0(2)*20; % viscosity should be about 20z greater than ice.
-    nu = nu0(7)*exp(A*(Tm/Tc-1));%*20; % DS2001 Eq. 11. also Durham et al. 1997
-    nu=2*10^16;
+    nu = nu0(7)*exp(A*(Tm/Tc-1));%; % DS2001 Eq. 11. also Durham et al. 1997
+    %nu=2*10^16 % ignore was testing
+    %nu = nu0(2)*exp(E_Jmol(2)/Rg/Tm*(Tm/Tc-1)); % see if clathrates and ice have the same viscosity.
+    
     SF=Helgerud_sI(Pmid_MPa,Tc);
     rhoIce=SF.rho;
     alphaIce=SF.alpha;
@@ -66,19 +65,21 @@ end
 
 
 Kappa = kIce/rhoIce/CpIce; % W m2 s
-Ra=alphaIce*rhoIce*g_ms2*DeltaT*h_m^3/Kappa/nu; % DS2001 Eq. 4
+%Ra=alphaIce*rhoIce*g_ms2*DeltaT*(h_m^3)/Kappa/nu; % DS2001 Eq. 4  %Kalosuova 2017 uses nu0
+Ra=alphaIce*rhoIce*g_ms2*DeltaT*(h_m^3)/Kappa/nu0(ind); % DS2001 Eq. 4  %Kalosuova 2017 uses nu0
+
 if Ra>10^5 % Convection % this may be a kluge; check nu and Kappa, and read the literature to confirm that 10^5 is considered sufficient as indicated by DS2001Fig3
     CONVECTION_FLAG=1;
     Ra_del = 0.28*Ra^0.21; % DS2001 Eq. 8
     deltaTBL_m=(nu*Kappa/alphaIce/rhoIce/g_ms2/(Tm-Tc)*Ra_del)^(1/3); % thermal boundary layer thickness, DS2001 Eq. 19
-    Q_Wm2=kIce*(Tm-Tc)/deltaTBL_m; % DS2001 Eq. 20
-    eTBL_m = kIce*(Tlith-Ttop)/Q_Wm2;
-    
+    Q_Wm2=kIce*(Tm-Tc)/deltaTBL_m; % DS2001 Eq. 20 % heat flux with the ocean
+    eTBL_m = kIce*(Tc-Ttop)/Q_Wm2; % Eq. 21
+%   eTBL_m = kIce*(Tlith-Ttop)/Q_Wm2; % Eq. 22
 else % Conduction
     CONVECTION_FLAG=0;
     Tc = DeltaT;
     deltaTBL_m = 0;
     eTBL_m = 0;
-    Q_Wm2=Dcond(ind)*log(Tm/Ttop)/h_m; %
+    Q_Wm2=Dcond(ind)*log(Tm/Ttop)/h_m; %heat flux for a conductive lid Ojakangas and Stevenson, 1989 also appears in Barr2009)
  end
 
