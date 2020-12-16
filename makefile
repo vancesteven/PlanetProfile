@@ -91,7 +91,7 @@ endif
 
 	@# Get list of PlanetProfile directories containing important files
 	@#   and print them into a file named startup.m
-	@pathdirs=($$(find * -type d -not -path *version* -not -path *input*)) ; \
+	@pathdirs=($$(find * -type d -not -path *version* -not -path *.git* -not -path *Python*)) ; \
 	echo "$(cdpp)" > startup.m ; \
 	for subdir in $${pathdirs[@]} ; do \
 		echo "addpath('$$subdir')" >> startup.m ; \
