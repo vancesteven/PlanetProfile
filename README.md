@@ -1,9 +1,7 @@
 # PlanetProfile v1.2.0
-Matlab software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs.
+Matlab software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data. Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
 
-The main code is called from an input file containing all the planetary data. Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
-
-PREREQUISITES:
+## Prerequisites
 * SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze
 * Matlab "Curve Fitting Toolbox"
 * Matlab "Image Processing Toolbox"
@@ -12,7 +10,7 @@ PREREQUISITES:
 * Refprop is required for NH3 solutions: https://www.nist.gov/refprop
   * Due to various complications it is not currently implemented.
 
-SETUP:
+## Setup
 1. Install SeaFreeze by copying the contents of the Matlab folder at https://github.com/Bjournaux/SeaFreeze into the Thermodynamics/SeaFreeze folder of PlanetProfile.
 1. Open a Terminal and navigate to the PlanetProfile directory.
 1. Type "make install" (no quotes) and hit enter.
@@ -23,10 +21,13 @@ SETUP:
 1. Run the PP_____.m file.
    1. In the ribbon, go to Editor -> Run.
 
-NOTES:
+## Contributing
+PlanetProfile is open source software. Please see the [LICENSE](https://github.com/vancesteven/PlanetProfile/blob/master/LICENSE) file and read the guidelines for contrbuting in [CONTRIBUTING.md](https://github.com/vancesteven/PlanetProfile/blob/master/CONTRIBUTING.md) if you are interested in joining the project. Also see our community guidelines in [CODE_OF_CONDUCT.md](https://github.com/vancesteven/PlanetProfile/blob/master/CODE_OF_CONDUCT.md).
+
+## Notes
 * As of 2020-09-28, PlanetProfile v1.1.0 was released along with code for making calculations regarding magnetic induction. The development (master) branch of PlanetProfile is set up to generate profiles from minimal inputs. Output profiles that may be used along with the induction calculations may be found in the v1.1.0 release.
 * The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.
-* To re-use data from past profiles, which dramatically speeds up runtime, set the calc_new flags in the config.m input file to 0. If you are using git, use the following command to avoid editing the repository version of the config file:
+* To re-use data from past profiles, which dramatically speeds up runtime, set the CALC_NEW flags in the config.m input file to 0. If you are using git, use the following command to avoid editing the repository version of the config file:
 > git update-index --assume-unchanged config.m
 
 Some calculations use Matlab's Parallel Computing package.  If you don't have access to this package then parfor loops should be changed to for loops.  A future version will check and do this automatically.
@@ -43,10 +44,10 @@ Rock properties are from Perple_X: http://www.perplex.ethz.ch/
 Input files were developed by Fabio Cammarano. Version 6.7.9 is currently being used.
 
 Python 3 instructions (may be necessary in a future update):
-  @ Find the path to the python3 executable (example command: which python3 ), and copy the full path
+  @ Find the path to the python3 executable (example command: which python3), and copy the full path
   @ In a fresh Matlab session, at the console type pyversion("/path/to/python3/executable")
 
-TODOs:
+## To-dos:
 Modularization is not complete. 
 Further equations of state are under development
 Update to work with REFPROP V10

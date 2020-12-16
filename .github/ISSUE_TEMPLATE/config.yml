@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Project owner Dr. Steven D. Vance
+    url: email:steven.d.vance@jpl.nasa.gov
+    about: Please ask and answer science and usage questions here.
+  - name: Project maintainer Marshall J. Styczinski
+    url: email:itsmoosh@gmail.com
+    about: Please ask and answer software and documentation questions here.

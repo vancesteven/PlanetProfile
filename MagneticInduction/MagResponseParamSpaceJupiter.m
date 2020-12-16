@@ -106,7 +106,7 @@ for ibody = 1:nbodies
                     [10 20 40 60 80]};
         
         V2020.km = [442 276 458 282];
-        V2020.Sm = [0.3890 0.2623 3.1150 1.9483];
+        V2020.Sm = [0.5166 0.3322 4.0699 2.3476];
         V2020.MFCs = {'none','none',cfg.col_warmestMgSO4,cfg.col_coldestMgSO4};
         V2020.MECs = {cfg.col_warmestMgSO4,cfg.col_coldestMgSO4,'k','k'};
         V2020.symbols = '^v^v';
@@ -243,10 +243,15 @@ for ibody = 1:nbodies
     % Create legend
     if DO_LEGEND
         lstr = strings(1,lw);
+        Hlines = gobjects(1,lw);
         for in = 1:lw
             lstr(in) = ['\begin{tabular}{p{6mm}r}' num2str(Periods_hr(in),'%0.2f') '&hr\end{tabular}'];
+            % The following line is a workaround to get Matlab to print
+            % straight lines in the legend instead of ellipses for
+            % contours.
+            Hlines(in) = line([NaN,NaN],[1,1],'Color',ccolors(in,:), 'Linestyle',clines{in}, 'Linewidth',LW(in));
         end
-        hl = legend(H,lstr,'FontSize',20);
+        hl = legend(Hlines,lstr,'FontSize',20);
         hl.Interpreter = 'latex';
         hl.Location = 'northeast';
         hl.FontWeight = 'bold';
