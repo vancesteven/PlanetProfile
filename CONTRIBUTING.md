@@ -11,6 +11,8 @@ We welcome input from everyone! If you are interested to contribute to PlanetPro
 ## Contribution guidelines
 PlanetProfile is designed for use in scientific applications. As such, we hold the software to a high standard for usability, compatibility, and accuracy. We review all contributions to ensure the quality of all improvements to the software. Proposed changes may be rejected if they cause runtime errors, physical inaccuracy, etc. In the event a change is rejected, we will work with the author to find a solution. Command line operations are assumed in the instruction below, but you can substitute another method if it has the same effect.
 
+We have a Slack workspace that we use for development discussions. You will be invited to join the Slack once you express interest in contributing.
+
 ### Opening issues
 This software is in active development. For any issues you find, please use [the GitHub issue reporting tool](https://github.com/vancesteven/PlanetProfile/issues) to document the problem and any solution you may be aware of. Including filenames and line numbers makes issues much easier to track, so please identify these whenever possible. To make sure your issue is addressed promptly, follow the checklist in the issue template. The template appears when you attempt to submit an issue.
 
