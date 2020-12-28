@@ -1,6 +1,9 @@
 # PlanetProfile v1.2.0
 Matlab software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data. Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
 
+## Acknowledging PlanetProfile
+We want to hear about your work with PlanetProfile! Please consider sending us a message alerting us to your work (svance@jpl.caltech.edu). Suggested acknowledgement in publications: "Data used in this work were generated using the open source PlanetProfile software hosted on GitHub."
+
 ## Prerequisites
 * SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze
 * Matlab "Curve Fitting Toolbox"
