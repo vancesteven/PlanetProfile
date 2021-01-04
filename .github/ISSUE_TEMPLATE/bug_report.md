@@ -9,10 +9,11 @@ assignees: ''
 
 **Prerequisites**
 Please answer the following questions for yourself before submitting an issue. **You may delete the prerequisites section when filing your report.**
+- [ ] I have read and agree to abide by the [code of conduct](https://github.com/vancesteven/PlanetProfile/blob/master/CODE_OF_CONDUCT.md)
 - [ ] I am running the latest version, on the appropriate branch (usually master)
 - [ ] I checked to make sure that this issue has not already been filed
 - [ ] I checked that my config.m flags are set as intended, and re-running with all CALC_NEW set to 1 does not solve the problem
-- [ ] I checked that my Matlab 'Path' and active directory are set correctly (see README)
+- [ ] I checked that my Matlab 'Path' and active directory are set correctly (see [README](https://github.com/vancesteven/PlanetProfile/blob/master/README.md))
 
 **Description**
 A clear and concise description of what the bug is. 
