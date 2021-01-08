@@ -29,6 +29,12 @@ disp(['Reading Perple_X Table:' mp_table])
 fclose (a);
 
 columns = strsplit(fheader);
+if isempty(columns{1}) % adjust for indented format in file sent by Mohit Melwani Daswani to SDV on 20210103
+    columns = columns(2:end);
+end
+if isempty(columns{end}) % adjust to eliminate kluge below when creating nvars SDV on 20210103
+    columns = columns(1:end-1);
+end
 for ic = 1:length(columns)
     if strfind(columns{ic},',')
         csplit = strsplit(columns{ic},',');
@@ -69,7 +75,8 @@ end
 [t,p]=meshgrid(xax,yax); % make a matrix of p and t
 p=p.*1e-4; % set units of GPa
 
-nvars = length(columns)-1-npt; % subtract columns of P and T, and the erroneous empty string for the endline
+% nvars = length(columns)-1-npt; % subtract columns of P and T, and the erroneous empty string for the endline
+nvars = length(columns)-npt; % subtract columns of P and T, and the erroneous empty string for the endline
 for iv = 1:nvars
   out.(columns{iv+npt}) = reshape(output(:,iv+npt),pstep,tstep); %read each column of data, and reshape it into a matrix of p and t
     if ALLOW_INPAINT
