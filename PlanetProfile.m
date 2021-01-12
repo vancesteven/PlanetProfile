@@ -653,7 +653,7 @@ if ~Planet.NoH2O
             warning('Convection predicted by not possible becuase the conductive layer thickness exceeds the thickness of the ice.')
             disp('Perhaps T_surf is outside the valid range for the scaling from Deschamps and Sotin 2001.')
             disp('Setting CONVECTION_FLAG_I to zero')
-            CONVECTION_FLAG_I = 0;
+            CONVECTION_FLAG_I(iT) = 0;
         end
         % Convection has to be calculated prior to assigning depths in case
         % ice shell needs to be thinned to account for clathrates
