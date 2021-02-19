@@ -464,7 +464,7 @@ if ~Planet.NoH2O
                     % application of the EOS for low-salinity MgSO4 oceans.
                     % Negative thermal expansivity regions in the MgSO4 EOS may be
                     % artifacts of the current EOS calculation. See Vance et al. 2014
-                    if alpha_o<=0 && ~strcmp(Planet.Ocean.comp,'MgSO4')
+                    if alpha_o<=0 && ~strcmp(Planet.Ocean.comp,'MgSO4') && ~Planet.ALLOW_NEGALPHA
                         disp('Ocean alpha at ice interface is less than zero. adjusting temperature upward.')
                         disp('This means there''s a conductive layer at the interface with thickness inversely proportional to the heat flow.')
                         disp('The thickness is likely less than a few 100 m. See Melosh et al. 2004.')
@@ -636,7 +636,7 @@ if ~Planet.NoH2O
             M_below_kg(iT,ill) = M_Planet_kg-M_above_kg(iT,ill);
             g_ms2(iT,ill) = Gg*M_below_kg(iT,ill)/r_m(iT,ill)^2;
         end
-        
+        disp(['z_iceI: ' num2str(Zb2(iT)/1e3) ' km'])
         %% compute conductive heat through the ice I layer
         Qb(iT) = D_conductivityIh*log(Planet.Tb_K(iT)/Planet.Tsurf_K)/Planet.Zb2(iT);
 
@@ -649,12 +649,18 @@ if ~Planet.NoH2O
         % Make this calculation now in order to get Planet.Qmantle_Wm2 for making
         % filenames shortly
         
+        if CONVECTION_FLAG_I(iT) && eTBL_m(iT)>Zb2(iT)
+            warning('Convection predicted by not possible becuase the conductive layer thickness exceeds the thickness of the ice.')
+            disp('Perhaps T_surf is outside the valid range for the scaling from Deschamps and Sotin 2001.')
+            disp('Setting CONVECTION_FLAG_I to zero')
+            CONVECTION_FLAG_I(iT) = 0;
+        end
         % Convection has to be calculated prior to assigning depths in case
         % ice shell needs to be thinned to account for clathrates
        
         if CONVECTION_FLAG_I(iT)
             %conductive upper layer
-            nConvectIce=(n_iceI(iT)+n_clath(iT))-nIceIIILithosphere-1; % indices were ice/claths exist in upper layer
+            nConvectIce=(n_iceI(iT)+n_clath(iT))-nIceIIILithosphere-1; % indices where ice/claths exist in upper layer
             nconold=nConvectIce;
             inds_eTBL = find(z_m(iT,1:nConvectIce)<=eTBL_m(iT));
             Pterm = P_MPa(iT,inds_eTBL)./P_MPa(iT,inds_eTBL(end));
@@ -711,7 +717,7 @@ if ~Planet.NoH2O
            
             %convective region
 
-            for iconv = inds_eTBL(end)+1:nConvectIce
+            for iconv = inds_eTBL(end)+1:nConvectIce % added parentheses around 1:nConvectIce 20200103 SDV
 
                 rho=getRhoIce(P_MPa(iT,iconv),T_K(iT,iconv-1),phase(iT,iconv));
 
@@ -858,6 +864,8 @@ if ~Planet.NoH2O
                     rho_kgm3(iT,inds_deltaTBL) = por_out(iT).den;
                 end
             end
+        else
+            Zocean(iT) = Zb2(iT);
         end % if CONVECTION_FLAG
         
         
