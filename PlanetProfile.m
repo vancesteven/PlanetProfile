@@ -265,6 +265,7 @@ if ~Planet.NoH2O
                     %rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
                 end
 
+
                 nIceIIILithosphere=0;
                 PbI_MPa = Pb_MPa;
             catch
@@ -577,7 +578,7 @@ if ~Planet.NoH2O
     [Planet.Profile_fname, Planet.Profile_ID] = deal(strings(1,nTbs));
     [Qb, Planet.Zb2] = deal(zeros(1,nTbs));
 
-    % Preallocate for ConvectionDeschampsSotin
+    % Preallocate for ConvectionhampsSotin
     [Q_Wm2,deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I] = deal(zeros(1,nTbs));
     for iT = 1:nTbs
         deltaP = Pb_MPa(iT)/(n_iceI(iT)+n_clath(iT));
@@ -598,7 +599,7 @@ if ~Planet.NoH2O
         %checks if there were clathrates or not
         if n_clath(iT)>0
             ii=n_clath(iT)+1;
-            Zclath(iT)=z_m(iT,il);
+            Zclath(iT)=z_m(iT,n_clath(iT));
             Planet.Zclath(iT)=Zclath(iT);
         else
             ii=2;
@@ -637,6 +638,10 @@ if ~Planet.NoH2O
             g_ms2(iT,ill) = Gg*M_below_kg(iT,ill)/r_m(iT,ill)^2;
         end
         disp(['z_iceI: ' num2str(Zb2(iT)/1e3) ' km'])
+        Zocean(iT)= z_m(iT,n_ocean(iT));
+        
+        
+
         %% compute conductive heat through the ice I layer
         Qb(iT) = D_conductivityIh*log(Planet.Tb_K(iT)/Planet.Tsurf_K)/Planet.Zb2(iT);
 
@@ -644,8 +649,19 @@ if ~Planet.NoH2O
         % the filename shortly, so we calculate them now. This allows
         % us to skip unnecessary calculations in the case of
         % cfg.SKIP_PROFILES=1
-        [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
+          if max_clath_depth<Planet.Zb2(iT) % only a clathrate lid
+            % asummes Q across ice-ocean is same Q across clathrates/ice. 
+           [Q_Wm2(iT), T_clath_ice(iT), deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]= ...
+       clathrate_lid_thermo(Planet.Tsurf_K,Planet.Tb_K(iT),P_MPa(iT,1:n_clath(iT)+n_iceI(iT)), n_clath(iT),n_iceI(iT),Planet.Zb2(iT), max_clath_depth,g_ms2(iT,1));
+           
+      
+              else
+
+           [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
             ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,Planet.Zb2(iT),g_ms2(iT,1),phase(iT,1)+1);
+       
+         end
+        
         % Make this calculation now in order to get Planet.Qmantle_Wm2 for making
         % filenames shortly
         
@@ -657,69 +673,51 @@ if ~Planet.NoH2O
         end
         % Convection has to be calculated prior to assigning depths in case
         % ice shell needs to be thinned to account for clathrates
-       
+   
         if CONVECTION_FLAG_I(iT)
             %conductive upper layer
             nConvectIce=(n_iceI(iT)+n_clath(iT))-nIceIIILithosphere-1; % indices where ice/claths exist in upper layer
             nconold=nConvectIce;
-            inds_eTBL = find(z_m(iT,1:nConvectIce)<=eTBL_m(iT));
-            Pterm = P_MPa(iT,inds_eTBL)./P_MPa(iT,inds_eTBL(end));
-            T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
-            P_bound=P_MPa(iT,inds_eTBL(end));
-            T_K_ccbound=T_K(iT,inds_eTBL(end));
-            % test to see if conductive is split between ice and clathrates
-            if z_m(iT,inds_eTBL(end))>max_clath_depth;
-            inds_eTBL = 1:n_clath(iT);
-            
-            Pterm = P_MPa(iT,inds_eTBL)./P_MPa(iT,inds_eTBL(end));
-            T_K(iT,inds_eTBL) = (T_K(iT,inds_eTBL(end)).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
-            T_K_bound=T_K(iT,inds_eTBL(end));
-           
-            % recalculate conductive/convective latyering for pure ice
-            %replace surface temp, with temp at clath/ice boundary
-            [Q_Wm2_new(iT),deltaTBL_m(iT),eTBL_m_new(iT),Tc_new(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
-            ConvectionDeschampsSotin2001(T_K_bound,Planet.Tb_K(iT),PbI_MPa(iT)/2,(Planet.Zb2(iT)-max_clath_depth),g_ms2(iT,inds_eTBL(end)+1),phase(iT,n_clath(iT)+1)+1);
-            
-            nConvectIce=(n_iceI(iT)+n_clath(iT))-nIceIIILithosphere-1; % indices were ice/claths exist in upper layer
-            nconold=nConvectIce;
-            inds_eTBL = find(z_m(iT,1:nConvectIce)<=(eTBL_m_new(iT)+z_m(iT,n_clath(iT))));
-            P_cc=P_MPa(iT,inds_eTBL(end));
-            while abs(Tc(iT)-Tc_new(iT))>2 | abs(P_bound-P_cc)>7.5
-            Tc(iT)=Tc_new(iT);
-            P_bound=P_cc;
-            %P_cc=P_MPa(iT,inds_eTBL(end)); % pressure at convective interface
-            inds_eTBL = 1:n_clath(iT);
-            Pterm = P_MPa(iT,inds_eTBL)./P_bound;
-       
-            T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
-            T_K_bound=T_K(iT,inds_eTBL(end));
-            
-           % P_bound=P_MPa(iT,inds_eTBL(end));
-            % recalculate conductive/convective latyering for pure ice
-            %replace surface temp, with temp at clath/ice boundary
-            [Q_Wm2_new(iT),deltaTBL_m(iT),eTBL_m_new(iT),Tc_new(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
-            ConvectionDeschampsSotin2001(T_K_bound,Planet.Tb_K(iT),PbI_MPa(iT)/2,(Planet.Zb2(iT)-max_clath_depth),g_ms2(iT,n_clath(iT)+1),phase(iT,n_clath(iT)+1)+1);
-            
-            nConvectIce=(n_iceI(iT)+n_clath(iT))-nIceIIILithosphere-1; % indices were ice/claths exist in upper layer
-            nconold=nConvectIce;
-            inds_eTBL = find(z_m(iT,1:nConvectIce)<=(eTBL_m_new(iT)+z_m(iT,n_clath(iT))));
-            P_cc=P_MPa(iT,inds_eTBL(end));
+            if max_clath_depth<Planet.Zb2(iT)
+                %eTBL_m(iT)=eTBL_m(iT)+max_clath_depth; fixed in new
+                %version
+                T_K(iT,1:n_clath(iT))=linspace(Planet.Tsurf_K,T_clath_ice(iT),n_clath(iT));
+                inds_eTBL = find(z_m(iT,n_clath(iT):nConvectIce)<=eTBL_m(iT));
                 
+                if ~isempty(inds_eTBL)
+                    inds_eTBL=inds_eTBL +n_clath(iT);
+                    if length(inds_eTBL)>1
+                Pterm =(P_MPa(iT,inds_eTBL)-P_MPa(iT,inds_eTBL(1)))./(P_MPa(iT,inds_eTBL(end))-P_MPa(iT,inds_eTBL(1)));
+           
+                T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(T_clath_ice(iT).^(1-Pterm));
+                    else
+                         T_K(iT,inds_eTBL)=T_clath_ice(iT)+Q_Wm2(iT)./kIce(iT).*(z_m(iT,inds_eTBL)-z_m(iT,inds_eTBL-1));
+                    end
+                else
+                    inds_eTBL=n_clath(iT);
+                end
+            else
+            inds_eTBL = find(z_m(iT,1:nConvectIce)<=eTBL_m(iT));
+           
+            Pterm = P_MPa(iT,inds_eTBL)./P_MPa(iT,inds_eTBL(end));
+            if phase(iT,inds_eTBL(1))==1
+            T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
+            elseif phase(iT,inds_eTBL(1))==30;
+                 T_K(iT,1:inds_eTBL(end))=linspace(Planet.Tsurf_K,Tc(iT),length(inds_eTBL));
+            end
             end
             
-            Pterm = (P_MPa(iT,inds_eTBL(n_clath(iT):end))-P_MPa(iT,inds_eTBL(n_clath(iT))))./(P_MPa(iT,inds_eTBL(end))-P_MPa(iT,inds_eTBL(n_clath(iT))));
-
-           % Pterm = (P_MPa(iT,n_clath(iT)+1:inds_eTBL(end))./P_MPa(iT,inds_eTBL(end)));
-            T_K(iT,n_clath(iT):inds_eTBL(end)) = (Tc_new(iT).^(Pterm)).*(T_K_bound.^(1-Pterm));
-             end
-     
+             rho_kgm3(iT,1:inds_eTBL(end))=getRhoIce(P_MPa(iT,1:inds_eTBL(end)),T_K(iT,1:inds_eTBL(end)),phase(iT,1:inds_eTBL(end)));
             
+            P_bound=P_MPa(iT,inds_eTBL(end));
+            T_K_ccbound=T_K(iT,inds_eTBL(end));
+     
            
             %convective region
 
             for iconv = inds_eTBL(end)+1:nConvectIce % added parentheses around 1:nConvectIce 20200103 SDV
 
-                rho=getRhoIce(P_MPa(iT,iconv),T_K(iT,iconv-1),phase(iT,iconv));
+                rho_kgm3(iT,iconv)=getRhoIce(P_MPa(iT,iconv),T_K(iT,iconv-1),phase(iT,iconv));
 
                 if POROUS_ICE % adjust if porosity needs to be considered
                     por_in(iT).p=P_MPa(iT,iconv)*1e-3;
@@ -747,7 +745,7 @@ if ~Planet.NoH2O
 
                 %aK = 1.56e-4; % thermal expansive? Switch and use SeaFreeze ( find clath values()
 
-                T_K(iT,iconv) = T_K(iT,iconv-1)+alpha_K(iT,iconv).*T_K(iT,iconv)./Cp(iT,iconv)/rho*deltaP*1e6;
+                T_K(iT,iconv) = T_K(iT,iconv-1)+alpha_K(iT,iconv).*T_K(iT,iconv)./Cp(iT,iconv)./rho_kgm3(iT,iconv)*deltaP*1e6;
                 % double check temperatures make sense
                 phase_test = getIcePhase(P_MPa(iT,iconv),T_K(iT,iconv-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
                 phase_test2=SF_WhichPhase([P_MPa(iT,iconv),T_K(iT,iconv)]);
@@ -779,8 +777,8 @@ if ~Planet.NoH2O
                     PbI_MPa(iT)=P_MPa(iT,iconv);
                     Pb_MPa(iT)=P_MPa(iT,iconv);
                     %                        alculate parameters
-                    [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
-                        ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,Zb2(iT),g_ms2(iT,1),phase(iT,iconv)+1);
+%                     [Q_Wm2_new(iT),deltaTBL_m_new(iT),eTBL_m_new(iT),Tc_new(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
+%                         ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,Zb2(iT),g_ms2(iT,1),phase(iT,iconv)+1);
                     inds_deltaTBL = find(z_m(iT,1:nConvectIce)>=z_m(iT,nConvectIce)-deltaTBL_m(iT));
                     T_K(iT,inds_deltaTBL) = (Planet.Tb_K(iT).^(P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT))).*(T_K(iT,inds_deltaTBL(1)-1).^(1-P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT)));
 
@@ -835,6 +833,7 @@ if ~Planet.NoH2O
                     break
                 end
             end
+            
             if nconold==nConvectIce
                 % bottom layer of conduction, recalculates for phase at bottom
                  [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
@@ -866,6 +865,37 @@ if ~Planet.NoH2O
             end
         else
             Zocean(iT) = Zb2(iT);
+
+%             if nconold==nConvectIce
+%                 % bottom layer of conduction, recalculates for phase at bottom
+%                  [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
+%                         ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,Zb2(iT),g_ms2(iT,1),phase(iT,iconv)+1);
+% 
+%                 inds_deltaTBL = find(z_m(iT,1:nConvectIce)>=z_m(iT,nConvectIce)-deltaTBL_m(iT));
+%                 %
+%                 %
+%                 T_K(iT,inds_deltaTBL) = (Planet.Tb_K(iT).^(P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT))).*(T_K(iT,inds_deltaTBL(1)-1).^(1-P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT)));
+%                 %           end
+%                 rho_kgm3(iT,inds_deltaTBL) = getRhoIce(P_MPa(iT,inds_deltaTBL),T_K(iT,inds_deltaTBL),phase(iT,inds_deltaTBL));
+%                  %[Cp(iT,inds_deltaTBL) alpha_K(iT,inds_deltaTBL)]= getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),phase(iT,inds_deltaTBL)) ;
+%                         
+% 
+%                 Zocean(iT)= z_m(iT,inds_deltaTBL(end)+1);
+% 
+%                 if POROUS_ICE
+%                     por_in(iT).p=P_MPa(iT,inds_deltaTBL)*1e-3;
+%                     por_in(iT).t = T_K(iT,inds_deltaTBL);
+%                     por_in(iT).den = rho_kgm3(iT,inds_deltaTBL);
+%                     if isfield(Planet,'phi_surface')
+%                         por_out(iT) = get_porosity_ice(por_in(iT),Planet.phi_surface);
+%                     else
+%                         por_out(iT) =get_porosity_ice(por_in(iT));
+%                     end
+% 
+%                     rho_kgm3(iT,inds_deltaTBL) = por_out(iT).den;
+%                 end
+%             end
+
         end % if CONVECTION_FLAG
         
         
@@ -1583,7 +1613,8 @@ for iT = nTbs:-1:1  % Do this loop in decreasing order to avoid preallocating po
     
     mtest = find(M_above_mantle>M_Planet_kg);
     if mtest
-        disp(['Exceeded planet mass at mantle radius of ' num2str(1e-3*r_mantle_m(mtest(1)),'%0.0f') ' km']);
+        disp(['Exceeded planet mass at mantle radius of ' num2str(1e-3*r_mantle_m(mtest(1)), '%0.0f'), ' km']);
+        
     end
     
     if find(g_ms2_sil<0)
