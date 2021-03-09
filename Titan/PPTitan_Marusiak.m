@@ -141,19 +141,24 @@ Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [251.1 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
 
-Pure_ice=PlanetProfile(Planet,Seismic,Params)
-close all
+%Pure_ice=PlanetProfile(Planet,Seismic,Params)
+
+
+
+%close all
 % Trying out with new clathrates
 Planet.Clathrate=1;
 Params.nsteps_iceI=0;
 Params.nsteps_clath = 100;
-%Params.Clathrate_set_depth=20000; %set depth in meters
+%Params.Clathrate_set_depth=25000; %set depth in mete
+
 % assume clathartes have same attentuation prop as ice ih for now
 Seismic.B_aniso_clath = 0.56;
 Seismic.gamma_aniso_clath = 0.2;
 Seismic.g_aniso_clath = 22; %C2006
-Pure_clath=PlanetProfile(Planet,Seismic,Params);
-Params.Clathrate_set_depth=20000; %set depth in meters not quite bug proof yet
+%Pure_clath=PlanetProfile(Planet,Seismic,Params);
+Params.Clathrate_set_depth=2500; %set depth in meters not quite bug proof yet
+Pure_clath=PlanetProfile(Planet,Seismic,Params)
 %close all
 %PlanetProfile_mod_v2(Planet,Seismic,Params)
 
