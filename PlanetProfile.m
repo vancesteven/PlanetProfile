@@ -653,7 +653,7 @@ if ~Planet.NoH2O
             warning('Convection predicted by not possible becuase the conductive layer thickness exceeds the thickness of the ice.')
             disp('Perhaps T_surf is outside the valid range for the scaling from Deschamps and Sotin 2001.')
             disp('Setting CONVECTION_FLAG_I to zero')
-            CONVECTION_FLAG_I = 0;
+            CONVECTION_FLAG_I(iT) = 0;
         end
         % Convection has to be calculated prior to assigning depths in case
         % ice shell needs to be thinned to account for clathrates
@@ -1786,9 +1786,18 @@ if cfg.DISP_LAYERS
                concstr{2}= [num2str(wo) 'g/kg'];
         end
     end
-
+    
+    for iT = 1:nTbs
+        dV = -gradient([r_m(iT,1:indSil(iT)) interior(iT).r_mantle_m].^3);
+        Planet.Mcomputed_kg(iT) = 4/3*pi*sum(dV.*[rho_kgm3(iT,1:indSil(iT)) interior(iT).rho_mantle_kgm3]);
+    end
     % Preallocate
     [rhommodel, rhom, meanphivec] = deal(zeros(1,nTbs));
+
+    disp(['Planet Mass (kg): ' num2str(Planet.M_kg)])
+    disp(['Computed Mass (kg): ' num2str(Planet.Mcomputed_kg,' %0.4g')]);
+    disp(['Input C/MR2: ' num2str(Planet.Cmeasured)])
+    disp(['Computed C/MR2: ' num2str(C1(iT,C2min(iT))/MR2) '  (neighboring values: ' num2str(C1(iT,C2max(iT))/MR2) '; ' num2str(C1(iT,C2min(iT))/MR2) ')'])
     if Planet.FeCore
         for iT = 1:nTbs
             rhommodel(iT) = mean(interior(iT).rho_mantle_kgm3);
