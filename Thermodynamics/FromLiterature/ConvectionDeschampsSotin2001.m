@@ -8,6 +8,9 @@ function [Q_Wm2,deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FL
 % based on Deschamps and Sotin 2001, Thermal Convection in Icy Satellites, J. Geophys. Res. 106(E3):5107-5121 (DS2001)
 
 %inds 1-6 are [water, Ice Ih, Ice II, Ice III, Ice V, Ice VI]
+if ind==1
+    error('Solid state convection isn''t computed for liquid water (ind=1)')
+end
 varstrs = {'water','Ih','II','III','V','VI'};
 Rg=8.314; % J/mol/K - Ideal Gas Constant
 E_Jmol = [0 60e3...
@@ -15,7 +18,9 @@ E_Jmol = [0 60e3...
     136e3   110e3]; %assuming DS2001 value for Ice I, mean values for II and III, and high T value for Ice VI
 %nu0 = [0 5e13 1e18 5e12 5e14 5e14]; % (viscosity at melting point) Pa s %ice I value independently selected by DS2001 is the one recommended in Fig. 4b of Durham et al. 1997.  Other values are also from that table, minimum, along the melting curve.
 nu0 = [0 1e14 1e18 5e12 5e14 5e14];
-%nu0 = [0 1e16 1e18 5e12 5e14 5e14]; %updated from Evan
+%nu0 = [0 1e16 1e18 5e12 5e14 5e14]; %updated from Evan --> I think. the
+%second value was 1e14 when Steve pushed to github
+
 Dcond = [0 632 418 242 328 183]; % term for ice V was adapted from the scaling of D*T^-0.612 to D*T^-1 based on the Table 1 of Andersson and Inaba
 
 
