@@ -20,7 +20,13 @@ else
     error('R not found')
 end
 if  ~isempty(radii.Ocean)
-    Ocean = wedgeR(radii.Ocean);Ocean.FaceColor = colors.Ocean;
+    nOceanLayers = size(radii.Ocean,2);
+    for iL=1:nOceanLayers
+        thisOceanColor = -(iL-1)*(colors.OceanTop - colors.OceanBot)/nOceanLayers + colors.OceanTop;
+        Ocean = wedgeR(radii.Ocean(iL));Ocean.FaceColor = thisOceanColor;
+        Ocean.EdgeColor = 'none';
+    end
+    Ocean = wedgeR(radii.Ocean(1));Ocean.FaceColor = 'none';
 end
 if ~isempty(radii.IceIII)
     IceIII = wedgeR(radii.IceIII);IceIII.FaceColor = colors.IceIII;
@@ -75,7 +81,9 @@ colors.IceIII = [150, 226, 241]/255;
 colors.IceV = [150, 226, 241]/255;
 colors.IceVI =  [150, 226, 241]/255;
 colors.IceVII =  [44, 115, 150]/255;
-colors.Ocean = [100, 119, 186]/255;
+colors.OceanTop = [134, 149, 201]/255; % Darker and richer
+%colors.OceanTop = [158, 169, 208]/255; % Lighter but more contrast
+colors.OceanBot = [45, 55, 100]/255;
 colors.Rock = [101, 46, 11]/255;
 colors.Core = [141, 122, 121]/255;
 
@@ -83,7 +91,7 @@ function radii = getRadii(r,phase)
 radii.R = r(1);
 radii.Core = r(min(find(phase>=100))); 
 radii.Rock = r(min(find(phase>=50 & phase<100)));
-radii.Ocean = r(min(find(phase==0)));
+radii.Ocean = r(find(phase==0));
 % radii.Ih = r(min(find(phase==1)));
 radii.IceII = r(min(find(phase==2)));
 radii.IceIII = r(min(find(phase==3)));
