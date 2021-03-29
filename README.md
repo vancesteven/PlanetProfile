@@ -12,7 +12,8 @@ Matlab software for constructing 1D interior structure models based on planetary
 
 ## Setup
 1. Install SeaFreeze by copying the contents of the Matlab folder at https://github.com/Bjournaux/SeaFreeze into the Thermodynamics/SeaFreeze folder of PlanetProfile.
-1. Open a Terminal and navigate to the PlanetProfile directory.
+1. If TauP functionality is desired, download matTaup (https://github.com/g2e/seizmo/) and add mattaup, misc, and models to Utilities folder
+1.Open a Terminal and navigate to the PlanetProfile directory.
 1. Type "make install" (no quotes) and hit enter.
 1. In Matlab, run "startup" (no quotes) at the command line, or close and relaunch.
 1. Open the PP_____.m file for your selected body in the Matlab editor.
