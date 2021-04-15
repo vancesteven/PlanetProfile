@@ -516,6 +516,9 @@ if ~Planet.NoH2O
     else
         try
             load(fullfile([datpath savefile]));
+            if ~exist('max_clath_depth')
+                max_clath_depth = 1e15;
+            end
         catch
             error(['ERROR: cfg.CALC_NEW=0 but ' savefile ' was not found. Re-run with cfg.CALC_NEW set to 1 to generate the Profile.']);
         end
@@ -578,7 +581,7 @@ if ~Planet.NoH2O
     [Planet.Profile_fname, Planet.Profile_ID] = deal(strings(1,nTbs));
     [Qb, Planet.Zb2] = deal(zeros(1,nTbs));
 
-    % Preallocate for ConvectionhampsSotin
+    % Preallocate for ConvectionDeschampsSotin
     [Q_Wm2,deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I] = deal(zeros(1,nTbs));
     for iT = 1:nTbs
         deltaP = Pb_MPa(iT)/(n_iceI(iT)+n_clath(iT));
@@ -1257,7 +1260,7 @@ Planet.Ocean.indSil = nsteps_tot - ind_Obot(:); % Index in Planet.boundaries for
 Planet.Ocean.indBot = nsteps_tot - ind_Obot(:) + 1; % Index in Planet.boundaries for outer radius of first ocean layer
 
 % Layered induction not yet implemented for other than the Galilean moons.
-if (strcmp(Planet.name,'Europa') || strcmp(Planet.name,'Ganymede') || strcmp(Planet.name,'Callisto'))
+if (strcmp(Planet.name,'Europa') || strcmp(Planet.name,'Ganymede') || strcmp(Planet.name,'Callisto'))  && isfield(Planet,'peaks_Hz')
     Planet.peaks_hr = 1./Planet.peaks_Hz/3600;
 end
     
@@ -1878,8 +1881,8 @@ if cfg.DISP_LAYERS
     disp(['Planet Mass (kg): ' num2str(Planet.M_kg)])
     disp(['Computed Mass (kg): ' num2str(Planet.Mcomputed_kg,' %0.4g')]);
     disp(['Input C/MR2: ' num2str(Planet.Cmeasured)])
-    disp(['Computed C/MR2: ' num2str(C1(iT,C2min(iT))/MR2) '  (neighboring values: ' num2str(C1(iT,C2max(iT))/MR2) '; ' num2str(C1(iT,C2min(iT))/MR2) ')'])
     if Planet.FeCore
+        disp(['Computed C/MR2: ' num2str(C2(iT,C2mean(iT))/MR2) '  (neighboring values: ' num2str(C2(iT,C2mean(iT)+1)/MR2) '; ' num2str(C2(iT,C2mean(iT)-1)/MR2) ')'])
         for iT = 1:nTbs
             rhommodel(iT) = mean(interior(iT).rho_mantle_kgm3);
         end
@@ -1897,6 +1900,7 @@ if cfg.DISP_LAYERS
         disp(['&$X_{FeS}$ (\%)&' xFeSstr '\\']);
         disp(['&$\rho_{core}$ (kg m$^{-3}$)&' rhocorestr '\\']);
     else
+        disp(['Computed C/MR2: ' num2str(C1(iT,C2mean(iT))/MR2) '  (neighboring values: ' num2str(C1(iT,C2mean(iT)+1)/MR2) '; ' num2str(C1(iT,C2mean(iT)-1)/MR2) ')'])
         for iT = 1:nTbs
             rhom(iT) = mean(rho_sil_kgm3(iT,C2mean(:)));
             rhommodel(iT) = mean(interior(iT).rho_mantle_kgm3);
@@ -3167,23 +3171,43 @@ else
     xp = 1;
 end
 
+    % correct for rotated p and t dimensions due to different versions of
+    % Perple_X. Similar code is inserted a few lines down for the core. This change might break ungracefully if input silicate or core properties are
+    % on a square matrix
+    [m,n] = size(mantle.t);
+    plotme = reshape(mantle.(prop),m,n);
 if strcmp(prop,'Ks') || strcmp(prop,'Gs')
-    pcolor(mantle.t,mantle.p*1e3*xp,mantle.(prop)*1e-4);
+    pcolor(mantle.t,mantle.p*1e3*xp,plotme*1e-4);
 else
-    pcolor(mantle.t,mantle.p*1e3*xp,mantle.(prop));
+    pcolor(mantle.t,mantle.p*1e3*xp,plotme);
 end
 
 hold on;
 if ~isempty(core)
-    propcore = core.([prop '_fn'])(pcore,tcore);
+    [m,n] = size(core.t); % new code
+    propcore = core.([prop '_fn'])(pcore,tcore); % new code
     if strcmp(prop,'Ks') || strcmp(prop,'Gs')
         pcolor(tcore,pcore*xp,propcore*1e-4);
     else
         pcolor(tcore,pcore*xp,propcore);
     end
+else
+    propcore = 0;
 end
 hp = plot(T_Planet_K',P_Planet_MPa'*xp,'w-','LineWidth',1);
-shading interp; colorbar;
+maxcore = max(max(propcore));
+maxmantle = max(max(plotme));
+if maxcore>maxmantle
+    maxprop = maxcore;
+else
+    maxprop = maxmantle;
+end
+if strcmp(prop,'Ks') || strcmp(prop,'Gs')
+    maxprop = maxprop*1e-4;
+elseif strcmp(prop,'alpha')
+    maxprop = 5e-5;
+end
+shading interp; hc = colorbar; caxis([0 maxprop]);
 box on; set(gca,'ydir','reverse');
 if opts.Ttight
     xlims = get(gca,'XLim');
