@@ -1,0 +1,27 @@
+v2.3    - altered to get MatTauP working with TauP-2.1.1
+        - taup*.m no longer have the .jar files hardcoded
+v2.2    - added methods for accessing path & curve variables from octave
+        - taupcreate works with v1.2 of TauP
+        - massive cleanup of plotting functions
+        - a few minor bugfixes related to Octave requirements
+v2.1    - readded MatTaup_Path codes for path interpolation
+        - updated MatArrival to include takeoff/incident angle
+        - updated *.m accordingly
+v2.0    - removed all MatTauP except for the TauP_Curve extensions
+        - MatTauP_Curve extensions modified to provide more info
+        - added taupcreate.m
+        - *.m works with native TauP java classes (except taupcurve.m)
+        - struct output has more info and less garbage
+v1.2.0  - fixed java file breakage with TauP 1.2beta2
+        - added Contents.m
+        - added this file and WISHLIST
+        - condensed jar files into 1 (to match original MatTauP)
+v1.1.0  - updated m-files
+            - cleaner code
+            - more options
+            - more documentation
+            - utilize help system
+        - added a Makefile for compiling
+        - added path interpolation (fixes plots of diffracted paths)
+
+v1.0    - original MatTauP written by Qin Li
