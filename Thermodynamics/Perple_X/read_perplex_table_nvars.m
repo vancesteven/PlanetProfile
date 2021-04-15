@@ -75,24 +75,37 @@ end
 [t,p]=meshgrid(xax,yax); % make a matrix of p and t
 p=p.*1e-4; % set units of GPa
 
-% nvars = length(columns)-1-npt; % subtract columns of P and T, and the erroneous empty string for the endline
-nvars = length(columns)-npt; % subtract columns of P and T, and the erroneous empty string for the endline
-for iv = 1:nvars
-  out.(columns{iv+npt}) = reshape(output(:,iv+npt),pstep,tstep); %read each column of data, and reshape it into a matrix of p and t
-    if ALLOW_INPAINT
-        if find(isnan(out.(columns{iv+2})))
-            out.(columns{iv+2})=inpaintn(out.(columns{iv+2}));
+mpsplit = strsplit(mp_table,'.');
+savefile = ['Thermodynamics/Perple_X/output_data/' mpsplit{1} '.mat'];
+paintfile = dir(savefile);
+if ~isempty(paintfile)
+    load(savefile);
+else
+    % nvars = length(columns)-1-npt; % subtract columns of P and T, and the erroneous empty string for the endline
+    nvars = length(columns)-npt; % subtract columns of P and T, and the erroneous empty string for the endline
+    FLIP = 0; % many input data files have the same dimensions of P and T and not all are the same shape. This needs to be fixed. for now, FLIP is used to correct for misshapen inputs
+    for iv = 1:nvars
+    %     out.(columns{iv+npt}) = reshape(output(:,iv+npt),tstep,pstep); %read each column of data, and reshape it into a matrix of p and t
+        out.(columns{iv+npt}) = reshape(output(:,iv+npt),pstep,tstep)'; %read each column of data, and reshape it into a matrix of p and t
+        if ALLOW_INPAINT
+            if find(isnan(out.(columns{iv+2})))
+                out.(columns{iv+2})=inpaintn(out.(columns{iv+2}));
+            end
+        end
+        if FLIP
+            X = t;        Y = 1e3*p;
+        else
+            X = 1e3*p;        Y = t;
+        end
+        header=[minT steT tstep minP steP pstep colu-2];
+        try
+            out.([columns{iv+npt} '_fn']) = griddedInterpolant(X,Y,out.(columns{iv+npt})); %interpolant with P in MPa
+        catch
+            out.([columns{iv+npt} '_fn']) = scatteredInterpolant(X(:),Y(:),out.(columns{iv+npt})(:)); %interpolant with P in MPa
         end
     end
-    try
-        out.([columns{iv+npt} '_fn']) = griddedInterpolant(1e3*p,t,out.(columns{iv+npt})); %interpolant with P in MPa
-    catch
-        out.([columns{iv+npt} '_fn']) = scatteredInterpolant(1e3*p(:),t(:),out.(columns{iv+npt})(:)); %interpolant with P in MPa
-    end
+    out.p=p;
+    out.t=t;
+    save(savefile);
 end
-
-header=[minT steT tstep minP steP pstep colu-2];
-out.p=p;
-out.t=t;
-
 
