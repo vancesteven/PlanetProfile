@@ -30,6 +30,17 @@ if ~isfield(Params,'cfg')
 else
     cfg = Params.cfg;
 end
+
+if isfield(Params,'TauP');
+    try exist('taupcreate')
+        disp ('Taup Model file  will be created. Curve will be plotted. Please use TauP (https://www.seis.sc.edu/taup/) for full functionality')
+    catch
+        disp('Add mattaup to path')
+    end
+end
+        
+       
+    
 Params.NOPLOTS = cfg.NO_PLOTS;
 Params.CALC_NEW = cfg.CALC_NEW;
 Params.CALC_NEW_REFPROFILES = cfg.CALC_NEW_REF;
@@ -54,6 +65,8 @@ if ~Params.NOPLOTS
     % *start* of the first run on which we generate plots
     drawnow
 end
+
+
 
 if ~cfg.SKIP_PROFILES
     
@@ -511,7 +524,7 @@ if ~Planet.NoH2O
             end
             rho_kgm3(iT,1) = rho_kgm3(iT,2); %continuity
             Cp(iT,1)=Cp(iT,2);
-                save(fullfile([datpath savefile]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps','n_clath','n_iceI','n_ocean'); % save the progress at each step
+                save(fullfile([datpath savefile]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth'); % save the progress at each step
         end
     else
         try
@@ -2145,6 +2158,10 @@ for iT = 1:nTbs
         '-append');
     dlmwrite(fullfile([datpath thissavestr '_mantle.dat']),[10*interior(iT).Pmantle_MPa' interior(iT).Tmantle_K'],'delimiter','\t');
 
+    if isfield(Params,'TauP')
+        taup_model=create_Taup([datpath thissavestr '.txt']);
+        
+    end
     
     if ~cfg.SKIP_PROFILES
     %% plot the seismic data and attenuation
@@ -3218,3 +3235,116 @@ xlabel('Temperature (K)','Fontsize',14);
 title(title_str,'Fontsize',18)
 
 end %plotSolidInterior
+
+function t_model=create_Taup(inputfile);
+fid=fopen(inputfile);
+line_num=1;
+if contains(inputfile,'Titan')
+    planet_Rad=2574.7;
+end
+rad_prev=0;
+rho_prev=0;
+Vp_prev=0;
+Vs_prev=0;
+phase_prev=0;
+bmfile=strrep(inputfile,'.txt','.tvel')
+fileID = fopen(bmfile,'w');
+lay=1;
+while ~feof(fid)
+    tline = fgetl(fid);
+    if line_num==1
+         
+        fprintf(fileID,'%s -P \n',inputfile)
+        fprintf(fileID,'%s -S \n',inputfile)
+   
+    else
+        contains_phase=contains(tline,'phase');
+        if contains(tline,'NaN') % for last line in Planet Profile
+            depth=planet_Rad; % read in radius and convert to m
+            rho=rho; % uses density of previous line
+            Vp=Vp; % grabs velocity and applies conversion
+            Vs=Vs;
+            phase=5;
+        else
+            depth=planet_Rad-str2num(tline(25:35)); % read in radius and convert to m
+            rho=str2num(tline(37:47))/1000; % grab density
+            Vp=str2num(tline(49:59)); % grabs velocity and applies conversion
+            Vs=str2num(tline(61:71));
+            Qmu=str2num(tline(73:83));
+            L=4/3*(Vs/Vp).^2;
+            Qp=(1/L)*Qmu;
+            if L==0
+                Qp=10000.0;
+            end
+        end
+        
+        
+        if Vs==0 & lay==1; % change to Vs=0 indicating ocean
+            lay=2;
+            %Qmu=0;
+            fprintf(fileID,'%.3f \t %.4f \t %.4f \t %.4f \n',...
+                depth,Vp_prev,Vs_prev,rho_prev);
+            % fprintf(fileID,'mantle \n')
+        elseif Vs>0 && lay==2; % silicate core
+            fprintf(fileID,'%.3f \t %.4f \t %.4f \t %.4f  \n',...
+                depth,Vp_prev,Vs_prev,rho_prev);
+            %fprintf(fileID,'outer-core \n')
+            lay=3;
+            cmb=line_num;
+            %Qmu=1000;
+        elseif (Qp>10000 | Qmu>10000) & lay==3
+            fprintf(fileID,'%.3f \t %.4f \t %.4f \t %.4f \n',...
+                depth,Vp_prev,Vs_prev,rho_prev);
+            %fprintf(fileID,'inner-core \n')
+            lay=4;
+           
+        end
+        if (Vs~=0 | lay~=3) % issue with sometimes have an odd line where Vs is briefly non zero
+        fprintf(fileID,'%.3f \t %.4f \t %.4f \t %.4f \n',...
+            depth,Vp,Vs,rho);
+        end
+        depth_prev=depth;
+        rho_prev=rho;
+        Vp_prev=Vp;
+        Vs_prev=Vs;
+        Qp_prev=Qp;
+        Qmu_prev=Qmu;
+    end
+    line_num=line_num+1;
+end
+
+
+fclose(fileID);
+disp('TauP File Saved. Creating TauP Model. If this process takes more than a minute consider raising ice-ocean temperature or skipping this step')
+try
+    taup_model=taupcreate(bmfile);
+catch
+    disp('Adding small layer to fix issue with ray param')
+    fid=fopen(bmfile);
+    C=textscan(fid,'%s','delimiter','\n');
+    line_1=char(C{1,1}(3));
+    line_2=char(C{1,1}(4));
+    [N M]=size(C{1,1});
+    Cnew=C;
+    Cnew{1,1}(5:N+1)=C{1,1}(4:end);
+    new_line=[line_2(1:5) line_1(6:end)];
+    fileID = fopen(bmfile,'w');
+    for k=1:numel(Cnew{1,1})
+        if k==4
+            fprintf(fileID,'%s \n',new_line);
+        else
+            fprintf(fileID,'%s \n',Cnew{1,1}{k});
+        end
+    end
+    fclose(fileID);
+    try
+    taup_model=taupcreate(bmfile);
+    catch
+        disp('Error creating Taup Model. Try adding more layers in the near-surface or manually adjusting velocity profile')
+    end
+    taupcurve('mod',taup_model)
+end
+t_model=taup_model;
+end
+     
+ 
