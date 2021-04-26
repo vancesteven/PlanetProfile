@@ -1895,8 +1895,8 @@ if cfg.DISP_LAYERS
     disp(['Computed Mass (kg): ' num2str(Planet.Mcomputed_kg,' %0.4g')]);
     disp(['Input C/MR2: ' num2str(Planet.Cmeasured)])
     if Planet.FeCore
-        disp(['Computed C/MR2: ' num2str(C2(iT,C2mean(iT))/MR2) '  (neighboring values: ' num2str(C2(iT,C2mean(iT)+1)/MR2) '; ' num2str(C2(iT,C2mean(iT)-1)/MR2) ')'])
         for iT = 1:nTbs
+            disp(['Computed C/MR2 for Tb=' num2str(Tb_K(iT)) 'K: ' num2str(C2(iT,C2mean(iT))/MR2) ' (neighboring values: ' num2str(C2(iT,C2mean(iT)+1)/MR2) '; ' num2str(C2(iT,C2mean(iT)-1)/MR2) ')'])
             rhommodel(iT) = mean(interior(iT).rho_mantle_kgm3);
         end
         rhorockstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(Planet.rho_sil_withcore_kgm3) '}'];
@@ -1913,7 +1913,7 @@ if cfg.DISP_LAYERS
         disp(['&$X_{FeS}$ (\%)&' xFeSstr '\\']);
         disp(['&$\rho_{core}$ (kg m$^{-3}$)&' rhocorestr '\\']);
     else
-        disp(['Computed C/MR2: ' num2str(C1(iT,C2mean(iT))/MR2) '  (neighboring values: ' num2str(C1(iT,C2mean(iT)+1)/MR2) '; ' num2str(C1(iT,C2mean(iT)-1)/MR2) ')'])
+        disp(['Computed C/MR2 for Tb=' num2str(Tb_K(iT)) 'K: ' num2str(C1(iT,C2mean(iT))/MR2) '  (neighboring values: ' num2str(C1(iT,C2mean(iT)+1)/MR2) '; ' num2str(C1(iT,C2mean(iT)-1)/MR2) ')'])
         for iT = 1:nTbs
             rhom(iT) = mean(rho_sil_kgm3(iT,C2mean(:)));
             rhommodel(iT) = mean(interior(iT).rho_mantle_kgm3);
