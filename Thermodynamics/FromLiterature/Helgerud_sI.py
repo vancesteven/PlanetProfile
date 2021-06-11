@@ -1,13 +1,13 @@
 def Helgerud_sI(P,T):
     """
-        Determines Vp,Vs,shear,K and rho for ?????
+        Determines Vp,Vs,shear,K and rho
 
         Parameters
         ----------
         P : float
-            pressure [MPa ??]
+            pressure [MPa]
         T : float
-            temperature [T ??]
+            temperature [K]
         
         Returns
         -------
@@ -21,7 +21,10 @@ def Helgerud_sI(P,T):
 
         Notes
         -----
-        From Ning et al 2014
+        From Helgerud 2009
+        A correction was issued that changed formulas from a(T+b)(P+c) to aT+bP+c
+
+        It is unclear where the formula for 'rho' was acquired
     """
 
     out = {}

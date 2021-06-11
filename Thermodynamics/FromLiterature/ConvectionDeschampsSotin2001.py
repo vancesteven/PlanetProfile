@@ -30,23 +30,23 @@ def ConvectionDeschampsSotin2001( Ttop , Tbot , Pmid , h , g , waterPhase ):
         Returns
         -------
         Q :
-            [W/m^2]
+            heat flux at bottom of ice layer [W/m^2]
         deltaTBL
-            [m]
+            thickness of (lower) thermal bounder layer [m]
         eTBL
-            [m]
+            thickness of the thermal lithosphere [m]
         Tc
-            [K ??]
+            temperature of well mixed interior [K]
         rhoIce
-            [kg / m^3 ??]
+            density of ice [kg/m^3]
         alphaIce
-            [1/K] coefficient of thermal expansion
+            coefficient of thermal expansion [1/K]
         CpIce
-            [J/kg/K] specific heat
+            specific heat [J/kg/K]
         kIce
-
+            thermal conductivity [W/m/K]
         nu
-
+            viscocity [Pa*s]
         CONVECTION_FLAG : boolean
 
 
@@ -69,13 +69,14 @@ def ConvectionDeschampsSotin2001( Ttop , Tbot , Pmid , h , g , waterPhase ):
     E = [0, 60e3, np.mean([98, 55])*1e3, np.mean([103, 151])*1e3, 136e3, 110e3] # energy [Joules/mol]
     nu0 = [0, 1e14, 1e18, 5e12, 5e14, 5e14] # viscocity at melting point [Pa*s]
     Dcond = [0, 632, 418, 242, 328, 183] # ???
+    
     # parameters relevant to Eq. 9 in DS2001
     # found by numerical experiments in DS2000
     c1 = 1.43
     c2 = -0.03
     
     DeltaT = Tbot - Ttop # difference in temperature across layer [K]
-    #Tlith = Ttop + 0.3*DeltaT # temperature of ??? (lithosphere?)
+    #Tlith = Ttop + 0.3*DeltaT # lithosphere isotherm, not used in code
 
     if waterPhase < 29: # not clathrates ??? seems inconsistent with header definitions of indices
         B = E[waterPhase] / 2 / Rg / c1 # [K]
@@ -96,7 +97,8 @@ def ConvectionDeschampsSotin2001( Ttop , Tbot , Pmid , h , g , waterPhase ):
 
         kIce = getK_Andersson2005(Pmid,Tc,varstrs[waterPhase],'T')
 
-        Ra_crit = 1e5 # ???
+        # how was this critical value selected
+        Ra_crit = 1e5 # critical Rayleigh number (convection may happen if actual Rayleigh number is above this value)
     else:
         #E_clath = 90000
         #nu0_clath = (1e14)*20
@@ -118,7 +120,9 @@ def ConvectionDeschampsSotin2001( Ttop , Tbot , Pmid , h , g , waterPhase ):
         #TBL_crit = kIce*(Tbot-Tc)/Q_crit # [m]
     
     Kappa = kIce / rhoIce / CpIce # [m^2 / s ???]
-    Ra = alphaIce*rhoIce*g*DeltaT*(h**3)/Kappa/nu # DS2001 Eq.4 (Kalosuova 2017 uses nu0)
+
+    # Rayleigh number
+    Ra = alphaIce*rhoIce*g*DeltaT*(h**3)/Kappa/nu # DS2001 Eq.4 (Kalosuova 2017 uses nu0 instead of nu)
 
     if Ra > Ra_crit:
         CONVECTION_FLAG = True
