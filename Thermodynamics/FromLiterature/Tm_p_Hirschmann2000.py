@@ -10,7 +10,7 @@ def Tm_p_Hirschmann2000(P):
         Returns:
         --------
         T : float
-            temperature [K ??]
+            temperature [K]
 
         Notes:
         ------
