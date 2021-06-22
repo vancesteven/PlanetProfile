@@ -471,7 +471,6 @@ if ~Planet.NoH2O
                     phase(iT,ill) = 6;
                 end
 
-
                 if phase(iT,ill) == 0 %if ocean
                     [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
                     % Forbidding MgSO4 in the check below avoids a problem in
@@ -508,18 +507,15 @@ if ~Planet.NoH2O
                         T_K(iT,ill) = Planet.Ocean.fnTfreeze_K(P_MPa(iT,ill),wo);
                     end
                     if T_K(iT,ill)<T_K(iT,ill-1)
-                        T_K(iT,ill)=T_K(iT,ill-1);
+                        T_K(iT,ill)=T_K(iT,ill-1); % this may no longer be needed because negalpha is accounted for above -- sincerely, steve 6/15/21
                     end
-                    if phase(iT,ill)==0
-                        rho_kgm3(iT,ill) = rhoocean;
-                        
-                        [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
-                    else
-                        rho_kgm3(iT,ill) = getRhoIce(P_MPa(iT,ill),T_K(iT,ill),phase(iT,ill));
-                        
-                        [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
-                        %[Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,ill)) ;
-                    end
+                    rho_kgm3(iT,ill) = getRhoIce(P_MPa(iT,ill),T_K(iT,ill),phase(iT,ill));
+
+%                     [rho_ocean,Cp(iT,ill),alpha_o]=
+%                     fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
+%                     % this is odd and doesn't seem to be needed--steve
+%                     6/15/21
+                    %[Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,ill)) ;
                 end
             end
             rho_kgm3(iT,1) = rho_kgm3(iT,2); %continuity
