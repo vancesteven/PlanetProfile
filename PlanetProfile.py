@@ -9,7 +9,7 @@ def writeProfile(path,saveStr,header,data):
         for line in data:
             f.write("\t".join( [ "{:3.5e}".format(val) for val in line] )+"\n")
 
-def celltolist(inputCellPy):
+def celltointlist(inputCellPy):
     """
         Helper function for converting MATLAB nested cell to python 2d list.
     """

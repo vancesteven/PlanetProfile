@@ -1047,6 +1047,13 @@ if ~Planet.FeCore
         title(['No Fe core ; ' math 'C/MR^2' bnm ' = ' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) ';' math ' W ' bnm ' = ' num2str(wo) ' wt%'],'Fontsize',lbl.lgtext)
 
         print(figs.mant,Params.savefigformat,fullfile([figpath savebase vmant cfg.xtn]));
+        
+        rho_sil_kgm3_py = py.numpy.asarray(rho_sil_kgm3);
+        R_sil_m_py = py.numpy.asarray(R_sil_m);
+        Planet_py = py.dict(struct('Tb_K',Planet.Tb_K,'Cmeasured',Planet.Cmeasured,'Cuncertainty',Planet.Cuncertainty));
+        C2inds_py = PPPy.celltointlist(C2inds);
+        
+        PPPy.MantlePlot(rho_sil_kgm3_py,R_sil_m_py,C2inds_py,Planet_py,int16(nTbs),int16(wo))
     end
 % =====
 else % WITH A CORE
