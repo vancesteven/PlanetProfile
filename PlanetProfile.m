@@ -13,6 +13,15 @@ function outPlanet = PlanetProfile(Planet,Seismic,Params)
 % Geophysical investigations of habitability in ice-covered ocean worlds.
 % Journal of Geophysical Research: Planets, Nov 2018.
 
+PythonReload() % reloads listed local python modules
+PPPy = py.importlib.import_module('PlanetProfile'); % imports main python module
+py.importlib.reload(PPPy);
+pyStr = pyenv; % sets TCL and TK environment for use by some python modules
+pyTCL = fullfile(pyStr.Home, 'tcl', 'tcl8.6');
+pyTK = fullfile(pyStr.Home, 'tcl', 'tk8.6');
+setenv('TCL_LIBRARY', pyTCL);
+setenv('TK_LIBRARY', pyTK);
+
 vernum = PPversion;
 disp(['PlanetProfile version ' vernum])
 if all(vernum(end-2:end) == 'dev'); disp('This version is in development.'); end
