@@ -15,3 +15,6 @@ py.importlib.reload(pylib);
 
 pylib = py.importlib.import_module('MantlePlot');
 py.importlib.reload(pylib);
+
+pylib = py.importlib.import_module('MatToPy');
+py.importlib.reload(pylib);
