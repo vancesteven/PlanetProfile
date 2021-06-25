@@ -1051,7 +1051,7 @@ if ~Planet.FeCore
         rho_sil_kgm3_py = py.numpy.asarray(rho_sil_kgm3);
         R_sil_m_py = py.numpy.asarray(R_sil_m);
         Planet_py = py.dict(struct('Tb_K',Planet.Tb_K,'Cmeasured',Planet.Cmeasured,'Cuncertainty',Planet.Cuncertainty));
-        C2inds_py = PPPy.celltointlist(C2inds);
+        C2inds_py = PPPy.MatToPy.cellto2dlist(C2inds,"int");
         
         PPPy.MantlePlot(rho_sil_kgm3_py,R_sil_m_py,C2inds_py,Planet_py,int16(nTbs),int16(wo))
     end
