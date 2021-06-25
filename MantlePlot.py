@@ -6,6 +6,8 @@ def MantlePlot( rho_sil_kgm3 , R_sil_m , C2inds , Planet:dict , nTbs , wo , lw =
     Cmeasured = Planet["Cmeasured"]
     Cuncertainty = Planet["Cuncertainty"]
 
+    # technically, C2inds should have values subtracted by 1
+    # due to difference in MATLAB and python indexing
     lstr_3 = []
     for iT in range(0,nTbs):
         plt.plot(rho_sil_kgm3[iT][C2inds[iT]] , R_sil_m[iT][C2inds[iT]]*1e-3 , linewidth = lw)
