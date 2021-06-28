@@ -2,6 +2,7 @@ import numpy as np
 #from Thermodynamics.FromLiterature.conductiveMantleTemperature import conductiveMantleTemperature
 #from Thermodynamics.FromLiterature.ConvectionDeschampsSotin2001 import ConvectionDeschampsSotin2001
 from MantlePlot import MantlePlot
+from CorePlot import CorePlot
 import MatToPy
 
 def writeProfile(path,saveStr,header,data):
