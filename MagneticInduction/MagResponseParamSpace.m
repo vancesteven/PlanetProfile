@@ -9,7 +9,7 @@ clines = {cfg.LS_orb, cfg.LS_syn, cfg.LS_hrm};
 LW =     [cfg.LW_orb; cfg.LW_syn; cfg.LW_hrm];
 
 km = 1e3;
-nbodies = (cfg.DO_EUR + cfg.DO_GAN + cfg.DO_CAL + cfg.DO_MIR + cfg.DO_ARI + cfg.DO_ENC);
+nbodies = (cfg.DO_EUR + cfg.DO_GAN + cfg.DO_CAL + cfg.DO_ENC + cfg.DO_MIR + cfg.DO_ARI);
 r0 = km; y0 = 0; n = 1; opts = cfg.opts_odeParams;
 ice_thk.eur = 20;
 ice_thk.gan = 50;
@@ -208,7 +208,7 @@ for ibody = 1:nbodies
         nE = 2*pi/1.370218/86400;
 
         BnT = [3.87]; % (all Bx in IAU coordinates)
-        Periods_hr = [1.370218*24 0 0];
+        Periods_hr = [1.370218*24];
         peaks_hr(ibody,:) = Periods_hr(:);
         % contour levels
         alevels = { [0 0.1 0.2 0.3 0.4 0.5 0.6  0.8 1.0 ]
@@ -261,7 +261,7 @@ for ibody = 1:nbodies
         save(fullfile(thisSaveStr), 'nbodies', 'k_Sm', 'D_ocean_km', 'amp', 'phi', 'lw');
     else
         load(fullfile(thisSaveStr), 'nbodies', 'k_Sm', 'D_ocean_km', 'amp', 'phi', 'lw');
-        if nbodies ~= cfg.DO_EUR + cfg.DO_GAN + cfg.DO_CAL + cfg.DO_MIR + cfg.DO_ARI
+        if nbodies ~= cfg.DO_EUR + cfg.DO_GAN + cfg.DO_CAL + cfg.DO_ENC + cfg.DO_MIR + cfg.DO_ARI
             error(['ERROR: The file we loaded with CALC_NEW = 0 had the wrong number of bodies saved. ' ...
                 'Re-run with CALC_NEW=1. Aborting.'])
         end
@@ -280,7 +280,8 @@ for ibody = 1:nbodies
     xlim(klims)
     ylim(Dlims)
     
-    if cfg.PLOT_V2020S
+    galilean = ( strcmp(char(bodyName),'Europa') || strcmp(char(bodyName),'Ganymede') || strcmp(char(bodyName),'Callisto') );
+    if cfg.PLOT_V2020S && galilean
         for ip = 1:length(V2020.km)
             hp = plot(V2020.Sm(ip),V2020.km(ip),V2020.symbols(ip));
             hp.MarkerFaceColor = V2020.MFCs{ip};
@@ -295,7 +296,7 @@ for ibody = 1:nbodies
     xlim(klims)
     ylim(Dlims)
     
-    if cfg.PLOT_V2020S
+    if cfg.PLOT_V2020S && galilean
         for ip = 1:length(V2020.km)
             hp = plot(V2020.Sm(ip),V2020.km(ip),V2020.symbols(ip));
             hp.MarkerFaceColor = V2020.MFCs{ip};
@@ -348,9 +349,10 @@ for ibody = 1:nbodies
     annotation('textbox', pos, 'string', plotText)
     fprintf('Printed contour plot for %s\n', bodyName)
     
-    str2020 = '';
-    if cfg.PLOT_V2020S
+    if cfg.PLOT_V2020S && galilean
         str2020 = '_WithV2020Models';
+    else
+        str2020 = '';
     end
     print(figs.cont(ibody),cfg.fig_fmt,fullfile([bodyName '/figures/MagPhase' bodyName str2020 '.eps']));
 end
@@ -382,16 +384,15 @@ if cfg.DO_PER
         
     body_name = char(bnames(nbodies));
     FTfile = ['FTdata' body_name '.mat'];
-    load(FTfile, 'UranusData');
-    Periods =  1./UranusData.frequency./3600; 
-    peaks(nbodies) = plotPeriods(figs.ffts(nbodies),body_name,fftxlims,peaks_hr(nbodies,:),UranusData,Periods,lbl);
+    load(FTfile, 'FTdata');
+    Periods =  1./FTdata.frequency./3600; 
+    peaks(nbodies) = plotPeriods(figs.ffts(nbodies),body_name,fftxlims,peaks_hr(nbodies,:),FTdata,Periods,lbl);
     for ibody=nbodies-1:-1:1 % Do loop in descending order to avoid preallocating struct
         body_name = char(bnames(ibody));
         FTfile = ['FTdata' body_name '.mat'];
-        load(FTfile, 'UranusData');
-        peaks(ibody,:) = plotPeriods(figs.ffts(ibody),body_name,fftxlims,peaks_hr(ibody,:),UranusData,Periods,lbl);
+        load(FTfile, 'FTdata');
+        peaks(ibody,:) = plotPeriods(figs.ffts(ibody),body_name,fftxlims,peaks_hr(ibody,:),FTdata,Periods,lbl);
     end
-    FTdata = UranusData;
     
     if cfg.DISP_TABLES
         for ibody=1:nbodies
