@@ -6,5 +6,8 @@ function PPtest
     PPCallisto
     PPEnceladus
     PPTitan
+    PPAriel
+    PPMiranda
+    PPTriton
     MagResponseParamSpaceJupiter
 end
