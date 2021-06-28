@@ -1053,7 +1053,7 @@ if ~Planet.FeCore
         Planet_py = py.dict(struct('Tb_K',Planet.Tb_K,'Cmeasured',Planet.Cmeasured,'Cuncertainty',Planet.Cuncertainty));
         C2inds_py = PPPy.MatToPy.cellto2dlist(C2inds,"int");
         
-        PPPy.MantlePlot(rho_sil_kgm3_py,R_sil_m_py,C2inds_py,Planet_py,int16(nTbs),int16(wo))
+        PPPy.MantlePlot(rho_sil_kgm3_py,R_sil_m_py,C2inds_py,Planet_py,int16(nTbs),int16(wo),[figpath savebase vmant 'py' cfg.xtn])
     end
 % =====
 else % WITH A CORE
