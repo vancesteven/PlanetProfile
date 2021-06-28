@@ -208,7 +208,7 @@ for ibody = 1:nbodies
         nE = 2*pi/1.370218/86400;
 
         BnT = [3.87]; % (all Bx in IAU coordinates)
-        Periods_hr = [1.370218*24];
+        Periods_hr = [1.370218*24 0 0];
         peaks_hr(ibody,:) = Periods_hr(:);
         % contour levels
         alevels = { [0 0.1 0.2 0.3 0.4 0.5 0.6  0.8 1.0 ]
@@ -317,7 +317,11 @@ for ibody = 1:nbodies
         ampfine = interp2(k_grid,D_grid,amp(:,:,iw)',k_interp,D_interp,cfg.intMethod);
         phifine = interp2(k_grid,D_grid,phi(:,:,iw)',k_interp,D_interp,cfg.intMethod);
         if cfg.PLOT_CONTOURS
-            H(iw) = plotTheContours(kfine,Dfine,BnT(iw),ampfine,phifine,alevels{iw,:},plevels{iw,:},ccolors(iw,:),clines{iw},LW(iw));
+            if lw > 1
+                H(iw) = plotTheContours(kfine,Dfine,BnT(iw),ampfine,phifine,alevels{iw,:},plevels{iw,:},ccolors(iw,:),clines{iw},LW(iw));
+            else
+                H(iw) = plotTheContourFs(kfine,Dfine,BnT(iw),ampfine,phifine,alevels{iw,:},plevels{iw,:},ccolors(iw,:),clines{iw},LW(iw));
+            end
         else
             H(iw) = plotSurf(kfine,Dfine,BnT(iw),ampfine,phifine);
             DO_LEGEND = 0;
@@ -382,16 +386,12 @@ if cfg.DO_PER
         disp('    \hline')
     end
         
-    body_name = char(bnames(nbodies));
-    FTfile = ['FTdata' body_name '.mat'];
-    load(FTfile, 'FTdata');
-    Periods =  1./FTdata.frequency./3600; 
-    peaks(nbodies) = plotPeriods(figs.ffts(nbodies),body_name,fftxlims,peaks_hr(nbodies,:),FTdata,Periods,lbl);
     for ibody=nbodies-1:-1:1 % Do loop in descending order to avoid preallocating struct
-        body_name = char(bnames(ibody));
-        FTfile = ['FTdata' body_name '.mat'];
+        bodyName = char(bnames(ibody));
+        FTfile = ['FTdata' bodyName '.mat'];
         load(FTfile, 'FTdata');
-        peaks(ibody,:) = plotPeriods(figs.ffts(ibody),body_name,fftxlims,peaks_hr(ibody,:),FTdata,Periods,lbl);
+        Periods =  1./FTdata.frequency./3600;
+        peaks(ibody,:) = plotPeriods(figs.ffts(ibody),bodyName,fftxlims,peaks_hr(ibody,:),FTdata,Periods,lbl);
     end
     
     if cfg.DISP_TABLES
@@ -421,6 +421,27 @@ end
 function H = plotTheContours(k_Sm,D_ocean_km,BnT,amp,phi,alevels,plevels,color,line,LW)
     subplot(1,2,1)
     if isempty(alevels)
+        [~,H]=contour(k_Sm,D_ocean_km,BnT*amp,'ShowText','on');
+    else
+        [~,H]=contour(k_Sm,D_ocean_km,BnT*amp,alevels,'ShowText','on');
+    end
+    H.Color = color;
+    H.LineStyle = line;
+    H.LineWidth = LW;
+    subplot(1,2,2)
+    if isempty(plevels)
+        [~,H]=contour(k_Sm,D_ocean_km,phi,'ShowText','on');
+    else
+        [~,H]=contour(k_Sm,D_ocean_km,phi,plevels,'ShowText','on');
+    end
+    H.Color = color;
+    H.LineStyle = line;
+    H.LineWidth = LW;
+end % plotTheContours
+
+function H = plotTheContourFs(k_Sm,D_ocean_km,BnT,amp,phi,alevels,plevels,color,line,LW)
+    subplot(1,2,1)
+    if isempty(alevels)
         [~,H]=contourf(k_Sm,D_ocean_km,BnT*amp,'ShowText','on');
     else
         [~,H]=contourf(k_Sm,D_ocean_km,BnT*amp,alevels,'ShowText','on');
@@ -437,7 +458,7 @@ function H = plotTheContours(k_Sm,D_ocean_km,BnT,amp,phi,alevels,plevels,color,l
     H.Color = color;
     H.LineStyle = line;
     H.LineWidth = LW;
-end % plotTheContours
+end % plotTheContourFs
 
 function SA = plotSurf(k_Sm,D_ocean_km,BnT,amp,phi)
     subplot(1,2,1)
@@ -451,17 +472,17 @@ function SA = plotSurf(k_Sm,D_ocean_km,BnT,amp,phi)
     SP.EdgeColor = 'none';
 end % plotSurf
 
-function peaks = plotPeriods(fig,body_name,fftxlims,peaks_hr,FTdata,Periods,lbl)
+function peaks = plotPeriods(fig,bodyName,fftxlims,peaks_hr,FTdata,Periods,lbl)
     Bx = FTdata.By_fft; % Swapping x and y FFT amplitudes consistent with
     By = FTdata.Bx_fft; % converting from IAU coordinates to PhiO
     Bz = FTdata.Bz_fft;
 
     set(0, 'CurrentFigure', fig);
-    set(gcf, 'Name', [lbl.fftsp ' ' body_name]);
+    set(gcf, 'Name', [lbl.fftsp ' ' bodyName]);
     clf; hold on;    box on
     set(gcf,'Position',[ 73         207        1097         337])
     set(gca,'xscale','log','yscale','log','xlim',fftxlims,'ylim',[1e-5 300])
-    text(1.7,40,body_name,'FontSize',40)
+    text(1.7,40,bodyName,'FontSize',40)
     xlabel(lbl.T_hrs);
     ylabel(lbl.Bcomp)
     plot(Periods,Bx,'b',Periods,By,'k',Periods,Bz,'g');
