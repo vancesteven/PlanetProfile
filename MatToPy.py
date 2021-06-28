@@ -34,7 +34,7 @@ def cellto2dlist(inputCell,datatype):
 """
     work in progress conversion things
 def MATtoPyGriddedInterp(gridVectors, values):
-    """
+    
         Helper function for converting MATLAB griddedInterpolant to python scipy.interpolate.RegularGridInterpolator
 
         Parameters
@@ -45,7 +45,7 @@ def MATtoPyGriddedInterp(gridVectors, values):
         Returns
         -------
         out : scipy.interpolate.RegularGridInterpolator
-    """
+    
 
     out = interpolate.RegularGridInterpolator( (gridVectors[0],gridVectors[1]), values )
 
