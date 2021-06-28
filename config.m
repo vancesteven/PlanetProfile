@@ -58,6 +58,7 @@ function cfg = config
     cfg.col_middestSw = cfg.col_Sw(50,:);
     cfg.col_midWarmSw = cfg.col_Sw(75,:);
     cfg.col_warmestSw = cfg.b000ff; %cfg.col_Sw(99,:);
+    cfg.Sw_alt = [  0,175,238]/255;
     
     cfg.col_MgSO4 = cool(133); cfg.col_MgSO4 = cfg.col_MgSO4(34:133,:); % Take top 3/4 of 'cool' colormap
     cfg.col_coldestMgSO4 = 'b'; %cfg.col_MgSO4(1, :);

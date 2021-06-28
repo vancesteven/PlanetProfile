@@ -1,25 +1,35 @@
-%PPEnceladus
-clear
-Planet.name='Enceladus';
-
-Params.cfg = config;
-if Params.cfg.HOLD; clrAllProfiles; end
-
-%% &&& Bulk and surface properties
-Planet.rho_kgm3 = 1610; % Thomas 2010
-Planet.R_m = 252e3; %± 200 Thomas  2010
-Planet.M_kg =1.08022e20; 
-Planet.gsurf_ms2 = 0.113; 
-Planet.Tsurf_K = 75; 
+function PPMiranda
+%PPMiranda
+ % this is the master program, and should be run from its containing
+ % directory
+Planet.name='Miranda';
+Planet.rho_kgm3 = 1200; % Jacobson, R. A.; Campbell, J. K.; Taylor, A. H.; Synnott, S. P. (June 1992). "The masses of Uranus and its major satellites from Voyager tracking data and earth-based Uranian satellite data". The Astronomical Journal. 103 (6): 2068?2078. Bibcode:1992AJ....103.2068J. doi:10.1086/116211.
+Planet.R_m = 235.8e3; %±0.7 Jacobson, R. A.; Campbell, J. K.; Taylor, A. H.; Synnott, S. P. (June 1992). "The masses of Uranus and its major satellites from Voyager tracking data and earth-based Uranian satellite data". The Astronomical Journal. 103 (6): 2068?2078. Bibcode:1992AJ....103.2068J. doi:10.1086/116211.
+Planet.M_kg =0.64e20; %±0.3e19 
+Planet.Tsurf_K = 60; 
 Planet.Psurf_MPa = 0; 
-Planet.Cmeasured = 0.335; % Iess et al. 2014
-Planet.Cuncertainty = 0.001;% 
+Planet.Cmeasured = 0.346; %  Hussmann 2006 (not actually measured)
+Planet.Cuncertainty = 0.03;% 
 Planet.FeCore=false;
     Planet.xFeS = 0.25; %0.25
     Planet.rhoFe = 8000; %8000
     Planet.rhoFeS = 5150; %5150
 % Planet.rho_sil_withcore_kgm3 = 2400; % Iess et al. 2014
 Planet.rho_sil_withcore_kgm3 = 2700; 
+
+%% &&& Orbital and plotting parameters for use in LayeredInductionResponse
+Planet.peaks_Hz = [7.92358e-6 1.58487e-5 2.3772e-5]; % there's a long-period signal of about 5nT at 1000hr, but the corresponding induction amplitudes are too small for this to be very useful.
+Planet.peaks_hr = 1./Planet.peaks_Hz./3600;
+Planet.f_orb = 2*pi/1.413479/24/3600; % radians per second
+Params.wlims = [log(0.001) log(1000)];
+% Get Fourier spectrum data
+% Planet.ionos_bounds = 100e3;
+% Planet.ionosPedersen_sig = 30/100e3;
+Planet.ionos_only = [];
+Planet.PLOT_SIGS = true;
+Planet.ADD_TRANSITION_BOUNDS = false;
+
+load('FTdataMiranda.mat')
 
 % WARNING: The following line was copied from PPCallisto.m because it is
 % required by PlanetProfile.m in the current version and does not appear in
@@ -69,12 +79,30 @@ Seismic.mantleEOS = 'echon_678_1.tab'; Planet.phi_surface = 0.8;%
 
 % % this is the hydrated model described in the paper 2017:
 % Planet.POROUS_ROCK = 0;
-% Seismic.mantleEOS = 'pyrohp_sat_678_1.tab'; % this uses the procedure implemented by F. Cammarano
 Seismic.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab'; % this uses the procedure implemented by F. Cammarano
 
 
+% Seismic.mantleEOS = 'pyrohp_sat_678_1.tab'; %  (3000) this uses the procedure implemented by F. Cammarano; this includes Ks and Gs. I had to rerun perlex (6.6.3). not sure why
+% Seismic.mantleEOSname = 'pyrohpsat';
+
+% Seismic.mantleEOS = 'CV_hhph_DEW17_nofluid_nomelt_685.tab';
+% Seismic.mantleEOSname = 'CV_hhphD17nofluid';
+
+% Seismic.mantleEOS = 'CV_hhph_DEW17_fluid_nomelt_685.tab';
+% Seismic.mantleEOSname = 'CV_hhphD17fluid';
+
+% Seismic.mantleEOS = 'CM_hhph_DEW17_nofluid_nomelt_685.tab';
+% Seismic.mantleEOSname = 'CM_hhphD17nofluid';
+
 % Seismic.mantleEOS = 'CM_hhph_DEW17_fluid_nomelt_685.tab';
-Seismic.mantleEOS = 'CM_hhph_DEW17_nofluid_nomelt_685.tab';
+% Seismic.mantleEOSname = 'CM_hhphD17fluid';
+
+Seismic.mantleEOS = 'CI_hhph_DEW17_nofluid_nomelt_685.tab';
+Seismic.mantleEOSname = 'CI_hhphD17nofluid';
+
+% Seismic.mantleEOS = 'CI_hhph_DEW17_fluid_nomelt_685.tab';
+% Seismic.mantleEOSname = 'CI_hhphD17fluid';
+
 
 % Seismic.mantleEOS = 'echonhp_sat_1.tab'; % this uses the procedure implemented by F. Cammarano
 
@@ -105,65 +133,41 @@ Seismic.gamma_aniso_mantle = 0.2;
 Seismic.g_aniso_mantle = 30; %C2006
 
 %% Model Parameters
+Params.savefigformat = 'epsc';
 Params.foursubplots =1;
+Params.HOLD = 0; % overlay previous run
 Params.Legend = false;
 Params.LegendPosition = 'North';
 Params.ylim = [910 1170];
-Params.Pseafloor_MPa = 10;
+Params.Pseafloor_MPa = 20;
 Params.nsteps_iceI = 20;
 Params.nsteps_ocean = 100; 
 Params.nsteps_ref_rho = 30;
 Params.nsteps_mantle = 1500;
 Params.nsteps_core = 100;
 Params.Temps = [245 250 252.5 255 260 265 270];
+Params.NOPLOTS = 0; %allows user to limit recreating plots & figures after each run
 
 
 %% Run the Calculation!
 % Planet.Ocean.w_ocean_pct=10;Planet.Tb_K = [272.8 272.9 273 273.1]; % pure water, temperatures at the bottom of the Ice Ih
-% outPlanet = PlanetProfile(Planet,Seismic,Params);
+% PlanetProfile(Planet,Seismic,Params)
 % 
 % 
-% Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [273.1 273.15]; % pure water, temperatures at the bottom of the Ice Ih
-% outPlanet = PlanetProfile(Planet,Seismic,Params);
-% 
-% 
-Planet.Ocean.comp='MgSO4';
-load L_Ice_MgSO4.mat
-Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
-Params.LineStyle='--';
-Params.colororder = 'cm';
-Params.wrefLine = '--';
-Params.wref=[0 5 10 15];
-% 
-Planet.Ocean.w_ocean_pct=5; Planet.Tb_K = [272.72 273.12];
-%outPlanet = PlanetProfile(Planet,Seismic,Params);
-
 % running pure water for the MgSO4 case illustrates >1oC error in the Margules parameterization
 Params.LineStyle='-';
 Params.colororder = 'cm';
-Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [273.1 273.15]; % pure water, 
+Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [273.15]; % pure water, 
+% PlanetProfile(Planet,Seismic,Params)
+% 
+Planet.Ocean.comp='Seawater';
+Params.LineStyle='-.';
+Params.wref=[0 34 68];
+Params.wrefLine = '-.';
+Params.colororder = 'cm';
+
+Planet.ALLOW_NEGALPHA = 0;
+
+Planet.Ocean.w_ocean_pct=3.5; Planet.Tb_K = [272.709];
 outPlanet = PlanetProfile(Planet,Seismic,Params);
-% 
-% Planet.Ocean.comp='Seawater';
-% Params.LineStyle='-.';
-% Params.wref=[0 34 68];
-% Params.wrefLine = '-.';
-% Params.colororder = 'cm';
-% 
-% Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [270.82  271.16];
-% outPlanet = PlanetProfile(Planet,Seismic,Params);
-
-% Params.LineStyle='-';
-% Params.colororder = 'cm';
-% Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [272.74 273.08]; % pure water, 
-% outPlanet = PlanetProfile(Planet,Seismic,Params);
-
-Params.wrefLine =  ':';
-Params.wref=[3 5 10];
-Planet.Ocean.comp='NH3';
-load L_IceNH3_DATA.mat
-Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
-
-Params.LineStyle =  ':';
-Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [269.535 269.905]; % 0 Wt% temperatures at the bottom of the Ice Ih
-%outPlanet = PlanetProfile(Planet,Seismic,Params);
+outWaveforms = LayeredInductionResponse(outPlanet,FTdata,Params);

@@ -31,7 +31,7 @@ else
     cfg = Params.cfg;
 end
 
-if isfield(Params,'TauP');
+if isfield(Params,'TauP')
     try exist('taupcreate')
         disp ('Taup Model file  will be created. Curve will be plotted. Please use TauP (https://www.seis.sc.edu/taup/) for full functionality')
     catch
@@ -1533,7 +1533,6 @@ for iT = nTbs:-1:1  % Do this loop in decreasing order to avoid preallocating po
     Kappa_rough = 1e-6;
     nu_mantle = 1e21; % mantle viscosity in Pa S, a common number for Earth?s mantle
     DeltaT = 800; % temperature differential in K
-
     
     % cold case
     if Planet.FeCore
@@ -1544,7 +1543,8 @@ for iT = nTbs:-1:1  % Do this loop in decreasing order to avoid preallocating po
         Tmantle_K = conductiveMantleTemperature(r_mantle_m,0,R_sil_mean_m(iT),Planet.kr_mantle,rho_sil_kgm3(iT,C2mean(iT)),Tmantle_K,MantleHeat,0);
         MantleMass = 4/3*pi*(R_sil_mean_m(iT)^3);
         Dm = R_sil_mean_m(iT);
-    end
+    end    
+    
     Ra_mantle = g_ms2_sil(1)*rhom_rough*alpha_rough*MantleHeat/MantleMass*Dm^5/nu_mantle/Kappa_rough^2/Cp_rough; % bunge 1997
     % parmentier and sotin 1994
     Ra_mantle = alpha_rough*rhom_rough*g_ms2_sil(1)*DeltaT*Dm^3/Kappa_rough/nu_mantle;% as per Hussmann and Spohn 2004
@@ -2358,11 +2358,11 @@ if ~cfg.SKIP_PROFILES
     end
         hold on
     for iT = 1:nTbs
-        line(T_K(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),...
+        line(T_K(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),...
             'LineWidth',cfg.LW_seism,'LineStyle',LineStyle);
-        hm = line(T_K(iT,indSil(iT)),z_m(iT,indSil(iT))*1e-3,'Color',Params.colororder(iT),'Marker','o');
+        hm = line(T_K(iT,indSil(iT)),z_m(iT,indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'Marker','o');
         if strcmp(LineStyle,'-')
-            hm.MarkerFaceColor=Params.colororder(iT);
+            hm.MarkerFaceColor=Params.colororder(:,iT);
         end
     end
     if Params.HOLD
@@ -2382,7 +2382,7 @@ if ~cfg.SKIP_PROFILES
     xlabel('Temperature (K)','Fontsize',lbl.mltext);
     ylabel('Depth (km)','Fontsize',lbl.mltext);
     % for iT=1:nTbs
-    %     hline(Dsil_km(iT),Params.colororder(iT));
+    %     hline(Dsil_km(iT),Params.colororder(:,iT));
     % end
     box on;
 
@@ -2397,7 +2397,7 @@ if ~cfg.SKIP_PROFILES
     % Triton models. May 4 2020. I think the problem is the model I'm running
     % doesn't have any liquid. yep.
     for iT = 1:nTbs
-        hp(iT) =  line(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)),z_m(iT,Params.nsteps_iceI+1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
+        hp(iT) =  line(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)),z_m(iT,Params.nsteps_iceI+1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
         maxV(iT) = max(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)));
         minV(iT) = min(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)));
     end
@@ -2434,12 +2434,12 @@ if ~cfg.SKIP_PROFILES
 
     hold on;
     for iT = 1:nTbs
-        line(velsIce.VIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
-        line(velsIce.VIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
-        line(velsIce.VIIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
-        line(velsIce.VVt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
-        line(velsIce.VVIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
-           line(velsIce.Vclatht_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VIIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VVt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VVIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
+           line(velsIce.Vclatht_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
        maxV(iT) = max([velsIce.VIt_kms(iT,1:indSil(iT)) ...
             velsIce.VIIt_kms(iT,1:indSil(iT)) ...
             velsIce.Vclatht_kms(iT,1:indSil(iT))...
@@ -2484,11 +2484,11 @@ if ~cfg.SKIP_PROFILES
     end
     hold on;
     for iT = 1:nTbs
-        line(velsIce.VIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
-        line(velsIce.VIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
-        line(velsIce.VIIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
-        line(velsIce.VVl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
-         line(velsIce.Vclathl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VIIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VVl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
+         line(velsIce.Vclathl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_sound);
     
     maxV(iT) = max([velsIce.VIl_kms(iT,1:indSil(iT)) ...
             velsIce.Vclathl_kms(iT,1:indSil(iT)) ...
@@ -2572,20 +2572,20 @@ if ~cfg.SKIP_PROFILES
             case 'MgSO4'
                 for iT = 1:nTbs
                     line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,...
-                        'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_std);
+                        'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_std);
                     mink_val(iT) = min(k_S_m(iT,1:indSil(iT)));
                     maxk_val(iT) = max(k_S_m(iT,1:indSil(iT)));
                 end
             case 'Seawater'
                 for iT = 1:nTbs
-                    line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),...
+                    line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),...
                         'LineStyle',LineStyle,'LineWidth',cfg.LW_std);
                     mink_val(iT) = min(k_S_m(iT,1:indSil(iT)));
                     maxk_val(iT) = max(k_S_m(iT,1:indSil(iT)));
                 end
             case 'NH3'
                 for iT = 1:nTbs
-    %                     line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_std);
+    %                     line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_std);
                     mink_val(iT) = NaN;
                     maxk_val(iT) = NaN;
                 end
@@ -2636,11 +2636,11 @@ if ~cfg.SKIP_PROFILES
     R2ind = C2mean+npre; % map the index for R_sil_mean back to the indices for P, D, r_m, z_m, etc...
     Psil_MPa = diag(P_MPa(:,R2ind(:)));
     for iT=1:nTbs
-        ht(iT)= plot(P_MPa(iT,1:indSil(iT)),rho_kgm3(iT,1:indSil(iT)),Params.colororder(iT),...
+        ht(iT)= plot(P_MPa(iT,1:indSil(iT)),rho_kgm3(iT,1:indSil(iT)),'Color',Params.colororder(:,iT),...
             'LineWidth',cfg.LW_std,'LineStyle',LineStyle);
-        hm = plot(Psil_MPa(iT),interp1(P_MPa(iT,1:end-2),rho_kgm3(iT,1:end-2),Psil_MPa(iT)),[Params.colororder(iT) 'o']);
+        hm = plot(Psil_MPa(iT),interp1(P_MPa(iT,1:end-2),rho_kgm3(iT,1:end-2),Psil_MPa(iT)),'Color',Params.colororder(:,iT));
         if ~Params.HOLD
-            hm.MarkerFaceColor=Params.colororder(iT);
+            hm.MarkerFaceColor=Params.colororder(:,iT);
         end
     end
 
@@ -2687,24 +2687,24 @@ if ~cfg.SKIP_PROFILES
     Dsil_km=(R_Planet_m-R_sil_mean_m(:))*1e-3;
 
     for iT = 1:nTbs
-        hp(iT) =  line(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)),z_m(iT,Params.nsteps_iceI+1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        line(velsIce.VIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        line(velsIce.VIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        line(velsIce.VIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        line(velsIce.VIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        line(velsIce.VIIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        line(velsIce.VIIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        line(velsIce.VVl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        line(velsIce.VVt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        line(velsIce.VVIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        line(velsIce.VVIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-     line(velsIce.Vclathl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',SoundLineWidth);
-    line(velsIce.Vclatht_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','-.','LineWidth',SoundLineWidth);
+        hp(iT) =  line(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)),z_m(iT,Params.nsteps_iceI+1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VIIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VIIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VVl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VVt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VVIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VVIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
+     line(velsIce.Vclathl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',SoundLineWidth);
+    line(velsIce.Vclatht_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',SoundLineWidth);
 
     end
     for iT = 1:nTbs
         if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
-            line(k_S_mMgSO4p01Planet(iT,1:indSil(iT))*25,z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineStyle','--','LineWidth',cfg.LW_seism);
+            line(k_S_mMgSO4p01Planet(iT,1:indSil(iT))*25,z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','--','LineWidth',cfg.LW_seism);
         end
     end
     set(gca,'ydir','reverse','xlim',[0 5],'ylim',[0 maxScale*max(Dsil_km)]);%,'xlim',[1 4]);
@@ -2751,16 +2751,16 @@ if ~cfg.SKIP_PROFILES
         'Color','none');
 
     for iT = 1:nTbs
-        line(ax2,T_K(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(iT),'LineWidth',cfg.LW_seism);
-        hm = line(T_K(iT,indSil(iT)),z_m(iT,indSil(iT))*1e-3,'Color',Params.colororder(iT),'Marker','o');
-        hm.MarkerFaceColor=Params.colororder(iT);
+        line(ax2,T_K(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineWidth',cfg.LW_seism);
+        hm = line(T_K(iT,indSil(iT)),z_m(iT,indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'Marker','o');
+        hm.MarkerFaceColor=Params.colororder(:,iT);
     end
 
     set(gca,'ydir','reverse','xlim',[245 320],'ylim',[0 maxScale*max(Dsil_km)]);
     xlabel('Temperature (K)','Fontsize',lbl.mltext);
     ylabel('Depth (km)','Fontsize',lbl.mltext);
     % for iT=1:nTbs
-    %     hline(Dsil_km(iT),Params.colororder(iT));
+    %     hline(Dsil_km(iT),Params.colororder(:,iT));
     % end
     box on;
 
@@ -2769,9 +2769,9 @@ if ~cfg.SKIP_PROFILES
     R2ind = C2mean+npre; % map the index for R_sil_mean back to the indices for P, D, r_m, z_m, etc...
     Psil_MPa = diag(P_MPa(:,R2ind(:)));
     for iT=1:nTbs
-        ht(iT)=  plot(P_MPa(iT,1:indSil(iT)),rho_kgm3(iT,1:indSil(iT)),Params.colororder(iT),'LineWidth',cfg.LW_seism);
-        hm = plot(Psil_MPa(iT),interp1(P_MPa(iT,:),rho_kgm3(iT,:),Psil_MPa(iT)),[Params.colororder(iT) 'o']);
-        hm.MarkerFaceColor=Params.colororder(iT);
+        ht(iT)=  plot(P_MPa(iT,1:indSil(iT)),rho_kgm3(iT,1:indSil(iT)),'Color',Params.colororder(:,iT),'LineWidth',cfg.LW_seism);
+        hm = plot(Psil_MPa(iT),interp1(P_MPa(iT,:),rho_kgm3(iT,:),Psil_MPa(iT)),'Color',Params.colororder(:,iT));
+        hm.MarkerFaceColor=Params.colororder(:,iT);
     end
 
     hw(1) = plot(Pref_MPa,rho_ref_kgm3(1,:),'k--');
@@ -2800,17 +2800,17 @@ if ~cfg.SKIP_PROFILES
     %
     % % add the sound speeds
     % for iT = 1:nTbs
-    %     line(P_MPa(iT,:),vfluid_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-    %     line(P_MPa(iT,:),velsIce.VIl_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-    %     line(P_MPa(iT,:),velsIce.VIt_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-    %     line(P_MPa(iT,:),velsIce.VIIl_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-    %     line(P_MPa(iT,:),velsIce.VIIt_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-    %     line(P_MPa(iT,:),velsIce.VIIIl_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-    %     line(P_MPa(iT,:),velsIce.VIIIt_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-    %     line(P_MPa(iT,:),velsIce.VVl_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-    %     line(P_MPa(iT,:),velsIce.VVt_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-    %     line(P_MPa(iT,:),velsIce.VVIl_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-    %     line(P_MPa(iT,:),velsIce.VVIt_kms(iT,:),'Color',Params.colororder(iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+    %     line(P_MPa(iT,:),vfluid_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+    %     line(P_MPa(iT,:),velsIce.VIl_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+    %     line(P_MPa(iT,:),velsIce.VIt_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+    %     line(P_MPa(iT,:),velsIce.VIIl_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+    %     line(P_MPa(iT,:),velsIce.VIIt_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+    %     line(P_MPa(iT,:),velsIce.VIIIl_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+    %     line(P_MPa(iT,:),velsIce.VIIIt_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+    %     line(P_MPa(iT,:),velsIce.VVl_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+    %     line(P_MPa(iT,:),velsIce.VVt_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+    %     line(P_MPa(iT,:),velsIce.VVIl_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+    %     line(P_MPa(iT,:),velsIce.VVIt_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
     % end
     % set(ax(2),'ylim',[1.5 5])
     % set(ax(2),'xlim',[0 1800])
@@ -2838,8 +2838,8 @@ if ~cfg.SKIP_PROFILES
     hold on
     for iT = 1:nTbs
         hp = plot(gp(iT),R_sil_mean_m*1e-3,'o');
-        set(hl(iT),'LineWidth',cfg.LW_seism,'LineStyle',LineStyle,'Color',Params.colororder(iT));
-        set(hp,'Color',Params.colororder(iT));
+        set(hl(iT),'LineWidth',cfg.LW_seism,'LineStyle',LineStyle,'Color',Params.colororder(:,iT));
+        set(hp,'Color',Params.colororder(:,iT));
     end
     xlabel('g (m s^{-2})','Fontsize',lbl.mltext)
     ylabel('R (km)','Fontsize',lbl.mltext)
@@ -2851,7 +2851,7 @@ if ~cfg.SKIP_PROFILES
     end
     hl = plot(P_Planet_MPa',r_Planet_m'*1e-3);
     for iT = 1:nTbs
-        set(hl(iT),'LineWidth',cfg.LW_seism,'LineStyle',LineStyle,'Color',Params.colororder(iT));
+        set(hl(iT),'LineWidth',cfg.LW_seism,'LineStyle',LineStyle,'Color',Params.colororder(:,iT));
     end
 
      xlabel('Pressure (MPa)','Fontsize',lbl.mltext)
@@ -2866,7 +2866,7 @@ if ~cfg.SKIP_PROFILES
     % hold all;
     % clear ht hw
     % for iT=1:nTbs
-    %     ht(iT)=  plot(P_MPa(iT,:),T_K(iT,:),Params.colororder(iT));
+    %     ht(iT)=  plot(P_MPa(iT,:),T_K(iT,:),Params.colororder(:,iT));
     % end
     % for iw = 1:length(Tref_K(:,1))
     %     hw(iw) = plot(Pref_MPa,Tref_K(iw,:),'k--');
@@ -3342,5 +3342,3 @@ catch
 end
 t_model=taup_model;
 end
-     
- 
