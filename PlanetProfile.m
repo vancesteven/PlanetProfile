@@ -1211,12 +1211,17 @@ end
 nsteps_tot = Params.nsteps_core + nsteps_mantle(1) + indSil(1)-1;
 iceSig = 1e-16;
 mantleSig = 1e-16;
-coreSig = 1e-16;
+if ~isfield(Planet, 'coreSig')
+    coreSig = 1e-16;
+else
+    coreSig = Planet.coreSig;
+end
 
 if ~Planet.FeCore; nsteps_tot = nsteps_tot - Params.nsteps_core; end
 [r_Planet_m, sig] = deal(zeros(nTbs,nsteps_tot));
 [ocean_thk, ind_Ih, ind_Obot, kmean, ktop] = deal(zeros(1,nTbs));
 Planet.ice_thk = strings(1,nTbs);
+totL = size(r_Planet_m,2);
 for iT=1:nTbs
     % Grab the indices for the ices, but only for the portion of the
     % interior calculation above the silicate interface
@@ -1234,31 +1239,77 @@ for iT=1:nTbs
     sig(iT,indsV) = iceSig;
     sig(iT,indsVI) = iceSig;
     sig(iT,indSil(iT):indSil(iT)+nsteps_mantle(iT)-1) = mantleSig;
-    r_mantle_m = linspace(R_sil_mean_m(iT),R_Fe_mean_m(iT),nsteps_mantle(iT));
     if Planet.FeCore
+        R_sil_bot = R_Fe_mean_m(iT) - (R_Fe_mean_m(iT) - R_sil_mean_m(iT))/(nsteps_mantle(iT)-1);
+        r_mantle_m = linspace(R_sil_mean_m(iT),R_sil_bot,nsteps_mantle(iT));
         sig(iT,(nsteps_tot - Params.nsteps_core):end) = coreSig;
         r_Planet_m(iT,:) = [r_m(iT,1:indSil(iT)-1) r_mantle_m r_core_m(iT,:)];
     else
+        r_mantle_m = linspace(R_sil_mean_m(iT),0,nsteps_mantle(iT));
         r_Planet_m(iT,:) = [r_m(iT,1:indSil(iT)-1) r_mantle_m];
     end
     sig(sig==0) = 1e-16; % zeros make the integration unstable
     sig(isnan(sig)) = 1e-16;
 
     ocean_thk(iT) = r_Planet_m(iT,indsLiquid(1)) - r_Planet_m(iT,indsLiquid(end)+1);
+    disp(['Ocean thickness: ' num2str(ocean_thk(iT)*1e-3,'%0.1f km')])
     if ~isempty(indsI)
         ind_Ih(iT) = indsI(end);
     else
         ind_Ih(iT) = indsSurf(end);
     end
     ind_Obot(iT) = indsLiquid(end);
-    kmean(iT) = mean(sig(iT,ind_Obot(iT):ind_Ih(iT)));
-    ktop(iT) = sig(ind_Ih(iT));
+    kmean(iT) = mean(sig(iT,ind_Ih(iT)+1:ind_Obot(iT)));
+    ktop(iT) = sig(ind_Ih(iT)+1);
+    
+    
+    %% Interpolate fewer ocean layers to reduce computational load
+    if cfg.REDUCED
+        nIntL = cfg.nIntL;
+        ocStart = totL - indsLiquid(end) + 1;
+        ocEnd = totL - indsLiquid(1) + 1;
+        nOis = length(indsLiquid);
+        interpBds = zeros(1,length(r_Planet_m(iT,:)) - nOis + nIntL);
+        interpSig = zeros(1,length(r_Planet_m(iT,:)) - nOis + nIntL);
+
+        r_asc = flip(r_Planet_m(iT,:),2);
+        sig_asc = flip(sig(iT,:),2);
+
+        % Preserve non-ocean conductivities as-is
+        interpBds(1:ocStart) = r_asc(1:ocStart);
+        interpBds(ocStart+nIntL:end) = r_asc(ocEnd+1:end);
+        interpSig(1:ocStart-1) = sig_asc(1:ocStart-1);
+        interpSig(ocStart+nIntL:end) = sig_asc(ocEnd+1:end);
+        if nOis == ocEnd - ocStart + 1
+            % Single ocean layer, simple layer averages
+            fullOcean = linspace(r_asc(ocStart),r_asc(ocEnd+1),nIntL+1);
+            interpBds(ocStart:ocStart+nIntL-1) = fullOcean(2:end);
+            fullSigs = zeros(1,nIntL);
+            for iR = 1:nIntL
+                avg_start = floor((iR-1)*nOis/nIntL);
+                avg_end = floor(iR*nOis/nIntL) - 1;
+                fullSigs(iR) = mean(sig_asc(ocStart+avg_start:ocStart+avg_end));
+            end
+            interpSig(ocStart:ocStart+nIntL-1) = fullSigs;
+        else
+            % Multiple ocean layers
+            warning('WARNING: Multiple ocean layers found. Interpolate by hand.')
+        end
+
+        % Now pad interpolated arrays to make Planet fields consistent lengths
+        padL = totL - length(interpBds);
+        padSig = zeros(1,padL) + 1e-16;
+        padBds = linspace(interpBds(end)-(padL+1)*1e-5, interpBds(end)-1e-5, padL);
+        Planet.boundaries(iT,:) = [interpBds(1:end-1) padBds interpBds(end)];
+        Planet.sig(iT,:) = [interpSig(1:end-1) padSig interpSig(end)];
+    else
+        Planet.boundaries(iT,:) = flip(r_Planet_m(iT,:),2);
+        Planet.sig(iT,:) = flip(sig(iT,:),2);
+    end
 end
 
-Planet.boundaries = flip(r_Planet_m,2);
-Planet.sig = flip(sig,2);
-Planet.kmean = kmean(:);
-Planet.ktop = ktop(:);
+Planet.kmean(iT,:) = kmean(:);
+Planet.ktop(iT,:) = ktop(:);
 
 Planet.D_Ih_km = Planet.Zb2(:)/1e3;
 Planet.D_ocean_km = ocean_thk(:)/1e3;
@@ -2245,9 +2296,12 @@ for iT = 1:nTbs
 end
 
 % Add conductivities and boundaries to Planet for usage in
-% LayeredInductionResponse
-Planet.sig = flip(k_S_mPlanet,2);
-Planet.boundaries = flip(r_Planet_m,2);
+% LayeredInductionResponse (but don't overwrite if we did something
+% special with cfg.REDUCED)
+if ~cfg.REDUCED
+    Planet.sig = flip(k_S_mPlanet,2);
+    Planet.boundaries = flip(r_Planet_m,2);
+end
 
 % We now have everything we need if we just want to do layered
 % induction calculations.
