@@ -20,6 +20,7 @@ function cfg = config
     cfg.DO_EUR = 1;
     cfg.DO_GAN = 1;
     cfg.DO_CAL = 1;
+    cfg.DO_ENC = 1;
     cfg.DO_MIR = 1;
     cfg.DO_ARI = 0;
     cfg.DO_PER = 1; % Convert frequency axes to periods
