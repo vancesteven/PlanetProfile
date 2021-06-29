@@ -1,10 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def MantlePlot( rho_sil_kgm3 , R_sil_m , C2inds , Planet:dict , nTbs , wo , saveStr , lw = 1 , show=True):
+def MantlePlot( rho_sil_kgm3 , R_sil_m , C2inds , Planet:dict , nTbs , wo , saveStr , lw = 1 , show=False):
     """
-        Shows and saves a plot of density vs. radius in the mantle
-        as implemented in PlanetProfile.m line ~1050 (as of 06/25/2021)
+        Shows and saves a plot of density vs. radius in the mantle as implemented in PlanetProfile.m line ~1050 (as of 06/25/2021)
 
         Parameters:
         -----------
@@ -53,4 +52,5 @@ def MantlePlot( rho_sil_kgm3 , R_sil_m , C2inds , Planet:dict , nTbs , wo , save
     plt.savefig(saveStr)
 
     if show:
+        plt.ion() # turns on interactive mode, allowing execution to continue while plot is shown
         plt.show()
