@@ -100,7 +100,7 @@ if ~cfg.SKIP_PROFILES
         [~] = getLayeredFigRefs(lbl, Planet.Tb_K, Planet.name, Planet.PLOT_SIGS, cfg.HOLD, cfg.NO_PLOTS);
     end
     
-end % ~cfg.SKIP_PROxFILES
+end % ~cfg.SKIP_PROFILES
 
 %% globals for functions in fzero
 global M_Planet_kg R_Planet_m extrapflag
@@ -1024,6 +1024,36 @@ if ~Planet.FeCore
 %     ~dindsV)-zI_m(~dindsVI & ~dindsV); not sure this is right. commenting
 %     out on March 8 2018
 
+    mantleSizePath = [Planet.name '/' savebase vmant '.csv'];
+    if cfg.CALC_NEW
+        mantleSizeTable = table(R_sil_m(iT,C2inds{iT})',rho_sil_kgm3(iT,C2inds{iT})');
+        mantleSizeTable.Properties.VariableNames = {'Radius (m)', 'Layer density (kg/m^3)'};
+        writetable(mantleSizeTable,mantleSizePath);
+        
+        % The following are two examples of how to write out this data in python:
+        
+        % Example 1: Great control
+        %fout = open(mantleSizePath, "w")
+        %mantleSizeHeader = "{:<24}, {:<24}\n".format("Radius (m),", "Layer density (kg/m^3)")
+        %fout.write(mantleSizeHeader)
+        %for i in range(len(C2inds[iT])):
+        %    fout.write( "{:<24}, {:<24}\n".format(round(R_sil_m(iT,C2inds[iT]),8), round(rho_sil_kgm3(iT,C2inds[iT]),8))) )
+        %fout.close()
+        
+        % Example 2: Simplicity
+        %mantleSizeHeader = "{:>22}, {:>23}".format("Radius (m)", "Layer density (kg/m^3)")
+        %np.savetxt(mantleSizePath, np.array(R_sil_m(iT,C2inds[iT]),rho_sil_kgm3(iT,C2inds[iT])).T, header=mantleSizeHeader, delimiter=",", fmt="%24.8f")
+    else
+        mantleSizeTable = readtable(mantleSizePath);
+        R_sil_m(iT,C2inds{iT}) = mantleSizeTable.('Radius (m)')';
+        rho_sil_kgm3(iT,C2inds{iT}) = mantleSizeTable.('Layer density (kg/m^3)')';
+        
+        % The following is an example of how to read in this data in python:
+        %mantleSizeR, mantleSizeRho = py.numpy.loadtxt(mantleSizePath, skiprows=1, unpack=True, delimiter=",")
+        %R_sil_m(iT,C2inds{iT}) = mantleSizeR
+        %rho_sil_kgm3(iT,C2inds{iT}) = mantleSizeRho
+    end
+    
     if ~cfg.SKIP_PROFILES
         % Plot the results
         set(0, 'CurrentFigure', figs.mant);
