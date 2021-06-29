@@ -145,6 +145,15 @@ Params.wrefLine = '--';
 
 Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
 outPlanet = PlanetProfile(Planet,Seismic,Params);
+
+asymTables = printInteriorAsym(outPlanet);
+fpath_asym = [Planet.name '/interior_model_asym_' Planet.name];
+for iT=1:length(Planet.Tb_K)
+    fullPath = [fpath_asym 'Zb' char(outPlanet.ice_thk(iT)) 'km.txt'];
+    writetable(asymTables{iT},fullPath);
+    disp(['Interior conductivity model saved to ' fullPath])
+end
+
 outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 
 Params.LineStyle=':';
