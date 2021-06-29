@@ -12,6 +12,7 @@ function cfg = config
     cfg.NO_PLOTS =       0;
     cfg.HOLD =           1; % Whether to overlay runs when possible
     cfg.CONDUCT =        1; % Calculate electrical conductivity
+    cfg.REDUCED =        1; % Whether to limit number of ocean layers for faster computation of layered induction
     cfg.DISP_LAYERS =    0; % Whether to display layer depths and heat fluxes for user
     cfg.DISP_TABLES =    0; % Whether to print latex-formatted tables to Matlab command line
     cfg.DEPRECATED =     0; % Whether to allow deprecated code to run. Will often cause errors.
@@ -20,6 +21,9 @@ function cfg = config
     cfg.DO_EUR = 1;
     cfg.DO_GAN = 1;
     cfg.DO_CAL = 1;
+    cfg.DO_ENC = 1;
+    cfg.DO_MIR = 1;
+    cfg.DO_ARI = 1;
     cfg.DO_PER = 1; % Convert frequency axes to periods
     cfg.DO_LEGEND = 1;
     cfg.PLOT_FFT = 1; % Whether to show plots of fourier space
@@ -31,6 +35,7 @@ function cfg = config
     cfg.np_intp = 200;
     cfg.npts_w = 100;
     cfg.np_wfine = 1000;
+    cfg.nIntL = 3; % Number of ocean layers to use when cfg.REDUCED = 1
     cfg.opts_odeParams = odeset('RelTol',1e-10,'AbsTol',1e-10,'MaxStep', 2e3,'InitialStep',1e-2);
     cfg.opts_odeLayers = odeset('RelTol',1e-8, 'AbsTol',1e-10,'MaxStep',10e3,'InitialStep',1e-2);
     
@@ -58,6 +63,7 @@ function cfg = config
     cfg.col_middestSw = cfg.col_Sw(50,:);
     cfg.col_midWarmSw = cfg.col_Sw(75,:);
     cfg.col_warmestSw = cfg.b000ff; %cfg.col_Sw(99,:);
+    cfg.Sw_alt = [  0,175,238]/255;
     
     cfg.col_MgSO4 = cool(133); cfg.col_MgSO4 = cfg.col_MgSO4(34:133,:); % Take top 3/4 of 'cool' colormap
     cfg.col_coldestMgSO4 = 'b'; %cfg.col_MgSO4(1, :);
