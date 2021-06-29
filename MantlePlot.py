@@ -11,22 +11,26 @@ def MantlePlot( rho_sil_kgm3 , R_sil_m , C2inds , Planet:dict , nTbs , wo , save
         rho_sil_kgm3 : 2d float numpy array of size (n,m,)
             densities of mantle [kg/m^3]
         R_sil_m : 2d float numpy array of size (n,m,)
-            radii in mantle [m]
-        C2inds : 2d numpy array of integers of size (n,p)
-            chooses indices used for display in plot
+            radii of silicate layer [m]
+        C2inds : 2d int numpy array of size (n,p,)
+            chooses indices used for display in plot (determined by constraints on C/MR2)
         Planet : dictionary with keys Tb_K,Cmeasured, and Cuncerainty
             Planet["Tb_K"] : float list
-                temperatures model is being made at
+                temperatures that the model is being made at
             Planet["Cmeasured"] : float
                 moment of inetria about polar axis, normalized to MR^2
             Planet["Cuncertainty"] : float
                 uncertainty in 'Cmeasured'
-        nTbs : int = n
+        nTbs : int
             number of temperature profiles = n (length of Tb_K)
         wo : float
-            percent concentration of salt in ocean
+            percent concentration of solute in ocean
+        saveStr : string
+            save location of plot file
         lw : float (optional)
             width of lines in plot
+        show : boolean (optional)
+            determines whether plot should be shown upon execution
     """
 
     Tb_K = Planet["Tb_K"]
