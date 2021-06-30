@@ -1079,7 +1079,7 @@ if ~Planet.FeCore
         Planet_py = py.dict(struct('Tb_K',Planet.Tb_K,'Cmeasured',Planet.Cmeasured,'Cuncertainty',Planet.Cuncertainty));
         C2inds_py = PPPy.MatToPy.cellto2dlist(C2inds,"int");
         
-        PPPy.MantlePlot(rho_sil_kgm3_py,R_sil_m_py,C2inds_py,Planet_py,int16(nTbs),int16(wo),[figpath savebase vmant 'PY' cfg.xtn])
+        PPPy.MantleSizePlot(rho_sil_kgm3_py,R_sil_m_py,C2inds_py,Planet_py,int16(nTbs),int16(wo),[figpath savebase vmant 'PY' cfg.xtn])
     end
 % =====
 else % WITH A CORE
@@ -1135,7 +1135,7 @@ else % WITH A CORE
         R_sil_m_py = py.numpy.asarray(R_sil_m);
         Planet_py = struct('Tb_K',Planet.Tb_K,'Cmeasured',Planet.Cmeasured,'Cuncertainty',Planet.Cuncertainty,'rho_sil_withcore_kgm3',Planet.rho_sil_withcore_kgm3);
         
-        PPPy.CorePlot( R_Fe_m_py , R_sil_m_py , PPPy.MatToPy.cellto2dlist(C2inds,"int") , Planet_py , rho_Fe_kgm3 , int16(nTbs) , int16(wo) , [figpath savebase vcore 'PY' cfg.xtn])
+        PPPy.CoreSizePlot( R_Fe_m_py , R_sil_m_py , PPPy.MatToPy.cellto2dlist(C2inds,"int") , Planet_py , rho_Fe_kgm3 , int16(nTbs) , int16(wo) , [figpath savebase vcore 'PY' cfg.xtn])
     end
 end
 
