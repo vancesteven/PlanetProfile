@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import config as cfg
 
-def MantleSizePlot( rho_sil_kgm3 , R_sil_m , C2inds , Planet:dict , nTbs , wo , fpath , lw = 1 , show=True):
+def MantleSizePlot( rho_sil_kgm3 , R_sil_m , Planet:dict , nTbs , fpath , lw=1 , show=True):
     """
         Shows and saves a plot of density vs. radius in the mantle
         as implemented in PlanetProfile.m line ~1050 (as of 06/25/2021)
@@ -33,15 +34,16 @@ def MantleSizePlot( rho_sil_kgm3 , R_sil_m , C2inds , Planet:dict , nTbs , wo , 
             determines whether plot should be shown upon execution
     """
 
-    Tb_K = Planet["Tb_K"]
-    Cmeasured = Planet["Cmeasured"]
-    Cuncertainty = Planet["Cuncertainty"]
+    Tb_K = [thisPlanet["Tb_K"] for thisPlanet in Planet]
+    Cmeasured = [thisPlanet["Cmeasured"] for thisPlanet in Planet]
+    Cuncertainty = [thisPlanet["Cuncertainty"] for thisPlanet in Planet]
+    wo = [thisPlanet["w_ocean_pct"] for thisPlanet in Planet]
 
     # technically, C2inds should have values subtracted by 1
     # due to difference in MATLAB and python indexing
     lstr_3 = []
     for iT in range(nTbs):
-        plt.plot(rho_sil_kgm3[iT,C2inds[iT]] , R_sil_m[iT,C2inds[iT]]*1e-3 , linewidth = lw)
+        plt.plot(rho_sil_kgm3[iT,:] , R_sil_m[iT,:]*1e-3 , linewidth = lw)
         lstr_3.append( f"$T_{{b}}$: {Tb_K[iT]:0.1f} K" )
 
     plt.legend(lstr_3)
@@ -50,7 +52,7 @@ def MantleSizePlot( rho_sil_kgm3 , R_sil_m , C2inds , Planet:dict , nTbs , wo , 
     plt.ylabel("$R_{\\mathrm{sil}} \\, (\\mathrm{km})$")
     plt.title(f"No Fe core ; $C/MR^2 = {Cmeasured} \\pm {Cuncertainty}$ ; $ W = {wo} \\, wt \\%$ ")
 
-    plt.savefig(fpath)
+    plt.savefig(fpath+cfg.xtn)
 
     if show:
         plt.show()
