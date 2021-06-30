@@ -1,8 +1,8 @@
 import numpy as np
 #from Thermodynamics.FromLiterature.conductiveMantleTemperature import conductiveMantleTemperature
 #from Thermodynamics.FromLiterature.ConvectionDeschampsSotin2001 import ConvectionDeschampsSotin2001
-from MantlePlot import MantlePlot
-from CorePlot import CorePlot
+from MantleSizePlot import MantleSizePlot
+from CoreSizePlot import CoreSizePlot
 import MatToPy
 
 def writeProfile(path,saveStr,header,data):

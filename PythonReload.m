@@ -13,10 +13,10 @@ py.importlib.reload(pylib);
 %pylib = py.importlib.import_module('Thermodynamics.FromLiterature.ConvectionDeschampsSotin2001');
 %py.importlib.reload(pylib);
 
-pylib = py.importlib.import_module('MantlePlot');
+pylib = py.importlib.import_module('MantleSizePlot');
 py.importlib.reload(pylib);
 
-pylib = py.importlib.import_module('CorePlot');
+pylib = py.importlib.import_module('CoreSizePlot');
 py.importlib.reload(pylib);
 
 pylib = py.importlib.import_module('MatToPy');
