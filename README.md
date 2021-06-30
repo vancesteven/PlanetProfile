@@ -14,7 +14,8 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
   * Due to various complications it is not currently implemented.
 
 ## Setup
-1. Install SeaFreeze by copying the contents of the Matlab folder at https://github.com/Bjournaux/SeaFreeze into the Thermodynamics/SeaFreeze folder of PlanetProfile.
+1. Install SeaFreeze by copying the contents of the Matlab folder at (https://github.com/Bjournaux/SeaFreeze) into the Thermodynamics/SeaFreeze folder of PlanetProfile.
+1. Install magnetic field Fourier Transform (FT) data from C. Cochrane by copying the contents of ???????(pending) into the MagneticInduction/FieldData folder of PlanetProfile.
 1. If TauP functionality is desired, download matTaup (https://github.com/g2e/seizmo/) and add mattaup, misc, and models to Utilities folder
 1.Open a Terminal and navigate to the PlanetProfile directory.
 1. Type "make install" (no quotes) and hit enter.
