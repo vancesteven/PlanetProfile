@@ -1,11 +1,5 @@
 *~
 .DS_Store
 *asv
-/.eps
-/.fig
-/*.dat
-/.png
-/.txt
 *pycache*
-*.mod
 startup.m
