@@ -1,9 +1,14 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def CorePlot( R_Fe_m , R_sil_m , C2inds , Planet:dict , rho_Fe_kgm3 , nTbs , wo , saveStr , lw = 1 , show = True ):
+def CoreSizePlot( R_Fe_m , R_sil_m , C2inds , Planet:dict , rho_Fe_kgm3 , nTbs , wo , fpath , lw = 1 , show = True ):
     """
+<<<<<<< HEAD:CorePlot.py
         Shows and saves a plot of radius of silicon to iron as implemented in PlanetProfile.m line ~1100
+=======
+        Shows and saves a plot of radius of silicates vs. iron core
+        as implemented in PlanetProfile.m line ~1100
+>>>>>>> c16d81f731fc443886d1df4dd9e02c866911df6a:CoreSizePlot.py
 
         Parameters:
         -----------
@@ -19,9 +24,9 @@ def CorePlot( R_Fe_m , R_sil_m , C2inds , Planet:dict , rho_Fe_kgm3 , nTbs , wo 
         nTbs : int
             number of temperature profiles = n (length of Tb_K)
         wo : float
-            percent concentration of solute in ocean
-        saveStr : string
-            save location of plot file
+            wt% concentration of solute in ocean
+        fpath : string
+            save location of image file relative to run dir
         lw : float (optional)
             width of lines in plot
         show : boolean (optional)
@@ -34,8 +39,8 @@ def CorePlot( R_Fe_m , R_sil_m , C2inds , Planet:dict , rho_Fe_kgm3 , nTbs , wo 
     rho_sil_withcore_kgm3 = Planet["rho_sil_withcore_kgm3"]
 
     lstr_3 = []
-    for iT in range(0,nTbs):
-        plt.plot(R_Fe_m[iT][C2inds[iT]]*1e-3 , R_sil_m[iT][C2inds[iT]]*1e-3 , linewidth = lw)
+    for iT in range(nTbs):
+        plt.plot(R_Fe_m[iT,C2inds[iT]]*1e-3 , R_sil_m[iT,C2inds[iT]]*1e-3 , linewidth = lw)
         lstr_3.append( f"$T_{{b}}$: {Tb_K[iT]:0.1f} K" )
 
     plt.legend(lstr_3)
@@ -44,7 +49,7 @@ def CorePlot( R_Fe_m , R_sil_m , C2inds , Planet:dict , rho_Fe_kgm3 , nTbs , wo 
     plt.ylabel("$R_{\\mathrm{Si}} \\, (\\mathrm{km})$")
     plt.title(f"Fe core ; $C/MR^2 = {Cmeasured} \\pm {Cuncertainty}$ ; $W = {wo} \\,$wt%; $\\rho_{{\\mathrm{{sil}}}}$ : {rho_sil_withcore_kgm3:0.0f}; $\\rho_{{\\mathrm{{Fe}}}}$ : {rho_Fe_kgm3}")
 
-    plt.savefig(saveStr)
+    plt.savefig(fpath)
 
     if show:
         plt.ion() # turns on interactive mode, allowing execution to continue while plot is shown
