@@ -3,13 +3,15 @@ bodyname = 'Europa'
 
 ### Custom changes made to these profiles
 
+# Overwrites the default values using user-defined lists
+
 # add "field : [profile 1 value, profile 2 value, ...]"
 # make sure all lists have the same length
 CustomDict = {
     'Tb_K' : [268.2 , 270.8]
 }
 
-numProfiles = 2 # could be determined automatically, but seems unnecessary
+numProfiles = 2
 
 ### Construction of default dictionary for Europa
 
@@ -67,14 +69,13 @@ CoreDict = {
 
 # Ocean properties (included as sub-dictionary with key 'Ocean')
 OceanDict = {
-    'fnTfreeze_K' : 0, # should be changed to be RegularGridInterpolator from Thermodynamics/MgSO4/fnTfreeze_K
     'comp' : 'MgSO4', # composition of the ocean
     'w_ocean_pct' : 10 # % concentration of solute in ocean
 }
 
 # combines all the dictionaries into one containing all the fields
 PlanetDict = {
-    'name' : bodyname,
+    'name' : 'Europa',
     **OrbitalDict,
     **BulkSurfaceDict,
     **MantleHeatDict,
@@ -92,7 +93,10 @@ def dictionaryToStructuredArray(dictionary , num):
     dt = [] # use list instead of numpy since dtype cannot be an array
 
     for i in range(len(keys)):
-        dt.append( (keys[i] , type(dictionary[keys[i]]) ) ) # generate the dtype list for the structured array
+        if type(dictionary[keys[i]]) == str:
+            dt.append( (keys[i],f'U{len(dictionary[keys[i]])}')) # resolves issue with string datatype in structured array
+        else:
+            dt.append( (keys[i] , type(dictionary[keys[i]]) ) ) # generate the dtype list for the structured array
 
     output = np.empty( (num) , dtype=dt ) # preallocate structured array
 
