@@ -36,6 +36,7 @@ def writeProfile(path,saveStr,header,data):
 
 def PlanetProfile(Planet, Seismic, Params):
     nTbs = len(Planet)
+    nMantleInds = np.zeros(nTbs, dtype=np.int_)
 
     savebase = Planet[0]['name'] + '/' + Planet[0]['name'] + 'Profile_'
     figbase = Planet[0]['name'] + '/figures/' + Planet[0]['name']
@@ -46,10 +47,11 @@ def PlanetProfile(Planet, Seismic, Params):
 
         thisMantleSizePath = savebase + cfg.vmant + str(Planet[iT]['Tb_K']) + '.csv'
         thisMantleSizeR, thisMantleSizeRho = np.loadtxt(thisMantleSizePath, skiprows=1, unpack=True, delimiter=",")
-        mantleSizeR[iT,:len(thisMantleSizeR)] = thisMantleSizeR
-        mantleSizeRho[iT,:len(thisMantleSizeRho)] = thisMantleSizeRho
+        nMantleInds[iT] = len(thisMantleSizeR)
+        mantleSizeR[iT,:nMantleInds[iT]] = thisMantleSizeR
+        mantleSizeRho[iT,:nMantleInds[iT]] = thisMantleSizeRho
 
-    MantleSizePlot(mantleSizeRho, mantleSizeR, Planet, nTbs, figbase+cfg.vmant, show=False)
+    MantleSizePlot(mantleSizeRho, mantleSizeR, Planet, nTbs, nMantleInds, figbase+cfg.vmant, show=False)
     outPlanet = Planet # Placeholder
     return outPlanet
 

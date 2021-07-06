@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import config as cfg
 
-def MantleSizePlot( rho_sil_kgm3 , R_sil_m , Planet:dict , nTbs , fpath , lw=1 , show=True):
+def MantleSizePlot( rho_sil_kgm3 , R_sil_m , Planet:dict , nTbs , nMantleInds , fpath , lw=1 , show=True):
     """
         Shows and saves a plot of density vs. radius in the mantle as implemented in PlanetProfile.m line ~1050 (as of 06/25/2021)
 
@@ -23,6 +23,8 @@ def MantleSizePlot( rho_sil_kgm3 , R_sil_m , Planet:dict , nTbs , fpath , lw=1 ,
                 uncertainty in 'Cmeasured'
         nTbs : int
             number of temperature profiles = n (length of Tb_K)
+        nMantleInds : 1d int numpy array of size (nTbs,)
+            number of values to read from the start of each dataset for plotting
         wo : float
             percent concentration of solute in ocean
         fpath : string
@@ -42,7 +44,7 @@ def MantleSizePlot( rho_sil_kgm3 , R_sil_m , Planet:dict , nTbs , fpath , lw=1 ,
     # due to difference in MATLAB and python indexing
     lstr_3 = []
     for iT in range(nTbs):
-        plt.plot(rho_sil_kgm3[iT,:] , R_sil_m[iT,:]*1e-3 , linewidth = lw)
+        plt.plot(rho_sil_kgm3[iT,:nMantleInds[iT]] , R_sil_m[iT,:nMantleInds[iT]]*1e-3 , linewidth = lw)
         lstr_3.append( f"$T_{{b}}$: {Tb_K[iT]:0.1f} K" )
 
     plt.legend(lstr_3)
