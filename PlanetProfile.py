@@ -36,10 +36,7 @@ def writeProfile(path,saveStr,header,data):
 
 def PlanetProfile(Planet, Seismic, Params):
     nTbs = len(Planet)
-    print("Planet[:]['name'] is not being assigned correctly in PPEuropa.py.")
-    print("Planet[:]['name']: ", Planet[0]['name'])
-    print("Should be 'Europa'.")
-    
+
     savebase = Planet[0]['name'] + '/' + Planet[0]['name'] + 'Profile_'
     figbase = Planet[0]['name'] + '/figures/' + Planet[0]['name']
 

@@ -1,5 +1,12 @@
 import numpy as np
+import config as cfg
 bodyname = 'Europa'
+bodycode = 502
+
+import spiceypy as spice
+spice.furnsh('Utilities/spice/'+cfg.spicePCK)
+_, (A,B,C) = spice.bodvcd(bodycode, 'RADII', 3)
+R = np.mean([A,B,C])
 
 ### Custom changes made to these profiles
 
@@ -8,7 +15,7 @@ bodyname = 'Europa'
 # add "field : [profile 1 value, profile 2 value, ...]"
 # make sure all lists have the same length
 CustomDict = {
-    'Tb_K' : [268.2 , 270.8]
+    'Tb_K' : [269.8 , 272.7]
 }
 
 numProfiles = 2
@@ -31,7 +38,7 @@ OrbitalDict = {
 # note: C/MR2 uses value from Anderson et al. 1998
 BulkSurfaceDict = {
     'rho_kgm3' : 2989, # average density [kg/m^3]
-    'R_m' : 1561e3, # radius [m]
+    'R_m' : R*1e3, # radius [m]
     'M_kg' : 4.7991e22, # mass [kg]
     'gsurf_ms2' : 1.428,
     'Tsurf_K' : 110,
@@ -70,19 +77,19 @@ CoreDict = {
 # Ocean properties (included as sub-dictionary with key 'Ocean')
 OceanDict = {
     'comp' : 'MgSO4', # composition of the ocean
-    'w_ocean_pct' : 10 # % concentration of solute in ocean
+    'w_ocean_pct' : 10.0 # % concentration of solute in ocean
 }
 
 # combines all the dictionaries into one containing all the fields
 PlanetDict = {
-    'name' : 'Europa',
+    'name' : bodyname,
     **OrbitalDict,
     **BulkSurfaceDict,
     **MantleHeatDict,
     **PorosityDict,
     **CoreDict,
-    'Ocean' : OceanDict, # ocean fields are implemented in a subdictionary for consistency with MATLAB implementation
-    'Tb_K' : 273 # temperature at the bottom of the ice layer
+    **OceanDict,
+    'Tb_K' : 273.0 # temperature at the bottom of the ice layer
 }
 
 ### converts a 'dictionary' to a structured array with 'num' repetitions of said dictionary (for multiple profiles)
@@ -126,27 +133,26 @@ IceI = {
 IceII = {
     'B_aniso_iceII' : 0.56,
     'gamma_atten_iceII' : 0.2,
-    'g_aniso_iceII' : 30
+    'g_aniso_iceII' : 25
 }
 IceIII = {
     'B_aniso_iceIII' : 0.56,
     'gamma_atten_iceIII' : 0.2,
-    'g_aniso_iceIII' : 25
+    'g_aniso_iceIII' : 27
 }
 IceV = {
     'B_aniso_iceV' : 0.56,
     'gamma_atten_iceV' : 0.2,
-    'g_aniso_iceV' : 27
+    'g_aniso_iceV' : 28
 }
 IceVI = {
     'B_aniso_iceVI' : 0.56,
     'gamma_atten_iceVI' : 0.2,
-    'g_aniso_iceVI' : 28
+    'g_aniso_iceVI' : 30
 }
 Mantle = {
     'B_aniso_mantle' : 0.56,
-    'gamma_atten_mantle' : 0.2,
-    'g_aniso_mantle' : 30
+    'gamma_atten_mantle' : 0.2
 }
 
 Seismic = {
