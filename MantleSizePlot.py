@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-#import config as cfg
+import config as cfg
 
 def MantleSizePlot( rho_sil_kgm3 , R_sil_m , Planet:dict , nTbs , fpath , lw=1 , show=True):
     """
