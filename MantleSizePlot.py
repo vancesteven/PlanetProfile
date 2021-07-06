@@ -36,7 +36,7 @@ def MantleSizePlot( rho_sil_kgm3 , R_sil_m , Planet:dict , nTbs , fpath , lw=1 ,
     Tb_K = [thisPlanet["Tb_K"] for thisPlanet in Planet]
     Cmeasured = [thisPlanet["Cmeasured"] for thisPlanet in Planet]
     Cuncertainty = [thisPlanet["Cuncertainty"] for thisPlanet in Planet]
-    wo = [thisPlanet["w_ocean_pct"] for thisPlanet in Planet]
+    wo = [thisPlanet["ocean_wpct"] for thisPlanet in Planet]
 
     # technically, C2inds should have values subtracted by 1
     # due to difference in MATLAB and python indexing

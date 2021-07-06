@@ -76,13 +76,13 @@ CoreDict = {
 
 # Ocean properties (included as sub-dictionary with key 'Ocean')
 OceanDict = {
-    'comp' : 'MgSO4', # composition of the ocean
-    'w_ocean_pct' : 10.0 # % concentration of solute in ocean
+    'ocean_comp' : 'MgSO4', # composition of the ocean
+    'ocean_wpct' : 10.0 # % concentration of solute in ocean
 }
 
 # combines all the dictionaries into one containing all the fields
 PlanetDict = {
-    'name' : bodyname,
+    'name' : 'Europa',
     **OrbitalDict,
     **BulkSurfaceDict,
     **MantleHeatDict,
