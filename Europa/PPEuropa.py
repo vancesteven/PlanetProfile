@@ -1,5 +1,4 @@
 import numpy as np
-#import PlanetProfile.Thermodynamics.MgSO4.fnTfreeze_K
 bodyname = 'Europa'
 
 ### Custom changes made to these profiles
@@ -75,6 +74,7 @@ OceanDict = {
 
 # combines all the dictionaries into one containing all the fields
 PlanetDict = {
+    'name' : bodyname,
     **OrbitalDict,
     **BulkSurfaceDict,
     **MantleHeatDict,
