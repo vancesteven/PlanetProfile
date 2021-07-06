@@ -3,8 +3,7 @@ import numpy as np
 
 def CoreSizePlot( R_Fe_m , R_sil_m , C2inds , Planet:dict , rho_Fe_kgm3 , nTbs , wo , fpath , lw = 1 , show = True ):
     """
-        Shows and saves a plot of radius of silicates vs. iron core
-        as implemented in PlanetProfile.m line ~1100
+        Shows and saves a plot of radius of silicon to iron as implemented in PlanetProfile.m line ~1100
 
         Parameters:
         -----------
@@ -48,4 +47,5 @@ def CoreSizePlot( R_Fe_m , R_sil_m , C2inds , Planet:dict , rho_Fe_kgm3 , nTbs ,
     plt.savefig(fpath)
 
     if show:
+        plt.ion() # turns on interactive mode, allowing execution to continue while plot is shown
         plt.show()
