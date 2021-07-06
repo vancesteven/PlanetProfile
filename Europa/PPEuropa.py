@@ -3,6 +3,8 @@ bodyname = 'Europa'
 
 ### Custom changes made to these profiles
 
+# Overwrites the default values using user-defined lists
+
 # add "field : [profile 1 value, profile 2 value, ...]"
 # make sure all lists have the same length
 CustomDict = {
@@ -73,7 +75,7 @@ OceanDict = {
 
 # combines all the dictionaries into one containing all the fields
 PlanetDict = {
-    'name' : bodyname,
+    'name' : 'Europa',
     **OrbitalDict,
     **BulkSurfaceDict,
     **MantleHeatDict,
@@ -91,7 +93,10 @@ def dictionaryToStructuredArray(dictionary , num):
     dt = [] # use list instead of numpy since dtype cannot be an array
 
     for i in range(len(keys)):
-        dt.append( (keys[i] , type(dictionary[keys[i]]) ) ) # generate the dtype list for the structured array
+        if type(dictionary[keys[i]]) == str:
+            dt.append( (keys[i],f'U{len(dictionary[keys[i]])}')) # resolves issue with string datatype in structured array
+        else:
+            dt.append( (keys[i] , type(dictionary[keys[i]]) ) ) # generate the dtype list for the structured array
 
     output = np.empty( (num) , dtype=dt ) # preallocate structured array
 
