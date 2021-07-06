@@ -9,7 +9,7 @@ CustomDict = {
     'Tb_K' : [268.2 , 270.8]
 }
 
-numProfiles = 2 # could be determined automatically, but seems unnecessary
+numProfiles = 2
 
 ### Construction of default dictionary for Europa
 
@@ -67,7 +67,6 @@ CoreDict = {
 
 # Ocean properties (included as sub-dictionary with key 'Ocean')
 OceanDict = {
-    'fnTfreeze_K' : 0, # should be changed to be RegularGridInterpolator from Thermodynamics/MgSO4/fnTfreeze_K
     'comp' : 'MgSO4', # composition of the ocean
     'w_ocean_pct' : 10 # % concentration of solute in ocean
 }
