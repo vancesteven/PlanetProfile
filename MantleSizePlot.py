@@ -52,6 +52,7 @@ def MantleSizePlot( rho_sil_kgm3 , R_sil_m , Planet:dict , nTbs , fpath , lw=1 ,
     plt.title(f"No Fe core ; $C/MR^2 = {Cmeasured} \\pm {Cuncertainty}$ ; $ W = {wo} \\, wt \\%$ ")
 
     plt.savefig(fpath+cfg.xtn)
+    print("Printed mantle size plot to file: " + fpath+cfg.xtn)
 
     if show:
         plt.ion() # turns on interactive mode, allowing execution to continue while plot is shown
