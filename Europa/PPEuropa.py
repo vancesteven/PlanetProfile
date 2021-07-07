@@ -6,7 +6,11 @@ bodycode = 502
 import spiceypy as spice
 spice.furnsh('Utilities/spice/'+cfg.spicePCK)
 _, (a,b,c) = spice.bodvcd(bodycode, 'RADII', 3)
+<<<<<<< Updated upstream
 R = np.sqrt((a**2 + b**2 + c**2)/3)
+=======
+R = np.mean([a,b,c])
+>>>>>>> Stashed changes
 
 ### Custom changes made to these profiles
 
