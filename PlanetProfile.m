@@ -1289,7 +1289,11 @@ for iT=1:nTbs
     indsV = find(phase(iT,H2Oinds)==5);
     indsVI = find(phase(iT,H2Oinds)==6);
     sig(iT,indsI) = iceSig;
-    sig(iT,indsLiquid) = k_S_m(iT,indsLiquid);
+    if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
+        sig(iT,indsLiquid) = k_S_m(iT,indsLiquid);
+    else
+        sig(iT,indsLiquid) = 0.0;
+    end
     sig(iT,indsIII) = iceSig;
     sig(iT,indsV) = iceSig;
     sig(iT,indsVI) = iceSig;
@@ -1319,7 +1323,7 @@ for iT=1:nTbs
     
     
     %% Interpolate fewer ocean layers to reduce computational load
-    if cfg.REDUCED
+    if cfg.REDUCED && Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
         nIntL = cfg.nIntL;
         ocStart = totL - indsLiquid(end) + 1;
         ocEnd = totL - indsLiquid(1) + 1;
