@@ -5,8 +5,8 @@ bodycode = 502
 
 import spiceypy as spice
 spice.furnsh('Utilities/spice/'+cfg.spicePCK)
-_, (A,B,C) = spice.bodvcd(bodycode, 'RADII', 3)
-R = np.mean([A,B,C])
+_, (a,b,c) = spice.bodvcd(bodycode, 'RADII', 3)
+R = np.sqrt((a**2 + b**2 + c**2)/3)
 
 ### Custom changes made to these profiles
 
@@ -152,7 +152,8 @@ IceVI = {
 }
 Mantle = {
     'B_aniso_mantle' : 0.56,
-    'gamma_atten_mantle' : 0.2
+    'gamma_atten_mantle' : 0.2,
+    'g_aniso_mantle': 30
 }
 
 Seismic = {
