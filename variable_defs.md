@@ -8,36 +8,45 @@ Planet Object
 
 The `Planet` object is a [numpy structured array](https://numpy.org/doc/stable/user/basics.rec.html), containing fields describing the body. The specific fields used depend on the properties of the body.
 
-There are `numProfiles` values for each field, used by `PlanetProfile.py` to construct models for multiple possible setups at once.
+There are `numProfiles` values for each field, used by `PlanetProfile.py` to construct models for multiple possible configurations at once.
 
 Orbital and plotting parameters
 -------------------------------
-- `peaks_Hz`  (list of floats):
+(related to work in Vance et al. 2021)
+- `peaks_Hz`  (list of floats): peak frequencies of imposed magnetic fields \[1/s\]
 - `f_orb` (float): the frequency of the body's orbit \[1/s\]
-- `wlims` (list of floats):
-- `ionos_bounds` (float):
-- `ionosPedersen_sig` (float):
-- `ionos_only` (??):
-- `PLOTS_SIGS` (boolean):
-- `ADD_TRANSITION_BOUNDS` (boolean):
+- `ionos_bounds`
+  - (float): altitude of top of the ionosphere \[m\]
+  - (list of floats): altitudes of conductivity boundaries in the ionosphere (including bottom and top) [m]
+- `ionosPedersen_sig`
+  -  (float): conductivity (sigma) of the ionosphere (Pedersen conductance / Thickness of ionosphere) \[S/m\]
+  -  (list of floats): used if `ionos_bounds` is a list of floats
+     -  `ionosPedersen_sig[i]` is the conductivity of the ionosphere between `ionos_bounds[i-1]` and `ionos_bounds[i]` \[S/m\]
+     -  `ionosPedersen_sig[0]` is (1e-16) as the conductivity between the surface of the planet and the bottom of the ionosphere
+
+- `ionos_only` (list of floats): added if modelling induction from _only_ the ionosphere
+- `PLOTS_SIGS` (boolean): determines whether to make a conductivity - boundary plot
+- `ADD_TRANSITION_BOUNDS` (boolean): adds small intermediate boundaries to improve plot of conductivity (sigma) values
 
 Bulk and surface properties
 ---------------------------
 - `rho_kgm3` (float): average density of the body \[kg/m$^3$\]  
 - `R_m` (float): radius of the body \[m\]  
 - `M_kg` (float): mass of the body \[kg\]  
-- `gsurf_ms2` (float):  
-- `Tsurf_K` (float):  
-- `Psurf_MPa` (float):  
+- `gsurf_ms2` (float): surface gravity \[m/s$^2$\]
+- `Tsurf_K` (float): surface temperature \[K\]
+- `Psurf_MPa` (float): surface pressure \[MPa\]
 - `Cmeasured` (float): $C/MR^2$ (polar moment of inertia of body, normalized to $MR^2$)
 - `Cuncertainty` (float): the uncertainty in the measurement of $C/MR^2$
+- `POROUS_ROCK` (boolean): determines whether the planet's rock will be porous
+- `phi1` (0 $\leq$ float $\leq$ 1): porosity of rock at the ocean floor
 
 Mantle Heat Properties
 ----------------------
-- `kr_mantle` (float??): rock conductivity
-- `Qmantle_Wm2` (float):
-- `QHmantle` (??):
-- `EQUIL_Q` (??)
+- `kr_mantle` (float): thermal conductivity of rock
+- `Qmantle_Wm2` (float): mantle heat generation at surface (mantle heat / surface area) \[W/m$^2$\]
+- `QHmantle` (float): tidal heating ?? ($Q_H$ in Cammarano et al. 2006)
+- `EQUIL_Q` (boolean): ??
 
 Core Properties
 ---------------
@@ -49,7 +58,6 @@ Core Properties
 - `xFe_core` (float): proportion of pure iron in the core (??)
 - `XH2O` (float): proportion of water in the body (where?) (??)
 - `rho_sil_withcore_kgm3` (float): density of silicon (??)
-- `phi_surface` (??):
 
 Ocean Properties
 ----------------
@@ -85,11 +93,12 @@ Other (??)
 ----------
 - `LOW_ICE_Q` (??):
 - `Qscore` (??):
+- `SMOOTH_VROCK` (int): number of rows to smooth over in ??
 
 
 Params Object
 =============
-The `Partams` object is a [python dictionary](https://docs.python.org/3/tutorial/datastructures.html#dictionaries), containing fields describing a variety of miscellaneous properties of the model, including information regarding plots. The specific fields used depend on the properties of the body.
+The `Params` object is a [python dictionary](https://docs.python.org/3/tutorial/datastructures.html#dictionaries), containing fields describing a variety of miscellaneous properties of the model, including information regarding plots. The specific fields used depend on the properties of the body.
 
 - `cfg` (object): a config object containing fields with variety of relevant 'configuration' information
 - `wlims` (list of floats): (?? seems to be the same as Planet.wlims with orbital parameters)
