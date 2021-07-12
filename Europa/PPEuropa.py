@@ -58,8 +58,6 @@ CustomDict = {
     'ocean_wpct' : ocean_wpct_arr.flatten()
 }
 
-print(CustomDict['Tb_K'])
-
 numProfiles = 25
 
 ### Construction of default dictionary for Europa
@@ -67,9 +65,8 @@ numProfiles = 25
 # Orbital and plotting parameters for use in LayeredInduction Response
 OrbitalDict = {
     'peaks_Hz' : [4.946e-5, 2.473e-5, 3.259e-6],
-    'f_orb' : 2*np.pi/3.55/86400, # frequency of Europa's orbit [1/s]
-    'wlims' : [np.log(0.001), np.log(1000)],
-    'ionos_bounds' : 100e3,
+    'f_orb' : 2*np.pi/3.55/86400, # frequency of Europa's orbit [rad/s]
+    'ionos_bounds' : 100.e3,
     'ionosPedersen_sig' : 30/100e3,
     'ionos_only' : [],
     'PLOT_SIGS' : True,
@@ -79,7 +76,7 @@ OrbitalDict = {
 # Bulk and surface properties
 # note: C/MR2 uses value from Anderson et al. 1998
 BulkSurfaceDict = {
-    'rho_kgm3' : 2989, # average density [kg/m^3]
+    'rho_kgm3' : 2989., # average density [kg/m^3]
     'R_m' : R*1e3, # radius [m]
     'M_kg' : 4.7991e22, # mass [kg]
     'gsurf_ms2' : 1.428,
@@ -88,22 +85,23 @@ BulkSurfaceDict = {
     'Cmeasured' : 0.346, # C/MR^2 value
     'Cuncertainty' : 0.005, # C/MR^2 uncertainty
     'FeCore' : True, # boolean for whether planet has an iron core
-    'rhoFe' : 8000, # density of pure iron
-    'rhoFeS' : 5150 # density of iron sulfate
+    'rhoFe' : 8000., # density of pure iron
+    'rhoFeS' : 5150. # density of iron sulfate
 }
 
 # Mantle heat properties
 # cold case
 MantleHeatDict = {
-    'kr_mantle' : 4, # rock conductivity, (Cammarano et al. 2006, Table 4)
+    'kr_mantle' : 4., # rock conductivity, (Cammarano et al. 2006, Table 4)
     'Qmantle_Wm2' : 2.2e11 / 4 / np.pi / BulkSurfaceDict['R_m']**2,
-    'QHmantle' : 0,
-    'EQUIL_Q' : 0
+    'QHmantle' : 0.,
+    'EQUIL_Q' : False
 }
 
 # Porosity of the rock
 PorosityDict = {
-    'POROUS_ROCK' : 0
+    'POROUS_ROCK' : False,
+    'phi_surface' : 0.
 }
 
 # Core properties
@@ -112,26 +110,25 @@ CoreDict = {
     'xFeS' : 0.55,
     'xFe_core' : 0.0279,
     'XH2O' : 0.0035,
-    'rho_sil_withcore_kgm3' : 3644,
-    'phi_surface' : 0
+    'rho_sil_withcore_kgm3' : 3644.
 }
 
 # Ocean properties (included as sub-dictionary with key 'Ocean')
 OceanDict = {
     'ocean_comp' : 'MgSO4', # composition of the ocean
-    'ocean_wpct' : 10.0 # % concentration of solute in ocean
+    'ocean_wpct' : 10.0, # % concentration of solute in ocean
+    'Tb_K' : 270. # temperature at the bottom of the ice layer
 }
 
 # combines all the dictionaries into one containing all the fields
 PlanetDict = {
-    'name' : 'Europa',
+    'name' : bodyname,
     **OrbitalDict,
     **BulkSurfaceDict,
     **MantleHeatDict,
     **PorosityDict,
     **CoreDict,
-    **OceanDict,
-    'Tb_K' : 273.0 # temperature at the bottom of the ice layer
+    **OceanDict
 }
 
 ### converts a 'dictionary' to a structured array with 'num' repetitions of said dictionary (for multiple profiles)
@@ -170,36 +167,36 @@ for key in CustomDict.keys():
 IceI = {
     'B_aniso_iceI' : 0.56,
     'gamma_atten_iceI' : 0.2,
-    'g_aniso_iceI' : 22
+    'g_aniso_iceI' : 22.
 }
 IceII = {
     'B_aniso_iceII' : 0.56,
     'gamma_atten_iceII' : 0.2,
-    'g_aniso_iceII' : 25
+    'g_aniso_iceII' : 25.
 }
 IceIII = {
     'B_aniso_iceIII' : 0.56,
     'gamma_atten_iceIII' : 0.2,
-    'g_aniso_iceIII' : 27
+    'g_aniso_iceIII' : 27.
 }
 IceV = {
     'B_aniso_iceV' : 0.56,
     'gamma_atten_iceV' : 0.2,
-    'g_aniso_iceV' : 28
+    'g_aniso_iceV' : 28.
 }
 IceVI = {
     'B_aniso_iceVI' : 0.56,
     'gamma_atten_iceVI' : 0.2,
-    'g_aniso_iceVI' : 30
+    'g_aniso_iceVI' : 30.
 }
 Mantle = {
     'B_aniso_mantle' : 0.56,
     'gamma_atten_mantle' : 0.2,
-    'g_aniso_mantle': 30
+    'g_aniso_mantle': 30.
 }
 
 Seismic = {
-    'LOW_ICE_Q' : 1,
+    'LOW_ICE_Q' : 1.,
     'QScore' : 1e4,
     'coreEOS' : 'sulfur_core_partition_SE15_1pctSulfur.tab',
     'mantleEOS' : 'CV3hy1wt_678_1.tab',
@@ -216,7 +213,7 @@ Seismic = {
 Params = {
     'cfg' : cfg,
     'wlims' : [np.log(0.001),np.log(1000)],
-    'foursubplots' : 1,
+    'foursubplots' : True,
     'Legend' : False,
     'LegendPosition' : 'North',
     'ylim' : [910,1230],
@@ -227,7 +224,7 @@ Params = {
     'nsteps_mantle' : 500,
     'nsteps_core' : 10,
     'nsteps_colororder' : 'mcbkgrm',
-    'Temps' : [250, 252.5, 255, 260, 265, 270, 273],
+    'Temps' : [250., 252.5, 255., 260., 265., 270., 273.],
     'LineStyle' : '--',
     'wrefLine' : '--',
     'wref' : [0,34]
