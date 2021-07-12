@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 import numpy as np
 import config as cfg
 bodyname = 'Europa'
@@ -6,11 +7,7 @@ bodycode = 502
 import spiceypy as spice
 spice.furnsh('Utilities/spice/'+cfg.spicePCK)
 _, (a,b,c) = spice.bodvcd(bodycode, 'RADII', 3)
-<<<<<<< Updated upstream
 R = np.sqrt((a**2 + b**2 + c**2)/3)
-=======
-R = np.mean([a,b,c])
->>>>>>> Stashed changes
 
 ### Custom changes made to these profiles
 
@@ -18,11 +15,52 @@ R = np.mean([a,b,c])
 
 # add "field : [profile 1 value, profile 2 value, ...]"
 # make sure all lists have the same length
+"""
+Example 1:
+Producing 3 profiles.
+1st profile has (Tb_K,ocean_wpct) = (270.0 , 10)
+2nd profile has (Tb_K,ocean_wpct) = (271.0 , 5)
+3rd profile has (Tb_K,ocean_wpct) = (272.0 , 0)
+##############
 CustomDict = {
-    'Tb_K' : [269.8 , 272.7]
+    'Tb_K' : [270.0 , 271.0 , 272.0],
+    'ocean_wpct' : [10 , 5 , 0]
 }
 
-numProfiles = 2
+numProfiles = 3
+###############
+
+Example 2:
+Using np.linspace and meshgrid to create profiles on a "grid".
+We want 25 profiles, one for each pair of
+    5 values of Tb_K: [270.0,270.5,271.0,271.5,272.0]
+    5 values of ocean_wpct: [0 , 2 , 4 , 6 , 8]
+###############
+Tb_K_vals = np.linspace(270.0 , 272.0 , 5)
+ocean_wpct_vals = np.linspace(0 , 8 , 5)
+Tb_K_arr , ocean_wpct_arr = np.meshgrid(Tb_K_vals , ocean_wpct_vals)
+
+CustomDict = {
+    'Tb_K' : Tb_K_arr.flatten(),
+    'ocean_wpct' : ocean_wpct_arr.flatten()
+}
+
+numProfiles = 25
+###############
+"""
+
+Tb_K_vals = np.linspace(270.0 , 272.0 , 5)
+ocean_wpct_vals = np.linspace(0 , 8 , 5)
+Tb_K_arr , ocean_wpct_arr = np.meshgrid(Tb_K_vals , ocean_wpct_vals)
+
+CustomDict = {
+    'Tb_K' : Tb_K_arr.flatten(),
+    'ocean_wpct' : ocean_wpct_arr.flatten()
+}
+
+print(CustomDict['Tb_K'])
+
+numProfiles = 25
 
 ### Construction of default dictionary for Europa
 
@@ -176,10 +214,10 @@ Seismic = {
 ### Creating the Params dictionary
 
 Params = {
-#   'cfg' : cfg,
+    'cfg' : cfg,
     'wlims' : [np.log(0.001),np.log(1000)],
     'foursubplots' : 1,
-    'Legend' : 0,
+    'Legend' : False,
     'LegendPosition' : 'North',
     'ylim' : [910,1230],
     'Pseafloor_MPa' : 350,
@@ -192,6 +230,5 @@ Params = {
     'Temps' : [250, 252.5, 255, 260, 265, 270, 273],
     'LineStyle' : '--',
     'wrefLine' : '--',
-#   'colororder' : [Params.cfg.Sw_alt; magenta],
     'wref' : [0,34]
 }
