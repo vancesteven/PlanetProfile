@@ -30,22 +30,22 @@ Orbital and plotting parameters
 
 Bulk and surface properties
 ---------------------------
-- `rho_kgm3` (float): average density of the body \[kg/m$^3$\]  
+- `rho_kgm3` (float): average density of the body \[kg/m^3\]  
 - `R_m` (float): radius of the body \[m\]  
 - `M_kg` (float): mass of the body \[kg\]  
-- `gsurf_ms2` (float): surface gravity \[m/s$^2$\]
+- `gsurf_ms2` (float): surface gravity \[m/s^2\]
 - `Tsurf_K` (float): surface temperature \[K\]
 - `Psurf_MPa` (float): surface pressure \[MPa\]
-- `Cmeasured` (float): $C/MR^2$ (polar moment of inertia of body, normalized to $MR^2$)
-- `Cuncertainty` (float): the uncertainty in the measurement of $C/MR^2$
+- `Cmeasured` (float): C/MR^2 (polar moment of inertia of body, normalized to MR^2)
+- `Cuncertainty` (float): the uncertainty in the measurement of C/MR^2
 - `POROUS_ROCK` (boolean): determines whether the planet's rock will be porous
-- `phi1` (0 $\leq$ float $\leq$ 1): porosity of rock at the ocean floor
+- `phi1` (0 <= float <= 1): porosity of rock at the ocean floor
 
 Mantle Heat Properties
 ----------------------
 - `kr_mantle` (float): thermal conductivity of rock
-- `Qmantle_Wm2` (float): mantle heat generation at surface (mantle heat / surface area) \[W/m$^2$\]
-- `QHmantle` (float): tidal heating ?? ($Q_H$ in Cammarano et al. 2006)
+- `Qmantle_Wm2` (float): mantle heat generation at surface (mantle heat / surface area) \[W/m^2\]
+- `QHmantle` (float): tidal heating ?? (Q_H in Cammarano et al. 2006)
 - `EQUIL_Q` (boolean): flag involved in using convection in heat calculations
 
 Core Properties
@@ -74,7 +74,7 @@ The `Seismic` object is a [python dictionary](https://docs.python.org/3/tutorial
 Attenuation Parameters
 --------------------------
 (Related to Cammarano et al. 2006)
-Replace `N` with a roman numeral representing the ice phase $(N \in \{I,II,III,V,VI\})$:
+Replace `N` with a roman numeral representing the ice phase (N \in \{I,II,III,V,VI\}):
 - `B_aniso_iceN` (float): 
 - `gamma_atten_iceN` (float):
 - `g_aniso_iceN` (float):
