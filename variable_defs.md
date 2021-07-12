@@ -46,17 +46,17 @@ Mantle Heat Properties
 - `kr_mantle` (float): thermal conductivity of rock
 - `Qmantle_Wm2` (float): mantle heat generation at surface (mantle heat / surface area) \[W/m$^2$\]
 - `QHmantle` (float): tidal heating ?? ($Q_H$ in Cammarano et al. 2006)
-- `EQUIL_Q` (boolean): ??
+- `EQUIL_Q` (boolean): flag involved in using convection in heat calculations
 
 Core Properties
 ---------------
 - `FeCore` (boolean): True iff the body has an iron core
 - `rhoFe` (float): density of pure iron
 - `rhoFeS` (float): density of iron sulfate
-- `xFeS_meteoritic` (float):
-- `xFeS` (float): proportion of Iron Sulfide in the core (??)
-- `xFe_core` (float): proportion of pure iron in the core (??)
-- `XH2O` (float): proportion of water in the body (where?) (??)
+- `xFeS_meteoritic` (float): proportion of Iron Sulfide by weight in compared meteorite
+- `xFeS` (float): proportion by weight of Iron Sulfide in the core
+- `xFe_core` (float): proportion by weight of iron in the core (including both Fe and FeS)
+- `xH2O` (float): proportion of water by weight in compared meteorite
 - `rho_sil_withcore_kgm3` (float): density of silicon (??)
 
 Ocean Properties
@@ -73,6 +73,7 @@ The `Seismic` object is a [python dictionary](https://docs.python.org/3/tutorial
 
 Attenuation Parameters
 --------------------------
+(Related to Cammarano et al. 2006)
 Replace `N` with a roman numeral representing the ice phase $(N \in \{I,II,III,V,VI\})$:
 - `B_aniso_iceN` (float): 
 - `gamma_atten_iceN` (float):
@@ -101,7 +102,7 @@ Params Object
 The `Params` object is a [python dictionary](https://docs.python.org/3/tutorial/datastructures.html#dictionaries), containing fields describing a variety of miscellaneous properties of the model, including information regarding plots. The specific fields used depend on the properties of the body.
 
 - `cfg` (object): a config object containing fields with variety of relevant 'configuration' information
-- `wlims` (list of floats): (?? seems to be the same as Planet.wlims with orbital parameters)
+- `wlims` (list of floats): 
 - `foursubplots` (boolean?):
 - `Legend` (boolean): decides whether plots will have legends?
 - `LegendPosition` (str): decides the location of the legend in the plots
