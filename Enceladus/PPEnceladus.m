@@ -135,8 +135,8 @@ Params.colororder = 'cm';
 Params.wrefLine = '--';
 Params.wref=[0 5 10 15];
 % 
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [272.72 273.12];
-outPlanet = PlanetProfile(Planet,Seismic,Params);
+Planet.Ocean.w_ocean_pct=5; Planet.Tb_K = [272.72 273.12];
+%outPlanet = PlanetProfile(Planet,Seismic,Params);
 
 % running pure water for the MgSO4 case illustrates >1oC error in the Margules parameterization
 Params.LineStyle='-';
