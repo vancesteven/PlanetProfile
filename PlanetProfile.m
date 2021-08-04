@@ -13,10 +13,6 @@ function outPlanet = PlanetProfile(Planet,Seismic,Params)
 % Geophysical investigations of habitability in ice-covered ocean worlds.
 % Journal of Geophysical Research: Planets, Nov 2018.
 
-PythonReload()
-PPPy = py.importlib.import_module('PlanetProfile');
-py.importlib.reload(PPPy);
-
 vernum = PPversion;
 disp(['PlanetProfile version ' vernum])
 if all(vernum(end-2:end) == 'dev'); disp('This version is in development.'); end
@@ -675,17 +671,11 @@ if ~Planet.NoH2O
        clathrate_lid_thermo(Planet.Tsurf_K,Planet.Tb_K(iT),P_MPa(iT,1:n_clath(iT)+n_iceI(iT)), n_clath(iT),n_iceI(iT),Planet.Zb2(iT), max_clath_depth,g_ms2(iT,1));
            
       
-          else
-            [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
+              else
+
+           [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
             ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,Planet.Zb2(iT),g_ms2(iT,1),phase(iT,1)+1);
-            %matOut = [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)];
-            % pyOut =...
-            %    PPPy.ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,Planet.Zb2(iT),g_ms2(iT,1),phase(iT,1)+1);
-            %pyOut = double(pyOut);
-            %error = max(abs( (matOut-pyOut)./matOut ));
-            %disp(['ConvectionDeschampsSotin2001 Python Implementation % diff: ',num2str(error)])
-            %assert( error < 1e-4 )
-            
+       
          end
         
         % Make this calculation now in order to get Planet.Qmantle_Wm2 for making
@@ -1548,32 +1538,14 @@ for iT = nTbs:-1:1  % Do this loop in decreasing order to avoid preallocating po
     nu_mantle = 1e21; % mantle viscosity in Pa S, a common number for Earth?s mantle
     DeltaT = 800; % temperature differential in K
 
-    r_mantle_m_py = py.numpy.asarray(r_mantle_m);
-    Tmantle_K_0 = Tmantle_K;
-
+    
     % cold case
     if Planet.FeCore
         Tmantle_K = conductiveMantleTemperature(r_mantle_m,R_Fe_mean_m(iT),R_sil_mean_m(iT),Planet.kr_mantle,Planet.rho_sil_withcore_kgm3,Tmantle_K,MantleHeat,0);
-        Tmantle_K_py = PPPy.conductiveMantleTemperature(r_mantle_m_py,R_Fe_mean_m(iT),R_sil_mean_m(iT),Planet.kr_mantle,Planet.rho_sil_withcore_kgm3,Tmantle_K_0,MantleHeat,0);
-        Tmantle_K_py = double(Tmantle_K_py);
-        %disp(Tmantle_K)
-        %disp(Tmantle_K_py)
-        error = max(abs( (Tmantle_K-Tmantle_K_py)./Tmantle_K ));
-        disp(['conductiveMantleTemperature Python Implementation % diff: ',num2str(error)])
-        assert( error < 1e-10 )
-
         MantleMass = 4/3*pi*(R_sil_mean_m(iT)^3-R_Fe_mean_m(iT)^3);
         Dm = R_sil_mean_m(iT)-R_Fe_mean_m(iT);
     else
         Tmantle_K = conductiveMantleTemperature(r_mantle_m,0,R_sil_mean_m(iT),Planet.kr_mantle,rho_sil_kgm3(iT,C2mean(iT)),Tmantle_K,MantleHeat,0);
-        Tmantle_K_py = PPPy.conductiveMantleTemperature(r_mantle_m_py,0,R_sil_mean_m(iT),Planet.kr_mantle,rho_sil_kgm3(iT,C2mean(iT)),Tmantle_K_0,MantleHeat,0);
-        Tmantle_K_py = double(Tmantle_K_py);
-        %disp(Tmantle_K)
-        %disp(Tmantle_K_py)
-        error = max(abs( (Tmantle_K-Tmantle_K_py)./Tmantle_K ));
-        disp(['conductiveMantleTemperature Python Implementation % diff: ',num2str(error)])
-        assert( error < 1e-10 )
-
         MantleMass = 4/3*pi*(R_sil_mean_m(iT)^3);
         Dm = R_sil_mean_m(iT);
     end
@@ -2179,14 +2151,11 @@ for iT = 1:nTbs
     end
     if isfield(Planet,'Clathrate'); clathID = ['_Zclath' num2str(Zclath(iT)./1000,'%2.0f') 'km']; else; clathID = ''; end
     thissavestr = [savefile '_Zb' strLow num2str(Zb2(iT)./1000,'%2.0f') 'km' clathID ];
-    %{
     dlmwrite(fullfile([datpath thissavestr '.txt']),header,'delimiter','');
     dlmwrite(fullfile([datpath thissavestr '.txt']),Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma,...
         'delimiter','\t',...
         'precision','%3.5e',...
         '-append');
-    %}
-    PPPy.writeProfile( datpath , thissavestr , header , py.numpy.asarray(Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma) );
     dlmwrite(fullfile([datpath thissavestr '_mantle.dat']),[10*interior(iT).Pmantle_MPa' interior(iT).Tmantle_K'],'delimiter','\t');
 
     if isfield(Params,'TauP')
@@ -3302,7 +3271,7 @@ while ~feof(fid)
             Vp=str2num(tline(49:59)); % grabs velocity and applies conversion
             Vs=str2num(tline(61:71));
             Qmu=str2num(tline(73:83));
-            L=4/3*(Vs/Vp).^2; %%% why is it .^ instead of ^ ?
+            L=4/3*(Vs/Vp).^2;
             Qp=(1/L)*Qmu;
             if L==0
                 Qp=10000.0;
