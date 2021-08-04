@@ -14,7 +14,8 @@ Orbital and plotting parameters
 -------------------------------
 (related to work in Vance et al. 2021)
 - `peaks_Hz`  (list of floats): peak frequencies of imposed magnetic fields \[1/s\]
-- `f_orb` (float): the frequency of the body's orbit \[1/s\]
+- `peaks_hr` (list of floats): peak periods of imposed magnetic fields \[hr\]
+- `f_orb` (float): the frequency of the body's orbit \[rad/s\]
 - `ionos_bounds`
   - (float): altitude of top of the ionosphere \[m\]
   - (list of floats): altitudes of conductivity boundaries in the ionosphere (including bottom and top) [m]
