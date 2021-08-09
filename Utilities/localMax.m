@@ -4,7 +4,7 @@ npks = length(target_fr);
 for it = 1:npks
     hw = 20; %half-width
     ind = find((abs(fr-target_fr(it))) == min(abs(fr-target_fr(it))));
-    inds = ind-hw:ind+hw;
+    inds = max(ind-hw,1):min(ind+hw,length(fr));
     lmax = find(dat(inds) == max(dat(inds)));
     out_Hz(it) = fr(inds(lmax));
     out_nT(it) = dat(inds(lmax));
