@@ -1,6 +1,6 @@
 function [F_l,F_c] = fluxRuckrieman( inputVals )
 %{
-    Calculates the heat flux out of mantle in core in accordance with
+    Calculates the heat flux out of mantle and the core in accordance with
     appendix B2 of Ruckrieman 2018.
 
     Input:
@@ -19,6 +19,11 @@ function [F_l,F_c] = fluxRuckrieman( inputVals )
             c_pm (Mantle heat capacity) [J / K*kg]
             kappa_m (Mantle thermal diffusivity) [m^2 / s]
             nu (Mantle viscocity) [Pa * s]
+
+    Output:
+        List of length 2 [F_l,F_c]
+            F_l (Flux across boundary between convecting mantle and stagnant lid)
+            F_c (Flux across CMB)
 %}
 
 
@@ -135,8 +140,6 @@ DeltaR = R_l - R_c;% - delta_t - delta_b;
 % temperature at the top  of the lower boundary layer
 T_b = T_m + (alpha_m*g_m*T_m*DeltaR)/c_pm;
 
-%disp(strcat('T_b = ',sprintf('%0.5e',T_b)))
-
 for i = 1:5
     %%% Calculating delta_t
     % critical Rayleigh number
@@ -176,5 +179,5 @@ for i = 1:5
 end
 
 %%% Calculating heat fluxes out of the mantle and the core
-F_l = k_m * (T_m - T_l) / delta_t;
-F_c = k_m * (T_c - T_b) / delta_b;
+F_l = k_m * (T_m - T_l) / delta_t; % B5
+F_c = k_m * (T_c - T_b) / delta_b; % B6
