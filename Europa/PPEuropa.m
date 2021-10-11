@@ -17,20 +17,20 @@ Planet.PLOT_SIGS = true;
 Planet.ADD_TRANSITION_BOUNDS = false;
 
 %% &&& Bulk and surface properties
-Planet.rho_kgm3 = 2989; % ±46 (Schubert et al. 2004)
-%note: Schubert et al. 2004 cite the Anderson C/MR2 as 0.3115±0.0028.  This
+Planet.rho_kgm3 = 2989; % Â±46 (Schubert et al. 2004)
+%note: Schubert et al. 2004 cite the Anderson C/MR2 as 0.3115Â±0.0028.  This
 %is incorrect, as the value cited everywhere else is consistent with the
 %Anderson et al. (1996) value of C/MR2=0.3105\pm0.0028 used here
 %MMD note July 17 2018: But Anderson et al. 1998 (Science) reported a
 %preferred value of C/MR2=0.346, which is actually used here.
-Planet.R_m = 1561.0e3;% ±8.0 km
+Planet.R_m = 1561.0e3;% Â±8.0 km
 Planet.M_kg =4.7991e22;
 Planet.gsurf_ms2 = 1.428; 
 Planet.Tsurf_K = 110; 
 Planet.Psurf_MPa = 0; 
 Planet.Cmeasured = 0.346;
 Planet.Cuncertainty = 0.005;
-%note: Schubert et al. 2004 cite the Anderson C/MR2 as 0.3115±0.0028.  This
+%note: Schubert et al. 2004 cite the Anderson C/MR2 as 0.3115Â±0.0028.  This
 %is incorrect, as the value cited everywhere else is consistent with the
 %Anderson et al. (1996) value of C/MR2=0.3105\pm0.0028 used here
 %MMD note July 17 2018: But Anderson et al. 1998 (Science) reported a
@@ -38,7 +38,7 @@ Planet.Cuncertainty = 0.005;
 Planet.FeCore=true;
 Planet.rhoFe = 8000; %8000
 Planet.rhoFeS = 5150; %5150
-%Planet.rhoPoFeFCC = 5455; %±40; WIP July 17 2018; Density of pyrrhottite plus 
+%Planet.rhoPoFeFCC = 5455; %Â±40; WIP July 17 2018; Density of pyrrhottite plus 
 %face-centered cubic iron predicted to stable allowing the maximum amount 
 %of sulfur in Europa's current core without crossing the solidus, according 
 %to our calculation using the Saxena and Eriksson 2015 (CALPHAD) EoS, 
@@ -138,7 +138,8 @@ Params.Temps = [250 252.5 255 260 265 270 273];
 
 %% Run the Calculation!
 % 
-Seismic.mantleEOS = 'chon_678_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries
+%Seismic.mantleEOS = 'chon_678_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries
+Seismic.mantleEOS = 'CV3hy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 Planet.rho_sil_withcore_kgm3 = 3539;
 % Seismic.mantleEOS = 'pyrohy_678v2_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries
 % Planet.rho_sil_withcore_kgm3 = 3425;
