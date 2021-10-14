@@ -1,8 +1,8 @@
 # pylint: disable=import-error
 import numpy as np
 import config as cfg
-bodyname = 'Europa'
-bodycode = 502
+bodyname = 'Ariel'
+bodycode = 701
 
 import spiceypy as spice
 spice.furnsh('Utilities/spice/'+cfg.spicePCK)
@@ -64,10 +64,11 @@ numProfiles = 25
 
 # Orbital and plotting parameters for use in LayeredInduction Response
 OrbitalDict = {
-    'peaks_Hz' : [4.946e-5, 2.473e-5, 3.259e-6],
-    'f_orb' : 2*np.pi/3.55/86400, # frequency of Europa's orbit [rad/s]
-    'ionos_bounds' : 100.e3,
-    'ionosPedersen_sig' : 30/100e3,
+    'peaks_Hz' : [3.45599e-5, 2.30405e-5, 1.1519e-5],
+    'peaks_Hr' : [1/3600/i for i in [3.45599e-5, 2.30405e-5, 1.1519e-5]],
+    'f_orb' : 2*np.pi/2.520/86400, # frequency of Ariel's orbit [rad/s]
+#    'ionos_bounds' : 100e3,
+#    'ionosPedersen_sig' : 30/100e3,
     'ionos_only' : [],
     'PLOT_SIGS' : True,
     'ADD_TRANSITION_BOUNDS' : False
@@ -76,15 +77,15 @@ OrbitalDict = {
 # Bulk and surface properties
 # note: C/MR2 uses value from Anderson et al. 1998
 BulkSurfaceDict = {
-    'rho_kgm3' : 2989., # average density [kg/m^3]
+    'rho_kgm3' : 1592., # average density [kg/m^3]
     'R_m' : R*1e3, # radius [m]
-    'M_kg' : 4.7991e22, # mass [kg]
-    'gsurf_ms2' : 1.428,
-    'Tsurf_K' : 110,
-    'Psurf_MPa' : 0,
-    'Cmeasured' : 0.346, # C/MR^2 value
-    'Cuncertainty' : 0.005, # C/MR^2 uncertainty
-    'FeCore' : True, # boolean for whether planet has an iron core
+    'M_kg' : 1.353e21, # mass [kg]
+#    'gsurf_ms2' : 1.428,
+    'Tsurf_K' : 60.0,
+    'Psurf_MPa' : 0.0,
+    'Cmeasured' : 0.306, # C/MR^2 value
+    'Cuncertainty' : 0.08, # C/MR^2 uncertainty
+    'FeCore' : False, # boolean for whether planet has an iron core
     'rhoFe' : 8000., # density of pure iron
     'rhoFeS' : 5150. # density of iron sulfate
 }
@@ -93,30 +94,30 @@ BulkSurfaceDict = {
 # cold case
 MantleHeatDict = {
     'kr_mantle' : 4., # rock conductivity, (Cammarano et al. 2006, Table 4)
-    'Qmantle_Wm2' : 2.2e11 / 4 / np.pi / BulkSurfaceDict['R_m']**2,
+    'Qmantle_Wm2' : 2.7e4 / 4 / np.pi / BulkSurfaceDict['R_m']**2,
     'QHmantle' : 0.,
     'EQUIL_Q' : False
 }
 
 # Porosity of the rock
 PorosityDict = {
-    'POROUS_ROCK' : False,
-    'phi_surface' : 0.
+    'POROUS_ROCK' : True,
+    'phi_surface' : 0.8
 }
 
 # Core properties
 CoreDict = {
-    'xFeS_meteoritic' : 0.0405,
-    'xFeS' : 0.55,
-    'xFe_core' : 0.0279,
-    'XH2O' : 0.0035,
-    'rho_sil_withcore_kgm3' : 3644.
+#    'xFeS_meteoritic' : 0.0405,
+    'xFeS' : 0.25,
+#    'xFe_core' : 0.0279,
+#    'XH2O' : 0.0035,
+    'rho_sil_withcore_kgm3' : 2700.
 }
 
 # Ocean properties (included as sub-dictionary with key 'Ocean')
 OceanDict = {
-    'ocean_comp' : 'MgSO4', # composition of the ocean
-    'ocean_wpct' : 10.0, # % concentration of solute in ocean
+    'ocean_comp' : 'NH3', # composition of the ocean
+    'ocean_wpct' : 3., # % concentration of solute in ocean
     'Tb_K' : 270. # temperature at the bottom of the ice layer
 }
 
@@ -198,8 +199,8 @@ Mantle = {
 Seismic = {
     'LOW_ICE_Q' : 1.,
     'QScore' : 1e4,
-    'coreEOS' : 'sulfur_core_partition_SE15_1pctSulfur.tab',
-    'mantleEOS' : 'CV3hy1wt_678_1.tab',
+#    'coreEOS' : 'sulfur_core_partition_SE15_1pctSulfur.tab',
+    'mantleEOS' : 'echon_678_1.tab',
     **IceI,
     **IceII,
     **IceIII,
@@ -216,15 +217,15 @@ Params = {
     'foursubplots' : True,
     'Legend' : False,
     'LegendPosition' : 'North',
-    'ylim' : [910,1230],
-    'Pseafloor_MPa' : 350,
-    'nsteps_iceI' : 200,
-    'nsteps_ocean' : 350,
+    'ylim' : [910,1170],
+    'Pseafloor_MPa' : 10,
+    'nsteps_iceI' : 20,
+    'nsteps_ocean' : 100,
     'nsteps_ref_rho' : 30,
-    'nsteps_mantle' : 500,
-    'nsteps_core' : 10,
+    'nsteps_mantle' : 1500,
+    'nsteps_core' : 100,
     'nsteps_colororder' : 'mcbkgrm',
-    'Temps' : [250., 252.5, 255., 260., 265., 270., 273.],
+    'Temps' : [245., 250., 252.5, 260., 265., 270.],
     'LineStyle' : '--',
     'wrefLine' : '--',
     'wref' : [0,34]
