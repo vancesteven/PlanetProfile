@@ -9,15 +9,15 @@
 #	Various commands for setting up and running PlanetProfile.
 #	Designed for accessibility for new users and ease of use for advanced users.
 # 
-# AUTHOR: Marshall J. Styczinski (mjstyczi@uw.edu), 2018-07-03
-#	Last updated 2020-10-01
+# AUTHOR: Marshall J. Styczinski (itsmoosh@gmail.com), 2018-07-03
+#	Last updated 2021-10-14
 
 SHELL := /bin/bash
 
 # Set to 0 for PlanetProfile versions using Refprop
 refprop=1
 
-mbodies="Callisto" "Enceladus" "Europa" "Ganymede" "Titan"
+mbodies="Ariel" "Callisto" "Enceladus" "Europa" "Ganymede" "Miranda" "Titan" "Triton"
 figs="figures"
 cdpp=cd $(shell pwd)
 
@@ -91,11 +91,30 @@ endif
 
 	@# Get list of PlanetProfile directories containing important files
 	@#   and print them into a file named startup.m
-	@pathdirs=($$(find * -type d -not -path *version* -not -path *.git* -not -path *Python*)) ; \
+	@# First, check if SeaFreeze is installed and grab it if not
+	@SeaFinstalled=$$(find Thermodynamics/SeaFreeze/* | wc -l) ; \
+	if [[ $$SeaFinstalled -eq 2 ]] ; then \
+		echo "SeaFreeze has not been installed yet." ; \
+		read -p "Would you like to install it now using git? ([Y]/n)" doSeaFinstall ; \
+		if [[ "$$doSeaFinstall" =~ ^([nN][oO]|[nN])$$ ]] ; then \
+			SeaFinstalled=-1 ; \
+		else \
+			git clone git@github.com:Bjournaux/SeaFreeze.git Thermodynamics/SeaFreeze/SeaFreeze && SeaFinstalled=0 ; \
+		fi ; \
+	else \
+		SeaFinstalled=0 ; \
+	fi ; \
+	pathdirs=($$(find * -type d -not -path *version* -not -path *.git* -not -path *Python*)) ; \
 	echo "$(cdpp)" > startup.m ; \
 	for subdir in $${pathdirs[@]} ; do \
 		echo "addpath('$$subdir')" >> startup.m ; \
-	done
+	done ; \
+	if [[ $$SeaFinstalled -eq -1 ]] ; then \
+		echo "WARNING: SeaFreeze was not installed when the startup path" ; \
+		echo "  file was created. Delete startup.m from the Matlab" ; \
+		echo "  toolbox/local directory and run make install again after" ; \
+		echo "  installing SeaFreeze in order to add it to the startup path." ; \
+	fi
 
 ifeq ($(foundmatlab),1)
 	@echo "WARNING: Your Matlab install location was not found."
@@ -103,18 +122,22 @@ ifeq ($(foundmatlab),1)
 	@echo "  directory to the Matlab toolbox/local directory"
 	@echo "  to complete installation."
 	@echo
-	@echo "Then, in Matlab, run startup command, or close and"
-	@echo "  relaunch to automatically add PlanetProfile dirs"
-	@echo "  to your Matlab path."
+	@echo "Next, in Matlab, go to:"
+	@echo "  Preferences -> Matlab -> General -> Toolbox path caching"
+	@echo "  and click on the button for Update Toolbox Path Cache."
+	@echo "Then, at the Matlab command prompt, run the startup command, or close and"
+	@echo "  relaunch, to automatically add PlanetProfile dirs to your Matlab path."
 else ifeq ($(windows),0)
 	@# Windows folders are most often not writable. Make the user do it.
 	@echo "To complete installation, copy startup.m from the PlanetProfile"
 	@echo "  directory into your Matlab toolbox/local directory at:"
 	@echo "  $(matlabsupath)"
 	@echo " "
-	@echo "Then, in Matlab, run startup command, or close and"
-	@echo "  relaunch to automatically add PlanetProfile dirs"
-	@echo "  to your Matlab path."
+	@echo "Next, in Matlab, go to:"
+	@echo "  Preferences -> Matlab -> General -> Toolbox path caching"
+	@echo "  and click on the button for Update Toolbox Path Cache."
+	@echo "Then, at the Matlab command prompt, run the startup command, or close and"
+	@echo "  relaunch, to automatically add PlanetProfile dirs to your Matlab path."
 else
 	@echo "Matlab toolbox/local found: $(matlabsupath)"
 
@@ -134,10 +157,14 @@ else
 	fi
 	@rm startup.m
 	@echo " "
-	@echo "Installation finished. If errors ocurred above, paste"
-	@echo "  startup.m from the PlanetProfile dir into the Matlab toolbox/local dir."
+	@echo "Installation finished. If errors ocurred above or if startup.m is"
+	@echo "  still in the PlanetProfile directory, paste into the Matlab"
+	@echo "  toolbox/local/ dir."
 	@echo " "
-	@echo "Then, in Matlab, run startup command, or close and"
+	@echo "Next, in Matlab, go to:"
+	@echo "  Preferences -> Matlab -> General -> Toolbox path caching"
+	@echo "  and click on the button for Update Toolbox Path Cache."
+	@echo "Then, at the Matlab command prompt, run the startup command, or close and"
 	@echo "  relaunch, to automatically add PlanetProfile dirs to your Matlab path."
 endif
 
