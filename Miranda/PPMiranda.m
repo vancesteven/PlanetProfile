@@ -23,13 +23,17 @@ Planet.peaks_hr = 1./Planet.peaks_Hz./3600;
 Planet.f_orb = 2*pi/1.413479/24/3600; % radians per second
 Params.wlims = [log(0.001) log(1000)];
 % Get Fourier spectrum data
+try 
+    load(['FTdata' Planet.name],'FTdata');
+catch
+    dlNow = FTdataMissingWarning();
+    if dlNow; load(['FTdata' Planet.name],'FTdata'); end
+end
 % Planet.ionos_bounds = 100e3;
 % Planet.ionosPedersen_sig = 30/100e3;
 Planet.ionos_only = [];
 Planet.PLOT_SIGS = true;
 Planet.ADD_TRANSITION_BOUNDS = false;
-
-load('FTdataMiranda.mat')
 
 % WARNING: The following line was copied from PPCallisto.m because it is
 % required by PlanetProfile.m in the current version and does not appear in

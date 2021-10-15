@@ -17,14 +17,16 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
 1. Install SeaFreeze by copying the contents of the Matlab folder at (https://github.com/Bjournaux/SeaFreeze) into the Thermodynamics/SeaFreeze folder of PlanetProfile.
 1. Install magnetic field Fourier Transform (FT) data from C. Cochrane by copying the contents of ???????(pending) into the MagneticInduction/FieldData folder of PlanetProfile.
 1. If TauP functionality is desired, download matTaup (https://github.com/g2e/seizmo/) and add mattaup, misc, and models to Utilities folder
-1.Open a Terminal and navigate to the PlanetProfile directory.
-1. Type "make install" (no quotes) and hit enter.
-1. In Matlab, run "startup" (no quotes) at the command line, or close and relaunch.
+1. Install magnetic induction data by downloading all .mat files from https://zenodo.org/record/5057572 into the MagneticInduction/FTdata folder.
+1. Open a Terminal and navigate to the PlanetProfile directory.
+1. Type "make install" (no quotes) and hit enter. Follow any directions you are given.
+1. Open Matlab. In the Matlab Preferences menu, go to MATLAB -> General -> Toolbox path caching and click the "Update Toolbox Path Cache" button.
+1. At the Matlab command prompt, run "startup" (no quotes), or close and relaunch.
 1. Open the PP_____.m file for your selected body in the Matlab editor.
 1. Check that your current directory is the PlanetProfile directory in Matlab.
    1. The last dir in the address bar just above the editor should say "PlanetProfile".
 1. Run the PP_____.m file.
-   1. In the ribbon, go to Editor -> Run.
+   1. In the ribbon at the top of the Matlab window, go to Editor -> Run.
 
 ## Contributing
 PlanetProfile is open source software. Please see the [LICENSE](https://github.com/vancesteven/PlanetProfile/blob/master/LICENSE) file and read the guidelines for contrbuting in [CONTRIBUTING.md](https://github.com/vancesteven/PlanetProfile/blob/master/CONTRIBUTING.md) if you are interested in joining the project. Also see our community guidelines in [CODE_OF_CONDUCT.md](https://github.com/vancesteven/PlanetProfile/blob/master/CODE_OF_CONDUCT.md).

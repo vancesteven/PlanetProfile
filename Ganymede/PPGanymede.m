@@ -9,7 +9,12 @@ Planet.peaks_Hz = [5.274e-5 2.637e-5 1.617e-6];
 Planet.f_orb = 2*pi/7.15/86400; % radians per second
 Params.wlims = [log(0.001) log(1000)];
 % Get Fourier spectrum data
-load(['FTdata' Planet.name],'FTdata');
+try 
+    load(['FTdata' Planet.name],'FTdata');
+catch
+    dlNow = FTdataMissingWarning();
+    if dlNow; load(['FTdata' Planet.name],'FTdata'); end
+end
 Planet.ionos_bounds = 100e3;
 Planet.ionosPedersen_sig = 30/100e3;
 Planet.ionos_only = [];
