@@ -2142,29 +2142,29 @@ for iT = 1:nTbs
 %         interior(iT).QS_overfgamma thisQScore];
 
 %% attenuation in ice
-    Hp_iceI = Seismic.g_aniso_iceI*T_K(iT,indsI);
+    Hp_iceI = Seismic.g_aniso_iceI*Tb_K(iT);
     QS_overfgamma_iceI = Seismic.B_aniso_iceI*....
         exp(Seismic.gamma_aniso_iceI*Hp_iceI./T_K(iT,indsI))/Seismic.LOW_ICE_Q;
     try
         Tthis=T_K(iT,indsClath);
-        Hp_clath = Seismic.g_aniso_clath*Tthis;
+        Hp_clath = Seismic.g_aniso_clath*Tb_K(iT);
         QS_overfgamma_clath= Seismic.B_aniso_clath*....
             exp(Seismic.gamma_aniso_clath*Hp_clath./Tthis)/Seismic.LOW_ICE_Q;
     catch
-        Hp_clath = Seismic.g_aniso_iceI*T_K(iT,indsClath);
+        Hp_clath = Seismic.g_aniso_iceI*Tb_K(iT);
         QS_overfgamma_clath = Seismic.B_aniso_iceI*....
             exp(Seismic.gamma_aniso_iceI*Hp_clath./T_K(iT,indsClath))/Seismic.LOW_ICE_Q;
     end
     Tthis=T_K(iT,indsIII);
-    Hp_iceIII = Seismic.g_aniso_iceIII*Tthis;
+    Hp_iceIII = Seismic.g_aniso_iceIII*max(T_K(iT,indsIII));
     QS_overfgamma_iceIII = Seismic.B_aniso_iceIII*....
         exp(Seismic.gamma_aniso_iceI*Hp_iceIII./Tthis)/Seismic.LOW_ICE_Q;
     Tthis=T_K(iT,indsV);
-    Hp_iceV = Seismic.g_aniso_iceV*Tthis;
+    Hp_iceV = Seismic.g_aniso_iceV*max(T_K(iT,indsV));
     QS_overfgamma_iceV = Seismic.B_aniso_iceV*....
         exp(Seismic.gamma_aniso_iceI*Hp_iceV./Tthis)/Seismic.LOW_ICE_Q;
     Tthis=T_K(iT,indsVI);
-    Hp_iceVI = Seismic.g_aniso_iceVI*Tthis;
+    Hp_iceVI = Seismic.g_aniso_iceVI*max(T_K(iT,indsVI));
     QS_overfgamma_iceVI = Seismic.B_aniso_iceVI*....
         exp(Seismic.gamma_aniso_iceI*Hp_iceVI./Tthis)/Seismic.LOW_ICE_Q;
 
