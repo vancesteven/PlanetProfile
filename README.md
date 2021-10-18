@@ -1,32 +1,26 @@
 # PlanetProfile v1.2.0
-Matlab software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data. Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
+Python software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data. Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
 
 ## Acknowledging PlanetProfile
 We want to hear about your work with PlanetProfile! Please consider sending us a message alerting us to your work (svance@jpl.caltech.edu). Suggested acknowledgement in publications: "Data used in this work were generated using the open source PlanetProfile software hosted on GitHub."
 
 ## Prerequisites
 * SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze
-* Matlab "Curve Fitting Toolbox"
-* Matlab "Image Processing Toolbox"
-* Matlab "Optimization Toolbox"
-* Matlab "Parallel Computing Toolbox" (optional, for select applications)
+* Python 3.8+ installed, preferably via Anaconda. Required modules:
+  * Standard anaconda (for miniconda, install with conda install <packageName1> <packagename2> etc.):
+    * numpy
+    * spiceypy
+  * Conda-forge (install with conda install -c conda-forge <packageName>):
+    * skyfield (maybe not needed? Used in body date/time settings of asymmetric induction code)
 * Refprop is required for NH3 solutions: https://www.nist.gov/refprop
   * Due to various complications it is not currently implemented.
 
 ## Setup
-1. Install SeaFreeze by copying the contents of the Matlab folder at (https://github.com/Bjournaux/SeaFreeze) into the Thermodynamics/SeaFreeze folder of PlanetProfile.
-1. Install magnetic field Fourier Transform (FT) data from C. Cochrane by copying the contents of ???????(pending) into the MagneticInduction/FieldData folder of PlanetProfile.
-1. If TauP functionality is desired, download matTaup (https://github.com/g2e/seizmo/) and add mattaup, misc, and models to Utilities folder
+1. Install SeaFreeze by copying the contents of the Python folder at (https://github.com/Bjournaux/SeaFreeze) into the Thermodynamics/SeaFreeze folder of PlanetProfile.
+1. If TauP functionality is desired, download ~~matTaup (https://github.com/g2e/seizmo/) and add mattaup, misc, and models to Utilities folder~~ probably obspy.taup from https://docs.obspy.org/packages/obspy.taup.html
 1. Install magnetic induction data by downloading all .mat files from https://zenodo.org/record/5057572 into the MagneticInduction/FTdata folder.
 1. Open a Terminal and navigate to the PlanetProfile directory.
-1. Type "make install" (no quotes) and hit enter. Follow any directions you are given.
-1. Open Matlab. In the Matlab Preferences menu, go to MATLAB -> General -> Toolbox path caching and click the "Update Toolbox Path Cache" button.
-1. At the Matlab command prompt, run "startup" (no quotes), or close and relaunch.
-1. Open the PP_____.m file for your selected body in the Matlab editor.
-1. Check that your current directory is the PlanetProfile directory in Matlab.
-   1. The last dir in the address bar just above the editor should say "PlanetProfile".
-1. Run the PP_____.m file.
-   1. In the ribbon at the top of the Matlab window, go to Editor -> Run.
+1. Run PlanetProfile with the command: python PlanetProfile.py
 
 ## Contributing
 PlanetProfile is open source software. Please see the [LICENSE](https://github.com/vancesteven/PlanetProfile/blob/master/LICENSE) file and read the guidelines for contrbuting in [CONTRIBUTING.md](https://github.com/vancesteven/PlanetProfile/blob/master/CONTRIBUTING.md) if you are interested in joining the project. Also see our community guidelines in [CODE_OF_CONDUCT.md](https://github.com/vancesteven/PlanetProfile/blob/master/CODE_OF_CONDUCT.md).
