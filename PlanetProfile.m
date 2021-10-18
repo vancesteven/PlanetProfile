@@ -13,15 +13,6 @@ function outPlanet = PlanetProfile(Planet,Seismic,Params)
 % Geophysical investigations of habitability in ice-covered ocean worlds.
 % Journal of Geophysical Research: Planets, Nov 2018.
 
-PythonReload() % reloads listed local python modules
-PPPy = py.importlib.import_module('PlanetProfile'); % imports main python module
-py.importlib.reload(PPPy);
-pyStr = pyenv; % sets TCL and TK environment for use by some python modules
-pyTCL = fullfile(pyStr.Home, 'tcl', 'tcl8.6');
-pyTK = fullfile(pyStr.Home, 'tcl', 'tk8.6');
-setenv('TCL_LIBRARY', pyTCL);
-setenv('TK_LIBRARY', pyTK);
-
 vernum = PPversion;
 disp(['PlanetProfile version ' vernum])
 if all(vernum(end-2:end) == 'dev'); disp('This version is in development.'); end
@@ -100,7 +91,7 @@ if ~cfg.SKIP_PROFILES
         [~] = getLayeredFigRefs(lbl, Planet.Tb_K, Planet.name, Planet.PLOT_SIGS, cfg.HOLD, cfg.NO_PLOTS);
     end
     
-end % ~cfg.SKIP_PROFILES
+end % ~cfg.SKIP_PROxFILES
 
 %% globals for functions in fzero
 global M_Planet_kg R_Planet_m extrapflag
@@ -1024,36 +1015,6 @@ if ~Planet.FeCore
 %     ~dindsV)-zI_m(~dindsVI & ~dindsV); not sure this is right. commenting
 %     out on March 8 2018
 
-    mantleSizePath = [Planet.name '/' savebase vmant '.csv'];
-    if cfg.CALC_NEW
-        mantleSizeTable = table(R_sil_m(iT,C2inds{iT})',rho_sil_kgm3(iT,C2inds{iT})');
-        mantleSizeTable.Properties.VariableNames = {'Radius (m)', 'Layer density (kg/m^3)'};
-        writetable(mantleSizeTable,mantleSizePath);
-        
-        % The following are two examples of how to write out this data in python:
-        
-        % Example 1: Great control
-        %fout = open(mantleSizePath, "w")
-        %mantleSizeHeader = "{:<24}, {:<24}\n".format("Radius (m),", "Layer density (kg/m^3)")
-        %fout.write(mantleSizeHeader)
-        %for i in range(len(C2inds[iT])):
-        %    fout.write( "{:<24}, {:<24}\n".format(round(R_sil_m(iT,C2inds[iT]),8), round(rho_sil_kgm3(iT,C2inds[iT]),8))) )
-        %fout.close()
-        
-        % Example 2: Simplicity
-        %mantleSizeHeader = "{:>22}, {:>23}".format("Radius (m)", "Layer density (kg/m^3)")
-        %np.savetxt(mantleSizePath, np.array(R_sil_m(iT,C2inds[iT]),rho_sil_kgm3(iT,C2inds[iT])).T, header=mantleSizeHeader, delimiter=",", fmt="%24.8f")
-    else
-        mantleSizeTable = readtable(mantleSizePath);
-        R_sil_m(iT,C2inds{iT}) = mantleSizeTable.('Radius (m)')';
-        rho_sil_kgm3(iT,C2inds{iT}) = mantleSizeTable.('Layer density (kg/m^3)')';
-        
-        % The following is an example of how to read in this data in python:
-        %mantleSizeR, mantleSizeRho = py.numpy.loadtxt(mantleSizePath, skiprows=1, unpack=True, delimiter=",")
-        %R_sil_m(iT,C2inds{iT}) = mantleSizeR
-        %rho_sil_kgm3(iT,C2inds{iT}) = mantleSizeRho
-    end
-    
     if ~cfg.SKIP_PROFILES
         % Plot the results
         set(0, 'CurrentFigure', figs.mant);
@@ -1073,13 +1034,6 @@ if ~Planet.FeCore
         title(['No Fe core ; ' math 'C/MR^2' bnm ' = ' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) ';' math ' W ' bnm ' = ' num2str(wo) ' wt%'],'Fontsize',lbl.lgtext)
 
         print(figs.mant,Params.savefigformat,fullfile([figpath savebase vmant cfg.xtn]));
-        
-        rho_sil_kgm3_py = py.numpy.asarray(rho_sil_kgm3);
-        R_sil_m_py = py.numpy.asarray(R_sil_m);
-        Planet_py = py.dict(struct('Tb_K',Planet.Tb_K,'Cmeasured',Planet.Cmeasured,'Cuncertainty',Planet.Cuncertainty));
-        C2inds_py = PPPy.MatToPy.cellto2dlist(C2inds,"int");
-        
-        PPPy.MantleSizePlot(rho_sil_kgm3_py,R_sil_m_py,C2inds_py,Planet_py,int16(nTbs),int16(wo),[figpath savebase vmant 'PY' cfg.xtn])
     end
 % =====
 else % WITH A CORE
@@ -1095,6 +1049,7 @@ else % WITH A CORE
     
     [R_Fe_mean_m, R_Fe_range_m, R_sil_range_m] = deal(zeros(1,nTbs));
     r_core_m = zeros(nTbs,Params.nsteps_core);
+    lstr_3 = cell(1,nTbs);
     for iT=1:nTbs
         C2inds{iT} = find(C2(iT,:)/MR2>Planet.Cmeasured-Planet.Cuncertainty & C2(iT,:)/MR2<Planet.Cmeasured+Planet.Cuncertainty);
         if isempty(C2inds{iT})
@@ -1110,17 +1065,13 @@ else % WITH A CORE
         R_sil_range_m(iT) = R_sil_m(iT,C2min(iT))-R_sil_m(iT,C2max(iT));
         
         r_core_m(iT,:) = linspace(R_Fe_mean_m(iT),0,Params.nsteps_core);
+        if ~cfg.SKIP_PROFILES; lstr_3{iT} = [math 'T_{b}' nm ': ' num2str(Planet.Tb_K(iT),'%0.1f') ' K']; end
     end
 
     if ~cfg.SKIP_PROFILES
         set(0, 'CurrentFigure', figs.core);
         clf;hold all
         set(gcf,'Position', [335 133 854 547], 'Name', lbl.corsz)
-        
-        lstr_3 = cell(1,nTbs);
-        for iT=1:nTbs
-            lstr_3{iT} = [math 'T_{b}' nm ': ' num2str(Planet.Tb_K(iT),'%0.1f') ' K'];
-        end
         
         plot(R_Fe_m(iT,C2inds{iT})'*1e-3,R_sil_m(iT,C2inds{iT})'*1e-3);
         legend(lstr_3,'Fontsize',lbl.smtext)
@@ -1130,12 +1081,6 @@ else % WITH A CORE
         title(['Fe core ; ' math 'C/MR^2' bnm ' = ' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) '; ' math ' W ' bnm ' = ' num2str(wo) ' wt%; ' math '\rho_{' bnm 'sil}' bnm ': ' num2str(Planet.rho_sil_withcore_kgm3,'%0.0f') '; ' math '\rho_{' bnm 'Fe}' bnm ': ' num2str(rho_Fe_kgm3,'%0.0f')],'Fontsize',lbl.lgtext)
 
         print(figs.core,Params.savefigformat,fullfile([figpath savebase vcore cfg.xtn]));
-        
-        R_Fe_m_py = py.numpy.asarray(R_Fe_m);
-        R_sil_m_py = py.numpy.asarray(R_sil_m);
-        Planet_py = struct('Tb_K',Planet.Tb_K,'Cmeasured',Planet.Cmeasured,'Cuncertainty',Planet.Cuncertainty,'rho_sil_withcore_kgm3',Planet.rho_sil_withcore_kgm3);
-        
-        PPPy.CoreSizePlot( R_Fe_m_py , R_sil_m_py , PPPy.MatToPy.cellto2dlist(C2inds,"int") , Planet_py , rho_Fe_kgm3 , int16(nTbs) , int16(wo) , [figpath savebase vcore 'PY' cfg.xtn])
     end
 end
 
