@@ -102,14 +102,18 @@ if strcmp(Planet.Ocean.comp,'Seawater')
     swEOS.gsw = swEOS_chooser('gsw305');
 elseif strcmp(Planet.Ocean.comp,'NaCl')
     error(['NaCl is not currently implemented.'])
-elseif strcmp(Planet.Ocean.comp,'NH3')
-    error(['NH3 is not currently implemented.'])
+elseif strcmp(Planet.Ocean.comp,'NH3')        
+%     error(['NH3 is not currently implemented.'])
 elseif strcmp(Planet.Ocean.comp,'MgSO4')
     conduct_scaling_MgSO4 = (1+4*wo); % empirical scaling of electrical conductivity from 1 bar values compiled in Hand and Chyba 2007
 end
 
-thiseos = split(Seismic.mantleEOS,'.tab');
-thiseos = char(thiseos(1));
+if isfield(Seismic,'mantleEOS')
+    thiseos = split(Seismic.mantleEOS,'.tab');
+    thiseos = char(thiseos(1));
+else
+    thiseos = 'none'
+end
 bar2GPa = 1e-4;
 
 M_Planet_kg = Planet.M_kg;
@@ -449,10 +453,7 @@ if ~Planet.NoH2O
             end
             for il =1:n_ocean(iT)
                 ill = il+n_iceI(iT)+n_clath(iT);
-                disp(['iT: ' num2str(iT) '; il: ' num2str(il) '; P_MPa: ' num2str(round(P_MPa(iT,ill-1)))]);
-                if il==178
-                    break_here = 1;
-                end
+                disp(['iT: ' num2str(iT) '; il: ' num2str(il) '; P_MPa: ' num2str(round(P_MPa(iT,ill-1))) '; T_K: ' num2str(round(T_K(iT,ill-1)))]);
                 P_MPa(iT,ill) = Pb_MPa(iT) + il*deltaP;
 
                 if il==1 % establish the phase vector
@@ -466,6 +467,10 @@ if ~Planet.NoH2O
                     if phase(iT,ill-1)==0 && phase(iT,ill)==1 % fix to instabilities in the phase lookup for ice III
                         disp('Fixing apparent instability in the EOS?ice Ih is forming under the ocean')
                         phase(iT,ill)=0;
+                    end
+                    if phase(iT,ill-1)==5 && phase(iT,ill)==0 % fix to instabilities in the phase lookup for ice V for Titan NH3 LBF svance Jul 6 2021
+                        disp('Fixing apparent instability in the EOS? fluid is forming under ice V')
+                        phase(iT,ill)=5;
                     end
                 else
                     phase(iT,ill) = 6;
@@ -759,7 +764,11 @@ if ~Planet.NoH2O
 
                 T_K(iT,iconv) = T_K(iT,iconv-1)+alpha_K(iT,iconv).*T_K(iT,iconv)./Cp(iT,iconv)./rho_kgm3(iT,iconv)*deltaP*1e6;
                 % double check temperatures make sense
-                phase_test = getIcePhase(P_MPa(iT,iconv),T_K(iT,iconv-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
+                if strcmp(Planet.Ocean.comp,'NH3') % kluge svance july 7 2021. not sure why two phase tests are happening. generally, the seafreeze test should be performed when possible
+                    phase_test = 1;
+                else
+                    phase_test = getIcePhase(P_MPa(iT,iconv),T_K(iT,iconv-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
+                end
                 phase_test2=SF_WhichPhase([P_MPa(iT,iconv),T_K(iT,iconv)]);
 
                 if phase_test==0 || phase_test2==0 % & n_clath>0
@@ -1518,7 +1527,9 @@ else
     end
 end
 
-mantle = loadMantleEOS(Seismic.mantleEOS);
+if isfield(Seismic,'mantleEOS')
+    mantle = loadMantleEOS(Seismic.mantleEOS);
+end
 % mprops = load(Seismic.mantleEOS);
 if isfield(Seismic,'mantleEOS_dry')
     mantleDry = loadMantleEOS(Seismic.mantleEOS_dry);
@@ -2142,29 +2153,29 @@ for iT = 1:nTbs
 %         interior(iT).QS_overfgamma thisQScore];
 
 %% attenuation in ice
-    Hp_iceI = Seismic.g_aniso_iceI*T_K(iT,indsI);
+    Hp_iceI = Seismic.g_aniso_iceI*Tb_K(iT);
     QS_overfgamma_iceI = Seismic.B_aniso_iceI*....
         exp(Seismic.gamma_aniso_iceI*Hp_iceI./T_K(iT,indsI))/Seismic.LOW_ICE_Q;
     try
         Tthis=T_K(iT,indsClath);
-        Hp_clath = Seismic.g_aniso_clath*Tthis;
+        Hp_clath = Seismic.g_aniso_clath*Tb_K(iT);
         QS_overfgamma_clath= Seismic.B_aniso_clath*....
             exp(Seismic.gamma_aniso_clath*Hp_clath./Tthis)/Seismic.LOW_ICE_Q;
     catch
-        Hp_clath = Seismic.g_aniso_iceI*T_K(iT,indsClath);
+        Hp_clath = Seismic.g_aniso_iceI*Tb_K(iT);
         QS_overfgamma_clath = Seismic.B_aniso_iceI*....
             exp(Seismic.gamma_aniso_iceI*Hp_clath./T_K(iT,indsClath))/Seismic.LOW_ICE_Q;
     end
     Tthis=T_K(iT,indsIII);
-    Hp_iceIII = Seismic.g_aniso_iceIII*Tthis;
+    Hp_iceIII = Seismic.g_aniso_iceIII*max(T_K(iT,indsIII));
     QS_overfgamma_iceIII = Seismic.B_aniso_iceIII*....
         exp(Seismic.gamma_aniso_iceI*Hp_iceIII./Tthis)/Seismic.LOW_ICE_Q;
     Tthis=T_K(iT,indsV);
-    Hp_iceV = Seismic.g_aniso_iceV*Tthis;
+    Hp_iceV = Seismic.g_aniso_iceV*max(T_K(iT,indsV));
     QS_overfgamma_iceV = Seismic.B_aniso_iceV*....
         exp(Seismic.gamma_aniso_iceI*Hp_iceV./Tthis)/Seismic.LOW_ICE_Q;
     Tthis=T_K(iT,indsVI);
-    Hp_iceVI = Seismic.g_aniso_iceVI*Tthis;
+    Hp_iceVI = Seismic.g_aniso_iceVI*max(T_K(iT,indsVI));
     QS_overfgamma_iceVI = Seismic.B_aniso_iceVI*....
         exp(Seismic.gamma_aniso_iceI*Hp_iceVI./Tthis)/Seismic.LOW_ICE_Q;
 
@@ -3062,7 +3073,8 @@ function phase = getIcePhase(P_MPa,T_K,w_pct,str_comp)
             global swEOS
             phase=swEOS.gsw.tfreezing(w_pct,10*P_MPa)>T_K;
         case 'NH3'
-            phase = getIcePhaseNH3(P_MPa,T_K,w_pct);
+%             phase = getIcePhaseNH3(P_MPa,T_K,w_pct);
+            phase = LBFIcePhase(P_MPa,T_K,w_pct,'NH3');
     end
 end % getIcePhase
 function Tfreeze_K = getTfreeze(P_MPa,wo,str_comp,Tprior)
@@ -3089,7 +3101,19 @@ function Tfreeze_K = getTfreeze(P_MPa,wo,str_comp,Tprior)
             global swEOS
             Tfreeze_K = swEOS.gsw.tfreezing(wo,10*P_MPa);
         case 'NH3'
-            Tfreeze_K = fzero(@(T) L_IceNH3(P_MPa,T,wo,1),[200 350]);
+%             Tfreeze_K = fzero(@(T) L_IceNH3(P_MPa,T,wo,1),[200 350]);
+            options = optimset('fzero');
+            options.TolX = 1e-7; % 1e-13 failed for 5wt% NaCl for Titan with Tb=258.0842 at P = 1163, step il = 280
+            if isempty(Tprior)
+                Trange = [239 401];
+            else
+                Trange = Tprior + [-1 1]*4;
+            end
+            try
+                Tfreeze_K = fzero(@(T) 0.5-LBFIcePhase(P_MPa,T,wo,'NH3'),Trange,options);
+            catch
+                x = 1 ;
+            end
     end
 end % getTfreeze
 function Pfreeze_MPa = getPfreeze(T_K,wo,str_comp)
@@ -3111,7 +3135,11 @@ function Pfreeze_MPa = getPfreeze(T_K,wo,str_comp)
             global swEOS
             Pfreeze_MPa = 0.1*swEOS.gsw.pfreezing(wo,T_K);
         case 'NH3'
-            Pfreeze_MPa = fzero(@(P) L_IceNH3(P,T_K,wo,1),[0 250]);
+%             Pfreeze_MPa = fzero(@(P) L_IceNH3(P,T_K,wo,1),[0 250]);
+            %LBF
+            options = optimset('fzero');
+            options.TolX = 1e-11; % prevent errors from overthinking by fzero. the error is:
+            Pfreeze_MPa = fzero(@(P) 0.5-LBFIcePhase(P,T_K,wo,'NH3'),[0.1 209],options); % the P bounds are sensitive because multivalued solutions (ices Ih and III) will cause fzero to fail
     end
 end %getPfreeze
 function Pfreeze_MPa = getPfreezeIII(T_K,wo,str_comp)
@@ -3157,7 +3185,14 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
         case 'NH3'
            %[rho_kgm3,~,~,Cp,~,alpha_Km1] = ...
            %     refproppy32([P_MPa T_K],{'ammonia' 'water'},[wo 100-wo]/100,-1);
-            error('ERROR: NH3 is not yet implemented for fluidEOS.')
+%             error('ERROR: NH3 is not yet implemented for fluidEOS.')
+            W_NH3 = 17.031;            
+            mo=1000./W_NH3./(1./(0.01.*wo)-1); %conversion to molality from wt%
+            out = SeaFreeze({P_MPa T_K mo},'NH3');
+            rho_kgm3 = out.rho;
+            Cp = out.Cp;
+            alpha_Km1 = out.alpha;
+
     end
 end %fluidEOS
 function [vel_kms,Ks_GPa] = fluidSoundSpeeds(P_MPa,T_K,wo,str_comp)
@@ -3174,7 +3209,11 @@ function [vel_kms,Ks_GPa] = fluidSoundSpeeds(P_MPa,T_K,wo,str_comp)
             % expect that wo is absolute salinity
             vel_kms=1e-3*swEOS.gsw.vel(wo*ones(1,length(T_K)),T_K,P_MPa*10);
         case 'NH3'
-            disp('WARNING: NH3 is not yet implemented for fluidSoundSpeeds.')
+%             disp('WARNING: NH3 is not yet implemented for fluidSoundSpeeds.')
+            W_NH3 = 17.031;            
+            mo=1000./W_NH3./(1./(0.01.*wo)-1); %conversion to molality from wt%
+            out = SeaFreeze([P_MPa' T_K' mo*ones(length(T_K),1)],'NH3');
+            vel_kms = out.vel';
     end
 end % fluidSoundSpeeds
 function zero_alpha = alphaAdjust(P_MPa,T_K,wo,comp)
