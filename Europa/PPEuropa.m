@@ -10,7 +10,7 @@ Planet.f_orb = 2*pi/3.55/86400; % radians per second
 Params.wlims = [log(0.001) log(1000)];
 % Get Fourier spectrum data
 try 
-    load(['FTdata' Planet.name],'FTdata');
+    load(['FTdata' Planet.name '.mat'],'FTdata');
 catch
     dlNow = FTdataMissingWarning();
     if dlNow; load(['FTdata' Planet.name],'FTdata'); end
@@ -81,24 +81,7 @@ Planet.POROUS_ROCK = 0;
 
 %% Seismic
 Seismic.LOW_ICE_Q = 1; % divide Ice Q value by this number
-% Seismic.mantleEOS = 'epyrohp_sat_1.tab'; % low density (2700) this uses the procedure implemented by F. Cammarano
-
-
-% Seismic.mantleEOS = 'chon_678_1.tab'; %(3500)
-% Seismic.mantleEOS = 'pyrohp_sat_678_1.tab'; %(2820)
-% Seismic.mantleEOS = 'epyro_678_1.tab'; %(3450)
-% Seismic.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab';% (3100)
-% Seismic.mantleEOS = 'pyrohy_678v2_1.tab'; %(3420)
-% Seismic.mantleEOS = 'echonhy1wt_678_1.tab'; %(3459)
-
-
-% Seismic.mantleEOS = 'pyrohy_1wt_14GPa.tab'; % (3300) this uses the procedure implemented by F. Cammarano
-% Seismic.mantleEOS = 'echonhp_1wt_6GPa.tab'; % too dense (3400) this uses the procedure implemented by F. Cammarano
-%  Seismic.mantleEOS = 'epyro_1.tab'; % too dense (3400) this uses the procedure implemented by F. Cammarano
-% Seismic.mantleEOS = 'echon_1.tab'; % too dense (3500) this uses the procedure implemented by F. Cammarano
-% Seismic.mantleEOS = 'chon_1.tab'; % too dense (3500) this uses the procedure implemented by F. Cammarano
 Seismic.QScore = 1e4;
-
 Seismic.coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab';
 
 %Attenuation Parameters Based on those Described in Cammarano et al. 2006
@@ -143,7 +126,6 @@ Params.Temps = [250 252.5 255 260 265 270 273];
 
 %% Run the Calculation!
 % 
-%Seismic.mantleEOS = 'chon_678_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries
 Seismic.mantleEOS = 'CV3hy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 Planet.rho_sil_withcore_kgm3 = 3539;
 % Seismic.mantleEOS = 'pyrohy_678v2_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries
