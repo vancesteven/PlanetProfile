@@ -1,4 +1,4 @@
-function n = WtPercent2MassFraction(wtpcnt,W_salt)
+function n = WtPercent2Molality(wtpcnt,W_salt)
 %  n = WtPercent2Molality(wtpcnt,W_salt)
 % n = 1000*wtpcnt/(100-wtpcnt)/W_salt;
 % WMgSO4 = 120.4 g mol-1
