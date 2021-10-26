@@ -75,7 +75,7 @@ class PlanetStruct:
         rhoFeS = None # Assumed density of iron sulfide in kg/m^3
         rhoPoFeFCC = None # ±40. Density of pyrrhottite plus face-centered cubic iron
         QScore = None # (??)
-        coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'
+        coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab' # Default core EOS to use
         xFeS_meteoritic = None # CM2 mean from Jarosewich 1990
         xFeS = None # mass fraction of sulfur in the core
         xFe_core = None # this is the total Fe in Fe and FeS
@@ -99,7 +99,7 @@ class PlanetStruct:
         g_aniso_iceIII = None
         # ice V
         B_aniso_iceV = None
-        gamma_aniso_iceI = None
+        gamma_aniso_iceV = None
         g_aniso_iceV = None
         # ice VI
         B_aniso_iceVI = None
@@ -142,3 +142,10 @@ class ParamsStruct:
 
     class lbls:
         pass
+
+
+class Constants:
+    """ General physical constants """
+    G = 6.673e-11 # "Big G" gravitational constant, m^3/kg/s
+    bar2GPa = 1e-4 # Multiply by this to convert pressure from bars to GPa
+    PbI_MPa = 210 # ~fixed transition pressure between ice Ih and ice III or V
