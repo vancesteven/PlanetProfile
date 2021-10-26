@@ -147,5 +147,7 @@ class ParamsStruct:
 class Constants:
     """ General physical constants """
     G = 6.673e-11 # "Big G" gravitational constant, m^3/kg/s
-    bar2GPa = 1e-4 # Multiply by this to convert pressure from bars to GPa
+    bar2GPa = 1.01325e-4 # Multiply by this to convert pressure from bars to GPa
     PbI_MPa = 210 # ~fixed transition pressure between ice Ih and ice III or V
+    T0 = 273.15 # The Celcius zero point; 273.15 K.
+    P0 = 101325 # one standard atmosphere in Pa, 1atm = 101325 Pa
