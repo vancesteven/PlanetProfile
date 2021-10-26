@@ -85,8 +85,8 @@ else
     nvars = length(columns)-npt; % subtract columns of P and T, and the erroneous empty string for the endline
     FLIP = 0; % many input data files have the same dimensions of P and T and not all are the same shape. This needs to be fixed. for now, FLIP is used to correct for misshapen inputs
     for iv = 1:nvars
-    %     out.(columns{iv+npt}) = reshape(output(:,iv+npt),tstep,pstep); %read each column of data, and reshape it into a matrix of p and t
-        out.(columns{iv+npt}) = reshape(output(:,iv+npt),pstep,tstep)'; %read each column of data, and reshape it into a matrix of p and t
+        out.(columns{iv+npt}) = reshape(output(:,iv+npt),tstep,pstep); %read each column of data, and reshape it into a matrix of p and t
+%         out.(columns{iv+npt}) = reshape(output(:,iv+npt),pstep,tstep)'; %read each column of data, and reshape it into a matrix of p and t
         if ALLOW_INPAINT
             if find(isnan(out.(columns{iv+2})))
                 out.(columns{iv+2})=inpaintn(out.(columns{iv+2}));
