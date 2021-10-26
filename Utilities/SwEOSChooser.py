@@ -13,7 +13,7 @@ import gsw
 #    raise ValueError(['NaCl is not currently implemented.'])
 #Note to self: define OceanComposition variable and replace Planet-profile specific defs
 
-def get_Modgsw_Adiabatic_Lapse_Rate(planetOceanComp, SA, P, T = None, CT = None):
+def GetModgswAdiabaticLapseRate(planetOceanComp, SA, P, T = None, CT = None):
     """Calculates the adiabatic lapse rate of sea water
 
         Args:
@@ -25,21 +25,21 @@ def get_Modgsw_Adiabatic_Lapse_Rate(planetOceanComp, SA, P, T = None, CT = None)
         Returns:
             adiabatic_lapse_rate : (array_like) [K/Pa]
 
-            Examples:
+        Examples:
     """
 
     if planetOceanComp == "Seawater":
         if TA is not None:
-            return adiabatic_lapse_rate_t_exact(SA,T-T0,10*(P-P0/1e5))*1e5
+            return gsw.adiabatic_lapse_rate_t_exact(SA,T-T0,10*(P-P0/1e5))*1e5
         if CT is not None:
-            return adiabatic_lapse_rate_from_CT(SA, CT, P)
+            return gsw.adiabatic_lapse_rate_from_CT(SA, CT, P)
         raise ValueError("Adiabatic Lapse Rate needs either T or CT.")
     elif planetOceanComp == "MgSO4":
         pass
 
 
 
-def get_Modgsw_Alpha(planetOceanComp, SA, P, T = None, CT = None, PT = None):
+def GetModgswAlpha(planetOceanComp, SA, P, T = None, CT = None, PT = None):
     """Calculates Alpha, the thermal expansion coefficient of seawater with
        respect to in situ temperature.
 
@@ -57,15 +57,15 @@ def get_Modgsw_Alpha(planetOceanComp, SA, P, T = None, CT = None, PT = None):
     """
     if planetOceanComp == "Seawater":
         if T is not None:
-            return alpha_wrt_t_exact(SA, T, P)
+            return gsw.alpha_wrt_t_exact(SA, T, P)
         if CT is not None:
-            return alpha_wrt_CT_t_exact(SA, CT, P)
+            return gsw.alpha_wrt_CT_t_exact(SA, CT, P)
         if PT is not None:
-            return alpha_wrt_pt_t_exact(SA, T, P)
+            return gsw.alpha_wrt_pt_t_exact(SA, T, P)
     elif planetOceanComp == "MgSO4":
         pass
 
-def get_Modgsw_Beta(planetOceanComp, SA, P, T = None, CT = None, PT = None):
+def GetModgswBeta(planetOceanComp, SA, P, T = None, CT = None, PT = None):
     """Calculates the saline (i.e. haline) contraction coefficient beta of seawater
        at constant temperature.
 
@@ -83,17 +83,17 @@ def get_Modgsw_Beta(planetOceanComp, SA, P, T = None, CT = None, PT = None):
     """
     if planetOceanComp == "Seawater":
         if T is not None:
-            return beta_const_t_exact(SA, T, P)
+            return gsw.beta_const_t_exact(SA, T, P)
         if CT is not None:
-            return beta_const_CT_t_exact(SA, CT, P)
+            return gsw.beta_const_CT_t_exact(SA, CT, P)
         if PT is not None:
-            return beta_const_pt_t_exact(SA, T, P)
+            return gsw.beta_const_pt_t_exact(SA, T, P)
     elif planetOceanComp == "MgSO4":
         pass
 
 
 
-def get_Modgsw_C_From_SA(planetOceanComp, SA, T, P):
+def GetModgswCFromSA(planetOceanComp, SA, T, P):
     """Calculates conductivity, C, from (SP, t, p) using PSS-78 in the range
     2 < SP < 42.
 
@@ -113,14 +113,14 @@ def get_Modgsw_C_From_SA(planetOceanComp, SA, T, P):
         if (SP<2) or (SP>42):
             raise ValueError("Practical Salinity SP must be between 2 and 42")
         else:
-            return 0.1*C_from_SP(SP, T-gsw_T0, 10*(P-gsw_P0/1e5))
+            return 0.1*gsw.C_from_SP(SP, T-gsw_T0, 10*(P-gsw_P0/1e5))
 
 
     #NOTE: C_from_SA not defined on own in gsw, but C_from_SP is
     elif planetOceanComp == "MgSO4":
         pass
 
-def get_Modgsw_cp_t_Exact(planetOceanComp, SA, T, P):
+def GetModgswCPtExact(planetOceanComp, SA, T, P):
     """Calculates the isobaric heat capacity of seawater.
 
        Args:
@@ -134,12 +134,12 @@ def get_Modgsw_cp_t_Exact(planetOceanComp, SA, T, P):
             Examples:
     """
     if planetOceanComp == "Seawater":
-        return cp_t_exact(SA, T, P)
+        return gsw.cp_t_exact(SA, T, P)
     elif planetOceanComp == "MgSO4":
         pass
 
 
-def get_Modgsw_Rho_t_Exact(planetOceanComp, SA, T, P):
+def GetModgswRhotExact(planetOceanComp, SA, T, P):
     """Calculates in situ density of seawater from absolute salinity
         and in situ temperature.
 
@@ -154,10 +154,10 @@ def get_Modgsw_Rho_t_Exact(planetOceanComp, SA, T, P):
             Examples:
     """
     if planetOceanComp == "Seawater":
-        return rho_t_exact(SA,T-gsw_T0,10*(P-gsw_P0/1e5))
+        return gsw.rho_t_exact(SA,T-gsw_T0,10*(P-gsw_P0/1e5))
     elif planetOceanComp == "MgSO4":
         pass
-def Latent_Heat_Melting(SA,P):
+def LatentHeatMelting(SA,P):
     """   NOT YET DEFINED IN PYTHON-GSW :(
 
     Args:
@@ -173,7 +173,7 @@ def Latent_Heat_Melting(SA,P):
     #return  L_m
     pass
 
-def get_Modgsw_Pot_Rho_t_Exact(planetOceanComp, SA, T, P, P_ref = 0):
+def GetModgswPotRhotExact(planetOceanComp, SA, T, P, P_ref = 0):
     """Calculates potential density of seawater.
 
        Args:
@@ -188,13 +188,13 @@ def get_Modgsw_Pot_Rho_t_Exact(planetOceanComp, SA, T, P, P_ref = 0):
             Examples:
     """
     if planetOceanComp == "Seawater":
-        return pot_rho_t_exact(SA,T-gsw_T0,10*(P-gsw_P0/1e5),10*(P_ref-gsw_P0/1e5));
+        return gsw.pot_rho_t_exact(SA,T-gsw_T0,10*(P-gsw_P0/1e5),10*(P_ref-gsw_P0/1e5));
 
     elif planetOceanComp == "MgSO4":
         pass
 
 
-def get_Modgsw_pt_from_t(planetOceanComp, SA, T, P, P_ref = 0):
+def GetModgswPTFromT(planetOceanComp, SA, T, P, P_ref = 0):
     """Calculates potential temperature with the general reference pressure,
        P_ref, from in situ temperature.
 
@@ -210,12 +210,12 @@ def get_Modgsw_pt_from_t(planetOceanComp, SA, T, P, P_ref = 0):
             Examples:
     """
     if planetOceanComp == "Seawater":
-        return T0 + pt_from_t(SA,T-T0,10*(P-P0/1e5),10*(P_ref-P0/1e5))
+        return T0 + gsw.pt_from_t(SA,T-T0,10*(P-P0/1e5),10*(P_ref-P0/1e5))
 
     elif planetOceanComp == "MgSO4":
         pass
 
-def get_Modgsw_t_freezing(planetOceanComp, SA, T, saturation_fraction = 1):
+def GetModgswTFreezing(planetOceanComp, SA, T, saturation_fraction = 1):
     """ Calculates the in-situ temperature at which seawater freezes.
 
        Args:
@@ -232,11 +232,11 @@ def get_Modgsw_t_freezing(planetOceanComp, SA, T, saturation_fraction = 1):
     """
 
     if planetOceanComp == "Seawater":
-        return  T0 + t_freezing(SA,10*(P-P0/1e5))
+        return  T0 + gsw.t_freezing(SA,10*(P-P0/1e5))
     elif planetOceanComp == "MgSO4":
         pass
 
-def get_Modgsw_pressure_freezing_CT(planetOceanComp, SA, T):
+def GetModgswPressureFreezingCT(planetOceanComp, SA, T):
     """ NEED BETTER DESCRIPTION HERE
 
        Args:
@@ -257,7 +257,7 @@ def get_Modgsw_pressure_freezing_CT(planetOceanComp, SA, T):
         pass
 
 
-def get_Modgsw_sound_speed_t_exact(planetOceanComp, SA, T, P):
+def GetModgswSoundSpeedTExact(planetOceanComp, SA, T, P):
     """ Calculates the speed of sound (c) in seawater.
     The speed of sound in seawater :math:`c` is given by:
     .. math::
@@ -283,11 +283,11 @@ def get_Modgsw_sound_speed_t_exact(planetOceanComp, SA, T, P):
         Examples:
     """
     if planetOceanComp == "Seawater":
-        return sound_speed_t_exact(SA, t, p)
+        return gsw.sound_speed_t_exact(SA, t, p)
     elif planetOceanComp == "MgSO4":
         pass
 
-def get_Modgsw_sound_speed_ice(planetOceanComp, T, P):
+def GetModgswSoundSpeedIce(planetOceanComp, T, P):
     """ Calculates the speed of sound (c) in ice
 
        Args:
@@ -307,7 +307,7 @@ def get_Modgsw_sound_speed_ice(planetOceanComp, T, P):
         pass'''
 
 
-def get_velS_iceIh(planetOceanComp, T, P):
+def GetVelSIceIh(planetOceanComp, T, P):
     """ Calculates the speed of sound (c) in iceIh
 
        Args:
