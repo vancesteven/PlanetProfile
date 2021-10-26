@@ -51,17 +51,6 @@ Planet.Silicate.EQUIL_Q = False
 Planet.Silicate.POROUS_ROCK = False
 Planet.Silicate.PEFF = False
 # Mantle equation of state model
-# Planet.Silicate.mantleEOS = 'chon_678_1.tab' # (3500)
-# Planet.Silicate.mantleEOS = 'pyrohp_sat_678_1.tab' # (2820)
-# Planet.Silicate.mantleEOS = 'epyro_678_1.tab' # (3450)
-# Planet.Silicate.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab' # (3100)
-# Planet.Silicate.mantleEOS = 'pyrohy_678v2_1.tab' # (3420)
-# Planet.Silicate.mantleEOS = 'echonhy1wt_678_1.tab' # (3459)
-# Planet.Silicate.mantleEOS = 'pyrohy_1wt_14GPa.tab' # (3300) this uses the procedure implemented by F. Cammarano
-# Planet.Silicate.mantleEOS = 'echonhp_1wt_6GPa.tab' # too dense (3400) this uses the procedure implemented by F. Cammarano
-# Planet.Silicate.mantleEOS = 'epyro_1.tab' # too dense (3400) this uses the procedure implemented by F. Cammarano
-# Planet.Silicate.mantleEOS = 'echon_1.tab' # too dense (3500) this uses the procedure implemented by F. Cammarano
-# Planet.Silicate.mantleEOS = 'chon_1.tab' # too dense (3500) this uses the procedure implemented by F. Cammarano
 Planet.Silicate.mantleEOS = 'CV3hy1wt_678_1.tab' # (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 Planet.Silicate.rho_sil_withcore_kgm3 = 3539
 # Planet.Silicate.mantleEOS = 'Simple_CI_HS_green_PP.tab' # CI chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
