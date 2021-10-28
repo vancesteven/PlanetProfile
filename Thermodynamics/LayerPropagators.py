@@ -2,10 +2,14 @@ def IceLayers(Planet, Layers, Constants):
     """ Layer propagation from surface downward through ice using geophysics """
     Layers = IceILayers(Planet, Layers, Constants)
 
-    if Planet.BOTTOM_ICEIII:
-        Layers = IceIIIUnderplateLayers(Planet, Layers, Constants)
-    elif Planet.BOTTOM_ICEV:
+    if Planet.BOTTOM_ICEV:
         Layers = IceVUnderplateLayers(Planet, Layers, Constants)
+    elif Planet.BOTTOM_ICEIII:
+        Layers = IceIIIUnderplateLayers(Planet, Layers, Constants)
+        Planet.nIceVLitho = 0
+    else:
+        Planet.nIceIIILitho = 0
+        Planet.nIceVLitho = 0
 
     return Layers
 

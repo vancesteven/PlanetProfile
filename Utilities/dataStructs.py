@@ -29,7 +29,7 @@ class PlanetStruct:
     clathrateSetDepth = None  # Fixed depth for limiting clathrate layer
     NO_H2O = None  # Whether to model waterless worlds (like Io)
     BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low
-    BOTTOM_ICEV = False  # Same as above but also including ice V
+    BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
     NO_ICEI_CONVECTION = False  # Whether to suppress convection in the ice I layer
     FORCE_ICEI_CONVECTION = False  # Whether to force convection in the ice I layer
 
@@ -41,6 +41,8 @@ class PlanetStruct:
     nStepsRefRho = None  # ?????
     nStepsMantle = None  # Maximum number of steps in silicate layer (actual number will be fewer)
     nStepsCore = None  # Fixed number of steps in core layer, if present
+    nIceIIILitho = 5  # Fixed number of layers to use for ice III when either BOTTOM_ICEIII or BOTTOM_ICEV is True
+    nIceVLitho = 5  # Fixed number of layers to use for ive V when BOTTOM_ICEV is True
 
     class Ocean:
         """ Hydrosphere assumptions """
