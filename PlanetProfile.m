@@ -57,6 +57,11 @@ Params.savefigformat = cfg.fig_fmt;
 % Find out how many profiles we will compare
 nTbs = length(Planet.Tb_K); 
 
+% Do not use these variables! This is just to maintain functionality with
+% coreSize etc. that use these globals.
+global M_Planet_kg R_Planet_m
+M_Planet_kg = Planet.M_kg;
+R_Planet_m = Planet.R_m;
 
 %% Check for porosity so we know if we will need those plots --> to be moved somewhere more sensible -- make part of CheckFields function, or in python create a class Planet that creates all the fields
 POROUS = isfield(Planet,'POROUS_ROCK') && Planet.POROUS_ROCK;
@@ -219,10 +224,10 @@ if ~Planet.NoH2O
         g_ms2 = z_m;
         [M_above_kg,M_below_kg] = deal(rho_kgm3); % mass above and below the silicate interface
         M_above_kg(:,1) = 0;
-        M_below_kg(:,1) = M_Planet_kg;
+        M_below_kg(:,1) = Planet.M_kg;
         [z_m,r_m] = deal(zeros(nTbs,nsteps));
         r_m(:,1) = Planet.R_m;
-        g_ms2(1:nTbs,1) = Gg*M_Planet_kg/R_Planet_m^2;
+        g_ms2(1:nTbs,1) = Gg*Planet.M_kg/Planet.R_m^2;
     
 
         %% IceLayers --- function iteratively setting up the thermal profile, the density and temperature of the layer with each pressure step
@@ -269,7 +274,7 @@ if ~Planet.NoH2O
                     % determine local gravity and check to make sure maximum
                     % clathrate depth isn't reached
                     M_below_kg(iT,il) = M_above_kg(iT,il-1) + 4/3*pi*(r_m(iT,il-1)^3-r_m(iT,il)^3)*rho_kgm3(iT,il);
-                    M_below_kg(iT,il) = M_Planet_kg-M_above_kg(iT,il);
+                    M_below_kg(iT,il) = Planet.M_kg-M_above_kg(iT,il);
                     g_ms2(iT,il) = Gg*M_below_kg(iT,il)/r_m(iT,il)^2;
                     if z_m(iT,il)>max_clath_depth % check to see if maximum depth of clathrates reached
                         n_iceI(iT)=n_iceI(iT)+(n_clath(iT)-il)+1;
@@ -324,7 +329,7 @@ if ~Planet.NoH2O
 
                      % determine local gravity
                      M_above_kg(iT,il) = M_above_kg(iT,il-1) + 4/3*pi*(r_m(iT,il-1)^3-r_m(iT,il)^3)*rho_kgm3(iT,il);
-                     M_below_kg(iT,il) = M_Planet_kg-M_above_kg(iT,il);
+                     M_below_kg(iT,il) = Planet.M_kg-M_above_kg(iT,il);
                      g_ms2(iT,il) = Gg*M_below_kg(iT,il)/r_m(iT,il)^2;
                      if z_m(iT,il)>max_clath_depth % check to see if maximum depth of clathrates reached
                         n_iceI(iT)=n_iceI(iT)+(n_clath(iT)-il)+1;
@@ -384,7 +389,7 @@ if ~Planet.NoH2O
 
                           % determine local gravity
                           M_above_kg(iT,il) = M_above_kg(iT,il-1) + 4/3*pi*(r_m(iT,il-1)^3-r_m(iT,il)^3)*rho_kgm3(iT,il);
-                          M_below_kg(iT,il) = M_Planet_kg-M_above_kg(iT,il);
+                          M_below_kg(iT,il) = Planet.M_kg-M_above_kg(iT,il);
                           g_ms2(iT,il) = Gg*M_below_kg(iT,il)/r_m(iT,il)^2;
                           if z_m(iT,il)>max_clath_depth % check to see if maximum depth of clathrates reached
                               n_iceI(iT)=n_iceI(iT)+(n_clath(iT)-il)+1;
@@ -602,9 +607,9 @@ if ~Planet.NoH2O
     [z_m,r_m,g_ms2] = deal(zeros(nTbs,nsteps));
     [M_above_kg,M_below_kg] = deal(rho_kgm3); % mass above and below the silicate interface
     M_above_kg(:,1) = 0;
-    M_below_kg(:,1) = Planet.M_Planet_kg;
+    M_below_kg(:,1) = Planet.M_kg;
     r_m(:,1) = Planet.R_m;
-    g_ms2(1:nTbs,1) = Gg*Planet.M_Planet_kg/Planet.R_Planet_m^2;
+    g_ms2(1:nTbs,1) = Gg*Planet.M_kg/Planet.R_m^2;
     D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon 2006 uses a value of 621 from Slack 1980)
             
     [Planet.Profile_fname, Planet.Profile_ID] = deal(strings(1,nTbs));
@@ -645,7 +650,7 @@ if ~Planet.NoH2O
 
             % determine local gravity
             M_above_kg(iT,il) = M_above_kg(iT,il-1) + 4/3*pi*(r_m(iT,il-1)^3-r_m(iT,il)^3)*rho_kgm3(iT,il);
-            M_below_kg(iT,il) = Planet.M_Planet_kg-M_above_kg(iT,il);
+            M_below_kg(iT,il) = Planet.M_kg-M_above_kg(iT,il);
             g_ms2(iT,il) = Gg*M_below_kg(iT,il)/r_m(iT,il)^2;
         end
         if isempty(il)
@@ -662,11 +667,11 @@ if ~Planet.NoH2O
             dz = deltaP*1e6/g_ms2(iT,il-1+(n_iceI(iT)+n_clath(iT)))/rho_kgm3(iT,ill);
             z_m(iT,ill) = z_m(iT,il-1+(n_iceI(iT)+n_clath(iT)))+ dz; % using the previous gravity step, since we haven't calculated the present step.  this introduces an error
             % convert to radius
-            r_m(iT,ill) = Planet.R_Planet_m-z_m(iT,ill); 
+            r_m(iT,ill) = Planet.R_m-z_m(iT,ill); 
 
             % determine local gravity
             M_above_kg(iT,ill) = M_above_kg(iT,il-1+(n_iceI(iT)+n_clath(iT)))+4/3*pi*((r_m(iT,ill)+dz)^3-r_m(iT,ill)^3)*rho_kgm3(iT,ill);
-            M_below_kg(iT,ill) = Planet.M_Planet_kg-M_above_kg(iT,ill);
+            M_below_kg(iT,ill) = Planet.M_kg-M_above_kg(iT,ill);
             g_ms2(iT,ill) = Gg*M_below_kg(iT,ill)/r_m(iT,ill)^2;
         end
         disp(['z_iceI: ' num2str(zb_outerIce_m(iT)/1e3) ' km'])
@@ -996,7 +1001,7 @@ end
 
 
 %% Deeper Interior
-MR2 = M_Planet_kg*R_Planet_m^2;
+MR2 = Planet.M_kg*Planet.R_m^2;
 dz_m = gradient(z_m);
 nz = length(dz_m);
 nR = nz;
@@ -1015,7 +1020,7 @@ if ~Planet.FeCore
     for iz = 1:nR
         C_H2O(:,iz+1) = C_H2O(:,iz)+(8/3*pi*rho_kgm3(:,iz+npre).*r_m(:,iz+npre).^4.*dz_m(:,iz+npre));
         R_sil_m(:,iz) = r_m(:,iz+npre);
-        rho_sil_kgm3(:,iz) = 3/4/pi*(M_Planet_kg-M_above_kg(:,iz+npre))./power(R_sil_m(:,iz),3);
+        rho_sil_kgm3(:,iz) = 3/4/pi*(Planet.M_kg-M_above_kg(:,iz+npre))./power(R_sil_m(:,iz),3);
         C1(:,iz) = C_H2O(:,iz+1)+8/15*pi*power(R_sil_m(:,iz),5).*rho_sil_kgm3(:,iz);
     end
     for iT = 1:nTbs
@@ -1031,7 +1036,7 @@ if ~Planet.FeCore
     end
     R_Fe_mean_m = zeros(1,nTbs);
    
-%     dz_ocean_m_m(~dindsVI & ~dindsV) = R_Planet_m - R_sil_mean_m(~dindsVI &
+%     dz_ocean_m_m(~dindsVI & ~dindsV) = Planet.R_m - R_sil_mean_m(~dindsVI &
 %     ~dindsV)-zI_m(~dindsVI & ~dindsV); not sure this is right. commenting
 %     out on March 8 2018
 
@@ -1158,12 +1163,12 @@ end
 
 [dz_ocean_m_m,dzIII_m,dzV_m,dzVI_m,dzclath_m] = deal(zeros(1,nTbs));
 %find the radii at the tops of the different layers
-RIII_m =R_Planet_m-zIII_m;
-RV_m = R_Planet_m-zV_m;
-RVI_m = R_Planet_m-zVI_m;
+RIII_m =Planet.R_m-zIII_m;
+RV_m = Planet.R_m-zV_m;
+RVI_m = Planet.R_m-zVI_m;
 
-Rclath_m=R_Planet_m-zclath_m;
-Rice_m=R_Planet_m-zI_m2;
+Rclath_m=Planet.R_m-zclath_m;
+Rice_m=Planet.R_m-zI_m2;
 
 % find the thicknesses of the layers.  keep adjusting the thicknesses
 % accordingly
@@ -1184,7 +1189,7 @@ dz_ocean_m_m(dindsVI & ~dindsV) = zVI_m(dindsVI & ~dindsV) - zI_m(dindsVI & ~din
 % use R_sil_mean_m to calculate thickness of ice VI
 for iT = 1:nTbs
     if ~isempty(dindsVI(iT)) && dindsVI(iT)>0
-        dzVI_m(iT) = R_Planet_m-R_sil_mean_m(iT) - zVI_m(iT);
+        dzVI_m(iT) = Planet.R_m-R_sil_mean_m(iT) - zVI_m(iT);
     elseif ~isempty(dindsV(iT)) && dindsV(iT)>0
         dzVI_m(iT) = 0;
         dzV_m(iT) = RV_m(iT)-RVI_m(iT)*dindsVI(iT); % this "fix" may introduce an failure condition, but the previous method on the next line was also failing.
@@ -1192,15 +1197,15 @@ for iT = 1:nTbs
     elseif ~isempty(dindsIII(iT)) && dindsIII(iT)>0
         dzV_m(iT) = 0;
         dzVI_m(iT) = 0;
-        dzIII_m(iT) = R_Planet_m-R_sil_mean_m(iT) - zVI_m(iT);
+        dzIII_m(iT) = Planet.R_m-R_sil_mean_m(iT) - zVI_m(iT);
 %   elseif ~isempty(dindsII(iT)) && dindsII(iT)>0
 %       dzV_m(iT) = 0;
 %       dzVI_m(iT) = 0;
-%       dzIII_m(iT) = R_Planet_m-R_sil_mean_m(iT) - zVI_m(iT);
+%       dzIII_m(iT) = Planet.R_m-R_sil_mean_m(iT) - zVI_m(iT);
     end
 end
 
-dz_ocean_m_m(~dindsVI & ~dindsV) = R_Planet_m - R_sil_mean_m(~dindsVI & ~dindsV)-zI_m(~dindsVI & ~dindsV);
+dz_ocean_m_m(~dindsVI & ~dindsV) = Planet.R_m - R_sil_mean_m(~dindsVI & ~dindsV)-zI_m(~dindsVI & ~dindsV);
 zTotal_m = zI_m+dz_ocean_m_m+dzIII_m+dzV_m+dzVI_m+abs(dzclath_m);
 
 
@@ -1210,18 +1215,18 @@ zTotal_m = zI_m+dz_ocean_m_m+dzIII_m+dzV_m+dzVI_m+abs(dzclath_m);
     % interesting to compare the mass of the pure water ice and ocean layer
     % with that of the salty layer
     % less precise:
-%     MH2O = 4/3*pi*(R_Planet_m.^3 - R_sil_mean_m.^3).*mean(rho_kgm3(:,C2mean));
+%     MH2O = 4/3*pi*(Planet.R_m.^3 - R_sil_mean_m.^3).*mean(rho_kgm3(:,C2mean));
     % more precise:
-WtH2O = M_H2O_mean_kg/M_Planet_kg; % this is the predicted water in the planet
+WtH2O = M_H2O_mean_kg/Planet.M_kg; % this is the predicted water in the planet
 dWtH2O = Planet.XH2O-WtH2O;
     
 if Planet.FeCore
     Mcore = 4/3*pi*R_Fe_mean_m.^3.*rho_Fe_kgm3;
-    Wtcore = Mcore/M_Planet_kg;
+    Wtcore = Mcore/Planet.M_kg;
     dWtcore = Planet.xFe_core-Wtcore;
     XS = 32.065/87.91*Planet.xFeS; %mass fraction of S in the core
     Msulfur = Mcore.*XS; % mass of sulfur in the core
-    WtS = Msulfur/M_Planet_kg; % as a fraction of Europa's mass
+    WtS = Msulfur/Planet.M_kg; % as a fraction of Europa's mass
     dWtS = Planet.xFeS_meteoritic*32.065/87.91-WtS;
 end
 
@@ -1604,7 +1609,7 @@ for iT = nTbs:-1:1  % Do this loop in decreasing order to avoid preallocating po
     r_mantle_m = linspace(R_sil_mean_m(iT),R_Fe_mean_m(iT),nsteps_mantle(iT));
     
     g_ms2_sil = g_ms2(iT,C2mean(iT))*ones(1,nsteps_mantle(iT));
-    MantleHeat = Planet.Qmantle_Wm2(iT)*4*pi*R_Planet_m^2+Planet.QHmantle;
+    MantleHeat = Planet.Qmantle_Wm2(iT)*4*pi*Planet.R_m^2+Planet.QHmantle;
     rhom_rough = 3000;
     alpha_rough = 0.2e-4;
     Cp_rough = 2e6;
@@ -1642,7 +1647,7 @@ for iT = nTbs:-1:1  % Do this loop in decreasing order to avoid preallocating po
 
     for ij = 2:nsteps_mantle(iT)
 %         if r_mantle_m(ij-1)>0.3*Planet.R_m
-%             g_ms2_sil(ij)=(Gg*(M_Planet_kg-M_above_mantle(ij-1))/r_mantle_m(ij-1)^2);
+%             g_ms2_sil(ij)=(Gg*(Planet.M_kg-M_above_mantle(ij-1))/r_mantle_m(ij-1)^2);
 %         else
 %             g_ms2_sil(ij) = g_ms2_sil(ij-1);
 %         end
@@ -1692,7 +1697,7 @@ for iT = nTbs:-1:1  % Do this loop in decreasing order to avoid preallocating po
         %overburden pressure.
         for ij = 2:nsteps_mantle(iT)
 %         if r_mantle_m(ij-1)>0.3*Planet.R_m
-%             g_ms2_sil(ij)=(Gg*(M_Planet_kg-M_above_mantle(ij-1))/r_mantle_m(ij-1)^2);
+%             g_ms2_sil(ij)=(Gg*(Planet.M_kg-M_above_mantle(ij-1))/r_mantle_m(ij-1)^2);
 %         else
 %             g_ms2_sil(ij) = g_ms2_sil(ij-1);
 %         end
@@ -1701,7 +1706,7 @@ for iT = nTbs:-1:1  % Do this loop in decreasing order to avoid preallocating po
         end
     end
     
-    mtest = find(M_above_mantle>M_Planet_kg);
+    mtest = find(M_above_mantle>Planet.M_kg);
     if mtest
         disp(['Exceeded planet mass at mantle radius of ' num2str(1e-3*r_mantle_m(mtest(1)), '%0.0f'), ' km']);
         
@@ -1729,7 +1734,7 @@ strLow = '';
 %     M_above_core(iT,1) = M_above_mantle(nsteps_mantle(iT));
     if Planet.FeCore
         M_above_core(iT,1) = M_above_mantle(nsteps_mantle(iT));
-        g_ms2_core(iT,:)=(Gg*(M_Planet_kg-M_above_core(iT))/r_core_m(iT)^2)*ones(1,Params.nsteps_core);
+        g_ms2_core(iT,:)=(Gg*(Planet.M_kg-M_above_core(iT))/r_core_m(iT)^2)*ones(1,Params.nsteps_core);
 
         Tcore_K(iT,:) = linspace(Tmantle_K(end),1.01*Tmantle_K(end),Params.nsteps_core);
         Pcore_MPa(iT,1) = Pmantle_MPa(nsteps_mantle(iT));
@@ -1738,7 +1743,7 @@ strLow = '';
             rhocore_kgm3(iT,1) = core.rho_fn(Pcore_MPa(iT,1),Tcore_K(iT,1));
             
             for ij = 2:Params.nsteps_core
-        %          g_ms2_core(iT,ij)=(Gg*(M_Planet_kg-M_above_core(iT,ij-1))/r_core_m(iT,ij-1)^2);
+        %          g_ms2_core(iT,ij)=(Gg*(Planet.M_kg-M_above_core(iT,ij-1))/r_core_m(iT,ij-1)^2);
         %          Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT,ij)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
                  Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
                  rhocore_kgm3(iT,ij) = core.rho_fn(Pcore_MPa(iT,ij),Tcore_K(iT,ij));
@@ -1755,7 +1760,7 @@ strLow = '';
             rhocore_kgm3(iT,:) = rhoo_iron_kgm3;
 
             for ij = 2:Params.nsteps_core
-        %          g_ms2_core(iT,ij)=(Gg*(M_Planet_kg-M_above_core(iT,ij-1))/r_core_m(iT,ij-1)^2);
+        %          g_ms2_core(iT,ij)=(Gg*(Planet.M_kg-M_above_core(iT,ij-1))/r_core_m(iT,ij-1)^2);
         %          Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT,ij)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
                  Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
                  Ks_iron_GPa(iT,ij) = Kso_iron_GPa+1e-3*Pcore_MPa(iT,ij)*dKsdP_iron+1e-9*Tcore_K(iT,ij)*dKsdT_PaK;
@@ -2003,7 +2008,7 @@ if cfg.DISP_LAYERS
         end
         disp(['\cline{3-' num2str(nTbs+2) '}'])
     end
-    Qradrockstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(Planet.Qmantle_Wm2*4*pi*R_Planet_m^2/1e9) '}'];
+    Qradrockstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(Planet.Qmantle_Wm2*4*pi*Planet.R_m^2/1e9) '}'];
     disp(['&$Q_{rock}$ (GW)&' Qradrockstr '\\']);
     if Planet.QHmantle
         Qtiderockstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(Planet.QHmantle) '}'];
@@ -2048,7 +2053,7 @@ end
 %     deal(zeros(nTbs,indSil(1)-1+nsteps_mantle(1)+Params.nsteps_core));
 %% Plot settings
 LineStyle=Params.LineStyle;
-ymax = 1.05*R_Planet_m*1e-3;
+ymax = 1.05*Planet.R_m*1e-3;
 
 if Planet.FeCore
     [VP_Planet_kms,VS_Planet_kms,Ks_Planet_GPa,Gs_Planet_GPa,QS_overfgamma_Planet,k_S_mPlanet,phasePlanet] = ...
