@@ -3,57 +3,45 @@ General runtime configuration parameters.
 Overridden by any settings contained within PPBody.py files.
 """
 
-from Utilities.dataStructs import *
+from Utilities.dataStructs import ParamsStruct
 
 Params = ParamsStruct()
+Params.VERBOSE = True
+if Params.VERBOSE: print('Printing verbose runtime messages. Toggle in config.py.')
 
-Params.lbls.vsP = 'Porosity_vs_P'
-Params.lbls.vsR = 'Porosity_vs_R'
-Params.lbls.vperm = 'Permeability'
-Params.lbls.vgsks = 'Gs_Ks'
-Params.lbls.vseis = 'Seismic'
-Params.lbls.vcond = 'Conductivity'
-Params.lbls.vgrav = 'Gravity'
-Params.lbls.vmant = 'MantleDens'
-Params.lbls.vcore = 'CoreMantTrade'
-Params.lbls.vpvt4 = 'PTx4'
-Params.lbls.vpvt6 = 'PTx6'
-Params.lbls.vwedg = 'Wedge'
-
-Params.spicePCK = 'pck00010.tpc'
-
-Params.CALC_NEW =       1 # Recalculate profiles? If not, read data from disk and re-plot.
-Params.CALC_NEW_REF =   1 # Recalculate reference phase curves?
-Params.CALC_NEW_SOUND = 1 # Recalculate sound speeds?
-Params.CALC_NEW_INDUC = 1 # Recalculate magnetic induction responses?
-Params.SKIP_PROFILES =  0 # Whether to skip past all PlanetProfile.m plotting and calculations
-Params.NO_PLOTS =       0 # Suppress plot creation? If yes, just save profiles to disk.
-Params.HOLD =           1 # Whether to overlay runs when possible
-Params.CONDUCT =        1 # Calculate electrical conductivity
-Params.REDUCED =        1 # Whether to limit number of ocean layers for faster computation of layered induction
-Params.DISP_LAYERS =    0 # Whether to display layer depths and heat fluxes for user
-Params.DISP_TABLES =    0 # Whether to print latex-formatted tables to Matlab command line
-Params.DEPRECATED =     0 # Whether to allow deprecated code to run. Will often cause errors.
+Params.DO_PARALLEL = True
+Params.CALC_NEW =       1  # Recalculate profiles? If not, read data from disk and re-plot.
+Params.CALC_NEW_REF =   1  # Recalculate reference phase curves?
+Params.CALC_NEW_SOUND = 1  # Recalculate sound speeds?
+Params.CALC_NEW_INDUC = 1  # Recalculate magnetic induction responses?
+Params.SKIP_PROFILES =  0  # Whether to skip past all PlanetProfile.m plotting and calculations
+Params.NO_PLOTS =       0  # Suppress plot creation? If yes, just save profiles to disk.
+Params.HOLD =           1  # Whether to overlay runs when possible
+Params.CONDUCT =        1  # Calculate electrical conductivity
+Params.REDUCED =        1  # Whether to limit number of ocean layers for faster computation of layered induction
+Params.DISP_LAYERS =    0  # Whether to display layer depths and heat fluxes for user
+Params.DISP_TABLES =    0  # Whether to print latex-formatted tables to Matlab command line
+Params.DEPRECATED =     0  # Whether to allow deprecated code to run. Will often cause errors.
 
 # Magnetic induction calculation settings
-Params.DO_EUR = 1 # Calculate responses for Europa?
-Params.DO_GAN = 1 # Ganymede?
-Params.DO_CAL = 1 # And so on...
+Params.DO_EUR = 1  # Whether to calculate induction responses for Europa
+Params.DO_GAN = 1  # Ganymede
+Params.DO_CAL = 1  # And so on...
 Params.DO_ENC = 1
 Params.DO_MIR = 1
 Params.DO_ARI = 1
-Params.DO_PER = 1 # Convert frequency axes to periods
-Params.DO_LEGEND = 1 # Whether to force legends
-Params.PLOT_FFT = 1 # Whether to show plots of fourier space
-Params.PLOT_CONTOURS = 1 # Contours or surfaces
-Params.PLOT_V2020S = 1 # Mark the selected ocean/conductivity combos used in Vance et al. 2020
-Params.intMethod = 'makima' # Interpolation method. Certain ones can cause wiggles, notably 'linear'.
-Params.npts_k = 50 # Resolution for conductivity values in ocean conductivity/thickness plots
-Params.npts_D = 60 # Resolution for ocean thickness as for conductivity
-Params.np_intp = 200 # Number of interpolation points to use for Eckhardt method induction calculations
-Params.npts_w = 100 # Resolution in log frequency space for magnetic excitation spectra
-Params.np_wfine = 1000 # Fine-spacing resolution for log frequency spectrum
-Params.nIntL = 3 # Number of ocean layers to use when REDUCED = 1
+Params.DO_PER = 1  # Convert frequency axes to periods
+Params.DO_LEGEND = 1  # Whether to force legends
+Params.PLOT_FFT = 1  # Whether to show plots of fourier space
+Params.PLOT_CONTOURS = 1  # Contours or surfaces
+Params.PLOT_V2020S = 1  # Mark the selected ocean/conductivity combos used in Vance et al. 2020
+Params.intMethod = 'makima'  # Interpolation method. Certain ones can cause wiggles, notably 'linear'.
+Params.npts_k = 50  # Resolution for conductivity values in ocean conductivity/thickness plots
+Params.npts_D = 60  # Resolution for ocean thickness as for conductivity
+Params.np_intp = 200  # Number of interpolation points to use for Eckhardt method induction calculations
+Params.npts_w = 100  # Resolution in log frequency space for magnetic excitation spectra
+Params.np_wfine = 1000  # Fine-spacing resolution for log frequency spectrum
+Params.nIntL = 3  # Number of ocean layers to use when REDUCED = 1
 #Params.opts_odeParams = odeset('RelTol',1e-10,'AbsTol',1e-10,'MaxStep', 2e3,'InitialStep',1e-2)
 #Params.opts_odeLayers = odeset('RelTol',1e-8, 'AbsTol',1e-10,'MaxStep',10e3,'InitialStep',1e-2)
 
@@ -100,3 +88,6 @@ Params.LW_dil = 1
 Params.LW_std = 2
 Params.LW_sound = 1.5
 Params.LW_seism = 1
+
+# SPICE kernels
+Params.spicePCK = 'pck00010.tpc'

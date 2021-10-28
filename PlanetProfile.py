@@ -1,28 +1,26 @@
+# Import necessary Python modules
 import sys
 import numpy as np
 import importlib
 
-from Utilities.dataStructs import *
-import config as cfg
+# Import all function definitions for this file
+from Utilities.SetupInit import SetupInit, SetupFilenames
+
 #from Thermodynamics.FromLiterature.conductiveMantleTemperature import conductiveMantleTemperature
 #from Thermodynamics.FromLiterature.ConvectionDeschampsSotin2001 import ConvectionDeschampsSotin2001
-#from MantleSizePlot import MantleSizePlot
-#from CoreSizePlot import CoreSizePlot
-#import MatToPy
-import Utilities.PPversion as PPver
 
 
-'''
+"""
 Naming Conventions
 CamelCase with Capital at start for FunctionNames
 ALLCAPS for SWITCHES or USER_ORIENTED_README_FILES
 camelCase with lowercase at start for variableNames or filesContainingOnlyVariables
 snake_case for output_file_names
 FilesContainingFunctions named the same as FunctionName
-'''
+"""
 
 
-'''
+"""
 Step 1:
 setup funciton that check version numbers and makes sure the version is compatible with
 seafreeze version, leave configs as is for now, tauP leave for now as well
@@ -93,15 +91,11 @@ SetupClathrates  190-205
 SetupLayers
 
 
-'''
+"""
 
 
 """ MAIN RUN BLOCK """
 def main():
-    # Intro
-    verNum = PPver.verNum
-    print("-- PlanetProfile v" + verNum + " --")
-    if verNum[-3:] == "dev": print("This version is in development.")
 
     # Command line args
     if len(sys.argv) > 1:
@@ -109,17 +103,19 @@ def main():
         bodyname = sys.argv[1]
     else:
         # No command line argument, ask user which body to run
-        bodyname = input("Please input body name: ")
-        if bodyname == "":
-            print("No body name entered. Defaulting to Europa.")
-            bodyname = "Europa"
+        bodyname = input('Please input body name: ')
+        if bodyname == '':
+            print('No body name entered. Defaulting to Europa.')
+            bodyname = 'Europa'
 
     bodyname = bodyname.capitalize()
-    body = importlib.import_module(bodyname+".PP"+bodyname)
+    body = importlib.import_module(bodyname+'.PP'+bodyname)
     Planet = body.Planet
     Params = body.Params
+    Constants = body.Constants
+    if Params.VERBOSE: print('Body name: ' + Planet.name)
 
-    outPlanet = PlanetProfile(Planet, Params, Constants)
+    Planet = PlanetProfile(Planet, Params, Constants)
 
     return
 
@@ -127,27 +123,113 @@ def main():
 
 def PlanetProfile(Planet, Params, Constants):
 
-    # File name bases, to which we add specifics to create full file names
-    savebase = Planet.name + '/' + Planet.name + 'Profile_'
-    figbase = Planet.name + '/figures/' + Planet.name
-    # Attach extra identifiers in special cases, to distinguish from standard cases
-    if hasattr(Planet,'clathrate'): savebase += 'Clathrates_'
+    if Params.CALC_NEW:
+        # Initialize
+        Planet, Params, Layers = SetupInit(Planet, Params, Constants)
+        Layers = IceLayers(Planet, Layers, Constants)
+        Layers = OceanLayers(Planet, Layers, Constants)
+        Layers = PlanetDepths(Planet, Layers, Constants)
+        Planet, Layers = InnerLayers(Planet, Layers, Constants)
+        WriteProfile(Planet, Params, Layers)
+    else:
+        # Reload previous run
+        Params.dataFiles, Params.figureFiles = SetupFilenames(Planet)
+        Planet, Layers = ReloadProfile(Params)
 
-    # Read in data from Matlab dump for testing purposes
-    mantleSizePath = savebase + Params.lbls.vmant + str(Planet.Tb_K) + '.csv'
-    #mantleSizeR, mantleSizeRho = np.loadtxt(mantleSizePath, skiprows=1, unpack=True, delimiter=",")
-    #nMantleInds = len(MantleSizeR)
-    #mantleSizePlot(Planet, Params, mantleSizeRho[:nMantleInds], mantleSizeR[:nMantleInds], figbase)
+    if not Params.SKIP_PROFILES:
+        # Plotting functions
+        pass
 
-    outPlanet = Planet
-    return outPlanet
+    if Params.VERBOSE: print('Run complete!')
+    return Planet
 
-def writeProfile(path,saveStr,header,data):
-    with open(path+saveStr+".txt","w") as f:
-        f.write(header+"\n")
-        for line in data:
-            f.write("\t".join( [ "{:3.5e}".format(val) for val in line] )+"\n")
 
+def WriteProfile(Planet, Params, Layers):
+    header = 'Header lines'
+    outFName = Params.dataFiles.saveFile + '.dat'
+    with open(outFName,'w') as f:
+        f.write(header+'\n')
+        for i in range(Planet.nStepsTotal):
+            #f.write('\t'.join( [ '{:3.5e}'.format(val) for val in line] )+'\n')
+            f.write('Test\n')
+
+    if Params.VERBOSE: print('Profile saved to file: ' + outFName)
     return
+
+
+def ReloadProfile(Planet):
+    """ Reload previously saved PlanetProfile run from disk """
+    Layers = None
+
+    return Planet, Layers
+
+
+def IceLayers(Planet, Layers, Constants):
+    """ Layer propagation from surface downward through ice using geophysics """
+    Layers = IceILayers(Planet, Layers, Constants)
+
+    if Planet.BOTTOM_ICEIII:
+        Layers = IceIIIUnderplateLayers(Planet, Layers, Constants)
+    elif Planet.BOTTOM_ICEV:
+        Layers = IceVUnderplateLayers(Planet, Layers, Constants)
+
+    return Layers
+
+
+def IceILayers(Planet, Layers, Constants):
+    """ Geophysical and thermodynamic calculations for outermost ice layer """
+
+    return Layers
+
+
+def IceIIIUnderplateLayers(Planet, Layers, Constants):
+    """ For cold, thick ice shells, model ice III under ice I layer """
+
+    return Layers
+
+
+def IceVUnderplateLayers(Planet, Layers, Constants):
+    """ For cold, thick ice shells, model ice V and ice III under ice I layer """
+
+    return Layers
+
+
+def OceanLayers(Planet, Layers, Constants):
+    """ Geophysical and thermodynamic calculations for ocean layer """
+
+    return Layers
+
+
+def PlanetDepths(Planet, Layers, Constants):
+    """ Convert from organization by radius into organization by depth """
+
+    return Layers
+
+
+def InnerLayers(Planet, Layers, Constants):
+    """ Geophysical and thermodynamic calculations for silicate and core layers """
+
+    nStepsSilicate, Layers = SilicateLayers(Planet, Layers, Constants)
+    Planet.nStepsTotal = Planet.nStepsHydro + nStepsSilicate
+
+    if Planet.Core.FeCORE:
+        Layers = IronCoreLayers(Planet, Layers, Constants)
+        Planet.nStepsTotal += Planet.nStepsCore
+
+    return Planet, Layers
+
+
+def SilicateLayers(Planet, Layers, Constants):
+    """ Geophysical and thermodynamic calculations for silicate layers """
+    nStepsSilicate = 0
+
+    return nStepsSilicate, Layers
+
+
+def IronCoreLayers(Planet, Layers, Constants):
+    """ Geophysical and thermodynamic calculations for core layers """
+
+    return Layers
+
 
 if __name__ == '__main__': main()

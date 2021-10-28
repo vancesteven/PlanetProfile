@@ -1,15 +1,15 @@
-'''swEOS_chooser.py-> chooses between which dissolved salt you are looking at
+"""swEOS_chooser.py-> chooses between which dissolved salt you are looking at
 Using Planet.Ocean.comp and parameters for each function, returns or grab needed EOS for core, water, ice, etc.
 Establish EOS/ OceanEOS that gives property need-> SetupEOS
-'''
+"""
 
 
 import gsw
 
-#if Planet.Ocean.comp == "NH3":
+#if Planet.Ocean.comp == 'NH3':
 #    raise ValueError(['NH3 is not currently implemented.'])
 
-#if Planet.Ocean.comp == "NaCl":
+#if Planet.Ocean.comp == 'NaCl':
 #    raise ValueError(['NaCl is not currently implemented.'])
 #Note to self: define OceanComposition variable and replace Planet-profile specific defs
 
@@ -28,13 +28,13 @@ def GetModgswAdiabaticLapseRate(planetOceanComp, SA, P, T = None, CT = None):
         Examples:
     """
 
-    if planetOceanComp == "Seawater":
+    if planetOceanComp == 'Seawater':
         if TA is not None:
             return gsw.adiabatic_lapse_rate_t_exact(SA,T-T0,10*(P-P0/1e5))*1e5
         if CT is not None:
             return gsw.adiabatic_lapse_rate_from_CT(SA, CT, P)
-        raise ValueError("Adiabatic Lapse Rate needs either T or CT.")
-    elif planetOceanComp == "MgSO4":
+        raise ValueError('Adiabatic Lapse Rate needs either T or CT.')
+    elif planetOceanComp == 'MgSO4':
         pass
 
 
@@ -55,14 +55,14 @@ def GetModgswAlpha(planetOceanComp, SA, P, T = None, CT = None, PT = None):
 
             Examples:
     """
-    if planetOceanComp == "Seawater":
+    if planetOceanComp == 'Seawater':
         if T is not None:
             return gsw.alpha_wrt_t_exact(SA, T, P)
         if CT is not None:
             return gsw.alpha_wrt_CT_t_exact(SA, CT, P)
         if PT is not None:
             return gsw.alpha_wrt_pt_t_exact(SA, T, P)
-    elif planetOceanComp == "MgSO4":
+    elif planetOceanComp == 'MgSO4':
         pass
 
 def GetModgswBeta(planetOceanComp, SA, P, T = None, CT = None, PT = None):
@@ -81,14 +81,14 @@ def GetModgswBeta(planetOceanComp, SA, P, T = None, CT = None, PT = None):
 
             Examples:
     """
-    if planetOceanComp == "Seawater":
+    if planetOceanComp == 'Seawater':
         if T is not None:
             return gsw.beta_const_t_exact(SA, T, P)
         if CT is not None:
             return gsw.beta_const_CT_t_exact(SA, CT, P)
         if PT is not None:
             return gsw.beta_const_pt_t_exact(SA, T, P)
-    elif planetOceanComp == "MgSO4":
+    elif planetOceanComp == 'MgSO4':
         pass
 
 
@@ -107,17 +107,17 @@ def GetModgswCFromSA(planetOceanComp, SA, T, P):
 
     Examples:
     """
-    if planetOceanComp == "Seawater":
+    if planetOceanComp == 'Seawater':
         #First, we check if we are in correct range of SP
         SP = SP_from_SA(SA, 10.1325, 0, 0) # set lat lon to 0
         if (SP<2) or (SP>42):
-            raise ValueError("Practical Salinity SP must be between 2 and 42")
+            raise ValueError('Practical Salinity SP must be between 2 and 42')
         else:
             return 0.1*gsw.C_from_SP(SP, T-gsw_T0, 10*(P-gsw_P0/1e5))
 
 
     #NOTE: C_from_SA not defined on own in gsw, but C_from_SP is
-    elif planetOceanComp == "MgSO4":
+    elif planetOceanComp == 'MgSO4':
         pass
 
 def GetModgswCPtExact(planetOceanComp, SA, T, P):
@@ -133,9 +133,9 @@ def GetModgswCPtExact(planetOceanComp, SA, T, P):
 
             Examples:
     """
-    if planetOceanComp == "Seawater":
+    if planetOceanComp == 'Seawater':
         return gsw.cp_t_exact(SA, T, P)
-    elif planetOceanComp == "MgSO4":
+    elif planetOceanComp == 'MgSO4':
         pass
 
 
@@ -153,9 +153,9 @@ def GetModgswRhotExact(planetOceanComp, SA, T, P):
 
             Examples:
     """
-    if planetOceanComp == "Seawater":
+    if planetOceanComp == 'Seawater':
         return gsw.rho_t_exact(SA,T-gsw_T0,10*(P-gsw_P0/1e5))
-    elif planetOceanComp == "MgSO4":
+    elif planetOceanComp == 'MgSO4':
         pass
 def LatentHeatMelting(SA,P):
     """   NOT YET DEFINED IN PYTHON-GSW :(
@@ -320,7 +320,7 @@ def GetVelSIceIh(planetOceanComp, T, P):
 
         Examples:
     """
-    if planetOceanComp == "Seawater":
+    if planetOceanComp == 'Seawater':
         pass
 '''import math
         vP = sound_speed_ice(T-T0, 10*(P-P0/1e5)) #[m/s]
@@ -336,3 +336,7 @@ kappa_ice = (gi_tp.*gi_tp - gi_tt.*gsw_gibbs_ice(0,2,t,p))./ ...
 '''
     #if planetOceanComp == "MgSO4":
         #pass
+
+
+def SetupEOS(oceanComp):
+    print('SetupEOS not implemented yet')

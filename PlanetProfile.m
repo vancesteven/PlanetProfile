@@ -198,6 +198,10 @@ if ~Planet.NoH2O
             Params.nsteps_clath = 0;
             Check_clath_depth=0;
             max_clath_depth=1e15;% ridiculous high number
+            % MJS 2021-10-27: This format is being removed in the python
+            % implementation. Using the already-included logical flag
+            % Planet.CLATHRATE as a check is a much more sensible way to
+            % toggle clathrate modeling.
         end
         %% SetupLayers
         nsteps = Params.nsteps_iceI + Params.nsteps_ocean + Params.nsteps_clath;
