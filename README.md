@@ -6,11 +6,14 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
 
 ## Prerequisites
 * SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze
+* TEOS-10 Gibbs Seawater for python -- see below for installation via conda-forge.
 * Python 3.8+ installed, preferably via Anaconda. Required modules:
   * Standard anaconda (for miniconda, install with conda install <packageName1> <packagename2> etc.):
     * numpy
     * spiceypy
+    * matplotlib
   * Conda-forge (install with conda install -c conda-forge <packageName>):
+    * gsw
     * skyfield (maybe not needed? Used in body date/time settings of asymmetric induction code)
 * Refprop is required for NH3 solutions: https://www.nist.gov/refprop
   * Due to various complications it is not currently implemented.
@@ -31,9 +34,9 @@ PlanetProfile is open source software. Please see the [LICENSE](https://github.c
 * To re-use data from past profiles, which dramatically speeds up runtime, set the CALC_NEW flags in the config.m input file to 0. If you are using git, use the following command to avoid editing the repository version of the config file:
 > git update-index --assume-unchanged config.m
 
-Some calculations use Matlab's Parallel Computing package.  If you don't have access to this package then parfor loops should be changed to for loops.  A future version will check and do this automatically.
+Some calculations use parallel computing with the multiprocessing builtin module. There are known cross-platform compatibility issues yet to be resolved. By default, multiprocessing is disasbled; enable it by setting DO_PARALLEL = True in config.py.
 
-Calculations with seawater solutions use the Gibbs Seawater package for Matlab: http://www.teos-10.org/software.htm#1
+Calculations with seawater solutions use the Gibbs Seawater package: https://teos-10.github.io/GSW-Python/
 
 Calculations with NH3 solutions use REFPROP and require a compiled dynamic library based on the REFPROP source code (see below for placement of files).  The source can be obtained from the National Institute of Standards and Technology https://www.nist.gov/refprop
 Access to REFPROP functions is through python 3 using librefprop.so: https://github.com/jowr/librefprop.so
@@ -44,9 +47,6 @@ Instructions for installing Python 3 on a Mac can be found at http://docs.python
 Rock properties are from Perple_X: http://www.perplex.ethz.ch/
 Input files were developed by Fabio Cammarano. Version 6.7.9 is currently being used.
 
-Python 3 instructions (may be necessary in a future update):
-  @ Find the path to the python3 executable (example command: which python3), and copy the full path
-  @ In a fresh Matlab session, at the console type pyversion("/path/to/python3/executable")
 
 ## To-dos:
 Modularization is not complete. 
