@@ -605,6 +605,13 @@ if ~Planet.NoH2O
                     %[Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,ill)) ;
                 end
             end
+            
+            % MJS 2021-10-29: I don't think these lines are important or do
+            % anything substantial. Both quantities are recalculated
+            % aplenty in the next loops. This was being done just before
+            % saving/reloading in the master branch before now.
+            rho_kgm3(iT,1) = rho_kgm3(iT,2); % continuity
+            Cp(iT,1)=Cp(iT,2);
     
 
     %%%%%%%%%%%%%%%%%%%%%
@@ -952,10 +959,6 @@ if ~Planet.NoH2O
     
     
     
-    
-       
-            rho_kgm3(iT,1) = rho_kgm3(iT,2); %continuity
-            Cp(iT,1)=Cp(iT,2);
             save(fullfile([datpath savefile '_pp' num2str(iT)]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth'); % save the progress at each step
             saveFile = fullfile([datpath savestr '.txt']);
             dlmwrite(saveFile, '  nHeadLines = 12', 'delimiter', '');
