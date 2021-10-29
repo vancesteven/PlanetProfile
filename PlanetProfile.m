@@ -79,6 +79,42 @@ if ~Params.NOPLOTS
     drawnow
 end
 
+
+%% SetupFilenames
+POROUS_ICE = isfield(Planet,'POROUS_ICE') && Planet.POROUS_ICE;
+if POROUS_ICE; porIceStr = '_PorousIce'; else; porIceStr = ''; end   
+% implementing a feature to track silicate composition in output files
+% because it's getting confusing as we investigate k2, Q, etc....
+if isfield(Seismic,'mantleEOSname'); minEOS = ['_' Seismic.mantleEOSname]; else; minEOS = ''; end
+% adjust file name based on keywords(clathrates, porous)
+%if isfield(Planet,'Clathrate'); clathStr = '_Clathrates'; else; clathStr = ''; end
+
+savebase = [Planet.name 'Profile_'];
+if isfield(Planet,'Clathrate'); savebase = [savebase 'Clathrates_']; end
+%savebase = [Planet.name 'Profile_' clathStr];
+savefile = [savebase Planet.Ocean.comp ...
+    '_' num2str(round(Planet.Ocean.w_ocean_pct)) 'WtPct' minEOS porIceStr ];
+    
+% MJS 2020-10-02:
+% strLow is a placeholder for a calculation that places a relevant string
+% into filenames for differentiating mantle compositions. That calculation
+% will need to be moved up to account for new additions placing the new
+% Profile_fname field into Planet.
+strLow = '';
+datpath = strcat(Planet.name,'/');
+figpath = strcat(Planet.name,'/figures/');
+
+if ~exist(figpath,'dir')
+    error(['Figure path ' figpath ' does not exist. Check your Matlab path ' ...
+        ' settings and add-with-subfolders the main PlanetProfile directory.'])
+end
+if ~exist(datpath,'dir')
+    error(['Data path ' datpath ' does not exist. Check your Matlab path ' ...
+        ' settings and add-with-subfolders the main PlanetProfile directory.'])
+end
+
+
+
 if ~cfg.SKIP_PROFILES
     
     %% Figure label settings
@@ -100,6 +136,49 @@ if ~cfg.SKIP_PROFILES
     if cfg.CALC_NEW_INDUC && ...
             (strcmp(Planet.name,'Europa') || strcmp(Planet.name,'Ganymede') || strcmp(Planet.name,'Callisto'))
         [~] = getLayeredFigRefs(lbl, Planet.Tb_K, Planet.name, Planet.PLOT_SIGS, cfg.HOLD, cfg.NO_PLOTS);
+    end
+    
+    %% Save in a file the densities of adiabats corresponding to different ocean concentrations
+    % These are reference profiles, for plotting on hydrosphere density vs
+    % pressure plots
+    % OceanFreezeDensities TBD
+    str_ref_densities = ['ref_densities_' Planet.name '_' Planet.Ocean.comp '.mat'];
+    if Params.CALC_NEW_REFPROFILES
+        nPr = Params.nsteps_ref_rho;
+        %calculate the densities of liquid solution on the liquidus lines
+        %corresponding to different concentrations
+        wref = Params.wref;
+        lw = length(wref);
+        Pref_MPa=linspace(0,Params.Pseafloor_MPa,nPr);
+        Tref_K = zeros(lw,nPr);
+        rho_ref_kgm3 = Tref_K; %allocate
+        for jr=1:lw
+           for il=1:nPr
+              try
+                 if ~isfield(Planet.Ocean,'fnTfreeze_K')
+                     Tref_K(jr,il) = getTfreeze(Pref_MPa(il),wref(jr),Planet.Ocean.comp);
+                 else
+                     Tref_K(jr,il) = Planet.Ocean.fnTfreeze_K(Pref_MPa(il),wref(jr));
+                 end
+              catch
+                  disp('caught exception while calculating liquid densities (dashed lines); maybe the search range for fzero is too small?')
+                  disp(['il = ' num2str(il)])
+                 Tref_K(jr,il) = NaN;
+              end
+              rho_ref_kgm3(jr,il) = fluidEOS(Pref_MPa(il),Tref_K(jr,il),wref(jr),Planet.Ocean.comp);
+           end
+           if strcmp(Planet.Ocean.comp,'Seawater')
+               isreal = find(~isnan(rho_ref_kgm3(jr,:)));
+               rho_ref_kgm3(jr,:)=interp1(Pref_MPa(isreal),rho_ref_kgm3(jr,isreal),Pref_MPa,'linear','extrap');
+           end
+        end
+        save(fullfile([datpath str_ref_densities]),'rho_ref_kgm3','Pref_MPa','Tref_K')
+    else
+        try
+            load(fullfile([datpath str_ref_densities]));
+        catch
+            error(['ERROR: A reference density file for ' Planet.name ' ' Planet.Ocean.comp ' was not found. Re-run with calc_new_ref=1 to generate the needed file.'])
+        end
     end
     
 end % ~cfg.SKIP_PROFILES
@@ -127,40 +206,6 @@ bar2GPa = 1e-4;
 
 Gg = 6.67300e-11; % m3 kg-1 s-2
 
-% implementing a feature to track silicate composition in output files
-% because it's getting confusing as we investigate k2, Q, etc....
-if isfield(Seismic,'mantleEOSname'); minEOS = ['_' Seismic.mantleEOSname]; else; minEOS = ''; end
-% adjust file name based on keywords(clathrates, porous)
-%if isfield(Planet,'Clathrate'); clathStr = '_Clathrates'; else; clathStr = ''; end
-
-%% SetupFilenames
-POROUS_ICE = isfield(Planet,'POROUS_ICE') && Planet.POROUS_ICE;
-if POROUS_ICE; porIceStr = '_PorousIce'; else; porIceStr = ''; end   
-
-savebase = [Planet.name 'Profile_'];
-if isfield(Planet,'Clathrate'); savebase = [savebase 'Clathrates_']; end
-%savebase = [Planet.name 'Profile_' clathStr];
-savefile = [savebase Planet.Ocean.comp ...
-    '_' num2str(round(Planet.Ocean.w_ocean_pct)) 'WtPct' minEOS porIceStr];
-
-% MJS 2020-10-02:
-% strLow is a placeholder for a calculation that places a relevant string
-% into filenames for differentiating mantle compositions. That calculation
-% will need to be moved up to account for new additions placing the new
-% Profile_fname field into Planet.
-strLow = '';
-datpath = strcat(Planet.name,'/');
-figpath = strcat(Planet.name,'/figures/');
-
-if ~exist(figpath,'dir')
-    error(['Figure path ' figpath ' does not exist. Check your Matlab path ' ...
-        ' settings and add-with-subfolders the main PlanetProfile directory.'])
-end
-if ~exist(datpath,'dir')
-    error(['Data path ' datpath ' does not exist. Check your Matlab path ' ...
-        ' settings and add-with-subfolders the main PlanetProfile directory.'])
-end
-
 
 % Filename strings
 vsP = 'Porosity_vs_P';
@@ -182,34 +227,52 @@ if ~isfield(Planet,'NoH2O') % backward compatibility--haven't finished implement
     Planet.NoH2O =0;
 end
 
+%SetupClathrates
+[n_clath, n_iceI, n_ocean] = deal(zeros(1,nTbs));
+if isfield(Planet,'Clathrate')
+disp('Running with clathrate parameters')
+if isfield(Params,'Clathrate_set_depth') % checks if clathrates have set depth
+    max_clath_depth=Params.Clathrate_set_depth;
+    Check_clath_depth=1;
+else
+    max_clath_depth=10e15;
+    Check_clath_depth=0;
+end
+else
+Params.nsteps_clath = 0;
+Check_clath_depth=0;
+max_clath_depth=1e15;% ridiculous high number
+% MJS 2021-10-27: This format is being removed in the python
+% implementation. Using the already-included logical flag
+% Planet.CLATHRATE as a check is a much more sensible way to
+% toggle clathrate modeling.
+end
+%% SetupLayers
+nsteps = Params.nsteps_iceI + Params.nsteps_ocean + Params.nsteps_clath;
+
+% MJS 2021-10-28: This got moved up from below where saving/reloading a la
+% CALC_NEW was done. We needed to do a bit more calculations before making
+% the save files.
+[z_m,r_m,g_ms2,M_above_kg,M_below_kg] = deal(zeros(nTbs,nsteps));
+M_above_kg(:,1) = 0;
+M_below_kg(:,1) = Planet.M_kg;
+r_m(:,1) = Planet.R_m;
+g_ms2(1:nTbs,1) = Gg*Planet.M_kg/Planet.R_m^2;
+D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon 2006 uses a value of 621 from Slack 1980)
+
+[Planet.Profile_fname, Planet.Profile_ID] = deal(strings(1,nTbs));
+
+% Preallocate for ConvectionDeschampsSotin
+[Q_Wm2,deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I,Qb,Planet.zb_outerIce_m] = deal(zeros(1,nTbs));
+
+
 %%
 if ~Planet.NoH2O
     if Params.CALC_NEW
         % adds number of clathrates based on inputs or sets to zero, also sets
         % maximum depth if specified
 
-%%        SetupClathrates
-        [n_clath, n_iceI, n_ocean] = deal(zeros(1,nTbs));
-        if isfield(Planet,'Clathrate')
-            disp('Running with clathrate parameters')
-            if isfield(Params,'Clathrate_set_depth') % checks if clathrates have set depth
-                max_clath_depth=Params.Clathrate_set_depth;
-                Check_clath_depth=1;
-            else
-                max_clath_depth=10e15;
-                Check_clath_depth=0;
-            end
-        else
-            Params.nsteps_clath = 0;
-            Check_clath_depth=0;
-            max_clath_depth=1e15;% ridiculous high number
-            % MJS 2021-10-27: This format is being removed in the python
-            % implementation. Using the already-included logical flag
-            % Planet.CLATHRATE as a check is a much more sensible way to
-            % toggle clathrate modeling.
-        end
-        %% SetupLayers
-        nsteps = Params.nsteps_iceI + Params.nsteps_ocean + Params.nsteps_clath;
+%%      
 
         [T_K,P_MPa,rho_kgm3] = deal(zeros(nTbs,nsteps));
 
@@ -234,6 +297,10 @@ if ~Planet.NoH2O
         %ice Ih, ice III, ice V
         %--------------------------------------------------------------------------
         for iT = 1:nTbs %draw thermal profiles corresponding to the different choices of temperature at the bottom of the Ice I shell
+            savestr = [savebase Planet.Ocean.comp ...
+                '_' num2str(10*round(Planet.Ocean.w_ocean_pct)) 'WtPpt' minEOS porIceStr ...
+                '_Tb' num2str(round(Planet.Tb_K(iT),3),'%.3f') 'K' ];
+
             T_K(iT,1) = Planet.Tsurf_K;
             P_MPa(iT,1) = Planet.Psurf_MPa;
             % if ice shell had to be thinned in previous run, this will
@@ -302,6 +369,7 @@ if ~Planet.NoH2O
 
 
                 nIceIIILithosphere=0; 
+                nIceVLithosphere=0; 
                 PbI_MPa = Pb_MPa;
             catch
                 disp('PlanetProfile failed to get Pb! Here''s why:')
@@ -543,60 +611,7 @@ if ~Planet.NoH2O
                     %[Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,ill)) ;
                 end
             end
-            rho_kgm3(iT,1) = rho_kgm3(iT,2); %continuity
-            Cp(iT,1)=Cp(iT,2);
-                save(fullfile([datpath savefile]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth'); % save the progress at each step
-        end
-    else
-        try
-            load(fullfile([datpath savefile]));
-            if ~exist('max_clath_depth')
-                max_clath_depth = 1e15;
-            end
-        catch
-            error(['ERROR: cfg.CALC_NEW=0 but ' savefile ' was not found. Re-run with cfg.CALC_NEW set to 1 to generate the Profile.']);
-        end
-    end
-    %% Save in a file the densities of adiabats corresponding to different ocean concentrations
-    % OceanFreezeDensities TBD
-    str_ref_densities = ['ref_densities_' Planet.name '_' Planet.Ocean.comp '.mat'];
-    if Params.CALC_NEW_REFPROFILES
-        nPr = Params.nsteps_ref_rho;
-        %calculate the densities of liquid solution on the liquidus lines
-        %corresponding to different concentrations
-        wref = Params.wref;
-        lw = length(wref);
-        Pref_MPa=linspace(0,Params.Pseafloor_MPa,nPr);
-        Tref_K = zeros(lw,nPr);
-        rho_ref_kgm3 = Tref_K; %allocate
-        for jr=1:lw
-           for il=1:nPr
-              try
-                 if ~isfield(Planet.Ocean,'fnTfreeze_K')
-                     Tref_K(jr,il) = getTfreeze(Pref_MPa(il),wref(jr),Planet.Ocean.comp);
-                 else
-                     Tref_K(jr,il) = Planet.Ocean.fnTfreeze_K(Pref_MPa(il),wref(jr));
-                 end
-              catch
-                  disp('caught exception while calculating liquid densities (dashed lines); maybe the search range for fzero is too small?')
-                  disp(['il = ' num2str(il)])
-                 Tref_K(jr,il) = NaN;
-              end
-              rho_ref_kgm3(jr,il) = fluidEOS(Pref_MPa(il),Tref_K(jr,il),wref(jr),Planet.Ocean.comp);
-           end
-           if strcmp(Planet.Ocean.comp,'Seawater')
-               isreal = find(~isnan(rho_ref_kgm3(jr,:)));
-               rho_ref_kgm3(jr,:)=interp1(Pref_MPa(isreal),rho_ref_kgm3(jr,isreal),Pref_MPa,'linear','extrap');
-           end
-        end
-        save(fullfile([datpath str_ref_densities]),'rho_ref_kgm3','Pref_MPa','Tref_K')
-    else
-        try
-            load(fullfile([datpath str_ref_densities]));
-        catch
-            error(['ERROR: A reference density file for ' Planet.name ' ' Planet.Ocean.comp ' was not found. Re-run with calc_new_ref=1 to generate the needed file.'])
-        end
-    end
+    
 
     %%%%%%%%%%%%%%%%%%%%%
     % convert to depth —- PlanetDepths
@@ -604,19 +619,7 @@ if ~Planet.NoH2O
     %% calculate gravity in each layer instead of assuming surface gravity applies.
     % allocate variables
     %% HydrosphereDepths
-    [z_m,r_m,g_ms2] = deal(zeros(nTbs,nsteps));
-    [M_above_kg,M_below_kg] = deal(rho_kgm3); % mass above and below the silicate interface
-    M_above_kg(:,1) = 0;
-    M_below_kg(:,1) = Planet.M_kg;
-    r_m(:,1) = Planet.R_m;
-    g_ms2(1:nTbs,1) = Gg*Planet.M_kg/Planet.R_m^2;
-    D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon 2006 uses a value of 621 from Slack 1980)
-            
-    [Planet.Profile_fname, Planet.Profile_ID] = deal(strings(1,nTbs));
-
-    % Preallocate for ConvectionDeschampsSotin
-    [Q_Wm2,deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I,Qb,Planet.zb_outerIce_m] = deal(zeros(1,nTbs));
-    for iT = 1:nTbs
+    
         deltaP = Pb_MPa(iT)/(n_iceI(iT)+n_clath(iT));
 
         % calculates depth for clathrates and ice separatly so the depths
@@ -957,7 +960,43 @@ if ~Planet.NoH2O
     
     
     
+       
+            rho_kgm3(iT,1) = rho_kgm3(iT,2); %continuity
+            Cp(iT,1)=Cp(iT,2);
+            %save(fullfile([datpath savefile]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth'); % save the progress at each step
+            saveFile = fullfile([datpath savestr '.txt']);
+            dlmwrite(saveFile, '  nHeadLines = 12', 'delimiter', '');
+            dlmwrite(saveFile, ['  Tb_K = ' num2str(Planet.Tb_K(iT))], 'delimiter', '', '-append');
+            dlmwrite(saveFile, ['  Zb_km = ' num2str(Planet.zb_outerIce_m(iT)/1e3)], 'delimiter', '', '-append');
+            dlmwrite(saveFile, ['  Pb_MPa = ' num2str(Pb_MPa(iT))], 'delimiter', '', '-append');
+            dlmwrite(saveFile, ['  PbI_MPa = ' num2str(PbI_MPa(iT))], 'delimiter', '', '-append');
+            dlmwrite(saveFile, ['  deltaP = ' num2str(deltaP)], 'delimiter', '', '-append');
+            dlmwrite(saveFile, ['  nStepsIceI = ' num2str(Params.nsteps_iceI)], 'delimiter', '', '-append');
+            dlmwrite(saveFile, ['  nStepsOcean = ' num2str(Params.nsteps_ocean)], 'delimiter', '', '-append');
+            dlmwrite(saveFile, ['  nStepsHydro = ' num2str(nsteps)], 'delimiter', '', '-append');
+            dlmwrite(saveFile, ['  nIceIIILitho = ' num2str(nIceIIILithosphere)], 'delimiter', '', '-append');
+            dlmwrite(saveFile, ['  nIceVLitho = ' num2str(nIceVLithosphere)], 'delimiter', '', '-append');
+            header = sprintf('%s\t\t%s\t\t%s\t\t%s\t%s\t%s\t%s\t%s\t\t',...
+            'z (m)', 'P (MPa)', 'T (K)', 'phase ID', 'rho (kg/m3)', 'g (m/s2)', 'Cp (W/kg/K)');
+            dlmwrite(saveFile, header, 'delimiter', '', '-append');
+
+            saveData = [z_m(iT,:)'*1e-3 P_MPa(iT,:)' T_K(iT,:)' phase(iT,:)' rho_kgm3(iT,:)' g_ms2(iT,:)' Cp(iT,:)'];
+            dlmwrite(saveFile,saveData,...
+                'delimiter','\t',...
+                'precision','%3.5e',...
+                '-append');
+        end
+    else
+        try
+            load(fullfile([datpath savefile]));
+            if ~exist('max_clath_depth')
+                max_clath_depth = 1e15;
+            end
+        catch
+            error(['ERROR: cfg.CALC_NEW=0 but ' savefile ' was not found. Re-run with cfg.CALC_NEW set to 1 to generate the Profile.']);
+        end
     end
+    
 end
 
 

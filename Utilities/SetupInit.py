@@ -21,6 +21,9 @@ def SetupInit(Planet, Params, Constants):
 
     # Get filenames for saving/loading
     Params.dataFiles, Params.figureFiles = SetupFilenames(Planet)
+    # Warn user if filename will round Tb_K value
+    if Params.VERBOSE and round(Planet.Tb_K, 3) != Planet.Tb_K:
+        print('WARNING: Planet.Tb_K has been rounded to generate saveFile name.')
 
     # Preallocate layer physical quantity arrays
     Planet.nStepsHydro, Layers = SetupLayers(Planet, Constants)
@@ -37,9 +40,12 @@ def SetupFilenames(Planet):
 
     # Construct filenames for data, saving/reloading
     class dataFilesStruct:
-        saveFile = datPath + saveBase + Planet.Ocean.comp + '_' + str(round(Planet.Ocean.wtOcean_ppt)) + 'WtPpt'
-        if Planet.Silicate.mantleEOSName is not None: saveFile += Planet.Silicate.mantleEOSname
-        if Planet.POROUS_ICE: saveFile += '_PorousIce'
+        fName = datPath + saveBase + Planet.Ocean.comp + '_' + str(round(Planet.Ocean.wtOcean_ppt)) + 'WtPpt' \
+            + '_Tb{:.3f}K'.format(Planet.Tb_K)
+        if Planet.Silicate.mantleEOSName is not None: fName += Planet.Silicate.mantleEOSname
+        if Planet.POROUS_ICE: fName += '_PorousIce'
+        saveFile = fName + '.txt'
+        saveFileMantle = fName + '_mantle.txt'
 
     dataFiles = dataFilesStruct()
 
@@ -65,13 +71,19 @@ def SetupFilenames(Planet):
     return dataFiles, figureFiles
 
 
+class LayersStruct:
+    def __init__(self, nTotal):
+        self.nTotal = nTotal
+        self.phase = np.zeros(nTotal, dtype=np.int_)
+        self.T_K, self.P_MPa, self.rho_kgm3, self.z_m, \
+        self.g_ms2, self.MAbove_kg, self.MBelow_kg, self.r_m \
+            = (np.zeros(nTotal) for _ in range(8))
+
+
 def SetupLayers(Planet, Constants):
     nStepsHydro = Planet.nStepsIceI + Planet.nStepsOcean
 
-    class LayersStruct:
-        phase, T_K, P_MPa, rho_kgm3, z_m, g_ms2, MAbove_kg, MBelow_kg, r_m = (np.zeros(nStepsHydro) for _ in range(9))
-
-    Layers = LayersStruct()
+    Layers = LayersStruct(nStepsHydro)
 
     Layers.phase[:Planet.nStepsIceI] = 1 # Set ice Ih phase
     if Planet.nStepsClath is not None:
