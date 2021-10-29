@@ -57,12 +57,6 @@ Params.savefigformat = cfg.fig_fmt;
 % Find out how many profiles we will compare
 nTbs = length(Planet.Tb_K); 
 
-% Do not use these variables! This is just to maintain functionality with
-% coreSize etc. that use these globals.
-global M_Planet_kg R_Planet_m
-M_Planet_kg = Planet.M_kg;
-R_Planet_m = Planet.R_m;
-
 %% Check for porosity so we know if we will need those plots --> to be moved somewhere more sensible -- make part of CheckFields function, or in python create a class Planet that creates all the fields
 POROUS = isfield(Planet,'POROUS_ROCK') && Planet.POROUS_ROCK;
 
@@ -142,7 +136,7 @@ if ~cfg.SKIP_PROFILES
     % These are reference profiles, for plotting on hydrosphere density vs
     % pressure plots
     % OceanFreezeDensities TBD
-    str_ref_densities = ['ref_densities_' Planet.name '_' Planet.Ocean.comp '.mat'];
+    str_ref_densities = ['ref_densities_' Planet.name '_' Planet.Ocean.comp '_pp.mat'];
     if Params.CALC_NEW_REFPROFILES
         nPr = Params.nsteps_ref_rho;
         %calculate the densities of liquid solution on the liquidus lines
@@ -962,7 +956,7 @@ if ~Planet.NoH2O
        
             rho_kgm3(iT,1) = rho_kgm3(iT,2); %continuity
             Cp(iT,1)=Cp(iT,2);
-            %save(fullfile([datpath savefile]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth'); % save the progress at each step
+            save(fullfile([datpath savefile '_pp' num2str(iT)]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth'); % save the progress at each step
             saveFile = fullfile([datpath savestr '.txt']);
             dlmwrite(saveFile, '  nHeadLines = 12', 'delimiter', '');
             dlmwrite(saveFile, ['  Tb_K = ' num2str(Planet.Tb_K(iT))], 'delimiter', '', '-append');
@@ -982,12 +976,12 @@ if ~Planet.NoH2O
             saveData = [z_m(iT,:)'*1e-3 P_MPa(iT,:)' T_K(iT,:)' phase(iT,:)' rho_kgm3(iT,:)' g_ms2(iT,:)' Cp(iT,:)'];
             dlmwrite(saveFile,saveData,...
                 'delimiter','\t',...
-                'precision','%3.5e',...
+                'precision',16,...
                 '-append');
         end
     else
         try
-            load(fullfile([datpath savefile]));
+            load(fullfile([datpath savefile '_pp' num2str(iT)]));
             if ~exist('max_clath_depth')
                 max_clath_depth = 1e15;
             end
@@ -1573,10 +1567,10 @@ if Params.CALC_NEW_SOUNDSPEEDS
         velsIce.Vclathl_kms(iT,phase(iT,:)~=30) =NaN;
         velsIce.Vclatht_kms(iT,phase(iT,:)~=30) =NaN;
     end
-    save(fullfile([datpath savefile '_Vels']),'Ksfluid_GPa','velsIce','vfluid_kms');
+    save(fullfile([datpath savefile '_Vels' '_pp' num2str(iT)]),'Ksfluid_GPa','velsIce','vfluid_kms');
 else
     try	
-        load(fullfile([datpath savefile '_Vels']),'Ksfluid_GPa','velsIce','vfluid_kms');	
+        load(fullfile([datpath savefile '_Vels' '_pp' num2str(iT)]),'Ksfluid_GPa','velsIce','vfluid_kms');	
     catch	
         error(['ERROR: A soundspeeds file was not found for ' char(Planet.salt) '. Re-run with CALC_NEW_SOUND=1 to generate the needed file.'])	
     end
@@ -2268,12 +2262,12 @@ for iT = 1:nTbs
     end
     if isfield(Planet,'Clathrate'); clathID = ['_Zclath' num2str(Zclath(iT)./1000,'%2.0f') 'km']; else; clathID = ''; end
     thissavestr = [savefile '_Zb' strLow num2str(zb_outerIce_m(iT)./1000,'%2.0f') 'km' clathID ];
-    dlmwrite(fullfile([datpath thissavestr '.txt']),header,'delimiter','');
-    dlmwrite(fullfile([datpath thissavestr '.txt']),Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma,...
+    dlmwrite(fullfile([datpath thissavestr '_pp' num2str(iT) '.txt']),header,'delimiter','');
+    dlmwrite(fullfile([datpath thissavestr '_pp' num2str(iT) '.txt']),Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma,...
         'delimiter','\t',...
         'precision','%3.5e',...
         '-append');
-    dlmwrite(fullfile([datpath thissavestr '_mantle.dat']),[10*interior(iT).Pmantle_MPa' interior(iT).Tmantle_K'],'delimiter','\t');
+    dlmwrite(fullfile([datpath thissavestr '_mantle_pp' num2str(iT) '.dat']),[10*interior(iT).Pmantle_MPa' interior(iT).Tmantle_K'],'delimiter','\t');
 
     if isfield(Params,'TauP')
         taup_model=create_Taup([datpath thissavestr '.txt']);

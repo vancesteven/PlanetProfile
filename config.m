@@ -44,7 +44,7 @@ function cfg = config
     cfg.dft_math = 'STIX Math';
     cfg.interpreter = 'tex';
     cfg.fig_fmt = '-depsc';
-    cfg.xtn = '.eps';
+    cfg.xtn = '_pp.eps';
     
     % Color selection
     cfg.b000ff = [176,  0,255]/255; % b000ff.
