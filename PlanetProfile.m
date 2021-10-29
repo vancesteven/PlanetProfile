@@ -619,7 +619,6 @@ if ~Planet.NoH2O
     %% calculate gravity in each layer instead of assuming surface gravity applies.
     % allocate variables
     %% HydrosphereDepths
-    
         deltaP = Pb_MPa(iT)/(n_iceI(iT)+n_clath(iT));
 
         % calculates depth for clathrates and ice separatly so the depths
@@ -632,7 +631,7 @@ if ~Planet.NoH2O
 
             % determine local gravity
             M_above_kg(iT,il) = M_above_kg(iT,il-1) + 4/3*pi*(r_m(iT,il-1)^3-r_m(iT,il)^3)*rho_kgm3(iT,il);
-            M_below_kg(iT,il) = Planet.M_Planet_kg-M_above_kg(iT,il);
+            M_below_kg(iT,il) = Planet.M_kg-M_above_kg(iT,il);
             g_ms2(iT,il) = Gg*M_below_kg(iT,il)/r_m(iT,il)^2;
         end
         %checks if there were clathrates or not
@@ -1107,7 +1106,7 @@ else % WITH A CORE
         C_H2O(:,iz+1) = C_H2O(:,iz)+(8/3*pi*rho_kgm3(:,iz+npre).*r_m(:,iz+npre).^4.*dz_m(:,iz+npre));
         R_sil_m(:,iz) = r_m(:,iz+npre);
         for iT = 1:nTbs
-            [C2(iT,iz),R_Fe_m(iT,iz)] = CoreSize(Planet.rho_sil_withcore_kgm3,rho_Fe_kgm3,C_H2O(iT,iz+1),M_above_kg(iT,iz+npre),R_sil_m(iT,iz));
+            [C2(iT,iz),R_Fe_m(iT,iz)] = CoreSize(Planet.rho_sil_withcore_kgm3,rho_Fe_kgm3,C_H2O(iT,iz+1),M_above_kg(iT,iz+npre),R_sil_m(iT,iz), Planet.M_kg, Planet.R_m);
         end
     end
     
@@ -2467,7 +2466,7 @@ if ~cfg.SKIP_PROFILES
     %%  plot profile with 4 subplots
     %%
     if Params.foursubplots
-    Dsil_km=(R_Planet_m-R_sil_mean_m(:))*1e-3;
+    Dsil_km=(Planet.R_m-R_sil_mean_m(:))*1e-3;
 
     set(0, 'CurrentFigure', figs.cond);
     maxScale = 1.01;
@@ -2809,7 +2808,7 @@ if ~cfg.SKIP_PROFILES
         subplot(1,2,2);
         hold on
 
-    Dsil_km=(R_Planet_m-R_sil_mean_m(:))*1e-3;
+    Dsil_km=(Planet.R_m-R_sil_mean_m(:))*1e-3;
 
     for iT = 1:nTbs
         hp(iT) =  line(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)),z_m(iT,Params.nsteps_iceI+1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
@@ -3218,6 +3217,7 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
         case 'NaCl'
             error('ERROR: NaCl is not yet implemented for fluidEOS.')
         case 'Seawater'
+            global swEOS
             extrapflag = 1;
             % expect that wo is absolute salinity
             rho_kgm3=swEOS.gsw.dens(wo,T_K,P_MPa*10);
@@ -3272,18 +3272,16 @@ function zero_alpha = alphaAdjust(P_MPa,T_K,wo,comp)
     [~,~,zero_alpha]= fluidEOS(P_MPa,T_K,wo,comp);
 end % alphaAdjust
 %% Core Size
-function [C2MR2,R_fe] = CoreSize(rho_s,rho_fe,C_H2O,M_above_kg,R_s)
-    global M_Planet_kg R_Planet_m
+function [C2MR2,R_fe] = CoreSize(rho_s,rho_fe,C_H2O,M_above_kg,R_s, M_kg,R_m)
     try
-        R_fe = fzero(@(R_fe) getR_fe(rho_s,rho_fe,M_above_kg,R_s,R_fe),[0 R_Planet_m]);
+        R_fe = fzero(@(R_fe) getR_fe(rho_s,rho_fe,M_above_kg,R_s,R_fe, M_kg),[0 R_m]);
     catch
         R_fe = NaN;
     end
-    C2MR2 = C_H2O+8/15*pi*((R_s.^5-R_fe.^5)*rho_s+rho_fe*R_fe.^5);%/M_Planet_kg/R_Planet_m^2;
+    C2MR2 = C_H2O+8/15*pi*((R_s.^5-R_fe.^5)*rho_s+rho_fe*R_fe.^5);%/Planet.M_kg/Planet.R_m^2;
 end %CoreSize
-function zero_me = getR_fe(rho_s,rho_fe,M_above_kg,R_s,R_fe)
-    global M_Planet_kg
-    zero_me = 4*pi/3*rho_fe*R_fe.^3 - (M_Planet_kg - M_above_kg-4*pi/3*rho_s*(R_s.^3-R_fe.^3));
+function zero_me = getR_fe(rho_s,rho_fe,M_above_kg,R_s,R_fe, M_kg)
+    zero_me = 4*pi/3*rho_fe*R_fe.^3 - (M_kg - M_above_kg-4*pi/3*rho_s*(R_s.^3-R_fe.^3));
 end %getR_fe
 function intout = interp1nan(x,y) % perplex outputs for VP, VS, KS, and GS seem to often have a few nans
     ninds = isnan(y);
