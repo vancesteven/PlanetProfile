@@ -1,6 +1,6 @@
 *~
 .DS_Store
-*asv
+*.asv
 /*.eps
 /*.fig
 /*.dat
