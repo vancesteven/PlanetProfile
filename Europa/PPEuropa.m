@@ -158,9 +158,9 @@ Planet.rho_sil_withcore_kgm3 = 3644;
 Planet.phi_surface = 0;
 
 outPlanet = PlanetProfile(Planet,Seismic,Params);
-outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
+%outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 
-% Params.LineStyle='-';
+%% Params.LineStyle='-';
 % Params.colororder = 'cm';
 % Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [270.4 273.1]; % pure water,  265.7
 % outPlanet = PlanetProfile(Planet,Seismic,Params);
@@ -223,8 +223,8 @@ Planet.XH2O = 0.0035; % total fraction of water in CM2; use this to compute the 
 Planet.rho_sil_withcore_kgm3 = 3644;
 Planet.phi_surface = 0;
 outPlanet = PlanetProfile(Planet,Seismic,Params);
-outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
-% 
+%outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
+%% 
 % Seismic.mantleEOS = 'CIhy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 % Planet.xFeS_meteoritic = 0.0908; %CM2 mean from Jarosewich 1990
 % Planet.xFeS = 0.2; %0.25, mass fraction of sulfur in the core
