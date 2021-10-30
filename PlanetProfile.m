@@ -291,10 +291,7 @@ if ~Planet.NoH2O
         %ice Ih, ice III, ice V
         %--------------------------------------------------------------------------
         for iT = 1:nTbs %draw thermal profiles corresponding to the different choices of temperature at the bottom of the Ice I shell
-            savestr = [savebase Planet.Ocean.comp ...
-                '_' num2str(10*round(Planet.Ocean.w_ocean_pct)) 'WtPpt' minEOS porIceStr ...
-                '_Tb' num2str(round(Planet.Tb_K(iT),3),'%.3f') 'K' ];
-
+            
             T_K(iT,1) = Planet.Tsurf_K;
             P_MPa(iT,1) = Planet.Psurf_MPa;
             % if ice shell had to be thinned in previous run, this will
@@ -951,45 +948,110 @@ if ~Planet.NoH2O
         end
         
         deltaP = (Params.Pseafloor_MPa-Pb_MPa(iT))/n_ocean(iT); %
+        
+        Planet.zClath_m(iT) = Zclath(iT);
      
         Planet.Profile_ID(iT) = ['Ts' num2str(Planet.Tsurf_K,'%0.0f') 'Zb' strLow num2str(Planet.zb_outerIce_m(iT),'%0.0f') ...
             'mQm' num2str(1000*Planet.Qmantle_Wm2(iT),'%0.0f') 'mWm2_CMR2p' ...
             num2str(10000*Planet.Cmeasured,'%0.0f') '_' thiseos];
         Planet.Profile_fname(iT) = [savefile '_' char(Planet.Profile_ID(iT))];
-    
-    
-    
-            save(fullfile([datpath savefile '_pp' num2str(iT)]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth'); % save the progress at each step
+            
+            savestr = [savebase Planet.Ocean.comp ...
+                '_' num2str(10*round(Planet.Ocean.w_ocean_pct)) 'WtPpt' minEOS porIceStr ...
+                '_Tb' num2str(round(Planet.Tb_K(iT),3),'%.3f') 'K' ];
             saveFile = fullfile([datpath savestr '.txt']);
-            dlmwrite(saveFile, '  nHeadLines = 12', 'delimiter', '');
+            %save(fullfile([datpath savefile '_pp' num2str(iT)]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILitho','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth'); % save the progress at each step
+            dlmwrite(saveFile, '  nHeadLines = 14', 'delimiter', '');
             dlmwrite(saveFile, ['  Tb_K = ' num2str(Planet.Tb_K(iT))], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  Zb_km = ' num2str(Planet.zb_outerIce_m(iT)/1e3)], 'delimiter', '', '-append');
+            dlmwrite(saveFile, ['  zClath_m = ' num2str(Planet.zClath_m(iT))], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  Pb_MPa = ' num2str(Pb_MPa(iT))], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  PbI_MPa = ' num2str(PbI_MPa(iT))], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  deltaP = ' num2str(deltaP)], 'delimiter', '', '-append');
+            dlmwrite(saveFile, ['  alpha_o = ' num2str(alpha_o)], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  nStepsIceI = ' num2str(Params.nsteps_iceI)], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  nStepsOcean = ' num2str(Params.nsteps_ocean)], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  nStepsHydro = ' num2str(nsteps)], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  nIceIIILitho = ' num2str(nIceIIILithosphere)], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  nIceVLitho = ' num2str(nIceVLithosphere)], 'delimiter', '', '-append');
-            header = sprintf('%s\t\t%s\t\t%s\t\t%s\t%s\t%s\t%s\t%s\t\t',...
-            'z (m)', 'P (MPa)', 'T (K)', 'phase ID', 'rho (kg/m3)', 'g (m/s2)', 'Cp (W/kg/K)');
+            header = sprintf('%s\t\t%s\t\t%s\t\t%s\t\t%s\t%s\t%s\t%s\t%s\t\t',...
+            'z (km)', 'r (m)', 'P (MPa)', 'T (K)', 'phase ID', 'rho (kg/m3)', 'g (m/s2)', 'Cp (W/kg/K)');
             dlmwrite(saveFile, header, 'delimiter', '', '-append');
 
-            saveData = [z_m(iT,:)'*1e-3 P_MPa(iT,:)' T_K(iT,:)' phase(iT,:)' rho_kgm3(iT,:)' g_ms2(iT,:)' Cp(iT,:)'];
+            saveData = [z_m(iT,:)'*1e-3 r_m(iT,:)' P_MPa(iT,:)' T_K(iT,:)' phase(iT,:)' rho_kgm3(iT,:)' g_ms2(iT,:)' Cp(iT,:)'];
             dlmwrite(saveFile,saveData,...
                 'delimiter','\t',...
                 'precision',16,...
                 '-append');
         end
     else
-        try
-            load(fullfile([datpath savefile '_pp' num2str(iT)]));
-            if ~exist('max_clath_depth')
-                max_clath_depth = 1e15;
-            end
-        catch
-            error(['ERROR: cfg.CALC_NEW=0 but ' savefile ' was not found. Re-run with cfg.CALC_NEW set to 1 to generate the Profile.']);
+        [z_m, r_m, P_MPa, T_K, phase, rho_kgm3, g_ms2, Cp, rho_ocean] = deal(zeros(nTbs,nsteps));
+        for iT = 1:nTbs
+            
+            savestr = [savebase Planet.Ocean.comp ...
+                '_' num2str(10*round(Planet.Ocean.w_ocean_pct)) 'WtPpt' minEOS porIceStr ...
+                '_Tb' num2str(round(Planet.Tb_K(iT),3),'%.3f') 'K' ];
+            saveFile = fullfile([datpath savestr '.txt']);
+            %try
+                %load(fullfile([datpath savefile '_pp' num2str(iT)]));
+                
+                % Parse header from text file
+                fReload = fopen(saveFile);
+                    nHeadLinesStr = split(fgetl(fReload),'=');
+                    Tb_KStr = split(fgetl(fReload),'=');
+                    Zb_kmStr = split(fgetl(fReload),'=');
+                    zClath_mStr = split(fgetl(fReload),'=');
+                    Pb_MPaStr = split(fgetl(fReload),'=');
+                    PbI_MPaStr = split(fgetl(fReload),'=');
+                    deltaPStr = split(fgetl(fReload),'=');
+                    alpha_oStr = split(fgetl(fReload),'=');
+                    nStepsIceIStr = split(fgetl(fReload),'=');
+                    nStepsOceanStr = split(fgetl(fReload),'=');
+                    nStepsHydroStr = split(fgetl(fReload),'=');
+                    nIceIIILithoStr = split(fgetl(fReload),'=');
+                    nIceVLithoStr = split(fgetl(fReload),'=');
+                    
+                    nHeadLines = str2num(nHeadLinesStr{2});
+                    Planet.Tb_K(iT) = str2num(Tb_KStr{2});
+                    Planet.zb_outerIce_m(iT) = str2num(Zb_kmStr{2});
+                    Planet.zClath_m(iT) = str2num(zClath_mStr{2});
+                    Pb_MPa = str2num(Pb_MPaStr{2});
+                    PbI_MPa = str2num(PbI_MPaStr{2});
+                    deltaP = str2num(deltaPStr{2});
+                    alpha_o = str2num(alpha_oStr{2});
+                    nStepsIceI = str2num(nStepsIceIStr{2});
+                    nStepsOcean = str2num(nStepsOceanStr{2});
+                    nStepsHydro = str2num(nStepsHydroStr{2});
+                    nIceIIILitho = str2num(nIceIIILithoStr{2});
+                    nIceVLitho = str2num(nIceVLithoStr{2});
+                    
+                fclose(fReload);
+                reloadData = dlmread(saveFile, '', nHeadLines);
+                if ~exist('max_clath_depth')
+                    max_clath_depth = 1e15;
+                end
+            %catch
+                %error(['ERROR: cfg.CALC_NEW=0 but ' savefile ' was not found. Re-run with cfg.CALC_NEW set to 1 to generate the Profile.']);
+            %end
+           
+            z_m(iT,:) = 1e3 * reloadData(:,1);
+            r_m(iT,:) = reloadData(:,2);
+            P_MPa(iT,:) = reloadData(:,3);
+            T_K(iT,:) = reloadData(:,4);
+            phase(iT,:) = reloadData(:,5);
+            rho_kgm3(iT,:) = reloadData(:,6);
+            g_ms2(iT,:) = reloadData(:,7);
+            Cp(iT,:) = reloadData(:,8);
+            
+            %'nsteps','n_clath','n_iceI','n_ocean'
+            nIceIIILithosphere = nIceIIILitho;
+            nIceVLithosphere = nIceVLitho;
+            n_clath = nStepsHydro - nStepsIceI - nStepsOcean;
+            n_iceI(iT) = nStepsIceI;
+            n_ocean = nStepsOcean;
+            rho_ocean(iT,nStepsIceI+1:nStepsIceI+nStepsOcean) = rho_kgm3(iT,nStepsIceI+1:nStepsIceI+nStepsOcean);
+            Tb_K = Planet.Tb_K(iT);
+            save(fullfile([datpath savefile '_pp' num2str(iT)]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth');
         end
     end
     
@@ -1149,13 +1211,12 @@ end
 %allocate
 zI_m = Planet.zb_outerIce_m;
 %zI_m = zb_outerIce_m-Zclath;
-zclath_m = Zclath;
 [zIII_m, zV_m, zVI_m, indSil] = deal(zeros(1,nTbs));
 indsV = zV_m;
 indsVI = zV_m;
 indsIII = zV_m;
 indsClath = zV_m;
-dz_ocean_m_m = z_ocean_m;
+dz_ocean_m_m = Planet.zb_outerIce_m;
 
     % figure out the indices for the tops of the different ice layers
 for iT = 1:nTbs
@@ -1196,19 +1257,19 @@ else
     if find(nsteps_mantle<0); error('Problems indexing in the "mantle" layer. Consider increasing nsteps_mantle.'); end
 end
 
-[dz_ocean_m_m,dzIII_m,dzV_m,dzVI_m,dzclath_m] = deal(zeros(1,nTbs));
+[dz_ocean_m_m,dzIII_m,dzV_m,dzVI_m,dzClath_m] = deal(zeros(1,nTbs));
 %find the radii at the tops of the different layers
 RIII_m =Planet.R_m-zIII_m;
 RV_m = Planet.R_m-zV_m;
 RVI_m = Planet.R_m-zVI_m;
 
-Rclath_m=Planet.R_m-zclath_m;
+Rclath_m=Planet.R_m-Planet.zClath_m;
 Rice_m=Planet.R_m-zI_m2;
 
 % find the thicknesses of the layers.  keep adjusting the thicknesses
 % accordingly
-dindsclath = Rclath_m>R_sil_mean_m & zclath_m>0;
-dzclath_m(dindsclath) = zclath_m(dindsclath)-zI_m(dindsclath);
+dindsclath = Rclath_m>R_sil_mean_m & Planet.zClath_m>0;
+dzClath_m(dindsclath) = Planet.zClath_m(dindsclath)-zI_m(dindsclath);
 
 
 dindsIII = RIII_m>R_sil_mean_m & zIII_m>0;
@@ -1241,7 +1302,7 @@ for iT = 1:nTbs
 end
 
 dz_ocean_m_m(~dindsVI & ~dindsV) = Planet.R_m - R_sil_mean_m(~dindsVI & ~dindsV)-zI_m(~dindsVI & ~dindsV);
-zTotal_m = zI_m+dz_ocean_m_m+dzIII_m+dzV_m+dzVI_m+abs(dzclath_m);
+zTotal_m = zI_m+dz_ocean_m_m+dzIII_m+dzV_m+dzVI_m+abs(dzClath_m);
 
 
     % this should be elaborated upon to compute the actual mass by
@@ -1400,7 +1461,7 @@ end
 if cfg.DISP_LAYERS
     disp(['Tb:                    ' num2str(Planet.Tb_K,'\t%0.2f')])
     disp(['z(km) ice I:           ' num2str(zI_m*1e-3,'\t%0.1f')])
-    disp(['z(km) clath:           ' num2str(zclath_m*1e-3,'\t%0.1f')])
+    disp(['z(km) clath:           ' num2str(Planet.zClath_m*1e-3,'\t%0.1f')])
     disp(['z(km) ice III:         ' num2str(dindsIII.*zIII_m*1e-3,'\t%0.0f')])
     disp(['z(km) ice V:           ' num2str(dindsV.*zV_m*1e-3,'\t%0.0f')])
     disp(['z(km) ice VI:          ' num2str(dindsVI.*zVI_m*1e-3,'\t%0.0f')])
@@ -1644,7 +1705,7 @@ for iT = nTbs:-1:1  % Do this loop in decreasing order to avoid preallocating po
     r_mantle_m = linspace(R_sil_mean_m(iT),R_Fe_mean_m(iT),nsteps_mantle(iT));
     
     g_ms2_sil = g_ms2(iT,C2mean(iT))*ones(1,nsteps_mantle(iT));
-    MantleHeat = Planet.Qmantle_Wm2(iT)*4*pi*Planet.R_m^2+Planet.QHmantle;
+    MantleHeat = Planet.Qmantle_Wm2*4*pi*Planet.R_m^2+Planet.QHmantle;
     rhom_rough = 3000;
     alpha_rough = 0.2e-4;
     Cp_rough = 2e6;
@@ -2205,16 +2266,16 @@ for iT = 1:nTbs
 %         interior(iT).QS_overfgamma thisQScore];
 
 %% attenuation in ice
-    Hp_iceI = Seismic.g_aniso_iceI*Tb_K(iT);
+    Hp_iceI = Seismic.g_aniso_iceI*Planet.Tb_K(iT);
     QS_overfgamma_iceI = Seismic.B_aniso_iceI*....
         exp(Seismic.gamma_aniso_iceI*Hp_iceI./T_K(iT,indsI))/Seismic.LOW_ICE_Q;
     try
         Tthis=T_K(iT,indsClath);
-        Hp_clath = Seismic.g_aniso_clath*Tb_K(iT);
+        Hp_clath = Seismic.g_aniso_clath*Planet.Tb_K(iT);
         QS_overfgamma_clath= Seismic.B_aniso_clath*....
             exp(Seismic.gamma_aniso_clath*Hp_clath./Tthis)/Seismic.LOW_ICE_Q;
     catch
-        Hp_clath = Seismic.g_aniso_iceI*Tb_K(iT);
+        Hp_clath = Seismic.g_aniso_iceI*Planet.Tb_K(iT);
         QS_overfgamma_clath = Seismic.B_aniso_iceI*....
             exp(Seismic.gamma_aniso_iceI*Hp_clath./T_K(iT,indsClath))/Seismic.LOW_ICE_Q;
     end
@@ -2264,7 +2325,7 @@ for iT = 1:nTbs
         ktop(iT) = k_S_mPlanet(iT,indsLiquid(1));
     end
     if isfield(Planet,'Clathrate'); clathID = ['_Zclath' num2str(Zclath(iT)./1000,'%2.0f') 'km']; else; clathID = ''; end
-    thissavestr = [savefile '_Zb' strLow num2str(zb_outerIce_m(iT)./1000,'%2.0f') 'km' clathID ];
+    thissavestr = [savefile '_Zb' strLow num2str(Planet.zb_outerIce_m(iT)./1000,'%2.0f') 'km' clathID ];
     dlmwrite(fullfile([datpath thissavestr '_pp' num2str(iT) '.txt']),header,'delimiter','');
     dlmwrite(fullfile([datpath thissavestr '_pp' num2str(iT) '.txt']),Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma,...
         'delimiter','\t',...
@@ -2455,7 +2516,7 @@ if ~cfg.SKIP_PROFILES
           set(gca,'XTick',[],'YTick',[],'XColor','none','YColor','none')
 
         end
-        title([math 'T_b' nm ' = ' num2str(Tb_K(iT)) ' K'],'FontSize',lbl.lgtext)
+        title([math 'T_b' nm ' = ' num2str(Planet.Tb_K(iT)) ' K'],'FontSize',lbl.lgtext)
     end
     print(figs.wedg,Params.savefigformat,fullfile([figpath savefile '_' vwedg cfg.xtn]));
 

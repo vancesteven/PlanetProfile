@@ -23,7 +23,7 @@ FilesContainingFunctions named the same as FunctionName
 
 """
 Step 1:
-setup funciton that check version numbers and makes sure the version is compatible with
+setup function that check version numbers and makes sure the version is compatible with
 seafreeze version, leave configs as is for now, tauP leave for now as well
 
 not indexing over iT in python
@@ -42,7 +42,7 @@ Class full of optional checks that check to see if fields are nonzero (i.e. want
 checks not of existence but if nonzero (ie if not None)
 hardcode all fields that expect planets to have
 set fields to None as default- PPBody file
-if PORUS_ROCK is None- don't run the POROUS_ROCK code
+if POROUS_ROCK is None- don't run the POROUS_ROCK code
 
 Step 4 : Establish EOS
 create plots funciton not needed in python- plots drawn to file instead
@@ -166,8 +166,8 @@ def ReloadProfile(Planet, Params):
         # Get number of header lines to read in from (and skip for columnar data)
         Params.nHeadLines = int(f.readline().split('=')[-1])
         # Get float values from header
-        Planet.Tb_K, Planet.Zb_km, Planet.Pb_MPa, Planet.PbI_MPa, Planet.deltaP \
-            = (float(f.readline().split('=')[-1]) for _ in range(5))
+        Planet.Tb_K, Planet.Zb_km, Planet.zClath_m, Planet.Pb_MPa, Planet.PbI_MPa, Planet.deltaP, Planet.alpha_o \
+            = (float(f.readline().split('=')[-1]) for _ in range(7))
         # Get integer values from header (nSteps values)
         Planet.nStepsIceI, Planet.nStepsOcean, Planet.nStepsHydro, Planet.nIceIIILitho, Planet.nIceVLitho \
             = (int(f.readline().split('=')[-1]) for _ in range(5))
@@ -175,9 +175,10 @@ def ReloadProfile(Planet, Params):
 
     # Read in columnar data that follows header lines
     Layers = LayersStruct(Planet.nStepsHydro)
-    Layers.z_m, Layers.P_MPa, Layers.T_K, Layers.phase, Layers.rho_kgm3, Layers.g_ms2, Layers.Cp \
+    Layers.z_m, Layers.r_m, Layers.P_MPa, Layers.T_K, Layers.phase, Layers.rho_kgm3, Layers.g_ms2, Layers.Cp \
         = np.loadtxt(Params.dataFiles.saveFile, skiprows=Params.nHeadLines, unpack=True)
-
+    Layers.z_m *= 1e3  # Stored as km
+    Layers.phase = Layers.phase.astype(np.int_)
 
     return Planet, Params, Layers
 

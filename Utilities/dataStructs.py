@@ -33,6 +33,15 @@ class PlanetStruct:
     NO_ICEI_CONVECTION = False  # Whether to suppress convection in the ice I layer
     FORCE_ICEI_CONVECTION = False  # Whether to force convection in the ice I layer
 
+    """ Derived quantities (assigned during PlanetProfile runs) """
+    Pb_MPa = None  # Pressure at ice-ocean interface in MPa
+    PbI_MPa = None  # Pressure at bottom of ice I layer in MPa, mainly used when BOTTOM_ICEIII is True
+    alpha_o = None  # ???
+    boundaries = None  # Radii of outer boundary of each conducting layer in m
+    sig_S_m = None  # Electrical conductivity (sigma) in S/m of each conducting layer
+    Zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km
+    zClath_m = None  # Thickness of clathrate layer at surface in m
+
     """ Layer step settings """
     Pseafloor_MPa = None  # Maximum pressure at the top of the silicate layer
     nStepsIceI = None  # Fixed number of steps in outermost ice shell
