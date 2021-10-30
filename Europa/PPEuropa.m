@@ -67,8 +67,6 @@ xK = 1; %enrichment in K
 %% Mantle Heat
 %cold case  
 Planet.kr_mantle = 4; % rock conductivity (Cammarano et al. 2006, Table 4)
-% Planet.Qmantle_Wm2 = 1e11/4/pi/Planet.R_m^2; %
-Planet.Qmantle_Wm2 = 2.2e11/4/pi/Planet.R_m^2; % this is more reasonable for radiogenic only
 Planet.QHmantle = 0;
 Planet.EQUIL_Q = 0;
 %hot case Qm = 2.1e11+8.5e11; %W

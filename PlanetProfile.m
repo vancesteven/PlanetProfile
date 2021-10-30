@@ -939,13 +939,14 @@ if ~Planet.NoH2O
         if Planet.EQUIL_Q
             if (~isfield(Params,'NO_ICEI_CONVECTION') || Params.NO_ICEI_CONVECTION == false) && ...
                (CONVECTION_FLAG_I(iT) || (isfield(Params,'FORCE_ICEI_CONVECTION') && Params.FORCE_ICEI_CONVECTION == true))
-                Planet.Qmantle_Wm2(iT) = Q_Wm2(iT);
+                Qmantle_Wm2(iT) = Q_Wm2(iT);
             else
-                Planet.Qmantle_Wm2(iT) = Qb(iT);
+                Qmantle_Wm2(iT) = Qb(iT);
             end
         else
-            Planet.Qmantle_Wm2(iT) = Planet.Qmantle_Wm2(1);
+            Qmantle_Wm2(iT) = 2.2e11/4/pi/Planet.R_m^2; % this is more reasonable for radiogenic only
         end
+        Planet.Qmantle_Wm2(iT) = Qmantle_Wm2(iT);
         
         deltaP = (Params.Pseafloor_MPa-Pb_MPa(iT))/n_ocean(iT); %
         
@@ -961,7 +962,7 @@ if ~Planet.NoH2O
                 '_Tb' num2str(round(Planet.Tb_K(iT),3),'%.3f') 'K' ];
             saveFile = fullfile([datpath savestr '.txt']);
             %save(fullfile([datpath savefile '_pp' num2str(iT)]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILitho','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','rho_ocean','Cp','alpha_o','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth'); % save the progress at each step
-            dlmwrite(saveFile, '  nHeadLines = 14', 'delimiter', '');
+            dlmwrite(saveFile, '  nHeadLines = 15', 'delimiter', '');
             dlmwrite(saveFile, ['  Tb_K = ' num2str(Planet.Tb_K(iT))], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  Zb_km = ' num2str(Planet.zb_outerIce_m(iT)/1e3)], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  zClath_m = ' num2str(Planet.zClath_m(iT))], 'delimiter', '', '-append');
@@ -969,6 +970,7 @@ if ~Planet.NoH2O
             dlmwrite(saveFile, ['  PbI_MPa = ' num2str(PbI_MPa(iT))], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  deltaP = ' num2str(deltaP)], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  alpha_o = ' num2str(alpha_o)], 'delimiter', '', '-append');
+            dlmwrite(saveFile, ['  Qmantle_Wm2 = ' num2str(Planet.Qmantle_Wm2(iT))], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  nStepsIceI = ' num2str(Params.nsteps_iceI)], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  nStepsOcean = ' num2str(Params.nsteps_ocean)], 'delimiter', '', '-append');
             dlmwrite(saveFile, ['  nStepsHydro = ' num2str(nsteps)], 'delimiter', '', '-append');
@@ -1005,6 +1007,7 @@ if ~Planet.NoH2O
                     PbI_MPaStr = split(fgetl(fReload),'=');
                     deltaPStr = split(fgetl(fReload),'=');
                     alpha_oStr = split(fgetl(fReload),'=');
+                    Qmantle_Wm2Str = split(fgetl(fReload),'=');
                     nStepsIceIStr = split(fgetl(fReload),'=');
                     nStepsOceanStr = split(fgetl(fReload),'=');
                     nStepsHydroStr = split(fgetl(fReload),'=');
@@ -1019,13 +1022,14 @@ if ~Planet.NoH2O
                     PbI_MPa = str2num(PbI_MPaStr{2});
                     deltaP = str2num(deltaPStr{2});
                     alpha_o = str2num(alpha_oStr{2});
+                    Planet.Qmantle_Wm2(iT) = str2num(Qmantle_Wm2Str{2});
                     nStepsIceI = str2num(nStepsIceIStr{2});
                     nStepsOcean = str2num(nStepsOceanStr{2});
                     nStepsHydro = str2num(nStepsHydroStr{2});
                     nIceIIILitho = str2num(nIceIIILithoStr{2});
                     nIceVLitho = str2num(nIceVLithoStr{2});
-                    
                 fclose(fReload);
+                
                 reloadData = dlmread(saveFile, '', nHeadLines);
                 if ~exist('max_clath_depth')
                     max_clath_depth = 1e15;
@@ -1705,7 +1709,7 @@ for iT = nTbs:-1:1  % Do this loop in decreasing order to avoid preallocating po
     r_mantle_m = linspace(R_sil_mean_m(iT),R_Fe_mean_m(iT),nsteps_mantle(iT));
     
     g_ms2_sil = g_ms2(iT,C2mean(iT))*ones(1,nsteps_mantle(iT));
-    MantleHeat = Planet.Qmantle_Wm2*4*pi*Planet.R_m^2+Planet.QHmantle;
+    MantleHeat = Planet.Qmantle_Wm2(iT)*4*pi*Planet.R_m^2+Planet.QHmantle;
     rhom_rough = 3000;
     alpha_rough = 0.2e-4;
     Cp_rough = 2e6;

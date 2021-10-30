@@ -166,8 +166,9 @@ def ReloadProfile(Planet, Params):
         # Get number of header lines to read in from (and skip for columnar data)
         Params.nHeadLines = int(f.readline().split('=')[-1])
         # Get float values from header
-        Planet.Tb_K, Planet.Zb_km, Planet.zClath_m, Planet.Pb_MPa, Planet.PbI_MPa, Planet.deltaP, Planet.alpha_o \
-            = (float(f.readline().split('=')[-1]) for _ in range(7))
+        Planet.Tb_K, Planet.Zb_km, Planet.zClath_m, Planet.Pb_MPa, \
+        Planet.PbI_MPa, Planet.deltaP, Planet.alpha_o, Planet.Silicate.Qmantle_Wm2, \
+            = (float(f.readline().split('=')[-1]) for _ in range(8))
         # Get integer values from header (nSteps values)
         Planet.nStepsIceI, Planet.nStepsOcean, Planet.nStepsHydro, Planet.nIceIIILitho, Planet.nIceVLitho \
             = (int(f.readline().split('=')[-1]) for _ in range(5))

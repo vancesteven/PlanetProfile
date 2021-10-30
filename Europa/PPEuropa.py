@@ -42,7 +42,6 @@ Planet.Ocean.wtOcean_ppt = 100
 """ Mantle heat """
 Planet.Silicate.krMantle = 4
 # cold case
-Planet.Silicate.QMantle_Wm2 = 2.2e11/4/np.pi/Planet.R_m**2
 Planet.Silicate.QHMantle = 0
 Planet.Silicate.EQUIL_Q = False
 # hot case

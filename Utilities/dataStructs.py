@@ -70,7 +70,6 @@ class PlanetStruct:
         """ Silicate layer settings """
         # Heat flow
         krMantle_WmK = None  # Thermal conductivity of silicates in W/m/K
-        QMantle_Wm2 = None  # Heat flow from mantle into hydrosphere
         QHMantle = None
         EQUIL_Q = None
         SMOOTH_ROCK = None  # ?????
@@ -79,6 +78,8 @@ class PlanetStruct:
         # Porosity
         POROUS_ROCK = False  # Whether to model the rock as porous
         PEFF = None
+        # Derived quantities
+        QMantle_Wm2 = None  # Heat flow from mantle into hydrosphere
 
         """ Mantle Equation of State (EOS) model """
         mantleEOS = None  # Equation of State data to use for silicates
@@ -164,3 +165,10 @@ class ConstantsStruct:
     T0 = 273.15  # The Celcius zero point; 273.15 K.
     P0 = 101325  # one standard atmosphere in Pa, 1atm = 101325 Pa
     DThermalConductIceI_Wm = 632 # Thermal conductivity of ice Ih in W/m from Andersson et al. (2005)
+    # Core modeling
+    rhom_rough = 3000  # Density of silicate layer, roughly
+    alpha_rough = 0.2e-4  # Thermal expansivity of silicates, roughly
+    Cp_rough = 2e6  # Heat capacity of silicates, roughly
+    Kappa_rough = 1e-6  # ???
+    nu_mantle = 1e21  # mantle viscosity in Pa*S, a common number for Earth's mantle
+    DeltaT = 800  # Temperature differential in K between core and mantle (???)
