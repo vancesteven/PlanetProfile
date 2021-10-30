@@ -32,11 +32,12 @@ class PlanetStruct:
     BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
     NO_ICEI_CONVECTION = False  # Whether to suppress convection in the ice I layer
     FORCE_ICEI_CONVECTION = False  # Whether to force convection in the ice I layer
+    ALLOW_NEGALPHA = False  # Whether to permit modeling of a Melosh layer with negative thermal expansivity
 
     """ Derived quantities (assigned during PlanetProfile runs) """
     Pb_MPa = None  # Pressure at ice-ocean interface in MPa
     PbI_MPa = None  # Pressure at bottom of ice I layer in MPa, mainly used when BOTTOM_ICEIII is True
-    alpha_o = None  # ???
+    alpha_o = None  # Thermal expansivity of ice at ice-ocean interface
     boundaries = None  # Radii of outer boundary of each conducting layer in m
     sig_S_m = None  # Electrical conductivity (sigma) in S/m of each conducting layer
     Zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km
