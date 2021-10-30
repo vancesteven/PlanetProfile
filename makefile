@@ -75,7 +75,7 @@ clean:
 	@bodies=($(mbodies)) ; \
 	echo "Clearing data and figure files for:" $${bodies[@]} ; \
 	for body in $${bodies[@]} ; do \
-		rm -f $$body/*.dat $$body/*.txt $$body/*.mat ; \
+		rm -f $$body/*.dat $$body/*.txt $$body/*.mat $$body/*.asv ; \
 		rm -f $$body/$(figs)/*.eps $$body/$(figs)/*.fig $$body/$(figs)/*.png ; \
 	done
 
