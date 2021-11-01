@@ -78,6 +78,7 @@ Planet.POROUS_ROCK = 0;
 % Planet.PEFF =0;
 
 %% Seismic
+Seismic.DO_SEISMIC = 0; % MJS 2021-10-31: Temporary measure to aid python conversion
 Seismic.LOW_ICE_Q = 1; % divide Ice Q value by this number
 Seismic.QScore = 1e4;
 Seismic.coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab';
@@ -146,7 +147,7 @@ Params.wref=[0 5 10 15];
 
 magenta = [0.99,0.0,0.99];
 Params.colororder = [Params.cfg.Sw_alt; magenta]';
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [269.8  272.7]; % 265
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [269.8]; % 265
 
 Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
 Planet.xFeS = 0.55; %0.25, mass fraction of sulfur in the core
@@ -175,7 +176,7 @@ Planet.XH2O = 0.0035; % total fraction of water in CM2; use this to compute the 
 Planet.rho_sil_withcore_kgm3 = 3644;
 Planet.phi_surface = 0;
 
-Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [268.2 270.8];
+Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [268.2];
 %Planet.Ocean.w_ocean_pct=0.1*gsw_SSO; Planet.Tb_K = [270.0];
  
 % Seismic.mantleEOS = 'chon_678_1.tab'; %(3440) % this did not exclude nasGL and faGL and so had many nan entries

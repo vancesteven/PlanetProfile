@@ -45,7 +45,9 @@ def SetupFilenames(Planet):
         if Planet.Silicate.mantleEOSName is not None: fName += Planet.Silicate.mantleEOSname
         if Planet.POROUS_ICE: fName += '_PorousIce'
         saveFile = fName + '.txt'
-        saveFileMantle = fName + '_mantle.txt'
+        mantCoreFile = fName + '_mantleCore.txt'
+        mantPropsFile = fName + '_mantleProps.txt'
+        fullLayersFile = fName + '_layers.txt'
 
     dataFiles = dataFilesStruct()
 

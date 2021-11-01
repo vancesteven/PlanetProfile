@@ -51,6 +51,7 @@ class PlanetStruct:
     nStepsRefRho = None  # ?????
     nStepsMantle = None  # Maximum number of steps in silicate layer (actual number will be fewer)
     nStepsCore = None  # Fixed number of steps in core layer, if present
+    indSil = None  # Derived actual number of layers in mantle (based on MoI)
     nIceIIILitho = 5  # Fixed number of layers to use for ice III when either BOTTOM_ICEIII or BOTTOM_ICEV is True
     nIceVLitho = 5  # Fixed number of layers to use for ive V when BOTTOM_ICEV is True
 
@@ -80,6 +81,18 @@ class PlanetStruct:
         PEFF = None
         # Derived quantities
         QMantle_Wm2 = None  # Heat flow from mantle into hydrosphere
+        Qb = None  # ???
+        Q_Wm2 = None  # ???
+        R_sil_mean_m = None  # Mantle radius for mean compatible MoI
+        R_sil_range_m = None  # Mantle radius range for compatible MoI
+        R_sil_trade_m = None  # Array of mantle radii for compatible MoIs
+        rho_sil_trade_kgm3 = None  # Array of mantle densities for compatible MoIs
+        porosDens = None  # Porosity of rock (units?)
+        perm1 = None  # No idea what what these numbers are or why there are 5 of them -MJS
+        perm2 = None
+        perm3 = None
+        perm4 = None
+        perm5 = None
 
         """ Mantle Equation of State (EOS) model """
         mantleEOS = None  # Equation of State data to use for silicates
@@ -100,6 +113,10 @@ class PlanetStruct:
         xFe_core = None  # this is the total Fe in Fe and FeS
         XH2O = None  # total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
         coreSig = None  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
+        # Derived quantities
+        R_Fe_mean_m = None  # Core radius for mean compatible MoI
+        R_Fe_range_m = None  # Core radius range for compatible MoI
+        R_Fe_trade_m = None  # Array of core radii for compatible MoIs
 
     class Seismic:
         """ Seismic properties of solids """

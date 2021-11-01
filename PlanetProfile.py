@@ -2,6 +2,7 @@
 import sys
 import numpy as np
 import importlib
+from distutils.util import strtobool
 
 # Import all function definitions for this file
 from Utilities.SetupInit import SetupInit, SetupFilenames, LayersStruct
@@ -165,20 +166,48 @@ def ReloadProfile(Planet, Params):
     with open(Params.dataFiles.saveFile) as f:
         # Get number of header lines to read in from (and skip for columnar data)
         Params.nHeadLines = int(f.readline().split('=')[-1])
+        # Get dissolved salt supposed for ocean (present in filename, but this is intended for future-proofing when we move to a database lookup)
+        Planet.Ocean.comp = f.readline().split('=')[-1].strip()
+        # Get whether iron core is modeled
+        Planet.Core.FeCore = bool(strtobool(f.readline().split('=')[-1].strip()))
         # Get float values from header
-        Planet.Tb_K, Planet.Zb_km, Planet.zClath_m, Planet.Pb_MPa, \
-        Planet.PbI_MPa, Planet.deltaP, Planet.alpha_o, Planet.Silicate.Qmantle_Wm2, \
-            = (float(f.readline().split('=')[-1]) for _ in range(8))
+        Planet.Ocean.wtOcean_ppt, Planet.Tb_K, Planet.Zb_km, Planet.zClath_m, Planet.Pb_MPa, \
+        Planet.PbI_MPa, Planet.deltaP, Planet.C2mean, Planet.Silicate.Qmantle_Wm2, \
+        Planet.Silicate.Qb, Planet.Silicate.Q_Wm2, Planet.Silicate.R_sil_mean_m, \
+        Planet.Core.R_Fe_mean_m, Planet.Silicate.R_sil_range_m, Planet.Core.R_Fe_range_m, \
+        Planet.rho_kgm3 \
+            = (float(f.readline().split('=')[-1]) for _ in range(16))
         # Get integer values from header (nSteps values)
-        Planet.nStepsIceI, Planet.nStepsOcean, Planet.nStepsHydro, Planet.nIceIIILitho, Planet.nIceVLitho \
-            = (int(f.readline().split('=')[-1]) for _ in range(5))
+        Planet.nStepsIceI, Planet.nStepsOcean, Planet.nStepsHydro, Planet.nStepsTotal, \
+        Planet.indSil, Planet.nStepsMantle, Planet.nStepsCore, \
+        Planet.nIceIIILitho, Planet.nIceVLitho \
+            = (int(f.readline().split('=')[-1]) for _ in range(9))
     Planet.nStepsClath = Planet.nStepsHydro - Planet.nStepsIceI - Planet.nStepsOcean - Planet.nIceIIILitho - Planet.nIceVLitho
 
-    # Read in columnar data that follows header lines
+    # Read in columnar data that follows header lines -- ocean
     Layers = LayersStruct(Planet.nStepsHydro)
-    Layers.z_m, Layers.r_m, Layers.P_MPa, Layers.T_K, Layers.phase, Layers.rho_kgm3, Layers.g_ms2, Layers.Cp \
+    Layers.z_m, Layers.r_m, Layers.P_MPa, Layers.T_K, Layers.phase, Layers.rho_kgm3, Layers.g_ms2, \
+    Layers.Cp, Layers.vfluid_kms \
         = np.loadtxt(Params.dataFiles.saveFile, skiprows=Params.nHeadLines, unpack=True)
     Layers.z_m *= 1e3  # Stored as km
+    Layers.phase = Layers.phase.astype(np.int_)
+
+    # Read in in data for core/mantle trade
+    Planet.Silicate.R_sil_trade_m, Planet.Core.R_Fe_trade_m, Planet.Silicate.rho_sil_trade_kgm3, \
+        = np.loadtxt(Params.dataFiles.mantCoreFile, skiprows=1, unpack=True)
+
+    # Read in data for mantle physical properties
+    Planet.Silicate.r_mantle_m, Planet.Silicate.P_mantle_MPa, Planet.Silicate.porosDens, \
+    Planet.Silicate.perm1, Planet.Silicate.perm2, Planet.Silicate.perm3, Planet.Silicate.perm4, \
+    Planet.Silicate.perm5 \
+        = np.loadtxt(Params.dataFiles.mantPropsFile, skiprows=1, unpack=True)
+
+    # Read in full-body layer values
+    # Currently in PlanetProfile.m these values are labeled differently from those above,
+    # but I think these are the ones we will ultimately want to keep & use so I'm overwriting
+    Layers.r_m, Layers.P_MPa, Layers.T_K, Layers.rho_kgm3, Layers.sig_Sm, Layers.phase, \
+        Layers.g_ms2 \
+        = np.loadtxt(Params.dataFiles.fullLayersFile, skiprows=1, unpack=True)
     Layers.phase = Layers.phase.astype(np.int_)
 
     return Planet, Params, Layers

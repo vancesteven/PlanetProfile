@@ -5,6 +5,7 @@ function cfg = config
     
     % Runtime options
     cfg.CALC_NEW =       1;
+    cfg.TESTING =        0; % For comparing between branches in python conversion
     cfg.CALC_NEW_REF =   1;
     cfg.CALC_NEW_SOUND = 1;
     cfg.CALC_NEW_INDUC = 1;

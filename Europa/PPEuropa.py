@@ -22,8 +22,8 @@ Planet.R_m = 1561.0e3
 Planet.M_kg = 4.7991e22
 Planet.Tsurf_K = 110
 Planet.Psurf_MPa = 0
-Planet.Cmeasured = 0.346
-Planet.Cuncertainty = 0.005
+Planet.CMeasured = 0.346
+Planet.CUncertainty = 0.005
 Planet.phi_surface = 0
 Planet.Tb_K = 269.8
 
