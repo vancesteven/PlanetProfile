@@ -114,24 +114,25 @@ def main():
     body = importlib.import_module(bodyname+'.PP'+bodyname)
     Planet = body.Planet
     Params = body.Params
-    Constants = body.Constants
     if Params.VERBOSE: print('Body name: ' + Planet.name)
 
-    Planet = PlanetProfile(Planet, Params, Constants)
+    Planet = PlanetProfile(Planet, Params)
 
     return
 
 """ END MAIN RUN BLOCK """
 
-def PlanetProfile(Planet, Params, Constants):
+def PlanetProfile(Planet, Params):
 
     if Params.CALC_NEW:
         # Initialize
-        Planet, Params, Layers = SetupInit(Planet, Params, Constants)
-        Layers = IceLayers(Planet, Layers, Constants)
-        Layers = OceanLayers(Planet, Layers, Constants)
-        Layers = PlanetDepths(Planet, Layers, Constants)
-        Planet, Layers = InnerLayers(Planet, Layers, Constants)
+        Planet, Params, Layers = SetupInit(Planet, Params)
+        Layers = IceLayers(Planet, Layers)
+        Layers = OceanLayers(Planet, Layers)
+        Layers = PlanetDepths(Planet, Layers)
+        Planet, Layers = InnerLayers(Planet, Layers)
+
+        # Save data after modeling
         WriteProfile(Planet, Params, Layers)
     else:
         # Reload previous run

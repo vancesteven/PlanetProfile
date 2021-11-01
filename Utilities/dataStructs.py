@@ -181,7 +181,7 @@ class ConstantsStruct:
     PbI_MPa = 210  # ~fixed transition pressure between ice Ih and ice III or V
     T0 = 273.15  # The Celcius zero point; 273.15 K.
     P0 = 101325  # one standard atmosphere in Pa, 1atm = 101325 Pa
-    DThermalConductIceI_Wm = 632 # Thermal conductivity of ice Ih in W/m from Andersson et al. (2005)
+    DThermalConductIceI_Wm = 632  # Thermal conductivity of ice Ih in W/m from Andersson et al. (2005)
     # Core modeling
     rhom_rough = 3000  # Density of silicate layer, roughly
     alpha_rough = 0.2e-4  # Thermal expansivity of silicates, roughly
@@ -189,3 +189,5 @@ class ConstantsStruct:
     Kappa_rough = 1e-6  # ???
     nu_mantle = 1e21  # mantle viscosity in Pa*S, a common number for Earth's mantle
     DeltaT = 800  # Temperature differential in K between core and mantle (???)
+
+Constants = ConstantsStruct()

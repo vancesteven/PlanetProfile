@@ -1,11 +1,12 @@
 """ Docstring explaining what we're doing here """
 
+import os
 import numpy as np
 import Utilities.PPversion as PPver
 from Utilities.SwEOSChooser import SetupEOS
-import os
+from Utilities.dataStructs import Constants
 
-def SetupInit(Planet, Params, Constants):
+def SetupInit(Planet, Params):
 
     # Print version number
     verNum = PPver.verNum
@@ -27,7 +28,7 @@ def SetupInit(Planet, Params, Constants):
         print('WARNING: Planet.Tb_K has been rounded to generate saveFile name.')
 
     # Preallocate layer physical quantity arrays
-    Planet.nStepsHydro, Layers = SetupLayers(Planet, Constants)
+    Planet.nStepsHydro, Layers = SetupLayers(Planet)
 
     return Planet, Params, Layers
 
@@ -56,8 +57,8 @@ def SetupFilenames(Planet):
 
 
 
-    datPath = Planet.name + '/'
-    figPath = Planet.name + '/figures/'
+    datPath = Planet.name
+    figPath = os.path.join(Planet.name, 'figures')
 
     saveBase = Planet.name + 'Profile_'
     if Planet.CLATHRATE: saveBase += 'Clathrates_'
@@ -68,8 +69,8 @@ def SetupFilenames(Planet):
         Attributes :
             saveFile (str): string to data file path
         """
-        fName = datPath + saveBase + Planet.Ocean.comp + '_' + str(round(Planet.Ocean.wtOcean_ppt)) + 'WtPpt' \
-            + '_Tb{:.3f}K'.format(Planet.Tb_K)
+        fName = os.path.join(datPath, saveBase + Planet.Ocean.comp + '_' + str(round(Planet.Ocean.wtOcean_ppt)) + 'WtPpt' \
+            + '_Tb{:.3f}K'.format(Planet.Tb_K))
         if Planet.Silicate.mantleEOSName is not None: fName += Planet.Silicate.mantleEOSname
         if Planet.POROUS_ICE: fName += '_PorousIce'
         saveFile = fName + '.txt'
@@ -120,7 +121,7 @@ class LayersStruct:
             = (np.zeros(nTotal) for _ in range(8))
 
 
-def SetupLayers(Planet, Constants):
+def SetupLayers(Planet):
     nStepsHydro = Planet.nStepsIceI + Planet.nStepsOcean
 
     Layers = LayersStruct(nStepsHydro)

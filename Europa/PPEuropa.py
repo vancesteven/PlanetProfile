@@ -5,12 +5,11 @@ Import as a module and access information assigned to the attributes of the Plan
 Note that this file expects to be imported from the directory above.
 """
 import numpy as np
-from Utilities.dataStructs import PlanetStruct, ParamsStruct, ConstantsStruct
+from Utilities.dataStructs import PlanetStruct, ParamsStruct, Constants
 
 from config import Params
 
 Planet = PlanetStruct('Europa')
-Constants = ConstantsStruct()
 
 # if Params.HOLD:
 #     clrAllProfiles()
