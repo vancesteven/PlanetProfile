@@ -3,6 +3,7 @@
 import numpy as np
 import Utilities.PPversion as PPver
 from Utilities.SwEOSChooser import SetupEOS
+import os
 
 def SetupInit(Planet, Params, Constants):
 
@@ -32,6 +33,29 @@ def SetupInit(Planet, Params, Constants):
 
 
 def SetupFilenames(Planet):
+    """
+    Planet Directory format:
+        {Planet.name}
+        --->figures
+
+
+    """
+    # datetimestring = 'some string'
+    #
+    # planetNameParams = [Planet.name, datetimestring, Planet.Ocean.comp, str(round(Planet.Ocean.wtOcean_ppt))]
+    # if Planet.Silicate.mantleEOSName: planetNameParams.append(Planet.Silicate.mantleEOSname)
+    # if Planet.POROUS_ICE: planetNameParams.append('PorousIce')
+    #
+    # planetDirectory = os.path.join(BASE_PATH, '_'.join(planetNameParams))
+    # figuresDir = os.path.join(planetDirectory, 'figures')
+    #
+    # return planetDirectory, figuresDir
+
+
+
+
+
+
     datPath = Planet.name + '/'
     figPath = Planet.name + '/figures/'
 
@@ -40,6 +64,10 @@ def SetupFilenames(Planet):
 
     # Construct filenames for data, saving/reloading
     class dataFilesStruct:
+        """dataFilesStruct
+        Attributes :
+            saveFile (str): string to data file path
+        """
         fName = datPath + saveBase + Planet.Ocean.comp + '_' + str(round(Planet.Ocean.wtOcean_ppt)) + 'WtPpt' \
             + '_Tb{:.3f}K'.format(Planet.Tb_K)
         if Planet.Silicate.mantleEOSName is not None: fName += Planet.Silicate.mantleEOSname
@@ -48,6 +76,8 @@ def SetupFilenames(Planet):
         mantCoreFile = fName + '_mantleCore.txt'
         mantPropsFile = fName + '_mantleProps.txt'
         fullLayersFile = fName + '_layers.txt'
+
+
 
     dataFiles = dataFilesStruct()
 
@@ -67,9 +97,17 @@ def SetupFilenames(Planet):
 
     # Construct filenames for figures etc.
     class figureFilesStruct:
-        pass
+        """figureFilesStruct
+        Attributes :
+            figFilePath (str): string to figure file path
+        """
+
+
+
     figureFiles = figureFilesStruct()
 
+
+#vcondFig.savefig(Params.figureFields.vcond, format = "png", dpi = 200)
     return dataFiles, figureFiles
 
 
