@@ -16,15 +16,15 @@ class PlanetStruct:
 
     """ Derived quantities (assigned during PlanetProfile runs) """
     # Layer arrays
-    phase = None
-    r_m = None
-    z_m = None
-    T_K = None
-    P_MPa = None
-    rho_kgm3 = None
-    g_ms2 = None
-    MAbove_kg = None
-    MBelow_kg = None
+    phase = None #phase of the layer- ocean, Ice I, etc., string
+    r_m = None #distance from center of planet to the layer step in meters
+    z_m = None #distance from surface of planet to layer step in meters
+    T_K = None #temperature of layer step in Kelvin
+    P_MPa = None #pressure of layer step in MPa
+    rho_kgm3 = None #density of layer step in kg/m^3
+    g_ms2 = None #gravitational acceleration of layer step, m/s^2
+    MAbove_kg = None #total mass above layer step in kg
+    MBelow_kg = None #total mass below layer step in kg
     boundaries = None  # Radii of outer boundary of each conducting layer in m
     sig_S_m = None  # Electrical conductivity (sigma) in S/m of each conducting layer
     # Individual calculated quantities
