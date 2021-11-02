@@ -1,6 +1,6 @@
 from Utilities.dataStructs import Constants
 
-def IceLayers(Planet, Layers):
+def IceLayers(Planet):
     """ Layer propagation from surface downward through the ice using geophysics.
      Iteratively sets up the thermal profile (the density and temperature)
       of the layer with each pressure step for all ice layers including
@@ -15,22 +15,22 @@ def IceLayers(Planet, Layers):
         Examples:
     """
 
-    Layers = IceILayers(Planet, Layers)
+    Planet = IceILayers(Planet)
 # I am a bit cnfused how we are trying ot implement this- it looks like we are overwriting the layers array
 #with just the bottom layers
-    if Planet.BOTTOM_ICEV:
-        Layers = IceVUnderplateLayers(Planet, Layers)
-    elif Planet.BOTTOM_ICEIII:
-        Layers = IceIIIUnderplateLayers(Planet, Layers)
-        Planet.nIceVLitho = 0
+    if Planet.Do.BOTTOM_ICEV:
+        Planet = IceVUnderplateLayers(Planet)
+    elif Planet.Do.BOTTOM_ICEIII:
+        Planet = IceIIIUnderplateLayers(Planet)
+        Planet.Steps.nIceVLitho = 0
     else:
-        Planet.nIceIIILitho = 0
-        Planet.nIceVLitho = 0
+        Planet.Steps.nIceIIILitho = 0
+        Planet.Steps.nIceVLitho = 0
 
-    return Layers
+    return Planet
 
 
-def IceILayers(Planet, Layers):
+def IceILayers(Planet):
     """ Geophysical and thermodynamic calculations for outermost ice layer
         Calculates the density and temperature of the layer with each pressure step
 
@@ -65,10 +65,10 @@ def IceILayers(Planet, Layers):
     '''
 
 
-    return Layers
+    return Planet
 
 
-def IceIIIUnderplateLayers(Planet, Layers):
+def IceIIIUnderplateLayers(Planet):
     """ For cold, thick ice shells, model ice III under ice I layer
         Calculates the density and temperature of the layer with each pressure step
 
@@ -82,10 +82,10 @@ def IceIIIUnderplateLayers(Planet, Layers):
         Examples:
     """
 
-    return Layers
+    return Planet
 
 
-def IceVUnderplateLayers(Planet, Layers):
+def IceVUnderplateLayers(Planet):
     """ For cold, thick ice shells, model ice V and ice III under ice I layer
         Calculates the density and temperature of the layer with each pressure step
 
@@ -99,10 +99,10 @@ def IceVUnderplateLayers(Planet, Layers):
         Examples:
     """
 
-    return Layers
+    return Planet
 
 
-def OceanLayers(Planet, Layers):
+def OceanLayers(Planet):
     """ Geophysical and thermodynamic calculations for ocean layer
         Calculates the density and temperature of the layer with each pressure step
 
@@ -116,10 +116,10 @@ def OceanLayers(Planet, Layers):
         Examples:
     """
 
-    return Layers
+    return Planet
 
 
-def PlanetDepths(Planet, Layers):
+def PlanetDepths(Planet):
     """ Convert from organization by radius into organization by depth
         Calculates the density and temperature of the layer with each pressure step
 
@@ -133,10 +133,10 @@ def PlanetDepths(Planet, Layers):
         Examples:
     """
 
-    return Layers
+    return Planet
 
 
-def InnerLayers(Planet, Layers):
+def InnerLayers(Planet):
     """ Geophysical and thermodynamic calculations for silicate and core layers
         Calculates the density and temperature of the layer with each pressure step
 
@@ -150,17 +150,15 @@ def InnerLayers(Planet, Layers):
         Examples:
     """
 
-    nStepsSilicate, Layers = SilicateLayers(Planet, Layers)
-    Planet.nStepsTotal = Planet.nStepsHydro + nStepsSilicate
+    Planet = SilicateLayers(Planet)
 
-    if Planet.Core.FeCORE:
-        Layers = IronCoreLayers(Planet, Layers)
-        Planet.nStepsTotal += Planet.nStepsCore
+    if Planet.Do.FeCORE:
+        Planet = IronCoreLayers(Planet)
 
-    return Planet, Layers
+    return Planet
 
 
-def SilicateLayers(Planet, Layers):
+def SilicateLayers(Planet):
     """ Geophysical and thermodynamic calculations for silicate layers
         Calculates the density and temperature of the layer with each pressure step
 
@@ -173,12 +171,13 @@ def SilicateLayers(Planet, Layers):
 
         Examples:
     """
-    nStepsSilicate = 0
 
-    return nStepsSilicate, Layers
+    Planet.Steps.indSil = 0
+    Planet.Steps.nTotal = Planet.Steps.indSil + Planet.Steps.nSil
+    return Planet
 
 
-def IronCoreLayers(Planet, Layers):
+def IronCoreLayers(Planet):
     """ Geophysical and thermodynamic calculations for core layers
         Calculates the density and temperature of the layer with each pressure step
 
@@ -192,4 +191,5 @@ def IronCoreLayers(Planet, Layers):
         Examples:
     """
 
-    return Layers
+    Planet.Steps.nTotal += Planet.Steps.nCore
+    return Planet

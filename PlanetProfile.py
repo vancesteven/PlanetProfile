@@ -5,7 +5,7 @@ import importlib
 from distutils.util import strtobool
 
 # Import all function definitions for this file
-from Utilities.SetupInit import SetupInit, SetupFilenames, LayersStruct
+from Utilities.SetupInit import SetupInit, SetupFilenames
 from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers, PlanetDepths
 
 #from Thermodynamics.FromLiterature.conductiveMantleTemperature import conductiveMantleTemperature
@@ -126,17 +126,17 @@ def PlanetProfile(Planet, Params):
 
     if Params.CALC_NEW:
         # Initialize
-        Planet, Params, Layers = SetupInit(Planet, Params)
-        Layers = IceLayers(Planet, Layers)
-        Layers = OceanLayers(Planet, Layers)
-        Layers = PlanetDepths(Planet, Layers)
-        Planet, Layers = InnerLayers(Planet, Layers)
+        Planet, Params = SetupInit(Planet, Params)
+        Planet = IceLayers(Planet)
+        Planet = OceanLayers(Planet)
+        Planet = PlanetDepths(Planet)
+        Planet = InnerLayers(Planet)
 
         # Save data after modeling
-        WriteProfile(Planet, Params, Layers)
+        WriteProfile(Planet, Params)
     else:
         # Reload previous run
-        Planet, Params, Layers = ReloadProfile(Planet, Params)
+        Planet, Params = ReloadProfile(Planet, Params)
 
     if not Params.SKIP_PROFILES:
         # Plotting functions
@@ -146,11 +146,11 @@ def PlanetProfile(Planet, Params):
     return Planet
 
 
-def WriteProfile(Planet, Params, Layers):
+def WriteProfile(Planet, Params):
     header = 'Header lines'
     with open(Params.dataFiles.saveFile,'w') as f:
         f.write(header+'\n')
-        for i in range(Planet.nStepsTotal):
+        for i in range(Planet.Steps.nTotal):
             #f.write('\t'.join( [ '{:3.5e}'.format(val) for val in line] )+'\n')
             f.write('Test\n')
 
@@ -160,7 +160,7 @@ def WriteProfile(Planet, Params, Layers):
 
 def ReloadProfile(Planet, Params):
     """ Reload previously saved PlanetProfile run from disk """
-    Params.dataFiles, Params.figureFiles = SetupFilenames(Planet)
+    Params.dataFiles, Params.figureFiles = SetupFilenames(Planet, Params)
     print('Reloading previously saved run from file: ' + Params.dataFiles.saveFile)
     if Params.VERBOSE: print('WARNING: nSteps settings from PP' + Planet.name + '.py will be ignored.')
 
@@ -173,9 +173,9 @@ def ReloadProfile(Planet, Params):
         Planet.Core.FeCore = bool(strtobool(f.readline().split('=')[-1].strip()))
         # Get float values from header
         Planet.Ocean.wtOcean_ppt, Planet.Tb_K, Planet.Zb_km, Planet.zClath_m, Planet.Pb_MPa, \
-        Planet.PbI_MPa, Planet.deltaP, Planet.C2mean, Planet.Silicate.Qmantle_Wm2, \
-        Planet.Silicate.Qb, Planet.Silicate.Q_Wm2, Planet.Silicate.R_sil_mean_m, \
-        Planet.Core.R_Fe_mean_m, Planet.Silicate.R_sil_range_m, Planet.Core.R_Fe_range_m, \
+        Planet.PbI_MPa, Planet.deltaP, Planet.C2mean, Planet.Sil.Qmantle_Wm2, \
+        Planet.Sil.Qb, Planet.Sil.Q_Wm2, Planet.Sil.R_sil_mean_m, \
+        Planet.Core.R_Fe_mean_m, Planet.Sil.R_sil_range_m, Planet.Core.R_Fe_range_m, \
         Planet.rho_kgm3 \
             = (float(f.readline().split('=')[-1]) for _ in range(16))
         # Get integer values from header (nSteps values)
@@ -186,32 +186,31 @@ def ReloadProfile(Planet, Params):
     Planet.nStepsClath = Planet.nStepsHydro - Planet.nStepsIceI - Planet.nStepsOcean - Planet.nIceIIILitho - Planet.nIceVLitho
 
     # Read in columnar data that follows header lines -- ocean
-    Layers = LayersStruct(Planet.nStepsHydro)
-    Layers.z_m, Layers.r_m, Layers.P_MPa, Layers.T_K, Layers.phase, Layers.rho_kgm3, Layers.g_ms2, \
-    Layers.Cp, Layers.vfluid_kms \
+    Planet.z_m, Planet.r_m, Planet.P_MPa, Planet.T_K, Planet.phase, Planet.rho_kgm3, Planet.g_ms2, \
+    Planet.Cp, Planet.vfluid_kms \
         = np.loadtxt(Params.dataFiles.saveFile, skiprows=Params.nHeadLines, unpack=True)
-    Layers.z_m *= 1e3  # Stored as km
-    Layers.phase = Layers.phase.astype(np.int_)
+    Planet.z_m *= 1e3  # Stored as km
+    Planet.phase = Planet.phase.astype(np.int_)
 
     # Read in in data for core/mantle trade
-    Planet.Silicate.R_sil_trade_m, Planet.Core.R_Fe_trade_m, Planet.Silicate.rho_sil_trade_kgm3, \
+    Planet.Sil.R_sil_trade_m, Planet.Core.R_Fe_trade_m, Planet.Sil.rho_sil_trade_kgm3, \
         = np.loadtxt(Params.dataFiles.mantCoreFile, skiprows=1, unpack=True)
 
     # Read in data for mantle physical properties
-    Planet.Silicate.r_mantle_m, Planet.Silicate.P_mantle_MPa, Planet.Silicate.porosDens, \
-    Planet.Silicate.perm1, Planet.Silicate.perm2, Planet.Silicate.perm3, Planet.Silicate.perm4, \
-    Planet.Silicate.perm5 \
+    Planet.Sil.r_mantle_m, Planet.Sil.P_mantle_MPa, Planet.Sil.porosDens, \
+    Planet.Sil.perm1, Planet.Sil.perm2, Planet.Sil.perm3, Planet.Sil.perm4, \
+    Planet.Sil.perm5 \
         = np.loadtxt(Params.dataFiles.mantPropsFile, skiprows=1, unpack=True)
 
     # Read in full-body layer values
     # Currently in PlanetProfile.m these values are labeled differently from those above,
     # but I think these are the ones we will ultimately want to keep & use so I'm overwriting
-    Layers.r_m, Layers.P_MPa, Layers.T_K, Layers.rho_kgm3, Layers.sig_Sm, Layers.phase, \
-        Layers.g_ms2 \
+    Planet.r_m, Planet.P_MPa, Planet.T_K, Planet.rho_kgm3, Planet.sig_Sm, Planet.phase, \
+        Planet.g_ms2 \
         = np.loadtxt(Params.dataFiles.fullLayersFile, skiprows=1, unpack=True)
-    Layers.phase = Layers.phase.astype(np.int_)
+    Planet.phase = Planet.phase.astype(np.int_)
 
-    return Planet, Params, Layers
+    return Planet, Params
 
 
 if __name__ == '__main__': main()

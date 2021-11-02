@@ -16,51 +16,51 @@ Planet = PlanetStruct('Europa')
 #     clrAllLayered(Planet.name)
 
 """ Bulk planetary settings """
-Planet.rho_kgm3 = 2989
-Planet.R_m = 1561.0e3
-Planet.M_kg = 4.7991e22
-Planet.Tsurf_K = 110
-Planet.Psurf_MPa = 0
-Planet.CMeasured = 0.346
-Planet.CUncertainty = 0.005
-Planet.phi_surface = 0
-Planet.Tb_K = 269.8
+Planet.Bulk.rho_kgm3 = 2989
+Planet.Bulk.R_m = 1561.0e3
+Planet.Bulk.M_kg = 4.7991e22
+Planet.Bulk.Tsurf_K = 110
+Planet.Bulk.Psurf_MPa = 0
+Planet.Bulk.CMeasured = 0.346
+Planet.Bulk.CUncertainty = 0.005
+Planet.Bulk.phi_surface = 0
+Planet.Bulk.Tb_K = 269.8
+Planet.Bulk.Pseafloor_MPa = 350
 
 """ Layer step settings """
-Planet.Pseafloor_MPa = 350
-Planet.nStepsIceI = 200
-Planet.nStepsOcean = 350
-Planet.nStepsRefRho = 30
-Planet.nStepsMantle = 500
-Planet.nStepsCore = 10
+Planet.Steps.nIceI = 200
+Planet.Steps.nOceanMax = 350
+Planet.Steps.nRefRho = 30
+Planet.Steps.nSil = 500
+Planet.Steps.nCore = 10
 
 """ Hydrosphere assumptions """
 Planet.Ocean.comp = 'MgSO4'
 Planet.Ocean.wtOcean_ppt = 100
 
 """ Mantle heat """
-Planet.Silicate.krMantle = 4
+Planet.Sil.krMantle = 4
 # cold case
-Planet.Silicate.QHMantle = 0
-Planet.Silicate.EQUIL_Q = False
-# hot case
-# Planet.Silicate.QMantle = 1.3e11
-# Planet.Silicate.QHMantle = 8.5e11
+Planet.Sil.QHMantle = 0
+Planet.Do.EQUIL_Q = False
 # Rock porosity
-Planet.Silicate.POROUS_ROCK = False
-Planet.Silicate.PEFF = False
+Planet.Do.POROUS_ROCK = False
+Planet.Do.PEFF = False
+# hot case
+# Planet.Sil.QMantle = 1.3e11
+# Planet.Sil.QHMantle = 8.5e11
 # Mantle equation of state model
-Planet.Silicate.mantleEOS = 'CV3hy1wt_678_1.tab'  # (2900 for Q= 100 GW, 3240 for Q= 220 GW)
-Planet.Silicate.rhoSilWithCore_kgm3 = 3539
-# Planet.Silicate.mantleEOS = 'Simple_CI_HS_green_PP.tab'  # CI chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
-# Planet.Silicate.rhoSilWithCore_kgm3 = 2975
-# Planet.Silicate.mantleEOS = 'Simple_CM_HS_green_PP.tab'  # CM chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
-# Planet.Silicate.rhoSilWithCore_kgm3 = 2975
-# Planet.Silicate.mantleEOS = 'Simple_CV_HS_green_PP.tab'  # CV chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
-# Planet.Silicate.rhoSilWithCore_kgm3 = 2975
+Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'  # (2900 for Q= 100 GW, 3240 for Q= 220 GW)
+Planet.Sil.rhoSilWithCore_kgm3 = 3539
+# Planet.Sil.mantleEOS = 'Simple_CI_HS_green_PP.tab'  # CI chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
+# Planet.Sil.rhoSilWithCore_kgm3 = 2975
+# Planet.Sil.mantleEOS = 'Simple_CM_HS_green_PP.tab'  # CM chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
+# Planet.Sil.rhoSilWithCore_kgm3 = 2975
+# Planet.Sil.mantleEOS = 'Simple_CV_HS_green_PP.tab'  # CV chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
+# Planet.Sil.rhoSilWithCore_kgm3 = 2975
 
 """ Core assumptions """
-Planet.Core.FeCORE = True
+Planet.Do.FeCORE = True
 Planet.Core.rhoFe = 8000
 Planet.Core.rhoFeS = 5150
 Planet.Core.rhoPoFeFCC = 5455
@@ -126,12 +126,12 @@ Params.wRef = [0, 5, 10, 15]
 #     if dlNow; load(['FTdata' Planet.name],'FTdata'); end
 
 """ Interior constraints imposed in Vance et al. 2014 """
-Planet.Silicate.mSi = 28.0855
-Planet.Silicate.mS = 32.065
-Planet.Silicate.mFe = 55.845
-Planet.Silicate.mMg = 24.305
-Planet.Silicate.xOl = 0.44  # percentage of olivine - Javoy (1995) - Fe/Si = 0.909 Mg/Si = 0.531, Mg# = 0.369
-Planet.Silicate.xSi = (Planet.Silicate.xOl+2*(1-Planet.Silicate.xOl))*Planet.Silicate.mSi/(Planet.Silicate.xOl*184.295+(1-Planet.Silicate.xOl)*244.3805) # mass fraction of sulfur in silicates
-Planet.Silicate.MEarth_kg = 5.97e24
-Planet.Silicate.xSiEarth = 0.1923  # Javoy in kg/kg in Exoplanets paper20052006-xSiSolar only in mole
-Planet.Silicate.xK = 1  # enrichment in K
+Planet.Sil.mSi = 28.0855
+Planet.Sil.mS = 32.065
+Planet.Sil.mFe = 55.845
+Planet.Sil.mMg = 24.305
+Planet.Sil.xOl = 0.44  # percentage of olivine - Javoy (1995) - Fe/Si = 0.909 Mg/Si = 0.531, Mg# = 0.369
+Planet.Sil.xSi = (Planet.Sil.xOl+2*(1-Planet.Sil.xOl))*Planet.Sil.mSi/(Planet.Sil.xOl*184.295+(1-Planet.Sil.xOl)*244.3805) # mass fraction of sulfur in silicates
+Planet.Sil.MEarth_kg = 5.97e24
+Planet.Sil.xSiEarth = 0.1923  # Javoy in kg/kg in Exoplanets paper20052006-xSiSolar only in mole
+Planet.Sil.xK = 1  # enrichment in K
