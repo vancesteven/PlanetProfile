@@ -162,7 +162,7 @@ def ReloadProfile(Planet, Params):
     """ Reload previously saved PlanetProfile run from disk """
     Params.dataFiles, Params.figureFiles = SetupFilenames(Planet, Params)
     print('Reloading previously saved run from file: ' + Params.dataFiles.saveFile)
-    if Params.VERBOSE: print('WARNING: nSteps settings from PP' + Planet.name + '.py will be ignored.')
+    if Params.VERBOSE: print('WARNING: Steps.n settings from PP' + Planet.name + '.py will be ignored.')
 
     with open(Params.dataFiles.saveFile) as f:
         # Get number of header lines to read in from (and skip for columnar data)
@@ -170,20 +170,19 @@ def ReloadProfile(Planet, Params):
         # Get dissolved salt supposed for ocean (present in filename, but this is intended for future-proofing when we move to a database lookup)
         Planet.Ocean.comp = f.readline().split('=')[-1].strip()
         # Get whether iron core is modeled
-        Planet.Core.FeCore = bool(strtobool(f.readline().split('=')[-1].strip()))
+        Planet.Do.FeCORE = bool(strtobool(f.readline().split('=')[-1].strip()))
         # Get float values from header
-        Planet.Ocean.wtOcean_ppt, Planet.Tb_K, Planet.Zb_km, Planet.zClath_m, Planet.Pb_MPa, \
-        Planet.PbI_MPa, Planet.deltaP, Planet.C2mean, Planet.Sil.Qmantle_Wm2, \
-        Planet.Sil.Qb, Planet.Sil.Q_Wm2, Planet.Sil.R_sil_mean_m, \
-        Planet.Core.R_Fe_mean_m, Planet.Sil.R_sil_range_m, Planet.Core.R_Fe_range_m, \
-        Planet.rho_kgm3 \
+        Planet.Ocean.wtOcean_ppt, Planet.Bulk.Tb_K, Planet.Zb_km, Planet.zClath_m, \
+        Planet.Pb_MPa, Planet.PbI_MPa, Planet.deltaP, Planet.C2mean, Planet.Qmantle_Wm2, \
+        Planet.Qb, Planet.Q_Wm2, Planet.Sil.R_sil_mean_m, Planet.Core.R_Fe_mean_m, \
+        Planet.Sil.R_sil_range_m, Planet.Core.R_Fe_range_m, Planet.rho_kgm3 \
             = (float(f.readline().split('=')[-1]) for _ in range(16))
         # Get integer values from header (nSteps values)
-        Planet.nStepsIceI, Planet.nStepsOcean, Planet.nStepsHydro, Planet.nStepsTotal, \
-        Planet.indSil, Planet.nStepsMantle, Planet.nStepsCore, \
-        Planet.nIceIIILitho, Planet.nIceVLitho \
+        Planet.Steps.nIceI, Planet.Steps.nOceanMax, Planet.Steps.nHydroMax, Planet.Steps.nTotal, \
+        Planet.Steps.indSil, Planet.Steps.nSil, Planet.Steps.nCore, \
+        Planet.Steps.nIceIIILitho, Planet.Steps.nIceVLitho \
             = (int(f.readline().split('=')[-1]) for _ in range(9))
-    Planet.nStepsClath = Planet.nStepsHydro - Planet.nStepsIceI - Planet.nStepsOcean - Planet.nIceIIILitho - Planet.nIceVLitho
+    Planet.Steps.nClath = Planet.Steps.nHydroMax - Planet.Steps.nIceI - Planet.Steps.nOceanMax - Planet.Steps.nIceIIILitho - Planet.Steps.nIceVLitho
 
     # Read in columnar data that follows header lines -- ocean
     Planet.z_m, Planet.r_m, Planet.P_MPa, Planet.T_K, Planet.phase, Planet.rho_kgm3, Planet.g_ms2, \
@@ -205,7 +204,7 @@ def ReloadProfile(Planet, Params):
     # Read in full-body layer values
     # Currently in PlanetProfile.m these values are labeled differently from those above,
     # but I think these are the ones we will ultimately want to keep & use so I'm overwriting
-    Planet.r_m, Planet.P_MPa, Planet.T_K, Planet.rho_kgm3, Planet.sig_Sm, Planet.phase, \
+    Planet.r_m, Planet.P_MPa, Planet.T_K, Planet.rho_kgm3, Planet.sig_S_m, Planet.phase, \
         Planet.g_ms2 \
         = np.loadtxt(Params.dataFiles.fullLayersFile, skiprows=1, unpack=True)
     Planet.phase = Planet.phase.astype(np.int_)

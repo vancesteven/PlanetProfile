@@ -108,6 +108,28 @@ if ~exist(datpath,'dir')
 end
 
 
+%% globals for functions in fzero --> just swEOS_chooser this needs to be cleaned up --> SetupEOS
+    wo = Planet.Ocean.w_ocean_pct;
+if strcmp(Planet.Ocean.comp,'Seawater')
+    global swEOS
+    swEOS.gsw = swEOS_chooser('gsw305');
+elseif strcmp(Planet.Ocean.comp,'NaCl')
+    error(['NaCl is not currently implemented.'])
+elseif strcmp(Planet.Ocean.comp,'NH3')        
+%     error(['NH3 is not currently implemented.'])
+elseif strcmp(Planet.Ocean.comp,'MgSO4')
+    conduct_scaling_MgSO4 = (1+4*wo); % empirical scaling of electrical conductivity from 1 bar values compiled in Hand and Chyba 2007
+end
+
+if isfield(Seismic,'mantleEOS')
+    thiseos = split(Seismic.mantleEOS,'.tab');
+    thiseos = char(thiseos(1));
+else
+    thiseos = 'none';
+end
+bar2GPa = 1e-4;
+
+Gg = 6.67300e-11; % m3 kg-1 s-2
 
 if ~cfg.SKIP_PROFILES
     
@@ -177,28 +199,6 @@ if ~cfg.SKIP_PROFILES
     
 end % ~cfg.SKIP_PROFILES
 
-%% globals for functions in fzero --> just swEOS_chooser this needs to be cleaned up --> SetupEOS
-    wo = Planet.Ocean.w_ocean_pct;
-if strcmp(Planet.Ocean.comp,'Seawater')
-    global swEOS
-    swEOS.gsw = swEOS_chooser('gsw305');
-elseif strcmp(Planet.Ocean.comp,'NaCl')
-    error(['NaCl is not currently implemented.'])
-elseif strcmp(Planet.Ocean.comp,'NH3')        
-%     error(['NH3 is not currently implemented.'])
-elseif strcmp(Planet.Ocean.comp,'MgSO4')
-    conduct_scaling_MgSO4 = (1+4*wo); % empirical scaling of electrical conductivity from 1 bar values compiled in Hand and Chyba 2007
-end
-
-if isfield(Seismic,'mantleEOS')
-    thiseos = split(Seismic.mantleEOS,'.tab');
-    thiseos = char(thiseos(1));
-else
-    thiseos = 'none';
-end
-bar2GPa = 1e-4;
-
-Gg = 6.67300e-11; % m3 kg-1 s-2
 
 
 % Filename strings
