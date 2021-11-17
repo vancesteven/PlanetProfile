@@ -29,7 +29,7 @@ class PlanetStruct:
     Mbelow_kg = None #total mass below each layer in kg
     C2mean = None  # Mean value of axial moment of inertia consistent with profile core/mantle trades
     rSigChange_m  = None  # Radii of outer boundary of each conducting layer in m
-    sig_Sm = None  # Electrical conductivity (sigma) in S/m of each conducting layer
+    sigma_Sm = None  # Electrical conductivity (sigma) in S/m of each conducting layer
     # Individual calculated quantities
     Zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km
     zClath_m = None  # Thickness of clathrate layer at surface in m
@@ -68,8 +68,6 @@ class PlanetStruct:
         FORCE_ICEI_CONVECTION = False  # Whether to force convection in the ice I layer- if True, doesn’t check Rayleigh number, just assumes convection conditions are met
         ALLOW_NEG_ALPHA = False  # Whether to permit modeling of a Melosh et. al. layer with negative thermal expansivity
         MANTLE_HYDRO_THERMAL_EQ = False  # option to have thermal equilibrium between mantle and hydrosphere where the hydrosphere is not gaining external heat via tidal forcing or radiation
-        SMOOTH_ROCK = None  # PerpelX-related, helps smooth data- interpolation smoothing, default is on
-        SMOOTH_VROCK = None  # PerpelX-related, helps smooth data- interpolation smoothing, default is on- sound velocities?
         POROUS_ROCK = False  # Whether to model the rock as porous
         P_EFFECTIVE = None  # effective pressure due to presence of water in pores: lithostatic minus hydrostatic pressure
 
@@ -78,7 +76,7 @@ class PlanetStruct:
         nIceI = None  # Fixed number of steps in outermost ice shell
         nClath = None  # Fixed number of steps in clathrates
         nOceanMax = None  # Maximum number of steps in hydrosphere below ice I outer shell (actual number will be fewer)
-        firstSilLayer = None  # First index of silicates, i.e. derived actual number of layers in hydrosphere (based on Moment of Inetia), plus 1
+        firstSilLayerIndex = None  # First index of silicates, i.e. derived actual number of layers in hydrosphere (based on Moment of Inetia), plus 1
         nStepsRefRho = None  # number of different reference densities will be calculated in the run
         nSil = None  # Fixed number of steps in silicate layer
         nCore = None  # Fixed number of steps in core layer, if present
@@ -88,7 +86,7 @@ class PlanetStruct:
     class Ocean:
         """ Hydrosphere assumptions """
         comp = None  # Type of dominant dissolved salt in ocean
-        wOcean = None  # salinity: Concentration of above salt in parts per thousand (ppt) for Seawater or weight percent (wtPct) for MgSO4
+        wOcean_ppt = None  # salinity: Concentration of above salt in parts per thousand (ppt) for Seawater or weight percent (wtPct) for MgSO4
         electrical = None  # Type of electrical conductivity model to use, passed as a string
 
         def fnTfreeze_K(self, PPg, wwg, TT):
@@ -132,7 +130,7 @@ class PlanetStruct:
         xFeS = None  # mass fraction of sulfur in the core
         xFe_core = None  # this is the total Fe in Fe and FeS
         XH2O = None  # total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
-        coreSig = None  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
+        sigmaCore_Sm = None  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
         # Derived quantities
         RFeMean_m = None  # Core radius for mean compatible Moment of Inertia (MOI)
         RFeRange_m = None  # Core radius range for compatible MoI
@@ -170,8 +168,8 @@ class PlanetStruct:
         """ Magnetic induction """
         peaks_Hz = None  # Frequencies in Hz of peaks in Fourier spectrum of magnetic excitations
         fOrb = None  # orbital period of a moon around its parent planet in radians per second
-        ionosBounds_m = None  # Upper altitude cutoff for ionosphere conduction in meters
-        ionosPedersenSig_Sm = None  # Pedersen conductivity for ionospheric layer in S/m
+        ionosBounds_m = None  # Upper altitude cutoff for ionosphere conduction in meters- zero is the body surface and the bounds increase as you move into space
+        sigmaIonosPedersen_Sm = None  # Pedersen conductivity for ionospheric layer in S/m
         IONOS_ONLY = False  # Set to ionosphere bottom altitude in the case of no ocean induction, otherwise defaults to False
         ADD_TRANSITION_BOUNDS = False  # Whether to insert another layer entry for changing conductivity at the planetary surface, in the case of a nonconducting atmosphere at the surface.
 
@@ -185,8 +183,8 @@ class ParamsStruct:
     LegendPosition = None  # Where to place legends when forced
     yLim = None  # y axis limits of hydrosphere density in "Conductivity with interior properties" plot
     LineStyle = None  # Default line style to use on plots
-    wRefLine = None  # Style of lines showing reference melting curves of hydrosphere density plot
-    wRef = None  # Salinities of reference melting curves
+    wRefLine_temporary = None  # Style of lines showing reference melting curves of hydrosphere density plot-should be done in config.py instead, delete this once implemented there
+    wRef = None  # Salinities in ppt of reference melting curves
 
     class lbls: # Not sure we need this in Params for the Python implementation.
         pass
