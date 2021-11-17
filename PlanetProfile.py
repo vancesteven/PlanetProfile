@@ -118,6 +118,8 @@ def main():
 
     Planet = PlanetProfile(Planet, Params)
 
+    Planet.Setup = SetupInit
+
     return
 
 """ END MAIN RUN BLOCK """
@@ -174,7 +176,7 @@ def WriteProfile(Planet, Params):
         f.write('  Steps.nOceanMax = ' + str(Planet.Steps.nOceanMax) + '\n')
         f.write('  Steps.nHydroMax = ' + str(Planet.Steps.nHydroMax) + '\n')
         f.write('  Steps.nTotal = ' + str(Planet.Steps.nTotal) + '\n')
-        f.write('  Steps.firstSilLayer = ' + str(Planet.Steps.firstSilLayer) + '\n')
+        f.write('  Steps.firstSilLayerIndex = ' + str(Planet.Steps.firstSilLayerIndex) + '\n')
         f.write('  Steps.nSil = ' + str(Planet.Steps.nSil) + '\n')
         f.write('  Steps.nCore = ' + str(Planet.Steps.nCore) + '\n')
         f.write('  Steps.nIceIIILitho = ' + str(Planet.Steps.nIceIIILitho) + '\n')
