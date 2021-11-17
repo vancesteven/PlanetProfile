@@ -118,6 +118,8 @@ def main():
 
     Planet = PlanetProfile(Planet, Params)
 
+    Planet.Setup = SetupInit
+
     return
 
 """ END MAIN RUN BLOCK """
