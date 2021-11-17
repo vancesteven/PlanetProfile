@@ -102,11 +102,11 @@ def SetupLayers(Planet):
 
     Planet.phase = np.zeros(Planet.Steps.nHydroMax, dtype=np.int_)
     Planet.r_m, Planet.g_ms2, Planet.T_K, Planet.P_MPa, \
-        Planet.rho_kgm3, Planet.z_m, Planet.g_ms2, \
-        Planet.MAbove_kg, Planet.MBelow_kg = \
-        (np.zeros(Planet.Steps.nHydroMax) for _ in range(9))
+        Planet.rho_kgm3, Planet.z_m, Planet.g_ms2, Planet.Cp, \
+        Planet.vfluid, Planet.MAbove_kg, Planet.MBelow_kg = \
+        (np.zeros(Planet.Steps.nHydroMax) for _ in range(11))
 
-    Planet.phase = np.concatenate((np.zeros(Planet.Steps.nClath) + 30, Planet.phase))  # Prepend clathrate phases
+    Planet.phase = np.concatenate((np.zeros(Planet.Steps.nClath, dtype=np.int_) + 30, Planet.phase))  # Prepend clathrate phases
     Planet.phase[Planet.Steps.nClath:Planet.Steps.nClath + Planet.Steps.nIceI] = 1  # Set ice Ih phase
     Planet.r_m[0] = Planet.Bulk.R_m # Set first layer to planetary surface
     Planet.g_ms2[0] = Constants.G * Planet.Bulk.M_kg / Planet.Bulk.R_m**2 # Set first layer to surface gravity

@@ -23,8 +23,11 @@ class PlanetStruct:
     P_MPa = None #pressure at each step in MPa
     rho_kgm3 = None #density of each layer in kg/m^3
     g_ms2 = None #gravitational acceleration of each layer, m/s^2
+    Cp = None  # Heat capacity at constant pressure for each layer's material in W/kg/K
+    vfluid = None  # Sound speed in fluid layers in km/s
     Mabove_kg = None #total mass above each layer in kg
     Mbelow_kg = None #total mass below each layer in kg
+    C2mean = None  # Mean value of axial moment of inertia consistent with profile core/mantle trades
     rSigChange_m  = None  # Radii of outer boundary of each conducting layer in m
     sig_Sm = None  # Electrical conductivity (sigma) in S/m of each conducting layer
     # Individual calculated quantities
@@ -32,8 +35,9 @@ class PlanetStruct:
     zClath_m = None  # Thickness of clathrate layer at surface in m
     Pb_MPa = None  # Pressure at ice-ocean interface in MPa
     PbI_MPa = None  # Pressure at bottom of ice I layer in MPa, mainly used when BOTTOM_ICEIII is True
+    deltaP = None  # Increment of pressure between each layer
     alpha_o = None  # Thermal expansivity of ice at ice-ocean interface
-    QMantle_Wm2 = None  # Heat flow from mantle into hydrosphere
+    Qmantle_Wm2 = None  # Heat flow from mantle into hydrosphere
     Qb = None  # ???
     Q_Wm2 = None  # ???
 
@@ -119,8 +123,8 @@ class PlanetStruct:
 
     class Core:
         """ Core assumptions """
-        rhoFe = None  # Assumed density of pure iron in kg/m^3
-        rhoFeS = None  # Assumed density of iron sulfide in kg/m^3
+        rhoFe_kgm3 = None  # Assumed density of pure iron in kg/m^3
+        rhoFeS_kgm3 = None  # Assumed density of iron sulfide in kg/m^3
         rhoPoFeFCC = None  # ±40. Density of pyrrhottite plus face-centered cubic iron
         QSCore = None  # (??)
         coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'  # Default core EOS to use
@@ -130,9 +134,9 @@ class PlanetStruct:
         XH2O = None  # total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
         coreSig = None  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
         # Derived quantities
-        R_Fe_mean_m = None  # Core radius for mean compatible Moment of Inertia (MOI)
-        R_Fe_range_m = None  # Core radius range for compatible MoI
-        R_Fe_trade_m = None  # Array of core radii for compatible MoIs
+        RFeMean_m = None  # Core radius for mean compatible Moment of Inertia (MOI)
+        RFeRange_m = None  # Core radius range for compatible MoI
+        RFeTrade_m = None  # Array of core radii for compatible MoIs
 
     class Seismic:
         """ Seismic properties of solids """

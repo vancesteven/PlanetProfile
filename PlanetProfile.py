@@ -147,12 +147,59 @@ def PlanetProfile(Planet, Params):
 
 
 def WriteProfile(Planet, Params):
-    header = 'Header lines'
+    """ Write out all profile calculations to disk """
+    Params.nHeadLines = 29  # Increment as new header lines are added
     with open(Params.dataFiles.saveFile,'w') as f:
-        f.write(header+'\n')
+        # Print number of header lines first so we can skip the rest on read-in if we want to
+        f.write('  nHeadLines = ' + str(Params.nHeadLines) + '\n')
+        f.write('  Ocean salt = ' + str(Planet.Ocean.comp) + '\n')
+        f.write('  Iron core = ' + str(Planet.Do.FeCORE) + '\n')
+        f.write('  Salinity(ppt) = ' + str(Planet.Ocean.wtOcean_ppt) + '\n')
+        f.write('  Tb_K = ' + str(Planet.Bulk.Tb_K) + '\n')
+        f.write('  Zb_km = ' + str(Planet.Zb_km) + '\n')
+        f.write('  zClath_m = ' + str(Planet.zClath_m) + '\n')
+        f.write('  Pb_MPa = ' + str(Planet.Pb_MPa) + '\n')
+        f.write('  PbI_MPa = ' + str(Planet.PbI_MPa) + '\n')
+        f.write('  deltaP = ' + str(Planet.deltaP) + '\n')
+        f.write('  C2mean = ' + str(Planet.C2mean) + '\n')
+        f.write('  Qmantle_Wm2 = ' + str(Planet.Qmantle_Wm2) + '\n')
+        f.write('  Qb = ' + str(Planet.Qb) + '\n')
+        f.write('  Q_Wm2 = ' + str(Planet.Q_Wm2) + '\n')
+        f.write('  RsilMean_m = ' + str(Planet.Sil.RsilMean_m) + '\n')
+        f.write('  RFeMean_m = ' + str(Planet.Core.RFeMean_m) + '\n')
+        f.write('  RsilRange_m = ' + str(Planet.Sil.RsilRange_m) + '\n')
+        f.write('  RFeRange_m = ' + str(Planet.Core.RFeRange_m) + '\n')
+        f.write('  rhoFe_kgm3 = ' + str(Planet.Core.rhoFe_kgm3) + '\n')
+        f.write('  Steps.nIceI = ' + str(Planet.Steps.nIceI) + '\n')
+        f.write('  Steps.nOceanMax = ' + str(Planet.Steps.nOceanMax) + '\n')
+        f.write('  Steps.nHydroMax = ' + str(Planet.Steps.nHydroMax) + '\n')
+        f.write('  Steps.nTotal = ' + str(Planet.Steps.nTotal) + '\n')
+        f.write('  Steps.firstSilLayer = ' + str(Planet.Steps.firstSilLayer) + '\n')
+        f.write('  Steps.nSil = ' + str(Planet.Steps.nSil) + '\n')
+        f.write('  Steps.nCore = ' + str(Planet.Steps.nCore) + '\n')
+        f.write('  Steps.nIceIIILitho = ' + str(Planet.Steps.nIceIIILitho) + '\n')
+        f.write('  Steps.nIceVLitho = ' + str(Planet.Steps.nIceVLitho) + '\n')
+        f.write(' '.join(['z (km)'.ljust(24), \
+                           'r (m)'.ljust(24), \
+                           'P (MPa)'.ljust(24), \
+                           'T (K)'.ljust(24), \
+                           'phase ID'.ljust(8), \
+                           'rho (kg/m3)'.ljust(24), \
+                           'g (m/s2)'.ljust(24), \
+                           'Cp (W/kg/K)'.ljust(24), \
+                           'vfluid (km/s)']) + '\n')
         for i in range(Planet.Steps.nTotal):
-            #f.write('\t'.join( [ '{:3.5e}'.format(val) for val in line] )+'\n')
-            f.write('Test\n')
+            line = \
+                '{:24.17e} '.format(Planet.z_m[i]) + \
+                '{:24.17e} '.format(Planet.r_m[i]) + \
+                '{:24.17e} '.format(Planet.P_MPa[i]) + \
+                '{:24.17e} '.format(Planet.T_K[i]) + \
+                '{:8d} '.format(Planet.phase[i]) + \
+                '{:24.17e} '.format(Planet.rho_kgm3[i]) + \
+                '{:24.17e} '.format(Planet.g_ms2[i]) + \
+                '{:24.17e} '.format(Planet.Cp[i]) + \
+                '{:24.17e}\n'.format(Planet.vfluid[i])
+            f.write(line)
 
     print('Profile saved to file: ' + Params.dataFiles.saveFile)
     return
@@ -175,7 +222,7 @@ def ReloadProfile(Planet, Params):
         Planet.Ocean.wtOcean_ppt, Planet.Bulk.Tb_K, Planet.Zb_km, Planet.zClath_m, \
         Planet.Pb_MPa, Planet.PbI_MPa, Planet.deltaP, Planet.C2mean, Planet.Qmantle_Wm2, \
         Planet.Qb, Planet.Q_Wm2, Planet.Sil.R_sil_mean_m, Planet.Core.R_Fe_mean_m, \
-        Planet.Sil.R_sil_range_m, Planet.Core.R_Fe_range_m, Planet.rho_kgm3 \
+        Planet.Sil.R_sil_range_m, Planet.Core.R_Fe_range_m, Planet.Core.rhoFe_kgm3 \
             = (float(f.readline().split('=')[-1]) for _ in range(16))
         # Get integer values from header (nSteps values)
         Planet.Steps.nIceI, Planet.Steps.nOceanMax, Planet.Steps.nHydroMax, Planet.Steps.nTotal, \
