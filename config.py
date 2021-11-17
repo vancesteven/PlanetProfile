@@ -6,7 +6,7 @@ Overridden by any settings contained within PPBody.py files.
 from Utilities.dataStructs import ParamsStruct
 
 Params = ParamsStruct()
-Params.VERBOSE = True  
+Params.VERBOSE = True
 if Params.VERBOSE: print('Printing verbose runtime messages. Toggle in config.py.')
 
 Params.DO_PARALLEL = True
@@ -77,7 +77,6 @@ Params.LS_orb = ':'  # LineStyle for orbital period
 Params.LS_hrm = '-.'  # LineStyle for 2nd harmonic of the synodic period
 Params.LS_Sw  = '-'  # LineStyle for salt water
 Params.LS_Mg = '--'  # LineStyle for magnesium sulfate MgSO4
-Params.LS_sp =  ':'
 Params.LW_syn = 2  # LineWidthfor synodic period
 Params.LW_orb = 2  # LineWidth for orbital period
 Params.LW_hrm = 2  # LineWidth for 2nd harmonic of the synodic period
