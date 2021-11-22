@@ -46,6 +46,7 @@ Params.np_intp = 200  # Number of interpolation points to use for Eckhardt metho
 Params.npts_w = 100  # Resolution in log frequency space for magnetic excitation spectra
 Params.np_wfine = 1000  # Fine-spacing resolution for log frequency spectrum
 Params.nIntL = 3  # Number of ocean layers to use when REDUCED = 1
+#To be implemented- eventually need some ODE numerical solution parameters
 #Params.opts_odeParams = odeset('RelTol',1e-10,'AbsTol',1e-10,'MaxStep', 2e3,'InitialStep',1e-2)
 #Params.opts_odeLayers = odeset('RelTol',1e-8, 'AbsTol',1e-10,'MaxStep',10e3,'InitialStep',1e-2)
 

@@ -52,11 +52,11 @@ class PlanetStruct:
         Cmeasured = None  # Axial moment of inertia C/MR^, dimensionless
         Cuncertainty = None  # Uncertainty in C/MR^2 (used to constrain models via consistency within the uncertainty), dimensionless
         phiSurface = None  # Scaling value for the ice porosity at the surface (void fraction[]): falls within a range of 0 and 1, larger than 0.2 is rare, from Han et.al. 2014
-        clathrateSetDepth = None  # Fixed depth for limiting clathrate layer
+        clathrateSetDepth = None  # Fixed depth for limiting clathrate layer in meters
 
     """ Runtime flags """
     class Do:
-        Fe_CORE = None  # Whether to model an iron core for this body
+        Fe_CORE = False  # Whether to model an iron core for this body
         POROUS_ICE = False  # Whether to model porosity in ice
         CLATHRATE = False  # Whether to model clathrates
         NO_H2O = False  # Whether to model waterless worlds (like Io)
@@ -69,6 +69,7 @@ class PlanetStruct:
         POROUS_ROCK = False  # Whether to model the rock as porous
         P_EFFECTIVE = None  # effective pressure due to presence of water in pores: lithostatic minus hydrostatic pressure
         IONOS_ONLY = False  # Whether to ignore conducting layers within the body and model magnetic induction happening only in the ionosphere
+        TAUP_SEISMIC = False  # Whether to  will make tuap model files and some basic plots using obspy.taup
 
     """ Layer step settings """
     class Steps:
@@ -143,32 +144,39 @@ class PlanetStruct:
         RFeTrade_m = None  # Array of core radii for compatible MoIs
 
     class Seismic:
-        """ Seismic properties of solids """
+        """ Seismic properties of solids,
+            from Cammarano et al., 2006 (DOI: 10.1029/2006JE002710)
+            in a parameterization for the shear anelasticity quality factor Qs (Eqs. 4-6).
+            g_aniso : homolgous temperature scaling constant- dimensionless constant described as a temperature scaling relative to the melting temperature
+            B_aniso : shear anelasticity/quality factor normalization constant, dimensionless - helps quantify the effects of anelastic attenuation on the seismic wavelet caused by fluid movement and grain boundary friction
+            gamma : exponent on the seismic frequency omega, dimensionless - helps describe the frequency dependence of attenuation
+            omega : seismic frequnecy in Hz
+            """
         low_ice_Q = None  # Divide Ice Q value by this number (??)
         # ice I
-        B_aniso_iceI = None
-        gamma_aniso_iceI = None
-        g_aniso_iceI = None
+        B_aniso_iceI = None  # quality factor normalization constant for iceI, dimensionless
+        gamma_aniso_iceI = None  # exponent on the seismic frequency, dimensionless, for IceI
+        g_aniso_iceI = None  # homolgous temperature scaling constant, dimensionless, for IceI
         # ice II
-        B_aniso_iceII = None
-        gamma_aniso_iceII = None
-        g_aniso_iceII = None
+        B_aniso_iceII = None  # quality factor normalization constant for iceII, dimensionless
+        gamma_aniso_iceII = None  # exponent on the seismic frequency, dimensionless, for IceII
+        g_aniso_iceII = None  # homolgous temperature scaling constant, dimensionless, for IceII
         # ice III
-        B_aniso_iceIII = None
-        gamma_aniso_iceIII = None
-        g_aniso_iceIII = None
+        B_aniso_iceIII = None  # quality factor normalization constant for iceIII, dimensionless
+        gamma_aniso_iceIII = None  # exponent on the seismic frequency, dimensionless, for IceIII
+        g_aniso_iceIII = None  # homolgous temperature scaling constant, dimensionless, for IceIII
         # ice V
-        B_aniso_iceV = None
-        gamma_aniso_iceV = None
-        g_aniso_iceV = None
+        B_aniso_iceV = None  # quality factor normalization constant for iceV, dimensionless
+        gamma_aniso_iceV = None  # exponent on the seismic frequency, dimensionless, for IceV
+        g_aniso_iceV = None  # homolgous temperature scaling constant, dimensionless, for IceV
         # ice VI
-        B_aniso_iceVI = None
-        gamma_aniso_iceVI = None
-        g_aniso_iceVI = None
+        B_aniso_iceVI = None  # quality factor normalization constant for iceVI, dimensionless
+        gamma_aniso_iceVI = None  # exponent on the seismic frequency, dimensionless, for IceVI
+        g_aniso_iceVI = None  # homolgous temperature scaling constant, dimensionless, for IceVI
         # mantle
-        B_aniso_mantle = None
-        gamma_aniso_mantle = None
-        g_aniso_mantle = None
+        B_aniso_mantle = None  # quality factor normalization constant for the mantle, dimensionless
+        gamma_aniso_mantle = None  # exponent on the seismic frequency, dimensionless, for the mantle
+        g_aniso_mantle = None  # homolgous temperature scaling constant, dimensionless, for the mantle
 
     class Magnetic:
         """ Magnetic induction """
