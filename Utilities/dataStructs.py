@@ -152,7 +152,7 @@ class PlanetStruct:
             gamma : exponent on the seismic frequency omega, dimensionless - helps describe the frequency dependence of attenuation
             omega : seismic frequnecy in Hz
             """
-        low_ice_Q = None  # Divide Ice Q value by this number (??)
+        low_ice_Q = None  #  allows user to divide the seismic attenuation Q by some number/factor to test out a lower Q value, dimensionless
         # ice I
         B_aniso_iceI = None  # quality factor normalization constant for iceI, dimensionless
         gamma_aniso_iceI = None  # exponent on the seismic frequency, dimensionless, for IceI
