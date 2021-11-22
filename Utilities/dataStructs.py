@@ -31,21 +31,19 @@ class PlanetStruct:
     rSigChange_m  = None  # Radii of outer boundary of each conducting layer in m
     sigma_Sm = None  # Electrical conductivity (sigma) in S/m of each conducting layer
     # Individual calculated quantities
-    Zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km
+    zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km in accordance with 2014 paper
     zClath_m = None  # Thickness of clathrate layer at surface in m
     Pb_MPa = None  # Pressure at ice-ocean interface in MPa
     PbI_MPa = None  # Pressure at bottom of ice I layer in MPa, mainly used when BOTTOM_ICEIII is True
     deltaP = None  # Increment of pressure between each layer
-    alpha_o = None  # Thermal expansivity of ice at ice-ocean interface
+    alpha_perK = None # thermal expansivity at each pressure step in hydrosphere [1/K]
     Qmantle_Wm2 = None  # Heat flow from mantle into hydrosphere
-    Qb = None  # ???
-    Q_Wm2 = None  # ???
+    # Q_Wm2 = None  # ??? WAIT UNTIL IMPLEMENT heat flux at ice shell
 
     """ Run settings """
     class Bulk:
         """ Bulk planetary settings """
         Tb_K = None  # Temperature at the ice-ocean interface
-        Pseafloor_MPa = None  # Maximum pressure at the top of the silicate layer
         rho_kgm3 = None  # bulk density in kg/m3
         R_m = None  # Mean body outer radius in m
         M_kg = None  # Total body mass in kg
@@ -53,7 +51,7 @@ class PlanetStruct:
         Psurf_MPa = None  # Surface pressure in MPa
         Cmeasured = None  # Axial moment of inertia C/MR^, dimensionless
         Cuncertainty = None  # Uncertainty in C/MR^2 (used to constrain models via consistency within the uncertainty), dimensionless
-        phiSurface = None  # Scaling value for the ice porosity at the surface (void fraction): falls within a range of 0 and 1, larger than 0.2 is rare
+        phiSurface = None  # Scaling value for the ice porosity at the surface (void fraction[]): falls within a range of 0 and 1, larger than 0.2 is rare, from Han et.al. 2014
         clathrateSetDepth = None  # Fixed depth for limiting clathrate layer
 
     """ Runtime flags """
@@ -62,7 +60,7 @@ class PlanetStruct:
         POROUS_ICE = False  # Whether to model porosity in ice
         CLATHRATE = False  # Whether to model clathrates
         NO_H2O = False  # Whether to model waterless worlds (like Io)
-        BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can tur on as an error condition
+        BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
         NO_ICEI_CONVECTION = False  # Whether to suppress convection in the ice I layer - if True, checks Rayleigh number to see if convection conditions are met
         FORCE_ICEI_CONVECTION = False  # Whether to force convection in the ice I layer- if True, doesn’t check Rayleigh number, just assumes convection conditions are met
@@ -70,6 +68,7 @@ class PlanetStruct:
         MANTLE_HYDRO_THERMAL_EQ = False  # option to have thermal equilibrium between mantle and hydrosphere where the hydrosphere is not gaining external heat via tidal forcing or radiation
         POROUS_ROCK = False  # Whether to model the rock as porous
         P_EFFECTIVE = None  # effective pressure due to presence of water in pores: lithostatic minus hydrostatic pressure
+        IONOS_ONLY = False  # Whether to ignore conducting layers within the body and model magnetic induction happening only in the ionosphere
 
     """ Layer step settings """
     class Steps:
@@ -88,6 +87,8 @@ class PlanetStruct:
         comp = None  # Type of dominant dissolved salt in ocean
         wOcean_ppt = None  # salinity: Concentration of above salt in parts per thousand (ppt) for Seawater or weight percent (wtPct) for MgSO4
         electrical = None  # Type of electrical conductivity model to use, passed as a string
+        PMaxHydrosphere_MPa = mantleEOSname # Maximum pressure (upper bound of pressure range) of the hydrosphere
+        deltaPOcean = (PMaxHydrosphere_MPa – Pb_MPa) / nOceanMax #difference in pressure in each step through ocean in MPa
 
         def fnTfreeze_K(self, PPg, wwg, TT):
             # Somehow make an interpolator a la:
@@ -105,13 +106,15 @@ class PlanetStruct:
         RsilMean_m = None  # Mantle radius for mean compatible Moment of Inertia (MoI)
         RsilRange_m = None  # Mantle radius range for compatible MoI
         RsilTrade_m = None  # Array of mantle radii for compatible MoIs
-        rho_sil_trade_kgm3 = None  # Array of mantle densities for compatible MoIs
-        porosDens = None  # Porosity of rock (units?)
-        perm1 = None  # No idea what what these numbers are or why there are 5 of them -MJS
-        perm2 = None
-        perm3 = None
-        perm4 = None
-        perm5 = None
+        rho_sil_trade_kgm3 = None  # Array of mantle densities for compatible MoIs for core vs. mantle tradeoff plot
+        phiRockMax = None  # Porosity (void fraction) of the rocks at the “seafloor”, where the ocean first comes into contact with rock
+        # Not necessary to be implemented until later re Steve, these 5 are based on DPS presentation in 2017 – 5 diff models of permeability
+        #turn off this plot feature until later- create flag, Use POROSITY flag to turn off these plots
+        #perm1 = None  # No idea what what these numbers are or why there are 5 of them -MJS
+        #perm2 = None
+        #perm3 = None
+        #perm4 = None
+        #perm5 = None
 
         """ Mantle Equation of State (EOS) model """
         mantleEOS = None  # Equation of State data to use for silicates
@@ -124,12 +127,15 @@ class PlanetStruct:
         rhoFe_kgm3 = None  # Assumed density of pure iron in kg/m^3
         rhoFeS_kgm3 = None  # Assumed density of iron sulfide in kg/m^3
         rhoPoFeFCC = None  # ±40. Density of pyrrhottite plus face-centered cubic iron
-        QSCore = None  # (??)
         coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'  # Default core EOS to use
+
+        #Re Steve- put all mass fraction stuff into a separate file until implemented later- remove from dataStructs.py
+        #To implement: possible Meteoritics file/class?
         xFeS_meteoritic = None  # CM2 mean from Jarosewich 1990
         xFeS = None  # mass fraction of sulfur in the core
         xFe_core = None  # this is the total Fe in Fe and FeS
-        XH2O = None  # total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+        xH2O = None  # total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+
         sigmaCore_Sm = None  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
         # Derived quantities
         RFeMean_m = None  # Core radius for mean compatible Moment of Inertia (MOI)
@@ -168,7 +174,7 @@ class PlanetStruct:
         """ Magnetic induction """
         peaks_Hz = None  # Frequencies in Hz of peaks in Fourier spectrum of magnetic excitations
         fOrb = None  # orbital period of a moon around its parent planet in radians per second
-        ionosBounds_m = None  # Upper altitude cutoff for ionosphere conduction in meters- zero is the body surface and the bounds increase as you move into space
+        ionosBounds_m = None  # Upper altitude cutoff for ionosphere conduction in meters- zero is the body surface and the bounds increase as you move into space, can take arrays if ionosphere has multiple layers
         sigmaIonosPedersen_Sm = None  # Pedersen conductivity for ionospheric layer in S/m
         IONOS_ONLY = False  # Set to ionosphere bottom altitude in the case of no ocean induction, otherwise defaults to False
         ADD_TRANSITION_BOUNDS = False  # Whether to insert another layer entry for changing conductivity at the planetary surface, in the case of a nonconducting atmosphere at the surface.
@@ -198,11 +204,11 @@ class ConstantsStruct:
     T0 = 273.15  # The Celcius zero point; 273.15 K.
     P0 = 101325  # one standard atmosphere in Pa, 1atm = 101325 Pa
     DThermalConductIceI_Wm = 632  # Thermal conductivity of ice Ih in W/m from Andersson et al. (2005)
-    # Core modeling
-    rhom_rough = 3000  # Density of silicate layer, roughly
-    alpha_rough = 0.2e-4  # Thermal expansivity of silicates, roughly
-    Cp_rough = 2e6  # Heat capacity of silicates, roughly
-    Kappa_rough = 1e-6  # ???
+    # Core modeling- Modifying thermal profile of mantle: Pre-allocate with empty values, then populate once needed calcs are done
+    rhoMantleMean = 3000  # Density of silicate layer in mantle, roughly, in kg/m3
+    alphaMantleMean = 0.2e-4  # Thermal expansivity of silicates, roughly, in 1/K
+    CpMantleMean = 2e6  # Heat capacity of silicates, roughly, in J/(kgK)
+    KappaMantleMean = 1e-6  # ???
     nu_mantle = 1e21  # mantle viscosity in Pa*S, a common number for Earth's mantle
     DeltaT = 800  # Temperature differential in K between core and mantle (???)
 
