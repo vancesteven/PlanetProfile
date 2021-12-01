@@ -1,10 +1,11 @@
 from Utilities.dataStructs import Constants
+from Thermodynamics.SwEOSChooser import GetModgswPressureFreezingCT as p_freezing
 
 def IceLayers(Planet):
     """ Layer propagation from surface downward through the ice using geophysics.
-     Iteratively sets up the thermal profile (the density and temperature)
-      of the layer with each pressure step for all ice layers including
-      ice Ih, ice III, ice V by calling the necessary subfunctions
+        Iteratively sets up the thermal profile (the density and temperature)
+        of the layer with each pressure step for all ice layers including
+        ice Ih, ice III, ice V by calling the necessary subfunctions
         Args:
             Planet(object): instance of the Planet class
             Layers (array) : empty array to be filled in with layer data
@@ -14,6 +15,8 @@ def IceLayers(Planet):
 
         Examples:
     """
+
+    Planet.IceILayers()
 
     Planet = IceILayers(Planet)
 # I am a bit cnfused how we are trying ot implement this- it looks like we are overwriting the layers array
@@ -40,31 +43,25 @@ def IceILayers(Planet):
             Constants (struct) : structure of constants needed
         Returns:
             Layers : (array) density and temperature of the layer with each pressure step
-
-        Examples:
     """
 
+    Planet.Pb_MPa = getPfreeze(Planet.Tb_K, wo , Planet.Ocean.comp)
+    deltaP = Planet.Pb_MPa/(Planet.Steps.nClath + Planet.Steps.n_IceI - 1)
 
-    ''' for il=ii:(n_iceI(iT)+n_clath(iT)) % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
-            P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
-            T_K(iT,il) = (Planet.Tb_K(iT).^(P_MPa(iT,il)./Pb_MPa(iT))).*(Planet.Tsurf_K.^(1-P_MPa(iT,il)./Pb_MPa(iT)));
-            rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1); % I THINK THIS CALL CAN ACCEPT A VECTOR
-            [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,il)) ; % I THINK THIS CALL CAN ACCEPT A VECTOR
+    if Planet.Steps.nClath is not None:
+        ii = Planet.Steps.nClath + 1
+    else:
+        ii = 2
 
-            %rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
-        end
+    for il = [ii :(Planet.Steps.n_IceI + Planet.Steps.nClath)]:  # propagate P,T,rho to the bottom of the ice
+        Planet.P_MPa(il) = Planet.P_MPa(il-1) + deltaP
+        Planet.T_K(il) = (Planet.Bulk.Tb_K**(Planet.P_MPa(il) / Planet.Pb_MPa) * (Planet.Bulk.Tsurf_K**(1-Planet.P_MPa(il) / Planet.Pb_MPa))
+        Planet.rho_kgm3(il) = getRhoIce(Planet.P_MPa(il), Planet.T_K(il), 1)
+        [Planet.Cp(il), Planet.alpha_perK(il)] = getCpIce(Planet.P_MPa(il), Planet.T_K(il), Planet.phase(il))
 
-
-        nIceIIILithosphere=0;
-        nIceVLithosphere=0;
-        PbI_MPa = Pb_MPa;
-    catch
-        disp('PlanetProfile failed to get Pb! Here''s why:')
-        disp(lasterr)
-        disp('Maybe it''s okay? If execution stopped, then probably not. Try looking where getPfreeze is called.')
-    '''
-
-
+    Planet.Steps.nIceIIILitho = 0
+    Planet.Steps.nIceVLitho = 0
+    #Planet.PbI_MPa = Planet.Pb_MPa
     return Planet
 
 
@@ -193,3 +190,64 @@ def IronCoreLayers(Planet):
 
     Planet.Steps.nTotal += Planet.Steps.nCore
     return Planet
+
+
+
+
+def getPfreeze(Planet):
+    """ Returns the pressure at which the ocean freezes based on temperature, salinity, and ocean composition
+
+        Args:
+            T_K (float) : temperature in Kelvin of the layer
+            w_o (float) : salinity in weight percent
+            Planet(object): instance of the Planet class
+        Returns:
+            Layers : (array) density and temperature of the layer with each pressure step
+
+        Examples:
+    """
+    if Planet.Ocean.comp == "MgSO4":
+        import sympy
+        Pfreeze_MPa = scipy.optimize.root_scalar(L_IceMgSO4, args=(Planet.P, Planet.T_K, Planet.Ocean.wOcean_ppt, 1), bracket=[0, 250],  method='bisect')
+        return Pfreeze_MPa
+
+
+    elif Planet.Ocean.comp == "Seawater":
+        Pfreeze_MPa = 0.1 * p_freezing(w_o, T_K)
+        return Pfreeze_MPa
+
+    elif Planet.Ocean.comp == "NaCl":
+        pass
+    elif Planet.Ocean.comp == "NH3":
+        pass
+#Note to self: Pfreeze is a case-by-case function, there are also PfreezeIII and PfreezeV in the MATLAB code currently
+
+
+'''
+def getIcePhaseMgSO4(P,T,w):
+
+    # phase = getIcePhaseMgSO4(P,T,w)
+    # P in MPa
+    # T in K
+    # w in Wt%
+    xH2O = 1 - 1  / (1 + (1 - 0.01 * w)  / (0.01.*w) * 120.3686 / 18.0142)
+
+dmu = deltaMuILiqMgSO4(P,T,xH2O);
+
+phase = find(dmu == min(dmu));
+
+if dmu(phase) > 0
+    phase = 0;
+end
+
+phase(phase==5) = 6;
+phase(phase==4) = 5;
+
+def deltaMuILiqMgSO4(P,T,x):
+R = 8.314;
+dmu = MuIceLiqH2O(P,T) - R./0.018.*T.*(activity(P,T,x,-1.8e6,150,1.45e-4,-12,246)*x);% this line contains the coefficients from Vance et al. 2014 for MgSO4
+
+function y = activity(P,T,x,w0,w1,w2,w3,To)
+R = 8.314./0.018;
+y = (((1-x).^2).*w0.*(1+w1.*tanh(w2.*P)).*(1+w3./(T-To)^2)./(R.*T));
+'''
