@@ -417,7 +417,7 @@ D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon
 
                     TbIII = Planet.Tb_K(iT)+1;
                     Pb_MPa(iT) = getPfreezeIII(TbIII,wo,Planet.Ocean.comp);% fix the thickness of the ice III layer based on T>Tb by 2K
-                    deltaP = (Pb_MPa(iT)-PbI_MPanIceIIILithosphere);  %  five entries at the bottom for ice III
+                    deltaP = (Pb_MPa(iT)-PbI_MPa)/nIceIIILithosphere;  %  five entries at the bottom for ice III
                     for il = (n_clath(iT)+n_iceI(iT))-nIceIIILithosphere+1:(n_iceI(iT)+n_clath(iT))
                         P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
                         T_K(iT,il) = (TbIII.^(P_MPa(iT,il)./Pb_MPa(iT))).*(TbIII(iT).^(1-P_MPa(iT,il)./Pb_MPa(iT)));
