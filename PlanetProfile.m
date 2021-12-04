@@ -43,6 +43,11 @@ if isfield(Params,'TauP')
     end
 end
         
+if strcmp(Planet.Ocean.comp,'Seawater')
+    wtPpt = Planet.Ocean.w_ocean_pct; % We are already using ppt for Seawater even though the variable is called WtPct
+else
+    wtPpt = 10*Planet.Ocean.w_ocean_pct;
+end
        
     %% steve to clean this up by calling Params.cfg
 Params.NOPLOTS = cfg.NO_PLOTS;
@@ -52,10 +57,6 @@ Params.CALC_NEW_SOUNDSPEEDS = cfg.CALC_NEW_SOUND;
 Params.INCLUDE_ELECTRICAL_CONDUCTIVITY = cfg.CONDUCT;
 Params.HOLD = cfg.HOLD;
 Params.savefigformat = cfg.fig_fmt;
-
-%% deprecate this!!! steve to remove instances of iT below so additional temperatures will be separate PlanetProfile calls
-% Find out how many profiles we will compare
-nTbs = length(Planet.Tb_K); 
 
 %% Check for porosity so we know if we will need those plots --> to be moved somewhere more sensible -- make part of CheckFields function, or in python create a class Planet that creates all the fields
 POROUS = isfield(Planet,'POROUS_ROCK') && Planet.POROUS_ROCK;
@@ -222,7 +223,7 @@ if ~isfield(Planet,'NoH2O') % backward compatibility--haven't finished implement
 end
 
 %SetupClathrates
-[n_clath, n_iceI, n_ocean] = deal(zeros(1,nTbs));
+[n_clath, n_iceI, n_ocean] = deal(zeros(1));
 if isfield(Planet,'Clathrate')
 disp('Running with clathrate parameters')
 if isfield(Params,'Clathrate_set_depth') % checks if clathrates have set depth
@@ -247,17 +248,17 @@ nsteps = Params.nsteps_iceI + Params.nsteps_ocean + Params.nsteps_clath;
 % MJS 2021-10-28: This got moved up from below where saving/reloading a la
 % CALC_NEW was done. We needed to do a bit more calculations before making
 % the save files.
-[z_m,r_m,g_ms2,M_above_kg,M_below_kg] = deal(zeros(nTbs,nsteps));
-M_above_kg(:,1) = 0;
-M_below_kg(:,1) = Planet.M_kg;
-r_m(:,1) = Planet.R_m;
-g_ms2(1:nTbs,1) = Gg*Planet.M_kg/Planet.R_m^2;
+[z_m,r_m,g_ms2,M_above_kg,M_below_kg] = deal(zeros(1,nsteps));
+M_above_kg(1) = 0;
+M_below_kg(1) = Planet.M_kg;
+r_m(1) = Planet.R_m;
+g_ms2(1) = Gg*Planet.M_kg/Planet.R_m^2;
 D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon 2006 uses a value of 621 from Slack 1980)
 
-[Planet.Profile_fname, Planet.Profile_ID] = deal(strings(1,nTbs));
+[Planet.Profile_fname, Planet.Profile_ID] = deal(strings(1));
 
 % Preallocate for ConvectionDeschampsSotin
-[Q_Wm2,deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I,Qb,Planet.zb_outerIce_m] = deal(zeros(1,nTbs));
+[Q_Wm2,deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I,Qb,Planet.zb_outerIce_m] = deal(zeros(1));
 
 
 %%
@@ -268,695 +269,683 @@ D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon
 
 %%      
 
-        [T_K,P_MPa,rho_kgm3] = deal(zeros(nTbs,nsteps));
+        [T_K,P_MPa,rho_kgm3] = deal(zeros(1,nsteps));
 
-        phase = zeros(nTbs,nsteps);
+        phase = zeros(1,nsteps);
         % assign phase based on clathrates or Ih
-        phase(:,(1+Params.nsteps_clath):(Params.nsteps_clath+Params.nsteps_iceI))=1;
-        phase(:,1:Params.nsteps_clath)=30; % index to indicate clathrates, which are not an ice phase
+        phase((1+Params.nsteps_clath):(Params.nsteps_clath+Params.nsteps_iceI))=1;
+        phase(1:Params.nsteps_clath)=30; % index to indicate clathrates, which are not an ice phase
         Tb_K = Planet.Tb_K;
-
-        %preallocate. Required to test for max clathrate depth
-        z_m = zeros(nTbs,nsteps);
-        g_ms2 = z_m;
-        [M_above_kg,M_below_kg] = deal(rho_kgm3); % mass above and below the silicate interface
-        M_above_kg(:,1) = 0;
-        M_below_kg(:,1) = Planet.M_kg;
-        [z_m,r_m] = deal(zeros(nTbs,nsteps));
-        r_m(:,1) = Planet.R_m;
-        g_ms2(1:nTbs,1) = Gg*Planet.M_kg/Planet.R_m^2;
     
 
         %% IceLayers --- function iteratively setting up the thermal profile, the density and temperature of the layer with each pressure step
         %ice Ih, ice III, ice V
         %--------------------------------------------------------------------------
-        for iT = 1:nTbs %draw thermal profiles corresponding to the different choices of temperature at the bottom of the Ice I shell
-            
-            T_K(iT,1) = Planet.Tsurf_K;
-            P_MPa(iT,1) = Planet.Psurf_MPa;
-            % if ice shell had to be thinned in previous run, this will
-            % reset indexing correctly. Set starting values:
-            n_iceI(iT) = Params.nsteps_iceI; % these are redundant. just change text below to use Params.n...
-            n_clath(iT) = Params.nsteps_clath;
-            n_ocean(iT) = Params.nsteps_ocean; % 
 
-            if n_clath(iT)>0
-                clath_out{iT,1} = Helgerud_sI(P_MPa(iT,1),T_K(iT,1));
-                rho_kgm3(iT,1)=clath_out{iT,1}.rho;
-                [Cp(iT,1) alpha_K(iT,1)]= getCpIce(P_MPa(iT,1),T_K(iT,1),phase(iT,1)) ;
+        T_K(1) = Planet.Tsurf_K;
+        P_MPa(1) = Planet.Psurf_MPa;
+        % if ice shell had to be thinned in previous run, this will
+        % reset indexing correctly. Set starting values:
+        n_iceI = Params.nsteps_iceI; % these are redundant. just change text below to use Params.n...
+        n_clath = Params.nsteps_clath;
+        n_ocean = Params.nsteps_ocean; % 
+
+        if n_clath>0
+            clath_out{1} = Helgerud_sI(P_MPa(1),T_K(1));
+            rho_kgm3(1)=clath_out{1}.rho;
+            [Cp(1) alpha_K(1)]= getCpIce(P_MPa(1),T_K(1),phase(1)) ;
+        else
+            rho_kgm3(1) = getRhoIce(P_MPa(1),T_K(1),1);
+            [Cp(1) alpha_K(1)]= getCpIce(P_MPa(1),T_K(1),phase(1)) ;
+        end
+        try
+            Pb_MPa = getPfreeze(Planet.Tb_K,wo,Planet.Ocean.comp);
+            %[Cp(1) alpha_K(1)]= getCpIce(P_MPa(1),T_K(1),phase(1)) ;
+
+
+            deltaP = Pb_MPa/(n_clath+n_iceI-1);
+            % assumes Pressure gradient doesnt change betweeen clathrates
+            % and need to check assumption
+            % if n_clath == 0 this will skip and move on to next section
+            %% ClathrateLayer function within IceLayers
+            for il=2:n_clath % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
+                P_MPa(il) = P_MPa(il-1) + deltaP;
+                T_K(il) = (Planet.Tb_K.^(P_MPa(il)./Pb_MPa)).*(Planet.Tsurf_K.^(1-P_MPa(il)./Pb_MPa));
+                clath_out{il} = Helgerud_sI(P_MPa(il),T_K(il));
+
+                rho_kgm3(il)=clath_out{il}.rho;
+                [Cp(il) alpha_K(il)]= getCpIce(P_MPa(il),T_K(il),phase(il)) ;
+
+                z_m(il) = z_m(il-1)+ (P_MPa(il)-P_MPa(il-1))*1e6/g_ms2(il-1)/rho_kgm3(il-1);
+                r_m(il) = Planet.R_m-z_m(il);
+
+                % determine local gravity and check to make sure maximum
+                % clathrate depth isn't reached
+                M_below_kg(il) = M_above_kg(il-1) + 4/3*pi*(r_m(il-1)^3-r_m(il)^3)*rho_kgm3(il);
+                M_below_kg(il) = Planet.M_kg-M_above_kg(il);
+                g_ms2(il) = Gg*M_below_kg(il)/r_m(il)^2;
+                if z_m(il)>max_clath_depth % check to see if maximum depth of clathrates reached
+                    n_iceI=n_iceI+(n_clath-il)+1;
+                    n_clath=il-1;
+                    phase(:,(1+n_clath):(n_clath+n_iceI))=1;
+                    break
+                end
+                %rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),1);
+            end % end ClathrateLayer
+            if n_clath>0
+               ii=n_clath+1;
             else
-                rho_kgm3(iT,1) = getRhoIce(P_MPa(iT,1),T_K(iT,1),1);
-                [Cp(iT,1) alpha_K(iT,1)]= getCpIce(P_MPa(iT,1),T_K(iT,1),phase(iT,1)) ;
+                ii=2;
             end
-            try
-                Pb_MPa(iT) = getPfreeze(Planet.Tb_K(iT),wo,Planet.Ocean.comp);
-                %[Cp(iT,1) alpha_K(iT,1)]= getCpIce(P_MPa(iT,1),T_K(iT,1),phase(iT,1)) ;
+
+            %% IceILayer
+            for il=ii:(n_iceI+n_clath) % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
+                P_MPa(il) = P_MPa(il-1) + deltaP;
+                T_K(il) = (Planet.Tb_K.^(P_MPa(il)./Pb_MPa)).*(Planet.Tsurf_K.^(1-P_MPa(il)./Pb_MPa));
+                rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),1); % I THINK THIS CALL CAN ACCEPT A VECTOR
+                [Cp(il) alpha_K(il)]= getCpIce(P_MPa(il),T_K(il),phase(il)) ; % I THINK THIS CALL CAN ACCEPT A VECTOR
+
+                %rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),1);
+            end
 
 
-                deltaP = Pb_MPa(iT)/(n_clath(iT)+n_iceI(iT)-1);
-                % assumes Pressure gradient doesnt change betweeen clathrates
-                % and need to check assumption
-                % if n_clath == 0 this will skip and move on to next section
-                %% ClathrateLayer function within IceLayers
-                for il=2:n_clath(iT) % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
-                    P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
-                    T_K(iT,il) = (Planet.Tb_K(iT).^(P_MPa(iT,il)./Pb_MPa(iT))).*(Planet.Tsurf_K.^(1-P_MPa(iT,il)./Pb_MPa(iT)));
-                    clath_out{iT,il} = Helgerud_sI(P_MPa(iT,il),T_K(iT,il));
+            nIceIIILithosphere=0; 
+            nIceVLithosphere=0; 
+            PbI_MPa = Pb_MPa;
+        catch
+            disp('PlanetProfile failed to get Pb! Here''s why:')
+            disp(lasterr)
+            disp('Maybe it''s okay? If execution stopped, then probably not. Try looking where getPfreeze is called.')
 
-                    rho_kgm3(iT,il)=clath_out{iT,il}.rho;
-                    [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,il)) ;
+            %% IceIIIUnderplateLayer
+            if isfield(Params,'BOTTOM_ICEIII') && Params.BOTTOM_ICEIII % this will elicit an error if one has set the temperature too low but one hasn't specified ice III or V under the ice I
+                disp('Adding ice III to the bottom of ice Ih. Make sure the ocean salinity is high enough that doing this makes sense')
+                nIceIIILithosphere=5;
+                phase((n_iceI+n_clath)-nIceIIILithosphere:(n_iceI+n_clath))=3;
 
-                    z_m(iT,il) = z_m(iT,il-1)+ (P_MPa(iT,il)-P_MPa(iT,il-1))*1e6/g_ms2(iT,il-1)/rho_kgm3(iT,il-1);
-                    r_m(iT,il) = Planet.R_m-z_m(iT,il);
+                PbI_MPa = 210; % the Ih-III transition is essentially fixed, within a few MPa
+                deltaP = PbI_MPa/((n_iceI+n_clath)-5-1);  % save five entries at the bottom for ice III
 
-                    % determine local gravity and check to make sure maximum
-                    % clathrate depth isn't reached
-                    M_below_kg(iT,il) = M_above_kg(iT,il-1) + 4/3*pi*(r_m(iT,il-1)^3-r_m(iT,il)^3)*rho_kgm3(iT,il);
-                    M_below_kg(iT,il) = Planet.M_kg-M_above_kg(iT,il);
-                    g_ms2(iT,il) = Gg*M_below_kg(iT,il)/r_m(iT,il)^2;
-                    if z_m(iT,il)>max_clath_depth % check to see if maximum depth of clathrates reached
-                        n_iceI(iT)=n_iceI(iT)+(n_clath(iT)-il)+1;
-                        n_clath(iT)=il-1;
-                        phase(:,(1+n_clath(iT)):(n_clath(iT)+n_iceI(iT)))=1;
-                        break
-                    end
-                    %rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
-                end % end ClathrateLayer
-                if n_clath(iT)>0
-                   ii=n_clath(iT)+1;
+                for il=2:n_clath % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
+                P_MPa(il) = P_MPa(il-1) + deltaP;
+                T_K(il) = (Planet.Tb_K.^(P_MPa(il)./Pb_MPa)).*(Planet.Tsurf_K.^(1-P_MPa(il)./Pb_MPa));
+                clath_out{il} = Helgerud_sI(P_MPa(il),T_K(il));
+
+                rho_kgm3(il)=clath_out{il}.rho;
+                 z_m(il) = z_m(il-1)+ (P_MPa(il)-P_MPa(il-1))*1e6/g_ms2(il-1)/rho_kgm3(il-1);
+                 r_m(il) = Planet.R_m-z_m(il);
+                 [Cp(il) alpha_K(il)]= getCpIce(P_MPa(il),T_K(il),phase(il))
+
+                 % determine local gravity
+                 M_above_kg(il) = M_above_kg(il-1) + 4/3*pi*(r_m(il-1)^3-r_m(il)^3)*rho_kgm3(il);
+                 M_below_kg(il) = Planet.M_kg-M_above_kg(il);
+                 g_ms2(il) = Gg*M_below_kg(il)/r_m(il)^2;
+                 if z_m(il)>max_clath_depth % check to see if maximum depth of clathrates reached
+                    n_iceI=n_iceI+(n_clath-il)+1;
+                    n_clath=il-1;
+                    phase(:,(1+n_clath):(n_clath+n_iceI))=1;
+                    break
+                 end 
+
+                %rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),1);
+                end
+                if n_clath>0
+                    ii=n_clath+1;
                 else
                     ii=2;
                 end
-                
-                %% IceILayer
-                for il=ii:(n_iceI(iT)+n_clath(iT)) % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
-                    P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
-                    T_K(iT,il) = (Planet.Tb_K(iT).^(P_MPa(iT,il)./Pb_MPa(iT))).*(Planet.Tsurf_K.^(1-P_MPa(iT,il)./Pb_MPa(iT)));
-                    rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1); % I THINK THIS CALL CAN ACCEPT A VECTOR
-                    [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,il)) ; % I THINK THIS CALL CAN ACCEPT A VECTOR
 
-                    %rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
+                for il=ii:(n_iceI+n_clath)-nIceIIILithosphere % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
+                   P_MPa(il) = P_MPa(il-1) + deltaP;
+                 T_K(il) = (Planet.Tb_K.^(P_MPa(il)./Pb_MPa)).*(Planet.Tsurf_K.^(1-P_MPa(il)./Pb_MPa));
+                    rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),1);
+                    [Cp(il) alpha_K(il)]= getCpIce(P_MPa(il),T_K(il),phase(il)) ;
+
+                %rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),1);
                 end
 
 
-                nIceIIILithosphere=0; 
-                nIceVLithosphere=0; 
-                PbI_MPa = Pb_MPa;
-            catch
-                disp('PlanetProfile failed to get Pb! Here''s why:')
-                disp(lasterr)
-                disp('Maybe it''s okay? If execution stopped, then probably not. Try looking where getPfreeze is called.')
+                TbIII = Planet.Tb_K+1;
+                Pb_MPa = getPfreezeIII(TbIII,wo,Planet.Ocean.comp);% fix the thickness of the ice III layer based on T>Tb by 2K
+                deltaP = (Pb_MPa-PbI_MPa)/nIceIIILithosphere;  %  five entries at the bottom for ice III
+                for il = (n_clath+n_iceI)-nIceIIILithosphere+1:(n_iceI+n_clath)
+                    P_MPa(il) = P_MPa(il-1) + deltaP;
+                    T_K(il) = (TbIII.^(P_MPa(il)./Pb_MPa)).*(TbIII.^(1-P_MPa(il)./Pb_MPa));
+                    rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),3);
+                    [Cp(il) alpha_K(il)]= getCpIce(P_MPa(il),T_K(il),3) ;
+                end
 
-                %% IceIIIUnderplateLayer
-                if isfield(Params,'BOTTOM_ICEIII') && Params.BOTTOM_ICEIII % this will elicit an error if one has set the temperature too low but one hasn't specified ice III or V under the ice I
-                    disp('Adding ice III to the bottom of ice Ih. Make sure the ocean salinity is high enough that doing this makes sense')
-                    nIceIIILithosphere=5;
-                    phase(iT,(n_iceI(iT)+n_clath(iT))-nIceIIILithosphere:(n_iceI(iT)+n_clath(iT)))=3;
+            elseif isfield(Params,'BOTTOM_ICEV') && Params.BOTTOM_ICEV
+                disp('Adding ice V and III to the bottom of ice Ih. Make sure the ocean salinity is high enough that doing this makes sense')
+                nIceIIILithosphere=5;
+                nIceVLithosphere=5;
+                phase(n_iceI-nIceVLithosphere-nIceIIILithosphere:n_iceI-nIceVLithosphere)=3;
+                phase(n_iceI-nIceVLithosphere:n_iceI)=5;
 
-                    PbI_MPa(iT) = 210; % the Ih-III transition is essentially fixed, within a few MPa
-                    deltaP = PbI_MPa(iT)/((n_iceI(iT)+n_clath(iT))-5-1);  % save five entries at the bottom for ice III
+                PbI_MPa = 210; % the Ih-V transition is essentially fixed, within a few MPa
+                deltaP = PbI_MPa/((n_iceI+n_clath)-5-1);  % save five entries at the bottom for ice V
 
-                    for il=2:n_clath(iT) % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
-                    P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
-                    T_K(iT,il) = (Planet.Tb_K(iT).^(P_MPa(iT,il)./Pb_MPa(iT))).*(Planet.Tsurf_K.^(1-P_MPa(iT,il)./Pb_MPa(iT)));
-                    clath_out{iT,il} = Helgerud_sI(P_MPa(iT,il),T_K(iT,il));
+                %clathrates
+                for il=2:n_clath % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
+                      P_MPa(il) = P_MPa(il-1) + deltaP;
+                      T_K(il) = (Planet.Tb_K.^(P_MPa(il)./Pb_MPa)).*(Planet.Tsurf_K.^(1-P_MPa(il)./Pb_MPa));
+                      clath_out{il} = Helgerud_sI(P_MPa(il),T_K(il));
 
-                    rho_kgm3(iT,il)=clath_out{iT,il}.rho;
-                     z_m(iT,il) = z_m(iT,il-1)+ (P_MPa(iT,il)-P_MPa(iT,il-1))*1e6/g_ms2(iT,il-1)/rho_kgm3(iT,il-1);
-                     r_m(iT,il) = Planet.R_m-z_m(iT,il);
-                     [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,il))
+                      rho_kgm3(il)=clath_out{il}.rho;
+                      [Cp(il) alpha_K(il)]= getCpIce(P_MPa(il),T_K(il),phase(il))
+                      z_m(il) = z_m(il-1)+ (P_MPa(il)-P_MPa(il-1))*1e6/g_ms2(il-1)/rho_kgm3(il-1);
+                      r_m(il) = Planet.R_m-z_m(il);
 
-                     % determine local gravity
-                     M_above_kg(iT,il) = M_above_kg(iT,il-1) + 4/3*pi*(r_m(iT,il-1)^3-r_m(iT,il)^3)*rho_kgm3(iT,il);
-                     M_below_kg(iT,il) = Planet.M_kg-M_above_kg(iT,il);
-                     g_ms2(iT,il) = Gg*M_below_kg(iT,il)/r_m(iT,il)^2;
-                     if z_m(iT,il)>max_clath_depth % check to see if maximum depth of clathrates reached
-                        n_iceI(iT)=n_iceI(iT)+(n_clath(iT)-il)+1;
-                        n_clath(iT)=il-1;
-                        phase(:,(1+n_clath(iT)):(n_clath(iT)+n_iceI(iT)))=1;
-                        break
-                     end 
-
-                    %rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
-                    end
-                    if n_clath(iT)>0
-                        ii=n_clath(iT)+1;
-                    else
-                        ii=2;
+                      % determine local gravity
+                      M_above_kg(il) = M_above_kg(il-1) + 4/3*pi*(r_m(il-1)^3-r_m(il)^3)*rho_kgm3(il);
+                      M_below_kg(il) = Planet.M_kg-M_above_kg(il);
+                      g_ms2(il) = Gg*M_below_kg(il)/r_m(il)^2;
+                      if z_m(il)>max_clath_depth % check to see if maximum depth of clathrates reached
+                          n_iceI=n_iceI+(n_clath-il)+1;
+                          n_clath=il-1;
+                          phase(:,(1+n_clath):(n_clath+n_iceI))=1;
+                          break
                     end
 
-                    for il=ii:(n_iceI(iT)+n_clath(iT))-nIceIIILithosphere % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
-                       P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
-                     T_K(iT,il) = (Planet.Tb_K(iT).^(P_MPa(iT,il)./Pb_MPa(iT))).*(Planet.Tsurf_K.^(1-P_MPa(iT,il)./Pb_MPa(iT)));
-                        rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
-                        [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,il)) ;
-
-                    %rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
-                    end
-
-
-                    TbIII = Planet.Tb_K(iT)+1;
-                    Pb_MPa(iT) = getPfreezeIII(TbIII,wo,Planet.Ocean.comp);% fix the thickness of the ice III layer based on T>Tb by 2K
-                    deltaP = (Pb_MPa(iT)-PbI_MPa)/nIceIIILithosphere;  %  five entries at the bottom for ice III
-                    for il = (n_clath(iT)+n_iceI(iT))-nIceIIILithosphere+1:(n_iceI(iT)+n_clath(iT))
-                        P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
-                        T_K(iT,il) = (TbIII.^(P_MPa(iT,il)./Pb_MPa(iT))).*(TbIII(iT).^(1-P_MPa(iT,il)./Pb_MPa(iT)));
-                        rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),3);
-                        [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),3) ;
-                    end
-
-                elseif isfield(Params,'BOTTOM_ICEV') && Params.BOTTOM_ICEV
-                    disp('Adding ice V and III to the bottom of ice Ih. Make sure the ocean salinity is high enough that doing this makes sense')
-                    nIceIIILithosphere=5;
-                    nIceVLithosphere=5;
-                    phase(iT,n_iceI(iT)-nIceVLithosphere-nIceIIILithosphere:n_iceI(iT)-nIceVLithosphere)=3;
-                    phase(iT,n_iceI(iT)-nIceVLithosphere:n_iceI(iT))=5;
-
-                    PbI_MPa(iT) = 210; % the Ih-V transition is essentially fixed, within a few MPa
-                    deltaP = PbI_MPa(iT)/((n_iceI(iT)+n_clath(iT))-5-1);  % save five entries at the bottom for ice V
-
-                    %clathrates
-                    for il=2:n_clath(iT) % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
-                          P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
-                          T_K(iT,il) = (Planet.Tb_K(iT).^(P_MPa(iT,il)./Pb_MPa(iT))).*(Planet.Tsurf_K.^(1-P_MPa(iT,il)./Pb_MPa(iT)));
-                          clath_out{iT,il} = Helgerud_sI(P_MPa(iT,il),T_K(iT,il));
-
-                          rho_kgm3(iT,il)=clath_out{iT,il}.rho;
-                          [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,il))
-                          z_m(iT,il) = z_m(iT,il-1)+ (P_MPa(iT,il)-P_MPa(iT,il-1))*1e6/g_ms2(iT,il-1)/rho_kgm3(iT,il-1);
-                          r_m(iT,il) = Planet.R_m-z_m(iT,il);
-
-                          % determine local gravity
-                          M_above_kg(iT,il) = M_above_kg(iT,il-1) + 4/3*pi*(r_m(iT,il-1)^3-r_m(iT,il)^3)*rho_kgm3(iT,il);
-                          M_below_kg(iT,il) = Planet.M_kg-M_above_kg(iT,il);
-                          g_ms2(iT,il) = Gg*M_below_kg(iT,il)/r_m(iT,il)^2;
-                          if z_m(iT,il)>max_clath_depth % check to see if maximum depth of clathrates reached
-                              n_iceI(iT)=n_iceI(iT)+(n_clath(iT)-il)+1;
-                              n_clath(iT)=il-1;
-                              phase(:,(1+n_clath(iT)):(n_clath(iT)+n_iceI(iT)))=1;
-                              break
-                        end
-
-                        %rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
-                    end
-                    if n_clath(iT)>0
-                        ii=n_clath(iT)+1;
-                    else
-                        ii=2;
-                    end
-                    
-                    %ice Ih
-                    % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
-                    for il=ii:(n_iceI(iT)+n_clath(iT))-nIceVLithosphere % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
-                        P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
-                        T_K(iT,il) = (Planet.Tb_K(iT).^(P_MPa(iT,il)./Pb_MPa(iT))).*(Planet.Tsurf_K.^(1-P_MPa(iT,il)./Pb_MPa(iT)));
-                        rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),phase(iT,ill));
-                        [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,ill)) ;
-                        %rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),1);
-                    end
-                    
-                    %ice III
-                    TbIII = Planet.Tb_K(iT)+1;
-                    Pb_MPa(iT) = getPfreezeIII(TbIII,wo,Planet.Ocean.comp);% fix the thickness of the ice III layer based on T>Tb by 2K
-                    deltaP = (Pb_MPa(iT)-PbI_MPa)/(nIceIIILithosphere);  %  five entries at the bottom for ice III
-                    for il = (n_iceI(iT)+n_clath(iT))-nIceIIILithosphere+1:(n_iceI(iT)+n_clath(iT))
-                        P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
-                        T_K(iT,il) = (TbIII.^(P_MPa(iT,il)./Pb_MPa(iT))).*(TbIII(iT).^(1-P_MPa(iT,il)./Pb_MPa(iT)));
-                        rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),3);
-                        [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),3) ;
-                    end
-
-                    %ice V
-                    TbV = Planet.Tb_K(iT)+1;
-                    Pb_MPa(iT) = getPfreezeV(TbV,wo,Planet.Ocean.comp);% fix the thickness of the ice V layer based on T>Tb by 2K
-                    deltaP = (Pb_MPa(iT)-PbI_MPa)/(nIceVLithosphere);  %  five entries at the bottom for ice V
-                    for il = (n_iceI(iT)+n_clath(iT))-nIceVLithosphere+1:(n_iceI(iT)+n_clath(iT))
-                        P_MPa(iT,il) = P_MPa(iT,il-1) + deltaP;
-                        T_K(iT,il) = (TbV.^(P_MPa(iT,il)./Pb_MPa(iT))).*(TbV(iT).^(1-P_MPa(iT,il)./Pb_MPa(iT)));
-                        rho_kgm3(iT,il) = getRhoIce(P_MPa(iT,il),T_K(iT,il),3);
-                        [Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),3) ;
-                    end
-
-                    %adjusts for surface porosity if set
-                    if POROUS_ICE % Steve to ask Angela if this is actually being used.
-                        % correction for porosity
-                        por_in(iT).p=P_MPa(iT,1:il)*1e-3;
-                        por_in(iT).t = T_K(iT,1:il);
-                        por_in(iT).den = rho_kgm3(iT,1:il);
-                        %por_in(iT).vp = velsIce.Vclathl_kms(iT,:);
-                        %por_in(iT).vs = velsIce.Vclatht_kms(iT,:);
-                        if isfield(Planet,'phi_surface')
-                            por_out(iT) = get_porosity_ice(por_in(iT),Planet.phi_surface);
-                        else
-                            por_out(iT) =get_porosity_ice(por_in(iT));
-                        end
-                        %permeability = por_out(iT).per;
-                        %ice_ind=find(phase(iT,:)==30);
-                        rho_kgm3(iT,1:il) = por_out(iT).den;
-                        por(iT,1:il)=por_out(iT).por;
-                        %velsIce.Vclathl_kms(iT,:) = por_out(iT).vp;
-                        %velsIce.Vclatht_kms(iT,:) = por_out(iT).vs;
-
-                        disp(['Average Porosity: ' num2str(mean(por_out(iT).por))])
-                        disp(['Porosity: ' num2str(por_out(iT).por)])
-                    end
-                end % end IceIIIUnderplateLayer
-            end
-
-                %% OceanLayer
-            %OCEAN + ICE III/V/VI SHELL
-            %--------------------------------------------------------------------------
-            deltaP = (Params.Pseafloor_MPa-Pb_MPa(iT))/n_ocean(iT); %
-            if deltaP<=0 % prevent an embarassing error that can occur when adapting a file for a small object to that of a larger one.
-                error('negative increment of pressure while computing ocean profile. Be sure Params.Pseafloor_MPa is greater than the likely pressure at the silicate interface. Currently it''s less than the pressure at the base of the ice I layer.')
-            end
-            for il =1:n_ocean(iT)
-                ill = il+n_iceI(iT)+n_clath(iT);
-                disp(['iT: ' num2str(iT) '; il: ' num2str(il) '; P_MPa: ' num2str(round(P_MPa(iT,ill-1))) '; T_K: ' num2str(round(T_K(iT,ill-1)))]);
-                P_MPa(iT,ill) = Pb_MPa(iT) + il*deltaP;
-
-                if il==1 % establish the phase vector
-                    phase(iT,ill) = getIcePhase(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
-                elseif phase(iT,ill-1)~=6
-                    phase(iT,ill) = getIcePhase(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
-                    if phase(iT,ill-1)==3 && phase(iT,ill)==0 % fix to instabilities in the phase lookup for ice III
-                        disp('Fixing apparent instability in the EOS?ice III is forming above the ocean where it wasn''t specified')
-                        phase(iT,ill)=3;
-                    end
-                    if phase(iT,ill-1)==0 && phase(iT,ill)==1 % fix to instabilities in the phase lookup for ice I
-                        disp('Fixing apparent instability in the EOS?ice Ih is forming under the ocean')
-                        phase(iT,ill)=0;
-                    end
-                    if phase(iT,ill-1)==5 && phase(iT,ill)==0 % fix to instabilities in the phase lookup for ice V for Titan NH3 LBF svance Jul 6 2021
-                        disp('Fixing apparent instability in the EOS? fluid is forming under ice V')
-                        phase(iT,ill)=5;
-                    end
+                    %rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),1);
+                end
+                if n_clath>0
+                    ii=n_clath+1;
                 else
-                    phase(iT,ill) = 6;
+                    ii=2;
                 end
 
-                if phase(iT,ill) == 0 %if ocean
-                    [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
-                    % Forbidding MgSO4 in the check below avoids a problem in
-                    % application of the EOS for low-salinity MgSO4 oceans.
-                    % Negative thermal expansivity regions in the MgSO4 EOS may be
-                    % artifacts of the current EOS calculation. See Vance et al. 2014
-                    if alpha_o<=0 && ~strcmp(Planet.Ocean.comp,'MgSO4') && ~Planet.ALLOW_NEGALPHA
+                %ice Ih
+                % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
+                for il=ii:(n_iceI+n_clath)-nIceVLithosphere % propagate P,T,rho to the bottom of the ice % THIS CAN BE COMPUTED AS A VECTOR INSTEAD.
+                    P_MPa(il) = P_MPa(il-1) + deltaP;
+                    T_K(il) = (Planet.Tb_K.^(P_MPa(il)./Pb_MPa)).*(Planet.Tsurf_K.^(1-P_MPa(il)./Pb_MPa));
+                    rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),phase(ill));
+                    [Cp(il) alpha_K(il)]= getCpIce(P_MPa(il),T_K(il),phase(ill)) ;
+                    %rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),1);
+                end
+
+                %ice III
+                TbIII = Planet.Tb_K+1;
+                Pb_MPa = getPfreezeIII(TbIII,wo,Planet.Ocean.comp);% fix the thickness of the ice III layer based on T>Tb by 2K
+                deltaP = (Pb_MPa-PbI_MPa)/(nIceIIILithosphere);  %  five entries at the bottom for ice III
+                for il = (n_iceI+n_clath)-nIceIIILithosphere+1:(n_iceI+n_clath)
+                    P_MPa(il) = P_MPa(il-1) + deltaP;
+                    T_K(il) = (TbIII.^(P_MPa(il)./Pb_MPa)).*(TbIII.^(1-P_MPa(il)./Pb_MPa));
+                    rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),3);
+                    [Cp(il) alpha_K(il)]= getCpIce(P_MPa(il),T_K(il),3) ;
+                end
+
+                %ice V
+                TbV = Planet.Tb_K+1;
+                Pb_MPa = getPfreezeV(TbV,wo,Planet.Ocean.comp);% fix the thickness of the ice V layer based on T>Tb by 2K
+                deltaP = (Pb_MPa-PbI_MPa)/(nIceVLithosphere);  %  five entries at the bottom for ice V
+                for il = (n_iceI+n_clath)-nIceVLithosphere+1:(n_iceI+n_clath)
+                    P_MPa(il) = P_MPa(il-1) + deltaP;
+                    T_K(il) = (TbV.^(P_MPa(il)./Pb_MPa)).*(TbV.^(1-P_MPa(il)./Pb_MPa));
+                    rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),3);
+                    [Cp(il) alpha_K(il)]= getCpIce(P_MPa(il),T_K(il),3) ;
+                end
+
+                %adjusts for surface porosity if set
+                if POROUS_ICE % Steve to ask Angela if this is actually being used.
+                    % correction for porosity
+                    por_in.p=P_MPa(1:il)*1e-3;
+                    por_in.t = T_K(1:il);
+                    por_in.den = rho_kgm3(1:il);
+                    %por_in.vp = velsIce.Vclathl_kms;
+                    %por_in.vs = velsIce.Vclatht_kms;
+                    if isfield(Planet,'phi_surface')
+                        por_out = get_porosity_ice(por_in,Planet.phi_surface);
+                    else
+                        por_out =get_porosity_ice(por_in);
+                    end
+                    %permeability = por_out.per;
+                    %ice_ind=find(phase==30);
+                    rho_kgm3(1:il) = por_out.den;
+                    por(1:il)=por_out.por;
+                    %velsIce.Vclathl_kms = por_out.vp;
+                    %velsIce.Vclatht_kms = por_out.vs;
+
+                    disp(['Average Porosity: ' num2str(mean(por_out.por))])
+                    disp(['Porosity: ' num2str(por_out.por)])
+                end
+            end % end IceIIIUnderplateLayer
+        end
+
+            %% OceanLayer
+        %OCEAN + ICE III/V/VI SHELL
+        %--------------------------------------------------------------------------
+        deltaP = (Params.Pseafloor_MPa-Pb_MPa)/n_ocean; %
+        if deltaP<=0 % prevent an embarassing error that can occur when adapting a file for a small object to that of a larger one.
+            error('negative increment of pressure while computing ocean profile. Be sure Params.Pseafloor_MPa is greater than the likely pressure at the silicate interface. Currently it''s less than the pressure at the base of the ice I layer.')
+        end
+        for il =1:n_ocean
+            ill = il+n_iceI+n_clath;
+            disp(['il: ' num2str(il) '; P_MPa: ' num2str(round(P_MPa(ill-1))) '; T_K: ' num2str(round(T_K(ill-1)))]);
+            P_MPa(ill) = Pb_MPa + il*deltaP;
+
+            if il==1 % establish the phase vector
+                phase(ill) = getIcePhase(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
+            elseif phase(ill-1)~=6
+                phase(ill) = getIcePhase(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
+                if phase(ill-1)==3 && phase(ill)==0 % fix to instabilities in the phase lookup for ice III
+                    disp('Fixing apparent instability in the EOS?ice III is forming above the ocean where it wasn''t specified')
+                    phase(ill)=3;
+                end
+                if phase(ill-1)==0 && phase(ill)==1 % fix to instabilities in the phase lookup for ice I
+                    disp('Fixing apparent instability in the EOS?ice Ih is forming under the ocean')
+                    phase(ill)=0;
+                end
+                if phase(ill-1)==5 && phase(ill)==0 % fix to instabilities in the phase lookup for ice V for Titan NH3 LBF svance Jul 6 2021
+                    disp('Fixing apparent instability in the EOS? fluid is forming under ice V')
+                    phase(ill)=5;
+                end
+            else
+                phase(ill) = 6;
+            end
+
+            if phase(ill) == 0 %if ocean
+                [rho_ocean,Cp(ill),alpha_o]= fluidEOS(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);
+                % Forbidding MgSO4 in the check below avoids a problem in
+                % application of the EOS for low-salinity MgSO4 oceans.
+                % Negative thermal expansivity regions in the MgSO4 EOS may be
+                % artifacts of the current EOS calculation. See Vance et al. 2014
+                if alpha_o<=0 && ~strcmp(Planet.Ocean.comp,'MgSO4') && ~Planet.ALLOW_NEGALPHA
+                    disp('Ocean alpha at ice interface is less than zero. adjusting temperature upward.')
+                    disp('This means there''s a conductive layer at the interface with thickness inversely proportional to the heat flow.')
+                    disp('The thickness is likely less than a few 100 m. See Melosh et al. 2004.')
+                    Tnew = fzero(@(T) alphaAdjust(P_MPa(ill),T,wo,Planet.Ocean.comp),273);
+                    disp(['The new temperature is ' num2str(Tnew) ', or delta T = ' num2str(Tnew-T_K(ill-1)) '.'])
+                    T_K(ill)=Tnew;
+                else
+                    T_K(ill) = T_K(ill-1)+ alpha_o*T_K(ill-1)./(Cp(ill))./(rho_ocean)*deltaP*1e6; %adiabatic gradient in ocean; this introduces an error, in that we are using the temperature from the previous step
+                end
+                rho_kgm3(ill) = fluidEOS(P_MPa(ill),T_K(ill),wo,Planet.Ocean.comp); % to be deleted
+
+%                         [rho_ocean,Cp(ill),alpha_o]= fluidEOS(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);% THIS IS REDUNDANT TO THE CALCULATION OF RHO_OCEAN ABOVE
+            else %% HPIceLayers
+                % allow for stable dense fluid under high pressure ice --> this
+                % was added for the callisto study. Commented out currently
+                rhoice = getRhoIce(P_MPa(ill),T_K(ill-1),phase(ill));
+                % rhoocean = fluidEOS(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);
+                % if rhoocean>=rhoice
+                %     phase(ill)=0;
+                % end
+                if ~isfield(Planet.Ocean,'fnTfreeze_K')
+                    if il==6
+                        x = 1;
+                    end
+                    T_K(ill) = getTfreeze(P_MPa(ill),wo,Planet.Ocean.comp,T_K(ill-1)); %find the temperature on the liquidus line corresponding to P(k,i+nIceI); should really use a conductive profile here, but that would seem to naturally bring us back to the liquidus. Steve wants to confirm.
+                else
+                    T_K(ill) = Planet.Ocean.fnTfreeze_K(P_MPa(ill),wo);
+                end
+                if T_K(ill)<T_K(ill-1)
+                    T_K(ill)=T_K(ill-1); % this may no longer be needed because negalpha is accounted for above -- sincerely, steve 6/15/21
+                end
+                rho_kgm3(ill) = getRhoIce(P_MPa(ill),T_K(ill),phase(ill));
+
+%                     [rho_ocean,Cp(ill),alpha_o]=
+%                     fluidEOS(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);
+%                     % this is odd and doesn't seem to be needed--steve
+%                     6/15/21
+                %[Cp(il) alpha_K(il)]= getCpIce(P_MPa(il),T_K(il),phase(ill)) ;
+            end
+        end
+
+        % MJS 2021-10-29: I don't think these lines are important or do
+        % anything substantial. Both quantities are recalculated
+        % aplenty in the next loops. This was being done just before
+        % saving/reloading in the master branch before now.
+        rho_kgm3(1) = rho_kgm3(2); % continuity
+        Cp(1)=Cp(2);
+
+
+%%%%%%%%%%%%%%%%%%%%%
+% convert to depth —- PlanetDepths
+%%%%%%%%%%%%%%%%%%%
+%% calculate gravity in each layer instead of assuming surface gravity applies.
+% allocate variables
+%% HydrosphereDepths
+    deltaP = Pb_MPa/(n_iceI+n_clath);
+
+    % calculates depth for clathrates and ice separatly so the depths
+    % can be recorded accurately
+    for il = 2:(n_clath)
+        % calculate depth
+        z_m(il) = z_m(il-1)+ (P_MPa(il)-P_MPa(il-1))*1e6/g_ms2(il-1)/rho_kgm3(il-1);
+        % convert to radius
+        r_m(il) = Planet.R_m-z_m(il); 
+
+        % determine local gravity
+        M_above_kg(il) = M_above_kg(il-1) + 4/3*pi*(r_m(il-1)^3-r_m(il)^3)*rho_kgm3(il);
+        M_below_kg(il) = Planet.M_kg-M_above_kg(il);
+        g_ms2(il) = Gg*M_below_kg(il)/r_m(il)^2;
+    end
+    %checks if there were clathrates or not
+    if n_clath>0
+        ii=n_clath+1;
+        Zclath=z_m(n_clath);
+        Planet.Zclath=Zclath;
+    else
+        ii=2;
+        Zclath=0;
+        Planet.Zclath=0;
+    end
+    for il = ii:(n_clath+n_iceI)
+        % calculate depth
+        z_m(il) = z_m(il-1)+ (P_MPa(il)-P_MPa(il-1))*1e6/g_ms2(il-1)/rho_kgm3(il-1);
+        % convert to radius
+        r_m(il) = Planet.R_m-z_m(il); 
+
+        % determine local gravity
+        M_above_kg(il) = M_above_kg(il-1) + 4/3*pi*(r_m(il-1)^3-r_m(il)^3)*rho_kgm3(il);
+        M_below_kg(il) = Planet.M_kg-M_above_kg(il);
+        g_ms2(il) = Gg*M_below_kg(il)/r_m(il)^2;
+    end
+    if isempty(il)
+        zb_outerIce_m=z_m(ii-1);
+        Planet.zb_outerIce_m=zb_outerIce_m;
+    else
+        zb_outerIce_m=z_m(il);
+        Planet.zb_outerIce_m=zb_outerIce_m;
+    end
+    deltaP = (Params.Pseafloor_MPa-Pb_MPa)/n_ocean; %
+    for il = 1:n_ocean
+        ill = il+(n_iceI+n_clath);
+        %calculate depth
+        dz = deltaP*1e6/g_ms2(il-1+(n_iceI+n_clath))/rho_kgm3(ill);
+        z_m(ill) = z_m(il-1+(n_iceI+n_clath))+ dz; % using the previous gravity step, since we haven't calculated the present step.  this introduces an error
+        % convert to radius
+        r_m(ill) = Planet.R_m-z_m(ill); 
+
+        % determine local gravity
+        M_above_kg(ill) = M_above_kg(il-1+(n_iceI+n_clath))+4/3*pi*((r_m(ill)+dz)^3-r_m(ill)^3)*rho_kgm3(ill);
+        M_below_kg(ill) = Planet.M_kg-M_above_kg(ill);
+        g_ms2(ill) = Gg*M_below_kg(ill)/r_m(ill)^2;
+    end
+    disp(['z_iceI: ' num2str(zb_outerIce_m/1e3) ' km'])
+    z_ocean_m= z_m(n_ocean); % depth to the ocean
+
+
+
+    %% compute conductive heat through the ice I layer
+    Qb = D_conductivityIh*log(Planet.Tb_K/Planet.Tsurf_K)/Planet.zb_outerIce_m;
+
+    %% compute solid state convection ice
+    % We use these values much later, but we need them to construct
+    % the filename shortly, so we calculate them now. This allows
+    % us to skip unnecessary calculations in the case of
+    % cfg.SKIP_PROFILES=1
+      if max_clath_depth<Planet.zb_outerIce_m % only a clathrate lid
+        % asummes Q across ice-ocean is same Q across clathrates/ice. 
+       [Q_Wm2, T_clath_ice, deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I]= ...
+   clathrate_lid_thermo(Planet.Tsurf_K,Planet.Tb_K,P_MPa(1:n_clath+n_iceI), n_clath,n_iceI,Planet.zb_outerIce_m, max_clath_depth,g_ms2(1));      
+      else
+       [Q_Wm2,deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I]=...
+        ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K,PbI_MPa/2,Planet.zb_outerIce_m,g_ms2(1),phase(1)+1);
+     end
+
+    % Make this calculation now in order to get Planet.Qmantle_Wm2 for making
+    % filenames shortly       
+    if CONVECTION_FLAG_I && eTBL_m>zb_outerIce_m
+        warning('Convection predicted by not possible becuase the conductive layer thickness exceeds the thickness of the ice.')
+        disp('Perhaps T_surf is outside the valid range for the scaling from Deschamps and Sotin 2001.')
+        disp('Setting CONVECTION_FLAG_I to zero')
+        CONVECTION_FLAG_I = 0;
+    end
+    % Convection has to be calculated prior to assigning depths in case
+    % ice shell needs to be thinned to account for clathrates
+
+    if CONVECTION_FLAG_I
+        %conductive upper layer
+        nConvectIce=(n_iceI+n_clath)-nIceIIILithosphere-1; % indices where ice/claths exist in upper layer
+        nconold=nConvectIce;
+        if max_clath_depth<Planet.zb_outerIce_m
+            %eTBL_m=eTBL_m+max_clath_depth; fixed in new
+            %version
+            T_K(1:n_clath)=linspace(Planet.Tsurf_K,T_clath_ice,n_clath);
+            inds_eTBL = find(z_m(n_clath:nConvectIce)<=eTBL_m);
+
+            if ~isempty(inds_eTBL)
+                inds_eTBL=inds_eTBL +n_clath;
+                if length(inds_eTBL)>1
+            Pterm =(P_MPa(inds_eTBL)-P_MPa(inds_eTBL(1)))./(P_MPa(inds_eTBL(end))-P_MPa(inds_eTBL(1)));
+
+            T_K(inds_eTBL) = (Tc.^(Pterm)).*(T_clath_ice.^(1-Pterm));
+                else
+                     T_K(inds_eTBL)=T_clath_ice+Q_Wm2./kIce.*(z_m(inds_eTBL)-z_m(inds_eTBL-1));
+                end
+            else
+                inds_eTBL=n_clath;
+            end
+        else
+        inds_eTBL = find(z_m(1:nConvectIce)<=eTBL_m);
+
+        Pterm = P_MPa(inds_eTBL)./P_MPa(inds_eTBL(end));
+        if phase(inds_eTBL(1))==1
+        T_K(inds_eTBL) = (Tc.^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
+        elseif phase(inds_eTBL(1))==30;
+             T_K(1:inds_eTBL(end))=linspace(Planet.Tsurf_K,Tc,length(inds_eTBL));
+        end
+        end
+
+         rho_kgm3(1:inds_eTBL(end))=getRhoIce(P_MPa(1:inds_eTBL(end)),T_K(1:inds_eTBL(end)),phase(1:inds_eTBL(end)));
+
+        P_bound=P_MPa(inds_eTBL(end));
+        T_K_ccbound=T_K(inds_eTBL(end));
+
+
+        %convective region
+
+        for iconv = inds_eTBL(end)+1:nConvectIce % added parentheses around 1:nConvectIce 20200103 SDV
+
+            rho_kgm3(iconv)=getRhoIce(P_MPa(iconv),T_K(iconv-1),phase(iconv));
+
+            if POROUS_ICE % adjust if porosity needs to be considered
+                por_in.p=P_MPa(iconv)*1e-3;
+                por_in.t = T_K(iconv-1);
+                por_in.den = rho;
+
+                if isfield(Planet,'phi_surface')
+                    por_out = get_porosity_ice(por_in,Planet.phi_surface);
+                else
+                    por_out =get_porosity_ice(por_in);
+                end
+                rho = por_out.den;
+            end
+                %[Cp(iconv), alpha_K(iconv)] = getCpIce(P_MPa(iconv),T_K(iconv-1),1);
+                if phase(iconv)==1 % if water ice, use SeaFreeze otherwise use Helgeurd.
+                    cpout=SeaFreeze([P_MPa(iconv),T_K(iconv-1)],'Ih');
+                    alpha_K(iconv)=cpout.alpha;
+                    Cp(iconv)=cpout.Cp;
+                else
+
+                    cpout=Helgerud_sI(P_MPa(iconv),T_K(iconv-1));
+                    [Cp(iconv) alpha_K(iconv)]= getCpIce(P_MPa(iconv),T_K(iconv-1),phase(iconv)) ;
+                    alpha_K(iconv)=cpout.alpha; % use better alpha
+                end
+
+            %aK = 1.56e-4; % thermal expansive? Switch and use SeaFreeze ( find clath values()
+
+            T_K(iconv) = T_K(iconv-1)+alpha_K(iconv).*T_K(iconv)./Cp(iconv)./rho_kgm3(iconv)*deltaP*1e6;
+            % double check temperatures make sense
+            if strcmp(Planet.Ocean.comp,'NH3') % kluge svance july 7 2021. not sure why two phase tests are happening. generally, the seafreeze test should be performed when possible
+                phase_test = 1;
+            else
+                phase_test = getIcePhase(P_MPa(iconv),T_K(iconv-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
+            end
+            phase_test2=SF_WhichPhase([P_MPa(iconv),T_K(iconv)]);
+
+            if phase_test==0 || phase_test2==0 % & n_clath>0
+                Planet.Tb_K=T_K(iconv);
+                %iconv=iconv-2;
+                Zm_break=z_m(iconv); % saves the depth at which is broked
+                zb_outerIce_m=Zm_break;   % new ice depth is saved
+
+                Zdiff=z_m(nConvectIce)-Zm_break; % change in depth
+                 % previous convection layer
+
+                nConvectIce=iconv;% changes the indices for convection
+
+
+                %make adjustments to indices n_clath+n_ice+n_ocean
+                %should always be the same.
+                n_iceI = iconv - n_clath; % new ice layer is the last index-n_clath
+                if n_iceI<0
+                    n_iceI = 0; % indicates entire ice shell would be clathrates
+                    iconv = iconv-1;
+                    Zclath = z_m(iconv);
+                end
+
+                n_ocean = nsteps - n_iceI - n_clath;% adds more indices to ocean
+
+
+                PbI_MPa=P_MPa(iconv);
+                Pb_MPa=P_MPa(iconv);
+                %                        alculate parameters
+%                     [Q_Wm2_new,deltaTBL_m_new,eTBL_m_new,Tc_new,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I]=...
+%                         ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K,PbI_MPa/2,zb_outerIce_m,g_ms2(1),phase(iconv)+1);
+                inds_deltaTBL = find(z_m(1:nConvectIce)>=z_m(nConvectIce)-deltaTBL_m);
+                T_K(inds_deltaTBL) = (Planet.Tb_K.^(P_MPa(inds_deltaTBL)./PbI_MPa)).*(T_K(inds_deltaTBL(1)-1).^(1-P_MPa(inds_deltaTBL)./PbI_MPa));
+
+                % %
+                %
+                deltaP = (Params.Pseafloor_MPa-Pb_MPa)/n_ocean; % in case PbMPa changed
+                % recalculate ocean
+                for il=1:n_ocean
+                    ill=il+inds_deltaTBL(end);
+                    % adjust for new ocean layers if necessary
+                    P_MPa(ill) = Pb_MPa + il*deltaP;
+                    [rho_ocean,Cp(ill),alpha_o]= fluidEOS(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);
+                    if alpha_o<=0
+
                         disp('Ocean alpha at ice interface is less than zero. adjusting temperature upward.')
                         disp('This means there''s a conductive layer at the interface with thickness inversely proportional to the heat flow.')
                         disp('The thickness is likely less than a few 100 m. See Melosh et al. 2004.')
-                        Tnew = fzero(@(T) alphaAdjust(P_MPa(iT,ill),T,wo,Planet.Ocean.comp),273);
-                        disp(['The new temperature is ' num2str(Tnew) ', or delta T = ' num2str(Tnew-T_K(iT,ill-1)) '.'])
-                        T_K(iT,ill)=Tnew;
+                        Tnew = fzero(@(T) alphaAdjust(P_MPa(ill),T,wo,Planet.Ocean.comp),273);
+                        disp(['The new temperature is ' num2str(Tnew) ', or delta T = ' num2str(Tnew-T_K(ill-1)) '.'])
+                        T_K(ill)=Tnew;
                     else
-                        T_K(iT,ill) = T_K(iT,ill-1)+ alpha_o*T_K(iT,ill-1)./(Cp(iT,ill))./(rho_ocean)*deltaP*1e6; %adiabatic gradient in ocean; this introduces an error, in that we are using the temperature from the previous step
+                        T_K(ill) = T_K(ill-1)+ alpha_o*T_K(ill-1)./(Cp(ill))./(rho_ocean)*deltaP*1e6; %adiabatic gradient in ocean; this introduces an error, in that we are using the temperature from the previous step
                     end
-                    rho_kgm3(iT,ill) = fluidEOS(P_MPa(iT,ill),T_K(iT,ill),wo,Planet.Ocean.comp); % to be deleted
-                    
-%                         [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);% THIS IS REDUNDANT TO THE CALCULATION OF RHO_OCEAN ABOVE
-                else %% HPIceLayers
-                    % allow for stable dense fluid under high pressure ice --> this
-                    % was added for the callisto study. Commented out currently
-                    rhoice = getRhoIce(P_MPa(iT,ill),T_K(iT,ill-1),phase(iT,ill));
-                    % rhoocean = fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
-                    % if rhoocean>=rhoice
-                    %     phase(iT,ill)=0;
-                    % end
-                    if ~isfield(Planet.Ocean,'fnTfreeze_K')
-                        if il==6
-                            x = 1;
-                        end
-                        T_K(iT,ill) = getTfreeze(P_MPa(iT,ill),wo,Planet.Ocean.comp,T_K(iT,ill-1)); %find the temperature on the liquidus line corresponding to P(k,i+nIceI); should really use a conductive profile here, but that would seem to naturally bring us back to the liquidus. Steve wants to confirm.
+
+
+                    phase(ill) = getIcePhase(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
+
+                    if phase(ill)==0
+                        rho_kgm3(ill) = rho_ocean;
+                         [rho_ocean,Cp(ill),alpha_o]= fluidEOS(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);
+
                     else
-                        T_K(iT,ill) = Planet.Ocean.fnTfreeze_K(P_MPa(iT,ill),wo);
-                    end
-                    if T_K(iT,ill)<T_K(iT,ill-1)
-                        T_K(iT,ill)=T_K(iT,ill-1); % this may no longer be needed because negalpha is accounted for above -- sincerely, steve 6/15/21
-                    end
-                    rho_kgm3(iT,ill) = getRhoIce(P_MPa(iT,ill),T_K(iT,ill),phase(iT,ill));
+                        rho_kgm3(ill) = getRhoIce(P_MPa(ill),T_K(ill),phase(ill));
 
-%                     [rho_ocean,Cp(iT,ill),alpha_o]=
-%                     fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
-%                     % this is odd and doesn't seem to be needed--steve
-%                     6/15/21
-                    %[Cp(iT,il) alpha_K(iT,il)]= getCpIce(P_MPa(iT,il),T_K(iT,il),phase(iT,ill)) ;
-                end
-            end
-            
-            % MJS 2021-10-29: I don't think these lines are important or do
-            % anything substantial. Both quantities are recalculated
-            % aplenty in the next loops. This was being done just before
-            % saving/reloading in the master branch before now.
-            rho_kgm3(iT,1) = rho_kgm3(iT,2); % continuity
-            Cp(iT,1)=Cp(iT,2);
-    
+                        if ~isfield(Planet.Ocean,'fnTfreeze_K')
 
-    %%%%%%%%%%%%%%%%%%%%%
-    % convert to depth —- PlanetDepths
-    %%%%%%%%%%%%%%%%%%%
-    %% calculate gravity in each layer instead of assuming surface gravity applies.
-    % allocate variables
-    %% HydrosphereDepths
-        deltaP = Pb_MPa(iT)/(n_iceI(iT)+n_clath(iT));
-
-        % calculates depth for clathrates and ice separatly so the depths
-        % can be recorded accurately
-        for il = 2:(n_clath(iT))
-            % calculate depth
-            z_m(iT,il) = z_m(iT,il-1)+ (P_MPa(iT,il)-P_MPa(iT,il-1))*1e6/g_ms2(iT,il-1)/rho_kgm3(iT,il-1);
-            % convert to radius
-            r_m(iT,il) = Planet.R_m-z_m(iT,il); 
-
-            % determine local gravity
-            M_above_kg(iT,il) = M_above_kg(iT,il-1) + 4/3*pi*(r_m(iT,il-1)^3-r_m(iT,il)^3)*rho_kgm3(iT,il);
-            M_below_kg(iT,il) = Planet.M_kg-M_above_kg(iT,il);
-            g_ms2(iT,il) = Gg*M_below_kg(iT,il)/r_m(iT,il)^2;
-        end
-        %checks if there were clathrates or not
-        if n_clath(iT)>0
-            ii=n_clath(iT)+1;
-            Zclath(iT)=z_m(iT,n_clath(iT));
-            Planet.Zclath(iT)=Zclath(iT);
-        else
-            ii=2;
-            Zclath(iT)=0;
-            Planet.Zclath(iT)=0;
-        end
-        for il = ii:(n_clath(iT)+n_iceI(iT))
-            % calculate depth
-            z_m(iT,il) = z_m(iT,il-1)+ (P_MPa(iT,il)-P_MPa(iT,il-1))*1e6/g_ms2(iT,il-1)/rho_kgm3(iT,il-1);
-            % convert to radius
-            r_m(iT,il) = Planet.R_m-z_m(iT,il); 
-
-            % determine local gravity
-            M_above_kg(iT,il) = M_above_kg(iT,il-1) + 4/3*pi*(r_m(iT,il-1)^3-r_m(iT,il)^3)*rho_kgm3(iT,il);
-            M_below_kg(iT,il) = Planet.M_kg-M_above_kg(iT,il);
-            g_ms2(iT,il) = Gg*M_below_kg(iT,il)/r_m(iT,il)^2;
-        end
-        if isempty(il)
-            zb_outerIce_m(iT)=z_m(iT,ii-1);
-            Planet.zb_outerIce_m(iT)=zb_outerIce_m(iT);
-        else
-            zb_outerIce_m(iT)=z_m(iT,il);
-            Planet.zb_outerIce_m(iT)=zb_outerIce_m(iT);
-        end
-        deltaP = (Params.Pseafloor_MPa-Pb_MPa(iT))/n_ocean(iT); %
-        for il = 1:n_ocean(iT)
-            ill = il+(n_iceI(iT)+n_clath(iT));
-            %calculate depth
-            dz = deltaP*1e6/g_ms2(iT,il-1+(n_iceI(iT)+n_clath(iT)))/rho_kgm3(iT,ill);
-            z_m(iT,ill) = z_m(iT,il-1+(n_iceI(iT)+n_clath(iT)))+ dz; % using the previous gravity step, since we haven't calculated the present step.  this introduces an error
-            % convert to radius
-            r_m(iT,ill) = Planet.R_m-z_m(iT,ill); 
-
-            % determine local gravity
-            M_above_kg(iT,ill) = M_above_kg(iT,il-1+(n_iceI(iT)+n_clath(iT)))+4/3*pi*((r_m(iT,ill)+dz)^3-r_m(iT,ill)^3)*rho_kgm3(iT,ill);
-            M_below_kg(iT,ill) = Planet.M_kg-M_above_kg(iT,ill);
-            g_ms2(iT,ill) = Gg*M_below_kg(iT,ill)/r_m(iT,ill)^2;
-        end
-        disp(['z_iceI: ' num2str(zb_outerIce_m(iT)/1e3) ' km'])
-        z_ocean_m(iT)= z_m(iT,n_ocean(iT)); % depth to the ocean
-        
-        
-
-        %% compute conductive heat through the ice I layer
-        Qb(iT) = D_conductivityIh*log(Planet.Tb_K(iT)/Planet.Tsurf_K)/Planet.zb_outerIce_m(iT);
-        
-        %% compute solid state convection ice
-        % We use these values much later, but we need them to construct
-        % the filename shortly, so we calculate them now. This allows
-        % us to skip unnecessary calculations in the case of
-        % cfg.SKIP_PROFILES=1
-          if max_clath_depth<Planet.zb_outerIce_m(iT) % only a clathrate lid
-            % asummes Q across ice-ocean is same Q across clathrates/ice. 
-           [Q_Wm2(iT), T_clath_ice(iT), deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]= ...
-       clathrate_lid_thermo(Planet.Tsurf_K,Planet.Tb_K(iT),P_MPa(iT,1:n_clath(iT)+n_iceI(iT)), n_clath(iT),n_iceI(iT),Planet.zb_outerIce_m(iT), max_clath_depth,g_ms2(iT,1));      
-          else
-           [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
-            ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,Planet.zb_outerIce_m(iT),g_ms2(iT,1),phase(iT,1)+1);
-         end
-        
-        % Make this calculation now in order to get Planet.Qmantle_Wm2 for making
-        % filenames shortly       
-        if CONVECTION_FLAG_I(iT) && eTBL_m(iT)>zb_outerIce_m(iT)
-            warning('Convection predicted by not possible becuase the conductive layer thickness exceeds the thickness of the ice.')
-            disp('Perhaps T_surf is outside the valid range for the scaling from Deschamps and Sotin 2001.')
-            disp('Setting CONVECTION_FLAG_I to zero')
-            CONVECTION_FLAG_I(iT) = 0;
-        end
-        % Convection has to be calculated prior to assigning depths in case
-        % ice shell needs to be thinned to account for clathrates
-   
-        if CONVECTION_FLAG_I(iT)
-            %conductive upper layer
-            nConvectIce=(n_iceI(iT)+n_clath(iT))-nIceIIILithosphere-1; % indices where ice/claths exist in upper layer
-            nconold=nConvectIce;
-            if max_clath_depth<Planet.zb_outerIce_m(iT)
-                %eTBL_m(iT)=eTBL_m(iT)+max_clath_depth; fixed in new
-                %version
-                T_K(iT,1:n_clath(iT))=linspace(Planet.Tsurf_K,T_clath_ice(iT),n_clath(iT));
-                inds_eTBL = find(z_m(iT,n_clath(iT):nConvectIce)<=eTBL_m(iT));
-                
-                if ~isempty(inds_eTBL)
-                    inds_eTBL=inds_eTBL +n_clath(iT);
-                    if length(inds_eTBL)>1
-                Pterm =(P_MPa(iT,inds_eTBL)-P_MPa(iT,inds_eTBL(1)))./(P_MPa(iT,inds_eTBL(end))-P_MPa(iT,inds_eTBL(1)));
-           
-                T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(T_clath_ice(iT).^(1-Pterm));
-                    else
-                         T_K(iT,inds_eTBL)=T_clath_ice(iT)+Q_Wm2(iT)./kIce(iT).*(z_m(iT,inds_eTBL)-z_m(iT,inds_eTBL-1));
-                    end
-                else
-                    inds_eTBL=n_clath(iT);
-                end
-            else
-            inds_eTBL = find(z_m(iT,1:nConvectIce)<=eTBL_m(iT));
-           
-            Pterm = P_MPa(iT,inds_eTBL)./P_MPa(iT,inds_eTBL(end));
-            if phase(iT,inds_eTBL(1))==1
-            T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
-            elseif phase(iT,inds_eTBL(1))==30;
-                 T_K(iT,1:inds_eTBL(end))=linspace(Planet.Tsurf_K,Tc(iT),length(inds_eTBL));
-            end
-            end
-            
-             rho_kgm3(iT,1:inds_eTBL(end))=getRhoIce(P_MPa(iT,1:inds_eTBL(end)),T_K(iT,1:inds_eTBL(end)),phase(iT,1:inds_eTBL(end)));
-            
-            P_bound=P_MPa(iT,inds_eTBL(end));
-            T_K_ccbound=T_K(iT,inds_eTBL(end));
-     
-           
-            %convective region
-
-            for iconv = inds_eTBL(end)+1:nConvectIce % added parentheses around 1:nConvectIce 20200103 SDV
-
-                rho_kgm3(iT,iconv)=getRhoIce(P_MPa(iT,iconv),T_K(iT,iconv-1),phase(iT,iconv));
-
-                if POROUS_ICE % adjust if porosity needs to be considered
-                    por_in(iT).p=P_MPa(iT,iconv)*1e-3;
-                    por_in(iT).t = T_K(iT,iconv-1);
-                    por_in(iT).den = rho;
-
-                    if isfield(Planet,'phi_surface')
-                        por_out(iT) = get_porosity_ice(por_in(iT),Planet.phi_surface);
-                    else
-                        por_out(iT) =get_porosity_ice(por_in(iT));
-                    end
-                    rho = por_out(iT).den;
-                end
-                    %[Cp(iT,iconv), alpha_K(iT,iconv)] = getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),1);
-                    if phase(iT,iconv)==1 % if water ice, use SeaFreeze otherwise use Helgeurd.
-                        cpout=SeaFreeze([P_MPa(iT,iconv),T_K(iT,iconv-1)],'Ih');
-                        alpha_K(iT,iconv)=cpout.alpha;
-                        Cp(iT,iconv)=cpout.Cp;
-                    else
-
-                        cpout=Helgerud_sI(P_MPa(iT,iconv),T_K(iT,iconv-1));
-                        [Cp(iT,iconv) alpha_K(iT,iconv)]= getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),phase(iT,iconv)) ;
-                        alpha_K(iT,iconv)=cpout.alpha; % use better alpha
-                    end
-
-                %aK = 1.56e-4; % thermal expansive? Switch and use SeaFreeze ( find clath values()
-
-                T_K(iT,iconv) = T_K(iT,iconv-1)+alpha_K(iT,iconv).*T_K(iT,iconv)./Cp(iT,iconv)./rho_kgm3(iT,iconv)*deltaP*1e6;
-                % double check temperatures make sense
-                if strcmp(Planet.Ocean.comp,'NH3') % kluge svance july 7 2021. not sure why two phase tests are happening. generally, the seafreeze test should be performed when possible
-                    phase_test = 1;
-                else
-                    phase_test = getIcePhase(P_MPa(iT,iconv),T_K(iT,iconv-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
-                end
-                phase_test2=SF_WhichPhase([P_MPa(iT,iconv),T_K(iT,iconv)]);
-
-                if phase_test==0 || phase_test2==0 % & n_clath>0
-                    Planet.Tb_K(iT)=T_K(iT,iconv);
-                    %iconv=iconv-2;
-                    Zm_break(iT)=z_m(iT,iconv); % saves the depth at which is broked
-                    zb_outerIce_m(iT)=Zm_break(iT);   % new ice depth is saved
-
-                    Zdiff(iT)=z_m(iT,nConvectIce)-Zm_break(iT); % change in depth
-                     % previous convection layer
-
-                    nConvectIce=iconv;% changes the indices for convection
-
-
-                    %make adjustments to indices n_clath+n_ice+n_ocean
-                    %should always be the same.
-                    n_iceI(iT) = iconv - n_clath(iT); % new ice layer is the last index-n_clath
-                    if n_iceI(iT)<0
-                        n_iceI(iT) = 0; % indicates entire ice shell would be clathrates
-                        iconv = iconv-1;
-                        Zclath(iT) = z_m(iT,iconv);
-                    end
-
-                    n_ocean(iT) = nsteps - n_iceI(iT) - n_clath(iT);% adds more indices to ocean
-
-
-                    PbI_MPa(iT)=P_MPa(iT,iconv);
-                    Pb_MPa(iT)=P_MPa(iT,iconv);
-                    %                        alculate parameters
-%                     [Q_Wm2_new(iT),deltaTBL_m_new(iT),eTBL_m_new(iT),Tc_new(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
-%                         ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,zb_outerIce_m(iT),g_ms2(iT,1),phase(iT,iconv)+1);
-                    inds_deltaTBL = find(z_m(iT,1:nConvectIce)>=z_m(iT,nConvectIce)-deltaTBL_m(iT));
-                    T_K(iT,inds_deltaTBL) = (Planet.Tb_K(iT).^(P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT))).*(T_K(iT,inds_deltaTBL(1)-1).^(1-P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT)));
-
-                    % %
-                    %
-                    deltaP = (Params.Pseafloor_MPa-Pb_MPa(iT))/n_ocean(iT); % in case PbMPa changed
-                    % recalculate ocean
-                    for il=1:n_ocean(iT)
-                        ill=il+inds_deltaTBL(end);
-                        % adjust for new ocean layers if necessary
-                        P_MPa(iT,ill) = Pb_MPa(iT) + il*deltaP;
-                        [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
-                        if alpha_o<=0
-
-                            disp('Ocean alpha at ice interface is less than zero. adjusting temperature upward.')
-                            disp('This means there''s a conductive layer at the interface with thickness inversely proportional to the heat flow.')
-                            disp('The thickness is likely less than a few 100 m. See Melosh et al. 2004.')
-                            Tnew = fzero(@(T) alphaAdjust(P_MPa(iT,ill),T,wo,Planet.Ocean.comp),273);
-                            disp(['The new temperature is ' num2str(Tnew) ', or delta T = ' num2str(Tnew-T_K(iT,ill-1)) '.'])
-                            T_K(iT,ill)=Tnew;
+                            T_K(ill) = getTfreeze(P_MPa(ill),wo,Planet.Ocean.comp,T_K(ill-1)); %find the temperature on the liquidus line corresponding to P(k,i+nIceI); should really use a conductive profile here, but that would seem to naturally bring us back to the liquidus. Steve wants to confirm.
                         else
-                            T_K(iT,ill) = T_K(iT,ill-1)+ alpha_o*T_K(iT,ill-1)./(Cp(iT,ill))./(rho_ocean)*deltaP*1e6; %adiabatic gradient in ocean; this introduces an error, in that we are using the temperature from the previous step
+                            T_K(ill) = Planet.Ocean.fnTfreeze_K(P_MPa(ill),wo);
                         end
-
-
-                        phase(iT,ill) = getIcePhase(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
-
-                        if phase(iT,ill)==0
-                            rho_kgm3(iT,ill) = rho_ocean;
-                             [rho_ocean,Cp(iT,ill),alpha_o]= fluidEOS(P_MPa(iT,ill),T_K(iT,ill-1),wo,Planet.Ocean.comp);
-                   
-                        else
-                            rho_kgm3(iT,ill) = getRhoIce(P_MPa(iT,ill),T_K(iT,ill),phase(iT,ill));
-                            
-                            if ~isfield(Planet.Ocean,'fnTfreeze_K')
-
-                                T_K(iT,ill) = getTfreeze(P_MPa(iT,ill),wo,Planet.Ocean.comp,T_K(iT,ill-1)); %find the temperature on the liquidus line corresponding to P(k,i+nIceI); should really use a conductive profile here, but that would seem to naturally bring us back to the liquidus. Steve wants to confirm.
-                            else
-                                T_K(iT,ill) = Planet.Ocean.fnTfreeze_K(P_MPa(iT,ill),wo);
-                            end
-                            if T_K(iT,ill)<T_K(iT,ill-1)
-                                T_K(iT,ill) = T_K(iT,ill-1);
-                            end
-                           [Cp(iT,ill) alpha_K(iT,ill)]= getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),phase(iT,ill)) ;
-                  
-
+                        if T_K(ill)<T_K(ill-1)
+                            T_K(ill) = T_K(ill-1);
                         end
+                       [Cp(ill) alpha_K(ill)]= getCpIce(P_MPa(iconv),T_K(iconv-1),phase(ill)) ;
+
 
                     end
-                    z_ocean_m=z_m(iT,ill);
 
-                    break
                 end
+                z_ocean_m=z_m(ill);
+
+                break
             end
-            
-            if nconold==nConvectIce
-                % bottom layer of conduction, recalculates for phase at bottom
-                 [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
-                        ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,zb_outerIce_m(iT),g_ms2(iT,1),phase(iT,iconv)+1);
+        end
 
-                inds_deltaTBL = find(z_m(iT,1:nConvectIce)>=z_m(iT,nConvectIce)-deltaTBL_m(iT));
-                %
-                %
-                T_K(iT,inds_deltaTBL) = (Planet.Tb_K(iT).^(P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT))).*(T_K(iT,inds_deltaTBL(1)-1).^(1-P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT)));
-                %           end
-                rho_kgm3(iT,inds_deltaTBL) = getRhoIce(P_MPa(iT,inds_deltaTBL),T_K(iT,inds_deltaTBL),phase(iT,inds_deltaTBL));
-                 %[Cp(iT,inds_deltaTBL) alpha_K(iT,inds_deltaTBL)]= getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),phase(iT,inds_deltaTBL)) ;
-                        
+        if nconold==nConvectIce
+            % bottom layer of conduction, recalculates for phase at bottom
+             [Q_Wm2,deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I]=...
+                    ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K,PbI_MPa/2,zb_outerIce_m,g_ms2(1),phase(iconv)+1);
 
-                z_ocean_m(iT)= z_m(iT,inds_deltaTBL(end)+1);
+            inds_deltaTBL = find(z_m(1:nConvectIce)>=z_m(nConvectIce)-deltaTBL_m);
+            %
+            %
+            T_K(inds_deltaTBL) = (Planet.Tb_K.^(P_MPa(inds_deltaTBL)./PbI_MPa)).*(T_K(inds_deltaTBL(1)-1).^(1-P_MPa(inds_deltaTBL)./PbI_MPa));
+            %           end
+            rho_kgm3(inds_deltaTBL) = getRhoIce(P_MPa(inds_deltaTBL),T_K(inds_deltaTBL),phase(inds_deltaTBL));
+             %[Cp(inds_deltaTBL) alpha_K(inds_deltaTBL)]= getCpIce(P_MPa(iconv),T_K(iconv-1),phase(inds_deltaTBL)) ;
 
-                if POROUS_ICE
-                    por_in(iT).p=P_MPa(iT,inds_deltaTBL)*1e-3;
-                    por_in(iT).t = T_K(iT,inds_deltaTBL);
-                    por_in(iT).den = rho_kgm3(iT,inds_deltaTBL);
-                    if isfield(Planet,'phi_surface')
-                        por_out(iT) = get_porosity_ice(por_in(iT),Planet.phi_surface);
-                    else
-                        por_out(iT) =get_porosity_ice(por_in(iT));
-                    end
 
-                    rho_kgm3(iT,inds_deltaTBL) = por_out(iT).den;
+            z_ocean_m= z_m(inds_deltaTBL(end)+1);
+
+            if POROUS_ICE
+                por_in.p=P_MPa(inds_deltaTBL)*1e-3;
+                por_in.t = T_K(inds_deltaTBL);
+                por_in.den = rho_kgm3(inds_deltaTBL);
+                if isfield(Planet,'phi_surface')
+                    por_out = get_porosity_ice(por_in,Planet.phi_surface);
+                else
+                    por_out =get_porosity_ice(por_in);
                 end
+
+                rho_kgm3(inds_deltaTBL) = por_out.den;
             end
-        else
-            z_ocean_m(iT) = zb_outerIce_m(iT);
+        end
+    else
+        z_ocean_m = zb_outerIce_m;
 
 %             if nconold==nConvectIce
 %                 % bottom layer of conduction, recalculates for phase at bottom
-%                  [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),nu(iT),CONVECTION_FLAG_I(iT)]=...
-%                         ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2,zb_outerIce_m(iT),g_ms2(iT,1),phase(iT,iconv)+1);
+%                  [Q_Wm2,deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I]=...
+%                         ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K,PbI_MPa/2,zb_outerIce_m,g_ms2(1),phase(iconv)+1);
 % 
-%                 inds_deltaTBL = find(z_m(iT,1:nConvectIce)>=z_m(iT,nConvectIce)-deltaTBL_m(iT));
+%                 inds_deltaTBL = find(z_m(1:nConvectIce)>=z_m(nConvectIce)-deltaTBL_m);
 %                 %
 %                 %
-%                 T_K(iT,inds_deltaTBL) = (Planet.Tb_K(iT).^(P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT))).*(T_K(iT,inds_deltaTBL(1)-1).^(1-P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT)));
+%                 T_K(inds_deltaTBL) = (Planet.Tb_K.^(P_MPa(inds_deltaTBL)./PbI_MPa)).*(T_K(inds_deltaTBL(1)-1).^(1-P_MPa(inds_deltaTBL)./PbI_MPa));
 %                 %           end
-%                 rho_kgm3(iT,inds_deltaTBL) = getRhoIce(P_MPa(iT,inds_deltaTBL),T_K(iT,inds_deltaTBL),phase(iT,inds_deltaTBL));
-%                  %[Cp(iT,inds_deltaTBL) alpha_K(iT,inds_deltaTBL)]= getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),phase(iT,inds_deltaTBL)) ;
+%                 rho_kgm3(inds_deltaTBL) = getRhoIce(P_MPa(inds_deltaTBL),T_K(inds_deltaTBL),phase(inds_deltaTBL));
+%                  %[Cp(inds_deltaTBL) alpha_K(inds_deltaTBL)]= getCpIce(P_MPa(iconv),T_K(iconv-1),phase(inds_deltaTBL)) ;
 %                         
 % 
-%                 z_ocean_m(iT)= z_m(iT,inds_deltaTBL(end)+1);
+%                 z_ocean_m= z_m(inds_deltaTBL(end)+1);
 % 
 %                 if POROUS_ICE
-%                     por_in(iT).p=P_MPa(iT,inds_deltaTBL)*1e-3;
-%                     por_in(iT).t = T_K(iT,inds_deltaTBL);
-%                     por_in(iT).den = rho_kgm3(iT,inds_deltaTBL);
+%                     por_in.p=P_MPa(inds_deltaTBL)*1e-3;
+%                     por_in.t = T_K(inds_deltaTBL);
+%                     por_in.den = rho_kgm3(inds_deltaTBL);
 %                     if isfield(Planet,'phi_surface')
-%                         por_out(iT) = get_porosity_ice(por_in(iT),Planet.phi_surface);
+%                         por_out = get_porosity_ice(por_in,Planet.phi_surface);
 %                     else
-%                         por_out(iT) =get_porosity_ice(por_in(iT));
+%                         por_out =get_porosity_ice(por_in);
 %                     end
 % 
-%                     rho_kgm3(iT,inds_deltaTBL) = por_out(iT).den;
+%                     rho_kgm3(inds_deltaTBL) = por_out.den;
 %                 end
 %             end
 
-        end % if CONVECTION_FLAG
-        
-        
-        if Planet.EQUIL_Q
-            if (~isfield(Params,'NO_ICEI_CONVECTION') || Params.NO_ICEI_CONVECTION == false) && ...
-               (CONVECTION_FLAG_I(iT) || (isfield(Params,'FORCE_ICEI_CONVECTION') && Params.FORCE_ICEI_CONVECTION == true))
-                Qmantle_Wm2(iT) = Q_Wm2(iT);
-            else
-                Qmantle_Wm2(iT) = Qb(iT);
-            end
+    end % if CONVECTION_FLAG
+
+
+    if Planet.EQUIL_Q
+        if (~isfield(Params,'NO_ICEI_CONVECTION') || Params.NO_ICEI_CONVECTION == false) && ...
+           (CONVECTION_FLAG_I || (isfield(Params,'FORCE_ICEI_CONVECTION') && Params.FORCE_ICEI_CONVECTION == true))
+            Qmantle_Wm2 = Q_Wm2;
         else
-            Qmantle_Wm2(iT) = 2.2e11/4/pi/Planet.R_m^2; % this is more reasonable for radiogenic only
+            Qmantle_Wm2 = Qb;
         end
-        Planet.Qmantle_Wm2(iT) = Qmantle_Wm2(iT);
-        
-        deltaP = (Params.Pseafloor_MPa-Pb_MPa(iT))/n_ocean(iT); %
-        
-        Planet.zClath_m(iT) = Zclath(iT);
-     
-        Planet.Profile_ID(iT) = ['Ts' num2str(Planet.Tsurf_K,'%0.0f') 'Zb' strLow num2str(Planet.zb_outerIce_m(iT),'%0.0f') ...
-            'mQm' num2str(1000*Planet.Qmantle_Wm2(iT),'%0.0f') 'mWm2_CMR2p' ...
-            num2str(10000*Planet.Cmeasured,'%0.0f') '_' thiseos];
-        Planet.Profile_fname(iT) = [savefile '_' char(Planet.Profile_ID(iT))];
+    else
+        Qmantle_Wm2 = 2.2e11/4/pi/Planet.R_m^2; % this is more reasonable for radiogenic only
     end
+    Planet.Qmantle_Wm2 = Qmantle_Wm2;
+
+    deltaP = (Params.Pseafloor_MPa-Pb_MPa)/n_ocean; %
+
+    Planet.zClath_m = Zclath;
+
+    Planet.Profile_ID = ['Ts' num2str(Planet.Tsurf_K,'%0.0f') 'Zb' strLow num2str(Planet.zb_outerIce_m,'%0.0f') ...
+        'mQm' num2str(1000*Planet.Qmantle_Wm2,'%0.0f') 'mWm2_CMR2p' ...
+        num2str(10000*Planet.Cmeasured,'%0.0f') '_' thiseos];
+    Planet.Profile_fname = [savefile '_' char(Planet.Profile_ID)];
 % end % ~Planet.NoH2O
 
 
@@ -1006,34 +995,32 @@ nz = length(dz_m);
 nR = nz;
 % nR = round(3/4*nz);
 npre = nz-nR; % confine the search for structure to the lower part % MJS 2021-10-31: This quantity does not make sense in how it is defined and used. It seems superfluous.
- C_H2O = sum((8/3*pi*rho_kgm3(:,1:npre).*r_m(:,1:npre).^4.*dz_m(:,1:npre))')'; %calculate C_H2O to the beginning of the depth where we start probing for the beginning of the silicate layer
+ C_H2O = sum((8/3*pi*rho_kgm3(1:npre).*r_m(1:npre).^4.*dz_m(1:npre))')'; %calculate C_H2O to the beginning of the depth where we start probing for the beginning of the silicate layer
 
 % Preallocate
-C2inds = cell(1,nTbs);
-[C2mean, C2max, C2min, R_sil_mean_m, M_H2O_mean_kg] = deal(zeros(1,nTbs));
-[R_sil_m, rho_sil_kgm3] = deal(zeros(nTbs,nR));
+C2inds = cell(1);
+[C2mean, C2max, C2min, R_sil_mean_m, M_H2O_mean_kg] = deal(zeros(1));
+[R_sil_m, rho_sil_kgm3] = deal(zeros(1,nR));
     
     % without a core
 if ~Planet.FeCore
-    C1 = zeros(nTbs,nR);
+    C1 = zeros(1,nR);
     for iz = 1:nR
-        C_H2O(:,iz+1) = C_H2O(:,iz)+(8/3*pi*rho_kgm3(:,iz+npre).*r_m(:,iz+npre).^4.*dz_m(:,iz+npre));
-        R_sil_m(:,iz) = r_m(:,iz+npre);
-        rho_sil_kgm3(:,iz) = 3/4/pi*(Planet.M_kg-M_above_kg(:,iz+npre))./power(R_sil_m(:,iz),3);
-        C1(:,iz) = C_H2O(:,iz+1)+8/15*pi*power(R_sil_m(:,iz),5).*rho_sil_kgm3(:,iz);
+        C_H2O(iz+1) = C_H2O(iz)+(8/3*pi*rho_kgm3(iz+npre).*r_m(iz+npre).^4.*dz_m(iz+npre));
+        R_sil_m(iz) = r_m(iz+npre);
+        rho_sil_kgm3(iz) = 3/4/pi*(Planet.M_kg-M_above_kg(iz+npre))./power(R_sil_m(iz),3);
+        C1(iz) = C_H2O(iz+1)+8/15*pi*power(R_sil_m(iz),5).*rho_sil_kgm3(iz);
     end
-    for iT = 1:nTbs
-        C2inds{iT} = find(C1(iT,:)/MR2>Planet.Cmeasured-Planet.Cuncertainty & C1(iT,:)/MR2<Planet.Cmeasured+Planet.Cuncertainty);
-        if isempty(C2inds{iT})
-            error(['C/MR2=' num2str(Planet.Cmeasured) ' not found. min:' num2str(min(C1(iT,:)/MR2)) '; max:' num2str(max(C1(iT,:)/MR2))])
+        C2inds = find(C1/MR2>Planet.Cmeasured-Planet.Cuncertainty & C1/MR2<Planet.Cmeasured+Planet.Cuncertainty);
+        if isempty(C2inds)
+            error(['C/MR2=' num2str(Planet.Cmeasured) ' not found. min:' num2str(min(C1/MR2)) '; max:' num2str(max(C1/MR2))])
         end
-        C2mean(iT) = round(mean(C2inds{iT}));
-        C2max(iT) = max(C2inds{iT});
-        C2min(iT) = min(C2inds{iT});
-        R_sil_mean_m(iT) = R_sil_m(iT,C2mean(iT));
-        M_H2O_mean_kg(iT) = M_above_kg(iT,C2mean(iT));
-    end
-    R_Fe_mean_m = zeros(1,nTbs);
+        C2mean = round(mean(C2inds));
+        C2max = max(C2inds);
+        C2min = min(C2inds);
+        R_sil_mean_m = R_sil_m(C2mean);
+        M_H2O_mean_kg = M_above_kg(C2mean);
+    R_Fe_mean_m = zeros(1);
    
 %     dz_ocean_m_m(~dindsVI & ~dindsV) = Planet.R_m - R_sil_mean_m(~dindsVI &
 %     ~dindsV)-zI_m(~dindsVI & ~dindsV); not sure this is right. commenting
@@ -1042,33 +1029,29 @@ if ~Planet.FeCore
 % =====
 else % WITH A CORE
     rho_Fe_kgm3 = Planet.rhoFe*Planet.rhoFeS/(Planet.xFeS*(Planet.rhoFe-Planet.rhoFeS)+Planet.rhoFeS);
-    [C2,M_iron_kg,R_Fe_m] = deal(zeros(nTbs,nR));
+    [C2,M_iron_kg,R_Fe_m] = deal(zeros(1,nR));
     for iz = 1:nR
-        C_H2O(:,iz+1) = C_H2O(:,iz)+(8/3*pi*rho_kgm3(:,iz+npre).*r_m(:,iz+npre).^4.*dz_m(:,iz+npre));
-        R_sil_m(:,iz) = r_m(:,iz+npre);
-        for iT = 1:nTbs
-            [C2(iT,iz),R_Fe_m(iT,iz)] = CoreSize(Planet.rho_sil_withcore_kgm3,rho_Fe_kgm3,C_H2O(iT,iz+1),M_above_kg(iT,iz+npre),R_sil_m(iT,iz), Planet.M_kg, Planet.R_m);
-        end
+        C_H2O(iz+1) = C_H2O(iz)+abs((8/3*pi*rho_kgm3(iz+npre).*r_m(iz+npre).^4.*dz_m(iz+npre)));
+        R_sil_m(iz) = r_m(iz+npre);
+        [C2(iz),R_Fe_m(iz)] = CoreSize(Planet.rho_sil_withcore_kgm3,rho_Fe_kgm3,C_H2O(iz+1),M_above_kg(iz+npre),R_sil_m(iz), Planet.M_kg, Planet.R_m);
     end
     
-    [R_Fe_mean_m, R_Fe_range_m, R_sil_range_m] = deal(zeros(1,nTbs));
-    r_core_m = zeros(nTbs,Params.nsteps_core);
-    for iT=1:nTbs
-        C2inds{iT} = find(C2(iT,:)/MR2>Planet.Cmeasured-Planet.Cuncertainty & C2(iT,:)/MR2<Planet.Cmeasured+Planet.Cuncertainty);
-        if isempty(C2inds{iT})
-            error(['C/MR2=' num2str(Planet.Cmeasured) ' not found. min:' num2str(min(C2(iT,:)/MR2)) '; max:' num2str(max(C2(iT,:)/MR2))])
-        end
-        C2mean(iT) = round(mean(C2inds{iT})); % MJS 2021-10-30: This is not a mean value, this operation is taking the mean of indices and then rounding to the nearest index
-        C2max(iT) = max(C2inds{iT});
-        C2min(iT) = min(C2inds{iT});
-        R_Fe_mean_m(iT) = R_Fe_m(iT,C2mean(iT));
-        R_sil_mean_m(iT) = R_sil_m(iT,C2mean(iT));
-        M_H2O_mean_kg(iT) = M_above_kg(iT,C2mean(iT));
-        R_Fe_range_m(iT) = R_Fe_m(iT,C2max(iT))-R_Fe_m(iT,C2min(iT));
-        R_sil_range_m(iT) = R_sil_m(iT,C2min(iT))-R_sil_m(iT,C2max(iT));
-        
-        r_core_m(iT,:) = linspace(R_Fe_mean_m(iT),0,Params.nsteps_core);
+    [R_Fe_mean_m, R_Fe_range_m, R_sil_range_m] = deal(zeros(1));
+    r_core_m = zeros(1,Params.nsteps_core);
+    C2inds = find(C2/MR2>Planet.Cmeasured-Planet.Cuncertainty & C2/MR2<Planet.Cmeasured+Planet.Cuncertainty);
+    if isempty(C2inds)
+        error(['C/MR2=' num2str(Planet.Cmeasured) ' not found. min:' num2str(min(C2/MR2)) '; max:' num2str(max(C2/MR2))])
     end
+    C2mean = round(mean(C2inds)); % MJS 2021-10-30: This is not a mean value, this operation is taking the mean of indices and then rounding to the nearest index
+    C2max = max(C2inds);
+    C2min = min(C2inds);
+    R_Fe_mean_m = R_Fe_m(C2mean);
+    R_sil_mean_m = R_sil_m(C2mean);
+    M_H2O_mean_kg = M_above_kg(C2mean);
+    R_Fe_range_m = R_Fe_m(C2max)-R_Fe_m(C2min);
+    R_sil_range_m = R_sil_m(C2min)-R_sil_m(C2max);
+
+    r_core_m = linspace(R_Fe_mean_m,0,Params.nsteps_core);
 
 end
 
@@ -1077,53 +1060,44 @@ end
 %allocate
 zI_m = Planet.zb_outerIce_m;
 %zI_m = zb_outerIce_m-Zclath;
-[zIII_m, zV_m, zVI_m, indSil] = deal(zeros(1,nTbs));
+[zIII_m, zV_m, zVI_m, indSil] = deal(zeros(1));
 indsV = zV_m;
 indsVI = zV_m;
 indsIII = zV_m;
 indsClath = zV_m;
 dz_ocean_m_m = Planet.zb_outerIce_m;
 
-    % figure out the indices for the tops of the different ice layers
-for iT = 1:nTbs
-      theseinds = find(phase(iT,:)==1);
-    if ~isempty(theseinds)
-        indsI(iT) = theseinds(1);
-        zI_m2(iT) = z_m(iT,indsI(iT));
-    elseif isempty(theseinds) & Params.nsteps_clath>0
-        %indsI(iT) = theseinds(1);
-        zI_m2(iT) = 0;
-    end
-    
-    theseinds = find(phase(iT,:)==3);
-    if ~isempty(theseinds)
-        indsIII(iT) = theseinds(1);
-        zIII_m(iT) = z_m(iT,indsIII(iT));
-    end
-    theseinds = find(phase(iT,:)==5);
-    if ~isempty(theseinds)
-        indsV(iT) = theseinds(1);
-        zV_m(iT) = z_m(iT,indsV(iT));
-    end
-    theseinds = find(phase(iT,:)==6);
-    if ~isempty(theseinds)
-        indsVI(iT) = theseinds(1);
-        zVI_m(iT) = z_m(iT,indsVI(iT));
-    end
-    
-    indSil(iT) = find(R_sil_m(iT,:)==R_sil_mean_m(iT));
+% figure out the indices for the tops of the different ice layers
+  theseinds = find(phase==1);
+if ~isempty(theseinds)
+    indsI = theseinds(1);
+    zI_m2 = z_m(indsI);
+elseif isempty(theseinds) & Params.nsteps_clath>0
+    %indsI = theseinds(1);
+    zI_m2 = 0;
 end
 
-% This step makes sure that the mantle length matrices are all the same
-% length, by setting indSil(iT) + nsteps_mantle(iT) = Params.nsteps_mantle.
-if nTbs == 1
-    nsteps_mantle = Params.nsteps_mantle;
-else
-    nsteps_mantle = [Params.nsteps_mantle Params.nsteps_mantle*ones(1,nTbs-1)+(indSil(1)-indSil(2:end))];%
-    if find(nsteps_mantle<0); error('Problems indexing in the "mantle" layer. Consider increasing nsteps_mantle.'); end
+theseinds = find(phase==3);
+if ~isempty(theseinds)
+    indsIII = theseinds(1);
+    zIII_m = z_m(indsIII);
+end
+theseinds = find(phase==5);
+if ~isempty(theseinds)
+    indsV = theseinds(1);
+    zV_m = z_m(indsV);
+end
+theseinds = find(phase==6);
+if ~isempty(theseinds)
+    indsVI = theseinds(1);
+    zVI_m = z_m(indsVI);
 end
 
-[dz_ocean_m_m,dzIII_m,dzV_m,dzVI_m,dzClath_m] = deal(zeros(1,nTbs));
+indSil = find(R_sil_m==R_sil_mean_m);
+
+nsteps_mantle = Params.nsteps_mantle;
+
+[dz_ocean_m_m,dzIII_m,dzV_m,dzVI_m,dzClath_m] = deal(zeros(1));
 %find the radii at the tops of the different layers
 RIII_m =Planet.R_m-zIII_m;
 RV_m = Planet.R_m-zV_m;
@@ -1149,22 +1123,20 @@ dindsVI = RVI_m>R_sil_mean_m & zVI_m>0;
 dz_ocean_m_m(dindsVI & ~dindsV) = zVI_m(dindsVI & ~dindsV) - zI_m(dindsVI & ~dindsV);
 
 % use R_sil_mean_m to calculate thickness of ice VI
-for iT = 1:nTbs
-    if ~isempty(dindsVI(iT)) && dindsVI(iT)>0
-        dzVI_m(iT) = Planet.R_m-R_sil_mean_m(iT) - zVI_m(iT);
-    elseif ~isempty(dindsV(iT)) && dindsV(iT)>0
-        dzVI_m(iT) = 0;
-        dzV_m(iT) = RV_m(iT)-RVI_m(iT)*dindsVI(iT); % this "fix" may introduce an failure condition, but the previous method on the next line was also failing.
-%         dzV_m(iT) = RV_m(iT)-R_sil_mean_m(iT) - zVI_m(iT)*dindsVI(iT);
-    elseif ~isempty(dindsIII(iT)) && dindsIII(iT)>0
-        dzV_m(iT) = 0;
-        dzVI_m(iT) = 0;
-        dzIII_m(iT) = Planet.R_m-R_sil_mean_m(iT) - zVI_m(iT);
-%   elseif ~isempty(dindsII(iT)) && dindsII(iT)>0
-%       dzV_m(iT) = 0;
-%       dzVI_m(iT) = 0;
-%       dzIII_m(iT) = Planet.R_m-R_sil_mean_m(iT) - zVI_m(iT);
-    end
+if ~isempty(dindsVI) && dindsVI>0
+    dzVI_m = Planet.R_m-R_sil_mean_m - zVI_m;
+elseif ~isempty(dindsV) && dindsV>0
+    dzVI_m = 0;
+    dzV_m = RV_m-RVI_m*dindsVI; % this "fix" may introduce an failure condition, but the previous method on the next line was also failing.
+%         dzV_m = RV_m-R_sil_mean_m - zVI_m*dindsVI;
+elseif ~isempty(dindsIII) && dindsIII>0
+    dzV_m = 0;
+    dzVI_m = 0;
+    dzIII_m = Planet.R_m-R_sil_mean_m - zVI_m;
+%   elseif ~isempty(dindsII) && dindsII>0
+%       dzV_m = 0;
+%       dzVI_m = 0;
+%       dzIII_m = Planet.R_m-R_sil_mean_m - zVI_m;
 end
 
 dz_ocean_m_m(~dindsVI & ~dindsV) = Planet.R_m - R_sil_mean_m(~dindsVI & ~dindsV)-zI_m(~dindsVI & ~dindsV);
@@ -1206,102 +1178,109 @@ else
 end
 
 if ~Planet.FeCore; nsteps_tot = nsteps_tot - Params.nsteps_core; end
-[r_Planet_m, sig] = deal(zeros(nTbs,nsteps_tot));
-[ocean_thk, ind_Ih, ind_Obot, kmean, ktop] = deal(zeros(1,nTbs));
-Planet.ice_thk = strings(1,nTbs);
+[r_Planet_m, sig] = deal(zeros(1,nsteps_tot));
+[ocean_thk, ind_Ih, ind_Obot, kmean, ktop] = deal(zeros(1));
+Planet.ice_thk = strings(1);
 totL = size(r_Planet_m,2);
-for iT=1:nTbs
-    % Grab the indices for the ices, but only for the portion of the
-    % interior calculation above the silicate interface
-    H2Oinds = 1:indSil(iT)-1;
-    indsI = find(phase(iT,H2Oinds)==1);
-    indsSurf = find(phase(iT,H2Oinds)==1 | phase(iT,H2Oinds)==30);% changes to look for top ice/clath layer
-    indsClath = find(phase(iT,H2Oinds)==30);
-    indsLiquid = find(phase(iT,H2Oinds)==0);
-    indsIII = find(phase(iT,H2Oinds)==3);
-    indsV = find(phase(iT,H2Oinds)==5);
-    indsVI = find(phase(iT,H2Oinds)==6);
-    sig(iT,indsI) = iceSig;
-    if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
-        sig(iT,indsLiquid) = k_S_m(iT,indsLiquid);
-    else
-        sig(iT,indsLiquid) = 0.0;
-    end
-    sig(iT,indsIII) = iceSig;
-    sig(iT,indsV) = iceSig;
-    sig(iT,indsVI) = iceSig;
-    sig(iT,indSil(iT):indSil(iT)+nsteps_mantle(iT)-1) = mantleSig;
-    if Planet.FeCore
-        R_sil_bot = R_Fe_mean_m(iT) - (R_Fe_mean_m(iT) - R_sil_mean_m(iT))/(nsteps_mantle(iT)-1);
-        r_mantle_m = linspace(R_sil_mean_m(iT),R_sil_bot,nsteps_mantle(iT));
-        sig(iT,(nsteps_tot - Params.nsteps_core):end) = coreSig;
-        r_Planet_m(iT,:) = [r_m(iT,1:indSil(iT)-1) r_mantle_m r_core_m(iT,:)];
-    else
-        r_mantle_m = linspace(R_sil_mean_m(iT),0,nsteps_mantle(iT));
-        r_Planet_m(iT,:) = [r_m(iT,1:indSil(iT)-1) r_mantle_m];
-    end
-    sig(sig==0) = 1e-16; % zeros make the integration unstable
-    sig(isnan(sig)) = 1e-16;
+% Grab the indices for the ices, but only for the portion of the
+% interior calculation above the silicate interface
+H2Oinds = 1:indSil-1;
+indsI = find(phase(H2Oinds)==1);
+indsSurf = find(phase(H2Oinds)==1 | phase(H2Oinds)==30);% changes to look for top ice/clath layer
+indsClath = find(phase(H2Oinds)==30);
+indsLiquid = find(phase(H2Oinds)==0);
+indsIII = find(phase(H2Oinds)==3);
+indsV = find(phase(H2Oinds)==5);
+indsVI = find(phase(H2Oinds)==6);
+sig(indsI) = iceSig;
+if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
+    sig(indsLiquid) = k_S_m(indsLiquid);
+else
+    sig(indsLiquid) = 0.0;
+end
+sig(indsIII) = iceSig;
+sig(indsV) = iceSig;
+sig(indsVI) = iceSig;
+sig(indSil:indSil+nsteps_mantle-1) = mantleSig;
+if Planet.FeCore
+    R_sil_bot = R_Fe_mean_m - (R_Fe_mean_m - R_sil_mean_m)/(nsteps_mantle-1);
+    r_mantle_m = linspace(R_sil_mean_m,R_sil_bot,nsteps_mantle);
+    sig((nsteps_tot - Params.nsteps_core):end) = coreSig;
+    r_Planet_m = [r_m(1:indSil-1) r_mantle_m r_core_m];
+else
+    r_mantle_m = linspace(R_sil_mean_m,0,nsteps_mantle);
+    r_Planet_m = [r_m(1:indSil-1) r_mantle_m];
+end
+sig(sig==0) = 1e-16; % zeros make the integration unstable
+sig(isnan(sig)) = 1e-16;
 
-    ocean_thk(iT) = r_Planet_m(iT,indsLiquid(1)) - r_Planet_m(iT,indsLiquid(end)+1);
-    disp(['Ocean thickness: ' num2str(ocean_thk(iT)*1e-3,'%0.1f km')])
-    if ~isempty(indsI)
-        ind_Ih(iT) = indsI(end);
-    else
-        ind_Ih(iT) = indsSurf(end);
-    end
-    ind_Obot(iT) = indsLiquid(end);
-    kmean(iT) = mean(sig(iT,ind_Ih(iT)+1:ind_Obot(iT)));
-    ktop(iT) = sig(ind_Ih(iT)+1);
-    
-    
-    %% Interpolate fewer ocean layers to reduce computational load
-    if cfg.REDUCED && Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
-        nIntL = cfg.nIntL;
-        ocStart = totL - indsLiquid(end) + 1;
-        ocEnd = totL - indsLiquid(1) + 1;
-        nOis = length(indsLiquid);
-        interpBds = zeros(1,length(r_Planet_m(iT,:)) - nOis + nIntL);
-        interpSig = zeros(1,length(r_Planet_m(iT,:)) - nOis + nIntL);
+% Identify lower bound of top ice I/clathrate layer
+if ~isempty(indsI)
+    ind_Ih = indsI(end);
+else
+    ind_Ih = indsSurf(end);
+end
+% Get ocean thickness
+if isempty(indsLiquid)
+    ocean_thk = 0;
+    ind_Obot = ind_Ih;
+    ktop = sig(ind_Ih);
+    kmean = ktop;
+else
+    ocean_thk = r_Planet_m(indsLiquid(1)) - r_Planet_m(indsLiquid(end)+1);
+    ind_Obot = indsLiquid(end);
+    kmean = mean(sig(ind_Ih+1:ind_Obot));
+    ktop = sig(ind_Ih+1);
+end
+disp(['Ocean thickness: ' num2str(ocean_thk*1e-3,'%0.1f km')])
 
-        r_asc = flip(r_Planet_m(iT,:),2);
-        sig_asc = flip(sig(iT,:),2);
 
-        % Preserve non-ocean conductivities as-is
-        interpBds(1:ocStart) = r_asc(1:ocStart);
-        interpBds(ocStart+nIntL:end) = r_asc(ocEnd+1:end);
-        interpSig(1:ocStart-1) = sig_asc(1:ocStart-1);
-        interpSig(ocStart+nIntL:end) = sig_asc(ocEnd+1:end);
-        if nOis == ocEnd - ocStart + 1
-            % Single ocean layer, simple layer averages
-            fullOcean = linspace(r_asc(ocStart),r_asc(ocEnd+1),nIntL+1);
-            interpBds(ocStart:ocStart+nIntL-1) = fullOcean(2:end);
-            fullSigs = zeros(1,nIntL);
-            for iR = 1:nIntL
-                avg_start = floor((iR-1)*nOis/nIntL);
-                avg_end = floor(iR*nOis/nIntL) - 1;
-                fullSigs(iR) = mean(sig_asc(ocStart+avg_start:ocStart+avg_end));
-            end
-            interpSig(ocStart:ocStart+nIntL-1) = fullSigs;
-        else
-            % Multiple ocean layers
-            warning('WARNING: Multiple ocean layers found. Interpolate by hand.')
+%% Interpolate fewer ocean layers to reduce computational load
+if cfg.REDUCED && Params.INCLUDE_ELECTRICAL_CONDUCTIVITY && ocean_thk>0
+    nIntL = cfg.nIntL;
+    ocStart = totL - indsLiquid(end) + 1;
+    ocEnd = totL - indsLiquid(1) + 1;
+    nOis = length(indsLiquid);
+    interpBds = zeros(1,length(r_Planet_m) - nOis + nIntL);
+    interpSig = zeros(1,length(r_Planet_m) - nOis + nIntL);
+
+    r_asc = flip(r_Planet_m,2);
+    sig_asc = flip(sig,2);
+
+    % Preserve non-ocean conductivities as-is
+    interpBds(1:ocStart) = r_asc(1:ocStart);
+    interpBds(ocStart+nIntL:end) = r_asc(ocEnd+1:end);
+    interpSig(1:ocStart-1) = sig_asc(1:ocStart-1);
+    interpSig(ocStart+nIntL:end) = sig_asc(ocEnd+1:end);
+    if nOis == ocEnd - ocStart + 1
+        % Single ocean layer, simple layer averages
+        fullOcean = linspace(r_asc(ocStart),r_asc(ocEnd+1),nIntL+1);
+        interpBds(ocStart:ocStart+nIntL-1) = fullOcean(2:end);
+        fullSigs = zeros(1,nIntL);
+        for iR = 1:nIntL
+            avg_start = floor((iR-1)*nOis/nIntL);
+            avg_end = floor(iR*nOis/nIntL) - 1;
+            fullSigs(iR) = mean(sig_asc(ocStart+avg_start:ocStart+avg_end));
         end
-
-        % Now pad interpolated arrays to make Planet fields consistent lengths
-        padL = totL - length(interpBds);
-        padSig = zeros(1,padL) + 1e-16;
-        padBds = linspace(interpBds(end)-(padL+1)*1e-5, interpBds(end)-1e-5, padL);
-        Planet.boundaries(iT,:) = [interpBds(1:end-1) padBds interpBds(end)];
-        Planet.sig(iT,:) = [interpSig(1:end-1) padSig interpSig(end)];
+        interpSig(ocStart:ocStart+nIntL-1) = fullSigs;
     else
-        Planet.boundaries(iT,:) = flip(r_Planet_m(iT,:),2);
-        Planet.sig(iT,:) = flip(sig(iT,:),2);
+        % Multiple ocean layers
+        warning('WARNING: Multiple ocean layers found. Interpolate by hand.')
     end
+
+    % Now pad interpolated arrays to make Planet fields consistent lengths
+    padL = totL - length(interpBds);
+    padSig = zeros(1,padL) + 1e-16;
+    padBds = linspace(interpBds(end)-(padL+1)*1e-5, interpBds(end)-1e-5, padL);
+    Planet.boundaries = [interpBds(1:end-1) padBds interpBds(end)];
+    Planet.sig = [interpSig(1:end-1) padSig interpSig(end)];
+else
+    Planet.boundaries = flip(r_Planet_m,2);
+    Planet.sig = flip(sig,2);
 end
 
-Planet.kmean(iT,:) = kmean(:);
-Planet.ktop(iT,:) = ktop(:);
+Planet.kmean = kmean(:);
+Planet.ktop = ktop(:);
 
 Planet.D_Ih_km = Planet.zb_outerIce_m(:)/1e3;
 Planet.D_ocean_km = ocean_thk(:)/1e3;
@@ -1369,42 +1348,42 @@ end
     
     %was moved up earlier in code
 %     if ~isfield(Params,'NO_ICEI_CONVECTION') || Params.NO_ICEI_CONVECTION == false
-%         if CONVECTION_FLAG_I(iT) || (isfield(Params,'FORCE_ICEI_CONVECTION') && Params.FORCE_ICEI_CONVECTION == true)
+%         if CONVECTION_FLAG_I || (isfield(Params,'FORCE_ICEI_CONVECTION') && Params.FORCE_ICEI_CONVECTION == true)
 %             %conductive upper layer
 %             nConvectIce=n_iceI-nIceIIILithosphere-1;
-%             inds_eTBL = find(z_m(iT,1:nConvectIce)<=eTBL_m(iT));
-%             Pterm = P_MPa(iT,inds_eTBL)./P_MPa(iT,inds_eTBL(end));
-%             T_K(iT,inds_eTBL) = (Tc(iT).^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
+%             inds_eTBL = find(z_m(1:nConvectIce)<=eTBL_m);
+%             Pterm = P_MPa(inds_eTBL)./P_MPa(inds_eTBL(end));
+%             T_K(inds_eTBL) = (Tc.^(Pterm)).*(Planet.Tsurf_K.^(1-Pterm));
 %             %convective region
 %             for iconv = inds_eTBL(end)+1:nConvectIce
-%     %             rho = 1000./getVspChoukroun2010(P_MPa(iT,iconv),T_K(iT,iconv-1),2);
-%                 rho = getRhoIce(P_MPa(iT,iconv),T_K(iT,iconv-1),1);
+%     %             rho = 1000./getVspChoukroun2010(P_MPa(iconv),T_K(iconv-1),2);
+%                 rho = getRhoIce(P_MPa(iconv),T_K(iconv-1),1);
 %                 try
-%                     [Cp,alpha_K] = getCpIce(P_MPa(iT,iconv),T_K(iT,iconv-1),1);
+%                     [Cp,alpha_K] = getCpIce(P_MPa(iconv),T_K(iconv-1),1);
 %                 catch
 %                     warning('Seafreeze couldn''t get Cp, alpha for ice. Is it installed?');
 %                 end
 %     %             aK = 1.56e-4;
-%                 T_K(iT,iconv) = T_K(iT,iconv-1)+alpha_K*T_K(iT,iconv)/Cp/rho*deltaP*1e6;
+%                 T_K(iconv) = T_K(iconv-1)+alpha_K*T_K(iconv)/Cp/rho*deltaP*1e6;
 %             end
 %            % conductive lower layer
-%            inds_deltaTBL = find(z_m(iT,1:nConvectIce)>=z_m(iT,nConvectIce)-deltaTBL_m(iT));
-%            T_K(iT,inds_deltaTBL) = (Planet.Tb_K(iT).^(P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT))).*(T_K(iT,inds_deltaTBL(1)-1).^(1-P_MPa(iT,inds_deltaTBL)./PbI_MPa(iT)));
-%            rho_kgm3(iT,inds_deltaTBL) = getRhoIce(P_MPa(iT,inds_deltaTBL),T_K(iT,inds_deltaTBL),1);
+%            inds_deltaTBL = find(z_m(1:nConvectIce)>=z_m(nConvectIce)-deltaTBL_m);
+%            T_K(inds_deltaTBL) = (Planet.Tb_K.^(P_MPa(inds_deltaTBL)./PbI_MPa)).*(T_K(inds_deltaTBL(1)-1).^(1-P_MPa(inds_deltaTBL)./PbI_MPa));
+%            rho_kgm3(inds_deltaTBL) = getRhoIce(P_MPa(inds_deltaTBL),T_K(inds_deltaTBL),1);
 %
-%            if find(phase(iT,:)>1)
-%     %         indVI = find(phase(iT,:)==6);
-%     %         Ttop = T_K(iT,indsVI(iT));
+%            if find(phase>1)
+%     %         indVI = find(phase==6);
+%     %         Ttop = T_K(indsVI);
 %     %         Tbottom = zVI_m
-%     %         [Q_Wm2(iT),deltaTBL_m(iT),eTBL_m(iT),Tc(iT),rhoIce(iT),alphaIce(iT),CpIce(iT),kIce(iT),CONVECTION_FLAG_I(iT)]=...
-%     %         ConvectionHPIceKalousova2018(Ttop,,PbI_MPa(iT)/2,zb_outerIce_m(iT),g_ms2(iT,1),2);
+%     %         [Q_Wm2,deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,CONVECTION_FLAG_I]=...
+%     %         ConvectionHPIceKalousova2018(Ttop,,PbI_MPa/2,zb_outerIce_m,g_ms2(1),2);
 %            end
 %
 %         %else % We take care of this case well above in order to be able
 %               % to exit sooner if cfg.SKIP_PROFILES=1
 %         end
 %     else
-%         Q_Wm2(iT) = Planet.Qmantle_Wm2(1);
+%         Q_Wm2 = Planet.Qmantle_Wm2(1);
 %     end
     
 %end
@@ -1412,95 +1391,95 @@ end
 if Params.CALC_NEW_SOUNDSPEEDS
     disp('Computing sound speeds')
 %     velsIce = iceVelsGagnon1990(P_MPa,T_K);
-    [vfluid_kms,Ksfluid_GPa] = deal(zeros(nTbs,nsteps));
-    for iT = 1:nTbs
-        tic
-        out=Helgerud_sI(P_MPa(iT,:)', T_K(iT,:)');
-        velsIce.Vclathl_kms(iT,:) = 1e-3*out.Vp;
-        velsIce.Vclatht_kms(iT,:) = 1e-3*out.Vs;
-        velsIce.Ksclath_GPa(iT,:) = 1e-3*out.K;
-        velsIce.Gsclath_GPa(iT,:) = 1e-3*out.shear;
-        
-        out=SeaFreeze([P_MPa(iT,:)' T_K(iT,:)'],'Ih');
-        velsIce.VIl_kms(iT,:) = 1e-3*out.Vp;
-        velsIce.VIt_kms(iT,:) = 1e-3*out.Vs;
-        velsIce.KsI_GPa(iT,:) = 1e-3*out.Ks;
-        velsIce.GsI_GPa(iT,:) = 1e-3*out.shear;
+    [vfluid_kms,Ksfluid_GPa] = deal(zeros(1,nsteps));
+    tic
+    out=Helgerud_sI(P_MPa', T_K');
+    velsIce.Vclathl_kms = 1e-3*out.Vp;
+    velsIce.Vclatht_kms = 1e-3*out.Vs;
+    velsIce.Ksclath_GPa = 1e-3*out.K;
+    velsIce.Gsclath_GPa = 1e-3*out.shear;
 
-        out=SeaFreeze([P_MPa(iT,:)' T_K(iT,:)'],'III');
-        velsIce.VIIIl_kms(iT,:) = 1e-3*out.Vp;
-        velsIce.VIIIt_kms(iT,:) = 1e-3*out.Vs;
-        velsIce.KsIII_GPa(iT,:) = 1e-3*out.Ks;
-        velsIce.GsIII_GPa(iT,:) = 1e-3*out.shear;
+    out=SeaFreeze([P_MPa' T_K'],'Ih');
+    velsIce.VIl_kms = 1e-3*out.Vp;
+    velsIce.VIt_kms = 1e-3*out.Vs;
+    velsIce.KsI_GPa = 1e-3*out.Ks;
+    velsIce.GsI_GPa = 1e-3*out.shear;
 
-        out=SeaFreeze([P_MPa(iT,:)' T_K(iT,:)'],'V');
-        velsIce.VVl_kms(iT,:) = 1e-3*out.Vp;
-        velsIce.VVt_kms(iT,:) = 1e-3*out.Vs;
-        velsIce.KsV_GPa(iT,:) = 1e-3*out.Ks;
-        velsIce.GsV_GPa(iT,:) = 1e-3*out.shear;
-        
-        out=SeaFreeze([P_MPa(iT,:)' T_K(iT,:)'],'VI');
-        velsIce.VVIl_kms(iT,:) = 1e-3*out.Vp;
-        velsIce.VVIt_kms(iT,:) = 1e-3*out.Vs;
-        velsIce.KsVI_GPa(iT,:) = 1e-3*out.Ks;
-        velsIce.GsVI_GPa(iT,:) = 1e-3*out.shear;
-        
-        
-        if POROUS_ICE
-            % only affects top ice/clath layers
-            % correction for porosity
-            por_in(iT).p=P_MPa(iT,1:(n_clath(iT)+n_iceI(iT)))*1e-3;
-            por_in(iT).t = T_K(iT,1:(n_clath(iT)+n_iceI(iT)));
-            por_in(iT).den = rho_kgm3(iT,1:(n_clath(iT)+n_iceI(iT)));
-            try
-                por_in(iT).phi_surface=Planet.phi_surface;
-            end
-            
-            por_in(iT).vp = velsIce.Vclathl_kms(iT,1:(n_clath(iT)+n_iceI(iT)));
-            por_in(iT).vs = velsIce.Vclatht_kms(iT,1:(n_clath(iT)+n_iceI(iT)));
-            por_vel_out(iT) = porosity_correction_ice(por_in(iT),por(iT,:));
-            velsIce.Vclathl_kms(iT,1:(n_clath(iT)+n_iceI(iT))) = por_vel_out(iT).vp;
-            velsIce.Vclatht_kms(iT,1:(n_clath(iT)+n_iceI(iT))) = por_vel_out(iT).vs;
-            
-            
-            por_in(iT).vp = velsIce.VIl_kms(iT,1:(n_clath(iT)+n_iceI(iT)));
-            por_in(iT).vs = velsIce.VIt_kms(iT,1:(n_clath(iT)+n_iceI(iT)));
-            por_vel_out(iT) = porosity_correction_ice(por_in(iT),por(iT,:));
-            velsIce.VIl_kms(iT,1:(n_clath(iT)+n_iceI(iT))) = por_vel_out(iT).vp;
-            velsIce.VIt_kms(iT,1:(n_clath(iT)+n_iceI(iT))) = por_vel_out(iT).vs;
+    out=SeaFreeze([P_MPa' T_K'],'III');
+    velsIce.VIIIl_kms = 1e-3*out.Vp;
+    velsIce.VIIIt_kms = 1e-3*out.Vs;
+    velsIce.KsIII_GPa = 1e-3*out.Ks;
+    velsIce.GsIII_GPa = 1e-3*out.shear;
+
+    out=SeaFreeze([P_MPa' T_K'],'V');
+    velsIce.VVl_kms = 1e-3*out.Vp;
+    velsIce.VVt_kms = 1e-3*out.Vs;
+    velsIce.KsV_GPa = 1e-3*out.Ks;
+    velsIce.GsV_GPa = 1e-3*out.shear;
+
+    out=SeaFreeze([P_MPa' T_K'],'VI');
+    velsIce.VVIl_kms = 1e-3*out.Vp;
+    velsIce.VVIt_kms = 1e-3*out.Vs;
+    velsIce.KsVI_GPa = 1e-3*out.Ks;
+    velsIce.GsVI_GPa = 1e-3*out.shear;
+
+
+    if POROUS_ICE
+        % only affects top ice/clath layers
+        % correction for porosity
+        por_in.p=P_MPa(1:(n_clath+n_iceI))*1e-3;
+        por_in.t = T_K(1:(n_clath+n_iceI));
+        por_in.den = rho_kgm3(1:(n_clath+n_iceI));
+        try
+            por_in.phi_surface=Planet.phi_surface;
         end
-    
-        ir = find(phase(iT,:)==0);
-        vfluid_kms(iT,ir) = fluidSoundSpeeds(P_MPa(iT,ir),T_K(iT,ir),wo,Planet.Ocean.comp);
-        ireal = find(~isnan(vfluid_kms(iT,:)));
-        if length(ireal)<length(ir)
-            disp('warning: extrapolating fluid sound speeds; this is seawater above 120 MPa, right?')
-            vfluid_kms(iT,ir) = interp1(P_MPa(iT,ireal),vfluid_kms(iT,ireal),P_MPa(iT,ir),'linear','extrap');
-        end
-%         for ir = find(phase(iT,:)==0)
-%             vfluid_kms(iT,ir) = fluidSoundSpeeds(P_MPa(iT,ir),T_K(iT,ir),wo,Planet.Ocean.comp);
-%         end
-        toc
-        Ksfluid_GPa(iT,ir)=1e-3*rho_kgm3(iT,ir).*vfluid_kms(iT,ir).^2;
-        vfluid_kms(iT,vfluid_kms(iT,:)==0)=NaN;
-        Ksfluid_GPa(iT,vfluid_kms(iT,:)==0)=NaN;
-        velsIce.VIl_kms(iT,phase(iT,:)~=1) =NaN;
-        velsIce.VIt_kms(iT,phase(iT,:)~=1) =NaN;
-        velsIce.VIIl_kms(iT,phase(iT,:)~=2) =NaN;
-        velsIce.VIIt_kms(iT,phase(iT,:)~=2) =NaN;
-        velsIce.VIIIl_kms(iT,phase(iT,:)~=3) =NaN;
-        velsIce.VIIIt_kms(iT,phase(iT,:)~=3) =NaN;
-        velsIce.VVl_kms(iT,phase(iT,:)~=5) =NaN;
-        velsIce.VVt_kms(iT,phase(iT,:)~=5) =NaN;
-        velsIce.VVIl_kms(iT,phase(iT,:)~=6) =NaN;
-        velsIce.VVIt_kms(iT,phase(iT,:)~=6) =NaN;
-        velsIce.Vclathl_kms(iT,phase(iT,:)~=30) =NaN;
-        velsIce.Vclatht_kms(iT,phase(iT,:)~=30) =NaN;
+
+        por_in.vp = velsIce.Vclathl_kms(1:(n_clath+n_iceI));
+        por_in.vs = velsIce.Vclatht_kms(1:(n_clath+n_iceI));
+        por_vel_out = porosity_correction_ice(por_in,por);
+        velsIce.Vclathl_kms(1:(n_clath+n_iceI)) = por_vel_out.vp;
+        velsIce.Vclatht_kms(1:(n_clath+n_iceI)) = por_vel_out.vs;
+
+
+        por_in.vp = velsIce.VIl_kms(1:(n_clath+n_iceI));
+        por_in.vs = velsIce.VIt_kms(1:(n_clath+n_iceI));
+        por_vel_out = porosity_correction_ice(por_in,por);
+        velsIce.VIl_kms(1:(n_clath+n_iceI)) = por_vel_out.vp;
+        velsIce.VIt_kms(1:(n_clath+n_iceI)) = por_vel_out.vs;
     end
-    save(fullfile([datpath savefile '_Vels' '_pp' num2str(iT)]),'Ksfluid_GPa','velsIce','vfluid_kms');
+
+    ir = find(phase==0);
+    vfluid_kms(ir) = fluidSoundSpeeds(P_MPa(ir),T_K(ir),wo,Planet.Ocean.comp);
+    ireal = find(~isnan(vfluid_kms));
+    if length(ireal)<length(ir)
+        if ~strcmp(Planet.Ocean.comp,'Seawater')
+            disp('WARNING: extrapolating fluid sound speeds, but this is only valid for Seawater above 120 MPa!')
+        end
+        vfluid_kms(ir) = interp1(P_MPa(ireal),vfluid_kms(ireal),P_MPa(ir),'linear','extrap');
+    end
+%         for ir = find(phase==0)
+%             vfluid_kms(ir) = fluidSoundSpeeds(P_MPa(ir),T_K(ir),wo,Planet.Ocean.comp);
+%         end
+    toc
+    Ksfluid_GPa(ir)=1e-3*rho_kgm3(ir).*vfluid_kms(ir).^2;
+    vfluid_kms(vfluid_kms==0)=NaN;
+    Ksfluid_GPa(vfluid_kms==0)=NaN;
+    velsIce.VIl_kms(phase~=1) =NaN;
+    velsIce.VIt_kms(phase~=1) =NaN;
+    velsIce.VIIl_kms(phase~=2) =NaN;
+    velsIce.VIIt_kms(phase~=2) =NaN;
+    velsIce.VIIIl_kms(phase~=3) =NaN;
+    velsIce.VIIIt_kms(phase~=3) =NaN;
+    velsIce.VVl_kms(phase~=5) =NaN;
+    velsIce.VVt_kms(phase~=5) =NaN;
+    velsIce.VVIl_kms(phase~=6) =NaN;
+    velsIce.VVIt_kms(phase~=6) =NaN;
+    velsIce.Vclathl_kms(phase~=30) =NaN;
+    velsIce.Vclatht_kms(phase~=30) =NaN;
+    save(fullfile([datpath savefile '_Vels' '_pp']),'Ksfluid_GPa','velsIce','vfluid_kms');
 else
     try	
-        load(fullfile([datpath savefile '_Vels' '_pp' num2str(iT)]),'Ksfluid_GPa','velsIce','vfluid_kms');	
+        load(fullfile([datpath savefile '_Vels' '_pp']),'Ksfluid_GPa','velsIce','vfluid_kms');	
     catch	
         error(['ERROR: A soundspeeds file was not found for ' char(Planet.salt) '. Re-run with CALC_NEW_SOUND=1 to generate the needed file.'])	
     end
@@ -1515,10 +1494,8 @@ if isfield(Seismic,'mantleEOS_dry')
 end
     
 
-for iT = 1:nTbs
-    mean_rho_ocean(iT) = mean(rho_kgm3(iT,n_iceI(iT)+1:indSil(iT)));
-end
-    disp(['rho ocean (kg/m3) ' num2str(mean_rho_ocean,'\t%0.0f')])
+mean_rho_ocean = mean(rho_kgm3(n_iceI+1:indSil));
+disp(['rho ocean (kg/m3) ' num2str(mean_rho_ocean,'\t%0.0f')])
 
 
 if isfield(Seismic,'SMOOTH_ROCK') && Params.SMOOTH_VROCK
@@ -1562,122 +1539,123 @@ end
         dGdT_iron_PaK = 0;
     end
 
-[Pcore_MPa,Tcore_K,rhocore_kgm3,M_above_core,VP_core_kms,VS_core_kms,g_ms2_core,Ks_iron_GPa,G_iron_GPa] = deal(zeros(nTbs,Params.nsteps_core));
+[Pcore_MPa,Tcore_K,rhocore_kgm3,M_above_core,VP_core_kms,VS_core_kms,g_ms2_core,Ks_iron_GPa,G_iron_GPa] = deal(zeros(1,Params.nsteps_core));
 clear g_ms2_core M_above_core
     
-for iT = nTbs:-1:1  % Do this loop in decreasing order to avoid preallocating por_in, por_out structs
-    [Pmantle_MPa,rho_mantle_kgm3,M_above_mantle,VP_mantle_kms,VS_mantle_kms,g_ms2_sil] = deal(zeros(1,nsteps_mantle(iT)));
-    Tmantle_K = T_K(iT,indSil(iT));
-    r_mantle_m = linspace(R_sil_mean_m(iT),R_Fe_mean_m(iT),nsteps_mantle(iT));
-    
-    g_ms2_sil = g_ms2(iT,C2mean(iT))*ones(1,nsteps_mantle(iT));
-    MantleHeat = Planet.Qmantle_Wm2(iT)*4*pi*Planet.R_m^2+Planet.QHmantle;
-    rhom_rough = 3000;
-    alpha_rough = 0.2e-4;
-    Cp_rough = 2e6;
-    Kappa_rough = 1e-6;
-    nu_mantle = 1e21; % mantle viscosity in Pa S, a common number for Earth?s mantle
-    DeltaT = 800; % temperature differential in K
-    
-    % cold case
-    if Planet.FeCore
-        Tmantle_K = conductiveMantleTemperature(r_mantle_m,R_Fe_mean_m(iT),R_sil_mean_m(iT),Planet.kr_mantle,Planet.rho_sil_withcore_kgm3,Tmantle_K,MantleHeat,0);
-        MantleMass = 4/3*pi*(R_sil_mean_m(iT)^3-R_Fe_mean_m(iT)^3);
-        Dm = R_sil_mean_m(iT)-R_Fe_mean_m(iT);
-    else
-        Tmantle_K = conductiveMantleTemperature(r_mantle_m,0,R_sil_mean_m(iT),Planet.kr_mantle,rho_sil_kgm3(iT,C2mean(iT)),Tmantle_K,MantleHeat,0);
-        MantleMass = 4/3*pi*(R_sil_mean_m(iT)^3);
-        Dm = R_sil_mean_m(iT);
-    end    
-    
-    Ra_mantle = g_ms2_sil(1)*rhom_rough*alpha_rough*MantleHeat/MantleMass*Dm^5/nu_mantle/Kappa_rough^2/Cp_rough; % bunge 1997
-    % parmentier and sotin 1994
-    Ra_mantle = alpha_rough*rhom_rough*g_ms2_sil(1)*DeltaT*Dm^3/Kappa_rough/nu_mantle;% as per Hussmann and Spohn 2004
+[Pmantle_MPa,rho_mantle_kgm3,M_above_mantle,VP_mantle_kms,VS_mantle_kms,g_ms2_sil] = deal(zeros(1,nsteps_mantle));
+Tmantle_K = T_K(indSil);
+r_mantle_m = linspace(R_sil_mean_m,R_Fe_mean_m,nsteps_mantle);
 
-    % COMMON FUNCTIONALITY HERE IS TO PROPAGATE PRESSURE, GRAVITY AND
-    % DENSITY DOWNWARD FOR A CONDUCTIVELY COOLING LAYER WITH NO SOLID STATE
-    % CONVECTION
-%     g_ms2_sil(1) = g_ms2(iT,C2mean(iT));
-    M_above_mantle(1) = M_above_kg(iT,C2mean(iT));
-    Pmantle_MPa(1) = P_MPa(iT,C2mean(iT));
-    rhofn_kgm3 = mantle.rho_fn;
-    VPfn_kms = mantle.vp_fn;
-    VSfn_kms = mantle.vs_fn;
-    rho_mantle_kgm3(1) = rhofn_kgm3(Pmantle_MPa(1),Tmantle_K(1));
-    VP_mantle_kms(1) = VPfn_kms(Pmantle_MPa(1),Tmantle_K(1));
-    VS_mantle_kms(1) = VSfn_kms(Pmantle_MPa(1),Tmantle_K(1));
+g_ms2_sil = g_ms2(C2mean)*ones(1,nsteps_mantle);
+MantleHeat = Planet.Qmantle_Wm2*4*pi*Planet.R_m^2+Planet.QHmantle;
+rhom_rough = 3000;
+alpha_rough = 0.2e-4;
+Cp_rough = 2e6;
+Kappa_rough = 1e-6;
+nu_mantle = 1e21; % mantle viscosity in Pa S, a common number for Earth?s mantle
+DeltaT = 800; % temperature differential in K
 
-    for ij = 2:nsteps_mantle(iT)
+% cold case
+if Planet.FeCore
+    Tmantle_K = conductiveMantleTemperature(r_mantle_m,R_Fe_mean_m,R_sil_mean_m,Planet.kr_mantle,Planet.rho_sil_withcore_kgm3,Tmantle_K,MantleHeat,0);
+    MantleMass = 4/3*pi*(R_sil_mean_m^3-R_Fe_mean_m^3);
+    Dm = R_sil_mean_m-R_Fe_mean_m;
+else
+    Tmantle_K = conductiveMantleTemperature(r_mantle_m,0,R_sil_mean_m,Planet.kr_mantle,rho_sil_kgm3(C2mean),Tmantle_K,MantleHeat,0);
+    MantleMass = 4/3*pi*(R_sil_mean_m^3);
+    Dm = R_sil_mean_m;
+end    
+
+Ra_mantle = g_ms2_sil(1)*rhom_rough*alpha_rough*MantleHeat/MantleMass*Dm^5/nu_mantle/Kappa_rough^2/Cp_rough; % bunge 1997
+% parmentier and sotin 1994
+Ra_mantle = alpha_rough*rhom_rough*g_ms2_sil(1)*DeltaT*Dm^3/Kappa_rough/nu_mantle;% as per Hussmann and Spohn 2004
+
+% COMMON FUNCTIONALITY HERE IS TO PROPAGATE PRESSURE, GRAVITY AND
+% DENSITY DOWNWARD FOR A CONDUCTIVELY COOLING LAYER WITH NO SOLID STATE
+% CONVECTION
+%     g_ms2_sil(1) = g_ms2(C2mean);
+M_above_mantle(1) = M_above_kg(C2mean);
+Pmantle_MPa(1) = P_MPa(C2mean);
+rhofn_kgm3 = mantle.rho_fn;
+VPfn_kms = mantle.vp_fn;
+VSfn_kms = mantle.vs_fn;
+rho_mantle_kgm3(1) = rhofn_kgm3(Pmantle_MPa(1),Tmantle_K(1));
+VP_mantle_kms(1) = VPfn_kms(Pmantle_MPa(1),Tmantle_K(1));
+VS_mantle_kms(1) = VSfn_kms(Pmantle_MPa(1),Tmantle_K(1));
+Cpfn_mantle_JkgK = mantle.cp_fn;
+Cp_mantle_JkgK = Cpfn_mantle_JkgK(Pmantle_MPa,Tmantle_K);
+
+for ij = 2:nsteps_mantle
 %         if r_mantle_m(ij-1)>0.3*Planet.R_m
 %             g_ms2_sil(ij)=(Gg*(Planet.M_kg-M_above_mantle(ij-1))/r_mantle_m(ij-1)^2);
 %         else
 %             g_ms2_sil(ij) = g_ms2_sil(ij-1);
 %         end
-        Pmantle_MPa(ij) = Pmantle_MPa(ij-1)+1e-6*(rho_mantle_kgm3(ij-1))*g_ms2_sil(ij)*(r_mantle_m(ij-1)-r_mantle_m(ij));
-        M_above_mantle(ij) = M_above_mantle(ij-1)+4/3*pi*(r_mantle_m(ij-1)^3-r_mantle_m(ij)^3)*rho_mantle_kgm3(ij-1);
-        
-        if isfield(Seismic,'mantleEOS_dry') && rho_mantle_kgm3(ij-1)>rhofn_kgm3(Pmantle_MPa(ij),Tmantle_K(ij))
-            rhofn_kgm3 = mantleDry.rho_fn;
-            VPfn_kms = mantleDry.vp_fn;
-            VSfn_kms = mantleDry.vs_fn;
-        end
-         rho_mantle_kgm3(ij) = rhofn_kgm3(Pmantle_MPa(ij),Tmantle_K(ij));
-         VP_mantle_kms(ij) = VPfn_kms(Pmantle_MPa(ij),Tmantle_K(ij));
-         VS_mantle_kms(ij) = VSfn_kms(Pmantle_MPa(ij),Tmantle_K(ij));
-         if VP_mantle_kms(ij)<0.1 || isnan(VP_mantle_kms(ij))
-             VP_mantle_kms(ij) = NaN;
-         end
-         if VS_mantle_kms(ij)<0.1 || isnan(VS_mantle_kms(ij))
-             VS_mantle_kms(ij) = NaN;
-         end
-         if Pmantle_MPa(ij)<0.1 || isnan(Pmantle_MPa(ij))
-             Pmantle_MPa(ij) = NaN;
-         end
+    Pmantle_MPa(ij) = Pmantle_MPa(ij-1)+1e-6*(rho_mantle_kgm3(ij-1))*g_ms2_sil(ij)*(r_mantle_m(ij-1)-r_mantle_m(ij));
+    M_above_mantle(ij) = M_above_mantle(ij-1)+4/3*pi*(r_mantle_m(ij-1)^3-r_mantle_m(ij)^3)*rho_mantle_kgm3(ij-1);
 
+    if isfield(Seismic,'mantleEOS_dry') && rho_mantle_kgm3(ij-1)>rhofn_kgm3(Pmantle_MPa(ij),Tmantle_K(ij))
+        rhofn_kgm3 = mantleDry.rho_fn;
+        VPfn_kms = mantleDry.vp_fn;
+        VSfn_kms = mantleDry.vs_fn;
     end
-    
-    if POROUS
-    % correction for porosity
-        por_in(iT).p=Pmantle_MPa*1e-3;
-        por_in(iT).t = Tmantle_K;
-        por_in(iT).den = rho_mantle_kgm3;
-        por_in(iT).vp = VP_mantle_kms;
-        por_in(iT).vs = VS_mantle_kms;
-        if isfield(Planet,'phi_surface')
-            por_out(iT) = porosity_correction(por_in(iT),Planet.phi_surface);
-        else
-            por_out(iT) = porosity_correction(por_in(iT));
-        end
-        permeability = por_out(iT).per;
-        rho_mantle_kgm3 = por_out(iT).den;
-        VP_mantle_kms = por_out(iT).vp;
-        VS_mantle_kms = por_out(iT).vs;
-        disp(['Average Porosity: ' num2str(mean(por_out(iT).por))])
-        disp(['Porosity: ' num2str(por_out(iT).por)])
-        %recalculate mass above in light of reduced density. This should
-        %really be done in a recursive way that acknowledges the reduced
-        %overburden pressure.
-        for ij = 2:nsteps_mantle(iT)
+     rho_mantle_kgm3(ij) = rhofn_kgm3(Pmantle_MPa(ij),Tmantle_K(ij));
+     VP_mantle_kms(ij) = VPfn_kms(Pmantle_MPa(ij),Tmantle_K(ij));
+     VS_mantle_kms(ij) = VSfn_kms(Pmantle_MPa(ij),Tmantle_K(ij));
+     if VP_mantle_kms(ij)<0.1 || isnan(VP_mantle_kms(ij))
+         VP_mantle_kms(ij) = NaN;
+     end
+     if VS_mantle_kms(ij)<0.1 || isnan(VS_mantle_kms(ij))
+         VS_mantle_kms(ij) = NaN;
+     end
+     if Pmantle_MPa(ij)<0.1 || isnan(Pmantle_MPa(ij))
+         Pmantle_MPa(ij) = NaN;
+     end
+
+end
+
+if POROUS
+% correction for porosity
+    por_in.p=Pmantle_MPa*1e-3;
+    por_in.t = Tmantle_K;
+    por_in.den = rho_mantle_kgm3;
+    por_in.vp = VP_mantle_kms;
+    por_in.vs = VS_mantle_kms;
+    if isfield(Planet,'phi_surface')
+        por_out = porosity_correction(por_in,Planet.phi_surface);
+    else
+        por_out = porosity_correction(por_in);
+    end
+    permeability = por_out.per;
+    rho_mantle_kgm3 = por_out.den;
+    VP_mantle_kms = por_out.vp;
+    VS_mantle_kms = por_out.vs;
+    disp(['Average Porosity: ' num2str(mean(por_out.por))])
+    disp(['Porosity: ' num2str(por_out.por)])
+    %recalculate mass above in light of reduced density. This should
+    %really be done in a recursive way that acknowledges the reduced
+    %overburden pressure.
+    for ij = 2:nsteps_mantle
 %         if r_mantle_m(ij-1)>0.3*Planet.R_m
 %             g_ms2_sil(ij)=(Gg*(Planet.M_kg-M_above_mantle(ij-1))/r_mantle_m(ij-1)^2);
 %         else
 %             g_ms2_sil(ij) = g_ms2_sil(ij-1);
 %         end
 %         Pmantle_MPa(ij) = Pmantle_MPa(ij-1)+1e-6*(rho_mantle_kgm3(ij-1))*g_ms2_sil(ij)*(r_mantle_m(ij-1)-r_mantle_m(ij));
-          M_above_mantle(ij) = M_above_mantle(ij-1)+4/3*pi*(r_mantle_m(ij-1)^3-r_mantle_m(ij)^3)*rho_mantle_kgm3(ij-1);
-        end
+      M_above_mantle(ij) = M_above_mantle(ij-1)+4/3*pi*(r_mantle_m(ij-1)^3-r_mantle_m(ij)^3)*rho_mantle_kgm3(ij-1);
     end
-    
-    mtest = find(M_above_mantle>Planet.M_kg);
-    if mtest
-        disp(['Exceeded planet mass at mantle radius of ' num2str(1e-3*r_mantle_m(mtest(1)), '%0.0f'), ' km']);
-        
-    end
-    
-    if find(g_ms2_sil<0)
-        disp('too-large input density (probably in the mantle) resulted in negative gravity; computing pressure and gravity from density instead')
-    end
-    
+end
+
+mtest = find(M_above_mantle>Planet.M_kg);
+if mtest
+    disp(['Exceeded planet mass at mantle radius of ' num2str(1e-3*r_mantle_m(mtest(1)), '%0.0f'), ' km']);
+
+end
+
+if find(g_ms2_sil<0)
+    disp('too-large input density (probably in the mantle) resulted in negative gravity; computing pressure and gravity from density instead')
+end
+
 %%  insert a low velocity layer in upper part of mantle; this was useful to address some quirks of AxiSEM
 %     indsLow = find(r_mantle_m(1)-r_mantle_m<=5000);strLow = 'LowVUpperMantle5km';
 %     indsLow = find(r_mantle_m(1)-r_mantle_m<=20000); strLow = 'LowVUpperMantle20km';
@@ -1688,536 +1666,531 @@ for iT = nTbs:-1:1  % Do this loop in decreasing order to avoid preallocating po
 % end
 strLow = '';
 %%
-    % AS ABOVE, NOW FOR THE METALLIC CORE; THESE VALUES AREN'T USED IF PLANET.FECORE IS FALSE
-%     g_ms2_core(iT,1) = g_ms2_sil(nsteps_mantle(iT)); % depth dependent
+% AS ABOVE, NOW FOR THE METALLIC CORE; THESE VALUES AREN'T USED IF PLANET.FECORE IS FALSE
+%     g_ms2_core(1) = g_ms2_sil(nsteps_mantle); % depth dependent
 %     gravity was used previously, but this can result in negative gravity
 %     approaching the center of the core due to imperfect matching of the
 %     moment of inertia.
-%     M_above_core(iT,1) = M_above_mantle(nsteps_mantle(iT));
-    if Planet.FeCore
-        M_above_core(iT,1) = M_above_mantle(nsteps_mantle(iT));
-        g_ms2_core(iT,:)=(Gg*(Planet.M_kg-M_above_core(iT))/r_core_m(iT)^2)*ones(1,Params.nsteps_core);
+%     M_above_core(1) = M_above_mantle(nsteps_mantle);
+if Planet.FeCore
+    M_above_core(1) = M_above_mantle(nsteps_mantle);
+    g_ms2_core=(Gg*(Planet.M_kg-M_above_core)/r_core_m(1)^2)*ones(1,Params.nsteps_core);
 
-        Tcore_K(iT,:) = linspace(Tmantle_K(end),1.01*Tmantle_K(end),Params.nsteps_core);
-        Pcore_MPa(iT,1) = Pmantle_MPa(nsteps_mantle(iT));
-        if isfield(Seismic,'coreEOS')
-            core = loadMantleEOS(Seismic.coreEOS);
-            rhocore_kgm3(iT,1) = core.rho_fn(Pcore_MPa(iT,1),Tcore_K(iT,1));
-            
-            for ij = 2:Params.nsteps_core
-        %          g_ms2_core(iT,ij)=(Gg*(Planet.M_kg-M_above_core(iT,ij-1))/r_core_m(iT,ij-1)^2);
-        %          Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT,ij)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
-                 Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
-                 rhocore_kgm3(iT,ij) = core.rho_fn(Pcore_MPa(iT,ij),Tcore_K(iT,ij));
-    %              rhocore_kgm3(iT,ij) = rhocore_kgm3(iT,ij-1)*(1+1./(1e-3*Pcore_MPa(iT,ij)*Ks_iron_GPa(iT,ij)));
-        %          M_above_core(iT,ij) = M_above_core(iT,ij-1)+4/3*pi*(r_core_m(iT,ij-1)^3-r_core_m(iT,ij)^3)*rhocore_kgm3(iT,ij-1);
-            end
-            Ks_iron_GPa(iT,:) = bar2GPa*core.Ks_fn(Pcore_MPa(iT,:),Tcore_K(iT,:));
-            G_iron_GPa(iT,:) = bar2GPa*core.Gs_fn(Pcore_MPa(iT,:),Tcore_K(iT,:));
-            VS_core_kms(iT,:) = core.vs_fn(Pcore_MPa(iT,:),Tcore_K(iT,:));
-            VP_core_kms(iT,:) = core.vp_fn(Pcore_MPa(iT,:),Tcore_K(iT,:));
-        else
-            Ks_iron_GPa(iT,1) = Kso_iron_GPa+1e-3*Pcore_MPa(iT,1)*dKsdP_iron+1e-9*Tcore_K(iT,1)*dKsdT_PaK;
-            G_iron_GPa(iT,1) = Go_iron_GPa+1e-3*Pcore_MPa(iT,1)*dGdP_iron+1e-9*Tcore_K(iT,1)*dGdT_iron_PaK;
-            rhocore_kgm3(iT,:) = rhoo_iron_kgm3;
+    Tcore_K = linspace(Tmantle_K(end),1.01*Tmantle_K(end),Params.nsteps_core);
+    %Pcore_MPa(1) = 2*Pmantle_MPa(nsteps_mantle) - Pmantle_MPa(nsteps_mantle-1);
+    Pcore_MPa(1) = Pmantle_MPa(nsteps_mantle);
+    if isfield(Seismic,'coreEOS')
+        core = loadMantleEOS(Seismic.coreEOS);
+        rhocore_kgm3(1) = core.rho_fn(Pcore_MPa(1),Tcore_K(1));
 
-            for ij = 2:Params.nsteps_core
-        %          g_ms2_core(iT,ij)=(Gg*(Planet.M_kg-M_above_core(iT,ij-1))/r_core_m(iT,ij-1)^2);
-        %          Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT,ij)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
-                 Pcore_MPa(iT,ij) = Pcore_MPa(iT,ij-1)+1e-6*rhocore_kgm3(iT,ij-1)*g_ms2_core(iT)*(r_core_m(iT,ij-1)-r_core_m(iT,ij));
-                 Ks_iron_GPa(iT,ij) = Kso_iron_GPa+1e-3*Pcore_MPa(iT,ij)*dKsdP_iron+1e-9*Tcore_K(iT,ij)*dKsdT_PaK;
-                 G_iron_GPa(iT,ij) = Go_iron_GPa+1e-3*Pcore_MPa(iT,ij)*dGdP_iron+1e-9*Tcore_K(iT,ij)*dGdT_iron_PaK;
-    %              rhocore_kgm3(iT,ij) = rhocore_kgm3(iT,ij-1)*(1+1./(1e-3*Pcore_MPa(iT,ij)*Ks_iron_GPa(iT,ij)));
-        %          M_above_core(iT,ij) = M_above_core(iT,ij-1)+4/3*pi*(r_core_m(iT,ij-1)^3-r_core_m(iT,ij)^3)*rhocore_kgm3(iT,ij-1);
-            end
-            VS_core_kms(iT,:) = 1e-3*sqrt(G_iron_GPa(iT,:)*1e9./rhocore_kgm3(iT,:));
-            VP_core_kms(iT,:) = 1e-3*sqrt(Ks_iron_GPa(iT,:)*1e9./rhocore_kgm3(iT,:)+4/3*(VS_core_kms(iT,:)*1e3).^2);
+        for ij = 2:Params.nsteps_core
+    %          g_ms2_core(ij)=(Gg*(Planet.M_kg-M_above_core(ij-1))/r_core_m(ij-1)^2);
+    %          Pcore_MPa(ij) = Pcore_MPa(ij-1)+1e-6*rhocore_kgm3(ij-1)*g_ms2_core(ij)*(r_core_m(ij-1)-r_core_m(ij));
+             Pcore_MPa(ij) = Pcore_MPa(ij-1)+1e-6*rhocore_kgm3(ij-1)*g_ms2_core(ij-1)*(r_core_m(ij-1)-r_core_m(ij));
+             rhocore_kgm3(ij) = core.rho_fn(Pcore_MPa(ij),Tcore_K(ij));
+%              rhocore_kgm3(ij) = rhocore_kgm3(ij-1)*(1+1./(1e-3*Pcore_MPa(ij)*Ks_iron_GPa(ij)));
+    %          M_above_core(ij) = M_above_core(ij-1)+4/3*pi*(r_core_m(ij-1)^3-r_core_m(ij)^3)*rhocore_kgm3(ij-1);
         end
+        Ks_iron_GPa = bar2GPa*core.Ks_fn(Pcore_MPa,Tcore_K);
+        G_iron_GPa = bar2GPa*core.Gs_fn(Pcore_MPa,Tcore_K);
+        VS_core_kms = core.vs_fn(Pcore_MPa,Tcore_K);
+        VP_core_kms = core.vp_fn(Pcore_MPa,Tcore_K);
+
+        Cpfn_core_JkgK = core.cp_fn;
+        Cp_core_JkgK = Cpfn_core_JkgK(Pcore_MPa,Tcore_K);
+    else
+        Ks_iron_GPa(1) = Kso_iron_GPa+1e-3*Pcore_MPa(1)*dKsdP_iron+1e-9*Tcore_K(1)*dKsdT_PaK;
+        G_iron_GPa(1) = Go_iron_GPa+1e-3*Pcore_MPa(1)*dGdP_iron+1e-9*Tcore_K(1)*dGdT_iron_PaK;
+        rhocore_kgm3 = rhoo_iron_kgm3;
+
+        for ij = 2:Params.nsteps_core
+    %          g_ms2_core(ij)=(Gg*(Planet.M_kg-M_above_core(ij-1))/r_core_m(ij-1)^2);
+    %          Pcore_MPa(ij) = Pcore_MPa(ij-1)+1e-6*rhocore_kgm3(ij-1)*g_ms2_core(ij)*(r_core_m(ij-1)-r_core_m(ij));
+             Pcore_MPa(ij) = Pcore_MPa(ij-1)+1e-6*rhocore_kgm3(ij-1)*g_ms2_core*(r_core_m(ij-1)-r_core_m(ij));
+             Ks_iron_GPa(ij) = Kso_iron_GPa+1e-3*Pcore_MPa(ij)*dKsdP_iron+1e-9*Tcore_K(ij)*dKsdT_PaK;
+             G_iron_GPa(ij) = Go_iron_GPa+1e-3*Pcore_MPa(ij)*dGdP_iron+1e-9*Tcore_K(ij)*dGdT_iron_PaK;
+%              rhocore_kgm3(ij) = rhocore_kgm3(ij-1)*(1+1./(1e-3*Pcore_MPa(ij)*Ks_iron_GPa(ij)));
+    %          M_above_core(ij) = M_above_core(ij-1)+4/3*pi*(r_core_m(ij-1)^3-r_core_m(ij)^3)*rhocore_kgm3(ij-1);
+        end
+        VS_core_kms = 1e-3*sqrt(G_iron_GPa*1e9./rhocore_kgm3);
+        VP_core_kms = 1e-3*sqrt(Ks_iron_GPa*1e9./rhocore_kgm3+4/3*(VS_core_kms*1e3).^2);
     end
+
+end
 
 %     kluge to fix NaN's in the mantle densities and sound speeds
-    rho_mantle_kgm3(isnan(rho_mantle_kgm3))=0;
-    VS_mantle_kms(isnan(VS_mantle_kms))=0;
-    VP_mantle_kms(isnan(VP_mantle_kms))=0;
-    
-    
-    interior(iT).g_ms2 = g_ms2_sil;
-    interior(iT).r_mantle_m = r_mantle_m;
-    interior(iT).rho_mantle_kgm3 = rho_mantle_kgm3;
-    interior(iT).Tmantle_K = Tmantle_K;
-    interior(iT).Pmantle_MPa = Pmantle_MPa;
-    interior(iT).VS_mantle_kms = interp1nan(Pmantle_MPa,VS_mantle_kms);
-    interior(iT).VP_mantle_kms = interp1nan(Pmantle_MPa,VP_mantle_kms);
-    if POROUS
-        interior(iT).permeability = permeability;
-    end
-    if isfield(Seismic,'mfluids') % still under development. A goal is to more realistically track the loss of fluids along the geotherm.
-        mfluids = loadMantleFluids(Seismic.mfluids);
-        mphases = loadMantlePhases(Seismic.mphases);
-        mvolumes = loadMantlePhases(Seismic.mvolumes);
+rho_mantle_kgm3(isnan(rho_mantle_kgm3))=0;
+VS_mantle_kms(isnan(VS_mantle_kms))=0;
+VP_mantle_kms(isnan(VP_mantle_kms))=0;
 
-        mfnames = fieldnames(mfluids);
-        mpnames = fieldnames(mphases);
-        mvnames = fieldnames(mvolumes);
-        for im = 1:length(mfnames) % count only the names, not the interpolating functions or p or t
-            if ~endsWith(mfnames{im},'_fn') && ~(strcmp(mfnames{im},'p') || strcmp(mfnames{im},'t'))
-                interior(iT).(['fluid_' mfnames{im}]) = mfluids.(mfnames{im+1})(Pmantle_MPa,Tmantle_K);
-            end
-        end
-        for im = 1:length(mpnames) % count only the names, not the interpolating functions or p or t
-            if ~endsWith(mpnames{im},'_fn') && ~(strcmp(mpnames{im},'p') || strcmp(mpnames{im},'t'))
-                interior(iT).(['wt_' mpnames{im}]) = mphases.(mpnames{im+1})(Pmantle_MPa,Tmantle_K); %wt pct of each constituent
-            end
-        end
-        masscheck = 0;
-        for im = 1:length(mvnames) % count only the names, not the interpolating functions or p or t
-            if ~endsWith(mvnames{im},'_fn') && ~(strcmp(mvnames{im},'p') || strcmp(mvnames{im},'t'))
-                disp(mvnames{im})
-                interior(iT).(['vol_' mvnames{im}]) = mvolumes.(mvnames{im+1})(Pmantle_MPa,Tmantle_K); %vol pct of each constituent
-                interior(iT).(['rho_' mvnames{im}]) = interior(iT).(['wt_' mpnames{im}])./interior(iT).(['vol_' mvnames{im}]).*rho_mantle_kgm3; %dens fraction of each constituent
-                interior(iT).(['mass_' mvnames{im}]) = 4/3*pi*interior(iT).(['rho_' mvnames{im}]).*-gradient(r_mantle_m.^3); %mass in each spherical layer of the mantle
-            end
+
+interior.g_ms2 = g_ms2_sil;
+interior.r_mantle_m = r_mantle_m;
+interior.rho_mantle_kgm3 = rho_mantle_kgm3;
+interior.Tmantle_K = Tmantle_K;
+interior.Pmantle_MPa = Pmantle_MPa;
+interior.VS_mantle_kms = interp1nan(Pmantle_MPa,VS_mantle_kms);
+interior.VP_mantle_kms = interp1nan(Pmantle_MPa,VP_mantle_kms);
+if POROUS
+    interior.permeability = permeability;
+end
+if isfield(Seismic,'mfluids') % still under development. A goal is to more realistically track the loss of fluids along the geotherm.
+    mfluids = loadMantleFluids(Seismic.mfluids);
+    mphases = loadMantlePhases(Seismic.mphases);
+    mvolumes = loadMantlePhases(Seismic.mvolumes);
+
+    mfnames = fieldnames(mfluids);
+    mpnames = fieldnames(mphases);
+    mvnames = fieldnames(mvolumes);
+    for im = 1:length(mfnames) % count only the names, not the interpolating functions or p or t
+        if ~endsWith(mfnames{im},'_fn') && ~(strcmp(mfnames{im},'p') || strcmp(mfnames{im},'t'))
+            interior.(['fluid_' mfnames{im}]) = mfluids.(mfnames{im+1})(Pmantle_MPa,Tmantle_K);
         end
     end
-    if isfield(mantle,'Ks_fn')
-    interior(iT).Ks_GPa = bar2GPa*mantle.Ks_fn(Pmantle_MPa,Tmantle_K);
-    interior(iT).Ks_GPa = interp1nan(Pmantle_MPa,interior(iT).Ks_GPa);
-    interior(iT).Gs_GPa = bar2GPa*mantle.Gs_fn(Pmantle_MPa,Tmantle_K);
-    interior(iT).Gs_GPa = interp1nan(Pmantle_MPa,interior(iT).Gs_GPa);
+    for im = 1:length(mpnames) % count only the names, not the interpolating functions or p or t
+        if ~endsWith(mpnames{im},'_fn') && ~(strcmp(mpnames{im},'p') || strcmp(mpnames{im},'t'))
+            interior.(['wt_' mpnames{im}]) = mphases.(mpnames{im+1})(Pmantle_MPa,Tmantle_K); %wt pct of each constituent
+        end
     end
-        % compute seismic attenuation, as per C2006,
-    % Rb = 8.314462175; % J/K/mol
-    Tm_K = 273.15+Tm_p_Hirschmann2000(1e-3*Pmantle_MPa); %input in GPa
-    Hp_mantle = Seismic.g_aniso_mantle*Tm_K;
-    interior(iT).QS_overfgamma = Seismic.B_aniso_mantle*exp(Seismic.gamma_aniso_mantle*Hp_mantle./Tmantle_K);
-    
-    %% Construct output for seismic modeling:
-        % ice                           ocean                                            mantle         core
+    masscheck = 0;
+    for im = 1:length(mvnames) % count only the names, not the interpolating functions or p or t
+        if ~endsWith(mvnames{im},'_fn') && ~(strcmp(mvnames{im},'p') || strcmp(mvnames{im},'t'))
+            disp(mvnames{im})
+            interior.(['vol_' mvnames{im}]) = mvolumes.(mvnames{im+1})(Pmantle_MPa,Tmantle_K); %vol pct of each constituent
+            interior.(['rho_' mvnames{im}]) = interior.(['wt_' mpnames{im}])./interior.(['vol_' mvnames{im}]).*rho_mantle_kgm3; %dens fraction of each constituent
+            interior.(['mass_' mvnames{im}]) = 4/3*pi*interior.(['rho_' mvnames{im}]).*-gradient(r_mantle_m.^3); %mass in each spherical layer of the mantle
+        end
+    end
+end
+if isfield(mantle,'Ks_fn')
+interior.Ks_GPa = bar2GPa*mantle.Ks_fn(Pmantle_MPa,Tmantle_K);
+interior.Ks_GPa = interp1nan(Pmantle_MPa,interior.Ks_GPa);
+interior.Gs_GPa = bar2GPa*mantle.Gs_fn(Pmantle_MPa,Tmantle_K);
+interior.Gs_GPa = interp1nan(Pmantle_MPa,interior.Gs_GPa);
+end
+    % compute seismic attenuation, as per C2006,
+% Rb = 8.314462175; % J/K/mol
+Tm_K = 273.15+Tm_p_Hirschmann2000(1e-3*Pmantle_MPa); %input in GPa
+Hp_mantle = Seismic.g_aniso_mantle*Tm_K;
+interior.QS_overfgamma = Seismic.B_aniso_mantle*exp(Seismic.gamma_aniso_mantle*Hp_mantle./Tmantle_K);
+
+%% Construct output for seismic modeling:
+    % ice                           ocean                                            mantle         core
 % [g_Planet_ms2,P_Planet_MPa,T_Planet_K,r_Planet_m,rho_pPlanet_kgm3,VP_Planet_kms,VS_Planet_kms,QS_overfgamma_Planet,k_S_mPlanet]=...
 %     deal(zeros(nTbs,indSil(1)-1+nsteps_mantle(1)+Params.nsteps_core));
 %% Plot settings
 ymax = 1.05*Planet.R_m*1e-3;
 
 if Planet.FeCore
-    [VP_Planet_kms,VS_Planet_kms,Ks_Planet_GPa,Gs_Planet_GPa,QS_overfgamma_Planet,k_S_mPlanet,phasePlanet] = ...
-        deal(nan(nTbs,length([g_ms2(1,1:indSil(1)-1) interior(1).g_ms2 g_ms2_core(1,:)])));
+[VP_Planet_kms,VS_Planet_kms,Ks_Planet_GPa,Gs_Planet_GPa,QS_overfgamma_Planet,k_S_mPlanet,phasePlanet] = ...
+    deal(nan(1,length([g_ms2(1:indSil(1)-1) interior.g_ms2 g_ms2_core(1,:)])));
 else
-    [VP_Planet_kms,VS_Planet_kms,Ks_Planet_GPa,Gs_Planet_GPa,QS_overfgamma_Planet,k_S_mPlanet,phasePlanet] = ...
-        deal(nan(nTbs,length([g_ms2(1,1:indSil(1)-1) interior(1).g_ms2])));
+[VP_Planet_kms,VS_Planet_kms,Ks_Planet_GPa,Gs_Planet_GPa,QS_overfgamma_Planet,k_S_mPlanet,phasePlanet] = ...
+    deal(nan(1,length([g_ms2(1:indSil(1)-1) interior.g_ms2])));
 end
 
-    % MJS 2021-10-31: These should be preallocated before any loops, but I 
-    % think nsteps_tot is calculated within this loop. Since nTbs/multiple 
-    % Tb_K values is being deprecated, we'll just leave this here for now.
-    [g_Planet_ms2, P_Planet_MPa, T_Planet_K, r_Planet_m, rho_pPlanet_kgm3] = deal(zeros(nTbs,nsteps_tot));
-    [kmean, ktop, ocean_thk, ind_Ih, ind_Obot] = deal(nan(1,nTbs));
+% MJS 2021-10-31: These should be preallocated before any loops, but I 
+% think nsteps_tot is calculated within this loop. Since nTbs/multiple 
+% Tb_K values is being deprecated, we'll just leave this here for now.
+[g_Planet_ms2, P_Planet_MPa, T_Planet_K, r_Planet_m, rho_pPlanet_kgm3] = deal(zeros(1,nsteps_tot));
+[kmean, ktop, ocean_thk, ind_Ih, ind_Obot] = deal(nan(1));
 
 % Grab the indices for the ices, but only for the portion of the
-    % interior calculation above the silicate interface
-    H2Oinds = 1:indSil(iT)-1;
-    indsI = find(phase(iT,H2Oinds)==1);
-    indsLiquid = find(phase(iT,H2Oinds)==0);
-    indsIII = find(phase(iT,H2Oinds)==3);
-    indsV = find(phase(iT,H2Oinds)==5);
-    indsVI = find(phase(iT,H2Oinds)==6);
-    indsClath = find(phase(iT,H2Oinds)==30);
-    
-    phasePlanet(iT,indsI) = 1;
-    phasePlanet(iT,indsLiquid) = 0;
-    phasePlanet(iT,indsIII) = 3;
-    phasePlanet(iT,indsV) = 5;
-    phasePlanet(iT,indsVI) = 6;
-    phasePlanet(iT,indsClath) = 30;
-    
-    phasePlanet(iT,indSil(iT):indSil(iT)+nsteps_mantle(iT)-1)=50; %reserve 50-99 for different mantle types
+% interior calculation above the silicate interface
+H2Oinds = 1:indSil-1;
+indsI = find(phase(H2Oinds)==1);
+indsLiquid = find(phase(H2Oinds)==0);
+indsIII = find(phase(H2Oinds)==3);
+indsV = find(phase(H2Oinds)==5);
+indsVI = find(phase(H2Oinds)==6);
+indsClath = find(phase(H2Oinds)==30);
 
-    if ~Planet.FeCore
-        [thisgcore,thisPcore,thisTcore,thisrcore,thisrhocore,thisVPcore,thisVScore,thisQScore,thisKScore,thisGScore,thiskScore]=deal([]); %placeholders to avoid errors
-    else
-        thisgcore = g_ms2_core(iT,:);
-        thisPcore = Pcore_MPa(iT,:);
-        thisTcore = Tcore_K(iT,:);
-        thisrcore = r_core_m(iT,:);
-        thisrhocore = rhocore_kgm3(iT,:);
-        thisVPcore = VP_core_kms(iT,:);
-        thisVScore = VS_core_kms(iT,:);
-        thisQScore = Seismic.QScore*ones(1,Params.nsteps_core);
-        thiskScore = 0*Seismic.QScore*ones(1,Params.nsteps_core);
-        thisKScore = Ks_iron_GPa(iT,:);
-        thisGScore = G_iron_GPa(iT,:);
-        phasePlanet(iT,end-Params.nsteps_core+1:end) = 100;
-    end
-    g_Planet_ms2(iT,:) = [g_ms2(iT,1:indSil(iT)-1) interior(iT).g_ms2 thisgcore];
-    P_Planet_MPa(iT,:) = [P_MPa(iT,1:indSil(iT)-1) interior(iT).Pmantle_MPa thisPcore];
-    T_Planet_K(iT,:) = [T_K(iT,1:indSil(iT)-1) interior(iT).Tmantle_K thisTcore];
-    r_Planet_m(iT,:) = [r_m(iT,1:indSil(iT)-1)    interior(iT).r_mantle_m thisrcore];
-    rho_pPlanet_kgm3(iT,:) = [rho_kgm3(iT,1:indSil(iT)-1) interior(iT).rho_mantle_kgm3 thisrhocore];
-    ocean_thk(iT) = r_Planet_m(iT,indsLiquid(1)) - r_Planet_m(iT,indsLiquid(end)+1);
-    ind_Obot(iT) = indsLiquid(end);
-    
-    VP_Planet_kms(iT,indsI) = velsIce.VIl_kms(iT,indsI);
-    VP_Planet_kms(iT,indsLiquid) = vfluid_kms(iT,indsLiquid);
-    VP_Planet_kms(iT,indsIII) = velsIce.VIIIl_kms(iT,indsIII);
-    VP_Planet_kms(iT,indsV) = velsIce.VVl_kms(iT,indsV);
-    VP_Planet_kms(iT,indsClath) = velsIce.Vclathl_kms(iT,indsClath);
-    VP_Planet_kms(iT,indsVI) = velsIce.VVIl_kms(iT,indsVI);
-    VP_Planet_kms(iT,indSil(iT):indSil(iT)+length(interior(iT).VP_mantle_kms)-1) = interior(iT).VP_mantle_kms;
+phasePlanet(indsI) = 1;
+phasePlanet(indsLiquid) = 0;
+phasePlanet(indsIII) = 3;
+phasePlanet(indsV) = 5;
+phasePlanet(indsVI) = 6;
+phasePlanet(indsClath) = 30;
+
+phasePlanet(indSil:indSil+nsteps_mantle-1)=50; %reserve 50-99 for different mantle types
+
+if ~Planet.FeCore
+    [thisgcore,thisPcore,thisTcore,thisrcore,thisrhocore,thisVPcore,thisVScore,thisQScore,thisKScore,thisGScore,thiskScore]=deal([]); %placeholders to avoid errors
+else
+    thisgcore = g_ms2_core;
+    thisPcore = Pcore_MPa;
+    thisTcore = Tcore_K;
+    thisrcore = r_core_m;
+    thisrhocore = rhocore_kgm3;
+    thisVPcore = VP_core_kms;
+    thisVScore = VS_core_kms;
+    thisQScore = Seismic.QScore*ones(1,Params.nsteps_core);
+    thiskScore = 0*Seismic.QScore*ones(1,Params.nsteps_core);
+    thisKScore = Ks_iron_GPa;
+    thisGScore = G_iron_GPa;
+    phasePlanet(end-Params.nsteps_core+1:end) = 100;
+end
+g_Planet_ms2 = [g_ms2(1:indSil-1) interior.g_ms2 thisgcore];
+P_Planet_MPa = [P_MPa(1:indSil-1) interior.Pmantle_MPa thisPcore];
+T_Planet_K = [T_K(1:indSil-1) interior.Tmantle_K thisTcore];
+r_Planet_m = [r_m(1:indSil-1)    interior.r_mantle_m thisrcore];
+rho_pPlanet_kgm3 = [rho_kgm3(1:indSil-1) interior.rho_mantle_kgm3 thisrhocore];
+ocean_thk = r_Planet_m(indsLiquid(1)) - r_Planet_m(indsLiquid(end)+1);
+ind_Obot = indsLiquid(end);
+
+VP_Planet_kms(indsI) = velsIce.VIl_kms(indsI);
+VP_Planet_kms(indsLiquid) = vfluid_kms(indsLiquid);
+VP_Planet_kms(indsIII) = velsIce.VIIIl_kms(indsIII);
+VP_Planet_kms(indsV) = velsIce.VVl_kms(indsV);
+VP_Planet_kms(indsClath) = velsIce.Vclathl_kms(indsClath);
+VP_Planet_kms(indsVI) = velsIce.VVIl_kms(indsVI);
+VP_Planet_kms(indSil:indSil+length(interior.VP_mantle_kms)-1) = interior.VP_mantle_kms;
+if Planet.FeCore
+    start_core = indSil+length(interior.VP_mantle_kms);
+    VP_Planet_kms(start_core:start_core-1+length(thisVPcore)) = thisVPcore;
+end
+
+%     VS_Planet_kms = [velsIce.VIt_kms(1:n_iceI) 0*vfluid_kms(indsLiquid) ...
+%         velsIce.VIIIt_kms(indsIII) velsIce.VVt_kms(indsV) velsIce.VVIt_kms(indsVI) ...
+%         interior.VS_mantle_kms thisVScore];
+VS_Planet_kms(indsI) = velsIce.VIt_kms(indsI);
+VS_Planet_kms(indsLiquid) = 0*vfluid_kms(indsLiquid);
+VS_Planet_kms(indsIII) = velsIce.VIIIt_kms(indsIII);
+VS_Planet_kms(indsV) = velsIce.VVt_kms(indsV);
+VS_Planet_kms(indsClath) = velsIce.Vclatht_kms(indsClath);
+VS_Planet_kms(indsVI) = velsIce.VVIt_kms(indsVI);
+VS_Planet_kms(indSil:indSil+length(interior.VS_mantle_kms)-1) = interior.VS_mantle_kms;
+if Planet.FeCore
+    VS_Planet_kms(start_core:start_core-1+length(thisVPcore)) = thisVScore;
+end
+
+if isfield(mantle,'Ks_fn')
+%     Ks_Planet_GPa=[velsIce.KsI_GPa(1:n_iceI) Ksfluid_GPa(indsLiquid) ...
+%         velsIce.KsIII_GPa(indsIII) velsIce.KsV_GPa(indsV) velsIce.KsVI_GPa(indsVI) ...
+%         interior.Ks_GPa thisKScore];
+    Ks_Planet_GPa(indsI) = velsIce.KsI_GPa(indsI);
+    Ks_Planet_GPa(indsLiquid) = Ksfluid_GPa(indsLiquid);
+    Ks_Planet_GPa(indsIII) = velsIce.KsIII_GPa(indsIII);
+    Ks_Planet_GPa(indsV) = velsIce.KsV_GPa(indsV);
+    Ks_Planet_GPa(indsClath) = velsIce.Ksclath_GPa(indsClath);
+    Ks_Planet_GPa(indsVI) = velsIce.KsVI_GPa(indsVI);
+    Ks_Planet_GPa(indSil:indSil+length(interior.VS_mantle_kms)-1) = interior.Ks_GPa;
     if Planet.FeCore
-        start_core = indSil(iT)+length(interior(iT).VP_mantle_kms);
-        VP_Planet_kms(iT,start_core:start_core-1+length(thisVPcore)) = thisVPcore;
+        Ks_Planet_GPa(start_core:start_core-1+length(thisVPcore)) = thisKScore;
     end
-    
-%     VS_Planet_kms(iT,:) = [velsIce.VIt_kms(iT,1:n_iceI) 0*vfluid_kms(iT,indsLiquid) ...
-%         velsIce.VIIIt_kms(iT,indsIII) velsIce.VVt_kms(iT,indsV) velsIce.VVIt_kms(iT,indsVI) ...
-%         interior(iT).VS_mantle_kms thisVScore];
-    VS_Planet_kms(iT,indsI) = velsIce.VIt_kms(iT,indsI);
-    VS_Planet_kms(iT,indsLiquid) = 0*vfluid_kms(iT,indsLiquid);
-    VS_Planet_kms(iT,indsIII) = velsIce.VIIIt_kms(iT,indsIII);
-    VS_Planet_kms(iT,indsV) = velsIce.VVt_kms(iT,indsV);
-    VS_Planet_kms(iT,indsClath) = velsIce.Vclatht_kms(iT,indsClath);
-    VS_Planet_kms(iT,indsVI) = velsIce.VVIt_kms(iT,indsVI);
-    VS_Planet_kms(iT,indSil(iT):indSil(iT)+length(interior(iT).VS_mantle_kms)-1) = interior(iT).VS_mantle_kms;
+
+%     Gs_Planet_GPa=[velsIce.GsI_GPa(1:n_iceI) 0*Ksfluid_GPa(indsLiquid) ...
+%         velsIce.GsIII_GPa(indsIII) velsIce.GsV_GPa(indsV) velsIce.GsVI_GPa(indsVI) ...
+%         interior.Gs_GPa thisGScore];
+    Gs_Planet_GPa(indsI) = velsIce.GsI_GPa(indsI);
+    Gs_Planet_GPa(indsLiquid) = 0*Ksfluid_GPa(indsLiquid);
+    Gs_Planet_GPa(indsIII) = velsIce.GsIII_GPa(indsIII);
+    Gs_Planet_GPa(indsV) = velsIce.GsV_GPa(indsV);
+    Gs_Planet_GPa(indsClath) = velsIce.Gsclath_GPa(indsClath);
+    Gs_Planet_GPa(indsVI) = velsIce.GsVI_GPa(indsVI);
+    Gs_Planet_GPa(indSil:indSil+length(interior.VS_mantle_kms)-1) = interior.Gs_GPa;
     if Planet.FeCore
-        VS_Planet_kms(iT,start_core:start_core-1+length(thisVPcore)) = thisVScore;
+        Gs_Planet_GPa(start_core:start_core-1+length(thisVPcore)) = thisGScore;
     end
-    
-    if isfield(mantle,'Ks_fn')
-    %     Ks_Planet_GPa(iT,:)=[velsIce.KsI_GPa(iT,1:n_iceI) Ksfluid_GPa(iT,indsLiquid) ...
-    %         velsIce.KsIII_GPa(iT,indsIII) velsIce.KsV_GPa(iT,indsV) velsIce.KsVI_GPa(iT,indsVI) ...
-    %         interior(iT).Ks_GPa thisKScore];
-        Ks_Planet_GPa(iT,indsI) = velsIce.KsI_GPa(iT,indsI);
-        Ks_Planet_GPa(iT,indsLiquid) = Ksfluid_GPa(iT,indsLiquid);
-        Ks_Planet_GPa(iT,indsIII) = velsIce.KsIII_GPa(iT,indsIII);
-        Ks_Planet_GPa(iT,indsV) = velsIce.KsV_GPa(iT,indsV);
-        Ks_Planet_GPa(iT,indsClath) = velsIce.Ksclath_GPa(iT,indsClath);
-        Ks_Planet_GPa(iT,indsVI) = velsIce.KsVI_GPa(iT,indsVI);
-        Ks_Planet_GPa(iT,indSil(iT):indSil(iT)+length(interior(iT).VS_mantle_kms)-1) = interior(iT).Ks_GPa;
-        if Planet.FeCore
-            Ks_Planet_GPa(iT,start_core:start_core-1+length(thisVPcore)) = thisKScore;
-        end
 
-    %     Gs_Planet_GPa(iT,:)=[velsIce.GsI_GPa(iT,1:n_iceI) 0*Ksfluid_GPa(iT,indsLiquid) ...
-    %         velsIce.GsIII_GPa(iT,indsIII) velsIce.GsV_GPa(iT,indsV) velsIce.GsVI_GPa(iT,indsVI) ...
-    %         interior(iT).Gs_GPa thisGScore];
-        Gs_Planet_GPa(iT,indsI) = velsIce.GsI_GPa(iT,indsI);
-        Gs_Planet_GPa(iT,indsLiquid) = 0*Ksfluid_GPa(iT,indsLiquid);
-        Gs_Planet_GPa(iT,indsIII) = velsIce.GsIII_GPa(iT,indsIII);
-        Gs_Planet_GPa(iT,indsV) = velsIce.GsV_GPa(iT,indsV);
-        Gs_Planet_GPa(iT,indsClath) = velsIce.Gsclath_GPa(iT,indsClath);
-        Gs_Planet_GPa(iT,indsVI) = velsIce.GsVI_GPa(iT,indsVI);
-        Gs_Planet_GPa(iT,indSil(iT):indSil(iT)+length(interior(iT).VS_mantle_kms)-1) = interior(iT).Gs_GPa;
-        if Planet.FeCore
-            Gs_Planet_GPa(iT,start_core:start_core-1+length(thisVPcore)) = thisGScore;
-        end
-
-    end
-%     QS_overfgamma_Planet(iT,:) = [QS_overfgamma_iceI(iT,:) 0*vfluid_kms(iT,indsLiquid)...
-%         QS_overfgamma_iceIII(iT,indsIII) QS_overfgamma_iceV(iT,indsV) QS_overfgamma_iceVI(iT,indsVI) ...
-%         interior(iT).QS_overfgamma thisQScore];
+end
+%     QS_overfgamma_Planet = [QS_overfgamma_iceI 0*vfluid_kms(indsLiquid)...
+%         QS_overfgamma_iceIII(indsIII) QS_overfgamma_iceV(indsV) QS_overfgamma_iceVI(indsVI) ...
+%         interior.QS_overfgamma thisQScore];
 
 %% attenuation in ice
-    Hp_iceI = Seismic.g_aniso_iceI*Planet.Tb_K(iT);
-    QS_overfgamma_iceI = Seismic.B_aniso_iceI*....
-        exp(Seismic.gamma_aniso_iceI*Hp_iceI./T_K(iT,indsI))/Seismic.LOW_ICE_Q;
-    try
-        Tthis=T_K(iT,indsClath);
-        Hp_clath = Seismic.g_aniso_clath*Planet.Tb_K(iT);
-        QS_overfgamma_clath= Seismic.B_aniso_clath*....
-            exp(Seismic.gamma_aniso_clath*Hp_clath./Tthis)/Seismic.LOW_ICE_Q;
-    catch
-        Hp_clath = Seismic.g_aniso_iceI*Planet.Tb_K(iT);
-        QS_overfgamma_clath = Seismic.B_aniso_iceI*....
-            exp(Seismic.gamma_aniso_iceI*Hp_clath./T_K(iT,indsClath))/Seismic.LOW_ICE_Q;
-    end
-    Tthis=T_K(iT,indsIII);
-    Hp_iceIII = Seismic.g_aniso_iceIII*max(T_K(iT,indsIII));
-    QS_overfgamma_iceIII = Seismic.B_aniso_iceIII*....
-        exp(Seismic.gamma_aniso_iceI*Hp_iceIII./Tthis)/Seismic.LOW_ICE_Q;
-    Tthis=T_K(iT,indsV);
-    Hp_iceV = Seismic.g_aniso_iceV*max(T_K(iT,indsV));
-    QS_overfgamma_iceV = Seismic.B_aniso_iceV*....
-        exp(Seismic.gamma_aniso_iceI*Hp_iceV./Tthis)/Seismic.LOW_ICE_Q;
-    Tthis=T_K(iT,indsVI);
-    Hp_iceVI = Seismic.g_aniso_iceVI*max(T_K(iT,indsVI));
-    QS_overfgamma_iceVI = Seismic.B_aniso_iceVI*....
-        exp(Seismic.gamma_aniso_iceI*Hp_iceVI./Tthis)/Seismic.LOW_ICE_Q;
+Hp_iceI = Seismic.g_aniso_iceI*Planet.Tb_K;
+QS_overfgamma_iceI = Seismic.B_aniso_iceI*....
+    exp(Seismic.gamma_aniso_iceI*Hp_iceI./T_K(indsI))/Seismic.LOW_ICE_Q;
+try
+    Tthis=T_K(indsClath);
+    Hp_clath = Seismic.g_aniso_clath*Planet.Tb_K;
+    QS_overfgamma_clath= Seismic.B_aniso_clath*....
+        exp(Seismic.gamma_aniso_clath*Hp_clath./Tthis)/Seismic.LOW_ICE_Q;
+catch
+    Hp_clath = Seismic.g_aniso_iceI*Planet.Tb_K;
+    QS_overfgamma_clath = Seismic.B_aniso_iceI*....
+        exp(Seismic.gamma_aniso_iceI*Hp_clath./T_K(indsClath))/Seismic.LOW_ICE_Q;
+end
+Tthis=T_K(indsIII);
+Hp_iceIII = Seismic.g_aniso_iceIII*max(T_K(indsIII));
+QS_overfgamma_iceIII = Seismic.B_aniso_iceIII*....
+    exp(Seismic.gamma_aniso_iceI*Hp_iceIII./Tthis)/Seismic.LOW_ICE_Q;
+Tthis=T_K(indsV);
+Hp_iceV = Seismic.g_aniso_iceV*max(T_K(indsV));
+QS_overfgamma_iceV = Seismic.B_aniso_iceV*....
+    exp(Seismic.gamma_aniso_iceI*Hp_iceV./Tthis)/Seismic.LOW_ICE_Q;
+Tthis=T_K(indsVI);
+Hp_iceVI = Seismic.g_aniso_iceVI*max(T_K(indsVI));
+QS_overfgamma_iceVI = Seismic.B_aniso_iceVI*....
+    exp(Seismic.gamma_aniso_iceI*Hp_iceVI./Tthis)/Seismic.LOW_ICE_Q;
 
-    QS_overfgamma_Planet(iT,indsI) = QS_overfgamma_iceI;
-    QS_overfgamma_Planet(iT,indsLiquid) = 0*vfluid_kms(iT,indsLiquid);
-    QS_overfgamma_Planet(iT,indsIII) = QS_overfgamma_iceIII;
-    QS_overfgamma_Planet(iT,indsV) = QS_overfgamma_iceV;
-    QS_overfgamma_Planet(iT,indsVI) = QS_overfgamma_iceVI;
-    QS_overfgamma_Planet(iT,indsClath) = QS_overfgamma_clath;
-    QS_overfgamma_Planet(iT,indSil(iT):indSil(iT)+length(interior(iT).VS_mantle_kms)-1) = interior(iT).QS_overfgamma;
+QS_overfgamma_Planet(indsI) = QS_overfgamma_iceI;
+QS_overfgamma_Planet(indsLiquid) = 0*vfluid_kms(indsLiquid);
+QS_overfgamma_Planet(indsIII) = QS_overfgamma_iceIII;
+QS_overfgamma_Planet(indsV) = QS_overfgamma_iceV;
+QS_overfgamma_Planet(indsVI) = QS_overfgamma_iceVI;
+QS_overfgamma_Planet(indsClath) = QS_overfgamma_clath;
+QS_overfgamma_Planet(indSil:indSil+length(interior.VS_mantle_kms)-1) = interior.QS_overfgamma;
+if Planet.FeCore
+    QS_overfgamma_Planet(start_core:start_core-1+length(thisVPcore)) = thisQScore;
+end
+
+%%save the data to a text file
+Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [P_Planet_MPa', T_Planet_K', r_Planet_m'*1e-3, rho_pPlanet_kgm3',VP_Planet_kms',VS_Planet_kms',QS_overfgamma_Planet' Ks_Planet_GPa' Gs_Planet_GPa' g_Planet_ms2' phasePlanet'];
+header = sprintf('%s\t\t%s\t\t%s\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t',...
+    'P (MPa)','T (K)','r (km)','rho (kg m-3)','VP (km s-1)','VS (km s-1)','QS/gamma','KS (GPa)','GS (GPa)','g (m/s2)','phase');
+if cfg.CONDUCT %11/8/19 added g and phase. This changes the column number of electrical conductivity
+    k_S_mPlanet(indsI) = 0*QS_overfgamma_iceI;
+    k_S_mPlanet(indsLiquid) = k_S_m(indsLiquid);
+    k_S_mPlanet(indsIII) = 0*QS_overfgamma_iceIII;
+    k_S_mPlanet(indsV) = 0*QS_overfgamma_iceV;
+    k_S_mPlanet(indsClath) = 0*QS_overfgamma_clath;
+    k_S_mPlanet(indsVI) = 0*QS_overfgamma_iceVI;
+    k_S_mPlanet(indSil:indSil+length(interior.VS_mantle_kms)-1) = 0*interior.QS_overfgamma;
     if Planet.FeCore
-        QS_overfgamma_Planet(iT,start_core:start_core-1+length(thisVPcore)) = thisQScore;
+        k_S_mPlanet(start_core:start_core-1+length(thisVPcore)) = 0*thisQScore;
     end
-    
- %%save the data to a text file
-    Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [P_Planet_MPa(iT,:)', T_Planet_K(iT,:)', r_Planet_m(iT,:)'*1e-3, rho_pPlanet_kgm3(iT,:)',VP_Planet_kms(iT,:)',VS_Planet_kms(iT,:)',QS_overfgamma_Planet(iT,:)' Ks_Planet_GPa(iT,:)' Gs_Planet_GPa(iT,:)' g_Planet_ms2(iT,:)' phasePlanet(iT,:)'];
-    header = sprintf('%s\t\t%s\t\t%s\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t',...
-        'P (MPa)','T (K)','r (km)','rho (kg m-3)','VP (km s-1)','VS (km s-1)','QS/gamma','KS (GPa)','GS (GPa)','g (m/s2)','phase');
-    if cfg.CONDUCT %11/8/19 added g and phase. This changes the column number of electrical conductivity
-        k_S_mPlanet(iT,indsI) = 0*QS_overfgamma_iceI;
-        k_S_mPlanet(iT,indsLiquid) = k_S_m(iT,indsLiquid);
-        k_S_mPlanet(iT,indsIII) = 0*QS_overfgamma_iceIII;
-        k_S_mPlanet(iT,indsV) = 0*QS_overfgamma_iceV;
-        k_S_mPlanet(iT,indsClath) = 0*QS_overfgamma_clath;
-        k_S_mPlanet(iT,indsVI) = 0*QS_overfgamma_iceVI;
-        k_S_mPlanet(iT,indSil(iT):indSil(iT)+length(interior(iT).VS_mantle_kms)-1) = 0*interior(iT).QS_overfgamma;
-        if Planet.FeCore
-            k_S_mPlanet(iT,start_core:start_core-1+length(thisVPcore)) = 0*thisQScore;
+    Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma k_S_mPlanet' ];
+    header = sprintf('%s%s\t%s\t',header,'k (S m-1)');
+
+    kmean = mean(k_S_mPlanet(indsLiquid));
+    ktop = k_S_mPlanet(indsLiquid(1));
+end
+if isfield(Planet,'Clathrate'); clathID = ['_Zclath' num2str(Zclath./1000,'%2.0f') 'km']; else; clathID = ''; end
+thissavestr = [savefile '_Zb' strLow num2str(Planet.zb_outerIce_m./1000,'%2.0f') 'km' clathID ];
+dlmwrite(fullfile([datpath thissavestr '_pp' '.txt']),header,'delimiter','');
+dlmwrite(fullfile([datpath thissavestr '_pp' '.txt']),Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma,...
+    'delimiter','\t',...
+    'precision','%3.5e',...
+    '-append');
+dlmwrite(fullfile([datpath thissavestr '_mantle_pp.dat']),[10*interior.Pmantle_MPa' interior.Tmantle_K'],'delimiter','\t');
+
+if isfield(Params,'TauP')
+    taup_model=create_Taup([datpath thissavestr '.txt']);
+end
+
+%%
+% MJS 2021-10-31: This block has several loops over iT inside of loops
+% over iT. There's a lot that could be done to streamline it.
+if cfg.DISP_LAYERS
+    %% create the table of depths and heat flux values
+    % multirow{4}{*}{5 wt\%} &Ice Ih &-&141& 127  & 96 & 63  & 24 \\
+    % & Liquid &-&63&92&128&244&539\\
+    % & Ice III &-&29&-&-&-&-\\
+    % & Ice V &-&158&134&49&-&-\\
+    % & Ice VI &-&409&411&411&355&237\\
+
+    Tb_str = getTableStr(Planet.Tb_K,Planet.Tb_K);
+    Qb_str = getTableStr(Planet.Tb_K,round(Qb*1e3));
+    Qc_str = getTableStr(Planet.Tb_K,round(Q_Wm2*1e3));
+    nu_str = getTableStr(Planet.Tb_K,log10(nu));
+    dzI_str = getTableStr(Planet.Tb_K,round(zI_m*1e-3));
+    dz_ocean_m_str = getTableStr(Planet.Tb_K,round(dz_ocean_m_m*1e-3));
+    dzIII_str = getTableStr(Planet.Tb_K,round(dzIII_m*1e-3));
+    dzV_str = getTableStr(Planet.Tb_K,round(dzV_m*1e-3));
+    dzVI_str = getTableStr(Planet.Tb_K,round(dzVI_m*1e-3));
+    R_Fe_str = getTableStr(Planet.Tb_K,round(R_Fe_mean_m*1e-3));
+    R_sil_str = getTableStr(Planet.Tb_K,round((R_sil_mean_m)*1e-3));
+
+    disp('\hline')
+    % for latex environments supporting multirow (not AGU)
+    % if wo==0
+    %     disp(['\multirow{10}{*}{\begin{tabular}{c}Water\end{tabular}}'])
+    % else
+    %     switch Planet.Ocean.comp
+    %         case 'MgSO4'
+    %             disp('\multirow{10}{*}{\begin{tabular}{c} MgSO$_{4}$ \\' );
+    %             disp([num2str(wo) 'wt\% \end{tabular}}']);
+    %         case 'NH3'
+    %             disp('\multirow{10}{*}{\begin{tabular}{c} NH$_{3}$\\')
+    %             disp([num2str(wo) 'wt\% \end{tabular}}']);
+    %         case 'Seawater'
+    %             disp('\multirow{10}{*}{\begin{tabular}{c} Seawater\\')
+    %             disp([num2str(wo) 'g/kg \end{tabular}}']);
+    %     end
+    % end
+    if wo==0
+        concstr{1} = 'Water';
+        concstr{2} = '';
+    else
+        switch Planet.Ocean.comp
+            case 'MgSO4'
+               concstr{1} = 'MgSO$_{4}$';
+               concstr{2}= [num2str(wo) 'wt\%'];
+            case 'NH3'
+               concstr{1}='NH$_{3}$';
+               concstr{2}= [num2str(wo) 'wt\%'];
+            case 'Seawater'
+               concstr{1}= 'Seawater';
+               concstr{2}= [num2str(wo) 'g/kg'];
         end
-        Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma = [Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma k_S_mPlanet(iT,:)' ]; %#ok<AGROW>
-        header = sprintf('%s%s\t%s\t',header,'k (S m-1)');
-        
-        kmean(iT) = mean(k_S_mPlanet(iT,indsLiquid));
-        ktop(iT) = k_S_mPlanet(iT,indsLiquid(1));
     end
-    if isfield(Planet,'Clathrate'); clathID = ['_Zclath' num2str(Zclath(iT)./1000,'%2.0f') 'km']; else; clathID = ''; end
-    thissavestr = [savefile '_Zb' strLow num2str(Planet.zb_outerIce_m(iT)./1000,'%2.0f') 'km' clathID ];
-    dlmwrite(fullfile([datpath thissavestr '_pp' num2str(iT) '.txt']),header,'delimiter','');
-    dlmwrite(fullfile([datpath thissavestr '_pp' num2str(iT) '.txt']),Wtpct_PMPaTKRkmRhokgm3VPkmsVSkmsQsoverfgamma,...
-        'delimiter','\t',...
-        'precision','%3.5e',...
-        '-append');
-    dlmwrite(fullfile([datpath thissavestr '_mantle_pp' num2str(iT) '.dat']),[10*interior(iT).Pmantle_MPa' interior(iT).Tmantle_K'],'delimiter','\t');
 
-    if isfield(Params,'TauP')
-        taup_model=create_Taup([datpath thissavestr '.txt']);
-    end
-    
-    %%
-    % MJS 2021-10-31: This block has several loops over iT inside of loops
-    % over iT. There's a lot that could be done to streamline it.
-    if cfg.DISP_LAYERS
-        %% create the table of depths and heat flux values
-        % multirow{4}{*}{5 wt\%} &Ice Ih &-&141& 127  & 96 & 63  & 24 \\
-        % & Liquid &-&63&92&128&244&539\\
-        % & Ice III &-&29&-&-&-&-\\
-        % & Ice V &-&158&134&49&-&-\\
-        % & Ice VI &-&409&411&411&355&237\\
+    dV = -gradient([r_m(1:indSil(iT2)) interior.r_mantle_m].^3);
+    Planet.Mcomputed_kg = 4/3*pi*sum(dV.*[rho_kgm3(1:indSil) interior.rho_mantle_kgm3]);
+    % Preallocate
+    [rhommodel, rhom, meanphivec] = deal(zeros(1,nTbs));
 
-        Tb_str = getTableStr(Planet.Tb_K,Planet.Tb_K);
-        Qb_str = getTableStr(Planet.Tb_K,round(Qb*1e3));
-        Qc_str = getTableStr(Planet.Tb_K,round(Q_Wm2*1e3));
-        nu_str = getTableStr(Planet.Tb_K,log10(nu));
-        dzI_str = getTableStr(Planet.Tb_K,round(zI_m*1e-3));
-        dz_ocean_m_str = getTableStr(Planet.Tb_K,round(dz_ocean_m_m*1e-3));
-        dzIII_str = getTableStr(Planet.Tb_K,round(dzIII_m*1e-3));
-        dzV_str = getTableStr(Planet.Tb_K,round(dzV_m*1e-3));
-        dzVI_str = getTableStr(Planet.Tb_K,round(dzVI_m*1e-3));
-        R_Fe_str = getTableStr(Planet.Tb_K,round(R_Fe_mean_m*1e-3));
-        R_sil_str = getTableStr(Planet.Tb_K,round((R_sil_mean_m)*1e-3));
-
-        disp('\hline')
-        % for latex environments supporting multirow (not AGU)
-        % if wo==0
-        %     disp(['\multirow{10}{*}{\begin{tabular}{c}Water\end{tabular}}'])
-        % else
-        %     switch Planet.Ocean.comp
-        %         case 'MgSO4'
-        %             disp('\multirow{10}{*}{\begin{tabular}{c} MgSO$_{4}$ \\' );
-        %             disp([num2str(wo) 'wt\% \end{tabular}}']);
-        %         case 'NH3'
-        %             disp('\multirow{10}{*}{\begin{tabular}{c} NH$_{3}$\\')
-        %             disp([num2str(wo) 'wt\% \end{tabular}}']);
-        %         case 'Seawater'
-        %             disp('\multirow{10}{*}{\begin{tabular}{c} Seawater\\')
-        %             disp([num2str(wo) 'g/kg \end{tabular}}']);
-        %     end
-        % end
-        if wo==0
-            concstr{1} = 'Water';
-            concstr{2} = '';
+    disp(['Planet Mass (kg): ' num2str(Planet.M_kg)])
+    disp(['Computed Mass (kg): ' num2str(Planet.Mcomputed_kg,' %0.4g')]);
+    disp(['Input C/MR2: ' num2str(Planet.Cmeasured)])
+    if Planet.FeCore
+        disp(['Computed C/MR2 for Tb=' num2str(Planet.Tb_K) 'K: ' num2str(C2(C2mean)/MR2) ' (neighboring values: ' num2str(C2(C2mean+1)/MR2) '; ' num2str(C2(C2mean-1)/MR2) ')'])
+        rhommodel = mean(interior.rho_mantle_kgm3);
+        rhorockstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(Planet.rho_sil_withcore_kgm3) '}'];
+        rhorockmstr = getTableStr(Planet.Tb_K,round(rhommodel));
+        xFeSstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(100*Planet.xFeS) '}'];
+        rhocorestr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(rho_Fe_kgm3,'%0.0f') '}'];
+        if exist('concstr','var')
+            disp([concstr{1} '&$\rho_{rock}$ (kg m$^{-3}$)&' rhorockstr '\\']);
+            disp([concstr{2} '&$\rho_{rock,model}$ (kg m$^{-3}$)' rhorockmstr{:} '\\']);
         else
-            switch Planet.Ocean.comp
-                case 'MgSO4'
-                   concstr{1} = 'MgSO$_{4}$';
-                   concstr{2}= [num2str(wo) 'wt\%'];
-                case 'NH3'
-                   concstr{1}='NH$_{3}$';
-                   concstr{2}= [num2str(wo) 'wt\%'];
-                case 'Seawater'
-                   concstr{1}= 'Seawater';
-                   concstr{2}= [num2str(wo) 'g/kg'];
-            end
+            disp(['&$\rho_{rock}$ (kg m$^{-3}$)&' rhorockstr '\\']);
+            disp(['&$\rho_{rock,model}$ (kg m$^{-3}$)' rhorockmstr{:} '\\']);
         end
-
-        for iT2 = 1:nTbs
-            dV = -gradient([r_m(iT2,1:indSil(iT2)) interior(iT2).r_mantle_m].^3);
-            Planet.Mcomputed_kg(iT2) = 4/3*pi*sum(dV.*[rho_kgm3(iT2,1:indSil(iT2)) interior(iT2).rho_mantle_kgm3]);
-        end
-        % Preallocate
-        [rhommodel, rhom, meanphivec] = deal(zeros(1,nTbs));
-
-        disp(['Planet Mass (kg): ' num2str(Planet.M_kg)])
-        disp(['Computed Mass (kg): ' num2str(Planet.Mcomputed_kg,' %0.4g')]);
-        disp(['Input C/MR2: ' num2str(Planet.Cmeasured)])
-        if Planet.FeCore
-            for iT2 = 1:nTbs
-                disp(['Computed C/MR2 for Tb=' num2str(Planet.Tb_K(iT2)) 'K: ' num2str(C2(iT2,C2mean(iT2))/MR2) ' (neighboring values: ' num2str(C2(iT2,C2mean(iT2)+1)/MR2) '; ' num2str(C2(iT2,C2mean(iT2)-1)/MR2) ')'])
-                rhommodel(iT2) = mean(interior(iT2).rho_mantle_kgm3);
-            end
-            rhorockstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(Planet.rho_sil_withcore_kgm3) '}'];
-            rhorockmstr = getTableStr(Planet.Tb_K,round(rhommodel));
-            xFeSstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(100*Planet.xFeS) '}'];
-            rhocorestr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(rho_Fe_kgm3,'%0.0f') '}'];
-            if exist('concstr','var')
-                disp([concstr{1} '&$\rho_{rock}$ (kg m$^{-3}$)&' rhorockstr '\\']);
-                disp([concstr{2} '&$\rho_{rock,model}$ (kg m$^{-3}$)' rhorockmstr{:} '\\']);
-            else
-                disp(['&$\rho_{rock}$ (kg m$^{-3}$)&' rhorockstr '\\']);
-                disp(['&$\rho_{rock,model}$ (kg m$^{-3}$)' rhorockmstr{:} '\\']);
-            end
-            disp(['&$X_{FeS}$ (\%)&' xFeSstr '\\']);
-            disp(['&$\rho_{core}$ (kg m$^{-3}$)&' rhocorestr '\\']);
+        disp(['&$X_{FeS}$ (\%)&' xFeSstr '\\']);
+        disp(['&$\rho_{core}$ (kg m$^{-3}$)&' rhocorestr '\\']);
+    else
+        disp(['Computed C/MR2 for Tb=' num2str(Planet.Tb_K) 'K: ' num2str(C1(C2mean)/MR2) '  (neighboring values: ' num2str(C1(C2mean+1)/MR2) '; ' num2str(C1(C2mean-1)/MR2) ')'])
+        rhom(iT2) = mean(rho_sil_kgm3(C2mean));
+        rhommodel(iT2) = mean(interior.rho_mantle_kgm3);
+        rhorockstr = getTableStr(Planet.Tb_K,round(rhom));
+        rhorockmstr = getTableStr(Planet.Tb_K,round(rhommodel));
+        if exist('concstr','var')
+            disp([concstr{1} '&$\rho_{rock}$ (kg m$^{-3}$)' rhorockstr '\\']);
+            disp([concstr{2} '&$\rho_{rock,model}$ (kg m$^{-3}$)' rhorockmstr '\\']);
         else
-            disp(['Computed C/MR2 for Tb=' num2str(Planet.Tb_K(iT)) 'K: ' num2str(C1(iT,C2mean(iT))/MR2) '  (neighboring values: ' num2str(C1(iT,C2mean(iT)+1)/MR2) '; ' num2str(C1(iT,C2mean(iT)-1)/MR2) ')'])
-            for iT2 = 1:nTbs
-                rhom(iT2) = mean(rho_sil_kgm3(iT2,C2mean(:)));
-                rhommodel(iT2) = mean(interior(iT2).rho_mantle_kgm3);
-            end
-            rhorockstr = getTableStr(Planet.Tb_K,round(rhom));
-            rhorockmstr = getTableStr(Planet.Tb_K,round(rhommodel));
-            if exist('concstr','var')
-                disp([concstr{1} '&$\rho_{rock}$ (kg m$^{-3}$)' rhorockstr{:} '\\']);
-                disp([concstr{2} '&$\rho_{rock,model}$ (kg m$^{-3}$)' rhorockmstr{:} '\\']);
-            else
-                disp(['&$\rho_{rock}$ (kg m$^{-3}$)&' rhorockstr '\\']);
-                disp(['&$\rho_{rock,model}$ (kg m$^{-3}$)' rhorockmstr{:} '\\']);
-            end
-            disp(['\cline{3-' num2str(nTbs+2) '}'])
-        end
-        Qradrockstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(Planet.Qmantle_Wm2*4*pi*Planet.R_m^2/1e9) '}'];
-        disp(['&$Q_{rock}$ (GW)&' Qradrockstr '\\']);
-        if Planet.QHmantle
-            Qtiderockstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(Planet.QHmantle) '}'];
-            disp(['&$Q_{rock,tidal}$ (GW)&' Qtiderockstr '\\']);
+            disp(['&$\rho_{rock}$ (kg m$^{-3}$)&' rhorockstr '\\']);
+            disp(['&$\rho_{rock,model}$ (kg m$^{-3}$)' rhorockmstr '\\']);
         end
         disp(['\cline{3-' num2str(nTbs+2) '}'])
-        disp(['&T$_{b}$ (K)  ' Tb_str{:} ' \\'])
-        if Planet.POROUS_ROCK
-            if isfield(Planet,'phi_surface')
-                phisurfstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(100*Planet.phi_surface) '}'];
-                disp(['&$\phi_{1}$   ' phisurfstr ' \\'])
-            end
-            for iT2 = 1:nTbs
-                meanphivec(iT2) = 100*mean(por_out(iT2).por);
-            end
-            meanphistr = getTableStr(Planet.Tb_K,round(meanphivec));
-            disp(['&$\bar{\phi}$ (\%)  ' meanphistr ' \\'])
+    end
+    Qradrockstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(Planet.Qmantle_Wm2*4*pi*Planet.R_m^2/1e9) '}'];
+    disp(['&$Q_{rock}$ (GW)&' Qradrockstr '\\']);
+    if Planet.QHmantle
+        Qtiderockstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(Planet.QHmantle) '}'];
+        disp(['&$Q_{rock,tidal}$ (GW)&' Qtiderockstr '\\']);
+    end
+    disp(['\cline{3-' num2str(nTbs+2) '}'])
+    disp(['&T$_{b}$ (K)  ' Tb_str{:} ' \\'])
+    if Planet.POROUS_ROCK
+        if isfield(Planet,'phi_surface')
+            phisurfstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(100*Planet.phi_surface) '}'];
+            disp(['&$\phi_{1}$   ' phisurfstr ' \\'])
         end
-        disp(['&$q_\mathrm{b}$ mW m$^{-2}$  ' Qb_str{:} ' \\'])
-        disp(['&$q_\mathrm{c}$ mW m$^{-2}$  ' Qc_str{:} ' \\'])
-        disp(['&\log_{10}(\nu$_\mathrm{ice})$ mW m$^{-2}$  ' nu_str{:} ' \\'])
-        disp(['&$D_\mathrm{Ih}$ (km)' dzI_str{:} ' \\'])
-        disp(['&$D_\mathrm{ocean}$ (km)' dz_ocean_m_str{:} ' \\'])
-        disp(['&$D_\mathrm{III}$ (km)' dzIII_str{:} ' \\'])
-        disp(['&$D_\mathrm{V}$ (km)' dzV_str{:} ' \\'])
-        disp(['&$D_\mathrm{VI}$ (km)' dzVI_str{:} ' \\'])
-        disp(['&$R_\mathrm{rock}$ (km)' R_sil_str{:} ' \\'])
-        if Planet.FeCore
-            R_Fe_range_str = getTableStr(Planet.Tb_K,round(R_Fe_range_m*1e-3));
-            R_sil_range_str = getTableStr(Planet.Tb_K,round(R_sil_range_m*1e-3));
-            disp(['&R$_\mathrm{core}$ (km)' R_Fe_str{:} ' \\'])
-            disp(['&$\Delta$R$_\mathrm{core} (km)$' R_Fe_range_str{:} ' \\'])
-            disp(['&$\Delta$R$_\mathrm{mantle}$ (km)' R_sil_range_str{:} ' \\'])
-        end
-        disp('\hline')
+        meanphivec = 100*mean(por_out.por);
+        meanphistr = getTableStr(Planet.Tb_K,round(meanphivec));
+        disp(['&$\bar{\phi}$ (\%)  ' meanphistr ' \\'])
+    end
+    disp(['&$q_\mathrm{b}$ mW m$^{-2}$  ' Qb_str{:} ' \\'])
+    disp(['&$q_\mathrm{c}$ mW m$^{-2}$  ' Qc_str{:} ' \\'])
+    disp(['&\log_{10}(\nu$_\mathrm{ice})$ mW m$^{-2}$  ' nu_str{:} ' \\'])
+    disp(['&$D_\mathrm{Ih}$ (km)' dzI_str{:} ' \\'])
+    disp(['&$D_\mathrm{ocean}$ (km)' dz_ocean_m_str{:} ' \\'])
+    disp(['&$D_\mathrm{III}$ (km)' dzIII_str{:} ' \\'])
+    disp(['&$D_\mathrm{V}$ (km)' dzV_str{:} ' \\'])
+    disp(['&$D_\mathrm{VI}$ (km)' dzVI_str{:} ' \\'])
+    disp(['&$R_\mathrm{rock}$ (km)' R_sil_str{:} ' \\'])
+    if Planet.FeCore
+        R_Fe_range_str = getTableStr(Planet.Tb_K,round(R_Fe_range_m*1e-3));
+        R_sil_range_str = getTableStr(Planet.Tb_K,round(R_sil_range_m*1e-3));
+        disp(['&R$_\mathrm{core}$ (km)' R_Fe_str{:} ' \\'])
+        disp(['&$\Delta$R$_\mathrm{core} (km)$' R_Fe_range_str{:} ' \\'])
+        disp(['&$\Delta$R$_\mathrm{mantle}$ (km)' R_sil_range_str{:} ' \\'])
+    end
+    disp('\hline')
+end
+
+    savestr = [savebase Planet.Ocean.comp ...
+        '_' num2str(round(wtPpt)) 'WtPpt' minEOS porIceStr ...
+        '_Tb' num2str(round(Planet.Tb_K,3),'%.3f') 'K' ];
+
+    if Planet.FeCore
+        R_Fe_trade_m = R_Fe_m(C2inds);
+        rho_sil_trade_kgm3 = zeros(size(R_sil_m(C2inds)));
+    else
+        R_Fe_trade_m = zeros(size(R_sil_m(C2inds)));
+        rho_sil_trade_kgm3 = rho_sil_kgm3(C2inds);
+    end
+    R_sil_trade_m = R_sil_m(C2inds);
+
+    if ~Planet.POROUS_ROCK
+        por_out.por = zeros(size(r_mantle_m));
+        permeability = zeros(1,Params.nsteps_mantle,5);
     end
 
-    
-    
-        savestr = [savebase Planet.Ocean.comp ...
-            '_' num2str(10*round(Planet.Ocean.w_ocean_pct)) 'WtPpt' minEOS porIceStr ...
-            '_Tb' num2str(round(Planet.Tb_K(iT),3),'%.3f') 'K' ];
-        
-        if Planet.FeCore
-            R_Fe_trade_m(iT,:) = R_Fe_m(iT,C2inds{iT});
-            rho_sil_trade_kgm3(iT,:) = zeros(size(R_sil_m(iT,C2inds{iT})));
-        else
-            R_Fe_trade_m(iT,:) = zeros(size(R_sil_m(iT,C2inds{iT})));
-            rho_sil_trade_kgm3(iT,:) = rho_sil_kgm3(iT,C2inds{iT});
-        end
-        R_sil_trade_m(iT,:) = R_sil_m(iT,C2inds{iT});
-        
-        if ~Planet.POROUS_ROCK
-            por_out.por = zeros(size(r_mantle_m));
-            permeability = zeros(nTbs,Params.nsteps_mantle,5);
-        end
+    nsteps_hydro = indSil - 1;
+    Cp_Planet_JkgK = [Cp(1:nsteps_hydro) Cp_mantle_JkgK Cp_core_JkgK];
+    vfluid_kms = [vfluid_kms(1:nsteps_hydro) zeros(1,nsteps_tot - nsteps_hydro)];
 
-        writeToDisk([datpath savestr], Planet.Ocean.comp, Planet.FeCore, Planet.Ocean.w_ocean_pct, Planet.Tb_K(iT), ...
-            Planet.zb_outerIce_m(iT)/1e3, Planet.zClath_m(iT), Pb_MPa(iT), PbI_MPa(iT), deltaP, C2mean, ...
-            Planet.Qmantle_Wm2(iT), Qb(iT), Q_Wm2(iT), ...
-            R_sil_mean_m(iT), R_Fe_mean_m(iT), R_sil_range_m(iT), R_Fe_range_m(iT), ...
-            rho_Fe_kgm3, Params.nsteps_iceI, Params.nsteps_ocean, nsteps, nsteps_tot, indSil(iT), ...
-            Params.nsteps_mantle, Params.nsteps_core, nIceIIILithosphere, nIceVLithosphere, ...
-            z_m(iT,:)*1e-3, r_m(iT,:), P_MPa(iT,:), T_K(iT,:), phase(iT,:), rho_kgm3(iT,:), ...
-            g_ms2(iT,:), Cp(iT,:), R_sil_trade_m(iT,:), R_Fe_trade_m(iT,:), rho_sil_trade_kgm3(iT,:), ...
-            r_mantle_m(iT,:), Pmantle_MPa(iT,:), por_out.por(iT,:), vfluid_kms(iT,:), permeability, ...
-            r_Planet_m(iT,:), P_Planet_MPa(iT,:), T_Planet_K(iT,:), rho_pPlanet_kgm3(iT,:), ...
-            k_S_mPlanet(iT,:), phasePlanet(iT,:), g_Planet_ms2(iT,:));
-        %save(fullfile([datpath savefile '_pp' num2str(iT)]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILitho','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','Cp','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth'); % save the progress at each step
+    writeToDisk([datpath savestr], Planet.Ocean.comp, Planet.FeCore, Planet.Ocean.w_ocean_pct, Planet.Tb_K, ...
+        Planet.zb_outerIce_m/1e3, Planet.zClath_m, Pb_MPa, PbI_MPa, deltaP, C2mean, ...
+        Planet.Qmantle_Wm2, Planet.phi_surface, R_sil_mean_m, R_Fe_mean_m, R_sil_range_m, R_Fe_range_m, ...
+        rho_Fe_kgm3, Params.nsteps_clath, Params.nsteps_iceI, nIceIIILithosphere, nIceVLithosphere, ...
+        nsteps_hydro, Params.nsteps_mantle, Params.nsteps_core, ...
+        R_sil_trade_m, R_Fe_trade_m, rho_sil_trade_kgm3, permeability, ...
+        r_Planet_m, P_Planet_MPa, T_Planet_K, phasePlanet, ...
+        rho_pPlanet_kgm3, Cp_Planet_JkgK, k_S_mPlanet, g_Planet_ms2, vfluid_kms);
+    %save(fullfile([datpath savefile '_pp' num2str]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILitho','T_K','Tb_K','phase','deltaP','wo','rho_kgm3','Cp','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth'); % save the progress at each step
         
-        end
-
 
     else
-        [z_m, r_m, P_MPa, T_K, phase, rho_kgm3, g_ms2, Cp, vfluid_kms] = deal(zeros(nTbs,nsteps));
         npre = 0;
-        for iT = 1:nTbs
 
-            savestr = [savebase Planet.Ocean.comp ...
-                '_' num2str(10*round(Planet.Ocean.w_ocean_pct)) 'WtPpt' minEOS porIceStr ...
-                '_Tb' num2str(round(Planet.Tb_K(iT),3),'%.3f') 'K' ];
-            %try
-                %load(fullfile([datpath savefile '_pp' num2str(iT)]));
-                [Planet.Ocean.comp, Planet.FeCore, Planet.Ocean.w_ocean_pct, Planet.Tb_K(iT), ...
-                Planet.zb_outerIce_m(iT), Planet.zClath_m(iT), Pb_MPa(iT), PbI_MPa(iT), deltaP, ...
-                C2mean, Planet.Qmantle_Wm2(iT), Qb(iT), Q_Wm2(iT), ...
-                R_sil_mean_m(iT), R_Fe_mean_m(iT), R_sil_range_m(iT), R_Fe_range_m(iT), rho_Fe_kgm3, ...
-                Params.nsteps_iceI, Params.nsteps_ocean, nsteps, nsteps_tot, indSil(iT), ...
-                Params.nsteps_mantle, Params.nsteps_core, nIceIIILithosphere, nIceVLithosphere, ...
-                z_m(iT,:), r_m(iT,:), P_MPa(iT,:), T_K(iT,:), phase(iT,:), rho_kgm3(iT,:), ...
-                g_ms2(iT,:), Cp(iT,:), R_sil_trade_m(iT,:), R_Fe_trade_m(iT,:), rho_sil_trade_kgm3(iT,:), ...
-                r_mantle_m(iT,:), Pmantle_MPa(iT,:), por_out.por(iT,:), vfluid_kms(iT,:), permeability(iT,:,:), ...
-                r_Planet_m(iT,:), P_Planet_MPa(iT,:), T_Planet_K(iT,:), rho_pPlanet_kgm3(iT,:), ...
-                k_S_mPlanet(iT,:), phasePlanet(iT,:), g_Planet_ms2(iT,:)] ...
-                    = reloadFromDisk([datpath savestr]);
+        savestr = [savebase Planet.Ocean.comp ...
+            '_' num2str(round(wtPpt)) 'WtPpt' minEOS porIceStr ...
+            '_Tb' num2str(round(Planet.Tb_K,3),'%.3f') 'K' ];
+        %try
+            %load(fullfile([datpath savefile '_pp' num2str]));
+            [Planet.Ocean.comp, Planet.FeCore, Planet.Ocean.w_ocean_pct, Planet.Tb_K, ...
+            Planet.zb_outerIce_m, Planet.zClath_m, Pb_MPa, PbI_MPa, deltaP, ...
+            C2mean, Planet.Qmantle_Wm2, Planet.phi_surface, ...
+            R_sil_mean_m, R_Fe_mean_m, R_sil_range_m, R_Fe_range_m, rho_Fe_kgm3, ...
+            Params.nsteps_clath, Params.nsteps_iceI, nIceIIILithosphere, nIceVLithosphere, nsteps_hydro, ...
+            Params.nsteps_mantle, Params.nsteps_core, ...
+            R_sil_trade_m, R_Fe_trade_m, rho_sil_trade_kgm3, ...
+            z_m, r_Planet_m, P_Planet_MPa, T_Planet_K, phasePlanet, rho_pPlanet_kgm3, ...
+            k_S_mPlanet, g_Planet_ms2, Cp_Planet_JkgK, vfluid_kms, permeability(1,:,:)] ...
+                = reloadFromDisk([datpath savestr]);
 
-            %catch
-                %error(['ERROR: cfg.CALC_NEW=0 but ' savefile ' was not found. Re-run with cfg.CALC_NEW set to 1 to generate the Profile.']);
-            %end
+        nsteps_tot = nsteps_hydro + Params.nsteps_mantle + Params.nsteps_core;
+        indSil = nsteps_hydro + 1;
+        %catch
+            %error(['ERROR: cfg.CALC_NEW=0 but ' savefile ' was not found. Re-run with cfg.CALC_NEW set to 1 to generate the Profile.']);
+        %end
 
-            %'nsteps','n_clath','n_iceI','n_ocean'
-            n_clath = nsteps - Params.nsteps_iceI - Params.nsteps_ocean;
-            n_iceI(iT) = Params.nsteps_iceI;
-            n_ocean = Params.nsteps_ocean;
-            Tb_K = Planet.Tb_K(iT); % This is only for .mat saving
+        %'nsteps','n_clath','n_iceI','n_ocean'
+        n_clath = Params.nsteps_clath;
+        n_iceI = Params.nsteps_iceI;
+        n_ocean = Params.nsteps_ocean;
+        Tb_K = Planet.Tb_K; % This is only for .mat saving
 
-            if ~exist('max_clath_depth')
-                max_clath_depth = 1e15;
-            end
-            save(fullfile([datpath savefile '_pp' num2str(iT)]),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','nTbs','rho_kgm3','Cp','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth');
-            clear Tb_K
+        if ~exist('max_clath_depth')
+            max_clath_depth = 1e15;
         end
+        P_MPa = P_Planet_MPa;
+        T_K = T_Planet_K;
+        phase = phasePlanet;
+        rho_kgm3 = rho_pPlanet_kgm3;
+        Cp = Cp_Planet_JkgK;
+        save(fullfile([datpath savefile '_pp']),'P_MPa','Pb_MPa','PbI_MPa','nIceIIILithosphere','T_K','Tb_K','phase','deltaP','wo','rho_kgm3','Cp','nsteps','n_clath','n_iceI','n_ocean','max_clath_depth');
+        clear Tb_K
     end
     
 %% BEGIN PLOTTING STUFF
 
-lstr_3 = cell(1,nTbs);
-for iT = 1:nTbs
+lstr_3 = cell(1);
 if ~cfg.SKIP_PROFILES % SKIP_PROFILES to be deprecated in favor of a more robust CALC_NEW
 
-    lstr_3{iT} = [math 'T_{b}' nm ': ' num2str(Planet.Tb_K(iT),'%0.1f') ' K'];
+    lstr_3 = [math 'T_{b}' nm ': ' num2str(Planet.Tb_K,'%0.1f') ' K'];
     if Planet.FeCore
         % Core/mantle size tradeoff
         set(0, 'CurrentFigure', figs.core);
         clf;hold all
         set(gcf,'Position', [335 133 854 547], 'Name', lbl.corsz)
 
-        plot(R_Fe_trade_m(iT,:)'*1e-3,R_sil_trade_m(iT,:)'*1e-3);
+        plot(R_Fe_trade_m'*1e-3,R_sil_trade_m'*1e-3);
         legend(lstr_3,'Fontsize',lbl.smtext)
         box on
         xlabel([math 'R_{' nm 'Fe}' nm ' (km)'],'Fontsize',lbl.mltext);
@@ -2230,8 +2203,8 @@ if ~cfg.SKIP_PROFILES % SKIP_PROFILES to be deprecated in favor of a more robust
         set(0, 'CurrentFigure', figs.mant);
         clf;hold all
         set(gcf,'Position', [335 133 696 547], 'Name', lbl.mantl)
-        plot(rho_sil_trade_kgm3(iT,:)',R_sil_trade_m(iT,:)'*1e-3);
-        lstr_3{iT} = [math 'T_{b}' nm ': ' num2str(Planet.Tb_K(iT),'%0.1f') ' K'];
+        plot(rho_sil_trade_kgm3',R_sil_trade_m'*1e-3);
+        lstr_3 = [math 'T_{b}' nm ': ' num2str(Planet.Tb_K,'%0.1f') ' K'];
         legend(lstr_3,'Fontsize',lbl.smtext)
         box on
         xlabel([math '\rho_{' nm 'sil}' nm ' (kg m^{-3})'],'Fontsize',lbl.mltext);
@@ -2246,17 +2219,17 @@ if ~cfg.SKIP_PROFILES % SKIP_PROFILES to be deprecated in favor of a more robust
             set(0, 'CurrentFigure', figs.porP);
             set(gcf, 'Name', lbl.porvP)
         else
-            set(0, 'CurrentFigure', figs.porP(iT));
-            set(gcf, 'Name', [lbl.porvP ' Tb = ' num2str(Planet.Tb_K(iT))])
+            set(0, 'CurrentFigure', figs.porP);
+            set(gcf, 'Name', [lbl.porvP ' Tb = ' num2str(Planet.Tb_K)])
             clf;
         end
         hold on
-%         plot(Pmantle_MPa,[por_in(iT).vp]-[por_out(iT).vp])
-%         plot(Pmantle_MPa,por_in(iT).vs-por_out(iT).vs,'--')
-        plot(Pmantle_MPa,por_out(iT).por*100,'LineWidth',cfg.LW_std)
-%         plot(Pmantle_MPa,(por_in(iT).den-por_out(iT).den)./por_in(iT).den*100)
-%         plot(Pmantle_MPa,(por_in(iT).vp-por_out(iT).vp)./por_in(iT).vp*100)
-%         plot(Pmantle_MPa,(por_in(iT).vs-por_out(iT).vs)./por_in(iT).vs*100,'--')
+%         plot(Pmantle_MPa,[por_in.vp]-[por_out.vp])
+%         plot(Pmantle_MPa,por_in.vs-por_out.vs,'--')
+        plot(Pmantle_MPa,por_out.por*100,'LineWidth',cfg.LW_std)
+%         plot(Pmantle_MPa,(por_in.den-por_out.den)./por_in.den*100)
+%         plot(Pmantle_MPa,(por_in.vp-por_out.vp)./por_in.vp*100)
+%         plot(Pmantle_MPa,(por_in.vs-por_out.vs)./por_in.vs*100,'--')
         xlabel([math 'P_{' nm 'rock}' nm ' (MPa)'],'Fontsize',lbl.mltext)
 %         ylabel('v-v_{porous} (m s^{-1})');
 %         ylabel('$\frac{X-X_{porous}}{X}$ (\%)');
@@ -2269,18 +2242,18 @@ if ~cfg.SKIP_PROFILES % SKIP_PROFILES to be deprecated in favor of a more robust
             set(0, 'CurrentFigure', figs.porR);
             set(gcf, 'Name', lbl.porvR)
         else
-            set(0, 'CurrentFigure', figs.porR(iT));
-            set(gcf, 'Name', [lbl.porvR ' Tb = ' num2str(Planet.Tb_K(iT))])
+            set(0, 'CurrentFigure', figs.porR);
+            set(gcf, 'Name', [lbl.porvR ' Tb = ' num2str(Planet.Tb_K)])
             clf;
         end
         hold on
-%         plot(Pmantle_MPa,[por_in(iT).vp]-[por_out(iT).vp])
-%         plot(Pmantle_MPa,por_in(iT).vs-por_out(iT).vs,'--')
-        hl = plot(por_out(iT).por*100,r_mantle_m*1e-3,'LineWidth',cfg.LW_std);
+%         plot(Pmantle_MPa,[por_in.vp]-[por_out.vp])
+%         plot(Pmantle_MPa,por_in.vs-por_out.vs,'--')
+        hl = plot(por_out.por*100,r_mantle_m*1e-3,'LineWidth',cfg.LW_std);
 
-%         plot((por_in(iT).den-por_out(iT).den)./por_in(iT).den*100,r_mantle_m*1e-3)
-%         plot((por_in(iT).vp-por_out(iT).vp)./por_in(iT).vp*100,r_mantle_m*1e-3)
-%         plot((por_in(iT).vs-por_out(iT).vs)./por_in(iT).vs*100,r_mantle_m*1e-3,'--')
+%         plot((por_in.den-por_out.den)./por_in.den*100,r_mantle_m*1e-3)
+%         plot((por_in.vp-por_out.vp)./por_in.vp*100,r_mantle_m*1e-3)
+%         plot((por_in.vs-por_out.vs)./por_in.vs*100,r_mantle_m*1e-3,'--')
 %         set(gca,'ydir','reverse');
         ylabel([math 'r_{' nm 'rock}' nm ' (km)'],'Fontsize',lbl.mltext)
 %         ylabel('v-v_{porous} (m s^{-1})');
@@ -2295,13 +2268,13 @@ if ~cfg.SKIP_PROFILES % SKIP_PROFILES to be deprecated in favor of a more robust
             set(0, 'CurrentFigure', figs.perm);
             set(gcf, 'Name', lbl.perme)
         else
-            set(0, 'CurrentFigure', figs.perm(iT));
-            set(gcf, 'Name', [lbl.perme ' Tb = ' num2str(Planet.Tb_K(iT))])
+            set(0, 'CurrentFigure', figs.perm);
+            set(gcf, 'Name', [lbl.perme ' Tb = ' num2str(Planet.Tb_K)])
             clf;
         end
         hold on
-%         plot(Pmantle_MPa,[por_in(iT).vp]-[por_out(iT).vp])
-%         plot(Pmantle_MPa,por_in(iT).vs-por_out(iT).vs,'--')
+%         plot(Pmantle_MPa,[por_in.vp]-[por_out.vp])
+%         plot(Pmantle_MPa,por_in.vs-por_out.vs,'--')
 %         plot(squeeze(log10(permeability)),r_mantle_m'*ones(1,length(permeability(1,1,:)))*1e-3)
         hl1 = plot(squeeze(log10(permeability(1,:,1))),r_mantle_m*1e-3,'LineWidth',cfg.LW_std);
         hl2 = plot(squeeze(log10(permeability(1,:,2))),r_mantle_m*1e-3,'--','LineWidth',cfg.LW_std);
@@ -2320,19 +2293,17 @@ if ~cfg.SKIP_PROFILES % SKIP_PROFILES to be deprecated in favor of a more robust
         % Save porosity figures later because we need more info to create 'thissavestr'
     end % POROUS
 end % ~cfg.SKIP_PROFILES
-end
 
     
     if ~cfg.SKIP_PROFILES
         if Seismic.DO_SEISMIC
-        for iT = 1:nTbs
     %% plot the seismic data and attenuation
         if Params.HOLD
             set(0, 'CurrentFigure', figs.seis);
             set(gcf,'Position', [476   662   857   505],'Name',lbl.seism)
         else
-            set(0, 'CurrentFigure', figs.seis(iT));
-            set(gcf,'Position', [476   662   857   505],'Name',[lbl.seism ' Tb = ' num2str(Planet.Tb_K(iT))])
+            set(0, 'CurrentFigure', figs.seis);
+            set(gcf,'Position', [476   662   857   505],'Name',[lbl.seism ' Tb = ' num2str(Planet.Tb_K)])
             clf;
         end
 
@@ -2340,12 +2311,12 @@ end
         if Params.HOLD
             hold on
         end
-        plot(VS_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3,...
-            VP_Planet_kms(iT,:)',r_Planet_m(iT,:)'*1e-3,'--','LineWidth',cfg.LW_seism)
+        plot(VS_Planet_kms',r_Planet_m'*1e-3,...
+            VP_Planet_kms',r_Planet_m'*1e-3,'--','LineWidth',cfg.LW_seism)
             set(gcf,'color','w')
             xlabel('Sound Speeds (km s^{-1})','Fontsize',lbl.mltext)
             ylabel([math 'r_{' nm Planet.name '}' nm ' (km)'],'Fontsize',lbl.mltext);
-            set(gca,'xlim',[0 1.1*max(VP_Planet_kms(iT,:))],'ylim',[0 ymax])
+            set(gca,'xlim',[0 1.1*max(VP_Planet_kms)],'ylim',[0 ymax])
             grid on
 
 
@@ -2353,20 +2324,20 @@ end
         if Params.HOLD
             hold on
         end
-        if max(P_Planet_MPa(iT,:))<100
-            plot(10*P_Planet_MPa(iT,:)',r_Planet_m(iT,:)'*1e-3,...
-                T_Planet_K(iT,:)',r_Planet_m(iT,:)'*1e-3,'--',...
-                rho_pPlanet_kgm3(iT,:)',r_Planet_m(iT,:)'*1e-3,'k-.',...
+        if max(P_Planet_MPa)<100
+            plot(10*P_Planet_MPa',r_Planet_m'*1e-3,...
+                T_Planet_K',r_Planet_m'*1e-3,'--',...
+                rho_pPlanet_kgm3',r_Planet_m'*1e-3,'k-.',...
             'LineWidth',cfg.LW_seism);
             xlabel([math 'P' nm ' (bar), ' math 'T' nm ' (K), ' math '\rho' nm ' (kg m^{-3})'],'Fontsize',lbl.mltext);
-            xmax = max([max(rho_pPlanet_kgm3(iT,:)) max(10*P_Planet_MPa(iT,:)) max(T_Planet_K(iT,:))]);
+            xmax = max([max(rho_pPlanet_kgm3) max(10*P_Planet_MPa) max(T_Planet_K)]);
         else
-            plot(P_Planet_MPa(iT,:)',r_Planet_m(iT,:)'*1e-3,...
-                T_Planet_K(iT,:)',r_Planet_m(iT,:)'*1e-3,'--',...
-                rho_pPlanet_kgm3(iT,:)',r_Planet_m(iT,:)'*1e-3,'k-.',...
+            plot(P_Planet_MPa',r_Planet_m'*1e-3,...
+                T_Planet_K',r_Planet_m'*1e-3,'--',...
+                rho_pPlanet_kgm3',r_Planet_m'*1e-3,'k-.',...
             'LineWidth',cfg.LW_seism);
             xlabel([math 'P' nm ' (MPa), ' math 'T' nm ' (K), ' math '\rho' nm ' (kg m^{-3})'],'Fontsize',lbl.mltext);
-            xmax = max([max(rho_pPlanet_kgm3(iT,:)) max(P_Planet_MPa(iT,:)) max(T_Planet_K(iT,:))]);
+            xmax = max([max(rho_pPlanet_kgm3) max(P_Planet_MPa) max(T_Planet_K)]);
         end
         set(gca,'ylim',[0 ymax],'xlim',[0 xmax]);
         grid on
@@ -2375,7 +2346,7 @@ end
         if Params.HOLD
             hold on
         end
-        hp = plot(QS_overfgamma_Planet(iT,:)',r_Planet_m(iT,:)'*1e-3,'LineWidth',cfg.LW_seism);
+        hp = plot(QS_overfgamma_Planet',r_Planet_m'*1e-3,'LineWidth',cfg.LW_seism);
         set(gca,'xscale','log','ylim',[0 ymax],'xlim',[10 1e7],'XTick',[10 100 1000 1e4 1e5 1e6 1e7])
         grid on
         xlabel([math 'Q_S/\omega^{\gamma}'],'Fontsize',lbl.mltext)
@@ -2385,13 +2356,13 @@ end
             set(0, 'CurrentFigure', figs.gsks);
             set(gcf,'Position', [476   662   857   505],'Name',lbl.gs_ks)
         else
-            set(0, 'CurrentFigure', figs.gsks(iT));
-            set(gcf,'Position', [476   662   857   505],'Name',[lbl.gs_ks ' Tb = ' num2str(Planet.Tb_K(iT))])
+            set(0, 'CurrentFigure', figs.gsks);
+            set(gcf,'Position', [476   662   857   505],'Name',[lbl.gs_ks ' Tb = ' num2str(Planet.Tb_K)])
             clf;
         end
         hold on
-        hp = plot(Ks_Planet_GPa(iT,:)',r_Planet_m(iT,:)'*1e-3,...
-            Gs_Planet_GPa(iT,:)',r_Planet_m(iT,:)'*1e-3,'--','LineWidth',cfg.LW_seism);
+        hp = plot(Ks_Planet_GPa',r_Planet_m'*1e-3,...
+            Gs_Planet_GPa',r_Planet_m'*1e-3,'--','LineWidth',cfg.LW_seism);
         set(hp,'LineWidth',cfg.LW_seism);
         ylabel([math 'r_{' nm Planet.name '}' nm ' (km)'],'Fontsize',lbl.mltext);
         xlabel([math 'G_S' nm ' and ' math 'K_S' nm ' (GPa)'],'Fontsize',lbl.mltext);
@@ -2399,16 +2370,15 @@ end
 
         if ~cfg.HOLD
             
-            print(figs.seis(iT),Params.savefigformat,fullfile([figpath thissavestr '_' vseis cfg.xtn]));
-            print(figs.gsks(iT),Params.savefigformat,fullfile([figpath thissavestr '_' vgsks cfg.xtn]));
+            print(figs.seis,Params.savefigformat,fullfile([figpath thissavestr '_' vseis cfg.xtn]));
+            print(figs.gsks,Params.savefigformat,fullfile([figpath thissavestr '_' vgsks cfg.xtn]));
             if POROUS % Saved from earlier -- now we have thissavestr.
-                print(figs.porP(iT),cfg.fig_fmt,fullfile([figpath thissavestr '_' vsP   cfg.xtn]));
-                print(figs.porR(iT),cfg.fig_fmt,fullfile([figpath thissavestr '_' vsR   cfg.xtn]));
-                print(figs.perm(iT),cfg.fig_fmt,fullfile([figpath thissavestr '_' vperm cfg.xtn]));
+                print(figs.porP,cfg.fig_fmt,fullfile([figpath thissavestr '_' vsP   cfg.xtn]));
+                print(figs.porR,cfg.fig_fmt,fullfile([figpath thissavestr '_' vsR   cfg.xtn]));
+                print(figs.perm,cfg.fig_fmt,fullfile([figpath thissavestr '_' vperm cfg.xtn]));
             end
         end
     end % ~cfg.SKIP_PROFILES
-    end
 end
 
 % Add conductivities and boundaries to Planet for usage in
@@ -2486,28 +2456,18 @@ if ~cfg.SKIP_PROFILES
     end
     %% create the legend that describes tb, z_b, and heat flux
     lstr_2 = {};
-    for iT = 1:nTbs
-        lstr_2 = {lstr_2{:} [math 'T_{b}' nm ': ' num2str(Planet.Tb_K(iT),'%0.2f') ' K, ' math 'q_{b}/q_{c}' nm ':'...
-            num2str(1e3*Qb(iT),'%0.0f') '/' num2str(1e3*Q_Wm2(iT),'%0.0f') ' mW m^{-2}, ' math 'z_{b}' nm ':' num2str(1e-3*Planet.zb_outerIce_m(iT),'%0.0f') ' km']};
-    end
+        lstr_2 = {lstr_2{:} [math 'T_{b}' nm ': ' num2str(Planet.Tb_K,'%0.2f') ' K, ' math 'q_{b}/q_{c}' nm ':'...
+            num2str(1e3*Qb,'%0.0f') '/' num2str(1e3*Q_Wm2,'%0.0f') ' mW m^{-2}, ' math 'z_{b}' nm ':' num2str(1e-3*Planet.zb_outerIce_m,'%0.0f') ' km']};
 
     set(0, 'CurrentFigure', figs.wedg);
     clf;
-    for iT = 1:nTbs
-        subplot(1,nTbs,iT); hold on
-        input.phase = phasePlanet(iT,:);
-        input.r_m = r_Planet_m(iT,:);
-        PlanetWedge(input);
-        box off
-        if iT==1
-            ylabel(Planet.name,'FontSize',24)
-        else
-          set(gcf, 'Name', lbl.wedge)
-          set(gca,'XTick',[],'YTick',[],'XColor','none','YColor','none')
-
-        end
-        title([math 'T_b' nm ' = ' num2str(Planet.Tb_K(iT)) ' K'],'FontSize',lbl.lgtext)
-    end
+    subplot(1,1,1); hold on
+    input.phase = phasePlanet;
+    input.r_m = r_Planet_m;
+    PlanetWedge(input);
+    box off
+    ylabel(Planet.name,'FontSize',24)
+    title([math 'T_b' nm ' = ' num2str(Planet.Tb_K) ' K'],'FontSize',lbl.lgtext)
     print(figs.wedg,Params.savefigformat,fullfile([figpath savefile '_' vwedg cfg.xtn]));
 
 
@@ -2529,33 +2489,22 @@ if ~cfg.SKIP_PROFILES
     else
         subplot(2,2,2);
     end
-        hold on
-    for iT = 1:nTbs
-        line(T_K(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),...
-            'LineWidth',cfg.LW_seism,'LineStyle',Params.LineStyle);
-        hm = line(T_K(iT,indSil(iT)),z_m(iT,indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'Marker','o');
-        if strcmp(Params.LineStyle,'-')
-            hm.MarkerFaceColor=Params.colororder(:,iT);
-        end
+    hold on
+    line(T_K(1:nsteps_hydro),z_m(1:nsteps_hydro)*1e-3,'Color',Params.colororder(:,1),...
+        'LineWidth',cfg.LW_seism,'LineStyle',Params.LineStyle);
+    hm = line(T_K(nsteps_hydro),z_m(nsteps_hydro)*1e-3,'Color',Params.colororder(:,1),'Marker','o');
+    if strcmp(Params.LineStyle,'-')
+        hm.MarkerFaceColor=Params.colororder(:,1);
     end
-    if Params.HOLD
-        ax = gca;
-        if max(max(T_K))>ax.XLim
-            ax.XLim(2)=max(max(T_K));
-        end
-        if maxScale*max(Dsil_km)>ax.YLim
-            ax.YLim(2) = maxScale*max(Dsil_km);
-        end
-    end
-        set(gca,'ydir','reverse',...
-            'xlim',[245 max(max(T_K))],'ylim',[0 maxScale*max(Dsil_km)],...
-            'FontSize',lbl.mdtext,'YAxisLocation','right');%'XAxisLocation','top');
-        set(gcf, 'Name', lbl.panl4);
+    set(gca,'ydir','reverse',...
+        'xlim',[245 maxScale*max(T_K(1:nsteps_hydro))],'ylim',[0 maxScale*max(Dsil_km)],...
+        'FontSize',lbl.mdtext,'YAxisLocation','right');%'XAxisLocation','top');
+    set(gcf, 'Name', lbl.panl4);
     
     xlabel('Temperature (K)','Fontsize',lbl.mltext);
     ylabel('Depth (km)','Fontsize',lbl.mltext);
     % for iT=1:nTbs
-    %     hline(Dsil_km(iT),Params.colororder(:,iT));
+    %     hline(Dsil_km,Params.colororder(:,1));
     % end
     box on;
 
@@ -2566,13 +2515,11 @@ if ~cfg.SKIP_PROFILES
         % clear hp; % putting this here because an error was raised when running
         % Triton models. May 4 2020. I think the problem is the model I'm running
         % doesn't have any liquid. yep.
-        for iT = 1:nTbs
-            hp(iT) =  line(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)),z_m(iT,Params.nsteps_iceI+1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
-            maxV(iT) = max(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)));
-            minV(iT) = min(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)));
-        end
+        hp =  line(vfluid_kms(Params.nsteps_iceI+1:indSil),z_m(Params.nsteps_iceI+1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+        maxV = max(vfluid_kms(Params.nsteps_iceI+1:indSil));
+        minV = min(vfluid_kms(Params.nsteps_iceI+1:indSil));
         maxV = max(maxV); minV = min(minV);
-            ax = gca;
+        ax = gca;
 
         if Params.HOLD
             if max(Dsil_km)>ax.YLim
@@ -2599,26 +2546,24 @@ if ~cfg.SKIP_PROFILES
            subplot(2,6,11);
 
         hold on;
-        for iT = 1:nTbs
-            line(velsIce.VIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
-            line(velsIce.VIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
-            line(velsIce.VIIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
-            line(velsIce.VVt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
-            line(velsIce.VVIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
-               line(velsIce.Vclatht_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
-           maxV(iT) = max([velsIce.VIt_kms(iT,1:indSil(iT)) ...
-                velsIce.VIIt_kms(iT,1:indSil(iT)) ...
-                velsIce.Vclatht_kms(iT,1:indSil(iT))...
-                velsIce.VIIIt_kms(iT,1:indSil(iT)) ...
-                velsIce.VVt_kms(iT,1:indSil(iT)) ...
-                velsIce.VVIt_kms(iT,1:indSil(iT))]);
-           minV(iT) = min([velsIce.VIt_kms(iT,1:indSil(iT)) ...
-             velsIce.Vclatht_kms(iT,1:indSil(iT)) ...
-                velsIce.VIIt_kms(iT,1:indSil(iT)) ...
-                velsIce.VIIIt_kms(iT,1:indSil(iT)) ...
-                velsIce.VVt_kms(iT,1:indSil(iT)) ...
-                velsIce.VVIt_kms(iT,1:indSil(iT))]);
-        end
+        line(velsIce.VIt_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VIIt_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VIIIt_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VVt_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VVIt_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+           line(velsIce.Vclatht_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+       maxV = max([velsIce.VIt_kms(1:indSil) ...
+            velsIce.VIIt_kms(1:indSil) ...
+            velsIce.Vclatht_kms(1:indSil)...
+            velsIce.VIIIt_kms(1:indSil) ...
+            velsIce.VVt_kms(1:indSil) ...
+            velsIce.VVIt_kms(1:indSil)]);
+       minV = min([velsIce.VIt_kms(1:indSil) ...
+         velsIce.Vclatht_kms(1:indSil) ...
+            velsIce.VIIt_kms(1:indSil) ...
+            velsIce.VIIIt_kms(1:indSil) ...
+            velsIce.VVt_kms(1:indSil) ...
+            velsIce.VVIt_kms(1:indSil)]);
         maxV = max(maxV);minV = min(minV);
 
         ax = gca;
@@ -2645,27 +2590,25 @@ if ~cfg.SKIP_PROFILES
 
         subplot(2,6,12);
         hold on;
-        for iT = 1:nTbs
-            line(velsIce.VIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
-            line(velsIce.VIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
-            line(velsIce.VIIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
-            line(velsIce.VVl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
-             line(velsIce.Vclathl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VIl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VIIl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VIIIl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+        line(velsIce.VVl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+         line(velsIce.Vclathl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
 
-        maxV(iT) = max([velsIce.VIl_kms(iT,1:indSil(iT)) ...
-                velsIce.Vclathl_kms(iT,1:indSil(iT)) ...
-                velsIce.VIIl_kms(iT,1:indSil(iT)) ...
-                velsIce.VIIIl_kms(iT,1:indSil(iT)) ...
-                velsIce.VVl_kms(iT,1:indSil(iT)) ...
-                velsIce.VVIl_kms(iT,1:indSil(iT)) ...
-                velsIce.Vclathl_kms(iT,1:indSil(iT))]);
-        minV(iT) = min([velsIce.VIl_kms(iT,1:indSil(iT))  ...
-                velsIce.Vclathl_kms(iT,1:indSil(iT)) ...
-                velsIce.VIIl_kms(iT,1:indSil(iT)) ...
-                velsIce.VIIIl_kms(iT,1:indSil(iT)) ...
-                velsIce.VVl_kms(iT,1:indSil(iT)) ...
-                velsIce.VVIl_kms(iT,1:indSil(iT))]);
-        end
+        maxV = max([velsIce.VIl_kms(1:indSil) ...
+                velsIce.Vclathl_kms(1:indSil) ...
+                velsIce.VIIl_kms(1:indSil) ...
+                velsIce.VIIIl_kms(1:indSil) ...
+                velsIce.VVl_kms(1:indSil) ...
+                velsIce.VVIl_kms(1:indSil) ...
+                velsIce.Vclathl_kms(1:indSil)]);
+        minV = min([velsIce.VIl_kms(1:indSil)  ...
+                velsIce.Vclathl_kms(1:indSil) ...
+                velsIce.VIIl_kms(1:indSil) ...
+                velsIce.VIIIl_kms(1:indSil) ...
+                velsIce.VVl_kms(1:indSil) ...
+                velsIce.VVIl_kms(1:indSil)]);
         maxV = max(maxV);minV = min(minV);
 
         ax = gca;
@@ -2697,24 +2640,24 @@ if ~cfg.SKIP_PROFILES
 
     % not sure this is used anymore. flagged for deletion
     % for iT=1:nTbs
-    %     if ~isnan(velsIce.VVIl_kms(iT,indSil(iT)))
-    %         velT = velsIce.VVIt_kms(iT,indSil(iT));
-    %         velL = velsIce.VVIl_kms(iT,indSil(iT));
-    %     elseif  ~isnan(velsIce.VVl_kms(iT,indSil(iT)))
-    %         velT = velsIce.VVt_kms(iT,indSil(iT));
-    %         velL = velsIce.VVl_kms(iT,indSil(iT));
-    %     elseif  ~isnan(velsIce.VIIIl_kms(iT,indSil(iT)))
-    %         velT = velsIce.VIIIt_kms(iT,indSil(iT));
-    %         velL = velsIce.VIIIl_kms(iT,indSil(iT));
-    %     elseif  ~isnan(velsIce.VIIl_kms(iT,indSil(iT)))
-    %         velT = velsIce.VIIt_kms(iT,indSil(iT));
-    %         velL = velsIce.VIIl_kms(iT,indSil(iT));
-    %     elseif  ~isnan(vfluid_kms(iT,indSil(iT)))
-    %         velT = vfluid_kms(iT,indSil(iT));
-    %         velL = vfluid_kms(iT,indSil(iT));
+    %     if ~isnan(velsIce.VVIl_kms(indSil))
+    %         velT = velsIce.VVIt_kms(indSil);
+    %         velL = velsIce.VVIl_kms(indSil);
+    %     elseif  ~isnan(velsIce.VVl_kms(indSil))
+    %         velT = velsIce.VVt_kms(indSil);
+    %         velL = velsIce.VVl_kms(indSil);
+    %     elseif  ~isnan(velsIce.VIIIl_kms(indSil))
+    %         velT = velsIce.VIIIt_kms(indSil);
+    %         velL = velsIce.VIIIl_kms(indSil);
+    %     elseif  ~isnan(velsIce.VIIl_kms(indSil))
+    %         velT = velsIce.VIIt_kms(indSil);
+    %         velL = velsIce.VIIl_kms(indSil);
+    %     elseif  ~isnan(vfluid_kms(indSil))
+    %         velT = vfluid_kms(indSil);
+    %         velL = vfluid_kms(indSil);
     %     else
-    %         velT = velsIce.VIt_kms(iT,indSil(iT));
-    %         velL = velsIce.VIt_kms(iT,indSil(iT));
+    %         velT = velsIce.VIt_kms(indSil);
+    %         velL = velsIce.VIt_kms(indSil);
     %     end
     % end
 
@@ -2730,6 +2673,8 @@ if ~cfg.SKIP_PROFILES
 
 
      if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
+        sigma_Sm_ocean = k_S_mPlanet(Params.nsteps_iceI+1:nsteps_hydro);
+        z_km_ocean = z_m(Params.nsteps_iceI+1:nsteps_hydro)*1e-3;
        if wo>0
            if Seismic.DO_SEISMIC
                subplot(3,6,16:18);hold on
@@ -2738,30 +2683,22 @@ if ~cfg.SKIP_PROFILES
            end
         switch Planet.Ocean.comp
             case 'MgSO4'
-                for iT = 1:nTbs
-                    line(k_S_mPlanet(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,...
-                        'Color',Params.colororder(:,iT),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_std);
-                    mink_val(iT) = min(k_S_mPlanet(iT,1:indSil(iT)));
-                    maxk_val(iT) = max(k_S_mPlanet(iT,1:indSil(iT)));
-                end
+                line(sigma_Sm_ocean,z_km_ocean,...
+                    'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_std);
+                mink_val = min(sigma_Sm_ocean);
+                maxk_val = max(sigma_Sm_ocean);
             case 'Seawater'
-                for iT = 1:nTbs
-                    line(k_S_mPlanet(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),...
-                        'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_std);
-                    mink_val(iT) = min(k_S_mPlanet(iT,1:indSil(iT)));
-                    maxk_val(iT) = max(k_S_mPlanet(iT,1:indSil(iT)));
-                end
+                line(sigma_Sm_ocean,z_km_ocean,'Color',Params.colororder(:,1),...
+                    'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_std);
+                mink_val = min(sigma_Sm_ocean);
+                maxk_val = max(sigma_Sm_ocean);
             case 'NH3'
-                for iT = 1:nTbs
-    %                     line(k_S_m(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle',LineStyle,'LineWidth',cfg.LW_std);
-                    mink_val(iT) = NaN;
-                    maxk_val(iT) = NaN;
-                end
+%                     line(k_S_m(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',LineStyle,'LineWidth',cfg.LW_std);
+                mink_val = NaN;
+                maxk_val = NaN;
             case 'NaCl'
-                for iT = 1:nTbs
-                    mink_val(iT) = NaN;
-                    maxk_val(iT) = NaN;
-                end
+                mink_val = NaN;
+                maxk_val = NaN;
         end
         mink_val = min(mink_val);maxk_val = max(maxk_val);
 
@@ -2802,14 +2739,12 @@ if ~cfg.SKIP_PROFILES
     hold on;
     % hold all
     R2ind = C2mean+npre; % map the index for R_sil_mean back to the indices for P, D, r_m, z_m, etc...
-    Psil_MPa = diag(P_MPa(:,R2ind(:)));
-    for iT=1:nTbs
-        ht(iT)= plot(P_MPa(iT,1:indSil(iT)),rho_kgm3(iT,1:indSil(iT)),'Color',Params.colororder(:,iT),...
-            'LineWidth',cfg.LW_std,'LineStyle',Params.LineStyle);
-        hm = plot(Psil_MPa(iT),interp1(P_MPa(iT,1:end-2),rho_kgm3(iT,1:end-2),Psil_MPa(iT)),'Color',Params.colororder(:,iT));
-        if ~Params.HOLD
-            hm.MarkerFaceColor=Params.colororder(:,iT);
-        end
+    Psil_MPa = diag(P_MPa(R2ind));
+    ht= plot(P_MPa(1:nsteps_hydro),rho_kgm3(1:nsteps_hydro),'Color',Params.colororder(:,1),...
+        'LineWidth',cfg.LW_std,'LineStyle',Params.LineStyle);
+    hm = plot(Psil_MPa,interp1(P_MPa(1:nsteps_hydro),rho_kgm3(1:nsteps_hydro),Psil_MPa),'Color',Params.colororder(:,1));
+    if ~Params.HOLD
+        hm.MarkerFaceColor=Params.colororder(:,1);
     end
 
     for ir = 1:length(Params.wref)
@@ -2824,17 +2759,13 @@ if ~cfg.SKIP_PROFILES
     box on;
     ax = gca;
     ax.FontSize = lbl.mdtext;
-     if Params.HOLD
-        if maxScale*max(max((rho_kgm3(:,1:indSil(:)))))>ax.YLim(2)
-            ax.YLim(2) = maxScale*max(max((rho_kgm3(:,1:indSil(:)))));
-        end
-        if maxScale*max(Psil_MPa)>ax.XLim(2)
-            ax.XLim(2) = maxScale*max(Psil_MPa);
-        end
-     else
-        ax.XLim = [0 maxScale*max(Psil_MPa)];
-        ax.YLim = Params.ylim;
-     end
+    ax.XLim(2) = maxScale*max(Pref_MPa);
+    if maxScale*max((rho_kgm3(1:nsteps_hydro)))>ax.YLim(2)
+        ax.YLim(2) = maxScale*max(max((rho_kgm3(1:nsteps_hydro))));
+    end
+    if maxScale*max(Psil_MPa)>ax.XLim(2)
+        ax.XLim(2) = maxScale*max(Psil_MPa);
+    end
     xlabel('Pressure (MPa)','Fontsize',lbl.mltext)
     ylabel('Density (kg m^{-3})','Fontsize',lbl.mltext)
 
@@ -2854,26 +2785,22 @@ if ~cfg.SKIP_PROFILES
 
         Dsil_km=(Planet.R_m-R_sil_mean_m(:))*1e-3;
 
-        for iT = 1:nTbs
-            hp(iT) =  line(vfluid_kms(iT,Params.nsteps_iceI+1:indSil(iT)),z_m(iT,Params.nsteps_iceI+1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-            line(velsIce.VIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-            line(velsIce.VIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-            line(velsIce.VIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-            line(velsIce.VIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-            line(velsIce.VIIIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-            line(velsIce.VIIIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-            line(velsIce.VVl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-            line(velsIce.VVt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-            line(velsIce.VVIl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-            line(velsIce.VVIt_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',cfg.LW_sound);
-         line(velsIce.Vclathl_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',SoundLineWidth);
-        line(velsIce.Vclatht_kms(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','-.','LineWidth',SoundLineWidth);
+        hp =  line(vfluid_kms(Params.nsteps_iceI+1:indSil),z_m(Params.nsteps_iceI+1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VIl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VIt_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VIIl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VIIt_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VIIIl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VIIIt_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VVl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VVt_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VVIl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.VVIt_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        line(velsIce.Vclathl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',SoundLineWidth);
+        line(velsIce.Vclatht_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','-.','LineWidth',SoundLineWidth);
 
-        end
-        for iT = 1:nTbs
-            if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY % MJS 2021-10-31: This appears to not be used.
-                line(k_S_mMgSO4p01Planet(iT,1:indSil(iT))*25,z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineStyle','--','LineWidth',cfg.LW_seism);
-            end
+        if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY % MJS 2021-10-31: This appears to not be used.
+            line(k_S_mMgSO4p01Planet(1:indSil)*25,z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle','--','LineWidth',cfg.LW_seism);
         end
         set(gca,'ydir','reverse','xlim',[0 5],'ylim',[0 maxScale*max(Dsil_km)]);%,'xlim',[1 4]);
             if Params.INCLUDE_ELECTRICAL_CONDUCTIVITY
@@ -2887,24 +2814,24 @@ if ~cfg.SKIP_PROFILES
         % not sure this is used anymore. flagged for deletion
         %
         % for iT=1:nTbs
-        %     if ~isnan(velsIce.VVIl_kms(iT,indSil(iT)))
-        %         velT = velsIce.VVIt_kms(iT,indSil(iT));
-        %         velL = velsIce.VVIl_kms(iT,indSil(iT));
-        %     elseif  ~isnan(velsIce.VVl_kms(iT,indSil(iT)))
-        %         velT = velsIce.VVt_kms(iT,indSil(iT));
-        %         velL = velsIce.VVl_kms(iT,indSil(iT));
-        %     elseif  ~isnan(velsIce.VIIIl_kms(iT,indSil(iT)))
-        %         velT = velsIce.VIIIt_kms(iT,indSil(iT));
-        %         velL = velsIce.VIIIl_kms(iT,indSil(iT));
-        %     elseif  ~isnan(velsIce.VIIl_kms(iT,indSil(iT)))
-        %         velT = velsIce.VIIt_kms(iT,indSil(iT));
-        %         velL = velsIce.VIIl_kms(iT,indSil(iT));
-        %     elseif  ~isnan(vfluid_kms(iT,indSil(iT)))
-        %         velT = vfluid_kms(iT,indSil(iT));
-        %         velL = vfluid_kms(iT,indSil(iT));
+        %     if ~isnan(velsIce.VVIl_kms(indSil))
+        %         velT = velsIce.VVIt_kms(indSil);
+        %         velL = velsIce.VVIl_kms(indSil);
+        %     elseif  ~isnan(velsIce.VVl_kms(indSil))
+        %         velT = velsIce.VVt_kms(indSil);
+        %         velL = velsIce.VVl_kms(indSil);
+        %     elseif  ~isnan(velsIce.VIIIl_kms(indSil))
+        %         velT = velsIce.VIIIt_kms(indSil);
+        %         velL = velsIce.VIIIl_kms(indSil);
+        %     elseif  ~isnan(velsIce.VIIl_kms(indSil))
+        %         velT = velsIce.VIIt_kms(indSil);
+        %         velL = velsIce.VIIl_kms(indSil);
+        %     elseif  ~isnan(vfluid_kms(indSil))
+        %         velT = vfluid_kms(indSil);
+        %         velL = vfluid_kms(indSil);
         %     else
-        %         velT = velsIce.VIt_kms(iT,indSil(iT));
-        %         velL = velsIce.VIt_kms(iT,indSil(iT));
+        %         velT = velsIce.VIt_kms(indSil);
+        %         velL = velsIce.VIt_kms(indSil);
         %     end
         % end
 
@@ -2918,17 +2845,15 @@ if ~cfg.SKIP_PROFILES
             'YColor','none',...
             'Color','none');
 
-        for iT = 1:nTbs
-            line(ax2,T_K(iT,1:indSil(iT)),z_m(iT,1:indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'LineWidth',cfg.LW_seism);
-            hm = line(T_K(iT,indSil(iT)),z_m(iT,indSil(iT))*1e-3,'Color',Params.colororder(:,iT),'Marker','o');
-            hm.MarkerFaceColor=Params.colororder(:,iT);
-        end
+        line(ax2,T_K(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineWidth',cfg.LW_seism);
+        hm = line(T_K(indSil),z_m(indSil)*1e-3,'Color',Params.colororder(:,1),'Marker','o');
+        hm.MarkerFaceColor=Params.colororder(:,1);
 
         set(gca,'ydir','reverse','xlim',[245 320],'ylim',[0 maxScale*max(Dsil_km)]);
         xlabel('Temperature (K)','Fontsize',lbl.mltext);
         ylabel('Depth (km)','Fontsize',lbl.mltext);
         % for iT=1:nTbs
-        %     hline(Dsil_km(iT),Params.colororder(:,iT));
+        %     hline(Dsil_km,Params.colororder(:,1));
         % end
         box on;
 
@@ -2936,12 +2861,10 @@ if ~cfg.SKIP_PROFILES
         hold all
         npre = 0; % npre is essentially set to Params.nsteps_mantle - Params.nsteps_mantle much earlier.
         R2ind = C2mean+npre; % map the index for R_sil_mean back to the indices for P, D, r_m, z_m, etc...
-        Psil_MPa = diag(P_MPa(:,R2ind(:)));
-        for iT=1:nTbs
-            ht(iT)=  plot(P_MPa(iT,1:indSil(iT)),rho_kgm3(iT,1:indSil(iT)),'Color',Params.colororder(:,iT),'LineWidth',cfg.LW_seism);
-            hm = plot(Psil_MPa(iT),interp1(P_MPa(iT,:),rho_kgm3(iT,:),Psil_MPa(iT)),'Color',Params.colororder(:,iT));
-            hm.MarkerFaceColor=Params.colororder(:,iT);
-        end
+        Psil_MPa = diag(P_MPa(R2ind));
+        ht=  plot(P_MPa(1:indSil),rho_kgm3(1:indSil),'Color',Params.colororder(:,1),'LineWidth',cfg.LW_seism);
+        hm = plot(Psil_MPa,interp1(P_MPa(:),rho_kgm3(:),Psil_MPa),'Color',Params.colororder(:,1));
+        hm.MarkerFaceColor=Params.colororder(:,1);
 
         hw(1) = plot(Pref_MPa,rho_ref_kgm3(1,:),'k--');
         hw(2) = plot(Pref_MPa,rho_ref_kgm3(2,:),'k--');
@@ -2969,17 +2892,17 @@ if ~cfg.SKIP_PROFILES
         %
         % % add the sound speeds
         % for iT = 1:nTbs
-        %     line(P_MPa(iT,:),vfluid_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        %     line(P_MPa(iT,:),velsIce.VIl_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        %     line(P_MPa(iT,:),velsIce.VIt_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        %     line(P_MPa(iT,:),velsIce.VIIl_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        %     line(P_MPa(iT,:),velsIce.VIIt_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        %     line(P_MPa(iT,:),velsIce.VIIIl_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        %     line(P_MPa(iT,:),velsIce.VIIIt_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        %     line(P_MPa(iT,:),velsIce.VVl_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        %     line(P_MPa(iT,:),velsIce.VVt_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        %     line(P_MPa(iT,:),velsIce.VVIl_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
-        %     line(P_MPa(iT,:),velsIce.VVIt_kms(iT,:),'Color',Params.colororder(:,iT),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        %     line(P_MPa(:),vfluid_kms,'Color',Params.colororder(:,1),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        %     line(P_MPa,velsIce.VIl_kms,'Color',Params.colororder(:,1),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        %     line(P_MPa,velsIce.VIt_kms,'Color',Params.colororder(:,1),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        %     line(P_MPa,velsIce.VIIl_kms,'Color',Params.colororder(:,1),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        %     line(P_MPa,velsIce.VIIt_kms,'Color',Params.colororder(:,1),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        %     line(P_MPa,velsIce.VIIIl_kms,'Color',Params.colororder(:,1),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        %     line(P_MPa,velsIce.VIIIt_kms,'Color',Params.colororder(:,1),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        %     line(P_MPa,velsIce.VVl_kms,'Color',Params.colororder(:,1),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        %     line(P_MPa,velsIce.VVt_kms,'Color',Params.colororder(:,1),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        %     line(P_MPa,velsIce.VVIl_kms,'Color',Params.colororder(:,1),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
+        %     line(P_MPa,velsIce.VVIt_kms,'Color',Params.colororder(:,1),'Parent',ax(2),'LineStyle','-.','LineWidth',cfg.LW_sound);
         % end
         % set(ax(2),'ylim',[1.5 5])
         % set(ax(2),'xlim',[0 1800])
@@ -2995,9 +2918,7 @@ if ~cfg.SKIP_PROFILES
     if ~Params.HOLD
         clf;
     end
-    for iT = 1:nTbs
-        gp(iT) = g_ms2(iT,C2mean(iT));
-    end
+    gp = g_ms2(C2mean);
 
     subplot(1,2,1);
     if Params.HOLD
@@ -3006,11 +2927,9 @@ if ~cfg.SKIP_PROFILES
     % plot(g_ms2',r_m'*1e-3,gp,R_sil_mean_m*1e-3,'o')
     hl = plot(g_Planet_ms2',r_Planet_m'*1e-3);
     hold on
-    for iT = 1:nTbs
-        hp = plot(gp(iT),R_sil_mean_m*1e-3,'o');
-        set(hl(iT),'LineWidth',cfg.LW_seism,'LineStyle',Params.LineStyle,'Color',Params.colororder(:,iT));
-        set(hp,'Color',Params.colororder(:,iT));
-    end
+    hp = plot(gp,R_sil_mean_m*1e-3,'o');
+    set(hl,'LineWidth',cfg.LW_seism,'LineStyle',Params.LineStyle,'Color',Params.colororder(:,1));
+    set(hp,'Color',Params.colororder(:,1));
     xlabel('g (m s^{-2})','Fontsize',lbl.mltext)
     ylabel('R (km)','Fontsize',lbl.mltext)
     axis tight
@@ -3020,9 +2939,7 @@ if ~cfg.SKIP_PROFILES
         hold on;
     end
     hl = plot(P_Planet_MPa',r_Planet_m'*1e-3);
-    for iT = 1:nTbs
-        set(hl(iT),'LineWidth',cfg.LW_seism,'LineStyle',Params.LineStyle,'Color',Params.colororder(:,iT));
-    end
+    set(hl,'LineWidth',cfg.LW_seism,'LineStyle',Params.LineStyle,'Color',Params.colororder(:,1));
 
      xlabel('Pressure (MPa)','Fontsize',lbl.mltext)
      ylabel([math 'r_{' nm Planet.name '}' nm ' (km)'],'Fontsize',lbl.mltext)
@@ -3036,7 +2953,7 @@ if ~cfg.SKIP_PROFILES
     % hold all;
     % clear ht hw
     % for iT=1:nTbs
-    %     ht(iT)=  plot(P_MPa(iT,:),T_K(iT,:),Params.colororder(:,iT));
+    %     ht=  plot(P_MPa,T_K,Params.colororder(:,1));
     % end
     % for iw = 1:length(Tref_K(:,1))
     %     hw(iw) = plot(Pref_MPa,Tref_K(iw,:),'k--');
@@ -3279,7 +3196,7 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
             Cp = swEOS.gsw.cp(wo,T_K,P_MPa*10);
             alpha_Km1 = swEOS.gsw.alpha(wo,T_K,P_MPa*10);
             if isnan(rho_kgm3) && extrapflag
-                    disp('WARNING: extrapolating fluid rho, Cp, and alpha; this is seawater above 120 MPa, right?')
+                %disp('WARNING: extrapolating fluid rho, Cp, and alpha, but this is only valid for Seawater above 120 MPa!')
                 Pin = [110 115 120];
                 rhoin=swEOS.gsw.dens(ones(1,3)*wo,ones(1,3)*T_K,Pin*10);
                 Cpin = swEOS.gsw.cp(ones(1,3)*wo,ones(1,3)*T_K,Pin*10);
@@ -3295,7 +3212,9 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
 %             error('ERROR: NH3 is not yet implemented for fluidEOS.')
             W_NH3 = 17.031;            
             mo=1000./W_NH3./(1./(0.01.*wo)-1); %conversion to molality from wt%
-            out = SeaFreeze({P_MPa T_K mo},'NH3');
+            %out = SeaFreeze({P_MPa T_K mo},'NH3'); % MJS 2021-12-03: This doesn't work; SeaFreeze appears to not support anything but pure water as of version 0.9.2.
+            disp('WARNING: NH3 composition is not implemented in SeaFreeze, modeling pure water only.')
+            out = SeaFreeze({P_MPa T_K},'water1');
             rho_kgm3 = out.rho;
             Cp = out.Cp;
             alpha_Km1 = out.alpha;
@@ -3349,16 +3268,14 @@ end %interp1nan
 %% formatting for output
 function d_str = getTableStr(Tb,Xin)
     d_str = {};
-    for iT = 1:length(Tb)
-        if Xin(iT)
-            if mod(Xin(iT),1)
-                d_str{iT} = [' &' num2str(Xin(iT),'%0.2f') ];
-            else
-                d_str{iT} = [' &' num2str(Xin(iT),'%0.0f') ];
-            end
+    if Xin
+        if mod(Xin,1)
+            d_str = [' &' num2str(Xin,'%0.2f') ];
         else
-            d_str{iT} = '& -';
+            d_str = [' &' num2str(Xin,'%0.0f') ];
         end
+    else
+        d_str = '& -';
     end
 end % getTableStr
 function mantle = loadMantleEOS(str_meos)
@@ -3545,108 +3462,85 @@ end
 t_model=taup_model;
 end
 
-function writeToDisk(fileName, comp, FeCore, wtPct, Tb_K, Zb_km, zClath_m, Pb_MPa, PbI_MPa, deltaP, ...
-    C2mean, Qmantle_Wm2, Qb, Q_Wm2, R_sil_mean_m, R_Fe_mean_m, R_sil_range_m, R_Fe_range_m, rho_Fe_kgm3, ...
-    nStepsIceI, nStepsOcean, nStepsHydro, nStepsTotal, indSil, ...
-    nStepsMantle, nStepsCore, nIceIIILitho, nIceVLitho, ...
-    z_km, r_m, P_MPa, T_K, phase, rho_kgm3, g_ms2, Cp, ...
-    R_sil_trade_m, R_Fe_trade_m, rho_sil_trade_kgm3, ...
-    r_mantle_m, Pmantle_MPa, porosDens, vfluid_kms, permeability, ...
-    r_Planet_m, P_Planet_MPa, T_Planet_K, rho_pPlanet_kgm3, sig_Planet_Sm, phasePlanet, g_Planet_ms2)
+function writeToDisk(fileName, comp, FeCore, wtPpt, Tb_K, zb_km, zClath_m, Pb_MPa, PbI_MPa, deltaP, ...
+    C2mean, QfromMantle_Wm2, phiRockMax, RsilMean_m, RFeMean_m, RsilRange_m, RFeRange_m, rhoFe_kgm3, ...
+    nStepsClath, nStepsIceI, nIceIIILitho, nIceVLitho, nStepsHydro, nStepsSil, nStepsCore, ...
+    RsilTrade_m, RFeTrade_m, rhoSilTrade_kgm3, permeability, ...
+    r_Planet_m, P_Planet_MPa, T_Planet_K, phasePlanet, rho_pPlanet_kgm3, Cp_Planet_JkgK, ...
+    sig_Planet_Sm, g_Planet_ms2, vFluid_kms)
 
     saveFile = fullfile([fileName '.txt']);
     mantCoreFile = fullfile([fileName '_mantleCore.txt']);
-    mantPropsFile = fullfile([fileName '_mantleProps.txt']);
-    fullLayerFile = fullfile([fileName '_layers.txt']);
+    permFile = fullfile([fileName '_mantlePerm.txt']);
 
-    if strcmp(comp,'Seawater')
-        wtPpt = wtPct; % We are already using ppt for Seawater even though the variable is called WtPct
-    else
-        wtPpt = 10*wtPct;
-    end
-    dlmwrite(saveFile, '  nHeadLines = 29', 'delimiter', '');
+    dlmwrite(saveFile, '  nHeadLines = 26', 'delimiter', '');
     dlmwrite(saveFile, ['  Ocean salt = ' comp], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  Iron core = ' num2str(FeCore)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  Salinity(ppt) = ' num2str(wtPpt)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  Tb_K = ' num2str(Tb_K)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  Zb_km = ' num2str(Zb_km)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  zb_km = ' num2str(zb_km)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  zClath_m = ' num2str(zClath_m)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  Pb_MPa = ' num2str(Pb_MPa)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  PbI_MPa = ' num2str(PbI_MPa)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  deltaP = ' num2str(deltaP)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  C2mean = ' num2str(C2mean)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  Qmantle_Wm2 = ' num2str(Qmantle_Wm2)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  Qb = ' num2str(Qb)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  Q_Wm2 = ' num2str(Q_Wm2)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  R_sil_mean_m = ' num2str(R_sil_mean_m)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  R_Fe_mean_m = ' num2str(R_Fe_mean_m)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  R_sil_range_m = ' num2str(R_sil_range_m)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  R_Fe_range_m = ' num2str(R_Fe_range_m)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  rho_Fe_kgm3 = ' num2str(rho_Fe_kgm3)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  QfromMantle_Wm2 = ' num2str(QfromMantle_Wm2)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  phiRockMax = ' num2str(phiRockMax)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  RsilMean_m = ' num2str(RsilMean_m)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  RFeMean_m = ' num2str(RFeMean_m)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  RsilRange_m = ' num2str(RsilRange_m)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  RFeRange_m = ' num2str(RFeRange_m)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  rhoFe_kgm3 = ' num2str(rhoFe_kgm3)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  nStepsClath = ' num2str(nStepsClath)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  nStepsIceI = ' num2str(nStepsIceI)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  nStepsOcean = ' num2str(nStepsOcean)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  nStepsHydro = ' num2str(nStepsHydro)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  nStepsTotal = ' num2str(nStepsTotal)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  indSil = ' num2str(indSil)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  nStepsMantle = ' num2str(nStepsMantle)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  nStepsCore = ' num2str(nStepsCore)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  nIceIIILitho = ' num2str(nIceIIILitho)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  nIceVLitho = ' num2str(nIceVLitho)], 'delimiter', '', '-append');
-    header = sprintf('%s\t\t%s\t\t%s\t\t%s\t\t%s\t%s\t%s\t%s\t%s\t\t%s\t',...
+    dlmwrite(saveFile, ['  nStepsHydro = ' num2str(nStepsHydro)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  nStepsSil = ' num2str(nStepsSil)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  nStepsCore = ' num2str(nStepsCore)], 'delimiter', '', '-append');
+    header = sprintf('%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s',...
     'z (km)', 'r (m)', 'P (MPa)', 'T (K)', 'phase ID', 'rho (kg/m3)', ...
-    'g (m/s2)', 'Cp (W/kg/K)', 'vfluid (km/s)');
+    'Cp (J/kg/K)', 'sigma (S/m)', 'g (m/s2)', 'vFluid (km/s)');
     dlmwrite(saveFile, header, 'delimiter', '', '-append');
 
-    saveData = [z_km' r_m' P_MPa' T_K' phase' rho_kgm3' g_ms2' Cp', vfluid_kms'];
+    z_km = (r_Planet_m(1) - r_Planet_m)/1e3;
+    saveData = [z_km' r_Planet_m' P_Planet_MPa' T_Planet_K' phasePlanet' rho_pPlanet_kgm3' ...
+        Cp_Planet_JkgK' sig_Planet_Sm' g_Planet_ms2' vFluid_kms'];
     dlmwrite(saveFile,saveData,...
         'delimiter','\t',...
         'precision',18,...
         '-append');
     
-    mantCoreHeader = sprintf('%s\t%s\t%s\t', 'R_sil_trade (m)', 'R_Fe_trade (m)', 'rho_sil_trade (kg/m3)');
+    mantCoreHeader = sprintf('%s\t%s\t%s\t', 'RsilTrade (m)', 'RFeTrade (m)', 'rhoSilTrade (kg/m3)');
     dlmwrite(mantCoreFile, mantCoreHeader, 'delimiter', '');
-    mantCoreData = [R_sil_trade_m' R_Fe_trade_m' rho_sil_trade_kgm3'];
+    mantCoreData = [RsilTrade_m' RFeTrade_m' rhoSilTrade_kgm3'];
     dlmwrite(mantCoreFile,mantCoreData,...
         'delimiter','\t',...
         'precision',18,...
         '-append');
     
-    mantPropsHeader = sprintf('%s\t%s\t%s\t\t%\t', ...
-        'r_mantle (m)', 'Pmantle (MPa)', 'porosDens', 'permeability 5 times (???)');
-    dlmwrite(mantPropsFile, mantPropsHeader, 'delimiter', '');
-    mantPropsData = [r_mantle_m' Pmantle_MPa' porosDens' permeability(1,:,1)' ...
-         permeability(1,:,2)' permeability(1,:,3)' permeability(1,:,4)' permeability(1,:,5)'];
-    dlmwrite(mantPropsFile,mantPropsData,...
-        'delimiter','\t',...
-        'precision',18,...
-        '-append');
-    
-    fullLayerHeader = sprintf('%s\t%s\t%s\t%s\t%s\t%s\t\t%s\t', 'r_Planet (m)', 'P_Planet (MPa)', ...
-        'T_Planet (K)', 'rho_pPlanet (kg/m3)', 'sig_Planet (S/m)', 'phase ID', 'g_Planet (m/s2)');
-    dlmwrite(fullLayerFile, fullLayerHeader, 'delimiter', '');
-    fullLayerData = [r_Planet_m' P_Planet_MPa' T_Planet_K' rho_pPlanet_kgm3' ...
-        sig_Planet_Sm' phasePlanet' g_Planet_ms2'];
-    dlmwrite(fullLayerFile,fullLayerData,...
+    permHeader = sprintf('%s\t%s\t%s\t%s\t%s\t', ...
+        'permeability1', 'permeability2', 'permeability3', 'permeability4', 'permeability5');
+    dlmwrite(permFile, permHeader, 'delimiter', '');
+    permData = [permeability(1,:,1)' permeability(1,:,2)' permeability(1,:,3)' ...
+         permeability(1,:,4)' permeability(1,:,5)'];
+    dlmwrite(permFile,permData,...
         'delimiter','\t',...
         'precision',18,...
         '-append');
 end
 
-function [comp, FeCore, wtPct, Tb_K, Zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, C2mean, ...
-    Qmantle_Wm2, Qb, Q_Wm2, R_sil_mean_m, R_Fe_mean_m, R_sil_range_m, R_Fe_range_m, rho_Fe_kgm3, ...
-    nStepsIceI, nStepsOcean, nStepsHydro, nStepsTotal, indSil, ...
-    nStepsMantle, nStepsCore, nIceIIILitho, nIceVLitho, ...
-    z_m, r_m, P_MPa, T_K, phase, rho_kgm3, g_ms2, Cp, ...
-    R_sil_trade_m, R_Fe_trade_m, rho_sil_trade_kgm3, ...
-    r_mantle_m, Pmantle_MPa, porosDens, vfluid_kms, permeability, ...
-    r_Planet_m, P_Planet_MPa, T_Planet_K, rho_pPlanet_kgm3, ...
-    sig_Planet_Sm, phasePlanet, g_Planet_ms2] ...
+function [comp, FeCore, wtPct, Tb_K, zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, C2mean, ...
+    QfromMantle_Wm2, phiRockMax, RsilMean_m, RFeMean_m, RsilRange_m, RFeRange_m, rhoFe_kgm3, ...
+    nStepsClath, nStepsIceI, nIceIIILitho, nIceVLitho, nStepsHydro, nStepsSil, nStepsCore, ...
+    RsilTrade_m, RFeTrade_m, rhoSilTrade_kgm3, ...
+    z_m, r_Planet_m, P_Planet_MPa, T_Planet_K, phasePlanet, rho_pPlanet_kgm3, ...
+    sig_Planet_Sm, g_Planet_ms2, Cp_Planet_JkgK, vFluid_kms, permeability] ...
         = reloadFromDisk(fileName)
 
     saveFile = fullfile([fileName '.txt']);
     mantCoreFile = fullfile([fileName '_mantleCore.txt']);
-    mantPropsFile = fullfile([fileName '_mantleProps.txt']);
-    fullLayerFile = fullfile([fileName '_layers.txt']);
+    permFile = fullfile([fileName '_mantlePerm.txt']);
     
     % Parse header from text file
     fReload = fopen(saveFile);
@@ -3655,58 +3549,52 @@ function [comp, FeCore, wtPct, Tb_K, Zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, C2
         FeCoreStr = split(fgetl(fReload),'=');
         wtPptStr = split(fgetl(fReload),'=');
         Tb_KStr = split(fgetl(fReload),'=');
-        Zb_kmStr = split(fgetl(fReload),'=');
+        zb_kmStr = split(fgetl(fReload),'=');
         zClath_mStr = split(fgetl(fReload),'=');
         Pb_MPaStr = split(fgetl(fReload),'=');
         PbI_MPaStr = split(fgetl(fReload),'=');
         deltaPStr = split(fgetl(fReload),'=');
         C2meanStr = split(fgetl(fReload),'=');
-        Qmantle_Wm2Str = split(fgetl(fReload),'=');
-        QbStr = split(fgetl(fReload),'=');
-        Q_Wm2Str = split(fgetl(fReload),'=');
-        R_sil_mean_mStr = split(fgetl(fReload),'=');
-        R_Fe_mean_mStr = split(fgetl(fReload),'=');
-        R_sil_range_mStr = split(fgetl(fReload),'=');
-        R_Fe_range_mStr = split(fgetl(fReload),'=');
-        rho_Fe_kgm3Str = split(fgetl(fReload),'=');
+        QfromMantle_Wm2Str = split(fgetl(fReload),'=');
+        phiRockMaxStr = split(fgetl(fReload),'=');
+        RsilMean_mStr = split(fgetl(fReload),'=');
+        RFeMean_mStr = split(fgetl(fReload),'=');
+        RsilRange_mStr = split(fgetl(fReload),'=');
+        RFeRange_mStr = split(fgetl(fReload),'=');
+        rhoFe_kgm3Str = split(fgetl(fReload),'=');
+        nStepsClathStr = split(fgetl(fReload),'=');
         nStepsIceIStr = split(fgetl(fReload),'=');
-        nStepsOceanStr = split(fgetl(fReload),'=');
-        nStepsHydroStr = split(fgetl(fReload),'=');
-        nStepsTotalStr = split(fgetl(fReload),'=');
-        indSilStr = split(fgetl(fReload),'=');
-        nStepsMantleStr = split(fgetl(fReload),'=');
-        nStepsCoreStr = split(fgetl(fReload),'=');
         nIceIIILithoStr = split(fgetl(fReload),'=');
         nIceVLithoStr = split(fgetl(fReload),'=');
+        nStepsHydroStr = split(fgetl(fReload),'=');
+        nStepsSilStr = split(fgetl(fReload),'=');
+        nStepsCoreStr = split(fgetl(fReload),'=');
 
-        nHeadLines = str2num(nHeadLinesStr{2});
+        nHeadLines = str2double(nHeadLinesStr{2});
         comp = strip(compSplit{2});
-        FeCore = str2num(FeCoreStr{2});
-        wtPpt = str2num(wtPptStr{2});
-        Tb_K = str2num(Tb_KStr{2});
-        Zb_m = str2num(Zb_kmStr{2}) * 1e3; % Value stored as km
-        zClath_m = str2num(zClath_mStr{2});
-        Pb_MPa = str2num(Pb_MPaStr{2});
-        PbI_MPa = str2num(PbI_MPaStr{2});
-        deltaP = str2num(deltaPStr{2});
-        C2mean = str2num(C2meanStr{2});
-        Qmantle_Wm2 = str2num(Qmantle_Wm2Str{2});
-        Qb = str2num(QbStr{2});
-        Q_Wm2 = str2num(Q_Wm2Str{2});
-        R_sil_mean_m = str2num(R_sil_mean_mStr{2});
-        R_Fe_mean_m = str2num(R_Fe_mean_mStr{2});
-        R_sil_range_m = str2num(R_sil_range_mStr{2});
-        R_Fe_range_m = str2num(R_Fe_range_mStr{2});
-        rho_Fe_kgm3 = str2num(rho_Fe_kgm3Str{2});
-        nStepsIceI = str2num(nStepsIceIStr{2});
-        nStepsOcean = str2num(nStepsOceanStr{2});
-        nStepsHydro = str2num(nStepsHydroStr{2});
-        nStepsTotal = str2num(nStepsTotalStr{2});
-        nStepsMantle = str2num(nStepsMantleStr{2});
-        nStepsCore = str2num(nStepsCoreStr{2});
-        indSil = str2num(indSilStr{2});
-        nIceIIILitho = str2num(nIceIIILithoStr{2});
-        nIceVLitho = str2num(nIceVLithoStr{2});
+        FeCore = str2double(FeCoreStr{2});
+        wtPpt = str2double(wtPptStr{2});
+        Tb_K = str2double(Tb_KStr{2});
+        zb_m = str2double(zb_kmStr{2}) * 1e3; % Value stored as km
+        zClath_m = str2double(zClath_mStr{2});
+        Pb_MPa = str2double(Pb_MPaStr{2});
+        PbI_MPa = str2double(PbI_MPaStr{2});
+        deltaP = str2double(deltaPStr{2});
+        C2mean = str2double(C2meanStr{2});
+        QfromMantle_Wm2 = str2double(QfromMantle_Wm2Str{2});
+        phiRockMax = str2double(phiRockMaxStr{2});
+        RsilMean_m = str2double(RsilMean_mStr{2});
+        RFeMean_m = str2double(RFeMean_mStr{2});
+        RsilRange_m = str2double(RsilRange_mStr{2});
+        RFeRange_m = str2double(RFeRange_mStr{2});
+        rhoFe_kgm3 = str2double(rhoFe_kgm3Str{2});
+        nStepsClath = str2double(nStepsClathStr{2});
+        nStepsIceI = str2double(nStepsIceIStr{2});
+        nIceIIILitho = str2double(nIceIIILithoStr{2});
+        nIceVLitho = str2double(nIceVLithoStr{2});
+        nStepsHydro = str2double(nStepsHydroStr{2});
+        nStepsSil = str2double(nStepsSilStr{2});
+        nStepsCore = str2double(nStepsCoreStr{2});
     fclose(fReload);
     
     if strcmp(comp, 'Seawater')
@@ -3718,42 +3606,31 @@ function [comp, FeCore, wtPct, Tb_K, Zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, C2
     reloadData = dlmread(saveFile, '', nHeadLines);
 
     z_m = 1e3 * reloadData(:,1); % Values stored as km
-    r_m = reloadData(:,2);
-    P_MPa = reloadData(:,3);
-    T_K = reloadData(:,4);
-    phase = reloadData(:,5);
-    rho_kgm3 = reloadData(:,6);
-    g_ms2 = reloadData(:,7);
-    Cp = reloadData(:,8);
-    vfluid_kms = reloadData(:,9);
+    r_Planet_m = reloadData(:,2);
+    P_Planet_MPa = reloadData(:,3);
+    T_Planet_K = reloadData(:,4);
+    phasePlanet = reloadData(:,5);
+    rho_pPlanet_kgm3 = reloadData(:,6);
+    Cp_Planet_JkgK = reloadData(:,7);
+    sig_Planet_Sm = reloadData(:,8);
+    g_Planet_ms2 = reloadData(:,9);
+    vFluid_kms = reloadData(:,10);
     
     mantCoreData = dlmread(mantCoreFile, '', 1);
-    R_sil_trade_m = mantCoreData(:,1);
+    RsilTrade_m = mantCoreData(:,1);
     if FeCore
-        R_Fe_trade_m = mantCoreData(:,2);
-        rho_sil_trade_kgm3 = zeros(size(R_sil_trade_m));
+        RFeTrade_m = mantCoreData(:,2);
+        rhoSilTrade_kgm3 = zeros(size(RsilTrade_m));
     else
-        R_Fe_trade_m = zeros(size(R_sil_trade_m));
-        rho_sil_trade_kgm3 = mantCoreData(:,3);
+        RFeTrade_m = zeros(size(RsilTrade_m));
+        rhoSilTrade_kgm3 = mantCoreData(:,3);
     end
     
-    permeability = zeros(nStepsMantle,5);
-    mantPropsData = dlmread(mantPropsFile, '', 1);
-    r_mantle_m = mantPropsData(:,1);
-    Pmantle_MPa = mantPropsData(:,2);
-    porosDens = mantPropsData(:,3);
-    permeability(:,1) = mantPropsData(:,4);
-    permeability(:,2) = mantPropsData(:,5);
-    permeability(:,3) = mantPropsData(:,6);
-    permeability(:,4) = mantPropsData(:,7);
-    permeability(:,5) = mantPropsData(:,8);
-    
-    fullLayerData = dlmread(fullLayerFile, '', 1);
-    r_Planet_m = fullLayerData(:,1);
-    P_Planet_MPa = fullLayerData(:,2);
-    T_Planet_K = fullLayerData(:,3);
-    rho_pPlanet_kgm3 = fullLayerData(:,4);
-    sig_Planet_Sm = fullLayerData(:,5);
-    phasePlanet = fullLayerData(:,6);
-    g_Planet_ms2 = fullLayerData(:,7);
+    permeability = zeros(nStepsSil,5);
+    permData = dlmread(permFile, '', 1);
+    permeability(:,1) = permData(:,1);
+    permeability(:,2) = permData(:,2);
+    permeability(:,3) = permData(:,3);
+    permeability(:,4) = permData(:,4);
+    permeability(:,5) = permData(:,5);
 end
