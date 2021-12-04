@@ -35,34 +35,13 @@ def SetupInit(Planet, Params):
 
 def SetupFilenames(Planet, Params):
     """
-    Planet Directory format:
-        {Planet.name}
-        --->figures
-
-
     """
-    # datetimestring = 'some string'
-    #
-    # planetNameParams = [Planet.name, datetimestring, Planet.Ocean.comp, str(round(Planet.Ocean.wtOcean_ppt))]
-    # if Planet.Sil.mantleEOSName: planetNameParams.append(Planet.Sil.mantleEOSname)
-    # if Planet.POROUS_ICE: planetNameParams.append('PorousIce')
-    #
-    # planetDirectory = os.path.join(BASE_PATH, '_'.join(planetNameParams))
-    # figuresDir = os.path.join(planetDirectory, 'figures')
-    #
-    # return planetDirectory, figuresDir
-
-
-
-
-
-
     datPath = Planet.name
     figPath = os.path.join(Planet.name, 'figures')
 
     saveBase = Planet.name + 'Profile_'
     if Planet.Do.CLATHRATE: saveBase += 'Clathrates_'
-    saveBase += Planet.Ocean.comp + '_' + str(round(Planet.Ocean.wtOcean_ppt)) + 'WtPpt' \
+    saveBase += Planet.Ocean.comp + '_' + str(round(Planet.Ocean.wOcean_ppt)) + 'WtPpt' \
         + '_Tb{:.3f}K'.format(Planet.Bulk.Tb_K)
     if Planet.Sil.mantleEOSName is not None: fName += Planet.Sil.mantleEOSname
     if Planet.Do.POROUS_ICE: fName += '_PorousIce'
@@ -87,13 +66,13 @@ def SetupFilenames(Planet, Params):
     figBase = os.path.join(figPath, saveBase)
     figureFiles = figureFilesStruct(figBase, Params.xtn)
 
-
-#vcondFig.savefig(Params.figureFields.vcond, format = "png", dpi = 200)
+    #vcondFig.savefig(Params.figureFields.vcond, format = "png", dpi = 200)
     return dataFiles, figureFiles
 
 
 def SetupLayers(Planet):
-    Planet.Steps.nHydroMax = Planet.Steps.nIceI + Planet.Steps.nOceanMax
+    nOceanMax = int(Planet.Bulk.PHydroMax_MPa / Planet.Bulk.deltaP)
+    Planet.Steps.nHydroMax = Planet.Steps.nIceI + nOceanMax
 
     if Planet.Do.CLATHRATE:
         Planet.Steps.nHydroMax += Planet.Steps.nClath
@@ -101,37 +80,28 @@ def SetupLayers(Planet):
         Planet.Steps.nClath = 0
 
     Planet.phase = np.zeros(Planet.Steps.nHydroMax, dtype=np.int_)
-    Planet.r_m, Planet.g_ms2, Planet.T_K, Planet.P_MPa, \
-        Planet.rho_kgm3, Planet.z_m, Planet.g_ms2, Planet.Cp, \
-        Planet.vfluid, Planet.MAbove_kg, Planet.MBelow_kg = \
+    Planet.z_m, Planet.r_m, Planet.P_MPa, Planet.T_K, Planet.rho_kgm3, \
+    Planet.Cp_JkgK, Planet.sigma_Sm, Planet.g_ms2, Planet.vFluid_kms, \
+    Planet.MAbove_kg, Planet.MBelow_kg = \
         (np.zeros(Planet.Steps.nHydroMax) for _ in range(11))
 
     Planet.phase = np.concatenate((np.zeros(Planet.Steps.nClath, dtype=np.int_) + 30, Planet.phase))  # Prepend clathrate phases
     Planet.phase[Planet.Steps.nClath:Planet.Steps.nClath + Planet.Steps.nIceI] = 1  # Set ice Ih phase
-    Planet.r_m[0] = Planet.Bulk.R_m # Set first layer to planetary surface
-    Planet.g_ms2[0] = Constants.G * Planet.Bulk.M_kg / Planet.Bulk.R_m**2 # Set first layer to surface gravity
-    Planet.T_K[0] = Planet.Bulk.Tsurf_K # Set first layer to surface temp
-    Planet.P_MPa[0] = Planet.Bulk.Psurf_MPa # Set first layer to surface pressure
+    Planet.r_m[0] = Planet.Bulk.R_m  # Set first layer to planetary surface radius
+    Planet.g_ms2[0] = Constants.G * Planet.Bulk.M_kg / Planet.Bulk.R_m**2  # Set first layer gravity at surface
+    Planet.T_K[0] = Planet.Bulk.Tsurf_K  # Set first layer surface temp
+    Planet.P_MPa[0] = Planet.Bulk.Psurf_MPa  # Set first layer to surface pressure
 
     return Planet
 
 # Construct filenames for data, saving/reloading
 class dataFilesStruct:
-    """dataFilesStruct
-    Attributes :
-        saveFile (str): string to data file path
-    """
     def __init__(self, fName):
         self.saveFile = fName + '.txt'
         self.mantCoreFile = fName + '_mantleCore.txt'
-        self.mantPropsFile = fName + '_mantleProps.txt'
-        self.fullLayersFile = fName + '_layers.txt'
+        self.permFile = fName + '_mantlePerm.txt'
 
 # Construct filenames for figures etc.
 class figureFilesStruct:
-    """figureFilesStruct
-    Attributes :
-        figFilePath (str): string to figure file path
-    """
     def __init__(self, fName, xtn):
         self.dummyFig = fName + xtn
