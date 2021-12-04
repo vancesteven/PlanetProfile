@@ -19,7 +19,8 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
   * Due to various complications it is not currently implemented.
 
 ## Setup
-1. Install SeaFreeze by copying the contents of the Python folder at (https://github.com/Bjournaux/SeaFreeze) into the Thermodynamics/SeaFreeze folder of PlanetProfile.
+1. Install SeaFreeze with pip using the command: pip3 install SeaFreeze
+  1. Note: This step should be completed only after all necessary prerequisites are installed for your conda environment.
 1. If TauP functionality is desired, download ~~matTaup (https://github.com/g2e/seizmo/) and add mattaup, misc, and models to Utilities folder~~ probably obspy.taup from https://docs.obspy.org/packages/obspy.taup.html
 1. Install magnetic induction data by downloading all .mat files from https://zenodo.org/record/5057572 into the MagneticInduction/FTdata folder.
 1. Open a Terminal and navigate to the PlanetProfile directory.
