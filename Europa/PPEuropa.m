@@ -156,7 +156,7 @@ Planet.XH2O = 0.0035; % total fraction of water in CM2; use this to compute the 
 Planet.rho_sil_withcore_kgm3 = 3644;
 Planet.phi_surface = 0;
 
-outPlanet = PlanetProfile(Planet,Seismic,Params);
+%outPlanet = PlanetProfile(Planet,Seismic,Params);
 %outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 
 %% Params.LineStyle='-';
@@ -221,6 +221,10 @@ Planet.xFe_core = 0.0279 ; % this is the total Fe  in Fe and FeS
 Planet.XH2O = 0.0035; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 Planet.rho_sil_withcore_kgm3 = 3644;
 Planet.phi_surface = 0;
+
+Planet.Tb_K = 269.8;
+Planet.Ocean.comp = 'Seawater';
+Planet.Ocean.w_ocean_pct = 0.0;
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 %outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 %% 

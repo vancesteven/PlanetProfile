@@ -327,7 +327,7 @@ D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon
                 if z_m(il)>max_clath_depth % check to see if maximum depth of clathrates reached
                     n_iceI=n_iceI+(n_clath-il)+1;
                     n_clath=il-1;
-                    phase(:,(1+n_clath):(n_clath+n_iceI))=1;
+                    phase((1+n_clath):(n_clath+n_iceI))=1;
                     break
                 end
                 %rho_kgm3(il) = getRhoIce(P_MPa(il),T_K(il),1);

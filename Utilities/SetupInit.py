@@ -4,7 +4,6 @@ import os
 import numpy as np
 import Utilities.PPversion as PPver
 from Utilities.SwEOSChooser import SetupEOS
-from Utilities.dataStructs import Constants
 
 def SetupInit(Planet, Params):
 
@@ -27,8 +26,34 @@ def SetupInit(Planet, Params):
     if Params.VERBOSE and round(Planet.Bulk.Tb_K, 3) != Planet.Bulk.Tb_K:
         print('WARNING: Planet.Tb_K has been rounded to generate saveFile name.')
 
+    # Set number of steps for unused options to zero
+    if not Planet.Do.CLATHRATE:
+        Planet.Steps.nClath = 0
+        Planet.zClath_m = 0
+    if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:
+        Planet.Steps.nIceIIILitho = 0
+        Planet.Steps.nIceVLitho = 0
+    elif not Planet.Do.BOTTOM_ICEV:
+        Planet.Steps.nIceVLitho = 0
+    if not Planet.Do.POROUS_ROCK:
+        Planet.Sil.phiRockMax = 0
+
+    # Initialize calculated quantities
+    if not Planet.Do.EQUIL_Q:
+        # Assign heat input into ocean from mantle to be ~radiogenic
+        print('WARNING: QfromMantle_Wm2 is set to a value consistent only with Europa radiogenic heating.')
+        Planet.Ocean.QfromMantle_Wm2 = 2.2e11/ 4/np.pi / Planet.Bulk.R_m**2
+
     # Preallocate layer physical quantity arrays
     Planet = SetupLayers(Planet)
+
+    # Delete the next 6 lines after their calculation functions have been implemented!
+    Planet.Steps.nHydro = Planet.Steps.nHydroMax + 0
+    Planet.C2mean = 0.0
+    Planet.Sil.RsilMean_m = 0.0
+    Planet.Sil.RsilRange_m = 0.0
+    Planet.Core.RFeMean_m = 0.0
+    Planet.Core.RFeRange_m = 0.0
 
     return Planet, Params
 
@@ -71,26 +96,15 @@ def SetupFilenames(Planet, Params):
 
 
 def SetupLayers(Planet):
-    nOceanMax = int(Planet.Bulk.PHydroMax_MPa / Planet.Bulk.deltaP)
-    Planet.Steps.nHydroMax = Planet.Steps.nIceI + nOceanMax
 
-    if Planet.Do.CLATHRATE:
-        Planet.Steps.nHydroMax += Planet.Steps.nClath
-    else:
-        Planet.Steps.nClath = 0
+    nOceanMax = int(Planet.Bulk.PHydroMax_MPa / Planet.Bulk.deltaP)
+    Planet.Steps.nHydroMax = Planet.Steps.nClath + Planet.Steps.nIceI + Planet.Steps.nIceIIILitho + Planet.Steps.nIceVLitho + nOceanMax
 
     Planet.phase = np.zeros(Planet.Steps.nHydroMax, dtype=np.int_)
     Planet.z_m, Planet.r_m, Planet.P_MPa, Planet.T_K, Planet.rho_kgm3, \
     Planet.Cp_JkgK, Planet.sigma_Sm, Planet.g_ms2, Planet.vFluid_kms, \
-    Planet.MAbove_kg, Planet.MBelow_kg = \
-        (np.zeros(Planet.Steps.nHydroMax) for _ in range(11))
-
-    Planet.phase = np.concatenate((np.zeros(Planet.Steps.nClath, dtype=np.int_) + 30, Planet.phase))  # Prepend clathrate phases
-    Planet.phase[Planet.Steps.nClath:Planet.Steps.nClath + Planet.Steps.nIceI] = 1  # Set ice Ih phase
-    Planet.r_m[0] = Planet.Bulk.R_m  # Set first layer to planetary surface radius
-    Planet.g_ms2[0] = Constants.G * Planet.Bulk.M_kg / Planet.Bulk.R_m**2  # Set first layer gravity at surface
-    Planet.T_K[0] = Planet.Bulk.Tsurf_K  # Set first layer surface temp
-    Planet.P_MPa[0] = Planet.Bulk.Psurf_MPa  # Set first layer to surface pressure
+    Planet.alpha_pK = \
+        (np.zeros(Planet.Steps.nHydroMax) for _ in range(10))
 
     return Planet
 

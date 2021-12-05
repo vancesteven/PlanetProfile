@@ -11,9 +11,8 @@ from config import Params
 
 Planet = PlanetStruct('Europa')
 
-# if Params.HOLD:
-#     clrAllProfiles()
-#     clrAllLayered(Planet.name)
+# Reduce search range for melting pressure to values realistic for Europa
+Planet.PfreezeUpper_MPa = 150
 
 """ Bulk planetary settings """
 Planet.Bulk.rho_kgm3 = 2989.0
@@ -22,10 +21,9 @@ Planet.Bulk.M_kg = 4.7991e22
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.deltaP = 1.0
-Planet.Bulk.PHydroMax_MPa = 200
+Planet.Bulk.PHydroMax_MPa = 250
 Planet.Bulk.CMeasured = 0.346
 Planet.Bulk.CUncertainty = 0.005
-Planet.Bulk.phi_surface = 0.0
 Planet.Bulk.Tb_K = 269.8
 
 """ Layer step settings """
@@ -38,7 +36,7 @@ Planet.Steps.nCore = 10
 Planet.Ocean.comp = 'Seawater'
 Planet.Ocean.wOcean_ppt = 0.0
 
-""" Mantle heat """
+""" Silicate Mantle """
 Planet.Sil.kSil_WmK = 4.0
 Planet.Do.EQUIL_Q = False
 # Rock porosity
@@ -55,9 +53,9 @@ Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
 # Planet.Sil.rhoSilWithCore_kgm3 = 2975
 
 """ Core assumptions """
-Planet.Do.FeCORE = True
-Planet.Core.rhoFe = 8000.0
-Planet.Core.rhoFeS = 5150.0
+Planet.Do.Fe_CORE = True
+Planet.Core.rhoFe_kgm3 = 8000.0
+Planet.Core.rhoFeS_kgm3 = 5150.0
 Planet.Core.rhoPoFeFCC = 5455.0
 Planet.Core.QScore = 1e4
 Planet.Core.coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'

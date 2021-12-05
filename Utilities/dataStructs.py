@@ -15,6 +15,12 @@ class PlanetStruct:
     def __init__(self, name):
         self.name = name
 
+    # Settings for GetPfreeze start, stop, and step size.
+    # Shrink closer to expected melting pressure to improve run times.
+    PfreezeLower_MPa = 0.1  # Lower boundary for GetPfreeze to search for phase transition
+    PfreezeUpper_MPa = 300  # Upper boundary for GetPfreeze to search for phase transition
+    PfreezeRes_MPa = 0.1  # Step size in pressure for GetPfreeze to use in searching for phase transition
+
     """ Derived quantities (assigned during PlanetProfile runs) """
     # Layer arrays
     phase = None  # Phase of the layer input as an integer: ocean=0, ice I through VI are 1 through 6, clathrate=30, silicates=50, iron=100.
@@ -26,23 +32,23 @@ class PlanetStruct:
     g_ms2 = None  # Gravitational acceleration at top of each layer, m/s^2
     Cp_JkgK = None  # Heat capacity at constant pressure for each layer's material in J/kg/K
     vfluid_kms = None  # Sound speed in fluid layer in km/s
-    Mabove_kg = None  # Total mass above each layer in kg
-    Mbelow_kg = None  # Total mass below each layer in kg
+    alpha_pK = None  # Thermal expansivity of layer material in hydrosphere in K^-1
     rSigChange_m = None  # Radii of outer boundary of each conducting layer in m (i.e., radii where sigma changes)
     sigma_Sm = None  # Electrical conductivity (sigma) in S/m of each conducting layer
     # Individual calculated quantities
     zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km in accordance with Vance et al. (2014)
     zClath_m = None  # Thickness of clathrate layer at body surface in m
     Pb_MPa = None  # Pressure at ice-ocean interface in MPa
-    PbI_MPa = None  # Pressure at bottom of ice I layer in MPa, mainly used when BOTTOM_ICEIII is True
+    PbClath_MPa = None  # Pressure at bottom of clathrate layer in MPa
+    PbI_MPa = None  # Pressure at bottom of ice I layer in MPa
+    PbIII_MPa = None  # Pressure at ice III/ice V transition in MPa, only used when BOTTOM_ICEV is True
     C2mean = None  # Mean value of axial moment of inertia that is consistent with profile core/mantle trades
-    alpha_pK = None  # Thermal expansivity of layer material in hydrosphere in K^-1
     # Q_Wm2 = None  # ??? WAIT UNTIL IMPLEMENT heat flux at ice shell
 
     """ Run settings """
     class Bulk:
         """ Bulk planetary settings """
-        Tb_K = None  # Temperature at the ice-ocean interface
+        Tb_K = None  # Temperature at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers)
         rho_kgm3 = None  # Bulk density in kg/m^3
         R_m = None  # Mean body outer radius in m
         M_kg = None  # Total body mass in kg
@@ -54,6 +60,8 @@ class PlanetStruct:
         Cuncertainty = None  # Uncertainty (std dev) of C/MR^2 (used to constrain models via consistency within the uncertainty), dimensionless
         phiSurface = None  # Scaling value for the ice porosity at the surface (void fraction): falls within a range of 0 and 1. 0 is completely non-porous and larger than 0.2 is rare. From Han et al. (2014)
         clathMaxDepth = None  # Fixed limit for thickness of clathrate layer in m
+        TbIII_K = None  # Temperature at bottom of ice III underplate layer in K
+        TbV_K = None  # Temperature at bottom of ice V underplate layer in K
 
     """ Runtime flags """
     class Do:
@@ -79,6 +87,9 @@ class PlanetStruct:
         nClath = None  # Fixed number of steps in clathrates
         nHydroMax = None  # Derived working length of hydrosphere layers, gets truncated after layer calcs
         nHydro = None  # Derived final number of steps in hydrosphere
+        nIbottom = None  # Derived number of clathrate + ice I layers
+        nIIIbottom = None  # Derived number of clathrate + ice I + ice V layers
+        nSurfIce = None  # Derived number of outer ice layers (above ocean) -- sum of nIceI, nClath, nIceIIILitho, nIceVLitho
         firstSilLayerIndex = None  # Deprecate? First index of silicate layers, i.e. derived actual number of layers in hydrosphere (based on moment of inertia) plus 1
         nStepsRefRho = None  # Number of values for plotting reference density curves (sets resolution)
         nSil = None  # Fixed number of steps in silicate layers
@@ -125,9 +136,9 @@ class PlanetStruct:
 
     class Core:
         """ Core settings """
-        rhoFe_kgm3 = None  # Assumed density of pure iron in kg/m^3
+        rhoFe_kgm3 = 8000  # Assumed density of pure iron in kg/m^3
         rhoFeS_kgm3 = None  # Assumed density of iron sulfide in kg/m^3
-        rhoPoFeFCC = None  # ±40. Density of pyrrhottite plus face-centered cubic iron
+        rhoPoFeFCC = None  # Density of pyrrhottite plus face-centered cubic iron
         sigmaCore_Sm = 1e-16  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
         coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'  # Default core EOS to use
         # Derived quantities

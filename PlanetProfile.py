@@ -7,7 +7,7 @@ from os.path import isfile
 
 # Import all function definitions for this file
 from Utilities.SetupInit import SetupInit, SetupFilenames
-from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers, PlanetDepths
+from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 
 #from Thermodynamics.FromLiterature.conductiveMantleTemperature import conductiveMantleTemperature
 #from Thermodynamics.FromLiterature.ConvectionDeschampsSotin2001 import ConvectionDeschampsSotin2001
@@ -46,7 +46,6 @@ def PlanetProfile(Planet, Params):
         Planet, Params = SetupInit(Planet, Params)
         Planet = IceLayers(Planet)
         Planet = OceanLayers(Planet)
-        Planet = PlanetDepths(Planet)
         Planet = InnerLayers(Planet)
 
         # Save data after modeling
@@ -104,7 +103,7 @@ def WriteProfile(Planet, Params):
                            'g (m/s2)'.ljust(24), \
                            'vFluid (km/s)']) + '\n')
         print('WARNING: Reload data write-out only includes Steps up to nHydroMax but should be nTotal.' \
-             +'This is a placeholder while LayerPropagators is being developed.')
+             +' This is a placeholder while LayerPropagators is being developed.')
         for i in range(Planet.Steps.nHydroMax):
             line = \
                 '{:24.17e} '.format(Planet.z_m[i]/1e3) + \
