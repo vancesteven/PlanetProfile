@@ -20,8 +20,8 @@ Planet.Bulk.R_m = 1561.0e3
 Planet.Bulk.M_kg = 4.7991e22
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
-Planet.Bulk.CMeasured = 0.346
-Planet.Bulk.CUncertainty = 0.005
+Planet.Bulk.Cmeasured = 0.346
+Planet.Bulk.Cuncertainty = 0.005
 Planet.Bulk.Tb_K = 269.8
 
 """ Layer step settings """
