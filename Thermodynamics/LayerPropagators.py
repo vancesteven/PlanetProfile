@@ -191,8 +191,10 @@ def HydroConvect(Planet, Params):
             ???
     """
     if Planet.Do.CLATHRATE:
+        if Params.VERBOSE: print('Applying clathrate lid conduction.')
         Planet = ConductionClathLid()
 
+    if Params.VERBOSE: print('Applying solid state convection to the ice shell based on Deschamps and Sotin (2001).')
     ConvectionDeschampsSotin2001()
 
     if not Planet.Do.EQUIL_Q:
@@ -244,7 +246,7 @@ def FindSeafloorMoI(Planet, Params):
         properties and assumptions about the silicate and possible core layers.
 
         Assigns Planet attributes:
-            C2mean, Sil.RsilMean_m, Sil.RsilRange_m, Core.RFeMean_m, Core.RFeRange_m
+            CMR2mean, Sil.RsilMean_m, Sil.RsilRange_m, Core.RFeMean_m, Core.RFeRange_m
     """
     MR2 = Planet.Bulk.M_kg * Planet.Bulk.R_m**2
     # Determine contribution to axial moment of inertia C from each ocean layer
@@ -253,17 +255,25 @@ def FindSeafloorMoI(Planet, Params):
     if Planet.Do.Fe_CORE:
         # If there is a core, we assume fixed densities in the silicates and core to
         # make the problem of finding a matching MoI tractable.
-        pass
+        Planet.CMR2mean = 0.0
+        Planet.Sil.RsilMean_m = 0.0
+        Planet.Sil.RsilRange_m = 0.0
+        Planet.Core.RFeMean_m = 0.0
+        Planet.Core.RFeRange_m = 0.0
+        if Params.VERBOSE: print('Found matching MoI for ' +
+                                 'R_sil = ' + str(round(Planet.Sil.RsilMean_m / Planet.Bulk.R_m,2)) + 'R, ' +
+                                 'R_core = ' + str(round(Planet.Core.RFeMean_m / Planet.Bulk.R_m,2)) + 'R.')
     else:
         # When there is no core, we treat the silicate density as a free parameter to
         # find a matching solution for the MoI.
-        pass
+        Planet.CMR2mean = 0.0
+        Planet.Sil.RsilMean_m = 0.0
+        Planet.Sil.RsilRange_m = 0.0
+        if Params.VERBOSE: print('Found matching MoI of C = ' + str(round(Planet.Cmatch,3)) + ' for ' +
+                                 'R_sil = ' + str(round(Planet.Sil.RsilMean_m / Planet.Bulk.R_m,2)) + 'R, ' +
+                                 'phoSil = ' + str(round(Planet.Sil.rhoSil_kgm3)) + ' kg/m^3.')
 
-    Planet.C2mean = 0.0
-    Planet.Sil.RsilMean_m = 0.0
-    Planet.Sil.RsilRange_m = 0.0
-    Planet.Core.RFeMean_m = 0.0
-    Planet.Core.RFeRange_m = 0.0
+
 
     return Planet
 

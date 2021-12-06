@@ -43,7 +43,7 @@ class PlanetStruct:
     PbClath_MPa = None  # Pressure at bottom of clathrate layer in MPa
     PbI_MPa = None  # Pressure at bottom of ice I layer in MPa
     PbIII_MPa = None  # Pressure at ice III/ice V transition in MPa, only used when BOTTOM_ICEV is True
-    C2mean = None  # Mean value of axial moment of inertia that is consistent with profile core/mantle trades
+    CMR2mean = None  # Mean value of axial moment of inertia that is consistent with profile core/mantle trades
     # Q_Wm2 = None  # ??? WAIT UNTIL IMPLEMENT heat flux at ice shell
 
     """ Run settings """
@@ -114,13 +114,14 @@ class PlanetStruct:
         mantleEOS = None  # Equation of state data to use for silicates
         mantleEOSName = None  # Same as above but containing keywords like clathrates in filenames
         mantleEOSDry = None  # Name of mantle EOS to use assuming non-hydrated silicates
-        rhoSilWithCore_kgm3 = None  # Assumed density of silicates when a core is present in kg/m^3
+        rhoSilWithCore_kgm3 = 3300  # Assumed density of silicates when a core is present in kg/m^3
         # Derived quantities
-        mFluids = None  # WIP for tracking loss of fluids along the geotherm -- needs a better name.
         RsilMean_m = None  # Mantle radius for mean compatible moment of inertia (MoI)
         RsilRange_m = None  # Mantle radius range for compatible MoI
         RsilTrade_m = None  # Array of mantle radii for compatible MoIs
+        rhoSil_kgm3 = None  # Mantle density consistent with bulk density and MoI when no core is present
         rhoSilTrade_kgm3 = None  # Array of mantle densities for compatible MoIs for core vs. mantle tradeoff plot
+        mFluids = None  # WIP for tracking loss of fluids along the geotherm -- needs a better name.
         # The below not necessary to be implemented until later (says Steve), these 5 are based on DPS presentation in 2017 – 5 diff models of permeability
         #turn off this plot feature until later- create flag, Use POROSITY flag to turn off these plots
         #perm1 = None
@@ -132,7 +133,7 @@ class PlanetStruct:
     class Core:
         """ Core settings """
         rhoFe_kgm3 = 8000  # Assumed density of pure iron in kg/m^3
-        rhoFeS_kgm3 = None  # Assumed density of iron sulfide in kg/m^3
+        rhoFeS_kgm3 = 5150  # Assumed density of iron sulfide in kg/m^3
         rhoPoFeFCC = None  # Density of pyrrhottite plus face-centered cubic iron
         sigmaCore_Sm = 1e-16  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
         coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'  # Default core EOS to use

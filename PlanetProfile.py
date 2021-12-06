@@ -81,7 +81,7 @@ def WriteProfile(Planet, Params):
         f.write('  Pb_MPa = ' + str(Planet.Pb_MPa) + '\n')
         f.write('  PbI_MPa = ' + str(Planet.PbI_MPa) + '\n')
         f.write('  deltaP = ' + str(Planet.Ocean.deltaP) + '\n')
-        f.write('  C2mean = ' + str(Planet.C2mean) + '\n')
+        f.write('  CMR2mean = ' + str(Planet.CMR2mean) + '\n')
         f.write('  QfromMantle_Wm2 = ' + str(Planet.Ocean.QfromMantle_Wm2) + '\n')
         f.write('  phiRockMax = ' + str(Planet.Sil.phiRockMax) + '\n')
         f.write('  RsilMean_m = ' + str(Planet.Sil.RsilMean_m) + '\n')
@@ -153,7 +153,7 @@ def ReloadProfile(Planet, Params):
         Planet.Do.Fe_CORE = bool(strtobool(f.readline().split('=')[-1].strip()))
         # Get float values from header
         Planet.Ocean.wOcean_ppt, Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, \
-        Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.C2mean, Planet.Ocean.QfromMantle_Wm2, \
+        Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.CMR2mean, Planet.Ocean.QfromMantle_Wm2, \
         Planet.Sil.phiRockMax, Planet.Sil.RsilMean_m, Planet.Core.RFeMean_m, Planet.Sil.RsilRange_m, \
         Planet.Core.RFeRange_m, Planet.Core.rhoFe_kgm3 \
             = (float(f.readline().split('=')[-1]) for _ in range(15))
@@ -182,6 +182,57 @@ def ReloadProfile(Planet, Params):
         = np.loadtxt(Params.dataFiles.permFile, skiprows=1, unpack=True)
 
     return Planet, Params
+
+
+def CompareProfile(Planet, Params, fname2):
+    """ Checks saved data in a named file against the current Planet run
+        to say whether the contents of the files differ.
+
+        Args:
+             Planet (PlanetStruct): The current run's completed data
+             Params (ParamsStruct): Params for the current run
+             fname2 (string): The filename for save data to compare against
+        Returns:
+            None
+    """
+    import copy.deepcopy as copy
+
+    Params2 = copy(Params)
+    Params2.dataFiles.saveFile = fname2
+
+    Planet2, _ = ReloadProfile(Planet, Params2)
+
+    # Compare header info
+    same_nHeadLines = Params.nHeadLines == Params2.nHeadLines
+    same_comp = Planet.Ocean.comp == Planet2.Ocean.comp
+    same_Fe_CORE = Planet.Do.Fe_CORE and Planet2.Do.Fe_CORE
+    same_wOcean_ppt = Planet.Ocean.wOcean_ppt == Planet2.Ocean.wOcean_ppt
+    same_Tb_K = Planet.Bulk.Tb_K == Planet2.Bulk.Tb_K
+    same_zb_km = Planet.zb_km == Planet2.zb_km
+    same_zClath_m = Planet.zClath_m == Planet2.zClath_m
+    same_Pb_MPa = Planet.Pb_MPa == Planet2.Pb_MPa
+    same_PbI_MPa = Planet.PbI_MPa == Planet2.PbI_MPa
+    same_deltaP = Planet.Ocean.deltaP == Planet2.Ocean.deltaP
+    same_CMR2mean = Planet.CMR2mean == Planet2.CMR2mean
+    same_QfromMantle_Wm2 = Planet.Ocean.QfromMantle_Wm2 == Planet2.Ocean.QfromMantle_Wm2
+    same_phiRockMax = Planet.Sil.phiRockMax == Planet2.Sil.phiRockMax
+    same_RsilMean_m = Planet.Sil.RsilMean_m == Planet2.Sil.RsilMean_m
+    same_RFeMean_m = Planet.Core.RFeMean_m == Planet2.Core.RFeMean_m
+    same_RsilRange_m = Planet.Sil.RsilRange_m == Planet2.Sil.RsilRange_m
+    same_RFeRange_m = Planet.Core.RFeRange_m == Planet2.Core.RFeRange_m
+    same_rhoFe_kgm3 = Planet.Core.rhoFe_kgm3 == Planet2.Core.rhoFe_kgm3
+    same_nClath = Planet.Steps.nClath == Planet2.Steps.nClath
+    same_nIceI = Planet.Steps.nIceI == Planet2.Steps.nIceI
+    same_nIceIIILitho = Planet.Steps.nIceIIILitho == Planet2.Steps.nIceIIILitho
+    same_nIceVLitho = Planet.Steps.nIceVLitho == Planet2.Steps.nIceVLitho
+    same_nHydro = Planet.Steps.nHydro == Planet2.Steps.nHydro
+    same_nSil = Planet.Steps.nSil == Planet2.Steps.nSil
+    same_nCore = Planet.Steps.nCore == Planet2.Steps.nCore
+
+    if not same_nHeadLines:
+        print('nHeadLines differs. ' + str(Params.nHeadLines) + ' | ' + str(Params2.nHeadLines))
+
+    return
 
 
 if __name__ == '__main__': main()
