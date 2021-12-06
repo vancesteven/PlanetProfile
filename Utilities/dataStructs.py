@@ -31,10 +31,11 @@ class PlanetStruct:
     rho_kgm3 = None  # Density of each layer in kg/m^3
     g_ms2 = None  # Gravitational acceleration at top of each layer, m/s^2
     Cp_JkgK = None  # Heat capacity at constant pressure for each layer's material in J/kg/K
-    vfluid_kms = None  # Sound speed in fluid layer in km/s
     alpha_pK = None  # Thermal expansivity of layer material in hydrosphere in K^-1
-    rSigChange_m = None  # Radii of outer boundary of each conducting layer in m (i.e., radii where sigma changes)
+    phi_frac = None  # Porosity of each layer's material as a fraction of void/solid
     sigma_Sm = None  # Electrical conductivity (sigma) in S/m of each conducting layer
+    MLayer_kg = None  # Mass of each layer in kg
+    rSigChange_m = None  # Radii of outer boundary of each conducting layer in m (i.e., radii where sigma changes)
     # Individual calculated quantities
     zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km in accordance with Vance et al. (2014)
     zClath_m = None  # Thickness of clathrate layer at body surface in m
@@ -54,8 +55,6 @@ class PlanetStruct:
         M_kg = None  # Total body mass in kg
         Tsurf_K = None  # Surface temperature in K
         Psurf_MPa = None  # Surface pressure in MPa
-        deltaP = None  # Increment of pressure between each layer in hydrosphere (sets profile resolution)
-        PHydroMax_MPa = None  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
         Cmeasured = None  # Axial moment of inertia C/MR^2, dimensionless
         Cuncertainty = None  # Uncertainty (std dev) of C/MR^2 (used to constrain models via consistency within the uncertainty), dimensionless
         phiSurface = None  # Scaling value for the ice porosity at the surface (void fraction): falls within a range of 0 and 1. 0 is completely non-porous and larger than 0.2 is rare. From Han et al. (2014)
@@ -90,7 +89,6 @@ class PlanetStruct:
         nIbottom = None  # Derived number of clathrate + ice I layers
         nIIIbottom = None  # Derived number of clathrate + ice I + ice V layers
         nSurfIce = None  # Derived number of outer ice layers (above ocean) -- sum of nIceI, nClath, nIceIIILitho, nIceVLitho
-        firstSilLayerIndex = None  # Deprecate? First index of silicate layers, i.e. derived actual number of layers in hydrosphere (based on moment of inertia) plus 1
         nStepsRefRho = None  # Number of values for plotting reference density curves (sets resolution)
         nSil = None  # Fixed number of steps in silicate layers
         nCore = None  # Fixed number of steps in core layers, if present
@@ -101,20 +99,17 @@ class PlanetStruct:
         """ Hydrosphere assumptions """
         comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'NH3', 'NaCl'
         wOcean_ppt = None  # Salinity: Concentration of above salt in parts per thousand (ppt)
+        deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
+        PHydroMax_MPa = None  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
         electrical = 'Vance2018'  # Type of electrical conductivity model to use. Options: 'Vance2018', 'Pan2020'
         QfromMantle_Wm2 = None  # Heat flow from mantle into hydrosphere
-
-        def fnTfreeze_K(self, PPg, wwg, TT):
-            # Somehow make an interpolator a la:
-            # load L_Ice_MgSO4.mat
-            # fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
-            # Do we need this? I think SeaFreeze removes the need for this.
-            pass
+        sigmaIce_Sm = 1e-8  # Assumed conductivity of ice layers
 
     class Sil:
         """ Silicate layer settings """
         kSil_WmK = None  # Thermal conductivity (k) of silicates in W/(mK)
         phiRockMax = None  # Porosity (void fraction) of the rocks at the “seafloor”, where the hydrosphere first comes into contact with rock
+        sigmaSil_Sm = 1e-16  # Assumed conductivity of silicate rock
         """ Mantle Equation of State (EOS) model """
         mantleEOS = None  # Equation of state data to use for silicates
         mantleEOSName = None  # Same as above but containing keywords like clathrates in filenames
@@ -154,8 +149,8 @@ class PlanetStruct:
 
     class Seismic:
         """ Seismic properties of solids,
-            from Cammarano et al., 2006 (DOI: 10.1029/2006JE002710)
-            in a parameterization for the shear anelasticity quality factor Qs (Eqs. 4-6).
+            based on Cammarano et al., 2006 (DOI: 10.1029/2006JE002710)
+            in a parameterization for the shear anelasticity quality factor QS (Eqs. 4-6).
             g : Homologous temperature scaling constant- dimensionless constant described as a temperature scaling relative to the melting temperature
             B : Shear anelasticity/quality factor normalization constant, dimensionless - helps quantify the effects of anelastic attenuation on the seismic wavelet caused by fluid movement and grain boundary friction
             gamma : Exponent on the seismic frequency omega, dimensionless - helps describe the frequency dependence of attenuation
@@ -185,6 +180,12 @@ class PlanetStruct:
         BSil = None
         gammaSil = None
         gSil = None
+        # Derived quantities
+        VP_kms = None  # Longitudinal (p-wave) sound velocity for each layer in km/s
+        VS_kms = None  # Shear (s-wave) sound velocity for each layer in km/s
+        QS = None  # Anelastic shear quality factor Q_S of each layer, divided by omega^gamma to remove frequency dependence. Essentially the fraction of seismic energy lost per cycle.
+        KS_GPa = None  # Bulk modulus of each layer in GPa
+        GS_GPs = None  # Shear modulus of each layer in GPa
 
     class Magnetic:
         """ Magnetic induction """

@@ -7,10 +7,11 @@ from os.path import isfile
 
 # Import all function definitions for this file
 from Utilities.SetupInit import SetupInit, SetupFilenames
-from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
+from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, HydroConvect, InnerLayers
+from Thermodynamics.Electrical import ElecConduct
+from Seismic import SeismicCalcs
 
 #from Thermodynamics.FromLiterature.conductiveMantleTemperature import conductiveMantleTemperature
-#from Thermodynamics.FromLiterature.ConvectionDeschampsSotin2001 import ConvectionDeschampsSotin2001
 
 
 """ MAIN RUN BLOCK """
@@ -44,9 +45,12 @@ def PlanetProfile(Planet, Params):
     if Params.CALC_NEW:
         # Initialize
         Planet, Params = SetupInit(Planet, Params)
-        Planet = IceLayers(Planet)
-        Planet = OceanLayers(Planet)
-        Planet = InnerLayers(Planet)
+        Planet = IceLayers(Planet, Params)
+        Planet = OceanLayers(Planet, Params)
+        Planet = HydroConvect(Planet, Params)
+        Planet = InnerLayers(Planet, Params)
+        Planet = ElecConduct(Planet, Params)
+        Planet = SeismicCalcs(Planet, Params)
 
         # Save data after modeling
         WriteProfile(Planet, Params)
@@ -76,7 +80,7 @@ def WriteProfile(Planet, Params):
         f.write('  zClath_m = ' + str(Planet.zClath_m) + '\n')
         f.write('  Pb_MPa = ' + str(Planet.Pb_MPa) + '\n')
         f.write('  PbI_MPa = ' + str(Planet.PbI_MPa) + '\n')
-        f.write('  deltaP = ' + str(Planet.Bulk.deltaP) + '\n')
+        f.write('  deltaP = ' + str(Planet.Ocean.deltaP) + '\n')
         f.write('  C2mean = ' + str(Planet.C2mean) + '\n')
         f.write('  QfromMantle_Wm2 = ' + str(Planet.Ocean.QfromMantle_Wm2) + '\n')
         f.write('  phiRockMax = ' + str(Planet.Sil.phiRockMax) + '\n')
@@ -92,30 +96,39 @@ def WriteProfile(Planet, Params):
         f.write('  Steps.nHydro = ' + str(Planet.Steps.nHydro) + '\n')
         f.write('  Steps.nSil = ' + str(Planet.Steps.nSil) + '\n')
         f.write('  Steps.nCore = ' + str(Planet.Steps.nCore) + '\n')
-        f.write(' '.join(['z (km)'.ljust(24), \
-                           'r (m)'.ljust(24), \
-                           'P (MPa)'.ljust(24), \
-                           'T (K)'.ljust(24), \
-                           'phase ID'.ljust(8), \
-                           'rho (kg/m3)'.ljust(24), \
-                           'Cp (J/kg/K)'.ljust(24), \
-                           'sigma (S/m)'.ljust(24), \
-                           'g (m/s2)'.ljust(24), \
-                           'vFluid (km/s)']) + '\n')
-        print('WARNING: Reload data write-out only includes Steps up to nHydroMax but should be nTotal.' \
-             +' This is a placeholder while LayerPropagators is being developed.')
-        for i in range(Planet.Steps.nHydroMax):
+        f.write(' '.join(['P (MPa)'.ljust(24), \
+                          'T (K)'.ljust(24), \
+                          'r (m)'.ljust(24), \
+                          'phase ID'.ljust(8), \
+                          'rho (kg/m3)'.ljust(24), \
+                          'Cp (J/kg/K)'.ljust(24), \
+                          'alpha (1/K)'.ljust(24), \
+                          'g (m/s2)'.ljust(24), \
+                          'phi (void/solid frac)'.ljust(24), \
+                          'VP (km/s)'.ljust(24), \
+                          'VS (km/s)'.ljust(24), \
+                          'QS'.ljust(24), \
+                          'KS (GPa)'.ljust(24), \
+                          'GS (GPa)'.ljust(24), \
+                          'sigma (S/m)']) + '\n')
+        # Now print the columnar data
+        for i in range(Planet.Steps.nTotal):
             line = \
-                '{:24.17e} '.format(Planet.z_m[i]/1e3) + \
-                '{:24.17e} '.format(Planet.r_m[i]) + \
                 '{:24.17e} '.format(Planet.P_MPa[i]) + \
                 '{:24.17e} '.format(Planet.T_K[i]) + \
+                '{:24.17e} '.format(Planet.r_m[i]) + \
                 '{:8d} '.format(Planet.phase[i]) + \
                 '{:24.17e} '.format(Planet.rho_kgm3[i]) + \
                 '{:24.17e} '.format(Planet.Cp_JkgK[i]) + \
-                '{:24.17e} '.format(Planet.sigma_Sm[i]) + \
+                '{:24.17e} '.format(Planet.alpha_pK[i]) + \
                 '{:24.17e} '.format(Planet.g_ms2[i]) + \
-                '{:24.17e}\n'.format(Planet.vFluid_kms[i])
+                '{:24.17e} '.format(Planet.phi_frac[i]) + \
+                '{:24.17e} '.format(Planet.Seismic.VP_kms[i]) + \
+                '{:24.17e} '.format(Planet.Seismic.VS_kms[i]) + \
+                '{:24.17e} '.format(Planet.Seismic.QS[i]) + \
+                '{:24.17e} '.format(Planet.Seismic.KS_GPa[i]) + \
+                '{:24.17e} '.format(Planet.Seismic.GS_GPa[i]) + \
+                '{:24.17e}\n'.format(Planet.sigma_Sm[i])
             f.write(line)
 
     print('Profile saved to file: ' + Params.dataFiles.saveFile)
@@ -140,7 +153,7 @@ def ReloadProfile(Planet, Params):
         Planet.Do.Fe_CORE = bool(strtobool(f.readline().split('=')[-1].strip()))
         # Get float values from header
         Planet.Ocean.wOcean_ppt, Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, \
-        Planet.Pb_MPa, Planet.PbI_MPa, Planet.Bulk.deltaP, Planet.C2mean, Planet.Ocean.QfromMantle_Wm2, \
+        Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.C2mean, Planet.Ocean.QfromMantle_Wm2, \
         Planet.Sil.phiRockMax, Planet.Sil.RsilMean_m, Planet.Core.RFeMean_m, Planet.Sil.RsilRange_m, \
         Planet.Core.RFeRange_m, Planet.Core.rhoFe_kgm3 \
             = (float(f.readline().split('=')[-1]) for _ in range(15))
@@ -151,15 +164,15 @@ def ReloadProfile(Planet, Params):
             = (int(f.readline().split('=')[-1]) for _ in range(7))
 
     Planet.Steps.nTotal = Planet.Steps.nHydro + Planet.Steps.nSil + Planet.Steps.nCore
-
-    # Read in columnar data that follows header lines -- ocean
-    Planet.z_m, Planet.r_m, Planet.P_MPa, Planet.T_K, Planet.phase, Planet.rho_kgm3, Planet.Cp_JkgK, \
-    Planet.sigma_Sm, Planet.g_ms2, Planet.vFluid_kms \
+    # Read in columnar data that follows header lines -- full-body
+    Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.phase, Planet.rho_kgm3, Planet.Cp_JkgK, Planet.alpha_pK, \
+    Planet.g_ms2, Planet.phi_frac, Planet.Seismic.VP_kms, Planet.Seismic.VS_kms, Planet.Seismic.QS, \
+    Planet.Seismic.KS_GPa, Planet.Seismic.GS_GPa, Planet.sigma_Sm \
         = np.loadtxt(Params.dataFiles.saveFile, skiprows=Params.nHeadLines, unpack=True)
-    Planet.z_m *= 1e3  # Stored to disk as km
+    Planet.z_m = Planet.Bulk.R_m - Planet.r_m
     Planet.phase = Planet.phase.astype(np.int_)
 
-    # Read in in data for core/mantle trade
+    # Read in data for core/mantle trade
     Planet.Sil.RsilTrade_m, Planet.Core.RFeTrade_m, Planet.Sil.rhoSilTrade_kgm3, \
         = np.loadtxt(Params.dataFiles.mantCoreFile, skiprows=1, unpack=True)
 

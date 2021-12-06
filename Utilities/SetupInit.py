@@ -27,6 +27,8 @@ def SetupInit(Planet, Params):
         print('WARNING: Planet.Tb_K has been rounded to generate saveFile name.')
 
     # Set number of steps for unused options to zero
+    if not Planet.Do.Fe_CORE:
+        Planet.Steps.nCore = 0
     if not Planet.Do.CLATHRATE:
         Planet.Steps.nClath = 0
         Planet.zClath_m = 0
@@ -38,22 +40,8 @@ def SetupInit(Planet, Params):
     if not Planet.Do.POROUS_ROCK:
         Planet.Sil.phiRockMax = 0
 
-    # Initialize calculated quantities
-    if not Planet.Do.EQUIL_Q:
-        # Assign heat input into ocean from mantle to be ~radiogenic
-        print('WARNING: QfromMantle_Wm2 is set to a value consistent only with Europa radiogenic heating.')
-        Planet.Ocean.QfromMantle_Wm2 = 2.2e11/ 4/np.pi / Planet.Bulk.R_m**2
-
     # Preallocate layer physical quantity arrays
     Planet = SetupLayers(Planet)
-
-    # Delete the next 6 lines after their calculation functions have been implemented!
-    Planet.Steps.nHydro = Planet.Steps.nHydroMax + 0
-    Planet.C2mean = 0.0
-    Planet.Sil.RsilMean_m = 0.0
-    Planet.Sil.RsilRange_m = 0.0
-    Planet.Core.RFeMean_m = 0.0
-    Planet.Core.RFeRange_m = 0.0
 
     return Planet, Params
 
@@ -97,14 +85,14 @@ def SetupFilenames(Planet, Params):
 
 def SetupLayers(Planet):
 
-    nOceanMax = int(Planet.Bulk.PHydroMax_MPa / Planet.Bulk.deltaP)
+    nOceanMax = int(Planet.Ocean.PHydroMax_MPa / Planet.Ocean.deltaP)
     Planet.Steps.nHydroMax = Planet.Steps.nClath + Planet.Steps.nIceI + Planet.Steps.nIceIIILitho + Planet.Steps.nIceVLitho + nOceanMax
 
     Planet.phase = np.zeros(Planet.Steps.nHydroMax, dtype=np.int_)
-    Planet.z_m, Planet.r_m, Planet.P_MPa, Planet.T_K, Planet.rho_kgm3, \
-    Planet.Cp_JkgK, Planet.sigma_Sm, Planet.g_ms2, Planet.vFluid_kms, \
-    Planet.alpha_pK = \
-        (np.zeros(Planet.Steps.nHydroMax) for _ in range(10))
+    Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
+        Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \
+        Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg = \
+        (np.zeros(Planet.Steps.nHydroMax) for _ in range(11))
 
     return Planet
 

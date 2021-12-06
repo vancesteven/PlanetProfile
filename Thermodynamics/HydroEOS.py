@@ -15,13 +15,15 @@ def FluidEOS(compstr, w_ppt, P_MPa, T_K):
             rho_kgm3 (float, shape N): Density of fluid in kg/m^3
             Cp_JkgK (float, shape N): Heat capacity at constant pressure of fluid in J/kg/K
             alpha_pK (float, shape N): Thermal expansivity of fluid in K^-1
-            vFluid_kms (float, shape N): Sound speeds in fluid in km/s
     """
     # Arrange input data into (P,T) value pair tuples compatible with SeaFreeze
-    PTpairs = np.array([(P_MPa[i], T_K[i]) for i in range(np.size(P_MPa))], dtype='f,f')
+    PTpairs = np.array([(P_MPa[i], T_K[i]) for i in range(np.size(P_MPa))], dtype='f,f').astype(object)
 
     if w_ppt == 0:
-        seaOutEOS = SeaFreeze(PTpairs, 'water1')
+        seaOut = SeaFreeze(PTpairs, 'water1')
+        rho_kgm3 = seaOut.rho
+        Cp_JkgK = seaOut.Cp
+        alpha_pK = seaOut.alpha
     elif compstr == 'Seawater':
         raise ValueError('Unable to set FluidEOS. Seawater is not implemented yet.')
     elif compstr == 'NH3':
@@ -33,15 +35,41 @@ def FluidEOS(compstr, w_ppt, P_MPa, T_K):
     else:
         raise ValueError('Unable to set FluidEOS. compstr="'+compstr+'" but options are Seawater, NH3, MgSO4, and NaCl.')
 
-    rho_kgm3 = seaOutEOS.rho
-    Cp_JkgK = seaOutEOS.Cp
-    alpha_pK = seaOutEOS.alpha
-    vFluid_kms = seaOutEOS.vel/1e3
-    return rho_kgm3, Cp_JkgK, alpha_pK, vFluid_kms
+    return rho_kgm3, Cp_JkgK, alpha_pK
 
 
-def GetPfreeze(compstr, w_ppt, Tb_K, PfreezeLower_MPa=30, PfreezeUpper_MPa=300, PfreezeRes_MPa=0.1):
-    """ Returns the pressure at which the ice Ih melts based on temperature, salinity, and composition
+def GetPhase(compstr, w_ppt, P_MPa, T_K):
+    """ Get phase for single (scalar) (P,T) pair
+
+        Args:
+            compstr (string): Composition of dissolved salt
+            w_ppt (float): Salinity of fluid in ppt
+            P_MPa (float): Pressure of the fluid in MPa
+            T_K (float): Temperature of the fluid in K
+        Returns:
+            phase (int): Ice/liquid phase ID for this P,T combo
+    """
+    PT = np.array([(P_MPa, T_K)], dtype='f,f').astype(object)
+    if w_ppt == 0:
+        phase = WhichPhase(PT)
+    elif compstr == 'Seawater':
+        raise ValueError('Unable to set FluidEOS. Seawater is not implemented yet.')
+    elif compstr == 'NH3':
+        raise ValueError('Unable to set FluidEOS. NH3 is not implemented yet.')
+    elif compstr == 'MgSO4':
+        raise ValueError('Unable to set FluidEOS. MgSO4 is not implemented yet.')
+    elif compstr == 'NaCl':
+        raise ValueError('Unable to set FluidEOS. NaCl is not implemented yet.')
+    else:
+        raise ValueError(
+            'Unable to set FluidEOS. compstr="' + compstr + '" but options are Seawater, NH3, MgSO4, and NaCl.')
+
+    return phase
+
+
+def GetPfreeze(compstr, w_ppt, Tb_K, PfreezeLower_MPa=30, PfreezeUpper_MPa=300, PfreezeRes_MPa=0.1,
+               Pguess=None, guessRange=5):
+    """ Returns the pressure at which ice Ih melts based on temperature, salinity, and composition
 
         Args:
             compstr (string): Composition of dissolved salt
@@ -53,10 +81,23 @@ def GetPfreeze(compstr, w_ppt, Tb_K, PfreezeLower_MPa=30, PfreezeUpper_MPa=300, 
     Psearch = np.arange(PfreezeLower_MPa, PfreezeUpper_MPa, PfreezeRes_MPa)
     # Arrange input data into (P,T) value pair tuples compatible with SeaFreeze
     PTsearchPairs = np.array([(P, Tb_K) for P in Psearch], dtype='f,f').astype(object)
+    # Suggest a smaller range around a guessed value
+    if Pguess is not None:
+        DO_GUESS = True
+        PguessRange = np.arange(Pguess-guessRange/2, Pguess+guessRange/2, PfreezeRes_MPa)
+        PTguessPairs = np.array([(P, Tb_K) for P in PguessRange], dtype='f,f').astype(object)
+    else:
+        DO_GUESS = False
+        GUESS_FAILED = True
 
     if w_ppt == 0:
         # Get phase of each P for the Tb_K value using SeaFreeze
-        searchPhases = WhichPhase(PTsearchPairs)
+        if DO_GUESS:
+            searchPhases = WhichPhase(PTguessPairs)
+            # Check if we failed to encounter a phase transition
+            if np.all(searchPhases==searchPhases[0]): GUESS_FAILED = True
+        if not DO_GUESS or GUESS_FAILED:
+            searchPhases = WhichPhase(PTsearchPairs)
         # Find the first index for a phase that's not ice Ih or clathrates
         # (note that clathrates, with phase 30, are not yet implemented in SeaFreeze)
         try:
@@ -132,7 +173,7 @@ def GetPfreezeHP(compstr, w_ppt, TbHP_K, phase, PfreezeHPLower_MPa=180, PfreezeH
     return PfreezeHP_MPa
 
 
-def GetTfreeze(compstr, w_ppt, P_MPa, T_K):
+def GetTfreeze(compstr, w_ppt, P_MPa, T_K, TfreezeRange_K=50, TfreezeRes_K=0.05):
     """ Returns the pressure at which the fluid freezes based on temperature, salinity, and composition
 
         Args:
@@ -141,10 +182,27 @@ def GetTfreeze(compstr, w_ppt, P_MPa, T_K):
             P_MPa (float): Pressure of the fluid in MPa
             T_K (float): Temperature of the fluid in K
         Returns:
-            Layers : (array) density and temperature of the layer with each pressure step
+            Tfreeze_K (float): Temperature of nearest higher-temperature phase transition between
+                liquid and ice at this pressure
     """
-    if compstr == 'Seawater':
-        Tfreeze_K = SeaFreeze([P_MPa, T_K], 'Ih')
+    Tsearch = np.arange(T_K, T_K + TfreezeRange_K, TfreezeRes_K)
+    # Arrange input data into (P,T) value pair tuples compatible with SeaFreeze
+    PTsearchPairs = np.array([(P_MPa, T) for T in Tsearch], dtype='f,f').astype(object)
+
+    if w_ppt == 0:
+        # Get phase of each T for this pressure using SeaFreeze
+        searchPhases = WhichPhase(PTsearchPairs)
+        thisPhase = searchPhases[0]
+        # Find the first index for a phase that doesn't match the input value
+        try:
+            indNotThis = next((i[0] for i, val in np.ndenumerate(searchPhases) if val!=thisPhase))
+        except StopIteration:
+            raise ValueError('No melting temperature was found above ' + str(T_K) + ' K' +
+                             'for ice' + PhaseConv(thisPhase) + '. Increase TfreezeRange_K until one is found.')
+        # Get the pressure of the HP ice adjacent to the first layer with a non-matching phase
+        Tfreeze_K = Tsearch[indNotThis - 1]
+    elif compstr == 'Seawater':
+        raise ValueError('Unable to GetTfreeze. Seawater is not implemented yet.')
     elif compstr == 'NH3':
         raise ValueError('Unable to GetTfreeze. NH3 is not implemented yet.')
     elif compstr == 'MgSO4':
@@ -173,7 +231,7 @@ def GetIceThermo(P_MPa, T_K, phase):
     # Initialize outputs
     rho_kgm3, Cp_JkgK, alpha_pK = (np.zeros_like(P_MPa) for _ in range(3))
     # Identify which indices correspond to which phases
-    indsLiquid, indsI, indsII, indsIII, indsV, indsVI, indsClath, _ = GetPhaseIndices(phase)
+    indsLiquid, indsI, indsII, indsIII, indsV, indsVI, indsClath, _, _ = GetPhaseIndices(phase)
     # Organize (P,T) value pairs into a list of tuples compatible with SeaFreeze
     PTlist = np.array([(P_MPa[i], T_K[i]) for i in range(np.size(phase))], dtype='f,f').astype(object)
 
@@ -249,10 +307,11 @@ def PhaseConv(phase):
 def GetPhaseIndices(phase):
     """ Get indices for each phase of ice/liquid
 
-        Requires Planet attributes:
-            ???
-        Assigns Planet attributes:
-            ???
+        Args:
+            phase (int, shape N)
+        Returns:
+            indsLiquid, indsI, ... indsFe (int, shape 0-M): lists of indices corresponding to each phase.
+                Variable length.
     """
     indsLiquid = [i for i, val in enumerate(phase) if val == 0]
     indsI = [i for i, val in enumerate(phase) if val == 1]
@@ -261,6 +320,7 @@ def GetPhaseIndices(phase):
     indsV = [i for i, val in enumerate(phase) if val == 5]
     indsVI = [i for i, val in enumerate(phase) if val == 6]
     indsClath = [i for i, val in enumerate(phase) if val == 30]
-    indsSurf = [i for i, val in enumerate(phase) if val == 1 or val == 30]
+    indsSil = [i for i, val in enumerate(phase) if val == 50]
+    indsFe = [i for i, val in enumerate(phase) if val == 100]
 
-    return indsLiquid, indsI, indsII, indsIII, indsV, indsVI, indsClath, indsSurf
+    return indsLiquid, indsI, indsII, indsIII, indsV, indsVI, indsClath, indsSil, indsFe
