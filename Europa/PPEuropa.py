@@ -15,7 +15,6 @@ Planet = PlanetStruct('Europa')
 Planet.PfreezeUpper_MPa = 150
 
 """ Bulk planetary settings """
-Planet.Bulk.rho_kgm3 = 2989.0
 Planet.Bulk.R_m = 1561.0e3
 Planet.Bulk.M_kg = 4.7991e22
 Planet.Bulk.Tsurf_K = 110
@@ -44,7 +43,7 @@ Planet.Do.POROUS_ROCK = False
 Planet.Do.P_EFFECTIVE = False
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'  # (2900 for Q= 100 GW, 3240 for Q= 220 GW)
-Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
+Planet.Sil.rhoSilWithCore_kgm3 = 3539.0  # This is the 1-bar, 275 K value from CV3hy1wt_678_1.tab
 # Planet.Sil.mantleEOS = 'Simple_CI_HS_green_PP.tab'  # CI chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
 # Planet.Sil.rhoSilWithCore_kgm3 = 2975
 # Planet.Sil.mantleEOS = 'Simple_CM_HS_green_PP.tab'  # CM chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
@@ -59,9 +58,9 @@ Planet.Core.rhoFeS_kgm3 = 5150.0
 Planet.Core.rhoPoFeFCC = 5455.0
 Planet.Core.QScore = 1e4
 Planet.Core.coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'
-Planet.Core.xFeS_meteoritic = 0.0405
+Planet.Core.xFeSmeteoritic = 0.0405
 Planet.Core.xFeS = 0.55
-Planet.Core.xFe_core = 0.0279
+Planet.Core.xFeCore = 0.0279
 Planet.Core.xH2O = 0.0035
 
 """ Seismic properties of solids """
@@ -116,12 +115,12 @@ Params.wRef = [0, 5, 10, 15]
 #     if dlNow; load(['FTdata' Planet.name],'FTdata'); end
 
 """ Interior constraints imposed in Vance et al. 2014 """
-Planet.Sil.mSi = 28.0855
-Planet.Sil.mS = 32.065
-Planet.Sil.mFe = 55.845
-Planet.Sil.mMg = 24.305
-Planet.Sil.xOl = 0.44  # Percentage of olivine - Javoy (1995) - Fe/Si = 0.909 Mg/Si = 0.531, Mg# = 0.369
-Planet.Sil.xSi = (Planet.Sil.xOl+2*(1-Planet.Sil.xOl))*Planet.Sil.mSi/(Planet.Sil.xOl*184.295+(1-Planet.Sil.xOl)*244.3805) # mass fraction of sulfur in silicates
-Planet.Sil.MEarth_kg = 5.97e24
-Planet.Sil.xSiEarth = 0.1923  # Javoy in kg/kg in Exoplanets paper20052006-xSiSolar only in mole
-Planet.Sil.xK = 1.0  # Enrichment in K
+# Planet.Sil.mSi = 28.0855
+# Planet.Sil.mS = 32.065
+# Planet.Sil.mFe = 55.845
+# Planet.Sil.mMg = 24.305
+# Planet.Sil.xOl = 0.44  # Percentage of olivine - Javoy (1995) - Fe/Si = 0.909 Mg/Si = 0.531, Mg# = 0.369
+# Planet.Sil.xSi = (Planet.Sil.xOl+2*(1-Planet.Sil.xOl))*Planet.Sil.mSi/(Planet.Sil.xOl*184.295+(1-Planet.Sil.xOl)*244.3805) # mass fraction of sulfur in silicates
+# Planet.Sil.MEarth_kg = 5.97e24
+# Planet.Sil.xSiEarth = 0.1923  # Javoy in kg/kg in Exoplanets paper20052006-xSiSolar only in mole
+# Planet.Sil.xK = 1.0  # Enrichment in K

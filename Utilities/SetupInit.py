@@ -4,6 +4,7 @@ import os
 import numpy as np
 import Utilities.PPversion as PPver
 from Utilities.SwEOSChooser import SetupEOS
+from Utilities.dataStructs import DataFilesSubstruct, FigureFilesSubstruct
 
 def SetupInit(Planet, Params):
 
@@ -21,7 +22,7 @@ def SetupInit(Planet, Params):
     Planet.oceanEOS = SetupEOS(Planet.Ocean.comp)
 
     # Get filenames for saving/loading
-    Params.dataFiles, Params.figureFiles = SetupFilenames(Planet, Params)
+    Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
     # Warn user if filename will round Tb_K value
     if Params.VERBOSE and round(Planet.Bulk.Tb_K, 3) != Planet.Bulk.Tb_K:
         print('WARNING: Planet.Tb_K has been rounded to generate saveFile name.')
@@ -39,6 +40,14 @@ def SetupInit(Planet, Params):
         Planet.Steps.nIceVLitho = 0
     if not Planet.Do.POROUS_ROCK:
         Planet.Sil.phiRockMax = 0
+
+    # Calculate bulk density from total mass and radius, and warn user if they specified density
+    if Planet.Bulk.M_kg is None:
+        Planet.Bulk.M_kg = Planet.Bulk.rho_kgm3 * (4/3*np.pi * Planet.Bulk.R_m**3)
+    else:
+        if Planet.Bulk.rho_kgm3 is not None and Params.VERBOSE:
+            print('Both bulk mass and density were specified. Only one is required--density will be recalculated from bulk mass for consistency.')
+        Planet.Bulk.rho_kgm3 = Planet.Bulk.M_kg / (4/3*np.pi * Planet.Bulk.R_m**3)
 
     # Preallocate layer physical quantity arrays
     Planet = SetupLayers(Planet)
@@ -60,7 +69,7 @@ def SetupFilenames(Planet, Params):
     if Planet.Do.POROUS_ICE: fName += '_PorousIce'
 
     datBase = os.path.join(datPath, saveBase)
-    dataFiles = dataFilesStruct(datBase)
+    DataFiles = DataFilesSubstruct(datBase)
 
     # Figure filename strings
     vsP = 'Porosity_vs_P'
@@ -77,10 +86,10 @@ def SetupFilenames(Planet, Params):
     vwedg = 'Wedge'
 
     figBase = os.path.join(figPath, saveBase)
-    figureFiles = figureFilesStruct(figBase, Params.xtn)
+    FigureFiles = FigureFilesSubstruct(figBase, Params.xtn)
 
     #vcondFig.savefig(Params.figureFields.vcond, format = "png", dpi = 200)
-    return dataFiles, figureFiles
+    return DataFiles, FigureFiles
 
 
 def SetupLayers(Planet):
@@ -95,15 +104,3 @@ def SetupLayers(Planet):
         (np.zeros(Planet.Steps.nHydroMax) for _ in range(11))
 
     return Planet
-
-# Construct filenames for data, saving/reloading
-class dataFilesStruct:
-    def __init__(self, fName):
-        self.saveFile = fName + '.txt'
-        self.mantCoreFile = fName + '_mantleCore.txt'
-        self.permFile = fName + '_mantlePerm.txt'
-
-# Construct filenames for figures etc.
-class figureFilesStruct:
-    def __init__(self, fName, xtn):
-        self.dummyFig = fName + xtn

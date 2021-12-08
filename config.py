@@ -9,10 +9,11 @@ import matplotlib.pyplot as plt
 
 
 Params = ParamsStruct()
-Params.VERBOSE = True #sets amount of printed runtime messages
+Params.VERBOSE = True  # Provides extra runtime messages
 if Params.VERBOSE: print('Printing verbose runtime messages. Toggle in config.py.')
+Params.DEBUG = True
 
-Params.DO_PARALLEL = True # Use multiprocessing module for parallel computation where applicable
+Params.DO_PARALLEL = True  # Use multiprocessing module for parallel computation where applicable
 Params.CALC_NEW =       True  # Recalculate profiles? If not, read data from disk and re-plot.
 Params.CALC_NEW_REF =   True  # Recalculate reference phase curves?
 Params.CALC_NEW_SOUND = True  # Recalculate sound speeds?
@@ -51,9 +52,9 @@ Params.nIntL = 3  # Number of ocean layers to use when REDUCED = 1
 #Params.opts_odeLayers = odeset('RelTol',1e-8, 'AbsTol',1e-10,'MaxStep',10e3,'InitialStep',1e-2)
 
 # General figure options
-Params.dft_font = 'stix'  # default font variables- STIX is what is used in Icarus journal submissions
-Params.dft_math = 'stix'  # default math font variables- STIX is what is used in Icarus journal submissions
-Params.xtn = '.eps'  # figure file extension. Good options are .eps, .pdf, and .png
+Params.dft_font = 'stix'  # Default font variables--STIX is what is used in Icarus journal submissions
+Params.dft_math = 'stix'  # Default math font variables--STIX is what is used in Icarus journal submissions
+Params.xtn = '.eps'  # Figure file extension. Good options are .eps, .pdf, and .png
 
 
 # Color selection

@@ -86,16 +86,21 @@ def IceLayers(Planet, Params):
     Planet.rho_kgm3[:Planet.Steps.nSurfIce] = rhoSurfIce_kgm3
     Planet.Cp_JkgK[:Planet.Steps.nSurfIce] = CpSurfIce_JkgK
     Planet.alpha_pK[:Planet.Steps.nSurfIce] = alphaSurfIce_pK
+
     # Calculate remaining physical properties of uppermost ice
-    MAbove_kg = 0
+    thisMAbove_kg = 0
     for i in range(1, Planet.Steps.nSurfIce):
         # Increment depth based on change in pressure, combined with gravity and density
         Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6 / Planet.g_ms2[i-1] / Planet.rho_kgm3[i-1]
         Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
-        Planet.MLayer_kg[i] = 4/3*np.pi * rhoSurfIce_kgm3[i] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
-        MAbove_kg += Planet.MLayer_kg[i]
-        MBelow_kg = Planet.Bulk.M_kg - MAbove_kg
-        Planet.g_ms2[i] = Constants.G * MBelow_kg / Planet.r_m[i]**2
+        Planet.MLayer_kg[i-1] = 4/3*np.pi * rhoSurfIce_kgm3[i-1] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
+        thisMAbove_kg += Planet.MLayer_kg[i-1]
+        thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+        Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
+        if Params.VERBOSE: print('il: ' + str(i) +
+                                 '; P_MPa: ' + str(Planet.P_MPa[i]) +
+                                 '; T_K: ' + str(Planet.T_K[i]) +
+                                 '; phase: ' + str(Planet.phase[i]))
     Planet.zb_km = Planet.z_m[Planet.Steps.nSurfIce-1] / 1e3
 
     if Params.VERBOSE: print('Upper ice complete.')
@@ -130,13 +135,13 @@ def OceanLayers(Planet, Params):
         raise ValueError('Phase of first "ocean" layer is not zero.')
 
     POcean_MPa = np.arange(Planet.Pb_MPa+Planet.Ocean.deltaP, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
-    nOceanMax = np.size(POcean_MPa)
+    Planet.Steps.nOceanMax = np.size(POcean_MPa)
 
     # Initialize remaining local arrays
-    TOcean_K, rhoOcean_kgm3, CpOcean_JkgK, alphaOcean_pK = (np.zeros_like(POcean_MPa) for _ in range(4))
+    TOcean_K, rhoOcean_kgm3, CpOcean_JkgK, alphaOcean_pK = (np.zeros(Planet.Steps.nOceanMax) for _ in range(4))
     TOcean_K = np.insert(TOcean_K, 0, Planet.T_K[Planet.Steps.nSurfIce-1])
 
-    for i in range(nOceanMax):
+    for i in range(Planet.Steps.nOceanMax):
         Planet.phase[Planet.Steps.nSurfIce+i] = \
             GetPhase(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa[i], TOcean_K[i])
         if Params.VERBOSE: print('il: '+str(Planet.Steps.nSurfIce+i) +
@@ -162,19 +167,19 @@ def OceanLayers(Planet, Params):
 
     TOcean_K = np.delete(TOcean_K, 0)
 
-    Planet.P_MPa[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + nOceanMax] = POcean_MPa
-    Planet.T_K[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + nOceanMax] = TOcean_K
-    Planet.rho_kgm3[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + nOceanMax] = rhoOcean_kgm3
-    Planet.Cp_JkgK[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + nOceanMax] = CpOcean_JkgK
-    Planet.alpha_pK[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + nOceanMax] = alphaOcean_pK
+    Planet.P_MPa[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = POcean_MPa
+    Planet.T_K[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = TOcean_K
+    Planet.rho_kgm3[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = rhoOcean_kgm3
+    Planet.Cp_JkgK[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = CpOcean_JkgK
+    Planet.alpha_pK[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = alphaOcean_pK
 
     MAbove_kg = np.sum(Planet.MLayer_kg[:Planet.Steps.nSurfIce])
-    for i in range(Planet.Steps.nSurfIce, Planet.Steps.nSurfIce+nOceanMax):
+    for i in range(Planet.Steps.nSurfIce, Planet.Steps.nSurfIce + Planet.Steps.nOceanMax):
         Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6 / Planet.g_ms2[i-1] / \
                         Planet.rho_kgm3[i-1]
         Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
-        Planet.MLayer_kg[i] = 4/3*np.pi * Planet.rho_kgm3[i] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
-        MAbove_kg += Planet.MLayer_kg[i]
+        Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
+        MAbove_kg += Planet.MLayer_kg[i-1]
         MBelow_kg = Planet.Bulk.M_kg - MAbove_kg
         Planet.g_ms2[i] = Constants.G * MBelow_kg / Planet.r_m[i]**2
 
@@ -210,12 +215,16 @@ def InnerLayers(Planet, Params):
         Calculates state variables of the layer with each pressure step
 
         Assigns Planet attributes:
-            Steps.nHydro
             Steps.nTotal
     """
     Planet = FindSeafloorMoI(Planet, Params)
+    Planet.CMR2mean = 0
+    Planet.Sil.Rmean_m = 0
+    Planet.Core.Rmean_m = 0
+    Planet.Sil.Rrange_m = 0
+    Planet.Core.Rrange_m = 0
 
-    Planet.Steps.nHydro = Planet.Steps.nHydroMax
+    if Planet.Steps.nHydro <= Planet.Steps.nSurfIce: print('WARNING: For these run settings, the hydrosphere is entirely frozen.')
     Planet.Steps.nTotal = Planet.Steps.nHydro + Planet.Steps.nSil + Planet.Steps.nCore
 
     # Extend Planet layer arrays to make space for silicate and possible core layers
@@ -246,34 +255,93 @@ def FindSeafloorMoI(Planet, Params):
         properties and assumptions about the silicate and possible core layers.
 
         Assigns Planet attributes:
-            CMR2mean, Sil.RsilMean_m, Sil.RsilRange_m, Core.RFeMean_m, Core.RFeRange_m
+            CMR2mean, Sil.RsilMean_m, Sil.RsilRange_m, Core.RFeMean_m, Core.RFeRange_m, Steps.nHydro
     """
+    if Params.VERBOSE: print('Finding MoI consistent with measured value...')
     MR2 = Planet.Bulk.M_kg * Planet.Bulk.R_m**2
-    # Determine contribution to axial moment of inertia C from each ocean layer
+    nHydroActual = Planet.Steps.nSurfIce + Planet.Steps.nOceanMax
+    # Find contribution to axial moment of inertia C from each ocean layer
     dC_H2O = 8*np.pi/15 * Planet.rho_kgm3[:-1] * (Planet.r_m[:-1]**5 - Planet.r_m[1:]**5)
+    # Find total mass contained above each hydrosphere layer
+    MAbove_kg = np.array([np.sum(Planet.MLayer_kg[:i]) for i in range(nHydroActual)])
+    # Initialize arrays for axial moment of inertia C and other necessary quantities
+    C, rCore_m = (np.zeros(nHydroActual-1) for _ in range(2))
+    # Find volume of a full sphere of silicate layers
+    VsilSphere_m3 = 4/3*np.pi * Planet.r_m[1:]**3
 
     if Planet.Do.Fe_CORE:
         # If there is a core, we assume fixed densities in the silicates and core to
         # make the problem of finding a matching MoI tractable.
-        Planet.CMR2mean = 0.0
-        Planet.Sil.RsilMean_m = 0.0
-        Planet.Sil.RsilRange_m = 0.0
-        Planet.Core.RFeMean_m = 0.0
-        Planet.Core.RFeRange_m = 0.0
-        if Params.VERBOSE: print('Found matching MoI for ' +
-                                 'R_sil = ' + str(round(Planet.Sil.RsilMean_m / Planet.Bulk.R_m,2)) + 'R, ' +
-                                 'R_core = ' + str(round(Planet.Core.RFeMean_m / Planet.Bulk.R_m,2)) + 'R.')
+
+        # Find core bulk density based on assumed sulfide content (Eq 10 of Vance et al., 2014)
+        Planet.Core.rho_kgm3 = Planet.Core.rhoFeS_kgm3 * Planet.Core.rhoFe_kgm3 / \
+            (Planet.Core.xFeS * (Planet.Core.rhoFe_kgm3 - Planet.Core.rhoFeS_kgm3) + Planet.Core.rhoFeS_kgm3)
+        # Calculate core volume for a silicate layer with outer radius equal to bottom of each hydrosphere layer
+        # and inner radius equal to the core radius
+        VCore_m3 = np.array([(Planet.Bulk.M_kg - MAbove_kg[i] - VsilSphere_m3[i]*Planet.Sil.rhoSilWithCore_kgm3) /
+                             (Planet.Core.rho_kgm3 - Planet.Sil.rhoSilWithCore_kgm3) for i in range(nHydroActual-1)])
+        # Find values for which the silicate radius is too large
+        nTooBig = next((i[0] for i, val in np.ndenumerate(VCore_m3) if val>0))
+        # Calculate corresponding core radii based on above density
+        rCore_m[nTooBig:] = VCore_m3[nTooBig:]**(1/3)
+        # Assign fixed density to an array for dual-use code looking for compatible C/MR^2
+        rhoSil_kg = np.ones_like(rCore_m) * Planet.Sil.rhoSilWithCore_kgm3
     else:
         # When there is no core, we treat the silicate density as a free parameter to
         # find a matching solution for the MoI.
-        Planet.CMR2mean = 0.0
-        Planet.Sil.RsilMean_m = 0.0
-        Planet.Sil.RsilRange_m = 0.0
-        if Params.VERBOSE: print('Found matching MoI of C = ' + str(round(Planet.Cmatch,3)) + ' for ' +
-                                 'R_sil = ' + str(round(Planet.Sil.RsilMean_m / Planet.Bulk.R_m,2)) + 'R, ' +
-                                 'phoSil = ' + str(round(Planet.Sil.rhoSil_kgm3)) + ' kg/m^3.')
 
+        # Find silicate density consistent with observed bulk mass for each radius
+        rhoSil_kg = np.array([(Planet.Bulk.M_kg - MAbove_kg[i]) / VsilSphere_m3[i] for i in range(nHydroActual-1)])
+        # Density of silicates is scaled to fit the total mass, so there is no nTooBig in this case.
+        nTooBig = 0
+        # Set core density to zero so calculations can proceed
+        Planet.Core.rho_kgm3 = 0
 
+    # Calculate C for a mantle extending up to each hydrosphere layer in turn
+    C[nTooBig:] = [np.sum(dC_H2O[:i+1]) + \
+            8*np.pi/15 * rhoSil_kg[i] * (Planet.r_m[i]**5 - rCore_m[i]**5) + \
+            8*np.pi/15 * Planet.Core.rho_kgm3 * rCore_m[i]**5 \
+            for i in range(nTooBig, nHydroActual-1)]
+    CMR2 = C / MR2
+
+    CMR2inds = [i[0] for i, valCMR2 in np.ndenumerate(CMR2)
+                 if valCMR2 > Planet.Bulk.Cmeasured - Planet.Bulk.Cuncertainty
+                and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.Cuncertainty]
+    # Above is a WIP, overriding for testing CompareProfile:
+    CMR2inds = [398]
+
+    if len(CMR2inds) == 0:
+        raise ValueError('No MoI found matching ' +
+                        ' C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured, 3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + '.\n ' +
+                         'Min: ' + str(round(min(CMR2[CMR2>0]),3)) + ', Max: ' + str(round(max(CMR2),3)) + '.\n ' +
+                         'Try increasing PHydroMax_MPa or adjusting properties of silicates and core.')
+
+    # Find the C/MR^2 value most closely matching the measured value
+    CMR2diff = np.abs(CMR2[CMR2inds] - Planet.Bulk.Cmeasured)
+    # Get index of closest match in CMR2inds
+    iCMR2inds = np.argmin(CMR2diff)
+    # Find Planet array index corresponding to closest matching value
+    iCMR2 = CMR2inds[iCMR2inds]
+    # Record the best-match C/MR^2 value
+    Planet.CMR2mean = CMR2[iCMR2]
+    # Now we finally know how many layers there are in the hydrosphere
+    Planet.Steps.nHydro = iCMR2 - 1
+
+    # Fill core/mantle trade arrays and set mean values consistent with MoI
+    Planet.Sil.rho_kgm3 = rhoSil_kg[iCMR2]
+    Planet.Sil.rhoTrade_kgm3 = rhoSil_kg[CMR2inds]
+    Planet.Sil.Rmean_m = Planet.r_m[iCMR2]
+    Planet.Sil.Rtrade_m = Planet.r_m[CMR2inds]
+    Planet.Sil.Rrange_m = Planet.Sil.Rtrade_m[0] - Planet.Sil.Rtrade_m[-1]
+    Planet.Core.Rmean_m = rCore_m[iCMR2]
+    Planet.Core.Rtrade_m = rCore_m[CMR2inds]
+    Planet.Core.Rrange_m = Planet.Core.Rtrade_m[0] - Planet.Core.Rtrade_m[-1]
+
+    if Params.VERBOSE: print('Found matching MoI of ' + str(round(Planet.CMR2mean,3)) +
+                           ' (C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured,3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + ') for ' +
+                             'rho_sil = ' + str(round(Planet.Sil.rho_kgm3)) + ' kg/m^3, ' +
+                             'R_sil = ' + str(round(Planet.Sil.Rmean_m / Planet.Bulk.R_m,2)) + 'R, ' +
+                             'R_core = ' + str(round(Planet.Core.Rmean_m / Planet.Bulk.R_m,2)) + 'R.')
 
     return Planet
 
