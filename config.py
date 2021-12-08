@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 Params = ParamsStruct()
 Params.VERBOSE = True  # Provides extra runtime messages
 if Params.VERBOSE: print('Printing verbose runtime messages. Toggle in config.py.')
-Params.DEBUG = True
+Params.DEBUG = False
 
 Params.DO_PARALLEL = True  # Use multiprocessing module for parallel computation where applicable
 Params.CALC_NEW =       True  # Recalculate profiles? If not, read data from disk and re-plot.
