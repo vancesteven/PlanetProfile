@@ -10,10 +10,10 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
 * Python 3.8+ installed, preferably via Anaconda. Required modules:
   * Standard Anaconda (for miniconda, install with conda install <packageName1> <packagename2> etc.):
     * numpy
-    * spiceypy
     * matplotlib
   * Conda-forge (install with conda install -c conda-forge <packageName>):
-    * gsw (included in Anaconda installation)
+    * gsw
+    * spiceypy
     * skyfield (maybe not needed? Used in body date/time settings of asymmetric induction code)
 * Refprop is required for NH3 solutions: https://www.nist.gov/refprop
   * Due to various complications it is not currently implemented.
