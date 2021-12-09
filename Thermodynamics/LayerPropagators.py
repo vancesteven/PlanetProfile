@@ -266,7 +266,7 @@ def FindSeafloorMoI(Planet, Params):
     MAbove_kg = np.array([np.sum(Planet.MLayer_kg[:i]) for i in range(nHydroActual)])
     # Initialize arrays for axial moment of inertia C and other necessary quantities
     C, rCore_m = (np.zeros(nHydroActual-1) for _ in range(2))
-    # Find volume of a full sphere of silicate layers
+    # Find volume of a full sphere of silicate corresponding to each valid layer
     VsilSphere_m3 = 4/3*np.pi * Planet.r_m[1:]**3
 
     if Planet.Do.Fe_CORE:
@@ -283,7 +283,7 @@ def FindSeafloorMoI(Planet, Params):
         # Find values for which the silicate radius is too large
         nTooBig = next((i[0] for i, val in np.ndenumerate(VCore_m3) if val>0))
         # Calculate corresponding core radii based on above density
-        rCore_m[nTooBig:] = VCore_m3[nTooBig:]**(1/3)
+        rCore_m[nTooBig:] = (VCore_m3[nTooBig:]*3/4/np.pi)**(1/3)
         # Assign fixed density to an array for dual-use code looking for compatible C/MR^2
         rhoSil_kg = np.ones_like(rCore_m) * Planet.Sil.rhoSilWithCore_kgm3
     else:
@@ -307,8 +307,6 @@ def FindSeafloorMoI(Planet, Params):
     CMR2inds = [i[0] for i, valCMR2 in np.ndenumerate(CMR2)
                  if valCMR2 > Planet.Bulk.Cmeasured - Planet.Bulk.Cuncertainty
                 and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.Cuncertainty]
-    # Above is a WIP, overriding for testing CompareProfile:
-    CMR2inds = [398]
 
     if len(CMR2inds) == 0:
         raise ValueError('No MoI found matching ' +
