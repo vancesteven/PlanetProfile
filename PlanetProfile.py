@@ -10,6 +10,7 @@ from Utilities.SetupInit import SetupInit, SetupFilenames
 from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, HydroConvect, InnerLayers
 from Thermodynamics.Electrical import ElecConduct
 from Seismic import SeismicCalcs
+from Plotting.ProfilePlots import GeneratePlots
 
 #from Thermodynamics.FromLiterature.conductiveMantleTemperature import conductiveMantleTemperature
 
@@ -66,7 +67,7 @@ def PlanetProfile(Planet, Params):
 
     if not Params.SKIP_PROFILES:
         # Plotting functions
-        pass
+        GeneratePlots(Planet, Params)
 
     if Params.VERBOSE: print('Run complete!')
     return Planet
