@@ -14,7 +14,7 @@ if Params.VERBOSE: print('Printing verbose runtime messages. Toggle in config.py
 Params.DEBUG = False
 
 Params.DO_PARALLEL = True  # Use multiprocessing module for parallel computation where applicable
-Params.CALC_NEW =       True  # Recalculate profiles? If not, read data from disk and re-plot.
+Params.CALC_NEW =       False  # Recalculate profiles? If not, read data from disk and re-plot.
 Params.CALC_NEW_REF =   True  # Recalculate reference phase curves?
 Params.CALC_NEW_SOUND = True  # Recalculate sound speeds?
 Params.CALC_NEW_INDUC = True  # Recalculate magnetic induction responses?
@@ -26,6 +26,11 @@ Params.REDUCED =        True  # Whether to limit number of ocean layers for fast
 Params.DISP_LAYERS =    False  # Whether to display layer depths and heat fluxes for user
 Params.DISP_TABLES =    False  # Whether to print latex-formatted tables to Matlab command line
 Params.DEPRECATED =     False  # Whether to allow deprecated code to run. Will often cause errors.
+
+# Plot Settings
+Params.PLOT_GRAVITY = True  # Whether to plot Gravity and Pressure
+Params.PLOT_CONDUCTIVITY = True  # Whether to plot Conductivity with Interior Properties
+Params.PLOT_TRADEOFF = True  # Whether to plot core vs. mantle tradeoff
 
 # Magnetic induction calculation settings
 Params.DO_EUR = True  # Whether to calculate induction responses for Europa
