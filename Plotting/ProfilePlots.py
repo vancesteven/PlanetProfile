@@ -1,13 +1,13 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-plt.rcParams['text.usetex'] = True
 
 def GeneratePlots(Planet, Params):
 
     if Params.PLOT_GRAVITY: PlotGravPres(Planet, Params)
     if Params.PLOT_HYDROSPHERE: PlotHydrosphereProps(Planet, Params)
     if Params.PLOT_TRADEOFF: PlotTradeoff(Planet, Params)
+    if Params.PLOT_WEDGE: PlotWedge(Planet, Params)
     return
 
 
@@ -17,7 +17,7 @@ def PlotGravPres(Planet, Params):
             'pressure': Planet.P_MPa}
     plt.subplot(1, 2, 1)
     plt.plot('grav', 'Radius', data=data)
-    plt.xlabel('$g$ (m/s$^2$)')
+    plt.xlabel('g (m/s$^2$)')
     plt.ylabel('Radius (km)')
 
     plt.subplot(1,2,2)
@@ -57,5 +57,32 @@ def PlotTradeoff(Planet, Params):
     plt.plot('Rsil', 'Rfe', data = data)
     plt.xlabel('RFe (km)')
     plt.ylabel('Rsil (km)')
-    plt.title('Fe core; $C/MR^2$: 0.346$\,\pm\,$0.005; w = 0\,wt\%, $\rho_\mathrm{sil}$: 3644; $\rho_\mathrm{Fe}$: 6133')
+    plt.title('Fe core; $C/MR^2$: 0.346$\,\pm\,$0.005; w = 0$\,$wt$\%\,$; $\\rho\mathrm{sil}$: 3644; $\\rho\mathrm{Fe}$: 6133')
     plt.show()
+
+
+def PlotWedge(Planet, Params):
+    data = {'r': Planet.r_m/1000,
+            'phase': Planet.phase}
+
+    plt.title('Interior Wedge Diagram')
+    plt.suptitle('$Tb_K = \mathrm{' + str(Planet.Bulk.Tb_K) + '}$')
+    plt.show()
+    pass
+
+
+def  GetWedgeColors():
+    colors.IonosphereTop = [1, 0, 1] # matlab's magenta
+    colors.Ionosphere = [1, 0, 1] # matlab's magenta
+    colors.IonosphereBot = [1, 0, 1] # matlab's magenta
+    colors.IceI = [150, 226, 241]/255
+    colors.IceII = [3, 169, 252]/255
+    colors.IceIII = [150, 226, 241]/255
+    colors.IceV = [150, 226, 241]/255
+    colors.IceVI =  [150, 226, 241]/255
+    colors.IceVII =  [44, 115, 150]/255
+    colors.OceanTop = [134, 149, 201]/255  # Darker and richer
+    colors.OceanBot = [45, 55, 100]/255
+    colors.Rock = [101, 46, 11]/255
+    colors.Core = [141, 122, 121]/255
+

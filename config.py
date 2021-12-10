@@ -28,9 +28,11 @@ Params.DISP_TABLES =    False  # Whether to print latex-formatted tables to Matl
 Params.DEPRECATED =     False  # Whether to allow deprecated code to run. Will often cause errors.
 
 # Plot Settings
+Params.TEX_INSTALLED = True #Whether user has Latex installed for plot labels
 Params.PLOT_GRAVITY = True  # Whether to plot Gravity and Pressure
 Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
 Params.PLOT_TRADEOFF = True  # Whether to plot core vs. mantle tradeoff
+Params.PLOT_WEDGE = True  # Whether to plot interior wedge diagram
 
 # Magnetic induction calculation settings
 Params.DO_EUR = True  # Whether to calculate induction responses for Europa
@@ -58,11 +60,16 @@ Params.nIntL = 3  # Number of ocean layers to use when REDUCED = 1
 
 # General figure options
 Params.dft_font = 'stix'  # Default font variables--STIX is what is used in Icarus journal submissions
-plt.rcParams['text.usetex'] = True  # Use Latex interpreter to render text on plots
-plt.rcParams['text.latex.preamble'] = '\\usepackage{'+Params.dft_font+'}'  # Load in font package in Latex
+Params.xtn = '.eps'  # Figure file extension. Good options are .eps, .pdf, and .png
 plt.rcParams['font.family'] = 'serif'  # Choose serif font for figures to best match math mode variables in body text
 plt.rcParams['font.serif'] = Params.dft_font  # Set plots to use the default font
-Params.xtn = '.eps'  # Figure file extension. Good options are .eps, .pdf, and .png
+try:
+    plt.rcParams['text.usetex'] = True  # Use Latex interpreter to render text on plots
+    plt.rcParams['text.latex.preamble'] = '\\usepackage{'+Params.dft_font+'}'  # Load in font package in Latex
+except RuntimeError:
+    print("Latex not found. Setting TEX_INSTALLED to false")
+    Params.TEX_INSTALLED = False
+
 
 
 # Color selection
