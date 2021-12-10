@@ -29,7 +29,7 @@ Params.DEPRECATED =     False  # Whether to allow deprecated code to run. Will o
 
 # Plot Settings
 Params.PLOT_GRAVITY = True  # Whether to plot Gravity and Pressure
-Params.PLOT_CONDUCTIVITY = True  # Whether to plot Conductivity with Interior Properties
+Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
 Params.PLOT_TRADEOFF = True  # Whether to plot core vs. mantle tradeoff
 
 # Magnetic induction calculation settings
@@ -58,7 +58,10 @@ Params.nIntL = 3  # Number of ocean layers to use when REDUCED = 1
 
 # General figure options
 Params.dft_font = 'stix'  # Default font variables--STIX is what is used in Icarus journal submissions
-Params.dft_math = 'stix'  # Default math font variables--STIX is what is used in Icarus journal submissions
+plt.rcParams['text.usetex'] = True  # Use Latex interpreter to render text on plots
+plt.rcParams['text.latex.preamble'] = '\\usepackage{'+Params.dft_font+'}'  # Load in font package in Latex
+plt.rcParams['font.family'] = 'serif'  # Choose serif font for figures to best match math mode variables in body text
+plt.rcParams['font.serif'] = Params.dft_font  # Set plots to use the default font
 Params.xtn = '.eps'  # Figure file extension. Good options are .eps, .pdf, and .png
 
 
