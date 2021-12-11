@@ -72,7 +72,7 @@ if shutil.which('latex'):
     Params.TEX_INSTALLED = True
 else:
     print('A LaTeX installation was not found. Some plots may have fallback options in labels.')
-    plt.rcParams['font.serif'] += ', ' + Params.backupFontName  # Set plots to use the default font if installed, or a backup if not
+    plt.rcParams['font.serif'] += ', ' + Params.backupFont  # Set plots to use the default font if installed, or a backup if not
     plt.rcParams['mathtext.fontset'] = Params.defaultFontCode
     Params.TEX_INSTALLED = False
 
