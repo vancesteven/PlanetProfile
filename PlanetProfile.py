@@ -75,7 +75,7 @@ def PlanetProfile(Planet, Params):
 
 def WriteProfile(Planet, Params):
     """ Write out all profile calculations to disk """
-    Params.nHeadLines = 26  # Increment as new header lines are added
+    Params.nHeadLines = 27  # Increment as new header lines are added
     with open(Params.DataFiles.saveFile,'w') as f:
         # Print number of header lines first so we can skip the rest on read-in if we want to
         f.write('  nHeadLines = ' + str(Params.nHeadLines) + '\n')
@@ -92,10 +92,11 @@ def WriteProfile(Planet, Params):
         f.write('  QfromMantle_Wm2 = ' + str(Planet.Ocean.QfromMantle_Wm2) + '\n')
         f.write('  phiRockMax = ' + str(Planet.Sil.phiRockMax) + '\n')
         f.write('  RsilMean_m = ' + str(Planet.Sil.Rmean_m) + '\n')
-        f.write('  RFeMean_m = ' + str(Planet.Core.Rmean_m) + '\n')
         f.write('  RsilRange_m = ' + str(Planet.Sil.Rrange_m) + '\n')
-        f.write('  RFeRange_m = ' + str(Planet.Core.Rrange_m) + '\n')
-        f.write('  rhoFe_kgm3 = ' + str(Planet.Core.rhoFe_kgm3) + '\n')
+        f.write('  rhoSil_kgm3 = ' + str(Planet.Sil.rhoMean_kgm3) + '\n')
+        f.write('  RcoreMean_m = ' + str(Planet.Core.Rmean_m) + '\n')
+        f.write('  RcoreRange_m = ' + str(Planet.Core.Rrange_m) + '\n')
+        f.write('  rhoCore_kgm3 = ' + str(Planet.Core.rhoMean_kgm3) + '\n')
         f.write('  Steps.nClath = ' + str(Planet.Steps.nClath) + '\n')
         f.write('  Steps.nIceI = ' + str(Planet.Steps.nIceI) + '\n')
         f.write('  Steps.nIceIIILitho = ' + str(Planet.Steps.nIceIIILitho) + '\n')
@@ -165,9 +166,9 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         # Get float values from header
         Planet.Ocean.wOcean_ppt, Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, \
         Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.CMR2mean, Planet.Ocean.QfromMantle_Wm2, \
-        Planet.Sil.phiRockMax, Planet.Sil.Rmean_m, Planet.Core.Rmean_m, Planet.Sil.Rrange_m, \
-        Planet.Core.Rrange_m, Planet.Core.rhoFe_kgm3 \
-            = (float(f.readline().split('=')[-1]) for _ in range(15))
+        Planet.Sil.phiRockMax, Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, \
+        Planet.Core.Rmean_m, Planet.Core.Rrange_m, Planet.Core.rhoMean_kgm3 \
+            = (float(f.readline().split('=')[-1]) for _ in range(16))
         # Get integer values from header (nSteps values)
         Planet.Steps.nClath, Planet.Steps.nIceI, \
         Planet.Steps.nIceIIILitho, Planet.Steps.nIceVLitho, \
@@ -240,10 +241,11 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
     if Planet.Ocean.QfromMantle_Wm2 == 0: Planet.Ocean.QfromMantle_Wm2 = tiny
     if Planet.Sil.phiRockMax == 0: Planet.Sil.phiRockMax = tiny
     if Planet.Sil.Rmean_m == 0: Planet.Sil.Rmean_m = tiny
-    if Planet.Core.Rmean_m == 0: Planet.Core.Rmean_m = tiny
     if Planet.Sil.Rrange_m == 0: Planet.Sil.Rrange_m = tiny
+    if Planet.Sil.rhoMean_kgm3 == 0: Planet.Sil.rhoMean_kgm3 = tiny
+    if Planet.Core.Rmean_m == 0: Planet.Core.Rmean_m = tiny
     if Planet.Core.Rrange_m == 0: Planet.Core.Rrange_m = tiny
-    if Planet.Core.rhoFe_kgm3 == 0: Planet.Core.rhoFe_kgm3 = tiny
+    if Planet.Core.rhoMean_kgm3 == 0: Planet.Core.rhoMean_kgm3 = tiny
 
     # Avoid false positives for zero values
     if Planet2.Ocean.wOcean_ppt == 0: Planet2.Ocean.wOcean_ppt = tiny
@@ -257,10 +259,11 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
     if Planet2.Ocean.QfromMantle_Wm2 == 0: Planet2.Ocean.QfromMantle_Wm2 = tiny
     if Planet2.Sil.phiRockMax == 0: Planet2.Sil.phiRockMax = tiny
     if Planet2.Sil.Rmean_m == 0: Planet2.Sil.Rmean_m = tiny
-    if Planet2.Core.Rmean_m == 0: Planet2.Core.Rmean_m = tiny
     if Planet2.Sil.Rrange_m == 0: Planet2.Sil.Rrange_m = tiny
+    if Planet2.Sil.rhoMean_kgm3 == 0: Planet2.Sil.rhoMean_kgm3 = tiny
+    if Planet2.Core.Rmean_m == 0: Planet2.Core.Rmean_m = tiny
     if Planet2.Core.Rrange_m == 0: Planet2.Core.Rrange_m = tiny
-    if Planet2.Core.rhoFe_kgm3 == 0: Planet2.Core.rhoFe_kgm3 = tiny
+    if Planet2.Core.rhoMean_kgm3 == 0: Planet2.Core.rhoMean_kgm3 = tiny
 
     # Compare header info
     same_nHeadLines = Params.nHeadLines == Params2.nHeadLines
@@ -277,10 +280,11 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
     same_QfromMantle_Wm2 = (Planet.Ocean.QfromMantle_Wm2 - Planet2.Ocean.QfromMantle_Wm2) / Planet.Ocean.QfromMantle_Wm2 < tol
     same_phiRockMax = (Planet.Sil.phiRockMax - Planet2.Sil.phiRockMax) / Planet.Sil.phiRockMax < tol
     same_silRmean_m = (Planet.Sil.Rmean_m - Planet2.Sil.Rmean_m) / Planet.Sil.Rmean_m < tol
-    same_coreRmean_m = (Planet.Core.Rmean_m - Planet2.Core.Rmean_m) / Planet.Core.Rmean_m < tol
     same_silRrange_m = (Planet.Sil.Rrange_m - Planet2.Sil.Rrange_m) / Planet.Sil.Rrange_m < tol
+    same_silrhoMean_kgm3 = (Planet.Sil.rhoMean_kgm3 - Planet2.Sil.rhoMean_kgm3) / Planet.Sil.rhoMean_kgm3 < tol
+    same_coreRmean_m = (Planet.Core.Rmean_m - Planet2.Core.Rmean_m) / Planet.Core.Rmean_m < tol
     same_coreRrange_m = (Planet.Core.Rrange_m - Planet2.Core.Rrange_m) / Planet.Core.Rrange_m < tol
-    same_rhoFe_kgm3 = (Planet.Core.rhoFe_kgm3 - Planet2.Core.rhoFe_kgm3) / Planet.Core.rhoFe_kgm3 < tol
+    same_corerhoMean_kgm3 = (Planet.Core.rhoMean_kgm3 - Planet2.Core.rhoMean_kgm3) / Planet.Core.rhoMean_kgm3 < tol
     same_nClath = Planet.Steps.nClath == Planet2.Steps.nClath
     same_nIceI = Planet.Steps.nIceI == Planet2.Steps.nIceI
     same_nIceIIILitho = Planet.Steps.nIceIIILitho == Planet2.Steps.nIceIIILitho
@@ -293,8 +297,8 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         and same_nCore
     headers_match = same_nHeadLines and same_comp and same_Fe_CORE and same_wOcean_ppt and same_Tb_K and same_zb_km \
         and same_zClath_m and same_Pb_MPa and same_PbI_MPa and same_deltaP and same_CMR2mean and same_QfromMantle_Wm2 \
-        and same_phiRockMax and same_silRmean_m and same_coreRmean_m and same_silRrange_m and same_coreRrange_m \
-        and same_rhoFe_kgm3 and same_steps
+        and same_phiRockMax and same_silRmean_m and same_silRrange_m and same_silrhoMean_kgm3 and same_coreRmean_m \
+        and same_coreRrange_m and same_corerhoMean_kgm3 and same_steps
 
     if not headers_match:
         if not same_nHeadLines: print('nHeadLines differs. ' + str(Params.nHeadLines) + ' | ' + str(Params2.nHeadLines))
@@ -311,10 +315,11 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         if not same_QfromMantle_Wm2: print('Ocean.QfromMantle_Wm2 differs. ' + str(Planet.Ocean.QfromMantle_Wm2) + ' | ' + str(Planet2.Ocean.QfromMantle_Wm2))
         if not same_phiRockMax: print('Sil.phiRockMax differs. ' + str(Planet.Sil.phiRockMax) + ' | ' + str(Planet2.Sil.phiRockMax))
         if not same_silRmean_m: print('Sil.Rmean_m differs. ' + str(Planet.Sil.Rmean_m) + ' | ' + str(Planet2.Sil.Rmean_m))
-        if not same_coreRmean_m: print('Core.Rmean_m differs. ' + str(Planet.Core.Rmean_m) + ' | ' + str(Planet2.Core.Rmean_m))
         if not same_silRrange_m: print('Sil.Rrange_m differs. ' + str(Planet.Sil.Rrange_m) + ' | ' + str(Planet2.Sil.Rrange_m))
+        if not same_silrhoMean_kgm3: print('Sil.rhoMean_kgm3 differs. ' + str(Planet.Sil.rhoMean_kgm3) + ' | ' + str(Planet2.Sil.rhoMean_kgm3))
+        if not same_coreRmean_m: print('Core.Rmean_m differs. ' + str(Planet.Core.Rmean_m) + ' | ' + str(Planet2.Core.Rmean_m))
         if not same_coreRrange_m: print('Core.Rrange_m differs. ' + str(Planet.Core.Rrange_m) + ' | ' + str(Planet2.Core.Rrange_m))
-        if not same_rhoFe_kgm3: print('Core.rhoFe_kgm3 differs. ' + str(Planet.Core.rhoFe_kgm3) + ' | ' + str(Planet2.Core.rhoFe_kgm3))
+        if not same_corerhoMean_kgm3: print('Core.rhoMean_kgm3 differs. ' + str(Planet.Core.rhoMean_kgm3) + ' | ' + str(Planet2.Core.rhoMean_kgm3))
         if not same_nClath: print('Steps.nClath differs. ' + str(Planet.Steps.nClath) + ' | ' + str(Planet2.Steps.nClath))
         if not same_nIceI: print('Steps.nIceI differs. ' + str(Planet.Steps.nIceI) + ' | ' + str(Planet2.Steps.nIceI))
         if not same_nIceIIILitho: print('Steps.nIceIIILitho differs. ' + str(Planet.Steps.nIceIIILitho) + ' | ' + str(Planet2.Steps.nIceIIILitho))

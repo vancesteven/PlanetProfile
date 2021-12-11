@@ -2061,8 +2061,8 @@ if cfg.DISP_LAYERS
         disp(['&$\rho_{core}$ (kg m$^{-3}$)&' rhocorestr '\\']);
     else
         disp(['Computed C/MR2 for Tb=' num2str(Planet.Tb_K) 'K: ' num2str(C1(C2mean)/MR2) '  (neighboring values: ' num2str(C1(C2mean+1)/MR2) '; ' num2str(C1(C2mean-1)/MR2) ')'])
-        rhom(iT2) = mean(rho_sil_kgm3(C2mean));
-        rhommodel(iT2) = mean(interior.rho_mantle_kgm3);
+        rhom = mean(rho_sil_kgm3(C2mean));
+        rhommodel = mean(interior.rho_mantle_kgm3);
         rhorockstr = getTableStr(Planet.Tb_K,round(rhom));
         rhorockmstr = getTableStr(Planet.Tb_K,round(rhommodel));
         if exist('concstr','var')
@@ -2117,11 +2117,15 @@ end
     if Planet.FeCore
         R_Fe_trade_m = R_Fe_m(C2inds);
         rho_sil_trade_kgm3 = zeros(size(R_sil_m(C2inds)));
+        rho_sil_mean_kgm3 = Planet.rho_sil_withcore_kgm3;
         phi_core_frac = zeros(1, Params.nsteps_core);
+        rho_core_mean_kgm3 = rho_Fe_kgm3;
     else
         R_Fe_trade_m = zeros(size(R_sil_m(C2inds)));
         rho_sil_trade_kgm3 = rho_sil_kgm3(C2inds);
+        rho_sil_mean_kgm3 = rhommodel;
         phi_core_frac = zeros(1, 0);
+        rho_core_mean_kgm3 = 0;
     end
     R_sil_trade_m = R_sil_m(C2inds);
 
@@ -2138,8 +2142,8 @@ end
 
     writeToDisk([datpath savestr], Planet.Ocean.comp, Planet.FeCore, Planet.Ocean.w_ocean_pct, Planet.Tb_K, ...
         Planet.zb_outerIce_m/1e3, Planet.zClath_m, Pb_MPa, PbI_MPa, deltaP, CMR2mean, ...
-        Planet.Qmantle_Wm2, Planet.phi_surface, R_sil_mean_m, R_Fe_mean_m, R_sil_range_m, R_Fe_range_m, ...
-        rho_Fe_kgm3, Params.nsteps_clath, Params.nsteps_iceI, nIceIIILithosphere, nIceVLithosphere, ...
+        Planet.Qmantle_Wm2, Planet.phi_surface, R_sil_mean_m, R_sil_range_m, rho_sil_mean_kgm3, R_Fe_mean_m, R_Fe_range_m, ...
+        rho_core_mean_kgm3, Params.nsteps_clath, Params.nsteps_iceI, nIceIIILithosphere, nIceVLithosphere, ...
         nsteps_hydro, Params.nsteps_mantle, Params.nsteps_core, ...
         R_sil_trade_m, R_Fe_trade_m, rho_sil_trade_kgm3, permeability, ...
         P_Planet_MPa, T_Planet_K, r_Planet_m, phasePlanet, ...
@@ -2160,7 +2164,7 @@ end
             [Planet.Ocean.comp, Planet.FeCore, Planet.Ocean.w_ocean_pct, Planet.Tb_K, ...
             Planet.zb_outerIce_m, Planet.zClath_m, Pb_MPa, PbI_MPa, deltaP, ...
             CMR2mean, Planet.Qmantle_Wm2, Planet.phi_surface, ...
-            R_sil_mean_m, R_Fe_mean_m, R_sil_range_m, R_Fe_range_m, rho_Fe_kgm3, ...
+            R_sil_mean_m, R_sil_range_m, rho_sil_mean_kgm3, R_Fe_mean_m, R_Fe_range_m, rho_core_mean_kgm3, ...
             Params.nsteps_clath, Params.nsteps_iceI, nIceIIILithosphere, nIceVLithosphere, nsteps_hydro, ...
             Params.nsteps_mantle, Params.nsteps_core, ...
             R_sil_trade_m, R_Fe_trade_m, rho_sil_trade_kgm3, permeability(1,:,:), ...
@@ -2213,7 +2217,7 @@ if ~cfg.SKIP_PROFILES % SKIP_PROFILES to be deprecated in favor of a more robust
         box on
         xlabel([math 'R_{' nm 'Fe}' nm ' (km)'],'Fontsize',lbl.mltext);
         ylabel([math 'R_{' nm 'sil}' nm ' (km)'],'Fontsize',lbl.mltext);
-        title(['Fe core ; ' math 'C/MR^2' bnm ' = ' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) '; ' math ' W ' bnm ' = ' num2str(wo) ' wt%; ' math '\rho_{' bnm 'sil}' bnm ': ' num2str(Planet.rho_sil_withcore_kgm3,'%0.0f') '; ' math '\rho_{' bnm 'Fe}' bnm ': ' num2str(rho_Fe_kgm3,'%0.0f')],'Fontsize',lbl.lgtext)
+        title(['Fe core ; ' math 'C/MR^2' bnm ' = ' num2str(Planet.Cmeasured) '\pm' num2str(Planet.Cuncertainty) '; ' math ' W ' bnm ' = ' num2str(wo) ' wt%; ' math '\rho_{' bnm 'sil}' bnm ': ' num2str(rho_sil_mean_kgm3,'%0.0f') '; ' math '\rho_{' bnm 'Fe}' bnm ': ' num2str(rho_core_mean_kgm3,'%0.0f')],'Fontsize',lbl.lgtext)
 
         print(figs.core,Params.savefigformat,fullfile([figpath savebase vcore cfg.xtn]));
     else
@@ -2938,7 +2942,7 @@ if ~cfg.SKIP_PROFILES
     if ~Params.HOLD
         clf;
     end
-    gp = g_ms2(C2mean);
+    gp = g_Planet_ms2(nsteps_hydro+1);
 
     subplot(1,2,1);
     if Params.HOLD
@@ -3483,7 +3487,7 @@ t_model=taup_model;
 end
 
 function writeToDisk(fileName, comp, FeCore, wtPpt, Tb_K, zb_km, zClath_m, Pb_MPa, PbI_MPa, deltaP, ...
-    CMR2mean, QfromMantle_Wm2, phiRockMax, RsilMean_m, RFeMean_m, RsilRange_m, RFeRange_m, rhoFe_kgm3, ...
+    CMR2mean, QfromMantle_Wm2, phiRockMax, RsilMean_m, RsilRange_m, rhoSilMean_kgm3, RFeMean_m, RFeRange_m, rhoCoreMean_kgm3, ...
     nStepsClath, nStepsIceI, nIceIIILitho, nIceVLitho, nStepsHydro, nStepsSil, nStepsCore, ...
     RsilTrade_m, RFeTrade_m, rhoSilTrade_kgm3, permeability, ...
     P_Planet_MPa, T_Planet_K, r_Planet_m, phasePlanet, ...
@@ -3495,7 +3499,7 @@ function writeToDisk(fileName, comp, FeCore, wtPpt, Tb_K, zb_km, zClath_m, Pb_MP
     mantCoreFile = fullfile([fileName '_mantleCore.txt']);
     permFile = fullfile([fileName '_mantlePerm.txt']);
 
-    dlmwrite(saveFile, '  nHeadLines = 26', 'delimiter', '');
+    dlmwrite(saveFile, '  nHeadLines = 27', 'delimiter', '');
     dlmwrite(saveFile, ['  Ocean salt = ' comp], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  Iron core = ' num2str(FeCore)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  Salinity(ppt) = ' num2str(wtPpt)], 'delimiter', '', '-append');
@@ -3509,10 +3513,11 @@ function writeToDisk(fileName, comp, FeCore, wtPpt, Tb_K, zb_km, zClath_m, Pb_MP
     dlmwrite(saveFile, ['  QfromMantle_Wm2 = ' num2str(QfromMantle_Wm2)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  phiRockMax = ' num2str(phiRockMax)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  RsilMean_m = ' num2str(RsilMean_m)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  RFeMean_m = ' num2str(RFeMean_m)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  RsilRange_m = ' num2str(RsilRange_m)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  rhoSilMean_kgm3 = ' num2str(rhoSilMean_kgm3)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  RFeMean_m = ' num2str(RFeMean_m)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  RFeRange_m = ' num2str(RFeRange_m)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  rhoFe_kgm3 = ' num2str(rhoFe_kgm3)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  rhoCoreMean_kgm3 = ' num2str(rhoCoreMean_kgm3)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  nStepsClath = ' num2str(nStepsClath)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  nStepsIceI = ' num2str(nStepsIceI)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  nIceIIILitho = ' num2str(nIceIIILitho)], 'delimiter', '', '-append');
@@ -3554,7 +3559,7 @@ function writeToDisk(fileName, comp, FeCore, wtPpt, Tb_K, zb_km, zClath_m, Pb_MP
 end
 
 function [comp, FeCore, wtPct, Tb_K, zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, CMR2mean, ...
-    QfromMantle_Wm2, phiRockMax, RsilMean_m, RFeMean_m, RsilRange_m, RFeRange_m, rhoFe_kgm3, ...
+    QfromMantle_Wm2, phiRockMax, RsilMean_m, RsilRange_m, rhoSilMean_kgm3, RFeMean_m, RFeRange_m, rhoCoreMean_kgm3, ...
     nStepsClath, nStepsIceI, nIceIIILitho, nIceVLitho, nStepsHydro, nStepsSil, nStepsCore, ...
     RsilTrade_m, RFeTrade_m, rhoSilTrade_kgm3, permeability, ...
     P_Planet_MPa, T_Planet_K, r_Planet_m, phasePlanet, ...
@@ -3583,10 +3588,11 @@ function [comp, FeCore, wtPct, Tb_K, zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, CM
         QfromMantle_Wm2Str = split(fgetl(fReload),'=');
         phiRockMaxStr = split(fgetl(fReload),'=');
         RsilMean_mStr = split(fgetl(fReload),'=');
-        RFeMean_mStr = split(fgetl(fReload),'=');
         RsilRange_mStr = split(fgetl(fReload),'=');
+        rhoSilMean_kgm3Str = split(fgetl(fReload),'=');
+        RFeMean_mStr = split(fgetl(fReload),'=');
         RFeRange_mStr = split(fgetl(fReload),'=');
-        rhoFe_kgm3Str = split(fgetl(fReload),'=');
+        rhoCoreMean_kgm3Str = split(fgetl(fReload),'=');
         nStepsClathStr = split(fgetl(fReload),'=');
         nStepsIceIStr = split(fgetl(fReload),'=');
         nIceIIILithoStr = split(fgetl(fReload),'=');
@@ -3608,10 +3614,11 @@ function [comp, FeCore, wtPct, Tb_K, zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, CM
         QfromMantle_Wm2 = str2double(QfromMantle_Wm2Str{2});
         phiRockMax = str2double(phiRockMaxStr{2});
         RsilMean_m = str2double(RsilMean_mStr{2});
-        RFeMean_m = str2double(RFeMean_mStr{2});
         RsilRange_m = str2double(RsilRange_mStr{2});
+        rhoSilMean_kgm3 = str2double(rhoSilMean_kgm3Str{2});
+        RFeMean_m = str2double(RFeMean_mStr{2});
         RFeRange_m = str2double(RFeRange_mStr{2});
-        rhoFe_kgm3 = str2double(rhoFe_kgm3Str{2});
+        rhoCoreMean_kgm3 = str2double(rhoCoreMean_kgm3Str{2});
         nStepsClath = str2double(nStepsClathStr{2});
         nStepsIceI = str2double(nStepsIceIStr{2});
         nIceIIILitho = str2double(nIceIIILithoStr{2});

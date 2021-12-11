@@ -57,7 +57,9 @@ def PlotTradeoff(Planet, Params):
     plt.plot('Rsil', 'Rfe', data = data)
     plt.xlabel('RFe (km)')
     plt.ylabel('Rsil (km)')
-    plt.title('Fe core; $C/MR^2$: 0.346$\,\pm\,$0.005; w = 0$\,$wt$\%\,$; $\\rho\mathrm{sil}$: 3644; $\\rho\mathrm{Fe}$: 6133')
+    plt.title(r'With Fe core. $C/MR^2$: $0.346\pm0.005$; $w$: $0\,\mathrm{wt}\%$; $\rho_\mathrm{sil}$: $' \
+              + str(round(Planet.Sil.rhoMean_kgm3)) + r'\,\mathrm{kg/m^3}$; $\rho_\mathrm{Fe}$: $' \
+              + str(round(Planet.Core.rhoMean_kgm3)) + r'\,\mathrm{kg/m^3}$')
     plt.show()
 
 

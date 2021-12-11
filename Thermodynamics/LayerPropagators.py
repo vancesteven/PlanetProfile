@@ -3,6 +3,7 @@ from collections.abc import Iterable
 from Utilities.dataStructs import Constants
 from Thermodynamics.HydroEOS import GetIceThermo, GetPfreeze, GetTfreeze, GetPfreezeHP, FluidEOS, GetPhase
 from Thermodynamics.FromLiterature.IceShell import ConductionClathLid, ConvectionDeschampsSotin2001
+from Thermodynamics.InnerEOS import PerplexEOSStruct, MantleEOS
 
 def IceLayers(Planet, Params):
     """ Layer propagation from surface downward through the ice using geophysics.
@@ -215,17 +216,16 @@ def InnerLayers(Planet, Params):
         Calculates state variables of the layer with each pressure step
 
         Assigns Planet attributes:
-            Steps.nTotal
+            Steps.nTotal, phase
     """
     Planet = FindSeafloorMoI(Planet, Params)
-    Planet.CMR2mean = 0
-    Planet.Sil.Rmean_m = 0
-    Planet.Core.Rmean_m = 0
-    Planet.Sil.Rrange_m = 0
-    Planet.Core.Rrange_m = 0
 
     if Planet.Steps.nHydro <= Planet.Steps.nSurfIce: print('WARNING: For these run settings, the hydrosphere is entirely frozen.')
     Planet.Steps.nTotal = Planet.Steps.nHydro + Planet.Steps.nSil + Planet.Steps.nCore
+
+    # Assign phase values for silicates and core
+    Planet.phase[Planet.Steps.nHydro:Planet.Steps.nHydro + Planet.Steps.nSil] = 50
+    Planet.phase[Planet.Steps.nHydro + Planet.Steps.nSil:Planet.Steps.nTotal] = 100
 
     # Extend Planet layer arrays to make space for silicate and possible core layers
     extend = np.zeros(Planet.Steps.nSil + Planet.Steps.nCore)
@@ -274,12 +274,12 @@ def FindSeafloorMoI(Planet, Params):
         # make the problem of finding a matching MoI tractable.
 
         # Find core bulk density based on assumed sulfide content (Eq 10 of Vance et al., 2014)
-        Planet.Core.rho_kgm3 = Planet.Core.rhoFeS_kgm3 * Planet.Core.rhoFe_kgm3 / \
+        rhoCore_kgm3 = Planet.Core.rhoFeS_kgm3 * Planet.Core.rhoFe_kgm3 / \
             (Planet.Core.xFeS * (Planet.Core.rhoFe_kgm3 - Planet.Core.rhoFeS_kgm3) + Planet.Core.rhoFeS_kgm3)
         # Calculate core volume for a silicate layer with outer radius equal to bottom of each hydrosphere layer
         # and inner radius equal to the core radius
         VCore_m3 = np.array([(Planet.Bulk.M_kg - MAbove_kg[i] - VsilSphere_m3[i]*Planet.Sil.rhoSilWithCore_kgm3) /
-                             (Planet.Core.rho_kgm3 - Planet.Sil.rhoSilWithCore_kgm3) for i in range(nHydroActual-1)])
+                             (rhoCore_kgm3 - Planet.Sil.rhoSilWithCore_kgm3) for i in range(nHydroActual-1)])
         # Find values for which the silicate radius is too large
         nTooBig = next((i[0] for i, val in np.ndenumerate(VCore_m3) if val>0))
         # Calculate corresponding core radii based on above density
@@ -295,12 +295,17 @@ def FindSeafloorMoI(Planet, Params):
         # Density of silicates is scaled to fit the total mass, so there is no nTooBig in this case.
         nTooBig = 0
         # Set core density to zero so calculations can proceed
-        Planet.Core.rho_kgm3 = 0
+        rhoCore_kgm3 = 0
+
+    # silEOS = PerplexEOSStruct(Planet.Sil.mantleEOS)
+    # coreEOS = PerplexEOSStruct(Planet.Core.coreEOS)
+    # silStuff = MantleEOS(silEOS, Planet.P_MPa[Planet.Steps.nHydro], Planet.T_K[Planet.Steps.nHydro],
+    #                      Planet.r_m[Planet.Steps.nHydro], rCore_m)
 
     # Calculate C for a mantle extending up to each hydrosphere layer in turn
     C[nTooBig:] = [np.sum(dC_H2O[:i+1]) + \
             8*np.pi/15 * rhoSil_kg[i] * (Planet.r_m[i]**5 - rCore_m[i]**5) + \
-            8*np.pi/15 * Planet.Core.rho_kgm3 * rCore_m[i]**5 \
+            8*np.pi/15 * rhoCore_kgm3 * rCore_m[i]**5 \
             for i in range(nTooBig, nHydroActual-1)]
     CMR2 = C / MR2
 
@@ -326,18 +331,19 @@ def FindSeafloorMoI(Planet, Params):
     Planet.Steps.nHydro = iCMR2 - 1
 
     # Fill core/mantle trade arrays and set mean values consistent with MoI
-    Planet.Sil.rho_kgm3 = rhoSil_kg[iCMR2]
+    Planet.Sil.rhoMean_kgm3 = rhoSil_kg[iCMR2]  # PLACEHOLDER until mantle EOS searching is implemented for C/MR^2 calculations
     Planet.Sil.rhoTrade_kgm3 = rhoSil_kg[CMR2inds]
     Planet.Sil.Rmean_m = Planet.r_m[iCMR2]
     Planet.Sil.Rtrade_m = Planet.r_m[CMR2inds]
     Planet.Sil.Rrange_m = Planet.Sil.Rtrade_m[0] - Planet.Sil.Rtrade_m[-1]
+    Planet.Core.rhoMean_kgm3 = rhoCore_kgm3  # PLACEHOLDER until core EOS searching is implemented for C/MR^2 calculations
     Planet.Core.Rmean_m = rCore_m[iCMR2]
     Planet.Core.Rtrade_m = rCore_m[CMR2inds]
     Planet.Core.Rrange_m = Planet.Core.Rtrade_m[0] - Planet.Core.Rtrade_m[-1]
 
     if Params.VERBOSE: print('Found matching MoI of ' + str(round(Planet.CMR2mean,3)) +
                            ' (C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured,3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + ') for ' +
-                             'rho_sil = ' + str(round(Planet.Sil.rho_kgm3)) + ' kg/m^3, ' +
+                             'rho_sil = ' + str(round(Planet.Sil.rhoMean_kgm3)) + ' kg/m^3, ' +
                              'R_sil = ' + str(round(Planet.Sil.Rmean_m / Planet.Bulk.R_m,2)) + 'R, ' +
                              'R_core = ' + str(round(Planet.Core.Rmean_m / Planet.Bulk.R_m,2)) + 'R.')
 
@@ -352,8 +358,6 @@ def SilicateLayers(Planet, Params):
             phase
     """
 
-    Planet.phase[Planet.Steps.nHydro:Planet.Steps.nHydro + Planet.Steps.nSil] = 50
-
     return Planet
 
 
@@ -362,9 +366,16 @@ def IronCoreLayers(Planet, Params):
         Calculates state variables of the layer with each pressure step
 
         Assigns Planet attributes:
-            phase
+            phase, g_ms2
     """
 
-    Planet.phase[Planet.Steps.nHydro + Planet.Steps.nSil:Planet.Steps.nTotal] = 100
+    nCoreStart = Planet.Steps.nHydro + Planet.Steps.nSil
+    nCoreEnd = Planet.Steps.nTotal
+    # Find gravity at outer core radius
+    Planet.g_ms2[nCoreStart] = Constants.G * (Planet.Bulk.M_kg - np.sum(Planet.MLayer_kg[:nCoreStart])) \
+                               / Planet.r_m[nCoreStart]**2
+    # Set gravity to simply be linear in the core (exact for a uniform-density core, approximate if
+    # density variations are only slight in the core. Doing so avoids negative gravity problems.
+    Planet.g_ms2[nCoreStart:nCoreEnd] = Planet.g_ms2[nCoreStart] / Planet.r_m[nCoreStart] * Planet.r_m[nCoreStart:nCoreEnd]
 
     return Planet

@@ -99,7 +99,7 @@ class SilSubstruct:
         self.Rmean_m = None  # Mantle radius for mean compatible moment of inertia (MoI)
         self.Rrange_m = None  # Mantle radius range for compatible MoI
         self.Rtrade_m = None  # Array of mantle radii for compatible MoIs
-        self.rho_kgm3 = None  # Mean mantle density consistent with bulk density and MoI when no core is present
+        self.rhoMean_kgm3 = None  # Mean mantle density determined from MoI calculations
         self.rhoTrade_kgm3 = None  # Array of mantle densities for compatible MoIs for core vs. mantle tradeoff plot
         self.mFluids = None  # WIP for tracking loss of fluids along the geotherm -- needs a better name.
         # The below not necessary to be implemented until later (says Steve), these 5 are based on DPS presentation in 2017 – 5 diff models of permeability
@@ -173,6 +173,7 @@ class SeismicSubstruct:
         self.KS_GPa = None  # Bulk modulus of each layer in GPa
         self.GS_GPa = None  # Shear modulus of each layer in GPa
 
+
 """ Magnetic induction """
 class MagneticSubstruct:
 
@@ -183,8 +184,8 @@ class MagneticSubstruct:
         self.sigmaIonosPedersen_Sm = None  # Pedersen conductivity for ionospheric layers in S/m. Length must match ionosBounds_m.
 
 
+""" Main body profile info--settings and variables """
 class PlanetStruct:
-    """ Bulk planetary settings """
 
     # Require a body name as an argument for initialization; define instance attributes
     def __init__(self, name):
@@ -230,6 +231,7 @@ class PlanetStruct:
         self.CMR2mean = None  # Mean value of axial moment of inertia that is consistent with profile core/mantle trades
         # self.Q_Wm2 = None  # ??? WAIT UNTIL IMPLEMENT heat flux at ice shell
 
+
 """ Params substructs """
 # Construct filenames for data, saving/reloading
 class DataFilesSubstruct:
@@ -269,6 +271,7 @@ class ConstantsStruct:
     """ General physical constants """
     G = 6.673e-11  # "Big G" gravitational constant, m^3/kg/s
     bar2GPa = 1.01325e-4  # Multiply by this to convert pressure from bars to GPa
+    bar2MPa = 1.01325e-1  # Same but for MPa
     PbI_MPa = 210  # ~fixed transition pressure between ice Ih and ice III or V
     T0 = 273.15  # The Celsius zero point in K.
     P0 = 101325  # One standard atmosphere in Pa
