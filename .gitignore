@@ -10,4 +10,5 @@
 *.mat
 *.csv
 *.tab
+*.log
 startup.m
