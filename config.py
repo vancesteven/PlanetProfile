@@ -3,6 +3,7 @@ General runtime configuration parameters.
 Overridden by any settings contained within PPBody.py files.
 """
 
+import shutil
 from Utilities.dataStructs import ParamsStruct
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -14,7 +15,7 @@ if Params.VERBOSE: print('Printing verbose runtime messages. Toggle in config.py
 Params.DEBUG = False
 
 Params.DO_PARALLEL = True  # Use multiprocessing module for parallel computation where applicable
-Params.CALC_NEW =       False  # Recalculate profiles? If not, read data from disk and re-plot.
+Params.CALC_NEW =       True  # Recalculate profiles? If not, read data from disk and re-plot.
 Params.CALC_NEW_REF =   True  # Recalculate reference phase curves?
 Params.CALC_NEW_SOUND = True  # Recalculate sound speeds?
 Params.CALC_NEW_INDUC = True  # Recalculate magnetic induction responses?
@@ -28,7 +29,6 @@ Params.DISP_TABLES =    False  # Whether to print latex-formatted tables to Matl
 Params.DEPRECATED =     False  # Whether to allow deprecated code to run. Will often cause errors.
 
 # Plot Settings
-Params.TEX_INSTALLED = True #Whether user has Latex installed for plot labels
 Params.PLOT_GRAVITY = True  # Whether to plot Gravity and Pressure
 Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
 Params.PLOT_TRADEOFF = True  # Whether to plot core vs. mantle tradeoff
@@ -59,15 +59,21 @@ Params.nIntL = 3  # Number of ocean layers to use when REDUCED = 1
 #Params.opts_odeLayers = odeset('RelTol',1e-8, 'AbsTol',1e-10,'MaxStep',10e3,'InitialStep',1e-2)
 
 # General figure options
-Params.dft_font = 'stix'  # Default font variables--STIX is what is used in Icarus journal submissions
+Params.defaultFontName = 'STIXGeneral'  # Default font variables--STIX is what is used in Icarus journal submissions
+Params.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
+Params.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
 Params.xtn = '.eps'  # Figure file extension. Good options are .eps, .pdf, and .png
 plt.rcParams['font.family'] = 'serif'  # Choose serif font for figures to best match math mode variables in body text
-plt.rcParams['font.serif'] = Params.dft_font  # Set plots to use the default font
-try:
+plt.rcParams['font.serif'] = Params.defaultFontName  # Set plots to use the default font
+# Check if Latex executable is on the path so we can use backup options if Latex is not installed
+if shutil.which('latex'):
     plt.rcParams['text.usetex'] = True  # Use Latex interpreter to render text on plots
-    plt.rcParams['text.latex.preamble'] = '\\usepackage{'+Params.dft_font+'}'  # Load in font package in Latex
-except RuntimeError:
-    print("Latex not found. Setting TEX_INSTALLED to false")
+    plt.rcParams['text.latex.preamble'] = '\\usepackage{'+Params.defaultFontCode+'}'  # Load in font package in Latex
+    Params.TEX_INSTALLED = True
+else:
+    print('A LaTeX installation was not found. Some plots may have fallback options in labels.')
+    plt.rcParams['font.serif'] += ', ' + Params.backupFontName  # Set plots to use the default font if installed, or a backup if not
+    plt.rcParams['mathtext.fontset'] = Params.defaultFontCode
     Params.TEX_INSTALLED = False
 
 
