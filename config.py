@@ -47,7 +47,7 @@ Params.PLOT_FFT = True  # Whether to show plots of fourier space
 Params.PLOT_CONTOURS = True  # Contours or surfaces
 Params.PLOT_V2021S = True  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
 
-Params.intMethod = 'makima'  # Interpolation method. Certain ones can cause wiggles, notably 'linear'.
+Params.interpMethod = 'nearest'  # Interpolation method. Options are nearest, linear, and cubic. Notably, the 'linear' method causes wiggles in magnetic contour plots in the Matlab version.
 Params.npts_k = 50  # Resolution for conductivity values in ocean conductivity/thickness plots
 Params.npts_D = 60  # Resolution for ocean thickness as for conductivity
 Params.np_intp = 200  # Number of interpolation points to use for Eckhardt method induction calculations

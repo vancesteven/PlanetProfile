@@ -297,10 +297,10 @@ def FindSeafloorMoI(Planet, Params):
         # Set core density to zero so calculations can proceed
         rhoCore_kgm3 = 0
 
-    # silEOS = PerplexEOSStruct(Planet.Sil.mantleEOS)
-    # coreEOS = PerplexEOSStruct(Planet.Core.coreEOS)
-    # silStuff = MantleEOS(silEOS, Planet.P_MPa[Planet.Steps.nHydro], Planet.T_K[Planet.Steps.nHydro],
-    #                      Planet.r_m[Planet.Steps.nHydro], rCore_m)
+    silEOS = PerplexEOSStruct(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod)
+    coreEOS = PerplexEOSStruct(Planet.Core.coreEOS)
+    silStuff = MantleEOS(silEOS, Planet.P_MPa[Planet.Steps.nHydro], Planet.T_K[Planet.Steps.nHydro],
+                         Planet.r_m[Planet.Steps.nHydro], rCore_m)
 
     # Calculate C for a mantle extending up to each hydrosphere layer in turn
     C[nTooBig:] = [np.sum(dC_H2O[:i+1]) + \

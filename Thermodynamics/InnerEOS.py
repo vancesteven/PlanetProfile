@@ -3,7 +3,7 @@ import scipy.interpolate as spi
 from Utilities.dataStructs import Constants
 
 class PerplexEOSStruct:
-    def __init__(self, EOSfname, nHeaders=13):
+    def __init__(self, EOSfname, EOSinterpMethod='nearest', nHeaders=13):
         self.comp = EOSfname[:-4]
         self.dir = 'Thermodynamics/Perple_X/output_data/'
         self.fpath = self.dir + EOSfname
@@ -38,41 +38,41 @@ class PerplexEOSStruct:
 
         # Interpolate dependent variables where the values are NaN
         PTpts = (Plin_MPa, Tlin_K)
-        thisNaNyn = np.isnan(rho_kgm3)
-        if np.any(thisNaNyn):
-            thisNaNPs = Plin_MPa[np.where(thisNaNyn)]
-            thisNaNTs = Tlin_K[np.where(thisNaNyn)]
-            rho_kgm3[np.where(thisNaNyn)] = spi.griddata(PTpts, rho_kgm3, (thisNaNPs, thisNaNTs), method='cubic')
-        thisNaNyn = np.isnan(VP_kms)
-        if np.any(thisNaNyn):
-            thisNaNPs = Plin_MPa[np.where(thisNaNyn)]
-            thisNaNTs = Tlin_K[np.where(thisNaNyn)]
-            VP_kms[np.where(thisNaNyn)] = spi.griddata(PTpts, VP_kms, (thisNaNPs, thisNaNTs), method='cubic')
-        thisNaNyn = np.isnan(VS_kms)
-        if np.any(thisNaNyn):
-            thisNaNPs = Plin_MPa[np.where(thisNaNyn)]
-            thisNaNTs = Tlin_K[np.where(thisNaNyn)]
-            VS_kms[np.where(thisNaNyn)] = spi.griddata(PTpts, VS_kms, (thisNaNPs, thisNaNTs), method='cubic')
-        thisNaNyn = np.isnan(Cp_JkgK)
-        if np.any(thisNaNyn):
-            thisNaNPs = Plin_MPa[np.where(thisNaNyn)]
-            thisNaNTs = Tlin_K[np.where(thisNaNyn)]
-            Cp_JkgK[np.where(thisNaNyn)] = spi.griddata(PTpts, Cp_JkgK, (thisNaNPs, thisNaNTs), method='cubic')
-        thisNaNyn = np.isnan(alpha_pK)
-        if np.any(thisNaNyn):
-            thisNaNPs = Plin_MPa[np.where(thisNaNyn)]
-            thisNaNTs = Tlin_K[np.where(thisNaNyn)]
-            alpha_pK[np.where(thisNaNyn)] = spi.griddata(PTpts, alpha_pK, (thisNaNPs, thisNaNTs), method='cubic')
-        thisNaNyn = np.isnan(KS_bar)
-        if np.any(thisNaNyn):
-            thisNaNPs = Plin_MPa[np.where(thisNaNyn)]
-            thisNaNTs = Tlin_K[np.where(thisNaNyn)]
-            KS_bar[np.where(thisNaNyn)] = spi.griddata(PTpts, KS_bar, (thisNaNPs, thisNaNTs), method='cubic')
-        thisNaNyn = np.isnan(GS_bar)
-        if np.any(thisNaNyn):
-            thisNaNPs = Plin_MPa[np.where(thisNaNyn)]
-            thisNaNTs = Tlin_K[np.where(thisNaNyn)]
-            GS_bar[np.where(thisNaNyn)] = spi.griddata(PTpts, GS_bar, (thisNaNPs, thisNaNTs), method='cubic')
+        thisVarValid = np.isfinite(rho_kgm3)
+        if not np.all(thisVarValid):
+            thisValidPs = Plin_MPa[np.where(thisVarValid)]
+            thisValidTs = Tlin_K[np.where(thisVarValid)]
+            rho_kgm3 = spi.griddata((thisValidPs, thisValidTs), rho_kgm3[thisVarValid], PTpts, method=EOSinterpMethod)
+        thisVarValid = np.isfinite(VP_kms)
+        if not np.all(thisVarValid):
+            thisValidPs = Plin_MPa[np.where(thisVarValid)]
+            thisValidTs = Tlin_K[np.where(thisVarValid)]
+            VP_kms = spi.griddata((thisValidPs, thisValidTs), VP_kms[thisVarValid], PTpts, method=EOSinterpMethod)
+        thisVarValid = np.isfinite(VS_kms)
+        if not np.all(thisVarValid):
+            thisValidPs = Plin_MPa[np.where(thisVarValid)]
+            thisValidTs = Tlin_K[np.where(thisVarValid)]
+            VS_kms = spi.griddata((thisValidPs, thisValidTs), VS_kms[thisVarValid], PTpts, method=EOSinterpMethod)
+        thisVarValid = np.isfinite(Cp_JkgK)
+        if not np.all(thisVarValid):
+            thisValidPs = Plin_MPa[np.where(thisVarValid)]
+            thisValidTs = Tlin_K[np.where(thisVarValid)]
+            Cp_JkgK = spi.griddata((thisValidPs, thisValidTs), Cp_JkgK[thisVarValid], PTpts, method=EOSinterpMethod)
+        thisVarValid = np.isfinite(alpha_pK)
+        if not np.all(thisVarValid):
+            thisValidPs = Plin_MPa[np.where(thisVarValid)]
+            thisValidTs = Tlin_K[np.where(thisVarValid)]
+            alpha_pK = spi.griddata((thisValidPs, thisValidTs), alpha_pK[thisVarValid], PTpts, method=EOSinterpMethod)
+        thisVarValid = np.isfinite(KS_bar)
+        if not np.all(thisVarValid):
+            thisValidPs = Plin_MPa[np.where(thisVarValid)]
+            thisValidTs = Tlin_K[np.where(thisVarValid)]
+            KS_bar = spi.griddata((thisValidPs, thisValidTs), KS_bar[thisVarValid], PTpts, method=EOSinterpMethod)
+        thisVarValid = np.isfinite(GS_bar)
+        if not np.all(thisVarValid):
+            thisValidPs = Plin_MPa[np.where(thisVarValid)]
+            thisValidTs = Tlin_K[np.where(thisVarValid)]
+            GS_bar = spi.griddata((thisValidPs, thisValidTs), GS_bar[thisVarValid], PTpts, method=EOSinterpMethod)
 
         # Check that NaN removal worked correctly
         errNaNstart = 'Failed to interpolate over NaNs in PerplexEOS '
@@ -86,16 +86,16 @@ class PerplexEOSStruct:
         if np.any(np.isnan(GS_bar)): raise RuntimeError(errNaNstart + 'GS' +errNaNend)
 
         # Now make 2D grids of values.
-        rho_kgm3 = np.reshape(rho_kgm3, (-1,dim2))
-        VP_kms = np.reshape(VP_kms, (-1,dim2))
-        VS_kms = np.reshape(VS_kms, (-1,dim2))
-        Cp_JkgK = np.reshape(Cp_JkgK, (-1,dim2))
-        alpha_pK = np.reshape(alpha_pK, (-1,dim2))
-        KS_GPa = np.reshape(KS_bar, (-1,dim2)) * Constants.bar2GPa
-        GS_GPa = np.reshape(GS_bar, (-1,dim2)) * Constants.bar2GPa
+        rho_kgm3 = np.reshape(rho_kgm3, (dim2,-1))
+        VP_kms = np.reshape(VP_kms, (dim2,-1))
+        VS_kms = np.reshape(VS_kms, (dim2,-1))
+        Cp_JkgK = np.reshape(Cp_JkgK, (dim2,-1))
+        alpha_pK = np.reshape(alpha_pK, (dim2,-1))
+        KS_GPa = np.reshape(KS_bar, (dim2,-1)) * Constants.bar2GPa
+        GS_GPa = np.reshape(GS_bar, (dim2,-1)) * Constants.bar2GPa
 
-        if P_FIRST:
-            # Transpose 2D meshes if P is the first column
+        if not P_FIRST:
+            # Transpose 2D meshes if P is not the first column. I think they might need to always be transposed here.
             rho_kgm3 = rho_kgm3.T
             VP_kms = VP_kms.T
             VS_kms = VS_kms.T
