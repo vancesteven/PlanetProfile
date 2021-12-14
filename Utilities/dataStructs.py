@@ -24,7 +24,7 @@ class BulkSubstruct():
         self.Psurf_MPa = None  # Surface pressure in MPa
         self.Cmeasured = None  # Axial moment of inertia C/MR^2, dimensionless
         self.Cuncertainty = None  # Uncertainty (std dev) of C/MR^2 (used to constrain models via consistency within the uncertainty), dimensionless
-        self.phiSurface = None  # Scaling value for the ice porosity at the surface (void fraction): falls within a range of 0 and 1. 0 is completely non-porous and larger than 0.2 is rare. From Han et al. (2014)
+        self.phiSurface_frac = None  # Scaling value for the ice porosity at the surface (void fraction): falls within a range of 0 and 1. 0 is completely non-porous and larger than 0.2 is rare. From Han et al. (2014)
         self.clathMaxDepth = None  # Fixed limit for thickness of clathrate layer in m
         self.TbIII_K = None  # Temperature at bottom of ice III underplate layer in K
         self.TbV_K = None  # Temperature at bottom of ice V underplate layer in K
@@ -64,7 +64,8 @@ class StepsSubstruct:
         self.nIIIbottom = None  # Derived number of clathrate + ice I + ice V layers
         self.nSurfIce = None  # Derived number of outer ice layers (above ocean) -- sum of nIceI, nClath, nIceIIILitho, nIceVLitho
         self.nStepsRefRho = None  # Number of values for plotting reference density curves (sets resolution)
-        self.nSil = None  # Fixed number of steps in silicate layers
+        self.nSilMax = None  # Fixed max number of steps in silicate layers
+        self.nSil = None  # Derived final number of steps in silicate layers
         self.nCore = None  # Fixed number of steps in core layers, if present
         self.nIceIIILitho = 5  # Fixed number of layers to use for ice III when either BOTTOM_ICEIII or BOTTOM_ICEV is True.
         self.nIceVLitho = 5  # Fixed number of layers to use for ice V when BOTTOM_ICEV is True.
@@ -87,13 +88,16 @@ class OceanSubstruct:
 class SilSubstruct:
 
     def __init__(self):
-        self.kSil_WmK = None  # Thermal conductivity (k) of silicates in W/(mK)
-        self.phiRockMax = None  # Porosity (void fraction) of the rocks at the “seafloor”, where the hydrosphere first comes into contact with rock
+        self.kTherm_WmK = None  # Thermal conductivity of silicates in W/(mK)
+        self.phiRockMax_frac = None  # Porosity (void fraction) of the rocks at the “seafloor”, where the hydrosphere first comes into contact with rock
         self.sigmaSil_Sm = 1e-16  # Assumed conductivity of silicate rock
+        self.Qrad_Wkg = None  # Average radiogenic heating rate for silicates in W/kg.
+        self.Htidal_Wm3 = None  # Average tidal heating rate for silicates in W/m^3.
         """ Mantle Equation of State (EOS) model """
         self.mantleEOS = None  # Equation of state data to use for silicates
         self.mantleEOSName = None  # Same as above but containing keywords like clathrates in filenames
         self.mantleEOSDry = None  # Name of mantle EOS to use assuming non-hydrated silicates
+        self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
         self.rhoSilWithCore_kgm3 = 3300  # Assumed density of silicates when a core is present in kg/m^3
         # Derived quantities
         self.Rmean_m = None  # Mantle radius for mean compatible moment of inertia (MoI)
@@ -116,9 +120,11 @@ class CoreSubstruct:
     def __init__(self):
         self.rhoFe_kgm3 = 8000  # Assumed density of pure iron in kg/m^3
         self.rhoFeS_kgm3 = 5150  # Assumed density of iron sulfide in kg/m^3
+        self.rhoMin_kgm3 = 5150  # Assumed minimum possible density for the core in kg/m^3. Sets maximum core size.
         self.rhoPoFeFCC = None  # Density of pyrrhottite plus face-centered cubic iron
         self.sigmaCore_Sm = 1e-16  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
         self.coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'  # Default core EOS to use
+        self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
         # Derived quantities
         self.rho_kgm3 = None  # Core bulk density consistent with assumed mixing ratios of Fe, FeS, etc.
         self.Rmean_m = None  # Core radius for mean compatible moment of inertia (MOI)

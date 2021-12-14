@@ -26,7 +26,7 @@ Planet.Bulk.Tb_K = 269.8
 """ Layer step settings """
 Planet.Steps.nIceI = 200
 Planet.Steps.nRefRho = 30
-Planet.Steps.nSil = 500
+Planet.Steps.nSilMax = 300
 Planet.Steps.nCore = 10
 
 """ Hydrosphere assumptions/settings """
@@ -36,7 +36,9 @@ Planet.Ocean.deltaP = 1.0
 Planet.Ocean.PHydroMax_MPa = 250
 
 """ Silicate Mantle """
-Planet.Sil.kSil_WmK = 4.0
+Planet.Sil.kTherm_WmK = 4.0
+Planet.Sil.Qrad_Wkg = 5.38e-12  # Estimate from Hussmann and Spohn (2004):
+Planet.Sil.Htidal_Wm3 = 1e-10  # Approximate max. tidal heating in silicates as modeled by Tobie et al. (2003): https://doi.org/10.1029/2003JE002099
 Planet.Do.EQUIL_Q = False
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
