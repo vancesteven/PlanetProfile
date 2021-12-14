@@ -1,6 +1,9 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import math
+from matplotlib.patches import Wedge
+from matplotlib.collections import PatchCollection
 
 def GeneratePlots(Planet, Params):
 
@@ -66,25 +69,54 @@ def PlotTradeoff(Planet, Params):
 def PlotWedge(Planet, Params):
     data = {'r': Planet.r_m/1000,
             'phase': Planet.phase}
+    fig, ax = plt.subplots()
+    width = (math.pi / 7)*180/math.pi
+    patches = []
+    colors = []
+    #length = len(Planet.r_m)
+    #widths = []
+    iPhaseTrans = 1+np.argwhere(Planet.phase[1:] != Planet.phase[:-1])
+    iPhaseTrans = np.insert(iPhaseTrans, 0, 0) # this makes sure the ice phase is included
+    #widths = iPhaseTrans/length
+    phases = [Planet.phase[iShell] for iShell in iPhaseTrans]
+    radii = [Planet.r_m[iShell]/Planet.Bulk.R_m for iShell in iPhaseTrans]
+    #print(phases)
+    #print(radii)
+    patches = [Wedge((0.5,0), radii[1], 90 - width, 90 + width, 1-radii[0], color='b') ]
+    #for i in range(len(radii)):
+       # patches += [Wedge((0.5,0), radii[i], 90 - width, 90 + width, 1-radii[i-1])]
+    print(patches)
+    p = PatchCollection(patches)
+    #colors = colors.append(Params.Colors.IceI)
 
+    #p.set_array(colors)
+    ax.add_collection(p)
     plt.title('Interior Wedge Diagram')
     plt.suptitle('$Tb_K = \mathrm{' + str(Planet.Bulk.Tb_K) + '}$')
     plt.show()
-    pass
+'''
+    for layerPhase in iPhaseTrans:
+        if layerPhase == 0:
+            colors.append(Params.Colors.OceanTop)
+        elif layerPhase == 1:
+            colors.append(Params.Colors.IceI)
+        elif layerPhase == 2:
+            colors.append(Params.Colors.IceII)
+        elif layerPhase == 3:
+            colors.append(Params.Colors.IceIII)
+        elif layerPhase == 5:
+            colors.append(Params.Colors.IceV)
+        elif layerPhase == 6:
+            colors.append(Params.Colors.IceVI)
+        elif layerPhase == 30:
+            colors.append(Params.Colors.Clath)
+        elif layerPhase == 50:
+            colors.append(Params.Colors.Rock)
+        elif layerPhase == 100:
+            colors.append(Params.Colors.Core)
+    print(colors)
+'''
 
 
-def  GetWedgeColors():
-    colors.IonosphereTop = [1, 0, 1] # matlab's magenta
-    colors.Ionosphere = [1, 0, 1] # matlab's magenta
-    colors.IonosphereBot = [1, 0, 1] # matlab's magenta
-    colors.IceI = [150, 226, 241]/255
-    colors.IceII = [3, 169, 252]/255
-    colors.IceIII = [150, 226, 241]/255
-    colors.IceV = [150, 226, 241]/255
-    colors.IceVI =  [150, 226, 241]/255
-    colors.IceVII =  [44, 115, 150]/255
-    colors.OceanTop = [134, 149, 201]/255  # Darker and richer
-    colors.OceanBot = [45, 55, 100]/255
-    colors.Rock = [101, 46, 11]/255
-    colors.Core = [141, 122, 121]/255
+
 
