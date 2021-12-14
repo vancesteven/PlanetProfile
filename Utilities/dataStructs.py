@@ -184,6 +184,7 @@ class MagneticSubstruct:
         self.sigmaIonosPedersen_Sm = None  # Pedersen conductivity for ionospheric layers in S/m. Length must match ionosBounds_m.
 
 
+
 """ Main body profile info--settings and variables """
 class PlanetStruct:
 
@@ -199,7 +200,6 @@ class PlanetStruct:
         self.Core = CoreSubstruct()
         self.Seismic = SeismicSubstruct()
         self.Magnetic = MagneticSubstruct()
-
         # Settings for GetPfreeze start, stop, and step size.
         # Shrink closer to expected melting pressure to improve run times.
         self.PfreezeLower_MPa = 0.1  # Lower boundary for GetPfreeze to search for phase transition
@@ -248,20 +248,16 @@ class FigureFilesSubstruct:
 
 
 """ General parameter options """
+class ColorsStruct:
+    def __init__(self):
+        pass
+
 class ParamsStruct:
 
     def __init__(self):
         self.DataFiles = DataFilesSubstruct('')
         self.FigureFiles = FigureFilesSubstruct('', '')
-
-        self.PLOT_SIGS = False  # Make a plot of conductivity as a function of radius
-        self.wlims = None  # Minimum and maximum to use for frequency spectrum plots (magnetic induction)
-        self.LEGEND = False  # Whether to force legends to appear
-        self.LegendPosition = None  # Where to place legends when forced
-        self.yLim = None  # y axis limits of hydrosphere density in "Conductivity with interior properties" plot
-        self.LineStyle = None  # Default line style to use on plots
-        self.wRefLine_temporary = None  # Style of lines showing reference melting curves of hydrosphere density plot-should be done in config.py instead, delete this once implemented there
-        self.wRef = None  # Salinities in ppt of reference melting curves
+        self.Colors = ColorsStruct()
 
     class lbls: # Not sure we need this in Params for the Python implementation.
         pass

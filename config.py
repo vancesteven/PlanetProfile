@@ -15,7 +15,7 @@ if Params.VERBOSE: print('Printing verbose runtime messages. Toggle in config.py
 Params.DEBUG = False
 
 Params.DO_PARALLEL = True  # Use multiprocessing module for parallel computation where applicable
-Params.CALC_NEW =       True  # Recalculate profiles? If not, read data from disk and re-plot.
+Params.CALC_NEW =       False  # Recalculate profiles? If not, read data from disk and re-plot.
 Params.CALC_NEW_REF =   True  # Recalculate reference phase curves?
 Params.CALC_NEW_SOUND = True  # Recalculate sound speeds?
 Params.CALC_NEW_INDUC = True  # Recalculate magnetic induction responses?
@@ -65,6 +65,14 @@ Params.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX 
 Params.xtn = '.eps'  # Figure file extension. Good options are .eps, .pdf, and .png
 plt.rcParams['font.family'] = 'serif'  # Choose serif font for figures to best match math mode variables in body text
 plt.rcParams['font.serif'] = Params.defaultFontName  # Set plots to use the default font
+Params.PLOT_SIGS = False  # Make a plot of conductivity as a function of radius
+Params.wlims = None  # Minimum and maximum to use for frequency spectrum plots (magnetic induction)
+Params.LEGEND = False  # Whether to force legends to appear
+Params.LegendPosition = None  # Where to place legends when forced
+Params.yLim = None  # y axis limits of hydrosphere density in "Conductivity with interior properties" plot
+Params.LineStyle = None  # Default line style to use on plots
+Params.wRefLine_temporary = None  # Style of lines showing reference melting curves of hydrosphere density plot-should be done in config.py instead, delete this once implemented there
+Params.wRef = None  # Salinities in ppt of reference melting curves
 # Check if Latex executable is on the path so we can use backup options if Latex is not installed
 if shutil.which('latex'):
     plt.rcParams['text.usetex'] = True  # Use Latex interpreter to render text on plots
@@ -122,3 +130,19 @@ Params.LW_seism = 1  # LineWidth for seismic plots (Attenuation)
 
 # SPICE kernels
 Params.spicePCK = 'pck00010.tpc'  # Planetary Constants Kernel from SPICE in order to get body radii
+
+# Wedge color options
+Params.Colors.IonosphereTop = [1, 0, 1]  # matlab's magenta
+Params.Colors.Ionosphere = [1, 0, 1]  # matlab's magenta
+Params.Colors.IonosphereBot = [1, 0, 1]  # matlab's magenta
+Params.Colors.IceI = [150 / 255, 226 / 255, 241 / 255]
+Params.Colors.IceII = [3 / 255, 169 / 255, 252 / 255]
+Params.Colors.IceIII = [150 / 255, 226 / 255, 241 / 255]
+Params.Colors.IceV = [150 / 255, 226 / 255, 241 / 255]
+Params.Colors.IceVI = [150 / 255, 226 / 255, 241 / 255]
+Params.Colors.Clath = [44 / 255, 115 / 255, 150 / 255]
+Params.Colors.OceanTop = [134 / 255, 149 / 255, 201 / 255]  # Darker and richer
+Params.Colors.OceanBot = [45 / 255, 55 / 255, 100 / 255]
+Params.Colors.Rock = [101 / 255, 46 / 255, 11 / 255]
+Params.Colors.Core = [141 / 255, 12 / 2552, 121 / 255]
+
