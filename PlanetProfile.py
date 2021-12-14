@@ -90,7 +90,7 @@ def WriteProfile(Planet, Params):
         f.write('  deltaP = ' + str(Planet.Ocean.deltaP) + '\n')
         f.write('  CMR2mean = ' + str(Planet.CMR2mean) + '\n')
         f.write('  QfromMantle_Wm2 = ' + str(Planet.Ocean.QfromMantle_Wm2) + '\n')
-        f.write('  phiRockMax = ' + str(Planet.Sil.phiRockMax) + '\n')
+        f.write('  phiRockMax = ' + str(Planet.Sil.phiRockMax_frac) + '\n')
         f.write('  RsilMean_m = ' + str(Planet.Sil.Rmean_m) + '\n')
         f.write('  RsilRange_m = ' + str(Planet.Sil.Rrange_m) + '\n')
         f.write('  rhoSil_kgm3 = ' + str(Planet.Sil.rhoMean_kgm3) + '\n')
@@ -104,20 +104,20 @@ def WriteProfile(Planet, Params):
         f.write('  Steps.nHydro = ' + str(Planet.Steps.nHydro) + '\n')
         f.write('  Steps.nSil = ' + str(Planet.Steps.nSil) + '\n')
         f.write('  Steps.nCore = ' + str(Planet.Steps.nCore) + '\n')
-        f.write(' '.join(['P (MPa)'.ljust(24), \
-                          'T (K)'.ljust(24), \
-                          'r (m)'.ljust(24), \
-                          'phase ID'.ljust(8), \
-                          'rho (kg/m3)'.ljust(24), \
-                          'Cp (J/kg/K)'.ljust(24), \
-                          'alpha (1/K)'.ljust(24), \
-                          'g (m/s2)'.ljust(24), \
-                          'phi (void/solid frac)'.ljust(24), \
-                          'sigma (S/m)'.ljust(24), \
-                          'VP (km/s)'.ljust(24), \
-                          'VS (km/s)'.ljust(24), \
-                          'QS'.ljust(24), \
-                          'KS (GPa)'.ljust(24), \
+        f.write(' '.join(['P (MPa)'.ljust(24),
+                          'T (K)'.ljust(24),
+                          'r (m)'.ljust(24),
+                          'phase ID'.ljust(8),
+                          'rho (kg/m3)'.ljust(24),
+                          'Cp (J/kg/K)'.ljust(24),
+                          'alpha (1/K)'.ljust(24),
+                          'g (m/s2)'.ljust(24),
+                          'phi (void/solid frac)'.ljust(24),
+                          'sigma (S/m)'.ljust(24),
+                          'VP (km/s)'.ljust(24),
+                          'VS (km/s)'.ljust(24),
+                          'QS'.ljust(24),
+                          'KS (GPa)'.ljust(24),
                           'GS (GPa)']) + '\n')
         # Now print the columnar data
         for i in range(Planet.Steps.nTotal):
@@ -137,6 +137,18 @@ def WriteProfile(Planet, Params):
                 '{:24.17e} '.format(Planet.Seismic.QS[i]) + \
                 '{:24.17e} '.format(Planet.Seismic.KS_GPa[i]) + \
                 '{:24.17e}\n '.format(Planet.Seismic.GS_GPa[i])
+            f.write(line)
+
+    # Write out data from core/mantle trade
+    with open(Params.DataFiles.mantCoreFile, 'w') as f:
+        f.write(' '.join(['RsilTrade (m)'.ljust(24),
+                          'RcoreTrade (m)'.ljust(24),
+                          'rhoSilTrade (kg/m3)']) + '\n')
+        for i in range(np.size(Planet.Sil.Rtrade_m)):
+            line = \
+                '{:24.17e} '.format(Planet.Sil.Rtrade_m[i]) + \
+                '{:24.17e} '.format(Planet.Core.Rtrade_m[i]) + \
+                '{:24.17e}\n '.format(Planet.Sil.rhoTrade_kgm3[i])
             f.write(line)
 
     print('Profile saved to file: ' + Params.DataFiles.saveFile)
@@ -166,7 +178,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         # Get float values from header
         Planet.Ocean.wOcean_ppt, Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, \
         Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.CMR2mean, Planet.Ocean.QfromMantle_Wm2, \
-        Planet.Sil.phiRockMax, Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, \
+        Planet.Sil.phiRockMax_frac, Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, \
         Planet.Core.Rmean_m, Planet.Core.Rrange_m, Planet.Core.rhoMean_kgm3 \
             = (float(f.readline().split('=')[-1]) for _ in range(16))
         # Get integer values from header (nSteps values)
@@ -239,7 +251,7 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
     if Planet.Ocean.deltaP == 0: Planet.Ocean.deltaP = tiny
     if Planet.CMR2mean == 0: Planet.CMR2mean = tiny
     if Planet.Ocean.QfromMantle_Wm2 == 0: Planet.Ocean.QfromMantle_Wm2 = tiny
-    if Planet.Sil.phiRockMax == 0: Planet.Sil.phiRockMax = tiny
+    if Planet.Sil.phiRockMax_frac == 0: Planet.Sil.phiRockMax_frac = tiny
     if Planet.Sil.Rmean_m == 0: Planet.Sil.Rmean_m = tiny
     if Planet.Sil.Rrange_m == 0: Planet.Sil.Rrange_m = tiny
     if Planet.Sil.rhoMean_kgm3 == 0: Planet.Sil.rhoMean_kgm3 = tiny
@@ -257,7 +269,7 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
     if Planet2.Ocean.deltaP == 0: Planet2.Ocean.deltaP = tiny
     if Planet2.CMR2mean == 0: Planet2.CMR2mean = tiny
     if Planet2.Ocean.QfromMantle_Wm2 == 0: Planet2.Ocean.QfromMantle_Wm2 = tiny
-    if Planet2.Sil.phiRockMax == 0: Planet2.Sil.phiRockMax = tiny
+    if Planet2.Sil.phiRockMax_frac == 0: Planet2.Sil.phiRockMax_frac = tiny
     if Planet2.Sil.Rmean_m == 0: Planet2.Sil.Rmean_m = tiny
     if Planet2.Sil.Rrange_m == 0: Planet2.Sil.Rrange_m = tiny
     if Planet2.Sil.rhoMean_kgm3 == 0: Planet2.Sil.rhoMean_kgm3 = tiny
@@ -278,7 +290,7 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
     same_deltaP = (Planet.Ocean.deltaP - Planet2.Ocean.deltaP) / Planet.Ocean.deltaP < tol
     same_CMR2mean = (Planet.CMR2mean - Planet2.CMR2mean) / Planet.CMR2mean < tol
     same_QfromMantle_Wm2 = (Planet.Ocean.QfromMantle_Wm2 - Planet2.Ocean.QfromMantle_Wm2) / Planet.Ocean.QfromMantle_Wm2 < tol
-    same_phiRockMax = (Planet.Sil.phiRockMax - Planet2.Sil.phiRockMax) / Planet.Sil.phiRockMax < tol
+    same_phiRockMax_frac = (Planet.Sil.phiRockMax_frac - Planet2.Sil.phiRockMax_frac) / Planet.Sil.phiRockMax_frac < tol
     same_silRmean_m = (Planet.Sil.Rmean_m - Planet2.Sil.Rmean_m) / Planet.Sil.Rmean_m < tol
     same_silRrange_m = (Planet.Sil.Rrange_m - Planet2.Sil.Rrange_m) / Planet.Sil.Rrange_m < tol
     same_silrhoMean_kgm3 = (Planet.Sil.rhoMean_kgm3 - Planet2.Sil.rhoMean_kgm3) / Planet.Sil.rhoMean_kgm3 < tol
@@ -297,7 +309,7 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         and same_nCore
     headers_match = same_nHeadLines and same_comp and same_Fe_CORE and same_wOcean_ppt and same_Tb_K and same_zb_km \
         and same_zClath_m and same_Pb_MPa and same_PbI_MPa and same_deltaP and same_CMR2mean and same_QfromMantle_Wm2 \
-        and same_phiRockMax and same_silRmean_m and same_silRrange_m and same_silrhoMean_kgm3 and same_coreRmean_m \
+        and same_phiRockMax_frac and same_silRmean_m and same_silRrange_m and same_silrhoMean_kgm3 and same_coreRmean_m \
         and same_coreRrange_m and same_corerhoMean_kgm3 and same_steps
 
     if not headers_match:
@@ -313,7 +325,7 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         if not same_deltaP: print('Ocean.deltaP differs. ' + str(Planet.Ocean.deltaP) + ' | ' + str(Planet2.Ocean.deltaP))
         if not same_CMR2mean: print('CMR2mean differs. ' + str(Planet.CMR2mean) + ' | ' + str(Planet2.CMR2mean))
         if not same_QfromMantle_Wm2: print('Ocean.QfromMantle_Wm2 differs. ' + str(Planet.Ocean.QfromMantle_Wm2) + ' | ' + str(Planet2.Ocean.QfromMantle_Wm2))
-        if not same_phiRockMax: print('Sil.phiRockMax differs. ' + str(Planet.Sil.phiRockMax) + ' | ' + str(Planet2.Sil.phiRockMax))
+        if not same_phiRockMax_frac: print('Sil.phiRockMax_frac differs. ' + str(Planet.Sil.phiRockMax_frac) + ' | ' + str(Planet2.Sil.phiRockMax_frac))
         if not same_silRmean_m: print('Sil.Rmean_m differs. ' + str(Planet.Sil.Rmean_m) + ' | ' + str(Planet2.Sil.Rmean_m))
         if not same_silRrange_m: print('Sil.Rrange_m differs. ' + str(Planet.Sil.Rrange_m) + ' | ' + str(Planet2.Sil.Rrange_m))
         if not same_silrhoMean_kgm3: print('Sil.rhoMean_kgm3 differs. ' + str(Planet.Sil.rhoMean_kgm3) + ' | ' + str(Planet2.Sil.rhoMean_kgm3))

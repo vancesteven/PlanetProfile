@@ -39,7 +39,7 @@ def SetupInit(Planet, Params):
     elif not Planet.Do.BOTTOM_ICEV:
         Planet.Steps.nIceVLitho = 0
     if not Planet.Do.POROUS_ROCK:
-        Planet.Sil.phiRockMax = 0
+        Planet.Sil.phiRockMax_frac = 0
 
     # Calculate bulk density from total mass and radius, and warn user if they specified density
     if Planet.Bulk.M_kg is None:

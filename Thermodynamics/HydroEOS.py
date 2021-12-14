@@ -15,6 +15,7 @@ def FluidEOS(compstr, w_ppt, P_MPa, T_K):
             rho_kgm3 (float, shape N): Density of fluid in kg/m^3
             Cp_JkgK (float, shape N): Heat capacity at constant pressure of fluid in J/kg/K
             alpha_pK (float, shape N): Thermal expansivity of fluid in K^-1
+            VP_kms (float, shape N): P-wave seismic velocity in km/s
     """
     # Arrange input data into (P,T) value pair tuples compatible with SeaFreeze
     PTpairs = np.array([(P_MPa[i], T_K[i]) for i in range(np.size(P_MPa))], dtype='f,f').astype(object)
@@ -24,6 +25,7 @@ def FluidEOS(compstr, w_ppt, P_MPa, T_K):
         rho_kgm3 = seaOut.rho
         Cp_JkgK = seaOut.Cp
         alpha_pK = seaOut.alpha
+        VP_kms = seaOut.vel
     elif compstr == 'Seawater':
         raise ValueError('Unable to set FluidEOS. Seawater is not implemented yet.')
     elif compstr == 'NH3':
@@ -35,7 +37,7 @@ def FluidEOS(compstr, w_ppt, P_MPa, T_K):
     else:
         raise ValueError('Unable to set FluidEOS. compstr="'+compstr+'" but options are Seawater, NH3, MgSO4, and NaCl.')
 
-    return rho_kgm3, Cp_JkgK, alpha_pK
+    return rho_kgm3, Cp_JkgK, alpha_pK, VP_kms
 
 
 def GetPhase(compstr, w_ppt, P_MPa, T_K):

@@ -1,8 +1,12 @@
 import numpy as np
 import scipy.interpolate as spi
 from Utilities.dataStructs import Constants
+from Thermodynamics.FromLiterature.ThermalProfiles import ConductiveTemperature
 
 class PerplexEOSStruct:
+    """ Loads in Perple_X table and creates interpolators that can be called to
+        obtain silicate/core properties as functions of P and T.
+    """
     def __init__(self, EOSfname, EOSinterpMethod='nearest', nHeaders=13):
         self.comp = EOSfname[:-4]
         self.dir = 'Thermodynamics/Perple_X/output_data/'
@@ -95,7 +99,7 @@ class PerplexEOSStruct:
         GS_GPa = np.reshape(GS_bar, (dim2,-1)) * Constants.bar2GPa
 
         if not P_FIRST:
-            # Transpose 2D meshes if P is not the first column. I think they might need to always be transposed here.
+            # Transpose 2D meshes if P is not the first column.
             rho_kgm3 = rho_kgm3.T
             VP_kms = VP_kms.T
             VS_kms = VS_kms.T
@@ -112,8 +116,3 @@ class PerplexEOSStruct:
         self.fn_KS_GPa = spi.RectBivariateSpline(P1D_MPa, T1D_K, KS_GPa)
         self.fn_GS_GPa = spi.RectBivariateSpline(P1D_MPa, T1D_K, GS_GPa)
 
-def MantleEOS(PerplexEOS, Pstart, Tstart, rStart, rEnd):
-    fn_rhoSil_kgm3 = PerplexEOS.fn_rho_kgm3
-    fn_VPSil_kms = PerplexEOS.fn_VP_kms
-
-    return
