@@ -2,7 +2,7 @@ import numpy as np
 from collections.abc import Iterable
 from Utilities.dataStructs import Constants
 from Thermodynamics.HydroEOS import GetIceThermo, GetPfreeze, GetTfreeze, GetPfreezeHP, FluidEOS, GetPhase
-from Thermodynamics.FromLiterature.ThermalProfiles import ConductionClathLid, ConvectionDeschampsSotin2001, ConductiveTemperature, TsolidusHirschmann2000
+from Thermodynamics.FromLiterature.ThermalProfiles import ConductionClathLid, ConvectionDeschampsSotin2001, ConductiveTemperature
 from Thermodynamics.InnerEOS import PerplexEOSStruct
 
 def IceLayers(Planet, Params):
@@ -152,7 +152,7 @@ def OceanLayers(Planet, Params):
         if Planet.phase[Planet.Steps.nSurfIce+i] == 0:
             # Liquid water layers -- get fluid properties for the present layer but with the
             # overlaying layer's temperature
-            rhoOcean_kgm3[i], CpOcean_JkgK[i], alphaOcean_pK[i] = \
+            rhoOcean_kgm3[i], CpOcean_JkgK[i], alphaOcean_pK[i], _ = \
                 FluidEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, [POcean_MPa[i]], [TOcean_K[i]])
             # Now use the present layer's properties to calculate an adiabatic thermal profile for layers below
             TOcean_K[i+1] = TOcean_K[i] + alphaOcean_pK[i] * TOcean_K[i] / \
@@ -244,9 +244,6 @@ def InnerLayers(Planet, Params):
     Planet.sigma_Sm = np.concatenate((Planet.sigma_Sm[:Planet.Steps.nHydro], extend))
     Planet.z_m = np.concatenate((Planet.z_m[:Planet.Steps.nHydro], extend))
 
-    Planet.Seismic.VP_kms, Planet.Seismic.VS_kms, Planet.Seismic.QS, Planet.Seismic.KS_GPa, \
-        Planet.Seismic.GS_GPa = (np.zeros(Planet.Steps.nTotal) for _ in range(5))
-
     # Assign phase values for silicates and core
     Planet.phase[Planet.Steps.nHydro:Planet.Steps.nHydro + Planet.Steps.nSil] = 50
     Planet.phase[Planet.Steps.nHydro + Planet.Steps.nSil:Planet.Steps.nTotal] = 100
@@ -257,27 +254,11 @@ def InnerLayers(Planet, Params):
     Planet.P_MPa[iOS:iSC], Planet.T_K[iOS:iSC], Planet.r_m[iOS:iSC], Planet.rho_kgm3[iOS:iSC], \
     Planet.g_ms2[iOS:iSC], Planet.phi_frac[iOS:iSC] = mantleProps
 
-    # Evaluate EOS for remaining layer properties
-    Planet.Cp_JkgK[iOS:iSC] = [Planet.Sil.EOS.fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iOS, iSC)]
-    Planet.alpha_pK[iOS:iSC] = [Planet.Sil.EOS.fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iOS, iSC)]
-    Planet.Seismic.VP_kms[iOS:iSC] = [Planet.Sil.EOS.fn_VP_kms(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iOS, iSC)]
-    Planet.Seismic.VS_kms[iOS:iSC] = [Planet.Sil.EOS.fn_VS_kms(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iOS, iSC)]
-    Planet.Seismic.KS_GPa[iOS:iSC] = [Planet.Sil.EOS.fn_KS_GPa(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iOS, iSC)]
-    Planet.Seismic.GS_GPa[iOS:iSC] = [Planet.Sil.EOS.fn_GS_GPa(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iOS, iSC)]
-    TsilMelt = TsolidusHirschmann2000(Planet.P_MPa[iOS:iSC])
-    Planet.Seismic.QS[iOS:iSC] = Planet.Seismic.BSil * np.exp(Planet.Seismic.gammaSil*Planet.Seismic.gSil * TsilMelt/Planet.T_K[iOS:iSC])
-
     if Planet.Do.Fe_CORE:
         # Unpack results from MoI calculations
         iCC = Planet.Steps.nTotal
         Planet.P_MPa[iSC:iCC], Planet.T_K[iSC:iCC], Planet.r_m[iSC:iCC], Planet.rho_kgm3[iSC:iCC], \
         Planet.g_ms2[iSC:iCC], Planet.Cp_JkgK[iSC:iCC], Planet.alpha_pK[iSC:iCC] = coreProps
-
-        # Evaluate EOS for remaining layer properties
-        Planet.Seismic.VP_kms[iSC:iCC] = [Planet.Core.EOS.fn_VP_kms(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iSC, iCC)]
-        Planet.Seismic.VS_kms[iSC:iCC] = [Planet.Core.EOS.fn_VS_kms(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iSC, iCC)]
-        Planet.Seismic.KS_GPa[iSC:iCC] = [Planet.Core.EOS.fn_KS_GPa(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iSC, iCC)]
-        Planet.Seismic.GS_GPa[iSC:iCC] = [Planet.Core.EOS.fn_GS_GPa(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iSC, iCC)]
 
     Planet.z_m[iOS:iCC] = Planet.Bulk.R_m - Planet.r_m[iOS:iCC]
 

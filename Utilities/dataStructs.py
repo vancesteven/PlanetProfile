@@ -172,6 +172,8 @@ class SeismicSubstruct:
         self.BSil = None
         self.gammaSil = None
         self.gSil = None
+        # Core
+        self.QScore = None  # For assigning a QS value to the core, in lieu of a calculation.
         # Derived quantities
         self.VP_kms = None  # Longitudinal (p-wave) sound velocity for each layer in km/s
         self.VS_kms = None  # Shear (s-wave) sound velocity for each layer in km/s
