@@ -65,7 +65,7 @@ def PlanetProfile(Planet, Params):
         # Reload previous run
         Planet, Params = ReloadProfile(Planet, Params)
 
-    if not Params.SKIP_PROFILES:
+    if not Params.SKIP_PLOTS:
         # Plotting functions
         GeneratePlots(Planet, Params)
 

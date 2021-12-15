@@ -152,6 +152,10 @@ class SeismicSubstruct:
     def __init__(self):
         self.lowQDiv = None  # Factor by which to divide the seismic attenuation Q to test out a low-Q value, dimensionless
         # Ice I
+        self.BClath = None
+        self.gammaClath = None
+        self.gClath = None
+        # Ice I
         self.BIceI = None
         self.gammaIceI = None
         self.gIceI = None
