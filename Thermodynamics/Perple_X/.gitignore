@@ -1,1 +1,2 @@
 output_data/*.mat
+!output_data/*.tab
