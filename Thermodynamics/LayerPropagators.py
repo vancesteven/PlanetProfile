@@ -154,8 +154,8 @@ def OceanLayers(Planet, Params):
         if Planet.phase[Planet.Steps.nSurfIce+i] == 0:
             # Liquid water layers -- get fluid properties for the present layer but with the
             # overlaying layer's temperature
-            rhoOcean_kgm3[i], CpOcean_JkgK[i], alphaOcean_pK[i], _ = \
-                FluidEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, [POcean_MPa[i]], [TOcean_K[i]])
+            rhoOcean_kgm3[i], CpOcean_JkgK[i], alphaOcean_pK[i] = \
+                FluidEOS([POcean_MPa[i]], [TOcean_K[i]], Planet.Ocean.comp, Planet.Ocean.wOcean_ppt)
             # Now use the present layer's properties to calculate an adiabatic thermal profile for layers below
             TOcean_K[i+1] = TOcean_K[i] + alphaOcean_pK[i] * TOcean_K[i] / \
                             CpOcean_JkgK[i] / rhoOcean_kgm3[i] * Planet.Ocean.deltaP*1e6
