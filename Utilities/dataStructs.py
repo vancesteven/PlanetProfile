@@ -129,7 +129,8 @@ class CoreSubstruct:
         self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
         # Derived quantities
         self.rho_kgm3 = None  # Core bulk density consistent with assumed mixing ratios of Fe, FeS, etc.
-        self.Rmean_m = None  # Core radius for mean compatible moment of inertia (MOI)
+        self.rhoMean_kgm3 = None  # Core bulk density calculated from final MoI match using EOS properties
+        self.Rmean_m = None  # Core radius for mean compatible moment of inertia (MoI)
         self.Rrange_m = None  # Core radius range for compatible MoI
         self.Rtrade_m = None  # Array of core radii for compatible MoIs
         #Re Steve- put all mass fraction stuff into a separate file until implemented later- remove from dataStructs.py

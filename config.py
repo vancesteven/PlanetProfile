@@ -17,18 +17,18 @@ Params.DEBUG = False
 Params.DO_PARALLEL = True  # Use multiprocessing module for parallel computation where applicable
 Params.CALC_NEW =       True  # Recalculate profiles? If not, read data from disk and re-plot.
 Params.CALC_NEW_REF =   True  # Recalculate reference phase curves?
-Params.CALC_NEW_SOUND = True  # Recalculate sound speeds?
-Params.CALC_NEW_INDUC = True  # Recalculate magnetic induction responses?
-Params.SKIP_PROFILES =  False  # Whether to skip past all PlanetProfile.m plotting and calculations
-Params.NO_PLOTS =       False  # Suppress plot creation? If yes, just save profiles to disk.
+Params.CALC_NEW_INDUC = True  # Calculate magnetic induction responses?
+Params.CALC_SEISMIC =   True  # Calculate sound speeds?
+Params.CALC_CONDUCT =   True  # Calculate electrical conductivity?
+Params.SKIP_INNER =     False  # Whether to skip past everything but ocean calculations (for large induction studies)
 Params.HOLD =           True  # Whether to overlay runs when possible
-Params.CONDUCT =        True  # Calculate electrical conductivity
 Params.REDUCED =        True  # Whether to limit number of ocean layers for faster computation of layered induction
 Params.DISP_LAYERS =    False  # Whether to display layer depths and heat fluxes for user
 Params.DISP_TABLES =    False  # Whether to print latex-formatted tables to Matlab command line
 Params.DEPRECATED =     False  # Whether to allow deprecated code to run. Will often cause errors.
 
 # Plot Settings
+Params.SKIP_PLOTS = False  # Whether to skip creation of all plots
 Params.PLOT_GRAVITY = True  # Whether to plot Gravity and Pressure
 Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
 Params.PLOT_TRADEOFF = True  # Whether to plot core vs. mantle tradeoff

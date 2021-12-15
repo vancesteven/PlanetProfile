@@ -90,29 +90,31 @@ class PerplexEOSStruct:
         if np.any(np.isnan(GS_bar)): raise RuntimeError(errNaNstart + 'GS' +errNaNend)
 
         # Now make 2D grids of values.
-        rho_kgm3 = np.reshape(rho_kgm3, (dim2,-1))
-        VP_kms = np.reshape(VP_kms, (dim2,-1))
-        VS_kms = np.reshape(VS_kms, (dim2,-1))
-        Cp_JkgK = np.reshape(Cp_JkgK, (dim2,-1))
-        alpha_pK = np.reshape(alpha_pK, (dim2,-1))
-        KS_GPa = np.reshape(KS_bar, (dim2,-1)) * Constants.bar2GPa
-        GS_GPa = np.reshape(GS_bar, (dim2,-1)) * Constants.bar2GPa
+        self.rho_kgm3 = np.reshape(rho_kgm3, (dim2,-1))
+        self.VP_kms = np.reshape(VP_kms, (dim2,-1))
+        self.VS_kms = np.reshape(VS_kms, (dim2,-1))
+        self.Cp_JkgK = np.reshape(Cp_JkgK, (dim2,-1))
+        self.alpha_pK = np.reshape(alpha_pK, (dim2,-1))
+        self.KS_GPa = np.reshape(KS_bar, (dim2,-1)) * Constants.bar2GPa
+        self.GS_GPa = np.reshape(GS_bar, (dim2,-1)) * Constants.bar2GPa
 
         if not P_FIRST:
             # Transpose 2D meshes if P is not the first column.
-            rho_kgm3 = rho_kgm3.T
-            VP_kms = VP_kms.T
-            VS_kms = VS_kms.T
-            Cp_JkgK = Cp_JkgK.T
-            alpha_pK = alpha_pK.T
-            KS_GPa = KS_GPa.T
-            GS_GPa = GS_GPa.T
+            self.rho_kgm3 = self.rho_kgm3.T
+            self.VP_kms = self.VP_kms.T
+            self.VS_kms = self.VS_kms.T
+            self.Cp_JkgK = self.Cp_JkgK.T
+            self.alpha_pK = self.alpha_pK.T
+            self.KS_GPa = self.KS_GPa.T
+            self.GS_GPa = self.GS_GPa.T
 
-        self.fn_rho_kgm3 = spi.RectBivariateSpline(P1D_MPa, T1D_K, rho_kgm3)
-        self.fn_VP_kms = spi.RectBivariateSpline(P1D_MPa, T1D_K, VP_kms)
-        self.fn_VS_kms = spi.RectBivariateSpline(P1D_MPa, T1D_K, VS_kms)
-        self.fn_Cp_JkgK = spi.RectBivariateSpline(P1D_MPa, T1D_K, Cp_JkgK)
-        self.fn_alpha_pK = spi.RectBivariateSpline(P1D_MPa, T1D_K, alpha_pK)
-        self.fn_KS_GPa = spi.RectBivariateSpline(P1D_MPa, T1D_K, KS_GPa)
-        self.fn_GS_GPa = spi.RectBivariateSpline(P1D_MPa, T1D_K, GS_GPa)
+        self.P_MPa = P1D_MPa
+        self.T_K = T1D_K
+        self.fn_rho_kgm3 = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.rho_kgm3)
+        self.fn_VP_kms = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.VP_kms)
+        self.fn_VS_kms = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.VS_kms)
+        self.fn_Cp_JkgK = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.Cp_JkgK)
+        self.fn_alpha_pK = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.alpha_pK)
+        self.fn_KS_GPa = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.KS_GPa)
+        self.fn_GS_GPa = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.GS_GPa)
 

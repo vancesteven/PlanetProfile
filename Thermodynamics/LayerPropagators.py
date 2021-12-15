@@ -217,9 +217,14 @@ def InnerLayers(Planet, Params):
         Assigns Planet attributes:
             Steps.nTotal, all layer arrays
     """
-    if Planet.Do.CONSTANT_INNER_DENSITY:
+    if Planet.Do.CONSTANT_INNER_DENSITY or Params.SKIP_INNER:
         # It will be better to calculate the layers always using the EOS, but no-core models
         # require more inputs to be physically reasonable.
+        if not Planet.Do.CONSTANT_INNER_DENSITY:
+            # Force this flag on in case Params.SKIP_INNER is True and this flag is not,
+            # to avoid problems in SilicateLayers:
+            Planet.Do.CONSTANT_INNER_DENSITY = True
+            print('WARNING: Do.CONSTANT_INNER_DENSITY forced on based on implementation in SilicateLayers.')
         Planet, mantleProps, coreProps = CalcMoIConstantRho(Planet, Params)
     else:
         Planet, mantleProps, coreProps = CalcMoIWithEOS(Planet, Params)
@@ -337,60 +342,68 @@ def CalcMoIConstantRho(Planet, Params):
     CMR2indsInner = [ind - Planet.Steps.iSilStart - nTooBig for ind in CMR2inds]
     # Record the best-match C/MR^2 value
     Planet.CMR2mean = CMR2[iCMR2]
-    # Record core mean radius first because we will use it as the end point in SilicateLayers (it's already set to zero for no core)
+    # Record interior sizes
+    Planet.Sil.rhoTrade_kgm3 = rhoSil_kgm3[CMR2indsInner]
+    Planet.Sil.Rmean_m = Planet.r_m[iCMR2]
+    Planet.Sil.Rtrade_m = Planet.r_m[CMR2inds]
+    Planet.Sil.Rrange_m = Planet.Sil.Rtrade_m[0] - Planet.Sil.Rtrade_m[-1]
     Planet.Core.Rmean_m = rCore_m[iCMR2inner]
+    Planet.Core.Rtrade_m = rCore_m[CMR2indsInner]
+    Planet.Core.Rrange_m = Planet.Core.Rtrade_m[-1] - Planet.Core.Rtrade_m[0]
     # Now we finally know how many layers there are in the hydrosphere
     Planet.Steps.nHydro = iCMR2 - 1
     # Number of steps in the silicate layer is fixed for the constant-density approach
     Planet.Steps.nSil = Planet.Steps.nSilMax
 
-    # Load in Perple_X table for silicate properties
-    if Params.VERBOSE: print('Loading silicate Perple_X table...')
-    Planet.Sil.EOS = PerplexEOSStruct(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod)
-    # Propagate the silicate EOS from each hydrosphere layer to the center of the body
-    nSilTooBig, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSilEOS_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, phiSil_frac \
-        = SilicateLayers(Planet, Params)
-
-    # Fill core/mantle trade arrays and set mean values consistent with MoI
-    MtotSil_kg = np.sum(MLayerSil_kg)
-    Planet.Sil.rhoMean_kgm3 = MtotSil_kg / (4/3*np.pi * (rSil_m[0,0]**3 - rSil_m[0,-1]**3))
-    Planet.Sil.rhoTrade_kgm3 = rhoSil_kgm3[CMR2indsInner]
-    Planet.Sil.Rmean_m = Planet.r_m[iCMR2]
-    Planet.Sil.Rtrade_m = Planet.r_m[CMR2inds]
-    Planet.Sil.Rrange_m = Planet.Sil.Rtrade_m[0] - Planet.Sil.Rtrade_m[-1]
-
-    if Planet.Do.Fe_CORE:
-        # Load in Perple_X table for core properties
-        if Params.VERBOSE: print('Loading core Perple_X table...')
-        Planet.Core.EOS = PerplexEOSStruct(Planet.Core.coreEOS, EOSinterpMethod=Params.interpMethod)
+    if not Params.SKIP_INNER:
+        # Load in Perple_X table for silicate properties
+        if Params.VERBOSE: print('Loading silicate Perple_X table...')
+        Planet.Sil.EOS = PerplexEOSStruct(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod)
         # Propagate the silicate EOS from each hydrosphere layer to the center of the body
-        _, Pcore_MPa, Tcore_K, rCoreEOS_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK = \
-            IronCoreLayers(Planet, Params,
-                           nSilTooBig, nProfiles, Psil_MPa, Tsil_K, rSil_m, MAboveSil_kg, gSil_ms2)
+        nSilTooBig, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSilEOS_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, phiSil_frac \
+            = SilicateLayers(Planet, Params)
 
-        MtotCore_kg = np.sum(MLayerCore_kg)
-        Planet.Core.rhoMean_kgm3 = MtotCore_kg / VCore_m3[iCMR2inner]
-        Planet.Core.Rtrade_m = rCore_m[CMR2indsInner]
-        Planet.Core.Rrange_m = Planet.Core.Rtrade_m[0] - Planet.Core.Rtrade_m[-1]
+        # Fill core/mantle trade arrays and set mean values consistent with MoI
+        MtotSil_kg = np.sum(MLayerSil_kg)
+        Planet.Sil.rhoMean_kgm3 = MtotSil_kg / (4/3*np.pi * (rSil_m[0,0]**3 - rSil_m[0,-1]**3))
 
-        coreProps = (Pcore_MPa, Tcore_K, rCoreEOS_m[0,:-1], rhoCore_kgm3, gCore_ms2, CpCore_JkgK, alphaCore_pK)
+        if Planet.Do.Fe_CORE:
+            # Load in Perple_X table for core properties
+            if Params.VERBOSE: print('Loading core Perple_X table...')
+            Planet.Core.EOS = PerplexEOSStruct(Planet.Core.coreEOS, EOSinterpMethod=Params.interpMethod)
+            # Propagate the silicate EOS from each hydrosphere layer to the center of the body
+            _, Pcore_MPa, Tcore_K, rCoreEOS_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK = \
+                IronCoreLayers(Planet, Params,
+                               nSilTooBig, nProfiles, Psil_MPa, Tsil_K, rSil_m, MAboveSil_kg, gSil_ms2)
+
+            MtotCore_kg = np.sum(MLayerCore_kg)
+            Planet.Core.rhoMean_kgm3 = MtotCore_kg / VCore_m3[iCMR2inner]
+
+            coreProps = (Pcore_MPa, Tcore_K, rCoreEOS_m[0,:-1], rhoCore_kgm3, gCore_ms2, CpCore_JkgK, alphaCore_pK)
+        else:
+            MtotCore_kg = 0
+            Planet.Core.rhoMean_kgm3 = 0
+            Planet.Core.Rtrade_m = np.zeros_like(Planet.Sil.Rtrade_m)
+            Planet.Core.Rrange_m = 0
+            coreProps = ()
+
+        if Params.VERBOSE:
+            Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
+            print('Found matching MoI of ' + str(round(Planet.CMR2mean,3)) +
+                ' (C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured,3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + ') for ' +
+                  'rho_sil = ' + str(round(Planet.Sil.rhoMean_kgm3)) + ' kg/m^3, ' +
+                  'R_sil = ' + str(round(Planet.Sil.Rmean_m / Planet.Bulk.R_m,2)) + ' R, ' +
+                  'R_core = ' + str(round(Planet.Core.Rmean_m / Planet.Bulk.R_m,2)) + ' R, ' +
+                  'M_tot = ' + str(round(Mtot_kg/Planet.Bulk.M_kg,4)) + ' M_' + Planet.name[0] + '.')
+            print('WARNING: Because silicate and core properties were determined from the EOS after finding their ' +
+                  'sizes by assuming constant densities, the body mass may not match the measured value.')
+
     else:
-        MtotCore_kg = 0
+        Psil_MPa, Tsil_K, rhoSilEOS_kgm3, gSil_ms2, phiSil_frac = (np.zeros(Planet.Steps.nSil) for _ in range(5))
+        rSil_m = np.zeros((1, Planet.Steps.nSil+1))
+        coreProps = (np.zeros(Planet.Steps.nCore) for _ in range(7))
+        Planet.Sil.rhoMean_kgm3 = 0
         Planet.Core.rhoMean_kgm3 = 0
-        Planet.Core.Rtrade_m = np.zeros_like(Planet.Sil.Rtrade_m)
-        Planet.Core.Rrange_m = 0
-        coreProps = ()
-
-    if Params.VERBOSE:
-        Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
-        print('Found matching MoI of ' + str(round(Planet.CMR2mean,3)) +
-            ' (C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured,3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + ') for ' +
-              'rho_sil = ' + str(round(Planet.Sil.rhoMean_kgm3)) + ' kg/m^3, ' +
-              'R_sil = ' + str(round(Planet.Sil.Rmean_m / Planet.Bulk.R_m,2)) + ' R, ' +
-              'R_core = ' + str(round(Planet.Core.Rmean_m / Planet.Bulk.R_m,2)) + ' R, ' +
-              'M_tot = ' + str(round(Mtot_kg/Planet.Bulk.M_kg,4)) + ' M_' + Planet.name[0] + '.')
-        print('WARNING: Because silicate and core properties were determined from the EOS after finding their ' +
-              'sizes by assuming constant densities, the body mass may not match the measured value.')
 
     mantleProps = (Psil_MPa, Tsil_K, rSil_m[0,:-1], rhoSilEOS_kgm3, gSil_ms2, phiSil_frac)
 
