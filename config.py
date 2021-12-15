@@ -15,7 +15,7 @@ if Params.VERBOSE: print('Printing verbose runtime messages. Toggle in config.py
 Params.DEBUG = False
 
 Params.DO_PARALLEL = True  # Use multiprocessing module for parallel computation where applicable
-Params.CALC_NEW =       False  # Recalculate profiles? If not, read data from disk and re-plot.
+Params.CALC_NEW =       True  # Recalculate profiles? If not, read data from disk and re-plot.
 Params.CALC_NEW_REF =   True  # Recalculate reference phase curves?
 Params.CALC_NEW_SOUND = True  # Recalculate sound speeds?
 Params.CALC_NEW_INDUC = True  # Recalculate magnetic induction responses?
@@ -132,17 +132,17 @@ Params.LW_seism = 1  # LineWidth for seismic plots (Attenuation)
 Params.spicePCK = 'pck00010.tpc'  # Planetary Constants Kernel from SPICE in order to get body radii
 
 # Wedge color options
-Params.Colors.IonosphereTop = '#FF00FF'  # [1, 0, 1]  # matlab's magenta
-Params.Colors.Ionosphere = '#FF00FF'  #[1, 0, 1]  # matlab's magenta
-Params.Colors.IonosphereBot = '#FF00FF'  #[1, 0, 1]  # matlab's magenta
-Params.Colors.IceI = '#00FFFF'  # cyan  [150 / 255, 226 / 255, 241 / 255]
-Params.Colors.IceII = '#FOFFFF' # azure [3 / 255, 169 / 255, 252 / 255]
-Params.Colors.IceIII = '#F5F5DC'  # beige [150 / 255, 226 / 255, 241 / 255]
-Params.Colors.IceV = '#F5DEB3'  # wheat [150 / 255, 226 / 255, 241 / 255]
-Params.Colors.IceVI = '#FFFFCB'  # ivory  [150 / 255, 226 / 255, 241 / 255]
-Params.Colors.Clath = '#D1B26F'  # tan [44 / 255, 115 / 255, 150 / 255]
-Params.Colors.OceanTop = '#00FFFF'  # cyan [134 / 255, 149 / 255, 201 / 255]  # Darker and richer
-Params.Colors.OceanBot = '#0343DF'  # blue [45 / 255, 55 / 255, 100 / 255]
-Params.Colors.Rock = '#653700'  # brown  [101 / 255, 46 / 255, 11 / 255]
-Params.Colors.Core = '#E6E6FA'  #plum [141 / 255, 12 / 2552, 121 / 255]
+Params.Colors.IonosphereTop = [1, 0, 1]  # matlab's magenta
+Params.Colors.Ionosphere = [1, 0, 1]  # matlab's magenta
+Params.Colors.IonosphereBot = [1, 0, 1]  # matlab's magenta
+Params.Colors.IceI = [150 / 255, 226 / 255, 241 / 255]
+Params.Colors.IceII = [3 / 255, 169 / 255, 252 / 255]
+Params.Colors.IceIII = [150 / 255, 226 / 255, 241 / 255]
+Params.Colors.IceV = [150 / 255, 226 / 255, 241 / 255]
+Params.Colors.IceVI = [150 / 255, 226 / 255, 241 / 255]
+Params.Colors.Clath = [44 / 255, 115 / 255, 150 / 255]
+Params.Colors.OceanTop = [134 / 255, 149 / 255, 201 / 255]  # Darker and richer
+Params.Colors.OceanBot = [45 / 255, 55 / 255, 100 / 255]
+Params.Colors.Rock = [101 / 255, 46 / 255, 11 / 255]
+Params.Colors.Core = [141 / 255, 12 / 2552, 121 / 255]
 
