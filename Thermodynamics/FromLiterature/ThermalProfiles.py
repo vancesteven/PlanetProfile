@@ -27,13 +27,13 @@ def ConvectionDeschampsSotin2001():
 
 def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rho_kgm3, Qrad_Wkg, Htidal_Wm3, qb_Wm2=0):
     """ Thermal profile for purely thermally conductive layers, based on Turcotte and Schubert (1982),
-        as described in Cammarano et al. (2006).
+        as described in Cammarano et al. (2006): https://doi.org/10.1029/2006JE002710
 
         Args:
+            Ttop_K (float, shape N): Temperature at the top of the layer in K.
             rTop_m, rBot_m (float, shape N): Radius at top and bottom of layer in m, respectively.
             kTherm_WmK (float): Thermal conductivity of layer in W/(mK).
             rho_kgm3 (float, shape N): Mass density of layer in kg/m^3.
-            Ttop_K (float, shape N): Temperature at the top of the layer in K.
             Qrad_Wkg (float): Average radiogenic heating rate in W/kg.
             Htidal_Wm3 (float): Average tidal heating rate in W/m^3.
             qb_Wm2=0 (float): Heating rate from below in W/m^2.
