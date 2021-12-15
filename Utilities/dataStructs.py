@@ -16,7 +16,7 @@ Planet.Do.Fe_CORE = False
 class BulkSubstruct():
 
     def __init__(self):
-        self.Tb_K = 200  # Temperature at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers)
+        self.Tb_K = None  # Temperature at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers)
         self.rho_kgm3 = None  # Bulk density in kg/m^3 -- note that this is intended to be derived and not set.
         self.R_m = None  # Mean body outer radius in m
         self.M_kg = None  # Total body mass in kg
@@ -35,6 +35,7 @@ class DoSubstruct:
 
     def __init__(self):
         self.Fe_CORE = False  # Whether to model an iron core for this body
+        self.CONSTANT_INNER_DENSITY = False  # Whether to use a fixed density in silicates and core instead of using Perple_X EOS for each
         self.POROUS_ICE = False  # Whether to model porosity in ice
         self.CLATHRATE = False  # Whether to model clathrates
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
@@ -64,6 +65,7 @@ class StepsSubstruct:
         self.nIIIbottom = None  # Derived number of clathrate + ice I + ice V layers
         self.nSurfIce = None  # Derived number of outer ice layers (above ocean) -- sum of nIceI, nClath, nIceIIILitho, nIceVLitho
         self.nStepsRefRho = None  # Number of values for plotting reference density curves (sets resolution)
+        self.iSilStart = None  # Hydrosphere index at which to start silicate size search
         self.nSilMax = None  # Fixed max number of steps in silicate layers
         self.nSil = None  # Derived final number of steps in silicate layers
         self.nCore = None  # Fixed number of steps in core layers, if present
