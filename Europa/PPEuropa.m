@@ -78,7 +78,7 @@ Planet.POROUS_ROCK = 0;
 % Planet.PEFF =0;
 
 %% Seismic
-Seismic.DO_SEISMIC = 0; % MJS 2021-10-31: Temporary measure to aid python conversion
+Seismic.DO_SEISMIC = 1; % MJS 2021-10-31: Temporary measure to aid python conversion
 Seismic.LOW_ICE_Q = 1; % divide Ice Q value by this number
 Seismic.QScore = 1e4;
 Seismic.coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab';
@@ -89,9 +89,9 @@ Seismic.B_aniso_iceI = 0.56;
 Seismic.gamma_aniso_iceI = 0.2;
 Seismic.g_aniso_iceI = 22; %C2006
 % ice II
-Seismic.B_aniso_iceIII = 0.56;
-Seismic.gamma_aniso_iceIII = 0.2;
-Seismic.g_aniso_iceIII = 30; 
+Seismic.B_aniso_iceII = 0.56;
+Seismic.gamma_aniso_iceII = 0.2;
+Seismic.g_aniso_iceII = 30; 
 % ice III
 Seismic.B_aniso_iceIII = 0.56;
 Seismic.gamma_aniso_iceIII = 0.2;

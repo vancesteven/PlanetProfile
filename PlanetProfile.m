@@ -1413,6 +1413,12 @@ if Params.CALC_NEW_SOUNDSPEEDS
     velsIce.KsI_GPa = 1e-3*out.Ks;
     velsIce.GsI_GPa = 1e-3*out.shear;
 
+    out=SeaFreeze([P_MPa' T_K'],'II');
+    velsIce.VIIl_kms = 1e-3*out.Vp;
+    velsIce.VIIt_kms = 1e-3*out.Vs;
+    velsIce.KsII_GPa = 1e-3*out.Ks;
+    velsIce.GsII_GPa = 1e-3*out.shear;
+
     out=SeaFreeze([P_MPa' T_K'],'III');
     velsIce.VIIIl_kms = 1e-3*out.Vp;
     velsIce.VIIIt_kms = 1e-3*out.Vs;
@@ -2574,6 +2580,9 @@ if ~cfg.SKIP_PROFILES
         line(velsIce.VVt_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
         line(velsIce.VVIt_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
            line(velsIce.Vclatht_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
+       ax = gca;
+        if Params.HOLD
+        
        maxV = max([velsIce.VIt_kms(1:indSil) ...
             velsIce.VIIt_kms(1:indSil) ...
             velsIce.Vclatht_kms(1:indSil)...
@@ -2588,8 +2597,6 @@ if ~cfg.SKIP_PROFILES
             velsIce.VVIt_kms(1:indSil)]);
         maxV = max(maxV);minV = min(minV);
 
-        ax = gca;
-        if Params.HOLD
             if max(Dsil_km)>ax.YLim
                 ax.YLim(2) = max(Dsil_km);
             end
@@ -2617,7 +2624,10 @@ if ~cfg.SKIP_PROFILES
         line(velsIce.VIIIl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
         line(velsIce.VVl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
          line(velsIce.Vclathl_kms(1:indSil),z_m(1:indSil)*1e-3,'Color',Params.colororder(:,1),'LineStyle',Params.LineStyle,'LineWidth',cfg.LW_sound);
-
+        
+         ax = gca;
+        if Params.HOLD
+        
         maxV = max([velsIce.VIl_kms(1:indSil) ...
                 velsIce.Vclathl_kms(1:indSil) ...
                 velsIce.VIIl_kms(1:indSil) ...
@@ -2633,9 +2643,7 @@ if ~cfg.SKIP_PROFILES
                 velsIce.VVIl_kms(1:indSil)]);
         maxV = max(maxV);minV = min(minV);
 
-        ax = gca;
-        if Params.HOLD
-            if max(Dsil_km)>ax.YLim
+           if max(Dsil_km)>ax.YLim
                 ax.YLim(2) = max(Dsil_km);
             end
 
