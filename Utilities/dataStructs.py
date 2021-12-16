@@ -84,6 +84,9 @@ class OceanSubstruct:
         self.electrical = 'Vance2018'  # Type of electrical conductivity model to use. Options: 'Vance2018', 'Pan2020'
         self.QfromMantle_Wm2 = None  # Heat flow from mantle into hydrosphere
         self.sigmaIce_Sm = 1e-8  # Assumed conductivity of ice layers
+        self.THydroMax_K = 340  # Assumed maximum ocean temperature for generating ocean EOS functions
+        self.deltaT = 0.5  # Step size in K for temperature values used in generating ocean EOS functions
+        self.EOS = None  # Equation of state data to use for ocean layers
 
 
 """ Silicate layers """

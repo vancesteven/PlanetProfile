@@ -1,5 +1,6 @@
 import numpy as np
 from Thermodynamics.FromLiterature.ThermalProfiles import TsolidusHirschmann2000
+from Thermodynamics.HydroEOS import GetPhaseIndices
 from seafreeze import seafreeze as SeaFreeze
 
 def SeismicCalcs(Planet, Params):
@@ -14,48 +15,44 @@ def SeismicCalcs(Planet, Params):
 
     if Params.CALC_SEISMIC:
 
+        indsLiquid, indsIceI, indsIceII, indsIceIII, indsIceV, indsIceVI, indsClath, indsSil, indsFe = GetPhaseIndices(Planet.phase)
+
         if Planet.Do.CLATHRATE:
             # Get seismic properties of surface clathrate layer
-            Planet.Seismic.VP_kms[:Planet.Steps.nClath], Planet.Seismic.VS_kms[:Planet.Steps.nClath], \
-            Planet.Seismic.KS_GPa[:Planet.Steps.nClath], Planet.Seismic.GS_GPa[:Planet.Steps.nClath], _ \
-                = ClathratePropsHelgerud2009(Planet.P_MPa, Planet.T_K)
+            Planet.Seismic.VP_kms[indsClath], Planet.Seismic.VS_kms[indsClath], \
+            Planet.Seismic.KS_GPa[indsClath], Planet.Seismic.GS_GPa[indsClath], _ \
+                = ClathrateSeismicHelgerud2009(Planet.P_MPa[indsClath], Planet.T_K[indsClath])
 
-            TclathMelt = 273
-            print('WARNING: TclathMelt is not yet implemented. Placeholder value of 273 K used for QS.')
-            Planet.Seismic.QS[:Planet.Steps.nClath] = Planet.Seismic.BClath * np.exp(
-                Planet.Seismic.gammaClath * Planet.Seismic.gClath * TclathMelt / Planet.T_K[:Planet.Steps.nClath])
+            Hclath = Planet.Seismic.gClath * np.max(Planet.T_K[indsClath])
+            Planet.Seismic.QS[indsClath] = Planet.Seismic.BClath * np.exp(
+                Planet.Seismic.gammaClath * Hclath / Planet.T_K[indsClath])
 
         # Get seismic properties of all ice layers
-        if np.any(Planet.phase==1):
-            indsIceI = np.where(Planet.phase==1)
+        if np.any(indsIceI):
             Planet.Seismic.VP_kms[indsIceI], Planet.Seismic.VS_kms[indsIceI], Planet.Seismic.KS_GPa[indsIceI], \
             Planet.Seismic.GS_GPa[indsIceI] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceI], Planet.T_K[indsIceI], 1)
             HiceI = Planet.Seismic.gIceI * Planet.Bulk.Tb_K
             Planet.Seismic.QS[indsIceI] = Planet.Seismic.BIceI * np.exp(
                 Planet.Seismic.gammaIceI * HiceI / Planet.T_K[indsIceI])
-        if np.any(Planet.phase==2):
-            indsIceII = np.where(Planet.phase==2)
+        if np.any(indsIceII):
             Planet.Seismic.VP_kms[indsIceII], Planet.Seismic.VS_kms[indsIceII], Planet.Seismic.KS_GPa[indsIceII], \
             Planet.Seismic.GS_GPa[indsIceII] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceII], Planet.T_K[indsIceII], 2)
             HiceII = Planet.Seismic.gIceII * np.max(Planet.T_K[indsIceII])
             Planet.Seismic.QS[indsIceII] = Planet.Seismic.BIceII * np.exp(
                 Planet.Seismic.gammaIceII * HiceII / Planet.T_K[indsIceII])
-        if np.any(Planet.phase==3):
-            indsIceIII = np.where(Planet.phase==3)
+        if np.any(indsIceIII):
             Planet.Seismic.VP_kms[indsIceIII], Planet.Seismic.VS_kms[indsIceIII], Planet.Seismic.KS_GPa[indsIceIII], \
             Planet.Seismic.GS_GPa[indsIceIII] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceIII], Planet.T_K[indsIceIII], 3)
             HiceIII = Planet.Seismic.gIceIII * np.max(Planet.T_K[indsIceIII])
             Planet.Seismic.QS[indsIceIII] = Planet.Seismic.BIceIII * np.exp(
                 Planet.Seismic.gammaIceIII * HiceIII / Planet.T_K[indsIceIII])
-        if np.any(Planet.phase==5):
-            indsIceV = np.where(Planet.phase==5)
+        if np.any(indsIceV):
             Planet.Seismic.VP_kms[indsIceV], Planet.Seismic.VS_kms[indsIceV], Planet.Seismic.KS_GPa[indsIceV], \
             Planet.Seismic.GS_GPa[indsIceV] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceV], Planet.T_K[indsIceV], 5)
             HiceV = Planet.Seismic.gIceV * np.max(Planet.T_K[indsIceV])
             Planet.Seismic.QS[indsIceV] = Planet.Seismic.BIceV * np.exp(
                 Planet.Seismic.gammaIceV * HiceV / Planet.T_K[indsIceV])
-        if np.any(Planet.phase==6):
-            indsIceVI = np.where(Planet.phase==6)
+        if np.any(indsIceVI):
             Planet.Seismic.VP_kms[indsIceVI], Planet.Seismic.VS_kms[indsIceVI], Planet.Seismic.KS_GPa[indsIceVI], \
             Planet.Seismic.GS_GPa[indsIceVI] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceVI], Planet.T_K[indsIceVI], 6)
             HiceVI = Planet.Seismic.gIceVI * np.max(Planet.T_K[indsIceVI])
@@ -63,39 +60,36 @@ def SeismicCalcs(Planet, Params):
                 Planet.Seismic.gammaIceVI * HiceVI / Planet.T_K[indsIceVI])
             
         # Get seismic properties of ocean layers
-        if np.any(Planet.phase==0):
-            indsLiquid = np.where(Planet.phase==0)
+        if np.any(indsLiquid):
             Planet.Seismic.VP_kms[indsLiquid], Planet.Seismic.VS_kms[indsLiquid], Planet.Seismic.KS_GPa[indsLiquid], \
             Planet.Seismic.GS_GPa[indsLiquid] = SeaFreezeSeismicFluid(Planet.P_MPa[indsLiquid], Planet.T_K[indsLiquid],
                                                                     Planet.Ocean.comp, Planet.Ocean.wOcean_ppt)
-            Planet.Seismic.QS[indsLiquid] = np.zeros(np.size(indsLiquid)) * np.nan
+            Planet.Seismic.QS[indsLiquid] = np.zeros(np.size(indsLiquid))
 
         if not Params.SKIP_INNER:
             # Evaluate silicate EOS for seismic properties
-            iOS = Planet.Steps.nHydro
-            iSC = Planet.Steps.nHydro + Planet.Steps.nSil
-            Planet.Cp_JkgK[iOS:iSC] = [Planet.Sil.EOS.fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iOS, iSC)]
-            Planet.alpha_pK[iOS:iSC] = [Planet.Sil.EOS.fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iOS, iSC)]
-            Planet.Seismic.VP_kms[iOS:iSC] = [Planet.Sil.EOS.fn_VP_kms(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iOS, iSC)]
-            Planet.Seismic.VS_kms[iOS:iSC] = [Planet.Sil.EOS.fn_VS_kms(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iOS, iSC)]
-            Planet.Seismic.KS_GPa[iOS:iSC] = [Planet.Sil.EOS.fn_KS_GPa(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iOS, iSC)]
-            Planet.Seismic.GS_GPa[iOS:iSC] = [Planet.Sil.EOS.fn_GS_GPa(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iOS, iSC)]
-            TsilMelt = TsolidusHirschmann2000(Planet.P_MPa[iOS:iSC])
-            Planet.Seismic.QS[iOS:iSC] = Planet.Seismic.BSil * np.exp(
-                Planet.Seismic.gammaSil * Planet.Seismic.gSil * TsilMelt / Planet.T_K[iOS:iSC])
-        
-            # Evaluate core EOS for seismic properties
-            iCC = Planet.Steps.nTotal
-            Planet.Seismic.VP_kms[iSC:iCC] = [Planet.Core.EOS.fn_VP_kms(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iSC, iCC)]
-            Planet.Seismic.VS_kms[iSC:iCC] = [Planet.Core.EOS.fn_VS_kms(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iSC, iCC)]
-            Planet.Seismic.KS_GPa[iSC:iCC] = [Planet.Core.EOS.fn_KS_GPa(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iSC, iCC)]
-            Planet.Seismic.GS_GPa[iSC:iCC] = [Planet.Core.EOS.fn_GS_GPa(Planet.P_MPa[i], Planet.T_K[i]) for i in range(iSC, iCC)]
-            if Planet.Seismic.QScore is not None: Planet.Seismic.QS[iSC:iCC] = Planet.Seismic.QScore
+            Planet.Cp_JkgK[indsSil] = [Planet.Sil.EOS.fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsSil[0]]
+            Planet.alpha_pK[indsSil] = [Planet.Sil.EOS.fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsSil[0]]
+            Planet.Seismic.VP_kms[indsSil] = [Planet.Sil.EOS.fn_VP_kms(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsSil[0]]
+            Planet.Seismic.VS_kms[indsSil] = [Planet.Sil.EOS.fn_VS_kms(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsSil[0]]
+            Planet.Seismic.KS_GPa[indsSil] = [Planet.Sil.EOS.fn_KS_GPa(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsSil[0]]
+            Planet.Seismic.GS_GPa[indsSil] = [Planet.Sil.EOS.fn_GS_GPa(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsSil[0]]
+            Hsil = Planet.Seismic.gSil * TsolidusHirschmann2000(Planet.P_MPa[indsSil])
+            Planet.Seismic.QS[indsSil] = Planet.Seismic.BSil * np.exp(
+                Planet.Seismic.gammaSil * Hsil / Planet.T_K[indsSil])
+
+            if Planet.Do.Fe_CORE:
+                # Evaluate core EOS for seismic properties
+                Planet.Seismic.VP_kms[indsFe] = [Planet.Core.EOS.fn_VP_kms(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsFe[0]]
+                Planet.Seismic.VS_kms[indsFe] = [Planet.Core.EOS.fn_VS_kms(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsFe[0]]
+                Planet.Seismic.KS_GPa[indsFe] = [Planet.Core.EOS.fn_KS_GPa(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsFe[0]]
+                Planet.Seismic.GS_GPa[indsFe] = [Planet.Core.EOS.fn_GS_GPa(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsFe[0]]
+                if Planet.Seismic.QScore is not None: Planet.Seismic.QS[indsFe] = Planet.Seismic.QScore
 
     return Planet
 
 
-def ClathratePropsHelgerud2009(P_MPa, T_K):
+def ClathrateSeismicHelgerud2009(P_MPa, T_K):
     """ Calculate seismic velocities in clathrates based on Helgerud et al. (2009): https://doi.org/10.1029/2009JB006451
         Note that the original article had a correction for all of the tables' equations--
         the correction is linked in the above DOI.
@@ -116,9 +110,9 @@ def ClathratePropsHelgerud2009(P_MPa, T_K):
     VS_kms = (-0.892*T_C - 0.1*P_MPa + 1957) * 1e-3
     KS_GPa = -1.09e-2*T_C + 3.8e-3*P_MPa + 8.39
     GS_GPa = -4.2e-3*T_C + 9e-5*P_MPa + 3.541
-    rho_kgm3 = (-2.3815e-4*T_C + 1.1843e-4*P_MPa + 0.91801) * 1e3
+    #rho_kgm3 = (-2.3815e-4*T_C + 1.1843e-4*P_MPa + 0.91801) * 1e3 # Add to another function in HydroEOS for other props.
 
-    return VP_kms, VS_kms, KS_GPa, GS_GPa, rho_kgm3
+    return VP_kms, VS_kms, KS_GPa, GS_GPa
 
 
 def SeaFreezeSeismicIce(P_MPa, T_K, phase):
@@ -200,9 +194,9 @@ def SeaFreezeSeismicFluid(P_MPa, T_K, compstr, w_ppt):
     if w_ppt == 0:
         seaOut = SeaFreeze(PTpairs, 'water1')
         VP_kms = seaOut.vel * 1e-3
-        VS_kms = np.zeros_like(VP_kms) * np.nan
+        VS_kms = np.zeros_like(VP_kms)
         KS_GPa = seaOut.Ks * 1e-3
-        GS_GPa = np.zeros_like(VP_kms) * np.nan
+        GS_GPa = np.zeros_like(VP_kms)
     elif compstr == 'Seawater':
         raise ValueError('Unable to get seismic properties of ocean. Seawater is not implemented yet.')
     elif compstr == 'NH3':

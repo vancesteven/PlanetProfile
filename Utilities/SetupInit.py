@@ -3,7 +3,6 @@
 import os
 import numpy as np
 import Utilities.PPversion as PPver
-from Utilities.SwEOSChooser import SetupEOS
 from Utilities.dataStructs import DataFilesSubstruct, FigureFilesSubstruct
 
 def SetupInit(Planet, Params):
@@ -17,9 +16,6 @@ def SetupInit(Planet, Params):
     PPver.CheckSeaFreeze(PPver.seaFreezeCompatVer)  # SeaFreeze
     PPver.CheckGSW(PPver.gswCompatVer)  # Gibbs Seawater
     PPver.CheckTauP(PPver.taupCompatVer)  # TauP
-
-    # Get ocean equation of state
-    Planet.oceanEOS = SetupEOS(Planet.Ocean.comp)
 
     # Get filenames for saving/loading
     Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)

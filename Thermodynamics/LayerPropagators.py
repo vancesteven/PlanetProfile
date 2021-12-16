@@ -1,7 +1,7 @@
 import numpy as np
 from collections.abc import Iterable
 from Utilities.dataStructs import Constants
-from Thermodynamics.HydroEOS import GetIceThermo, GetPfreeze, GetTfreeze, GetPfreezeHP, FluidEOS, GetPhase
+from Thermodynamics.HydroEOS import GetIceThermo, GetPfreeze, GetTfreeze, GetPfreezeHP, FluidEOS, GetPhase, OceanEOSStruct
 from Thermodynamics.FromLiterature.ThermalProfiles import ConductionClathLid, ConvectionDeschampsSotin2001, ConductiveTemperature
 from Thermodynamics.InnerEOS import PerplexEOSStruct
 
@@ -144,9 +144,13 @@ def OceanLayers(Planet, Params):
     TOcean_K, rhoOcean_kgm3, CpOcean_JkgK, alphaOcean_pK = (np.zeros(Planet.Steps.nOceanMax) for _ in range(4))
     TOcean_K = np.insert(TOcean_K, 0, Planet.T_K[Planet.Steps.nSurfIce-1])
 
+    # Get ocean EOS functions
+    TOceanLin_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
+    Planet.Ocean.EOS = OceanEOSStruct(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOceanLin_K)
+
     for i in range(Planet.Steps.nOceanMax):
         Planet.phase[Planet.Steps.nSurfIce+i] = \
-            GetPhase(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa[i], TOcean_K[i])
+            GetPhase(Planet.Ocean.EOS, Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa[i], TOcean_K[i])
         if Params.VERBOSE: print('il: '+str(Planet.Steps.nSurfIce+i) +
                                '; P_MPa: '+str(round(POcean_MPa[i],3)) +
                                '; T_K: '+str(round(TOcean_K[i],3)) +
@@ -154,8 +158,9 @@ def OceanLayers(Planet, Params):
         if Planet.phase[Planet.Steps.nSurfIce+i] == 0:
             # Liquid water layers -- get fluid properties for the present layer but with the
             # overlaying layer's temperature
-            rhoOcean_kgm3[i], CpOcean_JkgK[i], alphaOcean_pK[i] = \
-                FluidEOS([POcean_MPa[i]], [TOcean_K[i]], Planet.Ocean.comp, Planet.Ocean.wOcean_ppt)
+            rhoOcean_kgm3[i] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[i], TOcean_K[i])
+            CpOcean_JkgK[i] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
+            alphaOcean_pK[i] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
             # Now use the present layer's properties to calculate an adiabatic thermal profile for layers below
             TOcean_K[i+1] = TOcean_K[i] + alphaOcean_pK[i] * TOcean_K[i] / \
                             CpOcean_JkgK[i] / rhoOcean_kgm3[i] * Planet.Ocean.deltaP*1e6

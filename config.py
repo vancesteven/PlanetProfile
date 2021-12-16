@@ -15,7 +15,7 @@ if Params.VERBOSE: print('Printing verbose runtime messages. Toggle in config.py
 Params.DEBUG = False
 
 Params.DO_PARALLEL = True  # Use multiprocessing module for parallel computation where applicable
-Params.CALC_NEW =       False  # Recalculate profiles? If not, read data from disk and re-plot.
+Params.CALC_NEW =       True  # Recalculate profiles? If not, read data from disk and re-plot.
 Params.CALC_NEW_REF =   True  # Recalculate reference phase curves?
 Params.CALC_NEW_INDUC = True  # Calculate magnetic induction responses?
 Params.CALC_SEISMIC =   True  # Calculate sound speeds?

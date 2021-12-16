@@ -1,10 +1,11 @@
 import numpy as np
+import scipy.interpolate as spi
 from seafreeze import seafreeze as SeaFreeze
 from seafreeze import whichphase as WhichPhase
 
 def FluidEOS(P_MPa, T_K, compstr, w_ppt):
     """ Returns mass density, heat capacity, and thermal expansivity based on thermodynamics
-     from SeaFreeze and input pressure, temperature, salinity, and composition
+        from SeaFreeze and input pressure, temperature, salinity, and composition
 
         Args:
             P_MPa (float, shape N): Pressure of the fluid in MPa
@@ -38,7 +39,7 @@ def FluidEOS(P_MPa, T_K, compstr, w_ppt):
     return rho_kgm3, Cp_JkgK, alpha_pK
 
 
-def GetPhase(compstr, w_ppt, P_MPa, T_K):
+def GetPhase(oceanEOS, compstr, w_ppt, P_MPa, T_K):
     """ Get phase for single (scalar) (P,T) pair
 
         Args:
@@ -51,7 +52,8 @@ def GetPhase(compstr, w_ppt, P_MPa, T_K):
     """
     PT = np.array([(P_MPa, T_K)], dtype='f,f').astype(object)
     if w_ppt == 0:
-        phase = WhichPhase(PT)
+        #phase = WhichPhase(PT)
+        phase = int(oceanEOS.fn_phase(P_MPa, T_K))
     elif compstr == 'Seawater':
         raise ValueError('Unable to set FluidEOS. Seawater is not implemented yet.')
     elif compstr == 'NH3':
@@ -123,7 +125,7 @@ def GetPfreeze(compstr, w_ppt, Tb_K, PfreezeLower_MPa=30, PfreezeUpper_MPa=300, 
 
 def GetPfreezeHP(compstr, w_ppt, TbHP_K, phase, PfreezeHPLower_MPa=180, PfreezeHPUpper_MPa=900, PfreezeHPRes_MPa=0.5):
     """ Returns the pressure at which a high-pressure ice changes phase based on
-     temperature, salinity, and composition
+        temperature, salinity, and composition
 
         Args:
             compstr (string): Composition of dissolved salt
@@ -231,43 +233,43 @@ def GetIceThermo(P_MPa, T_K, phase):
     # Initialize outputs
     rho_kgm3, Cp_JkgK, alpha_pK = (np.zeros_like(P_MPa) for _ in range(3))
     # Identify which indices correspond to which phases
-    indsLiquid, indsI, indsII, indsIII, indsV, indsVI, indsClath, _, _ = GetPhaseIndices(phase)
+    indsLiquid, indsIceI, indsIceII, indsIceIII, indsIceV, indsIceVI, indsClath, _, _ = GetPhaseIndices(phase)
     # Organize (P,T) value pairs into a list of tuples compatible with SeaFreeze
     PTlist = np.array([(P_MPa[i], T_K[i]) for i in range(np.size(phase))], dtype='f,f').astype(object)
 
     # Call SeaFreeze for each phase type in one go
-    if len(indsI) != 0:
-        seaOut = SeaFreeze(PTlist[indsI], 'Ih')
-        rho_kgm3[indsI] = seaOut.rho
-        Cp_JkgK[indsI] = seaOut.Cp
-        alpha_pK[indsI] = seaOut.alpha
-    if len(indsLiquid) != 0:
+    if np.any(indsIceI):
+        seaOut = SeaFreeze(PTlist[indsIceI], 'Ih')
+        rho_kgm3[indsIceI] = seaOut.rho
+        Cp_JkgK[indsIceI] = seaOut.Cp
+        alpha_pK[indsIceI] = seaOut.alpha
+    if np.any(indsLiquid):
+        print('WARNING: Unexpected liquids are present within ice layers. Check Steps.n settings.')
         seaOut = SeaFreeze(PTlist[indsLiquid], 'water1')
         rho_kgm3[indsLiquid] = seaOut.rho
         Cp_JkgK[indsLiquid] = seaOut.Cp
         alpha_pK[indsLiquid] = seaOut.alpha
-        print('WARNING: Unexpected liquids are present within ice layers. Check Steps.n settings.')
-    if len(indsII) != 0:
-        seaOut = SeaFreeze(PTlist[indsII], 'II')
-        rho_kgm3[indsII] = seaOut.rho
-        Cp_JkgK[indsII] = seaOut.Cp
-        alpha_pK[indsII] = seaOut.alpha
-    if len(indsIII) != 0:
-        seaOut = SeaFreeze(PTlist[indsIII], 'III')
-        rho_kgm3[indsIII] = seaOut.rho
-        Cp_JkgK[indsIII] = seaOut.Cp
-        alpha_pK[indsIII] = seaOut.alpha
-    if len(indsV) != 0:
-        seaOut = SeaFreeze(PTlist[indsV], 'V')
-        rho_kgm3[indsV] = seaOut.rho
-        Cp_JkgK[indsV] = seaOut.Cp
-        alpha_pK[indsV] = seaOut.alpha
-    if len(indsVI) != 0:
-        seaOut = SeaFreeze(PTlist[indsVI], 'VI')
-        rho_kgm3[indsVI] = seaOut.rho
-        Cp_JkgK[indsVI] = seaOut.Cp
-        alpha_pK[indsVI] = seaOut.alpha
-    if len(indsClath) != 0:
+    if np.any(indsIceII):
+        seaOut = SeaFreeze(PTlist[indsIceII], 'II')
+        rho_kgm3[indsIceII] = seaOut.rho
+        Cp_JkgK[indsIceII] = seaOut.Cp
+        alpha_pK[indsIceII] = seaOut.alpha
+    if np.any(indsIceIII):
+        seaOut = SeaFreeze(PTlist[indsIceIII], 'III')
+        rho_kgm3[indsIceIII] = seaOut.rho
+        Cp_JkgK[indsIceIII] = seaOut.Cp
+        alpha_pK[indsIceIII] = seaOut.alpha
+    if np.any(indsIceV):
+        seaOut = SeaFreeze(PTlist[indsIceV], 'V')
+        rho_kgm3[indsIceV] = seaOut.rho
+        Cp_JkgK[indsIceV] = seaOut.Cp
+        alpha_pK[indsIceV] = seaOut.alpha
+    if np.any(indsIceVI):
+        seaOut = SeaFreeze(PTlist[indsIceVI], 'VI')
+        rho_kgm3[indsIceVI] = seaOut.rho
+        Cp_JkgK[indsIceVI] = seaOut.Cp
+        alpha_pK[indsIceVI] = seaOut.alpha
+    if np.any(indsClath):
         seaOut = SeaFreeze(PTlist[indsClath], 'Clath')
         rho_kgm3[indsClath] = seaOut.rho
         Cp_JkgK[indsClath] = seaOut.Cp
@@ -310,17 +312,58 @@ def GetPhaseIndices(phase):
         Args:
             phase (int, shape N)
         Returns:
-            indsLiquid, indsI, ... indsFe (int, shape 0-M): lists of indices corresponding to each phase.
+            indsLiquid, indsIceI, ... indsFe (int, shape 0-M): lists of indices corresponding to each phase.
                 Variable length.
     """
-    indsLiquid = [i for i, val in enumerate(phase) if val == 0]
-    indsI = [i for i, val in enumerate(phase) if val == 1]
-    indsII = [i for i, val in enumerate(phase) if val == 2]
-    indsIII = [i for i, val in enumerate(phase) if val == 3]
-    indsV = [i for i, val in enumerate(phase) if val == 5]
-    indsVI = [i for i, val in enumerate(phase) if val == 6]
-    indsClath = [i for i, val in enumerate(phase) if val == 30]
-    indsSil = [i for i, val in enumerate(phase) if val == 50]
-    indsFe = [i for i, val in enumerate(phase) if val == 100]
+    indsLiquid = np.where(phase==0)
+    indsIceI = np.where(phase==1)
+    indsIceII = np.where(phase==2)
+    indsIceIII = np.where(phase==3)
+    indsIceV = np.where(phase==5)
+    indsIceVI = np.where(phase==6)
+    indsClath = np.where(phase==30)
+    indsSil = np.where(phase==50)
+    indsFe = np.where(phase==100)
 
-    return indsLiquid, indsI, indsII, indsIII, indsV, indsVI, indsClath, indsSil, indsFe
+    return indsLiquid, indsIceI, indsIceII, indsIceIII, indsIceV, indsIceVI, indsClath, indsSil, indsFe
+
+
+class OceanEOSStruct:
+
+    def __init__(self, compstr, wOcean_ppt, P_MPa, T_K):
+        # Get tabular data from the appropriate source for this composition
+
+        if wOcean_ppt == 0:
+            self.type = 'SeaFreeze'
+            PTgrid = np.array([P_MPa, T_K], dtype=object)
+            seaOut = SeaFreeze(PTgrid, 'water1')
+            self.rho_kgm3 = seaOut.rho
+            self.Cp_JkgK = seaOut.Cp
+            self.alpha_pK = seaOut.alpha
+            self.phase = WhichPhase(PTgrid)
+        elif compstr == 'Seawater':
+            self.type = 'GSW'
+            raise ValueError('Unable to load ocean EOS. Seawater is not implemented yet.')
+        elif compstr == 'NH3':
+            self.type = 'PlanetProfile'
+            raise ValueError('Unable to load ocean EOS. NH3 is not implemented yet.')
+        elif compstr == 'MgSO4':
+            self.type = 'LBF'
+            raise ValueError('Unable to load ocean EOS. MgSO4 is not implemented yet.')
+        elif compstr == 'NaCl':
+            self.type = 'PlanetProfile'
+            raise ValueError('Unable to load ocean EOS. NaCl is not implemented yet.')
+        else:
+            raise ValueError('Unable to load ocean EOS. compstr="'+compstr+'" but options are Seawater, NH3, MgSO4, and NaCl.')
+
+        self.fn_rho_kgm3 = spi.RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
+        self.fn_Cp_JkgK = spi.RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
+        self.fn_alpha_pK = spi.RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
+
+        # Repackage data as needed for NearestNDInterpolator
+        Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
+        Tlin_K = np.array([T for _ in P_MPa for T in T_K])
+        PTpairs = list(zip(Plin_MPa, Tlin_K))
+        phase1D = np.reshape(self.phase, (-1))
+        # Create phase finder -- note that the results from this function must be cast to int after retrieval
+        self.fn_phase = spi.NearestNDInterpolator(PTpairs, phase1D)
