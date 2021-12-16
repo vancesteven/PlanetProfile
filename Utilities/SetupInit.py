@@ -70,21 +70,6 @@ def SetupFilenames(Planet, Params):
 
     datBase = os.path.join(datPath, saveBase)
     DataFiles = DataFilesSubstruct(datBase)
-
-    # Figure filename strings
-    vsP = 'Porosity_vs_P'
-    vsR = 'Porosity_vs_R'
-    vperm = 'Permeability'
-    vgsks = 'Gs_Ks'
-    vseis = 'Seismic'
-    vcond = 'Conductivity'
-    vgrav = 'Gravity'
-    vmant = 'MantleDens'
-    vcore = 'CoreMantTrade'
-    vpvt4 = 'PTx4'
-    vpvt6 = 'PTx6'
-    vwedg = 'Wedge'
-
     figBase = os.path.join(figPath, saveBase)
     FigureFiles = FigureFilesSubstruct(figBase, Params.xtn)
 
