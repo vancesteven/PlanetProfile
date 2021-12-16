@@ -259,23 +259,54 @@ class DataFilesSubstruct:
 # Construct filenames for figures etc.
 class FigureFilesSubstruct:
     def __init__(self, fName, xtn):
-        self.dummyFig = fName + xtn
+        # Figure filename strings
+        vsP = 'Porosity_vs_P'
+        vsR = 'Porosity_vs_R'
+        vperm = 'Permeability'
+        vgsks = 'Gs_Ks'
+        vseis = 'Seismic'
+        vhydro = 'Hydrosphere'
+        vgrav = 'Gravity'
+        vmant = 'MantleDens'
+        vcore = 'CoreMantTrade'
+        vpvt4 = 'PTx4'
+        vpvt6 = 'PTx6'
+        vwedg = 'Wedge'
+        # Construct Figure Filenames
+        self.vwedg = fName + vwedg + xtn
+        self.vsP = fName + vsP + xtn
+        self.vsR= fName + vsR + xtn
+        self.vperm = fName + vperm + xtn
+        self.vgsks = fName + vgsks + xtn
+        self.vseis = fName + vseis + xtn
+        self.vhydro = fName + vhydro + xtn
+        self.vgrav = fName + vgrav + xtn
+        self.vmant = fName + vmant + xtn
+        self.vcore = fName + vcore + xtn
+        self.vpvt4 = fName + vpvt4 + xtn
+        self.vpvt6 = fName + vpvt6 + xtn
 
 
-""" General parameter options """
+""" Figure size """
+class FigSizeStruct:
+    def __init__(self):
+        pass
+
+
+""" Figure color options """
 class ColorsStruct:
     def __init__(self):
         pass
 
+
+""" General parameter options """
 class ParamsStruct:
 
     def __init__(self):
         self.DataFiles = DataFilesSubstruct('')
         self.FigureFiles = FigureFilesSubstruct('', '')
         self.Colors = ColorsStruct()
-
-    class lbls: # Not sure we need this in Params for the Python implementation.
-        pass
+        self.FigSize = FigSizeStruct()
 
 
 class ConstantsStruct:
@@ -287,12 +318,5 @@ class ConstantsStruct:
     T0 = 273.15  # The Celsius zero point in K.
     P0 = 101325  # One standard atmosphere in Pa
     DThermalConductIceI_Wm = 632  # Thermal conductivity of ice Ih in W/m from Andersson et al. (2005)
-    # Core modeling--Modifying thermal profile of mantle
-    rhoMantleMean = 3000  # Density of silicate layer in mantle, roughly, in kg/m3
-    alphaMantleMean = 0.2e-4  # Thermal expansivity of silicates, roughly, in 1/K
-    CpMantleMean = 2e6  # Heat capacity of silicates, roughly, in J/(kgK)
-    KappaMantleMean = 1e-6  # ???
-    nu_mantle = 1e21  # Mantle viscosity in Pa*s, a common number for Earth's mantle
-    DeltaT = 800  # Temperature differential in K between core and mantle (???)
 
 Constants = ConstantsStruct()
