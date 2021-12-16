@@ -1025,7 +1025,9 @@ if ~Planet.FeCore
         C2mean = round(mean(C2inds));
         C2max = max(C2inds);
         C2min = min(C2inds);
+        CMR2mean = C1(C2mean)/MR2;
         R_sil_mean_m = R_sil_m(C2mean);
+    R_sil_range_m = R_sil_m(C2min)-R_sil_m(C2max);
         M_H2O_mean_kg = M_above_kg(C2mean);
     R_Fe_mean_m = zeros(1);
    
@@ -1987,6 +1989,7 @@ end
 %%
 % MJS 2021-10-31: This block has several loops over iT inside of loops
 % over iT. There's a lot that could be done to streamline it.
+rhommodel = mean(interior.rho_mantle_kgm3);
 if cfg.DISP_LAYERS
     %% create the table of depths and heat flux values
     % multirow{4}{*}{5 wt\%} &Ice Ih &-&141& 127  & 96 & 63  & 24 \\
@@ -2044,14 +2047,12 @@ if cfg.DISP_LAYERS
     dV = -gradient([r_m(1:indSil(iT2)) interior.r_mantle_m].^3);
     Planet.Mcomputed_kg = 4/3*pi*sum(dV.*[rho_kgm3(1:indSil) interior.rho_mantle_kgm3]);
     % Preallocate
-    [rhommodel, rhom, meanphivec] = deal(zeros(1,nTbs));
 
     disp(['Planet Mass (kg): ' num2str(Planet.M_kg)])
     disp(['Computed Mass (kg): ' num2str(Planet.Mcomputed_kg,' %0.4g')]);
     disp(['Input C/MR2: ' num2str(Planet.Cmeasured)])
     if Planet.FeCore
         disp(['Computed C/MR2 for Tb=' num2str(Planet.Tb_K) 'K: ' num2str(C2(C2mean)/MR2) ' (neighboring values: ' num2str(C2(C2mean+1)/MR2) '; ' num2str(C2(C2mean-1)/MR2) ')'])
-        rhommodel = mean(interior.rho_mantle_kgm3);
         rhorockstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(Planet.rho_sil_withcore_kgm3) '}'];
         rhorockmstr = getTableStr(Planet.Tb_K,round(rhommodel));
         xFeSstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(100*Planet.xFeS) '}'];
@@ -2068,7 +2069,6 @@ if cfg.DISP_LAYERS
     else
         disp(['Computed C/MR2 for Tb=' num2str(Planet.Tb_K) 'K: ' num2str(C1(C2mean)/MR2) '  (neighboring values: ' num2str(C1(C2mean+1)/MR2) '; ' num2str(C1(C2mean-1)/MR2) ')'])
         rhom = mean(rho_sil_kgm3(C2mean));
-        rhommodel = mean(interior.rho_mantle_kgm3);
         rhorockstr = getTableStr(Planet.Tb_K,round(rhom));
         rhorockmstr = getTableStr(Planet.Tb_K,round(rhommodel));
         if exist('concstr','var')
@@ -2132,6 +2132,9 @@ end
         rho_sil_mean_kgm3 = rhommodel;
         phi_core_frac = zeros(1, 0);
         rho_core_mean_kgm3 = 0;
+        R_Fe_range_m = 0;
+        Cp_core_JkgK = zeros(1, 0);
+        alpha_core_pK = zeros(1, 0);
     end
     R_sil_trade_m = R_sil_m(C2inds);
 
