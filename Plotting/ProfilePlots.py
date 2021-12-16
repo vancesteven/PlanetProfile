@@ -12,10 +12,9 @@ def GeneratePlots(Planet, Params):
 
     if Params.PLOT_GRAVITY: PlotGravPres(Planet, Params)
     if Params.PLOT_HYDROSPHERE: PlotHydrosphereProps(Planet, Params)
-    if Planet.Do.Fe_CORE:
-        if Params.PLOT_TRADEOFF_WCORE: PlotCoreTradeoff(Planet, Params)
-    else:
-        if Params.PLOT_TRADEOFF_NOCORE: PlotSilTradeoff(Planet, Params)
+    if Params.PLOT_TRADEOFF:
+        if Planet.Do.Fe_CORE: PlotCoreTradeoff(Planet, Params)
+        else: PlotSilTradeoff(Planet, Params)
     if Params.PLOT_WEDGE: PlotWedge(Planet, Params)
     return
 
@@ -79,7 +78,7 @@ def PlotSilTradeoff(Planet, Params):
     fig, axes = plt.subplots(1, 1, figsize=Params.FigSize.vmant)
     axes.plot('rhoSil', 'Rsil', data = data)
     axes.set_xlabel('$\\rho_\mathrm{sil}$ (kg/m$^3$)')
-    axes.set_ylabel('$R_\mathrm{sil}$ (km)')
+    axes.set_ylabel('Silicate layer outer radius (km)')
     fig.suptitle(r'No Fe core. $C/MR^2$: $0.346\pm0.005$; $W$')
     fig.savefig(Params.FigureFiles.vmant, format=Params.figFormat, dpi=300)
     plt.close()
