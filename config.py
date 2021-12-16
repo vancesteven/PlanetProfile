@@ -15,7 +15,7 @@ if Params.VERBOSE: print('Printing verbose runtime messages. Toggle in config.py
 Params.DEBUG = False
 
 Params.DO_PARALLEL = True  # Use multiprocessing module for parallel computation where applicable
-Params.CALC_NEW =       True  # Recalculate profiles? If not, read data from disk and re-plot.
+Params.CALC_NEW =       False  # Recalculate profiles? If not, read data from disk and re-plot.
 Params.CALC_NEW_REF =   True  # Recalculate reference phase curves?
 Params.CALC_NEW_INDUC = True  # Calculate magnetic induction responses?
 Params.CALC_SEISMIC =   True  # Calculate sound speeds?
@@ -31,7 +31,8 @@ Params.DEPRECATED =     False  # Whether to allow deprecated code to run. Will o
 Params.SKIP_PLOTS = False  # Whether to skip creation of all plots
 Params.PLOT_GRAVITY = True  # Whether to plot Gravity and Pressure
 Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
-Params.PLOT_TRADEOFF = True  # Whether to plot core vs. mantle tradeoff
+Params.PLOT_TRADEOFF_WCORE = False  # Whether to plot core vs. mantle tradeoff
+Params.PLOT_TRADEOFF_NOCORE = True  # Whether to plot mantle properties tradeoff
 Params.PLOT_WEDGE = True  # Whether to plot interior wedge diagram
 
 # Magnetic induction calculation settings
@@ -62,7 +63,8 @@ Params.nIntL = 3  # Number of ocean layers to use when REDUCED = 1
 Params.defaultFontName = 'STIXGeneral'  # Default font variables--STIX is what is used in Icarus journal submissions
 Params.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
 Params.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
-Params.xtn = '.eps'  # Figure file extension. Good options are .eps, .pdf, and .png
+Params.figFormat = 'pdf'
+Params.xtn = '.' + Params.figFormat  # Figure file extension. Good options are .eps, .pdf, and .png
 plt.rcParams['font.family'] = 'serif'  # Choose serif font for figures to best match math mode variables in body text
 plt.rcParams['font.serif'] = Params.defaultFontName  # Set plots to use the default font
 Params.PLOT_SIGS = False  # Make a plot of conductivity as a function of radius
@@ -145,4 +147,18 @@ Params.Colors.OceanTop = [134 / 255, 149 / 255, 201 / 255]  # Darker and richer
 Params.Colors.OceanBot = [45 / 255, 55 / 255, 100 / 255]
 Params.Colors.Rock = [101 / 255, 46 / 255, 11 / 255]
 Params.Colors.Core = [141 / 255, 12 / 2552, 121 / 255]
+
+
+Params.FigSize.vsP = (3,3)
+Params.FigSize.vsR = (3,3)
+Params.FigSize.vperm = (3,3)
+Params.FigSize.vgsks = (3,3)
+Params.FigSize.vseis = (3,3)
+Params.FigSize.vhydro = (6,5)
+Params.FigSize.vgrav = (6,5)
+Params.FigSize.vmant = (6,6)
+Params.FigSize.vcore = (6,6)
+Params.FigSize.vpvt4 = (3,3)
+Params.FigSize.vpvt6 = (3,3)
+Params.FigSize.vwedg = (3,3)
 
