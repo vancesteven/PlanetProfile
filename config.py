@@ -31,8 +31,7 @@ Params.DEPRECATED =     False  # Whether to allow deprecated code to run. Will o
 Params.SKIP_PLOTS = False  # Whether to skip creation of all plots
 Params.PLOT_GRAVITY = True  # Whether to plot Gravity and Pressure
 Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
-Params.PLOT_TRADEOFF_WCORE = False  # Whether to plot core vs. mantle tradeoff
-Params.PLOT_TRADEOFF_NOCORE = True  # Whether to plot mantle properties tradeoff
+Params.PLOT_TRADEOFF = True  # Whether to plot mantle properties tradeoff
 Params.PLOT_WEDGE = True  # Whether to plot interior wedge diagram
 
 # Magnetic induction calculation settings
