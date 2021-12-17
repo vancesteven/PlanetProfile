@@ -145,7 +145,7 @@ Params.Colors.Clath = [44 / 255, 115 / 255, 150 / 255]
 Params.Colors.OceanTop = [134 / 255, 149 / 255, 201 / 255]  # Darker and richer
 Params.Colors.OceanBot = [45 / 255, 55 / 255, 100 / 255]
 Params.Colors.Rock = [101 / 255, 46 / 255, 11 / 255]
-Params.Colors.Core = [141 / 255, 12 / 2552, 121 / 255]
+Params.Colors.Core = [141 / 255, 122 / 255, 121 / 255]
 
 
 Params.FigSize.vsP = (3,3)
