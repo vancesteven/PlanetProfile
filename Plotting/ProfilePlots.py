@@ -85,14 +85,21 @@ def PlotSilTradeoff(Planet, Params):
 
 def PlotWedge(Planet, Params):
     fig, ax = plt.subplots()
-    width = (math.pi / 7)*180/math.pi
-    patches = []
-    colors = []
-    iPhaseTrans = 1+np.argwhere(Planet.phase[1:] != Planet.phase[:-1])
+    width = (math.pi / 7)*180/math.pi  # angular width of wedge to be plotted
+    patches = []  # for storing wedge objects
+    colors = []  # colors for layers
+    iPhaseTrans = 1+np.argwhere(Planet.phase[1:] != Planet.phase[:-1])  # finds indexes of transitions between layers
     iPhaseTrans = np.insert(iPhaseTrans, 0, 0) # this makes sure the ice phase is included
     for layerPhase in iPhaseTrans:
+
         if Planet.phase[layerPhase] == 0:
-            colors.append(Params.Colors.OceanTop)
+            # colors.append(Params.Colors.OceanTop)
+            colors.append("none")
+            #nOceanLayers = Planet.Steps.nOceanMax
+            #for iL in range(nOceanLayers):
+            #    thisOceanColor = (1- iL) * (Planet.Colors.OceanTop - Planet.Colors.OceanBot) / nOceanLayers + Planet.Colors.OceanTop
+            #    Ocean = wedgeR(radii.Ocean(iL))
+            #    Ocean.FaceColor = thisOceanColor
         elif Planet.phase[layerPhase] == 1:
             colors.append(Params.Colors.IceI)
         elif Planet.phase[layerPhase] == 2:
@@ -109,16 +116,57 @@ def PlotWedge(Planet, Params):
             colors.append(Params.Colors.Rock)
         elif Planet.phase[layerPhase] == 100:
             colors.append(Params.Colors.Core)
-    phases = [Planet.phase[iShell] for iShell in iPhaseTrans]
-    radii = [Planet.r_m[iShell]/Planet.Bulk.R_m for iShell in iPhaseTrans]
-    for i in range(len(radii)):
-        patches += [Wedge((0.5,0), radii[i], 90 - width, 90 + width, lw = 0.25)]
-    p = PatchCollection(patches)
+    phases = [Planet.phase[iShell] for iShell in iPhaseTrans]  # stores phase of particular layer
+    radii = [Planet.r_m[iShell]/Planet.Bulk.R_m for iShell in iPhaseTrans]  # normalizes radii of layer transitions
 
-    p.set_color(colors)
-    p.set_edgecolor('k')
-    ax.add_collection(p)
+    funNum = 1
+    im = None
+
+    for i, radius in enumerate(radii):
+        print(i, colors[i])
+
+        patches.append(Wedge((0.5,0), radius, 90 - width, 90 + width, lw = 0.25, fc = "none" if i == funNum else colors[i], ec="k", zorder=i))  # creating wedges
+        # patches.append(newPatch)
+        ax.add_patch(patches[-1])
+
+        if i == funNum:
+            print("Draw time!")
+            delta = 0.025
+            x = y = np.arange(0, 1.0, delta)
+            X, Y = np.meshgrid(x, y)
+            Z1 = np.exp(-(X-0.5) ** 2 - Y ** 2)
+            Z2 = np.exp(-(X - 1.5) ** 2 - (Y - 1) ** 2)
+            Z = (Z1 - Z2) * 2
+
+            Z = ((X+0.5) ** 0.5 - Y ** 0.5)**2
+
+            # path = Path([[0, 1], [1, 0], [0, -1], [-1, 0], [0, 1]])
+            # patch = PathPatch(path, facecolor='none')
+            im = plt.imshow(Z, interpolation='bilinear', cmap=mpl.cm.gray,
+                           origin='lower', extent=[0, 1, 0, 1],
+                           clip_path=patches[-1], clip_on=True)
+            im.set_clip_path(patches[-1])
+            print("Breaking")
+
+    #p = PatchCollection(patches)
+
+
+    # colors[funNum] = [0, 0, 0, 0]
+
+
+    #p.set_color(colors)
+    #p.set_edgecolor('k')
+
+    print(colors)
+
+    #ax.add_collection(p)
+    #ax.add_patch(patches[funNum])
     ax.set_aspect('equal')
+
+
+
+
+
 
     #fig.colorbar(p, ax = ax)
     fig.suptitle('Interior wedge diagram\n$T_b = ' + str(Planet.Bulk.Tb_K) + '\,\mathrm{K}' + ', Composition = ' + str(Planet.Ocean.comp) + ', Salinity = ' + str(Planet.Ocean.wOcean_ppt) + '\,\mathrm{ppt}$')
