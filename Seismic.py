@@ -28,31 +28,31 @@ def SeismicCalcs(Planet, Params):
                 Planet.Seismic.gammaClath * Hclath / Planet.T_K[indsClath])
 
         # Get seismic properties of all ice layers
-        if np.any(indsIceI):
+        if np.size(indsIceI) != 0:
             Planet.Seismic.VP_kms[indsIceI], Planet.Seismic.VS_kms[indsIceI], Planet.Seismic.KS_GPa[indsIceI], \
             Planet.Seismic.GS_GPa[indsIceI] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceI], Planet.T_K[indsIceI], 1)
             HiceI = Planet.Seismic.gIceI * Planet.Bulk.Tb_K
             Planet.Seismic.QS[indsIceI] = Planet.Seismic.BIceI * np.exp(
                 Planet.Seismic.gammaIceI * HiceI / Planet.T_K[indsIceI])
-        if np.any(indsIceII):
+        if np.size(indsIceII) != 0:
             Planet.Seismic.VP_kms[indsIceII], Planet.Seismic.VS_kms[indsIceII], Planet.Seismic.KS_GPa[indsIceII], \
             Planet.Seismic.GS_GPa[indsIceII] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceII], Planet.T_K[indsIceII], 2)
             HiceII = Planet.Seismic.gIceII * np.max(Planet.T_K[indsIceII])
             Planet.Seismic.QS[indsIceII] = Planet.Seismic.BIceII * np.exp(
                 Planet.Seismic.gammaIceII * HiceII / Planet.T_K[indsIceII])
-        if np.any(indsIceIII):
+        if np.size(indsIceIII) != 0:
             Planet.Seismic.VP_kms[indsIceIII], Planet.Seismic.VS_kms[indsIceIII], Planet.Seismic.KS_GPa[indsIceIII], \
             Planet.Seismic.GS_GPa[indsIceIII] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceIII], Planet.T_K[indsIceIII], 3)
             HiceIII = Planet.Seismic.gIceIII * np.max(Planet.T_K[indsIceIII])
             Planet.Seismic.QS[indsIceIII] = Planet.Seismic.BIceIII * np.exp(
                 Planet.Seismic.gammaIceIII * HiceIII / Planet.T_K[indsIceIII])
-        if np.any(indsIceV):
+        if np.size(indsIceV) != 0:
             Planet.Seismic.VP_kms[indsIceV], Planet.Seismic.VS_kms[indsIceV], Planet.Seismic.KS_GPa[indsIceV], \
             Planet.Seismic.GS_GPa[indsIceV] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceV], Planet.T_K[indsIceV], 5)
             HiceV = Planet.Seismic.gIceV * np.max(Planet.T_K[indsIceV])
             Planet.Seismic.QS[indsIceV] = Planet.Seismic.BIceV * np.exp(
                 Planet.Seismic.gammaIceV * HiceV / Planet.T_K[indsIceV])
-        if np.any(indsIceVI):
+        if np.size(indsIceVI) != 0:
             Planet.Seismic.VP_kms[indsIceVI], Planet.Seismic.VS_kms[indsIceVI], Planet.Seismic.KS_GPa[indsIceVI], \
             Planet.Seismic.GS_GPa[indsIceVI] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceVI], Planet.T_K[indsIceVI], 6)
             HiceVI = Planet.Seismic.gIceVI * np.max(Planet.T_K[indsIceVI])
@@ -60,7 +60,7 @@ def SeismicCalcs(Planet, Params):
                 Planet.Seismic.gammaIceVI * HiceVI / Planet.T_K[indsIceVI])
             
         # Get seismic properties of ocean layers
-        if np.any(indsLiquid):
+        if np.size(indsLiquid) != 0:
             Planet.Seismic.VP_kms[indsLiquid], Planet.Seismic.VS_kms[indsLiquid], Planet.Seismic.KS_GPa[indsLiquid], \
             Planet.Seismic.GS_GPa[indsLiquid] = SeaFreezeSeismicFluid(Planet.P_MPa[indsLiquid], Planet.T_K[indsLiquid],
                                                                     Planet.Ocean.comp, Planet.Ocean.wOcean_ppt)

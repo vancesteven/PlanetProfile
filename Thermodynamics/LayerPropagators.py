@@ -2,7 +2,8 @@ import numpy as np
 from collections.abc import Iterable
 from Utilities.dataStructs import Constants
 from Thermodynamics.HydroEOS import GetIceThermo, GetPfreeze, GetTfreeze, GetPfreezeHP, FluidEOS, GetPhase, OceanEOSStruct
-from Thermodynamics.FromLiterature.ThermalProfiles import ConductionClathLid, ConvectionDeschampsSotin2001, ConductiveTemperature
+from Thermodynamics.FromLiterature.ThermalProfiles import ConductionClathLid, ConvectionDeschampsSotin2001, \
+    ConductiveTemperature, kThermIsobaricAnderssonIbari2005
 from Thermodynamics.InnerEOS import PerplexEOSStruct
 
 def IceLayers(Planet, Params):
@@ -30,81 +31,87 @@ def IceLayers(Planet, Params):
     Planet.T_K[0] = Planet.Bulk.Tsurf_K  # Set first layer surface temp
     Planet.P_MPa[0] = Planet.Bulk.Psurf_MPa  # Set first layer to surface pressure
 
-    # Surface ice layer propagators -- if present, clathrates are nearest the surface
-    # so we do clathrate layers first.
-    if Planet.Do.CLATHRATE:
-        if Params.VERBOSE: print('Evaluating clathrate layers.')
-        ClathrateLayers(Planet)
-    else:
-        Planet.PbClath_MPa = Planet.Bulk.Psurf_MPa
-
     # Get the pressure consistent with the bottom of the ice Ih layer that is
     # consistent with the choice of Tb_K we suppose for this model
     if Params.VERBOSE: print('Finding uppermost ice melting pressure...')
     Planet.PbI_MPa = GetPfreeze(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Planet.Bulk.Tb_K,
         PfreezeLower_MPa=Planet.PfreezeLower_MPa, PfreezeUpper_MPa=Planet.PfreezeUpper_MPa, PfreezeRes_MPa=Planet.PfreezeRes_MPa,
         Pguess=None)
+
+    # Now, we want to check for a convective profile. First, we need to get zb_km, so we need to suppose
+    # a whole-layer conductive profile. The densities will change slightly, so we depart from self-consistency
+    # here. Repeated applications of IceConvect will get closer to self-consistency.
+
+    # Surface ice layer propagators -- if present, clathrates are nearest the surface
+    # so we do clathrate layers first.
+    if Planet.Do.CLATHRATE:
+        if Params.VERBOSE: print('Evaluating clathrate layers.')
+        ClathrateLayers(Planet, Params)
+    else:
+        Planet.PbClath_MPa = Planet.Bulk.Psurf_MPa
+        Planet.T_K[Planet.Steps.nClath] = Planet.Bulk.Tsurf_K
+        Planet.zClath_m = 0
+
     # Set linear P and adiabatic T in ice I layers
-    PIceI_MPa = np.linspace(Planet.PbClath_MPa, Planet.PbI_MPa, Planet.Steps.nIceI)
-    TIceI_K = Planet.Bulk.Tb_K**(PIceI_MPa/Planet.PbI_MPa) * Planet.T_K[Planet.Steps.nClath]**(1 - PIceI_MPa/Planet.PbI_MPa)
-    Planet.P_MPa[Planet.Steps.nClath:Planet.Steps.nIbottom] = PIceI_MPa
+    PIceI_MPa = np.linspace(Planet.PbClath_MPa, Planet.PbI_MPa, Planet.Steps.nIceI+1)
+    TIceI_K = Planet.Bulk.Tb_K**(PIceI_MPa[:-1]/Planet.PbI_MPa) * Planet.T_K[Planet.Steps.nClath]**(1 - PIceI_MPa[:-1]/Planet.PbI_MPa)
+    Planet.P_MPa[Planet.Steps.nClath:Planet.Steps.nIbottom] = PIceI_MPa[:-1]
     Planet.T_K[Planet.Steps.nClath:Planet.Steps.nIbottom] = TIceI_K
+
+    # Evaluate thermodynamic properties of uppermost ice with SeaFreeze
+    rhoIceI_kgm3, CpIceI_JkgK, alphaIceI_pK = GetIceThermo(PIceI_MPa[:-1], TIceI_K,
+                            Planet.phase[Planet.Steps.nClath:Planet.Steps.nIbottom])
+    Planet.rho_kgm3[Planet.Steps.nClath:Planet.Steps.nIbottom] = rhoIceI_kgm3
+    Planet.Cp_JkgK[Planet.Steps.nClath:Planet.Steps.nIbottom] = CpIceI_JkgK
+    Planet.alpha_pK[Planet.Steps.nClath:Planet.Steps.nIbottom] = alphaIceI_pK
+
+    # Calculate remaining physical properties of upper ice I
+    thisMAbove_kg = 0
+    for i in range(1, Planet.Steps.nIbottom):
+        # Increment depth based on change in pressure, combined with gravity and density
+        Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6 / Planet.g_ms2[i-1] / Planet.rho_kgm3[i-1]
+        Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
+        Planet.MLayer_kg[i-1] = 4/3*np.pi * rhoIceI_kgm3[i-1] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
+        thisMAbove_kg += Planet.MLayer_kg[i-1]
+        thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+        Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
+        if Params.VERBOSE: print('il: ' + str(i) +
+                                 '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
+                                 '; T_K: ' + str(round(Planet.T_K[i],3)) +
+                                 '; phase: ' + str(Planet.phase[i]))
+
+    if Params.VERBOSE: print('Upper ice initial conductive profile complete.')
+
+    if not Planet.Do.NO_ICEI_CONVECTION:
+        # Record zb_m to see if it gets adjusted significantly
+        zbOld_m = Planet.z_m[Planet.Steps.nIbottom-1] + 0.0
+        # Now check for convective region and get dimensions if present
+        Planet = IceConvect(Planet, Params)
+        # Run IceConvect a second time if zb_km changed by more than a set tolerance
+        if(np.abs(Planet.z_m[Planet.Steps.nIbottom] - zbOld_m)/Planet.z_m[Planet.Steps.nIbottom] > Planet.Bulk.zbChangeTol_frac):
+            if Params.VERBOSE: print('The bottom depth of surface ice I changed by ' +
+                str(round((Planet.z_m[Planet.Steps.nIbottom] - zbOld_m)/1e3,2)) + ' km from IceConvect, which is greater than ' +
+                str(Planet.Bulk.zbChangeTol_frac * 100) + '%. running IceConvect a second time...')
+            Planet = IceConvect(Planet, Params)
+    else:
+        if Params.VERBOSE: print('NO_ICEI_CONVECTION is True -- skipping convection calculations.')
+        # Find the surface heat flux from the conductive profile. This assumes there is no tidal heating!
+        qSurf_Wm2 = (Planet.T_K[1] - Planet.Bulk.Tsurf_K) / (Planet.Bulk.R_m - Planet.r_m[1]) * Planet.kTherm_WmK[0]
+        Planet.Ocean.QfromMantle_W = qSurf_Wm2 * 4*np.pi * Planet.Bulk.R_m**2
 
     # Additional adiabats in ice III and/or V underplate layers -- for thick, cold ice shells
     if Planet.Do.BOTTOM_ICEV:
         if Params.VERBOSE: print('...with ice III and V underplating...')
-        Planet.PbIII_MPa = GetPfreezeHP(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Planet.Bulk.TbIII_K, 3)
-        Planet.Pb_MPa = GetPfreezeHP(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Planet.Bulk.TbV_K, 5)
-        # Set linear P and adiabatic T in ice III layers
-        PIceIII_MPa = np.linspace(Planet.P_MPa[Planet.Steps.nIbottom-1], Planet.PbIII_MPa, Planet.Steps.nIceIIILitho)
-        TIceIII_K = Planet.Bulk.TbIII_K**(PIceIII_MPa/Planet.PbIII_MPa) * \
-                    Planet.T_K[Planet.Steps.nIbottom-1]**(1 - PIceIII_MPa/Planet.PbIII_MPa)
-        Planet.P_MPa[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom] = PIceIII_MPa
-        Planet.T_K[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom] = TIceIII_K
-        # Now ice V layers too
-        PIceV_MPa = np.linspace(Planet.P_MPa[Planet.Steps.nIIIbottom-1], Planet.Pb_MPa, Planet.Steps.nIceVLitho)
-        TIceV_K = Planet.Bulk.TbV_K**(PIceV_MPa/Planet.Pb_MPa) * \
-                    Planet.T_K[Planet.Steps.nIIIbottom-1]**(1 - PIceV_MPa/Planet.Pb_MPa)
-        Planet.P_MPa[Planet.Steps.nIIIbottom:Planet.Steps.nSurfIce] = PIceV_MPa
-        Planet.T_K[Planet.Steps.nIIIbottom:Planet.Steps.nSurfIce] = TIceV_K
+        Planet = IceVUnderplate(Planet, Params)
     elif Planet.Do.BOTTOM_ICEIII:
         if Params.VERBOSE: print('...with ice III underplating...')
-        Planet.Pb_MPa = GetPfreezeHP(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Planet.Bulk.TbIII_K, 3)
-        # Set linear P and adiabatic T in ice III layers
-        PIceIII_MPa = np.linspace(Planet.P_MPa[Planet.Steps.nIbottom-1], Planet.PbIII_MPa, Planet.Steps.nIceIIILitho)
-        TIceIII_K = Planet.Bulk.TbIII_K**(PIceIII_MPa/Planet.PbIII_MPa) * \
-                    Planet.T_K[Planet.Steps.nIbottom-1]**(1 - PIceIII_MPa/Planet.PbIII_MPa)
-        Planet.P_MPa[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom] = PIceIII_MPa
-        Planet.T_K[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom] = TIceIII_K
+        Planet = IceIIIUnderplate(Planet, Params)
     else:
         Planet.Pb_MPa = Planet.PbI_MPa
 
     if Params.VERBOSE: print('Upper ice melting pressure: '+str(Planet.Pb_MPa))
 
-    # Evaluate thermodynamic properties of uppermost ice with SeaFreeze
-    rhoSurfIce_kgm3, CpSurfIce_JkgK, alphaSurfIce_pK = GetIceThermo(Planet.P_MPa[:Planet.Steps.nSurfIce],
-        Planet.T_K[:Planet.Steps.nSurfIce], Planet.phase[:Planet.Steps.nSurfIce])
-    Planet.rho_kgm3[:Planet.Steps.nSurfIce] = rhoSurfIce_kgm3
-    Planet.Cp_JkgK[:Planet.Steps.nSurfIce] = CpSurfIce_JkgK
-    Planet.alpha_pK[:Planet.Steps.nSurfIce] = alphaSurfIce_pK
-
-    # Calculate remaining physical properties of uppermost ice
-    thisMAbove_kg = 0
-    for i in range(1, Planet.Steps.nSurfIce):
-        # Increment depth based on change in pressure, combined with gravity and density
-        Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6 / Planet.g_ms2[i-1] / Planet.rho_kgm3[i-1]
-        Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
-        Planet.MLayer_kg[i-1] = 4/3*np.pi * rhoSurfIce_kgm3[i-1] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
-        thisMAbove_kg += Planet.MLayer_kg[i-1]
-        thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
-        Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-        if Params.VERBOSE: print('il: ' + str(i) +
-                                 '; P_MPa: ' + str(Planet.P_MPa[i]) +
-                                 '; T_K: ' + str(Planet.T_K[i]) +
-                                 '; phase: ' + str(Planet.phase[i]))
     Planet.zb_km = Planet.z_m[Planet.Steps.nSurfIce-1] / 1e3
-
-    if Params.VERBOSE: print('Upper ice complete.')
 
     return Planet
 
@@ -118,9 +125,252 @@ def ClathrateLayers(Planet, Params):
         Assigns Planet attributes:
             phase
     """
+
     if Params.VERBOSE: print('Applying clathrate lid conduction.')
     Planet = ConductionClathLid()
 
+    return Planet
+
+
+def IceConvect(Planet, Params):
+    """ Apply convection models from literature to determine thermal profile and
+        state variables for possibly convecting ice layers
+
+        Assigns Planet attributes:
+            Tconv_K, etaConv_Pas, eLid_m, deltaTBL_m, QfromMantle_W, all physical layer arrays
+    """
+
+    if Params.VERBOSE: print('Applying solid-state convection to surface ice I based on Deschamps and Sotin (2001).')
+    zbI_m = Planet.z_m[Planet.Steps.nIbottom-1]
+    # Get "middle" pressure
+    Pmid_MPa = (Planet.PbI_MPa - Planet.PbClath_MPa) / 2
+    # Get thermal conductivity at surface
+    if Planet.Do.CLATHRATE:
+        Planet.kTherm_WmK[0] = Constants.kClath_WmK
+    else:
+        Planet.kTherm_WmK[0] = kThermIsobaricAnderssonIbari2005(Planet.Bulk.Tsurf_K, 1)
+
+    # Run calculations to get convection layer parameters
+    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.deltaTBL_m, qbot_Wm2, Planet.RaConvect = \
+        ConvectionDeschampsSotin2001(Planet.Bulk.Tsurf_K, Planet.Bulk.R_m, Planet.kTherm_WmK[0],
+                                     Planet.Bulk.Tb_K, zbI_m, Planet.g_ms2[0], Pmid_MPa, 1)
+
+    # Convert bottom heat flux into total heat flow rate so it's normalized to the area it passes through
+    Planet.Ocean.QfromMantle_W = 4*np.pi * (Planet.Bulk.R_m - zbI_m)**2 * qbot_Wm2
+
+    if(Planet.zClath_m > Planet.eLid_m):
+        Planet.Bulk.clathMaxDepth_m = Planet.eLid_m
+        print('WARNING: Clathrate lid thickness was greater than the conductive lid thickness.' +
+              'Planet.Bulk.clathMaxDepth_m has been reduced to be equal to the conductive lid thickness.')
+
+    # Check for whole-lid conduction
+    if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
+        if Params.VERBOSE: print('Ice shell thickness is less than that of the thermal boundary layers, convection is absent.\n' +
+                                 'Applying whole-shell conductive profile.')
+
+        # Recalculate heat flux, as it will be too high for conduction-only:
+        qSurf_Wm2 = (Planet.T_K[1] - Planet.Bulk.Tsurf_K) / (Planet.Bulk.R_m - Planet.r_m[1]) * Planet.kTherm_WmK[0]
+        Planet.Ocean.QfromMantle_W = qSurf_Wm2 * 4*np.pi * Planet.Bulk.R_m**2
+
+        # We again need to do clathrate layers first if there are any
+        if Planet.Do.CLATHRATE:
+            if Params.VERBOSE: print('Evaluating clathrate layers.')
+            ClathrateLayers(Planet, Params)
+        else:
+            thisMAbove_kg = 0
+
+        Planet.z_m[Planet.Steps.nClath] = Planet.zClath_m + 0.0
+        Planet.r_m[Planet.Steps.nClath] = Planet.Bulk.R_m - Planet.z_m[Planet.Steps.nClath]
+        thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+        Planet.g_ms2[Planet.Steps.nClath] = Constants.G * thisMBelow_kg / Planet.r_m[Planet.Steps.nClath]**2
+        qTop_Wm2 = Planet.Ocean.QfromMantle_W / 4/np.pi/Planet.r_m[Planet.Steps.nClath]**2
+
+        # Evaluate thermodynamic properties at top of ice I with SeaFreeze
+        Planet.rho_kgm3[Planet.Steps.nClath], Planet.Cp_JkgK[Planet.Steps.nClath], Planet.alpha_pK[Planet.Steps.nClath] \
+            = GetIceThermo([Planet.P_MPa[Planet.Steps.nClath]], [Planet.T_K[Planet.Steps.nClath]], Planet.phase[Planet.Steps.nClath])
+
+        for i in range(Planet.Steps.nClath+1, Planet.Steps.nIbottom):
+            Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6 / Planet.g_ms2[i-1] / Planet.rho_kgm3[i-1]
+            Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
+            Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
+            thisMAbove_kg += Planet.MLayer_kg[i-1]
+            thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+            Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
+            Planet.kTherm_WmK[i] = Planet.kTherm_WmK[i-1]  # Placeholder until a self-consistent determination is implemented
+
+            Planet.T_K[i], qTop_Wm2 = ConductiveTemperature(Planet.T_K[i-1], Planet.r_m[i-1], Planet.r_m[i],
+                                                            Planet.kTherm_WmK[i], Planet.rho_kgm3[i], 0, 0, qTop_Wm2)
+            Planet.rho_kgm3[i], Planet.Cp_JkgK[i], Planet.alpha_pK[i] = GetIceThermo([Planet.P_MPa[i]], [Planet.T_K[i]],
+                                                                                      Planet.phase[i])
+            if Params.VERBOSE: print('il: ' + str(i) +
+                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
+                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
+                                     '; phase: ' + str(Planet.phase[i]))
+
+        # Force final temperature value to be the assigned value
+        Planet.T_K[Planet.Steps.nIbottom] = Planet.Bulk.Tb_K
+
+    else:
+        # Model conduction in the stagnant lid
+        # We now know the temperature difference and thickness of the upper thermal
+        # boundary layer. We first need to reconfigure the profile and set a linear
+        # depth dependence, so we can use ConductiveTemperature to propagate things
+        nConduct = int(Planet.Steps.nIbottom * Planet.Steps.eTBL_frac)
+        if(Planet.Steps.nClath > nConduct):
+            raise ValueError('Planet.Steps.nClath is greater than the fraction of surface ice layers used for the ' +
+                             'upper conductive portion of the shell. Either increase Planet.Steps.eTBL_frac or ' +
+                             'decrease Planet.Steps.nClath and re-run to solve this problem.')
+        Planet.z_m[:nConduct] = np.linspace(0, Planet.eLid_m, nConduct)
+        Planet.r_m[:nConduct] = Planet.Bulk.R_m - Planet.z_m[:nConduct]
+
+        if Planet.Do.CLATHRATE:
+            if Params.VERBOSE: print('Evaluating clathrate layers in stagnant lid.')
+            ClathrateLayers(Planet, Params)
+        else:
+            thisMAbove_kg = 0
+
+        thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+        Planet.g_ms2[Planet.Steps.nClath] = Constants.G * thisMBelow_kg / Planet.r_m[Planet.Steps.nClath]**2
+        qTop_Wm2 = Planet.Ocean.QfromMantle_W / 4/np.pi/Planet.r_m[Planet.Steps.nClath]**2
+
+        if Params.VERBOSE: print('Modeling conduction in stagnant lid...')
+        for i in range(Planet.Steps.nClath+1, nConduct):
+            Planet.rho_kgm3[i-1], Planet.Cp_JkgK[i-1], Planet.alpha_pK[i-1] \
+                = GetIceThermo([Planet.P_MPa[i-1]], [Planet.T_K[i-1]], Planet.phase[i-1])
+            Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
+            thisMAbove_kg += Planet.MLayer_kg[i-1]
+            thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+            Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
+            Planet.P_MPa[i] = Planet.P_MPa[i-1] + Planet.MLayer_kg[i-1] * Planet.g_ms2[i-1] / (4*np.pi*Planet.r_m[i-1]**2) / 1e6
+            Planet.kTherm_WmK[i] = Planet.kTherm_WmK[i-1]  # Placeholder until a self-consistent determination is implemented
+
+            Planet.T_K[i], qTop_Wm2 = ConductiveTemperature(Planet.T_K[i-1], Planet.r_m[i-1], Planet.r_m[i],
+                                                            Planet.kTherm_WmK[i], Planet.rho_kgm3[i], 0, 0, qTop_Wm2)
+            if Params.VERBOSE: print('il: ' + str(i) +
+                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
+                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
+                                     '; phase: ' + str(Planet.phase[i]))
+
+        # Force final temperature value to be the determined value
+        Planet.T_K[nConduct] = Planet.Tconv_K
+        Planet.rho_kgm3[nConduct], Planet.Cp_JkgK[nConduct], Planet.alpha_pK[nConduct] \
+            = GetIceThermo([Planet.P_MPa[nConduct]], [Planet.T_K[nConduct]], Planet.phase[nConduct])
+
+        # Next, we need the pressure difference across the lower thermal boundary layer.
+        # We use the "old" radius and gravity here, so we depart from self-consistency.
+        # Repeated iterations will get closer to self-consistent.
+        nLowerTBL = int(Planet.Steps.nIbottom * Planet.Steps.deltaTBL_frac)
+        rhoTBL_kgm3, _, _ = GetIceThermo([Planet.PbI_MPa], [Planet.Bulk.Tb_K], 1)
+        gTBL_ms2 = Planet.g_ms2[Planet.Steps.nIbottom]
+        rTBLbot_m = Planet.Bulk.R_m - zbI_m
+        rTBLtop_m = rTBLbot_m + Planet.deltaTBL_m
+        DeltaPlowerTBL_MPa = rhoTBL_kgm3[0] * gTBL_ms2 / 3 * (rTBLtop_m**3 - rTBLbot_m**3) / rTBLbot_m**2 / 1e6
+        PtopLowerTBL_MPa = Planet.PbI_MPa + DeltaPlowerTBL_MPa
+
+        # Now, we set the convecting layer to be isothermal and assign a linear
+        # increase in pressure across the layers
+        nConvect = Planet.Steps.nIbottom - nConduct - nLowerTBL
+        if(nConvect <= 0): raise ValueError('Planet.Steps.eTBL_frac + Planet.Steps.deltaTBL_frac exceeds 1.')
+        Planet.T_K[nConduct:nConduct+nConvect] = Planet.Tconv_K
+        Planet.P_MPa[nConduct:nConduct+nConvect+1] = np.linspace(Planet.P_MPa[nConduct], PtopLowerTBL_MPa, nConvect+1)
+        # Evaluate thermodynamic properties with SeaFreeze
+        rhoConvect_kgm3, CpConvect_JkgK, alphaConvect_pK \
+            = GetIceThermo(Planet.P_MPa[nConduct:nConduct+nConvect], Planet.T_K[nConduct:nConduct+nConvect],
+                           Planet.phase[nConduct:nConduct+nConvect])
+        Planet.rho_kgm3[nConduct:nConduct+nConvect] = rhoConvect_kgm3
+        Planet.Cp_JkgK[nConduct:nConduct+nConvect] = CpConvect_JkgK
+        Planet.alpha_pK[nConduct:nConduct+nConvect] = alphaConvect_pK
+
+        # Calculate remaining physical properties of convecting layer and find depths
+        if Params.VERBOSE: print('Modeling isothermal convecting layer...')
+        for i in range(nConduct, nConduct + nConvect):
+            Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6 / Planet.g_ms2[i-1] / Planet.rho_kgm3[i-1]
+            Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
+            Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
+            thisMAbove_kg += Planet.MLayer_kg[i-1]
+            thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+            Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
+            Planet.kTherm_WmK[i] = Planet.kTherm_WmK[i-1]  # Placeholder until a self-consistent determination is implemented
+            if Params.VERBOSE: print('il: ' + str(i) +
+                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
+                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
+                                     '; phase: ' + str(Planet.phase[i]))
+
+        # Finally, we get properties for the lower TBL layers and add them to the profile
+        PlowerTBL_MPa = np.linspace(Planet.P_MPa[nConduct+nConvect], Planet.PbI_MPa, nLowerTBL+1)
+        Planet.P_MPa[nConduct+nConvect:Planet.Steps.nIbottom] = PlowerTBL_MPa[:-1]
+        TlowerTBL_K = Planet.Bulk.Tb_K**(PlowerTBL_MPa[:-1]/Planet.PbI_MPa) \
+                      * Planet.T_K[nConduct+nConvect]**(1 - PlowerTBL_MPa[:-1]/Planet.PbI_MPa)
+        # Evaluate thermodynamic properties of remaining ice with SeaFreeze
+        rhoLowerTBL_kgm3, CpLowerTBL_JkgK, alphaLowerTBL_pK = GetIceThermo(PlowerTBL_MPa[:-1], TlowerTBL_K,
+                   Planet.phase[nConduct+nConvect:Planet.Steps.nIbottom])
+        Planet.rho_kgm3[nConduct+nConvect:Planet.Steps.nIbottom] = rhoLowerTBL_kgm3
+        Planet.Cp_JkgK[nConduct+nConvect:Planet.Steps.nIbottom] = CpLowerTBL_JkgK
+        Planet.alpha_pK[nConduct+nConvect:Planet.Steps.nIbottom] = alphaLowerTBL_pK
+        # Get remaining physical properties of final layer
+
+        if Params.VERBOSE: print('Modeling conduction in lower thermal boundary layer...')
+        for i in range(nConduct+nConvect+1, Planet.Steps.nIbottom):
+            # Increment depth based on change in pressure, combined with gravity and density
+            Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6 / Planet.g_ms2[i-1] / Planet.rho_kgm3[i-1]
+            Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
+            Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
+            thisMAbove_kg += Planet.MLayer_kg[i-1]
+            thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+            Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
+            if Params.VERBOSE: print('il: ' + str(i) +
+                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
+                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
+                                     '; phase: ' + str(Planet.phase[i]))
+
+    if Params.VERBOSE: print('Convection calculations complete.')
+
+    return Planet
+
+
+def IceVUnderplate(Planet, Params):
+    """ Conductive profile calculations for ice III and ice V layers between
+        the ocean and surface ice I layer.
+
+        Assigns Planet attributes:
+            PbIII_MPa, PbV_MPa, Pb_MPa, P_MPa, T_K
+    """
+    Planet.PbIII_MPa = GetPfreezeHP(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Planet.Bulk.TbIII_K, 3)
+    Planet.Pb_MPa = GetPfreezeHP(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Planet.Bulk.TbV_K, 5)
+    # Set linear P and adiabatic T in ice III layers
+    if(Planet.PbIII_MPa < Planet.P_MPa[Planet.Steps.nIbottom-1]):
+        raise ValueError('Ice III bottom melting pressure is less than the pressure at the bottom of the ' +
+                         'ice I shell. This means TbIII_K has been set too high to be consistent with Tb_K.')
+    PIceIII_MPa = np.linspace(Planet.P_MPa[Planet.Steps.nIbottom-1], Planet.PbIII_MPa, Planet.Steps.nIceIIILitho)
+    TIceIII_K = Planet.Bulk.TbIII_K**(PIceIII_MPa/Planet.PbIII_MPa) * \
+                Planet.T_K[Planet.Steps.nIbottom-1]**(1 - PIceIII_MPa/Planet.PbIII_MPa)
+    Planet.P_MPa[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom] = PIceIII_MPa
+    Planet.T_K[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom] = TIceIII_K
+    # Now ice V layers too
+    PIceV_MPa = np.linspace(Planet.P_MPa[Planet.Steps.nIIIbottom-1], Planet.Pb_MPa, Planet.Steps.nIceVLitho)
+    TIceV_K = Planet.Bulk.TbV_K**(PIceV_MPa/Planet.Pb_MPa) * \
+                Planet.T_K[Planet.Steps.nIIIbottom-1]**(1 - PIceV_MPa/Planet.Pb_MPa)
+    Planet.P_MPa[Planet.Steps.nIIIbottom:Planet.Steps.nSurfIce] = PIceV_MPa
+    Planet.T_K[Planet.Steps.nIIIbottom:Planet.Steps.nSurfIce] = TIceV_K
+
+    return Planet
+
+
+def IceIIIUnderplate(Planet, Params):
+    """ Conductive profile calculations for ice III layers between
+        the ocean and surface ice I layer.
+
+        Assigns Planet attributes:
+            PbIII_MPa, Pb_MPa, P_MPa, T_K
+    """
+
+    Planet.Pb_MPa = GetPfreezeHP(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Planet.Bulk.TbIII_K, 3)
+    # Set linear P and adiabatic T in ice III layers
+    PIceIII_MPa = np.linspace(Planet.P_MPa[Planet.Steps.nIbottom-1], Planet.PbIII_MPa, Planet.Steps.nIceIIILitho)
+    TIceIII_K = Planet.Bulk.TbIII_K**(PIceIII_MPa/Planet.PbIII_MPa) * \
+                Planet.T_K[Planet.Steps.nIbottom-1]**(1 - PIceIII_MPa/Planet.PbIII_MPa)
+    Planet.P_MPa[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom] = PIceIII_MPa
+    Planet.T_K[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom] = TIceIII_K
     return Planet
 
 
@@ -137,7 +387,8 @@ def OceanLayers(Planet, Params):
     if Planet.phase[Planet.Steps.nSurfIce] != 0:
         raise ValueError('Phase of first "ocean" layer is not zero.')
 
-    POcean_MPa = np.arange(Planet.Pb_MPa+Planet.Ocean.deltaP, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
+    # Start ocean pressure a tiny bit above the melting pressure so that GetPhase doesn't get confused
+    POcean_MPa = np.arange(Planet.Pb_MPa + 0.1*Planet.Ocean.deltaP, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
     Planet.Steps.nOceanMax = np.size(POcean_MPa)
 
     # Initialize remaining local arrays
@@ -196,25 +447,6 @@ def OceanLayers(Planet, Params):
     return Planet
 
 
-def HydroConvect(Planet, Params):
-    """ Apply convection models from literature to adjust thermal profile and
-        state variables for hydrosphere layers
-
-        Assigns Planet attributes:
-            ???
-    """
-
-    if Params.VERBOSE: print('Applying solid state convection to the ice shell based on Deschamps and Sotin (2001).')
-    ConvectionDeschampsSotin2001()
-
-    if not Planet.Do.EQUIL_Q:
-        # Assign heat input into ocean from mantle to be ~radiogenic
-        print('WARNING: QfromMantle_Wm2 is set to a value consistent only with Europa radiogenic heating.')
-        Planet.Ocean.QfromMantle_Wm2 = 2.2e11 / 4/np.pi / Planet.Bulk.R_m**2
-
-    return Planet
-
-
 def InnerLayers(Planet, Params):
     """ Geophysical and thermodynamic calculations for silicate and core layers
         Calculates state variables of the layer with each pressure step
@@ -269,6 +501,14 @@ def InnerLayers(Planet, Params):
         Planet.g_ms2[iSC:iCC], Planet.Cp_JkgK[iSC:iCC], Planet.alpha_pK[iSC:iCC] = coreProps
 
     Planet.z_m[iOS:iCC] = Planet.Bulk.R_m - Planet.r_m[iOS:iCC]
+
+    # Check for any negative temperature gradient (indicates non-equilibrium conditions)
+    gradTneg = np.where(np.diff(Planet.T_K) < 0)
+    if np.any(gradTneg): print('WARNING: Negative temperature gradient starting at index ' + str(gradTneg[0][0])
+                               + '. This indicates that internal heating parameters Qrad_Wkg and/or '
+                               + 'Htidal_Wm3 are set too high to be consistent with the heat flux '
+                               + 'into the ocean. The current configuration represents a '
+                               + 'non-equilibrium state.')
 
     return Planet
 
@@ -553,17 +793,19 @@ def SilicateLayers(Planet, Params):
         nProfiles = Planet.Steps.nSurfIce + Planet.Steps.nOceanMax - Planet.Steps.iSilStart - 1
         profRange = range(nProfiles)
     # Initialize output arrays and working arrays
-    Psil_MPa, Tsil_K, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, phiSil_frac = \
-        (np.zeros((nProfiles, Planet.Steps.nSilMax)) for _ in range(7))
+    Psil_MPa, Tsil_K, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, gSil_ms2, phiSil_frac, \
+        = (np.zeros((nProfiles, Planet.Steps.nSilMax)) for _ in range(8))
     # Check if we set the core radius to 0 or a found C/MR^2 value (for constant-density approach)
     if Planet.Core.Rmean_m is not None:
         rSilEnd_m = Planet.Core.Rmean_m
     else:
         rSilEnd_m = 0
+
     rSil_m = np.array([np.linspace(Planet.r_m[i+Planet.Steps.iSilStart], rSilEnd_m, Planet.Steps.nSilMax+1) for i in profRange])
     Psil_MPa[:,0] = [Planet.P_MPa[i+Planet.Steps.iSilStart] for i in profRange]
     Tsil_K[:,0] = [Planet.T_K[i+Planet.Steps.iSilStart] for i in profRange]
     rhoSil_kgm3[:,0] = [Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[i,0], Tsil_K[i,0]) for i in range(nProfiles)]
+    kThermSil_WmK[:,0] = [Planet.Sil.kTherm_WmK for i in range(nProfiles)]
     MLayerSil_kg[:,0] = [rhoSil_kgm3[i,0] * 4/3*np.pi*(rSil_m[i,0]**3 - rSil_m[i,1]**3) for i in range(nProfiles)]
     gSil_ms2[:,0] = [Planet.g_ms2[i+Planet.Steps.iSilStart] for i in profRange]
     if Planet.Do.POROUS_ROCK:
@@ -573,14 +815,19 @@ def SilicateLayers(Planet, Params):
     MHydro_kg = np.array([np.sum(Planet.MLayer_kg[:i]) for i in range(Planet.Steps.iSilStart, Planet.Steps.iSilStart + nProfiles)])
     # Initialize MAbove_kg to 0th silicate layer, so that the hydrosphere mass is equal to the mass above the silicates.
     MAboveSil_kg[:,0] = MHydro_kg + 0.0
+    # Initialize Qtop_WmK, the heat flux leaving the top of each layer.
+    # For the top layer, this is equal to the heat flux warming the hydrosphere.
+    qTop_WmK = Planet.Ocean.QfromMantle_W / 4/np.pi/rSil_m[:,0]**2
 
     if Params.VERBOSE: print('Propagating silicate EOS for each possible mantle size...')
     for j in range(1, Planet.Steps.nSilMax):
         MAboveSil_kg[:,j] = MAboveSil_kg[:,j-1] + MLayerSil_kg[:,j-1]
         Psil_MPa[:,j] = Psil_MPa[:,j-1] + 1e-6 * MLayerSil_kg[:,j-1] * gSil_ms2[:,j-1] / rSil_m[:,j]**2
-        Tsil_K[:,j] = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
-                    Planet.Sil.kTherm_WmK, rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, Planet.Sil.Htidal_Wm3)
+        Tsil_K[:,j], qTop_WmK = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
+                    kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, Planet.Sil.Htidal_Wm3,
+                    qTop_WmK)
         rhoSil_kgm3[:,j] = [Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[i,j], Tsil_K[i,j]) for i in range(nProfiles)]
+        kThermSil_WmK[:,j] = kThermSil_WmK[:,j-1]  # Placeholder until we implement variable thermal conductivity
         MLayerSil_kg[:,j] = rhoSil_kgm3[:,j] * 4/3*np.pi*(rSil_m[:,j]**3 - rSil_m[:,j+1]**3)
         # Calculate gravity using absolute values, as we will use MAboveSil to check for exceeding body mass later.
         gSil_ms2[:,j] = Constants.G * np.abs(Planet.Bulk.M_kg - MAboveSil_kg[:,j]) / rSil_m[:,j]**2
@@ -592,7 +839,13 @@ def SilicateLayers(Planet, Params):
         # Get total mass for each possible silicate layer size
         Mtot_kg = MLayerSil_kg[:,-1] + MAboveSil_kg[:,-1]
         # Find silicate radii for which the total mass is too high so we can exclude them
-        nSilTooBig = next(i[0] for i, val in np.ndenumerate(Mtot_kg) if val <= Planet.Bulk.M_kg)
+        try:
+            nSilTooBig = next(i[0] for i, val in np.ndenumerate(Mtot_kg) if val <= Planet.Bulk.M_kg)
+        except:
+            raise RuntimeError('No core/mantle combination was found matching total mass and moment of inertia. ' +
+                               'Minimum mass: ' + str(round(np.min(Mtot_kg/Planet.Bulk.M_kg),3)) + ' M_' + Planet.name[0] +
+                               '. Try adjusting run settings that affect mantle density, like silicate composition ' +
+                               'and heat flux settings.')
 
     return nSilTooBig, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, \
            MLayerSil_kg, MAboveSil_kg, gSil_ms2, phiSil_frac

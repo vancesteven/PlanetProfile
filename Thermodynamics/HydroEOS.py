@@ -71,7 +71,7 @@ def GetPhase(oceanEOS, compstr, w_ppt, P_MPa, T_K):
 
 def GetPfreeze(compstr, w_ppt, Tb_K, PfreezeLower_MPa=30, PfreezeUpper_MPa=300, PfreezeRes_MPa=0.1,
                Pguess=None, guessRange=5):
-    """ Returns the pressure at which ice Ih melts based on temperature, salinity, and composition
+    """ Returns the pressure at which ice Ih changes phase based on temperature, salinity, and composition
 
         Args:
             compstr (string): Composition of dissolved salt
@@ -199,8 +199,9 @@ def GetTfreeze(compstr, w_ppt, P_MPa, T_K, TfreezeRange_K=50, TfreezeRes_K=0.05)
         try:
             indNotThis = next((i[0] for i, val in np.ndenumerate(searchPhases) if val!=thisPhase))
         except StopIteration:
-            raise ValueError('No melting temperature was found above ' + str(T_K) + ' K' +
-                             'for ice' + PhaseConv(thisPhase) + '. Increase TfreezeRange_K until one is found.')
+            raise ValueError('No melting temperature was found above ' + str(round(T_K,3)) + ' K ' +
+                             'for ice ' + PhaseConv(thisPhase) + ' at pressure ' + str(round(P_MPa,3)) +
+                             ' MPa. Increase TfreezeRange_K until one is found.')
         # Get the pressure of the HP ice adjacent to the first layer with a non-matching phase
         Tfreeze_K = Tsearch[indNotThis - 1]
     elif compstr == 'Seawater':
@@ -238,38 +239,38 @@ def GetIceThermo(P_MPa, T_K, phase):
     PTlist = np.array([(P_MPa[i], T_K[i]) for i in range(np.size(phase))], dtype='f,f').astype(object)
 
     # Call SeaFreeze for each phase type in one go
-    if np.any(indsIceI):
+    if np.size(indsIceI) != 0:
         seaOut = SeaFreeze(PTlist[indsIceI], 'Ih')
         rho_kgm3[indsIceI] = seaOut.rho
         Cp_JkgK[indsIceI] = seaOut.Cp
         alpha_pK[indsIceI] = seaOut.alpha
-    if np.any(indsLiquid):
+    if np.size(indsLiquid) != 0:
         print('WARNING: Unexpected liquids are present within ice layers. Check Steps.n settings.')
         seaOut = SeaFreeze(PTlist[indsLiquid], 'water1')
         rho_kgm3[indsLiquid] = seaOut.rho
         Cp_JkgK[indsLiquid] = seaOut.Cp
         alpha_pK[indsLiquid] = seaOut.alpha
-    if np.any(indsIceII):
+    if np.size(indsIceII) != 0:
         seaOut = SeaFreeze(PTlist[indsIceII], 'II')
         rho_kgm3[indsIceII] = seaOut.rho
         Cp_JkgK[indsIceII] = seaOut.Cp
         alpha_pK[indsIceII] = seaOut.alpha
-    if np.any(indsIceIII):
+    if np.size(indsIceIII) != 0:
         seaOut = SeaFreeze(PTlist[indsIceIII], 'III')
         rho_kgm3[indsIceIII] = seaOut.rho
         Cp_JkgK[indsIceIII] = seaOut.Cp
         alpha_pK[indsIceIII] = seaOut.alpha
-    if np.any(indsIceV):
+    if np.size(indsIceV) != 0:
         seaOut = SeaFreeze(PTlist[indsIceV], 'V')
         rho_kgm3[indsIceV] = seaOut.rho
         Cp_JkgK[indsIceV] = seaOut.Cp
         alpha_pK[indsIceV] = seaOut.alpha
-    if np.any(indsIceVI):
+    if np.size(indsIceVI) != 0:
         seaOut = SeaFreeze(PTlist[indsIceVI], 'VI')
         rho_kgm3[indsIceVI] = seaOut.rho
         Cp_JkgK[indsIceVI] = seaOut.Cp
         alpha_pK[indsIceVI] = seaOut.alpha
-    if np.any(indsClath):
+    if np.size(indsClath) != 0:
         seaOut = SeaFreeze(PTlist[indsClath], 'Clath')
         rho_kgm3[indsClath] = seaOut.rho
         Cp_JkgK[indsClath] = seaOut.Cp

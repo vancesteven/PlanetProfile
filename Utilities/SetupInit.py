@@ -23,19 +23,38 @@ def SetupInit(Planet, Params):
     if Params.VERBOSE and round(Planet.Bulk.Tb_K, 3) != Planet.Bulk.Tb_K:
         print('WARNING: Planet.Tb_K has been rounded to generate saveFile name.')
 
-    # Set number of steps for unused options to zero
+    # Set steps and settings for unused options to zero
     if not Planet.Do.Fe_CORE:
         Planet.Steps.nCore = 0
     if not Planet.Do.CLATHRATE:
         Planet.Steps.nClath = 0
         Planet.zClath_m = 0
+    if not Planet.Do.POROUS_ROCK:
+        Planet.Sil.phiRockMax_frac = 0
+
+    # In addition, perform some checks on underplating settings to be sure they make sense
     if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:
         Planet.Steps.nIceIIILitho = 0
         Planet.Steps.nIceVLitho = 0
     elif not Planet.Do.BOTTOM_ICEV:
         Planet.Steps.nIceVLitho = 0
-    if not Planet.Do.POROUS_ROCK:
-        Planet.Sil.phiRockMax_frac = 0
+        if(Planet.Ocean.PHydroMax_MPa < 209.9):
+            raise ValueError('Hydrosphere max pressure is less than the pressure of the ice I-III phase transition, ' +
+                             'but Do.BOTTOM_ICEIII is True.')
+        if(Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K):
+            print('WARNING: Bottom temperature of ice I (Tb_K) is greater than bottom temperature of underplate ' +
+                  'ice III (TbIII_K). This likely represents a non-equilibrium state.')
+    else:
+        if(Planet.Ocean.PHydroMax_MPa < 344.3):
+            raise ValueError('Hydrosphere max pressure is less than the pressure of the ice III-V phase transition, ' +
+                             'but Do.BOTTOM_ICEV is True.')
+        if(Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K):
+            print('WARNING: Bottom temperature of ice I (Tb_K) is greater than bottom temperature of underplate ' +
+                  'ice III (TbIII_K). This likely represents a non-equilibrium state.')
+        if(Planet.Bulk.TbIII_K > Planet.Bulk.TbV_K):
+            print('WARNING: Bottom temperature of ice III (Tb_K) is greater than bottom temperature of underplate ' +
+                  'ice V (TbV_K). This likely represents a non-equilibrium state.')
+
 
     # Calculate bulk density from total mass and radius, and warn user if they specified density
     if Planet.Bulk.M_kg is None:
@@ -81,7 +100,7 @@ def SetupLayers(Planet):
     Planet.phase = np.zeros(Planet.Steps.nHydroMax, dtype=np.int_)
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
         Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \
-        Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg = \
-        (np.zeros(Planet.Steps.nHydroMax) for _ in range(11))
+        Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.kTherm_WmK = \
+        (np.zeros(Planet.Steps.nHydroMax) for _ in range(12))
 
     return Planet

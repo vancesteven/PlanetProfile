@@ -7,7 +7,7 @@ from os.path import isfile
 
 # Import all function definitions for this file
 from Utilities.SetupInit import SetupInit, SetupFilenames
-from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, HydroConvect, InnerLayers
+from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from Thermodynamics.Electrical import ElecConduct
 from Seismic import SeismicCalcs
 from Plotting.ProfilePlots import GeneratePlots
@@ -54,7 +54,6 @@ def PlanetProfile(Planet, Params):
         Planet, Params = SetupInit(Planet, Params)
         Planet = IceLayers(Planet, Params)
         Planet = OceanLayers(Planet, Params)
-        Planet = HydroConvect(Planet, Params)
         Planet = InnerLayers(Planet, Params)
         Planet = ElecConduct(Planet, Params)
         Planet = SeismicCalcs(Planet, Params)
@@ -89,7 +88,7 @@ def WriteProfile(Planet, Params):
         f.write('  PbI_MPa = ' + str(Planet.PbI_MPa) + '\n')
         f.write('  deltaP = ' + str(Planet.Ocean.deltaP) + '\n')
         f.write('  CMR2mean = ' + str(Planet.CMR2mean) + '\n')
-        f.write('  QfromMantle_Wm2 = ' + str(Planet.Ocean.QfromMantle_Wm2) + '\n')
+        f.write('  QfromMantle_W = ' + str(Planet.Ocean.QfromMantle_W) + '\n')
         f.write('  phiRockMax = ' + str(Planet.Sil.phiRockMax_frac) + '\n')
         f.write('  RsilMean_m = ' + str(Planet.Sil.Rmean_m) + '\n')
         f.write('  RsilRange_m = ' + str(Planet.Sil.Rrange_m) + '\n')
@@ -177,7 +176,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Do.Fe_CORE = bool(strtobool(f.readline().split('=')[-1].strip()))
         # Get float values from header
         Planet.Ocean.wOcean_ppt, Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, \
-        Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.CMR2mean, Planet.Ocean.QfromMantle_Wm2, \
+        Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.CMR2mean, Planet.Ocean.QfromMantle_W, \
         Planet.Sil.phiRockMax_frac, Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, \
         Planet.Core.Rmean_m, Planet.Core.Rrange_m, Planet.Core.rhoMean_kgm3 \
             = (float(f.readline().split('=')[-1]) for _ in range(16))

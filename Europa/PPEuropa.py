@@ -40,7 +40,6 @@ Planet.Ocean.PHydroMax_MPa = 250
 Planet.Sil.kTherm_WmK = 4.0
 Planet.Sil.Qrad_Wkg = 5.38e-12  # Estimate from Hussmann and Spohn (2004): https://doi.org/10.1016/j.icarus.2004.05.020
 Planet.Sil.Htidal_Wm3 = 1e-10  # Approximate max. tidal heating in silicates as modeled by Tobie et al. (2003): https://doi.org/10.1029/2003JE002099
-Planet.Do.EQUIL_Q = False
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
 Planet.Do.P_EFFECTIVE = False
