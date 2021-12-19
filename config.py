@@ -31,8 +31,7 @@ Params.DEPRECATED =     False  # Whether to allow deprecated code to run. Will o
 Params.SKIP_PLOTS = False  # Whether to skip creation of all plots
 Params.PLOT_GRAVITY = True  # Whether to plot Gravity and Pressure
 Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
-Params.PLOT_TRADEOFF_WCORE = False  # Whether to plot core vs. mantle tradeoff
-Params.PLOT_TRADEOFF_NOCORE = True  # Whether to plot mantle properties tradeoff
+Params.PLOT_TRADEOFF = True  # Whether to plot mantle properties tradeoff
 Params.PLOT_WEDGE = True  # Whether to plot interior wedge diagram
 
 # Magnetic induction calculation settings
@@ -146,7 +145,7 @@ Params.Colors.Clath = [44 / 255, 115 / 255, 150 / 255]
 Params.Colors.OceanTop = [134 / 255, 149 / 255, 201 / 255]  # Darker and richer
 Params.Colors.OceanBot = [45 / 255, 55 / 255, 100 / 255]
 Params.Colors.Rock = [101 / 255, 46 / 255, 11 / 255]
-Params.Colors.Core = [141 / 255, 12 / 2552, 121 / 255]
+Params.Colors.Core = [141 / 255, 122 / 255, 121 / 255]
 
 
 Params.FigSize.vsP = (3,3)
@@ -161,4 +160,3 @@ Params.FigSize.vcore = (6,6)
 Params.FigSize.vpvt4 = (3,3)
 Params.FigSize.vpvt6 = (3,3)
 Params.FigSize.vwedg = (3,3)
-
