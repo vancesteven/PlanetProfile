@@ -3509,6 +3509,8 @@ function writeToDisk(fileName, comp, FeCore, wtPpt, Tb_K, zb_km, zClath_m, Pb_MP
     saveFile = fullfile([fileName '.txt']);
     mantCoreFile = fullfile([fileName '_mantleCore.txt']);
     permFile = fullfile([fileName '_mantlePerm.txt']);
+    
+    QfromMantle_W = QfromMantle_Wm2 * 4*pi*RsilMean_m^2;
 
     dlmwrite(saveFile, '  nHeadLines = 27', 'delimiter', '');
     dlmwrite(saveFile, ['  Ocean salt = ' comp], 'delimiter', '', '-append');
@@ -3521,7 +3523,7 @@ function writeToDisk(fileName, comp, FeCore, wtPpt, Tb_K, zb_km, zClath_m, Pb_MP
     dlmwrite(saveFile, ['  PbI_MPa = ' num2str(PbI_MPa)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  deltaP = ' num2str(deltaP)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  CMR2mean = ' num2str(CMR2mean)], 'delimiter', '', '-append');
-    dlmwrite(saveFile, ['  QfromMantle_Wm2 = ' num2str(QfromMantle_Wm2)], 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  QfromMantle_W = ' num2str(QfromMantle_W)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  phiRockMax = ' num2str(phiRockMax)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  RsilMean_m = ' num2str(RsilMean_m)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  RsilRange_m = ' num2str(RsilRange_m)], 'delimiter', '', '-append');
@@ -3596,7 +3598,7 @@ function [comp, FeCore, wtPct, Tb_K, zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, CM
         PbI_MPaStr = split(fgetl(fReload),'=');
         deltaPStr = split(fgetl(fReload),'=');
         CMR2meanStr = split(fgetl(fReload),'=');
-        QfromMantle_Wm2Str = split(fgetl(fReload),'=');
+        QfromMantle_WStr = split(fgetl(fReload),'=');
         phiRockMaxStr = split(fgetl(fReload),'=');
         RsilMean_mStr = split(fgetl(fReload),'=');
         RsilRange_mStr = split(fgetl(fReload),'=');
@@ -3622,7 +3624,7 @@ function [comp, FeCore, wtPct, Tb_K, zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, CM
         PbI_MPa = str2double(PbI_MPaStr{2});
         deltaP = str2double(deltaPStr{2});
         CMR2mean = str2double(CMR2meanStr{2});
-        QfromMantle_Wm2 = str2double(QfromMantle_Wm2Str{2});
+        QfromMantle_W = str2double(QfromMantle_WStr{2});
         phiRockMax = str2double(phiRockMaxStr{2});
         RsilMean_m = str2double(RsilMean_mStr{2});
         RsilRange_m = str2double(RsilRange_mStr{2});
@@ -3638,6 +3640,7 @@ function [comp, FeCore, wtPct, Tb_K, zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, CM
         nStepsSil = str2double(nStepsSilStr{2});
         nStepsCore = str2double(nStepsCoreStr{2});
     fclose(fReload);
+    QfromMantle_Wm2 = QfromMantle_W  / 4/pi/RsilMean_m^2;
     
     if strcmp(comp, 'Seawater')
         wtPct = wtPpt; % Matlab version uses ppt for Seawater in w_ocean_pct variable
