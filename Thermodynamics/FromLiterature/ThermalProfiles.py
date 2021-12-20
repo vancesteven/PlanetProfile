@@ -15,7 +15,7 @@ def ConductionClathLid():
     return
 
 
-def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa, phase):
+def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa, phase, EQUIL_Q):
     """ Thermodynamics calculations for convection in an ice layer
         based on Deschamps and Sotin (2001): https://doi.org/10.1029/2000JE001253
         Note that these authors solved for the scaling laws we apply in Cartesian
@@ -38,6 +38,10 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
             gtop_ms2 (float): Gravitational acceleration at layer top
             Pmid_MPa (float): Pressure at the "middle" of the convective region in MPa
             phase (int): Ice phase index
+            EQUIL_Q (bool): Whether to set heat flux from interior to be consistent with that released
+                through the convective profile according to Deschamps and Sotin (2001) (if True) or to
+                set it to a value consistent with Ojakangas and Stevenson (1989) for the upper conductive
+                lid portion (if False)
         Returns:
             Tconv_K (float): Temperature of "well-mixed", convective region in K
             etaConv_Pas (float): Viscosity of "well-mixed", convective region in Pa*s
@@ -75,22 +79,36 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     # Heat flux leaving the top of the ice layer (adjusted for spherical geometry compared to Deschamps and Sotin, 2001)
     qtop_Wm2 = (rTop_m - zb_m)**2 / rTop_m**2 * qbot_Wm2
     # Thickness of conductive stagnant lid
-    eLid_m = kTop_WmK * (Tconv_K - Ttop_K) / qtop_Wm2
+    # This matches the Matlab, but based on Deschamps and Sotin (2001), who assume a fixed thermal conductivity
+    # throughout the ice shell, the thickness of the conductive lid should probably use kTop_WmK, because that
+    # will be what determines the conductive thermal profile based on the heat flux through the lid.
+    eLid_m = kMid_WmK * (Tconv_K - Ttop_K) / qtop_Wm2
+    #eLid_m = kTop_WmK * (Tconv_K - Ttop_K) / qtop_Wm2
 
     # If the Rayleigh number is less than some critical value, convection does not occur.
     if(Ra < Constants.RaCrit):
         print('Rayleigh number of ' + str(round(Ra)) + ' in the ice shell is less than the critical value ' +
               'of ' + str(round(Constants.RaCrit)) + '. Only conduction will be modeled in the ice shell.')
-        # This implementation is to match the Matlab, but this is not what Deschamps and Sotin (2001) do
-        # and it is not consistent with the results of Andersson and Inaba (2005).
-        Dcond = np.array([np.nan, 632, 418, 242, np.nan, 328, 183])
-        qbot_Wm2 = Dcond[phase] * np.log(Tb_K/Ttop_K) / zb_m
-
         # Set conductive layer thicknesses to whole shell thickness to force a whole-layer conductive profile
         eLid_m = zb_m
         deltaTBL_m = zb_m
+        Tconv_K = Tb_K
 
-    return Tconv_K, etaConv_Pas, eLid_m, deltaTBL_m, qbot_Wm2, Ra
+    if (Ra < Constants.RaCrit or not EQUIL_Q):
+        # Set heat flux to be equal to that escaping the conductive lid
+        # according to Ojakangas and Stevenson (1989): https://doi.org/10.1016/0019-1035(89)90052-3
+        Qbot_W = kMid_WmK * Ttop_K / eLid_m * np.log(Tconv_K/Ttop_K) * 4*np.pi * (rTop_m - eLid_m)**2
+
+        # The below matches the Matlab, but this is not what Deschamps and Sotin (2001) do
+        # and it is not consistent with the results of Andersson and Inaba (2005).
+        # Dcond = np.array([np.nan, 632, 418, 242, np.nan, 328, 183])
+        # qbot_Wm2 = Dcond[phase] * np.log(Tb_K/Ttop_K) / zb_m
+    else:
+        # Convection is occurring
+        # Total heat flow entering the bottom of the ice shell
+        Qbot_W = qbot_Wm2 * 4*np.pi * (rTop_m - zb_m)**2
+
+    return Tconv_K, etaConv_Pas, eLid_m, deltaTBL_m, Qbot_W, Ra
 
 
 def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rho_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2):
@@ -247,4 +265,22 @@ def kThermMelinder2007(T_K, Tmelt_K, ko_WmK=2.21, dkdT_WmK2=-0.012):
     """
 
     kTherm_WmK = ko_WmK + dkdT_WmK2 * (T_K - Tmelt_K)
+    return kTherm_WmK
+
+
+def kThermHobbs1974(T_K):
+    """ Calculate thermal conductivity of ice Ih according to Hobbs (1974), as
+        reported by Ojakangas and Stevenson (1989).
+
+        Args:
+            T_K (float, shape N): Temperature value(s) in K
+        Returns:
+            kTherm_WmK (float, shape N): Thermal conductivities in W/(mK)
+    """
+    a0 = 4.68e4  # Units of ergs/(K cm s)
+    a1 = 4.88e7  # Units of ergs/(cm s)
+    a0_SI = a0 * Constants.erg2J * 1e2
+    a1_SI = a1 * Constants.erg2J * 1e2
+    kTherm_WmK = a1_SI/T_K + a0_SI
+
     return kTherm_WmK

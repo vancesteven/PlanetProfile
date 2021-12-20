@@ -43,7 +43,8 @@ class DoSubstruct:
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
-        self.NO_ICEI_CONVECTION = True  # Whether to suppress convection in the ice I layer
+        self.NO_ICEI_CONVECTION = False  # Whether to suppress convection in the ice I layer
+        self.EQUIL_Q = False  # Whether to set heat flux from interior to be consistent with heat released through convective profile
         self.ALLOW_NEG_ALPHA = False  # Whether to permit modeling of a Melosh et. al. layer with negative thermal expansivity
         self.MANTLE_HYDRO_THERMAL_EQ = False  # Whether to set thermal equilibrium between mantle and hydrosphere, where the hydrosphere is not gaining external heat via tidal forcing or radiation
         self.POROUS_ROCK = False  # Whether to model silicates as porous
@@ -329,11 +330,12 @@ class ConstantsStruct:
     bar2GPa = 1.01325e-4  # Multiply by this to convert pressure from bars to GPa
     bar2MPa = 1.01325e-1  # Same but for MPa
     PbI_MPa = 210  # ~fixed transition pressure between ice Ih and ice III or V
+    erg2J = 1e-7  # Multiply by this to convert from ergs to joules
     T0 = 273.15  # The Celsius zero point in K.
     P0 = 101325  # One standard atmosphere in Pa
     R = 8.314  # Ideal gas constant in J/mol/K
     Eact_kJmol = np.array([np.nan, 60, 76.5, 127, np.nan, 136, 110])  # Activation energy of ice phases in in kJ/mol
-    etaMelt_Pas = np.array([np.nan, 1e13, 1e18, 5e12, np.nan, 5e14, 5e14])  # Viscosity at the melting temperature of ice phases in Pa*s. Ice Ih value is from Tobie et al. (2003), others unknown
+    etaMelt_Pas = np.array([np.nan, 2e14, 1e18, 5e12, np.nan, 5e14, 5e14])  # Viscosity at the melting temperature of ice phases in Pa*s. Ice Ih value is from Tobie et al. (2003), others unknown
     kClath_WmK = 0.5  # Constant thermal conductivity of clathrates as modeled by Kalousova and Sotin (2020): https://doi.org/10.1029/2020GL087481
     RaCrit = 1.2e4  # Roughly following Barr et al. (2004): https://doi.org/10.1029/2004JE002296, we choose a minimum value for RaCrit of 1.2e4, consistent with the "asymptotic" regime where large temperature perturbations can ~always force convection to occur.
 
