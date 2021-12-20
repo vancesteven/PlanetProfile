@@ -1,7 +1,6 @@
 import numpy as np
 import scipy.interpolate as spi
 from Utilities.dataStructs import Constants
-from Thermodynamics.FromLiterature.ThermalProfiles import ConductiveTemperature
 
 class PerplexEOSStruct:
     """ Loads in Perple_X table and creates interpolators that can be called to
@@ -117,4 +116,21 @@ class PerplexEOSStruct:
         self.fn_alpha_pK = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.alpha_pK)
         self.fn_KS_GPa = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.KS_GPa)
         self.fn_GS_GPa = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.GS_GPa)
+
+
+def TsolidusHirschmann2000(P_MPa):
+    """ Silicate melting temperature parameterization based on
+        Hirschmann (2000): https://doi.org/10.1029/2000GC000070 .
+
+        Args:
+            P_MPa (float, shape N): Pressure values in MPa to evaluate
+        Returns:
+            Tsolidus_K (float, shape N): Solidus temperature for each P value
+    """
+    P_GPa = P_MPa * 1e-3
+    a = -5.104
+    b = 132.899
+    c = 1120.661
+    Tsolidus_K = a*P_GPa**2 + b*P_GPa + c + Constants.T0
+    return Tsolidus_K
 

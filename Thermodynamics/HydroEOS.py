@@ -107,8 +107,8 @@ def GetPfreeze(compstr, w_ppt, Tb_K, PfreezeLower_MPa=30, PfreezeUpper_MPa=300, 
         except StopIteration:
             raise ValueError('No melting pressure was found below '+str(PfreezeUpper_MPa)+' MPa'+
                              'for ice Ih/clathrates. Increase PfreezeUpper_MPa until one is found.')
-        # Get the pressure of the ice Ih adjacent to the first non-Ih layer
-        Pfreeze_MPa = Psearch[indMelt-1]
+        # Get the pressure of the first non-Ih layer
+        Pfreeze_MPa = Psearch[indMelt]
     elif compstr == 'Seawater':
         raise ValueError('Unable to GetPfreeze. Seawater is not implemented yet.')
     elif compstr == 'NH3':
@@ -368,3 +368,130 @@ class OceanEOSStruct:
         phase1D = np.reshape(self.phase, (-1))
         # Create phase finder -- note that the results from this function must be cast to int after retrieval
         self.fn_phase = spi.NearestNDInterpolator(PTpairs, phase1D)
+
+
+
+def kThermIsobaricAnderssonIbari2005(T_K, phase):
+    """ Calculate thermal conductivity of ice at a fixed pressure according to
+        Andersson and Ibari (2005) as a function of temperature.
+        Range of validity is as follows:
+        Phase:  P (MPa):    T range (K):
+        Ih      0.1         40-180*
+        II      240         120-240
+        III     240         180-250
+        V       530         240-270
+        VI      1000        135-250
+        *Andersson and Ibari give an alternate equation that accounts for the range 180-273 K
+        for ice Ih at 0.1 MPa, but as this was not included in the Matlab version, it's
+        skipped here too. This implementation does not apply at the relevant T and P values
+        for icy moon shells except at specific points, so a more versatile and accurate
+        model should be found and used to replace this.
+
+        Args:
+            T_K (float): Temperature to evaluate in K
+            phase (int): Phase index
+        Returns:
+            kTherm_WmK (float): Thermal conductivity of desired phase at specified temperature
+                in W/(mK)
+    """
+    if(phase==1):
+        D = 630
+        X = 0.995
+    elif(phase==2):
+        D = 695
+        X = 1.097
+    elif(phase==3):
+        D = 93.2
+        X = 0.822
+    elif(phase==5):
+        D = 38.0
+        X = 0.612
+    elif(phase==6):
+        D = 50.9
+        X = 0.612
+    else:
+        raise ValueError('Invalid phase index for ice in kThermIsobaricAnderssonIbari2005.')
+
+    kTherm_WmK = D * T_K**(-X)
+
+    return kTherm_WmK
+
+
+def kThermIsothermalAnderssonIbari2005(P_MPa, phase):
+    """ Calculate thermal conductivity of ice at a fixed temperature according to
+        Andersson and Ibari (2005) as a function of pressure.
+        Range of validity is as follows:
+        Phase:  P range (GPa):  T (K):
+        Ih      0-0.5           130
+        II      0-0.24          120
+        III     0.2-0.35        240
+        V       0.35-0.6        246
+        VI      0.7-2.0         246
+        This implementation does not apply at the relevant T and P values for icy moon
+        shells except at specific points, so a more versatile and accurate model should
+        be found and used to replace this.
+
+        Args:
+            P_MPa (float): Pressure to evaluate in MPa
+            phase (int): Phase index
+        Returns:
+            kTherm_WmK (float): Thermal conductivity of desired phase at specified pressure
+                in W/(mK)
+    """
+    if(phase==1):
+        E = 1.60
+        F = -0.44
+    elif(phase==2):
+        E = 1.25
+        F = 0.2
+    elif(phase==3):
+        E = -0.02
+        F = 0.2
+    elif(phase==5):
+        E = 0.16
+        F = 0.2
+    elif(phase==6):
+        E = 0.37
+        F = 0.16
+    else:
+        raise ValueError('Invalid phase index for ice in kThermIsothermalAnderssonIbari2005.')
+
+    # Note the 1e-3 factor because F has units of 1/GPa
+    kTherm_WmK = np.exp(E + F * P_MPa * 1e-3)
+
+    return kTherm_WmK
+
+
+def kThermMelinder2007(T_K, Tmelt_K, ko_WmK=2.21, dkdT_WmK2=-0.012):
+    """ Calculate thermal conductivity of ice Ih according to Melinder (2007).
+
+        Args:
+            T_K (float, shape N): Temperature in K
+            Tmelt_K (float, shape N): Melting temperature at the evaluated pressure in K
+            ko_WmK = 2.21 (float): Thermal conductivity at the melting temperature in W/(mK)
+            dkdT_WmK2 = -0.012 (float): Constant temperature derivative of k in W/(mK^2)
+        Returns:
+            kTherm_WmK (float): Thermal conductivity of ice Ih at specified temperature
+                in W/(mK)
+    """
+
+    kTherm_WmK = ko_WmK + dkdT_WmK2 * (T_K - Tmelt_K)
+    return kTherm_WmK
+
+
+def kThermHobbs1974(T_K):
+    """ Calculate thermal conductivity of ice Ih according to Hobbs (1974), as
+        reported by Ojakangas and Stevenson (1989).
+
+        Args:
+            T_K (float, shape N): Temperature value(s) in K
+        Returns:
+            kTherm_WmK (float, shape N): Thermal conductivities in W/(mK)
+    """
+    a0 = 4.68e4  # Units of ergs/(K cm s)
+    a1 = 4.88e7  # Units of ergs/(cm s)
+    a0_SI = a0 * Constants.erg2J * 1e2
+    a1_SI = a1 * Constants.erg2J * 1e2
+    kTherm_WmK = a1_SI/T_K + a0_SI
+
+    return kTherm_WmK
