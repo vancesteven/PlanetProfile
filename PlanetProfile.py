@@ -200,9 +200,9 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         = np.loadtxt(Params.DataFiles.mantCoreFile, skiprows=1, unpack=True)
 
     # Read in data for mantle permeability properties
-    Planet.Sil.perm1, Planet.Sil.perm2, Planet.Sil.perm3, Planet.Sil.perm4, \
-    Planet.Sil.perm5 \
-        = np.loadtxt(Params.DataFiles.permFile, skiprows=1, unpack=True)
+    #Planet.Sil.perm1, Planet.Sil.perm2, Planet.Sil.perm3, Planet.Sil.perm4, \
+    #Planet.Sil.perm5 \
+    #    = np.loadtxt(Params.DataFiles.permFile, skiprows=1, unpack=True)
 
     return Planet, Params
 
