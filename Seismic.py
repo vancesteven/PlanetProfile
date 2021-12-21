@@ -1,7 +1,8 @@
 import numpy as np
-from Thermodynamics.FromLiterature.ThermalProfiles import TsolidusHirschmann2000
-from Thermodynamics.HydroEOS import GetPhaseIndices
+from Thermodynamics.FromLiterature.InnerEOS import TsolidusHirschmann2000
+from Thermodynamics.FromLiterature.HydroEOS import GetPhaseIndices
 from seafreeze import seafreeze as SeaFreeze
+from Utilities.dataStructs import Constants
 
 def SeismicCalcs(Planet, Params):
     """ Calculation of seismic properties, including wave speeds
@@ -102,15 +103,13 @@ def ClathrateSeismicHelgerud2009(P_MPa, T_K):
             VS_kms (float, shape N): S-wave seismic velocity in km/s.
             KS_GPa (float, shape N): Bulk modulus in GPa.
             GS_GPa (float, shape N): Shear modulus in GPa.
-            rho_kgm3 (float, shape N): Density in kg/m^3.
     """
 
-    T_C = T_K - 273.15
+    T_C = T_K - Constants.T0
     VP_kms = (-1.84*T_C + 0.31*P_MPa + 3766) * 1e-3
     VS_kms = (-0.892*T_C - 0.1*P_MPa + 1957) * 1e-3
     KS_GPa = -1.09e-2*T_C + 3.8e-3*P_MPa + 8.39
     GS_GPa = -4.2e-3*T_C + 9e-5*P_MPa + 3.541
-    #rho_kgm3 = (-2.3815e-4*T_C + 1.1843e-4*P_MPa + 0.91801) * 1e3 # Add to another function in HydroEOS for other props.
 
     return VP_kms, VS_kms, KS_GPa, GS_GPa
 

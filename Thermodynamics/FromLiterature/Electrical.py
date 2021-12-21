@@ -1,5 +1,5 @@
 import numpy as np
-from Thermodynamics.HydroEOS import GetPhaseIndices
+from Thermodynamics.FromLiterature.HydroEOS import GetPhaseIndices
 
 def ElecConduct(Planet, Params):
     """ Calculate/assign electrical conductivities for each layer

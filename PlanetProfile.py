@@ -8,7 +8,7 @@ from os.path import isfile
 # Import all function definitions for this file
 from Utilities.SetupInit import SetupInit, SetupFilenames
 from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
-from Thermodynamics.Electrical import ElecConduct
+from Thermodynamics.FromLiterature.Electrical import ElecConduct
 from Seismic import SeismicCalcs
 from Plotting.ProfilePlots import GeneratePlots
 

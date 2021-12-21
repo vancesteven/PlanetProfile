@@ -2,6 +2,7 @@ import numpy as np
 import scipy.interpolate as spi
 from seafreeze import seafreeze as SeaFreeze
 from seafreeze import whichphase as WhichPhase
+from Utilities.dataStructs import Constants
 
 def FluidEOS(P_MPa, T_K, compstr, w_ppt):
     """ Returns mass density, heat capacity, and thermal expansivity based on thermodynamics
@@ -105,7 +106,7 @@ def GetPfreeze(compstr, w_ppt, Tb_K, PfreezeLower_MPa=30, PfreezeUpper_MPa=300, 
         try:
             indMelt = next((i[0] for i, val in np.ndenumerate(searchPhases) if val!=1 and val!=30))
         except StopIteration:
-            raise ValueError('No melting pressure was found below '+str(PfreezeUpper_MPa)+' MPa'+
+            raise ValueError('No melting pressure was found below '+str(PfreezeUpper_MPa)+' MPa '+
                              'for ice Ih/clathrates. Increase PfreezeUpper_MPa until one is found.')
         # Get the pressure of the first non-Ih layer
         Pfreeze_MPa = Psearch[indMelt]
@@ -136,12 +137,14 @@ def GetPfreezeHP(compstr, w_ppt, TbHP_K, phase, PfreezeHPLower_MPa=180, PfreezeH
     """
     # Narrow the search range for narrow-stability HP ices
     if phase==3:
-        PfreezeHPUpper_MPa = 360
+        PfreezeHPUpper_MPa = np.minimum(360, PfreezeHPUpper_MPa)
+        PfreezeHPLower_MPa = np.maximum(209, PfreezeHPLower_MPa)
     elif phase==5:
-        PfreezeHPLower_MPa = 330
+        PfreezeHPUpper_MPa = np.minimum(620, PfreezeHPUpper_MPa)
+        PfreezeHPLower_MPa = np.maximum(343, PfreezeHPLower_MPa)
 
     Psearch = np.arange(PfreezeHPLower_MPa, PfreezeHPUpper_MPa, PfreezeHPRes_MPa)
-    # Arrange input data into (P,T) value pair tuples compatible with SeaFreeze
+    # Arrange input data into (P,T) value pair tuple compatible with SeaFreeze
     PTsearchPairs = np.array([(P, TbHP_K) for P in Psearch], dtype='f,f').astype(object)
 
     if w_ppt == 0:
@@ -157,10 +160,11 @@ def GetPfreezeHP(compstr, w_ppt, TbHP_K, phase, PfreezeHPLower_MPa=180, PfreezeH
         try:
             indNotHP = next((i[0] for i, val in np.ndenumerate(searchPhases) if i[0]>indIceHP and val!=phase))
         except StopIteration:
-            raise ValueError('No melting pressure was found below '+str(PfreezeHPUpper_MPa)+' MPa'+
-                             'for ice'+PhaseConv(phase)+'. Increase PfreezeHPUpper_MPa until one is found.')
-        # Get the pressure of the HP ice adjacent to the first layer with a non-matching phase
-        PfreezeHP_MPa = Psearch[indNotHP-1]
+            raise ValueError('No melting pressure was found below '+str(PfreezeHPUpper_MPa)+' MPa '+
+                             'for ice '+PhaseConv(phase)+' at T = '+str(round(TbHP_K,3))+' K.'+
+                             ' Increase PfreezeHPUpper_MPa until one is found.')
+        # Get the pressure of the first layer with a non-matching phase
+        PfreezeHP_MPa = Psearch[indNotHP]
     elif compstr == 'Seawater':
         raise ValueError('Unable to GetPfreezeHP. Seawater is not implemented yet.')
     elif compstr == 'NH3':
@@ -176,7 +180,7 @@ def GetPfreezeHP(compstr, w_ppt, TbHP_K, phase, PfreezeHPLower_MPa=180, PfreezeH
 
 
 def GetTfreeze(compstr, w_ppt, P_MPa, T_K, TfreezeRange_K=50, TfreezeRes_K=0.05):
-    """ Returns the pressure at which the fluid freezes based on temperature, salinity, and composition
+    """ Returns the temperature at which the fluid freezes based on temperature, salinity, and composition
 
         Args:
             compstr (string): Composition of dissolved salt
@@ -195,15 +199,15 @@ def GetTfreeze(compstr, w_ppt, P_MPa, T_K, TfreezeRange_K=50, TfreezeRes_K=0.05)
         # Get phase of each T for this pressure using SeaFreeze
         searchPhases = WhichPhase(PTsearchPairs)
         thisPhase = searchPhases[0]
-        # Find the first index for a phase that doesn't match the input value
+        # Find the first index for liquid
         try:
-            indNotThis = next((i[0] for i, val in np.ndenumerate(searchPhases) if val!=thisPhase))
+            indNotThis = next((i[0] for i, val in np.ndenumerate(searchPhases) if val==0))
         except StopIteration:
             raise ValueError('No melting temperature was found above ' + str(round(T_K,3)) + ' K ' +
                              'for ice ' + PhaseConv(thisPhase) + ' at pressure ' + str(round(P_MPa,3)) +
                              ' MPa. Increase TfreezeRange_K until one is found.')
-        # Get the pressure of the HP ice adjacent to the first layer with a non-matching phase
-        Tfreeze_K = Tsearch[indNotThis - 1]
+        # Get the temperature of the first liquid index
+        Tfreeze_K = Tsearch[indNotThis]
     elif compstr == 'Seawater':
         raise ValueError('Unable to GetTfreeze. Seawater is not implemented yet.')
     elif compstr == 'NH3':
@@ -219,8 +223,9 @@ def GetTfreeze(compstr, w_ppt, P_MPa, T_K, TfreezeRange_K=50, TfreezeRes_K=0.05)
 
 
 def GetIceThermo(P_MPa, T_K, phase):
-    """ Thermodynamic calculation of ice density, heat capacity, and
-        expansivity using SeaFreeze.
+    """ Thermodynamic calculation of ice Ih-VI density, heat capacity, and thermal expansivity using
+        SeaFreeze, and thermal conductivity using Andersson and Ibari (2005). Clathrate properties are
+        calculated using ___.
 
         Arguments:
             P_MPa (float, shape N): Pressure values of ice layers
@@ -230,9 +235,10 @@ def GetIceThermo(P_MPa, T_K, phase):
             rho_kgm3 (float, shape N): Mass density for each layer
             Cp_JkgK (float, shape N): Heat capacity at constant pressure for each layer
             alpha_pK (float, shape N): Thermal expansivity for each layer
+            ktherm_WmK (float, shape N): Thermal conductivity for each layer
     """
     # Initialize outputs
-    rho_kgm3, Cp_JkgK, alpha_pK = (np.zeros_like(P_MPa) for _ in range(3))
+    rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = (np.zeros_like(P_MPa) for _ in range(4))
     # Identify which indices correspond to which phases
     indsLiquid, indsIceI, indsIceII, indsIceIII, indsIceV, indsIceVI, indsClath, _, _ = GetPhaseIndices(phase)
     # Organize (P,T) value pairs into a list of tuples compatible with SeaFreeze
@@ -245,11 +251,7 @@ def GetIceThermo(P_MPa, T_K, phase):
         Cp_JkgK[indsIceI] = seaOut.Cp
         alpha_pK[indsIceI] = seaOut.alpha
     if np.size(indsLiquid) != 0:
-        print('WARNING: Unexpected liquids are present within ice layers. Check Steps.n settings.')
-        seaOut = SeaFreeze(PTlist[indsLiquid], 'water1')
-        rho_kgm3[indsLiquid] = seaOut.rho
-        Cp_JkgK[indsLiquid] = seaOut.Cp
-        alpha_pK[indsLiquid] = seaOut.alpha
+        raise ValueError('Unexpected liquids are present within ice layers. Check Steps.n settings.')
     if np.size(indsIceII) != 0:
         seaOut = SeaFreeze(PTlist[indsIceII], 'II')
         rho_kgm3[indsIceII] = seaOut.rho
@@ -270,13 +272,16 @@ def GetIceThermo(P_MPa, T_K, phase):
         rho_kgm3[indsIceVI] = seaOut.rho
         Cp_JkgK[indsIceVI] = seaOut.Cp
         alpha_pK[indsIceVI] = seaOut.alpha
-    if np.size(indsClath) != 0:
-        seaOut = SeaFreeze(PTlist[indsClath], 'Clath')
-        rho_kgm3[indsClath] = seaOut.rho
-        Cp_JkgK[indsClath] = seaOut.Cp
-        alpha_pK[indsClath] = seaOut.alpha
+    if np.size(indsClath) == 0:
+        kTherm_WmK = kThermIsobaricAnderssonIbari2005(T_K, phase)
+    else:
+        rho_kgm3[indsClath], Cp_JkgK[indsClath], alpha_pK[indsClath], kTherm_WmK[indsClath] \
+            = ClathProps(P_MPa[indsClath], T_K[indsClath])
 
-    return rho_kgm3, Cp_JkgK, alpha_pK
+        indsAllButClath = np.concatenate((indsIceI, indsIceII, indsIceIII, indsIceV, indsIceVI))
+        kTherm_WmK[indsAllButClath] = kThermIsobaricAnderssonIbari2005(T_K[indsAllButClath], phase[indsAllButClath])
+
+    return rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK
 
 
 def PhaseConv(phase):
@@ -316,6 +321,10 @@ def GetPhaseIndices(phase):
             indsLiquid, indsIceI, ... indsFe (int, shape 0-M): lists of indices corresponding to each phase.
                 Variable length.
     """
+    # Avoid an annoying problem where np.where returns an empty array for a length-1 list,
+    # by making sure the input value(s) are a numpy array:
+    phase = np.array(phase)
+
     indsLiquid = np.where(phase==0)
     indsIceI = np.where(phase==1)
     indsIceII = np.where(phase==2)
@@ -341,6 +350,7 @@ class OceanEOSStruct:
             self.rho_kgm3 = seaOut.rho
             self.Cp_JkgK = seaOut.Cp
             self.alpha_pK = seaOut.alpha
+            self.kTherm_WmK = np.zeros_like(self.alpha_pK) + 0.5  # Placeholder until we implement a self-consistent calculation
             self.phase = WhichPhase(PTgrid)
         elif compstr == 'Seawater':
             self.type = 'GSW'
@@ -360,6 +370,7 @@ class OceanEOSStruct:
         self.fn_rho_kgm3 = spi.RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
         self.fn_Cp_JkgK = spi.RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
         self.fn_alpha_pK = spi.RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
+        self.fn_kTherm_WmK = spi.RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
 
         # Repackage data as needed for NearestNDInterpolator
         Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
@@ -368,7 +379,6 @@ class OceanEOSStruct:
         phase1D = np.reshape(self.phase, (-1))
         # Create phase finder -- note that the results from this function must be cast to int after retrieval
         self.fn_phase = spi.NearestNDInterpolator(PTpairs, phase1D)
-
 
 
 def kThermIsobaricAnderssonIbari2005(T_K, phase):
@@ -388,31 +398,16 @@ def kThermIsobaricAnderssonIbari2005(T_K, phase):
         model should be found and used to replace this.
 
         Args:
-            T_K (float): Temperature to evaluate in K
-            phase (int): Phase index
+            T_K (float, shape N): Temperatures to evaluate in K
+            phase (int, shape N): Phase indices
         Returns:
-            kTherm_WmK (float): Thermal conductivity of desired phase at specified temperature
+            kTherm_WmK (float, shape N): Thermal conductivity of desired phase at specified temperatures
                 in W/(mK)
     """
-    if(phase==1):
-        D = 630
-        X = 0.995
-    elif(phase==2):
-        D = 695
-        X = 1.097
-    elif(phase==3):
-        D = 93.2
-        X = 0.822
-    elif(phase==5):
-        D = 38.0
-        X = 0.612
-    elif(phase==6):
-        D = 50.9
-        X = 0.612
-    else:
-        raise ValueError('Invalid phase index for ice in kThermIsobaricAnderssonIbari2005.')
+    D = np.array([np.nan, 630, 695, 93.2, np.nan, 38.0, 50.9])
+    X = np.array([np.nan, 0.995, 1.097, 0.822, np.nan, 0.612, 0.612])
 
-    kTherm_WmK = D * T_K**(-X)
+    kTherm_WmK = np.array([D[phase[i]] * T_K[i]**(-X[phase[i]]) for i in range(np.size(T_K))])
 
     return kTherm_WmK
 
@@ -432,32 +427,17 @@ def kThermIsothermalAnderssonIbari2005(P_MPa, phase):
         be found and used to replace this.
 
         Args:
-            P_MPa (float): Pressure to evaluate in MPa
-            phase (int): Phase index
+            P_MPa (float, shape N): Pressure to evaluate in MPa
+            phase (int, shape N): Phase index
         Returns:
-            kTherm_WmK (float): Thermal conductivity of desired phase at specified pressure
+            kTherm_WmK (float, shape N): Thermal conductivity of desired phase at specified pressures
                 in W/(mK)
     """
-    if(phase==1):
-        E = 1.60
-        F = -0.44
-    elif(phase==2):
-        E = 1.25
-        F = 0.2
-    elif(phase==3):
-        E = -0.02
-        F = 0.2
-    elif(phase==5):
-        E = 0.16
-        F = 0.2
-    elif(phase==6):
-        E = 0.37
-        F = 0.16
-    else:
-        raise ValueError('Invalid phase index for ice in kThermIsothermalAnderssonIbari2005.')
+    E = np.array([np.nan, 1.60, 1.25, -0.02, np.nan, 0.16, 0.37])
+    F = np.array([np.nan, -0.44, 0.2, 0.2, np.nan, 0.2, 0.16])
 
     # Note the 1e-3 factor because F has units of 1/GPa
-    kTherm_WmK = np.exp(E + F * P_MPa * 1e-3)
+    kTherm_WmK = np.array([np.exp(E[phase[i]] + F[phase[i]] * P_MPa[i] * 1e-3) for i in range(np.size(P_MPa))])
 
     return kTherm_WmK
 
@@ -471,7 +451,7 @@ def kThermMelinder2007(T_K, Tmelt_K, ko_WmK=2.21, dkdT_WmK2=-0.012):
             ko_WmK = 2.21 (float): Thermal conductivity at the melting temperature in W/(mK)
             dkdT_WmK2 = -0.012 (float): Constant temperature derivative of k in W/(mK^2)
         Returns:
-            kTherm_WmK (float): Thermal conductivity of ice Ih at specified temperature
+            kTherm_WmK (float, shape N): Thermal conductivity of ice Ih at specified temperature
                 in W/(mK)
     """
 
@@ -495,3 +475,37 @@ def kThermHobbs1974(T_K):
     kTherm_WmK = a1_SI/T_K + a0_SI
 
     return kTherm_WmK
+
+
+def ClathProps(P_MPa, T_K):
+    """ Evaluate methane clathrate physical properties using Helgerud et al. (2009): https://doi.org/10.1029/2009JB006451
+        for density, Ning et al. (2015): https://doi.org/10.1039/C4CP04212C for thermal expansivity and heat capacity,
+        and Waite et al. (2005): https://www.researchgate.net/profile/W-Waite/publication/252708287_Thermal_Property_Measurements_in_Tetrahydrofuran_THF_Hydrate_Between_-25_and_4deg_C_and_Their_Application_to_Methane_Hydrate/links/57b900ae08aedfe0ec94abd7/Thermal-Property-Measurements-in-Tetrahydrofuran-THF-Hydrate-Between-25-and-4deg-C-and-Their-Application-to-Methane-Hydrate.pdf
+        for thermal conductivity.
+        Range of validity:
+            rho_kgm3: P from 30.5 to 97.7 MPa, T from -20 to 15 C
+            Cp_JkgK: P at 20 MPa, T from 5 to 292 K
+            alpha_pK: P at 0.1 MPa, T from 5 to 268 K (note that Ning et al. also give a parameterization for
+                alpha_pK at 20 MPa that differs slightly. Since clathrates only appear at the surface of icy moons,
+                we use just the 1 bar value for simplicity.
+            kTherm_WmK: P from 13.8 to 24.8 MPa, T from -30 to 20 C
+
+
+        Args:
+            P_MPa (float, shape N): Pressures to evaluate in MPa
+            T_K (float, shape N): Temperatures to evaluate in K
+        Returns:
+            rho_kgm3 (float, shape N): Mass density in kg/m^3 for each P and T. rho_gcm3 = aT_C + bP_MPa + c
+            Cp_JkgK (float, shape N): Heat capacity in J/(kg K) for each P and T. Cp_JkgK = aT_K + b
+            alpha_pK (float, shape N): Thermal expansivity in 1/K for each P and T. alpha_pK = (2aT_K + b)/(aT_K^2 + bT_K + c)
+            kTherm_WmK (float, shape N): Thermal conductivity in W/(mK) for each P and T. kTherm_WmK = c, a constant, over the specified range.
+    """
+
+    T_C = T_K - Constants.T0
+
+    rho_kgm3 = (-2.3815e-4*T_C + 1.1843e-4*P_MPa + 0.92435) * 1e3
+    Cp_JkgK = 3.19*T_K + 2150
+    alpha_pK = (3.5697e-4*T_K + 0.2558)/(3.5697e-4*T_K**2 + 0.2558*T_K + 1612.8597)
+    kTherm_WmK = np.zeros_like(P_MPa) + 0.50
+
+    return rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK

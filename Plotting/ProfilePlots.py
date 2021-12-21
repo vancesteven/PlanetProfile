@@ -93,8 +93,7 @@ def PlotWedge(Planet, Params):
     for layerPhase in iPhaseTrans:
 
         if Planet.phase[layerPhase] == 0:
-            # colors.append(Params.Colors.OceanTop)
-            colors.append("none")
+            colors.append(Params.Colors.OceanTop)
             #nOceanLayers = Planet.Steps.nOceanMax
             #for iL in range(nOceanLayers):
             #    thisOceanColor = (1- iL) * (Planet.Colors.OceanTop - Planet.Colors.OceanBot) / nOceanLayers + Planet.Colors.OceanTop
@@ -142,7 +141,7 @@ def PlotWedge(Planet, Params):
 
             # path = Path([[0, 1], [1, 0], [0, -1], [-1, 0], [0, 1]])
             # patch = PathPatch(path, facecolor='none')
-            im = plt.imshow(Z, interpolation='bilinear', cmap=mpl.cm.gray,
+            im = plt.imshow(Z, interpolation='bilinear', cmap=mpl.cm.bone,
                            origin='lower', extent=[0, 1, 0, 1],
                            clip_path=patches[-1], clip_on=True)
             im.set_clip_path(patches[-1])

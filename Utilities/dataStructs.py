@@ -17,7 +17,7 @@ import numpy as np
 class BulkSubstruct():
 
     def __init__(self):
-        self.Tb_K = None  # Temperature at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers)
+        self.Tb_K = None  # Temperature at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers). Ranges from 238.5 to 261.165 K for ice III transition and 251.165 to 273.16 for melting temp.
         self.rho_kgm3 = None  # Bulk density in kg/m^3 -- note that this is intended to be derived and not set.
         self.R_m = None  # Mean body outer radius in m
         self.M_kg = None  # Total body mass in kg
@@ -27,8 +27,8 @@ class BulkSubstruct():
         self.Cuncertainty = None  # Uncertainty (std dev) of C/MR^2 (used to constrain models via consistency within the uncertainty), dimensionless
         self.phiSurface_frac = None  # Scaling value for the ice porosity at the surface (void fraction): falls within a range of 0 and 1. 0 is completely non-porous and larger than 0.2 is rare. From Han et al. (2014)
         self.clathMaxDepth_m = None  # Fixed limit for thickness of clathrate layer in m
-        self.TbIII_K = None  # Temperature at bottom of ice III underplate layer in K
-        self.TbV_K = None  # Temperature at bottom of ice V underplate layer in K
+        self.TbIII_K = None  # Temperature at bottom of ice III underplate layer in K. Ranges from 248.85 to 256.164 K for transition to ice V and from 251.165 to 256.164 K for melting temp.
+        self.TbV_K = None  # Temperature at bottom of ice V underplate layer in K. Ranges from 256.164 to 272.99 K for melting temp, and 218 to 272.99 for transition to ice VI.
         self.zbChangeTol_frac = 0.05  # Fractional change tolerance, which if exceeded, triggers IceConvect to run a second time for better self-consistency
 
 
@@ -43,7 +43,7 @@ class DoSubstruct:
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
-        self.NO_ICEI_CONVECTION = False  # Whether to suppress convection in the ice I layer
+        self.NO_ICE_CONVECTION = False  # Whether to suppress convection in ice layers
         self.EQUIL_Q = False  # Whether to set heat flux from interior to be consistent with heat released through convective profile
         self.ALLOW_NEG_ALPHA = False  # Whether to permit modeling of a Melosh et. al. layer with negative thermal expansivity
         self.MANTLE_HYDRO_THERMAL_EQ = False  # Whether to set thermal equilibrium between mantle and hydrosphere, where the hydrosphere is not gaining external heat via tidal forcing or radiation
@@ -64,15 +64,15 @@ class StepsSubstruct:
         self.nOceanMax = None  # Derived working length of ocean layers, also truncated after layer calcs
         self.nHydro = None  # Derived final number of steps in hydrosphere
         self.nIbottom = None  # Derived number of clathrate + ice I layers
-        self.nIIIbottom = None  # Derived number of clathrate + ice I + ice V layers
+        self.nIIIbottom = None  # Derived number of clathrate + ice I + ice III layers
         self.nSurfIce = None  # Derived number of outer ice layers (above ocean) -- sum of nIceI, nClath, nIceIIILitho, nIceVLitho
         self.nStepsRefRho = None  # Number of values for plotting reference density curves (sets resolution)
         self.iSilStart = None  # Hydrosphere index at which to start silicate size search
         self.nSilMax = None  # Fixed max number of steps in silicate layers
         self.nSil = None  # Derived final number of steps in silicate layers
         self.nCore = None  # Fixed number of steps in core layers, if present
-        self.nIceIIILitho = 5  # Fixed number of layers to use for ice III when either BOTTOM_ICEIII or BOTTOM_ICEV is True.
-        self.nIceVLitho = 5  # Fixed number of layers to use for ice V when BOTTOM_ICEV is True.
+        self.nIceIIILitho = 30  # Fixed number of layers to use for ice III when either BOTTOM_ICEIII or BOTTOM_ICEV is True.
+        self.nIceVLitho = 30  # Fixed number of layers to use for ice V when BOTTOM_ICEV is True.
         self.eTBL_frac = 1/2  # Fraction of upper ice layers to use for upper thermal boundary layer conductive profile
         self.deltaTBL_frac = 1/8  # Fraction of upper ice layers to use for lower thermal boundary layer conductive profile
 
@@ -88,7 +88,7 @@ class OceanSubstruct:
         self.dkdTI_WmK2 = -0.012  # Temperature derivative of ice I relative to the melting temp. Default is from Melinder (2007).
         self.sigmaIce_Sm = 1e-8  # Assumed conductivity of ice layers
         self.THydroMax_K = 340  # Assumed maximum ocean temperature for generating ocean EOS functions
-        self.deltaT = 0.5  # Step size in K for temperature values used in generating ocean EOS functions
+        self.deltaT = 0.1  # Step size in K for temperature values used in generating ocean EOS functions
         self.PHydroMax_MPa = None  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
         self.electrical = 'Vance2018'  # Type of electrical conductivity model to use. Options: 'Vance2018', 'Pan2020'
         self.QfromMantle_W = None  # Heat flow from mantle into hydrosphere (calculated from ice thermal profile and applied to mantle)
@@ -209,7 +209,6 @@ class MagneticSubstruct:
         self.sigmaIonosPedersen_Sm = None  # Pedersen conductivity for ionospheric layers in S/m. Length must match ionosBounds_m.
 
 
-
 """ Main body profile info--settings and variables """
 class PlanetStruct:
 
@@ -253,13 +252,24 @@ class PlanetStruct:
         self.Pb_MPa = None  # Pressure at ice-ocean interface in MPa
         self.PbClath_MPa = None  # Pressure at bottom of clathrate layer in MPa
         self.PbI_MPa = None  # Pressure at bottom of ice I layer in MPa
-        self.PbIII_MPa = None  # Pressure at ice III/ice V transition in MPa, only used when BOTTOM_ICEV is True
+        self.PbIII_MPa = None  # Pressure at ice III/ice V transition in MPa, only used when BOTTOM_ICEIII or BOTTOM_ICEV is True
+        self.PbV_MPa = None  # Pressure at bottom of ice V layer in MPa, only used when BOTTOM_ICEV is True
         self.CMR2mean = None  # Mean value of axial moment of inertia that is consistent with profile core/mantle trades
         self.Tconv_K = None  # Temperature of "well-mixed" convecting region in ice I layer in K
+        self.TconvIII_K = None  # Same as above but for ice III underplate layers.
+        self.TconvV_K = None  # Same as above but for ice V underplate layers.
         self.etaConv_Pas = None  # Viscosity of ice I at Tconv_K
+        self.etaConvIII_Pas = None  # Same as above but for ice III underplate layers.
+        self.etaConvV_Pas = None  # Same as above but for ice V underplate layers.
         self.eLid_m = None  # Thickness of conducting stagnant lid layer
+        self.eLidIII_m = None  # Same as above but for ice III underplate layers.
+        self.eLidV_m = None  # Same as above but for ice V underplate layers.
         self.deltaTBL_m = None  # Thickness of lower thermal boundary layer when Htidal = 0 in the ice
+        self.deltaTBLIII_m = None  # Same as above but for ice III underplate layers.
+        self.deltaTBLV_m = None  # Same as above but for ice V underplate layers.
         self.RaConvect = None  # Rayleigh number of putative convective layer within the ice I layers. If this number is below Constants.RaCrit, convection does not occur.
+        self.RaConvectIII = None  # Same as above but for ice III underplate layers.
+        self.RaConvectV = None  # Same as above but for ice V underplate layers.
 
 
 """ Params substructs """
@@ -336,7 +346,6 @@ class ConstantsStruct:
     R = 8.314  # Ideal gas constant in J/mol/K
     Eact_kJmol = np.array([np.nan, 60, 76.5, 127, np.nan, 136, 110])  # Activation energy of ice phases in in kJ/mol
     etaMelt_Pas = np.array([np.nan, 2e14, 1e18, 5e12, np.nan, 5e14, 5e14])  # Viscosity at the melting temperature of ice phases in Pa*s. Ice Ih value is from Tobie et al. (2003), others unknown
-    kClath_WmK = 0.5  # Constant thermal conductivity of clathrates as modeled by Kalousova and Sotin (2020): https://doi.org/10.1029/2020GL087481
     RaCrit = 1.2e4  # Roughly following Barr et al. (2004): https://doi.org/10.1029/2004JE002296, we choose a minimum value for RaCrit of 1.2e4, consistent with the "asymptotic" regime where large temperature perturbations can ~always force convection to occur.
 
 Constants = ConstantsStruct()

@@ -133,19 +133,19 @@ Params.LW_seism = 1  # LineWidth for seismic plots (Attenuation)
 Params.spicePCK = 'pck00010.tpc'  # Planetary Constants Kernel from SPICE in order to get body radii
 
 # Wedge color options
-Params.Colors.IonosphereTop = [1, 0, 1]  # matlab's magenta
-Params.Colors.Ionosphere = [1, 0, 1]  # matlab's magenta
-Params.Colors.IonosphereBot = [1, 0, 1]  # matlab's magenta
-Params.Colors.IceI = [150 / 255, 226 / 255, 241 / 255]
-Params.Colors.IceII = [3 / 255, 169 / 255, 252 / 255]
-Params.Colors.IceIII = [150 / 255, 226 / 255, 241 / 255]
-Params.Colors.IceV = [150 / 255, 226 / 255, 241 / 255]
-Params.Colors.IceVI = [150 / 255, 226 / 255, 241 / 255]
-Params.Colors.Clath = [44 / 255, 115 / 255, 150 / 255]
-Params.Colors.OceanTop = [134 / 255, 149 / 255, 201 / 255]  # Darker and richer
-Params.Colors.OceanBot = [45 / 255, 55 / 255, 100 / 255]
-Params.Colors.Rock = [101 / 255, 46 / 255, 11 / 255]
-Params.Colors.Core = [141 / 255, 122 / 255, 121 / 255]
+Params.Colors.IonosphereTop = [1, 0, 1]
+Params.Colors.Ionosphere = [1, 0, 1]
+Params.Colors.IonosphereBot = [1, 0, 1]
+Params.Colors.IceI = [150/255, 226/255, 241/255]
+Params.Colors.IceII = [3/255, 169/255, 252/255]
+Params.Colors.IceIII = [155/255, 220/255, 248/255]
+Params.Colors.IceV = [120/255, 240/255, 230/255]
+Params.Colors.IceVI = [150/255, 226/255, 241/255]
+Params.Colors.Clath = [44/255, 115/255, 150/255]
+Params.Colors.OceanTop = [134/255, 149/255, 201/255]
+Params.Colors.OceanBot = [45/255, 55/255, 100/255]
+Params.Colors.Rock = [101/255, 46/255, 11/255]
+Params.Colors.Core = [141/255, 122/255, 121/255]
 
 
 Params.FigSize.vsP = (3,3)
