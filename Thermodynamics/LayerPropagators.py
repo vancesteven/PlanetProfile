@@ -2,7 +2,7 @@ import numpy as np
 from collections.abc import Iterable
 from Utilities.dataStructs import Constants
 from Thermodynamics.FromLiterature.HydroEOS import GetIceThermo, GetPfreeze, GetTfreeze, GetPfreezeHP, \
-    FluidEOS, GetPhase, OceanEOSStruct
+    GetPhase
 from Thermodynamics.FromLiterature.ThermalProfiles import ConductionClathLid, ConductiveTemperature
 from Thermodynamics.FromLiterature.Convection import IceIConvect, IceIIIConvect, IceVConvect
 from Thermodynamics.FromLiterature.InnerEOS import PerplexEOSStruct
@@ -35,7 +35,7 @@ def IceLayers(Planet, Params):
     # Get the pressure consistent with the bottom of the ice Ih layer that is
     # consistent with the choice of Tb_K we suppose for this model
     if Params.VERBOSE: print('Finding uppermost ice melting pressure...')
-    Planet.PbI_MPa = GetPfreeze(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Planet.Bulk.Tb_K,
+    Planet.PbI_MPa = GetPfreeze(Planet.Ocean.EOS, Planet.Bulk.Tb_K,
         PfreezeLower_MPa=Planet.PfreezeLower_MPa, PfreezeUpper_MPa=Planet.PfreezeUpper_MPa, PfreezeRes_MPa=Planet.PfreezeRes_MPa,
         Pguess=None)
 
@@ -161,7 +161,7 @@ def IceIIIUnderplate(Planet, Params):
             PbIII_MPa, all physical layer arrays
     """
 
-    Planet.PbIII_MPa = GetPfreezeHP(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Planet.Bulk.TbIII_K, 3,
+    Planet.PbIII_MPa = GetPfreezeHP(Planet.Ocean.EOS, Planet.Bulk.TbIII_K, 3,
                                     PfreezeHPLower_MPa=Planet.P_MPa[Planet.Steps.nIbottom],
                                     PfreezeHPUpper_MPa=Planet.Ocean.PHydroMax_MPa)
     if Params.VERBOSE: print('Ice III bottom phase transition pressure: ' + str(round(Planet.PbIII_MPa,3)) +
@@ -221,8 +221,8 @@ def IceVUnderplate(Planet, Params):
         Assigns Planet attributes:
             PbIII_MPa, PbV_MPa, Pb_MPa, P_MPa, T_K
     """
-    Planet.PbIII_MPa = GetPfreezeHP(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Planet.Bulk.TbIII_K, 3)
-    Planet.Pb_MPa = GetPfreezeHP(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Planet.Bulk.TbV_K, 5)
+    Planet.PbIII_MPa = GetPfreezeHP(Planet.Ocean.EOS, Planet.Bulk.TbIII_K, 3)
+    Planet.PbV_MPa = GetPfreezeHP(Planet.Ocean.EOS, Planet.Bulk.TbV_K, 5)
     # Set linear P and adiabatic T in ice III layers
     if(Planet.PbIII_MPa < Planet.P_MPa[Planet.Steps.nIbottom-1]):
         raise ValueError('Ice III bottom melting pressure is less than the pressure at the bottom of the ' +
@@ -264,10 +264,6 @@ def OceanLayers(Planet, Params):
         = (np.zeros(Planet.Steps.nOceanMax) for _ in range(5))
     TOcean_K = np.insert(TOcean_K, 0, Planet.T_K[Planet.Steps.nSurfIce])
 
-    # Get ocean EOS functions
-    TOceanLin_K = np.arange(Planet.T_K[Planet.Steps.nSurfIce], Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
-    Planet.Ocean.EOS = OceanEOSStruct(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOceanLin_K)
-
     for i in range(Planet.Steps.nOceanMax):
         Planet.phase[Planet.Steps.nSurfIce+i] = \
             GetPhase(Planet.Ocean.EOS, Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa[i], TOcean_K[i])
@@ -292,7 +288,7 @@ def OceanLayers(Planet, Params):
             # meaning each layer's temperature is equal to the melting temperature.
             rhoOcean_kgm3[i], CpOcean_JkgK[i], alphaOcean_pK[i], kThermOcean_WmK[i] = \
                 GetIceThermo([POcean_MPa[i]], [TOcean_K[i]], [Planet.phase[Planet.Steps.nSurfIce+i]])
-            TOcean_K[i+1] = GetTfreeze(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa[i], TOcean_K[i])
+            TOcean_K[i+1] = GetTfreeze(Planet.Ocean.EOS, POcean_MPa[i], TOcean_K[i])
 
     Planet.P_MPa[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = POcean_MPa
     Planet.T_K[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = TOcean_K[:-1]
@@ -705,6 +701,10 @@ def SilicateLayers(Planet, Params):
         MLayerSil_kg[:,j] = rhoSil_kgm3[:,j] * 4/3*np.pi*(rSil_m[:,j]**3 - rSil_m[:,j+1]**3)
         # Calculate gravity using absolute values, as we will use MAboveSil to check for exceeding body mass later.
         gSil_ms2[:,j] = Constants.G * np.abs(Planet.Bulk.M_kg - MAboveSil_kg[:,j]) / rSil_m[:,j]**2
+
+    if np.any(Tsil_K < 0):
+        raise RuntimeError('Negative temperatures encountered in silicates. This likely indicates Qrad_Wkg + Htidal_Wm3' +
+                           ' is too high to be consistent with the heat flow through the ice shell.')
 
     if Planet.Do.CONSTANT_INNER_DENSITY:
         # Include all indices for later calculations if we already found the desired C/MR^2 match

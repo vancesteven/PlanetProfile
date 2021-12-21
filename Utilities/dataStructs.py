@@ -44,7 +44,7 @@ class DoSubstruct:
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
         self.NO_ICE_CONVECTION = False  # Whether to suppress convection in ice layers
-        self.EQUIL_Q = False  # Whether to set heat flux from interior to be consistent with heat released through convective profile
+        self.EQUIL_Q = True  # Whether to set heat flux from interior to be consistent with heat released through convective profile
         self.ALLOW_NEG_ALPHA = False  # Whether to permit modeling of a Melosh et. al. layer with negative thermal expansivity
         self.MANTLE_HYDRO_THERMAL_EQ = False  # Whether to set thermal equilibrium between mantle and hydrosphere, where the hydrosphere is not gaining external heat via tidal forcing or radiation
         self.POROUS_ROCK = False  # Whether to model silicates as porous
@@ -103,8 +103,8 @@ class SilSubstruct:
         self.kTherm_WmK = None  # Thermal conductivity of silicates in W/(mK)
         self.phiRockMax_frac = None  # Porosity (void fraction) of the rocks at the “seafloor”, where the hydrosphere first comes into contact with rock
         self.sigmaSil_Sm = 1e-16  # Assumed conductivity of silicate rock
-        self.Qrad_Wkg = None  # Average radiogenic heating rate for silicates in W/kg.
-        self.Htidal_Wm3 = None  # Average tidal heating rate for silicates in W/m^3.
+        self.Qrad_Wkg = 0  # Average radiogenic heating rate for silicates in W/kg.
+        self.Htidal_Wm3 = 0  # Average tidal heating rate for silicates in W/m^3.
         """ Mantle Equation of State (EOS) model """
         self.mantleEOS = None  # Equation of state data to use for silicates
         self.mantleEOSName = None  # Same as above but containing keywords like clathrates in filenames
@@ -125,6 +125,7 @@ class SilSubstruct:
         #perm3 = None
         #perm4 = None
         #perm5 = None
+
 
 """ Core layers """
 class CoreSubstruct:
@@ -149,6 +150,7 @@ class CoreSubstruct:
         self.xFeS = None  # Mass fraction of sulfur in the core
         self.xFeCore = None  # This is the total Fe in Fe and FeS
         self.xH2O = None  # Total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+
 
 """ Seismic properties """
 class SeismicSubstruct:
@@ -226,8 +228,8 @@ class PlanetStruct:
         self.Magnetic = MagneticSubstruct()
         # Settings for GetPfreeze start, stop, and step size.
         # Shrink closer to expected melting pressure to improve run times.
-        self.PfreezeLower_MPa = 0.1  # Lower boundary for GetPfreeze to search for phase transition
-        self.PfreezeUpper_MPa = 300  # Upper boundary for GetPfreeze to search for phase transition
+        self.PfreezeLower_MPa = 20  # Lower boundary for GetPfreeze to search for ice Ih phase transition
+        self.PfreezeUpper_MPa = 220  # Upper boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeRes_MPa = 0.1  # Step size in pressure for GetPfreeze to use in searching for phase transition
 
         """ Derived quantities (assigned during PlanetProfile runs) """
@@ -334,6 +336,7 @@ class ParamsStruct:
         self.FigSize = FigSizeStruct()
 
 
+""" Physical constants """
 class ConstantsStruct:
     """ General physical constants """
     G = 6.673e-11  # "Big G" gravitational constant, m^3/kg/s

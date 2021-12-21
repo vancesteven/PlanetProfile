@@ -16,8 +16,8 @@ def ConductionClathLid():
     return
 
 
-def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa, compstr,
-                                 w_ppt, phase, EQUIL_Q):
+def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa,
+                                 oceanEOS, phase, EQUIL_Q):
     """ Thermodynamics calculations for convection in an ice layer
         based on Deschamps and Sotin (2001): https://doi.org/10.1029/2000JE001253
         Note that these authors solved for the scaling laws we apply in Cartesian
@@ -39,8 +39,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
             zb_m (float): Thickness of the ice layer in m
             gtop_ms2 (float): Gravitational acceleration at layer top
             Pmid_MPa (float): Pressure at the "middle" of the convective region in MPa
-            compstr (string): Composition of dissolved salt in the ocean
-            w_ppt (float): Salinity of ocean fluid in ppt
+            oceanEOS (OceanEOSStruct): Interpolator functions for evaluating the ocean EOS
             phase (int): Ice phase index
             EQUIL_Q (bool): Whether to set heat flux from interior to be consistent with that released
                 through the convective profile according to Deschamps and Sotin (2001) (if True) or to
@@ -71,7 +70,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
               'no conductive lid will be modeled.')
 
     # Get melting temperature for calculating viscosity relative to it
-    Tmelt_K = GetTfreeze(compstr, w_ppt, Pmid_MPa, Tconv_K)
+    Tmelt_K = GetTfreeze(oceanEOS, Pmid_MPa, Tconv_K)
     etaConv_Pas = Constants.etaMelt_Pas[phase] * np.exp(A * (Tmelt_K/Tconv_K - 1))
     # Get physical properties of ice at the "middle" of the convective region
     seaOut = SeaFreeze(np.array([(Pmid_MPa, Tconv_K)], dtype='f,f').astype(object), PhaseConv(phase))
@@ -79,7 +78,6 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     rhoMid_kgm3 = seaOut.rho[0]
     CpMid_JkgK = seaOut.Cp[0]
     kMid_WmK = kThermIsobaricAnderssonIbari2005([Tconv_K], [phase])[0]
-    kBot_WmK = kThermIsobaricAnderssonIbari2005([Tb_K], [phase])[0]
     # Rayleigh number of whole ice layer, derived using viscosity of convective region
     Ra = alphaMid_pK * CpMid_JkgK * rhoMid_kgm3**2 * gtop_ms2 * (Tb_K - Ttop_K) * zb_m**3 / etaConv_Pas / kMid_WmK
     # Rayleigh number of lower thermal boundary layer, from parameterization results of Deschamps and Sotin (2000)
@@ -88,7 +86,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     deltaTBL_m = (etaConv_Pas * kMid_WmK * Radelta /
                   alphaMid_pK / CpMid_JkgK / rhoMid_kgm3**2 / gtop_ms2 / (Tb_K - Tconv_K))**(1/3)
     # Heat flux entering the bottom of the ice layer
-    qbot_Wm2 = kBot_WmK * (Tb_K - Tconv_K) / deltaTBL_m
+    qbot_Wm2 = kMid_WmK * (Tb_K - Tconv_K) / deltaTBL_m
     # Heat flux leaving the top of the ice layer (adjusted for spherical geometry compared to Deschamps and Sotin, 2001)
     qtop_Wm2 = (rTop_m - zb_m)**2 / rTop_m**2 * qbot_Wm2
     # Thickness of conductive stagnant lid
@@ -112,7 +110,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         # according to Ojakangas and Stevenson (1989): https://doi.org/10.1016/0019-1035(89)90052-3
         #Qbot_W = kMid_WmK * Ttop_K / eLid_m * np.log(Tconv_K/Ttop_K) * 4*np.pi * (rTop_m - eLid_m)**2
         # Doing lower TBL instead because eLid_m gets set to 0 if Tconv > Ttop
-        Qbot_W = kBot_WmK * Tconv_K / deltaTBL_m * np.log(Tb_K/Tconv_K) * 4*np.pi*(rTop_m - zb_m + deltaTBL_m)**2
+        Qbot_W = kMid_WmK * Tconv_K / deltaTBL_m * np.log(Tb_K/Tconv_K) * 4*np.pi*(rTop_m - zb_m + deltaTBL_m)**2
 
         # The below matches the Matlab, but this is not what Deschamps and Sotin (2001) do
         # and it is not consistent with the results of Andersson and Inaba (2005).

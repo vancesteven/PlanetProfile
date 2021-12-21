@@ -20,7 +20,7 @@ def IceIConvect(Planet, Params):
     # Run calculations to get convection layer parameters
     Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, Planet.RaConvect = \
         ConvectionDeschampsSotin2001(Planet.Bulk.Tsurf_K, Planet.Bulk.R_m, Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
-                                     zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.comp, Planet.Ocean.wOcean_ppt,
+                                     zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.EOS,
                                      1, Planet.Do.EQUIL_Q)
 
     if Params.VERBOSE: print('Ice I convection parameters:\nT_convect = ' + str(round(Planet.Tconv_K,3)) + ' K,\n' +
@@ -160,8 +160,8 @@ def IceIIIConvect(Planet, Params):
     Planet.TconvIII_K, Planet.etaConvIII_Pas, Planet.eLidIII_m, Planet.deltaTBLIII_m, Planet.Ocean.QfromMantle_W,\
         Planet.RaConvectIII = ConvectionDeschampsSotin2001(Planet.Bulk.Tb_K, Planet.r_m[Planet.Steps.nIbottom],
                                      Planet.kTherm_WmK[Planet.Steps.nIbottom], Planet.Bulk.TbIII_K, zbIII_m,
-                                     Planet.g_ms2[Planet.Steps.nIbottom], PmidIII_MPa, Planet.Ocean.comp,
-                                     Planet.Ocean.wOcean_ppt, 3, Planet.Do.EQUIL_Q)
+                                     Planet.g_ms2[Planet.Steps.nIbottom], PmidIII_MPa, Planet.Ocean.EOS,
+                                     3, Planet.Do.EQUIL_Q)
 
     if Params.VERBOSE: print('Ice III convection parameters:\nT_convectIII = ' + str(round(Planet.TconvIII_K,3)) + ' K,\n' +
                              'Viscosity etaConvectIII = {:.3e} Pa*s,\n'.format(Planet.etaConvIII_Pas) +

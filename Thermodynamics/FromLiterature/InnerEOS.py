@@ -89,16 +89,16 @@ class PerplexEOSStruct:
         if np.any(np.isnan(GS_bar)): raise RuntimeError(errNaNstart + 'GS' +errNaNend)
 
         # Now make 2D grids of values.
-        self.rho_kgm3 = np.reshape(rho_kgm3, (dim2,-1))
-        self.VP_kms = np.reshape(VP_kms, (dim2,-1))
-        self.VS_kms = np.reshape(VS_kms, (dim2,-1))
-        self.Cp_JkgK = np.reshape(Cp_JkgK, (dim2,-1))
-        self.alpha_pK = np.reshape(alpha_pK, (dim2,-1))
-        self.KS_GPa = np.reshape(KS_bar, (dim2,-1)) * Constants.bar2GPa
-        self.GS_GPa = np.reshape(GS_bar, (dim2,-1)) * Constants.bar2GPa
+        self.rho_kgm3 = np.reshape(rho_kgm3, (-1,dim2))
+        self.VP_kms = np.reshape(VP_kms, (-1,dim2))
+        self.VS_kms = np.reshape(VS_kms, (-1,dim2))
+        self.Cp_JkgK = np.reshape(Cp_JkgK, (-1,dim2))
+        self.alpha_pK = np.reshape(alpha_pK, (-1,dim2))
+        self.KS_GPa = np.reshape(KS_bar, (-1,dim2)) * Constants.bar2GPa
+        self.GS_GPa = np.reshape(GS_bar, (-1,dim2)) * Constants.bar2GPa
 
-        if not P_FIRST:
-            # Transpose 2D meshes if P is not the first column.
+        if P_FIRST:
+            # Transpose 2D meshes if P is the first column.
             self.rho_kgm3 = self.rho_kgm3.T
             self.VP_kms = self.VP_kms.T
             self.VS_kms = self.VS_kms.T

@@ -4,6 +4,7 @@ import os
 import numpy as np
 import Utilities.PPversion as PPver
 from Utilities.dataStructs import DataFilesSubstruct, FigureFilesSubstruct
+from Thermodynamics.FromLiterature.HydroEOS import OceanEOSStruct
 
 def SetupInit(Planet, Params):
 
@@ -55,6 +56,10 @@ def SetupInit(Planet, Params):
             print('WARNING: Bottom temperature of ice III (Tb_K) is greater than bottom temperature of underplate ' +
                   'ice V (TbV_K). This likely represents a non-equilibrium state.')
 
+    # Get ocean EOS functions
+    POceanLin_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
+    TOceanLin_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
+    Planet.Ocean.EOS = OceanEOSStruct(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POceanLin_MPa, TOceanLin_K)
 
     # Calculate bulk density from total mass and radius, and warn user if they specified density
     if Planet.Bulk.M_kg is None:
