@@ -495,10 +495,14 @@ def CalcMoIConstantRho(Planet, Params):
                 and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.Cuncertainty]
 
     if len(CMR2inds) == 0:
+        if(np.max(CMR2) > Planet.Bulk.Cmeasured):
+            suggestion = 'Try increasing PHydroMax_MPa to get lower C/MR^2 values.'
+        else:
+            suggestion = 'Try adjusting properties of silicates and core to get higher C/MR^2 values.'
         raise ValueError('No MoI found matching ' +
-                        ' C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured, 3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + '.\n ' +
-                         'Min: ' + str(round(min(CMR2[CMR2>0]),3)) + ', Max: ' + str(round(max(CMR2),3)) + '.\n ' +
-                         'Try increasing PHydroMax_MPa or adjusting properties of silicates and core.')
+                         'C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured, 3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + '.\n ' +
+                         'Min: ' + str(round(np.min(CMR2[CMR2>0]),3)) + ', Max: ' + str(round(np.max(CMR2),3)) + '.\n ' +
+                         suggestion)
 
     # Find the C/MR^2 value most closely matching the measured value
     CMR2diff = np.abs(CMR2[CMR2inds] - Planet.Bulk.Cmeasured)
@@ -560,9 +564,10 @@ def CalcMoIConstantRho(Planet, Params):
             Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
             print('Found matching MoI of ' + str(round(Planet.CMR2mean,3)) +
                 ' (C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured,3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + ') for ' +
-                  'rho_sil = ' + str(round(Planet.Sil.rhoMean_kgm3)) + ' kg/m^3, ' +
                   'R_sil = ' + str(round(Planet.Sil.Rmean_m / Planet.Bulk.R_m,2)) + ' R, ' +
                   'R_core = ' + str(round(Planet.Core.Rmean_m / Planet.Bulk.R_m,2)) + ' R, ' +
+                  'rho_sil (found) = ' + str(round(rhoSil_kgm3[iCMR2inner])) + ' kg/m^3, ' +
+                  'rho_sil (actual) = ' + str(round(Planet.Sil.rhoMean_kgm3)) + ' kg/m^3, ' +
                   'M_tot = ' + str(round(Mtot_kg/Planet.Bulk.M_kg,4)) + ' M_' + Planet.name[0] + '.')
             print('WARNING: Because silicate and core properties were determined from the EOS after finding their ' +
                   'sizes by assuming constant densities, the body mass may not match the measured value.')
@@ -637,10 +642,14 @@ def CalcMoIWithEOS(Planet, Params):
                 and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.Cuncertainty]
 
     if len(CMR2inds) == 0:
+        if(np.max(CMR2) > Planet.Bulk.Cmeasured):
+            suggestion = 'Try increasing PHydroMax_MPa to get lower C/MR^2 values.'
+        else:
+            suggestion = 'Try adjusting properties of silicates and core to get higher C/MR^2 values.'
         raise ValueError('No MoI found matching ' +
                          'C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured, 3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + '.\n ' +
-                         'Min: ' + str(round(min(CMR2[CMR2>0]),3)) + ', Max: ' + str(round(max(CMR2),3)) + '.\n ' +
-                         'Try increasing PHydroMax_MPa or adjusting properties of silicates and core.')
+                         'Min: ' + str(round(np.min(CMR2[CMR2>0]),3)) + ', Max: ' + str(round(np.max(CMR2),3)) + '.\n ' +
+                         suggestion)
 
     # Find the C/MR^2 value most closely matching the measured value
     CMR2diff = np.abs(CMR2[CMR2inds] - Planet.Bulk.Cmeasured)
@@ -773,9 +782,9 @@ def SilicateLayers(Planet, Params):
         # Find silicate radii for which the total mass is too high so we can exclude them
         indsSilValid = np.where(Mtot_kg <= Planet.Bulk.M_kg)[0]
         if(np.size(indsSilValid) == 0):
-            raise RuntimeError('No core/mantle combination was found matching total mass.\n' +
+            raise RuntimeError('No silicate mantle size was less than the total body mass.\n' +
                                'Min mass: ' + str(round(np.min(Mtot_kg/Planet.Bulk.M_kg),3)) + ' M_' + Planet.name[0] +
-                               ',' + 'Max mass: ' + str(round(np.max(Mtot_kg/Planet.Bulk.M_kg),3)) + ' M_' + Planet.name[0] +
+                               ', max mass: ' + str(round(np.max(Mtot_kg/Planet.Bulk.M_kg),3)) + ' M_' + Planet.name[0] +
                                '. Try adjusting run settings that affect mantle density, like silicate composition ' +
                                'and heat flux settings.')
 

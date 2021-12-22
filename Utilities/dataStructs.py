@@ -37,7 +37,7 @@ class DoSubstruct:
 
     def __init__(self):
         self.Fe_CORE = False  # Whether to model an iron core for this body
-        self.CONSTANT_INNER_DENSITY = False  # Whether to use a fixed density in silicates and core instead of using Perple_X EOS for each
+        self.CONSTANT_INNER_DENSITY = True  # Whether to use a fixed density in silicates and core instead of using Perple_X EOS for each
         self.POROUS_ICE = False  # Whether to model porosity in ice
         self.CLATHRATE = False  # Whether to model clathrates
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
@@ -46,7 +46,6 @@ class DoSubstruct:
         self.NO_ICE_CONVECTION = False  # Whether to suppress convection in ice layers
         self.EQUIL_Q = True  # Whether to set heat flux from interior to be consistent with heat released through convective profile
         self.ALLOW_NEG_ALPHA = False  # Whether to permit modeling of a Melosh et. al. layer with negative thermal expansivity
-        self.MANTLE_HYDRO_THERMAL_EQ = False  # Whether to set thermal equilibrium between mantle and hydrosphere, where the hydrosphere is not gaining external heat via tidal forcing or radiation
         self.POROUS_ROCK = False  # Whether to model silicates as porous
         self.P_EFFECTIVE = False  # Effective pressure due to presence of water in pores (modeled as lithostatic minus hydrostatic pressure).
         self.IONOS_ONLY = False  # Whether to ignore conducting layers within the body and model magnetic induction happening only in the ionosphere
