@@ -12,9 +12,6 @@ from Thermodynamics.FromLiterature.Electrical import ElecConduct
 from Seismic import SeismicCalcs
 from Plotting.ProfilePlots import GeneratePlots
 
-#from Thermodynamics.FromLiterature.conductiveMantleTemperature import conductiveMantleTemperature
-
-
 """ MAIN RUN BLOCK """
 def main():
 
@@ -40,7 +37,7 @@ def main():
         Planet, Params = LoadBody(bodyname)
         CompareProfile(Planet, Params, 'Europa/EuropaProfile_Seawater_0WtPpt_Tb269.800K_mat.txt')
     else:
-        Planet = PlanetProfile(Planet, Params)
+        Planet, Params = PlanetProfile(Planet, Params)
 
     return
 
@@ -69,7 +66,7 @@ def PlanetProfile(Planet, Params):
         GeneratePlots(Planet, Params)
 
     if Params.VERBOSE: print('Run complete!')
-    return Planet
+    return Planet, Params
 
 
 def WriteProfile(Planet, Params):

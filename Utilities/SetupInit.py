@@ -14,7 +14,7 @@ def SetupInit(Planet, Params):
     if verNum[-3:] == 'dev': print('This version is in development.')
 
     # Check dependency compatibility
-    PPver.CheckSeaFreeze(PPver.seaFreezeCompatVer)  # SeaFreeze
+    PPver.CheckSeaFreeze(PPver.seaCompatVer)  # SeaFreeze
     PPver.CheckGSW(PPver.gswCompatVer)  # Gibbs Seawater
     PPver.CheckTauP(PPver.taupCompatVer)  # TauP
 
