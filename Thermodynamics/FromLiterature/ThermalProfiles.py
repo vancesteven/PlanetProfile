@@ -112,8 +112,9 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         # Doing lower TBL instead because eLid_m gets set to 0 if Tconv > Ttop
         Qbot_W = kMid_WmK * Tconv_K / deltaTBL_m * np.log(Tb_K/Tconv_K) * 4*np.pi*(rTop_m - zb_m + deltaTBL_m)**2
 
-        # The below matches the Matlab, but this is not what Deschamps and Sotin (2001) do
-        # and it is not consistent with the results of Andersson and Inaba (2005).
+        # The below matches the Matlab, but this is not what Deschamps and Sotin (2001) do,
+        # it is not consistent with the results of Andersson and Inaba (2005), and seems to be
+        # an incorrect evaluation of Eq. 2.7 from Ojakangas and Stevenson.
         # Dcond = np.array([np.nan, 632, 418, 242, np.nan, 328, 183])
         # qbot_Wm2 = Dcond[phase] * np.log(Tb_K/Ttop_K) / zb_m
     else:
