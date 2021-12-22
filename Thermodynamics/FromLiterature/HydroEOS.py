@@ -49,29 +49,25 @@ class OceanEOSStruct:
         self.fn_phase = spi.NearestNDInterpolator(PTpairs, phase1D)
 
 
-def GetPhase(oceanEOS, compstr, w_ppt, P_MPa, T_K):
+def GetPhase(oceanEOS, P_MPa, T_K):
     """ Get phase for single (scalar) (P,T) pair
 
         Args:
             oceanEOS (OceanEOSStruct): Interpolator functions for evaluating the ocean EOS
-            compstr (string): Composition of dissolved salt
-            w_ppt (float): Salinity of fluid in ppt
             P_MPa (float): Pressure of the fluid in MPa
             T_K (float): Temperature of the fluid in K
         Returns:
             phase (int): Ice/liquid phase ID for this P,T combo
     """
-    PT = np.array([(P_MPa, T_K)], dtype='f,f').astype(object)
-    if w_ppt == 0:
-        #phase = WhichPhase(PT)
-        phase = int(oceanEOS.fn_phase(P_MPa, T_K))
-    elif compstr == 'Seawater':
+    if oceanEOS.w_ppt == 0:
+        phase = oceanEOS.fn_phase(P_MPa, T_K).astype(np.int_)
+    elif oceanEOS.comp == 'Seawater':
         raise ValueError('Unable to GetPhase. Seawater is not implemented yet.')
-    elif compstr == 'NH3':
+    elif oceanEOS.comp == 'NH3':
         raise ValueError('Unable to GetPhase. NH3 is not implemented yet.')
-    elif compstr == 'MgSO4':
+    elif oceanEOS.comp == 'MgSO4':
         raise ValueError('Unable to GetPhase. MgSO4 is not implemented yet.')
-    elif compstr == 'NaCl':
+    elif oceanEOS.comp == 'NaCl':
         raise ValueError('Unable to GetPhase. NaCl is not implemented yet.')
     else:
         raise ValueError(
@@ -80,7 +76,7 @@ def GetPhase(oceanEOS, compstr, w_ppt, P_MPa, T_K):
     return phase
 
 
-def GetPfreeze(oceanEOS, Tb_K, PfreezeLower_MPa=20, PfreezeUpper_MPa=300, PfreezeRes_MPa=0.1,
+def GetPfreeze(oceanEOS, Tb_K, PLower_MPa=20, PUpper_MPa=300, PRes_MPa=0.1,
                Pguess=None, guessRange=5):
     """ Returns the pressure at which surface ice changes phase based on temperature, salinity, and composition
 
@@ -90,14 +86,11 @@ def GetPfreeze(oceanEOS, Tb_K, PfreezeLower_MPa=20, PfreezeUpper_MPa=300, Pfreez
         Returns:
             Pfreeze_MPa (float): Pressure at the melting interface consistent with Tb_K
     """
-    Psearch = np.arange(PfreezeLower_MPa, PfreezeUpper_MPa, PfreezeRes_MPa)
-    # Arrange input data into (P,T) value pair tuples compatible with SeaFreeze
-    PTsearchPairs = np.array([(P, Tb_K) for P in Psearch], dtype='f,f').astype(object)
+    Psearch = np.arange(PLower_MPa, PUpper_MPa, PRes_MPa)
     # Suggest a smaller range around a guessed value
     if Pguess is not None:
         DO_GUESS = True
-        PguessRange = np.arange(Pguess-guessRange/2, Pguess+guessRange/2, PfreezeRes_MPa)
-        PTguessPairs = np.array([(P, Tb_K) for P in PguessRange], dtype='f,f').astype(object)
+        PguessRange = np.arange(Pguess-guessRange/2, Pguess+guessRange/2, PRes_MPa)
     else:
         DO_GUESS = False
         GUESS_FAILED = True
@@ -105,7 +98,7 @@ def GetPfreeze(oceanEOS, Tb_K, PfreezeLower_MPa=20, PfreezeUpper_MPa=300, Pfreez
     if oceanEOS.w_ppt == 0:
         # Get phase of each P for the Tb_K value using SeaFreeze
         if DO_GUESS:
-            searchPhases = oceanEOS.fn_phase(PguessRange, Tb_K)
+            searchPhases = oceanEOS.fn_phase(PguessRange, Tb_K).astype(np.int_)
             # Check if we failed to encounter a phase transition
             if np.all(searchPhases==searchPhases[0]): GUESS_FAILED = True
         if not DO_GUESS or GUESS_FAILED:
@@ -115,8 +108,8 @@ def GetPfreeze(oceanEOS, Tb_K, PfreezeLower_MPa=20, PfreezeUpper_MPa=300, Pfreez
         try:
             indMelt = next((i[0] for i, val in np.ndenumerate(searchPhases) if val!=1 and val!=30))
         except StopIteration:
-            raise ValueError('No transition pressure was found below '+str(PfreezeUpper_MPa)+' MPa '+
-                             'for ice Ih/clathrates. Increase PfreezeUpper_MPa until one is found.')
+            raise ValueError('No transition pressure was found below '+str(PUpper_MPa)+' MPa '+
+                             'for ice Ih/clathrates. Increase PUpper_MPa until one is found.')
         # Get the pressure of the first non-Ih layer
         Pfreeze_MPa = Psearch[indMelt]
     elif oceanEOS.comp == 'Seawater':
@@ -133,46 +126,44 @@ def GetPfreeze(oceanEOS, Tb_K, PfreezeLower_MPa=20, PfreezeUpper_MPa=300, Pfreez
     return Pfreeze_MPa
 
 
-def GetPfreezeHP(oceanEOS, TbHP_K, phase, PfreezeHPLower_MPa=180, PfreezeHPUpper_MPa=900, PfreezeHPRes_MPa=0.5):
+def GetPfreezeHP(oceanEOS, Pmin_MPa, TbHP_K, phase, PLower_MPa=180, PUpper_MPa=900, PRes_MPa=0.5):
     """ Returns the pressure at which a high-pressure ice changes phase based on
         temperature, salinity, and composition
 
         Args:
-            compstr (string): Composition of dissolved salt
-            w_ppt (float): Salinity of fluid in ppt
+            oceanEOS (OceanEOSStruct): Interpolator functions for evaluating the ocean EOS
+            Pmin_MPa (float): Minimum pressure to accept for a result
             TbHP_K (float): Temperature of the phase transition in K
         Returns:
             PfreezeHP_MPa (float): Pressure at phase change interface
     """
     # Narrow the search range for narrow-stability HP ices
     if phase==3:
-        PfreezeHPUpper_MPa = np.minimum(360, PfreezeHPUpper_MPa)
-        PfreezeHPLower_MPa = np.maximum(209, PfreezeHPLower_MPa)
+        PUpper_MPa = np.min([360, PUpper_MPa])
+        PLower_MPa = np.max([209, PLower_MPa, Pmin_MPa])
     elif phase==5:
-        PfreezeHPUpper_MPa = np.minimum(620, PfreezeHPUpper_MPa)
-        PfreezeHPLower_MPa = np.maximum(343, PfreezeHPLower_MPa)
+        PUpper_MPa = np.min([640, PUpper_MPa])
+        PLower_MPa = np.max([343, PLower_MPa, Pmin_MPa])
 
-    Psearch = np.arange(PfreezeHPLower_MPa, PfreezeHPUpper_MPa, PfreezeHPRes_MPa)
-    # Arrange input data into (P,T) value pair tuple compatible with SeaFreeze
-    PTsearchPairs = np.array([(P, TbHP_K) for P in Psearch], dtype='f,f').astype(object)
+    Psearch = np.arange(PLower_MPa, PUpper_MPa, PRes_MPa)
 
     if oceanEOS.w_ppt == 0:
         # Get phase of each P from the ocean EOS
-        searchPhases = oceanEOS.fn_phase(Psearch, TbHP_K)
+        searchPhases = oceanEOS.fn_phase(Psearch, TbHP_K).astype(np.int_)
         # Find the first index of desired HP ice
         try:
             indIceHP = next((i[0] for i, val in np.ndenumerate(searchPhases) if val==phase))
         except StopIteration:
-            raise ValueError('No ice '+str(PhaseConv(phase))+' was found within the range '+str(PfreezeHPLower_MPa)+
-                  ' < P < '+str(PfreezeHPUpper_MPa)+' for Tb = '+str(TbHP_K)+'.')
+            raise ValueError('No ice '+str(PhaseConv(phase))+' was found within the range '+str(PLower_MPa)+
+                  ' < P < '+str(PUpper_MPa)+' for Tb = '+str(TbHP_K)+'.')
         # Find the first index for a phase that's not the desired one after we encounter the desired phase
         try:
             indNotThisHP = next((i[0] for i, val in np.ndenumerate(searchPhases) if i[0]>indIceHP and val!=phase))
         except StopIteration:
-            raise ValueError('No melting pressure was found below '+str(PfreezeHPUpper_MPa)+' MPa '+
+            raise ValueError('No transition pressure was found below '+str(PUpper_MPa)+' MPa '+
                              'for ice '+PhaseConv(phase)+' at T = '+str(round(TbHP_K,3))+' K.'+
-                             ' Increase PfreezeHPUpper_MPa until one is found.')
-        # Get the pressure of the first layer with a non-matching phase
+                             ' Increase PUpper_MPa until one is found.')
+        # Get the pressure of the first lower layer with a non-matching phase
         PfreezeHP_MPa = Psearch[indNotThisHP]
     elif compstr == 'Seawater':
         raise ValueError('Unable to GetPfreezeHP. Seawater is not implemented yet.')
@@ -186,6 +177,56 @@ def GetPfreezeHP(oceanEOS, TbHP_K, phase, PfreezeHPLower_MPa=180, PfreezeHPUpper
         raise ValueError('Unable to GetPfreezeHP. Ocean comp="'+oceanEOS.comp+'" but options are Seawater, NH3, MgSO4, and NaCl.')
 
     return PfreezeHP_MPa
+
+
+def GetPmeltHP(oceanEOS, Pmin_MPa, TbHP_K, phase, PLower_MPa=180, PUpper_MPa=900, PRes_MPa=0.5):
+    """ Returns the pressure at which a high-pressure ice changes phase to liquid based on
+        temperature, salinity, and composition
+
+        Args:
+            oceanEOS (OceanEOSStruct): Interpolator functions for evaluating the ocean EOS
+            Pmin_MPa (float): Minimum pressure to accept for a result
+            TbHP_K (float): Temperature of the phase transition in K
+        Returns:
+            PmeltHP_MPa (float): Pressure at phase change interface
+    """
+    # Narrow the search range for narrow-stability HP ices
+    if phase==3:
+        PUpper_MPa = np.min([360, PUpper_MPa])
+        PLower_MPa = np.max([209, PLower_MPa, Pmin_MPa])
+    elif phase==5:
+        PUpper_MPa = np.min([640, PUpper_MPa])
+        PLower_MPa = np.max([343, PLower_MPa, Pmin_MPa])
+
+    Psearch = np.arange(PLower_MPa, PUpper_MPa, PRes_MPa)
+
+    if oceanEOS.w_ppt == 0:
+        # Get phase of each P from the ocean EOS
+        searchPhases = oceanEOS.fn_phase(Psearch, TbHP_K).astype(np.int_)
+        # Find the first index of desired HP ice
+        try:
+            indIceHP = next((i[0] for i, val in np.ndenumerate(searchPhases) if val==phase))
+        except StopIteration:
+            raise ValueError('No ice '+str(PhaseConv(phase))+' was found within the range '+str(PLower_MPa)+
+                  ' < P < '+str(PUpper_MPa)+' for Tb = '+str(TbHP_K)+'.')
+        # Check if the next index below is liquid
+        if(searchPhases[indIceHP-1] == 0):
+            PmeltHP_MPa = Psearch[indIceHP-1]
+        else:
+            raise ValueError('Pmelt found a phase transition that was from '+str(PhaseConv(Psearch[indIceHP]))+
+                             ' to '+PhaseConv(Psearch[indIceHP-1])+' instead of liquid. Try adjusting Tb_K values.')
+    elif compstr == 'Seawater':
+        raise ValueError('Unable to GetPmeltHP. Seawater is not implemented yet.')
+    elif compstr == 'NH3':
+        raise ValueError('Unable to GetPmeltHP. NH3 is not implemented yet.')
+    elif compstr == 'MgSO4':
+        raise ValueError('Unable to GetPmeltHP. MgSO4 is not implemented yet.')
+    elif compstr == 'NaCl':
+        raise ValueError('Unable to GetPmeltHP. NaCl is not implemented yet.')
+    else:
+        raise ValueError('Unable to GetPmeltHP. Ocean comp="'+oceanEOS.comp+'" but options are Seawater, NH3, MgSO4, and NaCl.')
+
+    return PmeltHP_MPa
 
 
 def GetTfreeze(oceanEOS, P_MPa, T_K, TfreezeRange_K=50, TfreezeRes_K=0.05):
