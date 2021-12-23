@@ -69,23 +69,27 @@ def SeismicCalcs(Planet, Params):
 
         if not Params.SKIP_INNER:
             # Evaluate silicate EOS for seismic properties
-            Planet.Cp_JkgK[indsSil] = [Planet.Sil.EOS.fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsSil[0]]
-            Planet.alpha_pK[indsSil] = [Planet.Sil.EOS.fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsSil[0]]
-            Planet.Seismic.VP_kms[indsSil] = [Planet.Sil.EOS.fn_VP_kms(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsSil[0]]
-            Planet.Seismic.VS_kms[indsSil] = [Planet.Sil.EOS.fn_VS_kms(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsSil[0]]
-            Planet.Seismic.KS_GPa[indsSil] = [Planet.Sil.EOS.fn_KS_GPa(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsSil[0]]
-            Planet.Seismic.GS_GPa[indsSil] = [Planet.Sil.EOS.fn_GS_GPa(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsSil[0]]
+            Planet.Cp_JkgK[indsSil] = Planet.Sil.EOS.fn_Cp_JkgK(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
+            Planet.alpha_pK[indsSil] = Planet.Sil.EOS.fn_alpha_pK(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
+            Planet.Seismic.VP_kms[indsSil] = Planet.Sil.EOS.fn_VP_kms(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
+            Planet.Seismic.VS_kms[indsSil] = Planet.Sil.EOS.fn_VS_kms(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
+            Planet.Seismic.KS_GPa[indsSil] = Planet.Sil.EOS.fn_KS_GPa(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
+            Planet.Seismic.GS_GPa[indsSil] = Planet.Sil.EOS.fn_GS_GPa(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
             Hsil = Planet.Seismic.gSil * TsolidusHirschmann2000(Planet.P_MPa[indsSil])
             Planet.Seismic.QS[indsSil] = Planet.Seismic.BSil * np.exp(
                 Planet.Seismic.gammaSil * Hsil / Planet.T_K[indsSil])
 
             if Planet.Do.Fe_CORE:
                 # Evaluate core EOS for seismic properties
-                Planet.Seismic.VP_kms[indsFe] = [Planet.Core.EOS.fn_VP_kms(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsFe[0]]
-                Planet.Seismic.VS_kms[indsFe] = [Planet.Core.EOS.fn_VS_kms(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsFe[0]]
-                Planet.Seismic.KS_GPa[indsFe] = [Planet.Core.EOS.fn_KS_GPa(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsFe[0]]
-                Planet.Seismic.GS_GPa[indsFe] = [Planet.Core.EOS.fn_GS_GPa(Planet.P_MPa[i], Planet.T_K[i])[0][0] for i in indsFe[0]]
-                if Planet.Seismic.QScore is not None: Planet.Seismic.QS[indsFe] = Planet.Seismic.QScore
+                Planet.kTherm_WmK[indsFe] = Planet.Core.EOS.fn_kTherm_WmK(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)
+                Planet.Seismic.VP_kms[indsFe] = Planet.Core.EOS.fn_VP_kms(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)
+                Planet.Seismic.VS_kms[indsFe] = Planet.Core.EOS.fn_VS_kms(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)
+                Planet.Seismic.KS_GPa[indsFe] = Planet.Core.EOS.fn_KS_GPa(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)
+                Planet.Seismic.GS_GPa[indsFe] = Planet.Core.EOS.fn_GS_GPa(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)
+                if Planet.Seismic.QScore is not None:
+                    Planet.Seismic.QS[indsFe] = Planet.Seismic.QScore
+                else:
+                    Planet.Seismic.QS[indsFe] = Constants.QScore
 
     return Planet
 
