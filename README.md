@@ -7,6 +7,7 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
 ## Prerequisites
 * SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze
 * TEOS-10 Gibbs Seawater for python -- installed with conda
+* ObsPy python package -- installed with conda
 * A working TeX/LaTeX distribution (such as TeXlive) is recommended for optimum plot labels. TeXlive is available at: https://tug.org/texlive/acquire-netinstall.html
 * Python 3.8+ installed, preferably via Anaconda. Required modules:
   * Standard Anaconda (for miniconda, install with conda install <packageName1> <packagename2> etc.):
@@ -15,6 +16,7 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
     * matplotlib
   * Conda-forge (install with conda install -c conda-forge <packageName>):
     * gsw
+    * obspy
     * spiceypy
     * skyfield (maybe not needed? Used in body date/time settings of asymmetric induction code)
 * Refprop is required for NH3 solutions: https://www.nist.gov/refprop
