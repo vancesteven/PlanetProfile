@@ -2,21 +2,20 @@
 
 import os
 import numpy as np
-import Utilities.PPversion as PPver
+from Utilities.PPversion import ppVerNum, CheckCompat
 from Utilities.dataStructs import DataFilesSubstruct, FigureFilesSubstruct
 from Thermodynamics.FromLiterature.HydroEOS import OceanEOSStruct
 
 def SetupInit(Planet, Params):
 
     # Print version number
-    verNum = PPver.verNum
-    print('-- PlanetProfile v' + verNum + ' --')
-    if verNum[-3:] == 'dev': print('This version is in development.')
+    print('-- PlanetProfile v' + ppVerNum + ' --')
+    if ppVerNum[-3:] == 'dev': print('This version is in development.')
 
     # Check dependency compatibility
-    PPver.CheckSeaFreeze(PPver.seaCompatVer)  # SeaFreeze
-    PPver.CheckGSW(PPver.gswCompatVer)  # Gibbs Seawater
-    PPver.CheckTauP(PPver.taupCompatVer)  # TauP
+    CheckCompat('seafreeze')  # SeaFreeze
+    CheckCompat('gsw')  # Gibbs Seawater
+    if Planet.Do.TAUP_SEISMIC: CheckCompat('obspy')  # TauP (accessed as obspy.taup)
 
     # Get filenames for saving/loading
     Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
