@@ -37,7 +37,7 @@ class DoSubstruct:
 
     def __init__(self):
         self.Fe_CORE = False  # Whether to model an iron core for this body
-        self.CONSTANT_INNER_DENSITY = True  # Whether to use a fixed density in silicates and core instead of using Perple_X EOS for each
+        self.CONSTANT_INNER_DENSITY = False  # Whether to use a fixed density in silicates and core instead of using Perple_X EOS for each
         self.POROUS_ICE = False  # Whether to model porosity in ice
         self.CLATHRATE = False  # Whether to model clathrates
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
@@ -83,27 +83,30 @@ class OceanSubstruct:
         self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'NH3', 'NaCl'
         self.wOcean_ppt = None  # Salinity: Concentration of above salt in parts per thousand (ppt)
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
+        self.deltaT = 0.1  # Step size in K for temperature values used in generating ocean EOS functions
+        self.iceDeltaP = 0.1  # Pressure resolution (step size) for ice EOS functions in MPa
+        self.iceDeltaT = 0.1  # Temperature resolution (step size) for ice EOS functions in K
         self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
         self.dkdTI_WmK2 = -0.012  # Temperature derivative of ice I relative to the melting temp. Default is from Melinder (2007).
         self.sigmaIce_Sm = 1e-8  # Assumed conductivity of ice layers
         self.THydroMax_K = 340  # Assumed maximum ocean temperature for generating ocean EOS functions
-        self.deltaT = 0.1  # Step size in K for temperature values used in generating ocean EOS functions
         self.PHydroMax_MPa = None  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
         self.electrical = 'Vance2018'  # Type of electrical conductivity model to use. Options: 'Vance2018', 'Pan2020'
         self.QfromMantle_W = None  # Heat flow from mantle into hydrosphere (calculated from ice thermal profile and applied to mantle)
         self.EOS = None  # Equation of state data to use for ocean layers
-        self.iceEOS = None  # Equation of state data to use for ice layers
+        self.surfIceEOS = {'Ih': None}  # Equation of state data to use for surface ice layers
+        self.iceEOS = {}  # Equation of state data to use for ice layers within the ocean
 
 
 """ Silicate layers """
 class SilSubstruct:
 
     def __init__(self):
-        self.kTherm_WmK = None  # Thermal conductivity of silicates in W/(mK)
         self.phiRockMax_frac = None  # Porosity (void fraction) of the rocks at the “seafloor”, where the hydrosphere first comes into contact with rock
         self.sigmaSil_Sm = 1e-16  # Assumed conductivity of silicate rock
         self.Qrad_Wkg = 0  # Average radiogenic heating rate for silicates in W/kg.
         self.Htidal_Wm3 = 0  # Average tidal heating rate for silicates in W/m^3.
+        self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermSil_WmK)
         """ Mantle Equation of State (EOS) model """
         self.mantleEOS = None  # Equation of state data to use for silicates
         self.mantleEOSName = None  # Same as above but containing keywords like clathrates in filenames
@@ -137,6 +140,7 @@ class CoreSubstruct:
         self.sigmaCore_Sm = 1e-16  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
         self.coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'  # Default core EOS to use
         self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
+        self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermFe_WmK)
         # Derived quantities
         self.rho_kgm3 = None  # Core bulk density consistent with assumed mixing ratios of Fe, FeS, etc.
         self.rhoMean_kgm3 = None  # Core bulk density calculated from final MoI match using EOS properties
@@ -341,13 +345,17 @@ class ConstantsStruct:
     G = 6.673e-11  # "Big G" gravitational constant, m^3/kg/s
     bar2GPa = 1.01325e-4  # Multiply by this to convert pressure from bars to GPa
     bar2MPa = 1.01325e-1  # Same but for MPa
-    PbI_MPa = 210  # ~fixed transition pressure between ice Ih and ice III or V
     erg2J = 1e-7  # Multiply by this to convert from ergs to joules
     T0 = 273.15  # The Celsius zero point in K.
     P0 = 101325  # One standard atmosphere in Pa
     R = 8.314  # Ideal gas constant in J/mol/K
+    QScore = 1e4  # Fixed QS value to use for core layers if not set in PPBody.py file
+    kThermWater_WmK = 0.5  # Fixed thermal conductivity of liquid water in W/(mK)
+    kThermSil_WmK = 4.0  # Fixed thermal conductivity of silicates in W/(mK)
+    kThermFe_WmK = 33.3  # Fixed thermal conductivity of core material in W/(mK)
     Eact_kJmol = np.array([np.nan, 60, 76.5, 127, np.nan, 136, 110])  # Activation energy of ice phases in in kJ/mol
     etaMelt_Pas = np.array([np.nan, 2e14, 1e18, 5e12, np.nan, 5e14, 5e14])  # Viscosity at the melting temperature of ice phases in Pa*s. Ice Ih value is from Tobie et al. (2003), others unknown
     RaCrit = 1.2e4  # Roughly following Barr et al. (2004): https://doi.org/10.1029/2004JE002296, we choose a minimum value for RaCrit of 1.2e4, consistent with the "asymptotic" regime where large temperature perturbations can ~always force convection to occur.
+    PminHPices_MPa = 200.0  # Min plausible pressure of high-pressure ices for any ocean composition in MPa
 
 Constants = ConstantsStruct()
