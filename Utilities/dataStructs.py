@@ -50,7 +50,6 @@ class DoSubstruct:
         self.P_EFFECTIVE = False  # Effective pressure due to presence of water in pores (modeled as lithostatic minus hydrostatic pressure).
         self.IONOS_ONLY = False  # Whether to ignore conducting layers within the body and model magnetic induction happening only in the ionosphere
         self.TAUP_SEISMIC = False  # Whether to make TauP model files and some basic plots using obspy.taup
-        self.IONOS_ONLY = False  # Whether to model induction happening only in the ionosphere, as if ocean were totally frozen out
 
 
 """ Layer step settings """
@@ -84,8 +83,6 @@ class OceanSubstruct:
         self.wOcean_ppt = None  # Salinity: Concentration of above salt in parts per thousand (ppt)
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
         self.deltaT = 0.1  # Step size in K for temperature values used in generating ocean EOS functions
-        self.iceDeltaP = 0.1  # Pressure resolution (step size) for ice EOS functions in MPa
-        self.iceDeltaT = 0.1  # Temperature resolution (step size) for ice EOS functions in K
         self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
         self.dkdTI_WmK2 = -0.012  # Temperature derivative of ice I relative to the melting temp. Default is from Melinder (2007).
         self.sigmaIce_Sm = 1e-8  # Assumed conductivity of ice layers
