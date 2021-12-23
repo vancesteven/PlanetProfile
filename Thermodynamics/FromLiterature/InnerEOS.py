@@ -6,7 +6,7 @@ class PerplexEOSStruct:
     """ Loads in Perple_X table and creates interpolators that can be called to
         obtain silicate/core properties as functions of P and T.
     """
-    def __init__(self, EOSfname, EOSinterpMethod='nearest', nHeaders=13):
+    def __init__(self, EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None):
         self.comp = EOSfname[:-4]
         self.dir = 'Thermodynamics/Perple_X/output_data/'
         self.fpath = self.dir + EOSfname
@@ -107,6 +107,13 @@ class PerplexEOSStruct:
             self.KS_GPa = self.KS_GPa.T
             self.GS_GPa = self.GS_GPa.T
 
+        if kThermConst_WmK is None:
+            if Fe_EOS:
+                kThermConst_WmK = Constants.kThermFe_WmK
+            else:
+                kThermConst_WmK = Constants.kThermSil_WmK
+        self.kTherm_WmK = np.zeros_like(self.alpha_pK) + kThermConst_WmK  # Placeholder until a self-consistent determination is implemented
+
         self.P_MPa = P1D_MPa
         self.T_K = T1D_K
         self.fn_rho_kgm3 = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.rho_kgm3)
@@ -116,6 +123,7 @@ class PerplexEOSStruct:
         self.fn_alpha_pK = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.alpha_pK)
         self.fn_KS_GPa = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.KS_GPa)
         self.fn_GS_GPa = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.GS_GPa)
+        self.fn_kTherm_WmK = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.kTherm_WmK)
 
 
 def TsolidusHirschmann2000(P_MPa):

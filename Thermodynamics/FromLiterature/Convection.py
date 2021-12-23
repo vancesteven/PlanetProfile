@@ -1,6 +1,5 @@
 import numpy as np
 from Utilities.dataStructs import Constants
-from Thermodynamics.FromLiterature.HydroEOS import GetIceThermo
 from Thermodynamics.FromLiterature.ThermalProfiles import ConductionClathLid, ConvectionDeschampsSotin2001, \
     kThermIsobaricAnderssonIbari2005, kThermHobbs1974, kThermMelinder2007
 
@@ -21,7 +20,7 @@ def IceIConvect(Planet, Params):
     Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, Planet.RaConvect = \
         ConvectionDeschampsSotin2001(Planet.Bulk.Tsurf_K, Planet.Bulk.R_m, Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
                                      zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.EOS,
-                                     1, Planet.Do.EQUIL_Q)
+                                     Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q)
 
     if Params.VERBOSE: print('Ice I convection parameters:\nT_convect = ' + str(round(Planet.Tconv_K,3)) + ' K,\n' +
                              'Viscosity etaConvect = {:.3e} Pa*s,\n'.format(Planet.etaConv_Pas) +
@@ -70,12 +69,14 @@ def IceIConvect(Planet, Params):
             Planet.T_K[:nConduct+1] = Planet.Tconv_K**(PlidRatios) * Planet.T_K[0]**(1 - PlidRatios)
 
         # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
-        rhoCond_kgm3, CpCond_JkgK, alphaCond_pK, kThermCond_WmK = GetIceThermo(Planet.P_MPa[:nConduct+1],
-                                                        Planet.T_K[:nConduct+1], Planet.phase[:nConduct+1])
-        Planet.rho_kgm3[:nConduct+1] = rhoCond_kgm3
-        Planet.Cp_JkgK[:nConduct+1] = CpCond_JkgK
-        Planet.alpha_pK[:nConduct+1] = alphaCond_pK
-        Planet.kTherm_WmK[:nConduct+1] = kThermCond_WmK
+        Planet.rho_kgm3[:nConduct+1] \
+            = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(Planet.P_MPa[:nConduct+1], Planet.T_K[:nConduct+1], grid=False)
+        Planet.Cp_JkgK[:nConduct+1] \
+            = Planet.Ocean.surfIceEOS['Ih'].fn_Cp_JkgK(Planet.P_MPa[:nConduct+1], Planet.T_K[:nConduct+1], grid=False)
+        Planet.alpha_pK[:nConduct+1] \
+            = Planet.Ocean.surfIceEOS['Ih'].fn_alpha_pK(Planet.P_MPa[:nConduct+1], Planet.T_K[:nConduct+1], grid=False)
+        Planet.kTherm_WmK[:nConduct+1] \
+            = Planet.Ocean.surfIceEOS['Ih'].fn_kTherm_WmK(Planet.P_MPa[:nConduct+1], Planet.T_K[:nConduct+1], grid=False)
 
         for i in range(1, nConduct):
             # Increment depth based on change in pressure, combined with gravity and density
@@ -104,8 +105,10 @@ def IceIConvect(Planet, Params):
             # Propagate adiabatic thermal profile
             Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
                             Planet.Cp_JkgK[i-1] / Planet.rho_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6
-            Planet.rho_kgm3[i], Planet.Cp_JkgK[i], Planet.alpha_pK[i], Planet.kTherm_WmK[i] \
-                = GetIceThermo([Planet.P_MPa[i]], [Planet.T_K[i]], [Planet.phase[i]])
+            Planet.rho_kgm3[i] = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+            Planet.Cp_JkgK[i] = Planet.Ocean.surfIceEOS['Ih'].fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+            Planet.alpha_pK[i] = Planet.Ocean.surfIceEOS['Ih'].fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+            Planet.kTherm_WmK[i] = Planet.Ocean.surfIceEOS['Ih'].fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             if Params.VERBOSE: print('il: ' + str(i) +
                                      '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
                                      '; T_K: ' + str(round(Planet.T_K[i],3)) +
@@ -118,12 +121,14 @@ def IceIConvect(Planet, Params):
         Planet.T_K[indsTBL] = Planet.Bulk.Tb_K**(PTBLratios) * Planet.T_K[nConduct+nConvect-1]**(1 - PTBLratios)
 
         # Get physical properties of thermal boundary layer
-        rhoTBL_kgm3, CpTBL_JkgK, alphaTBL_pK, kThermTBL_WmK = GetIceThermo(Planet.P_MPa[indsTBL[:-1]],
-                                                Planet.T_K[indsTBL[:-1]], Planet.phase[indsTBL[:-1]])
-        Planet.rho_kgm3[indsTBL[:-1]] = rhoTBL_kgm3
-        Planet.Cp_JkgK[indsTBL[:-1]] = CpTBL_JkgK
-        Planet.alpha_pK[indsTBL[:-1]] = alphaTBL_pK
-        Planet.kTherm_WmK[indsTBL[:-1]] = kThermTBL_WmK
+        Planet.rho_kgm3[indsTBL[:-1]] \
+            = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
+        Planet.Cp_JkgK[indsTBL[:-1]] \
+            = Planet.Ocean.surfIceEOS['Ih'].fn_Cp_JkgK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
+        Planet.alpha_pK[indsTBL[:-1]] \
+            = Planet.Ocean.surfIceEOS['Ih'].fn_alpha_pK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
+        Planet.kTherm_WmK[indsTBL[:-1]] \
+            = Planet.Ocean.surfIceEOS['Ih'].fn_kTherm_WmK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
 
         for i in indsTBL:
             # Increment depth based on change in pressure, combined with gravity and density
@@ -161,7 +166,7 @@ def IceIIIConvect(Planet, Params):
         Planet.RaConvectIII = ConvectionDeschampsSotin2001(Planet.Bulk.Tb_K, Planet.r_m[Planet.Steps.nIbottom],
                                      Planet.kTherm_WmK[Planet.Steps.nIbottom], Planet.Bulk.TbIII_K, zbIII_m,
                                      Planet.g_ms2[Planet.Steps.nIbottom], PmidIII_MPa, Planet.Ocean.EOS,
-                                     3, Planet.Do.EQUIL_Q)
+                                     Planet.Ocean.surfIceEOS['III'], 3, Planet.Do.EQUIL_Q)
 
     if Params.VERBOSE: print('Ice III convection parameters:\nT_convectIII = ' + str(round(Planet.TconvIII_K,3)) + ' K,\n' +
                              'Viscosity etaConvectIII = {:.3e} Pa*s,\n'.format(Planet.etaConvIII_Pas) +
@@ -194,14 +199,18 @@ def IceIIIConvect(Planet, Params):
         Planet.T_K[Planet.Steps.nIbottom:iConductEnd+1] = Planet.TconvIII_K**(PlidRatios) * Planet.T_K[Planet.Steps.nIbottom]**(1 - PlidRatios)
 
         # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
-        rhoCondIII_kgm3, CpCondIII_JkgK, alphaCondIII_pK, kThermCondIII_WmK \
-            = GetIceThermo(Planet.P_MPa[Planet.Steps.nIbottom:iConductEnd+1],
-                           Planet.T_K[Planet.Steps.nIbottom:iConductEnd+1],
-                           Planet.phase[Planet.Steps.nIbottom:iConductEnd+1])
-        Planet.rho_kgm3[Planet.Steps.nIbottom:iConductEnd+1] = rhoCondIII_kgm3
-        Planet.Cp_JkgK[Planet.Steps.nIbottom:iConductEnd+1] = CpCondIII_JkgK
-        Planet.alpha_pK[Planet.Steps.nIbottom:iConductEnd+1] = alphaCondIII_pK
-        Planet.kTherm_WmK[Planet.Steps.nIbottom:iConductEnd+1] = kThermCondIII_WmK
+        Planet.rho_kgm3[Planet.Steps.nIbottom:iConductEnd+1] \
+            = Planet.Ocean.surfIceEOS['III'].fn_rho_kgm3(Planet.P_MPa[Planet.Steps.nIbottom:iConductEnd+1],
+                                                          Planet.T_K[Planet.Steps.nIbottom:iConductEnd+1], grid=False)
+        Planet.Cp_JkgK[Planet.Steps.nIbottom:iConductEnd+1] \
+            = Planet.Ocean.surfIceEOS['III'].fn_Cp_JkgK(Planet.P_MPa[Planet.Steps.nIbottom:iConductEnd+1],
+                                                          Planet.T_K[Planet.Steps.nIbottom:iConductEnd+1], grid=False)
+        Planet.alpha_pK[Planet.Steps.nIbottom:iConductEnd+1] \
+            = Planet.Ocean.surfIceEOS['III'].fn_alpha_pK(Planet.P_MPa[Planet.Steps.nIbottom:iConductEnd+1],
+                                                          Planet.T_K[Planet.Steps.nIbottom:iConductEnd+1], grid=False)
+        Planet.kTherm_WmK[Planet.Steps.nIbottom:iConductEnd+1] \
+            = Planet.Ocean.surfIceEOS['III'].fn_kTherm_WmK(Planet.P_MPa[Planet.Steps.nIbottom:iConductEnd+1],
+                                                          Planet.T_K[Planet.Steps.nIbottom:iConductEnd+1], grid=False)
 
         for i in range(Planet.Steps.nIbottom+1, iConductEnd):
             # Increment depth based on change in pressure, combined with gravity and density
@@ -230,8 +239,10 @@ def IceIIIConvect(Planet, Params):
             # Propagate adiabatic thermal profile
             Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
                             Planet.Cp_JkgK[i-1] / Planet.rho_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6
-            Planet.rho_kgm3[i], Planet.Cp_JkgK[i], Planet.alpha_pK[i], Planet.kTherm_WmK[i] \
-                = GetIceThermo([Planet.P_MPa[i]], [Planet.T_K[i]], [Planet.phase[i]])
+            Planet.rho_kgm3[i] = Planet.Ocean.surfIceEOS['III'].fn_rho_kgm3(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+            Planet.Cp_JkgK[i] = Planet.Ocean.surfIceEOS['III'].fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+            Planet.alpha_pK[i] = Planet.Ocean.surfIceEOS['III'].fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+            Planet.kTherm_WmK[i] = Planet.Ocean.surfIceEOS['III'].fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             if Params.VERBOSE: print('il: ' + str(i) +
                                      '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
                                      '; T_K: ' + str(round(Planet.T_K[i],3)) +
@@ -251,12 +262,14 @@ def IceIIIConvect(Planet, Params):
                               * Planet.T_K[iConvectEnd-1]**(1 - PTBLratios)
 
         # Get physical properties of thermal boundary layer
-        rhoTBLIII_kgm3, CpTBLIII_JkgK, alphaTBLIII_pK, kThermTBLIII_WmK \
-            = GetIceThermo(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], Planet.phase[indsTBL[:-1]])
-        Planet.rho_kgm3[indsTBL[:-1]] = rhoTBLIII_kgm3
-        Planet.Cp_JkgK[indsTBL[:-1]] = CpTBLIII_JkgK
-        Planet.alpha_pK[indsTBL[:-1]] = alphaTBLIII_pK
-        Planet.kTherm_WmK[indsTBL[:-1]] = kThermTBLIII_WmK
+        Planet.rho_kgm3[indsTBL[:-1]] \
+            = Planet.Ocean.surfIceEOS['III'].fn_rho_kgm3(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
+        Planet.Cp_JkgK[indsTBL[:-1]] \
+            = Planet.Ocean.surfIceEOS['III'].fn_Cp_JkgK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
+        Planet.alpha_pK[indsTBL[:-1]] \
+            = Planet.Ocean.surfIceEOS['III'].fn_alpha_pK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
+        Planet.kTherm_WmK[indsTBL[:-1]] \
+            = Planet.Ocean.surfIceEOS['III'].fn_kTherm_WmK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
 
         for i in indsTBL:
             # Increment depth based on change in pressure, combined with gravity and density
@@ -294,7 +307,7 @@ def IceVConvect(Planet, Params):
         Planet.RaConvectV = ConvectionDeschampsSotin2001(Planet.Bulk.TbIII_K, Planet.r_m[Planet.Steps.nIIIbottom],
                                      Planet.kTherm_WmK[Planet.Steps.nIIIbottom], Planet.Bulk.TbV_K, zbV_m,
                                      Planet.g_ms2[Planet.Steps.nIIIbottom], PmidV_MPa, Planet.Ocean.EOS,
-                                     5, Planet.Do.EQUIL_Q)
+                                     Planet.Ocean.surfIceEOS['V'], 5, Planet.Do.EQUIL_Q)
 
     if Params.VERBOSE: print('Ice V convection parameters:\nT_convectV = ' + str(round(Planet.TconvV_K,3)) + ' K,\n' +
                              'Viscosity etaConvectV = {:.3e} Pa*s,\n'.format(Planet.etaConvV_Pas) +
@@ -328,14 +341,18 @@ def IceVConvect(Planet, Params):
                                                             * Planet.T_K[Planet.Steps.nIIIbottom]**(1 - PlidRatios)
 
         # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
-        rhoCondV_kgm3, CpCondV_JkgK, alphaCondV_pK, kThermCondV_WmK \
-            = GetIceThermo(Planet.P_MPa[Planet.Steps.nIIIbottom:iConductEnd+1],
-                           Planet.T_K[Planet.Steps.nIIIbottom:iConductEnd+1],
-                           Planet.phase[Planet.Steps.nIIIbottom:iConductEnd+1])
-        Planet.rho_kgm3[Planet.Steps.nIIIbottom:iConductEnd+1] = rhoCondV_kgm3
-        Planet.Cp_JkgK[Planet.Steps.nIIIbottom:iConductEnd+1] = CpCondV_JkgK
-        Planet.alpha_pK[Planet.Steps.nIIIbottom:iConductEnd+1] = alphaCondV_pK
-        Planet.kTherm_WmK[Planet.Steps.nIIIbottom:iConductEnd+1] = kThermCondV_WmK
+        Planet.rho_kgm3[Planet.Steps.nIIIbottom:iConductEnd+1] \
+            = Planet.Ocean.surfIceEOS['V'].fn_rho_kgm3(Planet.P_MPa[Planet.Steps.nIIIbottom:iConductEnd+1],
+                                                        Planet.T_K[Planet.Steps.nIIIbottom:iConductEnd+1], grid=False)
+        Planet.Cp_JkgK[Planet.Steps.nIIIbottom:iConductEnd+1] \
+            = Planet.Ocean.surfIceEOS['V'].fn_Cp_JkgK(Planet.P_MPa[Planet.Steps.nIIIbottom:iConductEnd+1],
+                                                        Planet.T_K[Planet.Steps.nIIIbottom:iConductEnd+1], grid=False)
+        Planet.alpha_pK[Planet.Steps.nIIIbottom:iConductEnd+1] \
+            = Planet.Ocean.surfIceEOS['V'].fn_alpha_pK(Planet.P_MPa[Planet.Steps.nIIIbottom:iConductEnd+1],
+                                                        Planet.T_K[Planet.Steps.nIIIbottom:iConductEnd+1], grid=False)
+        Planet.kTherm_WmK[Planet.Steps.nIIIbottom:iConductEnd+1] \
+            = Planet.Ocean.surfIceEOS['V'].fn_kTherm_WmK(Planet.P_MPa[Planet.Steps.nIIIbottom:iConductEnd+1],
+                                                        Planet.T_K[Planet.Steps.nIIIbottom:iConductEnd+1], grid=False)
 
         for i in range(Planet.Steps.nIIIbottom+1, iConductEnd):
             # Increment depth based on change in pressure, combined with gravity and density
@@ -364,8 +381,10 @@ def IceVConvect(Planet, Params):
             # Propagate adiabatic thermal profile
             Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
                             Planet.Cp_JkgK[i-1] / Planet.rho_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6
-            Planet.rho_kgm3[i], Planet.Cp_JkgK[i], Planet.alpha_pK[i], Planet.kTherm_WmK[i] \
-                = GetIceThermo([Planet.P_MPa[i]], [Planet.T_K[i]], [Planet.phase[i]])
+            Planet.rho_kgm3[i] = Planet.Ocean.iceEOS['V'].fn_rho_kgm3(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+            Planet.Cp_JkgK[i] = Planet.Ocean.iceEOS['V'].fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+            Planet.alpha_pK[i] = Planet.Ocean.iceEOS['V'].fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+            Planet.kTherm_WmK[i] = Planet.Ocean.iceEOS['V'].fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             if Params.VERBOSE: print('il: ' + str(i) +
                                      '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
                                      '; T_K: ' + str(round(Planet.T_K[i],3)) +
@@ -384,12 +403,14 @@ def IceVConvect(Planet, Params):
         Planet.T_K[indsTBL] = Planet.Bulk.TbV_K**(PTBLratios) * Planet.T_K[iConvectEnd-1]**(1 - PTBLratios)
 
         # Get physical properties of thermal boundary layer
-        rhoTBLV_kgm3, CpTBLV_JkgK, alphaTBLV_pK, kThermTBLV_WmK \
-            = GetIceThermo(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], Planet.phase[indsTBL[:-1]])
-        Planet.rho_kgm3[indsTBL[:-1]] = rhoTBLV_kgm3
-        Planet.Cp_JkgK[indsTBL[:-1]] = CpTBLV_JkgK
-        Planet.alpha_pK[indsTBL[:-1]] = alphaTBLV_pK
-        Planet.kTherm_WmK[indsTBL[:-1]] = kThermTBLV_WmK
+        Planet.rho_kgm3[indsTBL[:-1]] \
+            = Planet.Ocean.surfIceEOS['V'].fn_rho_kgm3(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
+        Planet.Cp_JkgK[indsTBL[:-1]] \
+            = Planet.Ocean.surfIceEOS['V'].fn_Cp_JkgK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
+        Planet.alpha_pK[indsTBL[:-1]] \
+            = Planet.Ocean.surfIceEOS['V'].fn_alpha_pK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
+        Planet.kTherm_WmK[indsTBL[:-1]] \
+            = Planet.Ocean.surfIceEOS['V'].fn_kTherm_WmK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
 
         for i in indsTBL:
             # Increment depth based on change in pressure, combined with gravity and density
