@@ -49,8 +49,9 @@ def PlanetProfile(Planet, Params):
     if Params.CALC_NEW:
         # Initialize
         Planet, Params = SetupInit(Planet, Params)
-        Planet = IceLayers(Planet, Params)
-        Planet = OceanLayers(Planet, Params)
+        if not Planet.Do.NO_H2O:
+            Planet = IceLayers(Planet, Params)
+            Planet = OceanLayers(Planet, Params)
         Planet = InnerLayers(Planet, Params)
         Planet = ElecConduct(Planet, Params)
         Planet = SeismicCalcs(Planet, Params)
@@ -110,6 +111,7 @@ def WriteProfile(Planet, Params):
                           'g (m/s2)'.ljust(24),
                           'phi (void/solid frac)'.ljust(24),
                           'sigma (S/m)'.ljust(24),
+                          'k (W/m/K)'.ljust(24),
                           'VP (km/s)'.ljust(24),
                           'VS (km/s)'.ljust(24),
                           'QS'.ljust(24),
@@ -128,6 +130,7 @@ def WriteProfile(Planet, Params):
                 '{:24.17e} '.format(Planet.g_ms2[i]) + \
                 '{:24.17e} '.format(Planet.phi_frac[i]) + \
                 '{:24.17e} '.format(Planet.sigma_Sm[i]) + \
+                '{:24.17e} '.format(Planet.kTherm_WmK[i]) + \
                 '{:24.17e} '.format(Planet.Seismic.VP_kms[i]) + \
                 '{:24.17e} '.format(Planet.Seismic.VS_kms[i]) + \
                 '{:24.17e} '.format(Planet.Seismic.QS[i]) + \
@@ -186,8 +189,8 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     Planet.Steps.nTotal = Planet.Steps.nHydro + Planet.Steps.nSil + Planet.Steps.nCore
     # Read in columnar data that follows header lines -- full-body
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.phase, Planet.rho_kgm3, Planet.Cp_JkgK, Planet.alpha_pK, \
-    Planet.g_ms2, Planet.phi_frac, Planet.sigma_Sm, Planet.Seismic.VP_kms, Planet.Seismic.VS_kms, Planet.Seismic.QS, \
-    Planet.Seismic.KS_GPa, Planet.Seismic.GS_GPa \
+    Planet.g_ms2, Planet.phi_frac, Planet.sigma_Sm, Planet.kTherm_WmK, Planet.Seismic.VP_kms, Planet.Seismic.VS_kms,\
+    Planet.Seismic.QS, Planet.Seismic.KS_GPa, Planet.Seismic.GS_GPa \
         = np.loadtxt(Params.DataFiles.saveFile, skiprows=Params.nHeadLines, unpack=True)
     Planet.z_m = Planet.Bulk.R_m - Planet.r_m
     Planet.phase = Planet.phase.astype(np.int_)
@@ -355,6 +358,7 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         Planet.g_ms2[Planet.g_ms2==0] = tiny
         Planet.phi_frac[Planet.phi_frac==0] = tiny
         Planet.sigma_Sm[Planet.sigma_Sm==0] = tiny
+        Planet.kTherm_WmK[Planet.kTherm_WmK==0] = tiny
         Planet.Seismic.VP_kms[Planet.Seismic.VP_kms==0] = tiny
         Planet.Seismic.VS_kms[Planet.Seismic.VS_kms==0] = tiny
         Planet.Seismic.QS[Planet.Seismic.QS==0] = tiny
@@ -371,6 +375,7 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         Planet2.g_ms2[Planet2.g_ms2==0] = tiny
         Planet2.phi_frac[Planet2.phi_frac==0] = tiny
         Planet2.sigma_Sm[Planet2.sigma_Sm==0] = tiny
+        Planet2.kTherm_WmK[Planet2.kTherm_WmK==0] = tiny
         Planet2.Seismic.VP_kms[Planet2.Seismic.VP_kms==0] = tiny
         Planet2.Seismic.VS_kms[Planet2.Seismic.VS_kms==0] = tiny
         Planet2.Seismic.QS[Planet2.Seismic.QS==0] = tiny
@@ -388,6 +393,7 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         diff_g_ms2 = [i[0] for i, val in np.ndenumerate(Planet.g_ms2) if abs(val-Planet2.g_ms2[i[0]])/val>tol]
         diff_phi_frac = [i[0] for i, val in np.ndenumerate(Planet.phi_frac) if abs(val-Planet2.phi_frac[i[0]])/val>tol]
         diff_sigma_Sm = [i[0] for i, val in np.ndenumerate(Planet.sigma_Sm) if abs(val-Planet2.sigma_Sm[i[0]])/val>tol]
+        diff_kTherm_WmK = [i[0] for i, val in np.ndenumerate(Planet.kTherm_WmK) if abs(val-Planet2.kTherm_WmK[i[0]])/val>tol]
         diff_VP_kms = [i[0] for i, val in np.ndenumerate(Planet.Seismic.VP_kms) if abs(val-Planet2.Seismic.VP_kms[i[0]])/val>tol]
         diff_VS_kms = [i[0] for i, val in np.ndenumerate(Planet.Seismic.VS_kms) if abs(val-Planet2.Seismic.VS_kms[i[0]])/val>tol]
         diff_QS = [i[0] for i, val in np.ndenumerate(Planet.Seismic.QS) if abs(val-Planet2.Seismic.QS[i[0]])/val>tol]
@@ -404,6 +410,7 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         same_g_ms2 = len(diff_g_ms2) == 0
         same_phi_frac = len(diff_phi_frac) == 0
         same_sigma_Sm = len(diff_sigma_Sm) == 0
+        same_kTherm_WmK = len(diff_kTherm_WmK) == 0
         same_VP_kms = len(diff_VP_kms) == 0
         same_VS_kms = len(diff_VS_kms) == 0
         same_QS = len(diff_QS) == 0
@@ -411,8 +418,8 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         same_GS_GPa = len(diff_GS_GPa) == 0
 
         layers_match = same_P_MPa and same_T_K and same_r_m and same_phase and same_rho_kgm3 and same_Cp_JkgK \
-            and same_alpha_pK and same_g_ms2 and same_phi_frac and same_sigma_Sm and same_VP_kms and same_VS_kms and \
-            same_QS and same_KS_GPa and same_GS_GPa
+            and same_alpha_pK and same_g_ms2 and same_phi_frac and same_sigma_Sm and same_kTherm_WmK and same_VP_kms \
+            and same_VS_kms and same_QS and same_KS_GPa and same_GS_GPa
         all_match = headers_match and layers_match
 
         if not layers_match:
@@ -426,6 +433,7 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
             if not same_g_ms2: print('g_ms2 differs in position ' + str(diff_g_ms2[0]) + ': ' + str(Planet.g_ms2[diff_g_ms2[0]]) + ' | ' + str(Planet2.g_ms2[diff_g_ms2[0]]))
             if not same_phi_frac: print('phi_frac differs in position ' + str(diff_phi_frac[0]) + ': ' + str(Planet.phi_frac[diff_phi_frac[0]]) + ' | ' + str(Planet2.phi_frac[diff_phi_frac[0]]))
             if not same_sigma_Sm: print('sigma_Sm differs in position ' + str(diff_sigma_Sm[0]) + ': ' + str(Planet.sigma_Sm[diff_sigma_Sm[0]]) + ' | ' + str(Planet2.sigma_Sm[diff_sigma_Sm[0]]))
+            if not same_kTherm_WmK: print('kTherm_WmK differs in position ' + str(diff_kTherm_WmK[0]) + ': ' + str(Planet.kTherm_WmK[diff_kTherm_WmK[0]]) + ' | ' + str(Planet2.kTherm_WmK[diff_kTherm_WmK[0]]))
             if not same_VP_kms: print('VP_kms differs in position ' + str(diff_VP_kms[0]) + ': ' + str(Planet.Seismic.VP_kms[diff_VP_kms[0]]) + ' | ' + str(Planet2.Seismic.VP_kms[diff_VP_kms[0]]))
             if not same_VS_kms: print('VS_kms differs in position ' + str(diff_VS_kms[0]) + ': ' + str(Planet.Seismic.VS_kms[diff_VS_kms[0]]) + ' | ' + str(Planet2.Seismic.VS_kms[diff_VS_kms[0]]))
             if not same_QS: print('QS differs in position ' + str(diff_QS[0]) + ': ' + str(Planet.Seismic.QS[diff_QS[0]]) + ' | ' + str(Planet2.Seismic.QS[diff_QS[0]]))
