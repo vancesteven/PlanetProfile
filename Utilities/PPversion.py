@@ -13,11 +13,21 @@ pkgNames = {
     'gsw': 'GSW',
     'obspy': 'ObsPy.TauP'
 }
+# Instructions for installation
+installInstruct = {
+    'seafreeze': 'pip3 install SeaFreeze',
+    'gsw': 'conda install -c conda-forge gsw',
+    'obspy': 'conda install -c conda-forge obspy'
+}
 
 
 def CheckCompat(package):
     # Grab version number from package
-    pkgVer = version(package)
+    try:
+        pkgVer = version(package)
+    except:
+        raise ModuleNotFoundError(pkgNames[package] + ' is not installed. Install it with the command: ' +
+                                  installInstruct[package])
     compatVer = compatNums[package]
     pkgCompatNums = [int(numStr) for numStr in compatVer.split('.')]
     pkgVerNums = [int(numStr) for numStr in pkgVer.split('.')[:3]]
