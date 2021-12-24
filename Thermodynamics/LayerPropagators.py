@@ -954,7 +954,7 @@ def IronCoreLayers(Planet, Params,
 
         for k in range(1, Planet.Steps.nCore):
             MAbove_kg += thisMLayerCore_kg[:,k-1]
-            thisDeltaP = 1e-6 * thisMLayerCore_kg[:,k-1] * thisgCore_ms2[:,k-1] / thisrCore_m[:,k]**2
+            thisDeltaP = 1e-6 * thisMLayerCore_kg[:,k-1] * thisgCore_ms2[:,k-1] / (4*np.pi*thisrCore_m[:,k]**2)
             thisPcore_MPa[:,k] = thisPcore_MPa[:,k-1] + thisDeltaP
             thisTcore_K[:,k] = thisTcore_K[:,k-1] + thisalphaCore_pK[:,k-1]*thisTcore_K[:,k] / \
                            thisCpCore_JkgK[:,k-1] / thisrhoCore_kgm3[:,k-1] * thisDeltaP*1e6
