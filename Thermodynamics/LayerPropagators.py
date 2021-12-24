@@ -615,10 +615,7 @@ def CalcMoIConstantRho(Planet, Params):
     Planet.Core.Rtrade_m = rCore_m[CMR2indsInner]
     Planet.Core.Rrange_m = np.max(Planet.Core.Rtrade_m) - np.min(Planet.Core.Rtrade_m)
     # Now we finally know how many layers there are in the hydrosphere
-    if Planet.Do.NO_H2O:
-        Planet.Steps.nHydro = 0
-    else:
-        Planet.Steps.nHydro = iCMR2 - 1
+    Planet.Steps.nHydro = iCMR2
     # Number of steps in the silicate layer is fixed for the constant-density approach
     Planet.Steps.nSil = Planet.Steps.nSilMax
 
@@ -764,10 +761,7 @@ def CalcMoIWithEOS(Planet, Params):
     # Record the best-match C/MR^2 value
     Planet.CMR2mean = CMR2[iCMR2]
     # Now we finally know how many layers there are in the hydrosphere and silicates
-    if Planet.Do.NO_H2O:
-        Planet.Steps.nHydro = 0
-    else:
-        Planet.Steps.nHydro = iCMR2 - 1
+    Planet.Steps.nHydro = iCMR2
     Planet.Steps.nSil = nSilFinal[iCMR2sil]
 
     # Fill core/mantle trade arrays and set mean values consistent with MoI
