@@ -12,7 +12,7 @@ class PerplexEOSStruct:
         self.fpath = self.dir + EOSfname
 
         # Load in Perple_X data. Note that all P, KS, and GS are stored as bar
-        firstPT, secondPT, rho_kgm3, VP_kms, VS_kms, Cp_JkgK, alpha_pK, KS_bar, GS_bar \
+        firstPT, secondPT, rho_kgm3, VP_kms, VS_kms, Cp_Jm3K, alpha_pK, KS_bar, GS_bar \
             = np.loadtxt(self.fpath, skiprows=nHeaders, unpack=True)
         # We don't know yet whether P or T is in the first column, which increments the fastest.
         # The second column increments once for each time the first column runs through the whole range.
@@ -56,11 +56,12 @@ class PerplexEOSStruct:
             thisValidPs = Plin_MPa[np.where(thisVarValid)]
             thisValidTs = Tlin_K[np.where(thisVarValid)]
             VS_kms = spi.griddata((thisValidPs, thisValidTs), VS_kms[thisVarValid], PTpts, method=EOSinterpMethod)
-        thisVarValid = np.isfinite(Cp_JkgK)
+        thisVarValid = np.isfinite(Cp_Jm3K)
         if not np.all(thisVarValid):
             thisValidPs = Plin_MPa[np.where(thisVarValid)]
             thisValidTs = Tlin_K[np.where(thisVarValid)]
-            Cp_JkgK = spi.griddata((thisValidPs, thisValidTs), Cp_JkgK[thisVarValid], PTpts, method=EOSinterpMethod)
+            # Note that Perple_X tables store heat capacities as J/m^3/K, so we convert to J/kg/K by dividing by rho in a moment
+            Cp_Jm3K = spi.griddata((thisValidPs, thisValidTs), Cp_Jm3K[thisVarValid], PTpts, method=EOSinterpMethod)
         thisVarValid = np.isfinite(alpha_pK)
         if not np.all(thisVarValid):
             thisValidPs = Plin_MPa[np.where(thisVarValid)]
@@ -83,7 +84,7 @@ class PerplexEOSStruct:
         if np.any(np.isnan(rho_kgm3)): raise RuntimeError(errNaNstart + 'rho' +errNaNend)
         if np.any(np.isnan(VP_kms)): raise RuntimeError(errNaNstart + 'VP' +errNaNend)
         if np.any(np.isnan(VS_kms)): raise RuntimeError(errNaNstart + 'VS' +errNaNend)
-        if np.any(np.isnan(Cp_JkgK)): raise RuntimeError(errNaNstart + 'Cp' +errNaNend)
+        if np.any(np.isnan(Cp_Jm3K)): raise RuntimeError(errNaNstart + 'Cp' +errNaNend)
         if np.any(np.isnan(alpha_pK)): raise RuntimeError(errNaNstart + 'alpha' +errNaNend)
         if np.any(np.isnan(KS_bar)): raise RuntimeError(errNaNstart + 'KS' +errNaNend)
         if np.any(np.isnan(GS_bar)): raise RuntimeError(errNaNstart + 'GS' +errNaNend)
@@ -92,7 +93,7 @@ class PerplexEOSStruct:
         self.rho_kgm3 = np.reshape(rho_kgm3, (-1,dim2))
         self.VP_kms = np.reshape(VP_kms, (-1,dim2))
         self.VS_kms = np.reshape(VS_kms, (-1,dim2))
-        self.Cp_JkgK = np.reshape(Cp_JkgK, (-1,dim2))
+        self.Cp_JkgK = np.reshape(Cp_Jm3K, (-1,dim2)) / self.rho_kgm3
         self.alpha_pK = np.reshape(alpha_pK, (-1,dim2))
         self.KS_GPa = np.reshape(KS_bar, (-1,dim2)) * Constants.bar2GPa
         self.GS_GPa = np.reshape(GS_bar, (-1,dim2)) * Constants.bar2GPa
