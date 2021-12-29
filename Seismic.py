@@ -21,7 +21,7 @@ def SeismicCalcs(Planet, Params):
         if Planet.Do.CLATHRATE:
             # Get seismic properties of surface clathrate layer
             Planet.Seismic.VP_kms[indsClath], Planet.Seismic.VS_kms[indsClath], \
-            Planet.Seismic.KS_GPa[indsClath], Planet.Seismic.GS_GPa[indsClath], _ \
+            Planet.Seismic.KS_GPa[indsClath], Planet.Seismic.GS_GPa[indsClath] \
                 = ClathrateSeismicHelgerud2009(Planet.P_MPa[indsClath], Planet.T_K[indsClath])
 
             Hclath = Planet.Seismic.gClath * np.max(Planet.T_K[indsClath])
