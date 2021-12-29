@@ -109,11 +109,11 @@ def PlotWedge(Planet, Params):
             colors.append(Params.Colors.IceV)
         elif Planet.phase[layerPhase] == 6:
             colors.append(Params.Colors.IceVI)
-        elif Planet.phase[layerPhase] == 30:
+        elif Planet.phase[layerPhase] == Constants.phaseClath:
             colors.append(Params.Colors.Clath)
-        elif Planet.phase[layerPhase] == 50:
+        elif Planet.phase[layerPhase] == Constants.phaseSil:
             colors.append(Params.Colors.Rock)
-        elif Planet.phase[layerPhase] == 100:
+        elif Planet.phase[layerPhase] == Constants.phaseFe:
             colors.append(Params.Colors.Core)
     phases = [Planet.phase[iShell] for iShell in iPhaseTrans]  # stores phase of particular layer
     radii = [Planet.r_m[iShell]/Planet.Bulk.R_m for iShell in iPhaseTrans]  # normalizes radii of layer transitions
