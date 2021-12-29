@@ -23,12 +23,29 @@ def SetupInit(Planet, Params):
     if Params.VERBOSE and round(Planet.Bulk.Tb_K, 3) != Planet.Bulk.Tb_K:
         print('WARNING: Planet.Tb_K has been rounded to generate saveFile name.')
 
-    # Set steps and settings for unused options to zero
+    # Set steps and settings for unused options to zero, check that we have settings we need
     if not Planet.Do.Fe_CORE:
         Planet.Steps.nCore = 0
-    if not Planet.Do.CLATHRATE:
+    if Planet.Do.CLATHRATE:
+        if Planet.Bulk.clathType is None:
+            raise ValueError('Clathrate model type must be set. Options are "top", "bottom", and "whole".')
+        elif Planet.Bulk.clathType == 'whole':
+            # Pick whichever number of layers is greater, if the user has set Steps.nClath.
+            # This allows the user to skip setting Steps.nClath separately if they just want
+            # to model whole-shell clathrates with other standard run settings.
+            if Planet.Steps.nClath is None: Planet.Steps.nClath = 0
+            Planet.Steps.nClath = np.maximum(Planet.Steps.nIceI, Planet.Steps.nClath)
+            Planet.Steps.nIceI = 0
+        elif Planet.Bulk.clathMaxThick_m is None:
+            raise ValueError('Bulk.clathMaxThick_m must be set for this clathType model.')
+        elif Planet.Steps.nClath is None:
+            raise ValueError('Steps.nClath must be set for this clathType model.')
+        elif Planet.Bulk.clathType == 'bottom' and Planet.Bulk.qSurf_Wm2 is None:
+            raise ValueError('Bulk.qSurf_Wm2 must be set for this clathType model.')
+    else:
         Planet.Steps.nClath = 0
         Planet.zClath_m = 0
+        Planet.Bulk.clathType = 'none'
     if not Planet.Do.POROUS_ROCK:
         Planet.Sil.phiRockMax_frac = 0
 
@@ -60,6 +77,9 @@ def SetupInit(Planet, Params):
             if(Planet.Bulk.TbIII_K > Planet.Bulk.TbV_K):
                 print('WARNING: Bottom temperature of ice III (Tb_K) is greater than bottom temperature of underplate ' +
                       'ice V (TbV_K). This likely represents a non-equilibrium state.')
+            if Planet.Do.CLATHRATE:
+                print('WARNING: Clathrates are stable under a very large range of pressures and temperatures, and this ' +
+                      'may be contradictory with having underplating ice III or V.')
 
         # Get ocean EOS functions
         POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)

@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.interpolate as spi
+import scipy.optimize as spo
 from seafreeze import seafreeze as SeaFreeze
 from seafreeze import whichphase as WhichPhase
 from Utilities.dataStructs import Constants
@@ -49,7 +50,7 @@ class OceanEOSStruct:
 
 
 class IceEOSStruct:
-    def __init__(self, P_MPa, T_K, phase):
+    def __init__(self, P_MPa, T_K, phaseStr):
         # Make sure arrays are long enough to interpolate
         nPs = np.size(P_MPa)
         nTs = np.size(T_K)
@@ -64,24 +65,36 @@ class IceEOSStruct:
         if(nPs == nTs):
             T_K = np.append(T_K, T_K[-1]*1.00001)
 
-        if phase == 'Clath':
-            # Special function for clathrate properties
+        if phaseStr == 'Clath':
+            # Special functions for clathrate properties
             self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK \
                 = ClathProps(P_MPa, T_K)
+            self.phase = ClathStableSloan1998(P_MPa, T_K)
+
+            Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
+            Tlin_K = np.array([T for _ in P_MPa for T in T_K])
+            PTpairs = list(zip(Plin_MPa, Tlin_K))
+            phase1D = np.reshape(self.phase, (-1))
+            # Create phase finder -- note that the results from this function must be cast to int after retrieval
+            # Returns either Constants.phaseClath (stable) or 0 (not stable), making it compatible with GetTfreeze
+            self.fn_phase = spi.NearestNDInterpolator(PTpairs, phase1D)
         else:
             # Get tabular data from SeaFreeze for all other ice phases
             PTgrid = np.array([P_MPa, T_K], dtype=object)
-            iceOut = SeaFreeze(PTgrid, phase)
+            iceOut = SeaFreeze(PTgrid, phaseStr)
             self.rho_kgm3 = iceOut.rho
             self.Cp_JkgK = iceOut.Cp
             self.alpha_pK = iceOut.alpha
-            self.kTherm_WmK = np.array([kThermIsobaricAnderssonIbari2005(T_K, PhaseInv(phase)) for _ in P_MPa])
+            self.kTherm_WmK = np.array([kThermIsobaricAnderssonIbari2005(T_K, PhaseInv(phaseStr)) for _ in P_MPa])
 
         # Interpolate functions for this ice phase that can be queried for properties
         self.fn_rho_kgm3 = spi.RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
         self.fn_Cp_JkgK = spi.RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
         self.fn_alpha_pK = spi.RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
         self.fn_kTherm_WmK = spi.RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
+        # Assign phase ID and string for convenience in functions where iceEOS is passed
+        self.phaseStr = phaseStr
+        self.phaseID = PhaseInv(phaseStr)
 
 
 def GetPfreeze(oceanEOS, Tb_K, PLower_MPa=20, PUpper_MPa=300, PRes_MPa=0.1,
@@ -111,9 +124,9 @@ def GetPfreeze(oceanEOS, Tb_K, PLower_MPa=20, PUpper_MPa=300, PRes_MPa=0.1,
     if not DO_GUESS or GUESS_FAILED:
         searchPhases = oceanEOS.fn_phase(Psearch, Tb_K)
     # Find the first index for a phase that's not ice Ih or clathrates
-    # (note that clathrates, with phase 30, are not yet implemented in SeaFreeze)
+    # (note that clathrates, with phase Constants.phaseClath, are not yet implemented in SeaFreeze)
     try:
-        indMelt = next((i[0] for i, val in np.ndenumerate(searchPhases) if val!=1 and val!=30))
+        indMelt = next((i[0] for i, val in np.ndenumerate(searchPhases) if val!=1 and val!=Constants.phaseClath))
     except StopIteration:
         raise ValueError('No transition pressure was found below '+str(PUpper_MPa)+' MPa '+
                          'for ice Ih/clathrates. Increase PUpper_MPa until one is found.')
@@ -192,8 +205,8 @@ def GetPmeltHP(oceanEOS, Pmin_MPa, TbHP_K, phase, PLower_MPa=180, PUpper_MPa=900
     try:
         indIceHP = next((i[0] for i, val in np.ndenumerate(searchPhases) if val==phase))
     except StopIteration:
-        raise ValueError('No ice '+str(PhaseConv(phase))+' was found within the range '+str(PLower_MPa)+
-              ' < P < '+str(PUpper_MPa)+' for Tb = '+str(TbHP_K)+'.')
+        raise ValueError('No ice '+str(PhaseConv(phase))+' was found within the range '+str(round(PLower_MPa,3))+
+              ' < P < '+str(round(PUpper_MPa,3))+' for Tb = '+str(round(TbHP_K,3))+' with this ocean composition.')
     # Check if the next index below is liquid
     if(searchPhases[indIceHP-1] == 0):
         PmeltHP_MPa = Psearch[indIceHP-1]
@@ -251,8 +264,12 @@ def PhaseConv(phase):
         phaseStr = 'V'
     elif phase == 6:
         phaseStr = 'VI'
-    elif phase == 30:
+    elif phase == Constants.phaseClath:
         phaseStr = 'Clath'
+    elif phase == Constants.phaseSil:
+        phaseStr = 'Sil'
+    elif phase == Constants.phaseFe:
+        phaseStr = 'Fe'
     else:
         raise ValueError('PhaseConv does not have a definition for phase ID '+str(phase)+'.')
 
@@ -280,7 +297,11 @@ def PhaseInv(phaseStr):
     elif phaseStr == 'VI':
         phase = 6
     elif phaseStr == 'Clath':
-        phase = 30
+        phase = Constants.phaseClath
+    elif phaseStr == 'Sil':
+        phase = Constants.phaseSil
+    elif phaseStr == 'Fe':
+        phase = Constants.phaseFe
     else:
         raise ValueError('PhaseInv does not have a definition for phase string "'+phaseStr+'".')
 
@@ -306,9 +327,9 @@ def GetPhaseIndices(phase):
     indsIceIII = np.where(phase==3)
     indsIceV = np.where(phase==5)
     indsIceVI = np.where(phase==6)
-    indsClath = np.where(phase==30)
-    indsSil = np.where(phase==50)
-    indsFe = np.where(phase==100)
+    indsClath = np.where(phase==Constants.phaseClath)
+    indsSil = np.where(phase==Constants.phaseSil)
+    indsFe = np.where(phase==Constants.phaseFe)
 
     return indsLiquid, indsIceI, indsIceII, indsIceIII, indsIceV, indsIceVI, indsClath, indsSil, indsFe
 
@@ -442,3 +463,67 @@ def ClathProps(Plin_MPa, Tlin_K):
     kTherm_WmK = np.zeros_like(P_MPa) + 0.5
 
     return rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK
+
+
+""" Dissociation temperatures for clathrates based on a degree-2 fit to
+    the dissociation curve at low pressure and a logarithmic fit at higher pressures,
+    for curves from Sloan (1998) as reported in Choukron et al. (2010):
+    https://doi.org/10.1016/j.icarus.2009.08.011
+"""
+# For use when P_MPa < 2.567 and T < 273
+TclathDissocLower_K = lambda P_MPa: 212.33820985 + 43.37319252*P_MPa - 7.83348412*P_MPa**2
+# For use when P_MPa >= 2.567 and T >= 273
+TclathDissocUpper_K = lambda P_MPa: -20.3058036 + 8.09637199*np.log(P_MPa/4.56717945e-16)
+
+def ClathStableSloan1998(P_MPa, T_K):
+    """ Returns a grid of boolean values to say whether fully occupied methane
+        clathrates are stable at the given P,T conditions, based on the dissocation
+        curves above.
+
+        Args:
+            P_MPa (float, shape N): Pressures in MPa
+            T_K (float, shape M): Temperatures in K
+        Returns:
+            stable (int, shape NxM): Set to Constants.phaseClath (phase ID) if clathrates are stable
+                at this P,T and 0 if they are not (if not stable, Ocean.EOS.fn_phase should be
+                queried to determine the phase)
+    """
+
+    # Avoid log of 0 for surface pressure
+    P_MPa[P_MPa==0] = 1e-12
+    # Get (P,T) pairs relevant for each portion of the dissociation curve
+    Plow_MPa, Tlow_K = np.meshgrid(P_MPa[P_MPa < 2.567], T_K, indexing='ij')
+    Pupp_MPa, Tupp_K = np.meshgrid(P_MPa[P_MPa >= 2.567], T_K, indexing='ij')
+    # Get evaluation points for lower and upper dissociation curves
+    TdissocLower_K = TclathDissocLower_K(Plow_MPa)
+    TdissocUpper_K = TclathDissocUpper_K(Pupp_MPa)
+    # Assign clathrate phase ID to (P,T) points below the dissociation curves and 0 otherwise
+    stableLow = np.zeros_like(Tlow_K).astype(np.int_)
+    stableUpp = np.zeros_like(Tupp_K).astype(np.int_)
+    stableLow[Tlow_K < TdissocLower_K] = Constants.phaseClath
+    stableUpp[Tupp_K < TdissocUpper_K] = Constants.phaseClath
+    stable = np.concatenate((stableLow, stableUpp), axis=0)
+
+    return stable
+
+
+def GetPbClath(Tb_K):
+    """ Calculate the pressure consistent with Tb_K when clathrates are assumed
+        to be in contact with the ocean, i.e. for Bulk.clathType = 'bottom' or 'whole'.
+
+        Args:
+            Tb_K (float): Clathrate layer bottom temperature in K
+        Returns:
+            PbClath_MPa (float): Bottom temperature consistent with dissociation curve
+                pressure at Tb_K
+    """
+    if Tb_K < 273:
+        TbZero_K = lambda P_MPa: Tb_K - TclathDissocLower_K(P_MPa)
+        Pends_MPa = [0.0, 2.567]
+    else:
+        TbZero_K = lambda P_MPa: Tb_K - TclathDissocUpper_K(P_MPa)
+        Pends_MPa = [2.567, Constants.PmaxLiquid_MPa]
+
+    PbClath_MPa = spo.root_scalar(TbZero_K, bracket=Pends_MPa).root
+
+    return PbClath_MPa

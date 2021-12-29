@@ -4,20 +4,8 @@ from seafreeze import seafreeze as SeaFreeze
 from Thermodynamics.FromLiterature.HydroEOS import PhaseConv, GetTfreeze, kThermMelinder2007, \
     kThermHobbs1974, kThermIsobaricAnderssonIbari2005, kThermIsothermalAnderssonIbari2005
 
-def ConductionClathLid():
-    """ Thermodynamics calculations for a (thermally) conductive clathrate lid
-
-        Args:
-            ???
-        Returns:
-            ???
-    """
-
-    return
-
-
 def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa,
-                                 oceanEOS, iceEOS, phase, EQUIL_Q):
+                                 oceanEOS, iceEOS, phaseBot, EQUIL_Q):
     """ Thermodynamics calculations for convection in an ice layer
         based on Deschamps and Sotin (2001): https://doi.org/10.1029/2000JE001253
         Note that these authors solved for the scaling laws we apply in Cartesian
@@ -41,7 +29,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
             Pmid_MPa (float): Pressure at the "middle" of the convective region in MPa
             oceanEOS (OceanEOSStruct): Interpolator functions for evaluating the ocean EOS
             iceEOS (IceEOSStruct): Interpolator functions for evaluating the ice EOS
-            phase (int): Ice phase index
+            phaseBot (int): Ice phase index at the bottom of the layer
             EQUIL_Q (bool): Whether to set heat flux from interior to be consistent with that released
                 through the convective profile according to Deschamps and Sotin (2001) (if True) or to
                 set it to a value consistent with Ojakangas and Stevenson (1989) for the upper conductive
@@ -54,25 +42,27 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
                 and convective region in m
             qbot_Wm2 (float): Heat flux at the bottom of the ice in W/m^2
     """
+    # Get phase of convecting region from passed iceEOS
+    phaseMid = iceEOS.phaseID
     # Numerical constants derived in Cartesian geometry from Deschamps and Sotin (2000) and used in
     # Deschamps and Sotin (2001) parameterization
     c1 = 1.43
     c2 = -0.03
     # Numerical constants appearing in equations
-    A = Constants.Eact_kJmol[phase] * 1e3 / Constants.R / Tb_K
-    B = Constants.Eact_kJmol[phase] * 1e3 / 2 / Constants.R / c1
+    A = Constants.Eact_kJmol[phaseMid] * 1e3 / Constants.R / Tb_K
+    B = Constants.Eact_kJmol[phaseMid] * 1e3 / 2 / Constants.R / c1
     C = c2 * (Tb_K - Ttop_K)
     # Temperature and viscosity of the "well-mixed" convective region
     Tconv_K = B * (np.sqrt(1 + 2/B*(Tb_K - C)) - 1)
     if(Tconv_K < Ttop_K):
         Tconv_K = Ttop_K
-        print('Convecting temperature for ice ' + PhaseConv(phase) + ' is less than the' +
+        print('Convecting temperature for ice ' + PhaseConv(phaseBot) + ' is less than the' +
               ' temperature at the top of the layer. Tconv has been set equal to Ttop and ' +
               'no conductive lid will be modeled.')
 
-    # Get melting temperature for calculating viscosity relative to it
+    # Get melting temperature for calculating viscosity relative to this temp
     Tmelt_K = GetTfreeze(oceanEOS, Pmid_MPa, Tconv_K)
-    etaConv_Pas = Constants.etaMelt_Pas[phase] * np.exp(A * (Tmelt_K/Tconv_K - 1))
+    etaConv_Pas = Constants.etaMelt_Pas[phaseMid] * np.exp(A * (Tmelt_K/Tconv_K - 1))
     # Get physical properties of ice at the "middle" of the convective region
     rhoMid_kgm3 = iceEOS.fn_rho_kgm3(Pmid_MPa, Tconv_K, grid=False)
     CpMid_JkgK = iceEOS.fn_Cp_JkgK(Pmid_MPa, Tconv_K, grid=False)
@@ -93,14 +83,15 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     # This matches the Matlab, but based on Deschamps and Sotin (2001), who assume a fixed thermal conductivity
     # throughout the ice shell, the thickness of the conductive lid should probably use kTop_WmK, because that
     # will be what determines the conductive thermal profile based on the heat flux through the lid.
-    eLid_m = kMid_WmK * (Tconv_K - Ttop_K) / qTop_Wm2
-    #eLid_m = kTop_WmK * (Tconv_K - Ttop_K) / qTop_Wm2
+    #eLid_m = kMid_WmK * (Tconv_K - Ttop_K) / qTop_Wm2
+    eLid_m = kTop_WmK * (Tconv_K - Ttop_K) / qTop_Wm2
 
     # If the Rayleigh number is less than some critical value, convection does not occur.
-    if(Ra < Constants.RaCrit):
-        print('Rayleigh number of ' + str(round(Ra)) + ' in the surface ice ' + PhaseConv(phase) +
+    RaCrit = GetRaCrit(Constants.Eact_kJmol[phaseBot], Tb_K, Ttop_K, Tconv_K)
+    if(Ra < RaCrit):
+        print('Rayleigh number of ' + str(round(Ra)) + ' in the surface ice ' + PhaseConv(phaseBot) +
               ' layer is less than the critical value ' +
-              'of ' + str(round(Constants.RaCrit)) + '. Only conduction will be modeled in this layer.')
+              'of ' + str(round(RaCrit)) + '. Only conduction will be modeled in this layer.')
         # Set conductive layer thicknesses to whole shell thickness to force a whole-layer conductive profile
         eLid_m = zb_m
         deltaTBL_m = zb_m
@@ -154,4 +145,58 @@ def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rho_kgm3, Qrad_Wkg
     qBot_Wm2 = rho_kgm3 * Qtot_Wkg / 3 * rBot_m + 2*kTherm_WmK / rBot_m**2 * c1
 
     return Tbot_K, qBot_Wm2
+
+
+def GetRaCrit(Eact_kJmol, Tb_K, Ttop_K, Tconv_K):
+    """ Calculates the critical Rayleigh number, above which convection is permitted
+        based on Solomatov (1995) and reported as Eq. 3 of Hammond et al. (2016):
+        https://doi.org/10.1002/2016GL069220
+
+        Args:
+            Eact_kJmol (float): Activation energy for diffusion in kJ/mol
+            Tb_K (float): Temperature at bottom of ice layer in K
+            Ttop_K (float): Temperature at top of ice layer in K
+            Tconv_K (float): Average temperature of convecting layer in K
+        Returns:
+            RaCrit (float): Critical Rayleigh number, above which convection is permitted (dimensionless)
+    """
+    RaCrit = 20.9 * (Eact_kJmol*1e3 * (Tb_K - Ttop_K) / Constants.R / Tconv_K**2)**4
+
+    return RaCrit
+
+
+def GetPbConduct(Ttop_K, Tb_K, rTop_m, Ptop_MPa, gTop_ms2, qTop_Wm2, EOS, rRes_m=1e2, Qrad_Wkg=0, Htidal_Wm3=0):
+    """ Find the pressure associated with the bottom temperature of a conductive layer,
+        given the top temperature, outer radius, heat flux, and EOS.
+
+        Args:
+            Ttop_K (float): Temperature at the top of the conductive layer in K
+            Tb_K (float): Temperature at the bottom of the conductive layer in K
+            rTop_m (float): Radius of the top of the layer in m
+            Ptop_MPa (float): Pressure at the top of the layer in MPa
+            gTop_ms2 (float): Gravity at the top of the layer in m/s^2
+            qTop_Wm2 (float): Heat flux leaving the top of the layer in W/m^2
+            EOS (EOSStruct): Ice, Ocean, or Perple_X EOS struct that can be queried for
+                density (fn_rho_kgm3) and thermal conductivity (fn_kTherm_WmK) as
+                functions of P_MPa and T_K
+            rRes_m = 1e2 (float): Radial resolution in m for calculating depth profile
+            Htidal_Wm3 = 0 (float): Volumetric (tidal) heating rate in W/m^3
+            Qrad_Wkg = 0 (float): Radiogenic heating rate in W/kg
+    """
+    Tbot_K = Ttop_K
+    Pb_MPa = Ptop_MPa
+    i = 0
+    while Tbot_K < Tb_K:
+        thisrTop_m = rTop_m - i*rRes_m
+        rBot_m = thisrTop_m - rRes_m
+        rho_kgm3 = EOS.fn_rho_kgm3(Pb_MPa, Tbot_K, grid=False)
+        kTherm_WmK = EOS.fn_kTherm_WmK(Pb_MPa, Tbot_K, grid=False)
+        Tbot_K, qTop_Wm2 = ConductiveTemperature(Tbot_K, thisrTop_m, rBot_m,
+                            kTherm_WmK, rho_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2)
+        MLayer_kg = 4/3 * np.pi * (thisrTop_m**3 - rBot_m**3) * rho_kgm3
+        gTop_ms2 = (gTop_ms2 * thisrTop_m**2 - Constants.G * MLayer_kg) / rBot_m**2
+        Pb_MPa += MLayer_kg * gTop_ms2 / (4*np.pi*rBot_m**2) / 1e6
+        i += 1
+
+    return Pb_MPa
 
