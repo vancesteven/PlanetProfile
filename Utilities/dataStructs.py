@@ -26,7 +26,9 @@ class BulkSubstruct():
         self.Cmeasured = None  # Axial moment of inertia C/MR^2, dimensionless
         self.Cuncertainty = None  # Uncertainty (std dev) of C/MR^2 (used to constrain models via consistency within the uncertainty), dimensionless
         self.phiSurface_frac = None  # Scaling value for the ice porosity at the surface (void fraction): falls within a range of 0 and 1. 0 is completely non-porous and larger than 0.2 is rare. From Han et al. (2014)
-        self.clathMaxDepth_m = None  # Fixed limit for thickness of clathrate layer in m
+        self.qSurf_Wm2 = None  # Heat flux leaving the planetary surface. Currently required only for clathType = 'bottom'.
+        self.clathMaxThick_m = None  # (Approximate) fixed limit for thickness of clathrate layer in m. Treated as an assumed layer thickness when clathType = 'bottom' or Do.NO_ICE_CONVECTION is True, and as a maximum for 'top', where clathrates are only modeled for the conductive lid.
+        self.clathType = None  # Type of model for sI methane clathrates in outer ice shell. Options are 'top', 'bottom', and 'whole', and indicate where clathrates are allowed to be and which type of model to use.
         self.TbIII_K = None  # Temperature at bottom of ice III underplate layer in K. Ranges from 248.85 to 256.164 K for transition to ice V and from 251.165 to 256.164 K for melting temp.
         self.TbV_K = None  # Temperature at bottom of ice V underplate layer in K. Ranges from 256.164 to 272.99 K for melting temp, and 218 to 272.99 for transition to ice VI.
         self.zbChangeTol_frac = 0.05  # Fractional change tolerance, which if exceeded, triggers IceConvect to run a second time for better self-consistency
@@ -70,9 +72,7 @@ class StepsSubstruct:
         self.nSil = None  # Derived final number of steps in silicate layers
         self.nCore = None  # Fixed number of steps in core layers, if present
         self.nIceIIILitho = 30  # Fixed number of layers to use for ice III when either BOTTOM_ICEIII or BOTTOM_ICEV is True.
-        self.nIceVLitho = 30  # Fixed number of layers to use for ice V when BOTTOM_ICEV is True.
-        self.eTBL_frac = 1/2  # Fraction of upper ice layers to use for upper thermal boundary layer conductive profile
-        self.deltaTBL_frac = 1/8  # Fraction of upper ice layers to use for lower thermal boundary layer conductive profile
+        self.nIceVLitho = 200  # Fixed number of layers to use for ice V when BOTTOM_ICEV is True.
 
 
 """ Hydrosphere assumptions """
@@ -163,34 +163,35 @@ class SeismicSubstruct:
 
     def __init__(self):
         self.lowQDiv = None  # Factor by which to divide the seismic attenuation Q to test out a low-Q value, dimensionless
+        # Attenuation Parameters Based on those Described in Cammarano et al. 2006
+        # Placeholder for clathrates, matching ice I
+        self.BClath = 0.56
+        self.gammaClath = 0.2
+        self.gClath = 22.0
         # Ice I
-        self.BClath = None
-        self.gammaClath = None
-        self.gClath = None
-        # Ice I
-        self.BIceI = None
-        self.gammaIceI = None
-        self.gIceI = None
+        self.BIceI = 0.56
+        self.gammaIceI = 0.2
+        self.gIceI = 22.0
         # Ice II
-        self.BIceII = None
-        self.gammaIceII = None
-        self.gIceII = None
+        self.BIceII = 0.56
+        self.gammaIceII = 0.2
+        self.gIceII = 30.0
         # Ice III
-        self.BIceIII = None
-        self.gammaIceIII = None
-        self.gIceIII = None
+        self.BIceIII = 0.56
+        self.gammaIceIII = 0.2
+        self.gIceIII = 25.0
         # Ice V
-        self.BIceV = None
-        self.gammaIceV = None
-        self.gIceV = None
+        self.BIceV = 0.56
+        self.gammaIceV = 0.2
+        self.gIceV = 27.0
         # Ice VI
-        self.BIceVI = None
-        self.gammaIceVI = None
-        self.gIceVI = None
-        # Silicates
-        self.BSil = None
-        self.gammaSil = None
-        self.gSil = None
+        self.BIceVI = 0.56
+        self.gammaIceVI = 0.2
+        self.gIceVI = 28.0
+        # Silcate mantle
+        self.BSil = 0.56
+        self.gammaSil = 0.2
+        self.gSil = 30.0
         # Core
         self.QScore = None  # For assigning a QS value to the core, in lieu of a calculation.
         # Derived quantities
@@ -234,7 +235,7 @@ class PlanetStruct:
 
         """ Derived quantities (assigned during PlanetProfile runs) """
         # Layer arrays
-        self.phase = None  # Phase of the layer input as an integer: ocean=0, ice I through VI are 1 through 6, clathrate=30, silicates=50, iron=100.
+        self.phase = None  # Phase of the layer input as an integer: ocean=0, ice I through VI are 1 through 6, clathrate=Constants.phaseClath, silicates=Constants.phaseSil, iron=Constants.phaseFe.
         self.r_m = None  # Distance from center of body to the outer bound of current layer in m
         self.z_m = None  # Distance from surface of body to the outer bound of current layer in m
         self.T_K = None  # Temperature of each layer in K
@@ -250,12 +251,13 @@ class PlanetStruct:
         self.kTherm_WmK = None  # Thermal conductivity of each layer in W/(mK)
         # Individual calculated quantities
         self.zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km in accordance with Vance et al. (2014)
-        self.zClath_m = None  # Thickness of clathrate layer at body surface in m
+        self.zClath_m = None  # Thickness of clathrate layer in surface ice in m
         self.Pb_MPa = None  # Pressure at ice-ocean interface in MPa
-        self.PbClath_MPa = None  # Pressure at bottom of clathrate layer in MPa
-        self.PbI_MPa = None  # Pressure at bottom of ice I layer in MPa
+        self.PbI_MPa = None  # Pressure at bottom of surface ice I/clathrate layer in MPa
         self.PbIII_MPa = None  # Pressure at ice III/ice V transition in MPa, only used when BOTTOM_ICEIII or BOTTOM_ICEV is True
         self.PbV_MPa = None  # Pressure at bottom of ice V layer in MPa, only used when BOTTOM_ICEV is True
+        self.PbClathMax_MPa = None  # Max pressure at the bottom of a clathrate lid. Actual PbClath may be reduced in convection calculations
+        self.TclathTrans_K = None  # Temperature at the transition from clathrates to ice I
         self.CMR2mean = None  # Mean value of axial moment of inertia that is consistent with profile core/mantle trades
         self.Tconv_K = None  # Temperature of "well-mixed" convecting region in ice I layer in K
         self.TconvIII_K = None  # Same as above but for ice III underplate layers.
@@ -338,21 +340,32 @@ class ParamsStruct:
 
 """ Physical constants """
 class ConstantsStruct:
-    """ General physical constants """
-    G = 6.673e-11  # "Big G" gravitational constant, m^3/kg/s
-    bar2GPa = 1.01325e-4  # Multiply by this to convert pressure from bars to GPa
-    bar2MPa = 1.01325e-1  # Same but for MPa
-    erg2J = 1e-7  # Multiply by this to convert from ergs to joules
-    T0 = 273.15  # The Celsius zero point in K.
-    P0 = 101325  # One standard atmosphere in Pa
-    R = 8.314  # Ideal gas constant in J/mol/K
-    QScore = 1e4  # Fixed QS value to use for core layers if not set in PPBody.py file
-    kThermWater_WmK = 0.5  # Fixed thermal conductivity of liquid water in W/(mK)
-    kThermSil_WmK = 4.0  # Fixed thermal conductivity of silicates in W/(mK)
-    kThermFe_WmK = 33.3  # Fixed thermal conductivity of core material in W/(mK)
-    Eact_kJmol = np.array([np.nan, 60, 76.5, 127, np.nan, 136, 110])  # Activation energy of ice phases in in kJ/mol
-    etaMelt_Pas = np.array([np.nan, 2e14, 1e18, 5e12, np.nan, 5e14, 5e14])  # Viscosity at the melting temperature of ice phases in Pa*s. Ice Ih value is from Tobie et al. (2003), others unknown
-    RaCrit = 1.2e4  # Roughly following Barr et al. (2004): https://doi.org/10.1029/2004JE002296, we choose a minimum value for RaCrit of 1.2e4, consistent with the "asymptotic" regime where large temperature perturbations can ~always force convection to occur.
-    PminHPices_MPa = 200.0  # Min plausible pressure of high-pressure ices for any ocean composition in MPa
+    def __init__(self):
+        """ General physical constants """
+        self.G = 6.673e-11  # "Big G" gravitational constant, m^3/kg/s
+        self.bar2GPa = 1.01325e-4  # Multiply by this to convert pressure from bars to GPa
+        self.bar2MPa = 1.01325e-1  # Same but for MPa
+        self.erg2J = 1e-7  # Multiply by this to convert from ergs to joules
+        self.T0 = 273.15  # The Celsius zero point in K.
+        self.P0 = 101325  # One standard atmosphere in Pa
+        self.R = 8.314  # Ideal gas constant in J/mol/K
+        self.QScore = 1e4  # Fixed QS value to use for core layers if not set in PPBody.py file
+        self.kThermWater_WmK = 0.5  # Fixed thermal conductivity of liquid water in W/(mK)
+        self.kThermSil_WmK = 4.0  # Fixed thermal conductivity of silicates in W/(mK)
+        self.kThermFe_WmK = 33.3  # Fixed thermal conductivity of core material in W/(mK)
+        self.phaseClath = 30  # Phase ID to use for (sI methane) clathrates. Must be larger than 6 to keep space for pure ice phases
+        self.phaseSil = 50  # Phase ID for silicates
+        self.phaseFe = 100  # Phase ID to use for iron core material
+        self.sigmaClath_Sm = 5e-5  # Roughly fixed conductivity in the range 260-281 K, as reported by Stern et al. (2021): https://doi.org/10.1029/2021GL093475
+        self.sigmaCO2Clath_Sm = 6.5e-4  # Also from Stern et al. (2021), at 273 K and 25% gas-filled porosity
+        self.EactCO2Clath_kJmol = 46.5  # Also from Stern et al. (2021)
+        # Initialize activation energies and melting point viscosities, for use in convection calculations
+        self.Eact_kJmol, self.etaMelt_Pas = (np.ones(self.phaseClath+1) * np.nan for _ in range(2))
+        self.Eact_kJmol[1:7] = np.array([59.4, 76.5, 127, np.nan, 136, 110])  # Activation energy for diffusion of ice phases Ih-VI in kJ/mol
+        self.Eact_kJmol[self.phaseClath] = 90.0  # From Durham et al. (2003), at 50 and 100 MPa and 260-283 K: https://doi.org/10.1029/2002JB001872
+        self.etaMelt_Pas[1:7] = np.array([1e14, 1e18, 5e12, np.nan, 5e14, 5e14])  # Viscosity at the melting temperature of ice phases Ih-VI in Pa*s. Ice Ih range of 5e13-1e16 is from Tobie et al. (2003), others unknown
+        self.etaMelt_Pas[self.phaseClath] = self.etaMelt_Pas[1] * 20  # Estimate of clathrate viscosity 20x that of ice Ih at comparable conditions from Durham et al. (2003): https://doi.org/10.1029/2002JB001872
+        self.PminHPices_MPa = 200.0  # Min plausible pressure of high-pressure ices for any ocean composition in MPa
+        self.PmaxLiquid_MPa = 2250.0  # Maximum plausible pressure for liquid water oceans
 
 Constants = ConstantsStruct()

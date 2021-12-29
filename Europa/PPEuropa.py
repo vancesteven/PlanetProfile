@@ -66,31 +66,6 @@ Planet.Core.xH2O = 0.0035
 
 """ Seismic properties of solids """
 Planet.Seismic.lowQDiv = 1.0
-# Attenuation Parameters Based on those Described in Cammarano et al. 2006
-# ice I
-Planet.Seismic.BIceI = 0.56
-Planet.Seismic.gammaIceI = 0.2
-Planet.Seismic.gIceI = 22.0
-# ice II
-Planet.Seismic.BIceII = 0.56
-Planet.Seismic.gammaIceII = 0.2
-Planet.Seismic.gIceII = 30.0
-# ice III
-Planet.Seismic.BIceIII = 0.56
-Planet.Seismic.gammaIceIII = 0.2
-Planet.Seismic.gIceIII = 25.0
-# ice V
-Planet.Seismic.BIceV = 0.56
-Planet.Seismic.gammaIceV = 0.2
-Planet.Seismic.gIceV = 27.0
-# ice VI
-Planet.Seismic.BIceVI = 0.56
-Planet.Seismic.gammaIceVI = 0.2
-Planet.Seismic.gIceVI = 28.0
-# mantle
-Planet.Seismic.BSil = 0.56
-Planet.Seismic.gammaSil = 0.2
-Planet.Seismic.gSil = 30.0
 
 """ Magnetic induction """
 Planet.Magnetic.peaks_Hz = np.array([4.946e-5, 2.473e-5, 3.259e-6])
