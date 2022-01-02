@@ -36,48 +36,48 @@ def IceLayers(Planet, Params):
             (Planet.Bulk.clathType == 'bottom' or
              Planet.Bulk.clathType == 'whole')):
         PbClath_MPa = GetPbClath(Planet.Bulk.Tb_K)
-        if Params.VERBOSE: print('Clathrate dissociation pressure: ' + str(round(PbClath_MPa,3)) + ' MPa.')
+        if Params.VERBOSE: print(f'Clathrate dissociation pressure: {PbClath_MPa:.3f} MPa.')
         if PbClath_MPa < Planet.PbI_MPa:
             raise ValueError('Dissociation pressure for clathrates is lower than the ice Ih ' +
                              'melting pressure consistent with Bulk.Tb_K. This means ice Ih layers ' +
                              'will be found underneath the clathrate layers, inconsistent with the ' +
                              'assumption that clathrates are in contact with the ocean. Increase ' +
-                             'Bulk.Tb_K until PbClath_MPa (' + str(round(PbClath_MPa,3)) +
-                             ' MPa) exceeds PbI_MPa (' + str(round(Planet.PbI_MPa,3)) + ' MPa).')
+                             f'Bulk.Tb_K until PbClath_MPa ({PbClath_MPa:.3f} MPa) ' +
+                             f'exceeds PbI_MPa ({Planet.PbI_MPa:.3f} MPa).')
         Planet.PbI_MPa = PbClath_MPa
-    elif Params.VERBOSE: print('Ice Ih transition pressure: ' + str(round(Planet.PbI_MPa,3)) + ' MPa.')
+    elif Params.VERBOSE: print(f'Ice Ih transition pressure: {Planet.PbI_MPa:.3f} MPa.')
 
     # Now do the same for HP ices, if present, to make sure we have a possible configuration before continuing
     if Planet.Do.BOTTOM_ICEV:
         Planet.PbIII_MPa = GetPfreezeHP(Planet.Ocean.EOS, Planet.PbI_MPa, Planet.Bulk.TbIII_K, 3,
                                         PUpper_MPa=Planet.Ocean.PHydroMax_MPa)
         if(Planet.PbIII_MPa <= Planet.PbI_MPa):
-            raise ValueError('Ice III bottom pressure is not greater than ice I bottom pressure. '+
-                             'This likely indicates TbIII_K is too high for the corresponding Tb_K.'+
-                             '\nPbI_MPa = ' + str(round(Planet.PbI_MPa,3)) +
-                             ', Tb_K = ' + str(round(Planet.Bulk.Tb_K,3)) +
-                             '\nPbIII_MPa = ' + str(round(Planet.PbIII_MPa,3)) +
-                             ', TbIII_K = ' + str(round(Planet.Bulk.TbIII_K,3)))
+            raise ValueError('Ice III bottom pressure is not greater than ice I bottom pressure. ' +
+                             'This likely indicates TbIII_K is too high for the corresponding Tb_K.' +
+                             f'\nPbI_MPa = {Planet.PbI_MPa:.3f}' +
+                             f', Tb_K = {Planet.Bulk.Tb_K:.3f}' +
+                             f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' +
+                             f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}')
         Planet.PbV_MPa = GetPmeltHP(Planet.Ocean.EOS, Planet.PbIII_MPa, Planet.Bulk.TbV_K, 5,
                                         PUpper_MPa=Planet.Ocean.PHydroMax_MPa)
         Planet.Pb_MPa = Planet.PbV_MPa
         if(Planet.PbV_MPa <= Planet.PbIII_MPa):
-            raise ValueError('Ice V bottom pressure is not greater than ice III bottom pressure. '+
-                             'This likely indicates TbV_K is too high for the corresponding TbIII_K.'+
-                             '\nPbIII_MPa = ' + str(round(Planet.PbIII_MPa,3)) +
-                             ', TbIII_K = ' + str(round(Planet.Bulk.TbIII_K,3)) +
-                             '\nPbV_MPa = ' + str(round(Planet.PbV_MPa,3)) +
-                             ', TbV_K = ' + str(round(Planet.Bulk.TbV_K,3)))
+            raise ValueError('Ice V bottom pressure is not greater than ice III bottom pressure. ' +
+                             'This likely indicates TbV_K is too high for the corresponding TbIII_K.' +
+                             f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' +
+                             f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}' +
+                             f'\nPbV_MPa = {Planet.PbV_MPa:.3f}' +
+                             f', TbV_K = {Planet.Bulk.TbV_K:.3f}')
     elif Planet.Do.BOTTOM_ICEIII:
         Planet.PbIII_MPa = GetPmeltHP(Planet.Ocean.EOS, Planet.PbI_MPa, Planet.Bulk.TbIII_K, 3,
                                         PUpper_MPa=Planet.Ocean.PHydroMax_MPa)
         if(Planet.PbIII_MPa <= Planet.PbI_MPa):
-            raise ValueError('Ice III bottom pressure is not greater than ice I bottom pressure. '+
-                             'This likely indicates TbIII_K is too high for the corresponding Tb_K.'+
-                             '\nPbI_MPa = ' + str(round(Planet.PbI_MPa,3)) +
-                             ', Tb_K = ' + str(round(Planet.Bulk.Tb_K,3)) +
-                             '\nPbIII_MPa = ' + str(round(Planet.PbIII_MPa,3)) +
-                             ', TbIII_K = ' + str(round(Planet.Bulk.TbIII_K,3)))
+            raise ValueError('Ice III bottom pressure is not greater than ice I bottom pressure. ' +
+                             'This likely indicates TbIII_K is too high for the corresponding Tb_K.' +
+                             f'\nPbI_MPa = {Planet.PbI_MPa:.3f}' +
+                             f', Tb_K = {Planet.Bulk.Tb_K:.3f}' +
+                             f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' +
+                             f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}')
         Planet.Pb_MPa = Planet.PbIII_MPa
     else:
         Planet.Pb_MPa = Planet.PbI_MPa
@@ -111,7 +111,7 @@ def IceLayers(Planet, Params):
             Planet.phase[:Planet.Steps.nIbottom] = Constants.phaseClath
             Planet = IceIWholeConduct(Planet, Params)
         else:
-            raise ValueError('Bulk.clathType option "' + Planet.Bulk.clathType + '" is not supported. ' +
+            raise ValueError(f'Bulk.clathType option "{Planet.Bulk.clathType}" is not supported. ' +
                              'Options are "top", "bottom", and "whole".')
     else:
         Planet = IceIWholeConduct(Planet, Params)
@@ -129,8 +129,8 @@ def IceLayers(Planet, Params):
         # Run IceIConvect a second time if zbI_m changed by more than a set tolerance
         if(np.abs(Planet.z_m[Planet.Steps.nIbottom-1] - zbOld_m)/Planet.z_m[Planet.Steps.nIbottom-1] > Planet.Bulk.zbChangeTol_frac):
             if Params.VERBOSE: print('The bottom depth of surface ice I changed by ' +
-                str(round((Planet.z_m[Planet.Steps.nIbottom-1] - zbOld_m)/1e3,2)) + ' km from IceIConvect, which is greater than ' +
-                str(Planet.Bulk.zbChangeTol_frac * 100) + '%. running IceIConvect a second time...')
+                f'{(Planet.z_m[Planet.Steps.nIbottom-1] - zbOld_m)/1e3:.2f} km from IceIConvect, which is greater than ' +
+                f'{Planet.Bulk.zbChangeTol_frac * 100:.0f}%. running IceIConvect a second time...')
             if Planet.Do.CLATHRATE and Planet.Bulk.clathType == 'whole':
                 Planet = ClathShellConvect(Planet, Params)
             else:
@@ -154,8 +154,8 @@ def IceLayers(Planet, Params):
         Planet = IceIIIUnderplate(Planet, Params)
 
     Planet.zb_km = Planet.z_m[Planet.Steps.nSurfIce-1] / 1e3
-    if Params.VERBOSE: print('Upper ice transition pressure: ' + str(round(Planet.Pb_MPa,3)) +
-                             ' MPa, thickness: ' + str(round(Planet.zb_km,3)) + ' km.')
+    if Params.VERBOSE: print(f'Upper ice transition pressure: {Planet.Pb_MPa:.3f} MPa, ' +
+                             f'thickness: {Planet.zb_km:.3f} km.')
 
     return Planet
 
@@ -168,8 +168,8 @@ def IceIIIUnderplate(Planet, Params):
             PbIII_MPa, all physical layer arrays
     """
 
-    if Params.VERBOSE: print('Ice III bottom phase transition pressure: ' + str(round(Planet.PbIII_MPa,3)) +
-                             ' MPa at TbIII_K = ' + str(round(Planet.Bulk.TbIII_K,3)) + ' K.')
+    if Params.VERBOSE: print(f'Ice III bottom phase transition pressure: {Planet.PbIII_MPa:.3f} MPa ' +
+                             f'at TbIII_K = {Planet.Bulk.TbIII_K:.3f} K.')
 
     Planet = IceIIIConduct(Planet, Params)
 
@@ -181,8 +181,8 @@ def IceIIIUnderplate(Planet, Params):
         # Run IceIIIConvect a second time if zbIII_m changed by more than a set tolerance
         if(np.abs(Planet.z_m[Planet.Steps.nIIIbottom-1] - zbIIIold_m)/Planet.z_m[Planet.Steps.nIIIbottom-1] > Planet.Bulk.zbChangeTol_frac):
             if Params.VERBOSE: print('The bottom depth of underplate ice III changed by ' +
-                str(round((Planet.z_m[Planet.Steps.nIIIbottom-1] - zbIIIold_m)/1e3,2)) + ' km from IceIIIConvect, which is greater than ' +
-                str(Planet.Bulk.zbChangeTol_frac * 100) + '%. running IceIIIConvect a second time...')
+                f'{(Planet.z_m[Planet.Steps.nIIIbottom-1] - zbIIIold_m)/1e3:.2f} km from IceIIIConvect, which is greater than ' +
+                f'{Planet.Bulk.zbChangeTol_frac * 100:.0f}%. running IceIIIConvect a second time...')
             Planet = IceIIIConvect(Planet, Params)
     else:
         if Params.VERBOSE: print('NO_ICE_CONVECTION is True -- skipping ice III convection calculations.')
@@ -197,8 +197,8 @@ def IceVUnderplate(Planet, Params):
         Assigns Planet attributes:
             PbV_MPa, all physical layer arrays
     """
-    if Params.VERBOSE: print('Ice V bottom phase transition pressure: ' + str(round(Planet.PbV_MPa,3)) +
-                             ' MPa at TbV_K = ' + str(round(Planet.Bulk.TbV_K,3)) + ' K.')
+    if Params.VERBOSE: print(f'Ice V bottom phase transition pressure: {Planet.PbV_MPa:.3f} MPa ' +
+                             f'at TbV_K = {Planet.Bulk.TbV_K:.3f} K.')
 
     Planet = IceVConduct(Planet, Params)
 
@@ -210,8 +210,8 @@ def IceVUnderplate(Planet, Params):
         # Run IceVConvect a second time if zbV_m changed by more than a set tolerance
         if(np.abs(Planet.z_m[Planet.Steps.nSurfIce-1] - zbVold_m)/Planet.z_m[Planet.Steps.nSurfIce-1] > Planet.Bulk.zbChangeTol_frac):
             if Params.VERBOSE: print('The bottom depth of underplate ice V changed by ' +
-                str(round((Planet.z_m[Planet.Steps.nSurfIce-1] - zbVold_m)/1e3,2)) + ' km from IceVConvect, which is greater than ' +
-                str(Planet.Bulk.zbChangeTol_frac * 100) + '%. running IceVConvect a second time...')
+                f'{(Planet.z_m[Planet.Steps.nSurfIce-1] - zbVold_m)/1e3:.2f} km from IceVConvect, which is greater than ' +
+                f'{Planet.Bulk.zbChangeTol_frac * 100:.0f}%. running IceVConvect a second time...')
             Planet = IceVConvect(Planet, Params)
     else:
         if Params.VERBOSE: print('NO_ICE_CONVECTION is True -- skipping ice V convection calculations.')
@@ -249,10 +249,8 @@ def OceanLayers(Planet, Params):
 
     for i in range(Planet.Steps.nOceanMax):
         Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int_)
-        if Params.VERBOSE: print('il: '+str(Planet.Steps.nSurfIce+i) +
-                               '; P_MPa: '+str(round(POcean_MPa[i],3)) +
-                               '; T_K: '+str(round(TOcean_K[i],3)) +
-                               '; phase: '+str(Planet.phase[Planet.Steps.nSurfIce+i]))
+        if Params.VERBOSE: print(f'il: {Planet.Steps.nSurfIce+i:d}; P_MPa: {POcean_MPa[i]:.3f}; ' +
+                                 f'T_K: {TOcean_K[i]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce+i]:d}')
         if Planet.phase[Planet.Steps.nSurfIce+i] == 0:
             # Liquid water layers -- get fluid properties for the present layer but with the
             # overlaying layer's temperature
@@ -423,11 +421,11 @@ def InnerLayers(Planet, Params):
 
     # Check for any negative temperature gradient (indicates non-equilibrium conditions)
     gradTneg = np.where(np.diff(Planet.T_K) < 0)
-    if np.any(gradTneg): print('WARNING: Negative temperature gradient starting at index ' + str(gradTneg[0][0])
-                               + '. This indicates that internal heating parameters Qrad_Wkg and/or '
-                               + 'Htidal_Wm3 are set too high to be consistent with the heat flux '
-                               + 'into the ocean. The current configuration represents a '
-                               + 'non-equilibrium state.')
+    if np.any(gradTneg): print(f'WARNING: Negative temperature gradient starting at index {gradTneg[0][0]:d}. ' +
+                               'This indicates that internal heating parameters Qrad_Wkg and/or ' +
+                               'Htidal_Wm3 are set too high to be consistent with the heat flux ' +
+                               'into the ocean. The current configuration represents a ' +
+                               'non-equilibrium state.')
 
     return Planet
 
@@ -499,10 +497,8 @@ def CalcMoIConstantRho(Planet, Params):
             suggestion = 'Try adjusting properties of silicates and core to get C/MR^2 values in range.'
         else:
             suggestion = 'Try increasing PHydroMax_MPa to get lower C/MR^2 values.'
-        raise ValueError('No MoI found matching ' +
-                         'C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured, 3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + '.\n ' +
-                         'Min: ' + str(round(np.min(CMR2[CMR2>0]),3)) + ', Max: ' + str(round(np.max(CMR2),3)) + '.\n ' +
-                         suggestion)
+        raise ValueError(f'No MoI found matching C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}.\n' +
+                         f'Min: {np.min(CMR2[CMR2>0]):.3f}, Max: {np.max(CMR2):.3f}.\n' + suggestion)
 
     # Find the C/MR^2 value most closely matching the measured value
     CMR2diff = np.abs(CMR2[CMR2inds] - Planet.Bulk.Cmeasured)
@@ -564,13 +560,13 @@ def CalcMoIConstantRho(Planet, Params):
 
         if Params.VERBOSE:
             Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
-            print('Found matching MoI of ' + str(round(Planet.CMR2mean,3)) +
-                ' (C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured,3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + ') for ' +
-                  'R_sil = ' + str(round(Planet.Sil.Rmean_m / Planet.Bulk.R_m,2)) + ' R, ' +
-                  'R_core = ' + str(round(Planet.Core.Rmean_m / Planet.Bulk.R_m,2)) + ' R, ' +
-                  'rho_sil (found) = ' + str(round(rhoSil_kgm3[iCMR2inner])) + ' kg/m^3, ' +
-                  'rho_sil (actual) = ' + str(round(Planet.Sil.rhoMean_kgm3)) + ' kg/m^3, ' +
-                  'M_tot = ' + str(round(Mtot_kg/Planet.Bulk.M_kg,4)) + ' M_' + Planet.name[0] + '.')
+            print(f'Found matching MoI of {Planet.CMR2mean:.3f} ' +
+                  f'(C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}) for ' +
+                  f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.2f} R, ' +
+                  f'R_core = {Planet.Core.Rmean_m / Planet.Bulk.R_m:.2f} R, ' +
+                  f'rho_sil (found) = {rhoSil_kgm3[iCMR2inner]:.0f} kg/m^3, ' +
+                  f'rho_sil (actual) = {Planet.Sil.rhoMean_kgm3:.0f} kg/m^3, ' +
+                  f'M_tot = {Mtot_kg/Planet.Bulk.M_kg:.4f} M_{Planet.name[0]}.')
             print('WARNING: Because silicate and core properties were determined from the EOS after finding their ' +
                   'sizes by assuming constant densities, the body mass may not match the measured value.')
 
@@ -631,7 +627,8 @@ def CalcMoIWithEOS(Planet, Params):
         # but there's no example to draw from for tweaking these to match the MoI yet.
         coreProps = None
         nSilFinal = Planet.Steps.nSilMax
-        raise ValueError('Handling for MoI matching with silicate EOS and no core is not implemented yet. Set Planet.Do.CONSTANT_INNER_DENSITY to True and run again.')
+        raise ValueError('Handling for MoI matching with silicate EOS and no core is not implemented yet. ' +
+                         'Set Planet.Do.CONSTANT_INNER_DENSITY to True and run again.')
 
     # Calculate C for a mantle extending up to each hydrosphere layer in turn
     C_kgm2 = np.zeros(nProfiles + Planet.Steps.iSilStart)
@@ -650,10 +647,8 @@ def CalcMoIWithEOS(Planet, Params):
             suggestion = 'Try increasing PHydroMax_MPa to get lower C/MR^2 values.'
         else:
             suggestion = 'Try adjusting properties of silicates and core to get higher C/MR^2 values.'
-        raise ValueError('No MoI found matching ' +
-                         'C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured, 3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + '.\n ' +
-                         'Min: ' + str(round(np.min(CMR2[CMR2>0]),3)) + ', Max: ' + str(round(np.max(CMR2),3)) + '.\n ' +
-                         suggestion)
+        raise ValueError(f'No MoI found matching C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}.\n' +
+                         f'Min: {np.min(CMR2[CMR2>0]):.3f}, Max: {np.max(CMR2):.3f}.\n ' + suggestion)
 
     # Find the C/MR^2 value most closely matching the measured value
     CMR2diff = np.abs(CMR2[CMR2inds] - Planet.Bulk.Cmeasured)
@@ -700,12 +695,12 @@ def CalcMoIWithEOS(Planet, Params):
 
     if Params.VERBOSE:
         Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
-        print('Found matching MoI of ' + str(round(Planet.CMR2mean,3)) +
-            ' (C/MR^2 = ' + str(round(Planet.Bulk.Cmeasured,3)) + '±' + str(round(Planet.Bulk.Cuncertainty,3)) + ') for ' +
-              'rho_sil = ' + str(round(Planet.Sil.rhoMean_kgm3)) + ' kg/m^3, ' +
-              'R_sil = ' + str(round(Planet.Sil.Rmean_m / Planet.Bulk.R_m,2)) + ' R, ' +
-              'R_core = ' + str(round(Planet.Core.Rmean_m / Planet.Bulk.R_m,2)) + ' R, ' +
-              'M_tot = ' + str(round(Mtot_kg/Planet.Bulk.M_kg,4)) + ' M_' + Planet.name[0] + '.')
+        print(f'Found matching MoI of {Planet.CMR2mean:.3f} ' +
+              f'(C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}) for ' +
+              f'rho_sil = {Planet.Sil.rhoMean_kgm3:.0f} kg/m^3, ' +
+              f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.2f} R, ' +
+              f'R_core = {Planet.Core.Rmean_m / Planet.Bulk.R_m:.2f} R, ' +
+              f'M_tot = {Mtot_kg/Planet.Bulk.M_kg:.4f} M_{Planet.name[0]}.')
 
     mantleProps = (Psil_MPa[iCMR2sil,:nSilFinal[iCMR2sil]], Tsil_K[iCMR2sil,:nSilFinal[iCMR2sil]],
                    rSil_m[iCMR2sil,:nSilFinal[iCMR2sil]], rhoSil_kgm3[iCMR2sil,:nSilFinal[iCMR2sil]],
@@ -781,8 +776,8 @@ def SilicateLayers(Planet, Params):
         gSil_ms2[:,j] = Constants.G * np.abs(Planet.Bulk.M_kg - MAboveSil_kg[:,j]) / rSil_m[:,j]**2
 
     if np.any(Tsil_K < 0):
-        raise RuntimeError('Negative temperatures encountered in silicates. This likely indicates Qrad_Wkg + Htidal_Wm3' +
-                           ' is too high to be consistent with the heat flow through the ice shell.')
+        raise RuntimeError('Negative temperatures encountered in silicates. This likely indicates Qrad_Wkg + Htidal_Wm3 ' +
+                           'is too high to be consistent with the heat flow through the ice shell.')
 
     if Planet.Do.CONSTANT_INNER_DENSITY:
         # Include all indices for later calculations if we already found the desired C/MR^2 match
@@ -794,9 +789,9 @@ def SilicateLayers(Planet, Params):
         indsSilValid = np.where(Mtot_kg <= Planet.Bulk.M_kg)[0]
         if(np.size(indsSilValid) == 0):
             raise RuntimeError('No silicate mantle size was less than the total body mass.\n' +
-                               'Min mass: ' + str(round(np.min(Mtot_kg/Planet.Bulk.M_kg),3)) + ' M_' + Planet.name[0] +
-                               ', max mass: ' + str(round(np.max(Mtot_kg/Planet.Bulk.M_kg),3)) + ' M_' + Planet.name[0] +
-                               '. Try adjusting run settings that affect mantle density, like silicate composition ' +
+                               f'Min mass: {np.min(Mtot_kg/Planet.Bulk.M_kg):.3f} M_{Planet.name[0]}, ' +
+                               f'max mass: {np.max(Mtot_kg/Planet.Bulk.M_kg):.3f} M_{Planet.name[0]}. ' +
+                               'Try adjusting run settings that affect mantle density, like silicate composition ' +
                                'and heat flux settings.')
 
     return indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, \
@@ -878,9 +873,8 @@ def IronCoreLayers(Planet, Params,
             Mtot_kg = MAbove_kg + thisMLayerCore_kg[:,-1]
             iCoreMatch[iProf] = next(ii[0] for ii,val in np.ndenumerate(Mtot_kg) if val < Planet.Bulk.M_kg)
             nSilFinal[iProf] = iCoreStart[iValid] + iCoreMatch[iProf]
-            if Params.VERBOSE: print('Core match for iProf = ' + str(iProf) +
-                                     ' with Steps.nSil = ' + str(nSilFinal[iProf]) +
-                                     ' and M = ' + str(round(Mtot_kg[iCoreMatch[iProf]]/Planet.Bulk.M_kg,4)) + ' M_P.')
+            if Params.VERBOSE: print(f'Core match for iProf = {iProf:d} with Steps.nSil = {nSilFinal[iProf]:d} ' +
+                                     f'and M = {Mtot_kg[iCoreMatch[iProf]]/Planet.Bulk.M_kg:.4f} M_{Planet.name[0]}.')
 
         # Assign the values for the core profile with matching total mass to output arrays
         Pcore_MPa[iValid,:] = thisPcore_MPa[iCoreMatch[iProf],:]

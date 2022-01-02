@@ -46,10 +46,7 @@ def IceIWholeConduct(Planet, Params):
         thisMAbove_kg += Planet.MLayer_kg[i-1]
         thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
         Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-        if Params.VERBOSE: print('il: ' + str(i) +
-                                 '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                 '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                 '; phase: ' + str(Planet.phase[i]))
+        if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     return Planet
 
@@ -94,14 +91,14 @@ def IceIConductClathLid(Planet, Params):
                                Planet.g_ms2[0], qTop_Wm2, Planet.Ocean.surfIceEOS['Clath'],
                                rRes_m=Planet.Bulk.clathMaxThick_m/Planet.Steps.nClath/2)
     if Params.VERBOSE: print('Found approx. bottom pressure of clathrate layer at ' +
-                             str(round(Planet.PbClathMax_MPa,3)) + ' MPa for Bulk.clathMaxThick = ' +
-                             str(round(Planet.Bulk.clathMaxThick_m/1e3,3)) + ' km and DeltaTclath = ' +
-                             str(round(Planet.TclathTrans_K - Planet.Bulk.Tsurf_K,3)) + ' K.')
+                             f'{Planet.PbClathMax_MPa:.3f} MPa for Bulk.clathMaxThick = ' +
+                             f'{Planet.Bulk.clathMaxThick_m/1e3:.3f} km and DeltaTclath = ' +
+                             f'{Planet.TclathTrans_K - Planet.Bulk.Tsurf_K:.3f} K.')
     if Planet.PbClathMax_MPa > Planet.PbI_MPa:
-        raise ValueError('Clathrate transition pressure of ' + str(round(Planet.PbClathMax_MPa,3)) + ' MPa is less ' +
-                         'than ice I melting pressure of ' + str(round(Planet.PbI_MPa,3)) + ' MPa. Bulk.clathMaxThick ' +
-                         '= ' + str(round(Planet.Bulk.clathMaxThick_m/1e3,3)) + ' km is likely too large for Tb = ' +
-                         str(round(Planet.Bulk.Tb_K,3)) + ' K.')
+        raise ValueError(f'Clathrate transition pressure of {Planet.PbClathMax_MPa:.3f} MPa is less ' +
+                         f'than ice I melting pressure of {Planet.PbI_MPa:.3f} MPa. Bulk.clathMaxThick ' +
+                         f'= {Planet.Bulk.clathMaxThick_m/1e3:.3f} km is likely too large for Tb = ' +
+                         f'{Planet.Bulk.Tb_K:.3f} K.')
 
     # Reset thermal and pressure profiles to be linear in P and adiabatic in T
     # Include 1 extra for P and T to assign next phase to the values at the
@@ -146,10 +143,7 @@ def IceIConductClathLid(Planet, Params):
         thisMAbove_kg += Planet.MLayer_kg[i-1]
         thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
         Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-        if Params.VERBOSE: print('il: ' + str(i) +
-                                 '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                 '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                 '; phase: ' + str(Planet.phase[i]))
+        if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     Planet.zClath_m = Planet.z_m[Planet.Steps.nClath]
 
@@ -248,10 +242,7 @@ def IceIConductClathUnderplate(Planet, Params):
         thisMAbove_kg += Planet.MLayer_kg[i-1]
         thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
         Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-        if Params.VERBOSE: print('il: ' + str(i) +
-                                 '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                 '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                 '; phase: ' + str(Planet.phase[i]))
+        if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     return Planet
 
@@ -290,10 +281,7 @@ def IceIIIConduct(Planet, Params):
         thisMAbove_kg += Planet.MLayer_kg[i-1]
         thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
         Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-        if Params.VERBOSE: print('il: ' + str(i) +
-                                 '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                 '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                 '; phase: ' + str(Planet.phase[i]))
+        if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     return Planet
 
@@ -332,8 +320,6 @@ def IceVConduct(Planet, Params):
         thisMAbove_kg += Planet.MLayer_kg[i-1]
         thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
         Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-        if Params.VERBOSE: print('il: ' + str(i) +
-                                 '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                 '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                 '; phase: ' + str(Planet.phase[i]))
+        if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+
     return Planet

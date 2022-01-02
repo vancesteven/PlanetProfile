@@ -28,16 +28,16 @@ def IceIConvect(Planet, Params):
                                      zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.EOS,
                                      Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q)
 
-    if Params.VERBOSE: print('Ice I convection parameters:\nT_convect = ' + str(round(Planet.Tconv_K,3)) + ' K,\n' +
-                             'Viscosity etaConvect = {:.3e} Pa*s,\n'.format(Planet.etaConv_Pas) +
-                             'Conductive lid thickness eLid_m = ' + str(round(Planet.eLid_m/1e3,1)) + ' km,\n' +
-                             'Lower TBL thickness deltaTBL_m = ' + str(round(Planet.deltaTBL_m/1e3,1)) + ' km,\n' +
-                             'Rayleigh number Ra = {:.3e}.'.format(Planet.RaConvect))
+    if Params.VERBOSE: print(f'Ice I convection parameters:\nT_convect = {Planet.Tconv_K:.3f} K,\n' +
+                             f'Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
+                             f'Conductive lid thickness eLid_m = {Planet.eLid_m/1e3:.1f} km,\n' +
+                             f'Lower TBL thickness deltaTBL_m = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
+                             f'Rayleigh number Ra = {Planet.RaConvect:.3e}.')
 
     # Check for whole-lid conduction
     if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
-        if Params.VERBOSE: print('Ice shell thickness ('+str(round(zbI_m/1e3,1))+' km) is less than that of the thermal'+
-                                 ' boundary layers, convection is absent.\nApplying whole-shell conductive profile.')
+        if Params.VERBOSE: print(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
+                                  'boundary layers--convection is absent.\nApplying whole-shell conductive profile.')
 
         # Recalculate heat flux, as it will be too high for conduction-only:
         qSurf_Wm2 = (Planet.T_K[1] - Planet.T_K[0]) / (Planet.r_m[0] - Planet.r_m[1]) * Planet.kTherm_WmK[0]
@@ -90,7 +90,7 @@ def IceIConvect(Planet, Params):
                           'surface, so the properties of the ice I conductive layer between the clathrate lid and ' +
                           'convective region are likely to be physically inconsistent (i.e., an unrealistically low ' +
                           'thermal conductivity). Increase Bulk.clathMaxDepth_m to greater than ' +
-                          str(round(Planet.eLid_m/1e3,3)) + ' km for these run settings to avoid this problem.')
+                          f'{Planet.eLid_m/1e3:.3f} km for these run settings to avoid this problem.')
                     # Keep existing transition (P,T) from clathrates to ice I
                     Planet.P_MPa[:Planet.Steps.nClath] = np.linspace(Planet.P_MPa[0], Planet.PbClathMax_MPa, Planet.Steps.nClath+1)[:-1]
                     Planet.P_MPa[Planet.Steps.nClath:Planet.Steps.nIbottom+1] = \
@@ -115,8 +115,7 @@ def IceIConvect(Planet, Params):
                     = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.P_MPa[:Planet.Steps.nClath],
                                                                      Planet.T_K[:Planet.Steps.nClath], grid=False)
             else:
-                raise ValueError('IceIConvect behavior is not defined for Bulk.clathType "' +
-                                 Planet.Bulk.clathType + '".')
+                raise ValueError(f'IceIConvect behavior is not defined for Bulk.clathType "{Planet.Bulk.clathType}".')
         else:
             if Params.VERBOSE: print('Modeling ice I conduction in stagnant lid...')
             # Reassign conductive profile with new bottom temperature for conductive layer
@@ -146,10 +145,7 @@ def IceIConvect(Planet, Params):
             thisMAbove_kg += Planet.MLayer_kg[i-1]
             thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
             Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-            if Params.VERBOSE: print('il: ' + str(i) +
-                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                     '; phase: ' + str(Planet.phase[i]))
+            if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
         if Params.VERBOSE: print('Stagnant lid conductive profile complete. Modeling ice I convecting layer...')
 
@@ -169,10 +165,7 @@ def IceIConvect(Planet, Params):
             Planet.Cp_JkgK[i] = Planet.Ocean.surfIceEOS['Ih'].fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.alpha_pK[i] = Planet.Ocean.surfIceEOS['Ih'].fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.kTherm_WmK[i] = Planet.Ocean.surfIceEOS['Ih'].fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
-            if Params.VERBOSE: print('il: ' + str(i) +
-                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                     '; phase: ' + str(Planet.phase[i]))
+            if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
         if Params.VERBOSE: print('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
@@ -198,10 +191,7 @@ def IceIConvect(Planet, Params):
             thisMAbove_kg += Planet.MLayer_kg[i-1]
             thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
             Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-            if Params.VERBOSE: print('il: ' + str(i) +
-                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                     '; phase: ' + str(Planet.phase[i]))
+            if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     if Params.VERBOSE: print('Ice I convection calculations complete.')
 
@@ -228,16 +218,16 @@ def IceIIIConvect(Planet, Params):
                                      Planet.g_ms2[Planet.Steps.nIbottom], PmidIII_MPa, Planet.Ocean.EOS,
                                      Planet.Ocean.surfIceEOS['III'], 3, Planet.Do.EQUIL_Q)
 
-    if Params.VERBOSE: print('Ice III convection parameters:\nT_convectIII = ' + str(round(Planet.TconvIII_K,3)) + ' K,\n' +
-                             'Viscosity etaConvectIII = {:.3e} Pa*s,\n'.format(Planet.etaConvIII_Pas) +
-                             'Conductive lid thickness eLidIII_m = ' + str(round(Planet.eLidIII_m/1e3,1)) + ' km,\n' +
-                             'Lower TBL thickness deltaTBLIII_m = ' + str(round(Planet.deltaTBLIII_m/1e3,1)) + ' km,\n' +
-                             'Rayleigh number RaIII = {:.3e}.'.format(Planet.RaConvectIII))
+    if Params.VERBOSE: print(f'Ice III convection parameters:\nT_convectIII = {Planet.TconvIII_K:.3f} K,\n' +
+                             f'Viscosity etaConvectIII = {Planet.etaConvIII_Pas:.3e} Pa*s,\n' +
+                             f'Conductive lid thickness eLidIII_m = {Planet.eLidIII_m/1e3:.1f} km,\n' +
+                             f'Lower TBL thickness deltaTBLIII_m = {Planet.deltaTBLIII_m/1e3:.1f} km,\n' +
+                             f'Rayleigh number RaIII = {Planet.RaConvectIII:.3e}.')
 
     # Check for whole-lid conduction
     if(zbIII_m <= Planet.eLidIII_m + Planet.deltaTBLIII_m):
-        if Params.VERBOSE: print('Underplate ice III thickness ('+str(round(zbIII_m/1e3,1))+' km) is less than that of the thermal'+
-                                 ' boundary layers, convection is absent.\nApplying whole-layer conductive profile.')
+        if Params.VERBOSE: print(f'Underplate ice III thickness ({zbIII_m/1e3:.1f} km) is less than that of the thermal ' +
+                                 'boundary layers--convection is absent.\nApplying whole-layer conductive profile.')
 
         # We leave the remaining quantities as initially assigned,
         # as we find the initial profile assuming conduction only.
@@ -281,10 +271,7 @@ def IceIIIConvect(Planet, Params):
             thisMAbove_kg += Planet.MLayer_kg[i-1]
             thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
             Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-            if Params.VERBOSE: print('il: ' + str(i) +
-                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                     '; phase: ' + str(Planet.phase[i]))
+            if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
         if Params.VERBOSE: print('Stagnant lid conductive profile complete. Modeling ice III convecting layer...')
 
@@ -304,18 +291,15 @@ def IceIIIConvect(Planet, Params):
             Planet.Cp_JkgK[i] = Planet.Ocean.surfIceEOS['III'].fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.alpha_pK[i] = Planet.Ocean.surfIceEOS['III'].fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.kTherm_WmK[i] = Planet.Ocean.surfIceEOS['III'].fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
-            if Params.VERBOSE: print('il: ' + str(i) +
-                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                     '; phase: ' + str(Planet.phase[i]))
+            if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
         if Params.VERBOSE: print('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         if(Planet.T_K[iConvectEnd-1] > Planet.Bulk.TbIII_K):
-            raise ValueError('Ice III bottom temperature of ' + str(round(Planet.Bulk.TbIII_K,3)) +
-                             ' K is less than the temperature at the lower TBL transition of ' +
-                             str(round(Planet.T_K[iConvectEnd-1],3)) + ' K. Try increasing Bulk.TbIII_K ' +
-                             ' or decreasing Bulk.Tb_K to create a more realistic thermal profile.')
+            raise ValueError(f'Ice III bottom temperature of {Planet.Bulk.TbIII_K:.3f} K ' +
+                              'is less than the temperature at the lower TBL transition of ' +
+                             f'{Planet.T_K[iConvectEnd-1]:.3f} K. Try increasing Bulk.TbIII_K ' +
+                              ' or decreasing Bulk.Tb_K to create a more realistic thermal profile.')
 
         # Reassign conductive profile with new top temperature for conductive layer
 
@@ -341,10 +325,7 @@ def IceIIIConvect(Planet, Params):
             thisMAbove_kg += Planet.MLayer_kg[i-1]
             thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
             Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-            if Params.VERBOSE: print('il: ' + str(i) +
-                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                     '; phase: ' + str(Planet.phase[i]))
+            if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     if Params.VERBOSE: print('Ice III convection calculations complete.')
 
@@ -371,16 +352,16 @@ def IceVConvect(Planet, Params):
                                      Planet.g_ms2[Planet.Steps.nIIIbottom], PmidV_MPa, Planet.Ocean.EOS,
                                      Planet.Ocean.surfIceEOS['V'], 5, Planet.Do.EQUIL_Q)
 
-    if Params.VERBOSE: print('Ice V convection parameters:\nT_convectV = ' + str(round(Planet.TconvV_K,3)) + ' K,\n' +
-                             'Viscosity etaConvectV = {:.3e} Pa*s,\n'.format(Planet.etaConvV_Pas) +
-                             'Conductive lid thickness eLidV_m = ' + str(round(Planet.eLidV_m/1e3,1)) + ' km,\n' +
-                             'Lower TBL thickness deltaTBLV_m = ' + str(round(Planet.deltaTBLV_m/1e3,1)) + ' km,\n' +
-                             'Rayleigh number RaV = {:.3e}.'.format(Planet.RaConvectV))
+    if Params.VERBOSE: print(f'Ice V convection parameters:\nT_convectV = {Planet.TconvV_K:.3f} K,\n' +
+                             f'Viscosity etaConvectV = {Planet.etaConvV_Pas:.3e} Pa*s,\n' +
+                             f'Conductive lid thickness eLidV_m = {Planet.eLidV_m/1e3:.1f} km,\n' +
+                             f'Lower TBL thickness deltaTBLV_m = {Planet.deltaTBLV_m/1e3:.1f} km,\n' +
+                             f'Rayleigh number RaV = {Planet.RaConvectV:.3e}.')
 
     # Check for whole-lid conduction
     if(zbV_m <= Planet.eLidV_m + Planet.deltaTBLV_m):
-        if Params.VERBOSE: print('Underplate ice V thickness ('+str(round(zbV_m/1e3,1))+' km) is less than that of the thermal'+
-                                 ' boundary layers, convection is absent.\nApplying whole-layer conductive profile.')
+        if Params.VERBOSE: print(f'Underplate ice V thickness ({zbV_m/1e3:.1f} km) is less than that of the thermal ' +
+                                 'boundary layers--convection is absent.\nApplying whole-layer conductive profile.')
 
         # We leave the remaining quantities as initially assigned,
         # as we find the initial profile assuming conduction only.
@@ -431,10 +412,7 @@ def IceVConvect(Planet, Params):
             thisMAbove_kg += Planet.MLayer_kg[i-1]
             thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
             Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-            if Params.VERBOSE: print('il: ' + str(i) +
-                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                     '; phase: ' + str(Planet.phase[i]))
+            if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
         if Params.VERBOSE: print('Stagnant lid conductive profile complete. Modeling ice V convecting layer...')
 
@@ -454,18 +432,15 @@ def IceVConvect(Planet, Params):
             Planet.Cp_JkgK[i] = Planet.Ocean.surfIceEOS['V'].fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.alpha_pK[i] = Planet.Ocean.surfIceEOS['V'].fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.kTherm_WmK[i] = Planet.Ocean.surfIceEOS['V'].fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
-            if Params.VERBOSE: print('il: ' + str(i) +
-                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                     '; phase: ' + str(Planet.phase[i]))
+            if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
         if Params.VERBOSE: print('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         if(Planet.T_K[iConvectEnd-1] > Planet.Bulk.TbV_K):
-            raise ValueError('Ice V bottom temperature of ' + str(round(Planet.Bulk.TbV_K,3)) +
-                             ' K is less than the temperature at the lower TBL transition of ' +
-                             str(round(Planet.T_K[iConvectEnd-1],3)) + ' K. Try increasing TbV_K ' +
-                             'to create a more realistic thermal profile.')
+            raise ValueError(f'Ice V bottom temperature of {Planet.Bulk.TbV_K:.3f} K ' +
+                              'is less than the temperature at the lower TBL transition of ' +
+                             f'{Planet.T_K[iConvectEnd-1]:.3f} K. Try increasing TbV_K ' +
+                              'to create a more realistic thermal profile.')
 
         # Reassign conductive profile with new top temperature for conductive layer
         PTBLratios = (Planet.P_MPa[indsTBL] - Planet.P_MPa[iConvectEnd-1]) / (Planet.PbV_MPa - Planet.P_MPa[iConvectEnd-1])
@@ -489,10 +464,7 @@ def IceVConvect(Planet, Params):
             thisMAbove_kg += Planet.MLayer_kg[i-1]
             thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
             Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-            if Params.VERBOSE: print('il: ' + str(i) +
-                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                     '; phase: ' + str(Planet.phase[i]))
+            if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     if Params.VERBOSE: print('Ice V convection calculations complete.')
 
@@ -520,16 +492,16 @@ def ClathShellConvect(Planet, Params):
                                      zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.surfIceEOS['Clath'],
                                      Planet.Ocean.surfIceEOS['Clath'], Constants.phaseClath, Planet.Do.EQUIL_Q)
 
-    if Params.VERBOSE: print('Clathrate shell convection parameters:\nT_convect = ' + str(round(Planet.Tconv_K,3)) + ' K,\n' +
-                             'Viscosity etaConvect = {:.3e} Pa*s,\n'.format(Planet.etaConv_Pas) +
-                             'Conductive lid thickness eLid_m = ' + str(round(Planet.eLid_m/1e3,1)) + ' km,\n' +
-                             'Lower TBL thickness deltaTBL_m = ' + str(round(Planet.deltaTBL_m/1e3,1)) + ' km,\n' +
-                             'Rayleigh number Ra = {:.3e}.'.format(Planet.RaConvect))
+    if Params.VERBOSE: print(f'Clathrate shell convection parameters:\nT_convect = {Planet.Tconv_K:.3f} K,\n' +
+                             f'Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n'.format() +
+                             f'Conductive lid thickness eLid_m = {Planet.eLid_m/1e3:.1f} km,\n' +
+                             f'Lower TBL thickness deltaTBL_m = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
+                             f'Rayleigh number Ra = {Planet.RaConvect:.3e}.')
 
     # Check for whole-lid conduction
     if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
-        if Params.VERBOSE: print('Ice shell thickness ('+str(round(zbI_m/1e3,1))+' km) is less than that of the thermal'+
-                                 ' boundary layers, convection is absent.\nApplying whole-shell conductive profile.')
+        if Params.VERBOSE: print(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
+                                  'boundary layers--convection is absent.\nApplying whole-shell conductive profile.')
 
         # Recalculate heat flux, as it will be too high for conduction-only:
         qSurf_Wm2 = (Planet.T_K[1] - Planet.T_K[0]) / (Planet.r_m[0] - Planet.r_m[1]) * Planet.kTherm_WmK[0]
@@ -575,10 +547,7 @@ def ClathShellConvect(Planet, Params):
             thisMAbove_kg += Planet.MLayer_kg[i-1]
             thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
             Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-            if Params.VERBOSE: print('il: ' + str(i) +
-                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                     '; phase: ' + str(Planet.phase[i]))
+            if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
         if Params.VERBOSE: print('Stagnant lid conductive profile complete. Modeling ice I convecting layer...')
 
@@ -598,10 +567,7 @@ def ClathShellConvect(Planet, Params):
             Planet.Cp_JkgK[i] = Planet.Ocean.surfIceEOS['Clath'].fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.alpha_pK[i] = Planet.Ocean.surfIceEOS['Clath'].fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.kTherm_WmK[i] = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
-            if Params.VERBOSE: print('il: ' + str(i) +
-                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                     '; phase: ' + str(Planet.phase[i]))
+            if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
         if Params.VERBOSE: print('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
@@ -627,10 +593,7 @@ def ClathShellConvect(Planet, Params):
             thisMAbove_kg += Planet.MLayer_kg[i-1]
             thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
             Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-            if Params.VERBOSE: print('il: ' + str(i) +
-                                     '; P_MPa: ' + str(round(Planet.P_MPa[i],3)) +
-                                     '; T_K: ' + str(round(Planet.T_K[i],3)) +
-                                     '; phase: ' + str(Planet.phase[i]))
+            if Params.VERBOSE: print(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     if Params.VERBOSE: print('Clathrate convection calculations complete.')
 

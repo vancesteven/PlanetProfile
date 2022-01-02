@@ -27,10 +27,10 @@ def main():
             bodyname = 'Europa'
 
     bodyname = bodyname.capitalize()
-    body = importlib.import_module(bodyname+'.PP'+bodyname)
+    body = importlib.import_module(f'{bodyname}.PP{bodyname}')
     Planet = body.Planet
     Params = body.Params
-    if Params.VERBOSE: print('Body name: ' + Planet.name)
+    if Params.VERBOSE: print(f'Body name: {Planet.name}')
 
     if Params.DEBUG:
         # Compare to test Matlab output
@@ -75,67 +75,67 @@ def WriteProfile(Planet, Params):
     Params.nHeadLines = 27  # Increment as new header lines are added
     with open(Params.DataFiles.saveFile,'w') as f:
         # Print number of header lines first so we can skip the rest on read-in if we want to
-        f.write('  nHeadLines = ' + str(Params.nHeadLines) + '\n')
-        f.write('  Ocean salt = ' + str(Planet.Ocean.comp) + '\n')
-        f.write('  Iron core = ' + str(Planet.Do.Fe_CORE) + '\n')
-        f.write('  Salinity(ppt) = ' + str(Planet.Ocean.wOcean_ppt) + '\n')
-        f.write('  Tb_K = ' + str(Planet.Bulk.Tb_K) + '\n')
-        f.write('  zb_km = ' + str(Planet.zb_km) + '\n')
-        f.write('  zClath_m = ' + str(Planet.zClath_m) + '\n')
-        f.write('  Pb_MPa = ' + str(Planet.Pb_MPa) + '\n')
-        f.write('  PbI_MPa = ' + str(Planet.PbI_MPa) + '\n')
-        f.write('  deltaP = ' + str(Planet.Ocean.deltaP) + '\n')
-        f.write('  CMR2mean = ' + str(Planet.CMR2mean) + '\n')
-        f.write('  QfromMantle_W = ' + str(Planet.Ocean.QfromMantle_W) + '\n')
-        f.write('  phiRockMax = ' + str(Planet.Sil.phiRockMax_frac) + '\n')
-        f.write('  RsilMean_m = ' + str(Planet.Sil.Rmean_m) + '\n')
-        f.write('  RsilRange_m = ' + str(Planet.Sil.Rrange_m) + '\n')
-        f.write('  rhoSil_kgm3 = ' + str(Planet.Sil.rhoMean_kgm3) + '\n')
-        f.write('  RcoreMean_m = ' + str(Planet.Core.Rmean_m) + '\n')
-        f.write('  RcoreRange_m = ' + str(Planet.Core.Rrange_m) + '\n')
-        f.write('  rhoCore_kgm3 = ' + str(Planet.Core.rhoMean_kgm3) + '\n')
-        f.write('  Steps.nClath = ' + str(Planet.Steps.nClath) + '\n')
-        f.write('  Steps.nIceI = ' + str(Planet.Steps.nIceI) + '\n')
-        f.write('  Steps.nIceIIILitho = ' + str(Planet.Steps.nIceIIILitho) + '\n')
-        f.write('  Steps.nIceVLitho = ' + str(Planet.Steps.nIceVLitho) + '\n')
-        f.write('  Steps.nHydro = ' + str(Planet.Steps.nHydro) + '\n')
-        f.write('  Steps.nSil = ' + str(Planet.Steps.nSil) + '\n')
-        f.write('  Steps.nCore = ' + str(Planet.Steps.nCore) + '\n')
-        f.write(' '.join(['P (MPa)'.ljust(24),
-                          'T (K)'.ljust(24),
-                          'r (m)'.ljust(24),
-                          'phase ID'.ljust(8),
-                          'rho (kg/m3)'.ljust(24),
-                          'Cp (J/kg/K)'.ljust(24),
-                          'alpha (1/K)'.ljust(24),
-                          'g (m/s2)'.ljust(24),
-                          'phi (void/solid frac)'.ljust(24),
-                          'sigma (S/m)'.ljust(24),
-                          'k (W/m/K)'.ljust(24),
-                          'VP (km/s)'.ljust(24),
-                          'VS (km/s)'.ljust(24),
-                          'QS'.ljust(24),
-                          'KS (GPa)'.ljust(24),
-                          'GS (GPa)']) + '\n')
+        f.write(f'  nHeadLines = {Params.nHeadLines:d}\n')
+        f.write(f'  Ocean salt = {Planet.Ocean.comp}\n')
+        f.write(f'  Iron core = {Planet.Do.Fe_CORE}\n')
+        f.write(f'  Salinity(ppt) = {Planet.Ocean.wOcean_ppt:.3f}\n')
+        f.write(f'  Tb_K = {Planet.Bulk.Tb_K:.3f}\n')
+        f.write(f'  zb_km = {Planet.zb_km:.3f}\n')
+        f.write(f'  zClath_m = {Planet.zClath_m:.3f}\n')
+        f.write(f'  Pb_MPa = {Planet.Pb_MPa:.3f}\n')
+        f.write(f'  PbI_MPa = {Planet.PbI_MPa:.3f}\n')
+        f.write(f'  deltaP = {Planet.Ocean.deltaP:.3f}\n')
+        f.write(f'  CMR2mean = {Planet.CMR2mean:.3f}\n')
+        f.write(f'  QfromMantle_W = {Planet.Ocean.QfromMantle_W:.3f}\n')
+        f.write(f'  phiRockMax = {Planet.Sil.phiRockMax_frac:.3f}\n')
+        f.write(f'  RsilMean_m = {Planet.Sil.Rmean_m:.3f}\n')
+        f.write(f'  RsilRange_m = {Planet.Sil.Rrange_m:.3f}\n')
+        f.write(f'  rhoSil_kgm3 = {Planet.Sil.rhoMean_kgm3:.3f}\n')
+        f.write(f'  RcoreMean_m = {Planet.Core.Rmean_m:.3f}\n')
+        f.write(f'  RcoreRange_m = {Planet.Core.Rrange_m:.3f}\n')
+        f.write(f'  rhoCore_kgm3 = {Planet.Core.rhoMean_kgm3:.3f}\n')
+        f.write(f'  Steps.nClath = {Planet.Steps.nClath:d}\n')
+        f.write(f'  Steps.nIceI = {Planet.Steps.nIceI:d}\n')
+        f.write(f'  Steps.nIceIIILitho = {Planet.Steps.nIceIIILitho:d}\n')
+        f.write(f'  Steps.nIceVLitho = {Planet.Steps.nIceVLitho:d}\n')
+        f.write(f'  Steps.nHydro = {Planet.Steps.nHydro:d}\n')
+        f.write(f'  Steps.nSil = {Planet.Steps.nSil:d}\n')
+        f.write(f'  Steps.nCore = {Planet.Steps.nCore:d}\n')
+        f.write(f' '.join(['P (MPa)'.ljust(24),
+                           'T (K)'.ljust(24),
+                           'r (m)'.ljust(24),
+                           'phase ID'.ljust(8),
+                           'rho (kg/m3)'.ljust(24),
+                           'Cp (J/kg/K)'.ljust(24),
+                           'alpha (1/K)'.ljust(24),
+                           'g (m/s2)'.ljust(24),
+                           'phi (void/solid frac)'.ljust(24),
+                           'sigma (S/m)'.ljust(24),
+                           'k (W/m/K)'.ljust(24),
+                           'VP (km/s)'.ljust(24),
+                           'VS (km/s)'.ljust(24),
+                           'QS'.ljust(24),
+                           'KS (GPa)'.ljust(24),
+                           'GS (GPa)']) + '\n')
         # Now print the columnar data
         for i in range(Planet.Steps.nTotal):
             line = \
-                '{:24.17e} '.format(Planet.P_MPa[i]) + \
-                '{:24.17e} '.format(Planet.T_K[i]) + \
-                '{:24.17e} '.format(Planet.r_m[i]) + \
-                '{:8d} '.format(Planet.phase[i]) + \
-                '{:24.17e} '.format(Planet.rho_kgm3[i]) + \
-                '{:24.17e} '.format(Planet.Cp_JkgK[i]) + \
-                '{:24.17e} '.format(Planet.alpha_pK[i]) + \
-                '{:24.17e} '.format(Planet.g_ms2[i]) + \
-                '{:24.17e} '.format(Planet.phi_frac[i]) + \
-                '{:24.17e} '.format(Planet.sigma_Sm[i]) + \
-                '{:24.17e} '.format(Planet.kTherm_WmK[i]) + \
-                '{:24.17e} '.format(Planet.Seismic.VP_kms[i]) + \
-                '{:24.17e} '.format(Planet.Seismic.VS_kms[i]) + \
-                '{:24.17e} '.format(Planet.Seismic.QS[i]) + \
-                '{:24.17e} '.format(Planet.Seismic.KS_GPa[i]) + \
-                '{:24.17e}\n '.format(Planet.Seismic.GS_GPa[i])
+                f'{Planet.P_MPa[i]:24.17e} ' + \
+                f'{Planet.T_K[i]:24.17e} ' + \
+                f'{Planet.r_m[i]:24.17e} ' + \
+                f'{Planet.phase[i]:8d} ' + \
+                f'{Planet.rho_kgm3[i]:24.17e} ' + \
+                f'{Planet.Cp_JkgK[i]:24.17e} ' + \
+                f'{Planet.alpha_pK[i]:24.17e} ' + \
+                f'{Planet.g_ms2[i]:24.17e} ' + \
+                f'{Planet.phi_frac[i]:24.17e} ' + \
+                f'{Planet.sigma_Sm[i]:24.17e} ' + \
+                f'{Planet.kTherm_WmK[i]:24.17e} ' + \
+                f'{Planet.Seismic.VP_kms[i]:24.17e} ' + \
+                f'{Planet.Seismic.VS_kms[i]:24.17e} ' + \
+                f'{Planet.Seismic.QS[i]:24.17e} ' + \
+                f'{Planet.Seismic.KS_GPa[i]:24.17e} ' + \
+                f'{Planet.Seismic.GS_GPa[i]:24.17e}\n '
             f.write(line)
 
     # Write out data from core/mantle trade
@@ -145,12 +145,12 @@ def WriteProfile(Planet, Params):
                           'rhoSilTrade (kg/m3)']) + '\n')
         for i in range(np.size(Planet.Sil.Rtrade_m)):
             line = \
-                '{:24.17e} '.format(Planet.Sil.Rtrade_m[i]) + \
-                '{:24.17e} '.format(Planet.Core.Rtrade_m[i]) + \
-                '{:24.17e}\n '.format(Planet.Sil.rhoTrade_kgm3[i])
+                f'{Planet.Sil.Rtrade_m[i]:24.17e} ' + \
+                f'{Planet.Core.Rtrade_m[i]:24.17e} ' + \
+                f'{Planet.Sil.rhoTrade_kgm3[i]:24.17e}\n '
             f.write(line)
 
-    print('Profile saved to file: ' + Params.DataFiles.saveFile)
+    print(f'Profile saved to file: {Params.DataFiles.saveFile}')
     return
 
 
@@ -161,11 +161,11 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Params.DataFiles.saveFile = fnameOverride
     else:
         Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
-    print('Reloading previously saved run from file: ' + Params.DataFiles.saveFile)
-    if Params.VERBOSE: print('WARNING: Steps.n settings from PP' + Planet.name + '.py will be ignored.')
+    print(f'Reloading previously saved run from file: {Params.DataFiles.saveFile}')
+    if Params.VERBOSE: print(f'WARNING: Steps.n settings from PP{Planet.name}.py will be ignored.')
     if not isfile(Params.DataFiles.saveFile):
-        raise ValueError('Params.CALC_NEW is set to False in config.py but the reload file was not found.\n' \
-                        +'Re-run with CALC_NEW set to True to generate the profile.')
+        raise ValueError('Params.CALC_NEW is set to False in config.py but the reload file was not found.\n' +
+                         'Re-run with CALC_NEW set to True to generate the profile.')
 
     with open(Params.DataFiles.saveFile) as f:
         # Get number of header lines to read in from (and skip for columnar data)
@@ -212,7 +212,7 @@ def LoadBody(bodyname, fnameOverride=None):
     # NOTE: Seems to overwrite all existing Planet instances with the newly read in values. Do not use to load in a second profile!
     # Use copy.deepcopy and ReloadProfile instead.
     bodyname = bodyname.capitalize()
-    body = importlib.import_module(bodyname + '.PP' + bodyname)
+    body = importlib.import_module(f'{bodyname}.PP{bodyname}')
     Planet = body.Planet
     Params = body.Params
     Planet, Params = ReloadProfile(Planet, Params, fnameOverride=fnameOverride)
@@ -235,7 +235,7 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
     """
     import copy
 
-    print('Comparing current run with ' + fname2 + '...')
+    print(f'Comparing current run with {fname2}...')
     Planet2 = copy.deepcopy(Planet)
     Params2 = copy.deepcopy(Params)
     Planet2, Params2 = ReloadProfile(Planet2, Params2, fnameOverride=fname2)
@@ -312,37 +312,37 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         and same_coreRrange_m and same_corerhoMean_kgm3 and same_steps
 
     if not headers_match:
-        if not same_nHeadLines: print('nHeadLines differs. ' + str(Params.nHeadLines) + ' | ' + str(Params2.nHeadLines))
-        if not same_comp: print('Ocean.comp differs. ' + str(Planet.Ocean.comp) + ' | ' + str(Planet2.Ocean.comp))
-        if not same_Fe_CORE: print('Do.Fe_CORE differs. ' + str(Planet.Do.Fe_CORE) + ' | ' + str(Planet2.Do.Fe_CORE))
-        if not same_wOcean_ppt: print('Ocean.wOcean_ppt differs. ' + str(Planet.Ocean.wOcean_ppt) + ' | ' + str(Planet2.Ocean.wOcean_ppt))
-        if not same_Tb_K: print('Bulk.Tb_K differs. ' + str(Planet.Bulk.Tb_K) + ' | ' + str(Planet2.Bulk.Tb_K))
-        if not same_zb_km: print('zb_km differs. ' + str(Planet.zb_km) + ' | ' + str(Planet2.zb_km))
-        if not same_zClath_m: print('zClath_m differs. ' + str(Planet.zClath_m) + ' | ' + str(Planet2.zClath_m))
-        if not same_Pb_MPa: print('Pb_MPa differs. ' + str(Planet.Pb_MPa) + ' | ' + str(Planet2.Pb_MPa))
-        if not same_PbI_MPa: print('PbI_MPa differs. ' + str(Planet.PbI_MPa) + ' | ' + str(Planet2.PbI_MPa))
-        if not same_deltaP: print('Ocean.deltaP differs. ' + str(Planet.Ocean.deltaP) + ' | ' + str(Planet2.Ocean.deltaP))
-        if not same_CMR2mean: print('CMR2mean differs. ' + str(Planet.CMR2mean) + ' | ' + str(Planet2.CMR2mean))
-        if not same_QfromMantle_Wm2: print('Ocean.QfromMantle_Wm2 differs. ' + str(Planet.Ocean.QfromMantle_Wm2) + ' | ' + str(Planet2.Ocean.QfromMantle_Wm2))
-        if not same_phiRockMax_frac: print('Sil.phiRockMax_frac differs. ' + str(Planet.Sil.phiRockMax_frac) + ' | ' + str(Planet2.Sil.phiRockMax_frac))
-        if not same_silRmean_m: print('Sil.Rmean_m differs. ' + str(Planet.Sil.Rmean_m) + ' | ' + str(Planet2.Sil.Rmean_m))
-        if not same_silRrange_m: print('Sil.Rrange_m differs. ' + str(Planet.Sil.Rrange_m) + ' | ' + str(Planet2.Sil.Rrange_m))
-        if not same_silrhoMean_kgm3: print('Sil.rhoMean_kgm3 differs. ' + str(Planet.Sil.rhoMean_kgm3) + ' | ' + str(Planet2.Sil.rhoMean_kgm3))
-        if not same_coreRmean_m: print('Core.Rmean_m differs. ' + str(Planet.Core.Rmean_m) + ' | ' + str(Planet2.Core.Rmean_m))
-        if not same_coreRrange_m: print('Core.Rrange_m differs. ' + str(Planet.Core.Rrange_m) + ' | ' + str(Planet2.Core.Rrange_m))
-        if not same_corerhoMean_kgm3: print('Core.rhoMean_kgm3 differs. ' + str(Planet.Core.rhoMean_kgm3) + ' | ' + str(Planet2.Core.rhoMean_kgm3))
-        if not same_nClath: print('Steps.nClath differs. ' + str(Planet.Steps.nClath) + ' | ' + str(Planet2.Steps.nClath))
-        if not same_nIceI: print('Steps.nIceI differs. ' + str(Planet.Steps.nIceI) + ' | ' + str(Planet2.Steps.nIceI))
-        if not same_nIceIIILitho: print('Steps.nIceIIILitho differs. ' + str(Planet.Steps.nIceIIILitho) + ' | ' + str(Planet2.Steps.nIceIIILitho))
-        if not same_nIceVLitho: print('Steps.nIceVLitho differs. ' + str(Planet.Steps.nIceVLitho) + ' | ' + str(Planet2.Steps.nIceVLitho))
-        if not same_nHydro: print('Steps.nHydro differs. ' + str(Planet.Steps.nHydro) + ' | ' + str(Planet2.Steps.nHydro))
-        if not same_nSil: print('Steps.nSil differs. ' + str(Planet.Steps.nSil) + ' | ' + str(Planet2.Steps.nSil))
-        if not same_nCore: print('Steps.nCore differs. ' + str(Planet.Steps.nCore) + ' | ' + str(Planet2.Steps.nCore))
+        if not same_nHeadLines: print(f'nHeadLines differs. {Params.nHeadLines:d} | {Params2.nHeadLines:d}')
+        if not same_comp: print(f'Ocean.comp differs. {Planet.Ocean.comp} | {Planet2.Ocean.comp}')
+        if not same_Fe_CORE: print(f'Do.Fe_CORE differs. {Planet.Do.Fe_CORE} | {Planet2.Do.Fe_CORE}')
+        if not same_wOcean_ppt: print(f'Ocean.wOcean_ppt differs. {Planet.Ocean.wOcean_ppt:.3f} | {Planet2.Ocean.wOcean_ppt:.3f}')
+        if not same_Tb_K: print(f'Bulk.Tb_K differs. {Planet.Bulk.Tb_K:.4f} | {Planet2.Bulk.Tb_K:.4f}')
+        if not same_zb_km: print(f'zb_km differs. {Planet.zb_km:.3f} | {Planet2.zb_km:.3f}')
+        if not same_zClath_m: print(f'zClath_m differs. {Planet.zClath_m:.3f} | {Planet2.zClath_m:.3f}')
+        if not same_Pb_MPa: print(f'Pb_MPa differs. {Planet.Pb_MPa:.3f} | {Planet2.Pb_MPa:.3f}')
+        if not same_PbI_MPa: print(f'PbI_MPa differs. {Planet.PbI_MPa:.3f} | {Planet2.PbI_MPa:.3f}')
+        if not same_deltaP: print(f'Ocean.deltaP differs. {Planet.Ocean.deltaP:.3f} | {Planet2.Ocean.deltaP:.3f}')
+        if not same_CMR2mean: print(f'CMR2mean differs. {Planet.CMR2mean:.3f} | {Planet2.CMR2mean:.3f}')
+        if not same_QfromMantle_Wm2: print(f'Ocean.QfromMantle_Wm2 differs. {Planet.Ocean.QfromMantle_Wm2:.3f} | {Planet2.Ocean.QfromMantle_Wm2:.3f}')
+        if not same_phiRockMax_frac: print(f'Sil.phiRockMax_frac differs. {Planet.Sil.phiRockMax_frac:.3f} | {Planet2.Sil.phiRockMax_frac:.3f}')
+        if not same_silRmean_m: print(f'Sil.Rmean_m differs. {Planet.Sil.Rmean_m:.3f} | {Planet2.Sil.Rmean_m:.3f}')
+        if not same_silRrange_m: print(f'Sil.Rrange_m differs. {Planet.Sil.Rrange_m:.3f} | {Planet2.Sil.Rrange_m:.3f}')
+        if not same_silrhoMean_kgm3: print(f'Sil.rhoMean_kgm3 differs. {Planet.Sil.rhoMean_kgm3:.3f} | {Planet2.Sil.rhoMean_kgm3:.3f}')
+        if not same_coreRmean_m: print(f'Core.Rmean_m differs. {Planet.Core.Rmean_m:.3f} | {Planet2.Core.Rmean_m:.3f}')
+        if not same_coreRrange_m: print(f'Core.Rrange_m differs. {Planet.Core.Rrange_m:.3f} | {Planet2.Core.Rrange_m:.3f}')
+        if not same_corerhoMean_kgm3: print(f'Core.rhoMean_kgm3 differs. {Planet.Core.rhoMean_kgm3:.3f} | {Planet2.Core.rhoMean_kgm3:.3f}')
+        if not same_nClath: print(f'Steps.nClath differs. {Planet.Steps.nClath:d} | {Planet2.Steps.nClath:d}')
+        if not same_nIceI: print(f'Steps.nIceI differs. {Planet.Steps.nIceI:d} | {Planet2.Steps.nIceI:d}')
+        if not same_nIceIIILitho: print(f'Steps.nIceIIILitho differs. {Planet.Steps.nIceIIILitho:d} | {Planet2.Steps.nIceIIILitho:d}')
+        if not same_nIceVLitho: print(f'Steps.nIceVLitho differs. {Planet.Steps.nIceVLitho:d} | {Planet2.Steps.nIceVLitho:d}')
+        if not same_nHydro: print(f'Steps.nHydro differs. {Planet.Steps.nHydro:d} | {Planet2.Steps.nHydro:d}')
+        if not same_nSil: print(f'Steps.nSil differs. {Planet.Steps.nSil:d} | {Planet2.Steps.nSil:d}')
+        if not same_nCore: print(f'Steps.nCore differs. {Planet.Steps.nCore:d} | {Planet2.Steps.nCore:d}')
     else:
         print('All header values match!')
 
     if same_steps:
-        print('Some arrays differ. The first index more than ' + str(round(tol*100,2)) + '% different will be printed.')
+        print(f'Some arrays differ. The first index more than {tol*100:.2f}% different will be printed.')
         iIO = Planet.Steps.nSurfIce
         iOS = Planet.Steps.nHydro
         iSC = Planet.Steps.nHydro+Planet.Steps.nSil
@@ -423,22 +423,22 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         all_match = headers_match and layers_match
 
         if not layers_match:
-            if not same_P_MPa: print('P_MPa differs in position ' + str(diff_P_MPa[0]) + ': ' + str(Planet.P_MPa[diff_P_MPa[0]]) + ' | ' + str(Planet2.P_MPa[diff_P_MPa[0]]))
-            if not same_T_K: print('T_K differs in position ' + str(diff_T_K[0]) + ': ' + str(Planet.T_K[diff_T_K[0]]) + ' | ' + str(Planet2.T_K[diff_T_K[0]]))
-            if not same_r_m: print('r_m differs in position ' + str(diff_r_m[0]) + ': ' + str(Planet.r_m[diff_r_m[0]]) + ' | ' + str(Planet2.r_m[diff_r_m[0]]))
-            if not same_phase: print('phase differs in position ' + str(diff_phase[0]) + ': ' + str(Planet.phase[diff_phase[0]]) + ' | ' + str(Planet2.phase[diff_phase[0]]))
-            if not same_rho_kgm3: print('rho_kgm3 differs in position ' + str(diff_rho_kgm3[0]) + ': ' + str(Planet.rho_kgm3[diff_rho_kgm3[0]]) + ' | ' + str(Planet2.rho_kgm3[diff_rho_kgm3[0]]))
-            if not same_Cp_JkgK: print('Cp_JkgK differs in position ' + str(diff_Cp_JkgK[0]) + ': ' + str(Planet.Cp_JkgK[diff_Cp_JkgK[0]]) + ' | ' + str(Planet2.Cp_JkgK[diff_Cp_JkgK[0]]))
-            if not same_alpha_pK: print('alpha_pK differs in position ' + str(diff_alpha_pK[0]) + ': ' + str(Planet.alpha_pK[diff_alpha_pK[0]]) + ' | ' + str(Planet2.alpha_pK[diff_alpha_pK[0]]))
-            if not same_g_ms2: print('g_ms2 differs in position ' + str(diff_g_ms2[0]) + ': ' + str(Planet.g_ms2[diff_g_ms2[0]]) + ' | ' + str(Planet2.g_ms2[diff_g_ms2[0]]))
-            if not same_phi_frac: print('phi_frac differs in position ' + str(diff_phi_frac[0]) + ': ' + str(Planet.phi_frac[diff_phi_frac[0]]) + ' | ' + str(Planet2.phi_frac[diff_phi_frac[0]]))
-            if not same_sigma_Sm: print('sigma_Sm differs in position ' + str(diff_sigma_Sm[0]) + ': ' + str(Planet.sigma_Sm[diff_sigma_Sm[0]]) + ' | ' + str(Planet2.sigma_Sm[diff_sigma_Sm[0]]))
-            if not same_kTherm_WmK: print('kTherm_WmK differs in position ' + str(diff_kTherm_WmK[0]) + ': ' + str(Planet.kTherm_WmK[diff_kTherm_WmK[0]]) + ' | ' + str(Planet2.kTherm_WmK[diff_kTherm_WmK[0]]))
-            if not same_VP_kms: print('VP_kms differs in position ' + str(diff_VP_kms[0]) + ': ' + str(Planet.Seismic.VP_kms[diff_VP_kms[0]]) + ' | ' + str(Planet2.Seismic.VP_kms[diff_VP_kms[0]]))
-            if not same_VS_kms: print('VS_kms differs in position ' + str(diff_VS_kms[0]) + ': ' + str(Planet.Seismic.VS_kms[diff_VS_kms[0]]) + ' | ' + str(Planet2.Seismic.VS_kms[diff_VS_kms[0]]))
-            if not same_QS: print('QS differs in position ' + str(diff_QS[0]) + ': ' + str(Planet.Seismic.QS[diff_QS[0]]) + ' | ' + str(Planet2.Seismic.QS[diff_QS[0]]))
-            if not same_KS_GPa: print('KS_GPa differs in position ' + str(diff_KS_GPa[0]) + ': ' + str(Planet.Seismic.KS_GPa[diff_KS_GPa[0]]) + ' | ' + str(Planet2.Seismic.KS_GPa[diff_KS_GPa[0]]))
-            if not same_GS_GPa: print('GS_GPa differs in position ' + str(diff_GS_GPa[0]) + ': ' + str(Planet.Seismic.GS_GPa[diff_GS_GPa[0]]) + ' | ' + str(Planet2.Seismic.GS_GPa[diff_GS_GPa[0]]))
+            if not same_P_MPa: print(f'P_MPa differs in position {diff_P_MPa[0]:.3f}: {Planet.P_MPa[diff_P_MPa[0]]:.3f} | {Planet2.P_MPa[diff_P_MPa[0]]:.3f}')
+            if not same_T_K: print(f'T_K differs in position {diff_T_K[0]:.3f}: {Planet.T_K[diff_T_K[0]]:.3f} | {Planet2.T_K[diff_T_K[0]]:.3f}')
+            if not same_r_m: print(f'r_m differs in position {diff_r_m[0]:.3f}: {Planet.r_m[diff_r_m[0]]:.3f} | {Planet2.r_m[diff_r_m[0]]:.3f}')
+            if not same_phase: print(f'phase differs in position {diff_phase[0]:d}: {Planet.phase[diff_phase[0]]:d} | {Planet2.phase[diff_phase[0]]:d}')
+            if not same_rho_kgm3: print(f'rho_kgm3 differs in position {diff_rho_kgm3[0]:.3f}: {Planet.rho_kgm3[diff_rho_kgm3[0]]:.3f} | {Planet2.rho_kgm3[diff_rho_kgm3[0]]:.3f}')
+            if not same_Cp_JkgK: print(f'Cp_JkgK differs in position {diff_Cp_JkgK[0]:.3f}: {Planet.Cp_JkgK[diff_Cp_JkgK[0]]:.3f} | {Planet2.Cp_JkgK[diff_Cp_JkgK[0]]:.3f}')
+            if not same_alpha_pK: print(f'alpha_pK differs in position {diff_alpha_pK[0]:.3f}: {Planet.alpha_pK[diff_alpha_pK[0]]:.3f} | {Planet2.alpha_pK[diff_alpha_pK[0]]:.3f}')
+            if not same_g_ms2: print(f'g_ms2 differs in position {diff_g_ms2[0]:.3f}: {Planet.g_ms2[diff_g_ms2[0]]:.3f} | {Planet2.g_ms2[diff_g_ms2[0]]:.3f}')
+            if not same_phi_frac: print(f'phi_frac differs in position {diff_phi_frac[0]:.3f}: {Planet.phi_frac[diff_phi_frac[0]]:.3f} | {Planet2.phi_frac[diff_phi_frac[0]]:.3f}')
+            if not same_sigma_Sm: print(f'sigma_Sm differs in position {diff_sigma_Sm[0]:.3f}: {Planet.sigma_Sm[diff_sigma_Sm[0]]:.3f} | {Planet2.sigma_Sm[diff_sigma_Sm[0]]:.3f}')
+            if not same_kTherm_WmK: print(f'kTherm_WmK differs in position {diff_kTherm_WmK[0]:.3f}: {Planet.kTherm_WmK[diff_kTherm_WmK[0]]:.3f} | {Planet2.kTherm_WmK[diff_kTherm_WmK[0]]:.3f}')
+            if not same_VP_kms: print(f'VP_kms differs in position {diff_VP_kms[0]:.3f}: {Planet.Seismic.VP_kms[diff_VP_kms[0]]:.3f} | {Planet2.Seismic.VP_kms[diff_VP_kms[0]]:.3f}')
+            if not same_VS_kms: print(f'VS_kms differs in position {diff_VS_kms[0]:.3f}: {Planet.Seismic.VS_kms[diff_VS_kms[0]]:.3f} | {Planet2.Seismic.VS_kms[diff_VS_kms[0]]:.3f}')
+            if not same_QS: print(f'QS differs in position {diff_QS[0]:.3f}: {Planet.Seismic.QS[diff_QS[0]]:.3f} | {Planet2.Seismic.QS[diff_QS[0]]:.3f}')
+            if not same_KS_GPa: print(f'KS_GPa differs in position {diff_KS_GPa[0]:.3f}: {Planet.Seismic.KS_GPa[diff_KS_GPa[0]]:.3f} | {Planet2.Seismic.KS_GPa[diff_KS_GPa[0]]:.3f}')
+            if not same_GS_GPa: print(f'GS_GPa differs in position {diff_GS_GPa[0]:.3f}: {Planet.Seismic.GS_GPa[diff_GS_GPa[0]]:.3f} | {Planet2.Seismic.GS_GPa[diff_GS_GPa[0]]:.3f}')
         elif not all_match:
             print('All layer calculations match!')
         else:

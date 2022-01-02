@@ -66,9 +66,10 @@ def PlotCoreTradeoff(Planet, Params):
     axes.plot('Rsil', 'RFe', data = data)
     axes.set_xlabel('Iron core outer radius (km)')
     axes.set_ylabel('Silicate layer outer radius (km)')
-    fig.suptitle(r'With Fe core. $C/MR^2$: $0.346\pm0.005$; $w$: $0\,\mathrm{wt}\%$; $\rho_\mathrm{sil}$: $' \
-                 + str(round(Planet.Sil.rhoMean_kgm3)) + r'\,\mathrm{kg/m^3}$; $\rho_\mathrm{Fe}$: $' \
-                 + str(round(Planet.Core.rhoMean_kgm3)) + r'\,\mathrm{kg/m^3}$')
+    fig.suptitle(r'With Fe core. $C/MR^2$: $' + f'{Planet.Bulk.Cmeasured:.3f}\pm{Planet.Bulk.Cuncertainty:.3f}' +
+                 r'$; $w$: $0\,\mathrm{wt}\%$; $\rho_\mathrm{sil}$: $' + \
+                 f'{Planet.Sil.rhoMean_kgm3:.0f}' + r'\,\mathrm{kg/m^3}$; $\rho_\mathrm{Fe}$: $' + \
+                 f'{Planet.Core.rhoMean_kgm3:.0f}' + r'\,\mathrm{kg/m^3}$')
     fig.savefig(Params.FigureFiles.vcore, format=Params.figFormat, dpi=300)
     plt.close()
 

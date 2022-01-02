@@ -9,7 +9,7 @@ from Thermodynamics.FromLiterature.HydroEOS import OceanEOSStruct, IceEOSStruct
 def SetupInit(Planet, Params):
 
     # Print version number
-    print('-- PlanetProfile v' + ppVerNum + ' --')
+    print(f'-- PlanetProfile v{ppVerNum} --')
     if ppVerNum[-3:] == 'dev': print('This version is in development.')
 
     # Check dependency compatibility
@@ -118,11 +118,11 @@ def SetupFilenames(Planet, Params):
 
     saveBase = Planet.name + 'Profile_'
     if Planet.Do.NO_H2O:
-        saveBase += 'NoH2O_Tsurf{:.3f}K'.format(Planet.Bulk.Tsurf_K)
+        saveBase += f'NoH2O_Tsurf{Planet.Bulk.Tsurf_K:.3f}K'
     else:
         if Planet.Do.CLATHRATE: saveBase += 'Clathrates_'
-        saveBase += Planet.Ocean.comp + '_' + str(round(Planet.Ocean.wOcean_ppt)) + 'WtPpt' \
-            + '_Tb{:.3f}K'.format(Planet.Bulk.Tb_K)
+        saveBase += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.0f}WtPpt' + \
+                    f'_Tb{Planet.Bulk.Tb_K:.3f}K'
         if Planet.Do.POROUS_ICE: fName += '_PorousIce'
     if Planet.Sil.mantleEOSName is not None: fName += Planet.Sil.mantleEOSname
 

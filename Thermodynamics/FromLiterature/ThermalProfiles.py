@@ -56,7 +56,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     Tconv_K = B * (np.sqrt(1 + 2/B*(Tb_K - C)) - 1)
     if(Tconv_K < Ttop_K):
         Tconv_K = Ttop_K
-        print('Convecting temperature for ice ' + PhaseConv(phaseBot) + ' is less than the' +
+        print(f'Convecting temperature for ice {PhaseConv(phaseBot)} is less than the' +
               ' temperature at the top of the layer. Tconv has been set equal to Ttop and ' +
               'no conductive lid will be modeled.')
 
@@ -89,9 +89,9 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     # If the Rayleigh number is less than some critical value, convection does not occur.
     RaCrit = GetRaCrit(Constants.Eact_kJmol[phaseBot], Tb_K, Ttop_K, Tconv_K)
     if(Ra < RaCrit):
-        print('Rayleigh number of ' + str(round(Ra)) + ' in the surface ice ' + PhaseConv(phaseBot) +
-              ' layer is less than the critical value ' +
-              'of ' + str(round(RaCrit)) + '. Only conduction will be modeled in this layer.')
+        print(f'Rayleigh number of {Ra:.3e} in the surface ice {PhaseConv(phaseBot)} ' +
+              f'layer is less than the critical value of {RaCrit:.3e}. ' +
+              'Only conduction will be modeled in this layer.')
         # Set conductive layer thicknesses to whole shell thickness to force a whole-layer conductive profile
         eLid_m = zb_m
         deltaTBL_m = zb_m

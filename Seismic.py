@@ -207,6 +207,6 @@ def SeismicFluid(P_MPa, T_K, compstr, w_ppt):
     elif compstr == 'NaCl':
         raise ValueError('Unable to get seismic properties of ocean. NaCl is not implemented yet.')
     else:
-        raise ValueError('Unable to get seismic properties of ocean. compstr="'+compstr+'" but options are Seawater, NH3, MgSO4, and NaCl.')
+        raise ValueError(f'Unable to get seismic properties of ocean. compstr="{compstr}" but options are Seawater, NH3, MgSO4, and NaCl.')
 
     return VP_kms, KS_GPa

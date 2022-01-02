@@ -33,7 +33,7 @@ class PerplexEOSStruct:
             Tlin_K = firstPT
             lenP = int(len(Plin_MPa)/dim2)
         else:
-            raise ValueError('Perple_X table ' + EOSfname + ' does not have T or P in the first column.')
+            raise ValueError(f'Perple_X table {EOSfname} does not have T or P in the first column.')
 
         # Make 1D arrays of P and T that just span the axes (unlike the 2D meshes of the dependent variables)
         P1D_MPa = np.linspace(Plin_MPa[0], Plin_MPa[-1], lenP)

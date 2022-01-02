@@ -61,7 +61,7 @@ class OceanEOSStruct:
             self.m_gmol = Constants.mNaCl_gmol
             raise ValueError('Unable to load ocean EOS. NaCl is not implemented yet.')
         else:
-            raise ValueError('Unable to load ocean EOS. compstr="'+compstr+'" but options are Seawater, NH3, MgSO4, and NaCl.')
+            raise ValueError(f'Unable to load ocean EOS. compstr="{compstr}" but options are Seawater, NH3, MgSO4, and NaCl.')
 
         self.fn_rho_kgm3 = spi.RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
         self.fn_Cp_JkgK = spi.RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
@@ -148,8 +148,8 @@ def GetPfreeze(oceanEOS, Tb_K, PLower_MPa=20, PUpper_MPa=300, PRes_MPa=0.1,
     try:
         indMelt = next((i[0] for i, val in np.ndenumerate(searchPhases) if val!=1 and val!=Constants.phaseClath))
     except StopIteration:
-        raise ValueError('No transition pressure was found below '+str(PUpper_MPa)+' MPa '+
-                         'for ice Ih/clathrates. Increase PUpper_MPa until one is found.')
+        raise ValueError(f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' +
+                          'for ice Ih/clathrates. Increase PUpper_MPa until one is found.')
     # Get the pressure of the first non-Ih layer
     Pfreeze_MPa = Psearch[indMelt]
 
@@ -183,15 +183,15 @@ def GetPfreezeHP(oceanEOS, Pmin_MPa, TbHP_K, phase, PLower_MPa=180, PUpper_MPa=9
     try:
         indIceHP = next((i[0] for i, val in np.ndenumerate(searchPhases) if val==phase))
     except StopIteration:
-        raise ValueError('No ice '+str(PhaseConv(phase))+' was found within the range '+str(PLower_MPa)+
-              ' < P < '+str(PUpper_MPa)+' for Tb = '+str(TbHP_K)+'.')
+        raise ValueError(f'No ice {PhaseConv(phase)} was found within the range {PLower_MPa:.3f}' +
+                         f' < P < {PUpper_MPa:.3f} for Tb = {TbHP_K:.3f}.')
     # Find the first index for a phase that's not the desired one after we encounter the desired phase
     try:
         indNotThisHP = next((i[0] for i, val in np.ndenumerate(searchPhases) if i[0]>indIceHP and val!=phase))
     except StopIteration:
-        raise ValueError('No transition pressure was found below '+str(PUpper_MPa)+' MPa '+
-                         'for ice '+PhaseConv(phase)+' at T = '+str(round(TbHP_K,3))+' K.'+
-                         ' Increase PUpper_MPa until one is found.')
+        raise ValueError(f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' +
+                         f'for ice {PhaseConv(phase)} at T = {TbHP_K:.3f} K. ' +
+                          'Increase PUpper_MPa until one is found.')
     # Get the pressure of the first lower layer with a non-matching phase
     PfreezeHP_MPa = Psearch[indNotThisHP]
 
@@ -225,14 +225,14 @@ def GetPmeltHP(oceanEOS, Pmin_MPa, TbHP_K, phase, PLower_MPa=180, PUpper_MPa=900
     try:
         indIceHP = next((i[0] for i, val in np.ndenumerate(searchPhases) if val==phase))
     except StopIteration:
-        raise ValueError('No ice '+str(PhaseConv(phase))+' was found within the range '+str(round(PLower_MPa,3))+
-              ' < P < '+str(round(PUpper_MPa,3))+' for Tb = '+str(round(TbHP_K,3))+' with this ocean composition.')
+        raise ValueError(f'No ice {PhaseConv(phase)} was found within the range {PLower_MPa:.3f}' +
+                         f' < P < {PUpper_MPa:.3f} for Tb = {TbHP_K:.3f} with this ocean composition.')
     # Check if the next index below is liquid
     if(searchPhases[indIceHP-1] == 0):
         PmeltHP_MPa = Psearch[indIceHP-1]
     else:
-        raise ValueError('Pmelt found a phase transition that was from '+str(PhaseConv(Psearch[indIceHP]))+
-                         ' to '+PhaseConv(Psearch[indIceHP-1])+' instead of liquid. Try adjusting Tb_K values.')
+        raise ValueError(f'Pmelt found a phase transition that was from {PhaseConv(Psearch[indIceHP])}' +
+                         f' to {PhaseConv(Psearch[indIceHP-1])} instead of liquid. Try adjusting Tb_K values.')
 
     return PmeltHP_MPa
 
@@ -255,9 +255,9 @@ def GetTfreeze(oceanEOS, P_MPa, T_K, TfreezeRange_K=50, TfreezeRes_K=0.05):
     try:
         indLiquid = next((i[0] for i, val in np.ndenumerate(searchPhases) if val==0))
     except StopIteration:
-        raise ValueError('No melting temperature was found above ' + str(round(T_K,3)) + ' K ' +
-                         'for ice ' + PhaseConv(thisPhase) + ' at pressure ' + str(round(P_MPa,3)) +
-                         ' MPa. Increase TfreezeRange_K until one is found.')
+        raise ValueError(f'No melting temperature was found above {T_K:.3f} K ' +
+                         f'for ice {PhaseConv(thisPhase)} at pressure {P_MPa:.3f} MPa. ' +
+                          'Increase TfreezeRange_K until one is found.')
     # Get the temperature of the first liquid index
     Tfreeze_K = Tsearch[indLiquid]
 
@@ -291,7 +291,7 @@ def PhaseConv(phase):
     elif phase == Constants.phaseFe:
         phaseStr = 'Fe'
     else:
-        raise ValueError('PhaseConv does not have a definition for phase ID '+str(phase)+'.')
+        raise ValueError(f'PhaseConv does not have a definition for phase ID {phase:d}.')
 
     return phaseStr
 
@@ -323,7 +323,7 @@ def PhaseInv(phaseStr):
     elif phaseStr == 'Fe':
         phase = Constants.phaseFe
     else:
-        raise ValueError('PhaseInv does not have a definition for phase string "'+phaseStr+'".')
+        raise ValueError(f'PhaseInv does not have a definition for phase string "{phaseStr}".')
 
     return phase
 

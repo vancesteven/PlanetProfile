@@ -25,14 +25,14 @@ def CheckCompat(package):
     # Grab version number from package
     try:
         pkgVer = version(package)
-    except:
-        raise ModuleNotFoundError(pkgNames[package] + ' is not installed. Install it with the command: ' +
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(f'{pkgNames[package]} is not installed. Install it with the command: ' +
                                   installInstruct[package])
     compatVer = compatNums[package]
     pkgCompatNums = [int(numStr) for numStr in compatVer.split('.')]
     pkgVerNums = [int(numStr) for numStr in pkgVer.split('.')[:3]]
-    pkgVerWarning = 'WARNING: Installed '+pkgNames[package]+' version is ' + pkgVer + ' but this version of ' + \
-        'PlanetProfile is marked compatible with v' + compatVer + '.'
+    pkgVerWarning = f'WARNING: Installed {pkgNames[package]} version is {pkgVer} but this version of ' + \
+                    f'PlanetProfile is marked compatible with v{compatVer}.'
     # Check each version number tag hierarchically to see if we have tested with a newer version
     if((pkgCompatNums[0] > pkgVerNums[0]) or
       ((pkgCompatNums[0] == pkgVerNums[0]) and (pkgCompatNums[1] > pkgVerNums[1])) or
