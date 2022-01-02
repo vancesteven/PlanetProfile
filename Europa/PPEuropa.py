@@ -32,7 +32,7 @@ Planet.Steps.iSilStart = Planet.Steps.nIceI
 
 """ Hydrosphere assumptions/settings """
 Planet.Ocean.comp = 'Seawater'
-Planet.Ocean.wOcean_ppt = 0.0
+Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
 Planet.Ocean.deltaP = 1.0
 Planet.Ocean.PHydroMax_MPa = 250.0
 

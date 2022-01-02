@@ -14,7 +14,7 @@ def SetupInit(Planet, Params):
 
     # Check dependency compatibility
     CheckCompat('seafreeze')  # SeaFreeze
-    CheckCompat('gsw')  # Gibbs Seawater
+    if Planet.Ocean.comp == 'Seawater': CheckCompat('gsw')  # Gibbs Seawater
     if Planet.Do.TAUP_SEISMIC: CheckCompat('obspy')  # TauP (accessed as obspy.taup)
 
     # Get filenames for saving/loading
@@ -83,6 +83,16 @@ def SetupInit(Planet, Params):
 
         # Get ocean EOS functions
         POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
+        # Set T arrays to use the precision of the specified Tb_K value, or Planet.Ocean.deltaT if set
+        if Planet.Ocean.deltaT is None:
+            if(round(Planet.Bulk.Tb_K,1) == Planet.Bulk.Tb_K):
+                Planet.Ocean.deltaT = 1e-1
+            elif(round(Planet.Bulk.Tb_K,2) == Planet.Bulk.Tb_K):
+                Planet.Ocean.deltaT = 1e-2
+            elif(round(Planet.Bulk.Tb_K,3) == Planet.Bulk.Tb_K):
+                Planet.Ocean.deltaT = 1e-3
+            else:
+                Planet.Ocean.deltaT = 1e-4
         TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
         Planet.Ocean.EOS = OceanEOSStruct(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K)
 

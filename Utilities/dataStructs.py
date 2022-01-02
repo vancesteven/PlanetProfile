@@ -82,16 +82,16 @@ class OceanSubstruct:
         self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'NH3', 'NaCl'
         self.wOcean_ppt = None  # Salinity: Concentration of above salt in parts per thousand (ppt)
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
-        self.deltaT = 0.1  # Step size in K for temperature values used in generating ocean EOS functions
+        self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
         self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
         self.dkdTI_WmK2 = -0.012  # Temperature derivative of ice I relative to the melting temp. Default is from Melinder (2007).
         self.sigmaIce_Sm = 1e-8  # Assumed conductivity of ice layers
-        self.THydroMax_K = 340  # Assumed maximum ocean temperature for generating ocean EOS functions
+        self.THydroMax_K = 320  # Assumed maximum ocean temperature for generating ocean EOS functions
         self.PHydroMax_MPa = None  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
         self.electrical = 'Vance2018'  # Type of electrical conductivity model to use. Options: 'Vance2018', 'Pan2020'
         self.QfromMantle_W = None  # Heat flow from mantle into hydrosphere (calculated from ice thermal profile and applied to mantle)
         self.EOS = None  # Equation of state data to use for ocean layers
-        self.surfIceEOS = {'Ih': None}  # Equation of state data to use for surface ice layers
+        self.surfIceEOS = {}  # Equation of state data to use for surface ice layers
         self.iceEOS = {}  # Equation of state data to use for ice layers within the ocean
 
 
@@ -146,6 +146,8 @@ class CoreSubstruct:
         self.Rtrade_m = None  # Array of core radii for compatible MoIs
         #Re Steve- put all mass fraction stuff into a separate file until implemented later- remove from dataStructs.py
         #To implement: possible Meteoritics file/class?
+        # 2021-12-30: Judging by usage of various different fractional variables in the literature and in
+        # the Matlab code, these x variables should be molar fractions (# this species/total # molecules).
         self.xFeSmeteoritic = None  # CM2 mean from Jarosewich 1990
         self.xFeS = None  # Mass fraction of sulfur in the core
         self.xFeCore = None  # This is the total Fe in Fe and FeS
@@ -248,7 +250,7 @@ class PlanetStruct:
         self.sigma_Sm = None  # Electrical conductivity (sigma) in S/m of each conducting layer
         self.rSigChange_m = None  # Radii of outer boundary of each conducting layer in m (i.e., radii where sigma changes)
         self.MLayer_kg = None  # Mass of each layer in kg
-        self.kTherm_WmK = None  # Thermal conductivity of each layer in W/(mK)
+        self.kTherm_WmK = None  # Thermal conductivity of each layer in W/(m K)
         # Individual calculated quantities
         self.zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km in accordance with Vance et al. (2014)
         self.zClath_m = None  # Thickness of clathrate layer in surface ice in m
@@ -349,10 +351,15 @@ class ConstantsStruct:
         self.T0 = 273.15  # The Celsius zero point in K.
         self.P0 = 101325  # One standard atmosphere in Pa
         self.R = 8.314  # Ideal gas constant in J/mol/K
+        self.stdSeawater_ppt = 35.1650  # Standard Seawater salinity in g/kg (ppt by mass)
+        self.mMgSO4_gmol = 120.4  # Molecular mass of MgSO4 in g/mol
+        self.mNaCl_gmol = 58.44  # Molecular mass of NaCl in g/mol
+        self.mNH3_gmol = 17.03  # Molecular mass of NH3 in g/mol
+        self.mH2O_gmol = 18.02  # Molecular mass of pure water in g/mol
         self.QScore = 1e4  # Fixed QS value to use for core layers if not set in PPBody.py file
-        self.kThermWater_WmK = 0.5  # Fixed thermal conductivity of liquid water in W/(mK)
-        self.kThermSil_WmK = 4.0  # Fixed thermal conductivity of silicates in W/(mK)
-        self.kThermFe_WmK = 33.3  # Fixed thermal conductivity of core material in W/(mK)
+        self.kThermWater_WmK = 0.5  # Fixed thermal conductivity of liquid water in W/(m K)
+        self.kThermSil_WmK = 4.0  # Fixed thermal conductivity of silicates in W/(m K)
+        self.kThermFe_WmK = 33.3  # Fixed thermal conductivity of core material in W/(m K)
         self.phaseClath = 30  # Phase ID to use for (sI methane) clathrates. Must be larger than 6 to keep space for pure ice phases
         self.phaseSil = 50  # Phase ID for silicates
         self.phaseFe = 100  # Phase ID to use for iron core material

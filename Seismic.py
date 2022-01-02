@@ -2,6 +2,7 @@ import numpy as np
 from Thermodynamics.FromLiterature.InnerEOS import TsolidusHirschmann2000
 from Thermodynamics.FromLiterature.HydroEOS import GetPhaseIndices
 from seafreeze import seafreeze as SeaFreeze
+from Thermodynamics.Seawater.SwProps import SwSeismic
 from Utilities.dataStructs import Constants
 
 def SeismicCalcs(Planet, Params):
@@ -62,10 +63,11 @@ def SeismicCalcs(Planet, Params):
             
         # Get seismic properties of ocean layers
         if np.size(indsLiquid) != 0:
-            Planet.Seismic.VP_kms[indsLiquid], Planet.Seismic.VS_kms[indsLiquid], Planet.Seismic.KS_GPa[indsLiquid], \
-            Planet.Seismic.GS_GPa[indsLiquid] = SeaFreezeSeismicFluid(Planet.P_MPa[indsLiquid], Planet.T_K[indsLiquid],
-                                                                    Planet.Ocean.comp, Planet.Ocean.wOcean_ppt)
-            Planet.Seismic.QS[indsLiquid] = np.zeros(np.size(indsLiquid))
+            Planet.Seismic.VP_kms[indsLiquid], Planet.Seismic.KS_GPa[indsLiquid] \
+                = SeismicFluid(Planet.P_MPa[indsLiquid], Planet.T_K[indsLiquid],
+                                        Planet.Ocean.comp, Planet.Ocean.wOcean_ppt)
+            # VS_kms, QS, and GS_GPa were all initialized as zero and are all zero for these
+            # layers, so we just leave them as-is.
 
         if not Params.SKIP_INNER:
             # Evaluate silicate EOS for seismic properties
@@ -175,10 +177,10 @@ def SeaFreezeSeismicIce(P_MPa, T_K, phase):
     return VP_kms, VS_kms, KS_GPa, GS_GPa
 
 
-def SeaFreezeSeismicFluid(P_MPa, T_K, compstr, w_ppt):
-    """ Calculate seismic properties of ocean layers using SeaFreeze.
-        Note that all values returned from SeaFreeze for velocities are m/s and all moduli are
-        in MPa, so everything must be scaled by a factor 1e-3.
+def SeismicFluid(P_MPa, T_K, compstr, w_ppt):
+    """ Calculate seismic properties of ocean layers.
+        Velocities are often returned in m/s and moduli in MPa, so conversion factors
+        appear for most quantities.
 
         Args:
             P_MPa (float, shape N): Pressure of the fluid in MPa
@@ -186,10 +188,8 @@ def SeaFreezeSeismicFluid(P_MPa, T_K, compstr, w_ppt):
             compstr (string): Composition of dissolved salt
             w_ppt (float): Salinity of fluid in ppt
         Returns:
-            VP_kms (float, shape N): P-wave seismic velocity in km/s.
-            VS_kms (float, shape N): S-wave seismic velocity in km/s.
-            KS_GPa (float, shape N): Bulk modulus in GPa.
-            GS_GPa (float, shape N): Shear modulus in GPa.
+            VP_kms (float, shape N): P-wave seismic velocity in km/s (S-waves do not propagate through liquid).
+            KS_GPa (float, shape N): Bulk modulus in GPa (shear modulus is not defined for liquid).
     """
     # Arrange input data into (P,T) value pair tuples compatible with SeaFreeze
     PTpairs = np.array([(P_MPa[i], T_K[i]) for i in range(np.size(P_MPa))], dtype='f,f').astype(object)
@@ -197,11 +197,9 @@ def SeaFreezeSeismicFluid(P_MPa, T_K, compstr, w_ppt):
     if w_ppt == 0:
         seaOut = SeaFreeze(PTpairs, 'water1')
         VP_kms = seaOut.vel * 1e-3
-        VS_kms = np.zeros_like(VP_kms)
         KS_GPa = seaOut.Ks * 1e-3
-        GS_GPa = np.zeros_like(VP_kms)
     elif compstr == 'Seawater':
-        raise ValueError('Unable to get seismic properties of ocean. Seawater is not implemented yet.')
+        VP_kms, KS_GPa = SwSeismic(P_MPa, T_K, w_ppt)
     elif compstr == 'NH3':
         raise ValueError('Unable to get seismic properties of ocean. NH3 is not implemented yet.')
     elif compstr == 'MgSO4':
@@ -211,4 +209,4 @@ def SeaFreezeSeismicFluid(P_MPa, T_K, compstr, w_ppt):
     else:
         raise ValueError('Unable to get seismic properties of ocean. compstr="'+compstr+'" but options are Seawater, NH3, MgSO4, and NaCl.')
 
-    return VP_kms, VS_kms, KS_GPa, GS_GPa
+    return VP_kms, KS_GPa

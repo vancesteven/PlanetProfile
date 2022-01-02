@@ -18,7 +18,7 @@ def IceIConvect(Planet, Params):
     Pmid_MPa = (Planet.PbI_MPa + Planet.P_MPa[0]) / 2
     # Get a lower estimate for thermal conductivity if there's no clathrate lid, to be more consistent
     # with the Matlab implementation of Deschamps and Sotin (2001). The thermal conductivity of clathrates
-    # is essentially fixed at 0.5 W/(mK), so doing this operation when the top layer is clathrate
+    # is essentially fixed at 0.5 W/(m K), so doing this operation when the top layer is clathrate
     # gives us what we want in that case, too.
     Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[PhaseConv(Planet.phase[0])].fn_kTherm_WmK(Pmid_MPa, Planet.Bulk.Tb_K)
 

@@ -22,7 +22,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         Args:
             Ttop_K (float): Temperature at top of whole layer in K
             rTop_m (float): Radius of top of ice layer in m
-            kTop_WmK (float): Thermal conductivity at top of ice layer in W/(mK)
+            kTop_WmK (float): Thermal conductivity at top of ice layer in W/(m K)
             Tb_K (float): Assumed bottom temperature in K
             zb_m (float): Thickness of the ice layer in m
             gtop_ms2 (float): Gravitational acceleration at layer top
@@ -127,7 +127,7 @@ def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rho_kgm3, Qrad_Wkg
         Args:
             Ttop_K (float, shape N): Temperature at the top of the layer in K.
             rTop_m, rBot_m (float, shape N): Radius at top and bottom of layer in m, respectively.
-            kTherm_WmK (float, shape N): Thermal conductivity of layer in W/(mK).
+            kTherm_WmK (float, shape N): Thermal conductivity of layer in W/(m K).
             rho_kgm3 (float, shape N): Mass density of layer in kg/m^3.
             Qrad_Wkg (float): Average radiogenic heating rate in W/kg.
             Htidal_Wm3 (float): Average tidal heating rate in W/m^3.

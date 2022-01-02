@@ -1,36 +1,64 @@
 import numpy as np
 import scipy.interpolate as spi
 import scipy.optimize as spo
+from scipy.io import loadmat
 from seafreeze import seafreeze as SeaFreeze
 from seafreeze import whichphase as WhichPhase
 from Utilities.dataStructs import Constants
+from Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, GetPhaseMgSO4
+from Thermodynamics.Seawater.SwProps import SwProps, GetPhaseFnSw
+from Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, TclathDissocLower_K, \
+    TclathDissocUpper_K
 
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K):
         self.comp = compstr
         self.w_ppt = wOcean_ppt
+        self.P_MPa = P_MPa
+        self.T_K = T_K
 
         # Get tabular data from the appropriate source for this composition
         if wOcean_ppt == 0:
             self.type = 'SeaFreeze'
+            self.m_gmol = Constants.mH2O_gmol
+
             PTgrid = np.array([P_MPa, T_K], dtype=object)
             seaOut = SeaFreeze(PTgrid, 'water1')
             self.rho_kgm3 = seaOut.rho
             self.Cp_JkgK = seaOut.Cp
             self.alpha_pK = seaOut.alpha
             self.kTherm_WmK = np.zeros_like(self.alpha_pK) + Constants.kThermWater_WmK  # Placeholder until we implement a self-consistent calculation
+
             self.phase = WhichPhase(PTgrid)
+            # Create phase finder -- note that the results from this function must be cast to int after retrieval
+            Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
+            Tlin_K = np.array([T for _ in P_MPa for T in T_K])
+            PTpairs = list(zip(Plin_MPa, Tlin_K))
+            phase1D = np.reshape(self.phase, (-1))
+            # Create phase finder -- note that the results from this function must be cast to int after retrieval
+            self.fn_phase = spi.NearestNDInterpolator(PTpairs, phase1D)
         elif compstr == 'Seawater':
             self.type = 'GSW'
-            raise ValueError('Unable to load ocean EOS. Seawater is not implemented yet.')
+            self.m_gmol = Constants.mH2O_gmol
+            if((T_K[0] <= 250) or (P_MPa[-1] > 250)): print('WARNING: GSW handles only ice Ih for determining phases in the ocean. At ' +
+                                                            'low temperatures or high pressures, this model will be wrong as no ' +
+                                                            'high-pressure ice phases will be found.')
+
+            self.fn_phase = GetPhaseFnSw(wOcean_ppt)
+            self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK = SwProps(P_MPa, T_K, wOcean_ppt)
         elif compstr == 'NH3':
+            self.m_gmol = Constants.mNH3_gmol
             self.type = 'PlanetProfile'
             raise ValueError('Unable to load ocean EOS. NH3 is not implemented yet.')
         elif compstr == 'MgSO4':
             self.type = 'LBF'
-            raise ValueError('Unable to load ocean EOS. MgSO4 is not implemented yet.')
+            self.m_gmol = Constants.mMgSO4_gmol
+
+            self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK = MgSO4Props(P_MPa, T_K, wOcean_ppt)
+            self.fn_phase = GetPhaseMgSO4(P_MPa, T_K, wOcean_ppt)
         elif compstr == 'NaCl':
             self.type = 'PlanetProfile'
+            self.m_gmol = Constants.mNaCl_gmol
             raise ValueError('Unable to load ocean EOS. NaCl is not implemented yet.')
         else:
             raise ValueError('Unable to load ocean EOS. compstr="'+compstr+'" but options are Seawater, NH3, MgSO4, and NaCl.')
@@ -39,14 +67,6 @@ class OceanEOSStruct:
         self.fn_Cp_JkgK = spi.RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
         self.fn_alpha_pK = spi.RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
         self.fn_kTherm_WmK = spi.RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
-
-        # Create phase finder -- note that the results from this function must be cast to int after retrieval
-        Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
-        Tlin_K = np.array([T for _ in P_MPa for T in T_K])
-        PTpairs = list(zip(Plin_MPa, Tlin_K))
-        phase1D = np.reshape(self.phase, (-1))
-        # Create phase finder -- note that the results from this function must be cast to int after retrieval
-        self.fn_phase = spi.NearestNDInterpolator(PTpairs, phase1D)
 
 
 class IceEOSStruct:
@@ -116,7 +136,7 @@ def GetPfreeze(oceanEOS, Tb_K, PLower_MPa=20, PUpper_MPa=300, PRes_MPa=0.1,
         DO_GUESS = False
         GUESS_FAILED = True
 
-    # Get phase of each P for the Tb_K value using SeaFreeze
+    # Get phase of each P for the Tb_K value from the EOS
     if DO_GUESS:
         searchPhases = oceanEOS.fn_phase(PguessRange, Tb_K).astype(np.int_)
         # Check if we failed to encounter a phase transition
@@ -355,7 +375,7 @@ def kThermIsobaricAnderssonIbari2005(T_K, phase):
             phase (int): Phase ID
         Returns:
             kTherm_WmK (float, shape N): Thermal conductivity of desired phase at specified temperatures
-                in W/(mK)
+                in W/(m K)
     """
     D = np.array([np.nan, 630, 695, 93.2, np.nan, 38.0, 50.9])
     X = np.array([np.nan, 0.995, 1.097, 0.822, np.nan, 0.612, 0.612])
@@ -384,7 +404,7 @@ def kThermIsothermalAnderssonIbari2005(P_MPa, phase):
             phase (int, shape N): Phase index
         Returns:
             kTherm_WmK (float, shape N): Thermal conductivity of desired phase at specified pressures
-                in W/(mK)
+                in W/(m K)
     """
     E = np.array([np.nan, 1.60, 1.25, -0.02, np.nan, 0.16, 0.37])
     F = np.array([np.nan, -0.44, 0.2, 0.2, np.nan, 0.2, 0.16])
@@ -401,11 +421,11 @@ def kThermMelinder2007(T_K, Tmelt_K, ko_WmK=2.21, dkdT_WmK2=-0.012):
         Args:
             T_K (float, shape N): Temperature in K
             Tmelt_K (float, shape N): Melting temperature at the evaluated pressure in K
-            ko_WmK = 2.21 (float): Thermal conductivity at the melting temperature in W/(mK)
+            ko_WmK = 2.21 (float): Thermal conductivity at the melting temperature in W/(m K)
             dkdT_WmK2 = -0.012 (float): Constant temperature derivative of k in W/(mK^2)
         Returns:
             kTherm_WmK (float, shape N): Thermal conductivity of ice Ih at specified temperature
-                in W/(mK)
+                in W/(m K)
     """
 
     kTherm_WmK = ko_WmK + dkdT_WmK2 * (T_K - Tmelt_K)
@@ -419,7 +439,7 @@ def kThermHobbs1974(T_K):
         Args:
             T_K (float, shape N): Temperature value(s) in K
         Returns:
-            kTherm_WmK (float, shape N): Thermal conductivities in W/(mK)
+            kTherm_WmK (float, shape N): Thermal conductivities in W/(m K)
     """
     a0 = 4.68e4  # Units of ergs/(K cm s)
     a1 = 4.88e7  # Units of ergs/(cm s)
@@ -428,83 +448,6 @@ def kThermHobbs1974(T_K):
     kTherm_WmK = a1_SI/T_K + a0_SI
 
     return kTherm_WmK
-
-
-def ClathProps(Plin_MPa, Tlin_K):
-    """ Evaluate methane clathrate physical properties using Helgerud et al. (2009): https://doi.org/10.1029/2009JB006451
-        for density, Ning et al. (2015): https://doi.org/10.1039/C4CP04212C for thermal expansivity and heat capacity,
-        and Waite et al. (2005): https://www.researchgate.net/profile/W-Waite/publication/252708287_Thermal_Property_Measurements_in_Tetrahydrofuran_THF_Hydrate_Between_-25_and_4deg_C_and_Their_Application_to_Methane_Hydrate/links/57b900ae08aedfe0ec94abd7/Thermal-Property-Measurements-in-Tetrahydrofuran-THF-Hydrate-Between-25-and-4deg-C-and-Their-Application-to-Methane-Hydrate.pdf
-        for thermal conductivity.
-        Range of validity:
-            rho_kgm3: P from 30.5 to 97.7 MPa, T from -20 to 15 C
-            Cp_JkgK: P at 20 MPa, T from 5 to 292 K
-            alpha_pK: P at 0.1 MPa, T from 5 to 268 K (note that Ning et al. also give a parameterization for
-                alpha_pK at 20 MPa that differs slightly. Since clathrates only appear at the surface of icy moons,
-                we use just the 1 bar value for simplicity.
-            kTherm_WmK: P from 13.8 to 24.8 MPa, T from -30 to 20 C
-
-
-        Args:
-            Plin_MPa (float, shape M): Pressures to evaluate in MPa
-            Tlin_K (float, shape N): Temperatures to evaluate in K
-        Returns:
-            rho_kgm3 (float, shape MxN): Mass density in kg/m^3 for each P and T. rho_gcm3 = aT_C + bP_MPa + c
-            Cp_JkgK (float, shape MxN): Heat capacity in J/(kg K) for each P and T. Cp_JkgK = aT_K + b
-            alpha_pK (float, shape MxN): Thermal expansivity in 1/K for each P and T. alpha_pK = (2aT_K + b)/(aT_K^2 + bT_K + c)
-            kTherm_WmK (float, shape MxN): Thermal conductivity in W/(mK) for each P and T. kTherm_WmK = c, a constant, over the specified range.
-    """
-    P_MPa, T_K = np.meshgrid(Plin_MPa, Tlin_K, indexing='ij')
-
-    T_C = T_K - Constants.T0
-
-    rho_kgm3 = (-2.3815e-4*T_C + 1.1843e-4*P_MPa + 0.92435) * 1e3
-    Cp_JkgK = 3.19*T_K + 2150
-    alpha_pK = (3.5697e-4*T_K + 0.2558)/(3.5697e-4*T_K**2 + 0.2558*T_K + 1612.8597)
-    kTherm_WmK = np.zeros_like(P_MPa) + 0.5
-
-    return rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK
-
-
-""" Dissociation temperatures for clathrates based on a degree-2 fit to
-    the dissociation curve at low pressure and a logarithmic fit at higher pressures,
-    for curves from Sloan (1998) as reported in Choukron et al. (2010):
-    https://doi.org/10.1016/j.icarus.2009.08.011
-"""
-# For use when P_MPa < 2.567 and T < 273
-TclathDissocLower_K = lambda P_MPa: 212.33820985 + 43.37319252*P_MPa - 7.83348412*P_MPa**2
-# For use when P_MPa >= 2.567 and T >= 273
-TclathDissocUpper_K = lambda P_MPa: -20.3058036 + 8.09637199*np.log(P_MPa/4.56717945e-16)
-
-def ClathStableSloan1998(P_MPa, T_K):
-    """ Returns a grid of boolean values to say whether fully occupied methane
-        clathrates are stable at the given P,T conditions, based on the dissocation
-        curves above.
-
-        Args:
-            P_MPa (float, shape N): Pressures in MPa
-            T_K (float, shape M): Temperatures in K
-        Returns:
-            stable (int, shape NxM): Set to Constants.phaseClath (phase ID) if clathrates are stable
-                at this P,T and 0 if they are not (if not stable, Ocean.EOS.fn_phase should be
-                queried to determine the phase)
-    """
-
-    # Avoid log of 0 for surface pressure
-    P_MPa[P_MPa==0] = 1e-12
-    # Get (P,T) pairs relevant for each portion of the dissociation curve
-    Plow_MPa, Tlow_K = np.meshgrid(P_MPa[P_MPa < 2.567], T_K, indexing='ij')
-    Pupp_MPa, Tupp_K = np.meshgrid(P_MPa[P_MPa >= 2.567], T_K, indexing='ij')
-    # Get evaluation points for lower and upper dissociation curves
-    TdissocLower_K = TclathDissocLower_K(Plow_MPa)
-    TdissocUpper_K = TclathDissocUpper_K(Pupp_MPa)
-    # Assign clathrate phase ID to (P,T) points below the dissociation curves and 0 otherwise
-    stableLow = np.zeros_like(Tlow_K).astype(np.int_)
-    stableUpp = np.zeros_like(Tupp_K).astype(np.int_)
-    stableLow[Tlow_K < TdissocLower_K] = Constants.phaseClath
-    stableUpp[Tupp_K < TdissocUpper_K] = Constants.phaseClath
-    stable = np.concatenate((stableLow, stableUpp), axis=0)
-
-    return stable
 
 
 def GetPbClath(Tb_K):
