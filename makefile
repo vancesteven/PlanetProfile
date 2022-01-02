@@ -10,7 +10,7 @@
 #	Designed for accessibility for new users and ease of use for advanced users.
 # 
 # AUTHOR: Marshall J. Styczinski (itsmoosh@gmail.com), 2018-07-03
-#	Last updated 2021-10-14
+#	Last updated 2022-01-01
 
 SHELL := /bin/bash
 
@@ -76,7 +76,7 @@ clean:
 	echo "Clearing data and figure files for:" $${bodies[@]} ; \
 	for body in $${bodies[@]} ; do \
 		rm -f $$body/*.dat $$body/*.txt $$body/*.mat $$body/*.asv ; \
-		rm -f $$body/$(figs)/*.eps $$body/$(figs)/*.fig $$body/$(figs)/*.png ; \
+		rm -f $$body/$(figs)/*.eps $$body/$(figs)/*.fig $$body/$(figs)/*.png $$body/$(figs)/*.pdf ; \
 	done
 
 install:
