@@ -22,14 +22,16 @@ def MgSO4Props(P_MPa, T_K, wOcean_ppt):
     return rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK
 
 
-def GetPhaseMgSO4(P_MPa, T_K, wOcean_ppt):
+class MgSO4Phase:
     """ Calculate phase of liquid/ice within the hydrosphere for an ocean with
         dissolved MgSO4, given a span of P_MPa, T_K, and w_ppt, based on models
         from Vance et al. 2014: https://doi.org/10.1016/j.pss.2014.03.011
     """
-    fn_phase = 0
+    def __init__(self, wOcean_ppt):
+        self.w_ppt = wOcean_ppt
 
-    return fn_phase
+    def __call__(self, P_MPa, T_K):
+        pass
 
 
 def Molal2ppt(b_molkg, m_gmol):

@@ -1,8 +1,6 @@
 import numpy as np
 from Thermodynamics.FromLiterature.InnerEOS import TsolidusHirschmann2000
 from Thermodynamics.FromLiterature.HydroEOS import GetPhaseIndices
-from seafreeze import seafreeze as SeaFreeze
-from Thermodynamics.Seawater.SwProps import SwSeismic
 from Utilities.dataStructs import Constants
 
 def SeismicCalcs(Planet, Params):
@@ -23,7 +21,7 @@ def SeismicCalcs(Planet, Params):
             # Get seismic properties of surface clathrate layer
             Planet.Seismic.VP_kms[indsClath], Planet.Seismic.VS_kms[indsClath], \
             Planet.Seismic.KS_GPa[indsClath], Planet.Seismic.GS_GPa[indsClath] \
-                = ClathrateSeismicHelgerud2009(Planet.P_MPa[indsClath], Planet.T_K[indsClath])
+                = Planet.Ocean.surfIceEOS['Clath'].fn_Seismic(Planet.P_MPa[indsClath], Planet.T_K[indsClath])
 
             Hclath = Planet.Seismic.gClath * np.max(Planet.T_K[indsClath])
             Planet.Seismic.QS[indsClath] = Planet.Seismic.BClath * np.exp(
@@ -32,31 +30,71 @@ def SeismicCalcs(Planet, Params):
         # Get seismic properties of all ice layers
         if np.size(indsIceI) != 0:
             Planet.Seismic.VP_kms[indsIceI], Planet.Seismic.VS_kms[indsIceI], Planet.Seismic.KS_GPa[indsIceI], \
-            Planet.Seismic.GS_GPa[indsIceI] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceI], Planet.T_K[indsIceI], 1)
+            Planet.Seismic.GS_GPa[indsIceI] = Planet.Ocean.surfIceEOS['Ih'].fn_Seismic(Planet.P_MPa[indsIceI], Planet.T_K[indsIceI])
             HiceI = Planet.Seismic.gIceI * Planet.Bulk.Tb_K
             Planet.Seismic.QS[indsIceI] = Planet.Seismic.BIceI * np.exp(
                 Planet.Seismic.gammaIceI * HiceI / Planet.T_K[indsIceI])
         if np.size(indsIceII) != 0:
-            Planet.Seismic.VP_kms[indsIceII], Planet.Seismic.VS_kms[indsIceII], Planet.Seismic.KS_GPa[indsIceII], \
-            Planet.Seismic.GS_GPa[indsIceII] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceII], Planet.T_K[indsIceII], 2)
+            surfIce = indsIceII[0] < Planet.Steps.nSurfIce
+            if np.any(surfIce):
+                Planet.Seismic.VP_kms[indsIceII[0][surfIce]], Planet.Seismic.VS_kms[indsIceII[0][surfIce]], \
+                Planet.Seismic.KS_GPa[indsIceII[0][surfIce]], Planet.Seismic.GS_GPa[indsIceII[0][surfIce]] \
+                    = Planet.Ocean.surfIceEOS['II'].fn_Seismic(
+                            Planet.P_MPa[indsIceII[0][surfIce]], Planet.T_K[indsIceII[0][surfIce]])
+            if not np.all(surfIce):
+                lowerIce = np.logical_not(surfIce)
+                Planet.Seismic.VP_kms[indsIceII[0][lowerIce]], Planet.Seismic.VS_kms[indsIceII[0][lowerIce]], \
+                Planet.Seismic.KS_GPa[indsIceII[0][lowerIce]], Planet.Seismic.GS_GPa[indsIceII[0][lowerIce]] \
+                    = Planet.Ocean.iceEOS['II'].fn_Seismic(
+                    Planet.P_MPa[indsIceII[0][lowerIce]], Planet.T_K[indsIceII[0][lowerIce]])
             HiceII = Planet.Seismic.gIceII * np.max(Planet.T_K[indsIceII])
             Planet.Seismic.QS[indsIceII] = Planet.Seismic.BIceII * np.exp(
                 Planet.Seismic.gammaIceII * HiceII / Planet.T_K[indsIceII])
         if np.size(indsIceIII) != 0:
-            Planet.Seismic.VP_kms[indsIceIII], Planet.Seismic.VS_kms[indsIceIII], Planet.Seismic.KS_GPa[indsIceIII], \
-            Planet.Seismic.GS_GPa[indsIceIII] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceIII], Planet.T_K[indsIceIII], 3)
+            surfIce = indsIceIII[0] < Planet.Steps.nSurfIce
+            if np.any(surfIce):
+                Planet.Seismic.VP_kms[indsIceIII[0][surfIce]], Planet.Seismic.VS_kms[indsIceIII[0][surfIce]], \
+                Planet.Seismic.KS_GPa[indsIceIII[0][surfIce]], Planet.Seismic.GS_GPa[indsIceIII[0][surfIce]] \
+                    = Planet.Ocean.surfIceEOS['III'].fn_Seismic(
+                            Planet.P_MPa[indsIceIII[0][surfIce]], Planet.T_K[indsIceIII[0][surfIce]])
+            if not np.all(surfIce):
+                lowerIce = np.logical_not(surfIce)
+                Planet.Seismic.VP_kms[indsIceIII[0][lowerIce]], Planet.Seismic.VS_kms[indsIceIII[0][lowerIce]], \
+                Planet.Seismic.KS_GPa[indsIceIII[0][lowerIce]], Planet.Seismic.GS_GPa[indsIceIII[0][lowerIce]] \
+                    = Planet.Ocean.iceEOS['III'].fn_Seismic(
+                    Planet.P_MPa[indsIceIII[0][lowerIce]], Planet.T_K[indsIceIII[0][lowerIce]])
             HiceIII = Planet.Seismic.gIceIII * np.max(Planet.T_K[indsIceIII])
             Planet.Seismic.QS[indsIceIII] = Planet.Seismic.BIceIII * np.exp(
                 Planet.Seismic.gammaIceIII * HiceIII / Planet.T_K[indsIceIII])
         if np.size(indsIceV) != 0:
-            Planet.Seismic.VP_kms[indsIceV], Planet.Seismic.VS_kms[indsIceV], Planet.Seismic.KS_GPa[indsIceV], \
-            Planet.Seismic.GS_GPa[indsIceV] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceV], Planet.T_K[indsIceV], 5)
+            surfIce = indsIceV[0] < Planet.Steps.nSurfIce
+            if np.any(surfIce):
+                Planet.Seismic.VP_kms[indsIceV[0][surfIce]], Planet.Seismic.VS_kms[indsIceV[0][surfIce]], \
+                Planet.Seismic.KS_GPa[indsIceV[0][surfIce]], Planet.Seismic.GS_GPa[indsIceV[0][surfIce]] \
+                    = Planet.Ocean.surfIceEOS['V'].fn_Seismic(
+                            Planet.P_MPa[indsIceV[0][surfIce]], Planet.T_K[indsIceV[0][surfIce]])
+            if not np.all(surfIce):
+                lowerIce = np.logical_not(surfIce)
+                Planet.Seismic.VP_kms[indsIceV[0][lowerIce]], Planet.Seismic.VS_kms[indsIceV[0][lowerIce]], \
+                Planet.Seismic.KS_GPa[indsIceV[0][lowerIce]], Planet.Seismic.GS_GPa[indsIceV[0][lowerIce]] \
+                    = Planet.Ocean.iceEOS['V'].fn_Seismic(
+                    Planet.P_MPa[indsIceV[0][lowerIce]], Planet.T_K[indsIceV[0][lowerIce]])
             HiceV = Planet.Seismic.gIceV * np.max(Planet.T_K[indsIceV])
             Planet.Seismic.QS[indsIceV] = Planet.Seismic.BIceV * np.exp(
                 Planet.Seismic.gammaIceV * HiceV / Planet.T_K[indsIceV])
         if np.size(indsIceVI) != 0:
-            Planet.Seismic.VP_kms[indsIceVI], Planet.Seismic.VS_kms[indsIceVI], Planet.Seismic.KS_GPa[indsIceVI], \
-            Planet.Seismic.GS_GPa[indsIceVI] = SeaFreezeSeismicIce(Planet.P_MPa[indsIceVI], Planet.T_K[indsIceVI], 6)
+            surfIce = indsIceVI[0] < Planet.Steps.nSurfIce
+            if np.any(surfIce):
+                Planet.Seismic.VP_kms[indsIceVI[0][surfIce]], Planet.Seismic.VS_kms[indsIceVI[0][surfIce]], \
+                Planet.Seismic.KS_GPa[indsIceVI[0][surfIce]], Planet.Seismic.GS_GPa[indsIceVI[0][surfIce]] \
+                    = Planet.Ocean.surfIceEOS['VI'].fn_Seismic(
+                            Planet.P_MPa[indsIceVI[0][surfIce]], Planet.T_K[indsIceVI[0][surfIce]])
+            if not np.all(surfIce):
+                lowerIce = np.logical_not(surfIce)
+                Planet.Seismic.VP_kms[indsIceVI[0][lowerIce]], Planet.Seismic.VS_kms[indsIceVI[0][lowerIce]], \
+                Planet.Seismic.KS_GPa[indsIceVI[0][lowerIce]], Planet.Seismic.GS_GPa[indsIceVI[0][lowerIce]] \
+                    = Planet.Ocean.iceEOS['VI'].fn_Seismic(
+                    Planet.P_MPa[indsIceVI[0][lowerIce]], Planet.T_K[indsIceVI[0][lowerIce]])
             HiceVI = Planet.Seismic.gIceVI * np.max(Planet.T_K[indsIceVI])
             Planet.Seismic.QS[indsIceVI] = Planet.Seismic.BIceVI * np.exp(
                 Planet.Seismic.gammaIceVI * HiceVI / Planet.T_K[indsIceVI])
@@ -64,8 +102,7 @@ def SeismicCalcs(Planet, Params):
         # Get seismic properties of ocean layers
         if np.size(indsLiquid) != 0:
             Planet.Seismic.VP_kms[indsLiquid], Planet.Seismic.KS_GPa[indsLiquid] \
-                = SeismicFluid(Planet.P_MPa[indsLiquid], Planet.T_K[indsLiquid],
-                                        Planet.Ocean.comp, Planet.Ocean.wOcean_ppt)
+                = Planet.Ocean.EOS.fn_Seismic(Planet.P_MPa[indsLiquid], Planet.T_K[indsLiquid])
             # VS_kms, QS, and GS_GPa were all initialized as zero and are all zero for these
             # layers, so we just leave them as-is.
 
@@ -94,119 +131,3 @@ def SeismicCalcs(Planet, Params):
                     Planet.Seismic.QS[indsFe] = Constants.QScore
 
     return Planet
-
-
-def ClathrateSeismicHelgerud2009(P_MPa, T_K):
-    """ Calculate seismic velocities in clathrates based on Helgerud et al. (2009): https://doi.org/10.1029/2009JB006451
-        Note that the original article had a correction for all of the tables' equations--
-        the correction is linked in the above DOI.
-
-        Args:
-            P_MPa (float, shape N): Pressure values to evaluate in MPa.
-            T_K (float, shape N): Temperature values to evaluate in K.
-        Returns:
-            VP_kms (float, shape N): P-wave seismic velocity in km/s.
-            VS_kms (float, shape N): S-wave seismic velocity in km/s.
-            KS_GPa (float, shape N): Bulk modulus in GPa.
-            GS_GPa (float, shape N): Shear modulus in GPa.
-    """
-
-    T_C = T_K - Constants.T0
-    VP_kms = (-1.84*T_C + 0.31*P_MPa + 3766) * 1e-3
-    VS_kms = (-0.892*T_C - 0.1*P_MPa + 1957) * 1e-3
-    KS_GPa = -1.09e-2*T_C + 3.8e-3*P_MPa + 8.39
-    GS_GPa = -4.2e-3*T_C + 9e-5*P_MPa + 3.541
-
-    return VP_kms, VS_kms, KS_GPa, GS_GPa
-
-
-def SeaFreezeSeismicIce(P_MPa, T_K, phase):
-    """ Calculate seismic properties in non-clathrate ices using SeaFreeze.
-        Only calculates one phase at a time, because no advantage is offered
-        in terms of the number of calls to SeaFreeze for packaging the data
-        into larger chunks for this function.
-        Note that all values returned from SeaFreeze for velocities are m/s and all moduli are
-        in MPa, so everything must be scaled by a factor 1e-3.
-
-        Args:
-            P_MPa (float, shape N): Pressure values to evaluate in MPa.
-            T_K (float, shape N): Temperature values to evaluate in K.
-            phase (int): Phase of ice for all PT pairs.
-        Returns:
-            VP_kms (float, shape N): P-wave seismic velocity in km/s.
-            VS_kms (float, shape N): S-wave seismic velocity in km/s.
-            KS_GPa (float, shape N): Bulk modulus in GPa.
-            GS_GPa (float, shape N): Shear modulus in GPa.
-    """
-    # Arrange input data into (P,T) value pair tuples compatible with SeaFreeze
-    PTpairs = np.array([(P_MPa[i], T_K[i]) for i in range(np.size(P_MPa))], dtype='f,f').astype(object)
-
-    if phase == 1:
-        seaOut = SeaFreeze(PTpairs, 'Ih')
-        VP_kms = seaOut.Vp * 1e-3
-        VS_kms = seaOut.Vs * 1e-3
-        KS_GPa = seaOut.Ks * 1e-3
-        GS_GPa = seaOut.shear * 1e-3
-    elif phase == 2:
-        seaOut = SeaFreeze(PTpairs, 'II')
-        VP_kms = seaOut.Vp * 1e-3
-        VS_kms = seaOut.Vs * 1e-3
-        KS_GPa = seaOut.Ks * 1e-3
-        GS_GPa = seaOut.shear * 1e-3
-    elif phase == 3:
-        seaOut = SeaFreeze(PTpairs, 'III')
-        VP_kms = seaOut.Vp * 1e-3
-        VS_kms = seaOut.Vs * 1e-3
-        KS_GPa = seaOut.Ks * 1e-3
-        GS_GPa = seaOut.shear * 1e-3
-    elif phase == 5:
-        seaOut = SeaFreeze(PTpairs, 'V')
-        VP_kms = seaOut.Vp * 1e-3
-        VS_kms = seaOut.Vs * 1e-3
-        KS_GPa = seaOut.Ks * 1e-3
-        GS_GPa = seaOut.shear * 1e-3
-    elif phase == 6:
-        seaOut = SeaFreeze(PTpairs, 'VI')
-        VP_kms = seaOut.Vp * 1e-3
-        VS_kms = seaOut.Vs * 1e-3
-        KS_GPa = seaOut.Ks * 1e-3
-        GS_GPa = seaOut.shear * 1e-3
-    else:
-        raise ValueError('SeaFreezeSeismicIce was passed a phase that does not correspond to ice.')
-
-    return VP_kms, VS_kms, KS_GPa, GS_GPa
-
-
-def SeismicFluid(P_MPa, T_K, compstr, w_ppt):
-    """ Calculate seismic properties of ocean layers.
-        Velocities are often returned in m/s and moduli in MPa, so conversion factors
-        appear for most quantities.
-
-        Args:
-            P_MPa (float, shape N): Pressure of the fluid in MPa
-            T_K (float, shape N): Temperature of the fluid in K
-            compstr (string): Composition of dissolved salt
-            w_ppt (float): Salinity of fluid in ppt
-        Returns:
-            VP_kms (float, shape N): P-wave seismic velocity in km/s (S-waves do not propagate through liquid).
-            KS_GPa (float, shape N): Bulk modulus in GPa (shear modulus is not defined for liquid).
-    """
-    # Arrange input data into (P,T) value pair tuples compatible with SeaFreeze
-    PTpairs = np.array([(P_MPa[i], T_K[i]) for i in range(np.size(P_MPa))], dtype='f,f').astype(object)
-
-    if w_ppt == 0:
-        seaOut = SeaFreeze(PTpairs, 'water1')
-        VP_kms = seaOut.vel * 1e-3
-        KS_GPa = seaOut.Ks * 1e-3
-    elif compstr == 'Seawater':
-        VP_kms, KS_GPa = SwSeismic(P_MPa, T_K, w_ppt)
-    elif compstr == 'NH3':
-        raise ValueError('Unable to get seismic properties of ocean. NH3 is not implemented yet.')
-    elif compstr == 'MgSO4':
-        raise ValueError('Unable to get seismic properties of ocean. MgSO4 is not implemented yet.')
-    elif compstr == 'NaCl':
-        raise ValueError('Unable to get seismic properties of ocean. NaCl is not implemented yet.')
-    else:
-        raise ValueError(f'Unable to get seismic properties of ocean. compstr="{compstr}" but options are Seawater, NH3, MgSO4, and NaCl.')
-
-    return VP_kms, KS_GPa

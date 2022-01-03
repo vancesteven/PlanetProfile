@@ -2,8 +2,8 @@ import numpy as np
 import logging as log
 from Utilities.dataStructs import Constants
 from gsw.freezing import t_freezing as gswTfreeze
-from gsw.conversions import CT_from_t
-from gsw.density import sound_speed as gswVP_ms, rho, alpha
+from gsw.conversions import CT_from_t, C_from_SP as gswConduct_mScm
+from gsw.density import rho, alpha, sound_speed as gswVP_ms
 from gsw.energy import enthalpy
 
 def SwProps(P_MPa, T_K, wOcean_ppt):
@@ -125,22 +125,7 @@ def GetdCTdTanddHdT(wOcean_ppt, CT_C, SP_dbar, T_C, dT=0.01):
     return dCTdT, dHdT
 
 
-def GetPhaseFnSw(wOcean_ppt):
-    """ Return a function for the expected phase for given P and T for the
-        salinity w, based on the freezing temperature as determined by GSW.
-
-        Args:
-            wOcean_ppt (float): Mass concentration (salinity) in ppt of dissolved salt in ocean waters
-        Returns:
-            fn_phase (class PhaseFunc): A function of P_MPa and T_K that determines if ocean fluid is
-                ice (phase 1) or liquid (phase 0) for given (P,T) for the given salinity
-    """
-    fn_phase = PhaseFunc(wOcean_ppt)
-
-    return fn_phase
-
-
-class PhaseFunc:
+class SwPhase:
     def __init__(self, wOcean_ppt):
         self.w_ppt = wOcean_ppt
 
@@ -162,26 +147,33 @@ class PhaseFunc:
         return (((T_K - Constants.T0) - gswTfreeze(self.w_ppt, MPa2seaPressure(P_MPa), 0)) < 0).astype(np.int_)
 
 
-def SwSeismic(P_MPa, T_K, wOcean_ppt):
-    """ Calculate P-wave sound speed and bulk modulus for Seawater
-        composition with salinity wOcean for all (P,T) points,
-        from GSW functions.
+class SwSeismic:
+    def __init__(self, wOcean_ppt):
+        self.w_ppt = wOcean_ppt
 
-        Args:
-            P_MPa (float, shape N): Pressures in MPa
-            T_K (float, shape N): Temperatures in K
-            wOcean_ppt (float): Salinity in ppt (g/kg)
-        Returns:
-            VP_kms (float, shape N): P-wave sound speed in km/s
-            KS_GPa (float, shape N): Bulk modulus in GPa
-    """
-    T_C = T_K - Constants.T0
-    SP_dbar = MPa2seaPressure(P_MPa)
-    CT_C = gswT2conservT(wOcean_ppt, T_C, SP_dbar, DO_1D=True)
-    VP_kms = gswVP_ms(wOcean_ppt, CT_C, SP_dbar) * 1e-3  # 1e-3 to convert from m/s to km/s
-    KS_GPa = gswDensity_kgm3(wOcean_ppt, CT_C, SP_dbar, DO_1D=True) * VP_kms**2 * 1e-3  # 1e-3 because (km/s)^2 * (kg/m^3) gives units of MPa, so 1e-3 to convert to GPa
-    # KS and VP are returning squared shapes
-    return VP_kms, KS_GPa
+    def __call__(self, P_MPa, T_K):
+        T_C = T_K - Constants.T0
+        SP_dbar = MPa2seaPressure(P_MPa)
+        CT_C = gswT2conservT(self.w_ppt, T_C, SP_dbar, DO_1D=True)
+        VP_kms = gswVP_ms(self.w_ppt, CT_C, SP_dbar) * 1e-3  # 1e-3 to convert from m/s to km/s
+        KS_GPa = gswDensity_kgm3(self.w_ppt, CT_C, SP_dbar, DO_1D=True) * VP_kms**2 * 1e-3  # 1e-3 because (km/s)^2 * (kg/m^3) gives units of MPa, so 1e-3 to convert to GPa
+        return VP_kms, KS_GPa
+
+
+class SwConduct:
+    def __init__(self, wOcean_ppt):
+        self.w_ppt = wOcean_ppt
+        # For a Seawater composition, practical salinity SP on the PSS-78 scale
+        # is directly proportional to absolute salinity in g/kg--see Eq. 1 of
+        # https://www.teos-10.org/pubs/gsw/pdf/SAAR.pdf
+        self.PracSalin = self.w_ppt * (35/Constants.stdSeawater_ppt)
+
+    def __call__(self, P_MPa, T_K):
+        T_C = T_K - Constants.T0
+        SP_dbar = MPa2seaPressure(P_MPa)
+        # GSW C_from_SP function (gswConduct) returns mS/cm, so we
+        # multiply by 0.1 to get S/m
+        return gswConduct_mScm(self.PracSalin, T_C, SP_dbar) * 0.1
 
 
 def MPa2seaPressure(P_MPa):

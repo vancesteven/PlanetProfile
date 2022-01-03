@@ -77,3 +77,26 @@ def ClathStableSloan1998(P_MPa, T_K):
 
     return stable
 
+
+class ClathSeismic:
+    """ Calculate seismic velocities in clathrates based on Helgerud et al. (2009): https://doi.org/10.1029/2009JB006451
+        Note that the original article had a correction for all of the tables' equations--
+        the correction is linked in the above DOI.
+
+        Args:
+            P_MPa (float, shape N): Pressure values to evaluate in MPa.
+            T_K (float, shape N): Temperature values to evaluate in K.
+        Returns:
+            VP_kms (float, shape N): P-wave seismic velocity in km/s.
+            VS_kms (float, shape N): S-wave seismic velocity in km/s.
+            KS_GPa (float, shape N): Bulk modulus in GPa.
+            GS_GPa (float, shape N): Shear modulus in GPa.
+    """
+    def __call__(self, P_MPa, T_K):
+        T_C = T_K - Constants.T0
+        VP_kms = (-1.84*T_C + 0.31*P_MPa + 3766) * 1e-3
+        VS_kms = (-0.892*T_C - 0.1*P_MPa + 1957) * 1e-3
+        KS_GPa = -1.09e-2*T_C + 3.8e-3*P_MPa + 8.39
+        GS_GPa = -4.2e-3*T_C + 9e-5*P_MPa + 3.541
+
+        return VP_kms, VS_kms, KS_GPa, GS_GPa

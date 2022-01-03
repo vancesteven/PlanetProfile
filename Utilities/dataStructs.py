@@ -80,7 +80,7 @@ class OceanSubstruct:
 
     def __init__(self):
         self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'NH3', 'NaCl'
-        self.wOcean_ppt = None  # Salinity: Concentration of above salt in parts per thousand (ppt)
+        self.wOcean_ppt = None  # (Absolute) salinity: Mass concentration of above composition in parts per thousand (ppt)
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
         self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
@@ -351,7 +351,8 @@ class ConstantsStruct:
         self.T0 = 273.15  # The Celsius zero point in K.
         self.P0 = 101325  # One standard atmosphere in Pa
         self.R = 8.314  # Ideal gas constant in J/mol/K
-        self.stdSeawater_ppt = 35.1650  # Standard Seawater salinity in g/kg (ppt by mass)
+        self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
+        self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0)
         self.mMgSO4_gmol = 120.4  # Molecular mass of MgSO4 in g/mol
         self.mNaCl_gmol = 58.44  # Molecular mass of NaCl in g/mol
         self.mNH3_gmol = 17.03  # Molecular mass of NH3 in g/mol

@@ -6,10 +6,10 @@ from scipy.io import loadmat
 from seafreeze import seafreeze as SeaFreeze
 from seafreeze import whichphase as WhichPhase
 from Utilities.dataStructs import Constants
-from Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, GetPhaseMgSO4
-from Thermodynamics.Seawater.SwProps import SwProps, GetPhaseFnSw
+from Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4Phase
+from Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
 from Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, TclathDissocLower_K, \
-    TclathDissocUpper_K
+    TclathDissocUpper_K, ClathSeismic
 
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K):
@@ -38,6 +38,9 @@ class OceanEOSStruct:
             phase1D = np.reshape(self.phase, (-1))
             # Create phase finder -- note that the results from this function must be cast to int after retrieval
             self.fn_phase = spi.NearestNDInterpolator(PTpairs, phase1D)
+
+            self.fn_Seismic = H2OSeismic(compstr, self.w_ppt)
+            self.fn_sigma_Sm = H2Osigma_Sm()
         elif compstr == 'Seawater':
             self.type = 'GSW'
             self.m_gmol = Constants.mH2O_gmol
@@ -46,8 +49,10 @@ class OceanEOSStruct:
                             'low temperatures or high pressures, this model will be wrong as no ' +
                             'high-pressure ice phases will be found.')
 
-            self.fn_phase = GetPhaseFnSw(wOcean_ppt)
-            self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK = SwProps(P_MPa, T_K, wOcean_ppt)
+            self.fn_phase = SwPhase(self.w_ppt)
+            self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK = SwProps(P_MPa, T_K, self.w_ppt)
+            self.fn_Seismic = SwSeismic(self.w_ppt)
+            self.fn_sigma_Sm = SwConduct(self.w_ppt)
         elif compstr == 'NH3':
             self.m_gmol = Constants.mNH3_gmol
             self.type = 'PlanetProfile'
@@ -56,8 +61,8 @@ class OceanEOSStruct:
             self.type = 'LBF'
             self.m_gmol = Constants.mMgSO4_gmol
 
-            self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK = MgSO4Props(P_MPa, T_K, wOcean_ppt)
-            self.fn_phase = GetPhaseMgSO4(P_MPa, T_K, wOcean_ppt)
+            self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK = MgSO4Props(P_MPa, T_K, self.w_ppt)
+            self.fn_phase = MgSO4Phase(self.w_ppt)
         elif compstr == 'NaCl':
             self.type = 'PlanetProfile'
             self.m_gmol = Constants.mNaCl_gmol
@@ -100,6 +105,7 @@ class IceEOSStruct:
             # Create phase finder -- note that the results from this function must be cast to int after retrieval
             # Returns either Constants.phaseClath (stable) or 0 (not stable), making it compatible with GetTfreeze
             self.fn_phase = spi.NearestNDInterpolator(PTpairs, phase1D)
+            self.fn_Seismic = ClathSeismic()
         else:
             # Get tabular data from SeaFreeze for all other ice phases
             PTgrid = np.array([P_MPa, T_K], dtype=object)
@@ -108,6 +114,7 @@ class IceEOSStruct:
             self.Cp_JkgK = iceOut.Cp
             self.alpha_pK = iceOut.alpha
             self.kTherm_WmK = np.array([kThermIsobaricAnderssonIbari2005(T_K, PhaseInv(phaseStr)) for _ in P_MPa])
+            self.fn_Seismic = IceSeismic(phaseStr)
 
         # Interpolate functions for this ice phase that can be queried for properties
         self.fn_rho_kgm3 = spi.RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
@@ -117,6 +124,34 @@ class IceEOSStruct:
         # Assign phase ID and string for convenience in functions where iceEOS is passed
         self.phaseStr = phaseStr
         self.phaseID = PhaseInv(phaseStr)
+
+
+# Create a function that can pack up (P,T) pairs that are compatible with SeaFreeze
+sfPTpairs = lambda P_MPa, T_K: np.array([(P, T) for P, T in zip(P_MPa, T_K)], dtype='f,f').astype(object)
+
+class H2OSeismic:
+    """ Creates a function call for returning seismic properties of depth profile for pure water. """
+    def __init__(self, compstr, wOcean_ppt):
+        self.compstr = compstr
+        self.w_ppt = wOcean_ppt
+
+    def __call__(self, P_MPa, T_K):
+        seaOut = SeaFreeze(sfPTpairs(P_MPa, T_K), 'water1')
+        return seaOut.vel * 1e-3, seaOut.Ks * 1e-3
+
+
+class H2Osigma_Sm:
+    def __call__(self, P_MPa, T_K):
+        return np.zeros_like(P_MPa) + Constants.sigmaH2O_Sm
+
+
+class IceSeismic:
+    def __init__(self, phaseStr):
+        self.phase = phaseStr
+
+    def __call__(self, P_MPa, T_K):
+        seaOut = SeaFreeze(sfPTpairs(P_MPa, T_K), self.phase)
+        return seaOut.Vp * 1e-3, seaOut.Vs * 1e-3,  seaOut.Ks * 1e-3, seaOut.shear * 1e-3
 
 
 def GetPfreeze(oceanEOS, Tb_K, PLower_MPa=20, PUpper_MPa=300, PRes_MPa=0.1,
