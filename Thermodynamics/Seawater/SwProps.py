@@ -1,4 +1,5 @@
 import numpy as np
+import logging as log
 from Utilities.dataStructs import Constants
 from gsw.freezing import t_freezing as gswTfreeze
 from gsw.conversions import CT_from_t
@@ -28,9 +29,9 @@ def SwProps(P_MPa, T_K, wOcean_ppt):
     rho_kgm3 = gswDensity_kgm3(wOcean_ppt, CT_C, SP_dbar)
 
     dCTdT, Cp_JkgK = GetdCTdTanddHdT(wOcean_ppt, CT_C, SP_dbar, T_C)
-    print('WARNING: The Python GSW package does not yet contain a calculation for alpha with respect to ' +
-          'in-situ temperature, which we use as T_K. alpha_pK will be scaled approximately by evaluating ' +
-          'd(CT_C)/d(T_K) numerically and multiplying this by the result from GSW.')
+    log.warning('The Python GSW package does not yet contain a calculation for alpha with respect to ' +
+                'in-situ temperature, which we use as T_K. alpha_pK will be scaled approximately by evaluating ' +
+                'd(CT_C)/d(T_K) numerically and multiplying this by the result from GSW.')
     alpha_pK = gswExpansivity_pK(wOcean_ppt, CT_C, SP_dbar) * dCTdT
     kTherm_WmK = np.zeros_like(alpha_pK) + Constants.kThermWater_WmK  # Placeholder until we implement a self-consistent calculation
 

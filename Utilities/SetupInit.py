@@ -2,6 +2,7 @@
 
 import os
 import numpy as np
+import logging as log
 from Utilities.PPversion import ppVerNum, CheckCompat
 from Utilities.dataStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
 from Thermodynamics.FromLiterature.HydroEOS import OceanEOSStruct, IceEOSStruct
@@ -9,8 +10,8 @@ from Thermodynamics.FromLiterature.HydroEOS import OceanEOSStruct, IceEOSStruct
 def SetupInit(Planet, Params):
 
     # Print version number
-    print(f'-- PlanetProfile v{ppVerNum} --')
-    if ppVerNum[-3:] == 'dev': print('This version is in development.')
+    log.debug(f'-- PlanetProfile v{ppVerNum} --')
+    if ppVerNum[-3:] == 'dev': log.debug('This version is in development.')
 
     # Check dependency compatibility
     CheckCompat('seafreeze')  # SeaFreeze
@@ -19,9 +20,6 @@ def SetupInit(Planet, Params):
 
     # Get filenames for saving/loading
     Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
-    # Warn user if filename will round Tb_K value
-    if Params.VERBOSE and round(Planet.Bulk.Tb_K, 3) != Planet.Bulk.Tb_K:
-        print('WARNING: Planet.Tb_K has been rounded to generate saveFile name.')
 
     # Set steps and settings for unused options to zero, check that we have settings we need
     if not Planet.Do.Fe_CORE:
@@ -50,7 +48,7 @@ def SetupInit(Planet, Params):
         Planet.Sil.phiRockMax_frac = 0
 
     if Planet.Do.NO_H2O:
-        if Params.VERBOSE: print('Modeling a waterless body.')
+        log.info('Modeling a waterless body.')
         Planet.Steps.nSurfIce = 0
         Planet.Steps.nOceanMax = 1
         Planet.Steps.nHydroMax = 1
@@ -65,21 +63,21 @@ def SetupInit(Planet, Params):
                 raise ValueError('Hydrosphere max pressure is less than the pressure of the ice I-III phase transition, ' +
                                  'but Do.BOTTOM_ICEIII is True.')
             if(Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K):
-                print('WARNING: Bottom temperature of ice I (Tb_K) is greater than bottom temperature of underplate ' +
-                      'ice III (TbIII_K). This likely represents a non-equilibrium state.')
+                log.warning('Bottom temperature of ice I (Tb_K) is greater than bottom temperature of underplate ' +
+                            'ice III (TbIII_K). This likely represents a non-equilibrium state.')
         else:
             if(Planet.Ocean.PHydroMax_MPa < 344.3):
                 raise ValueError('Hydrosphere max pressure is less than the pressure of the ice III-V phase transition, ' +
                                  'but Do.BOTTOM_ICEV is True.')
             if(Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K):
-                print('WARNING: Bottom temperature of ice I (Tb_K) is greater than bottom temperature of underplate ' +
-                      'ice III (TbIII_K). This likely represents a non-equilibrium state.')
+                log.warning('Bottom temperature of ice I (Tb_K) is greater than bottom temperature of underplate ' +
+                            'ice III (TbIII_K). This likely represents a non-equilibrium state.')
             if(Planet.Bulk.TbIII_K > Planet.Bulk.TbV_K):
-                print('WARNING: Bottom temperature of ice III (Tb_K) is greater than bottom temperature of underplate ' +
-                      'ice V (TbV_K). This likely represents a non-equilibrium state.')
+                log.warning('Bottom temperature of ice III (Tb_K) is greater than bottom temperature of underplate ' +
+                            'ice V (TbV_K). This likely represents a non-equilibrium state.')
             if Planet.Do.CLATHRATE:
-                print('WARNING: Clathrates are stable under a very large range of pressures and temperatures, and this ' +
-                      'may be contradictory with having underplating ice III or V.')
+                log.warning('Clathrates are stable under a very large range of pressures and temperatures, and this ' +
+                            'may be contradictory with having underplating ice III or V.')
 
         # Get ocean EOS functions
         POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
@@ -100,8 +98,9 @@ def SetupInit(Planet, Params):
     if Planet.Bulk.M_kg is None:
         Planet.Bulk.M_kg = Planet.Bulk.rho_kgm3 * (4/3*np.pi * Planet.Bulk.R_m**3)
     else:
-        if Planet.Bulk.rho_kgm3 is not None and Params.VERBOSE:
-            print('Both bulk mass and density were specified. Only one is required--density will be recalculated from bulk mass for consistency.')
+        if Planet.Bulk.rho_kgm3 is not None:
+            log.warning('Both bulk mass and density were specified. Only one is required--' +
+                        'density will be recalculated from bulk mass for consistency.')
         Planet.Bulk.rho_kgm3 = Planet.Bulk.M_kg / (4/3*np.pi * Planet.Bulk.R_m**3)
 
     # Preallocate layer physical quantity arrays
@@ -122,7 +121,7 @@ def SetupFilenames(Planet, Params):
     else:
         if Planet.Do.CLATHRATE: saveBase += 'Clathrates_'
         saveBase += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.0f}WtPpt' + \
-                    f'_Tb{Planet.Bulk.Tb_K:.3f}K'
+                    f'_Tb{Planet.Bulk.Tb_K:}K'
         if Planet.Do.POROUS_ICE: fName += '_PorousIce'
     if Planet.Sil.mantleEOSName is not None: fName += Planet.Sil.mantleEOSname
 

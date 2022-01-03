@@ -2,6 +2,7 @@
 import sys
 import numpy as np
 import importlib
+import logging as log
 from distutils.util import strtobool
 from os.path import isfile
 
@@ -30,7 +31,16 @@ def main():
     body = importlib.import_module(f'{bodyname}.PP{bodyname}')
     Planet = body.Planet
     Params = body.Params
-    if Params.VERBOSE: print(f'Body name: {Planet.name}')
+    # Set up message logging and apply verbosity level
+    if Params.VERBOSE:
+        logLevel = log.DEBUG
+    elif Params.QUIET:
+        logLevel = log.WARN
+    else:
+        logLevel = log.INFO
+    log.basicConfig(level=logLevel, format=Params.printFmt)
+    log.info(f'Body name: {Planet.name}')
+    log.debug('Printing verbose runtime messages. Toggle with Params.VERBOSE in config.py.')
 
     if Params.DEBUG:
         # Compare to test Matlab output
@@ -64,9 +74,11 @@ def PlanetProfile(Planet, Params):
 
     if not Params.SKIP_PLOTS:
         # Plotting functions
+        log.warning('Quieting INFO and DEBUG messages due to a high number of current latex errors.')
+        log.getLogger().setLevel(log.WARN)
         GeneratePlots(Planet, Params)
 
-    if Params.VERBOSE: print('Run complete!')
+    log.info('Run complete!')
     return Planet, Params
 
 
@@ -150,7 +162,7 @@ def WriteProfile(Planet, Params):
                 f'{Planet.Sil.rhoTrade_kgm3[i]:24.17e}\n '
             f.write(line)
 
-    print(f'Profile saved to file: {Params.DataFiles.saveFile}')
+    log.info(f'Profile saved to file: {Params.DataFiles.saveFile}')
     return
 
 
@@ -161,8 +173,8 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Params.DataFiles.saveFile = fnameOverride
     else:
         Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
-    print(f'Reloading previously saved run from file: {Params.DataFiles.saveFile}')
-    if Params.VERBOSE: print(f'WARNING: Steps.n settings from PP{Planet.name}.py will be ignored.')
+    log.info(f'Reloading previously saved run from file: {Params.DataFiles.saveFile}')
+    log.debug(f'Steps.n settings from PP{Planet.name}.py will be ignored.')
     if not isfile(Params.DataFiles.saveFile):
         raise ValueError('Params.CALC_NEW is set to False in config.py but the reload file was not found.\n' +
                          'Re-run with CALC_NEW set to True to generate the profile.')
@@ -235,7 +247,7 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
     """
     import copy
 
-    print(f'Comparing current run with {fname2}...')
+    log.info(f'Comparing current run with {fname2}...')
     Planet2 = copy.deepcopy(Planet)
     Params2 = copy.deepcopy(Params)
     Planet2, Params2 = ReloadProfile(Planet2, Params2, fnameOverride=fname2)
@@ -312,37 +324,37 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         and same_coreRrange_m and same_corerhoMean_kgm3 and same_steps
 
     if not headers_match:
-        if not same_nHeadLines: print(f'nHeadLines differs. {Params.nHeadLines:d} | {Params2.nHeadLines:d}')
-        if not same_comp: print(f'Ocean.comp differs. {Planet.Ocean.comp} | {Planet2.Ocean.comp}')
-        if not same_Fe_CORE: print(f'Do.Fe_CORE differs. {Planet.Do.Fe_CORE} | {Planet2.Do.Fe_CORE}')
-        if not same_wOcean_ppt: print(f'Ocean.wOcean_ppt differs. {Planet.Ocean.wOcean_ppt:.3f} | {Planet2.Ocean.wOcean_ppt:.3f}')
-        if not same_Tb_K: print(f'Bulk.Tb_K differs. {Planet.Bulk.Tb_K:.4f} | {Planet2.Bulk.Tb_K:.4f}')
-        if not same_zb_km: print(f'zb_km differs. {Planet.zb_km:.3f} | {Planet2.zb_km:.3f}')
-        if not same_zClath_m: print(f'zClath_m differs. {Planet.zClath_m:.3f} | {Planet2.zClath_m:.3f}')
-        if not same_Pb_MPa: print(f'Pb_MPa differs. {Planet.Pb_MPa:.3f} | {Planet2.Pb_MPa:.3f}')
-        if not same_PbI_MPa: print(f'PbI_MPa differs. {Planet.PbI_MPa:.3f} | {Planet2.PbI_MPa:.3f}')
-        if not same_deltaP: print(f'Ocean.deltaP differs. {Planet.Ocean.deltaP:.3f} | {Planet2.Ocean.deltaP:.3f}')
-        if not same_CMR2mean: print(f'CMR2mean differs. {Planet.CMR2mean:.3f} | {Planet2.CMR2mean:.3f}')
-        if not same_QfromMantle_Wm2: print(f'Ocean.QfromMantle_Wm2 differs. {Planet.Ocean.QfromMantle_Wm2:.3f} | {Planet2.Ocean.QfromMantle_Wm2:.3f}')
-        if not same_phiRockMax_frac: print(f'Sil.phiRockMax_frac differs. {Planet.Sil.phiRockMax_frac:.3f} | {Planet2.Sil.phiRockMax_frac:.3f}')
-        if not same_silRmean_m: print(f'Sil.Rmean_m differs. {Planet.Sil.Rmean_m:.3f} | {Planet2.Sil.Rmean_m:.3f}')
-        if not same_silRrange_m: print(f'Sil.Rrange_m differs. {Planet.Sil.Rrange_m:.3f} | {Planet2.Sil.Rrange_m:.3f}')
-        if not same_silrhoMean_kgm3: print(f'Sil.rhoMean_kgm3 differs. {Planet.Sil.rhoMean_kgm3:.3f} | {Planet2.Sil.rhoMean_kgm3:.3f}')
-        if not same_coreRmean_m: print(f'Core.Rmean_m differs. {Planet.Core.Rmean_m:.3f} | {Planet2.Core.Rmean_m:.3f}')
-        if not same_coreRrange_m: print(f'Core.Rrange_m differs. {Planet.Core.Rrange_m:.3f} | {Planet2.Core.Rrange_m:.3f}')
-        if not same_corerhoMean_kgm3: print(f'Core.rhoMean_kgm3 differs. {Planet.Core.rhoMean_kgm3:.3f} | {Planet2.Core.rhoMean_kgm3:.3f}')
-        if not same_nClath: print(f'Steps.nClath differs. {Planet.Steps.nClath:d} | {Planet2.Steps.nClath:d}')
-        if not same_nIceI: print(f'Steps.nIceI differs. {Planet.Steps.nIceI:d} | {Planet2.Steps.nIceI:d}')
-        if not same_nIceIIILitho: print(f'Steps.nIceIIILitho differs. {Planet.Steps.nIceIIILitho:d} | {Planet2.Steps.nIceIIILitho:d}')
-        if not same_nIceVLitho: print(f'Steps.nIceVLitho differs. {Planet.Steps.nIceVLitho:d} | {Planet2.Steps.nIceVLitho:d}')
-        if not same_nHydro: print(f'Steps.nHydro differs. {Planet.Steps.nHydro:d} | {Planet2.Steps.nHydro:d}')
-        if not same_nSil: print(f'Steps.nSil differs. {Planet.Steps.nSil:d} | {Planet2.Steps.nSil:d}')
-        if not same_nCore: print(f'Steps.nCore differs. {Planet.Steps.nCore:d} | {Planet2.Steps.nCore:d}')
+        if not same_nHeadLines: log.info(f'nHeadLines differs. {Params.nHeadLines:d} | {Params2.nHeadLines:d}')
+        if not same_comp: log.info(f'Ocean.comp differs. {Planet.Ocean.comp} | {Planet2.Ocean.comp}')
+        if not same_Fe_CORE: log.info(f'Do.Fe_CORE differs. {Planet.Do.Fe_CORE} | {Planet2.Do.Fe_CORE}')
+        if not same_wOcean_ppt: log.info(f'Ocean.wOcean_ppt differs. {Planet.Ocean.wOcean_ppt:.3f} | {Planet2.Ocean.wOcean_ppt:.3f}')
+        if not same_Tb_K: log.info(f'Bulk.Tb_K differs. {Planet.Bulk.Tb_K:.4f} | {Planet2.Bulk.Tb_K:.4f}')
+        if not same_zb_km: log.info(f'zb_km differs. {Planet.zb_km:.3f} | {Planet2.zb_km:.3f}')
+        if not same_zClath_m: log.info(f'zClath_m differs. {Planet.zClath_m:.3f} | {Planet2.zClath_m:.3f}')
+        if not same_Pb_MPa: log.info(f'Pb_MPa differs. {Planet.Pb_MPa:.3f} | {Planet2.Pb_MPa:.3f}')
+        if not same_PbI_MPa: log.info(f'PbI_MPa differs. {Planet.PbI_MPa:.3f} | {Planet2.PbI_MPa:.3f}')
+        if not same_deltaP: log.info(f'Ocean.deltaP differs. {Planet.Ocean.deltaP:.3f} | {Planet2.Ocean.deltaP:.3f}')
+        if not same_CMR2mean: log.info(f'CMR2mean differs. {Planet.CMR2mean:.3f} | {Planet2.CMR2mean:.3f}')
+        if not same_QfromMantle_Wm2: log.info(f'Ocean.QfromMantle_Wm2 differs. {Planet.Ocean.QfromMantle_Wm2:.3f} | {Planet2.Ocean.QfromMantle_Wm2:.3f}')
+        if not same_phiRockMax_frac: log.info(f'Sil.phiRockMax_frac differs. {Planet.Sil.phiRockMax_frac:.3f} | {Planet2.Sil.phiRockMax_frac:.3f}')
+        if not same_silRmean_m: log.info(f'Sil.Rmean_m differs. {Planet.Sil.Rmean_m:.3f} | {Planet2.Sil.Rmean_m:.3f}')
+        if not same_silRrange_m: log.info(f'Sil.Rrange_m differs. {Planet.Sil.Rrange_m:.3f} | {Planet2.Sil.Rrange_m:.3f}')
+        if not same_silrhoMean_kgm3: log.info(f'Sil.rhoMean_kgm3 differs. {Planet.Sil.rhoMean_kgm3:.3f} | {Planet2.Sil.rhoMean_kgm3:.3f}')
+        if not same_coreRmean_m: log.info(f'Core.Rmean_m differs. {Planet.Core.Rmean_m:.3f} | {Planet2.Core.Rmean_m:.3f}')
+        if not same_coreRrange_m: log.info(f'Core.Rrange_m differs. {Planet.Core.Rrange_m:.3f} | {Planet2.Core.Rrange_m:.3f}')
+        if not same_corerhoMean_kgm3: log.info(f'Core.rhoMean_kgm3 differs. {Planet.Core.rhoMean_kgm3:.3f} | {Planet2.Core.rhoMean_kgm3:.3f}')
+        if not same_nClath: log.info(f'Steps.nClath differs. {Planet.Steps.nClath:d} | {Planet2.Steps.nClath:d}')
+        if not same_nIceI: log.info(f'Steps.nIceI differs. {Planet.Steps.nIceI:d} | {Planet2.Steps.nIceI:d}')
+        if not same_nIceIIILitho: log.info(f'Steps.nIceIIILitho differs. {Planet.Steps.nIceIIILitho:d} | {Planet2.Steps.nIceIIILitho:d}')
+        if not same_nIceVLitho: log.info(f'Steps.nIceVLitho differs. {Planet.Steps.nIceVLitho:d} | {Planet2.Steps.nIceVLitho:d}')
+        if not same_nHydro: log.info(f'Steps.nHydro differs. {Planet.Steps.nHydro:d} | {Planet2.Steps.nHydro:d}')
+        if not same_nSil: log.info(f'Steps.nSil differs. {Planet.Steps.nSil:d} | {Planet2.Steps.nSil:d}')
+        if not same_nCore: log.info(f'Steps.nCore differs. {Planet.Steps.nCore:d} | {Planet2.Steps.nCore:d}')
     else:
-        print('All header values match!')
+        log.info('All header values match!')
 
     if same_steps:
-        print(f'Some arrays differ. The first index more than {tol*100:.2f}% different will be printed.')
+        log.info(f'Some arrays differ. The first index more than {tol*100:.2f}% different will be printed.')
         iIO = Planet.Steps.nSurfIce
         iOS = Planet.Steps.nHydro
         iSC = Planet.Steps.nHydro+Planet.Steps.nSil
@@ -423,28 +435,28 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         all_match = headers_match and layers_match
 
         if not layers_match:
-            if not same_P_MPa: print(f'P_MPa differs in position {diff_P_MPa[0]:.3f}: {Planet.P_MPa[diff_P_MPa[0]]:.3f} | {Planet2.P_MPa[diff_P_MPa[0]]:.3f}')
-            if not same_T_K: print(f'T_K differs in position {diff_T_K[0]:.3f}: {Planet.T_K[diff_T_K[0]]:.3f} | {Planet2.T_K[diff_T_K[0]]:.3f}')
-            if not same_r_m: print(f'r_m differs in position {diff_r_m[0]:.3f}: {Planet.r_m[diff_r_m[0]]:.3f} | {Planet2.r_m[diff_r_m[0]]:.3f}')
-            if not same_phase: print(f'phase differs in position {diff_phase[0]:d}: {Planet.phase[diff_phase[0]]:d} | {Planet2.phase[diff_phase[0]]:d}')
-            if not same_rho_kgm3: print(f'rho_kgm3 differs in position {diff_rho_kgm3[0]:.3f}: {Planet.rho_kgm3[diff_rho_kgm3[0]]:.3f} | {Planet2.rho_kgm3[diff_rho_kgm3[0]]:.3f}')
-            if not same_Cp_JkgK: print(f'Cp_JkgK differs in position {diff_Cp_JkgK[0]:.3f}: {Planet.Cp_JkgK[diff_Cp_JkgK[0]]:.3f} | {Planet2.Cp_JkgK[diff_Cp_JkgK[0]]:.3f}')
-            if not same_alpha_pK: print(f'alpha_pK differs in position {diff_alpha_pK[0]:.3f}: {Planet.alpha_pK[diff_alpha_pK[0]]:.3f} | {Planet2.alpha_pK[diff_alpha_pK[0]]:.3f}')
-            if not same_g_ms2: print(f'g_ms2 differs in position {diff_g_ms2[0]:.3f}: {Planet.g_ms2[diff_g_ms2[0]]:.3f} | {Planet2.g_ms2[diff_g_ms2[0]]:.3f}')
-            if not same_phi_frac: print(f'phi_frac differs in position {diff_phi_frac[0]:.3f}: {Planet.phi_frac[diff_phi_frac[0]]:.3f} | {Planet2.phi_frac[diff_phi_frac[0]]:.3f}')
-            if not same_sigma_Sm: print(f'sigma_Sm differs in position {diff_sigma_Sm[0]:.3f}: {Planet.sigma_Sm[diff_sigma_Sm[0]]:.3f} | {Planet2.sigma_Sm[diff_sigma_Sm[0]]:.3f}')
-            if not same_kTherm_WmK: print(f'kTherm_WmK differs in position {diff_kTherm_WmK[0]:.3f}: {Planet.kTherm_WmK[diff_kTherm_WmK[0]]:.3f} | {Planet2.kTherm_WmK[diff_kTherm_WmK[0]]:.3f}')
-            if not same_VP_kms: print(f'VP_kms differs in position {diff_VP_kms[0]:.3f}: {Planet.Seismic.VP_kms[diff_VP_kms[0]]:.3f} | {Planet2.Seismic.VP_kms[diff_VP_kms[0]]:.3f}')
-            if not same_VS_kms: print(f'VS_kms differs in position {diff_VS_kms[0]:.3f}: {Planet.Seismic.VS_kms[diff_VS_kms[0]]:.3f} | {Planet2.Seismic.VS_kms[diff_VS_kms[0]]:.3f}')
-            if not same_QS: print(f'QS differs in position {diff_QS[0]:.3f}: {Planet.Seismic.QS[diff_QS[0]]:.3f} | {Planet2.Seismic.QS[diff_QS[0]]:.3f}')
-            if not same_KS_GPa: print(f'KS_GPa differs in position {diff_KS_GPa[0]:.3f}: {Planet.Seismic.KS_GPa[diff_KS_GPa[0]]:.3f} | {Planet2.Seismic.KS_GPa[diff_KS_GPa[0]]:.3f}')
-            if not same_GS_GPa: print(f'GS_GPa differs in position {diff_GS_GPa[0]:.3f}: {Planet.Seismic.GS_GPa[diff_GS_GPa[0]]:.3f} | {Planet2.Seismic.GS_GPa[diff_GS_GPa[0]]:.3f}')
+            if not same_P_MPa: log.info(f'P_MPa differs in position {diff_P_MPa[0]:.3f}: {Planet.P_MPa[diff_P_MPa[0]]:.3f} | {Planet2.P_MPa[diff_P_MPa[0]]:.3f}')
+            if not same_T_K: log.info(f'T_K differs in position {diff_T_K[0]:.3f}: {Planet.T_K[diff_T_K[0]]:.3f} | {Planet2.T_K[diff_T_K[0]]:.3f}')
+            if not same_r_m: log.info(f'r_m differs in position {diff_r_m[0]:.3f}: {Planet.r_m[diff_r_m[0]]:.3f} | {Planet2.r_m[diff_r_m[0]]:.3f}')
+            if not same_phase: log.info(f'phase differs in position {diff_phase[0]:d}: {Planet.phase[diff_phase[0]]:d} | {Planet2.phase[diff_phase[0]]:d}')
+            if not same_rho_kgm3: log.info(f'rho_kgm3 differs in position {diff_rho_kgm3[0]:.3f}: {Planet.rho_kgm3[diff_rho_kgm3[0]]:.3f} | {Planet2.rho_kgm3[diff_rho_kgm3[0]]:.3f}')
+            if not same_Cp_JkgK: log.info(f'Cp_JkgK differs in position {diff_Cp_JkgK[0]:.3f}: {Planet.Cp_JkgK[diff_Cp_JkgK[0]]:.3f} | {Planet2.Cp_JkgK[diff_Cp_JkgK[0]]:.3f}')
+            if not same_alpha_pK: log.info(f'alpha_pK differs in position {diff_alpha_pK[0]:.3f}: {Planet.alpha_pK[diff_alpha_pK[0]]:.3f} | {Planet2.alpha_pK[diff_alpha_pK[0]]:.3f}')
+            if not same_g_ms2: log.info(f'g_ms2 differs in position {diff_g_ms2[0]:.3f}: {Planet.g_ms2[diff_g_ms2[0]]:.3f} | {Planet2.g_ms2[diff_g_ms2[0]]:.3f}')
+            if not same_phi_frac: log.info(f'phi_frac differs in position {diff_phi_frac[0]:.3f}: {Planet.phi_frac[diff_phi_frac[0]]:.3f} | {Planet2.phi_frac[diff_phi_frac[0]]:.3f}')
+            if not same_sigma_Sm: log.info(f'sigma_Sm differs in position {diff_sigma_Sm[0]:.3f}: {Planet.sigma_Sm[diff_sigma_Sm[0]]:.3f} | {Planet2.sigma_Sm[diff_sigma_Sm[0]]:.3f}')
+            if not same_kTherm_WmK: log.info(f'kTherm_WmK differs in position {diff_kTherm_WmK[0]:.3f}: {Planet.kTherm_WmK[diff_kTherm_WmK[0]]:.3f} | {Planet2.kTherm_WmK[diff_kTherm_WmK[0]]:.3f}')
+            if not same_VP_kms: log.info(f'VP_kms differs in position {diff_VP_kms[0]:.3f}: {Planet.Seismic.VP_kms[diff_VP_kms[0]]:.3f} | {Planet2.Seismic.VP_kms[diff_VP_kms[0]]:.3f}')
+            if not same_VS_kms: log.info(f'VS_kms differs in position {diff_VS_kms[0]:.3f}: {Planet.Seismic.VS_kms[diff_VS_kms[0]]:.3f} | {Planet2.Seismic.VS_kms[diff_VS_kms[0]]:.3f}')
+            if not same_QS: log.info(f'QS differs in position {diff_QS[0]:.3f}: {Planet.Seismic.QS[diff_QS[0]]:.3f} | {Planet2.Seismic.QS[diff_QS[0]]:.3f}')
+            if not same_KS_GPa: log.info(f'KS_GPa differs in position {diff_KS_GPa[0]:.3f}: {Planet.Seismic.KS_GPa[diff_KS_GPa[0]]:.3f} | {Planet2.Seismic.KS_GPa[diff_KS_GPa[0]]:.3f}')
+            if not same_GS_GPa: log.info(f'GS_GPa differs in position {diff_GS_GPa[0]:.3f}: {Planet.Seismic.GS_GPa[diff_GS_GPa[0]]:.3f} | {Planet2.Seismic.GS_GPa[diff_GS_GPa[0]]:.3f}')
         elif not all_match:
-            print('All layer calculations match!')
+            log.info('All layer calculations match!')
         else:
-            print('All values match! Both profiles are identical.')
+            log.info('All values match! Both profiles are identical.')
     else:
-        print('Unable to compare layer calculations, as Steps values do not match.')
+        log.warning('Unable to compare layer calculations, as Steps values do not match.')
 
     return
 

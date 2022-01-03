@@ -10,9 +10,10 @@ import matplotlib.pyplot as plt
 
 
 Params = ParamsStruct()
-Params.VERBOSE = True  # Provides extra runtime messages
-if Params.VERBOSE: print('Printing verbose runtime messages. Toggle in config.py.')
-Params.DEBUG = False
+Params.VERBOSE = True  # Provides extra runtime messages. Overrides QUIET below
+Params.QUIET = False  # Hides all log messages except warnings and errors
+Params.printFmt = '[%(levelname)s] %(message)s'  # Format for printing log messages
+Params.DEBUG = False  # Special use
 
 Params.DO_PARALLEL = True  # Use multiprocessing module for parallel computation where applicable
 Params.CALC_NEW =       True  # Recalculate profiles? If not, read data from disk and re-plot.

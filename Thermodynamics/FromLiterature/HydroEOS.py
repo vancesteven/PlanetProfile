@@ -1,4 +1,5 @@
 import numpy as np
+import logging as log
 import scipy.interpolate as spi
 import scipy.optimize as spo
 from scipy.io import loadmat
@@ -40,9 +41,10 @@ class OceanEOSStruct:
         elif compstr == 'Seawater':
             self.type = 'GSW'
             self.m_gmol = Constants.mH2O_gmol
-            if((T_K[0] <= 250) or (P_MPa[-1] > 250)): print('WARNING: GSW handles only ice Ih for determining phases in the ocean. At ' +
-                                                            'low temperatures or high pressures, this model will be wrong as no ' +
-                                                            'high-pressure ice phases will be found.')
+            if((T_K[0] <= 250) or (P_MPa[-1] > 250)):
+                log.warning('GSW handles only ice Ih for determining phases in the ocean. At ' +
+                            'low temperatures or high pressures, this model will be wrong as no ' +
+                            'high-pressure ice phases will be found.')
 
             self.fn_phase = GetPhaseFnSw(wOcean_ppt)
             self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK = SwProps(P_MPa, T_K, wOcean_ppt)

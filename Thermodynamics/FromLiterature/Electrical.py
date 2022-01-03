@@ -1,4 +1,5 @@
 import numpy as np
+import logging as log
 from Thermodynamics.FromLiterature.HydroEOS import GetPhaseIndices
 from Utilities.dataStructs import Constants
 
@@ -17,7 +18,7 @@ def ElecConduct(Planet, Params):
     if len(indsI) != 0:
         Planet.sigma_Sm[indsI] = Planet.Ocean.sigmaIce_Sm
     if len(indsLiquid) != 0:
-        print('WARNING: Electrical conductivity calculations in the ocean are not yet implemented.')
+        log.warning('Electrical conductivity calculations in the ocean are not yet implemented.')
         Planet.sigma_Sm[indsLiquid] = 0
     if len(indsII) != 0:
         Planet.sigma_Sm[indsII] = Planet.Ocean.sigmaIce_Sm
