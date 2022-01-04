@@ -12,7 +12,7 @@ from Utilities.dataStructs import Constants
 def GeneratePlots(Planet, Params):
 
     if Params.PLOT_GRAVITY: PlotGravPres(Planet, Params)
-    if Params.PLOT_HYDROSPHERE: PlotHydrosphereProps(Planet, Params)
+    if Params.PLOT_HYDROSPHERE and not Planet.Do.NO_H2O: PlotHydrosphereProps(Planet, Params)
     if Params.PLOT_TRADEOFF:
         if Planet.Do.Fe_CORE: PlotCoreTradeoff(Planet, Params)
         else: PlotSilTradeoff(Planet, Params)
