@@ -17,7 +17,7 @@ SHELL := /bin/bash
 # Set to 0 for PlanetProfile versions using Refprop
 refprop=1
 
-mbodies="Ariel" "Callisto" "Enceladus" "Europa" "Ganymede" "Miranda" "Titan" "Triton"
+mbodies="Ariel" "Callisto" "Enceladus" "Europa" "Ganymede" "Miranda" "Titan" "Triton" "Test"
 figs="figures"
 cdpp=cd $(shell pwd)
 
