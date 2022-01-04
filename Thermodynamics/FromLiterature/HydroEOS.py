@@ -1,7 +1,7 @@
 import numpy as np
 import logging as log
-import scipy.interpolate as spi
-import scipy.optimize as spo
+from scipy.interpolate import NearestNDInterpolator, RectBivariateSpline
+from scipy.optimize import root_scalar as GetZero
 from scipy.io import loadmat
 from seafreeze import seafreeze as SeaFreeze
 from seafreeze import whichphase as WhichPhase
@@ -37,7 +37,7 @@ class OceanEOSStruct:
             PTpairs = list(zip(Plin_MPa, Tlin_K))
             phase1D = np.reshape(self.phase, (-1))
             # Create phase finder -- note that the results from this function must be cast to int after retrieval
-            self.fn_phase = spi.NearestNDInterpolator(PTpairs, phase1D)
+            self.fn_phase = NearestNDInterpolator(PTpairs, phase1D)
 
             self.fn_Seismic = H2OSeismic(compstr, self.w_ppt)
             self.fn_sigma_Sm = H2Osigma_Sm()
@@ -71,10 +71,10 @@ class OceanEOSStruct:
             raise ValueError(f'Unable to load ocean EOS. compstr="{compstr}" but options are Seawater, NH3, MgSO4, and NaCl.')
 
         if not ALLOW_NEG_ALPHA: self.alpha_pK = np.abs(self.alpha_pK)
-        self.fn_rho_kgm3 = spi.RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
-        self.fn_Cp_JkgK = spi.RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
-        self.fn_alpha_pK = spi.RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
-        self.fn_kTherm_WmK = spi.RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
+        self.fn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
+        self.fn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
+        self.fn_alpha_pK = RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
+        self.fn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
 
 
 class IceEOSStruct:
@@ -105,7 +105,7 @@ class IceEOSStruct:
             phase1D = np.reshape(self.phase, (-1))
             # Create phase finder -- note that the results from this function must be cast to int after retrieval
             # Returns either Constants.phaseClath (stable) or 0 (not stable), making it compatible with GetTfreeze
-            self.fn_phase = spi.NearestNDInterpolator(PTpairs, phase1D)
+            self.fn_phase = NearestNDInterpolator(PTpairs, phase1D)
             self.fn_Seismic = ClathSeismic()
         else:
             # Get tabular data from SeaFreeze for all other ice phases
@@ -118,10 +118,10 @@ class IceEOSStruct:
             self.fn_Seismic = IceSeismic(phaseStr)
 
         # Interpolate functions for this ice phase that can be queried for properties
-        self.fn_rho_kgm3 = spi.RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
-        self.fn_Cp_JkgK = spi.RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
-        self.fn_alpha_pK = spi.RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
-        self.fn_kTherm_WmK = spi.RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
+        self.fn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
+        self.fn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
+        self.fn_alpha_pK = RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
+        self.fn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
         # Assign phase ID and string for convenience in functions where iceEOS is passed
         self.phaseStr = phaseStr
         self.phaseID = PhaseInv(phaseStr)
@@ -507,6 +507,6 @@ def GetPbClath(Tb_K):
         TbZero_K = lambda P_MPa: Tb_K - TclathDissocUpper_K(P_MPa)
         Pends_MPa = [2.567, Constants.PmaxLiquid_MPa]
 
-    PbClath_MPa = spo.root_scalar(TbZero_K, bracket=Pends_MPa).root
+    PbClath_MPa = GetZero(TbZero_K, bracket=Pends_MPa).root
 
     return PbClath_MPa
