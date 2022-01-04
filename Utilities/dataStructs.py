@@ -71,8 +71,10 @@ class StepsSubstruct:
         self.nSilMax = None  # Fixed max number of steps in silicate layers
         self.nSil = None  # Derived final number of steps in silicate layers
         self.nCore = None  # Fixed number of steps in core layers, if present
-        self.nIceIIILitho = 30  # Fixed number of layers to use for ice III when either BOTTOM_ICEIII or BOTTOM_ICEV is True.
-        self.nIceVLitho = 200  # Fixed number of layers to use for ice V when BOTTOM_ICEV is True.
+        self.nIceIIILitho = 100  # Fixed number of layers to use for ice III when either BOTTOM_ICEIII or BOTTOM_ICEV is True.
+        self.nIceVLitho = 100  # Fixed number of layers to use for ice V when BOTTOM_ICEV is True.
+        self.nPsHP = 150  # Number of interpolation steps to use for getting HP ice EOS (pressures)
+        self.nTsHP = 100  # Number of interpolation steps to use for getting HP ice EOS (temperatures)
 
 
 """ Hydrosphere assumptions """
@@ -86,7 +88,7 @@ class OceanSubstruct:
         self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
         self.dkdTI_WmK2 = -0.012  # Temperature derivative of ice I relative to the melting temp. Default is from Melinder (2007).
         self.sigmaIce_Sm = 1e-8  # Assumed conductivity of ice layers
-        self.THydroMax_K = 320  # Assumed maximum ocean temperature for generating ocean EOS functions
+        self.THydroMax_K = 320  # Assumed maximum ocean temperature for generating ocean EOS functions. For large bodies like Ganymede, Callisto, and Titan, larger values are required.
         self.PHydroMax_MPa = None  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
         self.electrical = 'Vance2018'  # Type of electrical conductivity model to use. Options: 'Vance2018', 'Pan2020'
         self.QfromMantle_W = None  # Heat flow from mantle into hydrosphere (calculated from ice thermal profile and applied to mantle)
@@ -232,7 +234,7 @@ class PlanetStruct:
         # Settings for GetPfreeze start, stop, and step size.
         # Shrink closer to expected melting pressure to improve run times.
         self.PfreezeLower_MPa = 20  # Lower boundary for GetPfreeze to search for ice Ih phase transition
-        self.PfreezeUpper_MPa = 220  # Upper boundary for GetPfreeze to search for ice Ih phase transition
+        self.PfreezeUpper_MPa = 230  # Upper boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeRes_MPa = 0.1  # Step size in pressure for GetPfreeze to use in searching for phase transition
 
         """ Derived quantities (assigned during PlanetProfile runs) """
@@ -334,8 +336,6 @@ class ColorsStruct:
 class ParamsStruct:
 
     def __init__(self):
-        self.DataFiles = DataFilesSubstruct('')
-        self.FigureFiles = FigureFilesSubstruct('', '')
         self.Colors = ColorsStruct()
         self.FigSize = FigSizeStruct()
 
