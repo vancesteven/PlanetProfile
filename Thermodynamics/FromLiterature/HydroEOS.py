@@ -12,7 +12,7 @@ from Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloa
     TclathDissocUpper_K, ClathSeismic
 
 class OceanEOSStruct:
-    def __init__(self, compstr, wOcean_ppt, P_MPa, T_K):
+    def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, ALLOW_NEG_ALPHA=False):
         self.comp = compstr
         self.w_ppt = wOcean_ppt
         self.P_MPa = P_MPa
@@ -70,6 +70,7 @@ class OceanEOSStruct:
         else:
             raise ValueError(f'Unable to load ocean EOS. compstr="{compstr}" but options are Seawater, NH3, MgSO4, and NaCl.')
 
+        if not ALLOW_NEG_ALPHA: self.alpha_pK = np.abs(self.alpha_pK)
         self.fn_rho_kgm3 = spi.RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
         self.fn_Cp_JkgK = spi.RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
         self.fn_alpha_pK = spi.RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
@@ -293,10 +294,12 @@ def GetTfreeze(oceanEOS, P_MPa, T_K, TfreezeRange_K=50, TfreezeRes_K=0.05):
         indLiquid = next((i[0] for i, val in np.ndenumerate(searchPhases) if val==0))
     except StopIteration:
         raise ValueError(f'No melting temperature was found above {T_K:.3f} K ' +
-                         f'for ice {PhaseConv(thisPhase)} at pressure {P_MPa:.3f} MPa. ' +
-                          'Increase TfreezeRange_K until one is found.')
-    # Get the temperature of the first liquid index
-    Tfreeze_K = Tsearch[indLiquid]
+                         f'for ice {PhaseConv(searchPhases[0])} at pressure {P_MPa:.3f} MPa. ' +
+                          'Check to see if T_K is close to default Ocean.THydroMax_K value. ' +
+                          'If so, increase Ocean.THydroMax_K. Otherwise, increase TfreezeRange_K ' +
+                          'until a melting temperature is found.')
+    # Get the temperature of the last solid index
+    Tfreeze_K = Tsearch[indLiquid-1]
 
     return Tfreeze_K
 
@@ -378,15 +381,15 @@ def GetPhaseIndices(phase):
     # by making sure the input value(s) are a numpy array:
     phase = np.array(phase)
 
-    indsLiquid = np.where(phase==0)
-    indsIceI = np.where(phase==1)
-    indsIceII = np.where(phase==2)
-    indsIceIII = np.where(phase==3)
-    indsIceV = np.where(phase==5)
-    indsIceVI = np.where(phase==6)
-    indsClath = np.where(phase==Constants.phaseClath)
-    indsSil = np.where(phase==Constants.phaseSil)
-    indsFe = np.where(phase==Constants.phaseFe)
+    indsLiquid = np.where(phase==0)[0]
+    indsIceI = np.where(phase==1)[0]
+    indsIceII = np.where(phase==2)[0]
+    indsIceIII = np.where(phase==3)[0]
+    indsIceV = np.where(phase==5)[0]
+    indsIceVI = np.where(phase==6)[0]
+    indsClath = np.where(phase==Constants.phaseClath)[0]
+    indsSil = np.where(phase==Constants.phaseSil)[0]
+    indsFe = np.where(phase==Constants.phaseFe)[0]
 
     return indsLiquid, indsIceI, indsIceII, indsIceIII, indsIceV, indsIceVI, indsClath, indsSil, indsFe
 
