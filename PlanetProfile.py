@@ -74,9 +74,11 @@ def PlanetProfile(Planet, Params):
 
     if not Params.SKIP_PLOTS:
         # Plotting functions
-        log.warning('Quieting INFO and DEBUG messages due to a high number of current latex errors.')
+        log.warning('Temporarily quieting INFO and DEBUG messages due to a high number of current latex errors.')
+        saveLevel = log.getLogger().getEffectiveLevel()
         log.getLogger().setLevel(log.WARN)
         GeneratePlots(Planet, Params)
+        log.getLogger().setLevel(saveLevel)
 
     log.info('Run complete!')
     return Planet, Params
