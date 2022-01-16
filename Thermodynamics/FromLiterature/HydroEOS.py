@@ -163,7 +163,7 @@ class IceSeismic:
         return seaOut.Vp * 1e-3, seaOut.Vs * 1e-3,  seaOut.Ks * 1e-3, seaOut.shear * 1e-3
 
 
-def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=5, PUpper_MPa=300, PRes_MPa=0.1, UNDERPLATE=None):
+def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0, PUpper_MPa=300, PRes_MPa=0.1, UNDERPLATE=None):
     """ Returns the pressure at which ice changes phase based on temperature, salinity, and composition
 
         Args:
@@ -195,8 +195,9 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=5, PUpper_MPa=300, PRes_MPa=
                 raise ValueError(f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' +
                                  f'for ice {PhaseConv(phaseTop)}. Increase PUpper_MPa until one is found.')
         else:
-            raise ValueError(f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' +
-                             f'for ice {PhaseConv(phaseTop)} and UNDERPLATE is explicitly set to False.')
+            log.warning(f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' +
+                        f'for ice {PhaseConv(phaseTop)} and UNDERPLATE is explicitly set to False.')
+            Pfreeze_MPa = np.nan
 
     return Pfreeze_MPa
 
