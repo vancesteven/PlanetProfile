@@ -134,7 +134,7 @@ Params.LineStyle='--';
 
 Seismic.mantleEOS = 'echon_hp_sat_PX678_14GPa.tab';% (3450)
 Seismic.mantleEOS = 'pyro_678_1.tab'; % (3430) this uses the procedure implemented by F. Cammarano
-
+Seismic.DO_SEISMIC = 1;
 % Seismic.mantleEOS = 'CV3hy1wt_678_1.tab';% (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 % Planet.xFeS_meteoritic = 0.0405; %CM2 mean from Jarosewich 1990
 % Planet.xFeS = 0.55; %0.25
@@ -157,7 +157,7 @@ Planet.xFe_core = 0.0463 ; % this is the total Fe  in Fe and FeS
 Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 Planet.rho_sil_withcore_kgm3 = 3730;
 
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250  260  270]; % 10 Wt% temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250]; % 10 Wt% temperatures at the bottom of the Ice Ih
 % Planet.rho_sil_withcore_kgm3 = 3340; % for the saturated echondrite
 % Planet.rho_sil_withcore_kgm3 = 3520; % used in the 2017 JGR paper
 outPlanet = PlanetProfile(Planet,Seismic,Params);
