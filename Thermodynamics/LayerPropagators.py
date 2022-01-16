@@ -2,8 +2,8 @@ import numpy as np
 import logging as log
 from collections.abc import Iterable
 from Utilities.dataStructs import Constants
-from Thermodynamics.FromLiterature.HydroEOS import GetPfreeze, GetTfreeze, GetPfreezeHP, \
-    GetPmeltHP, PhaseConv, GetPhaseIndices, IceEOSStruct, GetPbClath
+from Thermodynamics.FromLiterature.HydroEOS import GetPfreeze, GetTfreeze, \
+    PhaseConv, GetPhaseIndices, IceEOSStruct, GetPbClath
 from Thermodynamics.FromLiterature.ThermalProfiles import ConductiveTemperature
 from Thermodynamics.FromLiterature.IceConduction import IceIWholeConduct, IceIConductClathLid, \
     IceIConductClathUnderplate, IceIIIConduct, IceVConduct
@@ -29,10 +29,9 @@ def IceLayers(Planet, Params):
 
     # Get the pressure consistent with the bottom of the surface ice layer that is
     # consistent with the choice of Tb_K we suppose for this model
-    Planet.PbI_MPa = GetPfreeze(Planet.Ocean.EOS, Planet.Bulk.Tb_K,
+    Planet.PbI_MPa = GetPfreeze(Planet.Ocean.EOS, 1, Planet.Bulk.Tb_K,
                                 PLower_MPa=Planet.PfreezeLower_MPa, PUpper_MPa=Planet.PfreezeUpper_MPa,
-                                PRes_MPa=Planet.PfreezeRes_MPa,
-                                Pguess=None)
+                                PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=(Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV))
     if(Planet.Do.CLATHRATE and
             (Planet.Bulk.clathType == 'bottom' or
              Planet.Bulk.clathType == 'whole')):
@@ -51,8 +50,9 @@ def IceLayers(Planet, Params):
 
     # Now do the same for HP ices, if present, to make sure we have a possible configuration before continuing
     if Planet.Do.BOTTOM_ICEV:
-        Planet.PbIII_MPa = GetPfreezeHP(Planet.Ocean.EOS, Planet.PbI_MPa, Planet.Bulk.TbIII_K, 3,
-                                        PUpper_MPa=Planet.Ocean.PHydroMax_MPa)
+        Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.EOS, 3, Planet.Bulk.TbIII_K,
+                   PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
+                   PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=True)
         if(Planet.PbIII_MPa <= Planet.PbI_MPa):
             raise ValueError('Ice III bottom pressure is not greater than ice I bottom pressure. ' +
                              'This likely indicates TbIII_K is too high for the corresponding Tb_K.' +
@@ -60,8 +60,9 @@ def IceLayers(Planet, Params):
                              f', Tb_K = {Planet.Bulk.Tb_K:.3f}' +
                              f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' +
                              f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}')
-        Planet.PbV_MPa = GetPmeltHP(Planet.Ocean.EOS, Planet.PbIII_MPa, Planet.Bulk.TbV_K, 5,
-                                        PUpper_MPa=Planet.Ocean.PHydroMax_MPa)
+        Planet.PbV_MPa = GetPfreeze(Planet.Ocean.EOS, 5, Planet.Bulk.TbV_K,
+                                      PLower_MPa=Planet.PbIII_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
+                                      PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False)
         Planet.Pb_MPa = Planet.PbV_MPa
         if(Planet.PbV_MPa <= Planet.PbIII_MPa):
             raise ValueError('Ice V bottom pressure is not greater than ice III bottom pressure. ' +
@@ -71,8 +72,9 @@ def IceLayers(Planet, Params):
                              f'\nPbV_MPa = {Planet.PbV_MPa:.3f}' +
                              f', TbV_K = {Planet.Bulk.TbV_K:.3f}')
     elif Planet.Do.BOTTOM_ICEIII:
-        Planet.PbIII_MPa = GetPmeltHP(Planet.Ocean.EOS, Planet.PbI_MPa, Planet.Bulk.TbIII_K, 3,
-                                        PUpper_MPa=Planet.Ocean.PHydroMax_MPa)
+        Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.EOS, 3, Planet.Bulk.TbIII_K,
+                                      PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
+                                      PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False)
         if(Planet.PbIII_MPa <= Planet.PbI_MPa):
             raise ValueError('Ice III bottom pressure is not greater than ice I bottom pressure. ' +
                              'This likely indicates TbIII_K is too high for the corresponding Tb_K.' +
@@ -249,7 +251,36 @@ def OceanLayers(Planet, Params):
     if(Planet.Ocean.PHydroMax_MPa > Constants.PminHPices_MPa):
         GetOceanHPIceEOS(Planet, Params, POcean_MPa)
 
-    for i in range(Planet.Steps.nOceanMax):
+    # Do initial ocean step separately in order to catch potential Melosh layer--
+    # see Melosh et al. (2004): https://doi.org/10.1016/j.icarus.2003.11.026
+    log.debug(f'il: {Planet.Steps.nSurfIce:d}; P_MPa: {POcean_MPa[0]:.3f}; ' +
+              f'T_K: {TOcean_K[0]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce]:d}')
+    rhoOcean_kgm3[0] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[0], TOcean_K[0], grid=False)
+    CpOcean_JkgK[0] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0], grid=False)
+    alphaOcean_pK[0] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[0], TOcean_K[0], grid=False)
+    kThermOcean_WmK[0] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0], grid=False)
+    if alphaOcean_pK[0] < 0:
+        log.info(f'Thermal expansivity alpha at the ice-ocean interface is negative. Modeling Melosh et al. conductive layer.')
+        # Layer should be thin, so we just use a fixed dT/dz value
+        dTdz = Planet.Ocean.QfromMantle_W / (4*np.pi * Planet.r_m[Planet.Steps.nSurfIce]**2) / kThermOcean_WmK[0]
+        i = 0
+        while alphaOcean_pK[i] < 0:
+            i += 1
+            dz = Planet.Ocean.deltaP*1e6 / Planet.g_ms2[Planet.Steps.nSurfIce] / rhoOcean_kgm3[i-1]
+            # Model temperature as linear and conductive in this layer
+            TOcean_K[i] = TOcean_K[i-1] + dTdz * dz
+            rhoOcean_kgm3[i] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[i], TOcean_K[i], grid=False)
+            CpOcean_JkgK[i] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i], grid=False)
+            alphaOcean_pK[i] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[i], TOcean_K[i], grid=False)
+            kThermOcean_WmK[i] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i], grid=False)
+        iStart = i
+    else:
+        # Now use the present layer's properties to calculate an adiabatic thermal profile for layers below
+        TOcean_K[1] = TOcean_K[0] + alphaOcean_pK[0] * TOcean_K[0] / \
+                          CpOcean_JkgK[0] / rhoOcean_kgm3[0] * Planet.Ocean.deltaP*1e6
+        iStart = 1
+
+    for i in range(iStart, Planet.Steps.nOceanMax):
         Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int_)
         log.debug(f'il: {Planet.Steps.nSurfIce+i:d}; P_MPa: {POcean_MPa[i]:.3f}; ' +
                   f'T_K: {TOcean_K[i]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce+i]:d}')

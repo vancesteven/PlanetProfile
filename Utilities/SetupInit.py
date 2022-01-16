@@ -102,9 +102,15 @@ def SetupInit(Planet, Params):
                 Planet.Ocean.deltaT = 1e-3
             else:
                 Planet.Ocean.deltaT = 1e-4
-        TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
+        # Prevent setup from taking forever if we have a deep ocean:
+        if Planet.Ocean.THydroMax_K < 300:
+            TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
+        else:
+            TOcean_K = np.concatenate((np.arange(Planet.Bulk.Tb_K, 300, Planet.Ocean.deltaT),
+                                      np.arange(300, Planet.Ocean.THydroMax_K, 2)))
         Planet.Ocean.EOS = OceanEOSStruct(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
-                                          ALLOW_NEG_ALPHA=Planet.Do.ALLOW_NEG_ALPHA)
+                                          Planet.Ocean.elecType, rhoType=Planet.Ocean.rhoType,
+                                          scalingType=Planet.Ocean.scalingType)
 
     # Calculate bulk density from total mass and radius, and warn user if they specified density
     if Planet.Bulk.M_kg is None:

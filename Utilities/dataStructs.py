@@ -47,7 +47,6 @@ class DoSubstruct:
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
         self.NO_ICE_CONVECTION = False  # Whether to suppress convection in ice layers
         self.EQUIL_Q = True  # Whether to set heat flux from interior to be consistent with heat released through convective profile
-        self.ALLOW_NEG_ALPHA = False  # Whether to permit modeling of a Melosh et. al. layer with negative thermal expansivity
         self.POROUS_ROCK = False  # Whether to model silicates as porous
         self.P_EFFECTIVE = False  # Effective pressure due to presence of water in pores (modeled as lithostatic minus hydrostatic pressure).
         self.IONOS_ONLY = False  # Whether to ignore conducting layers within the body and model magnetic induction happening only in the ionosphere
@@ -90,7 +89,9 @@ class OceanSubstruct:
         self.sigmaIce_Sm = 1e-8  # Assumed conductivity of ice layers
         self.THydroMax_K = 320  # Assumed maximum ocean temperature for generating ocean EOS functions. For large bodies like Ganymede, Callisto, and Titan, larger values are required.
         self.PHydroMax_MPa = None  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
-        self.electrical = 'Vance2018'  # Type of electrical conductivity model to use. Options: 'Vance2018', 'Pan2020'
+        self.MgSO4elecType = 'Vance2018'  # Type of electrical conductivity model to use for MgSO4. Options: 'Vance2018', 'Pan2020'
+        self.MgSO4scalingType = 'Vance2018'  # Type of scaling to apply to Larionov and Kryukov model. Options: 'Vance2018', 'LK1984'
+        self.MgSO4rhoType = 'Millero'  # Type of water density model to use in Larionov and Kryukov model. Options: 'Millero', 'SeaFreeze'
         self.QfromMantle_W = None  # Heat flow from mantle into hydrosphere (calculated from ice thermal profile and applied to mantle)
         self.EOS = None  # Equation of state data to use for ocean layers
         self.surfIceEOS = {}  # Equation of state data to use for surface ice layers
@@ -233,7 +234,7 @@ class PlanetStruct:
         self.Magnetic = MagneticSubstruct()
         # Settings for GetPfreeze start, stop, and step size.
         # Shrink closer to expected melting pressure to improve run times.
-        self.PfreezeLower_MPa = 20  # Lower boundary for GetPfreeze to search for ice Ih phase transition
+        self.PfreezeLower_MPa = 5  # Lower boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeUpper_MPa = 230  # Upper boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeRes_MPa = 0.1  # Step size in pressure for GetPfreeze to use in searching for phase transition
 
@@ -349,7 +350,7 @@ class ConstantsStruct:
         self.bar2MPa = 1.01325e-1  # Same but for MPa
         self.erg2J = 1e-7  # Multiply by this to convert from ergs to joules
         self.T0 = 273.15  # The Celsius zero point in K.
-        self.P0 = 101325  # One standard atmosphere in Pa
+        self.P0 = 0.101325  # One standard atmosphere in MPa
         self.R = 8.314  # Ideal gas constant in J/mol/K
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
         self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0)
@@ -358,7 +359,7 @@ class ConstantsStruct:
         self.mNH3_gmol = 17.03  # Molecular mass of NH3 in g/mol
         self.mH2O_gmol = 18.02  # Molecular mass of pure water in g/mol
         self.QScore = 1e4  # Fixed QS value to use for core layers if not set in PPBody.py file
-        self.kThermWater_WmK = 0.5  # Fixed thermal conductivity of liquid water in W/(m K)
+        self.kThermWater_WmK = 0.55  # Fixed thermal conductivity of liquid water in W/(m K)
         self.kThermSil_WmK = 4.0  # Fixed thermal conductivity of silicates in W/(m K)
         self.kThermFe_WmK = 33.3  # Fixed thermal conductivity of core material in W/(m K)
         self.phaseClath = 30  # Phase ID to use for (sI methane) clathrates. Must be larger than 6 to keep space for pure ice phases
