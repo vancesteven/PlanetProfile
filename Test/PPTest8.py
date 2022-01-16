@@ -15,7 +15,7 @@ Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.3115
 Planet.Bulk.Cuncertainty = 0.0028
-Planet.Bulk.Tb_K = 251.0
+Planet.Bulk.Tb_K = 258.0
 
 """ Layer step settings """
 Planet.Steps.nIceI = 200
@@ -29,7 +29,7 @@ Planet.Ocean.comp = 'PureH2O'
 Planet.Ocean.wOcean_ppt = 0
 Planet.Ocean.deltaP = 4.0
 Planet.Ocean.PHydroMax_MPa = 2000.0
-Planet.Ocean.THydroMax_K = 400.0
+Planet.Ocean.THydroMax_K = 350.0
 
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.38e-14
