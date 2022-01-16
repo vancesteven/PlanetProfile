@@ -1,6 +1,6 @@
 """
-PPTest3
-Europa-like, pure water model with clathrate underplate layer
+PPTest4
+Europa-like, pure water model with whole-shell clathrate ice
 For testing purposes
 """
 import numpy as np
@@ -17,12 +17,11 @@ Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346
 Planet.Bulk.Cuncertainty = 0.005
-Planet.Bulk.Tb_K = 305.0
+Planet.Bulk.Tb_K = 297.8
 Planet.Do.CLATHRATE = True
-Planet.Steps.nClath = 30
-Planet.Bulk.clathType = 'bottom'
-Planet.Bulk.clathMaxThick_m = 6.5e3
-Planet.Bulk.qSurf_Wm2 = 7.5e-3
+Planet.Steps.nClath = 30  # Gets ignored
+Planet.Bulk.clathType = 'whole'
+Planet.Bulk.clathMaxThick_m = 10e3  # Gets ignored
 
 """ Layer step settings """
 Planet.Steps.nIceI = 200
@@ -33,13 +32,13 @@ Planet.Steps.iSilStart = Planet.Steps.nIceI
 
 """ Hydrosphere assumptions/settings """
 Planet.Ocean.comp = 'PureH2O'
-Planet.Ocean.wOcean_ppt = 0
+Planet.Ocean.wOcean_ppt = 0.0
 Planet.Ocean.deltaP = 1.0
 Planet.Ocean.PHydroMax_MPa = 250.0
 
 """ Silicate Mantle """
-Planet.Sil.Qrad_Wkg = 5.38e-14
-Planet.Sil.Htidal_Wm3 = 1e-12
+Planet.Sil.Qrad_Wkg = 5.38e-13
+Planet.Sil.Htidal_Wm3 = 1e-11
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
 Planet.Do.P_EFFECTIVE = False
