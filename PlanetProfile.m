@@ -526,9 +526,9 @@ D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon
             P_MPa(ill) = Pb_MPa + il*deltaP;
 
             if il==1 % establish the phase vector
-                phase(ill) = getIcePhase(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
+                phase(ill) = getIcePhase(P_MPa(ill-1),T_K(ill-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
             elseif phase(ill-1)~=6
-                phase(ill) = getIcePhase(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
+                phase(ill) = getIcePhase(P_MPa(ill-1),T_K(ill-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
                 if phase(ill-1)==3 && phase(ill)==0 % fix to instabilities in the phase lookup for ice III
                     disp('Fixing apparent instability in the EOS?ice III is forming above the ocean where it wasn''t specified')
                     phase(ill)=3;
@@ -546,7 +546,7 @@ D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon
             end
 
             if phase(ill) == 0 %if ocean
-                [rho_ocean,Cp(ill),alpha_o]= fluidEOS(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);
+                [rho_ocean,Cp(ill-1),alpha_o]= fluidEOS(P_MPa(ill-1),T_K(ill-1),wo,Planet.Ocean.comp);
                 % Forbidding MgSO4 in the check below avoids a problem in
                 % application of the EOS for low-salinity MgSO4 oceans.
                 % Negative thermal expansivity regions in the MgSO4 EOS may be
@@ -559,7 +559,7 @@ D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon
                     disp(['The new temperature is ' num2str(Tnew) ', or delta T = ' num2str(Tnew-T_K(ill-1)) '.'])
                     T_K(ill)=Tnew;
                 else
-                    T_K(ill) = T_K(ill-1)+ alpha_o*T_K(ill-1)./(Cp(ill))./(rho_ocean)*deltaP*1e6; %adiabatic gradient in ocean; this introduces an error, in that we are using the temperature from the previous step
+                    T_K(ill) = T_K(ill-1)+ alpha_o*T_K(ill-1)./(Cp(ill-1))./(rho_ocean)*deltaP*1e6; %adiabatic gradient in ocean; this introduces an error, in that we are using the temperature from the previous step
                 end
                 alpha_K(ill) = alpha_o;
                 rho_kgm3(ill) = fluidEOS(P_MPa(ill),T_K(ill),wo,Planet.Ocean.comp); % to be deleted
@@ -590,7 +590,7 @@ D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon
 %                     fluidEOS(P_MPa(ill),T_K(ill-1),wo,Planet.Ocean.comp);
 %                     % this is odd and doesn't seem to be needed--steve
 %                     6/15/21
-                %[Cp(il) alpha_K(il)]= getCpIce(P_MPa(il),T_K(il),phase(ill)) ;
+                [Cp(ill), alpha_K(ill)]= getCpIce(P_MPa(ill),T_K(ill),phase(ill));
             end
         end
 
@@ -1723,12 +1723,14 @@ if Planet.FeCore
     else
         Ks_iron_GPa(1) = Kso_iron_GPa+1e-3*Pcore_MPa(1)*dKsdP_iron+1e-9*Tcore_K(1)*dKsdT_PaK;
         G_iron_GPa(1) = Go_iron_GPa+1e-3*Pcore_MPa(1)*dGdP_iron+1e-9*Tcore_K(1)*dGdT_iron_PaK;
-        rhocore_kgm3 = rhoo_iron_kgm3;
+        rhocore_kgm3 = ones(1,Params.nsteps_core) * rhoo_iron_kgm3;
+        % Assign fill values for when we don't load EOS to get them
+        [Cp_core_JkgK, alpha_core_pK] = deal(ones(1,Params.nsteps_core)*NaN);
 
         for ij = 2:Params.nsteps_core
     %          g_ms2_core(ij)=(Gg*(Planet.M_kg-M_above_core(ij-1))/r_core_m(ij-1)^2);
     %          Pcore_MPa(ij) = Pcore_MPa(ij-1)+1e-6*rhocore_kgm3(ij-1)*g_ms2_core(ij)*(r_core_m(ij-1)-r_core_m(ij));
-             Pcore_MPa(ij) = Pcore_MPa(ij-1)+1e-6*rhocore_kgm3(ij-1)*g_ms2_core*(r_core_m(ij-1)-r_core_m(ij));
+             Pcore_MPa(ij) = Pcore_MPa(ij-1)+1e-6*rhocore_kgm3(ij-1)*g_ms2_core(ij-1)*(r_core_m(ij-1)-r_core_m(ij));
              Ks_iron_GPa(ij) = Kso_iron_GPa+1e-3*Pcore_MPa(ij)*dKsdP_iron+1e-9*Tcore_K(ij)*dKsdT_PaK;
              G_iron_GPa(ij) = Go_iron_GPa+1e-3*Pcore_MPa(ij)*dGdP_iron+1e-9*Tcore_K(ij)*dGdT_iron_PaK;
 %              rhocore_kgm3(ij) = rhocore_kgm3(ij-1)*(1+1./(1e-3*Pcore_MPa(ij)*Ks_iron_GPa(ij)));
@@ -2145,6 +2147,10 @@ end
         phi_mantle_frac = zeros(size(r_mantle_m));
         permeability = zeros(1,Params.nsteps_mantle,5);
     end
+    if ~isfield(Planet,'phi_surface')
+        Planet.phi_surface = 0;
+        
+    end
 
     nsteps_hydro = indSil - 1;
     kTherm_hydro_WmK = ones(1,nsteps_hydro);
@@ -2333,7 +2339,6 @@ if ~cfg.SKIP_PROFILES % SKIP_PROFILES to be deprecated in favor of a more robust
     end % POROUS
 end % ~cfg.SKIP_PROFILES
 
-    
     if ~cfg.SKIP_PROFILES
         if Seismic.DO_SEISMIC
     %% plot the seismic data and attenuation
@@ -3024,6 +3029,19 @@ end % ~cfg.SKIP_PROFILES
 
 outPlanet = Planet;
 end %PlanetProfile
+
+
+
+
+
+
+
+
+
+
+
+
+
 %% properties of water ice
 %Note: for VspChoukroun inds: liquid = 1, Ice I = 2, II = 3, III = 4, V = 5, VI = 6
 function rho_kgm3 = getRhoIce(P_MPa,T_K,ind)
@@ -3187,9 +3205,13 @@ function Tfreeze_K = getTfreeze(P_MPa,wo,str_comp,Tprior)
     end
 end % getTfreeze
 function Pfreeze_MPa = getPfreeze(T_K,wo,str_comp)
+    nTs = length(T_K);
+    Pfreeze_MPa = zeros(1,nTs);
     switch str_comp
         case 'MgSO4'
-            Pfreeze_MPa = fzero(@(P) L_IceMgSO4(P,T_K,wo,1),[0 250]);
+            for iT=1:nTs
+                Pfreeze_MPa(iT) = fzero(@(P) L_IceMgSO4(P,T_K(iT),wo,1),[0 250]);
+            end
         case 'NaCl'
             options = optimset('fzero');
             options.TolX = 1e-11; % prevent errors from overthinking by fzero. the error is:
@@ -3227,6 +3249,7 @@ function [rho_kgm3,Cp,alpha_Km1]=fluidEOS(P_MPa,T_K,wo,str_comp)
     switch str_comp
         case 'MgSO4'
             W_Mg = 24.3050; W_SO4 =  96.0636; W_MgSO4 = W_Mg + W_SO4;
+            wo(wo==0) = 1e-6;
             mo=1000./W_MgSO4./(1./(0.01.*wo)-1); %conversion to molality from wt%
             [rho_kgm3,Cp,alpha_Km1]=MgSO4_EOS2_planetary_smaller(mo,P_MPa,T_K-273.15);
         case 'NaCl'
