@@ -9,19 +9,26 @@ xH2O = 1-1./(1+(1-0.01.*w)./(0.01.*w).*120.3686./18.0142);
 
 dmu = deltaMuILiqMgSO4(P,T,xH2O);
 
-phase = find(dmu == min(dmu));
-
-if dmu(phase) > 0
-    phase = 0;
+nTs = length(T);
+phase = zeros(1,nTs);
+for iT=1:nTs
+    phase(iT) = find(dmu(:,iT) == min(dmu(:,iT)));
+    
+    if all(dmu(:,iT) > 0)
+        phase(iT) = 0;
+    end
 end
 
 phase(phase==5) = 6;
 phase(phase==4) = 5;
 
 function dmu = deltaMuILiqMgSO4(P,T,x)
-R = 8.314;
-dmu = MuIceLiqH2O(P,T) - R./0.018.*T.*log(activity(P,T,x,-1.8e6,150,1.45e-4,-12,246)*x);% this line contains the coefficients from Vance et al. 2014 for MgSO4
+Rsp = 8.314/0.018;
+[dmuIce, ~, ~] = MuIceLiqH2O(P,T);
+dmu = zeros(5,length(T));
+for iT=1:length(T)
+    dmu(:,iT) = dmuIce(:,:,iT) - (activity(P,T(iT),x,-1.8e6,150,1.45e-4,-12,246) + Rsp.*T.*log(x));% this line contains the coefficients from Vance et al. 2014 for MgSO4
+end
 
 function y = activity(P,T,x,w0,w1,w2,w3,To)
-R = 8.314;
-y = exp(((1-x).^2).*w0.*(1+w1.*tanh(w2.*P)).*(1+w3./(T-To).^2)./(R.*T));
+y = ((1-x).^2).*w0.*(1+w1.*tanh(w2.*P)).*(1+w3./(T-To).^2);
