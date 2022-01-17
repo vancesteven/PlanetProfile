@@ -66,7 +66,7 @@ def IceIConvect(Planet, Params):
             log.debug('Evaluating clathrate layers in stagnant lid.')
 
             if Planet.Bulk.clathType == 'top':
-                if (Planet.eLid_m < Planet.Bulk.zClath_m):
+                if (Planet.eLid_m < Planet.zClath_m):
                     Planet.Bulk.clathMaxDepth_m = Planet.eLid_m
                     log.debug('Clathrate lid thickness was greater than the conductive lid thickness. ' +
                               'Planet.Bulk.clathMaxDepth_m has been reduced to be equal to the conductive lid thickness.')
@@ -300,7 +300,7 @@ def IceIIIConvect(Planet, Params):
             raise ValueError(f'Ice III bottom temperature of {Planet.Bulk.TbIII_K:.3f} K ' +
                               'is less than the temperature at the lower TBL transition of ' +
                              f'{Planet.T_K[iConvectEnd-1]:.3f} K. Try increasing Bulk.TbIII_K ' +
-                              ' or decreasing Bulk.Tb_K to create a more realistic thermal profile.')
+                              'or decreasing Bulk.Tb_K to create a more realistic thermal profile.')
 
         # Reassign conductive profile with new top temperature for conductive layer
 
@@ -595,6 +595,8 @@ def ClathShellConvect(Planet, Params):
             thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
             Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
             log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+
+    Planet.zClath_m = Planet.z_m[Planet.Steps.nIbottom]
 
     log.debug('Clathrate convection calculations complete.')
 

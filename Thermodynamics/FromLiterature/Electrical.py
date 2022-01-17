@@ -17,23 +17,23 @@ def ElecConduct(Planet, Params):
         indsLiquid, indsI, indsII, indsIII, indsV, indsVI, indsClath, indsSil, indsFe = GetPhaseIndices(Planet.phase)
 
         # Calculate and/or assign conductivities for each phase type
-        if len(indsI) != 0:
+        if np.size(indsI) != 0:
             Planet.sigma_Sm[indsI] = Planet.Ocean.sigmaIce_Sm
-        if len(indsLiquid) != 0:
+        if np.size(indsLiquid) != 0:
             Planet.sigma_Sm[indsLiquid] = Planet.Ocean.EOS.fn_sigma_Sm(Planet.P_MPa[indsLiquid], Planet.T_K[indsLiquid])
-        if len(indsII) != 0:
+        if np.size(indsII) != 0:
             Planet.sigma_Sm[indsII] = Planet.Ocean.sigmaIce_Sm
-        if len(indsIII) != 0:
+        if np.size(indsIII) != 0:
             Planet.sigma_Sm[indsIII] = Planet.Ocean.sigmaIce_Sm
-        if len(indsV) != 0:
+        if np.size(indsV) != 0:
             Planet.sigma_Sm[indsV] = Planet.Ocean.sigmaIce_Sm
-        if len(indsVI) != 0:
+        if np.size(indsVI) != 0:
             Planet.sigma_Sm[indsVI] = Planet.Ocean.sigmaIce_Sm
-        if len(indsClath) != 0:
+        if np.size(indsClath) != 0:
             Planet.sigma_Sm[indsClath] = Constants.sigmaClath_Sm
-        if len(indsSil) != 0:
+        if np.size(indsSil) != 0:
             Planet.sigma_Sm[indsSil] = Planet.Sil.sigmaSil_Sm
-        if len(indsFe) != 0:
+        if np.size(indsFe) != 0:
             Planet.sigma_Sm[indsFe] = Planet.Core.sigmaCore_Sm
 
         if np.any(np.isnan(Planet.sigma_Sm)):

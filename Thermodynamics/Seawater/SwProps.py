@@ -130,8 +130,8 @@ class SwPhase:
         self.w_ppt = wOcean_ppt
 
     def __call__(self, P_MPa, T_K):
-        P_MPa = np.asarray(P_MPa)
-        T_K = np.asarray(T_K)
+        P_MPa = np.array(P_MPa)
+        T_K = np.array(T_K)
         if(np.size(P_MPa)==0 or np.size(T_K)==0):
             # If input is empty, return empty array
             return np.array([])

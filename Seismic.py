@@ -35,66 +35,66 @@ def SeismicCalcs(Planet, Params):
             Planet.Seismic.QS[indsIceI] = Planet.Seismic.BIceI * np.exp(
                 Planet.Seismic.gammaIceI * HiceI / Planet.T_K[indsIceI])
         if np.size(indsIceII) != 0:
-            surfIce = indsIceII[0] < Planet.Steps.nSurfIce
+            surfIce = indsIceII < Planet.Steps.nSurfIce
             if np.any(surfIce):
-                Planet.Seismic.VP_kms[indsIceII[0][surfIce]], Planet.Seismic.VS_kms[indsIceII[0][surfIce]], \
-                Planet.Seismic.KS_GPa[indsIceII[0][surfIce]], Planet.Seismic.GS_GPa[indsIceII[0][surfIce]] \
+                Planet.Seismic.VP_kms[indsIceII[surfIce]], Planet.Seismic.VS_kms[indsIceII[surfIce]], \
+                Planet.Seismic.KS_GPa[indsIceII[surfIce]], Planet.Seismic.GS_GPa[indsIceII[surfIce]] \
                     = Planet.Ocean.surfIceEOS['II'].fn_Seismic(
-                            Planet.P_MPa[indsIceII[0][surfIce]], Planet.T_K[indsIceII[0][surfIce]])
+                            Planet.P_MPa[indsIceII[surfIce]], Planet.T_K[indsIceII[surfIce]])
             if not np.all(surfIce):
                 lowerIce = np.logical_not(surfIce)
-                Planet.Seismic.VP_kms[indsIceII[0][lowerIce]], Planet.Seismic.VS_kms[indsIceII[0][lowerIce]], \
-                Planet.Seismic.KS_GPa[indsIceII[0][lowerIce]], Planet.Seismic.GS_GPa[indsIceII[0][lowerIce]] \
+                Planet.Seismic.VP_kms[indsIceII[lowerIce]], Planet.Seismic.VS_kms[indsIceII[lowerIce]], \
+                Planet.Seismic.KS_GPa[indsIceII[lowerIce]], Planet.Seismic.GS_GPa[indsIceII[lowerIce]] \
                     = Planet.Ocean.iceEOS['II'].fn_Seismic(
-                    Planet.P_MPa[indsIceII[0][lowerIce]], Planet.T_K[indsIceII[0][lowerIce]])
+                    Planet.P_MPa[indsIceII[lowerIce]], Planet.T_K[indsIceII[lowerIce]])
             HiceII = Planet.Seismic.gIceII * np.max(Planet.T_K[indsIceII])
             Planet.Seismic.QS[indsIceII] = Planet.Seismic.BIceII * np.exp(
                 Planet.Seismic.gammaIceII * HiceII / Planet.T_K[indsIceII])
         if np.size(indsIceIII) != 0:
-            surfIce = indsIceIII[0] < Planet.Steps.nSurfIce
+            surfIce = indsIceIII < Planet.Steps.nSurfIce
             if np.any(surfIce):
-                Planet.Seismic.VP_kms[indsIceIII[0][surfIce]], Planet.Seismic.VS_kms[indsIceIII[0][surfIce]], \
-                Planet.Seismic.KS_GPa[indsIceIII[0][surfIce]], Planet.Seismic.GS_GPa[indsIceIII[0][surfIce]] \
+                Planet.Seismic.VP_kms[indsIceIII[surfIce]], Planet.Seismic.VS_kms[indsIceIII[surfIce]], \
+                Planet.Seismic.KS_GPa[indsIceIII[surfIce]], Planet.Seismic.GS_GPa[indsIceIII[surfIce]] \
                     = Planet.Ocean.surfIceEOS['III'].fn_Seismic(
-                            Planet.P_MPa[indsIceIII[0][surfIce]], Planet.T_K[indsIceIII[0][surfIce]])
+                            Planet.P_MPa[indsIceIII[surfIce]], Planet.T_K[indsIceIII[surfIce]])
             if not np.all(surfIce):
                 lowerIce = np.logical_not(surfIce)
-                Planet.Seismic.VP_kms[indsIceIII[0][lowerIce]], Planet.Seismic.VS_kms[indsIceIII[0][lowerIce]], \
-                Planet.Seismic.KS_GPa[indsIceIII[0][lowerIce]], Planet.Seismic.GS_GPa[indsIceIII[0][lowerIce]] \
+                Planet.Seismic.VP_kms[indsIceIII[lowerIce]], Planet.Seismic.VS_kms[indsIceIII[lowerIce]], \
+                Planet.Seismic.KS_GPa[indsIceIII[lowerIce]], Planet.Seismic.GS_GPa[indsIceIII[lowerIce]] \
                     = Planet.Ocean.iceEOS['III'].fn_Seismic(
-                    Planet.P_MPa[indsIceIII[0][lowerIce]], Planet.T_K[indsIceIII[0][lowerIce]])
+                    Planet.P_MPa[indsIceIII[lowerIce]], Planet.T_K[indsIceIII[lowerIce]])
             HiceIII = Planet.Seismic.gIceIII * np.max(Planet.T_K[indsIceIII])
             Planet.Seismic.QS[indsIceIII] = Planet.Seismic.BIceIII * np.exp(
                 Planet.Seismic.gammaIceIII * HiceIII / Planet.T_K[indsIceIII])
         if np.size(indsIceV) != 0:
-            surfIce = indsIceV[0] < Planet.Steps.nSurfIce
+            surfIce = indsIceV < Planet.Steps.nSurfIce
             if np.any(surfIce):
-                Planet.Seismic.VP_kms[indsIceV[0][surfIce]], Planet.Seismic.VS_kms[indsIceV[0][surfIce]], \
-                Planet.Seismic.KS_GPa[indsIceV[0][surfIce]], Planet.Seismic.GS_GPa[indsIceV[0][surfIce]] \
+                Planet.Seismic.VP_kms[indsIceV[surfIce]], Planet.Seismic.VS_kms[indsIceV[surfIce]], \
+                Planet.Seismic.KS_GPa[indsIceV[surfIce]], Planet.Seismic.GS_GPa[indsIceV[surfIce]] \
                     = Planet.Ocean.surfIceEOS['V'].fn_Seismic(
-                            Planet.P_MPa[indsIceV[0][surfIce]], Planet.T_K[indsIceV[0][surfIce]])
+                            Planet.P_MPa[indsIceV[surfIce]], Planet.T_K[indsIceV[surfIce]])
             if not np.all(surfIce):
                 lowerIce = np.logical_not(surfIce)
-                Planet.Seismic.VP_kms[indsIceV[0][lowerIce]], Planet.Seismic.VS_kms[indsIceV[0][lowerIce]], \
-                Planet.Seismic.KS_GPa[indsIceV[0][lowerIce]], Planet.Seismic.GS_GPa[indsIceV[0][lowerIce]] \
+                Planet.Seismic.VP_kms[indsIceV[lowerIce]], Planet.Seismic.VS_kms[indsIceV[lowerIce]], \
+                Planet.Seismic.KS_GPa[indsIceV[lowerIce]], Planet.Seismic.GS_GPa[indsIceV[lowerIce]] \
                     = Planet.Ocean.iceEOS['V'].fn_Seismic(
-                    Planet.P_MPa[indsIceV[0][lowerIce]], Planet.T_K[indsIceV[0][lowerIce]])
+                    Planet.P_MPa[indsIceV[lowerIce]], Planet.T_K[indsIceV[lowerIce]])
             HiceV = Planet.Seismic.gIceV * np.max(Planet.T_K[indsIceV])
             Planet.Seismic.QS[indsIceV] = Planet.Seismic.BIceV * np.exp(
                 Planet.Seismic.gammaIceV * HiceV / Planet.T_K[indsIceV])
         if np.size(indsIceVI) != 0:
-            surfIce = indsIceVI[0] < Planet.Steps.nSurfIce
+            surfIce = indsIceVI < Planet.Steps.nSurfIce
             if np.any(surfIce):
-                Planet.Seismic.VP_kms[indsIceVI[0][surfIce]], Planet.Seismic.VS_kms[indsIceVI[0][surfIce]], \
-                Planet.Seismic.KS_GPa[indsIceVI[0][surfIce]], Planet.Seismic.GS_GPa[indsIceVI[0][surfIce]] \
+                Planet.Seismic.VP_kms[indsIceVI[surfIce]], Planet.Seismic.VS_kms[indsIceVI[surfIce]], \
+                Planet.Seismic.KS_GPa[indsIceVI[surfIce]], Planet.Seismic.GS_GPa[indsIceVI[surfIce]] \
                     = Planet.Ocean.surfIceEOS['VI'].fn_Seismic(
-                            Planet.P_MPa[indsIceVI[0][surfIce]], Planet.T_K[indsIceVI[0][surfIce]])
+                            Planet.P_MPa[indsIceVI[surfIce]], Planet.T_K[indsIceVI[surfIce]])
             if not np.all(surfIce):
                 lowerIce = np.logical_not(surfIce)
-                Planet.Seismic.VP_kms[indsIceVI[0][lowerIce]], Planet.Seismic.VS_kms[indsIceVI[0][lowerIce]], \
-                Planet.Seismic.KS_GPa[indsIceVI[0][lowerIce]], Planet.Seismic.GS_GPa[indsIceVI[0][lowerIce]] \
+                Planet.Seismic.VP_kms[indsIceVI[lowerIce]], Planet.Seismic.VS_kms[indsIceVI[lowerIce]], \
+                Planet.Seismic.KS_GPa[indsIceVI[lowerIce]], Planet.Seismic.GS_GPa[indsIceVI[lowerIce]] \
                     = Planet.Ocean.iceEOS['VI'].fn_Seismic(
-                    Planet.P_MPa[indsIceVI[0][lowerIce]], Planet.T_K[indsIceVI[0][lowerIce]])
+                    Planet.P_MPa[indsIceVI[lowerIce]], Planet.T_K[indsIceVI[lowerIce]])
             HiceVI = Planet.Seismic.gIceVI * np.max(Planet.T_K[indsIceVI])
             Planet.Seismic.QS[indsIceVI] = Planet.Seismic.BIceVI * np.exp(
                 Planet.Seismic.gammaIceVI * HiceVI / Planet.T_K[indsIceVI])

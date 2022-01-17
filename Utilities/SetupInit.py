@@ -49,9 +49,20 @@ def SetupInit(Planet, Params):
 
     if Planet.Do.NO_H2O:
         log.info('Modeling a waterless body.')
+        if Planet.Bulk.qSurf_Wm2 is None:
+            raise ValueError('Bulk.qSurf_Wm2 must be set in order to model waterless bodies.')
+        Planet.Ocean.QfromMantle_W = Planet.Bulk.qSurf_Wm2 * 4*np.pi*Planet.Bulk.R_m**2
+        Planet.Pb_MPa = Planet.Bulk.Psurf_MPa
+        Planet.PbI_MPa = Planet.Bulk.Psurf_MPa
+        Planet.Bulk.Tb_K = Planet.Bulk.Tsurf_K
+        Planet.zb_km = 0.0
+        Planet.Steps.nIceI = 0
         Planet.Steps.nSurfIce = 0
         Planet.Steps.nOceanMax = 1
         Planet.Steps.nHydroMax = 1
+        Planet.Ocean.comp = 'None'
+        Planet.Ocean.wOcean_ppt = 0.0
+        Planet.Ocean.deltaP = 0.0
     else:
         # In addition, perform some checks on underplating settings to be sure they make sense
         if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:
@@ -91,8 +102,15 @@ def SetupInit(Planet, Params):
                 Planet.Ocean.deltaT = 1e-3
             else:
                 Planet.Ocean.deltaT = 1e-4
-        TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
-        Planet.Ocean.EOS = OceanEOSStruct(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K)
+        # Prevent setup from taking forever if we have a deep ocean:
+        if Planet.Ocean.THydroMax_K < 300:
+            TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
+        else:
+            TOcean_K = np.concatenate((np.arange(Planet.Bulk.Tb_K, 300, Planet.Ocean.deltaT),
+                                      np.arange(300, Planet.Ocean.THydroMax_K, 2)))
+        Planet.Ocean.EOS = OceanEOSStruct(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
+                                          Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
+                                          scalingType=Planet.Ocean.MgSO4scalingType)
 
     # Calculate bulk density from total mass and radius, and warn user if they specified density
     if Planet.Bulk.M_kg is None:
@@ -110,14 +128,15 @@ def SetupInit(Planet, Params):
 
 
 def SetupFilenames(Planet, Params):
+    """ Generate filenames for saving data and figures.
     """
-    """
+
     datPath = Planet.name
     figPath = os.path.join(Planet.name, 'figures')
 
     saveBase = Planet.name + 'Profile_'
     if Planet.Do.NO_H2O:
-        saveBase += f'NoH2O_Tsurf{Planet.Bulk.Tsurf_K:.3f}K'
+        saveBase += f'NoH2O_Tsurf{Planet.Bulk.Tsurf_K:}K'
     else:
         if Planet.Do.CLATHRATE: saveBase += 'Clathrates_'
         saveBase += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.0f}WtPpt' + \
@@ -134,6 +153,8 @@ def SetupFilenames(Planet, Params):
 
 
 def SetupLayers(Planet):
+    """ Initialize layer arrays in Planet.
+    """
 
     if not Planet.Do.NO_H2O:
         nOceanMax = int(Planet.Ocean.PHydroMax_MPa / Planet.Ocean.deltaP)

@@ -11,7 +11,7 @@ b1 = [0.2840    0.0302      0.0425      0.097       0.1200      0.05];
 %modifications following CG_unknownSH from Bollengier -- no correct
 %pressure is found for the ice-water interface with this line:
 %b2 = [0.00136    0.00395     0.0022      0.00102     0.0016      0.0002];
-b2 = [0.00136   0.00395     0.0022      0.00200     0.0016      0.0102];
+b2 = [0.00136   0.00395     0.0022      0.00200     0.0016      0.00102];
 
 Tdiff_K = T_K-Tref_K(inds);
 EpsT = 1 + a0(inds).*tanh(a1(inds).*Tdiff_K);

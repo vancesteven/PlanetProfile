@@ -1,6 +1,6 @@
 """
-PPTest3
-Europa-like, pure water model with clathrate underplate layer
+PPTest6
+Europa-like, Seawater model but with no core
 For testing purposes
 """
 import numpy as np
@@ -8,7 +8,6 @@ from Utilities.dataStructs import PlanetStruct, Constants
 
 Planet = PlanetStruct('Test')
 
-Planet.PfreezeLower_MPa = 0
 Planet.PfreezeUpper_MPa = 150
 
 """ Bulk planetary settings """
@@ -18,12 +17,7 @@ Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346
 Planet.Bulk.Cuncertainty = 0.005
-Planet.Bulk.Tb_K = 305.0
-Planet.Do.CLATHRATE = True
-Planet.Steps.nClath = 30
-Planet.Bulk.clathType = 'bottom'
-Planet.Bulk.clathMaxThick_m = 6.5e3
-Planet.Bulk.qSurf_Wm2 = 7.5e-3
+Planet.Bulk.Tb_K = 269.8
 
 """ Layer step settings """
 Planet.Steps.nIceI = 200
@@ -33,14 +27,14 @@ Planet.Steps.nCore = 10
 Planet.Steps.iSilStart = Planet.Steps.nIceI
 
 """ Hydrosphere assumptions/settings """
-Planet.Ocean.comp = 'PureH2O'
-Planet.Ocean.wOcean_ppt = 0
+Planet.Ocean.comp = 'Seawater'
+Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
 Planet.Ocean.deltaP = 1.0
 Planet.Ocean.PHydroMax_MPa = 250.0
 
 """ Silicate Mantle """
-Planet.Sil.Qrad_Wkg = 5.38e-14
-Planet.Sil.Htidal_Wm3 = 1e-12
+Planet.Sil.Qrad_Wkg = 5.38e-12
+Planet.Sil.Htidal_Wm3 = 1e-10
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
 Planet.Do.P_EFFECTIVE = False
@@ -49,7 +43,8 @@ Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
 Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
 
 """ Core assumptions """
-Planet.Do.Fe_CORE = True
+Planet.Do.Fe_CORE = False
+Planet.Do.CONSTANT_INNER_DENSITY = True
 Planet.Core.rhoFe_kgm3 = 8000.0
 Planet.Core.rhoFeS_kgm3 = 5150.0
 Planet.Core.rhoPoFeFCC = 5455.0

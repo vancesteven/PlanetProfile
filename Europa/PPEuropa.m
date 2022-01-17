@@ -224,7 +224,7 @@ Planet.phi_surface = 0;
 
 Planet.Tb_K = 269.8;
 Planet.Ocean.comp = 'Seawater';
-Planet.Ocean.w_ocean_pct = 0.0;
+Planet.Ocean.w_ocean_pct = gsw_SSO;
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 %outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 %% 

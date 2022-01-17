@@ -1,6 +1,6 @@
 """
-PPTest3
-Europa-like, pure water model with clathrate underplate layer
+PPTest8
+Ganymede-like, pure water model, no explicit ice III or V underplate
 For testing purposes
 """
 import numpy as np
@@ -8,22 +8,14 @@ from Utilities.dataStructs import PlanetStruct, Constants
 
 Planet = PlanetStruct('Test')
 
-Planet.PfreezeLower_MPa = 0
-Planet.PfreezeUpper_MPa = 150
-
 """ Bulk planetary settings """
-Planet.Bulk.R_m = 1561.0e3
-Planet.Bulk.M_kg = 4.7991e22
+Planet.Bulk.R_m = 2634.1e3
+Planet.Bulk.M_kg = 1.4819e23
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
-Planet.Bulk.Cmeasured = 0.346
-Planet.Bulk.Cuncertainty = 0.005
-Planet.Bulk.Tb_K = 305.0
-Planet.Do.CLATHRATE = True
-Planet.Steps.nClath = 30
-Planet.Bulk.clathType = 'bottom'
-Planet.Bulk.clathMaxThick_m = 6.5e3
-Planet.Bulk.qSurf_Wm2 = 7.5e-3
+Planet.Bulk.Cmeasured = 0.3115
+Planet.Bulk.Cuncertainty = 0.0028
+Planet.Bulk.Tb_K = 258.0
 
 """ Layer step settings """
 Planet.Steps.nIceI = 200
@@ -35,12 +27,13 @@ Planet.Steps.iSilStart = Planet.Steps.nIceI
 """ Hydrosphere assumptions/settings """
 Planet.Ocean.comp = 'PureH2O'
 Planet.Ocean.wOcean_ppt = 0
-Planet.Ocean.deltaP = 1.0
-Planet.Ocean.PHydroMax_MPa = 250.0
+Planet.Ocean.deltaP = 4.0
+Planet.Ocean.PHydroMax_MPa = 2000.0
+Planet.Ocean.THydroMax_K = 350.0
 
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.38e-14
-Planet.Sil.Htidal_Wm3 = 1e-12
+Planet.Sil.Htidal_Wm3 = 1e-18
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
 Planet.Do.P_EFFECTIVE = False

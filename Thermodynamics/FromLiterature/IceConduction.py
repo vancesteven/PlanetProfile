@@ -245,6 +245,9 @@ def IceIConductClathUnderplate(Planet, Params):
         Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
         log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
+    # Set actual thickness of clathrate underplate layer
+    Planet.zClath_m = Planet.z_m[Planet.Steps.nIbottom] - Planet.z_m[Planet.Steps.nIceI]
+
     return Planet
 
 
@@ -254,8 +257,9 @@ def IceIIIConduct(Planet, Params):
 
     # Set linear P and adiabatic T in ice III layers
     PIceIII_MPa = np.linspace(Planet.P_MPa[Planet.Steps.nIbottom], Planet.PbIII_MPa, Planet.Steps.nIceIIILitho+1)
-    TIceIII_K = Planet.Bulk.TbIII_K**(PIceIII_MPa/Planet.PbIII_MPa) * \
-                Planet.T_K[Planet.Steps.nIbottom]**(1 - PIceIII_MPa/Planet.PbIII_MPa)
+    PIceIIIratios = (PIceIII_MPa - PIceIII_MPa[0]) / (Planet.PbIII_MPa - PIceIII_MPa[0])
+    TIceIII_K = Planet.Bulk.TbIII_K**(PIceIIIratios) * \
+                Planet.T_K[Planet.Steps.nIbottom]**(1 - PIceIIIratios)
     Planet.P_MPa[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom+1] = PIceIII_MPa
     Planet.T_K[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom+1] = TIceIII_K
 
@@ -293,8 +297,9 @@ def IceVConduct(Planet, Params):
 
     # Set linear P and adiabatic T in ice V layers
     PIceV_MPa = np.linspace(Planet.P_MPa[Planet.Steps.nIIIbottom], Planet.PbV_MPa, Planet.Steps.nIceVLitho+1)
-    TIceV_K = Planet.Bulk.TbV_K**(PIceV_MPa/Planet.PbV_MPa) * \
-                Planet.T_K[Planet.Steps.nIIIbottom]**(1 - PIceV_MPa/Planet.PbV_MPa)
+    PIceVratios = (PIceV_MPa - PIceV_MPa[0]) / (Planet.PbV_MPa - PIceV_MPa[0])
+    TIceV_K = Planet.Bulk.TbV_K**(PIceVratios) * \
+                Planet.T_K[Planet.Steps.nIIIbottom]**(1 - PIceVratios)
     Planet.P_MPa[Planet.Steps.nIIIbottom:Planet.Steps.nSurfIce+1] = PIceV_MPa
     Planet.T_K[Planet.Steps.nIIIbottom:Planet.Steps.nSurfIce+1] = TIceV_K
 

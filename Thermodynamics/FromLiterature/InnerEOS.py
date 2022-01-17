@@ -1,5 +1,5 @@
 import numpy as np
-import scipy.interpolate as spi
+from scipy.interpolate import RectBivariateSpline, griddata as GridData
 from Utilities.dataStructs import Constants
 
 class PerplexEOSStruct:
@@ -45,38 +45,38 @@ class PerplexEOSStruct:
         if not np.all(thisVarValid):
             thisValidPs = Plin_MPa[np.where(thisVarValid)]
             thisValidTs = Tlin_K[np.where(thisVarValid)]
-            rho_kgm3 = spi.griddata((thisValidPs, thisValidTs), rho_kgm3[thisVarValid], PTpts, method=EOSinterpMethod)
+            rho_kgm3 = GridData((thisValidPs, thisValidTs), rho_kgm3[thisVarValid], PTpts, method=EOSinterpMethod)
         thisVarValid = np.isfinite(VP_kms)
         if not np.all(thisVarValid):
             thisValidPs = Plin_MPa[np.where(thisVarValid)]
             thisValidTs = Tlin_K[np.where(thisVarValid)]
-            VP_kms = spi.griddata((thisValidPs, thisValidTs), VP_kms[thisVarValid], PTpts, method=EOSinterpMethod)
+            VP_kms = GridData((thisValidPs, thisValidTs), VP_kms[thisVarValid], PTpts, method=EOSinterpMethod)
         thisVarValid = np.isfinite(VS_kms)
         if not np.all(thisVarValid):
             thisValidPs = Plin_MPa[np.where(thisVarValid)]
             thisValidTs = Tlin_K[np.where(thisVarValid)]
-            VS_kms = spi.griddata((thisValidPs, thisValidTs), VS_kms[thisVarValid], PTpts, method=EOSinterpMethod)
+            VS_kms = GridData((thisValidPs, thisValidTs), VS_kms[thisVarValid], PTpts, method=EOSinterpMethod)
         thisVarValid = np.isfinite(Cp_Jm3K)
         if not np.all(thisVarValid):
             thisValidPs = Plin_MPa[np.where(thisVarValid)]
             thisValidTs = Tlin_K[np.where(thisVarValid)]
             # Note that Perple_X tables store heat capacities as J/m^3/K, so we convert to J/kg/K by dividing by rho in a moment
-            Cp_Jm3K = spi.griddata((thisValidPs, thisValidTs), Cp_Jm3K[thisVarValid], PTpts, method=EOSinterpMethod)
+            Cp_Jm3K = GridData((thisValidPs, thisValidTs), Cp_Jm3K[thisVarValid], PTpts, method=EOSinterpMethod)
         thisVarValid = np.isfinite(alpha_pK)
         if not np.all(thisVarValid):
             thisValidPs = Plin_MPa[np.where(thisVarValid)]
             thisValidTs = Tlin_K[np.where(thisVarValid)]
-            alpha_pK = spi.griddata((thisValidPs, thisValidTs), alpha_pK[thisVarValid], PTpts, method=EOSinterpMethod)
+            alpha_pK = GridData((thisValidPs, thisValidTs), alpha_pK[thisVarValid], PTpts, method=EOSinterpMethod)
         thisVarValid = np.isfinite(KS_bar)
         if not np.all(thisVarValid):
             thisValidPs = Plin_MPa[np.where(thisVarValid)]
             thisValidTs = Tlin_K[np.where(thisVarValid)]
-            KS_bar = spi.griddata((thisValidPs, thisValidTs), KS_bar[thisVarValid], PTpts, method=EOSinterpMethod)
+            KS_bar = GridData((thisValidPs, thisValidTs), KS_bar[thisVarValid], PTpts, method=EOSinterpMethod)
         thisVarValid = np.isfinite(GS_bar)
         if not np.all(thisVarValid):
             thisValidPs = Plin_MPa[np.where(thisVarValid)]
             thisValidTs = Tlin_K[np.where(thisVarValid)]
-            GS_bar = spi.griddata((thisValidPs, thisValidTs), GS_bar[thisVarValid], PTpts, method=EOSinterpMethod)
+            GS_bar = GridData((thisValidPs, thisValidTs), GS_bar[thisVarValid], PTpts, method=EOSinterpMethod)
 
         # Check that NaN removal worked correctly
         errNaNstart = 'Failed to interpolate over NaNs in PerplexEOS '
@@ -117,14 +117,14 @@ class PerplexEOSStruct:
 
         self.P_MPa = P1D_MPa
         self.T_K = T1D_K
-        self.fn_rho_kgm3 = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.rho_kgm3)
-        self.fn_VP_kms = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.VP_kms)
-        self.fn_VS_kms = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.VS_kms)
-        self.fn_Cp_JkgK = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.Cp_JkgK)
-        self.fn_alpha_pK = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.alpha_pK)
-        self.fn_KS_GPa = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.KS_GPa)
-        self.fn_GS_GPa = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.GS_GPa)
-        self.fn_kTherm_WmK = spi.RectBivariateSpline(P1D_MPa, T1D_K, self.kTherm_WmK)
+        self.fn_rho_kgm3 = RectBivariateSpline(P1D_MPa, T1D_K, self.rho_kgm3)
+        self.fn_VP_kms = RectBivariateSpline(P1D_MPa, T1D_K, self.VP_kms)
+        self.fn_VS_kms = RectBivariateSpline(P1D_MPa, T1D_K, self.VS_kms)
+        self.fn_Cp_JkgK = RectBivariateSpline(P1D_MPa, T1D_K, self.Cp_JkgK)
+        self.fn_alpha_pK = RectBivariateSpline(P1D_MPa, T1D_K, self.alpha_pK)
+        self.fn_KS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, self.KS_GPa)
+        self.fn_GS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, self.GS_GPa)
+        self.fn_kTherm_WmK = RectBivariateSpline(P1D_MPa, T1D_K, self.kTherm_WmK)
 
 
 def TsolidusHirschmann2000(P_MPa):
