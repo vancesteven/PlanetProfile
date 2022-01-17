@@ -1,7 +1,7 @@
 import numpy as np
 import logging as log
 from scipy.io import loadmat
-from scipy.interpolate import RegularGridInterpolator, interp1d
+from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline, interp1d
 from Utilities.dataStructs import Constants
 from seafreeze import seafreeze as SeaFreeze
 
@@ -71,7 +71,7 @@ def MgSO4Props(P_MPa, T_K, wOcean_ppt):
     """
     fMgSO4Props = loadmat('Thermodynamics/MgSO4/MgSO4EOS2_planetary_smaller_20121116.mat')
     TMgSO4_K = fMgSO4Props['T_smaller_C'][0] + Constants.T0
-    wMgSO4_ppt = Molal2ppt(fMgSO4Props['m_smaller_molal'], Constants.mMgSO4_gmol)[0]
+    wMgSO4_ppt = Molal2ppt(fMgSO4Props['m_smaller_molal'][0], Constants.mMgSO4_gmol)
     evalPts = np.array([[wOcean_ppt, P, T] for T in T_K for P in P_MPa])
     nPs = np.size(P_MPa)
     # Interpolate the input data to get the values corresponding to the current ocean comp,
@@ -107,7 +107,7 @@ class CG2010:
     b1 = np.array([0.284, 0.0302, 0.0425, 0.097, np.nan, 0.12, 0.05])
     b2 = np.array([0.00136, 0.00395, 0.0022, 0.002, np.nan, 0.0016, 0.00102])
     # Set number of integration points to use to evaluate chemical potentials
-    nIntPts = 100
+    nIntPts = 35
 
     def __init__(self):
         self.zeta1 = lambda T_K, phase: 1 + self.a0[phase] * np.tanh(self.a1[phase] * (T_K - self.Tref_K[phase]))
@@ -212,9 +212,21 @@ class MgSO4Phase:
 class MgSO4Seismic:
     def __init__(self, wOcean_ppt):
         self.w_ppt = wOcean_ppt
+        fMgSO4Seismic = loadmat('Thermodynamics/MgSO4/MgSO4_EOS_parms_2012_26_17_LT.mat')
+        TMgSO4_K = fMgSO4Seismic['Tg_C'][0] + Constants.T0
+        wMgSO4_ppt = Molal2ppt(np.squeeze(fMgSO4Seismic['mg']), Constants.mMgSO4_gmol)
+        PMgSO4_MPa = np.squeeze(fMgSO4Seismic['Pg_MPa'])
+
+        self.fn_VP_kms = RegularGridInterpolator((wMgSO4_ppt, PMgSO4_MPa, TMgSO4_K),
+                                fMgSO4Seismic['velg'], bounds_error=False, fill_value=None)
+        self.fn_KS_GPa = RegularGridInterpolator((wMgSO4_ppt, PMgSO4_MPa, TMgSO4_K),
+                                fMgSO4Seismic['Ksg'], bounds_error=False, fill_value=None)
 
     def __call__(self, P_MPa, T_K):
-        raise RuntimeError('MgSO4Seismic is not implemented yet. See MgSO4_EOS2_planetary_velocity_smaller_vector.m and fluidSoundSpeeds in PlanetProfile.m')
+        evalPts = np.array([[self.w_ppt, P, T] for T in T_K for P in P_MPa])
+        nPs = np.size(P_MPa)
+        VP_kms = np.reshape(self.fn_VP_kms(evalPts), (nPs,-1))
+        KS_GPa = np.reshape(self.fn_KS_GPa(evalPts), (nPs,-1))
         return VP_kms, KS_GPa
 
 

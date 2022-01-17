@@ -345,46 +345,56 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
     TOceanHPices_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
     PHPicesLin_MPa = np.array([P for P in POceanHPices_MPa for _ in TOceanHPices_K])
     THPicesLin_K = np.array([T for _ in POceanHPices_MPa for T in TOceanHPices_K])
-    # Get phase of each P,T combination
-    expandPhases = Planet.Ocean.EOS.fn_phase(PHPicesLin_MPa, THPicesLin_K)
-    # Check if any of them are not liquid
-    if np.any(expandPhases != 0):
-        _, _, indsIceII, indsIceIII, indsIceV, indsIceVI, _, _, _ = GetPhaseIndices(expandPhases)
 
-        if(np.size(indsIceII) != 0):
-            log.debug('Loading ice II EOS functions for ocean layers...')
-            PiceIImin_MPa = PHPicesLin_MPa[indsIceII[0]]
-            PiceIImax_MPa = PHPicesLin_MPa[indsIceII[-1]]
-            TiceIImin_K = np.min(THPicesLin_K[indsIceII])
-            TiceIImax_K = np.max(THPicesLin_K[indsIceII])
-            Planet.Ocean.iceEOS['II'] = IceEOSStruct(np.linspace(PiceIImin_MPa, PiceIImax_MPa, Planet.Steps.nPsHP),
-                                                     np.linspace(TiceIImin_K, TiceIImax_K, Planet.Steps.nTsHP), 'II')
-        if(np.size(indsIceIII) != 0):
-            log.debug('Loading ice III EOS functions for ocean layers...')
-            PiceIIImin_MPa = PHPicesLin_MPa[indsIceIII[0]]
-            PiceIIImax_MPa = PHPicesLin_MPa[indsIceIII[-1]]
-            TiceIIImin_K = np.min(THPicesLin_K[indsIceIII])
-            TiceIIImax_K = np.max(THPicesLin_K[indsIceIII])
-            Planet.Ocean.iceEOS['III'] = IceEOSStruct(np.linspace(PiceIIImin_MPa, PiceIIImax_MPa, Planet.Steps.nPsHP),
-                                                      np.linspace(TiceIIImin_K, TiceIIImax_K, Planet.Steps.nTsHP), 'III')
-        if(np.size(indsIceV) != 0):
-            log.debug('Loading ice V EOS functions for ocean layers...')
-            PiceVmin_MPa = PHPicesLin_MPa[indsIceV[0]]
-            PiceVmax_MPa = PHPicesLin_MPa[indsIceV[-1]]
-            TiceVmin_K = np.min(THPicesLin_K[indsIceV])
-            TiceVmax_K = np.max(THPicesLin_K[indsIceV])
-            Planet.Ocean.iceEOS['V'] = IceEOSStruct(np.linspace(PiceVmin_MPa, PiceVmax_MPa, Planet.Steps.nPsHP),
-                                                    np.linspace(TiceVmin_K, TiceVmax_K, Planet.Steps.nTsHP), 'V')
-        if(np.size(indsIceVI) != 0):
-            log.debug('Loading ice VI EOS functions for ocean layers...')
-            PiceVImin_MPa = PHPicesLin_MPa[indsIceVI[0]]
-            PiceVImax_MPa = PHPicesLin_MPa[indsIceVI[-1]]
-            TiceVImin_K = np.min(THPicesLin_K[indsIceVI])
-            TiceVImax_K = np.max(THPicesLin_K[indsIceVI])
-            Planet.Ocean.iceEOS['VI'] = IceEOSStruct(np.linspace(PiceVImin_MPa, PiceVImax_MPa, Planet.Steps.nPsHP),
-                                                     np.linspace(TiceVImin_K, TiceVImax_K, Planet.Steps.nTsHP), 'VI')
+    # Stopgap measure to avoid MgSO4 calcs taking ages with the slow Margules formulation phase calcs
+    # Remove this if block when a faster phase calculation is implemented!
+    if Planet.Ocean.comp == 'MgSO4':
+        # Just load all HP ice phases in case we need them. This part is way faster than Margules phase calcs
+        Planet.Ocean.iceEOS['II'] = IceEOSStruct(POceanHPices_MPa, TOceanHPices_K, 'II')
+        Planet.Ocean.iceEOS['III'] = IceEOSStruct(POceanHPices_MPa, TOceanHPices_K, 'III')
+        Planet.Ocean.iceEOS['V'] = IceEOSStruct(POceanHPices_MPa, TOceanHPices_K, 'V')
+        Planet.Ocean.iceEOS['VI'] = IceEOSStruct(POceanHPices_MPa, TOceanHPices_K, 'VI')
     else:
-        log.debug('No high-pressure ices found in ocean layers.')
+        # Get phase of each P,T combination
+        expandPhases = Planet.Ocean.EOS.fn_phase(PHPicesLin_MPa, THPicesLin_K)
+        # Check if any of them are not liquid
+        if np.any(expandPhases != 0):
+            _, _, indsIceII, indsIceIII, indsIceV, indsIceVI, _, _, _ = GetPhaseIndices(expandPhases)
+
+            if(np.size(indsIceII) != 0):
+                log.debug('Loading ice II EOS functions for ocean layers...')
+                PiceIImin_MPa = PHPicesLin_MPa[indsIceII[0]]
+                PiceIImax_MPa = PHPicesLin_MPa[indsIceII[-1]]
+                TiceIImin_K = np.min(THPicesLin_K[indsIceII])
+                TiceIImax_K = np.max(THPicesLin_K[indsIceII])
+                Planet.Ocean.iceEOS['II'] = IceEOSStruct(np.linspace(PiceIImin_MPa, PiceIImax_MPa, Planet.Steps.nPsHP),
+                                                         np.linspace(TiceIImin_K, TiceIImax_K, Planet.Steps.nTsHP), 'II')
+            if(np.size(indsIceIII) != 0):
+                log.debug('Loading ice III EOS functions for ocean layers...')
+                PiceIIImin_MPa = PHPicesLin_MPa[indsIceIII[0]]
+                PiceIIImax_MPa = PHPicesLin_MPa[indsIceIII[-1]]
+                TiceIIImin_K = np.min(THPicesLin_K[indsIceIII])
+                TiceIIImax_K = np.max(THPicesLin_K[indsIceIII])
+                Planet.Ocean.iceEOS['III'] = IceEOSStruct(np.linspace(PiceIIImin_MPa, PiceIIImax_MPa, Planet.Steps.nPsHP),
+                                                          np.linspace(TiceIIImin_K, TiceIIImax_K, Planet.Steps.nTsHP), 'III')
+            if(np.size(indsIceV) != 0):
+                log.debug('Loading ice V EOS functions for ocean layers...')
+                PiceVmin_MPa = PHPicesLin_MPa[indsIceV[0]]
+                PiceVmax_MPa = PHPicesLin_MPa[indsIceV[-1]]
+                TiceVmin_K = np.min(THPicesLin_K[indsIceV])
+                TiceVmax_K = np.max(THPicesLin_K[indsIceV])
+                Planet.Ocean.iceEOS['V'] = IceEOSStruct(np.linspace(PiceVmin_MPa, PiceVmax_MPa, Planet.Steps.nPsHP),
+                                                        np.linspace(TiceVmin_K, TiceVmax_K, Planet.Steps.nTsHP), 'V')
+            if(np.size(indsIceVI) != 0):
+                log.debug('Loading ice VI EOS functions for ocean layers...')
+                PiceVImin_MPa = PHPicesLin_MPa[indsIceVI[0]]
+                PiceVImax_MPa = PHPicesLin_MPa[indsIceVI[-1]]
+                TiceVImin_K = np.min(THPicesLin_K[indsIceVI])
+                TiceVImax_K = np.max(THPicesLin_K[indsIceVI])
+                Planet.Ocean.iceEOS['VI'] = IceEOSStruct(np.linspace(PiceVImin_MPa, PiceVImax_MPa, Planet.Steps.nPsHP),
+                                                         np.linspace(TiceVImin_K, TiceVImax_K, Planet.Steps.nTsHP), 'VI')
+        else:
+            log.debug('No high-pressure ices found in ocean layers.')
 
     return Planet, Params
 
