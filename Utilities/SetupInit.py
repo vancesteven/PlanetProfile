@@ -102,12 +102,14 @@ def SetupInit(Planet, Params):
                 Planet.Ocean.deltaT = 1e-3
             else:
                 Planet.Ocean.deltaT = 1e-4
-        # Prevent setup from taking forever if we have a deep ocean:
-        if Planet.Ocean.THydroMax_K < 300:
-            TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
+        # Check ocean parameter space, and prevent setup from taking forever if we have a deep ocean:
+        if Planet.Ocean.THydroMax_K < Planet.Bulk.Tb_K:
+            raise ValueError(f'Ocean.THydroMax_K of {Planet.Ocean.THydroMax_K} is less than Bulk.Tb_K of {Planet.Bulk.Tb_K}.')
+        elif Planet.Bulk.Tb_K + 30 < Planet.Ocean.THydroMax_K:
+            TOcean_K = np.concatenate((np.linspace(Planet.Bulk.Tb_K, Planet.Bulk.Tb_K + 30, int(30/Planet.Ocean.deltaT), endpoint=False),
+                                      np.arange(Planet.Bulk.Tb_K + 30, Planet.Ocean.THydroMax_K, 2)))
         else:
-            TOcean_K = np.concatenate((np.linspace(Planet.Bulk.Tb_K, 300, int((300 - Planet.Bulk.Tb_K)/Planet.Ocean.deltaT), endpoint=False),
-                                      np.arange(300, Planet.Ocean.THydroMax_K, 2)))
+            TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
         Planet.Ocean.EOS = OceanEOSStruct(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
                                           Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                           scalingType=Planet.Ocean.MgSO4scalingType)
