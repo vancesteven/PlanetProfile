@@ -106,7 +106,7 @@ def SetupInit(Planet, Params):
         if Planet.Ocean.THydroMax_K < 300:
             TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
         else:
-            TOcean_K = np.concatenate((np.arange(Planet.Bulk.Tb_K, 300, Planet.Ocean.deltaT),
+            TOcean_K = np.concatenate((np.linspace(Planet.Bulk.Tb_K, 300, int((300 - Planet.Bulk.Tb_K)/Planet.Ocean.deltaT), endpoint=False),
                                       np.arange(300, Planet.Ocean.THydroMax_K, 2)))
         Planet.Ocean.EOS = OceanEOSStruct(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
                                           Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
