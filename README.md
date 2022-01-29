@@ -34,6 +34,7 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
   1. sat427.bsp
   1. ura111.bsp
   1. nep095.bsp
+  1. Add PlanetProfile/spice/mice/src/mice/ and PlanetProfile/spice/mice/lib/ to your Matlab path.
 1. Open a Terminal and navigate to the PlanetProfile directory.
 1. Run PlanetProfile with the command: python PlanetProfile.py
 
