@@ -19,10 +19,6 @@ class OceanEOSStruct:
         self.T_K = T_K
         if elecType is None:
             self.elecType = 'Vance2018'
-        elif elecType == 'Pan2020' and self.w_ppt == 100:
-            self.elecType = elecType
-        else:
-            self.elecType = elecType
 
         # Get tabular data from the appropriate source for this composition
         if wOcean_ppt == 0:
@@ -64,6 +60,14 @@ class OceanEOSStruct:
             self.type = 'PlanetProfile'
             raise ValueError('Unable to load ocean EOS. NH3 is not implemented yet.')
         elif compstr == 'MgSO4':
+            if elecType == 'Pan2020' and round(self.w_ppt) == 100:
+                self.elecType = elecType
+            elif elecType == 'Pan2020' and round(self.w_ppt) != 100:
+                log.warning('elecType "Pan2020" behavior is defined only for Ocean.wOcean_ppt = 100. ' +
+                            'Defaulting to elecType "Vance2018".')
+                self.elecType = 'Vance2018'
+            else:
+                self.elecType = elecType
             self.type = 'ChoukronGrasset2010'
             self.m_gmol = Constants.mMgSO4_gmol
 
