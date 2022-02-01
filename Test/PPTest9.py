@@ -37,7 +37,7 @@ Planet.Ocean.PHydroMax_MPa = 2000.0
 Planet.Ocean.THydroMax_K = 350.0
 
 """ Silicate Mantle """
-Planet.Sil.Qrad_Wkg = 5.38e-14
+Planet.Sil.Qrad_Wkg = 5.33e-14
 Planet.Sil.Htidal_Wm3 = 1e-18
 # Rock porosity
 Planet.Do.POROUS_ROCK = False

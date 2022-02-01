@@ -23,7 +23,7 @@ Planet.Steps.nSilMax = 300
 Planet.Steps.nCore = 10
 
 """ Silicate Mantle """
-Planet.Sil.Qrad_Wkg = 5.38e-12
+Planet.Sil.Qrad_Wkg = 5.33e-12
 Planet.Sil.Htidal_Wm3 = 1e-10
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
