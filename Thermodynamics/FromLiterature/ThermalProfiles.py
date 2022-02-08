@@ -198,7 +198,10 @@ def GetPbConduct(Ttop_K, Tb_K, rTop_m, Ptop_MPa, gTop_ms2, qTop_Wm2, EOS, rRes_m
         rBot_m = thisrTop_m - rRes_m
         rho_kgm3 = EOS.fn_rho_kgm3(Pb_MPa, Tbot_K, grid=False)
         kTherm_WmK = EOS.fn_kTherm_WmK(Pb_MPa, Tbot_K, grid=False)
-        Tbot_K, qTop_Wm2 = ConductiveTemperature(Tbot_K, thisrTop_m, rBot_m,
+        # Treat heat flow as constant, essentially ignoring tidal heating and
+        # spherical shape of the body -- only valid for very stiff clathrates
+        # in a relatively thin layer.
+        Tbot_K, _ = ConductiveTemperature(Tbot_K, thisrTop_m, rBot_m,
                             kTherm_WmK, rho_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2)
         MLayer_kg = 4/3 * np.pi * (thisrTop_m**3 - rBot_m**3) * rho_kgm3
         gTop_ms2 = (gTop_ms2 * thisrTop_m**2 - Constants.G * MLayer_kg) / rBot_m**2
