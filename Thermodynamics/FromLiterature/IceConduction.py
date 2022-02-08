@@ -3,7 +3,7 @@ import logging as log
 import scipy.interpolate as spi
 from Utilities.dataStructs import Constants
 from Thermodynamics.FromLiterature.HydroEOS import PhaseConv, IceEOSStruct
-from Thermodynamics.FromLiterature.ThermalProfiles import ConductiveTemperature, GetPbConduct
+from Thermodynamics.FromLiterature.ThermalProfiles import GetPbConduct
 
 def IceIWholeConduct(Planet, Params):
     """ Calculate conductive profile in ice Ih layers based on a linear pressure profile
