@@ -134,7 +134,7 @@ def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rho_kgm3, Qrad_Wkg
             kTherm_WmK (float, shape N): Thermal conductivity of layer in W/(m K).
             rho_kgm3 (float, shape N): Mass density of layer in kg/m^3.
             Qrad_Wkg (float): Average radiogenic heating rate in W/kg.
-            Htidal_Wm3 (float): Average tidal heating rate in W/m^3.
+            Htidal_Wm3 (float, shape N): Average tidal heating rate of the layer in W/m^3.
             qTop_Wm2 (float): Heat flux leaving the top of the layer in W/m^2.
         Returns:
             Tbot_K (float): Temperature at the bottom of the layer in K.
@@ -145,8 +145,11 @@ def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rho_kgm3, Qrad_Wkg
     c1 = qTop_Wm2 * rTop_m**2 / 2/kTherm_WmK - rho_kgm3 * Qtot_Wkg / 6/kTherm_WmK * rTop_m**3
     # Find the temperature at the bottom of the layer
     Tbot_K = Ttop_K + rho_kgm3*Qtot_Wkg / 6/kTherm_WmK * (rTop_m**2 - rBot_m**2) + c1 * (1/rBot_m - 1/rTop_m)
+    # The below calc is suspect. It seems to report too-high values for qBot.
     # Find the heat flux into the bottom of the layer
-    qBot_Wm2 = rho_kgm3 * Qtot_Wkg / 3 * rBot_m + 2*kTherm_WmK / rBot_m**2 * c1
+    #qBot_Wm2 = rho_kgm3 * Qtot_Wkg / 3 * rBot_m + 2*kTherm_WmK / rBot_m**2 * c1
+    # Find the approximate heat flux into the bottom of the layer
+    qBot_Wm2 = kTherm_WmK * (Tbot_K - Ttop_K) / (rTop_m - rBot_m)
 
     return Tbot_K, qBot_Wm2
 
