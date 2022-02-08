@@ -3680,7 +3680,7 @@ function [comp, FeCore, wtPct, Tb_K, zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, CM
         wtPct = wtPpt/10;
     end
 
-    reloadData = dlmread(saveFile, '', nHeadLines);
+    reloadData = dlmread(saveFile, '', nHeadLines, 0);
 
     P_Planet_MPa = reloadData(:,1);
     T_Planet_K = reloadData(:,2);
@@ -3699,7 +3699,7 @@ function [comp, FeCore, wtPct, Tb_K, zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, CM
     Ks_Planet_GPa = reloadData(:,15);
     Gs_Planet_GPa = reloadData(:,16);
     
-    mantCoreData = dlmread(mantCoreFile, '', 1);
+    mantCoreData = dlmread(mantCoreFile, '', 1, 0);
     RsilTrade_m = mantCoreData(:,1);
     if strcmp(strip(FeCoreStr{2}),'True') || strcmp(strip(FeCoreStr{2}),'1')
         FeCore = 1;
@@ -3712,7 +3712,7 @@ function [comp, FeCore, wtPct, Tb_K, zb_m, zClath_m, Pb_MPa, PbI_MPa, deltaP, CM
     end
     
     permeability = zeros(nStepsSil,5);
-    permData = dlmread(permFile, '', 1);
+    permData = dlmread(permFile, '', 1, 0);
     permeability(:,1) = permData(:,1);
     permeability(:,2) = permData(:,2);
     permeability(:,3) = permData(:,3);
