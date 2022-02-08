@@ -131,7 +131,12 @@ Params.LW_sound = 1.5  # LineWidth for sound speed plots
 Params.LW_seism = 1  # LineWidth for seismic plots (Attenuation)
 
 # SPICE kernels
+Params.spiceTLS = 'naif0012.tls'  # Leap-seconds kernel
 Params.spicePCK = 'pck00010.tpc'  # Planetary Constants Kernel from SPICE in order to get body radii
+Params.spiceJupiter = 'jup365.bsp'  # Generic kernel for Jupiter + Galilean moons
+Params.spiceSaturn = 'sat427.bsp'  # Generic kernel for Saturn + large moons
+Params.spiceUranus = 'ura111.bsp'  # Generic kernel for Uranus + large moons
+Params.spiceNeptune = 'nep095.bsp'  # Generic kernel for Neptune + large moons
 
 # Wedge color options
 Params.Colors.IonosphereTop = [1, 0, 1]
