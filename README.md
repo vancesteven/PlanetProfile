@@ -19,6 +19,8 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
     * obspy
     * spiceypy
     * skyfield (maybe not needed? Used in body date/time settings of asymmetric induction code)
+* Some magnetic field features require use of the [SPICE toolkit through Mice](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/MATLAB/index.html). To install Mice:
+  * Navigate to https://naif.jpl.nasa.gov/naif/toolkit_MATLAB.html, follow the link for your operating system, download the .zip or .tar.Z file to PlanetProfile/spice/, and unpack the archive (into PlanetProfile/spice/mice/).
 * Refprop is required for NH3 solutions: https://www.nist.gov/refprop
   * Due to various complications it is not currently implemented.
 
@@ -27,6 +29,12 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
   1. Note: This step should be completed only after all necessary prerequisites are installed for your conda environment.
 1. If TauP functionality is desired in Matlab, download ~~matTaup (https://github.com/g2e/seizmo/) and add mattaup, misc, and models to Utilities folder~~.
 1. Install magnetic induction data by downloading all .mat files from https://zenodo.org/record/5057572 into the MagneticInduction/FTdata folder.
+1. Install necessary SPICE kernels by downloading them from https://naif.jpl.nasa.gov/pub/naif/generic_kernels/ and placing them in PlanetProfile/spice/. The planetary constants kernel (PCK) and leap-seconds kernel (TLS) are saved in this repository, but the generic ephemeris kernels (SPK, .bsp files) are too large for us to save here. There is one for each planet's satellites, located at https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/. Currently in use are:
+  1. jup365.bsp
+  1. sat427.bsp
+  1. ura111.bsp
+  1. nep095.bsp
+  1. Add PlanetProfile/spice/mice/src/mice/ and PlanetProfile/spice/mice/lib/ to your Matlab path.
 1. Open a Terminal and navigate to the PlanetProfile directory.
 1. Run PlanetProfile with the command: python PlanetProfile.py
 

@@ -109,6 +109,8 @@ endif
 	for subdir in $${pathdirs[@]} ; do \
 		echo "addpath('$$subdir')" >> startup.m ; \
 	done ; \
+	echo "addpath(fullfile('$(shell pwd)/spice/mice/src/mice/'))" >> startup.m
+	echo "addpath(fullfile('$(shell pwd)/spice/mice/lib/'))" >> startup.m
 	if [[ $$SeaFinstalled -eq -1 ]] ; then \
 		echo "WARNING: SeaFreeze was not installed when the startup path" ; \
 		echo "  file was created. Delete startup.m from the Matlab" ; \
