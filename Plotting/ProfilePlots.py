@@ -37,6 +37,8 @@ def PlotGravPres(Planet, Params):
     fig.suptitle('Gravity and pressure')
     fig.savefig(Params.FigureFiles.vgrav, format=Params.figFormat, dpi=300)
     plt.close()
+    return
+
 
 def PlotHydrosphereProps(Planet, Params):
     data = {'pressure': Planet.P_MPa[:Planet.Steps.nHydro],
@@ -57,6 +59,7 @@ def PlotHydrosphereProps(Planet, Params):
     fig.subplots_adjust(wspace=0.5)
     fig.savefig(Params.FigureFiles.vhydro, format=Params.figFormat, dpi=300)
     plt.close()
+    return
 
 
 def PlotCoreTradeoff(Planet, Params):
@@ -72,6 +75,7 @@ def PlotCoreTradeoff(Planet, Params):
                  f'{Planet.Core.rhoMean_kgm3:.0f}' + r'\,\mathrm{kg/m^3}$')
     fig.savefig(Params.FigureFiles.vcore, format=Params.figFormat, dpi=300)
     plt.close()
+    return
 
 
 def PlotSilTradeoff(Planet, Params):
@@ -84,6 +88,8 @@ def PlotSilTradeoff(Planet, Params):
     fig.suptitle(r'No Fe core. $C/MR^2$: $0.346\pm0.005$; $W$')
     fig.savefig(Params.FigureFiles.vmant, format=Params.figFormat, dpi=300)
     plt.close()
+    return
+
 
 def PlotWedge(Planet, Params):
     fig, ax = plt.subplots()
@@ -96,11 +102,6 @@ def PlotWedge(Planet, Params):
 
         if Planet.phase[layerPhase] == 0:
             colors.append(Params.Colors.OceanTop)
-            #nOceanLayers = Planet.Steps.nOceanMax
-            #for iL in range(nOceanLayers):
-            #    thisOceanColor = (1- iL) * (Planet.Colors.OceanTop - Planet.Colors.OceanBot) / nOceanLayers + Planet.Colors.OceanTop
-            #    Ocean = wedgeR(radii.Ocean(iL))
-            #    Ocean.FaceColor = thisOceanColor
         elif Planet.phase[layerPhase] == 1:
             colors.append(Params.Colors.IceI)
         elif Planet.phase[layerPhase] == 2:
@@ -127,7 +128,6 @@ def PlotWedge(Planet, Params):
         print(i, colors[i])
 
         patches.append(Wedge((0.5,0), radius, 90 - width, 90 + width, lw = 0.25, fc = "none" if i == funNum else colors[i], ec="k", zorder=i))  # creating wedges
-        # patches.append(newPatch)
         ax.add_patch(patches[-1])
 
         if i == funNum:
@@ -141,39 +141,24 @@ def PlotWedge(Planet, Params):
 
             Z = ((X+0.5) ** 0.5 - Y ** 0.5)**2
 
-            # path = Path([[0, 1], [1, 0], [0, -1], [-1, 0], [0, 1]])
-            # patch = PathPatch(path, facecolor='none')
             im = plt.imshow(Z, interpolation='bilinear', cmap=mpl.cm.bone,
                            origin='lower', extent=[0, 1, 0, 1],
                            clip_path=patches[-1], clip_on=True)
             im.set_clip_path(patches[-1])
-            print("Breaking")
 
-    #p = PatchCollection(patches)
-
-
-    # colors[funNum] = [0, 0, 0, 0]
-
-
-    #p.set_color(colors)
-    #p.set_edgecolor('k')
-
-    print(colors)
-
-    #ax.add_collection(p)
-    #ax.add_patch(patches[funNum])
     ax.set_aspect('equal')
 
-
-
-
-
-
     #fig.colorbar(p, ax = ax)
-    fig.suptitle('Interior wedge diagram\n$T_b = ' + str(Planet.Bulk.Tb_K) + '\,\mathrm{K}' + ', Composition = ' + str(Planet.Ocean.comp) + ', Salinity = ' + str(Planet.Ocean.wOcean_ppt) + '\,\mathrm{ppt}$')
+    if Planet.Ocean.comp == 'MgSO4':
+        compstr = 'MgSO$_4$'
+    elif Planet.Ocean.comp == 'PureH2O':
+        compstr = 'Pure H$_2$O'
+    else:
+        compstr = Planet.Ocean.comp
+    fig.suptitle(f'Interior wedge diagram\n$T_b = {Planet.Bulk.Tb_K}\,\mathrm{{K}}$, Composition = {compstr}, Salinity = ${Planet.Ocean.wOcean_ppt}\,\mathrm{{g/kg}}$')
     plt.margins(0.02)
     fig.savefig(Params.FigureFiles.vwedg, format=Params.figFormat, dpi=300)
 
     plt.close()
-
+    return
 
