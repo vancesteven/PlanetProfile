@@ -1,5 +1,5 @@
 # Import necessary Python modules
-import sys
+import os, sys
 import numpy as np
 import importlib
 import logging as log
@@ -45,7 +45,7 @@ def main():
     if Params.DEBUG:
         # Compare to test Matlab output
         Planet, Params = LoadBody(bodyname)
-        CompareProfile(Planet, Params, 'Europa/EuropaProfile_Seawater_0WtPpt_Tb269.800K_mat.txt')
+        CompareProfile(Planet, Params, os.path.join('Europa', 'EuropaProfile_Seawater_0WtPpt_Tb269.800K_mat.txt'))
     else:
         Planet, Params = PlanetProfile(Planet, Params)
 
