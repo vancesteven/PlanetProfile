@@ -106,6 +106,9 @@ class SilSubstruct:
         self.sigmaSil_Sm = 1e-16  # Assumed conductivity of silicate rock
         self.Qrad_Wkg = 0  # Average radiogenic heating rate for silicates in W/kg.
         self.Htidal_Wm3 = 0  # Average tidal heating rate for silicates in W/m^3.
+        self.HtidalMin_Wm3 = 1e-16  # Minimum average tidal heating rate in silicates in W/m^3 above zero to start with for finding MoI match with no core.
+        self.HtidalMax_Wm3 = 1e-6  # Maximum average tidal heating to stop MoI search
+        self.deltaHtidal_logUnits = 1/3  # Step size by which to increment Htidal_Wm3 for finding MoI match with no core.
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermSil_WmK)
         """ Mantle Equation of State (EOS) model """
         self.mantleEOS = None  # Equation of state data to use for silicates
@@ -254,6 +257,7 @@ class PlanetStruct:
         self.rSigChange_m = None  # Radii of outer boundary of each conducting layer in m (i.e., radii where sigma changes)
         self.MLayer_kg = None  # Mass of each layer in kg
         self.kTherm_WmK = None  # Thermal conductivity of each layer in W/(m K)
+        self.Htidal_Wm3 = None  # Tidal heating rate of each layer in W/m^3
         # Individual calculated quantities
         self.zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km in accordance with Vance et al. (2014)
         self.zClath_m = None  # Thickness of clathrate layer in surface ice in m

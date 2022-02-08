@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from scipy.interpolate import RectBivariateSpline, griddata as GridData
 from Utilities.dataStructs import Constants
@@ -6,10 +7,11 @@ class PerplexEOSStruct:
     """ Loads in Perple_X table and creates interpolators that can be called to
         obtain silicate/core properties as functions of P and T.
     """
-    def __init__(self, EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None):
+    def __init__(self, EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
+                 HtidalConst_Wm3=0):
         self.comp = EOSfname[:-4]
-        self.dir = 'Thermodynamics/Perple_X/output_data/'
-        self.fpath = self.dir + EOSfname
+        self.dir = os.path.join('Thermodynamics', 'Perple_X', 'output_data')
+        self.fpath = os.path.join(self.dir, EOSfname)
 
         # Load in Perple_X data. Note that all P, KS, and GS are stored as bar
         firstPT, secondPT, rho_kgm3, VP_kms, VS_kms, Cp_Jm3K, alpha_pK, KS_bar, GS_bar \
@@ -36,8 +38,12 @@ class PerplexEOSStruct:
             raise ValueError(f'Perple_X table {EOSfname} does not have T or P in the first column.')
 
         # Make 1D arrays of P and T that just span the axes (unlike the 2D meshes of the dependent variables)
-        P1D_MPa = np.linspace(Plin_MPa[0], Plin_MPa[-1], lenP)
-        T1D_K = np.linspace(Tlin_K[0], Tlin_K[-1], int(len(Tlin_K)/lenP))
+        self.Pmin_MPa = Plin_MPa[0]
+        self.Pmax_MPa = Plin_MPa[-1]
+        self.Tmin_K = Tlin_K[0]
+        self.Tmax_K = Tlin_K[-1]
+        P1D_MPa = np.linspace(self.Pmin_MPa, self.Pmax_MPa, lenP)
+        T1D_K = np.linspace(self.Tmin_K, self.Tmax_K, int(len(Tlin_K)/lenP))
 
         # Interpolate dependent variables where the values are NaN
         PTpts = (Plin_MPa, Tlin_K)
@@ -81,13 +87,13 @@ class PerplexEOSStruct:
         # Check that NaN removal worked correctly
         errNaNstart = 'Failed to interpolate over NaNs in PerplexEOS '
         errNaNend = ' values. The NaN gap may be too large to use this Perple_X output.'
-        if np.any(np.isnan(rho_kgm3)): raise RuntimeError(errNaNstart + 'rho' +errNaNend)
-        if np.any(np.isnan(VP_kms)): raise RuntimeError(errNaNstart + 'VP' +errNaNend)
-        if np.any(np.isnan(VS_kms)): raise RuntimeError(errNaNstart + 'VS' +errNaNend)
-        if np.any(np.isnan(Cp_Jm3K)): raise RuntimeError(errNaNstart + 'Cp' +errNaNend)
-        if np.any(np.isnan(alpha_pK)): raise RuntimeError(errNaNstart + 'alpha' +errNaNend)
-        if np.any(np.isnan(KS_bar)): raise RuntimeError(errNaNstart + 'KS' +errNaNend)
-        if np.any(np.isnan(GS_bar)): raise RuntimeError(errNaNstart + 'GS' +errNaNend)
+        if np.any(np.isnan(rho_kgm3)): raise RuntimeError(errNaNstart + 'rho' + errNaNend)
+        if np.any(np.isnan(VP_kms)): raise RuntimeError(errNaNstart + 'VP' + errNaNend)
+        if np.any(np.isnan(VS_kms)): raise RuntimeError(errNaNstart + 'VS' + errNaNend)
+        if np.any(np.isnan(Cp_Jm3K)): raise RuntimeError(errNaNstart + 'Cp' + errNaNend)
+        if np.any(np.isnan(alpha_pK)): raise RuntimeError(errNaNstart + 'alpha' + errNaNend)
+        if np.any(np.isnan(KS_bar)): raise RuntimeError(errNaNstart + 'KS' + errNaNend)
+        if np.any(np.isnan(GS_bar)): raise RuntimeError(errNaNstart + 'GS' + errNaNend)
 
         # Now make 2D grids of values.
         self.rho_kgm3 = np.reshape(rho_kgm3, (-1,dim2))
@@ -114,6 +120,7 @@ class PerplexEOSStruct:
             else:
                 kThermConst_WmK = Constants.kThermSil_WmK
         self.kTherm_WmK = np.zeros_like(self.alpha_pK) + kThermConst_WmK  # Placeholder until a self-consistent determination is implemented
+        self.Htidal_Wm3 = np.zeros_like(self.alpha_pK) + HtidalConst_Wm3  # Placeholder until a self-consistent determination is implemented
 
         self.P_MPa = P1D_MPa
         self.T_K = T1D_K
@@ -125,6 +132,7 @@ class PerplexEOSStruct:
         self.fn_KS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, self.KS_GPa)
         self.fn_GS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, self.GS_GPa)
         self.fn_kTherm_WmK = RectBivariateSpline(P1D_MPa, T1D_K, self.kTherm_WmK)
+        self.fn_Htidal_Wm3 = lambda rho, g, KS, GS: HtidalConst_Wm3
 
 
 def TsolidusHirschmann2000(P_MPa):
@@ -143,3 +151,7 @@ def TsolidusHirschmann2000(P_MPa):
     Tsolidus_K = a*P_GPa**2 + b*P_GPa + c + Constants.T0
     return Tsolidus_K
 
+
+def GetHtidalFunc(HtidalConst_Wm3):
+    fn_Htidal_Wm3 = lambda rho, g, KS, GS: HtidalConst_Wm3
+    return fn_Htidal_Wm3

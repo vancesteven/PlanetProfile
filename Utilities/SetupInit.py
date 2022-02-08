@@ -165,13 +165,14 @@ def SetupLayers(Planet):
     Planet.phase = np.zeros(Planet.Steps.nHydroMax, dtype=np.int_)
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
         Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \
-        Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.kTherm_WmK = \
-        (np.zeros(Planet.Steps.nHydroMax) for _ in range(12))
+        Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.kTherm_WmK, \
+        Planet.Htidal_Wm3 = \
+        (np.zeros(Planet.Steps.nHydroMax) for _ in range(13))
 
     # Layer property initialization for surface
     Planet.z_m[0] = 0.0  # Set first layer depth to zero (layer properties correspond to outer radius)
     Planet.r_m[0] = Planet.Bulk.R_m  # Set first layer to planetary surface radius
-    Planet.g_ms2[0] = Constants.G * Planet.Bulk.M_kg / Planet.Bulk.R_m ** 2  # Set first layer gravity at surface
+    Planet.g_ms2[0] = Constants.G * Planet.Bulk.M_kg / Planet.Bulk.R_m**2  # Set first layer gravity at surface
     Planet.T_K[0] = Planet.Bulk.Tsurf_K  # Set first layer surface temp
     Planet.P_MPa[0] = Planet.Bulk.Psurf_MPa  # Set first layer to surface pressure
 
