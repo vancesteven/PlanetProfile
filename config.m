@@ -14,19 +14,19 @@ function cfg = config
     cfg.HOLD =           1; % Whether to overlay runs when possible
     cfg.CONDUCT =        1; % Calculate electrical conductivity
     cfg.REDUCED =        1; % Whether to limit number of ocean layers for faster computation of layered induction
-    cfg.DISP_LAYERS =    0; % Whether to display layer depths and heat fluxes for user
+    cfg.DISP_LAYERS =    1; % Whether to display layer depths and heat fluxes for user
     cfg.DISP_TABLES =    0; % Whether to print latex-formatted tables to Matlab command line
     cfg.DEPRECATED =     0; % Whether to allow deprecated code to run. Will often cause errors.
     
     % Magnetic induction calculation settings
-    cfg.DO_EUR = 1;
-    cfg.DO_GAN = 1;
-    cfg.DO_CAL = 1;
+    cfg.DO_EUR = 0;
+    cfg.DO_GAN = 0;
+    cfg.DO_CAL = 0;
     cfg.DO_ENC = 1;
-    cfg.DO_MIR = 1;
-    cfg.DO_ARI = 1;
+    cfg.DO_MIR = 0;
+    cfg.DO_ARI = 0;
     cfg.DO_PER = 1; % Convert frequency axes to periods
-    cfg.DO_LEGEND = 1;
+    cfg.DO_LEGEND = 0;
     cfg.PLOT_FFT = 1; % Whether to show plots of fourier space
     cfg.PLOT_CONTOURS = 1; % Contours or surfaces
     cfg.PLOT_V2020S = 1; % Mark the selected ocean/conductivity combos used in Vance et al. 2020

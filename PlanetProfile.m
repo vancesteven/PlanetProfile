@@ -2046,10 +2046,10 @@ if cfg.DISP_LAYERS
         end
     end
 
-    dV = -gradient([r_m(1:indSil(iT2)) interior.r_mantle_m].^3);
+    dV = -gradient([r_m(1:indSil(1)) interior.r_mantle_m].^3);
     Planet.Mcomputed_kg = 4/3*pi*sum(dV.*[rho_kgm3(1:indSil) interior.rho_mantle_kgm3]);
     % Preallocate
-
+    nTbs = length(Planet.Tb_K);
     disp(['Planet Mass (kg): ' num2str(Planet.M_kg)])
     disp(['Computed Mass (kg): ' num2str(Planet.Mcomputed_kg,' %0.4g')]);
     disp(['Input C/MR2: ' num2str(Planet.Cmeasured)])
@@ -2061,10 +2061,10 @@ if cfg.DISP_LAYERS
         rhocorestr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(rho_Fe_kgm3,'%0.0f') '}'];
         if exist('concstr','var')
             disp([concstr{1} '&$\rho_{rock}$ (kg m$^{-3}$)&' rhorockstr '\\']);
-            disp([concstr{2} '&$\rho_{rock,model}$ (kg m$^{-3}$)' rhorockmstr{:} '\\']);
+            disp([concstr{2} '&$\rho_{rock,model}$ (kg m$^{-3}$)' rhorockmstr '\\']);
         else
             disp(['&$\rho_{rock}$ (kg m$^{-3}$)&' rhorockstr '\\']);
-            disp(['&$\rho_{rock,model}$ (kg m$^{-3}$)' rhorockmstr{:} '\\']);
+            disp(['&$\rho_{rock,model}$ (kg m$^{-3}$)' rhorockmstr '\\']);
         end
         disp(['&$X_{FeS}$ (\%)&' xFeSstr '\\']);
         disp(['&$\rho_{core}$ (kg m$^{-3}$)&' rhocorestr '\\']);
@@ -2089,7 +2089,7 @@ if cfg.DISP_LAYERS
         disp(['&$Q_{rock,tidal}$ (GW)&' Qtiderockstr '\\']);
     end
     disp(['\cline{3-' num2str(nTbs+2) '}'])
-    disp(['&T$_{b}$ (K)  ' Tb_str{:} ' \\'])
+    disp(['&T$_{b}$ (K)  ' Tb_str ' \\'])
     if Planet.POROUS_ROCK
         if isfield(Planet,'phi_surface')
             phisurfstr = ['\multicolumn{' num2str(nTbs) '}{c|}{' num2str(100*Planet.phi_surface) '}'];
@@ -2099,21 +2099,21 @@ if cfg.DISP_LAYERS
         meanphistr = getTableStr(Planet.Tb_K,round(meanphivec));
         disp(['&$\bar{\phi}$ (\%)  ' meanphistr ' \\'])
     end
-    disp(['&$q_\mathrm{b}$ mW m$^{-2}$  ' Qb_str{:} ' \\'])
-    disp(['&$q_\mathrm{c}$ mW m$^{-2}$  ' Qc_str{:} ' \\'])
-    disp(['&\log_{10}(\nu$_\mathrm{ice})$ mW m$^{-2}$  ' nu_str{:} ' \\'])
-    disp(['&$D_\mathrm{Ih}$ (km)' dzI_str{:} ' \\'])
-    disp(['&$D_\mathrm{ocean}$ (km)' dz_ocean_m_str{:} ' \\'])
-    disp(['&$D_\mathrm{III}$ (km)' dzIII_str{:} ' \\'])
-    disp(['&$D_\mathrm{V}$ (km)' dzV_str{:} ' \\'])
-    disp(['&$D_\mathrm{VI}$ (km)' dzVI_str{:} ' \\'])
-    disp(['&$R_\mathrm{rock}$ (km)' R_sil_str{:} ' \\'])
+    disp(['&$q_\mathrm{b}$ mW m$^{-2}$  ' Qb_str ' \\'])
+    disp(['&$q_\mathrm{c}$ mW m$^{-2}$  ' Qc_str ' \\'])
+    disp(['&\log_{10}(\nu$_\mathrm{ice})$ mW m$^{-2}$  ' nu_str ' \\'])
+    disp(['&$D_\mathrm{Ih}$ (km)' dzI_str ' \\'])
+    disp(['&$D_\mathrm{ocean}$ (km)' dz_ocean_m_str ' \\'])
+    disp(['&$D_\mathrm{III}$ (km)' dzIII_str ' \\'])
+    disp(['&$D_\mathrm{V}$ (km)' dzV_str ' \\'])
+    disp(['&$D_\mathrm{VI}$ (km)' dzVI_str ' \\'])
+    disp(['&$R_\mathrm{rock}$ (km)' R_sil_str ' \\'])
     if Planet.FeCore
         R_Fe_range_str = getTableStr(Planet.Tb_K,round(R_Fe_range_m*1e-3));
         R_sil_range_str = getTableStr(Planet.Tb_K,round(R_sil_range_m*1e-3));
-        disp(['&R$_\mathrm{core}$ (km)' R_Fe_str{:} ' \\'])
-        disp(['&$\Delta$R$_\mathrm{core} (km)$' R_Fe_range_str{:} ' \\'])
-        disp(['&$\Delta$R$_\mathrm{mantle}$ (km)' R_sil_range_str{:} ' \\'])
+        disp(['&R$_\mathrm{core}$ (km)' R_Fe_str ' \\'])
+        disp(['&$\Delta$R$_\mathrm{core} (km)$' R_Fe_range_str ' \\'])
+        disp(['&$\Delta$R$_\mathrm{mantle}$ (km)' R_sil_range_str  ' \\'])
     end
     disp('\hline')
 end
@@ -2500,7 +2500,7 @@ if ~cfg.SKIP_PROFILES
     end
     %% create the legend that describes tb, z_b, and heat flux
     lstr_2 = {};
-        lstr_2 = {lstr_2{:} [math 'T_{b}' nm ': ' num2str(Planet.Tb_K,'%0.2f') ' K, ' math 'q_{b}/q_{c}' nm ':'...
+        lstr_2 = {lstr_2 [math 'T_{b}' nm ': ' num2str(Planet.Tb_K,'%0.2f') ' K, ' math 'q_{b}/q_{c}' nm ':'...
             num2str(1e3*Qb,'%0.0f') '/' num2str(1e3*Q_Wm2,'%0.0f') ' mW m^{-2}, ' math 'z_{b}' nm ':' num2str(1e-3*Planet.zb_outerIce_m,'%0.0f') ' km']};
 
     set(0, 'CurrentFigure', figs.wedg);
@@ -2799,7 +2799,7 @@ if ~cfg.SKIP_PROFILES
     end
 
     if Params.Legend
-        hleg1 = legend([ht],lstr_2{:},'Fontsize',lbl.smtext);
+        hleg1 = legend([ht],lstr_2,'Fontsize',lbl.smtext);
         set(hleg1,'location',Params.LegendPosition,'box','off')
     end
 
@@ -2920,9 +2920,9 @@ if ~cfg.SKIP_PROFILES
         hw(4) = plot(Pref_MPa,rho_ref_kgm3(4,:),'k--');
 
 
-        % hleg1 = legend([ht hw],{lstr_2{:},'0 wt%','5 wt%','10 wt%','15 wt%'});%,'20 wt%');
+        % hleg1 = legend([ht hw],{lstr_2,'0 wt%','5 wt%','10 wt%','15 wt%'});%,'20 wt%');
         if Params.Legend
-            hleg1 = legend([ht],lstr_2{:},'Fontsize',lbl.smtext);
+            hleg1 = legend([ht],lstr_2,'Fontsize',lbl.smtext);
             set(hleg1,'location','southeast','box','off')
         end
 
@@ -3008,7 +3008,7 @@ if ~cfg.SKIP_PROFILES
     % end
     %
     %
-    % hleg2 = legend([ht hw],{lstr_2{:},'0 wt%','5 wt%','10 wt%','15 wt%'});
+    % hleg2 = legend([ht hw],{lstr_2,'0 wt%','5 wt%','10 wt%','15 wt%'});
     % set(hleg2,'location','NorthEast')
     %
     % axis tight; box on;
