@@ -588,8 +588,11 @@ def CalcMoIConstantRho(Planet, Params):
     if not Params.SKIP_INNER:
         # Load in Perple_X table for silicate properties
         log.debug('Loading silicate Perple_X table...')
-        Planet.Sil.EOS = PerplexEOSStruct(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod,
-                                      kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3)
+        Planet.Sil.EOS = PerplexEOSStruct(Planet.Sil.mantleEOS, OceanEOS=Planet.Ocean.EOS, EOSinterpMethod=Params.interpMethod,
+                                      kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
+                                      porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
+                                      Pclosure_MPa=Planet.Sil.Pclosure_MPa)
+        Planet.Sil.fn_phi_frac = Planet.Sil.EOS.fn_phi_frac
         Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(Planet.Sil.Htidal_Wm3)  # Placeholder until we implement a self-consistent calc
         # Evaluate the silicate EOS for each layer
         indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSilEOS_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
@@ -673,10 +676,13 @@ def CalcMoIWithEOS(Planet, Params):
 
     # Load in Perple_X table for silicate properties
     log.debug('Loading silicate Perple_X table...')
-    Planet.Sil.EOS = PerplexEOSStruct(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod,
-                                      kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3)
+    Planet.Sil.EOS = PerplexEOSStruct(Planet.Sil.mantleEOS, OceanEOS=Planet.Ocean.EOS, EOSinterpMethod=Params.interpMethod,
+                                      kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
+                                      porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
+                                      Pclosure_MPa=Planet.Sil.Pclosure_MPa)
     if Planet.Do.Fe_CORE:
         Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(Planet.Sil.Htidal_Wm3)  # Placeholder until we implement a self-consistent calc
+        Planet.Sil.fn_phi_frac = lambda P, T: Planet.Sil.EOS.fn_phi_frac(P, T)
         # Propagate the silicate EOS from each hydrosphere layer to the center of the body
         log.debug('Propagating silicate EOS for each possible mantle size...')
         indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
@@ -700,28 +706,52 @@ def CalcMoIWithEOS(Planet, Params):
         C_kgm2 = np.zeros(nProfiles + Planet.Steps.iSilStart)
     else:
         # Propagate the silicate EOS from each hydrosphere layer to the center of the body
-        # In this case, we will use Sil.HtidalMin_Wm3 and Sil.deltaHtidal_logUnits to get
-        # a valid set of profiles.
-        HtidalStart_Wm3 = Planet.Sil.HtidalMin_Wm3
-        multHtidal_Wm3 = 10**Planet.Sil.deltaHtidal_logUnits
-        thisHtidal_Wm3 = 0
+
+        if Planet.Do.POROUS_ROCK:
+            # In this case, we use the user-specified phiTop_frac value as a "middle" option,
+            # and vary between 1/Planet.Sil.phiRangeMult times the difference from this middle
+            # value to the endpoints, 0 and 1, to get the range of porosities to model.
+            # For example, the user specifies 0.22 and phiRangeMult = 5. phiTop will then
+            # take values from a min value of 0.22 - 0.22 / 5 = 0.176 to a max value of
+            # 0.22 + (1 - 0.22) / 5 = 0.376.
+            log.debug('Propagating silicate EOS for each possible mantle size and a range of porosities...')
+            thisHtidal_Wm3 = Planet.Sil.Htidal_Wm3
+            phiMin_frac = Planet.Sil.phiRockMax_frac - Planet.Sil.phiRockMax_frac / Planet.Sil.phiRangeMult
+            phiMax_frac = Planet.Sil.phiRockMax_frac + (1 - Planet.Sil.phiRockMax_frac) / Planet.Sil.phiRangeMult
+            multphi_frac = (phiMax_frac/phiMin_frac)**(1/Planet.Steps.nPoros)
+
+            if Planet.Sil.porosType != 'Han2014':
+                Planet.Sil.phiRockMax_frac = Planet.Sil.EOS.fn_phi_frac(0,0)
+        else:
+            # In this case, we will use Sil.HtidalMin_Wm3 and Sil.deltaHtidal_logUnits to get
+            # a valid set of profiles.
+            log.debug('Propagating silicate EOS for each possible mantle size and tidal heating rate...')
+            HtidalStart_Wm3 = Planet.Sil.HtidalMin_Wm3
+            multHtidal_Wm3 = 10**Planet.Sil.deltaHtidal_logUnits
+            thisHtidal_Wm3 = 0
+            phiMin_frac = Planet.Sil.phiRockMax_frac
+
         nProfiles = 0
+
         # Start at minimum tidal heating and initialize arrays
+        thisphiTop_frac = phiMin_frac + 0.0
         Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(thisHtidal_Wm3)  # Placeholder until we implement a self-consistent calc
+        Planet.Sil.fn_phi_frac = lambda P, T: phiMin_frac / Planet.Sil.phiRockMax_frac * Planet.Sil.EOS.fn_phi_frac(P, T)
         indsSilValidTemp, _, PsilTemp_MPa, TsilTemp_K, rSilTemp_m, rhoSilTemp_kgm3, MLayerSilTemp_kg, MAboveSilTemp_kg, gSilTemp_ms2, \
         phiSilTemp_frac, HtidalSilTemp_Wm3 \
             = SilicateLayers(Planet, Params)
         if (np.size(indsSilValidTemp) == 0):
             raise RuntimeError('No silicate mantle size was less than the total body mass for the initialization ' +
-                               'setting of 0 tidal heating. Try adjusting run settings that affect mantle density, ' +
-                               'like silicate composition and radiogenic heat flux.')
+                               f'setting of {thisHtidal_Wm3} W/m^3 tidal heating and the expected maximum porosity ' +
+                               f' of {thisphiTop_frac}. Try adjusting run settings that affect mantle density, ' +
+                               'like porosity, silicate composition, and radiogenic heat flux.')
         # Initialize empty arrays for silicate layer properties
         Psil_MPa, Tsil_K, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, phiSil_frac, HtidalSil_Wm3 \
             = (np.empty((0, Planet.Steps.nSilMax)) for _ in range(8))
         rSil_m = np.empty((0, Planet.Steps.nSilMax+1))
         iValid = [indsSilValidTemp + Planet.Steps.iSilStart]
 
-        while np.size(indsSilValidTemp) != 0 and thisHtidal_Wm3 < Planet.Sil.HtidalMax_Wm3:
+        while np.size(indsSilValidTemp) != 0 and (thisHtidal_Wm3 <= Planet.Sil.HtidalMax_Wm3 and thisphiTop_frac <= phiMax_frac):
             nProfiles += 1
             # Append the newest mass matches alongside existing ones --
             # do this in the loop so that we don't append the final,
@@ -736,8 +766,18 @@ def CalcMoIWithEOS(Planet, Params):
             phiSil_frac = np.vstack([phiSil_frac, phiSilTemp_frac[indsSilValidTemp,:]])
             HtidalSil_Wm3 = np.vstack([HtidalSil_Wm3, HtidalSilTemp_Wm3[indsSilValidTemp,:]])
 
-            thisHtidal_Wm3 = HtidalStart_Wm3 * multHtidal_Wm3**(nProfiles-1)
-            Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(thisHtidal_Wm3)  # Placeholder until we implement a self-consistent calc
+            if Planet.Do.POROUS_ROCK:
+                rSilOuter_m = rSilTemp_m[indsSilValidTemp, 0]
+                log.debug(f'Silicate match for phiTop = {thisphiTop_frac:.3f} with ' +
+                          f'rSil = {rSilOuter_m / 1e3:.1f} km ({rSilOuter_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}).')
+                thisphiTop_frac = phiMin_frac * multphi_frac**nProfiles
+                Planet.Sil.fn_phi_frac = lambda P, T: multphi_frac**nProfiles * Planet.Sil.EOS.fn_phi_frac(P, T)
+            else:
+                rSilOuter_m = rSilTemp_m[indsSilValidTemp, 0]
+                log.debug(f'Silicate match for Htidal = {thisHtidal_Wm3:.3f} with ' +
+                          f'rSil = {rSilOuter_m / 1e3:.1f} km ({rSilOuter_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}).')
+                thisHtidal_Wm3 = HtidalStart_Wm3 * multHtidal_Wm3**nProfiles
+                Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(thisHtidal_Wm3)  # Placeholder until we implement a self-consistent calc
             indsSilValidTemp, _, PsilTemp_MPa, TsilTemp_K, rSilTemp_m, rhoSilTemp_kgm3, MLayerSilTemp_kg, MAboveSilTemp_kg, gSilTemp_ms2, \
             phiSilTemp_frac, HtidalSilTemp_Wm3 \
                 = SilicateLayers(Planet, Params)
@@ -748,8 +788,10 @@ def CalcMoIWithEOS(Planet, Params):
         indsSilValid = range(nProfiles)
         # Final profile is the one that violates the loop condition, so it is not valid
         iValid = iValid[:-1]
-        # Fill in values we're missing from not doing core calculations
-        nSilFinal = Planet.Steps.nSilMax * np.ones_like(indsSilValid).astype(np.int_)
+        # Now fill in values we're missing from not doing core calculations
+        # We need copies of Steps.nSilMax for each possible result from the C/MR^2 search
+        # to be compatible with the same infrastructure for when we have a core.
+        nSilFinal = Planet.Steps.nSilMax * np.ones(np.max(iValid) - Planet.Steps.iSilStart).astype(np.int_)
         Ccore_kgm2 = 0
 
         C_kgm2 = np.zeros(Planet.Steps.iSilStart + Planet.Steps.nSilMax)
@@ -758,7 +800,7 @@ def CalcMoIWithEOS(Planet, Params):
     dCfromSil_kgm2 = 8*np.pi/15 * rhoSil_kgm3 * (rSil_m[:,:-1]**5 - rSil_m[:,1:]**5)
 
     # Calculate C for a mantle extending up to each hydrosphere layer in turn
-    Chydro_kgm2 = np.array([np.sum(dCfromH2O_kgm2[:i + 1]) for i in iValid])
+    Chydro_kgm2 = np.array([np.sum(dCfromH2O_kgm2[:i+1]) for i in iValid])
     Csil_kgm2 = np.array([np.sum(dCfromSil_kgm2[i,:nSilFinal[i]]) for i in indsSilValid])
     C_kgm2[iValid] = Chydro_kgm2 + Csil_kgm2 + Ccore_kgm2
     CMR2 = C_kgm2 / MR2_kgm2
@@ -866,7 +908,8 @@ def SilicateLayers(Planet, Params):
         profRange = range(nProfiles)
     # Initialize output arrays and working arrays
     Psil_MPa, Tsil_K, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, gSil_ms2, phiSil_frac, \
-        HtidalSil_Wm3, KSsil_GPa, GSsil_GPa = (np.zeros((nProfiles, Planet.Steps.nSilMax)) for _ in range(11))
+        HtidalSil_Wm3, KSsil_GPa, GSsil_GPa, Peff_MPa, Pfluid_MPa \
+        = (np.zeros((nProfiles, Planet.Steps.nSilMax)) for _ in range(13))
     # Check if we set the core radius to 0 or a found C/MR^2 value (for constant-density approach)
     if Planet.Core.Rmean_m is not None:
         rSilEnd_m = Planet.Core.Rmean_m
@@ -876,16 +919,16 @@ def SilicateLayers(Planet, Params):
     rSil_m = np.array([np.linspace(Planet.r_m[i+Planet.Steps.iSilStart], rSilEnd_m, Planet.Steps.nSilMax+1) for i in profRange])
     Psil_MPa[:,0] = [Planet.P_MPa[i+Planet.Steps.iSilStart] for i in profRange]
     Tsil_K[:,0] = [Planet.T_K[i+Planet.Steps.iSilStart] for i in profRange]
-    rhoSil_kgm3[:,0] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,0], Tsil_K[:,0], grid=False)
-    kThermSil_WmK[:,0] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,0], Tsil_K[:,0], grid=False)
+    Pfluid_MPa[:,0] = Psil_MPa[:,0] + 0.0
+    Peff_MPa[:,0] = Psil_MPa[:,0] - Planet.Sil.alphaPeff * Pfluid_MPa[:,0]
+    phiSil_frac[:,0] = Planet.Sil.fn_phi_frac(Peff_MPa[:,0], Tsil_K[:,0])
+    rhoSil_kgm3[:,0] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,0], Tsil_K[:,0], phiSil_frac[:,0])
+    kThermSil_WmK[:,0] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,0], Tsil_K[:,0], phiSil_frac[:,0])
     MLayerSil_kg[:,0] = [rhoSil_kgm3[i,0] * 4/3*np.pi*(rSil_m[i,0]**3 - rSil_m[i,1]**3) for i in range(nProfiles)]
     gSil_ms2[:,0] = [Planet.g_ms2[i+Planet.Steps.iSilStart] for i in profRange]
-    KSsil_GPa[:,0] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,0], Tsil_K[:,0], grid=False)
-    GSsil_GPa[:,0] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,0], Tsil_K[:,0], grid=False)
+    KSsil_GPa[:,0] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,0], Tsil_K[:,0], phiSil_frac[:,0])
+    GSsil_GPa[:,0] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,0], Tsil_K[:,0], phiSil_frac[:,0])
     HtidalSil_Wm3[:,0] = Planet.Sil.fn_Htidal_Wm3(rhoSil_kgm3[:,0], gSil_ms2[:,0], KSsil_GPa[:,0], GSsil_GPa[:,0])
-    if Planet.Do.POROUS_ROCK:
-        log.warning('POROUS_ROCK not implemented yet. Only the top silicate layer will have porosity set.')
-        phiSil_frac[:,0] = [Planet.Sil.phiRockMax_frac for _ in profRange]
 
     MHydro_kg = np.array([np.sum(Planet.MLayer_kg[:i]) for i in range(Planet.Steps.iSilStart, Planet.Steps.iSilStart + nProfiles)])
     # Initialize MAbove_kg to 0th silicate layer, so that the hydrosphere mass is equal to the mass above the silicates.
@@ -914,15 +957,16 @@ def SilicateLayers(Planet, Params):
         Tsil_K[:,j], qTop_Wm2 = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
                     kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
                     qTop_Wm2)
-        rhoSil_kgm3[:,j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
-        kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
+        phiSil_frac[:,j] = Planet.Sil.fn_phi_frac(Psil_MPa[:,j], Tsil_K[:,j])
+        rhoSil_kgm3[:,j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,j], Tsil_K[:,j], phiSil_frac[:,j])
+        kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j], phiSil_frac[:,j])
         MLayerSil_kg[:,j] = rhoSil_kgm3[:,j] * 4/3*np.pi*(rSil_m[:,j]**3 - rSil_m[:,j+1]**3)
         # Calculate gravity using absolute values, as we will use MAboveSil to check for exceeding body mass later.
         gSil_ms2[:,j] = fn_g_ms2(MAboveSil_kg[:,j], rSil_m[:,j])
         # Get KS and GS now as they are needed for Htidal calculation;
         # we will calculate them again later along with other seismic calcs
-        KSsil_GPa[:,j] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
-        GSsil_GPa[:,j] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
+        KSsil_GPa[:,j] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,j], Tsil_K[:,j], phiSil_frac[:,j])
+        GSsil_GPa[:,j] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,j], Tsil_K[:,j], phiSil_frac[:,j])
         HtidalSil_Wm3[:,j] = Planet.Sil.fn_Htidal_Wm3(rhoSil_kgm3[:,j], gSil_ms2[:,j], KSsil_GPa[:,j], GSsil_GPa[:,j])
 
     if Planet.Do.CONSTANT_INNER_DENSITY:
@@ -1010,9 +1054,9 @@ def IronCoreLayers(Planet, Params,
         thisrCore_m = np.array([np.linspace(rSil_m[iProf,thisCoreStart+j], 0, Planet.Steps.nCore+1) for j in range(nSilRemain)])
         thisPcore_MPa[:,0] = [Psil_MPa[iProf,thisCoreStart+j] for j in range(nSilRemain)]
         thisTcore_K[:,0] = [Tsil_K[iProf,thisCoreStart+j] for j in range(nSilRemain)]
-        thisrhoCore_kgm3[:,0] = Planet.Core.EOS.fn_rho_kgm3(thisPcore_MPa[:nSilRemain,0], thisTcore_K[:nSilRemain,0], grid=False)
-        thisCpCore_JkgK[:,0] = Planet.Core.EOS.fn_Cp_JkgK(thisPcore_MPa[:nSilRemain,0], thisTcore_K[:nSilRemain,0], grid=False)
-        thisalphaCore_pK[:,0] = Planet.Core.EOS.fn_alpha_pK(thisPcore_MPa[:nSilRemain,0], thisTcore_K[:nSilRemain,0], grid=False)
+        thisrhoCore_kgm3[:,0] = Planet.Core.EOS.fn_rho_kgm3(thisPcore_MPa[:nSilRemain,0], thisTcore_K[:nSilRemain,0])
+        thisCpCore_JkgK[:,0] = Planet.Core.EOS.fn_Cp_JkgK(thisPcore_MPa[:nSilRemain,0], thisTcore_K[:nSilRemain,0])
+        thisalphaCore_pK[:,0] = Planet.Core.EOS.fn_alpha_pK(thisPcore_MPa[:nSilRemain,0], thisTcore_K[:nSilRemain,0])
         thisMLayerCore_kg[:,0] = [thisrhoCore_kgm3[j,0] * 4/3*np.pi*(thisrCore_m[j,0]**3 - thisrCore_m[j,1]**3) for j in range(nSilRemain)]
         thisgCore_ms2[:,0] = [gSil_ms2[iProf,thisCoreStart+j] for j in range(nSilRemain)]
         MAbove_kg = np.array([MAboveSil_kg[iProf,thisCoreStart+j] for j in range(nSilRemain)])
@@ -1023,9 +1067,9 @@ def IronCoreLayers(Planet, Params,
             thisPcore_MPa[:,k] = thisPcore_MPa[:,k-1] + thisDeltaP
             thisTcore_K[:,k] = thisTcore_K[:,k-1] + thisalphaCore_pK[:,k-1]*thisTcore_K[:,k] / \
                            thisCpCore_JkgK[:,k-1] / thisrhoCore_kgm3[:,k-1] * thisDeltaP*1e6
-            thisrhoCore_kgm3[:,k] = Planet.Core.EOS.fn_rho_kgm3(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k], grid=False)
-            thisCpCore_JkgK[:,k] = Planet.Core.EOS.fn_Cp_JkgK(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k], grid=False)
-            thisalphaCore_pK[:,k] = Planet.Core.EOS.fn_alpha_pK(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k], grid=False)
+            thisrhoCore_kgm3[:,k] = Planet.Core.EOS.fn_rho_kgm3(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k])
+            thisCpCore_JkgK[:,k] = Planet.Core.EOS.fn_Cp_JkgK(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k])
+            thisalphaCore_pK[:,k] = Planet.Core.EOS.fn_alpha_pK(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k])
             thisMLayerCore_kg[:,k] = thisrhoCore_kgm3[:,k] * 4/3*np.pi*(thisrCore_m[:,k]**3 - thisrCore_m[:,k+1]**3)
             # Approximate gravity as linear to avoid blowing up for total mass less than body mass (accurate for constant density only)
             thisgCore_ms2[:,k] = thisgCore_ms2[:,0] * thisrCore_m[:,k] / thisrCore_m[:,0]
