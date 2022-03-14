@@ -6,7 +6,7 @@ For testing purposes
 import numpy as np
 from Utilities.dataStructs import PlanetStruct, Constants
 
-Planet = PlanetStruct('Test')
+Planet = PlanetStruct('Test3')
 
 Planet.PfreezeLower_MPa = 0
 Planet.PfreezeUpper_MPa = 150

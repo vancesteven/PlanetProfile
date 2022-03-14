@@ -6,7 +6,7 @@ For testing purposes
 import numpy as np
 from Utilities.dataStructs import PlanetStruct, Constants
 
-Planet = PlanetStruct('Test')
+Planet = PlanetStruct('Test1')
 
 Planet.PfreezeUpper_MPa = 150
 
@@ -17,7 +17,7 @@ Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346
 Planet.Bulk.Cuncertainty = 0.005
-Planet.Bulk.Tb_K = 269.8
+Planet.Bulk.Tb_K = 268.4
 
 """ Layer step settings """
 Planet.Steps.nIceI = 200

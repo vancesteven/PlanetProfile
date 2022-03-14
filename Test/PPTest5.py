@@ -6,7 +6,7 @@ For testing purposes
 import numpy as np
 from Utilities.dataStructs import PlanetStruct, Constants
 
-Planet = PlanetStruct('Test')
+Planet = PlanetStruct('Test5')
 
 """ Bulk planetary settings """
 Planet.Do.NO_H2O = True
@@ -28,6 +28,7 @@ Planet.Sil.Htidal_Wm3 = 1e-9
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
 Planet.Do.P_EFFECTIVE = False
+Planet.Sil.poreH2Orho_kgm3 = 0.0
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
 Planet.Do.CONSTANT_INNER_DENSITY = True  # Forcing this on because we don't have a good Io-specific composition dialed in yet

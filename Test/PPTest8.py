@@ -6,7 +6,7 @@ For testing purposes
 import numpy as np
 from Utilities.dataStructs import PlanetStruct, Constants
 
-Planet = PlanetStruct('Test')
+Planet = PlanetStruct('Test8')
 
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 2634.1e3
