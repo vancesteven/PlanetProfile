@@ -734,7 +734,7 @@ def CalcMoIWithEOS(Planet, Params):
             phiMin_frac = Planet.Sil.phiRockMax_frac - Planet.Sil.phiRockMax_frac / Planet.Sil.phiRangeMult
             phiMax_frac = Planet.Sil.phiRockMax_frac + (1 - Planet.Sil.phiRockMax_frac) / Planet.Sil.phiRangeMult
             multphi_frac = (phiMax_frac/phiMin_frac)**(1/Planet.Steps.nPoros)
-            log.debug(f'Propagating silicate EOS for each possible mantle size and porosity from phi = {phiMin_frac} to {phiMax_frac}...')
+            log.debug(f'Propagating silicate EOS for each possible mantle size and porosity from phi = {phiMin_frac:.3f} to {phiMax_frac:.3f}...')
 
             if Planet.Sil.porosType != 'Han2014':
                 Planet.Sil.phiRockMax_frac = Planet.Sil.EOS.fn_phi_frac(0,0)
@@ -744,7 +744,7 @@ def CalcMoIWithEOS(Planet, Params):
             HtidalStart_Wm3 = Planet.Sil.HtidalMin_Wm3
             multHtidal_Wm3 = 10**Planet.Sil.deltaHtidal_logUnits
             thisHtidal_Wm3 = 0
-            log.debug(f'Propagating silicate EOS for each possible mantle size and heating from Htidal = {thisHtidal_Wm3} to {Planet.Sil.HtidalMax_Wm3} W/m^3...')
+            log.debug(f'Propagating silicate EOS for each possible mantle size and heating from Htidal = {thisHtidal_Wm3:.2e} to {Planet.Sil.HtidalMax_Wm3:.2e} W/m^3...')
             phiMin_frac = Planet.Sil.phiRockMax_frac
 
         nProfiles = 0
