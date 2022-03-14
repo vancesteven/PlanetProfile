@@ -130,7 +130,10 @@ def WriteProfile(Planet, Params):
                            'VS (km/s)'.ljust(24),
                            'QS'.ljust(24),
                            'KS (GPa)'.ljust(24),
-                           'GS (GPa)']) + '\n')
+                           'GS (GPa)'.ljust(24),
+                           'Ppore (MPa)'.ljust(24),
+                           'rhoMatrix (kg/m3)'.ljust(24),
+                           'rhoPore (kg/m3)']) + '\n')
         # Now print the columnar data
         for i in range(Planet.Steps.nTotal):
             line = \
@@ -149,7 +152,10 @@ def WriteProfile(Planet, Params):
                 f'{Planet.Seismic.VS_kms[i]:24.17e} ' + \
                 f'{Planet.Seismic.QS[i]:24.17e} ' + \
                 f'{Planet.Seismic.KS_GPa[i]:24.17e} ' + \
-                f'{Planet.Seismic.GS_GPa[i]:24.17e}\n '
+                f'{Planet.Seismic.GS_GPa[i]:24.17e} ' + \
+                f'{Planet.Ppore_MPa[i]:24.17e} ' + \
+                f'{Planet.rhoMatrix_kgm3[i]:24.17e} ' + \
+                f'{Planet.rhoPore_kgm3[i]:24.17e}\n '
             f.write(line)
 
     # Write out data from core/mantle trade
@@ -204,7 +210,8 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     # Read in columnar data that follows header lines -- full-body
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.phase, Planet.rho_kgm3, Planet.Cp_JkgK, Planet.alpha_pK, \
     Planet.g_ms2, Planet.phi_frac, Planet.sigma_Sm, Planet.kTherm_WmK, Planet.Seismic.VP_kms, Planet.Seismic.VS_kms,\
-    Planet.Seismic.QS, Planet.Seismic.KS_GPa, Planet.Seismic.GS_GPa \
+    Planet.Seismic.QS, Planet.Seismic.KS_GPa, Planet.Seismic.GS_GPa, Planet.Ppore_MPa, Planet.rhoMatrix_kgm3, \
+    Planet.rhoPore_kgm3 \
         = np.loadtxt(Params.DataFiles.saveFile, skiprows=Params.nHeadLines, unpack=True)
     Planet.z_m = Planet.Bulk.R_m - Planet.r_m
     Planet.phase = Planet.phase.astype(np.int_)
@@ -378,6 +385,9 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         Planet.Seismic.QS[Planet.Seismic.QS==0] = tiny
         Planet.Seismic.KS_GPa[Planet.Seismic.KS_GPa==0] = tiny
         Planet.Seismic.GS_GPa[Planet.Seismic.GS_GPa==0] = tiny
+        Planet.Ppore_MPa[Planet.Ppore_MPa==0] = tiny
+        Planet.rhoMatrix_kgm3[Planet.rhoMatrix_kgm3==0] = tiny
+        Planet.rhoPore_kgm3[Planet.rhoPore_kgm3==0] = tiny
 
         # Avoid false positives from zero values
         Planet2.P_MPa[Planet2.P_MPa==0] = tiny
@@ -395,6 +405,9 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         Planet2.Seismic.QS[Planet2.Seismic.QS==0] = tiny
         Planet2.Seismic.KS_GPa[Planet2.Seismic.KS_GPa==0] = tiny
         Planet2.Seismic.GS_GPa[Planet2.Seismic.GS_GPa==0] = tiny
+        Planet2.Ppore_MPa[Planet2.Ppore_MPa==0] = tiny
+        Planet2.rhoMatrix_kgm3[Planet2.rhoMatrix_kgm3==0] = tiny
+        Planet2.rhoPore_kgm3[Planet2.rhoPore_kgm3==0] = tiny
 
         # Compare layer calculations
         diff_P_MPa = [i[0] for i, val in np.ndenumerate(Planet.P_MPa) if abs(val-Planet2.P_MPa[i[0]])/val>tol]
@@ -413,6 +426,9 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         diff_QS = [i[0] for i, val in np.ndenumerate(Planet.Seismic.QS) if abs(val-Planet2.Seismic.QS[i[0]])/val>tol]
         diff_KS_GPa = [i[0] for i, val in np.ndenumerate(Planet.Seismic.KS_GPa) if abs(val-Planet2.Seismic.KS_GPa[i[0]])/val>tol]
         diff_GS_GPa = [i[0] for i, val in np.ndenumerate(Planet.Seismic.GS_GPa) if abs(val-Planet2.Seismic.GS_GPa[i[0]])/val>tol]
+        diff_Ppore_MPa = [i[0] for i, val in np.ndenumerate(Planet.Ppore_MPa) if abs(val-Planet2.Ppore_MPa[i[0]])/val>tol]
+        diff_rhoMatrix_kgm3 = [i[0] for i, val in np.ndenumerate(Planet.rhoMatrix_kgm3) if abs(val-Planet2.rhoMatrix_kgm3[i[0]])/val>tol]
+        diff_rhoPore_kgm3 = [i[0] for i, val in np.ndenumerate(Planet.rhoPore_kgm3) if abs(val-Planet2.rhoPore_kgm3[i[0]])/val>tol]
 
         same_P_MPa = len(diff_P_MPa) == 0
         same_T_K = len(diff_T_K) == 0
@@ -430,10 +446,14 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         same_QS = len(diff_QS) == 0
         same_KS_GPa = len(diff_KS_GPa) == 0
         same_GS_GPa = len(diff_GS_GPa) == 0
+        same_Ppore_MPa = len(diff_Ppore_MPa) == 0
+        same_rhoMatrix_kgm3 = len(diff_rhoMatrix_kgm3) == 0
+        same_rhoPore_kgm3 = len(diff_rhoPore_kgm3) == 0
 
         layers_match = same_P_MPa and same_T_K and same_r_m and same_phase and same_rho_kgm3 and same_Cp_JkgK \
             and same_alpha_pK and same_g_ms2 and same_phi_frac and same_sigma_Sm and same_kTherm_WmK and same_VP_kms \
-            and same_VS_kms and same_QS and same_KS_GPa and same_GS_GPa
+            and same_VS_kms and same_QS and same_KS_GPa and same_GS_GPa and same_Ppore_MPa and same_rhoMatrix_kgm3 \
+            and same_rhoPore_kgm3
         all_match = headers_match and layers_match
 
         if not layers_match:
@@ -453,6 +473,9 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
             if not same_QS: log.info(f'QS differs in position {diff_QS[0]:.3f}: {Planet.Seismic.QS[diff_QS[0]]:.3f} | {Planet2.Seismic.QS[diff_QS[0]]:.3f}')
             if not same_KS_GPa: log.info(f'KS_GPa differs in position {diff_KS_GPa[0]:.3f}: {Planet.Seismic.KS_GPa[diff_KS_GPa[0]]:.3f} | {Planet2.Seismic.KS_GPa[diff_KS_GPa[0]]:.3f}')
             if not same_GS_GPa: log.info(f'GS_GPa differs in position {diff_GS_GPa[0]:.3f}: {Planet.Seismic.GS_GPa[diff_GS_GPa[0]]:.3f} | {Planet2.Seismic.GS_GPa[diff_GS_GPa[0]]:.3f}')
+            if not same_Ppore_MPa: log.info(f'Ppore_MPa differs in position {diff_Ppore_MPa[0]:.3f}: {Planet.Ppore_MPa[diff_Ppore_MPa[0]]:.3f} | {Planet2.Ppore_MPa[diff_Ppore_MPa[0]]:.3f}')
+            if not same_rhoMatrix_kgm3: log.info(f'rhoMatrix_kgm3 differs in position {diff_rhoMatrix_kgm3[0]:.3f}: {Planet.rhoMatrix_kgm3[diff_rhoMatrix_kgm3[0]]:.3f} | {Planet2.rhoMatrix_kgm3[diff_rhoMatrix_kgm3[0]]:.3f}')
+            if not same_rhoPore_kgm3: log.info(f'rhoPore_kgm3 differs in position {diff_rhoPore_kgm3[0]:.3f}: {Planet.rhoPore_kgm3[diff_rhoPore_kgm3[0]]:.3f} | {Planet2.rhoPore_kgm3[diff_rhoPore_kgm3[0]]:.3f}')
         elif not all_match:
             log.info('All layer calculations match!')
         else:

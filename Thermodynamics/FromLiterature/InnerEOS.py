@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from scipy.interpolate import RectBivariateSpline, griddata as GridData
+from scipy.interpolate import RectBivariateSpline, interp1d as Interp1D, griddata as GridData
 from Utilities.dataStructs import Constants
 
 class PerplexEOSStruct:
@@ -8,7 +8,7 @@ class PerplexEOSStruct:
         obtain silicate/core properties as functions of P and T.
     """
     def __init__(self, EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
-                 HtidalConst_Wm3=0):
+                 HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350):
         self.comp = EOSfname[:-4]
         self.dir = os.path.join('Thermodynamics', 'Perple_X', 'output_data')
         self.fpath = os.path.join(self.dir, EOSfname)
@@ -42,8 +42,9 @@ class PerplexEOSStruct:
         self.Pmax_MPa = Plin_MPa[-1]
         self.Tmin_K = Tlin_K[0]
         self.Tmax_K = Tlin_K[-1]
+        lenT = int(len(Tlin_K) / lenP)
         P1D_MPa = np.linspace(self.Pmin_MPa, self.Pmax_MPa, lenP)
-        T1D_K = np.linspace(self.Tmin_K, self.Tmax_K, int(len(Tlin_K)/lenP))
+        T1D_K = np.linspace(self.Tmin_K, self.Tmax_K, lenT)
 
         # Interpolate dependent variables where the values are NaN
         PTpts = (Plin_MPa, Tlin_K)
@@ -124,15 +125,45 @@ class PerplexEOSStruct:
 
         self.P_MPa = P1D_MPa
         self.T_K = T1D_K
+        # Assign temporary functions we will wrap with porosity if modeled
         self.fn_rho_kgm3 = RectBivariateSpline(P1D_MPa, T1D_K, self.rho_kgm3)
         self.fn_VP_kms = RectBivariateSpline(P1D_MPa, T1D_K, self.VP_kms)
         self.fn_VS_kms = RectBivariateSpline(P1D_MPa, T1D_K, self.VS_kms)
-        self.fn_Cp_JkgK = RectBivariateSpline(P1D_MPa, T1D_K, self.Cp_JkgK)
-        self.fn_alpha_pK = RectBivariateSpline(P1D_MPa, T1D_K, self.alpha_pK)
         self.fn_KS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, self.KS_GPa)
         self.fn_GS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, self.GS_GPa)
         self.fn_kTherm_WmK = RectBivariateSpline(P1D_MPa, T1D_K, self.kTherm_WmK)
-        self.fn_Htidal_Wm3 = lambda rho, g, KS, GS: HtidalConst_Wm3
+        self.fn_Cp_JkgK = RectBivariateSpline(P1D_MPa, T1D_K, self.Cp_JkgK)
+        self.fn_alpha_pK = RectBivariateSpline(P1D_MPa, T1D_K, self.alpha_pK)
+
+        # Assign tidal heating function
+        # (currently a placeholder)
+        self.fn_Htidal_Wm3 = GetHtidalFunc(HtidalConst_Wm3)
+
+        # Assign porosity model function, if applicable
+        if Fe_EOS:
+            # No porosity modeled, and no need for dummy field
+            pass
+
+        elif porosType is None or porosType == 'none':
+            # No porosity modeled, but need a dummy field for cross-compatibility
+            self.fn_phi_frac = lambda P, T: np.zeros_like(P)
+
+        else:
+            if porosType == 'Vitovtova2014' or porosType == 'Chen2020':
+                # Pressure-depth lookup using the Preliminary Earth Reference Model,
+                # Dziewonski and Anderson (1981): https://doi.org/10.1016/0031-9201(81)90046-7
+                PREMzPfile = os.path.join('Thermodynamics', 'FromLiterature', 'PREMtable.txt')
+                zPREM_km, PPREM_kbar = np.loadtxt(PREMzPfile, skiprows=2, unpack=True, delimiter=',')
+                PPREM_MPa = PPREM_kbar * 1e3 * Constants.bar2MPa
+                self.PREMlookup = Interp1D(PPREM_MPa, zPREM_km)
+            else:
+                self.PREMlookup = None
+            self.fn_phi_frac = GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, self.PREMlookup, P1D_MPa, T1D_K)
+
+            # Combine pore fluid properties with matrix properties in accordance with
+            # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
+            self.fn_porosCorrect = lambda propBulk, propPore, phi, J: (propBulk**J * (1 - phi)
+                                                 + propPore**J * phi)**(1/J)
 
 
 def TsolidusHirschmann2000(P_MPa):
@@ -153,5 +184,66 @@ def TsolidusHirschmann2000(P_MPa):
 
 
 def GetHtidalFunc(HtidalConst_Wm3):
+    # Tidal heating as a function of density, gravity, and bulk and shear moduli
+    # Currently a placeholder returning a constant value, awaiting a self-
+    # consistent calculation.
     fn_Htidal_Wm3 = lambda rho, g, KS, GS: HtidalConst_Wm3
     return fn_Htidal_Wm3
+
+
+def GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, PREMlookup, P1D_MPa, T1D_K):
+    # Porosity models as functions of P and T, set by variable vacuum maximum
+    # porosity, pore closure pressure, or model coefficients.
+
+    # Get 2D grids of P, T values for constructing T-independent functions
+    # of porosity
+    P2D_MPa, T2D_MPa = np.meshgrid(P1D_MPa, T1D_K, indexing='ij')
+
+    if porosType == 'Han2014':
+        # Han et al. (2014) porosity model: https://doi.org/10.1002/2014GL059378
+        # This is an exponential model based on a surface value and a pore closure
+        # pressure. A more robust model might have a closure pressure that is
+        # self-consistently determined as a function of temperature, instead of
+        # using a value prescribed by the user.
+        if phiTop_frac == 0 or Pclosure_MPa == 0:
+            phi_frac = np.zeros_like(P2D_MPa)
+        else:
+            c = 6.15
+            phi_frac = phiTop_frac * np.exp(-c * P2D_MPa / Pclosure_MPa)
+            # Set porosity to be zero when it is vanishingly small, i.e.
+            # at pressures greater than double the pore closure pressure.
+            phi_frac[P2D_MPa > 2 * Pclosure_MPa] = 0.0
+    elif porosType == 'Vitovtova2014' or porosType == 'Chen2020':
+        # Earth rock porosity parameterizations referenced to ocean worlds
+        # via PREM lookup
+        # Create an array of repeated (T-independent) arrays of PREM-equivalent depths
+        zPREMequiv_km = np.tile(PREMlookup(P1D_MPa), (np.size(T1D_K), 1)).T
+        if porosType == 'Vitovtova2014':
+            # Vitovtova et al. (2014) porosity model: https://doi.org/10.1134/S1069351314040181
+            # This is "generalized depth trend" model from Vitovtova et al., 2014
+            # for porosity of Earth crust. Note that the equation reported in the text
+            # does not match that in the figure, and the equation from the figure
+            # matches the plot, so we assume the equation from the figure is
+            # the correct one.
+            phi_frac = 10 ** (-0.65 - 0.16 * zPREMequiv_km + 0.0019 * zPREMequiv_km ** 2)
+            # Because the second-order term has a positive coefficient, porosity
+            # will increase above about ~42 km PREM depth, but the porosity should
+            # continue to decrease. For physical consistency, we set porosity to
+            # zero beyond the minimum point.
+            zPhiMin_km = 0.16 / (2 * 0.0019)
+            phi_frac[zPREMequiv_km > zPhiMin_km] = 0.0
+        else:
+            # Chen et al. (2020) porosity model: https://doi.org/10.1007/s10040-020-02214-x
+            # 1/(1 + z)^n model based on a surface value and an empirical parameterization
+            # relevant to Earth. Here we use the "oceanic crust" fitting parameters.
+            m = 0.008
+            n = 89.53
+            phi0 = 0.678
+            phi_frac = phi0 / (1 + m * zPREMequiv_km) ** n
+    else:
+        # Invalid porosity type
+        raise ValueError(f'Porosity type "{porosType}" is not supported.')
+
+    # Create unchanging function for the expected porosity
+    fn_phi_frac = RectBivariateSpline(P1D_MPa, T1D_K, phi_frac)
+    return fn_phi_frac

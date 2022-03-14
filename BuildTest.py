@@ -55,7 +55,7 @@ def full():
     Params.CALC_SEISMIC = True
     Params.CALC_CONDUCT = True
 
-    # Check that skipping layers/portions work correctly
+    # Check that skipping layers/portions works correctly
     Params.SKIP_INNER = True
     _ = PlanetProfile(copy.deepcopy(testPlanet1), Params)
     Params.SKIP_INNER = False
@@ -76,7 +76,7 @@ def simple():
     Params.CALC_SEISMIC = True
     Params.CALC_CONDUCT = True
 
-    testPlanet = importlib.import_module('Test.PPTest9').Planet
+    testPlanet = importlib.import_module('Test.PPTest10').Planet
     _ = PlanetProfile(testPlanet, Params)
     log.info('Simple test complete!')
     return

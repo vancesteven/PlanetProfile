@@ -107,20 +107,35 @@ def SeismicCalcs(Planet, Params):
             # layers, so we just leave them as-is.
 
         if not Params.SKIP_INNER:
-            # Evaluate silicate EOS for seismic properties
+            # Get Cp and alpha here, because we didn't calculate them earlier since we didn't need them
+            # in calculating a conductive profile in the silicates and it would contribute extra,
+            # unnecessary computational overhead there.
             Planet.Cp_JkgK[indsSil] = Planet.Sil.EOS.fn_Cp_JkgK(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
             Planet.alpha_pK[indsSil] = Planet.Sil.EOS.fn_alpha_pK(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
+            # Evaluate silicate EOS for seismic properties
             Planet.Seismic.VP_kms[indsSil] = Planet.Sil.EOS.fn_VP_kms(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
             Planet.Seismic.VS_kms[indsSil] = Planet.Sil.EOS.fn_VS_kms(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
             Planet.Seismic.KS_GPa[indsSil] = Planet.Sil.EOS.fn_KS_GPa(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
             Planet.Seismic.GS_GPa[indsSil] = Planet.Sil.EOS.fn_GS_GPa(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
+            if Planet.Do.POROUS_ROCK:
+                VPpore_kms, KSpore_GPa = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsSil], Planet.T_K[indsSil])
+                VSpore_kms, GSpore_GPa = (np.zeros_like(VPpore_kms) for _ in range(2))
+                CpPore_JkgK = Planet.Ocean.EOS.fn_Cp_JkgK(Planet.Ppore_MPa[indsSil], Planet.T_K[indsSil], grid=False)
+                alphaPore_pK = Planet.Ocean.EOS.fn_alpha_pK(Planet.Ppore_MPa[indsSil], Planet.T_K[indsSil], grid=False)
+                Planet.Seismic.VP_kms[indsSil] = Planet.Sil.EOS.fn_porosCorrect(Planet.Seismic.VP_kms[indsSil], VPpore_kms, Planet.phi_frac[indsSil], Planet.Sil.JVP)
+                Planet.Seismic.VS_kms[indsSil] = Planet.Sil.EOS.fn_porosCorrect(Planet.Seismic.VS_kms[indsSil], VSpore_kms, Planet.phi_frac[indsSil], Planet.Sil.JVS)
+                Planet.Seismic.KS_GPa[indsSil] = Planet.Sil.EOS.fn_porosCorrect(Planet.Seismic.KS_GPa[indsSil], KSpore_GPa, Planet.phi_frac[indsSil], Planet.Sil.JKS)
+                Planet.Seismic.GS_GPa[indsSil] = Planet.Sil.EOS.fn_porosCorrect(Planet.Seismic.GS_GPa[indsSil], GSpore_GPa, Planet.phi_frac[indsSil], Planet.Sil.JGS)
+                Planet.Cp_JkgK[indsSil] = Planet.Sil.EOS.fn_porosCorrect(Planet.Cp_JkgK[indsSil]*Planet.rhoMatrix_kgm3[indsSil],
+                        CpPore_JkgK*Planet.rhoPore_kgm3[indsSil], Planet.phi_frac[indsSil], Planet.Sil.JCp) / Planet.rho_kgm3[indsSil]
+                Planet.alpha_pK[indsSil] = Planet.Sil.EOS.fn_porosCorrect(Planet.alpha_pK[indsSil], alphaPore_pK, Planet.phi_frac[indsSil], Planet.Sil.Jalpha)
+
             Hsil = Planet.Seismic.gSil * TsolidusHirschmann2000(Planet.P_MPa[indsSil])
             Planet.Seismic.QS[indsSil] = Planet.Seismic.BSil * np.exp(
                 Planet.Seismic.gammaSil * Hsil / Planet.T_K[indsSil])
 
             if Planet.Do.Fe_CORE:
                 # Evaluate core EOS for seismic properties
-                Planet.kTherm_WmK[indsFe] = Planet.Core.EOS.fn_kTherm_WmK(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)
                 Planet.Seismic.VP_kms[indsFe] = Planet.Core.EOS.fn_VP_kms(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)
                 Planet.Seismic.VS_kms[indsFe] = Planet.Core.EOS.fn_VS_kms(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)
                 Planet.Seismic.KS_GPa[indsFe] = Planet.Core.EOS.fn_KS_GPa(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)

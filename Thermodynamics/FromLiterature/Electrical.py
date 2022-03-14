@@ -33,6 +33,10 @@ def ElecConduct(Planet, Params):
             Planet.sigma_Sm[indsClath] = Constants.sigmaClath_Sm
         if np.size(indsSil) != 0:
             Planet.sigma_Sm[indsSil] = Planet.Sil.sigmaSil_Sm
+            if Planet.Do.POROUS_ROCK and not Params.SKIP_INNER:
+                Planet.sigma_Sm[indsSil] = Planet.Sil.EOS.fn_porosCorrect(Planet.Sil.sigmaSil_Sm,
+                    Planet.Ocean.EOS.fn_sigma_Sm(Planet.Ppore_MPa[indsSil], Planet.T_K[indsSil]),
+                    Planet.phi_frac[indsSil], Planet.Sil.Jsigma)
         if np.size(indsFe) != 0:
             Planet.sigma_Sm[indsFe] = Planet.Core.sigmaCore_Sm
 

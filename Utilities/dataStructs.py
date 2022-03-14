@@ -40,15 +40,15 @@ class DoSubstruct:
     def __init__(self):
         self.Fe_CORE = False  # Whether to model an iron core for this body
         self.CONSTANT_INNER_DENSITY = False  # Whether to use a fixed density in silicates and core instead of using Perple_X EOS for each
-        self.POROUS_ICE = False  # Whether to model porosity in ice
         self.CLATHRATE = False  # Whether to model clathrates
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
         self.NO_ICE_CONVECTION = False  # Whether to suppress convection in ice layers
         self.EQUIL_Q = True  # Whether to set heat flux from interior to be consistent with heat released through convective profile
-        self.POROUS_ROCK = False  # Whether to model silicates as porous
-        self.P_EFFECTIVE = False  # Effective pressure due to presence of water in pores (modeled as lithostatic minus hydrostatic pressure).
+        self.POROUS_ICE = False  # Whether to model porosity in ice
+        self.POROUS_ROCK = False  # Whether to model porosity in silicates
+        self.P_EFFECTIVE = True  # Whether to use effective pressure, modeled as lithostatic less hydrostatic pressure, to determine pore closure behavior (see Vitovtova et al., 2014)
         self.IONOS_ONLY = False  # Whether to ignore conducting layers within the body and model magnetic induction happening only in the ionosphere
         self.TAUP_SEISMIC = False  # Whether to make TauP model files and some basic plots using obspy.taup
 
@@ -74,6 +74,7 @@ class StepsSubstruct:
         self.nIceVLitho = 100  # Fixed number of layers to use for ice V when BOTTOM_ICEV is True.
         self.nPsHP = 150  # Number of interpolation steps to use for getting HP ice EOS (pressures)
         self.nTsHP = 100  # Number of interpolation steps to use for getting HP ice EOS (temperatures)
+        self.nPoros = 10  # Number of steps in porosity to use in geometric series between phiMin and phiMax
 
 
 """ Hydrosphere assumptions """
@@ -102,7 +103,7 @@ class OceanSubstruct:
 class SilSubstruct:
 
     def __init__(self):
-        self.phiRockMax_frac = None  # Porosity (void fraction) of the rocks at the “seafloor”, where the hydrosphere first comes into contact with rock
+        self.alphaPeff = 0.95  # Scaling factor by which the hydrostatic pressure of pore-filling fluids reduces pore closure pressure. Value taken from the high end of Vitovtova et al. (2014).
         self.sigmaSil_Sm = 1e-16  # Assumed conductivity of silicate rock
         self.Qrad_Wkg = 0  # Average radiogenic heating rate for silicates in W/kg.
         self.Htidal_Wm3 = 0  # Average tidal heating rate for silicates in W/m^3.
@@ -110,6 +111,27 @@ class SilSubstruct:
         self.HtidalMax_Wm3 = 1e-6  # Maximum average tidal heating to stop MoI search
         self.deltaHtidal_logUnits = 1/3  # Step size by which to increment Htidal_Wm3 for finding MoI match with no core.
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermSil_WmK)
+        """ Porosity parameters """
+        self.phiRockMax_frac = None  # Porosity (void fraction) of the rocks in vacuum. This is the expected value for core-less bodies, and porosity is modeled for a range around here to find a matching MoI. For bodies with a core, this is a fixed value for rock porosity at P=0.
+        self.phiRangeMult = 8  # Factor by which to divide the distance from user-defined phiRockMax_frac to 0 and 1 to obtain the search range for phi
+        self.Pclosure_MPa = 350  # Pressure threshold in MPa beyond which pores in silicates shut completely and porosity drops to zero, for use in Han et al. (2014) model. See Saito et al. (2016) for evidence of values up to ~750 MPa: https://doi.org/10.1016/j.tecto.2016.03.044
+        self.porosType = 'Han2014'  # Porosity model to apply for silicates. Options are 'Han2014', 'Vitovtova2014', 'Chen2020'.
+        self.poreH2Orho_kgm3 = 1023  # Arbitrary ocean water density used to calculate filled-pore rock densities. This value is that used in Vance et al. (2018).
+        # J values for exponent of pore property / overlaying matrix combination as in Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
+        # Values X combine as Xtot^J = Xmatrix^J * (1 - phi) + Xpore^J * phi, where phi is the porosity (volume fraction) of pore space filled with the secondary material.
+        # Values of J typically range from -1 to 1, where 1 is a direct mean, e.g. Xtot = Xrock*(1-phi) + Xpore*phi and -1 is a geometric mean, e.g. Xtot = Xrock || Xpore = 1/((1-phi)/Xrock + phi/Xpore).
+        # J can range outside -1 and 1 for VP and VS, according to Yu et al.
+        self.Jrho = 1  # Mass density, directly summative
+        self.JkTherm = 1  # Should add like conductors in parallel
+        # For the following 4 properties, Yu et al. (2016) have values for rock combinations that vary around these marks, but they vary quite a lot. If the values are known
+        # for the specific assumed composition of the silicate layer, those values should be used instead for the particular body being simulated.
+        self.JKS = 0.35
+        self.JGS = 0.35
+        self.JVP = 0.75
+        self.JVS = 0.85
+        self.Jalpha = 1  # Volume increase with temperature should be summative
+        self.JCp = 1  # Heat capacity is summative, but since porosity is volume fraction the inputs need to be scaled by mass density
+        self.Jsigma = 1  # Pore fluid and matrix provide parallel electrically conducting pathways as well
         """ Mantle Equation of State (EOS) model """
         self.mantleEOS = None  # Equation of state data to use for silicates
         self.mantleEOSName = None  # Same as above but containing keywords like clathrates in filenames
@@ -248,18 +270,21 @@ class PlanetStruct:
         self.z_m = None  # Distance from surface of body to the outer bound of current layer in m
         self.T_K = None  # Temperature of each layer in K
         self.P_MPa = None  # Pressure at top of each layer in MPa
-        self.rho_kgm3 = None  # Density of each layer in kg/m^3
+        self.rho_kgm3 = None  # Overall mass density of each layer in kg/m^3
         self.g_ms2 = None  # Gravitational acceleration at top of each layer, m/s^2
         self.Cp_JkgK = None  # Heat capacity at constant pressure for each layer's material in J/kg/K
-        self.alpha_pK = None  # Thermal expansivity of layer material in hydrosphere in K^-1
+        self.alpha_pK = None  # Thermal expansivity of layer material in K^-1
         self.phi_frac = None  # Porosity of each layer's material as a fraction of void/solid
         self.sigma_Sm = None  # Electrical conductivity (sigma) in S/m of each conducting layer
         self.rSigChange_m = None  # Radii of outer boundary of each conducting layer in m (i.e., radii where sigma changes)
         self.MLayer_kg = None  # Mass of each layer in kg
         self.kTherm_WmK = None  # Thermal conductivity of each layer in W/(m K)
         self.Htidal_Wm3 = None  # Tidal heating rate of each layer in W/m^3
+        self.Ppore_MPa = None  # Pressure of fluids assumed to occupy full pore space
+        self.rhoMatrix_kgm3 = None  # Mass density of matrix material (rock or ice)
+        self.rhoPore_kgm3 = None  # Mass density of pore material (ocean water)
         # Individual calculated quantities
-        self.zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km in accordance with Vance et al. (2014)
+        self.zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km
         self.zClath_m = None  # Thickness of clathrate layer in surface ice in m
         self.Pb_MPa = None  # Pressure at ice-ocean interface in MPa
         self.PbI_MPa = None  # Pressure at bottom of surface ice I/clathrate layer in MPa

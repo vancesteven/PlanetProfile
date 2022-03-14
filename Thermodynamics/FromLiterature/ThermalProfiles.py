@@ -119,20 +119,22 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     return Tconv_K, etaConv_Pas, eLid_m, deltaTBL_m, Qbot_W, Ra
 
 
-def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rho_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2):
+def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2):
     """ Thermal profile for purely thermally conductive layers, based on Turcotte and Schubert (1982),
         equation 4.40: T = -rho*H/6/k * r^2 + c1/r + c2, where c1 and c2 are integration constants
         found through boundary conditions, rho is mass density of the conductive layer in kg/m^3,
         H is internal heating in W/kg, and k is thermal conductivity in W/m/K.
         The main equations we use here are developed similar to equation 2 of
         Cammarano et al. (2006): https://doi.org/10.1029/2006JE002710, but we parameterize in terms of
-        the heat flux leaving the top of the layer instead of entering the bottom.
+        the heat flux leaving the top of the layer instead of entering the bottom. We also configure
+        the internal heating so as to account for porosity by passing rho as the mass density of just
+        the material contributing to radiogenic heat, i.e. silicates.
 
         Args:
             Ttop_K (float, shape N): Temperature at the top of the layer in K.
             rTop_m, rBot_m (float, shape N): Radius at top and bottom of layer in m, respectively.
-            kTherm_WmK (float, shape N): Thermal conductivity of layer in W/(m K).
-            rho_kgm3 (float, shape N): Mass density of layer in kg/m^3.
+            kTherm_WmK (float, shape N): Overall thermal conductivity of layer in W/(m K).
+            rhoRad_kgm3 (float, shape N): Mass density of radiogenic material in layer in kg/m^3.
             Qrad_Wkg (float): Average radiogenic heating rate in W/kg.
             Htidal_Wm3 (float, shape N): Average tidal heating rate of the layer in W/m^3.
             qTop_Wm2 (float): Heat flux leaving the top of the layer in W/m^2.
@@ -141,13 +143,13 @@ def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rho_kgm3, Qrad_Wkg
             qBot_Wm2 (float): Heat flux entering the bottom of the layer in W/m^2.
     """
     # Calculate needed values from inputs
-    Qtot_Wkg = Qrad_Wkg + Htidal_Wm3 / rho_kgm3
-    c1 = qTop_Wm2 * rTop_m**2 / 2/kTherm_WmK - rho_kgm3 * Qtot_Wkg / 6/kTherm_WmK * rTop_m**3
+    Htot_Wm3 = Qrad_Wkg * rhoRad_kgm3 + Htidal_Wm3
+    c1 = qTop_Wm2 * rTop_m**2 / 2/kTherm_WmK - Htot_Wm3 / 6/kTherm_WmK * rTop_m**3
     # Find the temperature at the bottom of the layer
-    Tbot_K = Ttop_K + rho_kgm3*Qtot_Wkg / 6/kTherm_WmK * (rTop_m**2 - rBot_m**2) + c1 * (1/rBot_m - 1/rTop_m)
+    Tbot_K = Ttop_K + Htot_Wm3 / 6/kTherm_WmK * (rTop_m**2 - rBot_m**2) + c1 * (1/rBot_m - 1/rTop_m)
     # The below calc is suspect. It seems to report too-high values for qBot.
     # Find the heat flux into the bottom of the layer
-    #qBot_Wm2 = rho_kgm3 * Qtot_Wkg / 3 * rBot_m + 2*kTherm_WmK / rBot_m**2 * c1
+    #qBot_Wm2 = Htot_Wm3 / 3 * rBot_m + 2*kTherm_WmK / rBot_m**2 * c1
     # Find the approximate heat flux into the bottom of the layer
     qBot_Wm2 = kTherm_WmK * (Tbot_K - Ttop_K) / (rTop_m - rBot_m)
 

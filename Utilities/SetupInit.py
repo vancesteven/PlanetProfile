@@ -44,8 +44,21 @@ def SetupInit(Planet, Params):
         Planet.Steps.nClath = 0
         Planet.zClath_m = 0
         Planet.Bulk.clathType = 'none'
+
     if not Planet.Do.POROUS_ROCK:
+        Planet.Sil.porosType = 'none'
+        Planet.Sil.poreH2Orho_kgm3 = 0
         Planet.Sil.phiRockMax_frac = 0
+    else:
+        if Planet.Sil.phiRangeMult <= 1:
+            raise ValueError(f'Sil.phiRangeMult = {Planet.Sil.phiRangeMult}, but it must be greater than 1.')
+
+    if not Planet.Do.P_EFFECTIVE:
+        # Peffective is calculated from Psil - alpha*Ppore, so setting alpha to zero avoids the need for repeated
+        # conditional checks during layer propagation -- calculations are typically faster than conditional checks.
+        if Planet.Sil.alphaPeff != 0:
+            log.debug('Sil.alphaPeff was not 0, but is being set to 0 because Do.P_EFFECTIVE is False.')
+        Planet.Sil.alphaPeff = 0
 
     if Planet.Do.NO_H2O:
         log.info('Modeling a waterless body.')
@@ -133,8 +146,11 @@ def SetupFilenames(Planet, Params):
     """ Generate filenames for saving data and figures.
     """
 
-    datPath = Planet.name
-    figPath = os.path.join(Planet.name, 'figures')
+    if Planet.name[:4] == 'Test':
+        datPath = 'Test'
+    else:
+        datPath = Planet.name
+    figPath = os.path.join(datPath, 'figures')
 
     saveBase = Planet.name + 'Profile_'
     if Planet.Do.NO_H2O:
@@ -166,8 +182,8 @@ def SetupLayers(Planet):
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
         Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \
         Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.kTherm_WmK, \
-        Planet.Htidal_Wm3 = \
-        (np.zeros(Planet.Steps.nHydroMax) for _ in range(13))
+        Planet.Htidal_Wm3, Planet.Ppore_MPa, Planet.rhoMatrix_kgm3, Planet.rhoPore_kgm3 = \
+        (np.zeros(Planet.Steps.nHydroMax) for _ in range(16))
 
     # Layer property initialization for surface
     Planet.z_m[0] = 0.0  # Set first layer depth to zero (layer properties correspond to outer radius)

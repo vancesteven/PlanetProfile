@@ -88,6 +88,10 @@ class OceanEOSStruct:
         self.fn_alpha_pK = RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
         self.fn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
 
+        # Combine pore fluid properties with matrix properties in accordance with
+        # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
+        self.fn_porosCorrect = lambda propBulk, propPore, phi, J: (propBulk**J * (1 - phi) + propPore**J * phi)**(1/J)
+
 
 class IceEOSStruct:
     def __init__(self, P_MPa, T_K, phaseStr):
