@@ -21,7 +21,7 @@ Params.CALC_NEW_REF =   True  # Recalculate reference phase curves?
 Params.CALC_NEW_INDUC = True  # Calculate magnetic induction responses?
 Params.CALC_SEISMIC =   True  # Calculate sound speeds?
 Params.CALC_CONDUCT =   True  # Calculate electrical conductivity?
-Params.SKIP_INNER =     False  # Whether to skip past everything but ocean calculations (for large induction studies)
+Params.SKIP_INNER =     False  # Whether to skip past everything but ocean calculations after MoI matching (for large induction studies)
 Params.HOLD =           True  # Whether to overlay runs when possible
 Params.REDUCED =        True  # Whether to limit number of ocean layers for faster computation of layered induction
 Params.DISP_LAYERS =    False  # Whether to display layer depths and heat fluxes for user
@@ -78,7 +78,7 @@ Params.wRef = None  # Salinities in ppt of reference melting curves
 # Check if Latex executable is on the path so we can use backup options if Latex is not installed
 if shutil.which('latex'):
     plt.rcParams['text.usetex'] = True  # Use Latex interpreter to render text on plots
-    plt.rcParams['text.latex.preamble'] = '\\usepackage{'+Params.defaultFontCode+'}'  # Load in font package in Latex
+    plt.rcParams['text.latex.preamble'] = f'\\usepackage{{{Params.defaultFontCode}}}'  # Load in font package in Latex
     Params.TEX_INSTALLED = True
 else:
     print('A LaTeX installation was not found. Some plots may have fallback options in labels.')
