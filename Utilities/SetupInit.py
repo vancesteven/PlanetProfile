@@ -159,8 +159,8 @@ def SetupFilenames(Planet, Params):
         if Planet.Do.CLATHRATE: saveBase += 'Clathrates_'
         saveBase += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.0f}WtPpt' + \
                     f'_Tb{Planet.Bulk.Tb_K:}K'
-        if Planet.Do.POROUS_ICE: fName += '_PorousIce'
-    if Planet.Sil.mantleEOSName is not None: fName += Planet.Sil.mantleEOSname
+        if Planet.Do.POROUS_ICE: saveBase += '_PorousIce'
+    if Planet.Sil.mantleEOSName is not None: saveBasee += Planet.Sil.mantleEOSname
 
     datBase = os.path.join(datPath, saveBase)
     DataFiles = DataFilesSubstruct(datBase)

@@ -698,7 +698,7 @@ def CalcMoIWithEOS(Planet, Params):
                                       Pclosure_MPa=Planet.Sil.Pclosure_MPa)
     if Planet.Do.Fe_CORE:
         Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(Planet.Sil.Htidal_Wm3)  # Placeholder until we implement a self-consistent calc
-        Planet.Sil.fn_phi_frac = lambda P, T: Planet.Sil.EOS.fn_phi_frac(P, T)
+        Planet.Sil.fn_phi_frac = lambda P, T: Planet.Sil.EOS.fn_phi_frac(P, T, grid=False)
         # Propagate the silicate EOS from each hydrosphere layer to the center of the body
         log.debug(f'Propagating silicate EOS for each possible mantle size...')
         indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \

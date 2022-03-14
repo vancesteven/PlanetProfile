@@ -21,7 +21,12 @@ def IceIConvect(Planet, Params):
     # with the Matlab implementation of Deschamps and Sotin (2001). The thermal conductivity of clathrates
     # is essentially fixed at 0.5 W/(m K), so doing this operation when the top layer is clathrate
     # gives us what we want in that case, too.
-    Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[PhaseConv(Planet.phase[0])].fn_kTherm_WmK(Pmid_MPa, Planet.Bulk.Tb_K)
+    phaseTop = PhaseConv(Planet.phase[0])
+    Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[phaseTop].fn_kTherm_WmK(Pmid_MPa, Planet.Bulk.Tb_K)
+    if Planet.Do.POROUS_ICE:
+        Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[phaseTop].fn_porosCorrect(Planet.kTherm_WmK[0], 0,
+                               Planet.Ocean.surfIceEOS[phaseTop].fn_phi_frac(Pmid_MPa, Planet.Bulk.Tb_K),
+                               Planet.Ocean.JkTherm)
 
     # Run calculations to get convection layer parameters
     Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, Planet.RaConvect = \
@@ -103,7 +108,7 @@ def IceIConvect(Planet, Params):
                     Planet.T_K[Planet.Steps.nClath:nConduct+1] = Planet.Tconv_K**(PlidRatiosIceI) * Planet.TclathTrans_K**(1 - PlidRatiosIceI)
 
                 # Get physical properties of clathrate lid
-                Planet.rho_kgm3[:Planet.Steps.nClath] \
+                Planet.rhoMatrix_kgm3[:Planet.Steps.nClath] \
                     = Planet.Ocean.surfIceEOS['Clath'].fn_rho_kgm3(Planet.P_MPa[:Planet.Steps.nClath],
                                                                    Planet.T_K[:Planet.Steps.nClath], grid=False)
                 Planet.Cp_JkgK[:Planet.Steps.nClath] \
@@ -115,6 +120,26 @@ def IceIConvect(Planet, Params):
                 Planet.kTherm_WmK[:Planet.Steps.nClath] \
                     = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.P_MPa[:Planet.Steps.nClath],
                                                                      Planet.T_K[:Planet.Steps.nClath], grid=False)
+
+                # Correct for porosity in clathrate layers, assuming pores may be treated as vacuum
+                if Planet.Do.POROUS_ICE:
+                    Planet.phi_frac[:Planet.Steps.nClath] = Planet.Ocean.surfIceEOS['Clath'].fn_phi_frac(
+                        Planet.P_MPa[:Planet.Steps.nClath], Planet.T_K[:Planet.Steps.nClath], grid=False)
+                    Planet.rho_kgm3[:Planet.Steps.nClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                        Planet.rhoMatrix_kgm3[:Planet.Steps.nClath], 0, Planet.phi_frac[:Planet.Steps.nClath],
+                        Planet.Ocean.Jrho)
+                    Planet.Cp_JkgK[:Planet.Steps.nClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                        Planet.Cp_JkgK[:Planet.Steps.nClath] * Planet.rhoMatrix_kgm3[:Planet.Steps.nClath],
+                        0, Planet.phi_frac[:Planet.Steps.nClath], Planet.Ocean.JCp) / Planet.rho_kgm3[:Planet.Steps.nClath]
+                    Planet.alpha_pK[:Planet.Steps.nClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                        Planet.alpha_pK[:Planet.Steps.nClath], 0, Planet.phi_frac[:Planet.Steps.nClath],
+                        Planet.Ocean.Jalpha)
+                    Planet.kTherm_WmK[:Planet.Steps.nClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                        Planet.kTherm_WmK[:Planet.Steps.nClath], 0, Planet.phi_frac[:Planet.Steps.nClath],
+                        Planet.Ocean.JkTherm)
+                else:
+                    Planet.rho_kgm3[:Planet.Steps.nClath] = Planet.rhoMatrix_kgm3[:Planet.Steps.nClath] + 0.0
+
             else:
                 raise ValueError(f'IceIConvect behavior is not defined for Bulk.clathType "{Planet.Bulk.clathType}".')
         else:
@@ -124,7 +149,7 @@ def IceIConvect(Planet, Params):
             Planet.T_K[:nConduct+1] = Planet.Tconv_K**(PlidRatios) * Planet.T_K[0]**(1 - PlidRatios)
 
         # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
-        Planet.rho_kgm3[Planet.Steps.nClath:nConduct+1] \
+        Planet.rhoMatrix_kgm3[Planet.Steps.nClath:nConduct+1] \
             = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(Planet.P_MPa[Planet.Steps.nClath:nConduct+1],
                                                         Planet.T_K[Planet.Steps.nClath:nConduct+1], grid=False)
         Planet.Cp_JkgK[Planet.Steps.nClath:nConduct+1] \
@@ -136,6 +161,25 @@ def IceIConvect(Planet, Params):
         Planet.kTherm_WmK[Planet.Steps.nClath:nConduct+1] \
             = Planet.Ocean.surfIceEOS['Ih'].fn_kTherm_WmK(Planet.P_MPa[Planet.Steps.nClath:nConduct+1],
                                                           Planet.T_K[Planet.Steps.nClath:nConduct+1], grid=False)
+
+        # Correct for porosity in ice I layers, assuming pores may be treated as vacuum
+        if Planet.Do.POROUS_ICE:
+            Planet.phi_frac[Planet.Steps.nClath:nConduct+1] = Planet.Ocean.surfIceEOS['Ih'].fn_phi_frac(
+                Planet.P_MPa[Planet.Steps.nClath:nConduct+1], Planet.T_K[Planet.Steps.nClath:nConduct+1], grid=False)
+            Planet.rho_kgm3[Planet.Steps.nClath:nConduct+1] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+                Planet.rhoMatrix_kgm3[Planet.Steps.nClath:nConduct+1], 0, Planet.phi_frac[Planet.Steps.nClath:nConduct+1],
+                Planet.Ocean.Jrho)
+            Planet.Cp_JkgK[Planet.Steps.nClath:nConduct+1] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+                Planet.Cp_JkgK[Planet.Steps.nClath:nConduct+1] * Planet.rhoMatrix_kgm3[Planet.Steps.nClath:nConduct+1],
+                0, Planet.phi_frac[Planet.Steps.nClath:nConduct+1], Planet.Ocean.JCp) / Planet.rho_kgm3[Planet.Steps.nClath:nConduct+1]
+            Planet.alpha_pK[Planet.Steps.nClath:nConduct+1] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+                Planet.alpha_pK[Planet.Steps.nClath:nConduct+1], 0, Planet.phi_frac[Planet.Steps.nClath:nConduct+1],
+                Planet.Ocean.Jalpha)
+            Planet.kTherm_WmK[Planet.Steps.nClath:nConduct+1] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+                Planet.kTherm_WmK[Planet.Steps.nClath:nConduct+1], 0, Planet.phi_frac[Planet.Steps.nClath:nConduct+1],
+                Planet.Ocean.JkTherm)
+        else:
+            Planet.rho_kgm3[Planet.Steps.nClath:nConduct+1] = Planet.rhoMatrix_kgm3[Planet.Steps.nClath:nConduct+1] + 0.0
 
         thisMAbove_kg = 0
         for i in range(1, nConduct):
@@ -162,10 +206,25 @@ def IceIConvect(Planet, Params):
             # Propagate adiabatic thermal profile
             Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
                             Planet.Cp_JkgK[i-1] / Planet.rho_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6
-            Planet.rho_kgm3[i] = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+            Planet.rhoMatrix_kgm3[i] = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.Cp_JkgK[i] = Planet.Ocean.surfIceEOS['Ih'].fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.alpha_pK[i] = Planet.Ocean.surfIceEOS['Ih'].fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.kTherm_WmK[i] = Planet.Ocean.surfIceEOS['Ih'].fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+
+            # Correct for porosity in ice I layers, assuming pores may be treated as vacuum
+            if Planet.Do.POROUS_ICE:
+                Planet.phi_frac[i] = Planet.Ocean.surfIceEOS['Ih'].fn_phi_frac(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+                Planet.rho_kgm3[i] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(Planet.rhoMatrix_kgm3[i], 0, Planet.phi_frac[i],
+                    Planet.Ocean.Jrho)
+                Planet.Cp_JkgK[i] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(Planet.Cp_JkgK[i] * Planet.rhoMatrix_kgm3[i],
+                    0, Planet.phi_frac[i], Planet.Ocean.JCp) / Planet.rho_kgm3[i]
+                Planet.alpha_pK[i] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(Planet.alpha_pK[i], 0, Planet.phi_frac[i],
+                    Planet.Ocean.Jalpha)
+                Planet.kTherm_WmK[i] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(Planet.kTherm_WmK[i], 0, Planet.phi_frac[i],
+                    Planet.Ocean.JkTherm)
+            else:
+                Planet.rho_kgm3[i] = Planet.rhoMatrix_kgm3[i] + 0.0
+
             log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
@@ -175,7 +234,7 @@ def IceIConvect(Planet, Params):
         Planet.T_K[indsTBL] = Planet.Bulk.Tb_K**(PTBLratios) * Planet.T_K[nConduct+nConvect-1]**(1 - PTBLratios)
 
         # Get physical properties of thermal boundary layer
-        Planet.rho_kgm3[indsTBL[:-1]] \
+        Planet.rhoMatrix_kgm3[indsTBL[:-1]] \
             = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
         Planet.Cp_JkgK[indsTBL[:-1]] \
             = Planet.Ocean.surfIceEOS['Ih'].fn_Cp_JkgK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
@@ -183,6 +242,25 @@ def IceIConvect(Planet, Params):
             = Planet.Ocean.surfIceEOS['Ih'].fn_alpha_pK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
         Planet.kTherm_WmK[indsTBL[:-1]] \
             = Planet.Ocean.surfIceEOS['Ih'].fn_kTherm_WmK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
+
+        # Correct for porosity in ice I layers, assuming pores may be treated as vacuum
+        if Planet.Do.POROUS_ICE:
+            Planet.phi_frac[indsTBL[:-1]] = Planet.Ocean.surfIceEOS['Ih'].fn_phi_frac(Planet.P_MPa[indsTBL[:-1]],
+                                                                                Planet.T_K[indsTBL[:-1]], grid=False)
+            Planet.rho_kgm3[indsTBL[:-1]] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+                Planet.rhoMatrix_kgm3[indsTBL[:-1]], 0, Planet.phi_frac[indsTBL[:-1]],
+                Planet.Ocean.Jrho)
+            Planet.Cp_JkgK[indsTBL[:-1]] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+                Planet.Cp_JkgK[indsTBL[:-1]] * Planet.rhoMatrix_kgm3[indsTBL[:-1]],
+                0, Planet.phi_frac[indsTBL[:-1]], Planet.Ocean.JCp) / Planet.rho_kgm3[indsTBL[:-1]]
+            Planet.alpha_pK[indsTBL[:-1]] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+                Planet.alpha_pK[indsTBL[:-1]], 0, Planet.phi_frac[indsTBL[:-1]],
+                Planet.Ocean.Jalpha)
+            Planet.kTherm_WmK[indsTBL[:-1]] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+                Planet.kTherm_WmK[indsTBL[:-1]], 0, Planet.phi_frac[indsTBL[:-1]],
+                Planet.Ocean.JkTherm)
+        else:
+            Planet.rho_kgm3[indsTBL[:-1]] = Planet.rhoMatrix_kgm3[indsTBL[:-1]] + 0.0
 
         for i in indsTBL:
             # Increment depth based on change in pressure, combined with gravity and density
@@ -526,7 +604,7 @@ def ClathShellConvect(Planet, Params):
         Planet.T_K[:nConduct+1] = Planet.Tconv_K**(PlidRatios) * Planet.T_K[0]**(1 - PlidRatios)
 
         # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
-        Planet.rho_kgm3[:nConduct+1] \
+        Planet.rhoMatrix_kgm3[:nConduct+1] \
             = Planet.Ocean.surfIceEOS['Clath'].fn_rho_kgm3(Planet.P_MPa[:nConduct+1],
                                                            Planet.T_K[:nConduct+1], grid=False)
         Planet.Cp_JkgK[:nConduct+1] \
@@ -538,6 +616,25 @@ def ClathShellConvect(Planet, Params):
         Planet.kTherm_WmK[:nConduct+1] \
             = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.P_MPa[:nConduct+1],
                                                              Planet.T_K[:nConduct+1], grid=False)
+
+        # Correct for porosity in upper TBL clathrate layers, assuming pores may be treated as vacuum
+        if Planet.Do.POROUS_ICE:
+            Planet.phi_frac[:nConduct+1] = Planet.Ocean.surfIceEOS['Clath'].fn_phi_frac(
+                Planet.P_MPa[:nConduct+1], Planet.T_K[:nConduct+1], grid=False)
+            Planet.rho_kgm3[:nConduct+1] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                Planet.rhoMatrix_kgm3[:nConduct+1], 0, Planet.phi_frac[:nConduct+1],
+                Planet.Ocean.Jrho)
+            Planet.Cp_JkgK[:nConduct+1] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                Planet.Cp_JkgK[:nConduct+1] * Planet.rhoMatrix_kgm3[:nConduct+1],
+                0, Planet.phi_frac[:nConduct+1], Planet.Ocean.JCp) / Planet.rho_kgm3[:nConduct+1]
+            Planet.alpha_pK[:nConduct+1] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                Planet.alpha_pK[:nConduct+1], 0, Planet.phi_frac[:nConduct+1],
+                Planet.Ocean.Jalpha)
+            Planet.kTherm_WmK[:nConduct+1] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                Planet.kTherm_WmK[:nConduct+1], 0, Planet.phi_frac[:nConduct+1],
+                Planet.Ocean.JkTherm)
+        else:
+            Planet.rho_kgm3[:nConduct+1] = Planet.rhoMatrix_kgm3[:nConduct+1] + 0.0
 
         thisMAbove_kg = 0
         for i in range(1, nConduct):
@@ -564,10 +661,25 @@ def ClathShellConvect(Planet, Params):
             # Propagate adiabatic thermal profile
             Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
                             Planet.Cp_JkgK[i-1] / Planet.rho_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6
-            Planet.rho_kgm3[i] = Planet.Ocean.surfIceEOS['Clath'].fn_rho_kgm3(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+            Planet.rhoMatrix_kgm3[i] = Planet.Ocean.surfIceEOS['Clath'].fn_rho_kgm3(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.Cp_JkgK[i] = Planet.Ocean.surfIceEOS['Clath'].fn_Cp_JkgK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.alpha_pK[i] = Planet.Ocean.surfIceEOS['Clath'].fn_alpha_pK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
             Planet.kTherm_WmK[i] = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+
+            # Correct for porosity in clathrate layers, assuming pores may be treated as vacuum
+            if Planet.Do.POROUS_ICE:
+                Planet.phi_frac[i] = Planet.Ocean.surfIceEOS['Clath'].fn_phi_frac(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+                Planet.rho_kgm3[i] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(Planet.rhoMatrix_kgm3[i], 0, Planet.phi_frac[i],
+                    Planet.Ocean.Jrho)
+                Planet.Cp_JkgK[i] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(Planet.Cp_JkgK[i] * Planet.rhoMatrix_kgm3[i],
+                    0, Planet.phi_frac[i], Planet.Ocean.JCp) / Planet.rho_kgm3[i]
+                Planet.alpha_pK[i] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(Planet.alpha_pK[i], 0, Planet.phi_frac[i],
+                    Planet.Ocean.Jalpha)
+                Planet.kTherm_WmK[i] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(Planet.kTherm_WmK[i], 0, Planet.phi_frac[i],
+                    Planet.Ocean.JkTherm)
+            else:
+                Planet.rho_kgm3[i] = Planet.rhoMatrix_kgm3[i] + 0.0
+
             log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
@@ -577,7 +689,7 @@ def ClathShellConvect(Planet, Params):
         Planet.T_K[indsTBL] = Planet.Bulk.Tb_K**(PTBLratios) * Planet.T_K[nConduct+nConvect-1]**(1 - PTBLratios)
 
         # Get physical properties of thermal boundary layer
-        Planet.rho_kgm3[indsTBL[:-1]] \
+        Planet.rhoMatrix_kgm3[indsTBL[:-1]] \
             = Planet.Ocean.surfIceEOS['Clath'].fn_rho_kgm3(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
         Planet.Cp_JkgK[indsTBL[:-1]] \
             = Planet.Ocean.surfIceEOS['Clath'].fn_Cp_JkgK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
@@ -585,6 +697,25 @@ def ClathShellConvect(Planet, Params):
             = Planet.Ocean.surfIceEOS['Clath'].fn_alpha_pK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
         Planet.kTherm_WmK[indsTBL[:-1]] \
             = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]], grid=False)
+
+        # Correct for porosity in clathrate layers, assuming pores may be treated as vacuum
+        if Planet.Do.POROUS_ICE:
+            Planet.phi_frac[indsTBL[:-1]] = Planet.Ocean.surfIceEOS['Clath'].fn_phi_frac(Planet.P_MPa[indsTBL[:-1]],
+                                                                            Planet.T_K[indsTBL[:-1]], grid=False)
+            Planet.rho_kgm3[indsTBL[:-1]] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                Planet.rhoMatrix_kgm3[indsTBL[:-1]], 0, Planet.phi_frac[indsTBL[:-1]],
+                Planet.Ocean.Jrho)
+            Planet.Cp_JkgK[indsTBL[:-1]] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                Planet.Cp_JkgK[indsTBL[:-1]] * Planet.rhoMatrix_kgm3[indsTBL[:-1]],
+                0, Planet.phi_frac[indsTBL[:-1]], Planet.Ocean.JCp) / Planet.rho_kgm3[indsTBL[:-1]]
+            Planet.alpha_pK[indsTBL[:-1]] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                Planet.alpha_pK[indsTBL[:-1]], 0, Planet.phi_frac[indsTBL[:-1]],
+                Planet.Ocean.Jalpha)
+            Planet.kTherm_WmK[indsTBL[:-1]] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                Planet.kTherm_WmK[indsTBL[:-1]], 0, Planet.phi_frac[indsTBL[:-1]],
+                Planet.Ocean.JkTherm)
+        else:
+            Planet.rho_kgm3[indsTBL[:-1]] = Planet.rhoMatrix_kgm3[indsTBL[:-1]] + 0.0
 
         for i in indsTBL:
             # Increment depth based on change in pressure, combined with gravity and density

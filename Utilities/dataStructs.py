@@ -74,7 +74,7 @@ class StepsSubstruct:
         self.nIceVLitho = 100  # Fixed number of layers to use for ice V when BOTTOM_ICEV is True.
         self.nPsHP = 150  # Number of interpolation steps to use for getting HP ice EOS (pressures)
         self.nTsHP = 100  # Number of interpolation steps to use for getting HP ice EOS (temperatures)
-        self.nPoros = 10  # Number of steps in porosity to use in geometric series between phiMin and phiMax
+        self.nPoros = 10  # Number of steps in porosity to use in geometric series between phiMin and phiMax for porous rock when no core is present
 
 
 """ Hydrosphere assumptions """
@@ -97,6 +97,20 @@ class OceanSubstruct:
         self.EOS = None  # Equation of state data to use for ocean layers
         self.surfIceEOS = {}  # Equation of state data to use for surface ice layers
         self.iceEOS = {}  # Equation of state data to use for ice layers within the ocean
+        """ Porosity parameters """
+        self.phiMax_frac = {'Ih':None, 'Clath':None}  # Porosity (void fraction) of surface ice, extrapolated down to 0 pressure.
+        self.Pclosure_MPa = {'Ih':20, 'Clath':120}  # Pressure threshold in MPa beyond which pores in ice shut completely and porosity drops rapidly to zero, for use in Han et al. (2014) model.
+        self.porosType = {'Ih':'Han2014', 'Clath':'Han2014'}  # Porosity model to apply for ice. Options currently only include 'Han2014'.
+        # See descriptions of these quantities in SilSubstruct -- most will be the same here and there but seismic properties especially may differ.
+        self.Jrho = 1
+        self.JkTherm = 1
+        self.Jalpha = 1
+        self.JCp = 1
+        self.Jsigma = 1
+        self.JKS = 0.35
+        self.JGS = 0.35
+        self.JVP = 0.75
+        self.JVS = 0.85
 
 
 """ Silicate layers """
@@ -123,15 +137,15 @@ class SilSubstruct:
         # J can range outside -1 and 1 for VP and VS, according to Yu et al.
         self.Jrho = 1  # Mass density, directly summative
         self.JkTherm = 1  # Should add like conductors in parallel
+        self.Jalpha = 1  # Volume increase with temperature should be summative
+        self.JCp = 1  # Heat capacity is summative, but since porosity is volume fraction the inputs need to be scaled by mass density
+        self.Jsigma = 1  # Pore fluid and matrix provide parallel electrically conducting pathways as well
         # For the following 4 properties, Yu et al. (2016) have values for rock combinations that vary around these marks, but they vary quite a lot. If the values are known
         # for the specific assumed composition of the silicate layer, those values should be used instead for the particular body being simulated.
         self.JKS = 0.35
         self.JGS = 0.35
         self.JVP = 0.75
         self.JVS = 0.85
-        self.Jalpha = 1  # Volume increase with temperature should be summative
-        self.JCp = 1  # Heat capacity is summative, but since porosity is volume fraction the inputs need to be scaled by mass density
-        self.Jsigma = 1  # Pore fluid and matrix provide parallel electrically conducting pathways as well
         """ Mantle Equation of State (EOS) model """
         self.mantleEOS = None  # Equation of state data to use for silicates
         self.mantleEOSName = None  # Same as above but containing keywords like clathrates in filenames

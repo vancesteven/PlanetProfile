@@ -10,6 +10,7 @@ from Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4Phase, MgSO4Seismic
 from Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
 from Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, TclathDissocLower_K, \
     TclathDissocUpper_K, ClathSeismic
+from Thermodynamics.FromLiterature.InnerEOS import GetphiFunc
 
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None):
@@ -88,13 +89,9 @@ class OceanEOSStruct:
         self.fn_alpha_pK = RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
         self.fn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
 
-        # Combine pore fluid properties with matrix properties in accordance with
-        # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
-        self.fn_porosCorrect = lambda propBulk, propPore, phi, J: (propBulk**J * (1 - phi) + propPore**J * phi)**(1/J)
-
 
 class IceEOSStruct:
-    def __init__(self, P_MPa, T_K, phaseStr):
+    def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0):
         # Make sure arrays are long enough to interpolate
         nPs = np.size(P_MPa)
         nTs = np.size(T_K)
@@ -141,6 +138,15 @@ class IceEOSStruct:
         # Assign phase ID and string for convenience in functions where iceEOS is passed
         self.phaseStr = phaseStr
         self.phaseID = PhaseInv(phaseStr)
+
+        if porosType is None or porosType == 'none':
+            self.fn_phi_frac = lambda P, T: np.zeros_like(P)
+        else:
+            self.fn_phi_frac = GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, None, P_MPa, T_K)
+
+        # Combine pore fluid properties with matrix properties in accordance with
+        # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
+        self.fn_porosCorrect = lambda propBulk, propPore, phi, J: (propBulk**J * (1 - phi) + propPore**J * phi)**(1/J)
 
 
 # Create a function that can pack up (P,T) pairs that are compatible with SeaFreeze

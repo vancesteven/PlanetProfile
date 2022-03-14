@@ -23,6 +23,17 @@ def SeismicCalcs(Planet, Params):
             Planet.Seismic.KS_GPa[indsClath], Planet.Seismic.GS_GPa[indsClath] \
                 = Planet.Ocean.surfIceEOS['Clath'].fn_Seismic(Planet.P_MPa[indsClath], Planet.T_K[indsClath])
 
+            # Correct for porous clathrates, assuming pore space may be treated as vacuum
+            if Planet.Do.POROUS_ICE and Planet.Ocean.phiMax_frac['Clath'] is not None:
+                Planet.Seismic.VP_kms[indsClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                    Planet.Seismic.VP_kms[indsClath], 0, Planet.phi_frac[indsClath], Planet.Ocean.JVP)
+                Planet.Seismic.VS_kms[indsClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                    Planet.Seismic.VS_kms[indsClath], 0, Planet.phi_frac[indsClath], Planet.Ocean.JVS)
+                Planet.Seismic.KS_GPa[indsClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                    Planet.Seismic.KS_GPa[indsClath], 0, Planet.phi_frac[indsClath], Planet.Ocean.JKS)
+                Planet.Seismic.GS_GPa[indsClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
+                    Planet.Seismic.GS_GPa[indsClath], 0, Planet.phi_frac[indsClath], Planet.Ocean.JGS)
+
             Hclath = Planet.Seismic.gClath * np.max(Planet.T_K[indsClath])
             Planet.Seismic.QS[indsClath] = Planet.Seismic.BClath * np.exp(
                 Planet.Seismic.gammaClath * Hclath / Planet.T_K[indsClath])
@@ -31,6 +42,18 @@ def SeismicCalcs(Planet, Params):
         if np.size(indsIceI) != 0:
             Planet.Seismic.VP_kms[indsIceI], Planet.Seismic.VS_kms[indsIceI], Planet.Seismic.KS_GPa[indsIceI], \
             Planet.Seismic.GS_GPa[indsIceI] = Planet.Ocean.surfIceEOS['Ih'].fn_Seismic(Planet.P_MPa[indsIceI], Planet.T_K[indsIceI])
+
+            # Correct for porous ice, assuming pore space may be treated as vacuum
+            if Planet.Do.POROUS_ICE:
+                Planet.Seismic.VP_kms[indsIceI] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+                    Planet.Seismic.VP_kms[indsIceI], 0, Planet.phi_frac[indsIceI], Planet.Ocean.JVP)
+                Planet.Seismic.VS_kms[indsIceI] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+                    Planet.Seismic.VS_kms[indsIceI], 0, Planet.phi_frac[indsIceI], Planet.Ocean.JVS)
+                Planet.Seismic.KS_GPa[indsIceI] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+                    Planet.Seismic.KS_GPa[indsIceI], 0, Planet.phi_frac[indsIceI], Planet.Ocean.JKS)
+                Planet.Seismic.GS_GPa[indsIceI] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+                    Planet.Seismic.GS_GPa[indsIceI], 0, Planet.phi_frac[indsIceI], Planet.Ocean.JGS)
+
             HiceI = Planet.Seismic.gIceI * Planet.Bulk.Tb_K
             Planet.Seismic.QS[indsIceI] = Planet.Seismic.BIceI * np.exp(
                 Planet.Seismic.gammaIceI * HiceI / Planet.T_K[indsIceI])
