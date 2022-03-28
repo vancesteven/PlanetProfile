@@ -1,7 +1,7 @@
 import numpy as np
 import logging as log
 from Thermodynamics.FromLiterature.HydroEOS import GetPhaseIndices
-from Utilities.dataStructs import Constants
+from Utilities.defineStructs import Constants
 
 def ElecConduct(Planet, Params):
     """ Calculate/assign electrical conductivities for each layer

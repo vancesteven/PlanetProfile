@@ -4,7 +4,7 @@ Europa-like, pure water model with clathrate underplate layer and porous ice
 For testing purposes
 """
 import numpy as np
-from Utilities.dataStructs import PlanetStruct, Constants
+from Utilities.defineStructs import PlanetStruct, Constants
 
 Planet = PlanetStruct('Test13')
 

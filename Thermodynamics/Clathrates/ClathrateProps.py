@@ -1,5 +1,5 @@
 import numpy as np
-from Utilities.dataStructs import Constants
+from Utilities.defineStructs import Constants
 
 def ClathProps(Plin_MPa, Tlin_K):
     """ Evaluate methane clathrate physical properties using Helgerud et al. (2009): https://doi.org/10.1029/2009JB006451

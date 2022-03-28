@@ -1,10 +1,10 @@
 """
 PPTest10
-Enceladus-like, 1/3 Seawater model with no iron core and with no porosity or permeability
+Enceladus-like, 1/3 Seawater model including porosity, with no iron core
 For testing purposes
 """
 import numpy as np
-from Utilities.dataStructs import PlanetStruct, Constants
+from Utilities.defineStructs import PlanetStruct, Constants
 
 Planet = PlanetStruct('Test10')
 
@@ -18,7 +18,7 @@ Planet.Bulk.Tsurf_K = 75
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.335
 Planet.Bulk.Cuncertainty = 0.001
-Planet.Bulk.Tb_K = 272.356
+Planet.Bulk.Tb_K = 272.350#272.356
 
 """ Layer step settings """
 Planet.Steps.nIceI = 100
@@ -35,7 +35,8 @@ Planet.Ocean.PHydroMax_MPa = 50.0
 
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.33e-12
-Planet.Sil.Htidal_Wm3 = 1.0e-14
+Planet.Sil.Htidal_Wm3 = 3.38e-8
+
 # Rock porosity
 Planet.Do.POROUS_ROCK = True
 Planet.Do.P_EFFECTIVE = True

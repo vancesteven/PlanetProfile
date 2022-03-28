@@ -4,7 +4,7 @@ Europa-like, Seawater model
 For testing purposes
 """
 import numpy as np
-from Utilities.dataStructs import PlanetStruct, Constants
+from Utilities.defineStructs import PlanetStruct, Constants
 
 Planet = PlanetStruct('Test1')
 

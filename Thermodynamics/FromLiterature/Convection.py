@@ -1,6 +1,6 @@
 import numpy as np
 import logging as log
-from Utilities.dataStructs import Constants
+from Utilities.defineStructs import Constants
 from Thermodynamics.FromLiterature.HydroEOS import PhaseConv
 from Thermodynamics.FromLiterature.ThermalProfiles import ConvectionDeschampsSotin2001, \
     kThermIsobaricAnderssonIbari2005, kThermHobbs1974, kThermMelinder2007

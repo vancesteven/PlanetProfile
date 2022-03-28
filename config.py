@@ -4,7 +4,7 @@ Overridden by any settings contained within PPBody.py files.
 """
 
 import shutil
-from Utilities.dataStructs import ParamsStruct
+from Utilities.defineStructs import ParamsStruct
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 

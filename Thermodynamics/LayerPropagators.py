@@ -1,7 +1,7 @@
 import numpy as np
 import logging as log
 from collections.abc import Iterable
-from Utilities.dataStructs import Constants
+from Utilities.defineStructs import Constants
 from Thermodynamics.FromLiterature.HydroEOS import GetPfreeze, GetTfreeze, \
     PhaseConv, GetPhaseIndices, IceEOSStruct, GetPbClath
 from Thermodynamics.FromLiterature.ThermalProfiles import ConductiveTemperature
@@ -356,7 +356,7 @@ def OceanLayers(Planet, Params):
         MBelow_kg = Planet.Bulk.M_kg - MAbove_kg
         Planet.g_ms2[i] = Constants.G * MBelow_kg / Planet.r_m[i]**2
 
-    log.info('Ocean layers complete.')
+    log.info(f'Ocean layers complete. zMax: {Planet.z_m[Planet.Steps.nSurfIce + Planet.Steps.nOceanMax - 1]:.2f} km')
 
     return Planet
 
@@ -723,7 +723,7 @@ def CalcMoIWithEOS(Planet, Params):
     else:
         # Propagate the silicate EOS from each hydrosphere layer to the center of the body
 
-        if Planet.Do.POROUS_ROCK:
+        if Planet.Do.POROUS_ROCK and not Planet.Do.FIXED_POROSITY:
             # In this case, we use the user-specified phiTop_frac value as a "middle" option,
             # and vary between 1/Planet.Sil.phiRangeMult times the difference from this middle
             # value to the endpoints, 0 and 1, to get the range of porosities to model.
@@ -746,6 +746,7 @@ def CalcMoIWithEOS(Planet, Params):
             thisHtidal_Wm3 = 0
             log.debug(f'Propagating silicate EOS for each possible mantle size and heating from Htidal = {thisHtidal_Wm3:.2e} to {Planet.Sil.HtidalMax_Wm3:.2e} W/m^3...')
             phiMin_frac = Planet.Sil.phiRockMax_frac
+            phiMax_frac = phiMin_frac
 
         nProfiles = 0
 
@@ -787,15 +788,15 @@ def CalcMoIWithEOS(Planet, Params):
             rhoSilMatrix_kgm3 = np.vstack([rhoSilMatrix_kgm3, rhoSilMatrixTemp_kgm3[indsSilValidTemp,:]])
             rhoSilPore_kgm3 = np.vstack([rhoSilPore_kgm3, rhoSilPoreTemp_kgm3[indsSilValidTemp,:]])
 
-            if Planet.Do.POROUS_ROCK:
+            if Planet.Do.POROUS_ROCK and not Planet.Do.FIXED_POROSITY:
                 rSilOuter_m = rSilTemp_m[indsSilValidTemp, 0]
                 log.debug(f'Silicate match for phiTop = {thisphiTop_frac:.3f} with ' +
                           f'rSil = {rSilOuter_m / 1e3:.1f} km ({rSilOuter_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}).')
                 thisphiTop_frac = phiMin_frac * multphi_frac**nProfiles
-                Planet.Sil.fn_phi_frac = lambda P, T: multphi_frac**nProfiles * Planet.Sil.EOS.fn_phi_frac(P, T, grid=False)
+                Planet.Sil.fn_phi_frac = lambda P, T: thisphiTop_frac / Planet.Sil.phiRockMax_frac * Planet.Sil.EOS.fn_phi_frac(P, T, grid=False)
             else:
                 rSilOuter_m = rSilTemp_m[indsSilValidTemp, 0]
-                log.debug(f'Silicate match for Htidal = {thisHtidal_Wm3:.3f} with ' +
+                log.debug(f'Silicate match for Htidal = {thisHtidal_Wm3:.3e} W/m^3 with ' +
                           f'rSil = {rSilOuter_m / 1e3:.1f} km ({rSilOuter_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}).')
                 thisHtidal_Wm3 = HtidalStart_Wm3 * multHtidal_Wm3**nProfiles
                 Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(thisHtidal_Wm3)  # Placeholder until we implement a self-consistent calc
@@ -834,7 +835,7 @@ def CalcMoIWithEOS(Planet, Params):
         if (np.min(CMR2[iValid]) < Planet.Bulk.Cmeasured) and (np.max(CMR2[iValid]) > Planet.Bulk.Cmeasured):
             if Planet.Do.Fe_CORE:
                 tweakable = 'increasing Steps.nSil or decreasing Ocean.deltaP'
-            elif Planet.Do.POROUS_ROCK:
+            elif Planet.Do.POROUS_ROCK and not Planet.Do.FIXED_POROSITY:
                 tweakable = 'increasing Steps.nPoros'
             else:
                 tweakable = 'decreasing Sil.deltaHtidal'
@@ -892,7 +893,10 @@ def CalcMoIWithEOS(Planet, Params):
                      gCore_ms2[iCMR2core, :], rhoCore_kgm3[iCMR2core,:], CpCore_JkgK[iCMR2core,:],
                      alphaCore_pK[iCMR2core,:], kThermCore_WmK[iCMR2core,:])
     else:
-        RcoreOrHtidalLine = f'H_tidal = {Planet.Sil.Htidal_Wm3:.2e} W/m^3, '
+        if Planet.Do.POROUS_ROCK and not Planet.Do.FIXED_POROSITY:
+            RcoreOrHtidalLine = f'phi_max = {Planet.Sil.phiRockMax_frac:.3e}, '
+        else:
+            RcoreOrHtidalLine = f'H_tidal = {Planet.Sil.Htidal_Wm3:.2e} W/m^3, '
         MtotCore_kg = 0
         Planet.Core.rhoMean_kgm3 = 0
         Planet.Core.Rmean_m = 0

@@ -4,7 +4,7 @@ Europa-like, Seawater model with CONSTANT_INNER_DENSITY set to True
 For testing purposes
 """
 import numpy as np
-from Utilities.dataStructs import PlanetStruct, Constants
+from Utilities.defineStructs import PlanetStruct, Constants
 
 Planet = PlanetStruct('Test7')
 

@@ -1,7 +1,7 @@
 import numpy as np
 from Thermodynamics.FromLiterature.InnerEOS import TsolidusHirschmann2000
 from Thermodynamics.FromLiterature.HydroEOS import GetPhaseIndices
-from Utilities.dataStructs import Constants
+from Utilities.defineStructs import Constants
 
 def SeismicCalcs(Planet, Params):
     """ Calculation of seismic properties, including wave speeds

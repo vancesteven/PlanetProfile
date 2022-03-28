@@ -2,7 +2,7 @@ import numpy as np
 import logging as log
 from scipy.io import loadmat
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline, interp1d
-from Utilities.dataStructs import Constants
+from Utilities.defineStructs import Constants
 from seafreeze import seafreeze as SeaFreeze
 
 def Molal2ppt(b_molkg, m_gmol):

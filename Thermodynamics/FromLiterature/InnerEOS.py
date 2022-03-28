@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from scipy.interpolate import RectBivariateSpline, interp1d as Interp1D, griddata as GridData
-from Utilities.dataStructs import Constants
+from Utilities.defineStructs import Constants
 
 class PerplexEOSStruct:
     """ Loads in Perple_X table and creates interpolators that can be called to

@@ -1,6 +1,6 @@
 import numpy as np
 import logging as log
-from Utilities.dataStructs import Constants
+from Utilities.defineStructs import Constants
 from gsw.freezing import t_freezing as gswTfreeze
 from gsw.conversions import CT_from_t, C_from_SP as gswConduct_mScm
 from gsw.density import rho, alpha, sound_speed as gswVP_ms

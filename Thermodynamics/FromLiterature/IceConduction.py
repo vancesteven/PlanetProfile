@@ -1,7 +1,7 @@
 import numpy as np
 import logging as log
 import scipy.interpolate as spi
-from Utilities.dataStructs import Constants
+from Utilities.defineStructs import Constants
 from Thermodynamics.FromLiterature.HydroEOS import PhaseConv, IceEOSStruct
 from Thermodynamics.FromLiterature.ThermalProfiles import GetPbConduct
 

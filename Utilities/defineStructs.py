@@ -51,6 +51,7 @@ class DoSubstruct:
         self.P_EFFECTIVE = True  # Whether to use effective pressure, modeled as lithostatic less hydrostatic pressure, to determine pore closure behavior (see Vitovtova et al., 2014)
         self.IONOS_ONLY = False  # Whether to ignore conducting layers within the body and model magnetic induction happening only in the ionosphere
         self.TAUP_SEISMIC = False  # Whether to make TauP model files and some basic plots using obspy.taup
+        self.FIXED_POROSITY = False  # Whether to force tidal heating to vary instead of porosity to find a matching MoI for bodies with no iron core
 
 
 """ Layer step settings """

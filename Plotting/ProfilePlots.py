@@ -7,7 +7,7 @@ from matplotlib.collections import PatchCollection
 import os
 from pathlib import Path
 from Utilities.SetupInit import SetupFilenames
-from Utilities.dataStructs import Constants
+from Utilities.defineStructs import Constants
 
 def GeneratePlots(Planet, Params):
 

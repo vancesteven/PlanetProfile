@@ -4,7 +4,7 @@ import os
 import numpy as np
 import logging as log
 from Utilities.PPversion import ppVerNum, CheckCompat
-from Utilities.dataStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
+from Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
 from Thermodynamics.FromLiterature.HydroEOS import OceanEOSStruct, IceEOSStruct
 
 def SetupInit(Planet, Params):
@@ -52,6 +52,9 @@ def SetupInit(Planet, Params):
     else:
         if Planet.Sil.phiRangeMult <= 1:
             raise ValueError(f'Sil.phiRangeMult = {Planet.Sil.phiRangeMult}, but it must be greater than 1.')
+        
+    if not Planet.Do.POROUS_ICE:
+        Planet.Ocean.phiMax_frac = {key:0 for key in Planet.Ocean.phiMax_frac.keys()}
 
     if not Planet.Do.P_EFFECTIVE:
         # Peffective is calculated from Psil - alpha*Ppore, so setting alpha to zero avoids the need for repeated
@@ -160,7 +163,7 @@ def SetupFilenames(Planet, Params):
         saveBase += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.0f}WtPpt' + \
                     f'_Tb{Planet.Bulk.Tb_K:}K'
         if Planet.Do.POROUS_ICE: saveBase += '_PorousIce'
-    if Planet.Sil.mantleEOSName is not None: saveBasee += Planet.Sil.mantleEOSname
+    if Planet.Sil.mantleEOSName is not None: saveBase += Planet.Sil.mantleEOSname
 
     datBase = os.path.join(datPath, saveBase)
     DataFiles = DataFilesSubstruct(datBase)

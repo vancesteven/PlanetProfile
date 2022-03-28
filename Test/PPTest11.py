@@ -4,7 +4,7 @@ Europa-like, Seawater model with porous ice at the surface and porous rock at th
 For testing purposes
 """
 import numpy as np
-from Utilities.dataStructs import PlanetStruct, Constants
+from Utilities.defineStructs import PlanetStruct, Constants
 
 Planet = PlanetStruct('Test11')
 
