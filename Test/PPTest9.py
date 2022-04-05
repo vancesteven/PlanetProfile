@@ -31,7 +31,7 @@ Planet.Steps.iSilStart = Planet.Steps.nIceI
 """ Hydrosphere assumptions/settings """
 Planet.Ocean.comp = 'MgSO4'
 Planet.Ocean.wOcean_ppt = 100
-Planet.Ocean.deltaP = 4.0
+Planet.Ocean.deltaP = 15.0
 Planet.Ocean.deltaT = 10.0
 Planet.Ocean.PHydroMax_MPa = 2000.0
 Planet.Ocean.THydroMax_K = 350.0

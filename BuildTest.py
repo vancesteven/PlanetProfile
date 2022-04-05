@@ -76,7 +76,7 @@ def simple():
     Params.CALC_SEISMIC = True
     Params.CALC_CONDUCT = True
 
-    testPlanet = importlib.import_module('Test.PPTest10').Planet
+    testPlanet = importlib.import_module('Test.PPTest15').Planet
     _ = PlanetProfile(testPlanet, Params)
     log.info('Simple test complete!')
     return

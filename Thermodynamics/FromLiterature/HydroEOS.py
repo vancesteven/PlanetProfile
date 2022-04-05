@@ -21,8 +21,17 @@ class OceanEOSStruct:
         if elecType is None:
             self.elecType = 'Vance2018'
 
-        # Get tabular data from the appropriate source for this composition
-        if wOcean_ppt == 0:
+        # Get tabular data from the appropriate source for the specified ocean composition
+        if compstr == 'none':
+            self.fn_phase = lambda P,T: np.zeros_like(P, dtype=np.int_)
+            self.type = 'No H2O'
+            self.m_gmol = 0.0
+            self.fn_rho_kgm3 = lambda P,T: np.zeros_like(P)
+            self.fn_Cp_JkgK = self.fn_rho_kgm3
+            self.fn_alpha_pK = self.fn_rho_kgm3
+            self.fn_kTherm_WmK = self.fn_rho_kgm3
+            self.fn_Seismic = lambda P,T: (np.zeros_like(P), np.zeros_like(P))
+        elif wOcean_ppt == 0:
             self.type = 'SeaFreeze'
             self.m_gmol = Constants.mH2O_gmol
 
@@ -82,16 +91,18 @@ class OceanEOSStruct:
             self.m_gmol = Constants.mNaCl_gmol
             raise ValueError('Unable to load ocean EOS. NaCl is not implemented yet.')
         else:
-            raise ValueError(f'Unable to load ocean EOS. compstr="{compstr}" but options are Seawater, NH3, MgSO4, and NaCl.')
+            raise ValueError(f'Unable to load ocean EOS. compstr="{compstr}" but options are "Seawater", "NH3", "MgSO4", ' +
+                             '"NaCl", and "none" (for waterless bodies).')
 
-        self.fn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
-        self.fn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
-        self.fn_alpha_pK = RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
-        self.fn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
+        if compstr != 'none':
+            self.fn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
+            self.fn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
+            self.fn_alpha_pK = RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
+            self.fn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
 
 
 class IceEOSStruct:
-    def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0):
+    def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0):
         # Make sure arrays are long enough to interpolate
         nPs = np.size(P_MPa)
         nTs = np.size(T_K)
@@ -141,8 +152,10 @@ class IceEOSStruct:
 
         if porosType is None or porosType == 'none':
             self.fn_phi_frac = lambda P, T: np.zeros_like(P)
+            self.POROUS = False
         else:
-            self.fn_phi_frac = GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, None, P_MPa, T_K)
+            self.fn_phi_frac = GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, None, P_MPa, T_K, phiMin_frac)
+            self.POROUS = True
 
         # Combine pore fluid properties with matrix properties in accordance with
         # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
@@ -252,21 +265,21 @@ def PhaseConv(phase):
     """
     if phase == 0:
         phaseStr = 'water1'
-    elif phase == 1:
+    elif abs(phase) == 1:
         phaseStr = 'Ih'
-    elif phase == 2:
+    elif abs(phase) == 2:
         phaseStr = 'II'
-    elif phase == 3:
+    elif abs(phase) == 3:
         phaseStr = 'III'
-    elif phase == 5:
+    elif abs(phase) == 5:
         phaseStr = 'V'
-    elif phase == 6:
+    elif abs(phase) == 6:
         phaseStr = 'VI'
-    elif phase == Constants.phaseClath:
+    elif abs(phase) == Constants.phaseClath:
         phaseStr = 'Clath'
-    elif phase == Constants.phaseSil:
+    elif phase >= Constants.phaseSil and phase < Constants.phaseSil+10:
         phaseStr = 'Sil'
-    elif phase == Constants.phaseFe:
+    elif phase >= Constants.phaseFe:
         phaseStr = 'Fe'
     else:
         raise ValueError(f'PhaseConv does not have a definition for phase ID {phase:d}.')
@@ -320,16 +333,30 @@ def GetPhaseIndices(phase):
     phase = np.array(phase)
 
     indsLiquid = np.where(phase==0)[0]
-    indsIceI = np.where(phase==1)[0]
+    indsIceI = np.where(phase==-1)[0]
+    indsIceIwet = np.where(phase==-1)[0]
     indsIceII = np.where(phase==2)[0]
+    indsIceIIund = np.where(phase==-2)[0]
     indsIceIII = np.where(phase==3)[0]
+    indsIceIIIund = np.where(phase==-3)[0]
     indsIceV = np.where(phase==5)[0]
+    indsIceVund = np.where(phase==-5)[0]
     indsIceVI = np.where(phase==6)[0]
+    indsIceVIund = np.where(phase==-6)[0]
     indsClath = np.where(phase==Constants.phaseClath)[0]
-    indsSil = np.where(phase==Constants.phaseSil)[0]
-    indsFe = np.where(phase==Constants.phaseFe)[0]
+    indsClathWet = np.where(phase==-Constants.phaseClath)[0]
+    indsSil = np.where(np.logical_and(phase>=Constants.phaseSil, phase<Constants.phaseSil+10))[0]
+    indsSilLiq = np.where(phase==Constants.phaseSil)[0]
+    indsSilI = np.where(phase==Constants.phaseSil+1)[0]
+    indsSilII = np.where(phase==Constants.phaseSil+2)[0]
+    indsSilIII = np.where(phase==Constants.phaseSil+3)[0]
+    indsSilV = np.where(phase==Constants.phaseSil+5)[0]
+    indsSilVI = np.where(phase==Constants.phaseSil+6)[0]
+    indsFe = np.where(phase>=Constants.phaseFe)[0]
 
-    return indsLiquid, indsIceI, indsIceII, indsIceIII, indsIceV, indsIceVI, indsClath, indsSil, indsFe
+    return indsLiquid, indsIceI, indsIceIwet, indsIceII, indsIceIIund, indsIceIII, indsIceIIIund, indsIceV, indsIceVund, \
+               indsIceVI, indsIceVIund, indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, \
+               indsSilV, indsSilVI, indsFe
 
 
 def kThermIsobaricAnderssonIbari2005(T_K, phase):
@@ -358,7 +385,7 @@ def kThermIsobaricAnderssonIbari2005(T_K, phase):
     D = np.array([np.nan, 630, 695, 93.2, np.nan, 38.0, 50.9])
     X = np.array([np.nan, 0.995, 1.097, 0.822, np.nan, 0.612, 0.612])
 
-    kTherm_WmK = D[phase] * T_K**(-X[phase])
+    kTherm_WmK = D[abs(phase)] * T_K**(-X[abs(phase)])
 
     return kTherm_WmK
 
@@ -388,7 +415,7 @@ def kThermIsothermalAnderssonIbari2005(P_MPa, phase):
     F = np.array([np.nan, -0.44, 0.2, 0.2, np.nan, 0.2, 0.16])
 
     # Note the 1e-3 factor because F has units of 1/GPa
-    kTherm_WmK = np.exp(E[phase] + F[phase] * P_MPa * 1e-3)
+    kTherm_WmK = np.exp(E[abs(phase)] + F[abs(phase)] * P_MPa * 1e-3)
 
     return kTherm_WmK
 

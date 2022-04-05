@@ -72,6 +72,8 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     CpMid_JkgK = iceEOS.fn_Cp_JkgK(Pmid_MPa, Tconv_K, grid=False)
     alphaMid_pK = iceEOS.fn_alpha_pK(Pmid_MPa, Tconv_K, grid=False)
     kMid_WmK = iceEOS.fn_kTherm_WmK(Pmid_MPa, Tconv_K, grid=False)
+    if iceEOS.POROUS:
+        log.warning('Porosity corrections are not applied in solid-state convection models.')
     # Rayleigh number of whole ice layer, derived using viscosity of convective region
     Ra = alphaMid_pK * CpMid_JkgK * rhoMid_kgm3**2 * gtop_ms2 * (Tb_K - Ttop_K) * zb_m**3 / etaConv_Pas / kMid_WmK
     # Rayleigh number of lower thermal boundary layer, from parameterization results of Deschamps and Sotin (2000)

@@ -1,5 +1,6 @@
 import numpy as np
 import logging as log
+import scipy.interpolate as spi
 from Thermodynamics.FromLiterature.HydroEOS import GetPhaseIndices
 from Utilities.defineStructs import Constants
 
@@ -12,44 +13,170 @@ def ElecConduct(Planet, Params):
     # Initialize outputs as NaN so that we get errors if we missed any layers
     Planet.sigma_Sm = np.zeros(Planet.Steps.nTotal) * np.nan
 
-    if Params.CALC_CONDUCT:
-        # Identify which indices correspond to which phases
-        indsLiquid, indsI, indsII, indsIII, indsV, indsVI, indsClath, indsSil, indsFe = GetPhaseIndices(Planet.phase)
+    # Identify which indices correspond to which phases
+    indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
+        indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
+        indsFe = GetPhaseIndices(Planet.phase)
 
-        # Calculate and/or assign conductivities for each phase type
-        if np.size(indsI) != 0:
-            if Planet.Do.POROUS_ICE:
-                Planet.sigma_Sm[indsI] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm, 0,
-                                                                        Planet.phi_frac[indsI], Planet.Ocean.Jsigma)
-            else:
-                Planet.sigma_Sm[indsI] = Planet.Ocean.sigmaIce_Sm
-        if np.size(indsLiquid) != 0:
-            Planet.sigma_Sm[indsLiquid] = Planet.Ocean.EOS.fn_sigma_Sm(Planet.P_MPa[indsLiquid], Planet.T_K[indsLiquid])
-        if np.size(indsII) != 0:
-            Planet.sigma_Sm[indsII] = Planet.Ocean.sigmaIce_Sm
-        if np.size(indsIII) != 0:
-            Planet.sigma_Sm[indsIII] = Planet.Ocean.sigmaIce_Sm
-        if np.size(indsV) != 0:
-            Planet.sigma_Sm[indsV] = Planet.Ocean.sigmaIce_Sm
-        if np.size(indsVI) != 0:
-            Planet.sigma_Sm[indsVI] = Planet.Ocean.sigmaIce_Sm
-        if np.size(indsClath) != 0:
-            if Planet.Do.POROUS_ICE:
-                Planet.sigma_Sm[indsClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(Constants.sigmaClath_Sm, 0,
-                                                                        Planet.phi_frac[indsClath], Planet.Ocean.Jsigma)
-            else:
-                Planet.sigma_Sm[indsClath] = Constants.sigmaClath_Sm
-        if np.size(indsSil) != 0:
-            if Planet.Do.POROUS_ROCK and not Params.SKIP_INNER:
-                Planet.sigma_Sm[indsSil] = Planet.Sil.EOS.fn_porosCorrect(Planet.Sil.sigmaSil_Sm,
-                    Planet.Ocean.EOS.fn_sigma_Sm(Planet.Ppore_MPa[indsSil], Planet.T_K[indsSil]),
-                    Planet.phi_frac[indsSil], Planet.Sil.Jsigma)
+    if Params.CALC_CONDUCT:
+        if Planet.Do.POROUS_ICE:
+            Planet = CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
+                                                    indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet)
+        else:
+            Planet = CalcElecSolidIce(Planet, Params, indsLiq, indsI, indsII, indsIIund, indsIII, indsIIIund,
+                                                      indsV, indsVund, indsVI, indsVIund, indsClath)
+
+        if not Params.SKIP_INNER:
+            if Planet.Do.POROUS_ROCK:
+                Planet = CalcElecPorRock(Planet, Params, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI)
             else:
                 Planet.sigma_Sm[indsSil] = Planet.Sil.sigmaSil_Sm
-        if np.size(indsFe) != 0:
+
             Planet.sigma_Sm[indsFe] = Planet.Core.sigmaCore_Sm
 
-        if np.any(np.isnan(Planet.sigma_Sm)):
-            raise ValueError('Some layer conductivities are NaN. There is likely an error with layer phase assignments.')
+    return Planet
+
+
+def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
+                                   indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet):
+
+    # First do ocean (if present) and dry surface ice and clathrates
+    if np.size(indsLiq) != 0:
+        Planet.sigma_Sm[indsLiq] = Planet.Ocean.EOS.fn_sigma_Sm(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq])
+    if np.size(indsI) != 0:
+        Planet.sigma_Sm[indsI] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['Ih'], 0,
+                                                                               Planet.phi_frac[indsI],
+                                                                               Planet.Ocean.Jsigma)
+    if np.size(indsClath) != 0:
+        Planet.sigma_Sm[indsClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['Clath'], 0,
+                                                                                      Planet.phi_frac[indsClath],
+                                                                                      Planet.Ocean.Jsigma)
+    # We use the negative underplate phase IDs for dry HP ices
+    if np.size(indsIIund) != 0:
+        Planet.sigma_Sm[indsIIund] = Planet.Ocean.surfIceEOS['II'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['II'], 0,
+                                                                                   Planet.phi_frac[indsIIund],
+                                                                                   Planet.Ocean.Jsigma)
+    if np.size(indsIIIund) != 0:
+        Planet.sigma_Sm[indsIIIund] = Planet.Ocean.surfIceEOS['III'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['III'], 0,
+                                                                                     Planet.phi_frac[indsIIIund],
+                                                                                     Planet.Ocean.Jsigma)
+    if np.size(indsVund) != 0:
+        Planet.sigma_Sm[indsVund] = Planet.Ocean.surfIceEOS['V'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['V'], 0,
+                                                                                 Planet.phi_frac[indsVund],
+                                                                                 Planet.Ocean.Jsigma)
+    if np.size(indsVIund) != 0:
+        Planet.sigma_Sm[indsVIund] = Planet.Ocean.surfIceEOS['VI'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['VI'], 0,
+                                                                                   Planet.phi_frac[indsVIund],
+                                                                                   Planet.Ocean.Jsigma)
+    # Next, do liquid-filled ice and clathrate pores
+    if np.size(indsIwet) != 0:
+        # First, get pore fluid conductivity
+        sigmaFluid_Sm = Planet.Ocean.EOS.fn_sigma_Sm(Planet.Ppore_MPa[indsIwet], Planet.T_K[indsIwet])
+        # Account for possible errors in pore fluid conductivity calcs
+        validSigs = np.logical_not(np.isnan(sigmaFluid_Sm))
+        sigmaFluid_Sm = spi.griddata(Planet.r_m[indsIwet][validSigs], sigmaFluid_Sm[validSigs], Planet.r_m[indsIwet])
+        Planet.sigma_Sm[indsIwet] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['Ih'], sigmaFluid_Sm,
+                                                                                  Planet.phi_frac[indsIwet],
+                                                                                  Planet.Ocean.Jsigma)
+    if np.size(indsClathWet) != 0:
+        # First, get pore fluid conductivity
+        sigmaFluid_Sm = Planet.Ocean.EOS.fn_sigma_Sm(Planet.Ppore_MPa[indsClathWet], Planet.T_K[indsClathWet])
+        # Account for possible errors in pore fluid conductivity calcs
+        validSigs = np.logical_not(np.isnan(sigmaFluid_Sm))
+        sigmaFluid_Sm = spi.griddata(Planet.r_m[indsClathWet][validSigs], sigmaFluid_Sm[validSigs], Planet.r_m[indsClathWet])
+        Planet.sigma_Sm[indsClathWet] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['Clath'], sigmaFluid_Sm,
+                                                                                         Planet.phi_frac[indsClathWet],
+                                                                                         Planet.Ocean.Jsigma)
+    if np.size(indsII) != 0:
+        # First, get pore fluid conductivity
+        sigmaFluid_Sm = Planet.Ocean.EOS.fn_sigma_Sm(Planet.Ppore_MPa[indsII], Planet.T_K[indsII])
+        # Account for possible errors in pore fluid conductivity calcs
+        validSigs = np.logical_not(np.isnan(sigmaFluid_Sm))
+        sigmaFluid_Sm = spi.griddata(Planet.r_m[indsII][validSigs], sigmaFluid_Sm[validSigs], Planet.r_m[indsII])
+        Planet.sigma_Sm[indsII] = Planet.Ocean.iceEOS['II'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['II'], sigmaFluid_Sm,
+                                                                                  Planet.phi_frac[indsII],
+                                                                                  Planet.Ocean.Jsigma)
+    if np.size(indsIII) != 0:
+        # First, get pore fluid conductivity
+        sigmaFluid_Sm = Planet.Ocean.EOS.fn_sigma_Sm(Planet.Ppore_MPa[indsIII], Planet.T_K[indsIII])
+        # Account for possible errors in pore fluid conductivity calcs
+        validSigs = np.logical_not(np.isnan(sigmaFluid_Sm))
+        sigmaFluid_Sm = spi.griddata(Planet.r_m[indsIII][validSigs], sigmaFluid_Sm[validSigs], Planet.r_m[indsIII])
+        Planet.sigma_Sm[indsIII] = Planet.Ocean.iceEOS['III'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['III'], sigmaFluid_Sm,
+                                                                                  Planet.phi_frac[indsIII],
+                                                                                  Planet.Ocean.Jsigma)
+    if np.size(indsV) != 0:
+        # First, get pore fluid conductivity
+        sigmaFluid_Sm = Planet.Ocean.EOS.fn_sigma_Sm(Planet.Ppore_MPa[indsV], Planet.T_K[indsV])
+        # Account for possible errors in pore fluid conductivity calcs
+        validSigs = np.logical_not(np.isnan(sigmaFluid_Sm))
+        sigmaFluid_Sm = spi.griddata(Planet.r_m[indsV][validSigs], sigmaFluid_Sm[validSigs], Planet.r_m[indsV])
+        Planet.sigma_Sm[indsV] = Planet.Ocean.iceEOS['V'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['V'], sigmaFluid_Sm,
+                                                                                  Planet.phi_frac[indsV],
+                                                                                  Planet.Ocean.Jsigma)
+    if np.size(indsVI) != 0:
+        # First, get pore fluid conductivity
+        sigmaFluid_Sm = Planet.Ocean.EOS.fn_sigma_Sm(Planet.Ppore_MPa[indsVI], Planet.T_K[indsVI])
+        # Account for possible errors in pore fluid conductivity calcs
+        validSigs = np.logical_not(np.isnan(sigmaFluid_Sm))
+        sigmaFluid_Sm = spi.griddata(Planet.r_m[indsVI][validSigs], sigmaFluid_Sm[validSigs], Planet.r_m[indsVI])
+        Planet.sigma_Sm[indsVI] = Planet.Ocean.iceEOS['VI'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['VI'], sigmaFluid_Sm,
+                                                                                  Planet.phi_frac[indsVI],
+                                                                                  Planet.Ocean.Jsigma)
+
+
+    return Planet
+
+
+def CalcElecSolidIce(Planet, Params, indsLiq, indsI, indsII, indsIIund, indsIII, indsIIIund,
+                                     indsV, indsVund, indsVI, indsVIund, indsClath):
+
+    # Calculate and/or assign conductivities for each phase type
+    if np.size(indsLiq) != 0:
+        Planet.sigma_Sm[indsLiq] = Planet.Ocean.EOS.fn_sigma_Sm(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq])
+
+    Planet.sigma_Sm[indsI] = Planet.Ocean.sigmaIce_Sm['Ih']
+    Planet.sigma_Sm[np.concatenate((indsII,  indsIIund))] =  Planet.Ocean.sigmaIce_Sm['II']
+    Planet.sigma_Sm[np.concatenate((indsIII, indsIIIund))] = Planet.Ocean.sigmaIce_Sm['III']
+    Planet.sigma_Sm[np.concatenate((indsV,   indsVund))] =   Planet.Ocean.sigmaIce_Sm['V']
+    Planet.sigma_Sm[np.concatenate((indsVI,  indsVIund))] =  Planet.Ocean.sigmaIce_Sm['VI']
+    Planet.sigma_Sm[indsClath] = Planet.Ocean.sigmaIce_Sm['Clath']
+
+    return Planet
+
+
+def CalcElecPorRock(Planet, Params, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI):
+    # Apply Wong et al. (1984) model based on comparing an Archie's law formulation against
+    # measurements with glass beads: https://doi.org/10.1103/PhysRevB.30.6606
+    # This assumes the porosity dependence of conductivity has a sharp knee,
+    # and pore connectivity ~shuts off below some threshold (~5%)
+
+    # First, get pore fluid conductivity
+    sigmaFluid_Sm = Planet.Ocean.EOS.fn_sigma_Sm(Planet.Ppore_MPa[indsSilLiq], Planet.T_K[indsSilLiq])
+    # Account for possible errors in pore fluid conductivity calcs
+    validSigs = np.logical_not(np.isnan(sigmaFluid_Sm))
+    sigmaFluid_Sm = spi.griddata(Planet.r_m[indsSilLiq][validSigs], sigmaFluid_Sm[validSigs], Planet.r_m[indsSilLiq])
+
+    # Initialize conductivity array for all pore materials
+    sigmaPore_Sm = np.zeros_like(Planet.sigma_Sm)
+    # Fill with appropriate values
+    sigmaPore_Sm[indsSilLiq] = sigmaFluid_Sm
+    sigmaPore_Sm[indsSilI] =   Planet.Ocean.sigmaIce_Sm['Ih']
+    sigmaPore_Sm[indsSilII] =  Planet.Ocean.sigmaIce_Sm['II']
+    sigmaPore_Sm[indsSilIII] = Planet.Ocean.sigmaIce_Sm['III']
+    sigmaPore_Sm[indsSilV] =   Planet.Ocean.sigmaIce_Sm['V']
+    sigmaPore_Sm[indsSilVI] =  Planet.Ocean.sigmaIce_Sm['VI']
+    # Chop sigmaPore down to just the silicate indices
+    sigmaPore_Sm = sigmaPore_Sm[indsSil]
+
+    # Next, assign dependence based on porosity threshold
+    belowThresh = Planet.phi_frac[indsSil] <  Planet.Sil.poreConductThresh_frac
+    aboveThresh = Planet.phi_frac[indsSil] >= Planet.Sil.poreConductThresh_frac
+    sigmaPore_Sm[belowThresh] = Planet.Sil.poreConductPrefac * \
+                                sigmaPore_Sm[belowThresh] * Planet.phi_frac[indsSil][belowThresh]**Planet.Sil.poreConductBelowExp
+    sigmaPore_Sm[aboveThresh] = sigmaPore_Sm[aboveThresh] * Planet.phi_frac[indsSil][aboveThresh]**Planet.Sil.poreConductAboveExp
+    # Now combine with the conductivity of the rock matrix
+    Planet.sigma_Sm[indsSil] = Planet.Sil.EOS.fn_porosCorrect(Planet.Sil.sigmaSil_Sm,
+        sigmaPore_Sm, Planet.phi_frac[indsSil], Planet.Sil.Jsigma)
 
     return Planet

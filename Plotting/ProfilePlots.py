@@ -96,7 +96,7 @@ def PlotWedge(Planet, Params):
     width = (math.pi / 7)*180/math.pi  # angular width of wedge to be plotted
     patches = []  # for storing wedge objects
     colors = []  # colors for layers
-    iPhaseTrans = 1+np.argwhere(Planet.phase[1:] != Planet.phase[:-1])  # finds indexes of transitions between layers
+    iPhaseTrans = 1+np.where(Planet.phase[1:] != Planet.phase[:-1])[0]  # finds indexes of transitions between layers
     iPhaseTrans = np.insert(iPhaseTrans, 0, 0) # this makes sure the ice phase is included
     for layerPhase in iPhaseTrans:
 
@@ -125,9 +125,10 @@ def PlotWedge(Planet, Params):
     im = None
 
     for i, radius in enumerate(radii):
-        print(i, colors[i])
+        iCol = i % np.size(colors)
+        print(i, colors[iCol])
 
-        patches.append(Wedge((0.5,0), radius, 90 - width, 90 + width, lw = 0.25, fc = "none" if i == funNum else colors[i], ec="k", zorder=i))  # creating wedges
+        patches.append(Wedge((0.5,0), radius, 90 - width, 90 + width, lw = 0.25, fc = "none" if i == funNum else colors[iCol], ec="k", zorder=i))  # creating wedges
         ax.add_patch(patches[-1])
 
         if i == funNum:

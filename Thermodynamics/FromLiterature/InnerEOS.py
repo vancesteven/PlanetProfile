@@ -8,7 +8,7 @@ class PerplexEOSStruct:
         obtain silicate/core properties as functions of P and T.
     """
     def __init__(self, EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
-                 HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350):
+                 HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None):
         self.comp = EOSfname[:-4]
         self.dir = os.path.join('Thermodynamics', 'Perple_X', 'output_data')
         self.fpath = os.path.join(self.dir, EOSfname)
@@ -158,7 +158,7 @@ class PerplexEOSStruct:
                 self.PREMlookup = Interp1D(PPREM_MPa, zPREM_km)
             else:
                 self.PREMlookup = None
-            self.fn_phi_frac = GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, self.PREMlookup, P1D_MPa, T1D_K)
+            self.fn_phi_frac = GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, self.PREMlookup, P1D_MPa, T1D_K, phiMin_frac)
 
             # Combine pore fluid properties with matrix properties in accordance with
             # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
@@ -191,7 +191,7 @@ def GetHtidalFunc(HtidalConst_Wm3):
     return fn_Htidal_Wm3
 
 
-def GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, PREMlookup, P1D_MPa, T1D_K):
+def GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, PREMlookup, P1D_MPa, T1D_K, phiMin_frac):
     # Porosity models as functions of P and T, set by variable vacuum maximum
     # porosity, pore closure pressure, or model coefficients.
 
@@ -210,9 +210,6 @@ def GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, PREMlookup, P1D_MPa, T1D_K)
         else:
             c = 6.15
             phi_frac = phiTop_frac * np.exp(-c * P2D_MPa / Pclosure_MPa)
-            # Set porosity to be zero when it is vanishingly small, i.e.
-            # at pressures greater than double the pore closure pressure.
-            phi_frac[P2D_MPa > 2 * Pclosure_MPa] = 0.0
     elif porosType == 'Vitovtova2014' or porosType == 'Chen2020':
         # Earth rock porosity parameterizations referenced to ocean worlds
         # via PREM lookup
@@ -245,5 +242,5 @@ def GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, PREMlookup, P1D_MPa, T1D_K)
         raise ValueError(f'Porosity type "{porosType}" is not supported.')
 
     # Create unchanging function for the expected porosity
-    fn_phi_frac = RectBivariateSpline(P1D_MPa, T1D_K, phi_frac)
+    fn_phi_frac = lambda P, T: RectBivariateSpline(P1D_MPa, T1D_K, phi_frac)(P, T, grid=False)
     return fn_phi_frac

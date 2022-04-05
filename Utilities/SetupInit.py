@@ -5,7 +5,7 @@ import numpy as np
 import logging as log
 from Utilities.PPversion import ppVerNum, CheckCompat
 from Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
-from Thermodynamics.FromLiterature.HydroEOS import OceanEOSStruct, IceEOSStruct
+from Thermodynamics.FromLiterature.HydroEOS import OceanEOSStruct
 
 def SetupInit(Planet, Params):
 
@@ -50,6 +50,8 @@ def SetupInit(Planet, Params):
         Planet.Sil.poreH2Orho_kgm3 = 0
         Planet.Sil.phiRockMax_frac = 0
     else:
+        if Planet.Sil.porosType != 'Han2014':
+            Planet.Do.FIXED_POROSITY = True
         if Planet.Sil.phiRangeMult <= 1:
             raise ValueError(f'Sil.phiRangeMult = {Planet.Sil.phiRangeMult}, but it must be greater than 1.')
         
@@ -57,11 +59,15 @@ def SetupInit(Planet, Params):
         Planet.Ocean.phiMax_frac = {key:0 for key in Planet.Ocean.phiMax_frac.keys()}
 
     if not Planet.Do.P_EFFECTIVE:
-        # Peffective is calculated from Psil - alpha*Ppore, so setting alpha to zero avoids the need for repeated
+        # Peffective is calculated from Pmatrix - alpha*Ppore, so setting alpha to zero avoids the need for repeated
         # conditional checks during layer propagation -- calculations are typically faster than conditional checks.
         if Planet.Sil.alphaPeff != 0:
             log.debug('Sil.alphaPeff was not 0, but is being set to 0 because Do.P_EFFECTIVE is False.')
         Planet.Sil.alphaPeff = 0
+        for phase in Planet.Ocean.alphaPeff.keys():
+            if Planet.Ocean.alphaPeff[phase] != 0:
+                log.debug(f'Ocean.alphaPeff[{phase}] was not 0, but is being set to 0 because Do.P_EFFECTIVE is False.')
+            Planet.Ocean.alphaPeff[phase] = 0
 
     if Planet.Do.NO_H2O:
         log.info('Modeling a waterless body.')
@@ -79,6 +85,8 @@ def SetupInit(Planet, Params):
         Planet.Ocean.comp = 'None'
         Planet.Ocean.wOcean_ppt = 0.0
         Planet.Ocean.deltaP = 0.0
+        # Generate zero-yielding ocean "EOS" for use in porosity calculations
+        Planet.Ocean.EOS = OceanEOSStruct('none', None, None, None, None)
     else:
         # In addition, perform some checks on underplating settings to be sure they make sense
         if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:

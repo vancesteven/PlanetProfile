@@ -1,12 +1,12 @@
 """
-PPTest8
-Ganymede-like, pure water model, no explicit ice III or V underplate
+PPTest15
+Ganymede-like, pure water model, with rock porosity, no explicit ice III or V underplate
 For testing purposes
 """
 import numpy as np
 from Utilities.defineStructs import PlanetStruct, Constants
 
-Planet = PlanetStruct('Test8')
+Planet = PlanetStruct('Test15')
 
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 2634.1e3
@@ -20,7 +20,7 @@ Planet.Bulk.Tb_K = 258.0
 """ Layer step settings """
 Planet.Steps.nIceI = 200
 Planet.Steps.nRefRho = 30
-Planet.Steps.nSilMax = 300
+Planet.Steps.nSilMax = 200
 Planet.Steps.nCore = 10
 Planet.Steps.iSilStart = Planet.Steps.nIceI
 
@@ -35,8 +35,8 @@ Planet.Ocean.THydroMax_K = 350.0
 Planet.Sil.Qrad_Wkg = 5.33e-14
 Planet.Sil.Htidal_Wm3 = 1e-18
 # Rock porosity
-Planet.Do.POROUS_ROCK = False
-Planet.Do.P_EFFECTIVE = False
+Planet.Do.POROUS_ROCK = True
+Planet.Sil.phiRockMax_frac = 0.4
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'CM_hydrous_differentiated_Ganymede_excluding_fluid_properties.tab'
 Planet.Sil.rhoSilWithCore_kgm3 = 3539.0

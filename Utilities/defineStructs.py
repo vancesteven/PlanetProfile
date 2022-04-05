@@ -1,11 +1,12 @@
 """
-dataStructs: Create empty classes and subclasses for holding body-specific data
-Values are typically set to None as defaults; body-specific values should be set in the PPBody.py files.
+defineStructs: Create empty classes and subclasses for holding body-specific data
+Values are typically set to None as defaults; body-specific values should be set in the PPBody.py files,
+all of which override the settings below.
 Optional SWITCHES are in all caps. These typically have a default value of False.
 
 Example usage:
 Planet = PlanetStruct('nameOfBody')
-Planet.R_m = 1560e3
+Planet.Bulk.R_m = 1560e3
 Planet.Ocean.comp = 'MgSO4'
 Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
 Planet.Do.Fe_CORE = False
@@ -88,7 +89,7 @@ class OceanSubstruct:
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
         self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
         self.dkdTI_WmK2 = -0.012  # Temperature derivative of ice I relative to the melting temp. Default is from Melinder (2007).
-        self.sigmaIce_Sm = 1e-8  # Assumed conductivity of ice layers
+        self.sigmaIce_Sm = {'Ih':1e-8, 'II':1e-8, 'III':1e-8, 'V':1e-8, 'VI':1e-8, 'Clath':5e-5}  # Assumed conductivity of ice phases (see Constants.sigmaClath_Sm below)
         self.THydroMax_K = 320  # Assumed maximum ocean temperature for generating ocean EOS functions. For large bodies like Ganymede, Callisto, and Titan, larger values are required.
         self.PHydroMax_MPa = None  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
         self.MgSO4elecType = 'Vance2018'  # Type of electrical conductivity model to use for MgSO4. Options: 'Vance2018', 'Pan2020'
@@ -99,9 +100,11 @@ class OceanSubstruct:
         self.surfIceEOS = {}  # Equation of state data to use for surface ice layers
         self.iceEOS = {}  # Equation of state data to use for ice layers within the ocean
         """ Porosity parameters """
-        self.phiMax_frac = {'Ih':None, 'Clath':None}  # Porosity (void fraction) of surface ice, extrapolated down to 0 pressure.
-        self.Pclosure_MPa = {'Ih':20, 'Clath':120}  # Pressure threshold in MPa beyond which pores in ice shut completely and porosity drops rapidly to zero, for use in Han et al. (2014) model.
-        self.porosType = {'Ih':'Han2014', 'Clath':'Han2014'}  # Porosity model to apply for ice. Options currently only include 'Han2014'.
+        self.phiMax_frac = {'Ih':0.2, 'II':0.2, 'III':0.2, 'V':0.2, 'VI':0.2, 'Clath':0.2}  # Porosity (void fraction) of ices, extrapolated down to 0 pressure. All arbitrary at 0.2, as placeholders.
+        self.Pclosure_MPa = {'Ih':20, 'II':200, 'III':200, 'V':200, 'VI':300, 'Clath':120}  # Pressure threshold in MPa beyond which pores in ice shut completely and porosity drops rapidly to zero, for use in Han et al. (2014) model.
+        self.porosType = {'Ih':'Han2014', 'II':'Han2014', 'III':'Han2014', 'V':'Han2014', 'VI':'Han2014', 'Clath':'Han2014'}  # Porosity model to apply for ices. Valid options currently only include 'Han2014', because other models use Earth-crust-based PREM model lookup.
+        self.phiMin_frac = 1e-4  # Minimum porosity to model in ice, i.e. below this we just set to zero
+        self.alphaPeff = {'Ih':0.95, 'II':0.95, 'III':0.95, 'V':0.95, 'VI':0.95, 'Clath':0.95}  # Scaling factor for Peff in pores. See Sil.alphaPeff
         # See descriptions of these quantities in SilSubstruct -- most will be the same here and there but seismic properties especially may differ.
         self.Jrho = 1
         self.JkTherm = 1
@@ -118,12 +121,12 @@ class OceanSubstruct:
 class SilSubstruct:
 
     def __init__(self):
-        self.alphaPeff = 0.95  # Scaling factor by which the hydrostatic pressure of pore-filling fluids reduces pore closure pressure. Value taken from the high end of Vitovtova et al. (2014).
+        self.alphaPeff = 0.95  # Scaling factor by which the hydrostatic pressure of pore-filling fluids reduces pore closure pressure. Value taken from the high end of Vitovtova et al. (2014), based on Bernabe (1987). Vitovtova et al. also note that granites vary from 0.56-1.05 and sandstones from 0.35-0.75.
         self.sigmaSil_Sm = 1e-16  # Assumed conductivity of silicate rock
         self.Qrad_Wkg = 0  # Average radiogenic heating rate for silicates in W/kg.
         self.Htidal_Wm3 = 0  # Average tidal heating rate for silicates in W/m^3.
-        self.HtidalMin_Wm3 = 1e-16  # Minimum average tidal heating rate in silicates in W/m^3 above zero to start with for finding MoI match with no core.
-        self.HtidalMax_Wm3 = 1e-6  # Maximum average tidal heating to stop MoI search
+        self.HtidalMin_Wm3 = 1e-12  # Minimum average tidal heating rate in silicates in W/m^3 above zero to start with for finding MoI match with no core.
+        self.HtidalMax_Wm3 = 1e-7  # Maximum average tidal heating to stop MoI search
         self.deltaHtidal_logUnits = 1/3  # Step size by which to increment Htidal_Wm3 for finding MoI match with no core.
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermSil_WmK)
         """ Porosity parameters """
@@ -132,6 +135,11 @@ class SilSubstruct:
         self.Pclosure_MPa = 350  # Pressure threshold in MPa beyond which pores in silicates shut completely and porosity drops to zero, for use in Han et al. (2014) model. See Saito et al. (2016) for evidence of values up to ~750 MPa: https://doi.org/10.1016/j.tecto.2016.03.044
         self.porosType = 'Han2014'  # Porosity model to apply for silicates. Options are 'Han2014', 'Vitovtova2014', 'Chen2020'.
         self.poreH2Orho_kgm3 = 1023  # Arbitrary ocean water density used to calculate filled-pore rock densities. This value is that used in Vance et al. (2018).
+        self.poreConductPrefac = 3.3  # Prefactor by which to multiply pore fluid conductivity at porosities below some threshold, based on measurements from Wong et al. (1984).
+        self.poreConductBelowExp = 2.3  # Exponent to use for below-threshold dependence of conductivity on porosity for pore fluids
+        self.poreConductAboveExp = 1.5  # Exponent to use for above-threshold dependence of conductivity on porosity for pore fluids -- 3/2 is that expected for spherical grains of the matrix material; Wong et al. (1984) suggest it fits well to above-threshold measurements, and this is supported by Golden et al. (2007): https://doi.org/10.1029/2007GL030447
+        self.poreConductThresh_frac = self.poreConductPrefac**(1/(self.poreConductAboveExp - self.poreConductBelowExp))  # Threshold in porosity at which the below-threshold Archie's law fit from above parameters is equal to above-threshold dependence
+        self.phiMin_frac = 1e-4  # Minimum porosity to model in silicates, i.e. below this we just set to zero
         # J values for exponent of pore property / overlaying matrix combination as in Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
         # Values X combine as Xtot^J = Xmatrix^J * (1 - phi) + Xpore^J * phi, where phi is the porosity (volume fraction) of pore space filled with the secondary material.
         # Values of J typically range from -1 to 1, where 1 is a direct mean, e.g. Xtot = Xrock*(1-phi) + Xpore*phi and -1 is a geometric mean, e.g. Xtot = Xrock || Xpore = 1/((1-phi)/Xrock + phi/Xpore).
@@ -297,7 +305,7 @@ class PlanetStruct:
         self.Htidal_Wm3 = None  # Tidal heating rate of each layer in W/m^3
         self.Ppore_MPa = None  # Pressure of fluids assumed to occupy full pore space
         self.rhoMatrix_kgm3 = None  # Mass density of matrix material (rock or ice)
-        self.rhoPore_kgm3 = None  # Mass density of pore material (ocean water)
+        self.rhoPore_kgm3 = None  # Mass density of pore material (typically ocean water)
         # Individual calculated quantities
         self.zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km
         self.zClath_m = None  # Thickness of clathrate layer in surface ice in m
@@ -407,8 +415,11 @@ class ConstantsStruct:
         self.kThermSil_WmK = 4.0  # Fixed thermal conductivity of silicates in W/(m K)
         self.kThermFe_WmK = 33.3  # Fixed thermal conductivity of core material in W/(m K)
         self.phaseClath = 30  # Phase ID to use for (sI methane) clathrates. Must be larger than 6 to keep space for pure ice phases
-        self.phaseSil = 50  # Phase ID for silicates
-        self.phaseFe = 100  # Phase ID to use for iron core material
+        self.phaseSil = 50  # Phase ID for silicates (non-porous or liquid-filled). We add the phase ID for ice phases in pores, e.g. 56 is silicates with interstitial ice VI.
+        self.phaseFe = 100  # Phase ID to use for liquid iron core material
+        self.phaseFeSolid = 105  # Phase ID for solid iron core material
+        self.phaseFeS = 110  # Phase ID for liquid FeS
+        self.phaseFeSsolid = 115  # Phase ID for solid FeS
         self.sigmaClath_Sm = 5e-5  # Roughly fixed conductivity in the range 260-281 K, as reported by Stern et al. (2021): https://doi.org/10.1029/2021GL093475
         self.sigmaCO2Clath_Sm = 6.5e-4  # Also from Stern et al. (2021), at 273 K and 25% gas-filled porosity
         self.EactCO2Clath_kJmol = 46.5  # Also from Stern et al. (2021)
