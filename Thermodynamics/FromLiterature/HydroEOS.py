@@ -26,11 +26,12 @@ class OceanEOSStruct:
             self.fn_phase = lambda P,T: np.zeros_like(P, dtype=np.int_)
             self.type = 'No H2O'
             self.m_gmol = 0.0
-            self.fn_rho_kgm3 = lambda P,T: np.zeros_like(P)
-            self.fn_Cp_JkgK = self.fn_rho_kgm3
-            self.fn_alpha_pK = self.fn_rho_kgm3
-            self.fn_kTherm_WmK = self.fn_rho_kgm3
+            self.rho_kgm3 = np.zeros((np.size(P_MPa), np.size(T_K)))
+            self.Cp_JkgK = self.rho_kgm3
+            self.alpha_pK = self.rho_kgm3
+            self.kTherm_WmK = self.rho_kgm3
             self.fn_Seismic = lambda P,T: (np.zeros_like(P), np.zeros_like(P))
+            self.fn_sigma_Sm = lambda P,T: np.zeros_like(P)
         elif wOcean_ppt == 0:
             self.type = 'SeaFreeze'
             self.m_gmol = Constants.mH2O_gmol
@@ -94,11 +95,10 @@ class OceanEOSStruct:
             raise ValueError(f'Unable to load ocean EOS. compstr="{compstr}" but options are "Seawater", "NH3", "MgSO4", ' +
                              '"NaCl", and "none" (for waterless bodies).')
 
-        if compstr != 'none':
-            self.fn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
-            self.fn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
-            self.fn_alpha_pK = RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
-            self.fn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
+        self.fn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, self.rho_kgm3)
+        self.fn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, self.Cp_JkgK)
+        self.fn_alpha_pK = RectBivariateSpline(P_MPa, T_K, self.alpha_pK)
+        self.fn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, self.kTherm_WmK)
 
 
 class IceEOSStruct:

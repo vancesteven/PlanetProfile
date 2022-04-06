@@ -86,7 +86,7 @@ def SetupInit(Planet, Params):
         Planet.Ocean.wOcean_ppt = 0.0
         Planet.Ocean.deltaP = 0.0
         # Generate zero-yielding ocean "EOS" for use in porosity calculations
-        Planet.Ocean.EOS = OceanEOSStruct('none', None, None, None, None)
+        Planet.Ocean.EOS = OceanEOSStruct('none', None, np.array([0,1,2,3]), np.array([0,1,2,3]), None)
     else:
         # In addition, perform some checks on underplating settings to be sure they make sense
         if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:

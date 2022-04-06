@@ -5,6 +5,17 @@ from Thermodynamics.FromLiterature.HydroEOS import PhaseConv
 from Thermodynamics.FromLiterature.ThermalProfiles import ConductiveTemperature
 
 def EvalLayerProperties(Planet, Params, iStart, iEnd, EOS, P_MPa, T_K):
+    """ Evaluate EOS functions for a given pressure and temperature range.
+
+        Args:
+            iStart, iEnd (int): Layer array indices to start and end the calculations.
+                P_MPa[0] should correspond to Planet.P_MPa[iStart], etc.
+            EOS (EOSStruct): Query-able ice, ocean, sil, or core EOS containing functions
+                for the listed layer properties to be calculated.
+            P_MPa, T_K (float, shape (iEnd-iStart)): List of (P,T) pairs to evaluate.
+        Assigns Planet attributes:
+            rhoMatrix_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK
+    """
 
     Planet.rhoMatrix_kgm3[iStart:iEnd] = EOS.fn_rho_kgm3(  P_MPa, T_K, grid=False)
     Planet.Cp_JkgK[iStart:iEnd] =        EOS.fn_Cp_JkgK(   P_MPa, T_K, grid=False)
@@ -15,6 +26,18 @@ def EvalLayerProperties(Planet, Params, iStart, iEnd, EOS, P_MPa, T_K):
 
 
 def PorosityCorrectionVacIce(Planet, Params, iStart, iEnd, EOS, P_MPa, T_K):
+    """ Correct layer properties retrieved with EvalLayerProperties according
+        to the porosity of the material. This function assumes pores are empty.
+
+        Args:
+            iStart, iEnd (int): Layer array indices to start and end the calculations.
+                P_MPa[0] should correspond to Planet.P_MPa[iStart], etc.
+            EOS (EOSStruct): Query-able ice EOS containing functions for the listed
+                layer properties to be calculated, including fn_phi_frac.
+            P_MPa, T_K (float, shape (iEnd-iStart)): List of (P,T) pairs to evaluate.
+        Assigns Planet attributes:
+            phi_frac, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK
+    """
 
     Planet.phi_frac[iStart:iEnd] = EOS.fn_phi_frac(P_MPa, T_K)
     # Only evaluate at places where porosity is non-negligible, so that we
@@ -22,7 +45,10 @@ def PorosityCorrectionVacIce(Planet, Params, iStart, iEnd, EOS, P_MPa, T_K):
     iEval = np.where(Planet.phi_frac[iStart:iEnd] >= Planet.Ocean.phiMin_frac)[0]
     iSolid = np.where(Planet.phi_frac[iStart:iEnd] < Planet.Ocean.phiMin_frac)[0]
 
+    # Assign matrix densities as total densities for those layers with porosities
+    # low enough to be below our modeling threshold
     Planet.rho_kgm3[iStart:iEnd][iSolid] = Planet.rhoMatrix_kgm3[iStart:iEnd][iSolid]
+    # Correct each quantity according to J rules (see Thermodynamics.FromLiterature.InnerEOS)
     Planet.rho_kgm3[iStart:iEnd][iEval] = EOS.fn_porosCorrect(
         Planet.rhoMatrix_kgm3[iStart:iEnd][iEval], 0,
         Planet.phi_frac[iStart:iEnd][iEval], Planet.Ocean.Jrho)
@@ -40,6 +66,22 @@ def PorosityCorrectionVacIce(Planet, Params, iStart, iEnd, EOS, P_MPa, T_K):
 
 
 def PorosityCorrectionFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore):
+    """ Correct ice layer properties retrieved with EvalLayerProperties according
+        to the porosity of the material. This function assumes pores contain
+        ocean fluids.
+
+        Args:
+            iStart, iEnd (int): Layer array indices to start and end the calculations.
+                P_MPa[0] should correspond to Planet.P_MPa[iStart], etc.
+            EOS (EOSStruct): Query-able ice EOS for the matrix material
+                containing functions for the listed layer properties to be calculated,
+                including fn_phi_frac.
+            EOSpore (EOSStruct): Ocean EOS to evaluate for pore material.
+        Assigns Planet attributes:
+            Ppore_MPa, phi_frac, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK
+        Returns:
+            phasePore
+    """
 
     alphaPeff = Planet.Ocean.alphaPeff[EOS.phaseStr]
     DeltaPpore_MPa = 0.0
@@ -64,6 +106,7 @@ def PorosityCorrectionFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore):
             alphaPore_pK =   EOSpore.fn_alpha_pK(  Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
             kThermPore_WmK = EOSpore.fn_kTherm_WmK(Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
 
+            # Correct each quantity according to J rules (see Thermodynamics.FromLiterature.InnerEOS)
             Planet.rho_kgm3[i] = EOS.fn_porosCorrect(Planet.rhoMatrix_kgm3[i], rhoPore_kgm3,
                                                        Planet.phi_frac[i], Planet.Ocean.Jrho)
             Planet.Cp_JkgK[i] = EOS.fn_porosCorrect(Planet.Cp_JkgK[i] * Planet.rhoMatrix_kgm3[i], CpPore_JkgK * rhoPore_kgm3,
@@ -91,6 +134,16 @@ def PorosityCorrectionFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore):
 
 
 def PropagateConduction(Planet, Params, iStart, iEnd):
+    """ Use P, T, and layer properties as determined from conductive layer profile to evaluate
+        an EOS to get the layer thicknesses, gravity, and masses.
+
+        Args:
+            iStart, iEnd (int): Layer array indices corresponding to the last evaluated
+                layer and the end of the conductive profile (e.g. material transition),
+                respectively.
+        Assigns Planet attributes:
+            z_m, r_m, MLayer_kg, g_ms2
+    """
 
     thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart])
     for i in range(iStart+1, iEnd+1):
@@ -108,117 +161,196 @@ def PropagateConduction(Planet, Params, iStart, iEnd):
 
 
 def PropagateAdiabaticSolid(Planet, Params, iStart, iEnd, EOS):
+    """ Use layer-top values and assumption of an adiabatic thermal profile
+        to evaluate the conditions at the bottom of each layer in the specified
+        zone (iStart to iEnd). This function assumes no porosity.
+
+        Args:
+            iStart, iEnd (int): Layer array indices corresponding to the last evaluated
+                layer and the end of the conductive profile (e.g. material transition),
+                respectively.
+            EOS (EOSStruct): Ice, ocean, sil, or core EOS to query for layer properties.
+        Assigns Planet attributes:
+            z_m, r_m, MLayer_kg, g_ms2, rhoMatrix_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK,
+            rho_kgm3
+    """
 
     thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart-1])
     for i in range(iStart, iEnd):
         # Increment depth based on change in pressure, combined with gravity and density
         Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6 / Planet.g_ms2[i-1] / \
-                        Planet.rho_kgm3[i-1]
+                        Planet.rhoMatrix_kgm3[i-1]
+        # Convert depth to radius
         Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
-        Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1] ** 3 - Planet.r_m[i] ** 3)
+        # Calculate layer mass
+        Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rhoMatrix_kgm3[i-1] * (Planet.r_m[i-1] ** 3 - Planet.r_m[i] ** 3)
         thisMAbove_kg += Planet.MLayer_kg[i-1]
         thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+        # Use remaining mass below in Gauss's law for gravity to get g at the top of this layer
         Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i] ** 2
 
         # Propagate adiabatic thermal profile
         Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
-                        Planet.Cp_JkgK[i-1] / Planet.rho_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6
+                        Planet.Cp_JkgK[i-1] / Planet.rhoMatrix_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6
+        # Now use P and T for this layer to get physical properties
         Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
         Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i], grid=False)
         Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
         Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
-        Planet.rho_kgm3[i] = Planet.rhoMatrix_kgm3[i] + 0.0
+
+        log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+
+    Planet.rho_kgm3[iStart:iEnd] = Planet.rhoMatrix_kgm3[iStart:iEnd] + 0.0
+
+    return Planet
+
+
+def PropagateAdiabaticPorousVacIce(Planet, Params, iStart, iEnd, EOS):
+    """ Use layer-top values and assumption of an adiabatic thermal profile in ices
+        to evaluate the conditions at the bottom of each layer in the specified
+        zone (iStart to iEnd). This function assumes pores are empty.
+
+        Args:
+            iStart, iEnd (int): Layer array indices corresponding to the last evaluated
+                layer and the end of the conductive profile (e.g. material transition),
+                respectively.
+            EOS (EOSStruct): Ice EOS to query for layer properties.
+        Assigns Planet attributes:
+            z_m, r_m, MLayer_kg, g_ms2, rhoMatrix_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK,
+            phi_frac, rho_kgm3
+    """
+
+    if iStart == 0:
+        raise RuntimeError('Adiabatic calculations rely on overlying layer properties to begin recursion.')
+    thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart-1])
+
+    for i in range(iStart, iEnd):
+        # Increment depth based on change in pressure, combined with gravity and density
+        Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6 / Planet.g_ms2[i-1] / Planet.rho_kgm3[i-1]
+        # Convert depth to radius
+        Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
+        # Calculate layer mass
+        Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
+        thisMAbove_kg += Planet.MLayer_kg[i-1]
+        thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+        # Use remaining mass below in Gauss's law for gravity to get g at the top of this layer
+        Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
+
+        # Propagate adiabatic thermal profile
+        Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
+                        Planet.Cp_JkgK[i-1] / Planet.rho_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6
+        # Now use P and T for this layer to get physical properties
+        Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
+        Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i], grid=False)
+        Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
+        Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+
+        # Correct for porosity in ice I layers, assuming pores are empty.
+        Planet.phi_frac[i] = EOS.fn_phi_frac(Planet.P_MPa[i], Planet.T_K[i])
+        # Only model porosity if above some threshold amount, to save on computation when
+        # the porosity is negligible.
+        if Planet.phi_frac[i] >= Planet.Ocean.phiMin_frac:
+            Planet.rho_kgm3[i] = EOS.fn_porosCorrect(Planet.rhoMatrix_kgm3[i], 0,
+                                                       Planet.phi_frac[i], Planet.Ocean.Jrho)
+            Planet.Cp_JkgK[i] = EOS.fn_porosCorrect(Planet.Cp_JkgK[i] * Planet.rhoMatrix_kgm3[i], 0,
+                                                       Planet.phi_frac[i], Planet.Ocean.JCp) / Planet.rho_kgm3[i]
+            Planet.alpha_pK[i] = EOS.fn_porosCorrect(Planet.alpha_pK[i], 0,
+                                                       Planet.phi_frac[i], Planet.Ocean.Jalpha)
+            Planet.kTherm_WmK[i] = EOS.fn_porosCorrect(Planet.kTherm_WmK[i], 0,
+                                                       Planet.phi_frac[i], Planet.Ocean.JkTherm)
+        else:
+            Planet.phi_frac[i] = 0.0
+            Planet.rho_kgm3[i] = Planet.rhoMatrix_kgm3[i] + 0.0
 
         log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     return Planet
 
 
-def PropagateAdiabaticPorousVacIce(Planet, Params, iStart, iEnd, EOS):
-
-    if iStart == 0:
-        raise RuntimeError('Adiabatic calculations rely on overlying layer properties to begin recursion.')
-    thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart-1])
-
-    for i in range(iStart, iEnd):
-            # Increment depth based on change in pressure, combined with gravity and density
-            Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6 / Planet.g_ms2[i-1] / Planet.rho_kgm3[i-1]
-            Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
-            Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
-            thisMAbove_kg += Planet.MLayer_kg[i-1]
-            thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
-            Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-
-            Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
-                            Planet.Cp_JkgK[i-1] / Planet.rho_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6
-            Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
-            Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i], grid=False)
-            Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
-            Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
-
-            # Correct for porosity in ice I layers
-            Planet.phi_frac[i] = EOS.fn_phi_frac(Planet.P_MPa[i], Planet.T_K[i])
-            if Planet.phi_frac[i] >= Planet.Ocean.phiMin_frac:
-                Planet.rho_kgm3[i] = EOS.fn_porosCorrect(Planet.rhoMatrix_kgm3[i], 0,
-                                                           Planet.phi_frac[i], Planet.Ocean.Jrho)
-                Planet.Cp_JkgK[i] = EOS.fn_porosCorrect(Planet.Cp_JkgK[i] * Planet.rhoMatrix_kgm3[i], 0,
-                                                           Planet.phi_frac[i], Planet.Ocean.JCp) / Planet.rho_kgm3[i]
-                Planet.alpha_pK[i] = EOS.fn_porosCorrect(Planet.alpha_pK[i], 0,
-                                                           Planet.phi_frac[i], Planet.Ocean.Jalpha)
-                Planet.kTherm_WmK[i] = EOS.fn_porosCorrect(Planet.kTherm_WmK[i], 0,
-                                                           Planet.phi_frac[i], Planet.Ocean.JkTherm)
-            else:
-                Planet.phi_frac[i] = 0.0
-                Planet.rho_kgm3[i] = Planet.rhoMatrix_kgm3[i] + 0.0
-
-            log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
-
-    return Planet
-
-
 def PropagateAdiabaticPorousFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore):
-    # For use when the phase of all matrix layers is known, e.g. in convection
-    # calculations when we're modeling the middle convecting layers
+    """ Use layer-top values and assumption of an adiabatic thermal profile in ices
+        to evaluate the conditions at the bottom of each layer in the specified
+        zone (iStart to iEnd). This function assumes pores are filled with ocean
+        fluids.
 
+        Args:
+            iStart, iEnd (int): Layer array indices corresponding to the last evaluated
+                layer and the end of the conductive profile (e.g. material transition),
+                respectively.
+            EOS (EOSStruct): Ice EOS to query for layer properties.
+            EOSpore (EOSStruct): Ocean EOS to query for pore material properties.
+        Assigns Planet attributes:
+            Ppore_MPa, z_m, r_m, MLayer_kg, g_ms2, rhoMatrix_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK,
+            phi_frac, rho_kgm3
+        Returns:
+            phasePore
+    """
+
+    # Get the coupling between pore pressure and effective pressure (how effectively
+    # the pressure of pore materials resists their closure) for this material, so
+    # we don't have to keep evaluating it as we do here.
     alphaPeff = Planet.Ocean.alphaPeff[EOS.phaseStr]
 
+    # Assign phasePore all zeros. Since we assume pores contain liquid, we won't
+    # change any of these values. This is for forward compatibility, in case the
+    # assumption of pores containing ocean fluid is relaxed.
     phasePore = np.zeros(iEnd - iStart, dtype=np.int_)
+    # Initialize DeltaPpore at 0 so we can use it to set the top pore pressure
+    # equal to the pressure of the overlying material. In this, we're assuming
+    # iStart corresponds to a layer for which there is communication between
+    # the overlying material and pore space, i.e. that overlying ocean fluids
+    # contribute the layer-top pressure for both matrix and pore materials.
     DeltaPpore_MPa = 0.0
 
     if iStart == 0:
         raise RuntimeError('Adiabatic calculations rely on overlying layer properties to begin recursion.')
+    # Initialize overlying mass
     thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart-1])
-    if Planet.Ppore_MPa[iStart-1] == 0:
-        Planet.Ppore_MPa[iStart-1] = Planet.P_MPa[i-1] + 0.0
+    # Ensure the top-layer pore pressure will be incremented up to the matching overburden pressure
+    Planet.Ppore_MPa[iStart-1] = Planet.P_MPa[iStart] + 0.0
 
+    # Begin adiabatic profile propagation
     for i in range(iStart, iEnd):
         # Increment depth based on change in pressure, combined with gravity and density
         Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6 / Planet.g_ms2[i-1] / Planet.rho_kgm3[i-1]
+        # Convert depth to radius
         Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
+        # Calculate layer mass
         Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
         thisMAbove_kg += Planet.MLayer_kg[i-1]
         thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+        # Use remaining mass below in Gauss's law for gravity to get g at the top of this layer
         Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
 
+        # Propagate adiabatic thermal profile
         Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
                         Planet.Cp_JkgK[i-1] / Planet.rho_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6
+        # Now use P and T for this layer to get physical properties
         Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
         Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i], grid=False)
         Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
         Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
 
         # Correct for porosity in ice I layers
+        # First, increment pore pressure based on hydrostatic pressure from
+        # overlying pore material, assuming pore connectivity.
         Planet.Ppore_MPa[i] = Planet.Ppore_MPa[i-1] + DeltaPpore_MPa
+        # Next, use pore pressure coupling constant (alpha) to find effective
+        # pore closure pressure
         Peff_MPa = Planet.P_MPa[i] - alphaPeff * Planet.Ppore_MPa[i]
+        # Use Peff to find porosity (alpha = 0 for Do.P_EFFECTIVE = False)
         Planet.phi_frac[i] = EOS.fn_phi_frac(Peff_MPa, Planet.T_K[i])
-        if Planet.phi_frac[i] >= Planet.Ocean.phiMin_frac:
-            # In ices, assume pores are filled only with liquid.
 
+        # Only model porosity if above some threshold amount, to save on computation when
+        # the porosity is negligible.
+        if Planet.phi_frac[i] >= Planet.Ocean.phiMin_frac:
+            # In ices, assume pores are filled only with liquid. Find liquid physical properties
             rhoPore_kgm3 =   EOSpore.fn_rho_kgm3(  Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
             CpPore_JkgK =    EOSpore.fn_Cp_JkgK(   Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
             alphaPore_pK =   EOSpore.fn_alpha_pK(  Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
             kThermPore_WmK = EOSpore.fn_kTherm_WmK(Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
 
+            # Combine them with matrix physical properties
             Planet.rho_kgm3[i] = EOS.fn_porosCorrect(Planet.rhoMatrix_kgm3[i], rhoPore_kgm3,
                                                        Planet.phi_frac[i], Planet.Ocean.Jrho)
             Planet.Cp_JkgK[i] = EOS.fn_porosCorrect(Planet.Cp_JkgK[i] * Planet.rhoMatrix_kgm3[i], CpPore_JkgK * rhoPore_kgm3,
@@ -232,6 +364,8 @@ def PropagateAdiabaticPorousFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore
             # issues at the start/end points and the need to calculate the depth change twice
             DeltaPpore_MPa = 1e-6 * rhoPore_kgm3 * Planet.g_ms2[i] * (Planet.z_m[i] - Planet.z_m[i-1])
         else:
+            # Zero out porosity and ignore it if it's below threshold (this also takes care of
+            # negative porosity values that can happen from our RectBivariateSpline implementation).
             Planet.phi_frac[i] = 0.0
             Planet.rho_kgm3[i] = Planet.rhoMatrix_kgm3[i] + 0.0
             Planet.Ppore_MPa[i] = Planet.P_MPa[i] + 0.0
@@ -243,6 +377,38 @@ def PropagateAdiabaticPorousFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore
 
 
 def PropagateConductionProfilesSolid(Planet, Params, nProfiles, profRange, rSilEnd_m):
+    """ Same as PropagateConductionSolid, but for silicate layers, for which we calculate
+        a number of conductive profiles simultaneously as part of MoI matching.
+
+        Args:
+            nProfiles (int): Number of parallel layer profiles to calculate for silicates.
+                Determined by the number of hydrosphere layers greater than Steps.iSilStart,
+                because we use each hydrosphere layer as a starting radius option for the
+                silicates.
+            profRange (int range, Iterable): Usually range(nProfiles), but included for
+                compatibility with waterless bodies using the same calculations.
+            rSilEnd_m (float): Inner radius of silicates, if known. Usually 0, but nonzero
+                if we already found the core radius, i.e. by assuming constant silicate and
+                core densities using Do.CONSTANT_INNER_DENSITY = True.
+        Returns:
+            Psil_MPa (float, shape (nProfiles, Planet.Steps.nSilMax)): Pressures in silicate layers in MPa.
+                Test-case 2D array to evaluate -- we pick the closest mass match along one dimension
+                and the pressures correspond to the silicate layers for that match along the other
+                dimension.
+            rSil_m (float, shape (nProfiles, Planet.Steps.nSilMax+1)): Layer outer radii in m. Note
+                that this array contains one extra value along the profile axis, i.e. an extra layer
+                radius for each profile. This is for convenience in taking differences between values,
+                and because r = 0 is not at the top of any layer. The last value does not get assigned
+                to Planet.r_m.
+            Tsil_K, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, gSil_kg, phiSil_frac,
+                HtidalSil_Wm3: Same as Psil_MPa but for other layer physical properties.
+            MHydro_kg (float, shape nProfiles): Total mass of hydrosphere above each silicate profile in kg.
+            KSsil_GPa, GSsil_GPa (float, shape (nProfiles, Planet.Steps.nSilMax)): Bulk and shear moduli,
+                respectively, of combined porous layer properties in GPa.
+            Ppore_kg, rhoPore_kgm3 (float, shape (nProfiles, Planet.Steps.nSilMax)): Pore properties.
+            phasePore (int, (nProfiles, Planet.Steps.nSilMax)): Liquid/ice phase indices of pore materials.
+            qTop_Wm2 (float, shape nProfiles): Heat flux leaving the top of the mantle for each profile in W/m^2.
+    """
 
     # Initialize output arrays and working arrays
     Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, \
@@ -266,8 +432,13 @@ def PropagateConductionProfilesSolid(Planet, Params, nProfiles, profRange, rSilE
 
 
 def PropagateConductionProfilesPorous(Planet, Params, nProfiles, profRange, rSilEnd_m):
+    """ See PropagateConductionProfilesSolid for variable descriptions.
+        Generally, Sil corrsponds to the rock matrix, Pore corresponds to the pore
+        material, and Tot is the combined physical properties of both.
+    """
 
     # Initialize output arrays and working arrays in common with non-porous modeling
+    # with top-layer values
     Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, \
     MHydro_kg, gSil_ms2, phiSil_frac, HtidalSil_Wm3, KSsil_GPa, GSsil_GPa, \
     Ppore_MPa, rhoPore_kgm3, phasePore, qTop_Wm2, fn_g_ms2 \
@@ -297,6 +468,18 @@ def PropagateConductionProfilesPorous(Planet, Params, nProfiles, profRange, rSil
 
 
 def InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m):
+    """ See PropagateConductionProfilesSolid for variable definitions.
+        Note that we will later truncate phasePore to be 1D along the
+        MoI- and mass-matching profile. The main purpose of this function
+        is to assign the top-layer values for the silicate profiles to
+        start the layer propagation.
+
+        Returns:
+            fn_g_ms2 (func, args: MAboveLayer_kg, rLayerBot_m): Gravity function to use for silicates. Linear if
+                there is no core, and same as for the hydrosphere (Gauss's law for gravity) if not. The linear
+                approximation is valid if the interior has constant density, which is clearly not the case,
+                but it avoids some dramatic blow-up problems in intermediate steps and isn't super far off reality.
+    """
 
     Psil_MPa, Tsil_K, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
     phiSil_frac, HtidalSil_Wm3, Ppore_MPa, rhoPore_kgm3, KSsil_GPa, GSsil_GPa \
@@ -324,7 +507,7 @@ def InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m):
     # This implementation may need to be changed to account for varying silicate
     # physical properties with depth, esp. porosity, that will affect the validity
     # of the constant-density approximation giving linear gravity.
-    if rSilEnd_m < 1:
+    if rSilEnd_m < 1 and not Planet.Do.Fe_CORE:
         # Constant density approximation yields usable gravity values that
         # introduce less inaccuracy than gravity values exploding because of
         # bulk mass misfit from MoI searching
@@ -341,12 +524,28 @@ def InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m):
 
 def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, gSil_ms20, kThermSil_WmK0,
     rhoSil_kgm30, KSsil_GPa0, GSsil_GPa0):
+    """ Initialize the layer propagation variables needed for porosity, which are mostly
+        not generated or used when porosity is not modeled.
+
+        Args:
+            nProfiles (int): Number of hydrosphere layers we use as outer silicate radii.
+            rSil_m0, Psil_MPa0, Tsil_K0, etc. (float, shape nProfiles): 0-index (top) layer
+                properties of the rock matrix for each profile.
+            rSil_m1 (float, shape nProfiles): 1-index (next one under top) layer radius.
+        Returns same as InitSil, plus:
+            kThermPore_WmK, KSpore_GPa, GSpore_GPa, DeltaPpore_MPa, kThermTot_WmK, KStot_GPa,
+                GStot_GPa, rhoTot_kgm3 (float, shape (nProfiles, Planet.Steps.nSilMax)):
+                Pore and combined porous material property arrays.
+    """
 
     kThermPore_WmK, KSpore_GPa, GSpore_GPa, DeltaPpore_MPa, \
         kThermTot_WmK, KStot_GPa, GStot_GPa, rhoTot_kgm3 \
         = (np.zeros((nProfiles, Planet.Steps.nSilMax)) for _ in range(8))
+    # Set uppermost pore pressure equal to the uppermost matrix material
     Ppore_MPa0 = Psil_MPa0 + 0.0
+    # Get effective pore closure pressure for top layer
     Peff_MPa = Psil_MPa0 - Planet.Sil.alphaPeff * Ppore_MPa0
+    # Get porosity of top layer
     phiSil_frac0 = Planet.Sil.fn_phi_frac(Peff_MPa, Tsil_K0)
     # Get pore fluid properties
     # First check for HP ice phases
@@ -399,10 +598,30 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
 def SilRecursionSolid(Planet, Params,
     Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg,
     gSil_ms2, HtidalSil_Wm3, KSsil_GPa, GSsil_GPa, qTop_Wm2, fn_g_ms2):
+    """ Propagate a conductive profile down through all silicate profiles.
+        In this case, we have different "knowns" than in the ice shell. There,
+        we assumed the bottom melting temperature, which gave us the bottom pressure
+        from the melting curve. Here, we know the radii from propagating the ice shell
+        and ocean down from the surface, so we use a linear radial profile now instead
+        of a linear pressure profile. This function assumes no porosity in the rocks.
 
+        Args: See PropagateConductionProfilesSolid
+        Returns:
+            Psil_MPa, Tsil_K, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2,
+                HtidalSil_Wm3, kThermSil_WmK (float, shape (nProfiles, Planet.Steps.nSilMax)):
+                Layer properties for silicates.
+    """
+
+    # Start propagation at index 1, because we already calculated the 0-index values to
+    # get us started here.
     for j in range(1, Planet.Steps.nSilMax):
+        # Increment overlying mass using initialization calculation
         MAboveSil_kg[:,j] = MAboveSil_kg[:,j-1] + MLayerSil_kg[:,j-1]
+        # Step pressure according to the local layer gravity and overlying mass increase
         Psil_MPa[:,j] = Psil_MPa[:,j-1] + 1e-6 * MLayerSil_kg[:,j-1] * gSil_ms2[:,j-1] / (4*np.pi*rSil_m[:,j]**2)
+        # Use Fourier's law and the heat flux consistent with that through the ice shell and ocean,
+        # corrected for the difference in radius and adding radiogenic + volumetric heating
+        # to determine the temperature change across the layer
         Tsil_K[:,j], qTop_Wm2 = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
                     kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
                     qTop_Wm2)
@@ -418,7 +637,6 @@ def SilRecursionSolid(Planet, Params,
         MLayerSil_kg[:,j] = rhoSil_kgm3[:,j] * 4/3*np.pi*(rSil_m[:,j]**3 - rSil_m[:,j+1]**3)
         HtidalSil_Wm3[:,j] = Planet.Sil.fn_Htidal_Wm3(rhoSil_kgm3[:,j], gSil_ms2[:,j], KSsil_GPa[:,j], GSsil_GPa[:,j])
 
-
     return Psil_MPa, Tsil_K, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
            HtidalSil_Wm3, kThermSil_WmK
 
@@ -429,13 +647,25 @@ def SilRecursionPorous(Planet, Params,
     KSsil_GPa, GSsil_GPa, phiSil_frac, Ppore_MPa, phasePore,
     rhoPore_kgm3, kThermPore_WmK, KSpore_GPa, GSpore_GPa, DeltaPpore_MPa,
     rhoTot_kgm3, kThermTot_WmK, KStot_GPa, GStot_GPa):
+    """ This is a far-more-complicated version of SilRecursionSolid that accounts
+        for porosity in the rock, assuming pores are entirely filled with ocean
+        fluid. The ocean EOS is queried using the pore pressure and layer temp to
+        determine the phase of the pore-filling material before the combined
+        properties are calculated.
+    """
 
+    # Start at index 1 because we already did index 0 to get started here.
     for j in range(1, Planet.Steps.nSilMax):
+        # Increment overlying mass
         MAboveSil_kg[:,j] = MAboveSil_kg[:,j-1] + MLayerSil_kg[:,j-1]
+        # Increment pressure based on layer properties of next layer up and size difference
         Psil_MPa[:,j] = Psil_MPa[:,j-1] + 1e-6 * MLayerSil_kg[:,j-1] * gSil_ms2[:,j-1] / (4*np.pi*rSil_m[:,j]**2)
+        # Apply Fourier's law using heat flux out the top, radiogenic, and tidal heating to find
+        # temperature change and heat flux into the bottom of the layer
         Tsil_K[:,j], qTop_Wm2 = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
                     kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
                     qTop_Wm2)
+        # Get matrix material physical properties
         rhoSil_kgm3[:,j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
         kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
         # Get KS and GS now as they are needed for Htidal calculation;
@@ -446,8 +676,13 @@ def SilRecursionPorous(Planet, Params,
         gSil_ms2[:,j] = fn_g_ms2(MAboveSil_kg[:,j], rSil_m[:,j])
 
         # Adjust for properties of pore material
+        # First, increment pore pressure, assuming hydrostatic pressure in pores, i.e.
+        # pores are fully connected and rock matrix supports them so that only overlying
+        # ocean pressure increases the pore pressure
         Ppore_MPa[:,j] = Ppore_MPa[:,j-1] + DeltaPpore_MPa[:,j-1]
+        # Get effective pore closure pressure using coupling constant (alpha)
         Peff_MPa = Psil_MPa[:,j] - Planet.Sil.alphaPeff * Ppore_MPa[:,j]
+        # Get porosity of rock matrix based on these considerations
         phiSil_frac[:,j] = Planet.Sil.fn_phi_frac(Peff_MPa, Tsil_K[:,j])
         # Get pore fluid properties
         # First check for HP ice phases
@@ -470,12 +705,16 @@ def SilRecursionPorous(Planet, Params,
             phases = np.unique(phasePore[:,j])
             # For each HP ice phase represented, perform the same calculations
             for phase in phases[phases != 0]:
+                # We never need to load iceEOS for ice Ih, so we need special handling to get
+                # pore-filling ice Ih properties
                 if phase == 1:
                     # We only get here if the MoI is consistent with a fully frozen ocean
                     thisIceEOS = Planet.Ocean.surfIceEOS['Ih']
                 else:
                     thisIceEOS = Planet.Ocean.iceEOS[PhaseConv(phase)]
+                # Get indices where this ice phase is present
                 iP = np.where(phasePore[:,j] == phase)[0]
+                # Evaluate pore material properties for this phase
                 rhoPore_kgm3[iP,j] = thisIceEOS.fn_rho_kgm3(Ppore_MPa[iP,j], Tsil_K[iP,j], grid=False)
                 kThermPore_WmK[iP,j] = thisIceEOS.fn_kTherm_WmK(Ppore_MPa[iP,j], Tsil_K[iP,j], grid=False)
                 GSpore_GPa[iP,j], KSpore_GPa[iP,j], _, _ = thisIceEOS.fn_Seismic(Ppore_MPa[iP,j], Tsil_K[iP,j])
@@ -488,6 +727,7 @@ def SilRecursionPorous(Planet, Params,
         KStot_GPa[:,j] = Planet.Sil.EOS.fn_porosCorrect(KSsil_GPa[:,j], KSpore_GPa[:,j], phiSil_frac[:,j], Planet.Sil.JKS)
         GStot_GPa[:,j] = Planet.Sil.EOS.fn_porosCorrect(GSsil_GPa[:,j], GSpore_GPa[:,j], phiSil_frac[:,j], Planet.Sil.JGS)
 
+        # Finally, get layer total mass and tidal heating rate
         MLayerSil_kg[:,j] = rhoTot_kgm3[:,j] * 4/3*np.pi*(rSil_m[:,j]**3 - rSil_m[:,j+1]**3)
         HtidalSil_Wm3[:,j] = Planet.Sil.fn_Htidal_Wm3(rhoTot_kgm3[:,j], gSil_ms2[:,j], KStot_GPa[:,j], GStot_GPa[:,j])
 

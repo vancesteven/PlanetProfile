@@ -17,6 +17,9 @@ def SilicateLayers(Planet, Params):
                 HtidalSil_Wm3, kThermTot_WmK, Ppore_MPa, rhoSil_kgm3, rhoPore_kgm3
                 (float, shape nHydroMax-2): State variables corresponding to the silicate layers for
                 each physically possible configuration based on the inputs.
+            phasePore (int, shape (nProfiles, Planet.Steps.nSil)): Liquid/ice phase of pore material.
+                 Later, we truncate this array to shape Planet.Steps.nSil with the MoI- and mass-
+                 matching profile.
     """
     if Planet.Do.CONSTANT_INNER_DENSITY or Planet.Do.NO_H2O:
         # If CONSTANT_INNER_DENSITY is True, we have already done the C/MR^2 calculations
@@ -37,6 +40,7 @@ def SilicateLayers(Planet, Params):
     else:
         rSilEnd_m = 0
 
+    # Finally, we're ready to perform the layer propagation within silicates
     if Planet.Do.POROUS_ROCK:
         Planet, Psil_MPa, Tsil_K, rSil_m, rhoTot_kgm3, MLayerSil_kg, MAboveSil_kg, \
         gSil_ms2, phiSil_frac, HtidalSil_Wm3, kThermTot_WmK, Ppore_MPa, rhoSil_kgm3, \

@@ -31,6 +31,7 @@ def full():
     nTests = len(fnmatch.filter(os.listdir('Test'), 'PPTest*'))
     for i in range(2, nTests+1):
         testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
+        log.info(f'Test case body: {testBase}{i}')
         _ = PlanetProfile(testPlanetN, Params)
 
         # Verify that we can reload things as needed in each case
@@ -43,6 +44,7 @@ def full():
         Params.CALC_NEW_REF = True
         Params.CALC_NEW_INDUC = True
 
+    testPlanet1.name = 'Test0'
     # Test that we can successfully run things not including parallelization options
     Params.DO_PARALLEL = False
     _ = PlanetProfile(copy.deepcopy(testPlanet1), Params)
@@ -76,7 +78,9 @@ def simple():
     Params.CALC_SEISMIC = True
     Params.CALC_CONDUCT = True
 
-    testPlanet = importlib.import_module('Test.PPTest15').Planet
+    i = 1
+    testPlanet = importlib.import_module(f'{testMod}{i}').Planet
+    log.info(f'Test case body: {testMod}{i}')
     _ = PlanetProfile(testPlanet, Params)
     log.info('Simple test complete!')
     return

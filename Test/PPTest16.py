@@ -1,38 +1,45 @@
 """
-PPTest15
-Io-like, waterless world, with porosity
+PPTest16
+Ganymede-like, pure water model, with rock porosity, no explicit ice III or V underplate
 For testing purposes
 """
 import numpy as np
 from Utilities.defineStructs import PlanetStruct, Constants
 
-Planet = PlanetStruct('Test15')
+Planet = PlanetStruct('Test16')
 
 """ Bulk planetary settings """
-Planet.Do.NO_H2O = True
-Planet.Bulk.qSurf_Wm2 = 140e-3
-Planet.Bulk.R_m = 1821.3e3
-Planet.Bulk.M_kg = 8.9319e22
+Planet.Bulk.R_m = 2634.1e3
+Planet.Bulk.M_kg = 1.4819e23
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
-Planet.Bulk.Cmeasured = 0.37824
-Planet.Bulk.Cuncertainty = 0.00022
+Planet.Bulk.Cmeasured = 0.3115
+Planet.Bulk.Cuncertainty = 0.0028
+Planet.Bulk.Tb_K = 258.0
 
 """ Layer step settings """
-Planet.Steps.nSilMax = 300
+Planet.Steps.nIceI = 200
+Planet.Steps.nRefRho = 30
+Planet.Steps.nSilMax = 200
 Planet.Steps.nCore = 10
+Planet.Steps.iSilStart = Planet.Steps.nIceI
+
+""" Hydrosphere assumptions/settings """
+Planet.Ocean.comp = 'PureH2O'
+Planet.Ocean.wOcean_ppt = 0
+Planet.Ocean.deltaP = 15.0
+Planet.Ocean.PHydroMax_MPa = 2000.0
+Planet.Ocean.THydroMax_K = 350.0
 
 """ Silicate Mantle """
-Planet.Sil.Qrad_Wkg = 5.33e-12
-Planet.Sil.Htidal_Wm3 = 1e-9
+Planet.Sil.Qrad_Wkg = 5.33e-14
+Planet.Sil.Htidal_Wm3 = 1e-18
 # Rock porosity
 Planet.Do.POROUS_ROCK = True
-Planet.Sil.phiRockMax_frac = 0.85
-Planet.Sil.Pclosure_MPa = 700
+Planet.Sil.phiRockMax_frac = 0.4
 # Mantle equation of state model
-Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
-Planet.Do.CONSTANT_INNER_DENSITY = True  # Forcing this on because we don't have a good Io-specific composition dialed in yet
-Planet.Sil.rhoSilWithCore_kgm3 = 3290.0
+Planet.Sil.mantleEOS = 'CM_hydrous_differentiated_Ganymede_excluding_fluid_properties.tab'
+Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
 
 """ Core assumptions """
 Planet.Do.Fe_CORE = True
