@@ -33,7 +33,7 @@ def PlotGravPres(Planet, Params):
     axes[1].set_xlabel('Pressure (GPa)')
     axes[1].set_ylabel('$r_\mathrm{' + Planet.name + '}$')
 
-    fig.subplots_adjust(wspace = 0.5)
+    fig.subplots_adjust(wspace=0.5)
     fig.suptitle('Gravity and pressure')
     fig.savefig(Params.FigureFiles.vgrav, format=Params.figFormat, dpi=300)
     plt.close()
@@ -46,11 +46,27 @@ def PlotHydrosphereProps(Planet, Params):
             'temp': Planet.T_K[:Planet.Steps.nHydro],
             'depth': Planet.z_m[:Planet.Steps.nHydro]/1000}
     fig, axes = plt.subplots(1, 2, figsize=Params.FigSize.vhydro)
+
+    # Plot reference profiles first, so they plot on bottom
+    if Params.PLOT_REF:
+        # Get strings for referencing and labeling
+        wList = [f'{w:.0f}' for w in Params.wRef_ppt[Planet.Ocean.comp]]
+        # Take care to only plot the values consistent with layer solutions
+        iPlot = Params.Pref_MPa < np.max(Planet.P_MPa[:Planet.Steps.nHydro])
+        data['Pref'] = Params.Pref_MPa[iPlot]
+        # Plot all reference melting curve densities
+        for i in range(Params.nRef):
+            data[wList[i]] = Params.rhoRef_kgm3[i,iPlot]
+            axes[0].plot('Pref', f'{wList[i]}', data=data, color=Params.refColor,
+                         lw=Params.refLW, ls=Params.refLS[Planet.Ocean.comp])
+
+    # Plot density vs. pressure curve for hydrosphere
     axes[0].plot('pressure', 'density', data=data)
     axes[0].set_xlabel('Pressure (MPa)')
     axes[0].set_ylabel('Density (kg/m$^3$)')
 
-    axes[1].plot('temp', 'depth', data = data)
+    # Plot thermal profile vs. depth in hydrosphere
+    axes[1].plot('temp', 'depth', data=data)
     axes[1].invert_yaxis()
     axes[1].set_xlabel('Temperature (K)')
     axes[1].set_ylabel('Depth (km)')

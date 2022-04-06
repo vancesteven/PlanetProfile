@@ -32,7 +32,7 @@ class OceanEOSStruct:
             self.kTherm_WmK = self.rho_kgm3
             self.fn_Seismic = lambda P,T: (np.zeros_like(P), np.zeros_like(P))
             self.fn_sigma_Sm = lambda P,T: np.zeros_like(P)
-        elif wOcean_ppt == 0:
+        elif wOcean_ppt == 0 or compstr == 'pure':
             self.type = 'SeaFreeze'
             self.m_gmol = Constants.mH2O_gmol
 

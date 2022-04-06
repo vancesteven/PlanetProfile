@@ -67,7 +67,7 @@ class StepsSubstruct:
         self.nIbottom = None  # Derived number of clathrate + ice I layers
         self.nIIIbottom = None  # Derived number of clathrate + ice I + ice III layers
         self.nSurfIce = None  # Derived number of outer ice layers (above ocean) -- sum of nIceI, nClath, nIceIIILitho, nIceVLitho
-        self.nStepsRefRho = None  # Number of values for plotting reference density curves (sets resolution)
+        self.nRefRho = None  # Number of values for plotting reference density curves (sets resolution)
         self.iSilStart = None  # Hydrosphere index at which to start silicate size search
         self.nSilMax = None  # Fixed max number of steps in silicate layers
         self.nSil = None  # Derived final number of steps in silicate layers
@@ -83,7 +83,7 @@ class StepsSubstruct:
 class OceanSubstruct:
 
     def __init__(self):
-        self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'NH3', 'NaCl'
+        self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'NH3', 'NaCl', 'none', 'pure'
         self.wOcean_ppt = None  # (Absolute) salinity: Mass concentration of above composition in parts per thousand (ppt)
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.

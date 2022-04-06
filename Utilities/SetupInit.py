@@ -20,6 +20,7 @@ def SetupInit(Planet, Params):
 
     # Get filenames for saving/loading
     Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
+    Params.fnameRef = os.path.join('Thermodynamics', 'RefProfiles', f'{Planet.Ocean.comp}.txt')
 
     # Set steps and settings for unused options to zero, check that we have settings we need
     if not Planet.Do.Fe_CORE:
@@ -177,6 +178,7 @@ def SetupFilenames(Planet, Params):
     DataFiles = DataFilesSubstruct(datBase)
     figBase = os.path.join(figPath, saveBase)
     FigureFiles = FigureFilesSubstruct(figBase, Params.xtn)
+    refBase = os.path.join('Thermodynamics', 'RefProfiles', f'{Planet.Ocean.comp}.txt')
 
     return DataFiles, FigureFiles
 

@@ -11,6 +11,7 @@ from Utilities.SetupInit import SetupInit, SetupFilenames
 from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from Thermodynamics.FromLiterature.Electrical import ElecConduct
 from Seismic import SeismicCalcs
+from Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
 from Plotting.ProfilePlots import GeneratePlots
 
 """ MAIN RUN BLOCK """
@@ -73,6 +74,14 @@ def PlanetProfile(Planet, Params):
         Planet, Params = ReloadProfile(Planet, Params)
 
     if not Params.SKIP_PLOTS:
+        if Params.CALC_NEW_REF:
+            # Calculate reference profiles showing melting curves for
+            # several salinities specified in config.py
+            Params = CalcRefProfiles(Planet, Params)
+        else:
+            # Reload refprofiles for this composition
+            Params = ReloadRefProfiles(Planet, Params)
+
         # Plotting functions
         log.warning('Temporarily quieting INFO and DEBUG messages due to a high number of current latex errors.')
         saveLevel = log.getLogger().getEffectiveLevel()

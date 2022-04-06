@@ -4,7 +4,7 @@ Overridden by any settings contained within PPBody.py files.
 """
 
 import shutil
-from Utilities.defineStructs import ParamsStruct
+from Utilities.defineStructs import ParamsStruct, Constants
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
@@ -32,6 +32,7 @@ Params.DEPRECATED =     False  # Whether to allow deprecated code to run. Will o
 Params.SKIP_PLOTS = False  # Whether to skip creation of all plots
 Params.PLOT_GRAVITY = True  # Whether to plot Gravity and Pressure
 Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
+Params.PLOT_REF = True  # Whether to plot reference melting curve densities on hydrosphere plot
 Params.PLOT_TRADEOFF = True  # Whether to plot mantle properties tradeoff
 Params.PLOT_WEDGE = True  # Whether to plot interior wedge diagram
 
@@ -73,8 +74,19 @@ Params.LEGEND = False  # Whether to force legends to appear
 Params.LegendPosition = None  # Where to place legends when forced
 Params.yLim = None  # y axis limits of hydrosphere density in "Conductivity with interior properties" plot
 Params.LineStyle = None  # Default line style to use on plots
-Params.wRefLine_temporary = None  # Style of lines showing reference melting curves of hydrosphere density plot-should be done in config.py instead, delete this once implemented there
-Params.wRef = None  # Salinities in ppt of reference melting curves
+
+# Reference profiles
+# Salinities of reference melting curves in ppt
+Params.wRef_ppt = {'none':[0], 'pure':[0],
+                   'Seawater':[0, 0.5*Constants.stdSeawater_ppt, Constants.stdSeawater_ppt, 1.5*Constants.stdSeawater_ppt],
+                   'MgSO4':[0, 33.3, 66.7, 100],
+                   'NH3':[0, 10, 20],
+                   'NaCl':[0, 17.5, 35]}
+# Style of lines showing reference melting curves of hydrosphere density plot
+Params.refLS = {'none':'--', 'pure':'-', 'Seawater':':', 'MgSO4':'--', 'NH3':'--', 'NaCl':'--'}
+Params.refLW = 0.75
+Params.refColor = 'gray'
+
 # Check if Latex executable is on the path so we can use backup options if Latex is not installed
 if shutil.which('latex'):
     plt.rcParams['text.usetex'] = True  # Use Latex interpreter to render text on plots
@@ -153,7 +165,7 @@ Params.Colors.OceanBot = [45/255, 55/255, 100/255]
 Params.Colors.Rock = [101/255, 46/255, 11/255]
 Params.Colors.Core = [141/255, 122/255, 121/255]
 
-
+# Default figure sizes
 Params.FigSize.vsP = (3,3)
 Params.FigSize.vsR = (3,3)
 Params.FigSize.vperm = (3,3)
