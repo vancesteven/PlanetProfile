@@ -1,13 +1,11 @@
 """
 PPEuropa
 Contains all body-specific parameters and information for PlanetProfile models of this body.
-Import as a module and access information assigned to the attributes of the Planet and Params structs.
+Import as a module and access information assigned to the attributes of the Planet struct.
 Note that this file expects to be imported from the directory above.
 """
 import numpy as np
-from Utilities.defineStructs import PlanetStruct, ParamsStruct, Constants
-
-from config import Params
+from Utilities.defineStructs import PlanetStruct, Constants
 
 Planet = PlanetStruct('Europa')
 
@@ -41,7 +39,6 @@ Planet.Sil.Qrad_Wkg = 5.33e-12  # Estimate from Hussmann and Spohn (2004): https
 Planet.Sil.Htidal_Wm3 = 1e-10  # Approximate max. tidal heating in silicates as modeled by Tobie et al. (2003): https://doi.org/10.1029/2003JE002099
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
-Planet.Do.P_EFFECTIVE = False
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'  # (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 Planet.Sil.rhoSilWithCore_kgm3 = 3539.0  # This is the 1-bar, 275 K value from CV3hy1wt_678_1.tab
@@ -72,16 +69,6 @@ Planet.Magnetic.peaks_Hz = np.array([4.946e-5, 2.473e-5, 3.259e-6])
 Planet.Magnetic.fOrb_radps = 2*np.pi/3.55/86400
 Planet.Magnetic.ionosBounds_m = 100e3
 Planet.Magnetic.sigmaIonosPedersen_Sm = 30/100e3
-
-""" Other parameter options """
-Params.PLOT_SIGS = True
-Params.wLims = [np.log10(0.001), np.log10(1000)]
-Params.LEGEND = True
-Params.LegendPosition = 'North'
-Params.yLim = [910, 1230]
-Params.LineStyle = Params.LS_Mg
-Params.wRefLine = '--'
-Params.wRef = [0, 5, 10, 15]
 
 # The block below should be made into one single function that returns the FTdata struct if the file is found, and warns the user/downloads if not.
 # try:

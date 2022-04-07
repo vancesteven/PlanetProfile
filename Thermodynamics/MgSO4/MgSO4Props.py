@@ -72,7 +72,7 @@ def MgSO4Props(P_MPa, T_K, wOcean_ppt):
     fMgSO4Props = loadmat('Thermodynamics/MgSO4/MgSO4EOS2_planetary_smaller_20121116.mat')
     TMgSO4_K = fMgSO4Props['T_smaller_C'][0] + Constants.T0
     wMgSO4_ppt = Molal2ppt(fMgSO4Props['m_smaller_molal'][0], Constants.mMgSO4_gmol)
-    evalPts = np.array([[wOcean_ppt, P, T] for T in T_K for P in P_MPa])
+    evalPts = np.array([[wOcean_ppt, P, T] for P in P_MPa for T in T_K])
     nPs = np.size(P_MPa)
     # Interpolate the input data to get the values corresponding to the current ocean comp,
     # then get the property values for the input P,T pairs and reshape to how they need
@@ -223,10 +223,9 @@ class MgSO4Seismic:
                                 fMgSO4Seismic['Ksg'], bounds_error=False, fill_value=None)
 
     def __call__(self, P_MPa, T_K):
-        evalPts = np.array([[self.w_ppt, P, T] for T in T_K for P in P_MPa])
-        nPs = np.size(P_MPa)
-        VP_kms = np.reshape(self.fn_VP_kms(evalPts), (nPs,-1))
-        KS_GPa = np.reshape(self.fn_KS_GPa(evalPts), (nPs,-1))
+        evalPts = np.array([[self.w_ppt, P, T] for P, T in zip(P_MPa,T_K)])
+        VP_kms = self.fn_VP_kms(evalPts)
+        KS_GPa = self.fn_KS_GPa(evalPts)
         return VP_kms, KS_GPa
 
 
@@ -242,7 +241,7 @@ class MgSO4Conduct:
         else:
             raise ValueError(f'No MgSO4 conductivity model is specified for Ocean.electrical = "{self.type}"')
 
-        self.fn_sigma_Sm = RectBivariateSpline(self.Pvals_MPa, self.Tvals_K, self.sigma_Sm)
+        self.fn_sigma_Sm = lambda P,T: RectBivariateSpline(self.Pvals_MPa, self.Tvals_K, self.sigma_Sm)(P, T, grid=False)
 
     def __call__(self, P_MPa, T_K):
         return self.fn_sigma_Sm(P_MPa, T_K)

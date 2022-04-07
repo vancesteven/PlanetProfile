@@ -551,22 +551,27 @@ def InnerLayers(Planet, Params):
     Planet.Ppore_MPa = np.concatenate((Planet.Ppore_MPa[:Planet.Steps.nHydro], extend))
     Planet.rhoMatrix_kgm3 = np.concatenate((Planet.rhoMatrix_kgm3[:Planet.Steps.nHydro], extend))
     Planet.rhoPore_kgm3 = np.concatenate((Planet.rhoPore_kgm3[:Planet.Steps.nHydro], extend))
+    Planet.MLayer_kg = np.concatenate((Planet.MLayer_kg[:Planet.Steps.nHydro], extend))
 
     # Unpack results from MoI calculations
     iOS = Planet.Steps.nHydro
     iSC = Planet.Steps.nHydro + Planet.Steps.nSil
     Planet.P_MPa[iOS:iSC], Planet.T_K[iOS:iSC], Planet.r_m[iOS:iSC], Planet.rho_kgm3[iOS:iSC], \
     Planet.g_ms2[iOS:iSC], Planet.phi_frac[iOS:iSC], Planet.Htidal_Wm3[iOS:iSC], Planet.kTherm_WmK[iOS:iSC], \
-    Planet.Ppore_MPa[iOS:iSC], Planet.rhoMatrix_kgm3[iOS:iSC], Planet.rhoPore_kgm3[iOS:iSC], phasePore \
+    Planet.Ppore_MPa[iOS:iSC], Planet.rhoMatrix_kgm3[iOS:iSC], Planet.rhoPore_kgm3[iOS:iSC], \
+    Planet.MLayer_kg[iOS:iSC], phasePore \
         = mantleProps
 
     iCC = Planet.Steps.nTotal
     if Planet.Do.Fe_CORE:
         # Unpack results from MoI calculations
         Planet.P_MPa[iSC:iCC], Planet.T_K[iSC:iCC], Planet.r_m[iSC:iCC], Planet.g_ms2[iSC:iCC], Planet.rho_kgm3[iSC:iCC], \
-        Planet.Cp_JkgK[iSC:iCC], Planet.alpha_pK[iSC:iCC], Planet.kTherm_WmK[iSC:iCC] = coreProps
+        Planet.Cp_JkgK[iSC:iCC], Planet.alpha_pK[iSC:iCC], Planet.kTherm_WmK[iSC:iCC], Planet.MLayer_kg[iSC:iCC] \
+            = coreProps
 
     Planet.z_m[iOS:iCC] = Planet.Bulk.R_m - Planet.r_m[iOS:iCC]
+    # Record ocean layer thickness
+    Planet.D_km = Planet.z_m[Planet.Steps.nHydro]/1e3 - Planet.zb_km
 
     # Assign phase values for silicates and core
     Planet.phase[iOS:iSC] = Constants.phaseSil + phasePore
@@ -663,6 +668,9 @@ def CalcMoIConstantRho(Planet, Params):
     CMR2indsInner = [ind - Planet.Steps.iSilStart - nTooBig for ind in CMR2inds]
     # Record the best-match C/MR^2 value
     Planet.CMR2mean = CMR2[iCMR2]
+    # We don't have neighboring values because we used the MoI to calculate properties
+    Planet.CMR2less = Planet.CMR2mean
+    Planet.CMR2more = Planet.CMR2mean
     # Record interior sizes
     Planet.Sil.rhoTrade_kgm3 = rhoSil_kgm3[CMR2indsInner]
     Planet.Sil.Rmean_m = Planet.r_m[iCMR2]
@@ -709,22 +717,22 @@ def CalcMoIConstantRho(Planet, Params):
             Planet.Core.rhoMean_kgm3 = MtotCore_kg / VCore_m3[iCMR2inner]
 
             coreProps = (Pcore_MPa, Tcore_K, rCoreEOS_m[0,:-1], gCore_ms2, rhoCore_kgm3, CpCore_JkgK, alphaCore_pK,
-                         kThermCore_WmK)
+                         kThermCore_WmK, MLayerCore_kg)
         else:
             MtotCore_kg = 0
             Planet.Core.rhoMean_kgm3 = 0
             Planet.Core.Rtrade_m = np.zeros_like(Planet.Sil.Rtrade_m)
             Planet.Core.Rrange_m = 0
-            coreProps = ()
+            coreProps = None
 
-        Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
+        Planet.Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
         log.info(f'Found matching MoI of {Planet.CMR2mean:.3f} ' +
                  f'(C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}) for ' +
                  f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                  f'R_core = {Planet.Core.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                  f'rho_sil (found) = {rhoSil_kgm3[iCMR2inner]:.0f} kg/m^3, ' +
                  f'rho_sil (actual) = {Planet.Sil.rhoMean_kgm3:.0f} kg/m^3, ' +
-                 f'M_tot = {Mtot_kg/Planet.Bulk.M_kg:.4f} M_{Planet.name[0]}.')
+                 f'M_tot = {Planet.Mtot_kg/Planet.Bulk.M_kg:.4f} M_{Planet.name[0]}.')
         log.warning('Because silicate and core properties were determined from the EOS after finding their ' +
                     'sizes by assuming constant densities, the body mass may not match the measured value.')
 
@@ -737,16 +745,17 @@ def CalcMoIConstantRho(Planet, Params):
                  f'M_tot = 1.0000 M_{Planet.name[0]} (fixed).')
         log.debug('Params.SKIP_INNER is True, assigning interior properties to 0.')
         Psil_MPa, Tsil_K, rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, kThermSil_WmK, Ppore_MPa, rhoSilMatrix_kgm3, \
-            rhoPore_kgm3, HtidalSil_Wm3 \
-            = (np.zeros(Planet.Steps.nSil) for _ in range(10))
+            rhoPore_kgm3, HtidalSil_Wm3, MLayerSil_kg \
+            = (np.zeros(Planet.Steps.nSil) for _ in range(11))
         phasePore = np.zeros(Planet.Steps.nSil, dtype=np.int_)
         rSil_m = np.zeros((1, Planet.Steps.nSil+1))
-        coreProps = (np.zeros(Planet.Steps.nCore) for _ in range(8))
+        coreProps = (np.zeros(Planet.Steps.nCore) for _ in range(9))
         Planet.Sil.rhoMean_kgm3 = 0
         Planet.Core.rhoMean_kgm3 = 0
+        Planet.Mtot_kg = 0
 
     mantleProps = (Psil_MPa, Tsil_K, rSil_m[0,:-1], rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, HtidalSil_Wm3, kThermSil_WmK,
-                   Ppore_MPa, rhoSilMatrix_kgm3, rhoPore_kgm3, phasePore)
+                   Ppore_MPa, rhoSilMatrix_kgm3, rhoPore_kgm3, MLayerSil_kg, phasePore)
 
     return Planet, mantleProps, coreProps
 
@@ -959,8 +968,11 @@ def CalcMoIWithEOS(Planet, Params):
     else:
         iCMR2sil = np.where(iCMR2 == iValid)[0][0]
         CMR2indsSil = [np.where(ind == iValid)[0][0] for ind in CMR2inds]
-    # Record the best-match C/MR^2 value
+    # Record the best-match C/MR^2 value and neighboring values
     Planet.CMR2mean = CMR2[iCMR2]
+    CMR2neighbors = [CMR2[iCMR2-1], CMR2[iCMR2+1]]
+    Planet.CMR2less = np.min(CMR2neighbors)
+    Planet.CMR2more = np.max(CMR2neighbors)
     # Now we finally know how many layers there are in the hydrosphere and silicates
     Planet.Steps.nHydro = iCMR2
     Planet.Steps.nSil = nSilFinal[iCMR2sil]
@@ -990,7 +1002,8 @@ def CalcMoIWithEOS(Planet, Params):
         # Package up core properties for returning
         coreProps = (Pcore_MPa[iCMR2core,:], Tcore_K[iCMR2core,:], rCore_m[iCMR2core,:-1],
                      gCore_ms2[iCMR2core, :], rhoCore_kgm3[iCMR2core,:], CpCore_JkgK[iCMR2core,:],
-                     alphaCore_pK[iCMR2core,:], kThermCore_WmK[iCMR2core,:])
+                     alphaCore_pK[iCMR2core,:], kThermCore_WmK[iCMR2core,:],
+                     MLayerCore_kg[iCMR2core,:])
     else:
         if Planet.Do.POROUS_ROCK and not Planet.Do.FIXED_POROSITY:
             RcoreOrHtidalLine = f'phi_vac = {phiTop_frac[iCMR2sil]:.3f}, '
@@ -1003,19 +1016,20 @@ def CalcMoIWithEOS(Planet, Params):
         Planet.Core.Rrange_m = 0
         coreProps = None
 
-    Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
+    Planet.Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
     log.info(f'Found matching MoI of {Planet.CMR2mean:.3f} ' +
              f'(C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}) for ' +
              f'rho_sil = {Planet.Sil.rhoMean_kgm3:.0f} kg/m^3, ' +
              f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}, ' +
              RcoreOrHtidalLine +
-             f'M_tot = {Mtot_kg/Planet.Bulk.M_kg:.4f} M_{Planet.name[0]}.')
+             f'M_tot = {Planet.Mtot_kg/Planet.Bulk.M_kg:.4f} M_{Planet.name[0]}.')
 
     mantleProps = (Psil_MPa[iCMR2sil,:nSilFinal[iCMR2sil]], Tsil_K[iCMR2sil,:nSilFinal[iCMR2sil]],
                    rSil_m[iCMR2sil,:nSilFinal[iCMR2sil]], rhoSil_kgm3[iCMR2sil,:nSilFinal[iCMR2sil]],
                    gSil_ms2[iCMR2sil,:nSilFinal[iCMR2sil]], phiSil_frac[iCMR2sil,:nSilFinal[iCMR2sil]],
                    HtidalSil_Wm3[iCMR2sil,:nSilFinal[iCMR2sil]], kThermSil_WmK[iCMR2sil,:nSilFinal[iCMR2sil]],
                    PsilPore_MPa[iCMR2sil,:nSilFinal[iCMR2sil]], rhoSilMatrix_kgm3[iCMR2sil,:nSilFinal[iCMR2sil]],
-                   rhoSilPore_kgm3[iCMR2sil,:nSilFinal[iCMR2sil]], phaseSilPore[iCMR2sil,:nSilFinal[iCMR2sil]])
+                   rhoSilPore_kgm3[iCMR2sil,:nSilFinal[iCMR2sil]], MLayerSil_kg[iCMR2sil,:nSilFinal[iCMR2sil]],
+                   phaseSilPore[iCMR2sil,:nSilFinal[iCMR2sil]])
 
     return Planet, mantleProps, coreProps

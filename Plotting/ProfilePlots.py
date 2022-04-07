@@ -5,22 +5,31 @@ import math
 from matplotlib.patches import Wedge
 from matplotlib.collections import PatchCollection
 import os
+import logging as log
 from pathlib import Path
 from Utilities.SetupInit import SetupFilenames
 from Utilities.defineStructs import Constants
+from Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
 
-def GeneratePlots(Planet, Params):
+def GeneratePlots(PlanetList, Params):
 
-    if Params.PLOT_GRAVITY: PlotGravPres(Planet, Params)
-    if Params.PLOT_HYDROSPHERE and not Planet.Do.NO_H2O: PlotHydrosphereProps(Planet, Params)
+    log.warning('Temporarily quieting INFO and DEBUG messages due to a high number of current latex errors.')
+    saveLevel = log.getLogger().getEffectiveLevel()
+    log.getLogger().setLevel(log.WARN)
+
+    if Params.PLOT_GRAVITY: PlotGravPres(PlanetList, Params)
+    if Params.PLOT_HYDROSPHERE and not PlanetList[0].Do.NO_H2O: PlotHydrosphereProps(PlanetList, Params)
     if Params.PLOT_TRADEOFF:
-        if Planet.Do.Fe_CORE: PlotCoreTradeoff(Planet, Params)
-        else: PlotSilTradeoff(Planet, Params)
-    if Params.PLOT_WEDGE: PlotWedge(Planet, Params)
+        if Planet.Do.Fe_CORE: PlotCoreTradeoff(PlanetList, Params)
+        else: PlotSilTradeoff(PlanetList, Params)
+    if Params.PLOT_WEDGE: PlotWedge(PlanetList, Params)
+
+    log.getLogger().setLevel(saveLevel)
+
     return
 
 
-def PlotGravPres(Planet, Params):
+def PlotGravPres(PlanetList, Params):
     data = {'radius': Planet.r_m/1000,
             'grav': Planet.g_ms2,
             'pressure': Planet.P_MPa/1000}
@@ -34,58 +43,84 @@ def PlotGravPres(Planet, Params):
     axes[1].set_ylabel('$r_\mathrm{' + Planet.name + '}$')
 
     fig.subplots_adjust(wspace=0.5)
-    fig.suptitle('Gravity and pressure')
+    fig.suptitle(f'{PlanetList[0].name} gravity and pressure')
     fig.savefig(Params.FigureFiles.vgrav, format=Params.figFormat, dpi=300)
     plt.close()
     return
 
 
-def PlotHydrosphereProps(Planet, Params):
-    data = {'pressure': Planet.P_MPa[:Planet.Steps.nHydro],
-            'density': Planet.rho_kgm3[:Planet.Steps.nHydro],
-            'temp': Planet.T_K[:Planet.Steps.nHydro],
-            'depth': Planet.z_m[:Planet.Steps.nHydro]/1000}
+def PlotHydrosphereProps(PlanetList, Params):
+    # Generate canvas and add labels
     fig, axes = plt.subplots(1, 2, figsize=Params.FigSize.vhydro)
-
-    # Plot reference profiles first, so they plot on bottom
-    if Params.PLOT_REF:
-        # Get strings for referencing and labeling
-        wList = [f'{w:.0f}' for w in Params.wRef_ppt[Planet.Ocean.comp]]
-        # Take care to only plot the values consistent with layer solutions
-        iPlot = Params.Pref_MPa < np.max(Planet.P_MPa[:Planet.Steps.nHydro])
-        data['Pref'] = Params.Pref_MPa[iPlot]
-        # Plot all reference melting curve densities
-        for i in range(Params.nRef):
-            data[wList[i]] = Params.rhoRef_kgm3[i,iPlot]
-            axes[0].plot('Pref', f'{wList[i]}', data=data, color=Params.refColor,
-                         lw=Params.refLW, ls=Params.refLS[Planet.Ocean.comp])
-
-    # Plot density vs. pressure curve for hydrosphere
-    axes[0].plot('pressure', 'density', data=data)
     axes[0].set_xlabel('Pressure (MPa)')
     axes[0].set_ylabel('Density (kg/m$^3$)')
-
-    # Plot thermal profile vs. depth in hydrosphere
-    axes[1].plot('temp', 'depth', data=data)
     axes[1].invert_yaxis()
     axes[1].set_xlabel('Temperature (K)')
     axes[1].set_ylabel('Depth (km)')
-
-    fig.suptitle('Hydrosphere properties')
     fig.subplots_adjust(wspace=0.5)
+    fig.suptitle(f'{PlanetList[0].name} hydrosphere properties')
+
+
+    # Plot reference profiles first, so they plot on bottom of everything
+    if Params.PLOT_REF:
+        if Params.CALC_NEW_REF:
+            # Calculate reference profiles showing melting curves for
+            # several salinities specified in config.py
+            Params = CalcRefProfiles(PlanetList, Params)
+        else:
+            # Reload refprofiles for this composition
+            Params = ReloadRefProfiles(PlanetList, Params)
+
+        # Keep track of which reference profiles have been plotted so that we do each only once
+        comps = np.unique([Planet.Ocean.comp for Planet in PlanetList])
+        newRef = {comp:True for comp in comps}
+
+        # Get max pressure among all profiles so we know how far out to plot refs
+        Plist = np.concatenate([Planet.P_MPa[:Planet.Steps.nHydro] for Planet in PlanetList])
+        Pmax_MPa = np.max(Plist)
+
+        for Planet in PlanetList:
+            if newRef[Planet.Ocean.comp]:
+                # Get strings for referencing and labeling
+                wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp}}} \{{'
+                wList += ', '.join([f'{w:.0f}' for w in Params.wRef_ppt[Planet.Ocean.comp]])
+                wList += '\}\,ppt'
+                # Take care to only plot the values consistent with layer solutions
+                iPlot = Params.Pref_MPa[Planet.Ocean.comp] < Pmax_MPa
+                # Plot all reference melting curve densities
+                for i in range(Params.nRef[Planet.Ocean.comp]):
+                    thisRef, = axes[0].plot(Params.Pref_MPa[Planet.Ocean.comp][iPlot],
+                                            Params.rhoRef_kgm3[Planet.Ocean.comp][i,iPlot],
+                                            color=Params.refColor,
+                                            lw=Params.refLW,
+                                            ls=Params.refLS[Planet.Ocean.comp])
+                    if Params.refsInLegend and i == 0: thisRef.set_label(wList)
+                newRef[Planet.Ocean.comp] = False
+
+    # Now plot all profiles together
+    for Planet in PlanetList:
+
+        # Plot density vs. pressure curve for hydrosphere
+        axes[0].plot(Planet.P_MPa[:Planet.Steps.nHydro], Planet.rho_kgm3[:Planet.Steps.nHydro], label=Planet.label)
+        # Plot thermal profile vs. depth in hydrosphere
+        axes[1].plot(Planet.T_K[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro]/1e3)
+
+    if Params.LEGEND:
+        box1 = axes[0].get_position()
+        fig.legend(loc=Params.LegendPosition)
     fig.savefig(Params.FigureFiles.vhydro, format=Params.figFormat, dpi=300)
     plt.close()
     return
 
 
-def PlotCoreTradeoff(Planet, Params):
+def PlotCoreTradeoff(PlanetList, Params):
     data = {'Rsil': Planet.Sil.Rtrade_m/1000,
             'RFe': Planet.Core.Rtrade_m/1000}
     fig, axes = plt.subplots(1, 1, figsize=Params.FigSize.vcore)
     axes.plot('Rsil', 'RFe', data = data)
     axes.set_xlabel('Iron core outer radius (km)')
     axes.set_ylabel('Silicate layer outer radius (km)')
-    fig.suptitle(r'With Fe core. $C/MR^2$: $' + f'{Planet.Bulk.Cmeasured:.3f}\pm{Planet.Bulk.Cuncertainty:.3f}' +
+    fig.suptitle(f'{PlanetList[0].name} with Fe core. $C/MR^2$: ${Planet.Bulk.Cmeasured:.3f}\pm{Planet.Bulk.Cuncertainty:.3f}' +
                  r'$; $w$: $0\,\mathrm{wt}\%$; $\rho_\mathrm{sil}$: $' + \
                  f'{Planet.Sil.rhoMean_kgm3:.0f}' + r'\,\mathrm{kg/m^3}$; $\rho_\mathrm{Fe}$: $' + \
                  f'{Planet.Core.rhoMean_kgm3:.0f}' + r'\,\mathrm{kg/m^3}$')
@@ -94,20 +129,20 @@ def PlotCoreTradeoff(Planet, Params):
     return
 
 
-def PlotSilTradeoff(Planet, Params):
+def PlotSilTradeoff(PlanetList, Params):
     data = {'Rsil': Planet.Sil.Rtrade_m/1000,
             'rhoSil': Planet.Sil.rhoTrade_kgm3}
     fig, axes = plt.subplots(1, 1, figsize=Params.FigSize.vmant)
     axes.plot('rhoSil', 'Rsil', data = data)
     axes.set_xlabel('$\\rho_\mathrm{sil}$ (kg/m$^3$)')
     axes.set_ylabel('Silicate layer outer radius (km)')
-    fig.suptitle(r'No Fe core. $C/MR^2$: $0.346\pm0.005$; $W$')
+    fig.suptitle(f'{PlanetList[0].name} no Fe core. $C/MR^2$: $0.346\pm0.005$; $W$')
     fig.savefig(Params.FigureFiles.vmant, format=Params.figFormat, dpi=300)
     plt.close()
     return
 
 
-def PlotWedge(Planet, Params):
+def PlotWedge(PlanetList, Params):
     fig, ax = plt.subplots()
     width = (math.pi / 7)*180/math.pi  # angular width of wedge to be plotted
     patches = []  # for storing wedge objects
@@ -172,7 +207,7 @@ def PlotWedge(Planet, Params):
         compstr = 'Pure H$_2$O'
     else:
         compstr = Planet.Ocean.comp
-    fig.suptitle(f'Interior wedge diagram\n$T_b = {Planet.Bulk.Tb_K}\,\mathrm{{K}}$, Composition = {compstr}, Salinity = ${Planet.Ocean.wOcean_ppt}\,\mathrm{{g/kg}}$')
+    fig.suptitle(f'{PlanetList[0].name} wedge diagram\n$T_b = {Planet.Bulk.Tb_K}\,\mathrm{{K}}$, Composition = {compstr}, Salinity = ${Planet.Ocean.wOcean_ppt}\,\mathrm{{g/kg}}$')
     plt.margins(0.02)
     fig.savefig(Params.FigureFiles.vwedg, format=Params.figFormat, dpi=300)
 

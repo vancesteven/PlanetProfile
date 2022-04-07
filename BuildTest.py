@@ -22,14 +22,16 @@ def full():
     Params.CALC_NEW_INDUC = True
     Params.CALC_SEISMIC = True
     Params.CALC_CONDUCT = True
+    Params.RUN_ALL_PROFILES = False
+    Params.COMPARE = False
 
     # Get first test profile separately, as we will reuse it
     testPlanet1 = importlib.import_module(f'{testBase}{1}').Planet
     _ = PlanetProfile(copy.deepcopy(testPlanet1), Params)
 
-    # Loop over remaining test profiles
+    # Loop over remaining test profiles (2 onwards)
     nTests = len(fnmatch.filter(os.listdir('Test'), 'PPTest*'))
-    for i in range(2, nTests+1):
+    for i in range(17, nTests+1):
         testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
         log.info(f'Test case body: {testBase}{i}')
         _ = PlanetProfile(testPlanetN, Params)
@@ -77,10 +79,12 @@ def simple():
     Params.CALC_NEW_INDUC = True
     Params.CALC_SEISMIC = True
     Params.CALC_CONDUCT = True
+    Params.RUN_ALL_PROFILES = False
+    Params.COMPARE = False
 
-    i = 1
-    testPlanet = importlib.import_module(f'{testMod}{i}').Planet
-    log.info(f'Test case body: {testMod}{i}')
+    iTest = 9
+    testPlanet = importlib.import_module(f'{testMod}{iTest}').Planet
+    log.info(f'Test case body: {testMod}{iTest}')
     _ = PlanetProfile(testPlanet, Params)
     log.info('Simple test complete!')
     return

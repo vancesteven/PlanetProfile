@@ -20,7 +20,6 @@ def SetupInit(Planet, Params):
 
     # Get filenames for saving/loading
     Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
-    Params.fnameRef = os.path.join('Thermodynamics', 'RefProfiles', f'{Planet.Ocean.comp}.txt')
 
     # Set steps and settings for unused options to zero, check that we have settings we need
     if not Planet.Do.Fe_CORE:
@@ -165,20 +164,28 @@ def SetupFilenames(Planet, Params):
     figPath = os.path.join(datPath, 'figures')
 
     saveBase = Planet.name + 'Profile_'
+    saveLabel = ''
+    label = ''
     if Planet.Do.NO_H2O:
-        saveBase += f'NoH2O_Tsurf{Planet.Bulk.Tsurf_K:}K'
+        saveLabel += f'NoH2O_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.0f}mWm2'
+        label += f'${Planet.Bulk.qSurf_Wm2*1e3:.0f}\,\si{{mW/m^2}}$'
     else:
-        if Planet.Do.CLATHRATE: saveBase += 'Clathrates_'
-        saveBase += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.0f}WtPpt' + \
-                    f'_Tb{Planet.Bulk.Tb_K:}K'
-        if Planet.Do.POROUS_ICE: saveBase += '_PorousIce'
-    if Planet.Sil.mantleEOSName is not None: saveBase += Planet.Sil.mantleEOSname
+        saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.0f}ppt' + \
+                    f'_Tb{Planet.Bulk.Tb_K}K'
+        label += f'{Planet.Ocean.wOcean_ppt:.0f}\,ppt \ce{{{Planet.Ocean.comp}}}' + \
+            f', $T_b\,{Planet.Bulk.Tb_K}\,\si{{K}}$'
+        if Planet.Do.CLATHRATE:
+            saveLabel += '_Clathrates'
+            label += ' w/clath'
+        if Planet.Do.POROUS_ICE:
+            saveLabel += '_PorousIce'
+            label += ' w/$\phi_{ice}$'
+    if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSname}'
 
-    datBase = os.path.join(datPath, saveBase)
-    DataFiles = DataFilesSubstruct(datBase)
-    figBase = os.path.join(figPath, saveBase)
-    FigureFiles = FigureFilesSubstruct(figBase, Params.xtn)
-    refBase = os.path.join('Thermodynamics', 'RefProfiles', f'{Planet.Ocean.comp}.txt')
+    Planet.saveLabel = saveLabel
+    Planet.label = label
+    DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel)
+    FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, Params.xtn)
 
     return DataFiles, FigureFiles
 

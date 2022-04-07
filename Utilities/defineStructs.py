@@ -12,6 +12,7 @@ Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
 Planet.Do.Fe_CORE = False
 """
 import numpy as np
+import os
 
 # We have to define subclasses first in order to make them instanced to each Planet object
 """ Run settings """
@@ -65,8 +66,8 @@ class StepsSubstruct:
         self.nOceanMax = None  # Derived working length of ocean layers, also truncated after layer calcs
         self.nHydro = None  # Derived final number of steps in hydrosphere
         self.nIbottom = None  # Derived number of clathrate + ice I layers
-        self.nIIIbottom = None  # Derived number of clathrate + ice I + ice III layers
-        self.nSurfIce = None  # Derived number of outer ice layers (above ocean) -- sum of nIceI, nClath, nIceIIILitho, nIceVLitho
+        self.nIIIbottom = 0  # Derived number of clathrate + ice I + ice III layers
+        self.nSurfIce = 0  # Derived number of outer ice layers (above ocean) -- sum of nIceI, nClath, nIceIIILitho, nIceVLitho
         self.nRefRho = None  # Number of values for plotting reference density curves (sets resolution)
         self.iSilStart = None  # Hydrosphere index at which to start silicate size search
         self.nSilMax = None  # Fixed max number of steps in silicate layers
@@ -83,7 +84,7 @@ class StepsSubstruct:
 class OceanSubstruct:
 
     def __init__(self):
-        self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'NH3', 'NaCl', 'none', 'pure'
+        self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'PureH2O', 'NH3', 'NaCl', 'none'
         self.wOcean_ppt = None  # (Absolute) salinity: Mass concentration of above composition in parts per thousand (ppt)
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
@@ -307,8 +308,10 @@ class PlanetStruct:
         self.rhoMatrix_kgm3 = None  # Mass density of matrix material (rock or ice)
         self.rhoPore_kgm3 = None  # Mass density of pore material (typically ocean water)
         # Individual calculated quantities
+        self.Mtot_kg = None  # Total calculated mass selected from MoI matching
         self.zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km
         self.zClath_m = None  # Thickness of clathrate layer in surface ice in m
+        self.D_km = None  # Thickness of ocean layer in km
         self.Pb_MPa = None  # Pressure at ice-ocean interface in MPa
         self.PbI_MPa = None  # Pressure at bottom of surface ice I/clathrate layer in MPa
         self.PbIII_MPa = None  # Pressure at ice III/ice V transition in MPa, only used when BOTTOM_ICEIII or BOTTOM_ICEV is True
@@ -316,6 +319,8 @@ class PlanetStruct:
         self.PbClathMax_MPa = None  # Max pressure at the bottom of a clathrate lid. Actual PbClath may be reduced in convection calculations
         self.TclathTrans_K = None  # Temperature at the transition from clathrates to ice I
         self.CMR2mean = None  # Mean value of axial moment of inertia that is consistent with profile core/mantle trades
+        self.CMR2less = None  # Neighboring value to CMR2mean in MoI matching, just below it
+        self.CMR2more = None  # Neighboring value above CMR2mean
         self.Tconv_K = None  # Temperature of "well-mixed" convecting region in ice I layer in K
         self.TconvIII_K = None  # Same as above but for ice III underplate layers.
         self.TconvV_K = None  # Same as above but for ice V underplate layers.
@@ -336,15 +341,20 @@ class PlanetStruct:
 """ Params substructs """
 # Construct filenames for data, saving/reloading
 class DataFilesSubstruct:
-    def __init__(self, fName):
-        self.saveFile = fName + '.txt'
-        self.mantCoreFile = fName + '_mantleCore.txt'
-        self.permFile = fName + '_mantlePerm.txt'
+    def __init__(self, datPath, saveBase):
+        self.path = datPath
+        self.fName = os.path.join(self.path, saveBase)
+        self.saveFile = self.fName + '.txt'
+        self.mantCoreFile = self.fName + '_mantleCore.txt'
+        self.permFile = self.fName + '_mantlePerm.txt'
 
 
 # Construct filenames for figures etc.
 class FigureFilesSubstruct:
-    def __init__(self, fName, xtn):
+    def __init__(self, figPath, figBase, xtn):
+        self.path = figPath
+        self.fName = os.path.join(self.path, figBase)
+
         # Figure filename strings
         vsP = 'Porosity_vs_P'
         vsR = 'Porosity_vs_R'
@@ -359,18 +369,18 @@ class FigureFilesSubstruct:
         vpvt6 = 'PTx6'
         vwedg = 'Wedge'
         # Construct Figure Filenames
-        self.vwedg = fName + vwedg + xtn
-        self.vsP = fName + vsP + xtn
-        self.vsR= fName + vsR + xtn
-        self.vperm = fName + vperm + xtn
-        self.vgsks = fName + vgsks + xtn
-        self.vseis = fName + vseis + xtn
-        self.vhydro = fName + vhydro + xtn
-        self.vgrav = fName + vgrav + xtn
-        self.vmant = fName + vmant + xtn
-        self.vcore = fName + vcore + xtn
-        self.vpvt4 = fName + vpvt4 + xtn
-        self.vpvt6 = fName + vpvt6 + xtn
+        self.vwedg = self.fName + vwedg + xtn
+        self.vsP = self.fName + vsP + xtn
+        self.vsR= self.fName + vsR + xtn
+        self.vperm = self.fName + vperm + xtn
+        self.vgsks = self.fName + vgsks + xtn
+        self.vseis = self.fName + vseis + xtn
+        self.vhydro = self.fName + vhydro + xtn
+        self.vgrav = self.fName + vgrav + xtn
+        self.vmant = self.fName + vmant + xtn
+        self.vcore = self.fName + vcore + xtn
+        self.vpvt4 = self.fName + vpvt4 + xtn
+        self.vpvt6 = self.fName + vpvt6 + xtn
 
 
 """ Figure size """

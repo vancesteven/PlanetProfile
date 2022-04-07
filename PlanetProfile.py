@@ -3,35 +3,26 @@ import os, sys
 import numpy as np
 import importlib
 import logging as log
+from copy import deepcopy
 from distutils.util import strtobool
 from os.path import isfile
+from glob import glob as FilesMatchingPattern
+from config import Params as configParams
 
 # Import all function definitions for this file
 from Utilities.SetupInit import SetupInit, SetupFilenames
+from Utilities.defineStructs import FigureFilesSubstruct
 from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from Thermodynamics.FromLiterature.Electrical import ElecConduct
 from Seismic import SeismicCalcs
-from Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
+from Utilities.PrintLayerTable import PrintLayerTable
 from Plotting.ProfilePlots import GeneratePlots
 
 """ MAIN RUN BLOCK """
 def main():
 
-    # Command line args
-    if len(sys.argv) > 1:
-        # Body name was passed as command line argument
-        bodyname = sys.argv[1]
-    else:
-        # No command line argument, ask user which body to run
-        bodyname = input('Please input body name: ')
-        if bodyname == '':
-            print('No body name entered. Defaulting to Europa.')
-            bodyname = 'Europa'
-
-    bodyname = bodyname.capitalize()
-    body = importlib.import_module(f'{bodyname}.PP{bodyname}')
-    Planet = body.Planet
-    Params = body.Params
+    # Copy global Params settings to local variable to we can add things like filenames
+    Params = configParams
     # Set up message logging and apply verbosity level
     if Params.VERBOSE:
         logLevel = log.DEBUG
@@ -40,15 +31,101 @@ def main():
     else:
         logLevel = log.INFO
     log.basicConfig(level=logLevel, format=Params.printFmt)
-    log.info(f'Body name: {Planet.name}')
     log.debug('Printing verbose runtime messages. Toggle with Params.VERBOSE in config.py.')
+
+    # Command line args
+    nArgs = len(sys.argv)
+    if nArgs > 1:
+        # Body name was passed as command line argument
+        bodyname = sys.argv[1]
+
+    else:
+        # No command line argument, ask user which body to run
+        bodyname = input('Please input body name: ')
+        if bodyname == '':
+            log.info('No body name entered. Defaulting to Europa.')
+            bodyname = 'Europa'
+
+    bodyname = bodyname.capitalize()
+    log.info(f'Body name: {bodyname}')
 
     if Params.DEBUG:
         # Compare to test Matlab output
-        Planet, Params = LoadBody(bodyname)
+        Planet, Params = RunPPfile(bodyname, f'PP{bodyname}')
         CompareProfile(Planet, Params, os.path.join('Europa', 'EuropaProfile_Seawater_0WtPpt_Tb269.800K_mat.txt'))
+        exit()
+
+    # Get model names from body directory.
+    models = FilesMatchingPattern(os.path.join(f'{bodyname}', f'PP{bodyname}*.py'))
+    # Splitting on PP and taking the -1 chops the path out, then taking
+    # all but the last 3 characters chops the .py extension
+    models = [model.split('PP')[-1][:-3] for model in models]
+
+    # Additional command line arguments
+    if nArgs > 2:
+        if sys.argv[2] == 'clear':
+            fNamesToClear = FilesMatchingPattern(os.path.join(bodyname, '*.txt'))
+            if len(fNamesToClear) > 0:
+                log.info(f'Clearing previous run files for {bodyname}:')
+                for fName in fNamesToClear:
+                    log.info(f'    {fName}')
+                    os.remove(fName)
+                log.info(f'{bodyname} files cleared.')
+            else:
+                log.warning(f'Attempted to remove previous run files for {bodyname}, but found none.')
+        elif sys.argv[2] == 'compare':
+            log.info('Comparing with other profiles from this body.')
+            Params.COMPARE = True
+        elif sys.argv[2] == 'all':
+            log.info(f'Running all available profiles for {bodyname}.')
+            Params.COMPARE = True
+        else:
+            raise ValueError(f'Unrecognized command: {sys.argv[2]}')
+        if nArgs > 3:
+            log.warning(f'Too many command line args passed. Ignoring command "{sys.argv[3]}" and any after it.')
+
+    """ Run PlanetProfile """
+    PlanetList = np.empty(np.size(models), dtype=object)
+    # Run main model first, so that it always appears as 0-index
+    PlanetList[0] = importlib.import_module(f'{bodyname}.PP{models[0]}').Planet
+    PlanetList[0], Params = PlanetProfile(PlanetList[0], Params)
+    if Params.RUN_ALL_PROFILES:
+        for i,model in enumerate(models[1:]):
+            PlanetList[i+1] = deepcopy(importlib.import_module(f'{bodyname}.PP{model}').Planet)
+            PlanetList[i+1], Params = PlanetProfile(PlanetList[i+1], Params)
+
+        # Plot combined figures
+        if not Params.SKIP_PLOTS and Params.COMPARE:
+            Params.FigureFiles = FigureFilesSubstruct(
+                bodyname, os.path.join('figures', f'{bodyname}Comparison'), Params.xtn)
+            GeneratePlots(PlanetList, Params)
     else:
-        Planet, Params = PlanetProfile(Planet, Params)
+        PlanetList = PlanetList[:1]
+
+    """ Post-processing """
+
+    # Loading BodyProfile...txt files to plot them together
+    if Params.COMPARE and not Params.RUN_ALL_PROFILES:
+        fNamesToCompare = np.array(FilesMatchingPattern(os.path.join(bodyname, f'{bodyname}Profile*.txt')))
+        isProfile = [Params.DataFiles.saveFile != fName and 'mantle' not in fName for fName in fNamesToCompare]
+        fProfiles = fNamesToCompare[isProfile]
+        nCompare = np.size(fProfiles) + 1
+        log.info('Loading comparison profiles.')
+        CompareList = np.empty(nCompare, dtype=object)
+        CompareList[0] = PlanetList[0]
+        for i,fName in enumerate(fProfiles):
+            CompareList[i+1], _ = ReloadProfile(deepcopy(CompareList[0]), Params, fnameOverride=fName)
+
+        # Plot combined figures
+        if not Params.SKIP_PLOTS:
+            Params.FigureFiles = FigureFilesSubstruct(
+                bodyname, os.path.join('figures', f'{bodyname}Comparison'), Params.xtn)
+            GeneratePlots(CompareList, Params)
+
+    if Params.DISP_LAYERS:
+        PrintLayerTable(PlanetList, Params)
+    if Params.DISP_TABLE:
+        PrintLayerTableLatex(PlanetList, Params)
 
     return
 
@@ -74,20 +151,8 @@ def PlanetProfile(Planet, Params):
         Planet, Params = ReloadProfile(Planet, Params)
 
     if not Params.SKIP_PLOTS:
-        if Params.CALC_NEW_REF:
-            # Calculate reference profiles showing melting curves for
-            # several salinities specified in config.py
-            Params = CalcRefProfiles(Planet, Params)
-        else:
-            # Reload refprofiles for this composition
-            Params = ReloadRefProfiles(Planet, Params)
-
         # Plotting functions
-        log.warning('Temporarily quieting INFO and DEBUG messages due to a high number of current latex errors.')
-        saveLevel = log.getLogger().getEffectiveLevel()
-        log.getLogger().setLevel(log.WARN)
-        GeneratePlots(Planet, Params)
-        log.getLogger().setLevel(saveLevel)
+        GeneratePlots(np.array([Planet]), Params)
 
     log.info('Run complete!')
     return Planet, Params
@@ -95,21 +160,26 @@ def PlanetProfile(Planet, Params):
 
 def WriteProfile(Planet, Params):
     """ Write out all profile calculations to disk """
-    Params.nHeadLines = 27  # Increment as new header lines are added
+    Params.nHeadLines = 32  # Increment as new header lines are added
     with open(Params.DataFiles.saveFile,'w') as f:
-        # Print number of header lines first so we can skip the rest on read-in if we want to
+        f.write(Planet.label + '\n')
+        # Print number of header lines early so we can skip the rest on read-in if we want to
         f.write(f'  nHeadLines = {Params.nHeadLines:d}\n')
         f.write(f'  Ocean salt = {Planet.Ocean.comp}\n')
         f.write(f'  Iron core = {Planet.Do.Fe_CORE}\n')
         f.write(f'  Salinity(ppt) = {Planet.Ocean.wOcean_ppt:.3f}\n')
-        f.write(f'  Tb_K = {Planet.Bulk.Tb_K:.3f}\n')
+        f.write(f'  Tb_K = {Planet.Bulk.Tb_K}\n')
         f.write(f'  zb_km = {Planet.zb_km:.3f}\n')
         f.write(f'  zClath_m = {Planet.zClath_m:.3f}\n')
+        f.write(f'  D_km = {Planet.D_km:.3f}\n')
         f.write(f'  Pb_MPa = {Planet.Pb_MPa:.3f}\n')
         f.write(f'  PbI_MPa = {Planet.PbI_MPa:.3f}\n')
         f.write(f'  deltaP = {Planet.Ocean.deltaP:.3f}\n')
-        f.write(f'  CMR2mean = {Planet.CMR2mean:.3f}\n')
-        f.write(f'  QfromMantle_W = {Planet.Ocean.QfromMantle_W:.3f}\n')
+        f.write(f'  Mtot_kg = {Planet.Mtot_kg:.6e}\n')
+        f.write(f'  CMR2mean = {Planet.CMR2mean:.5f}\n')
+        f.write(f'  CMR2less = {Planet.CMR2less:.5f}\n')
+        f.write(f'  CMR2more = {Planet.CMR2more:.5f}\n')
+        f.write(f'  QfromMantle_W = {Planet.Ocean.QfromMantle_W:.6e}\n')
         f.write(f'  phiRockMax = {Planet.Sil.phiRockMax_frac:.3f}\n')
         f.write(f'  RsilMean_m = {Planet.Sil.Rmean_m:.3f}\n')
         f.write(f'  RsilRange_m = {Planet.Sil.Rrange_m:.3f}\n')
@@ -142,7 +212,8 @@ def WriteProfile(Planet, Params):
                            'GS (GPa)'.ljust(24),
                            'Ppore (MPa)'.ljust(24),
                            'rhoMatrix (kg/m3)'.ljust(24),
-                           'rhoPore (kg/m3)']) + '\n')
+                           'rhoPore (kg/m3)'.ljust(24),
+                           'MLayer (kg)']) + '\n')
         # Now print the columnar data
         for i in range(Planet.Steps.nTotal):
             line = \
@@ -164,7 +235,8 @@ def WriteProfile(Planet, Params):
                 f'{Planet.Seismic.GS_GPa[i]:24.17e} ' + \
                 f'{Planet.Ppore_MPa[i]:24.17e} ' + \
                 f'{Planet.rhoMatrix_kgm3[i]:24.17e} ' + \
-                f'{Planet.rhoPore_kgm3[i]:24.17e}\n '
+                f'{Planet.rhoPore_kgm3[i]:24.17e} ' + \
+                f'{Planet.MLayer_kg[i]:24.17e}\n '
             f.write(line)
 
     # Write out data from core/mantle trade
@@ -188,6 +260,10 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
 
     if fnameOverride is not None:
         Params.DataFiles.saveFile = fnameOverride
+        Params.DataFiles.mantCoreFile = f'{fnameOverride[:-4]}_mantleCore.txt'
+        Params.DataFiles.mantPermFile = f'{fnameOverride[:-4]}_mantlePerm.txt'
+        nSkip = len(os.path.join(Planet.name, f'{Planet.name}Profile_'))
+        Planet.label = fnameOverride[nSkip:-4]
     else:
         Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
     log.info(f'Reloading previously saved run from file: {Params.DataFiles.saveFile}')
@@ -197,6 +273,8 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
                          'Re-run with CALC_NEW set to True to generate the profile.')
 
     with open(Params.DataFiles.saveFile) as f:
+        # Get legend label for differentiating runs
+        Planet.label = f.readline().strip()
         # Get number of header lines to read in from (and skip for columnar data)
         Params.nHeadLines = int(f.readline().split('=')[-1])
         # Get dissolved salt supposed for ocean (present in filename, but this is intended for future-proofing when we move to a database lookup)
@@ -204,11 +282,12 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         # Get whether iron core is modeled
         Planet.Do.Fe_CORE = bool(strtobool(f.readline().split('=')[-1].strip()))
         # Get float values from header
-        Planet.Ocean.wOcean_ppt, Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, \
-        Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.CMR2mean, Planet.Ocean.QfromMantle_W, \
-        Planet.Sil.phiRockMax_frac, Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, \
-        Planet.Core.Rmean_m, Planet.Core.Rrange_m, Planet.Core.rhoMean_kgm3 \
-            = (float(f.readline().split('=')[-1]) for _ in range(16))
+        Planet.Ocean.wOcean_ppt, Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, Planet.D_km, \
+        Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.Mtot_kg, Planet.CMR2mean, Planet.CMR2less,\
+        Planet.CMR2more, Planet.Ocean.QfromMantle_W, Planet.Sil.phiRockMax_frac, Planet.Sil.Rmean_m, \
+        Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, Planet.Core.Rmean_m, Planet.Core.Rrange_m, \
+        Planet.Core.rhoMean_kgm3 \
+            = (float(f.readline().split('=')[-1]) for _ in range(20))
         # Get integer values from header (nSteps values)
         Planet.Steps.nClath, Planet.Steps.nIceI, \
         Planet.Steps.nIceIIILitho, Planet.Steps.nIceVLitho, \
@@ -220,7 +299,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.phase, Planet.rho_kgm3, Planet.Cp_JkgK, Planet.alpha_pK, \
     Planet.g_ms2, Planet.phi_frac, Planet.sigma_Sm, Planet.kTherm_WmK, Planet.Seismic.VP_kms, Planet.Seismic.VS_kms,\
     Planet.Seismic.QS, Planet.Seismic.KS_GPa, Planet.Seismic.GS_GPa, Planet.Ppore_MPa, Planet.rhoMatrix_kgm3, \
-    Planet.rhoPore_kgm3 \
+    Planet.rhoPore_kgm3, Planet.MLayer_kg \
         = np.loadtxt(Params.DataFiles.saveFile, skiprows=Params.nHeadLines, unpack=True)
     Planet.z_m = Planet.Bulk.R_m - Planet.r_m
     Planet.phase = Planet.phase.astype(np.int_)
@@ -237,15 +316,11 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     return Planet, Params
 
 
-def LoadBody(bodyname, fnameOverride=None):
-    """ Loads the settings in PPBody.py to reload a previous run. """
-    # NOTE: Seems to overwrite all existing Planet instances with the newly read in values. Do not use to load in a second profile!
-    # Use copy.deepcopy and ReloadProfile instead.
+def RunPPfile(bodyname, fName):
+    """ Loads the settings in bodyname/fName.py to run or reload a specific model. """
     bodyname = bodyname.capitalize()
-    body = importlib.import_module(f'{bodyname}.PP{bodyname}')
-    Planet = body.Planet
-    Params = body.Params
-    Planet, Params = ReloadProfile(Planet, Params, fnameOverride=fnameOverride)
+    Planet = deepcopy(importlib.import_module(f'{bodyname}.{fName}').Planet)
+    Planet, Params = PlanetProfile(Planet, configParams)
 
     return Planet, Params
 
@@ -263,11 +338,10 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
         Returns:
             None
     """
-    import copy
 
     log.info(f'Comparing current run with {fname2}...')
-    Planet2 = copy.deepcopy(Planet)
-    Params2 = copy.deepcopy(Params)
+    Planet2 = deepcopy(Planet)
+    Params2 = deepcopy(Params)
     Planet2, Params2 = ReloadProfile(Planet2, Params2, fnameOverride=fname2)
 
     # Avoid divide-by-zero errors
