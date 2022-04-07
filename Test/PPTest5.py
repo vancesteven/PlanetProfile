@@ -27,7 +27,6 @@ Planet.Sil.Qrad_Wkg = 5.33e-12
 Planet.Sil.Htidal_Wm3 = 1e-9
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
-Planet.Do.P_EFFECTIVE = False
 Planet.Sil.poreH2Orho_kgm3 = 0.0
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
