@@ -193,7 +193,7 @@ def IceLayers(Planet, Params):
         Planet = IceIIIUnderplate(Planet, Params)
 
     # Print and save transition pressure and upper ice thickness
-    Planet.zb_km = Planet.z_m[Planet.Steps.nSurfIce-1] / 1e3
+    Planet.zb_km = Planet.z_m[Planet.Steps.nSurfIce] / 1e3
     log.info(f'Upper ice transition pressure: {Planet.Pb_MPa:.3f} MPa, ' +
              f'thickness: {Planet.zb_km:.3f} km.')
 
@@ -595,16 +595,20 @@ def InnerLayers(Planet, Params):
                                          * Planet.rhoPore_kgm3[iOS:iSC][silPhasesInn != Constants.phaseSil]))
     # The remainder is the ocean fluids, including H2O and salts.
     Planet.Mfluid_kg = Planet.Mtot_kg - Planet.Mcore_kg - Planet.Mrock_kg - Planet.Mice_kg
+    # Get the mass contained in clathrate layers and just the trapped gas
+    Planet.Mclath_kg = np.sum(Planet.MLayer_kg[abs(Planet.phase) == Constants.phaseClath])
+    Planet.MclathGas_kg = Planet.Mclath_kg * Constants.clathGasFrac_ppt / 1e3
     # The portion just in the ocean is simple to evaluate:
     Planet.Mocean_kg = np.sum(Planet.MLayer_kg[Planet.phase==0])
     # The difference is the amount contained in the pore space:
     Planet.MporeFluid_kg = Planet.Mfluid_kg - Planet.Mocean_kg
     # Multiply mass concentration of solute to get total mass
-    Planet.Msalt_kg = Planet.Mfluid_kg * Planet.Ocean.wOcean_ppt
-    # The remainder, plus ice mass, is the total mass contained in water molecules for the body
-    Planet.MH2O_kg = Planet.Mfluid_kg - Planet.Msalt_kg + Planet.Mice_kg
+    Planet.Msalt_kg = Planet.Mfluid_kg * Planet.Ocean.wOcean_ppt / 1e3
+    # The remainder, plus ice mass excluding gasses in clathrates,
+    # is the total mass contained in water molecules for the body
+    Planet.MH2O_kg = Planet.Mfluid_kg - Planet.Msalt_kg + Planet.Mice_kg - Planet.MclathGas_kg
     # Record the mass of salt in the pore space in case we want to track it separately
-    Planet.MporeSalt_kg = Planet.MporeFluid_kg * Planet.Ocean.wOcean_ppt
+    Planet.MporeSalt_kg = Planet.MporeFluid_kg * Planet.Ocean.wOcean_ppt / 1e3
 
     # Check for any negative temperature gradient (indicates non-equilibrium conditions)
     gradTneg = np.where(np.diff(Planet.T_K) < 0)

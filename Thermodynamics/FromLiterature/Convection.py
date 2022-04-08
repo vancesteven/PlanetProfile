@@ -17,7 +17,7 @@ def IceIConvectSolid(Planet, Params):
     """
 
     log.debug('Applying solid-state convection to surface ice I based on Deschamps and Sotin (2001).')
-    zbI_m = Planet.z_m[Planet.Steps.nIbottom-1]
+    zbI_m = Planet.z_m[Planet.Steps.nIbottom]
     # Get "middle" pressure
     Pmid_MPa = (Planet.PbI_MPa + Planet.P_MPa[0]) / 2
     # Get a lower estimate for thermal conductivity if there's no clathrate lid, to be more consistent
@@ -136,13 +136,13 @@ def IceIConvectSolid(Planet, Params):
         Planet.T_K[indsTBL] = Planet.Bulk.Tb_K**(PTBLratios) * Planet.T_K[nConduct+nConvect-1]**(1 - PTBLratios)
 
         # Get physical properties of thermal boundary layer
-        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1],
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
                                      Planet.Ocean.surfIceEOS['Ih'],
-                                     Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
-        Planet.rho_kgm3[indsTBL[:-1]] = Planet.rhoMatrix_kgm3[indsTBL[:-1]] + 0.0
+                                     Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
+        Planet.rho_kgm3[indsTBL] = Planet.rhoMatrix_kgm3[indsTBL] + 0.0
 
         # Apply conductive profile to lower TBL
-        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1]-1)
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
 
     log.debug('Ice I convection calculations complete.')
 
@@ -158,7 +158,7 @@ def IceIConvectPorous(Planet, Params):
     """
 
     log.debug('Applying solid-state convection to surface ice I based on Deschamps and Sotin (2001).')
-    zbI_m = Planet.z_m[Planet.Steps.nIbottom-1]
+    zbI_m = Planet.z_m[Planet.Steps.nIbottom]
     # Get "middle" pressure
     Pmid_MPa = (Planet.PbI_MPa + Planet.P_MPa[0]) / 2
     # Get a lower estimate for thermal conductivity if there's no clathrate lid, to be more consistent
@@ -299,12 +299,12 @@ def IceIConvectPorous(Planet, Params):
 
         # Correct for porosity in ice I layers, assuming pores may be treated as vacuum
 
-        Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1],
+        Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1]+1,
                                           Planet.Ocean.surfIceEOS['Ih'],
-                                          Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
+                                          Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
 
     # Apply conductive profile to lower TBL
-    Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1]-1)
+    Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
     log.debug('Ice I convection calculations complete.')
 
     return Planet
@@ -319,7 +319,7 @@ def IceIIIConvectSolid(Planet, Params):
     """
 
     log.debug('Applying solid-state convection to surface ice III based on Deschamps and Sotin (2001).')
-    zbIII_m = Planet.z_m[Planet.Steps.nIIIbottom-1] - Planet.z_m[Planet.Steps.nIbottom]
+    zbIII_m = Planet.z_m[Planet.Steps.nIIIbottom] - Planet.z_m[Planet.Steps.nIbottom]
     # Get "middle" pressure
     PmidIII_MPa = (Planet.PbIII_MPa + Planet.PbI_MPa) / 2
 
@@ -389,11 +389,11 @@ def IceIIIConvectSolid(Planet, Params):
                               * Planet.T_K[iConvectEnd-1]**(1 - PTBLratios)
 
         # Get physical properties of thermal boundary layer
-        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1],
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
                                     Planet.Ocean.surfIceEOS['III'],
-                                    Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
+                                    Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
 
-        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1]-1)
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
 
     log.debug('Ice III convection calculations complete.')
 
@@ -409,7 +409,7 @@ def IceIIIConvectPorous(Planet, Params):
     """
 
     log.debug('Applying solid-state convection to surface ice III based on Deschamps and Sotin (2001).')
-    zbIII_m = Planet.z_m[Planet.Steps.nIIIbottom-1] - Planet.z_m[Planet.Steps.nIbottom]
+    zbIII_m = Planet.z_m[Planet.Steps.nIIIbottom] - Planet.z_m[Planet.Steps.nIbottom]
     # Get "middle" pressure
     PmidIII_MPa = (Planet.PbIII_MPa + Planet.PbI_MPa) / 2
     # Porosity is unlikely to change the rough kTherm estimate we use here, so we do not
@@ -490,11 +490,11 @@ def IceIIIConvectPorous(Planet, Params):
                                      Planet.Ocean.surfIceEOS['III'],
                                      Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
 
-        Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1],
+        Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1]+1,
                                           Planet.Ocean.surfIceEOS['III'],
-                                          Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
+                                          Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
 
-        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1]-1)
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
 
     log.debug('Ice III convection calculations complete.')
 
@@ -584,11 +584,11 @@ def IceVConvectSolid(Planet, Params):
         Planet.T_K[indsTBL] = Planet.Bulk.TbV_K**(PTBLratios) * Planet.T_K[iConvectEnd-1]**(1 - PTBLratios)
 
         # Get physical properties of thermal boundary layer
-        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1],
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
                                     Planet.Ocean.surfIceEOS['V'],
-                                    Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
+                                    Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
 
-        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1]-1)
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
 
     log.debug('Ice V convection calculations complete.')
 
@@ -687,11 +687,11 @@ def IceVConvectPorous(Planet, Params):
                                     Planet.Ocean.surfIceEOS['V'],
                                     Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
 
-        Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1],
+        Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1]+1,
                                           Planet.Ocean.surfIceEOS['V'],
-                                          Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
+                                          Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
 
-        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1]-1)
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
 
     log.debug('Ice V convection calculations complete.')
 
@@ -708,7 +708,7 @@ def ClathShellConvectSolid(Planet, Params):
     """
 
     log.debug('Applying solid-state convection to surface clathrates based on Deschamps and Sotin (2001).')
-    zbI_m = Planet.z_m[Planet.Steps.nIbottom-1]
+    zbI_m = Planet.z_m[Planet.Steps.nIbottom]
     # Get "middle" pressure
     Pmid_MPa = (Planet.PbI_MPa - Planet.P_MPa[0]) / 2
     Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.P_MPa[0], Planet.Bulk.Tb_K)
@@ -770,11 +770,11 @@ def ClathShellConvectSolid(Planet, Params):
         Planet.T_K[indsTBL] = Planet.Bulk.Tb_K**(PTBLratios) * Planet.T_K[nConduct+nConvect-1]**(1 - PTBLratios)
 
         # Get physical properties of thermal boundary layer
-        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1],
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
                                     Planet.Ocean.surfIceEOS['Clath'],
-                                    Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
+                                    Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
 
-        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1]-1)
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
 
     Planet.zClath_m = Planet.z_m[Planet.Steps.nIbottom]
 
@@ -793,7 +793,7 @@ def ClathShellConvectPorous(Planet, Params):
     """
 
     log.debug('Applying solid-state convection to surface clathrates based on Deschamps and Sotin (2001).')
-    zbI_m = Planet.z_m[Planet.Steps.nIbottom-1]
+    zbI_m = Planet.z_m[Planet.Steps.nIbottom]
     # Get "middle" pressure
     Pmid_MPa = (Planet.PbI_MPa - Planet.P_MPa[0]) / 2
     Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.P_MPa[0], Planet.Bulk.Tb_K)
@@ -859,15 +859,15 @@ def ClathShellConvectPorous(Planet, Params):
         Planet.T_K[indsTBL] = Planet.Bulk.Tb_K**(PTBLratios) * Planet.T_K[nConduct+nConvect-1]**(1 - PTBLratios)
 
         # Get physical properties of thermal boundary layer
-        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1],
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
                                     Planet.Ocean.surfIceEOS['Clath'],
-                                    Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
+                                    Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
 
-        Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1],
+        Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1]+1,
                                           Planet.Ocean.surfIceEOS['Clath'],
-                                          Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
+                                          Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
 
-        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1]-1)
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
 
     Planet.zClath_m = Planet.z_m[Planet.Steps.nIbottom]
 
