@@ -538,7 +538,7 @@ def InnerLayers(Planet, Params):
     extend = np.zeros(Planet.Steps.nSil + Planet.Steps.nCore)
     Planet.P_MPa = np.concatenate((Planet.P_MPa[:Planet.Steps.nHydro], extend))
     Planet.T_K = np.concatenate((Planet.T_K[:Planet.Steps.nHydro], extend))
-    Planet.r_m = np.concatenate((Planet.r_m[:Planet.Steps.nHydro], extend))
+    Planet.r_m = np.concatenate((Planet.r_m[:Planet.Steps.nHydro], extend, [0.0]))
     Planet.phase = np.concatenate((Planet.phase[:Planet.Steps.nHydro], extend.astype(np.int_)))
     Planet.rho_kgm3 = np.concatenate((Planet.rho_kgm3[:Planet.Steps.nHydro], extend))
     Planet.Cp_JkgK = np.concatenate((Planet.Cp_JkgK[:Planet.Steps.nHydro], extend))
@@ -547,7 +547,7 @@ def InnerLayers(Planet, Params):
     Planet.g_ms2 = np.concatenate((Planet.g_ms2[:Planet.Steps.nHydro], extend))
     Planet.phi_frac = np.concatenate((Planet.phi_frac[:Planet.Steps.nHydro], extend))
     Planet.Htidal_Wm3 = np.concatenate((Planet.Htidal_Wm3[:Planet.Steps.nHydro], extend))
-    Planet.z_m = np.concatenate((Planet.z_m[:Planet.Steps.nHydro], extend))
+    Planet.z_m = np.concatenate((Planet.z_m[:Planet.Steps.nHydro], extend, [0.0]))
     Planet.Ppore_MPa = np.concatenate((Planet.Ppore_MPa[:Planet.Steps.nHydro], extend))
     Planet.rhoMatrix_kgm3 = np.concatenate((Planet.rhoMatrix_kgm3[:Planet.Steps.nHydro], extend))
     Planet.rhoPore_kgm3 = np.concatenate((Planet.rhoPore_kgm3[:Planet.Steps.nHydro], extend))
@@ -569,13 +569,42 @@ def InnerLayers(Planet, Params):
         Planet.Cp_JkgK[iSC:iCC], Planet.alpha_pK[iSC:iCC], Planet.kTherm_WmK[iSC:iCC], Planet.MLayer_kg[iSC:iCC] \
             = coreProps
 
-    Planet.z_m[iOS:iCC] = Planet.Bulk.R_m - Planet.r_m[iOS:iCC]
+    Planet.z_m[iOS:iCC+1] = Planet.Bulk.R_m - Planet.r_m[iOS:iCC+1]
     # Record ocean layer thickness
     Planet.D_km = Planet.z_m[Planet.Steps.nHydro]/1e3 - Planet.zb_km
 
     # Assign phase values for silicates and core
     Planet.phase[iOS:iSC] = Constants.phaseSil + phasePore
     Planet.phase[iSC:iCC] = Constants.phaseFe
+
+    # Calculate total salt and water masses
+    Planet.Mcore_kg = np.sum(Planet.MLayer_kg[iSC:iCC])
+    Planet.Mrock_kg = 4/3*np.pi * np.sum((Planet.r_m[iOS:iSC]**3 - Planet.r_m[iOS+1:iSC+1]**3)
+                                         * Planet.rhoMatrix_kgm3[iOS:iSC])
+    # Next, fetch the phase IDs of the silicate layers, which are incremented when
+    # they contain non-liquid phases.
+    silPhasesOut = Planet.phase[iOS:iSC]
+    silPhasesInn = Planet.phase[iOS+1:iSC+1]
+    # Add matrix density for ice phases; rhoMatrix is not set for phase == 0, so we
+    # can safely include those layers in the sum. We also must include ices in the
+    # pore space of silicates.
+    Planet.Mice_kg = 4/3*np.pi * (np.sum((Planet.r_m[0:iOS]**3 - Planet.r_m[1:iOS+1]**3)
+                                         * Planet.rhoMatrix_kgm3[0:iOS])
+                                + np.sum((Planet.r_m[iOS:iSC][silPhasesOut != Constants.phaseSil]**3
+                                        - Planet.r_m[iOS+1:iSC+1][silPhasesInn != Constants.phaseSil]**3)
+                                         * Planet.rhoPore_kgm3[iOS:iSC][silPhasesInn != Constants.phaseSil]))
+    # The remainder is the ocean fluids, including H2O and salts.
+    Planet.Mfluid_kg = Planet.Mtot_kg - Planet.Mcore_kg - Planet.Mrock_kg - Planet.Mice_kg
+    # The portion just in the ocean is simple to evaluate:
+    Planet.Mocean_kg = np.sum(Planet.MLayer_kg[Planet.phase==0])
+    # The difference is the amount contained in the pore space:
+    Planet.MporeFluid_kg = Planet.Mfluid_kg - Planet.Mocean_kg
+    # Multiply mass concentration of solute to get total mass
+    Planet.Msalt_kg = Planet.Mfluid_kg * Planet.Ocean.wOcean_ppt
+    # The remainder, plus ice mass, is the total mass contained in water molecules for the body
+    Planet.MH2O_kg = Planet.Mfluid_kg - Planet.Msalt_kg + Planet.Mice_kg
+    # Record the mass of salt in the pore space in case we want to track it separately
+    Planet.MporeSalt_kg = Planet.MporeFluid_kg * Planet.Ocean.wOcean_ppt
 
     # Check for any negative temperature gradient (indicates non-equilibrium conditions)
     gradTneg = np.where(np.diff(Planet.T_K) < 0)

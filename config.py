@@ -25,7 +25,7 @@ Params.SKIP_INNER =     False  # Whether to skip past everything but ocean calcu
 Params.REDUCED =        True  # Whether to limit number of ocean layers for faster computation of layered induction
 Params.DISP_LAYERS =    True  # Whether to display layer depths and heat fluxes for user
 Params.DISP_TABLE =     False  # Whether to print latex-formatted table
-Params.COMPARE =        False  # Whether to plot each new run against other runs from the same body
+Params.COMPARE =        True  # Whether to plot each new run against other runs from the same body
 Params.DEPRECATED =     False  # Whether to allow deprecated code to run. Will often cause errors.
 
 # Plot Settings

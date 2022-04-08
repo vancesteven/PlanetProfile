@@ -160,7 +160,7 @@ def PlanetProfile(Planet, Params):
 
 def WriteProfile(Planet, Params):
     """ Write out all profile calculations to disk """
-    Params.nHeadLines = 32  # Increment as new header lines are added
+    Params.nHeadLines = 41  # Increment as new header lines are added
     with open(Params.DataFiles.saveFile,'w') as f:
         f.write(Planet.label + '\n')
         # Print number of header lines early so we can skip the rest on read-in if we want to
@@ -187,6 +187,15 @@ def WriteProfile(Planet, Params):
         f.write(f'  RcoreMean_m = {Planet.Core.Rmean_m:.3f}\n')
         f.write(f'  RcoreRange_m = {Planet.Core.Rrange_m:.3f}\n')
         f.write(f'  rhoCore_kgm3 = {Planet.Core.rhoMean_kgm3:.3f}\n')
+        f.write(f'  MH2O_kg = {Planet.MH2O_kg:.6e}\n')
+        f.write(f'  Mrock_kg = {Planet.Mrock_kg:.6e}\n')
+        f.write(f'  Mcore_kg = {Planet.Mcore_kg:.6e}\n')
+        f.write(f'  Mice_kg = {Planet.Mice_kg:.6e}\n')
+        f.write(f'  Msalt_kg = {Planet.Msalt_kg:.6e}\n')
+        f.write(f'  MporeSalt_kg = {Planet.MporeSalt_kg:.6e}\n')
+        f.write(f'  Mocean_kg = {Planet.Mocean_kg:.6e}\n')
+        f.write(f'  Mfluid_kg = {Planet.Mfluid_kg:.6e}\n')
+        f.write(f'  MporeFluid_kg = {Planet.MporeFluid_kg:.6e}\n')
         f.write(f'  Steps.nClath = {Planet.Steps.nClath:d}\n')
         f.write(f'  Steps.nIceI = {Planet.Steps.nIceI:d}\n')
         f.write(f'  Steps.nIceIIILitho = {Planet.Steps.nIceIIILitho:d}\n')
@@ -286,14 +295,18 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.Mtot_kg, Planet.CMR2mean, Planet.CMR2less,\
         Planet.CMR2more, Planet.Ocean.QfromMantle_W, Planet.Sil.phiRockMax_frac, Planet.Sil.Rmean_m, \
         Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, Planet.Core.Rmean_m, Planet.Core.Rrange_m, \
-        Planet.Core.rhoMean_kgm3 \
-            = (float(f.readline().split('=')[-1]) for _ in range(20))
+        Planet.Core.rhoMean_kgm3, Planet.MH2O_kg, Planet.Mrock_kg, Planet.Mcore_kg, Planet.Mice_kg, \
+        Planet.Msalt_kg, Planet.MporeSalt_kg, Planet.Mocean_kg, Planet.Mfluid_kg, Planet.MporeFluid_kg \
+            = (float(f.readline().split('=')[-1]) for _ in range(29))
         # Get integer values from header (nSteps values)
         Planet.Steps.nClath, Planet.Steps.nIceI, \
         Planet.Steps.nIceIIILitho, Planet.Steps.nIceVLitho, \
         Planet.Steps.nHydro, Planet.Steps.nSil, Planet.Steps.nCore \
             = (int(f.readline().split('=')[-1]) for _ in range(7))
 
+    Planet.Steps.nIbottom = Planet.Steps.nClath + Planet.Steps.nIceI
+    Planet.Steps.nIIIbottom = Planet.Steps.nIbottom + Planet.Steps.nIceIIILitho
+    Planet.Steps.nVbottom = Planet.Steps.nIIIbottom + Planet.Steps.nIceVLitho
     Planet.Steps.nTotal = Planet.Steps.nHydro + Planet.Steps.nSil + Planet.Steps.nCore
     # Read in columnar data that follows header lines -- full-body
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.phase, Planet.rho_kgm3, Planet.Cp_JkgK, Planet.alpha_pK, \
@@ -301,6 +314,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     Planet.Seismic.QS, Planet.Seismic.KS_GPa, Planet.Seismic.GS_GPa, Planet.Ppore_MPa, Planet.rhoMatrix_kgm3, \
     Planet.rhoPore_kgm3, Planet.MLayer_kg \
         = np.loadtxt(Params.DataFiles.saveFile, skiprows=Params.nHeadLines, unpack=True)
+    Planet.r_m = np.concatenate((Planet.r_m, [0]))
     Planet.z_m = Planet.Bulk.R_m - Planet.r_m
     Planet.phase = Planet.phase.astype(np.int_)
 

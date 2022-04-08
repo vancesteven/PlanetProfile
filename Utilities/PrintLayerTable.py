@@ -16,9 +16,9 @@ def PrintLayerTable(PlanetList, Params):
     oceanThk = 'Ocean thickness D (km): ' + ', '.join([f'{Planet.D_km:.1f}' for Planet in PlanetList])
     zIceI = 'z(km) ice I: ' + ', '.join([f'{Planet.z_m[Planet.Steps.nIbottom]/1e3:.1f}' for Planet in PlanetList])
     zClath = 'z(km) clath: ' + ', '.join([f'{Planet.zClath_m/1e3:.1f}' for Planet in PlanetList])
-    zIceIII = 'z(km) ice III: ' + ', '.join([f'{np.max(Planet.z_m[np.abs(Planet.phase) == 3], initial=0)/1e3:.1f}' for Planet in PlanetList])
-    zIceV = 'z(km) ice V: ' + ', '.join([f'{np.max(Planet.z_m[np.abs(Planet.phase) == 5], initial=0)/1e3:.1f}' for Planet in PlanetList])
-    zIceVI = 'z(km) ice VI: ' + ', '.join([f'{np.max(Planet.z_m[np.abs(Planet.phase) == 6], initial=0)/1e3:.1f}' for Planet in PlanetList])
+    zIceIII = 'z(km) ice III: ' + ', '.join([f'{np.max(Planet.z_m[:-1][np.abs(Planet.phase) == 3], initial=0)/1e3:.1f}' for Planet in PlanetList])
+    zIceV = 'z(km) ice V: ' + ', '.join([f'{np.max(Planet.z_m[:-1][np.abs(Planet.phase) == 5], initial=0)/1e3:.1f}' for Planet in PlanetList])
+    zIceVI = 'z(km) ice VI: ' + ', '.join([f'{np.max(Planet.z_m[:-1][np.abs(Planet.phase) == 6], initial=0)/1e3:.1f}' for Planet in PlanetList])
     wetHydro = 'Total wet hydrosphere: ' + ', '.join([f'{(Planet.z_m[Planet.Steps.nHydro]/1e3 - Planet.zb_km):.1f}' for Planet in PlanetList])
     dzIceIII = 'dz(km) ice III: ' + ', '.join([
         f'{(Planet.z_m[Planet.Steps.nIIIbottom] - Planet.z_m[Planet.Steps.nIbottom + Planet.Steps.nClath])/1e3:.1f}'
