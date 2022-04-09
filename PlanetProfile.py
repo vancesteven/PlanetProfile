@@ -166,14 +166,16 @@ def PlanetProfile(Planet, Params):
 
 def WriteProfile(Planet, Params):
     """ Write out all profile calculations to disk """
-    Params.nHeadLines = 46  # Increment as new header lines are added
+    Params.nHeadLines = 48  # Increment as new header lines are added
     with open(Params.DataFiles.saveFile,'w') as f:
         f.write(Planet.label + '\n')
         # Print number of header lines early so we can skip the rest on read-in if we want to
         f.write(f'  nHeadLines = {Params.nHeadLines:d}\n')
-        f.write(f'  Ocean salt = {Planet.Ocean.comp}\n')
         f.write(f'  Iron core = {Planet.Do.Fe_CORE}\n')
-        f.write(f'  Salinity(ppt) = {Planet.Ocean.wOcean_ppt:.3f}\n')
+        f.write(f'  Ocean salt = {Planet.Ocean.comp}\n')
+        f.write(f'  Pore salt = {Planet.Sil.poreComp}\n')
+        f.write(f'  wOcean_ppt = {Planet.Ocean.wOcean_ppt:.3f}\n')
+        f.write(f'  wPore_ppt = {Planet.Sil.wPore_ppt:.3f}\n')
         f.write(f'  Tb_K = {Planet.Bulk.Tb_K}\n')
         f.write(f'  zb_km = {Planet.zb_km:.3f}\n')
         f.write(f'  zClath_m = {Planet.zClath_m:.3f}\n')
@@ -297,12 +299,14 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.label = f.readline().strip()
         # Get number of header lines to read in from (and skip for columnar data)
         Params.nHeadLines = int(f.readline().split('=')[-1])
-        # Get dissolved salt supposed for ocean (present in filename, but this is intended for future-proofing when we move to a database lookup)
-        Planet.Ocean.comp = f.readline().split('=')[-1].strip()
         # Get whether iron core is modeled
         Planet.Do.Fe_CORE = bool(strtobool(f.readline().split('=')[-1].strip()))
+        # Get dissolved salt supposed for ocean (present in filename, but this is intended for future-proofing when we move to a database lookup)
+        Planet.Ocean.comp = f.readline().split('=')[-1].strip()
+        # Get dissolved salt supposed for pore space
+        Planet.Sil.poreComp = f.readline().split('=')[-1].strip()
         # Get float values from header
-        Planet.Ocean.wOcean_ppt, Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, Planet.D_km, \
+        Planet.Ocean.wOcean_ppt, Planet.Sil.wPore_ppt, Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, Planet.D_km, \
         Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.Mtot_kg, Planet.CMR2mean, Planet.CMR2less,\
         Planet.CMR2more, Planet.Ocean.QfromMantle_W, Planet.Sil.phiRockMax_frac, Planet.Sil.Rmean_m, \
         Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, Planet.Core.Rmean_m, Planet.Core.Rrange_m, \
@@ -310,7 +314,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Msalt_kg, Planet.MporeSalt_kg, Planet.Mocean_kg, Planet.Mfluid_kg, Planet.MporeFluid_kg, \
         Planet.Mclath_kg, Planet.MclathGas_kg, Planet.Ocean.sigmaMean_Sm, Planet.Sil.sigmaPoreMean_Sm, \
         Planet.Sil.sigmaPorousLayerMean_Sm \
-            = (float(f.readline().split('=')[-1]) for _ in range(34))
+            = (float(f.readline().split('=')[-1]) for _ in range(35))
         # Get integer values from header (nSteps values)
         Planet.Steps.nClath, Planet.Steps.nIceI, \
         Planet.Steps.nIceIIILitho, Planet.Steps.nIceVLitho, \

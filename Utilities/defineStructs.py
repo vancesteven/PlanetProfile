@@ -54,6 +54,7 @@ class DoSubstruct:
         self.IONOS_ONLY = False  # Whether to ignore conducting layers within the body and model magnetic induction happening only in the ionosphere
         self.TAUP_SEISMIC = False  # Whether to make TauP model files and some basic plots using obspy.taup
         self.FIXED_POROSITY = False  # Whether to force tidal heating to vary instead of porosity to find a matching MoI for bodies with no iron core
+        self.PORE_EOS_DIFFERENT = False  # Whether a salinity and/or composition has been set for pores that differs from the ocean
 
 
 """ Layer step settings """
@@ -137,6 +138,11 @@ class SilSubstruct:
         self.phiRangeMult = 8  # Factor by which to divide the distance from user-defined phiRockMax_frac to 0 and 1 to obtain the search range for phi
         self.Pclosure_MPa = 350  # Pressure threshold in MPa beyond which pores in silicates shut completely and porosity drops to zero, for use in Han et al. (2014) model. See Saito et al. (2016) for evidence of values up to ~750 MPa: https://doi.org/10.1016/j.tecto.2016.03.044
         self.porosType = 'Han2014'  # Porosity model to apply for silicates. Options are 'Han2014', 'Vitovtova2014', 'Chen2020'.
+        self.poreComp = None  # Solute to use for pore fluids. If None (not set), Ocean.comp is used.
+        self.wPore_ppt = None  # Salinity of pore fluids in ppt. If None, Ocean.wOcean_ppt is used.
+        self.PHydroMax_MPa = 2250  # Maximum pressure to evaluate for pore fluid EOS in MPa
+        self.THydroMax_K = 500  # Maximum temperature to evaluate for pore fluid EOS in K
+        self.poreEOS = None  # EOS to use for pore fluids.
         self.poreH2Orho_kgm3 = 1023  # Arbitrary ocean water density used to calculate filled-pore rock densities. This value is that used in Vance et al. (2018).
         self.poreConductPrefac = 3.3  # Prefactor by which to multiply pore fluid conductivity at porosities below some threshold, based on measurements from Wong et al. (1984).
         self.poreConductBelowExp = 2.3  # Exponent to use for below-threshold dependence of conductivity on porosity for pore fluids
@@ -412,7 +418,6 @@ class ColorsStruct:
 
 """ General parameter options """
 class ParamsStruct:
-
     def __init__(self):
         self.Colors = ColorsStruct()
         self.FigSize = FigSizeStruct()
@@ -422,7 +427,6 @@ class ParamsStruct:
 class EOSlistStruct:
     def __init__(self):
         pass
-
     loaded = {}  # Dict listing the loaded EOSs. Since we define this attribute outside of __init__, it will be common to all EOSlist structs when set.
     ranges = {}  # Dict listing the P, T ranges of the loaded EOSs.
 

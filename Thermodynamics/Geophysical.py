@@ -549,21 +549,21 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
     phiSil_frac0 = Planet.Sil.fn_phi_frac(Peff_MPa, Tsil_K0)
     # Get pore fluid properties
     # First check for HP ice phases
-    phasePore0 = Planet.Ocean.EOS.fn_phase(Ppore_MPa0, Tsil_K0)
+    phasePore0 = Planet.Sil.poreEOS.fn_phase(Ppore_MPa0, Tsil_K0)
     liqP = phasePore0 == 0
     # If all the pores are filled with liquid, do everything together
     if np.all(liqP):
-        rhoPore_kgm30 = Planet.Ocean.EOS.fn_rho_kgm3(Ppore_MPa0, Tsil_K0, grid=False)
-        kThermPore_WmK[:,0] = Planet.Ocean.EOS.fn_kTherm_WmK(Ppore_MPa0, Tsil_K0, grid=False)
-        _, KSpore_GPa[:,0] = Planet.Ocean.EOS.fn_Seismic(Ppore_MPa0, Tsil_K0)
+        rhoPore_kgm30 = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa0, Tsil_K0, grid=False)
+        kThermPore_WmK[:,0] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa0, Tsil_K0, grid=False)
+        _, KSpore_GPa[:,0] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa0, Tsil_K0)
         GSpore_GPa[:,0] = np.zeros_like(KSpore_GPa[:,0])
         DeltaPpore_MPa[:,0] = 1e-6 * rhoPore_kgm30 * gSil_ms20 * (rSil_m0 - rSil_m1)
     else:
         rhoPore_kgm30 = np.zeros_like(Psil_MPa0)
         # For the pores filled with liquid, use ocean liquid EOS
-        rhoPore_kgm30[liqP] = Planet.Ocean.EOS.fn_rho_kgm3(Ppore_MPa0[liqP], Tsil_K0[liqP], grid=False)
-        kThermPore_WmK[liqP,0] = Planet.Ocean.EOS.fn_kTherm_WmK(Ppore_MPa0[liqP], Tsil_K0[liqP], grid=False)
-        _, KSpore_GPa[liqP,0] = Planet.Ocean.EOS.fn_Seismic(Ppore_MPa0[liqP], Tsil_K0[liqP])
+        rhoPore_kgm30[liqP] = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa0[liqP], Tsil_K0[liqP], grid=False)
+        kThermPore_WmK[liqP,0] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa0[liqP], Tsil_K0[liqP], grid=False)
+        _, KSpore_GPa[liqP,0] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa0[liqP], Tsil_K0[liqP])
         GSpore_GPa[liqP,0] = np.zeros_like(KSpore_GPa[liqP,0])
         DeltaPpore_MPa[liqP,0] = 1e-6 * rhoPore_kgm30[liqP] * gSil_ms20[liqP] * (rSil_m0[liqP] - rSil_m1[liqP])
         phases = np.unique(phasePore0)
@@ -686,20 +686,20 @@ def SilRecursionPorous(Planet, Params,
         phiSil_frac[:,j] = Planet.Sil.fn_phi_frac(Peff_MPa, Tsil_K[:,j])
         # Get pore fluid properties
         # First check for HP ice phases
-        phasePore[:,j] = Planet.Ocean.EOS.fn_phase(Ppore_MPa[:,j], Tsil_K[:,j])
+        phasePore[:,j] = Planet.Sil.poreEOS.fn_phase(Ppore_MPa[:,j], Tsil_K[:,j])
         liqP = phasePore[:,j] == 0
         # If all the pores are filled with liquid, do everything together
         if np.all(liqP):
-            rhoPore_kgm3[:,j] = Planet.Ocean.EOS.fn_rho_kgm3(Ppore_MPa[:,j], Tsil_K[:,j], grid=False)
-            kThermPore_WmK[:,j] = Planet.Ocean.EOS.fn_kTherm_WmK(Ppore_MPa[:,j], Tsil_K[:,j], grid=False)
-            _, KSpore_GPa[:,j] = Planet.Ocean.EOS.fn_Seismic(Ppore_MPa[:,j], Tsil_K[:,j])
+            rhoPore_kgm3[:,j] = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa[:,j], Tsil_K[:,j], grid=False)
+            kThermPore_WmK[:,j] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa[:,j], Tsil_K[:,j], grid=False)
+            _, KSpore_GPa[:,j] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa[:,j], Tsil_K[:,j])
             GSpore_GPa[:,j] = np.zeros_like(KSpore_GPa[:,j])
             DeltaPpore_MPa[:,j] = 1e-6 * rhoPore_kgm3[:,j] * gSil_ms2[:,j] * (rSil_m[:,j] - rSil_m[:,j+1])
         else:
             # For the pores filled with liquid, use ocean liquid EOS
-            rhoPore_kgm3[liqP,j] = Planet.Ocean.EOS.fn_rho_kgm3(Ppore_MPa[liqP,j], Tsil_K[liqP,j], grid=False)
-            kThermPore_WmK[liqP,j] = Planet.Ocean.EOS.fn_kTherm_WmK(Ppore_MPa[liqP,j], Tsil_K[liqP,j], grid=False)
-            _, KSpore_GPa[liqP,j] = Planet.Ocean.EOS.fn_Seismic(Ppore_MPa[liqP,j], Tsil_K[liqP,j])
+            rhoPore_kgm3[liqP,j] = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa[liqP,j], Tsil_K[liqP,j], grid=False)
+            kThermPore_WmK[liqP,j] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa[liqP,j], Tsil_K[liqP,j], grid=False)
+            _, KSpore_GPa[liqP,j] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa[liqP,j], Tsil_K[liqP,j])
             GSpore_GPa[liqP,j] = np.zeros_like(KSpore_GPa[liqP,j])
             DeltaPpore_MPa[liqP,j] = 1e-6 * rhoPore_kgm3[liqP,j] * gSil_ms2[liqP,j] * (rSil_m[liqP,j] - rSil_m[liqP,j+1])
             phases = np.unique(phasePore[:,j])
@@ -730,8 +730,6 @@ def SilRecursionPorous(Planet, Params,
         # Finally, get layer total mass and tidal heating rate
         MLayerSil_kg[:,j] = rhoTot_kgm3[:,j] * 4/3*np.pi*(rSil_m[:,j]**3 - rSil_m[:,j+1]**3)
         HtidalSil_Wm3[:,j] = Planet.Sil.fn_Htidal_Wm3(rhoTot_kgm3[:,j], gSil_ms2[:,j], KStot_GPa[:,j], GStot_GPa[:,j])
-
-        if j % 10 == 0: log.debug(f'il_Sil: {Planet.Steps.iSilStart+j}')
 
     return Psil_MPa, Tsil_K, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
            HtidalSil_Wm3, kThermSil_WmK, rhoTot_kgm3, phiSil_frac, kThermTot_WmK, \

@@ -45,30 +45,6 @@ def SetupInit(Planet, Params):
         Planet.zClath_m = 0
         Planet.Bulk.clathType = 'none'
 
-    if not Planet.Do.POROUS_ROCK:
-        Planet.Sil.porosType = 'none'
-        Planet.Sil.poreH2Orho_kgm3 = 0
-        Planet.Sil.phiRockMax_frac = 0
-    else:
-        if Planet.Sil.porosType != 'Han2014':
-            Planet.Do.FIXED_POROSITY = True
-        if Planet.Sil.phiRangeMult <= 1:
-            raise ValueError(f'Sil.phiRangeMult = {Planet.Sil.phiRangeMult}, but it must be greater than 1.')
-        
-    if not Planet.Do.POROUS_ICE:
-        Planet.Ocean.phiMax_frac = {key:0 for key in Planet.Ocean.phiMax_frac.keys()}
-
-    if not Planet.Do.P_EFFECTIVE:
-        # Peffective is calculated from Pmatrix - alpha*Ppore, so setting alpha to zero avoids the need for repeated
-        # conditional checks during layer propagation -- calculations are typically faster than conditional checks.
-        if Planet.Sil.alphaPeff != 0:
-            log.debug('Sil.alphaPeff was not 0, but is being set to 0 because Do.P_EFFECTIVE is False.')
-        Planet.Sil.alphaPeff = 0
-        for phase in Planet.Ocean.alphaPeff.keys():
-            if Planet.Ocean.alphaPeff[phase] != 0:
-                log.debug(f'Ocean.alphaPeff[{phase}] was not 0, but is being set to 0 because Do.P_EFFECTIVE is False.')
-            Planet.Ocean.alphaPeff[phase] = 0
-
     if Planet.Do.NO_H2O:
         log.info('Modeling a waterless body.')
         if Planet.Bulk.qSurf_Wm2 is None:
@@ -76,13 +52,14 @@ def SetupInit(Planet, Params):
         Planet.Ocean.QfromMantle_W = Planet.Bulk.qSurf_Wm2 * 4*np.pi*Planet.Bulk.R_m**2
         Planet.Pb_MPa = Planet.Bulk.Psurf_MPa
         Planet.PbI_MPa = Planet.Bulk.Psurf_MPa
+        Planet.Sil.PHydroMax_MPa = Planet.Bulk.Psurf_MPa
         Planet.Bulk.Tb_K = Planet.Bulk.Tsurf_K
         Planet.zb_km = 0.0
         Planet.Steps.nIceI = 0
         Planet.Steps.nSurfIce = 0
         Planet.Steps.nOceanMax = 1
         Planet.Steps.nHydroMax = 1
-        Planet.Ocean.comp = 'None'
+        Planet.Ocean.comp = 'none'
         Planet.Ocean.wOcean_ppt = 0.0
         Planet.Ocean.deltaP = 0.0
         # Generate zero-yielding ocean "EOS" for use in porosity calculations
@@ -140,6 +117,45 @@ def SetupInit(Planet, Params):
                                           Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                           scalingType=Planet.Ocean.MgSO4scalingType)
 
+    if Planet.Do.POROUS_ROCK:
+        # Use ocean composition and salinity if user has not specified different ones for pore space
+        if Planet.Sil.poreComp is None:
+            Planet.Sil.poreComp = Planet.Ocean.comp
+        elif Planet.Sil.poreComp != Planet.Ocean.comp:
+            Planet.Do.PORE_EOS_DIFFERENT = True
+        if Planet.Sil.wPore_ppt is None:
+            Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
+        else:
+            Planet.Do.PORE_EOS_DIFFERENT = True
+        # Make sure pore max pressure is set, since we will need it to check if we'll need HP ices
+        if not Planet.Do.PORE_EOS_DIFFERENT:
+            Planet.Sil.PHydroMax_MPa = Planet.Ocean.PHydroMax_MPa
+
+        if Planet.Sil.porosType != 'Han2014':
+            Planet.Do.FIXED_POROSITY = True
+        if Planet.Sil.phiRangeMult <= 1:
+            raise ValueError(f'Sil.phiRangeMult = {Planet.Sil.phiRangeMult}, but it must be greater than 1.')
+    else:
+        Planet.Sil.porosType = 'none'
+        Planet.Sil.poreH2Orho_kgm3 = 0
+        Planet.Sil.phiRockMax_frac = 0
+        Planet.Sil.poreComp = Planet.Ocean.comp
+        Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
+
+    if not Planet.Do.POROUS_ICE:
+        Planet.Ocean.phiMax_frac = {key:0 for key in Planet.Ocean.phiMax_frac.keys()}
+
+    if not Planet.Do.P_EFFECTIVE:
+        # Peffective is calculated from Pmatrix - alpha*Ppore, so setting alpha to zero avoids the need for repeated
+        # conditional checks during layer propagation -- calculations are typically faster than conditional checks.
+        if Planet.Sil.alphaPeff != 0:
+            log.debug('Sil.alphaPeff was not 0, but is being set to 0 because Do.P_EFFECTIVE is False.')
+        Planet.Sil.alphaPeff = 0
+        for phase in Planet.Ocean.alphaPeff.keys():
+            if Planet.Ocean.alphaPeff[phase] != 0:
+                log.debug(f'Ocean.alphaPeff[{phase}] was not 0, but is being set to 0 because Do.P_EFFECTIVE is False.')
+            Planet.Ocean.alphaPeff[phase] = 0
+
     # Calculate bulk density from total mass and radius, and warn user if they specified density
     if Planet.Bulk.M_kg is None:
         Planet.Bulk.M_kg = Planet.Bulk.rho_kgm3 * (4/3*np.pi * Planet.Bulk.R_m**3)
@@ -169,13 +185,16 @@ def SetupFilenames(Planet, Params):
     saveLabel = ''
     label = ''
     if Planet.Do.NO_H2O:
-        saveLabel += f'NoH2O_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.0f}mWm2'
+        saveLabel += f'NoH2O_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
         label += f'${Planet.Bulk.qSurf_Wm2*1e3:.0f}\,\si{{mW/m^2}}$'
     else:
-        saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.0f}ppt' + \
+        saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
                     f'_Tb{Planet.Bulk.Tb_K}K'
         label += f'{Planet.Ocean.wOcean_ppt:.0f}\,ppt \ce{{{Planet.Ocean.comp}}}' + \
             f', $T_b\,{Planet.Bulk.Tb_K}\,\si{{K}}$'
+        if Planet.Do.PORE_EOS_DIFFERENT:
+            saveLabel += f'_{Planet.Sil.poreComp}_{Planet.Sil.wPore_ppt:.1f}pptPores'
+            label += f', {Planet.Sil.wPore_ppt:.0f}\,ppt \ce{{{Planet.Sil.poreComp}}} pores'
         if Planet.Do.CLATHRATE:
             saveLabel += '_Clathrates'
             label += ' w/clath'

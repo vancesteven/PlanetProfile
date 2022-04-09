@@ -38,6 +38,9 @@ def ElecConduct(Planet, Params):
         else:
             Planet.Sil.sigmaPoreMean_Sm = np.nan
             Planet.Sil.sigmaPorousLayerMean_Sm = np.nan
+    else:
+        Planet.Sil.sigmaPoreMean_Sm = np.nan
+        Planet.Sil.sigmaPorousLayerMean_Sm = np.nan
 
     if np.size(indsLiq) != 0:
         Planet.Ocean.sigmaMean_Sm = np.mean(Planet.sigma_Sm[indsLiq])

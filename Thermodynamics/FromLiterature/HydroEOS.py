@@ -149,8 +149,8 @@ class IceEOSStruct:
             self.deltaP = np.mean(np.diff(self.P_MPa))
             self.deltaT = np.mean(np.diff(self.T_K))
             log.debug(f'Loading EOS for {phaseStr} with ' +
-                      f'P_MPa = [{self.Pmin:.1f}, {self.Pmax:.1f}, {self.deltaP:.2f}], ' +
-                      f'T_K = [{self.Tmin:.1f}, {self.Tmax:.1f}, {self.deltaT:.2f}], ' +
+                      f'P_MPa = [{self.Pmin:.1f}, {self.Pmax:.1f}, {self.deltaP:.3f}], ' +
+                      f'T_K = [{self.Tmin:.1f}, {self.Tmax:.1f}, {self.deltaT:.3f}], ' +
                       f'for [min, max, step].')
 
             # Make sure arrays are long enough to interpolate
@@ -233,8 +233,10 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
     """
 
     # Create label for identifying P, T arrays
-    rangeLabel = f'{np.min(P_MPa)},{np.max(P_MPa)},{np.mean(np.diff(P_MPa))},' + \
-                 f'{np.min(T_K)},{np.max(T_K)},{np.mean(np.diff(T_K))}'
+    deltaP = np.mean(np.diff(P_MPa))
+    deltaT = np.mean(np.diff(T_K))
+    rangeLabel = f'{np.min(P_MPa)},{np.max(P_MPa)},{deltaP},' + \
+                 f'{np.min(T_K)},{np.max(T_K)},{deltaT}'
     if EOSlabel in EOSlist.loaded.keys():
         if EOSlist.ranges[EOSlabel] == rangeLabel:
             # This exact EOS has been loaded already. Reuse the one in memory
@@ -245,9 +247,11 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
             # Check if we can reuse an already-loaded EOS because the
             # P, T ranges are contained within the already-loaded EOS
             nopeP = np.min(P_MPa) < EOSlist.loaded[EOSlabel].Pmin or \
-                    np.max(P_MPa) > EOSlist.loaded[EOSlabel].Pmax
+                    np.max(P_MPa) > EOSlist.loaded[EOSlabel].Pmax or \
+                    deltaP > EOSlist.loaded[EOSlabel].deltaP
             nopeT = np.min(T_K) < EOSlist.loaded[EOSlabel].Tmin or \
-                    np.max(T_K) > EOSlist.loaded[EOSlabel].Tmax
+                    np.max(T_K) > EOSlist.loaded[EOSlabel].Tmax or \
+                    deltaT > EOSlist.loaded[EOSlabel].deltaT
             if nopeP or nopeT:
                 # The new inputs have at least one min/max value outside the range
                 # of the previously loaded EOS, so we have to load a new one.
@@ -260,8 +264,10 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
                 maxTmax = np.maximum(np.max(T_K), EOSlist.loaded[EOSlabel].Tmax)
                 minDeltaP = np.minimum(np.mean(np.diff(P_MPa)), EOSlist.loaded[EOSlabel].deltaP)
                 minDeltaT = np.minimum(np.mean(np.diff(T_K)), EOSlist.loaded[EOSlabel].deltaT)
-                outP_MPa = np.arange(minPmin, maxPmax, minDeltaP)
-                outT_K = np.arange(minTmin, maxTmax, minDeltaT)
+                nPs = int((maxPmax - minPmin) / minDeltaP)
+                nTs = int((maxTmax - minTmin) / minDeltaT)
+                outP_MPa = np.linspace(minPmin, maxPmax, nPs)
+                outT_K = np.linspace(minTmin, maxTmax, nTs)
                 rangeLabel = f'{np.min(outP_MPa)},{np.max(outP_MPa)},{np.min(outT_K)},{np.max(outT_K)}'
             else:
                 # A previous EOS has been loaded that has a wider P or T range than the inputs,

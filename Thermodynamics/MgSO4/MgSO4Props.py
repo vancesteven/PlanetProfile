@@ -187,22 +187,30 @@ class MgSO4Phase:
     def arrays(self, P_MPa, T_K):
         self.nPs = np.size(P_MPa)
         self.nTs = np.size(T_K)
+        if np.maximum(self.nPs, self.nTs) > 300:
+            WARN_LONG = True
+        else:
+            WARN_LONG = False
         if(self.nPs == 0 or self.nTs == 0):
             # If input is empty, return empty array
             return np.array([])
         elif self.nPs == 1 and self.nTs == 1:
             phase = self.__call__(P_MPa, T_K)
         elif self.nPs == 1:
-            log.info(f'Applying Margules phase finder for MgSO4 with {self.nTs} T values. This may take some time.')
+            if WARN_LONG:
+                log.debug(f'Applying Margules phase finder for MgSO4 with {self.nTs} T values. This may take some time.')
             phase = np.array([self.__call__(P_MPa, T) for T in T_K])
         elif self.nTs == 1:
-            log.info(f'Applying Margules phase finder for MgSO4 with {self.nPs} P values. This may take some time.')
+            if WARN_LONG:
+               log.debug(f'Applying Margules phase finder for MgSO4 with {self.nPs} P values. This may take some time.')
             phase = np.array([self.__call__(P, T_K) for P in P_MPa])
         elif self.nTs == self.nPs:
-            log.info(f'Applying Margules phase finder for MgSO4 with {self.nPs} (P,T) pairs. This may take some time.')
+            if WARN_LONG:
+                log.debug(f'Applying Margules phase finder for MgSO4 with {self.nPs} (P,T) pairs. This may take some time.')
             phase = np.array([self.__call__(P, T_K[i]) for i, P in np.ndenumerate(P_MPa)])
         else:
-            log.info(f'Applying Margules phase finder for MgSO4 with {self.nPs} P values and ' +
+            if WARN_LONG:
+                log.debug(f'Applying Margules phase finder for MgSO4 with {self.nPs} P values and ' +
                      f'{self.nTs} T values. This may take some time.')
             phase = np.array([[self.__call__(P, T) for T in T_K] for P in P_MPa])
 

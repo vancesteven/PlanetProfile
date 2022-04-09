@@ -61,7 +61,11 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
                    'temperature at the top of the layer. Tconv has been set equal to Ttop and ' +
                    'no conductive lid will be modeled.')
     if phaseMid != oceanEOS.fn_phase(Pmid_MPa, Tconv_K):
-        raise ValueError(f'Convecting temperature of ice {phaseMid} exceeds a phase transition. ' +
+        if abs(phaseMid) != Constants.phaseClath:
+            iceType = f'ice {phaseConv(phaseMid)}'
+        else:
+            iceType = f'clathrate'
+        raise ValueError(f'Convecting temperature of {iceType} exceeds a phase transition. ' +
                          'Try adjusting Tb_K values to achieve a possible configuration.')
 
     # Get melting temperature for calculating viscosity relative to this temp

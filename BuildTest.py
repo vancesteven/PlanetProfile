@@ -31,7 +31,7 @@ def full():
 
     # Loop over remaining test profiles (2 onwards)
     nTests = len(fnmatch.filter(os.listdir('Test'), 'PPTest*'))
-    for i in range(17, nTests+1):
+    for i in range(15, nTests+1):
         testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
         log.info(f'Test case body: {testBase}{i}')
         _ = PlanetProfile(testPlanetN, Params)

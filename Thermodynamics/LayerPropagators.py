@@ -306,8 +306,13 @@ def OceanLayers(Planet, Params):
     TOcean_K = np.insert(TOcean_K, 0, Planet.T_K[Planet.Steps.nSurfIce])
 
     # Add HP ices to iceEOS if needed
-    if(Planet.Ocean.PHydroMax_MPa > Constants.PminHPices_MPa):
-        GetOceanHPIceEOS(Planet, Params, POcean_MPa)
+    PHydroMax_MPa = np.maximum(Planet.Ocean.PHydroMax_MPa, Planet.Sil.PHydroMax_MPa)
+    if PHydroMax_MPa > Planet.Ocean.PHydroMax_MPa:
+        PHPices_MPa = np.arange(POcean_MPa[0], PHydroMax_MPa, Planet.Ocean.deltaP)
+    else:
+        PHPices_MPa = POcean_MPa
+    if PHydroMax_MPa > Constants.PminHPices_MPa:
+        GetOceanHPIceEOS(Planet, Params, PHPices_MPa)
 
     # Do initial ocean step separately in order to catch potential Melosh layer--
     # see Melosh et al. (2004): https://doi.org/10.1016/j.icarus.2003.11.026
@@ -433,7 +438,7 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
 
     # Stopgap measure to avoid MgSO4 calcs taking ages with the slow Margules formulation phase calcs
     # Remove this if/else block (just do the "else") when a faster phase calculation is implemented!
-    if Planet.Ocean.comp == 'MgSO4':
+    if Planet.Ocean.comp == 'MgSO4' or Planet.Sil.poreComp == 'MgSO4':
         # Just load all HP ice phases in case we need them. This part is way faster than Margules phase calcs
         Planet.Ocean.iceEOS['II'] = GetIceEOS(POceanHPices_MPa, TOceanHPices_K, 'II',
                                               porosType=Planet.Ocean.porosType['II'],
@@ -583,16 +588,15 @@ def InnerLayers(Planet, Params):
                                          * Planet.rhoMatrix_kgm3[iOS:iSC])
     # Next, fetch the phase IDs of the silicate layers, which are incremented when
     # they contain non-liquid phases.
-    silPhasesOut = Planet.phase[iOS:iSC]
-    silPhasesInn = Planet.phase[iOS+1:iSC+1]
+    silPhases = Planet.phase[iOS:iSC]
     # Add matrix density for ice phases; rhoMatrix is not set for phase == 0, so we
     # can safely include those layers in the sum. We also must include ices in the
     # pore space of silicates.
     Planet.Mice_kg = 4/3*np.pi * (np.sum((Planet.r_m[0:iOS]**3 - Planet.r_m[1:iOS+1]**3)
                                          * Planet.rhoMatrix_kgm3[0:iOS])
-                                + np.sum((Planet.r_m[iOS:iSC][silPhasesOut != Constants.phaseSil]**3
-                                        - Planet.r_m[iOS+1:iSC+1][silPhasesInn != Constants.phaseSil]**3)
-                                         * Planet.rhoPore_kgm3[iOS:iSC][silPhasesInn != Constants.phaseSil]))
+                                + np.sum((Planet.r_m[iOS:iSC][silPhases != Constants.phaseSil]**3
+                                        - Planet.r_m[iOS+1:iSC+1][silPhases != Constants.phaseSil]**3)
+                                         * Planet.rhoPore_kgm3[iOS:iSC][silPhases != Constants.phaseSil]))
     # The remainder is the ocean fluids, including H2O and salts.
     Planet.Mfluid_kg = Planet.Mtot_kg - Planet.Mcore_kg - Planet.Mrock_kg - Planet.Mice_kg
     # Get the mass contained in clathrate layers and just the trapped gas
