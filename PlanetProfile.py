@@ -1,7 +1,6 @@
 # Import necessary Python modules
-import os, sys
+import os, sys, time, importlib
 import numpy as np
-import importlib
 import logging as log
 from copy import deepcopy
 from distutils.util import strtobool
@@ -60,6 +59,7 @@ def main():
     # Splitting on PP and taking the -1 chops the path out, then taking
     # all but the last 3 characters chops the .py extension
     models = [model.split('PP')[-1][:-3] for model in models]
+    nModels = np.size(models)
 
     # Additional command line arguments
     if nArgs > 2:
@@ -85,14 +85,18 @@ def main():
             log.warning(f'Too many command line args passed. Ignoring command "{sys.argv[3]}" and any after it.')
 
     """ Run PlanetProfile """
-    PlanetList = np.empty(np.size(models), dtype=object)
+    PlanetList = np.empty(nModels, dtype=object)
     # Run main model first, so that it always appears as 0-index
+    tMarks = np.zeros(nModels+1)
+    tMarks[0] = time.time()
     PlanetList[0] = importlib.import_module(f'{bodyname}.PP{models[0]}').Planet
     PlanetList[0], Params = PlanetProfile(PlanetList[0], Params)
+    tMarks[1] = time.time()
     if Params.RUN_ALL_PROFILES:
         for i,model in enumerate(models[1:]):
             PlanetList[i+1] = deepcopy(importlib.import_module(f'{bodyname}.PP{model}').Planet)
             PlanetList[i+1], Params = PlanetProfile(PlanetList[i+1], Params)
+            tMarks[i+2] = time.time()
 
         # Plot combined figures
         if not Params.SKIP_PLOTS and Params.COMPARE:
@@ -102,8 +106,10 @@ def main():
     else:
         PlanetList = PlanetList[:1]
 
-    """ Post-processing """
+    dt = np.diff(tMarks)
+    log.debug('Elapsed time:\n' + '\n'.join([f'    {dt[i]:.3f} s for {Planet.saveLabel}' for i,Planet in enumerate(PlanetList)]))
 
+    """ Post-processing """
     # Loading BodyProfile...txt files to plot them together
     if Params.COMPARE and not Params.RUN_ALL_PROFILES:
         fNamesToCompare = np.array(FilesMatchingPattern(os.path.join(bodyname, f'{bodyname}Profile*.txt')))
@@ -160,7 +166,7 @@ def PlanetProfile(Planet, Params):
 
 def WriteProfile(Planet, Params):
     """ Write out all profile calculations to disk """
-    Params.nHeadLines = 41  # Increment as new header lines are added
+    Params.nHeadLines = 46  # Increment as new header lines are added
     with open(Params.DataFiles.saveFile,'w') as f:
         f.write(Planet.label + '\n')
         # Print number of header lines early so we can skip the rest on read-in if we want to
@@ -187,15 +193,20 @@ def WriteProfile(Planet, Params):
         f.write(f'  RcoreMean_m = {Planet.Core.Rmean_m:.3f}\n')
         f.write(f'  RcoreRange_m = {Planet.Core.Rrange_m:.3f}\n')
         f.write(f'  rhoCore_kgm3 = {Planet.Core.rhoMean_kgm3:.3f}\n')
-        f.write(f'  MH2O_kg = {Planet.MH2O_kg:.6e}\n')
-        f.write(f'  Mrock_kg = {Planet.Mrock_kg:.6e}\n')
-        f.write(f'  Mcore_kg = {Planet.Mcore_kg:.6e}\n')
-        f.write(f'  Mice_kg = {Planet.Mice_kg:.6e}\n')
-        f.write(f'  Msalt_kg = {Planet.Msalt_kg:.6e}\n')
-        f.write(f'  MporeSalt_kg = {Planet.MporeSalt_kg:.6e}\n')
-        f.write(f'  Mocean_kg = {Planet.Mocean_kg:.6e}\n')
-        f.write(f'  Mfluid_kg = {Planet.Mfluid_kg:.6e}\n')
-        f.write(f'  MporeFluid_kg = {Planet.MporeFluid_kg:.6e}\n')
+        f.write(f'  MH2O_kg = {Planet.MH2O_kg:.5e}\n')
+        f.write(f'  Mrock_kg = {Planet.Mrock_kg:.5e}\n')
+        f.write(f'  Mcore_kg = {Planet.Mcore_kg:.5e}\n')
+        f.write(f'  Mice_kg = {Planet.Mice_kg:.5e}\n')
+        f.write(f'  Msalt_kg = {Planet.Msalt_kg:.5e}\n')
+        f.write(f'  MporeSalt_kg = {Planet.MporeSalt_kg:.5e}\n')
+        f.write(f'  Mocean_kg = {Planet.Mocean_kg:.5e}\n')
+        f.write(f'  Mfluid_kg = {Planet.Mfluid_kg:.5e}\n')
+        f.write(f'  MporeFluid_kg = {Planet.MporeFluid_kg:.5e}\n')
+        f.write(f'  Mclath_kg = {Planet.Mclath_kg:.5e}\n')
+        f.write(f'  MclathGas_kg = {Planet.MclathGas_kg:.5e}\n')
+        f.write(f'  sigmaOceanMean_Sm = {Planet.Ocean.sigmaMean_Sm:.3f}\n')
+        f.write(f'  sigmaPoreMean_Sm = {Planet.Sil.sigmaPoreMean_Sm:.3f}\n')
+        f.write(f'  sigmaPorousLayerMean_Sm = {Planet.Sil.sigmaPorousLayerMean_Sm:.3f}\n')
         f.write(f'  Steps.nClath = {Planet.Steps.nClath:d}\n')
         f.write(f'  Steps.nIceI = {Planet.Steps.nIceI:d}\n')
         f.write(f'  Steps.nIceIIILitho = {Planet.Steps.nIceIIILitho:d}\n')
@@ -296,8 +307,10 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.CMR2more, Planet.Ocean.QfromMantle_W, Planet.Sil.phiRockMax_frac, Planet.Sil.Rmean_m, \
         Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, Planet.Core.Rmean_m, Planet.Core.Rrange_m, \
         Planet.Core.rhoMean_kgm3, Planet.MH2O_kg, Planet.Mrock_kg, Planet.Mcore_kg, Planet.Mice_kg, \
-        Planet.Msalt_kg, Planet.MporeSalt_kg, Planet.Mocean_kg, Planet.Mfluid_kg, Planet.MporeFluid_kg \
-            = (float(f.readline().split('=')[-1]) for _ in range(29))
+        Planet.Msalt_kg, Planet.MporeSalt_kg, Planet.Mocean_kg, Planet.Mfluid_kg, Planet.MporeFluid_kg, \
+        Planet.Mclath_kg, Planet.MclathGas_kg, Planet.Ocean.sigmaMean_Sm, Planet.Sil.sigmaPoreMean_Sm, \
+        Planet.Sil.sigmaPorousLayerMean_Sm \
+            = (float(f.readline().split('=')[-1]) for _ in range(34))
         # Get integer values from header (nSteps values)
         Planet.Steps.nClath, Planet.Steps.nIceI, \
         Planet.Steps.nIceIIILitho, Planet.Steps.nIceVLitho, \
@@ -306,7 +319,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
 
     Planet.Steps.nIbottom = Planet.Steps.nClath + Planet.Steps.nIceI
     Planet.Steps.nIIIbottom = Planet.Steps.nIbottom + Planet.Steps.nIceIIILitho
-    Planet.Steps.nVbottom = Planet.Steps.nIIIbottom + Planet.Steps.nIceVLitho
+    Planet.Steps.nSurfIce = Planet.Steps.nIIIbottom + Planet.Steps.nIceVLitho
     Planet.Steps.nTotal = Planet.Steps.nHydro + Planet.Steps.nSil + Planet.Steps.nCore
     # Read in columnar data that follows header lines -- full-body
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.phase, Planet.rho_kgm3, Planet.Cp_JkgK, Planet.alpha_pK, \

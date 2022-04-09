@@ -65,6 +65,7 @@ class StepsSubstruct:
         self.nHydroMax = None  # Derived working length of hydrosphere layers, gets truncated after layer calcs
         self.nOceanMax = None  # Derived working length of ocean layers, also truncated after layer calcs
         self.nHydro = None  # Derived final number of steps in hydrosphere
+        self.nTotal = None  # Total number of layers in profile
         self.nIbottom = None  # Derived number of clathrate + ice I layers
         self.nIIIbottom = 0  # Derived number of clathrate + ice I + ice III layers
         self.nSurfIce = 0  # Derived number of outer ice layers (above ocean) -- sum of nIceI, nClath, nIceIIILitho, nIceVLitho
@@ -86,6 +87,7 @@ class OceanSubstruct:
     def __init__(self):
         self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'PureH2O', 'NH3', 'NaCl', 'none'
         self.wOcean_ppt = None  # (Absolute) salinity: Mass concentration of above composition in parts per thousand (ppt)
+        self.sigmaMean_Sm = None  # Mean conductivity across all ocean layers (linear average, ignoring spherical geometry effects)
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
         self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
@@ -141,6 +143,8 @@ class SilSubstruct:
         self.poreConductAboveExp = 1.5  # Exponent to use for above-threshold dependence of conductivity on porosity for pore fluids -- 3/2 is that expected for spherical grains of the matrix material; Wong et al. (1984) suggest it fits well to above-threshold measurements, and this is supported by Golden et al. (2007): https://doi.org/10.1029/2007GL030447
         self.poreConductThresh_frac = self.poreConductPrefac**(1/(self.poreConductAboveExp - self.poreConductBelowExp))  # Threshold in porosity at which the below-threshold Archie's law fit from above parameters is equal to above-threshold dependence
         self.phiMin_frac = 1e-4  # Minimum porosity to model in silicates, i.e. below this we just set to zero
+        self.sigmaPoreMean_Sm = None  # Mean conductivity of pore fluids across all layers with porosity above poreConductThresh (about 5%)
+        self.sigmaPorousLayerMean_Sm = None  # Mean conductivity of matrix + pore fluid combined, for all layers with porosity of poreConductThresh
         # J values for exponent of pore property / overlaying matrix combination as in Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
         # Values X combine as Xtot^J = Xmatrix^J * (1 - phi) + Xpore^J * phi, where phi is the porosity (volume fraction) of pore space filled with the secondary material.
         # Values of J typically range from -1 to 1, where 1 is a direct mean, e.g. Xtot = Xrock*(1-phi) + Xpore*phi and -1 is a geometric mean, e.g. Xtot = Xrock || Xpore = 1/((1-phi)/Xrock + phi/Xpore).
@@ -336,6 +340,17 @@ class PlanetStruct:
         self.RaConvect = None  # Rayleigh number of putative convective layer within the ice I layers. If this number is below Constants.RaCrit, convection does not occur.
         self.RaConvectIII = None  # Same as above but for ice III underplate layers.
         self.RaConvectV = None  # Same as above but for ice V underplate layers.
+        self.MH2O_kg = None  # Total mass of water molecules contained in ice, liquid, and pore spaces
+        self.Mrock_kg = None  # Total mass contained in silicate rock (just the matrix, when layers are porous)
+        self.Mcore_kg = None  # Total mass contained in iron core material
+        self.Mice_kg = None  # Total mass contained in all ice phases, including gas trapped in clathrates
+        self.Msalt_kg = None  # Total mass contained in ocean solute
+        self.MporeSalt_kg = None  # Total mass contained in ocean solute in pore spaces
+        self.Mocean_kg = None  # Total mass contained in ocean fluids, including H2O and salts, excluding pores
+        self.Mfluid_kg = None  # Sum of the masses in ocean and pore spaces
+        self.MporeFluid_kg = None  # Total mass contained in pore fluids, including H2O and salts
+        self.Mclath_kg = None  # Total mass of clathrate layers
+        self.MclathGas_kg = None  # Total mass of non-water molecules trapped in clathrates
 
 
 """ Params substructs """
@@ -403,6 +418,14 @@ class ParamsStruct:
         self.FigSize = FigSizeStruct()
 
 
+""" Global EOS list """
+class EOSlistStruct:
+    def __init__(self):
+        pass
+
+    loaded = {}  # Dict listing the loaded EOSs. Since we define this attribute outside of __init__, it will be common to all EOSlist structs when set.
+    ranges = {}  # Dict listing the P, T ranges of the loaded EOSs.
+
 """ Physical constants """
 class ConstantsStruct:
     def __init__(self):
@@ -420,6 +443,10 @@ class ConstantsStruct:
         self.mNaCl_gmol = 58.44  # Molecular mass of NaCl in g/mol
         self.mNH3_gmol = 17.03  # Molecular mass of NH3 in g/mol
         self.mH2O_gmol = 18.02  # Molecular mass of pure water in g/mol
+        self.mCH4_gmol = 16.04  # Molecular mass of methane in g/mol
+        self.mCO2_gmol = 44.01  # Molecular mass of CO2 in g/mol
+        self.mClathGas_gmol = self.mCH4_gmol + 5.75 * self.mH2O_gmol  # Molecular mass of clathrate unit cell
+        self.clathGasFrac_ppt = 1e3 * self.mCH4_gmol / self.mClathGas_gmol  # Mass fraction of gases trapped in clathrates in ppt
         self.QScore = 1e4  # Fixed QS value to use for core layers if not set in PPBody.py file
         self.kThermWater_WmK = 0.55  # Fixed thermal conductivity of liquid water in W/(m K)
         self.kThermSil_WmK = 4.0  # Fixed thermal conductivity of silicates in W/(m K)
@@ -443,3 +470,4 @@ class ConstantsStruct:
         self.PmaxLiquid_MPa = 2250.0  # Maximum plausible pressure for liquid water oceans
 
 Constants = ConstantsStruct()
+EOSlist = EOSlistStruct()

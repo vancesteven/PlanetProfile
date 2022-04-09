@@ -5,7 +5,7 @@ from Utilities.defineStructs import Constants
 from Thermodynamics.Silicates import SilicateLayers
 from Thermodynamics.IronCore import IronCoreLayers
 from Thermodynamics.FromLiterature.HydroEOS import GetPfreeze, GetTfreeze, \
-    PhaseConv, GetPhaseIndices, IceEOSStruct, GetPbClath
+    PhaseConv, GetPhaseIndices, GetIceEOS, GetPbClath
 from Thermodynamics.FromLiterature.ThermalProfiles import ConductiveTemperature
 from Thermodynamics.FromLiterature.IceConduction import IceIWholeConductSolid, IceIWholeConductPorous, \
     IceIConductClathLidSolid, IceIConductClathLidPorous, IceIConductClathUnderplateSolid, IceIConductClathUnderplatePorous, \
@@ -13,7 +13,7 @@ from Thermodynamics.FromLiterature.IceConduction import IceIWholeConductSolid, I
 from Thermodynamics.FromLiterature.Convection import IceIConvectSolid, IceIConvectPorous, \
     IceIIIConvectSolid, IceIIIConvectPorous, IceVConvectSolid, IceVConvectPorous, \
     ClathShellConvectSolid, ClathShellConvectPorous
-from Thermodynamics.FromLiterature.InnerEOS import PerplexEOSStruct, GetHtidalFunc
+from Thermodynamics.FromLiterature.InnerEOS import GetInnerEOS, GetHtidalFunc
 
 def IceLayers(Planet, Params):
     """ Layer propagation from surface downward through the ice using geophysics.
@@ -435,26 +435,26 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
     # Remove this if/else block (just do the "else") when a faster phase calculation is implemented!
     if Planet.Ocean.comp == 'MgSO4':
         # Just load all HP ice phases in case we need them. This part is way faster than Margules phase calcs
-        Planet.Ocean.iceEOS['II'] = IceEOSStruct(POceanHPices_MPa, TOceanHPices_K, 'II',
-                                                 porosType=Planet.Ocean.porosType['II'],
-                                                 phiTop_frac=Planet.Ocean.phiMax_frac['II'],
-                                                 Pclosure_MPa=Planet.Ocean.Pclosure_MPa['II'],
-                                                 phiMin_frac=Planet.Ocean.phiMin_frac)
-        Planet.Ocean.iceEOS['III'] = IceEOSStruct(POceanHPices_MPa, TOceanHPices_K, 'III',
-                                                  porosType=Planet.Ocean.porosType['III'],
-                                                  phiTop_frac=Planet.Ocean.phiMax_frac['III'],
-                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa['III'],
-                                                  phiMin_frac=Planet.Ocean.phiMin_frac)
-        Planet.Ocean.iceEOS['V'] = IceEOSStruct(POceanHPices_MPa, TOceanHPices_K, 'V',
-                                                porosType=Planet.Ocean.porosType['V'],
-                                                phiTop_frac=Planet.Ocean.phiMax_frac['V'],
-                                                Pclosure_MPa=Planet.Ocean.Pclosure_MPa['V'],
-                                                phiMin_frac=Planet.Ocean.phiMin_frac)
-        Planet.Ocean.iceEOS['VI'] = IceEOSStruct(POceanHPices_MPa, TOceanHPices_K, 'VI',
-                                                 porosType=Planet.Ocean.porosType['VI'],
-                                                 phiTop_frac=Planet.Ocean.phiMax_frac['VI'],
-                                                 Pclosure_MPa=Planet.Ocean.Pclosure_MPa['VI'],
-                                                 phiMin_frac=Planet.Ocean.phiMin_frac)
+        Planet.Ocean.iceEOS['II'] = GetIceEOS(POceanHPices_MPa, TOceanHPices_K, 'II',
+                                              porosType=Planet.Ocean.porosType['II'],
+                                              phiTop_frac=Planet.Ocean.phiMax_frac['II'],
+                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa['II'],
+                                              phiMin_frac=Planet.Ocean.phiMin_frac)
+        Planet.Ocean.iceEOS['III'] = GetIceEOS(POceanHPices_MPa, TOceanHPices_K, 'III',
+                                               porosType=Planet.Ocean.porosType['III'],
+                                               phiTop_frac=Planet.Ocean.phiMax_frac['III'],
+                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa['III'],
+                                               phiMin_frac=Planet.Ocean.phiMin_frac)
+        Planet.Ocean.iceEOS['V'] = GetIceEOS(POceanHPices_MPa, TOceanHPices_K, 'V',
+                                             porosType=Planet.Ocean.porosType['V'],
+                                             phiTop_frac=Planet.Ocean.phiMax_frac['V'],
+                                             Pclosure_MPa=Planet.Ocean.Pclosure_MPa['V'],
+                                             phiMin_frac=Planet.Ocean.phiMin_frac)
+        Planet.Ocean.iceEOS['VI'] = GetIceEOS(POceanHPices_MPa, TOceanHPices_K, 'VI',
+                                              porosType=Planet.Ocean.porosType['VI'],
+                                              phiTop_frac=Planet.Ocean.phiMax_frac['VI'],
+                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa['VI'],
+                                              phiMin_frac=Planet.Ocean.phiMin_frac)
     else:
         # Get phase of each P,T combination
         expandPhases = Planet.Ocean.EOS.fn_phase(PHPicesLin_MPa, THPicesLin_K)
@@ -469,48 +469,48 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
                 PiceIImax_MPa = PHPicesLin_MPa[indsIceII[-1]]
                 TiceIImin_K = np.min(THPicesLin_K[indsIceII])
                 TiceIImax_K = np.max(THPicesLin_K[indsIceII])
-                Planet.Ocean.iceEOS['II'] = IceEOSStruct(np.linspace(PiceIImin_MPa, PiceIImax_MPa, Planet.Steps.nPsHP),
-                                                         np.linspace(TiceIImin_K, TiceIImax_K, Planet.Steps.nTsHP), 'II',
-                                                         porosType=Planet.Ocean.porosType['II'],
-                                                         phiTop_frac=Planet.Ocean.phiMax_frac['II'],
-                                                         Pclosure_MPa=Planet.Ocean.Pclosure_MPa['II'],
-                                                         phiMin_frac=Planet.Ocean.phiMin_frac)
+                Planet.Ocean.iceEOS['II'] = GetIceEOS(np.linspace(PiceIImin_MPa, PiceIImax_MPa, Planet.Steps.nPsHP),
+                                                      np.linspace(TiceIImin_K, TiceIImax_K, Planet.Steps.nTsHP), 'II',
+                                                      porosType=Planet.Ocean.porosType['II'],
+                                                      phiTop_frac=Planet.Ocean.phiMax_frac['II'],
+                                                      Pclosure_MPa=Planet.Ocean.Pclosure_MPa['II'],
+                                                      phiMin_frac=Planet.Ocean.phiMin_frac)
             if(np.size(indsIceIII) != 0):
                 log.debug('Loading ice III EOS functions for ocean layers...')
                 PiceIIImin_MPa = PHPicesLin_MPa[indsIceIII[0]]
                 PiceIIImax_MPa = PHPicesLin_MPa[indsIceIII[-1]]
                 TiceIIImin_K = np.min(THPicesLin_K[indsIceIII])
                 TiceIIImax_K = np.max(THPicesLin_K[indsIceIII])
-                Planet.Ocean.iceEOS['III'] = IceEOSStruct(np.linspace(PiceIIImin_MPa, PiceIIImax_MPa, Planet.Steps.nPsHP),
-                                                          np.linspace(TiceIIImin_K, TiceIIImax_K, Planet.Steps.nTsHP), 'III',
-                                                          porosType=Planet.Ocean.porosType['III'],
-                                                          phiTop_frac=Planet.Ocean.phiMax_frac['III'],
-                                                          Pclosure_MPa=Planet.Ocean.Pclosure_MPa['III'],
-                                                          phiMin_frac=Planet.Ocean.phiMin_frac)
+                Planet.Ocean.iceEOS['III'] = GetIceEOS(np.linspace(PiceIIImin_MPa, PiceIIImax_MPa, Planet.Steps.nPsHP),
+                                                       np.linspace(TiceIIImin_K, TiceIIImax_K, Planet.Steps.nTsHP), 'III',
+                                                       porosType=Planet.Ocean.porosType['III'],
+                                                       phiTop_frac=Planet.Ocean.phiMax_frac['III'],
+                                                       Pclosure_MPa=Planet.Ocean.Pclosure_MPa['III'],
+                                                       phiMin_frac=Planet.Ocean.phiMin_frac)
             if(np.size(indsIceV) != 0):
                 log.debug('Loading ice V EOS functions for ocean layers...')
                 PiceVmin_MPa = PHPicesLin_MPa[indsIceV[0]]
                 PiceVmax_MPa = PHPicesLin_MPa[indsIceV[-1]]
                 TiceVmin_K = np.min(THPicesLin_K[indsIceV])
                 TiceVmax_K = np.max(THPicesLin_K[indsIceV])
-                Planet.Ocean.iceEOS['V'] = IceEOSStruct(np.linspace(PiceVmin_MPa, PiceVmax_MPa, Planet.Steps.nPsHP),
-                                                        np.linspace(TiceVmin_K, TiceVmax_K, Planet.Steps.nTsHP), 'V',
-                                                        porosType=Planet.Ocean.porosType['V'],
-                                                        phiTop_frac=Planet.Ocean.phiMax_frac['V'],
-                                                        Pclosure_MPa=Planet.Ocean.Pclosure_MPa['V'],
-                                                        phiMin_frac=Planet.Ocean.phiMin_frac)
+                Planet.Ocean.iceEOS['V'] = GetIceEOS(np.linspace(PiceVmin_MPa, PiceVmax_MPa, Planet.Steps.nPsHP),
+                                                     np.linspace(TiceVmin_K, TiceVmax_K, Planet.Steps.nTsHP), 'V',
+                                                     porosType=Planet.Ocean.porosType['V'],
+                                                     phiTop_frac=Planet.Ocean.phiMax_frac['V'],
+                                                     Pclosure_MPa=Planet.Ocean.Pclosure_MPa['V'],
+                                                     phiMin_frac=Planet.Ocean.phiMin_frac)
             if(np.size(indsIceVI) != 0):
                 log.debug('Loading ice VI EOS functions for ocean layers...')
                 PiceVImin_MPa = PHPicesLin_MPa[indsIceVI[0]]
                 PiceVImax_MPa = PHPicesLin_MPa[indsIceVI[-1]]
                 TiceVImin_K = np.min(THPicesLin_K[indsIceVI])
                 TiceVImax_K = np.max(THPicesLin_K[indsIceVI])
-                Planet.Ocean.iceEOS['VI'] = IceEOSStruct(np.linspace(PiceVImin_MPa, PiceVImax_MPa, Planet.Steps.nPsHP),
-                                                         np.linspace(TiceVImin_K, TiceVImax_K, Planet.Steps.nTsHP), 'VI',
-                                                         porosType=Planet.Ocean.porosType['VI'],
-                                                         phiTop_frac=Planet.Ocean.phiMax_frac['VI'],
-                                                         Pclosure_MPa=Planet.Ocean.Pclosure_MPa['VI'],
-                                                         phiMin_frac=Planet.Ocean.phiMin_frac)
+                Planet.Ocean.iceEOS['VI'] = GetIceEOS(np.linspace(PiceVImin_MPa, PiceVImax_MPa, Planet.Steps.nPsHP),
+                                                      np.linspace(TiceVImin_K, TiceVImax_K, Planet.Steps.nTsHP), 'VI',
+                                                      porosType=Planet.Ocean.porosType['VI'],
+                                                      phiTop_frac=Planet.Ocean.phiMax_frac['VI'],
+                                                      Pclosure_MPa=Planet.Ocean.Pclosure_MPa['VI'],
+                                                      phiMin_frac=Planet.Ocean.phiMin_frac)
         else:
             log.debug('No high-pressure ices found in ocean layers.')
 
@@ -720,7 +720,7 @@ def CalcMoIConstantRho(Planet, Params):
     if not Params.SKIP_INNER:
         # Load in Perple_X table for silicate properties
         log.debug('Loading silicate Perple_X table...')
-        Planet.Sil.EOS = PerplexEOSStruct(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod,
+        Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod,
                                       kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
                                       porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
                                       Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac)
@@ -739,7 +739,7 @@ def CalcMoIConstantRho(Planet, Params):
         if Planet.Do.Fe_CORE:
             # Load in Perple_X table for core properties
             log.debug('Loading core Perple_X table...')
-            Planet.Core.EOS = PerplexEOSStruct(Planet.Core.coreEOS, EOSinterpMethod=Params.interpMethod, Fe_EOS=True,
+            Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.interpMethod, Fe_EOS=True,
                                       kThermConst_WmK=Planet.Core.kTherm_WmK)
             # Evaluate the core EOS for each layer
             _, Pcore_MPa, Tcore_K, rCoreEOS_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK, \
@@ -821,7 +821,7 @@ def CalcMoIWithEOS(Planet, Params):
 
     # Load in Perple_X table for silicate properties
     log.debug('Loading silicate Perple_X table...')
-    Planet.Sil.EOS = PerplexEOSStruct(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod,
+    Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod,
                                       kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
                                       porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
                                       Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac)
@@ -836,7 +836,7 @@ def CalcMoIWithEOS(Planet, Params):
         nSilTooBig = nProfiles - np.size(indsSilValid)
         # Load in Perple_X table for core properties
         log.debug('Loading core Perple_X table...')
-        Planet.Core.EOS = PerplexEOSStruct(Planet.Core.coreEOS, EOSinterpMethod=Params.interpMethod, Fe_EOS=True,
+        Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.interpMethod, Fe_EOS=True,
                                       kThermConst_WmK=Planet.Core.kTherm_WmK)
         # Propagate the core EOS from each silicate layer at the max core radius to the center of the body
         nSilFinal, Pcore_MPa, Tcore_K, rCore_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK, \

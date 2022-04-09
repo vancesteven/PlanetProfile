@@ -1,6 +1,6 @@
 import numpy as np
 import logging as log
-from Thermodynamics.FromLiterature.HydroEOS import OceanEOSStruct, GetTfreeze
+from Thermodynamics.FromLiterature.HydroEOS import GetOceanEOS, GetTfreeze
 
 def CalcRefProfiles(PlanetList, Params):
 
@@ -19,7 +19,7 @@ def CalcRefProfiles(PlanetList, Params):
             Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(0, Planet.Ocean.PHydroMax_MPa, Params.nRefPts[Planet.Ocean.comp])
             Tref_K = np.arange(220, 450, 1)
             for i,w_ppt in enumerate(wList):
-                EOSref = OceanEOSStruct(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType)
+                EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType)
                 Tfreeze_K = np.array([GetTfreeze(EOSref, P_MPa, Tref_K[0], TfreezeRange_K=230) for P_MPa in Params.Pref_MPa[Planet.Ocean.comp]])
                 Params.rhoRef_kgm3[Planet.Ocean.comp][i,:] = EOSref.fn_rho_kgm3(Params.Pref_MPa[Planet.Ocean.comp], Tfreeze_K, grid=False)
 

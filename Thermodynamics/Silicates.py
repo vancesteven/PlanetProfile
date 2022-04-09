@@ -1,8 +1,6 @@
 import numpy as np
 import logging as log
 from Utilities.defineStructs import Constants
-from Thermodynamics.FromLiterature.ThermalProfiles import ConductiveTemperature
-from Thermodynamics.FromLiterature.InnerEOS import PerplexEOSStruct, GetHtidalFunc
 from Thermodynamics.Geophysical import PropagateConductionProfilesSolid, \
     PropagateConductionProfilesPorous
 

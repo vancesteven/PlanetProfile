@@ -5,7 +5,7 @@ import numpy as np
 import logging as log
 from Utilities.PPversion import ppVerNum, CheckCompat
 from Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
-from Thermodynamics.FromLiterature.HydroEOS import OceanEOSStruct
+from Thermodynamics.FromLiterature.HydroEOS import GetOceanEOS
 
 def SetupInit(Planet, Params):
 
@@ -86,7 +86,9 @@ def SetupInit(Planet, Params):
         Planet.Ocean.wOcean_ppt = 0.0
         Planet.Ocean.deltaP = 0.0
         # Generate zero-yielding ocean "EOS" for use in porosity calculations
-        Planet.Ocean.EOS = OceanEOSStruct('none', None, np.array([0,1,2,3]), np.array([0,1,2,3]), None)
+        # Note that there must be enough input points for creating spline
+        # interpolators, even though we will not use them.
+        Planet.Ocean.EOS = GetOceanEOS('none', None, np.linspace(0,1,4), np.linspace(0,1,4), None)
     else:
         # In addition, perform some checks on underplating settings to be sure they make sense
         if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:
@@ -134,7 +136,7 @@ def SetupInit(Planet, Params):
                                       np.arange(Planet.Bulk.Tb_K + 30, Planet.Ocean.THydroMax_K, 2)))
         else:
             TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
-        Planet.Ocean.EOS = OceanEOSStruct(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
+        Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
                                           Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                           scalingType=Planet.Ocean.MgSO4scalingType)
 
