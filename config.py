@@ -14,19 +14,21 @@ Params.QUIET = False  # Hides all log messages except warnings and errors
 Params.printFmt = '[%(levelname)s] %(message)s'  # Format for printing log messages
 Params.DEBUG = False  # Special use
 
-Params.DO_PARALLEL = True  # Use multiprocessing module for parallel computation where applicable
+Params.CALC_NEW =         True  # Recalculate profiles? If not, read data from disk and re-plot.
+Params.CALC_NEW_REF =     True  # Recalculate reference phase curves?
+Params.CALC_NEW_INDUC =   True  # Calculate magnetic induction responses?
+Params.CALC_SEISMIC =     True  # Calculate sound speeds?
+Params.CALC_CONDUCT =     True  # Calculate electrical conductivity?
 Params.RUN_ALL_PROFILES = True  # Whether to run all PPBody.py files for the named body and plot together
-Params.CALC_NEW =       True  # Recalculate profiles? If not, read data from disk and re-plot.
-Params.CALC_NEW_REF =   True  # Recalculate reference phase curves?
-Params.CALC_NEW_INDUC = True  # Calculate magnetic induction responses?
-Params.CALC_SEISMIC =   True  # Calculate sound speeds?
-Params.CALC_CONDUCT =   True  # Calculate electrical conductivity?
-Params.SKIP_INNER =     False  # Whether to skip past everything but ocean calculations after MoI matching (for large induction studies)
-Params.REDUCED =        True  # Whether to limit number of ocean layers for faster computation of layered induction
-Params.DISP_LAYERS =    True  # Whether to display layer depths and heat fluxes for user
-Params.DISP_TABLE =     False  # Whether to print latex-formatted table
-Params.COMPARE =        True  # Whether to plot each new run against other runs from the same body
-Params.DEPRECATED =     False  # Whether to allow deprecated code to run. Will often cause errors.
+Params.COMPARE =          True  # Whether to plot each new run against other runs from the same body
+Params.DO_PARALLEL =      True  # Use multiprocessing module for parallel computation where applicable
+Params.SKIP_INNER =       False  # Whether to skip past everything but ocean calculations after MoI matching (for large induction studies)
+Params.REDUCED =          True  # Whether to limit number of ocean layers for faster computation of layered induction
+Params.DISP_LAYERS =      True  # Whether to display layer depths and heat fluxes for user
+Params.DISP_TABLE =       False  # Whether to print latex-formatted table
+Params.ALWAYS_SHOW_HP =   True  # Whether to force HP ices and clathrates to be shown in DISP_* outputs, even when none are present.
+Params.ALWAYS_SHOW_PHI =  True  # Whether to force porosity printout in DISP_* outputs
+Params.DEPRECATED =       False  # Whether to allow deprecated code to run. Will often cause errors.
 
 # Plot Settings
 Params.SKIP_PLOTS = False  # Whether to skip creation of all plots
