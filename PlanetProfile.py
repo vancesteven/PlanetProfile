@@ -14,6 +14,7 @@ from Utilities.defineStructs import FigureFilesSubstruct
 from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from Thermodynamics.FromLiterature.Electrical import ElecConduct
 from Seismic import SeismicCalcs
+from MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction
 from Utilities.PrintLayerTable import PrintLayerTable
 from Plotting.ProfilePlots import GeneratePlots
 
@@ -23,7 +24,7 @@ def run():
     # Copy global Params settings to local variable to we can add things like filenames
     Params = configParams
     # Set up message logging and apply verbosity level
-    if Params.VERBOSE and runType == 'standard':
+    if Params.VERBOSE:
         logLevel = log.DEBUG
     elif Params.QUIET:
         logLevel = log.WARN
@@ -77,6 +78,10 @@ def run():
                 log.info(f'{bodyname} files cleared.')
             else:
                 log.warning(f'Attempted to remove previous run files for {bodyname}, but found none.')
+            if not Params.CALC_NEW:
+                log.warning('CALC_NEW is set to False in config.py, but files are being cleared. ' +
+                            'CALC_NEW has been forced on for this run.')
+                Params.CALC_NEW = True
         elif sys.argv[2] == 'compare':
             log.info('Comparing with other profiles from this body.')
             Params.COMPARE = True
@@ -164,13 +169,22 @@ def PlanetProfile(Planet, Params):
         # Plotting functions
         GeneratePlots(np.array([Planet]), Params)
 
+    # Magnetic induction calculations
+    if Params.CALC_CONDUCT:
+        if Params.CALC_NEW_INDUCT:
+            # Calculate induced magnetic moments
+            Planet = MagneticInduction(Planet, Params)
+        else:
+            # Reload induction results
+            Planet = ReloadInduct(Planet, Params)
+
     log.info('Run complete!')
     return Planet, Params
 
 
 def WriteProfile(Planet, Params):
     """ Write out all profile calculations to disk """
-    Params.nHeadLines = 48  # Increment as new header lines are added
+    Params.nHeadLines = 49  # Increment as new header lines are added
     with open(Params.DataFiles.saveFile,'w') as f:
         f.write(Planet.label + '\n')
         # Print number of header lines early so we can skip the rest on read-in if we want to
@@ -213,6 +227,7 @@ def WriteProfile(Planet, Params):
         f.write(f'  sigmaOceanMean_Sm = {Planet.Ocean.sigmaMean_Sm:.3f}\n')
         f.write(f'  sigmaPoreMean_Sm = {Planet.Sil.sigmaPoreMean_Sm:.3f}\n')
         f.write(f'  sigmaPorousLayerMean_Sm = {Planet.Sil.sigmaPorousLayerMean_Sm:.3f}\n')
+        f.write(f'  Porous ice = {Planet.Do.POROUS_ICE}\n')
         f.write(f'  Steps.nClath = {Planet.Steps.nClath:d}\n')
         f.write(f'  Steps.nIceI = {Planet.Steps.nIceI:d}\n')
         f.write(f'  Steps.nIceIIILitho = {Planet.Steps.nIceIIILitho:d}\n')
@@ -319,6 +334,9 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Mclath_kg, Planet.MclathGas_kg, Planet.Ocean.sigmaMean_Sm, Planet.Sil.sigmaPoreMean_Sm, \
         Planet.Sil.sigmaPorousLayerMean_Sm \
             = (float(f.readline().split('=')[-1]) for _ in range(35))
+        # Note porosity flags
+        Planet.Do.POROUS_ICE = bool(strtobool(f.readline().split('=')[-1].strip()))
+        Planet.Do.POROUS_ROCK = Planet.Sil.phiRockMax_frac > 0
         # Get integer values from header (nSteps values)
         Planet.Steps.nClath, Planet.Steps.nIceI, \
         Planet.Steps.nIceIIILitho, Planet.Steps.nIceVLitho, \

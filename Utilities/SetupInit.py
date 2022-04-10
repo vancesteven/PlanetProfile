@@ -19,6 +19,9 @@ def SetupInit(Planet, Params):
     if Planet.Ocean.comp == 'Seawater': CheckCompat('gsw')  # Gibbs Seawater
     if Planet.Do.TAUP_SEISMIC: CheckCompat('obspy')  # TauP (accessed as obspy.taup)
 
+    # Get filenames for saving/loading
+    Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
+
     # Set steps and settings for unused options to zero, check that we have settings we need
     # Core settings
     if not Planet.Do.Fe_CORE:
@@ -123,15 +126,6 @@ def SetupInit(Planet, Params):
 
     # Porous rock
     if Planet.Do.POROUS_ROCK:
-        # Use ocean composition and salinity if user has not specified different ones for pore space
-        if Planet.Sil.poreComp is None:
-            Planet.Sil.poreComp = Planet.Ocean.comp
-        elif Planet.Sil.poreComp != Planet.Ocean.comp:
-            Planet.Do.PORE_EOS_DIFFERENT = True
-        if Planet.Sil.wPore_ppt is None:
-            Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
-        else:
-            Planet.Do.PORE_EOS_DIFFERENT = True
         # Make sure pore max pressure is set, since we will need it to check if we'll need HP ices
         if not Planet.Do.PORE_EOS_DIFFERENT:
             Planet.Sil.PHydroMax_MPa = Planet.Ocean.PHydroMax_MPa
@@ -205,9 +199,6 @@ def SetupInit(Planet, Params):
     # Preallocate layer physical quantity arrays
     Planet = SetupLayers(Planet)
 
-    # Get filenames for saving/loading
-    Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
-
     return Planet, Params
 
 
@@ -220,6 +211,17 @@ def SetupFilenames(Planet, Params):
     else:
         datPath = Planet.name
     figPath = os.path.join(datPath, 'figures')
+
+    # Account for differing ocean/pore composition here, since we need it for filenames
+    # Use ocean composition and salinity if user has not specified different ones for pore space
+    if Planet.Sil.poreComp is None:
+        Planet.Sil.poreComp = Planet.Ocean.comp
+    elif Planet.Sil.poreComp != Planet.Ocean.comp:
+        Planet.Do.PORE_EOS_DIFFERENT = True
+    if Planet.Sil.wPore_ppt is None:
+        Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
+    else:
+        Planet.Do.PORE_EOS_DIFFERENT = True
 
     saveBase = Planet.name + 'Profile_'
     saveLabel = ''

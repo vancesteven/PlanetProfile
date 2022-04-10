@@ -33,6 +33,8 @@ class BulkSubstruct():
         self.clathType = None  # Type of model for sI methane clathrates in outer ice shell. Options are 'top', 'bottom', and 'whole', and indicate where clathrates are allowed to be and which type of model to use.
         self.TbIII_K = None  # Temperature at bottom of ice III underplate layer in K. Ranges from 248.85 to 256.164 K for transition to ice V and from 251.165 to 256.164 K for melting temp.
         self.TbV_K = None  # Temperature at bottom of ice V underplate layer in K. Ranges from 256.164 to 272.99 K for melting temp, and 218 to 272.99 for transition to ice VI.
+        self.J2 = None  # Gravitational oblateness shape parameter
+        self.C22 = None  # Gravitational elongation shape parameter
         self.zbChangeTol_frac = 0.05  # Fractional change tolerance, which if exceeded, triggers IceConvect to run a second time for better self-consistency
 
 
@@ -271,10 +273,14 @@ class SeismicSubstruct:
 class MagneticSubstruct:
 
     def __init__(self):
+        self.inductType = 'Srivastava1966'  # Type of magnetic induction model to use. Options are 'Srivastava1966' for layer method and 'Eckhardt1963' for numeric method (symmetric only).
         self.peaks_Hz = None  # Frequencies in Hz of peaks in Fourier spectrum of magnetic excitations
         self.fOrb_radps = None  # Angular frequency of orbital motion of a moon around its parent planet in radians per second
         self.ionosBounds_m = None  # Upper altitude cutoff for ionosphere layers in m. Omit the surface (don't include 0 in the list).
-        self.sigmaIonosPedersen_Sm = None  # Pedersen conductivity for ionospheric layers in S/m. Length must match ionosBounds_m.
+        self.sigmaIonosPedersen_Sm = 1e-4  # Pedersen conductivity for ionospheric layers in S/m. Length must match ionosBounds_m. The default value (set here) is used when ionosBounds_m is None.
+        self.Binm_nT = None  # Induced magnetic moments relative to the body surface in nT
+        self.Benm_nT = None  # Excitation moments (amplitude and phase of magnetic oscillations) applied to the body in nT
+        self.asymShape = None  # Asymmetric shape to use in induction calculations based on Bulk.J2 and Bulk.C22 values. Only used when inductType = "Srivastava1966".
 
 
 """ Main body profile info--settings and variables """
@@ -369,6 +375,9 @@ class DataFilesSubstruct:
         self.saveFile = self.fName + '.txt'
         self.mantCoreFile = self.fName + '_mantleCore.txt'
         self.permFile = self.fName + '_mantlePerm.txt'
+        self.fNameInduct = os.path.join(self.path, 'induction', saveBase)
+        self.inductLayersFile = self.fNameInduct + '_inductLayers.txt'
+        self.inducedMomentsFile = self.fNameInduct + '_inducedMoments.txt'
 
 
 # Construct filenames for figures etc.
