@@ -18,12 +18,12 @@ from Utilities.PrintLayerTable import PrintLayerTable
 from Plotting.ProfilePlots import GeneratePlots
 
 """ MAIN RUN BLOCK """
-def main():
+def run():
 
     # Copy global Params settings to local variable to we can add things like filenames
     Params = configParams
     # Set up message logging and apply verbosity level
-    if Params.VERBOSE:
+    if Params.VERBOSE and runType == 'standard':
         logLevel = log.DEBUG
     elif Params.QUIET:
         logLevel = log.WARN
@@ -351,6 +351,19 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     return Planet, Params
 
 
+def UpdateRun(Planet, Params, changes):
+    """ Wrapper for editing the settings of Planet using a dict naming the changes.
+
+        Args:
+            changes (dict): Dict of {attributeName: value} pairs to change in Planet.
+    """
+
+    for key in changes.keys():
+        setattr(Planet, key, changes[key])
+    Planet, Params = PlanetProfile(Planet, Params)
+    return Planet, Params
+
+
 def RunPPfile(bodyname, fName):
     """ Loads the settings in bodyname/fName.py to run or reload a specific model. """
     bodyname = bodyname.capitalize()
@@ -604,4 +617,4 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
     return
 
 
-if __name__ == '__main__': main()
+if __name__ == '__main__': run()
