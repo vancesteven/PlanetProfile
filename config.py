@@ -79,7 +79,6 @@ Params.spiceSaturn = 'sat427.bsp'  # Generic kernel for Saturn + large moons
 Params.spiceUranus = 'ura111.bsp'  # Generic kernel for Uranus + large moons
 Params.spiceNeptune = 'nep095.bsp'  # Generic kernel for Neptune + large moons
 
-
 # Default figure sizes
 Params.FigSize.vsP = (3,3)
 Params.FigSize.vsR = (3,3)

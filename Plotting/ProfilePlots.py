@@ -13,6 +13,16 @@ from Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefPro
 
 def GeneratePlots(PlanetList, Params):
 
+    # Handle refprofiles first, so we can print log messages before silencing them
+    if Params.PLOT_HYDROSPHERE and not PlanetList[0].Do.NO_H2O:
+        if Params.CALC_NEW_REF:
+            # Calculate reference profiles showing melting curves for
+            # several salinities specified in config.py
+            Params = CalcRefProfiles(PlanetList, Params)
+        else:
+            # Reload refprofiles for this composition
+            Params = ReloadRefProfiles(PlanetList, Params)
+
     log.warning('Temporarily quieting INFO and DEBUG messages due to a high number of current latex errors.')
     saveLevel = log.getLogger().getEffectiveLevel()
     log.getLogger().setLevel(log.WARN)
@@ -63,14 +73,6 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     # Plot reference profiles first, so they plot on bottom of everything
     if Params.PLOT_REF:
-        if Params.CALC_NEW_REF:
-            # Calculate reference profiles showing melting curves for
-            # several salinities specified in config.py
-            Params = CalcRefProfiles(PlanetList, Params)
-        else:
-            # Reload refprofiles for this composition
-            Params = ReloadRefProfiles(PlanetList, Params)
-
         # Keep track of which reference profiles have been plotted so that we do each only once
         comps = np.unique([Planet.Ocean.comp for Planet in PlanetList])
         newRef = {comp:True for comp in comps}

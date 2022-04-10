@@ -13,7 +13,7 @@ from Thermodynamics.FromLiterature.IceConduction import IceIWholeConductSolid, I
 from Thermodynamics.FromLiterature.Convection import IceIConvectSolid, IceIConvectPorous, \
     IceIIIConvectSolid, IceIIIConvectPorous, IceVConvectSolid, IceVConvectPorous, \
     ClathShellConvectSolid, ClathShellConvectPorous
-from Thermodynamics.FromLiterature.InnerEOS import GetInnerEOS, GetHtidalFunc
+from Thermodynamics.FromLiterature.InnerEOS import GetHtidalFunc, GetphiCalc
 
 def IceLayers(Planet, Params):
     """ Layer propagation from surface downward through the ice using geophysics.
@@ -722,13 +722,7 @@ def CalcMoIConstantRho(Planet, Params):
     Planet.Steps.nSil = Planet.Steps.nSilMax
 
     if not Params.SKIP_INNER:
-        # Load in Perple_X table for silicate properties
-        log.debug('Loading silicate Perple_X table...')
-        Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod,
-                                      kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
-                                      porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
-                                      Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac)
-        Planet.Sil.fn_phi_frac = Planet.Sil.EOS.fn_phi_frac
+        Planet.Sil.fn_phi_frac = GetphiCalc(Planet.Sil.phiRockMax_frac, Planet.Sil.EOS.fn_phi_frac, Planet.Sil.phiMin_frac)
         Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(Planet.Sil.Htidal_Wm3)  # Placeholder until we implement a self-consistent calc
         # Evaluate the silicate EOS for each layer
         indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSilEOS_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
@@ -741,10 +735,6 @@ def CalcMoIConstantRho(Planet, Params):
         Planet.Sil.rhoMean_kgm3 = MtotSil_kg / (4/3*np.pi * (rSil_m[0,0]**3 - rSil_m[0,-1]**3))
 
         if Planet.Do.Fe_CORE:
-            # Load in Perple_X table for core properties
-            log.debug('Loading core Perple_X table...')
-            Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.interpMethod, Fe_EOS=True,
-                                      kThermConst_WmK=Planet.Core.kTherm_WmK)
             # Evaluate the core EOS for each layer
             _, Pcore_MPa, Tcore_K, rCoreEOS_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK, \
                 kThermCore_WmK = IronCoreLayers(Planet, Params,
@@ -823,25 +813,15 @@ def CalcMoIWithEOS(Planet, Params):
     # Find contribution to axial moment of inertia C from each ocean layer
     dCfromH2O_kgm2 = 8*np.pi/15 * Planet.rho_kgm3[:-1] * (Planet.r_m[:-1]**5 - Planet.r_m[1:]**5)
 
-    # Load in Perple_X table for silicate properties
-    log.debug('Loading silicate Perple_X table...')
-    Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod,
-                                      kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
-                                      porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
-                                      Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac)
     if Planet.Do.Fe_CORE:
         Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(Planet.Sil.Htidal_Wm3)  # Placeholder until we implement a self-consistent calc
-        Planet.Sil.fn_phi_frac = lambda P, T: Planet.Sil.EOS.fn_phi_frac(P, T)
+        Planet.Sil.fn_phi_frac = GetphiCalc(Planet.Sil.phiRockMax_frac, Planet.Sil.EOS.fn_phi_frac, Planet.Sil.phiMin_frac)
         # Propagate the silicate EOS from each hydrosphere layer to the center of the body
         log.debug(f'Propagating silicate EOS for each possible mantle size...')
         indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
         phiSil_frac, HtidalSil_Wm3, kThermSil_WmK, PsilPore_MPa, rhoSilMatrix_kgm3, rhoSilPore_kgm3, phaseSilPore \
             = SilicateLayers(Planet, Params)
         nSilTooBig = nProfiles - np.size(indsSilValid)
-        # Load in Perple_X table for core properties
-        log.debug('Loading core Perple_X table...')
-        Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.interpMethod, Fe_EOS=True,
-                                      kThermConst_WmK=Planet.Core.kTherm_WmK)
         # Propagate the core EOS from each silicate layer at the max core radius to the center of the body
         nSilFinal, Pcore_MPa, Tcore_K, rCore_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK, \
             kThermCore_WmK = IronCoreLayers(Planet, Params,
@@ -868,9 +848,6 @@ def CalcMoIWithEOS(Planet, Params):
             phiMax_frac = Planet.Sil.phiRockMax_frac + (1 - Planet.Sil.phiRockMax_frac) / Planet.Sil.phiRangeMult
             multphi_frac = (phiMax_frac/phiMin_frac)**(1/Planet.Steps.nPoros)
             log.debug(f'Propagating silicate EOS for each possible mantle size and porosity from phiVac = {phiMin_frac:.3f} to {phiMax_frac:.3f}...')
-
-            if Planet.Sil.porosType != 'Han2014':
-                Planet.Sil.phiRockMax_frac = Planet.Sil.EOS.fn_phi_frac(np.zeros(1),np.zeros(1))
         else:
             # In this case, we will use Sil.HtidalMin_Wm3 and Sil.deltaHtidal_logUnits to get
             # a valid set of profiles.
@@ -886,7 +863,7 @@ def CalcMoIWithEOS(Planet, Params):
         # Start at minimum tidal heating and initialize arrays
         thisphiTop_frac = phiMin_frac + 0.0
         Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(thisHtidal_Wm3)  # Placeholder until we implement a self-consistent calc
-        Planet.Sil.fn_phi_frac = lambda P, T: phiMin_frac / Planet.Sil.phiRockMax_frac * Planet.Sil.EOS.fn_phi_frac(P, T)
+        Planet.Sil.fn_phi_frac = GetphiCalc(Planet.Sil.phiRockMax_frac, Planet.Sil.EOS.fn_phi_frac, Planet.Sil.phiMin_frac)
         indsSilValidTemp, _, PsilTemp_MPa, TsilTemp_K, rSilTemp_m, rhoSilTemp_kgm3, MLayerSilTemp_kg, MAboveSilTemp_kg, gSilTemp_ms2, \
         phiSilTemp_frac, HtidalSilTemp_Wm3, kThermSilTemp_WmK, PporeTemp_MPa, rhoSilMatrixTemp_kgm3, rhoSilPoreTemp_kgm3, phaseSilPoreTemp \
             = SilicateLayers(Planet, Params)
@@ -929,7 +906,7 @@ def CalcMoIWithEOS(Planet, Params):
                 log.debug(f'Silicate match for phiTop = {thisphiTop_frac:.3f} with ' +
                           f'rSil = {rSilOuter_m / 1e3:.1f} km ({rSilOuter_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}).')
                 thisphiTop_frac = phiMin_frac * multphi_frac**nProfiles
-                Planet.Sil.fn_phi_frac = lambda P, T: thisphiTop_frac / Planet.Sil.phiRockMax_frac * Planet.Sil.EOS.fn_phi_frac(P, T)
+                Planet.Sil.fn_phi_frac.update(thisphiTop_frac)
             else:
                 rSilOuter_m = rSilTemp_m[indsSilValidTemp, 0]
                 log.debug(f'Silicate match for Htidal = {thisHtidal_Wm3:.3e} W/m^3 with ' +

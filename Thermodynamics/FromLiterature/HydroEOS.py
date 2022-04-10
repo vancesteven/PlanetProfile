@@ -6,15 +6,16 @@ from scipy.io import loadmat
 from seafreeze import seafreeze as SeaFreeze
 from seafreeze import whichphase as WhichPhase
 from Utilities.defineStructs import Constants, EOSlist
-from Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4Phase, MgSO4Seismic, MgSO4Conduct
+from Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4PhaseMargules, MgSO4PhaseLookup, \
+    MgSO4Seismic, MgSO4Conduct
 from Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
 from Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, TclathDissocLower_K, \
     TclathDissocUpper_K, ClathSeismic
-from Thermodynamics.FromLiterature.InnerEOS import GetphiFunc
+from Thermodynamics.FromLiterature.InnerEOS import GetphiFunc, GetphiCalc
 
-def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None):
+def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None):
     oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType,
-                              scalingType=scalingType)
+                              scalingType=scalingType, phaseType=phaseType)
     if oceanEOS.ALREADY_LOADED:
         log.debug(f'{wOcean_ppt} ppt {compstr} EOS already loaded. Reusing existing EOS.')
         oceanEOS = EOSlist.loaded[oceanEOS.EOSlabel]
@@ -22,22 +23,37 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
     return oceanEOS
 
 class OceanEOSStruct:
-    def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None):
-        self.EOSlabel = f'{compstr}{wOcean_ppt}{elecType}{rhoType}{scalingType}'
-        self.ALREADY_LOADED, self.rangeLabel, self.P_MPa, self.T_K = CheckIfEOSLoaded(self.EOSlabel,
-                                                                                      P_MPa, T_K)
+    def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
+                 phaseType=None):
+        if elecType is None:
+            self.elecType = 'Vance2018'
+        else:
+            self.elecType = elecType
+        if rhoType is None:
+            self.rhoType = 'Millero'
+        else:
+            self.rhoType = rhoType
+        if scalingType is None:
+            self.scalingType = 'Vance2018'
+        else:
+            self.scalingType = scalingType
+        if phaseType is None or phaseType != 'Margules':
+            self.CALC_MARGULES = False
+        else:
+            self.CALC_MARGULES = True
+
+        self.EOSlabel = f'{compstr}{wOcean_ppt}{elecType}{rhoType}{scalingType}{phaseType}'
+        self.ALREADY_LOADED, self.rangeLabel, self.P_MPa, self.T_K, self.deltaP, self.deltaT \
+            = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K)
+
         if not self.ALREADY_LOADED:
             self.comp = compstr
             self.w_ppt = wOcean_ppt
-            if elecType is None:
-                self.elecType = 'Vance2018'
 
             self.Pmin = np.min(self.P_MPa)
             self.Pmax = np.max(self.P_MPa)
             self.Tmin = np.min(self.T_K)
             self.Tmax = np.max(self.T_K)
-            self.deltaP = np.mean(np.diff(self.P_MPa))
-            self.deltaT = np.mean(np.diff(self.T_K))
             log.debug(f'Loading EOS for {wOcean_ppt} ppt {compstr} with ' +
                       f'P_MPa = [{self.Pmin:.1f}, {self.Pmax:.1f}, {self.deltaP:.2f}], ' +
                       f'T_K = [{self.Tmin:.1f}, {self.Tmax:.1f}, {self.deltaT:.2f}], ' +
@@ -93,22 +109,21 @@ class OceanEOSStruct:
                 self.type = 'PlanetProfile'
                 raise ValueError('Unable to load ocean EOS. NH3 is not implemented yet.')
             elif compstr == 'MgSO4':
-                if elecType == 'Pan2020' and round(self.w_ppt) == 100:
-                    self.elecType = elecType
-                elif elecType == 'Pan2020' and round(self.w_ppt) != 100:
+                if self.elecType == 'Pan2020' and round(self.w_ppt) != 100:
                     log.warning('elecType "Pan2020" behavior is defined only for Ocean.wOcean_ppt = 100. ' +
                                 'Defaulting to elecType "Vance2018".')
                     self.elecType = 'Vance2018'
-                else:
-                    self.elecType = elecType
                 self.type = 'ChoukronGrasset2010'
                 self.m_gmol = Constants.mMgSO4_gmol
 
                 self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK = MgSO4Props(self.P_MPa, self.T_K, self.w_ppt)
-                phaseFunc = MgSO4Phase(self.w_ppt)
-                self.fn_phase = phaseFunc.arrays
+                if self.CALC_MARGULES:
+                    self.fn_phase = MgSO4PhaseMargules(self.w_ppt).arrays
+                else:
+                    self.fn_phase = MgSO4PhaseLookup(self.w_ppt)
                 self.fn_Seismic = MgSO4Seismic(self.w_ppt)
-                self.fn_sigma_Sm = MgSO4Conduct(self.w_ppt, self.elecType, rhoType=rhoType, scalingType=scalingType)
+                self.fn_sigma_Sm = MgSO4Conduct(self.w_ppt, self.elecType, rhoType=self.rhoType,
+                                                scalingType=self.scalingType)
             elif compstr == 'NaCl':
                 self.type = 'PlanetProfile'
                 self.m_gmol = Constants.mNaCl_gmol
@@ -139,15 +154,13 @@ def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=
 class IceEOSStruct:
     def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0):
         self.EOSlabel = f'{phaseStr}{porosType}{phiTop_frac}{Pclosure_MPa}{phiMin_frac}'
-        self.ALREADY_LOADED, self.rangeLabel, self.P_MPa, self.T_K = CheckIfEOSLoaded(self.EOSlabel,
-                                                                                      P_MPa, T_K)
+        self.ALREADY_LOADED, self.rangeLabel, self.P_MPa, self.T_K, self.deltaP, self.deltaT \
+            = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K)
         if not self.ALREADY_LOADED:
             self.Pmin = np.min(self.P_MPa)
             self.Pmax = np.max(self.P_MPa)
             self.Tmin = np.min(self.T_K)
             self.Tmax = np.max(self.T_K)
-            self.deltaP = np.mean(np.diff(self.P_MPa))
-            self.deltaT = np.mean(np.diff(self.T_K))
             log.debug(f'Loading EOS for {phaseStr} with ' +
                       f'P_MPa = [{self.Pmin:.1f}, {self.Pmax:.1f}, {self.deltaP:.3f}], ' +
                       f'T_K = [{self.Tmin:.1f}, {self.Tmax:.1f}, {self.deltaT:.3f}], ' +
@@ -203,7 +216,9 @@ class IceEOSStruct:
                 self.fn_phi_frac = lambda P, T: np.zeros_like(P)
                 self.POROUS = False
             else:
-                self.fn_phi_frac = GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, None, self.P_MPa, self.T_K, phiMin_frac)
+                self.fn_phi_frac = GetphiCalc(phiTop_frac,
+                                              GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, None, self.P_MPa, self.T_K),
+                                              phiMin_frac)
                 self.POROUS = True
 
             # Combine pore fluid properties with matrix properties in accordance with
@@ -233,10 +248,10 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
     """
 
     # Create label for identifying P, T arrays
-    deltaP = np.mean(np.diff(P_MPa))
-    deltaT = np.mean(np.diff(T_K))
-    rangeLabel = f'{np.min(P_MPa)},{np.max(P_MPa)},{deltaP},' + \
-                 f'{np.min(T_K)},{np.max(T_K)},{deltaT}'
+    deltaP = round(np.mean(np.diff(P_MPa)), 2)
+    deltaT = round(np.mean(np.diff(T_K)), 2)
+    rangeLabel = f'{np.min(P_MPa):.0f},{np.max(P_MPa):.0f},{deltaP:.2e},' + \
+                 f'{np.min(T_K):.0f},{np.max(T_K):.0f},{deltaT:.2e}'
     if EOSlabel in EOSlist.loaded.keys():
         if EOSlist.ranges[EOSlabel] == rangeLabel:
             # This exact EOS has been loaded already. Reuse the one in memory
@@ -246,12 +261,12 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
         else:
             # Check if we can reuse an already-loaded EOS because the
             # P, T ranges are contained within the already-loaded EOS
-            nopeP = np.min(P_MPa) < EOSlist.loaded[EOSlabel].Pmin or \
-                    np.max(P_MPa) > EOSlist.loaded[EOSlabel].Pmax or \
-                    deltaP > EOSlist.loaded[EOSlabel].deltaP
-            nopeT = np.min(T_K) < EOSlist.loaded[EOSlabel].Tmin or \
-                    np.max(T_K) > EOSlist.loaded[EOSlabel].Tmax or \
-                    deltaT > EOSlist.loaded[EOSlabel].deltaT
+            nopeP = np.min(P_MPa) < EOSlist.loaded[EOSlabel].Pmin * 0.9 or \
+                    np.max(P_MPa) > EOSlist.loaded[EOSlabel].Pmax * 1.1 or \
+                    deltaP < EOSlist.loaded[EOSlabel].deltaP * 0.9
+            nopeT = np.min(T_K) < EOSlist.loaded[EOSlabel].Tmin * 0.9 or \
+                    np.max(T_K) > EOSlist.loaded[EOSlabel].Tmax * 1.1 or \
+                    deltaT < EOSlist.loaded[EOSlabel].deltaT * 0.9
             if nopeP or nopeT:
                 # The new inputs have at least one min/max value outside the range
                 # of the previously loaded EOS, so we have to load a new one.
@@ -262,13 +277,16 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
                 maxPmax = np.maximum(np.max(P_MPa), EOSlist.loaded[EOSlabel].Pmax)
                 minTmin = np.minimum(np.min(T_K), EOSlist.loaded[EOSlabel].Tmin)
                 maxTmax = np.maximum(np.max(T_K), EOSlist.loaded[EOSlabel].Tmax)
-                minDeltaP = np.minimum(np.mean(np.diff(P_MPa)), EOSlist.loaded[EOSlabel].deltaP)
-                minDeltaT = np.minimum(np.mean(np.diff(T_K)), EOSlist.loaded[EOSlabel].deltaT)
-                nPs = int((maxPmax - minPmin) / minDeltaP)
-                nTs = int((maxTmax - minTmin) / minDeltaT)
+                deltaP = round(np.minimum(np.mean(np.diff(P_MPa)), EOSlist.loaded[EOSlabel].deltaP), 2)
+                deltaT = round(np.minimum(np.mean(np.diff(T_K)), EOSlist.loaded[EOSlabel].deltaT), 2)
+                if deltaP == 0: deltaP = 0.01
+                if deltaT == 0: deltaT = 0.01
+                nPs = int((maxPmax - minPmin) / deltaP)
+                nTs = int((maxTmax - minTmin) / deltaT)
                 outP_MPa = np.linspace(minPmin, maxPmax, nPs)
                 outT_K = np.linspace(minTmin, maxTmax, nTs)
-                rangeLabel = f'{np.min(outP_MPa)},{np.max(outP_MPa)},{np.min(outT_K)},{np.max(outT_K)}'
+                rangeLabel = f'{np.min(outP_MPa):.0f},{np.max(outP_MPa):.0f},{deltaP:.2e},' + \
+                             f'{np.min(outT_K):.0f},{np.max(outT_K):.0f},{deltaT:.2e}'
             else:
                 # A previous EOS has been loaded that has a wider P or T range than the inputs,
                 # so we will use the previously loaded one.
@@ -281,7 +299,7 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
         outP_MPa = P_MPa
         outT_K = T_K
 
-    return ALREADY_LOADED, rangeLabel, outP_MPa, outT_K
+    return ALREADY_LOADED, rangeLabel, outP_MPa, outT_K, deltaP, deltaT
 
 
 # Create a function that can pack up (P,T) pairs that are compatible with SeaFreeze
@@ -455,7 +473,7 @@ def GetPhaseIndices(phase):
     phase = np.array(phase)
 
     indsLiquid = np.where(phase==0)[0]
-    indsIceI = np.where(phase==-1)[0]
+    indsIceI = np.where(phase==1)[0]
     indsIceIwet = np.where(phase==-1)[0]
     indsIceII = np.where(phase==2)[0]
     indsIceIIund = np.where(phase==-2)[0]

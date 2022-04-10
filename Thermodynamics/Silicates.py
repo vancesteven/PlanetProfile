@@ -41,16 +41,6 @@ def SilicateLayers(Planet, Params):
 
     # Finally, we're ready to perform the layer propagation within silicates
     if Planet.Do.POROUS_ROCK:
-        if Planet.Do.NO_H2O:
-            Ppore_MPa, Tpore_K = (np.linspace(0,1,4) for _ in range(2))
-        else:
-            Ppore_MPa = np.linspace(Planet.Pb_MPa, Planet.Sil.PHydroMax_MPa, 50)
-            Tpore_K = np.linspace(Planet.Bulk.Tb_K, Planet.Sil.THydroMax_K, 100)
-        # Get pore fluid EOS
-        Planet.Sil.poreEOS = GetOceanEOS(Planet.Sil.poreComp, Planet.Sil.wPore_ppt, Ppore_MPa, Tpore_K,
-                                         Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
-                                         scalingType=Planet.Ocean.MgSO4scalingType)
-
         Planet, Psil_MPa, Tsil_K, rSil_m, rhoTot_kgm3, MLayerSil_kg, MAboveSil_kg, \
         gSil_ms2, phiSil_frac, HtidalSil_Wm3, kThermTot_WmK, Ppore_MPa, rhoSil_kgm3, \
         rhoPore_kgm3, phasePore \

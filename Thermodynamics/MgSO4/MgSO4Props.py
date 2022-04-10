@@ -1,8 +1,9 @@
+import os
 import numpy as np
 import logging as log
 from scipy.io import loadmat
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline, interp1d
-from Utilities.defineStructs import Constants
+from Utilities.defineStructs import Constants, EOSlist
 from seafreeze import seafreeze as SeaFreeze
 
 def Molal2ppt(b_molkg, m_gmol):
@@ -69,23 +70,55 @@ def MgSO4Props(P_MPa, T_K, wOcean_ppt):
             alpha_pK (float, shape NxM): Thermal expansivity of liquid in 1/K
             kTherm_WmK (float, shape NxM): Thermal conductivity of liquid in W/(m K)
     """
-    fMgSO4Props = loadmat('Thermodynamics/MgSO4/MgSO4EOS2_planetary_smaller_20121116.mat')
-    TMgSO4_K = fMgSO4Props['T_smaller_C'][0] + Constants.T0
-    wMgSO4_ppt = Molal2ppt(fMgSO4Props['m_smaller_molal'][0], Constants.mMgSO4_gmol)
-    evalPts = np.array([[wOcean_ppt, P, T] for P in P_MPa for T in T_K])
+
+    fn_MgSO4Props = MgSO4propsLookup()
+    if wOcean_ppt > fn_MgSO4Props.wMax:
+        log.warning(f'Input wOcean_ppt of {wOcean_ppt:.1f} is greater than ' +
+                    f'max w_ppt of {fn_MgSO4Props.wMax:.1f} from the properties lookup table ' +
+                    f'at {fn_MgSO4Props.fLookup}.')
+
+    evalPts = fn_MgSO4Props.fn_evalPts(P_MPa, T_K, wOcean_ppt)
     nPs = np.size(P_MPa)
     # Interpolate the input data to get the values corresponding to the current ocean comp,
-    # then get the property values for the input P,T pairs and reshape to how they need
+    # then get the property values for the input (P,T) pairs and reshape to how they need
     # to be formatted for use in the ocean EOS.
-    rho_kgm3 = np.reshape(RegularGridInterpolator((wMgSO4_ppt, fMgSO4Props['P_smaller_MPa'][0], TMgSO4_K),
-                            fMgSO4Props['rho'], bounds_error=False, fill_value=None)(evalPts), (nPs,-1))
-    Cp_JkgK = np.reshape(RegularGridInterpolator((wMgSO4_ppt, fMgSO4Props['P_smaller_MPa'][0], TMgSO4_K),
-                            fMgSO4Props['Cp'], bounds_error=False, fill_value=None)(evalPts), (nPs,-1))
-    alpha_pK = np.reshape(RegularGridInterpolator((wMgSO4_ppt, fMgSO4Props['P_smaller_MPa'][0], TMgSO4_K),
-                            fMgSO4Props['alpha'], bounds_error=False, fill_value=None)(evalPts), (nPs,-1))
-    kTherm_WmK = np.zeros_like(alpha_pK) + Constants.kThermWater_WmK  # Placeholder until we implement a self-consistent calculation
+    rho_kgm3 = np.reshape(fn_MgSO4Props.fn_rho_kgm3(evalPts), (nPs,-1))
+    Cp_JkgK = np.reshape(fn_MgSO4Props.fn_Cp_JkgK(evalPts), (nPs,-1))
+    alpha_pK = np.reshape(fn_MgSO4Props.fn_alpha_pK(evalPts), (nPs,-1))
+    kTherm_WmK = fn_MgSO4Props.fn_kTherm_WmK(P_MPa, T_K, wOcean_ppt)  # Placeholder until we implement a self-consistent calculation
 
     return rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK
+
+
+class MgSO4propsLookup:
+    def __init__(self):
+        self.fLookup = os.path.join('Thermodynamics','MgSO4','MgSO4EOS2_planetary_smaller_20121116.mat')
+        if self.fLookup in EOSlist.loaded.keys():
+            log.debug('MgSO4 properties lookup table already loaded. Reusing previously loaded table.')
+            self.fn_rho_kgm3, self.fn_Cp_JkgK, self.fn_alpha_pK, self.fn_kTherm_WmK, self.fn_evalPts = EOSlist.loaded[self.fLookup]
+            self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax = EOSlist.ranges[self.fLookup]
+        else:
+            log.debug(f'Loading MgSO4 properties lookup table at {self.fLookup}.')
+            fMgSO4Props = loadmat(self.fLookup)
+            TMgSO4_K = fMgSO4Props['T_smaller_C'][0] + Constants.T0
+            wMgSO4_ppt = Molal2ppt(fMgSO4Props['m_smaller_molal'][0], Constants.mMgSO4_gmol)
+            self.fn_rho_kgm3 = RegularGridInterpolator((wMgSO4_ppt, fMgSO4Props['P_smaller_MPa'][0], TMgSO4_K),
+                                                        fMgSO4Props['rho'], bounds_error=False, fill_value=None)
+            self.fn_Cp_JkgK = RegularGridInterpolator((wMgSO4_ppt, fMgSO4Props['P_smaller_MPa'][0], TMgSO4_K),
+                                                       fMgSO4Props['Cp'], bounds_error=False, fill_value=None)
+            self.fn_alpha_pK = RegularGridInterpolator((wMgSO4_ppt, fMgSO4Props['P_smaller_MPa'][0], TMgSO4_K),
+                                                        fMgSO4Props['alpha'], bounds_error=False, fill_value=None)
+            self.fn_kTherm_WmK = lambda P, T, w: np.zeros((np.size(P), np.size(T))) + Constants.kThermWater_WmK
+            self.fn_evalPts = lambda P_MPa, T_K, w_ppt: np.array([[w_ppt, P, T] for P in P_MPa for T in T_K])
+
+            self.Pmin = np.min(fMgSO4Props['P_smaller_MPa'][0])
+            self.Pmax = np.max(fMgSO4Props['P_smaller_MPa'][0])
+            self.Tmin = np.min(TMgSO4_K)
+            self.Tmax = np.max(TMgSO4_K)
+            self.wMax = np.max(wMgSO4_ppt)
+
+            EOSlist.loaded[self.fLookup] = (self.fn_rho_kgm3, self.fn_Cp_JkgK, self.fn_alpha_pK, self.fn_kTherm_WmK, self.fn_evalPts)
+            EOSlist.ranges[self.fLookup] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax)
 
 
 class CG2010:
@@ -148,7 +181,7 @@ def Integral(func, a, b, nPts=50):
         return result
 
 
-class MgSO4Phase:
+class MgSO4PhaseMargules:
     """ Calculate phase of liquid/ice within the hydrosphere for an ocean with
         dissolved MgSO4, given a span of P_MPa, T_K, and w_ppt, based on models
         from Vance et al. 2014: https://doi.org/10.1016/j.pss.2014.03.011
@@ -217,21 +250,97 @@ class MgSO4Phase:
         return phase
 
 
+class MgSO4PhaseLookup:
+    """ Use a lookup table to determine the phase of liquid/ice within the hydrosphere
+        for an ocean with dissolved MgSO4, given a span of P_MPa, T_K, and w_ppt.
+        The lookup table is created based on models from Vance et al. (2014):
+        https://doi.org/10.1016/j.pss.2014.03.011
+    """
+    def __init__(self, wOcean_ppt):
+        self.w_ppt = wOcean_ppt
+        self.xH2O, self.mBar_gmol = Massppt2molFrac(self.w_ppt, Constants.mMgSO4_gmol)
+        self.fLookup = os.path.join('Thermodynamics','MgSO4','phaseLookupMgSO4.mat')
+        if self.fLookup in EOSlist.loaded.keys():
+            log.debug('MgSO4 phase lookup table already loaded. Reusing previously loaded table.')
+            self.fn_phase = EOSlist.loaded[self.fLookup]
+            self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax = EOSlist.ranges[self.fLookup]
+        else:
+            log.debug(f'Loading MgSO4 phase lookup table at {self.fLookup}.')
+            fMgSO4phase = loadmat(self.fLookup)
+            self.Pmin = np.min(fMgSO4phase['P_MPa'][0])
+            self.Pmax = np.max(fMgSO4phase['P_MPa'][0])
+            self.Tmin = np.min(fMgSO4phase['T_K'][0])
+            self.Tmax = np.max(fMgSO4phase['T_K'][0])
+            self.wMax = np.max(fMgSO4phase['w_ppt'][0])
+            self.fn_phase = RegularGridInterpolator((fMgSO4phase['P_MPa'][0], fMgSO4phase['T_K'][0],
+                                                     fMgSO4phase['w_ppt'][0]), fMgSO4phase['phase'],
+                                                     method='nearest', bounds_error=False, fill_value=None)
+
+            EOSlist.loaded[self.fLookup] = self.fn_phase
+            EOSlist.ranges[self.fLookup] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax)
+
+        if self.w_ppt > self.wMax:
+            log.warning(f'Input wOcean_ppt of {self.w_ppt:.1f} is greater than ' +
+                        f'max w_ppt of {self.wMax:.1f} from the Margules lookup table ' +
+                        f'at {self.fLookup}.')
+
+    def __call__(self, P_MPa, T_K):
+        nPs = np.size(P_MPa)
+        nTs = np.size(T_K)
+        if nPs == 1 and nTs == 1:
+            evalPts = np.array([P_MPa, T_K, self.w_ppt])
+        else:
+            if nPs == nTs:
+                evalPts = np.array([[P, T, self.w_ppt] for P, T in zip(P_MPa, T_K)])
+            elif nPs == 1:
+                evalPts = np.array([[P_MPa, T, self.w_ppt] for T in T_K])
+            elif nTs == 1:
+                evalPts = np.array([[P, T_K, self.w_ppt] for P in P_MPa])
+            else:
+                raise ValueError(f'Length {nPs} array of P values does not match ' +
+                                 f'length {nTs} array of T values. Grids are not supported.')
+
+        phase = self.fn_phase(evalPts)
+
+        return phase
+
+
 class MgSO4Seismic:
     def __init__(self, wOcean_ppt):
         self.w_ppt = wOcean_ppt
-        fMgSO4Seismic = loadmat('Thermodynamics/MgSO4/MgSO4_EOS_parms_2012_26_17_LT.mat')
-        TMgSO4_K = fMgSO4Seismic['Tg_C'][0] + Constants.T0
-        wMgSO4_ppt = Molal2ppt(np.squeeze(fMgSO4Seismic['mg']), Constants.mMgSO4_gmol)
-        PMgSO4_MPa = np.squeeze(fMgSO4Seismic['Pg_MPa'])
+        self.fLookup = os.path.join('Thermodynamics', 'MgSO4', 'MgSO4_EOS_parms_2012_26_17_LT.mat')
+        if self.fLookup in EOSlist.loaded.keys():
+            log.debug('MgSO4 seismic lookup table already loaded. Reusing previously loaded table.')
+            self.fn_VP_kms, self.fn_KS_GPa = EOSlist.loaded[self.fLookup]
+            self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax = EOSlist.ranges[self.fLookup]
+        else:
+            log.debug(f'Loading MgSO4 seismic lookup table at {self.fLookup}.')
+            fMgSO4Seismic = loadmat(self.fLookup)
+            TMgSO4_K = fMgSO4Seismic['Tg_C'][0] + Constants.T0
+            wMgSO4_ppt = Molal2ppt(np.squeeze(fMgSO4Seismic['mg']), Constants.mMgSO4_gmol)
+            PMgSO4_MPa = np.squeeze(fMgSO4Seismic['Pg_MPa'])
 
-        self.fn_VP_kms = RegularGridInterpolator((wMgSO4_ppt, PMgSO4_MPa, TMgSO4_K),
-                                fMgSO4Seismic['velg'], bounds_error=False, fill_value=None)
-        self.fn_KS_GPa = RegularGridInterpolator((wMgSO4_ppt, PMgSO4_MPa, TMgSO4_K),
-                                fMgSO4Seismic['Ksg'], bounds_error=False, fill_value=None)
+            self.fn_VP_kms = RegularGridInterpolator((wMgSO4_ppt, PMgSO4_MPa, TMgSO4_K),
+                                    fMgSO4Seismic['velg'], bounds_error=False, fill_value=None)
+            self.fn_KS_GPa = RegularGridInterpolator((wMgSO4_ppt, PMgSO4_MPa, TMgSO4_K),
+                                    fMgSO4Seismic['Ksg'], bounds_error=False, fill_value=None)
+
+            self.Pmin = np.min(PMgSO4_MPa)
+            self.Pmax = np.max(PMgSO4_MPa)
+            self.Tmin = np.min(TMgSO4_K)
+            self.Tmax = np.max(TMgSO4_K)
+            self.wMax = np.max(wMgSO4_ppt)
+
+            EOSlist.loaded[self.fLookup] = (self.fn_VP_kms, self.fn_KS_GPa)
+            EOSlist.ranges[self.fLookup] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax)
+
+            if self.w_ppt > self.wMax:
+                log.warning(f'Input wOcean_ppt of {self.w_ppt:.1f} is greater than ' +
+                            f'max w_ppt of {self.wMax:.1f} from the seismic lookup table ' +
+                            f'at {self.fLookup}.')
 
     def __call__(self, P_MPa, T_K):
-        evalPts = np.array([[self.w_ppt, P, T] for P, T in zip(P_MPa,T_K)])
+        evalPts = np.array([[self.w_ppt, P, T] for P, T in zip(P_MPa, T_K)])
         VP_kms = self.fn_VP_kms(evalPts)
         KS_GPa = self.fn_KS_GPa(evalPts)
         return VP_kms, KS_GPa
@@ -249,13 +358,13 @@ class MgSO4Conduct:
         else:
             raise ValueError(f'No MgSO4 conductivity model is specified for Ocean.electrical = "{self.type}"')
 
-        self.fn_sigma_Sm = lambda P,T: RectBivariateSpline(self.Pvals_MPa, self.Tvals_K, self.sigma_Sm)(P, T, grid=False)
+        self.fn_sigma_Sm = lambda P, T: RectBivariateSpline(self.Pvals_MPa, self.Tvals_K, self.sigma_Sm)(P, T, grid=False)
 
     def __call__(self, P_MPa, T_K):
         return self.fn_sigma_Sm(P_MPa, T_K)
 
 
-def LarionovKryukov1984(w_ppt, rhoType=None, scalingType=None):
+def LarionovKryukov1984(w_ppt, rhoType='Millero', scalingType='Vance2018'):
     """ Get conductivity values for aqueous MgSO4 consistent with extrapolation of Larionov and
         Kryuokov (1984), as detailed in Vance et al. (2018): https://doi.org/10.1002/2017JE005341
 
@@ -270,10 +379,6 @@ def LarionovKryukov1984(w_ppt, rhoType=None, scalingType=None):
             Textrap_K (float, shape 8): Temperature range for extrapolation in K
             sigmaExtrap_Sm (float, shape 20x8): Extrapolated conductivity values corresponding to each P,T pair in S/m
     """
-    if rhoType is None:
-        rhoType = 'Millero'
-    if scalingType is None:
-        scalingType = 'Vance2018'
 
     # Molality of measurements from Larionov and Kryuokov (1984) is 0.01
     b_molkg = 0.01

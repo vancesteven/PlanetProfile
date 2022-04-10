@@ -6,6 +6,7 @@ import logging as log
 from Utilities.PPversion import ppVerNum, CheckCompat
 from Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
 from Thermodynamics.FromLiterature.HydroEOS import GetOceanEOS
+from Thermodynamics.FromLiterature.InnerEOS import GetInnerEOS
 
 def SetupInit(Planet, Params):
 
@@ -18,12 +19,12 @@ def SetupInit(Planet, Params):
     if Planet.Ocean.comp == 'Seawater': CheckCompat('gsw')  # Gibbs Seawater
     if Planet.Do.TAUP_SEISMIC: CheckCompat('obspy')  # TauP (accessed as obspy.taup)
 
-    # Get filenames for saving/loading
-    Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
-
     # Set steps and settings for unused options to zero, check that we have settings we need
+    # Core settings
     if not Planet.Do.Fe_CORE:
         Planet.Steps.nCore = 0
+
+    # Clathrates
     if Planet.Do.CLATHRATE:
         if Planet.Bulk.clathType is None:
             raise ValueError('Clathrate model type must be set. Options are "top", "bottom", and "whole".')
@@ -45,6 +46,7 @@ def SetupInit(Planet, Params):
         Planet.zClath_m = 0
         Planet.Bulk.clathType = 'none'
 
+    # Waterless bodies
     if Planet.Do.NO_H2O:
         log.info('Modeling a waterless body.')
         if Planet.Bulk.qSurf_Wm2 is None:
@@ -62,10 +64,11 @@ def SetupInit(Planet, Params):
         Planet.Ocean.comp = 'none'
         Planet.Ocean.wOcean_ppt = 0.0
         Planet.Ocean.deltaP = 0.0
-        # Generate zero-yielding ocean "EOS" for use in porosity calculations
-        # Note that there must be enough input points for creating spline
-        # interpolators, even though we will not use them.
-        Planet.Ocean.EOS = GetOceanEOS('none', None, np.linspace(0,1,4), np.linspace(0,1,4), None)
+        if Planet.Do.POROUS_ROCK:
+            # Generate zero-yielding ocean "EOS" for use in porosity calculations
+            # Note that there must be enough input points for creating spline
+            # interpolators, even though we will not use them.
+            Planet.Ocean.EOS = GetOceanEOS('none', None, np.linspace(0,1,4), np.linspace(0,1,4), None)
     else:
         # In addition, perform some checks on underplating settings to be sure they make sense
         if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:
@@ -110,13 +113,15 @@ def SetupInit(Planet, Params):
             raise ValueError(f'Ocean.THydroMax_K of {Planet.Ocean.THydroMax_K} is less than Bulk.Tb_K of {Planet.Bulk.Tb_K}.')
         elif Planet.Bulk.Tb_K + 30 < Planet.Ocean.THydroMax_K:
             TOcean_K = np.concatenate((np.linspace(Planet.Bulk.Tb_K, Planet.Bulk.Tb_K + 30, int(30/Planet.Ocean.deltaT), endpoint=False),
-                                      np.arange(Planet.Bulk.Tb_K + 30, Planet.Ocean.THydroMax_K, 2)))
+                                       np.arange(Planet.Bulk.Tb_K + 30, Planet.Ocean.THydroMax_K, 2)))
         else:
             TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
         Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
-                                          Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
-                                          scalingType=Planet.Ocean.MgSO4scalingType)
+                                       Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
+                                       scalingType=Planet.Ocean.MgSO4scalingType,
+                                       phaseType=Planet.Ocean.MgSO4phaseType)
 
+    # Porous rock
     if Planet.Do.POROUS_ROCK:
         # Use ocean composition and salinity if user has not specified different ones for pore space
         if Planet.Sil.poreComp is None:
@@ -142,9 +147,11 @@ def SetupInit(Planet, Params):
         Planet.Sil.poreComp = Planet.Ocean.comp
         Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
 
+    # Porous ice
     if not Planet.Do.POROUS_ICE:
         Planet.Ocean.phiMax_frac = {key:0 for key in Planet.Ocean.phiMax_frac.keys()}
 
+    # Effective pressure in pore space
     if not Planet.Do.P_EFFECTIVE:
         # Peffective is calculated from Pmatrix - alpha*Ppore, so setting alpha to zero avoids the need for repeated
         # conditional checks during layer propagation -- calculations are typically faster than conditional checks.
@@ -165,8 +172,41 @@ def SetupInit(Planet, Params):
                         'density will be recalculated from bulk mass for consistency.')
         Planet.Bulk.rho_kgm3 = Planet.Bulk.M_kg / (4/3*np.pi * Planet.Bulk.R_m**3)
 
+    # Load EOS functions for deeper interior
+    if not Params.SKIP_INNER:
+        # Get silicate EOS
+        Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod,
+                                     kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
+                                     porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
+                                     Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac)
+
+        # Pore fluids if present
+        if Planet.Do.POROUS_ROCK:
+            if Planet.Do.NO_H2O:
+                Ppore_MPa, Tpore_K = (np.linspace(0, 1, 4) for _ in range(2))
+            else:
+                Ppore_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Sil.PHydroMax_MPa, 100)
+                Tpore_K = np.linspace(Planet.Bulk.Tb_K, Planet.Sil.THydroMax_K, 140)
+            # Get pore fluid EOS
+            Planet.Sil.poreEOS = GetOceanEOS(Planet.Sil.poreComp, Planet.Sil.wPore_ppt, Ppore_MPa, Tpore_K,
+                                             Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
+                                             scalingType=Planet.Ocean.MgSO4scalingType,
+                                             phaseType=Planet.Ocean.MgSO4phaseType)
+
+            # Make sure Sil.phiRockMax_frac is set in case we're using a porosType that doesn't require it
+            if Planet.Sil.phiRockMax_frac is None or Planet.Sil.porosType != 'Han2014':
+                Planet.Sil.phiRockMax_frac = Planet.Sil.EOS.fn_phi_frac(np.zeros(1),np.zeros(1))
+
+        # Iron core if present
+        if Planet.Do.Fe_CORE:
+            Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.interpMethod, Fe_EOS=True,
+                                          kThermConst_WmK=Planet.Core.kTherm_WmK)
+
     # Preallocate layer physical quantity arrays
     Planet = SetupLayers(Planet)
+
+    # Get filenames for saving/loading
+    Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
 
     return Planet, Params
 

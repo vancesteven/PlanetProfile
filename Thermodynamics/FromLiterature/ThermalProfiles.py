@@ -2,7 +2,7 @@ import numpy as np
 import logging as log
 from Utilities.defineStructs import Constants
 from seafreeze import seafreeze as SeaFreeze
-from Thermodynamics.FromLiterature.HydroEOS import PhaseConv, GetTfreeze, kThermMelinder2007, \
+from Thermodynamics.FromLiterature.HydroEOS import PhaseConv, GetTfreeze, GetPfreeze, kThermMelinder2007, \
     kThermHobbs1974, kThermIsobaricAnderssonIbari2005, kThermIsothermalAnderssonIbari2005
 
 def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa,
@@ -63,10 +63,19 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     if phaseMid != oceanEOS.fn_phase(Pmid_MPa, Tconv_K):
         if abs(phaseMid) != Constants.phaseClath:
             iceType = f'ice {phaseConv(phaseMid)}'
+            suggestion = 'Try adjusting Tb_K values to achieve a possible configuration.'
         else:
             iceType = f'clathrate'
-        raise ValueError(f'Convecting temperature of {iceType} exceeds a phase transition. ' +
-                         'Try adjusting Tb_K values to achieve a possible configuration.')
+            suggestion = 'This likely means whole-shell convection of clathrates is inconsistent ' + \
+                         'with the low pressure found to be consistent with Tb_K. Try *increasing* Tb_K. ' + \
+                         'Higher pressures are needed to keep warmer clathrates stable, so a higher Tb_K ' + \
+                         'leads to a thicker ice shell prediction, which thickens the upper thermal ' + \
+                         'boundary layer as needed for the temperature to be below the instability threshold ' + \
+                         'throughout the ice shell.'
+        log.warning(f'Convecting temperature of {iceType} exceeds a phase transition. ' + suggestion)
+        oldPmid_MPa = Pmid_MPa + 0.0
+        Pmid_MPa = GetPfreeze(oceanEOS, phaseMid, Tconv_K, UNDERPLATE=False)
+        log.warning(f'Pmid_MPa has been adjusted upward from {oldPmid_MPa} to {Pmid_MPa} to compensate.')
 
     # Get melting temperature for calculating viscosity relative to this temp
     Tmelt_K = GetTfreeze(oceanEOS, Pmid_MPa, Tconv_K)
@@ -77,7 +86,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     alphaMid_pK = iceEOS.fn_alpha_pK(Pmid_MPa, Tconv_K, grid=False)
     kMid_WmK = iceEOS.fn_kTherm_WmK(Pmid_MPa, Tconv_K, grid=False)
     if iceEOS.POROUS:
-        log.warning('Porosity corrections are not applied in solid-state convection models.')
+        log.warning('Porosity corrections are not applied in calculating the Rayleigh number for convection models.')
     # Rayleigh number of whole ice layer, derived using viscosity of convective region
     Ra = alphaMid_pK * CpMid_JkgK * rhoMid_kgm3**2 * gtop_ms2 * (Tb_K - Ttop_K) * zb_m**3 / etaConv_Pas / kMid_WmK
     # Rayleigh number of lower thermal boundary layer, from parameterization results of Deschamps and Sotin (2000)

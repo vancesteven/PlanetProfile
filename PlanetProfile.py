@@ -60,6 +60,10 @@ def main():
     # all but the last 3 characters chops the .py extension
     models = [model.split('PP')[-1][:-3] for model in models]
     nModels = np.size(models)
+    # If there is a standard profile, make sure it is run first
+    if bodyname in models:
+        models.remove(bodyname)
+        models.insert(0, bodyname)
 
     # Additional command line arguments
     if nArgs > 2:

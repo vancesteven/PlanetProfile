@@ -99,6 +99,7 @@ class OceanSubstruct:
         self.MgSO4elecType = 'Vance2018'  # Type of electrical conductivity model to use for MgSO4. Options: 'Vance2018', 'Pan2020'
         self.MgSO4scalingType = 'Vance2018'  # Type of scaling to apply to Larionov and Kryukov model. Options: 'Vance2018', 'LK1984'
         self.MgSO4rhoType = 'Millero'  # Type of water density model to use in Larionov and Kryukov model. Options: 'Millero', 'SeaFreeze'
+        self.MgSO4phaseType = 'lookup'  # Type of phase calculation to use for MgSO4. Currently, "Margules" forces a (slow) individual calc for each P, T point, and any other option uses a lookup table like the Perplex EOS functions.
         self.QfromMantle_W = None  # Heat flow from mantle into hydrosphere (calculated from ice thermal profile and applied to mantle)
         self.EOS = None  # Equation of state data to use for ocean layers
         self.surfIceEOS = {}  # Equation of state data to use for surface ice layers

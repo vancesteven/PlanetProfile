@@ -32,135 +32,156 @@ class PerplexEOSStruct:
             self.ALREADY_LOADED = False
 
         if not self.ALREADY_LOADED:
+            if Fe_EOS:
+                descrip = ' core composition.'
+            else:
+                descrip = f' silicate composition with Htidal_Wm3 = {HtidalConst_Wm3}, porosType ' + \
+                          f'{porosType}, phiTop_frac = {phiTop_frac}, Pclosure_MPa = {Pclosure_MPa}.'
+            log.debug(f'Loading Perplex EOS for {self.comp}{descrip}')
             self.dir = os.path.join('Thermodynamics', 'Perple_X', 'output_data')
             self.fpath = os.path.join(self.dir, EOSfname)
 
-            # Load in Perple_X data. Note that all P, KS, and GS are stored as bar
-            firstPT, secondPT, rho_kgm3, VP_kms, VS_kms, Cp_Jm3K, alpha_pK, KS_bar, GS_bar \
-                = np.loadtxt(self.fpath, skiprows=nHeaders, unpack=True)
-            # We don't know yet whether P or T is in the first column, which increments the fastest.
-            # The second column increments once for each time the first column runs through the whole range.
-            dim2 = next(i[0] for i, val in np.ndenumerate(secondPT) if val != secondPT[0])
-            # Check the column header to see if P or T is printed first
-            with open(self.fpath) as f:
-                [f.readline() for _ in range(nHeaders-1)]
-                colHeaderLine = f.readline().strip()
-            # Get necessary values to generate P, T arrays
-            if colHeaderLine[0] == 'P':
-                P_FIRST = True
-                Plin_MPa = firstPT * Constants.bar2MPa  # Pressures saved as bar
-                Tlin_K = secondPT
-                lenP = dim2
-            elif colHeaderLine[0] == 'T':
-                P_FIRST = False
-                Plin_MPa = secondPT * Constants.bar2MPa
-                Tlin_K = firstPT
-                lenP = int(len(Plin_MPa)/dim2)
+            if self.fpath in EOSlist.loaded.keys():
+                log.debug('Reloading previously imported Perplex table.')
+                self.P_MPa, self.T_K, self.fn_rho_kgm3, self.fn_VP_kms, self.fn_VS_kms, \
+                self.fn_KS_GPa, self.fn_GS_GPa, self.fn_Cp_JkgK, self.fn_alpha_pK \
+                    = EOSlist.loaded[self.fpath]
+                self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.deltaP, self.deltaT \
+                    = EOSlist.ranges[self.fpath]
             else:
-                raise ValueError(f'Perple_X table {EOSfname} does not have T or P in the first column.')
+                # Load in Perple_X data. Note that all P, KS, and GS are stored as bar
+                firstPT, secondPT, rho_kgm3, VP_kms, VS_kms, Cp_Jm3K, alpha_pK, KS_bar, GS_bar \
+                    = np.loadtxt(self.fpath, skiprows=nHeaders, unpack=True)
+                # We don't know yet whether P or T is in the first column, which increments the fastest.
+                # The second column increments once for each time the first column runs through the whole range.
+                dim2 = next(i[0] for i, val in np.ndenumerate(secondPT) if val != secondPT[0])
+                # Check the column header to see if P or T is printed first
+                with open(self.fpath) as f:
+                    [f.readline() for _ in range(nHeaders-1)]
+                    colHeaderLine = f.readline().strip()
+                # Get necessary values to generate P, T arrays
+                if colHeaderLine[0] == 'P':
+                    P_FIRST = True
+                    Plin_MPa = firstPT * Constants.bar2MPa  # Pressures saved as bar
+                    Tlin_K = secondPT
+                    lenP = dim2
+                elif colHeaderLine[0] == 'T':
+                    P_FIRST = False
+                    Plin_MPa = secondPT * Constants.bar2MPa
+                    Tlin_K = firstPT
+                    lenP = int(len(Plin_MPa)/dim2)
+                else:
+                    raise ValueError(f'Perple_X table {EOSfname} does not have T or P in the first column.')
 
-            # Make 1D arrays of P and T that just span the axes (unlike the 2D meshes of the dependent variables)
-            self.Pmin = Plin_MPa[0]
-            self.Pmax = Plin_MPa[-1]
-            self.Tmin = Tlin_K[0]
-            self.Tmax = Tlin_K[-1]
-            lenT = int(len(Tlin_K) / lenP)
-            P1D_MPa, self.deltaP = np.linspace(self.Pmin, self.Pmax, lenP, retstep=True)
-            T1D_K, self.deltaT = np.linspace(self.Tmin, self.Tmax, lenT, retstep=True)
+                # Make 1D arrays of P and T that just span the axes (unlike the 2D meshes of the dependent variables)
+                self.Pmin = Plin_MPa[0]
+                self.Pmax = Plin_MPa[-1]
+                self.Tmin = Tlin_K[0]
+                self.Tmax = Tlin_K[-1]
+                lenT = int(len(Tlin_K) / lenP)
+                P1D_MPa, self.deltaP = np.linspace(self.Pmin, self.Pmax, lenP, retstep=True)
+                T1D_K, self.deltaT = np.linspace(self.Tmin, self.Tmax, lenT, retstep=True)
+
+                # Interpolate dependent variables where the values are NaN
+                PTpts = (Plin_MPa, Tlin_K)
+                thisVarValid = np.isfinite(rho_kgm3)
+                if not np.all(thisVarValid):
+                    thisValidPs = Plin_MPa[np.where(thisVarValid)]
+                    thisValidTs = Tlin_K[np.where(thisVarValid)]
+                    rho_kgm3 = GridData((thisValidPs, thisValidTs), rho_kgm3[thisVarValid], PTpts, method=EOSinterpMethod)
+                thisVarValid = np.isfinite(VP_kms)
+                if not np.all(thisVarValid):
+                    thisValidPs = Plin_MPa[np.where(thisVarValid)]
+                    thisValidTs = Tlin_K[np.where(thisVarValid)]
+                    VP_kms = GridData((thisValidPs, thisValidTs), VP_kms[thisVarValid], PTpts, method=EOSinterpMethod)
+                thisVarValid = np.isfinite(VS_kms)
+                if not np.all(thisVarValid):
+                    thisValidPs = Plin_MPa[np.where(thisVarValid)]
+                    thisValidTs = Tlin_K[np.where(thisVarValid)]
+                    VS_kms = GridData((thisValidPs, thisValidTs), VS_kms[thisVarValid], PTpts, method=EOSinterpMethod)
+                thisVarValid = np.isfinite(Cp_Jm3K)
+                if not np.all(thisVarValid):
+                    thisValidPs = Plin_MPa[np.where(thisVarValid)]
+                    thisValidTs = Tlin_K[np.where(thisVarValid)]
+                    # Note that Perple_X tables store heat capacities as J/m^3/K, so we convert to J/kg/K by dividing by rho in a moment
+                    Cp_Jm3K = GridData((thisValidPs, thisValidTs), Cp_Jm3K[thisVarValid], PTpts, method=EOSinterpMethod)
+                thisVarValid = np.isfinite(alpha_pK)
+                if not np.all(thisVarValid):
+                    thisValidPs = Plin_MPa[np.where(thisVarValid)]
+                    thisValidTs = Tlin_K[np.where(thisVarValid)]
+                    alpha_pK = GridData((thisValidPs, thisValidTs), alpha_pK[thisVarValid], PTpts, method=EOSinterpMethod)
+                thisVarValid = np.isfinite(KS_bar)
+                if not np.all(thisVarValid):
+                    thisValidPs = Plin_MPa[np.where(thisVarValid)]
+                    thisValidTs = Tlin_K[np.where(thisVarValid)]
+                    KS_bar = GridData((thisValidPs, thisValidTs), KS_bar[thisVarValid], PTpts, method=EOSinterpMethod)
+                thisVarValid = np.isfinite(GS_bar)
+                if not np.all(thisVarValid):
+                    thisValidPs = Plin_MPa[np.where(thisVarValid)]
+                    thisValidTs = Tlin_K[np.where(thisVarValid)]
+                    GS_bar = GridData((thisValidPs, thisValidTs), GS_bar[thisVarValid], PTpts, method=EOSinterpMethod)
+
+                # Check that NaN removal worked correctly
+                errNaNstart = 'Failed to interpolate over NaNs in PerplexEOS '
+                errNaNend = ' values. The NaN gap may be too large to use this Perple_X output.'
+                if np.any(np.isnan(rho_kgm3)): raise RuntimeError(errNaNstart + 'rho' + errNaNend)
+                if np.any(np.isnan(VP_kms)): raise RuntimeError(errNaNstart + 'VP' + errNaNend)
+                if np.any(np.isnan(VS_kms)): raise RuntimeError(errNaNstart + 'VS' + errNaNend)
+                if np.any(np.isnan(Cp_Jm3K)): raise RuntimeError(errNaNstart + 'Cp' + errNaNend)
+                if np.any(np.isnan(alpha_pK)): raise RuntimeError(errNaNstart + 'alpha' + errNaNend)
+                if np.any(np.isnan(KS_bar)): raise RuntimeError(errNaNstart + 'KS' + errNaNend)
+                if np.any(np.isnan(GS_bar)): raise RuntimeError(errNaNstart + 'GS' + errNaNend)
+
+                # Now make 2D grids of values.
+                self.rho_kgm3 = np.reshape(rho_kgm3, (-1,dim2))
+                self.VP_kms = np.reshape(VP_kms, (-1,dim2))
+                self.VS_kms = np.reshape(VS_kms, (-1,dim2))
+                self.Cp_JkgK = np.reshape(Cp_Jm3K, (-1,dim2)) / self.rho_kgm3
+                self.alpha_pK = np.reshape(alpha_pK, (-1,dim2))
+                self.KS_GPa = np.reshape(KS_bar, (-1,dim2)) * Constants.bar2GPa
+                self.GS_GPa = np.reshape(GS_bar, (-1,dim2)) * Constants.bar2GPa
+
+                if P_FIRST:
+                    # Transpose 2D meshes if P is the first column.
+                    self.rho_kgm3 = self.rho_kgm3.T
+                    self.VP_kms = self.VP_kms.T
+                    self.VS_kms = self.VS_kms.T
+                    self.Cp_JkgK = self.Cp_JkgK.T
+                    self.alpha_pK = self.alpha_pK.T
+                    self.KS_GPa = self.KS_GPa.T
+                    self.GS_GPa = self.GS_GPa.T
+
+                self.P_MPa = P1D_MPa
+                self.T_K = T1D_K
+                # Assign temporary functions we will wrap with porosity if modeled
+                self.fn_rho_kgm3 = RectBivariateSpline(P1D_MPa, T1D_K, self.rho_kgm3)
+                self.fn_VP_kms = RectBivariateSpline(P1D_MPa, T1D_K, self.VP_kms)
+                self.fn_VS_kms = RectBivariateSpline(P1D_MPa, T1D_K, self.VS_kms)
+                self.fn_KS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, self.KS_GPa)
+                self.fn_GS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, self.GS_GPa)
+                self.fn_Cp_JkgK = RectBivariateSpline(P1D_MPa, T1D_K, self.Cp_JkgK)
+                self.fn_alpha_pK = RectBivariateSpline(P1D_MPa, T1D_K, self.alpha_pK)
+
+                EOSlist.loaded[self.fpath] = (self.P_MPa, self.T_K, self.fn_rho_kgm3, self.fn_VP_kms, self.fn_VS_kms,
+                                              self.fn_KS_GPa, self.fn_GS_GPa, self.fn_Cp_JkgK, self.fn_alpha_pK)
+                EOSlist.ranges[self.fpath] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.deltaP, self.deltaT)
+
             self.rangeLabel = f'{self.Pmin},{self.Pmax},{self.deltaP},' + \
                               f'{self.Tmin},{self.Tmax},{self.deltaT}'
 
-            # Interpolate dependent variables where the values are NaN
-            PTpts = (Plin_MPa, Tlin_K)
-            thisVarValid = np.isfinite(rho_kgm3)
-            if not np.all(thisVarValid):
-                thisValidPs = Plin_MPa[np.where(thisVarValid)]
-                thisValidTs = Tlin_K[np.where(thisVarValid)]
-                rho_kgm3 = GridData((thisValidPs, thisValidTs), rho_kgm3[thisVarValid], PTpts, method=EOSinterpMethod)
-            thisVarValid = np.isfinite(VP_kms)
-            if not np.all(thisVarValid):
-                thisValidPs = Plin_MPa[np.where(thisVarValid)]
-                thisValidTs = Tlin_K[np.where(thisVarValid)]
-                VP_kms = GridData((thisValidPs, thisValidTs), VP_kms[thisVarValid], PTpts, method=EOSinterpMethod)
-            thisVarValid = np.isfinite(VS_kms)
-            if not np.all(thisVarValid):
-                thisValidPs = Plin_MPa[np.where(thisVarValid)]
-                thisValidTs = Tlin_K[np.where(thisVarValid)]
-                VS_kms = GridData((thisValidPs, thisValidTs), VS_kms[thisVarValid], PTpts, method=EOSinterpMethod)
-            thisVarValid = np.isfinite(Cp_Jm3K)
-            if not np.all(thisVarValid):
-                thisValidPs = Plin_MPa[np.where(thisVarValid)]
-                thisValidTs = Tlin_K[np.where(thisVarValid)]
-                # Note that Perple_X tables store heat capacities as J/m^3/K, so we convert to J/kg/K by dividing by rho in a moment
-                Cp_Jm3K = GridData((thisValidPs, thisValidTs), Cp_Jm3K[thisVarValid], PTpts, method=EOSinterpMethod)
-            thisVarValid = np.isfinite(alpha_pK)
-            if not np.all(thisVarValid):
-                thisValidPs = Plin_MPa[np.where(thisVarValid)]
-                thisValidTs = Tlin_K[np.where(thisVarValid)]
-                alpha_pK = GridData((thisValidPs, thisValidTs), alpha_pK[thisVarValid], PTpts, method=EOSinterpMethod)
-            thisVarValid = np.isfinite(KS_bar)
-            if not np.all(thisVarValid):
-                thisValidPs = Plin_MPa[np.where(thisVarValid)]
-                thisValidTs = Tlin_K[np.where(thisVarValid)]
-                KS_bar = GridData((thisValidPs, thisValidTs), KS_bar[thisVarValid], PTpts, method=EOSinterpMethod)
-            thisVarValid = np.isfinite(GS_bar)
-            if not np.all(thisVarValid):
-                thisValidPs = Plin_MPa[np.where(thisVarValid)]
-                thisValidTs = Tlin_K[np.where(thisVarValid)]
-                GS_bar = GridData((thisValidPs, thisValidTs), GS_bar[thisVarValid], PTpts, method=EOSinterpMethod)
-
-            # Check that NaN removal worked correctly
-            errNaNstart = 'Failed to interpolate over NaNs in PerplexEOS '
-            errNaNend = ' values. The NaN gap may be too large to use this Perple_X output.'
-            if np.any(np.isnan(rho_kgm3)): raise RuntimeError(errNaNstart + 'rho' + errNaNend)
-            if np.any(np.isnan(VP_kms)): raise RuntimeError(errNaNstart + 'VP' + errNaNend)
-            if np.any(np.isnan(VS_kms)): raise RuntimeError(errNaNstart + 'VS' + errNaNend)
-            if np.any(np.isnan(Cp_Jm3K)): raise RuntimeError(errNaNstart + 'Cp' + errNaNend)
-            if np.any(np.isnan(alpha_pK)): raise RuntimeError(errNaNstart + 'alpha' + errNaNend)
-            if np.any(np.isnan(KS_bar)): raise RuntimeError(errNaNstart + 'KS' + errNaNend)
-            if np.any(np.isnan(GS_bar)): raise RuntimeError(errNaNstart + 'GS' + errNaNend)
-
-            # Now make 2D grids of values.
-            self.rho_kgm3 = np.reshape(rho_kgm3, (-1,dim2))
-            self.VP_kms = np.reshape(VP_kms, (-1,dim2))
-            self.VS_kms = np.reshape(VS_kms, (-1,dim2))
-            self.Cp_JkgK = np.reshape(Cp_Jm3K, (-1,dim2)) / self.rho_kgm3
-            self.alpha_pK = np.reshape(alpha_pK, (-1,dim2))
-            self.KS_GPa = np.reshape(KS_bar, (-1,dim2)) * Constants.bar2GPa
-            self.GS_GPa = np.reshape(GS_bar, (-1,dim2)) * Constants.bar2GPa
-
-            if P_FIRST:
-                # Transpose 2D meshes if P is the first column.
-                self.rho_kgm3 = self.rho_kgm3.T
-                self.VP_kms = self.VP_kms.T
-                self.VS_kms = self.VS_kms.T
-                self.Cp_JkgK = self.Cp_JkgK.T
-                self.alpha_pK = self.alpha_pK.T
-                self.KS_GPa = self.KS_GPa.T
-                self.GS_GPa = self.GS_GPa.T
-
+            # Assign thermal conductivity
+            # (currently a placeholder)
             if kThermConst_WmK is None:
                 if Fe_EOS:
                     kThermConst_WmK = Constants.kThermFe_WmK
                 else:
                     kThermConst_WmK = Constants.kThermSil_WmK
-            self.kTherm_WmK = np.zeros_like(self.alpha_pK) + kThermConst_WmK  # Placeholder until a self-consistent determination is implemented
-            self.Htidal_Wm3 = np.zeros_like(self.alpha_pK) + HtidalConst_Wm3  # Placeholder until a self-consistent determination is implemented
-
-            self.P_MPa = P1D_MPa
-            self.T_K = T1D_K
-            # Assign temporary functions we will wrap with porosity if modeled
-            self.fn_rho_kgm3 = RectBivariateSpline(P1D_MPa, T1D_K, self.rho_kgm3)
-            self.fn_VP_kms = RectBivariateSpline(P1D_MPa, T1D_K, self.VP_kms)
-            self.fn_VS_kms = RectBivariateSpline(P1D_MPa, T1D_K, self.VS_kms)
-            self.fn_KS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, self.KS_GPa)
-            self.fn_GS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, self.GS_GPa)
-            self.fn_kTherm_WmK = RectBivariateSpline(P1D_MPa, T1D_K, self.kTherm_WmK)
-            self.fn_Cp_JkgK = RectBivariateSpline(P1D_MPa, T1D_K, self.Cp_JkgK)
-            self.fn_alpha_pK = RectBivariateSpline(P1D_MPa, T1D_K, self.alpha_pK)
+            self.kTherm_WmK = np.zeros((np.size(self.P_MPa), np.size(self.T_K))) + kThermConst_WmK  # Placeholder until a self-consistent determination is implemented
+            self.fn_kTherm_WmK = RectBivariateSpline(self.P_MPa, self.T_K, self.kTherm_WmK)
 
             # Assign tidal heating function
             # (currently a placeholder)
+            self.Htidal_Wm3 = np.zeros_like(self.kTherm_WmK) + HtidalConst_Wm3  # Placeholder until a self-consistent determination is implemented
             self.fn_Htidal_Wm3 = GetHtidalFunc(HtidalConst_Wm3)
 
             # Assign porosity model function, if applicable
@@ -182,7 +203,7 @@ class PerplexEOSStruct:
                     self.PREMlookup = Interp1D(PPREM_MPa, zPREM_km)
                 else:
                     self.PREMlookup = None
-                self.fn_phi_frac = GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, self.PREMlookup, P1D_MPa, T1D_K, phiMin_frac)
+                self.fn_phi_frac = GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, self.PREMlookup, self.P_MPa, self.T_K)
 
                 # Combine pore fluid properties with matrix properties in accordance with
                 # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
@@ -219,7 +240,7 @@ def GetHtidalFunc(HtidalConst_Wm3):
     return fn_Htidal_Wm3
 
 
-def GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, PREMlookup, P1D_MPa, T1D_K, phiMin_frac):
+def GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, PREMlookup, P1D_MPa, T1D_K):
     # Porosity models as functions of P and T, set by variable vacuum maximum
     # porosity, pore closure pressure, or model coefficients.
 
@@ -270,5 +291,25 @@ def GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, PREMlookup, P1D_MPa, T1D_K,
         raise ValueError(f'Porosity type "{porosType}" is not supported.')
 
     # Create unchanging function for the expected porosity
-    fn_phi_frac = lambda P, T: RectBivariateSpline(P1D_MPa, T1D_K, phi_frac)(P, T, grid=False)
+    fn_phi_frac = RectBivariateSpline(P1D_MPa, T1D_K, phi_frac)
     return fn_phi_frac
+
+
+class GetphiCalc:
+    def __init__(self, phiMax_frac, fn_phiEOS_frac, phiMin_frac):
+        self.phiMin_frac = phiMin_frac
+        self.phiMax_frac = phiMax_frac
+        self.fn_phiEOS_frac = fn_phiEOS_frac
+        self.multFactor = 1.0
+
+    def update(self, newPhiMax_frac):
+        self.multFactor = newPhiMax_frac / self.phiMax_frac
+
+    def __call__(self, P_MPa, T_K):
+        phi_frac = self.multFactor * self.fn_phiEOS_frac(P_MPa, T_K, grid=False)
+        if np.size(P_MPa) == 1:
+            if phi_frac < self.phiMin_frac:
+                phi_frac = 0
+        else:
+            phi_frac[phi_frac < self.phiMin_frac] = 0
+        return phi_frac
