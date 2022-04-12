@@ -318,10 +318,10 @@ def OceanLayers(Planet, Params):
     # see Melosh et al. (2004): https://doi.org/10.1016/j.icarus.2003.11.026
     log.debug(f'il: {Planet.Steps.nSurfIce:d}; P_MPa: {POcean_MPa[0]:.3f}; ' +
               f'T_K: {TOcean_K[0]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce]:d}')
-    rhoOcean_kgm3[0] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[0], TOcean_K[0], grid=False)
-    CpOcean_JkgK[0] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0], grid=False)
-    alphaOcean_pK[0] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[0], TOcean_K[0], grid=False)
-    kThermOcean_WmK[0] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0], grid=False)
+    rhoOcean_kgm3[0] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
+    CpOcean_JkgK[0] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
+    alphaOcean_pK[0] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
+    kThermOcean_WmK[0] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
     if alphaOcean_pK[0] < 0:
         log.info(f'Thermal expansivity alpha at the ice-ocean interface is negative. Modeling Melosh et al. conductive layer.')
         # Layer should be thin, so we just use a fixed dT/dz value
@@ -344,17 +344,17 @@ def OceanLayers(Planet, Params):
             # Model temperature as linear and conductive in this layer
             TMelosh_K += dTdz * dz
 
-            rhoMelosh_kgm3 = Planet.Ocean.EOS.fn_rho_kgm3(thisP_MPa, TMelosh_K, grid=False)
-            alphaMelosh_pK = Planet.Ocean.EOS.fn_alpha_pK(thisP_MPa, TMelosh_K, grid=False)
+            rhoMelosh_kgm3 = Planet.Ocean.EOS.fn_rho_kgm3(thisP_MPa, TMelosh_K)
+            alphaMelosh_pK = Planet.Ocean.EOS.fn_alpha_pK(thisP_MPa, TMelosh_K)
 
             if alphaMelosh_pK > 0 or deltaPtop >= (i+1)*Planet.Ocean.deltaP:
                 i += 1
                 POcean_MPa[i] = thisP_MPa + 0
                 TOcean_K[i] = TMelosh_K + 0
-                rhoOcean_kgm3[i] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[i], TOcean_K[i], grid=False)
-                CpOcean_JkgK[i] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i], grid=False)
-                alphaOcean_pK[i] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[i], TOcean_K[i], grid=False)
-                kThermOcean_WmK[i] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i], grid=False)
+                rhoOcean_kgm3[i] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[i], TOcean_K[i])
+                CpOcean_JkgK[i] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
+                alphaOcean_pK[i] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
+                kThermOcean_WmK[i] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i])
                 Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int_)
                 log.debug(f'il: {Planet.Steps.nSurfIce+i:d}; P_MPa: {POcean_MPa[i]:.3f}; ' +
                           f'T_K: {TOcean_K[i]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce+i]:d}')
@@ -376,10 +376,10 @@ def OceanLayers(Planet, Params):
         if Planet.phase[Planet.Steps.nSurfIce+i] == 0:
             # Liquid water layers -- get fluid properties for the present layer but with the
             # overlaying layer's temperature
-            rhoOcean_kgm3[i] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[i], TOcean_K[i], grid=False)
-            CpOcean_JkgK[i] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i], grid=False)
-            alphaOcean_pK[i] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[i], TOcean_K[i], grid=False)
-            kThermOcean_WmK[i] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i], grid=False)
+            rhoOcean_kgm3[i] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[i], TOcean_K[i])
+            CpOcean_JkgK[i] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
+            alphaOcean_pK[i] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
+            kThermOcean_WmK[i] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i])
             # Now use the present layer's properties to calculate an adiabatic thermal profile for layers below
             TOcean_K[i+1] = TOcean_K[i] + alphaOcean_pK[i] * TOcean_K[i] / \
                             CpOcean_JkgK[i] / rhoOcean_kgm3[i] * Planet.Ocean.deltaP*1e6
@@ -389,10 +389,10 @@ def OceanLayers(Planet, Params):
             # two-phase convection, such that each layer is in local equilibrium with the liquid,
             # meaning each layer's temperature is equal to the melting temperature.
             thisPhase = PhaseConv(Planet.phase[Planet.Steps.nSurfIce+i])
-            rhoOcean_kgm3[i] = Planet.Ocean.iceEOS[thisPhase].fn_rho_kgm3(POcean_MPa[i], TOcean_K[i], grid=False)
-            CpOcean_JkgK[i] = Planet.Ocean.iceEOS[thisPhase].fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i], grid=False)
-            alphaOcean_pK[i] = Planet.Ocean.iceEOS[thisPhase].fn_alpha_pK(POcean_MPa[i], TOcean_K[i], grid=False)
-            kThermOcean_WmK[i] = Planet.Ocean.iceEOS[thisPhase].fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i], grid=False)
+            rhoOcean_kgm3[i] = Planet.Ocean.iceEOS[thisPhase].fn_rho_kgm3(POcean_MPa[i], TOcean_K[i])
+            CpOcean_JkgK[i] = Planet.Ocean.iceEOS[thisPhase].fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
+            alphaOcean_pK[i] = Planet.Ocean.iceEOS[thisPhase].fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
+            kThermOcean_WmK[i] = Planet.Ocean.iceEOS[thisPhase].fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i])
             TOcean_K[i+1] = GetTfreeze(Planet.Ocean.EOS, POcean_MPa[i], TOcean_K[i])
 
     Planet.P_MPa[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = POcean_MPa
@@ -444,22 +444,22 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
                                               porosType=Planet.Ocean.porosType['II'],
                                               phiTop_frac=Planet.Ocean.phiMax_frac['II'],
                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa['II'],
-                                              phiMin_frac=Planet.Ocean.phiMin_frac)
+                                              phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['II'])
         Planet.Ocean.iceEOS['III'] = GetIceEOS(POceanHPices_MPa, TOceanHPices_K, 'III',
                                                porosType=Planet.Ocean.porosType['III'],
                                                phiTop_frac=Planet.Ocean.phiMax_frac['III'],
                                                Pclosure_MPa=Planet.Ocean.Pclosure_MPa['III'],
-                                               phiMin_frac=Planet.Ocean.phiMin_frac)
+                                               phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['III'])
         Planet.Ocean.iceEOS['V'] = GetIceEOS(POceanHPices_MPa, TOceanHPices_K, 'V',
                                              porosType=Planet.Ocean.porosType['V'],
                                              phiTop_frac=Planet.Ocean.phiMax_frac['V'],
                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa['V'],
-                                             phiMin_frac=Planet.Ocean.phiMin_frac)
+                                             phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['V'])
         Planet.Ocean.iceEOS['VI'] = GetIceEOS(POceanHPices_MPa, TOceanHPices_K, 'VI',
                                               porosType=Planet.Ocean.porosType['VI'],
                                               phiTop_frac=Planet.Ocean.phiMax_frac['VI'],
                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa['VI'],
-                                              phiMin_frac=Planet.Ocean.phiMin_frac)
+                                              phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['VI'])
     else:
         # Get phase of each P,T combination
         expandPhases = Planet.Ocean.EOS.fn_phase(PHPicesLin_MPa, THPicesLin_K)
@@ -479,7 +479,7 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
                                                       porosType=Planet.Ocean.porosType['II'],
                                                       phiTop_frac=Planet.Ocean.phiMax_frac['II'],
                                                       Pclosure_MPa=Planet.Ocean.Pclosure_MPa['II'],
-                                                      phiMin_frac=Planet.Ocean.phiMin_frac)
+                                                      phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['II'])
             if(np.size(indsIceIII) != 0):
                 log.debug('Loading ice III EOS functions for ocean layers...')
                 PiceIIImin_MPa = PHPicesLin_MPa[indsIceIII[0]]
@@ -491,7 +491,7 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
                                                        porosType=Planet.Ocean.porosType['III'],
                                                        phiTop_frac=Planet.Ocean.phiMax_frac['III'],
                                                        Pclosure_MPa=Planet.Ocean.Pclosure_MPa['III'],
-                                                       phiMin_frac=Planet.Ocean.phiMin_frac)
+                                                       phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['III'])
             if(np.size(indsIceV) != 0):
                 log.debug('Loading ice V EOS functions for ocean layers...')
                 PiceVmin_MPa = PHPicesLin_MPa[indsIceV[0]]
@@ -503,7 +503,7 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
                                                      porosType=Planet.Ocean.porosType['V'],
                                                      phiTop_frac=Planet.Ocean.phiMax_frac['V'],
                                                      Pclosure_MPa=Planet.Ocean.Pclosure_MPa['V'],
-                                                     phiMin_frac=Planet.Ocean.phiMin_frac)
+                                                     phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['V'])
             if(np.size(indsIceVI) != 0):
                 log.debug('Loading ice VI EOS functions for ocean layers...')
                 PiceVImin_MPa = PHPicesLin_MPa[indsIceVI[0]]
@@ -515,7 +515,7 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
                                                       porosType=Planet.Ocean.porosType['VI'],
                                                       phiTop_frac=Planet.Ocean.phiMax_frac['VI'],
                                                       Pclosure_MPa=Planet.Ocean.Pclosure_MPa['VI'],
-                                                      phiMin_frac=Planet.Ocean.phiMin_frac)
+                                                      phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['VI'])
         else:
             log.debug('No high-pressure ices found in ocean layers.')
 

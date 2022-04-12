@@ -168,7 +168,7 @@ class SwConduct:
         # https://www.teos-10.org/pubs/gsw/pdf/SAAR.pdf
         self.PracSalin = self.w_ppt * (35/Constants.stdSeawater_ppt)
 
-    def __call__(self, P_MPa, T_K):
+    def __call__(self, P_MPa, T_K, grid=False):
         T_C = T_K - Constants.T0
         SP_dbar = MPa2seaPressure(P_MPa)
         # GSW C_from_SP function (gswConduct) returns mS/cm, so we

@@ -373,13 +373,25 @@ def UpdateRun(Planet, Params, changes):
     """ Wrapper for editing the settings of Planet using a dict naming the changes.
 
         Args:
-            changes (dict): Dict of {attributeName: value} pairs to change in Planet.
+            changes (dict): Dict of {SubStruct: subDict} pairs to change in Planet.
+                The subDict
     """
 
     for key in changes.keys():
         setattr(Planet, key, changes[key])
     Planet, Params = PlanetProfile(Planet, Params)
     return Planet, Params
+
+
+def ParPlanet(bodyname, settings):
+    """ Run a list of PlanetProfile models over arrays of run settings.
+
+        Args:
+            bodyname (str): Name of body to use.
+            settings (dict):
+    """
+
+    return PlanetList
 
 
 def RunPPfile(bodyname, fName):

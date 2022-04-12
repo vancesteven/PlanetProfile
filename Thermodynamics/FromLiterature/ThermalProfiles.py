@@ -81,10 +81,10 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     Tmelt_K = GetTfreeze(oceanEOS, Pmid_MPa, Tconv_K)
     etaConv_Pas = Constants.etaMelt_Pas[phaseMid] * np.exp(A * (Tmelt_K/Tconv_K - 1))
     # Get physical properties of ice at the "middle" of the convective region
-    rhoMid_kgm3 = iceEOS.fn_rho_kgm3(Pmid_MPa, Tconv_K, grid=False)
-    CpMid_JkgK = iceEOS.fn_Cp_JkgK(Pmid_MPa, Tconv_K, grid=False)
-    alphaMid_pK = iceEOS.fn_alpha_pK(Pmid_MPa, Tconv_K, grid=False)
-    kMid_WmK = iceEOS.fn_kTherm_WmK(Pmid_MPa, Tconv_K, grid=False)
+    rhoMid_kgm3 = iceEOS.fn_rho_kgm3(Pmid_MPa, Tconv_K)
+    CpMid_JkgK = iceEOS.fn_Cp_JkgK(Pmid_MPa, Tconv_K)
+    alphaMid_pK = iceEOS.fn_alpha_pK(Pmid_MPa, Tconv_K)
+    kMid_WmK = iceEOS.fn_kTherm_WmK(Pmid_MPa, Tconv_K)
     if iceEOS.POROUS:
         log.warning('Porosity corrections are not applied in calculating the Rayleigh number for convection models.')
     # Rayleigh number of whole ice layer, derived using viscosity of convective region
@@ -213,8 +213,8 @@ def GetPbConduct(Ttop_K, Tb_K, rTop_m, Ptop_MPa, gTop_ms2, qTop_Wm2, EOS, rRes_m
     while Tbot_K < Tb_K:
         thisrTop_m = rTop_m - i*rRes_m
         rBot_m = thisrTop_m - rRes_m
-        rho_kgm3 = EOS.fn_rho_kgm3(Pb_MPa, Tbot_K, grid=False)
-        kTherm_WmK = EOS.fn_kTherm_WmK(Pb_MPa, Tbot_K, grid=False)
+        rho_kgm3 = EOS.fn_rho_kgm3(Pb_MPa, Tbot_K)
+        kTherm_WmK = EOS.fn_kTherm_WmK(Pb_MPa, Tbot_K)
         # Treat heat flow as constant, essentially ignoring tidal heating and
         # spherical shape of the body -- only valid for very stiff clathrates
         # in a relatively thin layer.

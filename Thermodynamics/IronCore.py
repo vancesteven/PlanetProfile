@@ -51,9 +51,9 @@ def IronCoreLayers(Planet, Params,
         thisrCore_m = np.array([np.linspace(rSil_m[iProf,thisCoreStart+j], 0, Planet.Steps.nCore+1) for j in range(nSilRemain)])
         thisPcore_MPa[:,0] = [Psil_MPa[iProf,thisCoreStart+j] for j in range(nSilRemain)]
         thisTcore_K[:,0] = [Tsil_K[iProf,thisCoreStart+j] for j in range(nSilRemain)]
-        thisrhoCore_kgm3[:,0] = Planet.Core.EOS.fn_rho_kgm3(thisPcore_MPa[:nSilRemain,0], thisTcore_K[:nSilRemain,0], grid=False)
-        thisCpCore_JkgK[:,0] = Planet.Core.EOS.fn_Cp_JkgK(thisPcore_MPa[:nSilRemain,0], thisTcore_K[:nSilRemain,0], grid=False)
-        thisalphaCore_pK[:,0] = Planet.Core.EOS.fn_alpha_pK(thisPcore_MPa[:nSilRemain,0], thisTcore_K[:nSilRemain,0], grid=False)
+        thisrhoCore_kgm3[:,0] = Planet.Core.EOS.fn_rho_kgm3(thisPcore_MPa[:nSilRemain,0], thisTcore_K[:nSilRemain,0])
+        thisCpCore_JkgK[:,0] = Planet.Core.EOS.fn_Cp_JkgK(thisPcore_MPa[:nSilRemain,0], thisTcore_K[:nSilRemain,0])
+        thisalphaCore_pK[:,0] = Planet.Core.EOS.fn_alpha_pK(thisPcore_MPa[:nSilRemain,0], thisTcore_K[:nSilRemain,0])
         thisMLayerCore_kg[:,0] = [thisrhoCore_kgm3[j,0] * 4/3*np.pi*(thisrCore_m[j,0]**3 - thisrCore_m[j,1]**3) for j in range(nSilRemain)]
         thisgCore_ms2[:,0] = [gSil_ms2[iProf,thisCoreStart+j] for j in range(nSilRemain)]
         MAbove_kg = np.array([MAboveSil_kg[iProf,thisCoreStart+j] for j in range(nSilRemain)])
@@ -64,9 +64,9 @@ def IronCoreLayers(Planet, Params,
             thisPcore_MPa[:,k] = thisPcore_MPa[:,k-1] + thisDeltaP
             thisTcore_K[:,k] = thisTcore_K[:,k-1] + thisalphaCore_pK[:,k-1]*thisTcore_K[:,k] / \
                            thisCpCore_JkgK[:,k-1] / thisrhoCore_kgm3[:,k-1] * thisDeltaP*1e6
-            thisrhoCore_kgm3[:,k] = Planet.Core.EOS.fn_rho_kgm3(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k], grid=False)
-            thisCpCore_JkgK[:,k] = Planet.Core.EOS.fn_Cp_JkgK(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k], grid=False)
-            thisalphaCore_pK[:,k] = Planet.Core.EOS.fn_alpha_pK(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k], grid=False)
+            thisrhoCore_kgm3[:,k] = Planet.Core.EOS.fn_rho_kgm3(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k])
+            thisCpCore_JkgK[:,k] = Planet.Core.EOS.fn_Cp_JkgK(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k])
+            thisalphaCore_pK[:,k] = Planet.Core.EOS.fn_alpha_pK(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k])
             thisMLayerCore_kg[:,k] = thisrhoCore_kgm3[:,k] * 4/3*np.pi*(thisrCore_m[:,k]**3 - thisrCore_m[:,k+1]**3)
             # Approximate gravity as linear to avoid blowing up for total mass less than body mass (accurate for constant density only)
             thisgCore_ms2[:,k] = thisgCore_ms2[:,0] * thisrCore_m[:,k] / thisrCore_m[:,0]
@@ -88,7 +88,7 @@ def IronCoreLayers(Planet, Params,
         gCore_ms2[iValid,:] = thisgCore_ms2[iCoreMatch[iProf],:]
         CpCore_JkgK[iValid,:] = thisCpCore_JkgK[iCoreMatch[iProf],:]
         alphaCore_pK[iValid,:] = thisalphaCore_pK[iCoreMatch[iProf],:]
-        kThermCore_WmK[iValid,:] = Planet.Core.EOS.fn_kTherm_WmK(Pcore_MPa[iValid,:], Tcore_K[iValid,:], grid=False)
+        kThermCore_WmK[iValid,:] = Planet.Core.EOS.fn_kTherm_WmK(Pcore_MPa[iValid,:], Tcore_K[iValid,:])
 
     return nSilFinal, Pcore_MPa, Tcore_K, rCore_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK, \
         kThermCore_WmK

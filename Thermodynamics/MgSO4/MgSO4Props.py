@@ -5,6 +5,7 @@ from scipy.io import loadmat
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline, interp1d
 from Utilities.defineStructs import Constants, EOSlist
 from seafreeze import seafreeze as SeaFreeze
+from Thermodynamics.FromLiterature.InnerEOS import ResetNearestExtrap
 
 def Molal2ppt(b_molkg, m_gmol):
     """ Convert dissolved salt concentration from molality to ppt
@@ -54,7 +55,7 @@ def Massppt2molFrac(w_ppt, m_gmol):
     return 1 - xSalt, mBar_gmol
 
 
-def MgSO4Props(P_MPa, T_K, wOcean_ppt):
+def MgSO4Props(P_MPa, T_K, wOcean_ppt, EXTRAP):
     """ Determine density rho, heat capacity Cp, thermal expansivity alpha,
         and thermal conductivity kTherm as functions of pressure P and
         temperature T for dissolved MgSO4 at a concentration wOcean in
@@ -64,6 +65,7 @@ def MgSO4Props(P_MPa, T_K, wOcean_ppt):
             P_MPa (float, shape N): Pressures in MPa
             T_K (float, shape M): Temperature in K
             wOcean_ppt (float): (Absolute) salinity of Seawater in ppt by mass (g/kg)
+            EXTRAP (bool): Whether to allow extrapolation beyond the lookup table grid.
         Returns:
             rho_kgm3 (float, shape NxM): Mass density of liquid in kg/m^3
             Cp_JkgK (float, shape NxM): Isobaric heat capacity of liquid in J/(kg K)
@@ -74,9 +76,19 @@ def MgSO4Props(P_MPa, T_K, wOcean_ppt):
     fn_MgSO4Props = MgSO4propsLookup()
     if wOcean_ppt > fn_MgSO4Props.wMax:
         log.warning(f'Input wOcean_ppt of {wOcean_ppt:.1f} is greater than ' +
-                    f'max w_ppt of {fn_MgSO4Props.wMax:.1f} from the properties lookup table ' +
+                    f'max w_ppt of {fn_MgSO4Props.wMax:.1f} from the MgSO4 properties lookup table ' +
                     f'at {fn_MgSO4Props.fLookup}.')
 
+    if not EXTRAP:
+        newP_MPa, newT_K = ResetNearestExtrap(P_MPa, T_K, fn_MgSO4Props.Pmin, fn_MgSO4Props.Pmax,
+                                                    fn_MgSO4Props.Tmin, fn_MgSO4Props.Tmax)
+        if (not np.all(newP_MPa == P_MPa)) and (not np.all(newT_K == T_K)):
+            log.warning('Extrapolation is disabled for ocean fluids, and input EOS P and/or T ' +
+                        'extend beyond the MgSO4 properties lookup table limits of [Pmin, Pmax] = ' +
+                        f'{fn_MgSO4Props.Pmin}, {fn_MgSO4Props.Pmax} MPa and [Tmin, Tmax] = ' +
+                        f'{fn_MgSO4Props.Tmin}, {fn_MgSO4Props.Tmax} K.')
+        P_MPa = np.unique(newP_MPa)
+        T_K = np.unique(newT_K)
     evalPts = fn_MgSO4Props.fn_evalPts(P_MPa, T_K, wOcean_ppt)
     nPs = np.size(P_MPa)
     # Interpolate the input data to get the values corresponding to the current ocean comp,
@@ -87,7 +99,7 @@ def MgSO4Props(P_MPa, T_K, wOcean_ppt):
     alpha_pK = np.reshape(fn_MgSO4Props.fn_alpha_pK(evalPts), (nPs,-1))
     kTherm_WmK = fn_MgSO4Props.fn_kTherm_WmK(P_MPa, T_K, wOcean_ppt)  # Placeholder until we implement a self-consistent calculation
 
-    return rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK
+    return P_MPa, T_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK
 
 
 class MgSO4propsLookup:
@@ -306,8 +318,9 @@ class MgSO4PhaseLookup:
 
 
 class MgSO4Seismic:
-    def __init__(self, wOcean_ppt):
+    def __init__(self, wOcean_ppt, EXTRAP):
         self.w_ppt = wOcean_ppt
+        self.EXTRAP = EXTRAP
         self.fLookup = os.path.join('Thermodynamics', 'MgSO4', 'MgSO4_EOS_parms_2012_26_17_LT.mat')
         if self.fLookup in EOSlist.loaded.keys():
             log.debug('MgSO4 seismic lookup table already loaded. Reusing previously loaded table.')
@@ -340,6 +353,15 @@ class MgSO4Seismic:
                             f'at {self.fLookup}.')
 
     def __call__(self, P_MPa, T_K):
+        if not self.EXTRAP:
+            newP_MPa, newT_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            if (not np.all(newP_MPa == P_MPa)) and (not np.all(newT_K == T_K)):
+                log.warning('Extrapolation is disabled for ocean fluids, and input EOS P and/or T ' +
+                            'extend beyond the MgSO4 seismic lookup table limits of [Pmin, Pmax] = ' +
+                            f'{fn_MgSO4Props.Pmin}, {fn_MgSO4Props.Pmax} MPa and [Tmin, Tmax] = ' +
+                            f'{fn_MgSO4Props.Tmin}, {fn_MgSO4Props.Tmax} K.')
+                P_MPa = newP_MPa
+                T_K = newT_K
         evalPts = np.array([[self.w_ppt, P, T] for P, T in zip(P_MPa, T_K)])
         VP_kms = self.fn_VP_kms(evalPts)
         KS_GPa = self.fn_KS_GPa(evalPts)
@@ -358,10 +380,10 @@ class MgSO4Conduct:
         else:
             raise ValueError(f'No MgSO4 conductivity model is specified for Ocean.electrical = "{self.type}"')
 
-        self.fn_sigma_Sm = lambda P, T: RectBivariateSpline(self.Pvals_MPa, self.Tvals_K, self.sigma_Sm)(P, T, grid=False)
+        self.fn_sigma_Sm = RectBivariateSpline(self.Pvals_MPa, self.Tvals_K, self.sigma_Sm)
 
-    def __call__(self, P_MPa, T_K):
-        return self.fn_sigma_Sm(P_MPa, T_K)
+    def __call__(self, P_MPa, T_K, grid=False):
+        return self.fn_sigma_Sm(P_MPa, T_K, grid=grid)
 
 
 def LarionovKryukov1984(w_ppt, rhoType='Millero', scalingType='Vance2018'):

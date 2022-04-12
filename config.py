@@ -13,6 +13,12 @@ Params.VERBOSE = True  # Provides extra runtime messages. Overrides QUIET below
 Params.QUIET = False  # Hides all log messages except warnings and errors
 Params.printFmt = '[%(levelname)s] %(message)s'  # Format for printing log messages
 Params.DEBUG = False  # Special use
+# The below flags allow or prevents extrapolation of EOS functions beyond the definition grid.
+Params.EXTRAP_ICE = {'Ih':False, 'II':False, 'III':False, 'V':False, 'VI':False, 'Clath':False}
+Params.EXTRAP_OCEAN = False
+Params.EXTRAP_REF = True  # Allow refprofile extrapolation separate from normal ocean because
+Params.EXTRAP_SIL = False
+Params.EXTRAP_Fe = False
 
 Params.CALC_NEW =         True  # Recalculate profiles? If not, read data from disk and re-plot.
 Params.CALC_NEW_REF =     True  # Recalculate reference melting curve densities?

@@ -17,10 +17,10 @@ def EvalLayerProperties(Planet, Params, iStart, iEnd, EOS, P_MPa, T_K):
             rhoMatrix_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK
     """
 
-    Planet.rhoMatrix_kgm3[iStart:iEnd] = EOS.fn_rho_kgm3(  P_MPa, T_K, grid=False)
-    Planet.Cp_JkgK[iStart:iEnd] =        EOS.fn_Cp_JkgK(   P_MPa, T_K, grid=False)
-    Planet.alpha_pK[iStart:iEnd] =       EOS.fn_alpha_pK(  P_MPa, T_K, grid=False)
-    Planet.kTherm_WmK[iStart:iEnd] =     EOS.fn_kTherm_WmK(P_MPa, T_K, grid=False)
+    Planet.rhoMatrix_kgm3[iStart:iEnd] = EOS.fn_rho_kgm3(  P_MPa, T_K)
+    Planet.Cp_JkgK[iStart:iEnd] =        EOS.fn_Cp_JkgK(   P_MPa, T_K)
+    Planet.alpha_pK[iStart:iEnd] =       EOS.fn_alpha_pK(  P_MPa, T_K)
+    Planet.kTherm_WmK[iStart:iEnd] =     EOS.fn_kTherm_WmK(P_MPa, T_K)
 
     return Planet
 
@@ -101,10 +101,10 @@ def PorosityCorrectionFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore):
         Planet.phi_frac[i] = EOS.fn_phi_frac(Peff_MPa, Planet.T_K[i])
         if Planet.phi_frac[i] >= Planet.Ocean.phiMin_frac:
             # In ices, assume pores are filled only with liquid.
-            rhoPore_kgm3 =   EOSpore.fn_rho_kgm3(  Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
-            CpPore_JkgK =    EOSpore.fn_Cp_JkgK(   Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
-            alphaPore_pK =   EOSpore.fn_alpha_pK(  Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
-            kThermPore_WmK = EOSpore.fn_kTherm_WmK(Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
+            rhoPore_kgm3 =   EOSpore.fn_rho_kgm3(  Planet.Ppore_MPa[i], Planet.T_K[i])
+            CpPore_JkgK =    EOSpore.fn_Cp_JkgK(   Planet.Ppore_MPa[i], Planet.T_K[i])
+            alphaPore_pK =   EOSpore.fn_alpha_pK(  Planet.Ppore_MPa[i], Planet.T_K[i])
+            kThermPore_WmK = EOSpore.fn_kTherm_WmK(Planet.Ppore_MPa[i], Planet.T_K[i])
 
             # Correct each quantity according to J rules (see Thermodynamics.FromLiterature.InnerEOS)
             Planet.rho_kgm3[i] = EOS.fn_porosCorrect(Planet.rhoMatrix_kgm3[i], rhoPore_kgm3,
@@ -193,10 +193,10 @@ def PropagateAdiabaticSolid(Planet, Params, iStart, iEnd, EOS):
         Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
                         Planet.Cp_JkgK[i-1] / Planet.rhoMatrix_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6
         # Now use P and T for this layer to get physical properties
-        Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
-        Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i], grid=False)
-        Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
-        Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+        Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i])
+        Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i])
+        Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i])
+        Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i])
 
         log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
@@ -240,10 +240,10 @@ def PropagateAdiabaticPorousVacIce(Planet, Params, iStart, iEnd, EOS):
         Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
                         Planet.Cp_JkgK[i-1] / Planet.rho_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6
         # Now use P and T for this layer to get physical properties
-        Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
-        Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i], grid=False)
-        Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
-        Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+        Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i])
+        Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i])
+        Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i])
+        Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i])
 
         # Correct for porosity in ice I layers, assuming pores are empty.
         Planet.phi_frac[i] = EOS.fn_phi_frac(Planet.P_MPa[i], Planet.T_K[i])
@@ -326,10 +326,10 @@ def PropagateAdiabaticPorousFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore
         Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
                         Planet.Cp_JkgK[i-1] / Planet.rho_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1])*1e6
         # Now use P and T for this layer to get physical properties
-        Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
-        Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i], grid=False)
-        Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i], grid=False)
-        Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i], grid=False)
+        Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i])
+        Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i])
+        Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i])
+        Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i])
 
         # Correct for porosity in ice I layers
         # First, increment pore pressure based on hydrostatic pressure from
@@ -345,10 +345,10 @@ def PropagateAdiabaticPorousFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore
         # the porosity is negligible.
         if Planet.phi_frac[i] >= Planet.Ocean.phiMin_frac:
             # In ices, assume pores are filled only with liquid. Find liquid physical properties
-            rhoPore_kgm3 =   EOSpore.fn_rho_kgm3(  Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
-            CpPore_JkgK =    EOSpore.fn_Cp_JkgK(   Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
-            alphaPore_pK =   EOSpore.fn_alpha_pK(  Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
-            kThermPore_WmK = EOSpore.fn_kTherm_WmK(Planet.Ppore_MPa[i], Planet.T_K[i], grid=False)
+            rhoPore_kgm3 =   EOSpore.fn_rho_kgm3(  Planet.Ppore_MPa[i], Planet.T_K[i])
+            CpPore_JkgK =    EOSpore.fn_Cp_JkgK(   Planet.Ppore_MPa[i], Planet.T_K[i])
+            alphaPore_pK =   EOSpore.fn_alpha_pK(  Planet.Ppore_MPa[i], Planet.T_K[i])
+            kThermPore_WmK = EOSpore.fn_kTherm_WmK(Planet.Ppore_MPa[i], Planet.T_K[i])
 
             # Combine them with matrix physical properties
             Planet.rho_kgm3[i] = EOS.fn_porosCorrect(Planet.rhoMatrix_kgm3[i], rhoPore_kgm3,
@@ -490,10 +490,10 @@ def InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m):
     rSil_m = np.array([np.linspace(Planet.r_m[i+Planet.Steps.iSilStart], rSilEnd_m, Planet.Steps.nSilMax+1) for i in profRange])
     Psil_MPa[:,0] = [Planet.P_MPa[i+Planet.Steps.iSilStart] for i in profRange]
     Tsil_K[:,0] = [Planet.T_K[i+Planet.Steps.iSilStart] for i in profRange]
-    rhoSil_kgm3[:,0] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,0], Tsil_K[:,0], grid=False)
-    kThermSil_WmK[:,0] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,0], Tsil_K[:,0], grid=False)
-    KSsil_GPa[:,0] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,0], Tsil_K[:,0], grid=False)
-    GSsil_GPa[:,0] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,0], Tsil_K[:,0], grid=False)
+    rhoSil_kgm3[:,0] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,0], Tsil_K[:,0])
+    kThermSil_WmK[:,0] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,0], Tsil_K[:,0])
+    KSsil_GPa[:,0] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,0], Tsil_K[:,0])
+    GSsil_GPa[:,0] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,0], Tsil_K[:,0])
     gSil_ms2[:,0] = [Planet.g_ms2[i+Planet.Steps.iSilStart] for i in profRange]
 
     MHydro_kg = np.array([np.sum(Planet.MLayer_kg[:i]) for i in range(Planet.Steps.iSilStart, Planet.Steps.iSilStart + nProfiles)])
@@ -553,16 +553,16 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
     liqP = phasePore0 == 0
     # If all the pores are filled with liquid, do everything together
     if np.all(liqP):
-        rhoPore_kgm30 = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa0, Tsil_K0, grid=False)
-        kThermPore_WmK[:,0] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa0, Tsil_K0, grid=False)
+        rhoPore_kgm30 = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa0, Tsil_K0)
+        kThermPore_WmK[:,0] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa0, Tsil_K0)
         _, KSpore_GPa[:,0] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa0, Tsil_K0)
         GSpore_GPa[:,0] = np.zeros_like(KSpore_GPa[:,0])
         DeltaPpore_MPa[:,0] = 1e-6 * rhoPore_kgm30 * gSil_ms20 * (rSil_m0 - rSil_m1)
     else:
         rhoPore_kgm30 = np.zeros_like(Psil_MPa0)
         # For the pores filled with liquid, use ocean liquid EOS
-        rhoPore_kgm30[liqP] = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa0[liqP], Tsil_K0[liqP], grid=False)
-        kThermPore_WmK[liqP,0] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa0[liqP], Tsil_K0[liqP], grid=False)
+        rhoPore_kgm30[liqP] = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa0[liqP], Tsil_K0[liqP])
+        kThermPore_WmK[liqP,0] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa0[liqP], Tsil_K0[liqP])
         _, KSpore_GPa[liqP,0] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa0[liqP], Tsil_K0[liqP])
         GSpore_GPa[liqP,0] = np.zeros_like(KSpore_GPa[liqP,0])
         DeltaPpore_MPa[liqP,0] = 1e-6 * rhoPore_kgm30[liqP] * gSil_ms20[liqP] * (rSil_m0[liqP] - rSil_m1[liqP])
@@ -575,8 +575,8 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
             else:
                 thisIceEOS = Planet.Ocean.iceEOS[PhaseConv(phase)]
             iP = np.where(phasePore0 == phase)[0]
-            rhoPore_kgm30[iP] = thisIceEOS.fn_rho_kgm3(Ppore_MPa0[iP], Tsil_K0[iP], grid=False)
-            kThermPore_WmK[iP,0] = thisIceEOS.fn_kTherm_WmK(Ppore_MPa0[iP], Tsil_K0[iP], grid=False)
+            rhoPore_kgm30[iP] = thisIceEOS.fn_rho_kgm3(Ppore_MPa0[iP], Tsil_K0[iP])
+            kThermPore_WmK[iP,0] = thisIceEOS.fn_kTherm_WmK(Ppore_MPa0[iP], Tsil_K0[iP])
             GSpore_GPa[iP,0], KSpore_GPa[iP,0], _, _ = thisIceEOS.fn_Seismic(Ppore_MPa0[iP], Tsil_K0[iP])
             # Keep DeltaPpore calculation separate for liquid and ice in case of future updates to adjust matrix coupling/pressure scaling
             DeltaPpore_MPa[iP,0] = 1e-6 * rhoPore_kgm30[iP] * gSil_ms20[iP] * (rSil_m0[iP] - rSil_m1[iP])
@@ -625,12 +625,12 @@ def SilRecursionSolid(Planet, Params,
         Tsil_K[:,j], qTop_Wm2 = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
                     kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
                     qTop_Wm2)
-        rhoSil_kgm3[:,j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
-        kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
+        rhoSil_kgm3[:,j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,j], Tsil_K[:,j])
+        kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j])
         # Get KS and GS now as they are needed for Htidal calculation;
         # we will calculate them again later along with other seismic calcs
-        KSsil_GPa[:,j] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
-        GSsil_GPa[:,j] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
+        KSsil_GPa[:,j] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,j], Tsil_K[:,j])
+        GSsil_GPa[:,j] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,j], Tsil_K[:,j])
         # Calculate gravity using absolute values, as we will use MAboveSil to check for exceeding body mass later.
         gSil_ms2[:,j] = fn_g_ms2(MAboveSil_kg[:,j], rSil_m[:,j])
 
@@ -666,12 +666,12 @@ def SilRecursionPorous(Planet, Params,
                     kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
                     qTop_Wm2)
         # Get matrix material physical properties
-        rhoSil_kgm3[:,j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
-        kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
+        rhoSil_kgm3[:,j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,j], Tsil_K[:,j])
+        kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j])
         # Get KS and GS now as they are needed for Htidal calculation;
         # we will calculate them again later along with other seismic calcs
-        KSsil_GPa[:,j] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
-        GSsil_GPa[:,j] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,j], Tsil_K[:,j], grid=False)
+        KSsil_GPa[:,j] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,j], Tsil_K[:,j])
+        GSsil_GPa[:,j] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,j], Tsil_K[:,j])
         # Calculate gravity using absolute values, as we will use MAboveSil to check for exceeding body mass later.
         gSil_ms2[:,j] = fn_g_ms2(MAboveSil_kg[:,j], rSil_m[:,j])
 
@@ -690,15 +690,15 @@ def SilRecursionPorous(Planet, Params,
         liqP = phasePore[:,j] == 0
         # If all the pores are filled with liquid, do everything together
         if np.all(liqP):
-            rhoPore_kgm3[:,j] = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa[:,j], Tsil_K[:,j], grid=False)
-            kThermPore_WmK[:,j] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa[:,j], Tsil_K[:,j], grid=False)
+            rhoPore_kgm3[:,j] = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa[:,j], Tsil_K[:,j])
+            kThermPore_WmK[:,j] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa[:,j], Tsil_K[:,j])
             _, KSpore_GPa[:,j] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa[:,j], Tsil_K[:,j])
             GSpore_GPa[:,j] = np.zeros_like(KSpore_GPa[:,j])
             DeltaPpore_MPa[:,j] = 1e-6 * rhoPore_kgm3[:,j] * gSil_ms2[:,j] * (rSil_m[:,j] - rSil_m[:,j+1])
         else:
             # For the pores filled with liquid, use ocean liquid EOS
-            rhoPore_kgm3[liqP,j] = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa[liqP,j], Tsil_K[liqP,j], grid=False)
-            kThermPore_WmK[liqP,j] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa[liqP,j], Tsil_K[liqP,j], grid=False)
+            rhoPore_kgm3[liqP,j] = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa[liqP,j], Tsil_K[liqP,j])
+            kThermPore_WmK[liqP,j] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa[liqP,j], Tsil_K[liqP,j])
             _, KSpore_GPa[liqP,j] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa[liqP,j], Tsil_K[liqP,j])
             GSpore_GPa[liqP,j] = np.zeros_like(KSpore_GPa[liqP,j])
             DeltaPpore_MPa[liqP,j] = 1e-6 * rhoPore_kgm3[liqP,j] * gSil_ms2[liqP,j] * (rSil_m[liqP,j] - rSil_m[liqP,j+1])
@@ -715,8 +715,8 @@ def SilRecursionPorous(Planet, Params,
                 # Get indices where this ice phase is present
                 iP = np.where(phasePore[:,j] == phase)[0]
                 # Evaluate pore material properties for this phase
-                rhoPore_kgm3[iP,j] = thisIceEOS.fn_rho_kgm3(Ppore_MPa[iP,j], Tsil_K[iP,j], grid=False)
-                kThermPore_WmK[iP,j] = thisIceEOS.fn_kTherm_WmK(Ppore_MPa[iP,j], Tsil_K[iP,j], grid=False)
+                rhoPore_kgm3[iP,j] = thisIceEOS.fn_rho_kgm3(Ppore_MPa[iP,j], Tsil_K[iP,j])
+                kThermPore_WmK[iP,j] = thisIceEOS.fn_kTherm_WmK(Ppore_MPa[iP,j], Tsil_K[iP,j])
                 GSpore_GPa[iP,j], KSpore_GPa[iP,j], _, _ = thisIceEOS.fn_Seismic(Ppore_MPa[iP,j], Tsil_K[iP,j])
                 # Keep DeltaPpore calculation separate for liquid and ice in case of future updates to adjust matrix coupling/pressure scaling
                 DeltaPpore_MPa[iP,j] = 1e-6 * rhoPore_kgm3[iP,j] * gSil_ms2[iP,j] * (rSil_m[iP,j] - rSil_m[iP,j+1])

@@ -109,13 +109,13 @@ def SeismicCalcs(Planet, Params):
             # Get Cp and alpha here, because we didn't calculate them earlier since we didn't need them
             # in calculating a conductive profile in the silicates and it would contribute extra,
             # unnecessary computational overhead there.
-            Planet.Cp_JkgK[indsSil] = Planet.Sil.EOS.fn_Cp_JkgK(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
-            Planet.alpha_pK[indsSil] = Planet.Sil.EOS.fn_alpha_pK(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
+            Planet.Cp_JkgK[indsSil] = Planet.Sil.EOS.fn_Cp_JkgK(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
+            Planet.alpha_pK[indsSil] = Planet.Sil.EOS.fn_alpha_pK(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
             # Evaluate silicate EOS for seismic properties
-            Planet.Seismic.VP_kms[indsSil] = Planet.Sil.EOS.fn_VP_kms(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
-            Planet.Seismic.VS_kms[indsSil] = Planet.Sil.EOS.fn_VS_kms(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
-            Planet.Seismic.KS_GPa[indsSil] = Planet.Sil.EOS.fn_KS_GPa(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
-            Planet.Seismic.GS_GPa[indsSil] = Planet.Sil.EOS.fn_GS_GPa(Planet.P_MPa[indsSil], Planet.T_K[indsSil], grid=False)
+            Planet.Seismic.VP_kms[indsSil] = Planet.Sil.EOS.fn_VP_kms(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
+            Planet.Seismic.VS_kms[indsSil] = Planet.Sil.EOS.fn_VS_kms(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
+            Planet.Seismic.KS_GPa[indsSil] = Planet.Sil.EOS.fn_KS_GPa(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
+            Planet.Seismic.GS_GPa[indsSil] = Planet.Sil.EOS.fn_GS_GPa(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
             Hsil = Planet.Seismic.gSil * TsolidusHirschmann2000(Planet.P_MPa[indsSil])
             Planet.Seismic.QS[indsSil] = Planet.Seismic.BSil * np.exp(
                 Planet.Seismic.gammaSil * Hsil / Planet.T_K[indsSil])
@@ -125,10 +125,10 @@ def SeismicCalcs(Planet, Params):
 
             if Planet.Do.Fe_CORE:
                 # Evaluate core EOS for seismic properties
-                Planet.Seismic.VP_kms[indsFe] = Planet.Core.EOS.fn_VP_kms(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)
-                Planet.Seismic.VS_kms[indsFe] = Planet.Core.EOS.fn_VS_kms(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)
-                Planet.Seismic.KS_GPa[indsFe] = Planet.Core.EOS.fn_KS_GPa(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)
-                Planet.Seismic.GS_GPa[indsFe] = Planet.Core.EOS.fn_GS_GPa(Planet.P_MPa[indsFe], Planet.T_K[indsFe], grid=False)
+                Planet.Seismic.VP_kms[indsFe] = Planet.Core.EOS.fn_VP_kms(Planet.P_MPa[indsFe], Planet.T_K[indsFe])
+                Planet.Seismic.VS_kms[indsFe] = Planet.Core.EOS.fn_VS_kms(Planet.P_MPa[indsFe], Planet.T_K[indsFe])
+                Planet.Seismic.KS_GPa[indsFe] = Planet.Core.EOS.fn_KS_GPa(Planet.P_MPa[indsFe], Planet.T_K[indsFe])
+                Planet.Seismic.GS_GPa[indsFe] = Planet.Core.EOS.fn_GS_GPa(Planet.P_MPa[indsFe], Planet.T_K[indsFe])
                 if Planet.Seismic.QScore is not None:
                     Planet.Seismic.QS[indsFe] = Planet.Seismic.QScore
                 else:
@@ -146,38 +146,38 @@ def CalcSeisPorRock(Planet, Params, indsSil, indsSilLiq, indsSilI, indsSilII, in
         VPpore_kms[indsSilLiq], KSpore_GPa[indsSilLiq] \
             = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsSilLiq], Planet.T_K[indsSilLiq])
         # VS and GS are already initialized to 0, so we can just leave them be.
-        CpPore_JkgK[indsSilLiq] = Planet.Ocean.EOS.fn_Cp_JkgK(Planet.Ppore_MPa[indsSilLiq], Planet.T_K[indsSilLiq], grid=False)
-        alphaPore_pK[indsSilLiq] = Planet.Ocean.EOS.fn_alpha_pK(Planet.Ppore_MPa[indsSilLiq], Planet.T_K[indsSilLiq], grid=False)
+        CpPore_JkgK[indsSilLiq] = Planet.Ocean.EOS.fn_Cp_JkgK(Planet.Ppore_MPa[indsSilLiq], Planet.T_K[indsSilLiq])
+        alphaPore_pK[indsSilLiq] = Planet.Ocean.EOS.fn_alpha_pK(Planet.Ppore_MPa[indsSilLiq], Planet.T_K[indsSilLiq])
 
     if np.size(indsSilI) != 0:
         VPpore_kms[indsSilI], VSpore_kms[indsSilI], KSpore_GPa[indsSilI], GSpore_GPa[indsSilI] \
             = Planet.Ocean.surfIceEOS['Ih'].fn_Seismic(Planet.Ppore_MPa[indsSilI], Planet.T_K[indsSilI])
-        CpPore_JkgK[indsSilI] = Planet.Ocean.surfIceEOS['Ih'].fn_Cp_JkgK(Planet.Ppore_MPa[indsSilI], Planet.T_K[indsSilI], grid=False)
-        alphaPore_pK[indsSilI] = Planet.Ocean.surfIceEOS['Ih'].fn_alpha_pK(Planet.Ppore_MPa[indsSilI], Planet.T_K[indsSilI], grid=False)
+        CpPore_JkgK[indsSilI] = Planet.Ocean.surfIceEOS['Ih'].fn_Cp_JkgK(Planet.Ppore_MPa[indsSilI], Planet.T_K[indsSilI])
+        alphaPore_pK[indsSilI] = Planet.Ocean.surfIceEOS['Ih'].fn_alpha_pK(Planet.Ppore_MPa[indsSilI], Planet.T_K[indsSilI])
 
     if np.size(indsSilII) != 0:
         VPpore_kms[indsSilII], VSpore_kms[indsSilII], KSpore_GPa[indsSilII], GSpore_GPa[indsSilII] \
             = Planet.Ocean.iceEOS['II'].fn_Seismic(Planet.Ppore_MPa[indsSilII], Planet.T_K[indsSilII])
-        CpPore_JkgK[indsSilII] = Planet.Ocean.iceEOS['II'].fn_Cp_JkgK(Planet.Ppore_MPa[indsSilII], Planet.T_K[indsSilII], grid=False)
-        alphaPore_pK[indsSilII] = Planet.Ocean.iceEOS['II'].fn_alpha_pK(Planet.Ppore_MPa[indsSilII], Planet.T_K[indsSilII], grid=False)
+        CpPore_JkgK[indsSilII] = Planet.Ocean.iceEOS['II'].fn_Cp_JkgK(Planet.Ppore_MPa[indsSilII], Planet.T_K[indsSilII])
+        alphaPore_pK[indsSilII] = Planet.Ocean.iceEOS['II'].fn_alpha_pK(Planet.Ppore_MPa[indsSilII], Planet.T_K[indsSilII])
 
     if np.size(indsSilIII) != 0:
         VPpore_kms[indsSilIII], VSpore_kms[indsSilIII], KSpore_GPa[indsSilIII], GSpore_GPa[indsSilIII] \
             = Planet.Ocean.iceEOS['III'].fn_Seismic(Planet.Ppore_MPa[indsSilIII], Planet.T_K[indsSilIII])
-        CpPore_JkgK[indsSilIII] = Planet.Ocean.iceEOS['III'].fn_Cp_JkgK(Planet.Ppore_MPa[indsSilIII], Planet.T_K[indsSilIII], grid=False)
-        alphaPore_pK[indsSilIII] = Planet.Ocean.iceEOS['III'].fn_alpha_pK(Planet.Ppore_MPa[indsSilIII], Planet.T_K[indsSilIII], grid=False)
+        CpPore_JkgK[indsSilIII] = Planet.Ocean.iceEOS['III'].fn_Cp_JkgK(Planet.Ppore_MPa[indsSilIII], Planet.T_K[indsSilIII])
+        alphaPore_pK[indsSilIII] = Planet.Ocean.iceEOS['III'].fn_alpha_pK(Planet.Ppore_MPa[indsSilIII], Planet.T_K[indsSilIII])
 
     if np.size(indsSilV) != 0:
         VPpore_kms[indsSilV], VSpore_kms[indsSilV], KSpore_GPa[indsSilV], GSpore_GPa[indsSilV] \
             = Planet.Ocean.iceEOS['V'].fn_Seismic(Planet.Ppore_MPa[indsSilV], Planet.T_K[indsSilV])
-        CpPore_JkgK[indsSilV] = Planet.Ocean.iceEOS['V'].fn_Cp_JkgK(Planet.Ppore_MPa[indsSilV], Planet.T_K[indsSilV], grid=False)
-        alphaPore_pK[indsSilV] = Planet.Ocean.iceEOS['V'].fn_alpha_pK(Planet.Ppore_MPa[indsSilV], Planet.T_K[indsSilV], grid=False)
+        CpPore_JkgK[indsSilV] = Planet.Ocean.iceEOS['V'].fn_Cp_JkgK(Planet.Ppore_MPa[indsSilV], Planet.T_K[indsSilV])
+        alphaPore_pK[indsSilV] = Planet.Ocean.iceEOS['V'].fn_alpha_pK(Planet.Ppore_MPa[indsSilV], Planet.T_K[indsSilV])
 
     if np.size(indsSilVI) != 0:
         VPpore_kms[indsSilVI], VSpore_kms[indsSilVI], KSpore_GPa[indsSilVI], GSpore_GPa[indsSilVI] \
             = Planet.Ocean.iceEOS['VI'].fn_Seismic(Planet.Ppore_MPa[indsSilVI], Planet.T_K[indsSilVI])
-        CpPore_JkgK[indsSilVI] = Planet.Ocean.iceEOS['VI'].fn_Cp_JkgK(Planet.Ppore_MPa[indsSilVI], Planet.T_K[indsSilVI], grid=False)
-        alphaPore_pK[indsSilVI] = Planet.Ocean.iceEOS['VI'].fn_alpha_pK(Planet.Ppore_MPa[indsSilVI], Planet.T_K[indsSilVI], grid=False)
+        CpPore_JkgK[indsSilVI] = Planet.Ocean.iceEOS['VI'].fn_Cp_JkgK(Planet.Ppore_MPa[indsSilVI], Planet.T_K[indsSilVI])
+        alphaPore_pK[indsSilVI] = Planet.Ocean.iceEOS['VI'].fn_alpha_pK(Planet.Ppore_MPa[indsSilVI], Planet.T_K[indsSilVI])
 
     # Finally, combine the pore properties with the matrix properties across all phases
     Planet.Seismic.VP_kms[indsSil] = Planet.Sil.EOS.fn_porosCorrect(

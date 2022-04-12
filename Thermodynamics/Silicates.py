@@ -3,7 +3,6 @@ import logging as log
 from Utilities.defineStructs import Constants
 from Thermodynamics.Geophysical import PropagateConductionProfilesSolid, \
     PropagateConductionProfilesPorous
-from Thermodynamics.FromLiterature.HydroEOS import GetOceanEOS
 
 def SilicateLayers(Planet, Params):
     """ Determines properties of silicate layers based on input Perple_X table

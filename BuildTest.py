@@ -104,7 +104,7 @@ def simple():
     Params.RUN_ALL_PROFILES = False
     Params.COMPARE = False
 
-    iTest = 1
+    iTest = 16
     tStart = time.time()
     testPlanet = importlib.import_module(f'{testMod}{iTest}').Planet
     log.info(f'Test case body: {testMod}{iTest}')
