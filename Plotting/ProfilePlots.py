@@ -216,3 +216,7 @@ def PlotWedge(PlanetList, Params):
     plt.close()
     return
 
+
+def PlotInductOgram(PlanetList, Params):
+
+    return

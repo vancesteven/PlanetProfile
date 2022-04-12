@@ -16,7 +16,11 @@ from Thermodynamics.FromLiterature.Electrical import ElecConduct
 from Seismic import SeismicCalcs
 from MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction
 from Utilities.PrintLayerTable import PrintLayerTable
-from Plotting.ProfilePlots import GeneratePlots
+from Plotting.ProfilePlots import GeneratePlots, PlotInductOgram
+
+# Parallel processing
+import multiprocessing as mtp
+mtp.set_start_method("fork")
 
 """ MAIN RUN BLOCK """
 def run():
@@ -55,17 +59,6 @@ def run():
         CompareProfile(Planet, Params, os.path.join('Europa', 'EuropaProfile_Seawater_0WtPpt_Tb269.800K_mat.txt'))
         exit()
 
-    # Get model names from body directory.
-    models = FilesMatchingPattern(os.path.join(f'{bodyname}', f'PP{bodyname}*.py'))
-    # Splitting on PP and taking the -1 chops the path out, then taking
-    # all but the last 3 characters chops the .py extension
-    models = [model.split('PP')[-1][:-3] for model in models]
-    nModels = np.size(models)
-    # If there is a standard profile, make sure it is run first
-    if bodyname in models:
-        models.remove(bodyname)
-        models.insert(0, bodyname)
-
     # Additional command line arguments
     if nArgs > 2:
         if sys.argv[2] == 'clear':
@@ -88,59 +81,80 @@ def run():
         elif sys.argv[2] == 'all':
             log.info(f'Running all available profiles for {bodyname}.')
             Params.COMPARE = True
+        elif sys.argv[2] == 'inductogram':
+            Params.DO_INDUCTOGRAM = True
+            Params.NO_SAVEFILE = True
+            Params.SKIP_PLOTS = True
         else:
             raise ValueError(f'Unrecognized command: {sys.argv[2]}')
         if nArgs > 3:
             log.warning(f'Too many command line args passed. Ignoring command "{sys.argv[3]}" and any after it.')
 
     """ Run PlanetProfile """
-    PlanetList = np.empty(nModels, dtype=object)
-    # Run main model first, so that it always appears as 0-index
-    tMarks = np.zeros(nModels+1)
-    tMarks[0] = time.time()
-    PlanetList[0] = importlib.import_module(f'{bodyname}.PP{models[0]}').Planet
-    PlanetList[0], Params = PlanetProfile(PlanetList[0], Params)
-    tMarks[1] = time.time()
-    if Params.RUN_ALL_PROFILES:
-        for i,model in enumerate(models[1:]):
-            PlanetList[i+1] = deepcopy(importlib.import_module(f'{bodyname}.PP{model}').Planet)
-            PlanetList[i+1], Params = PlanetProfile(PlanetList[i+1], Params)
-            tMarks[i+2] = time.time()
-
-        # Plot combined figures
-        if not Params.SKIP_PLOTS and Params.COMPARE:
-            Params.FigureFiles = FigureFilesSubstruct(
-                bodyname, os.path.join('figures', f'{bodyname}Comparison'), Params.xtn)
-            GeneratePlots(PlanetList, Params)
+    if Params.DO_INDUCTOGRAM:
+        PlanetList, Params = InductOgram(bodyname, Params)
+        PlotInductOgram(PlanetList, Params)
     else:
-        PlanetList = PlanetList[:1]
+        # Get model names from body directory.
+        models = FilesMatchingPattern(os.path.join(f'{bodyname}', f'PP{bodyname}*.py'))
+        # Splitting on PP and taking the -1 chops the path out, then taking
+        # all but the last 3 characters chops the .py extension
+        models = [model.split('PP')[-1][:-3] for model in models]
+        nModels = np.size(models)
+        Params.nModels = nModels
+        PlanetList = np.empty(nModels, dtype=object)
+        # If there is a standard profile, make sure it is run first
+        if bodyname in models:
+            models.remove(bodyname)
+            models.insert(0, bodyname)
+        # Run main model first, so that it always appears as 0-index
+        tMarks = np.zeros(nModels+1)
+        tMarks[0] = time.time()
+        PlanetList[0] = importlib.import_module(f'{bodyname}.PP{models[0]}').Planet
+        PlanetList[0].index = 1
+        PlanetList[0], Params = PlanetProfile(PlanetList[0], Params)
+        tMarks[1] = time.time()
+        if Params.RUN_ALL_PROFILES:
+            for i,model in enumerate(models[1:]):
+                PlanetList[i+1] = deepcopy(importlib.import_module(f'{bodyname}.PP{model}').Planet)
+                PlanetList[i+1].index = i+2
+                PlanetList[i+1], Params = PlanetProfile(PlanetList[i+1], Params)
+                tMarks[i+2] = time.time()
 
-    dt = np.diff(tMarks)
-    log.debug('Elapsed time:\n' + '\n'.join([f'    {dt[i]:.3f} s for {Planet.saveLabel}' for i,Planet in enumerate(PlanetList)]))
+            # Plot combined figures
+            if not Params.SKIP_PLOTS and Params.COMPARE:
+                Params.FigureFiles = FigureFilesSubstruct(
+                    bodyname, os.path.join('figures', f'{bodyname}Comparison'), Params.xtn)
+                GeneratePlots(PlanetList, Params)
+        else:
+            PlanetList = PlanetList[:1]
 
-    """ Post-processing """
-    # Loading BodyProfile...txt files to plot them together
-    if Params.COMPARE and not Params.RUN_ALL_PROFILES:
-        fNamesToCompare = np.array(FilesMatchingPattern(os.path.join(bodyname, f'{bodyname}Profile*.txt')))
-        isProfile = [Params.DataFiles.saveFile != fName and 'mantle' not in fName for fName in fNamesToCompare]
-        fProfiles = fNamesToCompare[isProfile]
-        nCompare = np.size(fProfiles) + 1
-        log.info('Loading comparison profiles.')
-        CompareList = np.empty(nCompare, dtype=object)
-        CompareList[0] = PlanetList[0]
-        for i,fName in enumerate(fProfiles):
-            CompareList[i+1], _ = ReloadProfile(deepcopy(CompareList[0]), Params, fnameOverride=fName)
+        dt = np.diff(tMarks)
+        log.debug('Elapsed time:\n' + '\n'.join([f'    {dt[i]:.3f} s for {Planet.saveLabel}' for i,Planet in enumerate(PlanetList)]))
 
-        # Plot combined figures
-        if not Params.SKIP_PLOTS:
-            Params.FigureFiles = FigureFilesSubstruct(
-                bodyname, os.path.join('figures', f'{bodyname}Comparison'), Params.xtn)
-            GeneratePlots(CompareList, Params)
+        """ Post-processing """
+        # Loading BodyProfile...txt files to plot them together
+        if Params.COMPARE and not Params.RUN_ALL_PROFILES:
+            fNamesToCompare = np.array(FilesMatchingPattern(os.path.join(bodyname, f'{bodyname}Profile*.txt')))
+            isProfile = [Params.DataFiles.saveFile != fName and 'mantle' not in fName for fName in fNamesToCompare]
+            fProfiles = fNamesToCompare[isProfile]
+            nCompare = np.size(fProfiles) + 1
+            log.info('Loading comparison profiles.')
+            CompareList = np.empty(nCompare, dtype=object)
+            CompareList[0] = PlanetList[0]
+            for i,fName in enumerate(fProfiles):
+                CompareList[i+1], _ = ReloadProfile(deepcopy(CompareList[0]), Params, fnameOverride=fName)
 
-    if Params.DISP_LAYERS:
-        PrintLayerTable(PlanetList, Params)
-    if Params.DISP_TABLE:
-        PrintLayerTableLatex(PlanetList, Params)
+            # Plot combined figures
+            if not Params.SKIP_PLOTS:
+                Params.FigureFiles = FigureFilesSubstruct(
+                    bodyname, os.path.join('figures', f'{bodyname}Comparison'), Params.xtn)
+                GeneratePlots(CompareList, Params)
+
+        if Params.DISP_LAYERS:
+            PrintLayerTable(PlanetList, Params)
+        if Params.DISP_TABLE:
+            PrintLayerTableLatex(PlanetList, Params)
 
     return
 
@@ -160,7 +174,8 @@ def PlanetProfile(Planet, Params):
         Planet = SeismicCalcs(Planet, Params)
 
         # Save data after modeling
-        WriteProfile(Planet, Params)
+        if not Params.NO_SAVEFILE:
+            WriteProfile(Planet, Params)
     else:
         # Reload previous run
         Planet, Params = ReloadProfile(Planet, Params)
@@ -170,15 +185,15 @@ def PlanetProfile(Planet, Params):
         GeneratePlots(np.array([Planet]), Params)
 
     # Magnetic induction calculations
-    if Params.CALC_CONDUCT:
-        if Params.CALC_NEW_INDUCT:
-            # Calculate induced magnetic moments
-            Planet = MagneticInduction(Planet, Params)
-        else:
-            # Reload induction results
-            Planet = ReloadInduct(Planet, Params)
+    if Params.CALC_CONDUCT and Params.CALC_NEW_INDUCT:
+        # Calculate induced magnetic moments
+        Planet = MagneticInduction(Planet, Params)
 
-    log.info('Run complete!')
+    if Planet.index is None:
+        indicator = ''
+    else:
+        indicator = f' {Planet.index}/{Params.nModels}'
+    log.profile(f'Profile{indicator} complete.')
     return Planet, Params
 
 
@@ -369,27 +384,182 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     return Planet, Params
 
 
-def UpdateRun(Planet, Params, changes):
+def UpdateRun(Planet, Params, PlanetChanges=None, BulkChanges=None, OceanChanges=None, SilChanges=None,
+              CoreChanges=None, MagneticChanges=None, DoChanges=None, StepsChanges=None):
     """ Wrapper for editing the settings of Planet using a dict naming the changes.
 
         Args:
-            changes (dict): Dict of {SubStruct: subDict} pairs to change in Planet.
-                The subDict
+            SubstructChanges (dict): Dict of {SubStructAttribute: value} pairs to change in Planet.Substruct.
     """
+    if PlanetChanges is not None:
+        for key in PlanetChanges.key():
+            setattr(Planet, key, PlanetChanges[key])
+    if BulkChanges is not None:
+        for key in BulkChanges.keys():
+            setattr(Planet.Bulk, key, BulkChanges[key])
+    if OceanChanges is not None:
+        for key in OceanChanges.keys():
+            setattr(Planet.Ocean, key, OceanChanges[key])
+    if SilChanges is not None:
+        for key in SilChanges.keys():
+            setattr(Planet.Sil, key, SilChanges[key])
+    if CoreChanges is not None:
+        for key in CoreChanges.keys():
+            setattr(Planet.Core, key, CoreChanges[key])
+    if MagneticChanges is not None:
+        for key in MagneticChanges.keys():
+            setattr(Planet.Magnetic, key, MagneticChanges[key])
+    if DoChanges is not None:
+        for key in DoChanges.keys():
+            setattr(Planet.Do, key, DoChanges[key])
+    if StepsChanges is not None:
+        for key in StepsChanges.keys():
+            setattr(Planet.Steps, key, StepsChanges[key])
 
-    for key in changes.keys():
-        setattr(Planet, key, changes[key])
     Planet, Params = PlanetProfile(Planet, Params)
     return Planet, Params
 
 
-def ParPlanet(bodyname, settings):
+def InductOgram(bodyname, Params):
+    """ Run PlanetProfile models over a variety of settings to get induction
+        responses for each input. 
+    """
+    log.info(f'Running calculations for induct-o-gram type {Params.inductOtype}.')
+    Planet = importlib.import_module(f'{bodyname}.PP{bodyname}InductOgram').Planet
+    tMarks = np.empty(0)
+    tMarks = np.append(tMarks, time.time())
+    settings = {}
+    k = 1
+    if Params.inductOtype == 'sigma':
+        sigmaList = np.logspace(Params.sigmaMin[bodyname], Params.sigmaMax[bodyname], Params.nSigmaPts)
+        Dlist = np.logspace(Params.Dmin[bodyname], Params.Dmax[bodyname], Params.nDpts)
+        Params.nModels = Params.nSigmaPts * Params.nDpts
+        settings['OceanChanges'] = {'sigmaMean_Sm': sigmaList}
+        settings['PlanetChanges'] = {'D_km': Dlist}
+        Planet.zb_km = Params.zbFixed_km[bodyname]
+        Planet.rSigChange_m = np.array([0, Planet.Bulk.R_m - Planet.zb_km*1e3,
+                                            Planet.R_m])
+        Planet.sigma_Sm = np.array([Planet.Sil.sigmaSil_Sm, 0, Planet.Ocean.sigmaIce_Sm['Ih']])
+        PlanetGrid = np.empty((Params.nSigmaPts, Params.nDpts), dtype=object)
+        for i, sigma_Sm in enumerate(sigmaList):
+            for j, D_km in enumerate(Dlist):
+                Planet.Ocean.sigmaMean = sigma_Sm
+                Planet.sigma_Sm[1] = sigma_Sm
+                Planet.D_km = D_km
+                Planet.rSigChange_m[0] = Planet.Bulk.R_m - 1e3 * (D_km + Planet.zb_km)
+                Planet.index = k
+                k += 1
+                PlanetGrid[i,j] = deepcopy(Planet)
+
+    else:
+        wList = np.logspace(Params.wMin[bodyname], Params.wMax[bodyname], Params.nwPts)
+        settings['OceanChanges'] = {'wOcean_ppt': wList}
+        if Params.inductOtype == 'Tb':
+            TbList = np.linspace(Params.TbMin[bodyname], Params.TbMax[bodyname], Params.nTbPts)
+            settings['BulkChanges'] = {'Tb_K': TbList}
+            Params.nModels = Params.nwPts * Params.nTbPts
+            PlanetGrid = np.empty((Params.nwPts, Params.nTbPts), dtype=object)
+            for i, w_ppt in enumerate(wList):
+                for j, Tb_K in enumerate(TbList):
+                    Planet.Ocean.wOcean_ppt = w_ppt
+                    Planet.Bulk.Tb_K = Tb_K
+                    Planet.index = k
+                    k += 1
+                    PlanetGrid[i,j] = deepcopy(Planet)
+        elif Params.inductOtype == 'phi':
+            phiList = np.logspace(Params.phiMin[bodyname], Params.phiMax[bodyname], Params.nphiPts)
+            settings['SilChanges'] = {'phiRockMax_frac': phiList}
+            Params.nModels = Params.nwPts * Params.nphiPts
+            PlanetGrid = np.empty((Params.nwPts, Params.nphiPts), dtype=object)
+            Params.CONSTANT_DENSITY_INNER = False
+            for i, w_ppt in enumerate(wList):
+                for j, phiRockMax_frac in enumerate(phiList):
+                    Planet.Ocean.wOcean_ppt = w_ppt
+                    Planet.Sil.phiRockMax_frac = phiRockMax_frac
+                    Planet.index = k
+                    k += 1
+                    PlanetGrid[i,j] = deepcopy(Planet)
+        elif Params.inductOtype == 'rho':
+            rhoList = np.linspace(Params.rhoMin[bodyname], Params.rhoMax[bodyname], Params.nrhoPts)
+            settings['SilChanges'] = {'rhoSilWithCore_kgm3': rhoList}
+            Params.nModels = Params.nwPts * Params.nrhoPts
+            PlanetGrid = np.empty((Params.nwPts, Params.nrhoPts), dtype=object)
+            for i, w_ppt in enumerate(wList):
+                for j, rhoSilWithCore_kgm3 in enumerate(rhoList):
+                    Planet.Ocean.wOcean_ppt = w_ppt
+                    Planet.Sil.rhoSilWithCore_kgm3 = rhoSilWithCore_kgm3
+                    Planet.index = k
+                    k += 1
+                    PlanetGrid[i,j] = deepcopy(Planet)
+        else:
+            raise ValueError(f'Params.inductOtype {Params.inductOtype} behavior not defined.')
+
+    tMarks = np.append(tMarks, time.time())
+    log.info('PlanetGrid constructed. Calculating induction responses.')
+    PlanetGrid = ParPlanet(PlanetGrid, Params)
+    tMarks = np.append(tMarks, time.time())
+
+    dt = tMarks[-1] - tMarks[-2]
+    log.info(f'Parallel run elapsed time: {dt} s.')
+    dtTot = tMarks[-1] - tMarks[0]
+    log.info(f'Total elapsed time: {dtTot} s. Saving...')
+
+    WriteInductOgram(PlanetGrid, Params)
+
+    return PlanetGrid
+
+
+def WriteInductOgram(PlanetList, Params):
+
+    return
+
+
+def ReloadInductOgram(bodyname, Params):
+
+    PlanetList = np.empty(0, dtype=object)
+    return PlanetList
+
+
+def ParPlanet(PlanetList, Params):
     """ Run a list of PlanetProfile models over arrays of run settings.
 
         Args:
-            bodyname (str): Name of body to use.
-            settings (dict):
+            PlanetList (PlanetStruct, shape N, NxM, Nx...): List of Planet objects
+                over which to run in parallel. 
     """
+    log.info('Quieting messages to avoid spam in parallel run.')
+    log.basicConfig(level=Params.logParallel, format=Params.printFmt)
+    dims = np.shape(PlanetList)
+    nParDims = np.size(dims)
+    if nParDims == 1 and np.size(PlanetList) == 1:
+        PlanetList[0] = PlanetProfile(PlanetList[0], Params)
+    else:
+        # Prevent slowdowns from competing process spawning when #cores > #jobs
+        nCores = np.minimum(Params.maxCores, np.product(dims))
+        PlanetList1D = np.reshape(PlanetList, -1)
+        if Params.inductOtype == 'sigma':
+            pool = mtp.Pool(nCores)
+            parResult = [pool.apply_async(MagneticInduction, (deepcopy(Planet),
+                         deepcopy(Params))) for Planet in PlanetList1D]
+            pool.close()
+            pool.join()
+        else:
+            pool = mtp.Pool(nCores)
+            parResult = [pool.apply_async(PlanetProfile, (deepcopy(Planet),
+                         deepcopy(Params))) for Planet in PlanetList1D]
+            pool.close()
+            pool.join()
+        for i, result in enumerate(parResult):
+            PlanetList1D[i] = result.get()[0]
+        PlanetList = np.reshape(PlanetList1D, dims)
+
+        if Params.VERBOSE:
+            logLevel = log.DEBUG
+        elif Params.QUIET:
+            logLevel = log.WARN
+        else:
+            logLevel = log.INFO
+        log.basicConfig(level=logLevel, format=Params.printFmt)
 
     return PlanetList
 

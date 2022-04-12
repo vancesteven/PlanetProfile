@@ -26,6 +26,8 @@ def full():
     Params.CALC_CONDUCT = True
     Params.RUN_ALL_PROFILES = False
     Params.COMPARE = False
+    Params.NO_SAVEFILE = False
+    Params.DO_INDUCTOGRAM = False
 
     # Get total number of test files to run
     nTests = len(fnmatch.filter(os.listdir('Test'), 'PPTest*'))

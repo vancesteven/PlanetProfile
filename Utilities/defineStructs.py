@@ -364,6 +364,7 @@ class PlanetStruct:
         self.MporeFluid_kg = None  # Total mass contained in pore fluids, including H2O and salts
         self.Mclath_kg = None  # Total mass of clathrate layers
         self.MclathGas_kg = None  # Total mass of non-water molecules trapped in clathrates
+        self.index = None  # Numeric indicator to aid in progress info in multi-model runs
 
 
 """ Params substructs """

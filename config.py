@@ -2,11 +2,13 @@
 General runtime configuration parameters.
 Overridden by any settings contained within PPBody.py files.
 """
-
-import os, shutil
+import logging as log
+from functools import partial, partialmethod
+import os, shutil, numpy as np
 from Utilities.defineStructs import ParamsStruct, Constants
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import multiprocessing as mtp
 
 Params = ParamsStruct()
 Params.VERBOSE = True  # Provides extra runtime messages. Overrides QUIET below
@@ -16,7 +18,7 @@ Params.DEBUG = False  # Special use
 # The below flags allow or prevents extrapolation of EOS functions beyond the definition grid.
 Params.EXTRAP_ICE = {'Ih':False, 'II':False, 'III':False, 'V':False, 'VI':False, 'Clath':False}
 Params.EXTRAP_OCEAN = False
-Params.EXTRAP_REF = True  # Allow refprofile extrapolation separate from normal ocean because
+Params.EXTRAP_REF = True  # Allow refprofile extrapolation separate from normal ocean
 Params.EXTRAP_SIL = False
 Params.EXTRAP_Fe = False
 
@@ -29,7 +31,8 @@ Params.RUN_ALL_PROFILES = True  # Whether to run all PPBody.py files for the nam
 Params.COMPARE =          True  # Whether to plot each new run against other runs from the same body
 Params.DO_PARALLEL =      True  # Use multiprocessing module for parallel computation where applicable
 Params.SKIP_INNER =       False  # Whether to skip past everything but ocean calculations after MoI matching (for large induction studies)
-Params.REDUCED =          True  # Whether to limit number of ocean layers for faster computation of layered induction
+Params.NO_SAVEFILE =      False  # Whether to prevent printing run outputs to disk. Saves time and disk space for large induction studies.
+Params.REDUCED_INDUCT =   True  # Whether to limit number of ocean layers for faster computation of layered induction
 Params.INCLUDE_ASYM =     False  # Whether to include asymmetry in the induction conductivity profile based on J2 and C22 values
 Params.DISP_LAYERS =      True  # Whether to display layer depths and heat fluxes for user
 Params.DISP_TABLE =       False  # Whether to print latex-formatted table
@@ -99,6 +102,7 @@ Params.FigSize.vcore = (6,6)
 Params.FigSize.vpvt4 = (3,3)
 Params.FigSize.vpvt6 = (3,3)
 Params.FigSize.vwedg = (3,3)
+Params.FigSize.induc = (6,6)
 
 # Color selection
 Params.cmap = 'inferno'
@@ -147,26 +151,37 @@ Params.Colors.Rock = [101/255, 46/255, 11/255]
 Params.Colors.Core = [141/255, 122/255, 121/255]
 
 # Magnetic induction calculation settings
-Params.DO_EUR = True  # Whether to calculate induction responses for Europa
-Params.DO_GAN = True  # Whether to calculate induction responses for Ganymede
-Params.DO_CAL = True  # Whether to calculate induction responses for Callisto
-Params.DO_ENC = True  # Whether to calculate induction responses for Enceladus
-Params.DO_MIR = True  # Whether to calculate induction responses for Miranda
-Params.DO_ARI = True  # Whether to calculate induction responses for Ariel
+Params.DO_INDUCTOGRAM = True  # Whether to plot an inductogram for the body in question
 Params.DO_PER = True  # Convert frequency axes to periods
 Params.DO_LEGEND = True  # Whether to force legends
 Params.PLOT_FFT = True  # Whether to show plots of fourier space
 Params.PLOT_CONTOURS = True  # Contours or surfaces
-Params.PLOT_V2021S = True  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
-Params.wlims = None  # Minimum and maximum to use for frequency spectrum plots (magnetic induction)
+Params.PLOT_V2021 = True  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
+Params.wLims = None  # Minimum and maximum to use for frequency spectrum plots (magnetic induction)
 
+Params.inductOtype = 'rho'  # Type of InductOgram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
+Params.nwPts = 5  # Resolution for salinity values in ocean salinity vs. other plots
+Params.wMin = {'Europa': np.log10(0.05 * Constants.stdSeawater_ppt)}
+Params.wMax = {'Europa': np.log10(Constants.stdSeawater_ppt)}
+Params.nTbPts = 60  # Resolution for Tb values in ocean salinity/Tb plots
+Params.nphiPts = 60  # Resolution for phiRockMax values in ocean salinity/phiMax plots
+Params.phiMin = {'Europa': np.log10(0.01)}
+Params.phiMax = {'Europa': np.log10(0.75)}
+Params.nrhoPts = 6  # Resolution for silicate density values in ocean salinity/rho plots
+Params.rhoMin = {'Europa': 3500}
+Params.rhoMax = {'Europa': 3700}
+Params.nSigmaPts = 50  # Resolution for conductivity values in ocean conductivity/thickness plots
+Params.sigmaMin = {'Europa': np.log10(1e-1)}
+Params.sigmaMax = {'Europa': np.log10(1e1)}
+Params.nDpts = 60  # Resolution for ocean thickness as for conductivity
+Params.Dmin = {'Europa': np.log10(1e1)}
+Params.Dmax = {'Europa': np.log10(200e1)}
+Params.zbFixed_km = {'Europa': 20}
+Params.nIntPts = 200  # Number of interpolation points to use for Eckhardt method induction calculations
 Params.interpMethod = 'nearest'  # Interpolation method. Options are nearest, linear, and cubic. Notably, the 'linear' method causes wiggles in magnetic contour plots in the Matlab version.
-Params.npts_k = 50  # Resolution for conductivity values in ocean conductivity/thickness plots
-Params.npts_D = 60  # Resolution for ocean thickness as for conductivity
-Params.np_intp = 200  # Number of interpolation points to use for Eckhardt method induction calculations
-Params.npts_w = 100  # Resolution in log frequency space for magnetic excitation spectra
-Params.np_wfine = 1000  # Fine-spacing resolution for log frequency spectrum
-Params.nIntL = 3  # Number of ocean layers to use when REDUCED = 1
+Params.nOmegaPts = 100  # Resolution in log frequency space for magnetic excitation spectra
+Params.nOmegaFine = 1000  # Fine-spacing resolution for log frequency spectrum
+Params.nIntL = 3  # Number of ocean layers to use when REDUCED_INDUCT = 1
 #To be implemented- eventually need some ODE numerical solution parameters
 #Params.opts_odeParams = odeset('RelTol',1e-10,'AbsTol',1e-10,'MaxStep', 2e3,'InitialStep',1e-2)
 #Params.opts_odeLayers = odeset('RelTol',1e-8, 'AbsTol',1e-10,'MaxStep',10e3,'InitialStep',1e-2)
@@ -191,3 +206,16 @@ else:
     plt.rcParams['font.serif'] += ', ' + Params.backupFont  # Set plots to use the default font if installed, or a backup if not
     plt.rcParams['mathtext.fontset'] = Params.defaultFontCode
     Params.TEX_INSTALLED = False
+    
+# Parallel processing
+if Params.DO_PARALLEL:
+    Params.maxCores = mtp.cpu_count()
+else:
+    Params.maxCores = 1
+    log.info('DO_PARALLEL is False. Blocking parallel execution.')
+Params.logParallel = log.INFO + 5
+# Create parallel printout log level
+log.PROFILE = Params.logParallel
+log.addLevelName(log.PROFILE, 'PROFILE')
+log.Logger.profile = partialmethod(log.Logger.log, log.PROFILE)
+log.profile = partial(log.log, log.PROFILE)
