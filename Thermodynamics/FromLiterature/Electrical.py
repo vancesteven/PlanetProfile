@@ -44,8 +44,10 @@ def ElecConduct(Planet, Params):
 
     if np.size(indsLiq) != 0:
         Planet.Ocean.sigmaMean_Sm = np.mean(Planet.sigma_Sm[indsLiq])
+        Planet.Ocean.sigmaTop_Sm = Planet.sigma_Sm[indsLiq[0]]
     else:
         Planet.Ocean.sigmaMean_Sm = np.nan
+        Planet.Ocean.sigmaTop_Sm = np.nan
 
     return Planet
 

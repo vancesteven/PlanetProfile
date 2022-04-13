@@ -200,7 +200,7 @@ class PerplexEOSStruct:
 
             elif porosType is None or porosType == 'none':
                 # No porosity modeled, but need a dummy field for cross-compatibility
-                self.fn_phi_frac = lambda P, T: np.zeros_like(P)
+                self.fn_phi_frac = ReturnZeros(1)
 
             else:
                 if porosType == 'Vitovtova2014' or porosType == 'Chen2020':
@@ -215,14 +215,14 @@ class PerplexEOSStruct:
                 self.fn_phi_frac = GetphiFunc(self.porosType, self.phiTop_frac, self.Pclosure_MPa,
                                               self.PREMlookup, self.P_MPa, self.T_K)
 
-                # Combine pore fluid properties with matrix properties in accordance with
-                # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
-                self.fn_porosCorrect = lambda propBulk, propPore, phi, J: (propBulk**J * (1 - phi)
-                                                     + propPore**J * phi)**(1/J)
-
             # Store complete EOSStruct in global list of loaded EOSs
             EOSlist.loaded[self.EOSlabel] = self
             EOSlist.ranges[self.EOSlabel] = self.rangeLabel
+
+    def fn_porosCorrect(self, propBulk, propPore, phi, J):
+        # Combine pore fluid properties with matrix properties in accordance with
+        # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
+        return (propBulk**J * (1 - phi) + propPore**J * phi) ** (1/J)
 
     def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
         # Limit extrapolation to use nearest value from evaluated fit if desired
@@ -280,6 +280,25 @@ def ResetNearestExtrap(var1, var2, min1, max1, min2, max2):
     return var1, var2
 
 
+class ReturnZeros:
+    """ Returns an array or tuple of arrays of zeros, for functions of properties
+        not modeled that still work with querying routines. We have to run things
+        this way and not with a lambda because anonymous functions can't be used
+        in parallel processing.
+    """
+    def __init__(self, nVar):
+        self.nVar = nVar
+
+    def __call__(self, P, T, grid=False):
+        nPs = np.size(P)
+        nTs = np.size(T)
+        if self.nVar > 1:
+            out = (np.zeros(np.maximum(nPs, nTs)) for _ in range(self.nVar))
+        else:
+            out = np.zeros(np.maximum(nPs, nTs))
+        return out
+
+
 def TsolidusHirschmann2000(P_MPa):
     """ Silicate melting temperature parameterization based on
         Hirschmann (2000): https://doi.org/10.1029/2000GC000070 .
@@ -297,12 +316,15 @@ def TsolidusHirschmann2000(P_MPa):
     return Tsolidus_K
 
 
-def GetHtidalFunc(HtidalConst_Wm3):
-    # Tidal heating as a function of density, gravity, and bulk and shear moduli
-    # Currently a placeholder returning a constant value, awaiting a self-
-    # consistent calculation.
-    fn_Htidal_Wm3 = lambda rho, g, KS, GS: HtidalConst_Wm3
-    return fn_Htidal_Wm3
+class GetHtidalFunc:
+    def __init__(self, HtidalConst_Wm3):
+        # Tidal heating as a function of density, gravity, and bulk and shear moduli
+        # Currently a placeholder returning a constant value, awaiting a self-
+        # consistent calculation.
+        self.HtidalConst_Wm3 = HtidalConst_Wm3
+
+    def __call__(self, rho_kgm3, g_ms2, KS_GPa, GS_GPa):
+        return self.HtidalConst_Wm3
 
 
 def GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, PREMlookup, P1D_MPa, T1D_K):

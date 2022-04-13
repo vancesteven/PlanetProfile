@@ -66,10 +66,10 @@ Planet.Core.xH2O = 0.0035
 Planet.Seismic.lowQDiv = 1.0
 
 """ Magnetic induction """
-Planet.Magnetic.peaks_Hz = np.array([4.946e-5, 2.473e-5, 3.259e-6])
-Planet.Magnetic.fOrb_radps = 2*np.pi/3.55/86400
-Planet.Magnetic.ionosBounds_m = 100e3
-Planet.Magnetic.sigmaIonosPedersen_Sm = 30/100e3
+Planet.Magnetic.SCera = 'Galileo'
+Planet.Magnetic.extModel = 'JRM33C2020'
+#Planet.Magnetic.ionosBounds_m = 100e3
+#Planet.Magnetic.sigmaIonosPedersen_Sm = 30/100e3
 
 # The block below should be made into one single function that returns the FTdata struct if the file is found, and warns the user/downloads if not.
 # try:

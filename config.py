@@ -4,14 +4,15 @@ Overridden by any settings contained within PPBody.py files.
 """
 import logging as log
 from functools import partial, partialmethod
-import os, shutil, numpy as np
+import os, shutil, time, numpy as np
 from Utilities.defineStructs import ParamsStruct, Constants
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import multiprocessing as mtp
 
 Params = ParamsStruct()
-Params.VERBOSE = True  # Provides extra runtime messages. Overrides QUIET below
+Params.tStart_s = time.time()
+Params.VERBOSE = False  # Provides extra runtime messages. Overrides QUIET below
 Params.QUIET = False  # Hides all log messages except warnings and errors
 Params.printFmt = '[%(levelname)s] %(message)s'  # Format for printing log messages
 Params.DEBUG = False  # Special use
@@ -102,7 +103,7 @@ Params.FigSize.vcore = (6,6)
 Params.FigSize.vpvt4 = (3,3)
 Params.FigSize.vpvt6 = (3,3)
 Params.FigSize.vwedg = (3,3)
-Params.FigSize.induc = (6,6)
+Params.FigSize.induct = (6,6)
 
 # Color selection
 Params.cmap = 'inferno'
@@ -160,6 +161,12 @@ Params.PLOT_V2021 = True  # Mark the selected ocean/conductivity combos used in 
 Params.wLims = None  # Minimum and maximum to use for frequency spectrum plots (magnetic induction)
 
 Params.inductOtype = 'rho'  # Type of InductOgram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
+Params.excSelectionCalc = {'synodic': True, 'orbital': True, 'true anomaly': True,  'synodic harmonic': True}  # Which magnetic excitations to include in calculations
+Params.excSelectionPlot = {'synodic': True, 'orbital': True, 'true anomaly': False, 'synodic harmonic': True}  # Which magnetic excitations to include in plotting
+# Force calculations to be done for each oscillation to be plotted
+for osc in Params.excSelectionPlot:
+    if Params.excSelectionPlot[osc] and not Params.excSelectionCalc[osc]:
+        Params.excSelectionCalc[osc] = True
 Params.nwPts = 5  # Resolution for salinity values in ocean salinity vs. other plots
 Params.wMin = {'Europa': np.log10(0.05 * Constants.stdSeawater_ppt)}
 Params.wMax = {'Europa': np.log10(Constants.stdSeawater_ppt)}
@@ -177,11 +184,12 @@ Params.nDpts = 60  # Resolution for ocean thickness as for conductivity
 Params.Dmin = {'Europa': np.log10(1e1)}
 Params.Dmax = {'Europa': np.log10(200e1)}
 Params.zbFixed_km = {'Europa': 20}
-Params.nIntPts = 200  # Number of interpolation points to use for Eckhardt method induction calculations
-Params.interpMethod = 'nearest'  # Interpolation method. Options are nearest, linear, and cubic. Notably, the 'linear' method causes wiggles in magnetic contour plots in the Matlab version.
+Params.EckhardtSolveMethod = 'RK45'  # Numerical solution method for scipy.integrate.solve_ivp. See https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html
+Params.rMinODE = 1e3  # Minimum radius to use for numerical solution. Cannot be zero because of singularity at the origin.
+Params.oceanInterpMethod = 'linear'  # Interpolation method for determining ocean conductivities when REDUCED_INDUCT is True.
+Params.nIntL = 5  # Number of ocean layers to use when REDUCED_INDUCT = 1
 Params.nOmegaPts = 100  # Resolution in log frequency space for magnetic excitation spectra
 Params.nOmegaFine = 1000  # Fine-spacing resolution for log frequency spectrum
-Params.nIntL = 3  # Number of ocean layers to use when REDUCED_INDUCT = 1
 #To be implemented- eventually need some ODE numerical solution parameters
 #Params.opts_odeParams = odeset('RelTol',1e-10,'AbsTol',1e-10,'MaxStep', 2e3,'InitialStep',1e-2)
 #Params.opts_odeLayers = odeset('RelTol',1e-8, 'AbsTol',1e-10,'MaxStep',10e3,'InitialStep',1e-2)
@@ -213,9 +221,47 @@ if Params.DO_PARALLEL:
 else:
     Params.maxCores = 1
     log.info('DO_PARALLEL is False. Blocking parallel execution.')
-Params.logParallel = log.INFO + 5
 # Create parallel printout log level
+Params.logParallel = log.WARN + 5
+if Params.VERBOSE:
+    # Allow warnings to be printed if VERBOSE is selected
+    Params.logParallel -= 10
+elif Params.QUIET:
+    # Allow progress printout to be silenced if QUIET is selected
+    Params.logParallel += 10
 log.PROFILE = Params.logParallel
 log.addLevelName(log.PROFILE, 'PROFILE')
 log.Logger.profile = partialmethod(log.Logger.log, log.PROFILE)
 log.profile = partial(log.log, log.PROFILE)
+
+
+class InductionResults:
+    def __init__(self):
+        self.bodyname = None  # Name of body modeled.
+        self.Amp = None  # Amplitude of dipole response (modulus of complex dipole response).
+        self.phase = None  # (Positive) phase delay in degrees.
+        self.Bix_nT = None  # Induced Bx dipole moments relative to body surface in nT for each excitation.
+        self.Biy_nT = None  # Induced By dipole moments relative to body surface in nT for each excitation.
+        self.Biz_nT = None  # Induced Bz dipole moments relative to body surface in nT for each excitation.
+        self.Texc_hr = None  # Dict of excitation periods modeled.
+        self.yName = None  # Name of variable along y axis. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness.
+        self.x = None  # Values of salinity or conductivity used.
+        self.y = None  # Values of yName used.
+        self.sigmaMean_Sm = None  # Mean ocean conductivity. Used to map plots vs. salinity onto D/σ plots.
+        self.sigmaTop_Sm = None  # Ocean top conductivity. Used to map plots vs. salinity onto D/σ plots.
+        self.D_km = None  # Ocean layer thickness in km. Used to map plots vs. salinity onto D/σ plots.
+        self.zb_km = None  # Upper ice shell thickness in km.
+
+
+class ExcitationsList:
+    def __init__(self):
+        Texc_hr = {}
+        # Approximate (.2f) periods to select from excitation spectrum for each body in hr
+        Texc_hr['Europa'] = {'synodic':11.23, 'orbital':85.15, 'true anomaly':84.63, 'synodic harmonic':5.62}
+        self.Texc_hr = Texc_hr
+        self.Induction = InductionResults()
+
+    def __call__(self, bodyname):
+        return self.Texc_hr[bodyname]
+
+Excitations = ExcitationsList()

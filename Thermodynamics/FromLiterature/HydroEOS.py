@@ -12,7 +12,7 @@ from Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4PhaseMargules, MgSO
 from Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
 from Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, TclathDissocLower_K, \
     TclathDissocUpper_K, ClathSeismic
-from Thermodynamics.FromLiterature.InnerEOS import GetphiFunc, GetphiCalc, ResetNearestExtrap
+from Thermodynamics.FromLiterature.InnerEOS import GetphiFunc, GetphiCalc, ResetNearestExtrap, ReturnZeros
 
 def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
                 EXTRAP=False):
@@ -64,7 +64,7 @@ class OceanEOSStruct:
 
             # Get tabular data from the appropriate source for the specified ocean composition
             if compstr == 'none':
-                self.fn_phase = lambda P,T: np.zeros_like(P, dtype=np.int_)
+                self.fn_phase = ReturnZeros(1)
                 self.type = 'No H2O'
                 self.m_gmol = 0.0
                 self.rho_kgm3 = np.zeros((np.size(self.P_MPa), np.size(self.T_K)))
@@ -172,20 +172,6 @@ class OceanEOSStruct:
         return self.ufn_sigma_Sm(P_MPa, T_K, grid=grid)
 
 
-class ReturnZeros:
-    def __init__(self, nVar):
-        self.nVar = nVar
-
-    def __call__(self, P, T, grid=False):
-        nPs = np.size(P)
-        nTs = np.size(T)
-        if self.nVar > 1:
-            out = (np.zeros(np.maximum(nPs, nTs)) for _ in range(self.nVar))
-        else:
-            out = np.zeros(np.maximum(nPs, nTs))
-        return out
-
-
 def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False):
     iceEOS = IceEOSStruct(P_MPa, T_K, phaseStr, porosType=porosType, phiTop_frac=phiTop_frac,
                           Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac, EXTRAP=EXTRAP)
@@ -258,7 +244,7 @@ class IceEOSStruct:
             self.phaseID = PhaseInv(phaseStr)
 
             if porosType is None or porosType == 'none':
-                self.ufn_phi_frac = lambda P, T: np.zeros_like(P)
+                self.ufn_phi_frac = ReturnZeros(1)
                 self.POROUS = False
             else:
                 self.ufn_phi_frac = GetphiCalc(phiTop_frac,
@@ -266,13 +252,14 @@ class IceEOSStruct:
                                               phiMin_frac)
                 self.POROUS = True
 
-            # Combine pore fluid properties with matrix properties in accordance with
-            # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
-            self.fn_porosCorrect = lambda propBulk, propPore, phi, J: (propBulk**J * (1 - phi) + propPore**J * phi)**(1/J)
-
             # Store complete EOSStruct in global list of loaded EOSs
             EOSlist.loaded[self.EOSlabel] = self
             EOSlist.ranges[self.EOSlabel] = self.rangeLabel
+
+    def fn_porosCorrect(self, propBulk, propPore, phi, J):
+        # Combine pore fluid properties with matrix properties in accordance with
+        # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
+        return (propBulk**J * (1 - phi) + propPore**J * phi) ** (1/J)
 
     # Limit extrapolation to use nearest value from evaluated fit
     def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
@@ -378,7 +365,9 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
 
 
 # Create a function that can pack up (P,T) pairs that are compatible with SeaFreeze
-sfPTpairs = lambda P_MPa, T_K: np.array([(P, T) for P, T in zip(P_MPa, T_K)], dtype='f,f').astype(object)
+def sfPTpairs(P_MPa, T_K):
+    return np.array([(P, T) for P, T in zip(P_MPa, T_K)], dtype='f,f').astype(object)
+
 
 class H2OSeismic:
     """ Creates a function call for returning seismic properties of depth profile for pure water. """

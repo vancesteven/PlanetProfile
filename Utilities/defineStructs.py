@@ -91,6 +91,7 @@ class OceanSubstruct:
         self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'PureH2O', 'NH3', 'NaCl', 'none'
         self.wOcean_ppt = None  # (Absolute) salinity: Mass concentration of above composition in parts per thousand (ppt)
         self.sigmaMean_Sm = None  # Mean conductivity across all ocean layers (linear average, ignoring spherical geometry effects)
+        self.sigmaTop_Sm = None  # Conductivity of shallowest ocean layer
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
         self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
@@ -273,14 +274,29 @@ class SeismicSubstruct:
 class MagneticSubstruct:
 
     def __init__(self):
-        self.inductType = 'Srivastava1966'  # Type of magnetic induction model to use. Options are 'Srivastava1966' for layer method and 'Eckhardt1963' for numeric method (symmetric only).
-        self.peaks_Hz = None  # Frequencies in Hz of peaks in Fourier spectrum of magnetic excitations
-        self.fOrb_radps = None  # Angular frequency of orbital motion of a moon around its parent planet in radians per second
+        # Input settings
+        self.SCera = None  # Spacecraft era to use for excitation moments. Read from Be1xyz file name.
+        self.extModel = None  # External field model to use for excitation moments. Read from Be1xyz file name.
+        self.inductMethod = 'Eckhardt1963'  # Type of magnetic induction model to use. Options are "Srivastava1966" or "layer" for layer method and "Eckhardt1963" or "numeric" for numeric method (symmetric only).
+        self.Texc_hr = None  # Periods in hr of peaks in magnetic excitation spectrum
+        self.omegaExc_radps = None  # Angular frequency of peaks in magnetic excitation spectrum in rad/s
         self.ionosBounds_m = None  # Upper altitude cutoff for ionosphere layers in m. Omit the surface (don't include 0 in the list).
-        self.sigmaIonosPedersen_Sm = 1e-4  # Pedersen conductivity for ionospheric layers in S/m. Length must match ionosBounds_m. The default value (set here) is used when ionosBounds_m is None.
-        self.Binm_nT = None  # Induced magnetic moments relative to the body surface in nT
+        self.sigmaIonosPedersen_Sm = 1e-4  # Pedersen conductivity for ionospheric layers in S/m. Length must match ionosBounds_m. The default value (set here) is set uniform when ionosBounds_m has size 1, and set uniform between entries 1 and 2 when it has size 2 (with zero conductivity between).
+        self.rSigChange_m = None  # Radii of outer boundary of each conducting layer in m (i.e., radii where sigma changes)
+        self.sigmaLayers_Sm = None  # Reduced set of conductivity values compatible with rSigChange_m that will work in induction calculations (i.e. all non-zero)
+        self.nBds = None  # Number of radial boundaries between conductors specified
+        self.nExc = None  # Number of excitation frequencies modeled
         self.Benm_nT = None  # Excitation moments (amplitude and phase of magnetic oscillations) applied to the body in nT
+        self.nprmMax = 1  # Maximum n' to use in excitation moments (1 for uniform).
+        self.pMax = 0  # Maximum p to use in asymmetric shape (0 for spherically symmetric).
         self.asymShape = None  # Asymmetric shape to use in induction calculations based on Bulk.J2 and Bulk.C22 values. Only used when inductType = "Srivastava1966".
+        self.xInductOgram = None  # Value of variable along x axis of induct-o-gram to use for this model.
+        self.yInductOgram = None  # Value of variable along y axis of induct-o-gram to use for this model.
+        # Output calculations
+        self.Aen = None  # Complex response amplitude of magnetic excitation for dipole moment for each excitation frequency (unitless)
+        self.Amp = None  # Amplitude (modulus) of magnetic excitation for spherically symmetric approximation for each excitation frequency (unitless)
+        self.phase = None  # Phase delay of magnetic excitation for spherically symmetric approximation for each excitation frequency in degrees
+        self.Binm_nT = None  # Induced magnetic moments relative to the body surface in nT
 
 
 """ Main body profile info--settings and variables """
@@ -317,7 +333,6 @@ class PlanetStruct:
         self.alpha_pK = None  # Thermal expansivity of layer material in K^-1
         self.phi_frac = None  # Porosity of each layer's material as a fraction of void/solid
         self.sigma_Sm = None  # Electrical conductivity (sigma) in S/m of each conducting layer
-        self.rSigChange_m = None  # Radii of outer boundary of each conducting layer in m (i.e., radii where sigma changes)
         self.MLayer_kg = None  # Mass of each layer in kg
         self.kTherm_WmK = None  # Thermal conductivity of each layer in W/(m K)
         self.Htidal_Wm3 = None  # Tidal heating rate of each layer in W/m^3
@@ -370,7 +385,9 @@ class PlanetStruct:
 """ Params substructs """
 # Construct filenames for data, saving/reloading
 class DataFilesSubstruct:
-    def __init__(self, datPath, saveBase):
+    def __init__(self, datPath, saveBase, inductBase=None):
+        if inductBase is None:
+            inductBase = saveBase
         self.path = datPath
         self.fName = os.path.join(self.path, saveBase)
         self.saveFile = self.fName + '.txt'
@@ -379,6 +396,9 @@ class DataFilesSubstruct:
         self.fNameInduct = os.path.join(self.path, 'induction', saveBase)
         self.inductLayersFile = self.fNameInduct + '_inductLayers.txt'
         self.inducedMomentsFile = self.fNameInduct + '_inducedMoments.txt'
+        self.fNameInductOgram = os.path.join(self.path, 'induction', inductBase)
+        self.inductOgramFile = self.fNameInductOgram + '_inductOgram.mat'
+        self.inductOgramSigmaFile = self.fNameInductOgram + '_sigma_inductOgram.mat'
 
 
 # Construct filenames for figures etc.
@@ -400,6 +420,8 @@ class FigureFilesSubstruct:
         vpvt4 = 'PTx4'
         vpvt6 = 'PTx6'
         vwedg = 'Wedge'
+        induct = 'InductOgram'
+        sigma = 'InductOgramSigma'
         # Construct Figure Filenames
         self.vwedg = self.fName + vwedg + xtn
         self.vsP = self.fName + vsP + xtn
@@ -413,6 +435,8 @@ class FigureFilesSubstruct:
         self.vcore = self.fName + vcore + xtn
         self.vpvt4 = self.fName + vpvt4 + xtn
         self.vpvt6 = self.fName + vpvt6 + xtn
+        self.induct = self.fName + induct + xtn
+        self.sigma = self.fName + sigma + xtn
 
 
 """ Figure size """
@@ -452,6 +476,7 @@ class ConstantsStruct:
         self.T0 = 273.15  # The Celsius zero point in K.
         self.P0 = 0.101325  # One standard atmosphere in MPa
         self.R = 8.314  # Ideal gas constant in J/mol/K
+        self.mu0 = 4e-7*np.pi
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
         self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0)
         self.mMgSO4_gmol = 120.4  # Molecular mass of MgSO4 in g/mol
@@ -483,6 +508,8 @@ class ConstantsStruct:
         self.etaMelt_Pas[self.phaseClath] = self.etaMelt_Pas[1] * 20  # Estimate of clathrate viscosity 20x that of ice Ih at comparable conditions from Durham et al. (2003): https://doi.org/10.1029/2002JB001872
         self.PminHPices_MPa = 200.0  # Min plausible pressure of high-pressure ices for any ocean composition in MPa
         self.PmaxLiquid_MPa = 2250.0  # Maximum plausible pressure for liquid water oceans
+        self.sigmaDef_Sm = 1e-8  # Default minimum conductivity to use for layers with NaN or 0 conductivity
+        self.sigmaMin_Sm = 1e-8  # Threshold conductivity below which we set to the default to reduce computational overhead
 
 Constants = ConstantsStruct()
 EOSlist = EOSlistStruct()

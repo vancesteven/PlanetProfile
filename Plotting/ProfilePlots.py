@@ -84,7 +84,7 @@ def PlotHydrosphereProps(PlanetList, Params):
         for Planet in PlanetList:
             if newRef[Planet.Ocean.comp]:
                 # Get strings for referencing and labeling
-                wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp}}} \{{'
+                wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp}}} \\{{'
                 wList += ', '.join([f'{w:.0f}' for w in Params.wRef_ppt[Planet.Ocean.comp]])
                 wList += '\}\,ppt'
                 # Take care to only plot the values consistent with layer solutions
@@ -204,9 +204,9 @@ def PlotWedge(PlanetList, Params):
 
     #fig.colorbar(p, ax = ax)
     if Planet.Ocean.comp == 'MgSO4':
-        compstr = 'MgSO$_4$'
+        compstr = '\ce{MgSO4}'
     elif Planet.Ocean.comp == 'PureH2O':
-        compstr = 'Pure H$_2$O'
+        compstr = 'Pure \ce{H_2O}'
     else:
         compstr = Planet.Ocean.comp
     fig.suptitle(f'{PlanetList[0].name} wedge diagram\n$T_b = {Planet.Bulk.Tb_K}\,\mathrm{{K}}$, Composition = {compstr}, Salinity = ${Planet.Ocean.wOcean_ppt}\,\mathrm{{g/kg}}$')
@@ -217,6 +217,17 @@ def PlotWedge(PlanetList, Params):
     return
 
 
-def PlotInductOgram(PlanetList, Params):
+def PlotInductOgram(Induction, Params):
+    # Generate canvas and add labels
+    fig, axes = plt.subplots(1, 2, figsize=Params.FigSize.induct)
+    axes[0].set_xlabel('Pressure (MPa)')
+    axes[0].set_ylabel('Density (kg/m$^3$)')
+    axes[1].set_xlabel('Temperature (K)')
+    axes[1].set_ylabel('Depth (km)')
+    fig.subplots_adjust(wspace=0.5)
+    fig.suptitle(f'{Induction.bodyname} induction response')
 
+    fig.savefig(Params.FigureFiles.induct, format=Params.figFormat, dpi=300)
+
+    plt.close()
     return
