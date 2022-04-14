@@ -5,7 +5,8 @@ import scipy.interpolate as spi
 from scipy.integrate import solve_ivp as ODEsolve
 from collections.abc import Iterable
 from Utilities.defineStructs import Constants, EOSlist
-from config import Excitations
+from MagneticInduction.Moments import Excitations
+from MagneticInduction.configInduct import Asymmetry
 from MoonMag.asymmetry_funcs import read_Benm as GetBenm
 
 def MagneticInduction(Planet, Params):
@@ -44,8 +45,8 @@ def CalcInducedMoments(Planet, Params):
 
         Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex_)
         for nprm in range(1, Planet.Magnetic.nprmMax+1):
-            Q = np.array([SolveForQ(nprm, k_pm[i,:], Planet.Magnetic.rChange_m, Planet.Bulk.R_m,
-                                    Params.EckhardtSolveMethod, rMin=Params.rMinODE)
+            Q = np.array([SolveForQ(nprm, k_pm[i,:], Planet.Magnetic.rSigChange_m, Planet.Bulk.R_m,
+                                    Params.Induct.EckhardtSolveMethod, rMin=Params.Induct.rMinODE)
                                     for i,omega in enumerate(Planet.Magnetic.omegaExc_radps)])
             Planet.Magnetic.Aen[:,nprm] = Q * (nprm + 1) / nprm
             Planet.Magnetic.Binm_nT[:,:,nprm,:] = [Planet.Magnetic.Benm_nT[i,:,nprm,:] * Planet.Magnetic.Aen[i,nprm]
@@ -98,7 +99,7 @@ def SetupInduction(Planet, Params):
 
     # Get excitation spectrum
     Planet.Magnetic.Texc_hr, Planet.Magnetic.omegaExc_radps, Planet.Magnetic.Benm_nT, Planet.Magnetic.B0_nT \
-        = GetBexc(Planet.name, Planet.Magnetic.SCera, Planet.Magnetic.extModel, Params.excSelectionCalc,
+        = GetBexc(Planet.name, Planet.Magnetic.SCera, Planet.Magnetic.extModel, Params.Induct.excSelectionCalc,
                   nprmMax=Planet.Magnetic.nprmMax, pMax=Planet.Magnetic.pMax)
 
     # Initialize Binm array to have the same shape and data type as Benm
@@ -106,7 +107,7 @@ def SetupInduction(Planet, Params):
 
     # Reconfigure layer conducting boundaries as needed.
     # For inductOtype == 'sigma', we have already set these arrays.
-    if not Params.inductOtype == 'sigma':
+    if not Params.Induct.inductOtype == 'sigma':
         # Append optional ionosphere
         if Planet.Magnetic.ionosBounds_m is None:
             zIonos_m = []
@@ -134,16 +135,16 @@ def SetupInduction(Planet, Params):
             if np.size(indsLiq) > 0 and not np.all(np.diff(indsLiq) == 1):
                 log.warning('HP ices found in ocean while REDUCED_INDUCT is True. They will be ignored ' +
                             'in the interpolation.')
-            if np.size(indsLiq) <= Params.nIntL:
+            if np.size(indsLiq) <= Params.Induct.nIntL:
                 log.warning(f'Only {np.size(indsLiq)} layers found in ocean, but number of layers to ' +
-                            f'interpolate over is {Params.nIntL}. This profile will be not be reduced.')
+                            f'interpolate over is {Params.Induct.nIntL}. This profile will be not be reduced.')
             else:
                 # Get radius values from D/nIntL above the seafloor to the ice shell
                 rBot_m = Planet.Bulk.R_m - (Planet.zb_km + Planet.D_km) * 1e3
                 rTop_m = rLayers_m[indsLiq[-1]]
-                rOcean_m = np.linspace(rBot_m, rTop_m, Params.nIntL+1)[1:]
+                rOcean_m = np.linspace(rBot_m, rTop_m, Params.Induct.nIntL+1)[1:]
                 # Interpolate the conductivities corresponding to those radii
-                sigmaOcean_Sm = spi.interp1d(rLayers_m[indsLiq], sigmaInduct_Sm[indsLiq], kind=Params.oceanInterpMethod)(rOcean_m)
+                sigmaOcean_Sm = spi.interp1d(rLayers_m[indsLiq], sigmaInduct_Sm[indsLiq], kind=Params.Induct.oceanInterpMethod)(rOcean_m)
                 # Stitch together the r and σ arrays with the new ocean values
                 rLayers_m = np.concatenate((rLayers_m[0:indsLiq[0]], rOcean_m, rLayers_m[indsLiq[-1]+1:]))
                 sigmaInduct_Sm = np.concatenate((sigmaInduct_Sm[0:indsLiq[0]], sigmaOcean_Sm, sigmaInduct_Sm[indsLiq[-1]+1:]))
@@ -151,16 +152,15 @@ def SetupInduction(Planet, Params):
         # Get the indices of layers just below where changes happen
         iChange = [i for i,sig in enumerate(sigmaInduct_Sm) if sig != np.append(sigmaInduct_Sm, np.nan)[i+1]]
         Planet.Magnetic.sigmaLayers_Sm = sigmaInduct_Sm[iChange]
-        Planet.Magnetic.rChange_m = rLayers_m[iChange]
+        Planet.Magnetic.rSigChange_m = rLayers_m[iChange]
 
-    Planet.Magnetic.nBds = np.size(Planet.Magnetic.rChange_m)
+    Planet.Magnetic.nBds = np.size(Planet.Magnetic.rSigChange_m)
     Planet.Magnetic.nExc = np.size(Planet.Magnetic.Texc_hr)
 
     # Set asymmetric shape if applicable
     if Params.INCLUDE_ASYM:
-        Planet.Magnetic.pMax = 2
-        # The next line is a placeholder for now.
-        Planet.Magnetic.asymShape = np.zeros((Planet.Magnetic.nBds, 2, Planet.Magnetic.pMax+1, Planet.Magnetic.pMax+1))
+        Planet.Magnetic.pMax = Asymmetry.pMax[Planet.name]
+        Planet.Magnetic.asymShape = Asymmetry.chipq(Planet.name, Planet.Magnetic.nBds, Planet.Magnetic.pMax)
     else:
         Planet.Magnetic.pMax = 0
         Planet.Magnetic.asymShape = np.zeros((Planet.Magnetic.nBds, 2, Planet.Magnetic.pMax+1, Planet.Magnetic.pMax+1))

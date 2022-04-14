@@ -4,11 +4,10 @@ Overridden by any settings contained within PPBody.py files.
 """
 import logging as log
 from functools import partial, partialmethod
-import os, shutil, time, numpy as np
-from Utilities.defineStructs import ParamsStruct, Constants
-import matplotlib as mpl
-import matplotlib.pyplot as plt
+import os, time, numpy as np
 import multiprocessing as mtp
+from Utilities.defineStructs import ParamsStruct, Constants
+from MagneticInduction.configInduct import InductParams, ExcSpecParams
 
 Params = ParamsStruct()
 Params.tStart_s = time.time()
@@ -51,20 +50,17 @@ Params.PLOT_TRADEOFF = False  # Whether to plot mantle properties tradeoff
 Params.PLOT_WEDGE = False  # Whether to plot interior wedge diagram
 Params.LEGEND = True  # Whether to include legends
 
-# General figure options
-Params.figFormat = 'pdf'
-Params.xtn = '.' + Params.figFormat  # Figure file extension. Good options are .eps, .pdf, and .png
-Params.defaultFontName = 'STIXGeneral'  # Default font variables--STIX is what is used in Icarus journal submissions
-Params.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
-Params.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
-Params.LegendPosition = 'right'  # Where to place legends when forced
-Params.refsInLegend = True  # Whether to include reference profiles in legend
-plt.rcParams['font.family'] = 'serif'  # Choose serif font for figures to best match math mode variables in body text
-plt.rcParams['font.serif'] = Params.defaultFontName  # Set plots to use the default font
-Params.LineStyle = '-'  # Default line style to use on plots
-Params.yLim = None  # y axis limits of hydrosphere density in "Conductivity with interior properties" plot
+# Magnetic induction plot settings
+Params.DO_INDUCTOGRAM = True  # Whether to plot an inductogram for the body in question
+Params.COMBINE_BCOMPS = False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
+Params.PLOT_FFT = True  # Whether to show plots of fourier space
+Params.DO_PER = True  # Convert frequency axes to periods for FFT plots
+Params.PLOT_CONTOURS = True  # Contours or surfaces
+Params.PLOT_V2021 = True  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
+Params.Induct = InductParams  # Load induction calculation settings
+Params.MagSpectrum = ExcSpecParams  # Load excitation spectrum settings
 
-# Reference profiles
+# Reference profile settings
 # Salinities of reference melting curves in ppt
 Params.wRef_ppt = {'none':[0], 'PureH2O':[0],
                    'Seawater':[0, 0.5*Constants.stdSeawater_ppt, Constants.stdSeawater_ppt, 1.5*Constants.stdSeawater_ppt],
@@ -72,10 +68,6 @@ Params.wRef_ppt = {'none':[0], 'PureH2O':[0],
                    'NH3':[0, 10, 20],
                    'NaCl':[0, 17.5, 35]}
 Params.fNameRef = {comp:os.path.join('Thermodynamics', 'RefProfiles', f'{comp}Ref.txt') for comp in Params.wRef_ppt.keys()}
-# Style of lines showing reference melting curves of hydrosphere density plot
-Params.refLS = {'none':None, 'PureH2O':'-', 'Seawater':':', 'MgSO4':'--', 'NH3':'--', 'NaCl':'--'}
-Params.refLW = 0.75
-Params.refColor = 'gray'
 # Initialize array dicts for refprofiles
 Params.Pref_MPa = {}
 Params.rhoRef_kgm3 = {}
@@ -89,152 +81,6 @@ Params.spiceJupiter = 'jup365.bsp'  # Generic kernel for Jupiter + Galilean moon
 Params.spiceSaturn = 'sat427.bsp'  # Generic kernel for Saturn + large moons
 Params.spiceUranus = 'ura111.bsp'  # Generic kernel for Uranus + large moons
 Params.spiceNeptune = 'nep095.bsp'  # Generic kernel for Neptune + large moons
-
-# Default figure sizes
-Params.FigSize.vsP = (3,3)
-Params.FigSize.vsR = (3,3)
-Params.FigSize.vperm = (3,3)
-Params.FigSize.vgsks = (3,3)
-Params.FigSize.vseis = (3,3)
-Params.FigSize.vhydro = (8,5)
-Params.FigSize.vgrav = (6,5)
-Params.FigSize.vmant = (6,6)
-Params.FigSize.vcore = (6,6)
-Params.FigSize.vpvt4 = (3,3)
-Params.FigSize.vpvt6 = (3,3)
-Params.FigSize.vwedg = (3,3)
-Params.FigSize.induct = (8,5)
-Params.FigSize.inductCombo = (8,8)
-
-# Color selection
-Params.cmap = 'inferno'
-# Params.col_contSyn = cfg.cmap(floor(100*cc),:)
-# Params.col_contOrb = cfg.cmap(floor( 10*cc),:)
-# Params.col_contHrm = cfg.cmap(floor(200*cc),:)
-
-# Params.col_Sw = summer(200)
-Params.col_coldestSw = 'c'
-# Params.col_midColdSw = cfg.col_Sw(25,:)
-# Params.col_middestSw = cfg.col_Sw(50,:)
-# Params.col_midWarmSw = cfg.col_Sw(75,:)
-Params.col_warmestSw = '#b000ff'
-Params.Sw_alt = (0, 175/255, 238/255)
-
-#Params.col_MgSO4 = cool(133)
-Params.col_coldestMgSO4 = 'b'
-# Params.col_midColdMgSO4 = cfg.col_MgSO4(25,:)
-# Params.col_middestMgSO4 = cfg.col_MgSO4(50,:)
-# Params.col_midWarmMgSO4 = cfg.col_MgSO4(75,:)
-Params.col_warmestMgSO4 = 'xkcd:purpley blue'
-
-# Linestyle and linewidth options
-Params.LS_Sw  = '-'  # linestyle for Seawater
-Params.LS_Mg = '--'  # linestyle for MgSO4
-Params.LS_sp =  ':'  # linestyle for special consideration models
-Params.LW_sal = 3  # linewidth for higher salinity
-Params.LW_dil = 1  # linewidth for dilute salinity
-Params.LW_std = 2  # linewidth for standard salinity
-Params.LW_sound = 1.5  # LineWidth for sound speed plots
-Params.LW_seism = 1  # LineWidth for seismic plots (Attenuation)
-
-# Wedge color options
-Params.Colors.IonosphereTop = [1, 0, 1]
-Params.Colors.Ionosphere = [1, 0, 1]
-Params.Colors.IonosphereBot = [1, 0, 1]
-Params.Colors.IceI = '#d3eefb'
-Params.Colors.IceII = '#76b6ff'
-Params.Colors.IceIII = '#a8deef'
-Params.Colors.IceV = '#83d4f6'
-Params.Colors.IceVI = '#cee5ea'
-Params.Colors.Clath = '#86bcb8'
-Params.Colors.OceanTop = [134/255, 149/255, 201/255] #'#4babdf'
-Params.Colors.OceanBot = [45/255, 55/255, 100/255]
-Params.Colors.Rock = [101/255, 46/255, 11/255]
-Params.Colors.Core = [141/255, 122/255, 121/255]
-
-# Magnetic induction calculation settings
-Params.DO_INDUCTOGRAM = True  # Whether to plot an inductogram for the body in question
-Params.DO_PER = True  # Convert frequency axes to periods
-Params.COMBINE_BCOMPS = False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
-Params.PLOT_FFT = True  # Whether to show plots of fourier space
-Params.PLOT_CONTOURS = True  # Contours or surfaces
-Params.PLOT_V2021 = True  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
-Params.wLims = None  # Minimum and maximum to use for frequency spectrum plots (magnetic induction)
-
-Params.inductOtype = 'rho'  # Type of InductOgram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
-Params.excSelectionCalc = {'synodic': True, 'orbital': True, 'true anomaly': True,  'synodic harmonic': True}  # Which magnetic excitations to include in calculations
-Params.excSelectionPlot = {'synodic': True, 'orbital': True, 'true anomaly': False, 'synodic harmonic': True}  # Which magnetic excitations to include in plotting
-# Force calculations to be done for each oscillation to be plotted
-for osc in Params.excSelectionPlot:
-    if Params.excSelectionPlot[osc] and not Params.excSelectionCalc[osc]:
-        Params.excSelectionCalc[osc] = True
-Params.nwPts = 50  # Resolution for salinity values in ocean salinity vs. other plots
-Params.wMin = {'Europa': np.log10(0.05 * Constants.stdSeawater_ppt)}
-Params.wMax = {'Europa': np.log10(Constants.stdSeawater_ppt)}
-Params.nTbPts = 60  # Resolution for Tb values in ocean salinity/Tb plots
-Params.nphiPts = 60  # Resolution for phiRockMax values in ocean salinity/phiMax plots
-Params.phiMin = {'Europa': np.log10(0.01)}
-Params.phiMax = {'Europa': np.log10(0.75)}
-Params.nrhoPts = 60  # Resolution for silicate density values in ocean salinity/rho plots
-Params.rhoMin = {'Europa': 3500}
-Params.rhoMax = {'Europa': 3700}
-Params.nSigmaPts = 50  # Resolution for conductivity values in ocean conductivity/thickness plots
-Params.sigmaMin = {'Europa': np.log10(1e-1)}
-Params.sigmaMax = {'Europa': np.log10(1e2)}
-Params.nDpts = 60  # Resolution for ocean thickness as for conductivity
-Params.Dmin = {'Europa': np.log10(1e0)}
-Params.Dmax = {'Europa': np.log10(2e2)}
-Params.zbFixed_km = {'Europa': 20}
-Params.EckhardtSolveMethod = 'RK45'  # Numerical solution method for scipy.integrate.solve_ivp. See https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html
-Params.rMinODE = 1e3  # Minimum radius to use for numerical solution. Cannot be zero because of singularity at the origin.
-Params.oceanInterpMethod = 'linear'  # Interpolation method for determining ocean conductivities when REDUCED_INDUCT is True.
-Params.nIntL = 5  # Number of ocean layers to use when REDUCED_INDUCT = 1
-Params.nOmegaPts = 100  # Resolution in log frequency space for magnetic excitation spectra
-Params.nOmegaFine = 1000  # Fine-spacing resolution for log frequency spectrum
-#To be implemented- eventually need some ODE numerical solution parameters
-#Params.opts_odeParams = odeset('RelTol',1e-10,'AbsTol',1e-10,'MaxStep', 2e3,'InitialStep',1e-2)
-#Params.opts_odeLayers = odeset('RelTol',1e-8, 'AbsTol',1e-10,'MaxStep',10e3,'InitialStep',1e-2)
-
-# Magnetic induction plot settings
-Params.Colors.Induction = {'synodic': 'blue', 'orbital': 'purple', 'true anomaly': 'green', 'synodic harmonic': 'goldenrod'}
-Params.LS_Induction = {'synodic': '-', 'orbital': ':', 'true anomaly': ':', 'synodic harmonic': '--'}
-Params.LW_Induction = {'synodic': 1.5, 'orbital': 1.5, 'true anomaly': 1.5, 'synodic harmonic': 1.5}
-Params.cLabelSize = 10  # Font size in pt for contour labels
-Params.cLabelPad = 5  # Padding in pt to set beside contour labels
-Params.cLegendOpacity = 1.0  # Opacity of legend backgrounds in contour plots.
-dftC = 5  # Default number of contours to include in induct-o-grams
-Params.cLevels = {
-    'Europa':{
-        'synodic':         {'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC+2},
-        'orbital':         {'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC-2},
-        'true anomaly':    {'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC-3},
-        'synodic harmonic':{'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC-2}
-    }
-}
-deftFmt = '%1.1f'  # Default contour label format string
-deftPhi = '%1.0f'  # Default for phases in degrees (whole numbers)
-deftAmp = '%1.1f'  # Default for amplitudes (which are typically less than 1)
-Params.cFmt = {
-    'Europa':{
-        'synodic':         {'Amp': deftAmp, 'Bx': '%1.0f', 'By': '%1.0f', 'Bz': deftFmt, 'phase': deftPhi},
-        'orbital':         {'Amp': deftAmp, 'Bx': deftFmt, 'By': deftFmt, 'Bz': deftFmt, 'phase': deftPhi},
-        'true anomaly':    {'Amp': deftAmp, 'Bx': deftFmt, 'By': deftFmt, 'Bz': deftFmt, 'phase': deftPhi},
-        'synodic harmonic':{'Amp': deftAmp, 'Bx': deftFmt, 'By': deftFmt, 'Bz': deftFmt, 'phase': deftPhi}
-    }
-}
-
-# Check if Latex executable is on the path so we can use backup options if Latex is not installed
-if shutil.which('latex'):
-    plt.rcParams['text.usetex'] = True  # Use Latex interpreter to render text on plots
-    # Load in font package in Latex
-    plt.rcParams['text.latex.preamble'] = f'\\usepackage{{{Params.defaultFontCode}}}' + \
-        r'\usepackage[version=4]{mhchem}' + r'\usepackage{siunitx}' + r'\usepackage{upgreek}'
-    Params.TEX_INSTALLED = True
-else:
-    print('A LaTeX installation was not found. Some plots may have fallback options in labels.')
-    plt.rcParams['font.serif'] += ', ' + Params.backupFont  # Set plots to use the default font if installed, or a backup if not
-    plt.rcParams['mathtext.fontset'] = Params.defaultFontCode
-    Params.TEX_INSTALLED = False
     
 # Parallel processing
 if Params.DO_PARALLEL:
@@ -254,35 +100,3 @@ log.PROFILE = Params.logParallel
 log.addLevelName(log.PROFILE, 'PROFILE')
 log.Logger.profile = partialmethod(log.Logger.log, log.PROFILE)
 log.profile = partial(log.log, log.PROFILE)
-
-
-class InductionResults:
-    def __init__(self):
-        self.bodyname = None  # Name of body modeled.
-        self.Amp = None  # Amplitude of dipole response (modulus of complex dipole response).
-        self.phase = None  # (Positive) phase delay in degrees.
-        self.Bix_nT = None  # Induced Bx dipole moments relative to body surface in nT for each excitation.
-        self.Biy_nT = None  # Induced By dipole moments relative to body surface in nT for each excitation.
-        self.Biz_nT = None  # Induced Bz dipole moments relative to body surface in nT for each excitation.
-        self.Texc_hr = None  # Dict of excitation periods modeled.
-        self.yName = None  # Name of variable along y axis. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness.
-        self.x = None  # Values of salinity or conductivity used.
-        self.y = None  # Values of yName used.
-        self.sigmaMean_Sm = None  # Mean ocean conductivity. Used to map plots vs. salinity onto D/σ plots.
-        self.sigmaTop_Sm = None  # Ocean top conductivity. Used to map plots vs. salinity onto D/σ plots.
-        self.D_km = None  # Ocean layer thickness in km. Used to map plots vs. salinity onto D/σ plots.
-        self.zb_km = None  # Upper ice shell thickness in km.
-
-
-class ExcitationsList:
-    def __init__(self):
-        Texc_hr = {}
-        # Approximate (.2f) periods to select from excitation spectrum for each body in hr
-        Texc_hr['Europa'] = {'synodic':11.23, 'orbital':85.15, 'true anomaly':84.63, 'synodic harmonic':5.62}
-        self.Texc_hr = Texc_hr
-        self.Induction = InductionResults()
-
-    def __call__(self, bodyname):
-        return self.Texc_hr[bodyname]
-
-Excitations = ExcitationsList()

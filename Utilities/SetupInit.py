@@ -7,6 +7,7 @@ from Utilities.PPversion import ppVerNum, CheckCompat
 from Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
 from Thermodynamics.FromLiterature.HydroEOS import GetOceanEOS
 from Thermodynamics.FromLiterature.InnerEOS import GetInnerEOS
+from Plotting.configPlots import FigMisc
 
 def SetupInit(Planet, Params):
 
@@ -259,9 +260,9 @@ def SetupFilenames(Planet, Params):
 
     Planet.saveLabel = saveLabel
     Planet.label = label
-    inductBase = f'{Planet.name}_{Params.inductOtype}'
+    inductBase = f'{Planet.name}_{Params.Induct.inductOtype}'
     DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, inductBase=inductBase)
-    FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, Params.xtn, inductBase=inductBase)
+    FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn, inductBase=inductBase)
 
     return DataFiles, FigureFiles
 

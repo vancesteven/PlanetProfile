@@ -10,6 +10,8 @@ from pathlib import Path
 from Utilities.SetupInit import SetupFilenames
 from Utilities.defineStructs import Constants
 from Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
+from MagneticInduction.configInduct import cLevels as magClevels, cFmt as magCfmt
+from Plotting.configPlots import FigSize, Color, Style, FigMisc
 
 def GeneratePlots(PlanetList, Params):
 
@@ -43,7 +45,7 @@ def PlotGravPres(PlanetList, Params):
     data = {'radius': Planet.r_m/1000,
             'grav': Planet.g_ms2,
             'pressure': Planet.P_MPa/1000}
-    fig, axes = plt.subplots(1, 2, figsize=Params.FigSize.vgrav)
+    fig, axes = plt.subplots(1, 2, figsize=FigSize.vgrav)
     axes[0].plot('grav', 'radius', data=data)
     axes[0].set_xlabel('Gravity (m/s$^2$)')
     axes[0].set_ylabel('Radius (km)')
@@ -54,14 +56,14 @@ def PlotGravPres(PlanetList, Params):
 
     fig.subplots_adjust(wspace=0.5)
     fig.suptitle(f'{PlanetList[0].name} gravity and pressure')
-    fig.savefig(Params.FigureFiles.vgrav, format=Params.figFormat, dpi=300)
+    fig.savefig(Params.FigureFiles.vgrav, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     plt.close()
     return
 
 
 def PlotHydrosphereProps(PlanetList, Params):
     # Generate canvas and add labels
-    fig, axes = plt.subplots(1, 2, figsize=Params.FigSize.vhydro)
+    fig, axes = plt.subplots(1, 2, figsize=FigSize.vhydro)
     axes[0].set_xlabel('Pressure (MPa)')
     axes[0].set_ylabel('Density (kg/m$^3$)')
     axes[1].invert_yaxis()
@@ -93,10 +95,10 @@ def PlotHydrosphereProps(PlanetList, Params):
                 for i in range(Params.nRef[Planet.Ocean.comp]):
                     thisRef, = axes[0].plot(Params.Pref_MPa[Planet.Ocean.comp][iPlot],
                                             Params.rhoRef_kgm3[Planet.Ocean.comp][i,iPlot],
-                                            color=Params.refColor,
-                                            lw=Params.refLW,
-                                            ls=Params.refLS[Planet.Ocean.comp])
-                    if Params.refsInLegend and i == 0: thisRef.set_label(wList)
+                                            color=Color.ref,
+                                            lw=Style.LW_ref,
+                                            ls=Style.LS_ref[Planet.Ocean.comp])
+                    if FigMisc.refsInLegend and i == 0: thisRef.set_label(wList)
                 newRef[Planet.Ocean.comp] = False
 
     # Now plot all profiles together
@@ -107,10 +109,10 @@ def PlotHydrosphereProps(PlanetList, Params):
         # Plot thermal profile vs. depth in hydrosphere
         axes[1].plot(Planet.T_K[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro]/1e3)
 
-    if Params.LEGEND:
+    if FigMisc.LEGEND:
         box1 = axes[0].get_position()
-        fig.legend(loc=Params.LegendPosition)
-    fig.savefig(Params.FigureFiles.vhydro, format=Params.figFormat, dpi=300)
+        fig.legend(loc=FigMisc.LegendPosition)
+    fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     plt.close()
     return
 
@@ -118,7 +120,7 @@ def PlotHydrosphereProps(PlanetList, Params):
 def PlotCoreTradeoff(PlanetList, Params):
     data = {'Rsil': Planet.Sil.Rtrade_m/1000,
             'RFe': Planet.Core.Rtrade_m/1000}
-    fig, axes = plt.subplots(1, 1, figsize=Params.FigSize.vcore)
+    fig, axes = plt.subplots(1, 1, figsize=FigSize.vcore)
     axes.plot('Rsil', 'RFe', data = data)
     axes.set_xlabel('Iron core outer radius (km)')
     axes.set_ylabel('Silicate layer outer radius (km)')
@@ -126,7 +128,7 @@ def PlotCoreTradeoff(PlanetList, Params):
                  r'$; $w$: $0\,\mathrm{wt}\%$; $\rho_\mathrm{sil}$: $' + \
                  f'{Planet.Sil.rhoMean_kgm3:.0f}' + r'\,\mathrm{kg/m^3}$; $\rho_\mathrm{Fe}$: $' + \
                  f'{Planet.Core.rhoMean_kgm3:.0f}' + r'\,\mathrm{kg/m^3}$')
-    fig.savefig(Params.FigureFiles.vcore, format=Params.figFormat, dpi=300)
+    fig.savefig(Params.FigureFiles.vcore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     plt.close()
     return
 
@@ -134,12 +136,12 @@ def PlotCoreTradeoff(PlanetList, Params):
 def PlotSilTradeoff(PlanetList, Params):
     data = {'Rsil': Planet.Sil.Rtrade_m/1000,
             'rhoSil': Planet.Sil.rhoTrade_kgm3}
-    fig, axes = plt.subplots(1, 1, figsize=Params.FigSize.vmant)
+    fig, axes = plt.subplots(1, 1, figsize=FigSize.vmant)
     axes.plot('rhoSil', 'Rsil', data = data)
     axes.set_xlabel('$\\rho_\mathrm{sil}$ (kg/m$^3$)')
     axes.set_ylabel('Silicate layer outer radius (km)')
     fig.suptitle(f'{PlanetList[0].name} no Fe core. $C/MR^2$: $0.346\pm0.005$; $W$')
-    fig.savefig(Params.FigureFiles.vmant, format=Params.figFormat, dpi=300)
+    fig.savefig(Params.FigureFiles.vmant, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     plt.close()
     return
 
@@ -154,23 +156,23 @@ def PlotWedge(PlanetList, Params):
     for layerPhase in iPhaseTrans:
 
         if Planet.phase[layerPhase] == 0:
-            colors.append(Params.Colors.OceanTop)
+            colors.append(Color.OceanTop)
         elif Planet.phase[layerPhase] == 1:
-            colors.append(Params.Colors.IceI)
+            colors.append(Color.IceI)
         elif Planet.phase[layerPhase] == 2:
-            colors.append(Params.Colors.IceII)
+            colors.append(Color.IceII)
         elif Planet.phase[layerPhase] == 3:
-            colors.append(Params.Colors.IceIII)
+            colors.append(Color.IceIII)
         elif Planet.phase[layerPhase] == 5:
-            colors.append(Params.Colors.IceV)
+            colors.append(Color.IceV)
         elif Planet.phase[layerPhase] == 6:
-            colors.append(Params.Colors.IceVI)
+            colors.append(Color.IceVI)
         elif Planet.phase[layerPhase] == Constants.phaseClath:
-            colors.append(Params.Colors.Clath)
+            colors.append(Color.Clath)
         elif Planet.phase[layerPhase] == Constants.phaseSil:
-            colors.append(Params.Colors.Rock)
+            colors.append(Color.Rock)
         elif Planet.phase[layerPhase] == Constants.phaseFe:
-            colors.append(Params.Colors.Core)
+            colors.append(Color.Core)
     phases = [Planet.phase[iShell] for iShell in iPhaseTrans]  # stores phase of particular layer
     radii = [Planet.r_m[iShell]/Planet.Bulk.R_m for iShell in iPhaseTrans]  # normalizes radii of layer transitions
 
@@ -211,7 +213,7 @@ def PlotWedge(PlanetList, Params):
         compstr = Planet.Ocean.comp
     fig.suptitle(f'{PlanetList[0].name} wedge diagram\n$T_b = {Planet.Bulk.Tb_K}\,\mathrm{{K}}$, Composition = {compstr}, Salinity = ${Planet.Ocean.wOcean_ppt}\,\mathrm{{g/kg}}$')
     plt.margins(0.02)
-    fig.savefig(Params.FigureFiles.vwedg, format=Params.figFormat, dpi=300)
+    fig.savefig(Params.FigureFiles.vwedg, format=FigMisc.figFormat, dpi=FigMisc.dpi)
 
     plt.close()
     return
@@ -230,8 +232,8 @@ def PlotInductOgram(Induction, Params):
     phaseTitle = 'Phase delay $\\upphi$ ($^\circ$)'
     sigLabel = 'Mean conductivity $\overline{\sigma}$ ($\si{S/m}$)'
     Dlabel = 'Ocean thickness $D$ ($\si{km}$)'
-    sigLims = [10**Params.sigmaMin[Induction.bodyname], 10**Params.sigmaMax[Induction.bodyname]]
-    Dlims = [10**Params.Dmin[Induction.bodyname], 10**Params.Dmax[Induction.bodyname]]
+    sigLims = [10**Params.Induct.sigmaMin[Induction.bodyname], 10**Params.Induct.sigmaMax[Induction.bodyname]]
+    Dlims = [10**Params.Induct.Dmin[Induction.bodyname], 10**Params.Induct.Dmax[Induction.bodyname]]
     wLabel = 'Salinity $w$ ($\si{g/kg}$)'
     TbLabel = 'Ice bottom temp.\ $T_b$ ($\si{K}$)'
     rhoLabel = 'Silicate density $\\rho_\mathrm{sil}$ ($\si{kg/m^3}$)'
@@ -239,10 +241,27 @@ def PlotInductOgram(Induction, Params):
     legendLabels = np.array([f'{T_h:.2f} h' for T_h in Induction.Texc_hr.values()])
     iSort = np.argsort(list(Induction.Texc_hr.values()))
 
+    if Params.Induct.inductOtype != 'sigma':
+        x = Induction.w_ppt
+        if Params.Induct.inductOtype == 'Tb':
+            yLabel = TbLabel
+            yScale = 'linear'
+            y = Induction.Tb_K
+        elif Params.Induct.inductOtype == 'rho':
+            yLabel = rhoLabel
+            yScale = 'linear'
+            y = Induction.rhoSilMean_kgm3
+        elif Params.Induct.inductOtype == 'phi':
+            yLabel = phiLabel
+            yScale = 'log'
+            y = Induction.phiSilMax_frac
+        else:
+            raise ValueError(f'inductOtype {Params.Induct.inductOtype} not recognized.')
+
     if Params.COMBINE_BCOMPS:
         # Plot B components all together with phase. Amplitude is still separate
         # Generate canvas and add labels
-        fig, axes = plt.subplots(2, 2, figsize=Params.FigSize.inductCombo)
+        fig, axes = plt.subplots(2, 2, figsize=FigSize.inductCombo)
         allAxes = axes.flatten()
         fig.suptitle(inductionTitle)
         # Only label the bottom-left sides of axes
@@ -261,56 +280,48 @@ def PlotInductOgram(Induction, Params):
             ax = axes[coords[fLabel]]
             ax.title.set_text(name)
             zContours = [ax.contour(Induction.sigmaMean_Sm, Induction.D_km, z[i, ...],
-                           colors=Params.Colors.Induction[T], linestyles=Params.LS_Induction[T],
-                           linewidths=Params.LW_Induction[T], levels=Params.cLevels[Induction.bodyname][T][fLabel])
+                           colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
+                           linewidths=Style.LW_Induction[T], levels=magClevels[Induction.bodyname][T][fLabel])
                            for i, T in enumerate(Induction.Texc_hr.keys())]
-            if Params.inductOtype == 'sigma':
-                [ax.clabel(zContours[i], fmt=Params.cFmt[Induction.bodyname][T][fLabel],
-                           fontsize=Params.cLabelSize, inline_spacing=Params.cLabelPad)
+            if Params.Induct.inductOtype == 'sigma':
+                [ax.clabel(zContours[i], fmt=magCfmt[Induction.bodyname][T][fLabel],
+                           fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                            for i, T in enumerate(Induction.Texc_hr.keys())]
 
-        if Params.LEGEND:
+        if FigMisc.LEGEND:
             lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
-            axes[1,1].legend(lines[iSort], legendLabels[iSort], framealpha=Params.cLegendOpacity)
+            axes[1,1].legend(lines[iSort], legendLabels[iSort], framealpha=FigMisc.cLegendOpacity)
 
-        fig.savefig(Params.FigureFiles.sigma['Bcomps'], format=Params.figFormat)
+        fig.savefig(Params.FigureFiles.sigma['Bcomps'], format=FigMisc.figFormat, dpi=FigMisc.dpi)
         plt.close()
 
-        if Params.inductOtype != 'sigma':
-            fig, axes = plt.subplots(2, 2, figsize=Params.FigSize.inductCombo)
+        if Params.Induct.inductOtype != 'sigma':
+            fig, axes = plt.subplots(2, 2, figsize=FigSize.inductCombo)
             allAxes = axes.flatten()
             fig.suptitle(inductionTitle)
             # Only label the bottom-left sides of axes
-            [ax.set_ylabel(Dlabel) for ax in (axes[0,0], axes[1,0])]
             [ax.set_xlabel(wLabel) for ax in (axes[1,0], axes[1,1])]
+            [ax.set_ylabel(yLabel) for ax in (axes[0,0], axes[1,0])]
             [ax.set_xscale('log') for ax in allAxes]
-            if Params.inductOtype == 'Tb':
-                [ax.set_ylabel(TbLabel) for ax in (axes[0,0], axes[1,0])]
-            elif Params.inductOtype == 'rho':
-                [ax.set_ylabel(rhoLabel) for ax in (axes[0,0], axes[1,0])]
-            elif Params.inductOtype == 'phi':
-                [ax.set_ylabel(phiLabel) for ax in (axes[0,0], axes[1,0])]
-                [ax.set_yscale('log') for ax in allAxes]
-            else:
-                raise ValueError(f'inductOtype {Params.inductOtype} not recognized.')
+            [ax.set_yscale(yScale) for ax in allAxes]
 
             for z, name, fLabel in zip(comboData, comboTitles, comboLabels):
                 ax = axes[coords[fLabel]]
                 ax.title.set_text(name)
-                zContours = [ax.contour(Induction.x, Induction.y, z[i, ...],
-                                        colors=Params.Colors.Induction[T], linestyles=Params.LS_Induction[T],
-                                        linewidths=Params.LW_Induction[T],
-                                        levels=Params.cLevels[Induction.bodyname][T][fLabel])
+                zContours = [ax.contour(x, y, z[i, ...],
+                                        colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
+                                        linewidths=Style.LW_Induction[T],
+                                        levels=magClevels[Induction.bodyname][T][fLabel])
                              for i, T in enumerate(Induction.Texc_hr.keys())]
-                [ax.clabel(zContours[i], fmt=Params.cFmt[Induction.bodyname][T][fLabel],
-                           fontsize=Params.cLabelSize, inline_spacing=Params.cLabelPad)
+                [ax.clabel(zContours[i], fmt=magCfmt[Induction.bodyname][T][fLabel],
+                           fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                            for i, T in enumerate(Induction.Texc_hr.keys())]
 
-            if Params.LEGEND:
+            if FigMisc.LEGEND:
                 lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
-                axes[1,1].legend(lines[iSort], legendLabels[iSort], framealpha=Params.cLegendOpacity)
+                axes[1,1].legend(lines[iSort], legendLabels[iSort], framealpha=FigMisc.cLegendOpacity)
 
-            fig.savefig(Params.FigureFiles.sigma['Bcomps'], format=Params.figFormat)
+            fig.savefig(Params.FigureFiles.sigma['Bcomps'], format=FigMisc.figFormat, dpi=FigMisc.dpi)
             plt.close()
 
         # Set lists to just contain Amplitude now to reuse the remaining routines for that plot
@@ -322,7 +333,7 @@ def PlotInductOgram(Induction, Params):
     for z, name, fLabel in zip(zData, plotTitles, fLabels):
 
         # Generate canvas and add labels
-        fig, axes = plt.subplots(1, 2, figsize=Params.FigSize.induct)
+        fig, axes = plt.subplots(1, 2, figsize=FigSize.induct)
         fig.subplots_adjust(wspace=0.5)
         fig.suptitle(inductionTitle)
         axes[0].title.set_text(name)
@@ -335,66 +346,69 @@ def PlotInductOgram(Induction, Params):
         [ax.set_yscale('log') for ax in axes]
 
         zContours = [axes[0].contour(Induction.sigmaMean_Sm, Induction.D_km, z[i, ...],
-                         colors=Params.Colors.Induction[T], linestyles=Params.LS_Induction[T],
-                         linewidths=Params.LW_Induction[T], levels=Params.cLevels[Induction.bodyname][T][fLabel])
+                         colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
+                         linewidths=Style.LW_Induction[T], levels=magClevels[Induction.bodyname][T][fLabel])
                          for i, T in enumerate(Induction.Texc_hr.keys())]
         phaseContours = [axes[1].contour(Induction.sigmaMean_Sm, Induction.D_km, Induction.phase[i, ...],
-                         colors=Params.Colors.Induction[T], linestyles=Params.LS_Induction[T],
-                         linewidths=Params.LW_Induction[T], levels=Params.cLevels[Induction.bodyname][T]['phase'])
+                         colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
+                         linewidths=Style.LW_Induction[T], levels=magClevels[Induction.bodyname][T]['phase'])
                          for i, T in enumerate(Induction.Texc_hr.keys())]
-        if Params.inductOtype == 'sigma':
-            [axes[0].clabel(zContours[i], fmt=Params.cFmt[Induction.bodyname][T][fLabel],
-                            fontsize=Params.cLabelSize, inline_spacing=Params.cLabelPad)
+        if Params.Induct.inductOtype == 'sigma':
+            [axes[0].clabel(zContours[i], fmt=magCfmt[Induction.bodyname][T][fLabel],
+                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(Induction.Texc_hr.keys())]
-            [axes[1].clabel(phaseContours[i], fmt=Params.cFmt[Induction.bodyname][T]['phase'],
-                            fontsize=Params.cLabelSize, inline_spacing=Params.cLabelPad)
+            [axes[1].clabel(phaseContours[i], fmt=magCfmt[Induction.bodyname][T]['phase'],
+                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(Induction.Texc_hr.keys())]
+            fNameSigma = Params.FigureFiles.sigmaOnly[fLabel]
+        else:
+            fNameSigma = Params.FigureFiles.sigma[fLabel]
 
-        if Params.LEGEND:
+        if FigMisc.LEGEND:
             lines = np.array([contour.legend_elements()[0][0] for contour in phaseContours])
-            axes[1].legend(lines[iSort], legendLabels[iSort], framealpha=Params.cLegendOpacity)
+            axes[1].legend(lines[iSort], legendLabels[iSort], framealpha=FigMisc.cLegendOpacity)
 
-        fig.savefig(Params.FigureFiles.sigma[fLabel], format=Params.figFormat)
+        fig.savefig(fNameSigma, format=FigMisc.figFormat, dpi=FigMisc.dpi)
         plt.close()
 
-        if Params.inductOtype != 'sigma':
-            fig, axes = plt.subplots(1, 2, figsize=Params.FigSize.induct)
+        if Params.Induct.inductOtype != 'sigma':
+            fig, axes = plt.subplots(1, 2, figsize=FigSize.induct)
             fig.subplots_adjust(wspace=0.5)
             fig.suptitle(inductionTitle)
             axes[0].title.set_text(name)
             axes[1].title.set_text(phaseTitle)
             [ax.set_xscale('log') for ax in axes]
             [ax.set_xlabel(wLabel) for ax in axes]
-            if Params.inductOtype == 'Tb':
+            if Params.Induct.inductOtype == 'Tb':
                 [ax.set_ylabel(TbLabel) for ax in axes]
-            elif Params.inductOtype == 'rho':
+            elif Params.Induct.inductOtype == 'rho':
                 [ax.set_ylabel(rhoLabel) for ax in axes]
-            elif Params.inductOtype == 'phi':
+            elif Params.Induct.inductOtype == 'phi':
                 [ax.set_ylabel(phiLabel) for ax in axes]
                 [ax.set_yscale('log') for ax in axes]
             else:
-                raise ValueError(f'inductOtype {Params.inductOtype} not recognized.')
+                raise ValueError(f'inductOtype {Params.Induct.inductOtype} not recognized.')
 
-            zContours = [axes[0].contour(Induction.x, Induction.y, z[i, ...],
-                             colors=Params.Colors.Induction[T], linestyles=Params.LS_Induction[T],
-                             linewidths=Params.LW_Induction[T], levels=Params.cLevels[Induction.bodyname][T][fLabel])
+            zContours = [axes[0].contour(x, y, z[i, ...],
+                             colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
+                             linewidths=Style.LW_Induction[T], levels=magClevels[Induction.bodyname][T][fLabel])
                              for i, T in enumerate(Induction.Texc_hr.keys())]
-            phaseContours = [axes[1].contour(Induction.x, Induction.y, Induction.phase[i, ...],
-                             colors=Params.Colors.Induction[T], linestyles=Params.LS_Induction[T],
-                             linewidths=Params.LW_Induction[T], levels=Params.cLevels[Induction.bodyname][T]['phase'])
+            phaseContours = [axes[1].contour(x, y, Induction.phase[i, ...],
+                             colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
+                             linewidths=Style.LW_Induction[T], levels=magClevels[Induction.bodyname][T]['phase'])
                              for i, T in enumerate(Induction.Texc_hr.keys())]
-            [axes[0].clabel(zContours[i], fmt=Params.cFmt[Induction.bodyname][T][fLabel],
-                            fontsize=Params.cLabelSize, inline_spacing=Params.cLabelPad)
+            [axes[0].clabel(zContours[i], fmt=magCfmt[Induction.bodyname][T][fLabel],
+                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(Induction.Texc_hr.keys())]
-            [axes[1].clabel(phaseContours[i], fmt=Params.cFmt[Induction.bodyname][T]['phase'],
-                            fontsize=Params.cLabelSize, inline_spacing=Params.cLabelPad)
+            [axes[1].clabel(phaseContours[i], fmt=magCfmt[Induction.bodyname][T]['phase'],
+                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(Induction.Texc_hr.keys())]
 
-            if Params.LEGEND:
+            if FigMisc.LEGEND:
                 lines = np.array([contour.legend_elements()[0][0] for contour in phaseContours])
-                axes[1].legend(lines[iSort], legendLabels[iSort], framealpha=Params.cLegendOpacity)
+                axes[1].legend(lines[iSort], legendLabels[iSort], framealpha=FigMisc.cLegendOpacity)
 
-            fig.savefig(Params.FigureFiles.induct[fLabel], format=Params.figFormat)
+            fig.savefig(Params.FigureFiles.induct[fLabel], format=FigMisc.figFormat, dpi=FigMisc.dpi)
             plt.close()
 
     log.getLogger().setLevel(saveLevel)

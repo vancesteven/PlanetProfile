@@ -290,8 +290,6 @@ class MagneticSubstruct:
         self.nprmMax = 1  # Maximum n' to use in excitation moments (1 for uniform).
         self.pMax = 0  # Maximum p to use in asymmetric shape (0 for spherically symmetric).
         self.asymShape = None  # Asymmetric shape to use in induction calculations based on Bulk.J2 and Bulk.C22 values. Only used when inductType = "Srivastava1966".
-        self.xInductOgram = None  # Value of variable along x axis of induct-o-gram to use for this model.
-        self.yInductOgram = None  # Value of variable along y axis of induct-o-gram to use for this model.
         # Output calculations
         self.Aen = None  # Complex response amplitude of magnetic excitation for dipole moment for each excitation frequency (unitless)
         self.Amp = None  # Amplitude (modulus) of magnetic excitation for spherically symmetric approximation for each excitation frequency (unitless)
@@ -440,25 +438,20 @@ class FigureFilesSubstruct:
         self.vpvt6 = self.fName + vpvt6 + xtn
         self.induct = {zType: self.fNameInductOgram + induct + f'_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
         self.sigma = {zType: self.fNameInductOgram + sigma + f'_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
-
-
-""" Figure size """
-class FigSizeStruct:
-    def __init__(self):
-        pass
-
-
-""" Figure color options """
-class ColorsStruct:
-    def __init__(self):
-        pass
+        self.sigmaOnly = {zType: self.fNameInductOgram + sigma + f'Only_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
 
 
 """ General parameter options """
 class ParamsStruct:
     def __init__(self):
-        self.Colors = ColorsStruct()
-        self.FigSize = FigSizeStruct()
+        self.Colors = None
+        self.FigSize = None
+        self.Style = None
+        self.Misc = None
+        self.Induct = None  # Induction calculation settings
+        self.MagSpectrum = None  # Excitation spectrum settings
+        self.cLevels = None  # Contour level specifications
+        self.cFmt = None  # Format of contour labels
 
 
 """ Global EOS list """

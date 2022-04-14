@@ -769,7 +769,7 @@ def CalcMoIConstantRho(Planet, Params):
                  f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                  f'R_core = {Planet.Core.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                  f'rho_sil = {rhoSil_kgm3[iCMR2inner]:.0f} kg/m^3, ' +
-                 f'M_tot = 1.0000 M_{Planet.name[0]} (fixed).')
+                 f'M_tot = {1.0:.5f} M_{Planet.name[0]} (fixed).')
         log.debug('Params.SKIP_INNER is True, assigning interior properties to 0.')
         Psil_MPa, Tsil_K, rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, kThermSil_WmK, Ppore_MPa, rhoSilMatrix_kgm3, \
             rhoPore_kgm3, HtidalSil_Wm3, MLayerSil_kg \
@@ -778,9 +778,9 @@ def CalcMoIConstantRho(Planet, Params):
         rSil_m = np.zeros((1, Planet.Steps.nSil+1))
         rSil_m[0,0] = Planet.Sil.Rmean_m
         coreProps = (np.zeros(Planet.Steps.nCore) for _ in range(9))
-        Planet.Sil.rhoMean_kgm3 = 0
-        Planet.Core.rhoMean_kgm3 = 0
-        Planet.Mtot_kg = 0
+        Planet.Sil.rhoMean_kgm3 = rhoSil_kgm3[iCMR2inner]
+        Planet.Core.rhoMean_kgm3 = rhoCore_kgm3
+        Planet.Mtot_kg = Planet.Bulk.M_kg
 
     mantleProps = (Psil_MPa, Tsil_K, rSil_m[0,:-1], rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, HtidalSil_Wm3, kThermSil_WmK,
                    Ppore_MPa, rhoSilMatrix_kgm3, rhoPore_kgm3, MLayerSil_kg, phasePore)
