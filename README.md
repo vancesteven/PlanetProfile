@@ -5,7 +5,8 @@ Python software for constructing 1D interior structure models based on planetary
 We want to hear about your work with PlanetProfile! Please consider sending us a message alerting us to your work (svance@jpl.caltech.edu). Suggested acknowledgement in publications: "Data used in this work were generated using the open source PlanetProfile software hosted on GitHub."
 
 ## Prerequisites
-* SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze
+* SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze, installed with pip
+* MoonMag -- see https://github.com/itsmoosh/MoonMag, installed with pip
 * TEOS-10 Gibbs Seawater for python -- installed with conda
 * ObsPy python package (optional) -- installed with conda
 * A working TeX/LaTeX distribution (such as TeXlive) is recommended for optimum plot labels. TeXlive is available at: https://tug.org/texlive/acquire-netinstall.html
@@ -25,7 +26,7 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
   * Due to various complications it is not currently implemented.
 
 ## Setup
-1. Install SeaFreeze with pip using the command: pip3 install SeaFreeze
+1. Install SeaFreeze and MoonMag with pip using the command: pip3 install SeaFreeze MoonMag
   1. Note: This step should be completed only after all necessary prerequisites are installed for your conda environment.
 1. If TauP functionality is desired in Matlab, download ~~matTaup (https://github.com/g2e/seizmo/) and add mattaup, misc, and models to Utilities folder~~.
 1. Install magnetic induction data by downloading all .mat files from https://zenodo.org/record/5057572 into the MagneticInduction/FTdata folder.

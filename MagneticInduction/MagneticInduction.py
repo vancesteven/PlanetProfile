@@ -6,7 +6,7 @@ from scipy.integrate import solve_ivp as ODEsolve
 from collections.abc import Iterable
 from Utilities.defineStructs import Constants, EOSlist
 from config import Excitations
-from moonInduction.asymmetry_funcs import read_Benm as GetBenm
+from MoonMag.asymmetry_funcs import read_Benm as GetBenm
 
 def MagneticInduction(Planet, Params):
     """ Calculate induced magnetic moments for the body and prints them to disk.
@@ -139,7 +139,7 @@ def SetupInduction(Planet, Params):
                             f'interpolate over is {Params.nIntL}. This profile will be not be reduced.')
             else:
                 # Get radius values from D/nIntL above the seafloor to the ice shell
-                rBot_m = rLayers_m[indsLiq[0]-1]
+                rBot_m = Planet.Bulk.R_m - (Planet.zb_km + Planet.D_km) * 1e3
                 rTop_m = rLayers_m[indsLiq[-1]]
                 rOcean_m = np.linspace(rBot_m, rTop_m, Params.nIntL+1)[1:]
                 # Interpolate the conductivities corresponding to those radii

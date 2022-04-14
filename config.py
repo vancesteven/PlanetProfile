@@ -25,7 +25,7 @@ Params.EXTRAP_Fe = False
 
 Params.CALC_NEW =         True  # Recalculate profiles? If not, read data from disk and re-plot.
 Params.CALC_NEW_REF =     True  # Recalculate reference melting curve densities?
-Params.CALC_NEW_INDUCT =  True  # Calculate magnetic induction responses?
+Params.CALC_NEW_INDUCT =  True  # Recalculate magnetic induction responses?
 Params.CALC_SEISMIC =     True  # Calculate sound speeds and elastic moduli?
 Params.CALC_CONDUCT =     True  # Calculate electrical conductivity?
 Params.RUN_ALL_PROFILES = True  # Whether to run all PPBody.py files for the named body and plot together
@@ -103,7 +103,8 @@ Params.FigSize.vcore = (6,6)
 Params.FigSize.vpvt4 = (3,3)
 Params.FigSize.vpvt6 = (3,3)
 Params.FigSize.vwedg = (3,3)
-Params.FigSize.induct = (6,6)
+Params.FigSize.induct = (8,5)
+Params.FigSize.inductCombo = (8,8)
 
 # Color selection
 Params.cmap = 'inferno'
@@ -154,7 +155,7 @@ Params.Colors.Core = [141/255, 122/255, 121/255]
 # Magnetic induction calculation settings
 Params.DO_INDUCTOGRAM = True  # Whether to plot an inductogram for the body in question
 Params.DO_PER = True  # Convert frequency axes to periods
-Params.DO_LEGEND = True  # Whether to force legends
+Params.COMBINE_BCOMPS = False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
 Params.PLOT_FFT = True  # Whether to show plots of fourier space
 Params.PLOT_CONTOURS = True  # Contours or surfaces
 Params.PLOT_V2021 = True  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
@@ -167,22 +168,22 @@ Params.excSelectionPlot = {'synodic': True, 'orbital': True, 'true anomaly': Fal
 for osc in Params.excSelectionPlot:
     if Params.excSelectionPlot[osc] and not Params.excSelectionCalc[osc]:
         Params.excSelectionCalc[osc] = True
-Params.nwPts = 5  # Resolution for salinity values in ocean salinity vs. other plots
+Params.nwPts = 50  # Resolution for salinity values in ocean salinity vs. other plots
 Params.wMin = {'Europa': np.log10(0.05 * Constants.stdSeawater_ppt)}
 Params.wMax = {'Europa': np.log10(Constants.stdSeawater_ppt)}
 Params.nTbPts = 60  # Resolution for Tb values in ocean salinity/Tb plots
 Params.nphiPts = 60  # Resolution for phiRockMax values in ocean salinity/phiMax plots
 Params.phiMin = {'Europa': np.log10(0.01)}
 Params.phiMax = {'Europa': np.log10(0.75)}
-Params.nrhoPts = 6  # Resolution for silicate density values in ocean salinity/rho plots
+Params.nrhoPts = 60  # Resolution for silicate density values in ocean salinity/rho plots
 Params.rhoMin = {'Europa': 3500}
 Params.rhoMax = {'Europa': 3700}
 Params.nSigmaPts = 50  # Resolution for conductivity values in ocean conductivity/thickness plots
 Params.sigmaMin = {'Europa': np.log10(1e-1)}
-Params.sigmaMax = {'Europa': np.log10(1e1)}
+Params.sigmaMax = {'Europa': np.log10(1e2)}
 Params.nDpts = 60  # Resolution for ocean thickness as for conductivity
-Params.Dmin = {'Europa': np.log10(1e1)}
-Params.Dmax = {'Europa': np.log10(200e1)}
+Params.Dmin = {'Europa': np.log10(1e0)}
+Params.Dmax = {'Europa': np.log10(2e2)}
 Params.zbFixed_km = {'Europa': 20}
 Params.EckhardtSolveMethod = 'RK45'  # Numerical solution method for scipy.integrate.solve_ivp. See https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html
 Params.rMinODE = 1e3  # Minimum radius to use for numerical solution. Cannot be zero because of singularity at the origin.
@@ -194,13 +195,33 @@ Params.nOmegaFine = 1000  # Fine-spacing resolution for log frequency spectrum
 #Params.opts_odeParams = odeset('RelTol',1e-10,'AbsTol',1e-10,'MaxStep', 2e3,'InitialStep',1e-2)
 #Params.opts_odeLayers = odeset('RelTol',1e-8, 'AbsTol',1e-10,'MaxStep',10e3,'InitialStep',1e-2)
 
-# Magnetic induction linestyle and linewidth settings
-Params.LS_syn = '-'  # linestyle for the synodic period
-Params.LS_orb = ':'  # linestyle for the orbital period
-Params.LS_hrm = '-.'  # linestyle for the 2nd harmonic of the synodic period
-Params.LW_syn = 2  # linewidth for the synodic period
-Params.LW_orb = 2  # linewidth for the orbital period
-Params.LW_hrm = 2  # linewidth for the 2nd harmonic of the synodic period
+# Magnetic induction plot settings
+Params.Colors.Induction = {'synodic': 'blue', 'orbital': 'purple', 'true anomaly': 'green', 'synodic harmonic': 'goldenrod'}
+Params.LS_Induction = {'synodic': '-', 'orbital': ':', 'true anomaly': ':', 'synodic harmonic': '--'}
+Params.LW_Induction = {'synodic': 1.5, 'orbital': 1.5, 'true anomaly': 1.5, 'synodic harmonic': 1.5}
+Params.cLabelSize = 10  # Font size in pt for contour labels
+Params.cLabelPad = 5  # Padding in pt to set beside contour labels
+Params.cLegendOpacity = 1.0  # Opacity of legend backgrounds in contour plots.
+dftC = 5  # Default number of contours to include in induct-o-grams
+Params.cLevels = {
+    'Europa':{
+        'synodic':         {'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC+2},
+        'orbital':         {'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC-2},
+        'true anomaly':    {'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC-3},
+        'synodic harmonic':{'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC-2}
+    }
+}
+deftFmt = '%1.1f'  # Default contour label format string
+deftPhi = '%1.0f'  # Default for phases in degrees (whole numbers)
+deftAmp = '%1.1f'  # Default for amplitudes (which are typically less than 1)
+Params.cFmt = {
+    'Europa':{
+        'synodic':         {'Amp': deftAmp, 'Bx': '%1.0f', 'By': '%1.0f', 'Bz': deftFmt, 'phase': deftPhi},
+        'orbital':         {'Amp': deftAmp, 'Bx': deftFmt, 'By': deftFmt, 'Bz': deftFmt, 'phase': deftPhi},
+        'true anomaly':    {'Amp': deftAmp, 'Bx': deftFmt, 'By': deftFmt, 'Bz': deftFmt, 'phase': deftPhi},
+        'synodic harmonic':{'Amp': deftAmp, 'Bx': deftFmt, 'By': deftFmt, 'Bz': deftFmt, 'phase': deftPhi}
+    }
+}
 
 # Check if Latex executable is on the path so we can use backup options if Latex is not installed
 if shutil.which('latex'):

@@ -403,9 +403,12 @@ class DataFilesSubstruct:
 
 # Construct filenames for figures etc.
 class FigureFilesSubstruct:
-    def __init__(self, figPath, figBase, xtn):
+    def __init__(self, figPath, figBase, xtn, inductBase=None):
+        if inductBase is None:
+            inductBase = saveBase
         self.path = figPath
         self.fName = os.path.join(self.path, figBase)
+        self.fNameInductOgram = os.path.join(self.path, 'induction', inductBase)
 
         # Figure filename strings
         vsP = 'Porosity_vs_P'
@@ -435,8 +438,8 @@ class FigureFilesSubstruct:
         self.vcore = self.fName + vcore + xtn
         self.vpvt4 = self.fName + vpvt4 + xtn
         self.vpvt6 = self.fName + vpvt6 + xtn
-        self.induct = self.fName + induct + xtn
-        self.sigma = self.fName + sigma + xtn
+        self.induct = {zType: self.fNameInductOgram + induct + f'_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
+        self.sigma = {zType: self.fNameInductOgram + sigma + f'_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
 
 
 """ Figure size """

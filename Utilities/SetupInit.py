@@ -259,8 +259,9 @@ def SetupFilenames(Planet, Params):
 
     Planet.saveLabel = saveLabel
     Planet.label = label
-    DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, inductBase=f'{Planet.name}_{Params.inductOtype}')
-    FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, Params.xtn)
+    inductBase = f'{Planet.name}_{Params.inductOtype}'
+    DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, inductBase=inductBase)
+    FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, Params.xtn, inductBase=inductBase)
 
     return DataFiles, FigureFiles
 

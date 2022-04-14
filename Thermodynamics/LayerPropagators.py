@@ -576,7 +576,7 @@ def InnerLayers(Planet, Params):
 
     Planet.z_m[iOS:iCC+1] = Planet.Bulk.R_m - Planet.r_m[iOS:iCC+1]
     # Record ocean layer thickness
-    Planet.D_km = Planet.z_m[Planet.Steps.nHydro]/1e3 - Planet.zb_km
+    Planet.D_km = (Planet.Bulk.R_m - Planet.Sil.Rmean_m)/1e3 - Planet.zb_km
 
     # Assign phase values for silicates and core
     Planet.phase[iOS:iSC] = Constants.phaseSil + phasePore
@@ -776,6 +776,7 @@ def CalcMoIConstantRho(Planet, Params):
             = (np.zeros(Planet.Steps.nSil) for _ in range(11))
         phasePore = np.zeros(Planet.Steps.nSil, dtype=np.int_)
         rSil_m = np.zeros((1, Planet.Steps.nSil+1))
+        rSil_m[0,0] = Planet.Sil.Rmean_m
         coreProps = (np.zeros(Planet.Steps.nCore) for _ in range(9))
         Planet.Sil.rhoMean_kgm3 = 0
         Planet.Core.rhoMean_kgm3 = 0
