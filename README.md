@@ -15,6 +15,7 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
     * numpy
     * scipy
     * matplotlib
+    * mpmath
   * Conda-forge (install with conda install -c conda-forge <packageName>):
     * gsw
     * obspy
