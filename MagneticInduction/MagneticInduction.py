@@ -7,7 +7,8 @@ from collections.abc import Iterable
 from Utilities.defineStructs import Constants, EOSlist
 from MagneticInduction.Moments import Excitations
 from MagneticInduction.configInduct import Asymmetry
-from MoonMag.asymmetry_funcs import read_Benm as GetBenm
+from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym
+from MoonMag.symmetry_funcs import InducedAeList as AeList
 
 def MagneticInduction(Planet, Params):
     """ Calculate induced magnetic moments for the body and prints them to disk.
@@ -34,16 +35,17 @@ def CalcInducedMoments(Planet, Params):
         Sets Planet attributes:
             Magnetic.Ae, Magnetic.Amp, Magnetic.phase, Magnetic.Binm_nT
     """
-    # Get wavenumbers for each layer for each frequency
-    k_pm = np.array([np.sqrt(1j * Constants.mu0 * omega * Planet.Magnetic.sigmaLayers_Sm)
-                     for omega in Planet.Magnetic.omegaExc_radps])
 
+    Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex_)
     if Planet.Magnetic.inductMethod == 'Eckhardt1963' or Planet.Magnetic.inductMethod == 'numeric':
         if Params.INCLUDE_ASYM:
             log.warning('Asymmetry can only be modeled with Srivastava1966 (layer) method, but ' +
                         'Eckhardt1963 (numeric) method is selected. Asymmetry will be ignored.')
 
-        Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex_)
+        # Get wavenumbers for each layer for each frequency
+        k_pm = np.array([np.sqrt(1j * Constants.mu0 * omega * Planet.Magnetic.sigmaLayers_Sm)
+                     for omega in Planet.Magnetic.omegaExc_radps])
+
         for nprm in range(1, Planet.Magnetic.nprmMax+1):
             Q = np.array([SolveForQ(nprm, k_pm[i,:], Planet.Magnetic.rSigChange_m, Planet.Bulk.R_m,
                                     Params.Induct.EckhardtSolveMethod, rMin=Params.Induct.rMinODE)
@@ -52,15 +54,42 @@ def CalcInducedMoments(Planet, Params):
             Planet.Magnetic.Binm_nT[:,:,nprm,:] = [Planet.Magnetic.Benm_nT[i,:,nprm,:] * Planet.Magnetic.Aen[i,nprm]
                                                    for i in range(Planet.Magnetic.nExc)]
 
+        Planet.Magnetic.Amp = np.abs(Planet.Magnetic.Aen[:, 1])
+        Planet.Magnetic.phase = -np.angle(Planet.Magnetic.Aen[:, 1], deg=True)
+
     elif Planet.Magnetic.inductMethod == 'Srivastava1966' or Planet.Magnetic.inductMethod == 'layer':
-        pass
+        # Evaluate 1st-order complex response amplitudes
+        Planet.Magnetic.Aen[:,1], Planet.Magnetic.Amp, AeArg \
+            = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
+                     Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=1,
+                     writeout=False, do_parallel=False)
+        Planet.Magnetic.phase = -np.degrees(AeArg)
+        for n in range(2, Planet.Magnetic.nprmMax):
+            Planet.Magnetic.Aen[:,n], _, _ \
+                = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
+                         Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=n,
+                         writeout=False, do_parallel=False)
+
+        if Params.INCLUDE_ASYM:
+            # Use a separate function for evaluating asymmetric induced moments, as Binm is not as simple as
+            # Aen * Benm for this case.
+            nMax = Planet.Magnetic.nprmMax + Asymmetry.pMax
+            nLin = [n for n in range(1, nMax+1) for _ in range(-n, n+1)]
+            mLin = [m for n in range(1, nMax+1) for m in range(-n, n+1)]
+            Planet.Magnetic.Binm_nT = BiAsym(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
+                                            Planet.Magnetic.omegaExc_radps, Asymmetry.shape, Asymmetry.gravShape,
+                                            Planet.Magnetic.Benm_nT, 1/Planet.Bulk.R_m, nLin, mLin,
+                                            Asymmetry.pMax, nprm_max=Planet.Magnetic.nprmMax, 
+                                            writeout=False, do_parallel=False)
+        else:
+            # Multiply complex response by Benm to get Binm for spherically symmetric case
+            Planet.Magnetic.Binm_nT = np.array([n/(n+1) * Planet.Magnetic.Benm_nT[iPeak,:,n,:] * Planet.Magnetic.Aen[iPeak,n]
+                                                for n in range(1, Planet.Magnetic.nprmMax)
+                                                for iPeak in range(Planet.Magnetic.nExc)])
     else:
         raise ValueError(f'Induction method "{Planet.Magnetic.inductMethod}" not defined.')
 
-    Planet.Magnetic.Amp =    np.abs(  Planet.Magnetic.Aen[:,1])
-    Planet.Magnetic.phase = -np.angle(Planet.Magnetic.Aen[:,1], deg=True)
-
-    return Planet
+    return Planet, Params
 
 
 def SolveForQ(n, kBlw_pm, rBds_m, R_m, solveMethod, rMin=1e3):
@@ -121,7 +150,7 @@ def SetupInduction(Planet, Params):
             if np.size(Planet.Magnetic.sigmaIonosPedersen_Sm) == 1 and np.size(Planet.Magnetic.ionosBounds_m) == 2:
                 sigmaIonos_Sm = np.append(0, sigmaIonos_Sm)
         # Flip arrays to be in radial ascending order as needed in induction calculations, then add ionosphere
-        rLayers_m = np.append(np.flip(Planet.r_m), zIonos_m)
+        rLayers_m = np.append(np.flip(Planet.r_m[:-1]), zIonos_m)
         sigmaInduct_Sm = np.append(np.flip(Planet.sigma_Sm), sigmaIonos_Sm)
 
         # Eliminate NaN values and 0 values, assigning them to a default minimum
@@ -146,8 +175,8 @@ def SetupInduction(Planet, Params):
                 # Interpolate the conductivities corresponding to those radii
                 sigmaOcean_Sm = spi.interp1d(rLayers_m[indsLiq], sigmaInduct_Sm[indsLiq], kind=Params.Induct.oceanInterpMethod)(rOcean_m)
                 # Stitch together the r and σ arrays with the new ocean values
-                rLayers_m = np.concatenate((rLayers_m[0:indsLiq[0]], rOcean_m, rLayers_m[indsLiq[-1]+1:]))
-                sigmaInduct_Sm = np.concatenate((sigmaInduct_Sm[0:indsLiq[0]], sigmaOcean_Sm, sigmaInduct_Sm[indsLiq[-1]+1:]))
+                rLayers_m = np.concatenate((rLayers_m[:indsLiq[0]], rOcean_m, rLayers_m[indsLiq[-1]+1:]))
+                sigmaInduct_Sm = np.concatenate((sigmaInduct_Sm[:indsLiq[0]], sigmaOcean_Sm, sigmaInduct_Sm[indsLiq[-1]+1:]))
 
         # Get the indices of layers just below where changes happen
         iChange = [i for i,sig in enumerate(sigmaInduct_Sm) if sig != np.append(sigmaInduct_Sm, np.nan)[i+1]]
@@ -206,11 +235,15 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
     else:
         log.debug(f'Loading {bodyname} excitation spectrum for {model} model and {era} era.')
         if era is None and model is None:
-            ID = ''
+            ID = None
         else:
             ID = '_'.join([f'{era}', f'{model}']).replace('_None', '').replace('None_', '')
-        fPath = os.path.join(bodyname, 'induction')
-        inpTexc_hr, inpBenm_nT, B0_nT = GetBenm(nprmMax, pMax, bodyname=bodyname, fpath=fPath, model=ID)
+        if bodyname[:4] == 'Test':
+            fNameBody = 'Test'
+        else:
+            fNameBody = bodyname
+        fPath = os.path.join(fNameBody, 'induction')
+        inpTexc_hr, inpBenm_nT, B0_nT = GetBenm(nprmMax, pMax, bodyname=fNameBody, fpath=fPath, model=ID)
 
         nPeaks = sum(excSelection.values())
         Texc_hr = np.zeros(nPeaks)

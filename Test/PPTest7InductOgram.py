@@ -8,6 +8,7 @@ from Utilities.defineStructs import PlanetStruct, Constants
 
 Planet = PlanetStruct('Test7')
 
+Planet.PfreezeLower_MPa = 0.1
 Planet.PfreezeUpper_MPa = 150
 
 """ Bulk planetary settings """

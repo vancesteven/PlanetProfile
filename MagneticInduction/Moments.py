@@ -34,8 +34,15 @@ class ExcitationsList:
         self.Texc_hr = Texc_hr
 
     def __call__(self, bodyname):
-        return self.Texc_hr[bodyname]
+        if bodyname[:4] == 'Test':
+            name = 'Test'
+        else:
+            name = bodyname
+        return self.Texc_hr[name]
 
 
 Excitations = ExcitationsList()
 InductionResults = InductionStruct()
+
+it = 'Europa'
+Excitations.Texc_hr['Test'] = Excitations.Texc_hr[it]

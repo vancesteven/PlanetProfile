@@ -575,17 +575,21 @@ def InnerLayers(Planet, Params):
             = coreProps
 
     Planet.z_m[iOS:iCC+1] = Planet.Bulk.R_m - Planet.r_m[iOS:iCC+1]
-    # Record ocean layer thickness
-    Planet.D_km = (Planet.Bulk.R_m - Planet.Sil.Rmean_m)/1e3 - Planet.zb_km
 
     # Assign phase values for silicates and core
     Planet.phase[iOS:iSC] = Constants.phaseSil + phasePore
     Planet.phase[iSC:iCC] = Constants.phaseFe
 
+    # Record ocean layer thickness
+    if Planet.Do.NO_H2O:
+        Planet.D_km = 0
+    else:
+        Planet.D_km = (Planet.Bulk.R_m - Planet.r_m[:-1][Planet.phase == 0][-1])/1e3 - Planet.zb_km
+
     # Calculate total salt and water masses
     Planet.Mcore_kg = np.sum(Planet.MLayer_kg[iSC:iCC])
     Planet.Mrock_kg = 4/3*np.pi * np.sum((Planet.r_m[iOS:iSC]**3 - Planet.r_m[iOS+1:iSC+1]**3)
-                                         * Planet.rhoMatrix_kgm3[iOS:iSC])
+                                         * Planet.rhoMatrix_kgm3[iOS:iSC] * (1 - Planet.phi_frac[iOS:iSC]))
     # Next, fetch the phase IDs of the silicate layers, which are incremented when
     # they contain non-liquid phases.
     silPhases = Planet.phase[iOS:iSC]
@@ -593,10 +597,11 @@ def InnerLayers(Planet, Params):
     # can safely include those layers in the sum. We also must include ices in the
     # pore space of silicates.
     Planet.Mice_kg = 4/3*np.pi * (np.sum((Planet.r_m[0:iOS]**3 - Planet.r_m[1:iOS+1]**3)
-                                         * Planet.rhoMatrix_kgm3[0:iOS])
+                                         * Planet.rhoMatrix_kgm3[0:iOS] * (1 - Planet.phi_frac[0:iOS]))
                                 + np.sum((Planet.r_m[iOS:iSC][silPhases != Constants.phaseSil]**3
                                         - Planet.r_m[iOS+1:iSC+1][silPhases != Constants.phaseSil]**3)
-                                         * Planet.rhoPore_kgm3[iOS:iSC][silPhases != Constants.phaseSil]))
+                                         * Planet.rhoPore_kgm3[iOS:iSC][silPhases != Constants.phaseSil]
+                                         * Planet.phi_frac[iOS:iSC][silPhases != Constants.phaseSil]))
     # The remainder is the ocean fluids, including H2O and salts.
     Planet.Mfluid_kg = Planet.Mtot_kg - Planet.Mcore_kg - Planet.Mrock_kg - Planet.Mice_kg
     # Get the mass contained in clathrate layers and just the trapped gas

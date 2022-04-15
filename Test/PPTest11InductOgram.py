@@ -1,12 +1,12 @@
 """
-PPTest7
-Europa-like, Seawater model with CONSTANT_INNER_DENSITY set to True
+PPTest11
+Europa-like, Seawater model with porous ice at the surface and porous rock at the seafloor
 For testing purposes
 """
 import numpy as np
 from Utilities.defineStructs import PlanetStruct, Constants
 
-Planet = PlanetStruct('Test7')
+Planet = PlanetStruct('Test11')
 
 Planet.PfreezeUpper_MPa = 150
 
@@ -17,7 +17,7 @@ Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346
 Planet.Bulk.Cuncertainty = 0.005
-Planet.Bulk.Tb_K = 269.8
+Planet.Bulk.Tb_K = 268.4
 
 """ Layer step settings """
 Planet.Steps.nIceI = 200
@@ -31,19 +31,22 @@ Planet.Ocean.comp = 'Seawater'
 Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
 Planet.Ocean.deltaP = 1.0
 Planet.Ocean.PHydroMax_MPa = 250.0
+Planet.Do.POROUS_ICE = True
+Planet.Ocean.phiMax_frac['Ih'] = 0.3
 
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.33e-12
 Planet.Sil.Htidal_Wm3 = 1e-10
 # Rock porosity
-Planet.Do.POROUS_ROCK = False
+Planet.Do.POROUS_ROCK = True
+Planet.Sil.porosType = 'Han2014'
+Planet.Sil.phiRockMax_frac = 0.01
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
 Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
 
 """ Core assumptions """
 Planet.Do.Fe_CORE = True
-Planet.Do.CONSTANT_INNER_DENSITY = True
 Planet.Core.rhoFe_kgm3 = 8000.0
 Planet.Core.rhoFeS_kgm3 = 5150.0
 Planet.Core.rhoPoFeFCC = 5455.0

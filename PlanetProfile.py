@@ -23,7 +23,7 @@ from Plotting.configPlots import FigMisc
 
 # Parallel processing
 import multiprocessing as mtp
-mtp.set_start_method("fork")
+mtpFork = mtp.get_context('fork')
 
 """ MAIN RUN BLOCK """
 def run():
@@ -87,7 +87,6 @@ def run():
         elif sys.argv[2] == 'inductogram':
             Params.DO_INDUCTOGRAM = True
             Params.NO_SAVEFILE = True
-            Params.SKIP_PLOTS = True
         else:
             raise ValueError(f'Unrecognized command: {sys.argv[2]}')
         if nArgs > 3:
@@ -183,14 +182,14 @@ def PlanetProfile(Planet, Params):
         # Reload previous run
         Planet, Params = ReloadProfile(Planet, Params)
 
-    if not Params.SKIP_PLOTS:
+    if not Params.SKIP_PLOTS and not Params.DO_INDUCTOGRAM:
         # Plotting functions
         GeneratePlots(np.array([Planet]), Params)
 
     # Magnetic induction calculations
     if Params.CALC_CONDUCT and Params.CALC_NEW_INDUCT:
         # Calculate induced magnetic moments
-        Planet = MagneticInduction(Planet, Params)
+        Planet, Params = MagneticInduction(Planet, Params)
 
     PrintCompletion(Planet, Params)
     return Planet, Params
@@ -219,7 +218,7 @@ def PrintCompletion(Planet, Params):
             else:
                 if tRemain_s > 60:
                     remain += f' {tRemain_s/60:.0f} min'
-                remain += f' {tRemain_s % 60:.0f} s'
+                remain += f' {int(tRemain_s % 60)} s'
 
             ending = f'. Approx.{remain} remaining.'
     log.profile(f'Profile{indicator} complete{ending}')
@@ -455,7 +454,13 @@ def InductOgram(bodyname, Params):
     """
     if Params.CALC_NEW_INDUCT:
         log.info(f'Running calculations for induct-o-gram type {Params.Induct.inductOtype}.')
-        Planet = importlib.import_module(f'{bodyname}.PP{bodyname}InductOgram').Planet
+        if bodyname[:4] == 'Test':
+            loadname = bodyname + ''
+            bodyname = 'Test'
+        else:
+            loadname = bodyname
+            
+        Planet = importlib.import_module(f'{bodyname}.PP{loadname}InductOgram').Planet
         DataFiles, FigureFiles = SetupFilenames(Planet, Params)
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
@@ -541,7 +546,7 @@ def InductOgram(bodyname, Params):
         Bex, Bey, Bez = Benm2absBexyz(PlanetGrid[0,0].Magnetic.Benm_nT)
         nPeaks = np.size(Bex)
         Induction = InductionStruct
-        Induction.bodyname = Planet.name
+        Induction.bodyname = bodyname
         Induction.yName = Params.Induct.inductOtype
         Induction.Texc_hr = Mag.Texc_hr[bodyname]
         Induction.Amp = np.array([[[Planeti.Magnetic.Amp[i] for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
@@ -611,7 +616,12 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     """
 
     if fNameOverride is None:
-        Planet = importlib.import_module(f'{bodyname}.PP{bodyname}InductOgram').Planet
+        if bodyname[:4] == 'Test':
+            loadname = bodyname + ''
+            bodyname = 'Test'
+        else:
+            loadname = bodyname
+        Planet = importlib.import_module(f'{bodyname}.PP{loadname}InductOgram').Planet
         Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
         reload = loadmat(Params.DataFiles.inductOgramFile)
     else:
@@ -661,24 +671,24 @@ def ParPlanet(PlanetList, Params):
             # Prevent slowdowns from competing process spawning when #cores > #jobs
             nCores = np.minimum(Params.maxCores, np.product(dims))
             if Params.Induct.inductOtype == 'sigma':
-                pool = mtp.Pool(nCores)
+                pool = mtpFork.Pool(nCores)
                 parResult = [pool.apply_async(MagneticInduction, (deepcopy(Planet),
                                                                   deepcopy(Params))) for Planet in PlanetList1D]
                 pool.close()
                 pool.join()
             else:
-                pool = mtp.Pool(nCores)
+                pool = mtpFork.Pool(nCores)
                 parResult = [pool.apply_async(PlanetProfile, (deepcopy(Planet),
-                                                              deepcopy(Params))) for Planet in PlanetList1D][:, 0]
+                                                              deepcopy(Params))) for Planet in PlanetList1D]
                 pool.close()
                 pool.join()
 
             for i, result in enumerate(parResult):
-                PlanetList1D[i] = result.get()
+                PlanetList1D[i] = result.get()[0]
         else:
             log.profile('Running grid without parallel processing. This may take some time.')
             if Params.Induct.inductOtype == 'sigma':
-                PlanetList1D = np.array([MagneticInduction(deepcopy(Planet), deepcopy(Params)) for Planet in PlanetList1D])
+                PlanetList1D = np.array([MagneticInduction(deepcopy(Planet), deepcopy(Params)) for Planet in PlanetList1D])[:, 0]
             else:
                 PlanetList1D = np.array([PlanetProfile(deepcopy(Planet), deepcopy(Params)) for Planet in PlanetList1D])[:, 0]
 

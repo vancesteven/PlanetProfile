@@ -11,7 +11,7 @@ from MagneticInduction.configInduct import InductParams, ExcSpecParams
 
 Params = ParamsStruct()
 Params.tStart_s = time.time()
-Params.VERBOSE = False  # Provides extra runtime messages. Overrides QUIET below
+Params.VERBOSE = True  # Provides extra runtime messages. Overrides QUIET below
 Params.QUIET = False  # Hides all log messages except warnings and errors
 Params.printFmt = '[%(levelname)s] %(message)s'  # Format for printing log messages
 Params.DEBUG = False  # Special use
@@ -21,6 +21,7 @@ Params.EXTRAP_OCEAN = False
 Params.EXTRAP_REF = True  # Allow refprofile extrapolation separate from normal ocean
 Params.EXTRAP_SIL = False
 Params.EXTRAP_Fe = False
+Params.lookupInterpMethod = 'nearest'  # Interpolation method to use for EOS lookup tables. Options are 'nearest', 'linear', 'cubic'.
 
 Params.CALC_NEW =         True  # Recalculate profiles? If not, read data from disk and re-plot.
 Params.CALC_NEW_REF =     True  # Recalculate reference melting curve densities?
@@ -91,8 +92,8 @@ else:
 # Create parallel printout log level
 Params.logParallel = log.WARN + 5
 if Params.VERBOSE:
-    # Allow warnings to be printed if VERBOSE is selected
-    Params.logParallel -= 10
+    # Allow debug messages to be printed if VERBOSE is selected
+    Params.logParallel -= 30
 elif Params.QUIET:
     # Allow progress printout to be silenced if QUIET is selected
     Params.logParallel += 10

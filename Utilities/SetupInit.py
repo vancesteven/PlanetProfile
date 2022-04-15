@@ -172,7 +172,7 @@ def SetupInit(Planet, Params):
     # Load EOS functions for deeper interior
     if not Params.SKIP_INNER:
         # Get silicate EOS
-        Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.interpMethod,
+        Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.lookupInterpMethod,
                                      kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
                                      porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
                                      Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
@@ -197,7 +197,7 @@ def SetupInit(Planet, Params):
 
         # Iron core if present
         if Planet.Do.Fe_CORE:
-            Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.interpMethod, Fe_EOS=True,
+            Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
                                           kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe)
 
     # Preallocate layer physical quantity arrays

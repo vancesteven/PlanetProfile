@@ -277,7 +277,7 @@ class MagneticSubstruct:
         # Input settings
         self.SCera = None  # Spacecraft era to use for excitation moments. Read from Be1xyz file name.
         self.extModel = None  # External field model to use for excitation moments. Read from Be1xyz file name.
-        self.inductMethod = 'Eckhardt1963'  # Type of magnetic induction model to use. Options are "Srivastava1966" or "layer" for layer method and "Eckhardt1963" or "numeric" for numeric method (symmetric only).
+        self.inductMethod = 'Srivastava1966'  # Type of magnetic induction model to use. Options are "Srivastava1966" or "layer" for layer method and "Eckhardt1963" or "numeric" for numeric method (symmetric only).
         self.Texc_hr = None  # Periods in hr of peaks in magnetic excitation spectrum
         self.omegaExc_radps = None  # Angular frequency of peaks in magnetic excitation spectrum in rad/s
         self.ionosBounds_m = None  # Upper altitude cutoff for ionosphere layers in m. Omit the surface (don't include 0 in the list).

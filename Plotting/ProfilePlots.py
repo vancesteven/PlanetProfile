@@ -10,8 +10,8 @@ from pathlib import Path
 from Utilities.SetupInit import SetupFilenames
 from Utilities.defineStructs import Constants
 from Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
-from MagneticInduction.configInduct import cLevels as magClevels, cFmt as magCfmt
 from Plotting.configPlots import FigSize, Color, Style, FigMisc
+from MagneticInduction.configInduct import InductParams as IndParams
 
 def GeneratePlots(PlanetList, Params):
 
@@ -71,7 +71,6 @@ def PlotHydrosphereProps(PlanetList, Params):
     axes[1].set_ylabel('Depth (km)')
     fig.subplots_adjust(wspace=0.5)
     fig.suptitle(f'{PlanetList[0].name} hydrosphere properties')
-
 
     # Plot reference profiles first, so they plot on bottom of everything
     if Params.PLOT_REF:
@@ -281,10 +280,10 @@ def PlotInductOgram(Induction, Params):
             ax.title.set_text(name)
             zContours = [ax.contour(Induction.sigmaMean_Sm, Induction.D_km, z[i, ...],
                            colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
-                           linewidths=Style.LW_Induction[T], levels=magClevels[Induction.bodyname][T][fLabel])
+                           linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels(fLabel, T))
                            for i, T in enumerate(Induction.Texc_hr.keys())]
             if Params.Induct.inductOtype == 'sigma':
-                [ax.clabel(zContours[i], fmt=magCfmt[Induction.bodyname][T][fLabel],
+                [ax.clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                            for i, T in enumerate(Induction.Texc_hr.keys())]
 
@@ -311,9 +310,9 @@ def PlotInductOgram(Induction, Params):
                 zContours = [ax.contour(x, y, z[i, ...],
                                         colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                         linewidths=Style.LW_Induction[T],
-                                        levels=magClevels[Induction.bodyname][T][fLabel])
+                                        levels=IndParams.GetClevels(fLabel, T))
                              for i, T in enumerate(Induction.Texc_hr.keys())]
-                [ax.clabel(zContours[i], fmt=magCfmt[Induction.bodyname][T][fLabel],
+                [ax.clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                            for i, T in enumerate(Induction.Texc_hr.keys())]
 
@@ -347,17 +346,17 @@ def PlotInductOgram(Induction, Params):
 
         zContours = [axes[0].contour(Induction.sigmaMean_Sm, Induction.D_km, z[i, ...],
                          colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
-                         linewidths=Style.LW_Induction[T], levels=magClevels[Induction.bodyname][T][fLabel])
+                         linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels(fLabel, T))
                          for i, T in enumerate(Induction.Texc_hr.keys())]
         phaseContours = [axes[1].contour(Induction.sigmaMean_Sm, Induction.D_km, Induction.phase[i, ...],
                          colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
-                         linewidths=Style.LW_Induction[T], levels=magClevels[Induction.bodyname][T]['phase'])
+                         linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels('phase', T))
                          for i, T in enumerate(Induction.Texc_hr.keys())]
         if Params.Induct.inductOtype == 'sigma':
-            [axes[0].clabel(zContours[i], fmt=magCfmt[Induction.bodyname][T][fLabel],
+            [axes[0].clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(Induction.Texc_hr.keys())]
-            [axes[1].clabel(phaseContours[i], fmt=magCfmt[Induction.bodyname][T]['phase'],
+            [axes[1].clabel(phaseContours[i], fmt=IndParams.GetCfmt('phase', T),
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(Induction.Texc_hr.keys())]
             fNameSigma = Params.FigureFiles.sigmaOnly[fLabel]
@@ -391,16 +390,16 @@ def PlotInductOgram(Induction, Params):
 
             zContours = [axes[0].contour(x, y, z[i, ...],
                              colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
-                             linewidths=Style.LW_Induction[T], levels=magClevels[Induction.bodyname][T][fLabel])
+                             linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels(fLabel, T))
                              for i, T in enumerate(Induction.Texc_hr.keys())]
             phaseContours = [axes[1].contour(x, y, Induction.phase[i, ...],
                              colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
-                             linewidths=Style.LW_Induction[T], levels=magClevels[Induction.bodyname][T]['phase'])
+                             linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels('phase', T))
                              for i, T in enumerate(Induction.Texc_hr.keys())]
-            [axes[0].clabel(zContours[i], fmt=magCfmt[Induction.bodyname][T][fLabel],
+            [axes[0].clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(Induction.Texc_hr.keys())]
-            [axes[1].clabel(phaseContours[i], fmt=magCfmt[Induction.bodyname][T]['phase'],
+            [axes[1].clabel(phaseContours[i], fmt=IndParams.GetCfmt('phase', T),
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(Induction.Texc_hr.keys())]
 
