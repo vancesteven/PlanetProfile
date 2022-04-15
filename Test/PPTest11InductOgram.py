@@ -40,7 +40,7 @@ Planet.Sil.Htidal_Wm3 = 1e-10
 # Rock porosity
 Planet.Do.POROUS_ROCK = True
 Planet.Sil.porosType = 'Han2014'
-Planet.Sil.phiRockMax_frac = 0.01
+Planet.Sil.phiRockMax_frac = 0.4
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
 Planet.Sil.rhoSilWithCore_kgm3 = 3539.0

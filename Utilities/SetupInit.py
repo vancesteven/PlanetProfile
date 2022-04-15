@@ -183,6 +183,9 @@ def SetupInit(Planet, Params):
             if Planet.Do.NO_H2O:
                 Ppore_MPa, Tpore_K = (np.linspace(0, 1, 4) for _ in range(2))
             else:
+                if Planet.Sil.poreComp == 'Seawater' and Planet.Sil.PHydroMax_MPa > 300:
+                    log.warning('GSW yields NaN for Cp at pressures above 300 MPa. Reducing PsilMax to this value.')
+                    Planet.Sil.PHydroMax_MPa = 300
                 Ppore_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Sil.PHydroMax_MPa, 100)
                 Tpore_K = np.linspace(Planet.Bulk.Tb_K, Planet.Sil.THydroMax_K, 140)
             # Get pore fluid EOS
@@ -227,7 +230,7 @@ def SetupFilenames(Planet, Params):
         Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
     elif Planet.Sil.wPore_ppt != Planet.Ocean.wOcean_ppt:
         Planet.Do.PORE_EOS_DIFFERENT = True
-
+        
     saveBase = Planet.name + 'Profile_'
     saveLabel = ''
     label = ''

@@ -43,7 +43,7 @@ def full():
     tMarks = np.append(tMarks, time.time())
 
     # Loop over remaining test profiles (2 onwards)
-    for i in range(20, nTests+1):
+    for i in range(2, nTests+1):
         testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
         log.info(f'Test case body: {testBase}{i}')
         TestPlanets = np.append(TestPlanets, PlanetProfile(testPlanetN, Params)[0])

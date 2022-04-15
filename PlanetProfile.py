@@ -659,7 +659,8 @@ def ParPlanet(PlanetList, Params):
             PlanetList (PlanetStruct, shape N, NxM, Nx...): List of Planet objects
                 over which to run in parallel. 
     """
-    log.info('Quieting messages to avoid spam in parallel run.')
+    if Params.logParallel > log.INFO:
+        log.info('Quieting messages to avoid spam in gridded run.')
     log.getLogger().setLevel(Params.logParallel)
     dims = np.shape(PlanetList)
     nParDims = np.size(dims)
