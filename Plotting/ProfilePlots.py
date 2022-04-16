@@ -291,7 +291,11 @@ def PlotInductOgram(Induction, Params):
             lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
             axes[1,1].legend(lines[iSort], legendLabels[iSort], framealpha=FigMisc.cLegendOpacity)
 
-        fig.savefig(Params.FigureFiles.sigma['Bcomps'], format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        if Params.Induct.inductOtype == 'sigma':
+            fNameSigma = Params.FigureFiles.sigmaOnly['Bcomps']
+        else:
+            fNameSigma = Params.FigureFiles.sigma['Bcomps']
+        fig.savefig(fNameSigma, format=FigMisc.figFormat, dpi=FigMisc.dpi)
         plt.close()
 
         if Params.Induct.inductOtype != 'sigma':
@@ -320,7 +324,7 @@ def PlotInductOgram(Induction, Params):
                 lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
                 axes[1,1].legend(lines[iSort], legendLabels[iSort], framealpha=FigMisc.cLegendOpacity)
 
-            fig.savefig(Params.FigureFiles.sigma['Bcomps'], format=FigMisc.figFormat, dpi=FigMisc.dpi)
+            fig.savefig(Params.FigureFiles.induct['Bcomps'], format=FigMisc.figFormat, dpi=FigMisc.dpi)
             plt.close()
 
         # Set lists to just contain Amplitude now to reuse the remaining routines for that plot

@@ -2,7 +2,7 @@
 import numpy as np
 from Utilities.defineStructs import Constants
 
-inductOtype = 'phi'  # Type of inductogram plot to make
+inductOtype = 'rho'  # Type of inductogram plot to make
 SPECIFIC_CLEVELS = True  # Whether to use the specific cLevels listed below or default numbers
 
 class InductOgramParams:
