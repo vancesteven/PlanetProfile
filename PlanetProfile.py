@@ -38,6 +38,7 @@ def run():
     else:
         logLevel = log.INFO
     log.basicConfig(level=logLevel, format=Params.printFmt)
+    log.getLogger('matplotlib').setLevel(log.WARNING)
     log.debug('Printing verbose runtime messages. Toggle with Params.VERBOSE in config.py.')
 
     # Command line args

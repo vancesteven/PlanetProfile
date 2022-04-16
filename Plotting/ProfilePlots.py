@@ -25,18 +25,12 @@ def GeneratePlots(PlanetList, Params):
             # Reload refprofiles for this composition
             Params = ReloadRefProfiles(PlanetList, Params)
 
-    log.warning('Temporarily quieting INFO and DEBUG messages due to a high number of current latex errors.')
-    saveLevel = log.getLogger().getEffectiveLevel()
-    log.getLogger().setLevel(log.WARN)
-
     if Params.PLOT_GRAVITY: PlotGravPres(PlanetList, Params)
     if Params.PLOT_HYDROSPHERE and not PlanetList[0].Do.NO_H2O: PlotHydrosphereProps(PlanetList, Params)
     if Params.PLOT_TRADEOFF:
         if Planet.Do.Fe_CORE: PlotCoreTradeoff(PlanetList, Params)
         else: PlotSilTradeoff(PlanetList, Params)
     if Params.PLOT_WEDGE: PlotWedge(PlanetList, Params)
-
-    log.getLogger().setLevel(saveLevel)
 
     return
 
@@ -219,9 +213,6 @@ def PlotWedge(PlanetList, Params):
 
 
 def PlotInductOgram(Induction, Params):
-    log.warning('Temporarily quieting INFO and DEBUG messages due to a high number of current latex errors.')
-    saveLevel = log.getLogger().getEffectiveLevel()
-    log.getLogger().setLevel(log.WARN)
 
     # Get all common labels and data for zipping
     zData = [Induction.Amp, Induction.Bix_nT, Induction.Biy_nT, Induction.Biz_nT]
@@ -296,6 +287,7 @@ def PlotInductOgram(Induction, Params):
         else:
             fNameSigma = Params.FigureFiles.sigma['Bcomps']
         fig.savefig(fNameSigma, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        log.debug(f'Plot saved to file: {fNameSigma}')
         plt.close()
 
         if Params.Induct.inductOtype != 'sigma':
@@ -325,6 +317,7 @@ def PlotInductOgram(Induction, Params):
                 axes[1,1].legend(lines[iSort], legendLabels[iSort], framealpha=FigMisc.cLegendOpacity)
 
             fig.savefig(Params.FigureFiles.induct['Bcomps'], format=FigMisc.figFormat, dpi=FigMisc.dpi)
+            log.debug(f'Plot saved to file: {Params.FigureFiles.induct["Bcomps"]}')
             plt.close()
 
         # Set lists to just contain Amplitude now to reuse the remaining routines for that plot
@@ -372,6 +365,7 @@ def PlotInductOgram(Induction, Params):
             axes[1].legend(lines[iSort], legendLabels[iSort], framealpha=FigMisc.cLegendOpacity)
 
         fig.savefig(fNameSigma, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        log.debug(f'Plot saved to file: {fNameSigma}')
         plt.close()
 
         if Params.Induct.inductOtype != 'sigma':
@@ -412,8 +406,7 @@ def PlotInductOgram(Induction, Params):
                 axes[1].legend(lines[iSort], legendLabels[iSort], framealpha=FigMisc.cLegendOpacity)
 
             fig.savefig(Params.FigureFiles.induct[fLabel], format=FigMisc.figFormat, dpi=FigMisc.dpi)
+            log.debug(f'Plot saved to file: {Params.FigureFiles.induct[fLabel]}')
             plt.close()
-
-    log.getLogger().setLevel(saveLevel)
 
     return
