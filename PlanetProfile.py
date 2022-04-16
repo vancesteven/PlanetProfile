@@ -26,7 +26,7 @@ import multiprocessing as mtp
 mtpFork = mtp.get_context('fork')
 
 """ MAIN RUN BLOCK """
-def run():
+def run(bodyname=None, opt=None):
 
     # Copy global Params settings to local variable to we can add things like filenames
     Params = configParams
@@ -41,19 +41,9 @@ def run():
     log.getLogger('matplotlib').setLevel(log.WARNING)
     log.debug('Printing verbose runtime messages. Toggle with Params.VERBOSE in config.py.')
 
-    # Command line args
-    nArgs = len(sys.argv)
-    if nArgs > 1:
-        # Body name was passed as command line argument
-        bodyname = sys.argv[1]
-
-    else:
-        # No command line argument, ask user which body to run
-        bodyname = input('Please input body name: ')
-        if bodyname == '':
-            log.info('No body name entered. Defaulting to Europa.')
-            bodyname = 'Europa'
-
+    if bodyname is None or bodyname == '':
+        log.info('No body name entered. Defaulting to Europa.')
+        bodyname = 'Europa'
     bodyname = bodyname.capitalize()
     log.info(f'Body name: {bodyname}')
 
@@ -63,9 +53,8 @@ def run():
         CompareProfile(Planet, Params, os.path.join('Europa', 'EuropaProfile_Seawater_0WtPpt_Tb269.800K_mat.txt'))
         exit()
 
-    # Additional command line arguments
-    if nArgs > 2:
-        if sys.argv[2] == 'clear':
+    if opt is not None:
+        if opt == 'clear':
             fNamesToClear = FilesMatchingPattern(os.path.join(bodyname, '*.txt'))
             if len(fNamesToClear) > 0:
                 log.info(f'Clearing previous run files for {bodyname}:')
@@ -79,19 +68,17 @@ def run():
                 log.warning('CALC_NEW is set to False in config.py, but files are being cleared. ' +
                             'CALC_NEW has been forced on for this run.')
                 Params.CALC_NEW = True
-        elif sys.argv[2] == 'compare':
+        elif opt == 'compare':
             log.info('Comparing with other profiles from this body.')
             Params.COMPARE = True
-        elif sys.argv[2] == 'all':
+        elif opt == 'all':
             log.info(f'Running all available profiles for {bodyname}.')
             Params.COMPARE = True
-        elif sys.argv[2] == 'inductogram':
+        elif opt == 'inductogram':
             Params.DO_INDUCTOGRAM = True
             Params.NO_SAVEFILE = True
         else:
-            raise ValueError(f'Unrecognized command: {sys.argv[2]}')
-        if nArgs > 3:
-            log.warning(f'Too many command line args passed. Ignoring command "{sys.argv[3]}" and any after it.')
+            log.warning(f'Unrecognized option: {opt}. Skipping.')
 
     """ Run PlanetProfile """
     if Params.DO_INDUCTOGRAM:
@@ -413,37 +400,73 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     return Planet, Params
 
 
-def UpdateRun(Planet, Params, PlanetChanges=None, BulkChanges=None, OceanChanges=None, SilChanges=None,
-              CoreChanges=None, MagneticChanges=None, DoChanges=None, StepsChanges=None):
+def InitBayes(bodyname, fEnd):
+    """ Load in a specific profile to use as in initial prior in Bayesian analysis. """
+    Params = configParams
+    # Prevent unnecessary slowdowns and disk space usage
+    Params.NO_SAVEFILE = True
+    Params.SKIP_PLOTS = True
+
+    # Fetch starting parameters
+    Planet = importlib.import_module(f'{bodyname}.PP{bodyname}{fEnd}').Planet
+    return Planet, Params
+
+
+def UpdateRun(Planet, Params, changes={}):
     """ Wrapper for editing the settings of Planet using a dict naming the changes.
 
         Args:
-            SubstructChanges (dict): Dict of {SubStructAttribute: value} pairs to change in Planet.Substruct.
+            changes (dict): Dict of {input: value} pairs to change in Planet. Options are:
+                compOcean: Ocean composition string in Planet.Ocean.comp
+                compSil: Silicate composition to use from available Perplex output files
+                compFe: Iron core composition to use from available Perplex output files
+                wOcean_ppt: Salinity in Planet.Ocean.wOcean_ppt
+                Tb_K: Ocean bottom temperature in K in Planet.Bulk.Tb_K
+                silDensity_kgm3: Fixed density in silicate layers in Planet.Sil.rhoSilWithCore_kgm3 (for use with Planet.Do.CONSTANT_INNER_DENSITY)
+                silPhi_frac: Vacuum-extrapolated porosity in silicates in Planet.Sil.phiRockMax_frac
+                silPclosure_MPa: Pore closure pressure in silicates in Planet.Sil.Pclosure_MPa
+                icePhi_frac: Vacuum porosity in surface ice Ih in Planet.Ocean.phiRockMax_frac
+                icePclosure_MPa: Pore closure pressure in ice in Planet.Sil.Pclosure_MPa
+                Htidal_Wm3: Fixed tidal heating in silicates in Planet.Sil.Htidal_Wm3
+                Qrad_Wkg: Fixed radiogenic heating in silicates in Planet.Sil.Qrad_Wkg
+                ionosBounds_m: Ionosphere boundary altitudes above the surface in m in Planet.Magnetic.ionosBounds_m. Correspond to outer radii of each sigma below of same index.
+                sigmaIonos_Sm: Ionosphere Pedersen conductivities in S/m in Planet.Magnetic.sigmaIonosPedersen_Sm. Must have same length as ionosBounds_m
     """
-    if PlanetChanges is not None:
-        for key in PlanetChanges.key():
-            setattr(Planet, key, PlanetChanges[key])
-    if BulkChanges is not None:
-        for key in BulkChanges.keys():
-            setattr(Planet.Bulk, key, BulkChanges[key])
-    if OceanChanges is not None:
-        for key in OceanChanges.keys():
-            setattr(Planet.Ocean, key, OceanChanges[key])
-    if SilChanges is not None:
-        for key in SilChanges.keys():
-            setattr(Planet.Sil, key, SilChanges[key])
-    if CoreChanges is not None:
-        for key in CoreChanges.keys():
-            setattr(Planet.Core, key, CoreChanges[key])
-    if MagneticChanges is not None:
-        for key in MagneticChanges.keys():
-            setattr(Planet.Magnetic, key, MagneticChanges[key])
-    if DoChanges is not None:
-        for key in DoChanges.keys():
-            setattr(Planet.Do, key, DoChanges[key])
-    if StepsChanges is not None:
-        for key in StepsChanges.keys():
-            setattr(Planet.Steps, key, StepsChanges[key])
+
+    for key, value in changes.items():
+        if key == 'wOcean_ppt':
+            Planet.Ocean.wOcean_ppt = value
+        elif key == 'Tb_K':
+            Planet.Bulk.Tb_K = value
+        elif key == 'silDensity_kgm3':
+            Planet.Sil.rhoSilWithCore_kgm3 = value
+            Planet.Do.CONSTANT_INNER_DENSITY = True
+        elif key == 'ionosBounds_m':
+            Planet.Magnetic.ionosBounds_m = value
+        elif key == 'sigmaIonos_Sm':
+            Planet.Magnetic.sigmaIonosPedersen_Sm = value
+        elif key == 'silPhi_frac':
+            Planet.Sil.phiRockMax_frac = value
+        elif key == 'silPclosure_MPa':
+            Planet.Sil.Pclosure_MPa = value
+        elif key == 'icePhi_frac':
+            Planet.Ocean.phiMax_frac['Ih'] = value
+        elif key == 'icePclosure_MPa':
+            Planet.Ocean.Pclosure_MPa['Ih'] = value
+        elif key == 'Htidal_Wm3':
+            Planet.Sil.Htidal_Wm3 = value
+        elif key == 'Qrad_Wkg':
+            Planet.Sil.Qrad_Wkg = value
+        elif key == 'compOcean':
+            Planet.Ocean.comp = value
+        elif key == 'compSil':
+            Planet.Sil.mantleEOS = value
+            Planet.Do.CONSTANT_INNER_DENSITY = False
+        elif key == 'compFe':
+            Planet.Core.coreEOS = value
+            Planet.Do.CONSTANT_INNER_DENSITY = False
+        else:
+            log.warning(f'UpdateRun key not recognized: {key}. Skipping.')
 
     Planet, Params = PlanetProfile(Planet, Params)
     return Planet, Params
@@ -544,17 +567,17 @@ def InductOgram(bodyname, Params):
         log.info(f'Parallel run elapsed time: {dt} s.')
 
         # Organize data into a format that can be plotted/saved for plotting
-        Bex, Bey, Bez = Benm2absBexyz(PlanetGrid[0,0].Magnetic.Benm_nT)
-        nPeaks = np.size(Bex)
+        Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(PlanetGrid[0,0].Magnetic.Benm_nT)
+        nPeaks = np.size(Bex_nT)
         Induction = InductionStruct
         Induction.bodyname = bodyname
         Induction.yName = Params.Induct.inductOtype
         Induction.Texc_hr = Mag.Texc_hr[bodyname]
         Induction.Amp = np.array([[[Planeti.Magnetic.Amp[i] for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
         Induction.phase = np.array([[[Planeti.Magnetic.phase[i] for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
-        Induction.Bix_nT = np.array([Induction.Amp[i, ...] * Bex[i] for i in range(nPeaks)])
-        Induction.Biy_nT = np.array([Induction.Amp[i, ...] * Bey[i] for i in range(nPeaks)])
-        Induction.Biz_nT = np.array([Induction.Amp[i, ...] * Bez[i] for i in range(nPeaks)])
+        Induction.Bix_nT = np.array([Induction.Amp[i, ...] * Bex_nT[i] for i in range(nPeaks)])
+        Induction.Biy_nT = np.array([Induction.Amp[i, ...] * Bey_nT[i] for i in range(nPeaks)])
+        Induction.Biz_nT = np.array([Induction.Amp[i, ...] * Bez_nT[i] for i in range(nPeaks)])
         Induction.w_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
         Induction.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
         Induction.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
@@ -960,4 +983,21 @@ def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
     return
 
 
-if __name__ == '__main__': run()
+if __name__ == '__main__':
+    # Command line args
+    nArgs = len(sys.argv)
+    clArg = None
+    if nArgs > 1:
+        # Body name was passed as command line argument
+        bodyname = sys.argv[1]
+
+        # Additional command line arguments
+        if nArgs > 2:
+            clArg = sys.argv[2]
+            if nArgs > 3:
+                log.warning(f'Too many command line args passed. Ignoring command "{sys.argv[3]}" and any after it.')
+    else:
+        # No command line argument, ask user which body to run
+        bodyname = input('Please input body name: ')
+
+    run(bodyname=bodyname, opt=clArg)
