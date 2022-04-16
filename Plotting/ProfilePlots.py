@@ -215,7 +215,8 @@ def PlotWedge(PlanetList, Params):
 def PlotInductOgram(Induction, Params):
 
     # Get all common labels and data for zipping
-    zData = [Induction.Amp, Induction.Bix_nT, Induction.Biy_nT, Induction.Biz_nT]
+    zData = [Induction.Amp, np.abs(Induction.Bix_nT),
+             np.abs(Induction.Biy_nT), np.abs(Induction.Biz_nT)]
     plotTitles = ['Amplitude $A$', '$B_x$ component', '$B_y$ component', '$B_z$ component']
     fLabels = ['Amp', 'Bx', 'By', 'Bz']
     inductionTitle = f'\\textbf{{{Induction.bodyname} induction response}}'
@@ -262,7 +263,8 @@ def PlotInductOgram(Induction, Params):
         [ax.set_xscale('log') for ax in allAxes]
         [ax.set_yscale('log') for ax in allAxes]
         coords = {'Bx': (0,0), 'By': (0,1), 'Bz': (1,0), 'phase': (1,1)}
-        comboData = [Induction.Bix_nT, Induction.Biy_nT, Induction.Biz_nT, Induction.phase]
+        comboData = [np.abs(Induction.Bix_nT), np.abs(Induction.Biy_nT),
+                     np.abs(Induction.Biz_nT), Induction.phase]
         comboTitles = np.append(plotTitles[1:], phaseTitle)
         comboLabels = list(coords.keys())
 

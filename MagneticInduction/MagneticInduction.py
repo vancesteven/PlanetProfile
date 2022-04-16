@@ -35,6 +35,11 @@ def CalcInducedMoments(Planet, Params):
         Sets Planet attributes:
             Magnetic.Ae, Magnetic.Amp, Magnetic.phase, Magnetic.Binm_nT
     """
+    # Get lists of n and m values for linearizing Binm after we calculate. Also needed for
+    # asymmetric layer calculations, so we do this first.
+    nMax = Planet.Magnetic.nprmMax + Asymmetry.pMax
+    Planet.Magnetic.nLin = [n for n in range(1, nMax + 1) for _ in range(-n, n + 1)]
+    Planet.Magnetic.mLin = [m for n in range(1, nMax + 1) for m in range(-n, n + 1)]
 
     Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex_)
     if Planet.Magnetic.inductMethod == 'Eckhardt1963' or Planet.Magnetic.inductMethod == 'numeric':
@@ -73,13 +78,10 @@ def CalcInducedMoments(Planet, Params):
         if Params.INCLUDE_ASYM:
             # Use a separate function for evaluating asymmetric induced moments, as Binm is not as simple as
             # Aen * Benm for this case.
-            nMax = Planet.Magnetic.nprmMax + Asymmetry.pMax
-            nLin = [n for n in range(1, nMax+1) for _ in range(-n, n+1)]
-            mLin = [m for n in range(1, nMax+1) for m in range(-n, n+1)]
             Planet.Magnetic.Binm_nT = BiAsym(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                                             Planet.Magnetic.omegaExc_radps, Asymmetry.shape, Asymmetry.gravShape,
-                                            Planet.Magnetic.Benm_nT, 1/Planet.Bulk.R_m, nLin, mLin,
-                                            Asymmetry.pMax, nprm_max=Planet.Magnetic.nprmMax, 
+                                            Planet.Magnetic.Benm_nT, 1/Planet.Bulk.R_m, Planet.Magnetic.nLin,
+                                            Planet.Magnetic.mLin, Asymmetry.pMax, nprm_max=Planet.Magnetic.nprmMax,
                                             writeout=False, do_parallel=False)
         else:
             # Multiply complex response by Benm to get Binm for spherically symmetric case
@@ -88,6 +90,11 @@ def CalcInducedMoments(Planet, Params):
                                                 for iPeak in range(Planet.Magnetic.nExc)])
     else:
         raise ValueError(f'Induction method "{Planet.Magnetic.inductMethod}" not defined.')
+
+    # Get linear lists of Binm for more convenient post-processing
+    Planet.Magnetic.BinmLin_nT = np.array([Planet.Magnetic.Binm_nT[iPeak,int(m<0),n,m]
+                                           for n, m in zip(Planet.Magnetic.nLin, Planet.Magnetic.mLin)
+                                           for iPeak in range(Planet.Magnetic.nExc)])
 
     return Planet, Params
 

@@ -295,6 +295,9 @@ class MagneticSubstruct:
         self.Amp = None  # Amplitude (modulus) of magnetic excitation for spherically symmetric approximation for each excitation frequency (unitless)
         self.phase = None  # Phase delay of magnetic excitation for spherically symmetric approximation for each excitation frequency in degrees
         self.Binm_nT = None  # Induced magnetic moments relative to the body surface in nT
+        self.nLin = None  # Linear list of n values for output Binm with shape matching mLin, so that n,m pairs corresponding to each BinmLin are read as (n[j], m[j]) -> BinmLin[i, j]
+        self.mLin = None  # m values corresponding to each n in nLin
+        self.BinmLin_nT = None  # Linear form of Binm_nT, with shape (nExc, (nPrmMax+pMax+1)**2 - 1), such that BinmLin[i, j] = Binm[i, int(m[j]<0), n[j], m[j]]
 
 
 """ Main body profile info--settings and variables """
