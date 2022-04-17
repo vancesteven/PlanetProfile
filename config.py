@@ -53,7 +53,7 @@ Params.LEGEND = True  # Whether to include legends
 
 # Magnetic induction plot settings
 Params.DO_INDUCTOGRAM = True  # Whether to plot an inductogram for the body in question
-Params.COMBINE_BCOMPS = False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
+Params.COMBINE_BCOMPS = True  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
 Params.PLOT_FFT = True  # Whether to show plots of fourier space
 Params.DO_PER = True  # Convert frequency axes to periods for FFT plots
 Params.PLOT_CONTOURS = True  # Contours or surfaces
@@ -90,14 +90,14 @@ else:
     Params.maxCores = 1
     log.info('DO_PARALLEL is False. Blocking parallel execution.')
 # Create parallel printout log level
-Params.logParallel = log.WARN + 5
+log.PROFILE = log.WARN + 5
+Params.logParallel = log.PROFILE + 0
+log.addLevelName(log.PROFILE, 'PROFILE')
+log.Logger.profile = partialmethod(log.Logger.log, log.PROFILE)
+log.profile = partial(log.log, log.PROFILE)
 if Params.VERBOSE:
     # Allow debug messages to be printed if VERBOSE is selected
     Params.logParallel -= 30
 elif Params.QUIET:
     # Allow progress printout to be silenced if QUIET is selected
     Params.logParallel += 10
-log.PROFILE = Params.logParallel
-log.addLevelName(log.PROFILE, 'PROFILE')
-log.Logger.profile = partialmethod(log.Logger.log, log.PROFILE)
-log.profile = partial(log.log, log.PROFILE)

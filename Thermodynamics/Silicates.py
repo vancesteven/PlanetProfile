@@ -33,8 +33,8 @@ def SilicateLayers(Planet, Params):
         profRange = range(nProfiles)
 
     # Check if we set the core radius to 0, or a found C/MR^2 value (for constant-density approach)
-    if Planet.Core.Rmean_m is not None:
-        rSilEnd_m = Planet.Core.Rmean_m
+    if Planet.Core.Rset_m is not None:
+        rSilEnd_m = Planet.Core.Rset_m
     else:
         rSilEnd_m = 0
 

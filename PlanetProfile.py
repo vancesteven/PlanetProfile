@@ -406,6 +406,11 @@ def InitBayes(bodyname, fEnd):
     # Prevent unnecessary slowdowns and disk space usage
     Params.NO_SAVEFILE = True
     Params.SKIP_PLOTS = True
+    # Make sure CALC_NEW settings are as desired
+    Params.CALC_NEW = True
+    Params.CALC_NEW_INDUCT = True
+    # Quiet messages
+    log.basicConfig(level=log.WARN+5, format=Params.printFmt, force=True)
 
     # Fetch starting parameters
     Planet = importlib.import_module(f'{bodyname}.PP{bodyname}{fEnd}').Planet
@@ -447,12 +452,24 @@ def UpdateRun(Planet, Params, changes={}):
             Planet.Magnetic.sigmaIonosPedersen_Sm = value
         elif key == 'silPhi_frac':
             Planet.Sil.phiRockMax_frac = value
+            if value == 0:
+                Planet.Do.POROUS_ROCK = False
+            else:
+                Planet.Do.POROUS_ROCK = True
+            Planet.Do.CONSTANT_INNER_DENSITY = False
         elif key == 'silPclosure_MPa':
             Planet.Sil.Pclosure_MPa = value
+            Planet.Do.POROUS_ROCK = True
+            Planet.Do.CONSTANT_INNER_DENSITY = False
         elif key == 'icePhi_frac':
             Planet.Ocean.phiMax_frac['Ih'] = value
+            if value == 0:
+                Planet.Do.POROUS_ICE = False
+            else:
+                Planet.Do.POROUS_ICE = True
         elif key == 'icePclosure_MPa':
             Planet.Ocean.Pclosure_MPa['Ih'] = value
+            Planet.Do.POROUS_ICE = True
         elif key == 'Htidal_Wm3':
             Planet.Sil.Htidal_Wm3 = value
         elif key == 'Qrad_Wkg':

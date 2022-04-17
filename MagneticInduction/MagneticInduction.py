@@ -37,11 +37,15 @@ def CalcInducedMoments(Planet, Params):
     """
     # Get lists of n and m values for linearizing Binm after we calculate. Also needed for
     # asymmetric layer calculations, so we do this first.
-    nMax = Planet.Magnetic.nprmMax + Asymmetry.pMax
+    nMax = Planet.Magnetic.nprmMax + Planet.Magnetic.pMax
     Planet.Magnetic.nLin = [n for n in range(1, nMax + 1) for _ in range(-n, n + 1)]
     Planet.Magnetic.mLin = [m for n in range(1, nMax + 1) for m in range(-n, n + 1)]
+    nprmLin = [n for n in range(1, Planet.Magnetic.nprmMax + 1) for _ in range(-n, n + 1)]
+    mprmLin = [m for n in range(1, Planet.Magnetic.nprmMax + 1) for m in range(-n, n + 1)]
+    Nnmprm = np.size(nprmLin)
 
     Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex_)
+    Planet.Magnetic.BinmLin_nT = np.zeros((Planet.Magnetic.nExc, Nnmprm), dtype=np.complex_)
     if Planet.Magnetic.inductMethod == 'Eckhardt1963' or Planet.Magnetic.inductMethod == 'numeric':
         if Params.INCLUDE_ASYM:
             log.warning('Asymmetry can only be modeled with Srivastava1966 (layer) method, but ' +
@@ -85,16 +89,19 @@ def CalcInducedMoments(Planet, Params):
                                             writeout=False, do_parallel=False)
         else:
             # Multiply complex response by Benm to get Binm for spherically symmetric case
-            Planet.Magnetic.Binm_nT = np.array([n/(n+1) * Planet.Magnetic.Benm_nT[iPeak,:,n,:] * Planet.Magnetic.Aen[iPeak,n]
-                                                for n in range(1, Planet.Magnetic.nprmMax)
-                                                for iPeak in range(Planet.Magnetic.nExc)])
+            for iPeak in range(Planet.Magnetic.nExc):
+                for n in nprmLin:
+                    for m in mprmLin:
+                        Planet.Magnetic.Binm_nT[iPeak, int(m<0), n, m] \
+                            = n/(n+1) * Planet.Magnetic.Benm_nT[iPeak, int(m<0), n, m] * Planet.Magnetic.Aen[iPeak, n]
     else:
         raise ValueError(f'Induction method "{Planet.Magnetic.inductMethod}" not defined.')
 
     # Get linear lists of Binm for more convenient post-processing
-    Planet.Magnetic.BinmLin_nT = np.array([Planet.Magnetic.Binm_nT[iPeak,int(m<0),n,m]
-                                           for n, m in zip(Planet.Magnetic.nLin, Planet.Magnetic.mLin)
-                                           for iPeak in range(Planet.Magnetic.nExc)])
+    Planet.Magnetic.BinmLin_nT[:,:Nnmprm] \
+        = np.array([[Planet.Magnetic.Binm_nT[iPeak,int(m<0),n,m]
+                   for n, m in zip(Planet.Magnetic.nLin, Planet.Magnetic.mLin)]
+                   for iPeak in range(Planet.Magnetic.nExc)])
 
     return Planet, Params
 
@@ -149,8 +156,8 @@ def SetupInduction(Planet, Params):
             zIonos_m = []
             sigmaIonos_Sm = []
         else:
-            zIonos_m = Planet.Magnetic.ionosBounds_m
-            sigmaIonos_Sm = Planet.Magnetic.sigmaIonosPedersen_Sm
+            zIonos_m = Planet.Bulk.R_m + np.array(Planet.Magnetic.ionosBounds_m)
+            sigmaIonos_Sm = np.array(Planet.Magnetic.sigmaIonosPedersen_Sm)
             # Allow special case for specifying an ionosphere with 1 conductivity and 2 bounds, when
             # there is a substantial neutral atmosphere and the conducting region is at altitude
             # (e.g. for Triton)

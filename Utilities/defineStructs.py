@@ -210,6 +210,7 @@ class CoreSubstruct:
         self.Rmean_m = None  # Core radius for mean compatible moment of inertia (MoI)
         self.Rrange_m = None  # Core radius range for compatible MoI
         self.Rtrade_m = None  # Array of core radii for compatible MoIs
+        self.Rset_m = None  # Value to set the core outer radius to, when we have already found it via e.g. using CONSTANT_INNER_DENSITY = True. Used to recycle SilicateLayers when we don't want to do an MoI search with the EOS functions.
         #Re Steve- put all mass fraction stuff into a separate file until implemented later- remove from dataStructs.py
         #To implement: possible Meteoritics file/class?
         # 2021-12-30: Judging by usage of various different fractional variables in the literature and in
@@ -306,6 +307,10 @@ class PlanetStruct:
     # Require a body name as an argument for initialization; define instance attributes
     def __init__(self, name):
         self.name = name
+        if self.name[:4] == 'Test':
+            self.bodyname = 'Test'
+        else:
+            self.bodyname = self.name
 
         self.Bulk = BulkSubstruct()
         self.Do = DoSubstruct()

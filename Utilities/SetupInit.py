@@ -50,7 +50,11 @@ def SetupInit(Planet, Params):
 
     # Set steps and settings for unused options to zero, check that we have settings we need
     # Core settings
-    if not Planet.Do.Fe_CORE:
+    if Planet.Do.Fe_CORE:
+        # (Re)set a predefined core radius, i.e. from CONSTANT_INNER_DENSITY, so that we can
+        # check if it's None to see if we used that option.
+        Planet.Core.Rset_m = None
+    else:
         Planet.Steps.nCore = 0
 
     # Clathrates
@@ -212,11 +216,7 @@ def SetupInit(Planet, Params):
 def SetupFilenames(Planet, Params):
     """ Generate filenames for saving data and figures.
     """
-
-    if Planet.name[:4] == 'Test':
-        datPath = 'Test'
-    else:
-        datPath = Planet.name
+    datPath = Planet.bodyname
     figPath = os.path.join(datPath, 'figures')
 
     # Account for differing ocean/pore composition here, since we need it for filenames

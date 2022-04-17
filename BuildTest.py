@@ -12,6 +12,7 @@ import importlib, os, fnmatch, sys, time
 from copy import deepcopy
 from PlanetProfile import PlanetProfile, InductOgram, ReloadInductOgram
 from Plotting.ProfilePlots import PlotInductOgram
+from Test.TestBayes import TestBayes
 from config import Params
 
 def full():
@@ -117,6 +118,12 @@ def full():
     Params.DO_INDUCTOGRAM = False
     Params.NO_SAVEFILE = False
     Params.SKIP_INNER = False
+
+    # Test Bayesian analysis UpdateRun capabilities
+    PlanetBayes, _ = TestBayes('Europa')
+    PlanetBayes.saveLabel = 'Bayes'
+    TestPlanets = np.append(TestPlanets, PlanetBayes)
+    tMarks = np.append(tMarks, time.time())
 
     log.info('Testing complete!')
 

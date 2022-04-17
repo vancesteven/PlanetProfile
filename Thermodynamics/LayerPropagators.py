@@ -725,6 +725,8 @@ def CalcMoIConstantRho(Planet, Params):
     Planet.Steps.nHydro = iCMR2
     # Number of steps in the silicate layer is fixed for the constant-density approach
     Planet.Steps.nSil = Planet.Steps.nSilMax
+    # Use Rset_m to indicate that we have already determined the core size in using SilicateLayers
+    Planet.Core.Rset_m = Planet.Core.Rmean_m + 0.0
 
     if not Params.SKIP_INNER:
         Planet.Sil.fn_phi_frac = GetphiCalc(Planet.Sil.phiRockMax_frac, Planet.Sil.EOS.fn_phi_frac, Planet.Sil.phiMin_frac)
