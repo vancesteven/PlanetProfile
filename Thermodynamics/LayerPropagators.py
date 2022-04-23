@@ -584,7 +584,8 @@ def InnerLayers(Planet, Params):
     if Planet.Do.NO_H2O:
         Planet.D_km = 0
     else:
-        Planet.D_km = (Planet.Bulk.R_m - Planet.r_m[:-1][Planet.phase == 0][-1])/1e3 - Planet.zb_km
+        iOceanBot = np.where(Planet.phase == 0)[0][-1]
+        Planet.D_km = (Planet.Bulk.R_m - Planet.r_m[iOceanBot + 1])/1e3 - Planet.zb_km
 
     # Calculate total salt and water masses
     Planet.Mcore_kg = np.sum(Planet.MLayer_kg[iSC:iCC])
