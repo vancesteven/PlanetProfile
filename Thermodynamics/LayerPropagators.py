@@ -413,7 +413,7 @@ def OceanLayers(Planet, Params):
         MBelow_kg = Planet.Bulk.M_kg - MAbove_kg
         Planet.g_ms2[i] = Constants.G * MBelow_kg / Planet.r_m[i]**2
 
-    log.info(f'Ocean layers complete. zMax: {Planet.z_m[Planet.Steps.nSurfIce + Planet.Steps.nOceanMax - 1]:.2f} km, ' +
+    log.info(f'Ocean layers complete. zMax: {Planet.z_m[Planet.Steps.nSurfIce + Planet.Steps.nOceanMax - 1]/1e3:.1f} km, ' +
              f'upper ice thickness zb: {Planet.zb_km:.3f} km.')
 
     return Planet
@@ -603,7 +603,7 @@ def InnerLayers(Planet, Params):
                                         - Planet.r_m[iOS+1:iSC+1][silPhases != Constants.phaseSil]**3)
                                          * Planet.rhoPore_kgm3[iOS:iSC][silPhases != Constants.phaseSil]
                                          * Planet.phi_frac[iOS:iSC][silPhases != Constants.phaseSil]))
-    # The remainder is the ocean fluids, including H2O and salts.
+    # The remainder is the ocean fluids, including H2O and salts and pore spaces.
     Planet.Mfluid_kg = Planet.Mtot_kg - Planet.Mcore_kg - Planet.Mrock_kg - Planet.Mice_kg
     # Get the mass contained in clathrate layers and just the trapped gas
     Planet.Mclath_kg = np.sum(Planet.MLayer_kg[abs(Planet.phase) == Constants.phaseClath])
@@ -612,13 +612,15 @@ def InnerLayers(Planet, Params):
     Planet.Mocean_kg = np.sum(Planet.MLayer_kg[Planet.phase==0])
     # The difference is the amount contained in the pore space:
     Planet.MporeFluid_kg = Planet.Mfluid_kg - Planet.Mocean_kg
-    # Multiply mass concentration of solute to get total mass
-    Planet.Msalt_kg = Planet.Mfluid_kg * Planet.Ocean.wOcean_ppt / 1e3
+    # Multiply mass concentration of solute to get total mass of salt in ocean
+    Planet.MoceanSalt_kg = Planet.Mfluid_kg * Planet.Ocean.wOcean_ppt / 1e3
+    # Record the mass of salt in the pore space in case we want to track it separately
+    Planet.MporeSalt_kg = Planet.MporeFluid_kg * Planet.Sil.wPore_ppt / 1e3
+    # Combine these to get total salt content
+    Planet.Msalt_kg = Planet.MoceanSalt_kg + Planet.MporeSalt_kg
     # The remainder, plus ice mass excluding gasses in clathrates,
     # is the total mass contained in water molecules for the body
     Planet.MH2O_kg = Planet.Mfluid_kg - Planet.Msalt_kg + Planet.Mice_kg - Planet.MclathGas_kg
-    # Record the mass of salt in the pore space in case we want to track it separately
-    Planet.MporeSalt_kg = Planet.MporeFluid_kg * Planet.Ocean.wOcean_ppt / 1e3
 
     # Check for any negative temperature gradient (indicates non-equilibrium conditions)
     gradTneg = np.where(np.diff(Planet.T_K) < 0)

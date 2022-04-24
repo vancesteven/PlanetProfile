@@ -98,14 +98,14 @@ class OceanEOSStruct:
             elif compstr == 'Seawater':
                 self.type = 'GSW'
                 self.m_gmol = Constants.mH2O_gmol
-                if((self.T_K[0] <= 250) or (self.P_MPa[-1] > 250)):
+                if((self.Tmin <= 250) or (self.Pmax > Constants.PminHPices_MPa)):
                     log.warning('GSW handles only ice Ih for determining phases in the ocean. At ' +
                                 'low temperatures or high pressures, this model will be wrong as no ' +
                                 'high-pressure ice phases will be found.')
 
                 self.fn_phase = SwPhase(self.w_ppt)
                 self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK = SwProps(self.P_MPa, self.T_K, self.w_ppt)
-                self.ufn_Seismic = SwSeismic(self.w_ppt)
+                self.ufn_Seismic = SwSeismic(self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = SwConduct(self.w_ppt)
             elif compstr == 'NH3':
                 self.m_gmol = Constants.mNH3_gmol

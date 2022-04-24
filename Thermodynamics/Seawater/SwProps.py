@@ -3,8 +3,10 @@ import logging as log
 from Utilities.defineStructs import Constants
 from gsw.freezing import t_freezing as gswTfreeze
 from gsw.conversions import CT_from_t, C_from_SP as gswConduct_mScm
-from gsw.density import rho, alpha, sound_speed as gswVP_ms
+from gsw.density import rho, alpha as alphaCT, sound_speed as gswVP_ms
 from gsw.energy import enthalpy
+from gsw._wrapped_ufuncs import alpha_wrt_t_exact as alpha
+from Thermodynamics.FromLiterature.InnerEOS import ResetNearestExtrap
 
 def SwProps(P_MPa, T_K, wOcean_ppt):
     """ Determine density rho, heat capacity Cp, thermal expansivity alpha,
@@ -29,10 +31,15 @@ def SwProps(P_MPa, T_K, wOcean_ppt):
     rho_kgm3 = gswDensity_kgm3(wOcean_ppt, CT_C, SP_dbar)
 
     dCTdT, Cp_JkgK = GetdCTdTanddHdT(wOcean_ppt, CT_C, SP_dbar, T_C)
-    log.warning('The Python GSW package does not yet contain a calculation for alpha with respect to ' +
-                'in-situ temperature, which we use as T_K. alpha_pK will be scaled approximately by evaluating ' +
-                'd(CT_C)/d(T_K) numerically and multiplying this by the result from GSW.')
-    alpha_pK = gswExpansivity_pK(wOcean_ppt, CT_C, SP_dbar) * dCTdT
+    GSW_ALPHA_WRT_CT = False
+    if GSW_ALPHA_WRT_CT:
+        # Use only functions appearing in the main listing here
+        log.warning('The Python GSW package does not yet contain a calculation for alpha with respect to ' +
+                    'in-situ temperature in standard libraries, which we use as T_K. alpha_pK will be scaled ' +
+                    'approximately by evaluating d(CT_C)/d(T_K) numerically and multiplying this by the result from GSW.')
+        alpha_pK = gswExpansivityCT_pK(wOcean_ppt, CT_C, SP_dbar) * dCTdT
+    else:
+        alpha_pK = gswExpansivity_pK(wOcean_ppt, T_C, SP_dbar)
     kTherm_WmK = np.zeros_like(alpha_pK) + Constants.kThermWater_WmK  # Placeholder until we implement a self-consistent calculation
 
     return rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK
@@ -78,12 +85,20 @@ def gswDensity_kgm3(wOcean_ppt, CT_C, SP_dbar, DO_1D=False):
     return rho_kgm3
 
 
-def gswExpansivity_pK(wOcean_ppt, CT_C, SP_dbar):
+def gswExpansivityCT_pK(wOcean_ppt, CT_C, SP_dbar):
     """ Wrapper for GSW function alpha that can simultaneously handle
         P and T arrays.
     """
     alphawrtCT_pK = np.array([alpha(wOcean_ppt, CT_C[i,:], SP_dbar[i]) for i in range(np.size(SP_dbar))])
     return alphawrtCT_pK
+
+
+def gswExpansivity_pK(wOcean_ppt, T_C, SP_dbar):
+    """ Wrapper for GSW function alpha_wrt_t_exact that can simultaneously handle
+        P and T arrays.
+    """
+    alphawrt_pK = np.array([alpha(wOcean_ppt, T_C, SPi_dbar) for SPi_dbar in SP_dbar])
+    return alphawrt_pK
 
 
 def GetdCTdTanddHdT(wOcean_ppt, CT_C, SP_dbar, T_C, dT=0.01):
@@ -148,10 +163,14 @@ class SwPhase:
 
 
 class SwSeismic:
-    def __init__(self, wOcean_ppt):
+    def __init__(self, wOcean_ppt, EXTRAP):
         self.w_ppt = wOcean_ppt
+        self.EXTRAP = EXTRAP
 
     def __call__(self, P_MPa, T_K):
+        if not self.EXTRAP:
+            # Set extrapolation boundaries to limits inferred from GSW
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, 0, 200, 250, 365)
         T_C = T_K - Constants.T0
         SP_dbar = MPa2seaPressure(P_MPa)
         CT_C = gswT2conservT(self.w_ppt, T_C, SP_dbar, DO_1D=True)
