@@ -219,7 +219,13 @@ def PlotInductOgram(Induction, Params):
              np.abs(Induction.Biy_nT), np.abs(Induction.Biz_nT)]
     plotTitles = ['Amplitude $A$', '$B_x$ component', '$B_y$ component', '$B_z$ component']
     fLabels = ['Amp', 'Bx', 'By', 'Bz']
-    inductionTitle = f'\\textbf{{{Induction.bodyname} induction response}}'
+    compsList = Induction.oceanComp.flatten()
+    if np.all(compsList == compsList[0]) and Params.Induct.inductOtype != 'sigma':
+        compEnd = f', \ce{{{compsList[0]}}} ocean'
+    else:
+        compEnd = ''
+    inductionTitle = f'\\textbf{{{Induction.bodyname} induction response{compEnd}}}'
+    compareTitle = f'\\textbf{{{Induction.bodyname} induction response on different axes{compEnd}}}'
     phaseTitle = 'Phase delay $\\upphi$ ($^\circ$)'
     sigLabel = 'Mean conductivity $\overline{\sigma}$ ($\si{S/m}$)'
     Dlabel = 'Ocean thickness $D$ ($\si{km}$)'
@@ -320,6 +326,61 @@ def PlotInductOgram(Induction, Params):
 
             fig.savefig(Params.FigureFiles.induct['Bcomps'], format=FigMisc.figFormat, dpi=FigMisc.dpi)
             log.debug(f'Plot saved to file: {Params.FigureFiles.induct["Bcomps"]}')
+            plt.close()
+
+            # Also plot a comparison of Bx, which is usually the strongest oscillation
+            compChoice = 'Bx'
+            fig, axes = plt.subplots(2, 2, figsize=FigSize.inductCombo)
+            fig.subplots_adjust(wspace=0.25, hspace=0.35)
+            allAxes = axes.flatten()
+            fig.suptitle(compareTitle)
+            # Label all axes for clarity
+            [ax.set_xlabel(wLabel) for ax in axes[0,:]]
+            [ax.set_ylabel(yLabel) for ax in axes[0,:]]
+            [ax.set_xlabel(sigLabel) for ax in axes[1,:]]
+            [ax.set_ylabel(Dlabel) for ax in axes[1,:]]
+            [ax.set_xscale('log') for ax in allAxes]
+            [ax.set_yscale('log') for ax in axes[1,:]]
+            [ax.set_yscale(yScale) for ax in axes[0,:]]
+            [ax.set_xlim(sigLims) for ax in axes[1,:]]
+            [ax.set_ylim(Dlims) for ax in axes[1,:]]
+
+            axes[0,0].title.set_text(comboTitles[0])
+            axes[1,0].title.set_text(comboTitles[0])
+            axes[0,1].title.set_text(comboTitles[-1])
+            axes[1,1].title.set_text(comboTitles[-1])
+            zContours = [axes[0,0].contour(x, y, comboData[0][i, ...],
+                                    colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
+                                    linewidths=Style.LW_Induction[T],
+                                    levels=IndParams.GetClevels(comboLabels[0], T))
+                         for i, T in enumerate(Induction.Texc_hr.keys())]
+            phaseContours = [axes[0,1].contour(x, y, comboData[-1][i, ...],
+                                    colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
+                                    linewidths=Style.LW_Induction[T],
+                                    levels=IndParams.GetClevels(comboLabels[-1], T))
+                         for i, T in enumerate(Induction.Texc_hr.keys())]
+            [axes[1,0].contour(Induction.sigmaMean_Sm, Induction.D_km, comboData[0][i, ...],
+                                    colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
+                                    linewidths=Style.LW_Induction[T],
+                                    levels=IndParams.GetClevels(comboLabels[0], T))
+                         for i, T in enumerate(Induction.Texc_hr.keys())]
+            [axes[1,1].contour(Induction.sigmaMean_Sm, Induction.D_km, comboData[-1][i, ...],
+                                    colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
+                                    linewidths=Style.LW_Induction[T],
+                                    levels=IndParams.GetClevels(comboLabels[-1], T))
+                         for i, T in enumerate(Induction.Texc_hr.keys())]
+            [axes[0,0].clabel(zContours[i], fmt=IndParams.GetCfmt(comboLabels[0], T),
+                       fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
+                       for i, T in enumerate(Induction.Texc_hr.keys())]
+            [axes[0,1].clabel(phaseContours[i], fmt=IndParams.GetCfmt(comboLabels[-1], T),
+                       fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
+                       for i, T in enumerate(Induction.Texc_hr.keys())]
+
+            if FigMisc.LEGEND:
+                lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
+                axes[1,1].legend(lines[iSort], legendLabels[iSort], framealpha=FigMisc.cLegendOpacity)
+            fig.savefig(Params.FigureFiles.inductCompare[compChoice], format=FigMisc.figFormat, dpi=FigMisc.dpi)
+            log.debug(f'Plot saved to file: {Params.FigureFiles.inductCompare[compChoice]}')
             plt.close()
 
         # Set lists to just contain Amplitude now to reuse the remaining routines for that plot

@@ -17,7 +17,7 @@ class FigSizeStruct:
         self.vpvt4 = (3, 3)
         self.vpvt6 = (3, 3)
         self.vwedg = (3, 3)
-        self.induct = (8, 5)
+        self.induct = (8, 4)
         self.inductCombo = (8, 8)
 
 
