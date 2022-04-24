@@ -5,6 +5,7 @@ import logging as log
 from scipy.io import savemat, loadmat
 from copy import deepcopy
 from distutils.util import strtobool
+from collections.abc import Iterable
 from os.path import isfile
 from glob import glob as FilesMatchingPattern
 from config import Params as configParams
@@ -26,9 +27,9 @@ import multiprocessing as mtp
 mtpFork = mtp.get_context('fork')
 
 """ MAIN RUN BLOCK """
-def run(bodyname=None, opt=None):
+def run(bodyname=None, opt=None, fNames=None):
 
-    # Copy global Params settings to local variable to we can add things like filenames
+    # Copy global Params settings to local variable so we can add things like filenames
     Params = configParams
     # Set up message logging and apply verbosity level
     if Params.VERBOSE:
@@ -41,11 +42,15 @@ def run(bodyname=None, opt=None):
     log.getLogger('matplotlib').setLevel(log.WARNING)
     log.debug('Printing verbose runtime messages. Toggle with Params.VERBOSE in config.py.')
 
-    if bodyname is None or bodyname == '':
-        log.info('No body name entered. Defaulting to Europa.')
-        bodyname = 'Europa'
+    if fNames is None:
+        if bodyname is None or bodyname == '':
+            log.info('No body name entered. Defaulting to Europa.')
+            bodyname = 'Europa'
+        else:
+            bodyname = ''
     bodyname = bodyname.capitalize()
-    log.info(f'Body name: {bodyname}')
+    if bodyname != '':
+        log.info(f'Body name: {bodyname}')
 
     if Params.DEBUG:
         # Compare to test Matlab output
@@ -53,60 +58,26 @@ def run(bodyname=None, opt=None):
         CompareProfile(Planet, Params, os.path.join('Europa', 'EuropaProfile_Seawater_0WtPpt_Tb269.800K_mat.txt'))
         exit()
 
-    if opt is not None:
-        if opt == 'clear':
-            fNamesToClear = FilesMatchingPattern(os.path.join(bodyname, '*.txt'))
-            if len(fNamesToClear) > 0:
-                log.info(f'Clearing previous run files for {bodyname}:')
-                for fName in fNamesToClear:
-                    log.info(f'    {fName}')
-                    os.remove(fName)
-                log.info(f'{bodyname} files cleared.')
-            else:
-                log.warning(f'Attempted to remove previous run files for {bodyname}, but found none.')
-            if not Params.CALC_NEW:
-                log.warning('CALC_NEW is set to False in config.py, but files are being cleared. ' +
-                            'CALC_NEW has been forced on for this run.')
-                Params.CALC_NEW = True
-        elif opt == 'compare':
-            log.info('Comparing with other profiles from this body.')
-            Params.COMPARE = True
-        elif opt == 'all':
-            log.info(f'Running all available profiles for {bodyname}.')
-            Params.COMPARE = True
-        elif opt == 'inductogram':
-            Params.DO_INDUCTOGRAM = True
-            Params.NO_SAVEFILE = True
-        else:
-            log.warning(f'Unrecognized option: {opt}. Skipping.')
+    if opt is not None or fNames is not None:
+        Params, fNames = ExecOpts(Params, bodyname, opt, fNames=fNames)
 
     """ Run PlanetProfile """
     if Params.DO_INDUCTOGRAM:
         Induction, Params = InductOgram(bodyname, Params)
         PlotInductOgram(Induction, Params)
     else:
-        # Get model names from body directory.
-        models = FilesMatchingPattern(os.path.join(f'{bodyname}', f'PP{bodyname}*.py'))
-        # Splitting on PP and taking the -1 chops the path out, then taking
-        # all but the last 3 characters chops the .py extension
-        models = [model.split('PP')[-1][:-3] for model in models]
-        nModels = np.size(models)
-        Params.nModels = nModels
-        PlanetList = np.empty(nModels, dtype=object)
-        # If there is a standard profile, make sure it is run first
-        if bodyname in models:
-            models.remove(bodyname)
-            models.insert(0, bodyname)
+        Params, loadNames = LoadPPfiles(Params, fNames, bodyname=bodyname)
+        PlanetList = np.empty(Params.nModels, dtype=object)
         # Run main model first, so that it always appears as 0-index
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
-        PlanetList[0] = importlib.import_module(f'{bodyname}.PP{models[0]}').Planet
+        PlanetList[0] = importlib.import_module(loadNames[0]).Planet
         PlanetList[0].index = 1
         PlanetList[0], Params = PlanetProfile(PlanetList[0], Params)
         tMarks = np.append(tMarks, time.time())
         if Params.RUN_ALL_PROFILES:
-            for i,model in enumerate(models[1:]):
-                PlanetList[i+1] = deepcopy(importlib.import_module(f'{bodyname}.PP{model}').Planet)
+            for i,loadName in enumerate(loadNames[1:]):
+                PlanetList[i+1] = deepcopy(importlib.import_module(loadName).Planet)
                 PlanetList[i+1].index = i+2
                 PlanetList[i+1], Params = PlanetProfile(PlanetList[i+1], Params)
                 tMarks = np.append(tMarks, time.time())
@@ -114,7 +85,7 @@ def run(bodyname=None, opt=None):
             # Plot combined figures
             if not Params.SKIP_PLOTS and Params.COMPARE:
                 Params.FigureFiles = FigureFilesSubstruct(
-                    bodyname, os.path.join('figures', f'{bodyname}Comparison'), Params.FigMisc.xtn)
+                    PlanetList[0].name, os.path.join('figures', f'{PlanetList[0].name}Comparison'), FigMisc.xtn)
                 GeneratePlots(PlanetList, Params)
         else:
             PlanetList = PlanetList[:1]
@@ -125,7 +96,7 @@ def run(bodyname=None, opt=None):
         """ Post-processing """
         # Loading BodyProfile...txt files to plot them together
         if Params.COMPARE and not Params.RUN_ALL_PROFILES:
-            fNamesToCompare = np.array(FilesMatchingPattern(os.path.join(bodyname, f'{bodyname}Profile*.txt')))
+            fNamesToCompare = np.array(FilesMatchingPattern(os.path.join(PlanetList[0].name, f'{PlanetList[0].name}Profile*.txt')))
             isProfile = [Params.DataFiles.saveFile != fName and 'mantle' not in fName for fName in fNamesToCompare]
             fProfiles = fNamesToCompare[isProfile]
             nCompare = np.size(fProfiles) + 1
@@ -138,7 +109,7 @@ def run(bodyname=None, opt=None):
             # Plot combined figures
             if not Params.SKIP_PLOTS:
                 Params.FigureFiles = FigureFilesSubstruct(
-                    bodyname, os.path.join('figures', f'{bodyname}Comparison'), Params.FigMisc.xtn)
+                    CompareList[0].name, os.path.join('figures', f'{CompareList[0].name}Comparison'), FigMisc.xtn)
                 GeneratePlots(CompareList, Params)
 
         if Params.DISP_LAYERS:
@@ -211,6 +182,58 @@ def PrintCompletion(Planet, Params):
             ending = f'. Approx.{remain} remaining.'
     log.profile(f'Profile{indicator} complete{ending}')
     return
+
+
+def ExecOpts(Params, bodyname, opt, fNames=None):
+    """ Actions to take if opt is passed to run(). Params may be changed,
+        so we return Params.
+    """
+
+    if opt is not None:
+        if opt == 'clear':
+            fNamesToClear = FilesMatchingPattern(os.path.join(bodyname, '*.txt'))
+            if len(fNamesToClear) > 0:
+                log.info(f'Clearing previous run files for {bodyname}:')
+                for fName in fNamesToClear:
+                    log.info(f'    {fName}')
+                    os.remove(fName)
+                log.info(f'{bodyname} files cleared.')
+            else:
+                log.warning(f'Attempted to remove previous run files for {bodyname}, but found none.')
+            if not Params.CALC_NEW:
+                log.warning('CALC_NEW is set to False in config.py, but files are being cleared. ' +
+                            'CALC_NEW has been forced on for this run.')
+                Params.CALC_NEW = True
+        elif opt == 'compare':
+            log.info('Comparing with other profiles from this body.')
+            Params.COMPARE = True
+        elif opt == 'all':
+            log.info(f'Running all available profiles for {bodyname}.')
+            Params.RUN_ALL_PROFILES = True
+            Params.COMPARE = True
+        elif opt == 'inductogram':
+            Params.DO_INDUCTOGRAM = True
+            Params.NO_SAVEFILE = True
+        else:
+            log.warning(f'Unrecognized option: {opt}. Skipping.')
+
+    if fNames is not None:
+        # Set up fNames as a list of filenames to load and run
+        Params.SPEC_FILE = True
+        if np.size(fNames) == 1:
+            fNames = [fNames]
+        else:
+            Params.RUN_ALL_PROFILES = True
+            Params.COMPARE = True
+        for fName in fNames:
+            if not os.path.exists(os.path.join(bodyname, fName)):
+                log.warning(f'{os.path.join(bodyname, fName)} does not exist. Skipping.')
+                fNames.remove(fName)
+
+        if np.size(fNames) == 0:
+            raise ValueError('None of the specified PP files were found.')
+
+    return Params, fNames
 
 
 def WriteProfile(Planet, Params):
@@ -341,8 +364,8 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     log.info(f'Reloading previously saved run from file: {Params.DataFiles.saveFile}')
     log.debug(f'Steps.n settings from PP{Planet.name}.py will be ignored.')
     if not isfile(Params.DataFiles.saveFile):
-        raise ValueError('CALC_NEW is set to False in config.py but the reload file was not found.\n' +
-                         'Re-run with CALC_NEW set to True to generate the profile.')
+        raise ValueError(f'CALC_NEW is set to False in config.py but the reload file at {Params.DataFiles.saveFile} ' +
+                         'was not found.\nRe-run with CALC_NEW set to True to generate the profile.')
 
     with open(Params.DataFiles.saveFile) as f:
         # Get legend label for differentiating runs
@@ -417,7 +440,7 @@ def InitBayes(bodyname, fEnd):
     return Planet, Params
 
 
-def UpdateRun(Planet, Params, changes={}):
+def UpdateRun(Planet, Params, changes=None):
     """ Wrapper for editing the settings of Planet using a dict naming the changes.
 
         Args:
@@ -437,6 +460,9 @@ def UpdateRun(Planet, Params, changes={}):
                 ionosBounds_m: Ionosphere boundary altitudes above the surface in m in Planet.Magnetic.ionosBounds_m. Correspond to outer radii of each sigma below of same index.
                 sigmaIonos_Sm: Ionosphere Pedersen conductivities in S/m in Planet.Magnetic.sigmaIonosPedersen_Sm. Must have same length as ionosBounds_m
     """
+    if changes is None:
+        log.warning('No changes passed to UpdateRun.')
+        changes = {}
 
     for key, value in changes.items():
         if key == 'wOcean_ppt':
@@ -747,13 +773,30 @@ def ParPlanet(PlanetList, Params):
     return PlanetList
 
 
-def RunPPfile(bodyname, fName):
-    """ Loads the settings in bodyname/fName.py to run or reload a specific model. """
-    bodyname = bodyname.capitalize()
-    Planet = deepcopy(importlib.import_module(f'{bodyname}.{fName}').Planet)
-    Planet, Params = PlanetProfile(Planet, configParams)
+def LoadPPfiles(Params, fNames, bodyname=''):
+    """ Loads the settings in bodyname/fName.py to run or reload a specific model
+        or models.
+    """
+    if Params.SPEC_FILE and fNames is not None:
+        if bodyname == '':
+            loadNames = [fName.replace('.py', '') for fName in fNames]
+        else:
+            loadNames = ['.'.join([bodyname, fName.replace('.py', '')]) for fName in fNames]
+    else:
+        # Get model names from body directory.
+        models = FilesMatchingPattern(os.path.join(f'{bodyname}', f'PP{bodyname}*.py'))
+        # Splitting on PP and taking the -1 chops the path out, then taking
+        # all but the last 3 characters chops the .py extension
+        models = [model.split('PP')[-1][:-3] for model in models]
+        # If there is a standard profile, make sure it is run first
+        if bodyname in models:
+            models.remove(bodyname)
+            models.insert(0, bodyname)
+        loadNames = ['.'.join([bodyname, f'PP{model}']) for model in models]
 
-    return Planet, Params
+    Params.nModels = np.size(loadNames)
+
+    return Params, loadNames
 
 
 def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):
@@ -1004,17 +1047,29 @@ if __name__ == '__main__':
     # Command line args
     nArgs = len(sys.argv)
     clArg = None
-    if nArgs > 1:
+    fNames = None
+    if nArgs > 1 and 'PP' not in sys.argv[1]:
         # Body name was passed as command line argument
         bodyname = sys.argv[1]
 
         # Additional command line arguments
         if nArgs > 2:
-            clArg = sys.argv[2]
-            if nArgs > 3:
-                log.warning(f'Too many command line args passed. Ignoring command "{sys.argv[3]}" and any after it.')
+            if 'PP' in sys.argv[2]:
+                log.debug('PP in CL arg 2 -- interpreting as (list of) filename(s).')
+                fNames = sys.argv[2:]
+            else:
+                clArg = sys.argv[2]
+                if nArgs > 3:
+                    if 'PP' in sys.argv[3]:
+                        fNames = sys.argv[3:]
+                    else:
+                        log.warning(f'Too many command line args passed. Ignoring command "{sys.argv[3]}" and any after it.')
+    elif 'PP' in sys.argv[1]:
+        log.debug('PP in first CL arg -- interpreting as (list of) filename(s).')
+        fNames = sys.argv[1:]
+        bodyname = ''
     else:
         # No command line argument, ask user which body to run
         bodyname = input('Please input body name: ')
 
-    run(bodyname=bodyname, opt=clArg)
+    run(bodyname=bodyname, opt=clArg, fNames=fNames)

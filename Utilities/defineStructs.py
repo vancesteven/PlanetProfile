@@ -378,7 +378,8 @@ class PlanetStruct:
         self.Mrock_kg = None  # Total mass contained in silicate rock (just the matrix, when layers are porous)
         self.Mcore_kg = None  # Total mass contained in iron core material
         self.Mice_kg = None  # Total mass contained in all ice phases, including gas trapped in clathrates
-        self.Msalt_kg = None  # Total mass contained in ocean solute
+        self.Msalt_kg = None  # Total mass contained in solutes
+        self.MoceanSalt_kg = None  # Total mass contained in ocean solute in ocean layers
         self.MporeSalt_kg = None  # Total mass contained in ocean solute in pore spaces
         self.Mocean_kg = None  # Total mass contained in ocean fluids, including H2O and salts, excluding pores
         self.Mfluid_kg = None  # Sum of the masses in ocean and pore spaces
@@ -395,11 +396,17 @@ class DataFilesSubstruct:
         if inductBase is None:
             inductBase = saveBase
         self.path = datPath
+        self.inductPath = os.path.join(self.path, 'induction')
+        if not os.path.isdir(self.path):
+            os.makedirs(self.path)
+        if not os.path.isdir(self.inductPath):
+            os.makedirs(self.inductPath)
+
         self.fName = os.path.join(self.path, saveBase)
         self.saveFile = self.fName + '.txt'
         self.mantCoreFile = self.fName + '_mantleCore.txt'
         self.permFile = self.fName + '_mantlePerm.txt'
-        self.fNameInduct = os.path.join(self.path, 'induction', saveBase)
+        self.fNameInduct = os.path.join(self.inductPath, saveBase)
         self.inductLayersFile = self.fNameInduct + '_inductLayers.txt'
         self.inducedMomentsFile = self.fNameInduct + '_inducedMoments.txt'
         self.fNameInductOgram = os.path.join(self.path, 'induction', inductBase)
@@ -411,10 +418,16 @@ class DataFilesSubstruct:
 class FigureFilesSubstruct:
     def __init__(self, figPath, figBase, xtn, inductBase=None):
         if inductBase is None:
-            inductBase = saveBase
+            inductBase = figBase
         self.path = figPath
+        self.inductPath = os.path.join(self.path, 'induction')
+        if not os.path.isdir(self.path):
+            os.makedirs(self.path)
+        if not os.path.isdir(self.inductPath):
+            os.makedirs(self.inductPath)
         self.fName = os.path.join(self.path, figBase)
-        self.fNameInductOgram = os.path.join(self.path, 'induction', inductBase)
+        self.fNameInductOgram = os.path.join(self.inductPath, inductBase)
+
 
         # Figure filename strings
         vsP = 'Porosity_vs_P'
@@ -445,6 +458,7 @@ class FigureFilesSubstruct:
         self.vpvt4 = self.fName + vpvt4 + xtn
         self.vpvt6 = self.fName + vpvt6 + xtn
         self.induct = {zType: self.fNameInductOgram + induct + f'_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
+        self.inductCompare = {zType: self.fNameInductOgram + f'Compare_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
         self.sigma = {zType: self.fNameInductOgram + sigma + f'_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
         self.sigmaOnly = {zType: self.fNameInductOgram + sigma + f'Only_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
 
@@ -455,7 +469,6 @@ class ParamsStruct:
         self.Colors = None
         self.FigSize = None
         self.Style = None
-        self.Misc = None
         self.Induct = None  # Induction calculation settings
         self.MagSpectrum = None  # Excitation spectrum settings
         self.cLevels = None  # Contour level specifications
@@ -468,6 +481,7 @@ class EOSlistStruct:
         pass
     loaded = {}  # Dict listing the loaded EOSs. Since we define this attribute outside of __init__, it will be common to all EOSlist structs when set.
     ranges = {}  # Dict listing the P, T ranges of the loaded EOSs.
+
 
 """ Physical constants """
 class ConstantsStruct:

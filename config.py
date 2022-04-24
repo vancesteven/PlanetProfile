@@ -28,7 +28,8 @@ Params.CALC_NEW_REF =     True  # Recalculate reference melting curve densities?
 Params.CALC_NEW_INDUCT =  True  # Recalculate magnetic induction responses?
 Params.CALC_SEISMIC =     True  # Calculate sound speeds and elastic moduli?
 Params.CALC_CONDUCT =     True  # Calculate electrical conductivity?
-Params.RUN_ALL_PROFILES = True  # Whether to run all PPBody.py files for the named body and plot together
+Params.RUN_ALL_PROFILES = False  # Whether to run all PPBody.py files for the named body and plot together
+Params.SPEC_FILE =        False  # Whether we are running a specific file or files
 Params.COMPARE =          True  # Whether to plot each new run against other runs from the same body
 Params.DO_PARALLEL =      True  # Use multiprocessing module for parallel computation where applicable
 Params.SKIP_INNER =       False  # Whether to skip past everything but ocean calculations after MoI matching (for large induction studies)
@@ -52,8 +53,8 @@ Params.PLOT_WEDGE = False  # Whether to plot interior wedge diagram
 Params.LEGEND = True  # Whether to include legends
 
 # Magnetic induction plot settings
-Params.DO_INDUCTOGRAM = True  # Whether to plot an inductogram for the body in question
-Params.COMBINE_BCOMPS = True  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
+Params.DO_INDUCTOGRAM = False  # Whether to plot an inductogram for the body in question
+Params.COMBINE_BCOMPS = False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
 Params.PLOT_FFT = True  # Whether to show plots of fourier space
 Params.DO_PER = True  # Convert frequency axes to periods for FFT plots
 Params.PLOT_CONTOURS = True  # Contours or surfaces

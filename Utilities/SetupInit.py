@@ -26,7 +26,7 @@ def SetupInit(Planet, Params):
         log.info('Modeling a waterless body.')
         if Planet.Bulk.qSurf_Wm2 is None:
             raise ValueError('Bulk.qSurf_Wm2 must be set in order to model waterless bodies.')
-        Planet.Ocean.QfromMantle_W = Planet.Bulk.qSurf_Wm2 * 4 * np.pi * Planet.Bulk.R_m ** 2
+        Planet.Ocean.QfromMantle_W = Planet.Bulk.qSurf_Wm2 * 4*np.pi * Planet.Bulk.R_m**2
         Planet.Pb_MPa = Planet.Bulk.Psurf_MPa
         Planet.PbI_MPa = Planet.Bulk.Psurf_MPa
         Planet.Sil.PHydroMax_MPa = Planet.Bulk.Psurf_MPa

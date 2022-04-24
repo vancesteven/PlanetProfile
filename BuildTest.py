@@ -120,7 +120,7 @@ def full():
     Params.SKIP_INNER = False
 
     # Test Bayesian analysis UpdateRun capabilities
-    PlanetBayes, _ = TestBayes('Europa')
+    PlanetBayes, _ = TestBayes('Test')
     PlanetBayes.saveLabel = 'Bayes'
     TestPlanets = np.append(TestPlanets, PlanetBayes)
     tMarks = np.append(tMarks, time.time())

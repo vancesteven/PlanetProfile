@@ -11,11 +11,14 @@ def PrintLayerTable(PlanetList, Params):
     bodyMass = f'Body mass (kg): {PlanetList[0].Bulk.M_kg:.5e}'
     computedMass = 'Computed mass (kg): ' + ', '.join([f'{Planet.Mtot_kg:.5e}' for Planet in PlanetList])
     inputCMR2 = f'Input C/MR^2: {PlanetList[0].Bulk.Cmeasured} ± {PlanetList[0].Bulk.Cuncertainty}'
+    if (np.any([Planet.Bulk.Cmeasured != PlanetList[0].Bulk.Cmeasured for Planet in PlanetList])
+        or np.any([Planet.Bulk.Cuncertainty != PlanetList[0].Bulk.Cuncertainty for Planet in PlanetList])):
+        log.warning('One or more moment of inertia parameters do not match the first profile. Only ' +
+                    'the first profile\'s parameters will be printed.')
     belowCMR2 =    '            (-)  ' + ', '.join([f'{Planet.CMR2less:.5f}' for Planet in PlanetList])
     computedCMR2 = 'Computed C/MR^2: ' + ', '.join([f'{Planet.CMR2mean:.5f}' for Planet in PlanetList])
     aboveCMR2 =    '            (+)  ' + ', '.join([f'{Planet.CMR2more:.5f}' for Planet in PlanetList])
-    TbK = 'Tb (K): ' + ', '.join([f'{Planet.Bulk.Tb_K}' for Planet in PlanetList])
-    zUpper = 'zb (km): ' + ', '.join([f'{Planet.zb_km:.1f}' for Planet in PlanetList])
+    zUpper = 'z_b (km): ' + ', '.join([f'{Planet.zb_km:.1f}' for Planet in PlanetList])
     # Note the below-surface-ice "wet hydrosphere" thickness separately from the liquid ocean thickness
     wetHydro = 'Total wet hydrosphere (km): ' + ', '.join([f'{(Planet.z_m[Planet.Steps.nHydro]/1e3 - Planet.zb_km):.1f}' for Planet in PlanetList])
     oceanThick = 'Ocean thickness D (km): ' + ', '.join([f'{Planet.D_km:.1f}' for Planet in PlanetList])
@@ -32,9 +35,17 @@ def PrintLayerTable(PlanetList, Params):
     yesPorousIce = np.any([Planet.Do.POROUS_ICE for Planet in PlanetList])
     if Params.ALWAYS_SHOW_PHI or yesPorousRock:
         poreSigma = f'{endl}Mean pore σ (S/m): ' + ', '.join([f'{Planet.Sil.sigmaPoreMean_Sm:.2f}' for Planet in PlanetList])
-        phiRockMax = f'{endl}Max ϕsil (%): ' + ', '.join([f'{Planet.phi_frac[Planet.Steps.nHydro]*100:.1f}' for Planet in PlanetList])
+        phiRockMax = f'{endl}{endl}Max ϕsil (%): ' + ', '.join([f'{Planet.phi_frac[Planet.Steps.nHydro]*100:.1f}' for Planet in PlanetList])
     if Params.ALWAYS_SHOW_PHI or yesPorousIce:
         phiIceMax = f'{endl}Max ϕice (%): ' + ', '.join([f'{Planet.phi_frac[0]*100:.1f}' for Planet in PlanetList])
+
+    # Temperatures and heat flux
+    TbK = 'T_b (K): ' + ', '.join([f'{Planet.Bulk.Tb_K}' for Planet in PlanetList])
+    TsilK = 'T_sil (K): ' + ', '.join([f'{Planet.T_K[Planet.Steps.nHydro]:.1f}' for Planet in PlanetList])
+    TCMBK = 'T_CMB (K): ' + ', '.join([f'{Planet.T_K[Planet.Steps.nHydro + Planet.Steps.nSil]:.1f}' for Planet in PlanetList])
+    TcenterK = 'T_center (K): ' + ', '.join([f'{Planet.T_K[Planet.Steps.nTotal-1]:.1f}' for Planet in PlanetList])
+    qOcean = 'qOcBot (mW/m^2): ' + ', '.join([f'{1e3*Planet.Ocean.QfromMantle_W/(4*np.pi*Planet.Sil.Rmean_m**2):.1f}' for Planet in PlanetList])
+    qSurf = 'qSurf (mW/m^2): ' + ', '.join([f'{1e3*Planet.Ocean.QfromMantle_W/(4*np.pi*Planet.Bulk.R_m**2):.1f}' for Planet in PlanetList])
 
     # Only print HP ice values if they are present or forced on
     yesClath = np.any([np.any(abs(Planet.phase) == Constants.phaseClath) for Planet in PlanetList])
@@ -64,6 +75,21 @@ def PrintLayerTable(PlanetList, Params):
             f'{Planet.z_m[Planet.Steps.nHydro]/1e3 - Planet.D_km - Planet.zb_km:.1f}'
             for Planet in PlanetList])
 
+    MfracH2O = f'Mass fraction H2O (%): ' + ', '.join([f'{100*Planet.MH2O_kg/Planet.Mtot_kg:.1f}' for Planet in PlanetList])
+    MfracSalt = f'Mass fraction solutes (%): ' + ', '.join([f'{100*Planet.Msalt_kg/Planet.Mtot_kg:.1f}' for Planet in PlanetList])
+    MfracSil = f'Mass fraction silicates (%): ' + ', '.join([f'{100*Planet.Mrock_kg/Planet.Mtot_kg:.1f}' for Planet in PlanetList])
+    MfracFe = f'Mass fraction iron core (%): ' + ', '.join([f'{100*Planet.Mcore_kg/Planet.Mtot_kg:.1f}' for Planet in PlanetList])
+
+    minRFe =  '               (-)  ' + ', '.join([f'{np.min(Planet.Core.Rtrade_m)/1e3:.1f}' for Planet in PlanetList])
+    bestRFe = 'Best fit R_Fe (km): ' + ', '.join([f'{Planet.Core.Rmean_m/1e3:.1f}' for Planet in PlanetList])
+    maxRFe =  '               (+)  ' + ', '.join([f'{np.max(Planet.Core.Rtrade_m)/1e3:.1f}' for Planet in PlanetList])
+    minRsil =  '                (-)  ' + ', '.join([f'{np.min(Planet.Sil.Rtrade_m)/1e3:.1f}' for Planet in PlanetList])
+    bestRsil = 'Best fit R_sil (km): ' + ', '.join([f'{Planet.Sil.Rmean_m/1e3:.1f}' for Planet in PlanetList])
+    maxRsil =  '                (+)  ' + ', '.join([f'{np.max(Planet.Sil.Rtrade_m)/1e3:.1f}' for Planet in PlanetList])
+    minrhoSil =  '                    (-)  ' + ', '.join([f'{np.min(Planet.Sil.rhoTrade_kgm3):.1f}' for Planet in PlanetList])
+    bestrhoSil = 'Best fit ρ_sil (kg/m^3): ' + ', '.join([f'{Planet.Sil.rhoMean_kgm3:.1f}' for Planet in PlanetList])
+    maxrhoSil =  '                    (+)  ' + ', '.join([f'{np.max(Planet.Sil.rhoTrade_kgm3):.1f}' for Planet in PlanetList])
+
     log.info(f"""
     {models}
     {bodyMass}
@@ -72,11 +98,32 @@ def PrintLayerTable(PlanetList, Params):
     {belowCMR2}
     {computedCMR2}
     {aboveCMR2}
-    {TbK}
     {zUpper}
     {oceanThick}
-    {oceanSigma}{poreSigma}
+    {TbK}
+    {TsilK}
+    {TCMBK}
+    {TcenterK}
+    {qOcean}
+    {qSurf}
+    {oceanSigma}{poreSigma}{phiRockMax}{phiIceMax}
+    
     {zIceI}{zClath}{zIceIII}{zIceV}{zIceVI}{dzClath}{dzIceIII}{dzIceV}{dzIceVI}{dzIceVandVI}
-    {wetHydro}{phiRockMax}{phiIceMax}
+    {wetHydro}
+    
+    {MfracH2O}
+    {MfracSalt}
+    {MfracSil}
+    {MfracFe}
+    
+    {minRFe}
+    {bestRFe}
+    {maxRFe}
+    {minRsil}
+    {bestRsil}
+    {maxRsil}
+    {minrhoSil}
+    {bestrhoSil}
+    {maxrhoSil}
     """)
     return
