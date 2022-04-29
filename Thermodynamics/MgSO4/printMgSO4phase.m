@@ -26,7 +26,9 @@ function printMgSO4phase
         end
         disp(['Finished i = ' num2str(i) '/' num2str(nPs) ', approx. ' tRemStr(86400*(now-tStart), i, nPs) 'remaining.'])
     end
-    save('phaseLookupMgSO4', 'P_MPa', 'T_K', 'w_ppt', 'phase');
+    fName = 'phaseLookupMgSO4';
+    save(fName, 'P_MPa', 'T_K', 'w_ppt', 'phase');
+    disp(['Phase lookup table printed to ' fullfile(pwd, [fName '.mat']) '.'])
 end
 
 function tStr = tRemStr(t, i, N)
