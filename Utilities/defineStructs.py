@@ -82,6 +82,12 @@ class StepsSubstruct:
         self.nPsHP = 150  # Number of interpolation steps to use for getting HP ice EOS (pressures)
         self.nTsHP = 100  # Number of interpolation steps to use for getting HP ice EOS (temperatures)
         self.nPoros = 10  # Number of steps in porosity to use in geometric series between phiMin and phiMax for porous rock when no core is present
+        self.iCond = []  # Logical array to select indices corresponding to surface ice I
+        self.iConv = []  # As above, for convecting ice I (and lower TBL)
+        self.iCondIII = []  # As above, for conducting ice III
+        self.iConvIII = []  # As above, for convecting ice III
+        self.iCondV = []  # As above, for conducting ice V
+        self.iConvV = []  # As above, for convecting ice V
 
 
 """ Hydrosphere assumptions """
@@ -94,9 +100,23 @@ class OceanSubstruct:
         self.sigmaTop_Sm = None  # Conductivity of shallowest ocean layer
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
+        self.Vtot_kg = None  # Total volume of all ocean layers
+        self.rhoMean_kgm3 = None  # Mean density for ocean layers
+        self.rhoCondImean_kgm3 = None  # Mean density for conducting ice I layers
+        self.rhoConvImean_kgm3 = None  # Mean density for convecting ice I layers
+        self.rhoCondIIImean_kgm3 = None  # Mean density for conducting ice III layers
+        self.rhoConvIIImean_kgm3 = None  # Mean density for convecting ice III layers
+        self.rhoCondVmean_kgm3 = None  # Mean density for conducting ice V layers
+        self.rhoConvVmean_kgm3 = None  # Mean density for convecting ice V layers
+        self.sigmaCondImean_Sm = None  # Mean conductivity for conducting ice I layers
+        self.sigmaConvImean_Sm = None  # Mean conductivity for convecting ice I layers
+        self.sigmaCondIIImean_Sm = None  # Mean conductivity for conducting ice III layers
+        self.sigmaConvIIImean_Sm = None  # Mean conductivity for convecting ice III layers
+        self.sigmaCondVmean_Sm = None  # Mean conductivity for conducting ice V layers
+        self.sigmaConvVmean_Sm = None  # Mean conductivity for convecting ice V layers
         self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
         self.dkdTI_WmK2 = -0.012  # Temperature derivative of ice I relative to the melting temp. Default is from Melinder (2007).
-        self.sigmaIce_Sm = {'Ih':1e-8, 'II':1e-8, 'III':1e-8, 'V':1e-8, 'VI':1e-8, 'Clath':5e-5}  # Assumed conductivity of ice phases (see Constants.sigmaClath_Sm below)
+        self.sigmaIce_Sm = {'Ih':1e-8, 'II':1e-8, 'III':1e-8, 'V':1e-8, 'VI':1e-8, 'Clath':5e-5}  # Assumed conductivity of solid ice phases (see Constants.sigmaClath_Sm below)
         self.THydroMax_K = 320  # Assumed maximum ocean temperature for generating ocean EOS functions. For large bodies like Ganymede, Callisto, and Titan, larger values are required.
         self.PHydroMax_MPa = None  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
         self.MgSO4elecType = 'Vance2018'  # Type of electrical conductivity model to use for MgSO4. Options: 'Vance2018', 'Pan2020'
@@ -181,6 +201,7 @@ class SilSubstruct:
         self.Rrange_m = None  # Mantle radius range for compatible MoI
         self.Rtrade_m = None  # Array of mantle radii for compatible MoIs
         self.rhoMean_kgm3 = None  # Mean mantle density determined from MoI calculations
+        self.sigmaMean_Sm = None  # Mean conductivity across all silicate layers, ignoring spherical effects
         self.rhoTrade_kgm3 = None  # Array of mantle densities for compatible MoIs for core vs. mantle tradeoff plot
         self.mFluids = None  # WIP for tracking loss of fluids along the geotherm -- needs a better name.
         # The below not necessary to be implemented until later (says Steve), these 5 are based on DPS presentation in 2017 – 5 diff models of permeability
@@ -207,6 +228,7 @@ class CoreSubstruct:
         # Derived quantities
         self.rho_kgm3 = None  # Core bulk density consistent with assumed mixing ratios of Fe, FeS, etc.
         self.rhoMean_kgm3 = None  # Core bulk density calculated from final MoI match using EOS properties
+        self.sigmaMean_Sm = None  # Mean conductivity across all core layers, ignoring spherical effects
         self.Rmean_m = None  # Core radius for mean compatible moment of inertia (MoI)
         self.Rrange_m = None  # Core radius range for compatible MoI
         self.Rtrade_m = None  # Array of core radii for compatible MoIs
@@ -340,6 +362,7 @@ class PlanetStruct:
         self.phi_frac = None  # Porosity of each layer's material as a fraction of void/solid
         self.sigma_Sm = None  # Electrical conductivity (sigma) in S/m of each conducting layer
         self.MLayer_kg = None  # Mass of each layer in kg
+        self.VLayer_m3 = None  # Volume of each layer in m^3
         self.kTherm_WmK = None  # Thermal conductivity of each layer in W/(m K)
         self.Htidal_Wm3 = None  # Tidal heating rate of each layer in W/m^3
         self.Ppore_MPa = None  # Pressure of fluids assumed to occupy full pore space
@@ -365,15 +388,21 @@ class PlanetStruct:
         self.etaConv_Pas = None  # Viscosity of ice I at Tconv_K
         self.etaConvIII_Pas = None  # Same as above but for ice III underplate layers.
         self.etaConvV_Pas = None  # Same as above but for ice V underplate layers.
-        self.eLid_m = None  # Thickness of conducting stagnant lid layer
+        self.eLid_m = None  # Thickness of conducting stagnant lid layer in m.
         self.eLidIII_m = None  # Same as above but for ice III underplate layers.
         self.eLidV_m = None  # Same as above but for ice V underplate layers.
-        self.deltaTBL_m = None  # Thickness of lower thermal boundary layer when Htidal = 0 in the ice
+        self.Dconv_m = None  # Thickness of convecting layer in m.
+        self.DconvIII_m = None  # Same as above but for ice III underplate layers.
+        self.DconvV_m = None  # Same as above but for ice V underplate layers.
+        self.deltaTBL_m = None  # Thickness of lower thermal boundary layer in m when Htidal = 0 in the ice
         self.deltaTBLIII_m = None  # Same as above but for ice III underplate layers.
         self.deltaTBLV_m = None  # Same as above but for ice V underplate layers.
-        self.RaConvect = None  # Rayleigh number of putative convective layer within the ice I layers. If this number is below Constants.RaCrit, convection does not occur.
+        self.RaConvect = None  # Rayleigh number of putative convective layer within the ice I layers. If this number is below Planet.RaCrit, convection does not occur.
         self.RaConvectIII = None  # Same as above but for ice III underplate layers.
         self.RaConvectV = None  # Same as above but for ice V underplate layers.
+        self.RaCrit = None  # Critical Rayleigh number that determines whether or not we model convection.
+        self.RaCritIII = None  # Same as above but for ice III underplate layers.
+        self.RaCritV = None  # Same as above but for ice V underplate layers.
         self.MH2O_kg = None  # Total mass of water molecules contained in ice, liquid, and pore spaces
         self.Mrock_kg = None  # Total mass contained in silicate rock (just the matrix, when layers are porous)
         self.Mcore_kg = None  # Total mass contained in iron core material

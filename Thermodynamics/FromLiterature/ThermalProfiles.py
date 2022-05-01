@@ -113,7 +113,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
                    'Only conduction will be modeled in this layer.')
         # Set conductive layer thicknesses to whole shell thickness to force a whole-layer conductive profile
         eLid_m = zb_m
-        deltaTBL_m = zb_m
+        deltaTBL_m = 0.0
         Tconv_K = Ttop_K
 
     if not EQUIL_Q:
@@ -129,9 +129,10 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         # Dcond = np.array([np.nan, 632, 418, 242, np.nan, 328, 183])
         # qbot_Wm2 = Dcond[phase] * np.log(Tb_K/Ttop_K) / zb_m
 
+    Dconv_m = zb_m - eLid_m - deltaTBL_m
     Qbot_W = qBot_Wm2 * 4*np.pi * (rTop_m - zb_m)**2
 
-    return Tconv_K, etaConv_Pas, eLid_m, deltaTBL_m, Qbot_W, Ra
+    return Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit
 
 
 def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2):

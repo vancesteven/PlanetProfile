@@ -176,6 +176,11 @@ def IceLayers(Planet, Params):
                     Planet = IceIConvectSolid(Planet, Params)
     else:
         if Planet.Do.NO_ICE_CONVECTION: log.debug('NO_ICE_CONVECTION is True -- skipping ice I convection calculations.')
+        Planet.eLid_m = Planet.z_m[Planet.Steps.nSurfIce]
+        Planet.Dconv_m = 0.0
+        Planet.deltaTBL_m = 0.0
+        Planet.RaConvect = np.nan
+        Planet.RaCrit = np.nan
         # Find the surface heat flux from the conductive profile. This assumes there is no tidal heating!
         Planet.Ocean.QfromMantle_W = Planet.kTherm_WmK[Planet.Steps.nIbottom-2] * Planet.T_K[Planet.Steps.nIbottom-2] / \
                                      (Planet.z_m[Planet.Steps.nIbottom-1] - Planet.z_m[Planet.Steps.nIbottom-2]) \
@@ -239,6 +244,9 @@ def IceIIIUnderplate(Planet, Params):
                 Planet = IceIIIConvectSolid(Planet, Params)
     else:
         log.debug('NO_ICE_CONVECTION is True -- skipping ice III convection calculations.')
+        Planet.eLidIII_m = Planet.Planet.z_m[Planet.Steps.nIIIbottom-1]
+        Planet.DconvIII_m = 0.0
+        Planet.deltaTBLIII_m = 0.0
 
     return Planet
 
@@ -277,6 +285,9 @@ def IceVUnderplate(Planet, Params):
                 Planet = IceVConvectSolid(Planet, Params)
     else:
         log.debug('NO_ICE_CONVECTION is True -- skipping ice V convection calculations.')
+        Planet.eLidV_m = Planet.Planet.z_m[Planet.Steps.nSurfIce-1]
+        Planet.DconvV_m = 0.0
+        Planet.deltaTBLV_m = 0.0
 
     return Planet
 
@@ -621,6 +632,13 @@ def InnerLayers(Planet, Params):
     # The remainder, plus ice mass excluding gasses in clathrates,
     # is the total mass contained in water molecules for the body
     Planet.MH2O_kg = Planet.Mfluid_kg - Planet.Msalt_kg + Planet.Mice_kg - Planet.MclathGas_kg
+    # Get the mean density of ocean layers and conducting/convecting upper ice layers
+    Planet.VLayer_m3 = 4/3*np.pi * (Planet.r_m[:-1]**3 - Planet.r_m[1:]**3)
+    Planet.Ocean.Vtot_m3 = np.sum(Planet.VLayer_m3[Planet.phase == 0])
+    if Planet.Do.NO_H2O:
+        Planet.Ocean.rhoMean_kgm3 = np.nan
+    else:
+        Planet.Ocean.rhoMean_kgm3 = Planet.Mocean_kg / Planet.Ocean.Vtot_m3
 
     # Check for any negative temperature gradient (indicates non-equilibrium conditions)
     gradTneg = np.where(np.diff(Planet.T_K) < 0)
@@ -763,8 +781,8 @@ def CalcMoIConstantRho(Planet, Params):
             coreProps = None
 
         Planet.Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
-        log.info(f'Found matching MoI of {Planet.CMR2mean:.3f} ' +
-                 f'(C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}) for ' +
+        log.info(f'Found matching MoI of {Planet.CMR2mean:.4f} ' +
+                 f'(C/MR^2 = {Planet.Bulk.Cmeasured:.4f}±{Planet.Bulk.Cuncertainty:.4f}) for ' +
                  f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                  f'R_core = {Planet.Core.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                  f'rho_sil (found) = {rhoSil_kgm3[iCMR2inner]:.0f} kg/m^3, ' +
@@ -774,8 +792,8 @@ def CalcMoIConstantRho(Planet, Params):
                     'sizes by assuming constant densities, the body mass may not match the measured value.')
 
     else:
-        log.info(f'Found matching MoI of {Planet.CMR2mean:.3f} ' +
-                 f'(C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}) for ' +
+        log.info(f'Found matching MoI of {Planet.CMR2mean:.4f} ' +
+                 f'(C/MR^2 = {Planet.Bulk.Cmeasured:.4f}±{Planet.Bulk.Cuncertainty:.4f}) for ' +
                  f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                  f'R_core = {Planet.Core.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                  f'rho_sil = {rhoSil_kgm3[iCMR2inner]:.0f} kg/m^3, ' +
@@ -1042,8 +1060,8 @@ def CalcMoIWithEOS(Planet, Params):
         coreProps = None
 
     Planet.Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
-    log.info(f'Found matching MoI of {Planet.CMR2mean:.3f} ' +
-             f'(C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}) for ' +
+    log.info(f'Found matching MoI of {Planet.CMR2mean:.4f} ' +
+             f'(C/MR^2 = {Planet.Bulk.Cmeasured:.4f}±{Planet.Bulk.Cuncertainty:.4f}) for ' +
              f'rho_sil = {Planet.Sil.rhoMean_kgm3:.0f} kg/m^3, ' +
              f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}, ' +
              RcoreOrHtidalLine +

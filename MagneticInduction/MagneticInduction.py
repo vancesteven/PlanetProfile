@@ -150,7 +150,7 @@ def SetupInduction(Planet, Params):
 
     # Reconfigure layer conducting boundaries as needed.
     # For inductOtype == 'sigma', we have already set these arrays.
-    if not Params.Induct.inductOtype == 'sigma':
+    if not Params.Induct.inductOtype == 'sigma' or not Params.DO_INDUCTOGRAM:
         # Append optional ionosphere
         if Planet.Magnetic.ionosBounds_m is None:
             zIonos_m = []

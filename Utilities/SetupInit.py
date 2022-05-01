@@ -39,6 +39,7 @@ def SetupInit(Planet, Params):
         Planet.Ocean.comp = 'none'
         Planet.Ocean.wOcean_ppt = 0.0
         Planet.Ocean.deltaP = 0.0
+        Planet.Do.NO_ICE_CONVECTION = True
         if Planet.Do.POROUS_ROCK:
             # Generate zero-yielding ocean "EOS" for use in porosity calculations
             # Note that there must be enough input points for creating spline
@@ -84,8 +85,23 @@ def SetupInit(Planet, Params):
         if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:
             Planet.Steps.nIceIIILitho = 0
             Planet.Steps.nIceVLitho = 0
+            Planet.RaConvectIII = np.nan
+            Planet.RaConvectV = np.nan
+            Planet.RaCritIII = np.nan
+            Planet.RaCritV = np.nan
+            Planet.eLidIII_m = 0
+            Planet.eLidV_m = 0
+            Planet.DconvIII_m = 0
+            Planet.DconvV_m = 0
+            Planet.deltaTBLIII_m = 0
+            Planet.deltaTBLV_m = 0
         elif not Planet.Do.BOTTOM_ICEV:
             Planet.Steps.nIceVLitho = 0
+            Planet.RaConvectV = np.nan
+            Planet.RaCritV = np.nan
+            Planet.eLidV_m = 0
+            Planet.DconvV_m = 0
+            Planet.deltaTBLV_m = 0
             if(Planet.Ocean.PHydroMax_MPa < 209.9):
                 raise ValueError('Hydrosphere max pressure is less than the pressure of the ice I-III phase transition, ' +
                                  'but Do.BOTTOM_ICEIII is True.')
@@ -108,16 +124,12 @@ def SetupInit(Planet, Params):
 
         # Get ocean EOS functions
         POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
-        # Set T arrays to use the precision of the specified Tb_K value, or Planet.Ocean.deltaT if set
+        # Set Ocean.deltaT to use default of 0.1 K but recommend the user to set
         if Planet.Ocean.deltaT is None:
-            if(round(Planet.Bulk.Tb_K,1) == Planet.Bulk.Tb_K):
-                Planet.Ocean.deltaT = 1e-1
-            elif(round(Planet.Bulk.Tb_K,2) == Planet.Bulk.Tb_K):
-                Planet.Ocean.deltaT = 1e-2
-            elif(round(Planet.Bulk.Tb_K,3) == Planet.Bulk.Tb_K):
-                Planet.Ocean.deltaT = 1e-3
-            else:
-                Planet.Ocean.deltaT = 1e-4
+            Planet.Ocean.deltaT = 1e-1
+            log.warning('Ocean.deltaT is not set--defaulting to 0.1 K. This may not be precise enough ' +
+                        'for shallow oceans. It is recommended to set Ocean.deltaT manually in the ' +
+                        'PPBody.py file.')
         # Check ocean parameter space, and prevent setup from taking forever if we have a deep ocean:
         if Planet.Ocean.THydroMax_K < Planet.Bulk.Tb_K:
             raise ValueError(f'Ocean.THydroMax_K of {Planet.Ocean.THydroMax_K} is less than Bulk.Tb_K of {Planet.Bulk.Tb_K}.')
@@ -130,6 +142,24 @@ def SetupInit(Planet, Params):
                                        Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                        scalingType=Planet.Ocean.MgSO4scalingType,
                                        phaseType=Planet.Ocean.MgSO4phaseType, EXTRAP=Params.EXTRAP_OCEAN)
+
+    # Make sure convection checking outputs are set if we won't be modeling them
+    if Planet.Do.NO_ICE_CONVECTION:
+        Planet.RaConvect = np.nan
+        Planet.RaConvectIII = np.nan
+        Planet.RaConvectV = np.nan
+        Planet.RaCrit = np.nan
+        Planet.RaCritIII = np.nan
+        Planet.RaCritV = np.nan
+        Planet.eLid_m = 0.0
+        Planet.eLidIII_m = 0.0
+        Planet.eLidV_m = 0.0
+        Planet.Dconv_m = 0.0
+        Planet.DconvIII_m = 0.0
+        Planet.DconvV_m = 0.0
+        Planet.deltaTBL_m = 0.0
+        Planet.deltaTBLIII_m = 0.0
+        Planet.deltaTBLV_m = 0.0
 
     # Porous rock
     if Planet.Do.POROUS_ROCK:

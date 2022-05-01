@@ -28,15 +28,17 @@ def IceIConvectSolid(Planet, Params):
     Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[phaseTop].fn_kTherm_WmK(Pmid_MPa, Planet.Bulk.Tb_K)
 
     # Run calculations to get convection layer parameters
-    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, Planet.RaConvect = \
+    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvect, Planet.RaCrit = \
         ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
                                      zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.EOS,
                                      Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q)
 
     log.debug(f'Ice I convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
               f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
-              f'    Conductive lid thickness eLid_m = {Planet.eLid_m/1e3:.1f} km,\n' +
-              f'    Lower TBL thickness deltaTBL_m = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
+              f'    Conductive lid thickness eLid = {Planet.eLid_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBL = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
               f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
 
     # Check for whole-lid conduction
@@ -172,15 +174,17 @@ def IceIConvectPorous(Planet, Params):
                            Planet.Ocean.JkTherm)
 
     # Run calculations to get convection layer parameters
-    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, Planet.RaConvect = \
+    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvect, Planet.RaCrit = \
         ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
                                      zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.EOS,
                                      Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q)
 
     log.debug(f'Ice I convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
               f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
-              f'    Conductive lid thickness eLid_m = {Planet.eLid_m/1e3:.1f} km,\n' +
-              f'    Lower TBL thickness deltaTBL_m = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
+              f'    Conductive lid thickness eLid = {Planet.eLid_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBL = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
               f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
 
     # Check for whole-lid conduction
@@ -324,16 +328,17 @@ def IceIIIConvectSolid(Planet, Params):
     PmidIII_MPa = (Planet.PbIII_MPa + Planet.PbI_MPa) / 2
 
     # Run calculations to get convection layer parameters
-    Planet.TconvIII_K, Planet.etaConvIII_Pas, Planet.eLidIII_m, Planet.deltaTBLIII_m, Planet.Ocean.QfromMantle_W,\
-        Planet.RaConvectIII = ConvectionDeschampsSotin2001(Planet.Bulk.Tb_K, Planet.r_m[Planet.Steps.nIbottom],
+    Planet.TconvIII_K, Planet.etaConvIII_Pas, Planet.eLidIII_m, Planet.DconvIII_m, Planet.deltaTBLIII_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvectIII, Planet.RaCritIII = ConvectionDeschampsSotin2001(Planet.Bulk.Tb_K, Planet.r_m[Planet.Steps.nIbottom],
                                      Planet.kTherm_WmK[Planet.Steps.nIbottom], Planet.Bulk.TbIII_K, zbIII_m,
                                      Planet.g_ms2[Planet.Steps.nIbottom], PmidIII_MPa, Planet.Ocean.EOS,
                                      Planet.Ocean.surfIceEOS['III'], 3, Planet.Do.EQUIL_Q)
 
     log.debug(f'Ice III convection parameters:\n    T_convectIII = {Planet.TconvIII_K:.3f} K,\n' +
               f'    Viscosity etaConvectIII = {Planet.etaConvIII_Pas:.3e} Pa*s,\n' +
-              f'    Conductive lid thickness eLidIII_m = {Planet.eLidIII_m/1e3:.1f} km,\n' +
-              f'    Lower TBL thickness deltaTBLIII_m = {Planet.deltaTBLIII_m/1e3:.1f} km,\n' +
+              f'    Conductive lid thickness eLidIII = {Planet.eLidIII_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness DconvIII = {Planet.DconvIII_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBLIII = {Planet.deltaTBLIII_m/1e3:.1f} km,\n' +
               f'    Rayleigh number RaIII = {Planet.RaConvectIII:.3e}.')
 
     # Check for whole-lid conduction
@@ -416,16 +421,17 @@ def IceIIIConvectPorous(Planet, Params):
     # correct for porosity, unlike in the ice Ih/clathrate functions.
 
     # Run calculations to get convection layer parameters
-    Planet.TconvIII_K, Planet.etaConvIII_Pas, Planet.eLidIII_m, Planet.deltaTBLIII_m, Planet.Ocean.QfromMantle_W,\
-        Planet.RaConvectIII = ConvectionDeschampsSotin2001(Planet.Bulk.Tb_K, Planet.r_m[Planet.Steps.nIbottom],
+    Planet.TconvIII_K, Planet.etaConvIII_Pas, Planet.eLidIII_m, Planet.DconvIII_m, Planet.deltaTBLIII_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvectIII, Planet.RaCritIII = ConvectionDeschampsSotin2001(Planet.Bulk.Tb_K, Planet.r_m[Planet.Steps.nIbottom],
                                      Planet.kTherm_WmK[Planet.Steps.nIbottom], Planet.Bulk.TbIII_K, zbIII_m,
                                      Planet.g_ms2[Planet.Steps.nIbottom], PmidIII_MPa, Planet.Ocean.EOS,
                                      Planet.Ocean.surfIceEOS['III'], 3, Planet.Do.EQUIL_Q)
 
     log.debug(f'Ice III convection parameters:\n    T_convectIII = {Planet.TconvIII_K:.3f} K,\n' +
               f'    Viscosity etaConvectIII = {Planet.etaConvIII_Pas:.3e} Pa*s,\n' +
-              f'    Conductive lid thickness eLidIII_m = {Planet.eLidIII_m/1e3:.1f} km,\n' +
-              f'    Lower TBL thickness deltaTBLIII_m = {Planet.deltaTBLIII_m/1e3:.1f} km,\n' +
+              f'    Conductive lid thickness eLidIII = {Planet.eLidIII_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness DconvIII = {Planet.DconvIII_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBLIII = {Planet.deltaTBLIII_m/1e3:.1f} km,\n' +
               f'    Rayleigh number RaIII = {Planet.RaConvectIII:.3e}.')
 
     # Check for whole-lid conduction
@@ -515,16 +521,17 @@ def IceVConvectSolid(Planet, Params):
     PmidV_MPa = (Planet.PbV_MPa + Planet.PbIII_MPa) / 2
 
     # Run calculations to get convection layer parameters
-    Planet.TconvV_K, Planet.etaConvV_Pas, Planet.eLidV_m, Planet.deltaTBLV_m, Planet.Ocean.QfromMantle_W,\
-        Planet.RaConvectV = ConvectionDeschampsSotin2001(Planet.Bulk.TbIII_K, Planet.r_m[Planet.Steps.nIIIbottom],
+    Planet.TconvV_K, Planet.etaConvV_Pas, Planet.eLidV_m, Planet.DconvV_m, Planet.deltaTBLV_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvectV, Planet.RaCritV = ConvectionDeschampsSotin2001(Planet.Bulk.TbIII_K, Planet.r_m[Planet.Steps.nIIIbottom],
                                      Planet.kTherm_WmK[Planet.Steps.nIIIbottom], Planet.Bulk.TbV_K, zbV_m,
                                      Planet.g_ms2[Planet.Steps.nIIIbottom], PmidV_MPa, Planet.Ocean.EOS,
                                      Planet.Ocean.surfIceEOS['V'], 5, Planet.Do.EQUIL_Q)
 
     log.debug(f'Ice V convection parameters:\n    T_convectV = {Planet.TconvV_K:.3f} K,\n' +
               f'    Viscosity etaConvectV = {Planet.etaConvV_Pas:.3e} Pa*s,\n' +
-              f'    Conductive lid thickness eLidV_m = {Planet.eLidV_m/1e3:.1f} km,\n' +
-              f'    Lower TBL thickness deltaTBLV_m = {Planet.deltaTBLV_m/1e3:.1f} km,\n' +
+              f'    Conductive lid thickness eLidV = {Planet.eLidV_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness DconvV = {Planet.DconvV_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBLV = {Planet.deltaTBLV_m/1e3:.1f} km,\n' +
               f'    Rayleigh number RaV = {Planet.RaConvectV:.3e}.')
 
     # Check for whole-lid conduction
@@ -609,16 +616,17 @@ def IceVConvectPorous(Planet, Params):
     PmidV_MPa = (Planet.PbV_MPa + Planet.PbIII_MPa) / 2
 
     # Run calculations to get convection layer parameters
-    Planet.TconvV_K, Planet.etaConvV_Pas, Planet.eLidV_m, Planet.deltaTBLV_m, Planet.Ocean.QfromMantle_W,\
-        Planet.RaConvectV = ConvectionDeschampsSotin2001(Planet.Bulk.TbIII_K, Planet.r_m[Planet.Steps.nIIIbottom],
+    Planet.TconvV_K, Planet.etaConvV_Pas, Planet.eLidV_m, Planet.DconvV_m, Planet.deltaTBLV_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvectV, Planet.RaCritV = ConvectionDeschampsSotin2001(Planet.Bulk.TbIII_K, Planet.r_m[Planet.Steps.nIIIbottom],
                                      Planet.kTherm_WmK[Planet.Steps.nIIIbottom], Planet.Bulk.TbV_K, zbV_m,
                                      Planet.g_ms2[Planet.Steps.nIIIbottom], PmidV_MPa, Planet.Ocean.EOS,
                                      Planet.Ocean.surfIceEOS['V'], 5, Planet.Do.EQUIL_Q)
 
     log.debug(f'Ice V convection parameters:\n    T_convectV = {Planet.TconvV_K:.3f} K,\n' +
               f'    Viscosity etaConvectV = {Planet.etaConvV_Pas:.3e} Pa*s,\n' +
-              f'    Conductive lid thickness eLidV_m = {Planet.eLidV_m/1e3:.1f} km,\n' +
-              f'    Lower TBL thickness deltaTBLV_m = {Planet.deltaTBLV_m/1e3:.1f} km,\n' +
+              f'    Conductive lid thickness eLidV = {Planet.eLidV_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness DconvV = {Planet.DconvV_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBLV = {Planet.deltaTBLV_m/1e3:.1f} km,\n' +
               f'    Rayleigh number RaV = {Planet.RaConvectV:.3e}.')
 
     # Check for whole-lid conduction
@@ -714,15 +722,17 @@ def ClathShellConvectSolid(Planet, Params):
     Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.P_MPa[0], Planet.Bulk.Tb_K)
 
     # Run calculations to get convection layer parameters
-    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, Planet.RaConvect = \
+    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvect, Planet.RaCrit = \
         ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
                                      zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.surfIceEOS['Clath'],
                                      Planet.Ocean.surfIceEOS['Clath'], Constants.phaseClath, Planet.Do.EQUIL_Q)
 
     log.debug(f'Clathrate shell convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
               f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
-              f'    Conductive lid thickness eLid_m = {Planet.eLid_m/1e3:.1f} km,\n' +
-              f'    Lower TBL thickness deltaTBL_m = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
+              f'    Conductive lid thickness eLid = {Planet.eLid_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBL = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
               f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
 
     # Check for whole-lid conduction
@@ -799,15 +809,17 @@ def ClathShellConvectPorous(Planet, Params):
     Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.P_MPa[0], Planet.Bulk.Tb_K)
 
     # Run calculations to get convection layer parameters
-    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, Planet.RaConvect = \
+    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvect, Planet.RaCrit = \
         ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
                                      zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.surfIceEOS['Clath'],
                                      Planet.Ocean.surfIceEOS['Clath'], Constants.phaseClath, Planet.Do.EQUIL_Q)
 
     log.debug(f'Clathrate shell convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
               f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
-              f'    Conductive lid thickness eLid_m = {Planet.eLid_m/1e3:.1f} km,\n' +
-              f'    Lower TBL thickness deltaTBL_m = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
+              f'    Conductive lid thickness eLid = {Planet.eLid_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBL = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
               f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
 
     # Check for whole-lid conduction
