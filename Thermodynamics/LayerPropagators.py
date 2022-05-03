@@ -637,8 +637,13 @@ def InnerLayers(Planet, Params):
     Planet.Ocean.Vtot_m3 = np.sum(Planet.VLayer_m3[Planet.phase == 0])
     if Planet.Do.NO_H2O:
         Planet.Ocean.rhoMean_kgm3 = np.nan
+        Planet.Ocean.Tmean_K = np.nan
     else:
         Planet.Ocean.rhoMean_kgm3 = Planet.Mocean_kg / Planet.Ocean.Vtot_m3
+        # Get average ocean temperature by summing the total heat energy in the
+        # ocean and dividing by the total heat storage capacity
+        oceanHeat_pK = Planet.Cp_JkgK[Planet.phase == 0] * Planet.MLayer_kg[Planet.phase == 0]
+        Planet.Ocean.Tmean_K = np.sum(Planet.T_K[Planet.phase == 0] * oceanHeat_pK) / np.sum(oceanHeat_pK)
 
     # Check for any negative temperature gradient (indicates non-equilibrium conditions)
     gradTneg = np.where(np.diff(Planet.T_K) < 0)
@@ -769,7 +774,7 @@ def CalcMoIConstantRho(Planet, Params):
                                indsSilValid, nSilTooBig, nProfiles, Psil_MPa, Tsil_K, rSil_m, MAboveSil_kg, gSil_ms2)
 
             MtotCore_kg = np.sum(MLayerCore_kg)
-            Planet.Core.rhoMean_kgm3 = MtotCore_kg / VCore_m3[iCMR2inner]
+            Planet.Core.rhoMean_kgm3 = MtotCore_kg / VCore_m3[nTooBig:][iCMR2inner]
 
             coreProps = (Pcore_MPa, Tcore_K, rCoreEOS_m[0,:-1], gCore_ms2, rhoCore_kgm3, CpCore_JkgK, alphaCore_pK,
                          kThermCore_WmK, MLayerCore_kg)
