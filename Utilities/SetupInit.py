@@ -271,7 +271,7 @@ def SetupFilenames(Planet, Params):
     label = ''
     if Planet.Do.NO_H2O:
         saveLabel += f'NoH2O_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
-        label += f'${Planet.Bulk.qSurf_Wm2*1e3:.0f}\,\si{{mW/m^2}}$'
+        label += f'No \ce{{H2O}}, $q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*1e3:.1f}\,\si{{mW/m^2}}$'
     else:
         if Planet.Ocean.comp == 'PureH2O':
             saveLabel += f'{Planet.Ocean.comp}_Tb{Planet.Bulk.Tb_K}K'
