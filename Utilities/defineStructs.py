@@ -122,7 +122,7 @@ class OceanSubstruct:
         self.dkdTI_WmK2 = -0.012  # Temperature derivative of ice I relative to the melting temp. Default is from Melinder (2007).
         self.sigmaIce_Sm = {'Ih':1e-8, 'II':1e-8, 'III':1e-8, 'V':1e-8, 'VI':1e-8, 'Clath':5e-5}  # Assumed conductivity of solid ice phases (see Constants.sigmaClath_Sm below)
         self.THydroMax_K = 320  # Assumed maximum ocean temperature for generating ocean EOS functions. For large bodies like Ganymede, Callisto, and Titan, larger values are required.
-        self.PHydroMax_MPa = None  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
+        self.PHydroMax_MPa = 200  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
         self.MgSO4elecType = 'Vance2018'  # Type of electrical conductivity model to use for MgSO4. Options: 'Vance2018', 'Pan2020'
         self.MgSO4scalingType = 'Vance2018'  # Type of scaling to apply to Larionov and Kryukov model. Options: 'Vance2018', 'LK1984'
         self.MgSO4rhoType = 'Millero'  # Type of water density model to use in Larionov and Kryukov model. Options: 'Millero', 'SeaFreeze'
@@ -450,9 +450,9 @@ class DataFilesSubstruct:
             inductBase = saveBase
         self.path = datPath
         self.inductPath = os.path.join(self.path, 'inductionData')
-        if not os.path.isdir(self.path):
+        if not self.path == '' and not os.path.isdir(self.path):
             os.makedirs(self.path)
-        if not os.path.isdir(self.inductPath):
+        if not self.inductPath == '' and not os.path.isdir(self.inductPath):
             os.makedirs(self.inductPath)
 
         self.fName = os.path.join(self.path, saveBase)
@@ -480,9 +480,9 @@ class FigureFilesSubstruct:
             self.comp = comp
         self.path = figPath
         self.inductPath = os.path.join(self.path, 'induction')
-        if not os.path.isdir(self.path):
+        if not self.path == '' and not os.path.isdir(self.path):
             os.makedirs(self.path)
-        if not os.path.isdir(self.inductPath):
+        if not self.inductPath == '' and not os.path.isdir(self.inductPath):
             os.makedirs(self.inductPath)
         self.fName = os.path.join(self.path, figBase)
         self.fNameInductOgram = os.path.join(self.inductPath, self.inductBase + self.comp)
@@ -526,6 +526,8 @@ class FigureFilesSubstruct:
 """ General parameter options """
 class ParamsStruct:
     def __init__(self):
+        self.DataFiles = DataFilesSubstruct('', '', '')
+        self.FigureFiles = FigureFilesSubstruct('', '', '')
         self.Colors = None
         self.FigSize = None
         self.Style = None

@@ -12,7 +12,7 @@ from config import Params as configParams
 
 # Import all function definitions for this file
 from Utilities.SetupInit import SetupInit, SetupFilenames
-from Utilities.defineStructs import Constants, FigureFilesSubstruct
+from Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct
 from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from Thermodynamics.FromLiterature.Electrical import ElecConduct
 from Seismic import SeismicCalcs
@@ -83,32 +83,41 @@ def run(bodyname=None, opt=None, fNames=None):
                 InductionList = [Induction]
             PlotInductOgramPhaseSpace(InductionList, Params)
     else:
-        Params, loadNames = LoadPPfiles(Params, fNames, bodyname=bodyname)
-        PlanetList = np.empty(Params.nModels, dtype=object)
-        # Run main model first, so that it always appears as 0-index
+        # Set timekeeping for recording elapsed times
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
-        PlanetList[0] = importlib.import_module(loadNames[0]).Planet
-        PlanetList[0].index = 1
-        PlanetList[0], Params = PlanetProfile(PlanetList[0], Params)
-        tMarks = np.append(tMarks, time.time())
-        if Params.RUN_ALL_PROFILES:
-            for i,loadName in enumerate(loadNames[1:]):
-                PlanetList[i+1] = deepcopy(importlib.import_module(loadName).Planet)
-                PlanetList[i+1].index = i+2
-                PlanetList[i+1], Params = PlanetProfile(PlanetList[i+1], Params)
-                tMarks = np.append(tMarks, time.time())
+        if opt == 'reload':
+            PlanetList = np.empty(0, dtype=object)
+            for fName in fNames:
+                loadName = os.path.join(bodyname, fName)
+                Planet, Params = ReloadProfile(None, None, fnameOverride=loadName)
+                PlanetList = np.append(PlanetList, deepcopy(Planet))
+        else:
+            Params, loadNames = LoadPPfiles(Params, fNames, bodyname=bodyname)
+            PlanetList = np.empty(Params.nModels, dtype=object)
+            # Run main model first, so that it always appears as 0-index
+            PlanetList[0] = importlib.import_module(loadNames[0]).Planet
+            PlanetList[0].index = 1
+            PlanetList[0], Params = PlanetProfile(PlanetList[0], Params)
+            tMarks = np.append(tMarks, time.time())
+            if Params.RUN_ALL_PROFILES:
+                for i,loadName in enumerate(loadNames[1:]):
+                    PlanetList[i+1] = deepcopy(importlib.import_module(loadName).Planet)
+                    PlanetList[i+1].index = i+2
+                    PlanetList[i+1], Params = PlanetProfile(PlanetList[i+1], Params)
+                    tMarks = np.append(tMarks, time.time())
 
-            # Plot combined figures
-            if not Params.SKIP_PLOTS and Params.COMPARE:
-                Params.FigureFiles = FigureFilesSubstruct(
-                    PlanetList[0].bodyname, os.path.join('figures', f'{PlanetList[0].name}Comparison'), FigMisc.xtn)
-                GeneratePlots(PlanetList, Params)
+        # Plot combined figures
+        if not Params.SKIP_PLOTS and Params.COMPARE:
+            Params.FigureFiles = FigureFilesSubstruct(
+                PlanetList[0].bodyname, os.path.join('figures', f'{PlanetList[0].name}Comparison'), FigMisc.xtn)
+            GeneratePlots(PlanetList, Params)
         else:
             PlanetList = PlanetList[:1]
 
         dt = np.diff(tMarks)
-        log.debug('Elapsed time:\n' + '\n'.join([f'    {dt[i]:.3f} s for {Planet.saveLabel}' for i,Planet in enumerate(PlanetList)]))
+        if np.size(dt) > 0:
+            log.debug('Elapsed time:\n' + '\n'.join([f'    {dt[i]:.3f} s for {Planet.saveLabel}' for i,Planet in enumerate(PlanetList)]))
 
         """ Post-processing """
         # Loading BodyProfile...txt files to plot them together
@@ -236,6 +245,8 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
         elif opt == 'inductogram':
             Params.DO_INDUCTOGRAM = True
             Params.NO_SAVEFILE = True
+        elif opt == 'reload':
+            Params.CALC_NEW = False
         else:
             log.warning(f'Unrecognized option: {opt}. Skipping.')
 
@@ -245,13 +256,22 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
         if np.size(fNames) > 1:
             Params.RUN_ALL_PROFILES = True
             Params.COMPARE = True
-        for fName in fNames:
-            if not os.path.exists(os.path.join(bodyname, fName)):
-                log.warning(f'{os.path.join(bodyname, fName)} does not exist. Skipping.')
-                fNames.remove(fName)
+        if opt == 'reload':
+            for fName in fNames:
+                if not os.path.exists(os.path.join(bodyname, fName)):
+                    log.warning(f'{os.path.join(bodyname, fName)} does not exist. Skipping.')
+                    fNames.remove(fName)
 
-        if np.size(fNames) == 0:
-            raise ValueError('None of the specified PP files were found.')
+            if np.size(fNames) == 0:
+                raise ValueError('None of the specified PP files were found.')
+        else:
+            for fName in fNames:
+                if not os.path.exists(os.path.join(bodyname, fName)):
+                    log.warning(f'{os.path.join(bodyname, fName)} does not exist. Skipping.')
+                    fNames.remove(fName)
+
+            if np.size(fNames) == 0:
+                raise ValueError('None of the specified PP files were found.')
 
     return Params, fNames
 
@@ -266,6 +286,12 @@ def WriteProfile(Planet, Params):
         f'Pore salt = {Planet.Sil.poreComp}',
         f'wOcean_ppt = {Planet.Ocean.wOcean_ppt:.3f}',
         f'wPore_ppt = {Planet.Sil.wPore_ppt:.3f}',
+        f'R_m = {Planet.Bulk.R_m:.3f}',
+        f'M_kg = {Planet.Bulk.M_kg:.3f}',
+        f'Cmeasured = {Planet.Bulk.Cmeasured}',
+        f'Cuncertainty = {Planet.Bulk.Cuncertainty}',
+        f'Psurf_MPa = {Planet.Bulk.Psurf_MPa:.3f}',
+        f'Tsurf_K = {Planet.Bulk.Tsurf_K:.3f}',
         f'Tb_K = {Planet.Bulk.Tb_K}',
         f'zb_km = {Planet.zb_km:.3f}',
         f'zClath_m = {Planet.zClath_m:.3f}',
@@ -399,6 +425,11 @@ def WriteProfile(Planet, Params):
 
 def ReloadProfile(Planet, Params, fnameOverride=None):
     """ Reload previously saved PlanetProfile run from disk """
+    if Planet is None:
+        bodyname = fnameOverride.split('Profile')[0].split(os.sep)[-1]
+        Planet = PlanetStruct(bodyname)
+    if Params is None:
+        Params = configParams
 
     if fnameOverride is not None:
         Params.DataFiles.saveFile = fnameOverride
@@ -430,10 +461,11 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         # Get dissolved salt supposed for pore space
         Planet.Sil.poreComp = f.readline().split('=')[-1].strip()
         # Get float values from header
-        Planet.Ocean.wOcean_ppt, Planet.Sil.wPore_ppt, Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, Planet.D_km, \
-        Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.Mtot_kg, Planet.CMR2mean, Planet.CMR2less,\
-        Planet.CMR2more, Planet.Ocean.QfromMantle_W, Planet.Ocean.rhoMean_kgm3, Planet.Sil.phiRockMax_frac, \
-        Planet.Sil.Qrad_Wkg, Planet.Sil.HtidalMean_Wm3, \
+        Planet.Ocean.wOcean_ppt, Planet.Sil.wPore_ppt, Planet.Bulk.R_m, Planet.Bulk.M_kg, Planet.Bulk.Cmeasured, \
+        Planet.Bulk.Cuncertainty, Planet.Bulk.Psurf_MPa, Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K, Planet.zb_km, \
+        Planet.zClath_m, Planet.D_km, Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.Mtot_kg, \
+        Planet.CMR2mean, Planet.CMR2less, Planet.CMR2more, Planet.Ocean.QfromMantle_W, Planet.Ocean.rhoMean_kgm3, \
+        Planet.Sil.phiRockMax_frac, Planet.Sil.Qrad_Wkg, Planet.Sil.HtidalMean_Wm3, \
         Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, Planet.Core.Rmean_m, Planet.Core.Rrange_m, \
         Planet.Core.rhoMean_kgm3, Planet.MH2O_kg, Planet.Mrock_kg, Planet.Mcore_kg, Planet.Mice_kg, \
         Planet.Msalt_kg, Planet.MporeSalt_kg, Planet.Mocean_kg, Planet.Mfluid_kg, Planet.MporeFluid_kg, \
@@ -441,7 +473,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Sil.sigmaPorousLayerMean_Sm, Planet.RaConvect, Planet.RaConvectIII, Planet.RaConvectV, \
         Planet.RaCrit, Planet.RaCritIII, Planet.RaCritV, Planet.eLid_m, Planet.eLidIII_m, Planet.eLidV_m, \
         Planet.Dconv_m, Planet.DconvIII_m, Planet.DconvV_m, Planet.deltaTBL_m, Planet.deltaTBLIII_m, Planet.deltaTBLV_m \
-            = (float(f.readline().split('=')[-1]) for _ in range(53))
+            = (float(f.readline().split('=')[-1]) for _ in range(59))
         # Note porosity flags
         Planet.Do.POROUS_ICE = bool(strtobool(f.readline().split('=')[-1].strip()))
         Planet.Do.POROUS_ROCK = Planet.Sil.phiRockMax_frac > 0
@@ -1131,7 +1163,7 @@ if __name__ == '__main__':
     nArgs = len(sys.argv)
     clArg = None
     fNames = None
-    if nArgs > 1 and 'PP' not in sys.argv[1]:
+    if nArgs > 1 and ('PP' not in sys.argv[1] and '.txt' not in sys.argv[1]):
         # Body name was passed as command line argument
         bodyname = sys.argv[1]
 
@@ -1140,6 +1172,10 @@ if __name__ == '__main__':
             if 'PP' in sys.argv[2]:
                 log.debug('PP in CL arg 2 -- interpreting as (list of) filename(s).')
                 fNames = sys.argv[2:]
+            elif '.txt' in sys.argv[2]:
+                log.debug('.txt in CL arg 2 -- interpreting as (list of) filename(s) to reload.')
+                fNames = sys.argv[2:]
+                clArg = 'reload'
             else:
                 clArg = sys.argv[2]
                 if nArgs > 3:
@@ -1151,6 +1187,11 @@ if __name__ == '__main__':
         log.debug('PP in first CL arg -- interpreting as (list of) filename(s).')
         fNames = sys.argv[1:]
         bodyname = ''
+    elif '.txt' in sys.argv[1]:
+        log.debug('.txt in first CL arg -- interpreting as (list of) filename(s) to reload.')
+        fNames = sys.argv[1:]
+        bodyname = ''
+        clArg = 'reload'
     else:
         # No command line argument, ask user which body to run
         bodyname = input('Please input body name: ')

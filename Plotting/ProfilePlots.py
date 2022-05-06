@@ -79,7 +79,7 @@ def PlotHydrosphereProps(PlanetList, Params):
         Pmax_MPa = np.max(Plist)
 
         for Planet in PlanetList:
-            if newRef[Planet.Ocean.comp]:
+            if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
                 # Get strings for referencing and labeling
                 wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp}}} \\{{'
                 wList += ', '.join([f'{w:.0f}' for w in Params.wRef_ppt[Planet.Ocean.comp]])

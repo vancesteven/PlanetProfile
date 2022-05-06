@@ -10,7 +10,7 @@ def CalcRefProfiles(PlanetList, Params):
     maxPmax = np.max([Planet.Ocean.PHydroMax_MPa for Planet in PlanetList])
 
     for Planet in PlanetList:
-        if newRef[Planet.Ocean.comp]:
+        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
             wList = Params.wRef_ppt[Planet.Ocean.comp]
             thisRefLabel = f'{Planet.Ocean.comp}' + ','.join([f'{w_ppt}' for w_ppt in wList])
             thisRefRange = maxPmax
