@@ -287,7 +287,7 @@ def WriteProfile(Planet, Params):
         f'wOcean_ppt = {Planet.Ocean.wOcean_ppt:.3f}',
         f'wPore_ppt = {Planet.Sil.wPore_ppt:.3f}',
         f'R_m = {Planet.Bulk.R_m:.3f}',
-        f'M_kg = {Planet.Bulk.M_kg:.3f}',
+        f'M_kg = {Planet.Bulk.M_kg:.5e}',
         f'Cmeasured = {Planet.Bulk.Cmeasured}',
         f'Cuncertainty = {Planet.Bulk.Cuncertainty}',
         f'Psurf_MPa = {Planet.Bulk.Psurf_MPa:.3f}',
