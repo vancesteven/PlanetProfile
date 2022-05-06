@@ -12,14 +12,14 @@ from config import Params as configParams
 
 # Import all function definitions for this file
 from Utilities.SetupInit import SetupInit, SetupFilenames
-from Utilities.defineStructs import FigureFilesSubstruct
+from Utilities.defineStructs import Constants, FigureFilesSubstruct
 from Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from Thermodynamics.FromLiterature.Electrical import ElecConduct
 from Seismic import SeismicCalcs
 from MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, Benm2absBexyz
-from MagneticInduction.Moments import InductionStruct, Excitations as Mag
+from MagneticInduction.Moments import InductionResults, Excitations as Mag
 from Utilities.PrintLayerTable import GetLayerMeans, PrintLayerTable, PrintLayerTableLatex
-from Plotting.ProfilePlots import GeneratePlots, PlotInductOgram
+from Plotting.ProfilePlots import GeneratePlots, PlotInductOgram, PlotInductOgramPhaseSpace
 from Plotting.configPlots import FigMisc
 
 # Parallel processing
@@ -38,6 +38,10 @@ def run(bodyname=None, opt=None, fNames=None):
         logLevel = log.WARN
     else:
         logLevel = log.INFO
+    root = log.getLogger()
+    if root.handlers:
+        for handler in root.handlers:
+            root.removeHandler(handler)
     log.basicConfig(level=logLevel, format=Params.printFmt)
     log.getLogger('matplotlib').setLevel(log.WARNING)
     log.debug('Printing verbose runtime messages. Toggle with Params.VERBOSE in config.py.')
@@ -61,7 +65,23 @@ def run(bodyname=None, opt=None, fNames=None):
     """ Run PlanetProfile """
     if Params.DO_INDUCTOGRAM:
         Induction, Params = InductOgram(bodyname, Params)
-        PlotInductOgram(Induction, Params)
+        if not Params.SKIP_PLOTS:
+            #PlotInductOgram(Induction, Params)
+
+            if Params.COMPARE:
+                inductOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fNameInductOgram+'*.mat'))
+                Params.nModels = np.size(inductOgramFiles)
+                InductionList = np.empty(Params.nModels, dtype=object)
+                InductionList[0] = deepcopy(Induction)
+                # Move the filename for this run to the front of the list
+                if Params.DataFiles.inductOgramFile in inductOgramFiles:
+                    inductOgramFiles.remove(Params.DataFiles.inductOgramFile)
+                    inductOgramFiles.insert(0, Params.DataFiles.inductOgramFile)
+                for i, reloadInduct in enumerate(inductOgramFiles[1:]):
+                    InductionList[i+1] = ReloadInductOgram(bodyname, Params, fNameOverride=reloadInduct)[0]
+            else:
+                InductionList = [Induction]
+            PlotInductOgramPhaseSpace(InductionList, Params)
     else:
         Params, loadNames = LoadPPfiles(Params, fNames, bodyname=bodyname)
         PlanetList = np.empty(Params.nModels, dtype=object)
@@ -82,7 +102,7 @@ def run(bodyname=None, opt=None, fNames=None):
             # Plot combined figures
             if not Params.SKIP_PLOTS and Params.COMPARE:
                 Params.FigureFiles = FigureFilesSubstruct(
-                    PlanetList[0].name, os.path.join('figures', f'{PlanetList[0].name}Comparison'), FigMisc.xtn)
+                    PlanetList[0].bodyname, os.path.join('figures', f'{PlanetList[0].name}Comparison'), FigMisc.xtn)
                 GeneratePlots(PlanetList, Params)
         else:
             PlanetList = PlanetList[:1]
@@ -93,7 +113,7 @@ def run(bodyname=None, opt=None, fNames=None):
         """ Post-processing """
         # Loading BodyProfile...txt files to plot them together
         if Params.COMPARE and not Params.RUN_ALL_PROFILES:
-            fNamesToCompare = np.array(FilesMatchingPattern(os.path.join(PlanetList[0].name, f'{PlanetList[0].name}Profile*.txt')))
+            fNamesToCompare = np.array(FilesMatchingPattern(os.path.join(PlanetList[0].bodyname, f'{PlanetList[0].name}Profile*.txt')))
             isProfile = [Params.DataFiles.saveFile != fName and 'mantle' not in fName for fName in fNamesToCompare]
             fProfiles = fNamesToCompare[isProfile]
             nCompare = np.size(fProfiles) + 1
@@ -106,15 +126,17 @@ def run(bodyname=None, opt=None, fNames=None):
             # Plot combined figures
             if not Params.SKIP_PLOTS:
                 Params.FigureFiles = FigureFilesSubstruct(
-                    CompareList[0].name, os.path.join('figures', f'{CompareList[0].name}Comparison'), FigMisc.xtn)
+                    CompareList[0].bodyname, os.path.join('figures', f'{CompareList[0].name}Comparison'), FigMisc.xtn)
                 GeneratePlots(CompareList, Params)
+        else:
+            CompareList = PlanetList
 
         if Params.DISP_LAYERS or Params.DISP_TABLE:
-            PlanetList = GetLayerMeans(PlanetList, Params)
-            if Params.DISP_LAYERS:
-                PrintLayerTable(PlanetList, Params)
+            CompareList, Params = GetLayerMeans(CompareList, Params)
             if Params.DISP_TABLE:
-                PrintLayerTableLatex(PlanetList, Params)
+                PrintLayerTableLatex(CompareList, Params)
+            if Params.DISP_LAYERS:
+                PrintLayerTable(CompareList, Params)
 
     return
 
@@ -156,6 +178,7 @@ def PlanetProfile(Planet, Params):
 def PrintCompletion(Planet, Params):
     """ Print a message at the end of each PlanetProfile run estimating completion time.
     """
+
     if Planet.index is None:
         indicator = ''
         ending = '!'
@@ -169,13 +192,13 @@ def PrintCompletion(Planet, Params):
             tRemain_s = (Params.tStart_s + tTot_s - tNow_s)
             remain = ''
             if tRemain_s > 3600:
-                remain += f' {tRemain_s/3600:.0f} hr'
+                remain += f' {int(tRemain_s/3600)} hr'
                 tRemain_s = tRemain_s % 3600
                 if tRemain_s > 60:
-                    remain += f' {tRemain_s/60:.0f} min'
+                    remain += f' {int(tRemain_s/60)} min'
             else:
                 if tRemain_s > 60:
-                    remain += f' {tRemain_s/60:.0f} min'
+                    remain += f' {int(tRemain_s/60)} min'
                 remain += f' {int(tRemain_s % 60)} s'
 
             ending = f'. Approx.{remain} remaining.'
@@ -219,9 +242,7 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
     if fNames is not None:
         # Set up fNames as a list of filenames to load and run
         Params.SPEC_FILE = True
-        if np.size(fNames) == 1:
-            fNames = [fNames]
-        else:
+        if np.size(fNames) > 1:
             Params.RUN_ALL_PROFILES = True
             Params.COMPARE = True
         for fName in fNames:
@@ -237,118 +258,127 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
 
 def WriteProfile(Planet, Params):
     """ Write out all profile calculations to disk """
-    Params.nHeadLines = 65  # Increment as new header lines are added
+    headerLines = [
+        f'Iron core = {Planet.Do.Fe_CORE}',
+        f'Silicate EOS file = {Planet.Sil.mantleEOS}',
+        f'Iron core EOS file = {Planet.Core.coreEOS}',
+        f'Ocean salt = {Planet.Ocean.comp}',
+        f'Pore salt = {Planet.Sil.poreComp}',
+        f'wOcean_ppt = {Planet.Ocean.wOcean_ppt:.3f}',
+        f'wPore_ppt = {Planet.Sil.wPore_ppt:.3f}',
+        f'Tb_K = {Planet.Bulk.Tb_K}',
+        f'zb_km = {Planet.zb_km:.3f}',
+        f'zClath_m = {Planet.zClath_m:.3f}',
+        f'D_km = {Planet.D_km:.3f}',
+        f'Pb_MPa = {Planet.Pb_MPa:.3f}',
+        f'PbI_MPa = {Planet.PbI_MPa:.3f}',
+        f'deltaP = {Planet.Ocean.deltaP:.3f}',
+        f'Mtot_kg = {Planet.Mtot_kg:.6e}',
+        f'CMR2mean = {Planet.CMR2mean:.5f}',
+        f'CMR2less = {Planet.CMR2less:.5f}',
+        f'CMR2more = {Planet.CMR2more:.5f}',
+        f'QfromMantle_W = {Planet.Ocean.QfromMantle_W:.6e}',
+        f'rhoOcean_kgm3 = {Planet.Ocean.rhoMean_kgm3:.3f}',
+        f'phiRockMax = {Planet.Sil.phiRockMax_frac:.3f}',
+        f'Qrad_Wkg = {Planet.Sil.Qrad_Wkg:.3f}',
+        f'HtidalSil_Wm3 = {Planet.Sil.HtidalMean_Wm3:.3f}',
+        f'RsilMean_m = {Planet.Sil.Rmean_m:.3f}',
+        f'RsilRange_m = {Planet.Sil.Rrange_m:.3f}',
+        f'rhoSil_kgm3 = {Planet.Sil.rhoMean_kgm3:.3f}',
+        f'RcoreMean_m = {Planet.Core.Rmean_m:.3f}',
+        f'RcoreRange_m = {Planet.Core.Rrange_m:.3f}',
+        f'rhoCore_kgm3 = {Planet.Core.rhoMean_kgm3:.3f}',
+        f'MH2O_kg = {Planet.MH2O_kg:.5e}',
+        f'Mrock_kg = {Planet.Mrock_kg:.5e}',
+        f'Mcore_kg = {Planet.Mcore_kg:.5e}',
+        f'Mice_kg = {Planet.Mice_kg:.5e}',
+        f'Msalt_kg = {Planet.Msalt_kg:.5e}',
+        f'MporeSalt_kg = {Planet.MporeSalt_kg:.5e}',
+        f'Mocean_kg = {Planet.Mocean_kg:.5e}',
+        f'Mfluid_kg = {Planet.Mfluid_kg:.5e}',
+        f'MporeFluid_kg = {Planet.MporeFluid_kg:.5e}',
+        f'Mclath_kg = {Planet.Mclath_kg:.5e}',
+        f'MclathGas_kg = {Planet.MclathGas_kg:.5e}',
+        f'sigmaOceanMean_Sm = {Planet.Ocean.sigmaMean_Sm:.3f}',
+        f'sigmaPoreMean_Sm = {Planet.Sil.sigmaPoreMean_Sm:.3f}',
+        f'sigmaPorousLayerMean_Sm = {Planet.Sil.sigmaPorousLayerMean_Sm:.3f}',
+        f'RaConvect = {Planet.RaConvect:.2e}',
+        f'RaConvectIII = {Planet.RaConvectIII:.2e}',
+        f'RaConvectV = {Planet.RaConvectV:.2e}',
+        f'RaCrit = {Planet.RaCrit:.2e}',
+        f'RaCritIII = {Planet.RaCritIII:.2e}',
+        f'RaCritV = {Planet.RaCritV:.2e}',
+        f'eLid_m = {Planet.eLid_m:.3f}',
+        f'eLidIII_m = {Planet.eLidIII_m:.3f}',
+        f'eLidV_m = {Planet.eLidV_m:.3f}',
+        f'Dconv_m = {Planet.Dconv_m:.3f}',
+        f'DconvIII_m = {Planet.DconvIII_m:.3f}',
+        f'DconvV_m = {Planet.DconvV_m:.3f}',
+        f'deltaTBL_m = {Planet.deltaTBL_m:.3f}',
+        f'deltaTBLIII_m = {Planet.deltaTBLIII_m:.3f}',
+        f'deltaTBLV_m = {Planet.deltaTBLV_m:.3f}',
+        f'Porous ice = {Planet.Do.POROUS_ICE}',
+        f'Steps.nClath = {Planet.Steps.nClath:d}',
+        f'Steps.nIceI = {Planet.Steps.nIceI:d}',
+        f'Steps.nIceIIILitho = {Planet.Steps.nIceIIILitho:d}',
+        f'Steps.nIceVLitho = {Planet.Steps.nIceVLitho:d}',
+        f'Steps.nHydro = {Planet.Steps.nHydro:d}',
+        f'Steps.nSil = {Planet.Steps.nSil:d}',
+        f'Steps.nCore = {Planet.Steps.nCore:d}']
+    colHeaders = [' P (MPa)'.ljust(24),
+                  'T (K)'.ljust(24),
+                  'r (m)'.ljust(24),
+                  'phase ID'.ljust(8),
+                  'rho (kg/m3)'.ljust(24),
+                  'Cp (J/kg/K)'.ljust(24),
+                  'alpha (1/K)'.ljust(24),
+                  'g (m/s2)'.ljust(24),
+                  'phi (void/solid frac)'.ljust(24),
+                  'sigma (S/m)'.ljust(24),
+                  'k (W/m/K)'.ljust(24),
+                  'VP (km/s)'.ljust(24),
+                  'VS (km/s)'.ljust(24),
+                  'QS'.ljust(24),
+                  'KS (GPa)'.ljust(24),
+                  'GS (GPa)'.ljust(24),
+                  'Ppore (MPa)'.ljust(24),
+                  'rhoMatrix (kg/m3)'.ljust(24),
+                  'rhoPore (kg/m3)'.ljust(24),
+                  'MLayer (kg)'.ljust(24),
+                  'VLayer (m3)'.ljust(24),
+                  'Htidal (W/m3)']
+    # Print number of header lines early so we can skip the rest on read-in if we want to
+    Params.nHeadLines = np.size(headerLines) + 3
+    headerLines = np.insert(headerLines, 0, f'  nHeadLines = {Params.nHeadLines:d}')
     with open(Params.DataFiles.saveFile,'w') as f:
         f.write(Planet.label + '\n')
-        # Print number of header lines early so we can skip the rest on read-in if we want to
-        f.write(f'  nHeadLines = {Params.nHeadLines:d}\n')
-        f.write(f'  Iron core = {Planet.Do.Fe_CORE}\n')
-        f.write(f'  Ocean salt = {Planet.Ocean.comp}\n')
-        f.write(f'  Pore salt = {Planet.Sil.poreComp}\n')
-        f.write(f'  wOcean_ppt = {Planet.Ocean.wOcean_ppt:.3f}\n')
-        f.write(f'  wPore_ppt = {Planet.Sil.wPore_ppt:.3f}\n')
-        f.write(f'  Tb_K = {Planet.Bulk.Tb_K}\n')
-        f.write(f'  zb_km = {Planet.zb_km:.3f}\n')
-        f.write(f'  zClath_m = {Planet.zClath_m:.3f}\n')
-        f.write(f'  D_km = {Planet.D_km:.3f}\n')
-        f.write(f'  Pb_MPa = {Planet.Pb_MPa:.3f}\n')
-        f.write(f'  PbI_MPa = {Planet.PbI_MPa:.3f}\n')
-        f.write(f'  deltaP = {Planet.Ocean.deltaP:.3f}\n')
-        f.write(f'  Mtot_kg = {Planet.Mtot_kg:.6e}\n')
-        f.write(f'  CMR2mean = {Planet.CMR2mean:.5f}\n')
-        f.write(f'  CMR2less = {Planet.CMR2less:.5f}\n')
-        f.write(f'  CMR2more = {Planet.CMR2more:.5f}\n')
-        f.write(f'  QfromMantle_W = {Planet.Ocean.QfromMantle_W:.6e}\n')
-        f.write(f'  rhoOcean_kgm3 = {Planet.Ocean.rhoMean_kgm3:.3f}\n')
-        f.write(f'  phiRockMax = {Planet.Sil.phiRockMax_frac:.3f}\n')
-        f.write(f'  RsilMean_m = {Planet.Sil.Rmean_m:.3f}\n')
-        f.write(f'  RsilRange_m = {Planet.Sil.Rrange_m:.3f}\n')
-        f.write(f'  rhoSil_kgm3 = {Planet.Sil.rhoMean_kgm3:.3f}\n')
-        f.write(f'  RcoreMean_m = {Planet.Core.Rmean_m:.3f}\n')
-        f.write(f'  RcoreRange_m = {Planet.Core.Rrange_m:.3f}\n')
-        f.write(f'  rhoCore_kgm3 = {Planet.Core.rhoMean_kgm3:.3f}\n')
-        f.write(f'  MH2O_kg = {Planet.MH2O_kg:.5e}\n')
-        f.write(f'  Mrock_kg = {Planet.Mrock_kg:.5e}\n')
-        f.write(f'  Mcore_kg = {Planet.Mcore_kg:.5e}\n')
-        f.write(f'  Mice_kg = {Planet.Mice_kg:.5e}\n')
-        f.write(f'  Msalt_kg = {Planet.Msalt_kg:.5e}\n')
-        f.write(f'  MporeSalt_kg = {Planet.MporeSalt_kg:.5e}\n')
-        f.write(f'  Mocean_kg = {Planet.Mocean_kg:.5e}\n')
-        f.write(f'  Mfluid_kg = {Planet.Mfluid_kg:.5e}\n')
-        f.write(f'  MporeFluid_kg = {Planet.MporeFluid_kg:.5e}\n')
-        f.write(f'  Mclath_kg = {Planet.Mclath_kg:.5e}\n')
-        f.write(f'  MclathGas_kg = {Planet.MclathGas_kg:.5e}\n')
-        f.write(f'  sigmaOceanMean_Sm = {Planet.Ocean.sigmaMean_Sm:.3f}\n')
-        f.write(f'  sigmaPoreMean_Sm = {Planet.Sil.sigmaPoreMean_Sm:.3f}\n')
-        f.write(f'  sigmaPorousLayerMean_Sm = {Planet.Sil.sigmaPorousLayerMean_Sm:.3f}\n')
-        f.write(f'  RaConvect = {Planet.RaConvect:.2e}\n')
-        f.write(f'  RaConvectIII = {Planet.RaConvectIII:.2e}\n')
-        f.write(f'  RaConvectV = {Planet.RaConvectV:.2e}\n')
-        f.write(f'  RaCrit = {Planet.RaCrit:.2e}\n')
-        f.write(f'  RaCritIII = {Planet.RaCritIII:.2e}\n')
-        f.write(f'  RaCritV = {Planet.RaCritV:.2e}\n')
-        f.write(f'  eLid_m = {Planet.eLid_m:.3f}\n')
-        f.write(f'  eLidIII_m = {Planet.eLidIII_m:.3f}\n')
-        f.write(f'  eLidV_m = {Planet.eLidV_m:.3f}\n')
-        f.write(f'  Dconv_m = {Planet.Dconv_m:.3f}\n')
-        f.write(f'  DconvIII_m = {Planet.DconvIII_m:.3f}\n')
-        f.write(f'  DconvV_m = {Planet.DconvV_m:.3f}\n')
-        f.write(f'  deltaTBL_m = {Planet.deltaTBL_m:.3f}\n')
-        f.write(f'  deltaTBLIII_m = {Planet.deltaTBLIII_m:.3f}\n')
-        f.write(f'  deltaTBLV_m = {Planet.deltaTBLV_m:.3f}\n')
-        f.write(f'  Porous ice = {Planet.Do.POROUS_ICE}\n')
-        f.write(f'  Steps.nClath = {Planet.Steps.nClath:d}\n')
-        f.write(f'  Steps.nIceI = {Planet.Steps.nIceI:d}\n')
-        f.write(f'  Steps.nIceIIILitho = {Planet.Steps.nIceIIILitho:d}\n')
-        f.write(f'  Steps.nIceVLitho = {Planet.Steps.nIceVLitho:d}\n')
-        f.write(f'  Steps.nHydro = {Planet.Steps.nHydro:d}\n')
-        f.write(f'  Steps.nSil = {Planet.Steps.nSil:d}\n')
-        f.write(f'  Steps.nCore = {Planet.Steps.nCore:d}\n')
-        f.write(f' '.join(['P (MPa)'.ljust(24),
-                           'T (K)'.ljust(24),
-                           'r (m)'.ljust(24),
-                           'phase ID'.ljust(8),
-                           'rho (kg/m3)'.ljust(24),
-                           'Cp (J/kg/K)'.ljust(24),
-                           'alpha (1/K)'.ljust(24),
-                           'g (m/s2)'.ljust(24),
-                           'phi (void/solid frac)'.ljust(24),
-                           'sigma (S/m)'.ljust(24),
-                           'k (W/m/K)'.ljust(24),
-                           'VP (km/s)'.ljust(24),
-                           'VS (km/s)'.ljust(24),
-                           'QS'.ljust(24),
-                           'KS (GPa)'.ljust(24),
-                           'GS (GPa)'.ljust(24),
-                           'Ppore (MPa)'.ljust(24),
-                           'rhoMatrix (kg/m3)'.ljust(24),
-                           'rhoPore (kg/m3)'.ljust(24),
-                           'MLayer (kg)']) + '\n')
+        f.write('\n  '.join(headerLines) + '\n')
+        f.write(' '.join(colHeaders) + '\n')
         # Now print the columnar data
         for i in range(Planet.Steps.nTotal):
-            line = \
-                f'{Planet.P_MPa[i]:24.17e} ' + \
-                f'{Planet.T_K[i]:24.17e} ' + \
-                f'{Planet.r_m[i]:24.17e} ' + \
-                f'{Planet.phase[i]:8d} ' + \
-                f'{Planet.rho_kgm3[i]:24.17e} ' + \
-                f'{Planet.Cp_JkgK[i]:24.17e} ' + \
-                f'{Planet.alpha_pK[i]:24.17e} ' + \
-                f'{Planet.g_ms2[i]:24.17e} ' + \
-                f'{Planet.phi_frac[i]:24.17e} ' + \
-                f'{Planet.sigma_Sm[i]:24.17e} ' + \
-                f'{Planet.kTherm_WmK[i]:24.17e} ' + \
-                f'{Planet.Seismic.VP_kms[i]:24.17e} ' + \
-                f'{Planet.Seismic.VS_kms[i]:24.17e} ' + \
-                f'{Planet.Seismic.QS[i]:24.17e} ' + \
-                f'{Planet.Seismic.KS_GPa[i]:24.17e} ' + \
-                f'{Planet.Seismic.GS_GPa[i]:24.17e} ' + \
-                f'{Planet.Ppore_MPa[i]:24.17e} ' + \
-                f'{Planet.rhoMatrix_kgm3[i]:24.17e} ' + \
-                f'{Planet.rhoPore_kgm3[i]:24.17e} ' + \
-                f'{Planet.MLayer_kg[i]:24.17e} ' + \
-                f'{Planet.VLayer_m3[i]:24.17e}\n '
-            f.write(line)
+            f.write(' '.join([
+                f'{Planet.P_MPa[i]:24.17e}',
+                f'{Planet.T_K[i]:24.17e}',
+                f'{Planet.r_m[i]:24.17e}',
+                f'{Planet.phase[i]:8d}',
+                f'{Planet.rho_kgm3[i]:24.17e}',
+                f'{Planet.Cp_JkgK[i]:24.17e}',
+                f'{Planet.alpha_pK[i]:24.17e}',
+                f'{Planet.g_ms2[i]:24.17e}',
+                f'{Planet.phi_frac[i]:24.17e}',
+                f'{Planet.sigma_Sm[i]:24.17e}',
+                f'{Planet.kTherm_WmK[i]:24.17e}',
+                f'{Planet.Seismic.VP_kms[i]:24.17e}',
+                f'{Planet.Seismic.VS_kms[i]:24.17e}',
+                f'{Planet.Seismic.QS[i]:24.17e}',
+                f'{Planet.Seismic.KS_GPa[i]:24.17e}',
+                f'{Planet.Seismic.GS_GPa[i]:24.17e}',
+                f'{Planet.Ppore_MPa[i]:24.17e}',
+                f'{Planet.rhoMatrix_kgm3[i]:24.17e}',
+                f'{Planet.rhoPore_kgm3[i]:24.17e}',
+                f'{Planet.MLayer_kg[i]:24.17e}',
+                f'{Planet.VLayer_m3[i]:24.17e}',
+                f'{Planet.Htidal_Wm3[i]:24.17e}']) + '\n')
 
     # Write out data from core/mantle trade
     with open(Params.DataFiles.mantCoreFile, 'w') as f:
@@ -356,10 +386,11 @@ def WriteProfile(Planet, Params):
                           'RcoreTrade (m)'.ljust(24),
                           'rhoSilTrade (kg/m3)']) + '\n')
         for i in range(np.size(Planet.Sil.Rtrade_m)):
-            line = \
-                f'{Planet.Sil.Rtrade_m[i]:24.17e} ' + \
-                f'{Planet.Core.Rtrade_m[i]:24.17e} ' + \
+            line = ' '.join([
+                f'{Planet.Sil.Rtrade_m[i]:24.17e}',
+                f'{Planet.Core.Rtrade_m[i]:24.17e}',
                 f'{Planet.Sil.rhoTrade_kgm3[i]:24.17e}\n '
+            ])
             f.write(line)
 
     log.info(f'Profile saved to file: {Params.DataFiles.saveFile}')
@@ -374,7 +405,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Params.DataFiles.mantCoreFile = f'{fnameOverride[:-4]}_mantleCore.txt'
         Params.DataFiles.mantPermFile = f'{fnameOverride[:-4]}_mantlePerm.txt'
         nSkip = len(os.path.join(Planet.name, f'{Planet.name}Profile_'))
-        Planet.label = fnameOverride[nSkip:-4]
+        Planet.saveLabel = fnameOverride[nSkip:-4]
     else:
         Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
     log.info(f'Reloading previously saved run from file: {Params.DataFiles.saveFile}')
@@ -390,6 +421,10 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Params.nHeadLines = int(f.readline().split('=')[-1])
         # Get whether iron core is modeled
         Planet.Do.Fe_CORE = bool(strtobool(f.readline().split('=')[-1].strip()))
+        # Get silicate mantle Perple_X EOS file
+        Planet.Sil.mantleEOS = f.readline().split('=')[-1].strip()
+        # Get iron core Perple_X EOS file
+        Planet.Core.coreEOS = f.readline().split('=')[-1].strip() 
         # Get dissolved salt supposed for ocean (present in filename, but this is intended for future-proofing when we move to a database lookup)
         Planet.Ocean.comp = f.readline().split('=')[-1].strip()
         # Get dissolved salt supposed for pore space
@@ -398,6 +433,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Ocean.wOcean_ppt, Planet.Sil.wPore_ppt, Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, Planet.D_km, \
         Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.Mtot_kg, Planet.CMR2mean, Planet.CMR2less,\
         Planet.CMR2more, Planet.Ocean.QfromMantle_W, Planet.Ocean.rhoMean_kgm3, Planet.Sil.phiRockMax_frac, \
+        Planet.Sil.Qrad_Wkg, Planet.Sil.HtidalMean_Wm3, \
         Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, Planet.Core.Rmean_m, Planet.Core.Rrange_m, \
         Planet.Core.rhoMean_kgm3, Planet.MH2O_kg, Planet.Mrock_kg, Planet.Mcore_kg, Planet.Mice_kg, \
         Planet.Msalt_kg, Planet.MporeSalt_kg, Planet.Mocean_kg, Planet.Mfluid_kg, Planet.MporeFluid_kg, \
@@ -405,7 +441,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Sil.sigmaPorousLayerMean_Sm, Planet.RaConvect, Planet.RaConvectIII, Planet.RaConvectV, \
         Planet.RaCrit, Planet.RaCritIII, Planet.RaCritV, Planet.eLid_m, Planet.eLidIII_m, Planet.eLidV_m, \
         Planet.Dconv_m, Planet.DconvIII_m, Planet.DconvV_m, Planet.deltaTBL_m, Planet.deltaTBLIII_m, Planet.deltaTBLV_m \
-            = (float(f.readline().split('=')[-1]) for _ in range(51))
+            = (float(f.readline().split('=')[-1]) for _ in range(53))
         # Note porosity flags
         Planet.Do.POROUS_ICE = bool(strtobool(f.readline().split('=')[-1].strip()))
         Planet.Do.POROUS_ROCK = Planet.Sil.phiRockMax_frac > 0
@@ -423,7 +459,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.phase, Planet.rho_kgm3, Planet.Cp_JkgK, Planet.alpha_pK, \
     Planet.g_ms2, Planet.phi_frac, Planet.sigma_Sm, Planet.kTherm_WmK, Planet.Seismic.VP_kms, Planet.Seismic.VS_kms,\
     Planet.Seismic.QS, Planet.Seismic.KS_GPa, Planet.Seismic.GS_GPa, Planet.Ppore_MPa, Planet.rhoMatrix_kgm3, \
-    Planet.rhoPore_kgm3, Planet.MLayer_kg, Planet.VLayer_m3 \
+    Planet.rhoPore_kgm3, Planet.MLayer_kg, Planet.VLayer_m3, Planet.Htidal_Wm3 \
         = np.loadtxt(Params.DataFiles.saveFile, skiprows=Params.nHeadLines, unpack=True)
     Planet.r_m = np.concatenate((Planet.r_m, [0]))
     Planet.z_m = Planet.Bulk.R_m - Planet.r_m
@@ -539,6 +575,7 @@ def InductOgram(bodyname, Params):
     """
     if Params.CALC_NEW_INDUCT:
         log.info(f'Running calculations for induct-o-gram type {Params.Induct.inductOtype}.')
+        Params.CALC_CONDUCT = True
         if bodyname[:4] == 'Test':
             loadname = bodyname + ''
             bodyname = 'Test'
@@ -567,6 +604,7 @@ def InductOgram(bodyname, Params):
                     Planet.Sil.phiRockMax_frac = 0
                     Planet.Ocean.sigmaMean_Sm = sigma_Sm
                     Planet.Ocean.sigmaTop_Sm = sigma_Sm
+                    Planet.Ocean.Tmean_K = Constants.T0
                     Planet.Magnetic.sigmaLayers_Sm[1] = sigma_Sm
                     Planet.D_km = D_km
                     Planet.Magnetic.rSigChange_m[0] = Planet.Bulk.R_m - 1e3 * (D_km + Planet.zb_km)
@@ -622,6 +660,7 @@ def InductOgram(bodyname, Params):
 
         tMarks = np.append(tMarks, time.time())
         log.info('PlanetGrid constructed. Calculating induction responses.')
+        Params.INDUCTOGRAM_IN_PROGRESS = True
         PlanetGrid = ParPlanet(PlanetGrid, Params)
         tMarks = np.append(tMarks, time.time())
         dt = tMarks[-1] - tMarks[-2]
@@ -630,7 +669,7 @@ def InductOgram(bodyname, Params):
         # Organize data into a format that can be plotted/saved for plotting
         Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(PlanetGrid[0,0].Magnetic.Benm_nT)
         nPeaks = np.size(Bex_nT)
-        Induction = InductionStruct
+        Induction = InductionResults
         Induction.bodyname = bodyname
         Induction.yName = Params.Induct.inductOtype
         Induction.Texc_hr = Mag.Texc_hr[bodyname]
@@ -642,6 +681,7 @@ def InductOgram(bodyname, Params):
         Induction.w_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
         Induction.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
         Induction.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
+        Induction.Tmean_K = np.array([[Planeti.Ocean.Tmean_K for Planeti in line] for line in PlanetGrid])
         Induction.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 for Planeti in line] for line in PlanetGrid])
         Induction.phiSilMax_frac = np.array([[Planeti.Sil.phiRockMax_frac for Planeti in line] for line in PlanetGrid])
         Induction.sigmaMean_Sm = np.array([[Planeti.Ocean.sigmaMean_Sm for Planeti in line] for line in PlanetGrid])
@@ -655,6 +695,8 @@ def InductOgram(bodyname, Params):
         Params.DataFiles = DataFiles
         Params.FigureFiles = FigureFiles
         WriteInductOgram(Induction, Params)
+        Induction.SetAxes(Params.Induct.inductOtype)
+        Induction.SetComps(Params.Induct.inductOtype)
     else:
         log.info(f'Reloading induct-o-gram type {Params.Induct.inductOtype}.')
         Induction, Params = ReloadInductOgram(bodyname, Params)
@@ -680,6 +722,7 @@ def WriteInductOgram(Induction, Params):
         'w_ppt': Induction.w_ppt,
         'oceanComp': Induction.oceanComp,
         'Tb_K': Induction.Tb_K,
+        'Tmean_K': Induction.Tmean_K,
         'rhoSilMean_kgm3': Induction.rhoSilMean_kgm3,
         'phiSilMax_frac': Induction.phiSilMax_frac,
         'sigmaMean_Sm': Induction.sigmaMean_Sm,
@@ -712,7 +755,7 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     else:
         reload = loadmat(fNameOverride)
 
-    Induction = InductionStruct
+    Induction = InductionResults
     Induction.bodyname = reload['bodyname'][0]
     Induction.yName = reload['yName'][0]
     Induction.Texc_hr = {key.strip(): value for key, value in zip(reload['Texc_hr_keys'], reload['Texc_hr_values'][0])}
@@ -724,6 +767,7 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     Induction.w_ppt = reload['w_ppt']
     Induction.oceanComp = reload['oceanComp']
     Induction.Tb_K = reload['Tb_K']
+    Induction.Tmean_K = reload['Tmean_K']
     Induction.rhoSilMean_kgm3 = reload['rhoSilMean_kgm3']
     Induction.phiSilMax_frac = reload['phiSilMax_frac']
     Induction.sigmaMean_Sm = reload['sigmaMean_Sm']
@@ -733,6 +777,9 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     Induction.R_m = reload['R_m']
     Induction.rBds_m = reload['rBds_m']
     Induction.sigmaLayers_Sm = reload['sigmaLayers_Sm']
+
+    Induction.SetAxes(Params.Induct.inductOtype)
+    Induction.SetComps(Params.Induct.inductOtype)
 
     return Induction, Params
 
@@ -746,6 +793,7 @@ def ParPlanet(PlanetList, Params):
     """
     if Params.logParallel > log.INFO:
         log.info('Quieting messages to avoid spam in gridded run.')
+    saveLevel = log.getLogger().level + 0
     log.getLogger().setLevel(Params.logParallel)
     dims = np.shape(PlanetList)
     nParDims = np.size(dims)
@@ -756,7 +804,7 @@ def ParPlanet(PlanetList, Params):
         if Params.DO_PARALLEL:
             # Prevent slowdowns from competing process spawning when #cores > #jobs
             nCores = np.minimum(Params.maxCores, np.product(dims))
-            if Params.Induct.inductOtype == 'sigma':
+            if Params.INDUCTOGRAM_IN_PROGRESS and Params.Induct.inductOtype == 'sigma':
                 pool = mtpFork.Pool(nCores)
                 parResult = [pool.apply_async(MagneticInduction, (deepcopy(Planet),
                                                                   deepcopy(Params))) for Planet in PlanetList1D]
@@ -780,13 +828,9 @@ def ParPlanet(PlanetList, Params):
 
         PlanetList = np.reshape(PlanetList1D, dims)
 
-        if Params.VERBOSE:
-            logLevel = log.DEBUG
-        elif Params.QUIET:
-            logLevel = log.WARN
-        else:
-            logLevel = log.INFO
-        log.basicConfig(level=logLevel, format=Params.printFmt)
+        # Return settings to what they were before we entered here
+        log.basicConfig(level=saveLevel, format=Params.printFmt)
+        Params.INDUCTOGRAM_IN_PROGRESS = False
 
     return PlanetList
 
@@ -797,24 +841,45 @@ def LoadPPfiles(Params, fNames, bodyname=''):
     """
     if Params.SPEC_FILE and fNames is not None:
         if bodyname == '':
-            loadNames = [fName.replace('.py', '') for fName in fNames]
+            loadNames = [fName.replace('.py', '').replace(os.sep, '.') for fName in fNames]
         else:
-            loadNames = ['.'.join([bodyname, fName.replace('.py', '')]) for fName in fNames]
+            loadNames = ['.'.join([bodyname, fName.replace('.py', '').replace(os.sep, '.')]) for fName in fNames]
     else:
-        # Get model names from body directory.
-        models = FilesMatchingPattern(os.path.join(f'{bodyname}', f'PP{bodyname}*.py'))
-        # Splitting on PP and taking the -1 chops the path out, then taking
-        # all but the last 3 characters chops the .py extension
-        models = [model.split('PP')[-1][:-3] for model in models]
-        # If there is a standard profile, make sure it is run first
-        if bodyname in models:
-            models.remove(bodyname)
-            models.insert(0, bodyname)
-        loadNames = ['.'.join([bodyname, f'PP{model}']) for model in models]
+        if bodyname[:4] == 'Test':
+            # Just get a length-1 list of the matching test profile
+            loadNames = [f'Test.PP{bodyname}']
+        else:
+            # Get model names from body directory
+            models = FilesMatchingPattern(os.path.join(f'{bodyname}', f'PP{bodyname}*.py'))
 
-    Params.nModels = np.size(loadNames)
+            # Splitting on PP and taking the -1 chops the path out, then taking
+            # all but the last 3 characters chops the .py extension
+            models = [model.split('PP')[-1][:-3] for model in models]
+            # If there is a standard profile, make sure it is run first
+            if bodyname in models:
+                models.remove(bodyname)
+                models.insert(0, bodyname)
+            loadNames = ['.'.join([bodyname, f'PP{model}']) for model in models]
+
+    if (Params.RUN_ALL_PROFILES and Params.COMPARE) or Params.SPEC_FILE:
+        Params.nModels = np.size(loadNames)
+    else:
+        Params.nModels = 1
 
     return Params, loadNames
+
+
+def RunPPfile(bodyname, fName, Params=None):
+    # Simple wrapper to just run the given profile through the main PP function
+    if fName[-3:] == '.py':
+        loadName = fName[:-3]
+    else:
+        loadName = fName
+    if Params is None:
+        Params = configParams
+    Planet = importlib.import_module(f'{bodyname}.{loadName}')
+    Planet, Params = PlanetProfile(Planet, Params)
+    return Planet, Params
 
 
 def CompareProfile(Planet, Params, fname2, tol=0.01, tiny=1e-6):

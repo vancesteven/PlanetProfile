@@ -15,9 +15,9 @@ from Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloa
 from Thermodynamics.FromLiterature.InnerEOS import GetphiFunc, GetphiCalc, ResetNearestExtrap, ReturnZeros
 
 def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
-                EXTRAP=False):
-    oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType,
-                              scalingType=scalingType, phaseType=phaseType, EXTRAP=EXTRAP)
+                EXTRAP=False, FORCE_NEW=False):
+    oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
+                              phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW)
     if oceanEOS.ALREADY_LOADED:
         log.debug(f'{wOcean_ppt} ppt {compstr} EOS already loaded. Reusing existing EOS.')
         oceanEOS = EOSlist.loaded[oceanEOS.EOSlabel]
@@ -26,7 +26,7 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
 
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
-                 phaseType=None, EXTRAP=False):
+                 phaseType=None, EXTRAP=False, FORCE_NEW=False):
         if elecType is None:
             self.elecType = 'Vance2018'
         else:
@@ -39,14 +39,14 @@ class OceanEOSStruct:
             self.scalingType = 'Vance2018'
         else:
             self.scalingType = scalingType
-        if phaseType is None or phaseType != 'Margules':
-            self.CALC_MARGULES = False
+        if phaseType is None or phaseType == 'lookup':
+            self.PHASE_LOOKUP = True
         else:
-            self.CALC_MARGULES = True
+            self.PHASE_LOOKUP = False
 
         self.EOSlabel = f'{compstr}{wOcean_ppt}{elecType}{rhoType}{scalingType}{phaseType}{EXTRAP}'
         self.ALREADY_LOADED, self.rangeLabel, self.P_MPa, self.T_K, self.deltaP, self.deltaT \
-            = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K)
+            = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, FORCE_NEW=FORCE_NEW)
 
         if not self.ALREADY_LOADED:
             self.comp = compstr
@@ -84,14 +84,17 @@ class OceanEOSStruct:
                 self.alpha_pK = seaOut.alpha
                 self.kTherm_WmK = np.zeros_like(self.alpha_pK) + Constants.kThermWater_WmK  # Placeholder until we implement a self-consistent calculation
 
-                self.phase = WhichPhase(PTgrid)
-                # Create phase finder -- note that the results from this function must be cast to int after retrieval
-                Plin_MPa = np.array([P for P in self.P_MPa for _ in self.T_K])
-                Tlin_K = np.array([T for _ in self.P_MPa for T in self.T_K])
-                PTpairs = list(zip(Plin_MPa, Tlin_K))
-                phase1D = np.reshape(self.phase, (-1))
-                # Create phase finder -- note that the results from this function must be cast to int after retrieval
-                self.fn_phase = NearestNDInterpolator(PTpairs, phase1D)
+                if self.PHASE_LOOKUP:
+                    self.phase = WhichPhase(PTgrid)
+                    # Create phase finder -- note that the results from this function must be cast to int after retrieval
+                    Plin_MPa = np.array([P for P in self.P_MPa for _ in self.T_K])
+                    Tlin_K = np.array([T for _ in self.P_MPa for T in self.T_K])
+                    PTpairs = list(zip(Plin_MPa, Tlin_K))
+                    phase1D = np.reshape(self.phase, (-1))
+                    # Create phase finder -- note that the results from this function must be cast to int after retrieval
+                    self.fn_phase = NearestNDInterpolator(PTpairs, phase1D)
+                else:
+                    self.fn_phase = SFphase()
 
                 self.ufn_Seismic = H2OSeismic(compstr, self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = H2Osigma_Sm()
@@ -121,10 +124,10 @@ class OceanEOSStruct:
 
                 self.P_MPa, self.T_K, self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK \
                     = MgSO4Props(self.P_MPa, self.T_K, self.w_ppt, self.EXTRAP)
-                if self.CALC_MARGULES:
-                    self.fn_phase = MgSO4PhaseMargules(self.w_ppt).arrays
-                else:
+                if self.PHASE_LOOKUP:
                     self.fn_phase = MgSO4PhaseLookup(self.w_ppt)
+                else:
+                    self.fn_phase = MgSO4PhaseMargules(self.w_ppt).arrays
                 self.ufn_Seismic = MgSO4Seismic(self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = MgSO4Conduct(self.w_ppt, self.elecType, rhoType=self.rhoType,
                                                 scalingType=self.scalingType)
@@ -141,9 +144,13 @@ class OceanEOSStruct:
             self.ufn_alpha_pK = RectBivariateSpline(self.P_MPa, self.T_K, self.alpha_pK)
             self.ufn_kTherm_WmK = RectBivariateSpline(self.P_MPa, self.T_K, self.kTherm_WmK)
 
-            # Store complete EOSStruct in global list of loaded EOSs
-            EOSlist.loaded[self.EOSlabel] = self
-            EOSlist.ranges[self.EOSlabel] = self.rangeLabel
+            # Store complete EOSStruct in global list of loaded EOSs,
+            # but only if we weren't forcing a recalculation. This allows
+            # us to use a finer step in getting the ice shell thickness while
+            # not slowing down ocean calculations.
+            if not FORCE_NEW:
+                EOSlist.loaded[self.EOSlabel] = self
+                EOSlist.ranges[self.EOSlabel] = self.rangeLabel
 
     # Limit extrapolation to use nearest value from evaluated fit
     def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
@@ -292,7 +299,7 @@ class IceEOSStruct:
         return self.ufn_sigma_Sm(P_MPa, T_K)
 
 
-def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
+def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False):
     """ Determine if we need to load a new EOS, or if we can reuse one that's already been
         loaded within this session.
 
@@ -301,6 +308,8 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
                 EOSStruct class instantiator.
             P_MPa (float, shape N): Pressures to desired for constructing the EOS in MPa.
             T_K (float, shape N): Temperatures to desired for constructing the EOS in K.
+            FORCE_NEW = False (bool): Whether to force a reload each time, instead of checking.
+                Overwrites any previously loaded EOS in the EOSlist that has the same EOSlabel.
         Returns:
             ALREADY_LOADED (bool): Whether we can make use of an EOSStruct in EOSlist.loaded
                 with a label matching the one we wish to load now.
@@ -310,11 +319,11 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
     """
 
     # Create label for identifying P, T arrays
-    deltaP = np.round(np.mean(np.diff(P_MPa)), 2)
-    deltaT = np.round(np.mean(np.diff(T_K)), 2)
-    rangeLabel = f'{np.min(P_MPa):.0f},{np.max(P_MPa):.0f},{deltaP:.2e},' + \
-                 f'{np.min(T_K):.0f},{np.max(T_K):.0f},{deltaT:.2e}'
-    if EOSlabel in EOSlist.loaded.keys():
+    deltaP = np.maximum(np.round(np.mean(np.diff(P_MPa)), 2), 0.001)
+    deltaT = np.maximum(np.round(np.mean(np.diff(T_K)), 2), 0.001)
+    rangeLabel = f'{np.min(P_MPa):.2f},{np.max(P_MPa):.2f},{deltaP:.2e},' + \
+                 f'{np.min(T_K):.3f},{np.max(T_K):.3f},{deltaT:.2e}'
+    if (not FORCE_NEW) and EOSlabel in EOSlist.loaded.keys():
         if EOSlist.ranges[EOSlabel] == rangeLabel:
             # This exact EOS has been loaded already. Reuse the one in memory
             ALREADY_LOADED = True
@@ -326,8 +335,8 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
             nopeP = np.min(P_MPa) < EOSlist.loaded[EOSlabel].Pmin * 0.9 or \
                     np.max(P_MPa) > EOSlist.loaded[EOSlabel].Pmax * 1.1 or \
                     deltaP < EOSlist.loaded[EOSlabel].deltaP * 0.9
-            nopeT = np.min(T_K) < EOSlist.loaded[EOSlabel].Tmin * 0.9 or \
-                    np.max(T_K) > EOSlist.loaded[EOSlabel].Tmax * 1.1 or \
+            nopeT = np.min(T_K) < EOSlist.loaded[EOSlabel].Tmin - 0.1 or \
+                    np.max(T_K) > EOSlist.loaded[EOSlabel].Tmax + 0.1 or \
                     deltaT < EOSlist.loaded[EOSlabel].deltaT * 0.9
             if nopeP or nopeT:
                 # The new inputs have at least one min/max value outside the range
@@ -347,8 +356,8 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
                 nTs = int((maxTmax - minTmin) / deltaT)
                 outP_MPa = np.linspace(minPmin, maxPmax, nPs)
                 outT_K = np.linspace(minTmin, maxTmax, nTs)
-                rangeLabel = f'{np.min(outP_MPa):.0f},{np.max(outP_MPa):.0f},{deltaP:.2e},' + \
-                             f'{np.min(outT_K):.0f},{np.max(outT_K):.0f},{deltaT:.2e}'
+                rangeLabel = f'{np.min(outP_MPa):.2f},{np.max(outP_MPa):.2f},{deltaP:.2e},' + \
+                             f'{np.min(outT_K):.3f},{np.max(outT_K):.3f},{deltaT:.2e}'
             else:
                 # A previous EOS has been loaded that has a wider P or T range than the inputs,
                 # so we will use the previously loaded one.
@@ -367,6 +376,27 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K):
 # Create a function that can pack up (P,T) pairs that are compatible with SeaFreeze
 def sfPTpairs(P_MPa, T_K):
     return np.array([(P, T) for P, T in zip(P_MPa, T_K)], dtype='f,f').astype(object)
+
+# Create callable class to act as a wrapper for SeaFreeze phase lookup
+class SFphase:
+    def __init__(self):
+        pass
+
+    def PTpairs(self, Pin, Tin):
+        if np.size(Pin) == 1 and np.size(Tin) == 1:
+            return np.array([(Pin, Tin)], dtype='f,f').astype(object)
+        elif np.size(Pin) == 1:
+            return np.array([(Pin, T) for T in Tin], dtype='f,f').astype(object)
+        elif np.size(Tin) == 1:
+            return np.array([(P, Tin) for P in Pin], dtype='f,f').astype(object)
+        elif np.size(Pin) == np.size(Tin):
+            return np.array([(P, T) for P, T in zip(Pin, Tin)], dtype='f,f').astype(object)
+        else:
+            log.warning('2D array as input to SeaFreeze phase finder, but 1D array will be output.')
+            return np.array([(P, T) for T in Tin for P in Pin], dtype='f,f').astype(object)
+
+    def __call__(self, P_MPa, T_K):
+        return WhichPhase(self.PTpairs(P_MPa, T_K)).astype(np.int_)
 
 
 class H2OSeismic:
@@ -426,7 +456,10 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0, PUpper_MPa=300, PRes_MPa=
         Pfreeze_MPa = GetZero(phaseChange, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa/5
     except ValueError:
         if UNDERPLATE:
-            raise ValueError(f'Tb_K of {Tb_K:.3f} is not consistent with underplating ice III.')
+            raise ValueError(f'Tb_K of {Tb_K:.3f} is not consistent with underplating ice III; ' +
+                             f'the phases at the top and bottom of this range are ' +
+                             f'{PhaseConv(oceanEOS.fn_phase(PLower_MPa, Tb_K))} and ' +
+                             f'{PhaseConv(oceanEOS.fn_phase(PUpper_MPa, Tb_K))}, respectively.')
         elif TRY_BOTH:
             try:
                 Pfreeze_MPa = GetZero(phaseChangeUnderplate, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa / 5

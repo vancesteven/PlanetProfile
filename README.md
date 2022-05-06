@@ -1,4 +1,4 @@
-# PlanetProfile v1.2.0
+# PlanetProfile v1.3.0
 Python software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data. Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
 
 ## Acknowledging PlanetProfile
@@ -8,7 +8,7 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
 * SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze, installed with pip
 * MoonMag -- see https://github.com/itsmoosh/MoonMag, installed with pip
 * TEOS-10 Gibbs Seawater for python -- installed with conda
-* ObsPy python package (optional) -- installed with conda
+* ObsPy (optional) -- installed with conda
 * A working TeX/LaTeX distribution (such as TeXlive) is recommended for optimum plot labels. TeXlive is available at: https://tug.org/texlive/acquire-netinstall.html
 * Python 3.8+ installed, preferably via Anaconda. Required modules:
   * Standard Anaconda (for miniconda, install with conda install <packageName1> <packagename2> etc.):
@@ -20,7 +20,7 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
     * gsw
     * obspy
     * spiceypy
-    * skyfield (maybe not needed? Used in body date/time settings of asymmetric induction code)
+    * cmasher
 * Some magnetic field features require use of the [SPICE toolkit through Mice](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/MATLAB/index.html). To install Mice:
   * Navigate to https://naif.jpl.nasa.gov/naif/toolkit_MATLAB.html, follow the link for your operating system, download the .zip or .tar.Z file to PlanetProfile/Utilities/spice/, and unpack the archive (into PlanetProfile/spice/mice/).
 * Refprop is required for NH3 solutions: https://www.nist.gov/refprop

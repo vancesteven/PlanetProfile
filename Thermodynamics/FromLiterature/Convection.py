@@ -45,6 +45,9 @@ def IceIConvectSolid(Planet, Params):
     if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
         log.info(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
                   'boundary layers--convection is absent. Applying whole-shell conductive profile.')
+        Planet.eLid_m = zbI_m
+        Planet.Dconv_m = 0.0
+        Planet.deltaTBL_m = 0.0
 
         # Recalculate heat flux, as it will be too high for conduction-only:
         qSurf_Wm2 = (Planet.T_K[1] - Planet.T_K[0]) / (Planet.r_m[0] - Planet.r_m[1]) * Planet.kTherm_WmK[0]
@@ -69,7 +72,7 @@ def IceIConvectSolid(Planet, Params):
 
         # Reset profile of upper layers, keeping pressure values fixed
         if Planet.Do.CLATHRATE:
-            log.debug('Evaluating clathrate layers in stagnant lid.')
+            log.debug('Evaluating clathrate layers in conductive lid.')
 
             if Planet.Bulk.clathType == 'top':
                 if (Planet.eLid_m < Planet.zClath_m):
@@ -191,6 +194,9 @@ def IceIConvectPorous(Planet, Params):
     if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
         log.info(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
                   'boundary layers--convection is absent. Applying whole-shell conductive profile.')
+        Planet.eLid_m = zbI_m
+        Planet.Dconv_m = 0.0
+        Planet.deltaTBL_m = 0.0
 
         # Recalculate heat flux, as it will be too high for conduction-only:
         qSurf_Wm2 = (Planet.T_K[1] - Planet.T_K[0]) / (Planet.r_m[0] - Planet.r_m[1]) * Planet.kTherm_WmK[0]
@@ -345,6 +351,9 @@ def IceIIIConvectSolid(Planet, Params):
     if(zbIII_m <= Planet.eLidIII_m + Planet.deltaTBLIII_m):
         log.info(f'Underplate ice III thickness ({zbIII_m/1e3:.1f} km) is less than that of the thermal ' +
                   'boundary layers--convection is absent. Applying whole-layer conductive profile.')
+        Planet.eLidIII_m = zbIII_m
+        Planet.DconvIII_m = 0.0
+        Planet.deltaTBLIII_m = 0.0
 
         # We leave the remaining quantities as initially assigned,
         # as we find the initial profile assuming conduction only.
@@ -438,6 +447,9 @@ def IceIIIConvectPorous(Planet, Params):
     if(zbIII_m <= Planet.eLidIII_m + Planet.deltaTBLIII_m):
         log.info(f'Underplate ice III thickness ({zbIII_m/1e3:.1f} km) is less than that of the thermal ' +
                   'boundary layers--convection is absent. Applying whole-layer conductive profile.')
+        Planet.eLidIII_m = zbIII_m
+        Planet.DconvIII_m = 0.0
+        Planet.deltaTBLIII_m = 0.0
 
         # We leave the remaining quantities as initially assigned,
         # as we find the initial profile assuming conduction only.
@@ -538,6 +550,9 @@ def IceVConvectSolid(Planet, Params):
     if(zbV_m <= Planet.eLidV_m + Planet.deltaTBLV_m):
         log.info(f'Underplate ice V thickness ({zbV_m/1e3:.1f} km) is less than that of the thermal ' +
                   'boundary layers--convection is absent. Applying whole-layer conductive profile.')
+        Planet.eLidV_m = zbV_m
+        Planet.DconvV_m = 0.0
+        Planet.deltaTBLV_m = 0.0
 
         # We leave the remaining quantities as initially assigned,
         # as we find the initial profile assuming conduction only.
@@ -633,6 +648,9 @@ def IceVConvectPorous(Planet, Params):
     if(zbV_m <= Planet.eLidV_m + Planet.deltaTBLV_m):
         log.info(f'Underplate ice V thickness ({zbV_m/1e3:.1f} km) is less than that of the thermal ' +
                   'boundary layers--convection is absent. Applying whole-layer conductive profile.')
+        Planet.eLidV_m = zbV_m
+        Planet.DconvV_m = 0.0
+        Planet.deltaTBLV_m = 0.0
 
         # We leave the remaining quantities as initially assigned,
         # as we find the initial profile assuming conduction only.
@@ -739,6 +757,9 @@ def ClathShellConvectSolid(Planet, Params):
     if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
         log.info(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
                   'boundary layers--convection is absent. Applying whole-shell conductive profile.')
+        Planet.eLid_m = zbI_m
+        Planet.Dconv_m = 0.0
+        Planet.deltaTBL_m = 0.0
 
         # Recalculate heat flux, as it will be too high for conduction-only:
         qSurf_Wm2 = (Planet.T_K[1] - Planet.T_K[0]) / (Planet.r_m[0] - Planet.r_m[1]) * Planet.kTherm_WmK[0]
@@ -826,6 +847,9 @@ def ClathShellConvectPorous(Planet, Params):
     if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
         log.info(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
                   'boundary layers--convection is absent. Applying whole-shell conductive profile.')
+        Planet.eLid_m = zbI_m
+        Planet.Dconv_m = 0.0
+        Planet.deltaTBL_m = 0.0
 
         # Recalculate heat flux, as it will be too high for conduction-only:
         qSurf_Wm2 = (Planet.T_K[1] - Planet.T_K[0]) / (Planet.r_m[0] - Planet.r_m[1]) * Planet.kTherm_WmK[0]

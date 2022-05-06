@@ -34,7 +34,7 @@ def IceLayers(Planet, Params):
 
     # Get the pressure consistent with the bottom of the surface ice layer that is
     # consistent with the choice of Tb_K we suppose for this model
-    Planet.PbI_MPa = GetPfreeze(Planet.Ocean.EOS, 1, Planet.Bulk.Tb_K,
+    Planet.PbI_MPa = GetPfreeze(Planet.Ocean.meltEOS, 1, Planet.Bulk.Tb_K,
                                 PLower_MPa=Planet.PfreezeLower_MPa, PUpper_MPa=Planet.PfreezeUpper_MPa,
                                 PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=(Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV))
     if(Planet.Do.CLATHRATE and
@@ -61,7 +61,7 @@ def IceLayers(Planet, Params):
 
     # Now do the same for HP ices, if present, to make sure we have a possible configuration before continuing
     if Planet.Do.BOTTOM_ICEV:
-        Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.EOS, 3, Planet.Bulk.TbIII_K,
+        Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.meltEOS, 3, Planet.Bulk.TbIII_K,
                    PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
                    PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=True)
         if(Planet.PbIII_MPa <= Planet.PbI_MPa):
@@ -71,7 +71,7 @@ def IceLayers(Planet, Params):
                              f', Tb_K = {Planet.Bulk.Tb_K:.3f}' +
                              f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' +
                              f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}')
-        Planet.PbV_MPa = GetPfreeze(Planet.Ocean.EOS, 5, Planet.Bulk.TbV_K,
+        Planet.PbV_MPa = GetPfreeze(Planet.Ocean.meltEOS, 5, Planet.Bulk.TbV_K,
                                       PLower_MPa=Planet.PbIII_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
                                       PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False)
         Planet.Pb_MPa = Planet.PbV_MPa
@@ -83,7 +83,7 @@ def IceLayers(Planet, Params):
                              f'\nPbV_MPa = {Planet.PbV_MPa:.3f}' +
                              f', TbV_K = {Planet.Bulk.TbV_K:.3f}')
     elif Planet.Do.BOTTOM_ICEIII:
-        Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.EOS, 3, Planet.Bulk.TbIII_K,
+        Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.meltEOS, 3, Planet.Bulk.TbIII_K,
                                       PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
                                       PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False)
         if(Planet.PbIII_MPa <= Planet.PbI_MPa):
@@ -384,9 +384,11 @@ def OceanLayers(Planet, Params):
         Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int_)
         log.debug(f'il: {Planet.Steps.nSurfIce+i:d}; P_MPa: {POcean_MPa[i]:.3f}; ' +
                   f'T_K: {TOcean_K[i]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce+i]:d}')
-        if Planet.phase[Planet.Steps.nSurfIce+i] == 0:
+        if Planet.phase[Planet.Steps.nSurfIce+i] < 2:
             # Liquid water layers -- get fluid properties for the present layer but with the
-            # overlaying layer's temperature
+            # overlaying layer's temperature. Note that we include ice Ih in these layers because
+            # ice Ih layers result only from instabilities in phase diagram calculations. There should
+            # not be any ice Ih below the ice--ocean interface at Tb.
             rhoOcean_kgm3[i] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[i], TOcean_K[i])
             CpOcean_JkgK[i] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
             alphaOcean_pK[i] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
@@ -399,12 +401,15 @@ def OceanLayers(Planet, Params):
             # This is based on an assumption that the undersea HP ices are vigorously mixed by
             # two-phase convection, such that each layer is in local equilibrium with the liquid,
             # meaning each layer's temperature is equal to the melting temperature.
+            # We implement this by averaging the upper layer temp with the melting temp minus a small offset,
+            # to step more gently and avoid overshooting that causes phase oscillations.
             thisPhase = PhaseConv(Planet.phase[Planet.Steps.nSurfIce+i])
             rhoOcean_kgm3[i] = Planet.Ocean.iceEOS[thisPhase].fn_rho_kgm3(POcean_MPa[i], TOcean_K[i])
             CpOcean_JkgK[i] = Planet.Ocean.iceEOS[thisPhase].fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
             alphaOcean_pK[i] = Planet.Ocean.iceEOS[thisPhase].fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
             kThermOcean_WmK[i] = Planet.Ocean.iceEOS[thisPhase].fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i])
-            TOcean_K[i+1] = GetTfreeze(Planet.Ocean.EOS, POcean_MPa[i], TOcean_K[i])
+            TOcean_K[i+1] = np.mean([GetTfreeze(Planet.Ocean.EOS, POcean_MPa[i], TOcean_K[i])
+                                     - Planet.Ocean.TfreezeOffset_K, TOcean_K[i]])
 
     Planet.P_MPa[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = POcean_MPa
     Planet.T_K[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = TOcean_K[:-1]
@@ -595,8 +600,10 @@ def InnerLayers(Planet, Params):
     if Planet.Do.NO_H2O:
         Planet.D_km = 0
     else:
-        iOceanBot = np.where(Planet.phase == 0)[0][-1]
-        Planet.D_km = (Planet.Bulk.R_m - Planet.r_m[iOceanBot + 1])/1e3 - Planet.zb_km
+        # Get first index of phase changing from 0 to something different ---
+        # this is the bottom of the contiguous ocean layer.
+        iOceanBot = next(i for i,phase in enumerate(Planet.phase[:Planet.Steps.nHydro]) if phase == 0 and phase != Planet.phase[i+1])
+        Planet.D_km = Planet.z_m[iOceanBot + 1]/1e3 - Planet.zb_km
 
     # Calculate total salt and water masses
     Planet.Mcore_kg = np.sum(Planet.MLayer_kg[iSC:iCC])
@@ -620,7 +627,7 @@ def InnerLayers(Planet, Params):
     Planet.Mclath_kg = np.sum(Planet.MLayer_kg[abs(Planet.phase) == Constants.phaseClath])
     Planet.MclathGas_kg = Planet.Mclath_kg * Constants.clathGasFrac_ppt / 1e3
     # The portion just in the ocean is simple to evaluate:
-    Planet.Mocean_kg = np.sum(Planet.MLayer_kg[Planet.phase==0])
+    Planet.Mocean_kg = np.sum(Planet.MLayer_kg[Planet.phase == 0])
     # The difference is the amount contained in the pore space:
     Planet.MporeFluid_kg = Planet.Mfluid_kg - Planet.Mocean_kg
     # Multiply mass concentration of solute to get total mass of salt in ocean
@@ -632,6 +639,7 @@ def InnerLayers(Planet, Params):
     # The remainder, plus ice mass excluding gasses in clathrates,
     # is the total mass contained in water molecules for the body
     Planet.MH2O_kg = Planet.Mfluid_kg - Planet.Msalt_kg + Planet.Mice_kg - Planet.MclathGas_kg
+    
     # Get the mean density of ocean layers and conducting/convecting upper ice layers
     Planet.VLayer_m3 = 4/3*np.pi * (Planet.r_m[:-1]**3 - Planet.r_m[1:]**3)
     Planet.Ocean.Vtot_m3 = np.sum(Planet.VLayer_m3[Planet.phase == 0])
@@ -644,6 +652,9 @@ def InnerLayers(Planet, Params):
         # ocean and dividing by the total heat storage capacity
         oceanHeat_pK = Planet.Cp_JkgK[Planet.phase == 0] * Planet.MLayer_kg[Planet.phase == 0]
         Planet.Ocean.Tmean_K = np.sum(Planet.T_K[Planet.phase == 0] * oceanHeat_pK) / np.sum(oceanHeat_pK)
+    
+    # Get mean tidal heating in silicate layers
+    Planet.Sil.HtidalMean_Wm3 = np.mean(Planet.Htidal_Wm3[iOS:iSC])
 
     # Check for any negative temperature gradient (indicates non-equilibrium conditions)
     gradTneg = np.where(np.diff(Planet.T_K) < 0)
@@ -995,8 +1006,8 @@ def CalcMoIWithEOS(Planet, Params):
             suggestion = 'Try decreasing Tb_K or adjusting silicate/core composition to get lower C/MR^2 values.'
         else:
             suggestion = 'Try adjusting properties of silicates and core to get higher C/MR^2 values.'
-        raise ValueError(f'No MoI found matching C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}.\n' +
-                         f'Min: {np.min(CMR2[CMR2>0]):.3f}, Max: {np.max(CMR2):.3f}.\n ' + suggestion)
+        raise ValueError(f'No MoI found matching C/MR^2 = {Planet.Bulk.Cmeasured:.4f}±{Planet.Bulk.Cuncertainty:.4f}.\n' +
+                         f'Min: {np.min(CMR2[CMR2>0]):.4f}, Max: {np.max(CMR2):.4f}.\n ' + suggestion)
 
     # Find the C/MR^2 value most closely matching the measured value
     CMR2diff = np.abs(CMR2[CMR2inds] - Planet.Bulk.Cmeasured)
@@ -1018,9 +1029,16 @@ def CalcMoIWithEOS(Planet, Params):
         CMR2indsSil = [np.where(ind == iValid)[0][0] for ind in CMR2inds]
     # Record the best-match C/MR^2 value and neighboring values
     Planet.CMR2mean = CMR2[iCMR2]
-    CMR2neighbors = [CMR2[iCMR2-1], CMR2[iCMR2+1]]
-    Planet.CMR2less = np.min(CMR2neighbors)
-    Planet.CMR2more = np.max(CMR2neighbors)
+    if Planet.Do.NO_H2O:
+        log.warning('Only one profile is calculated for waterless bodies. Another method ' +
+                    'of giving a trade space between total mass and MoI should replace this ' +
+                    'implementation, varying surface heat flux, tidal heating, and/or porosity.')
+        Planet.CMR2less = np.nan
+        Planet.CMR2more = np.nan
+    else:
+        CMR2neighbors = [CMR2[iCMR2-1], CMR2[iCMR2+1]]
+        Planet.CMR2less = np.min(CMR2neighbors)
+        Planet.CMR2more = np.max(CMR2neighbors)
     # Now we finally know how many layers there are in the hydrosphere and silicates
     Planet.Steps.nHydro = iCMR2
     Planet.Steps.nSil = nSilFinal[iCMR2sil]

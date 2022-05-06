@@ -2,16 +2,18 @@
 import numpy as np
 from Utilities.defineStructs import Constants
 
-inductOtype = 'rho'  # Type of inductogram plot to make
+inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma".
+colorType = 'zb'  # What parameter to use for color of points in phase space plots. Options are "Tmean", "zb".
 SPECIFIC_CLEVELS = True  # Whether to use the specific cLevels listed below or default numbers
 
 class InductOgramParams:
-    def __init__(self, inductOtype, cLevels, dftC, SPECIFIC_CLEVELS, cFmt):
+    def __init__(self, inductOtype, colorType, cLevels, dftC, SPECIFIC_CLEVELS, cFmt):
         # Type of InductOgram plot to make. Options are "Tb", "phi", "rho", "sigma",
         # where the first 3 are vs. salinity, and sigma is vs. thickness.
         # Sigma/D plot is not self-consistent.
         self.bodyname = None
         self.inductOtype = inductOtype
+        self.colorType = colorType
         self.SPECIFIC_CLEVELS = SPECIFIC_CLEVELS
         self.cLevels = cLevels
         self.dftC = dftC
@@ -23,16 +25,16 @@ class InductOgramParams:
         for osc in self.excSelectionPlot:
             if self.excSelectionPlot[osc] and not self.excSelectionCalc[osc]:
                 self.excSelectionCalc[osc] = True
-        self.nwPts = 80  # Resolution for salinity values in ocean salinity vs. other plots
-        self.wMin = {'Europa': np.log10(0.05 * Constants.stdSeawater_ppt)}
-        self.wMax = {'Europa': np.log10(Constants.stdSeawater_ppt)}
+        self.nwPts = 8  # Resolution for salinity values in ocean salinity vs. other plots
+        self.wMin = {'Europa': np.log10(1)}
+        self.wMax = {'Europa': np.log10(100)}
         self.nTbPts = 60  # Resolution for Tb values in ocean salinity/Tb plots
         self.TbMin = {'Europa': 265.0}
         self.TbMax = {'Europa': 271.0}
         self.nphiPts = 60  # Resolution for phiRockMax values in ocean salinity/phiMax plots
         self.phiMin = {'Europa': np.log10(0.01)}
         self.phiMax = {'Europa': np.log10(0.75)}
-        self.nrhoPts = 100  # Resolution for silicate density values in ocean salinity/rho plots
+        self.nrhoPts = 10  # Resolution for silicate density values in ocean salinity/rho plots
         self.rhoMin = {'Europa': 3300}
         self.rhoMax = {'Europa': 3700}
         self.nSigmaPts = 80  # Resolution for conductivity values in ocean conductivity/thickness plots
@@ -145,7 +147,7 @@ cFmt['Test'] = cFmt[it]
 
 Asymmetry = AsymmetryStruct()
 ExcSpecParams = ExcitationSpectrumParams()
-InductParams = InductOgramParams(inductOtype, cLevels, dftC, SPECIFIC_CLEVELS, cFmt)
+InductParams = InductOgramParams(inductOtype, colorType, cLevels, dftC, SPECIFIC_CLEVELS, cFmt)
 
 [getattr(InductParams, attr).update({'Test': getattr(InductParams, attr)[it]})
     for attr in ['wMin', 'wMax', 'TbMin', 'TbMax', 'phiMin', 'phiMax', 'rhoMin',

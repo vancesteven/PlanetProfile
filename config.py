@@ -31,7 +31,8 @@ Params.CALC_CONDUCT =     True  # Calculate electrical conductivity?
 Params.RUN_ALL_PROFILES = False  # Whether to run all PPBody.py files for the named body and plot together
 Params.SPEC_FILE =        False  # Whether we are running a specific file or files
 Params.COMPARE =          True  # Whether to plot each new run against other runs from the same body
-Params.DO_PARALLEL =      True  # Use multiprocessing module for parallel computation where applicable
+Params.DO_PARALLEL =      True  # Whether to use multiprocessing module for parallel computation where applicable
+Params.FORCE_EOS_RECALC = False  # Whether to reuse previously loaded EOS functions for multi-profile runs
 Params.SKIP_INNER =       False  # Whether to skip past everything but ocean calculations after MoI matching (for large induction studies)
 Params.NO_SAVEFILE =      False  # Whether to prevent printing run outputs to disk. Saves time and disk space for large induction studies.
 Params.REDUCED_INDUCT =   True  # Whether to limit number of ocean layers for faster computation of layered induction
@@ -55,6 +56,7 @@ Params.LEGEND = True  # Whether to include legends
 
 # Magnetic induction plot settings
 Params.DO_INDUCTOGRAM = False  # Whether to plot an inductogram for the body in question
+Params.INDUCTOGRAM_IN_PROGRESS = False  # Whether we are currently working on constructing an inductogram
 Params.COMBINE_BCOMPS = False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
 Params.PLOT_FFT = True  # Whether to show plots of fourier space
 Params.DO_PER = True  # Convert frequency axes to periods for FFT plots

@@ -72,7 +72,7 @@ class StepsSubstruct:
         self.nIbottom = None  # Derived number of clathrate + ice I layers
         self.nIIIbottom = 0  # Derived number of clathrate + ice I + ice III layers
         self.nSurfIce = 0  # Derived number of outer ice layers (above ocean) -- sum of nIceI, nClath, nIceIIILitho, nIceVLitho
-        self.nRefRho = None  # Number of values for plotting reference density curves (sets resolution)
+        self.nRefRho = 30  # Number of values for plotting reference density curves (sets resolution)
         self.iSilStart = None  # Hydrosphere index at which to start silicate size search
         self.nSilMax = None  # Fixed max number of steps in silicate layers
         self.nSil = None  # Derived final number of steps in silicate layers
@@ -96,24 +96,28 @@ class OceanSubstruct:
     def __init__(self):
         self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'PureH2O', 'NH3', 'NaCl', 'none'
         self.wOcean_ppt = None  # (Absolute) salinity: Mass concentration of above composition in parts per thousand (ppt)
-        self.sigmaMean_Sm = None  # Mean conductivity across all ocean layers (linear average, ignoring spherical geometry effects)
-        self.sigmaTop_Sm = None  # Conductivity of shallowest ocean layer
+        self.sigmaMean_Sm = np.nan  # Mean conductivity across all ocean layers (linear average, ignoring spherical geometry effects)
+        self.sigmaTop_Sm = np.nan  # Conductivity of shallowest ocean layer
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
         self.Vtot_kg = None  # Total volume of all ocean layers
         self.rhoMean_kgm3 = None  # Mean density for ocean layers
-        self.rhoCondImean_kgm3 = None  # Mean density for conducting ice I layers
-        self.rhoConvImean_kgm3 = None  # Mean density for convecting ice I layers
-        self.rhoCondIIImean_kgm3 = None  # Mean density for conducting ice III layers
-        self.rhoConvIIImean_kgm3 = None  # Mean density for convecting ice III layers
-        self.rhoCondVmean_kgm3 = None  # Mean density for conducting ice V layers
-        self.rhoConvVmean_kgm3 = None  # Mean density for convecting ice V layers
-        self.sigmaCondImean_Sm = None  # Mean conductivity for conducting ice I layers
-        self.sigmaConvImean_Sm = None  # Mean conductivity for convecting ice I layers
-        self.sigmaCondIIImean_Sm = None  # Mean conductivity for conducting ice III layers
-        self.sigmaConvIIImean_Sm = None  # Mean conductivity for convecting ice III layers
-        self.sigmaCondVmean_Sm = None  # Mean conductivity for conducting ice V layers
-        self.sigmaConvVmean_Sm = None  # Mean conductivity for convecting ice V layers
+        self.Tmean_K = None  # Mean temperature of ocean layers based on total thermal energy
+        self.rhoCondMean_kgm3 = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean density for conducting ice layers
+        self.rhoConvMean_kgm3 = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean density for convecting ice layers
+        self.sigmaCondMean_Sm = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean conductivity for conducting ice layers
+        self.sigmaConvMean_Sm = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean conductivity for convecting ice layers
+        self.sigmaCondMean_Sm = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean conductivity for conducting ice layers
+        self.sigmaConvMean_Sm = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean conductivity for convecting ice layers
+        self.GScondMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for conducting ice layers
+        self.GSconvMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for convecting ice layers
+        self.rhoMeanVwet_kgm3 = np.nan  # Mean density for in-ocean ice V layers
+        self.rhoMeanVI_kgm3 = np.nan  # Mean density for in-ocean ice VI layers
+        self.sigmaMeanVwet_Sm = np.nan  # Mean electrical conductivity for in-ocean ice V layers
+        self.sigmaMeanVI_Sm = np.nan  # Mean electrical conductivity for in-ocean ice VI layers
+        self.GSmeanVwet_GPa = np.nan  # Mean shear modulus for in-ocean ice V layers
+        self.GSmeanVI_GPa = np.nan  # Mean shear modulus for in-ocean ice VI layers
+        self.TfreezeOffset_K = 0.01  # Offset from the freezing temperature to avoid overshooting in HP ices
         self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
         self.dkdTI_WmK2 = -0.012  # Temperature derivative of ice I relative to the melting temp. Default is from Melinder (2007).
         self.sigmaIce_Sm = {'Ih':1e-8, 'II':1e-8, 'III':1e-8, 'V':1e-8, 'VI':1e-8, 'Clath':5e-5}  # Assumed conductivity of solid ice phases (see Constants.sigmaClath_Sm below)
@@ -122,9 +126,10 @@ class OceanSubstruct:
         self.MgSO4elecType = 'Vance2018'  # Type of electrical conductivity model to use for MgSO4. Options: 'Vance2018', 'Pan2020'
         self.MgSO4scalingType = 'Vance2018'  # Type of scaling to apply to Larionov and Kryukov model. Options: 'Vance2018', 'LK1984'
         self.MgSO4rhoType = 'Millero'  # Type of water density model to use in Larionov and Kryukov model. Options: 'Millero', 'SeaFreeze'
-        self.MgSO4phaseType = 'lookup'  # Type of phase calculation to use for MgSO4. Currently, "Margules" forces a (slow) individual calc for each P, T point, and any other option uses a lookup table like the Perplex EOS functions.
+        self.phaseType = 'lookup'  # Type of phase calculation to use for MgSO4 and pure water. Currently, "lookup" runs a fast lookup table like the Perplex EOS functions, and anything else forces a (slow) individual calc for each P, T point.
         self.QfromMantle_W = None  # Heat flow from mantle into hydrosphere (calculated from ice thermal profile and applied to mantle)
         self.EOS = None  # Equation of state data to use for ocean layers
+        self.meltEOS = None  # EOS just for finding ice I/liquid transition pressure Pb
         self.surfIceEOS = {}  # Equation of state data to use for surface ice layers
         self.iceEOS = {}  # Equation of state data to use for ice layers within the ocean
         """ Porosity parameters """
@@ -173,8 +178,8 @@ class SilSubstruct:
         self.poreConductAboveExp = 1.5  # Exponent to use for above-threshold dependence of conductivity on porosity for pore fluids -- 3/2 is that expected for spherical grains of the matrix material; Wong et al. (1984) suggest it fits well to above-threshold measurements, and this is supported by Golden et al. (2007): https://doi.org/10.1029/2007GL030447
         self.poreConductThresh_frac = self.poreConductPrefac**(1/(self.poreConductAboveExp - self.poreConductBelowExp))  # Threshold in porosity at which the below-threshold Archie's law fit from above parameters is equal to above-threshold dependence
         self.phiMin_frac = 1e-4  # Minimum porosity to model in silicates, i.e. below this we just set to zero
-        self.sigmaPoreMean_Sm = None  # Mean conductivity of pore fluids across all layers with porosity above poreConductThresh (about 5%)
-        self.sigmaPorousLayerMean_Sm = None  # Mean conductivity of matrix + pore fluid combined, for all layers with porosity of poreConductThresh
+        self.sigmaPoreMean_Sm = np.nan  # Mean conductivity of pore fluids across all layers with porosity above poreConductThresh (about 5%)
+        self.sigmaPorousLayerMean_Sm = np.nan  # Mean conductivity of matrix + pore fluid combined, for all layers with porosity of poreConductThresh
         # J values for exponent of pore property / overlaying matrix combination as in Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
         # Values X combine as Xtot^J = Xmatrix^J * (1 - phi) + Xpore^J * phi, where phi is the porosity (volume fraction) of pore space filled with the secondary material.
         # Values of J typically range from -1 to 1, where 1 is a direct mean, e.g. Xtot = Xrock*(1-phi) + Xpore*phi and -1 is a geometric mean, e.g. Xtot = Xrock || Xpore = 1/((1-phi)/Xrock + phi/Xpore).
@@ -201,7 +206,9 @@ class SilSubstruct:
         self.Rrange_m = None  # Mantle radius range for compatible MoI
         self.Rtrade_m = None  # Array of mantle radii for compatible MoIs
         self.rhoMean_kgm3 = None  # Mean mantle density determined from MoI calculations
-        self.sigmaMean_Sm = None  # Mean conductivity across all silicate layers, ignoring spherical effects
+        self.GSmean_GPa = None  # Mean shear modulus in silicate layers
+        self.HtidalMean_Wm3 = None  # Mean tidal heating in silicate layers
+        self.sigmaMean_Sm = np.nan  # Mean conductivity across all silicate layers, ignoring spherical effects
         self.rhoTrade_kgm3 = None  # Array of mantle densities for compatible MoIs for core vs. mantle tradeoff plot
         self.mFluids = None  # WIP for tracking loss of fluids along the geotherm -- needs a better name.
         # The below not necessary to be implemented until later (says Steve), these 5 are based on DPS presentation in 2017 – 5 diff models of permeability
@@ -228,7 +235,8 @@ class CoreSubstruct:
         # Derived quantities
         self.rho_kgm3 = None  # Core bulk density consistent with assumed mixing ratios of Fe, FeS, etc.
         self.rhoMean_kgm3 = None  # Core bulk density calculated from final MoI match using EOS properties
-        self.sigmaMean_Sm = None  # Mean conductivity across all core layers, ignoring spherical effects
+        self.sigmaMean_Sm = np.nan  # Mean conductivity across all core layers, ignoring spherical effects
+        self.GSmean_GPa = np.nan  # Mean shear modulus in iron core layers
         self.Rmean_m = None  # Core radius for mean compatible moment of inertia (MoI)
         self.Rrange_m = None  # Core radius range for compatible MoI
         self.Rtrade_m = None  # Array of core radii for compatible MoIs
@@ -342,11 +350,13 @@ class PlanetStruct:
         self.Core = CoreSubstruct()
         self.Seismic = SeismicSubstruct()
         self.Magnetic = MagneticSubstruct()
+
+        self.saveLabel = None # Label for savefile
         # Settings for GetPfreeze start, stop, and step size.
         # Shrink closer to expected melting pressure to improve run times.
         self.PfreezeLower_MPa = 5  # Lower boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeUpper_MPa = 230  # Upper boundary for GetPfreeze to search for ice Ih phase transition
-        self.PfreezeRes_MPa = 0.1  # Step size in pressure for GetPfreeze to use in searching for phase transition
+        self.PfreezeRes_MPa = 0.05  # Step size in pressure for GetPfreeze to use in searching for phase transition
 
         """ Derived quantities (assigned during PlanetProfile runs) """
         # Layer arrays
@@ -416,16 +426,30 @@ class PlanetStruct:
         self.Mclath_kg = None  # Total mass of clathrate layers
         self.MclathGas_kg = None  # Total mass of non-water molecules trapped in clathrates
         self.index = None  # Numeric indicator to aid in progress info in multi-model runs
+        # Layer thicknesses for table printout
+        self.zIceI_m = np.nan
+        self.zClath_km = np.nan  # Note this one breaks with the pattern because zClath_m is already in use.
+        self.zIceIII_m = np.nan
+        self.zIceVund_m = np.nan
+        self.zIceV_m = np.nan
+        self.zIceVI_m = np.nan
+        self.dzIceI_km = np.nan
+        self.dzClath_km = np.nan
+        self.dzIceIII_km = np.nan
+        self.dzIceVund_km = np.nan
+        self.dzIceV_km = np.nan
+        self.dzIceVI_km = np.nan
+        self.dzIceVandVI_km = np.nan
 
 
 """ Params substructs """
 # Construct filenames for data, saving/reloading
 class DataFilesSubstruct:
-    def __init__(self, datPath, saveBase, inductBase=None):
+    def __init__(self, datPath, saveBase, comp, inductBase=None):
         if inductBase is None:
             inductBase = saveBase
         self.path = datPath
-        self.inductPath = os.path.join(self.path, 'induction')
+        self.inductPath = os.path.join(self.path, 'inductionData')
         if not os.path.isdir(self.path):
             os.makedirs(self.path)
         if not os.path.isdir(self.inductPath):
@@ -438,16 +462,22 @@ class DataFilesSubstruct:
         self.fNameInduct = os.path.join(self.inductPath, saveBase)
         self.inductLayersFile = self.fNameInduct + '_inductLayers.txt'
         self.inducedMomentsFile = self.fNameInduct + '_inducedMoments.txt'
-        self.fNameInductOgram = os.path.join(self.path, 'induction', inductBase)
-        self.inductOgramFile = self.fNameInductOgram + '_inductOgram.mat'
+        self.fNameInductOgram = os.path.join(self.path, 'inductionData', inductBase)
+        self.inductOgramFile = self.fNameInductOgram + f'{comp}_inductOgram.mat'
         self.inductOgramSigmaFile = self.fNameInductOgram + '_sigma_inductOgram.mat'
 
 
 # Construct filenames for figures etc.
 class FigureFilesSubstruct:
-    def __init__(self, figPath, figBase, xtn, inductBase=None):
+    def __init__(self, figPath, figBase, xtn, comp=None, inductBase=None):
         if inductBase is None:
-            inductBase = figBase
+            self.inductBase = figBase
+        else:
+            self.inductBase = inductBase
+        if comp is None:
+            self.comp = ''
+        else:
+            self.comp = comp
         self.path = figPath
         self.inductPath = os.path.join(self.path, 'induction')
         if not os.path.isdir(self.path):
@@ -455,8 +485,7 @@ class FigureFilesSubstruct:
         if not os.path.isdir(self.inductPath):
             os.makedirs(self.inductPath)
         self.fName = os.path.join(self.path, figBase)
-        self.fNameInductOgram = os.path.join(self.inductPath, inductBase)
-
+        self.fNameInductOgram = os.path.join(self.inductPath, self.inductBase + self.comp)
 
         # Figure filename strings
         vsP = 'Porosity_vs_P'
@@ -471,8 +500,8 @@ class FigureFilesSubstruct:
         vpvt4 = 'PTx4'
         vpvt6 = 'PTx6'
         vwedg = 'Wedge'
-        induct = 'InductOgram'
-        sigma = 'InductOgramSigma'
+        induct = 'inductOgram'
+        sigma = 'inductOgramSigma'
         # Construct Figure Filenames
         self.vwedg = self.fName + vwedg + xtn
         self.vsP = self.fName + vsP + xtn
@@ -486,10 +515,12 @@ class FigureFilesSubstruct:
         self.vcore = self.fName + vcore + xtn
         self.vpvt4 = self.fName + vpvt4 + xtn
         self.vpvt6 = self.fName + vpvt6 + xtn
-        self.induct = {zType: self.fNameInductOgram + induct + f'_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
-        self.inductCompare = {zType: self.fNameInductOgram + f'Compare_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
-        self.sigma = {zType: self.fNameInductOgram + sigma + f'_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
-        self.sigmaOnly = {zType: self.fNameInductOgram + sigma + f'Only_{zType}' + xtn for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
+        self.phaseSpace =            f'{self.fNameInductOgram}_{induct}_phaseSpace{xtn}'
+        self.phaseSpaceCombo =       f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{xtn}'
+        self.induct =        {zType: f'{self.fNameInductOgram}_{induct}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
+        self.inductCompare = {zType: f'{self.fNameInductOgram}Compare_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
+        self.sigma =         {zType: f'{self.fNameInductOgram}_{sigma}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
+        self.sigmaOnly =     {zType: f'{self.fNameInductOgram}_{sigma}Only_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
 
 
 """ General parameter options """

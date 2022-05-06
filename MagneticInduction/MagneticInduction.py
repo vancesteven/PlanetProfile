@@ -25,7 +25,14 @@ def MagneticInduction(Planet, Params):
     # Calculate induced magnetic moments
     Planet = CalcInducedMoments(Planet, Params)
 
-    return Planet
+    # Report progress for sigma inductograms
+    if Params.INDUCTOGRAM_IN_PROGRESS and Params.Induct.inductOtype == 'sigma':
+        if Planet.index % 10 == 0:
+            log.profile(f'Point {Planet.index}/{Params.nModels} complete.')
+
+    # Must return both Planet and Params in order to use common infrastructure
+    # for unpacking parallel runs
+    return Planet, Params
 
 
 def CalcInducedMoments(Planet, Params):
@@ -103,7 +110,7 @@ def CalcInducedMoments(Planet, Params):
                    for n, m in zip(Planet.Magnetic.nLin, Planet.Magnetic.mLin)]
                    for iPeak in range(Planet.Magnetic.nExc)])
 
-    return Planet, Params
+    return Planet
 
 
 def SolveForQ(n, kBlw_pm, rBds_m, R_m, solveMethod, rMin=1e3):
@@ -256,7 +263,7 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
             fNameBody = 'Test'
         else:
             fNameBody = bodyname
-        fPath = os.path.join(fNameBody, 'induction')
+        fPath = os.path.join(fNameBody, 'inductionData')
         inpTexc_hr, inpBenm_nT, B0_nT = GetBenm(nprmMax, pMax, bodyname=fNameBody, fpath=fPath, model=ID)
 
         nPeaks = sum(excSelection.values())

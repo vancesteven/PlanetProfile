@@ -17,6 +17,10 @@ from config import Params
 
 def full():
     # Include timestamps in messages and force debug level logging
+    root = log.getLogger()
+    if root.handlers:
+        for handler in root.handlers:
+            root.removeHandler(handler)
     log.basicConfig(level=log.DEBUG, format='[%(levelname)s] %(asctime)s - %(message)s')
     testBase = 'Test.PPTest'
 
@@ -133,38 +137,6 @@ def full():
     return
 
 
-def simple():
-    # Include timestamps in messages and force debug level logging
-    log.basicConfig(level=log.DEBUG, format='[%(levelname)s] %(asctime)s - %(message)s')
-    testMod = 'Test.PPTest'
-
-    # Set general testing config atop standard config options
-    Params.CALC_NEW = True
-    Params.CALC_NEW_REF = True
-    Params.CALC_NEW_INDUCT = True
-    Params.CALC_SEISMIC = True
-    Params.CALC_CONDUCT = True
-    Params.RUN_ALL_PROFILES = False
-    Params.COMPARE = False
-    Params.DO_INDUCTOGRAM = True
-    Params.DO_PARALLEL = False
-
-    iTest = 11
-    bodyname = f'{testMod}{iTest}'
-    tStart = time.time()
-    testPlanet = importlib.import_module(bodyname).Planet
-    log.info(f'Test case body: {bodyname}')
-    if Params.DO_INDUCTOGRAM:
-        TestInductOgram(iTest, Params, CALC_NEW=Params.CALC_NEW_INDUCT)
-    else:
-        _ = PlanetProfile(testPlanet, Params)
-    tEnd = time.time()
-    log.info('Simple test complete!')
-
-    log.debug(f'Elapsed time:\n    {tEnd - tStart:.1f} s')
-    return
-
-
 def TestInductOgram(testNum, Params, CALC_NEW=True):
     testName = f'Test{testNum}'
 
@@ -183,6 +155,38 @@ def TestInductOgram(testNum, Params, CALC_NEW=True):
     InductionLbl.name = testName
     InductionLbl.saveLabel = f'{Params.Induct.inductOtype} induct-o-gram{end}'
     return InductionLbl
+
+
+def simple():
+    # Include timestamps in messages and force debug level logging
+    log.basicConfig(level=log.DEBUG, format='[%(levelname)s] %(asctime)s - %(message)s')
+    testMod = 'Test.PPTest'
+
+    # Set general testing config atop standard config options
+    Params.CALC_NEW = True
+    Params.CALC_NEW_REF = True
+    Params.CALC_NEW_INDUCT = True
+    Params.CALC_SEISMIC = True
+    Params.CALC_CONDUCT = True
+    Params.RUN_ALL_PROFILES = False
+    Params.COMPARE = False
+    Params.DO_INDUCTOGRAM = False
+    Params.DO_PARALLEL = False
+
+    iTest = 9
+    bodyname = f'{testMod}{iTest}'
+    tStart = time.time()
+    testPlanet = importlib.import_module(bodyname).Planet
+    log.info(f'Test case body: {bodyname}')
+    if Params.DO_INDUCTOGRAM:
+        TestInductOgram(iTest, Params, CALC_NEW=Params.CALC_NEW_INDUCT)
+    else:
+        _ = PlanetProfile(testPlanet, Params)
+    tEnd = time.time()
+    log.info('Simple test complete!')
+
+    log.debug(f'Elapsed time:\n    {tEnd - tStart:.1f} s')
+    return
 
 
 if __name__ == '__main__':

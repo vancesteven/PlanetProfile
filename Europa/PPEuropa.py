@@ -19,11 +19,10 @@ Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346
 Planet.Bulk.Cuncertainty = 0.005
-Planet.Bulk.Tb_K = 269.8
+Planet.Bulk.Tb_K = 268.305 # 30 km ice with 1.0x Seawater
 
 """ Layer step settings """
 Planet.Steps.nIceI = 200
-Planet.Steps.nRefRho = 30
 Planet.Steps.nSilMax = 300
 Planet.Steps.nCore = 10
 Planet.Steps.iSilStart = Planet.Steps.nIceI
@@ -32,6 +31,7 @@ Planet.Steps.iSilStart = Planet.Steps.nIceI
 Planet.Ocean.comp = 'Seawater'
 Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
 Planet.Ocean.deltaP = 1.0
+Planet.Ocean.deltaT = 0.1
 Planet.Ocean.PHydroMax_MPa = 250.0
 
 """ Silicate Mantle """
@@ -41,7 +41,9 @@ Planet.Sil.Htidal_Wm3 = 1e-10  # Approximate max. tidal heating in silicates as 
 Planet.Do.POROUS_ROCK = False
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'  # (2900 for Q= 100 GW, 3240 for Q= 220 GW)
-Planet.Sil.rhoSilWithCore_kgm3 = 3539.0  # This is the 1-bar, 275 K value from CV3hy1wt_678_1.tab
+#Planet.Sil.rhoSilWithCore_kgm3 = 3539.0  # This is the 1-bar, 275 K value from CV3hy1wt_678_1.tab
+#Planet.Do.CONSTANT_INNER_DENSITY = True
+#Planet.Sil.rhoSilWithCore_kgm3 = 3300.0
 # Planet.Sil.mantleEOS = 'Simple_CI_HS_green_PP.tab'  # CI chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
 # Planet.Sil.rhoSilWithCore_kgm3 = 2975
 # Planet.Sil.mantleEOS = 'Simple_CM_HS_green_PP.tab'  # CM chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
@@ -57,7 +59,8 @@ Planet.Core.rhoPoFeFCC = 5455.0
 Planet.Core.QScore = 1e4
 Planet.Core.coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'
 Planet.Core.xFeSmeteoritic = 0.0405
-Planet.Core.xFeS = 0.55
+#Planet.Core.xFeS = 0.55
+Planet.Core.xFeS = 0.882  # Matching Hamish's 5377 kg/m^3 for constant inner density
 Planet.Core.xFeCore = 0.0279
 Planet.Core.xH2O = 0.0035
 
@@ -65,8 +68,6 @@ Planet.Core.xH2O = 0.0035
 Planet.Seismic.lowQDiv = 1.0
 
 """ Magnetic induction """
-Planet.Magnetic.peaks_Hz = np.array([4.946e-5, 2.473e-5, 3.259e-6])
-Planet.Magnetic.fOrb_radps = 2*np.pi/3.55/86400
 Planet.Magnetic.ionosBounds_m = 100e3
 Planet.Magnetic.sigmaIonosPedersen_Sm = 30/100e3
 

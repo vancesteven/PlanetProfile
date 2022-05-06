@@ -26,11 +26,11 @@ def CalcRefProfiles(PlanetList, Params):
                 Params.nRefPts[Planet.Ocean.comp] = Planet.Steps.nRefRho + 0
                 Params.rhoRef_kgm3[Planet.Ocean.comp] = np.zeros((Params.nRef[Planet.Ocean.comp], Params.nRefPts[Planet.Ocean.comp]))
                 Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(0, maxPmax, Params.nRefPts[Planet.Ocean.comp])
-                Tref_K = np.arange(220, 450, 1)
+                Tref_K = np.arange(220, 450, 0.25)
                 for i,w_ppt in enumerate(wList):
                     EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType,
-                            rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType, phaseType=Planet.Ocean.MgSO4phaseType,
-                            EXTRAP=Params.EXTRAP_REF)
+                            rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType, phaseType=Planet.Ocean.phaseType,
+                            EXTRAP=Params.EXTRAP_REF, FORCE_NEW=Params.FORCE_EOS_RECALC)
                     Tfreeze_K = np.array([GetTfreeze(EOSref, P_MPa, Tref_K[0], TfreezeRange_K=230) for P_MPa in Params.Pref_MPa[Planet.Ocean.comp]])
                     Params.rhoRef_kgm3[Planet.Ocean.comp][i,:] = EOSref.fn_rho_kgm3(Params.Pref_MPa[Planet.Ocean.comp], Tfreeze_K)
 

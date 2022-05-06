@@ -33,6 +33,7 @@ def SetupInit(Planet, Params):
         Planet.Bulk.Tb_K = Planet.Bulk.Tsurf_K
         Planet.zb_km = 0.0
         Planet.Steps.nIceI = 0
+        Planet.Steps.nIbottom = 0
         Planet.Steps.nSurfIce = 0
         Planet.Steps.nOceanMax = 1
         Planet.Steps.nHydroMax = 1
@@ -128,20 +129,24 @@ def SetupInit(Planet, Params):
         if Planet.Ocean.deltaT is None:
             Planet.Ocean.deltaT = 1e-1
             log.warning('Ocean.deltaT is not set--defaulting to 0.1 K. This may not be precise enough ' +
-                        'for shallow oceans. It is recommended to set Ocean.deltaT manually in the ' +
-                        'PPBody.py file.')
+                        'for shallow oceans or fine control over ice shell thickness calculations. ' +
+                        'It is recommended to set Ocean.deltaT manually in the PPBody.py file.')
         # Check ocean parameter space, and prevent setup from taking forever if we have a deep ocean:
         if Planet.Ocean.THydroMax_K < Planet.Bulk.Tb_K:
             raise ValueError(f'Ocean.THydroMax_K of {Planet.Ocean.THydroMax_K} is less than Bulk.Tb_K of {Planet.Bulk.Tb_K}.')
         elif Planet.Bulk.Tb_K + 30 < Planet.Ocean.THydroMax_K:
-            TOcean_K = np.concatenate((np.linspace(Planet.Bulk.Tb_K, Planet.Bulk.Tb_K + 30, int(30/Planet.Ocean.deltaT), endpoint=False),
+            TOcean_K = np.concatenate((np.linspace(Planet.Bulk.Tb_K, Planet.Bulk.Tb_K + 30, int(100/Planet.Ocean.deltaT), endpoint=False),
                                        np.arange(Planet.Bulk.Tb_K + 30, Planet.Ocean.THydroMax_K, 2)))
         else:
             TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
         Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
                                        Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
-                                       scalingType=Planet.Ocean.MgSO4scalingType,
-                                       phaseType=Planet.Ocean.MgSO4phaseType, EXTRAP=Params.EXTRAP_OCEAN)
+                                       scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
+                                       phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN)
+        Pmelt_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.PfreezeUpper_MPa, Planet.PfreezeRes_MPa)
+        Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa,
+                                           np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11), None,
+                                           phaseType=Planet.Ocean.phaseType, FORCE_NEW=True)
 
     # Make sure convection checking outputs are set if we won't be modeling them
     if Planet.Do.NO_ICE_CONVECTION:
@@ -225,8 +230,8 @@ def SetupInit(Planet, Params):
             # Get pore fluid EOS
             Planet.Sil.poreEOS = GetOceanEOS(Planet.Sil.poreComp, Planet.Sil.wPore_ppt, Ppore_MPa, Tpore_K,
                                              Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
-                                             scalingType=Planet.Ocean.MgSO4scalingType,
-                                             phaseType=Planet.Ocean.MgSO4phaseType, EXTRAP=Params.EXTRAP_OCEAN)
+                                             scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
+                                             phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN)
 
             # Make sure Sil.phiRockMax_frac is set in case we're using a porosType that doesn't require it
             if Planet.Sil.phiRockMax_frac is None or Planet.Sil.porosType != 'Han2014':
@@ -294,8 +299,9 @@ def SetupFilenames(Planet, Params):
     Planet.saveLabel = saveLabel
     Planet.label = label
     inductBase = f'{Planet.name}_{Params.Induct.inductOtype}'
-    DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, inductBase=inductBase)
-    FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn, inductBase=inductBase)
+    DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, Planet.Ocean.comp, inductBase=inductBase)
+    FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn,
+                                       comp=Planet.Ocean.comp, inductBase=inductBase)
 
     return DataFiles, FigureFiles
 

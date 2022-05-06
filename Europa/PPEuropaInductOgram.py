@@ -22,16 +22,18 @@ Planet.Bulk.Cuncertainty = 0.005
 Planet.Bulk.Tb_K = 269.2
 
 """ Layer step settings """
-Planet.Steps.nIceI = 200
-Planet.Steps.nRefRho = 30
-Planet.Steps.nSilMax = 300
+Planet.Steps.nIceI = 100
+Planet.Steps.nSilMax = 150
 Planet.Steps.nCore = 10
 Planet.Steps.iSilStart = Planet.Steps.nIceI
 
 """ Hydrosphere assumptions/settings """
-Planet.Ocean.comp = 'Seawater'
-Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
-Planet.Ocean.deltaP = 1.0
+#Planet.Ocean.comp = 'Seawater'
+Planet.Ocean.comp = 'MgSO4'
+Planet.Ocean.phaseType = 'calculate'
+#Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
+Planet.Ocean.wOcean_ppt = 100
+Planet.Ocean.deltaP = 2.0
 Planet.Ocean.PHydroMax_MPa = 250.0
 
 """ Silicate Mantle """

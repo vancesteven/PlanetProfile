@@ -1,3 +1,5 @@
+import numpy as np
+
 """ Classes for keeping track of excitation and induced magnetic moments """
 
 class InductionStruct:
@@ -23,6 +25,39 @@ class InductionStruct:
         self.R_m = None  # Body radius in m, used to scale amplitudes.
         self.rBds_m = None  # Conducting layer upper boundaries in m.
         self.sigmaLayers_Sm = None  # Conductivities below each boundary in S/m.
+
+        self.x = None  # Variable to plot on x axis of inductogram plots
+        self.y = None  # Variable to plot on y axis of inductogram plots
+        self.compsList = None  # Linear list of compositions for each model point
+        self.comps = None  # Minimal list of compositions, with 1 entry per comp
+        self.SINGLE_COMP = None  # Boolean flag for tracking if all of the models have the same composition
+
+    def SetAxes(self, inductOtype):
+        # Set the x and y variables to plot in inductograms based on inductOtype
+        if inductOtype == 'sigma':
+            self.x = self.sigmaMean_Sm
+            self.y = self.D_km
+        else:
+            self.x = self.w_ppt
+            if inductOtype == 'Tb':
+                self.y = self.Tb_K
+            elif inductOtype == 'rho':
+                self.y = self.rhoSilMean_kgm3
+            elif inductOtype == 'phi':
+                self.y = self.phiSilMax_frac
+            else:
+                raise ValueError(f'inductOtype {inductOtype} not recognized.')
+
+    def SetComps(self, inductOtype):
+        # Set some attributes pertaining to handling multiple ocean compositions in plots
+        self.compsList = self.oceanComp.flatten()
+        if np.all(self.compsList == self.compsList[0]) and inductOtype != 'sigma':
+            self.SINGLE_COMP = True
+            self.comps = [self.compsList[0]]
+        else:
+            self.SINGLE_COMP = False
+            self.comps = np.unique(self.compsList)
+
 
 
 class ExcitationsList:
