@@ -52,11 +52,12 @@ def IceLayers(Planet, Params):
         Planet.PbI_MPa = PbClath_MPa
     else:
         if np.isnan(Planet.PbI_MPa):
-            raise ValueError(
+            log.warning(
                 f'No valid phase transition was found for Tb_K = {Planet.Bulk.Tb_K:.3f} K for P in the range ' +
                 f'[{Planet.PfreezeLower_MPa:.1f} MPa, {Planet.PfreezeUpper_MPa:.1f} MPa]. ' +
                 'This likely means Tb_K is too high and the phase at the lower end of this range matches ' +
-                'the phase at the upper end. Try decreasing Tb_K.')
+                'the phase at the upper end. Try decreasing Tb_K. The ice shell will be set to zero thickness.')
+            Planet.PbI_MPa = 0.0
         log.debug(f'Ice Ih transition pressure: {Planet.PbI_MPa:.3f} MPa.')
 
     # Now do the same for HP ices, if present, to make sure we have a possible configuration before continuing
