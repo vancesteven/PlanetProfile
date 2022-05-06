@@ -228,7 +228,7 @@ class CoreSubstruct:
         self.rhoFeS_kgm3 = 5150  # Assumed density of iron sulfide in kg/m^3
         self.rhoMin_kgm3 = 5150  # Assumed minimum possible density for the core in kg/m^3. Sets maximum core size.
         self.rhoPoFeFCC = None  # Density of pyrrhottite plus face-centered cubic iron
-        self.sigmaCore_Sm = 1e-16  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
+        self.sigmaCore_Sm = 1e6  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
         self.coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'  # Default core EOS to use
         self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermFe_WmK)
@@ -452,7 +452,7 @@ class DataFilesSubstruct:
         self.inductPath = os.path.join(self.path, 'inductionData')
         if not self.path == '' and not os.path.isdir(self.path):
             os.makedirs(self.path)
-        if not self.inductPath == '' and not os.path.isdir(self.inductPath):
+        if not self.path == '' and not os.path.isdir(self.inductPath):
             os.makedirs(self.inductPath)
 
         self.fName = os.path.join(self.path, saveBase)
@@ -482,7 +482,7 @@ class FigureFilesSubstruct:
         self.inductPath = os.path.join(self.path, 'induction')
         if not self.path == '' and not os.path.isdir(self.path):
             os.makedirs(self.path)
-        if not self.inductPath == '' and not os.path.isdir(self.inductPath):
+        if not self.path == '' and not os.path.isdir(self.inductPath):
             os.makedirs(self.inductPath)
         self.fName = os.path.join(self.path, figBase)
         self.fNameInductOgram = os.path.join(self.inductPath, self.inductBase + self.comp)
