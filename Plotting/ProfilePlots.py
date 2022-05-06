@@ -98,14 +98,14 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     # Now plot all profiles together
     for Planet in PlanetList:
-
-        # Plot density vs. pressure curve for hydrosphere
-        axes[0].plot(Planet.P_MPa[:Planet.Steps.nHydro], Planet.rho_kgm3[:Planet.Steps.nHydro], label=Planet.label)
-        # Plot thermal profile vs. depth in hydrosphere
-        axes[1].plot(Planet.T_K[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro]/1e3)
+        # This is a hydrosphere-only plot, so skip waterless bodies
+        if Planet.Ocean.comp != 'none':
+            # Plot density vs. pressure curve for hydrosphere
+            axes[0].plot(Planet.P_MPa[:Planet.Steps.nHydro], Planet.rho_kgm3[:Planet.Steps.nHydro], label=Planet.label)
+            # Plot thermal profile vs. depth in hydrosphere
+            axes[1].plot(Planet.T_K[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro]/1e3)
 
     if FigMisc.LEGEND:
-        box1 = axes[0].get_position()
         fig.legend(loc=FigMisc.LegendPosition)
     fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     plt.close()
