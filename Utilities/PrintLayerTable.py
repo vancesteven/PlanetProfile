@@ -356,6 +356,7 @@ def PrintLayerTableLatex(PlanetList, Params):
 
     log.info('Layer tables:')
     for Planet in PlanetList:
+        title = f'\section*{{{Planet.name}}}'
         if Planet.Do.NO_H2O:
             surfIceLayers = ''
             HPiceLayers = ''
@@ -498,6 +499,7 @@ def PrintLayerTableLatex(PlanetList, Params):
                             f'{Planet.Core.Rmean_m/1e3:.1f}', f'{Planet.Core.GSmean_GPa:.1f}',                      
                             f'{Planet.Core.sigmaMean_Sm:.1e}']) + endl
         log.info(f"""{Planet.saveLabel}
+        {title}
         {tOpenLayers}
         {headerLayers}{surfIceLayers}
             {oceanLayers}{HPiceLayers}
