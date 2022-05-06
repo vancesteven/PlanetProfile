@@ -66,7 +66,7 @@ def run(bodyname=None, opt=None, fNames=None):
     if Params.DO_INDUCTOGRAM:
         Induction, Params = InductOgram(bodyname, Params)
         if not Params.SKIP_PLOTS:
-            #PlotInductOgram(Induction, Params)
+            PlotInductOgram(Induction, Params)
 
             if Params.COMPARE:
                 inductOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fNameInductOgram+'*.mat'))

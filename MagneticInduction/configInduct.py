@@ -25,7 +25,7 @@ class InductOgramParams:
         for osc in self.excSelectionPlot:
             if self.excSelectionPlot[osc] and not self.excSelectionCalc[osc]:
                 self.excSelectionCalc[osc] = True
-        self.nwPts = 8  # Resolution for salinity values in ocean salinity vs. other plots
+        self.nwPts = 80  # Resolution for salinity values in ocean salinity vs. other plots
         self.wMin = {'Europa': np.log10(1)}
         self.wMax = {'Europa': np.log10(100)}
         self.nTbPts = 60  # Resolution for Tb values in ocean salinity/Tb plots
@@ -34,7 +34,7 @@ class InductOgramParams:
         self.nphiPts = 60  # Resolution for phiRockMax values in ocean salinity/phiMax plots
         self.phiMin = {'Europa': np.log10(0.01)}
         self.phiMax = {'Europa': np.log10(0.75)}
-        self.nrhoPts = 10  # Resolution for silicate density values in ocean salinity/rho plots
+        self.nrhoPts = 100  # Resolution for silicate density values in ocean salinity/rho plots
         self.rhoMin = {'Europa': 3300}
         self.rhoMax = {'Europa': 3700}
         self.nSigmaPts = 80  # Resolution for conductivity values in ocean conductivity/thickness plots
