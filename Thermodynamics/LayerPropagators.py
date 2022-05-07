@@ -1,12 +1,12 @@
 import numpy as np
 import logging as log
-from Utilities.defineStructs import Constants
 
+from Utilities.defineStructs import Constants
 from Thermodynamics.Silicates import SilicateLayers
 from Thermodynamics.IronCore import IronCoreLayers
 from Thermodynamics.FromLiterature.HydroEOS import GetPfreeze, GetTfreeze, \
-    PhaseConv, GetPhaseIndices, GetIceEOS, GetPbClath
-from Thermodynamics.FromLiterature.ThermalProfiles import ConductiveTemperature
+    PhaseConv, GetPhaseIndices, GetIceEOS, GetPbClath, GetOceanEOS
+from Thermodynamics.FromLiterature.ThermalProfiles import ConductiveTemperature, ConvectionDeschampsSotin2001
 from Thermodynamics.FromLiterature.IceConduction import IceIWholeConductSolid, IceIWholeConductPorous, \
     IceIConductClathLidSolid, IceIConductClathLidPorous, IceIConductClathUnderplateSolid, IceIConductClathUnderplatePorous, \
     IceIIIConductSolid, IceIIIConductPorous, IceVConductSolid, IceVConductPorous
@@ -52,12 +52,15 @@ def IceLayers(Planet, Params):
         Planet.PbI_MPa = PbClath_MPa
     else:
         if np.isnan(Planet.PbI_MPa):
-            log.warning(
-                f'No valid phase transition was found for Tb_K = {Planet.Bulk.Tb_K:.3f} K for P in the range ' +
-                f'[{Planet.PfreezeLower_MPa:.1f} MPa, {Planet.PfreezeUpper_MPa:.1f} MPa]. ' +
-                'This likely means Tb_K is too high and the phase at the lower end of this range matches ' +
-                'the phase at the upper end. Try decreasing Tb_K. The ice shell will be set to zero thickness.')
-            Planet.PbI_MPa = 0.0
+            message = f'No valid phase transition was found for Tb_K = {Planet.Bulk.Tb_K:.3f} K for P in the range ' + \
+                      f'[{Planet.PfreezeLower_MPa:.1f} MPa, {Planet.PfreezeUpper_MPa:.1f} MPa]. ' + \
+                      'This likely means Tb_K is too high and the phase at the lower end of this range matches ' + \
+                      'the phase at the upper end. Try decreasing Tb_K. The ice shell will be set to zero thickness.'
+            if Planet.Bulk.Tb_K > 271:
+                log.warning(message)
+                Planet.PbI_MPa = 0.0
+            else:
+                raise ValueError(message)
         log.debug(f'Ice Ih transition pressure: {Planet.PbI_MPa:.3f} MPa.')
 
     # Now do the same for HP ices, if present, to make sure we have a possible configuration before continuing
@@ -128,6 +131,7 @@ def IceLayers(Planet, Params):
                 Planet = IceIConductClathUnderplatePorous(Planet, Params)
             else:
                 Planet = IceIConductClathUnderplateSolid(Planet, Params)
+
         elif Planet.Bulk.clathType == 'whole':
             log.debug('Applying whole-shell clathrate modeling with possible convection.')
             Planet.phase[:Planet.Steps.nIbottom] = Constants.phaseClath
@@ -176,12 +180,25 @@ def IceLayers(Planet, Params):
                 else:
                     Planet = IceIConvectSolid(Planet, Params)
     else:
-        if Planet.Do.NO_ICE_CONVECTION: log.debug('NO_ICE_CONVECTION is True -- skipping ice I convection calculations.')
+        if Planet.Do.NO_ICE_CONVECTION:
+            log.debug('NO_ICE_CONVECTION is True -- skipping ice I convection calculations.')
+            Planet.RaConvect = np.nan
+            Planet.RaCrit = np.nan
+            Planet.Tconv_K = np.nan
+            Planet.etaConv_Pas = np.nan
+        else:
+            Pbot_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.PfreezeUpper_MPa, Planet.PfreezeRes_MPa)
+            Tbot_K = np.arange(Planet.T_K[Planet.Steps.nIceI], 273, 0.5)
+            iceImeltEOS = GetOceanEOS('PureH2O', 0.0, Pbot_MPa, Tbot_K, None,
+                                      phaseType=Planet.Ocean.phaseType, FORCE_NEW=True)
+            Planet.Tconv_K, Planet.etaConv_Pas, _, _, _, _, Planet.RaConvect, Planet.RaCrit \
+                = ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0],
+                                               Planet.T_K[Planet.Steps.nIceI], Planet.z_m[Planet.Steps.nIceI],
+                                               Planet.g_ms2[0], np.mean([Planet.P_MPa[Planet.Steps.nIceI], Planet.P_MPa[0]]),
+                                               iceImeltEOS, Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q)
         Planet.eLid_m = Planet.z_m[Planet.Steps.nSurfIce]
         Planet.Dconv_m = 0.0
         Planet.deltaTBL_m = 0.0
-        Planet.RaConvect = np.nan
-        Planet.RaCrit = np.nan
         # Find the surface heat flux from the conductive profile. This assumes there is no tidal heating!
         Planet.Ocean.QfromMantle_W = Planet.kTherm_WmK[Planet.Steps.nIbottom-2] * Planet.T_K[Planet.Steps.nIbottom-2] / \
                                      (Planet.z_m[Planet.Steps.nIbottom-1] - Planet.z_m[Planet.Steps.nIbottom-2]) \
@@ -206,6 +223,11 @@ def IceLayers(Planet, Params):
     # Set surface HP ice layers to have negative phase ID to differentiate from in-ocean HP ices
     indsHP = np.where(np.logical_and(Planet.phase>1, Planet.phase<=6))[0]
     Planet.phase[indsHP][:Planet.Steps.nSurfIce] = -Planet.phase[indsHP][:Planet.Steps.nSurfIce]
+
+    # Get heat flux out of the possibly convecting region
+    Planet.qCon_Wm2 = Planet.Ocean.QfromMantle_W / (4*np.pi * (Planet.Bulk.R_m - Planet.z_m[Planet.Steps.nSurfIce])**2)
+    # Get heat flux at the surface, assuming Htidal = Qrad = 0 throughout the entire hydrosphere.
+    Planet.qSurf_Wm2 = Planet.Ocean.QfromMantle_W / (4*np.pi * Planet.Bulk.R_m**2)
 
     return Planet
 

@@ -2,6 +2,7 @@ import os
 import numpy as np
 import logging as log
 from scipy.io import loadmat
+from collections.abc import Iterable
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline, interp1d
 from Utilities.defineStructs import Constants, EOSlist
 from seafreeze import seafreeze as SeaFreeze
@@ -123,7 +124,6 @@ class MgSO4propsLookup:
             self.fn_alpha_pK = RegularGridInterpolator((wMgSO4_ppt, fMgSO4Props['P_smaller_MPa'][0], TMgSO4_K),
                                                         fMgSO4Props['alpha'], bounds_error=False, fill_value=None)
             self.fn_kTherm_WmK = lambda P, T, w: np.zeros((np.size(P), np.size(T))) + Constants.kThermWater_WmK
-            self.fn_evalPts = lambda P_MPa, T_K, w_ppt: np.array([[w_ppt, P, T] for P in P_MPa for T in T_K])
 
             self.Pmin = np.min(fMgSO4Props['P_smaller_MPa'][0])
             self.Pmax = np.max(fMgSO4Props['P_smaller_MPa'][0])
@@ -134,6 +134,17 @@ class MgSO4propsLookup:
             EOSlist.loaded[self.fLookup] = (self.fn_rho_kgm3, self.fn_Cp_JkgK, self.fn_alpha_pK, self.fn_kTherm_WmK, self.fn_evalPts)
             EOSlist.ranges[self.fLookup] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax)
 
+    def fn_evalPts(self, Pin_MPa, Tin_K, win_ppt):
+        P_MPa = ensureArray(Pin_MPa)
+        T_K = ensureArray(Tin_K)
+        w_ppt = ensureArray(win_ppt)
+        return np.array([[w, P, T] for w in w_ppt for P in P_MPa for T in T_K])
+
+def ensureArray(var):
+    if isinstance(var, Iterable):
+        return var
+    else:
+        return np.array([var])
 
 class CG2010:
     # Values from the Choukron and Grasset (2010) thermodynamic model (Table 1):
@@ -360,8 +371,8 @@ class MgSO4Seismic:
             if (not np.all(newP_MPa == P_MPa)) and (not np.all(newT_K == T_K)):
                 log.warning('Extrapolation is disabled for ocean fluids, and input EOS P and/or T ' +
                             'extend beyond the MgSO4 seismic lookup table limits of [Pmin, Pmax] = ' +
-                            f'{fn_MgSO4Props.Pmin}, {fn_MgSO4Props.Pmax} MPa and [Tmin, Tmax] = ' +
-                            f'{fn_MgSO4Props.Tmin}, {fn_MgSO4Props.Tmax} K.')
+                            f'{self.Pmin}, {self.Pmax} MPa and [Tmin, Tmax] = ' +
+                            f'{self.Tmin}, {self.Tmax} K.')
                 P_MPa = newP_MPa
                 T_K = newT_K
         evalPts = np.array([[self.w_ppt, P, T] for P, T in zip(P_MPa, T_K)])

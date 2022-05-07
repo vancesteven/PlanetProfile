@@ -18,7 +18,7 @@ from Thermodynamics.FromLiterature.Electrical import ElecConduct
 from Seismic import SeismicCalcs
 from MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, Benm2absBexyz
 from MagneticInduction.Moments import InductionResults, Excitations as Mag
-from Utilities.PrintLayerTable import GetLayerMeans, PrintLayerTable, PrintLayerTableLatex
+from Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
 from Plotting.ProfilePlots import GeneratePlots, PlotInductOgram, PlotInductOgramPhaseSpace
 from Plotting.configPlots import FigMisc
 
@@ -142,10 +142,11 @@ def run(bodyname=None, opt=None, fNames=None):
 
         if Params.DISP_LAYERS or Params.DISP_TABLE:
             CompareList, Params = GetLayerMeans(CompareList, Params)
-            if Params.DISP_TABLE:
-                PrintLayerTableLatex(CompareList, Params)
             if Params.DISP_LAYERS:
-                PrintLayerTable(CompareList, Params)
+                PrintLayerSummaryLatex(CompareList, Params)
+                PrintLayerTableLatex(CompareList, Params)
+            if Params.DISP_TABLE:
+                PrintGeneralSummary(CompareList, Params)
 
     return
 
@@ -292,6 +293,8 @@ def WriteProfile(Planet, Params):
         f'Cuncertainty = {Planet.Bulk.Cuncertainty}',
         f'Psurf_MPa = {Planet.Bulk.Psurf_MPa:.3f}',
         f'Tsurf_K = {Planet.Bulk.Tsurf_K:.3f}',
+        f'qSurf_Wm2 = {Planet.qSurf_Wm2:.3e}',
+        f'qCon_Wm2 = {Planet.qCon_Wm2:.3e}',
         f'Tb_K = {Planet.Bulk.Tb_K}',
         f'zb_km = {Planet.zb_km:.3f}',
         f'zClath_m = {Planet.zClath_m:.3f}',
@@ -328,6 +331,7 @@ def WriteProfile(Planet, Params):
         f'sigmaOceanMean_Sm = {Planet.Ocean.sigmaMean_Sm:.3f}',
         f'sigmaPoreMean_Sm = {Planet.Sil.sigmaPoreMean_Sm:.3f}',
         f'sigmaPorousLayerMean_Sm = {Planet.Sil.sigmaPorousLayerMean_Sm:.3f}',
+        f'etaConv_Pas = {Planet.etaConv_Pas:.3e}',
         f'RaConvect = {Planet.RaConvect:.2e}',
         f'RaConvectIII = {Planet.RaConvectIII:.2e}',
         f'RaConvectV = {Planet.RaConvectV:.2e}',
@@ -462,18 +466,18 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Sil.poreComp = f.readline().split('=')[-1].strip()
         # Get float values from header
         Planet.Ocean.wOcean_ppt, Planet.Sil.wPore_ppt, Planet.Bulk.R_m, Planet.Bulk.M_kg, Planet.Bulk.Cmeasured, \
-        Planet.Bulk.Cuncertainty, Planet.Bulk.Psurf_MPa, Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K, Planet.zb_km, \
-        Planet.zClath_m, Planet.D_km, Planet.Pb_MPa, Planet.PbI_MPa, Planet.Ocean.deltaP, Planet.Mtot_kg, \
-        Planet.CMR2mean, Planet.CMR2less, Planet.CMR2more, Planet.Ocean.QfromMantle_W, Planet.Ocean.rhoMean_kgm3, \
-        Planet.Sil.phiRockMax_frac, Planet.Sil.Qrad_Wkg, Planet.Sil.HtidalMean_Wm3, \
+        Planet.Bulk.Cuncertainty, Planet.Bulk.Psurf_MPa, Planet.Bulk.Tsurf_K, Planet.qSurf_Wm2, Planet.qCon_Wm2, \
+        Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, Planet.D_km, Planet.Pb_MPa, Planet.PbI_MPa, \
+        Planet.Ocean.deltaP, Planet.Mtot_kg, Planet.CMR2mean, Planet.CMR2less, Planet.CMR2more, Planet.Ocean.QfromMantle_W, \
+        Planet.Ocean.rhoMean_kgm3, Planet.Sil.phiRockMax_frac, Planet.Sil.Qrad_Wkg, Planet.Sil.HtidalMean_Wm3, \
         Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, Planet.Core.Rmean_m, Planet.Core.Rrange_m, \
         Planet.Core.rhoMean_kgm3, Planet.MH2O_kg, Planet.Mrock_kg, Planet.Mcore_kg, Planet.Mice_kg, \
         Planet.Msalt_kg, Planet.MporeSalt_kg, Planet.Mocean_kg, Planet.Mfluid_kg, Planet.MporeFluid_kg, \
         Planet.Mclath_kg, Planet.MclathGas_kg, Planet.Ocean.sigmaMean_Sm, Planet.Sil.sigmaPoreMean_Sm, \
-        Planet.Sil.sigmaPorousLayerMean_Sm, Planet.RaConvect, Planet.RaConvectIII, Planet.RaConvectV, \
+        Planet.Sil.sigmaPorousLayerMean_Sm, Planet.etaConv_Pas, Planet.RaConvect, Planet.RaConvectIII, Planet.RaConvectV, \
         Planet.RaCrit, Planet.RaCritIII, Planet.RaCritV, Planet.eLid_m, Planet.eLidIII_m, Planet.eLidV_m, \
         Planet.Dconv_m, Planet.DconvIII_m, Planet.DconvV_m, Planet.deltaTBL_m, Planet.deltaTBLIII_m, Planet.deltaTBLV_m \
-            = (float(f.readline().split('=')[-1]) for _ in range(59))
+            = (float(f.readline().split('=')[-1]) for _ in range(62))
         # Note porosity flags
         Planet.Do.POROUS_ICE = bool(strtobool(f.readline().split('=')[-1].strip()))
         Planet.Do.POROUS_ROCK = Planet.Sil.phiRockMax_frac > 0
@@ -482,6 +486,11 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Steps.nIceIIILitho, Planet.Steps.nIceVLitho, \
         Planet.Steps.nHydro, Planet.Steps.nSil, Planet.Steps.nCore \
             = (int(f.readline().split('=')[-1]) for _ in range(7))
+
+        if Planet.Ocean.comp == 'none':
+            Planet.Do.NO_H2O = True
+        if Planet.Do.NO_H2O:
+            Planet.Bulk.qSurf_Wm2 = Planet.qSurf_Wm2 + 0.0
 
     Planet.Steps.nIbottom = Planet.Steps.nClath + Planet.Steps.nIceI
     Planet.Steps.nIIIbottom = Planet.Steps.nIbottom + Planet.Steps.nIceIIILitho

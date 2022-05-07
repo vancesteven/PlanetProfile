@@ -53,8 +53,8 @@ class ColorsStruct:
         self.cmapName = {
             'none': 'copper',
             'PureH2O': 'cividis',
-            'Seawater': 'cool',
-            'MgSO4': 'afmhot',
+            'Seawater': 'cool_r',
+            'MgSO4': 'winter_r',
             'NH3': 'spring',
             'NaCl': 'summer',
             'Ice': 'coolwarm_r'
@@ -91,7 +91,7 @@ class ColorsStruct:
         self.getSat = interp1d([0.0, 1.0], [self.fresh[0], self.salty[0]], bounds_error=False, fill_value=self.salty[0])
         self.getVal = interp1d([0.0, 1.0], [self.fresh[1], self.salty[1]], bounds_error=False, fill_value=self.salty[1])
 
-    def OceanCmap(self, comps, w_normFrac, Tmean_normFrac):
+    def OceanCmap(self, comps, w_normFrac, Tmean_normFrac, DARKEN_SALINITIES=True):
         """ Get colormap RGBA vectors for each salinity/T combination.
 
             Args:
@@ -106,16 +106,20 @@ class ColorsStruct:
                 cList (float, shape N x 3): RGB vectors as rows for each combination.
         """
 
-        # Get the hue for each point by getting the colormap entry for the normalized
-        # temperature, then stripping off the alpha channel, then converting to HSV,
-        # then taking only the first value in the [H,S,V] output.
-        hueMap = np.array([rgb_to_hsv(self.cmap[comp](T)[:3])[0] for comp, T in zip(comps, Tmean_normFrac)])
-        # Get the saturation and value lists from the min/max bounds for the
-        # normalized salinity
-        satMap = self.getSat(w_normFrac)
-        valMap = self.getVal(w_normFrac)
+        if DARKEN_SALINITIES:
+            # Get the hue for each point by getting the colormap entry for the normalized
+            # temperature, then stripping off the alpha channel, then converting to HSV,
+            # then taking only the first value in the [H,S,V] output.
+            hueMap = np.array([rgb_to_hsv(self.cmap[comp](T)[:3])[0] for comp, T in zip(comps, Tmean_normFrac)])
+            # Get the saturation and value lists from the min/max bounds for the
+            # normalized salinity
+            satMap = self.getSat(w_normFrac)
+            valMap = self.getVal(w_normFrac)
 
-        cList = hsv_to_rgb(np.column_stack((hueMap, satMap, valMap)))
+            cList = hsv_to_rgb(np.column_stack((hueMap, satMap, valMap)))
+        else:
+            # Just use standard evaluation of the colorbar
+            cList = np.row_stack([self.cmap[comp](T) for comp, T in zip(comps, Tmean_normFrac)])
 
         return cList
 
@@ -151,6 +155,7 @@ class MiscStruct:
         self.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
         self.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
         self.LEGEND = True  # Whether to plot legends
+        self.DARKEN_SALINITIES = False  # For inductogram phase space plots, whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.
         self.NORMALIZED_SALINITIES = False  # Whether to normalize salinities to absolute concentrations relative to the saturation limit for each salt
         self.NORMALIZED_TEMPERATURES = False  # Whether to normalize ocean mean temperatures to specified maxima and minima for the colormap
         self.LegendPosition = 'right'  # Where to place legends when forced
@@ -159,17 +164,41 @@ class MiscStruct:
         plt.rcParams['font.serif'] = self.defaultFontName  # Set plots to use the default font
 
         # Check if Latex executable is on the path so we can use backup options if Latex is not installed
+        latexPackages = [
+            r'\usepackage[version=4]{mhchem}',
+            r'\usepackage{siunitx}',
+            r'\usepackage{upgreek}'
+        ]
         if shutil.which('latex'):
             plt.rcParams['text.usetex'] = True  # Use Latex interpreter to render text on plots
-            # Load in font package in Latex
-            plt.rcParams['text.latex.preamble'] = f'\\usepackage{{{self.defaultFontCode}}}' + \
-                r'\usepackage[version=4]{mhchem}' + r'\usepackage{siunitx}' + r'\usepackage{upgreek}'
+            # Load in font and option packages in Latex
+            plt.rcParams['text.latex.preamble'] = f'\\usepackage{{{self.defaultFontCode}}}' \
+                                                  + ''.join(latexPackages)
             self.TEX_INSTALLED = True
         else:
             print('A LaTeX installation was not found. Some plots may have fallback options in labels.')
             plt.rcParams['font.serif'] += ', ' + self.backupFont  # Set plots to use the default font if installed, or a backup if not
             plt.rcParams['mathtext.fontset'] = self.defaultFontCode
             self.TEX_INSTALLED = False
+
+        packageCmds = r'\n        '.join(latexPackages)
+        self.latexPreamble = f"""For table setup, add this to your document preamble:
+        {packageCmds}
+        \sisetup{{group-separator={{\,}}, group-minimum-digits={{5}}, group-digits={{integer}}}}
+        """
+
+        # Table printout settings
+        self.PRINT_BULK = False  # Whether to print bulk body properties, like mass and MoI
+        self.ALWAYS_SHOW_HP = True  # Whether to force HP ices and clathrates to be shown in DISP_* outputs to the terminal, even when none are present.
+        self.ALWAYS_SHOW_PHI = True  # Whether to force porosity printout in DISP_* outputs
+        self.NEGATIVE_UNIT_POWERS = True  # Whether to use negative powers for units in latex tables, or instead a backslash.
+        self.NAN_FOR_EMPTY = False  # Whether to use nan (or -) for empty layer parameters that were not calculated or not present.
+        self.w_IN_WTPCT = False  # Whether to print salinities in wt% (or g/kg) in tables
+        self.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
+        self.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
+        self.LATEX_VLINES = False  # Whether to include vertical lines at table edges and between entries. Some journals do not allow them.
+        self.LATEX_HLINES = False  # Whether to print horizontal lines between table entries.
+        self.HF_HLINES = True  # Whether to print horizontal lines at head and foot of latex tables
 
         self.cLabelSize = 10  # Font size in pt for contour labels
         self.cLabelPad = 5  # Padding in pt to set beside contour labels

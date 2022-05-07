@@ -39,9 +39,6 @@ Params.REDUCED_INDUCT =   True  # Whether to limit number of ocean layers for fa
 Params.INCLUDE_ASYM =     False  # Whether to include asymmetry in the induction conductivity profile based on J2 and C22 values
 Params.DISP_LAYERS =      True  # Whether to display layer depths and heat fluxes for user
 Params.DISP_TABLE =       True  # Whether to print latex-formatted table
-Params.ALWAYS_SHOW_HP =   True  # Whether to force HP ices and clathrates to be shown in DISP_* outputs, even when none are present.
-Params.ALWAYS_SHOW_PHI =  True  # Whether to force porosity printout in DISP_* outputs
-Params.LATEX_VLINES =     True  # Whether to include vertical lines at table edges and between entries. Some journals do not allow them.
 Params.DEPRECATED =       False  # Whether to allow deprecated code to run. Will often cause errors.
 
 # Plot Settings

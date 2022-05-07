@@ -78,7 +78,10 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         log.warning(f'Pmid_MPa has been adjusted upward from {oldPmid_MPa} to {Pmid_MPa} to compensate.')
 
     # Get melting temperature for calculating viscosity relative to this temp
-    Tmelt_K = GetTfreeze(oceanEOS, Pmid_MPa, Tconv_K)
+    if phaseMid == 1:
+        Tmelt_K = GetTfreeze(oceanEOS, Pmid_MPa, Tconv_K, TfreezeRange_K=273-Tconv_K)
+    else:
+        Tmelt_K = GetTfreeze(oceanEOS, Pmid_MPa, Tconv_K)
     etaConv_Pas = Constants.etaMelt_Pas[phaseMid] * np.exp(A * (Tmelt_K/Tconv_K - 1))
     # Get physical properties of ice at the "middle" of the convective region
     rhoMid_kgm3 = iceEOS.fn_rho_kgm3(Pmid_MPa, Tconv_K)
@@ -123,11 +126,12 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         # Doing lower TBL instead because eLid_m gets set to 0 if Tconv > Ttop
         qBot_Wm2 = kMid_WmK * Tconv_K / deltaTBL_m * np.log(Tb_K/Tconv_K)
 
-        # The below matches the Matlab, but this is not what Deschamps and Sotin (2001) do,
-        # it is not consistent with the results of Andersson and Inaba (2005), and seems to be
-        # an incorrect evaluation of Eq. 2.7 from Ojakangas and Stevenson.
-        # Dcond = np.array([np.nan, 632, 418, 242, np.nan, 328, 183])
-        # qbot_Wm2 = Dcond[phase] * np.log(Tb_K/Ttop_K) / zb_m
+        # The commented out lines match the Matlab, but this is not what Deschamps
+        # and Sotin (2001) do, it is not consistent with the results of Andersson
+        # and Inaba (2005), and seems to be an incorrect evaluation of Eq. 2.7
+        # from Ojakangas and Stevenson.
+        #Dcond = np.array([np.nan, 632, 418, 242, np.nan, 328, 183])
+        #qbot_Wm2 = Dcond[phase] * np.log(Tb_K/Ttop_K) / zb_m
 
     Dconv_m = zb_m - eLid_m - deltaTBL_m
     Qbot_W = qBot_Wm2 * 4*np.pi * (rTop_m - zb_m)**2

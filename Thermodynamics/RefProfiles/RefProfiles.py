@@ -65,7 +65,7 @@ def ReloadRefProfiles(PlanetList, Params):
     newRef = {comp: True for comp in comps}
 
     for Planet in PlanetList:
-        if newRef[Planet.Ocean.comp]:
+        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
 
             with open(Params.fNameRef[Planet.Ocean.comp]) as f:
                 _ = f.readline()

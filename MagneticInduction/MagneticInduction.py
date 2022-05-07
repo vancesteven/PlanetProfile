@@ -266,10 +266,13 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
         else:
             fNameBody = bodyname
         fPath = os.path.join(fNameBody, 'inductionData')
-        if os.path.isfile(fPath):
-            log.debug(f'Loading {bodyname} excitation spectrum for {model} model and {era} era.')
+        log.debug(f'Loading {bodyname} excitation spectrum for {model} model and {era} era.')
+        try:
             inpTexc_hr, inpBenm_nT, B0_nT = GetBenm(nprmMax, pMax, bodyname=fNameBody, fpath=fPath, model=ID)
-
+        except:
+            log.warning(f'Excitation moments file not found in {fPath}. Induction calculations will be skipped.')
+            Texc_hr, omegaExc_radps, Benm_nT, B0_nT = (None for _ in range(4))
+        else:
             nPeaks = sum(excSelection.values())
             Texc_hr = np.zeros(nPeaks)
             Benm_nT = np.zeros((nPeaks, 2, nprmMax+pMax+1, nprmMax+pMax+1), dtype=np.complex_)
@@ -286,9 +289,6 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
 
             EOSlist.loaded[BeLabel] = (Texc_hr, omegaExc_radps, Benm_nT, B0_nT)
             EOSlist.ranges[BeLabel] = Texc_hr
-        else:
-            log.warning(f'Excitation moments file {fPath} not found. Induction calculations will be skipped.')
-            Texc_hr, omegaExc_radps, Benm_nT, B0_nT = (None for _ in range(4))
 
     return Texc_hr, omegaExc_radps, Benm_nT, B0_nT
 

@@ -77,6 +77,9 @@ class OceanEOSStruct:
                 self.type = 'SeaFreeze'
                 self.m_gmol = Constants.mH2O_gmol
 
+                if np.size(self.P_MPa) == np.size(self.T_K):
+                    log.warning(f'Both P and T inputs have length {np.size(self.P_MPa)}, but they are organized to be ' +
+                                 'used as a grid. This will cause an error in SeaFreeze.')
                 PTgrid = np.array([self.P_MPa, self.T_K], dtype=object)
                 seaOut = SeaFreeze(PTgrid, 'water1')
                 self.rho_kgm3 = seaOut.rho
@@ -217,6 +220,10 @@ class IceEOSStruct:
             if(nPs == nTs):
                 self.T_K = np.append(self.T_K, self.T_K[-1]*1.00001)
 
+            # Assign phase ID and string for convenience in functions where iceEOS is passed
+            self.phaseStr = phaseStr
+            self.phaseID = PhaseInv(phaseStr)
+
             if phaseStr == 'Clath':
                 # Special functions for clathrate properties
                 self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK \
@@ -240,15 +247,13 @@ class IceEOSStruct:
                 self.alpha_pK = iceOut.alpha
                 self.kTherm_WmK = np.array([kThermIsobaricAnderssonIbari2005(self.T_K, PhaseInv(phaseStr)) for _ in self.P_MPa])
                 self.ufn_Seismic = IceSeismic(phaseStr, self.EXTRAP)
+                self.fn_phase = returnVal(self.phaseID)
 
             # Interpolate functions for this ice phase that can be queried for properties
             self.ufn_rho_kgm3 = RectBivariateSpline(self.P_MPa, self.T_K, self.rho_kgm3)
             self.ufn_Cp_JkgK = RectBivariateSpline(self.P_MPa, self.T_K, self.Cp_JkgK)
             self.ufn_alpha_pK = RectBivariateSpline(self.P_MPa, self.T_K, self.alpha_pK)
             self.ufn_kTherm_WmK = RectBivariateSpline(self.P_MPa, self.T_K, self.kTherm_WmK)
-            # Assign phase ID and string for convenience in functions where iceEOS is passed
-            self.phaseStr = phaseStr
-            self.phaseID = PhaseInv(phaseStr)
 
             if porosType is None or porosType == 'none':
                 self.ufn_phi_frac = ReturnZeros(1)
@@ -298,6 +303,11 @@ class IceEOSStruct:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_sigma_Sm(P_MPa, T_K)
 
+class returnVal:
+    def __init__(self, val):
+        self.val = val
+    def __call__(self, P, T):
+        return (np.ones_like(P) * self.val).astype(np.int_)
 
 def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False):
     """ Determine if we need to load a new EOS, or if we can reuse one that's already been

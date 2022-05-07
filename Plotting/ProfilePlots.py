@@ -232,7 +232,8 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
             # so we need to set the colormap to use the info we do have
             sigmaNorm = sigma_Sm[i] / 10**Params.Induct.sigmaMax[Induction.bodyname]
             Dnorm = D_km[i] / np.max(D_km)
-            ptColors[i] = Color.OceanCmap(Induction.compsList, sigmaNorm, Dnorm)
+            ptColors[i] = Color.OceanCmap(Induction.compsList, sigmaNorm, Dnorm,
+                                          DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
         else:
             w_ppt = Induction.x.flatten()
             Tmean_K = Induction.Tmean_K.flatten()
@@ -246,11 +247,13 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
                     Tmean_normFrac = Color.GetNormT(Tmean_K)
                 else:
                     Tmean_normFrac = interp1d([np.min(Tmean_K), np.max(Tmean_K)], [0.0, 1.0])(Tmean_K)
-                ptColors[i] = Color.OceanCmap(Induction.compsList, w_normFrac, Tmean_normFrac)
+                ptColors[i] = Color.OceanCmap(Induction.compsList, w_normFrac, Tmean_normFrac,
+                                              DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
             elif Params.Induct.colorType == 'zb':
                 zb_km = Induction.zb_km.flatten()
                 zb_normFrac = interp1d([np.min(zb_km), np.max(zb_km)], [0.0, 1.0])(zb_km)
-                ptColors[i] = Color.OceanCmap(Induction.compsList, w_normFrac, zb_normFrac)
+                ptColors[i] = Color.OceanCmap(Induction.compsList, w_normFrac, zb_normFrac,
+                                              DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
             else:
                 raise ValueError(f'Inductogram colortype {Params.Induct.colorType} not recognized.')
 

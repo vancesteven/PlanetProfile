@@ -381,6 +381,8 @@ class PlanetStruct:
         # Individual calculated quantities
         self.Mtot_kg = None  # Total calculated mass selected from MoI matching
         self.zb_km = None  # Thickness of outer ice shell/depth of ice-ocean interface in km
+        self.qSurf_Wm2 = None  # Heat flux at the surface derived from layer profile and input parameters
+        self.qCon_Wm2 = None  # Heat flux of conducting or convecting ice layers at the bottom of the region used in calculating the Rayleigh number
         self.zClath_m = None  # Thickness of clathrate layer in surface ice in m
         self.D_km = None  # Thickness of ocean layer in km
         self.Pb_MPa = None  # Pressure at ice-ocean interface in MPa

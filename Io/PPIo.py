@@ -12,6 +12,7 @@ Planet = PlanetStruct('Io')
 """ Bulk planetary settings """
 Planet.Do.NO_H2O = True
 Planet.Bulk.qSurf_Wm2 = 140e-3
+# Planet.Bulk.qSurf_Wm2 = 2240e-3  # From Lainey et al. (2009): DOI: 10.1038/nature08108
 Planet.Bulk.R_m = 1821.3e3
 Planet.Bulk.M_kg = 8.9319e22
 Planet.Bulk.Tsurf_K = 110
@@ -26,6 +27,7 @@ Planet.Steps.nCore = 10
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.33e-12
 Planet.Sil.Htidal_Wm3 = 1e-9
+# Planet.Sil.Htidal_Wm3 = 3.77e-6  # Inferred from Lainey et al. (2009), with the global rate averaged over the silicate volume.
 # Rock porosity
 Planet.Do.POROUS_ROCK = True
 Planet.Sil.phiRockMax_frac = 0.72
@@ -49,7 +51,5 @@ Planet.Core.xH2O = 0.0035
 Planet.Seismic.lowQDiv = 1.0
 
 """ Magnetic induction """
-Planet.Magnetic.peaks_Hz = np.array([4.946e-5, 2.473e-5, 3.259e-6])
-Planet.Magnetic.fOrb_radps = 2*np.pi/3.55/86400
 Planet.Magnetic.ionosBounds_m = 100e3
 Planet.Magnetic.sigmaIonosPedersen_Sm = 30/100e3

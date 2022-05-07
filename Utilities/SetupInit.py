@@ -27,6 +27,9 @@ def SetupInit(Planet, Params):
         if Planet.Bulk.qSurf_Wm2 is None:
             raise ValueError('Bulk.qSurf_Wm2 must be set in order to model waterless bodies.')
         Planet.Ocean.QfromMantle_W = Planet.Bulk.qSurf_Wm2 * 4*np.pi * Planet.Bulk.R_m**2
+        Planet.qSurf_Wm2 = Planet.Bulk.qSurf_Wm2
+        Planet.qCon_Wm2 = np.nan
+        Planet.etaConv_Pas = np.nan
         Planet.Pb_MPa = Planet.Bulk.Psurf_MPa
         Planet.PbI_MPa = Planet.Bulk.Psurf_MPa
         Planet.Sil.PHydroMax_MPa = Planet.Bulk.Psurf_MPa
@@ -39,7 +42,7 @@ def SetupInit(Planet, Params):
         Planet.Steps.nHydroMax = 1
         Planet.Ocean.comp = 'none'
         Planet.Ocean.wOcean_ppt = 0.0
-        Planet.Ocean.deltaP = 0.0
+        Planet.Ocean.deltaP = 0.1
         Planet.Do.NO_ICE_CONVECTION = True
         if Planet.Do.POROUS_ROCK:
             # Generate zero-yielding ocean "EOS" for use in porosity calculations

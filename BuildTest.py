@@ -173,7 +173,7 @@ def simple():
     Params.DO_INDUCTOGRAM = False
     Params.DO_PARALLEL = False
 
-    iTest = 9
+    iTest = 3
     bodyname = f'{testMod}{iTest}'
     tStart = time.time()
     testPlanet = importlib.import_module(bodyname).Planet
