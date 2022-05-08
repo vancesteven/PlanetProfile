@@ -315,8 +315,11 @@ def PrintLayerSummaryLatex(PlanetList, Params):
 
     # Table horizontal division constant
     tab = ' & '
+    hline = r'\hline'
     # Table vertical division constant
-    endl = r' \\ \hline'
+    endl = r' \\ '
+    if FigMisc.LATEX_HLINES:
+        endl = endl + hline
     newline = '\n            '
     # What to put for NA or not calculated numbers
     if FigMisc.NAN_FOR_EMPTY:
@@ -344,12 +347,16 @@ def PrintLayerSummaryLatex(PlanetList, Params):
         wDiv = 1
     # Table end
     tClose = r'\end{tabular}'
+    if FigMisc.HF_HLINES and not FigMisc.LATEX_HLINES:
+        tClose = hline + tClose
 
     # Layer table labels
     columns = [r'\textbf{Layer}', r'\textbf{Radius ($\si{km}$)}', r'\textbf{Density ($\si{' + rhoUnits + '}$)}',
                r'\textbf{Thickness ($\si{km}$)}', r'\textbf{Shear modulus ($\si{GPa}$)}',
                 r'\textbf{Conductivity ($\si{' + sigUnits + '}$)}']
-    header = '\hline\n' + tab.join(columns) + endl
+    header = '\n' + tab.join(columns) + endl
+    if FigMisc.HF_HLINES:
+        header = hline + header
     tOpen = r'\begin{tabular}{' + v + v.join(['l' for _ in columns]) + v + '}'
     condIceLbl = 'Conductive ice Ih'
     convIceLbl = 'Convective ice Ih'
@@ -487,7 +494,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                     condIceVlayers = newline + tab.join([condIceVlbl,
                                                          f'\\num{{{(Planet.Bulk.R_m - Planet.zIceVund_m)/1e3:.1f}}}',
                                                          f'\\num{{{Planet.Ocean.rhoCondMean_kgm3["V"]:.0f}}}',
-                                                         f'\\num{{{Planet.eLidIII_m/1e3:.1f}}}',
+                                                         f'\\num{{{Planet.eLidV_m/1e3:.1f}}}',
                                                          f'\\num{{{Planet.Ocean.GScondMean_GPa["V"]:.1f}}}',
                                                          f'\\num{{{Planet.Ocean.sigmaCondMean_Sm["V"]:.1e}}}']) + endl
                 else:
