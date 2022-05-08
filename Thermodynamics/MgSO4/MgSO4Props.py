@@ -91,7 +91,7 @@ def MgSO4Props(P_MPa, T_K, wOcean_ppt, EXTRAP):
         P_MPa = np.unique(newP_MPa)
         T_K = np.unique(newT_K)
         if np.size(T_K) == 1:
-            T_K = np.linspace(T_K - 0.05, T_K + 0.05, 5)
+            T_K = np.linspace(T_K[0] - 0.05, T_K[0] + 0.05, 5)
     evalPts = fn_MgSO4Props.fn_evalPts(P_MPa, T_K, wOcean_ppt)
     nPs = np.size(P_MPa)
     # Interpolate the input data to get the values corresponding to the current ocean comp,
@@ -138,7 +138,8 @@ class MgSO4propsLookup:
         P_MPa = ensureArray(Pin_MPa)
         T_K = ensureArray(Tin_K)
         w_ppt = ensureArray(win_ppt)
-        return np.array([[w, P, T] for w in w_ppt for P in P_MPa for T in T_K])
+        out = [[w, P, T] for w in w_ppt for P in P_MPa for T in T_K]
+        return np.array(out)
 
 def ensureArray(var):
     if isinstance(var, Iterable):
