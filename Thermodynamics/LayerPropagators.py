@@ -221,8 +221,9 @@ def IceLayers(Planet, Params):
              f'thickness: {Planet.zb_km:.3f} km.')
 
     # Set surface HP ice layers to have negative phase ID to differentiate from in-ocean HP ices
-    indsHP = np.where(np.logical_and(Planet.phase>1, Planet.phase<=6))[0]
-    Planet.phase[indsHP][:Planet.Steps.nSurfIce] = -Planet.phase[indsHP][:Planet.Steps.nSurfIce]
+    indsHP = np.where(np.logical_and(abs(Planet.phase[:Planet.Steps.nSurfIce]) > 1,
+                                     abs(Planet.phase[:Planet.Steps.nSurfIce]) <= 6))[0]
+    Planet.phase[:Planet.Steps.nSurfIce][indsHP] = -Planet.phase[:Planet.Steps.nSurfIce][indsHP]
 
     # Get heat flux out of the possibly convecting region
     Planet.qCon_Wm2 = Planet.Ocean.QfromMantle_W / (4*np.pi * (Planet.Bulk.R_m - Planet.z_m[Planet.Steps.nSurfIce])**2)
