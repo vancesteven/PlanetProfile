@@ -197,6 +197,7 @@ def IceIConvectPorous(Planet, Params):
         Planet.eLid_m = zbI_m
         Planet.Dconv_m = 0.0
         Planet.deltaTBL_m = 0.0
+        indsTBL = [1, 0]
 
         # Recalculate heat flux, as it will be too high for conduction-only:
         qSurf_Wm2 = (Planet.T_K[1] - Planet.T_K[0]) / (Planet.r_m[0] - Planet.r_m[1]) * Planet.kTherm_WmK[0]

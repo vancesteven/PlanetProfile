@@ -145,17 +145,20 @@ def PropagateConduction(Planet, Params, iStart, iEnd):
             z_m, r_m, MLayer_kg, g_ms2
     """
 
-    thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart])
-    for i in range(iStart+1, iEnd+1):
-        # Increment depth based on change in pressure, combined with gravity and density
-        Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6 / Planet.g_ms2[i-1] / \
-                        Planet.rho_kgm3[i-1]
-        Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
-        Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1] ** 3 - Planet.r_m[i] ** 3)
-        thisMAbove_kg += Planet.MLayer_kg[i-1]
-        thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
-        Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i] ** 2
-        log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+    # Add a catch in case we call with invalid indices, which is convenient
+    # after convection calculations when no convection is happening
+    if iStart < iEnd:
+        thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart])
+        for i in range(iStart+1, iEnd+1):
+            # Increment depth based on change in pressure, combined with gravity and density
+            Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6 / Planet.g_ms2[i-1] / \
+                            Planet.rho_kgm3[i-1]
+            Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
+            Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1] ** 3 - Planet.r_m[i] ** 3)
+            thisMAbove_kg += Planet.MLayer_kg[i-1]
+            thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+            Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i] ** 2
+            log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     return Planet
 
