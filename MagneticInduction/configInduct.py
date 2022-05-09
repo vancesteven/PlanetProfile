@@ -2,7 +2,7 @@
 import numpy as np
 from Utilities.defineStructs import Constants
 
-inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma".
+inductOtype = 'Tb'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma".
 colorType = 'zb'  # What parameter to use for color of points in phase space plots. Options are "Tmean", "zb".
 SPECIFIC_CLEVELS = True  # Whether to use the specific cLevels listed below or default numbers
 
@@ -29,8 +29,8 @@ class InductOgramParams:
         self.wMin = {'Europa': np.log10(1)}
         self.wMax = {'Europa': np.log10(100)}
         self.nTbPts = 60  # Resolution for Tb values in ocean salinity/Tb plots
-        self.TbMin = {'Europa': 265.0}
-        self.TbMax = {'Europa': 271.0}
+        self.TbMin = {'Europa': 262.0}
+        self.TbMax = {'Europa': 267.0}
         self.nphiPts = 60  # Resolution for phiRockMax values in ocean salinity/phiMax plots
         self.phiMin = {'Europa': np.log10(0.01)}
         self.phiMax = {'Europa': np.log10(0.75)}
