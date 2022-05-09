@@ -619,7 +619,7 @@ def PrintLayerTableLatex(PlanetList, Params):
     ice = r'\mathrm{ice}'
     Ih = r'\mathrm{Ih}'
     III = r'\mathrm{III}'
-    Vund = r'\mathrm{V,und}'
+    Vund = r'\mathrm{V,under}'
     Vwet = r'\mathrm{V}'
     VI = r'\mathrm{VI}'
     clath = r'\mathrm{clath}'
