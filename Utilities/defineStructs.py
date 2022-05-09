@@ -19,7 +19,7 @@ import os
 class BulkSubstruct():
 
     def __init__(self):
-        self.Tb_K = None  # Temperature at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers). Ranges from 238.5 to 261.165 K for ice III transition and 251.165 to 273.16 for melting temp.
+        self.Tb_K = None  # Temperature at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers). Ranges from 238.5 to 261.165 K for ice III transition and 251.165 to 273.16 for melting temp. This must remain set to None here as a default. Exactly two out of three of Bulk.Tb_K, Bulk.zb_km, and Ocean.wOcean_ppt must be set for every model with surface H2O.
         self.rho_kgm3 = None  # Bulk density in kg/m^3 -- note that this is intended to be derived and not set.
         self.R_m = None  # Mean body outer radius in m
         self.M_kg = None  # Total body mass in kg
@@ -117,7 +117,7 @@ class OceanSubstruct:
         self.sigmaMeanVI_Sm = np.nan  # Mean electrical conductivity for in-ocean ice VI layers
         self.GSmeanVwet_GPa = np.nan  # Mean shear modulus for in-ocean ice V layers
         self.GSmeanVI_GPa = np.nan  # Mean shear modulus for in-ocean ice VI layers
-        self.TfreezeOffset_K = 0.01  # Offset from the freezing temperature to avoid overshooting in HP ices
+        self.TfreezeOffset_K = 0.001  # Offset from the freezing temperature to avoid overshooting in HP ices
         self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
         self.dkdTI_WmK2 = -0.012  # Temperature derivative of ice I relative to the melting temp. Default is from Melinder (2007).
         self.sigmaIce_Sm = {'Ih':1e-8, 'II':1e-8, 'III':1e-8, 'V':1e-8, 'VI':1e-8, 'Clath':5e-5}  # Assumed conductivity of solid ice phases (see Constants.sigmaClath_Sm below)
@@ -354,7 +354,7 @@ class PlanetStruct:
         self.saveLabel = None # Label for savefile
         # Settings for GetPfreeze start, stop, and step size.
         # Shrink closer to expected melting pressure to improve run times.
-        self.PfreezeLower_MPa = 5  # Lower boundary for GetPfreeze to search for ice Ih phase transition
+        self.PfreezeLower_MPa = 0.05  # Lower boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeUpper_MPa = 230  # Upper boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeRes_MPa = 0.05  # Step size in pressure for GetPfreeze to use in searching for phase transition
 
