@@ -146,6 +146,7 @@ def SetupInit(Planet, Params):
                                        Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                        scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                        phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN)
+        # Get separate, simpler EOS for evaluating the melting curve
         Pmelt_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.PfreezeUpper_MPa, Planet.PfreezeRes_MPa)
         Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa,
                                            np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11), None,
