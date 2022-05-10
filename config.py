@@ -7,7 +7,7 @@ from functools import partial, partialmethod
 import os, time, numpy as np
 import multiprocessing as mtp
 from Utilities.defineStructs import ParamsStruct, Constants
-from MagneticInduction.configInduct import InductParams, ExcSpecParams
+from MagneticInduction.configInduct import InductParams, SigParams, ExcSpecParams
 
 Params = ParamsStruct()
 Params.tStart_s = time.time()
@@ -35,8 +35,6 @@ Params.DO_PARALLEL =      True  # Whether to use multiprocessing module for para
 Params.FORCE_EOS_RECALC = False  # Whether to reuse previously loaded EOS functions for multi-profile runs
 Params.SKIP_INNER =       False  # Whether to skip past everything but ocean calculations after MoI matching (for large induction studies)
 Params.NO_SAVEFILE =      False  # Whether to prevent printing run outputs to disk. Saves time and disk space for large induction studies.
-Params.REDUCED_INDUCT =   True  # Whether to limit number of ocean layers for faster computation of layered induction
-Params.INCLUDE_ASYM =     False  # Whether to include asymmetry in the induction conductivity profile based on J2 and C22 values
 Params.DISP_LAYERS =      True  # Whether to display layer depths and heat fluxes for user
 Params.DISP_TABLE =       True  # Whether to print latex-formatted table
 Params.DEPRECATED =       False  # Whether to allow deprecated code to run. Will often cause errors.
@@ -59,7 +57,8 @@ Params.PLOT_FFT = True  # Whether to show plots of fourier space
 Params.DO_PER = True  # Convert frequency axes to periods for FFT plots
 Params.PLOT_CONTOURS = True  # Contours or surfaces
 Params.PLOT_V2021 = True  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
-Params.Induct = InductParams  # Load induction calculation settings
+Params.Sig = SigParams  # Load general induction settings
+Params.Induct = InductParams  # Load inductogram settings
 Params.MagSpectrum = ExcSpecParams  # Load excitation spectrum settings
 
 # Reference profile settings

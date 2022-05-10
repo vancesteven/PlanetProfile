@@ -2,19 +2,16 @@
 import numpy as np
 from Utilities.defineStructs import Constants
 
-inductOtype = 'Tb'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma".
-colorType = 'zb'  # What parameter to use for color of points in phase space plots. Options are "Tmean", "zb".
-SPECIFIC_CLEVELS = True  # Whether to use the specific cLevels listed below or default numbers
+inductOtype = 'Tb'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
 
+""" Inductogram settings """
 class InductOgramParams:
-    def __init__(self, inductOtype, colorType, cLevels, dftC, SPECIFIC_CLEVELS, cFmt):
-        # Type of InductOgram plot to make. Options are "Tb", "phi", "rho", "sigma",
-        # where the first 3 are vs. salinity, and sigma is vs. thickness.
-        # Sigma/D plot is not self-consistent.
-        self.bodyname = None
+    def __init__(self, inductOtype, cLevels, dftC, cFmt):
         self.inductOtype = inductOtype
-        self.colorType = colorType
-        self.SPECIFIC_CLEVELS = SPECIFIC_CLEVELS
+        self.colorType = 'zb'  # What parameter to use for color of points in phase space plots. Options are "Tmean", "zb".
+        self.SPECIFIC_CLEVELS = True  # Whether to use the specific cLevels listed below or default numbers
+
+        self.bodyname = None
         self.cLevels = cLevels
         self.dftC = dftC
         self.cFmt = cFmt
@@ -82,22 +79,14 @@ class InductOgramParams:
         return self.cFmt[bodyname][Tname][zName]
 
 
-class AsymmetryStruct:
+""" General induction calculation settings """
+class ConductLayerParams:
     def __init__(self):
-        self.pMax = {
-            'Europa': 2
-        }
-        # The below is just a placeholder and eventually will need a robust way to read these in and manipulate.
-        self.shape = {
-            'Europa': np.zeros((2, self.pMax['Europa']+1, self.pMax['Europa']+1), dtype=np.complex_)
-        }
-        # Placeholder like above. Gravitational shape is limited to p = 2 for J2, C22 only
-        self.gravShape = {
-            'Europa': np.zeros((2, 2+1, 2+1), dtype=np.complex_)
-        }
-
-    def chipq(self, bodyname, nBds, pMax):
-        return np.tile(self.shape[bodyname][:, :pMax+1, :pMax+1], (nBds, 1))
+        self.REDUCED_INDUCT = True  # Whether to limit number of ocean layers for faster computation of layered induction
+        self.INCLUDE_ASYM = False  # Whether to include asymmetry in the induction conductivity profile based on J2 and C22 values
+        self.CONCENTRIC_ASYM = False  # Whether to map a single asymmetric shape to all layers, concentrically, scaling by their radii.
+        self.ALLOW_LOW_PMAX = False  # Whether to allow Magnetic.pMax to be set to an integer less than 2.
+        self.asymFstring = 'Shape_4piNormDepth'
 
 
 class ExcitationSpectrumParams:
@@ -145,12 +134,14 @@ it = 'Europa'
 cLevels['Test'] = cLevels[it]
 cFmt['Test'] = cFmt[it]
 
-Asymmetry = AsymmetryStruct()
+SigParams = ConductLayerParams()
 ExcSpecParams = ExcitationSpectrumParams()
-InductParams = InductOgramParams(inductOtype, colorType, cLevels, dftC, SPECIFIC_CLEVELS, cFmt)
+InductParams = InductOgramParams(inductOtype, cLevels, dftC, cFmt)
+
 
 [getattr(InductParams, attr).update({'Test': getattr(InductParams, attr)[it]})
     for attr in ['wMin', 'wMax', 'TbMin', 'TbMax', 'phiMin', 'phiMax', 'rhoMin',
                  'rhoMax', 'sigmaMin', 'sigmaMax', 'Dmin', 'Dmax', 'zbFixed_km']]
-[getattr(Asymmetry, attr).update({'Test': getattr(Asymmetry, attr)[it]})
-    for attr in ['pMax', 'shape', 'gravShape']]
+
+# [getattr(Asymmetry, attr).update({'Test': getattr(Asymmetry, attr)[it]})
+#     for attr in ['pMax', 'shape', 'gravShape']]

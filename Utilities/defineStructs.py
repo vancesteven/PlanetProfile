@@ -33,8 +33,12 @@ class BulkSubstruct():
         self.clathType = None  # Type of model for sI methane clathrates in outer ice shell. Options are 'top', 'bottom', and 'whole', and indicate where clathrates are allowed to be and which type of model to use.
         self.TbIII_K = None  # Temperature at bottom of ice III underplate layer in K. Ranges from 248.85 to 256.164 K for transition to ice V and from 251.165 to 256.164 K for melting temp.
         self.TbV_K = None  # Temperature at bottom of ice V underplate layer in K. Ranges from 256.164 to 272.99 K for melting temp, and 218 to 272.99 for transition to ice VI.
-        self.J2 = None  # Gravitational oblateness shape parameter
-        self.C22 = None  # Gravitational elongation shape parameter
+        self.J2 = None  # Gravitational coefficient associated with oblateness, in Schmidt normalization
+        self.C20 = None  # Negative of J2, only one of them needs to be set.
+        self.C22 = None  # Gravitational coefficient associated with elongation, in Schmidt normalization
+        self.C21 = None  # Additional gravitational coefficients that are usually set to zero.
+        self.S21 = None
+        self.S22 = None
         self.zbChangeTol_frac = 0.05  # Fractional change tolerance, which if exceeded, triggers IceConvect to run a second time for better self-consistency
 
 
@@ -211,13 +215,6 @@ class SilSubstruct:
         self.sigmaMean_Sm = np.nan  # Mean conductivity across all silicate layers, ignoring spherical effects
         self.rhoTrade_kgm3 = None  # Array of mantle densities for compatible MoIs for core vs. mantle tradeoff plot
         self.mFluids = None  # WIP for tracking loss of fluids along the geotherm -- needs a better name.
-        # The below not necessary to be implemented until later (says Steve), these 5 are based on DPS presentation in 2017 – 5 diff models of permeability
-        #turn off this plot feature until later- create flag, Use POROSITY flag to turn off these plots
-        #perm1 = None
-        #perm2 = None
-        #perm3 = None
-        #perm4 = None
-        #perm5 = None
 
 
 """ Core layers """
@@ -241,8 +238,6 @@ class CoreSubstruct:
         self.Rrange_m = None  # Core radius range for compatible MoI
         self.Rtrade_m = None  # Array of core radii for compatible MoIs
         self.Rset_m = None  # Value to set the core outer radius to, when we have already found it via e.g. using CONSTANT_INNER_DENSITY = True. Used to recycle SilicateLayers when we don't want to do an MoI search with the EOS functions.
-        #Re Steve- put all mass fraction stuff into a separate file until implemented later- remove from dataStructs.py
-        #To implement: possible Meteoritics file/class?
         # 2021-12-30: Judging by usage of various different fractional variables in the literature and in
         # the Matlab code, these x variables should be molar fractions (# this species/total # molecules).
         self.xFeSmeteoritic = None  # CM2 mean from Jarosewich 1990
@@ -319,8 +314,10 @@ class MagneticSubstruct:
         self.nExc = None  # Number of excitation frequencies modeled
         self.Benm_nT = None  # Excitation moments (amplitude and phase of magnetic oscillations) applied to the body in nT
         self.nprmMax = 1  # Maximum n' to use in excitation moments (1 for uniform).
-        self.pMax = 0  # Maximum p to use in asymmetric shape (0 for spherically symmetric).
-        self.asymShape = None  # Asymmetric shape to use in induction calculations based on Bulk.J2 and Bulk.C22 values. Only used when inductType = "Srivastava1966".
+        self.pMax = None  # Maximum p to use in asymmetric shape (0 for spherically symmetric; 2 for up to and incuding gravity coefficients).
+        self.asymShape_m = None  # Asymmetric shape to use in induction calculations. Only used when inductType = "Srivastava1966".
+        self.gravShape_m = None  # Asymmetric shape in p = 2 coefficients to use in induction calculations. Only used when inductType = "Srivastava1966".
+        self.Xid = None  # Mixing coefficient table used in asymmetric induction calculations
         # Output calculations
         self.Aen = None  # Complex response amplitude of magnetic excitation for dipole moment for each excitation frequency (unitless)
         self.Amp = None  # Amplitude (modulus) of magnetic excitation for spherically symmetric approximation for each excitation frequency (unitless)

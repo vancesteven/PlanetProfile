@@ -110,7 +110,7 @@ def run(bodyname=None, opt=None, fNames=None):
         # Plot combined figures
         if not Params.SKIP_PLOTS and Params.COMPARE:
             Params.FigureFiles = FigureFilesSubstruct(
-                PlanetList[0].bodyname, os.path.join('figures', f'{PlanetList[0].name}Comparison'), FigMisc.xtn)
+                os.path.join(PlanetList[0].bodyname, 'figures'), f'{PlanetList[0].name}Comparison', FigMisc.xtn)
             GeneratePlots(PlanetList, Params)
         else:
             PlanetList = PlanetList[:1]
@@ -135,7 +135,7 @@ def run(bodyname=None, opt=None, fNames=None):
             # Plot combined figures
             if not Params.SKIP_PLOTS:
                 Params.FigureFiles = FigureFilesSubstruct(
-                    CompareList[0].bodyname, os.path.join('figures', f'{CompareList[0].name}Comparison'), FigMisc.xtn)
+                    os.path.join(CompareList[0].bodyname, 'figures'), f'{CompareList[0].name}Comparison', FigMisc.xtn)
                 GeneratePlots(CompareList, Params)
         else:
             CompareList = PlanetList
