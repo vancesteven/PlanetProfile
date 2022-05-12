@@ -30,7 +30,7 @@ Params.CALC_SEISMIC =     True  # Calculate sound speeds and elastic moduli?
 Params.CALC_CONDUCT =     True  # Calculate electrical conductivity?
 Params.RUN_ALL_PROFILES = False  # Whether to run all PPBody.py files for the named body and plot together
 Params.SPEC_FILE =        False  # Whether we are running a specific file or files
-Params.COMPARE =          True  # Whether to plot each new run against other runs from the same body
+Params.COMPARE =          False  # Whether to plot each new run against other runs from the same body
 Params.DO_PARALLEL =      True  # Whether to use multiprocessing module for parallel computation where applicable
 Params.FORCE_EOS_RECALC = False  # Whether to reuse previously loaded EOS functions for multi-profile runs
 Params.SKIP_INNER =       False  # Whether to skip past everything but ocean calculations after MoI matching (for large induction studies)
@@ -46,7 +46,7 @@ Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Pro
 Params.PLOT_REF = True  # Whether to plot reference melting curve densities on hydrosphere plot
 Params.PLOT_SIGS = False  # Make a plot of conductivity as a function of radius to include on hydrosphere plot
 Params.PLOT_TRADEOFF = False  # Whether to plot mantle properties tradeoff
-Params.PLOT_WEDGE = False  # Whether to plot interior wedge diagram
+Params.PLOT_WEDGE = True  # Whether to plot interior wedge diagram
 Params.LEGEND = True  # Whether to include legends
 
 # Magnetic induction plot settings

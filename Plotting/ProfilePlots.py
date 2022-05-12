@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import math
+import matplotlib.gridspec as gridspec
 from matplotlib.patches import Wedge
 from matplotlib.collections import PatchCollection
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -142,75 +142,276 @@ def PlotSilTradeoff(PlanetList, Params):
 
 
 def PlotWedge(PlanetList, Params):
-    fig, ax = plt.subplots()
-    width = (math.pi / 7)*180/math.pi  # angular width of wedge to be plotted
-    patches = []  # for storing wedge objects
-    colors = []  # colors for layers
-    iPhaseTrans = 1+np.where(Planet.phase[1:] != Planet.phase[:-1])[0]  # finds indexes of transitions between layers
-    iPhaseTrans = np.insert(iPhaseTrans, 0, 0) # this makes sure the ice phase is included
-    for layerPhase in iPhaseTrans:
+    """ Plot a wedge diagram showing a visual representation of the major layer structure.
+    """
 
-        if Planet.phase[layerPhase] == 0:
-            colors.append(Color.OceanTop)
-        elif Planet.phase[layerPhase] == 1:
-            colors.append(Color.IceI)
-        elif Planet.phase[layerPhase] == 2:
-            colors.append(Color.IceII)
-        elif Planet.phase[layerPhase] == 3:
-            colors.append(Color.IceIII)
-        elif Planet.phase[layerPhase] == 5:
-            colors.append(Color.IceV)
-        elif Planet.phase[layerPhase] == 6:
-            colors.append(Color.IceVI)
-        elif Planet.phase[layerPhase] == Constants.phaseClath:
-            colors.append(Color.Clath)
-        elif Planet.phase[layerPhase] == Constants.phaseSil:
-            colors.append(Color.Rock)
-        elif Planet.phase[layerPhase] == Constants.phaseFe:
-            colors.append(Color.Core)
-    phases = [Planet.phase[iShell] for iShell in iPhaseTrans]  # stores phase of particular layer
-    radii = [Planet.r_m[iShell]/Planet.Bulk.R_m for iShell in iPhaseTrans]  # normalizes radii of layer transitions
+    nWedges = np.size(PlanetList)
+    #fig, axes = plt.subplots(1, nWedges, figsize=(FigSize.vwedg[0]*nWedges - (nWedges-1), FigSize.vwedg[1]))
+    fig = plt.figure(figsize=(FigSize.vwedg[0]*nWedges - (nWedges-1), FigSize.vwedg[1]))
+    grid = gridspec.GridSpec(1, nWedges)
+    axes = [fig.add_subplot(grid[0, i]) for i in range(nWedges)]
+    # if nWedges == 1:
+    #     axes = [axes]
 
-    funNum = 1
-    im = None
+    # Set plot title based on possible comparison conditions
+    ALL_ONE_BODY = np.all([Planet.name == PlanetList[0].name for Planet in PlanetList])
+    if ALL_ONE_BODY:
+        title = f'{PlanetList[0].name} {FigLbl.wedgeTitle}'
+        if nWedges > 1:
+            title = f'{title}s'
+            fig.suptitle(f'\\textbf{{{title}}}')
 
-    for i, radius in enumerate(radii):
-        iCol = i % np.size(colors)
-        print(i, colors[iCol])
+    ang1 = 90 - Style.wedgeAngle_deg
+    ang2 = 90 + Style.wedgeAngle_deg
 
-        patches.append(Wedge((0.5,0), radius, 90 - width, 90 + width, lw = 0.25, fc = "none" if i == funNum else colors[iCol], ec="k", zorder=i))  # creating wedges
-        ax.add_patch(patches[-1])
-
-        if i == funNum:
-            print("Draw time!")
-            delta = 0.025
-            x = y = np.arange(0, 1.0, delta)
-            X, Y = np.meshgrid(x, y)
-            Z1 = np.exp(-(X-0.5) ** 2 - Y ** 2)
-            Z2 = np.exp(-(X - 1.5) ** 2 - (Y - 1) ** 2)
-            Z = (Z1 - Z2) * 2
-
-            Z = ((X+0.5) ** 0.5 - Y ** 0.5)**2
-
-            im = plt.imshow(Z, interpolation='bilinear', cmap=mpl.cm.bone,
-                           origin='lower', extent=[0, 1, 0, 1],
-                           clip_path=patches[-1], clip_on=True)
-            im.set_clip_path(patches[-1])
-
-    ax.set_aspect('equal')
-
-    #fig.colorbar(p, ax = ax)
-    if Planet.Ocean.comp == 'MgSO4':
-        compstr = '\ce{MgSO4}'
-    elif Planet.Ocean.comp == 'PureH2O':
-        compstr = 'Pure \ce{H_2O}'
+    # Get ionosBounds_km for all bodies without affecting what's in Planet.Magnetic
+    if FigMisc.IONOSPHERE_IN_WEDGE:
+        ionosUpper_km = np.array([np.max(Planet.Magnetic.ionosBounds_m) / 1e3 if Planet.Magnetic.ionosBounds_m is not None else 0 for Planet in PlanetList])
+        ionosLower_km = np.array([np.min(Planet.Magnetic.ionosBounds_m) / 1e3 if np.size(Planet.Magnetic.ionosBounds_m) > 1 else 0 for Planet in PlanetList], dtype=np.float_)
     else:
-        compstr = Planet.Ocean.comp
-    fig.suptitle(f'{PlanetList[0].name} wedge diagram\n$T_b = {Planet.Bulk.Tb_K}\,\mathrm{{K}}$, Composition = {compstr}, Salinity = ${Planet.Ocean.wOcean_ppt}\,\mathrm{{g/kg}}$')
-    plt.margins(0.02)
-    fig.savefig(Params.FigureFiles.vwedg, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        ionosUpper_km, ionosLower_km = (np.zeros(nWedges) for _ in range(2))
 
+    # Get largest radius across all wedges
+    rMax_km = np.max([ionoTop_km + Planet.Bulk.R_m/1e3 for ionoTop_km, Planet in zip(ionosUpper_km, PlanetList)])
+
+    # Optional boundaries
+    if FigMisc.DRAW_CONVECTION_BOUND:
+        iceConvBd = Color.wedgeBd
+        clathConvBd = Color.wedgeBd
+        silConvBd = Color.wedgeBd
+    else:
+        iceConvBd = Color.iceIcond
+        clathConvBd = Color.clathCond
+        silConvBd = Color.silCondCmap(1.0)
+
+    # Plot each significant layer for each model, from the outside inward
+    for Planet, ax, ionoTop_km, ionoBot_km in zip(PlanetList, axes, ionosUpper_km, ionosLower_km):
+        xFeS = 0.15
+        if Planet.Do.NO_H2O:
+            wedgeLabel = f'Porous CV chondrite\nFe core contains \SI{{{xFeS*100:.0f}}}{{wt\%}}~S\n$q_\mathrm{{surf}}$~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{mW/m^2}}'
+        else:
+            if Planet.Ocean.comp == 'PureH2O':
+                compStr = r'Pure \ce{H2O} ocean'
+            else:
+                compStr = f'\SI{{{Planet.Ocean.wOcean_ppt:.1f}}}{{g/kg}}~\ce{{{Planet.Ocean.comp}}}'
+            wedgeLabel = f'CV chondrite\nFe core contains \SI{{{xFeS*100:.0f}}}{{wt\%}}~S\n{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
+        if ALL_ONE_BODY and not nWedges == 1:
+            indivTitle = wedgeLabel
+        else:
+            indivTitle = f'\\textbf{{{Planet.name}}}\n{wedgeLabel}'
+        ax.set_title(indivTitle)
+        R_km = Planet.Bulk.R_m / 1e3
+        rTicks = []
+        rTickRefs = []
+
+        # @@@@@@@@@@
+        # Ionosphere
+        # @@@@@@@@@@
+        if FigMisc.IONOSPHERE_IN_WEDGE and ionoTop_km != 0:
+            # Ionosphere gradient layers
+            dzIonos_km = ionoTop_km - ionoBot_km
+            ionosGrad, dz = np.linspace(0, 1, Color.ionoN+1, retstep=True)
+            # Outer boundary around ionosphere to use as clip path
+            ionosOuter = ax.add_patch(Wedge((0.5,0), (R_km + ionoTop_km)/rMax_km, ang1, ang2,
+                               width=dzIonos_km/rMax_km,
+                               fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.none))
+            for thisIonosFrac in ionosGrad[:-1]:
+                ax.add_patch(Wedge((0.5, 0), (R_km + ionoTop_km)/rMax_km - thisIonosFrac*dzIonos_km/rMax_km, ang1, ang2,
+                                   width=dz*dzIonos_km/rMax_km, clip_path=ionosOuter,
+                                   fc=Color.ionoCmap(thisIonosFrac), ec=Color.ionoCmap(thisIonosFrac)))
+
+            # Draw outer boundary for ionosphere
+            if FigMisc.DRAW_IONOS_BOUND:
+                ionosOuter.set_edgecolor(Color.wedgeBd)
+                ax.add_patch(ionosOuter)
+
+        if not Planet.Do.NO_H2O:
+            # @@@@@@@@@
+            # Ice shell
+            # @@@@@@@@@
+            rTicks.append(R_km)
+            rTickRefs.append(R_km/rMax_km)
+
+            # Starting with ice I or clathrates
+            if Planet.Do.CLATHRATE:
+                if Planet.Bulk.clathType == 'top' or Planet.Bulk.clathType == 'whole':
+                    # Clathrates at the surface in this case
+                    ax.add_patch(Wedge((0.5,0), R_km/rMax_km, ang1, ang2,
+                                       width=Planet.eLid_m/1e3/rMax_km,
+                                       fc=Color.clathCond, lw=Style.LW_wedge, ec=clathConvBd))
+                    if Planet.Bulk.clathType == 'top':
+                        # Ice I boundary line
+                        ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceI_m/1e3)/rMax_km, ang1, ang2,
+                                           width=Planet.dzIceI_km/rMax_km,
+                                           fc=Color.none, lw=Style.LW_wedgeMajor, ec=iceConvBd))
+                        # Conductive ice I underneath clathrates
+                        if Planet.zIceI_m < Planet.eLid_m:
+                            ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceI_m/1e3)/rMax_km, ang1, ang2,
+                                               width=(Planet.dzIceI_km - (Planet.Dconv_m + Planet.deltaTBL_m)/1e3)/rMax_km,
+                                               fc=Color.iceIcond, lw=Style.LW_wedge, ec=iceConvBd))
+                        # Convective ice I underneath clathrates
+                        if (Planet.Dconv_m + Planet.deltaTBL_m) > 0:
+                            ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceI_m/1e3)/rMax_km, ang1, ang2,
+                                               width=(Planet.Dconv_m + Planet.deltaTBL_m)/1e3/rMax_km,
+                                               fc=Color.iceIconv, lw=Style.LW_wedge, ec=iceConvBd))
+                    else:
+                        # Convective clathrates
+                        if (Planet.Dconv_m + Planet.deltaTBL_m) > 0:
+                            ax.add_patch(Wedge((0.5,0), (R_km - Planet.eLid_m/1e3)/rMax_km, ang1, ang2,
+                                               width=(Planet.Dconv_m + Planet.deltaTBL_m)/1e3/rMax_km,
+                                               fc=Color.clathConv, lw=Style.LW_wedge, ec=clathConvBd))
+                else:
+                    # Clathrates in an underplate in this case, always conductive
+                    ax.add_patch(Wedge((0.5,0), (R_km - Planet.zClath_km)/rMax_km, ang1, ang2,
+                                       width=Planet.dzClath_km/rMax_km,
+                                       fc=Color.clathCond, lw=Style.LW_wedge, ec=clathConvBd))
+                    
+                # Outer boundary around clathrates
+                ax.add_patch(Wedge((0.5,0), R_km/rMax_km, ang1, ang2,
+                                   width=Planet.dzClath_km/rMax_km,
+                                   fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
+            else:
+                # Ice Ih at the surface in this case
+                # Conductive ice I
+                ax.add_patch(Wedge((0.5,0), R_km/rMax_km, ang1, ang2,
+                                   width=Planet.eLid_m/1e3/rMax_km,
+                                   fc=Color.iceIcond, lw=Style.LW_wedge, ec=iceConvBd))
+                # Convective ice I
+                if (Planet.Dconv_m + Planet.deltaTBL_m) > 0:
+                    ax.add_patch(Wedge((0.5,0), (R_km - Planet.eLid_m/1e3)/rMax_km, ang1, ang2,
+                                       width=(Planet.Dconv_m + Planet.deltaTBL_m)/1e3/rMax_km,
+                                       fc=Color.iceIconv, lw=Style.LW_wedge, ec=iceConvBd))
+            
+            # Outer boundary around ice I
+            if Planet.dzIceI_km > 0:
+                ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceI_m/1e3)/rMax_km, ang1, ang2,
+                                   width=Planet.dzIceI_km/rMax_km,
+                                   fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
+                
+            # Surface HP ices
+            if Planet.dzIceIII_km > 0:
+                ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceIII_m/1e3)/rMax_km, ang1, ang2,
+                                   width=Planet.dzIceIII_km/rMax_km,
+                                   fc=Color.iceIII, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
+            if Planet.dzIceVund_km > 0:
+                ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceVund_m/1e3)/rMax_km, ang1, ang2,
+                                   width=Planet.dzIceVund_km/rMax_km,
+                                   fc=Color.iceV, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
+            
+            # @@@@@@@@@@@
+            # Ocean layer
+            # @@@@@@@@@@@
+            if Planet.D_km > 0:
+                if FigMisc.WEDGE_ICE_TICKS:
+                    rTicks.append(R_km - Planet.zb_km)
+                    rTickRefs.append((R_km - Planet.zb_km)/rMax_km)
+
+                # Ocean outer boundary to use as clip path
+                oceanOuter = ax.add_patch(Wedge((0.5,0), (R_km - Planet.zb_km)/rMax_km, ang1, ang2,
+                                                width=Planet.D_km/rMax_km,
+                                                fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.none))
+
+                # Ocean gradient layers
+                oceanGrad, dz = np.linspace(0, 1, Color.oceanN+1, retstep=True)
+                for thisOceanFrac in oceanGrad[:-1]:
+                    ax.add_patch(Wedge((0.5, 0), ((R_km - Planet.zb_km) - thisOceanFrac*Planet.D_km)/rMax_km, ang1, ang2,
+                                       width=dz*Planet.D_km/rMax_km, clip_path=oceanOuter,
+                                       fc=Color.oceanCmap(thisOceanFrac), ec=Color.oceanCmap(thisOceanFrac)))
+    
+                # Draw outer boundary
+                oceanOuter.set_edgecolor(Color.wedgeBd)
+                ax.add_patch(oceanOuter)
+                    
+            # Undersea HP ices
+            if Planet.dzIceV_km > 0:
+                ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceV_m/1e3)/rMax_km, ang1, ang2,
+                                   width=Planet.dzIceV_km/rMax_km,
+                                   fc=Color.iceV, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
+            if Planet.dzIceVI_km > 0:
+                ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceVI_m/1e3)/rMax_km, ang1, ang2,
+                                   width=Planet.dzIceVI_km/rMax_km,
+                                   fc=Color.iceVI, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
+             
+        # @@@@@@@@@
+        # Silicates
+        # @@@@@@@@@
+        rTicks.append(Planet.Sil.Rmean_m/1e3)
+        rTickRefs.append(Planet.Sil.Rmean_m/1e3/rMax_km)
+
+        # Outer boundary around silicate layer to use as clip path for gradients
+        silOuter = ax.add_patch(Wedge((0.5,0), Planet.Sil.Rmean_m/1e3/rMax_km, ang1, ang2,
+                                      width=(Planet.Sil.Rmean_m - Planet.Core.Rmean_m)/rMax_km,
+                                      fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.none))
+
+        if Planet.Do.POROUS_ROCK:
+            # Outer boundary around porous silicate layer to use ase clip path
+            silPorousOuter = ax.add_patch(Wedge((0.5,0), Planet.Sil.Rmean_m/1e3/rMax_km, ang1, ang2,
+                                          width=Planet.dzSilPorous_km/rMax_km,
+                                          fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.none))
+
+            # Porous rock gradient
+            porousGrad, dz = np.linspace(0, 1, Color.silPorousN+1, retstep=True)
+            for thisPorousFrac in porousGrad[:-1]:
+                ax.add_patch(Wedge((0.5,0), (Planet.Sil.Rmean_m/1e3 - thisPorousFrac*Planet.dzSilPorous_km)/rMax_km, ang1, ang2,
+                                   width=dz*Planet.dzSilPorous_km/rMax_km, clip_path=silPorousOuter,
+                                   fc=Color.silPorousCmap(thisPorousFrac), ec=Color.silPorousCmap(thisPorousFrac)))
+
+            # Draw outer boundary around porous silicate layer
+            if FigMisc.DRAW_POROUS_BOUND:
+                silPorousOuter.set_edgecolor(Color.wedgeBd)
+                ax.add_patch(silPorousOuter)
+
+        # Only conductive silicates are currently modeled, no convective
+        # Conductive silicate gradient
+        silCondGrad, dz = np.linspace(0, 1, Color.silCondN+1, retstep=True)
+        dzSilCond_km = (Planet.Sil.Rmean_m - Planet.Core.Rmean_m) / 1e3 - Planet.dzSilPorous_km
+        for thisSilFrac in silCondGrad[:-1]:
+            ax.add_patch(Wedge((0.5, 0), (Planet.Sil.Rmean_m/1e3 - Planet.dzSilPorous_km - thisSilFrac*dzSilCond_km)/rMax_km, ang1, ang2,
+                               width=dz*dzSilCond_km/rMax_km, clip_path=silOuter,
+                               fc=Color.silCondCmap(thisSilFrac), ec=Color.silCondCmap(thisSilFrac)))
+
+        # Draw outer boundary
+        silOuter.set_edgecolor(Color.wedgeBd)
+        ax.add_patch(silOuter)
+
+        # @@@@@@@@@
+        # Iron core
+        # @@@@@@@@@
+        if Planet.Do.Fe_CORE:
+            rTicks.append(Planet.Core.Rmean_m/1e3)
+            rTickRefs.append(Planet.Core.Rmean_m/1e3/rMax_km)
+
+            # FeS layer
+            if FigMisc.DRAW_FeS_BOUND:
+                FeSbd = Color.wedgeBd
+            else:
+                FeSbd = Color.FeS
+            if Planet.dzFeS_km > 0:
+                ax.add_patch(Wedge((0.5,0), Planet.Core.Rmean_m/1e3/rMax_km, ang1, ang2,
+                               width=Planet.dzFeS_km/rMax_km,
+                               fc=Color.FeS, lw=Style.LW_wedge, ec=FeSbd))
+
+            # Remaining iron (pure or mixed)
+            ax.add_patch(Wedge((0.5,0), Planet.Core.Rmean_m/1e3/rMax_km, ang1, ang2,
+                               fc=Color.Fe, lw=Style.LW_wedge, ec=FeSbd))
+
+        # Outer boundary around core layer
+        ax.add_patch(Wedge((0.5,0), Planet.Core.Rmean_m/1e3/rMax_km, ang1, ang2,
+                           fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
+
+        # Adjust plots to look nice
+        ax.set_yticks(rTickRefs)
+        ax.set_yticklabels(np.array(rTicks, dtype=np.int_))
+        [ax.spines[side].set_visible(False) for side in ['top', 'right', 'bottom']]
+        ax.get_xaxis().set_visible(False)
+        ax.set_ylabel(FigLbl.wedgeRadius)
+        ax.set_aspect('equal')
+
+    fig.tight_layout()
+    fig.savefig(Params.FigureFiles.vwedg, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.debug(f'Wedge plot saved to file: {Params.FigureFiles.vwedg}')
     plt.close()
+
     return
 
 

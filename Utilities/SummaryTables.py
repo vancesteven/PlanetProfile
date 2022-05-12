@@ -24,19 +24,39 @@ def GetLayerMeans(PlanetList, Params):
         
         # Inner layer means
         iSil = np.logical_and(Planet.phase >= Constants.phaseSil, Planet.phase < Constants.phaseSil + 10)
+        if Planet.Do.POROUS_ROCK:
+            Planet.dzSilPorous_km = (Planet.Sil.Rmean_m -
+                np.max(Planet.r_m[:-1][np.logical_and(iSil, Planet.phi_frac < Planet.Sil.phiMin_frac)],
+                       initial=Planet.Core.Rmean_m)) / 1e3
+        else:
+            Planet.dzSilPorous_km = 0.0
         if Params.CALC_CONDUCT:
             Planet.Sil.sigmaMean_Sm = np.mean(Planet.sigma_Sm[iSil])
         # Get mean shear modulus in silicates
         if Params.CALC_SEISMIC:
             Planet.Sil.GSmean_GPa = np.mean(Planet.Seismic.GS_GPa[iSil])
 
-        if np.sum(Planet.phase >= Constants.phaseFe) > 0:
-            iFe = Planet.phase >= Constants.phaseFe
+        iFe = Planet.phase >= Constants.phaseFe
+        if np.sum(iFe) > 0:
+            iPureFe = np.logical_or(Planet.phase >= Constants.phaseFe, Planet.phase < Constants.phaseFeS)
+            iFeS = np.logical_or(Planet.phase >= Constants.phaseFeS, Planet.phase < Constants.phaseFeS + 10)
+            if np.sum(iPureFe) > 0:
+                Planet.Core.rhoMeanFe_kgm3 = np.mean(Planet.rho_kgm3[iPureFe])
+            if np.sum(iFeS) > 0:
+                Planet.Core.rhoMeanFeS_kgm3 = np.mean(Planet.rho_kgm3[iFeS])
+                Planet.dzFeS_km = (np.max(Planet.r_m[:-1][iFeS]) - np.max(Planet.r_m[:-1][iPureFe], initial=0)) / 1e3
+            else:
+                # We need this to be zero, not nan, for some wedge calculations
+                Planet.dzFeS_km = 0.0
             if Params.CALC_CONDUCT:
                 Planet.Core.sigmaMean_Sm = np.mean(Planet.sigma_Sm[iFe])
             # Get mean shear modulus in core
             if Params.CALC_SEISMIC:
                 Planet.Core.GSmean_GPa = np.mean(Planet.Seismic.GS_GPa[iFe])
+            if np.sum(iPureFe) > 0:
+                Planet.Core.GSmeanFe_GPa = np.mean(Planet.Seismic.GS_GPa[iPureFe])
+            if np.sum(iFeS) > 0:
+                Planet.Core.GSmeanFeS_GPa = np.mean(Planet.Seismic.GS_GPa[iFeS])
 
         # Hydrosphere layer means
         if not Planet.Do.NO_H2O:
@@ -402,7 +422,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                             condIceLayers = newline + tab.join([condIceLbl,
                                                                 f'\\num{{{(Planet.Bulk.R_m - Planet.zIceI_m)/1e3:.1f}}}',
                                                                 f'\\num{{{Planet.Ocean.rhoCondMean_kgm3["Ih"]:.0f}}}',
-                                                                f'\\num{{{Planet.dzIceI_km - Planet.Dconv_m/1e3}}}',
+                                                                f'\\num{{{Planet.dzIceI_km - (Planet.Dconv_m + Planet.deltaTBL_m)/1e3}}}',
                                                                 f'\\num{{{Planet.Ocean.GScondMean_GPa["Ih"]:.1f}}}',
                                                                 f'\\num{{{Planet.Ocean.sigmaCondMean_Sm["Ih"]:.1e}}}']) + endl
                         else:
@@ -411,7 +431,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                             convIceLayers = newline + tab.join([convIceLbl,
                                                                 f'\\num{{{(Planet.Bulk.R_m - Planet.eLid_m)/1e3:.1f}}}',
                                                                 f'\\num{{{Planet.Ocean.rhoConvMean_kgm3["Ih"]:.0f}}}',
-                                                                f'\\num{{{Planet.Dconv_m/1e3:.1f}}}',
+                                                                f'\\num{{{(Planet.Dconv_m + Planet.deltaTBL_m)/1e3:.1f}}}',
                                                                 f'\\num{{{Planet.Ocean.GSconvMean_GPa["Ih"]:.1f}}}',
                                                                 f'\\num{{{Planet.Ocean.sigmaConvMean_Sm["Ih"]:.1e}}}']) + endl
                         else:
@@ -421,7 +441,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                         convClathLayers = newline + tab.join([convClathLbl,
                                                               f'\\num{{{(Planet.Bulk.R_m - Planet.eLid_m)/1e3:.1f}}}',
                                                               f'\\num{{{Planet.Ocean.rhoConvMean_kgm3["Clath"]:.0f}}}',
-                                                              f'\\num{{{Planet.deltaTBL_m/1e3:.1f}}}',
+                                                              f'\\num{{{(Planet.Dconv_m + Planet.deltaTBL_m)/1e3:.1f}}}',
                                                               f'\\num{{{Planet.Ocean.GSconvMean_GPa["Clath"]:.1f}}}',
                                                               f'\\num{{{Planet.Ocean.sigmaCondMean_Sm["Clath"]:.1e}}}']) + endl
                         surfIceLayers = condClathLayers + convClathLayers
@@ -461,7 +481,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                     convIceLayers = newline + tab.join([convIceLbl,
                                                         f'\\num{{{(Planet.Bulk.R_m - Planet.eLid_m)/1e3:.1f}}}',
                                                         f'\\num{{{Planet.Ocean.rhoConvMean_kgm3["Ih"]:.0f}}}',
-                                                        f'\\num{{{Planet.Dconv_m/1e3:.1f}}}',
+                                                        f'\\num{{{(Planet.Dconv_m + Planet.deltaTBL_m)/1e3:.1f}}}',
                                                         f'\\num{{{Planet.Ocean.GSconvMean_GPa["Ih"]:.1f}}}',
                                                         f'\\num{{{Planet.Ocean.sigmaConvMean_Sm["Ih"]:.1e}}}']) + endl
                 else:
@@ -483,7 +503,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                     convIceIIIlayers = newline + tab.join([convIceIIIlbl, 
                                                            f'\\num{{{(Planet.Bulk.R_m - Planet.zIceIII_m - Planet.eLidIII_m)/1e3:.1f}}}',
                                                            f'\\num{{{Planet.Ocean.rhoConvMean_kgm3["III"]:.0f}}}',
-                                                           f'\\num{{{Planet.DconvIII_m/1e3:.1f}}}',
+                                                           f'\\num{{{(Planet.DconvIII_m + Planet.deltaTBLIII_m)/1e3:.1f}}}',
                                                            f'\\num{{{Planet.Ocean.GSconvMean_GPa["III"]:.1f}}}',
                                                            f'\\num{{{Planet.Ocean.sigmaConvMean_Sm["III"]:.1e}}}']) + endl
                 else:
@@ -503,7 +523,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                     convIceVlayers = newline + tab.join([convIceVlbl, 
                                                          f'\\num{{{(Planet.Bulk.R_m - Planet.zIceVund_m - Planet.eLidV_m)/1e3:.1f}}}',
                                                          f'\\num{{{Planet.Ocean.rhoConvMean_kgm3["V"]:.0f}}}',
-                                                         f'\\num{{{Planet.DconvV_m/1e3:.1f}}}',
+                                                         f'\\num{{{(Planet.DconvV_m + Planet.deltaTBLV_m)/1e3:.1f}}}',
                                                          f'\\num{{{Planet.Ocean.GSconvMean_GPa["V"]:.1f}}}',
                                                          f'\\num{{{Planet.Ocean.sigmaConvMean_Sm["V"]:.1e}}}']) + endl
                 else:

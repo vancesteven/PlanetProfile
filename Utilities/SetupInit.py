@@ -275,7 +275,7 @@ def SetupFilenames(Planet, Params):
     label = ''
     if Planet.Do.NO_H2O:
         saveLabel += f'NoH2O_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
-        label += f'No \ce{{H2O}}, $q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*1e3:.1f}\,\si{{mW/m^2}}$'
+        label += f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*1e3:.1f}\,\si{{mW/m^2}}$'
     else:
         if Planet.Ocean.comp == 'PureH2O':
             saveLabel += f'{Planet.Ocean.comp}_Tb{Planet.Bulk.Tb_K}K'
@@ -283,7 +283,7 @@ def SetupFilenames(Planet, Params):
         else:
             saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
                         f'_Tb{Planet.Bulk.Tb_K}K'
-            label += f'{Planet.Ocean.wOcean_ppt:.0f}\,ppt \ce{{{Planet.Ocean.comp}}}' + \
+            label += f'{Planet.Ocean.wOcean_ppt:.1f}\,ppt \ce{{{Planet.Ocean.comp}}}' + \
                 f', $T_b\,{Planet.Bulk.Tb_K}\,\si{{K}}$'
         if Planet.Do.CLATHRATE:
             saveLabel += '_Clathrates'
@@ -297,7 +297,7 @@ def SetupFilenames(Planet, Params):
                 label += f'Pure \ce{{H2O}} pores'
             else:
                 saveLabel += f'_{Planet.Sil.poreComp}_{Planet.Sil.wPore_ppt:.1f}pptPores'
-                label += f', {Planet.Sil.wPore_ppt:.0f}\,ppt \ce{{{Planet.Sil.poreComp}}} pores'
+                label += f', {Planet.Sil.wPore_ppt:.1f}\,ppt \ce{{{Planet.Sil.poreComp}}} pores'
     if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSname}'
 
     Planet.saveLabel = saveLabel

@@ -21,7 +21,7 @@ class FigSizeStruct:
         self.vcore = (6, 6)
         self.vpvt4 = (3, 3)
         self.vpvt6 = (3, 3)
-        self.vwedg = (3, 3)
+        self.vwedg = (4.5, 4.5)
         self.phaseSpaceSolo = (6, 4)
         self.phaseSpaceCombo = (9, 4)
         self.induct = (8, 4)
@@ -36,19 +36,49 @@ class ColorsStruct:
         self.innerCmap = get_cmap('inferno')
 
         # Wedge diagram color options
-        self.IonosphereTop = [1, 0, 1]
-        self.Ionosphere = [1, 0, 1]
-        self.IonosphereBot = [1, 0, 1]
-        self.IceI = '#d3eefb'
-        self.IceII = '#76b6ff'
-        self.IceIII = '#a8deef'
-        self.IceV = '#83d4f6'
-        self.IceVI = '#cee5ea'
-        self.Clath = '#86bcb8'
-        self.OceanTop = [134/255, 149/255, 201/255] #'#4babdf'
-        self.OceanBot = [45/255, 55/255, 100/255]
-        self.Rock = [101/255, 46/255, 11/255]
-        self.Core = [141/255, 122/255, 121/255]
+        self.none = '#FFFFFF00'
+        self.wedgeBd = 'black'
+        self.ionoCmapName = 'RdPu'
+        self.ionoTop = 0.0
+        self.ionoBot = 0.2
+        self.ionoCmap = cmasher.get_sub_cmap(self.ionoCmapName, self.ionoTop, self.ionoBot)
+        self.ionoN = 10
+        self.iceIcond = 'xkcd:ice blue'
+        self.iceIconv = 'xkcd:robin\'s egg blue'
+        self.iceII = 'xkcd:pale sky blue'
+        self.iceIII = 'xkcd:carolina blue'
+        self.iceV = 'xkcd:light periwinkle'
+        self.iceVI = '#91d1d4'
+        self.clathCond = 'xkcd:pastel blue'
+        self.clathConv = 'xkcd:dusty blue'
+        self.oceanCmapName = 'ocean_r'
+        self.oceanTop = 0.2  # Fraction of ocean colormap to start at
+        self.oceanBot = 0.45  # Fraction of ocean colormap to end at
+        self.oceanCmap = cmasher.get_sub_cmap(self.oceanCmapName, self.oceanTop, self.oceanBot)
+        self.oceanN = 20
+        # self.silPorousCmapName = 'terrain'
+        # self.silPorousTop = 0.75
+        # self.silPorousBot = 0.78
+        self.silPorousCmapName = 'BrBG'
+        self.silPorousTop = 0.0
+        self.silPorousBot = 0.05
+        self.silPorousCmap = cmasher.get_sub_cmap(self.silPorousCmapName, self.silPorousTop, self.silPorousBot)
+        self.silPorousN = 5
+        # self.silCondCmapName = 'terrain'
+        # self.silCondTop = 0.78 - 0.001
+        # self.silCondBot = 0.78
+        self.silCondCmapName = 'BrBG'
+        self.silCondTop = 0.05 - 0.001
+        self.silCondBot = 0.05
+        self.silCondCmap = cmasher.get_sub_cmap(self.silCondCmapName, self.silCondTop, self.silCondBot)
+        self.silCondN = 1
+        self.silConvCmapName = 'gist_heat'
+        self.silConvTop = 0.5
+        self.silConvBot = 0.9
+        self.silConvCmap = cmasher.get_sub_cmap(self.silConvCmapName, self.silConvTop, self.silConvBot)
+        self.silConvN = 10
+        self.FeS = 'xkcd:puke'
+        self.Fe = '#2d3639'
 
         self.cmapName = {
             'none': 'copper',
@@ -128,12 +158,12 @@ class ColorsStruct:
 class StylesStruct:
     def __init__(self):
         self.LS_dft = '-'  # Default line style to use on plots
-        self.LS_Sw = '-'  # linestyle for Seawater
-        self.LS_Mg = '--'  # linestyle for MgSO4
-        self.LS_sp = ':'  # linestyle for special consideration models
-        self.LW_sal = 3  # linewidth for higher salinity
-        self.LW_dil = 1  # linewidth for dilute salinity
-        self.LW_std = 2  # linewidth for standard salinity
+        self.LS_Sw = '-'  # Linestyle for Seawater
+        self.LS_Mg = '--'  # Linestyle for MgSO4
+        self.LS_sp = ':'  # Linestyle for special consideration models
+        self.LW_sal = 3  # Linewidth for higher salinity
+        self.LW_dil = 1  # Linewidth for dilute salinity
+        self.LW_std = 2  # Linewidth for standard salinity
         self.LW_sound = 1.5  # LineWidth for sound speed plots
         self.LW_seism = 1  # LineWidth for seismic plots (Attenuation)
         self.LS_ref = {'none': None, 'PureH2O': '-', 'Seawater': ':', 'MgSO4': '--', 'NH3': '--', 'NaCl': '--'}  # Style for reference profiles
@@ -142,6 +172,10 @@ class StylesStruct:
         self.LW_Induction = {'synodic': 1.5, 'orbital': 1.5, 'true anomaly': 1.5, 'synodic harmonic': 1.5}  # Widths for inductOgram plots
         self.MW_Induction = 2  # Marker size to use for induction scatter plots
         self.MS_Induction = 'o'  # Marker style for induction scatter plots
+
+        self.wedgeAngle_deg = 25  # Angular size of wedge diagrams in degrees
+        self.LW_wedge = 0.125  # Linewidth in pt for minor boundaries in wedge diagrams
+        self.LW_wedgeMajor = 0.375  # Linewidth in pt for major layer boundaries in wedge diagrams
 
 
 """ Miscellaneous figure options """
@@ -155,6 +189,12 @@ class MiscStruct:
         self.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
         self.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
         self.LEGEND = True  # Whether to plot legends
+        self.IONOSPHERE_IN_WEDGE = False  # Whether to include specified ionosphere in wedge diagram
+        self.DRAW_IONOS_BOUND = False  # Whether to draw a boundary line around the ionosphere
+        self.DRAW_CONVECTION_BOUND = False  # Whether to draw a boundary line between convecting and conducting regions
+        self.DRAW_POROUS_BOUND = False  # Whether to draw a boundary line between porous and non-porous materials
+        self.DRAW_FeS_BOUND = True  # Whether to draw a boundary line between Fe and FeS in the core
+        self.WEDGE_ICE_TICKS = False  # Whether to print ticks for ice shell, which usually overlap with the body outer radius
         self.DARKEN_SALINITIES = False  # For inductogram phase space plots, whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.
         self.NORMALIZED_SALINITIES = False  # Whether to normalize salinities to absolute concentrations relative to the saturation limit for each salt
         self.NORMALIZED_TEMPERATURES = False  # Whether to normalize ocean mean temperatures to specified maxima and minima for the colormap
@@ -216,6 +256,11 @@ class MiscStruct:
 
 class FigLabelStruct:
     def __init__(self):
+        # Wedge diagram labels
+        self.wedgeTitle = 'interior structure diagram'
+        self.wedgeRadius = r'Radius ($\mathrm{km}$)'
+
+        # Inductogram labels
         self.plotTitles = ['Amplitude $A$', '$B_x$ component', '$B_y$ component', '$B_z$ component']
         self.fLabels = ['Amp', 'Bx', 'By', 'Bz']
         self.compEnd = ''

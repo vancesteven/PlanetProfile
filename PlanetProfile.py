@@ -107,14 +107,6 @@ def run(bodyname=None, opt=None, fNames=None):
                     PlanetList[i+1], Params = PlanetProfile(PlanetList[i+1], Params)
                     tMarks = np.append(tMarks, time.time())
 
-        # Plot combined figures
-        if not Params.SKIP_PLOTS and Params.COMPARE:
-            Params.FigureFiles = FigureFilesSubstruct(
-                os.path.join(PlanetList[0].bodyname, 'figures'), f'{PlanetList[0].name}Comparison', FigMisc.xtn)
-            GeneratePlots(PlanetList, Params)
-        else:
-            PlanetList = PlanetList[:1]
-
         dt = np.diff(tMarks)
         if np.size(dt) > 0:
             log.debug('Elapsed time:\n' + '\n'.join([f'    {dt[i]:.3f} s for {Planet.saveLabel}' for i,Planet in enumerate(PlanetList)]))
@@ -131,17 +123,23 @@ def run(bodyname=None, opt=None, fNames=None):
             CompareList[0] = PlanetList[0]
             for i,fName in enumerate(fProfiles):
                 CompareList[i+1], _ = ReloadProfile(deepcopy(CompareList[0]), Params, fnameOverride=fName)
-
-            # Plot combined figures
-            if not Params.SKIP_PLOTS:
-                Params.FigureFiles = FigureFilesSubstruct(
-                    os.path.join(CompareList[0].bodyname, 'figures'), f'{CompareList[0].name}Comparison', FigMisc.xtn)
-                GeneratePlots(CompareList, Params)
         else:
             CompareList = PlanetList
-
-        if Params.DISP_LAYERS or Params.DISP_TABLE:
+            
+        MULTIPLOT = Params.COMPARE or Params.RUN_ALL_PROFILES
+            
+        # Get large-scale layer properties, which are needed for table outputs and some plots
+        if Params.DISP_LAYERS or Params.DISP_TABLE or ((not Params.SKIP_PLOTS) and MULTIPLOT):
             CompareList, Params = GetLayerMeans(CompareList, Params)
+            
+        # Plot combined figures
+        if (not Params.SKIP_PLOTS) and MULTIPLOT:
+            Params.FigureFiles = FigureFilesSubstruct(
+                os.path.join(CompareList[0].bodyname, 'figures'), f'{CompareList[0].name}Comparison', FigMisc.xtn)
+            GeneratePlots(CompareList, Params)
+
+        # Print table outputs
+        if Params.DISP_LAYERS or Params.DISP_TABLE:
             if Params.DISP_LAYERS:
                 PrintLayerSummaryLatex(CompareList, Params)
                 PrintLayerTableLatex(CompareList, Params)
@@ -173,8 +171,11 @@ def PlanetProfile(Planet, Params):
         Planet, Params = ReloadProfile(Planet, Params)
 
     if not Params.SKIP_PLOTS and not Params.DO_INDUCTOGRAM:
+        # Calculate large-scale layer properties
+        PlanetList, Params = GetLayerMeans(np.array([Planet]), Params)
         # Plotting functions
-        GeneratePlots(np.array([Planet]), Params)
+        GeneratePlots(PlanetList, Params)
+        Planet = PlanetList[0]
 
     # Magnetic induction calculations
     if Params.CALC_CONDUCT and Params.CALC_NEW_INDUCT:

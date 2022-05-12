@@ -232,8 +232,12 @@ class CoreSubstruct:
         # Derived quantities
         self.rho_kgm3 = None  # Core bulk density consistent with assumed mixing ratios of Fe, FeS, etc.
         self.rhoMean_kgm3 = None  # Core bulk density calculated from final MoI match using EOS properties
+        self.rhoMeanFe_kgm3 = np.nan  # Pure iron layer bulk density calculated from final MoI match using EOS properties
+        self.rhoMeanFeS_kgm3 = np.nan  # FeS layer bulk density calculated from final MoI match using EOS properties
         self.sigmaMean_Sm = np.nan  # Mean conductivity across all core layers, ignoring spherical effects
         self.GSmean_GPa = np.nan  # Mean shear modulus in iron core layers
+        self.GSmeanFe_GPa = np.nan  # Mean shear modulus in pure Fe core layers
+        self.GSmeanFeS_GPa = np.nan  # Mean shear modulus in FeS core layers
         self.Rmean_m = None  # Core radius for mean compatible moment of inertia (MoI)
         self.Rrange_m = None  # Core radius range for compatible MoI
         self.Rtrade_m = None  # Array of core radii for compatible MoIs
@@ -439,6 +443,8 @@ class PlanetStruct:
         self.dzIceV_km = np.nan
         self.dzIceVI_km = np.nan
         self.dzIceVandVI_km = np.nan
+        self.dzSilPorous_km = np.nan
+        self.dzFeS_km = np.nan
 
 
 """ Params substructs """
