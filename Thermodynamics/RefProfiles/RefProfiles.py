@@ -25,13 +25,19 @@ def CalcRefProfiles(PlanetList, Params):
                 Params.nRef[Planet.Ocean.comp] = np.size(wList)
                 Params.nRefPts[Planet.Ocean.comp] = Planet.Steps.nRefRho + 0
                 Params.rhoRef_kgm3[Planet.Ocean.comp] = np.zeros((Params.nRef[Planet.Ocean.comp], Params.nRefPts[Planet.Ocean.comp]))
-                Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(0, maxPmax, Params.nRefPts[Planet.Ocean.comp])
+                Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(0, np.minimum(maxPmax, Planet.Ocean.EOS.Pmax), Params.nRefPts[Planet.Ocean.comp])
                 Tref_K = np.arange(220, 450, 0.25)
                 for i,w_ppt in enumerate(wList):
                     EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType,
                             rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType, phaseType=Planet.Ocean.phaseType,
                             EXTRAP=Params.EXTRAP_REF, FORCE_NEW=Params.FORCE_EOS_RECALC)
-                    Tfreeze_K = np.array([GetTfreeze(EOSref, P_MPa, Tref_K[0], TfreezeRange_K=230) for P_MPa in Params.Pref_MPa[Planet.Ocean.comp]])
+                    try:
+                        Tfreeze_K = np.array([GetTfreeze(EOSref, P_MPa, Tref_K[0], TfreezeRange_K=230) for P_MPa in Params.Pref_MPa[Planet.Ocean.comp]])
+                    except:
+                        raise RuntimeError(f'Unable to calculate reference melting curve for {Planet.Ocean.comp} with ' +
+                                           f'maximum Pref_MPa = {Params.Pref_MPa[Planet.Ocean.comp][-1]}. Try to recalculate ' +
+                                           'with new models by setting BOTH Params.CALC_NEW and Params.CALC_NEW_REF to True ' +
+                                           'in config.py.')
                     Params.rhoRef_kgm3[Planet.Ocean.comp][i,:] = EOSref.fn_rho_kgm3(Params.Pref_MPa[Planet.Ocean.comp], Tfreeze_K)
 
                 # Save to disk for quick reloading
