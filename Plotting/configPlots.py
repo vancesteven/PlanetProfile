@@ -200,9 +200,9 @@ class MiscStruct:
         self.NORMALIZED_TEMPERATURES = False  # For inductogram phase space plots, whether to normalize ocean mean temperatures to specified maxima and minima for the colormap
 
         self.LEGEND = True  # Whether to plot legends
+        self.REFS_IN_LEGEND = True  # Hydrosphere plot: Whether to include reference profiles in legend
         self.hydroLegendBox = (0.15, 0.1, 0.33, 0.5)  # Hydrosphere plot: Bounding box for where to place legends. Values are x, y, dx, dy in fractions of the figure size, where x and y are for the bottom-left corner of the box.
         self.hydroLegendPos = 'center left'  # Hydrosphere plot: Where to place legends within bounding box
-        self.refsInLegend = True  # Hydrosphere plot: Whether to include reference profiles in legend
         self.wedgeLegendPos = 'center right'  # Wedge diagram: Where in axes added at right to place legend
 
         plt.rcParams['font.family'] = 'serif'  # Choose serif font for figures to best match math mode variables in body text

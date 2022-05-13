@@ -93,7 +93,7 @@ def PlotHydrosphereProps(PlanetList, Params):
                                             color=Color.ref,
                                             lw=Style.LW_ref,
                                             ls=Style.LS_ref[Planet.Ocean.comp])
-                    if FigMisc.refsInLegend and i == 0: thisRef.set_label(wList)
+                    if FigMisc.REFS_IN_LEGEND and i == 0: thisRef.set_label(wList)
                 newRef[Planet.Ocean.comp] = False
 
     # Now plot all profiles together
