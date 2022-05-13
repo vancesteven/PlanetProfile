@@ -18,7 +18,7 @@ from MagneticInduction.configInduct import InductParams as IndParams
 def GeneratePlots(PlanetList, Params):
 
     # Handle refprofiles first, so we can print log messages before silencing them
-    if Params.PLOT_HYDROSPHERE and not PlanetList[0].Do.NO_H2O:
+    if Params.PLOT_HYDROSPHERE and not Params.ALL_NO_H2O:
         if Params.CALC_NEW_REF:
             # Calculate reference profiles showing melting curves for
             # several salinities specified in config.py
@@ -106,7 +106,7 @@ def PlotHydrosphereProps(PlanetList, Params):
             axes[1].plot(Planet.T_K[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro]/1e3)
 
     if FigMisc.LEGEND:
-        fig.legend(loc=FigMisc.LegendPosition)
+        fig.legend(loc=FigMisc.hydroLegendPos, bbox_to_anchor=FigMisc.hydroLegendBox)
     fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     plt.close()
     return
@@ -146,16 +146,12 @@ def PlotWedge(PlanetList, Params):
     """
 
     nWedges = np.size(PlanetList)
-    #fig, axes = plt.subplots(1, nWedges, figsize=(FigSize.vwedg[0]*nWedges - (nWedges-1), FigSize.vwedg[1]))
     fig = plt.figure(figsize=(FigSize.vwedg[0]*nWedges - (nWedges-1), FigSize.vwedg[1]))
     grid = gridspec.GridSpec(1, nWedges)
     axes = [fig.add_subplot(grid[0, i]) for i in range(nWedges)]
-    # if nWedges == 1:
-    #     axes = [axes]
 
     # Set plot title based on possible comparison conditions
-    ALL_ONE_BODY = np.all([Planet.name == PlanetList[0].name for Planet in PlanetList])
-    if ALL_ONE_BODY:
+    if Params.ALL_ONE_BODY:
         title = f'{PlanetList[0].name} {FigLbl.wedgeTitle}'
         if nWedges > 1:
             title = f'{title}s'
@@ -188,14 +184,16 @@ def PlotWedge(PlanetList, Params):
     for Planet, ax, ionoTop_km, ionoBot_km in zip(PlanetList, axes, ionosUpper_km, ionosLower_km):
         xFeS = 0.15
         if Planet.Do.NO_H2O:
-            wedgeLabel = f'Porous CV chondrite\nFe core contains \SI{{{xFeS*100:.0f}}}{{wt\%}}~S\n$q_\mathrm{{surf}}$~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{mW/m^2}}'
+            wedgeLabel = f'CV chondrite\nFe core contains \SI{{{xFeS*100:.0f}}}{{wt\%}}~S\n$q_\mathrm{{surf}}$~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{mW/m^2}}'
         else:
             if Planet.Ocean.comp == 'PureH2O':
                 compStr = r'Pure \ce{H2O} ocean'
             else:
                 compStr = f'\SI{{{Planet.Ocean.wOcean_ppt:.1f}}}{{g/kg}}~\ce{{{Planet.Ocean.comp}}}'
-            wedgeLabel = f'CV chondrite\nFe core contains \SI{{{xFeS*100:.0f}}}{{wt\%}}~S\n{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
-        if ALL_ONE_BODY and not nWedges == 1:
+            wedgeLabel = f'CV chondrite mantle\nFe core contains \SI{{{xFeS*100:.0f}}}{{wt\%}}~S\n{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
+        if Planet.Do.POROUS_ROCK:
+            wedgeLabel = f'Porous {wedgeLabel}'
+        if Params.ALL_ONE_BODY and not nWedges == 1:
             indivTitle = wedgeLabel
         else:
             indivTitle = f'\\textbf{{{Planet.name}}}\n{wedgeLabel}'

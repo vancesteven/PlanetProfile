@@ -134,8 +134,14 @@ def run(bodyname=None, opt=None, fNames=None):
             
         # Plot combined figures
         if (not Params.SKIP_PLOTS) and MULTIPLOT:
-            Params.FigureFiles = FigureFilesSubstruct(
-                os.path.join(CompareList[0].bodyname, 'figures'), f'{CompareList[0].name}Comparison', FigMisc.xtn)
+            if Params.ALL_ONE_BODY:
+                comparePath = os.path.join(CompareList[0].bodyname, 'figures')
+                compareBase = f'{CompareList[0].name}Comparison'
+            else:
+                comparePath = Params.compareDir
+                compareBase = 'Comparison'
+
+            Params.FigureFiles = FigureFilesSubstruct(comparePath, compareBase, FigMisc.xtn)
             GeneratePlots(CompareList, Params)
 
         # Print table outputs

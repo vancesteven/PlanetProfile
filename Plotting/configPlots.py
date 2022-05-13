@@ -188,21 +188,25 @@ class MiscStruct:
         self.defaultFontName = 'STIXGeneral'  # Default font variables--STIX is what is used in Icarus journal submissions
         self.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
         self.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
-        self.LEGEND = True  # Whether to plot legends
         self.IONOSPHERE_IN_WEDGE = False  # Whether to include specified ionosphere in wedge diagram
         self.DRAW_IONOS_BOUND = False  # Whether to draw a boundary line around the ionosphere
         self.DRAW_CONVECTION_BOUND = False  # Whether to draw a boundary line between convecting and conducting regions
         self.DRAW_POROUS_BOUND = False  # Whether to draw a boundary line between porous and non-porous materials
         self.DRAW_FeS_BOUND = True  # Whether to draw a boundary line between Fe and FeS in the core
         self.WEDGE_ICE_TICKS = False  # Whether to print ticks for ice shell, which usually overlap with the body outer radius
+
         self.DARKEN_SALINITIES = False  # For inductogram phase space plots, whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.
-        self.NORMALIZED_SALINITIES = False  # Whether to normalize salinities to absolute concentrations relative to the saturation limit for each salt
-        self.NORMALIZED_TEMPERATURES = False  # Whether to normalize ocean mean temperatures to specified maxima and minima for the colormap
-        self.LegendPosition = 'right'  # Where to place legends when forced
-        self.refsInLegend = True  # Whether to include reference profiles in legend
+        self.NORMALIZED_SALINITIES = False  # For inductogram phase space plots, whether to normalize salinities to absolute concentrations relative to the saturation limit for each salt
+        self.NORMALIZED_TEMPERATURES = False  # For inductogram phase space plots, whether to normalize ocean mean temperatures to specified maxima and minima for the colormap
+
+        self.LEGEND = True  # Whether to plot legends
+        self.hydroLegendBox = (0.15, 0.1, 0.33, 0.5)  # Hydrosphere plot: Bounding box for where to place legends. Values are x, y, dx, dy in fractions of the figure size, where x and y are for the bottom-left corner of the box.
+        self.hydroLegendPos = 'center left'  # Hydrosphere plot: Where to place legends within bounding box
+        self.refsInLegend = True  # Hydrosphere plot: Whether to include reference profiles in legend
+        self.wedgeLegendPos = 'center right'  # Wedge diagram: Where in axes added at right to place legend
+
         plt.rcParams['font.family'] = 'serif'  # Choose serif font for figures to best match math mode variables in body text
         plt.rcParams['font.serif'] = self.defaultFontName  # Set plots to use the default font
-
         # Check if Latex executable is on the path so we can use backup options if Latex is not installed
         latexPackages = [
             r'\usepackage[version=4]{mhchem}',
@@ -228,7 +232,7 @@ class MiscStruct:
         """
 
         # Table printout settings
-        self.PRINT_BULK = False  # Whether to print bulk body properties, like mass and MoI
+        self.PRINT_BULK = True  # Whether to print bulk body properties, like mass and MoI
         self.ALWAYS_SHOW_HP = True  # Whether to force HP ices and clathrates to be shown in DISP_* outputs to the terminal, even when none are present.
         self.ALWAYS_SHOW_PHI = True  # Whether to force porosity printout in DISP_* outputs
         self.NEGATIVE_UNIT_POWERS = True  # Whether to use negative powers for units in latex tables, or instead a backslash.
