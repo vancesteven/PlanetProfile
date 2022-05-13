@@ -1,3 +1,8 @@
+src/*
+dist/*
+pyproject.toml
+MANIFEST.in
+setup.cfg
 *~
 .DS_Store
 *.asv
