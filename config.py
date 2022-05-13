@@ -10,6 +10,7 @@ from Utilities.defineStructs import ParamsStruct, Constants
 from MagneticInduction.configInduct import InductParams, SigParams, ExcSpecParams
 
 Params = ParamsStruct()
+Params.configVersion = 1  # Integer number for config file version
 Params.tStart_s = time.time()
 Params.VERBOSE = True  # Provides extra runtime messages. Overrides QUIET below
 Params.QUIET = False  # Hides all log messages except warnings and errors
@@ -51,12 +52,9 @@ Params.LEGEND = True  # Whether to include legends
 
 # Magnetic induction plot settings
 Params.DO_INDUCTOGRAM = False  # Whether to plot an inductogram for the body in question
+Params.PLOT_FFT = True  # Whether to show plots of fourier space
 Params.INDUCTOGRAM_IN_PROGRESS = False  # Whether we are currently working on constructing an inductogram
 Params.COMBINE_BCOMPS = False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
-Params.PLOT_FFT = True  # Whether to show plots of fourier space
-Params.DO_PER = True  # Convert frequency axes to periods for FFT plots
-Params.PLOT_CONTOURS = True  # Contours or surfaces
-Params.PLOT_V2021 = True  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
 Params.Sig = SigParams  # Load general induction settings
 Params.Induct = InductParams  # Load inductogram settings
 Params.MagSpectrum = ExcSpecParams  # Load excitation spectrum settings
@@ -101,3 +99,7 @@ if Params.VERBOSE:
 elif Params.QUIET:
     # Allow progress printout to be silenced if QUIET is selected
     Params.logParallel += 10
+
+
+# The following step must always be done last in this file, to allow the user to override the settings above.
+
