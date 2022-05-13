@@ -8,6 +8,10 @@ def GetLayerMeans(PlanetList, Params):
     """ For calculating layer means we didn't need at any other point in our analysis,
         but that we might want to consider in comparing/analyzing profiles.
     """
+    # Record if all models pertain to the same body
+    Params.ALL_ONE_BODY = np.all([Planet.bodyname == PlanetList[0].bodyname for Planet in PlanetList])
+    # Similar for waterless bodies
+    Params.ALL_NO_H2O = np.all([Planet.Do.NO_H2O for Planet in PlanetList])
 
     # Get flags to pass on regarding types of layers we have
     Params.yesPorousRock = np.any([Planet.Do.POROUS_ROCK for Planet in PlanetList])
@@ -751,7 +755,7 @@ def PrintLayerTableLatex(PlanetList, Params):
                 Tsub = surf
             else:
                 compStr = f'\ce{{{thisComp}}}'
-                wStr = f'\SI{{{thisw/wDiv:.1f}}}{{{wUnits}}}'
+                wStr = f'$\SI{{{thisw/wDiv:.1f}}}{{{wUnits}}}$'
                 Tsub = 'b'
 
             Tb_K = f'{tab}$T_{Tsub}~(\si{{K}})${tab}' + tab.join(strTb_K[thisSubset]) + endl
