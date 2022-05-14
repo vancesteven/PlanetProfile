@@ -5,7 +5,7 @@ Import as a module and access information assigned to the attributes of the Plan
 Note that this file expects to be imported from the directory above.
 """
 import numpy as np
-from Utilities.defineStructs import PlanetStruct, Constants
+from PlanetProfile.Utilities.defineStructs import PlanetStruct, Constants
 
 Planet = PlanetStruct('Io')
 
@@ -31,7 +31,7 @@ Planet.Sil.Htidal_Wm3 = 1e-9
 # Rock porosity
 Planet.Do.POROUS_ROCK = True
 Planet.Sil.phiRockMax_frac = 0.72
-Planet.Sil.Pclosure_MPa = 680
+Planet.Sil.Pclosure_MPa = 700
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
 
