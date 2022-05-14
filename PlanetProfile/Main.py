@@ -925,6 +925,9 @@ def LoadPPfiles(Params, fNames, bodyname=''):
                 # Copy them over where we will find them if we have them
                 if np.size(models) != 0:
                     [CopyCarefully(model, os.path.join(bodyname, os.path.basename(model))) for model in models]
+                else:
+                    raise ValueError('No profiles were found for input filenames with the search string ' +
+                                     os.path.join(f'{bodyname}', f'PP{bodyname}*.py') + '.')
 
             # Splitting on PP and taking the -1 chops the path out, then taking
             # all but the last 3 characters chops the .py extension
