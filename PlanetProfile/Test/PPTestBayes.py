@@ -1,13 +1,11 @@
 """
-PPEuropa
-Contains all body-specific parameters and information for PlanetProfile models of this body.
-Import as a module and access information assigned to the attributes of the Planet struct.
-Note that this file expects to be imported from the directory above.
+PPTestBayes
+Europa model for use with TestBayes function.
 """
 import numpy as np
 from PlanetProfile.Utilities.defineStructs import PlanetStruct, Constants
 
-Planet = PlanetStruct('Europa')
+Planet = PlanetStruct('Test')
 
 # Reduce search range for melting pressure to values realistic for Europa
 Planet.PfreezeUpper_MPa = 150

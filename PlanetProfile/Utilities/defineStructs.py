@@ -533,9 +533,6 @@ class ParamsStruct:
     def __init__(self):
         self.DataFiles = DataFilesSubstruct('', '', '')
         self.FigureFiles = FigureFilesSubstruct('', '', '')
-        self.Colors = None
-        self.FigSize = None
-        self.Style = None
         self.Induct = None  # Induction calculation settings
         self.MagSpectrum = None  # Excitation spectrum settings
         self.cLevels = None  # Contour level specifications

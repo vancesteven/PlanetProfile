@@ -534,8 +534,9 @@ def InitBayes(bodyname, fEnd):
     # Make sure CALC_NEW settings are as desired
     Params.CALC_NEW = True
     Params.CALC_NEW_INDUCT = True
-    # Quiet messages
-    log.basicConfig(level=log.WARN+5, format=Params.printFmt, force=True)
+    # Quiet messages unless we're debugging
+    if bodyname != 'Test':
+        log.basicConfig(level=log.WARN+5, format=Params.printFmt, force=True)
 
     # Fetch starting parameters
     fName = f'PP{bodyname}{fEnd}.py'

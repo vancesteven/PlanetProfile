@@ -1,5 +1,4 @@
 import os, shutil
-import logging as log
 
 def CopyCarefully(source, destination):
     try:

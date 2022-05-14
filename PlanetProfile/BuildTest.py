@@ -17,12 +17,6 @@ from PlanetProfile.Test.TestBayes import TestBayes
 from config import Params
 
 def full():
-    # Include timestamps in messages and force debug level logging
-    root = log.getLogger()
-    if root.handlers:
-        for handler in root.handlers:
-            root.removeHandler(handler)
-    log.basicConfig(level=log.DEBUG, format='[%(levelname)s] %(asctime)s - %(message)s')
     testBase = f'{_TestImport}.PPTest'
 
     # Set general testing config atop standard config options
@@ -191,6 +185,14 @@ def simple():
 
 
 if __name__ == '__main__':
+    # Include timestamps in messages and force debug level logging
+    root = log.getLogger()
+    if root.handlers:
+        for handler in root.handlers:
+            root.removeHandler(handler)
+    log.basicConfig(level=log.DEBUG, format='[%(levelname)s] %(asctime)s - %(message)s')
+    log.getLogger().setLevel(log.DEBUG)
+
     if len(sys.argv) > 1:
         # Test type was passed as command line argument
         testType = sys.argv[1]
@@ -199,5 +201,7 @@ if __name__ == '__main__':
 
     if testType == 'simple':
         simple()
+    elif testType == 'Bayes':
+        _, _ = TestBayes('Test')
     else:
         full()

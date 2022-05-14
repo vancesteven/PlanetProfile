@@ -41,8 +41,8 @@ def TestBayes(bodyname):
         'Htidal_Wm3': 2e-10,
         'Qrad_Wkg': 1.4e-14,
         'compOcean': 'MgSO4',
-        'compSil': 'CM_hydrous_differentiated_Ganymede_excluding_fluid_properties.tab',
-        'compFe': 'sulfur_core_partition_SE15_1pctSulfur.tab'  # We actually only have the one core composition for now. This should still test the resetting functionality.
+        'compSil': 'CM_hydrous_differentiated_Ganymede_Core100Fe000S_excluding_fluid_properties.tab',
+        'compFe': 'Fe100_S000.tab'
     }
 
     # Loop over each option setting, one at a time. Multiple can be set at once but

@@ -283,29 +283,30 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
             B0_nT (float, shape 3): Constant background field applied to the body by the
                 parent planet.
     """
-    BeLabel = f'{bodyname}{era}{model}{excSelection}'
+    BeLabel = f'{bodyname}Be{nprmMax}{era}{model}{excSelection}'
 
     if BeLabel in EOSlist.loaded.keys():
         log.debug(f'{bodyname} excitation spectrum for {model} model and {era} era already loaded. Reusing existing.')
         Texc_hr, omegaExc_radps, Benm_nT, B0_nT = EOSlist.loaded[BeLabel]
     else:
-        if era is None and model is None:
-            ID = None
-        else:
-            ID = '_'.join([f'{era}', f'{model}']).replace('_None', '').replace('None_', '')
         if bodyname[:4] == 'Test':
-            fNameBody = 'Test'
+            fNames = [f'Be{np}xyz_Test' for np in range(1, nprmMax+1)]
             fPath = os.path.join(_Test, 'inductionData')
         else:
-            fNameBody = bodyname
+            fNames = [f'Be{np}xyz_{bodyname}' for np in range(1, nprmMax+1)]
             fPath = os.path.join(bodyname, 'inductionData')
+        # Append era and model info
+        if era is not None:
+            fNames = [f'{fNamenp}_{era}' for fNamenp in fNames]
+        if model is not None:
+            fNames = [f'{fNamenp}_{model}' for fNamenp in fNames]
         log.debug(f'Loading {bodyname} excitation spectrum for {model} model and {era} era.')
-        try:
-            inpTexc_hr, inpBenm_nT, B0_nT = GetBenm(nprmMax, pMax, bodyname=fNameBody, fpath=fPath, model=ID)
-        except:
-            log.warning(f'Excitation moments file not found in {fPath}. Induction calculations will be skipped.')
-            Texc_hr, omegaExc_radps, Benm_nT, B0_nT = (None for _ in range(4))
-        else:
+        if nprmMax > 1:
+            log.warning('n\'_max greater than 1 is not yet supported. Be only up to n=1 will be loaded.')
+            nprmMax = 1
+
+        if os.path.isfile(os.path.join(fPath, f'{fNames[0]}.txt')):
+            inpTexc_hr, inpBenm_nT, B0_nT = GetBenm(nprmMax, pMax, fpath=fPath, fName=fNames[0])
             nPeaks = sum(excSelection.values())
             Texc_hr = np.zeros(nPeaks)
             Benm_nT = np.zeros((nPeaks, 2, nprmMax+pMax+1, nprmMax+pMax+1), dtype=np.complex_)
@@ -322,6 +323,10 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
 
             EOSlist.loaded[BeLabel] = (Texc_hr, omegaExc_radps, Benm_nT, B0_nT)
             EOSlist.ranges[BeLabel] = Texc_hr
+
+        else:
+            log.warning(f'Excitation moments file(s) not found in {fPath}. Induction calculations will be skipped.')
+            Texc_hr, omegaExc_radps, Benm_nT, B0_nT = (None for _ in range(4))
 
     return Texc_hr, omegaExc_radps, Benm_nT, B0_nT
 
