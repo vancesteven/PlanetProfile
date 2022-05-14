@@ -3,8 +3,8 @@
 import os
 import numpy as np
 import logging as log
-from configPlots import FigMisc
 from PlanetProfile import _ROOT
+from PlanetProfile.GetConfig import FigMisc
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Utilities.PPversion import ppVerNum, CheckCompat
@@ -282,12 +282,12 @@ def SetupFilenames(Planet, Params):
     else:
         if Planet.Ocean.comp == 'PureH2O':
             saveLabel += f'{Planet.Ocean.comp}_Tb{Planet.Bulk.Tb_K}K'
-            label += f'Pure \ce{{H2O}}, $T_b\,{Planet.Bulk.Tb_K}\,\si{{K}}$'
+            label += f'Pure \ce{{H2O}}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
         else:
             saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
                         f'_Tb{Planet.Bulk.Tb_K}K'
             label += f'{Planet.Ocean.wOcean_ppt:.1f}\,ppt \ce{{{Planet.Ocean.comp}}}' + \
-                f', $T_b\,{Planet.Bulk.Tb_K}\,\si{{K}}$'
+                f', $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
         if Planet.Do.CLATHRATE:
             saveLabel += '_Clathrates'
             label += ' w/clath'

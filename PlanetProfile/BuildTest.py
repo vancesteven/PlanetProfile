@@ -11,10 +11,10 @@ import numpy as np
 import importlib, os, fnmatch, sys, time
 from copy import deepcopy
 from PlanetProfile import _Test, _TestImport
+from PlanetProfile.GetConfig import Params
 from PlanetProfile.Main import PlanetProfile, InductOgram, ReloadInductOgram
 from PlanetProfile.Plotting.ProfilePlots import PlotInductOgram
 from PlanetProfile.Test.TestBayes import TestBayes
-from config import Params
 
 def full():
     testBase = f'{_TestImport}.PPTest'
@@ -45,7 +45,7 @@ def full():
     tMarks = np.append(tMarks, time.time())
 
     # Loop over remaining test profiles (2 onwards)
-    for i in range(20, nTests+1):
+    for i in range(2, nTests+1):
         testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
         log.info(f'Test case body: {testBase}{i}')
         TestPlanets = np.append(TestPlanets, PlanetProfile(testPlanetN, Params)[0])

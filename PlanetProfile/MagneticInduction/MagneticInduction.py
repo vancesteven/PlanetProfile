@@ -312,7 +312,7 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
             nPeaks = sum(eachT)
             Texc_hr = np.zeros(nPeaks)
             Benm_nT = np.zeros((nPeaks, 2, nprmMax+pMax+1, nprmMax+pMax+1), dtype=np.complex_)
-            # Include in the excitation spectrum only the periods specified in config.py
+            # Include in the excitation spectrum only the periods specified in configPPinduct.py
             iPeak = 0
             for oscillation, included in excSelection.items():
                 if included and BeList[oscillation] is not None:

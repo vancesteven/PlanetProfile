@@ -3,9 +3,9 @@ dist/*
 pyproject.toml
 MANIFEST.in
 setup.cfg
-config.py
-configPlots.py
-configInduct.py
+configPP.py
+configPPplots.py
+configPPinduct.py
 */PP*.py
 *~
 .DS_Store

@@ -10,9 +10,8 @@ from os.path import isfile
 from glob import glob as FilesMatchingPattern
 
 # Import all function definitions for this file
-from config import Params as configParams
-from configPlots import FigMisc
 from PlanetProfile import _Defaults, _TestImport, CopyCarefully
+from PlanetProfile.GetConfig import Params as configParams, FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, Benm2absBexyz
 from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitations as Mag
 from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotInductOgram, PlotInductOgramPhaseSpace
@@ -32,21 +31,7 @@ def run(bodyname=None, opt=None, fNames=None):
 
     # Copy global Params settings to local variable so we can add things like filenames
     Params = configParams
-    # Set up message logging and apply verbosity level
-    if Params.VERBOSE:
-        logLevel = log.DEBUG
-    elif Params.QUIET:
-        logLevel = log.WARN
-    else:
-        logLevel = log.INFO
-    root = log.getLogger()
-    if root.handlers:
-        for handler in root.handlers:
-            root.removeHandler(handler)
-    log.basicConfig(level=logLevel, format=Params.printFmt)
-    log.getLogger('matplotlib').setLevel(log.WARNING)
-    log.debug('Printing verbose runtime messages. Toggle with Params.VERBOSE in config.py.')
-
+    
     if fNames is None and bodyname is None:
         log.info('No body name entered. Defaulting to Europa.')
         bodyname = 'Europa'
@@ -235,7 +220,7 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
             else:
                 log.warning(f'Attempted to remove previous run files for {bodyname}, but found none.')
             if not Params.CALC_NEW:
-                log.warning('CALC_NEW is set to False in config.py, but files are being cleared. ' +
+                log.warning('CALC_NEW is set to False in configPP.py, but files are being cleared. ' +
                             'CALC_NEW has been forced on for this run.')
                 Params.CALC_NEW = True
         elif opt == 'compare':
@@ -458,7 +443,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     log.info(f'Reloading previously saved run from file: {Params.DataFiles.saveFile}')
     log.debug(f'Steps.n settings from PP{Planet.name}.py will be ignored.')
     if not isfile(Params.DataFiles.saveFile):
-        raise ValueError(f'CALC_NEW is set to False in config.py but the reload file at {Params.DataFiles.saveFile} ' +
+        raise ValueError(f'CALC_NEW is set to False in configPP.py but the reload file at {Params.DataFiles.saveFile} ' +
                          'was not found.\nRe-run with CALC_NEW set to True to generate the profile.')
 
     with open(Params.DataFiles.saveFile) as f:

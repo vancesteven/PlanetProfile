@@ -1,5 +1,7 @@
+import os
 import numpy as np
 import logging as log
+from PlanetProfile import _ROOT
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetTfreeze
 from PlanetProfile.Utilities.defineStructs import EOSlist
 
@@ -25,7 +27,11 @@ def CalcRefProfiles(PlanetList, Params):
                 Params.nRef[Planet.Ocean.comp] = np.size(wList)
                 Params.nRefPts[Planet.Ocean.comp] = Planet.Steps.nRefRho + 0
                 Params.rhoRef_kgm3[Planet.Ocean.comp] = np.zeros((Params.nRef[Planet.Ocean.comp], Params.nRefPts[Planet.Ocean.comp]))
-                Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(0, np.minimum(maxPmax, Planet.Ocean.EOS.Pmax), Params.nRefPts[Planet.Ocean.comp])
+                if Planet.Ocean.EOS is None:
+                    PmaxEOS = 200
+                else:
+                    PmaxEOS = Planet.Ocean.EOS.Pmax
+                Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(0, np.minimum(maxPmax, PmaxEOS), Params.nRefPts[Planet.Ocean.comp])
                 Tref_K = np.arange(220, 450, 0.25)
                 for i,w_ppt in enumerate(wList):
                     EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType,
@@ -37,11 +43,11 @@ def CalcRefProfiles(PlanetList, Params):
                         raise RuntimeError(f'Unable to calculate reference melting curve for {Planet.Ocean.comp} with ' +
                                            f'maximum Pref_MPa = {Params.Pref_MPa[Planet.Ocean.comp][-1]}. Try to recalculate ' +
                                            'with new models by setting BOTH Params.CALC_NEW and Params.CALC_NEW_REF to True ' +
-                                           'in config.py.')
+                                           'in configPP.py.')
                     Params.rhoRef_kgm3[Planet.Ocean.comp][i,:] = EOSref.fn_rho_kgm3(Params.Pref_MPa[Planet.Ocean.comp], Tfreeze_K)
 
                 # Save to disk for quick reloading
-                with open(Params.fNameRef[Planet.Ocean.comp], 'w') as f:
+                with open(os.path.join(_ROOT, 'Thermodynamics', 'RefProfiles', Params.fNameRef[Planet.Ocean.comp]), 'w') as f:
                     f.write(f'This file contains melting curve densities for one or more "{Planet.Ocean.comp}" salinity values.\n')
                     wListStr = ''
                     colHeader = f'P (MPa)'.ljust(24)
@@ -73,14 +79,14 @@ def ReloadRefProfiles(PlanetList, Params):
     for Planet in PlanetList:
         if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
 
-            with open(Params.fNameRef[Planet.Ocean.comp]) as f:
+            fNameRefReload = os.path.join(_ROOT, 'Thermodynamics', 'RefProfiles', Params.fNameRef[Planet.Ocean.comp])
+            if not os.path.isfile(fNameRefReload):
+                raise RuntimeError(f'CALC_NEW_REF is set to False, but a reference profile for {Planet.Ocean.comp} ' +
+                                   'was not found. Try running again with CALC_NEW_REF set to True in configPP.py.')
+            with open(fNameRefReload) as f:
                 _ = f.readline()
                 Params.wRef_ppt[Planet.Ocean.comp] = np.array(f.readline().split('=')[-1].split(',')).astype(np.float_)
-            try:
-                PrhoRef = np.loadtxt(Params.fNameRef[Planet.Ocean.comp], skiprows=3, unpack=False)
-            except:
-                raise ValueError(f'Reference melting curves for {Planet.Ocean.comp} have not been generated. '
-                                  'Re-run with CALC_NEW_REF = True in config.py')
+            PrhoRef = np.loadtxt(fNameRefReload, skiprows=3, unpack=False)
             PrhoRef = PrhoRef.T
             Params.nRef[Planet.Ocean.comp] = np.size(Params.wRef_ppt[Planet.Ocean.comp])
             Params.nRefPts[Planet.Ocean.comp] = np.shape(PrhoRef)[1]

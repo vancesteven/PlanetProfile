@@ -11,8 +11,14 @@ Planet.Ocean.comp = 'MgSO4'
 Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
 Planet.Do.Fe_CORE = False
 """
+
 import numpy as np
-import os
+import os, shutil
+import cmasher
+import matplotlib.pyplot as plt
+from matplotlib.cm import get_cmap
+from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
+from scipy.interpolate import interp1d
 
 # We have to define subclasses first in order to make them instanced to each Planet object
 """ Run settings """
@@ -529,14 +535,501 @@ class FigureFilesSubstruct:
 
 """ General parameter options """
 class ParamsStruct:
+    # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
     def __init__(self):
         self.DataFiles = DataFilesSubstruct('', '', '')
         self.FigureFiles = FigureFilesSubstruct('', '', '')
+        self.Sig = None  # General induction settings
         self.Induct = None  # Induction calculation settings
         self.MagSpectrum = None  # Excitation spectrum settings
         self.cLevels = None  # Contour level specifications
         self.cFmt = None  # Format of contour labels
         self.compareDir = 'Comparison'
+        
+        
+""" Inductogram settings """
+class InductOgramParamsStruct:
+    # Do not set any values below (except V2021 values). All other values are assigned in PlanetProfile.GetConfig.
+    def __init__(self, inductOtype, cLevels, dftC, cFmt):
+        self.bodyname = None
+        self.inductOtype = inductOtype
+        self.cLevels = cLevels
+        self.dftC = dftC
+        self.cFmt = cFmt
+        self.colorType = 'zb'  # What parameter to use for color of points in phase space plots. Options are "Tmean", "zb".
+        self.SPECIFIC_CLEVELS = False  # Whether to use the specific cLevels listed below or default numbers
+        self.excSelectionCalc = {'synodic': True, 'orbital': True, 'true anomaly': True,  'synodic harmonic': True}  # Which magnetic excitations to include in calculations
+        self.excSelectionPlot = {'synodic': True, 'orbital': True, 'true anomaly': False, 'synodic harmonic': True}  # Which magnetic excitations to include in plotting
+        self.nwPts = None  # Resolution for salinity values in ocean salinity vs. other plots
+        self.wMin = None
+        self.wMax = None
+        self.nTbPts = None  # Resolution for Tb values in ocean salinity/Tb plots
+        self.TbMin = None
+        self.TbMax = None
+        self.nphiPts = None  # Resolution for phiRockMax values in ocean salinity/phiMax plots
+        self.phiMin = None
+        self.phiMax = None
+        self.nrhoPts = None  # Resolution for silicate density values in ocean salinity/rho plots
+        self.rhoMin = None
+        self.rhoMax = None
+        self.nSigmaPts = None  # Resolution for conductivity values in ocean conductivity/thickness plots
+        self.sigmaMin = None
+        self.sigmaMax = None
+        self.nDpts = None  # Resolution for ocean thickness as for conductivity
+        self.Dmin = None
+        self.Dmax = None
+        self.zbFixed_km = None
+        self.EckhardtSolveMethod = 'RK45'  # Numerical solution method for scipy.integrate.solve_ivp. See https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html
+        self.rMinODE = 1e3  # Minimum radius to use for numerical solution. Cannot be zero because of singularity at the origin.
+        self.oceanInterpMethod = 'linear'  # Interpolation method for determining ocean conductivities when REDUCED_INDUCT is True.
+        self.nIntL = 5  # Number of ocean layers to use when REDUCED_INDUCT = 1
+
+        # Plot settings to match inductograms from Vance et al. (2021): https://doi.org/10.1029/2020JE006418
+        self.V2021_D_km = [91, 117, 96, 124,
+                           91, 117, 91, 119]
+        self.V2021_sigma_Sm = [0.4132, 0.4533, 3.3661, 3.7646,
+                               0.3651, 0.3855, 2.8862, 3.0760]
+        self.V2021_faceColors = [None, None, 'b', 'm',
+                                 None, None, 'c', '#b000ff']
+        self.V2021_edgeColors = ['b', 'm', 'k', 'k',
+                                 'c', '#b000ff', 'k', 'k']
+        self.V2021_symbols = ['^', 'v', '^', 'v',
+                              '^', 'v', '^', 'v']
+
+    def GetClevels(self, zName, Tname):
+        if self.bodyname is None:
+            bodyname = 'Europa'
+        else:
+            bodyname = self.bodyname
+        if self.SPECIFIC_CLEVELS:
+            theClevels = self.cLevels[bodyname][Tname][zName]
+        else:
+            theClevels = self.dftC
+        return theClevels
+
+    def GetCfmt(self, zName, Tname):
+        if self.bodyname is None:
+            bodyname = 'Europa'
+        else:
+            bodyname = self.bodyname
+        return self.cFmt[bodyname][Tname][zName]
+
+
+""" General induction calculation settings """
+class ConductLayerParamsStruct:
+    # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
+    def __init__(self):
+        self.REDUCED_INDUCT = True  # Whether to limit number of ocean layers for faster computation of layered induction
+        self.INCLUDE_ASYM = False  # Whether to include asymmetry in the induction conductivity profile based on J2 and C22 values
+        self.CONCENTRIC_ASYM = False  # Whether to map a single asymmetric shape to all layers, concentrically, scaling by their radii.
+        self.ALLOW_LOW_PMAX = False  # Whether to allow Magnetic.pMax to be set to an integer less than 2.
+        self.asymFstring = 'Shape_4piNormDepth'
+
+
+""" Excitation spectrum settings (WIP) """
+class ExcitationSpectrumParamsStruct:
+    # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
+    def __init__(self):
+        self.nOmegaPts = 100  # Resolution in log frequency space for magnetic excitation spectra
+        self.nOmegaFine = 1000  # Fine-spacing resolution for log frequency spectrum
+        
+
+""" Figure color options """
+class ColorStruct:
+    # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
+    def __init__(self):
+        self.Induction = {'synodic': None, 'orbital': None, 'true anomaly': None, 'synodic harmonic': None}  # Colors for inductOgram plots
+        self.ref = None
+        self.PALE_SILICATES = False  # Whether to use a lighter color scheme for silicate layers, or a more "orangey" saturated one
+
+        # Wedge diagram color options
+        self.none = '#FFFFFF00'
+        self.wedgeBd = 'black'
+        self.ionoCmapName = None
+        self.ionoTop = None
+        self.ionoBot = None
+        self.ionoN = None
+        self.iceIcond = None
+        self.iceIconv = None
+        self.iceII = None
+        self.iceIII = None
+        self.iceV = None
+        self.iceVI = None
+        self.clathCond = None
+        self.clathConv = None
+        self.oceanCmapName = None
+        self.oceanTop = None  # Fraction of ocean colormap to start at (from 0 to 1)
+        self.oceanBot = None  # Fraction of ocean colormap to end at (from 0 to 1)
+        self.oceanN = None
+        self.silPorousCmapName = None
+        self.silPorousTop = None
+        self.silPorousBot = None
+        self.paleSilPorousCmapName = None
+        self.paleSilPorousTop = None
+        self.paleSilPorousBot = None
+        self.silPorousN = None
+        self.silCondCmapName = None
+        self.silCondTop = None
+        self.silCondBot = None
+        self.paleSilCondCmapName = None
+        self.paleSilCondTop = None
+        self.paleSilCondBot = None
+        self.silCondN = None
+        self.silConvCmapName = None
+        self.silConvTop = None
+        self.silConvBot = None
+        self.silConvN = None
+        self.FeS = None
+        self.Fe = None
+        self.innerCmapName = None
+
+        self.cmapName = {}  # Colormaps for inductogram phase space plots, hydrosphere plots, etc
+        self.cmapBounds = {}  # Select only a subset of the available colormap, if we choose to
+        self.Tbounds_K = [245.0, 300.0]  # Set temperature bounds to use for colormap normalization
+        self.saturation = {}  # Set upper bounds for max concentrations
+        # Saturation & color brightness ("value" in HSV) values for salinity/conductivity axis bounds
+        self.fresh = [0.5, 1.0]
+        self.salty = [1.0, 0.5]
+
+
+    def SetCmaps(self):
+        """ Assign colormaps to make use of the above parameters
+        """
+        self.ionoCmap = cmasher.get_sub_cmap(self.ionoCmapName, self.ionoTop, self.ionoBot)
+        self.oceanCmap = cmasher.get_sub_cmap(self.oceanCmapName, self.oceanTop, self.oceanBot)
+        if self.PALE_SILICATES:
+            self.silPorousCmap = cmasher.get_sub_cmap(self.paleSilPorousCmapName, 
+                                                      self.paleSilPorousTop, self.paleSilPorousBot)
+            self.silCondCmap = cmasher.get_sub_cmap(self.paleSilCondCmapName, self.paleSilCondTop, self.paleSilCondBot)
+        else:
+            self.silPorousCmap = cmasher.get_sub_cmap(self.silPorousCmapName, 
+                                                      self.silPorousTop, self.silPorousBot)
+            self.silCondCmap = cmasher.get_sub_cmap(self.silCondCmapName, self.silCondTop, self.silCondBot)
+        self.silConvCmap = cmasher.get_sub_cmap(self.silConvCmapName, self.silConvTop, self.silConvBot)
+        self.innerCmap = get_cmap(self.innerCmapName)
+        # Use cmasher to return colormap objects that do the down-select for us
+        self.cmap = {comp: cmasher.get_sub_cmap(cmap, self.cmapBounds[comp][0], self.cmapBounds[comp][1])
+                     for comp, cmap in self.cmapName.items()}
+
+
+    def GetNormT(self, T_K):
+        """ Calculate normalized temperature to use with colormaps
+        """
+        return interp1d([self.Tbounds_K[0], self.Tbounds_K[1]], [0.0, 1.0],
+                 bounds_error=False, fill_value='extrapolate')(T_K)
+    
+    def GetSat(self, w_ppt):
+        """ Calculate color saturation value based on salinity relative to
+            saturation concentration
+        """
+        return interp1d([0.0, 1.0], [self.fresh[0], self.salty[0]], 
+                        bounds_error=False, fill_value=self.salty[0])(w_ppt)
+
+    def GetVal(self, w_ppt):
+        """ Calculate color value (light/dark) based on salinity relative to
+            saturation concentration
+        """
+        return interp1d([0.0, 1.0], [self.fresh[1], self.salty[1]], 
+                        bounds_error=False, fill_value=self.salty[1])(w_ppt)
+
+    def OceanCmap(self, comps, w_normFrac, Tmean_normFrac, DARKEN_SALINITIES=True):
+        """ Get colormap RGBA vectors for each salinity/T combination.
+
+            Args:
+                comps (string, shape N): Ocean composition string for each point.
+                w_normFrac (float, shape N): Normalized ocean salinities as a fraction
+                    of the saturation/maximum concentration used for the colormap.
+                Tmean_normFrac (float, shape N): Normalized mean ocean temperatures
+                    as a fraction of the range of values to use for the colormap, where
+                    0 is at the bottom of the range and 1 is at the top.
+
+            Returns:
+                cList (float, shape N x 3): RGB vectors as rows for each combination.
+        """
+
+        if DARKEN_SALINITIES:
+            # Get the hue for each point by getting the colormap entry for the normalized
+            # temperature, then stripping off the alpha channel, then converting to HSV,
+            # then taking only the first value in the [H,S,V] output.
+            hueMap = np.array([rgb_to_hsv(self.cmap[comp](T)[:3])[0] for comp, T in zip(comps, Tmean_normFrac)])
+            # Get the saturation and value lists from the min/max bounds for the
+            # normalized salinity
+            satMap = self.GetSat(w_normFrac)
+            valMap = self.GetVal(w_normFrac)
+
+            cList = hsv_to_rgb(np.column_stack((hueMap, satMap, valMap)))
+        else:
+            # Just use standard evaluation of the colorbar
+            cList = np.row_stack([self.cmap[comp](T) for comp, T in zip(comps, Tmean_normFrac)])
+
+        return cList
+
+
+""" Figure (line)style settings """
+class StyleStruct:
+    # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
+    def __init__(self):
+        self.LS_dft = None  # Default line style to use on plots
+        self.LS_Sw = None  # Linestyle for Seawater
+        self.LS_Mg = None  # Linestyle for MgSO4
+        self.LS_sp = None  # Linestyle for special consideration models
+        self.LW_sal = None  # Linewidth for higher salinity
+        self.LW_dil = None  # Linewidth for dilute salinity
+        self.LW_std = None  # Linewidth for standard salinity
+        self.LW_sound = None  # LineWidth for sound speed plots
+        self.LW_seism = None  # LineWidth for seismic plots (Attenuation)
+        self.LS_ref = {}  # Style for reference profiles
+        self.LW_ref = None  # Linewidth for reference profiles
+        self.LS_Induction = {}  # Style for inductOgram plots
+        self.LW_Induction = {}  # Widths for inductOgram plots
+        self.MW_Induction = None  # Marker size to use for induction scatter plots
+        self.MS_Induction = None  # Marker style for induction scatter plots
+
+        self.wedgeAngle_deg = None  # Angular size of wedge diagrams in degrees
+        self.LW_wedge = None  # Linewidth in pt for minor boundaries in wedge diagrams
+        self.LW_wedgeMajor = None  # Linewidth in pt for major layer boundaries in wedge diagrams
+
+
+""" Figure label settings """
+class FigLblStruct:
+    # Do not set any toggles below. These values are assigned in PlanetProfile.GetConfig.
+    # Unlike other structs, the labels set below ARE the ones used in plots, so the user
+    # only needs to bother with the toggles in the config file.
+    def __init__(self):
+        # Label display toggles
+        self.NEGATIVE_UNIT_POWERS = True  # Whether to use negative powers for units in latex tables, or instead a backslash.
+        self.NAN_FOR_EMPTY = False  # Whether to use nan (or -) for empty layer parameters that were not calculated or not present.
+        self.w_IN_WTPCT = False  # Whether to print salinities in wt% (or g/kg) in tables
+        self.x_IN_WTPCT = True  # Whether to print silicate/core mass fractions in wt% (or g/kg) in tables
+        self.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
+        self.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
+
+        # Wedge diagram labels
+        self.wedgeTitle = 'interior structure diagram'
+        self.wedgeRadius = r'Radius ($\mathrm{km}$)'
+
+        # Inductogram labels
+        self.plotTitles = ['Amplitude $A$', '$B_x$ component', '$B_y$ component', '$B_z$ component']
+        self.fLabels = ['Amp', 'Bx', 'By', 'Bz']
+        self.compEnd = ''
+        self.phaseTitle = r'Phase delay $\upphi$ ($^\circ$)'
+        self.Dlabel = r'Ocean thickness $D$ ($\si{km}$)'
+        self.TbLabel = r'Ice bottom temp $T_b$ ($\si{K}$)'
+        self.iceThickLbl = r'Ice shell thickness ($\si{km}$)'
+        self.oceanTempLbl = r'Mean ocean temp ($\si{K}$)'
+        self.wScale = 'log'
+        self.sigScale = 'log'
+        self.Dscale = 'log'
+
+        # Induction parameter-dependent settings
+        self.phaseSpaceTitle = None
+        self.inductionTitle = None
+        self.inductCompareTitle = None
+        self.sigLims = None
+        self.Dlims = None
+        self.legendTexc = None
+        self.yLabelInduct = None
+        self.yScaleInduct = None
+
+        # Unit-dependent labels set by SetUnits
+        self.rhoUnits = None
+        self.sigUnits = None
+        self.wUnits = None
+        self.xUnits = None
+        self.fluxUnits = None
+        self.wDiv = None
+        self.xDiv = None
+        self.phiMult = None
+        self.qMult = None
+        self.NA = None
+        self.sigLabel = None
+        self.wLabel = None
+        self.rhoLabel = None
+        self.phiLabel = None
+
+
+    def SetUnits(self):
+        """ Set labels that depend on different selections for units """
+
+        # Plot and table units
+        if self.NEGATIVE_UNIT_POWERS:
+            self.rhoUnits = r'kg\,m^{-3}'
+            self.sigUnits = r'S\,m^{-1}'
+            self.wUnits = r'g\,kg^{-1}'
+            self.xUnits = r'g\,kg^{-1}'
+            self.fluxUnits = r'W\,m^{-2}'
+        else:
+            self.rhoUnits = r'kg/m^3'
+            self.sigUnits = r'S/m'
+            self.wUnits = r'g/kg'
+            self.xUnits = r'g/kg'
+            self.fluxUnits = r'W/m^2'
+        if self.w_IN_WTPCT:
+            self.wUnits = r'wt\%'
+            self.wDiv = 10
+        else:
+            self.wDiv = 1
+        if self.x_IN_WTPCT:
+            self.xUnits = r'wt\%'
+            self.xDiv = 10
+        else:
+            self.xDiv = 1
+        if self.phi_IN_VOLPCT:
+            self.phiUnits = r'~(\si{vol\%})'
+            self.phiMult = 100
+        else:
+            self.phiUnits = ''
+            self.phiMult = 1
+        if self.qSURF_IN_mW:
+            self.fluxUnits = 'm' + self.fluxUnits
+            self.qMult = 1e3
+        else:
+            self.qMult = 1
+        # What to put for NA or not calculated numbers
+        if self.NAN_FOR_EMPTY:
+            self.NA = r'\num{nan}'
+        else:
+            self.NA = '-'
+        self.sigLabel = r'Mean conductivity $\overline{\sigma}$ ($\si{' + self.sigUnits + '}$)'
+        self.wLabel = r'Salinity $w$ ($\si{' + self.wUnits + '}$)'
+        self.rhoLabel = r'Silicate density $\rho_\mathrm{sil}$ ($\si{' + self.rhoUnits + '}$)'
+        self.phiLabel = r'Seafloor porosity $\phi_\mathrm{sil}$ ' + self.phiUnits
+
+    def singleComp(self, comp):
+        # Set a tag to append to titles in the event all of what we're plotting
+        # has a single composition, for additional clarity.
+        self.compEnd = f', \ce{{{comp}}} ocean'
+
+    def setInduction(self, bodyname, IndParams, Texc_h):
+        # Set titles, labels, and axis settings pertaining to inductogram plots
+        self.phaseSpaceTitle = f'\\textbf{{{bodyname} interior phase space}}'
+        self.inductionTitle = f'\\textbf{{{bodyname} induction response{self.compEnd}}}'
+        self.inductCompareTitle = f'\\textbf{{{bodyname} induction response on different axes{self.compEnd}}}'
+
+        self.sigLims = [10**IndParams.sigmaMin[bodyname], 10**IndParams.sigmaMax[bodyname]]
+        self.Dlims = [10**IndParams.Dmin[bodyname], 10**IndParams.Dmax[bodyname]]
+        self.legendTexc = np.array([f'{T_h:.2f} h' for T_h in Texc_h])
+
+        if IndParams.inductOtype != 'sigma':
+            if IndParams.inductOtype == 'Tb':
+                self.yLabelInduct = self.TbLabel
+                self.yScaleInduct = 'linear'
+            elif IndParams.inductOtype == 'rho':
+                self.yLabelInduct = self.rhoLabel
+                self.yScaleInduct = 'linear'
+            elif IndParams.inductOtype == 'phi':
+                self.yLabelInduct = self.phiLabel
+                self.yScaleInduct = 'log'
+
+
+""" Figure size settings """
+class FigSizeStruct:
+    # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
+    def __init__(self):
+        self.vsP = None
+        self.vsR = None
+        self.vperm = None
+        self.vgsks = None
+        self.vseis = None
+        self.vhydro = None
+        self.vgrav = None
+        self.vmant = None
+        self.vcore = None
+        self.vpvt4 = None
+        self.vpvt6 = None
+        self.vwedg = None
+        self.phaseSpaceSolo = None
+        self.phaseSpaceCombo = None
+        self.induct = None
+        self.inductCombo = None
+
+
+""" Miscellaneous figure options """
+class FigMiscStruct:
+    # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
+    def __init__(self):
+        # General figure options
+        self.figFormat = 'pdf'
+        self.dpi = 300  # Resolution in dots per inch for raster images (.png). Ignored for vector images (.pdf, .eps)
+        self.xtn = '.' + self.figFormat  # Figure file extension. Good options are .eps, .pdf, and .png
+        self.defaultFontName = 'STIXGeneral'  # Default font variables--STIX is what is used in Icarus journal submissions
+        self.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
+        self.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
+
+        # Wedge diagrams
+        self.IONOSPHERE_IN_WEDGE = False  # Whether to include specified ionosphere in wedge diagram
+        self.WEDGE_ICE_TICKS = False  # Whether to print ticks for ice shell, which usually overlap with the body outer radius
+        self.DRAW_IONOS_BOUND = False  # Whether to draw a boundary line around the ionosphere
+        self.DRAW_CONVECTION_BOUND = False  # Whether to draw a boundary line between convecting and conducting regions
+        self.DRAW_POROUS_BOUND = False  # Whether to draw a boundary line between porous and non-porous materials
+        self.DRAW_FeS_BOUND = False  # Whether to draw a boundary line between Fe and FeS in the core
+
+        # Inductogram phase space plots
+        self.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.
+        self.NORMALIZED_SALINITIES = False  # Whether to normalize salinities to absolute concentrations relative to the saturation limit for each salt
+        self.NORMALIZED_TEMPERATURES = False  # Whether to normalize ocean mean temperatures to specified maxima and minima for the colormap
+        # Inductograms
+        self.PLOT_INDUCT_SURF = False  # Plot surfaces or the default, contours
+        self.PLOT_V2021 = True  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
+        # Excitation spectra
+        self.DO_PER = True  # Convert frequency axes to periods for FFT plots
+
+        # Legends
+        self.LEGEND = True  # Whether to plot legends
+        self.REFS_IN_LEGEND = True  # Hydrosphere plot: Whether to include reference profiles in legend
+        self.hydroLegendBox = None  # Hydrosphere plot: Bounding box for where to place legends. Values are x, y, dx, dy in fractions of the figure size, where x and y are for the bottom-left corner of the box.
+        self.hydroLegendPos = None  # Hydrosphere plot: Where to place legends within bounding box
+        self.wedgeLegendPos = None  # Wedge diagram: Where in axes added at right to place legend
+
+        # Table printout settings
+        self.PRINT_BULK = True  # Whether to print bulk body properties, like mass and MoI
+        self.ALWAYS_SHOW_HP = True  # Whether to force HP ices and clathrates to be shown in DISP_* outputs to the terminal, even when none are present.
+        self.ALWAYS_SHOW_PHI = True  # Whether to force porosity printout in DISP_* outputs
+        self.LATEX_VLINES = False  # Whether to include vertical lines at table edges and between entries. Some journals do not allow them.
+        self.LATEX_HLINES = False  # Whether to print horizontal lines between table entries.
+        self.HF_HLINES = True  # Whether to print horizontal lines at head and foot of latex tables
+
+        self.cLabelSize = 10  # Font size in pt for contour labels
+        self.cLabelPad = 5  # Padding in pt to set beside contour labels
+        self.cLegendOpacity = 1.0  # Opacity of legend backgrounds in contour plots.
+
+        self.cbarSpace = 0.5  # Amount of whitespace in inches to use for colorbars
+        self.cbarSize = '5%'  # Description of the size of colorbar to use with make_axes_locatable
+        self.cbarHeight = 0.6  # Fraction of total figure height to use for colorbar size
+        self.cbarPad = 0.25  # Padding in pt to use for colorbars
+        self.extraPad = self.cbarSpace * 0.8  # Amount of extra padding to apply to secondary colorbars
+        self.cbarFmt = '%.1f'  # Format string to use for colorbar units
+        self.nCbarPts = 80  # Number of points to use for drawing colorbar gradient
+        self.cbarBottom = (1 - self.cbarHeight - self.cbarPad*2/72)/2  # Fraction of total figure height to use for bottom edge of colorbar
+
+        # Latex settings
+        self.TEX_INSTALLED = None
+        self.fontFamily = None
+        self.latexPackages = []
+        self.latexPreamble = None
+
+    def SetLatex(self):
+        # Latex settings
+        plt.rcParams['font.family'] = self.fontFamily  # Choose serif font for figures to best match math mode variables in body text
+        plt.rcParams['font.serif'] = self.defaultFontName  # Set plots to use the default font
+        # Check if Latex executable is on the path so we can use backup options if Latex is not installed
+        if shutil.which('latex'):
+            plt.rcParams['text.usetex'] = True  # Use Latex interpreter to render text on plots
+            # Load in font and option packages in Latex
+            plt.rcParams['text.latex.preamble'] = f'\\usepackage{{{self.defaultFontCode}}}' \
+                                                  + ''.join(self.latexPackages)
+            self.TEX_INSTALLED = True
+        else:
+            print('A LaTeX installation was not found. Some plots may have fallback options in labels.')
+            plt.rcParams['font.serif'] += ', ' + self.backupFont  # Set plots to use the default font if installed, or a backup if not
+            plt.rcParams['mathtext.fontset'] = self.defaultFontCode
+            self.TEX_INSTALLED = False
+
+        packageCmds = r'\n        '.join(self.latexPackages)
+        self.latexPreamble = f"""For table setup, add this to your document preamble:
+        {packageCmds}
+        \sisetup{{group-separator={{\,}}, group-minimum-digits={{5}}, group-digits={{integer}}}}
+        """
 
 
 """ Global EOS list """

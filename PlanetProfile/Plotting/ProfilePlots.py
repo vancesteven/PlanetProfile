@@ -8,8 +8,7 @@ from matplotlib.patches import Wedge
 from matplotlib.collections import PatchCollection
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import interp1d
-from configInduct import InductParams as IndParams
-from configPlots import FigSize, Color, Style, FigMisc, FigLbl
+from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc, InductParams as IndParams
 from PlanetProfile.Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
 from PlanetProfile.Utilities.SetupInit import SetupFilenames
 from PlanetProfile.Utilities.defineStructs import Constants
@@ -20,7 +19,7 @@ def GeneratePlots(PlanetList, Params):
     if Params.PLOT_HYDROSPHERE and not Params.ALL_NO_H2O:
         if Params.CALC_NEW_REF:
             # Calculate reference profiles showing melting curves for
-            # several salinities specified in config.py
+            # several salinities specified in configPP.py
             Params = CalcRefProfiles(PlanetList, Params)
         else:
             # Reload refprofiles for this composition

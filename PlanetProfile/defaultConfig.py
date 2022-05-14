@@ -2,17 +2,11 @@
 General runtime configuration parameters.
 Overridden by any settings contained within PPBody.py files.
 """
-import logging as log
-from functools import partial, partialmethod
-import os, time, numpy as np
-import multiprocessing as mtp
-from configInduct import InductParams, SigParams, ExcSpecParams
-from PlanetProfile import _ROOT
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, Constants
 
+configVersion = 1  # Integer number for config file version. Increment when new settings are added to the default config file.
+
 Params = ParamsStruct()
-Params.configVersion = 1  # Integer number for config file version
-Params.tStart_s = time.time()
 Params.VERBOSE = True  # Provides extra runtime messages. Overrides QUIET below
 Params.QUIET = False  # Hides all log messages except warnings and errors
 Params.printFmt = '[%(levelname)s] %(message)s'  # Format for printing log messages
@@ -55,9 +49,6 @@ Params.DO_INDUCTOGRAM = False  # Whether to plot an inductogram for the body in 
 Params.PLOT_FFT = True  # Whether to show plots of fourier space
 Params.INDUCTOGRAM_IN_PROGRESS = False  # Whether we are currently working on constructing an inductogram
 Params.COMBINE_BCOMPS = False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
-Params.Sig = SigParams  # Load general induction settings
-Params.Induct = InductParams  # Load inductogram settings
-Params.MagSpectrum = ExcSpecParams  # Load excitation spectrum settings
 
 # Reference profile settings
 # Salinities of reference melting curves in ppt
@@ -66,40 +57,11 @@ Params.wRef_ppt = {'none':[0], 'PureH2O':[0],
                    'MgSO4':[0, 33.3, 66.7, 100],
                    'NH3':[0, 10, 20],
                    'NaCl':[0, 17.5, 35]}
-Params.fNameRef = {comp:os.path.join(_ROOT, 'Thermodynamics', 'RefProfiles', f'{comp}Ref.txt') for comp in Params.wRef_ppt.keys()}
-# Initialize array dicts for refprofiles
-Params.Pref_MPa = {}
-Params.rhoRef_kgm3 = {}
-Params.nRef = {}
-Params.nRefPts = {}
 
-# SPICE kernels
+# SPICE kernels to use
 Params.spiceTLS = 'naif0012.tls'  # Leap-seconds kernel
 Params.spicePCK = 'pck00010.tpc'  # Planetary Constants Kernel from SPICE in order to get body radii
 Params.spiceJupiter = 'jup365.bsp'  # Generic kernel for Jupiter + Galilean moons
 Params.spiceSaturn = 'sat427.bsp'  # Generic kernel for Saturn + large moons
 Params.spiceUranus = 'ura111.bsp'  # Generic kernel for Uranus + large moons
 Params.spiceNeptune = 'nep095.bsp'  # Generic kernel for Neptune + large moons
-    
-# Parallel processing
-if Params.DO_PARALLEL:
-    Params.maxCores = mtp.cpu_count()
-else:
-    Params.maxCores = 1
-    log.info('DO_PARALLEL is False. Blocking parallel execution.')
-# Create parallel printout log level
-log.PROFILE = log.WARN + 5
-Params.logParallel = log.PROFILE + 0
-log.addLevelName(log.PROFILE, 'PROFILE')
-log.Logger.profile = partialmethod(log.Logger.log, log.PROFILE)
-log.profile = partial(log.log, log.PROFILE)
-if Params.VERBOSE:
-    # Allow debug messages to be printed if VERBOSE is selected
-    Params.logParallel -= 30
-elif Params.QUIET:
-    # Allow progress printout to be silenced if QUIET is selected
-    Params.logParallel += 10
-
-
-# The following step must always be done last in this file, to allow the user to override the settings above.
-

@@ -1,6 +1,6 @@
 import numpy as np
 import logging as log
-from configPlots import FigMisc, FigLbl
+from PlanetProfile.GetConfig import FigMisc, FigLbl
 from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv
 from PlanetProfile.Utilities.defineStructs import Constants
 

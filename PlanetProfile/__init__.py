@@ -31,22 +31,18 @@ def CopyOnlyIfNeeded(source, destination):
 # Set accessible file paths for installation directory and default configs
 _ROOT = os.path.abspath(os.path.dirname(__file__))
 _defaultConfig = os.path.join(_ROOT, 'defaultConfig.py')
-_userConfig = os.path.join(_ROOT, 'userConfig.py')
-_configPlots = os.path.join(_ROOT, 'Plotting', 'defaultConfigPlots.py')
-_userConfigPlots = os.path.join(_ROOT, 'Plotting', 'userConfigPlots.py')
-_configInduct = os.path.join(_ROOT, 'MagneticInduction', 'defaultConfigInduct.py')
-_userConfigInduct = os.path.join(_ROOT, 'MagneticInduction', 'userConfigInduct.py')
+_defaultConfigPlots = os.path.join(_ROOT, 'Plotting', 'defaultConfigPlots.py')
+_defaultConfigInduct = os.path.join(_ROOT, 'MagneticInduction', 'defaultConfigInduct.py')
 _Defaults = os.path.join(_ROOT, 'Default')
 _Test = os.path.join(_ROOT, 'Test')
 _TestImport = 'PlanetProfile.Test'
 
 # Copy user config files to local dir if the user does not have them yet
-_localConfig = 'config.py'
-_localConfigPlots = 'configPlots.py'
-_localConfigInduct = 'configInduct.py'
-configTemplates = [_userConfig, _userConfigPlots, _userConfigInduct]
-configLocals = [_localConfig, _localConfigPlots, _localConfigInduct]
+_userConfig = 'configPP.py'
+_userConfigPlots = 'configPPplots.py'
+_userConfigInduct = 'configPPinduct.py'
+configTemplates = [_defaultConfig, _defaultConfigPlots, _defaultConfigInduct]
+configLocals = [_userConfig, _userConfigPlots, _userConfigInduct]
 for template, local in zip(configTemplates, configLocals):
-    if not os.path.isfile(local):
-        CopyCarefully(template, local)
+    CopyOnlyIfNeeded(template, local)
 
