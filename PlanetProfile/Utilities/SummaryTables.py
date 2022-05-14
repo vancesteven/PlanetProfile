@@ -1,6 +1,6 @@
 import numpy as np
 import logging as log
-from configPlots import FigMisc
+from configPlots import FigMisc, FigLbl
 from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv
 from PlanetProfile.Utilities.defineStructs import Constants
 
@@ -345,39 +345,21 @@ def PrintLayerSummaryLatex(PlanetList, Params):
     if FigMisc.LATEX_HLINES:
         endl = endl + hline
     newline = '\n            '
-    # What to put for NA or not calculated numbers
-    if FigMisc.NAN_FOR_EMPTY:
-        NA = r'\num{nan}'
-    else:
-        NA = '-'
     zero = r'\num{0.0}'
     # Vertical lines for table, if present
     if FigMisc.LATEX_VLINES:
         v = ' | '
     else:
         v = ' '
-    if FigMisc.NEGATIVE_UNIT_POWERS:
-        rhoUnits = 'kg\,m^{-3}'
-        sigUnits = 'S\,m^{-1}'
-        wUnits = 'g\,kg^{-1}'
-    else:
-        rhoUnits = 'kg/m^3'
-        sigUnits = 'S/m'
-        wUnits = 'g/kg'
-    if FigMisc.w_IN_WTPCT:
-        wUnits = r'wt\%'
-        wDiv = 10
-    else:
-        wDiv = 1
     # Table end
     tClose = r'\end{tabular}'
     if FigMisc.HF_HLINES and not FigMisc.LATEX_HLINES:
         tClose = hline + tClose
 
     # Layer table labels
-    columns = [r'\textbf{Layer}', r'\textbf{Radius ($\si{km}$)}', r'\textbf{Density ($\si{' + rhoUnits + '}$)}',
+    columns = [r'\textbf{Layer}', r'\textbf{Radius ($\si{km}$)}', r'\textbf{Density ($\si{' + FigLbl.rhoUnits + '}$)}',
                r'\textbf{Thickness ($\si{km}$)}', r'\textbf{Shear modulus ($\si{GPa}$)}',
-                r'\textbf{Conductivity ($\si{' + sigUnits + '}$)}']
+                r'\textbf{Conductivity ($\si{' + FigLbl.sigUnits + '}$)}']
     header = '\n' + tab.join(columns) + endl
     if FigMisc.HF_HLINES:
         header = hline + header
@@ -395,7 +377,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
     oceanLbl = 'ocean'
     silLbl = 'Mantle'
     coreLbl = 'Core'
-    notPresent = [NA, NA, zero, NA, NA]
+    notPresent = [FigLbl.NA, FigLbl.NA, zero, FigLbl.NA, FigLbl.NA]
     emptyCondIce = newline + tab.join(np.append(condIceLbl, notPresent)) + endl
     emptyConvIce = newline + tab.join(np.append(convIceLbl, notPresent)) + endl
     emptyConvClath = newline + tab.join(np.append(convClathLbl, notPresent)) + endl
@@ -556,16 +538,27 @@ def PrintLayerSummaryLatex(PlanetList, Params):
         # Ocean layers
         if Planet.Do.NO_H2O:
             salt = 'No'
-        elif Planet.Ocean.wOcean_ppt == 0:
-            salt = r'Pure~\ce{H2O}'
+            rhoOcean = FigLbl.NA
+            GSocean = FigLbl.NA
+            sigmaOcean = FigLbl.NA
         else:
-            salt = f'$\SI{{{Planet.Ocean.wOcean_ppt/wDiv:.1f}}}{{{wUnits}\,\ce{{{Planet.Ocean.comp}}}}}$'
+            rhoOcean = f'\\num{{{Planet.Ocean.rhoMean_kgm3:.0f}}}'
+            GSocean = zero
+            if Planet.Ocean.sigmaMean_Sm > 0.01:
+                sigmaOcean = f'\\num{{{Planet.Ocean.sigmaMean_Sm:.2f}}}'
+            else:
+                sigmaOcean = f'\\num{{{Planet.Ocean.sigmaMean_Sm:.2e}}}'
+            if Planet.Ocean.wOcean_ppt == 0:
+                salt = r'Pure~\ce{H2O}'
+            else:
+                salt = f'$\SI{{{Planet.Ocean.wOcean_ppt/FigLbl.wDiv:.1f}}}{{{FigLbl.wUnits}\,\ce{{{Planet.Ocean.comp}}}}}$'
+
         oceanLayers = tab.join([f'{salt} {oceanLbl}',
                                 f'\\num{{{Planet.Bulk.R_m/1e3 - Planet.zb_km:.1f}}}',
-                                f'\\num{{{Planet.Ocean.rhoMean_kgm3:.0f}}}',
+                                rhoOcean,
                                 f'\\num{{{Planet.D_km:.1f}}}',
-                                zero,
-                                f'\\num{{{Planet.Ocean.sigmaMean_Sm:.2f}}}']) + endl
+                                GSocean,
+                                sigmaOcean]) + endl
         silLayers = tab.join([silLbl,
                               f'\\num{{{Planet.Sil.Rmean_m/1e3:.1f}}}',
                               f'\\num{{{Planet.Sil.rhoMean_kgm3:.0f}}}',
@@ -608,37 +601,7 @@ def PrintLayerTableLatex(PlanetList, Params):
         v = ' | '
     else:
         v = ' '
-    if FigMisc.NEGATIVE_UNIT_POWERS:
-        rhoUnits = r'kg\,m^{-3}'
-        sigUnits = r'S\,m^{-1}'
-        wUnits = r'g\,kg^{-1}'
-        fluxUnits = r'W\,m^{-2}'
-    else:
-        rhoUnits = r'kg/m^3'
-        sigUnits = r'S/m'
-        wUnits = r'g/kg'
-        fluxUnits = r'W/m^2'
-    if FigMisc.w_IN_WTPCT:
-        wUnits = r'wt\%'
-        wDiv = 10
-    else:
-        wDiv = 1
-    if FigMisc.phi_IN_VOLPCT:
-        phiUnits = r'~(\si{vol\%})'
-        phiMult = 100
-    else:
-        phiUnits = ''
-        phiMult = 1
-    if FigMisc.qSURF_IN_mW:
-        fluxUnits = 'm' + fluxUnits
-        qMult = 1e3
-    else:
-        qMult = 1
-    # What to put for NA or not calculated numbers
-    if FigMisc.NAN_FOR_EMPTY:
-        NA = r'\num{nan}'
-    else:
-        NA = '-'
+    
     # Subscript strings
     ice = r'\mathrm{ice}'
     Ih = r'\mathrm{Ih}'
@@ -673,7 +636,7 @@ def PrintLayerTableLatex(PlanetList, Params):
     strqSurf_Wm2, strqCon_Wm2, stretaI_Pas, strDIh_km, strDclath_km, strDIII_km, \
     strDVund_km, strD_km, strDVwet_km, strDVI_km, strsigOcean_Sm, strRrock_km, strRcore_km,\
     strphiIceMax_frac, strphiRockMax_frac \
-        = (np.full(nModels, NA, dtype='<U100') for _ in range(22))
+        = (np.full(nModels, FigLbl.NA, dtype='<U100') for _ in range(22))
 
     # Organize values into strings for tabulating
     for i, Planet in enumerate(PlanetList):
@@ -691,9 +654,9 @@ def PrintLayerTableLatex(PlanetList, Params):
         strRsurf_km[i] = f'$\\num{{{Planet.Bulk.R_m/1e3:.1f}}}$'
         strrhoRock_kgm3[i] = f'$\\num{{{Planet.Sil.rhoMean_kgm3:.0f}}}$'
         strTb_K[i] = f'$\\num{{{Planet.Bulk.Tb_K}}}$'
-        strqSurf_Wm2[i] = f'$\\num{{{Planet.qSurf_Wm2*qMult:.1f}}}$'
+        strqSurf_Wm2[i] = f'$\\num{{{Planet.qSurf_Wm2*FigLbl.qMult:.1f}}}$'
         if not Planet.Do.NO_H2O:
-            strqCon_Wm2[i] = f'$\\num{{{Planet.qCon_Wm2*qMult:.1f}}}$'
+            strqCon_Wm2[i] = f'$\\num{{{Planet.qCon_Wm2*FigLbl.qMult:.1f}}}$'
             stretaI_Pas[i] = f'$\\num{{{Planet.etaConv_Pas:.2e}}}$'
             strDIh_km[i] = f'$\\num{{{Planet.dzIceI_km:.1f}}}$'
             strD_km[i] = f'$\\num{{{Planet.D_km:.1f}}}$'
@@ -729,10 +692,10 @@ def PrintLayerTableLatex(PlanetList, Params):
             boolRcore_km[i] = True
 
         if Planet.Do.POROUS_ICE:
-            strphiIceMax_frac[i] = f'$\\num{{{Planet.Ocean.phiMax_frac["Ih"]*phiMult:.2f}}}$'
+            strphiIceMax_frac[i] = f'$\\num{{{Planet.Ocean.phiMax_frac["Ih"]*FigLbl.phiMult:.2f}}}$'
             boolphiIceMax_frac[i] = True
         if Planet.Do.POROUS_ROCK:
-            strphiRockMax_frac[i] = f'$\\num{{{Planet.Sil.phiRockMax_frac*phiMult:.2f}}}$'
+            strphiRockMax_frac[i] = f'$\\num{{{Planet.Sil.phiRockMax_frac*FigLbl.phiMult:.2f}}}$'
             boolphiRockMax_frac[i] = True
 
     # Begin constructing and printing tables
@@ -755,11 +718,11 @@ def PrintLayerTableLatex(PlanetList, Params):
                 Tsub = surf
             else:
                 compStr = f'\ce{{{thisComp}}}'
-                wStr = f'$\SI{{{thisw/wDiv:.1f}}}{{{wUnits}}}$'
+                wStr = f'$\SI{{{thisw/FigLbl.wDiv:.1f}}}{{{FigLbl.wUnits}}}$'
                 Tsub = 'b'
 
             Tb_K = f'{tab}$T_{Tsub}~(\si{{K}})${tab}' + tab.join(strTb_K[thisSubset]) + endl
-            rhoRock = f'{tab}$\\rho_{rockMean}~(\si{{{rhoUnits}}})${tab}' + tab.join(strrhoRock_kgm3[thisSubset]) + endl
+            rhoRock = f'{tab}$\\rho_{rockMean}~(\si{{{FigLbl.rhoUnits}}})${tab}' + tab.join(strrhoRock_kgm3[thisSubset]) + endl
             if FigMisc.PRINT_BULK:
                 Mmeas = newline + f'{tab}$M~(\si{{kg}})${tab}' + tab.join(strMmeas_kg[thisSubset]) + endl
                 Mcalc = newline + f'{wStr}{tab}$M_{model}~(\si{{kg}})${tab}' + tab.join(strMcalc_kg[thisSubset]) + endl
@@ -771,12 +734,12 @@ def PrintLayerTableLatex(PlanetList, Params):
                 Mmeas, Mcalc, Cmeas, Ccalc, Rsurf = ('' for _ in range(5))
                 Tb_K = wStr + Tb_K
 
-            qSurf = f'{tab}$q_{surf}~(\si{{{fluxUnits}}})${tab}' + tab.join(strqSurf_Wm2[thisSubset]) + endl
+            qSurf = f'{tab}$q_{surf}~(\si{{{FigLbl.fluxUnits}}})${tab}' + tab.join(strqSurf_Wm2[thisSubset]) + endl
             if thisComp != 'none':
-                qCon = newline + f'{tab}$q_{con}~(\si{{{fluxUnits}}})${tab}' + tab.join(strqCon_Wm2[thisSubset]) + endl
+                qCon = newline + f'{tab}$q_{con}~(\si{{{FigLbl.fluxUnits}}})${tab}' + tab.join(strqCon_Wm2[thisSubset]) + endl
                 etaI = newline + f'{tab}$\eta_{con}~(\si{{Pa\,s}})${tab}' + tab.join(stretaI_Pas[thisSubset]) + endl
                 Docean = newline + f'{tab}$D_{ocean}~(\si{{km}})${tab}' + tab.join(strD_km[thisSubset]) + endl
-                sigOcean = newline + f'{tab}$\overline{{\sigma}}_{ocean}~(\si{{{sigUnits}}})${tab}' + tab.join(strsigOcean_Sm[thisSubset]) + endl
+                sigOcean = newline + f'{tab}$\overline{{\sigma}}_{ocean}~(\si{{{FigLbl.sigUnits}}})${tab}' + tab.join(strsigOcean_Sm[thisSubset]) + endl
 
                 # Surface ices
                 if np.any(np.logical_or(boolTop[thisSubset], boolWhole[thisSubset], boolWhole[thisSubset])):
@@ -813,7 +776,7 @@ def PrintLayerTableLatex(PlanetList, Params):
                 else:
                     DVI = ''
                 if np.any(boolphiIceMax_frac[thisSubset]):
-                    phiIce = newline + f'{tab}$\phi_{ice}{phiUnits}${tab}' + tab.join(strphiIceMax_frac[thisSubset]) + endl
+                    phiIce = newline + f'{tab}$\phi_{ice}{FigLbl.phiUnits}${tab}' + tab.join(strphiIceMax_frac[thisSubset]) + endl
                 else:
                     phiIce = ''
             else:
@@ -825,7 +788,7 @@ def PrintLayerTableLatex(PlanetList, Params):
             else:
                 Rcore = ''
             if np.any(boolphiRockMax_frac[thisSubset]):
-                phiRock = newline + f'{tab}$\phi_{rock}{phiUnits}${tab}' + tab.join(strphiRockMax_frac[thisSubset]) + endl
+                phiRock = newline + f'{tab}$\phi_{rock}{FigLbl.phiUnits}${tab}' + tab.join(strphiRockMax_frac[thisSubset]) + endl
             else:
                 phiRock = ''
 

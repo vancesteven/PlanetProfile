@@ -226,7 +226,7 @@ class CoreSubstruct:
         self.rhoMin_kgm3 = 5150  # Assumed minimum possible density for the core in kg/m^3. Sets maximum core size.
         self.rhoPoFeFCC = None  # Density of pyrrhottite plus face-centered cubic iron
         self.sigmaCore_Sm = 1e6  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
-        self.coreEOS = 'sulfur_core_partition_SE15_1pctSulfur.tab'  # Default core EOS to use
+        self.coreEOS = 'Fe075_S025.tab'  # Default core EOS to use
         self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermFe_WmK)
         # Derived quantities
@@ -242,11 +242,10 @@ class CoreSubstruct:
         self.Rrange_m = None  # Core radius range for compatible MoI
         self.Rtrade_m = None  # Array of core radii for compatible MoIs
         self.Rset_m = None  # Value to set the core outer radius to, when we have already found it via e.g. using CONSTANT_INNER_DENSITY = True. Used to recycle SilicateLayers when we don't want to do an MoI search with the EOS functions.
+        self.xS_ppt = None  # Mass fraction of sulfur in the core in ppt
         # 2021-12-30: Judging by usage of various different fractional variables in the literature and in
         # the Matlab code, these x variables should be molar fractions (# this species/total # molecules).
         self.xFeSmeteoritic = None  # CM2 mean from Jarosewich 1990
-        self.xFeS = None  # Mass fraction of sulfur in the core
-        self.xFeCore = None  # This is the total Fe in Fe and FeS
         self.xH2O = None  # Total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 
 

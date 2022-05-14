@@ -181,21 +181,34 @@ def PlotWedge(PlanetList, Params):
 
     # Plot each significant layer for each model, from the outside inward
     for Planet, ax, ionoTop_km, ionoBot_km in zip(PlanetList, axes, ionosUpper_km, ionosLower_km):
-        xFeS = 0.15
+
+        # Construct labels
+        if Planet.Do.Fe_CORE:
+            Planet.Core.xS_ppt = (100 -int(Planet.Core.coreEOS[2:5])) * 10
+            coreLine = f'\ce{{Fe}} core with \SI{{{Planet.Core.xS_ppt / FigLbl.xDiv}}}{{{FigLbl.xUnits}}}~\ce{{S}}'
+        elif 'undifferentiated' in Planet.Sil.EOS.comp:
+            coreLine = 'undifferentiated'
+        else:
+            coreLine = ''
+        if 'Comet' in Planet.Sil.mantleEOS:
+            silLine = 'Comet 67P'
+        else:
+            silLine = f'{Planet.Sil.mantleEOS[:2]} chondrite'
         if Planet.Do.NO_H2O:
-            wedgeLabel = f'CV chondrite\nFe core contains \SI{{{xFeS*100:.0f}}}{{wt\%}}~S\n$q_\mathrm{{surf}}$~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{mW/m^2}}'
+            wedgeLabel = f'{silLine}\n{coreLine}\n$q_\mathrm{{surf}}$~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{{FigLbl.fluxUnits}}}'
         else:
             if Planet.Ocean.comp == 'PureH2O':
                 compStr = r'Pure \ce{H2O} ocean'
             else:
-                compStr = f'\SI{{{Planet.Ocean.wOcean_ppt:.1f}}}{{g/kg}}~\ce{{{Planet.Ocean.comp}}}'
-            wedgeLabel = f'CV chondrite mantle\nFe core contains \SI{{{xFeS*100:.0f}}}{{wt\%}}~S\n{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
+                compStr = f'\SI{{{Planet.Ocean.wOcean_ppt:.1f}}}{{{FigLbl.wUnits}}}~\ce{{{Planet.Ocean.comp}}}'
+            wedgeLabel = f'{silLine} mantle\n{coreLine}\n{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
         if Planet.Do.POROUS_ROCK:
             wedgeLabel = f'Porous {wedgeLabel}'
         if Params.ALL_ONE_BODY and not nWedges == 1:
             indivTitle = wedgeLabel
         else:
             indivTitle = f'\\textbf{{{Planet.name}}}\n{wedgeLabel}'
+
         ax.set_title(indivTitle)
         R_km = Planet.Bulk.R_m / 1e3
         rTicks = []
@@ -576,6 +589,10 @@ def PlotInductOgram(Induction, Params):
         FigLbl.singleComp(Induction.comps[0])
     FigLbl.setInduction(Induction.bodyname, Params.Induct, Induction.Texc_hr.values())
     iSort = np.argsort(list(Induction.Texc_hr.values()))
+
+    # Adjust phi values in case we're plotting void volume % instead of void fraction
+    if Params.Induct.inductOtype == 'phi':
+        Induction.y = Induction.y * FigLbl.phiMult
 
     if Params.COMBINE_BCOMPS:
         # Plot B components all together with phase. Amplitude is still separate

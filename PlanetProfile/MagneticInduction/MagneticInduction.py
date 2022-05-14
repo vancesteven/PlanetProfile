@@ -307,15 +307,17 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
 
         if os.path.isfile(os.path.join(fPath, f'{fNames[0]}.txt')):
             inpTexc_hr, inpBenm_nT, B0_nT = GetBenm(nprmMax, pMax, fpath=fPath, fName=fNames[0])
-            nPeaks = sum(excSelection.values())
+            BeList = Excitations(bodyname)
+            eachT = np.logical_and([excSelection[key] for key in BeList.keys()], [BeList[key] is not None for key in BeList.keys()])
+            nPeaks = sum(eachT)
             Texc_hr = np.zeros(nPeaks)
             Benm_nT = np.zeros((nPeaks, 2, nprmMax+pMax+1, nprmMax+pMax+1), dtype=np.complex_)
-            BeList = Excitations(bodyname)
             # Include in the excitation spectrum only the periods specified in config.py
             iPeak = 0
             for oscillation, included in excSelection.items():
                 if included and BeList[oscillation] is not None:
-                    Texc_hr[iPeak] = inpTexc_hr[np.round(inpTexc_hr,2) == round(BeList[oscillation],2)]
+                    iClosest = np.argmin(abs(inpTexc_hr - BeList[oscillation]))
+                    Texc_hr[iPeak] = inpTexc_hr[iClosest]
                     Benm_nT[iPeak, ...] = inpBenm_nT[inpTexc_hr == Texc_hr[iPeak], ...]
                     iPeak += 1
 
