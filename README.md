@@ -1,4 +1,4 @@
-# PlanetProfile v1.3.0
+# PlanetProfile v2.0.0
 Python software for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data. Ideally, no tweaks to the main code are needed in order to change the outputs of the model.
 
 ## Acknowledging PlanetProfile
