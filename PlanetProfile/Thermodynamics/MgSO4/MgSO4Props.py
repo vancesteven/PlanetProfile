@@ -286,7 +286,7 @@ class MgSO4PhaseLookup:
     def __init__(self, wOcean_ppt):
         self.w_ppt = wOcean_ppt
         self.xH2O, self.mBar_gmol = Massppt2molFrac(self.w_ppt, Constants.mMgSO4_gmol)
-        self.fLookup = os.path.join('Thermodynamics','MgSO4','phaseLookupMgSO4.mat')
+        self.fLookup = os.path.join(_ROOT, 'Thermodynamics','MgSO4','phaseLookupMgSO4.mat')
         if self.fLookup in EOSlist.loaded.keys():
             log.debug('MgSO4 phase lookup table already loaded. Reusing previously loaded table.')
             self.fn_phase = EOSlist.loaded[self.fLookup]
