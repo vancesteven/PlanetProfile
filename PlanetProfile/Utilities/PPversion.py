@@ -1,6 +1,6 @@
 from importlib.metadata import version
 # Current PlanetProfile version tag
-ppVerNum = '2.0.0-dev'
+ppVerNum = '2.0.0'
 # Compatible version tag numbers
 compatNums = {
     'seafreeze': '0.9.2',
@@ -15,7 +15,7 @@ pkgNames = {
 }
 # Instructions for installation
 installInstruct = {
-    'seafreeze': 'pip3 install SeaFreeze',
+    'seafreeze': 'pip install SeaFreeze',
     'gsw': 'conda install -c conda-forge gsw',
     'obspy': 'conda install -c conda-forge obspy'
 }
