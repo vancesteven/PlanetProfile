@@ -7,7 +7,7 @@ if Params.cfg.HOLD; clrAllProfiles; end
 
 %% &&& Bulk and surface properties
 Planet.rho_kgm3 = 1610; % Thomas 2010
-Planet.R_m = 252e3; %± 200 Thomas  2010
+Planet.R_m = 252.1e3; %± 200 Thomas  2010
 Planet.M_kg =1.08022e20; 
 Planet.gsurf_ms2 = 0.113; 
 Planet.Tsurf_K = 75; 
@@ -26,7 +26,8 @@ Planet.rho_sil_withcore_kgm3 = 2700;
 % this file. An issue has been opened on GitHub. Delete this comment when
 % the value has been corrected.
 Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
-
+Planet.POROUS_ICE = 0;
+Planet.phi_surface = 0.5;
 
 % Planet.Ocean.comp='NH3';
 % % load L_IceNH3.mat
@@ -109,7 +110,7 @@ Params.foursubplots =1;
 Params.Legend = false;
 Params.LegendPosition = 'North';
 Params.ylim = [910 1170];
-Params.Pseafloor_MPa = 10;
+Params.Pseafloor_MPa = 20;
 Params.nsteps_iceI = 20;
 Params.nsteps_ocean = 100; 
 Params.nsteps_ref_rho = 30;
@@ -141,7 +142,7 @@ Planet.Ocean.w_ocean_pct=5; Planet.Tb_K = [272.72 273.12];
 % running pure water for the MgSO4 case illustrates >1oC error in the Margules parameterization
 Params.LineStyle='-';
 Params.colororder = 'cm';
-Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [273.1 273.15]; % pure water, 
+Planet.Ocean.w_ocean_pct=gsw_SSO/3;  Planet.Tb_K = 271.0; % pure water, 
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 % 
 % Planet.Ocean.comp='Seawater';

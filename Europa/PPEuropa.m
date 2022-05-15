@@ -74,7 +74,8 @@ Planet.EQUIL_Q = 0;
 % QHmantle = 8.5e11;
 
 %% Porosity of the rock
-Planet.POROUS_ROCK = 0;
+Planet.POROUS_ROCK = 1;
+Planet.phi_surface = 0.2;
 % Planet.PEFF =0;
 
 %% Seismic
