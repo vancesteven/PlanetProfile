@@ -33,6 +33,9 @@ if ~isfield(Params,'cfg')
 else
     cfg = Params.cfg;
 end
+if ~isfield(Seismic,'DO_SEISMIC')
+    Seismic.DO_SEISMIC = 1;
+end
 
 %% worry about TauP implementation 
 if isfield(Params,'TauP')
