@@ -4,7 +4,7 @@ function cfg = config
     % such as layer thicknesses will not change between runs.
     
     % Runtime options
-    cfg.CALC_NEW =       0;
+    cfg.CALC_NEW =       1;
     cfg.TESTING =        0; % For comparing between branches in python conversion
     cfg.CALC_NEW_REF =   1;
     cfg.CALC_NEW_SOUND = 1;
