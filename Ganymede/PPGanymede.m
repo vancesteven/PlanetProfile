@@ -157,19 +157,19 @@ Planet.xFe_core = 0.0463 ; % this is the total Fe  in Fe and FeS
 Planet.XH2O = 0.104; % total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
 Planet.rho_sil_withcore_kgm3 = 3730;
 
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250]; % 10 Wt% temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = 260; % 10 Wt% temperatures at the bottom of the Ice Ih
 % Planet.rho_sil_withcore_kgm3 = 3340; % for the saturated echondrite
 % Planet.rho_sil_withcore_kgm3 = 3520; % used in the 2017 JGR paper
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 
-Planet.Ocean.w_ocean_pct=1; Planet.Tb_K = [261.4  270.7]; % 1 Wt% temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=1; Planet.Tb_K = 265; % 1 Wt% temperatures at the bottom of the Ice Ih
 % Planet.rho_sil_withcore_kgm3 = 3340; % for the saturated echondrite
 % Planet.rho_sil_withcore_kgm3 = 3520; % used in the 2017 JGR paper
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 
-Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = [255  265  273]; % pure water, temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = 265; % pure water, temperatures at the bottom of the Ice Ih
 % Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K = [255 260 265 270 273]; % pure water, temperatures at the bottom of the Ice Ih
 Params.LineStyle='-';
 % Planet.rho_sil_withcore_kgm3 = 3360; % for the saturated echondrite
