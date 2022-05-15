@@ -135,7 +135,7 @@ Planet.Ocean.fnTfreeze_K = griddedInterpolant(PPg',wwg',TT');
 
 % Planet.Ocean.w_ocean_pct=0; Planet.Tb_K = [255 260 265 270]; % 0 Wt% temperatures at the bottom of the Ice Ih
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 255 260 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [252 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = 266; % 10 Wt% temperatures at the bottom of the Ice Ih; as currently in the manuscript
 % Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [251.1 262 266]; % 10 Wt% temperatures at the bottom of the Ice Ih
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 

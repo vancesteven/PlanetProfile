@@ -1,6 +1,6 @@
 % Run this function with all CALC_NEW flags in config.m set to 1
 % to test for errors before making a commit.
-function PPtest
+function PPTest
     PPEuropa
     PPGanymede    
     PPCallisto
@@ -9,5 +9,5 @@ function PPtest
     PPAriel
     PPMiranda
     PPTriton
-    MagResponseParamSpaceJupiter
+    MagResponseParamSpace
 end

@@ -148,21 +148,19 @@ Params.wrefLine = '--';
 % outPlanet = PlanetProfile(Planet,Seismic,Params);
 
 
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [250 255.7]; % 10 Wt% temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = 255.7; % 10 Wt% temperatures at the bottom of the Ice Ih
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 
 asymTables = printInteriorAsym(outPlanet);
 fpath_asym = [Planet.name '/interior_model_asym_' Planet.name];
-for iT=1:length(Planet.Tb_K)
-    fullPath = [fpath_asym 'Zb' char(outPlanet.ice_thk(iT)) 'km.txt'];
-    writetable(asymTables{iT},fullPath);
-    disp(['Interior conductivity model saved to ' fullPath])
-end
+fullPath = [fpath_asym 'Zb' char(outPlanet.ice_thk) 'km.txt'];
+writetable(asymTables{1},fullPath);
+disp(['Interior conductivity model saved to ' fullPath])
 
 outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 
 Params.LineStyle=':';
-Planet.Ocean.w_ocean_pct=13; Planet.Tb_K = [250.8 257.4]; % 10 Wt% temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=13; Planet.Tb_K = 257.4; % 10 Wt% temperatures at the bottom of the Ice Ih
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 outWaveforms = LayeredInductionResponseJupiter(outPlanet,FTdata,Params);
 

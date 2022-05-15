@@ -142,7 +142,7 @@ Params.HOLD = 0; % overlay previous run
 Params.Legend = false;
 Params.LegendPosition = 'North';
 Params.ylim = [910 1170];
-Params.Pseafloor_MPa = 10;
+Params.Pseafloor_MPa = 30;
 Params.nsteps_iceI = 20;
 Params.nsteps_ocean = 100; 
 Params.nsteps_ref_rho = 30;
@@ -180,11 +180,11 @@ Params.colororder = 'cm';
 Params.wrefLine = '--';
 Params.wref=[0 5 10 15];
 % 
-Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = [272.72 273.12];
+Planet.Ocean.w_ocean_pct=10; Planet.Tb_K = 269.2;
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 outWaveforms = LayeredInductionResponse(outPlanet,FTdata,Params);
 
-Planet.Ocean.w_ocean_pct=1; Planet.Tb_K = [273.12 273.49];
+Planet.Ocean.w_ocean_pct=1; Planet.Tb_K = 273.1;
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 outWaveforms = LayeredInductionResponse(outPlanet,FTdata,Params);
 
@@ -192,7 +192,7 @@ outWaveforms = LayeredInductionResponse(outPlanet,FTdata,Params);
 % running pure water for the MgSO4 case illustrates >1oC error in the Margules parameterization
 Params.LineStyle='-';
 Params.colororder = 'cm';
-Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [273.1 273.15]; % pure water, 
+Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  273.1; % pure water, 
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 % 
 Planet.Ocean.comp='Seawater';
@@ -201,12 +201,12 @@ Params.wref=[0 34 68];
 Params.wrefLine = '-.';
 Params.colororder = 'cm';
 
-Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = [270.82  271.16];
+Planet.Ocean.w_ocean_pct=gsw_SSO; Planet.Tb_K = 270.82;
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 outWaveforms = LayeredInductionResponse(outPlanet,FTdata,Params);
 
 Planet.ALLOW_NEGALPHA = 0;
-Planet.Ocean.w_ocean_pct=0.1*gsw_SSO; Planet.Tb_K = [272.57  272.89];
+Planet.Ocean.w_ocean_pct=0.1*gsw_SSO; Planet.Tb_K = 272.57;
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 outWaveforms = LayeredInductionResponse(outPlanet,FTdata,Params);
 
@@ -214,7 +214,7 @@ outWaveforms = LayeredInductionResponse(outPlanet,FTdata,Params);
 Params.HOLD = 1; % overlay previous runs
 Params.LineStyle='-';
 Params.colororder = 'cm';
-Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  [272.74 273.08]; % pure water, 
+Planet.Ocean.w_ocean_pct=0;  Planet.Tb_K =  272.74; % pure water, 
 outPlanet = PlanetProfile(Planet,Seismic,Params);
 
 Params.wrefLine =  ':';
@@ -227,5 +227,5 @@ Params.CALC_NEW_REFPROFILES=1;
 Params.CALC_NEW_SOUNDSPEEDS=1;
 Params.HOLD = 1;
 Params.LineStyle =  ':';
-Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = [269.535 269.905]; % 0 Wt% temperatures at the bottom of the Ice Ih
+Planet.Ocean.w_ocean_pct=3; Planet.Tb_K = 269.535; % 0 Wt% temperatures at the bottom of the Ice Ih
 %PlanetProfile(Planet,Seismic,Params)

@@ -4,7 +4,7 @@ function cfg = config
     % such as layer thicknesses will not change between runs.
     
     % Runtime options
-    cfg.CALC_NEW =       1;
+    cfg.CALC_NEW =       0;
     cfg.TESTING =        0; % For comparing between branches in python conversion
     cfg.CALC_NEW_REF =   1;
     cfg.CALC_NEW_SOUND = 1;
@@ -19,14 +19,15 @@ function cfg = config
     cfg.DEPRECATED =     0; % Whether to allow deprecated code to run. Will often cause errors.
     
     % Magnetic induction calculation settings
-    cfg.DO_EUR = 0;
-    cfg.DO_GAN = 0;
-    cfg.DO_CAL = 0;
+    cfg.DO_EUR = 1;
+    cfg.DO_GAN = 1;
+    cfg.DO_CAL = 1;
     cfg.DO_ENC = 1;
-    cfg.DO_MIR = 0;
-    cfg.DO_ARI = 0;
+    cfg.DO_MIR = 1;
+    cfg.DO_ARI = 1;
     cfg.DO_PER = 1; % Convert frequency axes to periods
     cfg.DO_LEGEND = 0;
+    cfg.PLOT_PERMEABILITY = 0; % Permeability is not currently implemented, so this should be 0 until it is.
     cfg.PLOT_FFT = 1; % Whether to show plots of fourier space
     cfg.PLOT_CONTOURS = 1; % Contours or surfaces
     cfg.PLOT_V2020S = 1; % Mark the selected ocean/conductivity combos used in Vance et al. 2020
