@@ -948,7 +948,7 @@ def RunPPfile(bodyname, fName, Params=None):
             CopyCarefully(default, expected)
         else:
             log.warning(f'{expected} does not exist and no default was found at {default}.')
-    Planet = importlib.import_module(f'{bodyname}.{loadName}')
+    Planet = importlib.import_module(f'{bodyname}.{loadName}').Planet
     Planet, Params = PlanetProfile(Planet, Params)
     return Planet, Params
 

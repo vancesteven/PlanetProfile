@@ -5,9 +5,10 @@ def CopyCarefully(source, destination):
         if os.path.dirname(destination) != '':
             os.makedirs(os.path.dirname(destination), exist_ok=True)
         shutil.copy(source, destination)
-    except OSError:
+    except OSError as err:
         raise OSError(f'Unable to copy from {source} to {destination}. ' +
-                      f'Check that you have write permission for {os.getcwd()}.')
+                      f'Check that you have write permission for {os.getcwd()}. ' +
+                      f'The error reported was:\n{err}')
     else:
         print(f'{destination} was copied from default at {source}.')
 
@@ -19,9 +20,10 @@ def CopyOnlyIfNeeded(source, destination):
             if os.path.dirname(destination) != '':
                 os.makedirs(os.path.dirname(destination), exist_ok=True)
             shutil.copy(source, destination)
-        except OSError:
+        except OSError as err:
             raise OSError(f'Unable to copy from {source} to {destination}. ' +
-                          f'Check that you have write permission for {os.getcwd()}.')
+                          f'Check that you have write permission for {os.getcwd()}. ' +
+                          f'The error reported was:\n{err}')
         else:
             print(f'{destination} was copied from default at {source}.')
 
