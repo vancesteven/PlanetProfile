@@ -1,7 +1,9 @@
 """ Load in default settings, then overwrite them with the user's settings in top-level dir. """
-import logging as log
+from warnings import warn
+import logging
 import multiprocessing as mtp
 from functools import partial, partialmethod
+import MoonMag.symmetry_funcs, MoonMag.asymmetry_funcs
 import matplotlib
 import time
 
@@ -39,15 +41,15 @@ from configPPplots import \
 
 # Check config file versions and warn user if they differ
 if configVersion != userConfigVersion:
-    raise UserWarning(f'User configPP file is version {userConfigVersion}, but the default file is ' +
+    warn(f'User configPP file is version {userConfigVersion}, but the default file is ' +
                       f'version {configVersion}. Some settings may be missing; default values will be used. ' +
                       'To align the file version, delete configPP.py and run again, or execute reset.py.')
 if configInductVersion != userConfigInductVersion:
-    raise UserWarning(f'User configPPinduct file is version {userConfigInductVersion}, but the default file is ' +
+    warn(f'User configPPinduct file is version {userConfigInductVersion}, but the default file is ' +
                       f'version {configInductVersion}. Some settings may be missing; default values will be used. ' +
                       'To align the file version, delete configPPinduct.py and run again, or execute reset.py.')
 if configPlotsVersion != userConfigPlotsVersion:
-    raise UserWarning(f'User configPPplots file is version {userConfigPlotsVersion}, but the default file is ' +
+    warn(f'User configPPplots file is version {userConfigPlotsVersion}, but the default file is ' +
                       f'version {configPlotsVersion}. Some settings may be missing; default values will be used. ' +
                       'To align the file version, delete configPPplots.py and run again, or execute reset.py.')
 
@@ -84,19 +86,12 @@ Params.rhoRef_kgm3 = {}
 Params.nRef = {}
 Params.nRefPts = {}
 
-# Parallel processing toggles
-if Params.DO_PARALLEL:
-    Params.maxCores = mtp.cpu_count()
-else:
-    Params.maxCores = 1
-    log.info('DO_PARALLEL is False. Blocking parallel execution.')
-    
 # Create parallel printout log level
-log.PROFILE = log.WARN + 5
-Params.logParallel = log.PROFILE + 0
-log.addLevelName(log.PROFILE, 'PROFILE')
-log.Logger.profile = partialmethod(log.Logger.log, log.PROFILE)
-log.profile = partial(log.log, log.PROFILE)
+logging.PROFILE = logging.WARN + 5
+Params.logParallel = logging.PROFILE + 0
+logging.addLevelName(logging.PROFILE, 'PROFILE')
+logging.Logger.profile = partialmethod(logging.Logger.log, logging.PROFILE)
+logging.profile = partial(logging.log, logging.PROFILE)
 if Params.VERBOSE:
     # Allow debug messages to be printed if VERBOSE is selected
     Params.logParallel -= 30
@@ -105,19 +100,33 @@ elif Params.QUIET:
     Params.logParallel += 10
     
 # Set up message logging and apply verbosity level
+log = logging.getLogger('PlanetProfile')
 if Params.VERBOSE:
-    logLevel = log.DEBUG
+    logLevel = logging.DEBUG
 elif Params.QUIET:
-    logLevel = log.WARN
+    logLevel = logging.WARN
 else:
-    logLevel = log.INFO
-root = log.getLogger()
-if root.handlers:
-    for handler in root.handlers:
-        root.removeHandler(handler)
-log.basicConfig(level=logLevel, format=Params.printFmt)
-log.getLogger('matplotlib').setLevel(log.WARNING)
+    logLevel = logging.INFO
+if Params.QUIET_MOONMAG:
+    logLevelMoonMag = logging.WARNING
+else:
+    logLevelMoonMag = logLevel
+
+stream = logging.StreamHandler()
+stream.setFormatter(logging.Formatter(Params.printFmt))
+log.setLevel(logLevel)
+log.addHandler(stream)
+logging.getLogger('matplotlib').setLevel(logging.WARNING)
+logging.getLogger('PIL').setLevel(logging.WARNING)
+logging.getLogger('MoonMag').setLevel(logLevelMoonMag)
 log.debug('Printing verbose runtime messages. Toggle with Params.VERBOSE in configPP.py.')
+
+# Parallel processing toggles
+if Params.DO_PARALLEL:
+    Params.maxCores = mtp.cpu_count()
+else:
+    Params.maxCores = 1
+    log.info('DO_PARALLEL is False. Blocking parallel execution.')
 
 # Add Test body settings to InductParams
 [getattr(InductParams, attr).update({'Test': getattr(InductParams, attr)[userTestBody]})

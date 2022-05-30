@@ -1,8 +1,11 @@
 import numpy as np
-import logging as log
+import logging
 import scipy.interpolate as spi
 from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices
 from PlanetProfile.Utilities.defineStructs import Constants
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def ElecConduct(Planet, Params):
     """ Calculate/assign electrical conductivities for each layer

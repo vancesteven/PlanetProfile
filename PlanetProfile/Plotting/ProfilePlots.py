@@ -1,6 +1,6 @@
 import os
 import numpy as np
-import logging as log
+import logging
 import matplotlib.pyplot as plt
 import matplotlib.colorbar as mcbar
 from matplotlib.gridspec import GridSpec
@@ -12,6 +12,9 @@ from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc, Indu
 from PlanetProfile.Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
 from PlanetProfile.Utilities.SetupInit import SetupFilenames
 from PlanetProfile.Utilities.defineStructs import Constants
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def GeneratePlots(PlanetList, Params):
 

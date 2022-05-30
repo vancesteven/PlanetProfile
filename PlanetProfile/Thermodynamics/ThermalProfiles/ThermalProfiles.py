@@ -1,9 +1,12 @@
 import numpy as np
-import logging as log
+import logging
 from PlanetProfile.Utilities.defineStructs import Constants
 from seafreeze import seafreeze as SeaFreeze
 from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv, GetTfreeze, GetPfreeze, kThermMelinder2007, \
     kThermHobbs1974, kThermIsobaricAnderssonIbari2005, kThermIsothermalAnderssonIbari2005
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa,
                                  oceanEOS, iceEOS, phaseBot, EQUIL_Q):

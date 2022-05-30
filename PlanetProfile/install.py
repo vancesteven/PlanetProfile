@@ -1,6 +1,5 @@
 import os, shutil
 from glob import glob
-import logging as log
 from PlanetProfile import _Defaults, configTemplates, configLocals, CopyOnlyIfNeeded
 
 def PPinstall():

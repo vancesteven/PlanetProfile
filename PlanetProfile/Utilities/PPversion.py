@@ -1,23 +1,26 @@
 from importlib.metadata import version
 # Current PlanetProfile version tag
-ppVerNum = '2.0.0'
+ppVerNum = '2.0.1-dev'
 # Compatible version tag numbers
 compatNums = {
     'seafreeze': '0.9.2',
     'gsw': '3.4.0',
-    'obspy': '1.2.2'
+    'obspy': '1.2.2',
+    'MoonMag': '1.4.0'
 }
 # Printable package names
 pkgNames = {
     'seafreeze': 'SeaFreeze',
     'gsw': 'GSW',
-    'obspy': 'ObsPy.TauP'
+    'obspy': 'ObsPy.TauP',
+    'MoonMag': 'MoonMag'
 }
 # Instructions for installation
 installInstruct = {
     'seafreeze': 'pip install SeaFreeze',
     'gsw': 'conda install -c conda-forge gsw',
-    'obspy': 'conda install -c conda-forge obspy'
+    'obspy': 'conda install -c conda-forge obspy',
+    'MoonMag': 'pip install MoonMag'
 }
 
 

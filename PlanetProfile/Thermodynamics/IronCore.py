@@ -1,5 +1,8 @@
 import numpy as np
-import logging as log
+import logging
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def IronCoreLayers(Planet, Params,
                    indsSilValid, nSilTooBig, nProfiles, Psil_MPa, Tsil_K, rSil_m, MAboveSil_kg, gSil_ms2):

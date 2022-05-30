@@ -1,11 +1,14 @@
 import numpy as np
-import logging as log
+import logging
 import scipy.interpolate as spi
 from PlanetProfile.Thermodynamics.Geophysical import PropagateConduction, EvalLayerProperties, \
     PorosityCorrectionVacIce, PorosityCorrectionFilledIce
 from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv, GetIceEOS
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import GetPbConduct
 from PlanetProfile.Utilities.defineStructs import Constants
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def IceIWholeConductSolid(Planet, Params):
     """ Calculate conductive profile in ice Ih layers based on a linear pressure profile

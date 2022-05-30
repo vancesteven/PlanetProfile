@@ -1,5 +1,8 @@
 from PlanetProfile.Main import InitBayes, PlanetProfile, UpdateRun
-import logging as log
+import logging
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def TestBayes(bodyname):
 

@@ -1,5 +1,5 @@
 import numpy as np
-import logging as log
+import logging
 
 from PlanetProfile.Thermodynamics.IronCore import IronCoreLayers
 from PlanetProfile.Thermodynamics.HydroEOS import GetPfreeze, GetTfreeze, \
@@ -14,6 +14,9 @@ from PlanetProfile.Thermodynamics.ThermalProfiles.IceConduction import IceIWhole
     IceIIIConductSolid, IceIIIConductPorous, IceVConductSolid, IceVConductPorous
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConductiveTemperature, ConvectionDeschampsSotin2001
 from PlanetProfile.Utilities.defineStructs import Constants
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def IceLayers(Planet, Params):
     """ Layer propagation from surface downward through the ice using geophysics.

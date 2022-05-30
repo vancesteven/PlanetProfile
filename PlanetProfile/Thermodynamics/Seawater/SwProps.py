@@ -1,5 +1,5 @@
 import numpy as np
-import logging as log
+import logging
 from gsw.freezing import t_freezing as gswTfreeze
 from gsw.conversions import CT_from_t, C_from_SP as gswConduct_mScm
 from gsw.density import rho, alpha as alphaCT, sound_speed as gswVP_ms
@@ -7,6 +7,9 @@ from gsw.energy import enthalpy
 from gsw._wrapped_ufuncs import alpha_wrt_t_exact as alpha
 from PlanetProfile.Thermodynamics.InnerEOS import ResetNearestExtrap
 from PlanetProfile.Utilities.defineStructs import Constants
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def SwProps(P_MPa, T_K, wOcean_ppt):
     """ Determine density rho, heat capacity Cp, thermal expansivity alpha,

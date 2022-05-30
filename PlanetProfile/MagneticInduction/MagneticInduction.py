@@ -1,6 +1,6 @@
 import os
 import numpy as np
-import logging as log
+import logging
 import scipy.interpolate as spi
 from scipy.integrate import solve_ivp as ODEsolve
 import scipy.special as sps
@@ -12,6 +12,9 @@ from PlanetProfile.MagneticInduction.Moments import Excitations
 from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq as GeodesyNorm2chipq, \
     get_all_Xid as LoadXid
 from MoonMag.symmetry_funcs import InducedAeList as AeList
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def MagneticInduction(Planet, Params):
     """ Calculate induced magnetic moments for the body and prints them to disk.

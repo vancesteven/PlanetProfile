@@ -1,9 +1,12 @@
 import os
 import numpy as np
-import logging as log
+import logging
 from scipy.interpolate import RectBivariateSpline, interp1d as Interp1D, griddata as GridData
 from PlanetProfile import _ROOT
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def GetInnerEOS(EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
                 HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None,

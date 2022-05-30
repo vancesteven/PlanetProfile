@@ -4,18 +4,19 @@ Overridden by any settings contained within PPBody.py files.
 """
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, Constants
 
-configVersion = 1  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 2  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 Params = ParamsStruct()
-Params.VERBOSE = True  # Provides extra runtime messages. Overrides QUIET below
-Params.QUIET = False  # Hides all log messages except warnings and errors
+Params.VERBOSE =       True  # Provides extra runtime messages. Overrides QUIET below
+Params.QUIET =         False  # Hides all log messages except warnings and errors
+Params.QUIET_MOONMAG = True  # If True, sets MoonMag logging level to WARNING, otherwise uses the same as PlanetProfile.
 Params.printFmt = '[%(levelname)s] %(message)s'  # Format for printing log messages
 # The below flags allow or prevents extrapolation of EOS functions beyond the definition grid.
 Params.EXTRAP_ICE = {'Ih':False, 'II':False, 'III':False, 'V':False, 'VI':False, 'Clath':False}
 Params.EXTRAP_OCEAN = False
-Params.EXTRAP_REF = True  # Allow refprofile extrapolation separate from normal ocean
-Params.EXTRAP_SIL = False
-Params.EXTRAP_Fe = False
+Params.EXTRAP_REF =   True  # Allow refprofile extrapolation separate from normal ocean
+Params.EXTRAP_SIL =   False
+Params.EXTRAP_Fe =    False
 Params.lookupInterpMethod = 'nearest'  # Interpolation method to use for EOS lookup tables. Options are 'nearest', 'linear', 'cubic'.
 
 Params.CALC_NEW =         True  # Recalculate profiles? If not, read data from disk and re-plot.
@@ -35,20 +36,20 @@ Params.DISP_TABLE =       True  # Whether to print latex-formatted table
 Params.DEPRECATED =       False  # Whether to allow deprecated code to run. Will often cause errors.
 
 # Plot Settings
-Params.SKIP_PLOTS = False  # Whether to skip creation of all plots
-Params.PLOT_GRAVITY = False  # Whether to plot Gravity and Pressure
+Params.SKIP_PLOTS =       False  # Whether to skip creation of all plots
+Params.PLOT_GRAVITY =     False  # Whether to plot Gravity and Pressure
 Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
-Params.PLOT_REF = True  # Whether to plot reference melting curve densities on hydrosphere plot
-Params.PLOT_SIGS = False  # Make a plot of conductivity as a function of radius to include on hydrosphere plot
-Params.PLOT_TRADEOFF = False  # Whether to plot mantle properties tradeoff
-Params.PLOT_WEDGE = True  # Whether to plot interior wedge diagram
-Params.LEGEND = True  # Whether to include legends
+Params.PLOT_REF =         True  # Whether to plot reference melting curve densities on hydrosphere plot
+Params.PLOT_SIGS =        False  # Make a plot of conductivity as a function of radius to include on hydrosphere plot
+Params.PLOT_TRADEOFF =    False  # Whether to plot mantle properties tradeoff
+Params.PLOT_WEDGE =       True  # Whether to plot interior wedge diagram
+Params.LEGEND =           True  # Whether to include legends
 
 # Magnetic induction plot settings
-Params.DO_INDUCTOGRAM = False  # Whether to plot an inductogram for the body in question
-Params.PLOT_FFT = True  # Whether to show plots of fourier space
+Params.DO_INDUCTOGRAM =          False  # Whether to plot an inductogram for the body in question
+Params.PLOT_FFT =                True  # Whether to show plots of fourier space
 Params.INDUCTOGRAM_IN_PROGRESS = False  # Whether we are currently working on constructing an inductogram
-Params.COMBINE_BCOMPS = False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
+Params.COMBINE_BCOMPS =          False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
 
 # Reference profile settings
 # Salinities of reference melting curves in ppt

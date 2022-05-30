@@ -1,7 +1,7 @@
 # Import necessary Python modules
 import os, sys, time, importlib
 import numpy as np
-import logging as log
+import logging
 from scipy.io import savemat, loadmat
 from copy import deepcopy
 from distutils.util import strtobool
@@ -25,6 +25,8 @@ from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSum
 # Parallel processing
 import multiprocessing as mtp
 mtpFork = mtp.get_context('fork')
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 """ MAIN RUN BLOCK """
 def run(bodyname=None, opt=None, fNames=None):
@@ -328,6 +330,7 @@ def WriteProfile(Planet, Params):
         f'sigmaOceanMean_Sm = {Planet.Ocean.sigmaMean_Sm:.3f}',
         f'sigmaPoreMean_Sm = {Planet.Sil.sigmaPoreMean_Sm:.3f}',
         f'sigmaPorousLayerMean_Sm = {Planet.Sil.sigmaPorousLayerMean_Sm:.3f}',
+        f'Tconv_K = {Planet.Tconv_K:.3e}',
         f'etaConv_Pas = {Planet.etaConv_Pas:.3e}',
         f'RaConvect = {Planet.RaConvect:.2e}',
         f'RaConvectIII = {Planet.RaConvectIII:.2e}',
@@ -471,10 +474,10 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Core.rhoMean_kgm3, Planet.MH2O_kg, Planet.Mrock_kg, Planet.Mcore_kg, Planet.Mice_kg, \
         Planet.Msalt_kg, Planet.MporeSalt_kg, Planet.Mocean_kg, Planet.Mfluid_kg, Planet.MporeFluid_kg, \
         Planet.Mclath_kg, Planet.MclathGas_kg, Planet.Ocean.sigmaMean_Sm, Planet.Sil.sigmaPoreMean_Sm, \
-        Planet.Sil.sigmaPorousLayerMean_Sm, Planet.etaConv_Pas, Planet.RaConvect, Planet.RaConvectIII, Planet.RaConvectV, \
+        Planet.Sil.sigmaPorousLayerMean_Sm, Planet.Tconv_K, Planet.etaConv_Pas, Planet.RaConvect, Planet.RaConvectIII, Planet.RaConvectV, \
         Planet.RaCrit, Planet.RaCritIII, Planet.RaCritV, Planet.eLid_m, Planet.eLidIII_m, Planet.eLidV_m, \
         Planet.Dconv_m, Planet.DconvIII_m, Planet.DconvV_m, Planet.deltaTBL_m, Planet.deltaTBLIII_m, Planet.deltaTBLV_m \
-            = (float(f.readline().split('=')[-1]) for _ in range(62))
+            = (float(f.readline().split('=')[-1]) for _ in range(63))
         # Note porosity flags
         Planet.Do.POROUS_ICE = bool(strtobool(f.readline().split('=')[-1].strip()))
         Planet.Do.POROUS_ROCK = Planet.Sil.phiRockMax_frac > 0
@@ -521,7 +524,7 @@ def InitBayes(bodyname, fEnd):
     Params.CALC_NEW_INDUCT = True
     # Quiet messages unless we're debugging
     if bodyname != 'Test':
-        log.basicConfig(level=log.WARN+5, format=Params.printFmt, force=True)
+        log.setLevel(logging.WARN+5)
 
     # Fetch starting parameters
     fName = f'PP{bodyname}{fEnd}.py'
@@ -845,10 +848,10 @@ def ParPlanet(PlanetList, Params):
             PlanetList (PlanetStruct, shape N, NxM, Nx...): List of Planet objects
                 over which to run in parallel. 
     """
-    if Params.logParallel > log.INFO:
+    if Params.logParallel > logging.INFO:
         log.info('Quieting messages to avoid spam in gridded run.')
-    saveLevel = log.getLogger().level + 0
-    log.getLogger().setLevel(Params.logParallel)
+    saveLevel = log.getEffectiveLevel() + 0
+    log.setLevel(Params.logParallel)
     dims = np.shape(PlanetList)
     nParDims = np.size(dims)
     if nParDims == 1 and np.size(PlanetList) == 1:
@@ -883,7 +886,7 @@ def ParPlanet(PlanetList, Params):
         PlanetList = np.reshape(PlanetList1D, dims)
 
         # Return settings to what they were before we entered here
-        log.basicConfig(level=saveLevel, format=Params.printFmt)
+        log.setLevel(saveLevel)
         Params.INDUCTOGRAM_IN_PROGRESS = False
 
     return PlanetList

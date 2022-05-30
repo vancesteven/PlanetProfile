@@ -1,8 +1,11 @@
 import numpy as np
-import logging as log
+import logging
 from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConductiveTemperature
 from PlanetProfile.Utilities.defineStructs import Constants
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def EvalLayerProperties(Planet, Params, iStart, iEnd, EOS, P_MPa, T_K):
     """ Evaluate EOS functions for a given pressure and temperature range.

@@ -2,13 +2,16 @@
 
 import os
 import numpy as np
-import logging as log
+import logging
 from PlanetProfile import _ROOT
 from PlanetProfile.GetConfig import FigMisc
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Utilities.PPversion import ppVerNum, CheckCompat
 from PlanetProfile.Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def SetupInit(Planet, Params):
 
@@ -20,6 +23,7 @@ def SetupInit(Planet, Params):
     CheckCompat('seafreeze')  # SeaFreeze
     if Planet.Ocean.comp == 'Seawater': CheckCompat('gsw')  # Gibbs Seawater
     if Planet.Do.TAUP_SEISMIC: CheckCompat('obspy')  # TauP (accessed as obspy.taup)
+    if Params.CALC_NEW_INDUCT: CheckCompat('MoonMag')  # MoonMag
 
     # Waterless bodies. We have to do this first, before filename
     # generation, to ensure ocean comp is set.
@@ -161,6 +165,9 @@ def SetupInit(Planet, Params):
         Planet.RaCrit = np.nan
         Planet.RaCritIII = np.nan
         Planet.RaCritV = np.nan
+        Planet.Tconv_K = np.nan
+        Planet.TconvIII_K = np.nan
+        Planet.TconvV_K = np.nan
         Planet.eLid_m = 0.0
         Planet.eLidIII_m = 0.0
         Planet.eLidV_m = 0.0

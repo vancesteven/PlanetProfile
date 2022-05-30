@@ -6,7 +6,7 @@
     body in the Test/ directory.
 """
 
-import logging as log
+import logging
 import numpy as np
 import importlib, os, fnmatch, sys, time
 from copy import deepcopy
@@ -15,6 +15,17 @@ from PlanetProfile.GetConfig import Params
 from PlanetProfile.Main import PlanetProfile, InductOgram, ReloadInductOgram
 from PlanetProfile.Plotting.ProfilePlots import PlotInductOgram
 from PlanetProfile.Test.TestBayes import TestBayes
+
+# Include timestamps in messages and force debug level logging for all testing
+log = logging.getLogger('PlanetProfile')
+stream = logging.StreamHandler()
+stream.setFormatter(logging.Formatter('[%(levelname)s] %(asctime)s - %(message)s'))
+log.setLevel(logging.DEBUG)
+log.addHandler(stream)
+logging.getLogger('matplotlib').setLevel(logging.WARNING)
+logging.getLogger('PIL').setLevel(logging.WARNING)
+logging.getLogger('MoonMag').setLevel(logging.DEBUG)
+
 
 def full():
     testBase = f'{_TestImport}.PPTest'
@@ -153,8 +164,6 @@ def TestInductOgram(testNum, Params, CALC_NEW=True):
 
 
 def simple():
-    # Include timestamps in messages and force debug level logging
-    log.basicConfig(level=log.DEBUG, format='[%(levelname)s] %(asctime)s - %(message)s')
     testMod = f'{_TestImport}.PPTest'
 
     # Set general testing config atop standard config options
@@ -185,14 +194,6 @@ def simple():
 
 
 if __name__ == '__main__':
-    # Include timestamps in messages and force debug level logging
-    root = log.getLogger()
-    if root.handlers:
-        for handler in root.handlers:
-            root.removeHandler(handler)
-    log.basicConfig(level=log.DEBUG, format='[%(levelname)s] %(asctime)s - %(message)s')
-    log.getLogger().setLevel(log.DEBUG)
-
     if len(sys.argv) > 1:
         # Test type was passed as command line argument
         testType = sys.argv[1]

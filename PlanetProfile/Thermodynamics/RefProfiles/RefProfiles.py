@@ -1,9 +1,12 @@
 import os
 import numpy as np
-import logging as log
+import logging
 from PlanetProfile import _ROOT
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetTfreeze
 from PlanetProfile.Utilities.defineStructs import EOSlist
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def CalcRefProfiles(PlanetList, Params):
 

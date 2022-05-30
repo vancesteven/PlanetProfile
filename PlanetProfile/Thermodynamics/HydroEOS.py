@@ -1,5 +1,5 @@
 import numpy as np
-import logging as log
+import logging
 from collections.abc import Iterable
 from scipy.interpolate import NearestNDInterpolator, RectBivariateSpline
 from scipy.optimize import root_scalar as GetZero
@@ -13,6 +13,9 @@ from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4Phase
     MgSO4Seismic, MgSO4Conduct
 from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
                 EXTRAP=False, FORCE_NEW=False):

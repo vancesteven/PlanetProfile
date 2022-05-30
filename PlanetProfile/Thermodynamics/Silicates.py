@@ -1,8 +1,11 @@
 import numpy as np
-import logging as log
+import logging
 from PlanetProfile.Utilities.defineStructs import Constants
 from PlanetProfile.Thermodynamics.Geophysical import PropagateConductionProfilesSolid, \
     PropagateConductionProfilesPorous
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def SilicateLayers(Planet, Params):
     """ Determines properties of silicate layers based on input Perple_X table

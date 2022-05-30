@@ -1,6 +1,6 @@
 import os
 import numpy as np
-import logging as log
+import logging
 from scipy.io import loadmat
 from collections.abc import Iterable
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline, interp1d
@@ -8,6 +8,9 @@ from seafreeze import seafreeze as SeaFreeze
 from PlanetProfile import _ROOT
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Thermodynamics.InnerEOS import ResetNearestExtrap
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def Molal2ppt(b_molkg, m_gmol):
     """ Convert dissolved salt concentration from molality to ppt
