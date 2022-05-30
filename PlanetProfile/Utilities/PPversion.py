@@ -22,6 +22,13 @@ installInstruct = {
     'obspy': 'conda install -c conda-forge obspy',
     'MoonMag': 'pip install MoonMag'
 }
+# Instructions for upgrading
+upgradeInstruct = {
+    'seafreeze': 'pip install --upgrade SeaFreeze',
+    'gsw': 'conda update gsw',
+    'obspy': 'conda update obspy',
+    'MoonMag': 'pip install --upgrade MoonMag'
+}
 
 
 def CheckCompat(package):
@@ -35,7 +42,8 @@ def CheckCompat(package):
     pkgCompatNums = [int(numStr) for numStr in compatVer.split('.')]
     pkgVerNums = [int(numStr) for numStr in pkgVer.split('.')[:3]]
     pkgVerWarning = f'WARNING: Installed {pkgNames[package]} version is {pkgVer} but this version of ' + \
-                    f'PlanetProfile is marked compatible with v{compatVer}.'
+                    f'PlanetProfile is marked compatible with v{compatVer}. Upgrade it with the command: ' + \
+                    upgradeInstruct[package]
     # Check each version number tag hierarchically to see if we have tested with a newer version
     if((pkgCompatNums[0] > pkgVerNums[0]) or
       ((pkgCompatNums[0] == pkgVerNums[0]) and (pkgCompatNums[1] > pkgVerNums[1])) or
