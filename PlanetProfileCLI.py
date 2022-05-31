@@ -1,4 +1,4 @@
-import sys
+import os, sys
 from PlanetProfile.Main import run
 
 if __name__ == '__main__':
@@ -29,7 +29,16 @@ if __name__ == '__main__':
     elif 'PP' in sys.argv[1]:
         print('PP in first CL arg -- interpreting as (list of) filename(s).')
         fNames = sys.argv[1:]
-        bodyname = ''
+        if len(fNames) == 1:
+            bodyname = os.path.split(fNames[0])[0]
+            fNames = os.path.split(fNames[0])[1:]
+        else:
+            bodynames = [os.path.split(fName)[0] for fName in fNames]
+            if np.all(bodynames == bodynames[0]):
+                bodyname = bodynames[0]
+                fNames = [os.path.split(fName)[1] for fName in fNames]
+            else:
+                bodyname = ''
     elif '.txt' in sys.argv[1]:
         print('.txt in first CL arg -- interpreting as (list of) filename(s) to reload.')
         fNames = sys.argv[1:]
