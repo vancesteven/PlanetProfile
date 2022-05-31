@@ -186,8 +186,12 @@ def PlotWedge(PlanetList, Params):
 
         # Construct labels
         if Planet.Do.Fe_CORE:
-            Planet.Core.xS_ppt = (100 -int(Planet.Core.coreEOS[2:5])) * 10
-            coreLine = f'\ce{{Fe}} core with \SI{{{Planet.Core.xS_ppt / FigLbl.xDiv}}}{{{FigLbl.xUnits}}}~\ce{{S}}'
+            Planet.Core.xS_frac = (100 -int(Planet.Core.coreEOS[2:5])) / 100
+            if FigLbl.x_IN_WTPCT:
+                xStr = f'{Planet.Core.xS_frac * FigLbl.xMult:.0f}'
+            else:
+                xStr = f'{Planet.Core.xS_frac * FigLbl.xMult:.2f}'
+            coreLine = f'\ce{{Fe}} core with \SI{{{xStr}}}{{{FigLbl.xUnits}}}~\ce{{S}}'
         elif 'undifferentiated' in Planet.Sil.EOS.comp:
             coreLine = 'undifferentiated'
         else:
@@ -434,7 +438,7 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
 
     if InductionList[0].SINGLE_COMP:
         FigLbl.singleComp(InductionList[0].comps[0])
-    FigLbl.setInduction(InductionList[0].bodyname, Params.Induct, InductionList[0].Texc_hr.values())
+    FigLbl.SetInduction(InductionList[0].bodyname, Params.Induct, InductionList[0].Texc_hr.values())
 
     sigma_Sm, D_km, ptColors = (np.empty_like(InductionList) for _ in range(3))
     for i,Induction in enumerate(InductionList):
@@ -589,7 +593,7 @@ def PlotInductOgram(Induction, Params):
              np.abs(Induction.Biy_nT), np.abs(Induction.Biz_nT)]
     if Induction.SINGLE_COMP:
         FigLbl.singleComp(Induction.comps[0])
-    FigLbl.setInduction(Induction.bodyname, Params.Induct, Induction.Texc_hr.values())
+    FigLbl.SetInduction(Induction.bodyname, Params.Induct, Induction.Texc_hr.values())
     iSort = np.argsort(list(Induction.Texc_hr.values()))
 
     # Adjust phi values in case we're plotting void volume % instead of void fraction
@@ -805,5 +809,74 @@ def PlotInductOgram(Induction, Params):
             fig.savefig(Params.FigureFiles.induct[fLabel], format=FigMisc.figFormat, dpi=FigMisc.dpi)
             log.debug(f'Plot saved to file: {Params.FigureFiles.induct[fLabel]}')
             plt.close()
+
+    return
+
+def PlotExploreOgram(ExplorationList, Params):
+    """ For plotting points showing the various models used in making
+        exploreogram plots.
+    """
+
+    FigLbl.SetExploration(ExplorationList[0].bodyname, ExplorationList[0].xName, ExplorationList[0].yName, 
+                          ExplorationList[0].zName, ExplorationList[0].xScale, ExplorationList[0].yScale)
+
+    for Exploration in ExplorationList:
+        fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
+        cbarLabel = FigLbl.cbarLabelExplore
+    
+        fig.suptitle(FigLbl.explorationTitle)
+        ax.set_xlabel(FigLbl.xLabelExplore)
+        ax.set_ylabel(FigLbl.yLabelExplore)
+        ax.set_xscale(FigLbl.xScaleExplore)
+        ax.set_yscale(FigLbl.yScaleExplore)
+    
+        x = Exploration.__getattribute__(Exploration.xName) * FigLbl.xMult
+        y = Exploration.__getattribute__(Exploration.yName) * FigLbl.yMult
+        z = Exploration.__getattribute__(Exploration.zName) * FigLbl.zMult
+        mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'])
+        cont = ax.contour(x, y, z, colors='black')
+        lbls = plt.clabel(cont, fmt='%1.0f')
+        cbar = fig.colorbar(mesh)
+        # Add the min and max values to the colorbar for reading convenience
+        # We compare z values to z values to exclude nans from the max finding,
+        # exploiting the fact that nan == nan is False.
+        new_ticks = np.insert(np.append(cbar.get_ticks(), np.max(z[z == z])), 0, np.min(z[z == z]))
+        cbar.set_ticks(np.unique(new_ticks))
+        cbar.set_label(FigLbl.cbarLabelExplore, size=12)
+        
+        fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        log.debug(f'Plot saved to file: {Params.FigureFiles.explore}')
+        plt.close()
+
+    # Plot combination
+    if Params.COMPARE and np.size(ExplorationList) > 1:
+        fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
+
+        fig.suptitle(FigLbl.explorationTitle)
+        ax.set_xlabel(FigLbl.xLabelExplore)
+        ax.set_ylabel(FigLbl.yLabelExplore)
+        ax.set_xscale(FigLbl.xScaleExplore)
+        ax.set_yscale(FigLbl.yScaleExplore)
+
+        x = ExplorationList[0].__getattribute__(ExplorationList[0].xName) * FigLbl.xMult
+        y = ExplorationList[0].__getattribute__(ExplorationList[0].yName) * FigLbl.yMult
+        z = ExplorationList[0].__getattribute__(ExplorationList[0].zName) * FigLbl.zMult
+        for Exploration in ExplorationList[1:]:
+            x = np.append(x, Exploration.__getattribute__(Exploration.xName)) * FigLbl.xMult
+            y = np.append(y, Exploration.__getattribute__(Exploration.yName)) * FigLbl.yMult
+            z = np.append(z, Exploration.__getattribute__(Exploration.zName)) * FigLbl.zMult
+        mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'])
+        cont = ax.contour(x, y, z, colors='black')
+        lbls = plt.clabel(cont, fmt='%1.0f')
+        cbar = fig.colorbar(mesh)
+        # Append the max value to the colorbar for reading convenience
+        # We compare z values to z values to exclude nans from the max finding,
+        # exploiting the fact that nan == nan is False.
+        cbar.set_ticks(np.append(cbar.get_ticks(), np.max(z[z == z])))
+        cbar.set_label(FigLbl.cbarLabelExplore, size=12)
+
+        fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        log.debug(f'Plot saved to file: {Params.FigureFiles.explore}')
+        plt.close()
 
     return

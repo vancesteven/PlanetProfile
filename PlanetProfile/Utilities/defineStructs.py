@@ -236,7 +236,6 @@ class CoreSubstruct:
         self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermFe_WmK)
         # Derived quantities
-        self.rho_kgm3 = None  # Core bulk density consistent with assumed mixing ratios of Fe, FeS, etc.
         self.rhoMean_kgm3 = None  # Core bulk density calculated from final MoI match using EOS properties
         self.rhoMeanFe_kgm3 = np.nan  # Pure iron layer bulk density calculated from final MoI match using EOS properties
         self.rhoMeanFeS_kgm3 = np.nan  # FeS layer bulk density calculated from final MoI match using EOS properties
@@ -455,9 +454,13 @@ class PlanetStruct:
 """ Params substructs """
 # Construct filenames for data, saving/reloading
 class DataFilesSubstruct:
-    def __init__(self, datPath, saveBase, comp, inductBase=None):
+    def __init__(self, datPath, saveBase, comp, inductBase=None, exploreAppend=None):
         if inductBase is None:
             inductBase = saveBase
+        if exploreAppend is None:
+            self.exploreAppend = ''
+        else:
+            self.exploreAppend = f'_{exploreAppend}'
         self.path = datPath
         self.inductPath = os.path.join(self.path, 'inductionData')
         if not self.path == '' and not os.path.isdir(self.path):
@@ -469,6 +472,8 @@ class DataFilesSubstruct:
         self.saveFile = self.fName + '.txt'
         self.mantCoreFile = self.fName + '_mantleCore.txt'
         self.permFile = self.fName + '_mantlePerm.txt'
+        self.fNameExplore = self.fName + '_exploreOgram'
+        self.exploreOgramFile = f'{self.fNameExplore}{self.exploreAppend}.mat'
         self.fNameInduct = os.path.join(self.inductPath, saveBase)
         self.inductLayersFile = self.fNameInduct + '_inductLayers.txt'
         self.inducedMomentsFile = self.fNameInduct + '_inducedMoments.txt'
@@ -512,6 +517,7 @@ class FigureFilesSubstruct:
         vwedg = 'Wedge'
         induct = 'inductOgram'
         sigma = 'inductOgramSigma'
+        explore = 'exploreOgram'
         # Construct Figure Filenames
         self.vwedg = self.fName + vwedg + xtn
         self.vsP = self.fName + vsP + xtn
@@ -525,12 +531,14 @@ class FigureFilesSubstruct:
         self.vcore = self.fName + vcore + xtn
         self.vpvt4 = self.fName + vpvt4 + xtn
         self.vpvt6 = self.fName + vpvt6 + xtn
+        self.explore =               f'{self.fName}_{explore}{xtn}'
         self.phaseSpace =            f'{self.fNameInductOgram}_{induct}_phaseSpace{xtn}'
         self.phaseSpaceCombo =       f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{xtn}'
         self.induct =        {zType: f'{self.fNameInductOgram}_{induct}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
         self.inductCompare = {zType: f'{self.fNameInductOgram}Compare_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
         self.sigma =         {zType: f'{self.fNameInductOgram}_{sigma}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
         self.sigmaOnly =     {zType: f'{self.fNameInductOgram}_{sigma}Only_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
+
 
 
 """ General parameter options """
@@ -632,7 +640,36 @@ class ExcitationSpectrumParamsStruct:
     def __init__(self):
         self.nOmegaPts = 100  # Resolution in log frequency space for magnetic excitation spectra
         self.nOmegaFine = 1000  # Fine-spacing resolution for log frequency spectrum
-        
+
+
+""" ExploreOgram results struct """
+class ExplorationStruct:
+    def __init__(self):
+        self.bodyname = None  # Name of body modeled.
+        self.x = None  # 2D data of x axis variable for exploreogram plots
+        self.y = None  # 2D data of y axis variable for exploreogram plots
+        self.z = None  # 2D data to plot as z axis of exploreogram plots
+        self.xName = None  # Name of variable along x axis. Options are ___
+        self.yName = None  # Name of variable along y axis. Options are ___
+        self.zName = None  # Name of z variable. Options are ___
+        self.xScale = 'linear'
+        self.yScale = 'linear'
+        self.w_ppt = None  # Values of salinity used.
+        self.oceanComp = None  # Ocean composition used.
+        self.Tb_K = None  # Values of Bulk.Tb_K used.
+        self.xFeS = None  # Values of core FeS fraction used.
+        self.phiSilMax_frac = None  # Values of Sil.phiRockMax_frac set.
+        self.rhoSilInput_kgm3 = None  # Values of silicate density used.
+        self.rhoSilMean_kgm3 = None  # Values of Sil.rhoMean_kgm3 result (also equal to those set for all but phi inductOtype).
+        self.rhoCoreMean_kgm3 = None  # Values of Core.rhoMean_kgm3 result (also equal to those set for all but phi inductOtype).
+        self.sigmaMean_Sm = None  # Mean ocean conductivity.
+        self.sigmaTop_Sm = None  # Ocean top conductivity.
+        self.Tmean_K = None  # Ocean mean temperature result in K.
+        self.D_km = None  # Ocean layer thickness result in km.
+        self.zb_km = None  # Upper ice shell thickness result in km.
+        self.Rcore_km = None  # Core radius result in km.
+        self.R_m = None  # Body radius in m, used to scale induction amplitudes.
+
 
 """ Figure color options """
 class ColorStruct:
@@ -685,7 +722,7 @@ class ColorStruct:
 
         self.cmapName = {}  # Colormaps for inductogram phase space plots, hydrosphere plots, etc
         self.cmapBounds = {}  # Select only a subset of the available colormap, if we choose to
-        self.Tbounds_K = [245.0, 300.0]  # Set temperature bounds to use for colormap normalization
+        self.Tbounds_K = [245.0, 300.0]  # Set temperature bounds to use for ocean colormap normalization
         self.saturation = {}  # Set upper bounds for max concentrations
         # Saturation & color brightness ("value" in HSV) values for salinity/conductivity axis bounds
         self.fresh = [0.5, 1.0]
@@ -808,7 +845,7 @@ class FigLblStruct:
         self.wedgeTitle = 'interior structure diagram'
         self.wedgeRadius = r'Radius ($\mathrm{km}$)'
 
-        # Inductogram labels
+        # InductOgram labels
         self.plotTitles = ['Amplitude $A$', '$B_x$ component', '$B_y$ component', '$B_z$ component']
         self.fLabels = ['Amp', 'Bx', 'By', 'Bz']
         self.compEnd = ''
@@ -821,6 +858,9 @@ class FigLblStruct:
         self.sigScale = 'log'
         self.Dscale = 'log'
 
+        # ExploreOgram labels
+        self.RcoreLabel = r'Core radius $R_\mathrm{core}$ ($\si{km}$)'
+
         # Induction parameter-dependent settings
         self.phaseSpaceTitle = None
         self.inductionTitle = None
@@ -831,6 +871,16 @@ class FigLblStruct:
         self.yLabelInduct = None
         self.yScaleInduct = None
 
+        # Exploration parameter-dependent settings
+        self.explorationTitle = None
+        self.exploreCompareTitle = None
+        self.xLabelExplore = None
+        self.yLabelExplore = None
+        self.cbarLabelExplore = None
+        self.xMult = 1
+        self.yMult = 1
+        self.zMult = 1
+
         # Unit-dependent labels set by SetUnits
         self.rhoUnits = None
         self.sigUnits = None
@@ -838,7 +888,7 @@ class FigLblStruct:
         self.xUnits = None
         self.fluxUnits = None
         self.wDiv = None
-        self.xDiv = None
+        self.xMult = None
         self.phiMult = None
         self.qMult = None
         self.NA = None
@@ -846,6 +896,7 @@ class FigLblStruct:
         self.wLabel = None
         self.rhoLabel = None
         self.phiLabel = None
+        self.xFeSLabel = None
 
 
     def SetUnits(self):
@@ -856,13 +907,11 @@ class FigLblStruct:
             self.rhoUnits = r'kg\,m^{-3}'
             self.sigUnits = r'S\,m^{-1}'
             self.wUnits = r'g\,kg^{-1}'
-            self.xUnits = r'g\,kg^{-1}'
             self.fluxUnits = r'W\,m^{-2}'
         else:
             self.rhoUnits = r'kg/m^3'
             self.sigUnits = r'S/m'
             self.wUnits = r'g/kg'
-            self.xUnits = r'g/kg'
             self.fluxUnits = r'W/m^2'
         if self.w_IN_WTPCT:
             self.wUnits = r'wt\%'
@@ -871,14 +920,19 @@ class FigLblStruct:
             self.wDiv = 1
         if self.x_IN_WTPCT:
             self.xUnits = r'wt\%'
-            self.xDiv = 10
+            self.xUnitsParen = r'~($\si{wt\%}$)'
+            self.xMult = 100
         else:
-            self.xDiv = 1
+            self.xUnits = ''
+            self.xUnitsParen = ''
+            self.xMult = 1
         if self.phi_IN_VOLPCT:
-            self.phiUnits = r'~(\si{vol\%})'
+            self.phiUnits = r'$\si{vol\%}$'
+            self.phiUnitsParen = r'~($\si{vol\%}$)'
             self.phiMult = 100
         else:
             self.phiUnits = ''
+            self.phiUnitsParen = ''
             self.phiMult = 1
         if self.qSURF_IN_mW:
             self.fluxUnits = 'm' + self.fluxUnits
@@ -893,14 +947,15 @@ class FigLblStruct:
         self.sigLabel = r'Mean conductivity $\overline{\sigma}$ ($\si{' + self.sigUnits + '}$)'
         self.wLabel = r'Salinity $w$ ($\si{' + self.wUnits + '}$)'
         self.rhoLabel = r'Silicate density $\rho_\mathrm{sil}$ ($\si{' + self.rhoUnits + '}$)'
-        self.phiLabel = r'Seafloor porosity $\phi_\mathrm{sil}$ ' + self.phiUnits
+        self.phiLabel = r'Seafloor porosity $\phi_\mathrm{sil}$' + self.phiUnitsParen
+        self.xFeSLabel = r'Iron sulfide mixing ratio $x_{\ce{FeS}}$' + self.xUnitsParen
 
     def singleComp(self, comp):
         # Set a tag to append to titles in the event all of what we're plotting
         # has a single composition, for additional clarity.
         self.compEnd = f', \ce{{{comp}}} ocean'
 
-    def setInduction(self, bodyname, IndParams, Texc_h):
+    def SetInduction(self, bodyname, IndParams, Texc_h):
         # Set titles, labels, and axis settings pertaining to inductogram plots
         self.phaseSpaceTitle = f'\\textbf{{{bodyname} interior phase space}}'
         self.inductionTitle = f'\\textbf{{{bodyname} induction response{self.compEnd}}}'
@@ -920,6 +975,33 @@ class FigLblStruct:
             elif IndParams.inductOtype == 'phi':
                 self.yLabelInduct = self.phiLabel
                 self.yScaleInduct = 'log'
+
+    def SetExploration(self, bodyname, xName, yName, zName, xScale, yScale):
+        # Set titles, labels, and axis settings pertaining to exploreogram plots
+
+        if xName == 'xFeS':
+            self.xLabelExplore = self.xFeSLabel
+            if self.x_IN_WTPCT:
+                self.xMult = 100
+        else:
+            self.xLabelExplore = xName
+
+        if yName == 'rhoSilInput_kgm3':
+            self.yLabelExplore = self.rhoLabel
+        else:
+            self.yLabelExplore = yName
+
+        if zName == 'Rcore_km':
+            exploreDescrip = 'core size'
+            self.cbarLabelExplore = self.RcoreLabel
+        else:
+            exploreDescrip = 'parameter'
+            self.cbarLabelExplore = zName
+
+        self.explorationTitle = f'\\textbf{{{bodyname} {exploreDescrip} exploration}}'
+        self.exploreCompareTitle = self.explorationTitle
+        self.xScaleExplore = xScale
+        self.yScaleExplore = yScale
 
 
 """ Figure size settings """
@@ -942,6 +1024,7 @@ class FigSizeStruct:
         self.phaseSpaceCombo = None
         self.induct = None
         self.inductCombo = None
+        self.explore = None
 
 
 """ Miscellaneous figure options """
@@ -1088,3 +1171,4 @@ class ConstantsStruct:
 
 Constants = ConstantsStruct()
 EOSlist = EOSlistStruct()
+ExplorationResults = ExplorationStruct()

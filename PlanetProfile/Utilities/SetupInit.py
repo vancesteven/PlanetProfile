@@ -260,7 +260,7 @@ def SetupInit(Planet, Params):
     return Planet, Params
 
 
-def SetupFilenames(Planet, Params):
+def SetupFilenames(Planet, Params, exploreAppend=None):
     """ Generate filenames for saving data and figures.
     """
     datPath = Planet.bodyname
@@ -313,7 +313,8 @@ def SetupFilenames(Planet, Params):
     Planet.saveLabel = saveLabel
     Planet.label = label
     inductBase = f'{Planet.name}_{Params.Induct.inductOtype}'
-    DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, Planet.Ocean.comp, inductBase=inductBase)
+    DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, Planet.Ocean.comp, inductBase=inductBase,
+                                   exploreAppend=exploreAppend)
     FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn,
                                        comp=Planet.Ocean.comp, inductBase=inductBase)
 
@@ -327,7 +328,7 @@ def SetupLayers(Planet):
     if not Planet.Do.NO_H2O:
         nOceanMax = int(Planet.Ocean.PHydroMax_MPa / Planet.Ocean.deltaP)
         Planet.Steps.nHydroMax = Planet.Steps.nClath + Planet.Steps.nIceI + Planet.Steps.nIceIIILitho + Planet.Steps.nIceVLitho + nOceanMax
-
+    
     Planet.phase = np.zeros(Planet.Steps.nHydroMax, dtype=np.int_)
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
         Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \

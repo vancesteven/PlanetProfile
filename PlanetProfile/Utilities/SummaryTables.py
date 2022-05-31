@@ -242,8 +242,8 @@ def PrintGeneralSummary(PlanetList, Params):
     # Temperatures and heat flux
     TbK = 'T_b (K): ' + ', '.join([f'{Planet.Bulk.Tb_K}' for Planet in PlanetList])
     TsilK = 'T_silTop (K): ' + ', '.join([f'{Planet.T_K[Planet.Steps.nHydro]:.1f}' for Planet in PlanetList])
-    TCMBK = 'T_CMB (K): ' + ', '.join([f'{Planet.T_K[Planet.Steps.nHydro + Planet.Steps.nSil]:.1f}' for Planet in PlanetList])
-    TcenterK = 'T_center (K): ' + ', '.join([f'{Planet.T_K[Planet.Steps.nTotal-1]:.1f}' for Planet in PlanetList])
+    TCMBK = 'T_CMB (K): ' + ', '.join([f'{Planet.T_K[Planet.Steps.nHydro + Planet.Steps.nSil - 1]:.1f}' for Planet in PlanetList])
+    TcenterK = 'T_center (K): ' + ', '.join([f'{Planet.T_K[Planet.Steps.nTotal - 1]:.1f}' for Planet in PlanetList])
     qOcean = 'qOcBot (mW/m^2): ' + ', '.join([f'{1e3*Planet.Ocean.QfromMantle_W/(4*np.pi*Planet.Sil.Rmean_m**2):.1f}' for Planet in PlanetList])
     qSurf = 'qSurf (mW/m^2): ' + ', '.join([f'{1e3*Planet.Ocean.QfromMantle_W/(4*np.pi*Planet.Bulk.R_m**2):.1f}' for Planet in PlanetList])
 
@@ -779,7 +779,7 @@ def PrintLayerTableLatex(PlanetList, Params):
                 else:
                     DVI = ''
                 if np.any(boolphiIceMax_frac[thisSubset]):
-                    phiIce = newline + f'{tab}$\phi_{ice}{FigLbl.phiUnits}${tab}' + tab.join(strphiIceMax_frac[thisSubset]) + endl
+                    phiIce = newline + f'{tab}$\phi_{ice}${FigLbl.phiUnitsParen}{tab}' + tab.join(strphiIceMax_frac[thisSubset]) + endl
                 else:
                     phiIce = ''
             else:
@@ -791,7 +791,7 @@ def PrintLayerTableLatex(PlanetList, Params):
             else:
                 Rcore = ''
             if np.any(boolphiRockMax_frac[thisSubset]):
-                phiRock = newline + f'{tab}$\phi_{rock}{FigLbl.phiUnits}${tab}' + tab.join(strphiRockMax_frac[thisSubset]) + endl
+                phiRock = newline + f'{tab}$\phi_{rock}${FigLbl.phiUnitsParen}{tab}' + tab.join(strphiRockMax_frac[thisSubset]) + endl
             else:
                 phiRock = ''
 

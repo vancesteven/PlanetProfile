@@ -159,7 +159,7 @@ def SetupInduction(Planet, Params):
 
     # Lots of errors can happen if we haven't calculated the electrical conductivity,
     # so we make this contingent on having it.
-    if Params.CALC_CONDUCT:
+    if Params.CALC_CONDUCT and not np.isnan(Planet.CMR2mean):
         # Reconfigure layer conducting boundaries as needed.
         # For inductOtype == 'sigma', we have already set these arrays.
         if not Params.Induct.inductOtype == 'sigma' or not Params.DO_INDUCTOGRAM:

@@ -624,7 +624,7 @@ def InnerLayers(Planet, Params):
     Planet.phase[iSC:iCC] = Constants.phaseFe
 
     # Record ocean layer thickness
-    if Planet.Do.NO_H2O:
+    if Planet.Do.NO_H2O or not np.any(Planet.phase == 0):
         Planet.D_km = 0
     else:
         # Get first index of phase changing from 0 to something different ---
@@ -729,9 +729,18 @@ def CalcMoIConstantRho(Planet, Params):
                              Planet.Sil.rhoSilWithCore_kgm3) / (rhoCore_kgm3 - Planet.Sil.rhoSilWithCore_kgm3)
                              for i in range(Planet.Steps.iSilStart, nHydroActual-1)])
         # Find values for which the silicate radius is too large
-        nTooBig = next((i[0] for i, val in np.ndenumerate(VCore_m3) if val>0))
-        # Calculate corresponding core radii based on above density
-        rCore_m = (VCore_m3[nTooBig:]*3/4/np.pi)**(1/3)
+        try:
+            nTooBig = next((i[0] for i, val in np.ndenumerate(VCore_m3) if val>0))
+        except StopIteration:
+            log.warning(f'Failed to find a core size consistent with rhoSil = {Planet.Sil.rhoSilWithCore_kgm3:.1f} kg/m3 ' +
+                        f'and xFeS = {Planet.Core.xFeS:.3f} for PHydroMax_MPa = {Planet.Ocean.PHydroMax_MPa:.1f}. ' +
+                        'Core size will be set to zero.')
+            nTooBig = 0
+            rCore_m = np.zeros_like(VCore_m3)
+        else:
+            # Calculate corresponding core radii based on above density
+            rCore_m = (VCore_m3[nTooBig:]*3/4/np.pi)**(1/3)
+
         # Assign fixed density to an array for dual-use code looking for compatible C/MR^2
         rhoSil_kgm3 = np.ones_like(rCore_m) * Planet.Sil.rhoSilWithCore_kgm3
     else:
@@ -757,40 +766,67 @@ def CalcMoIConstantRho(Planet, Params):
                 and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.Cuncertainty]
 
     if len(CMR2inds) == 0:
-        if(Planet.Do.NO_H2O or np.max(CMR2) > Planet.Bulk.Cmeasured):
+        if Planet.Do.NO_H2O:
             suggestion = 'Try adjusting properties of silicates and core to get C/MR^2 values in range.'
         else:
-            suggestion = 'Try increasing PHydroMax_MPa to get lower C/MR^2 values.'
-        raise ValueError(f'No MoI found matching C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}.\n' +
-                         f'Min: {np.min(CMR2[CMR2>0]):.3f}, Max: {np.max(CMR2):.3f}.\n' + suggestion)
+            suggestion = 'Try adjusting properties of silicates and core to get C/MR^2 values in range. ' + \
+                         'Increasing PHydroMax_MPa can also lower C/MR^2 values.'
+        msg = f'No MoI found matching C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}.\n' + \
+                  f'Min: {np.min(CMR2[CMR2>0]):.3f}, Max: {np.max(CMR2):.3f}.\n' + suggestion
+        if not Params.ALLOW_BROKEN_MODELS:
+            raise RuntimeError(msg)
+        else:
+            log.error(msg + 'Params.ALLOW_BROKEN_MODELS is True, so calculations will proceed with many ' +
+                      'values set to nan.')
 
-    # Find the C/MR^2 value most closely matching the measured value
-    CMR2diff = np.abs(CMR2[CMR2inds] - Planet.Bulk.Cmeasured)
-    # Get index of closest match in CMR2inds
-    iCMR2ind = np.argmin(CMR2diff)
-    # Find Planet array index corresponding to closest matching value
-    iCMR2 = CMR2inds[iCMR2ind]
-    iCMR2inner = iCMR2 - Planet.Steps.iSilStart - nTooBig
-    CMR2indsInner = [ind - Planet.Steps.iSilStart - nTooBig for ind in CMR2inds]
-    # Record the best-match C/MR^2 value
-    Planet.CMR2mean = CMR2[iCMR2]
-    # We don't have neighboring values because we used the MoI to calculate properties
-    Planet.CMR2less = Planet.CMR2mean
-    Planet.CMR2more = Planet.CMR2mean
-    # Record interior sizes
-    Planet.Sil.rhoTrade_kgm3 = rhoSil_kgm3[CMR2indsInner]
-    Planet.Sil.Rmean_m = Planet.r_m[iCMR2]
-    Planet.Sil.Rtrade_m = Planet.r_m[CMR2inds]
-    Planet.Sil.Rrange_m = np.max(Planet.Sil.Rtrade_m) - np.min(Planet.Sil.Rtrade_m)
-    Planet.Core.Rmean_m = rCore_m[iCMR2inner]
-    Planet.Core.Rtrade_m = rCore_m[CMR2indsInner]
-    Planet.Core.Rrange_m = np.max(Planet.Core.Rtrade_m) - np.min(Planet.Core.Rtrade_m)
-    # Now we finally know how many layers there are in the hydrosphere
-    Planet.Steps.nHydro = iCMR2
-    # Number of steps in the silicate layer is fixed for the constant-density approach
-    Planet.Steps.nSil = Planet.Steps.nSilMax
-    # Use Rset_m to indicate that we have already determined the core size in using SilicateLayers
-    Planet.Core.Rset_m = Planet.Core.Rmean_m + 0.0
+        nans = np.array([np.nan])
+        Planet.CMR2mean = np.nan
+        Planet.CMR2less = Planet.CMR2mean
+        Planet.CMR2more = Planet.CMR2mean
+        Planet.Sil.rhoTrade_kgm3 = nans
+        Planet.Sil.Rmean_m = np.nan
+        Planet.Sil.Rtrade_m = nans
+        Planet.Sil.Rrange_m = np.nan
+        Planet.Core.Rmean_m = np.nan
+        Planet.Core.Rtrade_m = nans
+        Planet.Core.Rrange_m = np.nan
+        Planet.Steps.nSil = Planet.Steps.nSilMax
+        # Use Rset_m to indicate that we have already determined the core size in using SilicateLayers
+        Planet.Core.Rset_m = np.nan
+        iCMR2inner = 0
+        if Planet.Do.NO_H2O:
+            Planet.Steps.nHydro = 0
+        else:
+            Planet.Steps.nHydro = Planet.Steps.nOceanMax
+    else:
+
+        # Find the C/MR^2 value most closely matching the measured value
+        CMR2diff = np.abs(CMR2[CMR2inds] - Planet.Bulk.Cmeasured)
+        # Get index of closest match in CMR2inds
+        iCMR2ind = np.argmin(CMR2diff)
+        # Find Planet array index corresponding to closest matching value
+        iCMR2 = CMR2inds[iCMR2ind]
+        iCMR2inner = iCMR2 - Planet.Steps.iSilStart - nTooBig
+        CMR2indsInner = [ind - Planet.Steps.iSilStart - nTooBig for ind in CMR2inds]
+        # Record the best-match C/MR^2 value
+        Planet.CMR2mean = CMR2[iCMR2]
+        # We don't have neighboring values because we used the MoI to calculate properties
+        Planet.CMR2less = Planet.CMR2mean
+        Planet.CMR2more = Planet.CMR2mean
+        # Record interior sizes
+        Planet.Sil.rhoTrade_kgm3 = rhoSil_kgm3[CMR2indsInner]
+        Planet.Sil.Rmean_m = Planet.r_m[iCMR2]
+        Planet.Sil.Rtrade_m = Planet.r_m[CMR2inds]
+        Planet.Sil.Rrange_m = np.max(Planet.Sil.Rtrade_m) - np.min(Planet.Sil.Rtrade_m)
+        Planet.Core.Rmean_m = rCore_m[iCMR2inner]
+        Planet.Core.Rtrade_m = rCore_m[CMR2indsInner]
+        Planet.Core.Rrange_m = np.max(Planet.Core.Rtrade_m) - np.min(Planet.Core.Rtrade_m)
+        # Now we finally know how many layers there are in the hydrosphere
+        Planet.Steps.nHydro = iCMR2
+        # Number of steps in the silicate layer is fixed for the constant-density approach
+        Planet.Steps.nSil = Planet.Steps.nSilMax
+        # Use Rset_m to indicate that we have already determined the core size in using SilicateLayers
+        Planet.Core.Rset_m = Planet.Core.Rmean_m + 0.0
 
     if not Params.SKIP_INNER:
         Planet.Sil.fn_phi_frac = GetphiCalc(Planet.Sil.phiRockMax_frac, Planet.Sil.EOS.fn_phi_frac, Planet.Sil.phiMin_frac)

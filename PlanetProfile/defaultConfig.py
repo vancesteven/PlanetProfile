@@ -33,6 +33,7 @@ Params.SKIP_INNER =       False  # Whether to skip past everything but ocean cal
 Params.NO_SAVEFILE =      False  # Whether to prevent printing run outputs to disk. Saves time and disk space for large induction studies.
 Params.DISP_LAYERS =      True  # Whether to display layer depths and heat fluxes for user
 Params.DISP_TABLE =       True  # Whether to print latex-formatted table
+Params.ALLOW_BROKEN_MODELS = False  # Whether to continue running models that don't match physical constraints (i.e. MoI), with many values set to nan. Currently only implemented for CONSTANT_INNER_DENSITY = True and only allows broken MoI matching. Broken Tb_K matching is also intended.
 Params.DEPRECATED =       False  # Whether to allow deprecated code to run. Will often cause errors.
 
 # Plot Settings
@@ -46,10 +47,13 @@ Params.PLOT_WEDGE =       True  # Whether to plot interior wedge diagram
 Params.LEGEND =           True  # Whether to include legends
 
 # Magnetic induction plot settings
-Params.DO_INDUCTOGRAM =          False  # Whether to plot an inductogram for the body in question
+Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question
 Params.PLOT_FFT =                True  # Whether to show plots of fourier space
 Params.INDUCTOGRAM_IN_PROGRESS = False  # Whether we are currently working on constructing an inductogram
 Params.COMBINE_BCOMPS =          False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
+
+# Parameter exploration plot settings
+Params.DO_EXPLOREOGRAM = False  # Whether to evaluate and/or plot an exploreogram for the body in question
 
 # Reference profile settings
 # Salinities of reference melting curves in ppt

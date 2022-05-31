@@ -14,11 +14,11 @@ from PlanetProfile import _Defaults, _TestImport, CopyCarefully
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, Benm2absBexyz
 from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitations as Mag
-from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotInductOgram, PlotInductOgramPhaseSpace
+from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotInductOgram, PlotInductOgramPhaseSpace, PlotExploreOgram
 from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs
-from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct
+from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, ExplorationResults
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
 
@@ -46,7 +46,10 @@ def run(bodyname=None, opt=None, fNames=None):
 
     """ Run PlanetProfile """
     if Params.DO_INDUCTOGRAM:
-        Induction, Params = InductOgram(bodyname, Params)
+        if bodyname == '':
+            raise ValueError('A single body must be specified for an InductOgram.')
+        else:
+            Induction, Params = InductOgram(bodyname, Params)
         if not Params.SKIP_PLOTS:
             PlotInductOgram(Induction, Params)
 
@@ -64,6 +67,26 @@ def run(bodyname=None, opt=None, fNames=None):
             else:
                 InductionList = [Induction]
             PlotInductOgramPhaseSpace(InductionList, Params)
+    elif Params.DO_EXPLOREOGRAM:
+        if bodyname == '':
+            raise ValueError('A single body must be specified for an ExploreOgram.')
+        else:
+            Exploration, Params = ExploreOgram(bodyname, Params)
+        if not Params.SKIP_PLOTS:
+            if Params.COMPARE:
+                exploreOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fNameExplore+'*.mat'))
+                Params.nModels = np.size(exploreOgramFiles)
+                ExplorationList = np.empty(Params.nModels, dtype=object)
+                ExplorationList[0] = deepcopy(Exploration)
+                # Move the filename for this run to the front of the list
+                if Params.DataFiles.exploreOgramFile in exploreOgramFiles:
+                    exploreOgramFiles.remove(Params.DataFiles.exploreOgramFile)
+                    exploreOgramFiles.insert(0, Params.DataFiles.exploreOgramFile)
+                for i, reloadExplore in enumerate(exploreOgramFiles[1:]):
+                    ExplorationList[i+1] = ReloadExploreOgram(bodyname, Params, fNameOverride=reloadExplore)[0]
+            else:
+                ExplorationList = [Exploration]
+            PlotExploreOgram(ExplorationList, Params)
     else:
         # Set timekeeping for recording elapsed times
         tMarks = np.empty(0)
@@ -158,7 +181,7 @@ def PlanetProfile(Planet, Params):
         # Reload previous run
         Planet, Params = ReloadProfile(Planet, Params)
 
-    if not Params.SKIP_PLOTS and not Params.DO_INDUCTOGRAM:
+    if not Params.SKIP_PLOTS and not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM):
         # Calculate large-scale layer properties
         PlanetList, Params = GetLayerMeans(np.array([Planet]), Params)
         # Plotting functions
@@ -248,7 +271,10 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
             Params.COMPARE = True
         if opt == 'reload':
             for fName in fNames:
-                expected = os.path.join(bodyname, fName)
+                if os.path.split(fName)[0] == '':
+                    expected = os.path.join(bodyname, fName)
+                else:
+                    expected = fName
                 if not os.path.isfile(expected):
                     default = os.path.join(_Defaults, bodyname, fName)
                     if os.path.isfile(default):
@@ -261,9 +287,15 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
                 raise ValueError('None of the specified PP files were found.')
         else:
             for fName in fNames:
-                expected = os.path.join(bodyname, fName)
+                if os.path.split(fName)[0] == '':
+                    expected = os.path.join(bodyname, fName)
+                else:
+                    expected = fName
                 if not os.path.isfile(expected):
-                    default = os.path.join(_Defaults, bodyname, fName)
+                    if os.path.split(fName)[0] == '':
+                        default = os.path.join(_Defaults, bodyname, fName)
+                    else:
+                        default = os.path.join(_Defaults, fName)
                     if os.path.isfile(default):
                         CopyCarefully(default, expected)
                     else:
@@ -801,7 +833,6 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     if fNameOverride is None:
         if bodyname[:4] == 'Test':
             loadname = bodyname + ''
-            bodyname = 'Test'
             bodydir = _TestImport
         else:
             loadname = bodyname
@@ -890,6 +921,186 @@ def ParPlanet(PlanetList, Params):
         Params.INDUCTOGRAM_IN_PROGRESS = False
 
     return PlanetList
+
+
+def ExploreOgram(bodyname, Params):
+    """ Run PlanetProfile models over a variety of settings to get interior
+        properties for each input.
+    """
+    if Params.CALC_NEW:
+        log.info(f'Running calculations for {bodyname} explore-o-gram.')
+        if bodyname[:4] == 'Test':
+            loadname = bodyname + ''
+            bodyname = 'Test'
+            bodydir = _TestImport
+        else:
+            loadname = bodyname
+            bodydir = bodyname
+
+        fName = f'PP{loadname}Explore.py'
+        expected = os.path.join(bodydir, fName)
+        if not os.path.isfile(expected):
+            default = os.path.join(_Defaults, bodydir, fName)
+            if os.path.isfile(default):
+                CopyCarefully(default, expected)
+            else:
+                log.warning(f'{expected} does not exist and no default was found at {default}.')
+        Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
+        tMarks = np.empty(0)
+        tMarks = np.append(tMarks, time.time())
+        k = 1
+
+        Exploration = ExplorationResults
+        Exploration.xName = 'xFeS'
+        Exploration.yName = 'rhoSilInput_kgm3'
+        Exploration.zName = 'Rcore_km'
+        DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Exploration.yName}')
+        if bodyname == 'Io':
+            xadj = 5
+            yadj = 4
+        elif bodyname == 'Test':
+            xadj = 1/10
+            yadj = 1/10
+        else:
+            xadj = 1
+            yadj = 1
+        if bodyname == 'Callisto':
+            rhoMin_kgm3 = 2000
+        else:
+            rhoMin_kgm3 = 2500
+        nxFeSPts = int(50 * xadj)
+        nrhoSilPts = int(80 * yadj)
+        xFeSList = np.linspace(0, 1, nxFeSPts)
+        rhoSilList = np.linspace(rhoMin_kgm3, 4500, nrhoSilPts)
+        Exploration.xScale = 'linear'
+        Exploration.yScale = 'linear'
+        Params.nModels = nxFeSPts * nrhoSilPts
+        PlanetGrid = np.empty((nxFeSPts, nrhoSilPts), dtype=object)
+        Params.SKIP_INNER = True
+        Params.NO_SAVEFILE = True
+        Params.ALLOW_BROKEN_MODELS = True
+        for i, xFeS in enumerate(xFeSList):
+            for j, rhoSil_kgm3 in enumerate(rhoSilList):
+                Planet.Core.xFeS = xFeS
+                Planet.Sil.rhoSilWithCore_kgm3 = rhoSil_kgm3
+                Planet.index = k
+                k += 1
+                PlanetGrid[i,j] = deepcopy(Planet)
+
+        tMarks = np.append(tMarks, time.time())
+        log.info('PlanetGrid constructed. Calculating exploration responses.')
+        PlanetGrid = ParPlanet(PlanetGrid, Params)
+        tMarks = np.append(tMarks, time.time())
+        dt = tMarks[-1] - tMarks[-2]
+        log.info(f'Parallel run elapsed time: {dt:.1f} s.')
+
+        # Organize data into a format that can be plotted/saved for plotting
+        Exploration.bodyname = bodyname
+        Exploration.w_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
+        Exploration.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
+        Exploration.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
+        Exploration.phiSilMax_frac = np.array([[Planeti.Sil.phiRockMax_frac for Planeti in line] for line in PlanetGrid])
+        Exploration.rhoSilInput_kgm3 = np.array([[Planeti.Sil.rhoSilWithCore_kgm3 for Planeti in line] for line in PlanetGrid])
+        Exploration.xFeS = np.array([[Planeti.Core.xFeS for Planeti in line] for line in PlanetGrid])
+        Exploration.Tmean_K = np.array([[Planeti.Ocean.Tmean_K for Planeti in line] for line in PlanetGrid])
+        Exploration.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 for Planeti in line] for line in PlanetGrid])
+        Exploration.rhoCoreMean_kgm3 = np.array([[Planeti.Core.rhoMean_kgm3 for Planeti in line] for line in PlanetGrid])
+        Exploration.sigmaMean_Sm = np.array([[Planeti.Ocean.sigmaMean_Sm for Planeti in line] for line in PlanetGrid])
+        Exploration.sigmaTop_Sm = np.array([[Planeti.Ocean.sigmaTop_Sm for Planeti in line] for line in PlanetGrid])
+        Exploration.D_km = np.array([[Planeti.D_km for Planeti in line] for line in PlanetGrid])
+        Exploration.zb_km = np.array([[Planeti.zb_km for Planeti in line] for line in PlanetGrid])
+        Exploration.Rcore_km = np.array([[Planeti.Core.Rmean_m/1e3 for Planeti in line] for line in PlanetGrid])
+        Exploration.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
+
+        Params.DataFiles = DataFiles
+        Params.FigureFiles = FigureFiles
+        WriteExploreOgram(Exploration, Params)
+    else:
+        log.info(f'Reloading explore-o-gram for {bodyname}.')
+        Exploration, Params = ReloadExploreOgram(bodyname, Params)
+        
+    
+
+    return Exploration, Params
+
+
+def WriteExploreOgram(Exploration, Params):
+    """ Organize Exploration results from an explore-o-gram run into a dict
+        and print to a .mat file.
+    """
+
+    saveDict = {
+        'bodyname': Exploration.bodyname,
+        'xName': Exploration.xName,
+        'yName': Exploration.yName,
+        'zName': Exploration.zName,
+        'xScale': Exploration.xScale,
+        'yScale': Exploration.yScale,
+        'w_ppt': Exploration.w_ppt,
+        'oceanComp': Exploration.oceanComp,
+        'Tb_K': Exploration.Tb_K,
+        'xFeS': Exploration.xFeS,
+        'phiSilMax_frac': Exploration.phiSilMax_frac,
+        'rhoSilInput_kgm3': Exploration.rhoSilInput_kgm3,
+        'rhoSilMean_kgm3': Exploration.rhoSilMean_kgm3,
+        'rhoCoreMean_kgm3': Exploration.rhoCoreMean_kgm3,
+        'sigmaMean_Sm': Exploration.sigmaMean_Sm,
+        'sigmaTop_Sm': Exploration.sigmaTop_Sm,
+        'Tmean_K': Exploration.Tmean_K,
+        'D_km': Exploration.D_km,
+        'zb_km': Exploration.zb_km,
+        'Rcore_km': Exploration.Rcore_km,
+        'R_m': Exploration.R_m
+    }
+    savemat(Params.DataFiles.exploreOgramFile, saveDict)
+    log.info(f'Saved induct-o-gram {Params.DataFiles.exploreOgramFile} to disk.')
+
+    return
+
+
+def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
+    """ Reload a previously run explore-o-gram from disk.
+    """
+
+    if fNameOverride is None:
+        if bodyname[:4] == 'Test':
+            loadname = bodyname + ''
+            bodydir = _TestImport
+        else:
+            loadname = bodyname
+            bodydir = bodyname
+        Planet = importlib.import_module(f'{bodydir}.PP{loadname}Explore').Planet
+        xName = 'xFeS'
+        yName = 'rhoSilInput_kgm3'
+        Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{xName}{yName}')
+        reload = loadmat(Params.DataFiles.exploreOgramFile)
+    else:
+        reload = loadmat(fNameOverride)
+
+    Exploration = ExplorationResults
+    Exploration.bodyname = reload['bodyname'][0]
+    Exploration.xName = reload['xName'][0]
+    Exploration.yName = reload['yName'][0]
+    Exploration.zName = reload['zName'][0]
+    Exploration.xScale = reload['xScale'][0]
+    Exploration.yScale = reload['yScale'][0]
+    Exploration.w_ppt = reload['w_ppt']
+    Exploration.oceanComp = reload['oceanComp']
+    Exploration.Tb_K = reload['Tb_K']
+    Exploration.xFeS = reload['xFeS']
+    Exploration.phiSilMax_frac = reload['phiSilMax_frac']
+    Exploration.rhoSilInput_kgm3 = reload['rhoSilInput_kgm3']
+    Exploration.rhoSilMean_kgm3 = reload['rhoSilMean_kgm3']
+    Exploration.rhoCoreMean_kgm3 = reload['rhoCoreMean_kgm3']
+    Exploration.sigmaMean_Sm = reload['sigmaMean_Sm']
+    Exploration.sigmaTop_Sm = reload['sigmaTop_Sm']
+    Exploration.Tmean_K = reload['Tmean_K']
+    Exploration.D_km = reload['D_km']
+    Exploration.zb_km = reload['zb_km']
+    Exploration.Rcore_km = reload['Rcore_km']
+    Exploration.R_m = reload['R_m']
+
+    return Exploration, Params
 
 
 def LoadPPfiles(Params, fNames, bodyname=''):
@@ -1228,7 +1439,10 @@ if __name__ == '__main__':
     elif 'PP' in sys.argv[1]:
         log.debug('PP in first CL arg -- interpreting as (list of) filename(s).')
         fNames = sys.argv[1:]
-        bodyname = ''
+        if np.size(fNames) == 1:
+            bodyname = os.path.split(sys.argv[1])[0]
+        else:
+            bodyname = ''
     elif '.txt' in sys.argv[1]:
         log.debug('.txt in first CL arg -- interpreting as (list of) filename(s) to reload.')
         fNames = sys.argv[1:]
@@ -1237,5 +1451,6 @@ if __name__ == '__main__':
     else:
         # No command line argument, ask user which body to run
         bodyname = input('Please input body name: ')
+
 
     run(bodyname=bodyname, opt=clArg, fNames=fNames)

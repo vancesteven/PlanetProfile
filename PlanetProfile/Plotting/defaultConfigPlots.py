@@ -3,7 +3,7 @@ import numpy as np
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 1  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 2  # Integer number for config file version. Increment when new settings are added to the default config file.
 Color = ColorStruct()
 Style = StyleStruct()
 FigLbl = FigLblStruct()
@@ -65,7 +65,8 @@ Color.cmapName = {
     'MgSO4': 'winter_r',
     'NH3': 'spring',
     'NaCl': 'summer',
-    'Ice': 'coolwarm_r'
+    'Ice': 'coolwarm_r',
+    'default': 'plasma'
 }
 # Select only a subset of the available colormap, if we choose to
 Color.cmapBounds = {
@@ -75,7 +76,8 @@ Color.cmapBounds = {
     'MgSO4': [0.0, 1.0],
     'NH3': [0.0, 1.0],
     'NaCl': [0.0, 1.0],
-    'Ice': [0.2, 0.8]
+    'Ice': [0.2, 0.8],
+    'default': [0.0, 1.0]
 }
 # Set temperature bounds to use for colormap normalization
 Color.Tbounds_K = [245.0, 300.0]
@@ -147,6 +149,7 @@ FigSize.phaseSpaceSolo = (6, 4)
 FigSize.phaseSpaceCombo = (9, 4)
 FigSize.induct = (8, 4)
 FigSize.inductCombo = (8, 8)
+FigSize.explore = (6, 4)
 
 
 """ Miscellaneous figure options """
