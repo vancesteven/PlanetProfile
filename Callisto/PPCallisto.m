@@ -24,7 +24,7 @@ Planet.ADD_TRANSITION_BOUNDS = false;
 %% &&& Bulk and surface properties
 Planet.rho_kgm3 = 1834.4; % Schubert et al. 2004, Anderson et al. 2001; ±3.4
 Planet.R_m = 2410.3e3; %±1.5e3
-Planet.M_kg =1.4819e23; 
+Planet.M_kg =1.0759e23; 
 Planet.gsurf_ms2 = 1.428; 
 Planet.Tsurf_K = 110; 
 Planet.Psurf_MPa = 0; 
