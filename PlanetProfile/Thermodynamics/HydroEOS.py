@@ -8,7 +8,7 @@ from seafreeze import seafreeze as SeaFreeze
 from seafreeze import whichphase as WhichPhase
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, TclathDissocLower_K, \
     TclathDissocUpper_K, ClathSeismic
-from PlanetProfile.Thermodynamics.InnerEOS import GetphiFunc, GetphiCalc, ResetNearestExtrap, ReturnZeros
+from PlanetProfile.Thermodynamics.InnerEOS import GetphiFunc, GetphiCalc, ResetNearestExtrap, ReturnZeros, EOSwrapper
 from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4PhaseMargules, MgSO4PhaseLookup, \
     MgSO4Seismic, MgSO4Conduct
 from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
@@ -25,7 +25,14 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
         log.debug(f'{wOcean_ppt} ppt {compstr} EOS already loaded. Reusing existing EOS.')
         oceanEOS = EOSlist.loaded[oceanEOS.EOSlabel]
 
-    return oceanEOS
+    # Ensure each EOSlabel is included in EOSlist, in case we have reused EOSs with
+    # e.g. a smaller range that can reuse the larger-range already-loaded EOS.
+    if oceanEOS.EOSlabel not in EOSlist.loaded.keys():
+        EOSlist.loaded[oceanEOS.EOSlabel] = oceanEOS
+
+    oceanEOSwrapper = EOSwrapper(oceanEOS.EOSlabel)
+
+    return oceanEOSwrapper
 
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
@@ -48,19 +55,24 @@ class OceanEOSStruct:
             self.PHASE_LOOKUP = False
 
         self.EOSlabel = f'{compstr}{wOcean_ppt}{elecType}{rhoType}{scalingType}{phaseType}{EXTRAP}'
-        self.ALREADY_LOADED, self.rangeLabel, self.P_MPa, self.T_K, self.deltaP, self.deltaT \
+        self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, FORCE_NEW=FORCE_NEW)
 
         if not self.ALREADY_LOADED:
             self.comp = compstr
             self.w_ppt = wOcean_ppt
             self.EXTRAP = EXTRAP
+            self.EOStype = 'ocean'
 
-            self.Pmin = np.min(self.P_MPa)
-            self.Pmax = np.max(self.P_MPa)
-            self.Tmin = np.min(self.T_K)
-            self.Tmax = np.max(self.T_K)
-            log.debug(f'Loading EOS for {wOcean_ppt} ppt {compstr} with ' +
+            self.Pmin = np.min(P_MPa)
+            self.Pmax = np.max(P_MPa)
+            self.Tmin = np.min(T_K)
+            self.Tmax = np.max(T_K)
+            if wOcean_ppt is None:
+                wStr = '0.0'
+            else:
+                wStr = f'{wOcean_ppt:.1f}'
+            log.debug(f'Loading EOS for {wStr} ppt {compstr} with ' +
                       f'P_MPa = [{self.Pmin:.1f}, {self.Pmax:.1f}, {self.deltaP:.2f}], ' +
                       f'T_K = [{self.Tmin:.1f}, {self.Tmax:.1f}, {self.deltaT:.2f}], ' +
                       f'for [min, max, step] with EXTRAP = {self.EXTRAP}.')
@@ -70,7 +82,7 @@ class OceanEOSStruct:
                 self.fn_phase = ReturnZeros(1)
                 self.type = 'No H2O'
                 self.m_gmol = 0.0
-                rho_kgm3 = np.zeros((np.size(self.P_MPa), np.size(self.T_K)))
+                rho_kgm3 = np.zeros((np.size(P_MPa), np.size(T_K)))
                 Cp_JkgK = rho_kgm3
                 alpha_pK = rho_kgm3
                 kTherm_WmK = rho_kgm3
@@ -80,10 +92,10 @@ class OceanEOSStruct:
                 self.type = 'SeaFreeze'
                 self.m_gmol = Constants.mH2O_gmol
 
-                if np.size(self.P_MPa) == np.size(self.T_K):
-                    log.warning(f'Both P and T inputs have length {np.size(self.P_MPa)}, but they are organized to be ' +
+                if np.size(P_MPa) == np.size(T_K):
+                    log.warning(f'Both P and T inputs have length {np.size(P_MPa)}, but they are organized to be ' +
                                  'used as a grid. This will cause an error in SeaFreeze.')
-                PTgrid = np.array([self.P_MPa, self.T_K], dtype=object)
+                PTgrid = np.array([P_MPa, T_K], dtype=object)
                 seaOut = SeaFreeze(PTgrid, 'water1')
                 rho_kgm3 = seaOut.rho
                 Cp_JkgK = seaOut.Cp
@@ -93,8 +105,8 @@ class OceanEOSStruct:
                 if self.PHASE_LOOKUP:
                     self.phase = WhichPhase(PTgrid)
                     # Create phase finder -- note that the results from this function must be cast to int after retrieval
-                    Plin_MPa = np.array([P for P in self.P_MPa for _ in self.T_K])
-                    Tlin_K = np.array([T for _ in self.P_MPa for T in self.T_K])
+                    Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
+                    Tlin_K = np.array([T for _ in P_MPa for T in T_K])
                     PTpairs = list(zip(Plin_MPa, Tlin_K))
                     phase1D = np.reshape(self.phase, (-1))
                     # Create phase finder -- note that the results from this function must be cast to int after retrieval
@@ -113,7 +125,7 @@ class OceanEOSStruct:
                                 'high-pressure ice phases will be found.')
 
                 self.fn_phase = SwPhase(self.w_ppt)
-                rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = SwProps(self.P_MPa, self.T_K, self.w_ppt)
+                rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = SwProps(P_MPa, T_K, self.w_ppt)
                 self.ufn_Seismic = SwSeismic(self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = SwConduct(self.w_ppt)
             elif compstr == 'NH3':
@@ -128,8 +140,8 @@ class OceanEOSStruct:
                 self.type = 'ChoukronGrasset2010'
                 self.m_gmol = Constants.mMgSO4_gmol
 
-                self.P_MPa, self.T_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
-                    = MgSO4Props(self.P_MPa, self.T_K, self.w_ppt, self.EXTRAP)
+                P_MPa, T_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
+                    = MgSO4Props(P_MPa, T_K, self.w_ppt, self.EXTRAP)
                 if self.PHASE_LOOKUP:
                     self.fn_phase = MgSO4PhaseLookup(self.w_ppt)
                 else:
@@ -145,10 +157,13 @@ class OceanEOSStruct:
                 raise ValueError(f'Unable to load ocean EOS. compstr="{compstr}" but options are "Seawater", "NH3", "MgSO4", ' +
                                  '"NaCl", and "none" (for waterless bodies).')
 
-            self.ufn_rho_kgm3 = RectBivariateSpline(self.P_MPa, self.T_K, rho_kgm3)
-            self.ufn_Cp_JkgK = RectBivariateSpline(self.P_MPa, self.T_K, Cp_JkgK)
-            self.ufn_alpha_pK = RectBivariateSpline(self.P_MPa, self.T_K, alpha_pK)
-            self.ufn_kTherm_WmK = RectBivariateSpline(self.P_MPa, self.T_K, kTherm_WmK)
+            self.ufn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, rho_kgm3)
+            self.ufn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, Cp_JkgK)
+            self.ufn_alpha_pK = RectBivariateSpline(P_MPa, T_K, alpha_pK)
+            self.ufn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, kTherm_WmK)
+
+            # Include placeholder to overlap infrastructure with other EOS classes
+            self.fn_porosCorrect = None
 
             # Store complete EOSStruct in global list of loaded EOSs,
             # but only if we weren't forcing a recalculation. This allows
@@ -192,36 +207,44 @@ def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=
         log.debug(f'Ice {phaseStr} EOS already loaded. Reusing existing EOS.')
         iceEOS = EOSlist.loaded[iceEOS.EOSlabel]
 
-    return iceEOS
+    # Ensure each EOSlabel is included in EOSlist, in case we have reused EOSs with
+    # e.g. a smaller range that can reuse the larger-range already-loaded EOS.
+    if iceEOS.EOSlabel not in EOSlist.loaded.keys():
+        EOSlist.loaded[iceEOS.EOSlabel] = iceEOS
+
+    iceEOSwrapper = EOSwrapper(iceEOS.EOSlabel)
+
+    return iceEOSwrapper
 
 class IceEOSStruct:
     def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False):
         self.EOSlabel = f'{phaseStr}{porosType}{phiTop_frac}{Pclosure_MPa}{phiMin_frac}{EXTRAP}'
-        self.ALREADY_LOADED, self.rangeLabel, self.P_MPa, self.T_K, self.deltaP, self.deltaT \
+        self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K)
         if not self.ALREADY_LOADED:
-            self.Pmin = np.min(self.P_MPa)
-            self.Pmax = np.max(self.P_MPa)
-            self.Tmin = np.min(self.T_K)
-            self.Tmax = np.max(self.T_K)
+            self.Pmin = np.min(P_MPa)
+            self.Pmax = np.max(P_MPa)
+            self.Tmin = np.min(T_K)
+            self.Tmax = np.max(T_K)
             self.EXTRAP = EXTRAP
+            self.EOStype = 'ice'
             log.debug(f'Loading EOS for {phaseStr} with ' +
                       f'P_MPa = [{self.Pmin:.1f}, {self.Pmax:.1f}, {self.deltaP:.3f}], ' +
                       f'T_K = [{self.Tmin:.1f}, {self.Tmax:.1f}, {self.deltaT:.3f}], ' +
                       f'for [min, max, step] with EXTRAP = {self.EXTRAP}.')
 
             # Make sure arrays are long enough to interpolate
-            nPs = np.size(self.P_MPa)
-            nTs = np.size(self.T_K)
+            nPs = np.size(P_MPa)
+            nTs = np.size(T_K)
             if(nPs <= 3):
-                self.P_MPa = np.linspace(self.P_MPa[0], self.P_MPa[-1], nPs*3)
+                P_MPa = np.linspace(P_MPa[0], P_MPa[-1], nPs*3)
             if(nTs <= 3):
-                self.T_K = np.linspace(self.T_K[0], self.T_K[-1], nTs*3)
+                T_K = np.linspace(T_K[0], T_K[-1], nTs*3)
             # If input arrays are equal length, repeat final T value due to a quirk of numpy arrays
             # combined with SeaFreeze's particular implementation that requires gridded P,T values
             # to have different array lengths
             if(nPs == nTs):
-                self.T_K = np.append(self.T_K, self.T_K[-1]*1.00001)
+                T_K = np.append(T_K, T_K[-1]*1.00001)
 
             # Assign phase ID and string for convenience in functions where iceEOS is passed
             self.phaseStr = phaseStr
@@ -230,11 +253,11 @@ class IceEOSStruct:
             if phaseStr == 'Clath':
                 # Special functions for clathrate properties
                 rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
-                    = ClathProps(self.P_MPa, self.T_K)
-                self.phase = ClathStableSloan1998(self.P_MPa, self.T_K)
+                    = ClathProps(P_MPa, T_K)
+                self.phase = ClathStableSloan1998(P_MPa, T_K)
 
-                Plin_MPa = np.array([P for P in self.P_MPa for _ in self.T_K])
-                Tlin_K = np.array([T for _ in self.P_MPa for T in self.T_K])
+                Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
+                Tlin_K = np.array([T for _ in P_MPa for T in T_K])
                 PTpairs = list(zip(Plin_MPa, Tlin_K))
                 phase1D = np.reshape(self.phase, (-1))
                 # Create phase finder -- note that the results from this function must be cast to int after retrieval
@@ -243,27 +266,27 @@ class IceEOSStruct:
                 self.ufn_Seismic = ClathSeismic()
             else:
                 # Get tabular data from SeaFreeze for all other ice phases
-                PTgrid = np.array([self.P_MPa, self.T_K], dtype=object)
+                PTgrid = np.array([P_MPa, T_K], dtype=object)
                 iceOut = SeaFreeze(PTgrid, phaseStr)
                 rho_kgm3 = iceOut.rho
                 Cp_JkgK = iceOut.Cp
                 alpha_pK = iceOut.alpha
-                kTherm_WmK = np.array([kThermIsobaricAnderssonIbari2005(self.T_K, PhaseInv(phaseStr)) for _ in self.P_MPa])
+                kTherm_WmK = np.array([kThermIsobaricAnderssonIbari2005(T_K, PhaseInv(phaseStr)) for _ in P_MPa])
                 self.ufn_Seismic = IceSeismic(phaseStr, self.EXTRAP)
                 self.fn_phase = returnVal(self.phaseID)
 
             # Interpolate functions for this ice phase that can be queried for properties
-            self.ufn_rho_kgm3 = RectBivariateSpline(self.P_MPa, self.T_K, rho_kgm3)
-            self.ufn_Cp_JkgK = RectBivariateSpline(self.P_MPa, self.T_K, Cp_JkgK)
-            self.ufn_alpha_pK = RectBivariateSpline(self.P_MPa, self.T_K, alpha_pK)
-            self.ufn_kTherm_WmK = RectBivariateSpline(self.P_MPa, self.T_K, kTherm_WmK)
+            self.ufn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, rho_kgm3)
+            self.ufn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, Cp_JkgK)
+            self.ufn_alpha_pK = RectBivariateSpline(P_MPa, T_K, alpha_pK)
+            self.ufn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, kTherm_WmK)
 
             if porosType is None or porosType == 'none':
                 self.ufn_phi_frac = ReturnZeros(1)
                 self.POROUS = False
             else:
                 self.ufn_phi_frac = GetphiCalc(phiTop_frac,
-                                              GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, None, self.P_MPa, self.T_K),
+                                              GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, None, P_MPa, T_K),
                                               phiMin_frac)
                 self.POROUS = True
 
@@ -765,3 +788,4 @@ def GetPbClath(Tb_K, ALLOW_BROKEN_MODELS=False, DO_EXPLOREOGRAM=False):
             raise ValueError(msg)
 
     return PbClath_MPa
+

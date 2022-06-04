@@ -20,7 +20,14 @@ def GetInnerEOS(EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, 
         log.debug(f'{innerEOS.comp} EOS already loaded. Reusing existing EOS.')
         innerEOS = EOSlist.loaded[innerEOS.EOSlabel]
 
-    return innerEOS
+    # Ensure each EOSlabel is included in EOSlist, in case we have reused EOSs with
+    # e.g. a smaller range that can reuse the larger-range already-loaded EOS.
+    if innerEOS.EOSlabel not in EOSlist.loaded.keys():
+        EOSlist.loaded[innerEOS.EOSlabel] = innerEOS
+
+    innerEOSwrapper = EOSwrapper(innerEOS.EOSlabel)
+
+    return innerEOSwrapper
 
 class PerplexEOSStruct:
     """ Loads in Perple_X table and creates interpolators that can be called to
@@ -49,6 +56,7 @@ class PerplexEOSStruct:
             self.fpath = os.path.join(self.dir, EOSfname)
             self.Fe_EOS = Fe_EOS
             self.EXTRAP = EXTRAP
+            self.EOStype = 'inner'
             self.porosType = porosType
             self.phiTop_frac = phiTop_frac
             self.Pclosure_MPa = Pclosure_MPa
@@ -56,7 +64,7 @@ class PerplexEOSStruct:
 
             if self.fpath in EOSlist.loaded.keys():
                 log.debug('Reloading previously imported Perplex table.')
-                self.P_MPa, self.T_K, self.ufn_rho_kgm3, self.ufn_VP_kms, self.ufn_VS_kms, \
+                P_MPa, T_K, self.ufn_rho_kgm3, self.ufn_VP_kms, self.ufn_VS_kms, \
                 self.ufn_KS_GPa, self.ufn_GS_GPa, self.ufn_Cp_JkgK, self.ufn_alpha_pK \
                     = EOSlist.loaded[self.fpath]
                 self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.deltaP, self.deltaT \
@@ -164,8 +172,8 @@ class PerplexEOSStruct:
                     KS_GPa = KS_GPa.T
                     GS_GPa = GS_GPa.T
 
-                self.P_MPa = P1D_MPa
-                self.T_K = T1D_K
+                P_MPa = P1D_MPa
+                T_K = T1D_K
                 # Assign temporary functions we will wrap with porosity if modeled
                 self.ufn_rho_kgm3 = RectBivariateSpline(P1D_MPa, T1D_K, rho_kgm3)
                 self.ufn_VP_kms = RectBivariateSpline(P1D_MPa, T1D_K, VP_kms)
@@ -175,7 +183,7 @@ class PerplexEOSStruct:
                 self.ufn_Cp_JkgK = RectBivariateSpline(P1D_MPa, T1D_K, Cp_JkgK)
                 self.ufn_alpha_pK = RectBivariateSpline(P1D_MPa, T1D_K, alpha_pK)
 
-                EOSlist.loaded[self.fpath] = (self.P_MPa, self.T_K, self.ufn_rho_kgm3, self.ufn_VP_kms, self.ufn_VS_kms,
+                EOSlist.loaded[self.fpath] = (P_MPa, T_K, self.ufn_rho_kgm3, self.ufn_VP_kms, self.ufn_VS_kms,
                                               self.ufn_KS_GPa, self.ufn_GS_GPa, self.ufn_Cp_JkgK, self.ufn_alpha_pK)
                 EOSlist.ranges[self.fpath] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.deltaP, self.deltaT)
 
@@ -189,8 +197,8 @@ class PerplexEOSStruct:
                     kThermConst_WmK = Constants.kThermFe_WmK
                 else:
                     kThermConst_WmK = Constants.kThermSil_WmK
-            kTherm_WmK = np.zeros((np.size(self.P_MPa), np.size(self.T_K))) + kThermConst_WmK  # Placeholder until a self-consistent determination is implemented
-            self.ufn_kTherm_WmK = RectBivariateSpline(self.P_MPa, self.T_K, kTherm_WmK)
+            kTherm_WmK = np.zeros((np.size(P_MPa), np.size(T_K))) + kThermConst_WmK  # Placeholder until a self-consistent determination is implemented
+            self.ufn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, kTherm_WmK)
 
             # Assign tidal heating function
             # (currently a placeholder)
@@ -217,7 +225,7 @@ class PerplexEOSStruct:
                 else:
                     self.PREMlookup = None
                 self.fn_phi_frac = GetphiFunc(self.porosType, self.phiTop_frac, self.Pclosure_MPa,
-                                              self.PREMlookup, self.P_MPa, self.T_K)
+                                              self.PREMlookup, P_MPa, T_K)
 
             # Store complete EOSStruct in global list of loaded EOSs
             EOSlist.loaded[self.EOSlabel] = self
@@ -261,6 +269,43 @@ class PerplexEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_GS_GPa(P_MPa, T_K, grid=grid)
+
+
+class EOSwrapper:
+    """ Lightweight wrapper for accessing EOS functions stored in the EOSlist dict. """
+
+    def __init__(self, key):
+        self.key = key
+        if EOSlist.loaded[self.key].EOStype == 'ice':
+            self.phaseID = EOSlist.loaded[self.key].phaseID
+            self.POROUS = EOSlist.loaded[self.key].POROUS
+
+    def fn_phase(self, P_MPa, T_K):
+        return EOSlist.loaded[self.key].fn_phase(P_MPa, T_K)
+    def fn_rho_kgm3(self, P_MPa, T_K):
+        return EOSlist.loaded[self.key].fn_rho_kgm3(P_MPa, T_K)
+    def fn_Cp_JkgK(self, P_MPa, T_K):
+        return EOSlist.loaded[self.key].fn_Cp_JkgK(P_MPa, T_K)
+    def fn_alpha_pK(self, P_MPa, T_K):
+        return EOSlist.loaded[self.key].fn_alpha_pK(P_MPa, T_K)
+    def fn_kTherm_WmK(self, P_MPa, T_K):
+        return EOSlist.loaded[self.key].fn_kTherm_WmK(P_MPa, T_K)
+    def fn_VP_kms(self, P_MPa, T_K):
+        return EOSlist.loaded[self.key].fn_VP_kms(P_MPa, T_K)
+    def fn_VS_kms(self, P_MPa, T_K):
+        return EOSlist.loaded[self.key].fn_VS_kms(P_MPa, T_K)
+    def fn_KS_GPa(self, P_MPa, T_K):
+        return EOSlist.loaded[self.key].fn_KS_GPa(P_MPa, T_K)
+    def fn_GS_GPa(self, P_MPa, T_K):
+        return EOSlist.loaded[self.key].fn_GS_GPa(P_MPa, T_K)
+    def fn_phi_frac(self, P_MPa, T_K):
+        return EOSlist.loaded[self.key].fn_phi_frac(P_MPa, T_K)
+    def fn_porosCorrect(self, propBulk, propPore, phi, J):
+        return EOSlist.loaded[self.key].fn_porosCorrect(propBulk, propPore, phi, J)
+    def fn_sigma_Sm(self, P_MPa, T_K):
+        return EOSlist.loaded[self.key].fn_sigma_Sm(P_MPa, T_K)
+    def fn_Seismic(self, P_MPa, T_K):
+        return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K)
 
 
 def ResetNearestExtrap(var1, var2, min1, max1, min2, max2):
