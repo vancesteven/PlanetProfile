@@ -21,6 +21,8 @@ log = logging.getLogger('PlanetProfile')
 stream = logging.StreamHandler()
 stream.setFormatter(logging.Formatter('[%(levelname)s] %(asctime)s - %(message)s'))
 log.setLevel(logging.DEBUG)
+for deftHandler in log.handlers:
+    log.removeHandler(deftHandler)
 log.addHandler(stream)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger('PIL').setLevel(logging.WARNING)
@@ -40,6 +42,7 @@ def full():
     Params.COMPARE = False
     Params.NO_SAVEFILE = False
     Params.DO_INDUCTOGRAM = False
+    Params.SKIP_INDUCTION = False
 
     # Get total number of test files to run
     fList = fnmatch.filter(os.listdir(_Test), 'PPTest*')
@@ -104,26 +107,26 @@ def full():
         Params.Induct.inductOtype = inductOtype
         _ = TestInductOgram(7, Params)
         Params.DO_PARALLEL = False
-        InductionLbl = TestInductOgram(7, Params)
+        Induction = TestInductOgram(7, Params)
         Params.DO_PARALLEL = True
-        TestPlanets = np.append(TestPlanets, deepcopy(InductionLbl))
+        TestPlanets = np.append(TestPlanets, deepcopy(Induction))
         tMarks = np.append(tMarks, time.time())
 
-        InductionLbl = TestInductOgram(7, Params, CALC_NEW=False)
-        TestPlanets = np.append(TestPlanets, deepcopy(InductionLbl))
+        Induction = TestInductOgram(7, Params, CALC_NEW=False)
+        TestPlanets = np.append(TestPlanets, deepcopy(Induction))
         tMarks = np.append(tMarks, time.time())
 
     for inductOtype in ['phi']:
         Params.Induct.inductOtype = inductOtype
         _ = TestInductOgram(11, Params)
         Params.DO_PARALLEL = False
-        InductionLbl = TestInductOgram(11, Params)
+        Induction = TestInductOgram(11, Params)
         Params.DO_PARALLEL = True
-        TestPlanets = np.append(TestPlanets, deepcopy(InductionLbl))
+        TestPlanets = np.append(TestPlanets, deepcopy(Induction))
         tMarks = np.append(tMarks, time.time())
 
-        InductionLbl = TestInductOgram(11, Params, CALC_NEW=False)
-        TestPlanets = np.append(TestPlanets, deepcopy(InductionLbl))
+        Induction = TestInductOgram(11, Params, CALC_NEW=False)
+        TestPlanets = np.append(TestPlanets, deepcopy(Induction))
         tMarks = np.append(tMarks, time.time())
     Params.DO_INDUCTOGRAM = False
     Params.NO_SAVEFILE = False
@@ -152,15 +155,15 @@ def TestInductOgram(testNum, Params, CALC_NEW=True):
         = (4 for _ in range(6))
     
     if CALC_NEW:
-        InductionLbl, Params = InductOgram(testName, Params)
+        Induction, Params = InductOgram(testName, Params)
         end = ''
     else:
-        InductionLbl, Params = ReloadInductOgram(testName, Params)
+        Induction, Params = ReloadInductOgram(testName, Params)
         end = ' RELOAD'
-    PlotInductOgram(InductionLbl, Params)
-    InductionLbl.name = testName
-    InductionLbl.saveLabel = f'{Params.Induct.inductOtype} induct-o-gram{end}'
-    return InductionLbl
+    PlotInductOgram(Induction, Params)
+    Induction.name = testName
+    Induction.saveLabel = f'{Params.Induct.inductOtype} induct-o-gram{end}'
+    return Induction
 
 
 def simple():
@@ -176,6 +179,7 @@ def simple():
     Params.COMPARE = False
     Params.DO_INDUCTOGRAM = False
     Params.DO_PARALLEL = False
+    Params.SKIP_INDUCTION = False
 
     iTest = 3
     bodyname = f'{testMod}{iTest}'

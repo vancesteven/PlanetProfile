@@ -25,18 +25,19 @@ def MagneticInduction(Planet, Params):
 
     """
 
-    # Set Magnetic struct layer arrays as we need for induction calculations
-    Planet = SetupInduction(Planet, Params)
+    if Planet.Do.VALID:
+        # Set Magnetic struct layer arrays as we need for induction calculations
+        Planet = SetupInduction(Planet, Params)
 
-    # Skip remaining calcs if we couldn't load excitation moments
-    if Planet.Magnetic.Benm_nT is not None:
-        # Calculate induced magnetic moments
-        Planet = CalcInducedMoments(Planet, Params)
+        # Skip remaining calcs if we couldn't load excitation moments
+        if Planet.Magnetic.Benm_nT is not None:
+            # Calculate induced magnetic moments
+            Planet = CalcInducedMoments(Planet, Params)
 
-        # Report progress for sigma inductograms
-        if Params.INDUCTOGRAM_IN_PROGRESS and Params.Induct.inductOtype == 'sigma':
-            if Planet.index % 10 == 0:
-                log.profile(f'Point {Planet.index}/{Params.nModels} complete.')
+            # Report progress for sigma inductograms
+            if Params.INDUCTOGRAM_IN_PROGRESS and Params.Induct.inductOtype == 'sigma':
+                if Planet.index % 10 == 0:
+                    log.profile(f'Point {Planet.index}/{Params.nModels} complete.')
 
     # Must return both Planet and Params in order to use common infrastructure
     # for unpacking parallel runs
@@ -159,7 +160,7 @@ def SetupInduction(Planet, Params):
 
     # Lots of errors can happen if we haven't calculated the electrical conductivity,
     # so we make this contingent on having it.
-    if Params.CALC_CONDUCT and not np.isnan(Planet.CMR2mean):
+    if Params.CALC_CONDUCT and Planet.Do.VALID:
         # Reconfigure layer conducting boundaries as needed.
         # For inductOtype == 'sigma', we have already set these arrays.
         if not Params.Induct.inductOtype == 'sigma' or not Params.DO_INDUCTOGRAM:

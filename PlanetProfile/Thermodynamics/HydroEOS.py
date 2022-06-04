@@ -70,10 +70,10 @@ class OceanEOSStruct:
                 self.fn_phase = ReturnZeros(1)
                 self.type = 'No H2O'
                 self.m_gmol = 0.0
-                self.rho_kgm3 = np.zeros((np.size(self.P_MPa), np.size(self.T_K)))
-                self.Cp_JkgK = self.rho_kgm3
-                self.alpha_pK = self.rho_kgm3
-                self.kTherm_WmK = self.rho_kgm3
+                rho_kgm3 = np.zeros((np.size(self.P_MPa), np.size(self.T_K)))
+                Cp_JkgK = rho_kgm3
+                alpha_pK = rho_kgm3
+                kTherm_WmK = rho_kgm3
                 self.ufn_Seismic = ReturnZeros(2)
                 self.ufn_sigma_Sm = ReturnZeros(1)
             elif wOcean_ppt == 0 or compstr == 'PureH2O':
@@ -85,10 +85,10 @@ class OceanEOSStruct:
                                  'used as a grid. This will cause an error in SeaFreeze.')
                 PTgrid = np.array([self.P_MPa, self.T_K], dtype=object)
                 seaOut = SeaFreeze(PTgrid, 'water1')
-                self.rho_kgm3 = seaOut.rho
-                self.Cp_JkgK = seaOut.Cp
-                self.alpha_pK = seaOut.alpha
-                self.kTherm_WmK = np.zeros_like(self.alpha_pK) + Constants.kThermWater_WmK  # Placeholder until we implement a self-consistent calculation
+                rho_kgm3 = seaOut.rho
+                Cp_JkgK = seaOut.Cp
+                alpha_pK = seaOut.alpha
+                kTherm_WmK = np.zeros_like(alpha_pK) + Constants.kThermWater_WmK  # Placeholder until we implement a self-consistent calculation
 
                 if self.PHASE_LOOKUP:
                     self.phase = WhichPhase(PTgrid)
@@ -113,7 +113,7 @@ class OceanEOSStruct:
                                 'high-pressure ice phases will be found.')
 
                 self.fn_phase = SwPhase(self.w_ppt)
-                self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK = SwProps(self.P_MPa, self.T_K, self.w_ppt)
+                rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = SwProps(self.P_MPa, self.T_K, self.w_ppt)
                 self.ufn_Seismic = SwSeismic(self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = SwConduct(self.w_ppt)
             elif compstr == 'NH3':
@@ -128,7 +128,7 @@ class OceanEOSStruct:
                 self.type = 'ChoukronGrasset2010'
                 self.m_gmol = Constants.mMgSO4_gmol
 
-                self.P_MPa, self.T_K, self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK \
+                self.P_MPa, self.T_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
                     = MgSO4Props(self.P_MPa, self.T_K, self.w_ppt, self.EXTRAP)
                 if self.PHASE_LOOKUP:
                     self.fn_phase = MgSO4PhaseLookup(self.w_ppt)
@@ -145,10 +145,10 @@ class OceanEOSStruct:
                 raise ValueError(f'Unable to load ocean EOS. compstr="{compstr}" but options are "Seawater", "NH3", "MgSO4", ' +
                                  '"NaCl", and "none" (for waterless bodies).')
 
-            self.ufn_rho_kgm3 = RectBivariateSpline(self.P_MPa, self.T_K, self.rho_kgm3)
-            self.ufn_Cp_JkgK = RectBivariateSpline(self.P_MPa, self.T_K, self.Cp_JkgK)
-            self.ufn_alpha_pK = RectBivariateSpline(self.P_MPa, self.T_K, self.alpha_pK)
-            self.ufn_kTherm_WmK = RectBivariateSpline(self.P_MPa, self.T_K, self.kTherm_WmK)
+            self.ufn_rho_kgm3 = RectBivariateSpline(self.P_MPa, self.T_K, rho_kgm3)
+            self.ufn_Cp_JkgK = RectBivariateSpline(self.P_MPa, self.T_K, Cp_JkgK)
+            self.ufn_alpha_pK = RectBivariateSpline(self.P_MPa, self.T_K, alpha_pK)
+            self.ufn_kTherm_WmK = RectBivariateSpline(self.P_MPa, self.T_K, kTherm_WmK)
 
             # Store complete EOSStruct in global list of loaded EOSs,
             # but only if we weren't forcing a recalculation. This allows
@@ -229,7 +229,7 @@ class IceEOSStruct:
 
             if phaseStr == 'Clath':
                 # Special functions for clathrate properties
-                self.rho_kgm3, self.Cp_JkgK, self.alpha_pK, self.kTherm_WmK \
+                rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
                     = ClathProps(self.P_MPa, self.T_K)
                 self.phase = ClathStableSloan1998(self.P_MPa, self.T_K)
 
@@ -245,18 +245,18 @@ class IceEOSStruct:
                 # Get tabular data from SeaFreeze for all other ice phases
                 PTgrid = np.array([self.P_MPa, self.T_K], dtype=object)
                 iceOut = SeaFreeze(PTgrid, phaseStr)
-                self.rho_kgm3 = iceOut.rho
-                self.Cp_JkgK = iceOut.Cp
-                self.alpha_pK = iceOut.alpha
-                self.kTherm_WmK = np.array([kThermIsobaricAnderssonIbari2005(self.T_K, PhaseInv(phaseStr)) for _ in self.P_MPa])
+                rho_kgm3 = iceOut.rho
+                Cp_JkgK = iceOut.Cp
+                alpha_pK = iceOut.alpha
+                kTherm_WmK = np.array([kThermIsobaricAnderssonIbari2005(self.T_K, PhaseInv(phaseStr)) for _ in self.P_MPa])
                 self.ufn_Seismic = IceSeismic(phaseStr, self.EXTRAP)
                 self.fn_phase = returnVal(self.phaseID)
 
             # Interpolate functions for this ice phase that can be queried for properties
-            self.ufn_rho_kgm3 = RectBivariateSpline(self.P_MPa, self.T_K, self.rho_kgm3)
-            self.ufn_Cp_JkgK = RectBivariateSpline(self.P_MPa, self.T_K, self.Cp_JkgK)
-            self.ufn_alpha_pK = RectBivariateSpline(self.P_MPa, self.T_K, self.alpha_pK)
-            self.ufn_kTherm_WmK = RectBivariateSpline(self.P_MPa, self.T_K, self.kTherm_WmK)
+            self.ufn_rho_kgm3 = RectBivariateSpline(self.P_MPa, self.T_K, rho_kgm3)
+            self.ufn_Cp_JkgK = RectBivariateSpline(self.P_MPa, self.T_K, Cp_JkgK)
+            self.ufn_alpha_pK = RectBivariateSpline(self.P_MPa, self.T_K, alpha_pK)
+            self.ufn_kTherm_WmK = RectBivariateSpline(self.P_MPa, self.T_K, kTherm_WmK)
 
             if porosType is None or porosType == 'none':
                 self.ufn_phi_frac = ReturnZeros(1)
@@ -445,7 +445,8 @@ class IceSeismic:
         return seaOut.Vp * 1e-3, seaOut.Vs * 1e-3,  seaOut.Ks * 1e-3, seaOut.shear * 1e-3
 
 
-def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0, PUpper_MPa=300, PRes_MPa=0.1, UNDERPLATE=None):
+def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0, PUpper_MPa=300, PRes_MPa=0.1, UNDERPLATE=None,
+               ALLOW_BROKEN_MODELS=False, DO_EXPLOREOGRAM=False):
     """ Returns the pressure at which ice changes phase based on temperature, salinity, and composition
 
         Args:
@@ -469,19 +470,39 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0, PUpper_MPa=300, PRes_MPa=
         Pfreeze_MPa = GetZero(phaseChange, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa/5
     except ValueError:
         if UNDERPLATE:
-            raise ValueError(f'Tb_K of {Tb_K:.3f} is not consistent with underplating ice III; ' +
-                             f'the phases at the top and bottom of this range are ' +
-                             f'{PhaseConv(oceanEOS.fn_phase(PLower_MPa, Tb_K))} and ' +
-                             f'{PhaseConv(oceanEOS.fn_phase(PUpper_MPa, Tb_K))}, respectively.')
+            msg = f'Tb_K of {Tb_K:.3f} is not consistent with underplating ice III; ' + \
+                  f'the phases at the top and bottom of this range are ' + \
+                  f'{PhaseConv(oceanEOS.fn_phase(PLower_MPa, Tb_K))} and ' + \
+                  f'{PhaseConv(oceanEOS.fn_phase(PUpper_MPa, Tb_K))}, respectively.'
+            if ALLOW_BROKEN_MODELS:
+                if DO_EXPLOREOGRAM:
+                    log.info(msg)
+                else:
+                    log.error(msg)
+                Pfreeze_MPa = np.nan
+            else:
+                raise ValueError(msg)
         elif TRY_BOTH:
             try:
                 Pfreeze_MPa = GetZero(phaseChangeUnderplate, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa / 5
             except ValueError:
-                raise ValueError(f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' +
-                                 f'for ice {PhaseConv(phaseTop)}. Increase PUpper_MPa until one is found.')
+                msg = f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' + \
+                      f'for ice {PhaseConv(phaseTop)}. Increase PUpper_MPa until one is found.'
+                if ALLOW_BROKEN_MODELS:
+                    if DO_EXPLOREOGRAM:
+                        log.info(msg)
+                    else:
+                        log.error(msg)
+                    Pfreeze_MPa = np.nan
+                else:
+                    raise ValueError(msg)
         else:
-            log.warning(f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' +
-                        f'for ice {PhaseConv(phaseTop)} and UNDERPLATE is explicitly set to False.')
+            msg = f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' + \
+                  f'for ice {PhaseConv(phaseTop)} and UNDERPLATE is explicitly set to False.'
+            if DO_EXPLOREOGRAM:
+                log.info(msg)
+            else:
+                log.warning(msg)
             Pfreeze_MPa = np.nan
 
     return Pfreeze_MPa
@@ -713,7 +734,7 @@ def kThermHobbs1974(T_K):
     return kTherm_WmK
 
 
-def GetPbClath(Tb_K):
+def GetPbClath(Tb_K, ALLOW_BROKEN_MODELS=False, DO_EXPLOREOGRAM=False):
     """ Calculate the pressure consistent with Tb_K when clathrates are assumed
         to be in contact with the ocean, i.e. for Bulk.clathType = 'bottom' or 'whole'.
 
@@ -730,6 +751,17 @@ def GetPbClath(Tb_K):
         TbZero_K = lambda P_MPa: Tb_K - TclathDissocUpper_K(P_MPa)
         Pends_MPa = [2.567, Constants.PmaxLiquid_MPa]
 
-    PbClath_MPa = GetZero(TbZero_K, bracket=Pends_MPa).root
+    try:
+        PbClath_MPa = GetZero(TbZero_K, bracket=Pends_MPa).root
+    except ValueError:
+        msg = f'No Pb was found for clathrates with Tb_K = {Tb_K}.'
+        if ALLOW_BROKEN_MODELS:
+            if DO_EXPLOREOGRAM:
+                log.info(msg)
+            else:
+                log.error(msg + 'ALLOW_BROKEN_MODELS is True, so calculations will proceed, with many values set to nan.')
+            PbClath_MPa = np.nan
+        else:
+            raise ValueError(msg)
 
     return PbClath_MPa

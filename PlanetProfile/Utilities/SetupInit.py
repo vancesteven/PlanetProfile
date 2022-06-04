@@ -332,9 +332,9 @@ def SetupLayers(Planet):
     Planet.phase = np.zeros(Planet.Steps.nHydroMax, dtype=np.int_)
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
         Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \
-        Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.kTherm_WmK, \
+        Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.VLayer_m3, Planet.kTherm_WmK, \
         Planet.Htidal_Wm3, Planet.Ppore_MPa, Planet.rhoMatrix_kgm3, Planet.rhoPore_kgm3 = \
-        (np.zeros(Planet.Steps.nHydroMax) for _ in range(16))
+        (np.zeros(Planet.Steps.nHydroMax) for _ in range(17))
 
     # Layer property initialization for surface
     Planet.z_m[0] = 0.0  # Set first layer depth to zero (layer properties correspond to outer radius)

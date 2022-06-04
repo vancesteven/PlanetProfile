@@ -13,7 +13,7 @@ def SeismicCalcs(Planet, Params):
     Planet.Seismic.VP_kms, Planet.Seismic.VS_kms, Planet.Seismic.QS, Planet.Seismic.KS_GPa, \
         Planet.Seismic.GS_GPa = (np.zeros(Planet.Steps.nTotal) for _ in range(5))
 
-    if Params.CALC_SEISMIC:
+    if Params.CALC_SEISMIC and Planet.Do.VALID:
 
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
             indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \

@@ -9,9 +9,11 @@ import time
 
 from PlanetProfile.defaultConfig import \
     Params, \
+    ExploreParams, \
     configVersion
 from configPP import \
     Params as userParams, \
+    ExploreParams as userExploreParams, \
     configVersion as userConfigVersion
 from PlanetProfile.MagneticInduction.defaultConfigInduct import \
     SigParams, \
@@ -56,6 +58,8 @@ if configPlotsVersion != userConfigPlotsVersion:
 # Load user settings to allow for configuration
 for attr, value in userParams.__dict__.items():
     setattr(Params, attr, value)
+for attr, value in userExploreParams.__dict__.items():
+    setattr(ExploreParams, attr, value)
     
 for attr, value in userSigParams.__dict__.items():
     setattr(SigParams, attr, value)
@@ -143,3 +147,4 @@ for osc in InductParams.excSelectionPlot:
 Params.Sig = SigParams
 Params.Induct = InductParams
 Params.MagSpectrum = ExcSpecParams
+Params.Explore = ExploreParams

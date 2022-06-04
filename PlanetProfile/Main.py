@@ -181,7 +181,8 @@ def PlanetProfile(Planet, Params):
         # Reload previous run
         Planet, Params = ReloadProfile(Planet, Params)
 
-    if not Params.SKIP_PLOTS and not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM):
+    if ((not Params.SKIP_PLOTS) and not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM)) \
+        and Planet.Do.VALID:
         # Calculate large-scale layer properties
         PlanetList, Params = GetLayerMeans(np.array([Planet]), Params)
         # Plotting functions
@@ -189,9 +190,49 @@ def PlanetProfile(Planet, Params):
         Planet = PlanetList[0]
 
     # Magnetic induction calculations
-    if Params.CALC_CONDUCT and Params.CALC_NEW_INDUCT:
+    if (not Params.SKIP_INDUCTION) and (Params.CALC_CONDUCT and Params.CALC_NEW_INDUCT):
         # Calculate induced magnetic moments
         Planet, Params = MagneticInduction(Planet, Params)
+
+    PrintCompletion(Planet, Params)
+    return Planet, Params
+
+
+def HydroOnly(Planet, Params):
+    """ Wrapper for PlanetProfile function, up through hydrosphere calculations,
+        for parameter exploration that needs only to redo the interior.
+    """
+
+    Planet, Params = SetupInit(Planet, Params)
+    if not Planet.Do.NO_H2O:
+        Planet = IceLayers(Planet, Params)
+        Planet = OceanLayers(Planet, Params)
+
+    PrintCompletion(Planet, Params)
+    return Planet, Params
+
+
+def InteriorEtc(Planet, Params):
+    """ Wrapper for PlanetProfile function, minus hydrosphere calculations,
+        for parameter exploration that needs only to redo the interior.
+    """
+
+    Planet = InnerLayers(Planet, Params)
+    Planet = ElecConduct(Planet, Params)
+    Planet = SeismicCalcs(Planet, Params)
+    if not Params.SKIP_INDUCTION and (Params.CALC_CONDUCT and Params.CALC_NEW_INDUCT):
+        # Calculate induced magnetic moments
+        Planet, Params = MagneticInduction(Planet, Params)
+
+    PrintCompletion(Planet, Params)
+    return Planet, Params
+
+
+def InductionOnly(Planet, Params):
+    """ Wrapper for MagneticInduction function similar to above that includes PrintCompletion.
+    """
+
+    Planet, Params = MagneticInduction(Planet, Params)
 
     PrintCompletion(Planet, Params)
     return Planet, Params
@@ -575,72 +616,15 @@ def UpdateRun(Planet, Params, changes=None):
     """ Wrapper for editing the settings of Planet using a dict naming the changes.
 
         Args:
-            changes (dict): Dict of {input: value} pairs to change in Planet. Options are:
-                compOcean: Ocean composition string in Planet.Ocean.comp
-                compSil: Silicate composition to use from available Perplex output files
-                compFe: Iron core composition to use from available Perplex output files
-                wOcean_ppt: Salinity in Planet.Ocean.wOcean_ppt
-                Tb_K: Ocean bottom temperature in K in Planet.Bulk.Tb_K
-                silDensity_kgm3: Fixed density in silicate layers in Planet.Sil.rhoSilWithCore_kgm3 (for use with Planet.Do.CONSTANT_INNER_DENSITY)
-                silPhi_frac: Vacuum-extrapolated porosity in silicates in Planet.Sil.phiRockMax_frac
-                silPclosure_MPa: Pore closure pressure in silicates in Planet.Sil.Pclosure_MPa
-                icePhi_frac: Vacuum porosity in surface ice Ih in Planet.Ocean.phiRockMax_frac
-                icePclosure_MPa: Pore closure pressure in ice in Planet.Sil.Pclosure_MPa
-                Htidal_Wm3: Fixed tidal heating in silicates in Planet.Sil.Htidal_Wm3
-                Qrad_Wkg: Fixed radiogenic heating in silicates in Planet.Sil.Qrad_Wkg
-                ionosBounds_m: Ionosphere boundary altitudes above the surface in m in Planet.Magnetic.ionosBounds_m. Correspond to outer radii of each sigma below of same index.
-                sigmaIonos_Sm: Ionosphere Pedersen conductivities in S/m in Planet.Magnetic.sigmaIonosPedersen_Sm. Must have same length as ionosBounds_m
+            changes (dict): Dict of {input: value} pairs to change in Planet. Options are listed in AssignPlanetVal.
+
     """
     if changes is None:
         log.warning('No changes passed to UpdateRun.')
         changes = {}
 
     for key, value in changes.items():
-        if key == 'wOcean_ppt':
-            Planet.Ocean.wOcean_ppt = value
-        elif key == 'Tb_K':
-            Planet.Bulk.Tb_K = value
-        elif key == 'silDensity_kgm3':
-            Planet.Sil.rhoSilWithCore_kgm3 = value
-            Planet.Do.CONSTANT_INNER_DENSITY = True
-        elif key == 'ionosBounds_m':
-            Planet.Magnetic.ionosBounds_m = value
-        elif key == 'sigmaIonos_Sm':
-            Planet.Magnetic.sigmaIonosPedersen_Sm = value
-        elif key == 'silPhi_frac':
-            Planet.Sil.phiRockMax_frac = value
-            if value == 0:
-                Planet.Do.POROUS_ROCK = False
-            else:
-                Planet.Do.POROUS_ROCK = True
-            Planet.Do.CONSTANT_INNER_DENSITY = False
-        elif key == 'silPclosure_MPa':
-            Planet.Sil.Pclosure_MPa = value
-            Planet.Do.POROUS_ROCK = True
-            Planet.Do.CONSTANT_INNER_DENSITY = False
-        elif key == 'icePhi_frac':
-            Planet.Ocean.phiMax_frac['Ih'] = value
-            if value == 0:
-                Planet.Do.POROUS_ICE = False
-            else:
-                Planet.Do.POROUS_ICE = True
-        elif key == 'icePclosure_MPa':
-            Planet.Ocean.Pclosure_MPa['Ih'] = value
-            Planet.Do.POROUS_ICE = True
-        elif key == 'Htidal_Wm3':
-            Planet.Sil.Htidal_Wm3 = value
-        elif key == 'Qrad_Wkg':
-            Planet.Sil.Qrad_Wkg = value
-        elif key == 'compOcean':
-            Planet.Ocean.comp = value
-        elif key == 'compSil':
-            Planet.Sil.mantleEOS = value
-            Planet.Do.CONSTANT_INNER_DENSITY = False
-        elif key == 'compFe':
-            Planet.Core.coreEOS = value
-            Planet.Do.CONSTANT_INNER_DENSITY = False
-        else:
-            log.warning(f'UpdateRun key not recognized: {key}. Skipping.')
+        Planet = AssignPlanetVal(Planet, key, value)
 
     Planet, Params = PlanetProfile(Planet, Params)
     return Planet, Params
@@ -656,7 +640,7 @@ def InductOgram(bodyname, Params):
         if bodyname[:4] == 'Test':
             loadname = bodyname + ''
             bodyname = 'Test'
-            bodydir = _TestImport
+            bodydir = os.path.join('PlanetProfile', 'Test')
         else:
             loadname = bodyname
             bodydir = bodyname
@@ -751,7 +735,7 @@ def InductOgram(bodyname, Params):
         PlanetGrid = ParPlanet(PlanetGrid, Params)
         tMarks = np.append(tMarks, time.time())
         dt = tMarks[-1] - tMarks[-2]
-        log.info(f'Parallel run elapsed time: {dt} s.')
+        log.info(f'Parallel run elapsed time: {dt:.1f} s.')
 
         # Organize data into a format that can be plotted/saved for plotting
         Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(PlanetGrid[0,0].Magnetic.Benm_nT)
@@ -888,39 +872,329 @@ def ParPlanet(PlanetList, Params):
     if nParDims == 1 and np.size(PlanetList) == 1:
         PlanetList[0] = PlanetProfile(PlanetList[0], Params)
     else:
-        PlanetList1D = np.reshape(PlanetList, -1)
-        if Params.DO_PARALLEL:
-            # Prevent slowdowns from competing process spawning when #cores > #jobs
-            nCores = np.minimum(Params.maxCores, np.product(dims))
-            if Params.INDUCTOGRAM_IN_PROGRESS and Params.Induct.inductOtype == 'sigma':
-                pool = mtpFork.Pool(nCores)
-                parResult = [pool.apply_async(MagneticInduction, (deepcopy(Planet),
-                                                                  deepcopy(Params))) for Planet in PlanetList1D]
-                pool.close()
-                pool.join()
-            else:
-                pool = mtpFork.Pool(nCores)
-                parResult = [pool.apply_async(PlanetProfile, (deepcopy(Planet),
-                                                              deepcopy(Params))) for Planet in PlanetList1D]
-                pool.close()
-                pool.join()
-
-            for i, result in enumerate(parResult):
-                PlanetList1D[i] = result.get()[0]
+        if Params.INDUCTOGRAM_IN_PROGRESS and Params.Induct.inductOtype == 'sigma':
+            PlanetList = GridPlanetProfileFunc(MagneticInduction, PlanetList, Params)
         else:
-            log.profile('Running grid without parallel processing. This may take some time.')
-            if Params.Induct.inductOtype == 'sigma':
-                PlanetList1D = np.array([MagneticInduction(deepcopy(Planet), deepcopy(Params)) for Planet in PlanetList1D])[:, 0]
-            else:
-                PlanetList1D = np.array([PlanetProfile(deepcopy(Planet), deepcopy(Params)) for Planet in PlanetList1D])[:, 0]
+            PlanetList = GridPlanetProfileFunc(PlanetProfile, PlanetList, Params)
 
-        PlanetList = np.reshape(PlanetList1D, dims)
-
-        # Return settings to what they were before we entered here
-        log.setLevel(saveLevel)
-        Params.INDUCTOGRAM_IN_PROGRESS = False
+    # Return settings to what they were before we entered here
+    log.setLevel(saveLevel)
+    Params.INDUCTOGRAM_IN_PROGRESS = False
 
     return PlanetList
+
+
+def ParPlanetExplore(Planet, Params, xList, yList):
+    """ Run a parameter exploration over arrays of run settings, starting from a base Planet object.
+
+        Args:
+            xList, yList (float, shape nx or ny): Lists of values to use for x,y variables
+    """
+    # Construct PlanetGrid to use for exploration
+    PlanetGrid = np.empty((Params.Explore.nx, Params.Explore.ny), dtype=object)
+    nTot = Params.Explore.nx * Params.Explore.ny
+    IND_SKIP_SAVE = Params.SKIP_INDUCTION and True
+    k = 0
+    if Params.logParallel > logging.INFO:
+        log.info('Quieting messages to avoid spam in gridded run.')
+    saveLevel = log.getEffectiveLevel() + 0
+    log.setLevel(Params.logParallel)
+
+    if (Params.Explore.exploreType[Params.Explore.xName] == 'hydro' and
+        Params.Explore.exploreType[Params.Explore.yName] == 'hydro'):
+        # In this case, we have to run the whole gamut for each model.
+        for i, xVal in enumerate(xList):
+            for j, yVal in enumerate(yList):
+                k += 1
+                Planet = AssignPlanetVal(Planet, Params.Explore.xName, xVal)
+                Planet = AssignPlanetVal(Planet, Params.Explore.yName, yVal)
+                Planet.index = k
+                PlanetGrid[i,j] = deepcopy(Planet)
+        log.info('PlanetGrid constructed. Calculating exploration responses.')
+        Params.nModels = nTot
+        Params.tStart_s = time.time()
+        PlanetGrid = GridPlanetProfileFunc(PlanetProfile, PlanetGrid, Params)
+    else:
+        if (Params.Explore.exploreType[Params.Explore.xName] == 'ionos' and
+            Params.Explore.exploreType[Params.Explore.yName] == 'ionos'):
+            # This is the simplest case. We can run one interior model and just do
+            # the MagneticInduction part again for the rest.
+            log.info('Running common interior model to iterate on for ionosphere-only exploration.')
+            Planet = AssignPlanetVal(Planet, Params.Explore.xName, xList[0])
+            Planet = AssignPlanetVal(Planet, Params.Explore.yName, yList[0])
+            Params.SKIP_INDUCTION = True
+            PlanetGrid[0,0], Params = PlanetProfile(Planet, Params)
+            Params.SKIP_INDUCTION = IND_SKIP_SAVE
+            Params.nModels = nTot
+            Params.tStart_s = time.time()
+            log.info('Copying common interior model to entire explore grid.')
+            for i, xVal in enumerate(xList):
+                for j, yVal in enumerate(yList):
+                    k += 1
+                    if not (i == 0 and j == 0):
+                        PlanetGrid[i,j] = deepcopy(PlanetGrid[0,0])
+                        PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.xName, xVal)
+                        PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.yName, yVal)
+                        PlanetGrid[i,j].index = k
+                        PrintCompletion(PlanetGrid[i,j], Params)
+            log.info('PlanetGrid constructed. Calculating exploration responses.')
+            Params.tStart_s = time.time()
+            PlanetGrid = GridPlanetProfileFunc(InductionOnly, PlanetGrid, Params)
+
+        elif (Params.Explore.exploreType[Params.Explore.xName] == 'ionos' or
+              Params.Explore.exploreType[Params.Explore.yName] == 'ionos'):
+            # In this case, we have one ionosphere exploration. First, check which dim:
+            if Params.Explore.exploreType[Params.Explore.xName] == 'ionos':
+                # Now figure out whether we can reuse the hydrosphere for the other dim:
+                if Params.Explore.exploreType[Params.Explore.yName] == 'inner':
+                    log.info('Running common hydrosphere model to iterate on for inner+ionosphere exploration.')
+                    PlanetGrid[0,0] = AssignPlanetVal(Planet, Params.Explore.xName, xList[0])
+                    PlanetGrid[0,0] = AssignPlanetVal(PlanetGrid[0,0], Params.Explore.yName, yList[0])
+                    PlanetGrid[0,0].index = 1
+                    PlanetGrid[0,0], Params = HydroOnly(PlanetGrid[0,0], Params)
+                    Params.nModels = Params.Explore.ny
+                    Params.tStart_s = time.time()
+                    log.info('Copying common hydrosphere model to grid row.')
+                    for j, yVal in enumerate(yList):
+                        k += 1
+                        if j != 0:
+                            PlanetGrid[0,j] = deepcopy(PlanetGrid[0,0])
+                            PlanetGrid[0,j] = AssignPlanetVal(PlanetGrid[0,j], Params.Explore.yName, yVal)
+                            PlanetGrid[0,j].index = k
+                            PrintCompletion(PlanetGrid[0,j], Params)
+                    log.info('PlanetGrid row constructed. Calculating exploration responses to propagate for ionosphere exploration.')
+                    Params.tStart_s = time.time()
+                    Params.SKIP_INDUCTION = True
+                    PlanetGrid[0,:] = GridPlanetProfileFunc(InteriorEtc, PlanetGrid[0,:], Params)
+                    Params.SKIP_INDUCTION = IND_SKIP_SAVE
+                    k = 0
+                    Params.nModels = nTot
+                    Params.tStart_s = time.time()
+                    log.info('Copying hydrosphere grid row to remaining grid.')
+                    for i, xVal in enumerate(xList):
+                        for j, _ in enumerate(yList):
+                            k += 1
+                            if i != 0:
+                                PlanetGrid[i,j] = deepcopy(PlanetGrid[0,j])
+                                PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.xName, xVal)
+                                PlanetGrid[i,j].index = k
+                                PrintCompletion(PlanetGrid[i,j], Params)
+                    log.info('Running interior model row to iterate on for ionosphere exploration.')
+                    Params.tStart_s = time.time()
+                    PlanetGrid = GridPlanetProfileFunc(InductionOnly, PlanetGrid, Params)
+
+                else:
+                    # In this case, we need to run full PlanetProfile interior calcs for the non-ionos row.
+                    Planet = AssignPlanetVal(Planet, Params.Explore.xName, xList[0])
+                    for j, yVal in enumerate(yList):
+                        k += 1
+                        Planet = AssignPlanetVal(Planet, Params.Explore.yName, yVal)
+                        Planet.index = k
+                        PlanetGrid[0,j] = deepcopy(Planet)
+                    log.info('PlanetGrid row constructed. Calculating exploration responses.')
+                    Params.tStart_s = time.time()
+                    Params.SKIP_INDUCTION = True
+                    PlanetGrid[0,:] = GridPlanetProfileFunc(PlanetProfile, PlanetGrid[0,:], Params)
+                    Params.SKIP_INDUCTION = IND_SKIP_SAVE
+                    k = 0
+                    Params.nModels = nTot
+                    Params.tStart_s = time.time()
+                    for i, xVal in enumerate(xList):
+                        for j, _ in enumerate(yList):
+                            k += 1
+                            if i != 0:
+                                PlanetGrid[i,j] = deepcopy(PlanetGrid[0,j])
+                                PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.xName, xVal)
+                                PlanetGrid[i,j].index = k
+                                PrintCompletion(PlanetGrid[i,j], Params)
+                    log.info('Running interior model row to iterate on for ionosphere exploration.')
+                    Params.tStart_s = time.time()
+                    PlanetGrid = GridPlanetProfileFunc(InductionOnly, PlanetGrid, Params)
+
+            else:
+                # Repeat of above case, but now we have ionos calcs on the y axis.
+                # First, check if we can reuse hydrosphere calcs on x axis:
+                if Params.Explore.exploreType[Params.Explore.xName] == 'inner':
+                    log.info('Running common hydrosphere model to iterate on for inner+ionosphere exploration.')
+                    PlanetGrid[0,0] = AssignPlanetVal(Planet, Params.Explore.xName, xList[0])
+                    PlanetGrid[0,0] = AssignPlanetVal(PlanetGrid[0,0], Params.Explore.yName, yList[0])
+                    PlanetGrid[0,0].index = 1
+                    PlanetGrid[0,0], Params = HydroOnly(PlanetGrid[0,0], Params)
+                    log.info('Copying common hydrosphere to grid row.')
+                    Params.nModels = Params.Explore.nx
+                    Params.tStart_s = time.time()
+                    for i, xVal in enumerate(xList):
+                        k += 1
+                        if i != 0:
+                            PlanetGrid[i,0] = deepcopy(PlanetGrid[0,0])
+                            PlanetGrid[i,0] = AssignPlanetVal(PlanetGrid[i,0], Params.Explore.xName, xVal)
+                            PlanetGrid[i,0].index = k
+                            PrintCompletion(PlanetGrid[i,0], Params)
+                    log.info('PlanetGrid row constructed. Calculating exploration responses to propagate for ionosphere exploration.')
+                    Params.tStart_s = time.time()
+                    Params.SKIP_INDUCTION = True
+                    PlanetGrid[:,0] = GridPlanetProfileFunc(InteriorEtc, PlanetGrid[:,0], Params)
+                    Params.SKIP_INDUCTION = IND_SKIP_SAVE
+                    k = 0
+                    Params.nModels = nTot
+                    Params.tStart_s = time.time()
+                    log.info('Copying interior model row to entire explore grid.')
+                    for i, _ in enumerate(xList):
+                        for j, yVal in enumerate(yList):
+                            k += 1
+                            if j != 0:
+                                PlanetGrid[i,j] = deepcopy(PlanetGrid[i,0])
+                                PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.yName, yVal)
+                                PlanetGrid[i,j].index = k
+                                PrintCompletion(PlanetGrid[i,j], Params)
+                    log.info('Running interior model row to iterate on for ionosphere exploration.')
+                    Params.tStart_s = time.time()
+                    PlanetGrid = GridPlanetProfileFunc(InductionOnly, PlanetGrid, Params)
+
+                else:
+                    # In this case, we need to run full PlanetProfile interior calcs for the non-ionos row.
+                    Planet = AssignPlanetVal(Planet, Params.Explore.yName, yList[0])
+                    for i, xVal in enumerate(xList):
+                        k += 1
+                        Planet = AssignPlanetVal(Planet, Params.Explore.xName, xVal)
+                        Planet.index = k
+                        PlanetGrid[i,0] = deepcopy(Planet)
+                    log.info('PlanetGrid row constructed. Calculating exploration responses.')
+                    Params.nModels = Params.Explore.nx
+                    Params.tStart_s = time.time()
+                    Params.SKIP_INDUCTION = True
+                    PlanetGrid[:,0] = GridPlanetProfileFunc(PlanetProfile, PlanetGrid[:,0], Params)
+                    Params.SKIP_INDUCTION = IND_SKIP_SAVE
+                    k = 0
+                    Params.nModels = nTot
+                    Params.tStart_s = time.time()
+                    log.info('Copying interior calcs to entire explore grid.')
+                    for i, _ in enumerate(xList):
+                        for j, yVal in enumerate(yList):
+                            k += 1
+                            if i != 0:
+                                PlanetGrid[i,j] = deepcopy(PlanetGrid[i,0])
+                                PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.yName, yVal)
+                                PlanetGrid[i,j].index = k
+                                PrintCompletion(PlanetGrid[i,j], Params)
+                    log.info('Running interior model row to iterate on for ionosphere exploration.')
+                    Params.tStart_s = time.time()
+                    PlanetGrid = GridPlanetProfileFunc(InductionOnly, PlanetGrid, Params)
+
+        else:
+            # Finally, we have a combination of hydro and inner, or both inner.
+            if (Params.Explore.exploreType[Params.Explore.xName] == 'inner' and
+                Params.Explore.exploreType[Params.Explore.yName] == 'inner'):
+                # In this case, we need to run 1 hydro-only model, then propagate to the whole grid.
+                log.info('Running common hydrosphere model to iterate on for interior-only exploration.')
+                PlanetGrid[0,0] = AssignPlanetVal(Planet, Params.Explore.xName, xList[0])
+                PlanetGrid[0,0] = AssignPlanetVal(PlanetGrid[0,0], Params.Explore.yName, yList[0])
+                PlanetGrid[0,0].index = 1
+                PlanetGrid[0,0], Params = HydroOnly(Planet, Params)
+                log.info('Copying hydrosphere calcs to entire explore grid.')
+                Params.nModels = nTot
+                Params.tStart_s = time.time()
+                for i, xVal in enumerate(xList):
+                    for j, yVal in enumerate(yList):
+                        k += 1
+                        if not (i == 0 and j == 0):
+                            PlanetGrid[i,j] = deepcopy(PlanetGrid[0,0])
+                            PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.xName, xVal)
+                            PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.yName, yVal)
+                            PlanetGrid[i,j].index = k
+                            PrintCompletion(PlanetGrid[i,j], Params)
+                log.info('PlanetGrid constructed. Calculating exploration responses.')
+                Params.tStart_s = time.time()
+                PlanetGrid = GridPlanetProfileFunc(InteriorEtc, PlanetGrid, Params)
+
+            else:
+                # Now, we finally have the case that we have one hydro and one inner.
+                # First, find out which one is on the x axis:
+                if Params.Explore.exploreType[Params.Explore.xName] == 'hydro':
+                    # In this case, we need to first run hydrosphere calcs for the non-inner row.
+                    Planet = AssignPlanetVal(Planet, Params.Explore.yName, yList[0])
+                    for i, xVal in enumerate(xList):
+                        k += 1
+                        Planet = AssignPlanetVal(Planet, Params.Explore.xName, xVal)
+                        Planet.index = k
+                        PlanetGrid[i,0] = deepcopy(Planet)
+                    log.info('PlanetGrid row constructed. Calculating exploration responses.')
+                    Params.nModels = Params.Explore.nx
+                    Params.tStart_s = time.time()
+                    PlanetGrid[:,0] = GridPlanetProfileFunc(HydroOnly, PlanetGrid[:,0], Params)
+                    k = 0
+                    Params.nModels = nTot
+                    Params.tStart_s = time.time()
+                    log.info('Copying hydrosphere row to remaining explore grid.')
+                    for i, _ in enumerate(xList):
+                        for j, yVal in enumerate(yList):
+                            k += 1
+                            if j != 0:
+                                PlanetGrid[i,j] = deepcopy(PlanetGrid[i,0])
+                                PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.yName, yVal)
+                                PlanetGrid[i,j].index = k
+                                PrintCompletion(PlanetGrid[i,j], Params)
+                    log.info('Running hydrosphere model row to iterate on for interior exploration.')
+                    Params.tStart_s = time.time()
+                    PlanetGrid = GridPlanetProfileFunc(InteriorEtc, PlanetGrid, Params)
+
+                else:
+                    # Lastly, do the same but for hydro on the y axis instead:
+                    Planet = AssignPlanetVal(Planet, Params.Explore.xName, xList[0])
+                    for j, yVal in enumerate(yList):
+                        k += 1
+                        Planet = AssignPlanetVal(Planet, Params.Explore.yName, yVal)
+                        Planet.index = k
+                        PlanetGrid[0,j] = deepcopy(Planet)
+                    log.info('PlanetGrid row constructed. Calculating exploration responses.')
+                    Params.nModels = Params.Explore.ny
+                    Params.tStart_s = time.time()
+                    PlanetGrid[0,:] = GridPlanetProfileFunc(HydroOnly, PlanetGrid[0,:], Params)
+                    k = 0
+                    Params.nModels = nTot
+                    Params.tStart_s = time.time()
+                    log.info('Copying hydrosphere row to remaining explore grid.')
+                    for i, xVal in enumerate(xList):
+                        for j, _ in enumerate(yList):
+                            k += 1
+                            if i != 0:
+                                PlanetGrid[i,j] = deepcopy(PlanetGrid[0,j])
+                                PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.xName, xVal)
+                                PlanetGrid[i,j].index = k
+                                PrintCompletion(PlanetGrid[i,j], Params)
+                    log.info('Running hydrosphere model row to iterate on for interior exploration.')
+                    Params.tStart_s = time.time()
+                    PlanetGrid = GridPlanetProfileFunc(InteriorEtc, PlanetGrid, Params)
+
+    # Return log settings to what they were before we entered here
+    log.setLevel(saveLevel)
+
+    return PlanetGrid
+
+
+def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
+    """ Wrapper for (optionally) parallel run of multiple Planet objects through the
+        funcName function.
+    """
+    PlanetList1D = np.reshape(PlanetGrid, -1)
+    if Params.DO_PARALLEL:
+        # Prevent slowdowns from competing process spawning when #cores > #jobs
+        nCores = np.min([Params.maxCores, np.product(np.size(PlanetList1D)), Params.threadLimit])
+        pool = mtpFork.Pool(nCores)
+        parResult = [pool.apply_async(FuncName, (deepcopy(Planet),
+                                                      deepcopy(Params))) for Planet in PlanetList1D]
+        pool.close()
+        pool.join()
+
+        for i, result in enumerate(parResult):
+            PlanetList1D[i] = result.get()[0]
+    else:
+        log.profile('Running grid without parallel processing. This may take some time.')
+        PlanetList1D = np.array([FuncName(deepcopy(Planet), deepcopy(Params)) for Planet in PlanetList1D])[:, 0]
+
+    PlanetGrid = np.reshape(PlanetList1D, np.shape(PlanetGrid))
+
+    return PlanetGrid
 
 
 def ExploreOgram(bodyname, Params):
@@ -932,7 +1206,7 @@ def ExploreOgram(bodyname, Params):
         if bodyname[:4] == 'Test':
             loadname = bodyname + ''
             bodyname = 'Test'
-            bodydir = _TestImport
+            bodydir = os.path.join('PlanetProfile', 'Test')
         else:
             loadname = bodyname
             bodydir = bodyname
@@ -948,48 +1222,25 @@ def ExploreOgram(bodyname, Params):
         Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
-        k = 1
 
         Exploration = ExplorationResults
-        Exploration.xName = 'xFeS'
-        Exploration.yName = 'rhoSilInput_kgm3'
-        Exploration.zName = 'Rcore_km'
+        Exploration.xName = Params.Explore.xName
+        Exploration.yName = Params.Explore.yName
+        Exploration.zName = Params.Explore.zName
         DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Exploration.yName}')
-        if bodyname == 'Io':
-            xadj = 5
-            yadj = 4
-        elif bodyname == 'Test':
-            xadj = 1/10
-            yadj = 1/10
-        else:
-            xadj = 1
-            yadj = 1
-        if bodyname == 'Callisto':
-            rhoMin_kgm3 = 2000
-        else:
-            rhoMin_kgm3 = 2500
-        nxFeSPts = int(50 * xadj)
-        nrhoSilPts = int(80 * yadj)
-        xFeSList = np.linspace(0, 1, nxFeSPts)
-        rhoSilList = np.linspace(rhoMin_kgm3, 4500, nrhoSilPts)
-        Exploration.xScale = 'linear'
-        Exploration.yScale = 'linear'
-        Params.nModels = nxFeSPts * nrhoSilPts
-        PlanetGrid = np.empty((nxFeSPts, nrhoSilPts), dtype=object)
-        Params.SKIP_INNER = True
+        if bodyname == 'Test':
+            Params.Explore.nx = 5
+            Params.Explore.ny = 5
+        xList = np.linspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
+        yList = np.linspace(Params.Explore.yRange[0], Params.Explore.yRange[1], Params.Explore.ny)
+        Params.nModels = Params.Explore.nx * Params.Explore.ny
+        if not Params.SKIP_INNER:
+            log.warning('Running explore-o-gram with interior calculations, which will be slow.')
         Params.NO_SAVEFILE = True
         Params.ALLOW_BROKEN_MODELS = True
-        for i, xFeS in enumerate(xFeSList):
-            for j, rhoSil_kgm3 in enumerate(rhoSilList):
-                Planet.Core.xFeS = xFeS
-                Planet.Sil.rhoSilWithCore_kgm3 = rhoSil_kgm3
-                Planet.index = k
-                k += 1
-                PlanetGrid[i,j] = deepcopy(Planet)
 
         tMarks = np.append(tMarks, time.time())
-        log.info('PlanetGrid constructed. Calculating exploration responses.')
-        PlanetGrid = ParPlanet(PlanetGrid, Params)
+        PlanetGrid = ParPlanetExplore(Planet, Params, xList, yList)
         tMarks = np.append(tMarks, time.time())
         dt = tMarks[-1] - tMarks[-2]
         log.info(f'Parallel run elapsed time: {dt:.1f} s.')
@@ -1018,10 +1269,82 @@ def ExploreOgram(bodyname, Params):
     else:
         log.info(f'Reloading explore-o-gram for {bodyname}.')
         Exploration, Params = ReloadExploreOgram(bodyname, Params)
-        
-    
 
     return Exploration, Params
+
+
+def AssignPlanetVal(Planet, name, val):
+    """ Set values in Planet object based on descriptive key. Variable descriptions:
+            compOcean: Ocean composition string in Planet.Ocean.comp
+            compSil: Silicate composition to use from available Perplex output files
+            compFe: Iron core composition to use from available Perplex output files
+            wOcean_ppt: Salinity in Planet.Ocean.wOcean_ppt
+            Tb_K: Ocean bottom temperature in K in Planet.Bulk.Tb_K
+            xFeS: Core FeS / Fe mixing ratio in Planet.Core.xFeS
+            rhoSilInput_kgm3: Fixed density in silicate layers in Planet.Sil.rhoSilWithCore_kgm3 (for use with Planet.Do.CONSTANT_INNER_DENSITY)
+            silPhi_frac: Vacuum-extrapolated porosity in silicates in Planet.Sil.phiRockMax_frac
+            silPclosure_MPa: Pore closure pressure in silicates in Planet.Sil.Pclosure_MPa
+            icePhi_frac: Vacuum porosity in surface ice Ih in Planet.Ocean.phiRockMax_frac
+            icePclosure_MPa: Pore closure pressure in ice in Planet.Sil.Pclosure_MPa
+            Htidal_Wm3: Fixed tidal heating in silicates in Planet.Sil.Htidal_Wm3
+            Qrad_Wkg: Fixed radiogenic heating in silicates in Planet.Sil.Qrad_Wkg
+            qSurf_Wm2: Surface heat flux for waterless bodies in Planet.Bulk.qSurf_Wm2
+            ionosTop_m: Ionosphere upper limit altitude above the surface in km, used in Planet.Magnetic.ionosBounds_m.
+            sigmaIonos_Sm: Ionosphere Pedersen conductivity in S/m in Planet.Magnetic.sigmaIonosPedersen_Sm.
+    """
+
+    if name == 'xFeS':
+        Planet.Core.xFeS = val
+        Planet.Do.CONSTANT_INNER_DENSITY = True
+    elif name == 'rhoSilInput_kgm3':
+        Planet.Sil.rhoSilWithCore_kgm3 = val
+        Planet.Do.CONSTANT_INNER_DENSITY = True
+    elif name == 'wOcean_ppt':
+        Planet.Ocean.wOcean_ppt = val
+    elif name == 'Tb_K':
+        Planet.Bulk.Tb_K = val
+    elif name == 'ionosTop_km':
+        Planet.Magnetic.ionosBounds_m[-1] = val/1e3
+    elif name == 'sigmaIonos_Sm':
+        Planet.Magnetic.sigmaIonosPedersen_Sm = val
+    elif name == 'silPhi_frac':
+        Planet.Sil.phiRockMax_frac = val
+        if val == 0:
+            Planet.Do.POROUS_ROCK = False
+        else:
+            Planet.Do.POROUS_ROCK = True
+        Planet.Do.CONSTANT_INNER_DENSITY = False
+    elif name == 'silPclosure_MPa':
+        Planet.Sil.Pclosure_MPa = val
+        Planet.Do.POROUS_ROCK = True
+        Planet.Do.CONSTANT_INNER_DENSITY = False
+    elif name == 'icePhi_frac':
+        Planet.Ocean.phiMax_frac = {key: val for key in Planet.Ocean.phiMax_frac.keys()}
+        if val == 0:
+            Planet.Do.POROUS_ICE = False
+        else:
+            Planet.Do.POROUS_ICE = True
+    elif name == 'icePclosure_MPa':
+        Planet.Ocean.Pclosure_MPa = {key: val for key in Planet.Ocean.Pclosure_MPa.keys()}
+        Planet.Do.POROUS_ICE = True
+    elif name == 'Htidal_Wm3':
+        Planet.Sil.Htidal_Wm3 = val
+    elif name == 'Qrad_Wkg':
+        Planet.Sil.Qrad_Wkg = val
+    elif name == 'qSurf_Wm2':
+        Planet.Bulk.qSurf_Wm2 = val
+    elif name == 'compOcean':
+        Planet.Ocean.comp = val
+    elif name == 'compSil':
+        Planet.Sil.mantleEOS = val
+        Planet.Do.CONSTANT_INNER_DENSITY = False
+    elif name == 'compFe':
+        Planet.Core.coreEOS = val
+        Planet.Do.CONSTANT_INNER_DENSITY = False
+    else:
+        log.warning(f'No defined behavior for Planet setting named "{name}". Returning unchanged.')
+
+    return Planet
 
 
 def WriteExploreOgram(Exploration, Params):
@@ -1034,8 +1357,6 @@ def WriteExploreOgram(Exploration, Params):
         'xName': Exploration.xName,
         'yName': Exploration.yName,
         'zName': Exploration.zName,
-        'xScale': Exploration.xScale,
-        'yScale': Exploration.yScale,
         'w_ppt': Exploration.w_ppt,
         'oceanComp': Exploration.oceanComp,
         'Tb_K': Exploration.Tb_K,
@@ -1082,8 +1403,6 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
     Exploration.xName = reload['xName'][0]
     Exploration.yName = reload['yName'][0]
     Exploration.zName = reload['zName'][0]
-    Exploration.xScale = reload['xScale'][0]
-    Exploration.yScale = reload['yScale'][0]
     Exploration.w_ppt = reload['w_ppt']
     Exploration.oceanComp = reload['oceanComp']
     Exploration.Tb_K = reload['Tb_K']

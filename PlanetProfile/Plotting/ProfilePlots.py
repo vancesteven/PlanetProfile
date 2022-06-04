@@ -192,14 +192,16 @@ def PlotWedge(PlanetList, Params):
             else:
                 xStr = f'{Planet.Core.xS_frac * FigLbl.xMult:.2f}'
             coreLine = f'\ce{{Fe}} core with \SI{{{xStr}}}{{{FigLbl.xUnits}}}~\ce{{S}}'
-        elif 'undifferentiated' in Planet.Sil.EOS.comp:
+        elif Planet.Sil.EOS is not None and 'undifferentiated' in Planet.Sil.EOS.comp:
             coreLine = 'undifferentiated'
         else:
             coreLine = ''
+
         if 'Comet' in Planet.Sil.mantleEOS:
             silLine = 'Comet 67P'
         else:
             silLine = f'{Planet.Sil.mantleEOS[:2]} chondrite'
+
         if Planet.Do.NO_H2O:
             wedgeLabel = f'{silLine}\n{coreLine}\n$q_\mathrm{{surf}}$~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{{FigLbl.fluxUnits}}}'
         else:
@@ -208,8 +210,10 @@ def PlotWedge(PlanetList, Params):
             else:
                 compStr = f'\SI{{{Planet.Ocean.wOcean_ppt:.1f}}}{{{FigLbl.wUnits}}}~\ce{{{Planet.Ocean.comp}}}'
             wedgeLabel = f'{silLine} mantle\n{coreLine}\n{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
+
         if Planet.Do.POROUS_ROCK:
             wedgeLabel = f'Porous {wedgeLabel}'
+
         if Params.ALL_ONE_BODY and not nWedges == 1:
             indivTitle = wedgeLabel
         else:
@@ -817,12 +821,11 @@ def PlotExploreOgram(ExplorationList, Params):
         exploreogram plots.
     """
 
-    FigLbl.SetExploration(ExplorationList[0].bodyname, ExplorationList[0].xName, ExplorationList[0].yName, 
-                          ExplorationList[0].zName, ExplorationList[0].xScale, ExplorationList[0].yScale)
+    FigLbl.SetExploration(ExplorationList[0].bodyname, ExplorationList[0].xName,
+                          ExplorationList[0].yName, ExplorationList[0].zName)
 
     for Exploration in ExplorationList:
         fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
-        cbarLabel = FigLbl.cbarLabelExplore
     
         fig.suptitle(FigLbl.explorationTitle)
         ax.set_xlabel(FigLbl.xLabelExplore)
@@ -830,9 +833,11 @@ def PlotExploreOgram(ExplorationList, Params):
         ax.set_xscale(FigLbl.xScaleExplore)
         ax.set_yscale(FigLbl.yScaleExplore)
     
-        x = Exploration.__getattribute__(Exploration.xName) * FigLbl.xMult
-        y = Exploration.__getattribute__(Exploration.yName) * FigLbl.yMult
-        z = Exploration.__getattribute__(Exploration.zName) * FigLbl.zMult
+        x = Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore
+        y = Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore
+        z = Exploration.__getattribute__(Exploration.zName) * FigLbl.zMultExplore
+        ax.set_xlim([np.min(x), np.max(x)])
+        ax.set_ylim([np.min(y), np.max(y)])
         mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'])
         cont = ax.contour(x, y, z, colors='black')
         lbls = plt.clabel(cont, fmt='%1.0f')

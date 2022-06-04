@@ -64,11 +64,20 @@ def SilicateLayers(Planet, Params):
         indsSilValid = np.where(Mtot_kg <= Planet.Bulk.M_kg)[0]
         if Planet.Do.Fe_CORE:
             if(np.size(indsSilValid) == 0):
-                raise RuntimeError('No silicate mantle size had less than the total body mass.\n' +
-                                   f'Min mass: {np.min(Mtot_kg/Planet.Bulk.M_kg):.3f} M_{Planet.name[0]}, ' +
-                                   f'max mass: {np.max(Mtot_kg/Planet.Bulk.M_kg):.3f} M_{Planet.name[0]}. ' +
-                                   'Try adjusting run settings that affect mantle density, like silicate composition ' +
-                                   'and heat flux settings.')
+                msg = 'No silicate mantle size had less than the total body mass.\n' + \
+                     f'Min mass: {np.min(Mtot_kg/Planet.Bulk.M_kg):.3f} M_{Planet.name[0]}, ' + \
+                     f'max mass: {np.max(Mtot_kg/Planet.Bulk.M_kg):.3f} M_{Planet.name[0]}. '
+                suggestion = 'Try adjusting run settings that affect mantle density, like silicate composition ' + \
+                             'and heat flux settings.'
+                if Params.ALLOW_BROKEN_MODELS:
+                    if Params.DO_EXPLOREOGRAM:
+                        log.info(msg)
+                    else:
+                        log.error(msg + suggestion + ' Params.ALLOW_BROKEN_MODELS is True, so calculations ' +
+                                  'will proceed with many values set to nan.')
+                else:
+                    raise RuntimeError(msg + suggestion)
+                indsSilValid = range(0)
         elif np.all(Mtot_kg < Planet.Bulk.M_kg):
             Mdiff_frac = 1 - Mtot_kg / Planet.Bulk.M_kg
             MdiffThresh = 0.05

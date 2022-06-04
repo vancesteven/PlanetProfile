@@ -28,173 +28,174 @@ def GetLayerMeans(PlanetList, Params):
 
     for Planet in PlanetList:
         # Mean values are set to nan by default. Set relevant values here.
-        
-        # Inner layer means
-        iSil = np.logical_and(Planet.phase >= Constants.phaseSil, Planet.phase < Constants.phaseSil + 10)
-        if Planet.Do.POROUS_ROCK:
-            Planet.dzSilPorous_km = (Planet.Sil.Rmean_m -
-                np.max(Planet.r_m[:-1][np.logical_and(iSil, Planet.phi_frac < Planet.Sil.phiMin_frac)],
-                       initial=Planet.Core.Rmean_m)) / 1e3
-        else:
-            Planet.dzSilPorous_km = 0.0
-        if Params.CALC_CONDUCT:
-            Planet.Sil.sigmaMean_Sm = np.mean(Planet.sigma_Sm[iSil])
-        # Get mean shear modulus in silicates
-        if Params.CALC_SEISMIC:
-            Planet.Sil.GSmean_GPa = np.mean(Planet.Seismic.GS_GPa[iSil])
 
-        iFe = Planet.phase >= Constants.phaseFe
-        if np.sum(iFe) > 0:
-            iPureFe = np.logical_or(Planet.phase >= Constants.phaseFe, Planet.phase < Constants.phaseFeS)
-            iFeS = np.logical_or(Planet.phase >= Constants.phaseFeS, Planet.phase < Constants.phaseFeS + 10)
-            if np.sum(iPureFe) > 0:
-                Planet.Core.rhoMeanFe_kgm3 = np.mean(Planet.rho_kgm3[iPureFe])
-            if np.sum(iFeS) > 0:
-                Planet.Core.rhoMeanFeS_kgm3 = np.mean(Planet.rho_kgm3[iFeS])
-                Planet.dzFeS_km = (np.max(Planet.r_m[:-1][iFeS]) - np.max(Planet.r_m[:-1][iPureFe], initial=0)) / 1e3
+        if Planet.Do.VALID:
+            # Inner layer means
+            iSil = np.logical_and(Planet.phase >= Constants.phaseSil, Planet.phase < Constants.phaseSil + 10)
+            if Planet.Do.POROUS_ROCK:
+                Planet.dzSilPorous_km = (Planet.Sil.Rmean_m -
+                    np.max(Planet.r_m[:-1][np.logical_and(iSil, Planet.phi_frac < Planet.Sil.phiMin_frac)],
+                           initial=Planet.Core.Rmean_m)) / 1e3
             else:
-                # We need this to be zero, not nan, for some wedge calculations
-                Planet.dzFeS_km = 0.0
+                Planet.dzSilPorous_km = 0.0
             if Params.CALC_CONDUCT:
-                Planet.Core.sigmaMean_Sm = np.mean(Planet.sigma_Sm[iFe])
-            # Get mean shear modulus in core
+                Planet.Sil.sigmaMean_Sm = np.mean(Planet.sigma_Sm[iSil])
+            # Get mean shear modulus in silicates
             if Params.CALC_SEISMIC:
-                Planet.Core.GSmean_GPa = np.mean(Planet.Seismic.GS_GPa[iFe])
-            if np.sum(iPureFe) > 0:
-                Planet.Core.GSmeanFe_GPa = np.mean(Planet.Seismic.GS_GPa[iPureFe])
-            if np.sum(iFeS) > 0:
-                Planet.Core.GSmeanFeS_GPa = np.mean(Planet.Seismic.GS_GPa[iFeS])
+                Planet.Sil.GSmean_GPa = np.mean(Planet.Seismic.GS_GPa[iSil])
 
-        # Hydrosphere layer means
-        if not Planet.Do.NO_H2O:
-            iCond = Planet.z_m[:-1] < Planet.eLid_m
-            iConv = np.logical_and(Planet.z_m[:-1] >= Planet.eLid_m, Planet.z_m[:-1] < Planet.zb_km*1e3)
-            iCondI = abs(Planet.phase[iCond]) == 1
-            iCondClath = abs(Planet.phase[iCond]) == Constants.phaseClath
-            iConvI = abs(Planet.phase[iConv]) == 1
-            iConvClath = abs(Planet.phase[iConv]) == Constants.phaseClath
-            if np.any(iCondI):
-                Planet.Ocean.rhoCondMean_kgm3['Ih'] = np.sum(Planet.MLayer_kg[iCond][iCondI]) / np.sum(Planet.VLayer_m3[iCond][iCondI])
-                # Get mean conductivity, ignoring spherical effects
+            iFe = Planet.phase >= Constants.phaseFe
+            if np.sum(iFe) > 0:
+                iPureFe = np.logical_or(Planet.phase >= Constants.phaseFe, Planet.phase < Constants.phaseFeS)
+                iFeS = np.logical_or(Planet.phase >= Constants.phaseFeS, Planet.phase < Constants.phaseFeS + 10)
+                if np.sum(iPureFe) > 0:
+                    Planet.Core.rhoMeanFe_kgm3 = np.mean(Planet.rho_kgm3[iPureFe])
+                if np.sum(iFeS) > 0:
+                    Planet.Core.rhoMeanFeS_kgm3 = np.mean(Planet.rho_kgm3[iFeS])
+                    Planet.dzFeS_km = (np.max(Planet.r_m[:-1][iFeS]) - np.max(Planet.r_m[:-1][iPureFe], initial=0)) / 1e3
+                else:
+                    # We need this to be zero, not nan, for some wedge calculations
+                    Planet.dzFeS_km = 0.0
                 if Params.CALC_CONDUCT:
-                    Planet.Ocean.sigmaCondMean_Sm['Ih'] = np.mean(Planet.sigma_Sm[iCond][iCondI])
-                # Get mean shear modulus, ignoring spherical effects
+                    Planet.Core.sigmaMean_Sm = np.mean(Planet.sigma_Sm[iFe])
+                # Get mean shear modulus in core
                 if Params.CALC_SEISMIC:
-                    Planet.Ocean.GScondMean_GPa['Ih'] = np.mean(Planet.Seismic.GS_GPa[iCond][iCondI])
-            if np.any(iConvI):
-                Planet.Ocean.rhoConvMean_kgm3['Ih'] = np.sum(Planet.MLayer_kg[iConv][iConvI]) / np.sum(Planet.VLayer_m3[iConv][iConvI])
-                if Params.CALC_CONDUCT:
-                    Planet.Ocean.sigmaConvMean_Sm['Ih'] = np.mean(Planet.sigma_Sm[iConv][iConvI])
-                if Params.CALC_SEISMIC:
-                    Planet.Ocean.GSconvMean_GPa['Ih'] = np.mean(Planet.Seismic.GS_GPa[iConv][iConvI])
-            if np.any(iCondClath):
-                Planet.Ocean.rhoCondMean_kgm3['Clath'] = np.sum(Planet.MLayer_kg[iCond][iCondClath]) / np.sum(Planet.VLayer_m3[iCond][iCondClath])
-                if Params.CALC_CONDUCT:
-                    Planet.Ocean.sigmaCondMean_Sm['Clath'] = np.mean(Planet.sigma_Sm[iCond][iCondClath])
-                if Params.CALC_SEISMIC:
-                    Planet.Ocean.GScondMean_GPa['Clath'] = np.mean(Planet.Seismic.GS_GPa[iCond][iCondClath])
-            if np.any(iConvClath):
-                Planet.Ocean.rhoConvMean_kgm3['Clath'] = np.sum(Planet.MLayer_kg[iConv][iConvClath]) / np.sum(Planet.VLayer_m3[iConv][iConvClath])
-                if Params.CALC_CONDUCT:
-                    Planet.Ocean.sigmaConvMean_Sm['Clath'] = np.mean(Planet.sigma_Sm[iConv][iConvClath])
-                if Params.CALC_SEISMIC:
-                    Planet.Ocean.GSconvMean_GPa['Clath'] = np.mean(Planet.Seismic.GS_GPa[iConv][iConvClath])
+                    Planet.Core.GSmean_GPa = np.mean(Planet.Seismic.GS_GPa[iFe])
+                if np.sum(iPureFe) > 0:
+                    Planet.Core.GSmeanFe_GPa = np.mean(Planet.Seismic.GS_GPa[iPureFe])
+                if np.sum(iFeS) > 0:
+                    Planet.Core.GSmeanFeS_GPa = np.mean(Planet.Seismic.GS_GPa[iFeS])
 
-            if Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV:
-                iCondIII = np.logical_and(Planet.z_m[:-1] >= Planet.z_m[Planet.Steps.nIbottom],
-                                                       Planet.z_m[:-1] < Planet.z_m[Planet.Steps.nIbottom] + Planet.eLidIII_m)
-                iConvIII = np.logical_and(Planet.z_m[:-1] >= Planet.z_m[Planet.Steps.nIbottom] + Planet.eLidIII_m,
-                                                       Planet.z_m[:-1] < Planet.z_m[Planet.Steps.nIIIbottom])
-                Planet.Ocean.rhoCondMean_kgm3['III'] = np.sum(Planet.MLayer_kg[iCondIII]) / np.sum(Planet.VLayer_m3[iCondIII])
-                Planet.Ocean.rhoConvMean_kgm3['III'] = np.sum(Planet.MLayer_kg[iConvIII]) / np.sum(Planet.VLayer_m3[iConvIII])
-                if Params.CALC_CONDUCT:
-                    Planet.Ocean.sigmaCondMean_Sm['III'] = np.mean(Planet.sigma_Sm[iCondIII])
-                    if np.sum(iConvIII) > 0:
-                        Planet.Ocean.sigmaConvMean_Sm['III'] = np.mean(Planet.sigma_Sm[iConvIII])
-                # Get mean shear moduli
-                if Params.CALC_SEISMIC:
-                    Planet.Ocean.GScondMean_GPa['III'] = np.mean(Planet.Seismic.GS_GPa[iCondIII])
-                    if np.sum(iConvIII) > 0:
-                        Planet.Ocean.GSconvMean_GPa['III'] = np.mean(Planet.Seismic.GS_GPa[iConvIII])
-            if Planet.Do.BOTTOM_ICEV:
-                iCondV = np.logical_and(Planet.z_m[:-1] >= Planet.z_m[Planet.Steps.nIIIbottom],
-                                                     Planet.z_m[:-1] < Planet.z_m[Planet.Steps.nIIIbottom] + Planet.eLidV_m)
-                iConvV = np.logical_and(Planet.z_m[:-1] >= Planet.z_m[Planet.Steps.nIIIbottom] + Planet.eLidV_m,
-                                                     Planet.z_m[:-1] < Planet.z_m[Planet.Steps.nSurfIce])
-                Planet.Ocean.rhoCondMean_kgm3['V'] = np.sum(Planet.MLayer_kg[iCondV]) / np.sum(Planet.VLayer_m3[iCondV])
-                Planet.Ocean.rhoConvMean_kgm3['V'] = np.sum(Planet.MLayer_kg[iConvV]) / np.sum(Planet.VLayer_m3[iConvV])
-                if Params.CALC_CONDUCT:
-                    Planet.Ocean.sigmaCondMean_Sm['V'] = np.mean(Planet.sigma_Sm[iCondV])
-                    if np.sum(iConvV) > 0:
-                        Planet.Ocean.sigmaConvMean_Sm['V'] = np.mean(Planet.sigma_Sm[iConvV])
-                # Get mean shear moduli
-                if Params.CALC_SEISMIC:
-                    Planet.Ocean.GScondMean_GPa['V'] = np.mean(Planet.Seismic.GS_GPa[iCondV])
-                    if np.sum(iConvV) > 0:
-                        Planet.Ocean.GSconvMean_GPa['V'] = np.mean(Planet.Seismic.GS_GPa[iConvV])
+            # Hydrosphere layer means
+            if not Planet.Do.NO_H2O:
+                iCond = Planet.z_m[:-1] < Planet.eLid_m
+                iConv = np.logical_and(Planet.z_m[:-1] >= Planet.eLid_m, Planet.z_m[:-1] < Planet.zb_km*1e3)
+                iCondI = abs(Planet.phase[iCond]) == 1
+                iCondClath = abs(Planet.phase[iCond]) == Constants.phaseClath
+                iConvI = abs(Planet.phase[iConv]) == 1
+                iConvClath = abs(Planet.phase[iConv]) == Constants.phaseClath
+                if np.any(iCondI):
+                    Planet.Ocean.rhoCondMean_kgm3['Ih'] = np.sum(Planet.MLayer_kg[iCond][iCondI]) / np.sum(Planet.VLayer_m3[iCond][iCondI])
+                    # Get mean conductivity, ignoring spherical effects
+                    if Params.CALC_CONDUCT:
+                        Planet.Ocean.sigmaCondMean_Sm['Ih'] = np.mean(Planet.sigma_Sm[iCond][iCondI])
+                    # Get mean shear modulus, ignoring spherical effects
+                    if Params.CALC_SEISMIC:
+                        Planet.Ocean.GScondMean_GPa['Ih'] = np.mean(Planet.Seismic.GS_GPa[iCond][iCondI])
+                if np.any(iConvI):
+                    Planet.Ocean.rhoConvMean_kgm3['Ih'] = np.sum(Planet.MLayer_kg[iConv][iConvI]) / np.sum(Planet.VLayer_m3[iConv][iConvI])
+                    if Params.CALC_CONDUCT:
+                        Planet.Ocean.sigmaConvMean_Sm['Ih'] = np.mean(Planet.sigma_Sm[iConv][iConvI])
+                    if Params.CALC_SEISMIC:
+                        Planet.Ocean.GSconvMean_GPa['Ih'] = np.mean(Planet.Seismic.GS_GPa[iConv][iConvI])
+                if np.any(iCondClath):
+                    Planet.Ocean.rhoCondMean_kgm3['Clath'] = np.sum(Planet.MLayer_kg[iCond][iCondClath]) / np.sum(Planet.VLayer_m3[iCond][iCondClath])
+                    if Params.CALC_CONDUCT:
+                        Planet.Ocean.sigmaCondMean_Sm['Clath'] = np.mean(Planet.sigma_Sm[iCond][iCondClath])
+                    if Params.CALC_SEISMIC:
+                        Planet.Ocean.GScondMean_GPa['Clath'] = np.mean(Planet.Seismic.GS_GPa[iCond][iCondClath])
+                if np.any(iConvClath):
+                    Planet.Ocean.rhoConvMean_kgm3['Clath'] = np.sum(Planet.MLayer_kg[iConv][iConvClath]) / np.sum(Planet.VLayer_m3[iConv][iConvClath])
+                    if Params.CALC_CONDUCT:
+                        Planet.Ocean.sigmaConvMean_Sm['Clath'] = np.mean(Planet.sigma_Sm[iConv][iConvClath])
+                    if Params.CALC_SEISMIC:
+                        Planet.Ocean.GSconvMean_GPa['Clath'] = np.mean(Planet.Seismic.GS_GPa[iConv][iConvClath])
 
-            # Non-underplate ice layer sizes
-            if np.any(abs(Planet.phase) == 1):
-                Planet.zIceI_m = np.min(Planet.z_m[:-1][abs(Planet.phase) == 1])
-                Planet.dzIceI_km = (next(z_m for i, z_m in enumerate(Planet.z_m[:-1])
-                                        if i > np.where(abs(Planet.phase) == 1)[0][0]
-                                           and not abs(Planet.phase[i]) == 1) - Planet.zIceI_m) / 1e3
-            else:
-                Planet.zIceI_m = np.nan
-                Planet.dzIceI_km = np.nan
-            if np.any(abs(Planet.phase) == Constants.phaseClath):
-                # Note that this differs from Planet.zClath_m, which is used to set the thickness/depth of the BOTTOM
-                # of the clathrate lid in the "top" clathrate model.
-                Planet.zClath_km = np.min(Planet.z_m[:-1][abs(Planet.phase) == Constants.phaseClath])/1e3
-                Planet.dzClath_km = np.max(Planet.z_m[:-1][abs(Planet.phase) == Constants.phaseClath])/1e3 \
-                                   - Planet.zClath_km
-            else:
-                Planet.zClath_km = np.nan
-                Planet.dzClath_km = np.nan
-            if np.any(abs(Planet.phase) == 3):
-                Planet.zIceIII_m = np.min(Planet.z_m[:-1][abs(Planet.phase) == 3])
-                Planet.dzIceIII_km = (Planet.z_m[Planet.Steps.nIIIbottom] - Planet.z_m[Planet.Steps.nIbottom])/1e3
-            else:
-                Planet.zIceIII_m = np.nan
-                Planet.dzIceIII_km = np.nan
-            if np.any(Planet.phase == -5):
-                Planet.zIceVund_m = np.min(Planet.z_m[:-1][Planet.phase == -5])
-                Planet.dzIceVund_km = Planet.zb_km - Planet.z_m[Planet.Steps.nIIIbottom]/1e3
-            else:
-                Planet.zIceVund_m = np.nan
-                Planet.dzIceVund_km = np.nan
-            if np.any(Planet.phase == 5):
-                Planet.zIceV_m = np.min(Planet.z_m[:-1][Planet.phase == 5])
-                Planet.dzIceV_km = (next(z_m for i, z_m in enumerate(Planet.z_m[:-1])
-                                        if i > np.where(Planet.phase == 5)[0][0]
-                                           and not Planet.phase[i] in [0, 5]) - Planet.zIceV_m) / 1e3
-                Planet.Ocean.rhoMeanVwet_kgm3 = np.mean(Planet.rho_kgm3[Planet.phase == 5])
-                if Params.CALC_CONDUCT:
-                    Planet.Ocean.sigmaMeanVwet_Sm = np.mean(Planet.sigma_Sm[Planet.phase == 5]) 
-                if Params.CALC_SEISMIC:
-                    Planet.Ocean.GSmeanVwet_GPa = np.mean(Planet.Seismic.GS_GPa[Planet.phase == 5])
-            else:
-                Planet.zIceV_m = np.nan
-                Planet.dzIceV_km = np.nan
-            if np.any(abs(Planet.phase) == 6):
-                Planet.zIceVI_m = np.min(Planet.z_m[:-1][abs(Planet.phase) == 6])
-                Planet.dzIceVI_km = (next(z_m for i, z_m in enumerate(Planet.z_m[:-1])
-                                        if i > np.where(abs(Planet.phase) == 6)[0][0]
-                                           and not Planet.phase[i] in [-6, 0, 6]) - Planet.zIceVI_m) / 1e3
-                Planet.Ocean.rhoMeanVI_kgm3 = np.mean(Planet.rho_kgm3[Planet.phase == 6])
-                if Params.CALC_CONDUCT:
-                    Planet.Ocean.sigmaMeanVI_Sm = np.mean(Planet.sigma_Sm[Planet.phase == 6]) 
-                if Params.CALC_SEISMIC:
-                    Planet.Ocean.GSmeanVI_GPa = np.mean(Planet.Seismic.GS_GPa[abs(Planet.phase) == 6])
-            else:
-                Planet.zIceVI_m = np.nan
-                Planet.dzIceVI_km = np.nan
-            if np.any(Planet.phase == 5) or np.any(Planet.phase == 6):
-                Planet.dzIceVandVI_km = (next(z_m for i, z_m in enumerate(Planet.z_m[:-1])
-                                        if i > np.where(np.logical_or(Planet.phase == 5, Planet.phase == 6))[0][0]
-                                           and not Planet.phase[i] in [0, 5, 6]) - Planet.zIceVI_m) / 1e3
-            else:
-                Planet.dzIceVandVI_km = np.nan
+                if Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV:
+                    iCondIII = np.logical_and(Planet.z_m[:-1] >= Planet.z_m[Planet.Steps.nIbottom],
+                                                           Planet.z_m[:-1] < Planet.z_m[Planet.Steps.nIbottom] + Planet.eLidIII_m)
+                    iConvIII = np.logical_and(Planet.z_m[:-1] >= Planet.z_m[Planet.Steps.nIbottom] + Planet.eLidIII_m,
+                                                           Planet.z_m[:-1] < Planet.z_m[Planet.Steps.nIIIbottom])
+                    Planet.Ocean.rhoCondMean_kgm3['III'] = np.sum(Planet.MLayer_kg[iCondIII]) / np.sum(Planet.VLayer_m3[iCondIII])
+                    Planet.Ocean.rhoConvMean_kgm3['III'] = np.sum(Planet.MLayer_kg[iConvIII]) / np.sum(Planet.VLayer_m3[iConvIII])
+                    if Params.CALC_CONDUCT:
+                        Planet.Ocean.sigmaCondMean_Sm['III'] = np.mean(Planet.sigma_Sm[iCondIII])
+                        if np.sum(iConvIII) > 0:
+                            Planet.Ocean.sigmaConvMean_Sm['III'] = np.mean(Planet.sigma_Sm[iConvIII])
+                    # Get mean shear moduli
+                    if Params.CALC_SEISMIC:
+                        Planet.Ocean.GScondMean_GPa['III'] = np.mean(Planet.Seismic.GS_GPa[iCondIII])
+                        if np.sum(iConvIII) > 0:
+                            Planet.Ocean.GSconvMean_GPa['III'] = np.mean(Planet.Seismic.GS_GPa[iConvIII])
+                if Planet.Do.BOTTOM_ICEV:
+                    iCondV = np.logical_and(Planet.z_m[:-1] >= Planet.z_m[Planet.Steps.nIIIbottom],
+                                                         Planet.z_m[:-1] < Planet.z_m[Planet.Steps.nIIIbottom] + Planet.eLidV_m)
+                    iConvV = np.logical_and(Planet.z_m[:-1] >= Planet.z_m[Planet.Steps.nIIIbottom] + Planet.eLidV_m,
+                                                         Planet.z_m[:-1] < Planet.z_m[Planet.Steps.nSurfIce])
+                    Planet.Ocean.rhoCondMean_kgm3['V'] = np.sum(Planet.MLayer_kg[iCondV]) / np.sum(Planet.VLayer_m3[iCondV])
+                    Planet.Ocean.rhoConvMean_kgm3['V'] = np.sum(Planet.MLayer_kg[iConvV]) / np.sum(Planet.VLayer_m3[iConvV])
+                    if Params.CALC_CONDUCT:
+                        Planet.Ocean.sigmaCondMean_Sm['V'] = np.mean(Planet.sigma_Sm[iCondV])
+                        if np.sum(iConvV) > 0:
+                            Planet.Ocean.sigmaConvMean_Sm['V'] = np.mean(Planet.sigma_Sm[iConvV])
+                    # Get mean shear moduli
+                    if Params.CALC_SEISMIC:
+                        Planet.Ocean.GScondMean_GPa['V'] = np.mean(Planet.Seismic.GS_GPa[iCondV])
+                        if np.sum(iConvV) > 0:
+                            Planet.Ocean.GSconvMean_GPa['V'] = np.mean(Planet.Seismic.GS_GPa[iConvV])
+
+                # Non-underplate ice layer sizes
+                if np.any(abs(Planet.phase) == 1):
+                    Planet.zIceI_m = np.min(Planet.z_m[:-1][abs(Planet.phase) == 1])
+                    Planet.dzIceI_km = (next(z_m for i, z_m in enumerate(Planet.z_m[:-1])
+                                            if i > np.where(abs(Planet.phase) == 1)[0][0]
+                                               and not abs(Planet.phase[i]) == 1) - Planet.zIceI_m) / 1e3
+                else:
+                    Planet.zIceI_m = np.nan
+                    Planet.dzIceI_km = np.nan
+                if np.any(abs(Planet.phase) == Constants.phaseClath):
+                    # Note that this differs from Planet.zClath_m, which is used to set the thickness/depth of the BOTTOM
+                    # of the clathrate lid in the "top" clathrate model.
+                    Planet.zClath_km = np.min(Planet.z_m[:-1][abs(Planet.phase) == Constants.phaseClath])/1e3
+                    Planet.dzClath_km = np.max(Planet.z_m[:-1][abs(Planet.phase) == Constants.phaseClath])/1e3 \
+                                       - Planet.zClath_km
+                else:
+                    Planet.zClath_km = np.nan
+                    Planet.dzClath_km = np.nan
+                if np.any(abs(Planet.phase) == 3):
+                    Planet.zIceIII_m = np.min(Planet.z_m[:-1][abs(Planet.phase) == 3])
+                    Planet.dzIceIII_km = (Planet.z_m[Planet.Steps.nIIIbottom] - Planet.z_m[Planet.Steps.nIbottom])/1e3
+                else:
+                    Planet.zIceIII_m = np.nan
+                    Planet.dzIceIII_km = np.nan
+                if np.any(Planet.phase == -5):
+                    Planet.zIceVund_m = np.min(Planet.z_m[:-1][Planet.phase == -5])
+                    Planet.dzIceVund_km = Planet.zb_km - Planet.z_m[Planet.Steps.nIIIbottom]/1e3
+                else:
+                    Planet.zIceVund_m = np.nan
+                    Planet.dzIceVund_km = np.nan
+                if np.any(Planet.phase == 5):
+                    Planet.zIceV_m = np.min(Planet.z_m[:-1][Planet.phase == 5])
+                    Planet.dzIceV_km = (next(z_m for i, z_m in enumerate(Planet.z_m[:-1])
+                                            if i > np.where(Planet.phase == 5)[0][0]
+                                               and not Planet.phase[i] in [0, 5]) - Planet.zIceV_m) / 1e3
+                    Planet.Ocean.rhoMeanVwet_kgm3 = np.mean(Planet.rho_kgm3[Planet.phase == 5])
+                    if Params.CALC_CONDUCT:
+                        Planet.Ocean.sigmaMeanVwet_Sm = np.mean(Planet.sigma_Sm[Planet.phase == 5])
+                    if Params.CALC_SEISMIC:
+                        Planet.Ocean.GSmeanVwet_GPa = np.mean(Planet.Seismic.GS_GPa[Planet.phase == 5])
+                else:
+                    Planet.zIceV_m = np.nan
+                    Planet.dzIceV_km = np.nan
+                if np.any(abs(Planet.phase) == 6):
+                    Planet.zIceVI_m = np.min(Planet.z_m[:-1][abs(Planet.phase) == 6])
+                    Planet.dzIceVI_km = (next(z_m for i, z_m in enumerate(Planet.z_m[:-1])
+                                            if i > np.where(abs(Planet.phase) == 6)[0][0]
+                                               and not Planet.phase[i] in [-6, 0, 6]) - Planet.zIceVI_m) / 1e3
+                    Planet.Ocean.rhoMeanVI_kgm3 = np.mean(Planet.rho_kgm3[Planet.phase == 6])
+                    if Params.CALC_CONDUCT:
+                        Planet.Ocean.sigmaMeanVI_Sm = np.mean(Planet.sigma_Sm[Planet.phase == 6])
+                    if Params.CALC_SEISMIC:
+                        Planet.Ocean.GSmeanVI_GPa = np.mean(Planet.Seismic.GS_GPa[abs(Planet.phase) == 6])
+                else:
+                    Planet.zIceVI_m = np.nan
+                    Planet.dzIceVI_km = np.nan
+                if np.any(Planet.phase == 5) or np.any(Planet.phase == 6):
+                    Planet.dzIceVandVI_km = (next(z_m for i, z_m in enumerate(Planet.z_m[:-1])
+                                            if i > np.where(np.logical_or(Planet.phase == 5, Planet.phase == 6))[0][0]
+                                               and not Planet.phase[i] in [0, 5, 6]) - Planet.zIceVI_m) / 1e3
+                else:
+                    Planet.dzIceVandVI_km = np.nan
 
     return PlanetList, Params
 
@@ -554,7 +555,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
             if Planet.Ocean.wOcean_ppt == 0:
                 salt = r'Pure~\ce{H2O}'
             else:
-                salt = f'$\SI{{{Planet.Ocean.wOcean_ppt/FigLbl.wDiv:.1f}}}{{{FigLbl.wUnits}\,\ce{{{Planet.Ocean.comp}}}}}$'
+                salt = f'$\SI{{{Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}}}{{{FigLbl.wUnits}\,\ce{{{Planet.Ocean.comp}}}}}$'
 
         oceanLayers = tab.join([f'{salt} {oceanLbl}',
                                 f'\\num{{{Planet.Bulk.R_m/1e3 - Planet.zb_km:.1f}}}',
@@ -721,7 +722,7 @@ def PrintLayerTableLatex(PlanetList, Params):
                 Tsub = surf
             else:
                 compStr = f'\ce{{{thisComp}}}'
-                wStr = f'$\SI{{{thisw/FigLbl.wDiv:.1f}}}{{{FigLbl.wUnits}}}$'
+                wStr = f'$\SI{{{thisw*FigLbl.wMult:.1f}}}{{{FigLbl.wUnits}}}$'
                 Tsub = 'b'
 
             Tb_K = f'{tab}$T_{Tsub}~(\si{{K}})${tab}' + tab.join(strTb_K[thisSubset]) + endl

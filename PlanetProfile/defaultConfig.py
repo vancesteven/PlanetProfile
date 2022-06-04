@@ -2,9 +2,9 @@
 General runtime configuration parameters.
 Overridden by any settings contained within PPBody.py files.
 """
-from PlanetProfile.Utilities.defineStructs import ParamsStruct, Constants
+from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 2  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 3  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 Params = ParamsStruct()
 Params.VERBOSE =       True  # Provides extra runtime messages. Overrides QUIET below
@@ -28,6 +28,7 @@ Params.RUN_ALL_PROFILES = False  # Whether to run all PPBody.py files for the na
 Params.SPEC_FILE =        False  # Whether we are running a specific file or files
 Params.COMPARE =          False  # Whether to plot each new run against other runs from the same body
 Params.DO_PARALLEL =      True  # Whether to use multiprocessing module for parallel computation where applicable
+Params.threadLimit =      1000  # Upper limit to number of processors/threads for parallel computation
 Params.FORCE_EOS_RECALC = False  # Whether to reuse previously loaded EOS functions for multi-profile runs
 Params.SKIP_INNER =       False  # Whether to skip past everything but ocean calculations after MoI matching (for large induction studies)
 Params.NO_SAVEFILE =      False  # Whether to prevent printing run outputs to disk. Saves time and disk space for large induction studies.
@@ -54,6 +55,17 @@ Params.COMBINE_BCOMPS =          False  # Whether to plot Bx, By, Bz with phase 
 
 # Parameter exploration plot settings
 Params.DO_EXPLOREOGRAM = False  # Whether to evaluate and/or plot an exploreogram for the body in question
+Params.SKIP_INDUCTION = False  # Whether to skip past induction calculations. Primarily intended to avoid duplicate calculations in exploreOgrams
+# Options for x/y variables: "xFeS", "rhoSilInput_kgm3", "wOcean_ppt", "Tb_K", "ionosTop_km", "sigmaIonos_Sm",
+# "silPhi_frac", "silPclosure_MPa", "icePhi_frac", "icePclosure_MPa", "Htidal_Wm3", "Qrad_Wkg", "qSurf_Wm2" (Do.NO_H2O only)
+ExploreParams = ExploreParamsStruct()
+ExploreParams.xName = 'xFeS'  # x variable over which to iterate for exploreograms. Options are as above.
+ExploreParams.yName = 'rhoSilInput_kgm3'  # y variable over which to iterate for exploreograms. Options are as above.
+ExploreParams.zName = 'Rcore_km'  # heatmap/colorbar/z variable to plot for exploreograms. Options are "Rcore_km", "qSurf_Wm2" (only if Do.NO_H2O is False).
+ExploreParams.xRange = [0, 1]  # [min, max] values for the x variable above
+ExploreParams.yRange = [2000, 4500]  # Same as above for y variable
+ExploreParams.nx = 50  # Number of points to use in linspace with above x range
+ExploreParams.ny = 50  # Same as above for y
 
 # Reference profile settings
 # Salinities of reference melting curves in ppt

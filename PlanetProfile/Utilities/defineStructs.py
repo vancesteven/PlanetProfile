@@ -52,6 +52,7 @@ class BulkSubstruct():
 class DoSubstruct:
 
     def __init__(self):
+        self.VALID = True  # Whether this profile is physically possible
         self.Fe_CORE = False  # Whether to model an iron core for this body
         self.CONSTANT_INNER_DENSITY = False  # Whether to use a fixed density in silicates and core instead of using Perple_X EOS for each
         self.CLATHRATE = False  # Whether to model clathrates
@@ -549,6 +550,7 @@ class ParamsStruct:
         self.FigureFiles = FigureFilesSubstruct('', '', '')
         self.Sig = None  # General induction settings
         self.Induct = None  # Induction calculation settings
+        self.Explore = ExploreParamsStruct()  # ExploreOgram calculation settings
         self.MagSpectrum = None  # Excitation spectrum settings
         self.cLevels = None  # Contour level specifications
         self.cFmt = None  # Format of contour labels
@@ -640,6 +642,36 @@ class ExcitationSpectrumParamsStruct:
     def __init__(self):
         self.nOmegaPts = 100  # Resolution in log frequency space for magnetic excitation spectra
         self.nOmegaFine = 1000  # Fine-spacing resolution for log frequency spectrum
+
+
+""" ExploreOgram input parameters struct """
+class ExploreParamsStruct:
+    def __init__(self):
+        # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
+        self.xName = None
+        self.yName = None
+        self.zName = None
+        self.xRange = [0, 0]
+        self.yRange = [0, 0]
+        self.nx = 50
+        self.ny = 50
+
+        self.exploreType = {
+            'xFeS': 'inner',
+            'rhoSilInput_kgm3': 'inner',
+            'Rcore_km': 'inner',
+            'wOcean_ppt': 'hydro',
+            'Tb_K': 'hydro',
+            'ionosTop_km': 'ionos',
+            'sigmaIonos_Sm': 'ionos',
+            'silPhi_frac': 'inner',
+            'silPclosure_MPa': 'inner',
+            'icePhi_frac': 'hydro',
+            'icePclosure_MPa': 'hydro',
+            'Htidal_Wm3': 'inner',
+            'Qrad_Wkg': 'inner',
+            'qSurf_Wm2': 'inner'
+        }
 
 
 """ ExploreOgram results struct """
@@ -845,21 +877,36 @@ class FigLblStruct:
         self.wedgeTitle = 'interior structure diagram'
         self.wedgeRadius = r'Radius ($\mathrm{km}$)'
 
-        # InductOgram labels
+        # InductOgram labels and axis scales
         self.plotTitles = ['Amplitude $A$', '$B_x$ component', '$B_y$ component', '$B_z$ component']
         self.fLabels = ['Amp', 'Bx', 'By', 'Bz']
         self.compEnd = ''
+        self.wScale = 'log'
+        self.sigScale = 'log'
+        self.Dscale = 'log'
         self.phaseTitle = r'Phase delay $\upphi$ ($^\circ$)'
         self.Dlabel = r'Ocean thickness $D$ ($\si{km}$)'
         self.TbLabel = r'Ice bottom temp $T_b$ ($\si{K}$)'
         self.iceThickLbl = r'Ice shell thickness ($\si{km}$)'
         self.oceanTempLbl = r'Mean ocean temp ($\si{K}$)'
-        self.wScale = 'log'
-        self.sigScale = 'log'
-        self.Dscale = 'log'
+        self.xScalesInduct = {
+            'sigma': self.sigScale,
+            'Tb': self.wScale,
+            'rho': self.wScale,
+            'phi': self.wScale
+        }
+        self.yScalesInduct = {
+            'sigma': self.Dscale,
+            'Tb': 'linear',
+            'rho': 'linear',
+            'phi': 'log'
+        }
 
         # ExploreOgram labels
         self.RcoreLabel = r'Core radius $R_\mathrm{core}$ ($\si{km}$)'
+        self.ionosTopLabel = r'Ionosphere maximum altitude ($\si{km}$)'
+        self.silPclosureLabel = r'Silicate pore closure pressure ($\si{MPa}$)'
+        self.icePclosureLabel = r'Ice pore closure pressure ($\si{MPa}$)'
 
         # Induction parameter-dependent settings
         self.phaseSpaceTitle = None
@@ -870,16 +917,20 @@ class FigLblStruct:
         self.legendTexc = None
         self.yLabelInduct = None
         self.yScaleInduct = None
+        self.xLabelsInduct = None
+        self.yLabelsInduct = None
 
         # Exploration parameter-dependent settings
         self.explorationTitle = None
         self.exploreCompareTitle = None
         self.xLabelExplore = None
+        self.xScaleExplore = None
         self.yLabelExplore = None
+        self.yScaleExplore = None
         self.cbarLabelExplore = None
-        self.xMult = 1
-        self.yMult = 1
-        self.zMult = 1
+        self.xMultExplore = 1
+        self.yMultExplore = 1
+        self.zMultExplore = 1
 
         # Unit-dependent labels set by SetUnits
         self.rhoUnits = None
@@ -887,7 +938,9 @@ class FigLblStruct:
         self.wUnits = None
         self.xUnits = None
         self.fluxUnits = None
-        self.wDiv = None
+        self.volHeatUnits = None
+        self.radHeatUnits = None
+        self.wMult = None
         self.xMult = None
         self.phiMult = None
         self.qMult = None
@@ -896,7 +949,51 @@ class FigLblStruct:
         self.wLabel = None
         self.rhoLabel = None
         self.phiLabel = None
+        self.silPhiLabel = None
+        self.icePhiLabel = None
         self.xFeSLabel = None
+        self.qSurfLabel = None
+        self.silPhiLabel = None
+        self.icePhiLabel = None
+        self.sigmaIonosLabel = None
+        self.HtidalLabel = None
+        self.QradLabel = None
+
+        # ExploreOgram setting and label dicts
+        self.axisLabelsExplore = None
+        self.axisMultsExplore = None
+        self.axisScalesExplore = {
+            'xFeS': 'linear',
+            'rhoSilInput_kgm3': 'linear',
+            'Rcore_km': 'linear',
+            'wOcean_ppt': 'log',
+            'Tb_K': 'linear',
+            'ionosTop_km': 'linear',
+            'sigmaIonos_Sm': 'log',
+            'silPhi_frac': 'log',
+            'silPclosure_MPa': 'linear',
+            'icePhi_frac': 'log',
+            'icePclosure_MPa': 'linear',
+            'Htidal_Wm3': 'log',
+            'Qrad_Wkg': 'log',
+            'qSurf_Wm2': 'log'
+        }
+        self.exploreDescrip = {
+            'xFeS': 'core FeS mixing ratio',
+            'rhoSilInput_kgm3': 'silicate density',
+            'Rcore_km': 'core size',
+            'wOcean_ppt': 'ocean salinity',
+            'Tb_K': 'ocean melting temperature',
+            'ionosTop_km': 'ionosphere top altitude',
+            'sigmaIonos_Sm': 'ionosphere conductivity',
+            'silPhi_frac': 'silicate maximum porosity',
+            'silPclosure_MPa': 'silicate pore closure pressure',
+            'icePhi_frac': 'ice maximum porosity',
+            'icePclosure_MPa': 'ice pore closure pressure',
+            'Htidal_Wm3': 'silicate tidal heating',
+            'Qrad_Wkg': 'silicate radiogenic heating',
+            'qSurf_Wm2': 'surface heat flux'
+        }
 
 
     def SetUnits(self):
@@ -908,16 +1005,20 @@ class FigLblStruct:
             self.sigUnits = r'S\,m^{-1}'
             self.wUnits = r'g\,kg^{-1}'
             self.fluxUnits = r'W\,m^{-2}'
+            self.volHeatUnits = r'W\,m^{-3}'
+            self.radHeatUnits = r'W\,kg^{-1}'
         else:
             self.rhoUnits = r'kg/m^3'
             self.sigUnits = r'S/m'
             self.wUnits = r'g/kg'
             self.fluxUnits = r'W/m^2'
+            self.volHeatUnits = r'W/m^3'
+            self.radHeatUnits = r'W/kg'
         if self.w_IN_WTPCT:
             self.wUnits = r'wt\%'
-            self.wDiv = 10
+            self.wMult = 1/10
         else:
-            self.wDiv = 1
+            self.wMult = 1
         if self.x_IN_WTPCT:
             self.xUnits = r'wt\%'
             self.xUnitsParen = r'~($\si{wt\%}$)'
@@ -949,6 +1050,58 @@ class FigLblStruct:
         self.rhoLabel = r'Silicate density $\rho_\mathrm{sil}$ ($\si{' + self.rhoUnits + '}$)'
         self.phiLabel = r'Seafloor porosity $\phi_\mathrm{sil}$' + self.phiUnitsParen
         self.xFeSLabel = r'Iron sulfide mixing ratio $x_{\ce{FeS}}$' + self.xUnitsParen
+        self.qSurfLabel = r'Surface heat flux $q_\mathrm{surf}$ ($\si{' + self.fluxUnits + '}$)'
+        self.silPhiLabel = r'Silicate maximum porosity $\phi_\mathrm{sil,max}$' + self.phiUnitsParen
+        self.icePhiLabel = r'Ice maximum porosity $\phi_\mathrm{sil,max}$' + self.phiUnitsParen
+        self.sigmaIonosLabel = r'Ionosphere conductivity ($\si{' + self.sigUnits + '}$)'
+        self.HtidalLabel = r'Silicate tidal heating rate ($\si{' + self.volHeatUnits + '}$)'
+        self.QradLabel = r'Silicate radiogenic heating rate ($\si{' + self.radHeatUnits + '}$)'
+
+        self.xLabelsInduct = {
+            'sigma': self.sigLabel,
+            'Tb': self.wLabel,
+            'rho': self.wLabel,
+            'phi': self.wLabel
+        }
+        self.yLabelsInduct = {
+            'sigma': self.Dlabel,
+            'Tb': self.TbLabel,
+            'rho': self.rhoLabel,
+            'phi': self.phiLabel
+        }
+
+        self.axisLabelsExplore = {
+            'xFeS': self.xFeSLabel,
+            'rhoSilInput_kgm3': self.rhoLabel,
+            'Rcore_km': self.RcoreLabel,
+            'wOcean_ppt': self.wLabel,
+            'Tb_K': self.TbLabel,
+            'ionosTop_km': self.ionosTopLabel,
+            'sigmaIonos_Sm': self.sigmaIonosLabel,
+            'silPhi_frac': self.silPhiLabel,
+            'silPclosure_MPa': self.silPclosureLabel,
+            'icePhi_frac': self.icePhiLabel,
+            'icePclosure_MPa': self.icePclosureLabel,
+            'Htidal_Wm3': self.HtidalLabel,
+            'Qrad_Wkg': self.QradLabel,
+            'qSurf_Wm2': self.qSurfLabel
+        }
+        self.axisMultsExplore = {
+            'xFeS': self.xMult,
+            'rhoSilInput_kgm3': 1,
+            'Rcore_km': 1,
+            'wOcean_ppt': self.wMult,
+            'Tb_K': 1,
+            'ionosTop_km': 1,
+            'sigmaIonos_Sm': 1,
+            'silPhi_frac': self.phiMult,
+            'silPclosure_MPa': 1,
+            'icePhi_frac': self.phiMult,
+            'icePclosure_MPa': 1,
+            'Htidal_Wm3': 1,
+            'Qrad_Wkg': 1,
+            'qSurf_Wm2': self.qMult
+        }
 
     def singleComp(self, comp):
         # Set a tag to append to titles in the event all of what we're plotting
@@ -965,43 +1118,22 @@ class FigLblStruct:
         self.Dlims = [10**IndParams.Dmin[bodyname], 10**IndParams.Dmax[bodyname]]
         self.legendTexc = np.array([f'{T_h:.2f} h' for T_h in Texc_h])
 
-        if IndParams.inductOtype != 'sigma':
-            if IndParams.inductOtype == 'Tb':
-                self.yLabelInduct = self.TbLabel
-                self.yScaleInduct = 'linear'
-            elif IndParams.inductOtype == 'rho':
-                self.yLabelInduct = self.rhoLabel
-                self.yScaleInduct = 'linear'
-            elif IndParams.inductOtype == 'phi':
-                self.yLabelInduct = self.phiLabel
-                self.yScaleInduct = 'log'
+        self.yLabelInduct = self.yLabelsInduct[IndParams.inductOtype]
+        self.yScaleInduct = self.yScalesInduct[IndParams.inductOtype]
 
-    def SetExploration(self, bodyname, xName, yName, zName, xScale, yScale):
+    def SetExploration(self, bodyname, xName, yName, zName):
         # Set titles, labels, and axis settings pertaining to exploreogram plots
+        self.xLabelExplore = self.axisLabelsExplore[xName]
+        self.xScaleExplore = self.axisScalesExplore[xName]
+        self.xMultExplore = self.axisMultsExplore[xName]
+        self.yLabelExplore = self.axisLabelsExplore[yName]
+        self.yScaleExplore = self.axisScalesExplore[yName]
+        self.yMultExplore = self.axisMultsExplore[yName]
+        self.cBarLabelExplore = self.axisLabelsExplore[zName]
+        self.zMultExplore = self.axisMultsExplore[zName]
 
-        if xName == 'xFeS':
-            self.xLabelExplore = self.xFeSLabel
-            if self.x_IN_WTPCT:
-                self.xMult = 100
-        else:
-            self.xLabelExplore = xName
-
-        if yName == 'rhoSilInput_kgm3':
-            self.yLabelExplore = self.rhoLabel
-        else:
-            self.yLabelExplore = yName
-
-        if zName == 'Rcore_km':
-            exploreDescrip = 'core size'
-            self.cbarLabelExplore = self.RcoreLabel
-        else:
-            exploreDescrip = 'parameter'
-            self.cbarLabelExplore = zName
-
-        self.explorationTitle = f'\\textbf{{{bodyname} {exploreDescrip} exploration}}'
+        self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration}}'
         self.exploreCompareTitle = self.explorationTitle
-        self.xScaleExplore = xScale
-        self.yScaleExplore = yScale
 
 
 """ Figure size settings """
@@ -1143,6 +1275,8 @@ class ConstantsStruct:
         self.mH2O_gmol = 18.02  # Molecular mass of pure water in g/mol
         self.mCH4_gmol = 16.04  # Molecular mass of methane in g/mol
         self.mCO2_gmol = 44.01  # Molecular mass of CO2 in g/mol
+        self.mFe_gmol = 55.845  # Molecular mass of Fe in g/mol
+        self.mFeS_gmol = 87.910  # Molecular mass of FeS in g/mol
         self.mClathGas_gmol = self.mCH4_gmol + 5.75 * self.mH2O_gmol  # Molecular mass of clathrate unit cell
         self.clathGasFrac_ppt = 1e3 * self.mCH4_gmol / self.mClathGas_gmol  # Mass fraction of gases trapped in clathrates in ppt
         self.QScore = 1e4  # Fixed QS value to use for core layers if not set in PPBody.py file

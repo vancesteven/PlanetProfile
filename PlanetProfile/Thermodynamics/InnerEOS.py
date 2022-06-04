@@ -146,34 +146,34 @@ class PerplexEOSStruct:
                 if np.any(np.isnan(GS_bar)): raise RuntimeError(errNaNstart + 'GS' + errNaNend)
 
                 # Now make 2D grids of values.
-                self.rho_kgm3 = np.reshape(rho_kgm3, (-1,dim2))
-                self.VP_kms = np.reshape(VP_kms, (-1,dim2))
-                self.VS_kms = np.reshape(VS_kms, (-1,dim2))
-                self.Cp_JkgK = np.reshape(Cp_Jm3K, (-1,dim2)) / self.rho_kgm3
-                self.alpha_pK = np.reshape(alpha_pK, (-1,dim2))
-                self.KS_GPa = np.reshape(KS_bar, (-1,dim2)) * Constants.bar2GPa
-                self.GS_GPa = np.reshape(GS_bar, (-1,dim2)) * Constants.bar2GPa
+                rho_kgm3 = np.reshape(rho_kgm3, (-1,dim2))
+                VP_kms = np.reshape(VP_kms, (-1,dim2))
+                VS_kms = np.reshape(VS_kms, (-1,dim2))
+                Cp_JkgK = np.reshape(Cp_Jm3K, (-1,dim2)) / rho_kgm3
+                alpha_pK = np.reshape(alpha_pK, (-1,dim2))
+                KS_GPa = np.reshape(KS_bar, (-1,dim2)) * Constants.bar2GPa
+                GS_GPa = np.reshape(GS_bar, (-1,dim2)) * Constants.bar2GPa
 
                 if P_FIRST:
                     # Transpose 2D meshes if P is the first column.
-                    self.rho_kgm3 = self.rho_kgm3.T
-                    self.VP_kms = self.VP_kms.T
-                    self.VS_kms = self.VS_kms.T
-                    self.Cp_JkgK = self.Cp_JkgK.T
-                    self.alpha_pK = self.alpha_pK.T
-                    self.KS_GPa = self.KS_GPa.T
-                    self.GS_GPa = self.GS_GPa.T
+                    rho_kgm3 = rho_kgm3.T
+                    VP_kms = VP_kms.T
+                    VS_kms = VS_kms.T
+                    Cp_JkgK = Cp_JkgK.T
+                    alpha_pK = alpha_pK.T
+                    KS_GPa = KS_GPa.T
+                    GS_GPa = GS_GPa.T
 
                 self.P_MPa = P1D_MPa
                 self.T_K = T1D_K
                 # Assign temporary functions we will wrap with porosity if modeled
-                self.ufn_rho_kgm3 = RectBivariateSpline(P1D_MPa, T1D_K, self.rho_kgm3)
-                self.ufn_VP_kms = RectBivariateSpline(P1D_MPa, T1D_K, self.VP_kms)
-                self.ufn_VS_kms = RectBivariateSpline(P1D_MPa, T1D_K, self.VS_kms)
-                self.ufn_KS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, self.KS_GPa)
-                self.ufn_GS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, self.GS_GPa)
-                self.ufn_Cp_JkgK = RectBivariateSpline(P1D_MPa, T1D_K, self.Cp_JkgK)
-                self.ufn_alpha_pK = RectBivariateSpline(P1D_MPa, T1D_K, self.alpha_pK)
+                self.ufn_rho_kgm3 = RectBivariateSpline(P1D_MPa, T1D_K, rho_kgm3)
+                self.ufn_VP_kms = RectBivariateSpline(P1D_MPa, T1D_K, VP_kms)
+                self.ufn_VS_kms = RectBivariateSpline(P1D_MPa, T1D_K, VS_kms)
+                self.ufn_KS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, KS_GPa)
+                self.ufn_GS_GPa = RectBivariateSpline(P1D_MPa, T1D_K, GS_GPa)
+                self.ufn_Cp_JkgK = RectBivariateSpline(P1D_MPa, T1D_K, Cp_JkgK)
+                self.ufn_alpha_pK = RectBivariateSpline(P1D_MPa, T1D_K, alpha_pK)
 
                 EOSlist.loaded[self.fpath] = (self.P_MPa, self.T_K, self.ufn_rho_kgm3, self.ufn_VP_kms, self.ufn_VS_kms,
                                               self.ufn_KS_GPa, self.ufn_GS_GPa, self.ufn_Cp_JkgK, self.ufn_alpha_pK)
@@ -189,12 +189,12 @@ class PerplexEOSStruct:
                     kThermConst_WmK = Constants.kThermFe_WmK
                 else:
                     kThermConst_WmK = Constants.kThermSil_WmK
-            self.kTherm_WmK = np.zeros((np.size(self.P_MPa), np.size(self.T_K))) + kThermConst_WmK  # Placeholder until a self-consistent determination is implemented
-            self.ufn_kTherm_WmK = RectBivariateSpline(self.P_MPa, self.T_K, self.kTherm_WmK)
+            kTherm_WmK = np.zeros((np.size(self.P_MPa), np.size(self.T_K))) + kThermConst_WmK  # Placeholder until a self-consistent determination is implemented
+            self.ufn_kTherm_WmK = RectBivariateSpline(self.P_MPa, self.T_K, kTherm_WmK)
 
             # Assign tidal heating function
             # (currently a placeholder)
-            self.Htidal_Wm3 = np.zeros_like(self.kTherm_WmK) + HtidalConst_Wm3  # Placeholder until a self-consistent determination is implemented
+            Htidal_Wm3 = np.zeros_like(kTherm_WmK) + HtidalConst_Wm3  # Placeholder until a self-consistent determination is implemented
             self.fn_Htidal_Wm3 = GetHtidalFunc(HtidalConst_Wm3)
 
             # Assign porosity model function, if applicable

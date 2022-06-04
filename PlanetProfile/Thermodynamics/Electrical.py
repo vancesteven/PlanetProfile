@@ -16,39 +16,47 @@ def ElecConduct(Planet, Params):
     # Initialize outputs as NaN so that we get errors if we missed any layers
     Planet.sigma_Sm = np.zeros(Planet.Steps.nTotal) * np.nan
 
-    # Identify which indices correspond to which phases
-    indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
-        indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
-        indsFe = GetPhaseIndices(Planet.phase)
+    # Only perform calculations if this is a valid profile
+    if Planet.Do.VALID:
+        # Identify which indices correspond to which phases
+        indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
+            indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
+            indsFe = GetPhaseIndices(Planet.phase)
 
-    if Params.CALC_CONDUCT:
-        if Planet.Do.POROUS_ICE:
-            Planet = CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
-                                                    indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet)
-        else:
-            Planet = CalcElecSolidIce(Planet, Params, indsLiq, indsI, indsII, indsIIund, indsIII, indsIIIund,
-                                                      indsV, indsVund, indsVI, indsVIund, indsClath)
-
-        if not Params.SKIP_INNER:
-            if Planet.Do.POROUS_ROCK:
-                Planet = CalcElecPorRock(Planet, Params, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI)
+        if Params.CALC_CONDUCT:
+            if Planet.Do.POROUS_ICE:
+                Planet = CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
+                                                        indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet)
             else:
-                Planet.sigma_Sm[indsSil] = Planet.Sil.sigmaSil_Sm
+                Planet = CalcElecSolidIce(Planet, Params, indsLiq, indsI, indsII, indsIIund, indsIII, indsIIIund,
+                                                          indsV, indsVund, indsVI, indsVIund, indsClath)
+
+            if not Params.SKIP_INNER:
+                if Planet.Do.POROUS_ROCK:
+                    Planet = CalcElecPorRock(Planet, Params, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI)
+                else:
+                    Planet.sigma_Sm[indsSil] = Planet.Sil.sigmaSil_Sm
+                    Planet.Sil.sigmaPoreMean_Sm = np.nan
+                    Planet.Sil.sigmaPorousLayerMean_Sm = np.nan
+
+                Planet.sigma_Sm[indsFe] = Planet.Core.sigmaCore_Sm
+            else:
                 Planet.Sil.sigmaPoreMean_Sm = np.nan
                 Planet.Sil.sigmaPorousLayerMean_Sm = np.nan
-
-            Planet.sigma_Sm[indsFe] = Planet.Core.sigmaCore_Sm
         else:
             Planet.Sil.sigmaPoreMean_Sm = np.nan
             Planet.Sil.sigmaPorousLayerMean_Sm = np.nan
+
+        if np.size(indsLiq) != 0:
+            Planet.Ocean.sigmaMean_Sm = np.mean(Planet.sigma_Sm[indsLiq])
+            Planet.Ocean.sigmaTop_Sm = Planet.sigma_Sm[indsLiq[0]]
+        else:
+            Planet.Ocean.sigmaMean_Sm = np.nan
+            Planet.Ocean.sigmaTop_Sm = np.nan
+
     else:
         Planet.Sil.sigmaPoreMean_Sm = np.nan
         Planet.Sil.sigmaPorousLayerMean_Sm = np.nan
-
-    if np.size(indsLiq) != 0:
-        Planet.Ocean.sigmaMean_Sm = np.mean(Planet.sigma_Sm[indsLiq])
-        Planet.Ocean.sigmaTop_Sm = Planet.sigma_Sm[indsLiq[0]]
-    else:
         Planet.Ocean.sigmaMean_Sm = np.nan
         Planet.Ocean.sigmaTop_Sm = np.nan
 
