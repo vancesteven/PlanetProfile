@@ -444,7 +444,7 @@ class GetphiCalc:
         self.multFactor = newPhiMax_frac / self.phiMax_frac
 
     def __call__(self, P_MPa, T_K):
-        phi_frac = self.multFactor * self.fn_phiEOS_frac(P_MPa, T_K, grid=False)
+        phi_frac = self.multFactor * self.fn_phiEOS_frac(P_MPa, T_K)
         if np.size(P_MPa) == 1:
             if phi_frac < self.phiMin_frac:
                 phi_frac = 0
