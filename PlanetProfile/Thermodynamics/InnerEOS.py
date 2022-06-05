@@ -212,7 +212,7 @@ class PerplexEOSStruct:
 
             elif porosType is None or porosType == 'none':
                 # No porosity modeled, but need a dummy field for cross-compatibility
-                self.fn_phi_frac = ReturnZeros(1)
+                self.ufn_phi_frac = ReturnZeros(1)
 
             else:
                 if porosType == 'Vitovtova2014' or porosType == 'Chen2020':
@@ -224,7 +224,7 @@ class PerplexEOSStruct:
                     self.PREMlookup = Interp1D(PPREM_MPa, zPREM_km)
                 else:
                     self.PREMlookup = None
-                self.fn_phi_frac = GetphiFunc(self.porosType, self.phiTop_frac, self.Pclosure_MPa,
+                self.ufn_phi_frac = GetphiFunc(self.porosType, self.phiTop_frac, self.Pclosure_MPa,
                                               self.PREMlookup, P_MPa, T_K)
 
             # Store complete EOSStruct in global list of loaded EOSs
@@ -269,6 +269,13 @@ class PerplexEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_GS_GPa(P_MPa, T_K, grid=grid)
+    def fn_phi_frac(self, P_MPa, T_K, grid=False):
+        if self.Fe_EOS or (self.porosType is None or self.porosType == 'none'):
+            return ReturnZeros(1)
+        else:
+            if not self.EXTRAP:
+                P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            return self.ufn_phi_frac(P_MPa, T_K, grid=grid)
 
 
 class EOSwrapper:
@@ -298,7 +305,7 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].fn_KS_GPa(P_MPa, T_K)
     def fn_GS_GPa(self, P_MPa, T_K):
         return EOSlist.loaded[self.key].fn_GS_GPa(P_MPa, T_K)
-    def fn_phi_frac(self, P_MPa, T_K):
+    def fn_phi_frac(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_phi_frac(P_MPa, T_K)
     def fn_porosCorrect(self, propBulk, propPore, phi, J):
         return EOSlist.loaded[self.key].fn_porosCorrect(propBulk, propPore, phi, J)
@@ -444,7 +451,7 @@ class GetphiCalc:
         self.multFactor = newPhiMax_frac / self.phiMax_frac
 
     def __call__(self, P_MPa, T_K):
-        phi_frac = self.multFactor * self.fn_phiEOS_frac(P_MPa, T_K)
+        phi_frac = self.multFactor * self.fn_phiEOS_frac(P_MPa, T_K, grid=False)
         if np.size(P_MPa) == 1:
             if phi_frac < self.phiMin_frac:
                 phi_frac = 0
