@@ -1072,7 +1072,7 @@ def ParPlanetExplore(Planet, Params, xList, yList):
                     for i, _ in enumerate(xList):
                         for j, yVal in enumerate(yList):
                             k += 1
-                            if i != 0:
+                            if j != 0:
                                 PlanetGrid[i,j] = deepcopy(PlanetGrid[i,0])
                                 PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.yName, yVal)
                                 PlanetGrid[i,j].index = k
