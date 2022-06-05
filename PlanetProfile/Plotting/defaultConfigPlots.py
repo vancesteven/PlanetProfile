@@ -3,7 +3,7 @@ import numpy as np
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 2  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 3  # Integer number for config file version. Increment when new settings are added to the default config file.
 Color = ColorStruct()
 Style = StyleStruct()
 FigLbl = FigLblStruct()
@@ -61,8 +61,8 @@ Color.paleSilCondBot = 0.78
 Color.cmapName = {
     'none': 'copper',
     'PureH2O': 'cividis',
-    'Seawater': 'cool_r',
-    'MgSO4': 'winter_r',
+    'Seawater': 'cool',
+    'MgSO4': 'winter',
     'NH3': 'spring',
     'NaCl': 'summer',
     'Ice': 'coolwarm_r',
@@ -80,7 +80,7 @@ Color.cmapBounds = {
     'default': [0.0, 1.0]
 }
 # Set temperature bounds to use for colormap normalization
-Color.Tbounds_K = [245.0, 300.0]
+Color.Tbounds_K = [255.0, 273.0]
 
 # Set upper bounds for max concentrations to use for darkening
 Color.saturation = {
@@ -100,15 +100,14 @@ Color.SetCmaps()
 
 
 """ Figure style options """
-Style.LS_dft = '-'  # Default line style to use on plots
-Style.LS_Sw = '-'  # Linestyle for Seawater
-Style.LS_Mg = '--'  # Linestyle for MgSO4
-Style.LS_sp = ':'  # Linestyle for special consideration models
-Style.LW_sal = 3  # Linewidth for higher salinity
-Style.LW_dil = 1  # Linewidth for dilute salinity
-Style.LW_std = 2  # Linewidth for standard salinity
-Style.LW_sound = 1.5  # LineWidth for sound speed plots
-Style.LW_seism = 1  # LineWidth for seismic plots (Attenuation)
+Style.LS = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-'}  # LineStyle options for hydrosphere plots
+Style.LWlims = [0.5, 2]  # Bounds of linewidths to use for salinity mapping
+Style.MW_hydro = 3  # Marker size for hydrosphere plot endpoint, in the factor by which to multiply the linewidth.
+Style.MS_hydro = 'o'  # Marker style for hydrosphere plot endpoint
+Style.LW_std = 1.5  # Standard linewidth to use when not mapping as above
+Style.LW_sound = 1  # Linewidth for sound speeds on hydrosphere plot
+Style.LW_seis = 1  # Linewidth for seismic plots
+Style.LS_seis = {'KS': '-', 'GS': '--', 'VP': '-', 'VS': '--', 'QS': '-', 'P': '-', 'T': '--', 'rho': '-.'}
 Style.LS_ref = {'none': None, 'PureH2O': '-', 'Seawater': ':', 'MgSO4': '--', 'NH3': '--', 'NaCl': '--'}  # Style for reference profiles
 Style.LW_ref = 0.75  # Linewidth for reference profiles
 Style.LS_Induction = {'synodic': '-', 'orbital': ':', 'true anomaly': ':', 'synodic harmonic': '--'}  # Style for inductOgram plots
@@ -124,8 +123,12 @@ Style.LW_wedgeMajor = 0.375  # Linewidth in pt for major layer boundaries in wed
 """ Figure labels """
 # Note: Specific labels are set in PlanetProfile.Utilities.defineStructs.
 FigLbl.NEGATIVE_UNIT_POWERS = True  # Whether to use negative powers for units in latex tables, or instead a backslash.
+FigLbl.BODYNAME_IN_LABEL = True  # Whether to include the bodyname in legend labels for comparison plots including multiple bodies
 FigLbl.NAN_FOR_EMPTY = False  # Whether to use nan (or -) for empty layer parameters that were not calculated or not present.
-FigLbl.w_IN_WTPCT = False  # Whether to print salinities in wt% (or g/kg) in tables and plots
+FigLbl.PFULL_IN_GPa = True  # Whether to plot P in GPa (or MPa) for full-body plots
+FigLbl.PHYDRO_IN_bar = False  # Whether to print P in bar (or MPa) for hydrosphere plots
+FigLbl.w_IN_WTPCT = False  # Whether to print salinities in wt% (or g/kg) in tables
+FigLbl.T_IN_C = False  # Whether to print T in °C (or K) in plots
 FigLbl.x_IN_MOLPCT = True  # Whether to print silicate/core mass fractions in mol% (or fractional) in tables and plots
 FigLbl.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
 FigLbl.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
@@ -133,17 +136,15 @@ FigLbl.SetUnits()  # Make use of above toggles and assign labels
 
 
 """ Figure sizes """
-FigSize.vsP = (3, 3)
-FigSize.vsR = (3, 3)
-FigSize.vperm = (3, 3)
-FigSize.vgsks = (3, 3)
-FigSize.vseis = (3, 3)
+FigSize.vpore = (6, 6)
+FigSize.vperm = (6, 6)
+FigSize.vseis = (6, 6)
 FigSize.vhydro = (8, 5)
 FigSize.vgrav = (6, 5)
 FigSize.vmant = (6, 6)
 FigSize.vcore = (6, 6)
-FigSize.vpvt4 = (3, 3)
-FigSize.vpvt6 = (3, 3)
+FigSize.vpvt4 = (6, 6)
+FigSize.vpvt6 = (6, 6)
 FigSize.vwedg = (4.5, 4.5)
 FigSize.phaseSpaceSolo = (6, 4)
 FigSize.phaseSpaceCombo = (9, 4)
@@ -160,6 +161,12 @@ FigMisc.xtn = '.' + FigMisc.figFormat  # Figure file extension. Good options are
 FigMisc.defaultFontName = 'STIXGeneral'  # Default font variables--STIX is what is used in Icarus journal submissions
 FigMisc.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
 FigMisc.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
+
+# Hydrosphere plots
+FigMisc.SCALE_HYDRO_LW = True  # Whether to adjust thickness of lines on hydrosphere plot according to relative salinity
+FigMisc.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
+FigMisc.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
+FigMisc.TminHydro = 200  # Minimum temperature to display on hydrosphere plots
 
 # Wedge diagrams
 FigMisc.IONOSPHERE_IN_WEDGE = False  # Whether to include specified ionosphere in wedge diagram

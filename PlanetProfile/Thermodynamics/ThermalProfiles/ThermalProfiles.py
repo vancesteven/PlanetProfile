@@ -82,7 +82,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
 
     # Get melting temperature for calculating viscosity relative to this temp
     if phaseMid == 1:
-        Tmelt_K = GetTfreeze(oceanEOS, Pmid_MPa, Tconv_K, TfreezeRange_K=273-Tconv_K)
+        Tmelt_K = GetTfreeze(oceanEOS, Pmid_MPa, Tconv_K, TfreezeRange_K=275-Tconv_K)
     else:
         Tmelt_K = GetTfreeze(oceanEOS, Pmid_MPa, Tconv_K)
     etaConv_Pas = Constants.etaMelt_Pas[phaseMid] * np.exp(A * (Tmelt_K/Tconv_K - 1))

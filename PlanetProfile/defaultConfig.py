@@ -39,11 +39,14 @@ Params.DEPRECATED =       False  # Whether to allow deprecated code to run. Will
 
 # Plot Settings
 Params.SKIP_PLOTS =       False  # Whether to skip creation of all plots
-Params.PLOT_GRAVITY =     False  # Whether to plot Gravity and Pressure
+Params.PLOT_GRAVITY =     True  # Whether to plot Gravity and Pressure
 Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
 Params.PLOT_REF =         True  # Whether to plot reference melting curve densities on hydrosphere plot
-Params.PLOT_SIGS =        False  # Make a plot of conductivity as a function of radius to include on hydrosphere plot
-Params.PLOT_TRADEOFF =    False  # Whether to plot mantle properties tradeoff
+Params.PLOT_SIGS =        True  # Whether to plot conductivities as a function of radius on hydrosphere plot if they have been calculated
+Params.PLOT_SOUNDS =      True  # Whether to plot sound speeds as a function of radius on hydrosphere plot if they have been calculated
+Params.PLOT_TRADEOFF =    True  # Whether to plot mantle properties tradeoff
+Params.PLOT_POROSITY =    True  # Whether to plot porosities in rock and/or ice for bodies that have it modeled
+Params.PLOT_SEISMIC =     True  # Whether to plot seismic quantities if they have been calculated
 Params.PLOT_WEDGE =       True  # Whether to plot interior wedge diagram
 Params.LEGEND =           True  # Whether to include legends
 

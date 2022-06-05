@@ -3599,9 +3599,11 @@ function writeToDisk(fileName, comp, FeCore, legendLabel, mantleEOSfile, coreEOS
     permFile = fullfile([fileName '_mantlePerm.txt']);
     
     QfromMantle_W = QfromMantle_Wm2 * 4*pi*RsilMean_m^2;
+    tradeLegendLabel = [legendLabel ', $' num2str(Cmeasured) '±' num2str(Cuncertainty) '$'];
 
     dlmwrite(saveFile, legendLabel, 'delimiter', '');
-    dlmwrite(saveFile, '  nHeadLines = 79', 'delimiter', '', '-append');
+    dlmwrite(saveFile, '  nHeadLines = 80', 'delimiter', '', '-append');
+    dlmwrite(saveFile, ['  MoI label = ' tradeLegendLabel], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  Iron core = ' num2str(FeCore)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  Silicate EOS file = ' num2str(mantleEOSfile)], 'delimiter', '', '-append');
     dlmwrite(saveFile, ['  Iron core EOS file = ' num2str(coreEOSfile)], 'delimiter', '', '-append');
@@ -3737,6 +3739,7 @@ function [comp, FeCore, silEOSfile, coreEOSfile, wtPct, Tb_K, zb_m, zClath_m, Pb
     fReload = fopen(saveFile);
         legendLabel = fgetl(fReload);
         nHeadLinesStr = split(fgetl(fReload),'=');
+        tradeLegendLabelSplit = split(fgetl(fReload),'=');
         FeCoreStr = split(fgetl(fReload),'=');
         silEOSSplit = split(fgetl(fReload),'=');
         coreEOSSplit = split(fgetl(fReload),'=');
@@ -3815,6 +3818,7 @@ function [comp, FeCore, silEOSfile, coreEOSfile, wtPct, Tb_K, zb_m, zClath_m, Pb
         nStepsCoreStr = split(fgetl(fReload),'=');
 
         nHeadLines = str2double(nHeadLinesStr{2});
+        tradeLegendLabel = strip(tradeLegendLabelSplit{2});
         silEOSfile = strip(silEOSSplit{2});
         coreEOSfile = strip(coreEOSSplit{2});
         comp = strip(compSplit{2});

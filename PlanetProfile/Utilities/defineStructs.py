@@ -357,10 +357,12 @@ class PlanetStruct:
         self.Seismic = SeismicSubstruct()
         self.Magnetic = MagneticSubstruct()
 
-        self.saveLabel = None # Label for savefile
+        self.saveLabel = None  # Label for savefile
+        self.label = None  # Label for legend entries
+        self.tradeLabel = None  # Label for legend entries in tradeoff plots
         # Settings for GetPfreeze start, stop, and step size.
         # Shrink closer to expected melting pressure to improve run times.
-        self.PfreezeLower_MPa = 0.05  # Lower boundary for GetPfreeze to search for ice Ih phase transition
+        self.PfreezeLower_MPa = 0.01  # Lower boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeUpper_MPa = 230  # Upper boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeRes_MPa = 0.05  # Step size in pressure for GetPfreeze to use in searching for phase transition
 
@@ -508,8 +510,8 @@ class FigureFilesSubstruct:
         self.fNameInductOgram = os.path.join(self.inductPath, self.inductBase + self.comp)
 
         # Figure filename strings
-        vsP = 'Porosity_vs_P'
-        vsR = 'Porosity_vs_R'
+        vpore = 'Porosity'
+        vporeDbl = 'Porosity2axes'
         vperm = 'Permeability'
         vgsks = 'Gs_Ks'
         vseis = 'Seismic'
@@ -525,10 +527,9 @@ class FigureFilesSubstruct:
         explore = 'ExploreOgram'
         # Construct Figure Filenames
         self.vwedg = self.fName + vwedg + xtn
-        self.vsP = self.fName + vsP + xtn
-        self.vsR= self.fName + vsR + xtn
+        self.vpore = self.fName + vpore + xtn
+        self.vporeDbl = self.fName + vporeDbl + xtn
         self.vperm = self.fName + vperm + xtn
-        self.vgsks = self.fName + vgsks + xtn
         self.vseis = self.fName + vseis + xtn
         self.vhydro = self.fName + vhydro + xtn
         self.vgrav = self.fName + vgrav + xtn
@@ -849,15 +850,14 @@ class ColorStruct:
 class StyleStruct:
     # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
     def __init__(self):
-        self.LS_dft = None  # Default line style to use on plots
-        self.LS_Sw = None  # Linestyle for Seawater
-        self.LS_Mg = None  # Linestyle for MgSO4
-        self.LS_sp = None  # Linestyle for special consideration models
-        self.LW_sal = None  # Linewidth for higher salinity
-        self.LW_dil = None  # Linewidth for dilute salinity
-        self.LW_std = None  # Linewidth for standard salinity
+        self.LS = {}  # LineStyles to use in plots based on ocean comp
+        self.LWlims = None  # Bounds of linewidths to use for salinity mapping
+        self.MW_hydro = None  # Marker size for hydrosphere plot endpoint
+        self.MS_hydro = None  # Marker style for hydrosphere plot endpoint
+        self.LW_std = None  # Standard linewidth to use when not mapping as above
         self.LW_sound = None  # LineWidth for sound speed plots
-        self.LW_seism = None  # LineWidth for seismic plots (Attenuation)
+        self.LW_seis = None  # LineWidth for seismic plots
+        self.LS_seis = {}  # Linestyles for seismic plots
         self.LS_ref = {}  # Style for reference profiles
         self.LW_ref = None  # Linewidth for reference profiles
         self.LS_Induction = {}  # Style for inductOgram plots
@@ -869,6 +869,11 @@ class StyleStruct:
         self.LW_wedge = None  # Linewidth in pt for minor boundaries in wedge diagrams
         self.LW_wedgeMajor = None  # Linewidth in pt for major layer boundaries in wedge diagrams
 
+    def GetLW(self, wOcean_ppt, wMinMax_ppt):
+        linewidth = interp1d(wMinMax_ppt, self.LWlims,
+                    bounds_error=False, fill_value=self.LWlims[-1])(wOcean_ppt)
+        return linewidth
+
 
 """ Figure label settings """
 class FigLblStruct:
@@ -879,10 +884,34 @@ class FigLblStruct:
         # Label display toggles
         self.NEGATIVE_UNIT_POWERS = True  # Whether to use negative powers for units in latex tables, or instead a backslash.
         self.NAN_FOR_EMPTY = False  # Whether to use nan (or -) for empty layer parameters that were not calculated or not present.
+        self.PFULL_IN_GPa = True  # Whether to print P in GPa (or MPa) for full-body plots
+        self.PHYDRO_IN_bar = False  # Whether to print P in bar (or MPa) for hydrosphere plots
         self.w_IN_WTPCT = False  # Whether to print salinities in wt% (or g/kg) in tables
+        self.T_IN_C = False  # Whether to print T in °C (or K) in plots
         self.x_IN_MOLPCT = True  # Whether to print silicate/core mass fractions in mol% (or fractional) in tables
         self.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
         self.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
+
+        # General plot labels
+        self.RsilLabel = r'Silicate outer radius $R_\mathrm{sil}$ ($\si{km}$)'
+        self.RcoreLabel = r'Core radius $R_\mathrm{core}$ ($\si{km}$)'
+        self.GSKSlabel = r'Bulk \& shear moduli $K_S$, $G_S$ ($\si{GPa}$)'
+        self.rLabel = r'Radius $r$ ($\si{km}$)'
+        self.zLabel = r'Depth $z$ ($\si{km}$)'
+
+        # General plot titles
+        self.mantTitle = r' silicate radius--density tradeoff'
+        self.mantCompareTitle = r'Comparison of silicate radius--density tradeoffs'
+        self.coreTitle = r' silicate--core size tradeoff'
+        self.coreCompareTitle = r'Comparison of silicate--core size tradeoffs'
+        self.gravTitle = r' gravity and pressure'
+        self.gravCompareTitle = r'Gravity and pressure comparison'
+        self.hydroTitle = r' hydrosphere properties'
+        self.hydroCompareTitle = r'Hydrosphere property comparison'
+        self.poreTitle = r' porosity'
+        self.poreCompareTitle = r'Porosity comparison'
+        self.seisTitle = r' seismic properties'
+        self.seisCompareTitle = r'Seismic property comparison'
 
         # Wedge diagram labels
         self.wedgeTitle = 'interior structure diagram'
@@ -914,7 +943,6 @@ class FigLblStruct:
         }
 
         # ExploreOgram labels
-        self.RcoreLabel = r'Core radius $R_\mathrm{core}$ ($\si{km}$)'
         self.ionosTopLabel = r'Ionosphere maximum altitude ($\si{km}$)'
         self.silPclosureLabel = r'Silicate pore closure pressure ($\si{MPa}$)'
         self.icePclosureLabel = r'Ice pore closure pressure ($\si{MPa}$)'
@@ -946,9 +974,13 @@ class FigLblStruct:
         # Unit-dependent labels set by SetUnits
         self.rhoUnits = None
         self.sigUnits = None
+        self.PunitsFull = None
+        self.PunitsHydro = None
+        self.gUnits = None
         self.wUnits = None
         self.xUnits = None
         self.fluxUnits = None
+        self.vSoundUnits = None
         self.volHeatUnits = None
         self.radHeatUnits = None
         self.wMult = None
@@ -957,9 +989,21 @@ class FigLblStruct:
         self.qMult = None
         self.NA = None
         self.sigLabel = None
+        self.PlabelFull = None
+        self.PlabelHydro = None
+        self.PmultFull = None
+        self.PmultHydro = None
+        self.gLabel = None
         self.wLabel = None
-        self.rhoLabel = None
+        self.vSoundLabel = None
+        self.vPoceanLabel = None
+        self.vSiceLabel = None
+        self.PTrhoLabel = None
+        self.QseisLabel = None
+        self.rhoSilLabel = None
+        self.rhoHydroLabel = None
         self.phiLabel = None
+        self.silPhiLabelSea = None
         self.silPhiLabel = None
         self.icePhiLabel = None
         self.xFeSLabel = None
@@ -1014,22 +1058,48 @@ class FigLblStruct:
         if self.NEGATIVE_UNIT_POWERS:
             self.rhoUnits = r'kg\,m^{-3}'
             self.sigUnits = r'S\,m^{-1}'
+            self.gUnits = r'm\,s^{-2}'
             self.wUnits = r'g\,kg^{-1}'
             self.fluxUnits = r'W\,m^{-2}'
+            self.vSoundUnits = r'km\,s^{-1}'
             self.volHeatUnits = r'W\,m^{-3}'
             self.radHeatUnits = r'W\,kg^{-1}'
+            self.QseisVar = r'Q_S\,\omega^{-\gamma}'
         else:
             self.rhoUnits = r'kg/m^3'
             self.sigUnits = r'S/m'
+            self.gUnits = r'm/s^2'
             self.wUnits = r'g/kg'
             self.fluxUnits = r'W/m^2'
+            self.vSoundUnits = r'km/s'
             self.volHeatUnits = r'W/m^3'
             self.radHeatUnits = r'W/kg'
+            self.QseisVar = r'Q_S/\omega^\gamma'
+
+        self.PunitsFull = 'MPa'
+        self.PmultFull = 1
+        self.PunitsHydro = 'MPa'
+        self.PmultHydro = 1
+        if self.PFULL_IN_GPa:
+            self.PunitsFull = 'GPa'
+            self.PmultFull = 1e-3
+        if self.PHYDRO_IN_bar:
+            self.PunitsHydro = 'bar'
+            self.PmultHydro = 1/Constants.bar2MPa
+
         if self.w_IN_WTPCT:
             self.wUnits = r'wt\%'
             self.wMult = 1/10
         else:
             self.wMult = 1
+
+        if self.T_IN_C:
+            self.Tunits = r'\Celsius'
+            self.Tsub = Constants.T0
+        else:
+            self.Tunits = 'K'
+            self.Tsub = 0
+
         if self.x_IN_MOLPCT:
             self.xUnits = r'mol\%'
             self.xUnitsParen = r'~($\si{mol\%}$)'
@@ -1038,6 +1108,7 @@ class FigLblStruct:
             self.xUnits = ''
             self.xUnitsParen = ''
             self.xMult = 1
+
         if self.phi_IN_VOLPCT:
             self.phiUnits = r'$\si{vol\%}$'
             self.phiUnitsParen = r'~($\si{vol\%}$)'
@@ -1046,20 +1117,36 @@ class FigLblStruct:
             self.phiUnits = ''
             self.phiUnitsParen = ''
             self.phiMult = 1
+
         if self.qSURF_IN_mW:
             self.fluxUnits = 'm' + self.fluxUnits
             self.qMult = 1e3
         else:
             self.qMult = 1
+
         # What to put for NA or not calculated numbers
         if self.NAN_FOR_EMPTY:
             self.NA = r'\num{nan}'
         else:
             self.NA = '-'
-        self.sigLabel = r'Mean conductivity $\overline{\sigma}$ ($\si{' + self.sigUnits + '}$)'
+
+        self.PlabelFull = r'Pressure $P$ ($\si{' + self.PunitsFull + '}$)'
+        self.PlabelHydro = r'Pressure $P$ ($\si{' + self.PunitsHydro + '}$)'
+        self.sigLabel = r'Electrical conductivity $\sigma$ ($\si{' + self.sigUnits + '}$)'
+        self.sigMeanLabel = r'Mean conductivity $\overline{\sigma}$ ($\si{' + self.sigUnits + '}$)'
+        self.gLabel = r'Gravity $g$ ($\si{' + self.gUnits + '}$)'
         self.wLabel = r'Salinity $w$ ($\si{' + self.wUnits + '}$)'
-        self.rhoLabel = r'Silicate density $\rho_\mathrm{sil}$ ($\si{' + self.rhoUnits + '}$)'
-        self.phiLabel = r'Seafloor porosity $\phi_\mathrm{sil}$' + self.phiUnitsParen
+        self.Tlabel = r'Temperature $T$ ($\si{' + self.Tunits + '}$)'
+        self.rhoLabel = r'Density $\rho$ ($\si{' + self.rhoUnits + '}$)'
+        self.PTrhoLabel = r'$P$ ($\si{MPa}$), $T$ ($\si{K}$), and $\rho$ ($\si{' + self.rhoUnits + '}$)'
+        self.rhoSilLabel = r'Silicate density $\rho_\mathrm{sil}$ ($\si{' + self.rhoUnits + '}$)'
+        self.silPhiLabelSea = r'Seafloor porosity $\phi_\mathrm{sil}$' + self.phiUnitsParen
+        self.phiLabel = r'Porosity $\phi$' + self.phiUnitsParen
+        self.vSoundLabel = r'Sound speeds $V_P$, $V_S$ ($\si{' + self.vSoundUnits + '}$)'
+        self.vPoceanLabel = r'Ocean $V_P$ ($\si{' + self.vSoundUnits + '}$)'
+        self.vPiceLabel = r'Ice $V_P$ ($\si{' + self.vSoundUnits + '}$)'
+        self.vSiceLabel = r'Ice $V_S$ ($\si{' + self.vSoundUnits + '}$)'
+        self.QseisLabel = f'Seismic quality factor ${self.QseisVar}$'
         self.xFeSLabel = r'Iron sulfide mixing ratio $x_{\ce{FeS}}$' + self.xUnitsParen
         self.qSurfLabel = r'Surface heat flux $q_\mathrm{surf}$ ($\si{' + self.fluxUnits + '}$)'
         self.silPhiLabel = r'Silicate maximum porosity $\phi_\mathrm{sil,max}$' + self.phiUnitsParen
@@ -1077,13 +1164,13 @@ class FigLblStruct:
         self.yLabelsInduct = {
             'sigma': self.Dlabel,
             'Tb': self.TbLabel,
-            'rho': self.rhoLabel,
+            'rho': self.rhoSilLabel,
             'phi': self.phiLabel
         }
 
         self.axisLabelsExplore = {
             'xFeS': self.xFeSLabel,
-            'rhoSilInput_kgm3': self.rhoLabel,
+            'rhoSilInput_kgm3': self.rhoSilLabel,
             'Rcore_km': self.RcoreLabel,
             'wOcean_ppt': self.wLabel,
             'Tb_K': self.TbLabel,
@@ -1151,10 +1238,8 @@ class FigLblStruct:
 class FigSizeStruct:
     # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
     def __init__(self):
-        self.vsP = None
-        self.vsR = None
+        self.vpore = None
         self.vperm = None
-        self.vgsks = None
         self.vseis = None
         self.vhydro = None
         self.vgrav = None
@@ -1181,6 +1266,12 @@ class FigMiscStruct:
         self.defaultFontName = 'STIXGeneral'  # Default font variables--STIX is what is used in Icarus journal submissions
         self.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
         self.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
+
+        # Hydrosphere plots
+        self.SCALE_HYDRO_LW = True  # Whether to adjust thickness of lines on hydrosphere plot according to relative salinity
+        self.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
+        self.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
+        self.TminHydro = 200  # Minimum temperature to display on hydrosphere plots
 
         # Wedge diagrams
         self.IONOSPHERE_IN_WEDGE = False  # Whether to include specified ionosphere in wedge diagram
@@ -1215,10 +1306,10 @@ class FigMiscStruct:
         self.LATEX_HLINES = False  # Whether to print horizontal lines between table entries.
         self.HF_HLINES = True  # Whether to print horizontal lines at head and foot of latex tables
 
+        # Colorbar settings
         self.cLabelSize = 10  # Font size in pt for contour labels
         self.cLabelPad = 5  # Padding in pt to set beside contour labels
         self.cLegendOpacity = 1.0  # Opacity of legend backgrounds in contour plots.
-
         self.cbarSpace = 0.5  # Amount of whitespace in inches to use for colorbars
         self.cbarSize = '5%'  # Description of the size of colorbar to use with make_axes_locatable
         self.cbarHeight = 0.6  # Fraction of total figure height to use for colorbar size

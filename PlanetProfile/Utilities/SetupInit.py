@@ -4,7 +4,7 @@ import os
 import numpy as np
 import logging
 from PlanetProfile import _ROOT
-from PlanetProfile.GetConfig import FigMisc
+from PlanetProfile.GetConfig import FigMisc, FigLbl
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Utilities.PPversion import ppVerNum, CheckCompat
@@ -184,7 +184,11 @@ def SetupInit(Planet, Params):
         if not Planet.Do.PORE_EOS_DIFFERENT:
             Planet.Sil.PHydroMax_MPa = Planet.Ocean.PHydroMax_MPa
 
-        if Planet.Sil.porosType != 'Han2014':
+        if Planet.Sil.porosType == 'Han2014':
+            if Planet.Sil.phiRockMax_frac is None:
+                log.warning('Sil.phiRockMax_frac is not set. Using arbitrary max porosity of 0.7.')
+                Planet.Sil.phiRockMax_frac = 0.7
+        else:
             Planet.Do.FIXED_POROSITY = True
         if Planet.Sil.phiRangeMult <= 1:
             raise ValueError(f'Sil.phiRangeMult = {Planet.Sil.phiRangeMult}, but it must be greater than 1.')
@@ -285,15 +289,18 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
     label = ''
     if Planet.Do.NO_H2O:
         saveLabel += f'NoH2O_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
-        label += f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*1e3:.1f}\,\si{{mW/m^2}}$'
+        setStr = f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*FigLbl.qMult:.1f}\,\si{{{FigLbl.fluxUnits}}}$'
+        label += setStr
     else:
         if Planet.Ocean.comp == 'PureH2O':
             saveLabel += f'{Planet.Ocean.comp}_Tb{Planet.Bulk.Tb_K}K'
-            label += f'Pure \ce{{H2O}}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+            setStr = f'Pure \ce{{H2O}}'
+            label += f'{setStr}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
         else:
             saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
                         f'_Tb{Planet.Bulk.Tb_K}K'
-            label += f'{Planet.Ocean.wOcean_ppt:.1f}\,ppt \ce{{{Planet.Ocean.comp}}}' + \
+            setStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$ \ce{{{Planet.Ocean.comp}}}'
+            label += setStr + \
                 f', $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
         if Planet.Do.CLATHRATE:
             saveLabel += '_Clathrates'
@@ -307,10 +314,11 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
                 label += f'Pure \ce{{H2O}} pores'
             else:
                 saveLabel += f'_{Planet.Sil.poreComp}_{Planet.Sil.wPore_ppt:.1f}pptPores'
-                label += f', {Planet.Sil.wPore_ppt:.1f}\,ppt \ce{{{Planet.Sil.poreComp}}} pores'
+                label += f', {Planet.Sil.wPore_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}} \ce{{{Planet.Sil.poreComp}}} pores'
     if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSname}'
 
     Planet.saveLabel = saveLabel
+    Planet.tradeLabel = f'{label}, $C/MR^2\,{Planet.Bulk.Cmeasured}\pm{Planet.Bulk.Cuncertainty}$'
     Planet.label = label
     inductBase = f'{Planet.name}_{Params.Induct.inductOtype}'
     DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, Planet.Ocean.comp, inductBase=inductBase,

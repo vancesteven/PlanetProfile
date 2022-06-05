@@ -352,6 +352,7 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
 def WriteProfile(Planet, Params):
     """ Write out all profile calculations to disk """
     headerLines = [
+        f'MoI label = {Planet.tradeLabel}',
         f'Iron core = {Planet.Do.Fe_CORE}',
         f'Silicate EOS file = {Planet.Sil.mantleEOS}',
         f'Iron core EOS file = {Planet.Core.coreEOS}',
@@ -527,6 +528,8 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.label = f.readline().strip()
         # Get number of header lines to read in from (and skip for columnar data)
         Params.nHeadLines = int(f.readline().split('=')[-1])
+        # Get MoI-included label for tradeoff plots
+        Planet.tradeLabel = f.readline().split('=')[-1].strip()
         # Get whether iron core is modeled
         Planet.Do.Fe_CORE = bool(strtobool(f.readline().split('=')[-1].strip()))
         # Get silicate mantle Perple_X EOS file

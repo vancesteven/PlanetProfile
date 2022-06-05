@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, numpy as np
 from PlanetProfile.Main import run
 
 if __name__ == '__main__':

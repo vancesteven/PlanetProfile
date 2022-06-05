@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import logging
+from collections.abc import Iterable
 import matplotlib.pyplot as plt
 import matplotlib.colorbar as mcbar
 from matplotlib.gridspec import GridSpec
@@ -10,6 +11,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc, InductParams as IndParams
 from PlanetProfile.Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
+from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices
 from PlanetProfile.Utilities.SetupInit import SetupFilenames
 from PlanetProfile.Utilities.defineStructs import Constants
 
@@ -28,51 +30,112 @@ def GeneratePlots(PlanetList, Params):
             # Reload refprofiles for this composition
             Params = ReloadRefProfiles(PlanetList, Params)
 
-    if Params.PLOT_GRAVITY: PlotGravPres(PlanetList, Params)
-    if Params.PLOT_HYDROSPHERE and not PlanetList[0].Do.NO_H2O: PlotHydrosphereProps(PlanetList, Params)
+    if Params.PLOT_GRAVITY:
+        PlotGravPres(PlanetList, Params)
+    if Params.PLOT_HYDROSPHERE and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
+        PlotHydrosphereProps(PlanetList, Params)
     if Params.PLOT_TRADEOFF:
-        if Planet.Do.Fe_CORE: PlotCoreTradeoff(PlanetList, Params)
-        else: PlotSilTradeoff(PlanetList, Params)
-    if Params.PLOT_WEDGE: PlotWedge(PlanetList, Params)
+        PlotSilTradeoff(PlanetList, Params)
+        if np.any([not Planet.Do.Fe_CORE for Planet in PlanetList]):
+            PlotCoreTradeoff(PlanetList, Params)
+    if Params.PLOT_POROSITY and np.any([Planet.Do.POROUS_ROCK or Planet.Do.POROUS_ICE for Planet in PlanetList]):
+        PlotPorosity(PlanetList, Params)
+    if Params.PLOT_SEISMIC and Params.CALC_SEISMIC:
+        PlotSeismic(PlanetList, Params)
+    if Params.PLOT_WEDGE:
+        PlotWedge(PlanetList, Params)
 
     return
 
 
 def PlotGravPres(PlanetList, Params):
-    data = {'radius': Planet.r_m/1000,
-            'grav': Planet.g_ms2,
-            'pressure': Planet.P_MPa/1000}
-    fig, axes = plt.subplots(1, 2, figsize=FigSize.vgrav)
-    axes[0].plot('grav', 'radius', data=data)
-    axes[0].set_xlabel('Gravity (m/s$^2$)')
-    axes[0].set_ylabel('Radius (km)')
 
-    axes[1].plot('pressure', 'radius', data = data)
-    axes[1].set_xlabel('Pressure (GPa)')
-    axes[1].set_ylabel('$r_\mathrm{' + Planet.name + '}$')
+    fig = plt.figure(figsize=FigSize.vgrav)
+    grid = GridSpec(1, 2)
+    axes = [fig.add_subplot(grid[0, i]) for i in range(2)]
+    axes[0].set_xlabel(FigLbl.gLabel)
+    axes[1].set_xlabel(FigLbl.PlabelFull)
+    [ax.set_ylabel(FigLbl.rLabel) for ax in axes]
+    if Params.ALL_ONE_BODY:
+        fig.suptitle(f'{PlanetList[0].name}{FigLbl.gravTitle}')
+    else:
+        fig.suptitle(FigLbl.gravCompareTitle)
 
-    fig.subplots_adjust(wspace=0.5)
-    fig.suptitle(f'{PlanetList[0].name} gravity and pressure')
+    for Planet in PlanetList:
+        legLbl = Planet.label
+        if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
+            legLbl = f'{Planet.name} {legLbl}'
+        axes[0].plot(Planet.g_ms2, Planet.r_m[:-1]/1e3,
+                     label=legLbl, linewidth=Style.LW_std)
+        axes[1].plot(Planet.P_MPa*FigLbl.PmultFull, Planet.r_m[:-1]/1e3,
+                     label=legLbl, linewidth=Style.LW_std)
+
+    if FigMisc.LEGEND:
+        axes[1].legend()
+
+    plt.tight_layout()
     fig.savefig(Params.FigureFiles.vgrav, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     plt.close()
+
     return
 
 
 def PlotHydrosphereProps(PlanetList, Params):
+
+    vRow = 1
+    if Params.PLOT_SIGS and Params.CALC_CONDUCT:
+        DO_SIGS = True
+        vRow += 1
+    else:
+        DO_SIGS = False
+        axsigz = None
+    if Params.PLOT_SOUNDS and Params.CALC_SEISMIC:
+        DO_SOUNDS = True
+        vRow += 1
+    else:
+        DO_SOUNDS = False
+        axv = None
+
     # Generate canvas and add labels
-    fig, axes = plt.subplots(1, 2, figsize=FigSize.vhydro)
-    axes[0].set_xlabel('Pressure (MPa)')
-    axes[0].set_ylabel('Density (kg/m$^3$)')
-    axes[1].invert_yaxis()
-    axes[1].set_xlabel('Temperature (K)')
-    axes[1].set_ylabel('Depth (km)')
-    fig.subplots_adjust(wspace=0.5)
-    fig.suptitle(f'{PlanetList[0].name} hydrosphere properties')
+    fig = plt.figure(figsize=FigSize.vhydro)
+    grid = GridSpec(vRow, 6)
+
+    axPrho = fig.add_subplot(grid[:, :3])
+    axTz = fig.add_subplot(grid[0, 3:])
+
+    axPrho.set_xlabel(FigLbl.PlabelHydro)
+    axPrho.set_ylabel(FigLbl.rhoLabel)
+    axTz.set_xlabel(FigLbl.Tlabel)
+    axTz.set_ylabel(FigLbl.zLabel)
+    axTz.invert_yaxis()
+    zMax = np.max([Planet.z_m[Planet.Steps.nHydro-1]/1e3 for Planet in PlanetList])
+    axTz.set_ylim([zMax, 0])
+
+    if DO_SIGS:
+        axsigz = fig.add_subplot(grid[-1, 3:])
+        axsigz.set_xlabel(FigLbl.sigLabel)
+        axsigz.set_ylabel(FigLbl.zLabel)
+        axsigz.invert_yaxis()
+        axsigz.set_ylim([zMax, 0])
+
+    if DO_SOUNDS:
+        axv = [fig.add_subplot(grid[1, i]) for i in range(3, 6)]
+        axv[0].set_ylabel(FigLbl.zLabel)
+        axv[0].set_xlabel(FigLbl.vPoceanLabel)
+        axv[1].set_xlabel(FigLbl.vPiceLabel)
+        axv[2].set_xlabel(FigLbl.vSiceLabel)
+        [ax.invert_yaxis() for ax in axv]
+        [ax.set_ylim([zMax, 0]) for ax in axv]
+
+    if Params.ALL_ONE_BODY:
+        fig.suptitle(f'{PlanetList[0].name}{FigLbl.hydroTitle}')
+    else:
+        fig.suptitle(FigLbl.hydroCompareTitle)
 
     # Plot reference profiles first, so they plot on bottom of everything
+    comps = np.unique([Planet.Ocean.comp for Planet in PlanetList])
     if Params.PLOT_REF:
         # Keep track of which reference profiles have been plotted so that we do each only once
-        comps = np.unique([Planet.Ocean.comp for Planet in PlanetList])
         newRef = {comp:True for comp in comps}
 
         # Get max pressure among all profiles so we know how far out to plot refs
@@ -83,13 +146,13 @@ def PlotHydrosphereProps(PlanetList, Params):
             if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
                 # Get strings for referencing and labeling
                 wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp}}} \\{{'
-                wList += ', '.join([f'{w:.0f}' for w in Params.wRef_ppt[Planet.Ocean.comp]])
-                wList += '\}\,ppt'
+                wList += ', '.join([f'{w*FigLbl.wMult:.0f}' for w in Params.wRef_ppt[Planet.Ocean.comp]])
+                wList += '\}\,$\si{' + FigLbl.wUnits + '}$'
                 # Take care to only plot the values consistent with layer solutions
                 iPlot = Params.Pref_MPa[Planet.Ocean.comp] < Pmax_MPa
                 # Plot all reference melting curve densities
                 for i in range(Params.nRef[Planet.Ocean.comp]):
-                    thisRef, = axes[0].plot(Params.Pref_MPa[Planet.Ocean.comp][iPlot],
+                    thisRef, = axPrho.plot(Params.Pref_MPa[Planet.Ocean.comp][iPlot]*FigLbl.PmultHydro,
                                             Params.rhoRef_kgm3[Planet.Ocean.comp][i,iPlot],
                                             color=Color.ref,
                                             lw=Style.LW_ref,
@@ -97,48 +160,263 @@ def PlotHydrosphereProps(PlanetList, Params):
                     if FigMisc.REFS_IN_LEGEND and i == 0: thisRef.set_label(wList)
                 newRef[Planet.Ocean.comp] = False
 
+    wMinMax_ppt = {}
+    TminMax_K = {}
+    if FigMisc.SCALE_HYDRO_LW or FigMisc.MANUAL_HYDRO_COLORS:
+        # Get min and max salinities and temps for each comp for scaling
+        for comp in comps:
+            if comp != 'none':
+                wAll_ppt = [Planet.Ocean.wOcean_ppt for Planet in PlanetList if Planet.Ocean.comp == comp]
+                Tall_K = [Planet.Bulk.Tb_K for Planet in PlanetList if Planet.Ocean.comp == comp]
+                wMinMax_ppt[comp] = [np.min(wAll_ppt), np.max(wAll_ppt)]
+                TminMax_K[comp] = [np.min(Tall_K), np.max(Tall_K)]
+                # Reset to default if all models are the same or if desired
+                if not FigMisc.RELATIVE_Tb_K or TminMax_K[comp][0] == TminMax_K[comp][1]:
+                    TminMax_K[comp] = Color.Tbounds_K
+
     # Now plot all profiles together
     for Planet in PlanetList:
         # This is a hydrosphere-only plot, so skip waterless bodies
         if Planet.Ocean.comp != 'none':
+            legLbl = Planet.label
+            if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
+                legLbl = f'{Planet.name} {legLbl}'
+
+            # Set style options
+            if FigMisc.MANUAL_HYDRO_COLORS:
+                Color.Tbounds_K = TminMax_K[Planet.Ocean.comp]
+                thisColor = Color.cmap[Planet.Ocean.comp](Color.GetNormT(Planet.Bulk.Tb_K))
+            else:
+                thisColor = None
+            if FigMisc.SCALE_HYDRO_LW and wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
+                thisLW = Style.GetLW(Planet.Ocean.wOcean_ppt, wMinMax_ppt[Planet.Ocean.comp])
+            else:
+                thisLW = Style.LW_std
+
             # Plot density vs. pressure curve for hydrosphere
-            axes[0].plot(Planet.P_MPa[:Planet.Steps.nHydro], Planet.rho_kgm3[:Planet.Steps.nHydro], label=Planet.label)
+            axPrho.plot(Planet.P_MPa[:Planet.Steps.nHydro]*FigLbl.PmultHydro,
+                        Planet.rho_kgm3[:Planet.Steps.nHydro], label=legLbl,
+                        color=thisColor, linewidth=thisLW,
+                        linestyle=Style.LS[Planet.Ocean.comp])
             # Plot thermal profile vs. depth in hydrosphere
-            axes[1].plot(Planet.T_K[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro]/1e3)
+            therm = axTz.plot(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub,
+                              Planet.z_m[:Planet.Steps.nHydro]/1e3,
+                              color=thisColor, linewidth=thisLW,
+                              linestyle=Style.LS[Planet.Ocean.comp])
+            # Make a dot at the end of the thermal profile
+            axTz.scatter(np.max(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub),
+                            np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
+                            color=therm[-1].get_color(), edgecolors=therm[-1].get_color(),
+                            marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
+
+            if DO_SIGS or DO_SOUNDS:
+                indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
+                indsClath, indsClathWet, _, indsSilLiq, _, _, _, _, _, _ = GetPhaseIndices(Planet.phase)
+
+            if DO_SIGS:
+                # Plot electrical conductivity vs. depth for hydrosphere
+                axsigz.plot(Planet.sigma_Sm[indsLiq], Planet.z_m[indsLiq]/1e3,
+                            color=thisColor, linewidth=thisLW,
+                            linestyle=Style.LS[Planet.Ocean.comp])
+
+            if DO_SOUNDS:
+                indsIce = np.sort(np.concatenate((indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
+                                                  indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet)))
+                # Plot sound speeds in ocean and ices vs. depth in hydrosphere
+                axv[0].plot(Planet.Seismic.VP_kms[indsLiq], Planet.z_m[indsLiq]/1e3,
+                            color=thisColor, linewidth=Style.LW_sound,
+                            linestyle=Style.LS[Planet.Ocean.comp])
+                axv[1].plot(Planet.Seismic.VP_kms[indsIce], Planet.z_m[indsIce]/1e3,
+                            color=thisColor, linewidth=Style.LW_sound,
+                            linestyle=Style.LS[Planet.Ocean.comp])
+                axv[2].plot(Planet.Seismic.VS_kms[indsIce], Planet.z_m[indsIce]/1e3,
+                            color=thisColor, linewidth=Style.LW_sound,
+                            linestyle=Style.LS[Planet.Ocean.comp])
+
+    # Limit Tmin so the relevant plot can better show what's going on in the ocean
+    axTz.set_xlim(left=FigMisc.TminHydro)
 
     if FigMisc.LEGEND:
         fig.legend(loc=FigMisc.hydroLegendPos, bbox_to_anchor=FigMisc.hydroLegendBox)
+    plt.tight_layout()
     fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     plt.close()
+
     return
 
 
 def PlotCoreTradeoff(PlanetList, Params):
-    data = {'Rsil': Planet.Sil.Rtrade_m/1000,
-            'RFe': Planet.Core.Rtrade_m/1000}
-    fig, axes = plt.subplots(1, 1, figsize=FigSize.vcore)
-    axes.plot('Rsil', 'RFe', data = data)
-    axes.set_xlabel('Iron core outer radius (km)')
-    axes.set_ylabel('Silicate layer outer radius (km)')
-    fig.suptitle(f'{PlanetList[0].name} with Fe core. $C/MR^2$: ${Planet.Bulk.Cmeasured:.3f}\pm{Planet.Bulk.Cuncertainty:.3f}' +
-                 r'$; $w$: $0\,\mathrm{wt}\%$; $\rho_\mathrm{sil}$: $' + \
-                 f'{Planet.Sil.rhoMean_kgm3:.0f}' + r'\,\mathrm{kg/m^3}$; $\rho_\mathrm{Fe}$: $' + \
-                 f'{Planet.Core.rhoMean_kgm3:.0f}' + r'\,\mathrm{kg/m^3}$')
+
+    fig, ax = plt.subplots(1, 1, figsize=FigSize.vcore)
+    ax.set_xlabel(FigLbl.RsilLabel)
+    ax.set_ylabel(FigLbl.RcoreLabel)
+    if Params.ALL_ONE_BODY:
+        fig.suptitle(f'{PlanetList[0].name}{FigLbl.coreTitle}')
+    else:
+        fig.suptitle(FigLbl.coreCompareTitle)
+
+    for Planet in PlanetList:
+        if Planet.Do.Fe_CORE:
+            legLbl = Planet.tradeLabel
+            if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
+                legLbl = f'{Planet.name} {legLbl}'
+            ax.plot(Planet.Sil.Rtrade_m/1e3, Planet.Core.Rtrade_m/1e3,
+                    label=legLbl, linewidth=Style.LW_std)
+
+    if FigMisc.LEGEND:
+        ax.legend()
+
     fig.savefig(Params.FigureFiles.vcore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     plt.close()
+
     return
 
 
 def PlotSilTradeoff(PlanetList, Params):
-    data = {'Rsil': Planet.Sil.Rtrade_m/1000,
-            'rhoSil': Planet.Sil.rhoTrade_kgm3}
-    fig, axes = plt.subplots(1, 1, figsize=FigSize.vmant)
-    axes.plot('rhoSil', 'Rsil', data = data)
-    axes.set_xlabel('$\\rho_\mathrm{sil}$ (kg/m$^3$)')
-    axes.set_ylabel('Silicate layer outer radius (km)')
-    fig.suptitle(f'{PlanetList[0].name} no Fe core. $C/MR^2$: $0.346\pm0.005$; $W$')
+
+    fig, ax = plt.subplots(1, 1, figsize=FigSize.vmant)
+    ax.set_xlabel(FigLbl.RsilLabel)
+    ax.set_ylabel(FigLbl.rhoSilLabel)
+    if Params.ALL_ONE_BODY:
+        fig.suptitle(f'{PlanetList[0].name}{FigLbl.mantTitle}')
+    else:
+        fig.suptitle(FigLbl.mantCompareTitle)
+
+    for Planet in PlanetList:
+        legLbl = Planet.tradeLabel
+        if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
+            legLbl = f'{Planet.name} {legLbl}'
+        ax.plot(Planet.Sil.Rtrade_m/1e3, Planet.Sil.rhoTrade_kgm3,
+                label=legLbl, linewidth=Style.LW_std)
+
+    if FigMisc.LEGEND:
+        ax.legend()
+
     fig.savefig(Params.FigureFiles.vmant, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     plt.close()
+
+    return
+
+
+def PlotPorosity(PlanetList, Params):
+
+    if np.size(PlanetList) == 1:
+        Planet = PlanetList[0]
+        fig, ax = plt.subplots(1, 1, figsize=FigSize.vpore)
+        ax.set_xlabel(FigLbl.phiLabel)
+        ax.set_ylabel(FigLbl.rLabel)
+        P_from_r = interp1d(Planet.r_m[:-1]/1e3, Planet.P_MPa*FigLbl.PmultFull)
+        r_from_P = interp1d(Planet.P_MPa*FigLbl.PmultFull, Planet.r_m[:-1]/1e3)
+        Pax = ax.secondary_yaxis('right', functions=(P_from_r, r_from_P))
+        Pax.set_ylabel(FigLbl.PlabelFull)
+        fig.suptitle(f'{Planet.name}{FigLbl.poreTitle}')
+
+        ax.plot(Planet.phi_frac[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.phiMult,
+                Planet.r_m[:-1][Planet.phi_frac >= Planet.Sil.phiMin_frac]/1e3,
+                label=Planet.label, linewidth=Style.LW_std)
+
+        if FigMisc.LEGEND:
+            ax.legend()
+
+        fig.savefig(Params.FigureFiles.vporeDbl, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        plt.close()
+
+    fig = plt.figure(figsize=FigSize.vpore)
+    grid = GridSpec(1, 2)
+    axes = [fig.add_subplot(grid[0, i]) for i in range(2)]
+    [ax.set_xlabel(FigLbl.phiLabel) for ax in axes]
+    axes[0].set_ylabel(FigLbl.rLabel)
+    axes[1].set_ylabel(FigLbl.PlabelFull)
+    axes[1].invert_yaxis()
+    if Params.ALL_ONE_BODY:
+        fig.suptitle(f'{PlanetList[0].name}{FigLbl.poreTitle}')
+    else:
+        fig.suptitle(FigLbl.poreCompareTitle)
+
+    for Planet in PlanetList:
+        if Planet.Do.POROUS_ROCK or Planet.Do.POROUS_ICE:
+            legLbl = Planet.label
+            if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
+                legLbl = f'{Planet.name} {legLbl}'
+            axes[0].plot(Planet.phi_frac[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.phiMult,
+                         Planet.r_m[:-1][Planet.phi_frac >= Planet.Sil.phiMin_frac]/1e3,
+                         label=legLbl, linewidth=Style.LW_std)
+            axes[1].plot(Planet.phi_frac[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.phiMult,
+                         Planet.P_MPa[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.PmultFull,
+                         label=legLbl, linewidth=Style.LW_std)
+
+    if FigMisc.LEGEND:
+        axes[1].legend()
+
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.vpore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    plt.close()
+
+    return
+
+
+def PlotSeismic(PlanetList, Params):
+
+    fig = plt.figure(figsize=FigSize.vseis)
+    grid = GridSpec(2, 2)
+    axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(2)] for i in range(2)])
+    axf = axes.flatten()
+    [ax.set_ylabel(FigLbl.rLabel) for ax in axf]
+    axes[0,0].set_xlabel(FigLbl.GSKSlabel)
+    axes[0,1].set_xlabel(FigLbl.PTrhoLabel)
+    axes[1,0].set_xlabel(FigLbl.vSoundLabel)
+    axes[1,1].set_xlabel(FigLbl.QseisLabel)
+    axes[1,1].set_xscale('log')
+    if Params.ALL_ONE_BODY:
+        fig.suptitle(f'{PlanetList[0].name}{FigLbl.seisTitle}')
+    else:
+        fig.suptitle(FigLbl.seisCompareTitle)
+
+    for Planet in PlanetList:
+        if Params.ALL_ONE_BODY:
+            legLbl = ''
+        else:
+            legLbl = Planet.label
+            if FigLbl.BODYNAME_IN_LABEL:
+                legLbl = f'{Planet.name} {legLbl}'
+        axes[0,0].plot(Planet.Seismic.KS_GPa, Planet.r_m[:-1]/1e3,
+                       label=legLbl+r' $K_S$', linewidth=Style.LW_seis,
+                       linestyle=Style.LS_seis['KS'])
+        axes[0,0].plot(Planet.Seismic.GS_GPa, Planet.r_m[:-1]/1e3,
+                       label=legLbl+r' $G_S$', linewidth=Style.LW_seis,
+                       linestyle=Style.LS_seis['GS'])
+
+        axes[0,1].plot(Planet.P_MPa, Planet.r_m[:-1]/1e3,
+                       label=legLbl+r' $P$', linewidth=Style.LW_seis,
+                       linestyle=Style.LS_seis['P'])
+        axes[0,1].plot(Planet.T_K, Planet.r_m[:-1]/1e3,
+                       label=legLbl+r' $T$', linewidth=Style.LW_seis,
+                       linestyle=Style.LS_seis['T'])
+        axes[0,1].plot(Planet.rho_kgm3, Planet.r_m[:-1]/1e3,
+                       label=legLbl+r' $\rho$', linewidth=Style.LW_seis,
+                       linestyle=Style.LS_seis['rho'])
+
+        axes[1,0].plot(Planet.Seismic.VP_kms, Planet.r_m[:-1]/1e3,
+                       label=legLbl + r' $V_P$', linewidth=Style.LW_seis,
+                       linestyle=Style.LS_seis['VP'])
+        axes[1,0].plot(Planet.Seismic.VS_kms, Planet.r_m[:-1]/1e3,
+                       label=legLbl + r' $V_S$', linewidth=Style.LW_seis,
+                       linestyle=Style.LS_seis['VS'])
+
+        axes[1,1].plot(Planet.Seismic.QS, Planet.r_m[:-1]/1e3,
+                       label=legLbl + f' ${FigLbl.QseisVar}$', linewidth=Style.LW_seis,
+                       linestyle=Style.LS_seis['QS'])
+
+    if FigMisc.LEGEND:
+        axes[0,0].legend()
+        axes[0,1].legend()
+        axes[1,0].legend()
+        axes[1,1].legend()
+
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.vseis, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    plt.close()
+
     return
 
 
@@ -502,7 +780,7 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
                         marker=Style.MS_Induction, c=ptColors[0])
 
     fig.suptitle(FigLbl.phaseSpaceTitle)
-    axes[0].set_xlabel(FigLbl.sigLabel)
+    axes[0].set_xlabel(FigLbl.sigMeanLabel)
     axes[0].set_ylabel(FigLbl.Dlabel)
     axes[0].set_xlim(FigLbl.sigLims)
     axes[0].set_ylim(FigLbl.Dlims)
@@ -550,7 +828,7 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
         fig, ax = plt.subplots(1, 1, figsize=(figWidth, FigSize.phaseSpaceSolo[1]))
 
         fig.suptitle(FigLbl.phaseSpaceTitle)
-        ax.set_xlabel(FigLbl.sigLabel)
+        ax.set_xlabel(FigLbl.sigMeanLabel)
         ax.set_ylabel(FigLbl.Dlabel)
         ax.set_xlim(FigLbl.sigLims)
         ax.set_ylim(FigLbl.Dlims)
@@ -611,7 +889,7 @@ def PlotInductOgram(Induction, Params):
         allAxes = axes.flatten()
         fig.suptitle(FigLbl.inductionTitle)
         # Only label the bottom-left sides of axes
-        [ax.set_xlabel(FigLbl.sigLabel) for ax in (axes[1,0], axes[1,1])]
+        [ax.set_xlabel(FigLbl.sigMeanLabel) for ax in (axes[1,0], axes[1,1])]
         [ax.set_ylabel(FigLbl.Dlabel) for ax in (axes[0,0], axes[1,0])]
         [ax.set_xlim(FigLbl.sigLims) for ax in allAxes]
         [ax.set_ylim(FigLbl.Dlims) for ax in allAxes]
@@ -686,7 +964,7 @@ def PlotInductOgram(Induction, Params):
             # Label all axes for clarity
             [ax.set_xlabel(FigLbl.wLabel) for ax in axes[0,:]]
             [ax.set_ylabel(FigLbl.yLabelInduct) for ax in axes[0,:]]
-            [ax.set_xlabel(FigLbl.sigLabel) for ax in axes[1,:]]
+            [ax.set_xlabel(FigLbl.sigMeanLabel) for ax in axes[1,:]]
             [ax.set_ylabel(FigLbl.Dlabel) for ax in axes[1,:]]
             [ax.set_xscale(FigLbl.sigScale) for ax in allAxes]
             [ax.set_yscale(FigLbl.Dscale) for ax in axes[1,:]]
@@ -746,7 +1024,7 @@ def PlotInductOgram(Induction, Params):
         fig.suptitle(FigLbl.inductionTitle)
         axes[0].title.set_text(name)
         axes[1].title.set_text(FigLbl.phaseTitle)
-        [ax.set_xlabel(FigLbl.sigLabel) for ax in axes]
+        [ax.set_xlabel(FigLbl.sigMeanLabel) for ax in axes]
         [ax.set_ylabel(FigLbl.Dlabel) for ax in axes]
         [ax.set_xlim(FigLbl.sigLims) for ax in axes]
         [ax.set_ylim(FigLbl.Dlims) for ax in axes]
