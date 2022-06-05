@@ -61,12 +61,12 @@ def IceLayers(Planet, Params):
                   f'[{Planet.PfreezeLower_MPa:.1f} MPa, {Planet.PfreezeUpper_MPa:.1f} MPa]. ' + \
                   'This likely means Tb_K is too high and the phase at the lower end of this range matches ' + \
                   'the phase at the upper end. Try decreasing Tb_K. The ice shell will be set to zero thickness.'
-            if Planet.Bulk.Tb_K > 271:
-                if not Params.DO_EXPLOREOGRAM:
+            if not Params.DO_EXPLOREOGRAM:
+                if Planet.Bulk.Tb_K > 271:
                     log.warning(msg)
-                Planet.PbI_MPa = 0.0
-            else:
-                raise ValueError(msg)
+                else:
+                    raise ValueError(msg)
+            Planet.PbI_MPa = 0.0
         log.debug(f'Ice Ih transition pressure: {Planet.PbI_MPa:.3f} MPa.')
 
     if Planet.PbI_MPa > 0:

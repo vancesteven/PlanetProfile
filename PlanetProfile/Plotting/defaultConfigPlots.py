@@ -125,8 +125,8 @@ Style.LW_wedgeMajor = 0.375  # Linewidth in pt for major layer boundaries in wed
 # Note: Specific labels are set in PlanetProfile.Utilities.defineStructs.
 FigLbl.NEGATIVE_UNIT_POWERS = True  # Whether to use negative powers for units in latex tables, or instead a backslash.
 FigLbl.NAN_FOR_EMPTY = False  # Whether to use nan (or -) for empty layer parameters that were not calculated or not present.
-FigLbl.w_IN_WTPCT = False  # Whether to print salinities in wt% (or g/kg) in tables
-FigLbl.x_IN_WTPCT = True  # Whether to print silicate/core mass fractions in wt% (or g/kg) in tables
+FigLbl.w_IN_WTPCT = False  # Whether to print salinities in wt% (or g/kg) in tables and plots
+FigLbl.x_IN_MOLPCT = True  # Whether to print silicate/core mass fractions in mol% (or fractional) in tables and plots
 FigLbl.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
 FigLbl.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
 FigLbl.SetUnits()  # Make use of above toggles and assign labels

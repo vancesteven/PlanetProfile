@@ -260,7 +260,7 @@ def SetupInit(Planet, Params):
     return Planet, Params
 
 
-def SetupFilenames(Planet, Params, exploreAppend=None):
+def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
     """ Generate filenames for saving data and figures.
     """
     datPath = Planet.bodyname
@@ -316,7 +316,8 @@ def SetupFilenames(Planet, Params, exploreAppend=None):
     DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, Planet.Ocean.comp, inductBase=inductBase,
                                    exploreAppend=exploreAppend)
     FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn,
-                                       comp=Planet.Ocean.comp, inductBase=inductBase)
+                                       comp=Planet.Ocean.comp, inductBase=inductBase,
+                                       exploreAppend=figExploreAppend)
 
     return DataFiles, FigureFiles
 

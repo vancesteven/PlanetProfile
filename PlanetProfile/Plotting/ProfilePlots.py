@@ -186,12 +186,12 @@ def PlotWedge(PlanetList, Params):
 
         # Construct labels
         if Planet.Do.Fe_CORE:
-            Planet.Core.xS_frac = (100 -int(Planet.Core.coreEOS[2:5])) / 100
-            if FigLbl.x_IN_WTPCT:
-                xStr = f'{Planet.Core.xS_frac * FigLbl.xMult:.0f}'
+            Planet.Core.xS_frac = (100 - int(Planet.Core.coreEOS[2:5])) / 100
+            if FigLbl.w_IN_WTPCT:
+                xStr = f'{Planet.Core.xS_frac * FigLbl.wMult:.0f}'
             else:
-                xStr = f'{Planet.Core.xS_frac * FigLbl.xMult:.2f}'
-            coreLine = f'\ce{{Fe}} core with \SI{{{xStr}}}{{{FigLbl.xUnits}}}~\ce{{S}}'
+                xStr = f'{Planet.Core.xS_frac * FigLbl.wMult:.2f}'
+            coreLine = f'\ce{{Fe}} core with \SI{{{xStr}}}{{{FigLbl.wUnits}}}~\ce{{S}}'
         elif Planet.Sil.EOS is not None and 'undifferentiated' in Planet.Sil.EOS.comp:
             coreLine = 'undifferentiated'
         else:
@@ -816,6 +816,7 @@ def PlotInductOgram(Induction, Params):
 
     return
 
+
 def PlotExploreOgram(ExplorationList, Params):
     """ For plotting points showing the various models used in making
         exploreogram plots.
@@ -845,8 +846,10 @@ def PlotExploreOgram(ExplorationList, Params):
         # Add the min and max values to the colorbar for reading convenience
         # We compare z values to z values to exclude nans from the max finding,
         # exploiting the fact that nan == nan is False.
-        new_ticks = np.insert(np.append(cbar.get_ticks(), np.max(z[z == z])), 0, np.min(z[z == z]))
-        cbar.set_ticks(np.unique(new_ticks))
+        zValid = z[z == z]
+        if np.size(zValid) > 0:
+            new_ticks = np.insert(np.append(cbar.get_ticks(), np.max(zValid)), 0, np.min(zValid))
+            cbar.set_ticks(np.unique(new_ticks))
         cbar.set_label(FigLbl.cbarLabelExplore, size=12)
         
         fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat, dpi=FigMisc.dpi)

@@ -749,7 +749,7 @@ def InductOgram(bodyname, Params):
         Induction.Bix_nT = np.array([Induction.Amp[i, ...] * Bex_nT[i] for i in range(nPeaks)])
         Induction.Biy_nT = np.array([Induction.Amp[i, ...] * Bey_nT[i] for i in range(nPeaks)])
         Induction.Biz_nT = np.array([Induction.Amp[i, ...] * Bez_nT[i] for i in range(nPeaks)])
-        Induction.w_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
+        Induction.wOcean_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
         Induction.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
         Induction.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
         Induction.Tmean_K = np.array([[Planeti.Ocean.Tmean_K for Planeti in line] for line in PlanetGrid])
@@ -790,7 +790,7 @@ def WriteInductOgram(Induction, Params):
         'Bix_nT': Induction.Bix_nT,
         'Biy_nT': Induction.Biy_nT,
         'Biz_nT': Induction.Biz_nT,
-        'w_ppt': Induction.w_ppt,
+        'w_ppt': Induction.wOcean_ppt,
         'oceanComp': Induction.oceanComp,
         'Tb_K': Induction.Tb_K,
         'Tmean_K': Induction.Tmean_K,
@@ -836,7 +836,7 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     Induction.Bix_nT = reload['Bix_nT']
     Induction.Biy_nT = reload['Biy_nT']
     Induction.Biz_nT = reload['Biz_nT']
-    Induction.w_ppt = reload['w_ppt']
+    Induction.wOcean_ppt = reload['w_ppt']
     Induction.oceanComp = reload['oceanComp']
     Induction.Tb_K = reload['Tb_K']
     Induction.Tmean_K = reload['Tmean_K']
@@ -1202,7 +1202,7 @@ def ExploreOgram(bodyname, Params):
         properties for each input.
     """
     if Params.CALC_NEW:
-        log.info(f'Running calculations for {bodyname} explore-o-gram.')
+        log.info(f'Running {Params.Explore.xName} x {Params.Explore.yName} explore-o-gram for {bodyname}.')
         if bodyname[:4] == 'Test':
             loadname = bodyname + ''
             bodyname = 'Test'
@@ -1227,7 +1227,8 @@ def ExploreOgram(bodyname, Params):
         Exploration.xName = Params.Explore.xName
         Exploration.yName = Params.Explore.yName
         Exploration.zName = Params.Explore.zName
-        DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Exploration.yName}')
+        DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Exploration.yName}',
+                                                figExploreAppend=Exploration.zName)
         if bodyname == 'Test':
             Params.Explore.nx = 5
             Params.Explore.ny = 5
@@ -1247,21 +1248,34 @@ def ExploreOgram(bodyname, Params):
 
         # Organize data into a format that can be plotted/saved for plotting
         Exploration.bodyname = bodyname
-        Exploration.w_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
+        Exploration.wOcean_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
         Exploration.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
+        Exploration.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
         Exploration.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
-        Exploration.phiSilMax_frac = np.array([[Planeti.Sil.phiRockMax_frac for Planeti in line] for line in PlanetGrid])
-        Exploration.rhoSilInput_kgm3 = np.array([[Planeti.Sil.rhoSilWithCore_kgm3 for Planeti in line] for line in PlanetGrid])
         Exploration.xFeS = np.array([[Planeti.Core.xFeS for Planeti in line] for line in PlanetGrid])
-        Exploration.Tmean_K = np.array([[Planeti.Ocean.Tmean_K for Planeti in line] for line in PlanetGrid])
+        Exploration.rhoSilInput_kgm3 = np.array([[Planeti.Sil.rhoSilWithCore_kgm3 for Planeti in line] for line in PlanetGrid])
+        Exploration.silPhi_frac = np.array([[Planeti.Sil.phiRockMax_frac for Planeti in line] for line in PlanetGrid])
+        Exploration.icePhi_frac = np.array([[Planeti.Ocean.phiMax_frac['Ih'] for Planeti in line] for line in PlanetGrid])
+        Exploration.silPclosure_MPa = np.array([[Planeti.Sil.Pclosure_MPa for Planeti in line] for line in PlanetGrid])
+        Exploration.icePclosure_MPa = np.array([[Planeti.Ocean.Pclosure_MPa['Ih'] for Planeti in line] for line in PlanetGrid])
+        Exploration.ionosTop_km = np.array([[Planeti.Magnetic.ionosBounds_m[-1] for Planeti in line] for line in PlanetGrid])
+        Exploration.sigmaIonos_Sm = np.array([[Planeti.Magnetic.sigmaIonosPedersen_Sm[-1] for Planeti in line] for line in PlanetGrid])
+        Exploration.Htidal_Wm3 = np.array([[Planeti.Sil.Htidal_Wm3 for Planeti in line] for line in PlanetGrid])
+        Exploration.Qrad_Wkg = np.array([[Planeti.Sil.Qrad_Wkg for Planeti in line] for line in PlanetGrid])
         Exploration.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 for Planeti in line] for line in PlanetGrid])
         Exploration.rhoCoreMean_kgm3 = np.array([[Planeti.Core.rhoMean_kgm3 for Planeti in line] for line in PlanetGrid])
         Exploration.sigmaMean_Sm = np.array([[Planeti.Ocean.sigmaMean_Sm for Planeti in line] for line in PlanetGrid])
         Exploration.sigmaTop_Sm = np.array([[Planeti.Ocean.sigmaTop_Sm for Planeti in line] for line in PlanetGrid])
+        Exploration.Tmean_K = np.array([[Planeti.Ocean.Tmean_K for Planeti in line] for line in PlanetGrid])
         Exploration.D_km = np.array([[Planeti.D_km for Planeti in line] for line in PlanetGrid])
         Exploration.zb_km = np.array([[Planeti.zb_km for Planeti in line] for line in PlanetGrid])
         Exploration.Rcore_km = np.array([[Planeti.Core.Rmean_m/1e3 for Planeti in line] for line in PlanetGrid])
-        Exploration.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
+
+        # Ensure everything is set so things will play nicely with .mat saving and plotting functions
+        nans = np.nan * Exploration.R_m
+        for name, attr in Exploration.__dict__.items():
+            if attr is None:
+                setattr(Exploration, name, nans)
 
         Params.DataFiles = DataFiles
         Params.FigureFiles = FigureFiles
@@ -1275,6 +1289,7 @@ def ExploreOgram(bodyname, Params):
 
 def AssignPlanetVal(Planet, name, val):
     """ Set values in Planet object based on descriptive key. Variable descriptions:
+            R_m: Body surface radius in m in Planet.Bulk.R_m
             compOcean: Ocean composition string in Planet.Ocean.comp
             compSil: Silicate composition to use from available Perplex output files
             compFe: Iron core composition to use from available Perplex output files
@@ -1284,8 +1299,8 @@ def AssignPlanetVal(Planet, name, val):
             rhoSilInput_kgm3: Fixed density in silicate layers in Planet.Sil.rhoSilWithCore_kgm3 (for use with Planet.Do.CONSTANT_INNER_DENSITY)
             silPhi_frac: Vacuum-extrapolated porosity in silicates in Planet.Sil.phiRockMax_frac
             silPclosure_MPa: Pore closure pressure in silicates in Planet.Sil.Pclosure_MPa
-            icePhi_frac: Vacuum porosity in surface ice Ih in Planet.Ocean.phiRockMax_frac
-            icePclosure_MPa: Pore closure pressure in ice in Planet.Sil.Pclosure_MPa
+            icePhi_frac: Vacuum porosity in ices in Planet.Ocean.phiMax_frac
+            icePclosure_MPa: Pore closure pressure in ices in Planet.Ocean.Pclosure_MPa
             Htidal_Wm3: Fixed tidal heating in silicates in Planet.Sil.Htidal_Wm3
             Qrad_Wkg: Fixed radiogenic heating in silicates in Planet.Sil.Qrad_Wkg
             qSurf_Wm2: Surface heat flux for waterless bodies in Planet.Bulk.qSurf_Wm2
@@ -1293,7 +1308,9 @@ def AssignPlanetVal(Planet, name, val):
             sigmaIonos_Sm: Ionosphere Pedersen conductivity in S/m in Planet.Magnetic.sigmaIonosPedersen_Sm.
     """
 
-    if name == 'xFeS':
+    if name == 'R_m':
+        Planet.Bulk.R_m = val
+    elif name == 'xFeS':
         Planet.Core.xFeS = val
         Planet.Do.CONSTANT_INNER_DENSITY = True
     elif name == 'rhoSilInput_kgm3':
@@ -1304,9 +1321,15 @@ def AssignPlanetVal(Planet, name, val):
     elif name == 'Tb_K':
         Planet.Bulk.Tb_K = val
     elif name == 'ionosTop_km':
-        Planet.Magnetic.ionosBounds_m[-1] = val/1e3
+        if Planet.Magnetic.ionosBounds_m is None or not isinstance(Planet.Magnetic.ionosBounds_m, Iterable):
+            Planet.Magnetic.ionosBounds_m = [val/1e3]
+        else:
+            Planet.Magnetic.ionosBounds_m[-1] = val/1e3
     elif name == 'sigmaIonos_Sm':
-        Planet.Magnetic.sigmaIonosPedersen_Sm = val
+        if Planet.Magnetic.sigmaIonosPedersen_Sm is None or not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
+            Planet.Magnetic.sigmaIonosPedersen_Sm = [val]
+        else:
+            Planet.Magnetic.sigmaIonosPedersen_Sm[-1] = val
     elif name == 'silPhi_frac':
         Planet.Sil.phiRockMax_frac = val
         if val == 0:
@@ -1357,12 +1380,20 @@ def WriteExploreOgram(Exploration, Params):
         'xName': Exploration.xName,
         'yName': Exploration.yName,
         'zName': Exploration.zName,
-        'w_ppt': Exploration.w_ppt,
+        'wOcean_ppt': Exploration.wOcean_ppt,
         'oceanComp': Exploration.oceanComp,
+        'R_m': Exploration.R_m,
         'Tb_K': Exploration.Tb_K,
         'xFeS': Exploration.xFeS,
-        'phiSilMax_frac': Exploration.phiSilMax_frac,
         'rhoSilInput_kgm3': Exploration.rhoSilInput_kgm3,
+        'silPhi_frac': Exploration.silPhi_frac,
+        'icePhi_frac': Exploration.icePhi_frac,
+        'silPclosure_MPa': Exploration.silPclosure_MPa,
+        'icePclosure_MPa': Exploration.icePclosure_MPa,
+        'ionosTop_km': Exploration.ionosTop_km,
+        'sigmaIonos_Sm': Exploration.sigmaIonos_Sm,
+        'Htidal_Wm3': Exploration.Htidal_Wm3,
+        'Qrad_Wkg': Exploration.Qrad_Wkg,
         'rhoSilMean_kgm3': Exploration.rhoSilMean_kgm3,
         'rhoCoreMean_kgm3': Exploration.rhoCoreMean_kgm3,
         'sigmaMean_Sm': Exploration.sigmaMean_Sm,
@@ -1370,11 +1401,10 @@ def WriteExploreOgram(Exploration, Params):
         'Tmean_K': Exploration.Tmean_K,
         'D_km': Exploration.D_km,
         'zb_km': Exploration.zb_km,
-        'Rcore_km': Exploration.Rcore_km,
-        'R_m': Exploration.R_m
+        'Rcore_km': Exploration.Rcore_km
     }
     savemat(Params.DataFiles.exploreOgramFile, saveDict)
-    log.info(f'Saved induct-o-gram {Params.DataFiles.exploreOgramFile} to disk.')
+    log.info(f'Saved explore-o-gram {Params.DataFiles.exploreOgramFile} to disk.')
 
     return
 
@@ -1391,9 +1421,9 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
             loadname = bodyname
             bodydir = bodyname
         Planet = importlib.import_module(f'{bodydir}.PP{loadname}Explore').Planet
-        xName = 'xFeS'
-        yName = 'rhoSilInput_kgm3'
-        Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{xName}{yName}')
+        Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
+                                                              exploreAppend=f'{Params.Explore.xName}{Params.Explore.yName}',
+                                                              figExploreAppend=f'{Params.Explore.zName}')
         reload = loadmat(Params.DataFiles.exploreOgramFile)
     else:
         reload = loadmat(fNameOverride)
@@ -1403,12 +1433,20 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
     Exploration.xName = reload['xName'][0]
     Exploration.yName = reload['yName'][0]
     Exploration.zName = reload['zName'][0]
-    Exploration.w_ppt = reload['w_ppt']
+    Exploration.wOcean_ppt = reload['wOcean_ppt']
     Exploration.oceanComp = reload['oceanComp']
+    Exploration.R_m = reload['R_m']
     Exploration.Tb_K = reload['Tb_K']
     Exploration.xFeS = reload['xFeS']
-    Exploration.phiSilMax_frac = reload['phiSilMax_frac']
     Exploration.rhoSilInput_kgm3 = reload['rhoSilInput_kgm3']
+    Exploration.silPhi_frac = reload['silPhi_frac']
+    Exploration.icePhi_frac = reload['icePhi_frac']
+    Exploration.silPclosure_MPa = reload['silPclosure_MPa']
+    Exploration.icePclosure_MPa = reload['icePclosure_MPa']
+    Exploration.ionosTop_km = reload['ionosTop_km']
+    Exploration.sigmaIonos_Sm = reload['sigmaIonos_Sm']
+    Exploration.Htidal_Wm3 = reload['Htidal_Wm3']
+    Exploration.Qrad_Wkg = reload['Qrad_Wkg']
     Exploration.rhoSilMean_kgm3 = reload['rhoSilMean_kgm3']
     Exploration.rhoCoreMean_kgm3 = reload['rhoCoreMean_kgm3']
     Exploration.sigmaMean_Sm = reload['sigmaMean_Sm']
@@ -1417,7 +1455,6 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
     Exploration.D_km = reload['D_km']
     Exploration.zb_km = reload['zb_km']
     Exploration.Rcore_km = reload['Rcore_km']
-    Exploration.R_m = reload['R_m']
 
     return Exploration, Params
 

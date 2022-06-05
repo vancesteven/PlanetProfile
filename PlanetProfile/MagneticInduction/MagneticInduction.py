@@ -39,6 +39,10 @@ def MagneticInduction(Planet, Params):
                 if Planet.index % 10 == 0:
                     log.profile(f'Point {Planet.index}/{Params.nModels} complete.')
 
+    else:
+        Planet.Magnetic.ionosBounds_m = [0]
+        Planet.Magnetic.sigmaIonosPedersen_Sm = [0]
+
     # Must return both Planet and Params in order to use common infrastructure
     # for unpacking parallel runs
     return Planet, Params
@@ -87,13 +91,15 @@ def CalcInducedMoments(Planet, Params):
         Planet.Magnetic.Aen[:,1], Planet.Magnetic.Amp, AeArg \
             = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                      Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=1,
-                     writeout=(not Params.DO_INDUCTOGRAM), do_parallel=False)
+                     writeout=((not Params.DO_INDUCTOGRAM) and (not Params.DO_EXPLOREOGRAM)),
+                     do_parallel=False)
         Planet.Magnetic.phase = -np.degrees(AeArg)
         for n in range(2, Planet.Magnetic.nprmMax):
             Planet.Magnetic.Aen[:,n], _, _ \
                 = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                          Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=n,
-                         writeout=(not Params.DO_INDUCTOGRAM), do_parallel=False)
+                         writeout=((not Params.DO_INDUCTOGRAM) and (not Params.DO_EXPLOREOGRAM)),
+                         do_parallel=False)
 
         if Params.Sig.INCLUDE_ASYM:
             # Use a separate function for evaluating asymmetric induced moments, as Binm is not as simple as
@@ -102,7 +108,8 @@ def CalcInducedMoments(Planet, Params):
                                              Planet.Magnetic.omegaExc_radps, Planet.Magnetic.asymShape_m,
                                              Planet.Magnetic.gravShape_m, Planet.Magnetic.Benm_nT, 1/Planet.Bulk.R_m,
                                              Planet.Magnetic.nLin, Planet.Magnetic.mLin, Planet.Magnetic.pMax,
-                                             nprm_max=Planet.Magnetic.nprmMax, writeout=(not Params.DO_INDUCTOGRAM),
+                                             nprm_max=Planet.Magnetic.nprmMax,
+                                             writeout=((not Params.DO_INDUCTOGRAM) and (not Params.DO_EXPLOREOGRAM)),
                                              do_parallel=False, Xid=Planet.Magnetic.Xid)
         else:
             # Multiply complex response by Benm to get Binm for spherically symmetric case
@@ -166,6 +173,8 @@ def SetupInduction(Planet, Params):
         if not Params.Induct.inductOtype == 'sigma' or not Params.DO_INDUCTOGRAM:
             # Append optional ionosphere
             if Planet.Magnetic.ionosBounds_m is None:
+                Planet.Magnetic.ionosBounds_m = [0]
+                Planet.Magnetic.sigmaIonosPedersen_Sm = [0]
                 zIonos_m = []
                 sigmaIonos_Sm = []
             else:
@@ -253,6 +262,11 @@ def SetupInduction(Planet, Params):
 
         # Initialize Binm array to have the same shape and data type as Benm
         Planet.Magnetic.Binm_nT = np.zeros_like(Planet.Magnetic.Benm_nT)
+
+    else:
+        # Make sure explore-o-grams play nice when ionosphere properties are not set
+        Planet.Magnetic.ionosBounds_m = [0]
+        Planet.Magnetic.sigmaIonosPedersen_Sm = [0]
 
     return Planet
 

@@ -316,7 +316,7 @@ class MagneticSubstruct:
         self.Texc_hr = None  # Periods in hr of peaks in magnetic excitation spectrum
         self.omegaExc_radps = None  # Angular frequency of peaks in magnetic excitation spectrum in rad/s
         self.ionosBounds_m = None  # Upper altitude cutoff for ionosphere layers in m. Omit the surface (don't include 0 in the list).
-        self.sigmaIonosPedersen_Sm = 1e-4  # Pedersen conductivity for ionospheric layers in S/m. Length must match ionosBounds_m. The default value (set here) is set uniform when ionosBounds_m has size 1, and set uniform between entries 1 and 2 when it has size 2 (with zero conductivity between).
+        self.sigmaIonosPedersen_Sm = [1e-4]  # Pedersen conductivity for ionospheric layers in S/m. Length must match ionosBounds_m. The default value (set here) is set uniform when ionosBounds_m has size 1, and set uniform between entries 1 and 2 when it has size 2 (with zero conductivity between).
         self.rSigChange_m = None  # Radii of outer boundary of each conducting layer in m (i.e., radii where sigma changes)
         self.sigmaLayers_Sm = None  # Reduced set of conductivity values compatible with rSigChange_m that will work in induction calculations (i.e. all non-zero)
         self.nBds = None  # Number of radial boundaries between conductors specified
@@ -461,7 +461,7 @@ class DataFilesSubstruct:
         if exploreAppend is None:
             self.exploreAppend = ''
         else:
-            self.exploreAppend = f'_{exploreAppend}'
+            self.exploreAppend = exploreAppend
         self.path = datPath
         self.inductPath = os.path.join(self.path, 'inductionData')
         if not self.path == '' and not os.path.isdir(self.path):
@@ -473,8 +473,8 @@ class DataFilesSubstruct:
         self.saveFile = self.fName + '.txt'
         self.mantCoreFile = self.fName + '_mantleCore.txt'
         self.permFile = self.fName + '_mantlePerm.txt'
-        self.fNameExplore = self.fName + '_exploreOgram'
-        self.exploreOgramFile = f'{self.fNameExplore}{self.exploreAppend}.mat'
+        self.fNameExplore = self.fName + f'_{self.exploreAppend}ExploreOgram'
+        self.exploreOgramFile = f'{self.fNameExplore}.mat'
         self.fNameInduct = os.path.join(self.inductPath, saveBase)
         self.inductLayersFile = self.fNameInduct + '_inductLayers.txt'
         self.inducedMomentsFile = self.fNameInduct + '_inducedMoments.txt'
@@ -485,7 +485,7 @@ class DataFilesSubstruct:
 
 # Construct filenames for figures etc.
 class FigureFilesSubstruct:
-    def __init__(self, figPath, figBase, xtn, comp=None, inductBase=None):
+    def __init__(self, figPath, figBase, xtn, comp=None, inductBase=None, exploreAppend=None):
         if inductBase is None:
             self.inductBase = figBase
         else:
@@ -494,6 +494,10 @@ class FigureFilesSubstruct:
             self.comp = ''
         else:
             self.comp = comp
+        if exploreAppend is None:
+            self.exploreAppend = ''
+        else:
+            self.exploreAppend = exploreAppend
         self.path = figPath
         self.inductPath = os.path.join(self.path, 'induction')
         if not self.path == '' and not os.path.isdir(self.path):
@@ -516,9 +520,9 @@ class FigureFilesSubstruct:
         vpvt4 = 'PTx4'
         vpvt6 = 'PTx6'
         vwedg = 'Wedge'
-        induct = 'inductOgram'
-        sigma = 'inductOgramSigma'
-        explore = 'exploreOgram'
+        induct = 'InductOgram'
+        sigma = 'InductOgramSigma'
+        explore = 'ExploreOgram'
         # Construct Figure Filenames
         self.vwedg = self.fName + vwedg + xtn
         self.vsP = self.fName + vsP + xtn
@@ -532,14 +536,13 @@ class FigureFilesSubstruct:
         self.vcore = self.fName + vcore + xtn
         self.vpvt4 = self.fName + vpvt4 + xtn
         self.vpvt6 = self.fName + vpvt6 + xtn
-        self.explore =               f'{self.fName}_{explore}{xtn}'
+        self.explore =               f'{self.fName}_{self.exploreAppend}{explore}{xtn}'
         self.phaseSpace =            f'{self.fNameInductOgram}_{induct}_phaseSpace{xtn}'
         self.phaseSpaceCombo =       f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{xtn}'
         self.induct =        {zType: f'{self.fNameInductOgram}_{induct}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
         self.inductCompare = {zType: f'{self.fNameInductOgram}Compare_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
         self.sigma =         {zType: f'{self.fNameInductOgram}_{sigma}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
         self.sigmaOnly =     {zType: f'{self.fNameInductOgram}_{sigma}Only_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
-
 
 
 """ General parameter options """
@@ -686,21 +689,29 @@ class ExplorationStruct:
         self.zName = None  # Name of z variable. Options are ___
         self.xScale = 'linear'
         self.yScale = 'linear'
-        self.w_ppt = None  # Values of salinity used.
-        self.oceanComp = None  # Ocean composition used.
-        self.Tb_K = None  # Values of Bulk.Tb_K used.
-        self.xFeS = None  # Values of core FeS fraction used.
-        self.phiSilMax_frac = None  # Values of Sil.phiRockMax_frac set.
-        self.rhoSilInput_kgm3 = None  # Values of silicate density used.
+        self.wOcean_ppt = None  # Values of salinity in g/kg set.
+        self.oceanComp = None  # Ocean composition set.
+        self.R_m = None  # Body radius in m set.
+        self.Tb_K = None  # Values of Bulk.Tb_K set.
+        self.xFeS = None  # Values of core FeS mole fraction set.
+        self.rhoSilInput_kgm3 = None  # Values of silicate density in kg/m^3 set.
+        self.silPhi_frac = None  # Values of Sil.phiRockMax_frac set.
+        self.icePhi_frac = None  # Values of surfIceEOS[phaseStr].phiMax_frac set.
+        self.silPclosure_MPa = None  # Values of Sil.Pclosure_MPa set.
+        self.icePclosure_MPa = None  # Values of surfIceEOS[phaseStr].Pclosure_MPa set.
+        self.ionosTop_km = None  # Values set of ionosphere upper cutoff altitude in km.
+        self.sigmaIonos_Sm = None  # Values set of outermost ionosphere Pedersen conductivity in S/m.
+        self.Htidal_Wm3 = None  # Values of Sil.Htidal_Wm3 set.
+        self.Qrad_Wkg = None  # Values of Sil.Qrad_Wkg set.
         self.rhoSilMean_kgm3 = None  # Values of Sil.rhoMean_kgm3 result (also equal to those set for all but phi inductOtype).
         self.rhoCoreMean_kgm3 = None  # Values of Core.rhoMean_kgm3 result (also equal to those set for all but phi inductOtype).
-        self.sigmaMean_Sm = None  # Mean ocean conductivity.
-        self.sigmaTop_Sm = None  # Ocean top conductivity.
+        self.sigmaMean_Sm = None  # Mean ocean conductivity result in S/m.
+        self.sigmaTop_Sm = None  # Ocean top conductivity result in S/m.
         self.Tmean_K = None  # Ocean mean temperature result in K.
         self.D_km = None  # Ocean layer thickness result in km.
         self.zb_km = None  # Upper ice shell thickness result in km.
         self.Rcore_km = None  # Core radius result in km.
-        self.R_m = None  # Body radius in m, used to scale induction amplitudes.
+
 
 
 """ Figure color options """
@@ -869,7 +880,7 @@ class FigLblStruct:
         self.NEGATIVE_UNIT_POWERS = True  # Whether to use negative powers for units in latex tables, or instead a backslash.
         self.NAN_FOR_EMPTY = False  # Whether to use nan (or -) for empty layer parameters that were not calculated or not present.
         self.w_IN_WTPCT = False  # Whether to print salinities in wt% (or g/kg) in tables
-        self.x_IN_WTPCT = True  # Whether to print silicate/core mass fractions in wt% (or g/kg) in tables
+        self.x_IN_MOLPCT = True  # Whether to print silicate/core mass fractions in mol% (or fractional) in tables
         self.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
         self.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
 
@@ -1019,9 +1030,9 @@ class FigLblStruct:
             self.wMult = 1/10
         else:
             self.wMult = 1
-        if self.x_IN_WTPCT:
-            self.xUnits = r'wt\%'
-            self.xUnitsParen = r'~($\si{wt\%}$)'
+        if self.x_IN_MOLPCT:
+            self.xUnits = r'mol\%'
+            self.xUnitsParen = r'~($\si{mol\%}$)'
             self.xMult = 100
         else:
             self.xUnits = ''

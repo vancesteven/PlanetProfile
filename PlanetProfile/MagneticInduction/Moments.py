@@ -12,7 +12,7 @@ class InductionStruct:
         self.Bix_nT = None  # Induced Bx dipole moments relative to body surface in nT for each excitation.
         self.Biy_nT = None  # Induced By dipole moments relative to body surface in nT for each excitation.
         self.Biz_nT = None  # Induced Bz dipole moments relative to body surface in nT for each excitation.
-        self.w_ppt = None  # Values of salinity used.
+        self.wOcean_ppt = None  # Values of salinity used.
         self.oceanComp = None  # Ocean composition used.
         self.Tb_K = None  # Values of Bulk.Tb_K used.
         self.rhoSilMean_kgm3 = None  # Values of Sil.rhoMean_kgm3 resulted (also equal to those set for all but phi inductOtype).

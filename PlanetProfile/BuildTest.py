@@ -11,9 +11,9 @@ import numpy as np
 import importlib, os, fnmatch, sys, time
 from copy import deepcopy
 from PlanetProfile import _Test, _TestImport
-from PlanetProfile.GetConfig import Params
-from PlanetProfile.Main import PlanetProfile, InductOgram, ReloadInductOgram
-from PlanetProfile.Plotting.ProfilePlots import PlotInductOgram
+from PlanetProfile.GetConfig import Params as configParams
+from PlanetProfile.Main import PlanetProfile, InductOgram, ReloadInductOgram, ExploreOgram, ReloadExploreOgram
+from PlanetProfile.Plotting.ProfilePlots import PlotInductOgram, PlotExploreOgram
 from PlanetProfile.Test.TestBayes import TestBayes
 
 # Include timestamps in messages and force debug level logging for all testing
@@ -33,6 +33,7 @@ def full():
     testBase = f'{_TestImport}.PPTest'
 
     # Set general testing config atop standard config options
+    Params = configParams
     Params.CALC_NEW = True
     Params.CALC_NEW_REF = True
     Params.CALC_NEW_INDUC = True
@@ -94,15 +95,38 @@ def full():
     Params.CALC_SEISMIC = True
     Params.CALC_CONDUCT = True
 
+    # Test Bayesian analysis UpdateRun capabilities
+    PlanetBayes, _ = TestBayes('Test')
+    PlanetBayes.saveLabel = 'Bayes'
+    TestPlanets = np.append(TestPlanets, PlanetBayes)
+    tMarks = np.append(tMarks, time.time())
+
     # Check that skipping layers/portions works correctly
     Params.SKIP_INNER = True
     TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanet1), Params)[0])
     TestPlanets[-1].saveLabel += ' SKIP_INNER'
     tMarks = np.append(tMarks, time.time())
+    Params.SKIP_INNER = False
 
+    # Test out all the inductogram config options
+    TestPlanets, Params, tMarks = TestAllInductOgrams(TestPlanets, Params, tMarks)
+
+    # Test out all the exploreogram config options
+    TestPlanets, Params, tMarks = TestAllExploreOgrams(TestPlanets, Params, tMarks)
+
+    log.info('Testing complete!')
+
+    dt = np.diff(tMarks)
+    log.debug('Elapsed time:\n' + '\n'.join([f'    {dt[i]:.3f} s for {Planet.name} {Planet.saveLabel}' for i, Planet in enumerate(TestPlanets)]))
+    log.debug(f'Total elapsed time: {tMarks[-1] - tMarks[0]:.1f} s')
+    return
+
+
+def TestAllInductOgrams(TestPlanets, Params, tMarks):
     # Run all types of inductogram on Test7, with Test11 for porosity
     Params.DO_INDUCTOGRAM = True
     Params.NO_SAVEFILE = True
+    Params.SKIP_INNER = True
     for inductOtype in ['sigma', 'Tb', 'rho']:
         Params.Induct.inductOtype = inductOtype
         _ = TestInductOgram(7, Params)
@@ -132,18 +156,81 @@ def full():
     Params.NO_SAVEFILE = False
     Params.SKIP_INNER = False
 
-    # Test Bayesian analysis UpdateRun capabilities
-    PlanetBayes, _ = TestBayes('Test')
-    PlanetBayes.saveLabel = 'Bayes'
-    TestPlanets = np.append(TestPlanets, PlanetBayes)
-    tMarks = np.append(tMarks, time.time())
+    return TestPlanets, Params, tMarks
 
-    log.info('Testing complete!')
 
-    dt = np.diff(tMarks)
-    log.debug('Elapsed time:\n' + '\n'.join([f'    {dt[i]:.3f} s for {Planet.name} {Planet.saveLabel}' for i, Planet in enumerate(TestPlanets)]))
-    log.debug(f'Total elapsed time: {tMarks[-1] - tMarks[0]:.1f} s')
-    return
+def TestAllExploreOgrams(TestPlanets, Params, tMarks):
+    # Run all types of exploreogram on Test7, with Test5 for waterless
+    Params.DO_EXPLOREOGRAM = True
+    Params.NO_SAVEFILE = True
+    Params.SKIP_INNER = True
+    hydroExploreBds = {
+        'xFeS': [0, 1],
+        'rhoSilInput_kgm3': [2000, 4500],
+        'wOcean_ppt': [0, 100],
+        'Tb_K': [255, 273],
+        'ionosTop_km': [0, 50],
+        'sigmaIonos_Sm': [1e-6, 1e-2],
+        'silPhi_frac': [0, 0.8],
+        'silPclosure_MPa': [200, 750],
+        'icePhi_frac': [0, 0.8],
+        'icePclosure_MPa': [5, 40],
+        'Htidal_Wm3': [1e-18, 1e-11],
+        'Qrad_Wkg': [1e-20, 1e-14]
+    }
+    waterlessExploreBds = {
+        'xFeS': [0, 1],
+        'rhoSilInput_kgm3': [2000, 4500],
+        'ionosTop_km': [0, 50],
+        'sigmaIonos_Sm': [1e-6, 1e-2],
+        'silPhi_frac': [0, 0.8],
+        'silPclosure_MPa': [200, 750],
+        'Htidal_Wm3': [1e-18, 1e-11],
+        'Qrad_Wkg': [1e-20, 1e-14],
+        'qSurf_Wm2': [50e-3, 400e-3]
+    }
+
+    for xName in hydroExploreBds.keys():
+        for yName in hydroExploreBds.keys():
+            if xName != yName:
+                Params.Explore.xName = xName
+                Params.Explore.yName = yName
+                Params.Explore.xRange = hydroExploreBds[xName]
+                Params.Explore.yRange = hydroExploreBds[yName]
+                _ = TestExploreOgram(7, Params)
+                Params.DO_PARALLEL = False
+                Exploration = TestExploreOgram(7, Params)
+                Params.DO_PARALLEL = True
+                TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
+                tMarks = np.append(tMarks, time.time())
+
+                Exploration = TestExploreOgram(7, Params, CALC_NEW=False)
+                TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
+                tMarks = np.append(tMarks, time.time())
+
+    for xName in waterlessExploreBds.keys():
+        for yName in waterlessExploreBds.keys():
+            if xName != yName:
+                Params.Explore.xName = xName
+                Params.Explore.yName = yName
+                Params.Explore.xRange = waterlessExploreBds[xName]
+                Params.Explore.yRange = waterlessExploreBds[yName]
+                _ = TestExploreOgram(5, Params)
+                Params.DO_PARALLEL = False
+                Exploration = TestExploreOgram(5, Params)
+                Params.DO_PARALLEL = True
+                TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
+                tMarks = np.append(tMarks, time.time())
+
+                Exploration = TestExploreOgram(5, Params, CALC_NEW=False)
+                TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
+                tMarks = np.append(tMarks, time.time())
+
+    Params.DO_EXPLOREOGRAM = False
+    Params.NO_SAVEFILE = False
+    Params.SKIP_INNER = False
+
+    return TestPlanets, Params, tMarks
 
 
 def TestInductOgram(testNum, Params, CALC_NEW=True):
@@ -163,13 +250,35 @@ def TestInductOgram(testNum, Params, CALC_NEW=True):
     PlotInductOgram(Induction, Params)
     Induction.name = testName
     Induction.saveLabel = f'{Params.Induct.inductOtype} induct-o-gram{end}'
+
     return Induction
+
+
+def TestExploreOgram(testNum, Params, CALC_NEW=True):
+    testName = f'Test{testNum}'
+
+    # Set sizes low so things don't take ages to run
+    Params.Explore.nx, Params.Explore.ny \
+        = (4 for _ in range(2))
+
+    if CALC_NEW:
+        Exploration, Params = ExploreOgram(testName, Params)
+        end = ''
+    else:
+        Exploration, Params = ReloadExploreOgram(testName, Params)
+        end = ' RELOAD'
+    PlotExploreOgram([Exploration], Params)
+    Exploration.name = testName
+    Exploration.saveLabel = f'{Params.Explore.xName} x {Params.Explore.yName} explore-o-gram{end}'
+
+    return Exploration
 
 
 def simple():
     testMod = f'{_TestImport}.PPTest'
 
     # Set general testing config atop standard config options
+    Params = configParams
     Params.CALC_NEW = True
     Params.CALC_NEW_REF = True
     Params.CALC_NEW_INDUCT = True
@@ -178,6 +287,7 @@ def simple():
     Params.RUN_ALL_PROFILES = False
     Params.COMPARE = False
     Params.DO_INDUCTOGRAM = False
+    Params.DO_EXPLOREOGRAM = True
     Params.DO_PARALLEL = False
     Params.SKIP_INDUCTION = False
 
@@ -188,6 +298,8 @@ def simple():
     log.info(f'Test case body: {bodyname}')
     if Params.DO_INDUCTOGRAM:
         TestInductOgram(iTest, Params, CALC_NEW=Params.CALC_NEW_INDUCT)
+    elif Params.DO_EXPLOREOGRAM:
+        TestExploreOgram(iTest, Params, CALC_NEW=Params.CALC_NEW_INDUCT)
     else:
         _ = PlanetProfile(testPlanet, Params)
     tEnd = time.time()
