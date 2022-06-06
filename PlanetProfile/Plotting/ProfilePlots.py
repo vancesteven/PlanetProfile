@@ -103,8 +103,9 @@ def PlotHydrosphereProps(PlanetList, Params):
     axPrho = fig.add_subplot(grid[:, :3])
     axTz = fig.add_subplot(grid[0, 3:])
 
-    axPrho.set_xlabel(FigLbl.PlabelHydro)
-    axPrho.set_ylabel(FigLbl.rhoLabel)
+    axPrho.set_xlabel(FigLbl.rhoLabel)
+    axPrho.set_ylabel(FigLbl.PlabelHydro)
+    axPrho.invert_yaxis()
     axTz.set_xlabel(FigLbl.Tlabel)
     axTz.set_ylabel(FigLbl.zLabel)
     axTz.invert_yaxis()
@@ -152,11 +153,11 @@ def PlotHydrosphereProps(PlanetList, Params):
                 iPlot = Params.Pref_MPa[Planet.Ocean.comp] < Pmax_MPa
                 # Plot all reference melting curve densities
                 for i in range(Params.nRef[Planet.Ocean.comp]):
-                    thisRef, = axPrho.plot(Params.Pref_MPa[Planet.Ocean.comp][iPlot]*FigLbl.PmultHydro,
-                                            Params.rhoRef_kgm3[Planet.Ocean.comp][i,iPlot],
-                                            color=Color.ref,
-                                            lw=Style.LW_ref,
-                                            ls=Style.LS_ref[Planet.Ocean.comp])
+                    thisRef, = axPrho.plot(Params.rhoRef_kgm3[Planet.Ocean.comp][i,iPlot],
+                                           Params.Pref_MPa[Planet.Ocean.comp][iPlot]*FigLbl.PmultHydro,
+                                           color=Color.ref,
+                                           lw=Style.LW_ref,
+                                           ls=Style.LS_ref[Planet.Ocean.comp])
                     if FigMisc.REFS_IN_LEGEND and i == 0: thisRef.set_label(wList)
                 newRef[Planet.Ocean.comp] = False
 
@@ -194,9 +195,9 @@ def PlotHydrosphereProps(PlanetList, Params):
                 thisLW = Style.LW_std
 
             # Plot density vs. pressure curve for hydrosphere
-            axPrho.plot(Planet.P_MPa[:Planet.Steps.nHydro]*FigLbl.PmultHydro,
-                        Planet.rho_kgm3[:Planet.Steps.nHydro], label=legLbl,
-                        color=thisColor, linewidth=thisLW,
+            axPrho.plot(Planet.rho_kgm3[:Planet.Steps.nHydro],
+                        Planet.P_MPa[:Planet.Steps.nHydro]*FigLbl.PmultHydro,
+                        label=legLbl, color=thisColor, linewidth=thisLW,
                         linestyle=Style.LS[Planet.Ocean.comp])
             # Plot thermal profile vs. depth in hydrosphere
             therm = axTz.plot(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub,
