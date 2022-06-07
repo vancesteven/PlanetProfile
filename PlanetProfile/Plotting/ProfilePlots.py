@@ -70,7 +70,7 @@ def PlotGravPres(PlanetList, Params):
         axes[1].plot(Planet.P_MPa*FigLbl.PmultFull, Planet.r_m[:-1]/1e3,
                      label=legLbl, linewidth=Style.LW_std)
 
-    if FigMisc.LEGEND:
+    if Params.LEGEND:
         axes[1].legend()
 
     plt.tight_layout()
@@ -96,12 +96,17 @@ def PlotHydrosphereProps(PlanetList, Params):
         DO_SOUNDS = False
         axv = None
 
+    if Params.LEGEND:
+        hCol = 9
+    else:
+        hCol = 6
+
     # Generate canvas and add labels
     fig = plt.figure(figsize=FigSize.vhydro)
-    grid = GridSpec(vRow, 6)
+    grid = GridSpec(vRow, hCol)
 
     axPrho = fig.add_subplot(grid[:, :3])
-    axTz = fig.add_subplot(grid[0, 3:])
+    axTz = fig.add_subplot(grid[0, 3:6])
 
     axPrho.set_xlabel(FigLbl.rhoLabel)
     axPrho.set_ylabel(FigLbl.PlabelHydro)
@@ -113,7 +118,7 @@ def PlotHydrosphereProps(PlanetList, Params):
     axTz.set_ylim([zMax, 0])
 
     if DO_SIGS:
-        axsigz = fig.add_subplot(grid[-1, 3:])
+        axsigz = fig.add_subplot(grid[-1, 3:6])
         axsigz.set_xlabel(FigLbl.sigLabel)
         axsigz.set_ylabel(FigLbl.zLabel)
         axsigz.invert_yaxis()
@@ -237,8 +242,11 @@ def PlotHydrosphereProps(PlanetList, Params):
     # Limit Tmin so the relevant plot can better show what's going on in the ocean
     axTz.set_xlim(left=FigMisc.TminHydro)
 
-    if FigMisc.LEGEND:
-        fig.legend(loc=FigMisc.hydroLegendPos, bbox_to_anchor=FigMisc.hydroLegendBox)
+    if Params.LEGEND:
+        axleg = fig.add_subplot(grid[:, 7:])
+        axleg.set_axis_off()
+        handles, lbls = axPrho.get_legend_handles_labels()
+        axleg.legend(handles, lbls)
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     plt.close()
@@ -264,7 +272,7 @@ def PlotCoreTradeoff(PlanetList, Params):
             ax.plot(Planet.Sil.Rtrade_m/1e3, Planet.Core.Rtrade_m/1e3,
                     label=legLbl, linewidth=Style.LW_std)
 
-    if FigMisc.LEGEND:
+    if Params.LEGEND:
         ax.legend()
 
     fig.savefig(Params.FigureFiles.vcore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
@@ -290,7 +298,7 @@ def PlotSilTradeoff(PlanetList, Params):
         ax.plot(Planet.Sil.Rtrade_m/1e3, Planet.Sil.rhoTrade_kgm3,
                 label=legLbl, linewidth=Style.LW_std)
 
-    if FigMisc.LEGEND:
+    if Params.LEGEND:
         ax.legend()
 
     fig.savefig(Params.FigureFiles.vmant, format=FigMisc.figFormat, dpi=FigMisc.dpi)
@@ -316,7 +324,7 @@ def PlotPorosity(PlanetList, Params):
                 Planet.r_m[:-1][Planet.phi_frac >= Planet.Sil.phiMin_frac]/1e3,
                 label=Planet.label, linewidth=Style.LW_std)
 
-        if FigMisc.LEGEND:
+        if Params.LEGEND:
             ax.legend()
 
         fig.savefig(Params.FigureFiles.vporeDbl, format=FigMisc.figFormat, dpi=FigMisc.dpi)
@@ -346,7 +354,7 @@ def PlotPorosity(PlanetList, Params):
                          Planet.P_MPa[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.PmultFull,
                          label=legLbl, linewidth=Style.LW_std)
 
-    if FigMisc.LEGEND:
+    if Params.LEGEND:
         axes[1].legend()
 
     plt.tight_layout()
@@ -408,7 +416,7 @@ def PlotSeismic(PlanetList, Params):
                        label=legLbl + f' ${FigLbl.QseisVar}$', linewidth=Style.LW_seis,
                        linestyle=Style.LS_seis['QS'])
 
-    if FigMisc.LEGEND:
+    if Params.LEGEND:
         axes[0,0].legend()
         axes[0,1].legend()
         axes[1,0].legend()
@@ -467,9 +475,9 @@ def PlotWedge(PlanetList, Params):
         if Planet.Do.Fe_CORE:
             Planet.Core.xS_frac = (100 - int(Planet.Core.coreEOS[2:5])) / 100
             if FigLbl.w_IN_WTPCT:
-                xStr = f'{Planet.Core.xS_frac * FigLbl.wMult:.0f}'
+                xStr = f'{Planet.Core.xS_frac * 1e3 * FigLbl.wMult:.0f}'
             else:
-                xStr = f'{Planet.Core.xS_frac * FigLbl.wMult:.2f}'
+                xStr = f'{Planet.Core.xS_frac * 1e3 * FigLbl.wMult:.2f}'
             coreLine = f'\ce{{Fe}} core with \SI{{{xStr}}}{{{FigLbl.wUnits}}}~\ce{{S}}'
         elif Planet.Sil.EOS is not None and 'undifferentiated' in Planet.Sil.EOS.comp:
             coreLine = 'undifferentiated'
@@ -914,7 +922,7 @@ def PlotInductOgram(Induction, Params):
                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                            for i, T in enumerate(Induction.Texc_hr.keys())]
 
-        if FigMisc.LEGEND:
+        if Params.LEGEND:
             lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
             axes[1,1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
 
@@ -948,7 +956,7 @@ def PlotInductOgram(Induction, Params):
                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                            for i, T in enumerate(Induction.Texc_hr.keys())]
 
-            if FigMisc.LEGEND:
+            if Params.LEGEND:
                 lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
                 axes[1,1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
 
@@ -1004,7 +1012,7 @@ def PlotInductOgram(Induction, Params):
                        fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                        for i, T in enumerate(Induction.Texc_hr.keys())]
 
-            if FigMisc.LEGEND:
+            if Params.LEGEND:
                 lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
                 axes[1,1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
             fig.savefig(Params.FigureFiles.inductCompare[compChoice], format=FigMisc.figFormat, dpi=FigMisc.dpi)
@@ -1051,7 +1059,7 @@ def PlotInductOgram(Induction, Params):
         else:
             fNameSigma = Params.FigureFiles.sigma[fLabel]
 
-        if FigMisc.LEGEND:
+        if Params.LEGEND:
             lines = np.array([contour.legend_elements()[0][0] for contour in phaseContours])
             axes[1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
 
@@ -1085,7 +1093,7 @@ def PlotInductOgram(Induction, Params):
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(Induction.Texc_hr.keys())]
 
-            if FigMisc.LEGEND:
+            if Params.LEGEND:
                 lines = np.array([contour.legend_elements()[0][0] for contour in phaseContours])
                 axes[1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
 
@@ -1121,7 +1129,7 @@ def PlotExploreOgram(ExplorationList, Params):
         mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'])
         cont = ax.contour(x, y, z, colors='black')
         lbls = plt.clabel(cont, fmt='%1.0f')
-        cbar = fig.colorbar(mesh)
+        cbar = fig.colorbar(mesh, ax=ax)
         # Add the min and max values to the colorbar for reading convenience
         # We compare z values to z values to exclude nans from the max finding,
         # exploiting the fact that nan == nan is False.
@@ -1155,7 +1163,7 @@ def PlotExploreOgram(ExplorationList, Params):
         mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'])
         cont = ax.contour(x, y, z, colors='black')
         lbls = plt.clabel(cont, fmt='%1.0f')
-        cbar = fig.colorbar(mesh)
+        cbar = fig.colorbar(mesh, ax=ax)
         # Append the max value to the colorbar for reading convenience
         # We compare z values to z values to exclude nans from the max finding,
         # exploiting the fact that nan == nan is False.

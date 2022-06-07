@@ -139,7 +139,7 @@ FigLbl.SetUnits()  # Make use of above toggles and assign labels
 FigSize.vpore = (6, 6)
 FigSize.vperm = (6, 6)
 FigSize.vseis = (6, 6)
-FigSize.vhydro = (8, 5)
+FigSize.vhydro = (9, 5)
 FigSize.vgrav = (6, 5)
 FigSize.vmant = (6, 6)
 FigSize.vcore = (6, 6)
@@ -187,7 +187,6 @@ FigMisc.PLOT_V2021 = True  # Mark the selected ocean/conductivity combos used in
 FigMisc.DO_PER = True  # Convert frequency axes to periods for FFT plots
 
 # Legends
-FigMisc.LEGEND = True  # Whether to plot legends
 FigMisc.REFS_IN_LEGEND = True  # Hydrosphere plot: Whether to include reference profiles in legend
 FigMisc.hydroLegendBox = (0.15, 0.1, 0.33, 0.5)  # Hydrosphere plot: Bounding box for where to place legends. Values are x, y, dx, dy in fractions of the figure size, where x and y are for the bottom-left corner of the box.
 FigMisc.hydroLegendPos = 'center left'  # Hydrosphere plot: Where to place legends within bounding box

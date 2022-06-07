@@ -40,8 +40,8 @@ def MagneticInduction(Planet, Params):
                     log.profile(f'Point {Planet.index}/{Params.nModels} complete.')
 
     else:
-        Planet.Magnetic.ionosBounds_m = [0]
-        Planet.Magnetic.sigmaIonosPedersen_Sm = [0]
+        Planet.Magnetic.ionosBounds_m = [np.nan]
+        Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
 
     # Must return both Planet and Params in order to use common infrastructure
     # for unpacking parallel runs
@@ -172,9 +172,15 @@ def SetupInduction(Planet, Params):
         # For inductOtype == 'sigma', we have already set these arrays.
         if not Params.Induct.inductOtype == 'sigma' or not Params.DO_INDUCTOGRAM:
             # Append optional ionosphere
-            if Planet.Magnetic.ionosBounds_m is None:
-                Planet.Magnetic.ionosBounds_m = [0]
-                Planet.Magnetic.sigmaIonosPedersen_Sm = [0]
+            # We first check if these are unset here, then assign them to what they should be if unset
+            if Planet.Magnetic.ionosBounds_m is None or Planet.Magnetic.sigmaIonosPedersen_Sm is None:
+                Planet.Magnetic.ionosBounds_m = [np.nan]
+                Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
+            # Now, we handle unset ionospheres
+            if np.all(np.isnan(Planet.Magnetic.ionosBounds_m)) or np.all(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
+                # Make sure the arrays are both just length 1 of nan
+                Planet.Magnetic.ionosBounds_m = [np.nan]
+                Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
                 zIonos_m = []
                 sigmaIonos_Sm = []
             else:

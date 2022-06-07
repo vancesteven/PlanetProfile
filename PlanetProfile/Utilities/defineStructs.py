@@ -83,7 +83,6 @@ class StepsSubstruct:
         self.nIbottom = None  # Derived number of clathrate + ice I layers
         self.nIIIbottom = 0  # Derived number of clathrate + ice I + ice III layers
         self.nSurfIce = 0  # Derived number of outer ice layers (above ocean) -- sum of nIceI, nClath, nIceIIILitho, nIceVLitho
-        self.nRefRho = 30  # Number of values for plotting reference density curves (sets resolution)
         self.iSilStart = None  # Hydrosphere index at which to start silicate size search
         self.nSilMax = None  # Fixed max number of steps in silicate layers
         self.nSil = None  # Derived final number of steps in silicate layers
@@ -1227,7 +1226,7 @@ class FigLblStruct:
         self.yLabelExplore = self.axisLabelsExplore[yName]
         self.yScaleExplore = self.axisScalesExplore[yName]
         self.yMultExplore = self.axisMultsExplore[yName]
-        self.cBarLabelExplore = self.axisLabelsExplore[zName]
+        self.cbarLabelExplore = self.axisLabelsExplore[zName]
         self.zMultExplore = self.axisMultsExplore[zName]
 
         self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration}}'
@@ -1292,7 +1291,6 @@ class FigMiscStruct:
         self.DO_PER = True  # Convert frequency axes to periods for FFT plots
 
         # Legends
-        self.LEGEND = True  # Whether to plot legends
         self.REFS_IN_LEGEND = True  # Hydrosphere plot: Whether to include reference profiles in legend
         self.hydroLegendBox = None  # Hydrosphere plot: Bounding box for where to place legends. Values are x, y, dx, dy in fractions of the figure size, where x and y are for the bottom-left corner of the box.
         self.hydroLegendPos = None  # Hydrosphere plot: Where to place legends within bounding box

@@ -28,7 +28,7 @@ def CalcRefProfiles(PlanetList, Params):
 
                 # Fetch the values we need and initialize
                 Params.nRef[Planet.Ocean.comp] = np.size(wList)
-                Params.nRefPts[Planet.Ocean.comp] = Planet.Steps.nRefRho + 0
+                Params.nRefPts[Planet.Ocean.comp] = Params.nRefRho + 0
                 Params.rhoRef_kgm3[Planet.Ocean.comp] = np.zeros((Params.nRef[Planet.Ocean.comp], Params.nRefPts[Planet.Ocean.comp]))
                 if Planet.Ocean.EOS is None:
                     PmaxEOS = 200
@@ -61,7 +61,7 @@ def CalcRefProfiles(PlanetList, Params):
                     f.write(f'  w_ppt = {wListStr[1:-1]}\n')
                     f.write(colHeader + '\n')
 
-                    for i in range(Planet.Steps.nRefRho):
+                    for i in range(Params.nRefRho):
                         line = f'{Params.Pref_MPa[Planet.Ocean.comp][i]:24.17e}'
                         for j in range(Params.nRef[Planet.Ocean.comp]):
                             line = ' '.join([line, f'{Params.rhoRef_kgm3[Planet.Ocean.comp][j,i]:24.17e}'])

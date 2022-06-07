@@ -4,7 +4,7 @@ Overridden by any settings contained within PPBody.py files.
 """
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 3  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 4  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 Params = ParamsStruct()
 Params.VERBOSE =       True  # Provides extra runtime messages. Overrides QUIET below
@@ -48,7 +48,7 @@ Params.PLOT_TRADEOFF =    True  # Whether to plot mantle properties tradeoff
 Params.PLOT_POROSITY =    True  # Whether to plot porosities in rock and/or ice for bodies that have it modeled
 Params.PLOT_SEISMIC =     True  # Whether to plot seismic quantities if they have been calculated
 Params.PLOT_WEDGE =       True  # Whether to plot interior wedge diagram
-Params.LEGEND =           True  # Whether to include legends
+Params.LEGEND =           True  # Whether to plot legends
 
 # Magnetic induction plot settings
 Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question
@@ -77,6 +77,7 @@ Params.wRef_ppt = {'none':[0], 'PureH2O':[0],
                    'MgSO4':[0, 33.3, 66.7, 100],
                    'NH3':[0, 10, 20],
                    'NaCl':[0, 17.5, 35]}
+Params.nRefRho = 50  # Number of values for plotting reference density curves (sets resolution)
 
 # SPICE kernels to use
 Params.spiceTLS = 'naif0012.tls'  # Leap-seconds kernel

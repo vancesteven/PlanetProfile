@@ -3,6 +3,7 @@
 import os
 import numpy as np
 import logging
+from collections.abc import Iterable
 from PlanetProfile import _ROOT
 from PlanetProfile.GetConfig import FigMisc, FigLbl
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
@@ -257,6 +258,16 @@ def SetupInit(Planet, Params):
         if Planet.Do.Fe_CORE:
             Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
                                           kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe)
+
+    # Ensure ionosphere bounds and conductivity are in a format we expect
+    if Planet.Magnetic.ionosBounds_m is None:
+        Planet.Magnetic.ionosBounds_m = [np.nan]
+    elif not isinstance(Planet.Magnetic.ionosBounds_m, Iterable):
+        Planet.Magnetic.ionosBounds_m = [Planet.Magnetic.ionosBounds_m]
+    if Planet.Magnetic.sigmaIonosPedersen_Sm is None:
+        Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
+    elif not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
+        Planet.Magnetic.sigmaIonosPedersen_Sm = [Planet.Magnetic.sigmaIonosPedersen_Sm]
 
     # Preallocate layer physical quantity arrays
     Planet = SetupLayers(Planet)
