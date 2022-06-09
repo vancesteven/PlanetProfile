@@ -47,7 +47,7 @@ def full():
 
     # Get total number of test files to run
     fList = fnmatch.filter(os.listdir(_Test), 'PPTest*')
-    fList = [fName for fName in fList if 'Induct' not in fName and 'Bayes' not in fName]
+    fList = [fName for fName in fList if 'Induct' not in fName and 'Bayes' not in fName and 'Explore' not in fName]
     nTests = np.size(fList)
     # Create list for tracking outputs
     TestPlanets = np.empty(0, dtype=object)

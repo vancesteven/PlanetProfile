@@ -329,35 +329,37 @@ def PlotSilTradeoff(PlanetList, Params):
 
 def PlotPorosity(PlanetList, Params):
 
-    if np.size(PlanetList) == 1:
-        Planet = PlanetList[0]
-        fig, ax = plt.subplots(1, 1, figsize=FigSize.vpore)
-        ax.set_xlabel(FigLbl.phiLabel)
-        ax.set_ylabel(FigLbl.rLabel)
-        P_from_r = interp1d(Planet.r_m[:-1]/1e3, Planet.P_MPa*FigLbl.PmultFull)
-        r_from_P = interp1d(Planet.P_MPa*FigLbl.PmultFull, Planet.r_m[:-1]/1e3)
-        Pax = ax.secondary_yaxis('right', functions=(P_from_r, r_from_P))
-        Pax.set_ylabel(FigLbl.PlabelFull)
-        fig.suptitle(f'{Planet.name}{FigLbl.poreTitle}')
+    # Plot dual-axis plot for first entry in PlanetList (usually a main profile)
+    Planet = PlanetList[0]
+    fig, ax = plt.subplots(1, 1, figsize=FigSize.vpore)
+    ax.set_xlabel(FigLbl.phiLabel)
+    ax.set_ylabel(FigLbl.zLabel)
+    ax.invert_yaxis()
+    P_from_z = interp1d(Planet.z_m[:-1]/1e3, Planet.P_MPa*FigLbl.PmultFull, bounds_error=False, fill_value='extrapolate')
+    z_from_P = interp1d(Planet.P_MPa*FigLbl.PmultFull, Planet.z_m[:-1]/1e3, bounds_error=False, fill_value='extrapolate')
+    Pax = ax.secondary_yaxis('right', functions=(P_from_z, z_from_P))
+    Pax.set_ylabel(FigLbl.PlabelFull)
+    fig.suptitle(f'{Planet.name}{FigLbl.poreTitle}')
 
-        ax.plot(Planet.phi_frac[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.phiMult,
-                Planet.r_m[:-1][Planet.phi_frac >= Planet.Sil.phiMin_frac]/1e3,
-                label=Planet.label, linewidth=Style.LW_std)
+    ax.plot(Planet.phi_frac[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.phiMult,
+            Planet.z_m[:-1][Planet.phi_frac >= Planet.Sil.phiMin_frac]/1e3,
+            label=Planet.label, linewidth=Style.LW_std)
 
-        if Params.LEGEND:
-            ax.legend()
+    if Params.LEGEND:
+        ax.legend()
 
-        fig.savefig(Params.FigureFiles.vporeDbl, format=FigMisc.figFormat, dpi=FigMisc.dpi)
-        log.debug(f'Porosity plot (dual axis) saved to file: {Params.FigureFiles.vporeDbl}')
-        plt.close()
+    fig.savefig(Params.FigureFiles.vporeDbl, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.debug(f'Porosity plot (dual axis) saved to file: {Params.FigureFiles.vporeDbl}')
+    plt.close()
 
+    # Plot standard config with all passed Planet objects
     fig = plt.figure(figsize=FigSize.vpore)
     grid = GridSpec(1, 2)
     axes = [fig.add_subplot(grid[0, i]) for i in range(2)]
     [ax.set_xlabel(FigLbl.phiLabel) for ax in axes]
-    axes[0].set_ylabel(FigLbl.rLabel)
+    axes[0].set_ylabel(FigLbl.zLabel)
     axes[1].set_ylabel(FigLbl.PlabelFull)
-    axes[1].invert_yaxis()
+    [ax.invert_yaxis() for ax in axes]
     if Params.ALL_ONE_BODY:
         fig.suptitle(f'{PlanetList[0].name}{FigLbl.poreTitle}')
     else:
@@ -369,7 +371,7 @@ def PlotPorosity(PlanetList, Params):
             if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
                 legLbl = f'{Planet.name} {legLbl}'
             axes[0].plot(Planet.phi_frac[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.phiMult,
-                         Planet.r_m[:-1][Planet.phi_frac >= Planet.Sil.phiMin_frac]/1e3,
+                         Planet.z_m[:-1][Planet.phi_frac >= Planet.Sil.phiMin_frac]/1e3,
                          label=legLbl, linewidth=Style.LW_std)
             axes[1].plot(Planet.phi_frac[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.phiMult,
                          Planet.P_MPa[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.PmultFull,
