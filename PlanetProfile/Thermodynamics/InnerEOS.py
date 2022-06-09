@@ -289,6 +289,8 @@ class EOSwrapper:
             self.POROUS = EOSlist.loaded[self.key].POROUS
         elif EOSlist.loaded[self.key].EOStype == 'ocean':
             self.Pmax = EOSlist.loaded[self.key].Pmax
+        elif EOSlist.loaded[self.key].EOStype == 'inner':
+            self.comp = EOSlist.loaded[self.key].comp
 
     def fn_phase(self, P_MPa, T_K):
         return EOSlist.loaded[self.key].fn_phase(P_MPa, T_K)
