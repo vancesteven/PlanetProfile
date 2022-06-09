@@ -38,7 +38,7 @@ class InductionStruct:
             self.x = self.sigmaMean_Sm
             self.y = self.D_km
         else:
-            self.x = self.w_ppt
+            self.x = self.wOcean_ppt
             if inductOtype == 'Tb':
                 self.y = self.Tb_K
             elif inductOtype == 'rho':

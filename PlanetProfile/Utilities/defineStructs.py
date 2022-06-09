@@ -1292,8 +1292,7 @@ class FigMiscStruct:
 
         # Legends
         self.REFS_IN_LEGEND = True  # Hydrosphere plot: Whether to include reference profiles in legend
-        self.hydroLegendBox = None  # Hydrosphere plot: Bounding box for where to place legends. Values are x, y, dx, dy in fractions of the figure size, where x and y are for the bottom-left corner of the box.
-        self.hydroLegendPos = None  # Hydrosphere plot: Where to place legends within bounding box
+        self.legendFontSize = None  # Font size to use in legends, set by rcParams.
         self.wedgeLegendPos = None  # Wedge diagram: Where in axes added at right to place legend
 
         # Table printout settings
@@ -1305,16 +1304,17 @@ class FigMiscStruct:
         self.HF_HLINES = True  # Whether to print horizontal lines at head and foot of latex tables
 
         # Colorbar settings
+        self.cbarTitleSize = None  # Font size specifier for colorbar titles
+        self.cbarSize = '5%'  # Description of the size of colorbar to use with make_axes_locatable
+        self.cbarFmt = '%.1f'  # Format string to use for colorbar units
+        self.nCbarPts = 80  # Number of points to use for drawing colorbar gradient
         self.cLabelSize = 10  # Font size in pt for contour labels
         self.cLabelPad = 5  # Padding in pt to set beside contour labels
         self.cLegendOpacity = 1.0  # Opacity of legend backgrounds in contour plots.
         self.cbarSpace = 0.5  # Amount of whitespace in inches to use for colorbars
-        self.cbarSize = '5%'  # Description of the size of colorbar to use with make_axes_locatable
         self.cbarHeight = 0.6  # Fraction of total figure height to use for colorbar size
         self.cbarPad = 0.25  # Padding in pt to use for colorbars
         self.extraPad = self.cbarSpace * 0.8  # Amount of extra padding to apply to secondary colorbars
-        self.cbarFmt = '%.1f'  # Format string to use for colorbar units
-        self.nCbarPts = 80  # Number of points to use for drawing colorbar gradient
         self.cbarBottom = (1 - self.cbarHeight - self.cbarPad*2/72)/2  # Fraction of total figure height to use for bottom edge of colorbar
 
         # Latex settings
@@ -1345,6 +1345,10 @@ class FigMiscStruct:
         {packageCmds}
         \sisetup{{group-separator={{\,}}, group-minimum-digits={{5}}, group-digits={{integer}}}}
         """
+
+    def SetFontSizes(self):
+        # Assign the set font sizes to rcParams.
+        plt.rcParams['legend.fontsize'] = self.legendFontSize
 
 
 """ Global EOS list """

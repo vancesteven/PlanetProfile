@@ -3,7 +3,7 @@ import numpy as np
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 3  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 4  # Integer number for config file version. Increment when new settings are added to the default config file.
 Color = ColorStruct()
 Style = StyleStruct()
 FigLbl = FigLblStruct()
@@ -188,9 +188,8 @@ FigMisc.DO_PER = True  # Convert frequency axes to periods for FFT plots
 
 # Legends
 FigMisc.REFS_IN_LEGEND = True  # Hydrosphere plot: Whether to include reference profiles in legend
-FigMisc.hydroLegendBox = (0.15, 0.1, 0.33, 0.5)  # Hydrosphere plot: Bounding box for where to place legends. Values are x, y, dx, dy in fractions of the figure size, where x and y are for the bottom-left corner of the box.
-FigMisc.hydroLegendPos = 'center left'  # Hydrosphere plot: Where to place legends within bounding box
 FigMisc.wedgeLegendPos = 'center right'  # Wedge diagram: Where in axes added at right to place legend
+FigMisc.legendFontSize = 'x-small'  # Font size to use in legends, set by rcParams.
 
 # Latex settings
 FigMisc.fontFamily = 'serif'
@@ -215,6 +214,7 @@ FigMisc.cLabelPad = 5  # Padding in pt to set beside contour labels
 FigMisc.cLegendOpacity = 1.0  # Opacity of legend backgrounds in contour plots.
 
 # Colorbar settings
+FigMisc.cbarTitleSize = 'small'  # Font size specifier for colorbar titles
 FigMisc.cbarSpace = 0.5  # Amount of whitespace in inches to use for colorbars
 FigMisc.cbarSize = '5%'  # Description of the size of colorbar to use with make_axes_locatable
 FigMisc.cbarHeight = 0.6  # Fraction of total figure height to use for colorbar size
@@ -223,3 +223,4 @@ FigMisc.extraPad = FigMisc.cbarSpace * 0.8  # Amount of extra padding to apply t
 FigMisc.cbarFmt = '%.1f'  # Format string to use for colorbar units
 FigMisc.nCbarPts = 80  # Number of points to use for drawing colorbar gradient
 FigMisc.cbarBottom = (1 - FigMisc.cbarHeight - FigMisc.cbarPad*2/72)/2  # Fraction of total figure height to use for bottom edge of colorbar
+FigMisc.SetFontSizes()  # Assign sizes for fonts

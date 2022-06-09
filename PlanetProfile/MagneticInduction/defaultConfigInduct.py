@@ -4,7 +4,7 @@ from PlanetProfile.Utilities.defineStructs import InductOgramParamsStruct, \
     ExcitationSpectrumParamsStruct, ConductLayerParamsStruct, Constants
 
 configInductVersion = 1  # Integer number for config file version. Increment when new settings are added to the default config file.
-inductOtype = 'Tb'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
+inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
 testBody = 'Europa'  # Assign test profiles to use excitation moments for this body
 dftC = 5  # Default number of contours to include in induct-o-grams
 

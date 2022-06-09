@@ -75,6 +75,7 @@ def PlotGravPres(PlanetList, Params):
 
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vgrav, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.debug(f'Gravity and pressure plot saved to file: {Params.FigureFiles.vgrav}')
     plt.close()
 
     return
@@ -96,17 +97,12 @@ def PlotHydrosphereProps(PlanetList, Params):
         DO_SOUNDS = False
         axv = None
 
-    if Params.LEGEND:
-        hCol = 9
-    else:
-        hCol = 6
-
     # Generate canvas and add labels
     fig = plt.figure(figsize=FigSize.vhydro)
-    grid = GridSpec(vRow, hCol)
+    grid = GridSpec(vRow, 6)
 
     axPrho = fig.add_subplot(grid[:, :3])
-    axTz = fig.add_subplot(grid[0, 3:6])
+    axTz = fig.add_subplot(grid[0, 3:])
 
     axPrho.set_xlabel(FigLbl.rhoLabel)
     axPrho.set_ylabel(FigLbl.PlabelHydro)
@@ -114,11 +110,11 @@ def PlotHydrosphereProps(PlanetList, Params):
     axTz.set_xlabel(FigLbl.Tlabel)
     axTz.set_ylabel(FigLbl.zLabel)
     axTz.invert_yaxis()
-    zMax = np.max([Planet.z_m[Planet.Steps.nHydro-1]/1e3 for Planet in PlanetList])
+    zMax = np.max([Planet.z_m[Planet.Steps.nHydro-1]/1e3 for Planet in PlanetList]) * 1.05
     axTz.set_ylim([zMax, 0])
 
     if DO_SIGS:
-        axsigz = fig.add_subplot(grid[-1, 3:6])
+        axsigz = fig.add_subplot(grid[-1, 3:])
         axsigz.set_xlabel(FigLbl.sigLabel)
         axsigz.set_ylabel(FigLbl.zLabel)
         axsigz.invert_yaxis()
@@ -243,12 +239,11 @@ def PlotHydrosphereProps(PlanetList, Params):
     axTz.set_xlim(left=FigMisc.TminHydro)
 
     if Params.LEGEND:
-        axleg = fig.add_subplot(grid[:, 7:])
-        axleg.set_axis_off()
         handles, lbls = axPrho.get_legend_handles_labels()
-        axleg.legend(handles, lbls)
+        axPrho.legend(handles, lbls)
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.debug(f'Hydrosphere plot saved to file: {Params.FigureFiles.vhydro}')
     plt.close()
 
     return
@@ -259,14 +254,25 @@ def PlotCoreTradeoff(PlanetList, Params):
     fig, ax = plt.subplots(1, 1, figsize=FigSize.vcore)
     ax.set_xlabel(FigLbl.RsilLabel)
     ax.set_ylabel(FigLbl.RcoreLabel)
-    if Params.ALL_ONE_BODY:
-        fig.suptitle(f'{PlanetList[0].name}{FigLbl.coreTitle}')
+    ALL_SAME_CMR2 = np.all([Planet.Bulk.Cmeasured == PlanetList[0].Bulk.Cmeasured for Planet in PlanetList]) \
+                and np.all([Planet.Bulk.Cuncertainty == PlanetList[0].Bulk.Cuncertainty for Planet in PlanetList])
+    if ALL_SAME_CMR2:
+        CMR2str = f', $C/MR^2 = {PlanetList[0].Bulk.Cmeasured}\pm{PlanetList[0].Bulk.Cuncertainty}$'
     else:
-        fig.suptitle(FigLbl.coreCompareTitle)
+        CMR2str = ''
+    if Params.ALL_ONE_BODY:
+        title = f'{PlanetList[0].name}{FigLbl.coreTitle}{CMR2str}'
+    else:
+        title = FigLbl.coreCompareTitle + CMR2str
+    fig.suptitle(title)
+
 
     for Planet in PlanetList:
         if Planet.Do.Fe_CORE:
-            legLbl = Planet.tradeLabel
+            if ALL_SAME_CMR2:
+                legLbl = Planet.label
+            else:
+                legLbl = Planet.tradeLabel
             if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
                 legLbl = f'{Planet.name} {legLbl}'
             ax.plot(Planet.Sil.Rtrade_m/1e3, Planet.Core.Rtrade_m/1e3,
@@ -275,7 +281,9 @@ def PlotCoreTradeoff(PlanetList, Params):
     if Params.LEGEND:
         ax.legend()
 
+    plt.tight_layout()
     fig.savefig(Params.FigureFiles.vcore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.debug(f'Core trade plot saved to file: {Params.FigureFiles.vcore}')
     plt.close()
 
     return
@@ -286,13 +294,23 @@ def PlotSilTradeoff(PlanetList, Params):
     fig, ax = plt.subplots(1, 1, figsize=FigSize.vmant)
     ax.set_xlabel(FigLbl.RsilLabel)
     ax.set_ylabel(FigLbl.rhoSilLabel)
-    if Params.ALL_ONE_BODY:
-        fig.suptitle(f'{PlanetList[0].name}{FigLbl.mantTitle}')
+    ALL_SAME_CMR2 = np.all([Planet.Bulk.Cmeasured == PlanetList[0].Bulk.Cmeasured for Planet in PlanetList]) \
+                    and np.all([Planet.Bulk.Cuncertainty == PlanetList[0].Bulk.Cuncertainty for Planet in PlanetList])
+    if ALL_SAME_CMR2:
+        CMR2str = f', $C/MR^2 = {PlanetList[0].Bulk.Cmeasured}\pm{PlanetList[0].Bulk.Cuncertainty}$'
     else:
-        fig.suptitle(FigLbl.mantCompareTitle)
+        CMR2str = ''
+    if Params.ALL_ONE_BODY:
+        title = f'{PlanetList[0].name}{FigLbl.mantTitle}{CMR2str}'
+    else:
+        title = FigLbl.mantCompareTitle + CMR2str
+    fig.suptitle(title)
 
     for Planet in PlanetList:
-        legLbl = Planet.tradeLabel
+        if ALL_SAME_CMR2:
+            legLbl = Planet.label
+        else:
+            legLbl = Planet.tradeLabel
         if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
             legLbl = f'{Planet.name} {legLbl}'
         ax.plot(Planet.Sil.Rtrade_m/1e3, Planet.Sil.rhoTrade_kgm3,
@@ -301,7 +319,9 @@ def PlotSilTradeoff(PlanetList, Params):
     if Params.LEGEND:
         ax.legend()
 
+    plt.tight_layout()
     fig.savefig(Params.FigureFiles.vmant, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.debug(f'Mantle trade plot saved to file: {Params.FigureFiles.vmant}')
     plt.close()
 
     return
@@ -328,6 +348,7 @@ def PlotPorosity(PlanetList, Params):
             ax.legend()
 
         fig.savefig(Params.FigureFiles.vporeDbl, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        log.debug(f'Porosity plot (dual axis) saved to file: {Params.FigureFiles.vporeDbl}')
         plt.close()
 
     fig = plt.figure(figsize=FigSize.vpore)
@@ -359,6 +380,7 @@ def PlotPorosity(PlanetList, Params):
 
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vpore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.debug(f'Porosity plot saved to file: {Params.FigureFiles.vpore}')
     plt.close()
 
     return
@@ -416,7 +438,7 @@ def PlotSeismic(PlanetList, Params):
                        label=legLbl + f' ${FigLbl.QseisVar}$', linewidth=Style.LW_seis,
                        linestyle=Style.LS_seis['QS'])
 
-    if Params.LEGEND:
+    if Params.LEGEND and np.size(PlanetList) == 1:
         axes[0,0].legend()
         axes[0,1].legend()
         axes[1,0].legend()
@@ -424,6 +446,7 @@ def PlotSeismic(PlanetList, Params):
 
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vseis, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.debug(f'Seismic plot saved to file: {Params.FigureFiles.vseis}')
     plt.close()
 
     return
@@ -732,7 +755,7 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
     FigLbl.SetInduction(InductionList[0].bodyname, Params.Induct, InductionList[0].Texc_hr.values())
 
     sigma_Sm, D_km, ptColors = (np.empty_like(InductionList) for _ in range(3))
-    for i,Induction in enumerate(InductionList):
+    for i, Induction in enumerate(InductionList):
         sigma_Sm[i] = Induction.sigmaMean_Sm.flatten()
         D_km[i] = Induction.D_km.flatten()
         if Params.Induct.inductOtype == 'sigma':
@@ -765,12 +788,18 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
             else:
                 raise ValueError(f'Inductogram colortype {Params.Induct.colorType} not recognized.')
 
+    widthPlot = 25
+    widthCbar = 1
     if Params.Induct.inductOtype == 'sigma':
-        fig, ax = plt.subplots(1, 1, figsize=FigSize.phaseSpaceSolo)
-        axes = [ax]
+        comps = ['Ice']
+        fig = plt.figure(figsize=FigSize.phaseSpaceSolo, constrained_layout=True)
+        grid = GridSpec(1, 2, width_ratios=[widthPlot, widthCbar], figure=fig)
+        axes = [fig.add_subplot(grid[0, 0])]
+        cbarAx = fig.add_subplot(grid[0, 1])
         cbarUnits = InductionList[0].zb_km.flatten()
         cbarLabel = FigLbl.iceThickLbl
     else:
+        comps = np.unique(InductionList[0].comps)
         w_ppt = InductionList[0].x.flatten()
         yFlat = InductionList[0].y.flatten()
         if Params.Induct.colorType == 'Tmean':
@@ -780,7 +809,11 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
             cbarUnits = InductionList[0].zb_km.flatten()
             cbarLabel = FigLbl.iceThickLbl
 
-        fig, axes = plt.subplots(1, 2, figsize=FigSize.phaseSpaceCombo)
+        fig = plt.figure(figsize=FigSize.phaseSpaceCombo, constrained_layout=True)
+        nComps = np.size(comps)
+        grid = GridSpec(1, 2 + nComps, width_ratios=np.append([widthPlot, widthPlot], [widthCbar for _ in range(nComps)]), figure=fig)
+        axes = [fig.add_subplot(grid[0, i]) for i in range(2)]
+        cbarAxes = [fig.add_subplot(grid[0, i+2]) for i in range(nComps)]
         axes[1].set_xlabel(FigLbl.wLabel)
         axes[1].set_ylabel(FigLbl.yLabelInduct)
         axes[1].set_xscale(FigLbl.wScale)
@@ -799,34 +832,20 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
     pts = {}
     cbar = {}
     if Params.Induct.inductOtype == 'sigma':
-        comps = ['Ice']
-        divider = make_axes_locatable(axes[0])
         pts[comps[0]] = axes[0].scatter(sigma_Sm[0], D_km[0], s=Style.MW_Induction,
-                              marker=Style.MS_Induction, c=ptColors[0])
-        cbarAx = divider.new_horizontal(size=FigMisc.cbarSize, pad=FigMisc.cbarPad)
-        cbar[comps[0]] = mcbar.ColorbarBase(cbarAx, cmap=Color.cmap[comps[0]],
-                                               values=np.linspace(np.min(cbarUnits), np.max(cbarUnits), FigMisc.nCbarPts),
-                                               format=FigMisc.cbarFmt, orientation='vertical')
-        fig.add_axes(cbarAx)
+                              marker=Style.MS_Induction, c=cbarUnits, cmap=Color.cmap[comps[0]])
+        cbar[comps[0]] = fig.colorbar(pts[comps[0]], cax=cbarAx)
     else:
-        divider = make_axes_locatable(axes[1])
-        extraPad = 0
-        comps = np.unique(InductionList[0].comps)
-        for comp in comps:
+        for comp, cbarAx in zip(comps, cbarAxes):
             thisComp = InductionList[0].compsList == comp
             pts[comp] = axes[0].scatter(sigma_Sm[0][thisComp], D_km[0][thisComp], s=Style.MW_Induction,
-                            marker=Style.MS_Induction, c=ptColors[0][thisComp])
-            cbarAx = divider.new_horizontal(size=FigMisc.cbarSize, pad=FigMisc.cbarPad + extraPad)
-            extraPad = FigMisc.extraPad
-            cbar[comp] = mcbar.ColorbarBase(cbarAx, cmap=Color.cmap[comp],
-                                             values=np.linspace(np.min(cbarUnits[thisComp]), np.max(cbarUnits[thisComp]), FigMisc.nCbarPts),
-                                             format=FigMisc.cbarFmt, orientation='vertical')
-            fig.add_axes(cbarAx)
-            cbarAx.set_title(f'\ce{{{comp}}}')
+                            marker=Style.MS_Induction, c=cbarUnits[thisComp], cmap=Color.cmap[comp])
+            cbar[comp] = fig.colorbar(pts[comp], cax=cbarAx)
+            cbarAx.set_title(f'\ce{{{comp}}}', fontsize=FigMisc.cbarTitleSize)
 
-    cbar[comps[-1]].set_label(cbarLabel, size=12)
+    cbar[comps[-1]].set_label(cbarLabel)
     fig.savefig(Params.FigureFiles.phaseSpace, format=FigMisc.figFormat, dpi=FigMisc.dpi)
-    log.debug(f'Plot saved to file: {Params.FigureFiles.phaseSpace}')
+    log.debug(f'InductOgram phase space plot saved to file: {Params.FigureFiles.phaseSpace}')
     plt.close()
 
     # Plot combination
@@ -861,13 +880,13 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
                                         marker=Style.MS_Induction, c=comboColors[thisComp])
             cbarAx = divider.new_horizontal(size=FigMisc.cbarSize, pad=FigMisc.cbarPad + extraPad)
             extraPad = FigMisc.extraPad
-            cbar = mcbar.ColorbarBase(cbarAx, cmap=Color.cmap[comp],
-                                             values=np.linspace(np.min(comboCbarUnits[thisComp]), np.max(comboCbarUnits[thisComp]), FigMisc.nCbarPts),
-                                             format=FigMisc.cbarFmt, orientation='vertical')
+            cbar = mcbar.ColorbarBase(cbarAx, cmap=Color.cmap[comp], format=FigMisc.cbarFmt,
+                                      values=np.linspace(np.min(comboCbarUnits[thisComp]), np.max(comboCbarUnits[thisComp]), FigMisc.nCbarPts))
             fig.add_axes(cbarAx)
-            cbarAx.set_title(f'\ce{{{comp}}}')
+            cbarAx.set_title(f'\ce{{{comp}}}', fontsize=FigMisc.cbarTitleSize)
 
         cbar.set_label(cbarLabel, size=12)
+        plt.tight_layout()
         fig.savefig(Params.FigureFiles.phaseSpaceCombo, format=FigMisc.figFormat, dpi=FigMisc.dpi)
         log.debug(f'Plot saved to file: {Params.FigureFiles.phaseSpaceCombo}')
         plt.close()
@@ -894,7 +913,9 @@ def PlotInductOgram(Induction, Params):
     if Params.COMBINE_BCOMPS:
         # Plot B components all together with phase. Amplitude is still separate
         # Generate canvas and add labels
-        fig, axes = plt.subplots(2, 2, figsize=FigSize.inductCombo)
+        fig = plt.figure(figsize=FigSize.inductCombo)
+        grid = GridSpec(2, 2)
+        axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(2)] for i in range(2)])
         allAxes = axes.flatten()
         fig.suptitle(FigLbl.inductionTitle)
         # Only label the bottom-left sides of axes
@@ -930,12 +951,16 @@ def PlotInductOgram(Induction, Params):
             fNameSigma = Params.FigureFiles.sigmaOnly['Bcomps']
         else:
             fNameSigma = Params.FigureFiles.sigma['Bcomps']
+
+        plt.tight_layout()
         fig.savefig(fNameSigma, format=FigMisc.figFormat, dpi=FigMisc.dpi)
         log.debug(f'Plot saved to file: {fNameSigma}')
         plt.close()
 
         if Params.Induct.inductOtype != 'sigma':
-            fig, axes = plt.subplots(2, 2, figsize=FigSize.inductCombo)
+            fig = plt.figure(figsize=FigSize.inductCombo)
+            grid = GridSpec(2, 2)
+            axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(2)] for i in range(2)])
             allAxes = axes.flatten()
             fig.suptitle(FigLbl.inductionTitle)
             # Only label the bottom-left sides of axes
@@ -960,13 +985,16 @@ def PlotInductOgram(Induction, Params):
                 lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
                 axes[1,1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
 
+            plt.tight_layout()
             fig.savefig(Params.FigureFiles.induct['Bcomps'], format=FigMisc.figFormat, dpi=FigMisc.dpi)
             log.debug(f'Plot saved to file: {Params.FigureFiles.induct["Bcomps"]}')
             plt.close()
 
             # Also plot a comparison of Bx, which is usually the strongest oscillation
             compChoice = 'Bx'
-            fig, axes = plt.subplots(2, 2, figsize=FigSize.inductCombo)
+            fig = plt.figure(figsize=FigSize.inductCombo)
+            grid = GridSpec(2, 2)
+            axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(2)] for i in range(2)])
             fig.subplots_adjust(wspace=0.25, hspace=0.35)
             allAxes = axes.flatten()
             fig.suptitle(FigLbl.inductCompareTitle)
@@ -1015,6 +1043,8 @@ def PlotInductOgram(Induction, Params):
             if Params.LEGEND:
                 lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
                 axes[1,1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
+
+            plt.tight_layout()
             fig.savefig(Params.FigureFiles.inductCompare[compChoice], format=FigMisc.figFormat, dpi=FigMisc.dpi)
             log.debug(f'Plot saved to file: {Params.FigureFiles.inductCompare[compChoice]}')
             plt.close()
@@ -1028,8 +1058,9 @@ def PlotInductOgram(Induction, Params):
     for z, name, fLabel in zip(zData, FigLbl.plotTitles, FigLbl.fLabels):
 
         # Generate canvas and add labels
-        fig, axes = plt.subplots(1, 2, figsize=FigSize.induct)
-        fig.subplots_adjust(wspace=0.5)
+        fig = plt.figure(figsize=FigSize.induct)
+        grid = GridSpec(1, 2)
+        axes = [fig.add_subplot(grid[0, j]) for j in range(2)]
         fig.suptitle(FigLbl.inductionTitle)
         axes[0].title.set_text(name)
         axes[1].title.set_text(FigLbl.phaseTitle)
@@ -1063,13 +1094,15 @@ def PlotInductOgram(Induction, Params):
             lines = np.array([contour.legend_elements()[0][0] for contour in phaseContours])
             axes[1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
 
+        plt.tight_layout()
         fig.savefig(fNameSigma, format=FigMisc.figFormat, dpi=FigMisc.dpi)
         log.debug(f'Plot saved to file: {fNameSigma}')
         plt.close()
 
         if Params.Induct.inductOtype != 'sigma':
-            fig, axes = plt.subplots(1, 2, figsize=FigSize.induct)
-            fig.subplots_adjust(wspace=0.5)
+            fig = plt.figure(figsize=FigSize.induct)
+            grid = GridSpec(1, 2)
+            axes = [fig.add_subplot(grid[0, j]) for j in range(2)]
             fig.suptitle(FigLbl.inductionTitle)
             axes[0].title.set_text(name)
             axes[1].title.set_text(FigLbl.phaseTitle)
@@ -1097,6 +1130,7 @@ def PlotInductOgram(Induction, Params):
                 lines = np.array([contour.legend_elements()[0][0] for contour in phaseContours])
                 axes[1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
 
+            plt.tight_layout()
             fig.savefig(Params.FigureFiles.induct[fLabel], format=FigMisc.figFormat, dpi=FigMisc.dpi)
             log.debug(f'Plot saved to file: {Params.FigureFiles.induct[fLabel]}')
             plt.close()
@@ -1138,7 +1172,8 @@ def PlotExploreOgram(ExplorationList, Params):
             new_ticks = np.insert(np.append(cbar.get_ticks(), np.max(zValid)), 0, np.min(zValid))
             cbar.set_ticks(np.unique(new_ticks))
         cbar.set_label(FigLbl.cbarLabelExplore, size=12)
-        
+
+        plt.tight_layout()
         fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
         log.debug(f'Plot saved to file: {Params.FigureFiles.explore}')
         plt.close()
@@ -1170,6 +1205,7 @@ def PlotExploreOgram(ExplorationList, Params):
         cbar.set_ticks(np.append(cbar.get_ticks(), np.max(z[z == z])))
         cbar.set_label(FigLbl.cbarLabelExplore, size=12)
 
+        plt.tight_layout()
         fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
         log.debug(f'Plot saved to file: {Params.FigureFiles.explore}')
         plt.close()
