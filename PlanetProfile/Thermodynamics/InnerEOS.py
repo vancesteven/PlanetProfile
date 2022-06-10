@@ -207,8 +207,8 @@ class PerplexEOSStruct:
 
             # Assign porosity model function, if applicable
             if Fe_EOS:
-                # No porosity modeled, and no need for dummy field
-                pass
+                # No porosity modeled
+                self.ufn_phi_frac = ReturnZeros(1)
 
             elif porosType is None or porosType == 'none':
                 # No porosity modeled, but need a dummy field for cross-compatibility
@@ -270,12 +270,9 @@ class PerplexEOSStruct:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_GS_GPa(P_MPa, T_K, grid=grid)
     def fn_phi_frac(self, P_MPa, T_K, grid=False):
-        if self.Fe_EOS or (self.porosType is None or self.porosType == 'none'):
-            return ReturnZeros(1)
-        else:
-            if not self.EXTRAP:
-                P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
-            return self.ufn_phi_frac(P_MPa, T_K, grid=grid)
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        return self.ufn_phi_frac(P_MPa, T_K, grid=grid)
 
 
 class EOSwrapper:
@@ -449,8 +446,12 @@ class GetphiCalc:
     def __init__(self, phiMax_frac, fn_phiEOS_frac, phiMin_frac):
         self.phiMin_frac = phiMin_frac
         self.phiMax_frac = phiMax_frac
-        self.fn_phiEOS_frac = fn_phiEOS_frac
         self.multFactor = 1.0
+        if type(fn_phiEOS_frac(0,0)) == ReturnZeros:
+            # For some reason, binding a ReturnZeros func as a method requires an extra dummy call
+            self.fn_phiEOS_frac = fn_phiEOS_frac(0, 0)
+        else:
+            self.fn_phiEOS_frac = fn_phiEOS_frac
 
     def update(self, newPhiMax_frac):
         self.multFactor = newPhiMax_frac / self.phiMax_frac
