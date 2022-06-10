@@ -40,8 +40,10 @@ def MagneticInduction(Planet, Params):
                     log.profile(f'Point {Planet.index}/{Params.nModels} complete.')
 
     else:
-        Planet.Magnetic.ionosBounds_m = [np.nan]
-        Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
+        if Planet.Magnetic.ionosBounds_m is None:
+            Planet.Magnetic.ionosBounds_m = [np.nan]
+        if Planet.Magnetic.sigmaIonosPedersen_Sm is None:
+            Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
 
     # Must return both Planet and Params in order to use common infrastructure
     # for unpacking parallel runs
@@ -271,8 +273,10 @@ def SetupInduction(Planet, Params):
 
     else:
         # Make sure explore-o-grams play nice when ionosphere properties are not set
-        Planet.Magnetic.ionosBounds_m = [0]
-        Planet.Magnetic.sigmaIonosPedersen_Sm = [0]
+        if Planet.Magnetic.ionosBounds_m is None or np.any(np.isnan(Planet.Magnetic.ionosBounds_m)):
+            Planet.Magnetic.ionosBounds_m = [0]
+        if Planet.Magnetic.sigmaIonosPedersen_Sm is None or np.any(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
+            Planet.Magnetic.sigmaIonosPedersen_Sm = [0]
 
     return Planet
 

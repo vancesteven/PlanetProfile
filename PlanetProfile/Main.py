@@ -1261,7 +1261,7 @@ def ExploreOgram(bodyname, Params):
         Exploration.icePhi_frac = np.array([[Planeti.Ocean.phiMax_frac['Ih'] for Planeti in line] for line in PlanetGrid])
         Exploration.silPclosure_MPa = np.array([[Planeti.Sil.Pclosure_MPa for Planeti in line] for line in PlanetGrid])
         Exploration.icePclosure_MPa = np.array([[Planeti.Ocean.Pclosure_MPa['Ih'] for Planeti in line] for line in PlanetGrid])
-        Exploration.ionosTop_km = np.array([[Planeti.Magnetic.ionosBounds_m[-1] for Planeti in line] for line in PlanetGrid])
+        Exploration.ionosTop_km = np.array([[Planeti.Magnetic.ionosBounds_m[-1]/1e3 for Planeti in line] for line in PlanetGrid])
         Exploration.sigmaIonos_Sm = np.array([[Planeti.Magnetic.sigmaIonosPedersen_Sm[-1] for Planeti in line] for line in PlanetGrid])
         Exploration.Htidal_Wm3 = np.array([[Planeti.Sil.Htidal_Wm3 for Planeti in line] for line in PlanetGrid])
         Exploration.Qrad_Wkg = np.array([[Planeti.Sil.Qrad_Wkg for Planeti in line] for line in PlanetGrid])
@@ -1307,7 +1307,7 @@ def AssignPlanetVal(Planet, name, val):
             Htidal_Wm3: Fixed tidal heating in silicates in Planet.Sil.Htidal_Wm3
             Qrad_Wkg: Fixed radiogenic heating in silicates in Planet.Sil.Qrad_Wkg
             qSurf_Wm2: Surface heat flux for waterless bodies in Planet.Bulk.qSurf_Wm2
-            ionosTop_m: Ionosphere upper limit altitude above the surface in km, used in Planet.Magnetic.ionosBounds_m.
+            ionosTop_km: Ionosphere upper limit altitude above the surface in km, used in Planet.Magnetic.ionosBounds_m.
             sigmaIonos_Sm: Ionosphere Pedersen conductivity in S/m in Planet.Magnetic.sigmaIonosPedersen_Sm.
     """
 
@@ -1323,14 +1323,20 @@ def AssignPlanetVal(Planet, name, val):
         Planet.Ocean.wOcean_ppt = val
     elif name == 'Tb_K':
         Planet.Bulk.Tb_K = val
-    elif name == 'ionosTop_km':
-        if Planet.Magnetic.ionosBounds_m is None or not isinstance(Planet.Magnetic.ionosBounds_m, Iterable):
-            Planet.Magnetic.ionosBounds_m = [val/1e3]
-        else:
-            Planet.Magnetic.ionosBounds_m[-1] = val/1e3
-    elif name == 'sigmaIonos_Sm':
-        if Planet.Magnetic.sigmaIonosPedersen_Sm is None or not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
-            Planet.Magnetic.sigmaIonosPedersen_Sm = [val]
+    elif name == 'ionosTop_km' or name == 'sigmaIonos_Sm':
+        # Make sure ionosphere top altitude and conductivity are both set and valid
+        if Planet.Magnetic.ionosBounds_m is None or np.any(np.isnan(Planet.Magnetic.ionosBounds_m)):
+            Planet.Magnetic.ionosBounds_m = [Constants.ionosTopDefault_km*1e3]
+        elif not isinstance(Planet.Magnetic.ionosBounds_m, Iterable):
+            Planet.Magnetic.ionosBounds_m = [Planet.Magnetic.ionosBounds_m]
+
+        if Planet.Magnetic.sigmaIonosPedersen_Sm is None or np.any(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
+            Planet.Magnetic.sigmaIonosPedersen_Sm = [Constants.sigmaIonosPedersenDefault_Sm]
+        elif not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
+            Planet.Magnetic.sigmaIonosPedersen_Sm = [Planet.Magnetic.sigmaIonosPedersen_Sm]
+
+        if name == 'ionosTop_km':
+            Planet.Magnetic.ionosBounds_m[-1] = val*1e3
         else:
             Planet.Magnetic.sigmaIonosPedersen_Sm[-1] = val
     elif name == 'silPhi_frac':
