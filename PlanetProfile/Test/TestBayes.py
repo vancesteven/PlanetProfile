@@ -35,7 +35,7 @@ def TestBayes(bodyname):
         'wOcean_ppt': 30,
         'Tb_K': 268.5,
         'rhoSilInput_kgm3': 3450,
-        'ionosTop_m': 100e3,
+        'ionosTop_km': 50,
         'sigmaIonos_Sm': 1e-4,
         'silPhi_frac': 0.3,
         'silPclosure_MPa': 340,
