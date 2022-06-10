@@ -252,7 +252,7 @@ def SetupInit(Planet, Params):
 
             # Make sure Sil.phiRockMax_frac is set in case we're using a porosType that doesn't require it
             if Planet.Sil.phiRockMax_frac is None or Planet.Sil.porosType != 'Han2014':
-                Planet.Sil.phiRockMax_frac = Planet.Sil.EOS.fn_phi_frac(np.zeros(1),np.zeros(1))
+                Planet.Sil.phiRockMax_frac = Planet.Sil.EOS.fn_phi_frac(0, 0)
 
         # Iron core if present
         if Planet.Do.Fe_CORE:
