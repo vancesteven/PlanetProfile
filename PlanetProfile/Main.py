@@ -14,7 +14,8 @@ from PlanetProfile import _Defaults, _TestImport, CopyCarefully
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, Benm2absBexyz
 from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitations as Mag
-from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotInductOgram, PlotInductOgramPhaseSpace, PlotExploreOgram
+from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotInductOgram, \
+    PlotInductOgramPhaseSpace, PlotExploreOgram, PlotComplexBdip
 from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs
@@ -54,7 +55,7 @@ def run(bodyname=None, opt=None, fNames=None):
             PlotInductOgram(Induction, Params)
 
             if Params.COMPARE:
-                inductOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fNameInductOgram+'*.mat'))
+                inductOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fNameInduct+'*.mat'))
                 Params.nModels = np.size(inductOgramFiles)
                 InductionList = np.empty(Params.nModels, dtype=object)
                 InductionList[0] = deepcopy(Induction)
@@ -149,6 +150,9 @@ def run(bodyname=None, opt=None, fNames=None):
             Params.FigureFiles = FigureFilesSubstruct(comparePath, compareBase, FigMisc.xtn)
             GeneratePlots(CompareList, Params)
 
+            if Params.PLOT_BDIP and Params.CALC_CONDUCT and not Params.SKIP_INDUCTION:
+                PlotComplexBdip(CompareList, Params)
+
         # Print table outputs
         if Params.DISP_LAYERS or Params.DISP_TABLE:
             if Params.DISP_LAYERS:
@@ -181,18 +185,25 @@ def PlanetProfile(Planet, Params):
         # Reload previous run
         Planet, Params = ReloadProfile(Planet, Params)
 
+    # Main plotting functions
     if ((not Params.SKIP_PLOTS) and not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM)) \
         and Planet.Do.VALID:
         # Calculate large-scale layer properties
         PlanetList, Params = GetLayerMeans(np.array([Planet]), Params)
         # Plotting functions
+
         GeneratePlots(PlanetList, Params)
         Planet = PlanetList[0]
 
-    # Magnetic induction calculations
-    if (not Params.SKIP_INDUCTION) and (Params.CALC_CONDUCT and Params.CALC_NEW_INDUCT):
+    # Magnetic induction calculations and plots
+    if Params.CALC_CONDUCT and not Params.SKIP_INDUCTION:
         # Calculate induced magnetic moments
         Planet, Params = MagneticInduction(Planet, Params)
+
+        # Plot induced dipole surface strength
+        if ((not Params.SKIP_PLOTS) and Params.PLOT_BDIP and Planet.Do.VALID) and \
+            not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM):
+            PlotComplexBdip(np.array([Planet]), Params)
 
     PrintCompletion(Planet, Params)
     return Planet, Params
@@ -1273,6 +1284,7 @@ def ExploreOgram(bodyname, Params):
         Exploration.D_km = np.array([[Planeti.D_km for Planeti in line] for line in PlanetGrid])
         Exploration.zb_km = np.array([[Planeti.zb_km for Planeti in line] for line in PlanetGrid])
         Exploration.Rcore_km = np.array([[Planeti.Core.Rmean_m/1e3 for Planeti in line] for line in PlanetGrid])
+        Exploration.qSurf_Wm2 = np.array([[Planeti.qSurf_Wm2 for Planeti in line] for line in PlanetGrid])
 
         # Ensure everything is set so things will play nicely with .mat saving and plotting functions
         nans = np.nan * Exploration.R_m

@@ -5,13 +5,14 @@ from collections.abc import Iterable
 import matplotlib.pyplot as plt
 import matplotlib.colorbar as mcbar
 from matplotlib.gridspec import GridSpec
-from matplotlib.patches import Wedge
+from matplotlib.patches import Wedge, Rectangle
 from matplotlib.collections import PatchCollection
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc, InductParams as IndParams
 from PlanetProfile.Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
 from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices
+from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Utilities.SetupInit import SetupFilenames
 from PlanetProfile.Utilities.defineStructs import Constants
 
@@ -44,6 +45,8 @@ def GeneratePlots(PlanetList, Params):
         PlotSeismic(PlanetList, Params)
     if Params.PLOT_WEDGE:
         PlotWedge(PlanetList, Params)
+    if Params.PLOT_PVT and not Params.SKIP_INNER:
+        PlotPvT(PlanetList, Params)
 
     return
 
@@ -53,6 +56,10 @@ def PlotGravPres(PlanetList, Params):
     fig = plt.figure(figsize=FigSize.vgrav)
     grid = GridSpec(1, 2)
     axes = [fig.add_subplot(grid[0, i]) for i in range(2)]
+    if Style.GRIDS:
+        [ax.grid() for ax in axes]
+        [ax.set_axisbelow(True) for ax in axes]
+
     axes[0].set_xlabel(FigLbl.gLabel)
     axes[1].set_xlabel(FigLbl.PlabelFull)
     [ax.set_ylabel(FigLbl.rLabel) for ax in axes]
@@ -110,15 +117,17 @@ def PlotHydrosphereProps(PlanetList, Params):
     axTz.set_xlabel(FigLbl.Tlabel)
     axTz.set_ylabel(FigLbl.zLabel)
     axTz.invert_yaxis()
-    zMax = np.max([Planet.z_m[Planet.Steps.nHydro-1]/1e3 for Planet in PlanetList]) * 1.05
+    zMax = np.max([Planet.z_m[Planet.Steps.nHydro-1]/1e3 for Planet in PlanetList if not Planet.Do.NO_H2O], initial=0) * 1.05
     axTz.set_ylim([zMax, 0])
 
+    axes = [axPrho, axTz]
     if DO_SIGS:
         axsigz = fig.add_subplot(grid[-1, 3:])
         axsigz.set_xlabel(FigLbl.sigLabel)
         axsigz.set_ylabel(FigLbl.zLabel)
         axsigz.invert_yaxis()
         axsigz.set_ylim([zMax, 0])
+        axes.append(axsigz)
 
     if DO_SOUNDS:
         axv = [fig.add_subplot(grid[1, i]) for i in range(3, 6)]
@@ -128,6 +137,11 @@ def PlotHydrosphereProps(PlanetList, Params):
         axv[2].set_xlabel(FigLbl.vSiceLabel)
         [ax.invert_yaxis() for ax in axv]
         [ax.set_ylim([zMax, 0]) for ax in axv]
+        axes = axes + axv
+
+    if Style.GRIDS:
+        [ax.grid() for ax in axes]
+        [ax.set_axisbelow(True) for ax in axes]
 
     if Params.ALL_ONE_BODY:
         fig.suptitle(f'{PlanetList[0].name}{FigLbl.hydroTitle}')
@@ -169,8 +183,8 @@ def PlotHydrosphereProps(PlanetList, Params):
         for comp in comps:
             if comp != 'none':
                 wAll_ppt = [Planet.Ocean.wOcean_ppt for Planet in PlanetList if Planet.Ocean.comp == comp]
-                Tall_K = [Planet.Bulk.Tb_K for Planet in PlanetList if Planet.Ocean.comp == comp]
                 wMinMax_ppt[comp] = [np.min(wAll_ppt), np.max(wAll_ppt)]
+                Tall_K = [Planet.Bulk.Tb_K for Planet in PlanetList if Planet.Ocean.comp == comp]
                 TminMax_K[comp] = [np.min(Tall_K), np.max(Tall_K)]
                 # Reset to default if all models are the same or if desired
                 if not FigMisc.RELATIVE_Tb_K or TminMax_K[comp][0] == TminMax_K[comp][1]:
@@ -252,6 +266,9 @@ def PlotHydrosphereProps(PlanetList, Params):
 def PlotCoreTradeoff(PlanetList, Params):
 
     fig, ax = plt.subplots(1, 1, figsize=FigSize.vcore)
+    if Style.GRIDS:
+        ax.grid()
+        ax.set_axisbelow(True)
     ax.set_xlabel(FigLbl.RsilLabel)
     ax.set_ylabel(FigLbl.RcoreLabel)
     ALL_SAME_CMR2 = np.all([Planet.Bulk.Cmeasured == PlanetList[0].Bulk.Cmeasured for Planet in PlanetList]) \
@@ -292,6 +309,10 @@ def PlotCoreTradeoff(PlanetList, Params):
 def PlotSilTradeoff(PlanetList, Params):
 
     fig, ax = plt.subplots(1, 1, figsize=FigSize.vmant)
+    if Style.GRIDS:
+        ax.grid()
+        ax.set_axisbelow(True)
+
     ax.set_xlabel(FigLbl.RsilLabel)
     ax.set_ylabel(FigLbl.rhoSilLabel)
     ALL_SAME_CMR2 = np.all([Planet.Bulk.Cmeasured == PlanetList[0].Bulk.Cmeasured for Planet in PlanetList]) \
@@ -329,33 +350,43 @@ def PlotSilTradeoff(PlanetList, Params):
 
 def PlotPorosity(PlanetList, Params):
 
-    # Plot dual-axis plot for first entry in PlanetList (usually a main profile)
-    Planet = PlanetList[0]
-    fig, ax = plt.subplots(1, 1, figsize=FigSize.vpore)
-    ax.set_xlabel(FigLbl.phiLabel)
-    ax.set_ylabel(FigLbl.zLabel)
-    ax.invert_yaxis()
-    P_from_z = interp1d(Planet.z_m[:-1]/1e3, Planet.P_MPa*FigLbl.PmultFull, bounds_error=False, fill_value='extrapolate')
-    z_from_P = interp1d(Planet.P_MPa*FigLbl.PmultFull, Planet.z_m[:-1]/1e3, bounds_error=False, fill_value='extrapolate')
-    Pax = ax.secondary_yaxis('right', functions=(P_from_z, z_from_P))
-    Pax.set_ylabel(FigLbl.PlabelFull)
-    fig.suptitle(f'{Planet.name}{FigLbl.poreTitle}')
+    # Plot dual-axis plot for first entry in PlanetList (usually a main profile), unless we are already doing comparison plots
+    if os.path.dirname(Params.FigureFiles.vporeDbl) != 'Comparison':
+        Planet = PlanetList[0]
+        fig, ax = plt.subplots(1, 1, figsize=FigSize.vpore)
+        if Style.GRIDS:
+            ax.grid()
+            ax.set_axisbelow(True)
 
-    ax.plot(Planet.phi_frac[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.phiMult,
-            Planet.z_m[:-1][Planet.phi_frac >= Planet.Sil.phiMin_frac]/1e3,
-            label=Planet.label, linewidth=Style.LW_std)
+        ax.set_xlabel(FigLbl.phiLabel)
+        ax.set_ylabel(FigLbl.zLabel)
+        ax.invert_yaxis()
+        P_from_z = interp1d(Planet.z_m[:-1]/1e3, Planet.P_MPa*FigLbl.PmultFull, bounds_error=False, fill_value='extrapolate')
+        z_from_P = interp1d(Planet.P_MPa*FigLbl.PmultFull, Planet.z_m[:-1]/1e3, bounds_error=False, fill_value='extrapolate')
+        Pax = ax.secondary_yaxis('right', functions=(P_from_z, z_from_P))
+        Pax.set_ylabel(FigLbl.PlabelFull)
+        fig.suptitle(f'{Planet.name}{FigLbl.poreTitle}')
 
-    if Params.LEGEND:
-        ax.legend()
+        ax.plot(Planet.phi_frac[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.phiMult,
+                Planet.z_m[:-1][Planet.phi_frac >= Planet.Sil.phiMin_frac]/1e3,
+                label=Planet.label, linewidth=Style.LW_std)
 
-    fig.savefig(Params.FigureFiles.vporeDbl, format=FigMisc.figFormat, dpi=FigMisc.dpi)
-    log.debug(f'Porosity plot (dual axis) saved to file: {Params.FigureFiles.vporeDbl}')
-    plt.close()
+        if Params.LEGEND:
+            ax.legend()
+
+        fig.savefig(Params.FigureFiles.vporeDbl, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        log.debug(f'Porosity plot (dual axis) saved to file: {Params.FigureFiles.vporeDbl}')
+        plt.close()
 
     # Plot standard config with all passed Planet objects
     fig = plt.figure(figsize=FigSize.vpore)
     grid = GridSpec(1, 2)
     axes = [fig.add_subplot(grid[0, i]) for i in range(2)]
+    if Style.GRIDS:
+        [ax.grid() for ax in axes]
+        [ax.set_axisbelow(True) for ax in axes]
+
+    # Labels and titles
     [ax.set_xlabel(FigLbl.phiLabel) for ax in axes]
     axes[0].set_ylabel(FigLbl.zLabel)
     axes[1].set_ylabel(FigLbl.PlabelFull)
@@ -394,6 +425,11 @@ def PlotSeismic(PlanetList, Params):
     grid = GridSpec(2, 2)
     axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(2)] for i in range(2)])
     axf = axes.flatten()
+    if Style.GRIDS:
+        [ax.grid() for ax in axf]
+        [ax.set_axisbelow(True) for ax in axf]
+
+    # Labels and titles
     [ax.set_ylabel(FigLbl.rLabel) for ax in axf]
     axes[0,0].set_xlabel(FigLbl.GSKSlabel)
     axes[0,1].set_xlabel(FigLbl.PTrhoLabel)
@@ -747,6 +783,127 @@ def PlotWedge(PlanetList, Params):
     return
 
 
+def PlotPvT(PlanetList, Params):
+
+    # Unlike most other plotting routines, here we can't plot multiple bodies together.
+    # Just make these plots for the first model, which is the primary.
+    if os.path.dirname(Params.FigureFiles.vpvt) != 'Comparison':
+        Planet = PlanetList[0]
+        if Planet.Sil.EOS is None:
+            Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.lookupInterpMethod,
+                        kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
+                        porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
+                        Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
+                        EXTRAP=Params.EXTRAP_SIL)
+        INCLUDING_CORE = FigMisc.PVT_INCLUDE_CORE and Planet.Do.Fe_CORE
+        if INCLUDING_CORE and Planet.Core.EOS is None:
+            Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
+                        kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe)
+
+        fig = plt.figure(figsize=FigSize.vpvt)
+        grid = GridSpec(2, 4)
+        axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(4)] for i in range(2)])
+        axes[0,1].set_axis_off()
+        axf = axes[axes != axes[0,1]].flatten()
+        if Style.GRIDS:
+            [ax.grid() for ax in axf]
+            [ax.set_axisbelow(False) for ax in axf]
+        # Labels and titles
+        [ax.set_xlabel(FigLbl.Tlabel) for ax in axes[1, :]]
+        [ax.set_ylabel(FigLbl.PlabelFull) for ax in axes[:, 0]]
+        [ax.invert_yaxis() for ax in axf]
+        axes[0,0].set_title(FigLbl.rhoLabel)
+        axes[1,0].set_title(FigLbl.CpLabel)
+        axes[1,1].set_title(FigLbl.alphaLabel)
+        # axes[1,1].set_title()  # This axes intentionally left blank.
+        axes[0,2].set_title(FigLbl.VPlabel)
+        axes[1,2].set_title(FigLbl.VSlabel)
+        axes[0,3].set_title(FigLbl.KSlabel)
+        axes[1,3].set_title(FigLbl.GSlabel)
+        # Get pressure and temperature bounds and eval pts and set title
+
+        iSil = np.logical_and(Planet.phase >= Constants.phaseSil,
+                              Planet.phase < Constants.phaseSil + 10)
+        if INCLUDING_CORE:
+            fig.suptitle(f'{Planet.name}{FigLbl.PvTtitleCore}')
+            iCore = Planet.phase >= Constants.phaseFe
+            iInner = np.logical_or(iSil, iCore)
+        else:
+            fig.suptitle(f'{Planet.name}{FigLbl.PvTtitleSil}')
+            iCore = np.zeros_like(Planet.phase).astype(bool)
+            iInner = iSil
+        Pgeo = Planet.P_MPa[iInner] * FigLbl.PmultFull
+        Tgeo = Planet.T_K[iInner]
+        Pmin = np.min(Pgeo)
+        Pmax = np.max(Pgeo)
+        Tmin = np.min(Tgeo)
+        Tmax = np.max(Tgeo)
+        if INCLUDING_CORE:
+            nPsil = FigMisc.nPgeo - FigMisc.nPgeoCore
+            nPcore = FigMisc.nPgeoCore
+            Pcore = np.linspace(np.min(Planet.P_MPa[iCore] * FigLbl.PmultFull), Pmax, nPcore)
+        else:
+            nPsil = FigMisc.nPgeo
+            Pcore = np.empty(0)
+        Psil = np.linspace(Pmin, np.max(Planet.P_MPa[iSil] * FigLbl.PmultFull), nPsil)
+        Pinner = np.concatenate((Psil, Pcore))
+        Tinner = np.linspace(Tmin, Tmax, FigMisc.nTgeo)
+
+        # Get data to plot
+        rhoPlot = Planet.Sil.EOS.fn_rho_kgm3(Psil, Tinner, grid=True)
+        CpPlot = Planet.Sil.EOS.fn_Cp_JkgK(Psil, Tinner, grid=True)
+        alphaPlot = Planet.Sil.EOS.fn_alpha_pK(Psil, Tinner, grid=True)
+        VPplot = Planet.Sil.EOS.fn_VP_kms(Psil, Tinner, grid=True)
+        VSplot = Planet.Sil.EOS.fn_VS_kms(Psil, Tinner, grid=True)
+        KSplot = Planet.Sil.EOS.fn_KS_GPa(Psil, Tinner, grid=True)
+        GSplot = Planet.Sil.EOS.fn_GS_GPa(Psil, Tinner, grid=True)
+        if INCLUDING_CORE:
+            rhoCore = Planet.Core.EOS.fn_rho_kgm3(Pcore, Tinner, grid=True)
+            CpCore = Planet.Core.EOS.fn_Cp_JkgK(Pcore, Tinner, grid=True)
+            alphaCore = Planet.Core.EOS.fn_alpha_pK(Pcore, Tinner, grid=True)
+            VPcore = Planet.Core.EOS.fn_VP_kms(Pcore, Tinner, grid=True)
+            VScore = Planet.Core.EOS.fn_VS_kms(Pcore, Tinner, grid=True)
+            KScore = Planet.Core.EOS.fn_KS_GPa(Pcore, Tinner, grid=True)
+            GScore = Planet.Core.EOS.fn_GS_GPa(Pcore, Tinner, grid=True)
+
+            rhoPlot = np.vstack((rhoPlot, rhoCore))
+            CpPlot = np.vstack((CpPlot, CpCore))
+            alphaPlot = np.vstack((alphaPlot, alphaCore))
+            VPplot = np.vstack((VPplot, VPcore))
+            VSplot = np.vstack((VSplot, VScore))
+            KSplot = np.vstack((KSplot, KScore))
+            GSplot = np.vstack((GSplot, GScore))
+
+        # Plot colormaps of Perple_X data
+        rho =   axes[0,0].pcolormesh(Tinner, Pinner, rhoPlot, cmap=Color.innerCmapName)
+        Cp =    axes[1,0].pcolormesh(Tinner, Pinner, CpPlot, cmap=Color.innerCmapName)
+        alpha = axes[1,1].pcolormesh(Tinner, Pinner, alphaPlot, cmap=Color.innerCmapName)
+        VP =    axes[0,2].pcolormesh(Tinner, Pinner, VPplot, cmap=Color.innerCmapName)
+        VS =    axes[1,2].pcolormesh(Tinner, Pinner, VSplot, cmap=Color.innerCmapName)
+        KS =    axes[0,3].pcolormesh(Tinner, Pinner, KSplot, cmap=Color.innerCmapName)
+        GS =    axes[1,3].pcolormesh(Tinner, Pinner, GSplot, cmap=Color.innerCmapName)
+
+        # Add colorbars for each plot
+        fig.colorbar(rho, ax=axes[0,0])
+        fig.colorbar(Cp, ax=axes[1,0])
+        fig.colorbar(alpha, ax=axes[1,1])
+        fig.colorbar(VP, ax=axes[0,2])
+        fig.colorbar(VS, ax=axes[1,2])
+        fig.colorbar(KS, ax=axes[0,3])
+        fig.colorbar(GS, ax=axes[1,3])
+
+        # Plot geotherm on top of colormaps
+        [ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm,
+                 color=Color.geotherm) for ax in axf]
+
+        plt.tight_layout()
+        fig.savefig(Params.FigureFiles.vpvt, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        log.debug(f'Silicate/core PT properties plot saved to file: {Params.FigureFiles.vpvt}')
+        plt.close()
+
+    return
+
+
 def PlotInductOgramPhaseSpace(InductionList, Params):
     """ For plotting points showing the various models used in making
         inductogram plots.
@@ -797,6 +954,9 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
         fig = plt.figure(figsize=FigSize.phaseSpaceSolo, constrained_layout=True)
         grid = GridSpec(1, 2, width_ratios=[widthPlot, widthCbar], figure=fig)
         axes = [fig.add_subplot(grid[0, 0])]
+        if Style.GRIDS:
+            axes[0].grid()
+            axes[0].set_axisbelow(True)
         cbarAx = fig.add_subplot(grid[0, 1])
         cbarUnits = InductionList[0].zb_km.flatten()
         cbarLabel = FigLbl.iceThickLbl
@@ -815,6 +975,9 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
         nComps = np.size(comps)
         grid = GridSpec(1, 2 + nComps, width_ratios=np.append([widthPlot, widthPlot], [widthCbar for _ in range(nComps)]), figure=fig)
         axes = [fig.add_subplot(grid[0, i]) for i in range(2)]
+        if Style.GRIDS:
+            [ax.grid() for ax in axes]
+            [ax.set_axisbelow(True) for ax in axes]
         cbarAxes = [fig.add_subplot(grid[0, i+2]) for i in range(nComps)]
         axes[1].set_xlabel(FigLbl.wLabel)
         axes[1].set_ylabel(FigLbl.yLabelInduct)
@@ -823,6 +986,7 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
         axes[1].scatter(w_ppt, yFlat, s=Style.MW_Induction,
                         marker=Style.MS_Induction, c=ptColors[0])
 
+    # Labels and titles
     fig.suptitle(FigLbl.phaseSpaceTitle)
     axes[0].set_xlabel(FigLbl.sigMeanLabel)
     axes[0].set_ylabel(FigLbl.Dlabel)
@@ -856,7 +1020,11 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
         nComps = np.size(comps)
         figWidth = FigSize.phaseSpaceSolo[0] + nComps * FigMisc.cbarSpace
         fig, ax = plt.subplots(1, 1, figsize=(figWidth, FigSize.phaseSpaceSolo[1]))
+        if Style.GRIDS:
+            ax.grid()
+            ax.set_axisbelow(True)
 
+        # Labels and titles
         fig.suptitle(FigLbl.phaseSpaceTitle)
         ax.set_xlabel(FigLbl.sigMeanLabel)
         ax.set_ylabel(FigLbl.Dlabel)
@@ -919,6 +1087,10 @@ def PlotInductOgram(Induction, Params):
         grid = GridSpec(2, 2)
         axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(2)] for i in range(2)])
         allAxes = axes.flatten()
+        if Style.GRIDS:
+            [ax.grid() for ax in allAxes]
+            [ax.set_axisbelow(True) for ax in allAxes]
+
         fig.suptitle(FigLbl.inductionTitle)
         # Only label the bottom-left sides of axes
         [ax.set_xlabel(FigLbl.sigMeanLabel) for ax in (axes[1,0], axes[1,1])]
@@ -964,6 +1136,10 @@ def PlotInductOgram(Induction, Params):
             grid = GridSpec(2, 2)
             axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(2)] for i in range(2)])
             allAxes = axes.flatten()
+            if Style.GRIDS:
+                [ax.grid() for ax in allAxes]
+                [ax.set_axisbelow(True) for ax in allAxes]
+
             fig.suptitle(FigLbl.inductionTitle)
             # Only label the bottom-left sides of axes
             [ax.set_xlabel(FigLbl.wLabel) for ax in (axes[1,0], axes[1,1])]
@@ -999,8 +1175,12 @@ def PlotInductOgram(Induction, Params):
             axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(2)] for i in range(2)])
             fig.subplots_adjust(wspace=0.25, hspace=0.35)
             allAxes = axes.flatten()
-            fig.suptitle(FigLbl.inductCompareTitle)
+            if Style.GRIDS:
+                [ax.grid() for ax in allAxes]
+                [ax.set_axisbelow(True) for ax in allAxes]
+
             # Label all axes for clarity
+            fig.suptitle(FigLbl.inductCompareTitle)
             [ax.set_xlabel(FigLbl.wLabel) for ax in axes[0,:]]
             [ax.set_ylabel(FigLbl.yLabelInduct) for ax in axes[0,:]]
             [ax.set_xlabel(FigLbl.sigMeanLabel) for ax in axes[1,:]]
@@ -1063,6 +1243,11 @@ def PlotInductOgram(Induction, Params):
         fig = plt.figure(figsize=FigSize.induct)
         grid = GridSpec(1, 2)
         axes = [fig.add_subplot(grid[0, j]) for j in range(2)]
+        if Style.GRIDS:
+            [ax.grid() for ax in axes]
+            [ax.set_axisbelow(True) for ax in axes]
+
+        # Labels and titles
         fig.suptitle(FigLbl.inductionTitle)
         axes[0].title.set_text(name)
         axes[1].title.set_text(FigLbl.phaseTitle)
@@ -1105,6 +1290,11 @@ def PlotInductOgram(Induction, Params):
             fig = plt.figure(figsize=FigSize.induct)
             grid = GridSpec(1, 2)
             axes = [fig.add_subplot(grid[0, j]) for j in range(2)]
+            if Style.GRIDS:
+                [ax.grid() for ax in axes]
+                [ax.set_axisbelow(True) for ax in axes]
+
+            # Labels and titles
             fig.suptitle(FigLbl.inductionTitle)
             axes[0].title.set_text(name)
             axes[1].title.set_text(FigLbl.phaseTitle)
@@ -1150,6 +1340,9 @@ def PlotExploreOgram(ExplorationList, Params):
 
     for Exploration in ExplorationList:
         fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
+        if Style.GRIDS:
+            ax.grid()
+            ax.set_axisbelow(True)
     
         fig.suptitle(FigLbl.explorationTitle)
         ax.set_xlabel(FigLbl.xLabelExplore)
@@ -1183,6 +1376,9 @@ def PlotExploreOgram(ExplorationList, Params):
     # Plot combination
     if Params.COMPARE and np.size(ExplorationList) > 1:
         fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
+        if Style.GRIDS:
+            ax.grid()
+            ax.set_axisbelow(True)
 
         fig.suptitle(FigLbl.explorationTitle)
         ax.set_xlabel(FigLbl.xLabelExplore)
@@ -1211,5 +1407,213 @@ def PlotExploreOgram(ExplorationList, Params):
         fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
         log.debug(f'Plot saved to file: {Params.FigureFiles.explore}')
         plt.close()
+
+    return
+
+
+def PlotComplexBdip(PlanetList, Params):
+
+    axComps = ['x', 'y', 'z']
+    refs = {}
+    nPeaksToPlot = np.sum([Tdo for Tdo in Params.Induct.excSelectionPlot.values() if Tdo is not None])
+    nPeaksCalced = np.sum([np.size(Planeti.Magnetic.calcedExc) for Planeti in PlanetList])
+    if nPeaksToPlot >= 1 and nPeaksCalced >= 1:
+        if nPeaksToPlot == 1:
+            DO_ZOOM = False
+            nCol = 1
+            titleToUse = [FigLbl.BdipTitleNoZoom, FigLbl.BdipCompareTitleNoZoom]
+        else:
+            DO_ZOOM = True
+            nCol = 2
+            titleToUse = [FigLbl.BdipTitle, FigLbl.BdipCompareTitle]
+
+        if FigMisc.MANUAL_HYDRO_COLORS:
+            comps = np.unique([Planet.Ocean.comp for Planet in PlanetList if Planet.Ocean.comp != 'none'])
+            wMinMax_ppt = {}
+            TminMax_K = {}
+
+            for comp in comps:
+                wAll_ppt = [Planet.Ocean.wOcean_ppt for Planet in PlanetList if Planet.Ocean.comp == comp]
+                wMinMax_ppt[comp] = [np.min(wAll_ppt), np.max(wAll_ppt)]
+                Tall_K = [Planet.Bulk.Tb_K for Planet in PlanetList if Planet.Ocean.comp == comp]
+                TminMax_K[comp] = [np.min(Tall_K), np.max(Tall_K)]
+                # Reset to default if all models are the same or if desired
+                if not FigMisc.RELATIVE_Tb_K or TminMax_K[comp][0] == TminMax_K[comp][1]:
+                    TminMax_K[comp] = Color.Tbounds_K
+
+        if Params.COMBINE_BCOMPS:
+            if DO_ZOOM:
+                figSize = FigSize.BdipCombo
+            else:
+                figSize = FigSize.BdipSoloCombo
+            fig = plt.figure(figsize=figSize)
+            grid = GridSpec(3, nCol)
+            axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(nCol)] for i in range(3)])
+            axc = {vComp: row for vComp, row in zip(axComps, axes)}
+            if Style.GRIDS:
+                axf = axes.flatten()
+                [ax.grid() for ax in axf]
+                [ax.set_axisbelow(True) for ax in axf]
+
+            # Labels and titles
+            [[ax.set_xlabel(FigLbl.BdipReLabel[axComp]) for ax in axs] for axComp, axs in axc.items()]
+            [[ax.set_ylabel(FigLbl.BdipImLabel[axComp]) for ax in axs] for axComp, axs in axc.items()]
+            if DO_ZOOM:
+                [axs[0].set_title(FigLbl.BdipZoomLabel[axComp]) for axComp, axs in axc.items()]
+                [axs[-1].set_title(FigLbl.BdipLabel[axComp]) for axComp, axs in axc.items()]
+            else:
+                [axs[-1].set_title(FigLbl.BdipLabelNoZoom[axComp]) for axComp, axs in axc.items()]
+            if Params.ALL_ONE_BODY:
+                fig.suptitle(f'{PlanetList[0].name}{titleToUse[0]}')
+            else:
+                fig.suptitle(titleToUse[1])
+
+            insetx, insety = ({vComp: 0 for vComp in axComps} for _ in range(2))
+            for iPlanet, Planet in enumerate(PlanetList):
+                if Planet.Magnetic.calcedExc is not None and np.size(Planet.Magnetic.calcedExc) >= 1:
+                    # Set color options
+                    if FigMisc.MANUAL_HYDRO_COLORS and not Planet.Do.NO_H2O:
+                        if wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
+                            thisAlpha = Style.GetMA(Planet.Ocean.wOcean_ppt, wMinMax_ppt[Planet.Ocean.comp])
+                        else:
+                            thisAlpha = Style.MAlims[-1]
+                        Color.Tbounds_K = TminMax_K[Planet.Ocean.comp]
+                        thisColor = Color.GetNormT(Planet.Bulk.Tb_K)
+                        thisEdgeColor = Color.cmap[Planet.Ocean.comp](thisColor)
+                        thisFaceColor = Color.cmap[Planet.Ocean.comp](thisColor, alpha=thisAlpha)
+                    else:
+                        thisEdgeColor = None
+                        thisFaceColor = None
+
+                    for iRow, axComp in enumerate(axComps):
+                        xPlotted, yPlotted, absBiPlotted = (np.empty(0) for _ in range(3))
+                        for iPeak, Tkey in enumerate(Planet.Magnetic.calcedExc):
+                            if Params.Induct.excSelectionPlot[Tkey]:
+                                pts = [ax.scatter(np.real(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]), np.imag(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]),
+                                                  marker=Style.MS_dip[Tkey], s=Style.MW_dip[Tkey]**2,
+                                                  facecolor=thisFaceColor, edgecolor=thisEdgeColor) for ax in axc[axComp]][0].get_offsets()[0,:]
+
+                                if iPlanet == 0 and iRow == 0:
+                                    refs[Tkey] = axes[0, -1].scatter(0, 0, label=Tkey.capitalize(), marker=Style.MS_dip[Tkey],
+                                                                 s=Style.MW_dip[Tkey]**2, facecolor=Color.ref, edgecolor=Color.ref)
+
+                                xPlotted = np.append(xPlotted, pts[0])
+                                yPlotted = np.append(yPlotted, pts[1])
+                                absBiPlotted = np.append(absBiPlotted, np.abs(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]))
+
+                        if DO_ZOOM:
+                            iAllButLargest = np.argsort(absBiPlotted)[:-1]
+                            secondLargestRe = np.max(xPlotted[iAllButLargest])
+                            secondLargestIm = np.max(yPlotted[iAllButLargest])
+                            insetx[axComp] = np.maximum(insetx[axComp], secondLargestRe * FigMisc.BdipZoomMult)
+                            insety[axComp] = np.maximum(insety[axComp], secondLargestIm * FigMisc.BdipZoomMult)
+                            axes[iRow, 0].set_xlim([0, insetx[axComp]])
+                            axes[iRow, 0].set_ylim([0, insety[axComp]])
+
+            if DO_ZOOM and FigMisc.SHOW_INSET:
+                refs[f'inset'] = axes[0, -1].plot([0,1], [1,0], color=Color.BdipInset, linewidth=Style.LW_BdipInset,
+                                          linestyle=Style.LS_BdipInset, label='Inset region')[0]
+                for iRow, axComp in enumerate(axComps):
+                    axes[iRow, -1].add_patch(Rectangle((0,0), insetx[axComp], insety[axComp], edgecolor=Color.BdipInset, zorder=-1,
+                                       linewidth=Style.LW_BdipInset, linestyle=Style.LS_BdipInset, facecolor='None'))
+
+            if Params.LEGEND:
+                axes[0, -1].legend()
+
+                for refPt in refs.values():
+                    refPt.remove()
+
+            [axes[iRow, -1].set_xlim(left=0) for iRow in range(3)]
+            [axes[iRow, -1].set_ylim(bottom=0) for iRow in range(3)]
+            plt.tight_layout()
+            fig.savefig(Params.FigureFiles.Bdip['all'], format=FigMisc.figFormat, dpi=FigMisc.dpi)
+            log.debug(f'Induced dipole surface strength plot saved to file: {Params.FigureFiles.Bdip["all"]}')
+            plt.close()
+
+        else:
+            for axComp in axComps:
+                if DO_ZOOM:
+                    figSize = FigSize.Bdip
+                else:
+                    figSize = FigSize.BdipSolo
+                fig = plt.figure(figsize=figSize)
+                grid = GridSpec(1, nCol)
+                axes = np.array([fig.add_subplot(grid[0, j]) for j in range(nCol)])
+                if Style.GRIDS:
+                    [ax.grid() for ax in axes]
+                    [ax.set_axisbelow(True) for ax in axes]
+
+                # Labels and titles
+                [ax.set_xlabel(FigLbl.BdipReLabel[axComp]) for ax in axes]
+                [ax.set_ylabel(FigLbl.BdipImLabel[axComp]) for ax in axes]
+                if DO_ZOOM:
+                    axes[0].set_title(FigLbl.BdipZoomLabel[axComp])
+                    axes[-1].set_title(FigLbl.BdipLabel[axComp])
+                else:
+                    axes[-1].set_title(FigLbl.BdipLabelNoZoom[axComp])
+                if Params.ALL_ONE_BODY:
+                    fig.suptitle(f'{PlanetList[0].name}{titleToUse[0]}')
+                else:
+                    fig.suptitle(titleToUse[1])
+
+                insetx, insety = (0, 0)
+                for iPlanet, Planet in enumerate(PlanetList):
+                    if Planet.Magnetic.calcedExc is not None and np.size(Planet.Magnetic.calcedExc) >= 1:
+                        # Set color options
+                        if FigMisc.MANUAL_HYDRO_COLORS and not Planet.Do.NO_H2O:
+                            if wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
+                                thisAlpha = Style.GetMA(Planet.Ocean.wOcean_ppt, wMinMax_ppt[Planet.Ocean.comp])
+                            else:
+                                thisAlpha = Style.MAlims[-1]
+                            Color.Tbounds_K = TminMax_K[Planet.Ocean.comp]
+                            thisColor = Color.GetNormT(Planet.Bulk.Tb_K)
+                            thisEdgeColor = Color.cmap[Planet.Ocean.comp](thisColor)
+                            thisFaceColor = Color.cmap[Planet.Ocean.comp](thisColor, alpha=thisAlpha)
+                        else:
+                            thisEdgeColor = None
+                            thisFaceColor = None
+
+                        xPlotted, yPlotted, absBiPlotted = (np.empty(0) for _ in range(3))
+                        for iPeak, Tkey in enumerate(Planet.Magnetic.calcedExc):
+                            if Params.Induct.excSelectionPlot[Tkey]:
+                                pts = [ax.scatter(np.real(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]), np.imag(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]),
+                                                  marker=Style.MS_dip[Tkey], s=Style.MW_dip[Tkey]**2,
+                                                  facecolor=thisFaceColor, edgecolor=thisEdgeColor) for ax in axes][0].get_offsets()[0,:]
+
+                                if iPlanet == 0:
+                                    refs[Tkey] = axes[-1].scatter(0, 0, label=Tkey.capitalize(), marker=Style.MS_dip[Tkey],
+                                                                  s=Style.MW_dip[Tkey]**2, facecolor=Color.ref, edgecolor=Color.ref)
+
+                                xPlotted = np.append(xPlotted, pts[0])
+                                yPlotted = np.append(yPlotted, pts[1])
+                                absBiPlotted = np.append(absBiPlotted, np.abs(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]))
+
+                        if DO_ZOOM:
+                            iAllButLargest = np.argsort(absBiPlotted)[:-1]
+                            secondLargestRe = np.max(xPlotted[iAllButLargest])
+                            secondLargestIm = np.max(yPlotted[iAllButLargest])
+                            insetx = np.maximum(insetx, secondLargestRe * FigMisc.BdipZoomMult)
+                            insety = np.maximum(insety, secondLargestIm * FigMisc.BdipZoomMult)
+                            axes[0].set_xlim([0, insetx])
+                            axes[0].set_ylim([0, insety])
+
+                if DO_ZOOM and FigMisc.SHOW_INSET:
+                    axes[-1].add_patch(Rectangle((0,0), insetx, insety, edgecolor=Color.BdipInset, zorder=-1,
+                                       linewidth=Style.LW_BdipInset, linestyle=Style.LS_BdipInset, facecolor='None'))
+                    refs[f'inset{axComp}'] = axes[-1].plot([0,1], [1,0], color=Color.BdipInset, linewidth=Style.LW_BdipInset,
+                                                  linestyle=Style.LS_BdipInset, label='Inset region')[0]
+
+                if Params.LEGEND:
+                    axes[-1].legend()
+
+                for refPt in refs.values():
+                    refPt.remove()
+
+                axes[-1].set_xlim(left=0)
+                axes[-1].set_ylim(bottom=0)
+                plt.tight_layout()
+                fig.savefig(Params.FigureFiles.Bdip[axComp], format=FigMisc.figFormat, dpi=FigMisc.dpi)
+                log.debug(f'Induced dipole surface strength plot saved to file: {Params.FigureFiles.Bdip[axComp]}')
+                plt.close()
 
     return

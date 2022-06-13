@@ -4,10 +4,10 @@ Overridden by any settings contained within PPBody.py files.
 """
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 4  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 5  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 Params = ParamsStruct()
-Params.VERBOSE =       True  # Provides extra runtime messages. Overrides QUIET below
+Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
 Params.QUIET =         False  # Hides all log messages except warnings and errors
 Params.QUIET_MOONMAG = True  # If True, sets MoonMag logging level to WARNING, otherwise uses the same as PlanetProfile.
 Params.printFmt = '[%(levelname)s] %(message)s'  # Format for printing log messages
@@ -48,13 +48,15 @@ Params.PLOT_TRADEOFF =    True  # Whether to plot mantle properties tradeoff
 Params.PLOT_POROSITY =    True  # Whether to plot porosities in rock and/or ice for bodies that have it modeled
 Params.PLOT_SEISMIC =     True  # Whether to plot seismic quantities if they have been calculated
 Params.PLOT_WEDGE =       True  # Whether to plot interior wedge diagram
+Params.PLOT_PVT =         True  # Whether to plot silicate/core PT property plots
+Params.PLOT_BDIP =        True  # Whether to plot induced dipole surface strength in complex plane
 Params.LEGEND =           True  # Whether to plot legends
 
 # Magnetic induction plot settings
 Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question
-Params.PLOT_FFT =                True  # Whether to show plots of fourier space
+Params.PLOT_FFT =                True  # Whether to show plots of fourier space (WIP)
 Params.INDUCTOGRAM_IN_PROGRESS = False  # Whether we are currently working on constructing an inductogram
-Params.COMBINE_BCOMPS =          False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp
+Params.COMBINE_BCOMPS =          False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp -- same for Bdip components
 
 # Parameter exploration plot settings
 Params.DO_EXPLOREOGRAM = False  # Whether to evaluate and/or plot an exploreogram for the body in question

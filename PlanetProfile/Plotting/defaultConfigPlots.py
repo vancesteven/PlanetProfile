@@ -13,6 +13,9 @@ FigMisc = FigMiscStruct()
 """ Figure color options """
 Color.Induction = {'synodic': 'blue', 'orbital': 'purple', 'true anomaly': 'green', 'synodic harmonic': 'goldenrod'}  # Colors for inductOgram plots
 Color.ref = 'gray'
+Color.geotherm = 'white'
+Color.BdipInset = 'black'  # Color for inset box of surface induced dipole strength plots
+Color.innerCmapName = 'inferno'  # For plotting temperature profiles atop Perple_X data
 
 # Wedge diagram color options
 Color.none = '#FFFFFF00'
@@ -47,7 +50,6 @@ Color.silConvBot = 0.9
 Color.silConvN = 10
 Color.FeS = 'xkcd:puke'
 Color.Fe = '#2d3639'
-Color.innerCmapName = 'inferno'  # For plotting temperature profiles atop Perple_X data
 # Alternative color options for silicates
 Color.PALE_SILICATES = False  # Whether to use a lighter color scheme for silicate layers, or a more "orangey" saturated one
 Color.paleSilPorousCmapName = 'terrain'
@@ -100,12 +102,15 @@ Color.SetCmaps()
 
 
 """ Figure style options """
+Style.GRIDS = True  # Whether to plot grids
 Style.LS = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-'}  # LineStyle options for hydrosphere plots
 Style.LWlims = [0.5, 2]  # Bounds of linewidths to use for salinity mapping
 Style.MW_hydro = 3  # Marker size for hydrosphere plot endpoint, in the factor by which to multiply the linewidth.
 Style.MS_hydro = 'o'  # Marker style for hydrosphere plot endpoint
 Style.LW_std = 1.5  # Standard linewidth to use when not mapping as above
 Style.LW_sound = 1  # Linewidth for sound speeds on hydrosphere plot
+Style.LW_geotherm = 1  # Linewidth for geotherm on PT plots
+Style.LS_geotherm = '-'  # Linestyle for geotherm on PT plots
 Style.LW_seis = 1  # Linewidth for seismic plots
 Style.LS_seis = {'KS': '-', 'GS': '--', 'VP': '-', 'VS': '--', 'QS': '-', 'P': '-', 'T': '--', 'rho': '-.'}
 Style.LS_ref = {'none': None, 'PureH2O': '-', 'Seawater': ':', 'MgSO4': '--', 'NH3': '--', 'NaCl': '--'}  # Style for reference profiles
@@ -115,9 +120,17 @@ Style.LW_Induction = {'synodic': 1.5, 'orbital': 1.5, 'true anomaly': 1.5, 'syno
 Style.MW_Induction = 2  # Marker size to use for induction scatter plots
 Style.MS_Induction = 'o'  # Marker style for induction scatter plots
 
+# Wedge diagrams
 Style.wedgeAngle_deg = 25  # Angular size of wedge diagrams in degrees
 Style.LW_wedge = 0.125  # Linewidth in pt for minor boundaries in wedge diagrams
 Style.LW_wedgeMajor = 0.375  # Linewidth in pt for major layer boundaries in wedge diagrams
+
+# Complex dipole plots
+Style.MW_dip = {'synodic': 5, 'orbital': 6, 'true anomaly': 6, 'synodic harmonic': 4.5}  # Marker size for each period in complex dipole plots
+Style.MS_dip = {'synodic': '*', 'orbital': 'o', 'true anomaly': 'P', 'synodic harmonic': 'h'}  # Marker style for each period in complex dipole plots
+Style.MAlims = [0, 1]  # Alpha channel (opacity) limits for markers
+Style.LS_BdipInset = '-'  # Linestyle for inset box 
+Style.LW_BdipInset = 0.5  # Linewidth for inset box
 
 
 """ Figure labels """
@@ -143,14 +156,17 @@ FigSize.vhydro = (9, 5)
 FigSize.vgrav = (6, 5)
 FigSize.vmant = (6, 6)
 FigSize.vcore = (6, 6)
-FigSize.vpvt4 = (6, 6)
-FigSize.vpvt6 = (6, 6)
+FigSize.vpvt = (12, 6)
 FigSize.vwedg = (4.5, 4.5)
+FigSize.explore = (6, 4)
 FigSize.phaseSpaceSolo = (6, 4)
 FigSize.phaseSpaceCombo = (9, 4)
 FigSize.induct = (8, 4)
 FigSize.inductCombo = (8, 8)
-FigSize.explore = (6, 4)
+FigSize.Bdip = (5, 3)
+FigSize.BdipCombo = (6, 9)
+FigSize.BdipSolo = (2.5, 3)
+FigSize.BdipSoloCombo = (3, 9)
 
 
 """ Miscellaneous figure options """
@@ -175,6 +191,16 @@ FigMisc.DRAW_IONOS_BOUND = False  # Whether to draw a boundary line around the i
 FigMisc.DRAW_CONVECTION_BOUND = False  # Whether to draw a boundary line between convecting and conducting regions
 FigMisc.DRAW_POROUS_BOUND = False  # Whether to draw a boundary line between porous and non-porous materials
 FigMisc.DRAW_FeS_BOUND = True  # Whether to draw a boundary line between Fe and FeS in the core
+
+# Silicate/core PT diagrams
+FigMisc.nTgeo = 80  # Number of temperature points to evaluate/plot for PT property plots
+FigMisc.nPgeo = 100  # Number of pressure points to evaluate/plot for PT property plots
+FigMisc.nPgeoCore = 40  # Subset of nPgeo to use for core, if present
+FigMisc.PVT_INCLUDE_CORE = False  # Whether to include core as well as silicates in PT properties diagrams
+        
+# Induced dipole surface strength plots
+FigMisc.BdipZoomMult = 1.05  # Extra space to include around zoomed-in part, in fraction of largest value.
+FigMisc.SHOW_INSET = True  # Whether to show the inset box for the zoom-in plot, when applicable
 
 # Inductogram phase space plots
 FigMisc.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.
