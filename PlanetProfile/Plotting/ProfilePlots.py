@@ -1520,8 +1520,8 @@ def PlotComplexBdip(PlanetList, Params):
             if Params.LEGEND:
                 axes[0, -1].legend()
 
-                for refPt in refs.values():
-                    refPt.remove()
+            for refPt in refs.values():
+                refPt.remove()
 
             [axes[iRow, -1].set_xlim(left=0) for iRow in range(3)]
             [axes[iRow, -1].set_ylim(bottom=0) for iRow in range(3)]
@@ -1600,7 +1600,7 @@ def PlotComplexBdip(PlanetList, Params):
                 if DO_ZOOM and FigMisc.SHOW_INSET:
                     axes[-1].add_patch(Rectangle((0,0), insetx, insety, edgecolor=Color.BdipInset, zorder=-1,
                                        linewidth=Style.LW_BdipInset, linestyle=Style.LS_BdipInset, facecolor='None'))
-                    refs[f'inset{axComp}'] = axes[-1].plot([0,1], [1,0], color=Color.BdipInset, linewidth=Style.LW_BdipInset,
+                    refs['inset'] = axes[-1].plot([0,1], [1,0], color=Color.BdipInset, linewidth=Style.LW_BdipInset,
                                                   linestyle=Style.LS_BdipInset, label='Inset region')[0]
 
                 if Params.LEGEND:
