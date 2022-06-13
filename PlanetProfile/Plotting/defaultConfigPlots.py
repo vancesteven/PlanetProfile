@@ -102,7 +102,7 @@ Color.SetCmaps()
 
 
 """ Figure style options """
-Style.GRIDS = True  # Whether to plot grids
+Style.GRIDS = False  # Whether to plot grids
 Style.LS = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-'}  # LineStyle options for hydrosphere plots
 Style.LWlims = [0.5, 2]  # Bounds of linewidths to use for salinity mapping
 Style.MW_hydro = 3  # Marker size for hydrosphere plot endpoint, in the factor by which to multiply the linewidth.
