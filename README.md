@@ -1,4 +1,4 @@
-# PlanetProfile v2.0
+# PlanetProfile v2.1
 Software framework for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data.
 
 ## Acknowledging PlanetProfile
@@ -57,7 +57,7 @@ A simple list with install commands for Python is in the next section.
 1. Python version 3.8+ must be installed, preferably via Anaconda. Required modules can be installed in Miniconda with the following command:
   1. `conda install numpy scipy matplotlib mpmath`
 1. Conda-forge modules can be installed in Anaconda or Miniconda with the following command:
-  1. `conda install -c conda-forge gsw obspy spiceypy cmasher cartopy`
+  1. `conda install -c conda-forge gsw obspy spiceypy cmasher`
 1. AFTER the above modules have been installed with conda, install SeaFreeze and MoonMag with the following command:
   1. `pip install SeaFreeze MoonMag`
   1. Finally, install PlanetProfile with `pip install PlanetProfile`
@@ -82,7 +82,7 @@ Some magnetic field features require use of the [SPICE toolkit through Mice](htt
 PlanetProfile is open source software. Please see the [LICENSE](https://github.com/vancesteven/PlanetProfile/blob/master/LICENSE) file and read the guidelines for contrbuting in [CONTRIBUTING.md](https://github.com/vancesteven/PlanetProfile/blob/master/CONTRIBUTING.md) if you are interested in joining the project. Also see our community guidelines in [CODE_OF_CONDUCT.md](https://github.com/vancesteven/PlanetProfile/blob/master/CODE_OF_CONDUCT.md).
 
 ## Notes
-* With the PlanetProfile 2.0 release, both Python and Matlab are available. The two branches do not have the same functionality yet with this release--some features exist in each that are not yet found in the other. A later release will align their functionality as much as possible. For now, the Python version is recommended.
+* With the PlanetProfile 2.0 release, both Python and Matlab are available. The two branches do not have the same functionality yet with this release (still true in 2.1)--some features exist in each that are not yet found in the other. A later release will align their functionality as much as possible. For now, the Python version is recommended.
 * As of 2020-09-28, PlanetProfile v1.1.0 was released along with code for making calculations regarding magnetic induction. The development (master) branch of PlanetProfile is set up to generate profiles from minimal inputs. Output profiles that may be used along with the induction calculations may be found in the v1.1.0 release.
 * The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.
 
