@@ -291,24 +291,24 @@ class EOSwrapper:
 
     def fn_phase(self, P_MPa, T_K):
         return EOSlist.loaded[self.key].fn_phase(P_MPa, T_K)
-    def fn_rho_kgm3(self, P_MPa, T_K):
-        return EOSlist.loaded[self.key].fn_rho_kgm3(P_MPa, T_K)
-    def fn_Cp_JkgK(self, P_MPa, T_K):
-        return EOSlist.loaded[self.key].fn_Cp_JkgK(P_MPa, T_K)
-    def fn_alpha_pK(self, P_MPa, T_K):
-        return EOSlist.loaded[self.key].fn_alpha_pK(P_MPa, T_K)
-    def fn_kTherm_WmK(self, P_MPa, T_K):
-        return EOSlist.loaded[self.key].fn_kTherm_WmK(P_MPa, T_K)
-    def fn_VP_kms(self, P_MPa, T_K):
-        return EOSlist.loaded[self.key].fn_VP_kms(P_MPa, T_K)
-    def fn_VS_kms(self, P_MPa, T_K):
-        return EOSlist.loaded[self.key].fn_VS_kms(P_MPa, T_K)
-    def fn_KS_GPa(self, P_MPa, T_K):
-        return EOSlist.loaded[self.key].fn_KS_GPa(P_MPa, T_K)
-    def fn_GS_GPa(self, P_MPa, T_K):
-        return EOSlist.loaded[self.key].fn_GS_GPa(P_MPa, T_K)
+    def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
+        return EOSlist.loaded[self.key].fn_rho_kgm3(P_MPa, T_K, grid=grid)
+    def fn_Cp_JkgK(self, P_MPa, T_K, grid=False):
+        return EOSlist.loaded[self.key].fn_Cp_JkgK(P_MPa, T_K, grid=grid)
+    def fn_alpha_pK(self, P_MPa, T_K, grid=False):
+        return EOSlist.loaded[self.key].fn_alpha_pK(P_MPa, T_K, grid=grid)
+    def fn_kTherm_WmK(self, P_MPa, T_K, grid=False):
+        return EOSlist.loaded[self.key].fn_kTherm_WmK(P_MPa, T_K, grid=grid)
+    def fn_VP_kms(self, P_MPa, T_K, grid=False):
+        return EOSlist.loaded[self.key].fn_VP_kms(P_MPa, T_K, grid=grid)
+    def fn_VS_kms(self, P_MPa, T_K, grid=False):
+        return EOSlist.loaded[self.key].fn_VS_kms(P_MPa, T_K, grid=grid)
+    def fn_KS_GPa(self, P_MPa, T_K, grid=False):
+        return EOSlist.loaded[self.key].fn_KS_GPa(P_MPa, T_K, grid=grid)
+    def fn_GS_GPa(self, P_MPa, T_K, grid=False):
+        return EOSlist.loaded[self.key].fn_GS_GPa(P_MPa, T_K, grid=grid)
     def fn_phi_frac(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_phi_frac(P_MPa, T_K)
+        return EOSlist.loaded[self.key].fn_phi_frac(P_MPa, T_K, grid=grid)
     def fn_porosCorrect(self, propBulk, propPore, phi, J):
         return EOSlist.loaded[self.key].fn_porosCorrect(propBulk, propPore, phi, J)
     def fn_sigma_Sm(self, P_MPa, T_K):
@@ -456,11 +456,11 @@ class GetphiCalc:
     def update(self, newPhiMax_frac):
         self.multFactor = newPhiMax_frac / self.phiMax_frac
 
-    def __call__(self, P_MPa, T_K):
+    def __call__(self, P_MPa, T_K, grid=False):
         if type(self.fn_phiEOS_frac) == ReturnZeros:
-            phi_frac = self.fn_phiEOS_frac(P_MPa, T_K)
+            phi_frac = self.fn_phiEOS_frac(P_MPa, T_K, grid=grid)
         else:
-            phi_frac = self.multFactor * self.fn_phiEOS_frac(P_MPa, T_K, grid=False)
+            phi_frac = self.multFactor * self.fn_phiEOS_frac(P_MPa, T_K, grid=grid)
             if np.size(P_MPa) == 1:
                 if phi_frac < self.phiMin_frac:
                     phi_frac = 0

@@ -316,10 +316,10 @@ class IceEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_kTherm_WmK(P_MPa, T_K, grid=grid)
-    def fn_phi_frac(self, P_MPa, T_K):
+    def fn_phi_frac(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
-        return self.ufn_phi_frac(P_MPa, T_K)
+        return self.ufn_phi_frac(P_MPa, T_K, grid=grid)
     def fn_Seismic(self, P_MPa, T_K):
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
