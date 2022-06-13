@@ -65,8 +65,8 @@ class ExcitationsList:
         self.nprmMax = 1
         Texc_hr = {}
         # Approximate (.2f) periods to select from excitation spectrum for each body in hr
-        Texc_hr['Europa'] =   {'synodic':11.23, 'orbital': 85.15, 'true anomaly': 84.63, 'synodic harmonic': 5.62}
-        Texc_hr['Ganymede'] = {'synodic':10.53, 'orbital':171.71, 'true anomaly':  None, 'synodic harmonic': 5.27}
+        Texc_hr['Europa'] =   {'synodic': 11.23, 'orbital': 85.15, 'true anomaly': 84.63, 'synodic harmonic':  5.62}
+        Texc_hr['Ganymede'] = {'synodic': 10.53, 'orbital':171.71, 'true anomaly':  None, 'synodic harmonic':  5.27}
         self.Texc_hr = Texc_hr
 
     def __call__(self, bodyname):

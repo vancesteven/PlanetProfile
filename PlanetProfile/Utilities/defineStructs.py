@@ -314,6 +314,7 @@ class MagneticSubstruct:
         self.inductMethod = 'Srivastava1966'  # Type of magnetic induction model to use. Options are "Srivastava1966" or "layer" for layer method and "Eckhardt1963" or "numeric" for numeric method (symmetric only).
         self.Texc_hr = None  # Periods in hr of peaks in magnetic excitation spectrum
         self.omegaExc_radps = None  # Angular frequency of peaks in magnetic excitation spectrum in rad/s
+        self.calcedExc = None  # List of strings of the names of periods calculated
         self.ionosBounds_m = None  # Upper altitude cutoff for ionosphere layers in m. Omit the surface (don't include 0 in the list).
         self.sigmaIonosPedersen_Sm = [1e-4]  # Pedersen conductivity for ionospheric layers in S/m. Length must match ionosBounds_m. The default value (set here) is set uniform when ionosBounds_m has size 1, and set uniform between entries 1 and 2 when it has size 2 (with zero conductivity between).
         self.rSigChange_m = None  # Radii of outer boundary of each conducting layer in m (i.e., radii where sigma changes)
@@ -334,6 +335,7 @@ class MagneticSubstruct:
         self.nLin = None  # Linear list of n values for output Binm with shape matching mLin, so that n,m pairs corresponding to each BinmLin are read as (n[j], m[j]) -> BinmLin[i, j]
         self.mLin = None  # m values corresponding to each n in nLin
         self.BinmLin_nT = None  # Linear form of Binm_nT, with shape (nExc, (nPrmMax+pMax+1)**2 - 1), such that BinmLin[i, j] = Binm[i, int(m[j]<0), n[j], m[j]]
+        self.Bi1xyz_nT = {'x': None, 'y': None, 'z': None}  # Induced dipole surface strength in IAU components
 
 
 """ Main body profile info--settings and variables """
@@ -478,7 +480,7 @@ class DataFilesSubstruct:
         self.exploreOgramFile = f'{self.fNameExplore}.mat'
         self.fNameInduct = os.path.join(self.inductPath, saveBase)
         self.inductLayersFile = self.fNameInduct + '_inductLayers.txt'
-        self.inducedMomentsFile = self.fNameInduct + '_inducedMoments.txt'
+        self.inducedMomentsFile = self.fNameInduct + '_inducedMoments.mat'
         self.fNameInductOgram = os.path.join(self.path, 'inductionData', inductBase)
         self.inductOgramFile = self.fNameInductOgram + f'{comp}_inductOgram.mat'
         self.inductOgramSigmaFile = self.fNameInductOgram + '_sigma_inductOgram.mat'
@@ -506,24 +508,23 @@ class FigureFilesSubstruct:
         if not self.path == '' and not os.path.isdir(self.inductPath):
             os.makedirs(self.inductPath)
         self.fName = os.path.join(self.path, figBase)
-        self.fNameInductOgram = os.path.join(self.inductPath, self.inductBase + self.comp)
+        self.fNameInduct = os.path.join(self.inductPath, self.inductBase + self.comp)
 
         # Figure filename strings
         vpore = 'Porosity'
         vporeDbl = 'Porosity2axes'
         vperm = 'Permeability'
-        vgsks = 'Gs_Ks'
         vseis = 'Seismic'
         vhydro = 'Hydrosphere'
         vgrav = 'Gravity'
         vmant = 'MantleDens'
         vcore = 'CoreMantTrade'
-        vpvt4 = 'PTx4'
-        vpvt6 = 'PTx6'
+        vpvt = 'PTprops'
         vwedg = 'Wedge'
+        explore = 'ExploreOgram'
         induct = 'InductOgram'
         sigma = 'InductOgramSigma'
-        explore = 'ExploreOgram'
+        Bdip = 'Bdip'
         # Construct Figure Filenames
         self.vwedg = self.fName + vwedg + xtn
         self.vpore = self.fName + vpore + xtn
@@ -534,15 +535,15 @@ class FigureFilesSubstruct:
         self.vgrav = self.fName + vgrav + xtn
         self.vmant = self.fName + vmant + xtn
         self.vcore = self.fName + vcore + xtn
-        self.vpvt4 = self.fName + vpvt4 + xtn
-        self.vpvt6 = self.fName + vpvt6 + xtn
+        self.vpvt = self.fName + vpvt + xtn
         self.explore =               f'{self.fName}_{self.exploreAppend}{explore}{xtn}'
-        self.phaseSpace =            f'{self.fNameInductOgram}_{induct}_phaseSpace{xtn}'
+        self.phaseSpace =            f'{self.fNameInduct}_{induct}_phaseSpace{xtn}'
         self.phaseSpaceCombo =       f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{xtn}'
-        self.induct =        {zType: f'{self.fNameInductOgram}_{induct}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
-        self.inductCompare = {zType: f'{self.fNameInductOgram}Compare_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
-        self.sigma =         {zType: f'{self.fNameInductOgram}_{sigma}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
-        self.sigmaOnly =     {zType: f'{self.fNameInductOgram}_{sigma}Only_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
+        self.induct =        {zType: f'{self.fNameInduct}_{induct}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
+        self.inductCompare = {zType: f'{self.fNameInduct}Compare_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
+        self.sigma =         {zType: f'{self.fNameInduct}_{sigma}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
+        self.sigmaOnly =     {zType: f'{self.fNameInduct}_{sigma}Only_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
+        self.Bdip =         {axComp: f'{self.fNameInduct}_{Bdip}{axComp}{xtn}' for axComp in ['x', 'y', 'z', 'all']}
 
 
 """ General parameter options """
@@ -721,6 +722,9 @@ class ColorStruct:
         self.Induction = {'synodic': None, 'orbital': None, 'true anomaly': None, 'synodic harmonic': None}  # Colors for inductOgram plots
         self.ref = None
         self.PALE_SILICATES = False  # Whether to use a lighter color scheme for silicate layers, or a more "orangey" saturated one
+        self.geotherm = None  # Color to use for geotherm in silicate/core PT plots
+        self.BdipInset = None  # Color for inset box of surface induced dipole strength plots
+        self.innerCmapName = None  # Colormap used for PT property plots
 
         # Wedge diagram color options
         self.none = '#FFFFFF00'
@@ -761,7 +765,6 @@ class ColorStruct:
         self.silConvN = None
         self.FeS = None
         self.Fe = None
-        self.innerCmapName = None
 
         self.cmapName = {}  # Colormaps for inductogram phase space plots, hydrosphere plots, etc
         self.cmapBounds = {}  # Select only a subset of the available colormap, if we choose to
@@ -855,6 +858,8 @@ class StyleStruct:
         self.MS_hydro = None  # Marker style for hydrosphere plot endpoint
         self.LW_std = None  # Standard linewidth to use when not mapping as above
         self.LW_sound = None  # LineWidth for sound speed plots
+        self.LW_geotherm = None  # Linewidth for geotherm on PT plots
+        self.LS_geotherm = None  # Linestyle for geotherm on PT plots
         self.LW_seis = None  # LineWidth for seismic plots
         self.LS_seis = {}  # Linestyles for seismic plots
         self.LS_ref = {}  # Style for reference profiles
@@ -864,13 +869,26 @@ class StyleStruct:
         self.MW_Induction = None  # Marker size to use for induction scatter plots
         self.MS_Induction = None  # Marker style for induction scatter plots
 
+        # Wedge diagrams
         self.wedgeAngle_deg = None  # Angular size of wedge diagrams in degrees
         self.LW_wedge = None  # Linewidth in pt for minor boundaries in wedge diagrams
         self.LW_wedgeMajor = None  # Linewidth in pt for major layer boundaries in wedge diagrams
 
+        # Complex dipole plots
+        self.MW_dip = {}  # Marker size for each period in complex dipole plots
+        self.MS_dip = {}  # Marker style for each period in complex dipole plots
+        self.MAlims = None  # Alpha channel (opacity) limits for markers 
+        self.LS_BdipInset = '-'  # Linestyle for inset box 
+        self.LW_BdipInset = 0.5  # Linewidth for inset box
+
     def GetLW(self, wOcean_ppt, wMinMax_ppt):
         linewidth = interp1d(wMinMax_ppt, self.LWlims,
                     bounds_error=False, fill_value=self.LWlims[-1])(wOcean_ppt)
+        return linewidth
+
+    def GetMA(self, wOcean_ppt, wMinMax_ppt):
+        linewidth = interp1d(wMinMax_ppt, self.MAlims,
+                    bounds_error=False, fill_value=self.MAlims[-1])(wOcean_ppt)
         return linewidth
 
 
@@ -895,6 +913,8 @@ class FigLblStruct:
         self.RsilLabel = r'Silicate outer radius $R_\mathrm{sil}$ ($\si{km}$)'
         self.RcoreLabel = r'Core radius $R_\mathrm{core}$ ($\si{km}$)'
         self.GSKSlabel = r'Bulk \& shear moduli $K_S$, $G_S$ ($\si{GPa}$)'
+        self.KSlabel = r'Bulk modulus $K_S$ ($\si{GPa}$)'
+        self.GSlabel = r'Shear modulus $G_S$ ($\si{GPa}$)'
         self.rLabel = r'Radius $r$ ($\si{km}$)'
         self.zLabel = r'Depth $z$ ($\si{km}$)'
 
@@ -911,10 +931,23 @@ class FigLblStruct:
         self.poreCompareTitle = r'Porosity comparison'
         self.seisTitle = r' seismic properties'
         self.seisCompareTitle = r'Seismic property comparison'
+        self.PvTtitleSil = r' silicate interior properties with geotherm'
+        self.PvTtitleCore = r' silicate and core interior properties with geotherm'
 
         # Wedge diagram labels
         self.wedgeTitle = 'interior structure diagram'
-        self.wedgeRadius = r'Radius ($\mathrm{km}$)'
+        self.wedgeRadius = r'Radius ($\si{km}$)'
+
+        # Surface dipole strength plot labels
+        self.BdipTitle = r' induced dipole surface strength'
+        self.BdipTitleNoZoom = r' induced dipole moments'
+        self.BdipCompareTitle = r'Induced dipole surface strength comparison'
+        self.BdipCompareTitleNoZoom = r'Induced dipole comparison'
+        self.BdipLabel = {axComp: r'$B^i_' + axComp + r'$ full view' for axComp in ['x', 'y', 'z']}
+        self.BdipLabelNoZoom = {axComp: r'$B^i_' + axComp + r'$' for axComp in ['x', 'y', 'z']}
+        self.BdipZoomLabel = {axComp: r'$B^i_' + axComp + r'$ inset' for axComp in ['x', 'y', 'z']}
+        self.BdipReLabel = {axComp: r'$\mathrm{Re}\{B^i_' + axComp + r'\}$ ($\si{nT}$)' for axComp in ['x', 'y', 'z']}
+        self.BdipImLabel = {axComp: r'$\mathrm{Im}\{B^i_' + axComp + r'\}$ ($\si{nT}$)' for axComp in ['x', 'y', 'z']}
 
         # InductOgram labels and axis scales
         self.plotTitles = ['Amplitude $A$', '$B_x$ component', '$B_y$ component', '$B_z$ component']
@@ -982,6 +1015,9 @@ class FigLblStruct:
         self.vSoundUnits = None
         self.volHeatUnits = None
         self.radHeatUnits = None
+        self.CpUnits = None
+        self.kThermUnits = None
+        self.alphaUnits = None
         self.wMult = None
         self.xMult = None
         self.phiMult = None
@@ -1012,6 +1048,11 @@ class FigLblStruct:
         self.sigmaIonosLabel = None
         self.HtidalLabel = None
         self.QradLabel = None
+        self.CpLabel = None
+        self.kThermLabel = None
+        self.alphaLabel = None
+        self.VPlabel = None
+        self.VSlabel = None
 
         # ExploreOgram setting and label dicts
         self.axisLabelsExplore = None
@@ -1064,6 +1105,9 @@ class FigLblStruct:
             self.volHeatUnits = r'W\,m^{-3}'
             self.radHeatUnits = r'W\,kg^{-1}'
             self.QseisVar = r'Q_S\,\omega^{-\gamma}'
+            self.CpUnits = r'J\,kg^{-1}\,K^{-1}'
+            self.kThermUnits = r'W\,m^{-1}\,K^{-1}'
+            self.alphaUnits = r'K^{-1}'
         else:
             self.rhoUnits = r'kg/m^3'
             self.sigUnits = r'S/m'
@@ -1074,6 +1118,9 @@ class FigLblStruct:
             self.volHeatUnits = r'W/m^3'
             self.radHeatUnits = r'W/kg'
             self.QseisVar = r'Q_S/\omega^\gamma'
+            self.CpUnits = r'J/kg/K'
+            self.kThermUnits = r'W/m/K'
+            self.alphaUnits = '1/K'
 
         self.PunitsFull = 'MPa'
         self.PmultFull = 1
@@ -1153,6 +1200,11 @@ class FigLblStruct:
         self.sigmaIonosLabel = r'Ionosphere conductivity ($\si{' + self.sigUnits + '}$)'
         self.HtidalLabel = r'Silicate tidal heating rate ($\si{' + self.volHeatUnits + '}$)'
         self.QradLabel = r'Silicate radiogenic heating rate ($\si{' + self.radHeatUnits + '}$)'
+        self.CpLabel = r'Heat capacity $C_P$ ($\si{' + self.CpUnits + '}$)'
+        self.kThermLabel = r'Thermal conductivity $k_T$ ($\si{' + self.kThermUnits + '}$)'
+        self.alphaLabel = r'Expansivity $\alpha$ ($\si{' + self.alphaUnits + '}$)'
+        self.VPlabel = r'P-wave speed $V_P$ ($\si{' + self.vSoundUnits + '}$)'
+        self.VSlabel = r'S-wave speed $V_S$ ($\si{' + self.vSoundUnits + '}$)'
 
         self.xLabelsInduct = {
             'sigma': self.sigLabel,
@@ -1244,14 +1296,17 @@ class FigSizeStruct:
         self.vgrav = None
         self.vmant = None
         self.vcore = None
-        self.vpvt4 = None
-        self.vpvt6 = None
+        self.vpvt = None
         self.vwedg = None
+        self.explore = None
         self.phaseSpaceSolo = None
         self.phaseSpaceCombo = None
         self.induct = None
         self.inductCombo = None
-        self.explore = None
+        self.Bdip = None
+        self.BdipCombo = None
+        self.BdipSolo = None
+        self.BdipSoloCombo = None
 
 
 """ Miscellaneous figure options """
@@ -1279,6 +1334,16 @@ class FigMiscStruct:
         self.DRAW_CONVECTION_BOUND = False  # Whether to draw a boundary line between convecting and conducting regions
         self.DRAW_POROUS_BOUND = False  # Whether to draw a boundary line between porous and non-porous materials
         self.DRAW_FeS_BOUND = False  # Whether to draw a boundary line between Fe and FeS in the core
+
+        # Silicate/core PT diagrams
+        self.nTgeo = None  # Number of temperature points to evaluate/plot for PT property plots
+        self.nPgeo = None  # Number of pressure points to evaluate/plot for PT property plots
+        self.nPgeoCore = None  # Subset of nPgeo to use for core, if present
+        self.PTtitleSize = None  # Font size to use for titles of PT plots (too-long titles don't get shown)
+        
+        # Induced dipole surface strength plots
+        self.BdipZoomMult = None  # Extra space to include around zoomed-in part, in fraction of largest value.
+        self.SHOW_INSET = False  # Whether to show the inset box for the zoom-in plot, when applicable
 
         # Inductogram phase space plots
         self.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.

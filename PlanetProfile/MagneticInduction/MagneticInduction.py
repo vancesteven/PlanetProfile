@@ -6,6 +6,7 @@ from scipy.integrate import solve_ivp as ODEsolve
 import scipy.special as sps
 from collections.abc import Iterable
 from glob import glob as FilesMatchingPattern
+from scipy.io import savemat, loadmat
 from PlanetProfile import _Test
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.MagneticInduction.Moments import Excitations
@@ -16,7 +17,7 @@ from MoonMag.symmetry_funcs import InducedAeList as AeList
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
-def MagneticInduction(Planet, Params):
+def MagneticInduction(Planet, Params, fNameOverride=None):
     """ Calculate induced magnetic moments for the body and prints them to disk.
 
         Requires Planet attributes:
@@ -25,7 +26,8 @@ def MagneticInduction(Planet, Params):
 
     """
 
-    if Planet.Do.VALID:
+    SKIP = False
+    if Planet.Do.VALID and Params.CALC_NEW_INDUCT:
         # Set Magnetic struct layer arrays as we need for induction calculations
         Planet = SetupInduction(Planet, Params)
 
@@ -39,11 +41,43 @@ def MagneticInduction(Planet, Params):
                 if Planet.index % 10 == 0:
                     log.profile(f'Point {Planet.index}/{Params.nModels} complete.')
 
+    elif Planet.Do.VALID:
+        # Reload induced moments from disk
+        if fNameOverride is None:
+            momentsFile = Params.DataFiles.inducedMomentsFile
+        else:
+            momentsFile = fNameOverride
+
+        if os.path.isfile(momentsFile):
+            reload = loadmat(momentsFile)
+            Planet.Magnetic.Benm_nT = reload['Benm_nT']
+            Planet.Magnetic.Binm_nT = reload['Binm_nT']
+            Planet.Magnetic.omegaExc_radps = reload['omegaExc_radps'][0]
+            Planet.Magnetic.BinmLin_nT = reload['BinmLin_nT'][0]
+            Planet.Magnetic.nLin = reload['nLin'][0]
+            Planet.Magnetic.mLin = reload['mLin'][0]
+            Planet.Magnetic.Bi1xyz_nT = {
+                'x': reload['Bi1x_nT'][0],
+                'y': reload['Bi1y_nT'][0],
+                'z': reload['Bi1z_nT'][0]
+            }
+            Planet.Magnetic.Aen = reload['Aen']
+            Planet.Magnetic.ionosBounds_m = reload['ionosBounds_m'][0]
+            Planet.Magnetic.calcedExc = np.char.strip(reload['calcedExc'])
+        else:
+            log.warning(f'CALC_NEW_INDUCT is False, but {momentsFile} was not found. ' +
+                        f'Skipping induction calculations.')
+            SKIP = True
+
     else:
+        SKIP = True
+
+    if SKIP:
         if Planet.Magnetic.ionosBounds_m is None:
             Planet.Magnetic.ionosBounds_m = [np.nan]
         if Planet.Magnetic.sigmaIonosPedersen_Sm is None:
             Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
+        Planet.Magnetic.calcedExc = []
 
     # Must return both Planet and Params in order to use common infrastructure
     # for unpacking parallel runs
@@ -60,10 +94,10 @@ def CalcInducedMoments(Planet, Params):
     # Get lists of n and m values for linearizing Binm after we calculate. Also needed for
     # asymmetric layer calculations, so we do this first.
     nMax = Planet.Magnetic.nprmMax + Planet.Magnetic.pMax
-    Planet.Magnetic.nLin = [n for n in range(1, nMax + 1) for _ in range(-n, n + 1)]
-    Planet.Magnetic.mLin = [m for n in range(1, nMax + 1) for m in range(-n, n + 1)]
-    nprmLin = [n for n in range(1, Planet.Magnetic.nprmMax + 1) for _ in range(-n, n + 1)]
-    mprmLin = [m for n in range(1, Planet.Magnetic.nprmMax + 1) for m in range(-n, n + 1)]
+    Planet.Magnetic.nLin = [n for n in range(1, nMax+1) for _ in range(-n, n+1)]
+    Planet.Magnetic.mLin = [m for n in range(1, nMax+1) for m in range(-n, n+1)]
+    nprmLin = [n for n in range(1, Planet.Magnetic.nprmMax+1) for _ in range(-n, n+1)]
+    mprmLin = [m for n in range(1, Planet.Magnetic.nprmMax+1) for m in range(-n, n+1)]
     Nnm = np.size(Planet.Magnetic.nLin)
 
     Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex_)
@@ -81,7 +115,7 @@ def CalcInducedMoments(Planet, Params):
             Q = np.array([SolveForQ(nprm, k_pm[i,:], Planet.Magnetic.rSigChange_m, Planet.Bulk.R_m,
                                     Params.Induct.EckhardtSolveMethod, rMin=Params.Induct.rMinODE)
                                     for i,omega in enumerate(Planet.Magnetic.omegaExc_radps)])
-            Planet.Magnetic.Aen[:,nprm] = Q * (nprm + 1) / nprm
+            Planet.Magnetic.Aen[:,nprm] = Q * (nprm+1) / nprm
             Planet.Magnetic.Binm_nT[:,:,nprm,:] = [Planet.Magnetic.Benm_nT[i,:,nprm,:] * Planet.Magnetic.Aen[i,nprm]
                                                    for i in range(Planet.Magnetic.nExc)]
 
@@ -93,15 +127,13 @@ def CalcInducedMoments(Planet, Params):
         Planet.Magnetic.Aen[:,1], Planet.Magnetic.Amp, AeArg \
             = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                      Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=1,
-                     writeout=((not Params.DO_INDUCTOGRAM) and (not Params.DO_EXPLOREOGRAM)),
-                     do_parallel=False)
+                     writeout=False, do_parallel=False)
         Planet.Magnetic.phase = -np.degrees(AeArg)
         for n in range(2, Planet.Magnetic.nprmMax):
             Planet.Magnetic.Aen[:,n], _, _ \
                 = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                          Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=n,
-                         writeout=((not Params.DO_INDUCTOGRAM) and (not Params.DO_EXPLOREOGRAM)),
-                         do_parallel=False)
+                         writeout=False, do_parallel=False)
 
         if Params.Sig.INCLUDE_ASYM:
             # Use a separate function for evaluating asymmetric induced moments, as Binm is not as simple as
@@ -110,8 +142,7 @@ def CalcInducedMoments(Planet, Params):
                                              Planet.Magnetic.omegaExc_radps, Planet.Magnetic.asymShape_m,
                                              Planet.Magnetic.gravShape_m, Planet.Magnetic.Benm_nT, 1/Planet.Bulk.R_m,
                                              Planet.Magnetic.nLin, Planet.Magnetic.mLin, Planet.Magnetic.pMax,
-                                             nprm_max=Planet.Magnetic.nprmMax,
-                                             writeout=((not Params.DO_INDUCTOGRAM) and (not Params.DO_EXPLOREOGRAM)),
+                                             nprm_max=Planet.Magnetic.nprmMax, writeout=False,
                                              do_parallel=False, Xid=Planet.Magnetic.Xid)
         else:
             # Multiply complex response by Benm to get Binm for spherically symmetric case
@@ -124,11 +155,40 @@ def CalcInducedMoments(Planet, Params):
         raise ValueError(f'Induction method "{Planet.Magnetic.inductMethod}" not defined.')
 
     # Get linear lists of Binm for more convenient post-processing
-    
     Planet.Magnetic.BinmLin_nT[:,:Nnm] \
         = np.array([[Planet.Magnetic.Binm_nT[iPeak,int(m<0),n,m]
                    for n, m in zip(Planet.Magnetic.nLin, Planet.Magnetic.mLin)]
                    for iPeak in range(Planet.Magnetic.nExc)])
+
+    # Get surface strength in IAU components for plotting, with conjugate phase to match
+    # Zimmer et al. (2000) phase convention
+    Bex, Bey, Bez = Benm2absBexyz(Planet.Magnetic.Benm_nT)
+    Planet.Magnetic.Bi1xyz_nT = {
+        'x': Bex * np.conj(Planet.Magnetic.Aen[:,1]),
+        'y': Bey * np.conj(Planet.Magnetic.Aen[:,1]),
+        'z': Bez * np.conj(Planet.Magnetic.Aen[:,1])
+    }
+
+    Planet.Magnetic.calcedExc = [key for key, CALCED in Params.Induct.excSelectionCalc.items()
+                                 if CALCED and Excitations.Texc_hr[Planet.bodyname][key] is not None]
+    # Save calculated magnetic moments to disk
+    if not Params.NO_SAVEFILE:
+        saveDict = {
+            'Benm_nT': Planet.Magnetic.Benm_nT,
+            'Binm_nT': Planet.Magnetic.Binm_nT,
+            'omegaExc_radps': Planet.Magnetic.omegaExc_radps,
+            'BinmLin_nT': Planet.Magnetic.BinmLin_nT,
+            'nLin': Planet.Magnetic.nLin,
+            'mLin': Planet.Magnetic.mLin,
+            'Bi1x_nT': Planet.Magnetic.Bi1xyz_nT['x'],
+            'Bi1y_nT': Planet.Magnetic.Bi1xyz_nT['y'],
+            'Bi1z_nT': Planet.Magnetic.Bi1xyz_nT['z'],
+            'Aen': Planet.Magnetic.Aen,
+            'ionosBounds_m': Planet.Magnetic.ionosBounds_m,
+            'calcedExc': Planet.Magnetic.calcedExc
+        }
+        savemat(Params.DataFiles.inducedMomentsFile, saveDict)
+        log.debug(f'Saved induced moments to file: {Params.DataFiles.inducedMomentsFile}')
 
     return Planet
 
@@ -154,7 +214,7 @@ class fn_dQdr:
 
     def __call__(self, r, Q):
         k = self.fn_k(r)
-        return -k**2 * r * (self.n+1) / (2*self.n + 1) / self.n * (Q - self.n/(self.n + 1))**2 - (2*self.n + 1) / r * Q
+        return -k**2 * r * (self.n+1) / (2*self.n+1) / self.n * (Q - self.n/(self.n+1))**2 - (2*self.n+1) / r * Q
 
 
 def SetupInduction(Planet, Params):
@@ -318,10 +378,10 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
         Texc_hr, omegaExc_radps, Benm_nT, B0_nT = EOSlist.loaded[BeLabel]
     else:
         if bodyname[:4] == 'Test':
-            fNames = [f'Be{np}xyz_Test' for np in range(1, nprmMax+1)]
+            fNames = [f'Be{npi}xyz_Test' for npi in range(1, nprmMax+1)]
             fPath = os.path.join(_Test, 'inductionData')
         else:
-            fNames = [f'Be{np}xyz_{bodyname}' for np in range(1, nprmMax+1)]
+            fNames = [f'Be{npi}xyz_{bodyname}' for npi in range(1, nprmMax+1)]
             fPath = os.path.join(bodyname, 'inductionData')
         # Append era and model info
         if era is not None:
