@@ -220,7 +220,7 @@ def SetupInit(Planet, Params):
     if Planet.Bulk.M_kg is None:
         Planet.Bulk.M_kg = Planet.Bulk.rho_kgm3 * (4/3*np.pi * Planet.Bulk.R_m**3)
     else:
-        if Planet.Bulk.rho_kgm3 is not None:
+        if Planet.Bulk.rho_kgm3 is not None and not Params.DO_EXPLOREOGRAM:
             log.warning('Both bulk mass and density were specified. Only one is required--' +
                         'density will be recalculated from bulk mass for consistency.')
         Planet.Bulk.rho_kgm3 = Planet.Bulk.M_kg / (4/3*np.pi * Planet.Bulk.R_m**3)
@@ -331,7 +331,10 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
     Planet.saveLabel = saveLabel
     Planet.tradeLabel = f'{label}, $C/MR^2\,{Planet.Bulk.Cmeasured}\pm{Planet.Bulk.Cuncertainty}$'
     Planet.label = label
-    inductBase = f'{Planet.name}_{Params.Induct.inductOtype}'
+    if Params.DO_INDUCTOGRAM:
+        inductBase = f'{Planet.name}_{Params.Induct.inductOtype}'
+    else:
+        inductBase = None
     DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, Planet.Ocean.comp, inductBase=inductBase,
                                    exploreAppend=exploreAppend)
     FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn,
