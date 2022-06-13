@@ -36,9 +36,10 @@ def full():
     Params = configParams
     Params.CALC_NEW = True
     Params.CALC_NEW_REF = True
-    Params.CALC_NEW_INDUC = True
+    Params.CALC_NEW_INDUCT = True
     Params.CALC_SEISMIC = True
     Params.CALC_CONDUCT = True
+    Params.DO_PARALLEL = True
     Params.RUN_ALL_PROFILES = False
     Params.COMPARE = False
     Params.NO_SAVEFILE = False
@@ -69,14 +70,14 @@ def full():
         # Verify that we can reload things as needed in each case
         Params.CALC_NEW = False
         Params.CALC_NEW_REF = False
-        Params.CALC_NEW_INDUC = False
+        Params.CALC_NEW_INDUCT = False
         TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanetN), Params)[0])
         TestPlanets[-1].saveLabel += ' RELOAD'
         tMarks = np.append(tMarks, time.time())
 
         Params.CALC_NEW = True
         Params.CALC_NEW_REF = True
-        Params.CALC_NEW_INDUC = True
+        Params.CALC_NEW_INDUCT = True
 
     testPlanet1.name = 'Test0'
     # Test that we can successfully run things not including parallelization options
@@ -129,10 +130,10 @@ def TestAllInductOgrams(TestPlanets, Params, tMarks):
     Params.SKIP_INNER = True
     for inductOtype in ['sigma', 'Tb', 'rho']:
         Params.Induct.inductOtype = inductOtype
-        _ = TestInductOgram(7, Params)
         Params.DO_PARALLEL = False
-        Induction = TestInductOgram(7, Params)
+        _ = TestInductOgram(7, Params)
         Params.DO_PARALLEL = True
+        Induction = TestInductOgram(7, Params)
         TestPlanets = np.append(TestPlanets, deepcopy(Induction))
         tMarks = np.append(tMarks, time.time())
 
@@ -142,10 +143,10 @@ def TestAllInductOgrams(TestPlanets, Params, tMarks):
 
     for inductOtype in ['phi']:
         Params.Induct.inductOtype = inductOtype
-        _ = TestInductOgram(11, Params)
         Params.DO_PARALLEL = False
-        Induction = TestInductOgram(11, Params)
+        _ = TestInductOgram(11, Params)
         Params.DO_PARALLEL = True
+        Induction = TestInductOgram(11, Params)
         TestPlanets = np.append(TestPlanets, deepcopy(Induction))
         tMarks = np.append(tMarks, time.time())
 
@@ -169,7 +170,7 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks):
         'rhoSilInput_kgm3': [2000, 4500],
         'wOcean_ppt': [0, 100],
         'Tb_K': [255, 273],
-        'ionosTop_km': [0, 50],
+        'ionosTop_km': [5, 50],
         'sigmaIonos_Sm': [1e-6, 1e-2],
         'silPhi_frac': [0, 0.8],
         'silPclosure_MPa': [200, 750],
@@ -181,7 +182,7 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks):
     waterlessExploreBds = {
         'xFeS': [0, 1],
         'rhoSilInput_kgm3': [2000, 4500],
-        'ionosTop_km': [0, 50],
+        'ionosTop_km': [5, 50],
         'sigmaIonos_Sm': [1e-6, 1e-2],
         'silPhi_frac': [0, 0.8],
         'silPclosure_MPa': [200, 750],
@@ -190,6 +191,7 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks):
         'qSurf_Wm2': [50e-3, 400e-3]
     }
 
+    log.info('Running exploreOgrams for icy bodies for all input types.')
     for xName in hydroExploreBds.keys():
         for yName in hydroExploreBds.keys():
             if xName != yName:
@@ -197,10 +199,10 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks):
                 Params.Explore.yName = yName
                 Params.Explore.xRange = hydroExploreBds[xName]
                 Params.Explore.yRange = hydroExploreBds[yName]
-                _ = TestExploreOgram(7, Params)
                 Params.DO_PARALLEL = False
-                Exploration = TestExploreOgram(7, Params)
+                _ = TestExploreOgram(7, Params)
                 Params.DO_PARALLEL = True
+                Exploration = TestExploreOgram(7, Params)
                 TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
                 tMarks = np.append(tMarks, time.time())
 
@@ -208,6 +210,7 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks):
                 TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
                 tMarks = np.append(tMarks, time.time())
 
+    log.info('Running exploreOgrams for waterless bodies for all input types.')
     for xName in waterlessExploreBds.keys():
         for yName in waterlessExploreBds.keys():
             if xName != yName:
@@ -215,10 +218,10 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks):
                 Params.Explore.yName = yName
                 Params.Explore.xRange = waterlessExploreBds[xName]
                 Params.Explore.yRange = waterlessExploreBds[yName]
-                _ = TestExploreOgram(5, Params)
                 Params.DO_PARALLEL = False
-                Exploration = TestExploreOgram(5, Params)
+                _ = TestExploreOgram(5, Params)
                 Params.DO_PARALLEL = True
+                Exploration = TestExploreOgram(5, Params)
                 TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
                 tMarks = np.append(tMarks, time.time())
 
