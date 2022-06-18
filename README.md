@@ -1,6 +1,8 @@
 # PlanetProfile v2.1
 Software framework for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data.
 
+This repository is mirrored at https://github.com/NASA-Planetary-Science/PlanetProfile; any pull requests should be submitted to https://github.com/vancesteven/PlanetProfile.
+
 ## Acknowledging PlanetProfile
 We want to hear about your work with PlanetProfile! Please consider sending us a message alerting us to your work (svance@jpl.caltech.edu). Suggested acknowledgement in publications: "Data used in this work were generated using the open source PlanetProfile software hosted on GitHub."
 
