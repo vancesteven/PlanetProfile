@@ -1108,7 +1108,7 @@ def PlotInductOgram(Induction, Params):
 
         for z, name, fLabel in zip(comboData, comboTitles, comboLabels):
             ax = axes[coords[fLabel]]
-            ax.title.set_text(name)
+            ax.set_title(name)
             zContours = [ax.contour(Induction.sigmaMean_Sm, Induction.D_km, z[i, ...],
                            colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                            linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels(fLabel, T))
@@ -1117,6 +1117,9 @@ def PlotInductOgram(Induction, Params):
                 [ax.clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                            for i, T in enumerate(Induction.Texc_hr.keys())]
+
+        if FigMisc.PLOT_V2021 and Induction.bodyname in ['Europa', 'Ganymede', 'Callisto']:
+            AddV2021points(Params.Induct, Induction.bodyname, 'sigma', allAxes)
 
         if Params.LEGEND:
             lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
@@ -1150,7 +1153,7 @@ def PlotInductOgram(Induction, Params):
 
             for z, name, fLabel in zip(comboData, comboTitles, comboLabels):
                 ax = axes[coords[fLabel]]
-                ax.title.set_text(name)
+                ax.set_title(name)
                 zContours = [ax.contour(Induction.x, Induction.y, z[i, ...],
                                         colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                         linewidths=Style.LW_Induction[T],
@@ -1159,6 +1162,9 @@ def PlotInductOgram(Induction, Params):
                 [ax.clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                            for i, T in enumerate(Induction.Texc_hr.keys())]
+
+            if FigMisc.PLOT_V2021 and Induction.bodyname in ['Europa', 'Ganymede', 'Callisto']:
+                AddV2021points(Params.Induct, Induction.bodyname, Params.Induct.inductOtype, allAxes)
 
             if Params.LEGEND:
                 lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
@@ -1192,10 +1198,10 @@ def PlotInductOgram(Induction, Params):
             [ax.set_xlim(FigLbl.sigLims) for ax in axes[1,:]]
             [ax.set_ylim(FigLbl.Dlims) for ax in axes[1,:]]
 
-            axes[0,0].title.set_text(comboTitles[0])
-            axes[1,0].title.set_text(comboTitles[0])
-            axes[0,1].title.set_text(comboTitles[-1])
-            axes[1,1].title.set_text(comboTitles[-1])
+            axes[0,0].set_title(comboTitles[0])
+            axes[1,0].set_title(comboTitles[0])
+            axes[0,1].set_title(comboTitles[-1])
+            axes[1,1].set_title(comboTitles[-1])
             zContours = [axes[0,0].contour(Induction.x, Induction.y, comboData[0][i, ...],
                                     colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                     linewidths=Style.LW_Induction[T],
@@ -1222,6 +1228,10 @@ def PlotInductOgram(Induction, Params):
             [axes[0,1].clabel(phaseContours[i], fmt=IndParams.GetCfmt(comboLabels[-1], T),
                        fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                        for i, T in enumerate(Induction.Texc_hr.keys())]
+
+            if FigMisc.PLOT_V2021 and Induction.bodyname in ['Europa', 'Ganymede', 'Callisto']:
+                AddV2021points(Params.Induct, Induction.bodyname, Params.Induct.inductOtype, axes[0,:])
+                AddV2021points(Params.Induct, Induction.bodyname, 'sigma', axes[1,:])
 
             if Params.LEGEND:
                 lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
@@ -1250,8 +1260,8 @@ def PlotInductOgram(Induction, Params):
 
         # Labels and titles
         fig.suptitle(FigLbl.inductionTitle)
-        axes[0].title.set_text(name)
-        axes[1].title.set_text(FigLbl.phaseTitle)
+        axes[0].set_title(name)
+        axes[1].set_title(FigLbl.phaseTitle)
         [ax.set_xlabel(FigLbl.sigMeanLabel) for ax in axes]
         [ax.set_ylabel(FigLbl.Dlabel) for ax in axes]
         [ax.set_xlim(FigLbl.sigLims) for ax in axes]
@@ -1278,6 +1288,9 @@ def PlotInductOgram(Induction, Params):
         else:
             fNameSigma = Params.FigureFiles.sigma[fLabel]
 
+        if FigMisc.PLOT_V2021 and Induction.bodyname in ['Europa', 'Ganymede', 'Callisto']:
+            AddV2021points(Params.Induct, Induction.bodyname, 'sigma', axes)
+
         if Params.LEGEND:
             lines = np.array([contour.legend_elements()[0][0] for contour in phaseContours])
             axes[1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
@@ -1297,8 +1310,8 @@ def PlotInductOgram(Induction, Params):
 
             # Labels and titles
             fig.suptitle(FigLbl.inductionTitle)
-            axes[0].title.set_text(name)
-            axes[1].title.set_text(FigLbl.phaseTitle)
+            axes[0].set_title(name)
+            axes[1].set_title(FigLbl.phaseTitle)
             [ax.set_xscale(FigLbl.wScale) for ax in axes]
             [ax.set_xlabel(FigLbl.wLabel) for ax in axes]
             [ax.set_ylabel(FigLbl.yLabelInduct) for ax in axes]
@@ -1319,6 +1332,9 @@ def PlotInductOgram(Induction, Params):
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(Induction.Texc_hr.keys())]
 
+            if FigMisc.PLOT_V2021 and Induction.bodyname in ['Europa', 'Ganymede', 'Callisto']:
+                AddV2021points(Params.Induct, Induction.bodyname, Params.Induct.inductOtype, axes)
+
             if Params.LEGEND:
                 lines = np.array([contour.legend_elements()[0][0] for contour in phaseContours])
                 axes[1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
@@ -1327,6 +1343,32 @@ def PlotInductOgram(Induction, Params):
             fig.savefig(Params.FigureFiles.induct[fLabel], format=FigMisc.figFormat, dpi=FigMisc.dpi)
             log.debug(f'Plot saved to file: {Params.FigureFiles.induct[fLabel]}')
             plt.close()
+
+    return
+
+
+def AddV2021points(IndParams, bodyname, inductOtype, axes):
+    if inductOtype == 'sigma' or inductOtype == 'Tb':
+        log.debug('Adding Vance et al. (2021) markers to inductogram.')
+        if inductOtype == 'sigma':
+            xVals = IndParams.V2021_sigma_Sm[bodyname]
+            yVals = IndParams.V2021_D_km[bodyname]
+        else:
+            xVals = IndParams.V2021_w_ppt[bodyname]
+            yVals = IndParams.V2021_Tb_K[bodyname]
+        UP = IndParams.V2021_zb_km[bodyname] == np.min(IndParams.V2021_zb_km[bodyname])
+        DOWN = np.logical_not(UP)
+        [ax.scatter(xVals[UP], yVals[UP], marker=IndParams.V2021_MS[bodyname][UP][0],
+                    facecolor=IndParams.V2021_FC[bodyname][UP],
+                    edgecolor=IndParams.V2021_EC[bodyname][UP],
+                    label=r'Vance et al.\ (2021) models') for ax in axes]
+        [ax.scatter(xVals[DOWN], yVals[DOWN], marker=IndParams.V2021_MS[bodyname][DOWN][0],
+                    facecolor=IndParams.V2021_FC[bodyname][DOWN],
+                    edgecolor=IndParams.V2021_EC[bodyname][DOWN]
+                    ) for ax in axes]
+    else:
+        log.warning(f'FigMisc.PLOT_V2021 is True but inductOtype "{inductOtype}" is '
+                    'not supported. Skipping.')
 
     return
 

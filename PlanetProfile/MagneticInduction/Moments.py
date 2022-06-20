@@ -59,7 +59,6 @@ class InductionStruct:
             self.comps = np.unique(self.compsList)
 
 
-
 class ExcitationsList:
     def __init__(self):
         self.nprmMax = 1

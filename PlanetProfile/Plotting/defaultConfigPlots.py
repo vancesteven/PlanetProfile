@@ -223,7 +223,7 @@ FigMisc.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but 
 FigMisc.NORMALIZED_SALINITIES = False  # Whether to normalize salinities to absolute concentrations relative to the saturation limit for each salt
 FigMisc.NORMALIZED_TEMPERATURES = False  # Whether to normalize ocean mean temperatures to specified maxima and minima for the colormap
 # Inductograms
-FigMisc.PLOT_V2021 = True  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
+FigMisc.PLOT_V2021 = False  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
 # Excitation spectra
 FigMisc.MAG_SPECTRA_PERIODS = True  # Plot against periods for magnetic spectra plots (or frequencies)
 FigMisc.MARK_TEXC = True  # Add lines marking the main excitation periods/frequencies on Ae1 plot

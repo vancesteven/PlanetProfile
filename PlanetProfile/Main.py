@@ -844,9 +844,14 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
             bodydir = bodyname
         Planet = importlib.import_module(f'{bodydir}.PP{loadname}InductOgram').Planet
         Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
-        reload = loadmat(Params.DataFiles.inductOgramFile)
+        loadFile = Params.DataFiles.inductOgramFile
     else:
-        reload = loadmat(fNameOverride)
+        loadFile = fNameOverride
+    if os.path.isfile(loadFile):
+        reload = loadmat(loadFile)
+    else:
+        raise FileNotFoundError(f'Attempted to reload inductogram, but {loadFile} was not found. ' +
+                                'Re-run with Params.CALC_NEW_INDUCT = True in configPP.py.')
 
     Induction = InductionResults
     Induction.bodyname = reload['bodyname'][0]

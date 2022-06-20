@@ -611,17 +611,61 @@ class InductOgramParamsStruct:
         self.oceanInterpMethod = 'linear'  # Interpolation method for determining ocean conductivities when REDUCED_INDUCT is True.
         self.nIntL = 5  # Number of ocean layers to use when REDUCED_INDUCT = 1
 
-        # Plot settings to match inductograms from Vance et al. (2021): https://doi.org/10.1029/2020JE006418
-        self.V2021_D_km = [91, 117, 96, 124,
-                           91, 117, 91, 119]
-        self.V2021_sigma_Sm = [0.4132, 0.4533, 3.3661, 3.7646,
-                               0.3651, 0.3855, 2.8862, 3.0760]
-        self.V2021_faceColors = [None, None, 'b', 'm',
-                                 None, None, 'c', '#b000ff']
-        self.V2021_edgeColors = ['b', 'm', 'k', 'k',
-                                 'c', '#b000ff', 'k', 'k']
-        self.V2021_symbols = ['^', 'v', '^', 'v',
-                              '^', 'v', '^', 'v']
+        # Plot settings to mark on inductograms after Vance et al. (2021): https://doi.org/10.1029/2020JE006418
+        self.V2021_zb_km = {
+            'Europa': np.array([5, 30, 5, 30,
+                                5, 30, 5, 30]),
+            'Ganymede': np.array([25, 92, 25, 92]),
+            'Callisto': np.array([99, 128, 99, 128])
+        }
+        self.V2021_D_km = {
+            'Europa': np.array([117, 91, 124, 96,
+                                117, 91, 119, 91]),
+            'Ganymede': np.array([442, 276, 458, 282]),
+            'Callisto': np.array([132, 21, 130, 21])
+        }
+        self.V2021_sigma_Sm = {
+            'Europa': np.array([0.4533, 0.4132, 3.7646, 3.3661,
+                                0.3855, 0.3651, 3.0760, 2.8862]),
+            'Ganymede': np.array([0.5166, 0.3322, 4.0699, 2.3476]),
+            'Callisto': np.array([0.2307, 0.0895, 1.5256, 0.6025])
+        }
+        self.V2021_comp = {
+            'Europa': np.array(['MgSO4', 'MgSO4', 'MgSO4', 'MgSO4',
+                                'Seawater', 'Seawater', 'Seawater', 'Seawater']),
+            'Ganymede': np.array(['MgSO4', 'MgSO4', 'MgSO4', 'MgSO4']),
+            'Callisto': np.array(['MgSO4', 'MgSO4', 'MgSO4', 'MgSO4'])
+        }
+        self.V2021_w_ppt = {
+            'Europa': np.array([10, 10, 100, 100,
+                                3.5165, 3.5165, 35.165, 35.165]),
+            'Ganymede': np.array([10, 10, 100, 100]),
+            'Callisto': np.array([10, 10, 100, 100])
+        }
+        self.V2021_Tb_K = {
+            'Europa': np.array([273.1, 270.4, 272.7, 269.8,
+                                272.5, 270.0, 270.8, 268.2]),
+            'Ganymede': np.array([270.7, 261.6, 270.2, 260.0]),
+            'Callisto': np.array([257.4, 250.8, 255.7, 250.8])
+        }
+        self.V2021_FC = {
+            'Europa': np.array(['None', 'None', 'm', 'b',
+                                'None', 'None', '#b000ff', 'c']),
+            'Ganymede': np.array(['None', 'None', 'm', 'b']),
+            'Callisto': np.array(['None', 'None', 'm', 'b'])
+        }
+        self.V2021_EC = {
+            'Europa': np.array(['m', 'b', 'k', 'k',
+                                '#b000ff', 'c', 'k', 'k']),
+            'Ganymede': np.array(['m', 'b', 'k', 'k']),
+            'Callisto': np.array(['m', 'b', 'k', 'k'])
+        }
+        self.V2021_MS = {
+            'Europa': np.array(['v', '^', 'v', '^',
+                                'v', '^', 'v', '^']),
+            'Ganymede': np.array(['v', '^', 'v', '^']),
+            'Callisto': np.array(['v', '^', 'v', '^'])
+        }
 
     def GetClevels(self, zName, Tname):
         if self.bodyname is None:
