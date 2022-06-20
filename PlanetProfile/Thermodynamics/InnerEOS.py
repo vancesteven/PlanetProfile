@@ -94,7 +94,7 @@ class PerplexEOSStruct:
                     P1D_MPa = EOS3D['P_MPa'][0]
                     T1D_K = EOS3D['T_K'][0]
                     intPts = (wFe_ppt, P1D_MPa, T1D_K)
-                    Peval_MPa, Teval_K = np.meshgrid(P1D_MPa, T1D_K)
+                    Peval_MPa, Teval_K = np.meshgrid(P1D_MPa, T1D_K, indexing='ij')
                     Peval_MPa = Peval_MPa.flatten()
                     Teval_K = Teval_K.flatten()
                     evalPts = np.array([wFeCore_ppt * np.ones_like(Peval_MPa), Peval_MPa, Teval_K]).T
@@ -106,13 +106,14 @@ class PerplexEOSStruct:
                     KS_GPa = RegularGridInterpolator(intPts, EOS3D['KS_GPa'], method='linear')(evalPts)
                     GS_GPa = RegularGridInterpolator(intPts, EOS3D['GS_GPa'], method='linear')(evalPts)
 
-                    rho_kgm3 = np.reshape(rho_kgm3, (np.size(P1D_MPa), -1))
-                    VP_kms = np.reshape(VP_kms, (np.size(P1D_MPa), -1))
-                    VS_kms = np.reshape(VS_kms, (np.size(P1D_MPa), -1))
-                    Cp_JkgK = np.reshape(Cp_JkgK, (np.size(P1D_MPa), -1))
-                    alpha_pK = np.reshape(alpha_pK, (np.size(P1D_MPa), -1))
-                    KS_GPa = np.reshape(KS_GPa, (np.size(P1D_MPa), -1))
-                    GS_GPa = np.reshape(GS_GPa, (np.size(P1D_MPa), -1))
+                    tableShape = (np.size(P1D_MPa), -1)
+                    rho_kgm3 = np.reshape(rho_kgm3, tableShape)
+                    VP_kms = np.reshape(VP_kms, tableShape)
+                    VS_kms = np.reshape(VS_kms, tableShape)
+                    Cp_JkgK = np.reshape(Cp_JkgK, tableShape)
+                    alpha_pK = np.reshape(alpha_pK, tableShape)
+                    KS_GPa = np.reshape(KS_GPa, tableShape)
+                    GS_GPa = np.reshape(GS_GPa, tableShape)
 
                     self.Pmin = np.min(P1D_MPa)
                     self.Pmax = np.max(P1D_MPa)
