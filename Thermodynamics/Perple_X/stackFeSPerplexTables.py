@@ -12,8 +12,8 @@ class PerplexEOS:
         # Get Fe wt% and S wt% from fpath
         fname = os.path.basename(fpath)
         # fname format: 'Fe###_S@@@_1.tab', where ### is iron wt% and @@@ is sulfur wt%
-        self.wFe_ppt = float(fpath[2:5]) * 10
-        self.wS_ppt = float(fpath[7:10]) * 10
+        self.wFe_ppt = float(os.path.basename(fpath)[2:5]) * 10
+        self.wS_ppt = float(os.path.basename(fpath)[7:10]) * 10
 
         # Load in Perple_X data. Note that all P, KS, and GS are stored as bar
         firstPT, secondPT, rho_kgm3, VP_kms, VS_kms, Cp_Jm3K, alpha_pK, KS_bar, GS_bar \
@@ -144,13 +144,14 @@ class PerplexEOS:
             self.alpha_pK = fn_alpha_pK(self.P_MPa, self.T_K, grid=True)
 
 
-# Assume we're in the same directory as the Perplex tables and get file list
-tableFiles = np.sort(glob('Fe*.tab'))
+# Note directory of Perplex tables and get file list
+tableDir = 'Fe_S_20220511'
+tableFiles = np.sort(glob(os.path.join(tableDir, 'Fe*.tab')))
 nTables = np.size(tableFiles)
 tables = np.empty(nTables, dtype=object)
 for i, tableFile in enumerate(tableFiles):
     print(f'Loading Perplex table: {tableFile}, {i+1} of {nTables}.')
-    tables[i] = PerplexEOS(tableFile, 13, nP=325, nT=325)
+    tables[i] = PerplexEOS(tableFile, 13, nP=300, nT=325)
 
 # Save .mat file with 3D grids for each variable
 outFname = 'Fe-S_3D_EOS.mat'
