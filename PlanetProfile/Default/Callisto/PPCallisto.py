@@ -14,7 +14,7 @@ Planet.Bulk.R_m = 2410.3e3
 Planet.Bulk.M_kg = 1.0759e23
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
-Planet.Bulk.Cmeasured = 0.3549
+Planet.Bulk.Cmeasured = 0.3549  # Value from Anderson et al. (2001): https://doi.org/10.1006/icar.2001.6664
 Planet.Bulk.Cuncertainty = 0.0042
 Planet.Bulk.Tb_K = 262.0
 
@@ -49,7 +49,9 @@ Planet.Core.rhoFe_kgm3 = 8000.0
 Planet.Core.rhoFeS_kgm3 = 5150.0
 Planet.Core.rhoPoFeFCC = 5455.0
 Planet.Core.QScore = 1e4
-Planet.Core.coreEOS = 'Fe075_S025.tab'
+Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
+Planet.Core.wFe_ppt = 750
+
 Planet.Core.xFeSmeteoritic = 0.0405
 Planet.Core.xFeS = 0.55
 Planet.Core.xFeCore = 0.0279
@@ -59,5 +61,10 @@ Planet.Core.xH2O = 0.0035
 Planet.Seismic.lowQDiv = 1.0
 
 """ Magnetic induction """
+Planet.Magnetic.J2 = 32.7e-6  # Cnm values from Anderson et al. (2001): https://doi.org/10.1006/icar.2001.6664
+Planet.Magnetic.C22 = 10.2e-6
+Planet.Magnetic.S22 = -1.1e-6
+Planet.Magnetic.C21 = 0.0
+Planet.Magnetic.S21 = 0.0
 Planet.Magnetic.ionosBounds_m = 100e3
 Planet.Magnetic.sigmaIonosPedersen_Sm = 800/100e3

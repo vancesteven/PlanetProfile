@@ -51,7 +51,9 @@ Planet.Core.rhoFe_kgm3 = 8000.0
 Planet.Core.rhoFeS_kgm3 = 5150.0
 Planet.Core.rhoPoFeFCC = 5455.0
 Planet.Core.QScore = 1e4
-Planet.Core.coreEOS = 'Fe085_S015.tab'
+Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
+Planet.Core.wFe_ppt = 850
+
 Planet.Core.xFeSmeteoritic = 0.0405
 Planet.Core.xFeS = 0.55
 Planet.Core.xFeCore = 0.0279

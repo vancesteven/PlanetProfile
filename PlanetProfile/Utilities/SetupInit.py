@@ -257,7 +257,8 @@ def SetupInit(Planet, Params):
         # Iron core if present
         if Planet.Do.Fe_CORE:
             Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
-                                          kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe)
+                                          kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
+                                          wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt)
 
     # Ensure ionosphere bounds and conductivity are in a format we expect
     if Planet.Magnetic.ionosBounds_m is None:

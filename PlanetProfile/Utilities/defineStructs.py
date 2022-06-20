@@ -232,7 +232,7 @@ class CoreSubstruct:
         self.rhoMin_kgm3 = 5150  # Assumed minimum possible density for the core in kg/m^3. Sets maximum core size.
         self.rhoPoFeFCC = None  # Density of pyrrhottite plus face-centered cubic iron
         self.sigmaCore_Sm = 1e6  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
-        self.coreEOS = 'Fe075_S025.tab'  # Default core EOS to use
+        self.coreEOS = 'Fe-S_3D_EOS.mat'  # Default core EOS to use
         self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermFe_WmK)
         # Derived quantities
@@ -247,7 +247,8 @@ class CoreSubstruct:
         self.Rrange_m = None  # Core radius range for compatible MoI
         self.Rtrade_m = None  # Array of core radii for compatible MoIs
         self.Rset_m = None  # Value to set the core outer radius to, when we have already found it via e.g. using CONSTANT_INNER_DENSITY = True. Used to recycle SilicateLayers when we don't want to do an MoI search with the EOS functions.
-        self.xS_ppt = None  # Mass fraction of sulfur in the core in ppt
+        self.wS_ppt = None  # Mass fraction of sulfur in the core in ppt
+        self.wFe_ppt = None  # Mass fraction of iron in the core in ppt
         # 2021-12-30: Judging by usage of various different fractional variables in the literature and in
         # the Matlab code, these x variables should be molar fractions (# this species/total # molecules).
         self.xFeSmeteoritic = None  # CM2 mean from Jarosewich 1990
@@ -1552,6 +1553,7 @@ class ConstantsStruct:
         self.PmaxLiquid_MPa = 2250.0  # Maximum plausible pressure for liquid water oceans
         self.sigmaDef_Sm = 1e-8  # Default minimum conductivity to use for layers with NaN or 0 conductivity
         self.sigmaMin_Sm = 1e-8  # Threshold conductivity below which we set to the default to reduce computational overhead
+        self.wFeDef_ppt = 750  # Mass concentration in ppt of iron in core -- default to use when unset but 3D EOS file is specified.
         # Default settings for ionosphere when altitude or conductivity is set, but not the other
         self.ionosTopDefault_km = 100  # Default ionosphere cutoff altitude in km
         self.sigmaIonosPedersenDefault_Sm = 1e-4  # Default ionospheric Pedersen conductivity in S/m

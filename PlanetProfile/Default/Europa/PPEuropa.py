@@ -17,9 +17,9 @@ Planet.Bulk.R_m = 1561.0e3
 Planet.Bulk.M_kg = 4.7991e22
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
-Planet.Bulk.Cmeasured = 0.346
+Planet.Bulk.Cmeasured = 0.346  # Value from Anderson et al. (1998): https://doi.org/10.1126/science.281.5385.2019
 Planet.Bulk.Cuncertainty = 0.005
-Planet.Bulk.Tb_K = 268.305 # 30 km ice with 1.0x Seawater
+Planet.Bulk.Tb_K = 268.305  # 30 km ice with 1.0x Seawater
 
 """ Layer step settings """
 Planet.Steps.nIceI = 200
@@ -60,7 +60,9 @@ Planet.Core.rhoFe_kgm3 = 8000.0
 Planet.Core.rhoFeS_kgm3 = 5150.0
 Planet.Core.rhoPoFeFCC = 5455.0
 Planet.Core.QScore = 1e4
-Planet.Core.coreEOS = 'Fe080_S020.tab'
+Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
+Planet.Core.wFe_ppt = 800
+
 Planet.Core.xFeSmeteoritic = 0.0405
 #Planet.Core.xFeS = 0.55
 Planet.Core.xFeS = 0.882  # Matching Hamish's 5377 kg/m^3 for constant inner density
@@ -71,7 +73,7 @@ Planet.Core.xH2O = 0.0035
 Planet.Seismic.lowQDiv = 1.0
 
 """ Magnetic induction """
-Planet.Bulk.J2 = 435.5e-6
+Planet.Bulk.J2 = 435.5e-6  # J2 and C22 values from Anderson et al. (1998): https://doi.org/10.1126/science.281.5385.2019
 Planet.Bulk.C22 = 131.0e-6
 Planet.Magnetic.ionosBounds_m = 100e3
 Planet.Magnetic.sigmaIonosPedersen_Sm = 30/100e3

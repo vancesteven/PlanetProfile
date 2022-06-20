@@ -46,7 +46,7 @@ def TestBayes(bodyname):
         'qSurf_Wm2': 135e-3,
         'compOcean': 'MgSO4',
         'compSil': 'CM_hydrous_differentiated_Ganymede_Core100Fe000S_excluding_fluid_properties.tab',
-        'compFe': 'Fe100_S000.tab'
+        'wFeCore_ppt': 1000
     }
 
     # Loop over each option setting, one at a time. Multiple can be set at once but

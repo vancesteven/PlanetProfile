@@ -40,12 +40,6 @@ Planet.Do.POROUS_ROCK = False
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'CM_hydrous_differentiated_Ganymede_Core080Fe020S_excluding_fluid_properties.tab'  # (2900 for Q= 100 GW, 3240 for Q= 220 GW)
 Planet.Sil.rhoSilWithCore_kgm3 = 3539.0  # This is the 1-bar, 275 K value from CV3hy1wt_678_1.tab
-# Planet.Sil.mantleEOS = 'Simple_CI_HS_green_PP.tab'  # CI chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
-# Planet.Sil.rhoSilWithCore_kgm3 = 2975
-# Planet.Sil.mantleEOS = 'Simple_CM_HS_green_PP.tab'  # CM chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
-# Planet.Sil.rhoSilWithCore_kgm3 = 2975
-# Planet.Sil.mantleEOS = 'Simple_CV_HS_green_PP.tab'  # CV chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
-# Planet.Sil.rhoSilWithCore_kgm3 = 2975
 
 """ Core assumptions """
 Planet.Do.Fe_CORE = True
@@ -53,7 +47,9 @@ Planet.Core.rhoFe_kgm3 = 8000.0
 Planet.Core.rhoFeS_kgm3 = 5150.0
 Planet.Core.rhoPoFeFCC = 5455.0
 Planet.Core.QScore = 1e4
-Planet.Core.coreEOS = 'Fe080_S020.tab'
+Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
+Planet.Core.wFe_ppt = 800
+
 Planet.Core.xFeSmeteoritic = 0.0405
 Planet.Core.xFeS = 0.55
 Planet.Core.xFeCore = 0.0279
@@ -63,6 +59,8 @@ Planet.Core.xH2O = 0.0035
 Planet.Seismic.lowQDiv = 1.0
 
 """ Magnetic induction """
+Planet.Bulk.J2 = 435.5e-6
+Planet.Bulk.C22 = 131.0e-6
 Planet.Magnetic.ionosBounds_m = 100e3
 Planet.Magnetic.sigmaIonosPedersen_Sm = 30/100e3
 

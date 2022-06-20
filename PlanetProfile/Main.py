@@ -1399,6 +1399,10 @@ def AssignPlanetVal(Planet, name, val):
     elif name == 'compFe':
         Planet.Core.coreEOS = val
         Planet.Do.CONSTANT_INNER_DENSITY = False
+    elif name == 'wFeCore_ppt':
+        Planet.Core.wFe_ppt = val
+        Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
+        Planet.Do.CONSTANT_INNER_DENSITY = False
     else:
         log.warning(f'No defined behavior for Planet setting named "{name}". Returning unchanged.')
 

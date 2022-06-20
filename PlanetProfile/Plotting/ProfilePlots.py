@@ -535,7 +535,15 @@ def PlotWedge(PlanetList, Params):
 
         # Construct labels
         if Planet.Do.Fe_CORE:
-            Planet.Core.xS_frac = (100 - int(Planet.Core.coreEOS[2:5])) / 100
+            if Planet.Core.wS_ppt is None:
+                if Planet.Core.wFe_ppt is None:
+                    wFeCore_ppt = Constants.wFeDef_ppt
+                else:
+                    wFeCore_ppt = Planet.Core.wFe_ppt
+                wScore_ppt = 1e3 - wFeCore_ppt
+            else:
+                wScore_ppt = Planet.Core.wS_ppt
+            Planet.Core.xS_frac = wScore_ppt / 1e3
             if FigLbl.w_IN_WTPCT:
                 xStr = f'{Planet.Core.xS_frac * 1e3 * FigLbl.wMult:.0f}'
             else:
@@ -799,7 +807,8 @@ def PlotPvT(PlanetList, Params):
         INCLUDING_CORE = FigMisc.PVT_INCLUDE_CORE and Planet.Do.Fe_CORE
         if INCLUDING_CORE and Planet.Core.EOS is None:
             Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
-                        kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe)
+                        kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
+                        wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt)
 
         fig = plt.figure(figsize=FigSize.vpvt)
         grid = GridSpec(2, 4)
