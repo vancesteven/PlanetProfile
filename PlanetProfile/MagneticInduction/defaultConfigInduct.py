@@ -3,7 +3,7 @@ import numpy as np
 from PlanetProfile.Utilities.defineStructs import InductOgramParamsStruct, \
     ExcitationSpectrumParamsStruct, ConductLayerParamsStruct, Constants
 
-configInductVersion = 1  # Integer number for config file version. Increment when new settings are added to the default config file.
+configInductVersion = 2  # Integer number for config file version. Increment when new settings are added to the default config file.
 inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
 testBody = 'Europa'  # Assign test profiles to use excitation moments for this body
 dftC = 5  # Default number of contours to include in induct-o-grams
@@ -26,7 +26,8 @@ def GetInductParams(inductOtype, cLevels, dftC, cFmt):
 
     # Excitation spectrum settings
     ExcSpecParams.nOmegaPts = 100  # Resolution in log frequency space for magnetic excitation spectra
-    ExcSpecParams.nOmegaFine = 1000  # Fine-spacing resolution for log frequency spectrum
+    ExcSpecParams.interpMethod = 'cubic'  # Interpolation method for complex response amplitudes in Fourier spectrum
+    ExcSpecParams.Tmin_hr = 1  # Cutoff period to limit range of Fourier space shown
 
     # Inductogram calculation and plot settings
     InductParams.colorType = 'zb'  # What parameter to use for color of points in phase space plots. Options are "Tmean", "zb".

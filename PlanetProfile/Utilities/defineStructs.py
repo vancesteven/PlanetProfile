@@ -336,6 +336,15 @@ class MagneticSubstruct:
         self.mLin = None  # m values corresponding to each n in nLin
         self.BinmLin_nT = None  # Linear form of Binm_nT, with shape (nExc, (nPrmMax+pMax+1)**2 - 1), such that BinmLin[i, j] = Binm[i, int(m[j]<0), n[j], m[j]]
         self.Bi1xyz_nT = {'x': None, 'y': None, 'z': None}  # Induced dipole surface strength in IAU components
+        # Fourier spectrum calculations
+        self.FT_LOADED = False  # Whether Fourier spectrum data has been loaded and calculated
+        self.Be1xyzFT_nT = {'x': None, 'y': None, 'z': None}  # Complex dipole vector components of excitation spectrum
+        self.TexcFT_hr = None  # Evaluation periods for vector components above
+        self.TmaxFT_hr = None  # Cutoff point for evaluation of Fourier spectrum
+        self.extModelFT = None  # External field model used to evaluate Fourier spectrum
+        self.coordTypeFT = None  # Coordinates of vector components for Fourier spectrum
+        self.Ae1FT = None  # Complex amplitude for dipole induced field, for Fourier spectrum
+        self.Bi1xyzFT_nT = {'x': None, 'y': None, 'z': None}  # Complex induced dipole moments in Fourier spectrum
 
 
 """ Main body profile info--settings and variables """
@@ -481,9 +490,11 @@ class DataFilesSubstruct:
         self.fNameInduct = os.path.join(self.inductPath, saveBase)
         self.inductLayersFile = self.fNameInduct + '_inductLayers.txt'
         self.inducedMomentsFile = self.fNameInduct + '_inducedMoments.mat'
-        self.fNameInductOgram = os.path.join(self.path, 'inductionData', inductBase)
+        self.fNameInductOgram = os.path.join(self.inductPath, inductBase)
         self.inductOgramFile = self.fNameInductOgram + f'{comp}_inductOgram.mat'
         self.inductOgramSigmaFile = self.fNameInductOgram + '_sigma_inductOgram.mat'
+        self.BeFTdata = os.path.join('inductionData', 'Be1xyzFTdata.mat')
+        self.FTdata = os.path.join(self.inductPath, 'Bi1xyzFTdata.mat')
 
 
 # Construct filenames for figures etc.
@@ -525,6 +536,7 @@ class FigureFilesSubstruct:
         induct = 'InductOgram'
         sigma = 'InductOgramSigma'
         Bdip = 'Bdip'
+        MagFT = 'MagSpectrum'
         # Construct Figure Filenames
         self.vwedg = self.fName + vwedg + xtn
         self.vpore = self.fName + vpore + xtn
@@ -544,6 +556,7 @@ class FigureFilesSubstruct:
         self.sigma =         {zType: f'{self.fNameInduct}_{sigma}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
         self.sigmaOnly =     {zType: f'{self.fNameInduct}_{sigma}Only_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
         self.Bdip =         {axComp: f'{self.fNameInduct}_{Bdip}{axComp}{xtn}' for axComp in ['x', 'y', 'z', 'all']}
+        self.MagFT =                 f'{self.fNameInduct}_{MagFT}{xtn}'
 
 
 """ General parameter options """
@@ -640,12 +653,13 @@ class ConductLayerParamsStruct:
         self.asymFstring = 'Shape_4piNormDepth'
 
 
-""" Excitation spectrum settings (WIP) """
+""" Excitation spectrum settings """
 class ExcitationSpectrumParamsStruct:
     # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
     def __init__(self):
         self.nOmegaPts = 100  # Resolution in log frequency space for magnetic excitation spectra
-        self.nOmegaFine = 1000  # Fine-spacing resolution for log frequency spectrum
+        self.interpMethod = 'cubic'  # Interpolation method for complex response amplitudes in Fourier spectrum
+        self.Tmin_hr = None  # Cutoff period in hr to limit Fourier space plots to
 
 
 """ ExploreOgram input parameters struct """
@@ -773,6 +787,11 @@ class ColorStruct:
         # Saturation & color brightness ("value" in HSV) values for salinity/conductivity axis bounds
         self.fresh = [0.5, 1.0]
         self.salty = [1.0, 0.5]
+        
+        # Fourier spectrum plots
+        self.BeiFT = {'x': None, 'y': None, 'z': None}
+        self.Ae1FT = None
+        self.TexcFT = None
 
 
     def SetCmaps(self):
@@ -880,6 +899,12 @@ class StyleStruct:
         self.MAlims = None  # Alpha channel (opacity) limits for markers 
         self.LS_BdipInset = '-'  # Linestyle for inset box 
         self.LW_BdipInset = 0.5  # Linewidth for inset box
+        
+        # Fourier spectrum plots
+        self.LS_FT = None  # Linestyle of Fourier spectrum plots
+        self.LW_FT = None  # Linewidth for Ae1, Bx, By, Bz in Fourier spectrum plots
+        self.LWTexc_FT = None  # Linewidth for optional lines marking dominant excitations in Ae1 plot
+        
 
     def GetLW(self, wOcean_ppt, wMinMax_ppt):
         linewidth = interp1d(wMinMax_ppt, self.LWlims,
@@ -978,6 +1003,17 @@ class FigLblStruct:
         self.ionosTopLabel = r'Ionosphere maximum altitude ($\si{km}$)'
         self.silPclosureLabel = r'Silicate pore closure pressure ($\si{MPa}$)'
         self.icePclosureLabel = r'Ice pore closure pressure ($\si{MPa}$)'
+        
+        # Magnetic excitation spectrum labels
+        self.MagFTtitle = r'magnetic Fourier spectra'
+        self.TexcLabel = r'Excitation period $T_\mathrm{exc}$ ($\si{hr}$)'
+        self.fExcLabel = r'Excitation frequency $f_\mathrm{exc}$ ($\si{Hz}$)'
+        self.BeFTtitle = r'Excitation amplitude'
+        self.BeFTlabel = r'$|B^e_{x,y,z}|$ ($\si{nT}$)'
+        self.Ae1FTtitle = r'Dipolar complex response amplitude'
+        self.Ae1FTlabel = r'$|\mathcal{A}^e_1|$'
+        self.BiFTtitle = r'Induced dipole surface strength'
+        self.BiFTlabel = r'$|B^i_{x,y,z}|$ ($\si{nT}$)'
 
         # Induction parameter-dependent settings
         self.phaseSpaceTitle = None
@@ -1307,6 +1343,7 @@ class FigSizeStruct:
         self.BdipCombo = None
         self.BdipSolo = None
         self.BdipSoloCombo = None
+        self.MagFT = None
 
 
 """ Miscellaneous figure options """

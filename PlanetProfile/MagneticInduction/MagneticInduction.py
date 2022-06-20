@@ -7,7 +7,7 @@ import scipy.special as sps
 from collections.abc import Iterable
 from glob import glob as FilesMatchingPattern
 from scipy.io import savemat, loadmat
-from PlanetProfile import _Test
+from PlanetProfile import _Test, _Defaults
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq as GeodesyNorm2chipq, \
@@ -49,21 +49,7 @@ def MagneticInduction(Planet, Params, fNameOverride=None):
             momentsFile = fNameOverride
 
         if os.path.isfile(momentsFile):
-            reload = loadmat(momentsFile)
-            Planet.Magnetic.Benm_nT = reload['Benm_nT']
-            Planet.Magnetic.Binm_nT = reload['Binm_nT']
-            Planet.Magnetic.omegaExc_radps = reload['omegaExc_radps'][0]
-            Planet.Magnetic.BinmLin_nT = reload['BinmLin_nT'][0]
-            Planet.Magnetic.nLin = reload['nLin'][0]
-            Planet.Magnetic.mLin = reload['mLin'][0]
-            Planet.Magnetic.Bi1xyz_nT = {
-                'x': reload['Bi1x_nT'][0],
-                'y': reload['Bi1y_nT'][0],
-                'z': reload['Bi1z_nT'][0]
-            }
-            Planet.Magnetic.Aen = reload['Aen']
-            Planet.Magnetic.ionosBounds_m = reload['ionosBounds_m'][0]
-            Planet.Magnetic.calcedExc = np.char.strip(reload['calcedExc'])
+            Planet = ReloadMoments(Planet, momentsFile)
         else:
             log.warning(f'CALC_NEW_INDUCT is False, but {momentsFile} was not found. ' +
                         f'Skipping induction calculations.')
@@ -79,6 +65,11 @@ def MagneticInduction(Planet, Params, fNameOverride=None):
             Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
         Planet.Magnetic.calcedExc = []
 
+    if (not SKIP) and Params.PLOT_MAG_SPECTRUM and not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM):
+        Planet = FourierSpectrum(Planet, Params)
+    else:
+        Planet.Magnetic.FT_LOADED = False
+    
     # Must return both Planet and Params in order to use common infrastructure
     # for unpacking parallel runs
     return Planet, Params
@@ -190,6 +181,28 @@ def CalcInducedMoments(Planet, Params):
         savemat(Params.DataFiles.inducedMomentsFile, saveDict)
         log.debug(f'Saved induced moments to file: {Params.DataFiles.inducedMomentsFile}')
 
+    return Planet
+
+
+def ReloadMoments(Planet, momentsFile):
+    """ Reload induced moments from disk """
+    
+    reload = loadmat(momentsFile)
+    Planet.Magnetic.Benm_nT = reload['Benm_nT']
+    Planet.Magnetic.Binm_nT = reload['Binm_nT']
+    Planet.Magnetic.omegaExc_radps = reload['omegaExc_radps'][0]
+    Planet.Magnetic.BinmLin_nT = reload['BinmLin_nT'][0]
+    Planet.Magnetic.nLin = reload['nLin'][0]
+    Planet.Magnetic.mLin = reload['mLin'][0]
+    Planet.Magnetic.Bi1xyz_nT = {
+        'x': reload['Bi1x_nT'][0],
+        'y': reload['Bi1y_nT'][0],
+        'z': reload['Bi1z_nT'][0]
+    }
+    Planet.Magnetic.Aen = reload['Aen']
+    Planet.Magnetic.ionosBounds_m = reload['ionosBounds_m'][0]
+    Planet.Magnetic.calcedExc = np.char.strip(reload['calcedExc'])
+    
     return Planet
 
 
@@ -623,3 +636,103 @@ def normFactor_4pi(n, m):
         use of infrastructure from MoonMag.
     """
     return np.sqrt((2*n+1) * sps.factorial(n - abs(m)) / sps.factorial(n + abs(m)))
+
+
+def FourierSpectrum(Planet, Params):
+    """ Load a Fourier spectrum of magnetic excitations applied to the body,
+        calculate the spherically symmetric induction amplitude across this
+        spectrum, and calculate the surface field amplitude for each component.
+    """
+
+    # Load Fourier spectrum data from disk
+    Planet = LoadFTdata(Planet, Params)
+    
+    if Planet.Magnetic.FT_LOADED:
+        if Params.CALC_NEW_INDUCT:
+            log.debug('Calculating magnetic Fourier spectrum.')
+            
+            # Define a smaller subset of periods over which to evaluate complex response
+            # amplitudes to save on computation time (behavior will be smooth, we'll interpolate)
+            TexcReduced_hr = np.geomspace(np.min(Planet.Magnetic.TexcFT_hr), np.max(Planet.Magnetic.TexcFT_hr),
+                                          Params.MagSpectrum.nOmegaPts)
+            omegaReduced_radps = 2 * np.pi / TexcReduced_hr / 3600
+            # Evaluate complex amplitudes
+            Ae1FTreduced, _, _ \
+                = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
+                         omegaReduced_radps, 1/Planet.Bulk.R_m, nn=1,
+                         writeout=False, do_parallel=Params.DO_PARALLEL)
+
+            # Interpolate to full excitation spectrum
+            Planet.Magnetic.Ae1FT = spi.interp1d(TexcReduced_hr, Ae1FTreduced, kind=Params.MagSpectrum.interpMethod
+                                                 )(Planet.Magnetic.TexcFT_hr)
+
+            # Get complex induced dipole components
+            Planet.Magnetic.Bi1xyzFT_nT = {vComp: Planet.Magnetic.Be1xyzFT_nT[vComp] * Planet.Magnetic.Ae1FT
+                                           for vComp in ['x', 'y', 'z']}
+            
+            if not Params.NO_SAVEFILE:
+                # Save to disk
+                saveDict = {
+                    'Ae1FT': Planet.Magnetic.Ae1FT,
+                    'Bi1x_nT': Planet.Magnetic.Bi1xyzFT_nT['x'],
+                    'Bi1y_nT': Planet.Magnetic.Bi1xyzFT_nT['y'],
+                    'Bi1z_nT': Planet.Magnetic.Bi1xyzFT_nT['z']
+                }
+                savemat(Params.DataFiles.FTdata, saveDict)
+                log.debug(f'Saved magnetic Fourier spectrum to file: {Params.DataFiles.FTdata}')
+        else:
+            ReloadSpectrum(Planet, Params)
+
+    return Planet
+
+
+def LoadFTdata(Planet, Params):
+    """ Load Fourier spectrum data for this body """
+
+    # Get path to excitation spectrum file
+    if Planet.bodyname == 'Test':
+        BeFTdataPath = os.path.join(_Test, Params.DataFiles.BeFTdata)
+    else:
+        BeFTdataPath = os.path.join(_Defaults, Planet.bodyname, Params.DataFiles.BeFTdata)
+
+    if os.path.isfile(BeFTdataPath):
+        BeFTdata = loadmat(BeFTdataPath)
+        Planet.Magnetic.TexcFT_hr = BeFTdata['T_h'][0]
+        Planet.Magnetic.TmaxFT_hr = BeFTdata['Tmax'][0,0]
+        Planet.Magnetic.extModelFT = BeFTdata['magModelDescrip'][0]
+        Planet.Magnetic.coordTypeFT = BeFTdata['coordType'][0]
+        Planet.Magnetic.Be1xyzFT_nT = {
+            'x': BeFTdata['B1x_nT'][0],
+            'y': BeFTdata['B1y_nT'][0],
+            'z': BeFTdata['B1z_nT'][0],
+        }
+        log.debug(f'Loaded magnetic excitation spectrum from file: {BeFTdataPath}')
+        Planet.Magnetic.FT_LOADED = True
+        
+    else:
+        log.warning(f'PLOT_MAG_SPECTRUM is True but {BeFTdataPath} was not found. Skipping.')
+        Planet.Magnetic.FT_LOADED = False
+
+    return Planet
+
+
+def ReloadSpectrum(Planet, Params):
+    """ Reload Fourier spectrum calculations from disk """
+
+    if os.path.isfile(Params.DataFiles.FTdata):
+        FTdata = loadmat(Params.DataFiles.FTdata)
+        Planet.Magnetic.Ae1FT = FTdata['Ae1FT'][0]
+        Planet.Magnetic.Bi1xyzFT_nT = {
+            'x': FTdata['Bi1x_nT'][0],
+            'y': FTdata['Bi1y_nT'][0],
+            'z': FTdata['Bi1z_nT'][0],
+        }
+        log.debug(f'Loaded magnetic Fourier spectrum from file: {Params.DataFiles.FTdata}')
+        Planet.Magnetic.FT_LOADED = True
+
+    else:
+        log.warning(f'Magnetic Fourier spectrum was intended to be reloaded, but {Params.DataFiles.FTdata} ' +
+                    f'was not found. Re-run with CALC_NEW_INDUCT = True in configPP.py.')
+        Planet.Magnetic.FT_LOADED = False
+
+    return Planet

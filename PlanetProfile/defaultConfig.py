@@ -4,7 +4,7 @@ Overridden by any settings contained within PPBody.py files.
 """
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 5  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 6  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 Params = ParamsStruct()
 Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
@@ -54,9 +54,9 @@ Params.LEGEND =           True  # Whether to plot legends
 
 # Magnetic induction plot settings
 Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question
-Params.PLOT_FFT =                True  # Whether to show plots of fourier space (WIP)
 Params.INDUCTOGRAM_IN_PROGRESS = False  # Whether we are currently working on constructing an inductogram
 Params.COMBINE_BCOMPS =          False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp -- same for Bdip components
+Params.PLOT_MAG_SPECTRUM =       False  # Whether to show plots of fourier space for magnetic induction
 
 # Parameter exploration plot settings
 Params.DO_EXPLOREOGRAM = False  # Whether to evaluate and/or plot an exploreogram for the body in question

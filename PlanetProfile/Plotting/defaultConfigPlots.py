@@ -3,7 +3,7 @@ import numpy as np
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 4  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 5  # Integer number for config file version. Increment when new settings are added to the default config file.
 Color = ColorStruct()
 Style = StyleStruct()
 FigLbl = FigLblStruct()
@@ -100,6 +100,15 @@ Color.salty = [1.0, 0.5]
 # Assign colormaps to use the settings above
 Color.SetCmaps()
 
+# Color options for Fourier spectrum plots
+Color.BeiFT = {
+    'x': 'blue',
+    'y': 'black',
+    'z': 'green'
+}
+Color.Ae1FT = 'purple'
+Color.TexcFT = 'red'
+
 
 """ Figure style options """
 Style.GRIDS = False  # Whether to plot grids
@@ -131,6 +140,12 @@ Style.MS_dip = {'synodic': '*', 'orbital': 'o', 'true anomaly': 'P', 'synodic ha
 Style.MAlims = [0, 1]  # Alpha channel (opacity) limits for markers
 Style.LS_BdipInset = '-'  # Linestyle for inset box 
 Style.LW_BdipInset = 0.5  # Linewidth for inset box
+
+# Fourier spectrum plots
+Style.LS_FT = '-'  # Linestyle of Fourier spectrum plots
+Style.LW_FT = 0.75  # Linewidth for Ae1, Bx, By, Bz in Fourier spectrum plots
+Style.LS_TexcFT = '-'  # Linestyle for optional lines marking dominant excitations in Ae1 plot
+Style.LW_TexcFT = 0.5  # Linewidth for above
 
 
 """ Figure labels """
@@ -167,6 +182,7 @@ FigSize.Bdip = (5, 3)
 FigSize.BdipCombo = (6, 9)
 FigSize.BdipSolo = (2.5, 3)
 FigSize.BdipSoloCombo = (3, 9)
+FigSize.MagFT = (6, 10)
 
 
 """ Miscellaneous figure options """
@@ -207,10 +223,10 @@ FigMisc.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but 
 FigMisc.NORMALIZED_SALINITIES = False  # Whether to normalize salinities to absolute concentrations relative to the saturation limit for each salt
 FigMisc.NORMALIZED_TEMPERATURES = False  # Whether to normalize ocean mean temperatures to specified maxima and minima for the colormap
 # Inductograms
-FigMisc.PLOT_CONTOURS = True  # Contours or surfaces
 FigMisc.PLOT_V2021 = True  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
 # Excitation spectra
-FigMisc.DO_PER = True  # Convert frequency axes to periods for FFT plots
+FigMisc.MAG_SPECTRA_PERIODS = True  # Plot against periods for magnetic spectra plots (or frequencies)
+FigMisc.MARK_TEXC = True  # Add lines marking the main excitation periods/frequencies on Ae1 plot
 
 # Legends
 FigMisc.REFS_IN_LEGEND = True  # Hydrosphere plot: Whether to include reference profiles in legend

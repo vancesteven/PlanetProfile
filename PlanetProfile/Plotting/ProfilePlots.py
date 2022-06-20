@@ -15,6 +15,7 @@ from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Utilities.SetupInit import SetupFilenames
 from PlanetProfile.Utilities.defineStructs import Constants
+from PlanetProfile.MagneticInduction.Moments import Excitations
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -1615,5 +1616,90 @@ def PlotComplexBdip(PlanetList, Params):
                 fig.savefig(Params.FigureFiles.Bdip[axComp], format=FigMisc.figFormat, dpi=FigMisc.dpi)
                 log.debug(f'Induced dipole surface strength plot saved to file: {Params.FigureFiles.Bdip[axComp]}')
                 plt.close()
+
+    return
+
+
+def PlotMagSpectrum(PlanetList, Params):
+    """ Plot Fourier spectra of magnetic excitations, complex response
+        amplitude, and induced dipole components.
+    """
+
+    axComps = ['x', 'y', 'z']
+    # Get first entry in PlanetList for which FT_LOADED is True
+    if PlanetList[0].Magnetic.FT_LOADED:
+        mainPlanet = PlanetList[0]
+    else:
+        mainPlanet = next(Planet for Planet in PlanetList if Planet.Magnetic.FT_LOADED)
+
+    # Create figure
+    fig = plt.figure(figsize=FigSize.MagFT)
+    grid = GridSpec(3, 1)
+    axes = np.array([fig.add_subplot(grid[i, 0]) for i in range(3)])
+    if Style.GRIDS:
+        [ax.grid() for ax in axes]
+        [ax.set_axisbelow(True) for ax in axes]
+
+    # Labels and titles
+    if Params.MagSpectrum.Tmin_hr is None:
+        Tmin_hr = np.min(mainPlanet.Magnetic.TexcFT_hr)
+    else:
+        Tmin_hr = Params.MagSpectrum.Tmin_hr
+    Tmax_hr = np.minimum(np.max(mainPlanet.Magnetic.TexcFT_hr), mainPlanet.Magnetic.TmaxFT_hr)
+    Texc_hr = np.array(list(Excitations.Texc_hr[mainPlanet.bodyname].values()), dtype=np.float_)
+    Texc_hr = Texc_hr[np.isfinite(Texc_hr)]
+    if FigMisc.MAG_SPECTRA_PERIODS:
+        freqLabel = FigLbl.TexcLabel
+        freqVar = mainPlanet.Magnetic.TexcFT_hr
+        freqLims = [Tmin_hr, Tmax_hr]
+        mainExc = np.sort(Texc_hr)
+    else:
+        freqLabel = FigLbl.fExcLabel
+        freqVar = 1 / mainPlanet.Magnetic.TexcFT_hr / 3600
+        freqLims = [1 / Tmax_hr / 3600, 1 / Tmin_hr / 3600]
+        mainExc = np.sort(1 / Texc_hr / 3600)
+    [ax.set_xlim(freqLims) for ax in axes]
+    [ax.set_xlabel(freqLabel) for ax in axes]
+    [ax.set_xscale('log') for ax in axes]
+    axes[1].set_ylim([0, 1])
+    axes[0].set_ylabel(FigLbl.BeFTlabel)
+    axes[1].set_ylabel(FigLbl.Ae1FTlabel)
+    axes[2].set_ylabel(FigLbl.BiFTlabel)
+    axes[0].set_title(FigLbl.BeFTtitle)
+    axes[1].set_title(FigLbl.Ae1FTtitle)
+    axes[2].set_title(FigLbl.BiFTtitle)
+    [ax.set_yscale('log') for ax in [axes[0], axes[2]]]
+    if mainPlanet.Magnetic.coordTypeFT is not None:
+        FTtitle = f'{mainPlanet.name} {FigLbl.MagFTtitle}, {mainPlanet.Magnetic.coordTypeFT} coordinates'
+    else:
+        FTtitle = f'{mainPlanet.name} {FigLbl.MagFTtitle}'
+    fig.suptitle(FTtitle)
+
+    # Plot the data
+    [axes[0].plot(freqVar, np.abs(mainPlanet.Magnetic.Be1xyzFT_nT[vComp]), label=f'$B^e_{vComp}$',
+                  color=Color.BeiFT[vComp], linestyle=Style.LS_FT, linewidth=Style.LW_FT) for vComp in axComps]
+    [axes[2].plot(freqVar, np.abs(mainPlanet.Magnetic.Bi1xyzFT_nT[vComp]), label=f'$B^i_{vComp}$',
+                  color=Color.BeiFT[vComp], linestyle=Style.LS_FT, linewidth=Style.LW_FT) for vComp in axComps]
+    if np.size(PlanetList) > 1 and Params.COMPARE:
+        # Only plot comparisons on amplitude plot
+        [axes[1].plot(freqVar, np.abs(Planet.Magnetic.Ae1FT), label=Planet.label,
+                      color=Color.Ae1FT, linestyle=Style.LS_FT, linewidth=Style.LW_FT) 
+         for Planet in PlanetList if Planet.Magnetic.FT_LOADED and Planet.bodyname == mainPlanet.bodyname]
+    else:
+        axes[1].plot(freqVar, np.abs(mainPlanet.Magnetic.Ae1FT), label=r'$\mathcal{A}^e_1$',
+                      color=Color.Ae1FT, linestyle=Style.LS_FT, linewidth=Style.LW_FT)
+    if FigMisc.MARK_TEXC:
+        axes[1].plot([mainExc[0], mainExc[0]], [0, 1], label=r'Dominant $T_\mathrm{exc}$',
+                     color=Color.TexcFT, linestyle=Style.LS_TexcFT, linewidth=Style.LW_TexcFT)
+        [axes[1].plot([Tmark, Tmark], [0, 1], color=Color.TexcFT, linestyle=Style.LS_TexcFT, 
+                      linewidth=Style.LW_TexcFT) for Tmark in mainExc[1:]]
+
+    if Params.LEGEND:
+        [ax.legend() for ax in axes]
+
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.MagFT, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.debug(f'Magnetic Fourier spectra plot saved to file: {Params.FigureFiles.MagFT}')
+    plt.close()
 
     return
