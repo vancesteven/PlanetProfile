@@ -89,7 +89,7 @@ Params.Temps = [250 252.5 255 260 265 270 273];
 Params.wrefLine = '--';
 
 
-Planet.Cmeasured = 0.3115;
+Planet.Cmeasured = 0.3105;
 Planet.Cuncertainty = 0.0028;
 %note: Schubert et al. 2004 cite the Anderson C/MR2 as 0.3115±0.0028.  This
 %is incorrect, as the value cited everywhere else is consistent with the
