@@ -290,7 +290,7 @@ def simple():
     Params.RUN_ALL_PROFILES = False
     Params.COMPARE = False
     Params.DO_INDUCTOGRAM = False
-    Params.DO_EXPLOREOGRAM = True
+    Params.DO_EXPLOREOGRAM = False
     Params.DO_PARALLEL = False
     Params.SKIP_INDUCTION = False
 
