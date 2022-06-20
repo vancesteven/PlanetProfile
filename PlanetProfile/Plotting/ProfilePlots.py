@@ -639,6 +639,11 @@ def PlotWedge(PlanetList, Params):
                                                fc=Color.clathConv, lw=Style.LW_wedge, ec=clathConvBd))
                 else:
                     # Clathrates in an underplate in this case, always conductive
+                    # Conductive ice I at the surface
+                    ax.add_patch(Wedge((0.5, 0), R_km/rMax_km, ang1, ang2,
+                                       width=Planet.dzIceI_km/rMax_km,
+                                       fc=Color.iceIcond, lw=Style.LW_wedge, ec=iceConvBd))
+                    # Clathrate underplate
                     ax.add_patch(Wedge((0.5,0), (R_km - Planet.zClath_km)/rMax_km, ang1, ang2,
                                        width=Planet.dzClath_km/rMax_km,
                                        fc=Color.clathCond, lw=Style.LW_wedge, ec=clathConvBd))
