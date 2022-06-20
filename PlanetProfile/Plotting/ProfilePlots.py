@@ -847,7 +847,7 @@ def PlotPvT(PlanetList, Params):
             fig.suptitle(f'{Planet.name}{FigLbl.PvTtitleSil}')
             iCore = np.zeros_like(Planet.phase).astype(bool)
             iInner = iSil
-        Pgeo = Planet.P_MPa[iInner] * FigLbl.PmultFull
+        Pgeo = Planet.P_MPa[iInner]
         Tgeo = Planet.T_K[iInner]
         Pmin = np.min(Pgeo)
         Pmax = np.max(Pgeo)
@@ -856,12 +856,12 @@ def PlotPvT(PlanetList, Params):
         if INCLUDING_CORE:
             nPsil = FigMisc.nPgeo - FigMisc.nPgeoCore
             nPcore = FigMisc.nPgeoCore
-            Pcore = np.linspace(np.min(Planet.P_MPa[iCore] * FigLbl.PmultFull), Pmax, nPcore)
+            Pcore = np.linspace(np.min(Planet.P_MPa[iCore]), Pmax, nPcore)
         else:
             nPsil = FigMisc.nPgeo
             Pcore = np.empty(0)
-        Psil = np.linspace(Pmin, np.max(Planet.P_MPa[iSil] * FigLbl.PmultFull), nPsil)
-        Pinner = np.concatenate((Psil, Pcore))
+        Psil = np.linspace(Pmin, np.max(Planet.P_MPa[iSil]), nPsil)
+        Pinner = np.concatenate((Psil, Pcore)) * FigLbl.PmultFull
         Tinner = np.linspace(Tmin, Tmax, FigMisc.nTgeo)
 
         # Get data to plot
@@ -908,7 +908,7 @@ def PlotPvT(PlanetList, Params):
         fig.colorbar(GS, ax=axes[1,3])
 
         # Plot geotherm on top of colormaps
-        [ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm,
+        [ax.plot(Tgeo, Pgeo * FigLbl.PmultFull, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm,
                  color=Color.geotherm) for ax in axf]
 
         plt.tight_layout()
