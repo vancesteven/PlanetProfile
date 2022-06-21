@@ -18,9 +18,9 @@ from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 log = logging.getLogger('PlanetProfile')
 
 def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
-                EXTRAP=False, FORCE_NEW=False):
+                EXTRAP=False, FORCE_NEW=False, MELT=False):
     oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
-                              phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW)
+                              phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT)
     if oceanEOS.ALREADY_LOADED:
         log.debug(f'{wOcean_ppt} ppt {compstr} EOS already loaded. Reusing existing EOS.')
         oceanEOS = EOSlist.loaded[oceanEOS.EOSlabel]
@@ -36,7 +36,7 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
 
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
-                 phaseType=None, EXTRAP=False, FORCE_NEW=False):
+                 phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False):
         if elecType is None:
             self.elecType = 'Vance2018'
         else:
@@ -53,8 +53,15 @@ class OceanEOSStruct:
             self.PHASE_LOOKUP = True
         else:
             self.PHASE_LOOKUP = False
+        # Add ID for melting curve EOS
+        if MELT:
+            meltStr = f'melt{np.max(P_MPa)}'
+            meltPrint = 'melting curve '
+        else:
+            meltStr = ''
+            meltPrint = ''
 
-        self.EOSlabel = f'{compstr}{wOcean_ppt}{elecType}{rhoType}{scalingType}{phaseType}{EXTRAP}'
+        self.EOSlabel = f'{meltStr}{compstr}{wOcean_ppt}{elecType}{rhoType}{scalingType}{phaseType}{EXTRAP}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, FORCE_NEW=FORCE_NEW)
 
@@ -72,7 +79,7 @@ class OceanEOSStruct:
                 wStr = '0.0'
             else:
                 wStr = f'{wOcean_ppt:.1f}'
-            log.debug(f'Loading EOS for {wStr} ppt {compstr} with ' +
+            log.debug(f'Loading {meltPrint}EOS for {wStr} ppt {compstr} with ' +
                       f'P_MPa = [{self.Pmin:.1f}, {self.Pmax:.1f}, {self.deltaP:.2f}], ' +
                       f'T_K = [{self.Tmin:.1f}, {self.Tmax:.1f}, {self.deltaT:.2f}], ' +
                       f'for [min, max, step] with EXTRAP = {self.EXTRAP}.')

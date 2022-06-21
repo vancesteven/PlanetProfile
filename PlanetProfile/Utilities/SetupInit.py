@@ -156,7 +156,7 @@ def SetupInit(Planet, Params):
         Pmelt_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.PfreezeUpper_MPa, Planet.PfreezeRes_MPa)
         Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa,
                                            np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11), None,
-                                           phaseType=Planet.Ocean.phaseType, FORCE_NEW=True)
+                                           phaseType=Planet.Ocean.phaseType, FORCE_NEW=True, MELT=True)
 
     # Make sure convection checking outputs are set if we won't be modeling them
     if Planet.Do.NO_ICE_CONVECTION:
