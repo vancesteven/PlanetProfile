@@ -155,6 +155,14 @@ class PerplexEOSStruct:
                     P1D_MPa, self.deltaP = np.linspace(self.Pmin, self.Pmax, lenP, retstep=True)
                     T1D_K, self.deltaT = np.linspace(self.Tmin, self.Tmax, lenT, retstep=True)
 
+                    # Set unphysical values to NaN so they will be caught by the next step (for all but alpha, which can cross zero)
+                    rho_kgm3[rho_kgm3 <= 0] = np.nan
+                    VP_kms[VP_kms <= 0] = np.nan
+                    VS_kms[VS_kms <= 0] = np.nan
+                    Cp_Jm3K[Cp_Jm3K <= 0] = np.nan
+                    KS_bar[KS_bar <= 0] = np.nan
+                    GS_bar[GS_bar <= 0] = np.nan
+
                     # Interpolate dependent variables where the values are NaN
                     PTpts = (Plin_MPa, Tlin_K)
                     thisVarValid = np.isfinite(rho_kgm3)
@@ -226,6 +234,7 @@ class PerplexEOSStruct:
 
                 P_MPa = P1D_MPa
                 T_K = T1D_K
+
                 # Assign temporary functions we will wrap with porosity if modeled
                 self.ufn_rho_kgm3 = RectBivariateSpline(P1D_MPa, T1D_K, rho_kgm3)
                 self.ufn_VP_kms = RectBivariateSpline(P1D_MPa, T1D_K, VP_kms)
