@@ -216,6 +216,7 @@ FigMisc.DRAW_IONOS_BOUND = False  # Whether to draw a boundary line around the i
 FigMisc.DRAW_CONVECTION_BOUND = False  # Whether to draw a boundary line between convecting and conducting regions
 FigMisc.DRAW_POROUS_BOUND = False  # Whether to draw a boundary line between porous and non-porous materials
 FigMisc.DRAW_FeS_BOUND = True  # Whether to draw a boundary line between Fe and FeS in the core
+FigMisc.minzbRratio_frac = 0.05  # Fraction of total body radius for ice shell and ocean thickness, above which ice shell ticks will automatically switch on (overrides WEDGE_ICE_TICKS)
 
 # Silicate/core PT diagrams
 FigMisc.nTgeo = 80  # Number of temperature points to evaluate/plot for PT property plots

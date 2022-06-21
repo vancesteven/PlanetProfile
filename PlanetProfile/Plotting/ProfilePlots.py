@@ -684,7 +684,7 @@ def PlotWedge(PlanetList, Params):
             # Ocean layer
             # @@@@@@@@@@@
             if Planet.D_km > 0:
-                if FigMisc.WEDGE_ICE_TICKS:
+                if FigMisc.WEDGE_ICE_TICKS or (Planet.zb_km/R_km >= FigMisc.minzbRratio_frac and Planet.D_km/R_km >= FigMisc.minzbRratio_frac):
                     rTicks.append(R_km - Planet.zb_km)
                     rTickRefs.append((R_km - Planet.zb_km)/rMax_km)
 
