@@ -861,17 +861,27 @@ def PlotPvT(PlanetList, Params):
             nPsil = FigMisc.nPgeo
             Pcore = np.empty(0)
         Psil = np.linspace(Pmin, np.max(Planet.P_MPa[iSil]), nPsil)
-        Pinner = np.concatenate((Psil, Pcore)) * FigLbl.PmultFull
         Tinner = np.linspace(Tmin, Tmax, FigMisc.nTgeo)
 
         # Get data to plot
-        rhoPlot = Planet.Sil.EOS.fn_rho_kgm3(Psil, Tinner, grid=True)
-        CpPlot = Planet.Sil.EOS.fn_Cp_JkgK(Psil, Tinner, grid=True)
-        alphaPlot = Planet.Sil.EOS.fn_alpha_pK(Psil, Tinner, grid=True)
-        VPplot = Planet.Sil.EOS.fn_VP_kms(Psil, Tinner, grid=True)
-        VSplot = Planet.Sil.EOS.fn_VS_kms(Psil, Tinner, grid=True)
-        KSplot = Planet.Sil.EOS.fn_KS_GPa(Psil, Tinner, grid=True)
-        GSplot = Planet.Sil.EOS.fn_GS_GPa(Psil, Tinner, grid=True)
+        rhoSil = Planet.Sil.EOS.fn_rho_kgm3(Psil, Tinner, grid=True)
+        CpSil = Planet.Sil.EOS.fn_Cp_JkgK(Psil, Tinner, grid=True)
+        alphaSil = Planet.Sil.EOS.fn_alpha_pK(Psil, Tinner, grid=True)
+        VPsil = Planet.Sil.EOS.fn_VP_kms(Psil, Tinner, grid=True)
+        VSsil = Planet.Sil.EOS.fn_VS_kms(Psil, Tinner, grid=True)
+        KSsil = Planet.Sil.EOS.fn_KS_GPa(Psil, Tinner, grid=True)
+        GSsil = Planet.Sil.EOS.fn_GS_GPa(Psil, Tinner, grid=True)
+
+        # Plot colormaps of Perple_X data
+        PsilScaled = Psil * FigLbl.PmultFull
+        rhoPlotSil =   axes[0,0].pcolormesh(Tinner, PsilScaled, rhoSil, cmap=Color.PvTsilCmap)
+        CpPlotSil =    axes[1,0].pcolormesh(Tinner, PsilScaled, CpSil, cmap=Color.PvTsilCmap)
+        alphaPlotSil = axes[1,1].pcolormesh(Tinner, PsilScaled, alphaSil, cmap=Color.PvTsilCmap)
+        VPplotSil =    axes[0,2].pcolormesh(Tinner, PsilScaled, VPsil, cmap=Color.PvTsilCmap)
+        VSplotSil =    axes[1,2].pcolormesh(Tinner, PsilScaled, VSsil, cmap=Color.PvTsilCmap)
+        KSplotSil =    axes[0,3].pcolormesh(Tinner, PsilScaled, KSsil, cmap=Color.PvTsilCmap)
+        GSplotSil =    axes[1,3].pcolormesh(Tinner, PsilScaled, GSsil, cmap=Color.PvTsilCmap)
+
         if INCLUDING_CORE:
             rhoCore = Planet.Core.EOS.fn_rho_kgm3(Pcore, Tinner, grid=True)
             CpCore = Planet.Core.EOS.fn_Cp_JkgK(Pcore, Tinner, grid=True)
@@ -881,31 +891,43 @@ def PlotPvT(PlanetList, Params):
             KScore = Planet.Core.EOS.fn_KS_GPa(Pcore, Tinner, grid=True)
             GScore = Planet.Core.EOS.fn_GS_GPa(Pcore, Tinner, grid=True)
 
-            rhoPlot = np.vstack((rhoPlot, rhoCore))
-            CpPlot = np.vstack((CpPlot, CpCore))
-            alphaPlot = np.vstack((alphaPlot, alphaCore))
-            VPplot = np.vstack((VPplot, VPcore))
-            VSplot = np.vstack((VSplot, VScore))
-            KSplot = np.vstack((KSplot, KScore))
-            GSplot = np.vstack((GSplot, GScore))
+            # Plot colormaps of core data
+            PcoreScaled = Pcore * FigLbl.PmultFull
+            rhoPlotCore =   axes[0,0].pcolormesh(Tinner, PcoreScaled, rhoCore, cmap=Color.PvTcoreCmap)
+            CpPlotCore =    axes[1,0].pcolormesh(Tinner, PcoreScaled, CpCore, cmap=Color.PvTcoreCmap)
+            alphaPlotCore = axes[1,1].pcolormesh(Tinner, PcoreScaled, alphaCore, cmap=Color.PvTcoreCmap)
+            VPplotCore =    axes[0,2].pcolormesh(Tinner, PcoreScaled, VPcore, cmap=Color.PvTcoreCmap)
+            VSplotCore =    axes[1,2].pcolormesh(Tinner, PcoreScaled, VScore, cmap=Color.PvTcoreCmap)
+            KSplotCore =    axes[0,3].pcolormesh(Tinner, PcoreScaled, KScore, cmap=Color.PvTcoreCmap)
+            GSplotCore =    axes[1,3].pcolormesh(Tinner, PcoreScaled, GScore, cmap=Color.PvTcoreCmap)
 
-        # Plot colormaps of Perple_X data
-        rho =   axes[0,0].pcolormesh(Tinner, Pinner, rhoPlot, cmap=Color.innerCmapName)
-        Cp =    axes[1,0].pcolormesh(Tinner, Pinner, CpPlot, cmap=Color.innerCmapName)
-        alpha = axes[1,1].pcolormesh(Tinner, Pinner, alphaPlot, cmap=Color.innerCmapName)
-        VP =    axes[0,2].pcolormesh(Tinner, Pinner, VPplot, cmap=Color.innerCmapName)
-        VS =    axes[1,2].pcolormesh(Tinner, Pinner, VSplot, cmap=Color.innerCmapName)
-        KS =    axes[0,3].pcolormesh(Tinner, Pinner, KSplot, cmap=Color.innerCmapName)
-        GS =    axes[1,3].pcolormesh(Tinner, Pinner, GSplot, cmap=Color.innerCmapName)
+            # Add core colorbars for each plot
+            cbarsCore = [
+                fig.colorbar(rhoPlotCore, ax=axes[0,0]),
+                fig.colorbar(CpPlotCore, ax=axes[1,0]),
+                fig.colorbar(alphaPlotCore, ax=axes[1,1]),
+                fig.colorbar(VPplotCore, ax=axes[0,2]),
+                fig.colorbar(VSplotCore, ax=axes[1,2]),
+                fig.colorbar(KSplotCore, ax=axes[0,3]),
+                fig.colorbar(GSplotCore, ax=axes[1,3])
+            ]
 
-        # Add colorbars for each plot
-        fig.colorbar(rho, ax=axes[0,0])
-        fig.colorbar(Cp, ax=axes[1,0])
-        fig.colorbar(alpha, ax=axes[1,1])
-        fig.colorbar(VP, ax=axes[0,2])
-        fig.colorbar(VS, ax=axes[1,2])
-        fig.colorbar(KS, ax=axes[0,3])
-        fig.colorbar(GS, ax=axes[1,3])
+            if FigLbl.PVT_CBAR_LABELS:
+                [cbar.ax.set_title(FigLbl.core) for cbar in cbarsCore]
+
+        # Add colorbars for each silicate plot (second, so that silicate bar appears closest to the plot)
+        cbarsSil = [
+            fig.colorbar(rhoPlotSil, ax=axes[0,0]),
+            fig.colorbar(CpPlotSil, ax=axes[1,0]),
+            fig.colorbar(alphaPlotSil, ax=axes[1,1]),
+            fig.colorbar(VPplotSil, ax=axes[0,2]),
+            fig.colorbar(VSplotSil, ax=axes[1,2]),
+            fig.colorbar(KSplotSil, ax=axes[0,3]),
+            fig.colorbar(GSplotSil, ax=axes[1,3])
+        ]
+
+        if FigLbl.PVT_CBAR_LABELS:
+            [cbar.ax.set_title(FigLbl.sil) for cbar in cbarsSil]
 
         # Plot geotherm on top of colormaps
         [ax.plot(Tgeo, Pgeo * FigLbl.PmultFull, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm,
