@@ -1135,7 +1135,7 @@ def CalcMoIWithEOS(Planet, Params):
         nSilFinal = Planet.Steps.nSilMax * np.ones_like(indsSilValid).astype(np.int_)
         Ccore_kgm2 = 0
 
-        C_kgm2 = np.zeros(Planet.Steps.iSilStart + Planet.Steps.nSilMax)
+        C_kgm2 = np.zeros(Planet.Steps.iSilStart + Planet.Steps.nOceanMax)
 
     # Find contribution to axial moment of inertia C from each silicate layer
     dCfromSil_kgm2 = 8*np.pi/15 * rhoSil_kgm3 * (rSil_m[:,:-1]**5 - rSil_m[:,1:]**5)
