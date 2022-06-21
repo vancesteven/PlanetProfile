@@ -65,7 +65,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
                    'no conductive lid will be modeled.')
     if phaseMid != oceanEOS.fn_phase(Pmid_MPa, Tconv_K):
         if abs(phaseMid) != Constants.phaseClath:
-            iceType = f'ice {phaseConv(phaseMid)}'
+            iceType = f'ice {PhaseConv(phaseMid)}'
             suggestion = 'Try adjusting Tb_K values to achieve a possible configuration.'
         else:
             iceType = f'clathrate'
