@@ -783,7 +783,6 @@ class ColorStruct:
         self.PALE_SILICATES = False  # Whether to use a lighter color scheme for silicate layers, or a more "orangey" saturated one
         self.geotherm = None  # Color to use for geotherm in silicate/core PT plots
         self.BdipInset = None  # Color for inset box of surface induced dipole strength plots
-        self.innerCmapName = None  # Colormap used for PT property plots
 
         # Wedge diagram color options
         self.none = '#FFFFFF00'
@@ -825,6 +824,14 @@ class ColorStruct:
         self.FeS = None
         self.Fe = None
 
+        # Cmap settings for PvT plots
+        self.PvTsilCmapName = None
+        self.PvTsilHi = None
+        self.PvTsilLo = None
+        self.PvTcoreCmapName = None
+        self.PvTcoreHi = None
+        self.PvTcoreLo = None
+
         self.cmapName = {}  # Colormaps for inductogram phase space plots, hydrosphere plots, etc
         self.cmapBounds = {}  # Select only a subset of the available colormap, if we choose to
         self.Tbounds_K = [245.0, 300.0]  # Set temperature bounds to use for ocean colormap normalization
@@ -853,7 +860,8 @@ class ColorStruct:
                                                       self.silPorousTop, self.silPorousBot)
             self.silCondCmap = cmasher.get_sub_cmap(self.silCondCmapName, self.silCondTop, self.silCondBot)
         self.silConvCmap = cmasher.get_sub_cmap(self.silConvCmapName, self.silConvTop, self.silConvBot)
-        self.innerCmap = get_cmap(self.innerCmapName)
+        self.PvTsilCmap = cmasher.get_sub_cmap(self.PvTsilCmapName, self.PvTsilLo, self.PvTsilHi)
+        self.PvTcoreCmap = cmasher.get_sub_cmap(self.PvTcoreCmapName, self.PvTcoreLo, self.PvTcoreHi)
         # Use cmasher to return colormap objects that do the down-select for us
         self.cmap = {comp: cmasher.get_sub_cmap(cmap, self.cmapBounds[comp][0], self.cmapBounds[comp][1])
                      for comp, cmap in self.cmapName.items()}
@@ -978,6 +986,7 @@ class FigLblStruct:
         self.x_IN_MOLPCT = True  # Whether to print silicate/core mass fractions in mol% (or fractional) in tables
         self.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
         self.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
+        self.PVT_CBAR_LABELS = False  # Whether to add short labels identifying silicate/core colorbars in PvT properties plots
 
         # General plot labels
         self.RsilLabel = r'Silicate outer radius $R_\mathrm{sil}$ ($\si{km}$)'
@@ -987,6 +996,8 @@ class FigLblStruct:
         self.GSlabel = r'Shear modulus $G_S$ ($\si{GPa}$)'
         self.rLabel = r'Radius $r$ ($\si{km}$)'
         self.zLabel = r'Depth $z$ ($\si{km}$)'
+        self.sil = r'Rock'
+        self.core = r'Core'
 
         # General plot titles
         self.mantTitle = r' silicate radius--density tradeoff'

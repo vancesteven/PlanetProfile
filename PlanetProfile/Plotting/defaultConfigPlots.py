@@ -3,7 +3,7 @@ import numpy as np
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 5  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 6  # Integer number for config file version. Increment when new settings are added to the default config file.
 Color = ColorStruct()
 Style = StyleStruct()
 FigLbl = FigLblStruct()
@@ -15,7 +15,6 @@ Color.Induction = {'synodic': 'blue', 'orbital': 'purple', 'true anomaly': 'gree
 Color.ref = 'gray'
 Color.geotherm = 'white'
 Color.BdipInset = 'black'  # Color for inset box of surface induced dipole strength plots
-Color.innerCmapName = 'inferno'  # For plotting temperature profiles atop Perple_X data
 
 # Wedge diagram color options
 Color.none = '#FFFFFF00'
@@ -58,6 +57,14 @@ Color.paleSilPorousBot = 0.78
 Color.paleSilCondCmapName = 'terrain'
 Color.paleSilCondTop = 0.78 - 0.001
 Color.paleSilCondBot = 0.78
+
+# PvT properties colormaps
+Color.PvTsilCmapName = 'copper'
+Color.PvTsilHi = 1.0
+Color.PvTsilLo = 0.0
+Color.PvTcoreCmapName = 'inferno'
+Color.PvTcoreHi = 1.0
+Color.PvTcoreLo = 0.0
 
 # Colormaps for inductogram phase space plots, hydrosphere plots, etc
 Color.cmapName = {
@@ -160,6 +167,7 @@ FigLbl.T_IN_C = False  # Whether to print T in °C (or K) in plots
 FigLbl.x_IN_MOLPCT = True  # Whether to print silicate/core mass fractions in mol% (or fractional) in tables and plots
 FigLbl.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
 FigLbl.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
+FigLbl.PVT_CBAR_LABELS = False  # Whether to add short labels identifying silicate/core colorbars in PvT properties plots
 FigLbl.SetUnits()  # Make use of above toggles and assign labels
 
 
