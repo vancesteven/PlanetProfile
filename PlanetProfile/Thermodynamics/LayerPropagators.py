@@ -243,7 +243,7 @@ def IceLayers(Planet, Params):
                 Planet.etaConv_Pas = np.nan
             else:
                 Pbot_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.PfreezeUpper_MPa, Planet.PfreezeRes_MPa)
-                Tbot_K = np.arange(Planet.T_K[Planet.Steps.nIceI], 273, 0.5)
+                Tbot_K = np.arange(Planet.T_K[Planet.Steps.nIceI], np.maximum(273, Planet.T_K[Planet.Steps.nIceI]+20), 0.5)
                 iceImeltEOS = GetOceanEOS('PureH2O', 0.0, Pbot_MPa, Tbot_K, None,
                                           phaseType=Planet.Ocean.phaseType, FORCE_NEW=True)
                 Planet.Tconv_K, Planet.etaConv_Pas, _, _, _, _, Planet.RaConvect, Planet.RaCrit \
