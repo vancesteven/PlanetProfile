@@ -38,7 +38,7 @@ def GeneratePlots(PlanetList, Params):
         PlotHydrosphereProps(PlanetList, Params)
     if Params.PLOT_TRADEOFF:
         PlotSilTradeoff(PlanetList, Params)
-        if np.any([not Planet.Do.Fe_CORE for Planet in PlanetList]):
+        if np.any([Planet.Do.Fe_CORE for Planet in PlanetList]):
             PlotCoreTradeoff(PlanetList, Params)
     if Params.PLOT_POROSITY and np.any([Planet.Do.POROUS_ROCK or Planet.Do.POROUS_ICE for Planet in PlanetList]):
         PlotPorosity(PlanetList, Params)
