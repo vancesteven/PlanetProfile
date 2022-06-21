@@ -10,7 +10,7 @@ from PlanetProfile.Utilities.defineStructs import PlanetStruct, Constants
 Planet = PlanetStruct('Dione')
 
 Planet.PfreezeLower_MPa = 0.1
-Planet.PfreezeUpper_MPa = 30
+Planet.PfreezeUpper_MPa = 25
 
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 561.4e3
@@ -19,7 +19,7 @@ Planet.Bulk.Tsurf_K = 75
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.33  # From Hemingway et al. (2016) LPSC abstract: https://www.hou.usra.edu/meetings/lpsc2016/pdf/1314.pdf
 Planet.Bulk.Cuncertainty = 0.01
-Planet.Bulk.Tb_K = 270.0
+Planet.Bulk.Tb_K = 270.93
 
 """ Layer step settings """
 Planet.Steps.nIceI = 50
@@ -32,8 +32,8 @@ Planet.Steps.iSilStart = Planet.Steps.nIceI
 Planet.Ocean.comp = 'Seawater'
 Planet.Ocean.wOcean_ppt = 10  # Copying Enceladus model value, as we lack information about this body
 Planet.Ocean.deltaP = 0.1
-Planet.Ocean.deltaT = 0.05
-Planet.Ocean.PHydroMax_MPa = 25.0
+Planet.Ocean.deltaT = 0.1
+Planet.Ocean.PHydroMax_MPa = 75.0
 Planet.Ocean.phaseType = 'recalc'
 
 """ Silicate Mantle """
@@ -44,7 +44,7 @@ Planet.Sil.Htidal_Wm3 = 3.38e-10
 Planet.Do.POROUS_ROCK = True
 Planet.Sil.porosType = 'Han2014'
 Planet.Sil.HtidalMin_Wm3 = 1e-9  # Only needed for non-Han 2014 porosTypes
-Planet.Sil.phiRockMax_frac = 0.32
+Planet.Sil.phiRockMax_frac = 0.50
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'Comet_67P_CG_v7_excluding_fluid_properties.tab'
 
