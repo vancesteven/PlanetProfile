@@ -222,7 +222,7 @@ FigMisc.minzbRratio_frac = 0.05  # Fraction of total body radius for ice shell a
 FigMisc.nTgeo = 80  # Number of temperature points to evaluate/plot for PT property plots
 FigMisc.nPgeo = 100  # Number of pressure points to evaluate/plot for PT property plots
 FigMisc.nPgeoCore = 40  # Subset of nPgeo to use for core, if present
-FigMisc.PVT_INCLUDE_CORE = False  # Whether to include core as well as silicates in PT properties diagrams
+FigMisc.PVT_INCLUDE_CORE = True  # Whether to include core as well as silicates in PT properties diagrams
         
 # Induced dipole surface strength plots
 FigMisc.BdipZoomMult = 1.05  # Extra space to include around zoomed-in part, in fraction of largest value.
