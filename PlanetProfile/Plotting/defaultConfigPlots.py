@@ -168,6 +168,7 @@ FigLbl.x_IN_MOLPCT = True  # Whether to print silicate/core mass fractions in mo
 FigLbl.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
 FigLbl.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
 FigLbl.PVT_CBAR_LABELS = False  # Whether to add short labels identifying silicate/core colorbars in PvT properties plots
+FigLbl.sciLimits = (-2, 4)  # Powers of 10 to use as limits on axis labels, e.g. [-2, 4] means anything < 0.01 or >= 10000 will use scientific notation.
 FigLbl.SetUnits()  # Make use of above toggles and assign labels
 
 

@@ -987,8 +987,9 @@ class FigLblStruct:
         self.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
         self.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
         self.PVT_CBAR_LABELS = False  # Whether to add short labels identifying silicate/core colorbars in PvT properties plots
+        self.sciLimits = None  # Powers of 10 to use as limits on axis labels, e.g. [-2, 4] means anything < 0.01 or >= 10000 will use scientific notation.
 
-        # General plot labels
+        # General plot labels and settings
         self.RsilLabel = r'Silicate outer radius $R_\mathrm{sil}$ ($\si{km}$)'
         self.RcoreLabel = r'Core radius $R_\mathrm{core}$ ($\si{km}$)'
         self.GSKSlabel = r'Bulk \& shear moduli $K_S$, $G_S$ ($\si{GPa}$)'
@@ -1343,6 +1344,9 @@ class FigLblStruct:
             'Qrad_Wkg': 1,
             'qSurf_Wm2': self.qMult
         }
+
+        # Set sciLimits generally
+        plt.rcParams['axes.formatter.limits'] = self.sciLimits
 
     def singleComp(self, comp):
         # Set a tag to append to titles in the event all of what we're plotting
