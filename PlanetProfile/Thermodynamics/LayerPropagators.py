@@ -1233,9 +1233,16 @@ def CalcMoIWithEOS(Planet, Params):
             Planet.CMR2less = np.nan
             Planet.CMR2more = np.nan
         else:
-            CMR2neighbors = [CMR2[iCMR2-1], CMR2[iCMR2+1]]
-            Planet.CMR2less = np.min(CMR2neighbors)
-            Planet.CMR2more = np.max(CMR2neighbors)
+            CMR2validSorted = np.sort(CMR2[CMR2inds])
+            iSortedCMR2mean = np.where(CMR2validSorted == Planet.CMR2mean)[0][0]
+            if iSortedCMR2mean == 0:
+                Planet.CMR2less = Planet.CMR2mean
+            else:
+                Planet.CMR2less = CMR2validSorted[iSortedCMR2mean-1]
+            if iSortedCMR2mean == np.size(CMR2validSorted) - 1:
+                Planet.CMR2more = Planet.CMR2mean
+            else:
+                Planet.CMR2more = CMR2validSorted[iSortedCMR2mean+1]
         # Now we finally know how many layers there are in the hydrosphere and silicates
         Planet.Steps.nHydro = iCMR2
         Planet.Steps.nSil = nSilFinal[iCMR2sil]

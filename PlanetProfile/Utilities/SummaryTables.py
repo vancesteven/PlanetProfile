@@ -569,19 +569,21 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                               f'\\num{{{(Planet.Sil.Rmean_m - Planet.Core.Rmean_m)/1e3:.1f}}}',
                               f'\\num{{{Planet.Sil.GSmean_GPa:.1f}}}',
                               f'\\num{{{Planet.Sil.sigmaMean_Sm:.1e}}}']) + endl
-        coreLayers = tab.join([coreLbl,
-                               f'\\num{{{Planet.Core.Rmean_m/1e3:.1f}}}',
-                               f'\\num{{{Planet.Core.rhoMean_kgm3:.0f}}}',
-                               f'\\num{{{Planet.Core.Rmean_m/1e3:.1f}}}',
-                               f'\\num{{{Planet.Core.GSmean_GPa:.1f}}}',
-                               f'\\num{{{Planet.Core.sigmaMean_Sm:.1e}}}']) + endl
+        if Planet.Do.Fe_CORE:
+            coreLayers = newline + tab.join([coreLbl,
+                                   f'\\num{{{Planet.Core.Rmean_m/1e3:.1f}}}',
+                                   f'\\num{{{Planet.Core.rhoMean_kgm3:.0f}}}',
+                                   f'\\num{{{Planet.Core.Rmean_m/1e3:.1f}}}',
+                                   f'\\num{{{Planet.Core.GSmean_GPa:.1f}}}',
+                                   f'\\num{{{Planet.Core.sigmaMean_Sm:.1e}}}']) + endl
+        else:
+            coreLayers = ''
         log.info(f"""{Planet.saveLabel}
         {title}
         {tOpen}
         {header}{surfIceLayers}
             {oceanLayers}{HPiceLayers}
-            {silLayers}
-            {coreLayers}
+            {silLayers}{coreLayers}
         {tClose}
         """)
 
