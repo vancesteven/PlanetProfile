@@ -815,6 +815,12 @@ def PlotPvT(PlanetList, Params):
                         kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
                         wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt)
 
+        # Check that it's worth converting to GPa if that setting has been selected -- reset labels if not
+        if Planet.P_MPa[-1] < 100 and FigLbl.PFULL_IN_GPa:
+            log.debug('FigLbl.PFULL_IN_GPa is True, but Pmax is less than 0.1 GPa. Pressures will be plotted in MPa.')
+            FigLbl.PFULL_IN_GPa = False
+            FigLbl.SetUnits()
+
         fig = plt.figure(figsize=FigSize.vpvt)
         grid = GridSpec(2, 4)
         axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(4)] for i in range(2)])
