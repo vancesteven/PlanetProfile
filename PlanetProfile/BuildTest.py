@@ -294,17 +294,18 @@ def simple():
     Params.DO_PARALLEL = False
     Params.SKIP_INDUCTION = False
 
-    iTest = 3
-    bodyname = f'{testMod}{iTest}'
+    iTests = [2, 8]
     tStart = time.time()
-    testPlanet = importlib.import_module(bodyname).Planet
-    log.info(f'Test case body: {bodyname}')
-    if Params.DO_INDUCTOGRAM:
-        TestInductOgram(iTest, Params, CALC_NEW=Params.CALC_NEW_INDUCT)
-    elif Params.DO_EXPLOREOGRAM:
-        TestExploreOgram(iTest, Params, CALC_NEW=Params.CALC_NEW_INDUCT)
-    else:
-        _ = PlanetProfile(testPlanet, Params)
+    for iTest in iTests:
+        bodyname = f'{testMod}{iTest}'
+        testPlanet = importlib.import_module(bodyname).Planet
+        log.info(f'Test case body: {bodyname}')
+        if Params.DO_INDUCTOGRAM:
+            TestInductOgram(iTest, Params, CALC_NEW=Params.CALC_NEW_INDUCT)
+        elif Params.DO_EXPLOREOGRAM:
+            TestExploreOgram(iTest, Params, CALC_NEW=Params.CALC_NEW_INDUCT)
+        else:
+            _ = PlanetProfile(testPlanet, Params)
     tEnd = time.time()
     log.info('Simple test complete!')
 
