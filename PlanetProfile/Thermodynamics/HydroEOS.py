@@ -6,8 +6,8 @@ from scipy.optimize import root_scalar as GetZero
 from scipy.io import loadmat
 from seafreeze import seafreeze as SeaFreeze
 from seafreeze import whichphase as WhichPhase
-from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, TclathDissocLower_K, \
-    TclathDissocUpper_K, ClathSeismic
+from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, \
+    ClathStableNagashima2017, ClathSeismic
 from PlanetProfile.Thermodynamics.InnerEOS import GetphiFunc, GetphiCalc, ResetNearestExtrap, ReturnZeros, EOSwrapper
 from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4PhaseMargules, MgSO4PhaseLookup, \
     MgSO4Seismic, MgSO4Conduct
@@ -207,9 +207,11 @@ class OceanEOSStruct:
         return self.ufn_sigma_Sm(P_MPa, T_K, grid=grid)
 
 
-def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False):
+def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False,
+              ClathDissoc=None):
     iceEOS = IceEOSStruct(P_MPa, T_K, phaseStr, porosType=porosType, phiTop_frac=phiTop_frac,
-                          Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac, EXTRAP=EXTRAP)
+                          Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
+                          ClathDissoc=ClathDissoc)
     if iceEOS.ALREADY_LOADED:
         log.debug(f'Ice {phaseStr} EOS already loaded. Reusing existing EOS.')
         iceEOS = EOSlist.loaded[iceEOS.EOSlabel]
@@ -224,7 +226,8 @@ def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=
     return iceEOSwrapper
 
 class IceEOSStruct:
-    def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False):
+    def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False,
+                 ClathDissoc=None):
         self.EOSlabel = f'{phaseStr}{porosType}{phiTop_frac}{Pclosure_MPa}{phiMin_frac}{EXTRAP}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K)
@@ -261,7 +264,10 @@ class IceEOSStruct:
                 # Special functions for clathrate properties
                 rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
                     = ClathProps(P_MPa, T_K)
-                self.phase = ClathStableSloan1998(P_MPa, T_K)
+                if ClathDissoc.NAGASHIMA:
+                    self.phase = ClathStableNagashima2017(P_MPa, T_K)
+                else:
+                    self.phase = ClathStableSloan1998(P_MPa, T_K)
 
                 Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
                 Tlin_K = np.array([T for _ in P_MPa for T in T_K])
@@ -278,7 +284,7 @@ class IceEOSStruct:
                 rho_kgm3 = iceOut.rho
                 Cp_JkgK = iceOut.Cp
                 alpha_pK = iceOut.alpha
-                kTherm_WmK = np.array([kThermIsobaricAnderssonIbari2005(T_K, PhaseInv(phaseStr)) for _ in P_MPa])
+                kTherm_WmK = np.array([kThermIsothermalAnderssonIbari2005(P_MPa, PhaseInv(phaseStr)) for _ in T_K]).T
                 self.ufn_Seismic = IceSeismic(phaseStr, self.EXTRAP)
                 self.fn_phase = returnVal(self.phaseID)
 
@@ -762,37 +768,4 @@ def kThermHobbs1974(T_K):
     kTherm_WmK = a1_SI/T_K + a0_SI
 
     return kTherm_WmK
-
-
-def GetPbClath(Tb_K, ALLOW_BROKEN_MODELS=False, DO_EXPLOREOGRAM=False):
-    """ Calculate the pressure consistent with Tb_K when clathrates are assumed
-        to be in contact with the ocean, i.e. for Bulk.clathType = 'bottom' or 'whole'.
-
-        Args:
-            Tb_K (float): Clathrate layer bottom temperature in K
-        Returns:
-            PbClath_MPa (float): Bottom temperature consistent with dissociation curve
-                pressure at Tb_K
-    """
-    if Tb_K < 273:
-        TbZero_K = lambda P_MPa: Tb_K - TclathDissocLower_K(P_MPa)
-        Pends_MPa = [0.0, 2.567]
-    else:
-        TbZero_K = lambda P_MPa: Tb_K - TclathDissocUpper_K(P_MPa)
-        Pends_MPa = [2.567, Constants.PmaxLiquid_MPa]
-
-    try:
-        PbClath_MPa = GetZero(TbZero_K, bracket=Pends_MPa).root
-    except ValueError:
-        msg = f'No Pb was found for clathrates with Tb_K = {Tb_K}.'
-        if ALLOW_BROKEN_MODELS:
-            if DO_EXPLOREOGRAM:
-                log.info(msg)
-            else:
-                log.error(msg + 'ALLOW_BROKEN_MODELS is True, so calculations will proceed, with many values set to nan.')
-            PbClath_MPa = np.nan
-        else:
-            raise ValueError(msg)
-
-    return PbClath_MPa
 

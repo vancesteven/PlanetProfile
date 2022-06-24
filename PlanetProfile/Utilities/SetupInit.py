@@ -8,6 +8,7 @@ from PlanetProfile import _ROOT
 from PlanetProfile.GetConfig import FigMisc, FigLbl
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
+from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathDissoc
 from PlanetProfile.Utilities.PPversion import ppVerNum, CheckCompat
 from PlanetProfile.Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
 
@@ -79,12 +80,21 @@ def SetupInit(Planet, Params):
             if Planet.Steps.nClath is None: Planet.Steps.nClath = 0
             Planet.Steps.nClath = np.maximum(Planet.Steps.nIceI, Planet.Steps.nClath)
             Planet.Steps.nIceI = 0
-        elif Planet.Bulk.clathMaxThick_m is None:
-            raise ValueError('Bulk.clathMaxThick_m must be set for this clathType model.')
-        elif Planet.Steps.nClath is None:
-            raise ValueError('Steps.nClath must be set for this clathType model.')
-        elif Planet.Bulk.clathType == 'bottom' and Planet.Bulk.qSurf_Wm2 is None:
-            raise ValueError('Bulk.qSurf_Wm2 must be set for this clathType model.')
+        else:
+            if Planet.Bulk.clathMaxThick_m is None:
+                raise ValueError('Bulk.clathMaxThick_m must be set for this clathType model.')
+            elif Planet.Steps.nClath is None:
+                raise ValueError('Steps.nClath must be set for this clathType model.')
+            elif Planet.Bulk.clathType == 'bottom':
+                if Planet.Bulk.qSurf_Wm2 is None:
+                    raise ValueError('Bulk.qSurf_Wm2 must be set for this clathType model.')
+                if not Planet.Do.NO_ICE_CONVECTION:
+                    log.warning('Do.NO_ICE_CONVECTION is False, but convection is incompatible with clathrate underplating. ' +
+                                'Do.NO_ICE_CONVECTION will be forced on.')
+                    Planet.Do.NO_ICE_CONVECTION = True
+        Planet.Ocean.ClathDissoc = ClathDissoc(Planet.Bulk.Tb_K, NAGASHIMA_CLATH_DISSOC=Planet.Do.NAGASHIMA_CLATH_DISSOC,
+                                               ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS,
+                                               DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
     else:
         Planet.Steps.nClath = 0
         Planet.zClath_m = 0
@@ -131,6 +141,10 @@ def SetupInit(Planet, Params):
             if Planet.Do.CLATHRATE:
                 log.warning('Clathrates are stable under a very large range of pressures and temperatures, and this ' +
                             'may be contradictory with having underplating ice III or V.')
+
+        # Make sure ocean max temp is above melting temp
+        if Planet.Ocean.THydroMax_K <= Planet.Bulk.Tb_K:
+            Planet.Ocean.THydroMax_K = Planet.Bulk.Tb_K + 30
 
         # Get ocean EOS functions
         POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)

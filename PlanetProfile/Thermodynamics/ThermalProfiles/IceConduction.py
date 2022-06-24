@@ -101,7 +101,8 @@ def IceIConductClathLidSolid(Planet, Params):
     # Get ice Ih EOS
     Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(Plin_MPa, Tlin_K, 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'])
     # Get clathrate EOS
-    Planet.Ocean.surfIceEOS['Clath'] = GetIceEOS(Plin_MPa, Tlin_K, 'Clath', EXTRAP=Params.EXTRAP_ICE['Clath'])
+    Planet.Ocean.surfIceEOS['Clath'] = GetIceEOS(Plin_MPa, Tlin_K, 'Clath', EXTRAP=Params.EXTRAP_ICE['Clath'],
+                                                 ClathDissoc=Planet.Ocean.ClathDissoc)
 
     # Get approximate temperature of transition between clathrates and ice I
     zbApprox_m = (Planet.PbI_MPa - Planet.Bulk.Psurf_MPa) * 1e6 / Planet.g_ms2[0] / \
@@ -190,7 +191,8 @@ def IceIConductClathLidPorous(Planet, Params):
                                                  porosType=Planet.Ocean.porosType['Clath'],
                                                  phiTop_frac=Planet.Ocean.phiMax_frac['Clath'],
                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Clath'],
-                                                 phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Clath'])
+                                                 phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Clath'],
+                                                 ClathDissoc=Planet.Ocean.ClathDissoc)
 
     # Get approximate temperature of transition between clathrates and ice I
     zbApprox_m = (Planet.PbI_MPa - Planet.Bulk.Psurf_MPa) * 1e6 / Planet.g_ms2[0] / \
@@ -274,71 +276,90 @@ def IceIConductClathUnderplateSolid(Planet, Params):
     # Get clathrate EOS
     PIceFull_MPa = np.linspace(Planet.P_MPa[0], Planet.PbI_MPa, Planet.Steps.nIbottom+1)
     TIceFull_K = np.linspace(Planet.T_K[0], Planet.Bulk.Tb_K, Planet.Steps.nIbottom)
-    Planet.Ocean.surfIceEOS['Clath'] = GetIceEOS(PIceFull_MPa, TIceFull_K, 'Clath', EXTRAP=Params.EXTRAP_ICE['Clath'])
+    Planet.Ocean.surfIceEOS['Clath'] = GetIceEOS(PIceFull_MPa, TIceFull_K, 'Clath', EXTRAP=Params.EXTRAP_ICE['Clath'],
+                                                 ClathDissoc=Planet.Ocean.ClathDissoc)
 
     rhoBot_kgm3 = Planet.Ocean.surfIceEOS['Clath'].fn_rho_kgm3(Planet.PbI_MPa, Planet.Bulk.Tb_K)
     # Get approximate pressure change across clathrate layer (assuming surface gravity)
     DeltaPClath_MPa = Planet.Bulk.clathMaxThick_m * Planet.g_ms2[0] * rhoBot_kgm3 / 1e6
     # Get pressure at ice Ih-clathrate transition
     PbTrans_MPa = Planet.PbI_MPa - DeltaPClath_MPa
-    PIceI_MPa = np.linspace(Planet.P_MPa[0], PbTrans_MPa, Planet.Steps.nIceI+1)
+    if PbTrans_MPa < Planet.Bulk.Psurf_MPa:
+        Planet.Do.VALID = False
+        if Params.ALLOW_BROKEN_MODELS:
+            log.warning('Bulk.clathMaxThick_m is too large for Bulk.Tb_K setting, but ALLOW_BROKEN_MODELS is True.')
+        else:
+            raise ValueError(f'Bulk.clathMaxThick_m ({Planet.Bulk.clathMaxThick_m:.1f}) is set too large for the calculated ' +
+                             f'dissociation pressure of {Planet.PbI_MPa:.2f} MPa. Try adjusting Bulk.Tb_K or reducing Bulk.clathMaxThick_m.')
 
-    # Get ice I EOS
-    Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(PIceI_MPa, TIceFull_K, 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'])
+    if Planet.Do.VALID:
+        PIceI_MPa = np.linspace(Planet.P_MPa[0], PbTrans_MPa, Planet.Steps.nIceI+1)
 
-    # Get approximate temperature at top of clathrate layer based on assumed surface heat flux
-    # Need approx. depth first for curvature change to heat flux
-    rhoTransIceI_kgm3 = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(PbTrans_MPa, Planet.Bulk.Tb_K)
-    zbApprox_m = (PbTrans_MPa - Planet.Bulk.Psurf_MPa) * 1e6 / Planet.g_ms2[0] / rhoTransIceI_kgm3
-    rTopApprox_m = Planet.r_m[0] - zbApprox_m
-    # Get minimum heat flux through clathrate layer (assuming it's relatively thin)
-    qClathMin_Wm2 = Planet.Bulk.qSurf_Wm2 * Planet.r_m[0]**2 / rTopApprox_m**2
-    kBot_WmK = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.PbI_MPa, Planet.Bulk.Tb_K)
-    Ttop_K = Planet.Bulk.Tb_K - qClathMin_Wm2 * Planet.Bulk.clathMaxThick_m / kBot_WmK
-    if Ttop_K < Planet.Bulk.Tsurf_K:
-        raise RuntimeError('Bulk.qSurf_Wm2 is set too high for the values set for Bulk.Tb_K, Bulk.Tsurf_K, and ' +
-                           'Bulk.clathMaxThick_m. Try decreasing Bulk.qSurf_Wm2.')
+        # Get ice I EOS
+        Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(PIceI_MPa, TIceFull_K, 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'])
 
-    # Propagate from the surface down to the temperature at the top of the clathrate layer
-    # using a spatial resolution comparable to what we expect for the end result in the shell
-    rhoTop_kgm3 = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(Planet.P_MPa[0], Planet.T_K[0])
-    rStep_m = (Planet.PbI_MPa - Planet.P_MPa[0])*1e6 / Planet.g_ms2[0] / rhoTop_kgm3 / Planet.Steps.nIbottom
+        # Get approximate temperature at top of clathrate layer based on assumed surface heat flux
+        # Need approx. depth first for curvature change to heat flux
+        rhoTransIceI_kgm3 = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(PbTrans_MPa, Planet.Bulk.Tb_K)
+        zbApprox_m = (PbTrans_MPa - Planet.Bulk.Psurf_MPa) * 1e6 / Planet.g_ms2[0] / rhoTransIceI_kgm3
+        rTopApprox_m = Planet.r_m[0] - zbApprox_m
+        # Get minimum heat flux through clathrate layer (assuming it's relatively thin)
+        qClathMin_Wm2 = Planet.Bulk.qSurf_Wm2 * Planet.r_m[0]**2 / rTopApprox_m**2
+        kBot_WmK = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.PbI_MPa, Planet.Bulk.Tb_K)
+        Ttop_K = Planet.Bulk.Tb_K - qClathMin_Wm2 * Planet.Bulk.clathMaxThick_m / kBot_WmK
+        if Ttop_K < Planet.Bulk.Tsurf_K:
+            raise RuntimeError('Bulk.qSurf_Wm2 is set too high for the values set for Bulk.Tb_K, Bulk.Tsurf_K, and ' +
+                               'Bulk.clathMaxThick_m. Try decreasing Bulk.qSurf_Wm2.')
 
-    PbTrans_MPa = GetPbConduct(Planet.T_K[0], Ttop_K, Planet.r_m[0], Planet.P_MPa[0], Planet.g_ms2[0],
-                               Planet.Bulk.qSurf_Wm2, Planet.Ocean.surfIceEOS['Ih'], rRes_m=rStep_m,
-                               Qrad_Wkg=0, Htidal_Wm3=0)
+        # Propagate from the surface down to the temperature at the top of the clathrate layer
+        # using a spatial resolution comparable to what we expect for the end result in the shell
+        rhoTop_kgm3 = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(Planet.P_MPa[0], Planet.T_K[0])
+        rStep_m = (Planet.PbI_MPa - Planet.P_MPa[0])*1e6 / Planet.g_ms2[0] / rhoTop_kgm3 / Planet.Steps.nIbottom
 
-    # Now we have our (P,T) profile for the ice shell.
-    # Now set linear P and adiabatic T for the ice I shell
-    # This is not self-consistent, because we calculated PbTrans_MPa using the thermal conductivity
-    # of the ice as we progressed through the ice I shell, but this is consistent with the current
-    # implementation of the thermal profile of conductive ice used in other PlanetProfile models.
-    PIceI_MPa = np.linspace(Planet.P_MPa[0], PbTrans_MPa, Planet.Steps.nIceI+1)[:-1]
-    PIceIratios = (PIceI_MPa - Planet.P_MPa[0]) / (PbTrans_MPa - Planet.P_MPa[0])
-    TIceI_K = Ttop_K**(PIceIratios) * Planet.T_K[0]**(1 - PIceIratios)
-    # Next, set linear P and adiabatic T for the clathrate layer
-    Pclath_MPa = np.linspace(PbTrans_MPa, Planet.PbI_MPa, Planet.Steps.nClath+1)
-    PclathRatios = (Pclath_MPa - Pclath_MPa[0]) / (Planet.PbI_MPa - Pclath_MPa[0])
-    Tclath_K = Planet.Bulk.Tb_K**(PclathRatios) * Ttop_K**(1 - PclathRatios)
+        PbTrans_MPa = GetPbConduct(Planet.T_K[0], Ttop_K, Planet.r_m[0], Planet.P_MPa[0], Planet.g_ms2[0],
+                                   Planet.Bulk.qSurf_Wm2, Planet.Ocean.surfIceEOS['Ih'], rRes_m=rStep_m,
+                                   Qrad_Wkg=0, Htidal_Wm3=0)
+        if PbTrans_MPa > Planet.PbI_MPa:
+            msg = f'Clathrate dissociation pressure of {Planet.PbI_MPa:.1f} MPa is less than ' + \
+                  f'ice I/clathrate transition pressure of {PbTrans_MPa:.1f} MPa. Try increasing ' + \
+                  f'Bulk.qBulk_Wm2 to decrease PbTrans.'
+            if Params.ALLOW_BROKEN_MODELS:
+                Planet.Do.VALID = False
+                log.warning(msg)
+            else:
+                raise ValueError(msg)
 
-    Planet.P_MPa[:Planet.Steps.nIceI] = PIceI_MPa
-    Planet.T_K[:Planet.Steps.nIceI] = TIceI_K
-    Planet.P_MPa[Planet.Steps.nIceI:Planet.Steps.nIbottom+1] = Pclath_MPa
-    Planet.T_K[Planet.Steps.nIceI:Planet.Steps.nIbottom+1] = Tclath_K
+        # Now we have our (P,T) profile for the ice shell.
+        # Now set linear P and adiabatic T for the ice I shell
+        # This is not self-consistent, because we calculated PbTrans_MPa using the thermal conductivity
+        # of the ice as we progressed through the ice I shell, but this is consistent with the current
+        # implementation of the thermal profile of conductive ice used in other PlanetProfile models.
+        PIceI_MPa = np.linspace(Planet.P_MPa[0], PbTrans_MPa, Planet.Steps.nIceI+1)[:-1]
+        PIceIratios = (PIceI_MPa - Planet.P_MPa[0]) / (PbTrans_MPa - Planet.P_MPa[0])
+        TIceI_K = Ttop_K**(PIceIratios) * Planet.T_K[0]**(1 - PIceIratios)
+        # Next, set linear P and adiabatic T for the clathrate layer
+        Pclath_MPa = np.linspace(PbTrans_MPa, Planet.PbI_MPa, Planet.Steps.nClath+1)
+        PclathRatios = (Pclath_MPa - Pclath_MPa[0]) / (Planet.PbI_MPa - Pclath_MPa[0])
+        Tclath_K = Planet.Bulk.Tb_K**(PclathRatios) * Ttop_K**(1 - PclathRatios)
 
-    # Evaluate thermodynamic properties of uppermost ice I
-    Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nIceI,
-                                 Planet.Ocean.surfIceEOS['Ih'], PIceI_MPa, TIceI_K)
-    # Evaluate thermodynamic properties of clathrate underplate layer
-    Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nIceI, Planet.Steps.nIbottom,
-                                 Planet.Ocean.surfIceEOS['Clath'], Pclath_MPa[:-1], Tclath_K[:-1])
-    Planet.rho_kgm3[:Planet.Steps.nIbottom] = Planet.rhoMatrix_kgm3[:Planet.Steps.nIbottom] + 0.0
+        Planet.P_MPa[:Planet.Steps.nIceI] = PIceI_MPa
+        Planet.T_K[:Planet.Steps.nIceI] = TIceI_K
+        Planet.P_MPa[Planet.Steps.nIceI:Planet.Steps.nIbottom+1] = Pclath_MPa
+        Planet.T_K[Planet.Steps.nIceI:Planet.Steps.nIbottom+1] = Tclath_K
 
-    # Calculate remaining physical properties of upper ice and clathrates
-    Planet = PropagateConduction(Planet, Params, 0, Planet.Steps.nIbottom)
+        # Evaluate thermodynamic properties of uppermost ice I
+        Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nIceI,
+                                     Planet.Ocean.surfIceEOS['Ih'], PIceI_MPa, TIceI_K)
+        # Evaluate thermodynamic properties of clathrate underplate layer
+        Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nIceI, Planet.Steps.nIbottom,
+                                     Planet.Ocean.surfIceEOS['Clath'], Pclath_MPa[:-1], Tclath_K[:-1])
+        Planet.rho_kgm3[:Planet.Steps.nIbottom] = Planet.rhoMatrix_kgm3[:Planet.Steps.nIbottom] + 0.0
 
-    # Set actual thickness of clathrate underplate layer
-    Planet.zClath_m = Planet.z_m[Planet.Steps.nIbottom] - Planet.z_m[Planet.Steps.nIceI]
+        # Calculate remaining physical properties of upper ice and clathrates
+        Planet = PropagateConduction(Planet, Params, 0, Planet.Steps.nIbottom)
+
+        # Set actual thickness of clathrate underplate layer
+        Planet.zClath_m = Planet.z_m[Planet.Steps.nIbottom] - Planet.z_m[Planet.Steps.nIceI]
 
     return Planet
 
@@ -358,7 +379,8 @@ def IceIConductClathUnderplatePorous(Planet, Params):
                                                  porosType=Planet.Ocean.porosType['Clath'],
                                                  phiTop_frac=Planet.Ocean.phiMax_frac['Clath'],
                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Clath'],
-                                                 phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Clath'])
+                                                 phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Clath'],
+                                                 ClathDissoc=Planet.Ocean.ClathDissoc)
 
     rhoBot_kgm3 = Planet.Ocean.surfIceEOS['Clath'].fn_rho_kgm3(Planet.PbI_MPa, Planet.Bulk.Tb_K)
     # Get approximate pressure change across clathrate layer (assuming surface gravity)

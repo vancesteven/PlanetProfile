@@ -56,6 +56,7 @@ class DoSubstruct:
         self.Fe_CORE = False  # Whether to model an iron core for this body
         self.CONSTANT_INNER_DENSITY = False  # Whether to use a fixed density in silicates and core instead of using Perple_X EOS for each
         self.CLATHRATE = False  # Whether to model clathrates
+        self.NAGASHIMA_CLATH_DISSOC = True  # Whether to use extrapolation of Nagashima (2017) dissertation provided by S. Nozaki (private communication) for clathrate dissociation (alternative is Sloan (1998))
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
@@ -106,6 +107,7 @@ class OceanSubstruct:
     def __init__(self):
         self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'PureH2O', 'NH3', 'NaCl', 'none'
         self.wOcean_ppt = None  # (Absolute) salinity: Mass concentration of above composition in parts per thousand (ppt)
+        self.ClathDissoc = None  # Subclass containing functions/options for evaluating clathrate dissociation conditions
         self.sigmaMean_Sm = np.nan  # Mean conductivity across all ocean layers (linear average, ignoring spherical geometry effects)
         self.sigmaTop_Sm = np.nan  # Conductivity of shallowest ocean layer
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
@@ -1533,7 +1535,8 @@ class ConstantsStruct:
         self.T0 = 273.15  # The Celsius zero point in K.
         self.P0 = 0.101325  # One standard atmosphere in MPa
         self.R = 8.314  # Ideal gas constant in J/mol/K
-        self.mu0 = 4e-7*np.pi
+        self.mu0 = 4e-7*np.pi  # Permeability of free space (magnetic constant)
+        self.Pmin_MPa = 1e-16  # Minimum value to set for pressure to avoid taking log(0)
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
         self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0)
         self.mMgSO4_gmol = 120.4  # Molecular mass of MgSO4 in g/mol

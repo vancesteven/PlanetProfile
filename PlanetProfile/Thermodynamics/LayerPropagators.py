@@ -3,7 +3,7 @@ import logging
 
 from PlanetProfile.Thermodynamics.IronCore import IronCoreLayers
 from PlanetProfile.Thermodynamics.HydroEOS import GetPfreeze, GetTfreeze, \
-    PhaseConv, GetPhaseIndices, GetIceEOS, GetPbClath, GetOceanEOS
+    PhaseConv, GetPhaseIndices, GetIceEOS, GetOceanEOS
 from PlanetProfile.Thermodynamics.InnerEOS import GetHtidalFunc, GetphiCalc
 from PlanetProfile.Thermodynamics.Silicates import SilicateLayers
 from PlanetProfile.Thermodynamics.ThermalProfiles.Convection import IceIConvectSolid, IceIConvectPorous, \
@@ -44,7 +44,7 @@ def IceLayers(Planet, Params):
     if(Planet.Do.CLATHRATE and
             (Planet.Bulk.clathType == 'bottom' or
              Planet.Bulk.clathType == 'whole')):
-        PbClath_MPa = GetPbClath(Planet.Bulk.Tb_K)
+        PbClath_MPa = Planet.Ocean.ClathDissoc.PbClath_MPa()
         if not np.isnan(PbClath_MPa):
             log.debug(f'Clathrate dissociation pressure: {PbClath_MPa:.3f} MPa.')
             if PbClath_MPa < Planet.PbI_MPa:

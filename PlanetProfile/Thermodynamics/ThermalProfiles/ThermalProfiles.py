@@ -179,6 +179,43 @@ def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_
     return Tbot_K, qBot_Wm2
 
 
+def ConductiveTemperatureActual(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2):
+    """ Thermal profile for purely thermally conductive layers, based on Turcotte and Schubert (1982),
+        equation 4.40: T = -rho*H/6/k * r^2 + c1/r + c2, where c1 and c2 are integration constants
+        found through boundary conditions, rho is mass density of the conductive layer in kg/m^3,
+        H is internal heating in W/kg, and k is thermal conductivity in W/m/K.
+        The main equations we use here are developed similar to equation 2 of
+        Cammarano et al. (2006): https://doi.org/10.1029/2006JE002710, but we parameterize in terms of
+        the heat flux leaving the top of the layer instead of entering the bottom. We also configure
+        the internal heating so as to account for porosity by passing rho as the mass density of just
+        the material contributing to radiogenic heat, i.e. silicates.
+
+        Args:
+            Ttop_K (float, shape N): Temperature at the top of the layer in K.
+            rTop_m, rBot_m (float, shape N): Radius at top and bottom of layer in m, respectively.
+            kTherm_WmK (float, shape N): Overall thermal conductivity of layer in W/(m K).
+            rhoRad_kgm3 (float, shape N): Mass density of radiogenic material in layer in kg/m^3.
+            Qrad_Wkg (float): Average radiogenic heating rate in W/kg.
+            Htidal_Wm3 (float, shape N): Average tidal heating rate of the layer in W/m^3.
+            qTop_Wm2 (float): Heat flux leaving the top of the layer in W/m^2.
+        Returns:
+            Tbot_K (float): Temperature at the bottom of the layer in K.
+            qBot_Wm2 (float): Heat flux entering the bottom of the layer in W/m^2.
+    """
+    # Calculate needed values from inputs
+    Htot_Wm3 = Qrad_Wkg * rhoRad_kgm3 + Htidal_Wm3
+    c1 = qTop_Wm2 * rTop_m**2 / 2/kTherm_WmK - Htot_Wm3 / 6/kTherm_WmK * rTop_m**3
+    # Find the temperature at the bottom of the layer
+    Tbot_K = Ttop_K + Htot_Wm3 / 6/kTherm_WmK * (rTop_m**2 - rBot_m**2) + c1 * (1/rBot_m - 1/rTop_m)
+    # The below calc is suspect. It seems to report too-high values for qBot.
+    # Find the heat flux into the bottom of the layer
+    qBot_Wm2 = Htot_Wm3 / 3 * rBot_m + 2*kTherm_WmK / rBot_m**2 * c1
+    # Find the approximate heat flux into the bottom of the layer
+    #qBot_Wm2 = kTherm_WmK * (Tbot_K - Ttop_K) / (rTop_m - rBot_m)
+
+    return Tbot_K, qBot_Wm2
+
+
 def GetRaCrit(Eact_kJmol, Tb_K, Ttop_K, Tconv_K):
     """ Calculates the critical Rayleigh number, above which convection is permitted
         based on Solomatov (1995) and reported as Eq. 3 of Hammond et al. (2016):
@@ -217,17 +254,15 @@ def GetPbConduct(Ttop_K, Tb_K, rTop_m, Ptop_MPa, gTop_ms2, qTop_Wm2, EOS, rRes_m
     """
     Tbot_K = Ttop_K
     Pb_MPa = Ptop_MPa
+    thisqTop_Wm2 = qTop_Wm2 + 0
     i = 0
     while Tbot_K < Tb_K:
         thisrTop_m = rTop_m - i*rRes_m
         rBot_m = thisrTop_m - rRes_m
         rho_kgm3 = EOS.fn_rho_kgm3(Pb_MPa, Tbot_K)
         kTherm_WmK = EOS.fn_kTherm_WmK(Pb_MPa, Tbot_K)
-        # Treat heat flow as constant, essentially ignoring tidal heating and
-        # spherical shape of the body -- only valid for very stiff clathrates
-        # in a relatively thin layer.
-        Tbot_K, _ = ConductiveTemperature(Tbot_K, thisrTop_m, rBot_m,
-                            kTherm_WmK, rho_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2)
+        Tbot_K, thisqTop_Wm2 = ConductiveTemperatureActual(Tbot_K, thisrTop_m, rBot_m,
+                            kTherm_WmK, rho_kgm3, Qrad_Wkg, Htidal_Wm3, thisqTop_Wm2)
         MLayer_kg = 4/3 * np.pi * (thisrTop_m**3 - rBot_m**3) * rho_kgm3
         gTop_ms2 = (gTop_ms2 * thisrTop_m**2 - Constants.G * MLayer_kg) / rBot_m**2
         Pb_MPa += MLayer_kg * gTop_ms2 / (4*np.pi*rBot_m**2) / 1e6
