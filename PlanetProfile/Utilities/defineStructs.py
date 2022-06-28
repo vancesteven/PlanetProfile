@@ -19,6 +19,8 @@ import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
 from scipy.interpolate import interp1d
+from MoonMag.plotting_funcs import east_formatted as LonFormatter, lat_formatted as LatFormatter, \
+    get_sign as GetSign
 
 # We have to define subclasses first in order to make them instanced to each Planet object
 """ Run settings """
@@ -337,6 +339,10 @@ class MagneticSubstruct:
         self.Binm_nT = None  # Induced magnetic moments relative to the body surface in nT
         self.nLin = None  # Linear list of n values for output Binm with shape matching mLin, so that n,m pairs corresponding to each BinmLin are read as (n[j], m[j]) -> BinmLin[i, j]
         self.mLin = None  # m values corresponding to each n in nLin
+        self.nprmLin = None  # Same as above but for n'
+        self.mprmLin = None  # Same as above but for m'
+        self.pLin = None  # Same as above but for p
+        self.qLin = None  # Same as above but for q
         self.BinmLin_nT = None  # Linear form of Binm_nT, with shape (nExc, (nPrmMax+pMax+1)**2 - 1), such that BinmLin[i, j] = Binm[i, int(m[j]<0), n[j], m[j]]
         self.Bi1xyz_nT = {'x': None, 'y': None, 'z': None}  # Induced dipole surface strength in IAU components
         # Fourier spectrum calculations
@@ -348,6 +354,13 @@ class MagneticSubstruct:
         self.coordTypeFT = None  # Coordinates of vector components for Fourier spectrum
         self.Ae1FT = None  # Complex amplitude for dipole induced field, for Fourier spectrum
         self.Bi1xyzFT_nT = {'x': None, 'y': None, 'z': None}  # Complex induced dipole moments in Fourier spectrum
+        # Asymmetric boundary plot calculations
+        self.nAsymBds = None  # Number of boundaries for which to model asymmetry, including gravity shape
+        self.iAsymBds = np.empty(0, dtype=np.int)  # Index of asymShape_m to which the above z values correspond
+        self.zMeanAsym_km = np.empty(0)  # List of mean depths for asymmetric boundaries in km
+        self.asymDevs_km = None  # Deviations from spherical symmetry in m for each lat/lon point
+        self.asymDescrip = None  # List of strings to use for describing contour plots in titles
+        self.asymContours_km = {}  # List of contours to mark
 
 
 """ Main body profile info--settings and variables """
@@ -498,6 +511,7 @@ class DataFilesSubstruct:
         self.inductOgramSigmaFile = self.fNameInductOgram + '_sigma_inductOgram.mat'
         self.BeFTdata = os.path.join('inductionData', 'Be1xyzFTdata.mat')
         self.FTdata = os.path.join(self.inductPath, 'Bi1xyzFTdata.mat')
+        self.asymFile = self.fNameInduct + '_asymDevs.mat'
 
 
 # Construct filenames for figures etc.
@@ -540,6 +554,11 @@ class FigureFilesSubstruct:
         sigma = 'InductOgramSigma'
         Bdip = 'Bdip'
         MagFT = 'MagSpectrum'
+        MagSurf = 'MagSurf'
+        MagSurfSym = 'MagSurfSym'
+        MagSurfCombo = 'MagSurfComp'
+        MagSurfDiff = 'MagSurfDiff'
+        asym = 'asymDevs'
         # Construct Figure Filenames
         self.vwedg = self.fName + vwedg + xtn
         self.vpore = self.fName + vpore + xtn
@@ -560,6 +579,11 @@ class FigureFilesSubstruct:
         self.sigmaOnly =     {zType: f'{self.fNameInduct}_{sigma}Only_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
         self.Bdip =         {axComp: f'{self.fNameInduct}_{Bdip}{axComp}{xtn}' for axComp in ['x', 'y', 'z', 'all']}
         self.MagFT =                 f'{self.fNameInduct}_{MagFT}{xtn}'
+        self.MagSurf =       {vComp: f'{self.fNameInduct}_{MagSurf}B{vComp}' for vComp in ['x', 'y', 'z', 'mag']}
+        self.MagSurfSym =    {vComp: f'{self.fNameInduct}_{MagSurfSym}B{vComp}' for vComp in ['x', 'y', 'z', 'mag']}
+        self.MagSurfCombo =  {vComp: f'{self.fNameInduct}_{MagSurfCombo}B{vComp}' for vComp in ['x', 'y', 'z', 'mag']}
+        self.MagSurfDiff =   {vComp: f'{self.fNameInduct}_{MagSurfDiff}B{vComp}' for vComp in ['x', 'y', 'z', 'mag']}
+        self.asym = self.fName + asym + xtn
 
 
 """ General parameter options """
@@ -1074,6 +1098,20 @@ class FigLblStruct:
         self.BiFTtitle = r'Induced dipole surface strength'
         self.BiFTlabel = r'$|B^i_{x,y,z}|$ ($\si{nT}$)'
 
+        # Magnetic surface map labels
+        self.MagSurfTitle = r'induced magnetic field'
+        self.MagSurfSymTitle = r'symmetric induced magnetic field'
+        self.MagSurfShortTitle = r'Induced field'
+        self.MagSurfDiffTitle = r'vs.\ symmetric'
+        self.MagSurfCbarTitle = r'$\si{nT}$'
+        self.MagSurfCbarDiffLabel = r'Magnetic field difference ($\si{nT}$)'
+        self.asymCbarLabel = r'Layer thickness ($\si{km}$)'
+
+        # Asymmetry contour map labels
+        self.asymTitle = r'Ice shell thickness ($\si{km}$), $\overline{z}_b$ = '
+        self.asymAfterDescrip = r' ($\si{km}$), $\overline{z}_b$ = '
+        self.asymGravTitle = r'Surface radius gravitational perturbation ($\si{km}$)'
+
         # Induction parameter-dependent settings
         self.phaseSpaceTitle = None
         self.inductionTitle = None
@@ -1382,6 +1420,35 @@ class FigLblStruct:
         self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration}}'
         self.exploreCompareTitle = self.explorationTitle
 
+    def rStr(self, rEval_Rp, bodyname):
+        # Get r strings to add to titles and log messages for magnetic field surface plots
+        rMagEvalLbl = f'r = ${rEval_Rp}\,R_{bodyname[0].upper()}$'
+        rMagEvalPrint = f'r = {rEval_Rp} R_{bodyname[0].upper()}'
+        return rMagEvalLbl, rMagEvalPrint
+
+    def tStr(self, tPastJ2000_s):
+        # Get t strings to add to titles and log messages for magnetic field surface plots
+        if round(tPastJ2000_s) != 0:
+            if tPastJ2000_s < 0:
+                sign = '-'
+            else:
+                sign = '+'
+            tPastJ2000_h = tPastJ2000_s/3600
+            if abs(tPastJ2000_h) <= 1e3:
+                tStr_h = f'{abs(tPastJ2000_h):.1f}'
+            else:
+                tStr_h = f'{abs(tPastJ2000_h):.2e}'
+            tMagEvalLbl = f'$t = \mathrm{{J2000}} {sign} \SI{{{tStr_h}}}{{h}}$'
+            tMagEvalPrint = f't = {sign}{tStr_h} h relative to J2000'
+            tFnameEnd = f'J2000{sign}{tStr_h}h'
+
+        else:
+            tMagEvalLbl = f'$t = \mathrm{{J2000}} + \SI{{0.0}}{{h}}$'
+            tMagEvalPrint = 'at J2000'
+            tFnameEnd = 'J2000+0.0h'
+
+        return tMagEvalLbl, tMagEvalPrint, tFnameEnd
+
 
 """ Figure size settings """
 class FigSizeStruct:
@@ -1406,6 +1473,9 @@ class FigSizeStruct:
         self.BdipSolo = None
         self.BdipSoloCombo = None
         self.MagFT = None
+        self.MagSurf = None
+        self.MagSurfCombo = None
+        self.asym = None
 
 
 """ Miscellaneous figure options """
@@ -1444,6 +1514,35 @@ class FigMiscStruct:
         # Induced dipole surface strength plots
         self.BdipZoomMult = None  # Extra space to include around zoomed-in part, in fraction of largest value.
         self.SHOW_INSET = False  # Whether to show the inset box for the zoom-in plot, when applicable
+        # Map settings
+        self.rMagEval_Rp = None  # Fraction of body radius to use for surface over which PlotMagSurface is evaluated
+        self.tMagEval_s = None  # Seconds past J2000 to use for surface magnetic field map. Accepts a list or array to evaluate multiple times--a plot is printed for each.
+        self.LARGE_ADJUST = False  # Whether to make certain labels better for cramped spaces, including removing colorbars (True is more pared down)
+        self.BASYM_WITH_SYM = False  # Whether to plot Basym plot and Bsym plot on the same figure
+        self.vCompMagSurf = None  # Component to use for induced field surface strength plots. Options are ['x', 'y', 'z', 'mag'].
+        self.nPPGCmapRes = None  # Number of points per great circle to use for map angular resolution
+        self.DO_360 = False  # Whether to range longitudes from 0 to 360 or from -180 to +180
+        self.nLatTicks = None  # Number of ticks to mark on latitude axis
+        self.nLonTicks = None  # Number of ticks to mark on longitude axis
+        self.nMagContours = None  # Number of contour intervals to mark on magnetic plots
+        self.nAsymContours = None  # Number of contour intervals to mark on asymmetry maps
+        self.latlonSize = None  # Font size for lat/lon labels
+        self.cLabelSize = None  # Font size for contour labels
+        self.cLabelPad = None  # Padding in pt to use for contour labels
+        self.mapTitleSize = None  # Font size for title of global map plots
+        self.vminMagSurf_nT = None  # Minimum value for colormap in magnetic field surface plots (None uses data min/max)
+        self.vmaxMagSurf_nT = None  # Minimum value for colormap in magnetic field surface plots (None uses data min/max)
+        self.vminMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max)
+        self.vmaxMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max)
+        # Map settings derived from above params
+        self.lonMapTicks_deg = None  # List of ticks to mark for longitudes in degrees
+        self.latMapTicks_deg = None  # List of ticks to mark for latitudes in degrees
+        self.nLatMap = None  # Number of latitude points for mapped quantity plots
+        self.nLonMap = None  # Number of longitude points for mapped quantity plots
+        self.lonMap_deg = None  # East longitude values to use for maps in degrees
+        self.latMap_deg = None  # Latitude values to use for maps in degrees
+        self.thetaMap_rad = None  # Colatitude values to use for maps in radians
+        self.phiMap_rad = None  # East longitude values to use for maps in radians
 
         # Inductogram phase space plots
         self.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.
@@ -1470,17 +1569,10 @@ class FigMiscStruct:
 
         # Colorbar settings
         self.cbarTitleSize = None  # Font size specifier for colorbar titles
-        self.cbarSize = '5%'  # Description of the size of colorbar to use with make_axes_locatable
         self.cbarFmt = '%.1f'  # Format string to use for colorbar units
         self.nCbarPts = 80  # Number of points to use for drawing colorbar gradient
-        self.cLabelSize = 10  # Font size in pt for contour labels
-        self.cLabelPad = 5  # Padding in pt to set beside contour labels
-        self.cLegendOpacity = 1.0  # Opacity of legend backgrounds in contour plots.
         self.cbarSpace = 0.5  # Amount of whitespace in inches to use for colorbars
-        self.cbarHeight = 0.6  # Fraction of total figure height to use for colorbar size
-        self.cbarPad = 0.25  # Padding in pt to use for colorbars
         self.extraPad = self.cbarSpace * 0.8  # Amount of extra padding to apply to secondary colorbars
-        self.cbarBottom = (1 - self.cbarHeight - self.cbarPad*2/72)/2  # Fraction of total figure height to use for bottom edge of colorbar
 
         # Latex settings
         self.TEX_INSTALLED = None
@@ -1514,6 +1606,43 @@ class FigMiscStruct:
     def SetFontSizes(self):
         # Assign the set font sizes to rcParams.
         plt.rcParams['legend.fontsize'] = self.legendFontSize
+
+    def SetLatLon(self):
+        self.nLonMap = self.nPPGCmapRes + 1
+        self.nLatMap = int(self.nPPGCmapRes/2) + 1
+        self.latMap_deg = np.linspace(-90, 90, self.nLatMap, dtype=np.int)
+        self.thetaMap_rad = np.pi/2.0 - np.radians(self.latMap_deg)
+        if self.DO_360:
+            self.lonMin_deg = 0
+            self.lonMax_deg = 360
+        else:
+            self.lonMin_deg = -180
+            self.lonMax_deg = 180
+
+        if self.LARGE_ADJUST:
+            self.nLonTicks = 5
+            self.nLatTicks = 5
+            self.latlonSize = 20
+            self.cLabelSize = 16
+            self.mapTitleSize = 24
+
+        self.lonMap_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonMap, dtype=np.int)
+        self.phiMap_rad = np.radians(self.lonMap_deg)
+        self.lonMapTicks_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonTicks, dtype=np.int)
+        self.latMapTicks_deg = np.linspace(-90, 90, self.nLatTicks, dtype=np.int)
+        
+    def LatMapFormatter(self, lat, pos):
+        # Tick formatter function to use for latitude labels
+        return LatFormatter(lat)
+
+    def LonMapFormatter(self, lon, pos):
+        # Tick formatter function to use for longitude labels
+        return LonFormatter(lon, EAST=self.DO_360)
+
+    def Cformat(self, val, pos):
+        # Formatter function for contour labels on maps
+        fmt_string = u'{sign}{field:{num_format}}'
+        return fmt_string.format(field=abs(val), sign=GetSign(val), num_format='.3g')
 
 
 """ Global EOS list """

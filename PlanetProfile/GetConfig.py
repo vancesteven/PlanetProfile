@@ -1,11 +1,13 @@
 """ Load in default settings, then overwrite them with the user's settings in top-level dir. """
 from warnings import warn
+import os
+import time
+import matplotlib
+import spiceypy as spice
 import logging
 import multiprocessing as mtp
 from functools import partial, partialmethod
 import MoonMag.symmetry_funcs, MoonMag.asymmetry_funcs
-import matplotlib
-import time
 
 from PlanetProfile.defaultConfig import \
     Params, \
@@ -15,6 +17,10 @@ from configPP import \
     Params as userParams, \
     ExploreParams as userExploreParams, \
     configVersion as userConfigVersion
+if hasattr(userParams,'spiceTLS') and hasattr(userParams,'spiceDir'):
+    spice.furnsh(os.path.join(userParams.spiceDir, userParams.spiceTLS))
+else:
+    spice.furnsh(os.path.join(Params.spiceDir, Params.spiceTLS))
 from PlanetProfile.MagneticInduction.defaultConfigInduct import \
     SigParams, \
     ExcSpecParams, \

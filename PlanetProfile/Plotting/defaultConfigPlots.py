@@ -1,9 +1,10 @@
 """ Default figure settings """
 import numpy as np
+import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 6  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 7  # Integer number for config file version. Increment when new settings are added to the default config file.
 Color = ColorStruct()
 Style = StyleStruct()
 FigLbl = FigLblStruct()
@@ -75,6 +76,10 @@ Color.cmapName = {
     'NH3': 'spring',
     'NaCl': 'summer',
     'Ice': 'coolwarm_r',
+    'BmapPos': 'afmhot',
+    'BmapNeg': 'afmhot_r',
+    'BmapDiv': 'seismic',
+    'asymDev': 'PuBu_r',
     'default': 'plasma'
 }
 # Select only a subset of the available colormap, if we choose to
@@ -86,6 +91,10 @@ Color.cmapBounds = {
     'NH3': [0.0, 1.0],
     'NaCl': [0.0, 1.0],
     'Ice': [0.2, 0.8],
+    'BmapPos': [0.0, 1.0],
+    'BmapNeg': [0.0, 1.0],
+    'BmapDiv': [0.0, 1.0],
+    'asymDev': [0.0, 1.0],
     'default': [0.0, 1.0]
 }
 # Set temperature bounds to use for colormap normalization
@@ -192,6 +201,9 @@ FigSize.BdipCombo = (6, 9)
 FigSize.BdipSolo = (2.5, 3)
 FigSize.BdipSoloCombo = (3, 9)
 FigSize.MagFT = (6, 10)
+FigSize.MagSurf = (8, 5)
+FigSize.MagSurfCombo = (16, 5)
+FigSize.asym = (8, 5)
 
 
 """ Miscellaneous figure options """
@@ -224,9 +236,28 @@ FigMisc.nPgeo = 100  # Number of pressure points to evaluate/plot for PT propert
 FigMisc.nPgeoCore = 40  # Subset of nPgeo to use for core, if present
 FigMisc.PVT_INCLUDE_CORE = True  # Whether to include core as well as silicates in PT properties diagrams
         
-# Induced dipole surface strength plots
+# Induced field surface strength plots
 FigMisc.BdipZoomMult = 1.05  # Extra space to include around zoomed-in part, in fraction of largest value.
 FigMisc.SHOW_INSET = True  # Whether to show the inset box for the zoom-in plot, when applicable
+FigMisc.rMagEval_Rp = 1.0  # Fraction of body radius to use for surface over which PlotMagSurface is evaluated
+FigMisc.tMagEval_s = spice.str2et('2000-01-01T11:58:55.816')  # Time in seconds past J2000 at which to evaluate magnetic field surface maps. spiceypy.str2et will convert a datetime string to the correct format. Accepts an array.
+FigMisc.LARGE_ADJUST = True  # Whether to make certain labels better for cramped spaces, including removing colorbars (True is more pared down, and overrides nLon/LatTicks below.)
+FigMisc.BASYM_WITH_SYM = True  # Whether to plot Basym plot and Bsym plot on the same figure
+FigMisc.vCompMagSurf = 'mag'  # Component to use for induced field surface strength plots. Options are ['x', 'y', 'z', 'mag'].
+FigMisc.nPPGCmapRes = 540  # Number of points per great circle to use for map angular resolution
+FigMisc.DO_360 = False  # Whether to range longitudes from 0 to 360 or from -180 to +180
+FigMisc.nLatTicks = 7  # Number of ticks to mark on latitude axis
+FigMisc.nLonTicks = 9  # Number of ticks to mark on longitude axis
+FigMisc.nMagContours = 9  # Number of contour intervals to mark on magnetic plots
+FigMisc.nAsymContours = 7  # Number of contour intervals to mark on asymmetry maps
+FigMisc.latlonSize = 14  # Font size for lat/lon labels
+FigMisc.cLabelSize = 12  # Font size for contour labels
+FigMisc.cLabelPad = 1  # Padding in pt to use for contour labels
+FigMisc.vminMagSurf_nT = None  # Minimum value for colormap in magnetic field surface plots (None uses data min/max)
+FigMisc.vmaxMagSurf_nT = None  # Minimum value for colormap in magnetic field surface plots (None uses data min/max)
+FigMisc.vminMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max)
+FigMisc.vmaxMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max)
+
 
 # Inductogram phase space plots
 FigMisc.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.
@@ -251,6 +282,7 @@ FigMisc.latexPackages = [
     r'\usepackage{upgreek}'
 ]
 FigMisc.SetLatex()
+FigMisc.SetLatLon()
 
 # Table printout settings
 FigMisc.PRINT_BULK = True  # Whether to print bulk body properties, like mass and MoI
@@ -267,12 +299,8 @@ FigMisc.cLegendOpacity = 1.0  # Opacity of legend backgrounds in contour plots.
 
 # Colorbar settings
 FigMisc.cbarTitleSize = 'small'  # Font size specifier for colorbar titles
-FigMisc.cbarSpace = 0.5  # Amount of whitespace in inches to use for colorbars
-FigMisc.cbarSize = '5%'  # Description of the size of colorbar to use with make_axes_locatable
-FigMisc.cbarHeight = 0.6  # Fraction of total figure height to use for colorbar size
-FigMisc.cbarPad = 0.25  # Padding in pt to use for colorbars
-FigMisc.extraPad = FigMisc.cbarSpace * 0.8  # Amount of extra padding to apply to secondary colorbars
 FigMisc.cbarFmt = '%.1f'  # Format string to use for colorbar units
+FigMisc.cbarSpace = 0.5  # Amount of whitespace in inches to use for colorbars
+FigMisc.extraPad = FigMisc.cbarSpace * 0.8  # Amount of extra padding to apply to secondary colorbars
 FigMisc.nCbarPts = 80  # Number of points to use for drawing colorbar gradient
-FigMisc.cbarBottom = (1 - FigMisc.cbarHeight - FigMisc.cbarPad*2/72)/2  # Fraction of total figure height to use for bottom edge of colorbar
 FigMisc.SetFontSizes()  # Assign sizes for fonts

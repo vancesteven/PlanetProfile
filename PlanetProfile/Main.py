@@ -14,8 +14,8 @@ from PlanetProfile import _Defaults, _TestImport, CopyCarefully
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, Benm2absBexyz
 from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitations as Mag
-from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotInductOgram, \
-    PlotInductOgramPhaseSpace, PlotExploreOgram, PlotComplexBdip, PlotMagSpectrum
+from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, GenerateMagPlots, \
+    PlotInductOgram, PlotInductOgramPhaseSpace, PlotExploreOgram
 from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs
@@ -151,10 +151,7 @@ def run(bodyname=None, opt=None, fNames=None):
             GeneratePlots(CompareList, Params)
 
             if Params.CALC_CONDUCT and not Params.SKIP_INDUCTION:
-                if Params.PLOT_BDIP:
-                    PlotComplexBdip(CompareList, Params)
-                if Params.PLOT_MAG_SPECTRUM and np.any([Planet.Magnetic.FT_LOADED for Planet in CompareList]):
-                    PlotMagSpectrum(CompareList, Params)
+                GenerateMagPlots(CompareList, Params)
 
         # Print table outputs
         if Params.DISP_LAYERS or Params.DISP_TABLE:
@@ -206,11 +203,7 @@ def PlanetProfile(Planet, Params):
         # Plot induced dipole surface strength
         if ((not Params.SKIP_PLOTS) and Planet.Do.VALID) and \
             not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM):
-            if Params.PLOT_BDIP:
-                PlotComplexBdip(np.array([Planet]), Params)
-
-            if Params.PLOT_MAG_SPECTRUM and Planet.Magnetic.FT_LOADED:
-                PlotMagSpectrum([Planet], Params)
+            GenerateMagPlots([Planet], Params)
 
     PrintCompletion(Planet, Params)
     return Planet, Params

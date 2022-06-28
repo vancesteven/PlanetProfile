@@ -58,3 +58,10 @@ Planet.Bulk.J2 = 5435.2e-6  # J2 and C22 values from Iess et al. (2014): https:/
 Planet.Bulk.C22 = 1549.8e-6
 Planet.Magnetic.ionosBounds_m = None
 Planet.Magnetic.sigmaIonosPedersen_Sm = None
+Planet.Magnetic.SCera = 'Cassini'
+Planet.Magnetic.extModel = 'Cassini11'
+Planet.Magnetic.asymDescrip = ['Enceladus ice shell thickness']
+contours = [
+    np.array([6, 10, 14, 18, 22, 24, 30]) * 22.50257/20.85219
+]
+Planet.Magnetic.asymContours_km = {lbl: contourList for lbl, contourList in zip(Planet.Magnetic.asymDescrip, contours)}
