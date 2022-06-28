@@ -63,7 +63,6 @@ A simple list with install commands for Python is in the next section.
 1. AFTER the above modules have been installed with conda, install SeaFreeze and MoonMag with the following command:
   1. `pip install SeaFreeze MoonMag`
   1. Finally, install PlanetProfile with `pip install PlanetProfile`
-Note that although MoonMag supports use of SPICE kernels with SpiceyPy, their use is not yet implemented in PlanetProfile. 
   
 ### Matlab
 1. Download PlanetProfile repository.
