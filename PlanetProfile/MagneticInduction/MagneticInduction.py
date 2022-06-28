@@ -10,8 +10,9 @@ from scipy.io import savemat, loadmat
 from PlanetProfile import _Test, _Defaults
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.MagneticInduction.Moments import Excitations
+from PlanetProfile.GetConfig import FigMisc
 from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq as GeodesyNorm2chipq, \
-    get_all_Xid as LoadXid
+    get_all_Xid as LoadXid, get_rsurf as GetrSurf
 from MoonMag.symmetry_funcs import InducedAeList as AeList
 
 # Assign logger
@@ -19,17 +20,12 @@ log = logging.getLogger('PlanetProfile')
 
 def MagneticInduction(Planet, Params, fNameOverride=None):
     """ Calculate induced magnetic moments for the body and prints them to disk.
-
-        Requires Planet attributes:
-            Magnetic.inductType
-        Sets Planet attributes:
-
     """
 
     SKIP = False
     if Planet.Do.VALID and Params.CALC_NEW_INDUCT:
         # Set Magnetic struct layer arrays as we need for induction calculations
-        Planet = SetupInduction(Planet, Params)
+        Planet, Params = SetupInduction(Planet, Params)
 
         # Skip remaining calcs if we couldn't load excitation moments
         if Planet.Magnetic.Benm_nT is not None:
@@ -54,7 +50,7 @@ def MagneticInduction(Planet, Params, fNameOverride=None):
             log.warning(f'CALC_NEW_INDUCT is False, but {momentsFile} was not found. ' +
                         f'Skipping induction calculations.')
             SKIP = True
-
+            
     else:
         SKIP = True
 
@@ -64,11 +60,17 @@ def MagneticInduction(Planet, Params, fNameOverride=None):
         if Planet.Magnetic.sigmaIonosPedersen_Sm is None:
             Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
         Planet.Magnetic.calcedExc = []
-
-    if (not SKIP) and Params.PLOT_MAG_SPECTRUM and not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM):
-        Planet = FourierSpectrum(Planet, Params)
     else:
-        Planet.Magnetic.FT_LOADED = False
+        if not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM):
+            if Params.PLOT_MAG_SPECTRUM:
+                Planet = FourierSpectrum(Planet, Params)
+
+            if Params.CALC_NEW_ASYM:
+                if not Params.CALC_NEW_INDUCT:
+                    Planet, Params = SetupInduction(Planet, Params)
+                Planet = CalcAsymContours(Planet, Params)
+            else:
+                Planet = ReloadAsym(Planet, Params)
     
     # Must return both Planet and Params in order to use common infrastructure
     # for unpacking parallel runs
@@ -87,8 +89,8 @@ def CalcInducedMoments(Planet, Params):
     nMax = Planet.Magnetic.nprmMax + Planet.Magnetic.pMax
     Planet.Magnetic.nLin = [n for n in range(1, nMax+1) for _ in range(-n, n+1)]
     Planet.Magnetic.mLin = [m for n in range(1, nMax+1) for m in range(-n, n+1)]
-    nprmLin = [n for n in range(1, Planet.Magnetic.nprmMax+1) for _ in range(-n, n+1)]
-    mprmLin = [m for n in range(1, Planet.Magnetic.nprmMax+1) for m in range(-n, n+1)]
+    Planet.Magnetic.nprmLin = [n for n in range(1, Planet.Magnetic.nprmMax+1) for _ in range(-n, n+1)]
+    Planet.Magnetic.mprmLin = [m for n in range(1, Planet.Magnetic.nprmMax+1) for m in range(-n, n+1)]
     Nnm = np.size(Planet.Magnetic.nLin)
 
     Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex_)
@@ -118,13 +120,13 @@ def CalcInducedMoments(Planet, Params):
         Planet.Magnetic.Aen[:,1], Planet.Magnetic.Amp, AeArg \
             = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                      Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=1,
-                     writeout=False, do_parallel=False)
+                     writeout=False, do_parallel=not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
         Planet.Magnetic.phase = -np.degrees(AeArg)
         for n in range(2, Planet.Magnetic.nprmMax):
             Planet.Magnetic.Aen[:,n], _, _ \
                 = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                          Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=n,
-                         writeout=False, do_parallel=False)
+                         writeout=False, do_parallel=not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
 
         if Params.Sig.INCLUDE_ASYM:
             # Use a separate function for evaluating asymmetric induced moments, as Binm is not as simple as
@@ -134,7 +136,8 @@ def CalcInducedMoments(Planet, Params):
                                              Planet.Magnetic.gravShape_m, Planet.Magnetic.Benm_nT, 1/Planet.Bulk.R_m,
                                              Planet.Magnetic.nLin, Planet.Magnetic.mLin, Planet.Magnetic.pMax,
                                              nprm_max=Planet.Magnetic.nprmMax, writeout=False,
-                                             do_parallel=False, Xid=Planet.Magnetic.Xid)
+                                             do_parallel=not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM),
+                                             Xid=Planet.Magnetic.Xid)
         else:
             # Multiply complex response by Benm to get Binm for spherically symmetric case
             for iPeak in range(Planet.Magnetic.nExc):
@@ -171,10 +174,13 @@ def CalcInducedMoments(Planet, Params):
             'BinmLin_nT': Planet.Magnetic.BinmLin_nT,
             'nLin': Planet.Magnetic.nLin,
             'mLin': Planet.Magnetic.mLin,
+            'nprmLin': Planet.Magnetic.nprmLin,
+            'mprmLin': Planet.Magnetic.mprmLin,
             'Bi1x_nT': Planet.Magnetic.Bi1xyz_nT['x'],
             'Bi1y_nT': Planet.Magnetic.Bi1xyz_nT['y'],
             'Bi1z_nT': Planet.Magnetic.Bi1xyz_nT['z'],
             'Aen': Planet.Magnetic.Aen,
+            'asymShape_m': Planet.Magnetic.asymShape_m,
             'ionosBounds_m': Planet.Magnetic.ionosBounds_m,
             'calcedExc': Planet.Magnetic.calcedExc
         }
@@ -194,15 +200,111 @@ def ReloadMoments(Planet, momentsFile):
     Planet.Magnetic.BinmLin_nT = reload['BinmLin_nT'][0]
     Planet.Magnetic.nLin = reload['nLin'][0]
     Planet.Magnetic.mLin = reload['mLin'][0]
+    Planet.Magnetic.nprmLin = reload['nprmLin'][0]
+    Planet.Magnetic.mprmLin = reload['mprmLin'][0]
     Planet.Magnetic.Bi1xyz_nT = {
         'x': reload['Bi1x_nT'][0],
         'y': reload['Bi1y_nT'][0],
         'z': reload['Bi1z_nT'][0]
     }
     Planet.Magnetic.Aen = reload['Aen']
+    Planet.Magnetic.asymShape_m = reload['asymShape_m']
     Planet.Magnetic.ionosBounds_m = reload['ionosBounds_m'][0]
     Planet.Magnetic.calcedExc = np.char.strip(reload['calcedExc'])
+    Planet.Magnetic.nExc = np.size(Planet.Magnetic.omegaExc_radps)
     
+    return Planet
+
+
+def CalcAsymContours(Planet, Params):
+
+    if Params.Sig.INCLUDE_ASYM:
+        # Make a calculation for each loaded asymmetry file and the gravity shape
+        Planet.Magnetic.asymDevs_km = np.zeros((Planet.Magnetic.nAsymBds, FigMisc.nLatMap, FigMisc.nLonMap))
+        for i, iLayer, zMean_km in zip(range(Planet.Magnetic.nAsymBds), Planet.Magnetic.iAsymBds, Planet.Magnetic.zMeanAsym_km):
+            log.debug(f'Calculating topographic data for zMean = {zMean_km:.1f} km depth with {360/FigMisc.nLonMap:.1f}° resolution. This may take some time.')
+            if i == Planet.Magnetic.nAsymBds - 1:
+                rSurf_m = np.real(GetrSurf(Planet.Magnetic.pLin, Planet.Magnetic.qLin, Planet.Magnetic.gravShape_m[iLayer, ...],
+                                           Planet.Bulk.R_m, FigMisc.thetaMap_rad, FigMisc.phiMap_rad,
+                                           do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM)))
+            else:
+                rSurf_m = np.real(GetrSurf(Planet.Magnetic.pLin, Planet.Magnetic.qLin, Planet.Magnetic.asymShape_m[iLayer, ...],
+                                           Planet.Bulk.R_m - zMean_km*1e3, FigMisc.thetaMap_rad, FigMisc.phiMap_rad,
+                                           do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM)))
+
+            # Plot as depth
+            Planet.Magnetic.asymDevs_km[i, ...] = (Planet.Bulk.R_m - rSurf_m) / 1e3
+            if zMean_km <= 0:
+                # For asymmetry at the surface and above, plot as elevation/altitudes and not depth
+                Planet.Magnetic.asymDevs_km[i, ...] = -1 * Planet.Magnetic.asymDevs_km[i, ...]
+
+        # Save calculated boundary deviations to disk
+        if not Params.NO_SAVEFILE:
+            saveDict = {
+                'nAsymBds': Planet.Magnetic.nAsymBds,
+                'iAsymBds': Planet.Magnetic.iAsymBds,
+                'zMeanAsym_km': Planet.Magnetic.zMeanAsym_km,
+                'asymShape_m': Planet.Magnetic.asymShape_m,
+                'gravShape_m': Planet.Magnetic.gravShape_m,
+                'asymDevs_km': Planet.Magnetic.asymDevs_km,
+                'latMap_deg': FigMisc.latMap_deg,
+                'lonMap_deg': FigMisc.lonMap_deg
+            }
+            savemat(Params.DataFiles.asymFile, saveDict)
+            log.debug(f'Saved asymmetric boundary deviations to file: {Params.DataFiles.asymFile}')
+    return Planet
+
+
+def ReloadAsym(Planet, Params, fNameOverride=None):
+    # Reload calculated boundary deviations from disk
+
+    if fNameOverride is not None:
+        asymFile = fNameOverride
+    else:
+        asymFile = Params.DataFiles.asymFile
+    reload = loadmat(asymFile)
+    Planet.Magnetic.nAsymBds = reload['nAsymBds'][0]
+    Planet.Magnetic.iAsymBds = reload['iAsymBds'][0]
+    Planet.Magnetic.zMeanAsym_km = reload['zMeanAsym_km'][0]
+    Planet.Magnetic.asymShape_m = reload['asymShape_m']
+    Planet.Magnetic.gravShape_m = reload['gravShape_m']
+    Planet.Magnetic.asymDevs_km = reload['asymDevs_km']
+    if FigMisc.nLatMap != np.size(reload['latMap_deg']):
+        log.warning('Reloaded latitudes don\'t match those in FigMisc. nLatMap will be overriden.')
+        FigMisc.latMap_deg = reload['latMap_deg'][0]
+        FigMisc.nLatMap = np.size(FigMisc.latMap_deg)
+    if FigMisc.nLonMap != np.size(reload['lonMap_deg']):
+        log.warning('Reloaded longitudes don\'t match those in FigMisc. nLonMap will be overridden.')
+        FigMisc.lonMap_deg = reload['lonMap_deg'][0]
+        FigMisc.nLonMap = np.size(FigMisc.lonMap_deg)
+
+    # Adjust longitudes in case we change DO_360 between calculations
+    if (FigMisc.DO_360 and FigMisc.lonMap_deg[0] < 0) or \
+       (not FigMisc.DO_360 and FigMisc.lonMap_deg[-1] > 180):    
+        lonAdj_deg = FigMisc.lonMap_deg + 0
+        if FigMisc.DO_360:
+            lonAdj_deg[lonAdj_deg == -180] = 180.1
+            lonAdj_deg[lonAdj_deg < 0] = lonAdj_deg[lonAdj_deg < 0] + 360
+            iSort = np.argsort(lonAdj_deg)
+        else:
+            lonAdj_deg[lonAdj_deg == 360] = -0.1
+            lonAdj_deg[lonAdj_deg >= 180] = lonAdj_deg[lonAdj_deg >= 180] - 360
+            iSort = np.argsort(lonAdj_deg)
+    
+        lonAdj_deg = lonAdj_deg[iSort]
+        rDevsAdj_km = Planet.Magnetic.asymDevs_km[:, :, iSort]
+    
+        # Stitch endpoints together if we adjusted the plotting coords
+        if not (np.max(lonAdj_deg) == 180 or np.max(lonAdj_deg) == 360):
+            if FigMisc.DO_360:
+                lonAdj_deg = np.append(lonAdj_deg, 360)
+            else:
+                lonAdj_deg = np.append(lonAdj_deg, 180)
+            rDevsAdj_km = np.append(rDevsAdj_km, rDevsAdj_km[:, 0:1], axis=1)
+        
+        FigMisc.lonMap_deg = lonAdj_deg
+        Planet.Magnetic.asymDevs_km = rDevsAdj_km
+
     return Planet
 
 
@@ -304,7 +406,7 @@ def SetupInduction(Planet, Params):
 
         # Set asymmetric shape if applicable
         if Params.Sig.INCLUDE_ASYM:
-            if Planet.Magnetic.pMax is not None and Planet.Magnetic.pMax == 0:
+            if Planet.Magnetic.pMax == 0:
                 Params.Sig.INCLUDE_ASYM = False
                 log.warning('Magnetic.pMax is 0, asymmetry calculations will be skipped.')
                 Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, 1, 1))
@@ -320,6 +422,7 @@ def SetupInduction(Planet, Params):
                 Planet.Magnetic.gravShape_m = np.zeros_like(Planet.Magnetic.asymShape_m)
                 if Planet.Magnetic.pMax >= 2:
                     Planet = SetGravShape(Planet, Params)
+                Planet.Magnetic.nAsymBds = np.size(Planet.Magnetic.zMeanAsym_km)
 
                 # Fetch Xid array
                 XidLabel = f''
@@ -342,7 +445,8 @@ def SetupInduction(Planet, Params):
         Planet.Magnetic.nExc = np.size(Planet.Magnetic.Texc_hr)
 
         # Initialize Binm array to have the same shape and data type as Benm
-        Planet.Magnetic.Binm_nT = np.zeros_like(Planet.Magnetic.Benm_nT)
+        if Planet.Magnetic.Binm_nT is None: 
+            Planet.Magnetic.Binm_nT = np.zeros_like(Planet.Magnetic.Benm_nT)
 
     else:
         # Make sure explore-o-grams play nice when ionosphere properties are not set
@@ -351,7 +455,7 @@ def SetupInduction(Planet, Params):
         if Planet.Magnetic.sigmaIonosPedersen_Sm is None or np.any(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
             Planet.Magnetic.sigmaIonosPedersen_Sm = [0]
 
-    return Planet
+    return Planet, Params
 
 
 def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
@@ -504,11 +608,14 @@ def SetGravShape(Planet, Params):
     H2c_4pi_m = [H2c_m[q] / normFactor_4pi(p, q) for q in range(p+1)]
     H2s_4pi_m = [H2s_m[q] / normFactor_4pi(p, q) for q in range(p+1)]
     # Convert to fully normalized, complex coefficients with Condon-Shortley phase
-    g_chipq = GeodesyNorm2chipq(p, H2c_4pi_m, H2s_4pi_m)
+    g_chipq_m = GeodesyNorm2chipq(p, H2c_4pi_m, H2s_4pi_m)
     # Construct the gravity shape array by scaling the shape to the surface radius
     radialScale = Planet.Magnetic.rSigChange_m / Planet.Bulk.R_m
-    for i, rScale in enumerate(radialScale):
-        Planet.Magnetic.gravShape_m[i, :, p, :p+1] = g_chipq * rScale
+    for iLayer, rScale in enumerate(radialScale):
+        Planet.Magnetic.gravShape_m[iLayer, :, p, :p+1] = g_chipq_m * rScale
+
+    Planet.Magnetic.zMeanAsym_km = np.append(Planet.Magnetic.zMeanAsym_km, 0)
+    Planet.Magnetic.iAsymBds = np.append(Planet.Magnetic.iAsymBds, np.argmin(np.abs(radialScale - 1.0)))
 
     return Planet
 
@@ -574,8 +681,13 @@ def SetAsymShape(Planet, Params):
                 Spq_m = -Spq_km[iMin:iMax] * 1e3
                 chipq_m = GeodesyNorm2chipq(p, Cpq_m, Spq_m)
                 # Scale according to radius and fill into asymShape
-                for i, rScale in enumerate(radialScale):
-                    Planet.Magnetic.asymShape_m[i, :, p, :p+1] = chipq_m * 1e3 * rScale
+                for iLayer, rScale in enumerate(radialScale):
+                    Planet.Magnetic.asymShape_m[iLayer, 0, 0, 0] = Planet.Magnetic.rSigChange_m[iLayer]
+                    Planet.Magnetic.asymShape_m[iLayer, :, p, :p+1] = chipq_m * rScale
+
+            Planet.Magnetic.zMeanAsym_km = np.append(Planet.Magnetic.zMeanAsym_km, Cpq_km[0])
+            Planet.Magnetic.iAsymBds = np.append(Planet.Magnetic.iAsymBds, 
+                                                 np.argmin(np.abs(Planet.Magnetic.rSigChange_m - rAsym_m)))
         else:
             reason = f'A shape file was not found at {fName}, but Params.Sig.CONCENTRIC_ASYM is True. '
             SKIP_ASYM = True
@@ -610,6 +722,7 @@ def SetAsymShape(Planet, Params):
             radDiff = Planet.Magnetic.rSigChange_m - rAsym_m
             iLayer = np.argmin(abs(radDiff))
             # Convert 4π-normalized depth coefficients in km to fully normalized radial and in m
+            Planet.Magnetic.asymShape_m[iLayer, 0, 0, 0] = Planet.Magnetic.rSigChange_m[iLayer]
             for p in range(1, pMax+1):
                 iMin = int(p * (p+1) / 2)
                 iMax = iMin + p+1
@@ -618,14 +731,24 @@ def SetAsymShape(Planet, Params):
                 Spq_m = -Spq_km[i][iMin:iMax] * 1e3
                 chipq_m = GeodesyNorm2chipq(p, Cpq_m, Spq_m)
                 # Scale according to radius and fill into asymShape
-                Planet.Magnetic.asymShape_m[i, :, p, :p+1] = Planet.Magnetic.asymShape_m[i, :, p, :p+1] \
-                        + chipq_m * 1e3 * rAsym_m / Planet.Magnetic.rSigChange_m[iLayer]
+                Planet.Magnetic.asymShape_m[iLayer, :, p, :p+1] = Planet.Magnetic.asymShape_m[iLayer, :, p, :p+1] \
+                        + chipq_m * rAsym_m / Planet.Magnetic.rSigChange_m[iLayer]
+
+                Planet.Magnetic.zMeanAsym_km = np.append(Planet.Magnetic.zMeanAsym_km, np.real(Planet.Bulk.R_m - Planet.Magnetic.asymShape_m[iLayer, 0, 0, 0])/1e3)
+                Planet.Magnetic.iAsymBds = np.append(Planet.Magnetic.iAsymBds, iLayer)
 
     if SKIP_ASYM:
         log.warning(reason + ' Asymmetry will be modeled only for the gravity coefficients.')
         Planet.Magnetic.pMax = 2
         Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, Planet.Magnetic.pMax+1, Planet.Magnetic.pMax+1),
                                              dtype=np.complex_)
+    else:
+        Planet.Magnetic.zMeanAsym_km = np.unique(Planet.Magnetic.zMeanAsym_km)
+        Planet.Magnetic.iAsymBds = np.unique(Planet.Magnetic.iAsymBds)
+
+    if Planet.Magnetic.pLin is None:
+        Planet.Magnetic.pLin = [p for p in range(1, Planet.Magnetic.pMax+1) for _ in range(-p, p+1)]
+        Planet.Magnetic.qLin = [q for p in range(1, Planet.Magnetic.pMax+1) for q in range(-p, p+1)]
 
     return Planet
 
