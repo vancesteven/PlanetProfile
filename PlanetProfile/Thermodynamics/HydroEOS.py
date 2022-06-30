@@ -264,7 +264,7 @@ class IceEOSStruct:
                 # Special functions for clathrate properties
                 rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
                     = ClathProps(P_MPa, T_K)
-                if ClathDissoc.NAGASHIMA:
+                if ClathDissoc is not None and ClathDissoc.NAGASHIMA:
                     self.phase = ClathStableNagashima2017(P_MPa, T_K)
                 else:
                     self.phase = ClathStableSloan1998(P_MPa, T_K)

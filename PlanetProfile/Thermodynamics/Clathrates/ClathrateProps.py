@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.optimize import root_scalar as GetZero
+from collections.abc import Iterable
 from PlanetProfile.Utilities.defineStructs import Constants
 
 def ClathProps(Plin_MPa, Tlin_K):
@@ -60,16 +61,21 @@ class ClathDissoc:
                 self.Pends_MPa = [2.567, Constants.PmaxLiquid_MPa]
 
     def Tdissoc_K(self, P_MPa):
-        P_MPa[P_MPa == 0] = Constants.Pmin_MPa
-        if self.NAGASHIMA_CLATH_DISSOC:
+        if isinstance(P_MPa, Iterable):
+            P_MPa[P_MPa == 0] = Constants.Pmin_MPa
+        else:
+            if P_MPa == 0:
+                P_MPa = Constants.Pmin_MPa
+
+        if self.NAGASHIMA:
             Td_K = TclathDissocNagashima_K(P_MPa)
         else:
             if self.LOWER:
                 # For use when P_MPa < 2.567 and T < 273
-                Td_K = TclathDissocLower_MPa(P_MPa)
+                Td_K = TclathDissocLower_K(P_MPa)
             else:
                 # For use when P_MPa >= 2.567 and T >= 273
-                Td_K = TclathDissocUpper_MPa(P_MPa)
+                Td_K = TclathDissocUpper_K(P_MPa)
 
         return Td_K
 
@@ -97,13 +103,25 @@ class ClathDissoc:
         return PbClath_MPa
 
 def TclathDissocLower_K(P_MPa):
-    P_MPa[P_MPa == 0] = Constants.Pmin_MPa
+    if isinstance(P_MPa, Iterable):
+        P_MPa[P_MPa == 0] = Constants.Pmin_MPa
+    else:
+        if P_MPa == 0:
+            P_MPa = Constants.Pmin_MPa
     return 212.33820985 + 43.37319252 * P_MPa - 7.83348412 * P_MPa ** 2
 def TclathDissocUpper_K(P_MPa):
-    P_MPa[P_MPa == 0] = Constants.Pmin_MPa
+    if isinstance(P_MPa, Iterable):
+        P_MPa[P_MPa == 0] = Constants.Pmin_MPa
+    else:
+        if P_MPa == 0:
+            P_MPa = Constants.Pmin_MPa
     return -20.3058036 + 8.09637199 * np.log(P_MPa / 4.56717945e-16)
 def TclathDissocNagashima_K(P_MPa):
-    P_MPa[P_MPa == 0] = Constants.Pmin_MPa
+    if isinstance(P_MPa, Iterable):
+        P_MPa[P_MPa == 0] = Constants.Pmin_MPa
+    else:
+        if P_MPa == 0:
+            P_MPa = Constants.Pmin_MPa
     return 2214.1 / (15.959 - np.log(1e3*P_MPa))
 def PclathDissocNagashima_MPa(T_K):
     return 1e-3 * np.exp(15.959 - 2214.1 / T_K)

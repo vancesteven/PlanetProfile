@@ -387,6 +387,12 @@ def IceIConductClathUnderplatePorous(Planet, Params):
     DeltaPClath_MPa = Planet.Bulk.clathMaxThick_m * Planet.g_ms2[0] * rhoBot_kgm3 / 1e6
     # Get pressure at ice Ih-clathrate transition
     PbTrans_MPa = Planet.PbI_MPa - DeltaPClath_MPa
+    if PbTrans_MPa < Planet.Bulk.Psurf_MPa:
+        log.warning(f'PbTrans_MPa is {PbTrans_MPa}, meaning Delta P across the clathrate layer ' +
+                    f'exceeds the dissociation pressure of {Planet.PbI_MPa} MPa. PbTrans will be ' +
+                    'reset to 90% of this pressure. A more self-consistent implementation will be ' +
+                    'made in a future update.')
+        PbTrans_MPa = 0.9 * Planet.PbI_MPa
     PIceI_MPa = np.linspace(Planet.P_MPa[0], PbTrans_MPa, Planet.Steps.nIceI+1)
 
     # Get ice I EOS
