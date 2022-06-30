@@ -15,12 +15,16 @@ Planet.Do.Fe_CORE = False
 import numpy as np
 import os, shutil
 import cmasher
+import logging
 import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
 from scipy.interpolate import interp1d
 from MoonMag.plotting_funcs import east_formatted as LonFormatter, lat_formatted as LatFormatter, \
     get_sign as GetSign
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 # We have to define subclasses first in order to make them instanced to each Planet object
 """ Run settings """
@@ -58,7 +62,7 @@ class DoSubstruct:
         self.Fe_CORE = False  # Whether to model an iron core for this body
         self.CONSTANT_INNER_DENSITY = False  # Whether to use a fixed density in silicates and core instead of using Perple_X EOS for each
         self.CLATHRATE = False  # Whether to model clathrates
-        self.NAGASHIMA_CLATH_DISSOC = True  # Whether to use extrapolation of Nagashima (2017) dissertation provided by S. Nozaki (private communication) for clathrate dissociation (alternative is Sloan (1998))
+        self.NAGASHIMA_CLATH_DISSOC = False  # Whether to use extrapolation of Nagashima (2017) dissertation provided by S. Nozaki (private communication) for clathrate dissociation (alternative is Sloan (1998)). WIP.
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
@@ -373,6 +377,7 @@ class PlanetStruct:
             self.bodyname = 'Test'
         else:
             self.bodyname = self.name
+        self.parent = ParentName(self.bodyname)
 
         self.Bulk = BulkSubstruct()
         self.Do = DoSubstruct()
@@ -478,6 +483,13 @@ class PlanetStruct:
         self.dzIceVandVI_km = np.nan
         self.dzSilPorous_km = np.nan
         self.dzFeS_km = np.nan
+        # Coordinates for mapped quantities
+        self.lonMap_deg = None
+        self.latMap_deg = None
+        self.thetaMap_rad = None
+        self.phiMap_rad = None
+        self.nLonMap = None
+        self.nLatMap = None
 
 
 """ Params substructs """
@@ -1705,6 +1717,22 @@ class ConstantsStruct:
         # Default settings for ionosphere when altitude or conductivity is set, but not the other
         self.ionosTopDefault_km = 100  # Default ionosphere cutoff altitude in km
         self.sigmaIonosPedersenDefault_Sm = 1e-4  # Default ionospheric Pedersen conductivity in S/m
+
+
+def ParentName(bodyname):
+    if bodyname in ['Io', 'Europa', 'Ganymede', 'Callisto']:
+        parentName = 'Jupiter'
+    elif bodyname in ['Mimas', 'Enceladus', 'Dione', 'Rhea', 'Titan']:
+        parentName = 'Saturn'
+    elif bodyname in ['Miranda', 'Ariel', 'Umbriel', 'Titania', 'Oberon']:
+        parentName = 'Uranus'
+    elif bodyname in ['Triton']:
+        parentName = 'Neptune'
+    else:
+        log.debug(f'No parent planet identified for {bodyname}. Falling back to "None".')
+        parentName = 'None'
+    return parentName
+
 
 Constants = ConstantsStruct()
 EOSlist = EOSlistStruct()

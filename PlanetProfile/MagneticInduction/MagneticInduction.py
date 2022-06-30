@@ -2,13 +2,15 @@ import os
 import numpy as np
 import logging
 import scipy.interpolate as spi
-from scipy.integrate import solve_ivp as ODEsolve
 import scipy.special as sps
+import spiceypy as spice
+from scipy.integrate import solve_ivp as ODEsolve
 from collections.abc import Iterable
 from glob import glob as FilesMatchingPattern
 from scipy.io import savemat, loadmat
 from PlanetProfile import _Test, _Defaults
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+from PlanetProfile.Utilities.Trajectories import BodyDist_km
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from PlanetProfile.GetConfig import FigMisc
 from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq as GeodesyNorm2chipq, \
@@ -65,12 +67,13 @@ def MagneticInduction(Planet, Params, fNameOverride=None):
             if Params.PLOT_MAG_SPECTRUM:
                 Planet = FourierSpectrum(Planet, Params)
 
-            if Params.CALC_NEW_ASYM:
-                if not Params.CALC_NEW_INDUCT:
-                    Planet, Params = SetupInduction(Planet, Params)
-                Planet = CalcAsymContours(Planet, Params)
-            else:
-                Planet = ReloadAsym(Planet, Params)
+            if Params.CALC_ASYM:
+                if Params.CALC_NEW_ASYM:
+                    if not Params.CALC_NEW_INDUCT:
+                        Planet, Params = SetupInduction(Planet, Params)
+                    Planet = CalcAsymContours(Planet, Params)
+                else:
+                    Planet = ReloadAsym(Planet, Params)
     
     # Must return both Planet and Params in order to use common infrastructure
     # for unpacking parallel runs
@@ -141,8 +144,8 @@ def CalcInducedMoments(Planet, Params):
         else:
             # Multiply complex response by Benm to get Binm for spherically symmetric case
             for iPeak in range(Planet.Magnetic.nExc):
-                for n in nprmLin:
-                    for m in mprmLin:
+                for n in Planet.Magnetic.nprmLin:
+                    for m in Planet.Magnetic.mprmLin:
                         Planet.Magnetic.Binm_nT[iPeak, int(m<0), n, m] \
                             = n/(n+1) * Planet.Magnetic.Benm_nT[iPeak, int(m<0), n, m] * Planet.Magnetic.Aen[iPeak, n]
     else:
@@ -252,6 +255,7 @@ def CalcAsymContours(Planet, Params):
             }
             savemat(Params.DataFiles.asymFile, saveDict)
             log.debug(f'Saved asymmetric boundary deviations to file: {Params.DataFiles.asymFile}')
+
     return Planet
 
 
@@ -262,48 +266,56 @@ def ReloadAsym(Planet, Params, fNameOverride=None):
         asymFile = fNameOverride
     else:
         asymFile = Params.DataFiles.asymFile
-    reload = loadmat(asymFile)
-    Planet.Magnetic.nAsymBds = reload['nAsymBds'][0]
-    Planet.Magnetic.iAsymBds = reload['iAsymBds'][0]
-    Planet.Magnetic.zMeanAsym_km = reload['zMeanAsym_km'][0]
-    Planet.Magnetic.asymShape_m = reload['asymShape_m']
-    Planet.Magnetic.gravShape_m = reload['gravShape_m']
-    Planet.Magnetic.asymDevs_km = reload['asymDevs_km']
-    if FigMisc.nLatMap != np.size(reload['latMap_deg']):
-        log.warning('Reloaded latitudes don\'t match those in FigMisc. nLatMap will be overriden.')
-        FigMisc.latMap_deg = reload['latMap_deg'][0]
-        FigMisc.nLatMap = np.size(FigMisc.latMap_deg)
-    if FigMisc.nLonMap != np.size(reload['lonMap_deg']):
-        log.warning('Reloaded longitudes don\'t match those in FigMisc. nLonMap will be overridden.')
-        FigMisc.lonMap_deg = reload['lonMap_deg'][0]
-        FigMisc.nLonMap = np.size(FigMisc.lonMap_deg)
 
-    # Adjust longitudes in case we change DO_360 between calculations
-    if (FigMisc.DO_360 and FigMisc.lonMap_deg[0] < 0) or \
-       (not FigMisc.DO_360 and FigMisc.lonMap_deg[-1] > 180):    
-        lonAdj_deg = FigMisc.lonMap_deg + 0
-        if FigMisc.DO_360:
-            lonAdj_deg[lonAdj_deg == -180] = 180.1
-            lonAdj_deg[lonAdj_deg < 0] = lonAdj_deg[lonAdj_deg < 0] + 360
-            iSort = np.argsort(lonAdj_deg)
-        else:
-            lonAdj_deg[lonAdj_deg == 360] = -0.1
-            lonAdj_deg[lonAdj_deg >= 180] = lonAdj_deg[lonAdj_deg >= 180] - 360
-            iSort = np.argsort(lonAdj_deg)
-    
-        lonAdj_deg = lonAdj_deg[iSort]
-        rDevsAdj_km = Planet.Magnetic.asymDevs_km[:, :, iSort]
-    
-        # Stitch endpoints together if we adjusted the plotting coords
-        if not (np.max(lonAdj_deg) == 180 or np.max(lonAdj_deg) == 360):
+    if not os.path.isfile(asymFile):
+        log.error(f'Asymmetric shape file {asymFile} not found. Asymmetric shape ' +
+                  'plotting will be skipped.')
+        Params.CALC_ASYM = False
+    else:
+        reload = loadmat(asymFile)
+        Planet.Magnetic.nAsymBds = reload['nAsymBds'][0]
+        Planet.Magnetic.iAsymBds = reload['iAsymBds'][0]
+        Planet.Magnetic.zMeanAsym_km = reload['zMeanAsym_km'][0]
+        Planet.Magnetic.asymShape_m = reload['asymShape_m']
+        Planet.Magnetic.gravShape_m = reload['gravShape_m']
+        Planet.Magnetic.asymDevs_km = reload['asymDevs_km']
+        if FigMisc.nLatMap != np.size(reload['latMap_deg']):
+            log.warning('Reloaded latitudes don\'t match those in FigMisc. nLatMap will be overriden.')
+        Planet.latMap_deg = reload['latMap_deg'][0]
+        Planet.nLatMap = np.size(Planet.latMap_deg)
+        if FigMisc.nLonMap != np.size(reload['lonMap_deg']):
+            log.warning('Reloaded longitudes don\'t match those in FigMisc. nLonMap will be overridden.')
+        Planet.lonMap_deg = reload['lonMap_deg'][0]
+        Planet.nLonMap = np.size(Planet.lonMap_deg)
+
+        # Adjust longitudes in case we change DO_360 between calculations
+        if (FigMisc.DO_360 and Planet.lonMap_deg[0] < 0) or \
+           (not FigMisc.DO_360 and Planet.lonMap_deg[-1] > 180):
+            lonAdj_deg = Planet.lonMap_deg + 0
             if FigMisc.DO_360:
-                lonAdj_deg = np.append(lonAdj_deg, 360)
+                lonAdj_deg[lonAdj_deg == -180] = 180.1
+                lonAdj_deg[lonAdj_deg < 0] = lonAdj_deg[lonAdj_deg < 0] + 360
+                iSort = np.argsort(lonAdj_deg)
             else:
-                lonAdj_deg = np.append(lonAdj_deg, 180)
-            rDevsAdj_km = np.append(rDevsAdj_km, rDevsAdj_km[:, 0:1], axis=1)
-        
-        FigMisc.lonMap_deg = lonAdj_deg
-        Planet.Magnetic.asymDevs_km = rDevsAdj_km
+                lonAdj_deg[lonAdj_deg == 360] = -0.1
+                lonAdj_deg[lonAdj_deg >= 180] = lonAdj_deg[lonAdj_deg >= 180] - 360
+                iSort = np.argsort(lonAdj_deg)
+
+            lonAdj_deg = lonAdj_deg[iSort]
+            rDevsAdj_km = Planet.Magnetic.asymDevs_km[:, :, iSort]
+
+            # Stitch endpoints together if we adjusted the plotting coords
+            if not (np.max(lonAdj_deg) == 180 or np.max(lonAdj_deg) == 360):
+                if FigMisc.DO_360:
+                    lonAdj_deg = np.append(lonAdj_deg, 360)
+                else:
+                    lonAdj_deg = np.append(lonAdj_deg, 180)
+                rDevsAdj_km = np.append(rDevsAdj_km, rDevsAdj_km[:, :, 0:1], axis=2)
+
+            Planet.lonMap_deg = lonAdj_deg
+            Planet.Magnetic.asymDevs_km = rDevsAdj_km
+            Planet.thetaMap_rad = np.radians(90 - Planet.latMap_deg)
+            Planet.phiMap_rad = np.radians(Planet.lonMap_deg)
 
     return Planet
 
@@ -857,5 +869,19 @@ def ReloadSpectrum(Planet, Params):
         log.warning(f'Magnetic Fourier spectrum was intended to be reloaded, but {Params.DataFiles.FTdata} ' +
                     f'was not found. Re-run with CALC_NEW_INDUCT = True in configPP.py.')
         Planet.Magnetic.FT_LOADED = False
+
+    return Planet
+
+
+def FindBindCA(Planet, Params, scName, tStrList):
+    """ Get induced magnetic field vector at a list of closest approach times
+        for the named spacecraft.
+    """
+    etCAapprox = spice.str2et(tStrList)
+    etCA = np.zeros_like(etCAapprox)
+    for i, etCAnamed in enumerate(etCAapprox):
+        etSearch = np.arange(etCAnamed-Params.tRangeCA_s, etCAnamed+Params.tRangeCA_s, Params.tSearchRes_s)
+        _, _, _, rRange_km = BodyDist_km(scName, Planet.bodyname, etSearch)
+        etCA[i] = etSearch[np.argmin(rRange_km)]
 
     return Planet

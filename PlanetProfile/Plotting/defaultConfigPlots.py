@@ -91,8 +91,8 @@ Color.cmapBounds = {
     'NH3': [0.0, 1.0],
     'NaCl': [0.0, 1.0],
     'Ice': [0.2, 0.8],
-    'BmapPos': [0.0, 1.0],
-    'BmapNeg': [0.0, 1.0],
+    'BmapPos': [0.2, 1.0],
+    'BmapNeg': [0.2, 1.0],
     'BmapDiv': [0.0, 1.0],
     'asymDev': [0.0, 1.0],
     'default': [0.0, 1.0]
@@ -244,7 +244,7 @@ FigMisc.tMagEval_s = spice.str2et('2000-01-01T11:58:55.816')  # Time in seconds 
 FigMisc.LARGE_ADJUST = True  # Whether to make certain labels better for cramped spaces, including removing colorbars (True is more pared down, and overrides nLon/LatTicks below.)
 FigMisc.BASYM_WITH_SYM = True  # Whether to plot Basym plot and Bsym plot on the same figure
 FigMisc.vCompMagSurf = 'mag'  # Component to use for induced field surface strength plots. Options are ['x', 'y', 'z', 'mag'].
-FigMisc.nPPGCmapRes = 540  # Number of points per great circle to use for map angular resolution
+FigMisc.nPPGCmapRes = 180  # Number of points per great circle to use for map angular resolution
 FigMisc.DO_360 = False  # Whether to range longitudes from 0 to 360 or from -180 to +180
 FigMisc.nLatTicks = 7  # Number of ticks to mark on latitude axis
 FigMisc.nLonTicks = 9  # Number of ticks to mark on longitude axis

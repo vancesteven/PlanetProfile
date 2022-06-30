@@ -58,11 +58,11 @@ def GenerateMagPlots(PlanetList, Params):
 
     if Params.PLOT_BDIP:
         PlotComplexBdip(PlanetList, Params)
-    if Params.PLOT_MAG_SPECTRUM and np.any([Planet.Magnetic.FT_LOADED for Planet in CompareList]):
+    if Params.PLOT_MAG_SPECTRUM and np.any([Planet.Magnetic.FT_LOADED for Planet in PlanetList]):
         PlotMagSpectrum(PlanetList, Params)
     if Params.PLOT_BSURF:
         PlotMagSurface(PlanetList, Params)
-    if Params.PLOT_ASYM:
+    if Params.PLOT_ASYM and Params.CALC_ASYM:
         PlotAsym(PlanetList, Params)
 
     return
@@ -1514,152 +1514,65 @@ def PlotExploreOgram(ExplorationList, Params):
 
 def PlotComplexBdip(PlanetList, Params):
 
-    axComps = ['x', 'y', 'z']
-    refs = {}
-    nPeaksToPlot = np.sum([Tdo and Thave for Tdo, Thave, Texc in zip(Params.Induct.excSelectionPlot.values(),
-                                                                     Params.Induct.excSelectionCalc.values(),
-                                                                     Excitations.Texc_hr[PlanetList[0].bodyname].values()) if Texc is not None])
-    nPeaksCalced = np.sum([np.size(Planeti.Magnetic.calcedExc) for Planeti in PlanetList])
-    if nPeaksToPlot >= 1 and nPeaksCalced >= 1:
-        if nPeaksToPlot == 1:
-            DO_ZOOM = False
-            nCol = 1
-            titleToUse = [FigLbl.BdipTitleNoZoom, FigLbl.BdipCompareTitleNoZoom]
-        else:
-            DO_ZOOM = True
-            nCol = 2
-            titleToUse = [FigLbl.BdipTitle, FigLbl.BdipCompareTitle]
-
-        if FigMisc.MANUAL_HYDRO_COLORS:
-            comps = np.unique([Planet.Ocean.comp for Planet in PlanetList if Planet.Ocean.comp != 'none'])
-            wMinMax_ppt = {}
-            TminMax_K = {}
-
-            for comp in comps:
-                wAll_ppt = [Planet.Ocean.wOcean_ppt for Planet in PlanetList if Planet.Ocean.comp == comp]
-                wMinMax_ppt[comp] = [np.min(wAll_ppt), np.max(wAll_ppt)]
-                Tall_K = [Planet.Bulk.Tb_K for Planet in PlanetList if Planet.Ocean.comp == comp]
-                TminMax_K[comp] = [np.min(Tall_K), np.max(Tall_K)]
-                # Reset to default if all models are the same or if desired
-                if not FigMisc.RELATIVE_Tb_K or TminMax_K[comp][0] == TminMax_K[comp][1]:
-                    TminMax_K[comp] = Color.Tbounds_K
-
-        if Params.COMBINE_BCOMPS:
-            if DO_ZOOM:
-                figSize = FigSize.BdipCombo
+    if PlanetList[0].bodyname in Excitations.Texc_hr.keys():
+        axComps = ['x', 'y', 'z']
+        refs = {}
+        nPeaksToPlot = np.sum([Tdo and Thave for Tdo, Thave, Texc in zip(Params.Induct.excSelectionPlot.values(),
+                                                                         Params.Induct.excSelectionCalc.values(),
+                                                                         Excitations.Texc_hr[PlanetList[0].bodyname].values()) if Texc is not None])
+        nPeaksCalced = np.sum([np.size(Planeti.Magnetic.calcedExc) for Planeti in PlanetList])
+        if nPeaksToPlot >= 1 and nPeaksCalced >= 1:
+            if nPeaksToPlot == 1:
+                DO_ZOOM = False
+                nCol = 1
+                titleToUse = [FigLbl.BdipTitleNoZoom, FigLbl.BdipCompareTitleNoZoom]
             else:
-                figSize = FigSize.BdipSoloCombo
-            fig = plt.figure(figsize=figSize)
-            grid = GridSpec(3, nCol)
-            axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(nCol)] for i in range(3)])
-            axc = {vComp: row for vComp, row in zip(axComps, axes)}
-            if Style.GRIDS:
-                axf = axes.flatten()
-                [ax.grid() for ax in axf]
-                [ax.set_axisbelow(True) for ax in axf]
+                DO_ZOOM = True
+                nCol = 2
+                titleToUse = [FigLbl.BdipTitle, FigLbl.BdipCompareTitle]
 
-            # Labels and titles
-            [[ax.set_xlabel(FigLbl.BdipReLabel[axComp]) for ax in axs] for axComp, axs in axc.items()]
-            [[ax.set_ylabel(FigLbl.BdipImLabel[axComp]) for ax in axs] for axComp, axs in axc.items()]
-            if DO_ZOOM:
-                [axs[0].set_title(FigLbl.BdipZoomLabel[axComp]) for axComp, axs in axc.items()]
-                [axs[-1].set_title(FigLbl.BdipLabel[axComp]) for axComp, axs in axc.items()]
-            else:
-                [axs[-1].set_title(FigLbl.BdipLabelNoZoom[axComp]) for axComp, axs in axc.items()]
-            if Params.ALL_ONE_BODY:
-                fig.suptitle(f'{PlanetList[0].name}{titleToUse[0]}')
-            else:
-                fig.suptitle(titleToUse[1])
+            if FigMisc.MANUAL_HYDRO_COLORS:
+                comps = np.unique([Planet.Ocean.comp for Planet in PlanetList if Planet.Ocean.comp != 'none'])
+                wMinMax_ppt = {}
+                TminMax_K = {}
 
-            insetx, insety = ({vComp: 0 for vComp in axComps} for _ in range(2))
-            for iPlanet, Planet in enumerate(PlanetList):
-                if Planet.Magnetic.calcedExc is not None and np.size(Planet.Magnetic.calcedExc) >= 1:
-                    # Set color options
-                    if FigMisc.MANUAL_HYDRO_COLORS and not Planet.Do.NO_H2O:
-                        if wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
-                            thisAlpha = Style.GetMA(Planet.Ocean.wOcean_ppt, wMinMax_ppt[Planet.Ocean.comp])
-                        else:
-                            thisAlpha = Style.MAlims[-1]
-                        Color.Tbounds_K = TminMax_K[Planet.Ocean.comp]
-                        thisColor = Color.GetNormT(Planet.Bulk.Tb_K)
-                        thisEdgeColor = Color.cmap[Planet.Ocean.comp](thisColor)
-                        thisFaceColor = Color.cmap[Planet.Ocean.comp](thisColor, alpha=thisAlpha)
-                    else:
-                        thisEdgeColor = None
-                        thisFaceColor = None
+                for comp in comps:
+                    wAll_ppt = [Planet.Ocean.wOcean_ppt for Planet in PlanetList if Planet.Ocean.comp == comp]
+                    wMinMax_ppt[comp] = [np.min(wAll_ppt), np.max(wAll_ppt)]
+                    Tall_K = [Planet.Bulk.Tb_K for Planet in PlanetList if Planet.Ocean.comp == comp]
+                    TminMax_K[comp] = [np.min(Tall_K), np.max(Tall_K)]
+                    # Reset to default if all models are the same or if desired
+                    if not FigMisc.RELATIVE_Tb_K or TminMax_K[comp][0] == TminMax_K[comp][1]:
+                        TminMax_K[comp] = Color.Tbounds_K
 
-                    for iRow, axComp in enumerate(axComps):
-                        xPlotted, yPlotted, absBiPlotted = (np.empty(0) for _ in range(3))
-                        for iPeak, Tkey in enumerate(Planet.Magnetic.calcedExc):
-                            if Params.Induct.excSelectionPlot[Tkey]:
-                                pts = [ax.scatter(np.real(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]), np.imag(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]),
-                                                  marker=Style.MS_dip[Tkey], s=Style.MW_dip[Tkey]**2,
-                                                  facecolor=thisFaceColor, edgecolor=thisEdgeColor) for ax in axc[axComp]][0].get_offsets()[0,:]
-
-                                if iPlanet == 0 and iRow == 0:
-                                    refs[Tkey] = axes[0, -1].scatter(0, 0, label=Tkey.capitalize(), marker=Style.MS_dip[Tkey],
-                                                                 s=Style.MW_dip[Tkey]**2, facecolor=Color.ref, edgecolor=Color.ref)
-
-                                xPlotted = np.append(xPlotted, pts[0])
-                                yPlotted = np.append(yPlotted, pts[1])
-                                absBiPlotted = np.append(absBiPlotted, np.abs(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]))
-
-                        if DO_ZOOM:
-                            iAllButLargest = np.argsort(absBiPlotted)[:-1]
-                            secondLargestRe = np.max(xPlotted[iAllButLargest])
-                            secondLargestIm = np.max(yPlotted[iAllButLargest])
-                            insetx[axComp] = np.maximum(insetx[axComp], secondLargestRe * FigMisc.BdipZoomMult)
-                            insety[axComp] = np.maximum(insety[axComp], secondLargestIm * FigMisc.BdipZoomMult)
-                            axes[iRow, 0].set_xlim([0, insetx[axComp]])
-                            axes[iRow, 0].set_ylim([0, insety[axComp]])
-
-            if DO_ZOOM and FigMisc.SHOW_INSET:
-                refs[f'inset'] = axes[0, -1].plot([0,1], [1,0], color=Color.BdipInset, linewidth=Style.LW_BdipInset,
-                                          linestyle=Style.LS_BdipInset, label='Inset region')[0]
-                for iRow, axComp in enumerate(axComps):
-                    axes[iRow, -1].add_patch(Rectangle((0,0), insetx[axComp], insety[axComp], edgecolor=Color.BdipInset, zorder=-1,
-                                       linewidth=Style.LW_BdipInset, linestyle=Style.LS_BdipInset, facecolor='None'))
-
-            if Params.LEGEND:
-                axes[0, -1].legend()
-
-            for refPt in refs.values():
-                refPt.remove()
-
-            [axes[iRow, -1].set_xlim(left=0) for iRow in range(3)]
-            [axes[iRow, -1].set_ylim(bottom=0) for iRow in range(3)]
-            plt.tight_layout()
-            fig.savefig(Params.FigureFiles.Bdip['all'], format=FigMisc.figFormat, dpi=FigMisc.dpi)
-            log.debug(f'Induced dipole surface strength plot saved to file: {Params.FigureFiles.Bdip["all"]}')
-            plt.close()
-
-        else:
-            for axComp in axComps:
+            if Params.COMBINE_BCOMPS:
                 if DO_ZOOM:
-                    figSize = FigSize.Bdip
+                    figSize = FigSize.BdipCombo
                 else:
-                    figSize = FigSize.BdipSolo
+                    figSize = FigSize.BdipSoloCombo
                 fig = plt.figure(figsize=figSize)
-                grid = GridSpec(1, nCol)
-                axes = np.array([fig.add_subplot(grid[0, j]) for j in range(nCol)])
+                grid = GridSpec(3, nCol)
+                axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(nCol)] for i in range(3)])
+                axc = {vComp: row for vComp, row in zip(axComps, axes)}
                 if Style.GRIDS:
-                    [ax.grid() for ax in axes]
-                    [ax.set_axisbelow(True) for ax in axes]
+                    axf = axes.flatten()
+                    [ax.grid() for ax in axf]
+                    [ax.set_axisbelow(True) for ax in axf]
 
                 # Labels and titles
-                [ax.set_xlabel(FigLbl.BdipReLabel[axComp]) for ax in axes]
-                [ax.set_ylabel(FigLbl.BdipImLabel[axComp]) for ax in axes]
+                [[ax.set_xlabel(FigLbl.BdipReLabel[axComp]) for ax in axs] for axComp, axs in axc.items()]
+                [[ax.set_ylabel(FigLbl.BdipImLabel[axComp]) for ax in axs] for axComp, axs in axc.items()]
                 if DO_ZOOM:
-                    axes[0].set_title(FigLbl.BdipZoomLabel[axComp])
-                    axes[-1].set_title(FigLbl.BdipLabel[axComp])
+                    [axs[0].set_title(FigLbl.BdipZoomLabel[axComp]) for axComp, axs in axc.items()]
+                    [axs[-1].set_title(FigLbl.BdipLabel[axComp]) for axComp, axs in axc.items()]
                 else:
-                    axes[-1].set_title(FigLbl.BdipLabelNoZoom[axComp])
+                    [axs[-1].set_title(FigLbl.BdipLabelNoZoom[axComp]) for axComp, axs in axc.items()]
                 if Params.ALL_ONE_BODY:
                     fig.suptitle(f'{PlanetList[0].name}{titleToUse[0]}')
                 else:
                     fig.suptitle(titleToUse[1])
 
-                insetx, insety = (0, 0)
+                insetx, insety = ({vComp: 0 for vComp in axComps} for _ in range(2))
                 for iPlanet, Planet in enumerate(PlanetList):
                     if Planet.Magnetic.calcedExc is not None and np.size(Planet.Magnetic.calcedExc) >= 1:
                         # Set color options
@@ -1676,48 +1589,136 @@ def PlotComplexBdip(PlanetList, Params):
                             thisEdgeColor = None
                             thisFaceColor = None
 
-                        xPlotted, yPlotted, absBiPlotted = (np.empty(0) for _ in range(3))
-                        for iPeak, Tkey in enumerate(Planet.Magnetic.calcedExc):
-                            if Params.Induct.excSelectionPlot[Tkey]:
-                                pts = [ax.scatter(np.real(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]), np.imag(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]),
-                                                  marker=Style.MS_dip[Tkey], s=Style.MW_dip[Tkey]**2,
-                                                  facecolor=thisFaceColor, edgecolor=thisEdgeColor) for ax in axes][0].get_offsets()[0,:]
+                        for iRow, axComp in enumerate(axComps):
+                            xPlotted, yPlotted, absBiPlotted = (np.empty(0) for _ in range(3))
+                            for iPeak, Tkey in enumerate(Planet.Magnetic.calcedExc):
+                                if Params.Induct.excSelectionPlot[Tkey]:
+                                    pts = [ax.scatter(np.real(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]), np.imag(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]),
+                                                      marker=Style.MS_dip[Tkey], s=Style.MW_dip[Tkey]**2,
+                                                      facecolor=thisFaceColor, edgecolor=thisEdgeColor) for ax in axc[axComp]][0].get_offsets()[0,:]
 
-                                if iPlanet == 0:
-                                    refs[Tkey] = axes[-1].scatter(0, 0, label=Tkey.capitalize(), marker=Style.MS_dip[Tkey],
-                                                                  s=Style.MW_dip[Tkey]**2, facecolor=Color.ref, edgecolor=Color.ref)
+                                    if iPlanet == 0 and iRow == 0:
+                                        refs[Tkey] = axes[0, -1].scatter(0, 0, label=Tkey.capitalize(), marker=Style.MS_dip[Tkey],
+                                                                     s=Style.MW_dip[Tkey]**2, facecolor=Color.ref, edgecolor=Color.ref)
 
-                                xPlotted = np.append(xPlotted, pts[0])
-                                yPlotted = np.append(yPlotted, pts[1])
-                                absBiPlotted = np.append(absBiPlotted, np.abs(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]))
+                                    xPlotted = np.append(xPlotted, pts[0])
+                                    yPlotted = np.append(yPlotted, pts[1])
+                                    absBiPlotted = np.append(absBiPlotted, np.abs(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]))
 
-                        if DO_ZOOM:
-                            iAllButLargest = np.argsort(absBiPlotted)[:-1]
-                            secondLargestRe = np.max(xPlotted[iAllButLargest])
-                            secondLargestIm = np.max(yPlotted[iAllButLargest])
-                            insetx = np.maximum(insetx, secondLargestRe * FigMisc.BdipZoomMult)
-                            insety = np.maximum(insety, secondLargestIm * FigMisc.BdipZoomMult)
-                            axes[0].set_xlim([0, insetx])
-                            axes[0].set_ylim([0, insety])
+                            if DO_ZOOM:
+                                iAllButLargest = np.argsort(absBiPlotted)[:-1]
+                                secondLargestRe = np.max(xPlotted[iAllButLargest])
+                                secondLargestIm = np.max(yPlotted[iAllButLargest])
+                                insetx[axComp] = np.maximum(insetx[axComp], secondLargestRe * FigMisc.BdipZoomMult)
+                                insety[axComp] = np.maximum(insety[axComp], secondLargestIm * FigMisc.BdipZoomMult)
+                                axes[iRow, 0].set_xlim([0, insetx[axComp]])
+                                axes[iRow, 0].set_ylim([0, insety[axComp]])
 
                 if DO_ZOOM and FigMisc.SHOW_INSET:
-                    axes[-1].add_patch(Rectangle((0,0), insetx, insety, edgecolor=Color.BdipInset, zorder=-1,
-                                       linewidth=Style.LW_BdipInset, linestyle=Style.LS_BdipInset, facecolor='None'))
-                    refs['inset'] = axes[-1].plot([0,1], [1,0], color=Color.BdipInset, linewidth=Style.LW_BdipInset,
-                                                  linestyle=Style.LS_BdipInset, label='Inset region')[0]
+                    refs[f'inset'] = axes[0, -1].plot([0,1], [1,0], color=Color.BdipInset, linewidth=Style.LW_BdipInset,
+                                              linestyle=Style.LS_BdipInset, label='Inset region')[0]
+                    for iRow, axComp in enumerate(axComps):
+                        axes[iRow, -1].add_patch(Rectangle((0,0), insetx[axComp], insety[axComp], edgecolor=Color.BdipInset, zorder=-1,
+                                           linewidth=Style.LW_BdipInset, linestyle=Style.LS_BdipInset, facecolor='None'))
 
                 if Params.LEGEND:
-                    axes[-1].legend()
+                    axes[0, -1].legend()
 
                 for refPt in refs.values():
                     refPt.remove()
 
-                axes[-1].set_xlim(left=0)
-                axes[-1].set_ylim(bottom=0)
+                [axes[iRow, -1].set_xlim(left=0) for iRow in range(3)]
+                [axes[iRow, -1].set_ylim(bottom=0) for iRow in range(3)]
                 plt.tight_layout()
-                fig.savefig(Params.FigureFiles.Bdip[axComp], format=FigMisc.figFormat, dpi=FigMisc.dpi)
-                log.debug(f'Induced dipole surface strength plot saved to file: {Params.FigureFiles.Bdip[axComp]}')
+                fig.savefig(Params.FigureFiles.Bdip['all'], format=FigMisc.figFormat, dpi=FigMisc.dpi)
+                log.debug(f'Induced dipole surface strength plot saved to file: {Params.FigureFiles.Bdip["all"]}')
                 plt.close()
+
+            else:
+                for axComp in axComps:
+                    if DO_ZOOM:
+                        figSize = FigSize.Bdip
+                    else:
+                        figSize = FigSize.BdipSolo
+                    fig = plt.figure(figsize=figSize)
+                    grid = GridSpec(1, nCol)
+                    axes = np.array([fig.add_subplot(grid[0, j]) for j in range(nCol)])
+                    if Style.GRIDS:
+                        [ax.grid() for ax in axes]
+                        [ax.set_axisbelow(True) for ax in axes]
+
+                    # Labels and titles
+                    [ax.set_xlabel(FigLbl.BdipReLabel[axComp]) for ax in axes]
+                    [ax.set_ylabel(FigLbl.BdipImLabel[axComp]) for ax in axes]
+                    if DO_ZOOM:
+                        axes[0].set_title(FigLbl.BdipZoomLabel[axComp])
+                        axes[-1].set_title(FigLbl.BdipLabel[axComp])
+                    else:
+                        axes[-1].set_title(FigLbl.BdipLabelNoZoom[axComp])
+                    if Params.ALL_ONE_BODY:
+                        fig.suptitle(f'{PlanetList[0].name}{titleToUse[0]}')
+                    else:
+                        fig.suptitle(titleToUse[1])
+
+                    insetx, insety = (0, 0)
+                    for iPlanet, Planet in enumerate(PlanetList):
+                        if Planet.Magnetic.calcedExc is not None and np.size(Planet.Magnetic.calcedExc) >= 1:
+                            # Set color options
+                            if FigMisc.MANUAL_HYDRO_COLORS and not Planet.Do.NO_H2O:
+                                if wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
+                                    thisAlpha = Style.GetMA(Planet.Ocean.wOcean_ppt, wMinMax_ppt[Planet.Ocean.comp])
+                                else:
+                                    thisAlpha = Style.MAlims[-1]
+                                Color.Tbounds_K = TminMax_K[Planet.Ocean.comp]
+                                thisColor = Color.GetNormT(Planet.Bulk.Tb_K)
+                                thisEdgeColor = Color.cmap[Planet.Ocean.comp](thisColor)
+                                thisFaceColor = Color.cmap[Planet.Ocean.comp](thisColor, alpha=thisAlpha)
+                            else:
+                                thisEdgeColor = None
+                                thisFaceColor = None
+
+                            xPlotted, yPlotted, absBiPlotted = (np.empty(0) for _ in range(3))
+                            for iPeak, Tkey in enumerate(Planet.Magnetic.calcedExc):
+                                if Params.Induct.excSelectionPlot[Tkey]:
+                                    pts = [ax.scatter(np.real(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]), np.imag(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]),
+                                                      marker=Style.MS_dip[Tkey], s=Style.MW_dip[Tkey]**2,
+                                                      facecolor=thisFaceColor, edgecolor=thisEdgeColor) for ax in axes][0].get_offsets()[0,:]
+
+                                    if iPlanet == 0:
+                                        refs[Tkey] = axes[-1].scatter(0, 0, label=Tkey.capitalize(), marker=Style.MS_dip[Tkey],
+                                                                      s=Style.MW_dip[Tkey]**2, facecolor=Color.ref, edgecolor=Color.ref)
+
+                                    xPlotted = np.append(xPlotted, pts[0])
+                                    yPlotted = np.append(yPlotted, pts[1])
+                                    absBiPlotted = np.append(absBiPlotted, np.abs(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]))
+
+                            if DO_ZOOM:
+                                iAllButLargest = np.argsort(absBiPlotted)[:-1]
+                                secondLargestRe = np.max(xPlotted[iAllButLargest])
+                                secondLargestIm = np.max(yPlotted[iAllButLargest])
+                                insetx = np.maximum(insetx, secondLargestRe * FigMisc.BdipZoomMult)
+                                insety = np.maximum(insety, secondLargestIm * FigMisc.BdipZoomMult)
+                                axes[0].set_xlim([0, insetx])
+                                axes[0].set_ylim([0, insety])
+
+                    if DO_ZOOM and FigMisc.SHOW_INSET:
+                        axes[-1].add_patch(Rectangle((0,0), insetx, insety, edgecolor=Color.BdipInset, zorder=-1,
+                                           linewidth=Style.LW_BdipInset, linestyle=Style.LS_BdipInset, facecolor='None'))
+                        refs['inset'] = axes[-1].plot([0,1], [1,0], color=Color.BdipInset, linewidth=Style.LW_BdipInset,
+                                                      linestyle=Style.LS_BdipInset, label='Inset region')[0]
+
+                    if Params.LEGEND:
+                        axes[-1].legend()
+
+                    for refPt in refs.values():
+                        refPt.remove()
+
+                    axes[-1].set_xlim(left=0)
+                    axes[-1].set_ylim(bottom=0)
+                    plt.tight_layout()
+                    fig.savefig(Params.FigureFiles.Bdip[axComp], format=FigMisc.figFormat, dpi=FigMisc.dpi)
+                    log.debug(f'Induced dipole surface strength plot saved to file: {Params.FigureFiles.Bdip[axComp]}')
+                    plt.close()
 
     return
 
@@ -1726,10 +1727,21 @@ def PlotMagSurface(PlanetList, Params):
     """ Plot magnetic field on a spherical surface of fixed radius using 
         calculations from MoonMag. 
     """
-    
+    PlanetListSubset = [Planet for Planet in PlanetList if Planet.bodyname in Excitations.Texc_hr.keys()]
+
     if not isinstance(FigMisc.tMagEval_s, Iterable):
         FigMisc.tMagEval_s = np.array([FigMisc.tMagEval_s])    
-    for Planet in PlanetList:
+    for Planet in PlanetListSubset:
+        if Planet.lonMap_deg is None:
+            Planet.lonMap_deg = FigMisc.lonMap_deg
+            Planet.nLonMap = np.size(Planet.lonMap_deg)
+        if Planet.phiMap_rad is None:
+            Planet.phiMap_rad = np.radians(Planet.lonMap_deg)
+        if Planet.latMap_deg is None:
+            Planet.latMap_deg = FigMisc.latMap_deg
+            Planet.nLatMap = np.size(Planet.latMap_deg)
+        if Planet.thetaMap_rad is None:
+            Planet.thetaMap_rad = np.radians(90 - Planet.latMap_deg)
         rMagEvalLbl, rMagEvalPrint = FigLbl.rStr(FigMisc.rMagEval_Rp, Planet.bodyname)
         if Params.Sig.INCLUDE_ASYM:
             asymStr = ',asym'
@@ -1744,7 +1756,7 @@ def PlotMagSurface(PlanetList, Params):
             BinmSph_nT = None
     
         for tEval_s in FigMisc.tMagEval_s:
-            BvecRe_nT = {vComp: np.zeros((FigMisc.nLatMap, FigMisc.nLonMap)) for vComp in ['x', 'y', 'z', 'mag']}
+            BvecRe_nT = {vComp: np.zeros((Planet.nLatMap, Planet.nLonMap)) for vComp in ['x', 'y', 'z', 'mag']}
             tMagEvalLbl, tMagEvalPrint, tFnameEnd = FigLbl.tStr(tEval_s)
             phaseNow = np.exp(-1j * Planet.Magnetic.omegaExc_radps * tEval_s)
 
@@ -1752,7 +1764,7 @@ def PlotMagSurface(PlanetList, Params):
             for iExc in range(Planet.Magnetic.nExc):
                 BinmNow_nT = Planet.Magnetic.Binm_nT[iExc,...] * phaseNow[iExc]
                 Bx_nT, By_nT, Bz_nT = GetMagSurf(Planet.Magnetic.nLin, Planet.Magnetic.mLin, BinmNow_nT, 
-                                                 FigMisc.rMagEval_Rp, FigMisc.thetaMap_rad, FigMisc.phiMap_rad,
+                                                 FigMisc.rMagEval_Rp, Planet.thetaMap_rad, Planet.phiMap_rad,
                                                  do_parallel=Params.DO_PARALLEL)
                 BvecRe_nT['x'] = BvecRe_nT['x'] + np.real(Bx_nT)
                 BvecRe_nT['y'] = BvecRe_nT['y'] + np.real(By_nT)
@@ -1800,9 +1812,9 @@ def PlotMagSurface(PlanetList, Params):
                     vmax = vAbsMax
                     cLevels = np.linspace(vmin, vmax, FigMisc.nMagContours)
 
-            Bmap = ax.pcolormesh(FigMisc.lonMap_deg, FigMisc.latMap_deg, BvecRe_nT[FigMisc.vCompMagSurf],
+            Bmap = ax.pcolormesh(Planet.lonMap_deg, Planet.latMap_deg, BvecRe_nT[FigMisc.vCompMagSurf],
                           shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
-            BmapContours = ax.contour(FigMisc.lonMap_deg, FigMisc.latMap_deg, BvecRe_nT[FigMisc.vCompMagSurf],
+            BmapContours = ax.contour(Planet.lonMap_deg, Planet.latMap_deg, BvecRe_nT[FigMisc.vCompMagSurf],
                               levels=cLevels, colors='black')
             ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat), 
                       fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
@@ -1821,11 +1833,11 @@ def PlotMagSurface(PlanetList, Params):
 
             if Params.Sig.INCLUDE_ASYM:
                 log.debug(f'Evaluating symmetric induced magnetic field at {rMagEvalPrint}, {tMagEvalPrint}.')
-                BvecReSym_nT = {vComp: np.zeros((FigMisc.nLatMap, FigMisc.nLonMap)) for vComp in ['x', 'y', 'z', 'mag']}
+                BvecReSym_nT = {vComp: np.zeros((Planet.nLatMap, Planet.nLonMap)) for vComp in ['x', 'y', 'z', 'mag']}
                 for iExc in range(Planet.Magnetic.nExc):
                     BinmSphNow_nT = BinmSph_nT[iExc,...] * phaseNow[iExc]
                     Bx_nT, By_nT, Bz_nT = GetMagSurf(Planet.Magnetic.nprmLin, Planet.Magnetic.mprmLin, BinmSphNow_nT, 
-                                                     FigMisc.rMagEval_Rp, FigMisc.thetaMap_rad, FigMisc.phiMap_rad,
+                                                     FigMisc.rMagEval_Rp, Planet.thetaMap_rad, Planet.phiMap_rad,
                                                      do_parallel=Params.DO_PARALLEL)
                     BvecReSym_nT['x'] = BvecReSym_nT['x'] + np.real(Bx_nT)
                     BvecReSym_nT['y'] = BvecReSym_nT['y'] + np.real(By_nT)
@@ -1868,9 +1880,9 @@ def PlotMagSurface(PlanetList, Params):
                         vmax = vAbsMax
                         cLevels = np.linspace(vmin, vmax, FigMisc.nMagContours)
 
-                Bmap = ax.pcolormesh(FigMisc.lonMap_deg, FigMisc.latMap_deg, BvecReSym_nT[FigMisc.vCompMagSurf],
+                Bmap = ax.pcolormesh(Planet.lonMap_deg, Planet.latMap_deg, BvecReSym_nT[FigMisc.vCompMagSurf],
                                      shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
-                BmapContours = ax.contour(FigMisc.lonMap_deg, FigMisc.latMap_deg, BvecReSym_nT[FigMisc.vCompMagSurf],
+                BmapContours = ax.contour(Planet.lonMap_deg, Planet.latMap_deg, BvecReSym_nT[FigMisc.vCompMagSurf],
                                           levels=cLevels, colors='black')
                 ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
                           fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
@@ -1922,9 +1934,9 @@ def PlotMagSurface(PlanetList, Params):
                     vmax = vAbsMax
                     cLevels = np.linspace(vmin, vmax, FigMisc.nMagContours)
 
-                Bmap = ax.pcolormesh(FigMisc.lonMap_deg, FigMisc.latMap_deg, Bdiff_nT,
+                Bmap = ax.pcolormesh(Planet.lonMap_deg, Planet.latMap_deg, Bdiff_nT,
                                      shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
-                BmapContours = ax.contour(FigMisc.lonMap_deg, FigMisc.latMap_deg, Bdiff_nT,
+                BmapContours = ax.contour(Planet.lonMap_deg, Planet.latMap_deg, Bdiff_nT,
                                           levels=cLevels, colors='black')
                 ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
                           fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
@@ -1964,6 +1976,13 @@ def PlotAsym(PlanetList, Params):
         else:
             mainPlanet = next(Planet for Planet in PlanetList if np.size(Planet.Magnetic.iAsymBds) > 0)
 
+        if mainPlanet.lonMap_deg is None:
+            mainPlanet.lonMap_deg = FigMisc.lonMap_deg
+            mainPlanet.nLonMap = np.size(mainPlanet.lonMap_deg)
+        if mainPlanet.latMap_deg is None:
+            mainPlanet.latMap_deg = FigMisc.latMap_deg
+            mainPlanet.nLatMap = np.size(mainPlanet.latMap_deg)
+
         for i, zMean_km in enumerate(mainPlanet.Magnetic.zMeanAsym_km):
             fig = plt.figure(figsize=FigSize.asym)
             grid = GridSpec(1, 1)
@@ -1990,9 +2009,9 @@ def PlotAsym(PlanetList, Params):
                                                              np.max(mainPlanet.Magnetic.asymDevs_km[i,...]),
                                                              FigMisc.nAsymContours)))
 
-            asymMap = ax.pcolormesh(FigMisc.lonMap_deg, FigMisc.latMap_deg, mainPlanet.Magnetic.asymDevs_km[i,...],
+            asymMap = ax.pcolormesh(mainPlanet.lonMap_deg, mainPlanet.latMap_deg, mainPlanet.Magnetic.asymDevs_km[i,...],
                                  shading='auto', cmap=Color.cmap['asymDev'])
-            asymContours = ax.contour(FigMisc.lonMap_deg, FigMisc.latMap_deg, mainPlanet.Magnetic.asymDevs_km[i,...],
+            asymContours = ax.contour(mainPlanet.lonMap_deg, mainPlanet.latMap_deg, mainPlanet.Magnetic.asymDevs_km[i,...],
                                       levels=cLevelsAsym, colors='black')
             ax.clabel(asymContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
                       fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
