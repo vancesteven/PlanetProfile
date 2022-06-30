@@ -1,6 +1,6 @@
 from importlib.metadata import version
 # Current PlanetProfile version tag
-ppVerNum = '2.2.0-dev'
+ppVerNum = '2.2.0'
 # Compatible version tag numbers
 compatNums = {
     'seafreeze': '0.9.2',
