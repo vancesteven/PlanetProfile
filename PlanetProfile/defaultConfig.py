@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 7  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 8  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 Params = ParamsStruct()
 Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
@@ -61,6 +61,7 @@ Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an ind
 Params.INDUCTOGRAM_IN_PROGRESS = False  # Whether we are currently working on constructing an inductogram
 Params.COMBINE_BCOMPS =          False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp -- same for Bdip components
 Params.PLOT_MAG_SPECTRUM =       False  # Whether to show plots of fourier space for magnetic induction
+Params.tRangeCA_s =              120  # Range in seconds relative to named closest approach UTC datetime to search for the actual CA as identified by querying SPICE kernels 
 
 # Parameter exploration plot settings
 Params.DO_EXPLOREOGRAM = False  # Whether to evaluate and/or plot an exploreogram for the body in question
@@ -86,11 +87,22 @@ Params.wRef_ppt = {'none':[0], 'PureH2O':[0],
 Params.nRefRho = 50  # Number of values for plotting reference density curves (sets resolution)
 
 # SPICE kernels to use
-Params.spiceDir = os.path.join('Utilities', 'spice')
+Params.spiceDir = 'SPICE'
 Params.spiceTLS = 'naif0012.tls'  # Leap-seconds kernel
 Params.spicePCK = 'pck00010.tpc'  # Planetary Constants Kernel from SPICE in order to get body radii
-Params.spiceJupiter = 'jup365.bsp'  # Generic kernel for Jupiter + Galilean moons
-Params.spiceSaturn = 'sat427.bsp'  # Generic kernel for Saturn + large moons
-Params.spiceUranus = 'ura111.bsp'  # Generic kernel for Uranus + large moons
-Params.spiceNeptune = 'nep095.bsp'  # Generic kernel for Neptune + large moons
+Params.spiceBSP = {
+    'Jupiter': 'jup365.bsp',  # Generic kernel for Jupiter + Galilean moons
+    'Saturn': 'sat427.bsp',  # Generic kernel for Saturn + large moons
+    'Uranus': 'ura111.bsp',  # Generic kernel for Uranus + large moons
+    'Neptune': 'nep095.bsp'  # Generic kernel for Neptune + large moons
+}
+Params.SCnames = [
+    'Galileo',
+    'Cassini',
+    'Juno'
+]
+Params.spiceSC = {scName: os.path.join(Params.spiceDir, scName) for scName in Params.SCnames}
 
+# MAG data to use
+Params.MAGdir = 'SpacecraftMAGdata'
+Params.SCmagData = {scName: os.path.join(Params.MAGdir, scName) for scName in Params.SCnames}
