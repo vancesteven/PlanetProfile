@@ -19,7 +19,7 @@ Planet.Bulk.Tsurf_K = 75
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.335
 Planet.Bulk.Cuncertainty = 0.001
-Planet.Bulk.Tb_K = 272.4445
+Planet.Bulk.Tb_K = 272.4578
 
 """ Layer step settings """
 Planet.Steps.nIceI = 50
@@ -62,6 +62,6 @@ Planet.Magnetic.SCera = 'Cassini'
 Planet.Magnetic.extModel = 'Cassini11'
 Planet.Magnetic.asymDescrip = ['Enceladus ice shell thickness']
 contours = [
-    np.array([6, 10, 14, 18, 22, 24, 30]) * 22.50257/20.85219
+    np.array([6, 10, 14, 18, 22, 24, 30])
 ]
 Planet.Magnetic.asymContours_km = {lbl: contourList for lbl, contourList in zip(Planet.Magnetic.asymDescrip, contours)}
