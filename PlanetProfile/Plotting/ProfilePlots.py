@@ -2001,7 +2001,7 @@ def PlotAsym(PlanetList, Params):
                 else:
                     descrip = FigLbl.asymTitle
                     cLevelsAsym = None
-                title = f'{descrip}{np.abs(zMean_km):.1f}'
+                title = f'{descrip}\SI{{{np.abs(zMean_km):.1f}}}{{km}}'
             ax.set_title(title, size=FigMisc.mapTitleSize)
 
             if cLevelsAsym is None:
