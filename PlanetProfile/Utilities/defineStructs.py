@@ -1434,8 +1434,8 @@ class FigLblStruct:
 
     def rStr(self, rEval_Rp, bodyname):
         # Get r strings to add to titles and log messages for magnetic field surface plots
-        rMagEvalLbl = f'r = ${rEval_Rp}\,R_{bodyname[0].upper()}$'
-        rMagEvalPrint = f'r = {rEval_Rp} R_{bodyname[0].upper()}'
+        rMagEvalLbl = f'$r = {rEval_Rp:.2f}\,R_{bodyname[0].upper()}$'
+        rMagEvalPrint = f'r = {rEval_Rp:.2f} R_{bodyname[0].upper()}'
         return rMagEvalLbl, rMagEvalPrint
 
     def tStr(self, tPastJ2000_s):
@@ -1458,6 +1458,13 @@ class FigLblStruct:
             tMagEvalLbl = f'$t = \mathrm{{J2000}} + \SI{{0.0}}{{h}}$'
             tMagEvalPrint = 'at J2000'
             tFnameEnd = 'J2000+0.0h'
+
+        return tMagEvalLbl, tMagEvalPrint, tFnameEnd
+
+    def tStrManual(self, tLbl):
+        tMagEvalLbl = tLbl
+        tMagEvalPrint = tLbl
+        tFnameEnd = tLbl.replace('CA', '').replace('at', '').replace(' ', '')
 
         return tMagEvalLbl, tMagEvalPrint, tFnameEnd
 
@@ -1528,6 +1535,7 @@ class FigMiscStruct:
         self.SHOW_INSET = False  # Whether to show the inset box for the zoom-in plot, when applicable
         # Map settings
         self.rMagEval_Rp = None  # Fraction of body radius to use for surface over which PlotMagSurface is evaluated
+        self.tMagLbl = None  # List of strings to use to describe the times listed in tMagEval_s
         self.tMagEval_s = None  # Seconds past J2000 to use for surface magnetic field map. Accepts a list or array to evaluate multiple times--a plot is printed for each.
         self.LARGE_ADJUST = False  # Whether to make certain labels better for cramped spaces, including removing colorbars (True is more pared down)
         self.BASYM_WITH_SYM = False  # Whether to plot Basym plot and Bsym plot on the same figure
