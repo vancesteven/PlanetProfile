@@ -240,6 +240,7 @@ FigMisc.PVT_INCLUDE_CORE = True  # Whether to include core as well as silicates 
 FigMisc.BdipZoomMult = 1.05  # Extra space to include around zoomed-in part, in fraction of largest value.
 FigMisc.SHOW_INSET = True  # Whether to show the inset box for the zoom-in plot, when applicable
 FigMisc.rMagEval_Rp = 1.0  # Fraction of body radius to use for surface over which PlotMagSurface is evaluated
+FigMisc.tMagLbl = None  # List of strings to use to describe the times listed in tMagEval_s
 FigMisc.tMagEval_s = spice.str2et('2000-01-01T11:58:55.816')  # Time in seconds past J2000 at which to evaluate magnetic field surface maps. spiceypy.str2et will convert a datetime string to the correct format. Accepts an array.
 FigMisc.LARGE_ADJUST = True  # Whether to make certain labels better for cramped spaces, including removing colorbars (True is more pared down, and overrides nLon/LatTicks below.)
 FigMisc.BASYM_WITH_SYM = True  # Whether to plot Basym plot and Bsym plot on the same figure
