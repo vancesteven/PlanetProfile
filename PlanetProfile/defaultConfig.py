@@ -91,6 +91,11 @@ Params.nRefRho = 50  # Number of values for plotting reference density curves (s
 Params.spiceDir = 'SPICE'
 Params.spiceTLS = 'naif0012.tls'  # Leap-seconds kernel
 Params.spicePCK = 'pck00010.tpc'  # Planetary Constants Kernel from SPICE in order to get body radii
+Params.spiceFK  = [  # Frames kernels used for converting between coordinate systems
+    'clipper_dyn_v01_mod.tf',  # Defines IO_PHI_O, EUROPA_PHI_O, etc. for plasma corotation coordinates
+    'cas_dyn_v03.tf',  # Defines CASSINI_KRTP and CASSINI_KSM frames used for Cassini MAG data from PDS
+    'juno_v12_mod.tf'  # Defines JUNO_JSM and JUNO_JMAG_O4 coordinates
+]
 Params.spiceBSP = {
     'Jupiter': 'jup365.bsp',  # Generic kernel for Jupiter + Galilean moons
     'Saturn': 'sat427.bsp',  # Generic kernel for Saturn + large moons
