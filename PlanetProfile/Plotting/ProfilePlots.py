@@ -1742,9 +1742,8 @@ def PlotMagSurface(PlanetList, Params):
             Planet.nLatMap = np.size(Planet.latMap_deg)
         if Planet.thetaMap_rad is None:
             Planet.thetaMap_rad = np.radians(90 - Planet.latMap_deg)
-        rMagEvalLbl, rMagEvalPrint = FigLbl.rStr(FigMisc.rMagEval_Rp, Planet.bodyname)
         if Params.Sig.INCLUDE_ASYM:
-            asymStr = ',asym'
+            asymStr = ',3D'
             # Get separate spherically symmetric induced moments
             BinmSph_nT = np.zeros_like(Planet.Magnetic.Benm_nT)
             for n in range(1, Planet.Magnetic.nprmMax+1):
@@ -1755,16 +1754,25 @@ def PlotMagSurface(PlanetList, Params):
             asymStr = ''
             BinmSph_nT = None
     
-        for tEval_s in FigMisc.tMagEval_s:
+        for iEval, tEval_s in enumerate(FigMisc.tMagEval_s):
             BvecRe_nT = {vComp: np.zeros((Planet.nLatMap, Planet.nLonMap)) for vComp in ['x', 'y', 'z', 'mag']}
-            tMagEvalLbl, tMagEvalPrint, tFnameEnd = FigLbl.tStr(tEval_s)
+            if FigMisc.tMagLbl is None:
+                tMagEvalLbl, tMagEvalPrint, tFnameEnd = FigLbl.tStr(tEval_s)
+            else:
+                tMagEvalLbl, tMagEvalPrint, tFnameEnd = FigLbl.tStrManual(FigMisc.tMagLbl[iEval])
+            if np.size(FigMisc.rMagEval_Rp) > 1:
+                rMagEval_Rp = FigMisc.rMagEval_Rp[iEval]
+            else:
+                rMagEval_Rp = FigMisc.rMagEval_Rp
+
+            rMagEvalLbl, rMagEvalPrint = FigLbl.rStr(rMagEval_Rp, Planet.bodyname)
             phaseNow = np.exp(-1j * Planet.Magnetic.omegaExc_radps * tEval_s)
 
             log.debug(f'Evaluating induced magnetic field at {rMagEvalPrint}, {tMagEvalPrint}.')
             for iExc in range(Planet.Magnetic.nExc):
                 BinmNow_nT = Planet.Magnetic.Binm_nT[iExc,...] * phaseNow[iExc]
                 Bx_nT, By_nT, Bz_nT = GetMagSurf(Planet.Magnetic.nLin, Planet.Magnetic.mLin, BinmNow_nT, 
-                                                 FigMisc.rMagEval_Rp, Planet.thetaMap_rad, Planet.phiMap_rad,
+                                                 rMagEval_Rp, Planet.thetaMap_rad, Planet.phiMap_rad,
                                                  do_parallel=Params.DO_PARALLEL)
                 BvecRe_nT['x'] = BvecRe_nT['x'] + np.real(Bx_nT)
                 BvecRe_nT['y'] = BvecRe_nT['y'] + np.real(By_nT)
@@ -1837,7 +1845,7 @@ def PlotMagSurface(PlanetList, Params):
                 for iExc in range(Planet.Magnetic.nExc):
                     BinmSphNow_nT = BinmSph_nT[iExc,...] * phaseNow[iExc]
                     Bx_nT, By_nT, Bz_nT = GetMagSurf(Planet.Magnetic.nprmLin, Planet.Magnetic.mprmLin, BinmSphNow_nT, 
-                                                     FigMisc.rMagEval_Rp, Planet.thetaMap_rad, Planet.phiMap_rad,
+                                                     rMagEval_Rp, Planet.thetaMap_rad, Planet.phiMap_rad,
                                                      do_parallel=Params.DO_PARALLEL)
                     BvecReSym_nT['x'] = BvecReSym_nT['x'] + np.real(Bx_nT)
                     BvecReSym_nT['y'] = BvecReSym_nT['y'] + np.real(By_nT)
