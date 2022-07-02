@@ -17,7 +17,7 @@ Planet.Bulk.R_m = 252.1e3
 Planet.Bulk.M_kg = 1.08022e20
 Planet.Bulk.Tsurf_K = 75
 Planet.Bulk.Psurf_MPa = 0.0
-Planet.Bulk.Cmeasured = 0.335
+Planet.Bulk.Cmeasured = 0.335  # Values from Iess et al. (2014): https://doi.org/10.1126/science.1250551
 Planet.Bulk.Cuncertainty = 0.001
 Planet.Bulk.Tb_K = 272.4578
 
