@@ -51,7 +51,7 @@ A simple list with install commands for Python is in the next section.
   * For both Python and Matlab, Perple_X outputs are currently hosted as part of the installation, in Thermodynamics/Perple_X for Matlab and in PlanetProfile/Thermodynamics/EOSdata/Perple_X for Python. The files we use were generated with Perple_X v6.7.9.
 * TauP/ObsPy (optional) -- see https://www.seis.sc.edu/taup/
   * Python: Installed with conda via conda-forge: `conda install -c conda-forge obspy`
-  * Matlab: Already packaged into the PlanetProfile repository along with the original license.
+  * Matlab: Download mMatTauP contents into Utilities/ and add-with-subfolders to the Matlab path.
 * A working TeX/LaTeX distribution (such as TeXlive) is recommended for optimum plot labels. TeXlive is available at: https://tug.org/texlive/acquire-netinstall.html
 
 ## Installation of prerequisites
