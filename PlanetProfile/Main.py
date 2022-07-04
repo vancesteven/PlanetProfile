@@ -14,8 +14,9 @@ from PlanetProfile import _Defaults, _TestImport, CopyCarefully
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, Benm2absBexyz
 from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitations as Mag
-from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, GenerateMagPlots, \
-    PlotInductOgram, PlotInductOgramPhaseSpace, PlotExploreOgram
+from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram
+from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
+    PlotInductOgramPhaseSpace
 from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs
@@ -1198,7 +1199,7 @@ def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
     PlanetList1D = np.reshape(PlanetGrid, -1)
     if Params.DO_PARALLEL:
         # Prevent slowdowns from competing process spawning when #cores > #jobs
-        nCores = np.min([Params.maxCores, np.product(np.size(PlanetList1D)), Params.threadLimit])
+        nCores = np.min([Params.maxCores, np.product(np.shape(PlanetList1D)), Params.threadLimit])
         pool = mtpFork.Pool(nCores)
         parResult = [pool.apply_async(FuncName, (deepcopy(Planet),
                                                       deepcopy(Params))) for Planet in PlanetList1D]
@@ -1552,6 +1553,7 @@ def RunPPfile(bodyname, fName, Params=None):
             log.warning(f'{expected} does not exist and no default was found at {default}.')
     Planet = importlib.import_module(f'{bodyname}.{loadName}').Planet
     Planet, Params = PlanetProfile(Planet, Params)
+    
     return Planet, Params
 
 

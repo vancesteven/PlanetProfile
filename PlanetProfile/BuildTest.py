@@ -13,7 +13,8 @@ from copy import deepcopy
 from PlanetProfile import _Test, _TestImport
 from PlanetProfile.GetConfig import Params as configParams
 from PlanetProfile.Main import PlanetProfile, InductOgram, ReloadInductOgram, ExploreOgram, ReloadExploreOgram
-from PlanetProfile.Plotting.ProfilePlots import PlotInductOgram, PlotExploreOgram
+from PlanetProfile.Plotting.ProfilePlots import PlotExploreOgram
+from PlanetProfile.Plotting.MagPlots import PlotInductOgram
 from PlanetProfile.Test.TestBayes import TestBayes
 
 # Include timestamps in messages and force debug level logging for all testing
@@ -294,7 +295,7 @@ def simple():
     Params.DO_PARALLEL = False
     Params.SKIP_INDUCTION = False
 
-    iTests = [2, 8]
+    iTests = [13]
     tStart = time.time()
     for iTest in iTests:
         bodyname = f'{testMod}{iTest}'

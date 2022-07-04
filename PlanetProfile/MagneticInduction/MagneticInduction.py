@@ -10,7 +10,6 @@ from glob import glob as FilesMatchingPattern
 from scipy.io import savemat, loadmat
 from PlanetProfile import _Test, _Defaults
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
-from PlanetProfile.Utilities.Trajectories import BodyDist_km
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from PlanetProfile.GetConfig import FigMisc
 from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq as GeodesyNorm2chipq, \
@@ -200,7 +199,7 @@ def ReloadMoments(Planet, momentsFile):
     Planet.Magnetic.Benm_nT = reload['Benm_nT']
     Planet.Magnetic.Binm_nT = reload['Binm_nT']
     Planet.Magnetic.omegaExc_radps = reload['omegaExc_radps'][0]
-    Planet.Magnetic.BinmLin_nT = reload['BinmLin_nT'][0]
+    Planet.Magnetic.BinmLin_nT = reload['BinmLin_nT']
     Planet.Magnetic.nLin = reload['nLin'][0]
     Planet.Magnetic.mLin = reload['mLin'][0]
     Planet.Magnetic.nprmLin = reload['nprmLin'][0]
