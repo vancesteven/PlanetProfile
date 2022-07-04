@@ -570,7 +570,9 @@ class FigureFilesSubstruct:
         MagSurfSym = 'MagSurfSym'
         MagSurfCombo = 'MagSurfComp'
         MagSurfDiff = 'MagSurfDiff'
+        MagCA = 'MagCA'
         asym = 'asymDevs'
+        apsidal = 'apsidalPrec'
         # Construct Figure Filenames
         self.vwedg = self.fName + vwedg + xtn
         self.vpore = self.fName + vpore + xtn
@@ -582,6 +584,8 @@ class FigureFilesSubstruct:
         self.vmant = self.fName + vmant + xtn
         self.vcore = self.fName + vcore + xtn
         self.vpvt = self.fName + vpvt + xtn
+        self.asym = self.fName + asym + xtn
+        self.apsidal = self.fName + apsidal + xtn
         self.explore =               f'{self.fName}_{self.exploreAppend}{explore}{xtn}'
         self.phaseSpace =            f'{self.fNameInduct}_{induct}_phaseSpace{xtn}'
         self.phaseSpaceCombo =       f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{xtn}'
@@ -595,7 +599,7 @@ class FigureFilesSubstruct:
         self.MagSurfSym =    {vComp: f'{self.fNameInduct}_{MagSurfSym}B{vComp}' for vComp in ['x', 'y', 'z', 'mag']}
         self.MagSurfCombo =  {vComp: f'{self.fNameInduct}_{MagSurfCombo}B{vComp}' for vComp in ['x', 'y', 'z', 'mag']}
         self.MagSurfDiff =   {vComp: f'{self.fNameInduct}_{MagSurfDiff}B{vComp}' for vComp in ['x', 'y', 'z', 'mag']}
-        self.asym = self.fName + asym + xtn
+        self.MagCA =                 f'{self.fNameInduct}_{MagCA}{xtn}'
 
 
 """ General parameter options """
@@ -883,6 +887,10 @@ class ColorStruct:
         self.Ae1FT = None
         self.TexcFT = None
 
+        # Color options for trajectory and CA plots
+        self.CAdot = None
+        self.thresh = None
+
 
     def SetCmaps(self):
         """ Assign colormaps to make use of the above parameters
@@ -995,6 +1003,12 @@ class StyleStruct:
         self.LS_FT = None  # Linestyle of Fourier spectrum plots
         self.LW_FT = None  # Linewidth for Ae1, Bx, By, Bz in Fourier spectrum plots
         self.LWTexc_FT = None  # Linewidth for optional lines marking dominant excitations in Ae1 plot
+
+        # Trajectory and CA plots
+        self.LS_thresh = None  # Linestyle of MAG precision floor line
+        self.LW_thresh = None  # Linewidth of MAG precision floor line
+        self.MS_CA = None  # Marker style for closest approach points
+        self.MW_CA = None  # Marker size for closest approach dots
         
 
     def GetLW(self, wOcean_ppt, wMinMax_ppt):
@@ -1124,6 +1138,15 @@ class FigLblStruct:
         self.asymAfterDescrip = r' ($\si{km}$), $\overline{z}_b$ = '
         self.asymGravTitle = r'Surface radius gravitational perturbation ($\si{km}$)'
 
+        # Trajectory and CA plot labels
+        self.MagCAtitle = r'Induction signal at closest approach'
+        self.BCA = r'$B_{CA}$ ($\si{nT}$)'
+        self.rCA = r'Altitude above surface at CA ($\si{km}$)'
+        self.thresh = r'MAG signal floor'
+        self.tJ2000units = 'yr'
+        self.apsidalTitle = 'Apsidal precession'
+        self.argPeri = 'Argument of periapsis ($^\circ$)'
+
         # Induction parameter-dependent settings
         self.phaseSpaceTitle = None
         self.inductionTitle = None
@@ -1167,6 +1190,7 @@ class FigLblStruct:
         self.xMult = None
         self.phiMult = None
         self.qMult = None
+        self.tJ2000mult = None
         self.NA = None
         self.sigLabel = None
         self.PlabelFull = None
@@ -1198,6 +1222,7 @@ class FigLblStruct:
         self.alphaLabel = None
         self.VPlabel = None
         self.VSlabel = None
+        self.tPastJ2000 = None
 
         # ExploreOgram setting and label dicts
         self.axisLabelsExplore = None
@@ -1315,6 +1340,17 @@ class FigLblStruct:
         else:
             self.qMult = 1
 
+        if self.tJ2000units == 'yr':
+            self.tJ2000mult = 1 / 24 / 3600 / 365.25
+        elif self.J2000units == 'h':
+            self.tJ2000mult = 1 / 24
+        elif J2000units == 's':
+            self.tJ2000mult = 1
+        else:
+            log.warning('tJ2000units not recognized. Defaulting to years.')
+            self.tJ2000units = 'yr'
+            self.tJ2000mult = 1 / 24 / 3600 / 365.25
+
         # What to put for NA or not calculated numbers
         if self.NAN_FOR_EMPTY:
             self.NA = r'\num{nan}'
@@ -1350,6 +1386,7 @@ class FigLblStruct:
         self.alphaLabel = r'Expansivity $\alpha$ ($\si{' + self.alphaUnits + '}$)'
         self.VPlabel = r'P-wave speed $V_P$ ($\si{' + self.vSoundUnits + '}$)'
         self.VSlabel = r'S-wave speed $V_S$ ($\si{' + self.vSoundUnits + '}$)'
+        self.tPastJ2000 = 'Time after J2000 ($\si{' + self.tJ2000units + '}$)'
 
         self.xLabelsInduct = {
             'sigma': self.sigLabel,
@@ -1495,6 +1532,7 @@ class FigSizeStruct:
         self.MagSurf = None
         self.MagSurfCombo = None
         self.asym = None
+        self.apsidal = None
 
 
 """ Miscellaneous figure options """
@@ -1563,6 +1601,13 @@ class FigMiscStruct:
         self.latMap_deg = None  # Latitude values to use for maps in degrees
         self.thetaMap_rad = None  # Colatitude values to use for maps in radians
         self.phiMap_rad = None  # East longitude values to use for maps in radians
+
+        # Magnetic field trajectory and CA plots
+        self.CAlblSize = None  # Size of text labels on CA points
+        self.SHOW_MAG_THRESH = False  # Whether to show a line indicating the precision floor of a magnetometer
+        self.thresh_nT = None  # Precision floor in nT for magnetometer to plot
+        self.threshCenter = None  # x coordinate to place the MAG floor label
+        self.hCAmax_km = None  # Maximum altitude to show on CA plot
 
         # Inductogram phase space plots
         self.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.

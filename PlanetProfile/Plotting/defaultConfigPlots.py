@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 7  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 8  # Integer number for config file version. Increment when new settings are added to the default config file.
 Color = ColorStruct()
 Style = StyleStruct()
 FigLbl = FigLblStruct()
@@ -125,6 +125,10 @@ Color.BeiFT = {
 Color.Ae1FT = 'purple'
 Color.TexcFT = 'red'
 
+# Color options for trajectory and CA plots
+Color.CAdot = 'black'
+Color.thresh = 'blue'
+
 
 """ Figure style options """
 Style.GRIDS = False  # Whether to plot grids
@@ -162,6 +166,12 @@ Style.LS_FT = '-'  # Linestyle of Fourier spectrum plots
 Style.LW_FT = 0.75  # Linewidth for Ae1, Bx, By, Bz in Fourier spectrum plots
 Style.LS_TexcFT = '-'  # Linestyle for optional lines marking dominant excitations in Ae1 plot
 Style.LW_TexcFT = 0.5  # Linewidth for above
+
+# Trajectory and CA plots
+Style.LS_thresh = '-'  # Linestyle of MAG precision floor line
+Style.LW_thresh = 0.75  # Linewidth of MAG precision floor line
+Style.MS_CA = 'o'  # Marker style for closest approach points
+Style.MW_CA = 5  # Marker size for closest approach dots
 
 
 """ Figure labels """
@@ -203,7 +213,9 @@ FigSize.BdipSoloCombo = (3, 9)
 FigSize.MagFT = (6, 10)
 FigSize.MagSurf = (8, 5)
 FigSize.MagSurfCombo = (16, 5)
+FigSize.MagCA = (4, 4)
 FigSize.asym = (8, 5)
+FigSize.apsidal = (6, 6)
 
 
 """ Miscellaneous figure options """
@@ -259,6 +271,12 @@ FigMisc.vmaxMagSurf_nT = None  # Minimum value for colormap in magnetic field su
 FigMisc.vminMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max)
 FigMisc.vmaxMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max)
 
+# Magnetic field trajectory and CA plots
+FigMisc.CAlblSize = 12  # Size of text labels on CA points
+FigMisc.SHOW_MAG_THRESH = True  # Whether to show a line indicating the precision floor of a magnetometer
+FigMisc.thresh_nT = 0.0488  # Precision floor in nT for magnetometer to plot
+FigMisc.threshCenter = 100  # x coordinate to place the MAG floor label
+FigMisc.hCAmax_km = 500  # Maximum altitude to show on CA plot
 
 # Inductogram phase space plots
 FigMisc.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.

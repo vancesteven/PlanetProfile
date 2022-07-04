@@ -102,11 +102,13 @@ Params.spiceBSP = {
     'Uranus': 'ura111.bsp',  # Generic kernel for Uranus + large moons
     'Neptune': 'nep095.bsp'  # Generic kernel for Neptune + large moons
 }
-Params.SCnames = [
-    'Galileo',
-    'Cassini',
-    'Juno'
-]
+
+Params.SCmagFnameFmt = {
+    'Galileo': 'ORB*_SYS3.TAB',
+    'Cassini': '*_KRTP_1S.TAB',
+    'Juno': 'fgm_jno_l3_*pc_r1s_v*.sts'
+}
+Params.SCnames = list(Params.SCmagFnameFmt.keys())
 Params.spiceSC = {scName: os.path.join(Params.spiceDir, scName) for scName in Params.SCnames}
 
 # MAG data to use
