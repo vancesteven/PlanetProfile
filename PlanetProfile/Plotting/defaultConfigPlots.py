@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 8  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 9  # Integer number for config file version. Increment when new settings are added to the default config file.
 Color = ColorStruct()
 Style = StyleStruct()
 FigLbl = FigLblStruct()
@@ -302,6 +302,8 @@ FigMisc.latexPackages = [
 ]
 FigMisc.SetLatex()
 FigMisc.SetLatLon()
+if not FigMisc.TEX_INSTALLED:
+    FigLbl.StripLatex()
 
 # Table printout settings
 FigMisc.PRINT_BULK = True  # Whether to print bulk body properties, like mass and MoI

@@ -18,6 +18,11 @@ from MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
 log = logging.getLogger('PlanetProfile')
 
 def GenerateMagPlots(PlanetList, Params):
+    
+    # Remove latex styling from legend labels if Latex is not installed
+    if not FigMisc.TEX_INSTALLED:
+        for Planet in PlanetList:
+            Planet.label = FigLbl.StripLatexFromString(Planet.label)
 
     if Params.PLOT_BDIP:
         PlotComplexBdip(PlanetList, Params)
@@ -134,7 +139,10 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
             pts[comp] = axes[0].scatter(sigma_Sm[0][thisComp], D_km[0][thisComp], s=Style.MW_Induction,
                             marker=Style.MS_Induction, c=cbarUnits[thisComp], cmap=Color.cmap[comp])
             cbar[comp] = fig.colorbar(pts[comp], cax=cbarAx)
-            cbarAx.set_title(f'\ce{{{comp}}}', fontsize=FigMisc.cbarTitleSize)
+            lbl = f'\ce{{{comp}}}'
+            if not FigMisc.TEX_INSTALLED:
+                lbl = FigLbl.StripLatexFromString(lbl)
+            cbarAx.set_title(lbl, fontsize=FigMisc.cbarTitleSize)
 
     cbar[comps[-1]].set_label(cbarLabel)
     fig.savefig(Params.FigureFiles.phaseSpace, format=FigMisc.figFormat, dpi=FigMisc.dpi)
@@ -180,7 +188,10 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
             cbar = mcbar.ColorbarBase(cbarAx, cmap=Color.cmap[comp], format=FigMisc.cbarFmt,
                                       values=np.linspace(np.min(comboCbarUnits[thisComp]), np.max(comboCbarUnits[thisComp]), FigMisc.nCbarPts))
             fig.add_axes(cbarAx)
-            cbarAx.set_title(f'\ce{{{comp}}}', fontsize=FigMisc.cbarTitleSize)
+            lbl = f'\ce{{{comp}}}'
+            if not FigMisc.TEX_INSTALLED:
+                lbl = FigLbl.StripLatexFromString(lbl)
+            cbarAx.set_title(lbl, fontsize=FigMisc.cbarTitleSize)
 
         cbar.set_label(cbarLabel, size=12)
         plt.tight_layout()
@@ -806,6 +817,10 @@ def PlotMagSurface(PlanetList, Params):
                     compLabel = f'${FigMisc.vCompMagSurf}$ component'
                 title = f'{Planet.name} {FigLbl.MagSurfTitle} {compLabel}, ' + \
                         f'{rMagEvalLbl} ($\si{{nT}}$), {tMagEvalLbl}'
+
+            # Remove latex styling from labels if Latex is not installed
+            if not FigMisc.TEX_INSTALLED:
+                title = FigLbl.StripLatexFromString(title)
             ax.set_title(title, size=FigMisc.mapTitleSize)
 
             vmin = FigMisc.vminMagSurf_nT
@@ -875,6 +890,9 @@ def PlotMagSurface(PlanetList, Params):
                     # compLabel able to be reused from asymmetric in this case
                     title = f'{Planet.name} {FigLbl.MagSurfSymTitle} {compLabel}, ' + \
                             f'{rMagEvalLbl} ($\si{{nT}}$), {tMagEvalLbl}'
+                # Remove latex styling from labels if Latex is not installed
+                if not FigMisc.TEX_INSTALLED:
+                    title = FigLbl.StripLatexFromString(title)
                 ax.set_title(title, size=FigMisc.mapTitleSize)
 
                 vmin = FigMisc.vminMagSurf_nT
@@ -934,6 +952,9 @@ def PlotMagSurface(PlanetList, Params):
                     # compLabel able to be reused from above in this case
                     title = f'{Planet.name} {FigLbl.MagSurfTitle} {compLabel} {FigLbl.MagSurfDiffTitle}, ' + \
                             f'{rMagEvalLbl} ($\si{{nT}}$), {tMagEvalLbl}'
+                # Remove latex styling from labels if Latex is not installed
+                if not FigMisc.TEX_INSTALLED:
+                    title = FigLbl.StripLatexFromString(title)
                 ax.set_title(title, size=FigMisc.mapTitleSize)
 
                 vmin = FigMisc.vminMagSurfDiff_nT
@@ -1014,6 +1035,9 @@ def PlotAsym(PlanetList, Params):
                     descrip = FigLbl.asymTitle
                     cLevelsAsym = None
                 title = f'{descrip}\SI{{{np.abs(zMean_km):.1f}}}{{km}}'
+            # Remove latex styling from labels if Latex is not installed
+            if not FigMisc.TEX_INSTALLED:
+                title = FigLbl.StripLatexFromString(title)
             ax.set_title(title, size=FigMisc.mapTitleSize)
 
             if cLevelsAsym is None:

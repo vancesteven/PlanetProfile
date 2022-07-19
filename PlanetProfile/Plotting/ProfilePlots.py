@@ -15,6 +15,11 @@ from PlanetProfile.Utilities.defineStructs import Constants
 log = logging.getLogger('PlanetProfile')
 
 def GeneratePlots(PlanetList, Params):
+    
+    # Remove latex styling from legend labels if Latex is not installed
+    if not FigMisc.TEX_INSTALLED:
+        for Planet in PlanetList:
+            Planet.label = FigLbl.StripLatexFromString(Planet.label)
 
     # Handle refprofiles first, so we can print log messages before silencing them
     if Params.PLOT_HYDROSPHERE and not Params.ALL_NO_H2O:
@@ -159,6 +164,8 @@ def PlotHydrosphereProps(PlanetList, Params):
                 wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp}}} \\{{'
                 wList += ', '.join([f'{w*FigLbl.wMult:.0f}' for w in Params.wRef_ppt[Planet.Ocean.comp]])
                 wList += '\}\,$\si{' + FigLbl.wUnits + '}$'
+                if not FigMisc.TEX_INSTALLED:
+                    wList = FigLbl.StripLatexFromString(wList)
                 # Take care to only plot the values consistent with layer solutions
                 iPlot = Params.Pref_MPa[Planet.Ocean.comp] < Pmax_MPa
                 # Plot all reference melting curve densities
@@ -572,6 +579,8 @@ def PlotWedge(PlanetList, Params):
         else:
             indivTitle = f'\\textbf{{{Planet.name}}}\n{wedgeLabel}'
 
+        if not FigMisc.TEX_INSTALLED:
+            indivTitle = FigLbl.StripLatexFromString(indivTitle)
         ax.set_title(indivTitle)
         R_km = Planet.Bulk.R_m / 1e3
         rTicks = []

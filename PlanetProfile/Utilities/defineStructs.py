@@ -1504,7 +1504,23 @@ class FigLblStruct:
         tFnameEnd = tLbl.replace('CA', '').replace('at', '').replace(' ', '')
 
         return tMagEvalLbl, tMagEvalPrint, tFnameEnd
-
+    
+    def StripLatexFromString(self, str2strip):
+        str2strip = str2strip.replace('\si{', '\mathrm{')
+        str2strip = str2strip.replace('\SI{', '{')
+        str2strip = str2strip.replace('\ce{', '{')
+        return str2strip
+    
+    def StripLatex(self):
+        for key, val in self.__dict__.items():
+            if type(val) == str:
+                self.__setattr__(key, self.StripLatexFromString(val))
+            elif type(val) == dict:
+                newVal = val
+                for subkey, subval in val.items():
+                    if type(subval) == str:
+                        newVal[subkey] = self.StripLatexFromString(subval) 
+                self.__setattr__(key, newVal)
 
 """ Figure size settings """
 class FigSizeStruct:
@@ -1660,6 +1676,7 @@ class FigMiscStruct:
             print('A LaTeX installation was not found. Some plots may have fallback options in labels.')
             plt.rcParams['font.serif'] += ', ' + self.backupFont  # Set plots to use the default font if installed, or a backup if not
             plt.rcParams['mathtext.fontset'] = self.defaultFontCode
+            plt.rcParams['text.usetex'] = False
             self.TEX_INSTALLED = False
 
         packageCmds = r'\n        '.join(self.latexPackages)
@@ -1670,7 +1687,7 @@ class FigMiscStruct:
 
     def SetFontSizes(self):
         # Assign the set font sizes to rcParams.
-        plt.rcParams['legend.fontsize'] = self.legendFontSize
+        plt.rcParams['legend.fontsize'] = self.legendFontSize        
 
     def SetLatLon(self):
         self.nLonMap = self.nPPGCmapRes + 1
