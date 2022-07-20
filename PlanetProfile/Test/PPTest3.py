@@ -18,12 +18,12 @@ Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346
 Planet.Bulk.Cuncertainty = 0.005
-Planet.Bulk.Tb_K = 335.0
+Planet.Bulk.Tb_K = 295.0
 Planet.Do.CLATHRATE = True
 Planet.Steps.nClath = 30
 Planet.Bulk.clathType = 'bottom'
 Planet.Bulk.clathMaxThick_m = 5e3
-Planet.Bulk.qSurf_Wm2 = 22.0e-3
+Planet.Bulk.qSurf_Wm2 = 15.0e-3
 
 """ Layer step settings """
 Planet.Steps.nIceI = 200

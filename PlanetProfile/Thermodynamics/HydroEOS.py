@@ -101,7 +101,8 @@ class OceanEOSStruct:
 
                 if np.size(P_MPa) == np.size(T_K):
                     log.warning(f'Both P and T inputs have length {np.size(P_MPa)}, but they are organized to be ' +
-                                 'used as a grid. This will cause an error in SeaFreeze.')
+                                 'used as a grid. This will cause an error in SeaFreeze. P list will be adjusted slightly.')
+                    P_MPa = np.linspace(P_MPa[0], P_MPa[-1], np.size(P_MPa)-1)
                 PTgrid = np.array([P_MPa, T_K], dtype=object)
                 seaOut = SeaFreeze(PTgrid, 'water1')
                 rho_kgm3 = seaOut.rho

@@ -47,7 +47,7 @@ class ClathDissoc:
     def __init__(self, Tb_K, NAGASHIMA_CLATH_DISSOC=True, ALLOW_BROKEN_MODELS=False, DO_EXPLOREOGRAM=False):
         self.Tb_K = Tb_K
         self.NAGASHIMA = NAGASHIMA_CLATH_DISSOC
-        self.ALLOW_BROKEN = ALLOW_BROKEN_MODELS
+        self.ALLOW_BROKEN_MODELS = ALLOW_BROKEN_MODELS
         self.DO_EXPLOREOGRAM = DO_EXPLOREOGRAM
         if self.NAGASHIMA:
             self.LOWER = None
