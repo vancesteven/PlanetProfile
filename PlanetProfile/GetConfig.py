@@ -18,9 +18,19 @@ from configPP import \
     ExploreParams as userExploreParams, \
     configVersion as userConfigVersion
 if hasattr(userParams,'spiceTLS') and hasattr(userParams,'spiceDir'):
-    spice.furnsh(os.path.join(userParams.spiceDir, userParams.spiceTLS))
+    userLSK = os.path.join(userParams.spiceDir, userParams.spiceTLS)
+    if not os.path.isfile(userLSK):
+        raise FileNotFoundError(f'Leapseconds kernel was not found at {userLSK}. This likely means PlanetProfile ' +
+                                f'has not been fully installed. Run the install script with the following command:\n' +
+                                f'python -m PlanetProfile.install PPinstall')
+    spice.furnsh(userLSK)
 else:
-    spice.furnsh(os.path.join(Params.spiceDir, Params.spiceTLS))
+    defLSK = os.path.join(Params.spiceDir, Params.spiceTLS)
+    if not os.path.isfile(defLSK):
+        raise FileNotFoundError(f'Leapseconds kernel was not found at {defLSK}. This likely means PlanetProfile ' +
+                                f'has not been fully installed. Run the install script with the following command:\n' +
+                                f'python -m PlanetProfile.install PPinstall')
+    spice.furnsh(defLSK)
 from PlanetProfile.MagneticInduction.defaultConfigInduct import \
     SigParams, \
     ExcSpecParams, \

@@ -38,6 +38,7 @@ _defaultConfigInduct = os.path.join(_ROOT, 'MagneticInduction', 'defaultConfigIn
 _Defaults = os.path.join(_ROOT, 'Default')
 _Test = os.path.join(_ROOT, 'Test')
 _TestImport = 'PlanetProfile.Test'
+_SPICE = os.path.join(_ROOT, 'SPICE')
 
 # Copy user config files to local dir if the user does not have them yet
 _userConfig = 'configPP.py'

@@ -1,7 +1,7 @@
 import os, shutil
 from glob import glob
 import logging as log
-from PlanetProfile import _Defaults, configTemplates, configLocals, CopyCarefully
+from PlanetProfile import _ROOT, _Defaults, _SPICE, configTemplates, configLocals, CopyCarefully
 
 def PPreset():
     """ Copies default body files from PlanetProfile/Default/Body/ directories to Body/ directories found here.
@@ -29,6 +29,12 @@ def PPreset():
         # Copy config files
         for template, local in zip(configTemplates, configLocals):
             CopyCarefully(template, local)
+
+        # Copy SPICE kernels and readme
+        spiceFiles = glob(os.path.join(_SPICE, '*'))
+        spiceCopies = [file.split(f'{_ROOT}{os.sep}')[-1] for file in spiceFiles]
+        for repoSpice, localSpice in zip(spiceFiles, spiceCopies):
+            CopyCarefully(repoSpice, localSpice)
 
     elif answer in ['n', 'N', 'no', 'No', 'NO']:
         print('Aborting.')

@@ -1,6 +1,6 @@
 import os, shutil
 from glob import glob
-from PlanetProfile import _Defaults, configTemplates, configLocals, CopyOnlyIfNeeded
+from PlanetProfile import _ROOT, _Defaults, _SPICE, configTemplates, configLocals, CopyOnlyIfNeeded
 
 def PPinstall():
     """ Copies default body files from PlanetProfile/Default/Body/ directories to Body/ directories found here. 
@@ -27,6 +27,12 @@ def PPinstall():
     # Copy config files
     for template, local in zip(configTemplates, configLocals):
         CopyOnlyIfNeeded(template, local)
+
+    # Copy SPICE kernels and readme
+    spiceFiles = glob(os.path.join(_SPICE, '*'))
+    spiceCopies = [file.split(f'{_ROOT}{os.sep}')[-1] for file in spiceFiles]
+    for repoSpice, localSpice in zip(spiceFiles, spiceCopies):
+        CopyOnlyIfNeeded(repoSpice, localSpice)
 
 if __name__ == '__main__':
     PPinstall()

@@ -1,7 +1,4 @@
 *
 !.gitignore
-!naif0012.tls
-!pck00010.tpc
 !README.md
-!clipper_dyn_v01_mod.tf
-!juno_v12_mod.tf
+
