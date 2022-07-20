@@ -64,9 +64,10 @@ class ExcitationsList:
         self.nprmMax = 1
         Texc_hr = {}
         # Approximate (.2f) periods to select from excitation spectrum for each body in hr
-        Texc_hr['Europa'] =    {'synodic': 11.23, 'orbital': 85.15, 'true anomaly': 84.63, 'synodic harmonic':  5.62}
-        Texc_hr['Ganymede'] =  {'synodic': 10.53, 'orbital':171.71, 'true anomaly':  None, 'synodic harmonic':  5.27}
-        Texc_hr['Enceladus'] = {'synodic':  None, 'orbital':  None, 'true anomaly': 32.93, 'synodic harmonic':  None}
+        Texc_hr['Io'] =        {'synodic': 12.95, 'orbital': 42.43, 'true anomaly': 42.31, 'synodic harmonic':  6.48, 'synodic 2nd harmonic':  4.32, 'synodic-TA slow beat': 18.67, 'synodic-TA fast beat':  9.92}
+        Texc_hr['Europa'] =    {'synodic': 11.23, 'orbital': 85.15, 'true anomaly': 84.63, 'synodic harmonic':  5.62, 'synodic 2nd harmonic':  None, 'synodic-TA slow beat':  None, 'synodic-TA fast beat':  None}
+        Texc_hr['Ganymede'] =  {'synodic': 10.53, 'orbital':171.71, 'true anomaly':  None, 'synodic harmonic':  5.27, 'synodic 2nd harmonic':  None, 'synodic-TA slow beat':  None, 'synodic-TA fast beat':  None}
+        Texc_hr['Enceladus'] = {'synodic':  None, 'orbital':  None, 'true anomaly': 32.93, 'synodic harmonic':  None, 'synodic 2nd harmonic':  None, 'synodic-TA slow beat':  None, 'synodic-TA fast beat':  None}
         self.Texc_hr = Texc_hr
 
     def __call__(self, bodyname):
@@ -74,7 +75,10 @@ class ExcitationsList:
             name = 'Test'
         else:
             name = bodyname
-        return self.Texc_hr[name]
+        if name in self.Texc_hr.keys():
+            return self.Texc_hr[name]
+        else:
+            return None
 
 
 Excitations = ExcitationsList()

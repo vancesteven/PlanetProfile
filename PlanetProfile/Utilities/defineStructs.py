@@ -653,6 +653,9 @@ class InductOgramParamsStruct:
         self.rMinODE = 1e3  # Minimum radius to use for numerical solution. Cannot be zero because of singularity at the origin.
         self.oceanInterpMethod = 'linear'  # Interpolation method for determining ocean conductivities when REDUCED_INDUCT is True.
         self.nIntL = 5  # Number of ocean layers to use when REDUCED_INDUCT = 1
+        self.SUM_NEAR = False  # Whether to sum together closely-spaced periods. Accuracy of this approach decreases with time away from J2000.
+        self.USE_NAMED_EXC = False  # Whether to make use of named periods defined in PlanetProfile.MagneticInduction.Moments for excitation calcs
+        self.minBe_nT = None  # Minimum value in nT to use for excitation moments when not using specific periods
 
         # Plot settings to mark on inductograms after Vance et al. (2021): https://doi.org/10.1029/2020JE006418
         self.V2021_zb_km = {
@@ -1509,6 +1512,7 @@ class FigLblStruct:
         str2strip = str2strip.replace('\si{', '\mathrm{')
         str2strip = str2strip.replace('\SI{', '{')
         str2strip = str2strip.replace('\ce{', '{')
+        str2strip = str2strip.replace('\\textbf{', '{')
         return str2strip
     
     def StripLatex(self):

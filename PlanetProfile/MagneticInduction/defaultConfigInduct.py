@@ -3,7 +3,7 @@ import numpy as np
 from PlanetProfile.Utilities.defineStructs import InductOgramParamsStruct, \
     ExcitationSpectrumParamsStruct, ConductLayerParamsStruct, Constants
 
-configInductVersion = 2  # Integer number for config file version. Increment when new settings are added to the default config file.
+configInductVersion = 3  # Integer number for config file version. Increment when new settings are added to the default config file.
 inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
 testBody = 'Europa'  # Assign test profiles to use excitation moments for this body
 dftC = 5  # Default number of contours to include in induct-o-grams
@@ -32,8 +32,8 @@ def GetInductParams(inductOtype, cLevels, dftC, cFmt):
     # Inductogram calculation and plot settings
     InductParams.colorType = 'zb'  # What parameter to use for color of points in phase space plots. Options are "Tmean", "zb".
     InductParams.SPECIFIC_CLEVELS = True  # Whether to use the specific cLevels listed below (in GetClevels) or use default numbers
-    InductParams.excSelectionCalc = {'synodic': True, 'orbital': True, 'true anomaly': True,  'synodic harmonic': True}  # Which magnetic excitations to include in calculations
-    InductParams.excSelectionPlot = {'synodic': True, 'orbital': True, 'true anomaly': False, 'synodic harmonic': True}  # Which magnetic excitations to include in plotting
+    InductParams.excSelectionCalc = {'synodic': True, 'orbital': True, 'true anomaly': True,  'synodic harmonic': True, 'synodic 2nd harmonic': True,  'synodic-TA slow beat': True,  'synodic-TA fast beat': True}  # Which magnetic excitations to include in calculations
+    InductParams.excSelectionPlot = {'synodic': True, 'orbital': True, 'true anomaly': False, 'synodic harmonic': True, 'synodic 2nd harmonic': False, 'synodic-TA slow beat': False, 'synodic-TA fast beat': False}  # Which magnetic excitations to include in plotting
     InductParams.nwPts = 80  # Resolution for salinity values in ocean salinity vs. other plots
     InductParams.wMin = {'Europa': np.log10(1)}
     InductParams.wMax = {'Europa': np.log10(100)}
@@ -57,6 +57,9 @@ def GetInductParams(inductOtype, cLevels, dftC, cFmt):
     InductParams.rMinODE = 1e3  # Minimum radius to use for numerical solution. Cannot be zero because of singularity at the origin.
     InductParams.oceanInterpMethod = 'linear'  # Interpolation method for determining ocean conductivities when REDUCED_INDUCT is True.
     InductParams.nIntL = 5  # Number of ocean layers to use when REDUCED_INDUCT = 1
+    InductParams.SUM_NEAR = False  # Whether to sum together closely-spaced periods. Accuracy of this approach decreases with time away from J2000.
+    InductParams.USE_NAMED_EXC = True  # Whether to make use of named periods defined in PlanetProfile.MagneticInduction.Moments for excitation calcs
+    InductParams.minBe_nT = 1.0  # Minimum value in nT to use for excitation moments when not using specific periods
 
     return SigParams, ExcSpecParams, InductParams
 
