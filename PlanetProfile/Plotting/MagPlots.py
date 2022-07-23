@@ -44,6 +44,8 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
     if InductionList[0].SINGLE_COMP:
         FigLbl.singleComp(InductionList[0].comps[0])
     FigLbl.SetInduction(InductionList[0].bodyname, Params.Induct, InductionList[0].Texc_hr.values())
+    if not FigMisc.TEX_INSTALLED:
+        FigLbl.StripLatex()
 
     sigma_Sm, D_km, ptColors = (np.empty_like(InductionList) for _ in range(3))
     for i, Induction in enumerate(InductionList):
@@ -212,6 +214,8 @@ def PlotInductOgram(Induction, Params):
     if Induction.SINGLE_COMP:
         FigLbl.singleComp(Induction.comps[0])
     FigLbl.SetInduction(Induction.bodyname, Params.Induct, Induction.Texc_hr.values())
+    if not FigMisc.TEX_INSTALLED:
+        FigLbl.StripLatex()
     iSort = np.argsort(list(Induction.Texc_hr.values()))
 
     # Adjust phi values in case we're plotting void volume % instead of void fraction
