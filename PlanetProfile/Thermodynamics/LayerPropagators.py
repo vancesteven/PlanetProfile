@@ -692,6 +692,8 @@ def InnerLayers(Planet, Params):
         # Record ocean layer thickness
         if Planet.Do.NO_H2O or not np.any(Planet.phase == 0):
             Planet.D_km = 0
+            # Reset ice layer thickness in the event there is no ocean
+            Planet.zb_km = Planet.z_m[iOS] / 1e3
         else:
             # Get first index of phase changing from 0 to something different ---
             # this is the bottom of the contiguous ocean layer.
@@ -736,7 +738,7 @@ def InnerLayers(Planet, Params):
         # Get the mean density of ocean layers and conducting/convecting upper ice layers
         Planet.VLayer_m3 = 4/3*np.pi * (Planet.r_m[:-1]**3 - Planet.r_m[1:]**3)
         Planet.Ocean.Vtot_m3 = np.sum(Planet.VLayer_m3[Planet.phase == 0])
-        if Planet.Do.NO_H2O:
+        if Planet.Do.NO_H2O or Planet.Ocean.Vtot_m3 == 0:
             Planet.Ocean.rhoMean_kgm3 = np.nan
             Planet.Ocean.Tmean_K = np.nan
         else:
@@ -1062,17 +1064,18 @@ def CalcMoIWithEOS(Planet, Params):
 
         nProfiles = 0
 
-        # Start at minimum tidal heating and initialize arrays
+        # Start at minimum tidal heating/porosity and initialize arrays
         thisphiTop_frac = phiMin_frac + 0.0
         Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(thisHtidal_Wm3)  # Placeholder until we implement a self-consistent calc
         Planet.Sil.fn_phi_frac = GetphiCalc(Planet.Sil.phiRockMax_frac, Planet.Sil.EOS.fn_phi_frac, Planet.Sil.phiMin_frac)
+        Planet.Sil.fn_phi_frac.update(thisphiTop_frac)
         indsSilValidTemp, _, PsilTemp_MPa, TsilTemp_K, rSilTemp_m, rhoSilTemp_kgm3, MLayerSilTemp_kg, MAboveSilTemp_kg, gSilTemp_ms2, \
         phiSilTemp_frac, HtidalSilTemp_Wm3, kThermSilTemp_WmK, PporeTemp_MPa, rhoSilMatrixTemp_kgm3, rhoSilPoreTemp_kgm3, phaseSilPoreTemp \
             = SilicateLayers(Planet, Params)
         if (np.size(indsSilValidTemp) == 0):
             raise RuntimeError('No silicate mantle size was less than the total body mass for the initialization ' +
                                f'setting of {thisHtidal_Wm3} W/m^3 tidal heating and the expected maximum porosity ' +
-                               f' of {thisphiTop_frac}. Try adjusting run settings that affect mantle density, ' +
+                               f'of {thisphiTop_frac}. Try adjusting run settings that affect mantle density, ' +
                                'like porosity, silicate composition, and radiogenic heat flux.')
 
         # Initialize empty arrays for silicate layer properties
