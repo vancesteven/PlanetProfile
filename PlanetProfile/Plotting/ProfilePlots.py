@@ -749,13 +749,15 @@ def PlotWedge(PlanetList, Params):
                 ax.add_patch(silPorousOuter)
 
         # Only conductive silicates are currently modeled, no convective
-        # Conductive silicate gradient
+        # Conductive silicate gradient (beneath porous layer)
         silCondGrad, dz = np.linspace(0, 1, Color.silCondN+1, retstep=True)
         dzSilCond_km = (Planet.Sil.Rmean_m - Planet.Core.Rmean_m) / 1e3 - Planet.dzSilPorous_km
-        for thisSilFrac in silCondGrad[:-1]:
-            ax.add_patch(Wedge((0.5, 0), (Planet.Sil.Rmean_m/1e3 - Planet.dzSilPorous_km - thisSilFrac*dzSilCond_km)/rMax_km, ang1, ang2,
-                               width=dz*dzSilCond_km/rMax_km, clip_path=silOuter,
-                               fc=Color.silCondCmap(thisSilFrac), ec=Color.silCondCmap(thisSilFrac)))
+        # Only plot conductive silicate gradient if layer thickness is nonzero
+        if dzSilCond_km > 0:
+            for thisSilFrac in silCondGrad[:-1]:
+                ax.add_patch(Wedge((0.5, 0), (Planet.Sil.Rmean_m/1e3 - Planet.dzSilPorous_km - thisSilFrac*dzSilCond_km)/rMax_km, ang1, ang2,
+                                   width=dz*dzSilCond_km/rMax_km, clip_path=silOuter,
+                                   fc=Color.silCondCmap(thisSilFrac), ec=Color.silCondCmap(thisSilFrac)))
 
         # Draw outer boundary
         silOuter.set_edgecolor(Color.wedgeBd)
@@ -825,6 +827,8 @@ def PlotPvT(PlanetList, Params):
             log.debug('FigLbl.PFULL_IN_GPa is True, but Pmax is less than 0.1 GPa. Pressures will be plotted in MPa.')
             FigLbl.PFULL_IN_GPa = False
             FigLbl.SetUnits()
+            if not FigMisc.TEX_INSTALLED:
+                FigLbl.StripLatex()
 
         fig = plt.figure(figsize=FigSize.vpvt)
         grid = GridSpec(2, 4)
@@ -959,6 +963,8 @@ def PlotExploreOgram(ExplorationList, Params):
 
     FigLbl.SetExploration(ExplorationList[0].bodyname, ExplorationList[0].xName,
                           ExplorationList[0].yName, ExplorationList[0].zName)
+    if not FigMisc.TEX_INSTALLED:
+        FigLbl.StripLatex()
 
     for Exploration in ExplorationList:
         fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
