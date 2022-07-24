@@ -23,7 +23,6 @@ Planet.Bulk.Tb_K = 270.93
 
 """ Layer step settings """
 Planet.Steps.nIceI = 50
-Planet.Steps.nRefRho = 30
 Planet.Steps.nSilMax = 120
 Planet.Steps.nPoros = 8
 Planet.Steps.iSilStart = Planet.Steps.nIceI
