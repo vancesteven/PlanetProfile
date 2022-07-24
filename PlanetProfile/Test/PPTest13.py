@@ -26,8 +26,8 @@ Planet.Bulk.clathMaxThick_m = 6.5e3
 Planet.Bulk.qSurf_Wm2 = 7.5e-3
 
 """ Layer step settings """
-Planet.Steps.nIceI = 50
-Planet.Steps.nSilMax = 50
+Planet.Steps.nIceI = 100
+Planet.Steps.nSilMax = 120
 Planet.Steps.nCore = 10
 Planet.Steps.iSilStart = Planet.Steps.nIceI
 
