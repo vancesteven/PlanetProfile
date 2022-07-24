@@ -94,6 +94,7 @@ class StepsSubstruct:
         self.nSilMax = None  # Fixed max number of steps in silicate layers
         self.nSil = None  # Derived final number of steps in silicate layers
         self.nCore = None  # Fixed number of steps in core layers, if present
+        self.nRefRho = 30  # Fixed number of steps to use for reference melting curves
         self.nIceIIILitho = 100  # Fixed number of layers to use for ice III when either BOTTOM_ICEIII or BOTTOM_ICEV is True.
         self.nIceVLitho = 100  # Fixed number of layers to use for ice V when BOTTOM_ICEV is True.
         self.nPsHP = 150  # Number of interpolation steps to use for getting HP ice EOS (pressures)
