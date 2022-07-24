@@ -1454,7 +1454,7 @@ class FigLblStruct:
 
         self.sigLims = [10**IndParams.sigmaMin[bodyname], 10**IndParams.sigmaMax[bodyname]]
         self.Dlims = [10**IndParams.Dmin[bodyname], 10**IndParams.Dmax[bodyname]]
-        self.legendTexc = np.array([f'{T_h:.2f} h' for T_h in Texc_h])
+        self.legendTexc = np.array([f'{T_h:.2f} h' for T_h in Texc_h if T_h is not None])
 
         self.yLabelInduct = self.yLabelsInduct[IndParams.inductOtype]
         self.yScaleInduct = self.yScalesInduct[IndParams.inductOtype]

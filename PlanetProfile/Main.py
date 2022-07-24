@@ -799,7 +799,7 @@ def WriteInductOgram(Induction, Params):
         'bodyname': Induction.bodyname,
         'yName': Induction.yName,
         'Texc_hr_keys': [key for key in Induction.Texc_hr.keys()],
-        'Texc_hr_values': [value for value in Induction.Texc_hr.values()],
+        'Texc_hr_values': [value if value is not None else np.nan for value in Induction.Texc_hr.values()],
         'Amp': Induction.Amp,
         'phase': Induction.phase,
         'Bix_nT': Induction.Bix_nT,
@@ -869,6 +869,7 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     Induction.R_m = reload['R_m']
     Induction.rBds_m = reload['rBds_m']
     Induction.sigmaLayers_Sm = reload['sigmaLayers_Sm']
+    Induction.Texc_hr[np.isnan(Induction.Texc_hr)] = None
 
     Induction.SetAxes(Params.Induct.inductOtype)
     Induction.SetComps(Params.Induct.inductOtype)
