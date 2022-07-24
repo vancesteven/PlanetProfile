@@ -266,8 +266,12 @@ def CalcElecPorRock(Planet, Params, indsSil, indsSilLiq, indsSilI, indsSilII, in
     # but include only the contributing layers in the calculation
     if np.size(indsSilLiq) != 0:
         aboveThreshLiq = Planet.phi_frac[indsSilLiq] >= Planet.Sil.poreConductThresh_frac
-        Planet.Sil.sigmaPoreMean_Sm = np.mean(sigmaFluid_Sm[aboveThreshLiq])
-        Planet.Sil.sigmaPorousLayerMean_Sm = np.mean(Planet.sigma_Sm[indsSilLiq][aboveThreshLiq])
+        if np.any(aboveThreshLiq):
+            Planet.Sil.sigmaPoreMean_Sm = np.mean(sigmaFluid_Sm[aboveThreshLiq])
+            Planet.Sil.sigmaPorousLayerMean_Sm = np.mean(Planet.sigma_Sm[indsSilLiq][aboveThreshLiq])
+        else:
+            Planet.Sil.sigmaPoreMean_Sm = Constants.sigmaDef_Sm
+            Planet.Sil.sigmaPorousLayerMean_Sm = Constants.sigmaDef_Sm
     else:
         # No pores contain liquid (only HP ices), so just record the mean combined conductivity
         Planet.Sil.sigmaPoreMean_Sm = np.nan
