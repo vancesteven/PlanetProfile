@@ -20,9 +20,8 @@ Planet.Bulk.Cuncertainty = 0.005
 Planet.Bulk.Tb_K = 269.8
 
 """ Layer step settings """
-Planet.Steps.nIceI = 200
-Planet.Steps.nRefRho = 30
-Planet.Steps.nSilMax = 300
+Planet.Steps.nIceI = 50
+Planet.Steps.nSilMax = 50
 Planet.Steps.nCore = 10
 Planet.Steps.iSilStart = Planet.Steps.nIceI
 

@@ -19,7 +19,7 @@ Planet.Bulk.Cmeasured = 0.37824
 Planet.Bulk.Cuncertainty = 0.00022
 
 """ Layer step settings """
-Planet.Steps.nSilMax = 300
+Planet.Steps.nSilMax = 50
 Planet.Steps.nCore = 10
 
 """ Silicate Mantle """

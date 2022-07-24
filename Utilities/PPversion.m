@@ -1,3 +1,3 @@
 function vernum = PPversion
-    vernum = '2.2.3';
+    vernum = '2.2.4-dev';
 end

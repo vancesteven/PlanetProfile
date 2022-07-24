@@ -22,9 +22,8 @@ Planet.Bulk.TbV_K = 262.0
 Planet.Do.BOTTOM_ICEV = True
 
 """ Layer step settings """
-Planet.Steps.nIceI = 200
-Planet.Steps.nRefRho = 30
-Planet.Steps.nSilMax = 300
+Planet.Steps.nIceI = 50
+Planet.Steps.nSilMax = 50
 Planet.Steps.nCore = 10
 Planet.Steps.iSilStart = Planet.Steps.nIceI
 
