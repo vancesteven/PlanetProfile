@@ -11,6 +11,12 @@ Custom Dynamic Frames Kernel
 Version and Date
 ========================================================================
 
+    Version 1.1 -- July 24, 2022 -- Marshall J. Styczinski, JPL
+    
+      Added US3 frame, identical to IAU_URANUS but with the z axis
+      along the angular momentum vector instead of opposite to it.
+      Added Solar-Magnetic-Planet frames for each giant planet.
+
     Version 1.0 -- July 20, 2022 -- Marshall J. Styczinski, JPL
     
       Added Planet-Dipole-Solar-Zenith (PDSZ) frame for each giant
@@ -49,10 +55,11 @@ References
        Grand Finale. Science, 362(6410), p.eaat5434.
        https://doi.org/10.1126/science.aat5434
     
-    8. AH5 model for Uranus:
-       Herbert, F., 2009. Aurora and magnetic field of Uranus. Journal of
-       Geophysical Research: Space Physics, 114(A11).
-       https://doi.org/10.1029/2009JA014394
+    8. OTD model for Uranus:
+       Ness, N.F., Acuna, M.H., Behannon, K.W., Burlaga, L.F., Connerney, J.E.,
+       Lepping, R.P. and Neubauer, F.M., 1986. Magnetic fields at Uranus.
+       Science, 233(4759), pp.85-89.
+       https://doi.org/10.1126/science.233.4759.85
     
     9. O8 model for Neptune:
        Connerney, J.E.P., Acuna, M.H. and Ness, N.F., 1991. The magnetic
@@ -81,6 +88,16 @@ Frames Definitions
 ========================================================================
 
     This FK currently defines the following dynamic frames of use:
+    
+        Name                  Relative to            NAIF ID
+    ======================  =====================  ============
+
+      US3                     IAU_URANUS             1850007
+      
+      US3 frame:
+        -- +Z is aligned with the Uranus spin pole (primary axis)
+        -- +X is in the direction of the IAU prime meridian
+        -- centered on the moon
     
         Name                  Relative to            NAIF ID
     ======================  =====================  ============
@@ -151,9 +168,44 @@ Frames Definitions
            direction of the magnetic dipole moment as defined in the
            models referenced in [6-9]
         -- centered on the planet
+         
+        Name                  Relative to            NAIF ID
+    ======================  =====================  ============
+            
+      SMJ                     J2000                  1850095
+      SMK                     J2000                  1850096
+      SMU                     J2000                  1850097
+      SMN                     J2000                  1850098
+      
+      Solar-Magnetic-Planet frames:
+        -- Not to be confused with Planet-Solar-Magnetospheric frames
+        -- +Z axis is along the dipole axis as defined in the models
+           referenced in [6-9]
+        -- +phi direction is positive (right-handed) around +Z axis,
+           starting from 0 at the planet-Sun direction
+        -- centered on the planet
             
 
 \begindata
+
+    FRAME_US3                      = 1850007
+    FRAME_1850007_NAME             = 'US3'
+    FRAME_1850007_CLASS            = 5
+    FRAME_1850007_CLASS_ID         = 1850007
+    FRAME_1850007_CENTER           = 799
+    FRAME_1850007_RELATIVE         = 'J2000'
+    FRAME_1850007_DEF_STYLE        = 'PARAMETERIZED'
+    FRAME_1850007_FAMILY           = 'TWO-VECTOR'
+    FRAME_1850007_PRI_AXIS         = 'Z'
+    FRAME_1850007_PRI_VECTOR_DEF   = 'CONSTANT'
+    FRAME_1850007_PRI_FRAME        = 'IAU_URANUS'
+    FRAME_1850007_PRI_SPEC         = 'RECTANGULAR'
+    FRAME_1850007_PRI_VECTOR       = ( 0, 0, -1 )
+    FRAME_1850007_SEC_AXIS         = 'X'
+    FRAME_1850007_SEC_VECTOR_DEF   = 'CONSTANT'
+    FRAME_1850007_SEC_FRAME        = 'IAU_URANUS'
+    FRAME_1850007_SEC_SPEC         = 'RECTANGULAR'
+    FRAME_1850007_SEC_VECTOR       = ( 1, 0, 0 )
 
     FRAME_IO_PHI_O                 = 1859501
     FRAME_1859501_NAME             = 'IO_PHI_O'
@@ -323,7 +375,7 @@ Frames Definitions
     FRAME_1850075_PRI_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
     FRAME_1850075_PRI_OBSERVER    = 'JUPITER'
     FRAME_1850075_PRI_TARGET      = 'SUN'
-    FRAME_1850075_PRI_ABCORR      = 'NONE'
+    FRAME_1850075_PRI_ABCORR      = 'LT+S'
     FRAME_1850075_SEC_AXIS        = 'Z'
     FRAME_1850075_SEC_VECTOR_DEF  = 'CONSTANT'
     FRAME_1850075_SEC_FRAME       = 'IAU_JUPITER'
@@ -344,7 +396,7 @@ Frames Definitions
     FRAME_1850076_PRI_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
     FRAME_1850076_PRI_OBSERVER    = 'SATURN'
     FRAME_1850076_PRI_TARGET      = 'SUN'
-    FRAME_1850076_PRI_ABCORR      = 'NONE'
+    FRAME_1850076_PRI_ABCORR      = 'LT+S'
     FRAME_1850076_SEC_AXIS        = 'Z'
     FRAME_1850076_SEC_VECTOR_DEF  = 'CONSTANT'
     FRAME_1850076_SEC_FRAME       = 'IAU_SATURN'
@@ -365,14 +417,14 @@ Frames Definitions
     FRAME_1850077_PRI_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
     FRAME_1850077_PRI_OBSERVER    = 'URANUS'
     FRAME_1850077_PRI_TARGET      = 'SUN'
-    FRAME_1850077_PRI_ABCORR      = 'NONE'
+    FRAME_1850077_PRI_ABCORR      = 'LT+S'
     FRAME_1850077_SEC_AXIS        = 'Z'
     FRAME_1850077_SEC_VECTOR_DEF  = 'CONSTANT'
-    FRAME_1850077_SEC_FRAME       = 'IAU_URANUS'
+    FRAME_1850077_SEC_FRAME       = 'US3'
     FRAME_1850077_SEC_SPEC        = 'LATITUDINAL'
     FRAME_1850077_SEC_UNITS       = 'DEGREES'
-    FRAME_1850077_SEC_LONGITUDE   = -55.7
-    FRAME_1850077_SEC_LATITUDE    =  30.2
+    FRAME_1850077_SEC_LONGITUDE   = -48.0
+    FRAME_1850077_SEC_LATITUDE    =  30.0
     
     FRAME_NSM                     = 1850078
     FRAME_1850078_NAME            = 'NSM'
@@ -386,7 +438,7 @@ Frames Definitions
     FRAME_1850078_PRI_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
     FRAME_1850078_PRI_OBSERVER    = 'NEPTUNE'
     FRAME_1850078_PRI_TARGET      = 'SUN'
-    FRAME_1850078_PRI_ABCORR      = 'NONE'
+    FRAME_1850078_PRI_ABCORR      = 'LT+S'
     FRAME_1850078_SEC_AXIS        = 'Z'
     FRAME_1850078_SEC_VECTOR_DEF  = 'CONSTANT'
     FRAME_1850078_SEC_FRAME       = 'IAU_NEPTUNE'
@@ -407,7 +459,7 @@ Frames Definitions
     FRAME_1850085_PRI_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
     FRAME_1850085_PRI_OBSERVER    = 'JUPITER'
     FRAME_1850085_PRI_TARGET      = 'SUN'
-    FRAME_1850085_PRI_ABCORR      = 'NONE'
+    FRAME_1850085_PRI_ABCORR      = 'LT+S'
     FRAME_1850085_SEC_AXIS         = 'X'
     FRAME_1850085_SEC_VECTOR_DEF   = 'CONSTANT'
     FRAME_1850085_SEC_FRAME        = 'JSM'
@@ -426,7 +478,7 @@ Frames Definitions
     FRAME_1850086_PRI_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
     FRAME_1850086_PRI_OBSERVER    = 'SATURN'
     FRAME_1850086_PRI_TARGET      = 'SUN'
-    FRAME_1850086_PRI_ABCORR      = 'NONE'
+    FRAME_1850086_PRI_ABCORR      = 'LT+S'
     FRAME_1850086_SEC_AXIS        = 'X'
     FRAME_1850086_SEC_VECTOR_DEF  = 'CONSTANT'
     FRAME_1850086_SEC_FRAME       = 'KSM'
@@ -445,7 +497,7 @@ Frames Definitions
     FRAME_1850087_PRI_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
     FRAME_1850087_PRI_OBSERVER    = 'URANUS'
     FRAME_1850087_PRI_TARGET      = 'SUN'
-    FRAME_1850087_PRI_ABCORR      = 'NONE'
+    FRAME_1850087_PRI_ABCORR      = 'LT+S'
     FRAME_1850087_SEC_AXIS        = 'X'
     FRAME_1850087_SEC_VECTOR_DEF  = 'CONSTANT'
     FRAME_1850087_SEC_FRAME       = 'USM'
@@ -464,12 +516,96 @@ Frames Definitions
     FRAME_1850088_PRI_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
     FRAME_1850088_PRI_OBSERVER    = 'NEPTUNE'
     FRAME_1850088_PRI_TARGET      = 'SUN'
-    FRAME_1850088_PRI_ABCORR      = 'NONE'
+    FRAME_1850088_PRI_ABCORR      = 'LT+S'
     FRAME_1850088_SEC_AXIS        = 'X'
     FRAME_1850088_SEC_VECTOR_DEF  = 'CONSTANT'
     FRAME_1850088_SEC_FRAME       = 'NSM'
     FRAME_1850088_SEC_SPEC        = 'RECTANGULAR'
     FRAME_1850088_SEC_VECTOR      = ( 0, 0, -1 )
+      
+    FRAME_SMJ                     = 1850095
+    FRAME_1850095_NAME            = 'SMJ'
+    FRAME_1850095_CLASS           = 5
+    FRAME_1850095_CLASS_ID        = 1850095
+    FRAME_1850095_CENTER          = 599
+    FRAME_1850095_RELATIVE        = 'J2000'
+    FRAME_1850095_DEF_STYLE       = 'PARAMETERIZED'
+    FRAME_1850095_FAMILY          = 'TWO-VECTOR'
+    FRAME_1850095_PRI_AXIS        = 'Z'
+    FRAME_1850095_PRI_VECTOR_DEF  = 'CONSTANT'
+    FRAME_1850095_PRI_FRAME       = 'IAU_JUPITER'
+    FRAME_1850095_PRI_SPEC        = 'LATITUDINAL'
+    FRAME_1850095_PRI_UNITS       = 'DEGREES'
+    FRAME_1850095_PRI_LONGITUDE   = 158.0
+    FRAME_1850095_PRI_LATITUDE    =  80.4
+    FRAME_1850095_SEC_AXIS        = 'X'
+    FRAME_1850095_SEC_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
+    FRAME_1850095_SEC_OBSERVER    = 'JUPITER'
+    FRAME_1850095_SEC_TARGET      = 'SUN'
+    FRAME_1850095_SEC_ABCORR      = 'LT+S'
+    
+    FRAME_SMK                     = 1850096
+    FRAME_1850096_NAME            = 'SMK'
+    FRAME_1850096_CLASS           = 5
+    FRAME_1850096_CLASS_ID        = 1850096
+    FRAME_1850096_CENTER          = 699
+    FRAME_1850096_RELATIVE        = 'J2000'
+    FRAME_1850096_DEF_STYLE       = 'PARAMETERIZED'
+    FRAME_1850096_FAMILY          = 'TWO-VECTOR'
+    FRAME_1850096_PRI_AXIS        = 'Z'
+    FRAME_1850096_PRI_VECTOR_DEF  = 'CONSTANT'
+    FRAME_1850096_PRI_FRAME       = 'IAU_SATURN'
+    FRAME_1850096_PRI_SPEC        = 'LATITUDINAL'
+    FRAME_1850096_PRI_UNITS       = 'DEGREES'
+    FRAME_1850096_PRI_LONGITUDE   = 180.00
+    FRAME_1850096_PRI_LATITUDE    =  89.99
+    FRAME_1850096_SEC_AXIS        = 'X'
+    FRAME_1850096_SEC_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
+    FRAME_1850096_SEC_OBSERVER    = 'SATURN'
+    FRAME_1850096_SEC_TARGET      = 'SUN'
+    FRAME_1850096_SEC_ABCORR      = 'LT+S'
+    
+    FRAME_SMU                     = 1850097
+    FRAME_1850097_NAME            = 'SMU'
+    FRAME_1850097_CLASS           = 5
+    FRAME_1850097_CLASS_ID        = 1850097
+    FRAME_1850097_CENTER          = 799
+    FRAME_1850097_RELATIVE        = 'J2000'
+    FRAME_1850097_DEF_STYLE       = 'PARAMETERIZED'
+    FRAME_1850097_FAMILY          = 'TWO-VECTOR'
+    FRAME_1850097_PRI_AXIS        = 'Z'
+    FRAME_1850097_PRI_VECTOR_DEF  = 'CONSTANT'
+    FRAME_1850097_PRI_FRAME       = 'IAU_URANUS'
+    FRAME_1850097_PRI_SPEC        = 'LATITUDINAL'
+    FRAME_1850097_PRI_UNITS       = 'DEGREES'
+    FRAME_1850097_PRI_LONGITUDE   =  48.0
+    FRAME_1850097_PRI_LATITUDE    = -30.0
+    FRAME_1850097_SEC_AXIS        = 'X'
+    FRAME_1850097_SEC_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
+    FRAME_1850097_SEC_OBSERVER    = 'URANUS'
+    FRAME_1850097_SEC_TARGET      = 'SUN'
+    FRAME_1850097_SEC_ABCORR      = 'LT+S'
+    
+    FRAME_SMN                     = 1850098
+    FRAME_1850098_NAME            = 'SMN'
+    FRAME_1850098_CLASS           = 5
+    FRAME_1850098_CLASS_ID        = 1850098
+    FRAME_1850098_CENTER          = 899
+    FRAME_1850098_RELATIVE        = 'J2000'
+    FRAME_1850098_DEF_STYLE       = 'PARAMETERIZED'
+    FRAME_1850098_FAMILY          = 'TWO-VECTOR'
+    FRAME_1850098_PRI_AXIS        = 'Z'
+    FRAME_1850098_PRI_VECTOR_DEF  = 'CONSTANT'
+    FRAME_1850098_PRI_FRAME       = 'IAU_NEPTUNE'
+    FRAME_1850098_PRI_SPEC        = 'LATITUDINAL'
+    FRAME_1850098_PRI_UNITS       = 'DEGREES'
+    FRAME_1850098_PRI_LONGITUDE   = -71.96
+    FRAME_1850098_PRI_LATITUDE    =  43.10
+    FRAME_1850098_SEC_AXIS        = 'X'
+    FRAME_1850098_SEC_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
+    FRAME_1850098_SEC_OBSERVER    = 'NEPTUNE'
+    FRAME_1850098_SEC_TARGET      = 'SUN'
+    FRAME_1850098_SEC_ABCORR      = 'LT+S'
 
 \begintext
 
