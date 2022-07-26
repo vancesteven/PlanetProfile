@@ -3,6 +3,7 @@ dist/*
 pyproject.toml
 MANIFEST.in
 setup.cfg
+setup.py
 configPP.py
 configPPplots.py
 configPPinduct.py
