@@ -273,10 +273,9 @@ def PlotCoreTradeoff(PlanetList, Params):
         ax.set_axisbelow(True)
     ax.set_xlabel(FigLbl.RsilLabel)
     ax.set_ylabel(FigLbl.RcoreLabel)
-    ALL_SAME_CMR2 = np.all([Planet.Bulk.Cmeasured == PlanetList[0].Bulk.Cmeasured for Planet in PlanetList]) \
-                and np.all([Planet.Bulk.Cuncertainty == PlanetList[0].Bulk.Cuncertainty for Planet in PlanetList])
+    ALL_SAME_CMR2 = np.all([Planet.CMR2str == PlanetList[0].CMR2str for Planet in PlanetList])
     if ALL_SAME_CMR2:
-        CMR2str = f', $C/MR^2 = {PlanetList[0].Bulk.Cmeasured}\pm{PlanetList[0].Bulk.Cuncertainty}$'
+        CMR2str = f', $C/MR^2 = {PlanetList[0].CMR2str}$'
     else:
         CMR2str = ''
     if Params.ALL_ONE_BODY:
@@ -284,7 +283,6 @@ def PlotCoreTradeoff(PlanetList, Params):
     else:
         title = FigLbl.coreCompareTitle + CMR2str
     fig.suptitle(title)
-
 
     for Planet in PlanetList:
         if Planet.Do.Fe_CORE:
@@ -317,10 +315,9 @@ def PlotSilTradeoff(PlanetList, Params):
 
     ax.set_xlabel(FigLbl.RsilLabel)
     ax.set_ylabel(FigLbl.rhoSilLabel)
-    ALL_SAME_CMR2 = np.all([Planet.Bulk.Cmeasured == PlanetList[0].Bulk.Cmeasured for Planet in PlanetList]) \
-                    and np.all([Planet.Bulk.Cuncertainty == PlanetList[0].Bulk.Cuncertainty for Planet in PlanetList])
+    ALL_SAME_CMR2 = np.all([Planet.CMR2str == PlanetList[0].CMR2str for Planet in PlanetList])
     if ALL_SAME_CMR2:
-        CMR2str = f', $C/MR^2 = {PlanetList[0].Bulk.Cmeasured}\pm{PlanetList[0].Bulk.Cuncertainty}$'
+        CMR2str = f', $C/MR^2 = {PlanetList[0].CMR2str}$'
     else:
         CMR2str = ''
     if Params.ALL_ONE_BODY:

@@ -27,6 +27,17 @@ def SetupInit(Planet, Params):
     if Planet.Do.TAUP_SEISMIC: CheckCompat('obspy')  # TauP (accessed as obspy.taup)
     if Params.CALC_NEW_INDUCT: CheckCompat('MoonMag')  # MoonMag
 
+    # Afford for additional MoI lower-bound uncertainty under non-hydrostatic conditions of 3% of C/MR^2,
+    # in accordance with Gao and Stevenson (2013): https://doi.org/10.1016/j.icarus.2013.07.034
+    if Planet.Bulk.CuncertaintyUpper is None:
+        Planet.Bulk.CuncertaintyUpper = Planet.Bulk.Cuncertainty
+    if Planet.Bulk.CuncertaintyLower is None:
+        if Planet.Do.NONHYDROSTATIC:
+            Planet.Bulk.CuncertaintyLower = Planet.Bulk.Cuncertainty + 0.03 * Planet.Bulk.Cmeasured
+        else:
+            Planet.Bulk.CuncertaintyLower = Planet.Bulk.Cuncertainty
+    Planet = SetCMR2strings(Planet)
+
     # Waterless bodies. We have to do this first, before filename
     # generation, to ensure ocean comp is set.
     if Planet.Do.NO_H2O:
@@ -344,7 +355,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
     if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSname}'
 
     Planet.saveLabel = saveLabel
-    Planet.tradeLabel = f'{label}, $C/MR^2\,{Planet.Bulk.Cmeasured}\pm{Planet.Bulk.Cuncertainty}$'
+    Planet.tradeLabel = f'{label}, $C/MR^2\,{Planet.CMR2str}$'
     Planet.label = label
     if Params.DO_INDUCTOGRAM:
         inductBase = f'{Planet.name}_{Params.Induct.inductOtype}'
@@ -380,5 +391,23 @@ def SetupLayers(Planet):
     Planet.g_ms2[0] = Constants.G * Planet.Bulk.M_kg / Planet.Bulk.R_m**2  # Set first layer gravity at surface
     Planet.T_K[0] = Planet.Bulk.Tsurf_K  # Set first layer surface temp
     Planet.P_MPa[0] = Planet.Bulk.Psurf_MPa  # Set first layer to surface pressure
+
+    return Planet
+
+
+def SetCMR2strings(Planet):
+    # Create strings to describe input MoI in terminal outputs and plots/tables
+    if Planet.Bulk.CuncertaintyLower == Planet.Bulk.CuncertaintyUpper:
+        Planet.CMR2strPrint = f'{Planet.Bulk.Cmeasured:.4f} ± {Planet.Bulk.CuncertaintyLower:.4f}'
+        Planet.CMR2str = f'{Planet.Bulk.Cmeasured}\pm{Planet.Bulk.CuncertaintyLower}'
+        Planet.CMR2str5 = f'{Planet.Bulk.Cmeasured:.5f}\pm{Planet.Bulk.CuncertaintyLower:.5f}'
+    else:
+        Planet.CMR2strPrint = f'{Planet.Bulk.Cmeasured:.4f} + {Planet.Bulk.CuncertaintyUpper:.4f} - {Planet.Bulk.CuncertaintyLower:.4f}'
+        if FigMisc.TEX_INSTALLED:
+            Planet.CMR2str = f'{Planet.Bulk.Cmeasured}\substack{{+{Planet.Bulk.CuncertaintyUpper} \\\\ -{Planet.Bulk.CuncertaintyLower}}}'
+            Planet.CMR2str5 = f'{Planet.Bulk.Cmeasured:.5f}\substack{{+{Planet.Bulk.CuncertaintyUpper:.5f} \\\\ -{Planet.Bulk.CuncertaintyLower:.5f}}}'
+        else:
+            Planet.CMR2str = f'{Planet.Bulk.Cmeasured}^{{+{Planet.Bulk.CuncertaintyUpper}}}_{{-{Planet.Bulk.CuncertaintyLower}}}'
+            Planet.CMR2str5 = f'{Planet.Bulk.Cmeasured:.5f}^{{+{Planet.Bulk.CuncertaintyUpper:.5f}}}_{{-{Planet.Bulk.CuncertaintyLower:.5f}}}'
 
     return Planet

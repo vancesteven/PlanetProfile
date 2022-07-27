@@ -21,7 +21,7 @@ from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers
 from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, ExplorationResults
-from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames
+from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
 
 # Parallel processing
@@ -375,7 +375,8 @@ def WriteProfile(Planet, Params):
         f'R_m = {Planet.Bulk.R_m:.3f}',
         f'M_kg = {Planet.Bulk.M_kg:.5e}',
         f'Cmeasured = {Planet.Bulk.Cmeasured}',
-        f'Cuncertainty = {Planet.Bulk.Cuncertainty}',
+        f'CuncertaintyLower = {Planet.Bulk.CuncertaintyLower}',
+        f'CuncertaintyUpper = {Planet.Bulk.CuncertaintyUpper}',
         f'Psurf_MPa = {Planet.Bulk.Psurf_MPa:.3f}',
         f'Tsurf_K = {Planet.Bulk.Tsurf_K:.3f}',
         f'qSurf_Wm2 = {Planet.qSurf_Wm2:.3e}',
@@ -554,7 +555,8 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Sil.poreComp = f.readline().split('=')[-1].strip()
         # Get float values from header
         Planet.Ocean.wOcean_ppt, Planet.Sil.wPore_ppt, Planet.Bulk.R_m, Planet.Bulk.M_kg, Planet.Bulk.Cmeasured, \
-        Planet.Bulk.Cuncertainty, Planet.Bulk.Psurf_MPa, Planet.Bulk.Tsurf_K, Planet.qSurf_Wm2, Planet.qCon_Wm2, \
+        Planet.Bulk.CuncertaintyLower, Planet.Bulk.CuncertaintyUpper, Planet.Bulk.Psurf_MPa, Planet.Bulk.Tsurf_K, \
+        Planet.qSurf_Wm2, Planet.qCon_Wm2, \
         Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, Planet.D_km, Planet.Pb_MPa, Planet.PbI_MPa, \
         Planet.Ocean.deltaP, Planet.Mtot_kg, Planet.CMR2mean, Planet.CMR2less, Planet.CMR2more, Planet.Ocean.QfromMantle_W, \
         Planet.Ocean.rhoMean_kgm3, Planet.Sil.phiRockMax_frac, Planet.Sil.Qrad_Wkg, Planet.Sil.HtidalMean_Wm3, \
@@ -565,7 +567,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Sil.sigmaPorousLayerMean_Sm, Planet.Tconv_K, Planet.etaConv_Pas, Planet.RaConvect, Planet.RaConvectIII, Planet.RaConvectV, \
         Planet.RaCrit, Planet.RaCritIII, Planet.RaCritV, Planet.eLid_m, Planet.eLidIII_m, Planet.eLidV_m, \
         Planet.Dconv_m, Planet.DconvIII_m, Planet.DconvV_m, Planet.deltaTBL_m, Planet.deltaTBLIII_m, Planet.deltaTBLV_m \
-            = (float(f.readline().split('=')[-1]) for _ in range(63))
+            = (float(f.readline().split('=')[-1]) for _ in range(64))
         # Note porosity flags
         Planet.Do.POROUS_ICE = bool(strtobool(f.readline().split('=')[-1].strip()))
         Planet.Do.POROUS_ROCK = Planet.Sil.phiRockMax_frac > 0
@@ -593,6 +595,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     Planet.r_m = np.concatenate((Planet.r_m, [0]))
     Planet.z_m = Planet.Bulk.R_m - Planet.r_m
     Planet.phase = Planet.phase.astype(np.int_)
+    Planet = SetCMR2strings(Planet)
 
     # Read in data for core/mantle trade
     Planet.Sil.Rtrade_m, Planet.Core.Rtrade_m, Planet.Sil.rhoTrade_kgm3, \

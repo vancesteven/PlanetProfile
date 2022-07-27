@@ -212,9 +212,8 @@ def PrintGeneralSummary(PlanetList, Params):
     models = 'Models printed:\n' + '\n'.join([Planet.saveLabel for Planet in PlanetList])
     bodyMass = f'Body mass (kg): {PlanetList[0].Bulk.M_kg:.5e}'
     computedMass = 'Computed mass (kg): ' + ', '.join([f'{Planet.Mtot_kg:.5e}' for Planet in PlanetList])
-    inputCMR2 = f'Input C/MR^2: {PlanetList[0].Bulk.Cmeasured} ± {PlanetList[0].Bulk.Cuncertainty}'
-    if (np.any([Planet.Bulk.Cmeasured != PlanetList[0].Bulk.Cmeasured for Planet in PlanetList])
-        or np.any([Planet.Bulk.Cuncertainty != PlanetList[0].Bulk.Cuncertainty for Planet in PlanetList])):
+    inputCMR2 = f'Input C/MR^2: {PlanetList[0].CMR2strPrint}'
+    if np.any([Planet.CMR2strPrint != PlanetList[0].CMR2strPrint for Planet in PlanetList]):
         log.warning('One or more moment of inertia parameters do not match the first profile. Only ' +
                     'the first profile\'s parameters will be printed.')
     belowCMR2 =    '            (-)  ' + ', '.join([f'{Planet.CMR2less:.5f}' for Planet in PlanetList])
@@ -655,7 +654,7 @@ def PrintLayerTableLatex(PlanetList, Params):
 
         strMmeas_kg[i] = f'$\\num{{{Planet.Bulk.M_kg:.4e}}}$'
         strMcalc_kg[i] = f'$\\num{{{Planet.Mtot_kg:.4e}}}$'
-        strCmeas[i] = f'${Planet.Bulk.Cmeasured:.5f}\pm{Planet.Bulk.Cuncertainty:.5f}$'
+        strCmeas[i] = f'${Planet.CMR2str5}$'
         strCcalc[i] = f'${Planet.CMR2mean:.5f}{CMR2pm}$'
         strRsurf_km[i] = f'$\\num{{{Planet.Bulk.R_m/1e3:.1f}}}$'
         strrhoRock_kgm3[i] = f'$\\num{{{Planet.Sil.rhoMean_kgm3:.0f}}}$'

@@ -39,6 +39,8 @@ class BulkSubstruct():
         self.Psurf_MPa = None  # Surface pressure in MPa
         self.Cmeasured = None  # Axial moment of inertia C/MR^2, dimensionless
         self.Cuncertainty = None  # Uncertainty (std dev) of C/MR^2 (used to constrain models via consistency within the uncertainty), dimensionless
+        self.CuncertaintyLower = None  # Lower bound used for Cuncertainty, which may differ from the upper bound if we allow adjustment for non-hydrostaticity, dimensionless
+        self.CuncertaintyUpper = None  # Upper bound as above, typically just equal to Cuncertainty, dimensionless
         self.phiSurface_frac = None  # Scaling value for the ice porosity at the surface (void fraction): falls within a range of 0 and 1. 0 is completely non-porous and larger than 0.2 is rare. From Han et al. (2014)
         self.qSurf_Wm2 = None  # Heat flux leaving the planetary surface. Currently required only for clathType = 'bottom'.
         self.clathMaxThick_m = None  # (Approximate) fixed limit for thickness of clathrate layer in m. Treated as an assumed layer thickness when clathType = 'bottom' or Do.NO_ICE_CONVECTION is True, and as a maximum for 'top', where clathrates are only modeled for the conductive lid.
@@ -75,6 +77,7 @@ class DoSubstruct:
         self.TAUP_SEISMIC = False  # Whether to make TauP model files and some basic plots using obspy.taup
         self.FIXED_POROSITY = False  # Whether to force tidal heating to vary instead of porosity to find a matching MoI for bodies with no iron core
         self.PORE_EOS_DIFFERENT = False  # Whether a salinity and/or composition has been set for pores that differs from the ocean
+        self.NONHYDROSTATIC = False  # Whether to use different lower bound for C/MR^2 matching commensurate with nonhydrostaticity resulting in an artificially high MoI value
 
 
 """ Layer step settings """
@@ -392,6 +395,9 @@ class PlanetStruct:
         self.saveLabel = None  # Label for savefile
         self.label = None  # Label for legend entries
         self.tradeLabel = None  # Label for legend entries in tradeoff plots
+        self.CMR2strPrint = None  # String of Cmeasured +/- Cuncertainty to print to terminal. Handles differing +/- values.
+        self.CMR2str = None  # As above, for including in plots, with precision as specified
+        self.CMR2str5 = None  # As above, for including in tables, with 5 digits of precision
         # Settings for GetPfreeze start, stop, and step size.
         # Shrink closer to expected melting pressure to improve run times.
         self.PfreezeLower_MPa = 0.01  # Lower boundary for GetPfreeze to search for ice Ih phase transition

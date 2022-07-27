@@ -851,8 +851,8 @@ def CalcMoIConstantRho(Planet, Params):
     CMR2 = C_kgm2 / MR2_kgm2
 
     CMR2inds = [i[0] for i, valCMR2 in np.ndenumerate(CMR2)
-                 if valCMR2 > Planet.Bulk.Cmeasured - Planet.Bulk.Cuncertainty
-                and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.Cuncertainty]
+                 if valCMR2 > Planet.Bulk.Cmeasured - Planet.Bulk.CuncertaintyLower
+                and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.CuncertaintyUpper]
 
     if len(CMR2inds) == 0:
         if Planet.Do.NO_H2O:
@@ -860,7 +860,7 @@ def CalcMoIConstantRho(Planet, Params):
         else:
             suggestion = '\nTry adjusting properties of silicates and core to get C/MR^2 values in range. ' + \
                          'Increasing PHydroMax_MPa can also lower C/MR^2 values.'
-        msg = f'No MoI found matching C/MR^2 = {Planet.Bulk.Cmeasured:.3f}±{Planet.Bulk.Cuncertainty:.3f}. ' + \
+        msg = f'No MoI found matching C/MR^2 = {Planet.Bulk.Cmeasured:.3f}+{Planet.Bulk.CuncertaintyUpper:.3f}-{Planet.Bulk.CuncertaintyLower}. ' + \
                   f'Min: {np.min(CMR2[CMR2>0]):.3f}, Max: {np.max(CMR2):.3f}.'
         if Params.ALLOW_BROKEN_MODELS:
             fullMsg = msg + suggestion + ' Params.ALLOW_BROKEN_MODELS is True, so calculations will proceed with many values set to nan.'
@@ -955,7 +955,7 @@ def CalcMoIConstantRho(Planet, Params):
         Planet.Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
         if not np.isnan(Planet.CMR2mean):
             log.info(f'Found matching MoI of {Planet.CMR2mean:.4f} ' +
-                     f'(C/MR^2 = {Planet.Bulk.Cmeasured:.4f}±{Planet.Bulk.Cuncertainty:.4f}) for ' +
+                     f'(C/MR^2 = {Planet.CMR2strPrint}) for ' +
                      f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                      f'R_core = {Planet.Core.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                      f'rho_sil (found) = {rhoSil_kgm3[iCMR2inner]:.0f} kg/m^3, ' +
@@ -967,7 +967,7 @@ def CalcMoIConstantRho(Planet, Params):
     else:
         if not np.isnan(Planet.CMR2mean):
             log.info(f'Found matching MoI of {Planet.CMR2mean:.4f} ' +
-                     f'(C/MR^2 = {Planet.Bulk.Cmeasured:.4f}±{Planet.Bulk.Cuncertainty:.4f}) for ' +
+                     f'(C/MR^2 = {Planet.CMR2strPrint}) for ' +
                      f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                      f'R_core = {Planet.Core.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                      f'rho_sil = {rhoSil_kgm3[iCMR2inner]:.0f} kg/m^3, ' +
@@ -1150,8 +1150,8 @@ def CalcMoIWithEOS(Planet, Params):
     CMR2 = C_kgm2 / MR2_kgm2
 
     CMR2inds = [i[0] for i, valCMR2 in np.ndenumerate(CMR2)
-                 if valCMR2 > Planet.Bulk.Cmeasured - Planet.Bulk.Cuncertainty
-                and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.Cuncertainty]
+                 if valCMR2 > Planet.Bulk.Cmeasured - Planet.Bulk.CuncertaintyLower
+                and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.CuncertaintyUpper]
 
     if len(CMR2inds) == 0:
         if (np.min(CMR2[iValid]) < Planet.Bulk.Cmeasured) and (np.max(CMR2[iValid]) > Planet.Bulk.Cmeasured):
@@ -1167,7 +1167,7 @@ def CalcMoIWithEOS(Planet, Params):
         else:
             suggestion = '\nTry adjusting properties of silicates and core to get higher C/MR^2 values.'
 
-        msg = f'No MoI found matching C/MR^2 = {Planet.Bulk.Cmeasured:.4f}±{Planet.Bulk.Cuncertainty:.4f}.\n' + \
+        msg = f'No MoI found matching C/MR^2 = {Planet.CMR2strPrint}.\n' + \
               f'Min: {np.min(CMR2[CMR2>0]):.4f}, Max: {np.max(CMR2):.4f}. '
         if Params.ALLOW_BROKEN_MODELS:
             if Params.DO_EXPLOREOGRAM:
@@ -1294,7 +1294,7 @@ def CalcMoIWithEOS(Planet, Params):
 
     if not np.isnan(Planet.CMR2mean):
         log.info(f'Found matching MoI of {Planet.CMR2mean:.4f} ' +
-                 f'(C/MR^2 = {Planet.Bulk.Cmeasured:.4f}±{Planet.Bulk.Cuncertainty:.4f}) for ' +
+                 f'(C/MR^2 = {Planet.CMR2strPrint}) for ' +
                  f'rho_sil = {Planet.Sil.rhoMean_kgm3:.0f} kg/m^3, ' +
                  f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}, ' +
                  RcoreOrHtidalLine +
