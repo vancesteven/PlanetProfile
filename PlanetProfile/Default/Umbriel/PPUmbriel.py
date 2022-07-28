@@ -13,7 +13,7 @@ Planet.PfreezeLower_MPa = 5
 Planet.PfreezeUpper_MPa = 45
 
 """ Bulk planetary settings """
-Planet.Bulk.R_m = 584.7e3
+Planet.Bulk.R_m = 584.7e3  # Value from mean radius in Archinal et al. (2018): https://doi.org/10.1007/s10569-017-9805-5
 Planet.Bulk.M_kg = 1.172e21
 Planet.Bulk.Tsurf_K = 60
 Planet.Bulk.Psurf_MPa = 0.0

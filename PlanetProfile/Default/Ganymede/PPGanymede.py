@@ -10,8 +10,8 @@ from PlanetProfile.Utilities.defineStructs import PlanetStruct, Constants
 Planet = PlanetStruct('Ganymede')
 
 """ Bulk planetary settings """
-Planet.Bulk.R_m = 2634.1e3
-Planet.Bulk.M_kg = 1.4819e23
+Planet.Bulk.R_m = 2631.2e3  # Value from mean radius in Archinal et al. (2018): https://doi.org/10.1007/s10569-017-9805-5
+Planet.Bulk.M_kg = 1.4819e23  # Value from Hussmann et al. (2006): http://dx.doi.org/10.1016/j.icarus.2006.06.005
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.3105  # Value from Anderson et al. (1996): https://doi.org/10.1038/384541a0

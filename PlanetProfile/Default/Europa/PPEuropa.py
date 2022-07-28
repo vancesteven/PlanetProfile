@@ -13,8 +13,8 @@ Planet = PlanetStruct('Europa')
 Planet.PfreezeUpper_MPa = 150
 
 """ Bulk planetary settings """
-Planet.Bulk.R_m = 1561.0e3
-Planet.Bulk.M_kg = 4.7991e22
+Planet.Bulk.R_m = 1560.8e3  # Value from mean radius in Archinal et al. (2018): https://doi.org/10.1007/s10569-017-9805-5
+Planet.Bulk.M_kg = 4.800e22  # Value from Hussmann et al. (2006): http://dx.doi.org/10.1016/j.icarus.2006.06.005
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346  # Value from Anderson et al. (1998): https://doi.org/10.1126/science.281.5385.2019

@@ -10,7 +10,7 @@ from PlanetProfile.Utilities.defineStructs import PlanetStruct, Constants
 Planet = PlanetStruct('Titan')
 
 """ Bulk planetary settings """
-Planet.Bulk.R_m = 2575.5e3
+Planet.Bulk.R_m = 2574.73e3  # Value from mean radius in Archinal et al. (2018): https://doi.org/10.1007/s10569-017-9805-5
 Planet.Bulk.M_kg = 1.3455e23
 Planet.Bulk.Tsurf_K = 94
 Planet.Bulk.Psurf_MPa = 0.15

@@ -13,7 +13,7 @@ Planet = PlanetStruct('Europa')
 Planet.PfreezeUpper_MPa = 150
 
 """ Bulk planetary settings """
-Planet.Bulk.R_m = 1561.0e3
+Planet.Bulk.R_m = 1560.8e3
 Planet.Bulk.M_kg = 4.7991e22
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
