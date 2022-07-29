@@ -143,7 +143,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
 
 
 def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2):
-    """ Thermal profile for purely thermally conductive layers, based on Turcotte and Schubert (1982),
+    """ Thermal profile for purely thermally conductive layers, based on Turcotte and Schubert (2002),
         equation 4.40: T = -rho*H/6/k * r^2 + c1/r + c2, where c1 and c2 are integration constants
         found through boundary conditions, rho is mass density of the conductive layer in kg/m^3,
         H is internal heating in W/kg, and k is thermal conductivity in W/m/K.
@@ -180,7 +180,7 @@ def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_
 
 
 def ConductiveTemperatureActual(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2):
-    """ Thermal profile for purely thermally conductive layers, based on Turcotte and Schubert (1982),
+    """ Thermal profile for purely thermally conductive layers, based on Turcotte and Schubert (2002),
         equation 4.40: T = -rho*H/6/k * r^2 + c1/r + c2, where c1 and c2 are integration constants
         found through boundary conditions, rho is mass density of the conductive layer in kg/m^3,
         H is internal heating in W/kg, and k is thermal conductivity in W/m/K.
