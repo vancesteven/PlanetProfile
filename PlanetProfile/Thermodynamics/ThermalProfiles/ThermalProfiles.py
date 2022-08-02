@@ -3,7 +3,7 @@ import logging
 from PlanetProfile.Utilities.defineStructs import Constants
 from seafreeze import seafreeze as SeaFreeze
 from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv, GetTfreeze, GetPfreeze, kThermMelinder2007, \
-    kThermHobbs1974, kThermIsobaricAnderssonIbari2005, kThermIsothermalAnderssonIbari2005
+    kThermHobbs1974
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')

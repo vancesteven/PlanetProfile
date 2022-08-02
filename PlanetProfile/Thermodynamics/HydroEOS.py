@@ -285,7 +285,7 @@ class IceEOSStruct:
                 rho_kgm3 = iceOut.rho
                 Cp_JkgK = iceOut.Cp
                 alpha_pK = iceOut.alpha
-                kTherm_WmK = np.array([kThermIsothermalAnderssonIbari2005(P_MPa, PhaseInv(phaseStr)) for _ in T_K]).T
+                kTherm_WmK = np.array([kThermIsothermalAnderssonInaba2005(P_MPa, PhaseInv(phaseStr)) for _ in T_K]).T
                 self.ufn_Seismic = IceSeismic(phaseStr, self.EXTRAP)
                 self.fn_phase = returnVal(self.phaseID)
 
@@ -675,9 +675,10 @@ def GetPhaseIndices(phase):
                indsSilV, indsSilVI, indsFe
 
 
-def kThermIsobaricAnderssonIbari2005(T_K, phase):
+def kThermIsobaricAnderssonInaba2005(T_K, phase):
     """ Calculate thermal conductivity of ice at a fixed pressure according to
-        Andersson and Ibari (2005) as a function of temperature.
+        Andersson and Inaba (2005) as a function of temperature.
+        See https://doi.org/10.1039/B500373C.
         Range of validity is as follows:
         Phase:  P (MPa):    T range (K):
         Ih      0.1         40-180*
@@ -685,7 +686,7 @@ def kThermIsobaricAnderssonIbari2005(T_K, phase):
         III     240         180-250
         V       530         240-270
         VI      1000        135-250
-        *Andersson and Ibari give an alternate equation that accounts for the range 180-273 K
+        *Andersson and Inaba give an alternate equation that accounts for the range 180-273 K
         for ice Ih at 0.1 MPa, but as this was not included in the Matlab version, it's
         skipped here too. This implementation does not apply at the relevant T and P values
         for icy moon shells except at specific points, so a more versatile and accurate
@@ -706,9 +707,10 @@ def kThermIsobaricAnderssonIbari2005(T_K, phase):
     return kTherm_WmK
 
 
-def kThermIsothermalAnderssonIbari2005(P_MPa, phase):
+def kThermIsothermalAnderssonInaba2005(P_MPa, phase):
     """ Calculate thermal conductivity of ice at a fixed temperature according to
-        Andersson and Ibari (2005) as a function of pressure.
+        Andersson and Inaba (2005) as a function of pressure.
+        See https://doi.org/10.1039/B500373C.
         Range of validity is as follows:
         Phase:  P range (GPa):  T (K):
         Ih      0-0.5           130

@@ -5,7 +5,7 @@ from PlanetProfile.Thermodynamics.Geophysical import PropagateConduction, EvalLa
     PropagateAdiabaticPorousVacIce, PropagateAdiabaticPorousFilledIce
 from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConvectionDeschampsSotin2001, \
-    kThermIsobaricAnderssonIbari2005, kThermHobbs1974, kThermMelinder2007
+    kThermHobbs1974, kThermMelinder2007
 from PlanetProfile.Utilities.defineStructs import Constants
 
 # Assign logger
