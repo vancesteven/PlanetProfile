@@ -25,7 +25,7 @@ def IceIWholeConductSolid(Planet, Params):
     # at the phase transition
     PIceI_MPa = np.linspace(Planet.P_MPa[0], Planet.PbI_MPa, Planet.Steps.nIbottom+1)
     Pratios = (PIceI_MPa - Planet.P_MPa[0]) / (Planet.PbI_MPa - Planet.P_MPa[0])
-    TIceI_K = Planet.Bulk.Tb_K**(Pratios) * Planet.T_K[0]**(1 - PIceI_MPa/Planet.PbI_MPa)
+    TIceI_K = Planet.Bulk.Tb_K**(Pratios) * Planet.T_K[0]**(1 - Pratios)
     Planet.P_MPa[:Planet.Steps.nIbottom+1] = PIceI_MPa
     Planet.T_K[:Planet.Steps.nIbottom+1] = TIceI_K
 
@@ -55,11 +55,11 @@ def IceIWholeConductPorous(Planet, Params):
     """
     icePhase = PhaseConv(Planet.phase[0])
 
-    # Set linear P and adiabatic T in ice I layers. Include 1 extra for P and T to assign next phase to the values
+    # Set linear P and conductive T in ice I layers. Include 1 extra for P and T to assign next phase to the values
     # at the phase transition
     PIceI_MPa = np.linspace(Planet.P_MPa[0], Planet.PbI_MPa, Planet.Steps.nIbottom+1)
     Pratios = (PIceI_MPa - Planet.P_MPa[0]) / (Planet.PbI_MPa - Planet.P_MPa[0])
-    TIceI_K = Planet.Bulk.Tb_K**(Pratios) * Planet.T_K[0]**(1 - PIceI_MPa/Planet.PbI_MPa)
+    TIceI_K = Planet.Bulk.Tb_K**(Pratios) * Planet.T_K[0]**(1 - Pratios)
     Planet.P_MPa[:Planet.Steps.nIbottom+1] = PIceI_MPa
     Planet.T_K[:Planet.Steps.nIbottom+1] = TIceI_K
 
@@ -135,7 +135,7 @@ def IceIConductClathLidSolid(Planet, Params):
                          f'= {Planet.Bulk.clathMaxThick_m/1e3:.3f} km is likely too large for Tb = ' +
                          f'{Planet.Bulk.Tb_K:.3f} K.')
 
-    # Reset thermal and pressure profiles to be linear in P and adiabatic in T
+    # Reset thermal and pressure profiles to be linear in P and conductive in T
     # Include 1 extra for P and T to assign next phase to the values at the
     # ice I bottom phase transition
     Pclath_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.PbClathMax_MPa, Planet.Steps.nClath+1)[:-1]
@@ -230,7 +230,7 @@ def IceIConductClathLidPorous(Planet, Params):
                          f'= {Planet.Bulk.clathMaxThick_m/1e3:.3f} km is likely too large for Tb = ' +
                          f'{Planet.Bulk.Tb_K:.3f} K.')
 
-    # Reset thermal and pressure profiles to be linear in P and adiabatic in T
+    # Reset thermal and pressure profiles to be linear in P and conductive in T
     # Include 1 extra for P and T to assign next phase to the values at the
     # ice I bottom phase transition
     Pclath_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.PbClathMax_MPa, Planet.Steps.nClath+1)[:-1]
@@ -330,14 +330,14 @@ def IceIConductClathUnderplateSolid(Planet, Params):
                 raise ValueError(msg)
 
         # Now we have our (P,T) profile for the ice shell.
-        # Now set linear P and adiabatic T for the ice I shell
+        # Now set linear P and conductive T for the ice I shell
         # This is not self-consistent, because we calculated PbTrans_MPa using the thermal conductivity
         # of the ice as we progressed through the ice I shell, but this is consistent with the current
         # implementation of the thermal profile of conductive ice used in other PlanetProfile models.
         PIceI_MPa = np.linspace(Planet.P_MPa[0], PbTrans_MPa, Planet.Steps.nIceI+1)[:-1]
         PIceIratios = (PIceI_MPa - Planet.P_MPa[0]) / (PbTrans_MPa - Planet.P_MPa[0])
         TIceI_K = Ttop_K**(PIceIratios) * Planet.T_K[0]**(1 - PIceIratios)
-        # Next, set linear P and adiabatic T for the clathrate layer
+        # Next, set linear P and conductive T for the clathrate layer
         Pclath_MPa = np.linspace(PbTrans_MPa, Planet.PbI_MPa, Planet.Steps.nClath+1)
         PclathRatios = (Pclath_MPa - Pclath_MPa[0]) / (Planet.PbI_MPa - Pclath_MPa[0])
         Tclath_K = Planet.Bulk.Tb_K**(PclathRatios) * Ttop_K**(1 - PclathRatios)
@@ -432,14 +432,14 @@ def IceIConductClathUnderplatePorous(Planet, Params):
                                Qrad_Wkg=0, Htidal_Wm3=0)
 
     # Now we have our (P,T) profile for the ice shell.
-    # Now set linear P and adiabatic T for the ice I shell
+    # Now set linear P and conductive T for the ice I shell
     # This is not self-consistent, because we calculated PbTrans_MPa using the thermal conductivity
     # of the ice as we progressed through the ice I shell, but this is consistent with the current
     # implementation of the thermal profile of conductive ice used in other PlanetProfile models.
     PIceI_MPa = np.linspace(Planet.P_MPa[0], PbTrans_MPa, Planet.Steps.nIceI+1)[:-1]
     PIceIratios = (PIceI_MPa - Planet.P_MPa[0]) / (PbTrans_MPa - Planet.P_MPa[0])
     TIceI_K = Ttop_K**(PIceIratios) * Planet.T_K[0]**(1 - PIceIratios)
-    # Next, set linear P and adiabatic T for the clathrate layer
+    # Next, set linear P and conductive T for the clathrate layer
     Pclath_MPa = np.linspace(PbTrans_MPa, Planet.PbI_MPa, Planet.Steps.nClath+1)
     PclathRatios = (Pclath_MPa - Pclath_MPa[0]) / (Planet.PbI_MPa - Pclath_MPa[0])
     Tclath_K = Planet.Bulk.Tb_K**(PclathRatios) * Ttop_K**(1 - PclathRatios)
@@ -475,7 +475,7 @@ def IceIIIConductSolid(Planet, Params):
     """ Calculate conductive profile for ice III layers
     """
 
-    # Set linear P and adiabatic T in ice III layers
+    # Set linear P and conductive T in ice III layers
     PIceIII_MPa = np.linspace(Planet.P_MPa[Planet.Steps.nIbottom], Planet.PbIII_MPa, Planet.Steps.nIceIIILitho+1)
     PIceIIIratios = (PIceIII_MPa - PIceIII_MPa[0]) / (Planet.PbIII_MPa - PIceIII_MPa[0])
     TIceIII_K = Planet.Bulk.TbIII_K**(PIceIIIratios) * \
@@ -501,7 +501,7 @@ def IceIIIConductPorous(Planet, Params):
     """ Calculate conductive profile for ice III layers
     """
 
-    # Set linear P and adiabatic T in ice III layers
+    # Set linear P and conductive T in ice III layers
     PIceIII_MPa = np.linspace(Planet.P_MPa[Planet.Steps.nIbottom], Planet.PbIII_MPa, Planet.Steps.nIceIIILitho+1)
     PIceIIIratios = (PIceIII_MPa - PIceIII_MPa[0]) / (Planet.PbIII_MPa - PIceIII_MPa[0])
     TIceIII_K = Planet.Bulk.TbIII_K**(PIceIIIratios) * \
@@ -534,7 +534,7 @@ def IceVConductSolid(Planet, Params):
     """ Calculate conductive profile for ice V layers
     """
 
-    # Set linear P and adiabatic T in ice V layers
+    # Set linear P and conductive T in ice V layers
     PIceV_MPa = np.linspace(Planet.P_MPa[Planet.Steps.nIIIbottom], Planet.PbV_MPa, Planet.Steps.nIceVLitho+1)
     PIceVratios = (PIceV_MPa - PIceV_MPa[0]) / (Planet.PbV_MPa - PIceV_MPa[0])
     TIceV_K = Planet.Bulk.TbV_K**(PIceVratios) * \
@@ -560,7 +560,7 @@ def IceVConductPorous(Planet, Params):
     """ Calculate conductive profile for ice V layers
     """
 
-    # Set linear P and adiabatic T in ice V layers
+    # Set linear P and conductive T in ice V layers
     PIceV_MPa = np.linspace(Planet.P_MPa[Planet.Steps.nIIIbottom], Planet.PbV_MPa, Planet.Steps.nIceVLitho+1)
     PIceVratios = (PIceV_MPa - PIceV_MPa[0]) / (Planet.PbV_MPa - PIceV_MPa[0])
     TIceV_K = Planet.Bulk.TbV_K**(PIceVratios) * \
