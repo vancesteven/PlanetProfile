@@ -344,7 +344,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             label += ' w/clath'
         if Planet.Do.POROUS_ICE:
             saveLabel += '_PorousIce'
-            label += ' w/$\phi_{ice}$'
+            label += ' w/$\phi_\mathrm{ice}$'
         if Planet.Do.PORE_EOS_DIFFERENT:
             if Planet.Sil.poreComp == 'PureH2O':
                 saveLabel += f'_{Planet.Sil.poreComp}Pores'
@@ -352,6 +352,9 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             else:
                 saveLabel += f'_{Planet.Sil.poreComp}_{Planet.Sil.wPore_ppt:.1f}pptPores'
                 label += f', {Planet.Sil.wPore_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}} \ce{{{Planet.Sil.poreComp}}} pores'
+        elif Planet.Do.POROUS_ROCK:
+            saveLabel += '_PorousRock'
+            label += ' w/$\phi_\mathrm{rock}$'
     if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSname}'
 
     Planet.saveLabel = saveLabel
