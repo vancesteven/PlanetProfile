@@ -20,7 +20,7 @@ def CalcRefProfiles(PlanetList, Params):
             thisRefLabel = f'{Planet.Ocean.comp}' + ','.join([f'{w_ppt}' for w_ppt in wList])
             thisRefRange = maxPmax
             if thisRefLabel in EOSlist.loaded.keys() and thisRefRange <= EOSlist.ranges[thisRefLabel]:
-                log.debug('Reference profiles for {Planet.Ocean.comp} already loaded. Reusing existing.')
+                log.debug(f'Reference profiles for {Planet.Ocean.comp} already loaded. Reusing existing.')
                 Params.Pref_MPa[Planet.Ocean.comp], Params.rhoRef_kgm3[Planet.Ocean.comp] = EOSlist.loaded[thisRefLabel]
                 newRef[Planet.Ocean.comp] = False
             else:
