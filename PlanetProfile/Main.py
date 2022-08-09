@@ -202,7 +202,12 @@ def PlanetProfile(Planet, Params):
         Planet, Params = MagneticInduction(Planet, Params)
 
         # Plot induced dipole surface strength
-        if ((not Params.SKIP_PLOTS) and Planet.Do.VALID) and \
+        if Planet.Magnetic.Binm_nT is None:
+            log.warning('Tried to GenerateMagPlots, but Magnetic.Binm_nT is None. ' +
+                        'this likely means a reload file was not found with CALC_NEW_INDUCT ' +
+                        'set to False. Try to re-run with CALC_NEW_INDUCT set to True in '
+                        'configPP.py.')
+        elif ((not Params.SKIP_PLOTS) and Planet.Do.VALID) and \
             not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM):
             GenerateMagPlots([Planet], Params)
 
