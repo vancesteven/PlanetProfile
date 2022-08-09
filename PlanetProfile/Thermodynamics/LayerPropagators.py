@@ -237,20 +237,11 @@ def IceLayers(Planet, Params):
         else:
             if Planet.Do.NO_ICE_CONVECTION:
                 log.debug('NO_ICE_CONVECTION is True -- skipping ice I convection calculations.')
-                Planet.RaConvect = np.nan
-                Planet.RaCrit = np.nan
-                Planet.Tconv_K = np.nan
-                Planet.etaConv_Pas = np.nan
-            else:
-                Pbot_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.PfreezeUpper_MPa, Planet.PfreezeRes_MPa)
-                Tbot_K = np.arange(Planet.T_K[Planet.Steps.nIceI], np.maximum(273, Planet.T_K[Planet.Steps.nIceI]+20), 0.5)
-                iceImeltEOS = GetOceanEOS('PureH2O', 0.0, Pbot_MPa, Tbot_K, None,
-                                          phaseType=Planet.Ocean.phaseType, FORCE_NEW=True)
-                Planet.Tconv_K, Planet.etaConv_Pas, _, _, _, _, Planet.RaConvect, Planet.RaCrit \
-                    = ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0],
-                                                   Planet.T_K[Planet.Steps.nIceI], Planet.z_m[Planet.Steps.nIceI],
-                                                   Planet.g_ms2[0], np.mean([Planet.P_MPa[Planet.Steps.nIceI], Planet.P_MPa[0]]),
-                                                   iceImeltEOS, Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q)
+            Planet.RaConvect = np.nan
+            Planet.RaCrit = np.nan
+            Planet.Tconv_K = np.nan
+            Planet.etaConv_Pas = np.nan
+            
             Planet.eLid_m = Planet.z_m[Planet.Steps.nSurfIce]
             Planet.Dconv_m = 0.0
             Planet.deltaTBL_m = 0.0
