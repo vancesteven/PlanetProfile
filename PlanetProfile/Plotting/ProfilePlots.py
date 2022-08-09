@@ -241,13 +241,21 @@ def PlotHydrosphereProps(PlanetList, Params):
                 indsIce = np.sort(np.concatenate((indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
                                                   indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet)))
                 # Plot sound speeds in ocean and ices vs. depth in hydrosphere
-                axv[0].plot(Planet.Seismic.VP_kms[indsLiq], Planet.z_m[indsLiq]/1e3,
+                indsHydro = np.sort(np.concatenate((indsIce, indsLiq)))
+                VPice = Planet.Seismic.VP_kms[indsHydro]
+                VSice = Planet.Seismic.VS_kms[indsHydro]
+                VPliq = VPice + 0
+                # Set non-matching values to nan to avoid gap-spanning lines in plots
+                VPliq[indsIce] = np.nan
+                VPice[indsLiq] = np.nan
+                VSice[indsLiq] = np.nan
+                axv[0].plot(VPliq, Planet.z_m[indsHydro]/1e3,
                             color=thisColor, linewidth=Style.LW_sound,
                             linestyle=Style.LS[Planet.Ocean.comp])
-                axv[1].plot(Planet.Seismic.VP_kms[indsIce], Planet.z_m[indsIce]/1e3,
+                axv[1].plot(VPice, Planet.z_m[indsHydro]/1e3,
                             color=thisColor, linewidth=Style.LW_sound,
                             linestyle=Style.LS[Planet.Ocean.comp])
-                axv[2].plot(Planet.Seismic.VS_kms[indsIce], Planet.z_m[indsIce]/1e3,
+                axv[2].plot(VSice, Planet.z_m[indsHydro]/1e3,
                             color=thisColor, linewidth=Style.LW_sound,
                             linestyle=Style.LS[Planet.Ocean.comp])
 
