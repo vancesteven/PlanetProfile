@@ -3,7 +3,7 @@ import logging
 from PlanetProfile.Utilities.defineStructs import Constants
 from seafreeze import seafreeze as SeaFreeze
 from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv, GetTfreeze, GetPfreeze, kThermMelinder2007, \
-    kThermHobbs1974
+    kThermHobbs1974, GetOceanEOS
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -81,10 +81,14 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         log.warning(f'Pmid_MPa has been adjusted upward from {oldPmid_MPa} to {Pmid_MPa} to compensate.')
 
     # Get melting temperature for calculating viscosity relative to this temp
-    if phaseMid == 1:
-        Tmelt_K = GetTfreeze(oceanEOS, Pmid_MPa, Tconv_K, TfreezeRange_K=275-Tconv_K)
+    Pmelt_MPa = np.linspace(Pmid_MPa, Pmid_MPa+0.01, 6)
+    if phaseMid == Constants.phaseClath:
+        meltEOS = oceanEOS
     else:
-        Tmelt_K = GetTfreeze(oceanEOS, Pmid_MPa, Tconv_K)
+        meltEOS = GetOceanEOS('PureH2O', 0.0, Pmelt_MPa,
+                               np.arange(Tconv_K, Tb_K+5, 0.05), None,
+                               phaseType='calc', MELT=True)
+    Tmelt_K = GetTfreeze(meltEOS, Pmid_MPa, Tconv_K, TfreezeRange_K=Tb_K+5-Tconv_K)
     etaConv_Pas = Constants.etaMelt_Pas[phaseMid] * np.exp(A * (Tmelt_K/Tconv_K - 1))
     # Get physical properties of ice at the "middle" of the convective region
     rhoMid_kgm3 = iceEOS.fn_rho_kgm3(Pmid_MPa, Tconv_K)
