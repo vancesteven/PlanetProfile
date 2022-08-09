@@ -430,7 +430,7 @@ def OceanLayers(Planet, Params):
             TMelosh_K = TOcean_K[0] + 0
             deltaPtop = 0
             zMelosh = 0
-            while alphaMelosh_pK < 0:
+            while alphaMelosh_pK < 0 and Planet.phase[Planet.Steps.nSurfIce+i] == 0:
                 dz = deltaPMelosh*1e6 / gMelosh_ms2 / rhoMelosh_kgm3
                 zMelosh += dz
                 deltaPtop += deltaPMelosh
