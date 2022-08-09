@@ -354,7 +354,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
                 label += f', {Planet.Sil.wPore_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}} \ce{{{Planet.Sil.poreComp}}} pores'
         elif Planet.Do.POROUS_ROCK:
             saveLabel += '_PorousRock'
-            label += ' w/$\phi_\mathrm{rock}$'
+            label += ' w/$\phi_\mathrm{sil}$'
     if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSname}'
 
     Planet.saveLabel = saveLabel
