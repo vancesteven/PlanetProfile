@@ -794,7 +794,7 @@ def CalcMoIConstantRho(Planet, Params):
     VsilSphere_m3 = 4/3*np.pi * Planet.r_m[Planet.Steps.iSilStart:]**3
 
     if Planet.Do.Fe_CORE:
-        # Find core bulk density based on assumed sulfide content (Eq X of Styczinski et al., 2022)
+        # Find core bulk density based on assumed sulfide content
         rhoCore_kgm3 = Planet.Core.rhoFeS_kgm3 * Planet.Core.rhoFe_kgm3 \
             * (Planet.Core.xFeS * Constants.mFeS_gmol + (1 - Planet.Core.xFeS) * Constants.mFe_gmol ) \
             / (Planet.Core.xFeS * Constants.mFeS_gmol * Planet.Core.rhoFe_kgm3 + (1 - Planet.Core.xFeS) * Constants.mFe_gmol * Planet.Core.rhoFeS_kgm3)

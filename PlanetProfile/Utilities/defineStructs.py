@@ -241,7 +241,7 @@ class CoreSubstruct:
     def __init__(self):
         self.rhoFe_kgm3 = 8000  # Assumed density of pure iron in kg/m^3
         self.rhoFeS_kgm3 = 5150  # Assumed density of iron sulfide in kg/m^3
-        self.rhoMin_kgm3 = 5150  # Assumed minimum possible density for the core in kg/m^3. Sets maximum core size.
+        self.rhoMin_kgm3 = 4500  # Assumed minimum possible density for the core in kg/m^3. Sets maximum core size.
         self.rhoPoFeFCC = None  # Density of pyrrhottite plus face-centered cubic iron
         self.sigmaCore_Sm = 1e6  # Fixed electrical conductivity to apply to core (typically low, to ignore core impacts on induction)
         self.coreEOS = 'Fe-S_3D_EOS.mat'  # Default core EOS to use
