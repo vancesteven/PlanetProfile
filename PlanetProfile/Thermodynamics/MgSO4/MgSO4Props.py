@@ -339,6 +339,7 @@ class MgSO4Seismic:
     def __init__(self, wOcean_ppt, EXTRAP):
         self.w_ppt = wOcean_ppt
         self.EXTRAP = EXTRAP
+        self.WARNED = False  # Track whether user has been warned about extrapolation
         self.fLookup = os.path.join(_ROOT, 'Thermodynamics', 'MgSO4', 'EOS_MgSO4_parms_2012_26_17_LT.mat')
         if self.fLookup in EOSlist.loaded.keys():
             log.debug('MgSO4 seismic lookup table already loaded. Reusing previously loaded table.')
@@ -373,11 +374,12 @@ class MgSO4Seismic:
     def __call__(self, P_MPa, T_K):
         if not self.EXTRAP:
             newP_MPa, newT_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
-            if (not np.all(newP_MPa == P_MPa)) and (not np.all(newT_K == T_K)):
+            if not self.WARNED and (not np.all(newP_MPa == P_MPa)) and (not np.all(newT_K == T_K)):
                 log.warning('Extrapolation is disabled for ocean fluids, and input EOS P and/or T ' +
                             'extend beyond the MgSO4 seismic lookup table limits of [Pmin, Pmax] = ' +
                             f'{self.Pmin}, {self.Pmax} MPa and [Tmin, Tmax] = ' +
                             f'{self.Tmin}, {self.Tmax} K.')
+                self.WARNED = True
                 P_MPa = newP_MPa
                 T_K = newT_K
         evalPts = np.array([[self.w_ppt, P, T] for P, T in zip(P_MPa, T_K)])
