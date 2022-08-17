@@ -21,4 +21,5 @@ configPPinduct.py
 *.csv
 *.tab
 *.log
+*.bm
 startup.m

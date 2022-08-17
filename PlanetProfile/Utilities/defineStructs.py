@@ -309,6 +309,8 @@ class SeismicSubstruct:
         self.gSil = 30.0
         # Core
         self.QScore = None  # For assigning a QS value to the core, in lieu of a calculation.
+        # Constant settings
+        self.Qkappa = 1e9  # Bulk quality factor (unitless)
         # Derived quantities
         self.VP_kms = None  # Longitudinal (p-wave) sound velocity for each layer in km/s
         self.VS_kms = None  # Shear (s-wave) sound velocity for each layer in km/s
@@ -511,15 +513,21 @@ class DataFilesSubstruct:
             self.exploreAppend = exploreAppend
         self.path = datPath
         self.inductPath = os.path.join(self.path, 'inductionData')
-        if not self.path == '' and not os.path.isdir(self.path):
-            os.makedirs(self.path)
-        if not self.path == '' and not os.path.isdir(self.inductPath):
-            os.makedirs(self.inductPath)
+        self.seisPath = os.path.join(self.path, 'seismicData')
+        if not self.path == '':
+            if not os.path.isdir(self.path):
+                os.makedirs(self.path)
+            if not os.path.isdir(self.inductPath):
+                os.makedirs(self.inductPath)
+            if not os.path.isdir(self.seisPath):
+                os.makedirs(self.seisPath)
 
         self.fName = os.path.join(self.path, saveBase)
         self.saveFile = self.fName + '.txt'
         self.mantCoreFile = self.fName + '_mantleCore.txt'
         self.permFile = self.fName + '_mantlePerm.txt'
+        self.fNameSeis = os.path.join(self.seisPath, saveBase)
+        self.AxiSEMfile = self.fNameSeis + '_AxiSEM.bm'
         self.fNameExplore = self.fName + f'_{self.exploreAppend}ExploreOgram'
         self.exploreOgramFile = f'{self.fNameExplore}.mat'
         self.fNameInduct = os.path.join(self.inductPath, saveBase)
@@ -1760,7 +1768,7 @@ class ConstantsStruct:
         self.mu0 = 4e-7*np.pi  # Permeability of free space (magnetic constant)
         self.Pmin_MPa = 1e-16  # Minimum value to set for pressure to avoid taking log(0)
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
-        self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0)
+        self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0).
         self.mMgSO4_gmol = 120.4  # Molecular mass of MgSO4 in g/mol
         self.mNaCl_gmol = 58.44  # Molecular mass of NaCl in g/mol
         self.mNH3_gmol = 17.03  # Molecular mass of NH3 in g/mol

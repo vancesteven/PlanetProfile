@@ -2,6 +2,7 @@ import numpy as np
 from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import TsolidusHirschmann2000
 from PlanetProfile.Utilities.defineStructs import Constants
+from PlanetProfile.Utilities.PPversion import ppVerNum
 
 def SeismicCalcs(Planet, Params):
     """ Calculation of seismic properties, including wave speeds
@@ -332,3 +333,67 @@ def CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, 
 
 
     return Planet
+
+
+def WriteSeismic(Planet, Params):
+    # Print outputs usable by seismic wave post-processing software
+
+    """
+        AxiSEM
+    """
+    # Extend final layer to center
+    rAxi_m = Planet.r_m + 0
+    rhoAxi_kgm3 = np.append(Planet.rho_kgm3, Planet.rho_kgm3[-1])
+    VPAxi_ms = np.append(Planet.Seismic.VP_kms*1e3, Planet.Seismic.VP_kms[-1]*1e3)
+    VSAxi_ms = np.append(Planet.Seismic.VS_kms*1e3, Planet.Seismic.VS_kms[-1]*1e3)
+    QSAxi = np.append(Planet.Seismic.QS, Planet.Seismic.QS[-1])
+    Qkappa = Planet.Seismic.Qkappa * np.ones_like(rAxi_m)  # Qkappa is currently simply set to a constant.
+    # Add entries for discontinuities -- note that atmosphere layers must be added manually.
+    nDisc = 0
+    for i, phase in enumerate(Planet.phase[1:]):
+        if phase != Planet.phase[i]:
+            # Check that we aren't just changing from one pore fluid phase to another
+            if not ((phase >= Constants.phaseSil and phase < Constants.phaseSil + 10) and
+                (Planet.phase[i] >= Constants.phaseSil and Planet.phase[i] < Constants.phaseSil + 10)):
+                # Insert a duplicate entry at the bottom of each bulk layer
+                rAxi_m = np.insert(rAxi_m, i+nDisc+1, rAxi_m[i+nDisc+1])
+                rhoAxi_kgm3 = np.insert(rhoAxi_kgm3, i+nDisc+1, rhoAxi_kgm3[i+nDisc])
+                VPAxi_ms = np.insert(VPAxi_ms, i+nDisc+1, VPAxi_ms[i+nDisc])
+                VSAxi_ms = np.insert(VSAxi_ms, i+nDisc+1, VSAxi_ms[i+nDisc])
+                QSAxi = np.insert(QSAxi, i+nDisc+1, QSAxi[i+nDisc])
+                Qkappa = np.insert(Qkappa, i+nDisc+1, Qkappa[i+nDisc])
+                nDisc += 1
+
+    # Construct header
+    leadWS = 13
+    colWidth = 16
+    headerLines = [
+        f'# Model for {Planet.name}',
+        f'# Created with PlanetProfile v{ppVerNum}:',
+        f'# {Planet.label}',
+        f'NAME         {Planet.name.lower()}',
+        f'ANELASTIC    T',
+        f'ANISOTROPIC  F',
+        f'UNITS        m',
+        f'COLUMNS     ' + ''.join([
+            'radius'.rjust(colWidth-6),
+            'rho'.rjust(colWidth+1),
+            'vpv'.rjust(colWidth+1),
+            'vsv'.rjust(colWidth+1),
+            'qka'.rjust(colWidth+1),
+            'qmu'.rjust(colWidth+1)
+        ])
+    ]
+    with open(Params.DataFiles.AxiSEMfile,'w') as f:
+        f.write('\n'.join(headerLines) + '\n')
+        for i in range(np.size(rAxi_m)):
+            f.write(' '*leadWS + ' '.join([
+                f'{rAxi_m[i]:9.1f}',
+                f'{rhoAxi_kgm3[i]:16.2f}',
+                f'{VPAxi_ms[i]:16.2f}',
+                f'{VSAxi_ms[i]:16.2f}',
+                f'{Qkappa[i]:16.1f}',
+                f'{QSAxi[i]:16.1f}'
+            ]) + '\n')
+
+    return

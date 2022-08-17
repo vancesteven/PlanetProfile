@@ -19,7 +19,7 @@ from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
     PlotInductOgramPhaseSpace
 from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from PlanetProfile.Thermodynamics.Electrical import ElecConduct
-from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs
+from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, ExplorationResults
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
@@ -182,6 +182,7 @@ def PlanetProfile(Planet, Params):
         # Save data after modeling
         if not Params.NO_SAVEFILE:
             WriteProfile(Planet, Params)
+            WriteSeismic(Planet, Params)
     else:
         # Reload previous run
         Planet, Params = ReloadProfile(Planet, Params)
