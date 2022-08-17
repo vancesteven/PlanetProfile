@@ -182,7 +182,8 @@ def PlanetProfile(Planet, Params):
         # Save data after modeling
         if not Params.NO_SAVEFILE:
             WriteProfile(Planet, Params)
-            WriteSeismic(Planet, Params)
+            if Params.CALC_SEISMIC:
+                WriteSeismic(Planet, Params)
     else:
         # Reload previous run
         Planet, Params = ReloadProfile(Planet, Params)
