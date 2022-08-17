@@ -38,7 +38,7 @@ def IronCoreLayers(Planet, Params,
                       for i in indsSilValid]
         silEnd = Planet.Steps.nSilMax
 
-    log.debug('Evaluating core EOS for possible configurations...')
+    log.debug(f'Evaluating core EOS for {nProfiles - nSilTooBig:.0f} possible configurations...')
     for iValid in range(nProfiles - nSilTooBig):
         # Get profile index among silicate layers from number of profiles
         iProf = indsSilValid[iValid]

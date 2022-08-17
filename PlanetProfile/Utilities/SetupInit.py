@@ -58,6 +58,7 @@ def SetupInit(Planet, Params):
         Planet.Steps.nSurfIce = 0
         Planet.Steps.nOceanMax = 1
         Planet.Steps.nHydroMax = 1
+        Planet.Steps.iSilStart = 0
         Planet.Ocean.comp = 'none'
         Planet.Ocean.wOcean_ppt = 0.0
         Planet.Ocean.deltaP = 0.1
