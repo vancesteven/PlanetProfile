@@ -1012,7 +1012,7 @@ def CalcMoIWithEOS(Planet, Params):
         Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(Planet.Sil.Htidal_Wm3)  # Placeholder until we implement a self-consistent calc
         Planet.Sil.fn_phi_frac = GetphiCalc(Planet.Sil.phiRockMax_frac, Planet.Sil.EOS.fn_phi_frac, Planet.Sil.phiMin_frac)
         # Propagate the silicate EOS from each hydrosphere layer to the center of the body
-        log.debug(f'Propagating silicate EOS for each possible mantle size...')
+        log.debug(f'Propagating silicate EOS for each possible mantle size ({Planet.Steps.nHydroMax-Planet.Steps.iSilStart} options)...')
         indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
         phiSil_frac, HtidalSil_Wm3, kThermSil_WmK, PsilPore_MPa, rhoSilMatrix_kgm3, rhoSilPore_kgm3, phaseSilPore \
             = SilicateLayers(Planet, Params)
@@ -1042,14 +1042,15 @@ def CalcMoIWithEOS(Planet, Params):
             phiMin_frac = Planet.Sil.phiRockMax_frac - Planet.Sil.phiRockMax_frac / Planet.Sil.phiRangeMult
             phiMax_frac = Planet.Sil.phiRockMax_frac + (1 - Planet.Sil.phiRockMax_frac) / Planet.Sil.phiRangeMult
             multphi_frac = (phiMax_frac/phiMin_frac)**(1/Planet.Steps.nPoros)
-            log.debug(f'Propagating silicate EOS for each possible mantle size and porosity from phiVac = {phiMin_frac:.3f} to {phiMax_frac:.3f}...')
+            log.debug(f'Propagating silicate EOS for each possible mantle size and porosity from phiVac = {phiMin_frac:.3f} to {phiMax_frac:.3f} in {Planet.Steps.nPoros} steps...')
         else:
             # In this case, we will use Sil.HtidalMin_Wm3 and Sil.deltaHtidal_logUnits to get
             # a valid set of profiles.
             HtidalStart_Wm3 = Planet.Sil.HtidalMin_Wm3
             multHtidal_Wm3 = 10**Planet.Sil.deltaHtidal_logUnits
             thisHtidal_Wm3 = 0
-            log.debug(f'Propagating silicate EOS for each possible mantle size and heating from Htidal = {thisHtidal_Wm3:.2e} to {Planet.Sil.HtidalMax_Wm3:.2e} W/m^3...')
+            nHsteps = np.floor(np.log10(Planet.Sil.HtidalMax_Wm3/HtidalStart_Wm3)/Planet.Sil.deltaHtidal_logUnits) + 1
+            log.debug(f'Propagating silicate EOS for each possible mantle size and heating from Htidal = {thisHtidal_Wm3:.2e} to {Planet.Sil.HtidalMax_Wm3:.2e} W/m^3 in {nHsteps} steps...')
             phiMin_frac = Planet.Sil.phiRockMax_frac
             phiMax_frac = phiMin_frac
 
