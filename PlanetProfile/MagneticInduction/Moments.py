@@ -67,6 +67,7 @@ class ExcitationsList:
         Texc_hr['Io'] =        {'synodic': 12.95, 'orbital': 42.43, 'true anomaly': 42.31, 'synodic harmonic':  6.48, 'synodic 2nd harmonic':  4.32, 'synodic-TA slow beat': 18.67, 'synodic-TA fast beat':  9.92}
         Texc_hr['Europa'] =    {'synodic': 11.23, 'orbital': 85.15, 'true anomaly': 84.63, 'synodic harmonic':  5.62, 'synodic 2nd harmonic':  None, 'synodic-TA slow beat':  None, 'synodic-TA fast beat':  None}
         Texc_hr['Ganymede'] =  {'synodic': 10.53, 'orbital':171.71, 'true anomaly':  None, 'synodic harmonic':  5.27, 'synodic 2nd harmonic':  None, 'synodic-TA slow beat':  None, 'synodic-TA fast beat':  None}
+        Texc_hr['Callisto'] =  {'synodic': 10.18, 'orbital':400.54, 'true anomaly':  None, 'synodic harmonic':  5.09, 'synodic 2nd harmonic':  None, 'synodic-TA slow beat':  None, 'synodic-TA fast beat':  None}
         Texc_hr['Enceladus'] = {'synodic':  None, 'orbital':  None, 'true anomaly': 32.93, 'synodic harmonic':  None, 'synodic 2nd harmonic':  None, 'synodic-TA slow beat':  None, 'synodic-TA fast beat':  None}
         self.Texc_hr = Texc_hr
 
