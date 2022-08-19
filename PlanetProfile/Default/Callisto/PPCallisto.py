@@ -19,31 +19,34 @@ Planet.Bulk.Cuncertainty = 0.0042
 Planet.Bulk.Tb_K = 262.0
 
 """ Layer step settings """
-Planet.Steps.nIceI = 200
-Planet.Steps.nSilMax = 300
+Planet.Steps.nIceI = 50
+Planet.Steps.nSilMax = 120
 Planet.Steps.nCore = 10
 Planet.Steps.iSilStart = Planet.Steps.nIceI
 
 """ Hydrosphere assumptions/settings """
 Planet.Ocean.comp = 'MgSO4'
 Planet.Ocean.wOcean_ppt = 100
-Planet.Ocean.deltaP = 4.0
+Planet.Ocean.deltaP = 5.0
 Planet.Ocean.deltaT = 0.5
 Planet.Ocean.phaseType = 'lookup'
-Planet.Ocean.PHydroMax_MPa = 2000.0
+Planet.Ocean.PHydroMax_MPa = 700.0
 Planet.Ocean.THydroMax_K = 350.0
 
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.33e-14
-Planet.Sil.Htidal_Wm3 = 1e-18
+Planet.Sil.Htidal_Wm3 = 1e-14
 # Rock porosity
-Planet.Do.POROUS_ROCK = False
+Planet.Do.POROUS_ROCK = True
+Planet.Sil.phiRockMax_frac = 0.90
+Planet.Sil.Pclosure_MPa = 4000
+Planet.Do.NONHYDROSTATIC = True
 # Mantle equation of state model
-Planet.Sil.mantleEOS = 'CI_undifferentiated_hhph_DEW17_nofluid_nomelt_685.tab'
+Planet.Sil.mantleEOS = 'Comet_67P_CG_v7_excluding_fluid_properties.tab'
 Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
 
 """ Core assumptions """
-Planet.Do.Fe_CORE = True
+Planet.Do.Fe_CORE = False
 Planet.Core.rhoFe_kgm3 = 8000.0
 Planet.Core.rhoFeS_kgm3 = 5150.0
 Planet.Core.rhoPoFeFCC = 5455.0
