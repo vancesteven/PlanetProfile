@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 9  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 10  # Integer number for config file version. Increment when new settings are added to the default config file.
 Color = ColorStruct()
 Style = StyleStruct()
 FigLbl = FigLblStruct()
@@ -312,6 +312,8 @@ FigMisc.ALWAYS_SHOW_PHI = True  # Whether to force porosity printout in DISP_* o
 FigMisc.LATEX_VLINES = False  # Whether to include vertical lines at table edges and between entries. Some journals do not allow them.
 FigMisc.LATEX_HLINES = False  # Whether to print horizontal lines between table entries.
 FigMisc.HF_HLINES = True  # Whether to print horizontal lines at head and foot of latex tables
+FigMisc.COMP_ROW = True  # Whether to force composition into a row instead of printing a separate summary table for each ocean comp
+FigMisc.BODY_NAME_ROW = True  # Whether to print a row with body name in bold in summary table
 
 # Contour labels
 FigMisc.cLabelSize = 10  # Font size in pt for contour labels

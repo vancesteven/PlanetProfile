@@ -600,7 +600,7 @@ def PrintLayerTableLatex(PlanetList, Params):
         endl = r' \\ \hline'
     else:
         endl = r' \\'
-    newline = '\n            '
+    newline = '\n        '
     # Vertical lines for table, if present
     if FigMisc.LATEX_VLINES:
         v = ' | '
@@ -654,13 +654,15 @@ def PrintLayerTableLatex(PlanetList, Params):
 
         strMmeas_kg[i] = f'$\\num{{{Planet.Bulk.M_kg:.4e}}}$'
         strMcalc_kg[i] = f'$\\num{{{Planet.Mtot_kg:.4e}}}$'
-        strCmeas[i] = f'${Planet.CMR2str5}$'
+        strCmeas[i] = f'${Planet.CMR2str}$'
         strCcalc[i] = f'${Planet.CMR2mean:.5f}{CMR2pm}$'
         strRsurf_km[i] = f'$\\num{{{Planet.Bulk.R_m/1e3:.1f}}}$'
         strrhoRock_kgm3[i] = f'$\\num{{{Planet.Sil.rhoMean_kgm3:.0f}}}$'
-        strTb_K[i] = f'$\\num{{{Planet.Bulk.Tb_K}}}$'
         strqSurf_Wm2[i] = f'$\\num{{{Planet.qSurf_Wm2*FigLbl.qMult:.1f}}}$'
-        if not Planet.Do.NO_H2O:
+        if Planet.Do.NO_H2O:
+            strTb_K[i] = FigLbl.NA
+        else:
+            strTb_K[i] = f'$\\num{{{Planet.Bulk.Tb_K}}}$'
             strqCon_Wm2[i] = f'$\\num{{{Planet.qCon_Wm2*FigLbl.qMult:.1f}}}$'
             stretaI_Pas[i] = f'$\\num{{{Planet.etaConv_Pas:.2e}}}$'
             strDIh_km[i] = f'$\\num{{{Planet.dzIceI_km:.1f}}}$'
@@ -707,26 +709,50 @@ def PrintLayerTableLatex(PlanetList, Params):
     log.info(FigMisc.latexPreamble)
     log.info('Comparison tables:')
 
-    for thisComp in np.unique([Planet.Ocean.comp for Planet in PlanetList]):
-        for thisw in np.unique([Planet.Ocean.wOcean_ppt for Planet in PlanetList if Planet.Ocean.comp == thisComp]):
-            thisSubset = [Planet.Ocean.comp == thisComp and Planet.Ocean.wOcean_ppt == thisw
-                          for Planet in PlanetList]
-            # Table begin
-            tOpen = r'\begin{tabular}{' + v + v.join(['c', 'c'] + ['c' for _ in PlanetList[thisSubset]]) + v + '}'
-            if thisComp == 'PureH2O':
-                compStr = r'Pure~\ce{H2O}'
-                wStr = ''
-                Tsub = 'b'
-            elif thisComp == 'none':
-                compStr = r'No~\ce{H2O}'
-                wStr = ''
-                Tsub = surf
-            else:
-                compStr = f'\ce{{{thisComp}}}'
-                wStr = f'$\SI{{{thisw*FigLbl.wMult:.1f}}}{{{FigLbl.wUnits}}}$'
-                Tsub = 'b'
+    if FigMisc.COMP_ROW:
+        compsList = ['']
+    else:
+        compsList = np.unique([Planet.Ocean.comp for Planet in PlanetList])
 
-            Tb_K = f'{tab}$T_{Tsub}~(\si{{K}})${tab}' + tab.join(strTb_K[thisSubset]) + endl
+    for thisComp in compsList:
+        if FigMisc.COMP_ROW:
+            wList = ['']
+        else:
+            wList = np.unique([Planet.Ocean.wOcean_ppt for Planet in PlanetList if Planet.Ocean.comp == thisComp])
+
+        for thisw in wList:
+            # Table begin
+            if FigMisc.COMP_ROW:
+                thisSubset = np.ones(nModels).astype(bool)
+                tOpen = r'\begin{tabular}{' + v + v.join(['c'] + ['c' for _ in PlanetList[thisSubset]]) + v + '}'
+                compStr = wStr = ''
+                if np.all([Planet.Ocean.comp == 'none' for Planet in PlanetList]):
+                    Tb_K = ''
+                else:
+                    Tb_K = newline + f'{tab}$T_b~(\si{{K}})${tab}' + tab.join(strTb_K[thisSubset]) + endl
+            else:
+                thisSubset = [Planet.Ocean.comp == thisComp and Planet.Ocean.wOcean_ppt == thisw
+                          for Planet in PlanetList]
+                tOpen = r'\begin{tabular}{' + v + v.join(['c', 'c'] + ['c' for _ in PlanetList[thisSubset]]) + v + '}'
+
+                if thisComp == 'none':
+                    compStr = r'No~\ce{H2O}'
+                    wStr = ''
+                    Tb_K = ''
+                else:
+                    if thisComp == 'PureH2O':
+                        compStr = r'Pure~\ce{H2O}'
+                        wStr = ''
+                    else:
+                        compStr = f'\ce{{{thisComp}}}'
+                        wStr = f'$\SI{{{thisw*FigLbl.wMult:.1f}}}{{{FigLbl.wUnits}}}$'
+                    Tb_K = newline + f'{tab}$T_b~(\si{{K}})${tab}' + tab.join(strTb_K[thisSubset]) + endl
+
+            if FigMisc.BODY_NAME_ROW:
+                bodyStr = f'{tab}{tab}' + tab.join([r'\textbf{' + Planet.name + r'}' for Planet in PlanetList[thisSubset]]) + endl
+            else:
+                bodyStr = ''
+
             rhoRock = f'{tab}$\\rho_{rockMean}~(\si{{{FigLbl.rhoUnits}}})${tab}' + tab.join(strrhoRock_kgm3[thisSubset]) + endl
             if FigMisc.PRINT_BULK:
                 Mmeas = newline + f'{tab}$M~(\si{{kg}})${tab}' + tab.join(strMmeas_kg[thisSubset]) + endl
@@ -789,7 +815,7 @@ def PrintLayerTableLatex(PlanetList, Params):
 
             Rrock = f'{tab}$R_{rock}~(\si{{km}})${tab}' + tab.join(strRrock_km[thisSubset]) + endl
             if np.any(boolRcore_km[thisSubset]):
-                Rcore = f'{tab}$R_{core}~(\si{{km}})${tab}' + tab.join(strRcore_km[thisSubset]) + endl
+                Rcore = newline + f'{tab}$R_{core}~(\si{{km}})${tab}' + tab.join(strRcore_km[thisSubset]) + endl
             else:
                 Rcore = ''
             if np.any(boolphiRockMax_frac[thisSubset]):
@@ -797,13 +823,26 @@ def PrintLayerTableLatex(PlanetList, Params):
             else:
                 phiRock = ''
 
-            log.info(f"""{tOpen}
-                {header}
-                    {compStr}{Mmeas}{Mcalc}{Cmeas}{Ccalc}{rhoRock}
-                    {Tb_K}
-                    {qSurf}{qCon}{etaI}{DI}{DIII}{DVund}{Docean}{DVwet}{DVI}{sigOcean}{Rsurf}
-                    {Rrock}{Rcore}{phiIce}{phiRock}
-                {tClose}
-                """)
+            if FigMisc.COMP_ROW:
+                compRow = f'{newline}{tab} Ocean comp.{tab}' + tab.join([Planet.compStr for Planet in PlanetList[thisSubset]]) + endl
+
+                tableStr = f"""{tOpen}
+    {header}
+        {bodyStr}{compRow}{Mmeas}{Mcalc}{Cmeas}{Ccalc}{rhoRock}{Tb_K}
+        {qSurf}{qCon}{etaI}{DI}{DIII}{DVund}{Docean}{DVwet}{DVI}{sigOcean}{Rsurf}
+        {Rrock}{Rcore}{phiIce}{phiRock}
+    {tClose}
+    """
+                tableStr = tableStr.replace(newline+tab, newline)
+                log.info(tableStr)
+            else:
+                log.info(f"""{tOpen}
+    {header}
+        {bodyStr}{compStr}{Mmeas}{Mcalc}{Cmeas}{Ccalc}{rhoRock}
+        {Tb_K}
+        {qSurf}{qCon}{etaI}{DI}{DIII}{DVund}{Docean}{DVwet}{DVI}{sigOcean}{Rsurf}
+        {Rrock}{Rcore}{phiIce}{phiRock}
+    {tClose}
+    """)
 
     return

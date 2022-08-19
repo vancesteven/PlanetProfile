@@ -476,6 +476,7 @@ class PlanetStruct:
         self.Mclath_kg = None  # Total mass of clathrate layers
         self.MclathGas_kg = None  # Total mass of non-water molecules trapped in clathrates
         self.index = None  # Numeric indicator to aid in progress info in multi-model runs
+        self.compStr = None  # Latex string for describing ocean comp to humans in tables
         # Layer thicknesses for table printout
         self.zIceI_m = np.nan
         self.zClath_km = np.nan  # Note this one breaks with the pattern because zClath_m is already in use.
@@ -1666,6 +1667,8 @@ class FigMiscStruct:
         self.LATEX_VLINES = False  # Whether to include vertical lines at table edges and between entries. Some journals do not allow them.
         self.LATEX_HLINES = False  # Whether to print horizontal lines between table entries.
         self.HF_HLINES = True  # Whether to print horizontal lines at head and foot of latex tables
+        self.COMP_ROW = True  # Whether to force composition into a row instead of printing a separate summary table for each ocean comp
+        self.BODY_NAME_ROW = True  # Whether to print a row with body name in bold in summary table
 
         # Colorbar settings
         self.cbarTitleSize = None  # Font size specifier for colorbar titles

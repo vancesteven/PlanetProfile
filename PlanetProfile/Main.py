@@ -536,7 +536,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         nSkip = len(os.path.join(Planet.bodyname, f'{Planet.name}Profile_'))
         Planet.saveLabel = fnameOverride[nSkip:-4]
     else:
-        Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
+        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
     log.info(f'Reloading previously saved run from file: {Params.DataFiles.saveFile}')
     log.debug(f'Steps.n settings from PP{Planet.name}.py will be ignored.')
     if not isfile(Params.DataFiles.saveFile):
@@ -679,7 +679,7 @@ def InductOgram(bodyname, Params):
             else:
                 log.warning(f'{expected} does not exist and no default was found at {default}.')
         Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
-        DataFiles, FigureFiles = SetupFilenames(Planet, Params)
+        Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params)
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
         settings = {}
@@ -847,7 +847,7 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
             loadname = bodyname
             bodydir = bodyname
         Planet = importlib.import_module(f'{bodydir}.PP{loadname}InductOgram').Planet
-        Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
+        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
         loadFile = Params.DataFiles.inductOgramFile
     else:
         loadFile = fNameOverride
@@ -1258,7 +1258,7 @@ def ExploreOgram(bodyname, Params):
         Exploration.xName = Params.Explore.xName
         Exploration.yName = Params.Explore.yName
         Exploration.zName = Params.Explore.zName
-        DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Exploration.yName}',
+        Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Exploration.yName}',
                                                 figExploreAppend=Exploration.zName)
         if bodyname == 'Test':
             Params.Explore.nx = 5
@@ -1465,7 +1465,7 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
             loadname = bodyname
             bodydir = bodyname
         Planet = importlib.import_module(f'{bodydir}.PP{loadname}Explore').Planet
-        Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
+        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
                                                               exploreAppend=f'{Params.Explore.xName}{Params.Explore.yName}',
                                                               figExploreAppend=f'{Params.Explore.zName}')
         reload = loadmat(Params.DataFiles.exploreOgramFile)

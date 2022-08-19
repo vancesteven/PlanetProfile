@@ -70,7 +70,7 @@ def SetupInit(Planet, Params):
             Planet.Ocean.EOS = GetOceanEOS('none', None, np.linspace(0, 1, 4), np.linspace(0, 1, 4), None)
 
     # Get filenames for saving/loading
-    Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
+    Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
 
     # Set steps and settings for unused options to zero, check that we have settings we need
     # Core settings
@@ -329,17 +329,20 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
         saveLabel += f'NoH2O_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
         setStr = f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*FigLbl.qMult:.1f}\,\si{{{FigLbl.fluxUnits}}}$'
         label += setStr
+        Planet.compStr = r'No~\ce{H2O}'
     else:
         if Planet.Ocean.comp == 'PureH2O':
             saveLabel += f'{Planet.Ocean.comp}_Tb{Planet.Bulk.Tb_K}K'
             setStr = f'Pure \ce{{H2O}}'
             label += f'{setStr}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+            Planet.compStr = r'Pure~\ce{H2O}'
         else:
             saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
                         f'_Tb{Planet.Bulk.Tb_K}K'
             setStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$ \ce{{{Planet.Ocean.comp}}}'
             label += setStr + \
                 f', $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+            Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Ocean.comp}}}'
         if Planet.Do.CLATHRATE:
             saveLabel += '_Clathrates'
             label += ' w/clath'
@@ -371,7 +374,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
                                        comp=Planet.Ocean.comp, inductBase=inductBase,
                                        exploreAppend=figExploreAppend)
 
-    return DataFiles, FigureFiles
+    return Planet, DataFiles, FigureFiles
 
 
 def SetupLayers(Planet):
