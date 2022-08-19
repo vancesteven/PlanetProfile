@@ -407,11 +407,23 @@ def SetCMR2strings(Planet):
         Planet.CMR2str5 = f'{Planet.Bulk.Cmeasured:.5f}\pm{Planet.Bulk.CuncertaintyLower:.5f}'
     else:
         Planet.CMR2strPrint = f'{Planet.Bulk.Cmeasured:.4f} + {Planet.Bulk.CuncertaintyUpper:.4f} - {Planet.Bulk.CuncertaintyLower:.4f}'
+        if round(Planet.Bulk.Cmeasured, 3) == Planet.Bulk.Cmeasured and round(Planet.Bulk.CuncertaintyUpper, 3) == Planet.Bulk.CuncertaintyUpper:
+            CmidStr = f'{Planet.Bulk.Cmeasured:.3f}'
+            CpStr = f'+{Planet.Bulk.CuncertaintyUpper:.3f}'
+            CmStr = f'-{Planet.Bulk.CuncertaintyLower:.3f}'
+        elif round(Planet.Bulk.Cmeasured, 4) == Planet.Bulk.Cmeasured and round(Planet.Bulk.CuncertaintyUpper, 4) == Planet.Bulk.CuncertaintyUpper:
+            CmidStr = f'{Planet.Bulk.Cmeasured:.4f}'
+            CpStr = f'+{Planet.Bulk.CuncertaintyUpper:.4f}'
+            CmStr = f'-{Planet.Bulk.CuncertaintyLower:.4f}'
+        else:
+            CmidStr = f'{Planet.Bulk.Cmeasured:.5f}'
+            CpStr = f'+{Planet.Bulk.CuncertaintyUpper:.5f}'
+            CmStr = f'-{Planet.Bulk.CuncertaintyLower:.5f}'
         if FigMisc.TEX_INSTALLED:
-            Planet.CMR2str = f'{Planet.Bulk.Cmeasured}\substack{{+{Planet.Bulk.CuncertaintyUpper} \\\\ -{Planet.Bulk.CuncertaintyLower}}}'
+            Planet.CMR2str = f'{CmidStr}\substack{{{CpStr} \\\\ {CmStr}}}'
             Planet.CMR2str5 = f'{Planet.Bulk.Cmeasured:.5f}\substack{{+{Planet.Bulk.CuncertaintyUpper:.5f} \\\\ -{Planet.Bulk.CuncertaintyLower:.5f}}}'
         else:
-            Planet.CMR2str = f'{Planet.Bulk.Cmeasured}^{{+{Planet.Bulk.CuncertaintyUpper}}}_{{-{Planet.Bulk.CuncertaintyLower}}}'
+            Planet.CMR2str = f'{CmidStr}^{{{CpStr}}}_{{{CmStr}}}'
             Planet.CMR2str5 = f'{Planet.Bulk.Cmeasured:.5f}^{{+{Planet.Bulk.CuncertaintyUpper:.5f}}}_{{-{Planet.Bulk.CuncertaintyLower:.5f}}}'
 
     return Planet
