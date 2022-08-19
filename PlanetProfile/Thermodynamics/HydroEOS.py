@@ -404,6 +404,11 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False):
                 if deltaT == 0: deltaT = 0.01
                 nPs = int((maxPmax - minPmin) / deltaP)
                 nTs = int((maxTmax - minTmin) / deltaT)
+                # Ensure we don't have too few points that we error later
+                if nPs < 5:
+                    nPs = 5
+                if nTs < 5:
+                    nTs = 5
                 outP_MPa = np.linspace(minPmin, maxPmax, nPs)
                 outT_K = np.linspace(minTmin, maxTmax, nTs)
                 rangeLabel = f'{np.min(outP_MPa):.2f},{np.max(outP_MPa):.2f},{deltaP:.2e},' + \
