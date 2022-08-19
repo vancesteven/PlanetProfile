@@ -667,7 +667,10 @@ def PrintLayerTableLatex(PlanetList, Params):
             stretaI_Pas[i] = f'$\\num{{{Planet.etaConv_Pas:.2e}}}$'
             strDIh_km[i] = f'$\\num{{{Planet.dzIceI_km:.1f}}}$'
             strD_km[i] = f'$\\num{{{Planet.D_km:.1f}}}$'
-            strsigOcean_Sm[i] = f'$\\num{{{Planet.Ocean.sigmaMean_Sm:.1f}}}$'
+            if np.isnan(Planet.Ocean.sigmaMean_Sm):
+                strsigOcean_Sm[i] = FigLbl.NA
+            else:
+                strsigOcean_Sm[i] = f'$\\num{{{Planet.Ocean.sigmaMean_Sm:.1f}}}$'
             if Planet.Do.CLATHRATE:
                 strDclath_km[i] = f'$\\num{{{Planet.dzClath_km:.1f}}}$'
                 if Planet.Bulk.clathType == 'top':
