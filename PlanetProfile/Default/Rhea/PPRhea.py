@@ -18,7 +18,7 @@ Planet.Bulk.M_kg = 2.306518e21  # Value from Jacobson et al. (2006): https://doi
 Planet.Bulk.Tsurf_K = 75  # Estimate based on eyeballing diurnal variation graphs from Howett et al. (2010): https://doi.org/10.1016/j.icarus.2009.07.016
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.3721  # From Iess et al. (2007): https://doi.org/10.1016/j.icarus.2007.03.027
-Planet.Bulk.Cuncertainty = 0.0036  # Estimating large uncertainty based on Hussmann et al. (2004) modeling approach
+Planet.Bulk.Cuncertainty = 0.0036
 Planet.Bulk.Tb_K = 265.0
 
 """ Layer step settings """

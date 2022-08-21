@@ -17,7 +17,7 @@ Planet.Bulk.R_m = 561.4e3  # Value from mean radius in Archinal et al. (2018): h
 Planet.Bulk.M_kg = 1.095452e21  # Value from Jacobson et al. (2006): https://doi.org/10.1086/508812
 Planet.Bulk.Tsurf_K = 75
 Planet.Bulk.Psurf_MPa = 0.0
-Planet.Bulk.Cmeasured = 0.33  # From Hemingway et al. (2016) LPSC abstract: https://www.hou.usra.edu/meetings/lpsc2016/pdf/1314.pdf
+Planet.Bulk.Cmeasured = 0.33  # From Zannoni et al. (2020): https://doi.org/10.1016/j.icarus.2020.113713
 Planet.Bulk.Cuncertainty = 0.01
 Planet.Bulk.Tb_K = 270.93
 
@@ -54,7 +54,7 @@ Planet.Do.Fe_CORE = False
 Planet.Seismic.lowQDiv = 1.0
 
 """ Magnetic induction """
-Planet.Bulk.J2 = 1454e-6  # From Hemingway et al. (2016) LPSC abstract: https://www.hou.usra.edu/meetings/lpsc2016/pdf/1314.pdf
-Planet.Bulk.C22 = 363e-6
+Planet.Bulk.J2 = 1496e-6  # From Hemingway et al. (2016) LPSC abstract: https://www.hou.usra.edu/meetings/lpsc2016/pdf/1314.pdf
+Planet.Bulk.C22 = 364.8e-6
 Planet.Magnetic.ionosBounds_m = None
 Planet.Magnetic.sigmaIonosPedersen_Sm = None

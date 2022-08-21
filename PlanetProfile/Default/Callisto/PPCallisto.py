@@ -16,6 +16,7 @@ Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.3549  # Value from Anderson et al. (2001): https://doi.org/10.1006/icar.2001.6664
 Planet.Bulk.Cuncertainty = 0.0042
+Planet.Do.NONHYDROSTATIC = True
 Planet.Bulk.Tb_K = 262.0
 
 """ Layer step settings """
@@ -40,7 +41,6 @@ Planet.Sil.Htidal_Wm3 = 1e-14
 Planet.Do.POROUS_ROCK = True
 Planet.Sil.phiRockMax_frac = 0.90
 Planet.Sil.Pclosure_MPa = 4000
-Planet.Do.NONHYDROSTATIC = True
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'Comet_67P_CG_v7_excluding_fluid_properties.tab'
 Planet.Sil.rhoSilWithCore_kgm3 = 3539.0

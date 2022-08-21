@@ -14,8 +14,9 @@ Planet.Bulk.R_m = 2574.73e3  # Value from mean radius in Archinal et al. (2018):
 Planet.Bulk.M_kg = 1.3452e23  # Value from Jacobson et al. (2006): https://doi.org/10.1086/508812
 Planet.Bulk.Tsurf_K = 94
 Planet.Bulk.Psurf_MPa = 0.15
-Planet.Bulk.Cmeasured = 0.32  # Value from Baland et al. (2015): https://doi.org/10.1016/j.icarus.2014.04.007
-Planet.Bulk.Cuncertainty = 0.01
+Planet.Bulk.Cmeasured = 0.341  # Value from Durante et al. (2019): https://doi.org/10.1016/j.icarus.2019.03.003
+Planet.Bulk.Cuncertainty = 0.010  # No uncertainty is reported by Durante et al.
+Planet.Do.NONHYDROSTATIC = True
 Planet.Bulk.Tb_K = 255.0
 
 """ Layer step settings """
@@ -27,7 +28,7 @@ Planet.Steps.iSilStart = Planet.Steps.nIceI
 """ Hydrosphere assumptions/settings """
 Planet.Ocean.comp = 'MgSO4'
 Planet.Ocean.wOcean_ppt = 100
-Planet.Ocean.deltaP = 4.0
+Planet.Ocean.deltaP = 8.0
 Planet.Ocean.deltaT = 0.5
 Planet.Ocean.phaseType = 'lookup'
 Planet.Ocean.PHydroMax_MPa = 1800.0
@@ -40,14 +41,14 @@ Planet.Sil.Htidal_Wm3 = 1e-10
 Planet.Do.POROUS_ROCK = True
 Planet.Sil.porosType = 'Han2014'
 Planet.Sil.HtidalMin_Wm3 = 1e-10  # Only needed for non-Han 2014 porosTypes
-Planet.Sil.phiRockMax_frac = 0.40
-Planet.Sil.Pclosure_MPa = 550
+Planet.Sil.phiRockMax_frac = 0.90
+Planet.Sil.Pclosure_MPa = 2000
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'Comet_67P_CG_v7_excluding_fluid_properties.tab'
 Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
 
 """ Core assumptions """
-Planet.Do.Fe_CORE = True
+Planet.Do.Fe_CORE = False
 Planet.Core.rhoFe_kgm3 = 8000.0
 Planet.Core.rhoFeS_kgm3 = 5150.0
 Planet.Core.rhoPoFeFCC = 5455.0
@@ -64,10 +65,10 @@ Planet.Core.xH2O = 0.0035
 Planet.Seismic.lowQDiv = 1.0
 
 """ Magnetic induction """
-Planet.Bulk.J2 = 33.599e-6  # Values from Iess et al. (2012): https://doi.org/10.1126/science.1219631
-Planet.Bulk.C22 = 10.121e-6
-Planet.Bulk.C21 = 0.186e-6
-Planet.Bulk.S22 = 0.194e-6
-Planet.Bulk.S21 = 0.664e-6
+Planet.Bulk.J2 = 33.089e-6  # Values from Durante et al. (2019): https://doi.org/10.1016/j.icarus.2019.03.003
+Planet.Bulk.C22 = 10.385e-6
+Planet.Bulk.C21 = 0.513e-6
+Planet.Bulk.S22 = -0.064e-6
+Planet.Bulk.S21 = 0.612e-6
 Planet.Magnetic.ionosBounds_m = [100e3, 250e3]
 Planet.Magnetic.sigmaIonosPedersen_Sm = [1e-16, 80/150e3]

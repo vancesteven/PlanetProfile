@@ -18,7 +18,7 @@ Planet.Bulk.M_kg = 3.7493e19  # Value from Jacobson et al. (2006): https://doi.o
 Planet.Bulk.Tsurf_K = 80  # "Canonical" value used by Rhoden and Walker (2022): https://doi.org/10.1016/j.icarus.2021.114872
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.355  # From Hussmann et al. (2006): http://dx.doi.org/10.1016/j.icarus.2006.06.005
-Planet.Bulk.Cuncertainty = 0.010  # Estimating large uncertainty, as Mimas is regarded to not be in hydrostatic equilibrium (e.g. Tajeddine et al. (2016): https://doi.org/10.1126/science.1255299)
+Planet.Bulk.Cuncertainty = 0.010  # Estimating large uncertainty, as Mimas is regarded to not be in hydrostatic equilibrium (e.g. Tajeddine et al. (2014): https://doi.org/10.1126/science.1255299)
 Planet.Bulk.Tb_K = 272.5  # Ice shell should be 24-31 km to match libration constraints, see Tajeddine et al. (2014): https://doi.org/10.1126/science.1255299
 
 """ Layer step settings """
