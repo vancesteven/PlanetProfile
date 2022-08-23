@@ -14,7 +14,7 @@ Planet.PfreezeUpper_MPa = 150
 
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 1352.6e3  # Value from mean radius in Archinal et al. (2018): https://doi.org/10.1007/s10569-017-9805-5
-Planet.Bulk.M_kg = 2.141e22  # Value from Tyler et al. (1989)
+Planet.Bulk.M_kg = 2.141e22  # Value from Tyler et al. (1989): https://doi.org/10.1126/science.246.4936.1466
 Planet.Bulk.Tsurf_K = 38
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.31  # Copied from Pluto model, based on rough forward models with fixed layer densities in Hussmann et al. (2006): https://doi.org/10.1016/j.icarus.2006.06.005 . These authors could not find a fit for Triton.
