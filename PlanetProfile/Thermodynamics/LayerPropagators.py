@@ -877,6 +877,7 @@ def CalcMoIConstantRho(Planet, Params):
         Planet.Steps.nSil = Planet.Steps.nSilMax
         # Use Rset_m to indicate that we have already determined the core size in using SilicateLayers
         Planet.Core.Rset_m = np.nan
+        iCMR2 = 0
         iCMR2inner = 0
         if Planet.Do.NO_H2O:
             Planet.Steps.nHydro = 0
