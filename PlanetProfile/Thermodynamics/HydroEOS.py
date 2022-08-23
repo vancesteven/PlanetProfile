@@ -103,6 +103,19 @@ class OceanEOSStruct:
                     log.warning(f'Both P and T inputs have length {np.size(P_MPa)}, but they are organized to be ' +
                                  'used as a grid. This will cause an error in SeaFreeze. P list will be adjusted slightly.')
                     P_MPa = np.linspace(P_MPa[0], P_MPa[-1], np.size(P_MPa)-1)
+                # Set extrapolation boundaries to limits defined in SeaFreeze
+                self.Pmax = np.minimum(self.Pmax, 2300)
+                self.Tmin = np.maximum(self.Tmin, 200)
+                self.Tmax = np.minimum(self.Tmax, 355)
+                if np.max(P_MPa) > self.Pmax:
+                    log.warning('Input Pmax greater than SeaFreeze limit for Pure H2O. Resetting to SF max.')
+                    P_MPa = np.linspace(np.min(P_MPa), self.Pmax, np.size(P_MPa))
+                if np.min(T_K) > self.Tmin:
+                    log.warning('Input Tmin less than SeaFreeze limit for Pure H2O. Resetting to SF min.')
+                    T_K = np.linspace(self.Tmin, np.max(T_K), np.size(T_K))
+                if np.max(T_K) > self.Tmax:
+                    log.warning('Input Tmax greater than SeaFreeze limit for Pure H2O. Resetting to SF max.')
+                    T_K = np.linspace(np.min(T_K), self.Tmax, np.size(T_K))
                 PTgrid = np.array([P_MPa, T_K], dtype=object)
                 seaOut = SeaFreeze(PTgrid, 'water1')
                 rho_kgm3 = seaOut.rho
@@ -122,7 +135,7 @@ class OceanEOSStruct:
                 else:
                     self.fn_phase = SFphase()
 
-                self.ufn_Seismic = H2OSeismic(compstr, self.w_ppt, self.EXTRAP)
+                self.ufn_Seismic = H2OSeismic(compstr, P_MPa, T_K, seaOut, self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = H2Osigma_Sm()
             elif compstr == 'Seawater':
                 self.type = 'GSW'
@@ -456,17 +469,16 @@ class SFphase:
 
 class H2OSeismic:
     """ Creates a function call for returning seismic properties of depth profile for pure water. """
-    def __init__(self, compstr, wOcean_ppt, EXTRAP):
+    def __init__(self, compstr, P_MPa, T_K, seaOut, wOcean_ppt, EXTRAP):
         self.compstr = compstr
         self.w_ppt = wOcean_ppt
         self.EXTRAP = EXTRAP
 
+        self.ufn_VP_kms = RectBivariateSpline(P_MPa, T_K, seaOut.vel * 1e-3)
+        self.ufn_KS_GPa = RectBivariateSpline(P_MPa, T_K, seaOut.Ks * 1e-3)
+
     def __call__(self, P_MPa, T_K):
-        if not self.EXTRAP:
-            # Set extrapolation boundaries to limits defined in SeaFreeze
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, 0, 2300, 200, 355)
-        seaOut = SeaFreeze(sfPTpairs(P_MPa, T_K), 'water1')
-        return seaOut.vel * 1e-3, seaOut.Ks * 1e-3
+        return self.ufn_VP_kms(P_MPa, T_K, grid=False), self.ufn_KS_GPa(P_MPa, T_K, grid=False)
 
 
 class H2Osigma_Sm:
