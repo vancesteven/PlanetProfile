@@ -208,15 +208,25 @@ def PlotInductOgram(Induction, Params):
     """ Plot contours showing magnetic induction responses for an array of models
     """
 
-    # Get all common labels and data for zipping
-    zData = [Induction.Amp, np.abs(Induction.Bix_nT),
-             np.abs(Induction.Biy_nT), np.abs(Induction.Biz_nT)]
-    if Induction.SINGLE_COMP:
-        FigLbl.singleComp(Induction.comps[0])
-    FigLbl.SetInduction(Induction.bodyname, Params.Induct, Induction.Texc_hr.values())
+    # Get indices for the oscillations that we can and want to plot
+    excSelectionCalc = {key:(Texc is not None) for key, Texc in Induction.Texc_hr.items()}
+    TexcCalcd = excSelectionCalc and Induction.Texc_hr
+    whichTexc = excSelectionCalc and Params.Induct.excSelectionPlot
+    allTexc_hr = np.fromiter(TexcCalcd.values(), dtype=np.float_)
+    allTexc_hr = allTexc_hr[np.isfinite(allTexc_hr)]
+    iTexc = [np.where(allTexc_hr == Texc)[0][0] for key, Texc in TexcCalcd.items() if whichTexc[key]]
+    TexcPlotNames = np.fromiter(Induction.Texc_hr.keys(), dtype='<U20')[iTexc]
+    Texc_hr = allTexc_hr[iTexc]
+    iSort = np.argsort(Texc_hr)
+    FigLbl.SetInduction(Induction.bodyname, Params.Induct, Texc_hr)
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
-    iSort = np.argsort(list(Induction.Texc_hr.values()))
+
+    # Get all common labels and data for zipping
+    zData = [Induction.Amp[iTexc,...], np.abs(Induction.Bix_nT[iTexc,...]),
+             np.abs(Induction.Biy_nT[iTexc,...]), np.abs(Induction.Biz_nT[iTexc,...])]
+    if Induction.SINGLE_COMP:
+        FigLbl.singleComp(Induction.comps[0])
 
     # Adjust phi values in case we're plotting void volume % instead of void fraction
     if Params.Induct.inductOtype == 'phi':
@@ -242,8 +252,8 @@ def PlotInductOgram(Induction, Params):
         [ax.set_xscale(FigLbl.sigScale) for ax in allAxes]
         [ax.set_yscale(FigLbl.Dscale) for ax in allAxes]
         coords = {'Bx': (0,0), 'By': (0,1), 'Bz': (1,0), 'phase': (1,1)}
-        comboData = [np.abs(Induction.Bix_nT), np.abs(Induction.Biy_nT),
-                     np.abs(Induction.Biz_nT), Induction.phase]
+        comboData = [np.abs(Induction.Bix_nT[iTexc,...]), np.abs(Induction.Biy_nT[iTexc,...]),
+                     np.abs(Induction.Biz_nT[iTexc,...]), Induction.phase[iTexc,...]]
         comboTitles = np.append(FigLbl.plotTitles[1:], FigLbl.phaseTitle)
         comboLabels = list(coords.keys())
 
@@ -253,11 +263,11 @@ def PlotInductOgram(Induction, Params):
             zContours = [ax.contour(Induction.sigmaMean_Sm, Induction.D_km, z[i, ...],
                            colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                            linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels(fLabel, T))
-                           for i, T in enumerate(Induction.Texc_hr.keys())]
+                           for i, T in enumerate(TexcPlotNames)]
             if Params.Induct.inductOtype == 'sigma':
                 [ax.clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
-                           for i, T in enumerate(Induction.Texc_hr.keys())]
+                           for i, T in enumerate(TexcPlotNames)]
 
         if FigMisc.PLOT_V2021 and Induction.bodyname in ['Europa', 'Ganymede', 'Callisto']:
             AddV2021points(Params.Induct, Induction.bodyname, 'sigma', allAxes)
@@ -299,10 +309,10 @@ def PlotInductOgram(Induction, Params):
                                         colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                         linewidths=Style.LW_Induction[T],
                                         levels=IndParams.GetClevels(fLabel, T))
-                             for i, T in enumerate(Induction.Texc_hr.keys())]
+                             for i, T in enumerate(TexcPlotNames)]
                 [ax.clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
-                           for i, T in enumerate(Induction.Texc_hr.keys())]
+                           for i, T in enumerate(TexcPlotNames)]
 
             if FigMisc.PLOT_V2021 and Induction.bodyname in ['Europa', 'Ganymede', 'Callisto']:
                 AddV2021points(Params.Induct, Induction.bodyname, Params.Induct.inductOtype, allAxes)
@@ -347,28 +357,28 @@ def PlotInductOgram(Induction, Params):
                                     colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                     linewidths=Style.LW_Induction[T],
                                     levels=IndParams.GetClevels(comboLabels[0], T))
-                         for i, T in enumerate(Induction.Texc_hr.keys())]
+                         for i, T in enumerate(TexcPlotNames)]
             phaseContours = [axes[0,1].contour(Induction.x, Induction.y, comboData[-1][i, ...],
                                     colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                     linewidths=Style.LW_Induction[T],
                                     levels=IndParams.GetClevels(comboLabels[-1], T))
-                         for i, T in enumerate(Induction.Texc_hr.keys())]
+                         for i, T in enumerate(TexcPlotNames)]
             [axes[1,0].contour(Induction.sigmaMean_Sm, Induction.D_km, comboData[0][i, ...],
                                     colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                     linewidths=Style.LW_Induction[T],
                                     levels=IndParams.GetClevels(comboLabels[0], T))
-                         for i, T in enumerate(Induction.Texc_hr.keys())]
+                         for i, T in enumerate(TexcPlotNames)]
             [axes[1,1].contour(Induction.sigmaMean_Sm, Induction.D_km, comboData[-1][i, ...],
                                     colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                     linewidths=Style.LW_Induction[T],
                                     levels=IndParams.GetClevels(comboLabels[-1], T))
-                         for i, T in enumerate(Induction.Texc_hr.keys())]
+                         for i, T in enumerate(TexcPlotNames)]
             [axes[0,0].clabel(zContours[i], fmt=IndParams.GetCfmt(comboLabels[0], T),
                        fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
-                       for i, T in enumerate(Induction.Texc_hr.keys())]
+                       for i, T in enumerate(TexcPlotNames)]
             [axes[0,1].clabel(phaseContours[i], fmt=IndParams.GetCfmt(comboLabels[-1], T),
                        fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
-                       for i, T in enumerate(Induction.Texc_hr.keys())]
+                       for i, T in enumerate(TexcPlotNames)]
 
             if FigMisc.PLOT_V2021 and Induction.bodyname in ['Europa', 'Ganymede', 'Callisto']:
                 AddV2021points(Params.Induct, Induction.bodyname, Params.Induct.inductOtype, axes[0,:])
@@ -413,18 +423,18 @@ def PlotInductOgram(Induction, Params):
         zContours = [axes[0].contour(Induction.sigmaMean_Sm, Induction.D_km, z[i, ...],
                          colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                          linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels(fLabel, T))
-                         for i, T in enumerate(Induction.Texc_hr.keys())]
+                         for i, T in enumerate(TexcPlotNames)]
         phaseContours = [axes[1].contour(Induction.sigmaMean_Sm, Induction.D_km, Induction.phase[i, ...],
                          colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                          linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels('phase', T))
-                         for i, T in enumerate(Induction.Texc_hr.keys())]
+                         for i, T in enumerate(TexcPlotNames)]
         if Params.Induct.inductOtype == 'sigma':
             [axes[0].clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
-                            for i, T in enumerate(Induction.Texc_hr.keys())]
+                            for i, T in enumerate(TexcPlotNames)]
             [axes[1].clabel(phaseContours[i], fmt=IndParams.GetCfmt('phase', T),
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
-                            for i, T in enumerate(Induction.Texc_hr.keys())]
+                            for i, T in enumerate(TexcPlotNames)]
             fNameSigma = Params.FigureFiles.sigmaOnly[fLabel]
         else:
             fNameSigma = Params.FigureFiles.sigma[fLabel]
@@ -461,17 +471,17 @@ def PlotInductOgram(Induction, Params):
             zContours = [axes[0].contour(Induction.x, Induction.y, z[i, ...],
                              colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                              linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels(fLabel, T))
-                             for i, T in enumerate(Induction.Texc_hr.keys())]
+                             for i, T in enumerate(TexcPlotNames)]
             phaseContours = [axes[1].contour(Induction.x, Induction.y, Induction.phase[i, ...],
                              colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                              linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels('phase', T))
-                             for i, T in enumerate(Induction.Texc_hr.keys())]
+                             for i, T in enumerate(TexcPlotNames)]
             [axes[0].clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
-                            for i, T in enumerate(Induction.Texc_hr.keys())]
+                            for i, T in enumerate(TexcPlotNames)]
             [axes[1].clabel(phaseContours[i], fmt=IndParams.GetCfmt('phase', T),
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
-                            for i, T in enumerate(Induction.Texc_hr.keys())]
+                            for i, T in enumerate(TexcPlotNames)]
 
             if FigMisc.PLOT_V2021 and Induction.bodyname in ['Europa', 'Ganymede', 'Callisto']:
                 AddV2021points(Params.Induct, Induction.bodyname, Params.Induct.inductOtype, axes)
