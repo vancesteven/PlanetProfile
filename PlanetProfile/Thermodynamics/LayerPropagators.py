@@ -1017,6 +1017,11 @@ def CalcMoIWithEOS(Planet, Params):
         indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
         phiSil_frac, HtidalSil_Wm3, kThermSil_WmK, PsilPore_MPa, rhoSilMatrix_kgm3, rhoSilPore_kgm3, phaseSilPore \
             = SilicateLayers(Planet, Params)
+        if not Planet.Do.VALID and Planet.Steps.iSilStart > 1 and np.size(indsSilValid) != 0:
+            Planet.Steps.iSilStart = 1
+            indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
+            phiSil_frac, HtidalSil_Wm3, kThermSil_WmK, PsilPore_MPa, rhoSilMatrix_kgm3, rhoSilPore_kgm3, phaseSilPore \
+                = SilicateLayers(Planet, Params)
         nSilTooBig = nProfiles - np.size(indsSilValid)
         # Propagate the core EOS from each silicate layer at the max core radius to the center of the body
         nSilFinal, Pcore_MPa, Tcore_K, rCore_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK, \

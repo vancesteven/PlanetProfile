@@ -612,7 +612,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
 
 
 def InitBayes(bodyname, fEnd):
-    """ Load in a specific profile to use as in initial prior in Bayesian analysis. """
+    """ Load in a specific profile to use as an initial prior in Bayesian analysis. """
     Params = configParams
     # Prevent unnecessary slowdowns and disk space usage
     Params.NO_SAVEFILE = True
@@ -651,6 +651,8 @@ def UpdateRun(Planet, Params, changes=None):
     for key, value in changes.items():
         Planet = AssignPlanetVal(Planet, key, value)
 
+    # Reset Do.VALID in case the previous iteration set it to False
+    Planet.Do.VALID = True
     Planet, Params = PlanetProfile(Planet, Params)
     return Planet, Params
 
