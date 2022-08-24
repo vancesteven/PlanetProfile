@@ -862,7 +862,7 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     Induction = InductionResults
     Induction.bodyname = reload['bodyname'][0]
     Induction.yName = reload['yName'][0]
-    Induction.Texc_hr = {key.strip(): value for key, value in zip(reload['Texc_hr_keys'], reload['Texc_hr_values'][0])}
+    Induction.Texc_hr = {key.strip(): value if np.isfinite(value) else None for key, value in zip(reload['Texc_hr_keys'], reload['Texc_hr_values'][0])}
     Induction.Amp = reload['Amp']
     Induction.phase = reload['phase']
     Induction.Bix_nT = reload['Bix_nT']
@@ -881,7 +881,6 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     Induction.R_m = reload['R_m']
     Induction.rBds_m = reload['rBds_m']
     Induction.sigmaLayers_Sm = reload['sigmaLayers_Sm']
-    Induction.Texc_hr[np.isnan(Induction.Texc_hr)] = None
 
     Induction.SetAxes(Params.Induct.inductOtype)
     Induction.SetComps(Params.Induct.inductOtype)
