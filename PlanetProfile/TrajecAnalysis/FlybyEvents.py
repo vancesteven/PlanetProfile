@@ -12,9 +12,12 @@ from PlanetProfile.TrajecAnalysis.SpiceFuncs import LoadKernels, BodyDist_km, Bi
 log = logging.getLogger('PlanetProfile')
 
 scPlanets = {
+    'Voyager 1': ['Jupiter', 'Saturn'],
+    'Voyager 2': ['Jupiter', 'Saturn', 'Uranus', 'Neptune'],
     'Galileo': 'Jupiter',
     'Cassini': 'Saturn',
-    'Juno': 'Jupiter'
+    'Juno': 'Jupiter',
+    'Clipper': 'Jupiter'
 }
 scNames = list(scPlanets.keys())
 [LoadKernels(Params, parent, scName) for scName, parent in scPlanets.items()]
@@ -28,7 +31,19 @@ class FlybyCAStruct:
         # Dict of body: flyby ID: closest approach UTC timestamp in SPICE-readable format
         # NOTE: These times are evaluated from the archived SPICE kernels for trajectory
         # reconstruction as of 2022-07-02.
-        if self.scName == 'Galileo':
+        if self.scName == 'Voyager 1':
+            self.tCA_UTC = {
+                'Jupiter': {'J': '1979-03-05T12:04:35.405'},
+                'Saturn':  {'S': '1980-11-12T23:45:42.725'}
+            }
+        elif self.scName == 'Voyager 2':
+            self.tCA_UTC = {
+                'Jupiter': {'J': '1979-07-09T22:29:01.964'},
+                'Saturn':  {'S': '1981-08-26T03:24:04.760'},
+                'Uranus':  {'U': '1986-01-24T17:58:51.346'},
+                'Neptune': {'N': '1989-08-25T03:55:40.075'}
+            }
+        elif self.scName == 'Galileo':
             self.tCA_UTC = {
                 'Io': {
                     'I0': '1995-12-07T17:45:58.461',
@@ -95,9 +110,15 @@ class FlybyCAStruct:
                     'G34': '2021-06-07T16:56:08.733'
                 }
             }
+        elif self.scName == 'Clipper':
+            self.tCA_UTC = {
+                'Europa': {
+                    'E1': '2030-06-07T16:56:08.733'
+                }
+            }
 
         self.etCA = {
-            body: {flybyID: spice.str2et(tCA) for flybyID, tCA in self.tCA_UTC[body].items()}
+            body: {flybyID: spice.str2et(tCA) for flybyID, tCA in self.tCA_UTC[body].items() if tCA is not None}
         for body in self.tCA_UTC.keys()}
 
     def GetrCA(self):
@@ -138,3 +159,5 @@ def GetActualCA(spiceSCname, t_UTC, bodyname, range_min=5, res_s=0.001):
 
 FlybyCA = {scName: FlybyCAStruct(scName) for scName in scNames}
 [FlybyCA[sc].GetrCA() for sc in scNames]
+
+

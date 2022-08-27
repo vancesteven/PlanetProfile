@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 8  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 9  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 Params = ParamsStruct()
 Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
@@ -98,13 +98,16 @@ Params.spiceBSP = {
     'Jupiter': 'jup365.bsp',  # Generic kernel for Jupiter + Galilean moons
     'Saturn': 'sat427.bsp',  # Generic kernel for Saturn + large moons
     'Uranus': 'ura111.bsp',  # Generic kernel for Uranus + large moons
-    'Neptune': 'nep095.bsp'  # Generic kernel for Neptune + large moons
+    'Neptune': 'nep097.bsp'  # Generic kernel for Neptune + large moons
 }
 
 Params.SCmagFnameFmt = {
     'Galileo': 'ORB*_SYS3.TAB',
     'Cassini': '*_KRTP_1S.TAB',
-    'Juno': 'fgm_jno_l3_*pc_r1s_v*.sts'
+    'Juno': 'fgm_jno_l3_*pc_r1s_v*.sts',
+    'Voyager 1': 'vg1_*_sph.tab',
+    'Voyager 2': 'vg2_*_sph.tab',
+    'Clipper': 'mag_clp*.tab'
 }
 Params.SCnames = list(Params.SCmagFnameFmt.keys())
 Params.spiceSC = {scName: os.path.join(Params.spiceDir, scName) for scName in Params.SCnames}

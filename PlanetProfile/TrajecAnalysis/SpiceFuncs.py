@@ -23,11 +23,18 @@ def LoadKernels(Params, parent, scName):
 
     if parent is not None and parent != 'None':
         log.debug(f'Loading all SPICE kernels for {scName}:')
+        if np.size(parent) == 1:
+            parentStr = parent
+            extraParents = [None]
+        else:
+            parentStr = parent[0]
+            extraParents = parent[1:]
         kernelList = [
             os.path.join(Params.spiceDir, Params.spicePCK),
-            os.path.join(Params.spiceDir, Params.spiceBSP[parent])
+            os.path.join(Params.spiceDir, Params.spiceBSP[parentStr])
         ] + [os.path.join(Params.spiceDir, FK) for FK in Params.spiceFK] \
           + GetFilesFromPattern(os.path.join(Params.spiceSC[scName], '*.bsp'))
+        kernelList = kernelList + [os.path.join(Params.spiceDir, Params.spiceBSP[xparent]) for xparent in extraParents if xparent is not None]
         log.debug(', '.join(kernelList))
         for kernel in kernelList:
             if not os.path.isfile(kernel):
@@ -46,7 +53,11 @@ def BodyDist_km(spiceSCname, bodyname, ets, coord=None):
     if coord is None:
         coord = f'IAU_{spiceBody}'
 
-    pos, _ = spice.spkpos(spiceSCname, ets, coord, 'NONE', spiceBody)
+    if not isinstance(ets, Iterable):
+        etin = [ets]
+    else:
+        etin = ets
+    pos, _ = spice.spkpos(spiceSCname, etin, coord, 'NONE', spiceBody)
     x_km = pos[:, 0]
     y_km = pos[:, 1]
     z_km = pos[:, 2]
@@ -96,12 +107,18 @@ def BiTrajec(Planet, Params, spiceSCname, ets):
 
 
 def spiceCode(name):
-    if name == 'Galileo':
+    if name == 'Voyager 1':
+        code, parent = (-31, None)
+    elif name == 'Voyager 2':
+        code, parent = (-32, None)
+    elif name == 'Galileo':
         code, parent = (-77, 599)
     elif name == 'Cassini':
         code, parent = (-82, 699)
     elif name == 'Juno':
         code, parent = (-61, 599)
+    elif name == 'Clipper':
+        code, parent = (-159, 599)
 
     elif name == 'Jupiter':
         code, parent = (599, 0)
@@ -149,7 +166,7 @@ def spiceCode(name):
         code, parent = (801, 899)
 
     else:
-        log.warning(f'Body name {name} did not match a defined spacrcraft, planet, or moon.')
+        log.warning(f'Body name {name} did not match a defined spacecraft, planet, or moon.')
         code, parent = (None, None)
 
     if parent == 0:
@@ -177,7 +194,10 @@ parentGM = {  # Masses retrieved from https://ssd.jpl.nasa.gov/planets/phys_par.
 
 
 spiceSCname = {
+    'Voyager 1': 'VOYAGER 1',
+    'Voyager 2': 'VOYAGER 2',
     'Galileo': 'GALILEO ORBITER',
     'Cassini': 'CASSINI',
-    'Juno': 'JUNO'
+    'Juno': 'JUNO',
+    'Clipper': 'EUROPA CLIPPER'
 }
