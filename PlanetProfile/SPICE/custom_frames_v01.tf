@@ -11,6 +11,10 @@ Custom Dynamic Frames Kernel
 Version and Date
 ========================================================================
 
+    Version 1.2 -- August 27, 2022 -- Marshall J. Styczinski, JPL
+    
+      Added USL frame for Uranus, used in magnetic field modeling.
+
     Version 1.1 -- July 24, 2022 -- Marshall J. Styczinski, JPL
     
       Added US3 frame, identical to IAU_URANUS but with the z axis
@@ -93,11 +97,22 @@ Frames Definitions
     ======================  =====================  ============
 
       US3                     IAU_URANUS             1850007
-      
+      USL                     IAU_URANUS             1850017
+            
       US3 frame:
         -- +Z is aligned with the Uranus spin pole (primary axis)
         -- +X is in the direction of the IAU prime meridian
-        -- centered on the moon
+        -- centered on the planet
+      
+      USL frame:
+        -- +Z is aligned with the Uranus spin pole (primary axis)
+        -- 302 degrees W longitude is at the location of Voyager 2
+           closest approach, as defined in [8]. The Voyager 2 CA
+           is located at 167.3113 degrees E longitude in the
+           IAU_URANUS frame, at the time the reconstructed trajectory
+           minimizes the distance to the Uranus center of mass.
+           This results in a shift of -134.6887 degrees E longitude.
+        -- centered on the planet
     
         Name                  Relative to            NAIF ID
     ======================  =====================  ============
@@ -206,6 +221,27 @@ Frames Definitions
     FRAME_1850007_SEC_FRAME        = 'IAU_URANUS'
     FRAME_1850007_SEC_SPEC         = 'RECTANGULAR'
     FRAME_1850007_SEC_VECTOR       = ( 1, 0, 0 )
+
+    FRAME_ULS                      = 1850017
+    FRAME_1850017_NAME             = 'ULS'
+    FRAME_1850017_CLASS            = 5
+    FRAME_1850017_CLASS_ID         = 1850017
+    FRAME_1850017_CENTER           = 799
+    FRAME_1850017_RELATIVE         = 'J2000'
+    FRAME_1850017_DEF_STYLE        = 'PARAMETERIZED'
+    FRAME_1850017_FAMILY           = 'TWO-VECTOR'
+    FRAME_1850017_PRI_AXIS         = 'Z'
+    FRAME_1850017_PRI_VECTOR_DEF   = 'CONSTANT'
+    FRAME_1850017_PRI_FRAME        = 'IAU_URANUS'
+    FRAME_1850017_PRI_SPEC         = 'RECTANGULAR'
+    FRAME_1850017_PRI_VECTOR       = ( 0, 0, -1 )
+    FRAME_1850017_SEC_AXIS        = 'X'
+    FRAME_1850017_SEC_VECTOR_DEF  = 'CONSTANT'
+    FRAME_1850017_SEC_FRAME       = 'IAU_URANUS'
+    FRAME_1850017_SEC_SPEC        = 'LATITUDINAL'
+    FRAME_1850017_SEC_UNITS       = 'DEGREES'
+    FRAME_1850017_SEC_LONGITUDE   = 225.3113
+    FRAME_1850017_SEC_LATITUDE    =  0.0
 
     FRAME_IO_PHI_O                 = 1859501
     FRAME_1859501_NAME             = 'IO_PHI_O'
