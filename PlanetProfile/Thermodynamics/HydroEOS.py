@@ -1,16 +1,18 @@
 import numpy as np
-import logging
+import os, logging
+from copy import deepcopy
 from collections.abc import Iterable
 from scipy.interpolate import NearestNDInterpolator, RectBivariateSpline
 from scipy.optimize import root_scalar as GetZero
 from scipy.io import loadmat
 from seafreeze import seafreeze as SeaFreeze
 from seafreeze import whichphase as WhichPhase
+from PlanetProfile import _ROOT
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, \
     ClathStableNagashima2017, ClathSeismic
 from PlanetProfile.Thermodynamics.InnerEOS import GetphiFunc, GetphiCalc, ResetNearestExtrap, ReturnZeros, EOSwrapper
 from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4PhaseMargules, MgSO4PhaseLookup, \
-    MgSO4Seismic, MgSO4Conduct
+    MgSO4Seismic, MgSO4Conduct, Ppt2molal
 from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 
@@ -75,10 +77,10 @@ class OceanEOSStruct:
             self.Pmax = np.max(P_MPa)
             self.Tmin = np.min(T_K)
             self.Tmax = np.max(T_K)
-            if wOcean_ppt is None:
+            if self.w_ppt is None:
                 wStr = '0.0'
             else:
-                wStr = f'{wOcean_ppt:.1f}'
+                wStr = f'{self.w_ppt:.1f}'
             log.debug(f'Loading {meltPrint}EOS for {wStr} ppt {compstr} with ' +
                       f'P_MPa = [{self.Pmin:.1f}, {self.Pmax:.1f}, {self.deltaP:.2f}], ' +
                       f'T_K = [{self.Tmin:.1f}, {self.Tmax:.1f}, {self.deltaT:.2f}], ' +
@@ -95,7 +97,7 @@ class OceanEOSStruct:
                 kTherm_WmK = rho_kgm3
                 self.ufn_Seismic = ReturnZeros(2)
                 self.ufn_sigma_Sm = ReturnZeros(1)
-            elif wOcean_ppt == 0 or compstr == 'PureH2O':
+            elif self.w_ppt == 0 or compstr == 'PureH2O':
                 self.type = 'SeaFreeze'
                 self.m_gmol = Constants.mH2O_gmol
 
@@ -116,6 +118,7 @@ class OceanEOSStruct:
                 if np.max(T_K) > self.Tmax:
                     log.warning('Input Tmax greater than SeaFreeze limit for Pure H2O. Resetting to SF max.')
                     T_K = np.linspace(np.min(T_K), self.Tmax, np.size(T_K))
+
                 PTgrid = np.array([P_MPa, T_K], dtype=object)
                 seaOut = SeaFreeze(PTgrid, 'water1')
                 rho_kgm3 = seaOut.rho
@@ -124,7 +127,7 @@ class OceanEOSStruct:
                 kTherm_WmK = np.zeros_like(alpha_pK) + Constants.kThermWater_WmK  # Placeholder until we implement a self-consistent calculation
 
                 if self.PHASE_LOOKUP:
-                    self.phase = WhichPhase(PTgrid)
+                    self.phase = WhichPhase(PTgrid, solute='water1')
                     # Create phase finder -- note that the results from this function must be cast to int after retrieval
                     Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
                     Tlin_K = np.array([T for _ in P_MPa for T in T_K])
@@ -133,9 +136,9 @@ class OceanEOSStruct:
                     # Create phase finder -- note that the results from this function must be cast to int after retrieval
                     self.fn_phase = NearestNDInterpolator(PTpairs, phase1D)
                 else:
-                    self.fn_phase = SFphase()
+                    self.fn_phase = SFphase(self.w_ppt, self.comp)
 
-                self.ufn_Seismic = H2OSeismic(compstr, P_MPa, T_K, seaOut, self.w_ppt, self.EXTRAP)
+                self.ufn_Seismic = SFSeismic(compstr, P_MPa, T_K, seaOut, self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = H2Osigma_Sm()
             elif compstr == 'Seawater':
                 self.type = 'GSW'
@@ -151,8 +154,50 @@ class OceanEOSStruct:
                 self.ufn_sigma_Sm = SwConduct(self.w_ppt)
             elif compstr == 'NH3':
                 self.m_gmol = Constants.mNH3_gmol
-                self.type = 'PlanetProfile'
-                raise ValueError('Unable to load ocean EOS. NH3 is not implemented yet.')
+                self.type = 'SeaFreeze'
+
+                if np.size(P_MPa) == np.size(T_K):
+                    log.warning(f'Both P and T inputs have length {np.size(P_MPa)}, but they are organized to be ' +
+                                 'used as a grid. This will cause an error in SeaFreeze. P list will be adjusted slightly.')
+                    P_MPa = np.linspace(P_MPa[0], P_MPa[-1], np.size(P_MPa)-1)
+                # Set extrapolation boundaries to limits defined in SeaFreeze
+                self.Pmax = np.minimum(self.Pmax, 2228.4)
+                self.Tmin = np.maximum(self.Tmin, 241)
+                self.Tmax = np.minimum(self.Tmax, 399.2)
+                if np.max(P_MPa) > self.Pmax:
+                    log.warning('Input Pmax greater than SeaFreeze limit for NH3. Resetting to SF max.')
+                    P_MPa = np.linspace(np.min(P_MPa), self.Pmax, np.size(P_MPa))
+                if np.min(T_K) > self.Tmin:
+                    log.warning('Input Tmin less than SeaFreeze limit for NH3. Resetting to SF min.')
+                    T_K = np.linspace(self.Tmin, np.max(T_K), np.size(T_K))
+                if np.max(T_K) > self.Tmax:
+                    log.warning('Input Tmax greater than SeaFreeze limit for NH3. Resetting to SF max.')
+                    T_K = np.linspace(np.min(T_K), self.Tmax, np.size(T_K))
+                if self.w_ppt > 290.1478:
+                    log.warning('Input wOcean_ppt greater than SeaFreeze limit for NH3. Resetting to SF max.')
+                    self.w_ppt = 290.1478
+
+                PTmgrid = np.array([P_MPa, T_K, np.array([Ppt2molal(self.w_ppt, self.m_gmol)])], dtype=object)
+                seaOut = SeaFreeze(deepcopy(PTmgrid), 'NH3')
+                rho_kgm3 = seaOut.rho
+                Cp_JkgK = seaOut.Cp
+                alpha_pK = seaOut.alpha
+                kTherm_WmK = np.zeros_like(alpha_pK) + Constants.kThermWater_WmK  # Placeholder until we implement a self-consistent calculation
+
+                if self.PHASE_LOOKUP:
+                    self.phase = WhichPhase(PTmgrid, solute='NH3')
+                    # Create phase finder -- note that the results from this function must be cast to int after retrieval
+                    Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
+                    Tlin_K = np.array([T for _ in P_MPa for T in T_K])
+                    PTpairs = list(zip(Plin_MPa, Tlin_K))
+                    phase1D = np.reshape(self.phase, (-1))
+                    # Create phase finder -- note that the results from this function must be cast to int after retrieval
+                    self.fn_phase = NearestNDInterpolator(PTpairs, phase1D)
+                else:
+                    self.fn_phase = SFphase(self.w_ppt, self.comp)
+
+                self.ufn_Seismic = SFSeismic(compstr, P_MPa, T_K, seaOut, self.w_ppt, self.EXTRAP)
+                self.ufn_sigma_Sm = H2Osigma_Sm()
             elif compstr == 'MgSO4':
                 if self.elecType == 'Pan2020' and round(self.w_ppt) != 100:
                     log.warning('elecType "Pan2020" behavior is defined only for Ocean.wOcean_ppt = 100. ' +
@@ -447,8 +492,14 @@ def sfPTpairs(P_MPa, T_K):
 
 # Create callable class to act as a wrapper for SeaFreeze phase lookup
 class SFphase:
-    def __init__(self):
-        pass
+    def __init__(self, w_ppt, comp):
+        self.w_ppt = w_ppt
+        if comp == 'NH3':
+            self.comp = comp
+            self.path = NH3matPath
+        else:
+            self.comp = 'water1'
+            self.path = None
 
     def PTpairs(self, Pin, Tin):
         if np.size(Pin) == 1 and np.size(Tin) == 1:
@@ -463,12 +514,29 @@ class SFphase:
             log.warning('2D array as input to SeaFreeze phase finder, but 1D array will be output.')
             return np.array([(P, T) for T in Tin for P in Pin], dtype='f,f').astype(object)
 
+    def PTmtrips(self, Pin, Tin):
+        if np.size(Pin) == 1 and np.size(Tin) == 1:
+            return np.array([(Pin, Tin, self.w_ppt)], dtype='f,f').astype(object)
+        elif np.size(Pin) == 1:
+            return np.array([(Pin, T, self.w_ppt) for T in Tin], dtype='f,f').astype(object)
+        elif np.size(Tin) == 1:
+            return np.array([(P, Tin, self.w_ppt) for P in Pin], dtype='f,f').astype(object)
+        elif np.size(Pin) == np.size(Tin):
+            return np.array([(P, T, self.w_ppt) for P, T in zip(Pin, Tin)], dtype='f,f').astype(object)
+        else:
+            log.warning('2D array as input to SeaFreeze phase finder, but 1D array will be output.')
+            return np.array([(P, T, self.w_ppt) for T in Tin for P in Pin], dtype='f,f').astype(object)
+
     def __call__(self, P_MPa, T_K):
-        return WhichPhase(self.PTpairs(P_MPa, T_K)).astype(np.int_)
+        if self.w_ppt == 0:
+            PTm = self.PTpairs(P_MPa, T_K)
+        else:
+            PTm = self.PTmtrips(P_MPa, T_K)
+        return WhichPhase(PTm, solute=self.comp).astype(np.int_)
 
 
-class H2OSeismic:
-    """ Creates a function call for returning seismic properties of depth profile for pure water. """
+class SFSeismic:
+    """ Creates a function call for returning seismic properties of depth profile for SeaFreeze solutions. """
     def __init__(self, compstr, P_MPa, T_K, seaOut, wOcean_ppt, EXTRAP):
         self.compstr = compstr
         self.w_ppt = wOcean_ppt

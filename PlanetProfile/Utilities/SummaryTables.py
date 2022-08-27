@@ -40,9 +40,13 @@ def GetLayerMeans(PlanetList, Params):
                 Planet.dzSilPorous_km = 0.0
             if Params.CALC_CONDUCT:
                 Planet.Sil.sigmaMean_Sm = np.mean(Planet.sigma_Sm[iSil])
+            else:
+                Planet.Sil.sigmaMean_Sm = np.nan
             # Get mean shear modulus in silicates
             if Params.CALC_SEISMIC:
                 Planet.Sil.GSmean_GPa = np.mean(Planet.Seismic.GS_GPa[iSil])
+            else:
+                Planet.Sil.GSmean_GPa = np.nan
 
             iFe = Planet.phase >= Constants.phaseFe
             if np.sum(iFe) > 0:

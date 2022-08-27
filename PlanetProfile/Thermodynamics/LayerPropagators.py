@@ -65,6 +65,7 @@ def IceLayers(Planet, Params):
                 if Planet.Bulk.Tb_K > 271:
                     log.warning(msg)
                 else:
+                    plotSFtesting(Planet)
                     raise ValueError(msg)
             Planet.PbI_MPa = 0.0
         log.debug(f'Ice Ih transition pressure: {Planet.PbI_MPa:.3f} MPa.')
@@ -1307,3 +1308,51 @@ def CalcMoIWithEOS(Planet, Params):
                    phaseSilPore[iCMR2sil,:nSilFinal[iCMR2sil]])
 
     return Planet, mantleProps, coreProps
+
+
+def plotSFtesting(Planet):
+    import matplotlib.pyplot as plt
+    from matplotlib import cm
+    from matplotlib.gridspec import GridSpec
+    Pvals = np.linspace(0,2228,100)
+    Tvals = np.linspace(241,399,120)
+    phase = np.array([[Planet.Ocean.EOS.fn_phase(P, T) for T in Tvals] for P in Pvals])
+    rho = np.array([[Planet.Ocean.EOS.fn_rho_kgm3(P, T) for T in Tvals] for P in Pvals])
+    Cp = np.array([[Planet.Ocean.EOS.fn_Cp_JkgK(P, T) for T in Tvals] for P in Pvals])
+    VP = np.array([[Planet.Ocean.EOS.fn_Seismic(P, T)[0] for T in Tvals] for P in Pvals])
+
+    P2D, T2D = np.meshgrid(Pvals, Tvals, indexing='ij')
+    fig = plt.figure(figsize=(8.5,8))
+    grid = GridSpec(2, 2)
+    axes = np.array([[fig.add_subplot(grid[i, j]) if i==1 and j==1 else fig.add_subplot(grid[i, j], projection='3d') for j in range(2)] for i in range(2)])
+    axflat = axes.flatten()
+    [ax.set_xlabel('$P$ (MPa)') for ax in axflat]
+    [ax.set_ylabel('$T$ (K)') for ax in axflat]
+
+    axes[0,0].set_title('Density')
+    axes[0,0].plot_surface(P2D, T2D, rho, cmap=cm.viridis)
+    axes[0,0].set_zlabel(r'$\rho$ ($\si{kg\,m^{-3}}$)')
+
+    axes[0,1].set_title('Heat capacity')
+    axes[0,1].plot_surface(P2D, T2D, Cp, cmap=cm.viridis)
+    axes[0,1].set_zlabel(r'$C_p$ ($\si{J\,kg^{-1}\,K^{-1}}$)')
+
+    axes[1,0].set_title('P-wave speed')
+    axes[1,0].plot_surface(P2D, T2D, VP, cmap=cm.viridis)
+    axes[1,0].set_zlabel(r'$V_P$ ($\si{km\,s^{-1}}$)')
+
+    axes[1,1].set_title('Phase diagram')
+    phases = np.unique(phase)
+    for phaseNum in phases:
+        thisPhase = phase == phaseNum
+        axes[1,1].scatter(P2D[thisPhase], T2D[thisPhase], label=PhaseConv(phaseNum), marker='s')
+
+        axes[1,1].legend()
+
+    fig.suptitle(f'SeaFreeze testing of {Planet.compStr} EOS')
+    plt.tight_layout(pad=2)
+    fig.savefig('SFtesting_HP.pdf', format='pdf')
+    log.debug(f'SeaFreeze testing saved to file: SFtesting.pdf')
+    plt.close()
+
+    return
