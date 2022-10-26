@@ -1010,6 +1010,9 @@ class StyleStruct:
         self.wedgeAngle_deg = None  # Angular size of wedge diagrams in degrees
         self.LW_wedge = None  # Linewidth in pt for minor boundaries in wedge diagrams
         self.LW_wedgeMajor = None  # Linewidth in pt for major layer boundaries in wedge diagrams
+        self.TS_ticks = None  # Text size in pt for tick marks on radius scale
+        self.TS_desc = None  # Text size in pt for model description and label
+        self.TS_super = None  # Text size in pt for overall ("suptitle") label with multiple wedges
 
         # Complex dipole plots
         self.MW_dip = {}  # Marker size for each period in complex dipole plots

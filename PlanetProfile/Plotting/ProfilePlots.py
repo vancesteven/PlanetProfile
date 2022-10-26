@@ -513,7 +513,7 @@ def PlotWedge(PlanetList, Params):
         title = f'{PlanetList[0].name} {FigLbl.wedgeTitle}'
         if nWedges > 1:
             title = f'{title}s'
-            fig.suptitle(f'\\textbf{{{title}}}')
+            fig.suptitle(f'\\textbf{{{title}}}', fontsize=Style.TS_super)
 
     ang1 = 90 - Style.wedgeAngle_deg
     ang2 = 90 + Style.wedgeAngle_deg
@@ -586,7 +586,7 @@ def PlotWedge(PlanetList, Params):
 
         if not FigMisc.TEX_INSTALLED:
             indivTitle = FigLbl.StripLatexFromString(indivTitle)
-        ax.set_title(indivTitle)
+        ax.set_title(indivTitle, fontsize=Style.TS_desc)
         R_km = Planet.Bulk.R_m / 1e3
         rTicks = []
         rTickRefs = []
@@ -795,10 +795,10 @@ def PlotWedge(PlanetList, Params):
 
         # Adjust plots to look nice
         ax.set_yticks(rTickRefs)
-        ax.set_yticklabels(np.array(rTicks, dtype=np.int_))
+        ax.set_yticklabels(np.array(rTicks, dtype=np.int_), fontsize=Style.TS_ticks)
         [ax.spines[side].set_visible(False) for side in ['top', 'right', 'bottom']]
         ax.get_xaxis().set_visible(False)
-        ax.set_ylabel(FigLbl.wedgeRadius)
+        ax.set_ylabel(FigLbl.wedgeRadius, fontsize=Style.TS_ticks)
         ax.set_aspect('equal')
 
     fig.tight_layout()

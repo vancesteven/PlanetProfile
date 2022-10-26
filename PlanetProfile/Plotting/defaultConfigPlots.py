@@ -153,6 +153,9 @@ Style.MS_Induction = 'o'  # Marker style for induction scatter plots
 Style.wedgeAngle_deg = 25  # Angular size of wedge diagrams in degrees
 Style.LW_wedge = 0.125  # Linewidth in pt for minor boundaries in wedge diagrams
 Style.LW_wedgeMajor = 0.375  # Linewidth in pt for major layer boundaries in wedge diagrams
+Style.TS_ticks = 12  # Text size in pt for tick marks on radius scale
+Style.TS_desc = 14  # Text size in pt for model description and label
+Style.TS_super = 16  # Text size in pt for overall ("suptitle") label with multiple wedges
 
 # Complex dipole plots
 Style.MW_dip = {'synodic': 5, 'orbital': 6, 'true anomaly': 6, 'synodic harmonic': 4.5}  # Marker size for each period in complex dipole plots
