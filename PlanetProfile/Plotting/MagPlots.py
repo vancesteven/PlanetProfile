@@ -717,7 +717,10 @@ def PlotComplexBdip(PlanetList, Params):
                                     absBiPlotted = np.append(absBiPlotted,
                                                              np.abs(Planet.Magnetic.Bi1xyz_nT[axComp][iPeak]))
 
-                            if DO_ZOOM:
+                            if np.size(absBiPlotted) == 0:
+                                log.warning(f'No moments were plotted for {Planet.name}. Selected were: {Params.Induct.excSelectionPlot}.' +
+                                            f'Calculated were: {Planet.Magnetic.calcedExc}. Zoom plotting will be skipped.')
+                            elif DO_ZOOM:
                                 iAllButLargest = np.argsort(absBiPlotted)[:-1]
                                 secondLargestRe = np.max(xPlotted[iAllButLargest])
                                 secondLargestIm = np.max(yPlotted[iAllButLargest])
