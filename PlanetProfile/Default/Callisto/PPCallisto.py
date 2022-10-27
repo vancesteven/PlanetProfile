@@ -63,10 +63,10 @@ Planet.Core.xH2O = 0.0035
 Planet.Seismic.lowQDiv = 1.0
 
 """ Magnetic induction """
-Planet.Magnetic.J2 = 32.7e-6  # Cnm values from Anderson et al. (2001): https://doi.org/10.1006/icar.2001.6664
-Planet.Magnetic.C22 = 10.2e-6
-Planet.Magnetic.S22 = -1.1e-6
-Planet.Magnetic.C21 = 0.0
-Planet.Magnetic.S21 = 0.0
+Planet.Bulk.J2 = 32.7e-6  # Cnm values from Anderson et al. (2001): https://doi.org/10.1006/icar.2001.6664
+Planet.Bulk.C22 = 10.2e-6
+Planet.Bulk.S22 = -1.1e-6
+Planet.Bulk.C21 = 0.0
+Planet.Bulk.S21 = 0.0
 Planet.Magnetic.ionosBounds_m = 100e3
 Planet.Magnetic.sigmaIonosPedersen_Sm = 800/100e3
