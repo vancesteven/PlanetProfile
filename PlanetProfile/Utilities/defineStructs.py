@@ -47,9 +47,9 @@ class BulkSubstruct():
         self.clathType = None  # Type of model for sI methane clathrates in outer ice shell. Options are 'top', 'bottom', and 'whole', and indicate where clathrates are allowed to be and which type of model to use.
         self.TbIII_K = None  # Temperature at bottom of ice III underplate layer in K. Ranges from 248.85 to 256.164 K for transition to ice V and from 251.165 to 256.164 K for melting temp.
         self.TbV_K = None  # Temperature at bottom of ice V underplate layer in K. Ranges from 256.164 to 272.99 K for melting temp, and 218 to 272.99 for transition to ice VI.
-        self.J2 = None  # Gravitational coefficient associated with oblateness, in Schmidt normalization
+        self.J2 = None  # Gravitational coefficient associated with oblateness, unnormalized
         self.C20 = None  # Negative of J2, only one of them needs to be set.
-        self.C22 = None  # Gravitational coefficient associated with elongation, in Schmidt normalization
+        self.C22 = None  # Gravitational coefficient associated with elongation, unnormalized
         self.C21 = None  # Additional gravitational coefficients that are usually set to zero.
         self.S21 = None
         self.S22 = None
@@ -371,6 +371,7 @@ class MagneticSubstruct:
         self.asymDevs_km = None  # Deviations from spherical symmetry in m for each lat/lon point
         self.asymDescrip = None  # List of strings to use for describing contour plots in titles
         self.asymContours_km = {}  # List of contours to mark
+        self.asymPlotType = None  # Type of asymmetry contour plot, to decide which title to use. Options are 'surf', 'ionos', 'ice', 'depth'.
 
 
 """ Main body profile info--settings and variables """
@@ -1156,9 +1157,11 @@ class FigLblStruct:
         self.asymCbarLabel = r'Layer thickness ($\si{km}$)'
 
         # Asymmetry contour map labels
-        self.asymTitle = r'Ice shell thickness ($\si{km}$), $\overline{z}_b$ = '
-        self.asymAfterDescrip = r' ($\si{km}$), $\overline{z}_b$ = '
-        self.asymGravTitle = r'Surface radius gravitational perturbation ($\si{km}$)'
+        self.asymIceTitle = r'Ice shell thickness ($\si{km}$), $\overline{z}_b$ = '
+        self.asymSurfTitle = r'Surface elevation ($\si{km}$), mean $R_{'
+        self.asymIonosTitle = r'Ionosphere altitude ($\si{km}$), mean $h$ = '
+        self.asymDepthTitle = r'Asymmetric layer boundary ($\si{km}$), $\overline{z}$ = '
+        self.asymAfterTitle = r' ($\si{km}$)'
 
         # Trajectory and CA plot labels
         self.MagCAtitle = r'Induction signal at closest approach'
