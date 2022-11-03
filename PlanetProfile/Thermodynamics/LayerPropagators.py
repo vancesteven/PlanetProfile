@@ -160,7 +160,16 @@ def IceLayers(Planet, Params):
     # a whole-layer conductive profile. The densities will change slightly, so we depart from self-consistency
     # here. Repeated applications of IceConvect will get closer to self-consistency.
 
-    if Planet.Pb_MPa > 0:
+    if Planet.Pb_MPa > 0 and Planet.Pb_MPa < Planet.P_MPa[0]:
+        negDeltaPmsg = f'Calculated Pb value of {Planet.Pb_MPa:.2f} MPa is less than surface pressure of {Planet.P_MPa[0]:.2f} MPa. ' + \
+            'This likely means Tb_K is set too high. Try to decrease and run again to get a valid model.'
+        if Params.ALLOW_BROKEN_MODELS:
+            log.warning(negDeltaPmsg + ' ALLOW_BROKEN_MODELS is True, so execution will continue.')
+            Planet.Do.VALID = False
+        else:
+            raise ValueError(negDeltaPmsg)
+
+    elif Planet.Pb_MPa > 0:
         if Planet.Do.CLATHRATE:
             """ For ice shells insulated by a layer of clathrate at the surface or against the bottom
                 Calculates state variables of the layer with each pressure step
