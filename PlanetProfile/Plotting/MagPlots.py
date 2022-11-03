@@ -29,7 +29,13 @@ def GenerateMagPlots(PlanetList, Params):
     if Params.PLOT_MAG_SPECTRUM and np.any([Planet.Magnetic.FT_LOADED for Planet in PlanetList]):
         PlotMagSpectrum(PlanetList, Params)
     if Params.PLOT_BSURF:
-        PlotMagSurface(PlanetList, Params)
+        if FigMisc.vCompMagSurf == 'all':
+            for comp in ['x', 'y', 'z', 'mag']:
+                FigMisc.vCompMagSurf = comp
+                PlotMagSurface(PlanetList, Params)
+            FigMisc.vCompMagSurf = 'all'
+        else:
+            PlotMagSurface(PlanetList, Params)
     if Params.PLOT_ASYM and Params.CALC_ASYM:
         PlotAsym(PlanetList, Params)
 
@@ -810,7 +816,7 @@ def PlotMagSurface(PlanetList, Params):
                 BvecRe_nT['z'] = BvecRe_nT['z'] + np.real(Bz_nT)
 
             if FigMisc.vCompMagSurf == 'mag':
-                BvecRe_nT['mag'] = np.sqrt(BvecRe_nT['x'] ** 2 + BvecRe_nT['y'] ** 2 + BvecRe_nT['z'] ** 2)
+                BvecRe_nT['mag'] = np.sqrt(BvecRe_nT['x']**2 + BvecRe_nT['y']**2 + BvecRe_nT['z']**2)
 
             if FigMisc.BASYM_WITH_SYM:
                 fig = plt.figure(figsize=FigSize.MagSurfCombo)
@@ -1038,20 +1044,33 @@ def PlotAsym(PlanetList, Params):
             grid = GridSpec(1, 1)
             ax = fig.add_subplot(grid[0, 0])
             SetMap(ax)
-            if i == mainPlanet.Magnetic.nAsymBds - 1:
-                title = FigLbl.asymGravTitle
-                cLevelsAsym = None
-            else:
-                if mainPlanet.Magnetic.asymDescrip is not None and i < np.size(mainPlanet.Magnetic.asymDescrip):
-                    descrip = f'{mainPlanet.Magnetic.asymDescrip[i]}{FigLbl.asymAfterDescrip}'
-                    if mainPlanet.Magnetic.asymDescrip[i] in mainPlanet.Magnetic.asymContours_km.keys():
-                        cLevelsAsym = mainPlanet.Magnetic.asymContours_km[mainPlanet.Magnetic.asymDescrip[i]]
-                    else:
-                        cLevelsAsym = None
+            if mainPlanet.Magnetic.asymDescrip is not None and i < np.size(mainPlanet.Magnetic.asymDescrip):
+                title = f'{mainPlanet.Magnetic.asymDescrip[i]}{FigLbl.asymAfterTitle}'
+                if mainPlanet.Magnetic.asymDescrip[i] in mainPlanet.Magnetic.asymContours_km.keys():
+                    cLevelsAsym = mainPlanet.Magnetic.asymContours_km[mainPlanet.Magnetic.asymDescrip[i]]
                 else:
-                    descrip = FigLbl.asymTitle
                     cLevelsAsym = None
-                title = f'{descrip}\SI{{{np.abs(zMean_km):.1f}}}{{km}}'
+            else:
+                if mainPlanet.Magnetic.asymPlotType == 'ice':
+                    title = f'{FigLbl.asymIceTitle}\SI{{{np.abs(zMean_km):.1f}}}{{km}}'
+                elif mainPlanet.Magnetic.asymPlotType == 'surf':
+                    title = f'{FigLbl.asymSurfTitle}{mainPlanet.name[0]}}}$ = \SI{{{mainPlanet.Bulk.R_m/1e3:.1f}}}{{km}}'
+                elif mainPlanet.Magnetic.asymPlotType == 'ionos':
+                    if np.size(mainPlanet.Magnetic.zMeanAsym_km) == 1:
+                        hMeanAsym_km = np.squeeze(mainPlanet.Magnetic.zMeanAsym_km)
+                    else:
+                        hMeanAsym_km = mainPlanet.Magnetic.zMeanAsym_km[-1]
+                    title = f'{FigLbl.asymIonosTitle}\SI{{{-hMeanAsym_km:.1f}}}{{km}}'
+                elif mainPlanet.Magnetic.asymPlotType == 'depth':
+                    if np.size(mainPlanet.Magnetic.zMeanAsym_km) == 1:
+                        zMeanAsym_km = np.squeeze(mainPlanet.Magnetic.zMeanAsym_km)
+                    else:
+                        zMeanAsym_km = mainPlanet.Magnetic.zMeanAsym_km[0]
+                    title = f'{FigLbl.asymDepthTitle}\SI{{{zMeanAsym_km:.1f}}}{{km}}'
+                else:
+                    log.warning(f'asymPlotType "{mainPlanet.Magnetic.asymPlotType}" not recognized. Using fallback.')
+                    title = f'{FigLbl.asymSurfTitle}{mainPlanet.name[0]}}}$ = \SI{{{mainPlanet.R_m/1e3:.1f}}}{{km}}'
+                cLevelsAsym = None
             # Remove latex styling from labels if Latex is not installed
             if not FigMisc.TEX_INSTALLED:
                 title = FigLbl.StripLatexFromString(title)
