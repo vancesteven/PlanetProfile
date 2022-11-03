@@ -34,7 +34,7 @@ def CalcRefProfiles(PlanetList, Params):
                     PmaxEOS = 200
                 else:
                     PmaxEOS = Planet.Ocean.EOS.Pmax
-                Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(0, np.minimum(maxPmax, PmaxEOS), Params.nRefPts[Planet.Ocean.comp])
+                Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(0.1, np.minimum(maxPmax, PmaxEOS), Params.nRefPts[Planet.Ocean.comp])
                 Tref_K = np.arange(220, 450, 0.25)
                 for i, w_ppt in enumerate(wList):
                     EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType,
