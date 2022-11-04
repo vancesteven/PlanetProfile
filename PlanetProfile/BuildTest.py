@@ -278,7 +278,7 @@ def TestExploreOgram(testNum, Params, CALC_NEW=True):
     return Exploration
 
 
-def simple():
+def simple(iTests = None):
     testMod = f'{_TestImport}.PPTest'
 
     # Set general testing config atop standard config options
@@ -295,7 +295,6 @@ def simple():
     Params.DO_PARALLEL = False
     Params.SKIP_INDUCTION = False
 
-    iTests = [13]
     tStart = time.time()
     for iTest in iTests:
         bodyname = f'{testMod}{iTest}'
@@ -322,7 +321,12 @@ if __name__ == '__main__':
         testType = 'full'
 
     if testType == 'simple':
-        simple()
+        if len(sys.argv) > 2:
+            # Test profile number was passed as command line argument
+            iTest = sys.argv[2]
+        else:
+            iTest = None
+        simple(iTest)
     elif testType == 'Bayes':
         _, _ = TestBayes('Test')
     else:
