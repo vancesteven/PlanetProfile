@@ -681,9 +681,9 @@ def PlotWedge(PlanetList, Params):
                                    fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
                 
             # Surface HP ices
-            if Planet.dzIceIII_km > 0:
-                ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceIII_m/1e3)/rMax_km, ang1, ang2,
-                                   width=Planet.dzIceIII_km/rMax_km,
+            if Planet.dzIceIIIund_km > 0:
+                ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceIIIund_m/1e3)/rMax_km, ang1, ang2,
+                                   width=Planet.dzIceIIIund_km/rMax_km,
                                    fc=Color.iceIII, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
             if Planet.dzIceVund_km > 0:
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceVund_m/1e3)/rMax_km, ang1, ang2,
@@ -715,6 +715,10 @@ def PlotWedge(PlanetList, Params):
                 ax.add_patch(oceanOuter)
                     
             # Undersea HP ices
+            if Planet.dzIceIII_km > 0:
+                ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceIII_m/1e3)/rMax_km, ang1, ang2,
+                                   width=Planet.dzIceIII_km/rMax_km,
+                                   fc=Color.iceIII, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
             if Planet.dzIceV_km > 0:
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceV_m/1e3)/rMax_km, ang1, ang2,
                                    width=Planet.dzIceV_km/rMax_km,

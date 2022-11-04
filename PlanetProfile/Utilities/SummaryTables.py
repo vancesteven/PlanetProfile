@@ -20,11 +20,12 @@ def GetLayerMeans(PlanetList, Params):
     Params.yesPorousRock = np.any([Planet.Do.POROUS_ROCK for Planet in PlanetList])
     Params.yesPorousIce = np.any([Planet.Do.POROUS_ICE for Planet in PlanetList])
     Params.yesClath = np.any([np.any(abs(Planet.phase) == Constants.phaseClath) for Planet in PlanetList])
-    Params.yesIceIII = np.any([np.any(abs(Planet.phase) == 3) for Planet in PlanetList])
+    Params.yesIceIIIund = np.any([np.any(Planet.phase == -3) for Planet in PlanetList])
+    Params.yesIceIII = np.any([np.any(Planet.phase == 3) for Planet in PlanetList])
     Params.yesIceVund = np.any([np.any(Planet.phase == -5) for Planet in PlanetList])
     Params.yesIceV = np.any([np.any(Planet.phase == 5) for Planet in PlanetList])
     Params.yesIceVI = np.any([np.any(abs(Planet.phase) == 6) for Planet in PlanetList])
-    Params.yesIceVandVI = np.any([np.any(Planet.phase == 5) or np.any(Planet.phase == 6) for Planet in PlanetList])
+    Params.yesWetHPs = np.any([np.any(Planet.phase == 5) or np.any(Planet.phase == 6) for Planet in PlanetList])
 
     for Planet in PlanetList:
         # Mean values are set to nan by default. Set relevant values here.
@@ -156,12 +157,22 @@ def GetLayerMeans(PlanetList, Params):
                 else:
                     Planet.zClath_km = np.nan
                     Planet.dzClath_km = np.nan
-                if np.any(abs(Planet.phase) == 3):
-                    Planet.zIceIII_m = np.min(Planet.z_m[:-1][abs(Planet.phase) == 3])
-                    Planet.dzIceIII_km = (Planet.z_m[Planet.Steps.nIIIbottom] - Planet.z_m[Planet.Steps.nIbottom])/1e3
+                if np.any(Planet.phase == -3):
+                    Planet.zIceIIIund_m = np.min(Planet.z_m[:-1][abs(Planet.phase) == 3])
+                    Planet.dzIceIIIund_km = (Planet.z_m[Planet.Steps.nIIIbottom] - Planet.z_m[Planet.Steps.nIbottom])/1e3
                 else:
-                    Planet.zIceIII_m = np.nan
-                    Planet.dzIceIII_km = np.nan
+                    Planet.zIceIIIund_m = np.nan
+                    Planet.dzIceIIIund_km = np.nan
+                if np.any(Planet.phase == 3):
+                    Planet.zIceIII_m = np.min(Planet.z_m[:-1][Planet.phase == 3])
+                    Planet.dzIceIII_km = (next(z_m for i, z_m in enumerate(Planet.z_m[:-1])
+                                            if i > np.where(Planet.phase == 3)[0][0]
+                                               and not Planet.phase[i] in [0, 3]) - Planet.zIceIII_m) / 1e3
+                    Planet.Ocean.rhoMeanIIIwet_kgm3 = np.mean(Planet.rho_kgm3[Planet.phase == 3])
+                    if Params.CALC_CONDUCT:
+                        Planet.Ocean.sigmaMeanIIIwet_Sm = np.mean(Planet.sigma_Sm[Planet.phase == 3])
+                    if Params.CALC_SEISMIC:
+                        Planet.Ocean.GSmeanIIIwet_GPa = np.mean(Planet.Seismic.GS_GPa[Planet.phase == 3])
                 if np.any(Planet.phase == -5):
                     Planet.zIceVund_m = np.min(Planet.z_m[:-1][Planet.phase == -5])
                     Planet.dzIceVund_km = Planet.zb_km - Planet.z_m[Planet.Steps.nIIIbottom]/1e3
@@ -194,12 +205,12 @@ def GetLayerMeans(PlanetList, Params):
                 else:
                     Planet.zIceVI_m = np.nan
                     Planet.dzIceVI_km = np.nan
-                if np.any(Planet.phase == 5) or np.any(Planet.phase == 6):
-                    Planet.dzIceVandVI_km = (next(z_m for i, z_m in enumerate(Planet.z_m[:-1])
-                                            if i > np.where(np.logical_or(Planet.phase == 5, Planet.phase == 6))[0][0]
-                                               and not Planet.phase[i] in [0, 5, 6]) - Planet.zIceVI_m) / 1e3
+                if np.any(Planet.phase == 3) or np.any(Planet.phase == 5) or np.any(Planet.phase == 6):
+                    Planet.dzWetHPs_km = (next(z_m for i, z_m in enumerate(Planet.z_m[:-1])
+                                            if i > np.where(np.logical_or(Planet.phase == 3, Planet.phase == 5, Planet.phase == 6))[0][0]
+                                               and not Planet.phase[i] in [0, 3, 5, 6]) - Planet.zIceVI_m) / 1e3
                 else:
-                    Planet.dzIceVandVI_km = np.nan
+                    Planet.dzWetHPs_km = np.nan
 
     return PlanetList, Params
 
@@ -232,9 +243,10 @@ def PrintGeneralSummary(PlanetList, Params):
     zIceI = 'z(km) ice I: ' + ', '.join([f'{Planet.zIceI_m/1e3:.1f}' for Planet in PlanetList])
 
     # Optional output strings
-    poreSigma, phiRockMax, phiIceMax, zClath, zIceIII, zIceVund, zIceV, zIceVI, dzClath, dzIceIII, dzIceVund, dzIceV, \
-    dzIceVI, dzIceVandVI, RaIII, RaCritIII, eLidIII, DconvIII, deltaTBLIII, RaV, RaCritV, eLidV, DconvV, deltaTBLV \
-        = ('' for _ in range(24))
+    poreSigma, phiRockMax, phiIceMax, zClath, zIceIIIund, zIceIII, zIceVund, zIceV, zIceVI, dzClath, \
+    dzIceIIIund, dzIceIII, dzIceVund, dzIceV, dzIceVI, dzWetHPs, RaIII, RaCritIII, eLidIII, DconvIII, deltaTBLIII,\
+    RaV, RaCritV, eLidV, DconvV, deltaTBLV \
+        = ('' for _ in range(26))
 
     # Porosity
     if FigMisc.ALWAYS_SHOW_PHI or Params.yesPorousRock:
@@ -255,9 +267,12 @@ def PrintGeneralSummary(PlanetList, Params):
     if FigMisc.ALWAYS_SHOW_HP or Params.yesClath:
         zClath = f'{endl}z(km) clath: ' + ', '.join([f'{Planet.zClath_km:.1f}' for Planet in PlanetList])
         dzClath = f'{endl}dz(km) clath: ' + ', '.join([f'{Planet.dzClath_km:.1f}' for Planet in PlanetList])
+    if FigMisc.ALWAYS_SHOW_HP or Params.yesIceIIIund:
+        zIceIIIund = f'{endl}z(km) ice III (und): ' + ', '.join([f'{Planet.zIceIIIund_m/1e3:.1f}' for Planet in PlanetList])
+        dzIceIIIund = f'{endl}dz(km) ice III (und): ' + ', '.join([f'{Planet.dzIceIIIund_km:.1f}' for Planet in PlanetList])
     if FigMisc.ALWAYS_SHOW_HP or Params.yesIceIII:
-        zIceIII = f'{endl}z(km) ice III: ' + ', '.join([f'{Planet.zIceIII_m/1e3:.1f}' for Planet in PlanetList])
-        dzIceIII = f'{endl}dz(km) ice III: ' + ', '.join([f'{Planet.dzIceIII_km:.1f}' for Planet in PlanetList])
+        zIceIII = f'{endl}z(km) ice III (wet): ' + ', '.join([f'{Planet.zIceIII_m/1e3:.1f}' for Planet in PlanetList])
+        dzIceIII = f'{endl}dz(km) ice III (wet): ' + ', '.join([f'{Planet.dzIceIII_km:.1f}' for Planet in PlanetList])
     if FigMisc.ALWAYS_SHOW_HP or Params.yesIceVund:
         zIceVund = f'{endl}z(km) ice V (und): ' + ', '.join([f'{Planet.zIceVund_m/1e3:.1f}' for Planet in PlanetList])
         dzIceVund = f'{endl}dz(km) ice V (und): ' + ', '.join([f'{Planet.dzIceVund_km:.1f}' for Planet in PlanetList])
@@ -267,8 +282,8 @@ def PrintGeneralSummary(PlanetList, Params):
     if FigMisc.ALWAYS_SHOW_HP or Params.yesIceVI:
         zIceVI = f'{endl}z(km) ice VI: ' + ', '.join([f'{Planet.zIceVI_m/1e3:.1f}' for Planet in PlanetList])
         dzIceVI = f'{endl}dz(km) ice VI: ' + ', '.join([f'{Planet.dzIceVI_km:.1f}' for Planet in PlanetList])
-    if FigMisc.ALWAYS_SHOW_HP or Params.yesIceVandVI:
-        dzIceVandVI = f'{endl}dz(km) ice V (wet) + ice VI: ' + ', '.join([f'{Planet.dzIceVandVI_km:.1f}' for Planet in PlanetList])
+    if FigMisc.ALWAYS_SHOW_HP or Params.yesWetHPs:
+        dzWetHPs = f'{endl}dz(km) wet ice III + V + VI: ' + ', '.join([f'{Planet.dzWetHPs_km:.1f}' for Planet in PlanetList])
 
     # Convection parameters for ice I/clathrate shell
     RaI = f'Ice shell Rayleigh number Ra: ' + ', '.join([f'{Planet.RaConvect:.2e}' for Planet in PlanetList])
@@ -313,7 +328,7 @@ def PrintGeneralSummary(PlanetList, Params):
     {qSurf}
     {oceanSigma}{poreSigma}{phiRockMax}{phiIceMax}
     
-    {zIceI}{zClath}{zIceIII}{zIceVund}{zIceV}{zIceVI}{dzClath}{dzIceIII}{dzIceVund}{dzIceV}{dzIceVI}{dzIceVandVI}
+    {zIceI}{zClath}{zIceIIIund}{zIceIII}{zIceVund}{zIceV}{zIceVI}{dzClath}{dzIceIIIund}{dzIceIII}{dzIceVund}{dzIceV}{dzIceVI}{dzWetHPs}
     {wetHydro}
     {RaI}
     {RaCritI}
@@ -379,6 +394,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
     convIceVlbl = 'Convective ice V'
     condClathLbl = 'Conductive \ce{CH4} clathrates'
     convClathLbl = 'Convective \ce{CH4} clathrates'
+    wetIceIIIlbl = 'Ice III'
     wetIceVlbl = 'Ice V'
     iceVIlbl = 'Ice VI'
     oceanLbl = 'ocean'
@@ -525,6 +541,14 @@ def PrintLayerSummaryLatex(PlanetList, Params):
 
             # In-ocean HP ices
             HPiceLayers = ''
+            if np.any(Planet.phase == 3):
+                wetIceIIIlayers = newline + tab.join([wetIceIIIlbl,
+                                                    f'\\num{{{(Planet.Bulk.R_m - Planet.zIceIII_m)/1e3:.1f}}}',
+                                                    f'\\num{{{Planet.Ocean.rhoMeanIIIwet_kgm3:.0f}}}',
+                                                    f'\\num{{{Planet.dzIceIII_km:.1f}}}',
+                                                    f'\\num{{{Planet.Ocean.GSmeanIIIwet_GPa:.1f}}}',
+                                                    f'\\num{{{Planet.Ocean.sigmaMeanIIIwet_Sm:.1e}}}']) + endl
+                HPiceLayers = HPiceLayers + wetIceIIIlayers
             if np.any(Planet.phase == 5):
                 wetIceVlayers = newline + tab.join([wetIceVlbl,
                                                     f'\\num{{{(Planet.Bulk.R_m - Planet.zIceV_m)/1e3:.1f}}}',
@@ -614,7 +638,8 @@ def PrintLayerTableLatex(PlanetList, Params):
     # Subscript strings
     ice = r'\mathrm{ice}'
     Ih = r'\mathrm{Ih}'
-    III = r'\mathrm{III}'
+    IIIund = r'\mathrm{III,under}'
+    IIIwet = r'\mathrm{III}'
     Vund = r'\mathrm{V,under}'
     Vwet = r'\mathrm{V}'
     VI = r'\mathrm{VI}'
@@ -637,15 +662,15 @@ def PrintLayerTableLatex(PlanetList, Params):
     tClose = header + r'\end{tabular}'
 
     nModels = np.size(PlanetList)
-    boolDclath_km, boolDIII_km, boolDVund_km, boolDVwet_km, boolDVI_km, boolRcore_km, \
+    boolDclath_km, boolDIIIund_km, boolDIIIwet_km, boolDVund_km, boolDVwet_km, boolDVI_km, boolRcore_km, \
     boolTop, boolBottom, boolWhole, boolphiIceMax_frac, boolphiRockMax_frac \
-        = (np.zeros(nModels, dtype=np.bool_) for _ in range(11))
+        = (np.zeros(nModels, dtype=np.bool_) for _ in range(12))
 
     strMmeas_kg, strMcalc_kg, strCmeas, strCcalc, strRsurf_km, strrhoRock_kgm3, strTb_K, \
-    strqSurf_Wm2, strqCon_Wm2, stretaI_Pas, strDIh_km, strDclath_km, strDIII_km, \
+    strqSurf_Wm2, strqCon_Wm2, stretaI_Pas, strDIh_km, strDclath_km, strDIIIund_km, strDIIIwet_km, \
     strDVund_km, strD_km, strDVwet_km, strDVI_km, strsigOcean_Sm, strRrock_km, strRcore_km,\
     strphiIceMax_frac, strphiRockMax_frac \
-        = (np.full(nModels, FigLbl.NA, dtype='<U100') for _ in range(22))
+        = (np.full(nModels, FigLbl.NA, dtype='<U100') for _ in range(23))
 
     # Organize values into strings for tabulating
     for i, Planet in enumerate(PlanetList):
@@ -687,9 +712,12 @@ def PrintLayerTableLatex(PlanetList, Params):
                     raise ValueError(f'Bulk.clathType "{Planet.Bulk.clathType}" not recognized.')
 
             # HP ices
+            if not np.isnan(Planet.dzIceIIIund_km) and not round(Planet.dzIceIIIund_km) == 0:
+                strDIIIund_km[i] = f'$\\num{{{Planet.dzIceIIIund_km:.1f}}}$'
+                boolDIIIund_km[i] = True
             if not np.isnan(Planet.dzIceIII_km) and not round(Planet.dzIceIII_km) == 0:
-                strDIII_km[i] = f'$\\num{{{Planet.dzIceIII_km:.1f}}}$'
-                boolDIII_km[i] = True
+                strDIIIwet_km[i] = f'$\\num{{{Planet.dzIceIII_km:.1f}}}$'
+                boolDIIIwet_km[i] = True
             if not np.isnan(Planet.dzIceVund_km) and not round(Planet.dzIceVund_km) == 0:
                 strDVund_km[i] = f'$\\num{{{Planet.dzIceVund_km:.1f}}}$'
                 boolDVund_km[i] = True
@@ -797,10 +825,14 @@ def PrintLayerTableLatex(PlanetList, Params):
                     DI = newline + f'{tab}$D_{Ih}~(\si{{km}})${tab}' + tab.join(strDIh_km[thisSubset]) + endl
 
                 # HP ices
-                if np.any(boolDIII_km[thisSubset]):
-                    DIII = newline + f'{tab}$D_{III}~(\si{{km}})${tab}' + tab.join(strDIII_km[thisSubset]) + endl
+                if np.any(boolDIIIund_km[thisSubset]):
+                    DIIIund = newline + f'{tab}$D_{IIIund}~(\si{{km}})${tab}' + tab.join(strDIIIund_km[thisSubset]) + endl
                 else:
-                    DIII = ''
+                    DIIIund = ''
+                if np.any(boolDIIIwet_km[thisSubset]):
+                    DIIIwet = newline + f'{tab}$D_{IIIwet}~(\si{{km}})${tab}' + tab.join(strDIIIwet_km[thisSubset]) + endl
+                else:
+                    DIIIwet = ''
                 if np.any(boolDVund_km[thisSubset]):
                     DVund = newline + f'{tab}$D_{Vund}~(\si{{km}})${tab}' + tab.join(strDVund_km[thisSubset]) + endl
                 else:
@@ -818,7 +850,7 @@ def PrintLayerTableLatex(PlanetList, Params):
                 else:
                     phiIce = ''
             else:
-                qCon, etaI, DI, DIII, DVund, Docean, DVwet, DVI, sigOcean, phiIce = ('' for _ in range(10))
+                qCon, etaI, DI, DIIIund, DVund, Docean, DIIIwet, DVwet, DVI, sigOcean, phiIce = ('' for _ in range(11))
 
             Rrock = f'{tab}$R_{rock}~(\si{{km}})${tab}' + tab.join(strRrock_km[thisSubset]) + endl
             if np.any(boolRcore_km[thisSubset]):
@@ -836,7 +868,7 @@ def PrintLayerTableLatex(PlanetList, Params):
                 tableStr = f"""{tOpen}
     {header}
         {bodyStr}{compRow}{Mmeas}{Mcalc}{Cmeas}{Ccalc}{rhoRock}{Tb_K}
-        {qSurf}{qCon}{etaI}{DI}{DIII}{DVund}{Docean}{DVwet}{DVI}{sigOcean}{Rsurf}
+        {qSurf}{qCon}{etaI}{DI}{DIIIund}{DVund}{Docean}{DIIIwet}{DVwet}{DVI}{sigOcean}{Rsurf}
         {Rrock}{Rcore}{phiIce}{phiRock}
     {tClose}
     """
@@ -847,7 +879,7 @@ def PrintLayerTableLatex(PlanetList, Params):
     {header}
         {bodyStr}{compStr}{Mmeas}{Mcalc}{Cmeas}{Ccalc}{rhoRock}
         {Tb_K}
-        {qSurf}{qCon}{etaI}{DI}{DIII}{DVund}{Docean}{DVwet}{DVI}{sigOcean}{Rsurf}
+        {qSurf}{qCon}{etaI}{DI}{DIIIund}{DVund}{Docean}{DIIIwet}{DVwet}{DVI}{sigOcean}{Rsurf}
         {Rrock}{Rcore}{phiIce}{phiRock}
     {tClose}
     """)

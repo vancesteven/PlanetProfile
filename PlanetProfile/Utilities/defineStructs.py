@@ -133,10 +133,13 @@ class OceanSubstruct:
         self.sigmaConvMean_Sm = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean conductivity for convecting ice layers
         self.GScondMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for conducting ice layers
         self.GSconvMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for convecting ice layers
+        self.rhoMeanIIIwet_kgm3 = np.nan  # Mean density for in-ocean ice III layers
         self.rhoMeanVwet_kgm3 = np.nan  # Mean density for in-ocean ice V layers
         self.rhoMeanVI_kgm3 = np.nan  # Mean density for in-ocean ice VI layers
+        self.sigmaMeanIIIwet_Sm = np.nan  # Mean electrical conductivity for in-ocean ice III layers
         self.sigmaMeanVwet_Sm = np.nan  # Mean electrical conductivity for in-ocean ice V layers
         self.sigmaMeanVI_Sm = np.nan  # Mean electrical conductivity for in-ocean ice VI layers
+        self.GSmeanIIIwet_GPa = np.nan  # Mean shear modulus for in-ocean ice III layers
         self.GSmeanVwet_GPa = np.nan  # Mean shear modulus for in-ocean ice V layers
         self.GSmeanVI_GPa = np.nan  # Mean shear modulus for in-ocean ice VI layers
         self.TfreezeOffset_K = 0.01  # Offset from the freezing temperature to avoid overshooting in HP ices
@@ -491,17 +494,19 @@ class PlanetStruct:
         # Layer thicknesses for table printout
         self.zIceI_m = np.nan
         self.zClath_km = np.nan  # Note this one breaks with the pattern because zClath_m is already in use.
+        self.zIceIIIund_m = np.nan
         self.zIceIII_m = np.nan
         self.zIceVund_m = np.nan
         self.zIceV_m = np.nan
         self.zIceVI_m = np.nan
         self.dzIceI_km = np.nan
         self.dzClath_km = np.nan
+        self.dzIceIIIund_km = np.nan
         self.dzIceIII_km = np.nan
         self.dzIceVund_km = np.nan
         self.dzIceV_km = np.nan
         self.dzIceVI_km = np.nan
-        self.dzIceVandVI_km = np.nan
+        self.dzWetHPs_km = np.nan
         self.dzSilPorous_km = np.nan
         self.dzFeS_km = np.nan
         # Coordinates for mapped quantities
