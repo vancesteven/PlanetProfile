@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.interpolate import interp1d
 from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import TsolidusHirschmann2000
 from PlanetProfile.Utilities.defineStructs import Constants
@@ -338,7 +339,7 @@ def CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, 
 def WriteSeismic(Planet, Params):
     # Print outputs usable by seismic wave post-processing software
 
-    """
+    """ @@@@@@
         AxiSEM
     """
     # Extend final layer to center
@@ -365,7 +366,7 @@ def WriteSeismic(Planet, Params):
                 nDisc += 1
 
     # Construct header
-    leadWS = 13
+    leadWSAxi = 13
     colWidth = 16
     headerLines = [
         f'# Model for {Planet.name}',
@@ -387,13 +388,115 @@ def WriteSeismic(Planet, Params):
     with open(Params.DataFiles.AxiSEMfile,'w') as f:
         f.write('\n'.join(headerLines) + '\n')
         for i in range(np.size(rAxi_m)):
-            f.write(' '*leadWS + ' '.join([
+            f.write(' '*leadWSAxi + ' '.join([
                 f'{rAxi_m[i]:9.1f}',
                 f'{rhoAxi_kgm3[i]:16.2f}',
                 f'{VPAxi_ms[i]:16.2f}',
                 f'{VSAxi_ms[i]:16.2f}',
                 f'{Qkappa[i]:16.1f}',
                 f'{QSAxi[i]:16.1f}'
+            ]) + '\n')
+
+
+    """ @@@@@@
+        minEOS
+    """
+    # Reconfigure data into minEOS-appropriate format
+    rminEOSpre_m = np.arange(0, Planet.r_m[0] + Planet.Seismic.minEOS_rRes_m, Planet.Seismic.minEOS_rRes_m)
+    zminEOSpre_m = Planet.Bulk.R_m - rminEOSpre_m
+    # Save copies we can then edit
+    z_m, rho_kgm3, VP_ms, VS_ms, KS_GPa, QS = (Planet.z_m, Planet.rho_kgm3, Planet.Seismic.VP_kms*1e3,
+                                               Planet.Seismic.VS_kms*1e3, Planet.Seismic.KS_GPa, Planet.Seismic.QS)
+    # Set interpolation kwargs to extrapolate to finer resolution
+    intArgs = {'kind': 'cubic', 'bounds_error': False, 'fill_value': 'extrapolate'}
+
+    # Adjust layer boundaries at top and bottom of ocean to avoid "mushy" layers
+    # that combine properties in the interpolation.
+    if Planet.Do.NO_H2O:
+        # Simple case -- no ocean, just interpolate.
+        rminEOS_m = rminEOSpre_m
+        zminEOS_m = zminEOSpre_m
+        nminEOS = np.size(rminEOS_m)
+        iOceanTop, iOceanBot = (nminEOS, nminEOS)
+        # Interpolate at desired output radii/depths
+        rhominEOS_kgm3 = interp1d(z_m[:-1], rho_kgm3, **intArgs)(zminEOS_m)
+        VPminEOS_ms =    interp1d(z_m[:-1], VP_ms,    **intArgs)(zminEOS_m)
+        VSminEOS_ms =    interp1d(z_m[:-1], VS_ms,    **intArgs)(zminEOS_m)
+        QkappaminEOS =   interp1d(z_m[:-1], KS_GPa,   **intArgs)(zminEOS_m)
+        QmuminEOS =      interp1d(z_m[:-1], QS,       **intArgs)(zminEOS_m)
+    else:
+        # This only identifies the top and bottom of the contiguous ocean layer.
+        # If the ocean is separated into further layers between deep-sea HP ices,
+        # additional detail will be required in creating minEOS input files to 
+        # handle the multiple liquid layers.
+        iObotPP = next(i for i,phase in enumerate(Planet.phase[:Planet.Steps.nHydro]) if phase == 0 and phase != Planet.phase[i+1])
+        iInner = np.where(rminEOSpre_m <= Planet.r_m[iObotPP+1])[0]
+        iShell = np.where(rminEOSpre_m > Planet.r_m[Planet.Steps.nSurfIce])[0]
+        iOcean = np.hstack((iInner[-1], np.where(np.logical_and(rminEOSpre_m > Planet.r_m[iObotPP+1],
+                                                         rminEOSpre_m <= Planet.r_m[Planet.Steps.nSurfIce]))[0], iShell[0]))
+        iOceanBot = iOcean[0]
+        iOceanTop = iOcean[-1] 
+
+        zInner_m, zOcean_m, zShell_m = (zminEOSpre_m[iInner], zminEOSpre_m[iOcean], zminEOSpre_m[iShell])
+        rminEOS_m = np.hstack((rminEOSpre_m[iInner], rminEOSpre_m[iOcean], rminEOSpre_m[iShell]))
+        nminEOS = np.size(rminEOS_m)
+
+        # Interpolate layers below ocean
+        rhoInner_kgm3 = interp1d(z_m[iObotPP+1:-1], rho_kgm3[iObotPP+1:], **intArgs)(zInner_m)
+        VPinner_ms = interp1d(z_m[iObotPP+1:-1], VP_ms[iObotPP+1:],       **intArgs)(zInner_m)
+        VSinner_ms = interp1d(z_m[iObotPP+1:-1], VS_ms[iObotPP+1:],       **intArgs)(zInner_m)
+        QkappaInner = interp1d(z_m[iObotPP+1:-1], KS_GPa[iObotPP+1:],     **intArgs)(zInner_m)
+        QmuInner = interp1d(z_m[iObotPP+1:-1], QS[iObotPP+1:],            **intArgs)(zInner_m)
+
+        # Interpolate layers within ocean
+        rhoOcean_kgm3 = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], rho_kgm3[Planet.Steps.nSurfIce:iObotPP+1], **intArgs)(zOcean_m)
+        VPocean_ms = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], VP_ms[Planet.Steps.nSurfIce:iObotPP+1],       **intArgs)(zOcean_m)
+        VSocean_ms = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], VS_ms[Planet.Steps.nSurfIce:iObotPP+1],       **intArgs)(zOcean_m)
+        QkappaOcean = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], KS_GPa[Planet.Steps.nSurfIce:iObotPP+1],     **intArgs)(zOcean_m)
+        QmuOcean = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], QS[Planet.Steps.nSurfIce:iObotPP+1],            **intArgs)(zOcean_m)
+
+        # Interpolate layers above ocean
+        rhoShell_kgm3 = interp1d(z_m[:Planet.Steps.nSurfIce], rho_kgm3[:Planet.Steps.nSurfIce], **intArgs)(zShell_m)
+        VPshell_ms = interp1d(z_m[:Planet.Steps.nSurfIce], VP_ms[:Planet.Steps.nSurfIce],       **intArgs)(zShell_m)
+        VSshell_ms = interp1d(z_m[:Planet.Steps.nSurfIce], VS_ms[:Planet.Steps.nSurfIce],       **intArgs)(zShell_m)
+        QkappaShell = interp1d(z_m[:Planet.Steps.nSurfIce], KS_GPa[:Planet.Steps.nSurfIce],     **intArgs)(zShell_m)
+        QmuShell = interp1d(z_m[:Planet.Steps.nSurfIce], QS[:Planet.Steps.nSurfIce],            **intArgs)(zShell_m)
+        
+        # Finally, stitch together into output arrays
+        rhominEOS_kgm3 = np.hstack((rhoInner_kgm3, rhoOcean_kgm3, rhoShell_kgm3))
+        VPminEOS_ms = np.hstack((VPinner_ms, VPocean_ms, VPshell_ms))
+        VSminEOS_ms = np.hstack((VSinner_ms, VSocean_ms, VSshell_ms))
+        QkappaminEOS = np.hstack((QkappaInner, QkappaOcean, QkappaShell))
+        QmuminEOS = np.hstack((QmuInner, QmuOcean, QmuShell))
+        
+        # Adjust ocean bottom and top indices since we added extra layers at boundaries
+        iOceanBot += 1
+        iOceanTop += 2
+    
+    # PlanetProfile calculates bulk modulus, not Qkappa; set values to 99999.0 to flag them
+    QkappaminEOS[QkappaminEOS > -1] = 99999.0
+    # Set max Qmu (QS) value to 99999.0
+    QmuminEOS[np.logical_or(QmuminEOS > 99999, QmuminEOS < 0)] = 99999.0
+    
+    leadWSminEOS = 1
+    with open(Params.DataFiles.minEOSvelFile,'w') as f:
+        # Header
+        f.write(f'velmodel\n' +
+                f'   1    1.00000  1\n' +
+                f'{nminEOS} {iOceanBot} {iOceanTop} 0\n')
+
+        # Write data
+        for i in range(nminEOS):
+            f.write(' ' * leadWSminEOS + ' '.join([
+                f'{rminEOS_m[i]:7.0f}',
+                f'{rhominEOS_kgm3[i]:8.2f}',
+                f'{VPminEOS_ms[i]:8.2f}',
+                f'{VSminEOS_ms[i]:8.2f}',
+                f'{QkappaminEOS[i]:8.1f}',
+                f'{QmuminEOS[i]:8.1f}',
+                f'{VPminEOS_ms[i]:8.2f}',
+                f'{VSminEOS_ms[i]:8.2f}',
+                f' 1.0000'
             ]) + '\n')
 
     return

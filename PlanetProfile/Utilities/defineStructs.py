@@ -317,6 +317,14 @@ class SeismicSubstruct:
         self.QS = None  # Anelastic shear quality factor Q_S of each layer, divided by omega^gamma to remove frequency dependence. Essentially the ratio of total seismic energy to that lost per cycle, see Stevenson (1983).
         self.KS_GPa = None  # Bulk modulus of each layer in GPa
         self.GS_GPa = None  # Shear modulus of each layer in GPa
+        # minEOS settings for output files
+        self.minEOS_mode = 3  # Harmonic mode. Options are 2 (toroidal), 3 (spheroidal), 0 (both).
+        self.minEOS_lmin = 0  # Minimum order of angular harmonics
+        self.minEOS_lmax = 400  # Maximum order of angular harmonics
+        self.minEOS_fmin_mHz = 1  # Minimum frequency in mHz
+        self.minEOS_fmax_mHz = 200  # Maximum frequency in mHz
+        self.minEOS_nmax = 5  # Maximum radial order
+        self.minEOS_rRes_m = 500  # Step size for minEOS columnar output in m
 
 
 """ Magnetic induction """
@@ -516,6 +524,7 @@ class DataFilesSubstruct:
         self.path = datPath
         self.inductPath = os.path.join(self.path, 'inductionData')
         self.seisPath = os.path.join(self.path, 'seismicData')
+        self.fNameSeis = os.path.join(self.seisPath, saveBase)
         if not self.path == '':
             if not os.path.isdir(self.path):
                 os.makedirs(self.path)
@@ -523,12 +532,16 @@ class DataFilesSubstruct:
                 os.makedirs(self.inductPath)
             if not os.path.isdir(self.seisPath):
                 os.makedirs(self.seisPath)
+            if not os.path.isdir(self.fNameSeis):
+                os.makedirs(self.fNameSeis)
 
         self.fName = os.path.join(self.path, saveBase)
         self.saveFile = self.fName + '.txt'
         self.mantCoreFile = self.fName + '_mantleCore.txt'
         self.permFile = self.fName + '_mantlePerm.txt'
         self.fNameSeis = os.path.join(self.seisPath, saveBase)
+        self.minEOSvelFile = os.path.join(self.fNameSeis, 'velmodel')
+        self.minEOSyanFile = os.path.join(self.fNameSeis, 'yannos.dat')
         self.AxiSEMfile = self.fNameSeis + '_AxiSEM.bm'
         self.fNameExplore = self.fName + f'_{self.exploreAppend}ExploreOgram'
         self.exploreOgramFile = f'{self.fNameExplore}.mat'
