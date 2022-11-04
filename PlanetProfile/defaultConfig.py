@@ -11,6 +11,7 @@ Params = ParamsStruct()
 Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
 Params.QUIET =         False  # Hides all log messages except warnings and errors
 Params.QUIET_MOONMAG = True  # If True, sets MoonMag logging level to WARNING, otherwise uses the same as PlanetProfile.
+Params.QUIET_LBF = True  # If True, sets lbftd and mlbspline logging levels to ERROR, otherwise uses the same as PlanetProfile.
 Params.printFmt = '[%(levelname)s] %(message)s'  # Format for printing log messages
 # The below flags allow or prevents extrapolation of EOS functions beyond the definition grid.
 Params.EXTRAP_ICE = {'Ih':False, 'II':False, 'III':False, 'V':False, 'VI':False, 'Clath':False}

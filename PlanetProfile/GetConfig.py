@@ -131,6 +131,10 @@ if Params.QUIET_MOONMAG:
     logLevelMoonMag = logging.WARNING
 else:
     logLevelMoonMag = logLevel
+if Params.QUIET_LBF:
+    logLevelLBF = logging.ERROR
+else:
+    logLevelLBF = logLevel
 
 stream = logging.StreamHandler()
 stream.setFormatter(logging.Formatter(Params.printFmt))
@@ -139,6 +143,7 @@ log.addHandler(stream)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger('PIL').setLevel(logging.WARNING)
 logging.getLogger('MoonMag').setLevel(logLevelMoonMag)
+logging.getLogger('lbftd').setLevel(logLevelLBF)
 log.debug('Printing verbose runtime messages. Toggle with Params.VERBOSE in configPP.py.')
 
 # Parallel processing toggles
