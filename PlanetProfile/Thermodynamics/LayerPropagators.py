@@ -65,7 +65,6 @@ def IceLayers(Planet, Params):
                 if Planet.Bulk.Tb_K > 271:
                     log.warning(msg)
                 else:
-                    plotSFtesting(Planet)
                     raise ValueError(msg)
             Planet.PbI_MPa = 0.0
         log.debug(f'Ice Ih transition pressure: {Planet.PbI_MPa:.3f} MPa.')
