@@ -99,7 +99,7 @@ def SeismicCalcs(Planet, Params):
         if Planet.Do.POROUS_ICE:
             Planet = CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV,
                                     indsVund, indsVI, indsVIund, indsClath, indsClathWet)
-            
+
         # Get seismic properties of ocean layers
         if np.size(indsLiq) != 0:
             Planet.Seismic.VP_kms[indsLiq], Planet.Seismic.KS_GPa[indsLiq] \
@@ -398,8 +398,8 @@ def WriteSeismic(Planet, Params):
             ]) + '\n')
 
 
-    """ @@@@@@
-        minEOS
+    """ @@@@@@@@@@@@@@@
+        minEOS velmodel
     """
     # Reconfigure data into minEOS-appropriate format
     rminEOSpre_m = np.arange(0, Planet.r_m[0] + Planet.Seismic.minEOS_rRes_m, Planet.Seismic.minEOS_rRes_m)
@@ -427,7 +427,7 @@ def WriteSeismic(Planet, Params):
     else:
         # This only identifies the top and bottom of the contiguous ocean layer.
         # If the ocean is separated into further layers between deep-sea HP ices,
-        # additional detail will be required in creating minEOS input files to 
+        # additional detail will be required in creating minEOS input files to
         # handle the multiple liquid layers.
         iObotPP = next(i for i,phase in enumerate(Planet.phase[:Planet.Steps.nHydro]) if phase == 0 and phase != Planet.phase[i+1])
         iInner = np.where(rminEOSpre_m <= Planet.r_m[iObotPP+1])[0]
@@ -435,7 +435,7 @@ def WriteSeismic(Planet, Params):
         iOcean = np.hstack((iInner[-1], np.where(np.logical_and(rminEOSpre_m > Planet.r_m[iObotPP+1],
                                                          rminEOSpre_m <= Planet.r_m[Planet.Steps.nSurfIce]))[0], iShell[0]))
         iOceanBot = iOcean[0]
-        iOceanTop = iOcean[-1] 
+        iOceanTop = iOcean[-1]
 
         zInner_m, zOcean_m, zShell_m = (zminEOSpre_m[iInner], zminEOSpre_m[iOcean], zminEOSpre_m[iShell])
         rminEOS_m = np.hstack((rminEOSpre_m[iInner], rminEOSpre_m[iOcean], rminEOSpre_m[iShell]))
@@ -461,23 +461,23 @@ def WriteSeismic(Planet, Params):
         VSshell_ms = interp1d(z_m[:Planet.Steps.nSurfIce], VS_ms[:Planet.Steps.nSurfIce],       **intArgs)(zShell_m)
         QkappaShell = interp1d(z_m[:Planet.Steps.nSurfIce], KS_GPa[:Planet.Steps.nSurfIce],     **intArgs)(zShell_m)
         QmuShell = interp1d(z_m[:Planet.Steps.nSurfIce], QS[:Planet.Steps.nSurfIce],            **intArgs)(zShell_m)
-        
+
         # Finally, stitch together into output arrays
         rhominEOS_kgm3 = np.hstack((rhoInner_kgm3, rhoOcean_kgm3, rhoShell_kgm3))
         VPminEOS_ms = np.hstack((VPinner_ms, VPocean_ms, VPshell_ms))
         VSminEOS_ms = np.hstack((VSinner_ms, VSocean_ms, VSshell_ms))
         QkappaminEOS = np.hstack((QkappaInner, QkappaOcean, QkappaShell))
         QmuminEOS = np.hstack((QmuInner, QmuOcean, QmuShell))
-        
+
         # Adjust ocean bottom and top indices since we added extra layers at boundaries
         iOceanBot += 1
         iOceanTop += 2
-    
+
     # PlanetProfile calculates bulk modulus, not Qkappa; set values to 99999.0 to flag them
     QkappaminEOS[QkappaminEOS > -1] = 99999.0
     # Set max Qmu (QS) value to 99999.0
     QmuminEOS[np.logical_or(QmuminEOS > 99999, QmuminEOS < 0)] = 99999.0
-    
+
     leadWSminEOS = 1
     with open(Params.DataFiles.minEOSvelFile,'w') as f:
         # Header
@@ -498,5 +498,58 @@ def WriteSeismic(Planet, Params):
                 f'{VSminEOS_ms[i]:8.2f}',
                 f' 1.0000'
             ]) + '\n')
+
+    """ @@@@@@@@@@@@@@@@@@
+        minEOS Yannos file
+    """
+    # Write Yannos file
+    yannosCfg = '# Input body model:\n' + \
+                'velmodel\n' + \
+                '# Output information file:\n' + \
+                'per_model\n' + \
+                '# Prefix for output eigenfunction files\n' + \
+                'fct_model\n' + \
+                '# Type code (3=spheroidal, 2=toroidal, 0=both)\n' + \
+                f'{Planet.Seismic.minEOS_mode}\n' + \
+                '# Precision (2) and switch off gravity perturbation frequency\n' + \
+                f'{Planet.Seismic.minEOSyanPrec} {Planet.Seismic.minEOSyanPrec} {Planet.Seismic.fGravCutoff_mHz}\n' + \
+                '# lmin, lmax, fmin, fmax, nmax:\n' + \
+                f'{Planet.Seismic.minEOS_lmin} {Planet.Seismic.minEOS_lmax} {Planet.Seismic.minEOS_fmin_mHz} ' + \
+                f'{Planet.Seismic.minEOS_fmax_mHz} {Planet.Seismic.minEOS_nmax}\n' + \
+                '#### If you need to output only some radius layers of eigenfunction\n' + \
+                '# number of layer for output: \n' + \
+                '1\n' + \
+                '# radius layers\n' + \
+                f'00. {Planet.Bulk.R_m:.0f}.\n' + \
+                '#### Computation flags\n' + \
+                '# force fmin (usually F):\n' + \
+                'F\n' + \
+                '# Cancel Gravity (usually F)\n' + \
+                'F\n' + \
+                '# Never use start level (usually F):\n' + \
+                'F\n' + \
+                '# Use T ref (usually T):\n' + \
+                'T\n' + \
+                '# Check modes (usually F):\n' + \
+                'F\n' + \
+                '# use_remedy awkward modes (usually T):\n' + \
+                'T\n' + \
+                '# rescue (try to do something if missing a mode, usually T):\n' + \
+                'T\n' + \
+                '# restart (to restart in case of crash during computation)\n' + \
+                'F\n' + \
+                '# force_systematic_search\n' + \
+                'F\n' + \
+                '# keep_bad_modes\n' + \
+                'F\n' + \
+                '# modout_format (ipg, ucb, olm; ipg is standard)\n' + \
+                'ipg\n' + \
+                '# seuil_ray\n' + \
+                '.0001\n' + \
+                '# l_startlevel\n' + \
+                '000'
+
+    with open(Params.DataFiles.minEOSyanFile,'w') as f:
+        f.write(yannosCfg)
 
     return

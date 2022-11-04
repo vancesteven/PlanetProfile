@@ -318,13 +318,15 @@ class SeismicSubstruct:
         self.KS_GPa = None  # Bulk modulus of each layer in GPa
         self.GS_GPa = None  # Shear modulus of each layer in GPa
         # minEOS settings for output files
+        self.minEOS_rRes_m = 500  # Step size for velmodel columnar output in m
         self.minEOS_mode = 3  # Harmonic mode. Options are 2 (toroidal), 3 (spheroidal), 0 (both).
         self.minEOS_lmin = 0  # Minimum order of angular harmonics
         self.minEOS_lmax = 400  # Maximum order of angular harmonics
         self.minEOS_fmin_mHz = 1  # Minimum frequency in mHz
         self.minEOS_fmax_mHz = 200  # Maximum frequency in mHz
         self.minEOS_nmax = 5  # Maximum radial order
-        self.minEOS_rRes_m = 500  # Step size for minEOS columnar output in m
+        self.minEOSyanPrec = '1.E-13'  # Precision specification for minEOS Yannos config file
+        self.fGravCutoff_mHz = 0.1  # Gravity perturbation cutoff frequency in mHz
 
 
 """ Magnetic induction """
