@@ -319,7 +319,7 @@ if __name__ == '__main__':
         testType = sys.argv[1]
         if len(sys.argv) > 2:
             # Test profile number was passed as command line argument
-            iTest = sys.argv[2]
+            iTest = int(sys.argv[2])
         else:
             iTest = None
     else:
@@ -328,7 +328,6 @@ if __name__ == '__main__':
 
 
     if testType == 'simple':
-
         simple(iTest)
     elif testType == 'Bayes':
         _, _ = TestBayes('Test')
