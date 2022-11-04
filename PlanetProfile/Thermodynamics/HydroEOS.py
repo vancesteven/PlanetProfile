@@ -588,28 +588,25 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0, PUpper_MPa=300, PRes_MPa=
     else:
         phaseChange = lambda P: 0.5 - (phaseTop - oceanEOS.fn_phase(P, Tb_K))
 
-    try:
-        Pfreeze_MPa = GetZero(phaseChange, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa/5
-    except ValueError:
-        if UNDERPLATE:
-            msg = f'Tb_K of {Tb_K:.3f} is not consistent with underplating ice III; ' + \
-                  f'the phases at the top and bottom of this range are ' + \
-                  f'{PhaseConv(oceanEOS.fn_phase(PLower_MPa, Tb_K))} and ' + \
-                  f'{PhaseConv(oceanEOS.fn_phase(PUpper_MPa, Tb_K))}, respectively.'
-            if ALLOW_BROKEN_MODELS:
-                if DO_EXPLOREOGRAM:
-                    log.info(msg)
-                else:
-                    log.error(msg)
-                Pfreeze_MPa = np.nan
-            else:
-                raise ValueError(msg)
-        elif TRY_BOTH:
-            try:
-                Pfreeze_MPa = GetZero(phaseChangeUnderplate, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa / 5
-            except ValueError:
-                msg = f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' + \
-                      f'for ice {PhaseConv(phaseTop)}. Increase PUpper_MPa until one is found.'
+    Pfreeze_MPa = None
+    if phaseChange(PLower_MPa) * phaseChange(PUpper_MPa) > 0:
+        # GetZero will error out in this case. Use a brute force strategy instead
+        Pvals = np.arange(PLower_MPa, PUpper_MPa, PRes_MPa)
+        changes = phaseChange(Pvals)
+        if np.any(changes > 0):
+            iChange = np.where(changes < 0)[0]
+            if np.size(iChange) != 0:
+                Pfreeze_MPa = Pvals[iChange[0]] + PRes_MPa/5
+
+    if Pfreeze_MPa is None:
+        try:
+            Pfreeze_MPa = GetZero(phaseChange, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa/5
+        except ValueError:
+            if UNDERPLATE:
+                msg = f'Tb_K of {Tb_K:.3f} is not consistent with underplating ice III; ' + \
+                      f'the phases at the top and bottom of this range are ' + \
+                      f'{PhaseConv(oceanEOS.fn_phase(PLower_MPa, Tb_K))} and ' + \
+                      f'{PhaseConv(oceanEOS.fn_phase(PUpper_MPa, Tb_K))}, respectively.'
                 if ALLOW_BROKEN_MODELS:
                     if DO_EXPLOREOGRAM:
                         log.info(msg)
@@ -618,14 +615,28 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0, PUpper_MPa=300, PRes_MPa=
                     Pfreeze_MPa = np.nan
                 else:
                     raise ValueError(msg)
-        else:
-            msg = f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' + \
-                  f'for ice {PhaseConv(phaseTop)} and UNDERPLATE is explicitly set to False.'
-            if DO_EXPLOREOGRAM:
-                log.info(msg)
+            elif TRY_BOTH:
+                try:
+                    Pfreeze_MPa = GetZero(phaseChangeUnderplate, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa / 5
+                except ValueError:
+                    msg = f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' + \
+                          f'for ice {PhaseConv(phaseTop)}. Increase PUpper_MPa until one is found.'
+                    if ALLOW_BROKEN_MODELS:
+                        if DO_EXPLOREOGRAM:
+                            log.info(msg)
+                        else:
+                            log.error(msg)
+                        Pfreeze_MPa = np.nan
+                    else:
+                        raise ValueError(msg)
             else:
-                log.warning(msg)
-            Pfreeze_MPa = np.nan
+                msg = f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' + \
+                      f'for ice {PhaseConv(phaseTop)} and UNDERPLATE is explicitly set to False.'
+                if DO_EXPLOREOGRAM:
+                    log.info(msg)
+                else:
+                    log.warning(msg)
+                Pfreeze_MPa = np.nan
 
     return Pfreeze_MPa
 
