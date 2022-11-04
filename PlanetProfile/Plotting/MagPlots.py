@@ -1076,7 +1076,7 @@ def PlotAsym(PlanetList, Params):
                 title = FigLbl.StripLatexFromString(title)
             ax.set_title(title, size=FigMisc.mapTitleSize)
 
-            if cLevelsAsym is None:
+            if cLevelsAsym is None and FigMisc.nAsymContours is not None:
                 cLevelsAsym = np.unique(np.round(np.linspace(np.min(mainPlanet.Magnetic.asymDevs_km[i, ...]),
                                                              np.max(mainPlanet.Magnetic.asymDevs_km[i, ...]),
                                                              FigMisc.nAsymContours)))
@@ -1095,7 +1095,7 @@ def PlotAsym(PlanetList, Params):
 
             ax.set_aspect(1)
             plt.tight_layout()
-            fName = f'{Params.FigureFiles.asym}{zMean_km:.1f}{FigMisc.xtn}'
+            fName = f'{Params.FigureFiles.asym}z{zMean_km:.1f}km{FigMisc.xtn}'
             fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi)
             log.debug(f'Asymmetric boundary surface map for z = {zMean_km:.1f} km saved to file: {fName}')
             plt.close()
