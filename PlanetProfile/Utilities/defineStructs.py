@@ -621,7 +621,7 @@ class FigureFilesSubstruct:
         self.vmant = self.fName + vmant + xtn
         self.vcore = self.fName + vcore + xtn
         self.vpvt = self.fName + vpvt + xtn
-        self.asym = self.fName + asym + xtn
+        self.asym = self.fName + asym
         self.apsidal = self.fName + apsidal + xtn
         self.explore =               f'{self.fName}_{self.exploreAppend}{explore}{xtn}'
         self.phaseSpace =            f'{self.fNameInduct}_{induct}_phaseSpace{xtn}'
