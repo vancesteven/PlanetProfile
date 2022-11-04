@@ -11,10 +11,14 @@ Custom Dynamic Frames Kernel
 Version and Date
 ========================================================================
 
+    Version 1.3 -- August 28, 2022 -- Marshall J. Styczinski, JPL
+    
+      Added NLS frame for Neptune, used in magnetic field modeling.
+
     Version 1.2 -- August 27, 2022 -- Marshall J. Styczinski, JPL
     
-      Added USL frame for Uranus, used in magnetic field modeling.
-
+      Added ULS frame for Uranus, used in magnetic field modeling.
+    
     Version 1.1 -- July 24, 2022 -- Marshall J. Styczinski, JPL
     
       Added US3 frame, identical to IAU_URANUS but with the z axis
@@ -96,23 +100,45 @@ Frames Definitions
         Name                  Relative to            NAIF ID
     ======================  =====================  ============
 
-      US3                     IAU_URANUS             1850007
-      USL                     IAU_URANUS             1850017
+      US3                     J2000                  1850007
+      ULS                     J2000                  1850017
+      NLS                     J2000                  1850018
+      NLS_RADEC               J2000                  1850028
             
       US3 frame:
         -- +Z is aligned with the Uranus spin pole (primary axis)
         -- +X is in the direction of the IAU prime meridian
         -- centered on the planet
       
-      USL frame:
+      ULS frame:
         -- +Z is aligned with the Uranus spin pole (primary axis)
         -- 302 degrees W longitude is at the location of Voyager 2
            closest approach, as defined in [8]. The Voyager 2 CA
            is located at 167.3113 degrees E longitude in the
            IAU_URANUS frame, at the time the reconstructed trajectory
            minimizes the distance to the Uranus center of mass.
-           This results in a shift of -134.6887 degrees E longitude.
+           This results in a shift of -134.6887 degrees E longitude,
+           i.e. +X of ULS points toward IAU E longitude 225.3113.
         -- centered on the planet
+      
+      NLS frame:
+        -- +Z is aligned with the Neptune spin pole (primary axis),
+           defined in [9] to be RA 298.90 degrees, DEC 42.84 degrees.
+           These values are assumed to be in reference to J2000 or ICRF.
+        -- 167.7 degrees W longitude is at the location of Voyager 2
+           near closest approach, at 0356 SCET day 237 as defined in [9].
+           Voyager 2 was at -155.6848 degrees E longitude in the
+           IAU_NEPTUNE frame at this time, according to the VG2 SPK
+           generated using the nep081.bsp generic kernel, and evaluated
+           using that same kernel.
+           This results in a shift of 12.0152 degrees E longitude,
+           i.e. +X of NLS points toward IAU E longitude 12.0152.
+        -- centered on the planet
+      
+      NLS_RADEC frame:
+        -- Exactly as NLS, but using the RA/DEC values defined in [9].
+           The spin pole is displaced about 125 km along the 1-bar
+           surface of the planet.
     
         Name                  Relative to            NAIF ID
     ======================  =====================  ============
@@ -235,14 +261,58 @@ Frames Definitions
     FRAME_1850017_PRI_FRAME        = 'IAU_URANUS'
     FRAME_1850017_PRI_SPEC         = 'RECTANGULAR'
     FRAME_1850017_PRI_VECTOR       = ( 0, 0, -1 )
-    FRAME_1850017_SEC_AXIS        = 'X'
-    FRAME_1850017_SEC_VECTOR_DEF  = 'CONSTANT'
-    FRAME_1850017_SEC_FRAME       = 'IAU_URANUS'
-    FRAME_1850017_SEC_SPEC        = 'LATITUDINAL'
-    FRAME_1850017_SEC_UNITS       = 'DEGREES'
-    FRAME_1850017_SEC_LONGITUDE   = 225.3113
-    FRAME_1850017_SEC_LATITUDE    =  0.0
+    FRAME_1850017_SEC_AXIS         = 'X'
+    FRAME_1850017_SEC_VECTOR_DEF   = 'CONSTANT'
+    FRAME_1850017_SEC_FRAME        = 'IAU_URANUS'
+    FRAME_1850017_SEC_SPEC         = 'LATITUDINAL'
+    FRAME_1850017_SEC_UNITS        = 'DEGREES'
+    FRAME_1850017_SEC_LONGITUDE    = 225.3113
+    FRAME_1850017_SEC_LATITUDE     =  0.0
 
+    FRAME_NLS                      = 1850018
+    FRAME_1850018_NAME             = 'NLS'
+    FRAME_1850018_CLASS            = 5
+    FRAME_1850018_CLASS_ID         = 1850018
+    FRAME_1850018_CENTER           = 899
+    FRAME_1850018_RELATIVE         = 'J2000'
+    FRAME_1850018_DEF_STYLE        = 'PARAMETERIZED'
+    FRAME_1850018_FAMILY           = 'TWO-VECTOR'
+    FRAME_1850018_PRI_AXIS         = 'Z'
+    FRAME_1850018_PRI_VECTOR_DEF   = 'CONSTANT'
+    FRAME_1850018_PRI_FRAME        = 'IAU_NEPTUNE'
+    FRAME_1850018_PRI_SPEC         = 'RECTANGULAR'
+    FRAME_1850018_PRI_VECTOR       = ( 0, 0, 1 )
+    FRAME_1850018_SEC_AXIS         = 'X'
+    FRAME_1850018_SEC_VECTOR_DEF   = 'CONSTANT'
+    FRAME_1850018_SEC_FRAME        = 'IAU_NEPTUNE'
+    FRAME_1850018_SEC_SPEC         = 'LATITUDINAL'
+    FRAME_1850018_SEC_UNITS        = 'DEGREES'
+    FRAME_1850018_SEC_LONGITUDE    = 12.0152
+    FRAME_1850018_SEC_LATITUDE     =  0.0
+
+    FRAME_NLS_RADEC                = 1850028
+    FRAME_1850028_NAME             = 'NLS_RADEC'
+    FRAME_1850028_CLASS            = 5
+    FRAME_1850028_CLASS_ID         = 1850028
+    FRAME_1850028_CENTER           = 899
+    FRAME_1850028_RELATIVE         = 'J2000'
+    FRAME_1850028_DEF_STYLE        = 'PARAMETERIZED'
+    FRAME_1850028_FAMILY           = 'TWO-VECTOR'
+    FRAME_1850028_PRI_AXIS         = 'Z'
+    FRAME_1850028_PRI_VECTOR_DEF   = 'CONSTANT'
+    FRAME_1850028_PRI_SPEC         = 'RA/DEC'
+    FRAME_1850028_PRI_FRAME        = 'J2000'
+    FRAME_1850028_PRI_UNITS        = 'DEGREES'
+    FRAME_1850028_PRI_RA           = 298.90
+    FRAME_1850028_PRI_DEC          = 42.84
+    FRAME_1850028_SEC_AXIS         = 'X'
+    FRAME_1850028_SEC_VECTOR_DEF   = 'CONSTANT'
+    FRAME_1850028_SEC_FRAME        = 'IAU_NEPTUNE'
+    FRAME_1850028_SEC_SPEC         = 'LATITUDINAL'
+    FRAME_1850028_SEC_UNITS        = 'DEGREES'
+    FRAME_1850028_SEC_LONGITUDE    = 12.0152
+    FRAME_1850028_SEC_LATITUDE     =  0.0
+        
     FRAME_IO_PHI_O                 = 1859501
     FRAME_1859501_NAME             = 'IO_PHI_O'
     FRAME_1859501_CLASS            = 5
