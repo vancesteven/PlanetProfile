@@ -30,7 +30,7 @@ logging.getLogger('PIL').setLevel(logging.WARNING)
 logging.getLogger('MoonMag').setLevel(logging.DEBUG)
 
 
-def full():
+def full(iTestStart=2):
     testBase = f'{_TestImport}.PPTest'
 
     # Set general testing config atop standard config options
@@ -62,7 +62,7 @@ def full():
     tMarks = np.append(tMarks, time.time())
 
     # Loop over remaining test profiles (2 onwards)
-    for i in range(2, nTests+1):
+    for i in range(iTestStart, nTests+1):
         testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
         log.info(f'Test case body: {testBase}{i}')
         TestPlanets = np.append(TestPlanets, PlanetProfile(testPlanetN, Params)[0])
@@ -278,7 +278,7 @@ def TestExploreOgram(testNum, Params, CALC_NEW=True):
     return Exploration
 
 
-def simple(iTests = None):
+def simple(iTests=None):
     testMod = f'{_TestImport}.PPTest'
 
     # Set general testing config atop standard config options
@@ -317,17 +317,20 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         # Test type was passed as command line argument
         testType = sys.argv[1]
-    else:
-        testType = 'full'
-
-    if testType == 'simple':
         if len(sys.argv) > 2:
             # Test profile number was passed as command line argument
             iTest = sys.argv[2]
         else:
             iTest = None
+    else:
+        testType = 'full'
+        iTest = None
+
+
+    if testType == 'simple':
+
         simple(iTest)
     elif testType == 'Bayes':
         _, _ = TestBayes('Test')
     else:
-        full()
+        full(iTest)
