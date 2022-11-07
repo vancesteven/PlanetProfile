@@ -836,6 +836,10 @@ def PlotWedge(PlanetList, Params):
 
         # Adjust plots to look nice
         ax.set_yticks(rTickRefs)
+        if FigMisc.MARK_RADII:
+            for rTick in rTickRefs:
+                ax.axhline(y=rTick, xmin=0, xmax=0.5, color=Color.wedgeMarkRadii,
+                           ls=Style.LS_markRadii, lw=Style.LW_markRadii)
         ax.set_yticklabels(np.array(rTicks, dtype=np.int_), fontsize=Style.TS_ticks)
         [ax.spines[side].set_visible(False) for side in ['top', 'right', 'bottom']]
         ax.get_xaxis().set_visible(False)
