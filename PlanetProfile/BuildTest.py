@@ -62,6 +62,8 @@ def full(iTestStart=2):
     tMarks = np.append(tMarks, time.time())
 
     # Loop over remaining test profiles (2 onwards)
+    if iTestStart is None:
+        iTestStart = 2
     for i in range(iTestStart, nTests+1):
         testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
         log.info(f'Test case body: {testBase}{i}')
@@ -326,9 +328,8 @@ if __name__ == '__main__':
         testType = 'full'
         iTest = None
 
-
     if testType == 'simple':
-        simple(iTest)
+        simple([iTest])
     elif testType == 'Bayes':
         _, _ = TestBayes('Test')
     else:
