@@ -19,25 +19,34 @@ log = logging.getLogger('PlanetProfile')
 
 def GenerateMagPlots(PlanetList, Params):
     
-    # Remove latex styling from legend labels if Latex is not installed
-    if not FigMisc.TEX_INSTALLED:
-        for Planet in PlanetList:
-            Planet.label = FigLbl.StripLatexFromString(Planet.label)
-
-    if Params.PLOT_BDIP:
-        PlotComplexBdip(PlanetList, Params)
-    if Params.PLOT_MAG_SPECTRUM and np.any([Planet.Magnetic.FT_LOADED for Planet in PlanetList]):
-        PlotMagSpectrum(PlanetList, Params)
-    if Params.PLOT_BSURF:
-        if FigMisc.vCompMagSurf == 'all':
-            for comp in ['x', 'y', 'z', 'mag']:
-                FigMisc.vCompMagSurf = comp
+    # Catch if we get here and induction calcs have not been done
+    if np.all([Planet.Magnetic.Binm_nT is not None for Planet in PlanetList]):
+    
+        # Remove latex styling from legend labels if Latex is not installed
+        if not FigMisc.TEX_INSTALLED:
+            for Planet in PlanetList:
+                Planet.label = FigLbl.StripLatexFromString(Planet.label)
+    
+        if Params.PLOT_BDIP:
+            PlotComplexBdip(PlanetList, Params)
+        if Params.PLOT_MAG_SPECTRUM and np.any([Planet.Magnetic.FT_LOADED for Planet in PlanetList]):
+            PlotMagSpectrum(PlanetList, Params)
+        if Params.PLOT_BSURF:
+            if FigMisc.vCompMagSurf == 'all':
+                for comp in ['x', 'y', 'z', 'mag']:
+                    FigMisc.vCompMagSurf = comp
+                    PlotMagSurface(PlanetList, Params)
+                FigMisc.vCompMagSurf = 'all'
+            else:
                 PlotMagSurface(PlanetList, Params)
-            FigMisc.vCompMagSurf = 'all'
+        if Params.PLOT_ASYM and Params.CALC_ASYM:
+            PlotAsym(PlanetList, Params)
+            
+        elif np.any([Planet.Magnetic.Binm_nT is not None for Planet in PlanetList]):
+            log.warning('Induction calculations have only been completed for some bodies. Magnetic field plotting will be skipped.')
         else:
-            PlotMagSurface(PlanetList, Params)
-    if Params.PLOT_ASYM and Params.CALC_ASYM:
-        PlotAsym(PlanetList, Params)
+            log.warning('Induction calculations have not been completed for any bodies. Magnetic field plotting will be skipped. ' +
+                        'Set Params.SKIP_INDUCTION = True in configPP.py to skip induction calculations.')
 
     return
 
@@ -862,7 +871,7 @@ def PlotMagSurface(PlanetList, Params):
                     cLevels = np.linspace(vmin, vmax, FigMisc.nMagContours)
 
             Bmap = ax.pcolormesh(Planet.lonMap_deg, Planet.latMap_deg, BvecRe_nT[FigMisc.vCompMagSurf],
-                                 shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
+                                 shading='auto', cmap=cmap, vmin=vmin, vmax=vmax, rasterized=FigMisc.PT_RASTER)
             BmapContours = ax.contour(Planet.lonMap_deg, Planet.latMap_deg, BvecRe_nT[FigMisc.vCompMagSurf],
                                       levels=cLevels, colors='black')
             ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
@@ -934,7 +943,7 @@ def PlotMagSurface(PlanetList, Params):
                         cLevels = np.linspace(vmin, vmax, FigMisc.nMagContours)
 
                 Bmap = ax.pcolormesh(Planet.lonMap_deg, Planet.latMap_deg, BvecReSym_nT[FigMisc.vCompMagSurf],
-                                     shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
+                                     shading='auto', cmap=cmap, vmin=vmin, vmax=vmax, rasterized=FigMisc.PT_RASTER)
                 BmapContours = ax.contour(Planet.lonMap_deg, Planet.latMap_deg, BvecReSym_nT[FigMisc.vCompMagSurf],
                                           levels=cLevels, colors='black')
                 ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
@@ -991,7 +1000,7 @@ def PlotMagSurface(PlanetList, Params):
                     cLevels = np.linspace(vmin, vmax, FigMisc.nMagContours)
 
                 Bmap = ax.pcolormesh(Planet.lonMap_deg, Planet.latMap_deg, Bdiff_nT,
-                                     shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
+                                     shading='auto', cmap=cmap, vmin=vmin, vmax=vmax, rasterized=FigMisc.PT_RASTER)
                 BmapContours = ax.contour(Planet.lonMap_deg, Planet.latMap_deg, Bdiff_nT,
                                           levels=cLevels, colors='black')
                 ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
@@ -1083,7 +1092,7 @@ def PlotAsym(PlanetList, Params):
 
             asymMap = ax.pcolormesh(mainPlanet.lonMap_deg, mainPlanet.latMap_deg,
                                     mainPlanet.Magnetic.asymDevs_km[i, ...],
-                                    shading='auto', cmap=Color.cmap['asymDev'])
+                                    shading='auto', cmap=Color.cmap['asymDev'], rasterized=FigMisc.PT_RASTER)
             asymContours = ax.contour(mainPlanet.lonMap_deg, mainPlanet.latMap_deg,
                                       mainPlanet.Magnetic.asymDevs_km[i, ...],
                                       levels=cLevelsAsym, colors='black')
