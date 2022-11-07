@@ -179,9 +179,27 @@ def SetupInit(Planet, Params):
                                        scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                        phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN)
         # Get separate, simpler EOS for evaluating the melting curve
+        if Planet.Do.BOTTOM_ICEV:
+            TmeltI_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
+            TmeltIII_K = np.linspace(Planet.Bulk.TbIII_K - 0.01, Planet.Bulk.TbIII_K + 0.01, 11)
+            TmeltV_K = np.linspace(Planet.Bulk.TbV_K - 0.01, Planet.Bulk.TbV_K + 0.01, 11)
+            Tmelt_K = np.concatenate((TmeltI_K, TmeltIII_K, TmeltV_K))
+            if Planet.PfreezeUpper_MPa < 700:
+                log.info(f'PfreezeUpper_MPa is set to {Planet.PfreezeUpper_MPa}, but Do.BOTTOM_ICEV is True and ' +
+                         'ice V is stable up to 700 MPa. PfreezeUpper_MPa will be raised to this value.')
+                Planet.PfreezeUpper_MPa = 700
+        elif Planet.Do.BOTTOM_ICEIII:
+            TmeltI_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
+            TmeltIII_K = np.linspace(Planet.Bulk.TbIII_K - 0.01, Planet.Bulk.TbIII_K + 0.01, 11)
+            Tmelt_K = np.concatenate((TmeltI_K, TmeltIII_K))
+            if Planet.PfreezeUpper_MPa < 700:
+                log.info(f'PfreezeUpper_MPa is set to {Planet.PfreezeUpper_MPa}, but Do.BOTTOM_ICEIII is True and ' +
+                         'ice V is stable up to 400 MPa. PfreezeUpper_MPa will be raised to this value.')
+                Planet.PfreezeUpper_MPa = 400
+        else:
+            Tmelt_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
         Pmelt_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.PfreezeUpper_MPa, Planet.PfreezeRes_MPa)
-        Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa,
-                                           np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11), None,
+        Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K, None,
                                            phaseType=Planet.Ocean.phaseType, FORCE_NEW=True, MELT=True)
 
     # Make sure convection checking outputs are set if we won't be modeling them
