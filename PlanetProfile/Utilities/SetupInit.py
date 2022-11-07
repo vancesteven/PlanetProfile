@@ -20,6 +20,9 @@ def SetupInit(Planet, Params):
     # Print version number
     log.debug(f'-- PlanetProfile v{ppVerNum} --')
     if ppVerNum[-3:] == 'dev': log.debug('This version is in development.')
+    # Print body name
+    log.info(f'Body name: {Planet.name}')
+    log.debug(f'Input file: {Planet.fname}')
 
     # Check dependency compatibility
     CheckCompat('seafreeze')  # SeaFreeze
