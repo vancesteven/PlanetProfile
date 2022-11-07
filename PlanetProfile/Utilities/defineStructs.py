@@ -408,6 +408,7 @@ class PlanetStruct:
         self.Seismic = SeismicSubstruct()
         self.Magnetic = MagneticSubstruct()
 
+        self.fname = None  # Relative path used for .py file import
         self.saveLabel = None  # Label for savefile
         self.label = None  # Label for legend entries
         self.tradeLabel = None  # Label for legend entries in tradeoff plots
@@ -596,8 +597,10 @@ class FigureFilesSubstruct:
         vgrav = 'Gravity'
         vmant = 'MantleDens'
         vcore = 'CoreMantTrade'
-        vpvt = 'PTprops'
+        vpvtHydro = 'HydroPTprops'
+        vpvtPerpleX = 'InnerPTprops'
         vwedg = 'Wedge'
+        vphase = 'HydroPhase'
         explore = 'ExploreOgram'
         induct = 'InductOgram'
         sigma = 'InductOgramSigma'
@@ -620,7 +623,9 @@ class FigureFilesSubstruct:
         self.vgrav = self.fName + vgrav + xtn
         self.vmant = self.fName + vmant + xtn
         self.vcore = self.fName + vcore + xtn
-        self.vpvt = self.fName + vpvt + xtn
+        self.vphase = self.fName + vphase + xtn
+        self.vpvtHydro = self.fName + vpvtHydro + xtn
+        self.vpvtPerpleX = self.fName + vpvtPerpleX + xtn
         self.asym = self.fName + asym
         self.apsidal = self.fName + apsidal + xtn
         self.explore =               f'{self.fName}_{self.exploreAppend}{explore}{xtn}'
@@ -907,6 +912,9 @@ class ColorStruct:
         self.Fe = None
 
         # Cmap settings for PvT plots
+        self.PvThydroCmapName = None
+        self.PvThydroHi = None
+        self.PvThydroLo = None
         self.PvTsilCmapName = None
         self.PvTsilHi = None
         self.PvTsilLo = None
@@ -946,6 +954,7 @@ class ColorStruct:
                                                       self.silPorousTop, self.silPorousBot)
             self.silCondCmap = cmasher.get_sub_cmap(self.silCondCmapName, self.silCondTop, self.silCondBot)
         self.silConvCmap = cmasher.get_sub_cmap(self.silConvCmapName, self.silConvTop, self.silConvBot)
+        self.PvThydroCmap = cmasher.get_sub_cmap(self.PvThydroCmapName, self.PvThydroLo, self.PvThydroHi)
         self.PvTsilCmap = cmasher.get_sub_cmap(self.PvTsilCmapName, self.PvTsilLo, self.PvTsilHi)
         self.PvTcoreCmap = cmasher.get_sub_cmap(self.PvTcoreCmapName, self.PvTcoreLo, self.PvTcoreHi)
         # Use cmasher to return colormap objects that do the down-select for us
@@ -1108,8 +1117,10 @@ class FigLblStruct:
         self.poreCompareTitle = r'Porosity comparison'
         self.seisTitle = r' seismic properties'
         self.seisCompareTitle = r'Seismic property comparison'
+        self.PvTtitleHydro = r' hydrosphere EOS properties with geotherm'
         self.PvTtitleSil = r' silicate interior properties with geotherm'
         self.PvTtitleCore = r' silicate and core interior properties with geotherm'
+        self.hydroPhaseTitle = r' phase diagram'
 
         # Wedge diagram labels
         self.wedgeTitle = 'interior structure diagram'
@@ -1581,6 +1592,7 @@ class FigSizeStruct:
         self.vcore = None
         self.vpvt = None
         self.vwedg = None
+        self.vphase = None
         self.explore = None
         self.phaseSpaceSolo = None
         self.phaseSpaceCombo = None
@@ -1623,6 +1635,16 @@ class FigMiscStruct:
         self.DRAW_POROUS_BOUND = False  # Whether to draw a boundary line between porous and non-porous materials
         self.DRAW_FeS_BOUND = False  # Whether to draw a boundary line between Fe and FeS in the core
         self.minzbRratio_frac = None  # Fraction of total body radius for ice shell and ocean thickness, above which ice shell ticks will automatically switch on (overrides WEDGE_ICE_TICKS)
+
+        # Hydrosphere PT diagrams
+        self.PT_RASTER = False  # Whether to rasterize gridded information in PT plots and phase diagrams. Dramatically speeds up figure creation time and reduces file size, but renders gridded data grainy upon zoom-in.
+        self.nTphase = None  # Number of temperature points to evaluate/plot for hydrosphere phase diagram
+        self.nPphase = None  # Number of pressure points to evaluate/plot for hydrosphere phase diagram
+        self.nThydro = None  # Number of temperature points to evaluate/plot for PT property plots
+        self.nPhydro = None  # Number of pressure points to evaluate/plot for PT property plots
+        self.PminHydro_MPa = None  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa
+        self.TminHydro_K = None  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K
+        self.hydroPhaseSize = None  # Font size of label for phase in phase diagram
 
         # Silicate/core PT diagrams
         self.nTgeo = None  # Number of temperature points to evaluate/plot for PT property plots

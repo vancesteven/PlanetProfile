@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 10  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 11  # Integer number for config file version. Increment when new settings are added to the default config file.
 Color = ColorStruct()
 Style = StyleStruct()
 FigLbl = FigLblStruct()
@@ -14,7 +14,8 @@ FigMisc = FigMiscStruct()
 """ Figure color options """
 Color.Induction = {'synodic': 'blue', 'orbital': 'purple', 'true anomaly': 'green', 'synodic harmonic': 'goldenrod'}  # Colors for inductOgram plots
 Color.ref = 'gray'
-Color.geotherm = 'white'
+Color.geothermHydro = 'yellow'
+Color.geothermInner = 'white'
 Color.BdipInset = 'black'  # Color for inset box of surface induced dipole strength plots
 
 # Wedge diagram color options
@@ -59,7 +60,12 @@ Color.paleSilCondCmapName = 'terrain'
 Color.paleSilCondTop = 0.78 - 0.001
 Color.paleSilCondBot = 0.78
 
-# PvT properties colormaps
+# PvThydro properties colormaps
+Color.PvThydroCmapName = 'Blues'
+Color.PvThydroHi = 1.0
+Color.PvThydroLo = 0.2
+
+# PvTPerpleX properties colormaps
 Color.PvTsilCmapName = 'copper'
 Color.PvTsilHi = 1.0
 Color.PvTsilLo = 0.0
@@ -204,6 +210,7 @@ FigSize.vmant = (6, 6)
 FigSize.vcore = (6, 6)
 FigSize.vpvt = (12, 6)
 FigSize.vwedg = (4.5, 4.5)
+FigSize.vphase = (5, 6)
 FigSize.explore = (6, 4)
 FigSize.phaseSpaceSolo = (6, 4)
 FigSize.phaseSpaceCombo = (9, 4)
@@ -244,6 +251,16 @@ FigMisc.DRAW_CONVECTION_BOUND = False  # Whether to draw a boundary line between
 FigMisc.DRAW_POROUS_BOUND = False  # Whether to draw a boundary line between porous and non-porous materials
 FigMisc.DRAW_FeS_BOUND = True  # Whether to draw a boundary line between Fe and FeS in the core
 FigMisc.minzbRratio_frac = 0.05  # Fraction of total body radius for ice shell and ocean thickness, above which ice shell ticks will automatically switch on (overrides WEDGE_ICE_TICKS)
+
+# Hydrosphere PT diagrams
+FigMisc.PT_RASTER = True  # Whether to rasterize gridded information in PT plots and phase diagrams. Dramatically speeds up figure creation time and reduces file size, but renders gridded data grainy upon zoom-in. 
+FigMisc.nTphase = 240  # Number of temperature points to evaluate/plot for hydrosphere phase diagram. If None, use geotherm (Planet.P_MPa) for the phase diagram.
+FigMisc.nPphase = 360  # Number of pressure points to evaluate/plot for hydrosphere phase diagram. If None, use geotherm (Planet.T_K) for the phase diagram.
+FigMisc.nThydro = 160  # Number of temperature points to evaluate/plot for PT property plots
+FigMisc.nPhydro = 200  # Number of pressure points to evaluate/plot for PT property plots
+FigMisc.PminHydro_MPa = 0.1  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa
+FigMisc.TminHydro_K = 220  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K
+FigLbl.hydroPhaseSize = 14  # Font size of label for phase in phase diagram
 
 # Silicate/core PT diagrams
 FigMisc.nTgeo = 80  # Number of temperature points to evaluate/plot for PT property plots

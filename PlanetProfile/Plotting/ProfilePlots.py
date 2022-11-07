@@ -6,6 +6,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Wedge, Rectangle
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
+from PlanetProfile.Plotting.PTPlots import PlotHydroPhase, PlotPvThydro, PlotPvTPerpleX
 from PlanetProfile.Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
 from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
@@ -45,8 +46,12 @@ def GeneratePlots(PlanetList, Params):
         PlotSeismic(PlanetList, Params)
     if Params.PLOT_WEDGE:
         PlotWedge(PlanetList, Params)
-    if Params.PLOT_PVT and not Params.SKIP_INNER:
-        PlotPvT(PlanetList, Params)
+    if Params.PLOT_HYDRO_PHASE and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
+        PlotHydroPhase(PlanetList, Params)
+    if Params.PLOT_PVT_HYDRO and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
+        PlotPvThydro(PlanetList, Params)
+    if Params.PLOT_PVT_INNER and not Params.SKIP_INNER:
+        PlotPvTPerpleX(PlanetList, Params)
 
     return
 
@@ -813,158 +818,6 @@ def PlotWedge(PlanetList, Params):
     return
 
 
-def PlotPvT(PlanetList, Params):
-
-    # Unlike most other plotting routines, here we can't plot multiple bodies together.
-    # Just make these plots for the first model, which is the primary.
-    if os.path.dirname(Params.FigureFiles.vpvt) != 'Comparison':
-        Planet = PlanetList[0]
-        if Planet.Sil.EOS is None:
-            Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.lookupInterpMethod,
-                        kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
-                        porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
-                        Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
-                        EXTRAP=Params.EXTRAP_SIL)
-        INCLUDING_CORE = FigMisc.PVT_INCLUDE_CORE and Planet.Do.Fe_CORE
-        if INCLUDING_CORE and Planet.Core.EOS is None:
-            Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
-                        kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
-                        wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt)
-
-        # Check that it's worth converting to GPa if that setting has been selected -- reset labels if not
-        if Planet.P_MPa[-1] < 100 and FigLbl.PFULL_IN_GPa:
-            log.debug('FigLbl.PFULL_IN_GPa is True, but Pmax is less than 0.1 GPa. Pressures will be plotted in MPa.')
-            FigLbl.PFULL_IN_GPa = False
-            FigLbl.SetUnits()
-            if not FigMisc.TEX_INSTALLED:
-                FigLbl.StripLatex()
-
-        fig = plt.figure(figsize=FigSize.vpvt)
-        grid = GridSpec(2, 4)
-        axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(4)] for i in range(2)])
-        axes[0,1].set_axis_off()
-        axf = axes[axes != axes[0,1]].flatten()
-        if Style.GRIDS:
-            [ax.grid() for ax in axf]
-            [ax.set_axisbelow(False) for ax in axf]
-        # Labels and titles
-        [ax.set_xlabel(FigLbl.Tlabel) for ax in axes[1, :]]
-        [ax.set_ylabel(FigLbl.PlabelFull) for ax in axes[:, 0]]
-        [ax.invert_yaxis() for ax in axf]
-        axes[0,0].set_title(FigLbl.rhoLabel)
-        axes[1,0].set_title(FigLbl.CpLabel)
-        axes[1,1].set_title(FigLbl.alphaLabel)
-        # axes[1,1].set_title()  # This axes intentionally left blank.
-        axes[0,2].set_title(FigLbl.VPlabel)
-        axes[1,2].set_title(FigLbl.VSlabel)
-        axes[0,3].set_title(FigLbl.KSlabel)
-        axes[1,3].set_title(FigLbl.GSlabel)
-        # Get pressure and temperature bounds and eval pts and set title
-
-        iSil = np.logical_and(Planet.phase >= Constants.phaseSil,
-                              Planet.phase < Constants.phaseSil + 10)
-        if INCLUDING_CORE:
-            fig.suptitle(f'{Planet.name}{FigLbl.PvTtitleCore}')
-            iCore = Planet.phase >= Constants.phaseFe
-            iInner = np.logical_or(iSil, iCore)
-        else:
-            fig.suptitle(f'{Planet.name}{FigLbl.PvTtitleSil}')
-            iCore = np.zeros_like(Planet.phase).astype(bool)
-            iInner = iSil
-        Pgeo = Planet.P_MPa[iInner]
-        Tgeo = Planet.T_K[iInner]
-        Pmin = np.min(Pgeo)
-        Pmax = np.max(Pgeo)
-        Tmin = np.min(Tgeo)
-        Tmax = np.max(Tgeo)
-        if INCLUDING_CORE:
-            nPsil = FigMisc.nPgeo - FigMisc.nPgeoCore
-            nPcore = FigMisc.nPgeoCore
-            Pcore = np.linspace(np.min(Planet.P_MPa[iCore]), Pmax, nPcore)
-        else:
-            nPsil = FigMisc.nPgeo
-            Pcore = np.empty(0)
-        Psil = np.linspace(Pmin, np.max(Planet.P_MPa[iSil]), nPsil)
-        Tinner = np.linspace(Tmin, Tmax, FigMisc.nTgeo)
-
-        # Get data to plot
-        rhoSil = Planet.Sil.EOS.fn_rho_kgm3(Psil, Tinner, grid=True)
-        CpSil = Planet.Sil.EOS.fn_Cp_JkgK(Psil, Tinner, grid=True)
-        alphaSil = Planet.Sil.EOS.fn_alpha_pK(Psil, Tinner, grid=True)
-        VPsil = Planet.Sil.EOS.fn_VP_kms(Psil, Tinner, grid=True)
-        VSsil = Planet.Sil.EOS.fn_VS_kms(Psil, Tinner, grid=True)
-        KSsil = Planet.Sil.EOS.fn_KS_GPa(Psil, Tinner, grid=True)
-        GSsil = Planet.Sil.EOS.fn_GS_GPa(Psil, Tinner, grid=True)
-
-        # Plot colormaps of Perple_X data
-        PsilScaled = Psil * FigLbl.PmultFull
-        rhoPlotSil =   axes[0,0].pcolormesh(Tinner, PsilScaled, rhoSil, cmap=Color.PvTsilCmap)
-        CpPlotSil =    axes[1,0].pcolormesh(Tinner, PsilScaled, CpSil, cmap=Color.PvTsilCmap)
-        alphaPlotSil = axes[1,1].pcolormesh(Tinner, PsilScaled, alphaSil, cmap=Color.PvTsilCmap)
-        VPplotSil =    axes[0,2].pcolormesh(Tinner, PsilScaled, VPsil, cmap=Color.PvTsilCmap)
-        VSplotSil =    axes[1,2].pcolormesh(Tinner, PsilScaled, VSsil, cmap=Color.PvTsilCmap)
-        KSplotSil =    axes[0,3].pcolormesh(Tinner, PsilScaled, KSsil, cmap=Color.PvTsilCmap)
-        GSplotSil =    axes[1,3].pcolormesh(Tinner, PsilScaled, GSsil, cmap=Color.PvTsilCmap)
-
-        if INCLUDING_CORE:
-            rhoCore = Planet.Core.EOS.fn_rho_kgm3(Pcore, Tinner, grid=True)
-            CpCore = Planet.Core.EOS.fn_Cp_JkgK(Pcore, Tinner, grid=True)
-            alphaCore = Planet.Core.EOS.fn_alpha_pK(Pcore, Tinner, grid=True)
-            VPcore = Planet.Core.EOS.fn_VP_kms(Pcore, Tinner, grid=True)
-            VScore = Planet.Core.EOS.fn_VS_kms(Pcore, Tinner, grid=True)
-            KScore = Planet.Core.EOS.fn_KS_GPa(Pcore, Tinner, grid=True)
-            GScore = Planet.Core.EOS.fn_GS_GPa(Pcore, Tinner, grid=True)
-
-            # Plot colormaps of core data
-            PcoreScaled = Pcore * FigLbl.PmultFull
-            rhoPlotCore =   axes[0,0].pcolormesh(Tinner, PcoreScaled, rhoCore, cmap=Color.PvTcoreCmap)
-            CpPlotCore =    axes[1,0].pcolormesh(Tinner, PcoreScaled, CpCore, cmap=Color.PvTcoreCmap)
-            alphaPlotCore = axes[1,1].pcolormesh(Tinner, PcoreScaled, alphaCore, cmap=Color.PvTcoreCmap)
-            VPplotCore =    axes[0,2].pcolormesh(Tinner, PcoreScaled, VPcore, cmap=Color.PvTcoreCmap)
-            VSplotCore =    axes[1,2].pcolormesh(Tinner, PcoreScaled, VScore, cmap=Color.PvTcoreCmap)
-            KSplotCore =    axes[0,3].pcolormesh(Tinner, PcoreScaled, KScore, cmap=Color.PvTcoreCmap)
-            GSplotCore =    axes[1,3].pcolormesh(Tinner, PcoreScaled, GScore, cmap=Color.PvTcoreCmap)
-
-            # Add core colorbars for each plot
-            cbarsCore = [
-                fig.colorbar(rhoPlotCore, ax=axes[0,0]),
-                fig.colorbar(CpPlotCore, ax=axes[1,0]),
-                fig.colorbar(alphaPlotCore, ax=axes[1,1]),
-                fig.colorbar(VPplotCore, ax=axes[0,2]),
-                fig.colorbar(VSplotCore, ax=axes[1,2]),
-                fig.colorbar(KSplotCore, ax=axes[0,3]),
-                fig.colorbar(GSplotCore, ax=axes[1,3])
-            ]
-
-            if FigLbl.PVT_CBAR_LABELS:
-                [cbar.ax.set_title(FigLbl.core) for cbar in cbarsCore]
-
-        # Add colorbars for each silicate plot (second, so that silicate bar appears closest to the plot)
-        cbarsSil = [
-            fig.colorbar(rhoPlotSil, ax=axes[0,0]),
-            fig.colorbar(CpPlotSil, ax=axes[1,0]),
-            fig.colorbar(alphaPlotSil, ax=axes[1,1]),
-            fig.colorbar(VPplotSil, ax=axes[0,2]),
-            fig.colorbar(VSplotSil, ax=axes[1,2]),
-            fig.colorbar(KSplotSil, ax=axes[0,3]),
-            fig.colorbar(GSplotSil, ax=axes[1,3])
-        ]
-
-        if FigLbl.PVT_CBAR_LABELS:
-            [cbar.ax.set_title(FigLbl.sil) for cbar in cbarsSil]
-
-        # Plot geotherm on top of colormaps
-        [ax.plot(Tgeo, Pgeo * FigLbl.PmultFull, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm,
-                 color=Color.geotherm) for ax in axf]
-
-        plt.tight_layout()
-        fig.savefig(Params.FigureFiles.vpvt, format=FigMisc.figFormat, dpi=FigMisc.dpi)
-        log.debug(f'Silicate/core PT properties plot saved to file: {Params.FigureFiles.vpvt}')
-        plt.close()
-
-    return
-
-
 def PlotExploreOgram(ExplorationList, Params):
     """ For plotting points showing the various models used in making
         exploreogram plots.
@@ -992,7 +845,7 @@ def PlotExploreOgram(ExplorationList, Params):
         z = Exploration.__getattribute__(Exploration.zName) * FigLbl.zMultExplore
         ax.set_xlim([np.min(x), np.max(x)])
         ax.set_ylim([np.min(y), np.max(y)])
-        mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'])
+        mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], rasterized=FigMisc.PT_RASTER)
         cont = ax.contour(x, y, z, colors='black')
         lbls = plt.clabel(cont, fmt='%1.0f')
         cbar = fig.colorbar(mesh, ax=ax)
@@ -1030,7 +883,7 @@ def PlotExploreOgram(ExplorationList, Params):
             x = np.append(x, Exploration.__getattribute__(Exploration.xName)) * FigLbl.xMult
             y = np.append(y, Exploration.__getattribute__(Exploration.yName)) * FigLbl.yMult
             z = np.append(z, Exploration.__getattribute__(Exploration.zName)) * FigLbl.zMult
-        mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'])
+        mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], rasterized=FigMisc.PT_RASTER)
         cont = ax.contour(x, y, z, colors='black')
         lbls = plt.clabel(cont, fmt='%1.0f')
         cbar = fig.colorbar(mesh, ax=ax)

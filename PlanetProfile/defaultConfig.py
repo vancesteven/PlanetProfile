@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 9  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 10  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 Params = ParamsStruct()
 Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
@@ -52,10 +52,12 @@ Params.PLOT_TRADEOFF =    True  # Whether to plot mantle properties tradeoff
 Params.PLOT_POROSITY =    True  # Whether to plot porosities in rock and/or ice for bodies that have it modeled
 Params.PLOT_SEISMIC =     True  # Whether to plot seismic quantities if they have been calculated
 Params.PLOT_WEDGE =       True  # Whether to plot interior wedge diagram
-Params.PLOT_PVT =         True  # Whether to plot silicate/core PT property plots
-Params.PLOT_BDIP =        True  # Whether to plot induced dipole surface strength in complex plane
+Params.PLOT_HYDRO_PHASE = False  # Whether to plot phase diagram
+Params.PLOT_PVT_HYDRO =   False  # Whether to plot hydrosphere PT property plots
+Params.PLOT_PVT_INNER =   False  # Whether to plot silicate/core PT property plots
+Params.PLOT_BDIP =        False  # Whether to plot induced dipole surface strength in complex plane
 Params.PLOT_BSURF =       True  # Whether to plot induced field surface map
-Params.PLOT_ASYM =        True  # Whether to plot asymmetric boundary shape(s) when induced fields are calculated from them
+Params.PLOT_ASYM =        False  # Whether to plot asymmetric boundary shape(s) when induced fields are calculated from them
 Params.LEGEND =           True  # Whether to plot legends
 
 # Magnetic induction plot settings
