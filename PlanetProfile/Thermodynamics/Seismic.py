@@ -412,7 +412,7 @@ def WriteSeismic(Planet, Params):
 
     # Adjust layer boundaries at top and bottom of ocean to avoid "mushy" layers
     # that combine properties in the interpolation.
-    if Planet.Do.NO_H2O:
+    if Planet.Do.NO_H2O or not np.any(Planet.phase == 0):
         # Simple case -- no ocean, just interpolate.
         rminEOS_m = rminEOSpre_m
         zminEOS_m = zminEOSpre_m
