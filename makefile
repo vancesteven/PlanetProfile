@@ -90,7 +90,7 @@ clean:
 		rm -f $$body/$(figs)/*.eps $$body/$(figs)/*.fig $$body/$(figs)/*.png $$body/$(figs)/*.pdf ; \
 		rm -f $$body/$(figs)/$(inductfigs)/*.eps $$body/$(figs)/$(inductfigs)/*.fig $$body/$(figs)/$(inductfigs)/*.png $$body/$(figs)/$(inductfigs)/*.pdf ; \
 	done ; \
-	rm -f $(comp)/*.eps $(comp)/*.fig $(comp)/*.png $(comp)/*.pdf ; \
+	rm -f $(comp)/*.eps $(comp)/*.fig $(comp)/*.png $(comp)/*.pdf $(comp)/*.txt ; \
 	rm -f $(comp)/$(inductfigs)/*.eps $(comp)/$(inductfigs)/*.fig $(comp)/$(inductfigs)/*.png $(comp)/$(inductfigs)/*.pdf
 
 install:

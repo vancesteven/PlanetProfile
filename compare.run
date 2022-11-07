@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Chonkers
+python PlanetProfileCLI.py Ganymede/PPGanymede.py Callisto/PPCallisto.py Titan/PPTitan.py > Comparison/biggest.txt
+mv Comparison/ComparisonWedge.pdf Comparison/BiggestComparisonWedge.pdf
+
+# Mid-large
+python PlanetProfileCLI.py Io/PPIo.py Europa/PPEuropa.py Triton/PPTriton.py Pluto/PPPluto.py > Comparison/mid-large.txt
+mv Comparison/ComparisonWedge.pdf Comparison/LargeComparisonWedge.pdf
+
+# Mid
+python PlanetProfileCLI.py Rhea/PPRhea.py Titania/PPTitania.py Oberon/PPOberon.py > Comparison/mid.txt
+mv Comparison/ComparisonWedge.pdf Comparison/MidComparisonWedge.pdf
+
+# Small
+python PlanetProfileCLI.py Dione/PPDione.py Ariel/PPAriel.py Umbriel/PPUmbriel.py > Comparison/small.txt
+mv Comparison/ComparisonWedge.pdf Comparison/SmallComparisonWedge.pdf
+
+# Tiny
+python PlanetProfileCLI.py Mimas/PPMimas.py Enceladus/PPEnceladus.py Miranda/PPMiranda.py > Comparison/tiny.txt
+mv Comparison/ComparisonWedge.pdf Comparison/TinyComparisonWedge.pdf
+
+# Jovian
+python PlanetProfileCLI.py Io/PPIo.py Europa/PPEuropa.py Ganymede/PPGanymede.py Callisto/PPCallisto.py > Comparison/jovian.txt
+mv Comparison/ComparisonWedge.pdf Comparison/JupiterComparisonWedge.pdf
+
+# Kronian
+python PlanetProfileCLI.py Mimas/PPMimas.py Enceladus/PPEnceladus.py Dione/PPDione.py Rhea/PPRhea.py Titan/PPTitan.py > Comparison/kronian.txt
+mv Comparison/ComparisonWedge.pdf Comparison/SaturnComparisonWedge.pdf
+
+# Uranian
+python PlanetProfileCLI.py Miranda/PPMiranda.py Ariel/PPAriel.py Umbriel/PPUmbriel.py Titania/PPTitania.py Oberon/PPOberon.py > Comparison/uranian.txt
+mv Comparison/ComparisonWedge.pdf Comparison/UranusComparisonWedge.pdf
+
+# Neptunian and dwarf
+python PlanetProfileCLI.py Triton/PPTriton.py Pluto/PPPluto.py > Comparison/neptunianDwarf.txt
+mv Comparison/ComparisonWedge.pdf Comparison/NeptuneDwarfComparisonWedge.pdf
+
