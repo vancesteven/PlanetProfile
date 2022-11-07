@@ -54,7 +54,10 @@ Planet.Do.Fe_CORE = False
 Planet.Seismic.lowQDiv = 1.0
 
 """ Magnetic induction """
-Planet.Bulk.J2 = 1496e-6  # From Hemingway et al. (2016) LPSC abstract: https://www.hou.usra.edu/meetings/lpsc2016/pdf/1314.pdf
+Planet.Bulk.J2 = 1496e-6  # From Zannoni et al. (2020): https://doi.org/10.1016/j.icarus.2020.113713
 Planet.Bulk.C22 = 364.8e-6
+Planet.Bulk.C21 = 0.6e-6
+Planet.Bulk.S21 = 4.0e-6
+Planet.Bulk.S22 = -14.2e-6
 Planet.Magnetic.ionosBounds_m = None
 Planet.Magnetic.sigmaIonosPedersen_Sm = None
