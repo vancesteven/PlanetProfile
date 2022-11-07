@@ -19,7 +19,7 @@ Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346
 Planet.Bulk.Cuncertainty = 0.005
-Planet.Bulk.Tb_K = 268.305
+Planet.Bulk.Tb_K = 265.0  # Slightly lower than standard default model to make it easier to find valid models in rho-type inductogram
 
 """ Layer step settings """
 Planet.Steps.nIceI = 100
