@@ -207,7 +207,8 @@ def GetLayerMeans(PlanetList, Params):
                     Planet.dzIceVI_km = np.nan
                 if np.any(Planet.phase == 3) or np.any(Planet.phase == 5) or np.any(Planet.phase == 6):
                     Planet.dzWetHPs_km = (next(z_m for i, z_m in enumerate(Planet.z_m[:-1])
-                                            if i > np.where(np.logical_or(Planet.phase == 3, Planet.phase == 5, Planet.phase == 6))[0][0]
+                                            if i > np.where(np.logical_or(Planet.phase == 3, 
+                                                            np.logical_or(Planet.phase == 5, Planet.phase == 6)))[0][0]
                                                and not Planet.phase[i] in [0, 3, 5, 6]) - Planet.zIceVI_m) / 1e3
                 else:
                     Planet.dzWetHPs_km = np.nan
@@ -808,7 +809,7 @@ def PrintLayerTableLatex(PlanetList, Params):
                 sigOcean = newline + f'{tab}$\overline{{\sigma}}_{ocean}~(\si{{{FigLbl.sigUnits}}})${tab}' + tab.join(strsigOcean_Sm[thisSubset]) + endl
 
                 # Surface ices
-                if np.any(np.logical_or(boolTop[thisSubset], boolWhole[thisSubset], boolWhole[thisSubset])):
+                if np.any(np.logical_or(boolTop[thisSubset], np.logical_or(boolWhole[thisSubset], boolWhole[thisSubset]))):
                     if np.all(boolTop[thisSubset]):
                         DI = newline + f'{tab}$D_{clath}~(\si{{km}})${tab}' + tab.join(strDclath_km[thisSubset]) + endl \
                             + newline + f'{tab}$D_{Ih}~(\si{{km}})${tab}' + tab.join(strDIh_km[thisSubset]) + endl
