@@ -1,6 +1,6 @@
 """ Load in default settings, then overwrite them with the user's settings in top-level dir. """
 from warnings import warn
-import os
+import os, sys
 import time
 import matplotlib
 import spiceypy as spice
@@ -136,7 +136,7 @@ if Params.QUIET_LBF:
 else:
     logLevelLBF = logLevel
 
-stream = logging.StreamHandler()
+stream = logging.StreamHandler(sys.stdout)
 stream.setFormatter(logging.Formatter(Params.printFmt))
 log.setLevel(logLevel)
 log.addHandler(stream)
