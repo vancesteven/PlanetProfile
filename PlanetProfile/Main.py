@@ -26,7 +26,13 @@ from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSum
 
 # Parallel processing
 import multiprocessing as mtp
-mtpFork = mtp.get_context('fork')
+import platform
+plat = platform.system()
+if plat == 'Windows':
+    mtpType = 'spawn'
+else:
+    mtpType = 'fork'
+mtpContext = mtp.get_context('fork')
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
@@ -105,11 +111,13 @@ def run(bodyname=None, opt=None, fNames=None):
             # Run main model first, so that it always appears as 0-index
             PlanetList[0] = importlib.import_module(loadNames[0]).Planet
             PlanetList[0].index = 1
+            PlanetList[0].fname = loadNames[0]
             PlanetList[0], Params = PlanetProfile(PlanetList[0], Params)
             tMarks = np.append(tMarks, time.time())
             if Params.RUN_ALL_PROFILES:
                 for i,loadName in enumerate(loadNames[1:]):
                     PlanetList[i+1] = deepcopy(importlib.import_module(loadName).Planet)
+                    PlanetList[i+1].fname = loadName
                     PlanetList[i+1].index = i+2
                     PlanetList[i+1], Params = PlanetProfile(PlanetList[i+1], Params)
                     tMarks = np.append(tMarks, time.time())
@@ -1212,7 +1220,7 @@ def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
     if Params.DO_PARALLEL:
         # Prevent slowdowns from competing process spawning when #cores > #jobs
         nCores = np.min([Params.maxCores, np.product(np.shape(PlanetList1D)), Params.threadLimit])
-        pool = mtpFork.Pool(nCores)
+        pool = mtpContext.Pool(nCores)
         parResult = [pool.apply_async(FuncName, (deepcopy(Planet),
                                                       deepcopy(Params))) for Planet in PlanetList1D]
         pool.close()
