@@ -523,7 +523,7 @@ class PlanetStruct:
 """ Params substructs """
 # Construct filenames for data, saving/reloading
 class DataFilesSubstruct:
-    def __init__(self, datPath, saveBase, comp, inductBase=None, exploreAppend=None):
+    def __init__(self, datPath, saveBase, comp, inductBase=None, exploreAppend=None, EXPLORE=False):
         if inductBase is None:
             inductBase = saveBase
         if exploreAppend is None:
@@ -541,7 +541,7 @@ class DataFilesSubstruct:
                 os.makedirs(self.inductPath)
             if not os.path.isdir(self.seisPath):
                 os.makedirs(self.seisPath)
-            if not os.path.isdir(self.fNameSeis):
+            if not EXPLORE and not os.path.isdir(self.fNameSeis):
                 os.makedirs(self.fNameSeis)
 
         self.fName = os.path.join(self.path, saveBase)

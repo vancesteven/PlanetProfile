@@ -390,7 +390,8 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
     else:
         inductBase = None
     DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, Planet.Ocean.comp, inductBase=inductBase,
-                                   exploreAppend=exploreAppend)
+                                   exploreAppend=exploreAppend, EXPLORE=(Params.DO_INDUCTOGRAM or
+                                       Params.DO_EXPLOREOGRAM or Params.INDUCTOGRAM_IN_PROGRESS))
     FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn,
                                        comp=Planet.Ocean.comp, inductBase=inductBase,
                                        exploreAppend=figExploreAppend)
