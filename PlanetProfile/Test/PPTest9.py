@@ -33,7 +33,7 @@ Planet.Ocean.wOcean_ppt = 100
 Planet.Ocean.deltaP = 15.0
 Planet.Ocean.deltaT = 10.0
 Planet.Ocean.PHydroMax_MPa = 2000.0
-Planet.Ocean.THydroMax_K = 350.0
+Planet.Ocean.THydroMax_K = 400.0
 
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.33e-14
