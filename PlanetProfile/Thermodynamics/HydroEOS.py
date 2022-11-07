@@ -2,7 +2,7 @@ import numpy as np
 import os, logging
 from copy import deepcopy
 from collections.abc import Iterable
-from scipy.interpolate import NearestNDInterpolator, RectBivariateSpline
+from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 from scipy.optimize import root_scalar as GetZero
 from scipy.io import loadmat
 from seafreeze import seafreeze as SeaFreeze
@@ -88,16 +88,16 @@ class OceanEOSStruct:
 
             # Get tabular data from the appropriate source for the specified ocean composition
             if compstr == 'none':
-                self.fn_phase = ReturnZeros(1)
+                self.ufn_phase = ReturnZeros(1)
                 self.type = 'No H2O'
-                self.m_gmol = 0.0
+                self.m_gmol = np.nan
                 rho_kgm3 = np.zeros((np.size(P_MPa), np.size(T_K)))
                 Cp_JkgK = rho_kgm3
                 alpha_pK = rho_kgm3
                 kTherm_WmK = rho_kgm3
                 self.ufn_Seismic = ReturnZeros(2)
                 self.ufn_sigma_Sm = ReturnZeros(1)
-            elif self.w_ppt == 0 or compstr == 'PureH2O':
+            elif compstr == 'PureH2O':
                 self.type = 'SeaFreeze'
                 self.m_gmol = Constants.mH2O_gmol
 
@@ -119,7 +119,7 @@ class OceanEOSStruct:
                     log.warning('Input Tmax greater than SeaFreeze limit for Pure H2O. Resetting to SF max.')
                     T_K = np.linspace(np.min(T_K), self.Tmax, np.size(T_K))
 
-                PTgrid = np.array([P_MPa, T_K], dtype=object)
+                PTgrid = sfPTgrid(P_MPa, T_K)
                 seaOut = SeaFreeze(PTgrid, 'water1')
                 rho_kgm3 = seaOut.rho
                 Cp_JkgK = seaOut.Cp
@@ -129,14 +129,9 @@ class OceanEOSStruct:
                 if self.PHASE_LOOKUP:
                     self.phase = WhichPhase(PTgrid, solute='water1')
                     # Create phase finder -- note that the results from this function must be cast to int after retrieval
-                    Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
-                    Tlin_K = np.array([T for _ in P_MPa for T in T_K])
-                    PTpairs = list(zip(Plin_MPa, Tlin_K))
-                    phase1D = np.reshape(self.phase, (-1))
-                    # Create phase finder -- note that the results from this function must be cast to int after retrieval
-                    self.fn_phase = NearestNDInterpolator(PTpairs, phase1D)
+                    self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'))
                 else:
-                    self.fn_phase = SFphase(self.w_ppt, self.comp)
+                    self.ufn_phase = SFphase(self.w_ppt, self.comp)
 
                 self.ufn_Seismic = SFSeismic(compstr, P_MPa, T_K, seaOut, self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = H2Osigma_Sm()
@@ -148,7 +143,7 @@ class OceanEOSStruct:
                                 'low temperatures or high pressures, this model will be wrong as no ' +
                                 'high-pressure ice phases will be found.')
 
-                self.fn_phase = SwPhase(self.w_ppt)
+                self.ufn_phase = SwPhase(self.w_ppt)
                 rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = SwProps(P_MPa, T_K, self.w_ppt)
                 self.ufn_Seismic = SwSeismic(self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = SwConduct(self.w_ppt)
@@ -177,7 +172,7 @@ class OceanEOSStruct:
                     log.warning('Input wOcean_ppt greater than SeaFreeze limit for NH3. Resetting to SF max.')
                     self.w_ppt = 290.1478
 
-                PTmgrid = np.array([P_MPa, T_K, np.array([Ppt2molal(self.w_ppt, self.m_gmol)])], dtype=object)
+                PTmgrid = sfPTmGrid(P_MPa, T_K, Ppt2molal(self.w_ppt, self.m_gmol))
                 seaOut = SeaFreeze(deepcopy(PTmgrid), 'NH3')
                 rho_kgm3 = seaOut.rho
                 Cp_JkgK = seaOut.Cp
@@ -187,14 +182,9 @@ class OceanEOSStruct:
                 if self.PHASE_LOOKUP:
                     self.phase = WhichPhase(PTmgrid, solute='NH3')
                     # Create phase finder -- note that the results from this function must be cast to int after retrieval
-                    Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
-                    Tlin_K = np.array([T for _ in P_MPa for T in T_K])
-                    PTpairs = list(zip(Plin_MPa, Tlin_K))
-                    phase1D = np.reshape(self.phase, (-1))
-                    # Create phase finder -- note that the results from this function must be cast to int after retrieval
-                    self.fn_phase = NearestNDInterpolator(PTpairs, phase1D)
+                    self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'))
                 else:
-                    self.fn_phase = SFphase(self.w_ppt, self.comp)
+                    self.ufn_phase = SFphase(self.w_ppt, self.comp)
 
                 self.ufn_Seismic = SFSeismic(compstr, P_MPa, T_K, seaOut, self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = H2Osigma_Sm()
@@ -209,9 +199,9 @@ class OceanEOSStruct:
                 P_MPa, T_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
                     = MgSO4Props(P_MPa, T_K, self.w_ppt, self.EXTRAP)
                 if self.PHASE_LOOKUP:
-                    self.fn_phase = MgSO4PhaseLookup(self.w_ppt)
+                    self.ufn_phase = MgSO4PhaseLookup(self.w_ppt)
                 else:
-                    self.fn_phase = MgSO4PhaseMargules(self.w_ppt).arrays
+                    self.ufn_phase = MgSO4PhaseMargules(self.w_ppt).arrays
                 self.ufn_Seismic = MgSO4Seismic(self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = MgSO4Conduct(self.w_ppt, self.elecType, rhoType=self.rhoType,
                                                 scalingType=self.scalingType)
@@ -240,6 +230,10 @@ class OceanEOSStruct:
                 EOSlist.ranges[self.EOSlabel] = self.rangeLabel
 
     # Limit extrapolation to use nearest value from evaluated fit
+    def fn_phase(self, P_MPa, T_K, grid=False):
+        # Phase stability cannot be extrapolated for some compositions. Therefore, prevent it.
+        P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        return self.ufn_phase(P_MPa, T_K, grid=grid)
     def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
@@ -256,10 +250,10 @@ class OceanEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_kTherm_WmK(P_MPa, T_K, grid=grid)
-    def fn_Seismic(self, P_MPa, T_K):
+    def fn_Seismic(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
-        return self.ufn_Seismic(P_MPa, T_K)
+        return self.ufn_Seismic(P_MPa, T_K, grid=grid)
     def fn_sigma_Sm(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
@@ -328,24 +322,20 @@ class IceEOSStruct:
                 else:
                     self.phase = ClathStableSloan1998(P_MPa, T_K)
 
-                Plin_MPa = np.array([P for P in P_MPa for _ in T_K])
-                Tlin_K = np.array([T for _ in P_MPa for T in T_K])
-                PTpairs = list(zip(Plin_MPa, Tlin_K))
-                phase1D = np.reshape(self.phase, (-1))
                 # Create phase finder -- note that the results from this function must be cast to int after retrieval
                 # Returns either Constants.phaseClath (stable) or 0 (not stable), making it compatible with GetTfreeze
-                self.fn_phase = NearestNDInterpolator(PTpairs, phase1D)
+                self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'))
                 self.ufn_Seismic = ClathSeismic()
             else:
                 # Get tabular data from SeaFreeze for all other ice phases
-                PTgrid = np.array([P_MPa, T_K], dtype=object)
+                PTgrid = sfPTgrid(P_MPa, T_K)
                 iceOut = SeaFreeze(PTgrid, phaseStr)
                 rho_kgm3 = iceOut.rho
                 Cp_JkgK = iceOut.Cp
                 alpha_pK = iceOut.alpha
                 kTherm_WmK = np.array([kThermIsothermalAnderssonInaba2005(P_MPa, PhaseInv(phaseStr)) for _ in T_K]).T
                 self.ufn_Seismic = IceSeismic(phaseStr, self.EXTRAP)
-                self.fn_phase = returnVal(self.phaseID)
+                self.ufn_phase = returnVal(self.phaseID)
 
             # Interpolate functions for this ice phase that can be queried for properties
             self.ufn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, rho_kgm3)
@@ -372,6 +362,10 @@ class IceEOSStruct:
         return (propBulk**J * (1 - phi) + propPore**J * phi) ** (1/J)
 
     # Limit extrapolation to use nearest value from evaluated fit
+    def fn_phase(self, P_MPa, T_K, grid=False):
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        return self.ufn_phase(P_MPa, T_K, grid=grid)
     def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
@@ -392,19 +386,21 @@ class IceEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_phi_frac(P_MPa, T_K, grid=grid)
-    def fn_Seismic(self, P_MPa, T_K):
+    def fn_Seismic(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
-        return self.ufn_Seismic(P_MPa, T_K)
-    def fn_sigma_Sm(self, P_MPa, T_K):
+        return self.ufn_Seismic(P_MPa, T_K, grid=grid)
+    def fn_sigma_Sm(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
-        return self.ufn_sigma_Sm(P_MPa, T_K)
+        return self.ufn_sigma_Sm(P_MPa, T_K, grid=grid)
 
 class returnVal:
     def __init__(self, val):
         self.val = val
-    def __call__(self, P, T):
+    def __call__(self, P, T, grid=False):
+        if grid:
+            P, _ = np.meshgrid(P, T, indexing='ij')
         return (np.ones_like(P) * self.val).astype(np.int_)
 
 def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False):
@@ -489,6 +485,15 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False):
 # Create a function that can pack up (P,T) pairs that are compatible with SeaFreeze
 def sfPTpairs(P_MPa, T_K):
     return np.array([(P, T) for P, T in zip(P_MPa, T_K)], dtype='f,f').astype(object)
+# Same for PTm triplets
+def sfPTmTrips(P_MPa, T_K, m_molal):
+    return np.array([(P, T, m_molal) for P, T in zip(P_MPa, T_K)], dtype='f,f,f').astype(object)
+# Same as above but for a grid
+def sfPTgrid(P_MPa, T_K):
+    return np.array([P_MPa, T_K], dtype=object)
+# Same for PTm grid
+def sfPTmGrid(P_MPa, T_K, m_molal):
+    return np.array([P_MPa, T_K, np.array([m_molal])], dtype=object)
 
 # Create callable class to act as a wrapper for SeaFreeze phase lookup
 class SFphase:
@@ -496,9 +501,11 @@ class SFphase:
         self.w_ppt = w_ppt
         if comp == 'NH3':
             self.comp = comp
+            self.m_molal = Ppt2molal(self.w_ppt, Constants.mNH3_gmol)
             self.path = NH3matPath
         else:
             self.comp = 'water1'
+            self.m_molal = np.nan
             self.path = None
 
     def PTpairs(self, Pin, Tin):
@@ -509,31 +516,47 @@ class SFphase:
         elif np.size(Tin) == 1:
             return np.array([(P, Tin) for P in Pin], dtype='f,f').astype(object)
         elif np.size(Pin) == np.size(Tin):
-            return np.array([(P, T) for P, T in zip(Pin, Tin)], dtype='f,f').astype(object)
+            return sfPTpairs(Pin, Tin)
         else:
-            log.warning('2D array as input to SeaFreeze phase finder, but 1D array will be output.')
-            return np.array([(P, T) for T in Tin for P in Pin], dtype='f,f').astype(object)
+            log.warning('2D array as input to SeaFreeze phase finder when 1D array was expected. A 2D array will be output.')
+            return sfPTgrid(Pin, Tin)
 
-    def PTmtrips(self, Pin, Tin):
+    def PTmTrips(self, Pin, Tin):
         if np.size(Pin) == 1 and np.size(Tin) == 1:
-            return np.array([(Pin, Tin, self.w_ppt)], dtype='f,f').astype(object)
+            return np.array([(Pin, Tin, self.m_molal)], dtype='f,f').astype(object)
         elif np.size(Pin) == 1:
-            return np.array([(Pin, T, self.w_ppt) for T in Tin], dtype='f,f').astype(object)
+            return np.array([(Pin, T, self.m_molal) for T in Tin], dtype='f,f').astype(object)
         elif np.size(Tin) == 1:
-            return np.array([(P, Tin, self.w_ppt) for P in Pin], dtype='f,f').astype(object)
+            return np.array([(P, Tin, self.m_molal) for P in Pin], dtype='f,f').astype(object)
         elif np.size(Pin) == np.size(Tin):
-            return np.array([(P, T, self.w_ppt) for P, T in zip(Pin, Tin)], dtype='f,f').astype(object)
+            return sfPTmTrips(Pin, Tin, self.m_molal)
         else:
-            log.warning('2D array as input to SeaFreeze phase finder, but 1D array will be output.')
-            return np.array([(P, T, self.w_ppt) for T in Tin for P in Pin], dtype='f,f').astype(object)
+            log.warning('2D array as input to SeaFreeze phase finder when 1D array was expected. A 2D array will be output.')
+            return sfPTmGrid(Pin, Tin, self.m_molal)
 
-    def __call__(self, P_MPa, T_K):
-        if self.w_ppt == 0:
-            PTm = self.PTpairs(P_MPa, T_K)
+    def __call__(self, P_MPa, T_K, grid=False):
+        if grid:
+            if self.w_ppt == 0:
+                PTm = sfPTgrid(P_MPa, T_K)
+            else:
+                PTm = sfPTmGrid(P_MPa, T_K, self.m_molal)
         else:
-            PTm = self.PTmtrips(P_MPa, T_K)
+            if self.w_ppt == 0:
+                PTm = self.PTpairs(P_MPa, T_K)
+            else:
+                PTm = self.PTmTrips(P_MPa, T_K)
         return WhichPhase(PTm, solute=self.comp).astype(np.int_)
-
+    
+class RGIwrap:
+    """ Creates a wrapper for passing P, T arguments as a tuple to RegularGridInterpolator """
+    def __init__(self, RGIfunc):
+        self.RGIfunc = RGIfunc
+        
+    def __call__(self, P_MPa, T_K, grid=False):
+        if grid:
+            P_MPa, T_K = np.meshgrid(P_MPa, T_K, indexing='ij')
+        return (self.RGIfunc((P_MPa, T_K)))
+        
 
 class SFSeismic:
     """ Creates a function call for returning seismic properties of depth profile for SeaFreeze solutions. """
@@ -545,13 +568,16 @@ class SFSeismic:
         self.ufn_VP_kms = RectBivariateSpline(P_MPa, T_K, seaOut.vel * 1e-3)
         self.ufn_KS_GPa = RectBivariateSpline(P_MPa, T_K, seaOut.Ks * 1e-3)
 
-    def __call__(self, P_MPa, T_K):
-        return self.ufn_VP_kms(P_MPa, T_K, grid=False), self.ufn_KS_GPa(P_MPa, T_K, grid=False)
+    def __call__(self, P_MPa, T_K, grid=False):
+        return self.ufn_VP_kms(P_MPa, T_K, grid=grid), self.ufn_KS_GPa(P_MPa, T_K, grid=grid)
 
 
 class H2Osigma_Sm:
     def __call__(self, P_MPa, T_K, grid=False):
-        return np.zeros_like(P_MPa) + Constants.sigmaH2O_Sm
+        if grid:
+            return np.zeros((np.size(P_MPa), np.size(T_K))) + Constants.sigmaH2O_Sm
+        else:
+            return np.zeros_like(P_MPa) + Constants.sigmaH2O_Sm
 
 
 class IceSeismic:
@@ -559,15 +585,19 @@ class IceSeismic:
         self.phase = phaseStr
         self.EXTRAP = EXTRAP
 
-    def __call__(self, P_MPa, T_K):
+    def __call__(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             # Set extrapolation boundaries to limits defined in SeaFreeze
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, 0, 2300, 200, 355)
-        seaOut = SeaFreeze(sfPTpairs(P_MPa, T_K), self.phase)
+        if grid:
+            PT = sfPTgrid(P_MPa, T_K)
+        else:
+            PT = sfPTpairs(P_MPa, T_K)
+        seaOut = SeaFreeze(PT, self.phase)
         return seaOut.Vp * 1e-3, seaOut.Vs * 1e-3,  seaOut.Ks * 1e-3, seaOut.shear * 1e-3
 
 
-def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0, PUpper_MPa=300, PRes_MPa=0.1, UNDERPLATE=None,
+def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0.1, PUpper_MPa=300, PRes_MPa=0.1, UNDERPLATE=None,
                ALLOW_BROKEN_MODELS=False, DO_EXPLOREOGRAM=False):
     """ Returns the pressure at which ice changes phase based on temperature, salinity, and composition
 

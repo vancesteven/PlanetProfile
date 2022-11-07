@@ -346,12 +346,17 @@ class EOSwrapper:
             self.phaseID = EOSlist.loaded[self.key].phaseID
             self.POROUS = EOSlist.loaded[self.key].POROUS
         elif EOSlist.loaded[self.key].EOStype == 'ocean':
+            self.Pmin = EOSlist.loaded[self.key].Pmin
             self.Pmax = EOSlist.loaded[self.key].Pmax
+            self.Tmin = EOSlist.loaded[self.key].Tmin
+            self.Tmax = EOSlist.loaded[self.key].Tmax
+            self.comp = EOSlist.loaded[self.key].comp
+            self.w_ppt = EOSlist.loaded[self.key].w_ppt
         elif EOSlist.loaded[self.key].EOStype == 'inner':
             self.comp = EOSlist.loaded[self.key].comp
 
-    def fn_phase(self, P_MPa, T_K):
-        return EOSlist.loaded[self.key].fn_phase(P_MPa, T_K)
+    def fn_phase(self, P_MPa, T_K, grid=False):
+        return EOSlist.loaded[self.key].fn_phase(P_MPa, T_K, grid=grid)
     def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_rho_kgm3(P_MPa, T_K, grid=grid)
     def fn_Cp_JkgK(self, P_MPa, T_K, grid=False):
@@ -372,10 +377,10 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].fn_phi_frac(P_MPa, T_K, grid=grid)
     def fn_porosCorrect(self, propBulk, propPore, phi, J):
         return EOSlist.loaded[self.key].fn_porosCorrect(propBulk, propPore, phi, J)
-    def fn_sigma_Sm(self, P_MPa, T_K):
-        return EOSlist.loaded[self.key].fn_sigma_Sm(P_MPa, T_K)
-    def fn_Seismic(self, P_MPa, T_K):
-        return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K)
+    def fn_sigma_Sm(self, P_MPa, T_K, grid=False):
+        return EOSlist.loaded[self.key].fn_sigma_Sm(P_MPa, T_K, grid=grid)
+    def fn_Seismic(self, P_MPa, T_K, grid=False):
+        return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K, grid=grid)
 
 
 def ResetNearestExtrap(var1, var2, min1, max1, min2, max2):
@@ -411,12 +416,15 @@ class ReturnZeros:
         self.nVar = nVar
 
     def __call__(self, P, T, grid=False):
-        nPs = np.size(P)
-        nTs = np.size(T)
-        if self.nVar > 1:
-            out = (np.zeros(np.maximum(nPs, nTs)) for _ in range(self.nVar))
+        if grid:
+            out = np.zeros((np.size(P), np.size(T)))
         else:
-            out = np.zeros(np.maximum(nPs, nTs))
+            nPs = np.size(P)
+            nTs = np.size(T)
+            if self.nVar > 1:
+                out = (np.zeros(np.maximum(nPs, nTs)) for _ in range(self.nVar))
+            else:
+                out = np.zeros(np.maximum(nPs, nTs))
         return out
 
 
@@ -454,7 +462,7 @@ def GetphiFunc(porosType, phiTop_frac, Pclosure_MPa, PREMlookup, P1D_MPa, T1D_K)
 
     # Get 2D grids of P, T values for constructing T-independent functions
     # of porosity
-    P2D_MPa, T2D_MPa = np.meshgrid(P1D_MPa, T1D_K, indexing='ij')
+    P2D_MPa, T2D_K = np.meshgrid(P1D_MPa, T1D_K, indexing='ij')
 
     if porosType == 'Han2014':
         # Han et al. (2014) porosity model: https://doi.org/10.1002/2014GL059378

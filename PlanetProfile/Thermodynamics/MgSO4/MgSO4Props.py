@@ -31,10 +31,10 @@ def Ppt2molal(w_ppt, m_gmol):
     """ Convert dissolved salt concentration from ppt to molal
 
         Args:
-            b_molkg (float, shape N): Concentration(s) in mol/kg (molal)
+            w_ppt (float, shape N): Corresponding concentration(s) in ppt by mass
             m_gmol (float, shape 1 or shape N): Molecular weight of solute in g/mol
         Returns:
-            w_ppt (float, shape N): Corresponding concentration(s) in ppt by mass
+            b_molkg (float, shape N): Concentration(s) in mol/kg (molal)
     """
     m_kgmol = m_gmol / 1e3
     w_frac = w_ppt / 1e3
@@ -292,7 +292,7 @@ class MgSO4PhaseLookup:
         self.fLookup = os.path.join(_ROOT, 'Thermodynamics','MgSO4','phaseLookupMgSO4.mat')
         if self.fLookup in EOSlist.loaded.keys():
             log.debug('MgSO4 phase lookup table already loaded. Reusing previously loaded table.')
-            self.fn_phase = EOSlist.loaded[self.fLookup]
+            self.fn_phaseRGI = EOSlist.loaded[self.fLookup]
             self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax = EOSlist.ranges[self.fLookup]
         else:
             log.debug(f'Loading MgSO4 phase lookup table at {self.fLookup}.')
@@ -302,11 +302,11 @@ class MgSO4PhaseLookup:
             self.Tmin = np.min(fMgSO4phase['T_K'][0])
             self.Tmax = np.max(fMgSO4phase['T_K'][0])
             self.wMax = np.max(fMgSO4phase['w_ppt'][0])
-            self.fn_phase = RegularGridInterpolator((fMgSO4phase['P_MPa'][0], fMgSO4phase['T_K'][0],
+            self.fn_phaseRGI = RegularGridInterpolator((fMgSO4phase['P_MPa'][0], fMgSO4phase['T_K'][0],
                                                      fMgSO4phase['w_ppt'][0]), fMgSO4phase['phase'],
                                                      method='nearest', bounds_error=False, fill_value=None)
 
-            EOSlist.loaded[self.fLookup] = self.fn_phase
+            EOSlist.loaded[self.fLookup] = self.fn_phaseRGI
             EOSlist.ranges[self.fLookup] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax)
 
         if self.w_ppt > self.wMax:
@@ -314,25 +314,27 @@ class MgSO4PhaseLookup:
                         f'max w_ppt of {self.wMax:.1f} from the Margules lookup table ' +
                         f'at {self.fLookup}.')
 
-    def __call__(self, P_MPa, T_K):
+    def __call__(self, P_MPa, T_K, grid=False):
         nPs = np.size(P_MPa)
         nTs = np.size(T_K)
-        if nPs == 1 and nTs == 1:
-            evalPts = np.array([P_MPa, T_K, self.w_ppt])
+        if grid:
+            evalPts = tuple(np.meshgrid(P_MPa, T_K, self.w_ppt, indexing='ij'))
         else:
-            if nPs == nTs:
-                evalPts = np.array([[P, T, self.w_ppt] for P, T in zip(P_MPa, T_K)])
-            elif nPs == 1:
-                evalPts = np.array([[P_MPa, T, self.w_ppt] for T in T_K])
-            elif nTs == 1:
-                evalPts = np.array([[P, T_K, self.w_ppt] for P in P_MPa])
+            if nPs == 1 and nTs == 1:
+                evalPts = np.array([P_MPa, T_K, self.w_ppt])
             else:
-                raise ValueError(f'Length {nPs} array of P values does not match ' +
-                                 f'length {nTs} array of T values. Grids are not supported.')
+                if nPs == nTs:
+                    evalPts = np.array([[P, T, self.w_ppt] for P, T in zip(P_MPa, T_K)])
+                elif nPs == 1:
+                    evalPts = np.array([[P_MPa, T, self.w_ppt] for T in T_K])
+                elif nTs == 1:
+                    evalPts = np.array([[P, T_K, self.w_ppt] for P in P_MPa])
+                else:
+                    log.warning(f'Length {nPs} array of P values does not match ' +
+                                f'length {nTs} array of T values. A 2D grid will be output.')
+                    evalPts = tuple(np.meshgrid(P_MPa, T_K, self.w_ppt, indexing='ij'))
 
-        phase = self.fn_phase(evalPts)
-
-        return phase
+        return np.squeeze(self.fn_phaseRGI(evalPts))
 
 
 class MgSO4Seismic:
@@ -371,7 +373,7 @@ class MgSO4Seismic:
                             f'max w_ppt of {self.wMax:.1f} from the seismic lookup table ' +
                             f'at {self.fLookup}.')
 
-    def __call__(self, P_MPa, T_K):
+    def __call__(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             newP_MPa, newT_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
             if not self.WARNED and (not np.all(newP_MPa == P_MPa)) and (not np.all(newT_K == T_K)):
@@ -382,9 +384,12 @@ class MgSO4Seismic:
                 self.WARNED = True
                 P_MPa = newP_MPa
                 T_K = newT_K
-        evalPts = np.array([[self.w_ppt, P, T] for P, T in zip(P_MPa, T_K)])
-        VP_kms = self.fn_VP_kms(evalPts)
-        KS_GPa = self.fn_KS_GPa(evalPts)
+        if grid:
+            evalPts = tuple(np.meshgrid(self.w_ppt, P_MPa, T_K))
+        else:
+            evalPts = np.array([[self.w_ppt, P, T] for P, T in zip(P_MPa, T_K)])
+        VP_kms = np.squeeze(self.fn_VP_kms(evalPts))
+        KS_GPa = np.squeeze(self.fn_KS_GPa(evalPts))
         return VP_kms, KS_GPa
 
 

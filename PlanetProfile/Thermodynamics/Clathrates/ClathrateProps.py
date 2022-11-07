@@ -184,7 +184,12 @@ class ClathSeismic:
             KS_GPa (float, shape N): Bulk modulus in GPa.
             GS_GPa (float, shape N): Shear modulus in GPa.
     """
-    def __call__(self, P_MPa, T_K):
+    def __call__(self, Pin_MPa, Tin_K, grid=False):
+        if grid:
+            P_MPa, T_K = np.meshgrid(Pin_MPa, Tin_K, indexing='ij')
+        else:
+            P_MPa = Pin_MPa
+            T_K = Tin_K
         T_C = T_K - Constants.T0
         VP_kms = (-1.84*T_C + 0.31*P_MPa + 3766) * 1e-3
         VS_kms = (-0.892*T_C - 0.1*P_MPa + 1957) * 1e-3

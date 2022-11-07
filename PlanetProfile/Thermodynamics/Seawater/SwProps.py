@@ -84,7 +84,7 @@ def gswDensity_kgm3(wOcean_ppt, CT_C, SP_dbar, DO_1D=False):
     if DO_1D:
         rho_kgm3 = np.array([rho(wOcean_ppt, CT_C[i], SP_dbar[i]) for i in range(np.size(SP_dbar))])
     else:
-        rho_kgm3 = np.array([rho(wOcean_ppt, CT_C[i,:], SP_dbar[i]) for i in range(np.size(SP_dbar))])
+        rho_kgm3 = np.array([rho(wOcean_ppt, CT_C[i,:], SP_dbar[i]) for i in range(np.shape(SP_dbar)[0])])
     return rho_kgm3
 
 
@@ -147,15 +147,18 @@ class SwPhase:
     def __init__(self, wOcean_ppt):
         self.w_ppt = wOcean_ppt
 
-    def __call__(self, P_MPa, T_K):
-        P_MPa = np.array(P_MPa)
-        T_K = np.array(T_K)
-        if(np.size(P_MPa)==0 or np.size(T_K)==0):
-            # If input is empty, return empty array
-            return np.array([])
-        elif((np.size(P_MPa) != np.size(T_K)) and not (np.size(P_MPa)==1 or np.size(T_K)==1)):
-            # If arrays are different lengths, they are probably meant to get a 2D output
+    def __call__(self, P_MPa, T_K, grid=False):
+        if grid:
             P_MPa, T_K = np.meshgrid(P_MPa, T_K, indexing='ij')
+        else:
+            P_MPa = np.array(P_MPa)
+            T_K = np.array(T_K)
+            if(np.size(P_MPa)==0 or np.size(T_K)==0):
+                # If input is empty, return empty array
+                return np.array([])
+            elif((np.size(P_MPa) != np.size(T_K)) and not (np.size(P_MPa)==1 or np.size(T_K)==1)):
+                # If arrays are different lengths, they are probably meant to get a 2D output
+                P_MPa, T_K = np.meshgrid(P_MPa, T_K, indexing='ij')
 
         # 1. Convert to "sea pressure" and T in celsius as needed for GSW input
         # 2. Subtract the freezing temperature from the input temperature
@@ -170,15 +173,18 @@ class SwSeismic:
         self.w_ppt = wOcean_ppt
         self.EXTRAP = EXTRAP
 
-    def __call__(self, P_MPa, T_K):
+    def __call__(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             # Set extrapolation boundaries to limits inferred from GSW
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, 0, 200, 250, 365)
+
         T_C = T_K - Constants.T0
         SP_dbar = MPa2seaPressure(P_MPa)
-        CT_C = gswT2conservT(self.w_ppt, T_C, SP_dbar, DO_1D=True)
+        CT_C = gswT2conservT(self.w_ppt, T_C, SP_dbar, DO_1D=not grid)
+        if grid:
+            SP_dbar, _ = np.meshgrid(SP_dbar, T_K, indexing='ij')
         VP_kms = gswVP_ms(self.w_ppt, CT_C, SP_dbar) * 1e-3  # 1e-3 to convert from m/s to km/s
-        KS_GPa = gswDensity_kgm3(self.w_ppt, CT_C, SP_dbar, DO_1D=True) * VP_kms**2 * 1e-3  # 1e-3 because (km/s)^2 * (kg/m^3) gives units of MPa, so 1e-3 to convert to GPa
+        KS_GPa = gswDensity_kgm3(self.w_ppt, CT_C, SP_dbar, DO_1D=not grid) * VP_kms**2 * 1e-3  # 1e-3 because (km/s)^2 * (kg/m^3) gives units of MPa, so 1e-3 to convert to GPa
         return VP_kms, KS_GPa
 
 
@@ -195,6 +201,8 @@ class SwConduct:
         SP_dbar = MPa2seaPressure(P_MPa)
         # GSW C_from_SP function (gswConduct) returns mS/cm, so we
         # multiply by 0.1 to get S/m
+        if grid:
+            SP_dbar, T_C = np.meshgrid(SP_dbar, T_C, indexing='ij')
         return gswConduct_mScm(self.PracSalin, T_C, SP_dbar) * 0.1
 
 
