@@ -10,15 +10,19 @@
 #	Designed for accessibility for new users and ease of use for advanced users.
 # 
 # AUTHOR: Marshall J. Styczinski (itsmoosh@gmail.com), 2018-07-03
-#	Last updated 2022-01-01
+#	Last updated 2022-11-06
 
 SHELL := /bin/bash
 
 # Set to 0 for PlanetProfile versions using Refprop
 refprop=1
 
-mbodies="Ariel" "Callisto" "Enceladus" "Europa" "Ganymede" "Miranda" "Titan" "Triton" "Test"
+mbodies="Ariel" "Callisto" "Dione" "Enceladus" "Europa" "Ganymede" "Io" "Mimas" "Miranda" "Oberon" "Pluto" "Rhea" "Titan" "Titania" "Triton" "Umbriel" "PlanetProfile/Test"
+comp="Comparison"
 figs="figures"
+inductfigs="induction"
+inductdata="inductionData"
+seisdata="seismicData"
 cdpp=cd $(shell pwd)
 
 foundmatlab=1
@@ -75,9 +79,19 @@ clean:
 	@bodies=($(mbodies)) ; \
 	echo "Clearing data and figure files for:" $${bodies[@]} ; \
 	for body in $${bodies[@]} ; do \
+		if [ "$$body" = "PlanetProfile/Test" ] ; then \
+			bname="Test" ; \
+		else \
+			bname=$$body ; \
+		fi ; \
 		rm -f $$body/*.dat $$body/*.txt $$body/*.mat $$body/*.asv ; \
+		rm -f $$body/$(inductdata)/*.dat $$body/$(inductdata)/$(bname)*.mat $$body/$(inductdata)/*.asv ; \
+		rm -fd $$body/$(seisdata)/*.bm $$body/$(seisdata)/*/velmodel $$body/$(seisdata)/*/yannos.dat $$body/$(seisdata)/$(bname)* ; \
 		rm -f $$body/$(figs)/*.eps $$body/$(figs)/*.fig $$body/$(figs)/*.png $$body/$(figs)/*.pdf ; \
-	done
+		rm -f $$body/$(figs)/$(inductfigs)/*.eps $$body/$(figs)/$(inductfigs)/*.fig $$body/$(figs)/$(inductfigs)/*.png $$body/$(figs)/$(inductfigs)/*.pdf ; \
+	done ; \
+	rm -f $(comp)/*.eps $(comp)/*.fig $(comp)/*.png $(comp)/*.pdf ; \
+	rm -f $(comp)/$(inductfigs)/*.eps $(comp)/$(inductfigs)/*.fig $(comp)/$(inductfigs)/*.png $(comp)/$(inductfigs)/*.pdf
 
 install:
 # Copy Refprop files and libraries into system folders
