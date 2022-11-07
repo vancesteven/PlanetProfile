@@ -86,7 +86,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         meltEOS = oceanEOS
     else:
         meltEOS = GetOceanEOS('PureH2O', 0.0, Pmelt_MPa,
-                               np.arange(Tconv_K, Tb_K+5, 0.05), None,
+                               np.arange(Tconv_K, Tb_K+25, 0.05), None,
                                phaseType='calc', MELT=True)
     Tmelt_K = GetTfreeze(meltEOS, Pmid_MPa, Tconv_K, TfreezeRange_K=Tb_K+20-Tconv_K)
     etaConv_Pas = Constants.etaMelt_Pas[phaseMid] * np.exp(A * (Tmelt_K/Tconv_K - 1))
