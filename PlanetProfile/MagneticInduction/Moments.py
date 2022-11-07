@@ -18,9 +18,9 @@ class InductionStruct:
         self.rhoSilMean_kgm3 = None  # Values of Sil.rhoMean_kgm3 resulted (also equal to those set for all but phi inductOtype).
         self.phiSilMax_frac = None  # Values of Sil.phiRockMax_frac set.
         self.Tmean_K = None  # Ocean mean temperature result in K.
-        self.sigmaMean_Sm = None  # Mean ocean conductivity. Used to map plots vs. salinity onto D/σ plots.
-        self.sigmaTop_Sm = None  # Ocean top conductivity. Used to map plots vs. salinity onto D/σ plots.
-        self.D_km = None  # Ocean layer thickness in km. Used to map plots vs. salinity onto D/σ plots.
+        self.sigmaMean_Sm = None  # Mean ocean conductivity. Used to map plots vs. salinity onto D/sigma plots.
+        self.sigmaTop_Sm = None  # Ocean top conductivity. Used to map plots vs. salinity onto D/sigma plots.
+        self.D_km = None  # Ocean layer thickness in km. Used to map plots vs. salinity onto D/sigma plots.
         self.zb_km = None  # Upper ice shell thickness in km.
         self.R_m = None  # Body radius in m, used to scale amplitudes.
         self.rBds_m = None  # Conducting layer upper boundaries in m.

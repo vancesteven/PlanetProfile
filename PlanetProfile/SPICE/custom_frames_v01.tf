@@ -59,7 +59,7 @@ References
     7. Cassini 11 model for Saturn:
        Dougherty, M.K., Cao, H., Khurana, K.K., Hunt, G.J., Provan, G.,
        Kellock, S., Burton, M.E., Burk, T.A., Bunce, E.J., Cowley, S.W. and
-       Kivelson, M.G., 2018. Saturn’s magnetic field revealed by the Cassini
+       Kivelson, M.G., 2018. Saturn's magnetic field revealed by the Cassini
        Grand Finale. Science, 362(6410), p.eaat5434.
        https://doi.org/10.1126/science.aat5434
     

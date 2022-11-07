@@ -230,7 +230,7 @@ def CalcAsymContours(Planet, Params):
                 desc = f'{zMean_km:.1f} km depth'
             else:
                 desc = f'{abs(zMean_km):.1f} km altitude'
-            log.debug(f'Calculating topographic data for zMean = {desc} with {360/FigMisc.nLonMap:.1f}° resolution. This may take some time.')
+            log.debug(f'Calculating topographic data for zMean = {desc} with {360/FigMisc.nLonMap:.1f} deg resolution. This may take some time.')
             if (i == Planet.Magnetic.nAsymBds - 1 and Planet.Magnetic.ionosBounds_m is None) or zMean_km == 0:
                 rSurf_m = np.real(GetrSurf(Planet.Magnetic.pLin, Planet.Magnetic.qLin, Planet.Magnetic.gravShape_m[iLayer, ...],
                                            Planet.Bulk.R_m, FigMisc.thetaMap_rad, FigMisc.phiMap_rad,
@@ -419,7 +419,7 @@ def SetupInduction(Planet, Params):
                     rOcean_m = np.linspace(rBot_m, rTop_m, Params.Induct.nIntL+1)[1:]
                     # Interpolate the conductivities corresponding to those radii
                     sigmaOcean_Sm = spi.interp1d(rLayers_m[indsLiq], sigmaInduct_Sm[indsLiq], kind=Params.Induct.oceanInterpMethod)(rOcean_m)
-                    # Stitch together the r and σ arrays with the new ocean values
+                    # Stitch together the r and sigma arrays with the new ocean values
                     rLayers_m = np.concatenate((rLayers_m[:indsLiq[0]], rOcean_m, rLayers_m[indsLiq[-1]+1:]))
                     sigmaInduct_Sm = np.concatenate((sigmaInduct_Sm[:indsLiq[0]], sigmaOcean_Sm, sigmaInduct_Sm[indsLiq[-1]+1:]))
 
@@ -629,8 +629,8 @@ def SetGravShape(Planet, Params):
     H2s_m = hf * S2q * Planet.Bulk.R_m
 
     # These are the UNNORMALIZED deformation terms. They are incorrectly labeled as Schmidt semi-
-    # normalized coefficients in Styczinski et al. (2021). To get the 4π-normalized terms we need to use
-    # calculations from MoonMag from the unnormalized ones, we need to divide by the 4π-normalization factor:
+    # normalized coefficients in Styczinski et al. (2021). To get the 4pi-normalized terms we need to use
+    # calculations from MoonMag from the unnormalized ones, we need to divide by the 4pi-normalization factor:
     H2c_4pi_m = [H2c_m[q] / normFactor_4pi(p, q) for q in range(p+1)]
     H2s_4pi_m = [H2s_m[q] / normFactor_4pi(p, q) for q in range(p+1)]
     # Convert to fully normalized, complex coefficients with Condon-Shortley phase
@@ -698,7 +698,7 @@ def SetAsymShape(Planet, Params):
             Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, Planet.Magnetic.pMax+1, Planet.Magnetic.pMax+1),
                                                  dtype=np.complex_)
 
-            # Convert 4π-normalized depth coefficients in km to fully normalized radial and in m
+            # Convert 4pi-normalized depth coefficients in km to fully normalized radial and in m
             for p in range(1, Planet.Magnetic.pMax+1):
                 iMin = int(p * (p+1) / 2)
                 iMax = iMin + p+1
@@ -753,7 +753,7 @@ def SetAsymShape(Planet, Params):
             rAsym_m = Planet.Bulk.R_m - Cpq_km[i][0] * 1e3
             radDiff = Planet.Magnetic.rSigChange_m - rAsym_m
             iLayer = np.argmin(abs(radDiff))
-            # Convert 4π-normalized depth coefficients in km to fully normalized radial and in m
+            # Convert 4pi-normalized depth coefficients in km to fully normalized radial and in m
             Planet.Magnetic.asymShape_m[iLayer, 0, 0, 0] = Planet.Magnetic.rSigChange_m[iLayer]
             for p in range(1, pMax+1):
                 iMin = int(p * (p+1) / 2)
@@ -791,7 +791,7 @@ def SetAsymShape(Planet, Params):
 
 
 def normFactor_4pi(n, m):
-    """ Calculate the normalization factor for 4π-normalized spherical harmonics,
+    """ Calculate the normalization factor for 4pi-normalized spherical harmonics,
         without the Condon-Shortley phase, as needed for shape calculations that make
         use of infrastructure from MoonMag.
     """

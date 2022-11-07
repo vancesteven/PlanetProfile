@@ -426,7 +426,7 @@ def SetupLayers(Planet):
 def SetCMR2strings(Planet):
     # Create strings to describe input MoI in terminal outputs and plots/tables
     if Planet.Bulk.CuncertaintyLower == Planet.Bulk.CuncertaintyUpper:
-        Planet.CMR2strPrint = f'{Planet.Bulk.Cmeasured:.4f} ± {Planet.Bulk.CuncertaintyLower:.4f}'
+        Planet.CMR2strPrint = f'{Planet.Bulk.Cmeasured:.4f} +/- {Planet.Bulk.CuncertaintyLower:.4f}'
         Planet.CMR2str = f'{Planet.Bulk.Cmeasured}\pm{Planet.Bulk.CuncertaintyLower}'
         Planet.CMR2str5 = f'{Planet.Bulk.Cmeasured:.5f}\pm{Planet.Bulk.CuncertaintyLower:.5f}'
     else:

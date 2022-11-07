@@ -1086,7 +1086,7 @@ class FigLblStruct:
         self.PFULL_IN_GPa = True  # Whether to print P in GPa (or MPa) for full-body plots
         self.PHYDRO_IN_bar = False  # Whether to print P in bar (or MPa) for hydrosphere plots
         self.w_IN_WTPCT = False  # Whether to print salinities in wt% (or g/kg) in tables
-        self.T_IN_C = False  # Whether to print T in °C (or K) in plots
+        self.T_IN_C = False  # Whether to print T in deg C (or K) in plots
         self.x_IN_MOLPCT = True  # Whether to print silicate/core mass fractions in mol% (or fractional) in tables
         self.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
         self.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
