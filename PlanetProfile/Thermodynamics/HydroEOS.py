@@ -127,9 +127,10 @@ class OceanEOSStruct:
                 kTherm_WmK = np.zeros_like(alpha_pK) + Constants.kThermWater_WmK  # Placeholder until we implement a self-consistent calculation
 
                 if self.PHASE_LOOKUP:
-                    self.phase = WhichPhase(PTgrid, solute='water1')
+                    self.phase = WhichPhase(PTgrid)  # Use default comp of water1. This is not robust, but allows support for in-development updates to SeaFreeze.
                     # Create phase finder -- note that the results from this function must be cast to int after retrieval
-                    self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'))
+                    self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'),
+                                             self.deltaP, self.deltaT)
                 else:
                     self.ufn_phase = SFphase(self.w_ppt, self.comp)
 
@@ -182,7 +183,8 @@ class OceanEOSStruct:
                 if self.PHASE_LOOKUP:
                     self.phase = WhichPhase(PTmgrid, solute='NH3')
                     # Create phase finder -- note that the results from this function must be cast to int after retrieval
-                    self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'))
+                    self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'),
+                                             self.deltaP, self.deltaT)
                 else:
                     self.ufn_phase = SFphase(self.w_ppt, self.comp)
 
@@ -324,7 +326,8 @@ class IceEOSStruct:
 
                 # Create phase finder -- note that the results from this function must be cast to int after retrieval
                 # Returns either Constants.phaseClath (stable) or 0 (not stable), making it compatible with GetTfreeze
-                self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'))
+                self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'),
+                                         self.deltaP, self.deltaT)
                 self.ufn_Seismic = ClathSeismic()
             else:
                 # Get tabular data from SeaFreeze for all other ice phases
@@ -535,22 +538,25 @@ class SFphase:
             return sfPTmGrid(Pin, Tin, self.m_molal)
 
     def __call__(self, P_MPa, T_K, grid=False):
-        if grid:
-            if self.w_ppt == 0:
-                PTm = sfPTgrid(P_MPa, T_K)
+        if self.comp == 'water1':
+            if grid:
+                PT = sfPTgrid(P_MPa, T_K)
             else:
-                PTm = sfPTmGrid(P_MPa, T_K, self.m_molal)
+                PT = self.PTpairs(P_MPa, T_K)
+            return WhichPhase(PT).astype(np.int_)
         else:
-            if self.w_ppt == 0:
-                PTm = self.PTpairs(P_MPa, T_K)
+            if grid:
+                PTm = sfPTmGrid(P_MPa, T_K, self.m_molal)
             else:
                 PTm = self.PTmTrips(P_MPa, T_K)
-        return WhichPhase(PTm, solute=self.comp).astype(np.int_)
+            return WhichPhase(PTm, solute=self.comp).astype(np.int_)
     
 class RGIwrap:
     """ Creates a wrapper for passing P, T arguments as a tuple to RegularGridInterpolator """
-    def __init__(self, RGIfunc):
+    def __init__(self, RGIfunc, deltaP, deltaT):
         self.RGIfunc = RGIfunc
+        self.deltaP = deltaP
+        self.deltaT = deltaT
         
     def __call__(self, P_MPa, T_K, grid=False):
         if grid:
