@@ -32,7 +32,7 @@ if plat == 'Windows':
     mtpType = 'spawn'
 else:
     mtpType = 'fork'
-mtpContext = mtp.get_context('fork')
+mtpContext = mtp.get_context(mtpType)
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
