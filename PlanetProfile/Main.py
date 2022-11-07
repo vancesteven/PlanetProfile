@@ -611,6 +611,8 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     Planet.z_m = Planet.Bulk.R_m - Planet.r_m
     Planet.phase = Planet.phase.astype(np.int_)
     Planet = SetCMR2strings(Planet)
+    if np.sum(Planet.phase == 0) < 10:
+        Planet.THIN_OCEAN = True
 
     # Read in data for core/mantle trade
     Planet.Sil.Rtrade_m, Planet.Core.Rtrade_m, Planet.Sil.rhoTrade_kgm3, \

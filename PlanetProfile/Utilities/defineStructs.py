@@ -492,6 +492,7 @@ class PlanetStruct:
         self.MclathGas_kg = None  # Total mass of non-water molecules trapped in clathrates
         self.index = None  # Numeric indicator to aid in progress info in multi-model runs
         self.compStr = None  # Latex string for describing ocean comp to humans in tables
+        self.THIN_OCEAN = False  # Flag for when we have to adjust ocean layering so that it's not a single layer
         # Layer thicknesses for table printout
         self.zIceI_m = np.nan
         self.zClath_km = np.nan  # Note this one breaks with the pattern because zClath_m is already in use.
@@ -873,7 +874,8 @@ class ColorStruct:
 
         # Wedge diagram color options
         self.none = '#FFFFFF00'
-        self.wedgeBd = 'black'
+        self.wedgeBd = None
+        self.wedgeMarkRadii = None
         self.ionoCmapName = None
         self.ionoTop = None
         self.ionoBot = None
@@ -1043,6 +1045,8 @@ class StyleStruct:
         self.TS_ticks = None  # Text size in pt for tick marks on radius scale
         self.TS_desc = None  # Text size in pt for model description and label
         self.TS_super = None  # Text size in pt for overall ("suptitle") label with multiple wedges
+        self.LS_markRadii = None  # Linestyle for radii mark line when toggled on
+        self.LW_markRadii = None  # Linewidth for radii mark line when toggled on
 
         # Complex dipole plots
         self.MW_dip = {}  # Marker size for each period in complex dipole plots
@@ -1625,7 +1629,8 @@ class FigMiscStruct:
         self.SCALE_HYDRO_LW = True  # Whether to adjust thickness of lines on hydrosphere plot according to relative salinity
         self.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
         self.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
-        self.TminHydro = 200  # Minimum temperature to display on hydrosphere plots
+        self.TminHydro = None  # Minimum temperature to display on hydrosphere plots
+        self.PHASE_LABELS = False  # Whether to print phase labels on density plots
 
         # Wedge diagrams
         self.IONOSPHERE_IN_WEDGE = False  # Whether to include specified ionosphere in wedge diagram
@@ -1635,6 +1640,7 @@ class FigMiscStruct:
         self.DRAW_POROUS_BOUND = False  # Whether to draw a boundary line between porous and non-porous materials
         self.DRAW_FeS_BOUND = False  # Whether to draw a boundary line between Fe and FeS in the core
         self.minzbRratio_frac = None  # Fraction of total body radius for ice shell and ocean thickness, above which ice shell ticks will automatically switch on (overrides WEDGE_ICE_TICKS)
+        self.MARK_RADII = False  # Whether to add a marker line from radius labels to layer arc
 
         # Hydrosphere PT diagrams
         self.PT_RASTER = False  # Whether to rasterize gridded information in PT plots and phase diagrams. Dramatically speeds up figure creation time and reduces file size, but renders gridded data grainy upon zoom-in.
@@ -1645,6 +1651,7 @@ class FigMiscStruct:
         self.PminHydro_MPa = None  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa
         self.TminHydro_K = None  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K
         self.hydroPhaseSize = None  # Font size of label for phase in phase diagram
+        self.TS_hydroLabels = None  # Font size for hydrosphere phase labels in pt
 
         # Silicate/core PT diagrams
         self.nTgeo = None  # Number of temperature points to evaluate/plot for PT property plots

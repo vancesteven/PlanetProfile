@@ -8,7 +8,7 @@ from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Plotting.PTPlots import PlotHydroPhase, PlotPvThydro, PlotPvTPerpleX
 from PlanetProfile.Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
-from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices
+from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices, PhaseConv
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Utilities.defineStructs import Constants
 
@@ -267,9 +267,41 @@ def PlotHydrosphereProps(PlanetList, Params):
     # Limit Tmin so the relevant plot can better show what's going on in the ocean
     axTz.set_xlim(left=FigMisc.TminHydro)
 
+    if FigMisc.PHASE_LABELS:
+        # Label the phases found in the hydrosphere
+        phases = np.concatenate([Planet.phase[:Planet.Steps.nHydro] for Planet in PlanetList])
+        Pall_MPa = np.concatenate([Planet.P_MPa[:Planet.Steps.nHydro] for Planet in PlanetList])
+        rhoAll_kgm3 = np.concatenate([Planet.rho_kgm3[:Planet.Steps.nHydro] for Planet in PlanetList])
+        phaseList = np.unique(phases)
+        for phase in phaseList:
+            if phase < 0 or (phase == 1 and np.any([Planet.Do.POROUS_ICE for Planet in PlanetList])) \
+                    or (phase == 5 and np.all([Planet.THIN_OCEAN for Planet in PlanetList])):
+                # Underplate layers. Set text on the left side
+                adj = -30
+            else:
+                adj = 30
+
+            if phase == 0:
+                loc = np.where(Pall_MPa == np.min(Pall_MPa[phases == 0]))[0]
+                if np.size(loc) > 1: loc = loc[0]
+                # Shift label closer in the case of a thin ocean, where the curve will be short
+                if np.all([Planet.THIN_OCEAN for Planet in PlanetList]):
+                    adj2 = -adj
+                else:
+                    adj2 = 0
+                axPrho.text(rhoAll_kgm3[loc] + 3*adj + adj2, (Pall_MPa[loc] + adj)*FigLbl.PmultHydro,
+                            'liquid', ha='center', va='center', fontsize=FigLbl.TS_hydroLabels)
+            else:
+                rhomin = np.min(rhoAll_kgm3[phases==phase])
+                rhomax = np.max(rhoAll_kgm3[phases==phase])
+                Pmin = np.min(Pall_MPa[phases==phase])
+                Pmax = np.max(Pall_MPa[phases==phase])
+                axPrho.text((rhomin+rhomax)/2 + adj, (Pmin+Pmax)/2*FigLbl.PmultHydro,
+                            PhaseConv(phase), ha='center', va='center', fontsize=FigLbl.TS_hydroLabels)
+
     if Params.LEGEND:
         handles, lbls = axPrho.get_legend_handles_labels()
-        axPrho.legend(handles, lbls)
+        axPrho.legend(handles, lbls, loc='lower left')
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     log.debug(f'Hydrosphere plot saved to file: {Params.FigureFiles.vhydro}')

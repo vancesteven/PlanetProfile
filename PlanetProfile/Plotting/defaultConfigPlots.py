@@ -21,6 +21,7 @@ Color.BdipInset = 'black'  # Color for inset box of surface induced dipole stren
 # Wedge diagram color options
 Color.none = '#FFFFFF00'
 Color.wedgeBd = 'black'
+Color.wedgeMarkRadii = 'black'
 Color.ionoCmapName = 'RdPu'
 Color.ionoTop = 0.0
 Color.ionoBot = 0.2
@@ -162,6 +163,8 @@ Style.LW_wedgeMajor = 0.375  # Linewidth in pt for major layer boundaries in wed
 Style.TS_ticks = 12  # Text size in pt for tick marks on radius scale
 Style.TS_desc = 14  # Text size in pt for model description and label
 Style.TS_super = 16  # Text size in pt for overall ("suptitle") label with multiple wedges
+Style.LS_markRadii = '--'  # Linestyle for radii mark line when toggled on
+Style.LW_markRadii = 0.375  # Linewidth for radii mark line when toggled on
 
 # Complex dipole plots
 Style.MW_dip = {'synodic': 5, 'orbital': 6, 'true anomaly': 6, 'synodic harmonic': 4.5}  # Marker size for each period in complex dipole plots
@@ -242,6 +245,8 @@ FigMisc.SCALE_HYDRO_LW = True  # Whether to adjust thickness of lines on hydrosp
 FigMisc.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
 FigMisc.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
 FigMisc.TminHydro = 200  # Minimum temperature to display on hydrosphere plots
+FigMisc.PHASE_LABELS = True  # Whether to print phase labels on density plots
+FigLbl.TS_hydroLabels = 18  # Font size for hydrosphere phase labels in pt
 
 # Wedge diagrams
 FigMisc.IONOSPHERE_IN_WEDGE = False  # Whether to include specified ionosphere in wedge diagram
@@ -251,6 +256,7 @@ FigMisc.DRAW_CONVECTION_BOUND = False  # Whether to draw a boundary line between
 FigMisc.DRAW_POROUS_BOUND = False  # Whether to draw a boundary line between porous and non-porous materials
 FigMisc.DRAW_FeS_BOUND = True  # Whether to draw a boundary line between Fe and FeS in the core
 FigMisc.minzbRratio_frac = 0.05  # Fraction of total body radius for ice shell and ocean thickness, above which ice shell ticks will automatically switch on (overrides WEDGE_ICE_TICKS)
+FigMisc.MARK_RADII = False  # Whether to add a marker line from radius labels to layer arc
 
 # Hydrosphere PT diagrams
 FigMisc.PT_RASTER = True  # Whether to rasterize gridded information in PT plots and phase diagrams. Dramatically speeds up figure creation time and reduces file size, but renders gridded data grainy upon zoom-in. 

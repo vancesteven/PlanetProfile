@@ -477,6 +477,7 @@ def OceanLayers(Planet, Params):
             if i < 4 and Planet.phase[Planet.Steps.nSurfIce+i] != 0:
                 log.debug(f'Top ocean layers (i={i}) are not liquid. This will cause indexing problems. ' +
                           'T will be set to exceed the melting temp temporarily to construct at least 4 ocean layers.')
+                Planet.THIN_OCEAN = True
                 TOcean_K[i] = GetTfreeze(Planet.Ocean.EOS, POcean_MPa[i], TOcean_K[i]) + Planet.Ocean.TfreezeOffset_K
                 Planet.phase[Planet.Steps.nSurfIce+i] = 0
             log.debug(f'il: {Planet.Steps.nSurfIce+i:d}; P_MPa: {POcean_MPa[i]:.3f}; ' +
