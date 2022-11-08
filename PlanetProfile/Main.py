@@ -54,6 +54,7 @@ def run(bodyname=None, opt=None, fNames=None):
 
     """ Run PlanetProfile """
     if Params.DO_INDUCTOGRAM:
+        Params.SKIP_INDUCTION = False
         if bodyname == '':
             raise ValueError('A single body must be specified for an InductOgram.')
         else:
