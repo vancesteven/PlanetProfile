@@ -1,5 +1,5 @@
 """
-PPEuropa
+PPEuropaInductOgram
 Contains all body-specific parameters and information for PlanetProfile models of this body.
 Import as a module and access information assigned to the attributes of the Planet struct.
 Note that this file expects to be imported from the directory above.
@@ -19,7 +19,7 @@ Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346
 Planet.Bulk.Cuncertainty = 0.005
-Planet.Bulk.Tb_K = 265.0  # Slightly lower than standard default model to make it easier to find valid models in rho-type inductogram
+Planet.Bulk.Tb_K = 269.2
 
 """ Layer step settings """
 Planet.Steps.nIceI = 100
