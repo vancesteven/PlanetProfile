@@ -273,13 +273,14 @@ def PlotHydrosphereProps(PlanetList, Params):
         Pall_MPa = np.concatenate([Planet.P_MPa[:Planet.Steps.nHydro] for Planet in PlanetList])
         rhoAll_kgm3 = np.concatenate([Planet.rho_kgm3[:Planet.Steps.nHydro] for Planet in PlanetList])
         phaseList = np.unique(phases)
+        rhoRange = np.diff(axPrho.get_xlim())[0]
         for phase in phaseList:
             if phase < 0 or (phase == 1 and np.any([Planet.Do.POROUS_ICE for Planet in PlanetList])) \
                     or (phase == 5 and np.all([Planet.THIN_OCEAN for Planet in PlanetList])):
                 # Underplate layers. Set text on the left side
-                adj = -30
+                adj = -0.06*rhoRange
             else:
-                adj = 30
+                adj = 0.06*rhoRrange
 
             if phase == 0:
                 loc = np.where(Pall_MPa == np.min(Pall_MPa[phases == 0]))[0]
