@@ -280,7 +280,7 @@ def PlotHydrosphereProps(PlanetList, Params):
                 # Underplate layers. Set text on the left side
                 adj = -0.06*rhoRange
             else:
-                adj = 0.06*rhoRrange
+                adj = 0.06*rhoRange
 
             if phase == 0:
                 loc = np.where(Pall_MPa == np.min(Pall_MPa[phases == 0]))[0]
@@ -293,11 +293,15 @@ def PlotHydrosphereProps(PlanetList, Params):
                 axPrho.text(rhoAll_kgm3[loc] + 3*adj + adj2, (Pall_MPa[loc] + adj)*FigLbl.PmultHydro,
                             'liquid', ha='center', va='center', fontsize=FigLbl.TS_hydroLabels)
             else:
+                if phase == Constants.phaseClath:
+                    adj2 = 2*adj
+                else:
+                    adj2 = 0
                 rhomin = np.min(rhoAll_kgm3[phases==phase])
                 rhomax = np.max(rhoAll_kgm3[phases==phase])
                 Pmin = np.min(Pall_MPa[phases==phase])
                 Pmax = np.max(Pall_MPa[phases==phase])
-                axPrho.text((rhomin+rhomax)/2 + adj, (Pmin+Pmax)/2*FigLbl.PmultHydro,
+                axPrho.text((rhomin+rhomax)/2 + adj + adj2, (Pmin+Pmax)/2*FigLbl.PmultHydro,
                             PhaseConv(phase), ha='center', va='center', fontsize=FigLbl.TS_hydroLabels)
 
     if Params.LEGEND:
