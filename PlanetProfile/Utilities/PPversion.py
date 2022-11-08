@@ -6,7 +6,7 @@ compatNums = {
     'seafreeze': '0.9.2',
     'gsw': '3.4.0',
     'obspy': '1.2.2',
-    'MoonMag': '1.4.0'
+    'MoonMag': '1.5.0'
 }
 # Printable package names
 pkgNames = {
