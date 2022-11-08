@@ -697,7 +697,7 @@ def PlotWedge(PlanetList, Params):
                                        fc=Color.clathCond, lw=Style.LW_wedge, ec=clathConvBd))
                     
                 # Outer boundary around clathrates
-                ax.add_patch(Wedge((0.5,0), R_km/rMax_km, ang1, ang2,
+                ax.add_patch(Wedge((0.5,0), (R_km - Planet.zClath_km)/rMax_km, ang1, ang2,
                                    width=Planet.dzClath_km/rMax_km,
                                    fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
             else:
