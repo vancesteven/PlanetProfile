@@ -293,7 +293,8 @@ class MgSO4PhaseLookup:
         if self.fLookup in EOSlist.loaded.keys():
             log.debug('MgSO4 phase lookup table already loaded. Reusing previously loaded table.')
             self.fn_phaseRGI = EOSlist.loaded[self.fLookup]
-            self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax = EOSlist.ranges[self.fLookup]
+            self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.deltaP, self.deltaT, self.wMax \
+                = EOSlist.ranges[self.fLookup]
         else:
             log.debug(f'Loading MgSO4 phase lookup table at {self.fLookup}.')
             fMgSO4phase = loadmat(self.fLookup)
@@ -301,13 +302,16 @@ class MgSO4PhaseLookup:
             self.Pmax = np.max(fMgSO4phase['P_MPa'][0])
             self.Tmin = np.min(fMgSO4phase['T_K'][0])
             self.Tmax = np.max(fMgSO4phase['T_K'][0])
+            self.deltaP = fMgSO4phase['P_MPa'][0][1] - fMgSO4phase['P_MPa'][0][0]
+            self.deltaT = fMgSO4phase['T_K'][0][1] - fMgSO4phase['T_K'][0][0]
             self.wMax = np.max(fMgSO4phase['w_ppt'][0])
             self.fn_phaseRGI = RegularGridInterpolator((fMgSO4phase['P_MPa'][0], fMgSO4phase['T_K'][0],
                                                      fMgSO4phase['w_ppt'][0]), fMgSO4phase['phase'],
                                                      method='nearest', bounds_error=False, fill_value=None)
 
             EOSlist.loaded[self.fLookup] = self.fn_phaseRGI
-            EOSlist.ranges[self.fLookup] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax)
+            EOSlist.ranges[self.fLookup] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax,
+                                            self.deltaP, self.deltaT, self.wMax)
 
         if self.w_ppt > self.wMax:
             log.warning(f'Input wOcean_ppt of {self.w_ppt:.1f} is greater than ' +

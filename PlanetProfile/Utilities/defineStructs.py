@@ -68,6 +68,8 @@ class DoSubstruct:
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
+        self.HP_MELT_SMOOTHING = True  # Whether to apply a smoothing filter to avoid bumpiness from discretized phase diagram, when lookup table is used for EOS calcs
+        self.FIXED_HPSMOOTH_WINDOW = False  # Whether to force a fixed number of window points for smoothing in HP ices
         self.NO_ICE_CONVECTION = False  # Whether to suppress convection in ice layers
         self.EQUIL_Q = True  # Whether to set heat flux from interior to be consistent with heat released through convective profile
         self.POROUS_ICE = False  # Whether to model porosity in ice
@@ -122,6 +124,9 @@ class OceanSubstruct:
         self.sigmaTop_Sm = np.nan  # Conductivity of shallowest ocean layer
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
+        self.smoothingPolyOrder = 2  # Polynomial order to use for smoothing of melting-curve-following HP ice adiabats
+        self.smoothingWindowOverride = 7  # Number of points to use for smoothing window when Do.FIXED_HPSMOOTH_WINDOW is True. Must be odd.
+        self.smoothingFactor = 5  # Number of points in lookup table to smooth over.
         self.Vtot_m3 = None  # Total volume of all ocean layers
         self.rhoMean_kgm3 = None  # Mean density for ocean layers
         self.Tmean_K = None  # Mean temperature of ocean layers based on total thermal energy

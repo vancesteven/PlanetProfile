@@ -97,6 +97,8 @@ class OceanEOSStruct:
                 kTherm_WmK = rho_kgm3
                 self.ufn_Seismic = ReturnZeros(2)
                 self.ufn_sigma_Sm = ReturnZeros(1)
+                self.EOSdeltaP = None
+                self.EOSdeltaT = None
             elif compstr == 'PureH2O':
                 self.type = 'SeaFreeze'
                 self.m_gmol = Constants.mH2O_gmol
@@ -131,8 +133,14 @@ class OceanEOSStruct:
                     # Create phase finder -- note that the results from this function must be cast to int after retrieval
                     self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'),
                                              self.deltaP, self.deltaT)
+                    # Save EOS grid resolution in lookup table
+                    self.EOSdeltaP = self.deltaP
+                    self.EOSdeltaT = self.deltaT
                 else:
                     self.ufn_phase = SFphase(self.w_ppt, self.comp)
+                    # Lookup table is not used -- flag with nan for grid resolution.
+                    self.EOSdeltaP = np.nan
+                    self.EOSdeltaT = np.nan
 
                 self.ufn_Seismic = SFSeismic(compstr, P_MPa, T_K, seaOut, self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = H2Osigma_Sm()
@@ -145,6 +153,9 @@ class OceanEOSStruct:
                                 'high-pressure ice phases will be found.')
 
                 self.ufn_phase = SwPhase(self.w_ppt)
+                # Lookup table is not used -- flag with nan for grid resolution.
+                self.EOSdeltaP = np.nan
+                self.EOSdeltaT = np.nan
                 rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = SwProps(P_MPa, T_K, self.w_ppt)
                 self.ufn_Seismic = SwSeismic(self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = SwConduct(self.w_ppt)
@@ -185,8 +196,14 @@ class OceanEOSStruct:
                     # Create phase finder -- note that the results from this function must be cast to int after retrieval
                     self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'),
                                              self.deltaP, self.deltaT)
+                    # Save EOS grid resolution in lookup table
+                    self.EOSdeltaP = self.deltaP
+                    self.EOSdeltaT = self.deltaT
                 else:
                     self.ufn_phase = SFphase(self.w_ppt, self.comp)
+                    # Lookup table is not used -- flag with nan for grid resolution.
+                    self.EOSdeltaP = np.nan
+                    self.EOSdeltaT = np.nan
 
                 self.ufn_Seismic = SFSeismic(compstr, P_MPa, T_K, seaOut, self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = H2Osigma_Sm()
@@ -202,8 +219,14 @@ class OceanEOSStruct:
                     = MgSO4Props(P_MPa, T_K, self.w_ppt, self.EXTRAP)
                 if self.PHASE_LOOKUP:
                     self.ufn_phase = MgSO4PhaseLookup(self.w_ppt)
+                    # Save EOS grid resolution from MgSO4 lookup table loaded from disk
+                    self.EOSdeltaP = self.ufn_phase.deltaP
+                    self.EOSdeltaT = self.ufn_phase.deltaT
                 else:
                     self.ufn_phase = MgSO4PhaseMargules(self.w_ppt).arrays
+                    # Lookup table is not used -- flag with nan for grid resolution.
+                    self.EOSdeltaP = np.nan
+                    self.EOSdeltaT = np.nan
                 self.ufn_Seismic = MgSO4Seismic(self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = MgSO4Conduct(self.w_ppt, self.elecType, rhoType=self.rhoType,
                                                 scalingType=self.scalingType)
@@ -291,6 +314,8 @@ class IceEOSStruct:
             self.Pmax = np.max(P_MPa)
             self.Tmin = np.min(T_K)
             self.Tmax = np.max(T_K)
+            self.EOSdeltaP = self.deltaP
+            self.EOSdeltaT = self.deltaT
             self.EXTRAP = EXTRAP
             self.EOStype = 'ice'
             log.debug(f'Loading EOS for {phaseStr} with ' +

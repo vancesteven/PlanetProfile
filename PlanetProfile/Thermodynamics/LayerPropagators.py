@@ -1,5 +1,6 @@
 import numpy as np
 import logging
+from scipy.signal import savgol_filter
 
 from PlanetProfile.Thermodynamics.IronCore import IronCoreLayers
 from PlanetProfile.Thermodynamics.HydroEOS import GetPfreeze, GetTfreeze, \
@@ -509,12 +510,36 @@ def OceanLayers(Planet, Params):
                 TOcean_K[i+1] = np.mean([GetTfreeze(Planet.Ocean.EOS, POcean_MPa[i], TOcean_K[i])
                                          - Planet.Ocean.TfreezeOffset_K, TOcean_K[i]])
 
+        # Assign ocean layer critical properties to Planet fields
         Planet.P_MPa[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = POcean_MPa
         Planet.T_K[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = TOcean_K[:-1]
         Planet.rho_kgm3[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = rhoOcean_kgm3
         Planet.Cp_JkgK[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = CpOcean_JkgK
         Planet.alpha_pK[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = alphaOcean_pK
         Planet.kTherm_WmK[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = kThermOcean_WmK
+
+        # Apply smoothing filter to avoid bumpiness from discretized phase diagram
+        HPphases = np.logical_and(Planet.phase[:Planet.Steps.nHydroMax] > 1,
+                                  Planet.phase[:Planet.Steps.nHydroMax] < 10)
+        if Planet.Ocean.phaseType == 'lookup' and Planet.Do.HP_MELT_SMOOTHING and np.any(HPphases):
+            if Planet.Do.FIXED_HPSMOOTH_WINDOW:
+                window = Planet.Ocean.smoothingWindowOverride
+            else:
+                # Get the ratio of step size used in hydrosphere relative to lookup table spacing
+                Pratio = Planet.Ocean.EOS.EOSdeltaP / Planet.Ocean.deltaP
+                window = int(Planet.Ocean.smoothingFactor * Pratio)
+
+            # Ensure smoothing will happen
+            window = np.maximum(window, Planet.Ocean.smoothingPolyOrder + 1)
+
+            # Ensure window is odd
+            window = window + np.mod(window + 1, 2)
+            log.debug(f'Applying smoothing to in-ocean HP ice profile with a window size of {window} pts ({Planet.Ocean.deltaP*window:.1f} MPa).')
+            Planet.T_K[HPphases] = savgol_filter(Planet.T_K[HPphases], window, Planet.Ocean.smoothingPolyOrder)
+            Planet.rho_kgm3[HPphases] = savgol_filter(Planet.rho_kgm3[HPphases], window, Planet.Ocean.smoothingPolyOrder)
+            Planet.Cp_JkgK[HPphases] = savgol_filter(Planet.Cp_JkgK[HPphases], window, Planet.Ocean.smoothingPolyOrder)
+            Planet.alpha_pK[HPphases] = savgol_filter(Planet.alpha_pK[HPphases], window, Planet.Ocean.smoothingPolyOrder)
+            Planet.kTherm_WmK[HPphases] = savgol_filter(Planet.kTherm_WmK[HPphases], window, Planet.Ocean.smoothingPolyOrder)
 
         # Evaluate remaining physical quantities for ocean layers
         MAbove_kg = np.sum(Planet.MLayer_kg[:Planet.Steps.nSurfIce])

@@ -85,7 +85,8 @@ class PerplexEOSStruct:
                 P_MPa, T_K, self.ufn_rho_kgm3, self.ufn_VP_kms, self.ufn_VS_kms, \
                 self.ufn_KS_GPa, self.ufn_GS_GPa, self.ufn_Cp_JkgK, self.ufn_alpha_pK \
                     = EOSlist.loaded[tableKey]
-                self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.deltaP, self.deltaT \
+                self.Pmin, self.Pmax, self.Tmin, self.Tmax, \
+                self.deltaP, self.deltaT, self.EOSdeltaP, self.EOSdeltaT \
                     = EOSlist.ranges[tableKey]
             else:
                 if '3D_EOS' in self.fpath:
@@ -121,6 +122,8 @@ class PerplexEOSStruct:
                     self.Tmax = np.max(T1D_K)
                     self.deltaP = P1D_MPa[1] - P1D_MPa[0]
                     self.deltaT = T1D_K[1] - T1D_K[0]
+                    self.EOSdeltaP = self.deltaP
+                    self.EOSdeltaT = self.deltaT
                 else:
                     # Load in Perple_X data. Note that all P, KS, and GS are stored as bar
                     firstPT, secondPT, rho_kgm3, VP_kms, VS_kms, Cp_Jm3K, alpha_pK, KS_bar, GS_bar \
@@ -154,6 +157,8 @@ class PerplexEOSStruct:
                     lenT = int(len(Tlin_K) / lenP)
                     P1D_MPa, self.deltaP = np.linspace(self.Pmin, self.Pmax, lenP, retstep=True)
                     T1D_K, self.deltaT = np.linspace(self.Tmin, self.Tmax, lenT, retstep=True)
+                    self.EOSdeltaP = self.deltaP
+                    self.EOSdeltaT = self.deltaT
 
                     # Set unphysical values to NaN so they will be caught by the next step (for all but alpha, which can cross zero)
                     rho_kgm3[rho_kgm3 <= 0] = np.nan
@@ -246,7 +251,8 @@ class PerplexEOSStruct:
 
                 EOSlist.loaded[tableKey] = (P_MPa, T_K, self.ufn_rho_kgm3, self.ufn_VP_kms, self.ufn_VS_kms,
                                               self.ufn_KS_GPa, self.ufn_GS_GPa, self.ufn_Cp_JkgK, self.ufn_alpha_pK)
-                EOSlist.ranges[tableKey] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.deltaP, self.deltaT)
+                EOSlist.ranges[tableKey] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, 
+                                            self.deltaP, self.deltaT, self.EOSdeltaP, self.EOSdeltaT)
 
             self.rangeLabel = f'{self.Pmin},{self.Pmax},{self.deltaP},' + \
                               f'{self.Tmin},{self.Tmax},{self.deltaT}'
@@ -350,6 +356,10 @@ class EOSwrapper:
             self.Pmax = EOSlist.loaded[self.key].Pmax
             self.Tmin = EOSlist.loaded[self.key].Tmin
             self.Tmax = EOSlist.loaded[self.key].Tmax
+            self.deltaP = EOSlist.loaded[self.key].deltaP
+            self.deltaT = EOSlist.loaded[self.key].deltaT
+            self.EOSdeltaP = EOSlist.loaded[self.key].EOSdeltaP
+            self.EOSdeltaT = EOSlist.loaded[self.key].EOSdeltaT
             self.comp = EOSlist.loaded[self.key].comp
             self.w_ppt = EOSlist.loaded[self.key].w_ppt
         elif EOSlist.loaded[self.key].EOStype == 'inner':
