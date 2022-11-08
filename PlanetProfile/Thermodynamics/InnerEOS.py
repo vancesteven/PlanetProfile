@@ -39,8 +39,8 @@ class PerplexEOSStruct:
                  HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None,
                  EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None):
         self.comp = EOSfname[:-4]
-        self.EOSlabel = f'{self.comp}{EOSinterpMethod}{kThermConst_WmK}{HtidalConst_Wm3}{porosType}' + \
-                        f'{phiTop_frac}{Pclosure_MPa}{phiMin_frac}{EXTRAP}{wFeCore_ppt}{wScore_ppt}'
+        self.EOSlabel = f'comp{self.comp}interp{EOSinterpMethod}kTherm{kThermConst_WmK}Htidal{HtidalConst_Wm3}poros{porosType}' + \
+                        f'phi{phiTop_frac}Pclose{Pclosure_MPa}phiMin{phiMin_frac}extrap{EXTRAP}wFeppt{wFeCore_ppt}wSppt{wScore_ppt}'
         if self.EOSlabel in EOSlist.loaded.keys():
             self.ALREADY_LOADED = True
         else:

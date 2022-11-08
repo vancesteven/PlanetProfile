@@ -20,16 +20,16 @@ from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 log = logging.getLogger('PlanetProfile')
 
 def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
-                EXTRAP=False, FORCE_NEW=False, MELT=False):
+                EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False):
     oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
-                              phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT)
-    if oceanEOS.ALREADY_LOADED:
+                              phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE)
+    if oceanEOS.ALREADY_LOADED and not FORCE_NEW:
         log.debug(f'{wOcean_ppt} ppt {compstr} EOS already loaded. Reusing existing EOS.')
         oceanEOS = EOSlist.loaded[oceanEOS.EOSlabel]
 
     # Ensure each EOSlabel is included in EOSlist, in case we have reused EOSs with
     # e.g. a smaller range that can reuse the larger-range already-loaded EOS.
-    if oceanEOS.EOSlabel not in EOSlist.loaded.keys():
+    if oceanEOS.EOSlabel not in EOSlist.loaded.keys() or FORCE_NEW:
         EOSlist.loaded[oceanEOS.EOSlabel] = oceanEOS
 
     oceanEOSwrapper = EOSwrapper(oceanEOS.EOSlabel)
@@ -38,7 +38,7 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
 
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
-                 phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False):
+                 phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False):
         if elecType is None:
             self.elecType = 'Vance2018'
         else:
@@ -63,11 +63,11 @@ class OceanEOSStruct:
             meltStr = ''
             meltPrint = ''
 
-        self.EOSlabel = f'{meltStr}{compstr}{wOcean_ppt}{elecType}{rhoType}{scalingType}{phaseType}{EXTRAP}'
+        self.EOSlabel = f'{meltStr}Comp{compstr}wppt{wOcean_ppt}elec{elecType}rho{rhoType}scaling{scalingType}phase{phaseType}extrap{EXTRAP}pore{PORE}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, FORCE_NEW=FORCE_NEW)
 
-        if not self.ALREADY_LOADED:
+        if not self.ALREADY_LOADED or FORCE_NEW:
             self.comp = compstr
             self.w_ppt = wOcean_ppt
             self.EXTRAP = EXTRAP
@@ -82,8 +82,8 @@ class OceanEOSStruct:
             else:
                 wStr = f'{self.w_ppt:.1f}'
             log.debug(f'Loading {meltPrint}EOS for {wStr} ppt {compstr} with ' +
-                      f'P_MPa = [{self.Pmin:.1f}, {self.Pmax:.1f}, {self.deltaP:.2f}], ' +
-                      f'T_K = [{self.Tmin:.1f}, {self.Tmax:.1f}, {self.deltaT:.2f}], ' +
+                      f'P_MPa = [{self.Pmin:.1f}, {self.Pmax:.1f}, {self.deltaP:.3f}], ' +
+                      f'T_K = [{self.Tmin:.1f}, {self.Tmax:.1f}, {self.deltaT:.3f}], ' +
                       f'for [min, max, step] with EXTRAP = {self.EXTRAP}.')
 
             # Get tabular data from the appropriate source for the specified ocean composition
@@ -306,7 +306,7 @@ def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=
 class IceEOSStruct:
     def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False,
                  ClathDissoc=None):
-        self.EOSlabel = f'{phaseStr}{porosType}{phiTop_frac}{Pclosure_MPa}{phiMin_frac}{EXTRAP}'
+        self.EOSlabel = f'phase{phaseStr}poros{porosType}phi{phiTop_frac}Pclose{Pclosure_MPa}phiMin{phiMin_frac}extrap{EXTRAP}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K)
         if not self.ALREADY_LOADED:
@@ -504,8 +504,8 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False):
     else:
         # This EOS has not been loaded, so we need to load it with the input parameters
         ALREADY_LOADED = False
-        outP_MPa = P_MPa
-        outT_K = T_K
+        outP_MPa = P_MPa + 0.0
+        outT_K = T_K + 0.0
 
     return ALREADY_LOADED, rangeLabel, outP_MPa, outT_K, deltaP, deltaT
 
