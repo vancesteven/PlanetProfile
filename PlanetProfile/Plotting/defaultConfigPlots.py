@@ -257,6 +257,7 @@ FigMisc.DRAW_POROUS_BOUND = False  # Whether to draw a boundary line between por
 FigMisc.DRAW_FeS_BOUND = True  # Whether to draw a boundary line between Fe and FeS in the core
 FigMisc.minzbRratio_frac = 0.05  # Fraction of total body radius for ice shell and ocean thickness, above which ice shell ticks will automatically switch on (overrides WEDGE_ICE_TICKS)
 FigMisc.MARK_RADII = True  # Whether to add a marker line from radius labels to layer arc
+FigMisc.LABEL_RADII = False  # Whether to add a label to radius km numbers
 
 # Hydrosphere PT diagrams
 FigMisc.PT_RASTER = True  # Whether to rasterize gridded information in PT plots and phase diagrams. Dramatically speeds up figure creation time and reduces file size, but renders gridded data grainy upon zoom-in. 

@@ -1134,6 +1134,13 @@ class FigLblStruct:
         # Wedge diagram labels
         self.wedgeTitle = 'interior structure diagram'
         self.wedgeRadius = r'Radius ($\si{km}$)'
+        self.ionosTickLbl = r'$R_\mathrm{ionos}$'
+        self.surfTickLbl = r'$R_\mathrm{surf}$'
+        self.clathTickLbl = r'$R_\mathrm{clath}$'
+        self.convIceTickLbl = r'$R_\mathrm{conv}$'
+        self.oceanTickLbl = r'$R_\mathrm{ocean}$'
+        self.mantTickLbl = r'$R_\mathrm{rock}$'
+        self.coreTickLbl = r'$R_\mathrm{core}$'
 
         # Surface dipole strength plot labels
         self.BdipTitle = r' induced dipole surface strength'
@@ -1646,6 +1653,7 @@ class FigMiscStruct:
         self.DRAW_FeS_BOUND = False  # Whether to draw a boundary line between Fe and FeS in the core
         self.minzbRratio_frac = None  # Fraction of total body radius for ice shell and ocean thickness, above which ice shell ticks will automatically switch on (overrides WEDGE_ICE_TICKS)
         self.MARK_RADII = False  # Whether to add a marker line from radius labels to layer arc
+        self.LABEL_RADII = False  # Whether to add a label to radius km numbers
 
         # Hydrosphere PT diagrams
         self.PT_RASTER = False  # Whether to rasterize gridded information in PT plots and phase diagrams. Dramatically speeds up figure creation time and reduces file size, but renders gridded data grainy upon zoom-in.

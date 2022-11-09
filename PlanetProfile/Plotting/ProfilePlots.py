@@ -533,6 +533,9 @@ def PlotSeismic(PlanetList, Params):
         axes[1,0].legend()
         axes[1,1].legend()
 
+    [ax.set_xlim(left=0) for ax in axf if ax.get_xscale() != 'log']
+    [ax.set_ylim(bottom=0) for ax in axf]
+
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vseis, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     log.debug(f'Seismic plot saved to file: {Params.FigureFiles.vseis}')
@@ -604,6 +607,23 @@ def PlotWedge(PlanetList, Params):
         else:
             coreLine = ''
 
+        if FigMisc.LABEL_RADII:
+            RionosLbl = f'{FigLbl.ionosTickLbl}: '
+            RsurfLbl = f'{FigLbl.surfTickLbl}: '
+            RclathLbl = f'{FigLbl.clathTickLbl}: '
+            RconvLbl = f'{FigLbl.convIceTickLbl}: '
+            RoceanLbl = f'{FigLbl.oceanTickLbl}: '
+            RmantLbl = f'{FigLbl.mantTickLbl}: '
+            RcoreLbl = f'{FigLbl.coreTickLbl}: '
+        else:
+            RionosLbl = ''
+            RsurfLbl = ''
+            RclathLbl = ''
+            RconvLbl = ''
+            RoceanLbl = ''
+            RmantLbl = ''
+            RcoreLbl = ''
+
         if 'Comet' in Planet.Sil.mantleEOS:
             silLine = 'Comet 67P'
         else:
@@ -658,7 +678,7 @@ def PlotWedge(PlanetList, Params):
             # @@@@@@@@@
             # Ice shell
             # @@@@@@@@@
-            rTicks.append(R_km)
+            rTicks.append(f'{RsurfLbl}{R_km:.0f}')
             rTickRefs.append(R_km/rMax_km)
 
             # Starting with ice I or clathrates
@@ -737,7 +757,7 @@ def PlotWedge(PlanetList, Params):
             # @@@@@@@@@@@
             if Planet.D_km > 0:
                 if FigMisc.WEDGE_ICE_TICKS or (Planet.zb_km/R_km >= FigMisc.minzbRratio_frac and Planet.D_km/R_km >= FigMisc.minzbRratio_frac):
-                    rTicks.append(R_km - Planet.zb_km)
+                    rTicks.append(f'{RoceanLbl}{R_km - Planet.zb_km:.0f}')
                     rTickRefs.append((R_km - Planet.zb_km)/rMax_km)
 
                 # Ocean outer boundary to use as clip path
@@ -773,7 +793,7 @@ def PlotWedge(PlanetList, Params):
         # @@@@@@@@@
         # Silicates
         # @@@@@@@@@
-        rTicks.append(Planet.Sil.Rmean_m/1e3)
+        rTicks.append(f'{RmantLbl}{Planet.Sil.Rmean_m/1e3:.0f}')
         rTickRefs.append(Planet.Sil.Rmean_m/1e3/rMax_km)
 
         # Outer boundary around silicate layer to use as clip path for gradients
@@ -818,7 +838,7 @@ def PlotWedge(PlanetList, Params):
         # Iron core
         # @@@@@@@@@
         if Planet.Do.Fe_CORE:
-            rTicks.append(Planet.Core.Rmean_m/1e3)
+            rTicks.append(f'{RcoreLbl}{Planet.Core.Rmean_m/1e3:.0f}')
             rTickRefs.append(Planet.Core.Rmean_m/1e3/rMax_km)
 
             # FeS layer
@@ -845,7 +865,7 @@ def PlotWedge(PlanetList, Params):
             for rTick in rTickRefs:
                 ax.axhline(y=rTick, xmin=0, xmax=0.5, color=Color.wedgeMarkRadii,
                            ls=Style.LS_markRadii, lw=Style.LW_markRadii)
-        ax.set_yticklabels(np.array(rTicks, dtype=np.int_), fontsize=Style.TS_ticks)
+        ax.set_yticklabels(np.array(rTicks), fontsize=Style.TS_ticks)
         [ax.spines[side].set_visible(False) for side in ['top', 'right', 'bottom']]
         ax.get_xaxis().set_visible(False)
         ax.set_ylabel(FigLbl.wedgeRadius, fontsize=Style.TS_ticks)
