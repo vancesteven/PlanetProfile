@@ -121,14 +121,14 @@ def CalcInducedMoments(Planet, Params):
         # Evaluate 1st-order complex response amplitudes
         Planet.Magnetic.Aen[:,1], Planet.Magnetic.Amp, AeArg \
             = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
-                     Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=1,
-                     writeout=False, do_parallel=not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+                     Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=1, writeout=False,
+                     do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
         Planet.Magnetic.phase = -np.degrees(AeArg)
         for n in range(2, Planet.Magnetic.nprmMax):
             Planet.Magnetic.Aen[:,n], _, _ \
                 = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
-                         Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=n,
-                         writeout=False, do_parallel=not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+                         Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=n, writeout=False,
+                         do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
 
         if Params.Sig.INCLUDE_ASYM:
             # Use a separate function for evaluating asymmetric induced moments, as Binm is not as simple as
@@ -138,7 +138,7 @@ def CalcInducedMoments(Planet, Params):
                                              Planet.Magnetic.gravShape_m, Planet.Magnetic.Benm_nT, 1/Planet.Bulk.R_m,
                                              Planet.Magnetic.nLin, Planet.Magnetic.mLin, Planet.Magnetic.pMax,
                                              nprm_max=Planet.Magnetic.nprmMax, writeout=False,
-                                             do_parallel=not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM),
+                                             do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM),
                                              Xid=Planet.Magnetic.Xid)
         else:
             # Multiply complex response by Benm to get Binm for spherically symmetric case
