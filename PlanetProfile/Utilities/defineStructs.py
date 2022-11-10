@@ -1840,16 +1840,19 @@ class ConstantsStruct:
         self.Pmin_MPa = 1e-16  # Minimum value to set for pressure to avoid taking log(0)
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
         self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0).
-        self.mMgSO4_gmol = 120.4  # Molecular mass of MgSO4 in g/mol
-        self.mNaCl_gmol = 58.44  # Molecular mass of NaCl in g/mol
-        self.mNH3_gmol = 17.03  # Molecular mass of NH3 in g/mol
-        self.mH2O_gmol = 18.02  # Molecular mass of pure water in g/mol
-        self.mCH4_gmol = 16.04  # Molecular mass of methane in g/mol
-        self.mCO2_gmol = 44.01  # Molecular mass of CO2 in g/mol
-        self.mFe_gmol = 55.845  # Molecular mass of Fe in g/mol
-        self.mFeS_gmol = 87.910  # Molecular mass of FeS in g/mol
-        self.mClathGas_gmol = self.mCH4_gmol + 5.75 * self.mH2O_gmol  # Molecular mass of clathrate unit cell
-        self.clathGasFrac_ppt = 1e3 * self.mCH4_gmol / self.mClathGas_gmol  # Mass fraction of gases trapped in clathrates in ppt
+        self.m_gmol = {  # Molecular mass of common solutes and gases in g/mol
+            'MgSO4': 120.4,
+            'NaCl': 58.44,
+            'NH3': 17.03,
+            'H2O': 18.02,
+            'CH4': 16.04,
+            'CO2': 44.01,
+            'Fe': 55.845,
+            'FeS': 87.910
+        }
+        self.m_gmol['PureH2O'] = self.m_gmol['H2O']  # Add alias for H2O so that we can use the Ocean.comp string for dict entry
+        self.mClathGas_gmol = self.m_gmol['CH4'] + 5.75 * self.m_gmol['H2O']  # Molecular mass of clathrate unit cell
+        self.clathGasFrac_ppt = 1e3 * self.m_gmol['CH4'] / self.mClathGas_gmol  # Mass fraction of gases trapped in clathrates in ppt
         self.QScore = 1e4  # Fixed QS value to use for core layers if not set in PPBody.py file
         self.kThermWater_WmK = 0.55  # Fixed thermal conductivity of liquid water in W/(m K)
         self.kThermSil_WmK = 4.0  # Fixed thermal conductivity of silicates in W/(m K)

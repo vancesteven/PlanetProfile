@@ -54,7 +54,7 @@ def Massppt2molFrac(w_ppt, m_gmol):
             xH2O (float, shape N): Corresponding molar fraction(s)
             mBar_gmol (float): Average molar mass of liquid
     """
-    mBar_gmol = 1/((1 - w_ppt*1e-3)/Constants.mH2O_gmol + (w_ppt*1e-3)/m_gmol)
+    mBar_gmol = 1/((1 - w_ppt*1e-3)/Constants.m_gmol['H2O'] + (w_ppt*1e-3)/m_gmol)
     xSalt = (w_ppt*1e-3) * mBar_gmol / m_gmol
 
     return 1 - xSalt, mBar_gmol
@@ -120,7 +120,7 @@ class MgSO4propsLookup:
             log.debug(f'Loading MgSO4 properties lookup table at {self.fLookup}.')
             fMgSO4Props = loadmat(self.fLookup)
             TMgSO4_K = fMgSO4Props['T_smaller_C'][0] + Constants.T0
-            wMgSO4_ppt = Molal2ppt(fMgSO4Props['m_smaller_molal'][0], Constants.mMgSO4_gmol)
+            wMgSO4_ppt = Molal2ppt(fMgSO4Props['m_smaller_molal'][0], Constants.m_gmol['MgSO4'])
             self.fn_rho_kgm3 = RegularGridInterpolator((wMgSO4_ppt, fMgSO4Props['P_smaller_MPa'][0], TMgSO4_K),
                                                         fMgSO4Props['rho'], bounds_error=False, fill_value=None)
             self.fn_Cp_JkgK = RegularGridInterpolator((wMgSO4_ppt, fMgSO4Props['P_smaller_MPa'][0], TMgSO4_K),
@@ -156,7 +156,7 @@ class CG2010:
     # https://doi.org/10.1063/1.3487520
     T0_K = np.array([Constants.T0, 251.16, 252.32, 256.16, np.nan, 256.16, 273.31])
     P0_MPa = np.array([Constants.P0, 209.9, 300.0, 350.1, np.nan, 350.1, 632.4])
-    DeltaS0_JkgK = np.array([0.0, -18.79, -21.82, -16.19, np.nan, -17.43, -18.78]) / (Constants.mH2O_gmol*1e-3)
+    DeltaS0_JkgK = np.array([0.0, -18.79, -21.82, -16.19, np.nan, -17.43, -18.78]) / (Constants.m_gmol['H2O']*1e-3)
     DeltaH0_Jkg = DeltaS0_JkgK * T0_K  # There is an error in CG2010--T0 should be multiplied here, not divided.
     # Now Table 2 values, for calculation of Cp in finding mu:
     c0 = np.array([4190, 74.11, 2200, 820, np.nan, 700, 940])
@@ -218,7 +218,7 @@ class MgSO4PhaseMargules:
     """
     def __init__(self, wOcean_ppt):
         self.w_ppt = wOcean_ppt
-        self.xH2O, self.mBar_gmol = Massppt2molFrac(self.w_ppt, Constants.mMgSO4_gmol)
+        self.xH2O, self.mBar_gmol = Massppt2molFrac(self.w_ppt, Constants.m_gmol['MgSO4'])
 
     def __call__(self, P_MPa, T_K):
         self.nPs = np.size(P_MPa)
@@ -288,7 +288,7 @@ class MgSO4PhaseLookup:
     """
     def __init__(self, wOcean_ppt):
         self.w_ppt = wOcean_ppt
-        self.xH2O, self.mBar_gmol = Massppt2molFrac(self.w_ppt, Constants.mMgSO4_gmol)
+        self.xH2O, self.mBar_gmol = Massppt2molFrac(self.w_ppt, Constants.m_gmol['MgSO4'])
         self.fLookup = os.path.join(_ROOT, 'Thermodynamics','MgSO4','phaseLookupMgSO4.mat')
         if self.fLookup in EOSlist.loaded.keys():
             log.debug('MgSO4 phase lookup table already loaded. Reusing previously loaded table.')
@@ -355,7 +355,7 @@ class MgSO4Seismic:
             log.debug(f'Loading MgSO4 seismic lookup table at {self.fLookup}.')
             fMgSO4Seismic = loadmat(self.fLookup)
             TMgSO4_K = fMgSO4Seismic['Tg_C'][0] + Constants.T0
-            wMgSO4_ppt = Molal2ppt(np.squeeze(fMgSO4Seismic['mg']), Constants.mMgSO4_gmol)
+            wMgSO4_ppt = Molal2ppt(np.squeeze(fMgSO4Seismic['mg']), Constants.m_gmol['MgSO4'])
             PMgSO4_MPa = np.squeeze(fMgSO4Seismic['Pg_MPa'])
 
             self.fn_VP_kms = RegularGridInterpolator((wMgSO4_ppt, PMgSO4_MPa, TMgSO4_K),
@@ -437,7 +437,7 @@ def LarionovKryukov1984(w_ppt, rhoType='Millero', scalingType='Vance2018'):
         # Define empirical scaling used in Vance 2018 to be consistent with Hand and Chyba (2007)
         Vance2018scaling = 1 + 0.4*w_ppt
     elif scalingType == 'LK1984':
-        Vance2018scaling = Ppt2molal(w_ppt, Constants.mMgSO4_gmol) / b_molkg
+        Vance2018scaling = Ppt2molal(w_ppt, Constants.m_gmol['MgSO4']) / b_molkg
     else:
         raise ValueError(f'Unrecognized scalingType "{scalingType}".')
     # Define scaling used in Hand and Chyba for 273 K entry from the 298 K entry
