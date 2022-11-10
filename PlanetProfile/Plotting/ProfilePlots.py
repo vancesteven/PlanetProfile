@@ -399,6 +399,19 @@ def PlotSilTradeoff(PlanetList, Params):
 
 def PlotPorosity(PlanetList, Params):
 
+    for Planet in PlanetList:
+        nonzeroPhi = Planet.phi_frac > 0
+        phiPlot = Planet.phi_frac[nonzeroPhi]
+        zPlot = Planet.z_m[:-1][nonzeroPhi]
+        Pplot = Planet.P_MPa[nonzeroPhi]
+        phasePlot = Planet.phase[nonzeroPhi]
+        iPhaseChanges = np.where(np.diff(phasePlot) != 0)[0] + 1
+        if np.size(iPhaseChanges) > 0:
+            # Add a nan so we don't get a line from porous ice to rock if both are modeled
+            Planet.phiPlot = np.insert(phiPlot, iPhaseChanges, np.nan)
+            Planet.zPlot = np.insert(zPlot, iPhaseChanges, np.nan)
+            Planet.Pplot = np.insert(Pplot, iPhaseChanges, np.nan)
+
     # Plot dual-axis plot for first entry in PlanetList (usually a main profile), unless we are already doing comparison plots
     if os.path.dirname(Params.FigureFiles.vporeDbl) != 'Comparison':
         Planet = PlanetList[0]
@@ -418,8 +431,7 @@ def PlotPorosity(PlanetList, Params):
         Pax.set_ylabel(FigLbl.PlabelFull)
         fig.suptitle(f'{Planet.name}{FigLbl.poreTitle}')
 
-        ax.plot(Planet.phi_frac[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.phiMult,
-                Planet.z_m[:-1][Planet.phi_frac >= Planet.Sil.phiMin_frac]/1e3,
+        ax.plot(Planet.phiPlot*FigLbl.phiMult, Planet.zPlot/1e3,
                 label=Planet.label, linewidth=Style.LW_std)
 
         if Params.LEGEND:
@@ -452,11 +464,9 @@ def PlotPorosity(PlanetList, Params):
             legLbl = Planet.label
             if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
                 legLbl = f'{Planet.name} {legLbl}'
-            axes[0].plot(Planet.phi_frac[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.phiMult,
-                         Planet.z_m[:-1][Planet.phi_frac >= Planet.Sil.phiMin_frac]/1e3,
+            axes[0].plot(Planet.phiPlot*FigLbl.phiMult, Planet.zPlot/1e3,
                          label=legLbl, linewidth=Style.LW_std)
-            axes[1].plot(Planet.phi_frac[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.phiMult,
-                         Planet.P_MPa[Planet.phi_frac >= Planet.Sil.phiMin_frac]*FigLbl.PmultFull,
+            axes[1].plot(Planet.phiPlot*FigLbl.phiMult, Planet.Pplot*FigLbl.PmultFull,
                          label=legLbl, linewidth=Style.LW_std)
 
     if Params.LEGEND:
