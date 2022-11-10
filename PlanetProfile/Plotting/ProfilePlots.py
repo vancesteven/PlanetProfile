@@ -413,13 +413,12 @@ def PlotPorosity(PlanetList, Params):
         Planet.phiPlot = Planet.phi_frac[nonzeroPhi]
         Planet.zPlot = Planet.z_m[:-1][nonzeroPhi]
         Planet.Pplot = Planet.P_MPa[nonzeroPhi]
-        phasePlot = Planet.phase[nonzeroPhi]
-        iPhaseChanges = np.where(np.diff(phasePlot) != 0)[0] + 1
+        iPhaseChanges = np.where(np.diff(Planet.phase[nonzeroPhi]) != 0)[0] + 1
         if np.size(iPhaseChanges) > 0:
             # Add a nan so we don't get a line from porous ice to rock if both are modeled
-            Planet.phiPlot = np.insert(phiPlot, iPhaseChanges, np.nan)
-            Planet.zPlot = np.insert(zPlot, iPhaseChanges, np.nan)
-            Planet.Pplot = np.insert(Pplot, iPhaseChanges, np.nan)
+            Planet.phiPlot = np.insert(Planet.phiPlot, iPhaseChanges, np.nan)
+            Planet.zPlot = np.insert(Planet.zPlot, iPhaseChanges, np.nan)
+            Planet.Pplot = np.insert(Planet.Pplot, iPhaseChanges, np.nan)
 
     # Plot dual-axis plot for first entry in PlanetList (usually a main profile), unless we are already doing comparison plots
     if os.path.dirname(Params.FigureFiles.vporeDbl) != 'Comparison':
