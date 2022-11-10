@@ -82,6 +82,10 @@ def PlotGravPres(PlanetList, Params):
         axes[1].plot(Planet.P_MPa*FigLbl.PmultFull, Planet.r_m[:-1]/1e3,
                      label=legLbl, linewidth=Style.LW_std)
 
+    if FigMisc.FORCE_0_EDGES:
+        [ax.set_ylim(bottom=0) for ax in axes]
+        [ax.set_xlim(left=0) for ax in axes]
+
     if Params.LEGEND:
         axes[1].legend()
 
@@ -264,6 +268,10 @@ def PlotHydrosphereProps(PlanetList, Params):
                             color=thisColor, linewidth=Style.LW_sound,
                             linestyle=Style.LS[Planet.Ocean.comp])
 
+
+    if FigMisc.FORCE_0_EDGES:
+        axPrho.set_ylim(top=0)
+
     # Limit Tmin so the relevant plot can better show what's going on in the ocean
     axTz.set_xlim(left=FigMisc.TminHydro)
 
@@ -281,6 +289,7 @@ def PlotHydrosphereProps(PlanetList, Params):
                 adj = -0.06*rhoRange
             else:
                 adj = 0.06*rhoRange
+            Padj = 0.03*np.abs(np.diff(axPrho.get_ylim())[0])
 
             if phase == 0:
                 loc = np.where(Pall_MPa == np.min(Pall_MPa[phases == 0]))[0]
@@ -290,7 +299,7 @@ def PlotHydrosphereProps(PlanetList, Params):
                     adj2 = -adj
                 else:
                     adj2 = 0
-                axPrho.text(rhoAll_kgm3[loc] + 3*adj + adj2, (Pall_MPa[loc] + adj)*FigLbl.PmultHydro,
+                axPrho.text(rhoAll_kgm3[loc] + 3*adj + adj2, (Pall_MPa[loc] + Padj)*FigLbl.PmultHydro,
                             'liquid', ha='center', va='center', fontsize=FigLbl.TS_hydroLabels)
             else:
                 if phase == Constants.phaseClath:
@@ -401,9 +410,9 @@ def PlotPorosity(PlanetList, Params):
 
     for Planet in PlanetList:
         nonzeroPhi = Planet.phi_frac > 0
-        phiPlot = Planet.phi_frac[nonzeroPhi]
-        zPlot = Planet.z_m[:-1][nonzeroPhi]
-        Pplot = Planet.P_MPa[nonzeroPhi]
+        Planet.phiPlot = Planet.phi_frac[nonzeroPhi]
+        Planet.zPlot = Planet.z_m[:-1][nonzeroPhi]
+        Planet.Pplot = Planet.P_MPa[nonzeroPhi]
         phasePlot = Planet.phase[nonzeroPhi]
         iPhaseChanges = np.where(np.diff(phasePlot) != 0)[0] + 1
         if np.size(iPhaseChanges) > 0:
@@ -433,6 +442,9 @@ def PlotPorosity(PlanetList, Params):
 
         ax.plot(Planet.phiPlot*FigLbl.phiMult, Planet.zPlot/1e3,
                 label=Planet.label, linewidth=Style.LW_std)
+        if FigMisc.FORCE_0_EDGES:
+            ax.set_ylim(top=0)
+            ax.set_xlim(left=0)
 
         if Params.LEGEND:
             ax.legend()
@@ -469,6 +481,9 @@ def PlotPorosity(PlanetList, Params):
             axes[1].plot(Planet.phiPlot*FigLbl.phiMult, Planet.Pplot*FigLbl.PmultFull,
                          label=legLbl, linewidth=Style.LW_std)
 
+    if FigMisc.FORCE_0_EDGES:
+        [ax.set_ylim(top=0) for ax in axes]
+        [ax.set_xlim(left=0) for ax in axes]
     if Params.LEGEND:
         axes[1].legend()
 
@@ -543,8 +558,9 @@ def PlotSeismic(PlanetList, Params):
         axes[1,0].legend()
         axes[1,1].legend()
 
-    [ax.set_xlim(left=0) for ax in axf if ax.get_xscale() != 'log']
-    [ax.set_ylim(bottom=0) for ax in axf]
+    if FigMisc.FORCE_0_EDGES:
+        [ax.set_xlim(left=0) for ax in axf if ax.get_xscale() != 'log']
+        [ax.set_ylim(bottom=0) for ax in axf]
 
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vseis, format=FigMisc.figFormat, dpi=FigMisc.dpi)

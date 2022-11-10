@@ -241,6 +241,7 @@ def plotAssign():
     FigMisc.defaultFontName = 'STIXGeneral'  # Default font variables--STIX is what is used in Icarus journal submissions
     FigMisc.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
     FigMisc.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
+    FigMisc.FORCE_0_EDGES = True  # Sets the edge of plots with 0 radius, depth, pressure, etc. to be the edge of the axes, instead of including white space which is the default.
 
     # Hydrosphere plots
     FigMisc.SCALE_HYDRO_LW = True  # Whether to adjust thickness of lines on hydrosphere plot according to relative salinity
