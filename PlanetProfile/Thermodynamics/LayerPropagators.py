@@ -836,8 +836,8 @@ def CalcMoIConstantRho(Planet, Params):
     if Planet.Do.Fe_CORE:
         # Find core bulk density based on assumed sulfide content
         rhoCore_kgm3 = Planet.Core.rhoFeS_kgm3 * Planet.Core.rhoFe_kgm3 \
-            * (Planet.Core.xFeS * Constants.mFeS_gmol + (1 - Planet.Core.xFeS) * Constants.mFe_gmol ) \
-            / (Planet.Core.xFeS * Constants.mFeS_gmol * Planet.Core.rhoFe_kgm3 + (1 - Planet.Core.xFeS) * Constants.mFe_gmol * Planet.Core.rhoFeS_kgm3)
+            * (Planet.Core.xFeS * Constants.m_gmol['FeS'] + (1 - Planet.Core.xFeS) * Constants.m_gmol['Fe'] ) \
+            / (Planet.Core.xFeS * Constants.m_gmol['FeS'] * Planet.Core.rhoFe_kgm3 + (1 - Planet.Core.xFeS) * Constants.m_gmol['Fe'] * Planet.Core.rhoFeS_kgm3)
             # / (Planet.Core.xFeS * (Planet.Core.rhoFe_kgm3 - Planet.Core.rhoFeS_kgm3) + Planet.Core.rhoFeS_kgm3)  # Vance et al. (2014) Eq. 10
         # Calculate core volume for a silicate layer with outer radius equal to bottom of each hydrosphere layer
         # and inner radius equal to the core radius
@@ -948,8 +948,6 @@ def CalcMoIConstantRho(Planet, Params):
         Planet.Core.Rrange_m = np.max(Planet.Core.Rtrade_m) - np.min(Planet.Core.Rtrade_m)
         # Now we finally know how many layers there are in the hydrosphere
         Planet.Steps.nHydro = iCMR2
-        # Number of steps in the silicate layer is fixed for the constant-density approach
-        Planet.Steps.nSil = Planet.Steps.nSilMax
         # Use Rset_m to indicate that we have already determined the core size in using SilicateLayers
         Planet.Core.Rset_m = Planet.Core.Rmean_m + 0.0
 
@@ -962,13 +960,9 @@ def CalcMoIConstantRho(Planet, Params):
             = SilicateLayers(Planet, Params)
         nSilTooBig = nProfiles - np.size(indsSilValid)
 
-        # Fill core/mantle trade arrays and set mean values consistent with MoI
-        MtotSil_kg = np.sum(MLayerSil_kg)
-        Planet.Sil.rhoMean_kgm3 = MtotSil_kg / (4/3*np.pi * (rSil_m[0,0]**3 - rSil_m[0,-1]**3))
-
         if Planet.Do.Fe_CORE:
             # Evaluate the core EOS for each layer
-            _, Pcore_MPa, Tcore_K, rCoreEOS_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK, \
+            nSilFinal, Pcore_MPa, Tcore_K, rCoreEOS_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK, \
                 kThermCore_WmK = IronCoreLayers(Planet, Params,
                                indsSilValid, nSilTooBig, nProfiles, Psil_MPa, Tsil_K, rSil_m, MAboveSil_kg, gSil_ms2)
 
@@ -978,12 +972,17 @@ def CalcMoIConstantRho(Planet, Params):
             coreProps = (Pcore_MPa, Tcore_K, rCoreEOS_m[0,:-1], gCore_ms2, rhoCore_kgm3, CpCore_JkgK, alphaCore_pK,
                          kThermCore_WmK, MLayerCore_kg)
         else:
+            nSilFinal = Planet.Steps.nSilMax
             MtotCore_kg = 0
             Planet.Core.rhoMean_kgm3 = 0
             Planet.Core.Rtrade_m = np.zeros_like(Planet.Sil.Rtrade_m)
             Planet.Core.Rrange_m = 0
             coreProps = None
 
+        Planet.Steps.nSil = nSilFinal
+        # Fill core/mantle trade arrays and set mean values consistent with MoI
+        MtotSil_kg = np.sum(MLayerSil_kg[0,:Planet.Steps.nSil])
+        Planet.Sil.rhoMean_kgm3 = MtotSil_kg / (4/3*np.pi * (rSil_m[0,0]**3 - rSil_m[0,-1]**3))
         Planet.Mtot_kg = np.sum(Planet.MLayer_kg[:iCMR2]) + MtotSil_kg + MtotCore_kg
         if not np.isnan(Planet.CMR2mean):
             log.info(f'Found matching MoI of {Planet.CMR2mean:.4f} ' +
@@ -1009,7 +1008,7 @@ def CalcMoIConstantRho(Planet, Params):
         Psil_MPa, Tsil_K, rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, kThermSil_WmK, Ppore_MPa, rhoSilMatrix_kgm3, \
             rhoPore_kgm3, HtidalSil_Wm3, MLayerSil_kg \
             = (np.zeros(Planet.Steps.nSil) for _ in range(11))
-        phasePore = np.zeros(Planet.Steps.nSil, dtype=np.int_)
+        phasePore = np.zeros((1, Planet.Steps.nSil), dtype=np.int_)
         rSil_m = np.zeros((1, Planet.Steps.nSil+1))
         rSil_m[0,0] = Planet.Sil.Rmean_m
         coreProps = (np.zeros(Planet.Steps.nCore) for _ in range(9))
@@ -1017,8 +1016,12 @@ def CalcMoIConstantRho(Planet, Params):
         Planet.Core.rhoMean_kgm3 = rhoCore_kgm3
         Planet.Mtot_kg = Planet.Bulk.M_kg
 
-    mantleProps = (Psil_MPa, Tsil_K, rSil_m[0,:-1], rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, HtidalSil_Wm3, kThermSil_WmK,
-                   Ppore_MPa, rhoSilMatrix_kgm3, rhoPore_kgm3, MLayerSil_kg, phasePore)
+    mantleProps = (Psil_MPa[0,:Planet.Steps.nSil], Tsil_K[0,:Planet.Steps.nSil], rSil_m[0,:Planet.Steps.nSil],
+                   rhoSilEOS_kgm3[0,:Planet.Steps.nSil], gSil_ms2[0,:Planet.Steps.nSil],
+                   phiSil_frac[0,:Planet.Steps.nSil], HtidalSil_Wm3[0,:Planet.Steps.nSil],
+                   kThermSil_WmK[0,:Planet.Steps.nSil], Ppore_MPa[0,:Planet.Steps.nSil],
+                   rhoSilMatrix_kgm3[0,:Planet.Steps.nSil], rhoPore_kgm3[0,:Planet.Steps.nSil],
+                   MLayerSil_kg[0,:Planet.Steps.nSil], phasePore[0,:Planet.Steps.nSil])
 
     return Planet, mantleProps, coreProps
 

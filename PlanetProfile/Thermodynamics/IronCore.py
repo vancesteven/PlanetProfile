@@ -81,6 +81,10 @@ def IronCoreLayers(Planet, Params,
             nSilFinal[iProf] = iCoreStart[iValid] + iCoreMatch[iProf]
             log.debug(f'Core match for iProf = {iProf:d} with Steps.nSil = {nSilFinal[iProf]:d} ' +
                       f'and M = {Mtot_kg[iCoreMatch[iProf]]/Planet.Bulk.M_kg:.4f} M_{Planet.name[0]}.')
+        else:
+            # Number of steps in the silicate layer is fixed for the constant-density approach,
+            # but we repeat one layer for the core start so stop 1 short.
+            nSilFinal = Planet.Steps.nSilMax - 1
 
         # Assign the values for the core profile with matching total mass to output arrays
         Pcore_MPa[iValid,:] = thisPcore_MPa[iCoreMatch[iProf],:]
