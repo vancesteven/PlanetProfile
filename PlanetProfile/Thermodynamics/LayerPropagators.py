@@ -1005,9 +1005,10 @@ def CalcMoIConstantRho(Planet, Params):
                      f'M_tot = {1.0:.5f} M_{Planet.name[0]} (fixed).')
         if not Params.DO_EXPLOREOGRAM:
             log.debug('Params.SKIP_INNER is True, assigning interior properties to 0.')
+        Planet.Steps.nSil = Planet.Steps.nSilMax
         Psil_MPa, Tsil_K, rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, kThermSil_WmK, Ppore_MPa, rhoSilMatrix_kgm3, \
             rhoPore_kgm3, HtidalSil_Wm3, MLayerSil_kg \
-            = (np.zeros(Planet.Steps.nSil) for _ in range(11))
+            = (np.zeros((1,Planet.Steps.nSil)) for _ in range(11))
         phasePore = np.zeros((1, Planet.Steps.nSil), dtype=np.int_)
         rSil_m = np.zeros((1, Planet.Steps.nSil+1))
         rSil_m[0,0] = Planet.Sil.Rmean_m
