@@ -40,7 +40,7 @@ def full(iTestStart=2):
     Params.CALC_NEW_INDUCT = True
     Params.CALC_SEISMIC = True
     Params.CALC_CONDUCT = True
-    Params.DO_PARALLEL = True
+    Params.DO_PARALLEL = False
     Params.RUN_ALL_PROFILES = False
     Params.COMPARE = False
     Params.NO_SAVEFILE = False
@@ -83,12 +83,11 @@ def full(iTestStart=2):
         Params.CALC_NEW_INDUCT = True
 
     testPlanet1.name = 'Test0'
-    # Test that we can successfully run things not including parallelization options
-    Params.DO_PARALLEL = False
+    # Test that we can successfully run standard profiles with parallelization options
+    Params.DO_PARALLEL = True
     TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanet1), Params)[0])
     TestPlanets[-1].saveLabel += ' NO_PARALLEL'
     tMarks = np.append(tMarks, time.time())
-    Params.DO_PARALLEL = True
 
     # Make sure our auxiliary calculation flags work correctly
     Params.CALC_SEISMIC = False
