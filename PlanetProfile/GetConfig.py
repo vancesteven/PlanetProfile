@@ -9,14 +9,22 @@ import multiprocessing as mtp
 from functools import partial, partialmethod
 import MoonMag.symmetry_funcs, MoonMag.asymmetry_funcs
 
-from PlanetProfile.defaultConfig import \
-    Params, \
-    ExploreParams, \
-    configVersion
-from configPP import \
-    Params as userParams, \
-    ExploreParams as userExploreParams, \
-    configVersion as userConfigVersion
+# Fetch version numbers first to warn user about compatibility
+from PlanetProfile.defaultConfig import configVersion
+from configPP import configVersion as userConfigVersion
+
+# Check config file versions and warn user if they differ
+if configVersion != userConfigVersion:
+    warn(f'User configPP file is version {userConfigVersion}, but the default file is ' +
+                      f'version {configVersion}. Some settings may be missing; default values will be used. ' +
+                      'To align the file version, delete configPP.py and run again, or execute reset.py.')
+
+# Grab config settings first to load LSK for later adjustments with SPICE
+from PlanetProfile.defaultConfig import configAssign
+from configPP import configAssign as userConfigAssign
+Params, ExploreParams = configAssign()
+userParams, userExploreParams = userConfigAssign()
+
 if hasattr(userParams,'spiceTLS') and hasattr(userParams,'spiceDir'):
     userLSK = os.path.join(userParams.spiceDir, userParams.spiceTLS)
     if not os.path.isfile(userLSK):
@@ -31,37 +39,13 @@ else:
                                 f'has not been fully installed. Run the install script with the following command:\n' +
                                 f'python -m PlanetProfile.install PPinstall')
     spice.furnsh(defLSK)
-from PlanetProfile.MagneticInduction.defaultConfigInduct import \
-    SigParams, \
-    ExcSpecParams, \
-    InductParams, \
-    configInductVersion
-from configPPinduct import \
-    SigParams as userSigParams, \
-    ExcSpecParams as userExcSpecParams, \
-    InductParams as userInductParams, \
-    testBody as userTestBody, \
-    configInductVersion as userConfigInductVersion
-from PlanetProfile.Plotting.defaultConfigPlots import \
-    Color, \
-    Style, \
-    FigLbl, \
-    FigSize, \
-    FigMisc, \
-    configPlotsVersion
-from configPPplots import \
-    Color as userColor, \
-    Style as userStyle, \
-    FigLbl as userFigLbl, \
-    FigSize as userFigSize, \
-    FigMisc as userFigMisc, \
-    configPlotsVersion as userConfigPlotsVersion
 
-# Check config file versions and warn user if they differ
-if configVersion != userConfigVersion:
-    warn(f'User configPP file is version {userConfigVersion}, but the default file is ' +
-                      f'version {configVersion}. Some settings may be missing; default values will be used. ' +
-                      'To align the file version, delete configPP.py and run again, or execute reset.py.')
+from PlanetProfile.MagneticInduction.defaultConfigInduct import configInductVersion
+from configPPinduct import configInductVersion as userConfigInductVersion
+from PlanetProfile.Plotting.defaultConfigPlots import configPlotsVersion
+from configPPplots import configPlotsVersion as userConfigPlotsVersion
+
+# Check sub-config file versions and warn user if they differ
 if configInductVersion != userConfigInductVersion:
     warn(f'User configPPinduct file is version {userConfigInductVersion}, but the default file is ' +
                       f'version {configInductVersion}. Some settings may be missing; default values will be used. ' +
@@ -70,6 +54,16 @@ if configPlotsVersion != userConfigPlotsVersion:
     warn(f'User configPPplots file is version {userConfigPlotsVersion}, but the default file is ' +
                       f'version {configPlotsVersion}. Some settings may be missing; default values will be used. ' +
                       'To align the file version, delete configPPplots.py and run again, or execute reset.py.')
+
+from PlanetProfile.MagneticInduction.defaultConfigInduct import inductAssign
+from configPPinduct import inductAssign as userInductAssign
+from PlanetProfile.Plotting.defaultConfigPlots import plotAssign
+from configPPplots import plotAssign as userPlotAssign
+
+SigParams, ExcSpecParams, InductParams, _ = inductAssign()
+userSigParams, userExcSpecParams, userInductParams, userTestBody = userInductAssign()
+Color, Style, FigLbl, FigSize, FigMisc = plotAssign()
+userColor, userStyle, userFigLbl, userFigSize, userFigMisc = userPlotAssign()
 
 # Load user settings to allow for configuration
 for attr, value in userParams.__dict__.items():
