@@ -416,7 +416,7 @@ def OceanLayers(Planet, Params):
         else:
             PHPices_MPa = POcean_MPa
         if PHydroMax_MPa > Constants.PminHPices_MPa:
-            GetOceanHPIceEOS(Planet, Params, PHPices_MPa)
+            GetOceanHPIceEOS(Planet, Params, PHPices_MPa, minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
 
         # Do initial ocean step separately in order to catch potential Melosh layer--
         # see Melosh et al. (2004): https://doi.org/10.1016/j.icarus.2003.11.026
@@ -558,7 +558,7 @@ def OceanLayers(Planet, Params):
     return Planet
 
 
-def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
+def GetOceanHPIceEOS(Planet, Params, POcean_MPa, minPres_MPa=None, minTres_K=None):
     """ Assign EOS functions for possible high-pressure ices expected in the ocean
         based on the min/max temperatures and pressures we plan to model.
 
@@ -583,22 +583,26 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
                                               porosType=Planet.Ocean.porosType['II'],
                                               phiTop_frac=Planet.Ocean.phiMax_frac['II'],
                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa['II'],
-                                              phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['II'])
+                                              phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['II'],
+                                              minPres_MPa=minPres_MPa, minTres_K=minTres_K)
         Planet.Ocean.iceEOS['III'] = GetIceEOS(POceanHPices_MPa, TOceanHPices_K, 'III',
                                                porosType=Planet.Ocean.porosType['III'],
                                                phiTop_frac=Planet.Ocean.phiMax_frac['III'],
                                                Pclosure_MPa=Planet.Ocean.Pclosure_MPa['III'],
-                                               phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['III'])
+                                               phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['III'],
+                                               minPres_MPa=minPres_MPa, minTres_K=minTres_K)
         Planet.Ocean.iceEOS['V'] = GetIceEOS(POceanHPices_MPa, TOceanHPices_K, 'V',
                                              porosType=Planet.Ocean.porosType['V'],
                                              phiTop_frac=Planet.Ocean.phiMax_frac['V'],
                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa['V'],
-                                             phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['V'])
+                                             phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['V'],
+                                             minPres_MPa=minPres_MPa, minTres_K=minTres_K)
         Planet.Ocean.iceEOS['VI'] = GetIceEOS(POceanHPices_MPa, TOceanHPices_K, 'VI',
                                               porosType=Planet.Ocean.porosType['VI'],
                                               phiTop_frac=Planet.Ocean.phiMax_frac['VI'],
                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa['VI'],
-                                              phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['VI'])
+                                              phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['VI'],
+                                              minPres_MPa=minPres_MPa, minTres_K=minTres_K)
     else:
         # Get phase of each P,T combination
         expandPhases = Planet.Ocean.EOS.fn_phase(PHPicesLin_MPa, THPicesLin_K)
@@ -618,7 +622,8 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
                                                       porosType=Planet.Ocean.porosType['II'],
                                                       phiTop_frac=Planet.Ocean.phiMax_frac['II'],
                                                       Pclosure_MPa=Planet.Ocean.Pclosure_MPa['II'],
-                                                      phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['II'])
+                                                      phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['II'],
+                                                      minPres_MPa=minPres_MPa, minTres_K=minTres_K)
             if(np.size(indsIceIII) != 0):
                 log.debug('Loading ice III EOS functions for ocean layers...')
                 PiceIIImin_MPa = PHPicesLin_MPa[indsIceIII[0]]
@@ -630,7 +635,8 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
                                                        porosType=Planet.Ocean.porosType['III'],
                                                        phiTop_frac=Planet.Ocean.phiMax_frac['III'],
                                                        Pclosure_MPa=Planet.Ocean.Pclosure_MPa['III'],
-                                                       phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['III'])
+                                                       phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['III'],
+                                                       minPres_MPa=minPres_MPa, minTres_K=minTres_K)
             if(np.size(indsIceV) != 0):
                 log.debug('Loading ice V EOS functions for ocean layers...')
                 PiceVmin_MPa = PHPicesLin_MPa[indsIceV[0]]
@@ -642,7 +648,8 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
                                                      porosType=Planet.Ocean.porosType['V'],
                                                      phiTop_frac=Planet.Ocean.phiMax_frac['V'],
                                                      Pclosure_MPa=Planet.Ocean.Pclosure_MPa['V'],
-                                                     phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['V'])
+                                                     phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['V'],
+                                                     minPres_MPa=minPres_MPa, minTres_K=minTres_K)
             if(np.size(indsIceVI) != 0):
                 log.debug('Loading ice VI EOS functions for ocean layers...')
                 PiceVImin_MPa = PHPicesLin_MPa[indsIceVI[0]]
@@ -654,7 +661,8 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa):
                                                       porosType=Planet.Ocean.porosType['VI'],
                                                       phiTop_frac=Planet.Ocean.phiMax_frac['VI'],
                                                       Pclosure_MPa=Planet.Ocean.Pclosure_MPa['VI'],
-                                                      phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['VI'])
+                                                      phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['VI'],
+                                                      minPres_MPa=minPres_MPa, minTres_K=minTres_K)
         else:
             log.debug('No high-pressure ices found in ocean layers.')
 
