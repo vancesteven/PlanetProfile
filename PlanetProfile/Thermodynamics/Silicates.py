@@ -70,6 +70,7 @@ def SilicateLayers(Planet, Params):
                 Planet.Do.VALID = False
                 if Planet.Steps.iSilStart > 1:
                     log.debug('Trying again with Steps.iSilStart set to 1.')
+                    Planet.Do.VALID = True
                 elif not Params.ALLOW_BROKEN_MODELS:
                     raise RuntimeError(
                         f'All masses for some SilicateLayers solutions are more than {100 * MdiffThresh:g}% ' +
