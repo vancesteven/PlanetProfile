@@ -1,12 +1,12 @@
 from importlib.metadata import version
 # Current PlanetProfile version tag
-ppVerNum = '2.3.1'
+ppVerNum = '2.3.2'
 # Compatible version tag numbers
 compatNums = {
     'seafreeze': '0.9.2',
     'gsw': '3.4.0',
     'obspy': '1.2.2',
-    'MoonMag': '1.5.0'
+    'MoonMag': '1.5.1'
 }
 # Printable package names
 pkgNames = {
