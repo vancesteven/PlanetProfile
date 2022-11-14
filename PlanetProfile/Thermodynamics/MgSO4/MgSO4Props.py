@@ -247,7 +247,7 @@ class MgSO4PhaseMargules:
 
         return np.argmin(DeltamuAll_Jkg, axis=0)
 
-    def arrays(self, P_MPa, T_K):
+    def arrays(self, P_MPa, T_K, grid=True):
         self.nPs = np.size(P_MPa)
         self.nTs = np.size(T_K)
         if np.maximum(self.nPs, self.nTs) > 300:
@@ -277,6 +277,8 @@ class MgSO4PhaseMargules:
                      f'{self.nTs} T values. This may take some time.')
             phase = np.array([[self.__call__(P, T) for T in T_K] for P in P_MPa])
 
+        if not grid and np.size(phase) == 1 and isinstance(phase, Iterable):
+            phase = phase[0]
         return phase
 
 
