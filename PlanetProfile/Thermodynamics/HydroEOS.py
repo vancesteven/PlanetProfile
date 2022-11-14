@@ -251,10 +251,10 @@ class OceanEOSStruct:
 
 
 def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False,
-              ClathDissoc=None):
+              ClathDissoc=None, minPres_MPa=None, minTres_K=None):
     iceEOS = IceEOSStruct(P_MPa, T_K, phaseStr, porosType=porosType, phiTop_frac=phiTop_frac,
                           Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
-                          ClathDissoc=ClathDissoc)
+                          ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa, minTres_K=minTres_K)
     if iceEOS.ALREADY_LOADED:
         log.debug(f'Ice {phaseStr} EOS already loaded. Reusing existing EOS.')
         iceEOS = EOSlist.loaded[iceEOS.EOSlabel]
@@ -270,10 +270,10 @@ def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=
 
 class IceEOSStruct:
     def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False,
-                 ClathDissoc=None):
+                 ClathDissoc=None, minPres_MPa=None, minTres_K=None):
         self.EOSlabel = f'phase{phaseStr}poros{porosType}phi{phiTop_frac}Pclose{Pclosure_MPa}phiMin{phiMin_frac}extrap{EXTRAP}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
-            = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K)
+            = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, minPres_MPa=minPres_MPa, minTres_K=minTres_K)
         if not self.ALREADY_LOADED:
             self.Pmin = np.min(P_MPa)
             self.Pmax = np.max(P_MPa)
@@ -396,7 +396,7 @@ class returnVal:
             P, _ = np.meshgrid(P, T, indexing='ij')
         return (np.ones_like(P) * self.val).astype(np.int_)
 
-def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False):
+def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, minTres_K=None):
     """ Determine if we need to load a new EOS, or if we can reuse one that's already been
         loaded within this session.
 
@@ -418,8 +418,12 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False):
     # Create label for identifying P, T arrays
     deltaP = np.maximum(np.round(np.mean(np.diff(P_MPa)), 2), 0.001)
     deltaT = np.maximum(np.round(np.mean(np.diff(T_K)), 2), 0.001)
-    rangeLabel = f'{np.min(P_MPa):.2f},{np.max(P_MPa):.2f},{deltaP:.2e},' + \
-                 f'{np.min(T_K):.3f},{np.max(T_K):.3f},{deltaT:.2e}'
+    Pmin = np.min(P_MPa)
+    Pmax = np.max(P_MPa)
+    Tmin = np.min(T_K)
+    Tmax = np.max(T_K)
+    rangeLabel = f'{Pmin:.2f},{Pmax:.2f},{deltaP:.2e},' + \
+                 f'{Tmin:.3f},{Tmax:.3f},{deltaT:.2e}'
     if (not FORCE_NEW) and EOSlabel in EOSlist.loaded.keys():
         if EOSlist.ranges[EOSlabel] == rangeLabel:
             # This exact EOS has been loaded already. Reuse the one in memory
@@ -445,10 +449,16 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False):
                 maxPmax = np.maximum(np.max(P_MPa), EOSlist.loaded[EOSlabel].Pmax)
                 minTmin = np.minimum(np.min(T_K), EOSlist.loaded[EOSlabel].Tmin)
                 maxTmax = np.maximum(np.max(T_K), EOSlist.loaded[EOSlabel].Tmax)
-                deltaP = round(np.minimum(np.mean(np.diff(P_MPa)), EOSlist.loaded[EOSlabel].deltaP), 2)
-                deltaT = round(np.minimum(np.mean(np.diff(T_K)), EOSlist.loaded[EOSlabel].deltaT), 2)
+                deltaP = np.round(np.minimum(np.mean(np.diff(P_MPa)), EOSlist.loaded[EOSlabel].deltaP), 2)
+                deltaT = np.round(np.minimum(np.mean(np.diff(T_K)), EOSlist.loaded[EOSlabel].deltaT), 2)
                 if deltaP == 0: deltaP = 0.01
                 if deltaT == 0: deltaT = 0.01
+                if minPres_MPa is not None and deltaP < minPres_MPa:
+                    log.warning(f'deltaP of {deltaP:.2f} MPa less than minimum res setting of {minPres_MPa}. Resetting to {minPres_MPa}.')
+                    deltaP = minPres_MPa
+                if minTres_K is not None and deltaT < minTres_K:
+                    log.warning(f'deltaT of {deltaT:.2f} K less than minimum res setting of {minTres_K}. Resetting to {minTres_K}.')
+                    deltaT = minTres_K
                 nPs = int((maxPmax - minPmin) / deltaP)
                 nTs = int((maxTmax - minTmin) / deltaT)
                 # Ensure we don't have too few points that we error later
@@ -469,8 +479,17 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False):
     else:
         # This EOS has not been loaded, so we need to load it with the input parameters
         ALREADY_LOADED = False
-        outP_MPa = P_MPa + 0.0
-        outT_K = T_K + 0.0
+        # Override min resolution if set
+        if minPres_MPa is not None and deltaP < minPres_MPa:
+            log.warning(f'deltaP of {deltaP:.2f} MPa less than minimum res setting of {minPres_MPa}. Resetting to {minPres_MPa}.')
+            deltaP = minPres_MPa
+        if minTres_K is not None and deltaT < minTres_K:
+            log.warning(f'deltaT of {deltaT:.2f} K less than minimum res setting of {minTres_K}. Resetting to {minTres_K}.')
+            deltaT = minTres_K
+        rangeLabel = f'{Pmin:.2f},{Pmax:.2f},{deltaP:.2e},' + \
+                     f'{Tmin:.3f},{Tmax:.3f},{deltaT:.2e}'
+        outP_MPa = np.arange(Pmin, Pmax, deltaP)
+        outT_K = np.arange(Tmin, Tmax, deltaT)
 
     return ALREADY_LOADED, rangeLabel, outP_MPa, outT_K, deltaP, deltaT
 
