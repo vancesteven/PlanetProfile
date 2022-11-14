@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Ganymede
+python PlanetProfileCLI.py Ganymede/PPGanymedeV2018_MgSO4_1.py Ganymede/PPGanymedeV2018_MgSO4_2.py Ganymede/PPGanymedeV2018_MgSO4_3.py Ganymede/PPGanymedeV2018_PureH2O_1.py Ganymede/PPGanymedeV2018_PureH2O_2.py Ganymede/PPGanymedeV2018_PureH2O_3.py
+
+# Callisto
+python PlanetProfileCLI.py Callisto/PPCallistoV2018_MgSO4_1.py Callisto/PPCallistoV2018_MgSO4_2.py Callisto/PPCallistoV2018_PureH2O_1.py Callisto/PPCallistoV2018_PureH2O_2.py
+
+# Titan
+python PlanetProfileCLI.py Titan/PPTitanV2018_MgSO4_1.py Titan/PPTitanV2018_MgSO4_2.py Titan/PPTitanV2018_MgSO4_3.py Titan/PPTitanV2018_PureH2O_1.py Titan/PPTitanV2018_PureH2O_2.py Titan/PPTitanV2018_PureH2O_3.py
+
+# Europa
+python PlanetProfileCLI.py Europa/PPEuropaV2018_MgSO4_1.py Europa/PPEuropaV2018_MgSO4_2.py Europa/PPEuropaV2018_Seawater_1.py Europa/PPEuropaV2018_Seawater_2.py Europa/PPEuropaV2018_PureH2O_1.py Europa/PPEuropaV2018_PureH2O_2.py
+
+# Enceladus
+python PlanetProfileCLI.py Enceladus/PPEnceladusV2018_MgSO4_1.py Enceladus/PPEnceladusV2018_MgSO4_2.py Enceladus/PPEnceladusV2018_Seawater_1.py Enceladus/PPEnceladusV2018_Seawater_2.py Enceladus/PPEnceladusV2018_PureH2O_1.py Enceladus/PPEnceladusV2018_PureH2O_2.py
+
+
