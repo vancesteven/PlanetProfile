@@ -555,7 +555,10 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
     phiSil_frac0 = Planet.Sil.fn_phi_frac(Peff_MPa, Tsil_K0)
     # Get pore fluid properties
     # First check for HP ice phases
-    phasePore0 = Planet.Sil.poreEOS.fn_phase(Ppore_MPa0, Tsil_K0)
+    if Planet.Do.SKIP_POROUS_PHASE:
+        phasePore0 = np.zeros_like(Ppore_MPa0)
+    else:
+        phasePore0 = Planet.Sil.poreEOS.fn_phase(Ppore_MPa0, Tsil_K0).astype(int)
     liqP = phasePore0 == 0
     # If all the pores are filled with liquid, do everything together
     if np.all(liqP):
@@ -692,7 +695,10 @@ def SilRecursionPorous(Planet, Params,
         phiSil_frac[:,j] = Planet.Sil.fn_phi_frac(Peff_MPa, Tsil_K[:,j])
         # Get pore fluid properties
         # First check for HP ice phases
-        phasePore[:,j] = Planet.Sil.poreEOS.fn_phase(Ppore_MPa[:,j], Tsil_K[:,j])
+        if Planet.Do.SKIP_POROUS_PHASE:
+            phasePore[:,j] = np.zeros_like(Ppore_MPa[:,j]).astype(int)
+        else:
+            phasePore[:,j] = Planet.Sil.poreEOS.fn_phase(Ppore_MPa[:,j], Tsil_K[:,j])
         liqP = phasePore[:,j] == 0
         # If all the pores are filled with liquid, do everything together
         if np.all(liqP):
