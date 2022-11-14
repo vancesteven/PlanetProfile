@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 11  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 12  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def configAssign():
     Params = ParamsStruct()
@@ -23,6 +23,8 @@ def configAssign():
     Params.EXTRAP_SIL =   False
     Params.EXTRAP_Fe =    False
     Params.lookupInterpMethod = 'nearest'  # Interpolation method to use for EOS lookup tables. Options are 'nearest', 'linear', 'cubic'.
+    Params.minPres_MPa = None  # Only applies to ice EOS! Applies a lower bound to how small the pressure step can be in loading the EOS. Avoids major slowdowns when chaining models for small and large bodies.
+    Params.minTres_K = None  # Same as above. Set to None to allow default behavior for ice EOS resolution.
 
     Params.CALC_NEW =         True  # Recalculate profiles? If not, read data from disk and re-plot.
     Params.CALC_NEW_REF =     True  # Recalculate reference melting curve densities?
