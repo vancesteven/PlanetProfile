@@ -366,8 +366,7 @@ def WriteSeismic(Planet, Params):
                 nDisc += 1
 
     # Construct header
-    leadWSAxi = 13
-    colWidth = 16
+    leadWSAxi = 2
     headerLines = [
         f'# Model for {Planet.name}',
         f'# Created with PlanetProfile v{ppVerNum}:',
@@ -376,25 +375,25 @@ def WriteSeismic(Planet, Params):
         f'ANELASTIC    T',
         f'ANISOTROPIC  F',
         f'UNITS        m',
-        f'COLUMNS     ' + ''.join([
-            'radius'.rjust(colWidth-6),
-            'rho'.rjust(colWidth+1),
-            'vpv'.rjust(colWidth+1),
-            'vsv'.rjust(colWidth+1),
-            'qka'.rjust(colWidth+1),
-            'qmu'.rjust(colWidth+1)
+        f'COLUMNS     ' + ' '.join([
+            'radius',
+            'rho',
+            'vpv',
+            'vsv',
+            'qka',
+            'qmu'
         ])
     ]
     with open(Params.DataFiles.AxiSEMfile,'w') as f:
         f.write('\n'.join(headerLines) + '\n')
         for i in range(np.size(rAxi_m)):
             f.write(' '*leadWSAxi + ' '.join([
-                f'{rAxi_m[i]:9.1f}',
-                f'{rhoAxi_kgm3[i]:16.2f}',
-                f'{VPAxi_ms[i]:16.2f}',
-                f'{VSAxi_ms[i]:16.2f}',
-                f'{Qkappa[i]:16.1f}',
-                f'{QSAxi[i]:16.1f}'
+                f'{rAxi_m[i]:.1f}',
+                f'{rhoAxi_kgm3[i]:.2f}',
+                f'{VPAxi_ms[i]:.2f}',
+                f'{VSAxi_ms[i]:.2f}',
+                f'{Qkappa[i]:.1f}',
+                f'{QSAxi[i]:.1f}'
             ]) + '\n')
 
 
