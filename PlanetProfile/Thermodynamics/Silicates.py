@@ -62,23 +62,23 @@ def SilicateLayers(Planet, Params):
         Mtot_kg = MLayerSil_kg[:,-1] + MAboveSil_kg[:,-1]
         # Warn user if all profiles are less than the input mass, and raise an
         # error if they're all significantly less.
-        if np.all(Mtot_kg < Planet.Bulk.M_kg):
-            Mdiff_frac = 1 - Mtot_kg / Planet.Bulk.M_kg
-            MdiffThresh = 0.05
-            if np.min(Mdiff_frac) > MdiffThresh:
-                log.debug('Insufficient mass in SilicateLayers.')
-                Planet.Do.VALID = False
-                if Planet.Steps.iSilStart > 1:
-                    log.debug('Trying again with Steps.iSilStart set to 1.')
-                elif not Params.ALLOW_BROKEN_MODELS:
-                    raise RuntimeError(
-                        f'All masses for some SilicateLayers solutions are more than {100 * MdiffThresh:g}% ' +
-                        'less than the total body mass. This likely means the ice shell is too thick to be ' +
-                        'consistent with the value of Steps.iSilStart -- try to increase Bulk.Tb_K or ' +
-                        'decrease Steps.iSilStart.')
-            else:
-                log.warning(f'All masses for some SilicateLayers solutions are more than {100 * MdiffThresh:g}% less ' +
-                            f'than the total body mass, though the closest is only {100 * np.min(Mdiff_frac):g}% less.')
+        Mdiff_frac = 1 - Mtot_kg / Planet.Bulk.M_kg
+        MdiffThresh = 0.05
+        if np.min(Mdiff_frac) > MdiffThresh:
+            log.debug('Insufficient mass in SilicateLayers.')
+            Planet.Do.VALID = False
+            if Planet.Steps.iSilStart > 1:
+                log.debug('Trying again with Steps.iSilStart set to 1.')
+                Planet.Do.VALID = True
+            elif not Params.ALLOW_BROKEN_MODELS:
+                raise RuntimeError(
+                    f'All masses for some SilicateLayers solutions are more than {100 * MdiffThresh:g}% ' +
+                    'less than the total body mass. This likely means the ice shell is too thick to be ' +
+                    'consistent with the value of Steps.iSilStart -- try to increase Bulk.Tb_K or ' +
+                    'decrease Steps.iSilStart.')
+        else:
+            log.warning(f'All masses for some SilicateLayers solutions are more than {100 * MdiffThresh:g}% less ' +
+                        f'than the total body mass, though the closest is only {100 * np.min(Mdiff_frac):g}% less.')
 
         # Find silicate radii for which the total mass is too high so we can exclude them
         indsSilValid = np.where(Mtot_kg <= Planet.Bulk.M_kg)[0]
