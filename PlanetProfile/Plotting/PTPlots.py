@@ -86,11 +86,13 @@ def PlotHydroPhase(PlanetList, Params):
             P = (np.max(theseP) + np.min(theseP)) / 2
             T = (np.max(theseT) + np.min(theseT)) / 2
             ax.text(T, P, PhaseConv(ice), ha='center', va='center', fontsize=FigLbl.hydroPhaseSize)
-        Pliq = P2D_MPa[np.where(phases == 0)]
-        Tliq = T2D_K[np.where(phases == 0)]
-        P = (np.max(Pliq) + np.min(Pliq)) / 2
-        T = (np.max(Tliq) + np.min(Tliq)) / 2
-        ax.text(T, P, 'liquid', ha='center', va='center', fontsize=FigLbl.hydroPhaseSize)
+
+        if np.any(phases == 0):
+            Pliq = P2D_MPa[np.where(phases == 0)]
+            Tliq = T2D_K[np.where(phases == 0)]
+            P = (np.max(Pliq) + np.min(Pliq)) / 2
+            T = (np.max(Tliq) + np.min(Tliq)) / 2
+            ax.text(T, P, 'liquid', ha='center', va='center', fontsize=FigLbl.hydroPhaseSize)
 
         # Plot geotherm(s) on top of colormaps
         for eachPlanet in PlanetList:
