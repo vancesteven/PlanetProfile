@@ -9,7 +9,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Rectangle
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import interp1d
-from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc, InductParams as IndParams
+from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Utilities.defineStructs import Constants
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
@@ -85,12 +85,12 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
                 if FigMisc.NORMALIZED_TEMPERATURES:
                     Tmean_normFrac = Color.GetNormT(Tmean_K)
                 else:
-                    Tmean_normFrac = interp1d([np.min(Tmean_K), np.max(Tmean_K)], [0.0, 1.0])(Tmean_K)
+                    Tmean_normFrac = interp1d([np.min(np.isfinite(Tmean_K)), np.max(np.isfinite(Tmean_K))], [0.0, 1.0])(Tmean_K)
                 ptColors[i] = Color.OceanCmap(Induction.compsList, w_normFrac, Tmean_normFrac,
                                               DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
             elif Params.Induct.colorType == 'zb':
                 zb_km = Induction.zb_km.flatten()
-                zb_normFrac = interp1d([np.min(zb_km), np.max(zb_km)], [0.0, 1.0])(zb_km)
+                zb_normFrac = interp1d([np.min(zb_km[np.isfinite(zb_km)]), np.max(zb_km[np.isfinite(zb_km)])], [0.0, 1.0])(zb_km)
                 ptColors[i] = Color.OceanCmap(Induction.compsList, w_normFrac, zb_normFrac,
                                               DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
             else:
@@ -228,18 +228,39 @@ def PlotInductOgram(Induction, Params):
     TexcCalcd = excSelectionCalc and Induction.Texc_hr
     whichTexc = excSelectionCalc and Params.Induct.excSelectionPlot
     allTexc_hr = np.fromiter(TexcCalcd.values(), dtype=np.float_)
-    allTexc_hr = allTexc_hr[np.isfinite(allTexc_hr)]
-    iTexc = [np.where(allTexc_hr == Texc)[0][0] for key, Texc in TexcCalcd.items() if whichTexc[key]]
+    allAvailableTexc_hr = allTexc_hr[np.isfinite(allTexc_hr)]
+    iTexc = [np.where(allTexc_hr == Texc)[0][0] for key, Texc in TexcCalcd.items() if whichTexc[key] and np.size(np.where(allTexc_hr == Texc)[0]) > 0]
+    iTexcAvail = [np.where(allAvailableTexc_hr == Texc)[0][0] for key, Texc in TexcCalcd.items() if whichTexc[key] and np.size(np.where(allAvailableTexc_hr == Texc)[0]) > 0]
     TexcPlotNames = np.fromiter(Induction.Texc_hr.keys(), dtype='<U20')[iTexc]
     Texc_hr = allTexc_hr[iTexc]
     iSort = np.argsort(Texc_hr)
+    if Induction.bodyname not in Params.Induct.sigmaMax.keys() or Induction.bodyname not in Params.Induct.sigmaMin.keys():
+        sigmaMin = np.min(Induction.sigmaMean_Sm[np.isfinite(Induction.sigmaMean_Sm)])
+        sigmaMax = np.max(Induction.sigmaMean_Sm[np.isfinite(Induction.sigmaMean_Sm)])
+        Dmin = np.min(Induction.D_km[np.isfinite(Induction.D_km)])
+        Dmax = np.max(Induction.D_km[np.isfinite(Induction.D_km)])
+        log.warning(f'At least one of [sigmaMin, sigmaMax, Dmin, Dmax] are not set for {Induction.bodyname} in configPPinduct. ' +
+                    f'Using min/max for this inductOgram run:\n' +
+                    f'sigmaMin: {sigmaMin} S/m\n' +
+                    f'sigmaMin: {sigmaMax} S/m\n' +
+                    f'sigmaMin: {Dmin} S/m\n' +
+                    f'sigmaMin: {Dmax} S/m\n')
+        Params.Induct.sigmaMin[Induction.bodyname] = np.log10(sigmaMin)
+        Params.Induct.sigmaMax[Induction.bodyname] = np.log10(sigmaMax)
+        Params.Induct.Dmin[Induction.bodyname] = np.log10(Dmin)
+        Params.Induct.Dmax[Induction.bodyname] = np.log10(Dmax)
+        
+    # Let matplotlib decide contour levels and format if we haven't explicitly set them
+    if Induction.bodyname not in Params.Induct.cLevels.keys() or Induction.bodyname not in Params.Induct.cFmt.keys():
+        Params.Induct.SPECIFIC_CLEVELS = False
+        
     FigLbl.SetInduction(Induction.bodyname, Params.Induct, Texc_hr)
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
 
     # Get all common labels and data for zipping
-    zData = [Induction.Amp[iTexc,...], np.abs(Induction.Bix_nT[iTexc,...]),
-             np.abs(Induction.Biy_nT[iTexc,...]), np.abs(Induction.Biz_nT[iTexc,...])]
+    zData = [Induction.Amp[iTexcAvail,...], np.abs(Induction.Bix_nT[iTexcAvail,...]),
+             np.abs(Induction.Biy_nT[iTexcAvail,...]), np.abs(Induction.Biz_nT[iTexcAvail,...])]
     if Induction.SINGLE_COMP:
         FigLbl.singleComp(Induction.comps[0])
 
@@ -267,8 +288,8 @@ def PlotInductOgram(Induction, Params):
         [ax.set_xscale(FigLbl.sigScale) for ax in allAxes]
         [ax.set_yscale(FigLbl.Dscale) for ax in allAxes]
         coords = {'Bx': (0,0), 'By': (0,1), 'Bz': (1,0), 'phase': (1,1)}
-        comboData = [np.abs(Induction.Bix_nT[iTexc,...]), np.abs(Induction.Biy_nT[iTexc,...]),
-                     np.abs(Induction.Biz_nT[iTexc,...]), Induction.phase[iTexc,...]]
+        comboData = [np.abs(Induction.Bix_nT[iTexcAvail,...]), np.abs(Induction.Biy_nT[iTexcAvail,...]),
+                     np.abs(Induction.Biz_nT[iTexcAvail,...]), Induction.phase[iTexcAvail,...]]
         comboTitles = np.append(FigLbl.plotTitles[1:], FigLbl.phaseTitle)
         comboLabels = list(coords.keys())
 
@@ -277,10 +298,10 @@ def PlotInductOgram(Induction, Params):
             ax.set_title(name)
             zContours = [ax.contour(Induction.sigmaMean_Sm, Induction.D_km, z[i, ...],
                            colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
-                           linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels(fLabel, T))
+                           linewidths=Style.LW_Induction[T], levels=Params.Induct.GetClevels(fLabel, T))
                            for i, T in enumerate(TexcPlotNames)]
             if Params.Induct.inductOtype == 'sigma':
-                [ax.clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
+                [ax.clabel(zContours[i], fmt=Params.Induct.GetCfmt(fLabel, T),
                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                            for i, T in enumerate(TexcPlotNames)]
 
@@ -323,9 +344,9 @@ def PlotInductOgram(Induction, Params):
                 zContours = [ax.contour(Induction.x, Induction.y, z[i, ...],
                                         colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                         linewidths=Style.LW_Induction[T],
-                                        levels=IndParams.GetClevels(fLabel, T))
+                                        levels=Params.Induct.GetClevels(fLabel, T))
                              for i, T in enumerate(TexcPlotNames)]
-                [ax.clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
+                [ax.clabel(zContours[i], fmt=Params.Induct.GetCfmt(fLabel, T),
                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                            for i, T in enumerate(TexcPlotNames)]
 
@@ -371,27 +392,27 @@ def PlotInductOgram(Induction, Params):
             zContours = [axes[0,0].contour(Induction.x, Induction.y, comboData[0][i, ...],
                                     colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                     linewidths=Style.LW_Induction[T],
-                                    levels=IndParams.GetClevels(comboLabels[0], T))
+                                    levels=Params.Induct.GetClevels(comboLabels[0], T))
                          for i, T in enumerate(TexcPlotNames)]
             phaseContours = [axes[0,1].contour(Induction.x, Induction.y, comboData[-1][i, ...],
                                     colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                     linewidths=Style.LW_Induction[T],
-                                    levels=IndParams.GetClevels(comboLabels[-1], T))
+                                    levels=Params.Induct.GetClevels(comboLabels[-1], T))
                          for i, T in enumerate(TexcPlotNames)]
             [axes[1,0].contour(Induction.sigmaMean_Sm, Induction.D_km, comboData[0][i, ...],
                                     colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                     linewidths=Style.LW_Induction[T],
-                                    levels=IndParams.GetClevels(comboLabels[0], T))
+                                    levels=Params.Induct.GetClevels(comboLabels[0], T))
                          for i, T in enumerate(TexcPlotNames)]
             [axes[1,1].contour(Induction.sigmaMean_Sm, Induction.D_km, comboData[-1][i, ...],
                                     colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                                     linewidths=Style.LW_Induction[T],
-                                    levels=IndParams.GetClevels(comboLabels[-1], T))
+                                    levels=Params.Induct.GetClevels(comboLabels[-1], T))
                          for i, T in enumerate(TexcPlotNames)]
-            [axes[0,0].clabel(zContours[i], fmt=IndParams.GetCfmt(comboLabels[0], T),
+            [axes[0,0].clabel(zContours[i], fmt=Params.Induct.GetCfmt(comboLabels[0], T),
                        fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                        for i, T in enumerate(TexcPlotNames)]
-            [axes[0,1].clabel(phaseContours[i], fmt=IndParams.GetCfmt(comboLabels[-1], T),
+            [axes[0,1].clabel(phaseContours[i], fmt=Params.Induct.GetCfmt(comboLabels[-1], T),
                        fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                        for i, T in enumerate(TexcPlotNames)]
 
@@ -437,17 +458,17 @@ def PlotInductOgram(Induction, Params):
 
         zContours = [axes[0].contour(Induction.sigmaMean_Sm, Induction.D_km, z[i, ...],
                          colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
-                         linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels(fLabel, T))
+                         linewidths=Style.LW_Induction[T], levels=Params.Induct.GetClevels(fLabel, T))
                          for i, T in enumerate(TexcPlotNames)]
         phaseContours = [axes[1].contour(Induction.sigmaMean_Sm, Induction.D_km, Induction.phase[i, ...],
                          colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
-                         linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels('phase', T))
+                         linewidths=Style.LW_Induction[T], levels=Params.Induct.GetClevels('phase', T))
                          for i, T in enumerate(TexcPlotNames)]
         if Params.Induct.inductOtype == 'sigma':
-            [axes[0].clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
+            [axes[0].clabel(zContours[i], fmt=Params.Induct.GetCfmt(fLabel, T),
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(TexcPlotNames)]
-            [axes[1].clabel(phaseContours[i], fmt=IndParams.GetCfmt('phase', T),
+            [axes[1].clabel(phaseContours[i], fmt=Params.Induct.GetCfmt('phase', T),
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(TexcPlotNames)]
             fNameSigma = Params.FigureFiles.sigmaOnly[fLabel]
@@ -485,16 +506,16 @@ def PlotInductOgram(Induction, Params):
 
             zContours = [axes[0].contour(Induction.x, Induction.y, z[i, ...],
                              colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
-                             linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels(fLabel, T))
+                             linewidths=Style.LW_Induction[T], levels=Params.Induct.GetClevels(fLabel, T))
                              for i, T in enumerate(TexcPlotNames)]
             phaseContours = [axes[1].contour(Induction.x, Induction.y, Induction.phase[i, ...],
                              colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
-                             linewidths=Style.LW_Induction[T], levels=IndParams.GetClevels('phase', T))
+                             linewidths=Style.LW_Induction[T], levels=Params.Induct.GetClevels('phase', T))
                              for i, T in enumerate(TexcPlotNames)]
-            [axes[0].clabel(zContours[i], fmt=IndParams.GetCfmt(fLabel, T),
+            [axes[0].clabel(zContours[i], fmt=Params.Induct.GetCfmt(fLabel, T),
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(TexcPlotNames)]
-            [axes[1].clabel(phaseContours[i], fmt=IndParams.GetCfmt('phase', T),
+            [axes[1].clabel(phaseContours[i], fmt=Params.Induct.GetCfmt('phase', T),
                             fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                             for i, T in enumerate(TexcPlotNames)]
 
