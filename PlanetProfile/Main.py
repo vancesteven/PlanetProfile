@@ -776,30 +776,40 @@ def InductOgram(bodyname, Params):
         log.info(f'Parallel run elapsed time: {dt:.1f} s.')
 
         # Organize data into a format that can be plotted/saved for plotting
-        Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(PlanetGrid[0,0].Magnetic.Benm_nT)
+        PlanetList = PlanetGrid.flatten()
+        try:
+            Benm_nT = PlanetList[next(i for i, Planet in enumerate(PlanetList) 
+                                      if Planet.Magnetic.Benm_nT is not None)].Magnetic.Benm_nT
+        except StopIteration:
+            raise RuntimeError('An excitation field was never loaded for this inductOgeam. This probably means all ' +
+                               'interior models were invalid or the file for excitation moments was not found.')
+        
+        Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(Benm_nT)
         nPeaks = np.size(Bex_nT)
         Induction = InductionResults
         Induction.bodyname = bodyname
         Induction.yName = Params.Induct.inductOtype
         Induction.Texc_hr = Mag.Texc_hr[bodyname]
-        Induction.Amp = np.array([[[Planeti.Magnetic.Amp[i] for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
-        Induction.phase = np.array([[[Planeti.Magnetic.phase[i] for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
+        Induction.Amp = np.array([[[Planeti.Magnetic.Amp[i] if Planeti.Magnetic.Amp is not None else np.nan for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
+        Induction.phase = np.array([[[Planeti.Magnetic.phase[i] if Planeti.Magnetic.Amp is not None else np.nan for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
         Induction.Bix_nT = np.array([Induction.Amp[i, ...] * Bex_nT[i] for i in range(nPeaks)])
         Induction.Biy_nT = np.array([Induction.Amp[i, ...] * Bey_nT[i] for i in range(nPeaks)])
         Induction.Biz_nT = np.array([Induction.Amp[i, ...] * Bez_nT[i] for i in range(nPeaks)])
         Induction.wOcean_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
         Induction.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
         Induction.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
-        Induction.Tmean_K = np.array([[Planeti.Ocean.Tmean_K for Planeti in line] for line in PlanetGrid])
-        Induction.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 for Planeti in line] for line in PlanetGrid])
-        Induction.phiSilMax_frac = np.array([[Planeti.Sil.phiRockMax_frac for Planeti in line] for line in PlanetGrid])
-        Induction.sigmaMean_Sm = np.array([[Planeti.Ocean.sigmaMean_Sm for Planeti in line] for line in PlanetGrid])
-        Induction.sigmaTop_Sm = np.array([[Planeti.Ocean.sigmaTop_Sm for Planeti in line] for line in PlanetGrid])
-        Induction.D_km = np.array([[Planeti.D_km for Planeti in line] for line in PlanetGrid])
-        Induction.zb_km = np.array([[Planeti.zb_km for Planeti in line] for line in PlanetGrid])
+        Induction.Tmean_K = np.array([[Planeti.Ocean.Tmean_K if Planeti.Ocean.Tmean_K is not None else np.nan for Planeti in line] for line in PlanetGrid])
+        Induction.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 if Planeti.Sil.rhoMean_kgm3 is not None else np.nan for Planeti in line] for line in PlanetGrid])
+        Induction.phiSilMax_frac = np.array([[Planeti.Sil.phiRockMax_frac if Planeti.Sil.phiRockMax_frac is not None else np.nan for Planeti in line] for line in PlanetGrid])
+        Induction.sigmaMean_Sm = np.array([[Planeti.Ocean.sigmaMean_Sm if Planeti.Ocean.sigmaMean_Sm is not None else np.nan for Planeti in line] for line in PlanetGrid])
+        Induction.sigmaTop_Sm = np.array([[Planeti.Ocean.sigmaTop_Sm if Planeti.Ocean.sigmaTop_Sm is not None else np.nan for Planeti in line] for line in PlanetGrid])
+        Induction.D_km = np.array([[Planeti.D_km if Planeti.D_km is not None else np.nan for Planeti in line] for line in PlanetGrid])
+        Induction.zb_km = np.array([[Planeti.zb_km if Planeti.zb_km is not None else np.nan for Planeti in line] for line in PlanetGrid])
         Induction.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
-        Induction.rBds_m = np.array([[Planeti.Magnetic.rSigChange_m for Planeti in line] for line in PlanetGrid])
-        Induction.sigmaLayers_Sm = np.array([[Planeti.Magnetic.sigmaLayers_Sm for Planeti in line] for line in PlanetGrid])
+        nLayers = next(np.size(Planet.Magnetic.rSigChange_m) for Planet in PlanetList if Planet.Magnetic.rSigChange_m is not None)
+        nanLayers = np.nan*np.empty(nLayers)
+        Induction.rBds_m = np.array([[Planeti.Magnetic.rSigChange_m if Planeti.Magnetic.rSigChange_m is not None else nanLayers for Planeti in line] for line in PlanetGrid])
+        Induction.sigmaLayers_Sm = np.array([[Planeti.Magnetic.sigmaLayers_Sm if Planeti.Magnetic.sigmaLayers_Sm is not None else nanLayers for Planeti in line] for line in PlanetGrid])
 
         Params.DataFiles = DataFiles
         Params.FigureFiles = FigureFiles
