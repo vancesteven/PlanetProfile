@@ -409,19 +409,24 @@ def SetupInduction(Planet, Params):
                 if np.size(indsLiq) > 0 and not np.all(np.diff(indsLiq) == 1):
                     log.warning('HP ices found in ocean while REDUCED_INDUCT is True. They will be ignored ' +
                                 'in the interpolation.')
-                if np.size(indsLiq) <= Params.Induct.nIntL:
-                    log.warning(f'Only {np.size(indsLiq)} layers found in ocean, but number of layers to ' +
-                                f'interpolate over is {Params.Induct.nIntL}. This profile will be not be reduced.')
+            
+                # Get radius values from D/nIntL above the seafloor to the ice shell
+                rBot_m = Planet.Bulk.R_m - (Planet.zb_km + Planet.D_km) * 1e3
+                rTop_m = rLayers_m[indsLiq[-1]]
+                rOcean_m = np.linspace(rBot_m, rTop_m, Params.Induct.nIntL+1)[1:]
+                # Interpolate the conductivities corresponding to those radii
+                if np.size(indsLiq) == 1:
+                    log.warning(f'Only 1 layer found in ocean, but number of layers to ' +
+                                f'interpolate over is {Params.Induct.nIntL}. Arbitrary layers will be introduced.')
+                    rModel_m = np.concatenate(([rBot_m], rLayers_m[indsLiq]))
+                    sigmaModel_Sm = np.concatenate((sigmaInduct_Sm[indsLiq] * 1.001, sigmaInduct_Sm[indsLiq]))
                 else:
-                    # Get radius values from D/nIntL above the seafloor to the ice shell
-                    rBot_m = Planet.Bulk.R_m - (Planet.zb_km + Planet.D_km) * 1e3
-                    rTop_m = rLayers_m[indsLiq[-1]]
-                    rOcean_m = np.linspace(rBot_m, rTop_m, Params.Induct.nIntL+1)[1:]
-                    # Interpolate the conductivities corresponding to those radii
-                    sigmaOcean_Sm = spi.interp1d(rLayers_m[indsLiq], sigmaInduct_Sm[indsLiq], kind=Params.Induct.oceanInterpMethod)(rOcean_m)
-                    # Stitch together the r and sigma arrays with the new ocean values
-                    rLayers_m = np.concatenate((rLayers_m[:indsLiq[0]], rOcean_m, rLayers_m[indsLiq[-1]+1:]))
-                    sigmaInduct_Sm = np.concatenate((sigmaInduct_Sm[:indsLiq[0]], sigmaOcean_Sm, sigmaInduct_Sm[indsLiq[-1]+1:]))
+                    rModel_m = rLayers_m[indsLiq]
+                    sigmaModel_Sm = sigmaInduct_Sm[indsLiq]
+                sigmaOcean_Sm = spi.interp1d(rModel_m, sigmaModel_Sm, kind=Params.Induct.oceanInterpMethod)(rOcean_m)
+                # Stitch together the r and sigma arrays with the new ocean values
+                rLayers_m = np.concatenate((rLayers_m[:indsLiq[0]], rOcean_m, rLayers_m[indsLiq[-1]+1:]))
+                sigmaInduct_Sm = np.concatenate((sigmaInduct_Sm[:indsLiq[0]], sigmaOcean_Sm, sigmaInduct_Sm[indsLiq[-1]+1:]))
 
             # Get the indices of layers just below where changes happen
             iChange = [i for i,sig in enumerate(sigmaInduct_Sm) if sig != np.append(sigmaInduct_Sm, np.nan)[i+1]]
