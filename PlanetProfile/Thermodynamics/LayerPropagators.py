@@ -62,7 +62,7 @@ def IceLayers(Planet, Params):
                   f'[{Planet.PfreezeLower_MPa:.1f} MPa, {Planet.PfreezeUpper_MPa:.1f} MPa]. ' + \
                   'This likely means Tb_K is too high and the phase at the lower end of this range matches ' + \
                   'the phase at the upper end. Try decreasing Tb_K. The ice shell will be set to zero thickness.'
-            if not Params.DO_EXPLOREOGRAM:
+            if (not Params.DO_EXPLOREOGRAM) and (not Params.DO_INDUCTOGRAM):
                 if Planet.Bulk.Tb_K > 271:
                     log.warning(msg)
                 else:
@@ -903,7 +903,7 @@ def CalcMoIConstantRho(Planet, Params):
                   f'Min: {np.min(CMR2[CMR2>0]):.3f}, Max: {np.max(CMR2):.3f}.'
         if Params.ALLOW_BROKEN_MODELS:
             fullMsg = msg + suggestion + ' Params.ALLOW_BROKEN_MODELS is True, so calculations will proceed with many values set to nan.'
-            if Params.DO_EXPLOREOGRAM:
+            if Params.DO_EXPLOREOGRAM or Params.DO_INDUCTOGRAM:
                 log.info(msg)
             else:
                 log.error(fullMsg)
