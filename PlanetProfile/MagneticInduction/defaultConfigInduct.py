@@ -5,6 +5,19 @@ from PlanetProfile.Utilities.defineStructs import InductOgramParamsStruct, \
 
 configInductVersion = 4  # Integer number for config file version. Increment when new settings are added to the default config file.
 
+def inductAssign():
+    inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
+    testBody = 'Europa'  # Assign test profiles to use excitation moments for this body
+    dftC = 5  # Default number of contours to include in induct-o-grams
+
+    # Construct information for accessing by functions
+    cLevels = GetClevels(inductOtype, dftC, testBody)
+    cFmt = GetContourFmt(testBody)
+    SigParams, ExcSpecParams, InductParams = GetInductParams(inductOtype, cLevels, dftC, cFmt)
+
+    return SigParams, ExcSpecParams, InductParams, testBody
+
+
 def GetInductParams(inductOtype, cLevels, dftC, cFmt):
     """ Lots of these settings depend on each other, so for convenience we
         include settings in this function so they can live at the top of
@@ -32,24 +45,24 @@ def GetInductParams(inductOtype, cLevels, dftC, cFmt):
     InductParams.excSelectionCalc = {'synodic':  True, 'orbital':  True, 'true anomaly':  True, 'synodic harmonic':  True, 'synodic 2nd harmonic':  True, 'synodic-TA slow beat':  True, 'synodic-TA fast beat':  True}  # Which magnetic excitations to include in calculations
     InductParams.excSelectionPlot = {'synodic':  True, 'orbital':  True, 'true anomaly':  True, 'synodic harmonic':  True, 'synodic 2nd harmonic': False, 'synodic-TA slow beat': False, 'synodic-TA fast beat': False}  # Which magnetic excitations to include in plotting
     InductParams.nwPts = 40  # Resolution for salinity values in ocean salinity vs. other plots
-    InductParams.wMin = {'Europa': np.log10(1)}
-    InductParams.wMax = {'Europa': np.log10(35)}
+    InductParams.wMin = {'Europa': np.log10(1), 'Enceladus': np.log10(0.1)}
+    InductParams.wMax = {'Europa': np.log10(Constants.stdSeawater_ppt), 'Enceladus': np.log10(1.5*Constants.stdSeawater_ppt)}
     InductParams.nTbPts = 30  # Resolution for Tb values in ocean salinity/Tb plots
-    InductParams.TbMin = {'Europa': 262.0}
-    InductParams.TbMax = {'Europa': 267.0}
+    InductParams.TbMin = {'Europa': 262.0, 'Enceladus': 269.8}
+    InductParams.TbMax = {'Europa': 267.0, 'Enceladus': 273.1}
     InductParams.nphiPts = 30  # Resolution for phiRockMax values in ocean salinity/phiMax plots
-    InductParams.phiMin = {'Europa': np.log10(0.01)}
-    InductParams.phiMax = {'Europa': np.log10(0.75)}
+    InductParams.phiMin = {'Europa': np.log10(0.01), 'Enceladus': np.log10(0.01)}
+    InductParams.phiMax = {'Europa': np.log10(0.75), 'Enceladus': np.log10(0.75)}
     InductParams.nrhoPts = 50  # Resolution for silicate density values in ocean salinity/rho plots
-    InductParams.rhoMin = {'Europa': 3300}
-    InductParams.rhoMax = {'Europa': 3700}
+    InductParams.rhoMin = {'Europa': 3300, 'Enceladus': 1900}
+    InductParams.rhoMax = {'Europa': 3700, 'Enceladus': 3100}
     InductParams.nSigmaPts = 40  # Resolution for conductivity values in ocean conductivity/thickness plots
-    InductParams.sigmaMin = {'Europa': np.log10(1e-1)}
-    InductParams.sigmaMax = {'Europa': np.log10(1e2)}
+    InductParams.sigmaMin = {'Europa': np.log10(1e-1), 'Enceladus': np.log10(1e-2)}
+    InductParams.sigmaMax = {'Europa': np.log10(1e2), 'Enceladus': np.log10(1e1)}
     InductParams.nDpts = 50  # Resolution for ocean thickness as for conductivity
-    InductParams.Dmin = {'Europa': np.log10(1e0)}
-    InductParams.Dmax = {'Europa': np.log10(2e2)}
-    InductParams.zbFixed_km = {'Europa': 20}
+    InductParams.Dmin = {'Europa': np.log10(1e0), 'Enceladus': np.log10(1e0)}
+    InductParams.Dmax = {'Europa': np.log10(2e2), 'Enceladus': np.log10(1e2)}
+    InductParams.zbFixed_km = {'Europa': 20, 'Enceladus': 23}
     InductParams.EckhardtSolveMethod = 'RK45'  # Numerical solution method for scipy.integrate.solve_ivp. See https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html
     InductParams.rMinODE = 1e3  # Minimum radius to use for numerical solution. Cannot be zero because of singularity at the origin.
     InductParams.oceanInterpMethod = 'linear'  # Interpolation method for determining ocean conductivities when REDUCED_INDUCT is True.
@@ -57,7 +70,7 @@ def GetInductParams(inductOtype, cLevels, dftC, cFmt):
     InductParams.SUM_NEAR = False  # Whether to sum together closely-spaced periods. Accuracy of this approach decreases with time away from J2000.
     InductParams.USE_NAMED_EXC = True  # Whether to make use of named periods defined in PlanetProfile.MagneticInduction.Moments for excitation calcs
     InductParams.minBe_nT = 1.0  # Minimum value in nT to use for excitation moments when not using specific periods
-
+    
     return SigParams, ExcSpecParams, InductParams
 
 
@@ -101,16 +114,3 @@ def GetContourFmt(testBody):
 
     cFmt['Test'] = cFmt[testBody]
     return cFmt
-
-
-def inductAssign():
-    inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
-    testBody = 'Europa'  # Assign test profiles to use excitation moments for this body
-    dftC = 5  # Default number of contours to include in induct-o-grams
-
-    # Construct information for accessing by functions
-    cLevels = GetClevels(inductOtype, dftC, testBody)
-    cFmt = GetContourFmt(testBody)
-    SigParams, ExcSpecParams, InductParams = GetInductParams(inductOtype, cLevels, dftC, cFmt)
-
-    return SigParams, ExcSpecParams, InductParams, testBody

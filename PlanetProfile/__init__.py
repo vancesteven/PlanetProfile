@@ -36,6 +36,7 @@ _defaultConfig = os.path.join(_ROOT, 'defaultConfig.py')
 _defaultConfigPlots = os.path.join(_ROOT, 'Plotting', 'defaultConfigPlots.py')
 _defaultConfigInduct = os.path.join(_ROOT, 'MagneticInduction', 'defaultConfigInduct.py')
 _Defaults = os.path.join(_ROOT, 'Default')
+_DefaultList = next(os.walk(_Defaults))[1]
 _Test = os.path.join(_ROOT, 'Test')
 _TestImport = 'PlanetProfile.Test'
 _SPICE = os.path.join(_ROOT, 'SPICE')

@@ -529,13 +529,18 @@ class PlanetStruct:
 """ Params substructs """
 # Construct filenames for data, saving/reloading
 class DataFilesSubstruct:
-    def __init__(self, datPath, saveBase, comp, inductBase=None, exploreAppend=None, EXPLORE=False):
+    def __init__(self, datPath, saveBase, comp, inductBase=None, exploreAppend=None, inductAppend=None, EXPLORE=False):
         if inductBase is None:
             inductBase = saveBase
         if exploreAppend is None:
             self.exploreAppend = ''
         else:
             self.exploreAppend = exploreAppend
+        if inductAppend is None:
+            self.inductAppend = ''
+        else:
+            self.inductAppend = inductAppend
+
         self.path = datPath
         self.inductPath = os.path.join(self.path, 'inductionData')
         self.seisPath = os.path.join(self.path, 'seismicData')
@@ -563,7 +568,7 @@ class DataFilesSubstruct:
         self.fNameInduct = os.path.join(self.inductPath, saveBase)
         self.inductLayersFile = self.fNameInduct + '_inductLayers.txt'
         self.inducedMomentsFile = self.fNameInduct + '_inducedMoments.mat'
-        self.fNameInductOgram = os.path.join(self.inductPath, inductBase)
+        self.fNameInductOgram = os.path.join(self.inductPath, inductBase + self.inductAppend)
         self.inductOgramFile = self.fNameInductOgram + f'{comp}_inductOgram.mat'
         self.inductOgramSigmaFile = self.fNameInductOgram + '_sigma_inductOgram.mat'
         self.BeFTdata = os.path.join('inductionData', 'Be1xyzFTdata.mat')
@@ -573,7 +578,7 @@ class DataFilesSubstruct:
 
 # Construct filenames for figures etc.
 class FigureFilesSubstruct:
-    def __init__(self, figPath, figBase, xtn, comp=None, inductBase=None, exploreAppend=None):
+    def __init__(self, figPath, figBase, xtn, comp=None, inductBase=None, exploreAppend=None, inductAppend=None):
         if inductBase is None:
             self.inductBase = figBase
         else:
@@ -586,6 +591,11 @@ class FigureFilesSubstruct:
             self.exploreAppend = ''
         else:
             self.exploreAppend = exploreAppend
+        if inductAppend is None:
+            self.inductAppend = ''
+        else:
+            self.inductAppend = inductAppend
+
         self.path = figPath
         self.inductPath = os.path.join(self.path, 'induction')
         if not self.path == '' and not os.path.isdir(self.path):
@@ -593,7 +603,7 @@ class FigureFilesSubstruct:
         if not self.path == '' and not os.path.isdir(self.inductPath):
             os.makedirs(self.inductPath)
         self.fName = os.path.join(self.path, figBase)
-        self.fNameInduct = os.path.join(self.inductPath, self.inductBase + self.comp)
+        self.fNameInduct = os.path.join(self.inductPath, self.inductBase + self.comp + self.inductAppend)
 
         # Figure filename strings
         vpore = 'Porosity'
@@ -705,6 +715,7 @@ class InductOgramParamsStruct:
         self.SUM_NEAR = False  # Whether to sum together closely-spaced periods. Accuracy of this approach decreases with time away from J2000.
         self.USE_NAMED_EXC = False  # Whether to make use of named periods defined in PlanetProfile.MagneticInduction.Moments for excitation calcs
         self.minBe_nT = None  # Minimum value in nT to use for excitation moments when not using specific periods
+        self.fLabel = None  # Filename label
 
         # Plot settings to mark on inductograms after Vance et al. (2021): https://doi.org/10.1029/2020JE006418
         self.V2021_zb_km = {
@@ -763,22 +774,39 @@ class InductOgramParamsStruct:
         }
 
     def GetClevels(self, zName, Tname):
-        if self.bodyname is None:
-            bodyname = 'Europa'
-        else:
-            bodyname = self.bodyname
         if self.SPECIFIC_CLEVELS:
-            theClevels = self.cLevels[bodyname][Tname][zName]
+            if self.bodyname is None:
+                bodyname = 'Europa'
+            else:
+                bodyname = self.bodyname
+            return self.cLevels[bodyname][Tname][zName]
         else:
-            theClevels = self.dftC
-        return theClevels
+            return None
 
     def GetCfmt(self, zName, Tname):
-        if self.bodyname is None:
-            bodyname = 'Europa'
+        if self.SPECIFIC_CLEVELS:
+            if self.bodyname is None:
+                bodyname = 'Europa'
+            else:
+                bodyname = self.bodyname
+            return self.cFmt[bodyname][Tname][zName]
+        
         else:
-            bodyname = self.bodyname
-        return self.cFmt[bodyname][Tname][zName]
+            return None
+
+    def SetFlabel(self, bodyname):
+        if self.inductOtype == 'sigma':
+            self.fLabel = f'zb{self.zbFixed_km[bodyname]}km'
+        elif self.inductOtype == 'Tb':
+            self.fLabel = f'{self.TbMin[bodyname]}-{self.TbMax[bodyname]}K'
+        elif self.inductOtype == 'phi':
+            self.fLabel = f'{10**self.phiMin[bodyname]}-{10**self.phiMax[bodyname]}'
+        elif self.inductOtype == 'rho':
+            self.fLabel = f'{self.rhoMin[bodyname]}-{self.rhoMax[bodyname]}kgm3'
+        else:
+            self.fLabel = 'NDEF'
+
+        return
 
 
 """ General induction calculation settings """

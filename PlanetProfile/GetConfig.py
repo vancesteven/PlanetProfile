@@ -7,6 +7,7 @@ import spiceypy as spice
 import logging
 import multiprocessing as mtp
 from functools import partial, partialmethod
+from PlanetProfile import _DefaultList
 import MoonMag.symmetry_funcs, MoonMag.asymmetry_funcs
 
 # Fetch version numbers first to warn user about compatibility
@@ -148,14 +149,33 @@ else:
     log.info('DO_PARALLEL is False. Blocking parallel execution.')
 
 # Add Test body settings to InductParams
+inductOgramAttr = ['wMin', 'wMax', 'TbMin', 'TbMax', 'phiMin', 'phiMax', 'rhoMin',
+                 'rhoMax', 'sigmaMin', 'sigmaMax', 'Dmin', 'Dmax', 'zbFixed_km']
 [getattr(InductParams, attr).update({'Test': getattr(InductParams, attr)[userTestBody]})
-    for attr in ['wMin', 'wMax', 'TbMin', 'TbMax', 'phiMin', 'phiMax', 'rhoMin',
-                 'rhoMax', 'sigmaMin', 'sigmaMax', 'Dmin', 'Dmax', 'zbFixed_km']]
+    for attr in inductOgramAttr]
 
 # Force calculations to be done for each oscillation to be plotted in inductograms
 for osc in InductParams.excSelectionPlot:
     if InductParams.excSelectionPlot[osc] and not InductParams.excSelectionCalc[osc]:
         InductParams.excSelectionCalc[osc] = True
+    
+# Assign missing values with defaults in inductOgram settings
+Tnames = list(InductParams.cLevels['Test'].keys())
+zNames = ['Amp', 'Bx', 'By', 'Bz']
+for bodyname in _DefaultList:
+    for attr in inductOgramAttr:
+        if bodyname not in getattr(InductParams, attr).keys():
+            getattr(InductParams, attr).update({'Test': getattr(InductParams, attr)[userTestBody]})
+    
+    if bodyname not in InductParams.cLevels.keys():
+        InductParams.cLevels[bodyname] = {}
+        for Tname in Tnames:
+            InductParams.cLevels[bodyname][Tname] = {zName: None for zName in zNames}
+    if bodyname not in InductParams.cFmt.keys():
+        InductParams.cFmt[bodyname] = {}
+        for Tname in Tnames:
+            InductParams.cFmt[bodyname][Tname] = {zName: None for zName in zNames}
+        
 
 # Load induction and excitation spectrum settings into Params so they
 # can be passed around together
