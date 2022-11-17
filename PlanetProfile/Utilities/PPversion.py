@@ -1,6 +1,8 @@
 from importlib.metadata import version
+from pathlib import Path
+from PlanetProfile import _PPverNumFile
 # Current PlanetProfile version tag
-ppVerNum = '2.3.4'
+ppVerNum = Path(_PPverNumFile).read_text().replace('\n', '')
 # Compatible version tag numbers
 compatNums = {
     'seafreeze': '0.9.2',
