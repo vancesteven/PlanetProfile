@@ -62,7 +62,8 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
 
-    sigma_Sm, D_km, ptColors, iValid, iValidFlat = (np.empty_like(InductionList) for _ in range(5))
+    sigma_Sm, D_km, ptColors, w_ppt, yFlat, iValid, iValidFlat \
+        = (np.empty_like(InductionList) for _ in range(7))
     for i, Induction in enumerate(InductionList):
         iValid[i] = np.where(np.isfinite(Induction.Amp[0,...]))
         iValidFlat[i] = np.where(np.isfinite(Induction.Amp[0,...].flatten()))[0]
@@ -76,13 +77,14 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
             ptColors[i] = Color.OceanCmap(Induction.compsList[iValidFlat[i]], sigmaNorm, Dnorm,
                                           DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
         else:
-            w_ppt = Induction.x[iValid[i]].flatten()
+            w_ppt[i] = Induction.x[iValid[i]].flatten()
+            yFlat[i] = Induction.y[iValid[i]].flatten()
             Tmean_K = Induction.Tmean_K[iValid[i]].flatten()
             if FigMisc.NORMALIZED_SALINITIES:
                 wMax_ppt = np.array([Color.saturation[comp] for comp in Induction.compsList[iValidFlat[i]]])
-                w_normFrac = w_ppt / wMax_ppt
+                w_normFrac = w_ppt[i] / wMax_ppt
             else:
-                w_normFrac = interp1d([np.min(w_ppt), np.max(w_ppt)], [0.0, 1.0])(w_ppt)
+                w_normFrac = interp1d([np.min(w_ppt[i]), np.max(w_ppt[i])], [0.0, 1.0])(w_ppt[i])
             if Params.Induct.colorType == 'Tmean':
                 if FigMisc.NORMALIZED_TEMPERATURES:
                     Tmean_normFrac = Color.GetNormT(Tmean_K)
@@ -113,8 +115,6 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
         cbarLabel = FigLbl.iceThickLbl
     else:
         comps = np.unique(InductionList[0].comps)
-        w_ppt = InductionList[0].x[iValid[0]].flatten()
-        yFlat = InductionList[0].y[iValid[0]].flatten()
         if Params.Induct.colorType == 'Tmean':
             cbarUnits = InductionList[0].Tmean_K[iValid[0]].flatten()
             cbarLabel = FigLbl.oceanTempLbl
@@ -134,7 +134,7 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
         axes[1].set_ylabel(FigLbl.yLabelInduct)
         axes[1].set_xscale(FigLbl.wScale)
         axes[1].set_yscale(FigLbl.yScaleInduct)
-        axes[1].scatter(w_ppt, yFlat, s=Style.MW_Induction,
+        axes[1].scatter(w_ppt[0], yFlat[0], s=Style.MW_Induction,
                         marker=Style.MS_Induction, c=ptColors[0])
 
     # Labels and titles
@@ -163,6 +163,13 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
                 lbl = FigLbl.StripLatexFromString(lbl)
             cbarAx.set_title(lbl, fontsize=FigMisc.cbarTitleSize)
 
+            if FigMisc.MARK_INDUCT_BOUNDS:
+                boundStyle = {'ls': Style.LS_BdipInset, 'lw': Style.LW_BdipInset, 'c': Color.BdipInset}
+                _ = axes[0].plot(sigma_Sm[0][thisComp][w_ppt[0] == np.min(w_ppt[0])], D_km[0][thisComp][w_ppt[0] == np.min(w_ppt[0])], **boundStyle)
+                _ = axes[0].plot(sigma_Sm[0][thisComp][w_ppt[0] == np.max(w_ppt[0])], D_km[0][thisComp][w_ppt[0] == np.max(w_ppt[0])], **boundStyle)
+                _ = axes[0].plot(sigma_Sm[0][thisComp][yFlat[0] == np.min(yFlat[0])], D_km[0][thisComp][yFlat[0] == np.min(yFlat[0])], **boundStyle)
+                _ = axes[0].plot(sigma_Sm[0][thisComp][yFlat[0] == np.max(yFlat[0])], D_km[0][thisComp][yFlat[0] == np.max(yFlat[0])], **boundStyle)
+
     cbar[comps[-1]].set_label(cbarLabel)
     fig.savefig(Params.FigureFiles.phaseSpace, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
     log.debug(f'InductOgram phase space plot saved to file: {Params.FigureFiles.phaseSpace}')
@@ -170,7 +177,7 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
 
     # Plot combination
     if Params.COMPARE and np.size(InductionList) > 1 and Params.Induct.inductOtype != 'sigma':
-        comps = np.unique(np.append([],[Induction.comps for Induction in InductionList]))
+        comps = np.unique(np.append([], [Induction.comps for Induction in InductionList]))
         nComps = np.size(comps)
         figWidth = FigSize.phaseSpaceSolo[0] + nComps * FigMisc.cbarSpace
         fig, ax = plt.subplots(1, 1, figsize=(figWidth, FigSize.phaseSpaceSolo[1]))
@@ -193,6 +200,8 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
         comboSigma_Sm = np.concatenate(tuple(sigmai for sigmai in sigma_Sm))
         comboD_km = np.concatenate(tuple(Di for Di in D_km))
         comboColors = np.concatenate(tuple(ptColi for ptColi in ptColors))
+        combow_ppt = np.concatenate(tuple(wi for wi in w_ppt))
+        comboyFlat = np.concatenate(tuple(yi for yi in yFlat))
         if Params.Induct.colorType == 'Tmean':
             comboCbarUnits = np.concatenate(tuple(Induction.Tmean_K[iValid[i]].flatten() for i,Induction in enumerate(InductionList)))
         elif Params.Induct.colorType == 'zb':
@@ -202,7 +211,7 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
             thisComp = comboCompsList == comp
             pts[comp] = ax.scatter(comboSigma_Sm[thisComp], comboD_km[thisComp], s=Style.MW_Induction,
                                         marker=Style.MS_Induction, c=comboColors[thisComp])
-            cbarAx = divider.new_horizontal(size=FigMisc.cbarSize, pad=FigMisc.cbarPad + extraPad)
+            cbarAx = divider.new_horizontal(size=FigMisc.cbarSize, pad=FigMisc.cbarSpace + extraPad)
             extraPad = FigMisc.extraPad
             cbar = mcbar.ColorbarBase(cbarAx, cmap=Color.cmap[comp], format=FigMisc.cbarFmt,
                                       values=np.linspace(np.min(comboCbarUnits[thisComp]), np.max(comboCbarUnits[thisComp]), FigMisc.nCbarPts))
@@ -211,6 +220,15 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
             if not FigMisc.TEX_INSTALLED:
                 lbl = FigLbl.StripLatexFromString(lbl)
             cbarAx.set_title(lbl, fontsize=FigMisc.cbarTitleSize)
+
+            if FigMisc.MARK_INDUCT_BOUNDS:
+                thisw_ppt = combow_ppt[thisComp]
+                thisyFlat = comboyFlat[thisComp]
+                boundStyle = {'ls': Style.LS_BdipInset, 'lw': Style.LW_BdipInset, 'c': Color.BdipInset}
+                _ = ax.plot(comboSigma_Sm[thisComp][thisw_ppt == np.min(thisw_ppt)], comboD_km[thisComp][thisw_ppt == np.min(thisw_ppt)], **boundStyle)
+                _ = ax.plot(comboSigma_Sm[thisComp][thisw_ppt == np.max(thisw_ppt)], comboD_km[thisComp][thisw_ppt == np.max(thisw_ppt)], **boundStyle)
+                _ = ax.plot(comboSigma_Sm[thisComp][thisyFlat == np.min(thisyFlat)], comboD_km[thisComp][thisyFlat == np.min(thisyFlat)], **boundStyle)
+                _ = ax.plot(comboSigma_Sm[thisComp][thisyFlat == np.max(thisyFlat)], comboD_km[thisComp][thisyFlat == np.max(thisyFlat)], **boundStyle)
 
         cbar.set_label(cbarLabel, size=12)
         plt.tight_layout()
@@ -306,6 +324,12 @@ def PlotInductOgram(Induction, Params):
                 [ax.clabel(zContours[i], fmt=Params.Induct.GetCfmt(fLabel, T),
                            fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
                            for i, T in enumerate(TexcPlotNames)]
+            elif FigMisc.MARK_INDUCT_BOUNDS:
+                boundStyle = {'ls': Style.LS_BdipInset, 'lw': Style.LW_BdipInset, 'c': Color.BdipInset}
+                _ = ax.plot(Induction.sigmaMean_Sm[Induction.x == np.min(Induction.x)], Induction.D_km[Induction.x == np.min(Induction.x)], **boundStyle)
+                _ = ax.plot(Induction.sigmaMean_Sm[Induction.x == np.max(Induction.x)], Induction.D_km[Induction.x == np.max(Induction.x)], **boundStyle)
+                _ = ax.plot(Induction.sigmaMean_Sm[Induction.y == np.min(Induction.y)], Induction.D_km[Induction.y == np.min(Induction.y)], **boundStyle)
+                _ = ax.plot(Induction.sigmaMean_Sm[Induction.y == np.max(Induction.y)], Induction.D_km[Induction.y == np.max(Induction.y)], **boundStyle)
 
         if FigMisc.PLOT_V2021 and Induction.bodyname in ['Europa', 'Ganymede', 'Callisto']:
             AddV2021points(Params.Induct, Induction.bodyname, 'sigma', allAxes)
@@ -358,6 +382,13 @@ def PlotInductOgram(Induction, Params):
             if Params.LEGEND:
                 lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
                 axes[1,1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
+
+            if FigMisc.MARK_INDUCT_BOUNDS:
+                boundStyle = {'ls': Style.LS_BdipInset, 'lw': Style.LW_BdipInset, 'c': Color.BdipInset}
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.x == np.min(Induction.x)], Induction.D_km[Induction.x == np.min(Induction.x)], **boundStyle) for ax in allAxes]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.x == np.max(Induction.x)], Induction.D_km[Induction.x == np.max(Induction.x)], **boundStyle) for ax in allAxes]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.y == np.min(Induction.y)], Induction.D_km[Induction.y == np.min(Induction.y)], **boundStyle) for ax in allAxes]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.y == np.max(Induction.y)], Induction.D_km[Induction.y == np.max(Induction.y)], **boundStyle) for ax in allAxes]
 
             plt.tight_layout()
             fig.savefig(Params.FigureFiles.induct['Bcomps'], format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
@@ -426,6 +457,13 @@ def PlotInductOgram(Induction, Params):
                 lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
                 axes[1,1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
 
+            if FigMisc.MARK_INDUCT_BOUNDS:
+                boundStyle = {'ls': Style.LS_BdipInset, 'lw': Style.LW_BdipInset, 'c': Color.BdipInset}
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.x == np.min(Induction.x)], Induction.D_km[Induction.x == np.min(Induction.x)], **boundStyle) for ax in allAxes]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.x == np.max(Induction.x)], Induction.D_km[Induction.x == np.max(Induction.x)], **boundStyle) for ax in allAxes]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.y == np.min(Induction.y)], Induction.D_km[Induction.y == np.min(Induction.y)], **boundStyle) for ax in allAxes]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.y == np.max(Induction.y)], Induction.D_km[Induction.y == np.max(Induction.y)], **boundStyle) for ax in allAxes]
+
             plt.tight_layout()
             fig.savefig(Params.FigureFiles.inductCompare[compChoice], format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
             log.debug(f'Plot saved to file: {Params.FigureFiles.inductCompare[compChoice]}')
@@ -476,6 +514,13 @@ def PlotInductOgram(Induction, Params):
             fNameSigma = Params.FigureFiles.sigmaOnly[fLabel]
         else:
             fNameSigma = Params.FigureFiles.sigma[fLabel]
+
+            if FigMisc.MARK_INDUCT_BOUNDS:
+                boundStyle = {'ls': Style.LS_BdipInset, 'lw': Style.LW_BdipInset, 'c': Color.BdipInset}
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.x == np.min(Induction.x)], Induction.D_km[Induction.x == np.min(Induction.x)], **boundStyle) for ax in axes]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.x == np.max(Induction.x)], Induction.D_km[Induction.x == np.max(Induction.x)], **boundStyle) for ax in axes]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.y == np.min(Induction.y)], Induction.D_km[Induction.y == np.min(Induction.y)], **boundStyle) for ax in axes]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.y == np.max(Induction.y)], Induction.D_km[Induction.y == np.max(Induction.y)], **boundStyle) for ax in axes]
 
         if FigMisc.PLOT_V2021 and Induction.bodyname in ['Europa', 'Ganymede', 'Callisto']:
             AddV2021points(Params.Induct, Induction.bodyname, 'sigma', axes)

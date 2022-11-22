@@ -318,7 +318,8 @@ def plotAssign():
     FigMisc.NORMALIZED_SALINITIES = False  # Whether to normalize salinities to absolute concentrations relative to the saturation limit for each salt
     FigMisc.NORMALIZED_TEMPERATURES = False  # Whether to normalize ocean mean temperatures to specified maxima and minima for the colormap
     # Inductograms
-    FigMisc.PLOT_V2021 = False  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
+    FigMisc.MARK_INDUCT_BOUNDS = True  # Whether to draw a border around the models on sigma/D plot when combined
+    FigMisc.PLOT_V2021 = False  # Whether to mark the selected ocean/conductivity combos used in Vance et al. 2021
     # Excitation spectra
     FigMisc.MAG_SPECTRA_PERIODS = True  # Plot against periods for magnetic spectra plots (or frequencies)
     FigMisc.MARK_TEXC = True  # Add lines marking the main excitation periods/frequencies on Ae1 plot
@@ -358,6 +359,7 @@ def plotAssign():
     # Colorbar settings
     FigMisc.cbarTitleSize = 'small'  # Font size specifier for colorbar titles
     FigMisc.cbarFmt = '%.1f'  # Format string to use for colorbar units
+    FigMisc.cbarSize = '5%'  # Description of the size of colorbar to use with make_axes_locatable (secondary colorbars in phase space plots)
     FigMisc.cbarSpace = 0.5  # Amount of whitespace in inches to use for colorbars
     FigMisc.extraPad = FigMisc.cbarSpace * 0.8  # Amount of extra padding to apply to secondary colorbars
     FigMisc.nCbarPts = 80  # Number of points to use for drawing colorbar gradient

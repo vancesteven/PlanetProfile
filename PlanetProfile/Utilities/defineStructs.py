@@ -1776,7 +1776,8 @@ class FigMiscStruct:
         self.NORMALIZED_TEMPERATURES = False  # Whether to normalize ocean mean temperatures to specified maxima and minima for the colormap
         # Inductograms
         self.PLOT_INDUCT_SURF = False  # Plot surfaces or the default, contours
-        self.PLOT_V2021 = True  # Mark the selected ocean/conductivity combos used in Vance et al. 2021
+        self.MARK_INDUCT_BOUNDS = True  # Whether to draw a border around the models on sigma/D plot when combined
+        self.PLOT_V2021 = False  # Whether to mark the selected ocean/conductivity combos used in Vance et al. 2021
         # Excitation spectra
         self.DO_PER = True  # Convert frequency axes to periods for FFT plots
 
@@ -1800,6 +1801,7 @@ class FigMiscStruct:
         self.cbarFmt = '%.1f'  # Format string to use for colorbar units
         self.nCbarPts = 80  # Number of points to use for drawing colorbar gradient
         self.cbarSpace = 0.5  # Amount of whitespace in inches to use for colorbars
+        self.cbarSize = '5%'  # Description of the size of colorbar to use with make_axes_locatable (secondary colorbars in phase space plots)
         self.extraPad = self.cbarSpace * 0.8  # Amount of extra padding to apply to secondary colorbars
 
         # Latex settings
