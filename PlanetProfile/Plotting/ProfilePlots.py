@@ -101,11 +101,23 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     vRow = 1
     if Params.PLOT_SIGS and Params.CALC_CONDUCT:
-        DO_SIGS = True
-        vRow += 1
+        if FigMisc.lowSigCutoff_Sm is None:
+            sigCutoff_Sm = 0
+        else:
+            sigCutoff_Sm = FigMisc.lowSigCutoff_Sm
+        maxSig_Sm = np.max([np.max(Planet.sigma_Sm[:Planet.Steps.nHydro]) for Planet in PlanetList])
+        if maxSig_Sm > sigCutoff_Sm:
+            DO_SIGS = True
+            vRow += 1
+        else:
+            log.warning(f'Attempted to plot conductivities, but no profile had above the cutoff ' +
+                        f'setting of {FigMisc.lowSigCutoff_Sm}. Excluding sigma plot.')
+            DO_SIGS = False
+            axsigz = None
     else:
         DO_SIGS = False
         axsigz = None
+        sigCutoff_Sm = None
     if Params.PLOT_SOUNDS and Params.CALC_SEISMIC:
         DO_SOUNDS = True
         vRow += 1
@@ -136,6 +148,8 @@ def PlotHydrosphereProps(PlanetList, Params):
         axsigz.set_ylabel(FigLbl.zLabel)
         axsigz.invert_yaxis()
         axsigz.set_ylim([zMax, 0])
+        if FigMisc.LOG_SIG:
+            axsigz.set_xscale('log')
         axes.append(axsigz)
 
     if DO_SOUNDS:
@@ -240,33 +254,35 @@ def PlotHydrosphereProps(PlanetList, Params):
                 indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
                 indsClath, indsClathWet, _, indsSilLiq, _, _, _, _, _, _ = GetPhaseIndices(Planet.phase)
 
-            if DO_SIGS:
-                # Plot electrical conductivity vs. depth for hydrosphere
-                axsigz.plot(Planet.sigma_Sm[indsLiq], Planet.z_m[indsLiq]/1e3,
-                            color=thisColor, linewidth=thisLW,
-                            linestyle=Style.LS[Planet.Ocean.comp])
+                if DO_SIGS:
+                    # Plot electrical conductivity vs. depth for hydrosphere
+                    sigma_Sm = Planet.sigma_Sm[indsLiq]
+                    z_km = Planet.z_m[indsLiq]/1e3
+                    axsigz.plot(sigma_Sm[sigma_Sm > sigCutoff_Sm], z_km[sigma_Sm > sigCutoff_Sm],
+                                color=thisColor, linewidth=thisLW,
+                                linestyle=Style.LS[Planet.Ocean.comp])
 
-            if DO_SOUNDS:
-                indsIce = np.sort(np.concatenate((indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
-                                                  indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet)))
-                # Plot sound speeds in ocean and ices vs. depth in hydrosphere
-                indsHydro = np.sort(np.concatenate((indsIce, indsLiq)))
-                VPice = Planet.Seismic.VP_kms[indsHydro]
-                VSice = Planet.Seismic.VS_kms[indsHydro]
-                VPliq = VPice + 0
-                # Set non-matching values to nan to avoid gap-spanning lines in plots
-                VPliq[indsIce] = np.nan
-                VPice[indsLiq] = np.nan
-                VSice[indsLiq] = np.nan
-                axv[0].plot(VPliq, Planet.z_m[indsHydro]/1e3,
-                            color=thisColor, linewidth=Style.LW_sound,
-                            linestyle=Style.LS[Planet.Ocean.comp])
-                axv[1].plot(VPice, Planet.z_m[indsHydro]/1e3,
-                            color=thisColor, linewidth=Style.LW_sound,
-                            linestyle=Style.LS[Planet.Ocean.comp])
-                axv[2].plot(VSice, Planet.z_m[indsHydro]/1e3,
-                            color=thisColor, linewidth=Style.LW_sound,
-                            linestyle=Style.LS[Planet.Ocean.comp])
+                if DO_SOUNDS:
+                    indsIce = np.sort(np.concatenate((indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
+                                                      indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet)))
+                    # Plot sound speeds in ocean and ices vs. depth in hydrosphere
+                    indsHydro = np.sort(np.concatenate((indsIce, indsLiq)))
+                    VPice = Planet.Seismic.VP_kms[indsHydro]
+                    VSice = Planet.Seismic.VS_kms[indsHydro]
+                    VPliq = VPice + 0
+                    # Set non-matching values to nan to avoid gap-spanning lines in plots
+                    VPliq[indsIce] = np.nan
+                    VPice[indsLiq] = np.nan
+                    VSice[indsLiq] = np.nan
+                    axv[0].plot(VPliq, Planet.z_m[indsHydro]/1e3,
+                                color=thisColor, linewidth=Style.LW_sound,
+                                linestyle=Style.LS[Planet.Ocean.comp])
+                    axv[1].plot(VPice, Planet.z_m[indsHydro]/1e3,
+                                color=thisColor, linewidth=Style.LW_sound,
+                                linestyle=Style.LS[Planet.Ocean.comp])
+                    axv[2].plot(VSice, Planet.z_m[indsHydro]/1e3,
+                                color=thisColor, linewidth=Style.LW_sound,
+                                linestyle=Style.LS[Planet.Ocean.comp])
 
 
     if FigMisc.FORCE_0_EDGES:
