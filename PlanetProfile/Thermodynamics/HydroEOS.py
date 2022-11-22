@@ -114,15 +114,15 @@ class OceanEOSStruct:
                 if np.size(P_MPa) == np.size(T_K):
                     log.warning(f'Both P and T inputs have length {np.size(P_MPa)}, but they are organized to be ' +
                                  'used as a grid. This will cause an error in SeaFreeze. P list will be adjusted slightly.')
-                    P_MPa = np.linspace(P_MPa[0], P_MPa[-1], np.size(P_MPa)-1)
+                    P_MPa = np.linspace(P_MPa[0], P_MPa[-1], np.size(P_MPa)+1)
                 if np.max(P_MPa) > self.Pmax:
-                    log.warning(f'Input Pmax greater than SeaFreeze limit for {self.comp}. Resetting to SF max.')
+                    log.warning(f'Input Pmax greater than SeaFreeze limit for {self.comp}. Resetting to SF max of {self.Pmax} MPa.')
                     P_MPa = np.linspace(np.min(P_MPa), self.Pmax, np.size(P_MPa))
                 if np.min(T_K) > self.Tmin:
-                    log.warning(f'Input Tmin less than SeaFreeze limit for {self.comp}. Resetting to SF min.')
+                    log.warning(f'Input Tmin less than SeaFreeze limit for {self.comp}. Resetting to SF min of {self.Tmin} K.')
                     T_K = np.linspace(self.Tmin, np.max(T_K), np.size(T_K))
                 if np.max(T_K) > self.Tmax:
-                    log.warning(f'Input Tmax greater than SeaFreeze limit for {self.comp}. Resetting to SF max.')
+                    log.warning(f'Input Tmax greater than SeaFreeze limit for {self.comp}. Resetting to SF max of {self.Tmax} K.')
                     T_K = np.linspace(np.min(T_K), self.Tmax, np.size(T_K))
 
                 if self.comp == 'PureH2O':
@@ -694,11 +694,13 @@ def GetTfreeze(oceanEOS, P_MPa, T_K, TfreezeRange_K=50, TRes_K=0.05):
             P_MPa (float): Pressure of the fluid in MPa
             T_K (float): Temperature of the fluid in K
         Returns:
-            Tfreeze_K (float): Temperature of nearest higher-temperature phase transition between
-                liquid and ice at this pressure
+            Tfreeze_K (float): Temperature of nearest higher-temperature solid-liquid phase transition
+                at this pressure
     """
     topPhase = oceanEOS.fn_phase(P_MPa, T_K)
-    phaseChange = lambda T: 0.5 - (topPhase - oceanEOS.fn_phase(P_MPa, T))
+    if topPhase == 0:
+        log.warning('Attempting to get phase change from liquid to solid, not solid to liquid as expected.')
+    phaseChange = lambda T: 0.5 - (1 - int(oceanEOS.fn_phase(P_MPa, T) > 0))
 
     try:
         Tfreeze_K = GetZero(phaseChange, bracket=[T_K, T_K+TfreezeRange_K]).root + TRes_K/5
