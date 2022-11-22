@@ -250,7 +250,7 @@ class MgSO4PhaseMargules:
     def arrays(self, P_MPa, T_K, grid=True):
         self.nPs = np.size(P_MPa)
         self.nTs = np.size(T_K)
-        if np.maximum(self.nPs, self.nTs) > 300:
+        if self.nPs * self.nTs > 300:
             WARN_LONG = True
         else:
             WARN_LONG = False
