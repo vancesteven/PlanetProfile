@@ -49,7 +49,3 @@ if __name__ == '__main__':
         bodyname = input('Please input body name: ')
 
     run(bodyname=bodyname, opt=clArg, fNames=fNames)
-
-else:
-    raise RuntimeError('This file does not contain function definitions and is intended to be run as a script. ' +
-                       'Instead, use: import PlanetProfile.Main')
