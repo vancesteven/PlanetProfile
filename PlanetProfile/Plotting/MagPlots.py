@@ -62,22 +62,24 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
 
-    sigma_Sm, D_km, ptColors = (np.empty_like(InductionList) for _ in range(3))
+    sigma_Sm, D_km, ptColors, iValid, iValidFlat = (np.empty_like(InductionList) for _ in range(5))
     for i, Induction in enumerate(InductionList):
-        sigma_Sm[i] = Induction.sigmaMean_Sm.flatten()
-        D_km[i] = Induction.D_km.flatten()
+        iValid[i] = np.where(np.isfinite(Induction.Amp[0,...]))
+        iValidFlat[i] = np.where(np.isfinite(Induction.Amp[0,...].flatten()))[0]
+        sigma_Sm[i] = Induction.sigmaMean_Sm[iValid[i]].flatten()
+        D_km[i] = Induction.D_km[iValid[i]].flatten()
         if Params.Induct.inductOtype == 'sigma':
             # In this case, we likely don't have salinity and ocean temp information
             # so we need to set the colormap to use the info we do have
             sigmaNorm = sigma_Sm[i] / 10**Params.Induct.sigmaMax[Induction.bodyname]
             Dnorm = D_km[i] / np.max(D_km)
-            ptColors[i] = Color.OceanCmap(Induction.compsList, sigmaNorm, Dnorm,
+            ptColors[i] = Color.OceanCmap(Induction.compsList[iValidFlat[i]], sigmaNorm, Dnorm,
                                           DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
         else:
-            w_ppt = Induction.x.flatten()
-            Tmean_K = Induction.Tmean_K.flatten()
+            w_ppt = Induction.x[iValid[i]].flatten()
+            Tmean_K = Induction.Tmean_K[iValid[i]].flatten()
             if FigMisc.NORMALIZED_SALINITIES:
-                wMax_ppt = np.array([Color.saturation[comp] for comp in Induction.compsList])
+                wMax_ppt = np.array([Color.saturation[comp] for comp in Induction.compsList[iValidFlat[i]]])
                 w_normFrac = w_ppt / wMax_ppt
             else:
                 w_normFrac = interp1d([np.min(w_ppt), np.max(w_ppt)], [0.0, 1.0])(w_ppt)
@@ -85,13 +87,13 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
                 if FigMisc.NORMALIZED_TEMPERATURES:
                     Tmean_normFrac = Color.GetNormT(Tmean_K)
                 else:
-                    Tmean_normFrac = interp1d([np.min(np.isfinite(Tmean_K)), np.max(np.isfinite(Tmean_K))], [0.0, 1.0])(Tmean_K)
-                ptColors[i] = Color.OceanCmap(Induction.compsList, w_normFrac, Tmean_normFrac,
+                    Tmean_normFrac = interp1d([np.min(Tmean_K), np.max(Tmean_K)], [0.0, 1.0])(Tmean_K)
+                ptColors[i] = Color.OceanCmap(Induction.compsList[iValidFlat[i]], w_normFrac, Tmean_normFrac,
                                               DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
             elif Params.Induct.colorType == 'zb':
-                zb_km = Induction.zb_km.flatten()
-                zb_normFrac = interp1d([np.min(zb_km[np.isfinite(zb_km)]), np.max(zb_km[np.isfinite(zb_km)])], [0.0, 1.0])(zb_km)
-                ptColors[i] = Color.OceanCmap(Induction.compsList, w_normFrac, zb_normFrac,
+                zb_km = Induction.zb_km[iValid[i]].flatten()
+                zb_normFrac = interp1d([np.min(zb_km), np.max(zb_km)], [0.0, 1.0])(zb_km)
+                ptColors[i] = Color.OceanCmap(Induction.compsList[iValidFlat[i]], w_normFrac, zb_normFrac,
                                               DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
             else:
                 raise ValueError(f'Inductogram colortype {Params.Induct.colorType} not recognized.')
@@ -107,17 +109,17 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
             axes[0].grid()
             axes[0].set_axisbelow(True)
         cbarAx = fig.add_subplot(grid[0, 1])
-        cbarUnits = InductionList[0].zb_km.flatten()
+        cbarUnits = InductionList[0].zb_km[iValid[0]].flatten()
         cbarLabel = FigLbl.iceThickLbl
     else:
         comps = np.unique(InductionList[0].comps)
-        w_ppt = InductionList[0].x.flatten()
-        yFlat = InductionList[0].y.flatten()
+        w_ppt = InductionList[0].x[iValid[0]].flatten()
+        yFlat = InductionList[0].y[iValid[0]].flatten()
         if Params.Induct.colorType == 'Tmean':
-            cbarUnits = InductionList[0].Tmean_K.flatten()
+            cbarUnits = InductionList[0].Tmean_K[iValid[0]].flatten()
             cbarLabel = FigLbl.oceanTempLbl
         elif Params.Induct.colorType == 'zb':
-            cbarUnits = InductionList[0].zb_km.flatten()
+            cbarUnits = InductionList[0].zb_km[iValid[0]].flatten()
             cbarLabel = FigLbl.iceThickLbl
 
         fig = plt.figure(figsize=FigSize.phaseSpaceCombo, constrained_layout=True)
@@ -152,7 +154,7 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
         cbar[comps[0]] = fig.colorbar(pts[comps[0]], cax=cbarAx)
     else:
         for comp, cbarAx in zip(comps, cbarAxes):
-            thisComp = InductionList[0].compsList == comp
+            thisComp = InductionList[0].compsList[iValidFlat[0]] == comp
             pts[comp] = axes[0].scatter(sigma_Sm[0][thisComp], D_km[0][thisComp], s=Style.MW_Induction,
                             marker=Style.MS_Induction, c=cbarUnits[thisComp], cmap=Color.cmap[comp])
             cbar[comp] = fig.colorbar(pts[comp], cax=cbarAx)
@@ -192,9 +194,9 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
         comboD_km = np.concatenate(tuple(Di for Di in D_km))
         comboColors = np.concatenate(tuple(ptColi for ptColi in ptColors))
         if Params.Induct.colorType == 'Tmean':
-            comboCbarUnits = np.concatenate(tuple(Induction.Tmean_K.flatten() for Induction in InductionList))
+            comboCbarUnits = np.concatenate(tuple(Induction.Tmean_K[iValid[i]].flatten() for i,Induction in enumerate(InductionList)))
         elif Params.Induct.colorType == 'zb':
-            comboCbarUnits = np.concatenate(tuple(Induction.zb_km.flatten() for Induction in InductionList))
+            comboCbarUnits = np.concatenate(tuple(Induction.zb_km[iValid[i]].flatten() for i,Induction in enumerate(InductionList)))
         pts = {}
         for comp in comps:
             thisComp = comboCompsList == comp
