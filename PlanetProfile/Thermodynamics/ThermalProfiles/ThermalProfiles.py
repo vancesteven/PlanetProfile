@@ -63,7 +63,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         log.debug(f'Convecting temperature for ice {PhaseConv(phaseBot)} is less than the ' +
                    'temperature at the top of the layer. Tconv has been set equal to Ttop and ' +
                    'no conductive lid will be modeled.')
-    if phaseMid != oceanEOS.fn_phase(Pmid_MPa, Tconv_K):
+    if phaseMid != oceanEOS.fn_phase(Pmid_MPa, Tconv_K) and Tconv_K > oceanEOS.Tmin:
         if abs(phaseMid) != Constants.phaseClath:
             iceType = f'ice {PhaseConv(phaseMid)}'
             suggestion = 'Try adjusting Tb_K values to achieve a possible configuration.'
