@@ -14,11 +14,12 @@ Planet.Do.Fe_CORE = False
 
 import numpy as np
 import os, shutil
+from copy import deepcopy
 import cmasher
 import logging
 import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
-from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
+from matplotlib.colors import rgb_to_hsv, hsv_to_rgb, ListedColormap
 from scipy.interpolate import interp1d
 from MoonMag.plotting_funcs import east_formatted as LonFormatter, lat_formatted as LatFormatter, \
     get_sign as GetSign
@@ -68,7 +69,7 @@ class DoSubstruct:
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
-        self.HP_MELT_SMOOTHING = True  # Whether to apply a smoothing filter to avoid bumpiness from discretized phase diagram, when lookup table is used for EOS calcs
+        self.HP_MELT_SMOOTHING = False  # Whether to apply a smoothing filter to avoid bumpiness from discretized phase diagram, when lookup table is used for EOS calcs
         self.FIXED_HPSMOOTH_WINDOW = False  # Whether to force a fixed number of window points for smoothing in HP ices
         self.NO_ICE_CONVECTION = False  # Whether to suppress convection in ice layers
         self.EQUIL_Q = True  # Whether to set heat flux from interior to be consistent with heat released through convective profile
@@ -127,7 +128,7 @@ class OceanSubstruct:
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
         self.smoothingPolyOrder = 2  # Polynomial order to use for smoothing of melting-curve-following HP ice adiabats
         self.smoothingWindowOverride = 7  # Number of points to use for smoothing window when Do.FIXED_HPSMOOTH_WINDOW is True. Must be odd.
-        self.smoothingFactor = 5  # Number of points in lookup table to smooth over.
+        self.smoothingFactor = 3  # Number of points in lookup table to smooth over.
         self.Vtot_m3 = None  # Total volume of all ocean layers
         self.rhoMean_kgm3 = None  # Mean density for ocean layers
         self.Tmean_K = None  # Mean temperature of ocean layers based on total thermal energy
@@ -353,6 +354,7 @@ class MagneticSubstruct:
         self.sigmaIonosPedersen_Sm = [1e-4]  # Pedersen conductivity for ionospheric layers in S/m. Length must match ionosBounds_m. The default value (set here) is set uniform when ionosBounds_m has size 1, and set uniform between entries 1 and 2 when it has size 2 (with zero conductivity between).
         self.rSigChange_m = None  # Radii of outer boundary of each conducting layer in m (i.e., radii where sigma changes)
         self.sigmaLayers_Sm = None  # Reduced set of conductivity values compatible with rSigChange_m that will work in induction calculations (i.e. all non-zero)
+        self.sigmaScaling = None  # Multiplicative factor to apply arbitrary scaling to ocean conductivities, e.g. to model possible effects of excess volatiles raising conductivity
         self.nBds = None  # Number of radial boundaries between conductors specified
         self.nExc = None  # Number of excitation frequencies modeled
         self.Benm_nT = None  # Excitation moments (amplitude and phase of magnetic oscillations) applied to the body in nT
@@ -991,11 +993,26 @@ class ColorStruct:
             self.silCondCmap = cmasher.get_sub_cmap(self.silCondCmapName, self.silCondTop, self.silCondBot)
         self.silConvCmap = cmasher.get_sub_cmap(self.silConvCmapName, self.silConvTop, self.silConvBot)
         self.PvThydroCmap = cmasher.get_sub_cmap(self.PvThydroCmapName, self.PvThydroLo, self.PvThydroHi)
+        self.negPvThydroCmap = cmasher.get_sub_cmap(self.negPvThydroCmapName, self.negPvThydroLo, self.negPvThydroHi)
         self.PvTsilCmap = cmasher.get_sub_cmap(self.PvTsilCmapName, self.PvTsilLo, self.PvTsilHi)
         self.PvTcoreCmap = cmasher.get_sub_cmap(self.PvTcoreCmapName, self.PvTcoreLo, self.PvTcoreHi)
         # Use cmasher to return colormap objects that do the down-select for us
         self.cmap = {comp: cmasher.get_sub_cmap(cmap, self.cmapBounds[comp][0], self.cmapBounds[comp][1])
                      for comp, cmap in self.cmapName.items()}
+
+        return
+
+
+    def ComboPvThydroCmap(self, minAlpha, maxAlpha, N=256):
+        if minAlpha < 0:
+            alphaInterp = np.linspace(minAlpha, maxAlpha, N)
+            negColors = [self.negPvThydroCmap(abs(alpha/minAlpha)) for alpha in alphaInterp[alphaInterp < 0]]
+            posColors = [self.PvThydroCmap(alpha/maxAlpha) for alpha in alphaInterp[alphaInterp >= 0]]
+            comboCmap = ListedColormap(negColors + posColors)
+        else:
+            comboCmap = self.PvThydroCmap
+
+        return comboCmap
 
 
     def GetNormT(self, T_K):
@@ -1667,9 +1684,11 @@ class FigMiscStruct:
         self.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
 
         # Hydrosphere plots
+        self.LOG_SIG = True  # Whether to print conductivity plot on a log scale
         self.SCALE_HYDRO_LW = True  # Whether to adjust thickness of lines on hydrosphere plot according to relative salinity
         self.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
         self.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
+        self.lowSigCutoff_Sm = None  # Cutoff conductivity below which profiles will be excluded. Setting to None includes all profiles
         self.TminHydro = None  # Minimum temperature to display on hydrosphere plots
         self.PHASE_LABELS = False  # Whether to print phase labels on density plots
 

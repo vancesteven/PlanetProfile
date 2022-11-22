@@ -196,15 +196,15 @@ def PlotPvThydro(PlanetList, Params):
             GS[np.where(phases == ice)] = GSice[np.where(phases == ice)]
             sig[np.where(phases == ice)] = Planet.Ocean.sigmaIce_Sm[iceStr]
 
-        # Geotherm curve
-        Pgeo = Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro
-        Tgeo = Planet.T_K[:Planet.Steps.nHydro]
+        # Highlight places where alpha is negative with opposite side of diverging colormap, 0 pegged to middle
+        minAlpha = np.minimum(0, np.min(alpha))
+        alphaCmap = Color.ComboPvThydroCmap(minAlpha, np.max(alpha))
 
         # Plot colormaps of hydrosphere data
         Pscaled = P_MPa * FigLbl.PmultHydro
         rhoPlot =   axes[0,0].pcolormesh(T_K, Pscaled, rho, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)
         CpPlot =    axes[1,0].pcolormesh(T_K, Pscaled, Cp, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)
-        alphaPlot = axes[1,1].pcolormesh(T_K, Pscaled, alpha, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)
+        alphaPlot = axes[1,1].pcolormesh(T_K, Pscaled, alpha, cmap=alphaCmap, rasterized=FigMisc.PT_RASTER)
         sigPlot =   axes[0,1].pcolormesh(T_K, Pscaled, sig, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)
         VPplot =    axes[0,2].pcolormesh(T_K, Pscaled, VP, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)
         VSplot =    axes[1,2].pcolormesh(T_K, Pscaled, VS, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)

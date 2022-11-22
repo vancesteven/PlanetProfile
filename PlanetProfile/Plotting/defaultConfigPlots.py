@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 12  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 13  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def plotAssign():
     Color = ColorStruct()
@@ -67,6 +67,9 @@ def plotAssign():
     Color.PvThydroCmapName = 'Blues'
     Color.PvThydroHi = 1.0
     Color.PvThydroLo = 0.2
+    Color.negPvThydroCmapName = 'Reds'
+    Color.negPvThydroHi = 0.5
+    Color.negPvThydroLo = 0.0
 
     # PvTPerpleX properties colormaps
     Color.PvTsilCmapName = 'copper'
@@ -244,9 +247,11 @@ def plotAssign():
     FigMisc.FORCE_0_EDGES = True  # Sets the edge of plots with 0 radius, depth, pressure, etc. to be the edge of the axes, instead of including white space which is the default.
 
     # Hydrosphere plots
+    FigMisc.LOG_SIG = True  # Whether to print conductivity plot on a log scale
     FigMisc.SCALE_HYDRO_LW = True  # Whether to adjust thickness of lines on hydrosphere plot according to relative salinity
     FigMisc.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
     FigMisc.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
+    FigMisc.lowSigCutoff_Sm = 1e-3  # Cutoff conductivity below which profiles will be excluded. Setting to None includes all profiles
     FigMisc.TminHydro = 200  # Minimum temperature to display on hydrosphere plots
     FigMisc.PHASE_LABELS = True  # Whether to print phase labels on density plots
     FigLbl.TS_hydroLabels = 18  # Font size for hydrosphere phase labels in pt
