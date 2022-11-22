@@ -250,7 +250,7 @@ def TestInductOgram(testNum, Params, CALC_NEW=True):
         Induction, Params = InductOgram(testName, Params)
         end = ''
     else:
-        Induction, Params = ReloadInductOgram(testName, Params)
+        Induction, _, Params = ReloadInductOgram(testName, Params)
         end = ' RELOAD'
     PlotInductOgram(Induction, Params)
     Induction.name = testName
