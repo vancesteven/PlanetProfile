@@ -39,6 +39,7 @@ _Defaults = os.path.join(_ROOT, 'Default')
 _DefaultList = next(os.walk(_Defaults))[1]
 _Test = os.path.join(_ROOT, 'Test')
 _TestImport = 'PlanetProfile.Test'
+_PPverNumFile = os.path.join(_ROOT, 'Utilities', 'PPverNum.txt')
 _SPICE = os.path.join(_ROOT, 'SPICE')
 
 # Copy user config files to local dir if the user does not have them yet
