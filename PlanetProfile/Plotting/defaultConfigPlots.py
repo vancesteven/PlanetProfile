@@ -247,7 +247,7 @@ def plotAssign():
     FigMisc.FORCE_0_EDGES = True  # Sets the edge of plots with 0 radius, depth, pressure, etc. to be the edge of the axes, instead of including white space which is the default.
 
     # Hydrosphere plots
-    FigMisc.LOG_SIG = True  # Whether to print conductivity plot on a log scale
+    FigMisc.LOG_SIG = False  # Whether to print conductivity plot on a log scale
     FigMisc.SCALE_HYDRO_LW = True  # Whether to adjust thickness of lines on hydrosphere plot according to relative salinity
     FigMisc.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
     FigMisc.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
