@@ -18,7 +18,7 @@ log = logging.getLogger('PlanetProfile')
 def SetupInit(Planet, Params):
 
     # Print version number
-    log.debug(f'-- PlanetProfile v{ppVerNum} --')
+    log.debug(f'-- PlanetProfile {ppVerNum} --')
     if ppVerNum[-3:] == 'dev': log.debug('This version is in development.')
     # Print body name
     log.info(f'Body name: {Planet.name}')
