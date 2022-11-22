@@ -12,7 +12,7 @@ from glob import glob as FilesMatchingPattern
 # Import all function definitions for this file
 from PlanetProfile import _Defaults, _TestImport, CopyCarefully
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
-from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, Benm2absBexyz
+from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, GetBexc, Benm2absBexyz
 from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitations as Mag
 from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram
 from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
@@ -189,9 +189,9 @@ def PlanetProfile(Planet, Params):
         Planet = SeismicCalcs(Planet, Params)
 
         # Save data after modeling
-        if not Params.NO_SAVEFILE:
+        if not Params.NO_SAVEFILE and Planet.Do.VALID:
             WriteProfile(Planet, Params)
-            if Params.CALC_SEISMIC:
+            if Params.CALC_SEISMIC and not Params.SKIP_INNER:
                 WriteSeismic(Planet, Params)
     else:
         # Reload previous run
@@ -208,7 +208,7 @@ def PlanetProfile(Planet, Params):
         Planet = PlanetList[0]
 
     # Magnetic induction calculations and plots
-    if Params.CALC_CONDUCT and not Params.SKIP_INDUCTION:
+    if (Params.CALC_CONDUCT and Planet.Do.VALID) and not Params.SKIP_INDUCTION:
         # Calculate induced magnetic moments
         Planet, Params = MagneticInduction(Planet, Params)
 
@@ -218,7 +218,7 @@ def PlanetProfile(Planet, Params):
                         'this likely means a reload file was not found with CALC_NEW_INDUCT ' +
                         'set to False. Try to re-run with CALC_NEW_INDUCT set to True in '
                         'configPP.py.')
-        elif ((not Params.SKIP_PLOTS) and Planet.Do.VALID) and \
+        elif (not Params.SKIP_PLOTS) and \
             not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM):
             GenerateMagPlots([Planet], Params)
 
@@ -672,41 +672,73 @@ def InductOgram(bodyname, Params):
     """ Run PlanetProfile models over a variety of settings to get induction
         responses for each input. 
     """
+
     if Params.CALC_NEW_INDUCT:
         log.info(f'Running calculations for induct-o-gram type {Params.Induct.inductOtype}.')
         Params.CALC_CONDUCT = True
-        if bodyname[:4] == 'Test':
-            loadname = bodyname + ''
-            bodyname = 'Test'
-            bodydir = os.path.join('PlanetProfile', 'Test')
-        else:
-            loadname = bodyname
-            bodydir = bodyname
 
-        fName = f'PP{loadname}InductOgram.py'
-        expected = os.path.join(bodydir, fName)
-        if not os.path.isfile(expected):
-            default = os.path.join(_Defaults, bodydir, fName)
-            if os.path.isfile(default):
-                CopyCarefully(default, expected)
+        if Params.CALC_NEW:
+            if bodyname[:4] == 'Test':
+                loadname = bodyname + ''
+                bodyname = 'Test'
+                bodydir = os.path.join('PlanetProfile', 'Test')
             else:
-                log.warning(f'{expected} does not exist and no default was found at {default}.')
-        Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
-        Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params)
+                loadname = bodyname
+                bodydir = bodyname
+
+            fName = f'PP{loadname}InductOgram.py'
+            expected = os.path.join(bodydir, fName)
+            if not os.path.isfile(expected):
+                default = os.path.join(_Defaults, bodydir, fName)
+                if os.path.isfile(default):
+                    CopyCarefully(default, expected)
+                else:
+                    log.warning(f'{expected} does not exist and no default was found at {default}.')
+            Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
+            Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
+            Induction = InductionResults
+
+        else:
+            # Re-use interior modeling, but recalculate the induced field.
+            log.info(f'Reloading induct-o-gram type {Params.Induct.inductOtype} to recalculate induction. ' +
+                     'Axis settings in configPPinduct will be ignored.')
+            Induction, Planet, Params = ReloadInductOgram(bodyname, Params)
+
+        if Params.CALC_ASYM:
+            # If we are doing asymmetry, limit to low-degree moments to compute in a reasonable time
+            Planet.Magnetic.pMax = 2
+        else:
+            Planet.Magnetic.pMax = 0
+        Planet.Magnetic.Texc_hr, Planet.Magnetic.omegaExc_radps, Planet.Magnetic.Benm_nT, Planet.Magnetic.B0_nT \
+            = GetBexc(Planet.name, Planet.Magnetic.SCera, Planet.Magnetic.extModel, Params.Induct.excSelectionCalc,
+                      nprmMax=Planet.Magnetic.nprmMax, pMax=Planet.Magnetic.pMax)
+        Planet.Magnetic.nExc = np.size(Planet.Magnetic.Texc_hr)
+        Benm_nT = Planet.Magnetic.Benm_nT
+
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
-        settings = {}
         k = 1
         if Params.Induct.inductOtype == 'sigma':
-            sigmaList = np.logspace(Params.Induct.sigmaMin[bodyname], Params.Induct.sigmaMax[bodyname], Params.Induct.nSigmaPts)
-            Dlist = np.logspace(Params.Induct.Dmin[bodyname], Params.Induct.Dmax[bodyname], Params.Induct.nDpts)
+            if Params.CALC_NEW:
+                sigmaList = np.logspace(Params.Induct.sigmaMin[bodyname], Params.Induct.sigmaMax[bodyname], Params.Induct.nSigmaPts)
+                Dlist = np.logspace(Params.Induct.Dmin[bodyname], Params.Induct.Dmax[bodyname], Params.Induct.nDpts)
+            else:
+                sigmaList = Induction.sigmaMean_Sm[:,0]
+                Dlist = Induction.D_km[0,:]
+                Params.Induct.sigmaMin[bodyname] = np.min(sigmaList)
+                Params.Induct.sigmaMax[bodyname] = np.max(sigmaList)
+                Params.Induct.nSigmaPts = np.size(sigmaList)
+                Params.Induct.Dmin[bodyname] = np.min(Dlist)
+                Params.Induct.Dmax[bodyname] = np.max(Dlist)
+                Params.Induct.nDpts = np.size(Dlist)
+                Params.Induct.zbFixed_km[bodyname] = Induction.zb_km[0,0]
+
             Params.nModels = Params.Induct.nSigmaPts * Params.Induct.nDpts
-            settings['OceanChanges'] = {'sigmaMean_Sm': sigmaList}
-            settings['PlanetChanges'] = {'D_km': Dlist}
             Planet.zb_km = Params.Induct.zbFixed_km[bodyname]
-            Planet.Magnetic.rSigChange_m = np.array([0, Planet.Bulk.R_m - Planet.zb_km*1e3, Planet.Bulk.R_m])
+            Planet.Magnetic.rSigChange_m = np.array([0, Planet.Bulk.R_m - Planet.zb_km * 1e3, Planet.Bulk.R_m])
             Planet.Magnetic.sigmaLayers_Sm = np.array([Planet.Ocean.sigmaIce_Sm['Ih'], 0, Planet.Sil.sigmaSil_Sm])
             PlanetGrid = np.empty((Params.Induct.nSigmaPts, Params.Induct.nDpts), dtype=object)
+
             for i, sigma_Sm in enumerate(sigmaList):
                 for j, D_km in enumerate(Dlist):
                     Planet.Sil.rhoMean_kgm3 = Planet.Sil.rhoSilWithCore_kgm3
@@ -722,48 +754,112 @@ def InductOgram(bodyname, Params):
                     PlanetGrid[i,j] = deepcopy(Planet)
 
         else:
-            wList = np.logspace(Params.Induct.wMin[bodyname], Params.Induct.wMax[bodyname], Params.Induct.nwPts)
-            settings['OceanChanges'] = {'wOcean_ppt': wList}
+            if Params.CALC_NEW:
+                wList = np.logspace(Params.Induct.wMin[bodyname], Params.Induct.wMax[bodyname], Params.Induct.nwPts)
+            else:
+                wList = Induction.wOcean_ppt[:,0]
+                Params.Induct.wMin[bodyname] = np.min(wList)
+                Params.Induct.wMax[bodyname] = np.max(wList)
+                Params.Induct.nwPts = np.size(wList)
+
             if Params.Induct.inductOtype == 'Tb':
-                Params.SKIP_INNER = True
-                TbList = np.linspace(Params.Induct.TbMin[bodyname], Params.Induct.TbMax[bodyname], Params.Induct.nTbPts)
-                settings['BulkChanges'] = {'Tb_K': TbList}
+                if Params.CALC_NEW:
+                    TbList = np.linspace(Params.Induct.TbMin[bodyname], Params.Induct.TbMax[bodyname], Params.Induct.nTbPts)
+                else:
+                    TbList = Induction.Tb_K[0,:]
+                    Params.Induct.TbMin[bodyname] = np.min(TbList)
+                    Params.Induct.TbMax[bodyname] = np.max(TbList)
+                    Params.Induct.nTbPts = np.size(TbList)
+
                 Params.nModels = Params.Induct.nwPts * Params.Induct.nTbPts
                 PlanetGrid = np.empty((Params.Induct.nwPts, Params.Induct.nTbPts), dtype=object)
-                for i, w_ppt in enumerate(wList):
-                    for j, Tb_K in enumerate(TbList):
-                        Planet.Ocean.wOcean_ppt = w_ppt
-                        Planet.Bulk.Tb_K = Tb_K
-                        Planet.index = k
-                        k += 1
-                        PlanetGrid[i,j] = deepcopy(Planet)
+
+                if Params.CALC_NEW:
+                    for i, w_ppt in enumerate(wList):
+                        for j, Tb_K in enumerate(TbList):
+                            Planet.Ocean.wOcean_ppt = w_ppt
+                            Planet.Bulk.Tb_K = Tb_K
+                            Planet.index = k
+                            k += 1
+                            PlanetGrid[i,j] = deepcopy(Planet)
+                else:
+                    for i, w_ppt in enumerate(wList):
+                        for j, Tb_K in enumerate(TbList):
+                            Planet.Magnetic.rSigChange_m = Induction.rBds_m[i,j]
+                            Planet.Magnetic.sigmaLayers_Sm = Induction.sigmaLayers_Sm[i,j]
+                            if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
+                                Planet.Do.VALID = False
+                            Planet.index = k
+                            k += 1
+                            PlanetGrid[i,j] = deepcopy(Planet)
+
             elif Params.Induct.inductOtype == 'phi':
-                phiList = np.logspace(Params.Induct.phiMin[bodyname], Params.Induct.phiMax[bodyname], Params.Induct.nphiPts)
-                settings['SilChanges'] = {'phiRockMax_frac': phiList}
-                Params.nModels = Params.Induct.nwPts * Params.Induct.nphiPts
-                PlanetGrid = np.empty((Params.Induct.nwPts, Params.Induct.nphiPts), dtype=object)
                 Params.CONSTANT_DENSITY_INNER = False
                 Params.SKIP_INNER = False
-                for i, w_ppt in enumerate(wList):
-                    for j, phiRockMax_frac in enumerate(phiList):
-                        Planet.Ocean.wOcean_ppt = w_ppt
-                        Planet.Sil.phiRockMax_frac = phiRockMax_frac
-                        Planet.index = k
-                        k += 1
-                        PlanetGrid[i,j] = deepcopy(Planet)
+
+                if Params.CALC_NEW:
+                    phiList = np.logspace(Params.Induct.phiMin[bodyname], Params.Induct.phiMax[bodyname], Params.Induct.nphiPts)
+                else:
+                    phiList = Induction.phiRockMax_frac[0,:]
+                    Params.Induct.phiMin[bodyname] = np.min(phiList)
+                    Params.Induct.phiMax[bodyname] = np.max(phiList)
+                    Params.Induct.nphiPts = np.size(phiList)
+
+                Params.nModels = Params.Induct.nwPts * Params.Induct.nphiPts
+                PlanetGrid = np.empty((Params.Induct.nwPts, Params.Induct.nphiPts), dtype=object)
+
+                if Params.CALC_NEW:
+                    for i, w_ppt in enumerate(wList):
+                        for j, phiRockMax_frac in enumerate(phiList):
+                            Planet.Ocean.wOcean_ppt = w_ppt
+                            Planet.Sil.phiRockMax_frac = phiRockMax_frac
+                            Planet.index = k
+                            k += 1
+                            PlanetGrid[i,j] = deepcopy(Planet)
+                else:
+                    for i, w_ppt in enumerate(wList):
+                        for j, phiRockMax_frac in enumerate(phiList):
+                            Planet.Magnetic.rSigChange_m = Induction.rBds_m[i,j]
+                            Planet.Magnetic.sigmaLayers_Sm = Induction.sigmaLayers_Sm[i,j]
+                            if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
+                                Planet.Do.VALID = False
+                            Planet.index = k
+                            k += 1
+                            PlanetGrid[i,j] = deepcopy(Planet)
+
             elif Params.Induct.inductOtype == 'rho':
                 Params.SKIP_INNER = True
-                rhoList = np.linspace(Params.Induct.rhoMin[bodyname], Params.Induct.rhoMax[bodyname], Params.Induct.nrhoPts)
-                settings['SilChanges'] = {'rhoSilWithCore_kgm3': rhoList}
+
+                if Params.CALC_NEW:
+                    rhoList = np.linspace(Params.Induct.rhoMin[bodyname], Params.Induct.rhoMax[bodyname], Params.Induct.nrhoPts)
+                else:
+                    rhoList = Induction.rhoSilMean_kgm3[0,:]
+                    Params.Induct.rhoMin[bodyname] = np.min(rhoList)
+                    Params.Induct.rhoMax[bodyname] = np.max(rhoList)
+                    Params.Induct.nrhoPts = np.size(rhoList)
+
                 Params.nModels = Params.Induct.nwPts * Params.Induct.nrhoPts
                 PlanetGrid = np.empty((Params.Induct.nwPts, Params.Induct.nrhoPts), dtype=object)
-                for i, w_ppt in enumerate(wList):
-                    for j, rhoSilWithCore_kgm3 in enumerate(rhoList):
-                        Planet.Ocean.wOcean_ppt = w_ppt
-                        Planet.Sil.rhoSilWithCore_kgm3 = rhoSilWithCore_kgm3
-                        Planet.index = k
-                        k += 1
-                        PlanetGrid[i,j] = deepcopy(Planet)
+
+                if Params.CALC_NEW:
+                    for i, w_ppt in enumerate(wList):
+                        for j, rhoSilWithCore_kgm3 in enumerate(rhoList):
+                            Planet.Ocean.wOcean_ppt = w_ppt
+                            Planet.Sil.rhoSilWithCore_kgm3 = rhoSilWithCore_kgm3
+                            Planet.index = k
+                            k += 1
+                            PlanetGrid[i,j] = deepcopy(Planet)
+                else:
+                    for i, w_ppt in enumerate(wList):
+                        for j, rhoSilWithCore_kgm3 in enumerate(rhoList):
+                            Planet.Magnetic.rSigChange_m = Induction.rBds_m[i,j]
+                            Planet.Magnetic.sigmaLayers_Sm = Induction.sigmaLayers_Sm[i,j]
+                            if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
+                                Planet.Do.VALID = False
+                            Planet.index = k
+                            k += 1
+                            PlanetGrid[i,j] = deepcopy(Planet)
+
             else:
                 raise ValueError(f'inductOtype {Params.Induct.inductOtype} behavior not defined.')
 
@@ -776,49 +872,42 @@ def InductOgram(bodyname, Params):
         log.info(f'Parallel run elapsed time: {dt:.1f} s.')
 
         # Organize data into a format that can be plotted/saved for plotting
-        PlanetList = PlanetGrid.flatten()
-        try:
-            Benm_nT = PlanetList[next(i for i, Planet in enumerate(PlanetList) 
-                                      if Planet.Magnetic.Benm_nT is not None)].Magnetic.Benm_nT
-        except StopIteration:
-            raise RuntimeError('An excitation field was never loaded for this inductOgeam. This probably means all ' +
-                               'interior models were invalid or the file for excitation moments was not found.')
-        
         Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(Benm_nT)
         nPeaks = np.size(Bex_nT)
-        Induction = InductionResults
-        Induction.bodyname = bodyname
-        Induction.yName = Params.Induct.inductOtype
+
+        if Params.CALC_NEW:
+            Induction.bodyname = bodyname
+            Induction.yName = Params.Induct.inductOtype
+            Induction.wOcean_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
+            Induction.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
+            Induction.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
+            Induction.Tmean_K = np.array([[Planeti.Ocean.Tmean_K if Planeti.Ocean.Tmean_K is not None else np.nan for Planeti in line] for line in PlanetGrid])
+            Induction.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 if Planeti.Sil.rhoMean_kgm3 is not None else np.nan for Planeti in line] for line in PlanetGrid])
+            Induction.phiRockMax_frac = np.array([[Planeti.Sil.phiRockMax_frac if Planeti.Sil.phiRockMax_frac is not None else np.nan for Planeti in line] for line in PlanetGrid])
+            Induction.sigmaMean_Sm = np.array([[Planeti.Ocean.sigmaMean_Sm if Planeti.Ocean.sigmaMean_Sm is not None else np.nan for Planeti in line] for line in PlanetGrid])
+            Induction.sigmaTop_Sm = np.array([[Planeti.Ocean.sigmaTop_Sm if Planeti.Ocean.sigmaTop_Sm is not None else np.nan for Planeti in line] for line in PlanetGrid])
+            Induction.D_km = np.array([[Planeti.D_km if Planeti.D_km is not None else np.nan for Planeti in line] for line in PlanetGrid])
+            Induction.zb_km = np.array([[Planeti.zb_km if Planeti.zb_km is not None else np.nan for Planeti in line] for line in PlanetGrid])
+            Induction.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
+            nLayers = next(np.size(Planet.Magnetic.rSigChange_m) for Planet in PlanetGrid.flatten() if Planet.Magnetic.rSigChange_m is not None)
+            nanLayers = np.nan*np.empty(nLayers)
+            Induction.rBds_m = np.array([[Planeti.Magnetic.rSigChange_m if Planeti.Magnetic.rSigChange_m is not None else nanLayers for Planeti in line] for line in PlanetGrid])
+            Induction.sigmaLayers_Sm = np.array([[Planeti.Magnetic.sigmaLayers_Sm if Planeti.Magnetic.sigmaLayers_Sm is not None else nanLayers for Planeti in line] for line in PlanetGrid])
+
         Induction.Texc_hr = Mag.Texc_hr[bodyname]
         Induction.Amp = np.array([[[Planeti.Magnetic.Amp[i] if Planeti.Magnetic.Amp is not None else np.nan for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
-        Induction.phase = np.array([[[Planeti.Magnetic.phase[i] if Planeti.Magnetic.Amp is not None else np.nan for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
+        Induction.phase = np.array([[[Planeti.Magnetic.phase[i] if Planeti.Magnetic.phase is not None else np.nan for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
         Induction.Bix_nT = np.array([Induction.Amp[i, ...] * Bex_nT[i] for i in range(nPeaks)])
         Induction.Biy_nT = np.array([Induction.Amp[i, ...] * Bey_nT[i] for i in range(nPeaks)])
         Induction.Biz_nT = np.array([Induction.Amp[i, ...] * Bez_nT[i] for i in range(nPeaks)])
-        Induction.wOcean_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
-        Induction.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
-        Induction.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
-        Induction.Tmean_K = np.array([[Planeti.Ocean.Tmean_K if Planeti.Ocean.Tmean_K is not None else np.nan for Planeti in line] for line in PlanetGrid])
-        Induction.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 if Planeti.Sil.rhoMean_kgm3 is not None else np.nan for Planeti in line] for line in PlanetGrid])
-        Induction.phiSilMax_frac = np.array([[Planeti.Sil.phiRockMax_frac if Planeti.Sil.phiRockMax_frac is not None else np.nan for Planeti in line] for line in PlanetGrid])
-        Induction.sigmaMean_Sm = np.array([[Planeti.Ocean.sigmaMean_Sm if Planeti.Ocean.sigmaMean_Sm is not None else np.nan for Planeti in line] for line in PlanetGrid])
-        Induction.sigmaTop_Sm = np.array([[Planeti.Ocean.sigmaTop_Sm if Planeti.Ocean.sigmaTop_Sm is not None else np.nan for Planeti in line] for line in PlanetGrid])
-        Induction.D_km = np.array([[Planeti.D_km if Planeti.D_km is not None else np.nan for Planeti in line] for line in PlanetGrid])
-        Induction.zb_km = np.array([[Planeti.zb_km if Planeti.zb_km is not None else np.nan for Planeti in line] for line in PlanetGrid])
-        Induction.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
-        nLayers = next(np.size(Planet.Magnetic.rSigChange_m) for Planet in PlanetList if Planet.Magnetic.rSigChange_m is not None)
-        nanLayers = np.nan*np.empty(nLayers)
-        Induction.rBds_m = np.array([[Planeti.Magnetic.rSigChange_m if Planeti.Magnetic.rSigChange_m is not None else nanLayers for Planeti in line] for line in PlanetGrid])
-        Induction.sigmaLayers_Sm = np.array([[Planeti.Magnetic.sigmaLayers_Sm if Planeti.Magnetic.sigmaLayers_Sm is not None else nanLayers for Planeti in line] for line in PlanetGrid])
 
-        Params.DataFiles = DataFiles
-        Params.FigureFiles = FigureFiles
         WriteInductOgram(Induction, Params)
         Induction.SetAxes(Params.Induct.inductOtype)
         Induction.SetComps(Params.Induct.inductOtype)
+
     else:
         log.info(f'Reloading induct-o-gram type {Params.Induct.inductOtype}.')
-        Induction, Params = ReloadInductOgram(bodyname, Params)
+        Induction, _, Params = ReloadInductOgram(bodyname, Params)
 
     return Induction, Params
 
@@ -843,7 +932,7 @@ def WriteInductOgram(Induction, Params):
         'Tb_K': Induction.Tb_K,
         'Tmean_K': Induction.Tmean_K,
         'rhoSilMean_kgm3': Induction.rhoSilMean_kgm3,
-        'phiSilMax_frac': Induction.phiSilMax_frac,
+        'phiRockMax_frac': Induction.phiRockMax_frac,
         'sigmaMean_Sm': Induction.sigmaMean_Sm,
         'sigmaTop_Sm': Induction.sigmaTop_Sm,
         'D_km': Induction.D_km,
@@ -862,15 +951,16 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     """ Reload a previously run induct-o-gram from disk.
     """
 
+    if bodyname[:4] == 'Test':
+        loadname = bodyname + ''
+        bodydir = _TestImport
+    else:
+        loadname = bodyname
+        bodydir = bodyname
+    Planet = importlib.import_module(f'{bodydir}.PP{loadname}InductOgram').Planet
+    Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
+
     if fNameOverride is None:
-        if bodyname[:4] == 'Test':
-            loadname = bodyname + ''
-            bodydir = _TestImport
-        else:
-            loadname = bodyname
-            bodydir = bodyname
-        Planet = importlib.import_module(f'{bodydir}.PP{loadname}InductOgram').Planet
-        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
         loadFile = Params.DataFiles.inductOgramFile
     else:
         loadFile = fNameOverride
@@ -894,7 +984,7 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     Induction.Tb_K = reload['Tb_K']
     Induction.Tmean_K = reload['Tmean_K']
     Induction.rhoSilMean_kgm3 = reload['rhoSilMean_kgm3']
-    Induction.phiSilMax_frac = reload['phiSilMax_frac']
+    Induction.phiRockMax_frac = reload['phiRockMax_frac']
     Induction.sigmaMean_Sm = reload['sigmaMean_Sm']
     Induction.sigmaTop_Sm = reload['sigmaTop_Sm']
     Induction.D_km = reload['D_km']
@@ -906,7 +996,7 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     Induction.SetAxes(Params.Induct.inductOtype)
     Induction.SetComps(Params.Induct.inductOtype)
 
-    return Induction, Params
+    return Induction, Planet, Params
 
 
 def ParPlanet(PlanetList, Params):
@@ -925,7 +1015,7 @@ def ParPlanet(PlanetList, Params):
     if nParDims == 1 and np.size(PlanetList) == 1:
         PlanetList[0] = PlanetProfile(PlanetList[0], Params)
     else:
-        if Params.INDUCTOGRAM_IN_PROGRESS and Params.Induct.inductOtype == 'sigma':
+        if Params.INDUCTOGRAM_IN_PROGRESS and (Params.Induct.inductOtype == 'sigma' or not Params.CALC_NEW):
             PlanetList = GridPlanetProfileFunc(MagneticInduction, PlanetList, Params)
         else:
             PlanetList = GridPlanetProfileFunc(PlanetProfile, PlanetList, Params)

@@ -16,7 +16,7 @@ class InductionStruct:
         self.oceanComp = None  # Ocean composition used.
         self.Tb_K = None  # Values of Bulk.Tb_K used.
         self.rhoSilMean_kgm3 = None  # Values of Sil.rhoMean_kgm3 resulted (also equal to those set for all but phi inductOtype).
-        self.phiSilMax_frac = None  # Values of Sil.phiRockMax_frac set.
+        self.phiRockMax_frac = None  # Values of Sil.phiRockMax_frac set.
         self.Tmean_K = None  # Ocean mean temperature result in K.
         self.sigmaMean_Sm = None  # Mean ocean conductivity. Used to map plots vs. salinity onto D/sigma plots.
         self.sigmaTop_Sm = None  # Ocean top conductivity. Used to map plots vs. salinity onto D/sigma plots.
@@ -44,7 +44,7 @@ class InductionStruct:
             elif inductOtype == 'rho':
                 self.y = self.rhoSilMean_kgm3
             elif inductOtype == 'phi':
-                self.y = self.phiSilMax_frac
+                self.y = self.phiRockMax_frac
             else:
                 raise ValueError(f'inductOtype {inductOtype} not recognized.')
 
