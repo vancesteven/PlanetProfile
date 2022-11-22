@@ -63,7 +63,7 @@ def run(bodyname=None, opt=None, fNames=None):
             PlotInductOgram(Induction, Params)
 
             if Params.COMPARE:
-                inductOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fNameInduct+'*.mat'))
+                inductOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.inductPath, '*.mat'))
                 Params.nModels = np.size(inductOgramFiles)
                 InductionList = np.empty(Params.nModels, dtype=object)
                 InductionList[0] = deepcopy(Induction)
