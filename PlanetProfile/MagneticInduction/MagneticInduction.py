@@ -376,8 +376,9 @@ def SetupInduction(Planet, Params):
         if Params.DO_INDUCTOGRAM:
             log.info('Ocean is completely frozen for this body. Profile will be marked invalid for inductogram.')
             Planet.Do.VALID = False
-        elif not Planet.Do.NO_H2O:
-            log.warning('Ocean is completely frozen for this body. This will cause errors in induction calculations.')
+        elif Params.Sig.REDUCED_INDUCT and not Planet.Do.NO_H2O:
+            log.debug('Ocean is completely frozen for this body. This will cause errors in conducting layer reductions, ' +
+                      'so those calculations will be skipped for this model.')
     if Params.CALC_CONDUCT and Planet.Do.VALID:
         # Reconfigure layer conducting boundaries as needed.
         # For inductOtype == 'sigma', we have already set these arrays.
@@ -413,7 +414,7 @@ def SetupInduction(Planet, Params):
                 sigmaInduct_Sm[sigmaInduct_Sm < Constants.sigmaMin_Sm] = Constants.sigmaDef_Sm
 
                 # Optionally, further reduce computational overhead by shrinking the number of ocean layers modeled
-                if Params.Sig.REDUCED_INDUCT and not Planet.Do.NO_H2O:
+                if np.size(indsLiq) != 0 and Params.Sig.REDUCED_INDUCT and not Planet.Do.NO_H2O:
                     if not np.all(np.diff(indsLiq) == 1):
                         log.warning('HP ices found in ocean while REDUCED_INDUCT is True. They will be ignored ' +
                                     'in the interpolation.')
