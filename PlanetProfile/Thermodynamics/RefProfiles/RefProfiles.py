@@ -30,12 +30,16 @@ def CalcRefProfiles(PlanetList, Params):
                 Params.nRef[Planet.Ocean.comp] = np.size(wList)
                 Params.nRefPts[Planet.Ocean.comp] = Params.nRefRho + 0
                 Params.rhoRef_kgm3[Planet.Ocean.comp] = np.zeros((Params.nRef[Planet.Ocean.comp], Params.nRefPts[Planet.Ocean.comp]))
-                if Planet.Ocean.EOS is None:
-                    PmaxEOS = 200
+                if Params.PrefOverride_MPa is None:
+                    if Planet.Ocean.EOS is None:
+                        PmaxEOS = maxPmax
+                    else:
+                        PmaxEOS = Planet.Ocean.EOS.Pmax
+                    Pmax = np.minimum(maxPmax, PmaxEOS)
                 else:
-                    PmaxEOS = Planet.Ocean.EOS.Pmax
-                Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(0.1, np.minimum(maxPmax, PmaxEOS), Params.nRefPts[Planet.Ocean.comp])
-                Tref_K = np.arange(220, 450, 0.25)
+                    Pmax = Params.PrefOverride_MPa
+                Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(0.1, Pmax, Params.nRefPts[Planet.Ocean.comp])
+                Tref_K = np.arange(220, 450, 0.05)
                 for i, w_ppt in enumerate(wList):
                     EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType,
                             rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType, phaseType='lookup',
@@ -68,7 +72,7 @@ def CalcRefProfiles(PlanetList, Params):
                         f.write(line + '\n')
 
                 EOSlist.loaded[thisRefLabel] = Params.Pref_MPa[Planet.Ocean.comp], Params.rhoRef_kgm3[Planet.Ocean.comp]
-                EOSlist.ranges[thisRefLabel] = maxPmax
+                EOSlist.ranges[thisRefLabel] = Pmax
                 newRef[Planet.Ocean.comp] = False
 
     return Params
