@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 12  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 13  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def configAssign():
     Params = ParamsStruct()
@@ -93,6 +93,7 @@ def configAssign():
                        'NH3':[0, 10, 20],
                        'NaCl':[0, 17.5, 35]}
     Params.nRefRho = 50  # Number of values for plotting reference density curves (sets resolution)
+    Params.PrefOverride_MPa = None  # Pressure setting to force refprofile recalc to go to a specific value instead of automatically using the first hydrosphere max
 
     # SPICE kernels to use
     Params.spiceDir = 'SPICE'
