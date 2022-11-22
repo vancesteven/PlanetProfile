@@ -1,6 +1,5 @@
 #!/bin/bash
 
-make clean
 ./compareV2018.run
 
 cp */*Profile*.txt PlanetProfileV2018Comparison/outputTextFiles/
