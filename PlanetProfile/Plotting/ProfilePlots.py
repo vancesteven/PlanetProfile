@@ -105,7 +105,7 @@ def PlotHydrosphereProps(PlanetList, Params):
             sigCutoff_Sm = 0
         else:
             sigCutoff_Sm = FigMisc.lowSigCutoff_Sm
-        maxSig_Sm = np.max([np.max(Planet.sigma_Sm[:Planet.Steps.nHydro]) for Planet in PlanetList])
+        maxSig_Sm = np.max([np.max(Planet.sigma_Sm[:Planet.Steps.nHydro]) for Planet in PlanetList if not Planet.Do.NO_H2O])
         if maxSig_Sm > sigCutoff_Sm:
             DO_SIGS = True
             vRow += 1
@@ -258,8 +258,12 @@ def PlotHydrosphereProps(PlanetList, Params):
 
                 if DO_SIGS:
                     # Plot electrical conductivity vs. depth for hydrosphere
-                    sigma_Sm = Planet.sigma_Sm[indsLiq]
-                    z_km = Planet.z_m[indsLiq]/1e3
+                    if np.size(indsLiq) > 0:
+                        sigma_Sm = Planet.sigma_Sm[indsLiq]
+                        z_km = Planet.z_m[indsLiq]/1e3
+                    else:
+                        sigma_Sm = Planet.sigma_Sm[:Planet.Steps.nHydro]
+                        z_km = Planet.z_m[:Planet.Steps.nHydro]/1e3
                     axsigz.plot(sigma_Sm[sigma_Sm > sigCutoff_Sm], z_km[sigma_Sm > sigCutoff_Sm],
                                 color=thisColor, linewidth=thisLW,
                                 linestyle=Style.LS[Planet.Ocean.comp])
