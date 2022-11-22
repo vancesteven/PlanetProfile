@@ -90,7 +90,7 @@ def PlotGravPres(PlanetList, Params):
         axes[1].legend()
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vgrav, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    fig.savefig(Params.FigureFiles.vgrav, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
     log.debug(f'Gravity and pressure plot saved to file: {Params.FigureFiles.vgrav}')
     plt.close()
 
@@ -203,6 +203,7 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     wMinMax_ppt = {}
     TminMax_K = {}
+    Tdots_K = np.empty(np.size(PlanetList))
     if FigMisc.SCALE_HYDRO_LW or FigMisc.MANUAL_HYDRO_COLORS:
         # Get min and max salinities and temps for each comp for scaling
         for comp in comps:
@@ -216,7 +217,7 @@ def PlotHydrosphereProps(PlanetList, Params):
                     TminMax_K[comp] = Color.Tbounds_K
 
     # Now plot all profiles together
-    for Planet in PlanetList:
+    for i,Planet in enumerate(PlanetList):
         # This is a hydrosphere-only plot, so skip waterless bodies
         if Planet.Ocean.comp != 'none':
             legLbl = Planet.label
@@ -245,10 +246,11 @@ def PlotHydrosphereProps(PlanetList, Params):
                               color=thisColor, linewidth=thisLW,
                               linestyle=Style.LS[Planet.Ocean.comp])
             # Make a dot at the end of the thermal profile
-            axTz.scatter(np.max(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub),
-                            np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
-                            color=therm[-1].get_color(), edgecolors=therm[-1].get_color(),
-                            marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
+            Tdots_K[i] = np.max(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub)
+            axTz.scatter(Tdots_K[i],
+                         np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
+                         color=therm[-1].get_color(), edgecolors=therm[-1].get_color(),
+                         marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
 
             if DO_SIGS or DO_SOUNDS:
                 indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
@@ -289,7 +291,8 @@ def PlotHydrosphereProps(PlanetList, Params):
         axPrho.set_ylim(top=0)
 
     # Limit Tmin so the relevant plot can better show what's going on in the ocean
-    axTz.set_xlim(left=FigMisc.TminHydro)
+    Tmax = np.max(Tdots_K)
+    axTz.set_xlim([FigMisc.TminHydro, FigMisc.TminHydro + 1.05*(Tmax - FigMisc.TminHydro)])
 
     if FigMisc.PHASE_LABELS:
         # Label the phases found in the hydrosphere
@@ -333,7 +336,7 @@ def PlotHydrosphereProps(PlanetList, Params):
         handles, lbls = axPrho.get_legend_handles_labels()
         axPrho.legend(handles, lbls, loc='lower left')
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
     log.debug(f'Hydrosphere plot saved to file: {Params.FigureFiles.vhydro}')
     plt.close()
 
@@ -374,7 +377,7 @@ def PlotCoreTradeoff(PlanetList, Params):
         ax.legend()
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vcore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    fig.savefig(Params.FigureFiles.vcore, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
     log.debug(f'Core trade plot saved to file: {Params.FigureFiles.vcore}')
     plt.close()
 
@@ -415,7 +418,7 @@ def PlotSilTradeoff(PlanetList, Params):
         ax.legend()
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vmant, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    fig.savefig(Params.FigureFiles.vmant, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
     log.debug(f'Mantle trade plot saved to file: {Params.FigureFiles.vmant}')
     plt.close()
 
@@ -464,7 +467,7 @@ def PlotPorosity(PlanetList, Params):
         if Params.LEGEND:
             ax.legend()
 
-        fig.savefig(Params.FigureFiles.vporeDbl, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        fig.savefig(Params.FigureFiles.vporeDbl, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
         log.debug(f'Porosity plot (dual axis) saved to file: {Params.FigureFiles.vporeDbl}')
         plt.close()
 
@@ -503,7 +506,7 @@ def PlotPorosity(PlanetList, Params):
         axes[1].legend()
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vpore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    fig.savefig(Params.FigureFiles.vpore, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
     log.debug(f'Porosity plot saved to file: {Params.FigureFiles.vpore}')
     plt.close()
 
@@ -578,7 +581,7 @@ def PlotSeismic(PlanetList, Params):
         [ax.set_ylim(bottom=0) for ax in axf]
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vseis, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    fig.savefig(Params.FigureFiles.vseis, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
     log.debug(f'Seismic plot saved to file: {Params.FigureFiles.vseis}')
     plt.close()
 
@@ -913,7 +916,7 @@ def PlotWedge(PlanetList, Params):
         ax.set_aspect('equal')
 
     fig.tight_layout()
-    fig.savefig(Params.FigureFiles.vwedg, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    fig.savefig(Params.FigureFiles.vwedg, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
     log.debug(f'Wedge plot saved to file: {Params.FigureFiles.vwedg}')
     plt.close()
 
@@ -961,7 +964,7 @@ def PlotExploreOgram(ExplorationList, Params):
         cbar.set_label(FigLbl.cbarLabelExplore, size=12)
 
         plt.tight_layout()
-        fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
         log.debug(f'Plot saved to file: {Params.FigureFiles.explore}')
         plt.close()
 
@@ -996,7 +999,7 @@ def PlotExploreOgram(ExplorationList, Params):
         cbar.set_label(FigLbl.cbarLabelExplore, size=12)
 
         plt.tight_layout()
-        fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
         log.debug(f'Plot saved to file: {Params.FigureFiles.explore}')
         plt.close()
 

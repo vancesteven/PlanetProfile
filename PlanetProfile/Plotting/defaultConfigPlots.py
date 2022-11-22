@@ -363,4 +363,7 @@ def plotAssign():
     FigMisc.nCbarPts = 80  # Number of points to use for drawing colorbar gradient
     FigMisc.SetFontSizes()  # Assign sizes for fonts
 
+    # Assign metadata for correct output format combination
+    FigLbl.SetMeta(FigMisc.figFormat)
+
     return Color, Style, FigLbl, FigSize, FigMisc

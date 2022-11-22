@@ -1135,6 +1135,9 @@ class FigLblStruct:
     # Unlike other structs, the labels set below ARE the ones used in plots, so the user
     # only needs to bother with the toggles in the config file.
     def __init__(self):
+        # Image metadata
+        self.metaStr = 'Created with PlanetProfile'
+        self.meta = {}  # Note: only certain keys work with specific combinations of output file format and backend. See https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html
         # Label display toggles
         self.NEGATIVE_UNIT_POWERS = True  # Whether to use negative powers for units in latex tables, or instead a backslash.
         self.NAN_FOR_EMPTY = False  # Whether to use nan (or -) for empty layer parameters that were not calculated or not present.
@@ -1640,6 +1643,12 @@ class FigLblStruct:
                     if type(subval) == str:
                         newVal[subkey] = self.StripLatexFromString(subval) 
                 self.__setattr__(key, newVal)
+
+    def SetMeta(self, xtn):
+        if xtn == 'png':
+            self.meta['Software'] = self.metaStr
+        else:
+            self.meta['Creator'] = self.metaStr
 
 """ Figure size settings """
 class FigSizeStruct:

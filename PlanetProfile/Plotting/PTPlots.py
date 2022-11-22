@@ -111,7 +111,7 @@ def PlotHydroPhase(PlanetList, Params):
                 ax.legend(handles, lbls)
 
         plt.tight_layout()
-        fig.savefig(Params.FigureFiles.vphase, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        fig.savefig(Params.FigureFiles.vphase, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
         log.debug(f'Hydrosphere phase diagram saved to file: {Params.FigureFiles.vphase}')
         plt.close()
     
@@ -241,7 +241,7 @@ def PlotPvThydro(PlanetList, Params):
 
 
         plt.tight_layout()
-        fig.savefig(Params.FigureFiles.vpvtHydro, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        fig.savefig(Params.FigureFiles.vpvtHydro, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
         log.debug(f'Hydrosphere PT properties plot saved to file: {Params.FigureFiles.vpvtHydro}')
         plt.close()
 
@@ -391,7 +391,7 @@ def PlotPvTPerpleX(PlanetList, Params):
                  color=Color.geothermInner) for ax in axf]
 
         plt.tight_layout()
-        fig.savefig(Params.FigureFiles.vpvtPerpleX, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+        fig.savefig(Params.FigureFiles.vpvtPerpleX, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
         log.debug(f'Silicate/core PT properties plot saved to file: {Params.FigureFiles.vpvtPerpleX}')
         plt.close()
 
