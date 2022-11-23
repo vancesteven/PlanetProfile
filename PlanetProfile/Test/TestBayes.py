@@ -45,7 +45,7 @@ def TestBayes(bodyname):
         'Qrad_Wkg': 1.4e-14,
         'qSurf_Wm2': 135e-3,
         'compOcean': 'MgSO4',
-        'compSil': 'CM_hydrous_differentiated_Ganymede_Core100Fe000S_excluding_fluid_properties.tab',
+        'compSil': 'CV3hy1wt_678_1.tab',
         'wFeCore_ppt': 1000
     }
 
