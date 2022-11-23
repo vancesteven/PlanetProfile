@@ -36,3 +36,21 @@ mv Comparison/ComparisonWedge.pdf Comparison/UranusComparisonWedge.pdf
 python PlanetProfileCLI.py Triton/PPTriton.py Pluto/PPPluto.py > Comparison/neptunianDwarf.txt
 mv Comparison/ComparisonWedge.pdf Comparison/NeptuneDwarfComparisonWedge.pdf
 
+cp Comparison/biggest.txt PlanetProfileDefaultOutputs/
+cp Comparison/BiggestComparisonWedge.pdf PlanetProfileDefaultOutputs/
+cp Comparison/mid-large.txt PlanetProfileDefaultOutputs/
+cp Comparison/LargeComparisonWedge.pdf PlanetProfileDefaultOutputs/
+cp Comparison/mid.txt PlanetProfileDefaultOutputs/
+cp Comparison/MidComparisonWedge.pdf PlanetProfileDefaultOutputs/
+cp Comparison/small.txt PlanetProfileDefaultOutputs/
+cp Comparison/SmallComparisonWedge.pdf PlanetProfileDefaultOutputs/
+cp Comparison/tiny.txt PlanetProfileDefaultOutputs/
+cp Comparison/TinyComparisonWedge.pdf PlanetProfileDefaultOutputs/
+cp Comparison/jovian.txt PlanetProfileDefaultOutputs/
+cp Comparison/JupiterComparisonWedge.pdf PlanetProfileDefaultOutputs/
+cp Comparison/kronian.txt PlanetProfileDefaultOutputs/
+cp Comparison/SaturnComparisonWedge.pdf PlanetProfileDefaultOutputs/
+cp Comparison/uranian.txt PlanetProfileDefaultOutputs/
+cp Comparison/UranusComparisonWedge.pdf PlanetProfileDefaultOutputs/
+cp Comparison/neptunianDwarf.txt PlanetProfileDefaultOutputs/
+cp Comparison/NeptuneDwarfComparisonWedge.pdf PlanetProfileDefaultOutputs/
