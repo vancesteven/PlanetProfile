@@ -19,7 +19,7 @@ def configAssign():
     # The below flags allow or prevents extrapolation of EOS functions beyond the definition grid.
     Params.EXTRAP_ICE = {'Ih':False, 'II':False, 'III':False, 'V':False, 'VI':False, 'Clath':False}
     Params.EXTRAP_OCEAN = False
-    Params.EXTRAP_REF =   True  # Allow refprofile extrapolation separate from normal ocean
+    Params.EXTRAP_REF =   False  # Allow refprofile extrapolation separate from normal ocean
     Params.EXTRAP_SIL =   False
     Params.EXTRAP_Fe =    False
     Params.lookupInterpMethod = 'nearest'  # Interpolation method to use for EOS lookup tables. Options are 'nearest', 'linear', 'cubic'.
