@@ -354,6 +354,7 @@ class EOSwrapper:
         elif EOSlist.loaded[self.key].EOStype == 'ocean':
             self.Pmin = EOSlist.loaded[self.key].Pmin
             self.Pmax = EOSlist.loaded[self.key].Pmax
+            self.propsPmax = EOSlist.loaded[self.key].propsPmax
             self.Tmin = EOSlist.loaded[self.key].Tmin
             self.Tmax = EOSlist.loaded[self.key].Tmax
             self.deltaP = EOSlist.loaded[self.key].deltaP

@@ -99,6 +99,7 @@ class OceanEOSStruct:
                 self.ufn_sigma_Sm = ReturnZeros(1)
                 self.EOSdeltaP = None
                 self.EOSdeltaT = None
+                self.propsPmax = 0
             elif self.comp in ['PureH2O', 'NH3', 'NaCl']:
                 self.type = 'SeaFreeze'
                 self.m_gmol = Constants.m_gmol[self.comp]
@@ -111,6 +112,7 @@ class OceanEOSStruct:
                 self.Pmax = np.minimum(self.Pmax, Pmax[self.comp])
                 self.Tmin = np.maximum(self.Tmin, Tmin[self.comp])
                 self.Tmax = np.minimum(self.Tmax, Tmax[self.comp])
+                self.propsPmax = self.Pmax
                 if np.size(P_MPa) == np.size(T_K):
                     log.warning(f'Both P and T inputs have length {np.size(P_MPa)}, but they are organized to be ' +
                                  'used as a grid. This will cause an error in SeaFreeze. P list will be adjusted slightly.')
@@ -177,6 +179,7 @@ class OceanEOSStruct:
                 rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = SwProps(P_MPa, T_K, self.w_ppt)
                 self.ufn_Seismic = SwSeismic(self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = SwConduct(self.w_ppt)
+                self.propsPmax = self.Pmax
             elif self.comp == 'MgSO4':
                 if self.elecType == 'Pan2020' and round(self.w_ppt) != 100:
                     log.warning('elecType "Pan2020" behavior is defined only for Ocean.wOcean_ppt = 100. ' +
@@ -189,14 +192,14 @@ class OceanEOSStruct:
                     = MgSO4Props(P_MPa, T_K, self.w_ppt, self.EXTRAP)
                 if self.PHASE_LOOKUP:
                     self.ufn_phase = MgSO4PhaseLookup(self.w_ppt)
-                    self.ufn_Pmax = self.ufn_phase.Pmax
+                    self.phasePmax = self.ufn_phase.Pmax
                     # Save EOS grid resolution from MgSO4 lookup table loaded from disk
                     self.EOSdeltaP = self.ufn_phase.deltaP
                     self.EOSdeltaT = self.ufn_phase.deltaT
                 else:
                     Margules = MgSO4PhaseMargules(self.w_ppt)
                     self.ufn_phase = Margules.arrays
-                    self.ufn_Pmax = Margules.Pmax
+                    self.phasePmax = Margules.Pmax
                     # Lookup table is not used -- flag with nan for grid resolution.
                     self.EOSdeltaP = np.nan
                     self.EOSdeltaT = np.nan
@@ -204,7 +207,8 @@ class OceanEOSStruct:
                 self.ufn_Seismic = MgSO4Seismic(self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = MgSO4Conduct(self.w_ppt, self.elecType, rhoType=self.rhoType,
                                                 scalingType=self.scalingType)
-                self.Pmax = np.min([self.Pmax, self.ufn_Seismic.Pmax, self.ufn_Pmax])
+                self.propsPmax = self.ufn_Seismic.Pmax
+                self.Pmax = np.min([self.Pmax, self.phasePmax])
             else:
                 raise ValueError(f'Unable to load ocean EOS. self.comp="{self.comp}" but options are "Seawater", "NH3", "MgSO4", ' +
                                  '"NaCl", and "none" (for waterless bodies).')
