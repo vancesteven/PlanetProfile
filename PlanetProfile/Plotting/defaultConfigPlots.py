@@ -274,8 +274,8 @@ def plotAssign():
     FigMisc.nPphase = 360  # Number of pressure points to evaluate/plot for hydrosphere phase diagram. If None, use geotherm (Planet.T_K) for the phase diagram.
     FigMisc.nThydro = 160  # Number of temperature points to evaluate/plot for PT property plots
     FigMisc.nPhydro = 200  # Number of pressure points to evaluate/plot for PT property plots
-    FigMisc.PminHydro_MPa = 0.1  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa
-    FigMisc.TminHydro_K = 220  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K
+    FigMisc.PminHydro_MPa = 0.1  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use min of geotherm.
+    FigMisc.TminHydro_K = 220  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use min of geotherm.
     FigLbl.hydroPhaseSize = 14  # Font size of label for phase in phase diagram
 
     # Silicate/core PT diagrams

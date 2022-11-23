@@ -1719,8 +1719,8 @@ class FigMiscStruct:
         self.nPphase = None  # Number of pressure points to evaluate/plot for hydrosphere phase diagram
         self.nThydro = None  # Number of temperature points to evaluate/plot for PT property plots
         self.nPhydro = None  # Number of pressure points to evaluate/plot for PT property plots
-        self.PminHydro_MPa = None  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa
-        self.TminHydro_K = None  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K
+        self.PminHydro_MPa = None  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use min of geotherm.
+        self.TminHydro_K = None  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use min of geotherm.
         self.hydroPhaseSize = None  # Font size of label for phase in phase diagram
         self.TS_hydroLabels = None  # Font size for hydrosphere phase labels in pt
 

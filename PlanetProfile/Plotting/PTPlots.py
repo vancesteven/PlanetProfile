@@ -122,8 +122,16 @@ def PlotPvThydro(PlanetList, Params):
 
     if os.path.dirname(Params.FigureFiles.vpvtHydro) != 'Comparison':
         Planet = PlanetList[0]
-        P_MPa = np.linspace(FigMisc.PminHydro_MPa, np.max(Planet.P_MPa[:Planet.Steps.nHydro]), FigMisc.nPhydro)
-        T_K = np.linspace(FigMisc.TminHydro_K, np.max(Planet.T_K[:Planet.Steps.nHydro]), FigMisc.nThydro)
+        if FigMisc.PminHydro_MPa is None:
+            Pmin = np.min(Planet.P_MPa[:Planet.Steps.nHydro])
+        else:
+            Pmin = FigMisc.PminHydro_MPa
+        if FigMisc.TminHydro_K is None:
+            Tmin = np.min(Planet.T_K[:Planet.Steps.nHydro])
+        else:
+            Tmin = FigMisc.TminHydro_K
+        P_MPa = np.linspace(Pmin, np.max(Planet.P_MPa[:Planet.Steps.nHydro]), FigMisc.nPhydro)
+        T_K = np.linspace(Tmin, np.max(Planet.T_K[:Planet.Steps.nHydro]), FigMisc.nThydro)
         # Load EOS independently from model run, because we will query wider ranges of conditions
         oceanEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, P_MPa, T_K,
                                Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
@@ -160,8 +168,8 @@ def PlotPvThydro(PlanetList, Params):
         # Labels and titles
         [ax.set_xlabel(FigLbl.Tlabel) for ax in axes[1, :]]
         [ax.set_ylabel(FigLbl.PlabelHydro) for ax in axes[:, 0]]
-        [ax.set_xlim([FigMisc.TminHydro_K, np.max(T_K)]) for ax in axf]
-        [ax.set_ylim([0, np.max(P_MPa)]) for ax in axf]
+        [ax.set_xlim([Tmin, np.max(T_K)]) for ax in axf]
+        [ax.set_ylim([Pmin, np.max(P_MPa)]) for ax in axf]
         [ax.invert_yaxis() for ax in axf]
         axes[0,0].set_title(FigLbl.rhoLabel)
         axes[1,0].set_title(FigLbl.CpLabel)
