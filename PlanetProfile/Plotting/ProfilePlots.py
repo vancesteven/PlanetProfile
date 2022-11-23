@@ -318,14 +318,16 @@ def PlotHydrosphereProps(PlanetList, Params):
             Padj = 0.03*np.abs(np.diff(axPrho.get_ylim())[0])
 
             if phase == 0:
-                loc = np.where(Pall_MPa == np.min(Pall_MPa[phases == 0]))[0]
-                if np.size(loc) > 1: loc = loc[0]
+                # loc = np.where(Pall_MPa == np.min(Pall_MPa[phases == 0]))[0]
+                # if np.size(loc) > 1: loc = loc[0]
+                rhoLoc_kgm3 = np.mean(rhoAll_kgm3[phases == 0])
+                Ploc_MPa = np.mean(Pall_MPa[phases == 0])
                 # Shift label closer in the case of a thin ocean, where the curve will be short
                 if np.all([Planet.THIN_OCEAN for Planet in PlanetList]):
                     adj2 = -adj
                 else:
                     adj2 = 0
-                axPrho.text(rhoAll_kgm3[loc] + 3*adj + adj2, (Pall_MPa[loc] + Padj)*FigLbl.PmultHydro,
+                axPrho.text(rhoLoc_kgm3 + adj2, Ploc_MPa*FigLbl.PmultHydro,
                             'liquid', ha='center', va='center', fontsize=FigLbl.TS_hydroLabels)
             else:
                 if phase == Constants.phaseClath:
