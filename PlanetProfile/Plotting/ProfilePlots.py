@@ -147,7 +147,6 @@ def PlotHydrosphereProps(PlanetList, Params):
         axsigz.set_xlabel(FigLbl.sigLabel)
         axsigz.set_ylabel(FigLbl.zLabel)
         axsigz.invert_yaxis()
-        axsigz.set_ylim([zMax, 0])
         if FigMisc.LOG_SIG:
             axsigz.set_xscale('log')
         axes.append(axsigz)
@@ -339,6 +338,12 @@ def PlotHydrosphereProps(PlanetList, Params):
     if Params.LEGEND:
         handles, lbls = axPrho.get_legend_handles_labels()
         axPrho.legend(handles, lbls, loc='lower left')
+
+    if DO_SIGS:
+        axsigz.set_ylim(top=0)
+        if FigMisc.COMMON_ZMAX_SIG:
+            axsigz.set_ylim(bottom=zMax)
+
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
     log.debug(f'Hydrosphere plot saved to file: {Params.FigureFiles.vhydro}')

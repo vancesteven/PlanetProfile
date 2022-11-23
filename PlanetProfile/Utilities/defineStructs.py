@@ -1694,6 +1694,7 @@ class FigMiscStruct:
 
         # Hydrosphere plots
         self.LOG_SIG = True  # Whether to print conductivity plot on a log scale
+        self.COMMON_ZMAX_SIG = False  # Whether to force conductivity plot to have the same maximum depth as other hydrosphere plots, or to let the bottom axis set automatically to zoom in on the ocean. Only has an effect for undersea HP ices.
         self.SCALE_HYDRO_LW = True  # Whether to adjust thickness of lines on hydrosphere plot according to relative salinity
         self.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
         self.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
