@@ -255,21 +255,25 @@ def PlotHydrosphereProps(PlanetList, Params):
                 indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
                 indsClath, indsClathWet, _, indsSilLiq, _, _, _, _, _, _ = GetPhaseIndices(Planet.phase)
 
+                indsIce = np.sort(np.concatenate((indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
+                                                  indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet)))
+
                 if DO_SIGS:
                     # Plot electrical conductivity vs. depth for hydrosphere
-                    if np.size(indsLiq) > 0:
-                        sigma_Sm = Planet.sigma_Sm[indsLiq]
-                        z_km = Planet.z_m[indsLiq]/1e3
-                    else:
-                        sigma_Sm = Planet.sigma_Sm[:Planet.Steps.nHydro]
-                        z_km = Planet.z_m[:Planet.Steps.nHydro]/1e3
-                    axsigz.plot(sigma_Sm[sigma_Sm > sigCutoff_Sm], z_km[sigma_Sm > sigCutoff_Sm],
+                    sigma_Sm = Planet.sigma_Sm[:Planet.Steps.nHydro]
+                    z_km = Planet.z_m[:Planet.Steps.nHydro]/1e3
+                    if not FigMisc.SHOW_ICE_CONDUCT:
+                        sigma_Sm[indsIce] = np.nan
+                    if Planet.Do.POROUS_ICE:
+                        indsWet = np.sort(np.concatenate((indsIwet, indsII, indsIII, indsV, indsVI, indsClathWet)))
+                        sigma_Sm[indsWet] = Planet.sigma_Sm[indsWet]
+                    sigma_Sm[sigma_Sm < sigCutoff_Sm] = np.nan
+                    z_km[sigma_Sm < sigCutoff_Sm] = np.nan
+                    axsigz.plot(sigma_Sm, z_km,
                                 color=thisColor, linewidth=thisLW,
                                 linestyle=Style.LS[Planet.Ocean.comp])
 
                 if DO_SOUNDS:
-                    indsIce = np.sort(np.concatenate((indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
-                                                      indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet)))
                     # Plot sound speeds in ocean and ices vs. depth in hydrosphere
                     indsHydro = np.sort(np.concatenate((indsIce, indsLiq)))
                     VPice = Planet.Seismic.VP_kms[indsHydro]
