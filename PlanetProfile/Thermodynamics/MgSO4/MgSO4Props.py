@@ -219,6 +219,10 @@ class MgSO4PhaseMargules:
     def __init__(self, wOcean_ppt):
         self.w_ppt = wOcean_ppt
         self.xH2O, self.mBar_gmol = Massppt2molFrac(self.w_ppt, Constants.m_gmol['MgSO4'])
+        self.Tmin = 0
+        self.Tmax = np.inf
+        self.Pmin = 0
+        self.Pmax = np.inf
 
     def __call__(self, P_MPa, T_K):
         self.nPs = np.size(P_MPa)

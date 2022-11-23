@@ -168,6 +168,7 @@ class OceanEOSStruct:
                     log.warning('GSW handles only ice Ih for determining phases in the ocean. At ' +
                                 'low temperatures or high pressures, this model will be wrong as no ' +
                                 'high-pressure ice phases will be found.')
+                    self.Pmax = Constants.PminHPices_MPa
 
                 self.ufn_phase = SwPhase(self.w_ppt)
                 # Lookup table is not used -- flag with nan for grid resolution.
@@ -188,17 +189,22 @@ class OceanEOSStruct:
                     = MgSO4Props(P_MPa, T_K, self.w_ppt, self.EXTRAP)
                 if self.PHASE_LOOKUP:
                     self.ufn_phase = MgSO4PhaseLookup(self.w_ppt)
+                    self.ufn_Pmax = self.ufn_phase.Pmax
                     # Save EOS grid resolution from MgSO4 lookup table loaded from disk
                     self.EOSdeltaP = self.ufn_phase.deltaP
                     self.EOSdeltaT = self.ufn_phase.deltaT
                 else:
-                    self.ufn_phase = MgSO4PhaseMargules(self.w_ppt).arrays
+                    Margules = MgSO4PhaseMargules(self.w_ppt)
+                    self.ufn_phase = Margules.arrays
+                    self.ufn_Pmax = Margules.Pmax
                     # Lookup table is not used -- flag with nan for grid resolution.
                     self.EOSdeltaP = np.nan
                     self.EOSdeltaT = np.nan
+
                 self.ufn_Seismic = MgSO4Seismic(self.w_ppt, self.EXTRAP)
                 self.ufn_sigma_Sm = MgSO4Conduct(self.w_ppt, self.elecType, rhoType=self.rhoType,
                                                 scalingType=self.scalingType)
+                self.Pmax = np.min([self.Pmax, self.ufn_Seismic.Pmax, self.ufn_Pmax])
             else:
                 raise ValueError(f'Unable to load ocean EOS. self.comp="{self.comp}" but options are "Seawater", "NH3", "MgSO4", ' +
                                  '"NaCl", and "none" (for waterless bodies).')
