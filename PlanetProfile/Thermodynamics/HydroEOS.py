@@ -104,10 +104,10 @@ class OceanEOSStruct:
                 self.m_gmol = Constants.m_gmol[self.comp]
 
                 # Set extrapolation boundaries to limits defined in SeaFreeze
-                Pmax = {'PureH2O':   2300, 'NH3': 2228.4, 'NaCl': np.nan}
-                Tmin = {'PureH2O':    200, 'NH3':  241,   'NaCl': np.nan}
-                Tmax = {'PureH2O':    355, 'NH3':  399.2, 'NaCl': np.nan}
-                wMax = {'PureH2O': np.nan, 'NH3':  290.1, 'NaCl': np.nan}
+                Pmax = {'PureH2O':   2300.6, 'NH3': 2228.4, 'NaCl': np.nan}
+                Tmin = {'PureH2O':    239,   'NH3':  241,   'NaCl': np.nan}
+                Tmax = {'PureH2O':    501,   'NH3':  399.2, 'NaCl': np.nan}
+                wMax = {'PureH2O': np.nan,   'NH3':  290.1, 'NaCl': np.nan}
                 self.Pmax = np.minimum(self.Pmax, Pmax[self.comp])
                 self.Tmin = np.maximum(self.Tmin, Tmin[self.comp])
                 self.Tmax = np.minimum(self.Tmax, Tmax[self.comp])
@@ -609,7 +609,7 @@ class IceSeismic:
     def __call__(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             # Set extrapolation boundaries to limits defined in SeaFreeze
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, 0, 2300, 200, 355)
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, 0, 3000, 0, 400)
         if grid:
             PT = sfPTgrid(P_MPa, T_K)
         else:
