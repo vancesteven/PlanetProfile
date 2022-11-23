@@ -44,6 +44,8 @@ def CalcRefProfiles(PlanetList, Params):
                     EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType,
                             rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType, phaseType='lookup',
                             EXTRAP=Params.EXTRAP_REF, FORCE_NEW=Params.FORCE_EOS_RECALC, MELT=True)
+                    if EOSref.Pmax < Pmax:
+                        Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(Params.Pref_MPa[Planet.Ocean.comp][0], EOSref.Pmax, Params.nRefPts[Planet.Ocean.comp])
                     try:
                         Tfreeze_K = np.array([GetTfreeze(EOSref, P_MPa, Tref_K[0], TfreezeRange_K=230) for P_MPa in Params.Pref_MPa[Planet.Ocean.comp]])
                     except:
