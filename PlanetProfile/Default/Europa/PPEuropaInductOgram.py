@@ -34,7 +34,7 @@ Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
 #Planet.Ocean.wOcean_ppt = 100
 Planet.Ocean.phaseType = 'calculate'
 Planet.Ocean.deltaP = 2.0
-Planet.Ocean.PHydroMax_MPa = 250.0
+Planet.Ocean.PHydroMax_MPa = 350.0
 
 """ Silicate Mantle """
 Planet.Do.CONSTANT_INNER_DENSITY = True

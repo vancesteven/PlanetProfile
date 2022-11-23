@@ -32,7 +32,7 @@ Planet.Ocean.comp = 'Seawater'
 Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
 Planet.Ocean.deltaP = 1.0
 Planet.Ocean.deltaT = 0.1
-Planet.Ocean.PHydroMax_MPa = 250.0
+Planet.Ocean.PHydroMax_MPa = 350.0
 
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.33e-12  # Estimate from Hussmann and Spohn (2004): https://doi.org/10.1016/j.icarus.2004.05.020, calculated from total heating rate, silicate density, and layer radii
