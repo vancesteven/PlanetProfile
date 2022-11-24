@@ -260,7 +260,7 @@ def PlotHydrosphereProps(PlanetList, Params):
 
                 if DO_SIGS:
                     # Plot electrical conductivity vs. depth for hydrosphere
-                    sigma_Sm = Planet.sigma_Sm[:Planet.Steps.nHydro]
+                    sigma_Sm = Planet.sigma_Sm[:Planet.Steps.nHydro] + 0
                     z_km = Planet.z_m[:Planet.Steps.nHydro]/1e3
                     if not FigMisc.SHOW_ICE_CONDUCT:
                         sigma_Sm[indsIce] = np.nan
@@ -268,7 +268,6 @@ def PlotHydrosphereProps(PlanetList, Params):
                         indsWet = np.sort(np.concatenate((indsIwet, indsII, indsIII, indsV, indsVI, indsClathWet)))
                         sigma_Sm[indsWet] = Planet.sigma_Sm[indsWet]
                     sigma_Sm[sigma_Sm < sigCutoff_Sm] = np.nan
-                    z_km[sigma_Sm < sigCutoff_Sm] = np.nan
                     axsigz.plot(sigma_Sm, z_km,
                                 color=thisColor, linewidth=thisLW,
                                 linestyle=Style.LS[Planet.Ocean.comp])
