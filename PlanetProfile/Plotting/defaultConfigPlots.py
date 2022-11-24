@@ -97,7 +97,7 @@ def plotAssign():
     # Select only a subset of the available colormap, if we choose to
     Color.cmapBounds = {
         'none': [0.0, 1.0],
-        'PureH2O': [0.0, 1.0],
+        'PureH2O': [0.0, 0.8],
         'Seawater': [0.0, 1.0],
         'MgSO4': [0.0, 1.0],
         'NH3': [0.0, 1.0],
