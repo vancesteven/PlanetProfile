@@ -138,7 +138,8 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
                         marker=Style.MS_Induction, c=ptColors[0])
 
     # Labels and titles
-    fig.suptitle(FigLbl.phaseSpaceTitle)
+    if Params.TITLES:
+        fig.suptitle(FigLbl.phaseSpaceTitle)
     axes[0].set_xlabel(FigLbl.sigMeanLabel)
     axes[0].set_ylabel(FigLbl.Dlabel)
     axes[0].set_xlim(FigLbl.sigLims)
@@ -186,7 +187,8 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
             ax.set_axisbelow(True)
 
         # Labels and titles
-        fig.suptitle(FigLbl.phaseSpaceTitle)
+        if Params.TITLES:
+            fig.suptitle(FigLbl.phaseSpaceTitle)
         ax.set_xlabel(FigLbl.sigMeanLabel)
         ax.set_ylabel(FigLbl.Dlabel)
         ax.set_xlim(FigLbl.sigLims)
@@ -299,7 +301,8 @@ def PlotInductOgram(Induction, Params):
             [ax.grid() for ax in allAxes]
             [ax.set_axisbelow(True) for ax in allAxes]
 
-        fig.suptitle(FigLbl.inductionTitle)
+        if Params.TITLES:
+            fig.suptitle(FigLbl.inductionTitle)
         # Only label the bottom-left sides of axes
         [ax.set_xlabel(FigLbl.sigMeanLabel) for ax in (axes[1,0], axes[1,1])]
         [ax.set_ylabel(FigLbl.Dlabel) for ax in (axes[0,0], axes[1,0])]
@@ -357,7 +360,8 @@ def PlotInductOgram(Induction, Params):
                 [ax.grid() for ax in allAxes]
                 [ax.set_axisbelow(True) for ax in allAxes]
 
-            fig.suptitle(FigLbl.inductionTitle)
+            if Params.TITLES:
+                fig.suptitle(FigLbl.inductionTitle)
             # Only label the bottom-left sides of axes
             [ax.set_xlabel(FigLbl.wLabel) for ax in (axes[1,0], axes[1,1])]
             [ax.set_ylabel(FigLbl.yLabelInduct) for ax in (axes[0,0], axes[1,0])]
@@ -383,18 +387,12 @@ def PlotInductOgram(Induction, Params):
                 lines = np.array([contour.legend_elements()[0][0] for contour in zContours])
                 axes[1,1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
 
-            if FigMisc.MARK_INDUCT_BOUNDS:
-                boundStyle = {'ls': Style.LS_BdipInset, 'lw': Style.LW_BdipInset, 'c': Color.BdipInset}
-                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.x == np.min(Induction.x)], Induction.D_km[Induction.x == np.min(Induction.x)], **boundStyle) for ax in allAxes]
-                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.x == np.max(Induction.x)], Induction.D_km[Induction.x == np.max(Induction.x)], **boundStyle) for ax in allAxes]
-                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.y == np.min(Induction.y)], Induction.D_km[Induction.y == np.min(Induction.y)], **boundStyle) for ax in allAxes]
-                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.y == np.max(Induction.y)], Induction.D_km[Induction.y == np.max(Induction.y)], **boundStyle) for ax in allAxes]
-
             plt.tight_layout()
             fig.savefig(Params.FigureFiles.induct['Bcomps'], format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
             log.debug(f'Plot saved to file: {Params.FigureFiles.induct["Bcomps"]}')
             plt.close()
 
+        if Params.Induct.inductOtype != 'sigma':
             # Also plot a comparison of Bx, which is usually the strongest oscillation
             compChoice = 'Bx'
             fig = plt.figure(figsize=FigSize.inductCombo)
@@ -407,7 +405,8 @@ def PlotInductOgram(Induction, Params):
                 [ax.set_axisbelow(True) for ax in allAxes]
 
             # Label all axes for clarity
-            fig.suptitle(FigLbl.inductCompareTitle)
+            if Params.TITLES:
+                fig.suptitle(FigLbl.inductCompareTitle)
             [ax.set_xlabel(FigLbl.wLabel) for ax in axes[0,:]]
             [ax.set_ylabel(FigLbl.yLabelInduct) for ax in axes[0,:]]
             [ax.set_xlabel(FigLbl.sigMeanLabel) for ax in axes[1,:]]
@@ -459,10 +458,10 @@ def PlotInductOgram(Induction, Params):
 
             if FigMisc.MARK_INDUCT_BOUNDS:
                 boundStyle = {'ls': Style.LS_BdipInset, 'lw': Style.LW_BdipInset, 'c': Color.BdipInset}
-                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.x == np.min(Induction.x)], Induction.D_km[Induction.x == np.min(Induction.x)], **boundStyle) for ax in allAxes]
-                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.x == np.max(Induction.x)], Induction.D_km[Induction.x == np.max(Induction.x)], **boundStyle) for ax in allAxes]
-                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.y == np.min(Induction.y)], Induction.D_km[Induction.y == np.min(Induction.y)], **boundStyle) for ax in allAxes]
-                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.y == np.max(Induction.y)], Induction.D_km[Induction.y == np.max(Induction.y)], **boundStyle) for ax in allAxes]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.x == np.min(Induction.x)], Induction.D_km[Induction.x == np.min(Induction.x)], **boundStyle) for ax in axes[1,:]]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.x == np.max(Induction.x)], Induction.D_km[Induction.x == np.max(Induction.x)], **boundStyle) for ax in axes[1,:]]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.y == np.min(Induction.y)], Induction.D_km[Induction.y == np.min(Induction.y)], **boundStyle) for ax in axes[1,:]]
+                _ = [ax.plot(Induction.sigmaMean_Sm[Induction.y == np.max(Induction.y)], Induction.D_km[Induction.y == np.max(Induction.y)], **boundStyle) for ax in axes[1,:]]
 
             plt.tight_layout()
             fig.savefig(Params.FigureFiles.inductCompare[compChoice], format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
@@ -486,7 +485,8 @@ def PlotInductOgram(Induction, Params):
             [ax.set_axisbelow(True) for ax in axes]
 
         # Labels and titles
-        fig.suptitle(FigLbl.inductionTitle)
+        if Params.TITLES:
+            fig.suptitle(FigLbl.inductionTitle)
         axes[0].set_title(name)
         axes[1].set_title(FigLbl.phaseTitle)
         [ax.set_xlabel(FigLbl.sigMeanLabel) for ax in axes]
@@ -543,7 +543,8 @@ def PlotInductOgram(Induction, Params):
                 [ax.set_axisbelow(True) for ax in axes]
 
             # Labels and titles
-            fig.suptitle(FigLbl.inductionTitle)
+            if Params.TITLES:
+                fig.suptitle(FigLbl.inductionTitle)
             axes[0].set_title(name)
             axes[1].set_title(FigLbl.phaseTitle)
             [ax.set_xscale(FigLbl.wScale) for ax in axes]
@@ -663,10 +664,11 @@ def PlotComplexBdip(PlanetList, Params):
                     [axs[-1].set_title(FigLbl.BdipLabel[axComp]) for axComp, axs in axc.items()]
                 else:
                     [axs[-1].set_title(FigLbl.BdipLabelNoZoom[axComp]) for axComp, axs in axc.items()]
-                if Params.ALL_ONE_BODY:
-                    fig.suptitle(f'{PlanetList[0].name}{titleToUse[0]}')
-                else:
-                    fig.suptitle(titleToUse[1])
+                if Params.TITLES:
+                    if Params.ALL_ONE_BODY:
+                        fig.suptitle(f'{PlanetList[0].name}{titleToUse[0]}')
+                    else:
+                        fig.suptitle(titleToUse[1])
 
                 insetx, insety = ({vComp: 0 for vComp in axComps} for _ in range(2))
                 for iPlanet, Planet in enumerate(PlanetList):
@@ -758,10 +760,11 @@ def PlotComplexBdip(PlanetList, Params):
                         axes[-1].set_title(FigLbl.BdipLabel[axComp])
                     else:
                         axes[-1].set_title(FigLbl.BdipLabelNoZoom[axComp])
-                    if Params.ALL_ONE_BODY:
-                        fig.suptitle(f'{PlanetList[0].name}{titleToUse[0]}')
-                    else:
-                        fig.suptitle(titleToUse[1])
+                    if Params.TITLES:
+                        if Params.ALL_ONE_BODY:
+                            fig.suptitle(f'{PlanetList[0].name}{titleToUse[0]}')
+                        else:
+                            fig.suptitle(titleToUse[1])
 
                     insetx, insety = (0, 0)
                     for iPlanet, Planet in enumerate(PlanetList):
@@ -918,10 +921,11 @@ def PlotMagSurface(PlanetList, Params):
                 title = f'{Planet.name} {FigLbl.MagSurfTitle} {compLabel}, ' + \
                         f'{rMagEvalLbl} ($\si{{nT}}$), {tMagEvalLbl}'
 
-            # Remove latex styling from labels if Latex is not installed
-            if not FigMisc.TEX_INSTALLED:
-                title = FigLbl.StripLatexFromString(title)
-            ax.set_title(title, size=FigMisc.mapTitleSize)
+            if Params.TITLES:
+                # Remove latex styling from labels if Latex is not installed
+                if not FigMisc.TEX_INSTALLED:
+                    title = FigLbl.StripLatexFromString(title)
+                ax.set_title(title, size=FigMisc.mapTitleSize)
 
             vmin = FigMisc.vminMagSurf_nT
             vmax = FigMisc.vmaxMagSurf_nT
@@ -990,10 +994,11 @@ def PlotMagSurface(PlanetList, Params):
                     # compLabel able to be reused from asymmetric in this case
                     title = f'{Planet.name} {FigLbl.MagSurfSymTitle} {compLabel}, ' + \
                             f'{rMagEvalLbl} ($\si{{nT}}$), {tMagEvalLbl}'
-                # Remove latex styling from labels if Latex is not installed
-                if not FigMisc.TEX_INSTALLED:
-                    title = FigLbl.StripLatexFromString(title)
-                ax.set_title(title, size=FigMisc.mapTitleSize)
+                if Params.TITLES:
+                    # Remove latex styling from labels if Latex is not installed
+                    if not FigMisc.TEX_INSTALLED:
+                        title = FigLbl.StripLatexFromString(title)
+                    ax.set_title(title, size=FigMisc.mapTitleSize)
 
                 vmin = FigMisc.vminMagSurf_nT
                 vmax = FigMisc.vmaxMagSurf_nT
@@ -1052,10 +1057,11 @@ def PlotMagSurface(PlanetList, Params):
                     # compLabel able to be reused from above in this case
                     title = f'{Planet.name} {FigLbl.MagSurfTitle} {compLabel} {FigLbl.MagSurfDiffTitle}, ' + \
                             f'{rMagEvalLbl} ($\si{{nT}}$), {tMagEvalLbl}'
-                # Remove latex styling from labels if Latex is not installed
-                if not FigMisc.TEX_INSTALLED:
-                    title = FigLbl.StripLatexFromString(title)
-                ax.set_title(title, size=FigMisc.mapTitleSize)
+                if Params.TITLES:
+                    # Remove latex styling from labels if Latex is not installed
+                    if not FigMisc.TEX_INSTALLED:
+                        title = FigLbl.StripLatexFromString(title)
+                    ax.set_title(title, size=FigMisc.mapTitleSize)
 
                 vmin = FigMisc.vminMagSurfDiff_nT
                 vmax = FigMisc.vmaxMagSurfDiff_nT
@@ -1148,10 +1154,11 @@ def PlotAsym(PlanetList, Params):
                     log.warning(f'asymPlotType "{mainPlanet.Magnetic.asymPlotType}" not recognized. Using fallback.')
                     title = f'{FigLbl.asymSurfTitle}{mainPlanet.name[0]}}}$ = \SI{{{mainPlanet.R_m/1e3:.1f}}}{{km}}'
                 cLevelsAsym = None
-            # Remove latex styling from labels if Latex is not installed
-            if not FigMisc.TEX_INSTALLED:
-                title = FigLbl.StripLatexFromString(title)
-            ax.set_title(title, size=FigMisc.mapTitleSize)
+            if Params.TITLES:
+                # Remove latex styling from labels if Latex is not installed
+                if not FigMisc.TEX_INSTALLED:
+                    title = FigLbl.StripLatexFromString(title)
+                ax.set_title(title, size=FigMisc.mapTitleSize)
 
             if cLevelsAsym is None and FigMisc.nAsymContours is not None:
                 cLevelsAsym = np.unique(np.round(np.linspace(np.min(mainPlanet.Magnetic.asymDevs_km[i, ...]),
@@ -1229,11 +1236,12 @@ def PlotMagSpectrum(PlanetList, Params):
     axes[1].set_title(FigLbl.Ae1FTtitle)
     axes[2].set_title(FigLbl.BiFTtitle)
     [ax.set_yscale('log') for ax in [axes[0], axes[2]]]
-    if mainPlanet.Magnetic.coordTypeFT is not None:
-        FTtitle = f'{mainPlanet.name} {FigLbl.MagFTtitle}, {mainPlanet.Magnetic.coordTypeFT} coordinates'
-    else:
-        FTtitle = f'{mainPlanet.name} {FigLbl.MagFTtitle}'
-    fig.suptitle(FTtitle)
+    if Params.TITLES:
+        if mainPlanet.Magnetic.coordTypeFT is not None:
+            FTtitle = f'{mainPlanet.name} {FigLbl.MagFTtitle}, {mainPlanet.Magnetic.coordTypeFT} coordinates'
+        else:
+            FTtitle = f'{mainPlanet.name} {FigLbl.MagFTtitle}'
+        fig.suptitle(FTtitle)
 
     # Plot the data
     [axes[0].plot(freqVar, np.abs(mainPlanet.Magnetic.Be1xyzFT_nT[vComp]), label=f'$B^e_{vComp}$',

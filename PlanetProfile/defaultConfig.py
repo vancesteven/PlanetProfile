@@ -64,6 +64,7 @@ def configAssign():
     Params.PLOT_BSURF =       True  # Whether to plot induced field surface map
     Params.PLOT_ASYM =        False  # Whether to plot asymmetric boundary shape(s) when induced fields are calculated from them
     Params.LEGEND =           True  # Whether to plot legends
+    Params.TITLES =           True  # Whether to include a (sup)title on plots
 
     # Magnetic induction plot settings
     Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question

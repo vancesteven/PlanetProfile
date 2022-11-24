@@ -68,10 +68,11 @@ def PlotGravPres(PlanetList, Params):
     axes[0].set_xlabel(FigLbl.gLabel)
     axes[1].set_xlabel(FigLbl.PlabelFull)
     [ax.set_ylabel(FigLbl.rLabel) for ax in axes]
-    if Params.ALL_ONE_BODY:
-        fig.suptitle(f'{PlanetList[0].name}{FigLbl.gravTitle}')
-    else:
-        fig.suptitle(FigLbl.gravCompareTitle)
+    if Params.TITLES:
+        if Params.ALL_ONE_BODY:
+            fig.suptitle(f'{PlanetList[0].name}{FigLbl.gravTitle}')
+        else:
+            fig.suptitle(FigLbl.gravCompareTitle)
 
     for Planet in PlanetList:
         legLbl = Planet.label
@@ -165,10 +166,11 @@ def PlotHydrosphereProps(PlanetList, Params):
         [ax.grid() for ax in axes]
         [ax.set_axisbelow(True) for ax in axes]
 
-    if Params.ALL_ONE_BODY:
-        fig.suptitle(f'{PlanetList[0].name}{FigLbl.hydroTitle}')
-    else:
-        fig.suptitle(FigLbl.hydroCompareTitle)
+    if Params.TITLES:
+        if Params.ALL_ONE_BODY:
+            fig.suptitle(f'{PlanetList[0].name}{FigLbl.hydroTitle}')
+        else:
+            fig.suptitle(FigLbl.hydroCompareTitle)
 
     # Plot reference profiles first, so they plot on bottom of everything
     comps = np.unique([Planet.Ocean.comp for Planet in PlanetList])
@@ -370,11 +372,12 @@ def PlotCoreTradeoff(PlanetList, Params):
         CMR2str = f', $C/MR^2 = {PlanetList[0].CMR2str}$'
     else:
         CMR2str = ''
-    if Params.ALL_ONE_BODY:
-        title = f'{PlanetList[0].name}{FigLbl.coreTitle}{CMR2str}'
-    else:
-        title = FigLbl.coreCompareTitle + CMR2str
-    fig.suptitle(title)
+    if Params.TITLES:
+        if Params.ALL_ONE_BODY:
+            title = f'{PlanetList[0].name}{FigLbl.coreTitle}{CMR2str}'
+        else:
+            title = FigLbl.coreCompareTitle + CMR2str
+        fig.suptitle(title)
 
     for Planet in PlanetList:
         if Planet.Do.Fe_CORE:
@@ -412,11 +415,12 @@ def PlotSilTradeoff(PlanetList, Params):
         CMR2str = f', $C/MR^2 = {PlanetList[0].CMR2str}$'
     else:
         CMR2str = ''
-    if Params.ALL_ONE_BODY:
-        title = f'{PlanetList[0].name}{FigLbl.mantTitle}{CMR2str}'
-    else:
-        title = FigLbl.mantCompareTitle + CMR2str
-    fig.suptitle(title)
+    if Params.TITLES:
+        if Params.ALL_ONE_BODY:
+            title = f'{PlanetList[0].name}{FigLbl.mantTitle}{CMR2str}'
+        else:
+            title = FigLbl.mantCompareTitle + CMR2str
+        fig.suptitle(title)
 
     for Planet in PlanetList:
         if ALL_SAME_CMR2:
@@ -470,7 +474,8 @@ def PlotPorosity(PlanetList, Params):
         z_from_P = interp1d(Planet.P_MPa*FigLbl.PmultFull, Planet.z_m[:-1]/1e3, bounds_error=False, fill_value='extrapolate')
         Pax = ax.secondary_yaxis('right', functions=(P_from_z, z_from_P))
         Pax.set_ylabel(FigLbl.PlabelFull)
-        fig.suptitle(f'{Planet.name}{FigLbl.poreTitle}')
+        if Params.TITLES:
+            fig.suptitle(f'{Planet.name}{FigLbl.poreTitle}')
 
         ax.plot(Planet.phiPlot*FigLbl.phiMult, Planet.zPlot/1e3,
                 label=Planet.label, linewidth=Style.LW_std)
@@ -498,10 +503,11 @@ def PlotPorosity(PlanetList, Params):
     axes[0].set_ylabel(FigLbl.zLabel)
     axes[1].set_ylabel(FigLbl.PlabelFull)
     [ax.invert_yaxis() for ax in axes]
-    if Params.ALL_ONE_BODY:
-        fig.suptitle(f'{PlanetList[0].name}{FigLbl.poreTitle}')
-    else:
-        fig.suptitle(FigLbl.poreCompareTitle)
+    if Params.TITLES:
+        if Params.ALL_ONE_BODY:
+            fig.suptitle(f'{PlanetList[0].name}{FigLbl.poreTitle}')
+        else:
+            fig.suptitle(FigLbl.poreCompareTitle)
 
     for Planet in PlanetList:
         if Planet.Do.POROUS_ROCK or Planet.Do.POROUS_ICE:
@@ -544,10 +550,11 @@ def PlotSeismic(PlanetList, Params):
     axes[1,0].set_xlabel(FigLbl.vSoundLabel)
     axes[1,1].set_xlabel(FigLbl.QseisLabel)
     axes[1,1].set_xscale('log')
-    if Params.ALL_ONE_BODY:
-        fig.suptitle(f'{PlanetList[0].name}{FigLbl.seisTitle}')
-    else:
-        fig.suptitle(FigLbl.seisCompareTitle)
+    if Params.TITLES:
+        if Params.ALL_ONE_BODY:
+            fig.suptitle(f'{PlanetList[0].name}{FigLbl.seisTitle}')
+        else:
+            fig.suptitle(FigLbl.seisCompareTitle)
 
     for Planet in PlanetList:
         if Params.ALL_ONE_BODY:
@@ -612,7 +619,7 @@ def PlotWedge(PlanetList, Params):
     axes = [fig.add_subplot(grid[0, i]) for i in range(nWedges)]
 
     # Set plot title based on possible comparison conditions
-    if Params.ALL_ONE_BODY:
+    if Params.ALL_ONE_BODY and Params.TITLES:
         title = f'{PlanetList[0].name} {FigLbl.wedgeTitle}'
         if nWedges > 1:
             title = f'{title}s'
@@ -952,8 +959,9 @@ def PlotExploreOgram(ExplorationList, Params):
         if Style.GRIDS:
             ax.grid()
             ax.set_axisbelow(True)
-    
-        fig.suptitle(FigLbl.explorationTitle)
+
+        if Params.TITLES:
+            fig.suptitle(FigLbl.explorationTitle)
         ax.set_xlabel(FigLbl.xLabelExplore)
         ax.set_ylabel(FigLbl.yLabelExplore)
         ax.set_xscale(FigLbl.xScaleExplore)
@@ -989,7 +997,8 @@ def PlotExploreOgram(ExplorationList, Params):
             ax.grid()
             ax.set_axisbelow(True)
 
-        fig.suptitle(FigLbl.explorationTitle)
+        if Params.TITLES:
+            fig.suptitle(FigLbl.explorationTitle)
         ax.set_xlabel(FigLbl.xLabelExplore)
         ax.set_ylabel(FigLbl.yLabelExplore)
         ax.set_xscale(FigLbl.xScaleExplore)

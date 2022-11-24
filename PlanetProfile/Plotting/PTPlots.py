@@ -63,7 +63,8 @@ def PlotHydroPhase(PlanetList, Params):
         ax.invert_yaxis()
 
         # Set overall figure title
-        fig.suptitle(f'{Planet.compStr}{FigLbl.hydroPhaseTitle}')
+        if Params.TITLES:
+            fig.suptitle(f'{Planet.compStr}{FigLbl.hydroPhaseTitle}')
 
         # Plot as colormesh
         phaseColors = DiscreteCmap.from_list('icePhases',
@@ -181,7 +182,8 @@ def PlotPvThydro(PlanetList, Params):
         axes[1,3].set_title(FigLbl.GSlabel)
 
         # Set overall figure title
-        fig.suptitle(f'{Planet.name}{FigLbl.PvTtitleHydro}')
+        if Params.TITLES:
+            fig.suptitle(f'{Planet.name}{FigLbl.PvTtitleHydro}')
 
         # Get data to plot -- ocean EOS properties first
         rho = oceanEOS.fn_rho_kgm3(P_MPa, T_K, grid=True)
@@ -305,11 +307,13 @@ def PlotPvTPerpleX(PlanetList, Params):
         iSil = np.logical_and(Planet.phase >= Constants.phaseSil,
                               Planet.phase < Constants.phaseSil + 10)
         if INCLUDING_CORE:
-            fig.suptitle(f'{Planet.name}{FigLbl.PvTtitleCore}')
+            if Params.TITLES:
+                fig.suptitle(f'{Planet.name}{FigLbl.PvTtitleCore}')
             iCore = Planet.phase >= Constants.phaseFe
             iInner = np.logical_or(iSil, iCore)
         else:
-            fig.suptitle(f'{Planet.name}{FigLbl.PvTtitleSil}')
+            if Params.TITLES:
+                fig.suptitle(f'{Planet.name}{FigLbl.PvTtitleSil}')
             iCore = np.zeros_like(Planet.phase).astype(bool)
             iInner = iSil
         Pgeo = Planet.P_MPa[iInner]
