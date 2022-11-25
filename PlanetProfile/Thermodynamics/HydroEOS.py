@@ -136,7 +136,7 @@ class OceanEOSStruct:
                     if self.w_ppt > wMax[self.comp]:
                         log.warning(f'Input wOcean_ppt greater than SeaFreeze limit for {self.comp}. Resetting to SF max.')
                         self.w_ppt = wMax[self.comp]
-                        self.ufn_sigma_Sm = H2Osigma_Sm()  # Placeholder until lab data can be implemented
+                    self.ufn_sigma_Sm = H2Osigma_Sm()  # Placeholder until lab data can be implemented
 
                     PTmGrid = sfPTmGrid(P_MPa, T_K, Ppt2molal(self.w_ppt, self.m_gmol))
                 seaOut = SeaFreeze(deepcopy(PTmGrid), SFcomp)
@@ -147,9 +147,9 @@ class OceanEOSStruct:
 
                 if self.PHASE_LOOKUP:
                     if self.comp == 'PureH2O':
-                        self.phase = WhichPhase(PTmGrid)  # FOR COMPATIBILITY WITH SF v0.9.2: Use default comp of water1 here. This is not robust, but allows support for in-development updates to SeaFreeze.
+                        self.phase = WhichPhase(deepcopy(PTmGrid))  # FOR COMPATIBILITY WITH SF v0.9.2: Use default comp of water1 here. This is not robust, but allows support for in-development updates to SeaFreeze.
                     else:
-                        self.phase = WhichPhase(PTmGrid, solute=SFcomp)
+                        self.phase = WhichPhase(deepcopy(PTmGrid), solute=SFcomp)
                     # Create phase finder -- note that the results from this function must be cast to int after retrieval
                     self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'),
                                              self.deltaP, self.deltaT)
