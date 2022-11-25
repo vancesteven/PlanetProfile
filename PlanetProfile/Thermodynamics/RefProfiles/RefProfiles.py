@@ -12,7 +12,7 @@ def CalcRefProfiles(PlanetList, Params):
 
     comps = np.unique([Planet.Ocean.comp for Planet in PlanetList])
     newRef = {comp: True for comp in comps}
-    maxPmax = np.max([Planet.Ocean.PHydroMax_MPa for Planet in PlanetList])
+    maxPmax = np.max([Planet.P_MPa[Planet.Steps.nHydro-1] for Planet in PlanetList])
 
     for Planet in PlanetList:
         if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
