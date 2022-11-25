@@ -91,7 +91,7 @@ def configAssign():
     Params.wRef_ppt = {'none':[0], 'PureH2O':[0],
                        'Seawater':[0, 0.5*Constants.stdSeawater_ppt, Constants.stdSeawater_ppt, 1.5*Constants.stdSeawater_ppt],
                        'MgSO4':[0, 33.3, 66.7, 100],
-                       'NH3':[0, 10, 20],
+                       'NH3':[0, 5, 10, 15],
                        'NaCl':[0, 17.5, 35]}
     Params.nRefRho = 50  # Number of values for plotting reference density curves (sets resolution)
     Params.PrefOverride_MPa = None  # Pressure setting to force refprofile recalc to go to a specific value instead of automatically using the first hydrosphere max
