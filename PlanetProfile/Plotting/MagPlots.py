@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import logging
+from copy import deepcopy
 from collections.abc import Iterable
 import matplotlib.pyplot as plt
 import matplotlib.colorbar as mcbar
@@ -10,7 +11,7 @@ from matplotlib.patches import Rectangle
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
-from PlanetProfile.Utilities.defineStructs import Constants
+from PlanetProfile.Utilities.defineStructs import Constants, xyzComps, vecComps
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
 
@@ -32,20 +33,14 @@ def GenerateMagPlots(PlanetList, Params):
         if Params.PLOT_MAG_SPECTRUM and np.any([Planet.Magnetic.FT_LOADED for Planet in PlanetList]):
             PlotMagSpectrum(PlanetList, Params)
         if Params.PLOT_BSURF:
-            if FigMisc.vCompMagSurf == 'all':
-                for comp in ['x', 'y', 'z', 'mag']:
-                    FigMisc.vCompMagSurf = comp
-                    PlotMagSurface(PlanetList, Params)
-                FigMisc.vCompMagSurf = 'all'
-            else:
-                PlotMagSurface(PlanetList, Params)
+            PlotMagSurface(PlanetList, Params)
         if Params.PLOT_ASYM and Params.CALC_ASYM:
             PlotAsym(PlanetList, Params)
             
         elif np.any([Planet.Magnetic.Binm_nT is not None for Planet in PlanetList]):
-            log.warning('Induction calculations have only been completed for some bodies. Magnetic field plotting will be skipped.')
+            log.warning('Induction calculations have only been completed for some bodies. Asymmetry contour plotting will be skipped.')
         else:
-            log.warning('Induction calculations have not been completed for any bodies. Magnetic field plotting will be skipped. ' +
+            log.warning('Induction calculations have not been completed for any bodies. Asymmetry contour plotting will be skipped. ' +
                         'Set Params.SKIP_INDUCTION = True in configPP.py to skip induction calculations.')
 
     return
@@ -844,251 +839,303 @@ def PlotMagSurface(PlanetList, Params):
         calculations from MoonMag.
     """
     PlanetListSubset = [Planet for Planet in PlanetList if Planet.bodyname in Excitations.Texc_hr.keys()]
+    nts = np.size(FigMisc.tMagEval_s)
+    BvecRe_nT, BvecReSym_nT, tMagEvalLbl, tMagEvalPrint, tFnameEnd, rMagEvalLbl, rMagEvalPrint \
+        = (np.empty(nts, dtype=object) for _ in range(7))
+    Bdiff_nT, BvecReDiff_nT = (None, None)
 
+    # Confirm tMagEval and rMagEval are in a format we can use together
     if not isinstance(FigMisc.tMagEval_s, Iterable):
         FigMisc.tMagEval_s = np.array([FigMisc.tMagEval_s])
-    for Planet in PlanetListSubset:
+    if not isinstance(FigMisc.rMagEval_Rp, Iterable):
+        FigMisc.rMagEval_Rp = np.array([FigMisc.rMagEval_Rp])
+    if np.size(FigMisc.tMagEval_s) != np.size(FigMisc.rMagEval_Rp):
+        if np.size(FigMisc.tMagEval_s) == 1:
+            FigMisc.tMagEval_s = np.repeat(FigMisc.tMagEval_s[0], np.size(FigMisc.rMagEval_Rp))
+        elif np.size(FigMisc.rMagEval_Rp) == 1:
+            FigMisc.rMagEval_Rp = np.repeat(FigMisc.rMagEval_Rp[0], np.size(FigMisc.tMagEval_s))
+        else:
+            raise ValueError('Lists of tMagEval and rMagEval must have the same length or one must be length 1.')
+
+    for iPlanet, Planet in enumerate(PlanetListSubset):
+        phaseNow = np.zeros((nts, np.size(Planet.Magnetic.omegaExc_radps)), dtype=np.complex_)
+
+        # Get plot text and axis labels
         if Planet.lonMap_deg is None:
             Planet.lonMap_deg = FigMisc.lonMap_deg
-            Planet.nLonMap = np.size(Planet.lonMap_deg)
+            Planet.nLonMap = np.size(FigMisc.lonMap_deg)
         if Planet.phiMap_rad is None:
-            Planet.phiMap_rad = np.radians(Planet.lonMap_deg)
+            Planet.phiMap_rad = np.radians(FigMisc.lonMap_deg)
         if Planet.latMap_deg is None:
             Planet.latMap_deg = FigMisc.latMap_deg
-            Planet.nLatMap = np.size(Planet.latMap_deg)
+            Planet.nLatMap = np.size(FigMisc.latMap_deg)
         if Planet.thetaMap_rad is None:
-            Planet.thetaMap_rad = np.radians(90 - Planet.latMap_deg)
-        if Params.Sig.INCLUDE_ASYM:
+            Planet.thetaMap_rad = np.radians(90 - FigMisc.latMap_deg)
+        if FigMisc.tMagLbl is None:
+            tMagEvalLbl, tMagEvalPrint, tFnameEnd = FigLbl.tStr(FigMisc.tMagEval_s)
+        else:
+            tMagEvalLbl, tMagEvalPrint, tFnameEnd = FigLbl.tStrManual(FigMisc.tMagLbl, nts=nts)
+        rMagEvalLbl, rMagEvalPrint = FigLbl.rStr(FigMisc.rMagEval_Rp, Planet.bodyname)
+
+        if Params.CALC_ASYM:
             asymStr = ',3D'
             # Get separate spherically symmetric induced moments
             BinmSph_nT = np.zeros_like(Planet.Magnetic.Benm_nT)
             for n in range(1, Planet.Magnetic.nprmMax + 1):
                 for iExc in range(Planet.Magnetic.nExc):
-                    BinmSph_nT[iExc, :, n, :] = n / (n + 1) * Planet.Magnetic.Aen[iExc, n] * Planet.Magnetic.Benm_nT[
-                                                                                             iExc, :, n, :]
+                    BinmSph_nT[iExc,:,n,:] = n/(n+1) * Planet.Magnetic.Aen[iExc,n] * Planet.Magnetic.Benm_nT[iExc,:,n,:]
 
         else:
             asymStr = ''
             BinmSph_nT = None
 
+        # Evaluate magnetic field on the selected surface at the selected time
         for iEval, tEval_s in enumerate(FigMisc.tMagEval_s):
-            BvecRe_nT = {vComp: np.zeros((Planet.nLatMap, Planet.nLonMap)) for vComp in ['x', 'y', 'z', 'mag']}
-            if FigMisc.tMagLbl is None:
-                tMagEvalLbl, tMagEvalPrint, tFnameEnd = FigLbl.tStr(tEval_s)
-            else:
-                tMagEvalLbl, tMagEvalPrint, tFnameEnd = FigLbl.tStrManual(FigMisc.tMagLbl[iEval])
-            if np.size(FigMisc.rMagEval_Rp) > 1:
-                rMagEval_Rp = FigMisc.rMagEval_Rp[iEval]
-            else:
-                rMagEval_Rp = FigMisc.rMagEval_Rp
+            BvecRe_nT[iEval] = {vComp: np.zeros((np.size(FigMisc.latMap_deg), np.size(FigMisc.lonMap_deg))) for vComp in vecComps}
+            # Get complex phase factor for time dependence
+            phaseNow[iEval,:] = np.exp(-1j * Planet.Magnetic.omegaExc_radps * tEval_s)
 
-            rMagEvalLbl, rMagEvalPrint = FigLbl.rStr(rMagEval_Rp, Planet.bodyname)
-            phaseNow = np.exp(-1j * Planet.Magnetic.omegaExc_radps * tEval_s)
-
-            log.debug(f'Evaluating induced magnetic field at {rMagEvalPrint}, {tMagEvalPrint}.')
+            # Evaluate field at selected time and radius
+            log.debug(f'Evaluating induced magnetic field at {rMagEvalPrint[iEval]}, {tMagEvalPrint[iEval]}.')
             for iExc in range(Planet.Magnetic.nExc):
-                BinmNow_nT = Planet.Magnetic.Binm_nT[iExc, ...] * phaseNow[iExc]
+                BinmNow_nT = Planet.Magnetic.Binm_nT[iExc, ...] * phaseNow[iEval][iExc]
                 Bx_nT, By_nT, Bz_nT = GetMagSurf(Planet.Magnetic.nLin, Planet.Magnetic.mLin, BinmNow_nT,
-                                                 rMagEval_Rp, Planet.thetaMap_rad, Planet.phiMap_rad,
+                                                 FigMisc.rMagEval_Rp[iEval], Planet.thetaMap_rad, Planet.phiMap_rad,
                                                  do_parallel=Params.DO_PARALLEL)
-                BvecRe_nT['x'] = BvecRe_nT['x'] + np.real(Bx_nT)
-                BvecRe_nT['y'] = BvecRe_nT['y'] + np.real(By_nT)
-                BvecRe_nT['z'] = BvecRe_nT['z'] + np.real(Bz_nT)
+                BvecRe_nT[iEval]['x'] = BvecRe_nT[iEval]['x'] + np.real(Bx_nT)
+                BvecRe_nT[iEval]['y'] = BvecRe_nT[iEval]['y'] + np.real(By_nT)
+                BvecRe_nT[iEval]['z'] = BvecRe_nT[iEval]['z'] + np.real(Bz_nT)
+                BvecRe_nT[iEval]['mag'] = np.sqrt(BvecRe_nT[iEval]['x']**2 + BvecRe_nT[iEval]['y']**2 + BvecRe_nT[iEval]['z']**2)
 
-            if FigMisc.vCompMagSurf == 'mag':
-                BvecRe_nT['mag'] = np.sqrt(BvecRe_nT['x']**2 + BvecRe_nT['y']**2 + BvecRe_nT['z']**2)
-
-            if FigMisc.BASYM_WITH_SYM:
-                fig = plt.figure(figsize=FigSize.MagSurfCombo)
-                grid = GridSpec(1, 2)
-            else:
-                fig = plt.figure(figsize=FigSize.MagSurf)
-                grid = GridSpec(1, 1)
-            ax = fig.add_subplot(grid[0, -1])
-            SetMap(ax)
-            if FigMisc.LARGE_ADJUST:
-                if FigMisc.vCompMagSurf == 'mag':
-                    compLabel = f'$B_\mathrm{{{FigMisc.vCompMagSurf}{asymStr}}}$'
-                else:
-                    compLabel = f'$B_{{{FigMisc.vCompMagSurf}\mathrm{{{asymStr}}}}}$'
-                title = f'{FigLbl.MagSurfShortTitle} {compLabel} ' + \
-                        f'at {rMagEvalLbl} ($\si{{nT}}$)'
-            else:
-                if FigMisc.vCompMagSurf == 'mag':
-                    compLabel = 'magnitude'
-                else:
-                    compLabel = f'${FigMisc.vCompMagSurf}$ component'
-                title = f'{Planet.name} {FigLbl.MagSurfTitle} {compLabel}, ' + \
-                        f'{rMagEvalLbl} ($\si{{nT}}$), {tMagEvalLbl}'
-
-            if Params.TITLES:
-                # Remove latex styling from labels if Latex is not installed
-                if not FigMisc.TEX_INSTALLED:
-                    title = FigLbl.StripLatexFromString(title)
-                ax.set_title(title, size=FigMisc.mapTitleSize)
-
-            vmin = FigMisc.vminMagSurf_nT
-            vmax = FigMisc.vmaxMagSurf_nT
-            cLevels = None
-            if np.all(BvecRe_nT[FigMisc.vCompMagSurf] >= 0):
-                cmap = Color.cmap['BmapPos']
-            elif np.all(BvecRe_nT[FigMisc.vCompMagSurf] < 0):
-                cmap = Color.cmap['BmapNeg']
-            else:
-                cmap = Color.cmap['BmapDiv']
-                if vmin is None and vmax is None:
-                    vAbsMax = np.max(np.abs(BvecRe_nT[FigMisc.vCompMagSurf]))
-                    vmin = -vAbsMax
-                    vmax = vAbsMax
-                    cLevels = np.linspace(vmin, vmax, FigMisc.nMagContours)
-
-            Bmap = ax.pcolormesh(Planet.lonMap_deg, Planet.latMap_deg, BvecRe_nT[FigMisc.vCompMagSurf],
-                                 shading='auto', cmap=cmap, vmin=vmin, vmax=vmax, rasterized=FigMisc.PT_RASTER)
-            BmapContours = ax.contour(Planet.lonMap_deg, Planet.latMap_deg, BvecRe_nT[FigMisc.vCompMagSurf],
-                                      levels=cLevels, colors='black')
-            ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
-                      fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
-
-            if not FigMisc.LARGE_ADJUST:
-                cbar = fig.colorbar(Bmap, ax=ax)
-                cbar.ax.set_title(FigLbl.MagSurfCbarTitle)
-
-            ax.set_aspect(1)
-            if not FigMisc.BASYM_WITH_SYM:
-                plt.tight_layout()
-                fName = f'{Params.FigureFiles.MagSurf[FigMisc.vCompMagSurf]}{tFnameEnd}{FigMisc.xtn}'
-                fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
-                log.debug(f'Induced field surface map saved to file: {fName}')
-                plt.close()
-
-            if Params.Sig.INCLUDE_ASYM:
-                log.debug(f'Evaluating symmetric induced magnetic field at {rMagEvalPrint}, {tMagEvalPrint}.')
-                BvecReSym_nT = {vComp: np.zeros((Planet.nLatMap, Planet.nLonMap)) for vComp in ['x', 'y', 'z', 'mag']}
+            if Params.CALC_ASYM:
+                # Also evaluate field at selected time and radius for symmetric case for comparison
+                log.debug(f'Evaluating symmetric induced magnetic field at {rMagEvalPrint[iEval]}, {tMagEvalPrint[iEval]}.')
+                BvecReSym_nT[iEval] = {vComp: np.zeros((np.size(FigMisc.latMap_deg), np.size(FigMisc.lonMap_deg))) for vComp in vecComps}
                 for iExc in range(Planet.Magnetic.nExc):
-                    BinmSphNow_nT = BinmSph_nT[iExc, ...] * phaseNow[iExc]
+                    BinmSphNow_nT = BinmSph_nT[iExc, ...] * phaseNow[iEval][iExc]
                     Bx_nT, By_nT, Bz_nT = GetMagSurf(Planet.Magnetic.nprmLin, Planet.Magnetic.mprmLin, BinmSphNow_nT,
-                                                     rMagEval_Rp, Planet.thetaMap_rad, Planet.phiMap_rad,
+                                                     FigMisc.rMagEval_Rp[iEval], Planet.thetaMap_rad, Planet.phiMap_rad,
                                                      do_parallel=Params.DO_PARALLEL)
-                    BvecReSym_nT['x'] = BvecReSym_nT['x'] + np.real(Bx_nT)
-                    BvecReSym_nT['y'] = BvecReSym_nT['y'] + np.real(By_nT)
-                    BvecReSym_nT['z'] = BvecReSym_nT['z'] + np.real(Bz_nT)
+                    BvecReSym_nT[iEval]['x'] = BvecReSym_nT[iEval]['x'] + np.real(Bx_nT)
+                    BvecReSym_nT[iEval]['y'] = BvecReSym_nT[iEval]['y'] + np.real(By_nT)
+                    BvecReSym_nT[iEval]['z'] = BvecReSym_nT[iEval]['z'] + np.real(Bz_nT)
+                    BvecReSym_nT[iEval]['mag'] = np.sqrt(BvecReSym_nT[iEval]['x']**2 + BvecReSym_nT[iEval]['y']**2 + BvecReSym_nT[iEval]['z']**2)
 
-                if FigMisc.vCompMagSurf == 'mag':
-                    BvecReSym_nT['mag'] = np.sqrt(
-                        BvecReSym_nT['x'] ** 2 + BvecReSym_nT['y'] ** 2 + BvecReSym_nT['z'] ** 2)
+        if Params.CALC_ASYM:
+            Bdiff_nT = np.array([{vComp: BvecRe_nT[iEval][vComp] - BvecReSym_nT[iEval][vComp]
+                                  for vComp in vecComps} for iEval in range(nts)], dtype=object)
 
-                if not FigMisc.BASYM_WITH_SYM:
+        if Params.COMPARE and np.size(PlanetListSubset) > 1:
+            # Save first profile in list and take the difference for each subsequent profile
+            if iPlanet == 0:
+                BvecReBase_nT = deepcopy(BvecRe_nT)
+            else:
+                BvecReDiff_nT = np.array([{vComp: BvecRe_nT[iEval][vComp] - BvecReBase_nT[iEval][vComp]
+                                 for vComp in vecComps} for iEval in range(nts)], dtype=object)
+                # Set 'mag' comp of model comparison to be the magnitude of the difference vector, which is a better
+                # estimate of signal size than the difference of the magnitudes
+                for iEval in range(nts):
+                    BvecReDiff_nT[iEval]['mag'] = np.sqrt(BvecReDiff_nT[iEval]['x']**2 + BvecReDiff_nT[iEval]['y']**2 + BvecReDiff_nT[iEval]['z']**2)
+
+        if FigMisc.vCompMagSurf == 'all':
+            vComps2plot = vecComps
+        else:
+            vComps2plot = [FigMisc.vCompMagSurf]
+
+        for vCompMagSurf in vComps2plot:
+            # Get colormap and contour settings for surface plots
+            cmap, vmin, vmax, cLevels = GetZparams(BvecRe_nT, vCompMagSurf, nts, Bdiff_nT=Bdiff_nT, Bcomp_nT=BvecReDiff_nT)
+
+            # Plot individual components on surface
+            for iEval, tEval_s in enumerate(FigMisc.tMagEval_s):
+
+                if np.size(PlanetListSubset) == 1:
+                    if FigMisc.BASYM_WITH_SYM:
+                        fig = plt.figure(figsize=FigSize.MagSurfCombo)
+                        grid = GridSpec(1, 2)
+                    else:
+                        fig = plt.figure(figsize=FigSize.MagSurf)
+                        grid = GridSpec(1, 1)
+
+                    ax = fig.add_subplot(grid[0, -1])
+                    SetMap(ax)
+                    if FigMisc.LARGE_ADJUST:
+                        if vCompMagSurf == 'mag':
+                            compLabel = f'$B_\mathrm{{{vCompMagSurf}{asymStr}}}$'
+                        else:
+                            compLabel = f'$B_{{{vCompMagSurf}\mathrm{{{asymStr}}}}}$'
+                        title = f'{FigLbl.MagSurfShortTitle} {compLabel} ' + \
+                                f'at {rMagEvalLbl[iEval]} ($\si{{nT}}$)'
+                    else:
+                        if vCompMagSurf == 'mag':
+                            compLabel = 'magnitude'
+                        else:
+                            compLabel = f'${vCompMagSurf}$ component'
+                        title = f'{Planet.name} {FigLbl.MagSurfTitle} {compLabel}, ' + \
+                                f'{rMagEvalLbl[iEval]} ($\si{{nT}}$), {tMagEvalLbl[iEval]}'
+
+                    if Params.TITLES:
+                        # Remove latex styling from labels if Latex is not installed
+                        if not FigMisc.TEX_INSTALLED:
+                            title = FigLbl.StripLatexFromString(title)
+                        ax.set_title(title, size=FigMisc.mapTitleSize)
+
+                    Bmap = ax.pcolormesh(FigMisc.lonMap_deg, FigMisc.latMap_deg, BvecRe_nT[iEval][vCompMagSurf],
+                                         shading='auto', cmap=cmap['vec'], vmin=vmin['vec'][iEval],
+                                         vmax=vmax['vec'][iEval], rasterized=FigMisc.PT_RASTER)
+                    BmapContours = ax.contour(FigMisc.lonMap_deg, FigMisc.latMap_deg, BvecRe_nT[iEval][vCompMagSurf],
+                                              levels=cLevels['vec'][iEval], colors='black')
+                    ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
+                              fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
+
+                    if not FigMisc.LARGE_ADJUST:
+                        cbar = fig.colorbar(Bmap, ax=ax)
+                        cbar.ax.set_title(FigLbl.MagSurfCbarTitle)
+
+                    ax.set_aspect(1)
+                    if not (Params.CALC_ASYM and FigMisc.BASYM_WITH_SYM):
+                        plt.tight_layout()
+                        fName = f'{Params.FigureFiles.MagSurf[vCompMagSurf]}{tFnameEnd[iEval]}{FigMisc.xtn}'
+                        fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                        log.debug(f'Induced field surface map saved to file: {fName}')
+                        plt.close()
+
+                    # Plot symmetric component and difference to asymmetric if applicable
+                    if Params.CALC_ASYM:
+                        if not FigMisc.BASYM_WITH_SYM:
+                            fig = plt.figure(figsize=FigSize.MagSurf)
+                            grid = GridSpec(1, 1)
+
+                        ax = fig.add_subplot(grid[0, 0])
+                        SetMap(ax)
+                        if FigMisc.LARGE_ADJUST:
+                            if vCompMagSurf == 'mag':
+                                compLabel = f'$B_\mathrm{{{vCompMagSurf},sym}}$'
+                            else:
+                                compLabel = f'$B_{{{vCompMagSurf}\mathrm{{,sym}}}}$'
+                            title = f'{FigLbl.MagSurfShortTitle} {compLabel} ' + \
+                                    f'at {rMagEvalLbl[iEval]} ($\si{{nT}}$)'
+                        else:
+                            # compLabel able to be reused from asymmetric in this case
+                            title = f'{Planet.name} {FigLbl.MagSurfSymTitle} {compLabel}, ' + \
+                                    f'{rMagEvalLbl[iEval]} ($\si{{nT}}$), {tMagEvalLbl[iEval]}'
+                        if Params.TITLES:
+                            # Remove latex styling from labels if Latex is not installed
+                            if not FigMisc.TEX_INSTALLED:
+                                title = FigLbl.StripLatexFromString(title)
+                            ax.set_title(title, size=FigMisc.mapTitleSize)
+
+                        Bmap = ax.pcolormesh(FigMisc.lonMap_deg, FigMisc.latMap_deg, BvecReSym_nT[iEval][vCompMagSurf],
+                                             shading='auto', cmap=cmap['vec'], vmin=vmin['vec'][iEval],
+                                             vmax=vmax['vec'][iEval], rasterized=FigMisc.PT_RASTER)
+                        BmapContours = ax.contour(FigMisc.lonMap_deg, FigMisc.latMap_deg, BvecReSym_nT[iEval][vCompMagSurf],
+                                                  levels=cLevels['vec'][iEval], colors='black')
+                        ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
+                                  fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
+
+                        if not FigMisc.LARGE_ADJUST:
+                            cbar = fig.colorbar(Bmap, ax=ax)
+                            cbar.ax.set_title(FigLbl.MagSurfCbarTitle)
+
+                        ax.set_aspect(1)
+                        plt.tight_layout()
+                        if FigMisc.BASYM_WITH_SYM:
+                            fName = f'{Params.FigureFiles.MagSurfCombo[vCompMagSurf]}{tFnameEnd[iEval]}{FigMisc.xtn}'
+                            fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                            log.debug(f'Symmetric/asymmetric induced field surface maps saved to file: {fName}')
+                        else:
+                            fName = f'{Params.FigureFiles.MagSurfSym[vCompMagSurf]}{tFnameEnd[iEval]}{FigMisc.xtn}'
+                            fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                            log.debug(f'Symmetric induced field surface map saved to file: {fName}')
+
+                        plt.close()
+
+                        # Now plot the difference between asymmetric and symmetric for this component
+                        fig = plt.figure(figsize=FigSize.MagSurf)
+                        grid = GridSpec(1, 1)
+                        ax = fig.add_subplot(grid[0, 0])
+                        SetMap(ax)
+                        if FigMisc.LARGE_ADJUST:
+                            if vCompMagSurf == 'mag':
+                                compLabel = f'$\Delta B_\mathrm{{{vCompMagSurf},sym}}$'
+                            else:
+                                compLabel = f'$\Delta B_{{{vCompMagSurf}\mathrm{{,sym}}}}$'
+                            title = f'{FigLbl.MagSurfShortTitle} {compLabel} ' + \
+                                    f'at {rMagEvalLbl[iEval]} ($\si{{nT}}$)'
+                        else:
+                            # compLabel able to be reused from above in this case
+                            title = f'{Planet.name} {FigLbl.MagSurfTitle} {compLabel} {FigLbl.MagSurfDiffTitle}, ' + \
+                                    f'{rMagEvalLbl[iEval]} ($\si{{nT}}$), {tMagEvalLbl[iEval]}'
+                        if Params.TITLES:
+                            # Remove latex styling from labels if Latex is not installed
+                            if not FigMisc.TEX_INSTALLED:
+                                title = FigLbl.StripLatexFromString(title)
+                            ax.set_title(title, size=FigMisc.mapTitleSize)
+
+                        Bmap = ax.pcolormesh(FigMisc.lonMap_deg, FigMisc.latMap_deg, Bdiff_nT[iEval][vCompMagSurf],
+                                             shading='auto', cmap=cmap['diff'], vmin=vmin['diff'][iEval],
+                                             vmax=vmax['diff'][iEval], rasterized=FigMisc.PT_RASTER)
+                        BmapContours = ax.contour(FigMisc.lonMap_deg, FigMisc.latMap_deg, Bdiff_nT[iEval][vCompMagSurf],
+                                                  levels=cLevels['diff'][iEval], colors='black')
+                        ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
+                                  fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
+
+                        if not FigMisc.LARGE_ADJUST:
+                            fig.colorbar(Bmap, ax=ax, label=FigLbl.MagSurfCbarDiffLabel)
+
+                        ax.set_aspect(1)
+                        plt.tight_layout()
+                        fName = f'{Params.FigureFiles.MagSurfDiff[vCompMagSurf]}{tFnameEnd[iEval]}{FigMisc.xtn}'
+                        fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                        log.debug(f'Induced field difference surface map saved to file: {fName}')
+                        plt.close()
+
+                # Plot difference map between each model we want to compare to the first in the list
+                if Params.COMPARE and iPlanet != 0:
+
                     fig = plt.figure(figsize=FigSize.MagSurf)
                     grid = GridSpec(1, 1)
-
-                ax = fig.add_subplot(grid[0, 0])
-                SetMap(ax)
-                if FigMisc.LARGE_ADJUST:
-                    if FigMisc.vCompMagSurf == 'mag':
-                        compLabel = f'$B_\mathrm{{{FigMisc.vCompMagSurf},sym}}$'
+                    ax = fig.add_subplot(grid[0, 0])
+                    SetMap(ax)
+                    if FigMisc.LARGE_ADJUST:
+                        if vCompMagSurf == 'mag':
+                            compLabel = f'$|\Delta \mathbf{{B}}|$'
+                        else:
+                            compLabel = f'$\Delta B_{{{vCompMagSurf}}}$'
+                        title = f'{FigLbl.MagSurfCompareShortTitle} {compLabel} ' + \
+                                f'at {rMagEvalLbl[iEval]} ($\si{{nT}}$)'
                     else:
-                        compLabel = f'$B_{{{FigMisc.vCompMagSurf}\mathrm{{,sym}}}}$'
-                    title = f'{FigLbl.MagSurfShortTitle} {compLabel} ' + \
-                            f'at {rMagEvalLbl} ($\si{{nT}}$)'
-                else:
-                    # compLabel able to be reused from asymmetric in this case
-                    title = f'{Planet.name} {FigLbl.MagSurfSymTitle} {compLabel}, ' + \
-                            f'{rMagEvalLbl} ($\si{{nT}}$), {tMagEvalLbl}'
-                if Params.TITLES:
-                    # Remove latex styling from labels if Latex is not installed
-                    if not FigMisc.TEX_INSTALLED:
-                        title = FigLbl.StripLatexFromString(title)
-                    ax.set_title(title, size=FigMisc.mapTitleSize)
+                        if vCompMagSurf == 'mag':
+                            compLabel = 'magnitude'
+                        else:
+                            compLabel = f'${vCompMagSurf}$ component'
+                        title = f'{Planet.name} {FigLbl.MagSurfCompareTitle} {compLabel}, ' + \
+                                f'{rMagEvalLbl[iEval]} ($\si{{nT}}$), {tMagEvalLbl[iEval]}'
 
-                vmin = FigMisc.vminMagSurf_nT
-                vmax = FigMisc.vmaxMagSurf_nT
-                cLevels = None
-                if np.all(BvecReSym_nT[FigMisc.vCompMagSurf] > 0):
-                    cmap = Color.cmap['BmapPos']
-                elif np.all(BvecReSym_nT[FigMisc.vCompMagSurf] < 0):
-                    cmap = Color.cmap['BmapNeg']
-                else:
-                    cmap = Color.cmap['BmapDiv']
-                    if vmin is None and vmax is None:
-                        vAbsMax = np.max(np.abs(BvecReSym_nT[FigMisc.vCompMagSurf]))
-                        vmin = -vAbsMax
-                        vmax = vAbsMax
-                        cLevels = np.linspace(vmin, vmax, FigMisc.nMagContours)
+                    if Params.TITLES:
+                        # Remove latex styling from labels if Latex is not installed
+                        if not FigMisc.TEX_INSTALLED:
+                            title = FigLbl.StripLatexFromString(title)
+                        ax.set_title(title, size=FigMisc.mapTitleSize)
 
-                Bmap = ax.pcolormesh(Planet.lonMap_deg, Planet.latMap_deg, BvecReSym_nT[FigMisc.vCompMagSurf],
-                                     shading='auto', cmap=cmap, vmin=vmin, vmax=vmax, rasterized=FigMisc.PT_RASTER)
-                BmapContours = ax.contour(Planet.lonMap_deg, Planet.latMap_deg, BvecReSym_nT[FigMisc.vCompMagSurf],
-                                          levels=cLevels, colors='black')
-                ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
-                          fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
+                    Bmap = ax.pcolormesh(FigMisc.lonMap_deg, FigMisc.latMap_deg, BvecReDiff_nT[iEval][vCompMagSurf],
+                                         shading='auto', cmap=cmap['comp'], vmin=vmin['comp'][iEval],
+                                         vmax=vmax['comp'][iEval], rasterized=FigMisc.PT_RASTER)
+                    BmapContours = ax.contour(FigMisc.lonMap_deg, FigMisc.latMap_deg, BvecReDiff_nT[iEval][vCompMagSurf],
+                                              levels=cLevels['comp'][iEval], colors='black')
+                    ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
+                              fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
 
-                if not FigMisc.LARGE_ADJUST:
-                    cbar = fig.colorbar(Bmap, ax=ax)
-                    cbar.ax.set_title(FigLbl.MagSurfCbarTitle)
+                    if not FigMisc.LARGE_ADJUST:
+                        cbar = fig.colorbar(Bmap, ax=ax)
+                        cbar.ax.set_title(FigLbl.MagSurfCbarTitle)
 
-                ax.set_aspect(1)
-                plt.tight_layout()
-                if FigMisc.BASYM_WITH_SYM:
-                    fName = f'{Params.FigureFiles.MagSurfCombo[FigMisc.vCompMagSurf]}{tFnameEnd}{FigMisc.xtn}'
+                    ax.set_aspect(1)
+                    plt.tight_layout()
+                    fName = f'{Params.FigureFiles.MagSurfComp[vCompMagSurf]}{tFnameEnd[iEval]}{FigMisc.xtn}'
                     fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
-                    log.debug(f'Symmetric/asymmetric induced field surface maps saved to file: {fName}')
-                else:
-                    fName = f'{Params.FigureFiles.MagSurfSym[FigMisc.vCompMagSurf]}{tFnameEnd}{FigMisc.xtn}'
-                    fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
-                    log.debug(f'Symmetric induced field surface map saved to file: {fName}')
-
-                plt.close()
-
-                # Now plot the difference between asymmetric and symmetric for this component
-                Bdiff_nT = BvecRe_nT[FigMisc.vCompMagSurf] - BvecReSym_nT[FigMisc.vCompMagSurf]
-
-                fig = plt.figure(figsize=FigSize.MagSurf)
-                grid = GridSpec(1, 1)
-                ax = fig.add_subplot(grid[0, 0])
-                SetMap(ax)
-                if FigMisc.LARGE_ADJUST:
-                    if FigMisc.vCompMagSurf == 'mag':
-                        compLabel = f'$\Delta B_\mathrm{{{FigMisc.vCompMagSurf},sym}}$'
-                    else:
-                        compLabel = f'$\Delta B_{{{FigMisc.vCompMagSurf}\mathrm{{,sym}}}}$'
-                    title = f'{FigLbl.MagSurfShortTitle} {compLabel} ' + \
-                            f'at {rMagEvalLbl} ($\si{{nT}}$)'
-                else:
-                    # compLabel able to be reused from above in this case
-                    title = f'{Planet.name} {FigLbl.MagSurfTitle} {compLabel} {FigLbl.MagSurfDiffTitle}, ' + \
-                            f'{rMagEvalLbl} ($\si{{nT}}$), {tMagEvalLbl}'
-                if Params.TITLES:
-                    # Remove latex styling from labels if Latex is not installed
-                    if not FigMisc.TEX_INSTALLED:
-                        title = FigLbl.StripLatexFromString(title)
-                    ax.set_title(title, size=FigMisc.mapTitleSize)
-
-                vmin = FigMisc.vminMagSurfDiff_nT
-                vmax = FigMisc.vmaxMagSurfDiff_nT
-                cLevels = None
-                cmap = Color.cmap['BmapDiv']
-                if vmin is None and vmax is None:
-                    vAbsMax = np.max(np.abs(Bdiff_nT))
-                    vmin = -vAbsMax
-                    vmax = vAbsMax
-                    cLevels = np.linspace(vmin, vmax, FigMisc.nMagContours)
-
-                Bmap = ax.pcolormesh(Planet.lonMap_deg, Planet.latMap_deg, Bdiff_nT,
-                                     shading='auto', cmap=cmap, vmin=vmin, vmax=vmax, rasterized=FigMisc.PT_RASTER)
-                BmapContours = ax.contour(Planet.lonMap_deg, Planet.latMap_deg, Bdiff_nT,
-                                          levels=cLevels, colors='black')
-                ax.clabel(BmapContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),
-                          fontsize=FigMisc.cLabelSize, inline_spacing=FigMisc.cLabelPad)
-
-                if not FigMisc.LARGE_ADJUST:
-                    fig.colorbar(Bmap, ax=ax, label=FigLbl.MagSurfCbarDiffLabel)
-
-                ax.set_aspect(1)
-                plt.tight_layout()
-                fName = f'{Params.FigureFiles.MagSurfDiff[FigMisc.vCompMagSurf]}{tFnameEnd}{FigMisc.xtn}'
-                fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
-                log.debug(f'Induced field difference surface map saved to file: {fName}')
-                plt.close()
+                    log.debug(f'Induced field surface map saved to file: {fName}')
+                    plt.close()
 
     return
 
@@ -1103,13 +1150,163 @@ def SetMap(ax):
     return
 
 
+def GetZparams(Bvec_nT, vCompMagSurf, nts, Bdiff_nT=None, Bcomp_nT=None):
+    """ Configure cmap, vmin, vmax, and levels kwargs for pcolormesh and contour plotting
+    """
+
+    vTypes = ['vec', 'diff', 'comp']
+    vmin, vmax = ({vType: np.empty(nts) for vType in vTypes} for _ in range(2))
+    cLevels = {vType: np.empty(nts, dtype=object) for vType in vTypes}
+    cmap = {vType: None for vType in vTypes}
+
+    # @@@@@@@@@@@@@@@@
+    # @@ Main field @@
+    # @@@@@@@@@@@@@@@@
+    # Decide which colormap to use for main field plotting
+    if vCompMagSurf == 'mag':
+        cmap['vec'] = Color.cmap['BmapPos']
+    else:
+        cmap['vec'] = Color.cmap['BmapDiv']
+
+    # Get min, max, and contour list for main field plotting
+    if FigMisc.FIXED_COLORBAR:
+        vmaxAll = {vComp: [np.max(np.abs(Bvec_nT[iEval][vComp])) for iEval in range(nts)] for vComp in vecComps}
+        vminAll = {vComp: [np.min(np.abs(Bvec_nT[iEval][vComp])) for iEval in range(nts)] for vComp in vecComps}
+        if FigMisc.FIXED_ALL_COMPS and not FigMisc.MAG_CBAR_SEPARATE:
+            vAbsMax = np.max([vmaxAll[vComp] for vComp in vecComps])
+            vAbsMin = np.min([vminAll[vComp] for vComp in vecComps])
+        else:
+            vAbsMax = np.max(vmaxAll[vCompMagSurf])
+            vAbsMin = np.min(vminAll[vCompMagSurf])
+
+        if vCompMagSurf != 'mag':
+            vAbsMin = -vAbsMax
+
+        vmax['vec'] = np.repeat(vAbsMax, nts)
+        vmin['vec'] = np.repeat(vAbsMin, nts)
+
+    else:
+        if FigMisc.vmaxMagSurf_nT is None:
+            vmax['vec'] = np.array([np.max(Bvec_nT[iEval][vCompMagSurf]) for iEval in range(nts)])
+        else:
+            vmax['vec'] = np.repeat(FigMisc.vmaxMagSurf_nT, nts)
+        if FigMisc.vminMagSurf_nT is None:
+            vmin['vec'] = np.array([np.min(Bvec_nT[iEval][vCompMagSurf]) for iEval in range(nts)])
+        else:
+            vmin['vec'] = np.repeat(FigMisc.vminMagSurf_nT, nts)
+
+    if FigMisc.nMagContours is not None:
+        for iEval in range(nts):
+            cLevels['vec'][iEval] = np.linspace(vmin['vec'][iEval], vmax['vec'][iEval], FigMisc.nMagContours)
+
+    # @@@@@@@@@@@@@@@@@@@
+    # @@ Asym/sym diff @@
+    # @@@@@@@@@@@@@@@@@@@
+    if Bdiff_nT is not None:
+        # Decide which colormap to use for difference plotting
+        if np.all([Bdiff_nT[iEval][vCompMagSurf] >= 0 for iEval in range(nts)]):
+            cmap['diff'] = Color.cmap['BmapPos']
+            neg = 'none'
+        elif np.all([Bdiff_nT[iEval][vCompMagSurf] < 0 for iEval in range(nts)]):
+            cmap['diff'] = Color.cmap['BmapNeg']
+            neg = 'all'
+        else:
+            cmap['diff'] = Color.cmap['BmapDiv']
+            neg = 'some'
+
+        # Get min, max, and contour list for difference plotting
+        if FigMisc.FIXED_COLORBAR:
+            vmaxAll = {vComp: [np.max(np.abs(Bdiff_nT[iEval][vComp])) for iEval in range(nts)] for vComp in vecComps}
+            vminAll = {vComp: [np.min(np.abs(Bdiff_nT[iEval][vComp])) for iEval in range(nts)] for vComp in vecComps}
+            if FigMisc.FIXED_ALL_COMPS and not FigMisc.MAG_CBAR_SEPARATE:
+                vAbsMax = np.max([vmaxAll[vComp] for vComp in vecComps])
+                vAbsMin = np.min([vminAll[vComp] for vComp in vecComps])
+            else:
+                vAbsMax = np.max(vmaxAll[vCompMagSurf])
+                vAbsMin = np.min(vminAll[vCompMagSurf])
+
+            if neg == 'all':
+                vAbsMax = -vAbsMax
+                vAbsMin = -vAbsMin
+            elif neg == 'some':
+                vAbsMin = -vAbsMax
+
+            vmax['diff'] = np.repeat(vAbsMax, nts)
+            vmin['diff'] = np.repeat(vAbsMin, nts)
+
+        else:
+            if FigMisc.vmaxMagSurf_nT is None:
+                vmax['diff'] = np.array([np.max(Bdiff_nT[iEval][vCompMagSurf]) for iEval in range(nts)])
+            else:
+                vmax['diff'] = np.repeat(FigMisc.vmaxMagSurfDiff_nT, nts)
+            if FigMisc.vminMagSurf_nT is None:
+                vmin['diff'] = np.array([np.min(Bdiff_nT[iEval][vCompMagSurf]) for iEval in range(nts)])
+            else:
+                vmin['diff'] = np.repeat(FigMisc.vminMagSurfDiff_nT, nts)
+
+        if FigMisc.nMagContours is not None:
+            for iEval in range(nts):
+                cLevels['diff'][iEval] = np.linspace(vmin['diff'][iEval], vmax['diff'][iEval], FigMisc.nMagContours)
+
+    # @@@@@@@@@@@@@@@@@@@@@@
+    # @@ Model comparison @@
+    # @@@@@@@@@@@@@@@@@@@@@@
+    if Bcomp_nT is not None:
+        # Decide which colormap to use for model comparison plotting
+        if np.all([Bcomp_nT[iEval][vCompMagSurf] >= 0 for iEval in range(nts)]):
+            cmap['comp'] = Color.cmap['BmapPos']
+            neg = 'none'
+        elif np.all([Bcomp_nT[iEval][vCompMagSurf] < 0 for iEval in range(nts)]):
+            cmap['comp'] = Color.cmap['BmapNeg']
+            neg = 'all'
+        else:
+            cmap['comp'] = Color.cmap['BmapDiv']
+            neg = 'some'
+
+        # Get min, max, and contour list for model comparison plotting
+        if FigMisc.FIXED_COLORBAR:
+            vmaxAll = {vComp: [np.max(np.abs(Bcomp_nT[iEval][vComp])) for iEval in range(nts)] for vComp in vecComps}
+            vminAll = {vComp: [np.min(np.abs(Bcomp_nT[iEval][vComp])) for iEval in range(nts)] for vComp in vecComps}
+            if FigMisc.FIXED_ALL_COMPS and not FigMisc.MAG_CBAR_SEPARATE:
+                vAbsMax = np.max([vmaxAll[vComp] for vComp in vecComps])
+                vAbsMin = np.min([vminAll[vComp] for vComp in vecComps])
+            else:
+                vAbsMax = np.max(vmaxAll[vCompMagSurf])
+                vAbsMin = np.min(vminAll[vCompMagSurf])
+
+            if neg == 'all':
+                vAbsMax = -vAbsMax
+                vAbsMin = -vAbsMin
+            elif neg == 'some':
+                vAbsMin = -vAbsMax
+
+            vmax['comp'] = np.repeat(vAbsMax, nts)
+            vmin['comp'] = np.repeat(vAbsMin, nts)
+
+        else:
+            if FigMisc.vmaxMagSurf_nT is None:
+                vmax['comp'] = np.array([np.max(Bcomp_nT[iEval][vCompMagSurf]) for iEval in range(nts)])
+            else:
+                vmax['comp'] = np.repeat(FigMisc.vmaxMagSurfDiff_nT, nts)
+            if FigMisc.vminMagSurf_nT is None:
+                vmin['comp'] = np.array([np.min(Bcomp_nT[iEval][vCompMagSurf]) for iEval in range(nts)])
+            else:
+                vmin['comp'] = np.repeat(FigMisc.vminMagSurfDiff_nT, nts)
+
+        if FigMisc.nMagContours is not None:
+            for iEval in range(nts):
+                cLevels['comp'][iEval] = np.linspace(vmin['comp'][iEval], vmax['comp'][iEval], FigMisc.nMagContours)
+
+    return cmap, vmin, vmax, cLevels
+
+
 def PlotAsym(PlanetList, Params):
     """ Plot a contour map showing the asymmetry present in selected boundaries.
         This function is time-consuming, so it is only applied to the first body
         in PlanetList (the primary body)
     """
 
-    if Params.Sig.INCLUDE_ASYM:
+    if Params.CALC_ASYM:
         if np.size(PlanetList[0].Magnetic.iAsymBds) > 0:
             mainPlanet = PlanetList[0]
         else:
@@ -1117,10 +1314,10 @@ def PlotAsym(PlanetList, Params):
 
         if mainPlanet.lonMap_deg is None:
             mainPlanet.lonMap_deg = FigMisc.lonMap_deg
-            mainPlanet.nLonMap = np.size(mainPlanet.lonMap_deg)
+            mainPlanet.nLonMap = np.size(FigMisc.lonMap_deg)
         if mainPlanet.latMap_deg is None:
             mainPlanet.latMap_deg = FigMisc.latMap_deg
-            mainPlanet.nLatMap = np.size(mainPlanet.latMap_deg)
+            mainPlanet.nLatMap = np.size(FigMisc.latMap_deg)
 
         for i, zMean_km in enumerate(mainPlanet.Magnetic.zMeanAsym_km):
             fig = plt.figure(figsize=FigSize.asym)
@@ -1165,10 +1362,10 @@ def PlotAsym(PlanetList, Params):
                                                              np.max(mainPlanet.Magnetic.asymDevs_km[i, ...]),
                                                              FigMisc.nAsymContours)))
 
-            asymMap = ax.pcolormesh(mainPlanet.lonMap_deg, mainPlanet.latMap_deg,
+            asymMap = ax.pcolormesh(FigMisc.lonMap_deg, FigMisc.latMap_deg,
                                     mainPlanet.Magnetic.asymDevs_km[i, ...],
                                     shading='auto', cmap=Color.cmap['asymDev'], rasterized=FigMisc.PT_RASTER)
-            asymContours = ax.contour(mainPlanet.lonMap_deg, mainPlanet.latMap_deg,
+            asymContours = ax.contour(FigMisc.lonMap_deg, FigMisc.latMap_deg,
                                       mainPlanet.Magnetic.asymDevs_km[i, ...],
                                       levels=cLevelsAsym, colors='black')
             ax.clabel(asymContours, fmt=ticker.FuncFormatter(FigMisc.Cformat),

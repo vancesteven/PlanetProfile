@@ -17,6 +17,7 @@ import os, shutil
 from copy import deepcopy
 import cmasher
 import logging
+from collections.abc import Iterable
 import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb, ListedColormap
@@ -26,6 +27,10 @@ from MoonMag.plotting_funcs import east_formatted as LonFormatter, lat_formatted
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
+
+zComps = ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']
+xyzComps = ['x', 'y', 'z']
+vecComps = xyzComps + ['mag']
 
 # We have to define subclasses first in order to make them instanced to each Planet object
 """ Run settings """
@@ -126,6 +131,7 @@ class OceanSubstruct:
         self.sigmaTop_Sm = np.nan  # Conductivity of shallowest ocean layer
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
+        self.sigmaFixed_Sm = None  # Optional setting to force ocean conductivity to be a certain uniform value.
         self.smoothingPolyOrder = 2  # Polynomial order to use for smoothing of melting-curve-following HP ice adiabats
         self.smoothingWindowOverride = 7  # Number of points to use for smoothing window when Do.FIXED_HPSMOOTH_WINDOW is True. Must be odd.
         self.smoothingFactor = 3  # Number of points in lookup table to smooth over.
@@ -212,6 +218,7 @@ class SilSubstruct:
         self.phiMin_frac = 1e-4  # Minimum porosity to model in silicates, i.e. below this we just set to zero
         self.sigmaPoreMean_Sm = np.nan  # Mean conductivity of pore fluids across all layers with porosity above poreConductThresh (about 5%)
         self.sigmaPorousLayerMean_Sm = np.nan  # Mean conductivity of matrix + pore fluid combined, for all layers with porosity of poreConductThresh
+        self.sigmaPoreFixed_Sm = None  # Optional setting to force pore fluid conductivity to be a certain uniform value.
         # J values for exponent of pore property / overlaying matrix combination as in Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
         # Values X combine as Xtot^J = Xmatrix^J * (1 - phi) + Xpore^J * phi, where phi is the porosity (volume fraction) of pore space filled with the secondary material.
         # Values of J typically range from -1 to 1, where 1 is a direct mean, e.g. Xtot = Xrock*(1-phi) + Xpore*phi and -1 is a geometric mean, e.g. Xtot = Xrock || Xpore = 1/((1-phi)/Xrock + phi/Xpore).
@@ -629,6 +636,7 @@ class FigureFilesSubstruct:
         MagSurfSym = 'MagSurfSym'
         MagSurfCombo = 'MagSurfComp'
         MagSurfDiff = 'MagSurfDiff'
+        MagSurfComp = 'MagSurfModelDiff'
         MagCA = 'MagCA'
         asym = 'asymDevs'
         apsidal = 'apsidalPrec'
@@ -650,16 +658,17 @@ class FigureFilesSubstruct:
         self.explore =               f'{self.fName}_{self.exploreAppend}{explore}{xtn}'
         self.phaseSpace =            f'{self.fNameInduct}_{induct}_phaseSpace{xtn}'
         self.phaseSpaceCombo =       f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{xtn}'
-        self.induct =        {zType: f'{self.fNameInduct}_{induct}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
-        self.inductCompare = {zType: f'{self.fNameInduct}Compare_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
-        self.sigma =         {zType: f'{self.fNameInduct}_{sigma}_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
-        self.sigmaOnly =     {zType: f'{self.fNameInduct}_{sigma}Only_{zType}{xtn}' for zType in ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']}
-        self.Bdip =         {axComp: f'{self.fNameInduct}_{Bdip}{axComp}{xtn}' for axComp in ['x', 'y', 'z', 'all']}
+        self.induct =        {zType: f'{self.fNameInduct}_{induct}_{zType}{xtn}' for zType in zComps}
+        self.inductCompare = {zType: f'{self.fNameInduct}Compare_{zType}{xtn}' for zType in zComps}
+        self.sigma =         {zType: f'{self.fNameInduct}_{sigma}_{zType}{xtn}' for zType in zComps}
+        self.sigmaOnly =     {zType: f'{self.fNameInduct}_{sigma}Only_{zType}{xtn}' for zType in zComps}
+        self.Bdip =         {axComp: f'{self.fNameInduct}_{Bdip}{axComp}{xtn}' for axComp in xyzComps + ['all']}
         self.MagFT =                 f'{self.fNameInduct}_{MagFT}{xtn}'
-        self.MagSurf =       {vComp: f'{self.fNameInduct}_{MagSurf}B{vComp}' for vComp in ['x', 'y', 'z', 'mag']}
-        self.MagSurfSym =    {vComp: f'{self.fNameInduct}_{MagSurfSym}B{vComp}' for vComp in ['x', 'y', 'z', 'mag']}
-        self.MagSurfCombo =  {vComp: f'{self.fNameInduct}_{MagSurfCombo}B{vComp}' for vComp in ['x', 'y', 'z', 'mag']}
-        self.MagSurfDiff =   {vComp: f'{self.fNameInduct}_{MagSurfDiff}B{vComp}' for vComp in ['x', 'y', 'z', 'mag']}
+        self.MagSurf =       {vComp: f'{self.fNameInduct}_{MagSurf}B{vComp}' for vComp in vecComps}
+        self.MagSurfSym =    {vComp: f'{self.fNameInduct}_{MagSurfSym}B{vComp}' for vComp in vecComps}
+        self.MagSurfCombo =  {vComp: f'{self.fNameInduct}_{MagSurfCombo}B{vComp}' for vComp in vecComps}
+        self.MagSurfDiff =   {vComp: f'{self.fNameInduct}_{MagSurfDiff}B{vComp}' for vComp in vecComps}
+        self.MagSurfComp =   {vComp: f'{self.fNameInduct}_{MagSurfComp}B{vComp}' for vComp in vecComps}
         self.MagCA =                 f'{self.fNameInduct}_{MagCA}{xtn}'
 
 
@@ -1245,8 +1254,10 @@ class FigLblStruct:
 
         # Magnetic surface map labels
         self.MagSurfTitle = r'induced magnetic field'
+        self.MagSurfCompareTitle = r'induced field difference map'
         self.MagSurfSymTitle = r'symmetric induced magnetic field'
         self.MagSurfShortTitle = r'Induced field'
+        self.MagSurfCompareShortTitle = r'Field difference'
         self.MagSurfDiffTitle = r'vs.\ symmetric'
         self.MagSurfCbarTitle = r'$\si{nT}$'
         self.MagSurfCbarDiffLabel = r'Magnetic field difference ($\si{nT}$)'
@@ -1590,39 +1601,69 @@ class FigLblStruct:
         self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration}}'
         self.exploreCompareTitle = self.explorationTitle
 
-    def rStr(self, rEval_Rp, bodyname):
+    def rStr(self, rinEval_Rp, bodyname):
         # Get r strings to add to titles and log messages for magnetic field surface plots
-        rMagEvalLbl = f'$r = {rEval_Rp:.2f}\,R_{bodyname[0].upper()}$'
-        rMagEvalPrint = f'r = {rEval_Rp:.2f} R_{bodyname[0].upper()}'
-        return rMagEvalLbl, rMagEvalPrint
 
-    def tStr(self, tPastJ2000_s):
-        # Get t strings to add to titles and log messages for magnetic field surface plots
-        if round(tPastJ2000_s) != 0:
-            if tPastJ2000_s < 0:
-                sign = '-'
-            else:
-                sign = '+'
-            tPastJ2000_h = tPastJ2000_s/3600
-            if abs(tPastJ2000_h) <= 1e3:
-                tStr_h = f'{abs(tPastJ2000_h):.1f}'
-            else:
-                tStr_h = f'{abs(tPastJ2000_h):.2e}'
-            tMagEvalLbl = f'$t = \mathrm{{J2000}} {sign} \SI{{{tStr_h}}}{{h}}$'
-            tMagEvalPrint = f't = {sign}{tStr_h} h relative to J2000'
-            tFnameEnd = f'J2000{sign}{tStr_h}h'
-
+        if not isinstance(rinEval_Rp, Iterable):
+            rListEval_Rp = [rinEval_Rp]
         else:
-            tMagEvalLbl = f'$t = \mathrm{{J2000}} + \SI{{0.0}}{{h}}$'
-            tMagEvalPrint = 'at J2000'
-            tFnameEnd = 'J2000+0.0h'
+            rListEval_Rp = deepcopy(rinEval_Rp)
 
-        return tMagEvalLbl, tMagEvalPrint, tFnameEnd
+        rMagEvalLbl, rMagEvalPrint = (np.empty(np.size(rListEval_Rp), dtype=object)
+                                      for _ in range(2))
+        for i, rEval_Rp in enumerate(rListEval_Rp):
+            rMagEvalLbl[i] = f'$r = {rEval_Rp:.2f}\,R_{bodyname[0].upper()}$'
+            rMagEvalPrint[i] = f'r = {rEval_Rp:.2f} R_{bodyname[0].upper()}'
 
-    def tStrManual(self, tLbl):
+        if not isinstance(rinEval_Rp, Iterable):
+            return rMagEvalLbl[0], rMagEvalPrint[0]
+        else:
+            return rMagEvalLbl, rMagEvalPrint
+
+    def tStr(self, tinPastJ2000_s):
+        # Get t strings to add to titles and log messages for magnetic field surface plots
+
+        if not isinstance(tinPastJ2000_s, Iterable):
+            tListPastJ2000_s = [tinPastJ2000_s]
+        else:
+            tListPastJ2000_s = deepcopy(tinPastJ2000_s)
+        tMagEvalLbl, tMagEvalPrint, tFnameEnd = (np.empty(np.size(tListPastJ2000_s), dtype=object)
+                                                 for _ in range(3))
+
+        for i, tPastJ2000_s in enumerate(tListPastJ2000_s):
+            if round(tPastJ2000_s) != 0:
+                if tPastJ2000_s < 0:
+                    sign = '-'
+                else:
+                    sign = '+'
+                tPastJ2000_h = tPastJ2000_s/3600
+                if abs(tPastJ2000_h) <= 1e3:
+                    tStr_h = f'{abs(tPastJ2000_h):.1f}'
+                else:
+                    tStr_h = f'{abs(tPastJ2000_h):.2e}'
+                tMagEvalLbl[i] = f'$t = \mathrm{{J2000}} {sign} \SI{{{tStr_h}}}{{h}}$'
+                tMagEvalPrint[i] = f't = {sign}{tStr_h} h relative to J2000'
+                tFnameEnd[i] = f'J2000{sign}{tStr_h}h'
+
+            else:
+                tMagEvalLbl[i] = f'$t = \mathrm{{J2000}} + \SI{{0.0}}{{h}}$'
+                tMagEvalPrint[i] = 'at J2000'
+                tFnameEnd[i] = 'J2000+0.0h'
+
+        if not isinstance(tinPastJ2000_s, Iterable):
+            return tMagEvalLbl[0], tMagEvalPrint[0], tFnameEnd[0]
+        else:
+            return tMagEvalLbl, tMagEvalPrint, tFnameEnd
+
+    def tStrManual(self, tLbl, nts=None):
         tMagEvalLbl = tLbl
         tMagEvalPrint = tLbl
         tFnameEnd = tLbl.replace('CA', '').replace('at', '').replace(' ', '')
+
+        if nts is not None:
+            tMagEvalLbl = np.repeat(tMagEvalLbl, nts)
+            tMagEvalPrint = np.repeat(tMagEvalPrint, nts)
+            tFnameEnd = np.repeat(tFnameEnd, nts)
 
         return tMagEvalLbl, tMagEvalPrint, tFnameEnd
     
@@ -1722,6 +1763,8 @@ class FigMiscStruct:
         self.nPhydro = None  # Number of pressure points to evaluate/plot for PT property plots
         self.PminHydro_MPa = None  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use min of geotherm.
         self.TminHydro_K = None  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use min of geotherm.
+        self.PmaxHydro_MPa = None  # When set, maximum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use max of geotherm.
+        self.TmaxHydro_K = None  # When set, maximum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use max of geotherm.
         self.hydroPhaseSize = None  # Font size of label for phase in phase diagram
         self.TS_hydroLabels = None  # Font size for hydrosphere phase labels in pt
 
@@ -1735,6 +1778,9 @@ class FigMiscStruct:
         self.BdipZoomMult = None  # Extra space to include around zoomed-in part, in fraction of largest value.
         self.SHOW_INSET = False  # Whether to show the inset box for the zoom-in plot, when applicable
         # Map settings
+        self.FIXED_COLORBAR = False  # Whether to maintain the same colorbar scale for each evaluation time in B surface plots. Causes plots to be printed only at the end of all times being evaluated.
+        self.FIXED_ALL_COMPS = False  # Whether to apply the above across x, y, and z or just within each component
+        self.MAG_CBAR_SEPARATE = False  # Whether to use an independent colormap/norm from the above settings for the magnitude
         self.rMagEval_Rp = None  # Fraction of body radius to use for surface over which PlotMagSurface is evaluated
         self.tMagLbl = None  # List of strings to use to describe the times listed in tMagEval_s
         self.tMagEval_s = None  # Seconds past J2000 to use for surface magnetic field map. Accepts a list or array to evaluate multiple times--a plot is printed for each.
@@ -1751,10 +1797,12 @@ class FigMiscStruct:
         self.cLabelSize = None  # Font size for contour labels
         self.cLabelPad = None  # Padding in pt to use for contour labels
         self.mapTitleSize = None  # Font size for title of global map plots
-        self.vminMagSurf_nT = None  # Minimum value for colormap in magnetic field surface plots (None uses data min/max)
-        self.vmaxMagSurf_nT = None  # Minimum value for colormap in magnetic field surface plots (None uses data min/max)
-        self.vminMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max)
-        self.vmaxMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max)
+        self.vminMagSurf_nT = None  # Minimum value for colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
+        self.vmaxMagSurf_nT = None  # Minimum value for colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
+        self.vminMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
+        self.vmaxMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
+        self.vminMagSurfComp_nT = None  # Minimum value for model comparison colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
+        self.vmaxMagSurfComp_nT = None  # Minimum value for model comparison colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
         # Map settings derived from above params
         self.lonMapTicks_deg = None  # List of ticks to mark for longitudes in degrees
         self.latMapTicks_deg = None  # List of ticks to mark for latitudes in degrees
@@ -1901,15 +1949,25 @@ class ConstantsStruct:
         self.Pmin_MPa = 1e-16  # Minimum value to set for pressure to avoid taking log(0)
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
         self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0).
-        self.m_gmol = {  # Molecular mass of common solutes and gases in g/mol
-            'MgSO4': 120.4,
+        self.m_gmol = {  # Molecular mass of common solutes and gases in g/mol. From https://pubchem.ncbi.nlm.nih.gov/ search
+            'H2O': 18.015,
+            'MgSO4': 120.37,
             'NaCl': 58.44,
-            'NH3': 17.03,
-            'H2O': 18.02,
-            'CH4': 16.04,
-            'CO2': 44.01,
-            'Fe': 55.845,
-            'FeS': 87.910
+            'MgCl2': 95.21,
+            'KCl': 74.55,
+            'Na2SO4': 142.04,
+            'CaCO3': 100.09,
+            'NH3': 17.031,
+            'CH4': 16.043,
+            'CO2': 44.009,
+            'Fe': 55.84,
+            'FeS': 87.91
+        }
+        self.wSat_ppt = {  # 1-bar saturation concentration of above solutes in g/kg.
+            'H2O': 1000,
+            'NaCl': 233.06, # Chang et al. 2022: https://doi.org/10.1016/j.xcrp.2022.100856
+            'Fe': np.nan,
+            'FeS': np.nan
         }
         self.m_gmol['PureH2O'] = self.m_gmol['H2O']  # Add alias for H2O so that we can use the Ocean.comp string for dict entry
         self.mClathGas_gmol = self.m_gmol['CH4'] + 5.75 * self.m_gmol['H2O']  # Molecular mass of clathrate unit cell

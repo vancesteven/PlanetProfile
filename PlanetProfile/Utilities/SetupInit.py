@@ -177,7 +177,8 @@ def SetupInit(Planet, Params):
         Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
                                        Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                        scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
-                                       phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN)
+                                       phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
+                                       sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
         # Get separate, simpler EOS for evaluating the melting curve
         if Planet.Do.BOTTOM_ICEV:
             TmeltI_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
@@ -292,7 +293,8 @@ def SetupInit(Planet, Params):
             Planet.Sil.poreEOS = GetOceanEOS(Planet.Sil.poreComp, Planet.Sil.wPore_ppt, Ppore_MPa, Tpore_K,
                                              Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                              scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
-                                             phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=True)
+                                             phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=True,
+                                             sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm)
 
             # Make sure Sil.phiRockMax_frac is set in case we're using a porosType that doesn't require it
             if Planet.Sil.phiRockMax_frac is None or Planet.Sil.porosType != 'Han2014':

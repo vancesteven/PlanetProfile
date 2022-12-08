@@ -254,7 +254,10 @@ def plotAssign():
     FigMisc.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
     FigMisc.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
     FigMisc.lowSigCutoff_Sm = 1e-3  # Cutoff conductivity below which profiles will be excluded. Setting to None includes all profiles
+    FigMisc.PminHydro_MPa = None  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use min of geotherm.
     FigMisc.TminHydro = 200  # Minimum temperature to display on hydrosphere plots
+    FigMisc.PmaxHydro_MPa = None  # When set, maximum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use max of geotherm.
+    FigMisc.TmaxHydro_K = None  # When set, maximum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use max of geotherm.
     FigMisc.PHASE_LABELS = True  # Whether to print phase labels on density plots
     FigLbl.TS_hydroLabels = 18  # Font size for hydrosphere phase labels in pt
 
@@ -286,6 +289,9 @@ def plotAssign():
     FigMisc.PVT_INCLUDE_CORE = True  # Whether to include core as well as silicates in PT properties diagrams
 
     # Induced field surface strength plots
+    FigMisc.FIXED_COLORBAR = True  # Whether to maintain the same colorbar scale for each evaluation time in B surface plots.
+    FigMisc.FIXED_ALL_COMPS = False  # Whether to apply the above across x, y, and z or just within each component
+    FigMisc.MAG_CBAR_SEPARATE = True  # Whether to use an independent colormap/norm from the above settings for the magnitude
     FigMisc.BdipZoomMult = 1.05  # Extra space to include around zoomed-in part, in fraction of largest value.
     FigMisc.SHOW_INSET = True  # Whether to show the inset box for the zoom-in plot, when applicable
     FigMisc.rMagEval_Rp = 1.0  # Fraction of body radius to use for surface over which PlotMagSurface is evaluated
@@ -303,10 +309,12 @@ def plotAssign():
     FigMisc.latlonSize = 14  # Font size for lat/lon labels
     FigMisc.cLabelSize = 12  # Font size for contour labels
     FigMisc.cLabelPad = 1  # Padding in pt to use for contour labels
-    FigMisc.vminMagSurf_nT = None  # Minimum value for colormap in magnetic field surface plots (None uses data min/max)
-    FigMisc.vmaxMagSurf_nT = None  # Minimum value for colormap in magnetic field surface plots (None uses data min/max)
-    FigMisc.vminMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max)
-    FigMisc.vmaxMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max)
+    FigMisc.vminMagSurf_nT = None  # Minimum value for colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
+    FigMisc.vmaxMagSurf_nT = None  # Minimum value for colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
+    FigMisc.vminMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
+    FigMisc.vmaxMagSurfDiff_nT = None  # Minimum value for difference colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
+    FigMisc.vminMagSurfComp_nT = None  # Minimum value for model comparison colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
+    FigMisc.vmaxMagSurfComp_nT = None  # Minimum value for model comparison colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
 
     # Magnetic field trajectory and CA plots
     FigMisc.CAlblSize = 12  # Size of text labels on CA points
