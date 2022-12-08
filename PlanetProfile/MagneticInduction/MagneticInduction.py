@@ -99,7 +99,7 @@ def CalcInducedMoments(Planet, Params):
     Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex_)
     Planet.Magnetic.BinmLin_nT = np.zeros((Planet.Magnetic.nExc, Nnm), dtype=np.complex_)
     if Planet.Magnetic.inductMethod == 'Eckhardt1963' or Planet.Magnetic.inductMethod == 'numeric':
-        if Params.Sig.INCLUDE_ASYM:
+        if Params.CALC_ASYM:
             log.warning('Asymmetry can only be modeled with Srivastava1966 (layer) method, but ' +
                         'Eckhardt1963 (numeric) method is selected. Asymmetry will be ignored.')
 
@@ -131,7 +131,7 @@ def CalcInducedMoments(Planet, Params):
                          Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=n, writeout=False,
                          do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
 
-        if Params.Sig.INCLUDE_ASYM:
+        if Params.CALC_ASYM:
             # Use a separate function for evaluating asymmetric induced moments, as Binm is not as simple as
             # Aen * Benm for this case.
             Planet.Magnetic.Binm_nT = BiAsym(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
@@ -215,13 +215,16 @@ def ReloadMoments(Planet, momentsFile):
     Planet.Magnetic.ionosBounds_m = reload['ionosBounds_m'][0]
     Planet.Magnetic.calcedExc = np.char.strip(reload['calcedExc'])
     Planet.Magnetic.nExc = np.size(Planet.Magnetic.omegaExc_radps)
+
+    Planet.Magnetic.Amp = np.abs(Planet.Magnetic.Aen[:, 1])
+    Planet.Magnetic.phase = -np.angle(Planet.Magnetic.Aen[:, 1], deg=True)
     
     return Planet
 
 
 def CalcAsymContours(Planet, Params):
 
-    if Params.Sig.INCLUDE_ASYM:
+    if Params.CALC_ASYM:
         # Make a calculation for each loaded asymmetry file and the gravity shape
         Planet.Magnetic.asymDevs_km = np.zeros((Planet.Magnetic.nAsymBds, FigMisc.nLatMap, FigMisc.nLonMap))
         for i, iLayer, zMean_km in zip(range(Planet.Magnetic.nAsymBds), Planet.Magnetic.iAsymBds, Planet.Magnetic.zMeanAsym_km):
@@ -372,7 +375,7 @@ def SetupInduction(Planet, Params):
     # Lots of errors can happen if we haven't calculated the electrical conductivity,
     # so we make this contingent on having it.
     indsLiq = np.where(np.flip(Planet.phase) == 0)[0]
-    if np.size(indsLiq) == 0:
+    if np.size(indsLiq) == 0 and not Params.Induct.inductOtype == 'sigma':
         if Params.DO_INDUCTOGRAM:
             log.info('Ocean is completely frozen for this body. Profile will be marked invalid for inductogram.')
             Planet.Do.VALID = False
@@ -382,7 +385,7 @@ def SetupInduction(Planet, Params):
     if Params.CALC_CONDUCT and Planet.Do.VALID:
         # Reconfigure layer conducting boundaries as needed.
         # For inductOtype == 'sigma', we have already set these arrays.
-        if not Params.Induct.inductOtype == 'sigma':
+        if not (Params.Induct.inductOtype == 'sigma' and Params.DO_INDUCTOGRAM):
             if Params.CALC_NEW or not Params.DO_INDUCTOGRAM:
                 # Append optional ionosphere
                 # We first check if these are unset here, then assign them to what they should be if unset
@@ -451,9 +454,9 @@ def SetupInduction(Planet, Params):
         Planet.Magnetic.nBds = np.size(Planet.Magnetic.rSigChange_m)
 
         # Set asymmetric shape if applicable
-        if Params.Sig.INCLUDE_ASYM:
+        if Params.CALC_ASYM:
             if Planet.Magnetic.pMax == 0:
-                Params.Sig.INCLUDE_ASYM = False
+                Params.CALC_ASYM = False
                 log.warning('Magnetic.pMax is 0, asymmetry calculations will be skipped.')
                 Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, 1, 1))
             else:
@@ -618,13 +621,13 @@ def SetGravShape(Planet, Params):
     """
     # Check that J2 and C22 are set, and make use of other parameters if they are set
     if Planet.Bulk.J2 is None and Planet.Bulk.C20 is None:
-        log.warning(f'Params.Sig.INCLUDE_ASYM is True but Bulk.J2 is not set. It will be treated as 0.')
+        log.warning(f'Params.CALC_ASYM is True but Bulk.J2 is not set. It will be treated as 0.')
         Planet.Bulk.J2 = 0.0
         Planet.Bulk.C20 = 0.0
     elif Planet.Bulk.C20 is None:
         Planet.Bulk.C20 = -Planet.Bulk.J2
     if Planet.Bulk.C22 is None:
-        log.warning(f'Params.Sig.INCLUDE_ASYM is True but Bulk.C22 is not set. It will be treated as 0.')
+        log.warning(f'Params.CALC_ASYM is True but Bulk.C22 is not set. It will be treated as 0.')
         Planet.Bulk.C22 = 0.0
     if Planet.Bulk.C21 is None:
         Planet.Bulk.C21 = 0.0

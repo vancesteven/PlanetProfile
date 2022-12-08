@@ -29,7 +29,6 @@ def GetInductParams(inductOtype, cLevels, dftC, cFmt):
 
     # Conducting layer parameter settings
     SigParams.REDUCED_INDUCT = True  # Whether to limit number of ocean layers for faster computation of layered induction
-    SigParams.INCLUDE_ASYM = False  # Whether to include asymmetry in the induction conductivity profile based on J2 and C22 values
     SigParams.CONCENTRIC_ASYM = False  # Whether to map a single asymmetric shape to all layers, concentrically, scaling by their radii.
     SigParams.ALLOW_LOW_PMAX = False  # Whether to allow Magnetic.pMax to be set to an integer less than 2.
     SigParams.asymFstring = 'Shape_4piNormDepth'
