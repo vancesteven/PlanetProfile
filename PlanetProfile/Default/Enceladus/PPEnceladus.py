@@ -61,6 +61,6 @@ Planet.Magnetic.SCera = 'Cassini'
 Planet.Magnetic.extModel = 'Cassini11'
 Planet.Magnetic.asymDescrip = ['Enceladus ice shell thickness']
 contours = [
-    np.array([6, 10, 14, 18, 22, 24, 30])
+    np.array([6, 10, 14, 18, 22, 26, 30])
 ]
 Planet.Magnetic.asymContours_km = {lbl: contourList for lbl, contourList in zip(Planet.Magnetic.asymDescrip, contours)}
