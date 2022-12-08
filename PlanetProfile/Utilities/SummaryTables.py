@@ -3,6 +3,7 @@ import logging
 from PlanetProfile.GetConfig import FigMisc, FigLbl
 from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv
 from PlanetProfile.Utilities.defineStructs import Constants
+from PlanetProfile.MagneticInduction.Moments import Excitations
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -26,6 +27,7 @@ def GetLayerMeans(PlanetList, Params):
     Params.yesIceV = np.any([np.any(Planet.phase == 5) for Planet in PlanetList])
     Params.yesIceVI = np.any([np.any(abs(Planet.phase) == 6) for Planet in PlanetList])
     Params.yesWetHPs = np.any([np.any(Planet.phase == 5) or np.any(Planet.phase == 6) for Planet in PlanetList])
+    Params.yesInduction = np.any([Planet.Magnetic.Binm_nT is not None for Planet in PlanetList])
 
     for Planet in PlanetList:
         # Mean values are set to nan by default. Set relevant values here.
@@ -246,8 +248,8 @@ def PrintGeneralSummary(PlanetList, Params):
     # Optional output strings
     poreSigma, phiRockMax, phiIceMax, zClath, zIceIIIund, zIceIII, zIceVund, zIceV, zIceVI, dzClath, \
     dzIceIIIund, dzIceIII, dzIceVund, dzIceV, dzIceVI, dzWetHPs, RaIII, RaCritIII, eLidIII, DconvIII, deltaTBLIII,\
-    RaV, RaCritV, eLidV, DconvV, deltaTBLV \
-        = ('' for _ in range(26))
+    RaV, RaCritV, eLidV, DconvV, deltaTBLV, inductionA, inductionPhi  \
+        = ('' for _ in range(28))
 
     # Porosity
     if FigMisc.ALWAYS_SHOW_PHI or Params.yesPorousRock:
@@ -310,6 +312,47 @@ def PrintGeneralSummary(PlanetList, Params):
     bestrhoSil = 'Best fit rho_sil (kg/m^3): ' + ', '.join([f'{Planet.Sil.rhoMean_kgm3:.1f}' for Planet in PlanetList])
     maxrhoSil =  '                    (+)  ' + ', '.join([f'{np.max(Planet.Sil.rhoTrade_kgm3):.1f}' for Planet in PlanetList])
 
+    # Magnetic induction
+    if Params.yesInduction:
+        Tlist = [Tname for Tname in Params.Induct.excSelectionCalc.keys() if np.any([Tname in Planet.Magnetic.calcedExc for Planet in PlanetList])]
+        nTs = np.size(Tlist)
+        wTnames = np.max([len(Tname) for Tname in Tlist])
+        indHlineIntro = f'{endl}Induction properties for each excitation:'
+        indHline = f'{endl}    {"Excitation name":<{wTnames}s}'
+        # Get each column and then we'll join them together into rows
+        indTnames = [f'{endl}    {Tname:>{wTnames}s}' for Tname in Tlist]
+        if Params.ALL_ONE_BODY:
+            Tlbl = 'Period (h)'
+            indT = [f'{Excitations.Texc_hr[PlanetList[0].bodyname][Tname]:.3f}' for Tname in Tlist]
+            wTvals = np.max([len(Tval) for Tval in indT + [Tlbl]])
+            indHline = f'{indHline} {Tlbl:>{wTvals}s}'
+            indTnames = [f'{TnameStr} {Tval:>{wTvals}s}' for TnameStr, Tval in zip(indTnames, indT)]
+        AmpArows, AmpPhirows = ([], [])
+        AmpA, AmpPhi = ('', '')
+        AmpLbl = 'Amplitude A'
+        PhiLbl = "Phase phi (deg)"
+        wAmps = len(AmpLbl)
+        wPhis = len(PhiLbl)
+
+        for Tname in Tlist:
+            AmpArows.append([f'{Planet.Magnetic.Amp[np.where(Tname == np.array(Planet.Magnetic.calcedExc))[0][0]]:.3f}' if Tname in Planet.Magnetic.calcedExc else np.nan for Planet in PlanetList])
+            AmpPhirows.append([f'{Planet.Magnetic.phase[np.where(Tname == np.array(Planet.Magnetic.calcedExc))[0][0]]:.2f}' if Tname in Planet.Magnetic.calcedExc else np.nan for Planet in PlanetList])
+            wAmps = np.maximum(wAmps, np.max([len(AmpAstr) for AmpAstr in AmpArows[-1]]))
+            wPhis = np.maximum(wPhis, np.max([len(AmpPhistr) for AmpPhistr in AmpPhirows[-1]]))
+
+        wFirst = np.minimum(wAmps, wPhis)
+        wCom = np.max([[len(valStr) for valStr in row] for row in AmpArows + AmpPhirows])
+        Afmt = f'>{wFirst}s'
+        phiFmt = f'>{wFirst}s'
+        for TnameStr, AmpArow, AmpPhirow in zip(indTnames, AmpArows, AmpPhirows):
+            thisAmpArow = f'{TnameStr} ' + ', '.join([f'{thisAmpA:{Afmt}}' if i==0 else f'{thisAmpA:>{wCom}s}' for i,thisAmpA in enumerate(AmpArow)])
+            AmpA = f'{AmpA}{thisAmpArow}'
+            thisAmpPhirow = f'{TnameStr} ' + ', '.join([f'{thisAmpPhi:{phiFmt}}' if i==0 else f'{thisAmpPhi:>{wCom}s}' for i,thisAmpPhi in enumerate(AmpPhirow)])
+            AmpPhi = f'{AmpPhi}{thisAmpPhirow}'
+
+        inductionA = f'{endl}{indHlineIntro}{indHline} {AmpLbl:>{wAmps}s}{AmpA}'
+        inductionPhi = f'{indHline} {PhiLbl:>{wPhis}s}{AmpPhi}'
+
     log.info(f"""
     {models}
     {bodyMass}
@@ -350,7 +393,7 @@ def PrintGeneralSummary(PlanetList, Params):
     {maxRsil}
     {minrhoSil}
     {bestrhoSil}
-    {maxrhoSil}
+    {maxrhoSil}{inductionA}{inductionPhi}
     """)
     return
 
@@ -606,6 +649,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                                    f'\\num{{{Planet.Core.sigmaMean_Sm:.1e}}}']) + endl
         else:
             coreLayers = ''
+
         log.info(f"""{Planet.saveLabel}
         {title}
         {tOpen}
