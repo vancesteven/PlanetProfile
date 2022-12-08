@@ -1729,8 +1729,8 @@ class FigMiscStruct:
         self.figFormat = 'pdf'
         self.dpi = 300  # Resolution in dots per inch for raster images (.png). Ignored for vector images (.pdf, .eps)
         self.xtn = '.' + self.figFormat  # Figure file extension. Good options are .eps, .pdf, and .png
-        self.defaultFontName = 'STIXGeneral'  # Default font variables--STIX is what is used in Icarus journal submissions
-        self.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
+        self.defaultFontName = None  # Default font variables--STIX is what is used in Icarus journal submissions
+        self.defaultFontCode = None  # Code name for default font needed in some function calls
         self.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
 
         # Hydrosphere plots
