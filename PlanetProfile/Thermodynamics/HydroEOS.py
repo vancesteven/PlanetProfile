@@ -20,9 +20,10 @@ from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 log = logging.getLogger('PlanetProfile')
 
 def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
-                EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False):
+                EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None):
     oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
-                              phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE)
+                              phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE,
+                              sigmaFixed_Sm=sigmaFixed_Sm)
     if oceanEOS.ALREADY_LOADED and not FORCE_NEW:
         log.debug(f'{wOcean_ppt} ppt {compstr} EOS already loaded. Reusing existing EOS.')
         oceanEOS = EOSlist.loaded[oceanEOS.EOSlabel]
@@ -38,7 +39,7 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
 
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
-                 phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False):
+                 phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None):
         if elecType is None:
             self.elecType = 'Vance2018'
         else:
@@ -105,10 +106,10 @@ class OceanEOSStruct:
                 self.m_gmol = Constants.m_gmol[self.comp]
 
                 # Set extrapolation boundaries to limits defined in SeaFreeze
-                Pmax = {'PureH2O':   2300.6, 'NH3': 2228.4, 'NaCl': np.nan}
-                Tmin = {'PureH2O':    239,   'NH3':  241,   'NaCl': np.nan}
-                Tmax = {'PureH2O':    501,   'NH3':  399.2, 'NaCl': np.nan}
-                wMax = {'PureH2O': np.nan,   'NH3':  290.1, 'NaCl': np.nan}
+                Pmax = {'PureH2O':   2300.6, 'NH3': 2228.4, 'NaCl': 8001.0}
+                Tmin = {'PureH2O':    239,   'NH3':  241,   'NaCl':  229.0}
+                Tmax = {'PureH2O':    501,   'NH3':  399.2, 'NaCl':  501.0}
+                wMax = {'PureH2O': np.nan,   'NH3':  290.1, 'NaCl':  293.2}
                 self.Pmax = np.minimum(self.Pmax, Pmax[self.comp])
                 self.Tmin = np.maximum(self.Tmin, Tmin[self.comp])
                 self.Tmax = np.minimum(self.Tmax, Tmax[self.comp])
@@ -130,13 +131,13 @@ class OceanEOSStruct:
                 if self.comp == 'PureH2O':
                     SFcomp = 'water1'
                     PTmGrid = sfPTgrid(P_MPa, T_K)
-                    self.ufn_sigma_Sm = H2Osigma_Sm()
+                    self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
                 else:
                     SFcomp = self.comp
                     if self.w_ppt > wMax[self.comp]:
                         log.warning(f'Input wOcean_ppt greater than SeaFreeze limit for {self.comp}. Resetting to SF max.')
                         self.w_ppt = wMax[self.comp]
-                    self.ufn_sigma_Sm = H2Osigma_Sm()  # Placeholder until lab data can be implemented
+                    self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)  # Placeholder until lab data can be implemented
 
                     PTmGrid = sfPTmGrid(P_MPa, T_K, Ppt2molal(self.w_ppt, self.m_gmol))
                 seaOut = SeaFreeze(deepcopy(PTmGrid), SFcomp)
@@ -178,7 +179,10 @@ class OceanEOSStruct:
                 self.EOSdeltaT = np.nan
                 rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = SwProps(P_MPa, T_K, self.w_ppt)
                 self.ufn_Seismic = SwSeismic(self.w_ppt, self.EXTRAP)
-                self.ufn_sigma_Sm = SwConduct(self.w_ppt)
+                if sigmaFixed_Sm is not None:
+                    self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
+                else:
+                    self.ufn_sigma_Sm = SwConduct(self.w_ppt)
                 self.propsPmax = self.Pmax
             elif self.comp == 'MgSO4':
                 if self.elecType == 'Pan2020' and round(self.w_ppt) != 100:
@@ -205,8 +209,11 @@ class OceanEOSStruct:
                     self.EOSdeltaT = np.nan
 
                 self.ufn_Seismic = MgSO4Seismic(self.w_ppt, self.EXTRAP)
-                self.ufn_sigma_Sm = MgSO4Conduct(self.w_ppt, self.elecType, rhoType=self.rhoType,
-                                                scalingType=self.scalingType)
+                if sigmaFixed_Sm is not None:
+                    self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
+                else:
+                    self.ufn_sigma_Sm = MgSO4Conduct(self.w_ppt, self.elecType, rhoType=self.rhoType,
+                                                    scalingType=self.scalingType)
                 self.propsPmax = self.ufn_Seismic.Pmax
                 self.Pmax = np.min([self.Pmax, self.phasePmax])
             else:
@@ -598,11 +605,17 @@ class SFSeismic:
 
 
 class H2Osigma_Sm:
+    def __init__(self, sigmaSet_Sm=None):
+        if sigmaSet_Sm is None:
+            self.sigma_Sm = Constants.sigmaH2O_Sm
+        else:
+            self.sigma_Sm = sigmaSet_Sm
+
     def __call__(self, P_MPa, T_K, grid=False):
         if grid:
-            return np.zeros((np.size(P_MPa), np.size(T_K))) + Constants.sigmaH2O_Sm
+            return np.zeros((np.size(P_MPa), np.size(T_K))) + self.sigma_Sm
         else:
-            return np.zeros_like(P_MPa) + Constants.sigmaH2O_Sm
+            return np.zeros_like(P_MPa) + self.sigma_Sm
 
 
 class IceSeismic:

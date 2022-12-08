@@ -18,23 +18,41 @@ log = logging.getLogger('PlanetProfile')
 
 def PlotHydroPhase(PlanetList, Params):
 
+    if FigMisc.PminHydro_MPa is None:
+        Pmin_MPa = np.min([Planet.P_MPa[0] for Planet in PlanetList])
+    else:
+        Pmin_MPa = FigMisc.PminHydro_MPa
+    if FigMisc.PmaxHydro_MPa is None:
+        Pmax_MPa = np.max([Planet.P_MPa[Planet.Steps.nHydro-1] for Planet in PlanetList])
+    else:
+        Pmax_MPa = FigMisc.PmaxHydro_MPa
+    if FigMisc.TminHydro_K is None:
+        Tmin_K = np.min([np.min(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
+    else:
+        Tmin_K = FigMisc.TminHydro_K
+    if FigMisc.TmaxHydro_K is None:
+        Tmax_K = np.max([np.max(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
+    else:
+        Tmax_K = FigMisc.TmaxHydro_K
+
     if os.path.dirname(Params.FigureFiles.vpvtHydro) != 'Comparison':
         Planet = PlanetList[0]
         if FigMisc.nPphase is None:
             P_MPa = Planet.P_MPa[:Planet.Steps.nHydro]
-            P_MPa = P_MPa[P_MPa > FigMisc.PminHydro_MPa]
+            P_MPa = P_MPa[np.logical_and(P_MPa >= Pmin_MPa, P_MPa <= Pmax_MPa)]
         else:
-            P_MPa = np.linspace(FigMisc.PminHydro_MPa, np.max(Planet.P_MPa[:Planet.Steps.nHydro]), FigMisc.nPphase)
+            P_MPa = np.linspace(Pmin_MPa, Pmax_MPa, FigMisc.nPphase)
         if FigMisc.nTphase is None:
             T_K = Planet.T_K[:Planet.Steps.nHydro]
-            T_K = T_K[T_K > FigMisc.TminHydro_K]
+            T_K = T_K[np.logical_and(T_K >= Tmin_K, T_K <= Tmax_K)]
         else:
-            T_K = np.linspace(FigMisc.TminHydro_K, np.max(Planet.T_K[:Planet.Steps.nHydro]), FigMisc.nTphase)
+            T_K = np.linspace(Tmin_K, Tmax_K, FigMisc.nTphase)
         # Load EOS independently from model run, because we will query wider ranges of conditions
         oceanEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, P_MPa, T_K,
                                Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
-                               phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN)
+                               phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
+                               sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
 
         phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
         # Add clathrates to phase and property diagrams where it is stable (if modeled)
@@ -58,9 +76,6 @@ def PlotHydroPhase(PlanetList, Params):
         # Labels and titles
         ax.set_xlabel(FigLbl.Tlabel)
         ax.set_ylabel(FigLbl.PlabelHydro)
-        ax.set_xlim([FigMisc.TminHydro_K, np.max(T_K)])
-        ax.set_ylim([0, np.max(P_MPa)])
-        ax.invert_yaxis()
 
         # Set overall figure title
         if Params.TITLES:
@@ -111,6 +126,9 @@ def PlotHydroPhase(PlanetList, Params):
                 handles, lbls = ax.get_legend_handles_labels()
                 ax.legend(handles, lbls)
 
+        ax.set_xlim([Tmin_K, Tmax_K])
+        ax.set_ylim([Pmin_MPa, Pmax_MPa])
+        ax.invert_yaxis()
         plt.tight_layout()
         fig.savefig(Params.FigureFiles.vphase, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
         log.debug(f'Hydrosphere phase diagram saved to file: {Params.FigureFiles.vphase}')
@@ -124,20 +142,39 @@ def PlotPvThydro(PlanetList, Params):
     if os.path.dirname(Params.FigureFiles.vpvtHydro) != 'Comparison':
         Planet = PlanetList[0]
         if FigMisc.PminHydro_MPa is None:
-            Pmin = np.min(Planet.P_MPa[:Planet.Steps.nHydro])
+            Pmin_MPa = np.min([Planet.P_MPa[0] for Planet in PlanetList])
         else:
-            Pmin = FigMisc.PminHydro_MPa
+            Pmin_MPa = FigMisc.PminHydro_MPa
+        if FigMisc.PmaxHydro_MPa is None:
+            Pmax_MPa = np.max([Planet.P_MPa[Planet.Steps.nHydro-1] for Planet in PlanetList])
+        else:
+            Pmax_MPa = FigMisc.PmaxHydro_MPa
         if FigMisc.TminHydro_K is None:
-            Tmin = np.min(Planet.T_K[:Planet.Steps.nHydro])
+            Tmin_K = np.min([np.min(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
         else:
-            Tmin = FigMisc.TminHydro_K
-        P_MPa = np.linspace(Pmin, np.max(Planet.P_MPa[:Planet.Steps.nHydro]), FigMisc.nPhydro)
-        T_K = np.linspace(Tmin, np.max(Planet.T_K[:Planet.Steps.nHydro]), FigMisc.nThydro)
+            Tmin_K = FigMisc.TminHydro_K
+        if FigMisc.TmaxHydro_K is None:
+            Tmax_K = np.max([np.max(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
+        else:
+            Tmax_K = FigMisc.TmaxHydro_K
+
+        if FigMisc.nPhydro is None:
+            P_MPa = Planet.P_MPa[:Planet.Steps.nHydro]
+            P_MPa = P_MPa[np.logical_and(P_MPa >= Pmin_MPa, P_MPa <= Pmax_MPa)]
+        else:
+            P_MPa = np.linspace(Pmin_MPa, Pmax_MPa, FigMisc.nPhydro)
+        if FigMisc.nThydro is None:
+            T_K = Planet.T_K[:Planet.Steps.nHydro]
+            T_K = T_K[np.logical_and(T_K >= Tmin_K, T_K <= Tmax_K)]
+        else:
+            T_K = np.linspace(Tmin_K, Tmax_K, FigMisc.nThydro)
+
         # Load EOS independently from model run, because we will query wider ranges of conditions
         oceanEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, P_MPa, T_K,
                                Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
-                               phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN)
+                               phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
+                               sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
 
         phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
         ices = [PhaseConv(ice) for ice in np.unique(phases[phases != 0])]
@@ -169,8 +206,8 @@ def PlotPvThydro(PlanetList, Params):
         # Labels and titles
         [ax.set_xlabel(FigLbl.Tlabel) for ax in axes[1, :]]
         [ax.set_ylabel(FigLbl.PlabelHydro) for ax in axes[:, 0]]
-        [ax.set_xlim([Tmin, np.max(T_K)]) for ax in axf]
-        [ax.set_ylim([Pmin, np.max(P_MPa)]) for ax in axf]
+        [ax.set_xlim([Tmin_K, Tmax_K]) for ax in axf]
+        [ax.set_ylim([Pmin_MPa, Pmax_MPa]) for ax in axf]
         [ax.invert_yaxis() for ax in axf]
         axes[0,0].set_title(FigLbl.rhoLabel)
         axes[1,0].set_title(FigLbl.CpLabel)
