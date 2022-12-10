@@ -255,7 +255,7 @@ def plotAssign():
     FigMisc.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
     FigMisc.lowSigCutoff_Sm = 1e-3  # Cutoff conductivity below which profiles will be excluded. Setting to None includes all profiles
     FigMisc.PminHydro_MPa = None  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use min of geotherm.
-    FigMisc.TminHydro = 200  # Minimum temperature to display on hydrosphere plots
+    FigMisc.TminHydro = 250  # Minimum temperature to display on hydrosphere plots
     FigMisc.PmaxHydro_MPa = None  # When set, maximum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use max of geotherm.
     FigMisc.TmaxHydro_K = None  # When set, maximum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use max of geotherm.
     FigMisc.PHASE_LABELS = True  # Whether to print phase labels on density plots
