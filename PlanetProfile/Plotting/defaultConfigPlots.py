@@ -154,7 +154,7 @@ def plotAssign():
     Style.LS_geotherm = '-'  # Linestyle for geotherm on PT plots
     Style.LW_seis = 1  # Linewidth for seismic plots
     Style.LS_seis = {'KS': '-', 'GS': '--', 'VP': '-', 'VS': '--', 'QS': '-', 'P': '-', 'T': '--', 'rho': '-.'}
-    Style.LS_ref = {'none': None, 'PureH2O': '-', 'Seawater': ':', 'MgSO4': '--', 'NH3': '--', 'NaCl': '--'}  # Style for reference profiles
+    Style.LS_ref = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-'}  # Style for reference profiles
     Style.LW_ref = 0.75  # Linewidth for reference profiles
     Style.LS_Induction = {'synodic': '-', 'orbital': ':', 'true anomaly': ':', 'synodic harmonic': '--'}  # Style for inductOgram plots
     Style.LW_Induction = {'synodic': 1.5, 'orbital': 1.5, 'true anomaly': 1.5, 'synodic harmonic': 1.5}  # Widths for inductOgram plots
