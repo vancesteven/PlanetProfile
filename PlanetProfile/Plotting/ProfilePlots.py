@@ -450,7 +450,7 @@ def PlotPorosity(PlanetList, Params):
         Planet.phiPlot = Planet.phi_frac[nonzeroPhi]
         Planet.zPlot = Planet.z_m[:-1][nonzeroPhi]
         Planet.Pplot = Planet.P_MPa[nonzeroPhi]
-        iPhaseChanges = np.where(np.diff(Planet.phase[nonzeroPhi]) != 0)[0] + 1
+        iPhaseChanges = np.where(abs(np.diff(Planet.phase[nonzeroPhi])) > 10)[0] + 1
         if np.size(iPhaseChanges) > 0:
             # Add a nan so we don't get a line from porous ice to rock if both are modeled
             Planet.phiPlot = np.insert(Planet.phiPlot, iPhaseChanges, np.nan)
