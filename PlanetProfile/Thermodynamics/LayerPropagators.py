@@ -999,6 +999,7 @@ def CalcMoIConstantRho(Planet, Params):
                      f'R_core = {Planet.Core.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                      f'rho_sil (found) = {rhoSil_kgm3[iCMR2inner]:.0f} kg/m^3, ' +
                      f'rho_sil (actual) = {Planet.Sil.rhoMean_kgm3:.0f} kg/m^3, ' +
+                     f'P_HydroMax = {Planet.P_MPa[iCMR2]:.1f} MPa, ' +
                      f'M_tot = {Planet.Mtot_kg/Planet.Bulk.M_kg:.4f} M_{Planet.name[0]}.')
             log.warning('Because silicate and core properties were determined from the EOS after finding their ' +
                         'sizes by assuming constant densities, the body mass may not match the measured value.')
@@ -1010,6 +1011,7 @@ def CalcMoIConstantRho(Planet, Params):
                      f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                      f'R_core = {Planet.Core.Rmean_m / Planet.Bulk.R_m:.2f} R_{Planet.name[0]}, ' +
                      f'rho_sil = {rhoSil_kgm3[iCMR2inner]:.0f} kg/m^3, ' +
+                     f'P_HydroMax = {Planet.P_MPa[iCMR2]:.1f} MPa, ' +
                      f'M_tot = {1.0:.5f} M_{Planet.name[0]} (fixed).')
         if not Params.DO_EXPLOREOGRAM:
             log.debug('Params.SKIP_INNER is True, assigning interior properties to 0.')
@@ -1159,13 +1161,15 @@ def CalcMoIWithEOS(Planet, Params):
             if Planet.Do.POROUS_ROCK and not Planet.Do.FIXED_POROSITY:
                 rSilOuter_m = rSilTemp_m[indsSilValidTemp, 0]
                 log.debug(f'Silicate match for phiTop = {thisphiTop_frac:.3f} with ' +
-                          f'rSil = {rSilOuter_m / 1e3:.1f} km ({rSilOuter_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}).')
+                          f'rSil = {rSilOuter_m / 1e3:.1f} km ({rSilOuter_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}) ' +
+                          f'at PHydroMax_MPa = {PsilTemp_MPa[indsSilValidTemp, 0]:.1f}.')
                 thisphiTop_frac = phiMin_frac * multphi_frac**nProfiles
                 Planet.Sil.fn_phi_frac.update(thisphiTop_frac)
             else:
                 rSilOuter_m = rSilTemp_m[indsSilValidTemp, 0]
                 log.debug(f'Silicate match for Htidal = {thisHtidal_Wm3:.3e} W/m^3 with ' +
-                          f'rSil = {rSilOuter_m / 1e3:.1f} km ({rSilOuter_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}).')
+                          f'rSil = {rSilOuter_m / 1e3:.1f} km ({rSilOuter_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}) ' +
+                          f'at PHydroMax_MPa = {PsilTemp_MPa[indsSilValidTemp, 0]:.1f}.')
                 thisHtidal_Wm3 = HtidalStart_Wm3 * multHtidal_Wm3**nProfiles
                 Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(thisHtidal_Wm3)  # Placeholder until we implement a self-consistent calc
 
@@ -1347,6 +1351,7 @@ def CalcMoIWithEOS(Planet, Params):
                  f'(C/MR^2 = {Planet.CMR2strPrint}) for ' +
                  f'rho_sil = {Planet.Sil.rhoMean_kgm3:.0f} kg/m^3, ' +
                  f'R_sil = {Planet.Sil.Rmean_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}, ' +
+                 f'P_HydroMax = {Psil_MPa[iCMR2sil,0]:.1f} MPa, ' +
                  RcoreOrHtidalLine +
                  f'M_tot = {Planet.Mtot_kg/Planet.Bulk.M_kg:.4f} M_{Planet.name[0]}.')
 
