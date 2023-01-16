@@ -1891,7 +1891,7 @@ class FigMiscStruct:
     def SetLatLon(self):
         self.nLonMap = self.nPPGCmapRes + 1
         self.nLatMap = int(self.nPPGCmapRes/2) + 1
-        self.latMap_deg = np.linspace(-90, 90, self.nLatMap, dtype=np.int)
+        self.latMap_deg = np.linspace(-90, 90, self.nLatMap)
         self.thetaMap_rad = np.pi/2.0 - np.radians(self.latMap_deg)
         if self.DO_360:
             self.lonMin_deg = 0
@@ -1907,7 +1907,7 @@ class FigMiscStruct:
             self.cLabelSize = 16
             self.mapTitleSize = 24
 
-        self.lonMap_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonMap, dtype=np.int)
+        self.lonMap_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonMap)
         self.phiMap_rad = np.radians(self.lonMap_deg)
         self.lonMapTicks_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonTicks, dtype=np.int)
         self.latMapTicks_deg = np.linspace(-90, 90, self.nLatTicks, dtype=np.int)
@@ -2004,7 +2004,7 @@ class ConstantsStruct:
 def ParentName(bodyname):
     if bodyname in ['Io', 'Europa', 'Ganymede', 'Callisto']:
         parentName = 'Jupiter'
-    elif bodyname in ['Mimas', 'Enceladus', 'Dione', 'Rhea', 'Titan']:
+    elif bodyname in ['Mimas', 'Enceladus', 'Tethys', 'Dione', 'Rhea', 'Titan']:
         parentName = 'Saturn'
     elif bodyname in ['Miranda', 'Ariel', 'Umbriel', 'Titania', 'Oberon']:
         parentName = 'Uranus'
