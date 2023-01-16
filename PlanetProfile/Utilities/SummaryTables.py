@@ -330,13 +330,13 @@ def PrintGeneralSummary(PlanetList, Params):
         AmpArows, AmpPhirows = ([], [])
         AmpA, AmpPhi = ('', '')
         AmpLbl = 'Amplitude A'
-        PhiLbl = "Phase phi (deg)"
+        PhiLbl = 'Phase phi (deg)'
         wAmps = len(AmpLbl)
         wPhis = len(PhiLbl)
 
         for Tname in Tlist:
-            AmpArows.append([f'{Planet.Magnetic.Amp[np.where(Tname == np.array(Planet.Magnetic.calcedExc))[0][0]]:.3f}' if Tname in Planet.Magnetic.calcedExc else np.nan for Planet in PlanetList])
-            AmpPhirows.append([f'{Planet.Magnetic.phase[np.where(Tname == np.array(Planet.Magnetic.calcedExc))[0][0]]:.2f}' if Tname in Planet.Magnetic.calcedExc else np.nan for Planet in PlanetList])
+            AmpArows.append([f'{Planet.Magnetic.Amp[np.where(Tname == np.array(Planet.Magnetic.calcedExc))[0][0]]:.3f}' if Tname in Planet.Magnetic.calcedExc else 'nan' for Planet in PlanetList])
+            AmpPhirows.append([f'{Planet.Magnetic.phase[np.where(Tname == np.array(Planet.Magnetic.calcedExc))[0][0]]:.2f}' if Tname in Planet.Magnetic.calcedExc else 'nan' for Planet in PlanetList])
             wAmps = np.maximum(wAmps, np.max([len(AmpAstr) for AmpAstr in AmpArows[-1]]))
             wPhis = np.maximum(wPhis, np.max([len(AmpPhistr) for AmpPhistr in AmpPhirows[-1]]))
 
