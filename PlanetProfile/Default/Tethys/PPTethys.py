@@ -15,9 +15,9 @@ Planet.PfreezeUpper_MPa = 75
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 531.0e3  # Value from mean radius in Archinal et al. (2018): https://doi.org/10.1007/s10569-017-9805-5
 Planet.Bulk.M_kg = 6.17449e20  # From Jacobson et al. (2006): https://adsabs.harvard.edu/pdf/1992AJ....103.2068J
-Planet.Bulk.Tsurf_K = 68.25  # From Gyalay et al. (2023) in press with JGR: Planets.
+Planet.Bulk.Tsurf_K = 68.25  # From Gyalay and Nimmo (2023): https://doi.org/10.1029/2022JE007550
 Planet.Bulk.Psurf_MPa = 0.0
-Planet.Bulk.Cmeasured = 0.34  # From Gyalay et al. (2023) in press with JGR: Planets.
+Planet.Bulk.Cmeasured = 0.34  # From Gyalay and Nimmo (2023): https://doi.org/10.1029/2022JE007550
 Planet.Bulk.Cuncertainty = 0.01
 Planet.Do.NONHYDROSTATIC = True
 Planet.Bulk.Tb_K = 270.0
@@ -35,7 +35,7 @@ Planet.Ocean.deltaP = 1.0
 Planet.Ocean.deltaT = 0.1
 Planet.Ocean.PHydroMax_MPa = 80.0
 Planet.Ocean.phaseType = 'recalc'
-# Ice porosity --- values from or consistent with Gyalay et al. (2023) in press with JGR: Planets.
+# Ice porosity --- values from or consistent with Gyalay and Nimmo (2023): https://doi.org/10.1029/2022JE007550
 Planet.Do.POROUS_ICE = True
 Planet.Ocean.phiMax_frac['Ih'] = 0.4
 Planet.Ocean.Pclosure_MPa['Ih'] = 40
