@@ -683,8 +683,9 @@ D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon
     % cfg.SKIP_PROFILES=1
       if max_clath_depth<Planet.zb_outerIce_m % only a clathrate lid
         % asummes Q across ice-ocean is same Q across clathrates/ice. 
-       [Q_Wm2, T_clath_ice, deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I]= ...
-   clathrate_lid_thermo(Planet.Tsurf_K,Planet.Tb_K,P_MPa(1:n_clath+n_iceI), n_clath,n_iceI,Planet.zb_outerIce_m, max_clath_depth,g_ms2(1));      
+        % The below line updated per A. Marusiak 2023-01-21
+       [Q_Wm2(iT), T_clath_ice(iT), deltaTBL_m(iT),eTBL_m(iT),Tc(iT)]= ...
+        clathrate_lid_thermo(Planet.Tsurf_K,Planet.Tb_K(iT),PbI_MPa(iT)/2, max_clath_depth);      
       else
        [Q_Wm2,deltaTBL_m,eTBL_m,Tc,rhoIce,alphaIce,CpIce,kIce,nu,CONVECTION_FLAG_I]=...
         ConvectionDeschampsSotin2001(Planet.Tsurf_K,Planet.Tb_K,PbI_MPa/2,Planet.zb_outerIce_m,g_ms2(1),phase(1)+1);
@@ -774,15 +775,20 @@ D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon
                 end
 
             %aK = 1.56e-4; % thermal expansive? Switch and use SeaFreeze ( find clath values()
-
-            T_K(iconv) = T_K(iconv-1)+alpha_K(iconv).*T_K(iconv)./Cp(iconv)./rho_kgm3(iconv)*deltaP*1e6;
-            % double check temperatures make sense
-            if strcmp(Planet.Ocean.comp,'NH3') % kluge svance july 7 2021. not sure why two phase tests are happening. generally, the seafreeze test should be performed when possible
-                phase_test = 1;
+            
+            %T_K(iconv) = T_K(iconv-1)+alpha_K(iconv).*T_K(iconv)./Cp(iconv)./rho_kgm3(iconv)*deltaP*1e6;
+            % The line above replaced with the below if/else per A. Marusiak 2023-01-21
+            if n_clath(iT)>0
+                T_K(iT,iconv)=Tc(iT);
             else
-                phase_test = getIcePhase(P_MPa(iconv),T_K(iconv-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
+                T_K(iT,iconv) = T_K(iT,iconv-1)+alpha_K(iT,iconv).*T_K(iT,iconv)./Cp(iT,iconv)./rho_kgm3(iT,iconv)*deltaP*1e6;
             end
-            phase_test2=SF_WhichPhase([P_MPa(iconv),T_K(iconv)]);
+            % double check temperatures make sense
+            if strcmp(Planet.Ocean.comp,'NH3')
+                phase_test = getIcePhase(P_MPa(iconv),T_K(iconv-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
+            else
+                phase_test2=SF_WhichPhase([P_MPa(iconv),T_K(iconv)]);
+            end
 
             if phase_test==0 || phase_test2==0 % & n_clath>0
                 Planet.Tb_K=T_K(iconv);
