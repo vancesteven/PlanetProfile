@@ -39,6 +39,10 @@ def MagneticInduction(Planet, Params, fNameOverride=None):
                 if Planet.index % 10 == 0:
                     log.profile(f'Point {Planet.index}/{Params.nModels} complete.')
 
+        else:
+            # Ensure we skip plotting if we won't do induction calcs
+            Planet.Magnetic.Binm_nT = None
+
     elif Planet.Do.VALID:
         # Reload induced moments from disk
         if fNameOverride is None:
