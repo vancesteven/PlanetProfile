@@ -239,6 +239,9 @@ def SetupInit(Planet, Params):
         if Planet.Sil.phiRangeMult <= 1:
             raise ValueError(f'Sil.phiRangeMult = {Planet.Sil.phiRangeMult}, but it must be greater than 1.')
     else:
+        if (not Planet.Do.Fe_CORE) and (not Planet.Do.CONSTANT_INNER_DENSITY):
+            raise RuntimeError('Matching the body MoI requires either a core or porosity in the rock.' +
+                               'Set Planet.Do.POROUS_ROCK to True and rerun to continue modeling with no core.')
         Planet.Sil.porosType = 'none'
         Planet.Sil.poreH2Orho_kgm3 = 0
         Planet.Sil.phiRockMax_frac = 0
@@ -383,7 +386,8 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
 
     Planet.saveLabel = saveLabel
     Planet.tradeLabel = f'{label}, $C/MR^2\,{Planet.CMR2str}$'
-    Planet.label = label
+    if Planet.label is None:
+        Planet.label = label
     if Params.DO_INDUCTOGRAM:
         inductBase = f'{Planet.name}_{Params.Induct.inductOtype}'
         Params.Induct.SetFlabel(Planet.bodyname)
