@@ -543,6 +543,15 @@ def OceanLayers(Planet, Params):
 
         # Evaluate remaining physical quantities for ocean layers
         MAbove_kg = np.sum(Planet.MLayer_kg[:Planet.Steps.nSurfIce])
+        # Get constant gravity if we will be assigning it
+        if Planet.Do.CONSTANT_GRAVITY:
+            Planet.g_ms2[Planet.Steps.nSurfIce:] = Constants.G * (Planet.Bulk.M_kg - MAbove_kg) / Planet.r_m[Planet.Steps.nSurfIce-1]**2
+        else:
+            # Ensure g values to be assigned are zero since we will be adding to them
+            Planet.g_ms2[Planet.Steps.nSurfIce:] = 0
+        # Assign 0 or 1 multiplier for constant/variable gravity calcs in loop
+        VAR_GRAV = int(not Planet.Do.CONSTANT_GRAVITY)
+
         for i in range(Planet.Steps.nSurfIce, Planet.Steps.nSurfIce + Planet.Steps.nOceanMax):
             Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6 / Planet.g_ms2[i-1] / \
                             Planet.rho_kgm3[i-1]
@@ -550,7 +559,7 @@ def OceanLayers(Planet, Params):
             Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1]**3 - Planet.r_m[i]**3)
             MAbove_kg += Planet.MLayer_kg[i-1]
             MBelow_kg = Planet.Bulk.M_kg - MAbove_kg
-            Planet.g_ms2[i] = Constants.G * MBelow_kg / Planet.r_m[i]**2
+            Planet.g_ms2[i] += VAR_GRAV * Constants.G * MBelow_kg / Planet.r_m[i]**2
 
         log.info(f'Ocean layers complete. zMax: {Planet.z_m[Planet.Steps.nSurfIce + Planet.Steps.nOceanMax - 1]/1e3:.1f} km, ' +
                  f'upper ice thickness zb: {Planet.zb_km:.3f} km.')

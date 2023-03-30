@@ -87,6 +87,7 @@ class DoSubstruct:
         self.PORE_EOS_DIFFERENT = False  # Whether a salinity and/or composition has been set for pores that differs from the ocean
         self.NONHYDROSTATIC = False  # Whether to use different lower bound for C/MR^2 matching commensurate with nonhydrostaticity resulting in an artificially high MoI value
         self.SKIP_POROUS_PHASE = False  # Whether to assume pores are only filled with liquid, and skip phase calculations there.
+        self.CONSTANT_GRAVITY = False  # Whether to force gravity to be constant throughout each material layer, instead of recalculating self-consistently with each progressive layer.
 
 
 """ Layer step settings """

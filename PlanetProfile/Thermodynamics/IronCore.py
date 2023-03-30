@@ -1,5 +1,6 @@
 import numpy as np
 import logging
+from PlanetProfile.Utilities.defineStructs import Constants
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -61,6 +62,14 @@ def IronCoreLayers(Planet, Params,
         thisgCore_ms2[:,0] = [gSil_ms2[iProf,thisCoreStart+j] for j in range(nSilRemain)]
         MAbove_kg = np.array([MAboveSil_kg[iProf,thisCoreStart+j] for j in range(nSilRemain)])
 
+        # Get constant gravity if we will be assigning it
+        if Planet.Do.CONSTANT_GRAVITY:
+            thisgCore_ms2[:,0] = Constants.G * (Planet.Bulk.M_kg - MAbove_kg) / thisrCore_m[:,0]**2
+            for j in range(nSilRemain):
+                thisgCore_ms2[j,:] = thisgCore_ms2[j,0]
+        # Assign 0 or 1 multiplier for constant/variable gravity calcs in loop
+        VAR_GRAV = int(not Planet.Do.CONSTANT_GRAVITY)
+
         for k in range(1, Planet.Steps.nCore):
             MAbove_kg += thisMLayerCore_kg[:,k-1]
             thisDeltaP = 1e-6 * thisMLayerCore_kg[:,k-1] * thisgCore_ms2[:,k-1] / (4*np.pi*thisrCore_m[:,k]**2)
@@ -71,8 +80,9 @@ def IronCoreLayers(Planet, Params,
             thisCpCore_JkgK[:,k] = Planet.Core.EOS.fn_Cp_JkgK(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k])
             thisalphaCore_pK[:,k] = Planet.Core.EOS.fn_alpha_pK(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k])
             thisMLayerCore_kg[:,k] = thisrhoCore_kgm3[:,k] * 4/3*np.pi*(thisrCore_m[:,k]**3 - thisrCore_m[:,k+1]**3)
+
             # Approximate gravity as linear to avoid blowing up for total mass less than body mass (accurate for constant density only)
-            thisgCore_ms2[:,k] = thisgCore_ms2[:,0] * thisrCore_m[:,k] / thisrCore_m[:,0]
+            thisgCore_ms2[:,k] += VAR_GRAV * thisgCore_ms2[:,0] * thisrCore_m[:,k] / thisrCore_m[:,0]
 
         if not Planet.Do.CONSTANT_INNER_DENSITY:
             # Find the first core profile that has a mass just below the body mass

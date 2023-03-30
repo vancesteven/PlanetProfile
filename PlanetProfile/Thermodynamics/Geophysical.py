@@ -152,6 +152,15 @@ def PropagateConduction(Planet, Params, iStart, iEnd):
     # after convection calculations when no convection is happening
     if iStart < iEnd:
         thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart])
+        # Get constant gravity if we will be assigning it
+        if Planet.Do.CONSTANT_GRAVITY:
+            Planet.g_ms2[iStart+1:] = Constants.G * (Planet.Bulk.M_kg - thisMAbove_kg) / Planet.r_m[iStart]**2
+        else:
+            # Ensure g values to be assigned are zero since we will be adding to them
+            Planet.g_ms2[iStart+1:] = 0
+        # Assign 0 or 1 multiplier for constant/variable gravity calcs in loop
+        VAR_GRAV = int(not Planet.Do.CONSTANT_GRAVITY)
+
         for i in range(iStart+1, iEnd+1):
             # Increment depth based on change in pressure, combined with gravity and density
             Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6 / Planet.g_ms2[i-1] / \
@@ -160,7 +169,7 @@ def PropagateConduction(Planet, Params, iStart, iEnd):
             Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rho_kgm3[i-1] * (Planet.r_m[i-1] ** 3 - Planet.r_m[i] ** 3)
             thisMAbove_kg += Planet.MLayer_kg[i-1]
             thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
-            Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i] ** 2
+            Planet.g_ms2[i] += VAR_GRAV * Constants.G * thisMBelow_kg / Planet.r_m[i]**2
             log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     return Planet
@@ -182,6 +191,15 @@ def PropagateAdiabaticSolid(Planet, Params, iStart, iEnd, EOS):
     """
 
     thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart-1])
+    # Get constant gravity if we will be assigning it
+    if Planet.Do.CONSTANT_GRAVITY:
+        Planet.g_ms2[iStart:] = Constants.G * (Planet.Bulk.M_kg - thisMAbove_kg) / Planet.r_m[iStart-1]**2
+    else:
+        # Ensure g values to be assigned are zero since we will be adding to them
+        Planet.g_ms2[iStart:] = 0
+    # Assign 0 or 1 multiplier for constant/variable gravity calcs in loop
+    VAR_GRAV = int(not Planet.Do.CONSTANT_GRAVITY)
+
     for i in range(iStart, iEnd):
         # Increment depth based on change in pressure, combined with gravity and density
         Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6 / Planet.g_ms2[i-1] / \
@@ -193,7 +211,7 @@ def PropagateAdiabaticSolid(Planet, Params, iStart, iEnd, EOS):
         thisMAbove_kg += Planet.MLayer_kg[i-1]
         thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
         # Use remaining mass below in Gauss's law for gravity to get g at the top of this layer
-        Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i] ** 2
+        Planet.g_ms2[i] += VAR_GRAV * Constants.G * thisMBelow_kg / Planet.r_m[i] ** 2
 
         # Propagate adiabatic thermal profile
         Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
@@ -228,7 +246,16 @@ def PropagateAdiabaticPorousVacIce(Planet, Params, iStart, iEnd, EOS):
 
     if iStart == 0:
         raise RuntimeError('Adiabatic calculations rely on overlying layer properties to begin recursion.')
+
     thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart-1])
+    # Get constant gravity if we will be assigning it
+    if Planet.Do.CONSTANT_GRAVITY:
+        Planet.g_ms2[iStart:] = Constants.G * (Planet.Bulk.M_kg - thisMAbove_kg) / Planet.r_m[iStart-1]**2
+    else:
+        # Ensure g values to be assigned are zero since we will be adding to them
+        Planet.g_ms2[iStart:] = 0
+    # Assign 0 or 1 multiplier for constant/variable gravity calcs in loop
+    VAR_GRAV = int(not Planet.Do.CONSTANT_GRAVITY)
 
     for i in range(iStart, iEnd):
         # Increment depth based on change in pressure, combined with gravity and density
@@ -240,7 +267,7 @@ def PropagateAdiabaticPorousVacIce(Planet, Params, iStart, iEnd, EOS):
         thisMAbove_kg += Planet.MLayer_kg[i-1]
         thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
         # Use remaining mass below in Gauss's law for gravity to get g at the top of this layer
-        Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
+        Planet.g_ms2[i] += VAR_GRAV * Constants.G * thisMBelow_kg / Planet.r_m[i]**2
 
         # Propagate adiabatic thermal profile
         Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
@@ -315,6 +342,15 @@ def PropagateAdiabaticPorousFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore
     # Ensure the top-layer pore pressure will be incremented up to the matching overburden pressure
     Planet.Ppore_MPa[iStart-1] = Planet.P_MPa[iStart] + 0.0
 
+    # Get constant gravity if we will be assigning it
+    if Planet.Do.CONSTANT_GRAVITY:
+        Planet.g_ms2[iStart:] = Constants.G * (Planet.Bulk.M_kg - thisMAbove_kg) / Planet.r_m[iStart-1]**2
+    else:
+        # Ensure g values to be assigned are zero since we will be adding to them
+        Planet.g_ms2[iStart:] = 0
+    # Assign 0 or 1 multiplier for constant/variable gravity calcs in loop
+    VAR_GRAV = int(not Planet.Do.CONSTANT_GRAVITY)
+
     # Begin adiabatic profile propagation
     for i in range(iStart, iEnd):
         # Increment depth based on change in pressure, combined with gravity and density
@@ -326,7 +362,7 @@ def PropagateAdiabaticPorousFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore
         thisMAbove_kg += Planet.MLayer_kg[i-1]
         thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
         # Use remaining mass below in Gauss's law for gravity to get g at the top of this layer
-        Planet.g_ms2[i] = Constants.G * thisMBelow_kg / Planet.r_m[i]**2
+        Planet.g_ms2[i] += VAR_GRAV * Constants.G * thisMBelow_kg / Planet.r_m[i]**2
 
         # Propagate adiabatic thermal profile
         Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
@@ -509,19 +545,25 @@ def InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m):
     # For the top layer, this is equal to the heat flux warming the hydrosphere.
     qTop_Wm2 = Planet.Ocean.QfromMantle_W / 4/np.pi/rSil_m[:,0]**2
 
-    # Adjust gravity model behavior in case these layers extend to the origin.
-    # This implementation may need to be changed to account for varying silicate
-    # physical properties with depth, esp. porosity, that will affect the validity
-    # of the constant-density approximation giving linear gravity.
-    if rSilEnd_m < 1 and not Planet.Do.Fe_CORE:
-        # Constant density approximation yields usable gravity values that
-        # introduce less inaccuracy than gravity values exploding because of
-        # bulk mass misfit from MoI searching
-        fn_g_ms2 = lambda MAboveLayer_kg, rLayerBot_m: \
-            gSil_ms2[:,0] * rLayerBot_m / rSil_m[:,0]
+
+    # Get constant gravity if we will be assigning it
+    if Planet.Do.CONSTANT_GRAVITY:
+        gConst_ms2 = Constants.G * (Planet.Bulk.M_kg - MHydro_kg) / rSil_m[:,0]**2
+        fn_g_ms2 = lambda MAboveLayer_kg, rLayerBot_m: gConst_ms2
     else:
-        fn_g_ms2 = lambda MAboveLayer_kg, rLayerBot_m: \
-            Constants.G * np.abs(Planet.Bulk.M_kg - MAboveLayer_kg) / rLayerBot_m**2
+        # Adjust gravity model behavior in case these layers extend to the origin.
+        # This implementation may need to be changed to account for varying silicate
+        # physical properties with depth, esp. porosity, that will affect the validity
+        # of the constant-density approximation giving linear gravity.
+        if rSilEnd_m < 1 and not Planet.Do.Fe_CORE:
+            # Constant density approximation yields usable gravity values that
+            # introduce less inaccuracy than gravity values exploding because of
+            # bulk mass misfit from MoI searching
+            fn_g_ms2 = lambda MAboveLayer_kg, rLayerBot_m: \
+                gSil_ms2[:,0] * rLayerBot_m / rSil_m[:,0]
+        else:
+            fn_g_ms2 = lambda MAboveLayer_kg, rLayerBot_m: \
+                Constants.G * np.abs(Planet.Bulk.M_kg - MAboveLayer_kg) / rLayerBot_m**2
 
     return Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, \
            MHydro_kg, gSil_ms2, phiSil_frac, HtidalSil_Wm3, KSsil_GPa, GSsil_GPa, \
