@@ -548,3 +548,15 @@ class GetphiCalc:
                 phi_frac[phi_frac < self.phiMin_frac] = 0
 
         return phi_frac
+
+
+def nuPoisson(VP_kms, VS_kms):
+    """
+    Calculate Poisson ratio based on sound speeds after Eq. 1 of Ji et al. (2018):
+    https://doi.org/10.1002/2017JB014606
+    :param VP_kms: float, shape N, NxM, etc. P-wave sound speed in km/s.
+    :param VS_kms: float, shape matching or broadcastable to VP_kms. S-wave sound speed
+        in km/s.
+    :return: nu: Dimensionless Poisson ratio, typically around 0.3 for ices and rocks.
+    """
+    return 0.5 * (1 - 1/((VP_kms/VS_kms)**2 - 1))
