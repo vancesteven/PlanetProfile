@@ -187,6 +187,7 @@ def CalcInducedMoments(Planet, Params):
             'Bi1y_nT': Planet.Magnetic.Bi1xyz_nT['y'],
             'Bi1z_nT': Planet.Magnetic.Bi1xyz_nT['z'],
             'Aen': Planet.Magnetic.Aen,
+            'R_km': Planet.Bulk.R_m/1e3,
             'asymShape_m': Planet.Magnetic.asymShape_m,
             'ionosBounds_m': Planet.Magnetic.ionosBounds_m,
             'calcedExc': Planet.Magnetic.calcedExc
@@ -222,7 +223,25 @@ def ReloadMoments(Planet, momentsFile):
 
     Planet.Magnetic.Amp = np.abs(Planet.Magnetic.Aen[:, 1])
     Planet.Magnetic.phase = -np.angle(Planet.Magnetic.Aen[:, 1], deg=True)
-    
+
+    # Make sure reloaded moments scale with the same radius
+    Rre_m = reload['R_km'][0,0]*1e3
+    Planet.Bulk.R_m /= 10
+    if (Rre_m - Planet.Bulk.R_m) / Planet.Bulk.R_m > 1e-6:
+        log.warning(f'Reloaded body radius of {Rre_m/1e3:.1f} km is significantly ' +
+                    f'different from input body radius of {Planet.Bulk.R_m/1e3:.1f}. ' +
+                    f'Reloaded moments will be scaled accordingly.')
+        dipScaling = (Planet.Bulk.R_m / Rre_m)**3
+        Planet.Magnetic.Amp *= dipScaling
+        for comp in ['x', 'y', 'z']:
+            Planet.Magnetic.Bi1xyz_nT[comp] *= dipScaling
+
+        for n in range(1, np.max(Planet.Magnetic.nLin)+1):
+            scaling = (Planet.Bulk.R_m / Rre_m)**(n+2)
+            Planet.Magnetic.Aen[:, n] *= scaling
+            Planet.Magnetic.Binm_nT[:,:,n,:] *= scaling
+            Planet.Magnetic.BinmLin_nT[:, Planet.Magnetic.nLin == n] *= scaling
+
     return Planet
 
 
