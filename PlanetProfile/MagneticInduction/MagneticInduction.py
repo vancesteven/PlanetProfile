@@ -226,7 +226,6 @@ def ReloadMoments(Planet, momentsFile):
 
     # Make sure reloaded moments scale with the same radius
     Rre_m = reload['R_km'][0,0]*1e3
-    Planet.Bulk.R_m /= 10
     if (Rre_m - Planet.Bulk.R_m) / Planet.Bulk.R_m > 1e-6:
         log.warning(f'Reloaded body radius of {Rre_m/1e3:.1f} km is significantly ' +
                     f'different from input body radius of {Planet.Bulk.R_m/1e3:.1f}. ' +
