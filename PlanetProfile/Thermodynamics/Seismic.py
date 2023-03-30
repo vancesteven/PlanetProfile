@@ -4,6 +4,10 @@ from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import TsolidusHirschmann2000
 from PlanetProfile.Utilities.defineStructs import Constants
 from PlanetProfile.Utilities.PPversion import ppVerNum
+import logging
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
 
 def SeismicCalcs(Planet, Params):
     """ Calculation of seismic properties, including wave speeds
@@ -20,7 +24,6 @@ def SeismicCalcs(Planet, Params):
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
             indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
             indsFe = GetPhaseIndices(Planet.phase)
-
 
         # Get seismic properties of all ice layers, starting with dry phases
         indsAllI = np.concatenate((indsI, indsIwet))
@@ -135,6 +138,10 @@ def SeismicCalcs(Planet, Params):
                     Planet.Seismic.QS[indsFe] = Planet.Seismic.QScore
                 else:
                     Planet.Seismic.QS[indsFe] = Constants.QScore
+
+    if np.any(Planet.Seismic.QS > Planet.Seismic.QSmax):
+        log.debug(f'Resetting unnecessarily high QS values to max value: {Planet.Seismic.QSmax}')
+        Planet.Seismic.QS[Planet.Seismic.QS > Planet.Seismic.QSmax] = Planet.Seismic.QSmax
 
     return Planet
 
@@ -341,6 +348,7 @@ def WriteSeismic(Planet, Params):
 
     """ @@@@@@
         AxiSEM
+        @@@@@@
     """
     # Extend final layer to center
     rAxi_m = Planet.r_m + 0
@@ -399,6 +407,7 @@ def WriteSeismic(Planet, Params):
 
     """ @@@@@@@@@@@@@@@
         minEOS velmodel
+        @@@@@@@@@@@@@@@
     """
     # Reconfigure data into minEOS-appropriate format
     rminEOSpre_m = np.arange(0, Planet.r_m[0] + Planet.Seismic.minEOS_rRes_m, Planet.Seismic.minEOS_rRes_m)
@@ -500,6 +509,7 @@ def WriteSeismic(Planet, Params):
 
     """ @@@@@@@@@@@@@@@@@@
         minEOS Yannos file
+        @@@@@@@@@@@@@@@@@@
     """
     # Write Yannos file
     yannosCfg = '# Input body model:\n' + \

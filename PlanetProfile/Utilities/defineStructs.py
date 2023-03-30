@@ -200,6 +200,7 @@ class SilSubstruct:
         self.HtidalMax_Wm3 = 1e-7  # Maximum average tidal heating to stop MoI search
         self.deltaHtidal_logUnits = 1/3  # Step size by which to increment Htidal_Wm3 for finding MoI match with no core.
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermSil_WmK)
+        self.kThermCMB_WmK = None  # Constant thermal conductivity to use for determining core-mantle boundary thermal boundary layer thickness when convection is happening
         """ Porosity parameters """
         self.phiRockMax_frac = None  # Porosity (void fraction) of the rocks in vacuum. This is the expected value for core-less bodies, and porosity is modeled for a range around here to find a matching MoI. For bodies with a core, this is a fixed value for rock porosity at P=0.
         self.phiRangeMult = 8  # Factor by which to divide the distance from user-defined phiRockMax_frac to 0 and 1 to obtain the search range for phi
@@ -295,6 +296,7 @@ class SeismicSubstruct:
 
     def __init__(self):
         self.lowQDiv = None  # Factor by which to divide the seismic attenuation Q to test out a low-Q value, dimensionless
+        self.QSmax = 1e5  # Maximum quality factor QS to limit calculated values to. Larger values create numerical challenges for seismic modeling without qualitative change to wave propagation.
         # Attenuation Parameters Based on those Described in Cammarano et al. 2006
         # Placeholder for clathrates, matching ice I
         self.BClath = 0.56
@@ -1476,7 +1478,7 @@ class FigLblStruct:
             self.tJ2000mult = 1 / 24 / 3600 / 365.25
         elif self.J2000units == 'h':
             self.tJ2000mult = 1 / 24
-        elif J2000units == 's':
+        elif self.J2000units == 's':
             self.tJ2000mult = 1
         else:
             log.warning('tJ2000units not recognized. Defaulting to years.')
@@ -1986,7 +1988,7 @@ class ConstantsStruct:
         self.sigmaCO2Clath_Sm = 6.5e-4  # Also from Stern et al. (2021), at 273 K and 25% gas-filled porosity
         self.EactCO2Clath_kJmol = 46.5  # Also from Stern et al. (2021)
         # Initialize activation energies and melting point viscosities, for use in convection calculations
-        self.Eact_kJmol, self.etaMelt_Pas = (np.ones(self.phaseClath+1) * np.nan for _ in range(2))
+        self.Eact_kJmol, self.etaMelt_Pas, self.EYoung_GPa = (np.ones(self.phaseClath+1) * np.nan for _ in range(3))
         self.Eact_kJmol[1:7] = np.array([59.4, 76.5, 127, np.nan, 136, 110])  # Activation energy for diffusion of ice phases Ih-VI in kJ/mol
         self.Eact_kJmol[self.phaseClath] = 90.0  # From Durham et al. (2003), at 50 and 100 MPa and 260-283 K: https://doi.org/10.1029/2002JB001872
         self.etaMelt_Pas[1:7] = np.array([1e14, 1e18, 5e12, np.nan, 5e14, 5e14])  # Viscosity at the melting temperature of ice phases Ih-VI in Pa*s. Ice Ih range of 5e13-1e16 is from Tobie et al. (2003), others unknown
