@@ -397,7 +397,7 @@ class MagneticSubstruct:
         self.Bi1xyzFT_nT = {'x': None, 'y': None, 'z': None}  # Complex induced dipole moments in Fourier spectrum
         # Asymmetric boundary plot calculations
         self.nAsymBds = None  # Number of boundaries for which to model asymmetry, including gravity shape
-        self.iAsymBds = np.empty(0, dtype=np.int)  # Index of asymShape_m to which the above z values correspond
+        self.iAsymBds = np.empty(0, dtype=np.int_)  # Index of asymShape_m to which the above z values correspond
         self.zMeanAsym_km = np.empty(0)  # List of mean depths for asymmetric boundaries in km
         self.asymDevs_km = None  # Deviations from spherical symmetry in m for each lat/lon point
         self.asymDescrip = None  # List of strings to use for describing contour plots in titles
@@ -1912,8 +1912,8 @@ class FigMiscStruct:
 
         self.lonMap_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonMap)
         self.phiMap_rad = np.radians(self.lonMap_deg)
-        self.lonMapTicks_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonTicks, dtype=np.int)
-        self.latMapTicks_deg = np.linspace(-90, 90, self.nLatTicks, dtype=np.int)
+        self.lonMapTicks_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonTicks, dtype=np.int_)
+        self.latMapTicks_deg = np.linspace(-90, 90, self.nLatTicks, dtype=np.int_)
         
     def LatMapFormatter(self, lat, pos):
         # Tick formatter function to use for latitude labels
