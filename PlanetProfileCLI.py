@@ -25,7 +25,7 @@ if __name__ == '__main__':
                     if 'PP' in sys.argv[3]:
                         fNames = sys.argv[3:]
                     else:
-                        log.warning(f'Too many command line args passed. Ignoring command "{sys.argv[3]}" and any after it.')
+                        print(f'Too many command line args passed. Ignoring command "{sys.argv[3]}" and any after it.')
     elif 'PP' in sys.argv[1]:
         print('PP in first CL arg -- interpreting as (list of) filename(s).')
         fNames = sys.argv[1:]
