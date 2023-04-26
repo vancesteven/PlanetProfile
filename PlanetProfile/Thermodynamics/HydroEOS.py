@@ -172,6 +172,10 @@ class OceanEOSStruct:
                                 'low temperatures or high pressures, this model will be wrong as no ' +
                                 'high-pressure ice phases will be found.')
                     self.Pmax = Constants.PminHPices_MPa
+                if self.Tmax > 350:
+                    log.warning('GSW yields physically valid properties only up to about 350 K.' +
+                                'Maximum temperature for this Seawater EOS will be set to that value.')
+                    self.Tmax = 350
 
                 self.ufn_phase = SwPhase(self.w_ppt)
                 # Lookup table is not used -- flag with nan for grid resolution.
