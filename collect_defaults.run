@@ -1,6 +1,6 @@
 #!/bin/bash
 
-python PlanetProfileCLI.py Io/PPIo.py Europa/PPEuropa.py Ganymede/PPGanymede.py Callisto/PPCallisto.py Mimas/PPMimas.py Enceladus/PPEnceladus.py Dione/PPDione.py Rhea/PPRhea.py Titan/PPTitan.py Miranda/PPMiranda.py Ariel/PPAriel.py Umbriel/PPUmbriel.py Titania/PPTitania.py Oberon/PPOberon.py Triton/PPTriton.py Pluto/PPPluto.py
+python PlanetProfileCLI.py Io/PPIo.py Europa/PPEuropa.py Ganymede/PPGanymede.py Callisto/PPCallisto.py Mimas/PPMimas.py Enceladus/PPEnceladus.py Tethys/PPTethys.py Dione/PPDione.py Rhea/PPRhea.py Titan/PPTitan.py Miranda/PPMiranda.py Ariel/PPAriel.py Umbriel/PPUmbriel.py Titania/PPTitania.py Oberon/PPOberon.py Triton/PPTriton.py Pluto/PPPluto.py
 
 cp */*Profile*.txt PlanetProfileDefaultOutputs/outputTextFiles/
 rm PlanetProfileDefaultOutputs/outputTextFiles/*Core.txt

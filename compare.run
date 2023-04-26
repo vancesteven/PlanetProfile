@@ -13,7 +13,7 @@ python PlanetProfileCLI.py Rhea/PPRhea.py Titania/PPTitania.py Oberon/PPOberon.p
 mv Comparison/ComparisonWedge.pdf Comparison/MidComparisonWedge.pdf
 
 # Small
-python PlanetProfileCLI.py Dione/PPDione.py Ariel/PPAriel.py Umbriel/PPUmbriel.py > Comparison/small.txt
+python PlanetProfileCLI.py Tethys/PPTethys.py Dione/PPDione.py Ariel/PPAriel.py Umbriel/PPUmbriel.py > Comparison/small.txt
 mv Comparison/ComparisonWedge.pdf Comparison/SmallComparisonWedge.pdf
 
 # Tiny
@@ -25,7 +25,7 @@ python PlanetProfileCLI.py Io/PPIo.py Europa/PPEuropa.py Ganymede/PPGanymede.py 
 mv Comparison/ComparisonWedge.pdf Comparison/JupiterComparisonWedge.pdf
 
 # Kronian
-python PlanetProfileCLI.py Mimas/PPMimas.py Enceladus/PPEnceladus.py Dione/PPDione.py Rhea/PPRhea.py Titan/PPTitan.py > Comparison/kronian.txt
+python PlanetProfileCLI.py Mimas/PPMimas.py Enceladus/PPEnceladus.py Tethys/PPTethys.py Dione/PPDione.py Rhea/PPRhea.py Titan/PPTitan.py > Comparison/kronian.txt
 mv Comparison/ComparisonWedge.pdf Comparison/SaturnComparisonWedge.pdf
 
 # Uranian
