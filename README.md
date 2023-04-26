@@ -81,7 +81,7 @@ A simple list with install commands for Python is in the next section.
   1. `conda install -c conda-forge gsw obspy spiceypy cmasher`
 1. AFTER the above modules have been installed with conda, install SeaFreeze and MoonMag with the following command:
   1. `pip install SeaFreeze MoonMag`
-  1. Finally, install PlanetProfile with `pip install PlanetProfile`
+  1. Finally, install PlanetProfile as described above.
   
 ### Matlab
 1. Download PlanetProfile repository.
