@@ -300,7 +300,8 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     # Limit Tmin so the relevant plot can better show what's going on in the ocean
     Tmax = np.max(Tdots_K)
-    axTz.set_xlim([FigMisc.TminHydro, FigMisc.TminHydro + 1.05*(Tmax - FigMisc.TminHydro)])
+    Tlims = [FigMisc.TminHydro, FigMisc.TminHydro + 1.05*(Tmax - FigMisc.TminHydro)]
+    axTz.set_xlim([np.min(Tlims), np.max(Tlims)])
 
     if FigMisc.PHASE_LABELS:
         # Label the phases found in the hydrosphere
