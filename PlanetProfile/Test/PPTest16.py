@@ -37,7 +37,7 @@ Planet.Sil.Htidal_Wm3 = 1e-18
 Planet.Do.POROUS_ROCK = True
 Planet.Sil.phiRockMax_frac = 0.4
 # Mantle equation of state model
-Planet.Sil.mantleEOS = 'CM_hydrous_differentiated_Ganymede_Core085Fe015S_excluding_fluid_properties.tab'
+Planet.Sil.mantleEOS = 'CM_hydrous_differentiated_Ganymede_Core080Fe020S_excluding_fluid_properties.tab'
 Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
 
 """ Core assumptions """
