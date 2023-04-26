@@ -173,7 +173,7 @@ class OceanEOSStruct:
                                 'high-pressure ice phases will be found.')
                     self.Pmax = Constants.PminHPices_MPa
                 if self.Tmax > 350:
-                    log.warning('GSW yields physically valid properties only up to about 350 K.' +
+                    log.warning('GSW yields physically valid properties only up to about 350 K. ' +
                                 'Maximum temperature for this Seawater EOS will be set to that value.')
                     self.Tmax = 350
 
