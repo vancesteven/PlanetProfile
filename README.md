@@ -9,11 +9,17 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
 ## Getting started
 PlanetProfile is available in Python and Matlab.
 
-*For Python,* the recommended way to install is with with pip:
+### *For Python*
+The recommended way to install is with with pip.
+Developers: see below--do not install via pip.
+
+Pip installation:
 1. (Recommended) Install all dependencies listed in the next section before proceeding.
 1. At a terminal:
 `python -m pip install PlanetProfile`
-Python 3.8 or higher is required. Pip will install dependencies, but a conda environment with the prerequisites listed below is recommended.
+Python 3.8 or higher is required, and Python 3.11 is recommended.
+A later version of PlanetProfile will require Python 3.11. 
+Pip will install dependencies, but a conda environment with the prerequisites listed below is recommended.
 1. Create a directory where you'd like to store configurations and have folders for each body.
 1. Navigate into the new directory.
 1. At a terminal:
@@ -27,7 +33,20 @@ or in a Python script with
 `from PlanetProfile.Main import RunPPfile
 RunPPfile('Europa', 'PPEuropa.py')`
 
-*For Matlab:*
+#### Developers:
+1. Install all prerequisites below to a dedicated conda environment.
+Python 3.11 is required for developers.
+If you are not yet using Python 3.11, upgrade before installing prerequisites.
+1. Clone this repository.
+1. Navigate to the top-level directory of the repository.
+1. At a terminal:
+`python -m PlanetProfile.install PPinstall`
+1. Run the software with the command line interface (CLI) script, for example:
+`python PlanetProfileCLI.py Europa`
+or
+`python PlanetProfileCLI.py path/to/PPBody.py`
+
+### *For Matlab*
   1. Download or clone this repository.
   1. Install prerequisites below.
   1. At a terminal: 
@@ -80,11 +99,11 @@ Some magnetic field features require use of the [SPICE toolkit through Mice](htt
   1. nep095.bsp
 
 ## Contributing
-PlanetProfile is open source software. Please see the [LICENSE](https://github.com/vancesteven/PlanetProfile/blob/master/LICENSE) file and read the guidelines for contrbuting in [CONTRIBUTING.md](https://github.com/vancesteven/PlanetProfile/blob/master/CONTRIBUTING.md) if you are interested in joining the project. Also see our community guidelines in [CODE_OF_CONDUCT.md](https://github.com/vancesteven/PlanetProfile/blob/master/CODE_OF_CONDUCT.md).
+PlanetProfile is open source software. Please see the [LICENSE](https://github.com/vancesteven/PlanetProfile/blob/main/LICENSE) file and read the guidelines for contrbuting in [CONTRIBUTING.md](https://github.com/vancesteven/PlanetProfile/blob/main/CONTRIBUTING.md) if you are interested in joining the project. Also see our community guidelines in [CODE_OF_CONDUCT.md](https://github.com/vancesteven/PlanetProfile/blob/main/CODE_OF_CONDUCT.md).
 
 ## Notes
 * With the PlanetProfile 2.0 release, both Python and Matlab are available. The two branches do not have the same functionality yet with this release--some features exist in the Python version that are not yet implemented in the Matlab. A later release will align their functionality as much as possible. For now, the Python version is recommended.
-* As of 2020-09-28, PlanetProfile v1.1.0 was released along with code for making calculations regarding magnetic induction. The development (master) branch of PlanetProfile is set up to generate profiles from minimal inputs. Output profiles that may be used along with the induction calculations may be found in the v1.1.0 release.
+* As of 2020-09-28, PlanetProfile v1.1.0 was released along with code for making calculations regarding magnetic induction. The development (main) branch of PlanetProfile is set up to generate profiles from minimal inputs. Output profiles that may be used along with the induction calculations may be found in the v1.1.0 release.
 * The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.
 
 Some calculations in Python use parallel computing with the multiprocessing builtin module. There are sometimes cross-platform compatibility issues that crop up. By default, multiprocessing is enabled; disable it by setting Params.DO_PARALLEL = False in configPP.py.

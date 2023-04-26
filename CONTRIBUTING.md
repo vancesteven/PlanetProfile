@@ -1,12 +1,12 @@
 # Contributing to PlanetProfile
-PlanetProfile is open source software. See the [LICENSE](https://github.com/vancesteven/PlanetProfile/blob/master/LICENSE) file and read the [README.md](https://github.com/vancesteven/PlanetProfile/blob/master/README.md) file first. Please also review our community [CODE_OF_CONDUCT.md](https://github.com/vancesteven/PlanetProfile/blob/master/CODE_OF_CONDUCT.md).
+PlanetProfile is open source software. See the [LICENSE](https://github.com/vancesteven/PlanetProfile/blob/main/LICENSE) file and read the [README.md](https://github.com/vancesteven/PlanetProfile/blob/main/README.md) file first. Please also review our community [CODE_OF_CONDUCT.md](https://github.com/vancesteven/PlanetProfile/blob/main/CODE_OF_CONDUCT.md).
 
 We welcome input from everyone! If you are interested to contribute to PlanetProfile, please read this document carefully. If you have any questions, please contact the software Maintainer at the email listed below. PlanetProfile leadership all maintain this software on a part-time, volunteer basis. We endeavor to respond to any inquiry within 3 business days of receipt. If you don't receive a response by then, feel free to ping again.
 
 ## Governance
 * Owner: Dr. Steven D. Vance - steven.d.vance@jpl.nasa.gov
-* Maintainer: Marshall J. Styczinski - itsmoosh@gmail.com
-* Lead developers: Dr. Steven D. Vance - steven.d.vance@jpl.nasa.gov, Marshall J. Styczinski - itsmoosh@gmail.com, Dr. Mohit Melwani Daswani - mohit.melwani.daswani@jpl.nasa.gov
+* Maintainer: Dr. Marshall J. Styczinski - marshall.j.styczinski@jpl.nasa.gov
+* Lead developers: Dr. Steven D. Vance - steven.d.vance@jpl.nasa.gov, Dr. Marshall J. Styczinski - marshall.j.styczinski@jpl.nasa.gov, Dr. Mohit Melwani Daswani - mohit.melwani.daswani@jpl.nasa.gov
 
 ## Contribution guidelines
 PlanetProfile is designed for use in scientific applications. As such, we hold the software to a high standard for usability, compatibility, and accuracy. We review all contributions to ensure the quality of all improvements to the software. Proposed changes may be rejected if they cause runtime errors, physical inaccuracy, etc. In the event a change is rejected, we will work with the author to find a solution. Command line operations are assumed in the instruction below, but you can substitute another method if it has the same effect.
