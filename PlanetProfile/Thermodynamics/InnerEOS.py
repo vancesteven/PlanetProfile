@@ -351,6 +351,7 @@ class EOSwrapper:
         if EOSlist.loaded[self.key].EOStype == 'ice':
             self.phaseID = EOSlist.loaded[self.key].phaseID
             self.POROUS = EOSlist.loaded[self.key].POROUS
+            self.Tmin = EOSlist.loaded[self.key].Tmin
         elif EOSlist.loaded[self.key].EOStype == 'ocean':
             self.Pmin = EOSlist.loaded[self.key].Pmin
             self.Pmax = EOSlist.loaded[self.key].Pmax
