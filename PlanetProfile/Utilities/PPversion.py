@@ -5,7 +5,7 @@ from PlanetProfile import _PPverNumFile
 ppVerNum = Path(_PPverNumFile).read_text().replace('\n', '')
 # Compatible version tag numbers
 compatNums = {
-    'seafreeze': '0.9.2',
+    'seafreeze': '0.9.3',
     'gsw': '3.4.0',
     'obspy': '1.2.2',
     'MoonMag': '1.5.1'

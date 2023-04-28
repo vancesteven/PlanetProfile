@@ -1,9 +1,6 @@
-src/*
 dist/*
 pyproject.toml
-MANIFEST.in
-setup.cfg
-setup.py
+PlanetProfile.egg-info/*
 configPP.py
 configPPplots.py
 configPPinduct.py

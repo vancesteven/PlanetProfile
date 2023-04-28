@@ -1,0 +1,12 @@
+include LICENSE
+recursive-include PlanetProfile/* *.py
+recursive-include PlanetProfile/* *.txt
+recursive-include PlanetProfile/* *.tab
+recursive-include PlanetProfile/* *.mat
+recursive-include PlanetProfile/* *.tf
+recursive-include PlanetProfile/* *.tls
+recursive-include PlanetProfile/* *.tpc
+recursive-include PlanetProfile/* *.md
+global-exclude *Ref.txt
+global-exclude Test*Profile*.txt
+global-exclude Test*.mat

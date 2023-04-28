@@ -4,7 +4,7 @@ import logging
 from scipy.io import loadmat
 from collections.abc import Iterable
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline, interp1d
-from seafreeze import seafreeze as SeaFreeze
+from seafreeze.seafreeze import seafreeze as SeaFreeze
 from PlanetProfile import _ROOT
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Thermodynamics.InnerEOS import ResetNearestExtrap

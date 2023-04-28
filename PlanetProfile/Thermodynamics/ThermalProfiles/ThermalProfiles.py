@@ -1,7 +1,7 @@
 import numpy as np
 import logging
 from PlanetProfile.Utilities.defineStructs import Constants
-from seafreeze import seafreeze as SeaFreeze
+from seafreeze.seafreeze import seafreeze as SeaFreeze
 from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv, GetTfreeze, GetPfreeze, kThermMelinder2007, \
     kThermHobbs1974, GetOceanEOS
 

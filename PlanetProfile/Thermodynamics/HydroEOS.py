@@ -5,8 +5,8 @@ from collections.abc import Iterable
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 from scipy.optimize import root_scalar as GetZero
 from scipy.io import loadmat
-from seafreeze import seafreeze as SeaFreeze
-from seafreeze import whichphase as WhichPhase
+from seafreeze.seafreeze import seafreeze as SeaFreeze
+from seafreeze.seafreeze import whichphase as WhichPhase
 from PlanetProfile import _ROOT
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, \
     ClathStableNagashima2017, ClathSeismic

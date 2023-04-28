@@ -891,8 +891,10 @@ def InductOgram(bodyname, Params):
             Induction.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
             nLayers = next(np.size(Planet.Magnetic.rSigChange_m) for Planet in PlanetGrid.flatten() if Planet.Magnetic.rSigChange_m is not None)
             nanLayers = np.nan*np.empty(nLayers)
-            Induction.rBds_m = np.array([[Planeti.Magnetic.rSigChange_m if Planeti.Magnetic.rSigChange_m is not None else nanLayers for Planeti in line] for line in PlanetGrid])
-            Induction.sigmaLayers_Sm = np.array([[Planeti.Magnetic.sigmaLayers_Sm if Planeti.Magnetic.sigmaLayers_Sm is not None else nanLayers for Planeti in line] for line in PlanetGrid])
+            # Note: Induction.rBds_m and Induction.sigmaLayers_Sm can have different lengths for each entry in PlanetGrid.
+            # To make an array under this condition, the lists for these entries must be objects (tuples here).
+            Induction.rBds_m = np.array([[Planeti.Magnetic.rSigChange_m if Planeti.Magnetic.rSigChange_m is not None else nanLayers for Planeti in line] for line in PlanetGrid], dtype=object)
+            Induction.sigmaLayers_Sm = np.array([[Planeti.Magnetic.sigmaLayers_Sm if Planeti.Magnetic.sigmaLayers_Sm is not None else nanLayers for Planeti in line] for line in PlanetGrid], dtype=object)
 
         Induction.Texc_hr = Mag.Texc_hr[bodyname]
         Induction.Amp = np.array([[[Planeti.Magnetic.Amp[i] if Planeti.Magnetic.Amp is not None else np.nan for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
