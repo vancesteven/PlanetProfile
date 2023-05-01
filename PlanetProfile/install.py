@@ -34,5 +34,26 @@ def PPinstall():
     for repoSpice, localSpice in zip(spiceFiles, spiceCopies):
         CopyOnlyIfNeeded(repoSpice, localSpice)
 
+
+def PPuninstall():
+    """ Removes the same contents as what is added by PPinstall.
+    """
+    print('WARNING: This will remove all files within Body folders, the SPICE folder, the folders themselves, and configPP files.')
+    answer = input('Continue? (y/n) ')
+
+    if answer in ['y', 'Y', 'yes', 'Yes', 'YES']:
+        print('\nRemoving all Body folders, SPICE kernels, and configPP files.')
+        Bodies = [os.path.basename(bodyDir) for bodyDir in glob(os.path.join(_Defaults, '*'))]
+        [shutil.rmtree(Body, ignore_errors=True) for Body in Bodies]
+        shutil.rmtree(os.path.basename(_SPICE), ignore_errors=True)
+        [os.remove(cfg) for cfg in configLocals]
+
+    elif answer in ['n', 'N', 'no', 'No', 'NO']:
+        print('Aborting.')
+        exit(0)
+    else:
+        raise ValueError(f'Response "{answer}" not recognized.')
+
+
 if __name__ == '__main__':
     PPinstall()

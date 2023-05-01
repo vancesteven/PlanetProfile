@@ -185,7 +185,7 @@ else
 endif
 
 uninstall:
-# Delete Refprop files we placed
+# Delete Refprop files we may have placed
 ifeq ($(refprop),0)
 	rm /opt/librefprop.dylib
 	rm /opt/refprop/fluids/*.fld
