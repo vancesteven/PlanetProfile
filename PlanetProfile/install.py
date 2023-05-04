@@ -3,17 +3,18 @@ from glob import glob
 
 import numpy as np
 
-from PlanetProfile import _ROOT, _Defaults, _SPICE, configTemplates, configLocals, CopyOnlyIfNeeded
+from PlanetProfile import _ROOT, _Defaults, _SPICE, configTemplates, configLocals, CopyOnlyIfNeeded, RemoveCarefully
+
 
 def PPinstall():
-    """ Copies default body files from PlanetProfile/Default/Body/ directories to Body/ directories found here. 
+    """ Copies default body files from PlanetProfile/Default/Body/ directories to Body/ directories found here.
         The input files found in the Body/PPBody.py files here will override the defaults.
         Same for config files in this directory--they will override settings found in config files
         in the PlanetProfile/ directory.
     """
 
     print('Copying any Body/PPBody.py, Body/inductionData/*.txt, and config files that aren\'t ' +
-             'in the right places from their defaults.')
+          'in the right places from their defaults.')
 
     # Copy default profiles
     Defaults = glob(os.path.join(_Defaults, '*', 'PP*.py'))
@@ -50,7 +51,8 @@ def PPuninstall(KEEP_NEW=None):
     Returns:
         None
     """
-    print('WARNING: This will remove all files within Body folders, the SPICE folder, the folders themselves, and configPP files ' +
+    print(
+        'WARNING: This will remove all files within Body folders, the SPICE folder, the folders themselves, and configPP files ' +
         'that have been copied from the PlanetProfile defaults.')
     answer = input('Continue? (y/N) ')
 
@@ -58,51 +60,56 @@ def PPuninstall(KEEP_NEW=None):
         print('\nRemoving all copied Body folder contents, SPICE kernels, and configPP files.')
 
         # Remove config files
-        [os.remove(cfg) for cfg in configLocals]
+        [RemoveCarefully(cfg) for cfg in configLocals]
 
         Bodies = [os.path.basename(bodyDir) for bodyDir in glob(os.path.join(_Defaults, '*'))]
         # Remove PPBody.py files
         Defaults = glob(os.path.join(_Defaults, '*', 'PP*.py'))
         PPfiles = [file.split(f'Default{os.sep}')[-1] for file in Defaults]
-        [os.remove(file) for file in PPfiles]
+        [RemoveCarefully(file) for file in PPfiles]
 
         # Remove induction files
         inductionDefaults = glob(os.path.join(_Defaults, '*', 'inductionData', '*.txt'))
         inductionLocal = [file.split(f'Default{os.sep}')[-1] for file in inductionDefaults]
         inductionDirs = [os.path.join(Body, 'inductionData') for Body in Bodies]
-        [os.remove(file) for file in inductionLocal]
+        [RemoveCarefully(file) for file in inductionLocal]
 
         # Remove SPICE files
         spiceDefaults = glob(os.path.join(_SPICE, '*'))
         spiceLocal = [file.split(f'{_ROOT}{os.sep}')[-1] for file in spiceDefaults]
         spiceDir = os.path.basename(_SPICE)
-        [os.remove(file) for file in spiceLocal]
+        [RemoveCarefully(file) for file in spiceLocal]
 
         # Check if each Body folder (and the SPICE folder) is empty, and if so, delete it.
         # Otherwise, warn user and ask to delete
-        if not os.listdir(spiceDir):
-            os.rmdir(spiceDir)
-        else:
-            if KEEP_NEW is None:
-                print(f'{spiceDir} contains non-default files.')
-                answer = input('Delete them anyway? (y/N) ')
-                if answer in ['y', 'Y', 'yes', 'Yes', 'YES']:
-                    shutil.rmtree(os.path.basename(_SPICE), ignore_errors=True)
-            elif not KEEP_NEW:
-                shutil.rmtree(os.path.basename(_SPICE), ignore_errors=True)
-        for Body, inductDir in zip(Bodies, inductionDirs):
-            if not os.listdir(inductDir):
-                os.rmdir(inductDir)
-            if not os.listdir(Body):
-                os.rmdir(Body)
+        if os.path.isdir(spiceDir):
+            if not os.listdir(spiceDir):
+                os.rmdir(spiceDir)
             else:
                 if KEEP_NEW is None:
-                    print(f'{Body} dir contains non-default files.')
+                    print(f'{spiceDir} contains non-default files.')
                     answer = input('Delete them anyway? (y/N) ')
                     if answer in ['y', 'Y', 'yes', 'Yes', 'YES']:
-                        shutil.rmtree(Body, ignore_errors=True)
+                        shutil.rmtree(os.path.basename(_SPICE), ignore_errors=True)
                 elif not KEEP_NEW:
-                    shutil.rmtree(Body, ignore_errors=True)
+                    shutil.rmtree(os.path.basename(_SPICE), ignore_errors=True)
+
+        for Body, inductDir in zip(Bodies, inductionDirs):
+            if os.path.isdir(inductDir):
+                if not os.listdir(inductDir):
+                    os.rmdir(inductDir)
+
+            if os.path.isdir(Body):
+                if not os.listdir(Body):
+                    os.rmdir(Body)
+                else:
+                    if KEEP_NEW is None:
+                        print(f'{Body} dir contains non-default files.')
+                        answer = input('Delete them anyway? (y/N) ')
+                        if answer in ['y', 'Y', 'yes', 'Yes', 'YES']:
+                            shutil.rmtree(Body, ignore_errors=True)
+                    elif not KEEP_NEW:
+                        shutil.rmtree(Body, ignore_errors=True)
     else:
         print('Aborting.')
         exit(0)

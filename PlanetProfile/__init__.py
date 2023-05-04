@@ -29,6 +29,9 @@ def CopyOnlyIfNeeded(source, destination):
 
     return
 
+def RemoveCarefully(file):
+    if os.path.isfile(file):
+        os.remove(file)
 
 # Set accessible file paths for installation directory and default configs
 _ROOT = os.path.abspath(os.path.dirname(__file__))

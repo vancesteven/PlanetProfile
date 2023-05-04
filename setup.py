@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='PlanetProfile',
-    version='2.3.13',
+    version='2.3.14',
     author='Marshall J. Styczinski',
     author_email='marshall.j.styczinski@jpl.nasa.gov',
     description='Self-consistent geophysical models for large moons and ocean worlds',
