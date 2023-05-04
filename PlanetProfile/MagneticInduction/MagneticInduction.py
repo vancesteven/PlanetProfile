@@ -2,7 +2,6 @@ import os
 import numpy as np
 import logging
 import scipy.interpolate as spi
-import scipy.special as sps
 import spiceypy as spice
 from scipy.integrate import solve_ivp as ODEsolve
 from collections.abc import Iterable
@@ -11,9 +10,10 @@ from scipy.io import savemat, loadmat
 from PlanetProfile import _Test, _Defaults
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.MagneticInduction.Moments import Excitations
-from PlanetProfile.GetConfig import FigMisc
+from PlanetProfile.GetConfig import FigMisc, SigParams
+from PlanetProfile.TrajecAnalysis.SpiceFuncs import BodyDist_km
 from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq as GeodesyNorm2chipq, \
-    get_all_Xid as LoadXid, get_rsurf as GetrSurf
+    get_all_Xid as LoadXid, get_rsurf as GetrSurf, norm4pi as normFactor_4pi
 from MoonMag.symmetry_funcs import InducedAeList as AeList
 
 # Assign logger
@@ -837,12 +837,15 @@ def SetAsymShape(Planet, Params):
     return Planet
 
 
-def normFactor_4pi(n, m):
-    """ Calculate the normalization factor for 4pi-normalized spherical harmonics,
-        without the Condon-Shortley phase, as needed for shape calculations that make
-        use of infrastructure from MoonMag.
-    """
-    return np.sqrt((2*n+1) * sps.factorial(n - abs(m)) / sps.factorial(n + abs(m)))
+def Bxyz2Bsph(Bx, By, Bz, theta, phi):
+    # Convert vector components aligned to cartesian axes
+    # into vector components aligned to spherical coordinates.
+    # Source: Arfken, Weber, Harris, Mathematical Methods for Physicists,
+    # 7th ed, pg. 199 for the unit vectors.
+    Br   =  np.sin(theta) * np.cos(phi) * Bx + np.sin(theta) * np.sin(phi) * By + np.cos(theta) * Bz
+    Bth  =  np.cos(theta) * np.cos(phi) * Bx + np.cos(theta) * np.sin(phi) * By - np.sin(theta) * Bz
+    Bphi =                 -np.sin(phi) * Bx +                 np.cos(phi) * By
+    return Br, Bth, Bphi
 
 
 def FourierSpectrum(Planet, Params):
