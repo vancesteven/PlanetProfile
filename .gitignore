@@ -1,4 +1,5 @@
 dist/*
+.idea/*
 pyproject.toml
 PlanetProfile.egg-info/*
 configPP.py
