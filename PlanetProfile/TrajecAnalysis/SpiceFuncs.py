@@ -5,9 +5,11 @@ import logging
 import os.path
 import numpy as np
 import spiceypy as spice
+from collections.abc import Iterable
 from glob import glob as GetFilesFromPattern
 from MoonMag.field_xyz import eval_Bi
 from PlanetProfile.Utilities.defineStructs import Constants
+from PlanetProfile import _SPICE
 
 # Parallel processing
 import multiprocessing as mtp
@@ -36,9 +38,19 @@ def LoadKernels(Params, parent, scName):
           + GetFilesFromPattern(os.path.join(Params.spiceSC[scName], '*.bsp'))
         kernelList = kernelList + [os.path.join(Params.spiceDir, Params.spiceBSP[xparent]) for xparent in extraParents if xparent is not None]
         log.debug(', '.join(kernelList))
+        ERRORS = False
         for kernel in kernelList:
             if not os.path.isfile(kernel):
                 log.error(f'Kernel file not found: {kernel}')
+                ERRORS = True
+
+        if ERRORS:
+            log.error(f'At least one kernel file was not found. Review the SPICE README file, copied below, for ' +
+                      f'instructions on placing kernels where spiceypy can find them.')
+            spiceREADME = open(os.path.join(_SPICE, 'README.md'), 'r').read()
+            log.error(spiceREADME)
+            raise FileNotFoundError('See above for missing SPICE kernel files.')
+
         spice.furnsh(kernelList)
 
     return
