@@ -41,7 +41,7 @@ class FlybyCAStruct:
                 'Jupiter': {'J': '1979-07-09T22:29:01.964'},
                 'Saturn':  {'S': '1981-08-26T03:24:04.760'},
                 'Uranus':  {'U': '1986-01-24T17:58:51.346'},
-                'Neptune': {'N': '1989-08-25T03:55:40.075'}
+                'Neptune': {'N': '1989-08-25T03:55:40.076'}
             }
         elif self.scName == 'Galileo':
             self.tCA_UTC = {
@@ -73,6 +73,10 @@ class FlybyCAStruct:
                     'C3': '1996-11-04T13:34:27.726',
                     'C9': '1997-06-25T13:47:49.949',
                     'C10': '1997-09-17T00:18:54.790',
+                    'C20': '1999-05-05T13:56:18.118',
+                    'C21': '1999-06-30T07:46:49.675',
+                    'C22': '1999-08-14T08:30:51.767',
+                    'C23': '1999-09-16T17:27:01.828',
                     'C30': '2001-05-25T11:23:57.770'
                 }
             }
@@ -121,10 +125,27 @@ class FlybyCAStruct:
             body: {flybyID: spice.str2et(tCA) for flybyID, tCA in self.tCA_UTC[body].items() if tCA is not None}
         for body in self.tCA_UTC.keys()}
 
+        self.GetrCA()
+        self.GetSunDir()
+
     def GetrCA(self):
-        self.rCA_km = {body: {flybyID: rCA for flybyID, rCA in zip(self.tCA_UTC[body].keys(),
-                                BodyDist_km(self.spiceName, body, list(self.etCA[body].values()))[-1])}
-                                for body in self.tCA_UTC.keys()}
+        self.rCA_km, self.latCA_deg, self.lonCA_deg = ({}, {}, {})
+        for body in self.tCA_UTC.keys():
+            x_km, y_km, z_km, r_km = BodyDist_km(self.spiceName, body, list(self.etCA[body].values()))
+            lat_deg = np.degrees(np.arctan2(z_km, np.sqrt(x_km**2 + y_km**2)))
+            lon_deg = np.degrees(np.arctan2(y_km, x_km))
+            self.rCA_km[body] = {flybyID: rCA for flybyID, rCA in zip(self.tCA_UTC[body].keys(), r_km)}
+            self.latCA_deg[body] = {flybyID: latCA for flybyID, latCA in zip(self.tCA_UTC[body].keys(), lat_deg)}
+            self.lonCA_deg[body] = {flybyID: lonCA for flybyID, lonCA in zip(self.tCA_UTC[body].keys(), lon_deg)}
+
+    def GetSunDir(self):
+        self.latSunCA_deg, self.lonSunCA_deg = ({}, {})
+        for body in self.tCA_UTC.keys():
+            x_km, y_km, z_km, _ = BodyDist_km('SUN', body, list(self.etCA[body].values()))
+            lat_deg = np.degrees(np.arctan2(z_km, np.sqrt(x_km**2 + y_km**2)))
+            lon_deg = np.degrees(np.arctan2(y_km, x_km))
+            self.latSunCA_deg[body] = {flybyID: latCA for flybyID, latCA in zip(self.tCA_UTC[body].keys(), lat_deg)}
+            self.lonSunCA_deg[body] = {flybyID: lonCA for flybyID, lonCA in zip(self.tCA_UTC[body].keys(), lon_deg)}
 
     def PrinttCA(self, flybyID=None):
         # Get the actual time of closest approach according to trajectory
@@ -158,6 +179,3 @@ def GetActualCA(spiceSCname, t_UTC, bodyname, range_min=5, res_s=0.001):
 
 
 FlybyCA = {scName: FlybyCAStruct(scName) for scName in scNames}
-[FlybyCA[sc].GetrCA() for sc in scNames]
-
-
