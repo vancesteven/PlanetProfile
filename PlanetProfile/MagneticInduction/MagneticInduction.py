@@ -12,7 +12,7 @@ from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from PlanetProfile.GetConfig import FigMisc, SigParams
 from PlanetProfile.TrajecAnalysis.SpiceFuncs import BodyDist_km
-from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq as GeodesyNorm2chipq, \
+from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq_single as GeodesyNorm2chipq, \
     get_all_Xid as LoadXid, get_rsurf as GetrSurf, norm4pi as normFactor_4pi
 from MoonMag.symmetry_funcs import InducedAeList as AeList
 
