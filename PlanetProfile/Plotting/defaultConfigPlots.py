@@ -300,6 +300,7 @@ def plotAssign():
     FigMisc.LARGE_ADJUST = True  # Whether to make certain labels better for cramped spaces, including removing colorbars (True is more pared down, and overrides nLon/LatTicks below.)
     FigMisc.BASYM_WITH_SYM = True  # Whether to plot Basym plot and Bsym plot on the same figure
     FigMisc.vCompMagSurf = 'mag'  # Component to use for induced field surface strength plots. Options are ['x', 'y', 'z', 'mag', 'all'].
+    FigMisc.mapTitleSize = None  # Override for title font size. Defaults for normal and LARGE_ADJUST are in Utilities.defineStructs.
     FigMisc.nPPGCmapRes = 180  # Number of points per great circle to use for map angular resolution
     FigMisc.DO_360 = False  # Whether to range longitudes from 0 to 360 or from -180 to +180
     FigMisc.nLatTicks = 7  # Number of ticks to mark on latitude axis
