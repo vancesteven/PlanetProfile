@@ -239,8 +239,9 @@ pypi:
 		rm -r dist ; \
 	fi
 
-	@# Ensure setuptools, wheel, and twine are the latest versions
-	@pip install --upgrade setuptools wheel
+	@# Ensure pip, setuptools, wheel, and twine are the latest versions
+	@pip install --upgrade pip
+	@pip install --upgrade setuptools wheel build twine
 	@# Build the distro based on info in setup.py and MANIFEST.in
 	@python -m build
 
