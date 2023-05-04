@@ -11,7 +11,7 @@ def configAssign():
     Params = ParamsStruct()
     ExploreParams = ExploreParamsStruct()
 
-    Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
+    Params.VERBOSE =       True  # Provides extra runtime messages. Overrides QUIET below
     Params.QUIET =         False  # Hides all log messages except warnings and errors
     Params.QUIET_MOONMAG = True  # If True, sets MoonMag logging level to WARNING, otherwise uses the same as PlanetProfile.
     Params.QUIET_LBF = True  # If True, sets lbftd and mlbspline logging levels to ERROR, otherwise uses the same as PlanetProfile.
