@@ -23,7 +23,7 @@ Pip will install dependencies, but a conda environment with the prerequisites li
 1. Create a directory where you'd like to store configurations and have folders for each body.
 1. Navigate into the new directory.
 1. At a terminal:
-`python -m PlanetProfile.install PPinstall`
+`python -m PlanetProfile.install`
 This will copy files from their defaults to the current directory.
 1. Run the software with, for example:
 `python -m PlanetProfile.Main Europa`
@@ -97,6 +97,13 @@ Some magnetic field features require use of the [SPICE toolkit through Mice](htt
   1. sat427.bsp
   1. ura111.bsp
   1. nep095.bsp
+
+## Uninstalling
+1. In the top-level directory, run the command `python -c "from PlanetProfile.install import PPuninstall; PPuninstall()"`.
+All files named the same as the defaults will be deleted.
+If any non-default files have been added, you will be prompted whether you would like to delete them as well as the defaults.
+Empty folders will be deleted.
+Complete the uninstallation by deleting the entire directory and running the command `pip uninstall PlanetProfile`.
 
 ## Contributing
 PlanetProfile is open source software. Please see the [LICENSE](https://github.com/vancesteven/PlanetProfile/blob/main/LICENSE) file and read the guidelines for contrbuting in [CONTRIBUTING.md](https://github.com/vancesteven/PlanetProfile/blob/main/CONTRIBUTING.md) if you are interested in joining the project. Also see our community guidelines in [CODE_OF_CONDUCT.md](https://github.com/vancesteven/PlanetProfile/blob/main/CODE_OF_CONDUCT.md).
