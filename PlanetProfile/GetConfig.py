@@ -18,7 +18,8 @@ from configPP import configVersion as userConfigVersion
 if configVersion != userConfigVersion:
     warn(f'User configPP file is version {userConfigVersion}, but the default file is ' +
                       f'version {configVersion}. Some settings may be missing; default values will be used. ' +
-                      'To align the file version, delete configPP.py and run again, or execute reset.py.')
+                      'To align the file version, delete configPP.py and run again, or execute reset.py ' +
+                      'with python -m PlanetProfile.reset')
 
 # Grab config settings first to load LSK for later adjustments with SPICE
 from PlanetProfile.defaultConfig import configAssign
@@ -31,14 +32,14 @@ if hasattr(userParams,'spiceTLS') and hasattr(userParams,'spiceDir'):
     if not os.path.isfile(userLSK):
         raise FileNotFoundError(f'Leapseconds kernel was not found at {userLSK}. This likely means PlanetProfile ' +
                                 f'has not been fully installed. Run the install script with the following command:\n' +
-                                f'python -m PlanetProfile.install PPinstall')
+                                f'python -m PlanetProfile.install')
     spice.furnsh(userLSK)
 else:
     defLSK = os.path.join(Params.spiceDir, Params.spiceTLS)
     if not os.path.isfile(defLSK):
         raise FileNotFoundError(f'Leapseconds kernel was not found at {defLSK}. This likely means PlanetProfile ' +
                                 f'has not been fully installed. Run the install script with the following command:\n' +
-                                f'python -m PlanetProfile.install PPinstall')
+                                f'python -m PlanetProfile.install')
     spice.furnsh(defLSK)
 
 from PlanetProfile.MagneticInduction.defaultConfigInduct import configInductVersion
@@ -50,11 +51,13 @@ from configPPplots import configPlotsVersion as userConfigPlotsVersion
 if configInductVersion != userConfigInductVersion:
     warn(f'User configPPinduct file is version {userConfigInductVersion}, but the default file is ' +
                       f'version {configInductVersion}. Some settings may be missing; default values will be used. ' +
-                      'To align the file version, delete configPPinduct.py and run again, or execute reset.py.')
+                      'To align the file version, delete configPPinduct.py and run again, or execute reset.py ' +
+                      'with python -m PlanetProfile.reset')
 if configPlotsVersion != userConfigPlotsVersion:
     warn(f'User configPPplots file is version {userConfigPlotsVersion}, but the default file is ' +
                       f'version {configPlotsVersion}. Some settings may be missing; default values will be used. ' +
-                      'To align the file version, delete configPPplots.py and run again, or execute reset.py.')
+                      'To align the file version, delete configPPplots.py and run again, or execute reset.py ' +
+                      'with python -m PlanetProfile.reset')
 
 from PlanetProfile.MagneticInduction.defaultConfigInduct import inductAssign
 from configPPinduct import inductAssign as userInductAssign

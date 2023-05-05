@@ -75,7 +75,7 @@ A simple list with install commands for Python is in the next section.
 
 ### Note about SeaFreeze versions prior to v0.9.3
 If you had installed SeaFreeze before version v0.9.3, you will need to manually remove the prior installation because it was improperly packaged before.
-To do so, run the command `python -m site` and open the listed directory.
+To do so, run the command `python -m site` and open the listed directory that ends in `site-packages`.
 Delete the files `seafreeze.py` and `SeaFreeze_Gibbs.mat` and any directories beginning with "SeaFreeze" (e.g. `SeaFreeze.egg-info`).
 Once these files have been removed, install the newer version of SeaFreeze with `pip install SeaFreeze`.
 
