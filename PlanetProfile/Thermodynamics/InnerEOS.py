@@ -1,6 +1,8 @@
 import os
 import numpy as np
 import logging
+from copy import deepcopy
+from collections.abc import Iterable
 from scipy.io import loadmat
 from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator, interp1d as Interp1D, griddata as GridData
 from PlanetProfile import _ROOT
@@ -11,13 +13,16 @@ log = logging.getLogger('PlanetProfile')
 
 def GetInnerEOS(EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
                 HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None,
-                EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None):
+                EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, VARIABLE_COMP=False, Pstratified_MPa=None,
+                wStratified_ppt=None, compStratified=None):
     innerEOS = PerplexEOSStruct(EOSfname, EOSinterpMethod=EOSinterpMethod, nHeaders=nHeaders,
                                 Fe_EOS=Fe_EOS, kThermConst_WmK=kThermConst_WmK,
                                 HtidalConst_Wm3=HtidalConst_Wm3, porosType=porosType,
                                 phiTop_frac=phiTop_frac, Pclosure_MPa=Pclosure_MPa,
                                 phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
-                                wFeCore_ppt=wFeCore_ppt, wScore_ppt=wScore_ppt)
+                                wFeCore_ppt=wFeCore_ppt, wScore_ppt=wScore_ppt,
+                                VARIABLE_COMP=VARIABLE_COMP, Pstratified_MPa=Pstratified_MPa,
+                                wStratified_ppt=wStratified_ppt, compStratified=compStratified)
     if innerEOS.ALREADY_LOADED:
         log.debug(f'{innerEOS.comp} EOS already loaded. Reusing existing EOS.')
         innerEOS = EOSlist.loaded[innerEOS.EOSlabel]
@@ -37,7 +42,8 @@ class PerplexEOSStruct:
     """
     def __init__(self, EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
                  HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None,
-                 EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None):
+                 EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, VARIABLE_COMP=False, Pstratified_MPa=None,
+                 wStratified_ppt=None, compStratified=None):
         self.comp = EOSfname[:-4]
         self.EOSlabel = f'comp{self.comp}interp{EOSinterpMethod}kTherm{kThermConst_WmK}Htidal{HtidalConst_Wm3}poros{porosType}' + \
                         f'phi{phiTop_frac}Pclose{Pclosure_MPa}phiMin{phiMin_frac}extrap{EXTRAP}wFeppt{wFeCore_ppt}wSppt{wScore_ppt}'
@@ -65,6 +71,8 @@ class PerplexEOSStruct:
             self.phiMin_frac = phiMin_frac
             self.wFeCore_ppt = wFeCore_ppt
             self.wScore_ppt = wScore_ppt
+            self.wMax = np.nan  # For compatibility with shared ocean functions
+            self.wMin = np.nan  # For compatibility with shared ocean functions
 
             if '3D_EOS' in self.fpath:
                 if wFeCore_ppt is None and wScore_ppt is None:
@@ -120,10 +128,14 @@ class PerplexEOSStruct:
                     self.Pmax = np.max(P1D_MPa)
                     self.Tmin = np.min(T1D_K)
                     self.Tmax = np.max(T1D_K)
-                    self.deltaP = P1D_MPa[1] - P1D_MPa[0]
-                    self.deltaT = T1D_K[1] - T1D_K[0]
+                    self.wMin = np.min(1e3 - wFe_ppt)
+                    self.wMax = np.max(1e3 - wFe_ppt)
+                    self.deltaP = abs(P1D_MPa[1] - P1D_MPa[0])
+                    self.deltaT = abs(T1D_K[1] - T1D_K[0])
+                    self.deltaw = abs(wFe_ppt[1] - wFe_ppt[0])
                     self.EOSdeltaP = self.deltaP
                     self.EOSdeltaT = self.deltaT
+                    self.EOSdeltaw = self.deltaw
                 else:
                     # Load in Perple_X data. Note that all P, KS, and GS are stored as bar
                     firstPT, secondPT, rho_kgm3, VP_kms, VS_kms, Cp_Jm3K, alpha_pK, KS_bar, GS_bar \
@@ -154,6 +166,8 @@ class PerplexEOSStruct:
                     self.Pmax = Plin_MPa[-1]
                     self.Tmin = Tlin_K[0]
                     self.Tmax = Tlin_K[-1]
+                    self.wMin = np.nan
+                    self.wMax = np.nan
                     lenT = int(len(Tlin_K) / lenP)
                     P1D_MPa, self.deltaP = np.linspace(self.Pmin, self.Pmax, lenP, retstep=True)
                     T1D_K, self.deltaT = np.linspace(self.Tmin, self.Tmax, lenT, retstep=True)
@@ -303,42 +317,42 @@ class PerplexEOSStruct:
         # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
         return (propBulk**J * (1 - phi) + propPore**J * phi) ** (1/J)
 
-    def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
+    def fn_rho_kgm3(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         # Limit extrapolation to use nearest value from evaluated fit if desired
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_rho_kgm3(P_MPa, T_K, grid=grid)
-    def fn_Cp_JkgK(self, P_MPa, T_K, grid=False):
+    def fn_Cp_JkgK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_Cp_JkgK(P_MPa, T_K, grid=grid)
-    def fn_alpha_pK(self, P_MPa, T_K, grid=False):
+    def fn_alpha_pK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_alpha_pK(P_MPa, T_K, grid=grid)
-    def fn_kTherm_WmK(self, P_MPa, T_K, grid=False):
+    def fn_kTherm_WmK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_kTherm_WmK(P_MPa, T_K, grid=grid)
-    def fn_VP_kms(self, P_MPa, T_K, grid=False):
+    def fn_VP_kms(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_VP_kms(P_MPa, T_K, grid=grid)
-    def fn_VS_kms(self, P_MPa, T_K, grid=False):
+    def fn_VS_kms(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_VS_kms(P_MPa, T_K, grid=grid)
-    def fn_KS_GPa(self, P_MPa, T_K, grid=False):
+    def fn_KS_GPa(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_KS_GPa(P_MPa, T_K, grid=grid)
-    def fn_GS_GPa(self, P_MPa, T_K, grid=False):
+    def fn_GS_GPa(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_GS_GPa(P_MPa, T_K, grid=grid)
-    def fn_phi_frac(self, P_MPa, T_K, grid=False):
+    def fn_phi_frac(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_phi_frac(P_MPa, T_K, grid=grid)
 
 
@@ -347,11 +361,14 @@ class EOSwrapper:
 
     def __init__(self, key):
         self.key = key
+        self.wMin = EOSlist.loaded[self.key].wMin
+        self.wMax = EOSlist.loaded[self.key].wMax
         # Assign only those attributes we reference in functions
         if EOSlist.loaded[self.key].EOStype == 'ice':
             self.phaseID = EOSlist.loaded[self.key].phaseID
             self.POROUS = EOSlist.loaded[self.key].POROUS
             self.Tmin = EOSlist.loaded[self.key].Tmin
+            self.CONTINUOUS_SALINITY = False
         elif EOSlist.loaded[self.key].EOStype == 'ocean':
             self.Pmin = EOSlist.loaded[self.key].Pmin
             self.Pmax = EOSlist.loaded[self.key].Pmax
@@ -364,58 +381,204 @@ class EOSwrapper:
             self.EOSdeltaT = EOSlist.loaded[self.key].EOSdeltaT
             self.comp = EOSlist.loaded[self.key].comp
             self.w_ppt = EOSlist.loaded[self.key].w_ppt
+            self.CONTINUOUS_SALINITY = EOSlist.loaded[self.key].CONTINUOUS_SALINITY
         elif EOSlist.loaded[self.key].EOStype == 'inner':
             self.comp = EOSlist.loaded[self.key].comp
+            self.CONTINUOUS_SALINITY = False
 
-    def fn_phase(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_phase(P_MPa, T_K, grid=grid)
-    def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_rho_kgm3(P_MPa, T_K, grid=grid)
-    def fn_Cp_JkgK(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_Cp_JkgK(P_MPa, T_K, grid=grid)
-    def fn_alpha_pK(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_alpha_pK(P_MPa, T_K, grid=grid)
-    def fn_kTherm_WmK(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_kTherm_WmK(P_MPa, T_K, grid=grid)
-    def fn_VP_kms(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_VP_kms(P_MPa, T_K, grid=grid)
-    def fn_VS_kms(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_VS_kms(P_MPa, T_K, grid=grid)
-    def fn_KS_GPa(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_KS_GPa(P_MPa, T_K, grid=grid)
-    def fn_GS_GPa(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_GS_GPa(P_MPa, T_K, grid=grid)
-    def fn_phi_frac(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_phi_frac(P_MPa, T_K, grid=grid)
+    def fn_phase(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        return EOSlist.loaded[self.key].fn_phase(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
+    def fn_rho_kgm3(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        return EOSlist.loaded[self.key].fn_rho_kgm3(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
+    def fn_Cp_JkgK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        return EOSlist.loaded[self.key].fn_Cp_JkgK(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
+    def fn_alpha_pK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        return EOSlist.loaded[self.key].fn_alpha_pK(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
+    def fn_kTherm_WmK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        return EOSlist.loaded[self.key].fn_kTherm_WmK(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
+    def fn_VP_kms(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        return EOSlist.loaded[self.key].fn_VP_kms(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
+    def fn_VS_kms(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        return EOSlist.loaded[self.key].fn_VS_kms(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
+    def fn_KS_GPa(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        return EOSlist.loaded[self.key].fn_KS_GPa(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
+    def fn_GS_GPa(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        return EOSlist.loaded[self.key].fn_GS_GPa(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
+    def fn_phi_frac(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        return EOSlist.loaded[self.key].fn_phi_frac(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
     def fn_porosCorrect(self, propBulk, propPore, phi, J):
         return EOSlist.loaded[self.key].fn_porosCorrect(propBulk, propPore, phi, J)
-    def fn_sigma_Sm(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_sigma_Sm(P_MPa, T_K, grid=grid)
-    def fn_Seismic(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K, grid=grid)
+    def fn_sigma_Sm(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        return EOSlist.loaded[self.key].fn_sigma_Sm(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
+    def fn_Seismic(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
 
 
-def ResetNearestExtrap(var1, var2, min1, max1, min2, max2):
+class EOSvarCompWrapper:
+    """ EOSwrapper for material layers with variable composition. """
+
+    def __init__(self, key, EOStype, EOSlabels, Pmins_MPa, Pmaxs_MPa, wStratified_ppt):
+        self.key = key
+        self.EOSlabels = EOSlabels
+        self.label0 = self.EOSlabels[0]
+        self.nComps = np.size(wStratified_ppt)
+        self.Pmins_MPa = Pmins_MPa
+        self.Pmaxs_MPa = Pmaxs_MPa
+        self.EOStype = EOStype
+        # Assign only those attributes we reference in functions
+        if self.EOStype == 'ice':
+            log.error('Variable composition EOS is not implemented for ices. Errors are extremely likely to result.')
+            self.phaseID = EOSlist.loaded[self.label0].phaseID
+            self.POROUS = EOSlist.loaded[self.label0].POROUS
+            self.Tmin = EOSlist.loaded[self.label0].Tmin
+        elif self.EOStype == 'ocean':
+            self.Pmin = EOSlist.loaded[self.label0].Pmin
+            self.Pmax = EOSlist.loaded[self.label0].Pmax
+            self.propsPmax = EOSlist.loaded[self.label0].propsPmax
+            self.Tmin = EOSlist.loaded[self.label0].Tmin
+            self.Tmax = EOSlist.loaded[self.label0].Tmax
+            self.deltaP = EOSlist.loaded[self.label0].deltaP
+            self.deltaT = EOSlist.loaded[self.label0].deltaT
+            self.EOSdeltaP = EOSlist.loaded[self.label0].EOSdeltaP
+            self.EOSdeltaT = EOSlist.loaded[self.label0].EOSdeltaT
+            self.comp = Constants.varCompStr
+            self.w_ppt = wStratified_ppt
+        elif self.EOStype == 'inner':
+            log.error('Variable composition EOS is not yet implemented for iron or silicate layers. Errors are extremely likely to result.')
+            self.comp = EOSlist.loaded[self.label0].comp
+        else:
+            raise ValueError(f'EOStype "{EOStype}" not recognized.')
+
+    def fn_phase(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        cP_MPa = np.array(P_MPa) if not isinstance(P_MPa, Iterable) else deepcopy(P_MPa)
+        return np.piecewise(cP_MPa,
+                            [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa)
+                                for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)],
+                            [EOSlist.loaded[label].fn_phase for label in self.EOSlabels],
+                            T_K, w_ppt=w_ppt, grid=grid)
+    def fn_rho_kgm3(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        cP_MPa = np.array(P_MPa) if not isinstance(P_MPa, Iterable) else deepcopy(P_MPa)
+        return np.piecewise(cP_MPa,
+                            [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa)
+                                for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)],
+                            [EOSlist.loaded[label].fn_rho_kgm3 for label in self.EOSlabels],
+                            T_K, w_ppt=w_ppt, grid=grid)
+    def fn_Cp_JkgK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        cP_MPa = np.array(P_MPa) if not isinstance(P_MPa, Iterable) else deepcopy(P_MPa)
+        return np.piecewise(cP_MPa,
+                            [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa)
+                                for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)],
+                            [EOSlist.loaded[label].fn_Cp_JkgK for label in self.EOSlabels],
+                            T_K, w_ppt=w_ppt, grid=grid)
+    def fn_alpha_pK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        cP_MPa = np.array(P_MPa) if not isinstance(P_MPa, Iterable) else deepcopy(P_MPa)
+        return np.piecewise(cP_MPa,
+                            [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa)
+                                for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)],
+                            [EOSlist.loaded[label].fn_alpha_pK for label in self.EOSlabels],
+                            T_K, w_ppt=w_ppt, grid=grid)
+    def fn_kTherm_WmK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        cP_MPa = np.array(P_MPa) if not isinstance(P_MPa, Iterable) else deepcopy(P_MPa)
+        return np.piecewise(cP_MPa,
+                            [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa)
+                                for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)],
+                            [EOSlist.loaded[label].fn_kTherm_WmK for label in self.EOSlabels],
+                            T_K, w_ppt=w_ppt, grid=grid)
+    def fn_VP_kms(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        cP_MPa = np.array(P_MPa) if not isinstance(P_MPa, Iterable) else deepcopy(P_MPa)
+        return np.piecewise(cP_MPa,
+                            [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa)
+                                for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)],
+                            [EOSlist.loaded[label].fn_VP_kms for label in self.EOSlabels],
+                            T_K, w_ppt=w_ppt, grid=grid)
+    def fn_VS_kms(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        cP_MPa = np.array(P_MPa) if not isinstance(P_MPa, Iterable) else deepcopy(P_MPa)
+        return np.piecewise(cP_MPa,
+                            [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa)
+                                for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)],
+                            [EOSlist.loaded[label].fn_VS_kms for label in self.EOSlabels],
+                            T_K, w_ppt=w_ppt, grid=grid)
+    def fn_KS_GPa(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        cP_MPa = np.array(P_MPa) if not isinstance(P_MPa, Iterable) else deepcopy(P_MPa)
+        return np.piecewise(cP_MPa,
+                            [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa)
+                                for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)],
+                            [EOSlist.loaded[label].fn_KS_GPa for label in self.EOSlabels],
+                            T_K, w_ppt=w_ppt, grid=grid)
+    def fn_GS_GPa(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        cP_MPa = np.array(P_MPa) if not isinstance(P_MPa, Iterable) else deepcopy(P_MPa)
+        return np.piecewise(cP_MPa,
+                            [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa)
+                                for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)],
+                            [EOSlist.loaded[label].fn_GS_GPa for label in self.EOSlabels],
+                            T_K, w_ppt=w_ppt, grid=grid)
+    def fn_phi_frac(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        cP_MPa = np.array(P_MPa) if not isinstance(P_MPa, Iterable) else deepcopy(P_MPa)
+        return np.piecewise(cP_MPa,
+                            [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa)
+                                for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)],
+                            [EOSlist.loaded[label].fn_phi_frac for label in self.EOSlabels],
+                            T_K, w_ppt=w_ppt, grid=grid)
+    def fn_porosCorrect(self, propBulk, propPore, phi, J):
+        return EOSlist.loaded[self.key].fn_porosCorrect(propBulk, propPore, phi, J)
+    def fn_sigma_Sm(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        cP_MPa = np.array(P_MPa) if not isinstance(P_MPa, Iterable) else deepcopy(P_MPa)
+        return np.piecewise(cP_MPa,
+                            [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa)
+                                for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)],
+                            [EOSlist.loaded[label].fn_sigma_Sm for label in self.EOSlabels],
+                            T_K, w_ppt=w_ppt, grid=grid)
+    def fn_Seismic(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
+        # Do piecewise manually in this case because it can't handle returned tuples (we always return 2 or 4 quantities)
+        Nout = 2 if self.EOStype == 'ocean' else 4
+        returns = np.empty((Nout, np.size(P_MPa)))
+        for i_comp, (Pmin_MPa, Pmax_MPa, EOSlabel) in enumerate(zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels)):
+            iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+            Psubset_MPa = P_MPa[iPsubset]
+            Tsubset_K = T_K[iPsubset]
+            # Concatenate arrays to return as tuple-able unpack of seismic props
+            returns[:,iPsubset] = EOSlist.loaded[EOSlabel].fn_Seismic(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
+
+        return returns
+
+
+def GetVarCompLabel(Pstratified_MPa, wStratified_ppt, compStratified, CONTINUOUS_SALINITY):
+    return f'Pstrat{Pstratified_MPa}wStrat{wStratified_ppt}compStrat{compStratified}contSalin{CONTINUOUS_SALINITY}'
+
+
+class EOSConfigStruct:
+    """ Collection of settings for construction of EOSStruct objects """
+    def __init__(self):
+        pass  # Placeholder for now, use to clean up arguments to construct EOSs
+
+
+def ResetNearestExtrap(var1, var2, var3, min1, max1, min2, max2, min3, max3):
     """ Choose the nearest value when EOS function inputs are outside
         the generation domain.
 
         var1 (float, shape N): First variable, typically P_MPa.
-        var2 (float, shape M): First variable, typically T_K.
-        min1, max1, min2, max2 (float): Domain boundaries.
+        var2 (float, shape M): Second variable, typically T_K.
+        var3 (float, shape M): Third variable, typically w_ppt.
+        min1, max1, min2, max2, min3, max3 (float): Domain boundaries.
     """
     outVar1 = var1 + 0.0
     outVar2 = var2 + 0.0
+    outVar3 = var3 + 0.0
     if np.size(var1) == 1:
         outVar1 = np.array(var1)
     if np.size(var2) == 1:
         outVar2 = np.array(var2)
+    if np.size(var3) == 1:
+        outVar3 = np.array(var3)
 
     outVar1[var1 < min1] = min1
     outVar1[var1 > max1] = max1
     outVar2[var2 < min2] = min2
     outVar2[var2 > max2] = max2
+    outVar3[var3 < min3] = min3
+    outVar3[var3 > max3] = max3
 
-    return outVar1, outVar2
+    return outVar1, outVar2, outVar3
 
 
 class ReturnZeros:

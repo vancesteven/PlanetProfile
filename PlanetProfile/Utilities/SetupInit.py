@@ -26,7 +26,8 @@ def SetupInit(Planet, Params):
 
     # Check dependency compatibility
     CheckCompat('seafreeze')  # SeaFreeze
-    if Planet.Ocean.comp == 'Seawater': CheckCompat('gsw')  # Gibbs Seawater
+    if Planet.Ocean.comp == 'Seawater' or (Planet.Do.VARIABLE_COMP_OCEAN and
+        (Planet.Ocean.compStratified is not None and 'Seawater' in Planet.Ocean.compStratified)): CheckCompat('gsw')  # Gibbs Seawater
     if Planet.Do.TAUP_SEISMIC: CheckCompat('obspy')  # TauP (accessed as obspy.taup)
     if Params.CALC_NEW_INDUCT: CheckCompat('MoonMag')  # MoonMag
 
@@ -71,6 +72,33 @@ def SetupInit(Planet, Params):
             # Note that there must be enough input points for creating spline
             # interpolators, even though we will not use them.
             Planet.Ocean.EOS = GetOceanEOS('none', None, np.linspace(0, 1, 4), np.linspace(0, 1, 4), None)
+
+    else:
+        if Planet.Do.VARIABLE_COMP_OCEAN:
+            if Planet.Ocean.compStratified is None:
+                Planet.Ocean.compStratified = [Planet.Ocean.comp]
+            else:
+                if not np.all(Planet.Ocean.compStratified == Planet.Ocean.compStratified[0]):
+                    if Planet.Ocean.comp is not None and Planet.Ocean.comp != Constants.varCompStr:
+                        log.warning(f'Ocean.comp is set to "{Planet.Ocean.comp}", but this will be ignored because ' +
+                                    f'stratified layers with varying compositions are set. Ocean.comp will be set to "{Constants.varCompStr}".')
+                    Planet.Ocean.comp = Constants.varCompStr
+                elif Planet.Ocean.comp is None:
+                    Planet.Ocean.comp = Planet.Ocean.compStratified[0]
+                if Planet.Ocean.comp != Planet.Ocean.compStratified[0] and Planet.Ocean.comp != Constants.varCompStr:
+                    log.warning(f'Ocean.comp "{Planet.Ocean.comp}" does not match the first entry in ' +
+                                f'Ocean.compStratified[0]: "{Planet.Ocean.compStratified[0]}". ' +
+                                f'Ocean.comp will be reset to {Planet.Ocean.compStratified[0]}.')
+                    Planet.Ocean.comp = Planet.Ocean.compStratified[0]
+
+            if Planet.Ocean.wOcean_ppt is not None:
+                log.warning('Ocean.wOcean_ppt is set, but will be ignored because Do.VARIABLE_COMP_OCEAN is True.')
+            Planet.Ocean.wOcean_ppt = np.nan
+
+    if Planet.Do.VARIABLE_COMP_SIL:
+        if Planet.Sil.mantleEOS is not None:
+            log.warning('Planet.Sil.mantleEOS is set but will be ignored because Planet.Do.VARIABLE_COMP_SIL is set.')
+        Planet.Sil.mantleEOS = Constants.varCompStr
 
     # Get filenames for saving/loading
     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
@@ -178,7 +206,12 @@ def SetupInit(Planet, Params):
                                        Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                        scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                        phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                                       sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
+                                       sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm,
+                                       VARIABLE_COMP=Planet.Do.VARIABLE_COMP_OCEAN,
+                                       Pstratified_MPa=Planet.Ocean.Pstratified_MPa,
+                                       wStratified_ppt=Planet.Ocean.wStratified_ppt,
+                                       compStratified=Planet.Ocean.compStratified,
+                                       CONTINUOUS_SALINITY=Planet.Do.CONTINUOUS_SALINITY)
         # Get separate, simpler EOS for evaluating the melting curve
         if Planet.Do.BOTTOM_ICEV:
             TmeltI_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
@@ -201,7 +234,12 @@ def SetupInit(Planet, Params):
             Tmelt_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
         Pmelt_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.PfreezeUpper_MPa, Planet.PfreezeRes_MPa)
         Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K, None,
-                                           phaseType=Planet.Ocean.phaseType, FORCE_NEW=True, MELT=True)
+                                           phaseType=Planet.Ocean.phaseType, FORCE_NEW=True, MELT=True,
+                                           VARIABLE_COMP=Planet.Do.VARIABLE_COMP_OCEAN,
+                                           Pstratified_MPa=Planet.Ocean.Pstratified_MPa,
+                                           wStratified_ppt=Planet.Ocean.wStratified_ppt,
+                                           compStratified=Planet.Ocean.compStratified,
+                                           CONTINUOUS_SALINITY=Planet.Do.CONTINUOUS_SALINITY)
 
     # Make sure convection checking outputs are set if we won't be modeling them
     if Planet.Do.NO_ICE_CONVECTION:
@@ -297,7 +335,12 @@ def SetupInit(Planet, Params):
                                              Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                              scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                              phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=True,
-                                             sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm)
+                                             sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm,
+                                             VARIABLE_COMP=Planet.Do.VARIABLE_COMP_OCEAN,
+                                             Pstratified_MPa=Planet.Ocean.Pstratified_MPa,
+                                             wStratified_ppt=Planet.Ocean.wStratified_ppt,
+                                             compStratified=Planet.Ocean.compStratified,
+                                             CONTINUOUS_SALINITY=Planet.Do.CONTINUOUS_SALINITY)
 
             # Make sure Sil.phiRockMax_frac is set in case we're using a porosType that doesn't require it
             if Planet.Sil.phiRockMax_frac is None or Planet.Sil.porosType != 'Han2014':
@@ -360,12 +403,27 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             label += f'{setStr}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
             Planet.compStr = r'Pure~\ce{H2O}'
         else:
-            saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
-                        f'_Tb{Planet.Bulk.Tb_K}K'
-            setStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$ \ce{{{Planet.Ocean.comp}}}'
-            label += setStr + \
-                f', $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
-            Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Ocean.comp}}}'
+            if Planet.Do.VARIABLE_COMP_OCEAN:
+                if Planet.Ocean.comp == Constants.varCompStr:
+                    setStr = f'{Constants.varCompStr}Comp'
+                    saveLabel += setStr + \
+                                 f'_Tb{Planet.Bulk.Tb_K}K'
+                    label += setStr + \
+                        f', $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+                    Planet.compStr = f'var comp'
+                else:
+                    saveLabel += f'{Planet.Ocean.comp}var' + \
+                                 f'_Tb{Planet.Bulk.Tb_K}K'
+                    label += f'{Planet.Ocean.comp} (var)' + \
+                        f', $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+                    Planet.compStr = f'var comp'
+            else:
+                saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
+                            f'_Tb{Planet.Bulk.Tb_K}K'
+                setStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$ \ce{{{Planet.Ocean.comp}}}'
+                label += setStr + \
+                    f', $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+                Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Ocean.comp}}}'
         if Planet.Do.CLATHRATE:
             saveLabel += '_Clathrates'
             label += ' w/clath'

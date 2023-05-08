@@ -72,6 +72,10 @@ class DoSubstruct:
         self.CLATHRATE = False  # Whether to model clathrates
         self.NAGASHIMA_CLATH_DISSOC = False  # Whether to use extrapolation of Nagashima (2017) dissertation provided by S. Nozaki (private communication) for clathrate dissociation (alternative is Sloan (1998)). WIP.
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
+        self.VARIABLE_COMP_OCEAN = False  # Whether to allow for/model variable composition within the ocean. Work in progress.
+        self.VARIABLE_COMP_SIL = False  # Whether to allow for/model variable composition in silicate layers. Work in progress.
+        self.VARIABLE_COMP_CORE = False  # Whether to allow for/model variable composition in core layers. Work in progress.
+        self.CONTINUOUS_SALINITY = False  # Whether to use separate calls to the ocean EOS for each layer, as opposed to a finite number of discrete steps. If False, Ocean.dwdPthreshold_pptMPa must be set.
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
         self.HP_MELT_SMOOTHING = False  # Whether to apply a smoothing filter to avoid bumpiness from discretized phase diagram, when lookup table is used for EOS calcs
@@ -171,6 +175,9 @@ class OceanSubstruct:
         self.meltEOS = None  # EOS just for finding ice I/liquid transition pressure Pb
         self.surfIceEOS = {}  # Equation of state data to use for surface ice layers
         self.iceEOS = {}  # Equation of state data to use for ice layers within the ocean
+        self.Pstratified_MPa = None  # Thresholds in P (in MPa) at which to step the composition of the ocean. Required when Do.VARIABLE_COMP_OCEAN is True. First entry must be greater than 0.
+        self.wStratified_ppt = None  # Mass concentration of ocean salt to use at each threshold above. Required when Do.VARIABLE_COMP_OCEAN is True. Must have a length matching np.size(Ocean.Pstratified_MPa)+1, with the first entry at P=0.
+        self.compStratified = None  # Ocean composition to use at each threshold. If None, uses Ocean.comp for all layers. If not None, must have a length matching np.size(Ocean.Pstratified_MPa)+1, with the first entry at P=0.
         """ Porosity parameters """
         self.phiMax_frac = {'Ih':0.2, 'II':0.2, 'III':0.2, 'V':0.2, 'VI':0.2, 'Clath':0.2}  # Porosity (void fraction) of ices, extrapolated down to 0 pressure. All arbitrary at 0.2, as placeholders.
         self.Pclosure_MPa = {'Ih':20, 'II':200, 'III':200, 'V':200, 'VI':300, 'Clath':120}  # Pressure threshold in MPa beyond which pores in ice shut completely and porosity drops rapidly to zero, for use in Han et al. (2014) model.
@@ -202,6 +209,8 @@ class SilSubstruct:
         self.deltaHtidal_logUnits = 1/3  # Step size by which to increment Htidal_Wm3 for finding MoI match with no core.
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermSil_WmK)
         self.kThermCMB_WmK = None  # Constant thermal conductivity to use for determining core-mantle boundary thermal boundary layer thickness when convection is happening
+        self.Pstratified_MPa = None  # Thresholds in P (in MPa) at which to step the composition of silicates. Required when Do.VARIABLE_COMP_SIL is True. First entry must be greater than 0.
+        self.compStratified = None  # Silicate composition to use at each threshold. Must be None or have a length matching np.size(Sil.Pstratified_MPa)+1, with the first entry at P=0.
         """ Porosity parameters """
         self.phiRockMax_frac = None  # Porosity (void fraction) of the rocks in vacuum. This is the expected value for core-less bodies, and porosity is modeled for a range around here to find a matching MoI. For bodies with a core, this is a fixed value for rock porosity at P=0.
         self.phiRangeMult = 8  # Factor by which to divide the distance from user-defined phiRockMax_frac to 0 and 1 to obtain the search range for phi
@@ -266,6 +275,9 @@ class CoreSubstruct:
         self.coreEOS = 'Fe-S_3D_EOS.mat'  # Default core EOS to use
         self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermFe_WmK)
+        self.Pstratified_MPa = None  # Thresholds in P (in MPa) at which to step the composition of the core. Required when Do.VARIABLE_COMP_CORE is True. First entry must be greater than 0.
+        self.wStratified_ppt = None  # Mass concentration of non-iron component to use at each threshold above. Required when Do.VARIABLE_COMP_CORE is True. Must have a length matching np.size(Core.Pstratified_MPa)+1, with the first entry at P=0.
+        self.compStratified = None  # Core composition to use at each threshold. If None, uses Core.comp for all layers. If not None, must have a length matching np.size(Core.Pstratified_MPa)+1, with the first entry at P=0.
         # Derived quantities
         self.rhoMean_kgm3 = None  # Core bulk density calculated from final MoI match using EOS properties
         self.rhoMeanFe_kgm3 = np.nan  # Pure iron layer bulk density calculated from final MoI match using EOS properties
@@ -1909,6 +1921,8 @@ class FigMiscStruct:
             self.latlonSize = 20
             self.cLabelSize = 16
             self.mapTitleSize = 24
+        else:
+            self.mapTitleSize = 16
 
         self.lonMap_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonMap)
         self.phiMap_rad = np.radians(self.lonMap_deg)
@@ -1951,6 +1965,7 @@ class ConstantsStruct:
         self.mu0 = 4e-7*np.pi  # Permeability of free space (magnetic constant)
         self.Pmin_MPa = 1e-16  # Minimum value to set for pressure to avoid taking log(0)
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
+        self.varCompStr = 'var'  # Identifying string to use in filenames and conditionals when variable composition oceans/silicates are used
         self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0).
         self.m_gmol = {  # Molecular mass of common solutes and gases in g/mol. From https://pubchem.ncbi.nlm.nih.gov/ search
             'H2O': 18.015,

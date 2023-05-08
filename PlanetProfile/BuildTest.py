@@ -57,7 +57,9 @@ def full(iTestStart=2):
     tMarks = np.zeros(0)
     tMarks = np.append(tMarks, time.time())
     # Get first test profile separately, as we will reuse it
-    testPlanet1 = importlib.import_module(f'{testBase}{1}').Planet
+    fname = f'{testBase}{1}'
+    testPlanet1 = importlib.import_module(fname).Planet
+    testPlanet1.fname = fname
     TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanet1), Params)[0])
     tMarks = np.append(tMarks, time.time())
 
@@ -284,7 +286,7 @@ def simple(iTests=None):
 
     # Set general testing config atop standard config options
     Params = configParams
-    Params.CALC_NEW = True
+    Params.CALC_NEW = False
     Params.CALC_NEW_REF = True
     Params.CALC_NEW_INDUCT = True
     Params.CALC_SEISMIC = True
@@ -300,6 +302,7 @@ def simple(iTests=None):
     for iTest in iTests:
         bodyname = f'{testMod}{iTest}'
         testPlanet = importlib.import_module(bodyname).Planet
+        testPlanet.fname = bodyname
         log.info(f'Test case body: {bodyname}')
         if Params.DO_INDUCTOGRAM:
             TestInductOgram(iTest, Params, CALC_NEW=Params.CALC_NEW_INDUCT)

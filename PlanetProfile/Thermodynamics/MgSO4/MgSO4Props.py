@@ -85,8 +85,8 @@ def MgSO4Props(P_MPa, T_K, wOcean_ppt, EXTRAP):
                     f'at {fn_MgSO4Props.fLookup}.')
 
     if not EXTRAP:
-        newP_MPa, newT_K = ResetNearestExtrap(P_MPa, T_K, fn_MgSO4Props.Pmin, fn_MgSO4Props.Pmax,
-                                                    fn_MgSO4Props.Tmin, fn_MgSO4Props.Tmax)
+        newP_MPa, newT_K, _ = ResetNearestExtrap(P_MPa, T_K, wOcean_ppt, fn_MgSO4Props.Pmin, fn_MgSO4Props.Pmax,
+                                                    fn_MgSO4Props.Tmin, fn_MgSO4Props.Tmax, 0, fn_MgSO4Props.wMax)
         if (not np.all(newP_MPa == P_MPa)) and (not np.all(newT_K == T_K)):
             log.warning('Extrapolation is disabled for ocean fluids, and input EOS P and/or T ' +
                         'extend beyond the MgSO4 properties lookup table limits of [Pmin, Pmax] = ' +
@@ -331,7 +331,7 @@ class MgSO4PhaseLookup:
             evalPts = tuple(np.meshgrid(P_MPa, T_K, self.w_ppt, indexing='ij'))
         else:
             if nPs == 1 and nTs == 1:
-                evalPts = np.array([P_MPa, T_K, self.w_ppt])
+                evalPts = np.array([np.squeeze(P_MPa), np.squeeze(T_K), self.w_ppt])
             else:
                 if nPs == nTs:
                     evalPts = np.array([[P, T, self.w_ppt] for P, T in zip(P_MPa, T_K)])
@@ -356,7 +356,7 @@ class MgSO4Seismic:
         if self.fLookup in EOSlist.loaded.keys():
             log.debug('MgSO4 seismic lookup table already loaded. Reusing previously loaded table.')
             self.fn_VP_kms, self.fn_KS_GPa = EOSlist.loaded[self.fLookup]
-            self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax = EOSlist.ranges[self.fLookup]
+            self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax = EOSlist.ranges[self.fLookup]
         else:
             log.debug(f'Loading MgSO4 seismic lookup table at {self.fLookup}.')
             fMgSO4Seismic = loadmat(self.fLookup)
@@ -373,10 +373,11 @@ class MgSO4Seismic:
             self.Pmax = np.max(PMgSO4_MPa)
             self.Tmin = np.min(TMgSO4_K)
             self.Tmax = np.max(TMgSO4_K)
+            self.wMin = 0
             self.wMax = np.max(wMgSO4_ppt)
 
             EOSlist.loaded[self.fLookup] = (self.fn_VP_kms, self.fn_KS_GPa)
-            EOSlist.ranges[self.fLookup] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMax)
+            EOSlist.ranges[self.fLookup] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
 
             if self.w_ppt > self.wMax:
                 log.warning(f'Input wOcean_ppt of {self.w_ppt:.1f} is greater than ' +
@@ -385,7 +386,7 @@ class MgSO4Seismic:
 
     def __call__(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
-            newP_MPa, newT_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            newP_MPa, newT_K, _ = ResetNearestExtrap(P_MPa, T_K, self.w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
             if not self.WARNED and (not np.all(newP_MPa == P_MPa)) and (not np.all(newT_K == T_K)):
                 log.warning('Extrapolation is disabled for ocean fluids, and input EOS P and/or T ' +
                             'extend beyond the MgSO4 seismic lookup table limits of [Pmin, Pmax] = ' +

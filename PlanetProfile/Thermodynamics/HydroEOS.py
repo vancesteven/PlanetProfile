@@ -5,12 +5,13 @@ from collections.abc import Iterable
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 from scipy.optimize import root_scalar as GetZero
 from scipy.io import loadmat
-from seafreeze.seafreeze import seafreeze as SeaFreeze
+from seafreeze.seafreeze import seafreeze as SeaFreeze, defpath as SFmatPath
 from seafreeze.seafreeze import whichphase as WhichPhase
 from PlanetProfile import _ROOT
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, \
     ClathStableNagashima2017, ClathSeismic
-from PlanetProfile.Thermodynamics.InnerEOS import GetphiFunc, GetphiCalc, ResetNearestExtrap, ReturnZeros, EOSwrapper
+from PlanetProfile.Thermodynamics.InnerEOS import GetphiFunc, GetphiCalc, ResetNearestExtrap, ReturnZeros, EOSwrapper, \
+    GetVarCompLabel, EOSvarCompWrapper
 from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4PhaseMargules, MgSO4PhaseLookup, \
     MgSO4Seismic, MgSO4Conduct, Ppt2molal
 from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
@@ -20,26 +21,72 @@ from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 log = logging.getLogger('PlanetProfile')
 
 def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
-                EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None):
-    oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
-                              phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE,
-                              sigmaFixed_Sm=sigmaFixed_Sm)
-    if oceanEOS.ALREADY_LOADED and not FORCE_NEW:
-        log.debug(f'{wOcean_ppt} ppt {compstr} EOS already loaded. Reusing existing EOS.')
-        oceanEOS = EOSlist.loaded[oceanEOS.EOSlabel]
+                EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None, VARIABLE_COMP=False,
+                Pstratified_MPa=None, wStratified_ppt=None, compStratified=None, CONTINUOUS_SALINITY=False):
 
-    # Ensure each EOSlabel is included in EOSlist, in case we have reused EOSs with
-    # e.g. a smaller range that can reuse the larger-range already-loaded EOS.
-    if oceanEOS.EOSlabel not in EOSlist.loaded.keys() or FORCE_NEW:
-        EOSlist.loaded[oceanEOS.EOSlabel] = oceanEOS
+    if VARIABLE_COMP:
+        allOceanEOSlabel = GetVarCompLabel(Pstratified_MPa, wStratified_ppt, compStratified, CONTINUOUS_SALINITY)
+        ALREADY_LOADED, rangeLabel, P_MPa, T_K, deltaP, deltaT \
+            = CheckIfEOSLoaded(allOceanEOSlabel, P_MPa, T_K, FORCE_NEW=FORCE_NEW, Pstratified_MPa=Pstratified_MPa,
+                               wStratified_ppt=wStratified_ppt, compStratified=compStratified)
+        if ALREADY_LOADED and not FORCE_NEW:
+            log.debug(f'Variable composition EOS from {wStratified_ppt[0]} ppt {compStratified[0]} ' +
+                      f'to {wStratified_ppt[-1]} ppt {compStratified[-1]} already loaded. Reusing existing EOS.')
 
-    oceanEOSwrapper = EOSwrapper(oceanEOS.EOSlabel)
+            oceanEOSwrapper = EOSlist.loaded[allOceanEOSlabel]
+        else:
+            log.debug(f'Loading ocean EOS with variable composition, from {wStratified_ppt[0]} ppt {compStratified[0]} ' +
+                      f'to {wStratified_ppt[-1]} ppt {compStratified[-1]}.')
+            nComps = np.size(wStratified_ppt)
+            # Make a list of EOSwrappers to select among when we evaluate EOS functions
+            allOceanEOS, EOSlabels = ( np.empty(nComps, dtype=object) for _ in range(2) )
+            Pmins_MPa = np.insert(Pstratified_MPa, 0, 0)
+            Pmaxs_MPa = np.append(Pstratified_MPa, np.inf)
+            compList = np.repeat(compStratified, nComps) if np.size(compStratified) == 1 else compStratified
+            for i_w, w_ppt in enumerate(wStratified_ppt):
+                # Get each subset's individual EOS
+                Psubset_MPa = P_MPa[P_MPa >= Pmins_MPa[i_w]]
+                Psubset_MPa = Psubset_MPa[Psubset_MPa < Pmaxs_MPa[i_w]]
+                if np.size(Psubset_MPa) < 5:
+                    log.warning(f'For stratified ocean layer with w_ppt = {w_ppt:.1f}, only {np.size(Psubset_MPa)} ' +
+                                f'points lie within the EOS interpolation region. Errors may result. Increase Ocean.deltaP ' +
+                                f'to increase resolution in the ocean to avoid potential issues.')
+                allOceanEOS[i_w] = GetOceanEOS(compList[i_w], w_ppt, Psubset_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
+                    phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE, sigmaFixed_Sm=sigmaFixed_Sm,
+                    VARIABLE_COMP=False, CONTINUOUS_SALINITY=False)
+                EOSlabels[i_w] = allOceanEOS[i_w].key
+
+            oceanEOSwrapper = EOSvarCompWrapper(allOceanEOSlabel, 'ocean', EOSlabels, Pmins_MPa, Pmaxs_MPa, wStratified_ppt)
+
+        # Ensure each EOSlabel is included in EOSlist, in case we have reused EOSs with
+        # e.g. a smaller range that can reuse the larger-range already-loaded EOS.
+        if allOceanEOSlabel not in EOSlist.loaded.keys() or FORCE_NEW:
+            EOSlist.loaded[allOceanEOSlabel] = oceanEOSwrapper
+        if allOceanEOSlabel not in EOSlist.ranges.keys() or FORCE_NEW:
+            EOSlist.ranges[allOceanEOSlabel] = rangeLabel
+
+    else:
+        oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
+                                  phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE,
+                                  sigmaFixed_Sm=sigmaFixed_Sm, CONTINUOUS_SALINITY=CONTINUOUS_SALINITY)
+
+        if oceanEOS.ALREADY_LOADED and not FORCE_NEW:
+            log.debug(f'{wOcean_ppt} ppt {compstr} EOS already loaded. Reusing existing EOS.')
+            oceanEOS = EOSlist.loaded[oceanEOS.EOSlabel]
+
+        # Ensure each EOSlabel is included in EOSlist, in case we have reused EOSs with
+        # e.g. a smaller range that can reuse the larger-range already-loaded EOS.
+        if oceanEOS.EOSlabel not in EOSlist.loaded.keys() or FORCE_NEW:
+            EOSlist.loaded[oceanEOS.EOSlabel] = oceanEOS
+
+        oceanEOSwrapper = EOSwrapper(oceanEOS.EOSlabel)
 
     return oceanEOSwrapper
 
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
-                 phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None):
+                 phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None,
+                 CONTINUOUS_SALINITY=False):
         if elecType is None:
             self.elecType = 'Vance2018'
         else:
@@ -64,7 +111,9 @@ class OceanEOSStruct:
             meltStr = ''
             meltPrint = ''
 
-        self.EOSlabel = f'{meltStr}Comp{compstr}wppt{wOcean_ppt}elec{elecType}rho{rhoType}scaling{scalingType}phase{phaseType}extrap{EXTRAP}pore{PORE}'
+        self.EOSlabel = f'{meltStr}Comp{compstr}wppt{wOcean_ppt}elec{elecType}rho{rhoType}' + \
+                        f'scaling{scalingType}phase{phaseType}extrap{EXTRAP}pore{PORE}' + \
+                        f'contSalin{CONTINUOUS_SALINITY}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, FORCE_NEW=FORCE_NEW)
 
@@ -73,11 +122,13 @@ class OceanEOSStruct:
             self.w_ppt = wOcean_ppt
             self.EXTRAP = EXTRAP
             self.EOStype = 'ocean'
+            self.CONTINUOUS_SALINITY = CONTINUOUS_SALINITY
 
             self.Pmin = np.min(P_MPa)
             self.Pmax = np.max(P_MPa)
             self.Tmin = np.min(T_K)
             self.Tmax = np.max(T_K)
+            self.wMin = 0
             if self.w_ppt is None:
                 wStr = '0.0'
             else:
@@ -101,6 +152,7 @@ class OceanEOSStruct:
                 self.EOSdeltaP = None
                 self.EOSdeltaT = None
                 self.propsPmax = 0
+                self.wMax = np.nan
             elif self.comp in ['PureH2O', 'NH3', 'NaCl']:
                 self.type = 'SeaFreeze'
                 self.m_gmol = Constants.m_gmol[self.comp]
@@ -113,6 +165,7 @@ class OceanEOSStruct:
                 self.Pmax = np.minimum(self.Pmax, Pmax[self.comp])
                 self.Tmin = np.maximum(self.Tmin, Tmin[self.comp])
                 self.Tmax = np.minimum(self.Tmax, Tmax[self.comp])
+                self.wMax = wMax[self.comp]
                 self.propsPmax = self.Pmax
                 if np.size(P_MPa) == np.size(T_K):
                     log.warning(f'Both P and T inputs have length {np.size(P_MPa)}, but they are organized to be ' +
@@ -188,6 +241,7 @@ class OceanEOSStruct:
                 else:
                     self.ufn_sigma_Sm = SwConduct(self.w_ppt)
                 self.propsPmax = self.Pmax
+                self.wMax = 50  # GSW produces erroneous results beyond near this threshold
             elif self.comp == 'MgSO4':
                 if self.elecType == 'Pan2020' and round(self.w_ppt) != 100:
                     log.warning('elecType "Pan2020" behavior is defined only for Ocean.wOcean_ppt = 100. ' +
@@ -204,6 +258,7 @@ class OceanEOSStruct:
                     # Save EOS grid resolution from MgSO4 lookup table loaded from disk
                     self.EOSdeltaP = self.ufn_phase.deltaP
                     self.EOSdeltaT = self.ufn_phase.deltaT
+                    self.wMax = self.ufn_phase.wMax
                 else:
                     Margules = MgSO4PhaseMargules(self.w_ppt)
                     self.ufn_phase = Margules.arrays
@@ -211,6 +266,7 @@ class OceanEOSStruct:
                     # Lookup table is not used -- flag with nan for grid resolution.
                     self.EOSdeltaP = np.nan
                     self.EOSdeltaT = np.nan
+                    self.wMax = np.inf
 
                 self.ufn_Seismic = MgSO4Seismic(self.w_ppt, self.EXTRAP)
                 if sigmaFixed_Sm is not None:
@@ -241,33 +297,33 @@ class OceanEOSStruct:
                 EOSlist.ranges[self.EOSlabel] = self.rangeLabel
 
     # Limit extrapolation to use nearest value from evaluated fit
-    def fn_phase(self, P_MPa, T_K, grid=False):
+    def fn_phase(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         # Phase stability cannot be extrapolated for some compositions. Therefore, prevent it.
-        P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_phase(P_MPa, T_K, grid=grid)
-    def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
+    def fn_rho_kgm3(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_rho_kgm3(P_MPa, T_K, grid=grid)
-    def fn_Cp_JkgK(self, P_MPa, T_K, grid=False):
+    def fn_Cp_JkgK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_Cp_JkgK(P_MPa, T_K, grid=grid)
-    def fn_alpha_pK(self, P_MPa, T_K, grid=False):
+    def fn_alpha_pK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_alpha_pK(P_MPa, T_K, grid=grid)
-    def fn_kTherm_WmK(self, P_MPa, T_K, grid=False):
+    def fn_kTherm_WmK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_kTherm_WmK(P_MPa, T_K, grid=grid)
-    def fn_Seismic(self, P_MPa, T_K, grid=False):
+    def fn_Seismic(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_Seismic(P_MPa, T_K, grid=grid)
-    def fn_sigma_Sm(self, P_MPa, T_K, grid=False):
+    def fn_sigma_Sm(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_sigma_Sm(P_MPa, T_K, grid=grid)
 
 
@@ -300,6 +356,8 @@ class IceEOSStruct:
             self.Pmax = np.max(P_MPa)
             self.Tmin = np.min(T_K)
             self.Tmax = np.max(T_K)
+            self.wMin = np.nan  # Compatbility with functions shared with OceanEOSStruct
+            self.wMax = np.nan  # Compatbility with functions shared with OceanEOSStruct
             self.EOSdeltaP = self.deltaP
             self.EOSdeltaT = self.deltaT
             self.EXTRAP = EXTRAP
@@ -376,37 +434,37 @@ class IceEOSStruct:
         return (propBulk**J * (1 - phi) + propPore**J * phi) ** (1/J)
 
     # Limit extrapolation to use nearest value from evaluated fit
-    def fn_phase(self, P_MPa, T_K, grid=False):
+    def fn_phase(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_phase(P_MPa, T_K, grid=grid)
-    def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
+    def fn_rho_kgm3(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_rho_kgm3(P_MPa, T_K, grid=grid)
-    def fn_Cp_JkgK(self, P_MPa, T_K, grid=False):
+    def fn_Cp_JkgK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_Cp_JkgK(P_MPa, T_K, grid=grid)
-    def fn_alpha_pK(self, P_MPa, T_K, grid=False):
+    def fn_alpha_pK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_alpha_pK(P_MPa, T_K, grid=grid)
-    def fn_kTherm_WmK(self, P_MPa, T_K, grid=False):
+    def fn_kTherm_WmK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_kTherm_WmK(P_MPa, T_K, grid=grid)
-    def fn_phi_frac(self, P_MPa, T_K, grid=False):
+    def fn_phi_frac(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_phi_frac(P_MPa, T_K, grid=grid)
-    def fn_Seismic(self, P_MPa, T_K, grid=False):
+    def fn_Seismic(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_Seismic(P_MPa, T_K, grid=grid)
-    def fn_sigma_Sm(self, P_MPa, T_K, grid=False):
+    def fn_sigma_Sm(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, w_ppt, self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.wMin, self.wMax)
         return self.ufn_sigma_Sm(P_MPa, T_K, grid=grid)
 
 class returnVal:
@@ -417,7 +475,8 @@ class returnVal:
             P, _ = np.meshgrid(P, T, indexing='ij')
         return (np.ones_like(P) * self.val).astype(np.int_)
 
-def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, minTres_K=None):
+def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, minTres_K=None, Pstratified_MPa=None,
+                               wStratified_ppt=None, compStratified=None):
     """ Determine if we need to load a new EOS, or if we can reuse one that's already been
         loaded within this session.
 
@@ -428,6 +487,11 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
             T_K (float, shape N): Temperatures to desired for constructing the EOS in K.
             FORCE_NEW = False (bool): Whether to force a reload each time, instead of checking.
                 Overwrites any previously loaded EOS in the EOSlist that has the same EOSlabel.
+            Pstratified_MPa = None (float, shape P): Threshold pressures beyond which new compositions
+                are implemented.
+            wStratified_ppt = None (float, shape P+1): Concentration in g solute/kg solvent for each
+                composition modeled.
+            compStratified = None (string, shape P+1): Composition string describing each modeled layer.
         Returns:
             ALREADY_LOADED (bool): Whether we can make use of an EOSStruct in EOSlist.loaded
                 with a label matching the one we wish to load now.
@@ -444,7 +508,8 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
     Tmin = np.min(T_K)
     Tmax = np.max(T_K)
     rangeLabel = f'{Pmin:.2f},{Pmax:.2f},{deltaP:.2e},' + \
-                 f'{Tmin:.3f},{Tmax:.3f},{deltaT:.2e}'
+                 f'{Tmin:.3f},{Tmax:.3f},{deltaT:.2e},' + \
+                 f'Pstrat{Pstratified_MPa}wStrat{wStratified_ppt}compStrat{compStratified}'
     if (not FORCE_NEW) and EOSlabel in EOSlist.loaded.keys():
         if EOSlist.ranges[EOSlabel] == rangeLabel:
             # This exact EOS has been loaded already. Reuse the one in memory
@@ -490,7 +555,8 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
                 outP_MPa = np.linspace(minPmin, maxPmax, nPs)
                 outT_K = np.linspace(minTmin, maxTmax, nTs)
                 rangeLabel = f'{np.min(outP_MPa):.2f},{np.max(outP_MPa):.2f},{deltaP:.2e},' + \
-                             f'{np.min(outT_K):.3f},{np.max(outT_K):.3f},{deltaT:.2e}'
+                             f'{np.min(outT_K):.3f},{np.max(outT_K):.3f},{deltaT:.2e},' + \
+                             f'Pstrat{Pstratified_MPa}wStrat{wStratified_ppt}compStrat{compStratified}'
             else:
                 # A previous EOS has been loaded that has a wider P or T range than the inputs,
                 # so we will use the previously loaded one.
@@ -508,7 +574,8 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
             log.warning(f'deltaT of {deltaT:.2f} K less than minimum res setting of {minTres_K}. Resetting to {minTres_K}.')
             deltaT = minTres_K
         rangeLabel = f'{Pmin:.2f},{Pmax:.2f},{deltaP:.2e},' + \
-                     f'{Tmin:.3f},{Tmax:.3f},{deltaT:.2e}'
+                     f'{Tmin:.3f},{Tmax:.3f},{deltaT:.2e},' + \
+                     f'Pstrat{Pstratified_MPa}wStrat{wStratified_ppt}compStrat{compStratified}'
         outP_MPa = np.arange(Pmin, Pmax, deltaP)
         outT_K = np.arange(Tmin, Tmax, deltaT)
 
@@ -539,7 +606,7 @@ class SFphase:
         else:
             self.comp = comp
             self.m_molal = Ppt2molal(self.w_ppt, Constants.m_gmol[self.comp])
-            self.path = SFmatPath[self.comp]
+            self.path = SFmatPath
 
     def PTpairs(self, Pin, Tin):
         if np.size(Pin) == 1 and np.size(Tin) == 1:
@@ -630,7 +697,7 @@ class IceSeismic:
     def __call__(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             # Set extrapolation boundaries to limits defined in SeaFreeze
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, 0, 3000, 0, 400)
+            P_MPa, T_K, w_ppt = ResetNearestExtrap(P_MPa, T_K, np.nan, 0, 3000, 0, 400, 0, 1000)
         if grid:
             PT = sfPTgrid(P_MPa, T_K)
         else:

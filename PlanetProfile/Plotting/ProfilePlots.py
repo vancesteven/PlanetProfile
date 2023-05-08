@@ -174,7 +174,7 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     # Plot reference profiles first, so they plot on bottom of everything
     comps = np.unique([Planet.Ocean.comp for Planet in PlanetList])
-    if Params.PLOT_REF:
+    if Params.PLOT_REF and np.any([Params.nRef[Planet.Ocean.comp] > 1 for Planet in PlanetList]):
         # Keep track of which reference profiles have been plotted so that we do each only once
         newRef = {comp:True for comp in comps}
 
@@ -201,6 +201,8 @@ def PlotHydrosphereProps(PlanetList, Params):
                                            ls=Style.LS_ref[Planet.Ocean.comp])
                     if FigMisc.REFS_IN_LEGEND and i == 0: thisRef.set_label(wList)
                 newRef[Planet.Ocean.comp] = False
+
+
 
     wMinMax_ppt = {}
     TminMax_K = {}

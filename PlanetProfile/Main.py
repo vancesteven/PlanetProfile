@@ -386,6 +386,14 @@ def WriteProfile(Planet, Params):
         f'Iron core EOS file = {Planet.Core.coreEOS}',
         f'Ocean salt = {Planet.Ocean.comp}',
         f'Pore salt = {Planet.Sil.poreComp}',
+        f'Ocean.Pstratified_MPa = {Planet.Ocean.Pstratified_MPa}',
+        f'Ocean.wStratified_ppt = {Planet.Ocean.wStratified_ppt}',
+        f'Ocean.compStratified = {Planet.Ocean.compStratified}',
+        f'Sil.Pstratified_MPa = {Planet.Sil.Pstratified_MPa}',
+        f'Sil.compStratified = {Planet.Sil.compStratified}',
+        f'Core.Pstratified_MPa = {Planet.Core.Pstratified_MPa}',
+        f'Core.wStratified_ppt = {Planet.Core.wStratified_ppt}',
+        f'Core.compStratified = {Planet.Core.compStratified}',
         f'wOcean_ppt = {Planet.Ocean.wOcean_ppt:.3f}',
         f'wPore_ppt = {Planet.Sil.wPore_ppt:.3f}',
         f'R_m = {Planet.Bulk.R_m:.3f}',
@@ -569,6 +577,40 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Ocean.comp = f.readline().split('=')[-1].strip()
         # Get dissolved salt supposed for pore space
         Planet.Sil.poreComp = f.readline().split('=')[-1].strip()
+        # Ocean composition transition pressures
+        Planet.Ocean.Pstratified_MPa = np.array([float(num) if num.strip() != 'None' else None for num in f.readline().split('=')[-1].replace('[','').replace(']','').split(',')])
+        # Ocean composition layer concentrations in g solute/kg solution
+        Planet.Ocean.wStratified_ppt = np.array([float(num) if num.strip() != 'None' else None for num in f.readline().split('=')[-1].replace('[','').replace(']','').split(',')])
+        # Ocean layer composition strings
+        oceanCompStratified = f.readline().split('=')[-1].replace('[','').replace(']','').split(',')
+        if np.size(oceanCompStratified) == 1:
+            if Planet.Ocean.comp is None:
+                Planet.Ocean.comp = oceanCompStratified[0].strip()
+            Planet.Ocean.compStratified = [Planet.Ocean.comp] * np.size(Planet.Ocean.wStratified_ppt)
+        else:
+            Planet.Ocean.compStratified = oceanCompStratified
+        # Silicate composition transition pressures
+        Planet.Sil.Pstratified_MPa = np.array([float(num) if num.strip() != 'None' else None for num in f.readline().split('=')[-1].replace('[','').replace(']','').split(',')])
+        # Silicate layer composition strings
+        silCompStratified = f.readline().split('=')[-1].replace('[','').replace(']','').split(',')
+        if np.size(silCompStratified) == 1:
+            if Planet.Sil.mantleEOS is None:
+                Planet.Sil.mantleEOS = silCompStratified[0].strip()
+            Planet.Sil.compStratified = [Planet.Sil.mantleEOS] * (np.size(Planet.Sil.Pstratified_MPa)+1)
+        else:
+            Planet.Sil.compStratified = silCompStratified
+        # Core composition transition pressures
+        Planet.Core.Pstratified_MPa = np.array([float(num) if num.strip() != 'None' else None for num in f.readline().split('=')[-1].replace('[','').replace(']','').split(',')])
+        # Core composition layer concentrations in g solute (non-iron)/kg solution (iron + non-iron)
+        Planet.Core.wStratified_ppt = np.array([float(num) if num.strip() != 'None' else None for num in f.readline().split('=')[-1].replace('[','').replace(']','').split(',')])
+        # Core layer composition strings
+        coreCompStratified = f.readline().split('=')[-1].replace('[','').replace(']','').split(',')
+        if np.size(coreCompStratified) == 1:
+            if Planet.Core.coreEOS is None:
+                Planet.Core.coreEOS = coreCompStratified[0].strip()
+            Planet.Core.compStratified = [Planet.Core.coreEOS] * np.size(Planet.Core.wStratified_ppt)
+        else:
+            Planet.Core.compStratified = coreCompStratified
         # Get float values from header
         Planet.Ocean.wOcean_ppt, Planet.Sil.wPore_ppt, Planet.Bulk.R_m, Planet.Bulk.M_kg, Planet.Bulk.Cmeasured, \
         Planet.Bulk.CuncertaintyLower, Planet.Bulk.CuncertaintyUpper, Planet.Bulk.Psurf_MPa, Planet.Bulk.Tsurf_K, \
