@@ -4,7 +4,7 @@ Software framework for constructing 1D interior structure models based on planet
 The main repository is mirrored at https://github.com/NASA-Planetary-Science/PlanetProfile; any pull requests should be submitted to https://github.com/vancesteven/PlanetProfile.
 
 ## Acknowledging PlanetProfile
-We want to hear about your work with PlanetProfile! Please consider sending us a message alerting us to your work (svance@jpl.caltech.edu). Suggested acknowledgement in publications: "Data used in this work were generated using the open-source PlanetProfile software hosted on GitHub."
+We want to hear about your work with PlanetProfile! Please consider sending us a message alerting us to your work (svance@jpl.nasa.gov). Suggested acknowledgement in publications: "Data used in this work were generated using the open-source PlanetProfile software hosted on GitHub."
 
 ## Getting started
 PlanetProfile is available in Python and Matlab.
@@ -72,6 +72,7 @@ A simple list with install commands for Python is in the next section.
   * Python: Installed with conda via conda-forge: `conda install -c conda-forge obspy`
   * Matlab: Download mMatTauP contents into Utilities/ and add-with-subfolders to the Matlab path.
 * A working TeX/LaTeX distribution (such as TeXlive) is recommended for optimum plot labels. TeXlive is available at: https://tug.org/texlive/acquire-netinstall.html
+    It can also be installed using pip.
 
 ### Note about SeaFreeze versions prior to v0.9.3
 If you had installed SeaFreeze before version v0.9.3, you will need to manually remove the prior installation because it was improperly packaged before.
