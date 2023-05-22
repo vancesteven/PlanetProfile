@@ -523,11 +523,24 @@ class EOSvarCompWrapper:
         return EOSlist.loaded[self.key].fn_porosCorrect(propBulk, propPore, phi, J)
     def fn_sigma_Sm(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         cP_MPa = np.array(P_MPa) if not isinstance(P_MPa, Iterable) else deepcopy(P_MPa)
-        return np.piecewise(cP_MPa,
-                            [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa)
-                                for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)],
-                            [EOSlist.loaded[label].fn_sigma_Sm for label in self.EOSlabels],
-                            T_K, w_ppt=w_ppt, grid=grid)
+        inds = [np.logical_and(np.asarray(cP_MPa) >= Pmin_MPa, np.asarray(cP_MPa) < Pmax_MPa) for Pmin_MPa, Pmax_MPa in zip(self.Pmins_MPa, self.Pmaxs_MPa)]
+        cT_K = T_K*inds
+        cP_MPa=P_MPa*inds
+        cT_K_mask=[0]*len(cT_K)
+        nonzero_indices=[0]*len(cT_K)
+        cP_MPa_mask=[0]*len(cT_K)
+        for i in range(len(cT_K)):
+            nonzero_indices[i]=np.nonzero(cT_K[i])
+            cT_K_mask[i]=cT_K[i][nonzero_indices[i]]
+            cP_MPa_mask[i]=cP_MPa[i][nonzero_indices[i]]
+        sigma_Sm =np.ones(len(P_MPa))
+        ij = 0
+        for thisfn in [EOSlist.loaded[label].fn_sigma_Sm for label in self.EOSlabels]:
+            theseinds = inds[ij]
+            sigma_Sm[theseinds] = thisfn(cP_MPa_mask[ij],cT_K_mask[ij],self.w_ppt[ij])
+            ij+=1
+        return sigma_Sm
+
     def fn_Seismic(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         # Do piecewise manually in this case because it can't handle returned tuples (we always return 2 or 4 quantities)
         Nout = 2 if self.EOStype == 'ocean' else 4
