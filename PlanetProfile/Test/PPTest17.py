@@ -30,8 +30,8 @@ Planet.Ocean.deltaP = 5.0
 Planet.Ocean.PHydroMax_MPa = 1600.0
 Planet.Ocean.THydroMax_K = 380.0
 Planet.Do.VARIABLE_COMP_OCEAN = True
-Planet.Ocean.Pstratified_MPa = [30, 60, 90]
-Planet.Ocean.wStratified_ppt = [15, 45, 65, 95]
+Planet.Ocean.Pstratified_MPa = np.arange(70, 280, 30)
+Planet.Ocean.wStratified_ppt = np.linspace(10, 100, np.size(Planet.Ocean.Pstratified_MPa)+1)
 
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.33e-14
