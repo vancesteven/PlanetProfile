@@ -37,13 +37,23 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
         else:
             log.debug(f'Loading ocean EOS with variable composition, from {wStratified_ppt[0]} ppt {compStratified[0]} ' +
                       f'to {wStratified_ppt[-1]} ppt {compStratified[-1]}.')
-            nComps = np.size(wStratified_ppt)
+            Pmax = np.max(P_MPa)
+            if Pmax < Pstratified_MPa[-1]:
+                Plist_MPa = Pstratified_MPa[Pstratified_MPa < Pmax]
+                nPops = np.size(Plist_MPa) - np.size(Pstratified_MPa)
+                wList_ppt = wStratified_ppt[:nPops]
+                compListInit = compStratified[:nPops] if np.size(compStratified) > 1 else compStratified
+            else:
+                Plist_MPa = deepcopy(Pstratified_MPa)
+                wList_ppt = deepcopy(wStratified_ppt)
+                compListInit = deepcopy(compStratified)
+            nComps = np.size(wList_ppt)
             # Make a list of EOSwrappers to select among when we evaluate EOS functions
             allOceanEOS, EOSlabels = ( np.empty(nComps, dtype=object) for _ in range(2) )
-            Pmins_MPa = np.insert(Pstratified_MPa, 0, 0)
-            Pmaxs_MPa = np.append(Pstratified_MPa, np.inf)
-            compList = np.repeat(compStratified, nComps) if np.size(compStratified) == 1 else compStratified
-            for i_w, w_ppt in enumerate(wStratified_ppt):
+            Pmins_MPa = np.insert(Plist_MPa, 0, 0)
+            Pmaxs_MPa = np.append(Plist_MPa, np.inf)
+            compList = np.repeat(compListInit, nComps) if np.size(compListInit) == 1 else compListInit
+            for i_w, w_ppt in enumerate(wList_ppt):
                 # Get each subset's individual EOS
                 Psubset_MPa = P_MPa[P_MPa >= Pmins_MPa[i_w]]
                 Psubset_MPa = Psubset_MPa[Psubset_MPa < Pmaxs_MPa[i_w]]
@@ -51,12 +61,14 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
                     log.warning(f'For stratified ocean layer with w_ppt = {w_ppt:.1f}, only {np.size(Psubset_MPa)} ' +
                                 f'points lie within the EOS interpolation region. Errors may result. Increase Ocean.deltaP ' +
                                 f'to increase resolution in the ocean to avoid potential issues.')
+                    if np.size(Psubset_MPa) == 0:
+                        raise ValueError(f'No pressure values between {Pmins_MPa[i_w]} and {Pmaxs_MPa[i_w]} MPa. Adjust Ocean.deltaP or Pstratified_MPa to fix.')
                 allOceanEOS[i_w] = GetOceanEOS(compList[i_w], w_ppt, Psubset_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
                     phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE, sigmaFixed_Sm=sigmaFixed_Sm,
                     VARIABLE_COMP=False, CONTINUOUS_SALINITY=False)
                 EOSlabels[i_w] = allOceanEOS[i_w].key
 
-            oceanEOSwrapper = EOSvarCompWrapper(allOceanEOSlabel, 'ocean', EOSlabels, Pmins_MPa, Pmaxs_MPa, wStratified_ppt)
+            oceanEOSwrapper = EOSvarCompWrapper(allOceanEOSlabel, 'ocean', EOSlabels, Pmins_MPa, Pmaxs_MPa, wList_ppt)
 
         # Ensure each EOSlabel is included in EOSlist, in case we have reused EOSs with
         # e.g. a smaller range that can reuse the larger-range already-loaded EOS.
@@ -835,7 +847,11 @@ def PhaseConv(phase):
     elif phase >= Constants.phaseFe:
         phaseStr = 'Fe'
     else:
-        raise ValueError(f'PhaseConv does not have a definition for phase ID {phase:d}.')
+        if np.isnan(phase):
+            phaseStr = 'nan'
+        else:
+            phaseStr = f'{phase:d}'
+        raise ValueError(f'PhaseConv does not have a definition for phase ID {phaseStr}.')
 
     return phaseStr
 

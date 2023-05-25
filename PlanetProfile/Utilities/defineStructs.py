@@ -75,6 +75,7 @@ class DoSubstruct:
         self.VARIABLE_COMP_OCEAN = False  # Whether to allow for/model variable composition within the ocean. Work in progress.
         self.VARIABLE_COMP_SIL = False  # Whether to allow for/model variable composition in silicate layers. Work in progress.
         self.VARIABLE_COMP_CORE = False  # Whether to allow for/model variable composition in core layers. Work in progress.
+        self.VARCOMP_P_RELATIVE = False  # Whether to use relative pressures from the top of each material layer or absolute pressures in setting pressure thresholds and compositions for variable-composition layers
         self.CONTINUOUS_SALINITY = False  # Whether to use separate calls to the ocean EOS for each layer, as opposed to a finite number of discrete steps. If False, Ocean.dwdPthreshold_pptMPa must be set.
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
@@ -1143,8 +1144,11 @@ class StyleStruct:
         
 
     def GetLW(self, wOcean_ppt, wMinMax_ppt):
-        linewidth = interp1d(wMinMax_ppt, self.LWlims,
-                    bounds_error=False, fill_value=self.LWlims[-1])(wOcean_ppt)
+        if np.any(np.isnan([wOcean_ppt] + wMinMax_ppt)):
+            linewidth = self.LW_std
+        else:
+            linewidth = interp1d(wMinMax_ppt, self.LWlims,
+                        bounds_error=False, fill_value=self.LWlims[-1])(wOcean_ppt)
         return linewidth
 
     def GetMA(self, wOcean_ppt, wMinMax_ppt):
