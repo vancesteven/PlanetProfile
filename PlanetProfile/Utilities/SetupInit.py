@@ -236,8 +236,8 @@ def SetupInit(Planet, Params):
         Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K, None,
                                            phaseType=Planet.Ocean.phaseType, FORCE_NEW=True, MELT=True,
                                            VARIABLE_COMP=Planet.Do.VARIABLE_COMP_OCEAN,
-                                           Pstratified_MPa=[],
-                                           wStratified_ppt=Planet.Ocean.wStratified_ppt[0:1],
+                                           Pstratified_MPa=Planet.Ocean.Pstratified_MPa,
+                                           wStratified_ppt=Planet.Ocean.wStratified_ppt,
                                            compStratified=Planet.Ocean.compStratified,
                                            CONTINUOUS_SALINITY=Planet.Do.CONTINUOUS_SALINITY)
 
