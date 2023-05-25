@@ -702,6 +702,8 @@ def PlotWedge(PlanetList, Params):
         else:
             if Planet.Ocean.comp == 'PureH2O':
                 compStr = r'Pure \ce{H2O} ocean'
+            elif Planet.Do.VARIABLE_COMP_OCEAN:
+                compStr = Planet.compStr
             else:
                 compStr = f'\SI{{{Planet.Ocean.wOcean_ppt:.1f}}}{{{FigLbl.wUnits}}}~\ce{{{Planet.Ocean.comp}}}'
             wedgeLabel = f'{silLine} mantle\n{coreLine}\n{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
