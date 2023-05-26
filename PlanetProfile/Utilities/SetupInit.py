@@ -95,6 +95,10 @@ def SetupInit(Planet, Params):
                 log.warning('Ocean.wOcean_ppt is set, but will be ignored because Do.VARIABLE_COMP_OCEAN is True.')
             Planet.Ocean.wOcean_ppt = np.nan
 
+            # Ensure Pstratified and wStratified are arrays and not lists
+            Planet.Ocean.Pstratified_MPa = np.asarray(Planet.Ocean.Pstratified_MPa)
+            Planet.Ocean.wStratified_ppt = np.asarray(Planet.Ocean.wStratified_ppt)
+
     if Planet.Do.VARIABLE_COMP_SIL:
         if Planet.Sil.mantleEOS is not None:
             log.warning('Planet.Sil.mantleEOS is set but will be ignored because Planet.Do.VARIABLE_COMP_SIL is set.')
