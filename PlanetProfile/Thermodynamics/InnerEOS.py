@@ -454,12 +454,17 @@ class EOSvarCompWrapper:
             iEOS = np.argmin(self.Pmaxs_MPa > P_MPa)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_phase(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
-            returnVals = np.empty_like(P_MPa)
-            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
-                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
-                Psubset_MPa = P_MPa[iPsubset]
-                Tsubset_K = deepcopy(T_K) if grid or np.size(T_K) == 1 else T_K[iPsubset]
-                returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_phase(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
+            if grid:
+                returnVals = np.empty((np.size(P_MPa), np.size(T_K)))
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    returnVals[iPsubset,:] = EOSlist.loaded[EOSlabel].fn_phase(P_MPa[iPsubset], T_K, w_ppt=w_ppt, grid=grid)
+            else:
+                returnVals = np.empty_like(P_MPa)
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    Tsubset_K = deepcopy(T_K) if np.size(T_K) == 1 else T_K[iPsubset]
+                    returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_phase(P_MPa[iPsubset], Tsubset_K, w_ppt=w_ppt, grid=grid)
         return returnVals
 
     def fn_rho_kgm3(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
@@ -467,12 +472,17 @@ class EOSvarCompWrapper:
             iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_rho_kgm3(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
-            returnVals = np.empty_like(P_MPa)
-            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
-                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
-                Psubset_MPa = P_MPa[iPsubset]
-                Tsubset_K = deepcopy(T_K) if grid else T_K[iPsubset]
-                returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_rho_kgm3(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
+            if grid:
+                returnVals = np.empty((np.size(P_MPa), np.size(T_K)))
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    returnVals[iPsubset,:] = EOSlist.loaded[EOSlabel].fn_rho_kgm3(P_MPa[iPsubset], T_K, w_ppt=w_ppt, grid=grid)
+            else:
+                returnVals = np.empty_like(P_MPa)
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    Tsubset_K = deepcopy(T_K) if np.size(T_K) == 1 else T_K[iPsubset]
+                    returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_rho_kgm3(P_MPa[iPsubset], Tsubset_K, w_ppt=w_ppt, grid=grid)
         return returnVals
 
     def fn_Cp_JkgK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
@@ -480,12 +490,17 @@ class EOSvarCompWrapper:
             iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_Cp_JkgK(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
-            returnVals = np.empty_like(P_MPa)
-            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
-                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
-                Psubset_MPa = P_MPa[iPsubset]
-                Tsubset_K = deepcopy(T_K) if grid else T_K[iPsubset]
-                returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_Cp_JkgK(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
+            if grid:
+                returnVals = np.empty((np.size(P_MPa), np.size(T_K)))
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    returnVals[iPsubset,:] = EOSlist.loaded[EOSlabel].fn_Cp_JkgK(P_MPa[iPsubset], T_K, w_ppt=w_ppt, grid=grid)
+            else:
+                returnVals = np.empty_like(P_MPa)
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    Tsubset_K = deepcopy(T_K) if np.size(T_K) == 1 else T_K[iPsubset]
+                    returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_Cp_JkgK(P_MPa[iPsubset], Tsubset_K, w_ppt=w_ppt, grid=grid)
         return returnVals
 
     def fn_alpha_pK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
@@ -493,12 +508,17 @@ class EOSvarCompWrapper:
             iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_alpha_pK(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
-            returnVals = np.empty_like(P_MPa)
-            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
-                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
-                Psubset_MPa = P_MPa[iPsubset]
-                Tsubset_K = deepcopy(T_K) if grid else T_K[iPsubset]
-                returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_alpha_pK(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
+            if grid:
+                returnVals = np.empty((np.size(P_MPa), np.size(T_K)))
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    returnVals[iPsubset,:] = EOSlist.loaded[EOSlabel].fn_alpha_pK(P_MPa[iPsubset], T_K, w_ppt=w_ppt, grid=grid)
+            else:
+                returnVals = np.empty_like(P_MPa)
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    Tsubset_K = deepcopy(T_K) if np.size(T_K) == 1 else T_K[iPsubset]
+                    returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_alpha_pK(P_MPa[iPsubset], Tsubset_K, w_ppt=w_ppt, grid=grid)
         return returnVals
 
     def fn_kTherm_WmK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
@@ -506,12 +526,17 @@ class EOSvarCompWrapper:
             iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_kTherm_WmK(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
-            returnVals = np.empty_like(P_MPa)
-            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
-                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
-                Psubset_MPa = P_MPa[iPsubset]
-                Tsubset_K = deepcopy(T_K) if grid else T_K[iPsubset]
-                returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_kTherm_WmK(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
+            if grid:
+                returnVals = np.empty((np.size(P_MPa), np.size(T_K)))
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    returnVals[iPsubset,:] = EOSlist.loaded[EOSlabel].fn_kTherm_WmK(P_MPa[iPsubset], T_K, w_ppt=w_ppt, grid=grid)
+            else:
+                returnVals = np.empty_like(P_MPa)
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    Tsubset_K = deepcopy(T_K) if np.size(T_K) == 1 else T_K[iPsubset]
+                    returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_kTherm_WmK(P_MPa[iPsubset], Tsubset_K, w_ppt=w_ppt, grid=grid)
         return returnVals
 
     def fn_VP_kms(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
@@ -519,12 +544,17 @@ class EOSvarCompWrapper:
             iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_VP_kms(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
-            returnVals = np.empty_like(P_MPa)
-            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
-                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
-                Psubset_MPa = P_MPa[iPsubset]
-                Tsubset_K = deepcopy(T_K) if grid else T_K[iPsubset]
-                returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_VP_kms(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
+            if grid:
+                returnVals = np.empty((np.size(P_MPa), np.size(T_K)))
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    returnVals[iPsubset,:] = EOSlist.loaded[EOSlabel].fn_VP_kms(P_MPa[iPsubset], T_K, w_ppt=w_ppt, grid=grid)
+            else:
+                returnVals = np.empty_like(P_MPa)
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    Tsubset_K = deepcopy(T_K) if np.size(T_K) == 1 else T_K[iPsubset]
+                    returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_VP_kms(P_MPa[iPsubset], Tsubset_K, w_ppt=w_ppt, grid=grid)
         return returnVals
 
     def fn_VS_kms(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
@@ -532,12 +562,17 @@ class EOSvarCompWrapper:
             iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_VS_kms(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
-            returnVals = np.empty_like(P_MPa)
-            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
-                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
-                Psubset_MPa = P_MPa[iPsubset]
-                Tsubset_K = deepcopy(T_K) if grid else T_K[iPsubset]
-                returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_VS_kms(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
+            if grid:
+                returnVals = np.empty((np.size(P_MPa), np.size(T_K)))
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    returnVals[iPsubset,:] = EOSlist.loaded[EOSlabel].fn_VS_kms(P_MPa[iPsubset], T_K, w_ppt=w_ppt, grid=grid)
+            else:
+                returnVals = np.empty_like(P_MPa)
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    Tsubset_K = deepcopy(T_K) if np.size(T_K) == 1 else T_K[iPsubset]
+                    returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_VS_kms(P_MPa[iPsubset], Tsubset_K, w_ppt=w_ppt, grid=grid)
         return returnVals
 
     def fn_KS_GPa(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
@@ -545,12 +580,17 @@ class EOSvarCompWrapper:
             iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_KS_GPa(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
-            returnVals = np.empty_like(P_MPa)
-            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
-                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
-                Psubset_MPa = P_MPa[iPsubset]
-                Tsubset_K = deepcopy(T_K) if grid else T_K[iPsubset]
-                returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_KS_GPa(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
+            if grid:
+                returnVals = np.empty((np.size(P_MPa), np.size(T_K)))
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    returnVals[iPsubset,:] = EOSlist.loaded[EOSlabel].fn_KS_GPa(P_MPa[iPsubset], T_K, w_ppt=w_ppt, grid=grid)
+            else:
+                returnVals = np.empty_like(P_MPa)
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    Tsubset_K = deepcopy(T_K) if np.size(T_K) == 1 else T_K[iPsubset]
+                    returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_KS_GPa(P_MPa[iPsubset], Tsubset_K, w_ppt=w_ppt, grid=grid)
         return returnVals
 
     def fn_GS_GPa(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
@@ -558,12 +598,17 @@ class EOSvarCompWrapper:
             iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_GS_GPa(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
-            returnVals = np.empty_like(P_MPa)
-            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
-                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
-                Psubset_MPa = P_MPa[iPsubset]
-                Tsubset_K = deepcopy(T_K) if grid else T_K[iPsubset]
-                returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_GS_GPa(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
+            if grid:
+                returnVals = np.empty((np.size(P_MPa), np.size(T_K)))
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    returnVals[iPsubset,:] = EOSlist.loaded[EOSlabel].fn_GS_GPa(P_MPa[iPsubset], T_K, w_ppt=w_ppt, grid=grid)
+            else:
+                returnVals = np.empty_like(P_MPa)
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    Tsubset_K = deepcopy(T_K) if np.size(T_K) == 1 else T_K[iPsubset]
+                    returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_GS_GPa(P_MPa[iPsubset], Tsubset_K, w_ppt=w_ppt, grid=grid)
         return returnVals
 
     def fn_phi_frac(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
@@ -571,12 +616,17 @@ class EOSvarCompWrapper:
             iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_phi_frac(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
-            returnVals = np.empty_like(P_MPa)
-            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
-                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
-                Psubset_MPa = P_MPa[iPsubset]
-                Tsubset_K = deepcopy(T_K) if grid else T_K[iPsubset]
-                returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_phi_frac(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
+            if grid:
+                returnVals = np.empty((np.size(P_MPa), np.size(T_K)))
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    returnVals[iPsubset,:] = EOSlist.loaded[EOSlabel].fn_phi_frac(P_MPa[iPsubset], T_K, w_ppt=w_ppt, grid=grid)
+            else:
+                returnVals = np.empty_like(P_MPa)
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    Tsubset_K = deepcopy(T_K) if np.size(T_K) == 1 else T_K[iPsubset]
+                    returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_phi_frac(P_MPa[iPsubset], Tsubset_K, w_ppt=w_ppt, grid=grid)
         return returnVals
 
     def fn_porosCorrect(self, propBulk, propPore, phi, J):
@@ -587,25 +637,35 @@ class EOSvarCompWrapper:
             iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_sigma_Sm(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
-            returnVals = np.empty_like(P_MPa)
-            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
-                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
-                Psubset_MPa = P_MPa[iPsubset]
-                Tsubset_K = deepcopy(T_K) if grid else T_K[iPsubset]
-                returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_sigma_Sm(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
+            if grid:
+                returnVals = np.empty((np.size(P_MPa), np.size(T_K)))
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    returnVals[iPsubset,:] = EOSlist.loaded[EOSlabel].fn_sigma_Sm(P_MPa[iPsubset], T_K, w_ppt=w_ppt, grid=grid)
+            else:
+                returnVals = np.empty_like(P_MPa)
+                for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                    iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                    Tsubset_K = deepcopy(T_K) if np.size(T_K) == 1 else T_K[iPsubset]
+                    returnVals[iPsubset] = EOSlist.loaded[EOSlabel].fn_sigma_Sm(P_MPa[iPsubset], Tsubset_K, w_ppt=w_ppt, grid=grid)
         return returnVals
 
     def fn_Seismic(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         # Do piecewise manually in this case because it can't handle returned tuples (we always return 2 or 4 quantities)
         Nout = 2 if self.EOStype == 'ocean' else 4
-        returns = np.empty((Nout, np.size(P_MPa)))
-        for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
-            iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
-            Psubset_MPa = P_MPa[iPsubset]
-            Tsubset_K = deepcopy(T_K) if grid else T_K[iPsubset]
-            # Concatenate arrays to return as tuple-able unpack of seismic props
-            returns[:,iPsubset] = EOSlist.loaded[EOSlabel].fn_Seismic(Psubset_MPa, Tsubset_K, w_ppt=w_ppt, grid=grid)
-        return returns
+        if grid:
+            returnVals = np.empty((Nout, np.size(P_MPa), np.size(T_K)))
+            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                returnVals[:, iPsubset, :] = EOSlist.loaded[EOSlabel].fn_Seismic(P_MPa[iPsubset], T_K, w_ppt=w_ppt, grid=grid)
+        else:
+            returnVals = np.empty((Nout, np.size(P_MPa)))
+            for Pmin_MPa, Pmax_MPa, EOSlabel in zip(self.Pmins_MPa, self.Pmaxs_MPa, self.EOSlabels):
+                iPsubset = np.logical_and(P_MPa >= Pmin_MPa, P_MPa < Pmax_MPa)
+                # Concatenate arrays to return as tuple-able unpack of seismic props
+                returnVals[:, iPsubset] = EOSlist.loaded[EOSlabel].fn_Seismic(P_MPa[iPsubset], T_K[iPsubset], w_ppt=w_ppt, grid=grid)
+
+        return returnVals
 
 
 def GetVarCompLabel(Pstratified_MPa, wStratified_ppt, compStratified, CONTINUOUS_SALINITY):
