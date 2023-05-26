@@ -418,7 +418,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
                 else:
                     saveLabel += f'{Planet.Ocean.comp}var' + \
                                  f'_Tb{Planet.Bulk.Tb_K}K'
-                    label += f'{Planet.Ocean.comp} (var)' + \
+                    label += f'\ce{{{Planet.Ocean.comp}}} (var)' + \
                         f', $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
                     Planet.compStr = f'var comp'
             else:
