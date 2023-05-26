@@ -292,6 +292,8 @@ class OceanEOSStruct:
                 raise ValueError(f'Unable to load ocean EOS. self.comp="{self.comp}" but options are "Seawater", "NH3", "MgSO4", ' +
                                  '"NaCl", and "none" (for waterless bodies).')
 
+            if self.Pmax > self.propsPmax:
+                log.warning('Input P range for EOS exceeds loaded P limits. Fitpack errors may result.')
             self.ufn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, rho_kgm3)
             self.ufn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, Cp_JkgK)
             self.ufn_alpha_pK = RectBivariateSpline(P_MPa, T_K, alpha_pK)
