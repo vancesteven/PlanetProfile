@@ -464,7 +464,7 @@ class EOSvarCompWrapper:
 
     def fn_rho_kgm3(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if np.size(P_MPa) == 1:
-            iEOS = np.argmin(self.Pmaxs_MPa > P_MPa)
+            iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_rho_kgm3(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
             returnVals = np.empty_like(P_MPa)
@@ -477,7 +477,7 @@ class EOSvarCompWrapper:
 
     def fn_Cp_JkgK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if np.size(P_MPa) == 1:
-            iEOS = np.argmin(self.Pmaxs_MPa > P_MPa)
+            iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_Cp_JkgK(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
             returnVals = np.empty_like(P_MPa)
@@ -490,7 +490,7 @@ class EOSvarCompWrapper:
 
     def fn_alpha_pK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if np.size(P_MPa) == 1:
-            iEOS = np.argmin(self.Pmaxs_MPa > P_MPa)
+            iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_alpha_pK(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
             returnVals = np.empty_like(P_MPa)
@@ -503,7 +503,7 @@ class EOSvarCompWrapper:
 
     def fn_kTherm_WmK(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if np.size(P_MPa) == 1:
-            iEOS = np.argmin(self.Pmaxs_MPa > P_MPa)
+            iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_kTherm_WmK(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
             returnVals = np.empty_like(P_MPa)
@@ -516,7 +516,7 @@ class EOSvarCompWrapper:
 
     def fn_VP_kms(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if np.size(P_MPa) == 1:
-            iEOS = np.argmin(self.Pmaxs_MPa > P_MPa)
+            iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_VP_kms(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
             returnVals = np.empty_like(P_MPa)
@@ -529,7 +529,7 @@ class EOSvarCompWrapper:
 
     def fn_VS_kms(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if np.size(P_MPa) == 1:
-            iEOS = np.argmin(self.Pmaxs_MPa > P_MPa)
+            iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_VS_kms(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
             returnVals = np.empty_like(P_MPa)
@@ -542,7 +542,7 @@ class EOSvarCompWrapper:
 
     def fn_KS_GPa(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if np.size(P_MPa) == 1:
-            iEOS = np.argmin(self.Pmaxs_MPa > P_MPa)
+            iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_KS_GPa(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
             returnVals = np.empty_like(P_MPa)
@@ -555,7 +555,7 @@ class EOSvarCompWrapper:
 
     def fn_GS_GPa(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if np.size(P_MPa) == 1:
-            iEOS = np.argmin(self.Pmaxs_MPa > P_MPa)
+            iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_GS_GPa(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
             returnVals = np.empty_like(P_MPa)
@@ -568,7 +568,7 @@ class EOSvarCompWrapper:
 
     def fn_phi_frac(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if np.size(P_MPa) == 1:
-            iEOS = np.argmin(self.Pmaxs_MPa > P_MPa)
+            iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_phi_frac(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
             returnVals = np.empty_like(P_MPa)
@@ -584,7 +584,7 @@ class EOSvarCompWrapper:
 
     def fn_sigma_Sm(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if np.size(P_MPa) == 1:
-            iEOS = np.argmin(self.Pmaxs_MPa > P_MPa)
+            iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_sigma_Sm(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
             returnVals = np.empty_like(P_MPa)
