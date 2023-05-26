@@ -451,7 +451,7 @@ class EOSvarCompWrapper:
 
     def fn_phase(self, P_MPa, T_K, w_ppt=np.nan, grid=False):
         if np.size(P_MPa) == 1:
-            iEOS = np.argmin(self.Pmaxs_MPa > P_MPa)
+            iEOS = next(i for i,Pmax in enumerate(self.Pmaxs_MPa) if P_MPa < Pmax)
             returnVals = EOSlist.loaded[self.EOSlabels[iEOS]].fn_phase(P_MPa, T_K, w_ppt=w_ppt, grid=grid)
         else:
             if grid:
