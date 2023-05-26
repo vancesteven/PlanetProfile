@@ -286,7 +286,7 @@ def simple(iTests=None):
 
     # Set general testing config atop standard config options
     Params = configParams
-    Params.CALC_NEW = False
+    Params.CALC_NEW = True
     Params.CALC_NEW_REF = True
     Params.CALC_NEW_INDUCT = True
     Params.CALC_SEISMIC = True
