@@ -99,6 +99,13 @@ def SetupInit(Planet, Params):
             Planet.Ocean.Pstratified_MPa = np.asarray(Planet.Ocean.Pstratified_MPa)
             Planet.Ocean.wStratified_ppt = np.asarray(Planet.Ocean.wStratified_ppt)
 
+            PdiffMin_MPa = np.min(np.diff(Planet.Ocean.Pstratified_MPa))
+            if PdiffMin_MPa < 3 * Planet.Ocean.deltaP:
+                raise ValueError(f'Ocean stratification steps are as little as {PdiffMin_MPa} MPa and ' +
+                                 f'Ocean.deltaP is {Planet.Ocean.deltaP} MPa. Decrease Ocean.deltaP or spread out ' +
+                                 f'steps in Ocean.Pstratified_MPa to have at least 5 steps per layer in the EOS, or ' +
+                                 f'fitpack errors will result.')
+
     if Planet.Do.VARIABLE_COMP_SIL:
         if Planet.Sil.mantleEOS is not None:
             log.warning('Planet.Sil.mantleEOS is set but will be ignored because Planet.Do.VARIABLE_COMP_SIL is set.')
