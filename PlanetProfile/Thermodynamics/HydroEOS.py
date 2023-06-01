@@ -62,7 +62,8 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
                                 f'points lie within the EOS interpolation region. Errors may result. Increase Ocean.deltaP ' +
                                 f'to increase resolution in the ocean to avoid potential issues.')
                     if np.size(Psubset_MPa) == 0:
-                        raise ValueError(f'No pressure values between {Pmins_MPa[i_w]} and {Pmaxs_MPa[i_w]} MPa. Adjust Ocean.deltaP or Pstratified_MPa to fix.')
+                        raise ValueError(f'No pressure values between {Pmins_MPa[i_w]} and {Pmaxs_MPa[i_w]} MPa. ' +
+                                         f'Adjust Ocean.deltaP, Ocean.PHydroMax_MPa, or Ocean.Pstratified_MPa to fix.')
                 allOceanEOS[i_w] = GetOceanEOS(compList[i_w], w_ppt, Psubset_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
                     phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE, sigmaFixed_Sm=sigmaFixed_Sm,
                     VARIABLE_COMP=False, CONTINUOUS_SALINITY=False)
