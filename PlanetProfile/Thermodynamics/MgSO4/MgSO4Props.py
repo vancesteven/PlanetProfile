@@ -399,8 +399,13 @@ class MgSO4Seismic:
             evalPts = tuple(np.meshgrid(self.w_ppt, P_MPa, T_K))
         else:
             evalPts = np.array([[self.w_ppt, P, T] for P, T in zip(P_MPa, T_K)])
-        VP_kms = np.squeeze(self.fn_VP_kms(evalPts))
-        KS_GPa = np.squeeze(self.fn_KS_GPa(evalPts))
+
+        VP_kms = self.fn_VP_kms(evalPts)
+        KS_GPa = self.fn_KS_GPa(evalPts)
+        # Remove unnecessary length-1 axes
+        if grid:
+            VP_kms = np.squeeze(VP_kms, axis=1)
+            KS_GPa = np.squeeze(KS_GPa, axis=1)
         return VP_kms, KS_GPa
 
 
