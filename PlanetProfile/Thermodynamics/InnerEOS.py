@@ -433,7 +433,7 @@ class EOSvarCompWrapper:
             self.Tmin = EOSlist.loaded[self.label0].Tmin
         elif self.EOStype == 'ocean':
             self.Pmin = EOSlist.loaded[self.label0].Pmin
-            self.Pmax = EOSlist.loaded[self.label0].Pmax
+            self.Pmax = EOSlist.loaded[self.EOSlabels[-1]].Pmax
             self.propsPmax = EOSlist.loaded[self.label0].propsPmax
             self.Tmin = EOSlist.loaded[self.label0].Tmin
             self.Tmax = EOSlist.loaded[self.label0].Tmax

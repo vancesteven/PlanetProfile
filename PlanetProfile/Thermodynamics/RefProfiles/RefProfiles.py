@@ -3,7 +3,7 @@ import numpy as np
 import logging
 from PlanetProfile import _ROOT
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetTfreeze
-from PlanetProfile.Utilities.defineStructs import EOSlist
+from PlanetProfile.Utilities.defineStructs import EOSlist, Constants
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -15,7 +15,7 @@ def CalcRefProfiles(PlanetList, Params):
     maxPmax = np.max([Planet.P_MPa[Planet.Steps.nHydro-1] for Planet in PlanetList])
 
     for Planet in PlanetList:
-        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and not Planet.Do.VARIABLE_COMP_OCEAN:
+        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and Planet.Ocean.comp != Constants.varCompStr:
             wList = Params.wRef_ppt[Planet.Ocean.comp]
 
             thisRefLabel = f'{Planet.Ocean.comp}' + ','.join([f'{w_ppt}' for w_ppt in wList])
@@ -44,10 +44,7 @@ def CalcRefProfiles(PlanetList, Params):
                 for i, w_ppt in enumerate(wList):
                     EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType,
                             rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType, phaseType='lookup',
-                            EXTRAP=Params.EXTRAP_REF, FORCE_NEW=Params.FORCE_EOS_RECALC, MELT=True,
-                            VARIABLE_COMP=Planet.Do.VARIABLE_COMP_OCEAN, Pstratified_MPa=Planet.Ocean.Pstratified_MPa,
-                            wStratified_ppt=Planet.Ocean.wStratified_ppt,compStratified=Planet.Ocean.compStratified,
-                            CONTINUOUS_SALINITY=Planet.Do.CONTINUOUS_SALINITY)
+                            EXTRAP=Params.EXTRAP_REF, FORCE_NEW=Params.FORCE_EOS_RECALC, MELT=True, VARIABLE_COMP=False)
                     if EOSref.propsPmax < Pmax or EOSref.Pmax < Pmax:
                         Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(Params.Pref_MPa[Planet.Ocean.comp][0], np.minimum(EOSref.propsPmax, EOSref.Pmax),
                                                                          Params.nRefPts[Planet.Ocean.comp])
@@ -82,12 +79,6 @@ def CalcRefProfiles(PlanetList, Params):
                 EOSlist.ranges[thisRefLabel] = Pmax
                 newRef[Planet.Ocean.comp] = False
 
-        elif Planet.Do.VARIABLE_COMP_OCEAN:
-            log.error('VARIABLE_COMP_OCEAN not yet implemented for plotting refProfiles.')
-            Params.nRef[Planet.Ocean.comp] = 0
-            Params.Pref_MPa[Planet.Ocean.comp] = np.nan * np.empty(Params.nRefRho)
-            Params.rhoRef_kgm3[Planet.Ocean.comp] = np.nan * np.empty(Params.nRefRho)
-
     return Params
 
 
@@ -97,7 +88,7 @@ def ReloadRefProfiles(PlanetList, Params):
     newRef = {comp: True for comp in comps}
 
     for Planet in PlanetList:
-        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
+        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and Planet.Ocean.comp != Constants.varCompStr:
 
             fNameRefReload = os.path.join(_ROOT, 'Thermodynamics', 'RefProfiles', Params.fNameRef[Planet.Ocean.comp])
             if not os.path.isfile(fNameRefReload):
