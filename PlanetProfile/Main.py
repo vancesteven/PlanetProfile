@@ -578,11 +578,16 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         # Get dissolved salt supposed for pore space
         Planet.Sil.poreComp = f.readline().split('=')[-1].strip()
         # Ocean composition transition pressures
-        Planet.Ocean.Pstratified_MPa = np.array([float(num) if num != 'None' else None for num in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ')])
+        # The following line converts a bracketed, comma- or space-separated text list to a Python list, and skips empty strings,
+        # which result when entries are spearated by multiple spaces.
+        PstratifiedLine = [num for num in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ') if num]
+        Planet.Ocean.Pstratified_MPa = np.array([float(num) if num != 'None' else None for num in PstratifiedLine])
         # Ocean composition layer concentrations in g solute/kg solution
-        Planet.Ocean.wStratified_ppt = np.array([float(num) if num != 'None' else None for num in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ')])
+        # Do the same array-line conversion as for Pstratified_MPa
+        wStratifiedLine = [num for num in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ') if num]
+        Planet.Ocean.wStratified_ppt = np.array([float(num) if num != 'None' else None for num in wStratifiedLine])
         # Ocean layer composition strings
-        oceanCompStratified = f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ')
+        oceanCompStratified = [comp for comp in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ') if comp]
         if np.size(oceanCompStratified) == 1:
             if Planet.Ocean.comp is None:
                 Planet.Ocean.comp = oceanCompStratified[0].strip()
@@ -590,9 +595,11 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         else:
             Planet.Ocean.compStratified = oceanCompStratified
         # Silicate composition transition pressures
-        Planet.Sil.Pstratified_MPa = np.array([float(num) if num != 'None' else None for num in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ')])
+        # Convert array-list string as in Ocean.Pstratified_MPa
+        PstratifiedLine = [num for num in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ') if num]
+        Planet.Sil.Pstratified_MPa = np.array([float(num) if num != 'None' else None for num in PstratifiedLine])
         # Silicate layer composition strings
-        silCompStratified = f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ')
+        silCompStratified = [comp for comp in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ') if comp]
         if np.size(silCompStratified) == 1:
             if Planet.Sil.mantleEOS is None:
                 Planet.Sil.mantleEOS = silCompStratified[0].strip()
@@ -600,11 +607,15 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         else:
             Planet.Sil.compStratified = silCompStratified
         # Core composition transition pressures
-        Planet.Core.Pstratified_MPa = np.array([float(num) if num != 'None' else None for num in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ')])
+        # Convert array-list string as in Ocean.Pstratified_MPa
+        PstratifiedLine = [num for num in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ') if num]
+        Planet.Core.Pstratified_MPa = np.array([float(num) if num != 'None' else None for num in PstratifiedLine])
         # Core composition layer concentrations in g solute (non-iron)/kg solution (iron + non-iron)
-        Planet.Core.wStratified_ppt = np.array([float(num) if num != 'None' else None for num in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ')])
+        # Do the same array-line conversion as for Pstratified_MPa
+        wStratifiedLine = [num for num in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ') if num]
+        Planet.Core.wStratified_ppt = np.array([float(num) if num != 'None' else None for num in wStratifiedLine])
         # Core layer composition strings
-        coreCompStratified = f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ')
+        coreCompStratified = [comp for comp in f.readline().split('=')[-1].strip().replace('[','').replace(']','').replace(',',' ').split(' ') if comp]
         if np.size(coreCompStratified) == 1:
             if Planet.Core.coreEOS is None:
                 Planet.Core.coreEOS = coreCompStratified[0].strip()
