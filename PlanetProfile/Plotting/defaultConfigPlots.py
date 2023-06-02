@@ -92,6 +92,7 @@ def plotAssign():
         'BmapNeg': 'afmhot_r',
         'BmapDiv': 'seismic',
         'asymDev': 'PuBu_r',
+        'var': 'plasma',
         'default': 'plasma'
     }
     # Select only a subset of the available colormap, if we choose to
@@ -107,6 +108,7 @@ def plotAssign():
         'BmapNeg': [0.2, 1.0],
         'BmapDiv': [0.0, 1.0],
         'asymDev': [0.0, 1.0],
+        'var': [0.0, 1.0],
         'default': [0.0, 1.0]
     }
     # Set temperature bounds to use for colormap normalization
@@ -144,7 +146,7 @@ def plotAssign():
 
     """ Figure style options """
     Style.GRIDS = False  # Whether to plot grids
-    Style.LS = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-'}  # LineStyle options for hydrosphere plots
+    Style.LS = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-', 'var': '-'}  # LineStyle options for hydrosphere plots
     Style.LWlims = [0.5, 2]  # Bounds of linewidths to use for salinity mapping
     Style.MW_hydro = 3  # Marker size for hydrosphere plot endpoint, in the factor by which to multiply the linewidth.
     Style.MS_hydro = 'o'  # Marker style for hydrosphere plot endpoint

@@ -173,8 +173,13 @@ def PlotHydrosphereProps(PlanetList, Params):
             fig.suptitle(FigLbl.hydroCompareTitle)
 
     # Plot reference profiles first, so they plot on bottom of everything
-    comps = np.unique([Planet.Ocean.comp for Planet in PlanetList])
-    if Params.PLOT_REF and np.any([Params.nRef[Planet.Ocean.comp] > 1 for Planet in PlanetList]):
+    if np.any([Planet.Ocean.comp == Constants.varCompStr for Planet in PlanetList]):
+        comps = [Planet.Ocean.comp if Planet.Ocean.comp != Constants.varCompStr else np.unique(Planet.Ocean.compStratified) for Planet in PlanetList]
+        # Flatten list in for stratified oceans
+        comps = np.unique([comp for items in comps for comp in items])
+    else:
+        comps = np.unique([Planet.Ocean.comp for Planet in PlanetList])
+    if Params.PLOT_REF and Params.nRef != {}:
         # Keep track of which reference profiles have been plotted so that we do each only once
         newRef = {comp:True for comp in comps}
 
@@ -182,42 +187,52 @@ def PlotHydrosphereProps(PlanetList, Params):
         Plist = np.concatenate([Planet.P_MPa[:Planet.Steps.nHydro] for Planet in PlanetList])
         Pmax_MPa = np.max(Plist)
 
-        for Planet in PlanetList:
-            if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
+        for comp in comps:
+            if newRef[comp] and comp != 'none':
                 # Get strings for referencing and labeling
-                wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp}}} \\{{'
-                wList += ', '.join([f'{w*FigLbl.wMult:.0f}' for w in Params.wRef_ppt[Planet.Ocean.comp]])
+                wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{comp}}} \\{{'
+                wList += ', '.join([f'{w*FigLbl.wMult:.0f}' for w in Params.wRef_ppt[comp]])
                 wList += '\}\,$\si{' + FigLbl.wUnits + '}$'
                 if not FigMisc.TEX_INSTALLED:
                     wList = FigLbl.StripLatexFromString(wList)
                 # Take care to only plot the values consistent with layer solutions
-                iPlot = Params.Pref_MPa[Planet.Ocean.comp] < Pmax_MPa
+                iPlot = Params.Pref_MPa[comp] < Pmax_MPa
                 # Plot all reference melting curve densities
-                for i in range(Params.nRef[Planet.Ocean.comp]):
-                    thisRef, = axPrho.plot(Params.rhoRef_kgm3[Planet.Ocean.comp][i,iPlot],
-                                           Params.Pref_MPa[Planet.Ocean.comp][iPlot]*FigLbl.PmultHydro,
+                for i in range(Params.nRef[comp]):
+                    thisRef, = axPrho.plot(Params.rhoRef_kgm3[comp][i,iPlot],
+                                           Params.Pref_MPa[comp][iPlot]*FigLbl.PmultHydro,
                                            color=Color.ref,
                                            lw=Style.LW_ref,
-                                           ls=Style.LS_ref[Planet.Ocean.comp])
+                                           ls=Style.LS_ref[comp])
                     if FigMisc.REFS_IN_LEGEND and i == 0: thisRef.set_label(wList)
-                newRef[Planet.Ocean.comp] = False
+                newRef[comp] = False
 
 
 
     wMinMax_ppt = {}
     TminMax_K = {}
     Tdots_K = np.empty(np.size(PlanetList))
+    NOT_ALL_VAR_COMP = not np.all([Planet.Ocean.comp == Constants.varCompStr for Planet in PlanetList])
     if FigMisc.SCALE_HYDRO_LW or FigMisc.MANUAL_HYDRO_COLORS:
         # Get min and max salinities and temps for each comp for scaling
-        for comp in comps:
-            if comp != 'none':
-                wAll_ppt = [Planet.Ocean.wOcean_ppt for Planet in PlanetList if Planet.Ocean.comp == comp]
-                wMinMax_ppt[comp] = [np.min(wAll_ppt), np.max(wAll_ppt)]
-                Tall_K = [Planet.Bulk.Tb_K for Planet in PlanetList if Planet.Ocean.comp == comp]
-                TminMax_K[comp] = [np.min(Tall_K), np.max(Tall_K)]
-                # Reset to default if all models are the same or if desired
-                if not FigMisc.RELATIVE_Tb_K or TminMax_K[comp][0] == TminMax_K[comp][1]:
-                    TminMax_K[comp] = Color.Tbounds_K
+        if NOT_ALL_VAR_COMP:
+            for comp in comps:
+                if comp != 'none':
+                    wAll_ppt = [Planet.Ocean.wOcean_ppt for Planet in PlanetList if Planet.Ocean.comp == comp]
+                    wMinMax_ppt[comp] = [np.min(wAll_ppt), np.max(wAll_ppt)]
+                    Tall_K = [Planet.Bulk.Tb_K for Planet in PlanetList if Planet.Ocean.comp == comp]
+                    TminMax_K[comp] = [np.min(Tall_K), np.max(Tall_K)]
+                    # Reset to default if all models are the same or if desired
+                    if not FigMisc.RELATIVE_Tb_K or TminMax_K[comp][0] == TminMax_K[comp][1]:
+                        TminMax_K[comp] = Color.Tbounds_K
+
+        if np.any([Planet.Ocean.comp == Constants.varCompStr for Planet in PlanetList]):
+            comp = Constants.varCompStr
+            Tall_K = [Planet.Bulk.Tb_K for Planet in PlanetList if Planet.Ocean.comp == comp]
+            TminMax_K[comp] = [np.min(Tall_K), np.max(Tall_K)]
+            # Reset to default if all models are the same or if desired
+            if not FigMisc.RELATIVE_Tb_K or TminMax_K[comp][0] == TminMax_K[comp][1]:
+                TminMax_K[comp] = Color.Tbounds_K
 
     # Now plot all profiles together
     for i,Planet in enumerate(PlanetList):
@@ -233,7 +248,7 @@ def PlotHydrosphereProps(PlanetList, Params):
                 thisColor = Color.cmap[Planet.Ocean.comp](Color.GetNormT(Planet.Bulk.Tb_K))
             else:
                 thisColor = None
-            if FigMisc.SCALE_HYDRO_LW and wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
+            if FigMisc.SCALE_HYDRO_LW and Planet.Ocean.comp != Constants.varCompStr and wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
                 thisLW = Style.GetLW(Planet.Ocean.wOcean_ppt, wMinMax_ppt[Planet.Ocean.comp])
             else:
                 thisLW = Style.LW_std
