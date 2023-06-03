@@ -314,16 +314,17 @@ def PrintGeneralSummary(PlanetList, Params):
 
     # Magnetic induction
     if Params.yesInduction:
-        Tlist = [Tname for Tname in Params.Induct.excSelectionCalc.keys() if np.any([Tname in Planet.Magnetic.calcedExc for Planet in PlanetList])]
+        # Get truncated list of Planet objects covering only the cases where we have successfully calculated induction parameters
+        InductPlanetList = np.array([Planet for Planet in PlanetList if np.size(Planet.Magnetic.calcedExc) != 0], dtype=object)
+        Tlist = [Tname for Tname in Params.Induct.excSelectionCalc.keys() if np.any([Tname in Planet.Magnetic.calcedExc for Planet in InductPlanetList])]
         nTs = np.size(Tlist)
         wTnames = np.max([len(Tname) for Tname in Tlist])
-        indHlineIntro = f'{endl}Induction properties for each excitation:'
         indHline = f'{endl}    {"Excitation name":<{wTnames}s}'
         # Get each column and then we'll join them together into rows
         indTnames = [f'{endl}    {Tname:>{wTnames}s}' for Tname in Tlist]
         if Params.ALL_ONE_BODY:
             Tlbl = 'Period (h)'
-            indT = [f'{Excitations.Texc_hr[PlanetList[0].bodyname][Tname]:.3f}' for Tname in Tlist]
+            indT = [f'{Excitations.Texc_hr[InductPlanetList[0].bodyname][Tname]:.3f}' for Tname in Tlist]
             wTvals = np.max([len(Tval) for Tval in indT + [Tlbl]])
             indHline = f'{indHline} {Tlbl:>{wTvals}s}'
             indTnames = [f'{TnameStr} {Tval:>{wTvals}s}' for TnameStr, Tval in zip(indTnames, indT)]
@@ -335,8 +336,8 @@ def PrintGeneralSummary(PlanetList, Params):
         wPhis = len(PhiLbl)
 
         for Tname in Tlist:
-            AmpArows.append([f'{Planet.Magnetic.Amp[np.where(Tname == np.array(Planet.Magnetic.calcedExc))[0][0]]:.3f}' if Tname in Planet.Magnetic.calcedExc else 'nan' for Planet in PlanetList])
-            AmpPhirows.append([f'{Planet.Magnetic.phase[np.where(Tname == np.array(Planet.Magnetic.calcedExc))[0][0]]:.2f}' if Tname in Planet.Magnetic.calcedExc else 'nan' for Planet in PlanetList])
+            AmpArows.append([f'{Planet.Magnetic.Amp[np.where(Tname == np.array(Planet.Magnetic.calcedExc))[0][0]]:.3f}' if Tname in Planet.Magnetic.calcedExc else 'nan' for Planet in InductPlanetList])
+            AmpPhirows.append([f'{Planet.Magnetic.phase[np.where(Tname == np.array(Planet.Magnetic.calcedExc))[0][0]]:.2f}' if Tname in Planet.Magnetic.calcedExc else 'nan' for Planet in InductPlanetList])
             wAmps = np.maximum(wAmps, np.max([len(AmpAstr) for AmpAstr in AmpArows[-1]]))
             wPhis = np.maximum(wPhis, np.max([len(AmpPhistr) for AmpPhistr in AmpPhirows[-1]]))
 
@@ -350,6 +351,9 @@ def PrintGeneralSummary(PlanetList, Params):
             thisAmpPhirow = f'{TnameStr} ' + ', '.join([f'{thisAmpPhi:{phiFmt}}' if i==0 else f'{thisAmpPhi:>{wCom}s}' for i,thisAmpPhi in enumerate(AmpPhirow)])
             AmpPhi = f'{AmpPhi}{thisAmpPhirow}'
 
+        inductNames = [Planet.name for Planet in InductPlanetList]
+        inductNamesString = ', '.join(inductNames)
+        indHlineIntro = f'{endl}Induction properties for each excitation:{endl}{"":>{wTnames+11}s}{inductNamesString}'
         inductionA = f'{endl}{indHlineIntro}{indHline} {AmpLbl:>{wAmps}s}{AmpA}'
         inductionPhi = f'{indHline} {PhiLbl:>{wPhis}s}{AmpPhi}'
 
