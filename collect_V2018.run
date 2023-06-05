@@ -1,9 +1,14 @@
 #!/bin/bash
 
+cp PlanetProfileV2018Comparison/inputPythonFiles/PPCallisto*.py Callisto/
+cp PlanetProfileV2018Comparison/inputPythonFiles/PPEnceladus*.py Enceladus/
+cp PlanetProfileV2018Comparison/inputPythonFiles/PPEuropa*.py Europa/
+cp PlanetProfileV2018Comparison/inputPythonFiles/PPGanymede*.py Ganymede/
+cp PlanetProfileV2018Comparison/inputPythonFiles/PPTitan*.py Titan/
+
 ./compareV2018.run
 
 cp */*Profile*.txt PlanetProfileV2018Comparison/outputTextFiles/
 rm PlanetProfileV2018Comparison/outputTextFiles/*Core.txt
 
-cp */PP*V2018*.py PlanetProfileV2018Comparison/inputPythonFiles/
 cp */figures/*ComparisonHydrosphere* PlanetProfileV2018Comparison/
