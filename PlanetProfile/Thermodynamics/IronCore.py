@@ -74,7 +74,7 @@ def IronCoreLayers(Planet, Params,
             MAbove_kg += thisMLayerCore_kg[:,k-1]
             thisDeltaP = 1e-6 * thisMLayerCore_kg[:,k-1] * thisgCore_ms2[:,k-1] / (4*np.pi*thisrCore_m[:,k]**2)
             thisPcore_MPa[:,k] = thisPcore_MPa[:,k-1] + thisDeltaP
-            thisTcore_K[:,k] = thisTcore_K[:,k-1] + thisalphaCore_pK[:,k-1]*thisTcore_K[:,k] / \
+            thisTcore_K[:,k] = thisTcore_K[:,k-1] + thisalphaCore_pK[:,k-1]*thisTcore_K[:,k-1] / \
                            thisCpCore_JkgK[:,k-1] / thisrhoCore_kgm3[:,k-1] * thisDeltaP*1e6
             thisrhoCore_kgm3[:,k] = Planet.Core.EOS.fn_rho_kgm3(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k])
             thisCpCore_JkgK[:,k] = Planet.Core.EOS.fn_Cp_JkgK(thisPcore_MPa[:nSilRemain,k], thisTcore_K[:nSilRemain,k])
