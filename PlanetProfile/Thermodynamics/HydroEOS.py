@@ -272,10 +272,11 @@ class OceanEOSStruct:
 
 
 def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False,
-              ClathDissoc=None, minPres_MPa=None, minTres_K=None):
+              ClathDissoc=None, minPres_MPa=None, minTres_K=None, ICEIh_DIFFERENT=False):
     iceEOS = IceEOSStruct(P_MPa, T_K, phaseStr, porosType=porosType, phiTop_frac=phiTop_frac,
                           Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
-                          ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa, minTres_K=minTres_K)
+                          ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa, minTres_K=minTres_K,
+                          ICEIh_DIFFERENT=ICEIh_DIFFERENT)
     if iceEOS.ALREADY_LOADED:
         log.debug(f'Ice {phaseStr} EOS already loaded. Reusing existing EOS.')
         iceEOS = EOSlist.loaded[iceEOS.EOSlabel]
@@ -291,7 +292,7 @@ def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=
 
 class IceEOSStruct:
     def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False,
-                 ClathDissoc=None, minPres_MPa=None, minTres_K=None):
+                 ClathDissoc=None, minPres_MPa=None, minTres_K=None, ICEIh_DIFFERENT=False):
         self.EOSlabel = f'phase{phaseStr}poros{porosType}phi{phiTop_frac}Pclose{Pclosure_MPa}phiMin{phiMin_frac}extrap{EXTRAP}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, minPres_MPa=minPres_MPa, minTres_K=minTres_K)
@@ -347,7 +348,10 @@ class IceEOSStruct:
                 rho_kgm3 = iceOut.rho
                 Cp_JkgK = iceOut.Cp
                 alpha_pK = iceOut.alpha
-                kTherm_WmK = np.array([kThermIsothermalAnderssonInaba2005(P_MPa, PhaseInv(phaseStr)) for _ in T_K]).T
+                if ICEIh_DIFFERENT and phaseStr == 'Ih':
+                    kTherm_WmK = np.array([kThermIceIhWolfenbarger2021(T_K) for _ in P_MPa])
+                else:
+                    kTherm_WmK = np.array([kThermIsobaricAnderssonInaba2005(T_K, PhaseInv(phaseStr)) for _ in P_MPa])
                 self.ufn_Seismic = IceSeismic(phaseStr, self.EXTRAP)
                 self.ufn_phase = returnVal(self.phaseID)
 
@@ -942,3 +946,20 @@ def kThermHobbs1974(T_K):
 
     return kTherm_WmK
 
+
+def kThermIceIhWolfenbarger2021(T_K):
+    """ Calculate thermal conductivity of ice Ih at a fixed pressure according to
+        Wolfenbarger et al. (2021) as a function of temperature.
+        See https://doi.org/10.1016/j.dib.2021.107079.
+        Wolgenbarger et al. consider a variety of sources, but for only ice Ih.
+        They fit a curve that grossly improves on the residuals of the data,
+        primarily in the region of interest for convecting shells, around 220-250 K.
+
+        Args:
+            T_K (float, shape N): Temperatures to evaluate in K
+        Returns:
+            kTherm_WmK (float, shape N): Thermal conductivity of desired phase at specified temperatures
+                in W/(m K)
+    """
+
+    return 612 / T_K

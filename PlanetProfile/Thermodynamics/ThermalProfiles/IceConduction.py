@@ -30,7 +30,8 @@ def IceIWholeConductSolid(Planet, Params):
     Planet.T_K[:Planet.Steps.nIbottom+1] = TIceI_K
 
     # Get ice EOS
-    Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIceI_MPa, TIceI_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase])
+    Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIceI_MPa, TIceI_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                  ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
 
     # Evaluate thermodynamic properties of uppermost ice
     Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nIbottom,
@@ -68,7 +69,8 @@ def IceIWholeConductPorous(Planet, Params):
                                                   porosType=Planet.Ocean.porosType[icePhase],
                                                   phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
                                                   Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                  phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[icePhase])
+                                                  phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                  ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
 
     # Evaluate thermodynamic properties of uppermost ice
     Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nIbottom,
@@ -99,7 +101,8 @@ def IceIConductClathLidSolid(Planet, Params):
     Tlin_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K, Planet.Steps.nIbottom+1)
 
     # Get ice Ih EOS
-    Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(Plin_MPa, Tlin_K, 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'])
+    Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(Plin_MPa, Tlin_K, 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'],
+                                              ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
     # Get clathrate EOS
     Planet.Ocean.surfIceEOS['Clath'] = GetIceEOS(Plin_MPa, Tlin_K, 'Clath', EXTRAP=Params.EXTRAP_ICE['Clath'],
                                                  ClathDissoc=Planet.Ocean.ClathDissoc)
@@ -185,7 +188,8 @@ def IceIConductClathLidPorous(Planet, Params):
                                               porosType=Planet.Ocean.porosType['Ih'],
                                               phiTop_frac=Planet.Ocean.phiMax_frac['Ih'],
                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Ih'],
-                                              phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Ih'])
+                                              phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Ih'],
+                                              ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
     # Get clathrate EOS
     Planet.Ocean.surfIceEOS['Clath'] = GetIceEOS(Plin_MPa, Tlin_K, 'Clath',
                                                  porosType=Planet.Ocean.porosType['Clath'],
@@ -296,7 +300,8 @@ def IceIConductClathUnderplateSolid(Planet, Params):
         PIceI_MPa = np.linspace(Planet.P_MPa[0], PbTrans_MPa, Planet.Steps.nIceI+1)
 
         # Get ice I EOS
-        Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(PIceI_MPa, TIceFull_K, 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'])
+        Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(PIceI_MPa, TIceFull_K, 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'],
+                                                  ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
 
         # Get approximate temperature at top of clathrate layer based on assumed surface heat flux
         # Need approx. depth first for curvature change to heat flux
@@ -400,7 +405,8 @@ def IceIConductClathUnderplatePorous(Planet, Params):
                                               porosType=Planet.Ocean.porosType['Ih'],
                                               phiTop_frac=Planet.Ocean.phiMax_frac['Ih'],
                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Ih'],
-                                              phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Ih'])
+                                              phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Ih'],
+                                              ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
 
     # Get approximate temperature at top of clathrate layer based on assumed surface heat flux
     # Need approx. depth first for curvature change to heat flux
