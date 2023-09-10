@@ -4,7 +4,7 @@ setup(
     name='PlanetProfile',
     version='2.3.17',
     author='Marshall J. Styczinski',
-    author_email='marshall.j.styczinski@jpl.nasa.gov',
+    author_email='itsmoosh@gmail.com',
     description='Self-consistent geophysical models for large moons and ocean worlds',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
