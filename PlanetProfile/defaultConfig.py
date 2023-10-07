@@ -105,9 +105,9 @@ def configAssign():
     ]
     Params.spiceBSP = {
         'Jupiter': 'jup365.bsp',  # Generic kernel for Jupiter + Galilean moons
-        'Saturn': 'sat427.bsp',  # Generic kernel for Saturn + large moons
+        'Saturn': 'sat441.bsp',  # Generic kernel for Saturn + large moons
         'Uranus': 'ura111.bsp',  # Generic kernel for Uranus + large moons
-        'Neptune': 'nep097.bsp'  # Generic kernel for Neptune + large moons
+        'Neptune': 'nep097.bsp'  # Generic kernel for Neptune + Triton
     }
 
     Params.SCmagFnameFmt = {
