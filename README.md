@@ -97,11 +97,11 @@ Once these files have been removed, install the newer version of SeaFreeze with 
 Some magnetic field features require use of the [SPICE toolkit through Mice](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/MATLAB/index.html). To install Mice:
 1. Navigate to https://naif.jpl.nasa.gov/naif/toolkit_MATLAB.html
 1. Follow the link for your operating system and download the .zip or .tar.Z file to PlanetProfile/Utilities/spice/
-1. Unpack the archive (into PlanetProfile/spice/mice/)
-1. Add PlanetProfile/Utilities/spice/mice/src/mice/ and PlanetProfile/Utilities/spice/mice/lib/ to your Matlab path.
+1. Unpack the archive (into PlanetProfile/Utilities/mice/)
+1. Add PlanetProfile/Utilities/mice/src/mice/ and PlanetProfile/Utilities/mice/lib/ to your Matlab path.
 1. Install necessary SPICE kernels by downloading them from https://naif.jpl.nasa.gov/pub/naif/generic_kernels/ and placing them in PlanetProfile/Utilities/spice/. The planetary constants kernel (PCK) and leap-seconds kernel (TLS) are saved in this repository, but the generic ephemeris kernels (SPK, .bsp files) are too large for us to save here. There is one for each planet's satellites, located at https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/. Currently in use are:
   1. jup365.bsp
-  1. sat427.bsp
+  1. sat441.bsp
   1. ura111.bsp
   1. nep095.bsp
 
