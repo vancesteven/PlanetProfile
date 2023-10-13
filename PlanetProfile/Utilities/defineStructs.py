@@ -22,8 +22,7 @@ import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb, ListedColormap
 from scipy.interpolate import interp1d
-from MoonMag.plotting_funcs import east_formatted as LonFormatter, lat_formatted as LatFormatter, \
-    get_sign as GetSign
+#from MoonMag.plotting_funcs import east_formatted as LonFormatter, lat_formatted as LatFormatter, get_sign as GetSign
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -1723,6 +1722,57 @@ class FigSizeStruct:
         self.MagSurfCombo = None
         self.asym = None
         self.apsidal = None
+
+
+# For configuring longitudes from -180 to 180 or 0 to 360.
+def LonFormatter(longitude, EAST=True):
+    fmtString = u'{longitude:{num_format}}{degree}{hemisphere}'
+    return fmtString.format(longitude=abs(longitude), num_format='g',
+                            hemisphere=LonHemisphere(longitude, EAST=EAST),
+                            degree=u'\u00B0')
+
+def LonHemisphere(longitude, EAST=True):
+    if EAST:
+        longitude = FixLons(longitude)
+    if longitude > 0:
+        hemisphere = 'E'
+    elif longitude < 0:
+        hemisphere = 'W'
+    elif longitude == 0:
+        hemisphere = ''
+    else:
+        hemisphere = 'E'
+    return hemisphere
+
+def FixLons(lons):
+    fixedLons = lons[lons!=360] % 360
+    return fixedLons
+
+def cformat(field):
+    fmtString = u'{sign}{field:{num_format}}'
+    return fmtString.format(field=abs(field), sign=GetSign(field), num_format='g')
+
+def GetSign(val):
+    if val < 0:
+        sign = u'\u2013'
+    else:
+        sign = ''
+    return sign
+
+def LatFormatter(latitude):
+    fmtString = u'{latitude:{num_format}}{degree}{hemisphere}'
+    return fmtString.format(latitude=abs(latitude), num_format='g',
+                            hemisphere=LatHemisphere(latitude),
+                            degree=u'\u00B0')
+
+def LatHemisphere(latitude):
+    if latitude == 0:
+        hemisphere = ''
+    elif latitude > 0:
+        hemisphere = 'N'
+    else:
+        hemisphere = 'S'
+    return hemisphere
 
 
 """ Miscellaneous figure options """
