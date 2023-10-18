@@ -13,7 +13,13 @@ from PlanetProfile import _SPICE
 
 # Parallel processing
 import multiprocessing as mtp
-mtpFork = mtp.get_context('fork')
+import platform
+plat = platform.system()
+if plat == 'Windows':
+    mtpType = 'spawn'
+else:
+    mtpType = 'fork'
+mtpContext = mtp.get_context(mtpType)
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
@@ -89,7 +95,7 @@ def BiTrajec(Planet, Params, spiceSCname, ets):
 
         for iExc, omega_radps in enumerate(Planet.Magnetic.omegaExc_radps):
             if Params.DO_PARALLEL:
-                pool = mtpFork.Pool(nCores)
+                pool = mtpContext.Pool(nCores)
                 par_result = [pool.apply_async(eval_Bi, args=(Planet.Magnetic.nLin[iN], Planet.Magnetic.mLin[iN],
                                                               Planet.Magnetic.BinmLin_nT[iExc,iN], x_Rp, y_Rp, z_Rp, r_Rp),
                                                         kwds={'omega': omega_radps, 't': ets})
