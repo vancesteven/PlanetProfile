@@ -694,7 +694,7 @@ D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon
     % Make this calculation now in order to get Planet.Qmantle_Wm2 for making
     % filenames shortly       
     if CONVECTION_FLAG_I && eTBL_m>zb_outerIce_m
-        warning('Convection predicted by not possible becuase the conductive layer thickness exceeds the thickness of the ice.')
+        warning('Convection predicted but not possible because the conductive layer thickness exceeds the thickness of the ice.')
         disp('Perhaps T_surf is outside the valid range for the scaling from Deschamps and Sotin 2001.')
         disp('Setting CONVECTION_FLAG_I to zero')
         CONVECTION_FLAG_I = 0;
