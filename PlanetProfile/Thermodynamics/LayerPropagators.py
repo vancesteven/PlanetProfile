@@ -229,6 +229,9 @@ def IceLayers(Planet, Params):
                     Planet = IceIConvectPorous(Planet, Params)
                 else:
                     Planet = IceIConvectSolid(Planet, Params)
+                if Planet.Bulk.clathType == 'top':
+                    # Reassign clathrate/ice I transition following convection calcs
+                    Planet.zClath_m =  Planet.z_m[Planet.Steps.nClath]
             # Run IceIConvect a second time if zbI_m changed by more than a set tolerance
             if(np.abs(Planet.z_m[Planet.Steps.nIbottom-1] - zbOld_m)/Planet.z_m[Planet.Steps.nIbottom-1] > Planet.Bulk.zbChangeTol_frac):
                 log.debug('The bottom depth of surface ice I changed by ' +
@@ -561,8 +564,21 @@ def OceanLayers(Planet, Params):
             MBelow_kg = Planet.Bulk.M_kg - MAbove_kg
             Planet.g_ms2[i] += VAR_GRAV * Constants.G * MBelow_kg / Planet.r_m[i]**2
 
+        if Planet.Do.CLATHRATE:
+            if Planet.Bulk.clathType == 'whole':
+                zClathInfo = f', all clathrates.'
+            elif Planet.Bulk.clathType == 'top':
+                zClathInfo = f', including {Planet.zClath_m/1e3:.1f} km clathrate lid atop {Planet.zb_km - Planet.zClath_m/1e3:.1f} km ice Ih.'
+            elif Planet.Bulk.clathType == 'bottom':
+                # For underplate clathrates, Planet.zClath_m denotes the *thickness* of the layer rather than its starting depth.
+                zClathInfo = f', including {Planet.zClath_m/1e3:.1f} km clathrate layer under {Planet.zb_km - Planet.zClath_m/1e3:.1f} km ice Ih.'
+            else:
+                raise ValueError(f'Bulk.clathType "{Planet.Bulk.clathType}" not recognized.')
+        else:
+            zClathInfo = '.'
+
         log.info(f'Ocean layers complete. zMax: {Planet.z_m[Planet.Steps.nSurfIce + Planet.Steps.nOceanMax - 1]/1e3:.1f} km, ' +
-                 f'upper ice thickness zb: {Planet.zb_km:.3f} km.')
+                 f'upper ice thickness zb: {Planet.zb_km:.3f} km{zClathInfo}')
 
     return Planet
 
