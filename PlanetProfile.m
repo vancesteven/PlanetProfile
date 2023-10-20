@@ -694,7 +694,7 @@ D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon
     % Make this calculation now in order to get Planet.Qmantle_Wm2 for making
     % filenames shortly       
     if CONVECTION_FLAG_I && eTBL_m>zb_outerIce_m
-        warning('Convection predicted by not possible becuase the conductive layer thickness exceeds the thickness of the ice.')
+        warning('Convection predicted but not possible because the conductive layer thickness exceeds the thickness of the ice.')
         disp('Perhaps T_surf is outside the valid range for the scaling from Deschamps and Sotin 2001.')
         disp('Setting CONVECTION_FLAG_I to zero')
         CONVECTION_FLAG_I = 0;
@@ -778,19 +778,19 @@ D_conductivityIh = 632; % W m-1; Andersson et al. 2005 (For comparison, Mckinnon
             
             %T_K(iconv) = T_K(iconv-1)+alpha_K(iconv).*T_K(iconv)./Cp(iconv)./rho_kgm3(iconv)*deltaP*1e6;
             % The line above replaced with the below if/else per A. Marusiak 2023-01-21
-            if n_clath(iT)>0
-                T_K(iT,iconv)=Tc(iT);
+            if n_clath>0
+                T_K(iconv)=Tc(iT);
             else
-                T_K(iT,iconv) = T_K(iT,iconv-1)+alpha_K(iT,iconv).*T_K(iT,iconv)./Cp(iT,iconv)./rho_kgm3(iT,iconv)*deltaP*1e6;
+                T_K(iconv) = T_K(iconv-1)+alpha_K(iconv).*T_K(iconv)./Cp(iconv)./rho_kgm3(iconv)*deltaP*1e6;
             end
             % double check temperatures make sense
             if strcmp(Planet.Ocean.comp,'NH3')
                 phase_test = getIcePhase(P_MPa(iconv),T_K(iconv-1),wo,Planet.Ocean.comp);%p = 0 for liquid, I for I, 2 for II, 3 for III, 5 for V and 6 for VI
             else
-                phase_test2=SF_WhichPhase([P_MPa(iconv),T_K(iconv)]);
+                phase_test=SF_WhichPhase([P_MPa(iconv),T_K(iconv)]);
             end
 
-            if phase_test==0 || phase_test2==0 % & n_clath>0
+            if phase_test==0  % & n_clath>0
                 Planet.Tb_K=T_K(iconv);
                 %iconv=iconv-2;
                 Zm_break=z_m(iconv); % saves the depth at which is broked
