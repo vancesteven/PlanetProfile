@@ -244,6 +244,7 @@ def PrintGeneralSummary(PlanetList, Params):
     oceanSigma = 'Mean ocean conductivity sigma (S/m): ' + ', '.join([f'{Planet.Ocean.sigmaMean_Sm:.2f}' for Planet in PlanetList])
     oceanDensity = f'Mean ocean density (kg/m^3): ' + ', '.join([f'{Planet.Ocean.rhoMean_kgm3:.1f}' for Planet in PlanetList])
     zIceI = 'z(km) ice I: ' + ', '.join([f'{Planet.zIceI_m/1e3:.1f}' for Planet in PlanetList])
+    dzIceI = 'dz(km) ice I: ' + ', '.join([f'{Planet.dzIceI_km:.1f}' for Planet in PlanetList])
 
     # Optional output strings
     poreSigma, phiRockMax, phiIceMax, zClath, zIceIIIund, zIceIII, zIceVund, zIceV, zIceVI, dzClath, \
@@ -376,7 +377,8 @@ def PrintGeneralSummary(PlanetList, Params):
     {qSurf}
     {oceanSigma}{poreSigma}{phiRockMax}{phiIceMax}
     
-    {zIceI}{zClath}{zIceIIIund}{zIceIII}{zIceVund}{zIceV}{zIceVI}{dzClath}{dzIceIIIund}{dzIceIII}{dzIceVund}{dzIceV}{dzIceVI}{dzWetHPs}
+    {zIceI}{zClath}{zIceIIIund}{zIceIII}{zIceVund}{zIceV}{zIceVI}
+    {dzIceI}{dzClath}{dzIceIIIund}{dzIceIII}{dzIceVund}{dzIceV}{dzIceVI}{dzWetHPs}
     {wetHydro}
     {RaI}
     {RaCritI}
@@ -516,7 +518,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                     # number.
                     convIceLayers = emptyConvIce
                     condClathLayers = newline + tab.join([condClathLbl,
-                                                          f'\\num{{{Planet.Bulk.R_m - Planet.zClath_km:.1f}}}',
+                                                          f'\\num{{{Planet.Bulk.R_m/1e3 - Planet.zClath_km:.1f}}}',
                                                           f'\\num{{{Planet.Ocean.rhoCondMean_kgm3["Clath"]:.0f}}}',
                                                           f'\\num{{{Planet.dzClath_km:.1f}}}',
                                                           f'\\num{{{Planet.Ocean.GScondMean_GPa["Clath"]:.1f}}}',
