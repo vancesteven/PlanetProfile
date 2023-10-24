@@ -33,6 +33,7 @@ if plat == 'Windows':
 else:
     mtpType = 'fork'
 mtpContext = mtp.get_context(mtpType)
+
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
@@ -334,6 +335,7 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
 
     if fNames is not None:
         # Set up fNames as a list of filenames to load and run
+        fNames = list(fNames)  # Ensure fNames is not a tuple so we have list methods
         Params.SPEC_FILE = True
         if np.size(fNames) > 1:
             Params.RUN_ALL_PROFILES = True
