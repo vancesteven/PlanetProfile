@@ -484,6 +484,11 @@ def PlotPorosity(PlanetList, Params):
             ax.set_ylim(top=0)
             ax.set_xlim(left=0)
 
+        # Prevent uniform porosity from overlapping the right border
+        phiMax = np.max(Planet.phiPlot)
+        if phiMax - np.min(Planet.phiPlot) < 0.05 and phiMax > 0.15:
+            ax.set_xlim(right=np.minimum(phiMax*1.3, 1.0))
+
         if Params.LEGEND:
             ax.legend()
 
@@ -523,6 +528,13 @@ def PlotPorosity(PlanetList, Params):
     if FigMisc.FORCE_0_EDGES:
         [ax.set_ylim(top=0) for ax in axes]
         [ax.set_xlim(left=0) for ax in axes]
+
+    # Prevent uniform porosity from overlapping the right border
+    for Planet in PlanetList:
+        phiMax = np.max(Planet.phiPlot)
+        if phiMax - np.min(Planet.phiPlot) < 0.05 and phiMax > 0.15:
+            [ax.set_xlim(right=np.minimum(phiMax*1.3, 1.0)) for ax in axes]
+
     if Params.LEGEND:
         axes[1].legend()
 
