@@ -434,7 +434,7 @@ def OceanLayers(Planet, Params):
         CpOcean_JkgK[0] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
         alphaOcean_pK[0] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
         kThermOcean_WmK[0] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
-        if alphaOcean_pK[0] < 0:
+        if alphaOcean_pK[0] < 0 and not Planet.Do.NO_MELOSH_LAYER:
             log.info(f'Thermal expansivity alpha at the ice-ocean interface is negative. Modeling Melosh et al. conductive layer.')
             # Layer should be thin, so we just use a fixed dT/dz value
             dTdz = Planet.Ocean.QfromMantle_W / (4*np.pi * Planet.r_m[Planet.Steps.nSurfIce]**2) / kThermOcean_WmK[0]
@@ -476,6 +476,9 @@ def OceanLayers(Planet, Params):
             log.info(f'Melosh et al. layer complete, thickness {zMelosh:.1f} m.')
 
         else:
+            if Planet.Do.NO_MELOSH_LAYER and alphaOcean_pK[0] < 0:
+                log.debug('Melosh layer is present, but Do.NO_MELOSH_LAYER is True. alpha_pK will be set to zero here.')
+                alphaOcean_pK[0] = 0
             # Now use the present layer's properties to calculate an adiabatic thermal profile for layers below
             TOcean_K[1] = TOcean_K[0] + alphaOcean_pK[0] * TOcean_K[0] / \
                               CpOcean_JkgK[0] / rhoOcean_kgm3[0] * Planet.Ocean.deltaP*1e6
@@ -500,6 +503,8 @@ def OceanLayers(Planet, Params):
                 CpOcean_JkgK[i] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
                 alphaOcean_pK[i] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
                 kThermOcean_WmK[i] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i])
+                if Planet.Do.NO_MELOSH_LAYER:
+                    alphaOcean_pK[i] = np.abs(alphaOcean_pK[i])
                 # Now use the present layer's properties to calculate an adiabatic thermal profile for layers below
                 TOcean_K[i+1] = TOcean_K[i] + alphaOcean_pK[i] * TOcean_K[i] / \
                                 CpOcean_JkgK[i] / rhoOcean_kgm3[i] * Planet.Ocean.deltaP*1e6

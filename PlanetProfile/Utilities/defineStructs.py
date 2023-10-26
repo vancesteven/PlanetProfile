@@ -79,6 +79,7 @@ class DoSubstruct:
         self.HP_MELT_SMOOTHING = False  # Whether to apply a smoothing filter to avoid bumpiness from discretized phase diagram, when lookup table is used for EOS calcs
         self.FIXED_HPSMOOTH_WINDOW = False  # Whether to force a fixed number of window points for smoothing in HP ices
         self.NO_ICE_CONVECTION = False  # Whether to suppress convection in ice layers
+        self.NO_MELOSH_LAYER = False  # Whether to suppress a Melosh layer at the top of the ocean by arbitrarily setting expansivity to zero when one would appear (due to negative expansivity)
         self.EQUIL_Q = True  # Whether to set heat flux from interior to be consistent with heat released through convective profile
         self.POROUS_ICE = False  # Whether to model porosity in ice
         self.POROUS_ROCK = False  # Whether to model porosity in silicates
