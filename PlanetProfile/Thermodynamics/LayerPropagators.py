@@ -5,7 +5,7 @@ from scipy.signal import savgol_filter
 from PlanetProfile.Thermodynamics.IronCore import IronCoreLayers
 from PlanetProfile.Thermodynamics.HydroEOS import GetPfreeze, GetTfreeze, \
     PhaseConv, GetPhaseIndices, GetIceEOS, GetOceanEOS
-from PlanetProfile.Thermodynamics.InnerEOS import GetHtidalFunc, GetphiCalc
+from PlanetProfile.Thermodynamics.InnerEOS import GetHtidalFunc, GetphiCalc, GetInnerEOS
 from PlanetProfile.Thermodynamics.Silicates import SilicateLayers
 from PlanetProfile.Thermodynamics.ThermalProfiles.Convection import IceIConvectSolid, IceIConvectPorous, \
     IceIIIConvectSolid, IceIIIConvectPorous, IceVConvectSolid, IceVConvectPorous, \
@@ -13,8 +13,7 @@ from PlanetProfile.Thermodynamics.ThermalProfiles.Convection import IceIConvectS
 from PlanetProfile.Thermodynamics.ThermalProfiles.IceConduction import IceIWholeConductSolid, IceIWholeConductPorous, \
     IceIConductClathLidSolid, IceIConductClathLidPorous, IceIConductClathUnderplateSolid, IceIConductClathUnderplatePorous, \
     IceIIIConductSolid, IceIIIConductPorous, IceVConductSolid, IceVConductPorous
-from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConductiveTemperature, ConvectionDeschampsSotin2001
-from PlanetProfile.Utilities.defineStructs import Constants
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -91,6 +90,7 @@ def IceLayers(Planet, Params):
                     else:
                         log.error(msg)
                     Planet.Do.VALID = False
+                    Planet.invalidReason = 'TbIII_K is too high compared to Tb_K'
                 else:
                     raise ValueError(msg)
             if not np.isnan(Planet.PbIII_MPa):
@@ -116,6 +116,7 @@ def IceLayers(Planet, Params):
                     else:
                         log.error(msg)
                     Planet.Do.VALID = False
+                    Planet.invalidReason = 'TbV_K is too high compared to Tb_K'
                 else:
                     raise ValueError(msg)
         elif Planet.Do.BOTTOM_ICEIII:
@@ -138,6 +139,7 @@ def IceLayers(Planet, Params):
                     else:
                         log.error(msg)
                     Planet.Do.VALID = False
+                    Planet.invalidReason = 'TbIII_K is too high compared to Tb_K'
                 else:
                     raise ValueError(msg)
             Planet.Pb_MPa = Planet.PbIII_MPa
@@ -151,6 +153,7 @@ def IceLayers(Planet, Params):
     else:
         Planet.Pb_MPa = np.nan
         Planet.Do.VALID = False
+        Planet.invalidReason = 'Tb_K too high compared to underplate TbIII_K and/or TbV_K'
         if not Params.ALLOW_BROKEN_MODELS:
             raise RuntimeError('Unable to find a valid pressure corresponding to Bulk.TbX_K values. ' +
                                f'This is usually because Bulk.Tb_K (currently {Planet.Bulk.Tb_K:.3f}) ' +
@@ -166,6 +169,7 @@ def IceLayers(Planet, Params):
         if Params.ALLOW_BROKEN_MODELS:
             log.warning(negDeltaPmsg + ' ALLOW_BROKEN_MODELS is True, so execution will continue.')
             Planet.Do.VALID = False
+            Planet.invalidReason = 'Pb_MPa is greater than Psurf_MPa'
         else:
             raise ValueError(negDeltaPmsg)
 
@@ -295,6 +299,7 @@ def IceLayers(Planet, Params):
     else:
         # Set necessary empty variables for when we have an invalid profile
         Planet.Do.VALID = False
+        Planet.invalidReason = 'Pb_MPa is negative'
         Planet.zb_km, Planet.PbClathMax_MPa, Planet.PbIII_MPa, Planet.PbV_MPa, Planet.RaConvect, \
         Planet.RaCrit, Planet.Tconv_K, Planet.TconvIII_K, Planet.TconvV_K, Planet.etaConv_Pas, \
         Planet.etaConvIII_Pas, Planet.etaConvV_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, \
@@ -702,6 +707,40 @@ def InnerLayers(Planet, Params):
             Steps.nTotal, all layer arrays
     """
     if Planet.Do.VALID:
+        # Make sure the necessary EOSs have been loaded (mainly only important in parallel ExploreOgram runs)
+        if Planet.Sil.EOS.key not in EOSlist.loaded.keys():
+            Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.lookupInterpMethod,
+                                         kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
+                                         porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
+                                         Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
+                                         EXTRAP=Params.EXTRAP_SIL)
+        # Iron core if present
+        if Planet.Do.Fe_CORE and Planet.Core.EOS.key not in EOSlist.loaded.keys():
+            Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
+                                          kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
+                                          wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt)
+
+        # Pore fluids if present
+        if Planet.Do.POROUS_ROCK and Planet.Sil.poreEOS.key not in EOSlist.loaded.keys():
+            if Planet.Do.NO_H2O:
+                Ppore_MPa, Tpore_K = (np.linspace(0, 1, 4) for _ in range(2))
+            else:
+                if Planet.Sil.poreComp == 'Seawater' and Planet.Sil.PHydroMax_MPa > 300:
+                    log.warning('GSW yields NaN for Cp at pressures above 300 MPa. Reducing PsilMax to this value.')
+                    Planet.Sil.PHydroMax_MPa = 300
+                Ppore_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Sil.PHydroMax_MPa, 100)
+                Tpore_K = np.linspace(Planet.Bulk.Tb_K, Planet.Sil.THydroMax_K, 140)
+            # Get pore fluid EOS
+            Planet.Sil.poreEOS = GetOceanEOS(Planet.Sil.poreComp, Planet.Sil.wPore_ppt, Ppore_MPa, Tpore_K,
+                                             Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
+                                             scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
+                                             phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=True,
+                                             sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm)
+
+            # Make sure Sil.phiRockMax_frac is set in case we're using a porosType that doesn't require it
+            if Planet.Sil.phiRockMax_frac is None or Planet.Sil.porosType != 'Han2014':
+                Planet.Sil.phiRockMax_frac = Planet.Sil.EOS.fn_phi_frac(0, 0)
+
         if Planet.Do.CONSTANT_INNER_DENSITY or Params.SKIP_INNER:
             Planet, mantleProps, coreProps = CalcMoIConstantRho(Planet, Params)
         else:
@@ -735,16 +774,16 @@ def InnerLayers(Planet, Params):
         iOS = Planet.Steps.nHydro
         iSC = Planet.Steps.nHydro + Planet.Steps.nSil
         Planet.P_MPa[iOS:iSC], Planet.T_K[iOS:iSC], Planet.r_m[iOS:iSC], Planet.rho_kgm3[iOS:iSC], \
-        Planet.g_ms2[iOS:iSC], Planet.phi_frac[iOS:iSC], Planet.Htidal_Wm3[iOS:iSC], Planet.kTherm_WmK[iOS:iSC], \
-        Planet.Ppore_MPa[iOS:iSC], Planet.rhoMatrix_kgm3[iOS:iSC], Planet.rhoPore_kgm3[iOS:iSC], \
-        Planet.MLayer_kg[iOS:iSC], phasePore \
+            Planet.g_ms2[iOS:iSC], Planet.phi_frac[iOS:iSC], Planet.Htidal_Wm3[iOS:iSC], Planet.kTherm_WmK[iOS:iSC], \
+            Planet.Ppore_MPa[iOS:iSC], Planet.rhoMatrix_kgm3[iOS:iSC], Planet.rhoPore_kgm3[iOS:iSC], \
+            Planet.MLayer_kg[iOS:iSC], phasePore \
             = mantleProps
 
         iCC = Planet.Steps.nTotal
         if Planet.Do.Fe_CORE:
             # Unpack results from MoI calculations
             Planet.P_MPa[iSC:iCC], Planet.T_K[iSC:iCC], Planet.r_m[iSC:iCC], Planet.g_ms2[iSC:iCC], Planet.rho_kgm3[iSC:iCC], \
-            Planet.Cp_JkgK[iSC:iCC], Planet.alpha_pK[iSC:iCC], Planet.kTherm_WmK[iSC:iCC], Planet.MLayer_kg[iSC:iCC] \
+                Planet.Cp_JkgK[iSC:iCC], Planet.alpha_pK[iSC:iCC], Planet.kTherm_WmK[iSC:iCC], Planet.MLayer_kg[iSC:iCC] \
                 = coreProps
 
         Planet.z_m[iOS:iCC+1] = Planet.Bulk.R_m - Planet.r_m[iOS:iCC+1]
@@ -759,12 +798,15 @@ def InnerLayers(Planet, Params):
             # Reset ice layer thickness in the event there is no ocean
             Planet.zb_km = Planet.z_m[iOS] / 1e3
         else:
-            # Get first index of phase changing from 0 to something different ---
-            # this is the bottom of the contiguous ocean layer.
-            iOceanBot = next(i for i,phase in enumerate(Planet.phase[:Planet.Steps.nHydro]) if phase == 0 and phase != Planet.phase[i+1])
-            Planet.D_km = Planet.z_m[iOceanBot + 1]/1e3 - Planet.zb_km
+            if Planet.Do.VALID:
+                # Get first index of phase changing from 0 to something different ---
+                # this is the bottom of the contiguous ocean layer.
+                iOceanBot = next(i for i,phase in enumerate(Planet.phase[:Planet.Steps.nHydro]) if phase == 0 and phase != Planet.phase[i+1])
+                Planet.D_km = Planet.z_m[iOceanBot + 1]/1e3 - Planet.zb_km
+            else:
+                Planet.D_km = np.nan
 
-        # Calculate total salt and water masses
+                # Calculate total salt and water masses
         Planet.Mcore_kg = np.sum(Planet.MLayer_kg[iSC:iCC])
         Planet.Mrock_kg = 4/3*np.pi * np.sum((Planet.r_m[iOS:iSC]**3 - Planet.r_m[iOS+1:iSC+1]**3)
                                              * Planet.rhoMatrix_kgm3[iOS:iSC] * (1 - Planet.phi_frac[iOS:iSC]))
@@ -776,10 +818,10 @@ def InnerLayers(Planet, Params):
         # pore space of silicates.
         Planet.Mice_kg = 4/3*np.pi * (np.sum((Planet.r_m[0:iOS]**3 - Planet.r_m[1:iOS+1]**3)
                                              * Planet.rhoMatrix_kgm3[0:iOS] * (1 - Planet.phi_frac[0:iOS]))
-                                    + np.sum((Planet.r_m[iOS:iSC][silPhases != Constants.phaseSil]**3
-                                            - Planet.r_m[iOS+1:iSC+1][silPhases != Constants.phaseSil]**3)
-                                             * Planet.rhoPore_kgm3[iOS:iSC][silPhases != Constants.phaseSil]
-                                             * Planet.phi_frac[iOS:iSC][silPhases != Constants.phaseSil]))
+                                      + np.sum((Planet.r_m[iOS:iSC][silPhases != Constants.phaseSil]**3
+                                                - Planet.r_m[iOS+1:iSC+1][silPhases != Constants.phaseSil]**3)
+                                               * Planet.rhoPore_kgm3[iOS:iSC][silPhases != Constants.phaseSil]
+                                               * Planet.phi_frac[iOS:iSC][silPhases != Constants.phaseSil]))
         # The remainder is the ocean fluids, including H2O and salts and pore spaces.
         Planet.Mfluid_kg = Planet.Mtot_kg - Planet.Mcore_kg - Planet.Mrock_kg - Planet.Mice_kg
         # Get the mass contained in clathrate layers and just the trapped gas
@@ -819,18 +861,20 @@ def InnerLayers(Planet, Params):
         gradTneg = np.where(np.diff(Planet.T_K) < 0)
         if np.any(gradTneg) and not Params.SKIP_INNER:
             log.warning(f'Negative temperature gradient starting at index {gradTneg[0][0]:d}. This indicates that ' +
-                         'internal heating parameters Qrad_Wkg and/or Htidal_Wm3 are likely set too high to be consistent ' +
-                         'with the heat flux into the ocean. The current configuration represents a ' +
-                         'non-equilibrium state.')
+                        'internal heating parameters Qrad_Wkg and/or Htidal_Wm3 are likely set too high to be consistent ' +
+                        'with the heat flux into the ocean. The current configuration represents a ' +
+                        'non-equilibrium state.')
+        if Planet.invalidReason is None:
+            Planet.invalidReason = 'Valid'
 
     else:
         # Set remaining quantities that are still None if the profile is invalid:
         Planet.Ocean.Tmean_K, Planet.Sil.HtidalMean_Wm3, Planet.Ocean.rhoMean_kgm3, Planet.Ocean.Vtot_m3, \
-        Planet.D_km, Planet.CMR2mean, Planet.CMR2less, Planet.CMR2more, Planet.MH2O_kg, Planet.MclathGas_kg, \
-        Planet.Mclath_kg, Planet.Mcore_kg, Planet.Mfluid_kg, Planet.Mice_kg, Planet.MoceanSalt_kg, \
-        Planet.Mocean_kg, Planet.MporeFluid_kg, Planet.MporeSalt_kg, Planet.Mrock_kg, Planet.Msalt_kg, \
-        Planet.Mtot_kg, Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Core.Rmean_m, Planet.Core.Rrange_m, \
-        Planet.Sil.rhoMean_kgm3, Planet.Core.rhoMean_kgm3, Planet.Sil.GSmean_GPa, Planet.Core.GSmean_GPa \
+            Planet.D_km, Planet.CMR2mean, Planet.CMR2less, Planet.CMR2more, Planet.MH2O_kg, Planet.MclathGas_kg, \
+            Planet.Mclath_kg, Planet.Mcore_kg, Planet.Mfluid_kg, Planet.Mice_kg, Planet.MoceanSalt_kg, \
+            Planet.Mocean_kg, Planet.MporeFluid_kg, Planet.MporeSalt_kg, Planet.Mrock_kg, Planet.Msalt_kg, \
+            Planet.Mtot_kg, Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Core.Rmean_m, Planet.Core.Rrange_m, \
+            Planet.Sil.rhoMean_kgm3, Planet.Core.rhoMean_kgm3, Planet.Sil.GSmean_GPa, Planet.Core.GSmean_GPa \
             = (np.nan for _ in range(29))
         Planet.Sil.Rtrade_m, Planet.Core.Rtrade_m, Planet.Sil.rhoTrade_kgm3 \
             = (np.array([np.nan]) for _ in range(3))
@@ -933,6 +977,11 @@ def CalcMoIConstantRho(Planet, Params):
             else:
                 log.error(fullMsg)
             Planet.Do.VALID = False
+            if Planet.invalidReason is None:
+                Planet.invalidReason = ''
+            else:
+                Planet.invalidReason += '. '
+            Planet.invalidReason += f'No valid MoI was found between {Planet.Bulk.Cmeasured - Planet.Bulk.CuncertaintyLower:.4f} and {Planet.Bulk.Cmeasured + Planet.Bulk.CuncertaintyUpper:.4f}'
         else:
             raise RuntimeError(msg + suggestion)
 
@@ -1142,7 +1191,7 @@ def CalcMoIWithEOS(Planet, Params):
         nProfiles = 0
 
         # Start at minimum tidal heating/porosity and initialize arrays
-        thisphiTop_frac = phiMin_frac + 0.0
+        thisphiTop_frac = phiMax_frac + 0.0
         Planet.Sil.fn_Htidal_Wm3 = GetHtidalFunc(thisHtidal_Wm3)  # Placeholder until we implement a self-consistent calc
         Planet.Sil.fn_phi_frac = GetphiCalc(Planet.Sil.phiRockMax_frac, Planet.Sil.EOS.fn_phi_frac, Planet.Sil.phiMin_frac)
         Planet.Sil.fn_phi_frac.update(thisphiTop_frac)
@@ -1150,10 +1199,20 @@ def CalcMoIWithEOS(Planet, Params):
         phiSilTemp_frac, HtidalSilTemp_Wm3, kThermSilTemp_WmK, PporeTemp_MPa, rhoSilMatrixTemp_kgm3, rhoSilPoreTemp_kgm3, phaseSilPoreTemp \
             = SilicateLayers(Planet, Params)
         if (np.size(indsSilValidTemp) == 0):
-            raise RuntimeError('No silicate mantle size was less than the total body mass for the initialization ' +
-                               f'setting of {thisHtidal_Wm3} W/m^3 tidal heating and the expected maximum porosity ' +
-                               f'of {thisphiTop_frac}. Try adjusting run settings that affect mantle density, ' +
-                               'like porosity, silicate composition, and radiogenic heat flux.')
+            msg = 'No silicate mantle size was less than the total body mass for the initialization ' + \
+                 f'setting of {thisHtidal_Wm3} W/m^3 tidal heating and the expected maximum porosity ' + \
+                 f'of {thisphiTop_frac}. Try adjusting run settings that affect mantle density, ' + \
+                  'like porosity, silicate composition, and radiogenic heat flux.'
+            if Params.ALLOW_BROKEN_MODELS:
+                if Params.DO_EXPLOREOGRAM:
+                    log.info(msg)
+                else:
+                    log.error(msg + ' Params.ALLOW_BROKEN_MODELS is True, so calculations will proceed ' +
+                              'with many values set to nan.')
+                Planet.Do.VALID = False
+                Planet.invalidReason = f'All mantle models exceeded total body mass'
+            else:
+                raise RuntimeError(msg)
 
         # Initialize empty arrays for silicate layer properties
         Psil_MPa, Tsil_K, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, phiSil_frac, HtidalSil_Wm3, \
@@ -1162,7 +1221,7 @@ def CalcMoIWithEOS(Planet, Params):
         rSil_m = np.empty((0, Planet.Steps.nSilMax+1))
         iValid = [indsSilValidTemp + Planet.Steps.iSilStart]
 
-        while np.size(indsSilValidTemp) != 0 and (thisHtidal_Wm3 <= Planet.Sil.HtidalMax_Wm3 and thisphiTop_frac <= phiMax_frac):
+        while np.size(indsSilValidTemp) != 0 and (thisHtidal_Wm3 <= Planet.Sil.HtidalMax_Wm3 and thisphiTop_frac >= phiMin_frac):
             nProfiles += 1
             # Append the newest mass matches alongside existing ones --
             # do this in the loop so that we don't append the final,
@@ -1188,7 +1247,7 @@ def CalcMoIWithEOS(Planet, Params):
                 log.debug(f'Silicate match for phiTop = {thisphiTop_frac:.3f} with ' +
                           f'rSil = {rSilOuter_m / 1e3:.1f} km ({rSilOuter_m / Planet.Bulk.R_m:.3f} R_{Planet.name[0]}) ' +
                           f'at PHydroMax_MPa = {PsilTemp_MPa[indsSilValidTemp, 0]:.1f}.')
-                thisphiTop_frac = phiMin_frac * multphi_frac**nProfiles
+                thisphiTop_frac = phiMax_frac / multphi_frac**nProfiles
                 Planet.Sil.fn_phi_frac.update(thisphiTop_frac)
             else:
                 rSilOuter_m = rSilTemp_m[indsSilValidTemp, 0]
@@ -1208,9 +1267,10 @@ def CalcMoIWithEOS(Planet, Params):
 
         # Mark all mass-matching profiles as valid
         indsSilValid = range(nProfiles)
-        # Final profile is the one that violates the loop condition (or final value repeated if SilicateLayers is skipped),
-        # so it is not valid -- pop it off
-        iValid = iValid[:-1]
+        if nProfiles == np.size(iValid) - 1 or np.size(iValid) == 0:
+            # Final profile is the one that violates the loop condition (or final value repeated if SilicateLayers is skipped),
+            # so it is not valid -- pop it off
+            iValid = iValid[:-1]
         # Now fill in values we're missing from not doing core calculations
         # We need copies of Steps.nSilMax for each possible result from the C/MR^2 search
         # to be compatible with the same infrastructure for when we have a core.
@@ -1233,7 +1293,7 @@ def CalcMoIWithEOS(Planet, Params):
                 and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.CuncertaintyUpper]
 
     if len(CMR2inds) == 0:
-        if (np.min(CMR2[iValid]) < Planet.Bulk.Cmeasured) and (np.max(CMR2[iValid]) > Planet.Bulk.Cmeasured):
+        if np.size(iValid) == 0 or ((np.min(CMR2[iValid]) < Planet.Bulk.Cmeasured) and (np.max(CMR2[iValid]) > Planet.Bulk.Cmeasured)):
             if Planet.Do.Fe_CORE:
                 tweakable = 'increasing Steps.nSil or decreasing Ocean.deltaP'
             elif Planet.Do.POROUS_ROCK and not Planet.Do.FIXED_POROSITY:
@@ -1246,8 +1306,11 @@ def CalcMoIWithEOS(Planet, Params):
         else:
             suggestion = '\nTry adjusting properties of silicates and core to get higher C/MR^2 values.'
 
-        msg = f'No MoI found matching C/MR^2 = {Planet.CMR2strPrint}.\n' + \
-              f'Min: {np.min(CMR2[CMR2>0]):.4f}, Max: {np.max(CMR2):.4f}. '
+        if np.size(iValid) == 0:
+            msg = 'No silicate mantle size was less than the total body mass for the initialization settings.'
+        else:
+            msg = f'No MoI found matching C/MR^2 = {Planet.CMR2strPrint}.\n' + \
+                  f'Min: {np.min(CMR2[CMR2>0]):.4f}, Max: {np.max(CMR2):.4f}. '
         if Params.ALLOW_BROKEN_MODELS:
             if Params.DO_EXPLOREOGRAM:
                 log.info(msg)
@@ -1255,6 +1318,11 @@ def CalcMoIWithEOS(Planet, Params):
                 log.error(msg + suggestion + ' Params.ALLOW_BROKEN_MODELS is True, so calculations will proceed ' +
                                              'with many values set to nan.')
             Planet.Do.VALID = False
+            if Planet.invalidReason is None:
+                Planet.invalidReason = ''
+            else:
+                Planet.invalidReason += '. '
+            Planet.invalidReason += f'No valid MoI was found between {Planet.Bulk.Cmeasured - Planet.Bulk.CuncertaintyLower:.4f} and {Planet.Bulk.Cmeasured + Planet.Bulk.CuncertaintyUpper:.4f}'
         else:
             raise ValueError(msg + suggestion)
 
@@ -1271,16 +1339,16 @@ def CalcMoIWithEOS(Planet, Params):
         Planet.Core.Rrange_m = np.nan
         Planet.Steps.nSil = Planet.Steps.nSilMax
         iCMR2sil = 0
+        nSilFinal = [-1]
         if Planet.Do.NO_H2O:
             Planet.Steps.nHydro = 0
         else:
             Planet.Steps.nHydro = Planet.Steps.nOceanMax
 
-        Psil_MPa, Tsil_K, rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, kThermSil_WmK, Ppore_MPa, rhoSilMatrix_kgm3, \
-        rhoPore_kgm3, HtidalSil_Wm3, MLayerSil_kg \
-            = (np.zeros(Planet.Steps.nSil) for _ in range(11))
-        phaseSilPore = np.zeros(Planet.Steps.nSil, dtype=np.int_)
-        rSil_m = np.zeros((1, Planet.Steps.nSil+1))
+        Psil_MPa, Tsil_K, rSil_m, rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, kThermSil_WmK, Ppore_MPa, PsilPore_MPa, \
+        rhoSilMatrix_kgm3, rhoSil_kgm3, rhoSilPore_kgm3, HtidalSil_Wm3, MLayerSil_kg \
+            = (np.zeros((1, Planet.Steps.nSil+1)) for _ in range(14))
+        phaseSilPore = np.zeros((1, Planet.Steps.nSil+1), dtype=np.int_)
         coreProps = (np.zeros(Planet.Steps.nCore) for _ in range(9))
         Planet.Sil.rhoMean_kgm3 = np.nan
         Planet.Core.rhoMean_kgm3 = np.nan

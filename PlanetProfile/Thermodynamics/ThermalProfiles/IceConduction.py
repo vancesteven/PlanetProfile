@@ -290,6 +290,7 @@ def IceIConductClathUnderplateSolid(Planet, Params):
     PbTrans_MPa = Planet.PbI_MPa - DeltaPClath_MPa
     if PbTrans_MPa < Planet.Bulk.Psurf_MPa:
         Planet.Do.VALID = False
+        Planet.invalidReason = 'Clathrate layer requires too large a DeltaP value'
         if Params.ALLOW_BROKEN_MODELS:
             log.warning('Bulk.clathMaxThick_m is too large for Bulk.Tb_K setting, but ALLOW_BROKEN_MODELS is True.')
         else:
@@ -330,6 +331,7 @@ def IceIConductClathUnderplateSolid(Planet, Params):
                   f'Bulk.qBulk_Wm2 to decrease PbTrans.'
             if Params.ALLOW_BROKEN_MODELS:
                 Planet.Do.VALID = False
+                Planet.invalidReason = 'Clathrate layer requires too large a Delta P value'
                 log.warning(msg)
             else:
                 raise ValueError(msg)

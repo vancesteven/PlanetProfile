@@ -791,6 +791,7 @@ def InductOgram(bodyname, Params):
                             Planet.Magnetic.sigmaLayers_Sm = Induction.sigmaLayers_Sm[i,j]
                             if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
                                 Planet.Do.VALID = False
+                                Planet.invalidReason = 'Some conductivity layers invalid'
                             Planet.index = k
                             k += 1
                             PlanetGrid[i,j] = deepcopy(Planet)
@@ -825,6 +826,7 @@ def InductOgram(bodyname, Params):
                             Planet.Magnetic.sigmaLayers_Sm = Induction.sigmaLayers_Sm[i,j]
                             if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
                                 Planet.Do.VALID = False
+                                Planet.invalidReason = 'Some conductivity layers invalid'
                             Planet.index = k
                             k += 1
                             PlanetGrid[i,j] = deepcopy(Planet)
@@ -858,6 +860,7 @@ def InductOgram(bodyname, Params):
                             Planet.Magnetic.sigmaLayers_Sm = Induction.sigmaLayers_Sm[i,j]
                             if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
                                 Planet.Do.VALID = False
+                                Planet.invalidReason = 'Some conductivity layers invalid'
                             Planet.index = k
                             k += 1
                             PlanetGrid[i,j] = deepcopy(Planet)
@@ -1328,8 +1331,7 @@ def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
         # Prevent slowdowns from competing process spawning when #cores > #jobs
         nCores = np.min([Params.maxCores, np.product(np.shape(PlanetList1D)), Params.threadLimit])
         pool = mtpContext.Pool(nCores)
-        parResult = [pool.apply_async(FuncName, (deepcopy(Planet),
-                                                      deepcopy(Params))) for Planet in PlanetList1D]
+        parResult = [pool.apply_async(FuncName, (deepcopy(Planet), deepcopy(Params))) for Planet in PlanetList1D]
         pool.close()
         pool.join()
 
@@ -1418,6 +1420,10 @@ def ExploreOgram(bodyname, Params):
         Exploration.zb_km = np.array([[Planeti.zb_km for Planeti in line] for line in PlanetGrid])
         Exploration.Rcore_km = np.array([[Planeti.Core.Rmean_m/1e3 for Planeti in line] for line in PlanetGrid])
         Exploration.qSurf_Wm2 = np.array([[Planeti.qSurf_Wm2 for Planeti in line] for line in PlanetGrid])
+        Exploration.VALID = np.array([[Planeti.Do.VALID for Planeti in line] for line in PlanetGrid])
+        Exploration.invalidReason = np.array([[Planeti.invalidReason for Planeti in line] for line in PlanetGrid])
+        if not np.any(Exploration.VALID):
+            log.warning('No valid models appeared for the given input settings in this ExploreOgram.')
 
         # Ensure everything is set so things will play nicely with .mat saving and plotting functions
         nans = np.nan * Exploration.R_m
@@ -1561,7 +1567,9 @@ def WriteExploreOgram(Exploration, Params):
         'Tmean_K': Exploration.Tmean_K,
         'D_km': Exploration.D_km,
         'zb_km': Exploration.zb_km,
-        'Rcore_km': Exploration.Rcore_km
+        'Rcore_km': Exploration.Rcore_km,
+        'VALID': Exploration.VALID,
+        'invalidReason': Exploration.invalidReason
     }
     savemat(Params.DataFiles.exploreOgramFile, saveDict)
     log.info(f'Saved explore-o-gram {Params.DataFiles.exploreOgramFile} to disk.')
@@ -1615,6 +1623,8 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
     Exploration.D_km = reload['D_km']
     Exploration.zb_km = reload['zb_km']
     Exploration.Rcore_km = reload['Rcore_km']
+    Exploration.VALID = reload['VALID']
+    Exploration.invalidReason = reload['invalidReason']
 
     return Exploration, Params
 

@@ -227,7 +227,7 @@ def SetupInit(Planet, Params):
     # Porous rock
     if Planet.Do.POROUS_ROCK:
         # Make sure pore max pressure is set, since we will need it to check if we'll need HP ices
-        if not Planet.Do.PORE_EOS_DIFFERENT:
+        if not Planet.Do.PORE_EOS_DIFFERENT and Planet.Sil.PHydroMax_MPa is None:
             Planet.Sil.PHydroMax_MPa = Planet.Ocean.PHydroMax_MPa
 
         if Planet.Sil.porosType == 'Han2014':
@@ -251,6 +251,7 @@ def SetupInit(Planet, Params):
     # Porous ice
     if not Planet.Do.POROUS_ICE:
         Planet.Ocean.phiMax_frac = {key:0 for key in Planet.Ocean.phiMax_frac.keys()}
+        Planet.Ocean.porosType = {key:None for key in Planet.Ocean.porosType.keys()}
 
     # Effective pressure in pore space
     if not Planet.Do.P_EFFECTIVE:

@@ -10,7 +10,8 @@ from seafreeze.seafreeze import whichphase as WhichPhase
 from PlanetProfile import _ROOT
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, \
     ClathStableNagashima2017, ClathSeismic
-from PlanetProfile.Thermodynamics.InnerEOS import GetphiFunc, GetphiCalc, ResetNearestExtrap, ReturnZeros, EOSwrapper
+from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper
+from PlanetProfile.Thermodynamics.InnerEOS import GetphiFunc, GetphiCalc
 from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4PhaseMargules, MgSO4PhaseLookup, \
     MgSO4Seismic, MgSO4Conduct, Ppt2molal
 from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
@@ -513,8 +514,19 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
             deltaT = minTres_K
         rangeLabel = f'{Pmin:.2f},{Pmax:.2f},{deltaP:.2e},' + \
                      f'{Tmin:.3f},{Tmax:.3f},{deltaT:.2e}'
-        outP_MPa = np.arange(Pmin, Pmax, deltaP)
-        outT_K = np.arange(Tmin, Tmax, deltaT)
+        # Use of np.arange would be simpler here, but can cause errors when loading an EOS for a thin layer, e.g. for
+        # some cases with ice VI inside pores.
+        NaNs = False
+        if np.isnan(Pmin): log.profile(f'Pmin is NaN for EOSlabel: {EOSlabel}'); NaNs = True
+        if np.isnan(Pmax): log.profile(f'Pmax is NaN for EOSlabel: {EOSlabel}'); NaNs = True
+        if np.isnan(deltaP): log.profile(f'deltaP is NaN for EOSlabel: {EOSlabel}'); NaNs = True
+        if np.isnan(Tmin): log.profile(f'Tmin is NaN for EOSlabel: {EOSlabel}'); NaNs = True
+        if np.isnan(Tmax): log.profile(f'Tmax is NaN for EOSlabel: {EOSlabel}'); NaNs = True
+        if np.isnan(deltaT): log.profile(f'deltaT is NaN for EOSlabel: {EOSlabel}'); NaNs = True
+        if NaNs: log.profile(f'EOSlist.loaded.keys(): {list(EOSlist.loaded.keys())}')
+        outP_MPa = np.linspace(Pmin, Pmax, np.minimum(round(abs(Pmax-Pmin)/deltaP), 10))
+        nTs = np.minimum(round(abs(Tmax-Tmin)/deltaT), np.size(outP_MPa)+1)
+        outT_K = np.linspace(Tmin, Tmax, nTs)
 
     return ALREADY_LOADED, rangeLabel, outP_MPa, outT_K, deltaP, deltaT
 

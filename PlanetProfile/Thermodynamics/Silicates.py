@@ -68,6 +68,7 @@ def SilicateLayers(Planet, Params):
             if np.min(Mdiff_frac) > MdiffThresh:
                 log.debug('Insufficient mass in SilicateLayers.')
                 Planet.Do.VALID = False
+                Planet.invalidReason = f'All mass options less than threshold value of {1-MdiffThresh:.2f} M_P'
                 if Planet.Steps.iSilStart > 1:
                     log.debug('Trying again with Steps.iSilStart set to 1.')
                     Planet.Do.VALID = True
@@ -96,6 +97,8 @@ def SilicateLayers(Planet, Params):
                     else:
                         log.error(msg + suggestion + ' Params.ALLOW_BROKEN_MODELS is True, so calculations ' +
                                   'will proceed with many values set to nan.')
+                    Planet.Do.VALID = False
+                    Planet.invalidReason = f'All mantle models exceeded total body mass'
                 else:
                     raise RuntimeError(msg + suggestion)
                 indsSilValid = range(0)
@@ -109,8 +112,17 @@ def SilicateLayers(Planet, Params):
                 indsSilValid = range(0)
 
         if np.any(Tsil_K[indsSilValid,:] < 0):
-            raise RuntimeError('Negative temperatures encountered in silicates. This likely indicates Qrad_Wkg + Htidal_Wm3 ' +
-                           'is too high to be consistent with the heat flow through the ice shell.')
+            msg = 'Negative temperatures encountered in silicates. This likely indicates Qrad_Wkg + Htidal_Wm3 ' + \
+                  'is too high to be consistent with the heat flow through the ice shell.'
+            if Params.ALLOW_BROKEN_MODELS:
+                if Params.DO_EXPLOREOGRAM:
+                    log.info(msg)
+                else:
+                    log.error(msg)
+                Planet.Do.VALID = False
+                Planet.invalidReason = f'Negative temperatures in silicates'
+            else:
+                raise RuntimeError(msg)
 
     return indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoTot_kgm3, \
            MLayerSil_kg, MAboveSil_kg, gSil_ms2, phiSil_frac, HtidalSil_Wm3, kThermTot_WmK, \

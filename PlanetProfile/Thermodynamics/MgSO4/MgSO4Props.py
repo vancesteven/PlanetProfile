@@ -7,7 +7,7 @@ from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline, inte
 from seafreeze.seafreeze import seafreeze as SeaFreeze
 from PlanetProfile import _ROOT
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
-from PlanetProfile.Thermodynamics.InnerEOS import ResetNearestExtrap
+from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnConstantPTw
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -127,7 +127,7 @@ class MgSO4propsLookup:
                                                        fMgSO4Props['Cp'], bounds_error=False, fill_value=None)
             self.fn_alpha_pK = RegularGridInterpolator((wMgSO4_ppt, fMgSO4Props['P_smaller_MPa'][0], TMgSO4_K),
                                                         fMgSO4Props['alpha'], bounds_error=False, fill_value=None)
-            self.fn_kTherm_WmK = lambda P, T, w: np.zeros((np.size(P), np.size(T))) + Constants.kThermWater_WmK
+            self.fn_kTherm_WmK = ReturnConstantPTw(const=Constants.kThermWater_WmK)
 
             self.Pmin = np.min(fMgSO4Props['P_smaller_MPa'][0])
             self.Pmax = np.max(fMgSO4Props['P_smaller_MPa'][0])
@@ -331,14 +331,14 @@ class MgSO4PhaseLookup:
             evalPts = tuple(np.meshgrid(P_MPa, T_K, self.w_ppt, indexing='ij'))
         else:
             if nPs == 1 and nTs == 1:
-                evalPts = np.array([P_MPa, T_K, self.w_ppt])
+                evalPts = np.array([np.squeeze(P_MPa), np.squeeze(T_K), self.w_ppt])
             else:
                 if nPs == nTs:
                     evalPts = np.array([[P, T, self.w_ppt] for P, T in zip(P_MPa, T_K)])
                 elif nPs == 1:
-                    evalPts = np.array([[P_MPa, T, self.w_ppt] for T in T_K])
+                    evalPts = np.array([[np.squeeze(P_MPa), T, self.w_ppt] for T in T_K])
                 elif nTs == 1:
-                    evalPts = np.array([[P, T_K, self.w_ppt] for P in P_MPa])
+                    evalPts = np.array([[P, np.squeeze(T_K), self.w_ppt] for P in P_MPa])
                 else:
                     log.warning(f'Length {nPs} array of P values does not match ' +
                                 f'length {nTs} array of T values. A 2D grid will be output.')

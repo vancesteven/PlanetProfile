@@ -1,8 +1,8 @@
 import numpy as np
 import logging
-from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv
+from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv, GetIceEOS
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConductiveTemperature
-from PlanetProfile.Utilities.defineStructs import Constants
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -601,7 +601,8 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
         phasePore0 = np.zeros_like(Ppore_MPa0)
     else:
         phasePore0 = Planet.Sil.poreEOS.fn_phase(Ppore_MPa0, Tsil_K0).astype(int)
-    liqP = phasePore0 == 0
+    # Ensure liqP is treated as an array so it can be used for slicing
+    liqP = np.array(phasePore0 == 0)
     # If all the pores are filled with liquid, do everything together
     if np.all(liqP):
         rhoPore_kgm30 = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa0, Tsil_K0)
@@ -609,6 +610,8 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
         _, KSpore_GPa[:,0] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa0, Tsil_K0)
         GSpore_GPa[:,0] = np.zeros_like(KSpore_GPa[:,0])
         DeltaPpore_MPa[:,0] = 1e-6 * rhoPore_kgm30 * gSil_ms20 * (rSil_m0 - rSil_m1)
+    elif not np.any(liqP):
+        rhoPore_kgm30 = np.zeros_like(liqP)
     else:
         rhoPore_kgm30 = np.zeros_like(Psil_MPa0)
         # For the pores filled with liquid, use ocean liquid EOS
@@ -622,9 +625,33 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
         for phase in phases[phases != 0]:
             if phase == 1:
                 # We only get here if the MoI is consistent with a fully frozen ocean
+                # Get ice EOS if not currently loaded
+                icePhase = 'Ih'
+                if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
+                    PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
+                    TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
+                    Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
+                                                                  porosType=Planet.Ocean.porosType[icePhase],
+                                                                  phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
+                                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
+                                                                  phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                                  ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
                 thisIceEOS = Planet.Ocean.surfIceEOS['Ih']
             else:
-                thisIceEOS = Planet.Ocean.iceEOS[PhaseConv(phase)]
+                # Get ice EOS if not currently loaded
+                icePhase = PhaseConv(phase)
+                if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
+                    PIce_MPa = np.linspace(Planet.Pb_MPa, Planet.P_MPa[Planet.phase == phase][-1] + 5, 10)
+                    TIce_K = np.linspace(Planet.Bulk.Tb_K, Planet.T_K[Planet.phase == phase][-1] + 5, 10)
+                    Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
+                                                                  porosType=Planet.Ocean.porosType[icePhase],
+                                                                  phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
+                                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
+                                                                  phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase])
+                thisIceEOS = Planet.Ocean.iceEOS[icePhase]
+
             iP = np.where(phasePore0 == phase)[0]
             rhoPore_kgm30[iP] = thisIceEOS.fn_rho_kgm3(Ppore_MPa0[iP], Tsil_K0[iP])
             kThermPore_WmK[iP,0] = thisIceEOS.fn_kTherm_WmK(Ppore_MPa0[iP], Tsil_K0[iP])
@@ -763,9 +790,33 @@ def SilRecursionPorous(Planet, Params,
                 # pore-filling ice Ih properties
                 if phase == 1:
                     # We only get here if the MoI is consistent with a fully frozen ocean
+                    # Get ice EOS if not currently loaded
+                    icePhase = 'Ih'
+                    if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
+                        PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
+                        TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
+                        Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
+                                                                      porosType=Planet.Ocean.porosType[icePhase],
+                                                                      phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
+                                                                      Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
+                                                                      phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                                      EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                                      ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
                     thisIceEOS = Planet.Ocean.surfIceEOS['Ih']
                 else:
-                    thisIceEOS = Planet.Ocean.iceEOS[PhaseConv(phase)]
+                    # Get ice EOS if not currently loaded
+                    icePhase = PhaseConv(phase)
+                    if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
+                        PIce_MPa = np.linspace(Planet.Pb_MPa, Planet.P_MPa[Planet.phase == phase][-1] + 5, 10)
+                        TIce_K = np.linspace(Planet.Bulk.Tb_K, Planet.T_K[Planet.phase == phase][-1] + 5, 10)
+                        Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
+                                                                      porosType=Planet.Ocean.porosType[icePhase],
+                                                                      phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
+                                                                      Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
+                                                                      phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                                      EXTRAP=Params.EXTRAP_ICE[icePhase])
+                    thisIceEOS = Planet.Ocean.iceEOS[icePhase]
+
                 # Get indices where this ice phase is present
                 iP = np.where(phasePore[:,j] == phase)[0]
                 # Evaluate pore material properties for this phase

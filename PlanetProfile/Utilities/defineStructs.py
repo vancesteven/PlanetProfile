@@ -22,11 +22,13 @@ import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb, ListedColormap
 from scipy.interpolate import interp1d
+
 #from MoonMag.plotting_funcs import east_formatted as LonFormatter, lat_formatted as LatFormatter, get_sign as GetSign
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
+# Component lists
 zComps = ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']
 xyzComps = ['x', 'y', 'z']
 vecComps = xyzComps + ['mag']
@@ -536,6 +538,9 @@ class PlanetStruct:
         self.phiMap_rad = None
         self.nLonMap = None
         self.nLatMap = None
+
+        # Info for diagnosing out-of-bounds models
+        self.invalidReason = None
 
 
 """ Params substructs """
@@ -1366,12 +1371,13 @@ class FigLblStruct:
             'xFeS': 'linear',
             'rhoSilInput_kgm3': 'linear',
             'Rcore_km': 'linear',
-            'wOcean_ppt': 'log',
+            'D_km': 'log',
+            'wOcean_ppt': 'linear',
             'Tb_K': 'linear',
             'ionosTop_km': 'linear',
             'sigmaIonos_Sm': 'log',
-            'silPhi_frac': 'log',
-            'silPclosure_MPa': 'linear',
+            'silPhi_frac': 'linear',
+            'silPclosure_MPa': 'log',
             'icePhi_frac': 'log',
             'icePclosure_MPa': 'linear',
             'Htidal_Wm3': 'log',
@@ -1382,6 +1388,7 @@ class FigLblStruct:
             'xFeS': 'core FeS mixing ratio',
             'rhoSilInput_kgm3': 'silicate density',
             'Rcore_km': 'core size',
+            'D_km': 'ocean layer thickness',
             'wOcean_ppt': 'ocean salinity',
             'Tb_K': 'ocean melting temperature',
             'ionosTop_km': 'ionosphere top altitude',
@@ -1502,6 +1509,7 @@ class FigLblStruct:
         self.rhoLabel = r'Density $\rho$ ($\si{' + self.rhoUnits + '}$)'
         self.PTrhoLabel = r'$P$ ($\si{MPa}$), $T$ ($\si{K}$), and $\rho$ ($\si{' + self.rhoUnits + '}$)'
         self.rhoSilLabel = r'Silicate density $\rho_\mathrm{sil}$ ($\si{' + self.rhoUnits + '}$)'
+        self.rhoSilMeanLabel = r'Silicate density $\overline{\rho}_\mathrm{sil}$ ($\si{' + self.rhoUnits + '}$)'
         self.silPhiLabelSea = r'Seafloor porosity $\phi_\mathrm{sil}$' + self.phiUnitsParen
         self.phiLabel = r'Porosity $\phi$' + self.phiUnitsParen
         self.vSoundLabel = r'Sound speeds $V_P$, $V_S$ ($\si{' + self.vSoundUnits + '}$)'
@@ -1540,10 +1548,12 @@ class FigLblStruct:
             'xFeS': self.xFeSLabel,
             'rhoSilInput_kgm3': self.rhoSilLabel,
             'Rcore_km': self.RcoreLabel,
+            'D_km': self.Dlabel,
             'wOcean_ppt': self.wLabel,
             'Tb_K': self.TbLabel,
             'ionosTop_km': self.ionosTopLabel,
             'sigmaIonos_Sm': self.sigmaIonosLabel,
+            'rhoSilMean_kgm3': self.rhoSilMeanLabel,
             'silPhi_frac': self.silPhiLabel,
             'silPclosure_MPa': self.silPclosureLabel,
             'icePhi_frac': self.icePhiLabel,
@@ -1556,10 +1566,12 @@ class FigLblStruct:
             'xFeS': self.xMult,
             'rhoSilInput_kgm3': 1,
             'Rcore_km': 1,
+            'D_km': 1,
             'wOcean_ppt': self.wMult,
             'Tb_K': 1,
             'ionosTop_km': 1,
             'sigmaIonos_Sm': 1,
+            'rhoSilMean_kgm3': 1,
             'silPhi_frac': self.phiMult,
             'silPclosure_MPa': 1,
             'icePhi_frac': self.phiMult,

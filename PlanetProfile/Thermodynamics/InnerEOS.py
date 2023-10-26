@@ -5,6 +5,7 @@ from scipy.io import loadmat
 from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator, interp1d as Interp1D, griddata as GridData
 from PlanetProfile import _ROOT
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -342,104 +343,6 @@ class PerplexEOSStruct:
         return self.ufn_phi_frac(P_MPa, T_K, grid=grid)
 
 
-class EOSwrapper:
-    """ Lightweight wrapper for accessing EOS functions stored in the EOSlist dict. """
-
-    def __init__(self, key):
-        self.key = key
-        # Assign only those attributes we reference in functions
-        if EOSlist.loaded[self.key].EOStype == 'ice':
-            self.phaseID = EOSlist.loaded[self.key].phaseID
-            self.POROUS = EOSlist.loaded[self.key].POROUS
-            self.Tmin = EOSlist.loaded[self.key].Tmin
-        elif EOSlist.loaded[self.key].EOStype == 'ocean':
-            self.Pmin = EOSlist.loaded[self.key].Pmin
-            self.Pmax = EOSlist.loaded[self.key].Pmax
-            self.propsPmax = EOSlist.loaded[self.key].propsPmax
-            self.Tmin = EOSlist.loaded[self.key].Tmin
-            self.Tmax = EOSlist.loaded[self.key].Tmax
-            self.deltaP = EOSlist.loaded[self.key].deltaP
-            self.deltaT = EOSlist.loaded[self.key].deltaT
-            self.EOSdeltaP = EOSlist.loaded[self.key].EOSdeltaP
-            self.EOSdeltaT = EOSlist.loaded[self.key].EOSdeltaT
-            self.comp = EOSlist.loaded[self.key].comp
-            self.w_ppt = EOSlist.loaded[self.key].w_ppt
-        elif EOSlist.loaded[self.key].EOStype == 'inner':
-            self.comp = EOSlist.loaded[self.key].comp
-
-    def fn_phase(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_phase(P_MPa, T_K, grid=grid)
-    def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_rho_kgm3(P_MPa, T_K, grid=grid)
-    def fn_Cp_JkgK(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_Cp_JkgK(P_MPa, T_K, grid=grid)
-    def fn_alpha_pK(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_alpha_pK(P_MPa, T_K, grid=grid)
-    def fn_kTherm_WmK(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_kTherm_WmK(P_MPa, T_K, grid=grid)
-    def fn_VP_kms(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_VP_kms(P_MPa, T_K, grid=grid)
-    def fn_VS_kms(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_VS_kms(P_MPa, T_K, grid=grid)
-    def fn_KS_GPa(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_KS_GPa(P_MPa, T_K, grid=grid)
-    def fn_GS_GPa(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_GS_GPa(P_MPa, T_K, grid=grid)
-    def fn_phi_frac(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_phi_frac(P_MPa, T_K, grid=grid)
-    def fn_porosCorrect(self, propBulk, propPore, phi, J):
-        return EOSlist.loaded[self.key].fn_porosCorrect(propBulk, propPore, phi, J)
-    def fn_sigma_Sm(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_sigma_Sm(P_MPa, T_K, grid=grid)
-    def fn_Seismic(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K, grid=grid)
-
-
-def ResetNearestExtrap(var1, var2, min1, max1, min2, max2):
-    """ Choose the nearest value when EOS function inputs are outside
-        the generation domain.
-
-        var1 (float, shape N): First variable, typically P_MPa.
-        var2 (float, shape M): First variable, typically T_K.
-        min1, max1, min2, max2 (float): Domain boundaries.
-    """
-    outVar1 = var1 + 0.0
-    outVar2 = var2 + 0.0
-    if np.size(var1) == 1:
-        outVar1 = np.array(var1)
-    if np.size(var2) == 1:
-        outVar2 = np.array(var2)
-
-    outVar1[var1 < min1] = min1
-    outVar1[var1 > max1] = max1
-    outVar2[var2 < min2] = min2
-    outVar2[var2 > max2] = max2
-
-    return outVar1, outVar2
-
-
-class ReturnZeros:
-    """ Returns an array or tuple of arrays of zeros, for functions of properties
-        not modeled that still work with querying routines. We have to run things
-        this way and not with a lambda because anonymous functions can't be used
-        in parallel processing.
-    """
-    def __init__(self, nVar):
-        self.nVar = nVar
-
-    def __call__(self, P, T, grid=False):
-        if grid:
-            out = np.zeros((np.size(P), np.size(T)))
-        else:
-            nPs = np.size(P)
-            nTs = np.size(T)
-            if self.nVar > 1:
-                out = (np.zeros(np.maximum(nPs, nTs)) for _ in range(self.nVar))
-            else:
-                out = np.zeros(np.maximum(nPs, nTs))
-        return out
-
-
 def TsolidusHirschmann2000(P_MPa):
     """ Silicate melting temperature parameterization based on
         Hirschmann (2000): https://doi.org/10.1029/2000GC000070 .
@@ -527,21 +430,27 @@ class GetphiCalc:
     def __init__(self, phiMax_frac, fn_phiEOS_frac, phiMin_frac):
         self.phiMin_frac = phiMin_frac
         self.phiMax_frac = phiMax_frac
-        self.multFactor = 1.0
         if type(fn_phiEOS_frac(0,0)) == ReturnZeros:
+            self.multFactor = 1.0
             # For some reason, binding a ReturnZeros func as a method requires an extra dummy call
             self.fn_phiEOS_frac = fn_phiEOS_frac(0, 0)
+            self.EOSphiMax_frac = 0
+            self.ZEROS = True
         else:
+            self.EOSphiMax_frac = fn_phiEOS_frac(0, 0)
+            self.multFactor = phiMax_frac / self.EOSphiMax_frac
             self.fn_phiEOS_frac = fn_phiEOS_frac
+            self.ZEROS = False
 
     def update(self, newPhiMax_frac):
-        self.multFactor = newPhiMax_frac / self.phiMax_frac
+        if not self.ZEROS:
+            self.multFactor = newPhiMax_frac / self.EOSphiMax_frac
 
     def __call__(self, P_MPa, T_K, grid=False):
-        if type(self.fn_phiEOS_frac) == ReturnZeros:
+        if self.ZEROS:
             phi_frac = self.fn_phiEOS_frac(P_MPa, T_K, grid=grid)
         else:
-            phi_frac = self.multFactor * self.fn_phiEOS_frac(P_MPa, T_K, grid=grid)
+            phi_frac = self.fn_phiEOS_frac(P_MPa, T_K, grid=grid) * self.multFactor
             if np.size(P_MPa) == 1:
                 if phi_frac < self.phiMin_frac:
                     phi_frac = 0
