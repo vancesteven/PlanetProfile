@@ -70,7 +70,7 @@ def SetupInit(Planet, Params):
             # Generate zero-yielding ocean "EOS" for use in porosity calculations
             # Note that there must be enough input points for creating spline
             # interpolators, even though we will not use them.
-            Planet.Ocean.EOS = GetOceanEOS('none', None, np.linspace(0, 1, 4), np.linspace(0, 1, 4), None)
+            Planet.Ocean.EOS = GetOceanEOS('none', None, np.linspace(0, 1, 10), np.linspace(0, 1, 10), None)
 
     # Get filenames for saving/loading
     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
@@ -286,7 +286,7 @@ def SetupInit(Planet, Params):
         # Pore fluids if present
         if Planet.Do.POROUS_ROCK:
             if Planet.Do.NO_H2O:
-                Ppore_MPa, Tpore_K = (np.linspace(0, 1, 4) for _ in range(2))
+                Ppore_MPa, Tpore_K = (np.linspace(0, 1, 10) for _ in range(2))
             else:
                 if Planet.Sil.poreComp == 'Seawater' and Planet.Sil.PHydroMax_MPa > 300:
                     log.warning('GSW yields NaN for Cp at pressures above 300 MPa. Reducing PsilMax to this value.')

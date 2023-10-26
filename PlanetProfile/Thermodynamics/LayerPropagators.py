@@ -713,22 +713,22 @@ def InnerLayers(Planet, Params):
     """
     if Planet.Do.VALID:
         # Make sure the necessary EOSs have been loaded (mainly only important in parallel ExploreOgram runs)
-        if Planet.Sil.EOS.key not in EOSlist.loaded.keys():
+        if not Params.SKIP_INNER and Planet.Sil.EOS.key not in EOSlist.loaded.keys():
             Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.lookupInterpMethod,
                                          kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
                                          porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
                                          Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
                                          EXTRAP=Params.EXTRAP_SIL)
         # Iron core if present
-        if Planet.Do.Fe_CORE and Planet.Core.EOS.key not in EOSlist.loaded.keys():
+        if not Params.SKIP_INNER and Planet.Do.Fe_CORE and Planet.Core.EOS.key not in EOSlist.loaded.keys():
             Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
                                           kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
                                           wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt)
 
         # Pore fluids if present
-        if Planet.Do.POROUS_ROCK and Planet.Sil.poreEOS.key not in EOSlist.loaded.keys():
+        if not Params.SKIP_INNER and Planet.Do.POROUS_ROCK and Planet.Sil.poreEOS.key not in EOSlist.loaded.keys():
             if Planet.Do.NO_H2O:
-                Ppore_MPa, Tpore_K = (np.linspace(0, 1, 4) for _ in range(2))
+                Ppore_MPa, Tpore_K = (np.linspace(0, 1, 10) for _ in range(2))
             else:
                 if Planet.Sil.poreComp == 'Seawater' and Planet.Sil.PHydroMax_MPa > 300:
                     log.warning('GSW yields NaN for Cp at pressures above 300 MPa. Reducing PsilMax to this value.')
