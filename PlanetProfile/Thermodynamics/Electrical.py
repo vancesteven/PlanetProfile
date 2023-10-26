@@ -25,17 +25,14 @@ def ElecConduct(Planet, Params):
 
         if Params.CALC_CONDUCT:
             # Make sure the necessary EOSs have been loaded (mainly only important in parallel ExploreOgram runs)
-            if Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
-                if Planet.Do.NO_H2O:
-                    Planet.Ocean.EOS = GetOceanEOS('none', None, np.linspace(0, 1, 4), np.linspace(0, 1, 4), None)
-                else:
-                    POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
-                    TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
-                    Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
-                                       Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
-                                       scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
-                                       phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                                       sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
+            if not Planet.Do.NO_H2O and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
+                POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
+                TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
+                Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
+                                   Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
+                                   scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
+                                   phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
+                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
 
             if Planet.Do.POROUS_ICE:
                 Planet = CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
