@@ -402,6 +402,7 @@ def SetupInduction(Planet, Params):
         if Params.DO_INDUCTOGRAM:
             log.info('Ocean is completely frozen for this body. Profile will be marked invalid for inductogram.')
             Planet.Do.VALID = False
+            Planet.invalidReason = 'Ocean completely frozen in inductogram'
         elif Params.Sig.REDUCED_INDUCT and not Planet.Do.NO_H2O:
             log.debug('Ocean is completely frozen for this body. This will cause errors in conducting layer reductions, ' +
                       'so those calculations will be skipped for this model.')
