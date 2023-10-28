@@ -665,6 +665,7 @@ class FigureFilesSubstruct:
         self.asym = self.fName + asym
         self.apsidal = self.fName + apsidal + xtn
         self.explore =               f'{self.fName}_{self.exploreAppend}{explore}{xtn}'
+        self.exploreDsigma =               f'{self.fName}_Dsigma{self.exploreAppend}{explore}{xtn}'
         self.phaseSpace =            f'{self.fNameInduct}_{induct}_phaseSpace{xtn}'
         self.phaseSpaceCombo =       f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{xtn}'
         self.induct =        {zType: f'{self.fNameInduct}_{induct}_{zType}{xtn}' for zType in zComps}
@@ -1229,6 +1230,7 @@ class FigLblStruct:
         self.Dscale = 'log'
         self.phaseTitle = r'Phase delay $\upphi$ ($^\circ$)'
         self.Dlabel = r'Ocean thickness $D$ ($\si{km}$)'
+        self.zbLabel = r'Ice shell thickness $z_b$ ($\si{km}$)'
         self.TbLabel = r'Ice bottom temp $T_b$ ($\si{K}$)'
         self.iceThickLbl = r'Ice shell thickness ($\si{km}$)'
         self.oceanTempLbl = r'Mean ocean temp ($\si{K}$)'
@@ -1373,10 +1375,13 @@ class FigLblStruct:
             'rhoSilInput_kgm3': 'linear',
             'Rcore_km': 'linear',
             'D_km': 'log',
+            'zb_km': 'linear',
             'wOcean_ppt': 'linear',
             'Tb_K': 'linear',
             'ionosTop_km': 'linear',
             'sigmaIonos_Sm': 'log',
+            'sigmaMean_Sm': 'log',
+            'rhoSilMean_kgm3': 'linear',
             'silPhi_frac': 'linear',
             'silPclosure_MPa': 'log',
             'icePhi_frac': 'log',
@@ -1390,10 +1395,13 @@ class FigLblStruct:
             'rhoSilInput_kgm3': 'silicate density',
             'Rcore_km': 'core size',
             'D_km': 'ocean layer thickness',
+            'zb_km': 'ice shell thickness',
             'wOcean_ppt': 'ocean salinity',
             'Tb_K': 'ocean melting temperature',
             'ionosTop_km': 'ionosphere top altitude',
             'sigmaIonos_Sm': 'ionosphere conductivity',
+            'sigmaMean_Sm': 'ocean mean conductivity',
+            'rhoSilMean_kgm3': 'mean silicate density',
             'silPhi_frac': 'silicate maximum porosity',
             'silPclosure_MPa': 'silicate pore closure pressure',
             'icePhi_frac': 'ice maximum porosity',
@@ -1485,9 +1493,9 @@ class FigLblStruct:
 
         if self.tJ2000units == 'yr':
             self.tJ2000mult = 1 / 24 / 3600 / 365.25
-        elif self.J2000units == 'h':
+        elif self.tJ2000units == 'h':
             self.tJ2000mult = 1 / 24
-        elif self.J2000units == 's':
+        elif self.tJ2000units == 's':
             self.tJ2000mult = 1
         else:
             log.warning('tJ2000units not recognized. Defaulting to years.')
@@ -1522,7 +1530,8 @@ class FigLblStruct:
         self.qSurfLabel = r'Surface heat flux $q_\mathrm{surf}$ ($\si{' + self.fluxUnits + '}$)'
         self.silPhiLabel = r'Silicate maximum porosity $\phi_\mathrm{sil,max}$' + self.phiUnitsParen
         self.icePhiLabel = r'Ice maximum porosity $\phi_\mathrm{sil,max}$' + self.phiUnitsParen
-        self.sigmaIonosLabel = r'Ionosphere conductivity ($\si{' + self.sigUnits + '}$)'
+        self.sigmaIonosLabel = r'Ionosphere conductivity $\sigma$ ($\si{' + self.sigUnits + '}$)'
+        self.sigmaMeanLabel = r'Ocean conductivity $\overline{\sigma}$ ($\si{' + self.sigUnits + '}$)'
         self.HtidalLabel = r'Silicate tidal heating rate ($\si{' + self.volHeatUnits + '}$)'
         self.QradLabel = r'Silicate radiogenic heating rate ($\si{' + self.radHeatUnits + '}$)'
         self.CpLabel = r'Heat capacity $C_P$ ($\si{' + self.CpUnits + '}$)'
@@ -1550,10 +1559,12 @@ class FigLblStruct:
             'rhoSilInput_kgm3': self.rhoSilLabel,
             'Rcore_km': self.RcoreLabel,
             'D_km': self.Dlabel,
+            'zb_km': self.zbLabel,
             'wOcean_ppt': self.wLabel,
             'Tb_K': self.TbLabel,
             'ionosTop_km': self.ionosTopLabel,
             'sigmaIonos_Sm': self.sigmaIonosLabel,
+            'sigmaMean_Sm': self.sigmaMeanLabel,
             'rhoSilMean_kgm3': self.rhoSilMeanLabel,
             'silPhi_frac': self.silPhiLabel,
             'silPclosure_MPa': self.silPclosureLabel,
@@ -1568,10 +1579,12 @@ class FigLblStruct:
             'rhoSilInput_kgm3': 1,
             'Rcore_km': 1,
             'D_km': 1,
+            'zb_km': 1,
             'wOcean_ppt': self.wMult,
             'Tb_K': 1,
             'ionosTop_km': 1,
             'sigmaIonos_Sm': 1,
+            'sigmaMean_Sm': 1,
             'rhoSilMean_kgm3': 1,
             'silPhi_frac': self.phiMult,
             'silPclosure_MPa': 1,
@@ -1615,6 +1628,7 @@ class FigLblStruct:
         self.zMultExplore = self.axisMultsExplore[zName]
 
         self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration}}'
+        self.explorationDsigmaTitle = f'\\textbf{{{bodyname} ocean $D/\\sigma$ vs.\\ {self.exploreDescrip[zName]}}}'
         self.exploreCompareTitle = self.explorationTitle
 
     def rStr(self, rinEval_Rp, bodyname):
