@@ -14,7 +14,7 @@ from PlanetProfile import _Defaults, _TestImport, CopyCarefully
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, GetBexc, Benm2absBexyz
 from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitations as Mag
-from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram
+from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram, PlotExploreOgramDsigma
 from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
     PlotInductOgramPhaseSpace
 from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
@@ -97,6 +97,7 @@ def run(bodyname=None, opt=None, fNames=None):
             else:
                 ExplorationList = [Exploration]
             PlotExploreOgram(ExplorationList, Params)
+            PlotExploreOgramDsigma(ExplorationList, Params)
     else:
         # Set timekeeping for recording elapsed times
         tMarks = np.empty(0)
@@ -1397,6 +1398,7 @@ def ExploreOgram(bodyname, Params):
 
         # Organize data into a format that can be plotted/saved for plotting
         Exploration.bodyname = bodyname
+        Exploration.NO_H2O = PlanetGrid[0,0].Do.NO_H2O
         Exploration.wOcean_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
         Exploration.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
         Exploration.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
@@ -1543,6 +1545,7 @@ def WriteExploreOgram(Exploration, Params):
 
     saveDict = {
         'bodyname': Exploration.bodyname,
+        'NO_H2O': Exploration.NO_H2O,
         'xName': Exploration.xName,
         'yName': Exploration.yName,
         'zName': Exploration.zName,
@@ -1598,6 +1601,7 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
 
     Exploration = ExplorationResults
     Exploration.bodyname = reload['bodyname'][0]
+    Exploration.NO_H2O = reload['NO_H2O'][0]
     Exploration.xName = reload['xName'][0]
     Exploration.yName = reload['yName'][0]
     Exploration.zName = Params.Explore.zName

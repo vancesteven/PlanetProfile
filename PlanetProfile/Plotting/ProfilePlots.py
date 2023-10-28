@@ -1017,13 +1017,13 @@ def PlotExploreOgram(ExplorationList, Params):
         ax.set_xscale(FigLbl.xScaleExplore)
         ax.set_yscale(FigLbl.yScaleExplore)
 
-        x = ExplorationList[0].__getattribute__(ExplorationList[0].xName) * FigLbl.xMult
-        y = ExplorationList[0].__getattribute__(ExplorationList[0].yName) * FigLbl.yMult
-        z = ExplorationList[0].__getattribute__(ExplorationList[0].zName) * FigLbl.zMult
+        x = ExplorationList[0].__getattribute__(ExplorationList[0].xName) * FigLbl.xMultExplore
+        y = ExplorationList[0].__getattribute__(ExplorationList[0].yName) * FigLbl.yMultExplore
+        z = ExplorationList[0].__getattribute__(ExplorationList[0].zName) * FigLbl.zMultExplore
         for Exploration in ExplorationList[1:]:
-            x = np.append(x, Exploration.__getattribute__(Exploration.xName)) * FigLbl.xMult
-            y = np.append(y, Exploration.__getattribute__(Exploration.yName)) * FigLbl.yMult
-            z = np.append(z, Exploration.__getattribute__(Exploration.zName)) * FigLbl.zMult
+            x = np.append(x, Exploration.__getattribute__(Exploration.xName)) * FigLbl.xMultExplore
+            y = np.append(y, Exploration.__getattribute__(Exploration.yName)) * FigLbl.yMultExplore
+            z = np.append(z, Exploration.__getattribute__(Exploration.zName)) * FigLbl.zMultExplore
         mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], rasterized=FigMisc.PT_RASTER)
         cont = ax.contour(x, y, z, colors='black')
         lbls = plt.clabel(cont, fmt='%1.0f')
@@ -1037,6 +1037,62 @@ def PlotExploreOgram(ExplorationList, Params):
         plt.tight_layout()
         fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
         log.debug(f'Plot saved to file: {Params.FigureFiles.explore}')
+        plt.close()
+
+    return
+
+
+def PlotExploreOgramDsigma(ExplorationList, Params):
+    """ Plot a scatter showing the evaluated ocean mean conductivity and layer thickness,
+        for comparison against canonical D/sigma exploration plots.
+    """
+
+    ExplorationList[0].xName = 'D_km'
+    ExplorationList[0].yName = 'sigmaMean_Sm'
+    ExplorationList[0].zName = 'zb_km'
+    FigLbl.SetExploration(ExplorationList[0].bodyname, ExplorationList[0].xName,
+                          ExplorationList[0].yName, ExplorationList[0].zName)
+    if not FigMisc.TEX_INSTALLED:
+        FigLbl.StripLatex()
+
+    for Exploration in (ex for ex in ExplorationList if not ex.NO_H2O):
+        fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
+        if Style.GRIDS:
+            ax.grid()
+            ax.set_axisbelow(True)
+
+        if Params.TITLES:
+            fig.suptitle(FigLbl.explorationDsigmaTitle)
+        ax.set_xlabel(FigLbl.xLabelExplore)
+        ax.set_ylabel(FigLbl.yLabelExplore)
+        # Override standard settings for this type of plot
+        ax.set_xscale('linear')
+        ax.set_yscale('log')
+        ax.set_ylim([1e-2, 20])
+
+        x = np.reshape(Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore, -1)
+        y = np.reshape(Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore, -1)
+        # Only keep data points for which a valid model was determined
+        VALID = np.logical_not(np.logical_or(np.isnan(x), np.isnan(y)))
+        x = x[VALID]
+        y = y[VALID]
+        ax.set_xlim([np.min(x), np.max(x)])
+        linzb = np.reshape(Exploration.zb_km, -1)[VALID]
+        pts = ax.scatter(x, y, c=linzb,
+                         cmap=Color.cmap[Exploration.oceanComp[0,0]],
+                         marker=Style.MS_Induction, s=Style.MW_Induction**2)
+
+        cbar = fig.colorbar(pts, ax=ax)
+        # Append the max value to the colorbar for reading convenience
+        # We compare z values to z values to exclude nans from the max finding,
+        # exploiting the fact that nan == nan is False.
+        new_ticks = np.insert(np.append(cbar.get_ticks(), np.max(linzb)), 0, np.min(linzb))
+        cbar.set_ticks(np.unique(new_ticks))
+        cbar.set_label(FigLbl.cbarLabelExplore, size=12)
+
+        plt.tight_layout()
+        fig.savefig(Params.FigureFiles.exploreDsigma, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        log.debug(f'Plot saved to file: {Params.FigureFiles.exploreDsigma}')
         plt.close()
 
     return
