@@ -31,8 +31,8 @@ def SeismicCalcs(Planet, Params):
             # Get ice EOS if not currently loaded
             icePhase = 'Ih'
             if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
-                PIce_MPa = np.linspace(Planet.P_MPa[indsAllI][0], Planet.P_MPa[indsAllI][-1] + Planet.Ocean.deltaP * 3, np.minimum(np.size(indsAllI), 4))
-                TIce_K = np.linspace(Planet.T_K[indsAllI][0], Planet.T_K[indsAllI][-1] + Planet.Ocean.deltaT * 3, np.minimum(np.size(indsAllI), 4))
+                PIce_MPa = np.linspace(Planet.P_MPa[indsAllI][0], Planet.P_MPa[indsAllI][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsAllI), 4))
+                TIce_K = np.linspace(Planet.T_K[indsAllI][0], Planet.T_K[indsAllI][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsAllI), 4))
                 Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
                                                               porosType=Planet.Ocean.porosType[icePhase],
                                                               phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
@@ -52,8 +52,8 @@ def SeismicCalcs(Planet, Params):
             # Get ice EOS if not currently loaded
             icePhase = 'Clath'
             if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
-                PIce_MPa = np.linspace(Planet.P_MPa[indsAllClath][0], Planet.P_MPa[indsAllClath][-1] + Planet.Ocean.deltaP * 3, np.minimum(np.size(indsAllClath), 4))
-                TIce_K = np.linspace(Planet.T_K[indsAllClath][0], Planet.T_K[indsAllClath][-1] + Planet.Ocean.deltaT * 3, np.minimum(np.size(indsAllClath), 4))
+                PIce_MPa = np.linspace(Planet.P_MPa[indsAllClath][0], Planet.P_MPa[indsAllClath][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsAllClath), 4))
+                TIce_K = np.linspace(Planet.T_K[indsAllClath][0], Planet.T_K[indsAllClath][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsAllClath), 4))
                 Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
                                                               porosType=Planet.Ocean.porosType[icePhase],
                                                               phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
@@ -75,8 +75,8 @@ def SeismicCalcs(Planet, Params):
             if np.size(indsIIund) != 0:
                 # Get ice EOS if not currently loaded
                 if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
-                    PIce_MPa = np.linspace(Planet.P_MPa[indsIIund][0], Planet.P_MPa[indsIIund][-1] + Planet.Ocean.deltaP * 3, np.minimum(np.size(indsIIund), 4))
-                    TIce_K = np.linspace(Planet.T_K[indsIIund][0], Planet.T_K[indsIIund][-1] + Planet.Ocean.deltaT * 3, np.minimum(np.size(indsIIund), 4))
+                    PIce_MPa = np.linspace(Planet.P_MPa[indsIIund][0], Planet.P_MPa[indsIIund][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsIIund), 4))
+                    TIce_K = np.linspace(Planet.T_K[indsIIund][0], Planet.T_K[indsIIund][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsIIund), 4))
                     Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
                                                                   porosType=Planet.Ocean.porosType[icePhase],
                                                                   phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
@@ -90,8 +90,8 @@ def SeismicCalcs(Planet, Params):
             if np.size(indsII) != 0:
                 # Get ice EOS if not currently loaded
                 if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
-                    PIce_MPa = np.linspace(Planet.P_MPa[indsII][0], Planet.P_MPa[indsII][-1] + Planet.Ocean.deltaP * 3, np.minimum(np.size(indsII), 4))
-                    TIce_K = np.linspace(Planet.T_K[indsII][0], Planet.T_K[indsII][-1] + Planet.Ocean.deltaT * 3, np.minimum(np.size(indsII), 4))
+                    PIce_MPa = np.linspace(Planet.P_MPa[indsII][0], Planet.P_MPa[indsII][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsII), 4))
+                    TIce_K = np.linspace(Planet.T_K[indsII][0], Planet.T_K[indsII][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsII), 4))
                     Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
                                                               porosType=Planet.Ocean.porosType[icePhase],
                                                               phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
@@ -112,8 +112,8 @@ def SeismicCalcs(Planet, Params):
             if np.size(indsIIIund) != 0:
                 # Get ice EOS if not currently loaded
                 if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
-                    PIce_MPa = np.linspace(Planet.P_MPa[indsIIIund][0], Planet.P_MPa[indsIIIund][-1] + Planet.Ocean.deltaP * 3, np.minimum(np.size(indsIIIund), 4))
-                    TIce_K = np.linspace(Planet.T_K[indsIIIund][0], Planet.T_K[indsIIIund][-1] + Planet.Ocean.deltaT * 3, np.minimum(np.size(indsIIIund), 4))
+                    PIce_MPa = np.linspace(Planet.P_MPa[indsIIIund][0], Planet.P_MPa[indsIIIund][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsIIIund), 4))
+                    TIce_K = np.linspace(Planet.T_K[indsIIIund][0], Planet.T_K[indsIIIund][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsIIIund), 4))
                     Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
                                                                   porosType=Planet.Ocean.porosType[icePhase],
                                                                   phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
@@ -127,8 +127,8 @@ def SeismicCalcs(Planet, Params):
             if np.size(indsIII) != 0:
                 # Get ice EOS if not currently loaded
                 if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
-                    PIce_MPa = np.linspace(Planet.P_MPa[indsIII][0], Planet.P_MPa[indsIII][-1] + Planet.Ocean.deltaP * 3, np.minimum(np.size(indsIII), 4))
-                    TIce_K = np.linspace(Planet.T_K[indsIII][0], Planet.T_K[indsIII][-1] + Planet.Ocean.deltaT * 3, np.minimum(np.size(indsIII), 4))
+                    PIce_MPa = np.linspace(Planet.P_MPa[indsIII][0], Planet.P_MPa[indsIII][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsIII), 4))
+                    TIce_K = np.linspace(Planet.T_K[indsIII][0], Planet.T_K[indsIII][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsIII), 4))
                     Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
                                                               porosType=Planet.Ocean.porosType[icePhase],
                                                               phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
@@ -149,8 +149,8 @@ def SeismicCalcs(Planet, Params):
             if np.size(indsVund) != 0:
                 # Get ice EOS if not currently loaded
                 if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
-                    PIce_MPa = np.linspace(Planet.P_MPa[indsVund][0], Planet.P_MPa[indsVund][-1] + Planet.Ocean.deltaP * 3, np.minimum(np.size(indsVund), 4))
-                    TIce_K = np.linspace(Planet.T_K[indsVund][0], Planet.T_K[indsVund][-1] + Planet.Ocean.deltaT * 3, np.minimum(np.size(indsVund), 4))
+                    PIce_MPa = np.linspace(Planet.P_MPa[indsVund][0], Planet.P_MPa[indsVund][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsVund), 4))
+                    TIce_K = np.linspace(Planet.T_K[indsVund][0], Planet.T_K[indsVund][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsVund), 4))
                     Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
                                                                   porosType=Planet.Ocean.porosType[icePhase],
                                                                   phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
@@ -164,8 +164,8 @@ def SeismicCalcs(Planet, Params):
             if np.size(indsV) != 0:
                 # Get ice EOS if not currently loaded
                 if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
-                    PIce_MPa = np.linspace(Planet.P_MPa[indsV][0], Planet.P_MPa[indsV][-1] + Planet.Ocean.deltaP * 3, np.minimum(np.size(indsV), 4))
-                    TIce_K = np.linspace(Planet.T_K[indsV][0], Planet.T_K[indsV][-1] + Planet.Ocean.deltaT * 3, np.minimum(np.size(indsV), 4))
+                    PIce_MPa = np.linspace(Planet.P_MPa[indsV][0], Planet.P_MPa[indsV][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsV), 4))
+                    TIce_K = np.linspace(Planet.T_K[indsV][0], Planet.T_K[indsV][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsV), 4))
                     Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
                                                               porosType=Planet.Ocean.porosType[icePhase],
                                                               phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
@@ -186,8 +186,8 @@ def SeismicCalcs(Planet, Params):
             if np.size(indsVIund) != 0:
                 # Get ice EOS if not currently loaded
                 if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
-                    PIce_MPa = np.linspace(Planet.P_MPa[indsVIund][0], Planet.P_MPa[indsVIund][-1] + Planet.Ocean.deltaP * 3, np.minimum(np.size(indsVIund), 4))
-                    TIce_K = np.linspace(Planet.T_K[indsVIund][0], Planet.T_K[indsVIund][-1] + Planet.Ocean.deltaT * 3, np.minimum(np.size(indsVIund), 4))
+                    PIce_MPa = np.linspace(Planet.P_MPa[indsVIund][0], Planet.P_MPa[indsVIund][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsVIund), 4))
+                    TIce_K = np.linspace(Planet.T_K[indsVIund][0], Planet.T_K[indsVIund][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsVIund), 4))
                     Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
                                                                   porosType=Planet.Ocean.porosType[icePhase],
                                                                   phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
@@ -201,8 +201,8 @@ def SeismicCalcs(Planet, Params):
             if np.size(indsVI) != 0:
                 # Get ice EOS if not currently loaded
                 if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
-                    PIce_MPa = np.linspace(Planet.P_MPa[indsVI][0], Planet.P_MPa[indsVI][-1] + Planet.Ocean.deltaP * 3, np.minimum(np.size(indsVI), 4))
-                    TIce_K = np.linspace(Planet.T_K[indsVI][0], Planet.T_K[indsVI][-1] + Planet.Ocean.deltaT * 3, np.minimum(np.size(indsVI), 4))
+                    PIce_MPa = np.linspace(Planet.P_MPa[indsVI][0], Planet.P_MPa[indsVI][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsVI), 4))
+                    TIce_K = np.linspace(Planet.T_K[indsVI][0], Planet.T_K[indsVI][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsVI), 4))
                     Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
                                                               porosType=Planet.Ocean.porosType[icePhase],
                                                               phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
