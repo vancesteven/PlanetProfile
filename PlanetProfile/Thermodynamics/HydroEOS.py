@@ -749,18 +749,23 @@ def GetTfreeze(oceanEOS, P_MPa, T_K, TfreezeRange_K=50, TRes_K=0.05):
     return Tfreeze_K
 
 
-def PhaseConv(phase):
+def PhaseConv(phase, PORE=False, liq='water1'):
     """ Convert phase integers into strings compatible with SeaFreeze
 
         Arguments:
             phase (int): ID of phase for each layer
+            PORE = False (bool): Whether to return phase of pore material instead of matrix
+            liq = 'water1' (string): SeaFreeze-compatible composition for liquid phase
         Returns:
             phaseStr (string): Corresponding string for each phase ID
     """
     if phase == 0:
-        phaseStr = 'water1'
+        phaseStr = liq
     elif abs(phase) == 1:
-        phaseStr = 'Ih'
+        if PORE and phase < 0:
+            phaseStr = liq
+        else:
+            phaseStr = 'Ih'
     elif abs(phase) == 2:
         phaseStr = 'II'
     elif abs(phase) == 3:
@@ -770,9 +775,15 @@ def PhaseConv(phase):
     elif abs(phase) == 6:
         phaseStr = 'VI'
     elif abs(phase) == Constants.phaseClath:
-        phaseStr = 'Clath'
+        if PORE and phase < 0:
+            phaseStr = liq
+        else:
+            phaseStr = 'Clath'
     elif phase >= Constants.phaseSil and phase < Constants.phaseSil+10:
-        phaseStr = 'Sil'
+        if PORE and phase != Constants.phaseSil:
+            phaseStr = PhaseConv(phase % 10, PORE=False, liq=liq)
+        else:
+            phaseStr = 'Sil'
     elif phase >= Constants.phaseFe:
         phaseStr = 'Fe'
     else:
