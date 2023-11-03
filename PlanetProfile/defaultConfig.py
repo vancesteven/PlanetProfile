@@ -78,13 +78,13 @@ def configAssign():
     Params.SKIP_INDUCTION = False  # Whether to skip past induction calculations. Primarily intended to avoid duplicate calculations in exploreOgrams
     # Options for x/y variables: "xFeS", "rhoSilInput_kgm3", "wOcean_ppt", "Tb_K", "ionosTop_km", "sigmaIonos_Sm",
     # "silPhi_frac", "silPclosure_MPa", "icePhi_frac", "icePclosure_MPa", "Htidal_Wm3", "Qrad_Wkg", "qSurf_Wm2" (Do.NO_H2O only)
-    ExploreParams.xName = 'xFeS'  # x variable over which to iterate for exploreograms. Options are as above.
-    ExploreParams.yName = 'rhoSilInput_kgm3'  # y variable over which to iterate for exploreograms. Options are as above.
-    ExploreParams.zName = 'Rcore_km'  # heatmap/colorbar/z variable to plot for exploreograms. Options are "D_km", "dzIceI_km", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km", "dzIceV_km", "dzIceVund_km", "dzIceVI_km", "dzWetHPs_km", "eLid_km", "Pseafloor_MPa", "Rcore_km", "rhoSilMean_kgm3", "sigmaMean_Sm", "zb_km", "zSeafloor_km", "qSurf_Wm2" (only if Do.NO_H2O is False). New options must be added to ExplorationStruct attributes in Main (assign+save+reload) and in defineStructs, and FigLbls.exploreDescrip, .<var>Label, and .axisLabels in defineStructs
-    ExploreParams.xRange = [0, 1]  # [min, max] values for the x variable above
-    ExploreParams.yRange = [2000, 4500]  # Same as above for y variable
-    ExploreParams.nx = 50  # Number of points to use in linspace with above x range
-    ExploreParams.ny = 50  # Same as above for y
+    ExploreParams.xName = 'wOcean_ppt'  # x variable over which to iterate for exploreograms. Options are as above.
+    ExploreParams.yName = 'Tb_K'  # y variable over which to iterate for exploreograms. Options are as above.
+    ExploreParams.zName = ['D_km', 'zb_km', 'dzWetHPs_km', 'rhoSilMean_kgm3', 'sigmaMean_Sm']  # heatmap/colorbar/z variable to plot for exploreograms. Options are "D_km", "dzIceI_km", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km", "dzIceV_km", "dzIceVund_km", "dzIceVI_km", "dzWetHPs_km", "eLid_km", "Rcore_km", "rhoSilMean_kgm3", "sigmaMean_Sm", "zb_km", "zSeafloor_km", "qSurf_Wm2" (only if Do.NO_H2O is False). New options must be added to ExplorationStruct attributes in Main (assign+save+reload) and in defineStructs, and FigLbls.exploreDescrip, .<var>Label, and .axisLabels in defineStructs. Accepts a list.
+    ExploreParams.xRange = [10.0, 100.0]  # [min, max] values for the x variable above
+    ExploreParams.yRange = [249.0, 272.5]  # Same as above for y variable
+    ExploreParams.nx = 30  # Number of points to use in linspace with above x range
+    ExploreParams.ny = 24  # Same as above for y
 
     # Reference profile settings
     # Salinities of reference melting curves in ppt
