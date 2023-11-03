@@ -1396,6 +1396,12 @@ def ExploreOgram(bodyname, Params):
         dt = tMarks[-1] - tMarks[-2]
         log.info(f'Parallel run elapsed time: {dt:.1f} s.')
 
+        # Calculate additional parameters from profiles
+        gridShape = np.shape(PlanetGrid)
+        PlanetList = np.reshape(PlanetGrid, -1)
+        PlanetList, Params = GetLayerMeans(PlanetList, Params)
+        PlanetGrid = np.reshape(PlanetList, gridShape)
+
         # Organize data into a format that can be plotted/saved for plotting
         Exploration.bodyname = bodyname
         Exploration.NO_H2O = PlanetGrid[0,0].Do.NO_H2O
@@ -1420,7 +1426,18 @@ def ExploreOgram(bodyname, Params):
         Exploration.Tmean_K = np.array([[Planeti.Ocean.Tmean_K for Planeti in line] for line in PlanetGrid])
         Exploration.D_km = np.array([[Planeti.D_km for Planeti in line] for line in PlanetGrid])
         Exploration.zb_km = np.array([[Planeti.zb_km for Planeti in line] for line in PlanetGrid])
+        Exploration.zSeafloor_km = Exploration.zb_km + Exploration.D_km
+        Exploration.dzIceI_km = np.array([[Planeti.dzIceI_km for Planeti in line] for line in PlanetGrid])
+        Exploration.dzClath_km = np.array([[Planeti.dzClath_km for Planeti in line] for line in PlanetGrid])
+        Exploration.dzIceIII_km = np.array([[Planeti.dzIceIII_km for Planeti in line] for line in PlanetGrid])
+        Exploration.dzIceIIIund_km = np.array([[Planeti.dzIceIIIund_km for Planeti in line] for line in PlanetGrid])
+        Exploration.dzIceV_km = np.array([[Planeti.dzIceV_km for Planeti in line] for line in PlanetGrid])
+        Exploration.dzIceVund_km = np.array([[Planeti.dzIceVund_km for Planeti in line] for line in PlanetGrid])
+        Exploration.dzIceVI_km = np.array([[Planeti.dzIceVI_km for Planeti in line] for line in PlanetGrid])
+        Exploration.dzWetHPs_km = np.array([[Planeti.dzWetHPs_km for Planeti in line] for line in PlanetGrid])
+        Exploration.eLid_km = np.array([[Planeti.eLid_m/1e3 for Planeti in line] for line in PlanetGrid])
         Exploration.Rcore_km = np.array([[Planeti.Core.Rmean_m/1e3 for Planeti in line] for line in PlanetGrid])
+        Exploration.Pseafloor_MPa = np.array([[Planeti.Pseafloor_MPa for Planeti in line] for line in PlanetGrid])
         Exploration.qSurf_Wm2 = np.array([[Planeti.qSurf_Wm2 for Planeti in line] for line in PlanetGrid])
         Exploration.VALID = np.array([[Planeti.Do.VALID for Planeti in line] for line in PlanetGrid])
         Exploration.invalidReason = np.array([[Planeti.invalidReason for Planeti in line] for line in PlanetGrid])
@@ -1570,7 +1587,18 @@ def WriteExploreOgram(Exploration, Params):
         'Tmean_K': Exploration.Tmean_K,
         'D_km': Exploration.D_km,
         'zb_km': Exploration.zb_km,
+        'zSeafloor_km': Exploration.zSeafloor_km,
+        'dzIceI_km': Exploration.dzIceI_km,
+        'dzClath_km': Exploration.dzClath_km,
+        'dzIceIII_km': Exploration.dzIceIII_km,
+        'dzIceIIIund_km': Exploration.dzIceIIIund_km,
+        'dzIceV_km': Exploration.dzIceV_km,
+        'dzIceVund_km': Exploration.dzIceVund_km,
+        'dzIceVI_km': Exploration.dzIceVI_km,
+        'dzWetHPs_km': Exploration.dzWetHPs_km,
+        'eLid_km': Exploration.eLid_km,
         'Rcore_km': Exploration.Rcore_km,
+        'Pseafloor_MPa': Exploration.Pseafloor_MPa,
         'VALID': Exploration.VALID,
         'invalidReason': Exploration.invalidReason
     }
@@ -1626,7 +1654,18 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
     Exploration.Tmean_K = reload['Tmean_K']
     Exploration.D_km = reload['D_km']
     Exploration.zb_km = reload['zb_km']
+    Exploration.zSeafloor_km = reload['zSeafloor_km']
+    Exploration.dzIceI_km = reload['dzIceI_km']
+    Exploration.dzClath_km = reload['dzClath_km']
+    Exploration.dzIceIII_km = reload['dzIceIII_km']
+    Exploration.dzIceIIIund_km = reload['dzIceIIIund_km']
+    Exploration.dzIceV_km = reload['dzIceV_km']
+    Exploration.dzIceVund_km = reload['dzIceVund_km']
+    Exploration.dzIceVI_km = reload['dzIceVI_km']
+    Exploration.dzWetHPs_km = reload['dzWetHPs_km']
+    Exploration.eLid_km = reload['eLid_km']
     Exploration.Rcore_km = reload['Rcore_km']
+    Exploration.Pseafloor_MPa = reload['Pseafloor_MPa']
     Exploration.VALID = reload['VALID']
     Exploration.invalidReason = reload['invalidReason']
 

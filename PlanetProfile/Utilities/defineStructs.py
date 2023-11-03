@@ -470,6 +470,7 @@ class PlanetStruct:
         self.zClath_m = None  # Thickness of clathrate layer in surface ice in m
         self.D_km = None  # Thickness of ocean layer in km
         self.Pb_MPa = None  # Pressure at ice-ocean interface in MPa
+        self.Pseafloor_MPa = None  # Pressure at bottom of the liquid ocean layer in MPa
         self.PbI_MPa = None  # Pressure at bottom of surface ice I/clathrate layer in MPa
         self.PbIII_MPa = None  # Pressure at ice III/ice V transition in MPa, only used when BOTTOM_ICEIII or BOTTOM_ICEV is True
         self.PbV_MPa = None  # Pressure at bottom of ice V layer in MPa, only used when BOTTOM_ICEV is True
@@ -665,7 +666,7 @@ class FigureFilesSubstruct:
         self.asym = self.fName + asym
         self.apsidal = self.fName + apsidal + xtn
         self.explore =               f'{self.fName}_{self.exploreAppend}{explore}{xtn}'
-        self.exploreDsigma =               f'{self.fName}_Dsigma{self.exploreAppend}{explore}{xtn}'
+        self.exploreDsigma =               f'{self.fName}_Dsigma_{self.exploreAppend}{explore}{xtn}'
         self.phaseSpace =            f'{self.fNameInduct}_{induct}_phaseSpace{xtn}'
         self.phaseSpaceCombo =       f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{xtn}'
         self.induct =        {zType: f'{self.fNameInduct}_{induct}_{zType}{xtn}' for zType in zComps}
@@ -884,6 +885,7 @@ class ExploreParamsStruct:
 class ExplorationStruct:
     def __init__(self):
         self.bodyname = None  # Name of body modeled.
+        self.NO_H2O = False  # Whether the exploreogram is for a waterless body.
         self.x = None  # 2D data of x axis variable for exploreogram plots
         self.y = None  # 2D data of y axis variable for exploreogram plots
         self.z = None  # 2D data to plot as z axis of exploreogram plots
@@ -912,9 +914,21 @@ class ExplorationStruct:
         self.sigmaTop_Sm = None  # Ocean top conductivity result in S/m.
         self.Tmean_K = None  # Ocean mean temperature result in K.
         self.D_km = None  # Ocean layer thickness result in km.
-        self.zb_km = None  # Upper ice shell thickness result in km.
+        self.zb_km = None  # Upper ice shell thickness result (including any ice Ih, clathrates, ice III underplate, and ice V underplate) in km.
+        self.zSeafloor_km = None  # Depth to bottom of ocean result (sum of zb and D) in km.
+        self.dzIceI_km = None  # Thickness of surface ice Ih layer result in km.
+        self.dzClath_km = None  # Thickness of clathrate layer result in surface ice shell (may be at top, bottom, or all of ice shell) in km.
+        self.dzIceIII_km = None  # Thickness of undersea ice III layer result in km.
+        self.dzIceIIIund_km = None  # Thickness of underplate ice III layer result in km.
+        self.dzIceV_km = None  # Thickness of undersea ice V layer result in km.
+        self.dzIceVund_km = None  # Thickness of underplate ice V layer result in km.
+        self.dzIceVI_km = None  # Thickness of undersea ice VI layer result in km.
+        self.dzWetHPs_km = None  # Total resultant thickness of all undersea high-pressure ices (III, V, and VI) in km.
+        self.eLid_km = None  # Thickness of surface stagnant-lid conductive ice layer result (may include Ih or clathrates or both) in km.
         self.Rcore_km = None  # Core radius result in km.
-
+        self.Pseafloor_MPa = None  # Pressure at the bottom of the liquid ocean layer in MPa.
+        self.VALID = None  # Flags for whether each profile found a valid solution
+        self.invalidReason = None  # Explanation for why any invalid solution failed
 
 
 """ Figure color options """
@@ -1171,8 +1185,22 @@ class FigLblStruct:
         self.sciLimits = None  # Powers of 10 to use as limits on axis labels, e.g. [-2, 4] means anything < 0.01 or >= 10000 will use scientific notation.
 
         # General plot labels and settings
+        self.Dlabel = r'Ocean thickness $D$ ($\si{km}$)'
+        self.zbLabel = r'Ice shell thickness $z_b$ ($\si{km}$)'
+        self.zSeafloorLabel = r'Seafloor depth $z_\mathrm{sea}$ ($\si{km}$)'
+        self.dzIceIlabel = r'Ice Ih layer thickness $dz_\mathrm{Ih}$ ($\si{km}$)'
+        self.dzClathlabel = r'Clathrate layer thickness $dz_\mathrm{clath}$ ($\si{km}$)'
+        self.dzIceIIIlabel = r'Undersea ice III thickness $dz_\mathrm{III}$ ($\si{km}$)'
+        self.dzIceIIIundlabel = r'Underplate ice III thickness $dz_\mathrm{III,und}$ ($\si{km}$)'
+        self.dzIceVlabel = r'Undersea ice V thickness $dz_\mathrm{V}$ ($\si{km}$)'
+        self.dzIceVundlabel = r'Underplate ice V thickness $dz_\mathrm{V,und}$ ($\si{km}$)'
+        self.dzIceVIlabel = r'Ice VI layer thickness $dz_\mathrm{VI}$ ($\si{km}$)'
+        self.dzWetHPslabel = r'Undersea high-pressure ice thickness $dz_\mathrm{HP}$ ($\si{km}$)'
+        self.eLidlabel = r'Conductive lid thickness $e_\mathrm{lid}$ ($\si{km}$)'
+        self.TbLabel = r'Ice bottom temp $T_b$ ($\si{K}$)'
         self.RsilLabel = r'Silicate outer radius $R_\mathrm{sil}$ ($\si{km}$)'
         self.RcoreLabel = r'Core radius $R_\mathrm{core}$ ($\si{km}$)'
+        self.PseafloorLabel = r'Seafloor pressure $P_\mathrm{sea}$ ($\si{MPa}$)'
         self.GSKSlabel = r'Bulk \& shear moduli $K_S$, $G_S$ ($\si{GPa}$)'
         self.KSlabel = r'Bulk modulus $K_S$ ($\si{GPa}$)'
         self.GSlabel = r'Shear modulus $G_S$ ($\si{GPa}$)'
@@ -1229,10 +1257,6 @@ class FigLblStruct:
         self.sigScale = 'log'
         self.Dscale = 'log'
         self.phaseTitle = r'Phase delay $\upphi$ ($^\circ$)'
-        self.Dlabel = r'Ocean thickness $D$ ($\si{km}$)'
-        self.zbLabel = r'Ice shell thickness $z_b$ ($\si{km}$)'
-        self.TbLabel = r'Ice bottom temp $T_b$ ($\si{K}$)'
-        self.iceThickLbl = r'Ice shell thickness ($\si{km}$)'
         self.oceanTempLbl = r'Mean ocean temp ($\si{K}$)'
         self.xScalesInduct = {
             'sigma': self.sigScale,
@@ -1370,32 +1394,33 @@ class FigLblStruct:
         # ExploreOgram setting and label dicts
         self.axisLabelsExplore = None
         self.axisMultsExplore = None
-        self.axisScalesExplore = {
-            'xFeS': 'linear',
-            'rhoSilInput_kgm3': 'linear',
-            'Rcore_km': 'linear',
-            'D_km': 'log',
-            'zb_km': 'linear',
-            'wOcean_ppt': 'linear',
-            'Tb_K': 'linear',
-            'ionosTop_km': 'linear',
-            'sigmaIonos_Sm': 'log',
-            'sigmaMean_Sm': 'log',
-            'rhoSilMean_kgm3': 'linear',
-            'silPhi_frac': 'linear',
-            'silPclosure_MPa': 'log',
-            'icePhi_frac': 'log',
-            'icePclosure_MPa': 'linear',
-            'Htidal_Wm3': 'log',
-            'Qrad_Wkg': 'log',
-            'qSurf_Wm2': 'log'
-        }
+        self.axisLogScalesExplore = [
+            'D_km',
+            'sigmaIonos_Sm',
+            'sigmaMean_Sm',
+            'silPclosure_MPa',
+            'icePhi_frac',
+            'Htidal_Wm3',
+            'Qrad_Wkg',
+            'qSurf_Wm2'
+        ]
         self.exploreDescrip = {
             'xFeS': 'core FeS mixing ratio',
             'rhoSilInput_kgm3': 'silicate density',
             'Rcore_km': 'core size',
             'D_km': 'ocean layer thickness',
             'zb_km': 'ice shell thickness',
+            'zSeafloor_km': 'seafloor depth',
+            'dzIceI_km': 'ice Ih layer thickness',
+            'dzClath_km': 'clathrate layer thickness',
+            'dzIceIII_km': 'undersea ice III thickness',
+            'dzIceIIIund_km': 'underplate ice III thickness',
+            'dzIceV_km': 'undersea ice V thickness',
+            'dzIceVund_km': 'underplate ice V thickness',
+            'dzIceVI_km': 'ice VI layer thickness',
+            'dzWetHPs_km': 'undersea high-pressure ice thickness',
+            'eLid_km': 'ice conductive lid thickness',
+            'Pseafloor_MPa': 'seafloor pressure',
             'wOcean_ppt': 'ocean salinity',
             'Tb_K': 'ocean melting temperature',
             'ionosTop_km': 'ionosphere top altitude',
@@ -1560,6 +1585,17 @@ class FigLblStruct:
             'Rcore_km': self.RcoreLabel,
             'D_km': self.Dlabel,
             'zb_km': self.zbLabel,
+            'zSeafloor_km': self.zSeafloorLabel,
+            'dzIceI_km': self.dzIceIlabel,
+            'dzClath_km': self.dzClathlabel,
+            'dzIceIII_km': self.dzIceIIIlabel,
+            'dzIceIIIund_km': self.dzIceIIIundlabel,
+            'dzIceV_km': self.dzIceVlabel,
+            'dzIceVund_km': self.dzIceVundlabel,
+            'dzIceVI_km': self.dzIceVIlabel,
+            'dzWetHPs_km': self.dzWetHPslabel,
+            'eLid_km': self.eLidlabel,
+            'Pseafloor_MPa': self.PseafloorLabel,
             'wOcean_ppt': self.wLabel,
             'Tb_K': self.TbLabel,
             'ionosTop_km': self.ionosTopLabel,
@@ -1576,22 +1612,9 @@ class FigLblStruct:
         }
         self.axisMultsExplore = {
             'xFeS': self.xMult,
-            'rhoSilInput_kgm3': 1,
-            'Rcore_km': 1,
-            'D_km': 1,
-            'zb_km': 1,
             'wOcean_ppt': self.wMult,
-            'Tb_K': 1,
-            'ionosTop_km': 1,
-            'sigmaIonos_Sm': 1,
-            'sigmaMean_Sm': 1,
-            'rhoSilMean_kgm3': 1,
             'silPhi_frac': self.phiMult,
-            'silPclosure_MPa': 1,
             'icePhi_frac': self.phiMult,
-            'icePclosure_MPa': 1,
-            'Htidal_Wm3': 1,
-            'Qrad_Wkg': 1,
             'qSurf_Wm2': self.qMult
         }
 
@@ -1618,14 +1641,14 @@ class FigLblStruct:
 
     def SetExploration(self, bodyname, xName, yName, zName):
         # Set titles, labels, and axis settings pertaining to exploreogram plots
-        self.xLabelExplore = self.axisLabelsExplore[xName]
-        self.xScaleExplore = self.axisScalesExplore[xName]
-        self.xMultExplore = self.axisMultsExplore[xName]
-        self.yLabelExplore = self.axisLabelsExplore[yName]
-        self.yScaleExplore = self.axisScalesExplore[yName]
-        self.yMultExplore = self.axisMultsExplore[yName]
-        self.cbarLabelExplore = self.axisLabelsExplore[zName]
-        self.zMultExplore = self.axisMultsExplore[zName]
+        self.xLabelExplore = '' if xName not in self.axisLabelsExplore.keys() else self.axisLabelsExplore[xName]
+        self.xScaleExplore = 'log' if xName in self.axisLogScalesExplore else 'linear'
+        self.xMultExplore = 1 if xName not in self.axisMultsExplore.keys() else self.axisMultsExplore[xName]
+        self.yLabelExplore = '' if yName not in self.axisLabelsExplore.keys() else self.axisLabelsExplore[yName]
+        self.yScaleExplore = 'log' if yName in self.axisLogScalesExplore else 'linear'
+        self.yMultExplore = 1 if yName not in self.axisMultsExplore.keys() else self.axisMultsExplore[yName]
+        self.cbarLabelExplore = '' if zName not in self.axisLabelsExplore.keys() else self.axisLabelsExplore[zName]
+        self.zMultExplore = 1 if zName not in self.axisMultsExplore.keys() else self.axisMultsExplore[zName]
 
         self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration}}'
         self.explorationDsigmaTitle = f'\\textbf{{{bodyname} ocean $D/\\sigma$ vs.\\ {self.exploreDescrip[zName]}}}'

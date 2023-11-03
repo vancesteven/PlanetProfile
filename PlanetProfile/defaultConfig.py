@@ -80,7 +80,7 @@ def configAssign():
     # "silPhi_frac", "silPclosure_MPa", "icePhi_frac", "icePclosure_MPa", "Htidal_Wm3", "Qrad_Wkg", "qSurf_Wm2" (Do.NO_H2O only)
     ExploreParams.xName = 'xFeS'  # x variable over which to iterate for exploreograms. Options are as above.
     ExploreParams.yName = 'rhoSilInput_kgm3'  # y variable over which to iterate for exploreograms. Options are as above.
-    ExploreParams.zName = 'Rcore_km'  # heatmap/colorbar/z variable to plot for exploreograms. Options are "Rcore_km", "qSurf_Wm2" (only if Do.NO_H2O is False).
+    ExploreParams.zName = 'Rcore_km'  # heatmap/colorbar/z variable to plot for exploreograms. Options are "D_km", "dzIceI_km", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km", "dzIceV_km", "dzIceVund_km", "dzIceVI_km", "dzWetHPs_km", "eLid_km", "Pseafloor_MPa", "Rcore_km", "rhoSilMean_kgm3", "sigmaMean_Sm", "zb_km", "zSeafloor_km", "qSurf_Wm2" (only if Do.NO_H2O is False). New options must be added to ExplorationStruct attributes in Main (assign+save+reload) and in defineStructs, and FigLbls.exploreDescrip, .<var>Label, and .axisLabels in defineStructs
     ExploreParams.xRange = [0, 1]  # [min, max] values for the x variable above
     ExploreParams.yRange = [2000, 4500]  # Same as above for y variable
     ExploreParams.nx = 50  # Number of points to use in linspace with above x range

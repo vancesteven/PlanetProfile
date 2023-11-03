@@ -800,6 +800,7 @@ def InnerLayers(Planet, Params):
         # Record ocean layer thickness
         if Planet.Do.NO_H2O or not np.any(Planet.phase == 0):
             Planet.D_km = 0
+            Planet.Pseafloor_MPa = np.nan
             # Reset ice layer thickness in the event there is no ocean
             Planet.zb_km = Planet.z_m[iOS] / 1e3
         else:
@@ -808,8 +809,10 @@ def InnerLayers(Planet, Params):
                 # this is the bottom of the contiguous ocean layer.
                 iOceanBot = next(i for i,phase in enumerate(Planet.phase[:Planet.Steps.nHydro]) if phase == 0 and phase != Planet.phase[i+1])
                 Planet.D_km = Planet.z_m[iOceanBot + 1]/1e3 - Planet.zb_km
+                Planet.Pseafloor_MPa = Planet.P_MPa[iOceanBot + 1]
             else:
                 Planet.D_km = np.nan
+                Planet.Pseafloor_MPa = np.nan
 
                 # Calculate total salt and water masses
         Planet.Mcore_kg = np.sum(Planet.MLayer_kg[iSC:iCC])
