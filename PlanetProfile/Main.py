@@ -96,7 +96,16 @@ def run(bodyname=None, opt=None, fNames=None):
                     ExplorationList[i+1] = ReloadExploreOgram(bodyname, Params, fNameOverride=reloadExplore)[0]
             else:
                 ExplorationList = [Exploration]
-            PlotExploreOgram(ExplorationList, Params)
+            if isinstance(Params.Explore.zName, list):
+                figNames = Params.FigureFiles.explore + []
+                for zName, figName in zip(Params.Explore.zName, figNames):
+                    for Exploration in ExplorationList:
+                        Exploration.zName = zName
+                    Params.FigureFiles.explore = figName
+                    PlotExploreOgram(ExplorationList, Params)
+                Params.FigureFiles.explore = figNames
+            else:
+                PlotExploreOgram(ExplorationList, Params)
             PlotExploreOgramDsigma(ExplorationList, Params)
     else:
         # Set timekeeping for recording elapsed times
@@ -1376,9 +1385,10 @@ def ExploreOgram(bodyname, Params):
         Exploration = ExplorationResults
         Exploration.xName = Params.Explore.xName
         Exploration.yName = Params.Explore.yName
-        Exploration.zName = Params.Explore.zName
         Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Exploration.yName}',
-                                                figExploreAppend=Exploration.zName)
+                                                figExploreAppend=Params.Explore.zName)
+        if not isinstance(Params.Explore.zName, list):
+            Exploration.zName = Params.Explore.zName
         if bodyname == 'Test':
             Params.Explore.nx = 5
             Params.Explore.ny = 5
@@ -1565,7 +1575,6 @@ def WriteExploreOgram(Exploration, Params):
         'NO_H2O': Exploration.NO_H2O,
         'xName': Exploration.xName,
         'yName': Exploration.yName,
-        'zName': Exploration.zName,
         'wOcean_ppt': Exploration.wOcean_ppt,
         'oceanComp': Exploration.oceanComp,
         'R_m': Exploration.R_m,
@@ -1622,7 +1631,7 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
         Planet = importlib.import_module(f'{bodydir}.PP{loadname}Explore').Planet
         Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
                                                               exploreAppend=f'{Params.Explore.xName}{Params.Explore.yName}',
-                                                              figExploreAppend=f'{Params.Explore.zName}')
+                                                              figExploreAppend=Params.Explore.zName)
         reload = loadmat(Params.DataFiles.exploreOgramFile)
     else:
         reload = loadmat(fNameOverride)
@@ -1632,7 +1641,6 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
     Exploration.NO_H2O = reload['NO_H2O'][0]
     Exploration.xName = reload['xName'][0]
     Exploration.yName = reload['yName'][0]
-    Exploration.zName = Params.Explore.zName
     Exploration.wOcean_ppt = reload['wOcean_ppt']
     Exploration.oceanComp = reload['oceanComp']
     Exploration.R_m = reload['R_m']

@@ -1027,10 +1027,25 @@ def PlotExploreOgram(ExplorationList, Params):
         x = ExplorationList[0].__getattribute__(ExplorationList[0].xName) * FigLbl.xMultExplore
         y = ExplorationList[0].__getattribute__(ExplorationList[0].yName) * FigLbl.yMultExplore
         z = ExplorationList[0].__getattribute__(ExplorationList[0].zName) * FigLbl.zMultExplore
+        # Only keep data points for which a valid model was determined
+        zShape = np.shape(z)
+        z = np.reshape(z, -1)
+        INVALID = np.logical_not(np.reshape(ExplorationList[0].VALID, -1))
+        z[INVALID] = np.nan
+        # Return data to original organization
+        z = np.reshape(z, zShape)
         for Exploration in ExplorationList[1:]:
-            x = np.append(x, Exploration.__getattribute__(Exploration.xName)) * FigLbl.xMultExplore
-            y = np.append(y, Exploration.__getattribute__(Exploration.yName)) * FigLbl.yMultExplore
-            z = np.append(z, Exploration.__getattribute__(Exploration.zName)) * FigLbl.zMultExplore
+            x = np.append(x, Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore)
+            y = np.append(y, Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore)
+            thisz = Exploration.__getattribute__(Exploration.zName) * FigLbl.zMultExplore
+            # Only keep data points for which a valid model was determined
+            zShape = np.shape(thisz)
+            thisz = np.reshape(thisz, -1)
+            INVALID = np.logical_not(np.reshape(Exploration.VALID, -1))
+            thisz[INVALID] = np.nan
+            # Return data to original organization
+            thisz = np.reshape(thisz, zShape)
+            z = np.append(z, thisz)
         mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], rasterized=FigMisc.PT_RASTER)
         cont = ax.contour(x, y, z, colors='black')
         lbls = plt.clabel(cont, fmt='%1.0f')

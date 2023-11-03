@@ -597,11 +597,15 @@ class DataFilesSubstruct:
 
 # Construct filenames for figures etc.
 class FigureFilesSubstruct:
-    def __init__(self, figPath, figBase, xtn, comp=None, inductBase=None, exploreAppend=None, inductAppend=None):
+    def __init__(self, figPath, figBase, xtn, comp=None, exploreBase=None, inductBase=None, exploreAppend=None, inductAppend=None):
         if inductBase is None:
             self.inductBase = figBase
         else:
             self.inductBase = inductBase
+        if exploreBase is None:
+            self.exploreBase = figBase
+        else:
+            self.exploreBase = exploreBase
         if comp is None:
             self.comp = ''
         else:
@@ -623,6 +627,7 @@ class FigureFilesSubstruct:
             os.makedirs(self.inductPath)
         self.fName = os.path.join(self.path, figBase)
         self.fNameInduct = os.path.join(self.inductPath, self.inductBase + self.comp + self.inductAppend)
+        self.fNameExplore = os.path.join(self.path, self.exploreBase)
 
         # Figure filename strings
         vpore = 'Porosity'
@@ -637,7 +642,6 @@ class FigureFilesSubstruct:
         vpvtPerpleX = 'InnerPTprops'
         vwedg = 'Wedge'
         vphase = 'HydroPhase'
-        explore = 'ExploreOgram'
         induct = 'InductOgram'
         sigma = 'InductOgramSigma'
         Bdip = 'Bdip'
@@ -665,8 +669,11 @@ class FigureFilesSubstruct:
         self.vpvtPerpleX = self.fName + vpvtPerpleX + xtn
         self.asym = self.fName + asym
         self.apsidal = self.fName + apsidal + xtn
-        self.explore =               f'{self.fName}_{self.exploreAppend}{explore}{xtn}'
-        self.exploreDsigma =               f'{self.fName}_Dsigma_{self.exploreAppend}{explore}{xtn}'
+        if isinstance(self.exploreAppend, list):
+            self.explore =           [f'{self.fNameExplore}_{eApp}{xtn}' for eApp in self.exploreAppend]
+        else:
+            self.explore =           f'{self.fNameExplore}_{self.exploreAppend}{xtn}'
+        self.exploreDsigma =         f'{self.fNameExplore}_Dsigma{xtn}'
         self.phaseSpace =            f'{self.fNameInduct}_{induct}_phaseSpace{xtn}'
         self.phaseSpaceCombo =       f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{xtn}'
         self.induct =        {zType: f'{self.fNameInduct}_{induct}_{zType}{xtn}' for zType in zComps}
