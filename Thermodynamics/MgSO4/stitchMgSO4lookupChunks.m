@@ -1,7 +1,7 @@
 % Combines output files from printMgSO4phaseChunks into a single lookup
 % table compatible with PlanetProfile.
 
-%function stitchMgSO4lookupChunks
+function stitchMgSO4lookupChunks
     datDir = fullfile('Thermodynamics','MgSO4');
     
     fNameBase = 'phaseLookupMgSO4';
@@ -25,4 +25,4 @@
     save(fName, 'P_MPa', 'T_K', 'w_ppt', 'phase');
     disp(['Phase lookup table printed to ' [fName '.mat'] '.'])
 
-%end
+end
