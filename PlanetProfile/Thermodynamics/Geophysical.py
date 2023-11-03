@@ -640,10 +640,10 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
                 thisIceEOS = Planet.Ocean.surfIceEOS['Ih']
             else:
                 # Get ice EOS if not currently loaded
-                icePhase = PhaseConv(phase)
+                icePhase = PhaseConv(phase, PORE=True)
                 if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
-                    PIce_MPa = np.linspace(Planet.Pb_MPa, Planet.P_MPa[Planet.phase == phase][-1] + 5, 10)
-                    TIce_K = np.linspace(Planet.Bulk.Tb_K, Planet.T_K[Planet.phase == phase][-1] + 5, 10)
+                    PIce_MPa = np.linspace(Planet.Pb_MPa, Planet.Ocean.PHydroMax_MPa, 10)
+                    TIce_K = np.linspace(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, 10)
                     Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
                                                                   porosType=Planet.Ocean.porosType[icePhase],
                                                                   phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
@@ -807,8 +807,8 @@ def SilRecursionPorous(Planet, Params,
                     # Get ice EOS if not currently loaded
                     icePhase = PhaseConv(phase)
                     if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
-                        PIce_MPa = np.linspace(Planet.Pb_MPa, Planet.P_MPa[Planet.phase == phase][-1] + 5, 10)
-                        TIce_K = np.linspace(Planet.Bulk.Tb_K, Planet.T_K[Planet.phase == phase][-1] + 5, 10)
+                        PIce_MPa = np.linspace(Planet.Pb_MPa, Planet.Ocean.PHydroMax_MPa, 10)
+                        TIce_K = np.linspace(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, 10)
                         Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
                                                                       porosType=Planet.Ocean.porosType[icePhase],
                                                                       phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
