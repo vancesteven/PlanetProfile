@@ -979,12 +979,19 @@ def PlotExploreOgram(ExplorationList, Params):
         ax.set_ylabel(FigLbl.yLabelExplore)
         ax.set_xscale(FigLbl.xScaleExplore)
         ax.set_yscale(FigLbl.yScaleExplore)
-    
+
         x = Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore
         y = Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore
         z = Exploration.__getattribute__(Exploration.zName) * FigLbl.zMultExplore
         ax.set_xlim([np.min(x), np.max(x)])
         ax.set_ylim([np.min(y), np.max(y)])
+        # Only keep data points for which a valid model was determined
+        zShape = np.shape(z)
+        z = np.reshape(z, -1)
+        INVALID = np.logical_not(np.reshape(Exploration.VALID, -1))
+        z[INVALID] = np.nan
+        # Return data to original organization
+        z = np.reshape(z, zShape)
         mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], rasterized=FigMisc.PT_RASTER)
         cont = ax.contour(x, y, z, colors='black')
         lbls = plt.clabel(cont, fmt='%1.0f')
