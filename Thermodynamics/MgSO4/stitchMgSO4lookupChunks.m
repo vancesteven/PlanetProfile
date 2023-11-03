@@ -12,15 +12,16 @@ function stitchMgSO4lookupChunks
     nPs = length(P_MPa);
     nTs = length(T_K);
     allPhase = zeros(nPs, nTs, nws);
-    w_ppt = zeros(1,nws);
+    wUnsort_ppt = zeros(1,nws);
     allPhase(:,:,1) = phase;
-    w_ppt(1) = thisw;
+    wUnsort_ppt(1) = thisw;
     for k=2:nws
         load(fullfile(datDir, files(k).name), 'phase', 'thisw');
         allPhase(:,:,k) = phase;
-        w_ppt(k) = thisw;
+        wUnsort_ppt(k) = thisw;
     end
-    phase = allPhase;
+    [w_ppt, iSortw] = sort(wUnsort_ppt);
+    phase = allPhase(:,:,iSortw);
     fName = fullfile(datDir, fNameBase);
     save(fName, 'P_MPa', 'T_K', 'w_ppt', 'phase');
     disp(['Phase lookup table printed to ' [fName '.mat'] '.'])
