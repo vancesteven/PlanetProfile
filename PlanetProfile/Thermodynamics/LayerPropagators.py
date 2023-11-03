@@ -882,8 +882,8 @@ def InnerLayers(Planet, Params):
             Planet.Mclath_kg, Planet.Mcore_kg, Planet.Mfluid_kg, Planet.Mice_kg, Planet.MoceanSalt_kg, \
             Planet.Mocean_kg, Planet.MporeFluid_kg, Planet.MporeSalt_kg, Planet.Mrock_kg, Planet.Msalt_kg, \
             Planet.Mtot_kg, Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Core.Rmean_m, Planet.Core.Rrange_m, \
-            Planet.Sil.rhoMean_kgm3, Planet.Core.rhoMean_kgm3, Planet.Sil.GSmean_GPa, Planet.Core.GSmean_GPa \
-            = (np.nan for _ in range(29))
+            Planet.Sil.rhoMean_kgm3, Planet.Core.rhoMean_kgm3, Planet.Sil.GSmean_GPa, Planet.Core.GSmean_GPa, \
+            Planet.Pseafloor_MPa = (np.nan for _ in range(30))
         Planet.Sil.Rtrade_m, Planet.Core.Rtrade_m, Planet.Sil.rhoTrade_kgm3 \
             = (np.array([np.nan]) for _ in range(3))
         Planet.Steps.nHydro = 1
