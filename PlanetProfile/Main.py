@@ -105,6 +105,8 @@ def run(bodyname=None, opt=None, fNames=None):
                     PlotExploreOgram(ExplorationList, Params)
                 Params.FigureFiles.explore = figNames
             else:
+                for Exploration in ExplorationList:
+                    Exploration.zName = Params.Explore.zName
                 PlotExploreOgram(ExplorationList, Params)
             PlotExploreOgramDsigma(ExplorationList, Params)
     else:
@@ -1387,8 +1389,6 @@ def ExploreOgram(bodyname, Params):
         Exploration.yName = Params.Explore.yName
         Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Exploration.yName}',
                                                 figExploreAppend=Params.Explore.zName)
-        if not isinstance(Params.Explore.zName, list):
-            Exploration.zName = Params.Explore.zName
         if bodyname == 'Test':
             Params.Explore.nx = 5
             Params.Explore.ny = 5

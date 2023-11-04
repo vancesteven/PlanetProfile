@@ -371,7 +371,10 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             saveLabel += '_Clathrates'
             label += ' w/clath'
         if Planet.Do.POROUS_ICE:
-            saveLabel += '_PorousIce'
+            if Planet.Do.CLATHRATE and Planet.Bulk.clathType != 'bottom':
+                saveLabel += f'_PorousIce_phi{Planet.Ocean.phiMax_frac["Clath"]:.2f}_Pc{Planet.Ocean.Pclosure_MPa["Clath"]:5.2e}'
+            else:
+                saveLabel += f'_PorousIce_phi{Planet.Ocean.phiMax_frac["Ih"]:.2f}_Pc{Planet.Ocean.Pclosure_MPa["Ih"]:5.2e}'
             label += ' w/$\phi_\mathrm{ice}$'
         if Planet.Do.PORE_EOS_DIFFERENT:
             if Planet.Sil.poreComp == 'PureH2O':
@@ -381,7 +384,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
                 saveLabel += f'_{Planet.Sil.poreComp}_{Planet.Sil.wPore_ppt:.1f}pptPores'
                 label += f', {Planet.Sil.wPore_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}} \ce{{{Planet.Sil.poreComp}}} pores'
         elif Planet.Do.POROUS_ROCK:
-            saveLabel += '_PorousRock'
+            saveLabel += f'_PorousRock_phi{Planet.Sil.phiRockMax_frac:.2f}_Pc{Planet.Sil.Pclosure_MPa:5.2e}'
             label += ' w/$\phi_\mathrm{sil}$'
     if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSname}'
 
