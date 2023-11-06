@@ -207,6 +207,7 @@ class SilSubstruct:
         self.kThermCMB_WmK = None  # Constant thermal conductivity to use for determining core-mantle boundary thermal boundary layer thickness when convection is happening
         """ Porosity parameters """
         self.phiRockMax_frac = None  # Porosity (void fraction) of the rocks in vacuum. This is the expected value for core-less bodies, and porosity is modeled for a range around here to find a matching MoI. For bodies with a core, this is a fixed value for rock porosity at P=0.
+        self.phiCalc_frac = None  # Porosity (void fraction) of rocks in vacuum for the profile corresponding to the best match to the bosy mass and MoI.
         self.phiRangeMult = 8  # Factor by which to divide the distance from user-defined phiRockMax_frac to 0 and 1 to obtain the search range for phi
         self.Pclosure_MPa = 350  # Pressure threshold in MPa beyond which pores in silicates shut completely and porosity drops to zero, for use in Han et al. (2014) model. See Saito et al. (2016) for evidence of values up to ~750 MPa: https://doi.org/10.1016/j.tecto.2016.03.044
         self.porosType = 'Han2014'  # Porosity model to apply for silicates. Options are 'Han2014', 'Vitovtova2014', 'Chen2020'.
@@ -1211,6 +1212,7 @@ class FigLblStruct:
         self.GSKSlabel = r'Bulk \& shear moduli $K_S$, $G_S$ ($\si{GPa}$)'
         self.KSlabel = r'Bulk modulus $K_S$ ($\si{GPa}$)'
         self.GSlabel = r'Shear modulus $G_S$ ($\si{GPa}$)'
+        self.CMR2label = r'Calculated axial moment of inertia $C/MR^2$'
         self.rLabel = r'Radius $r$ ($\si{km}$)'
         self.zLabel = r'Depth $z$ ($\si{km}$)'
         self.sil = r'Rock'
@@ -1381,13 +1383,12 @@ class FigLblStruct:
         self.rhoSilLabel = None
         self.rhoHydroLabel = None
         self.phiLabel = None
-        self.silPhiLabelSea = None
-        self.silPhiLabel = None
+        self.silPhiSeaLabel = None
+        self.silPhiInLabel = None
+        self.silPhiOutLabel = None
         self.icePhiLabel = None
         self.xFeSLabel = None
         self.qSurfLabel = None
-        self.silPhiLabel = None
-        self.icePhiLabel = None
         self.sigmaIonosLabel = None
         self.HtidalLabel = None
         self.QradLabel = None
@@ -1440,7 +1441,8 @@ class FigLblStruct:
             'icePclosure_MPa': 'ice pore closure pressure',
             'Htidal_Wm3': 'silicate tidal heating',
             'Qrad_Wkg': 'silicate radiogenic heating',
-            'qSurf_Wm2': 'surface heat flux'
+            'qSurf_Wm2': 'surface heat flux',
+            'CMR2calc': 'best match axial moment of inertia'
         }
 
 
@@ -1549,9 +1551,9 @@ class FigLblStruct:
         self.Tlabel = r'Temperature $T$ ($\si{' + self.Tunits + '}$)'
         self.rhoLabel = r'Density $\rho$ ($\si{' + self.rhoUnits + '}$)'
         self.PTrhoLabel = r'$P$ ($\si{MPa}$), $T$ ($\si{K}$), and $\rho$ ($\si{' + self.rhoUnits + '}$)'
-        self.rhoSilLabel = r'Silicate density $\rho_\mathrm{sil}$ ($\si{' + self.rhoUnits + '}$)'
-        self.rhoSilMeanLabel = r'Silicate density $\overline{\rho}_\mathrm{sil}$ ($\si{' + self.rhoUnits + '}$)'
-        self.silPhiLabelSea = r'Seafloor porosity $\phi_\mathrm{sil}$' + self.phiUnitsParen
+        self.rhoSilLabel = r'Rock density $\rho_\mathrm{rock}$ ($\si{' + self.rhoUnits + '}$)'
+        self.rhoSilMeanLabel = r'Rock density $\overline{\rho}_\mathrm{rock}$ ($\si{' + self.rhoUnits + '}$)'
+        self.silPhiSeaLabel = r'Seafloor porosity $\phi_\mathrm{rock}$' + self.phiUnitsParen
         self.phiLabel = r'Porosity $\phi$' + self.phiUnitsParen
         self.vSoundLabel = r'Sound speeds $V_P$, $V_S$ ($\si{' + self.vSoundUnits + '}$)'
         self.vPoceanLabel = r'Ocean $V_P$ ($\si{' + self.vSoundUnits + '}$)'
@@ -1560,12 +1562,13 @@ class FigLblStruct:
         self.QseisLabel = f'Seismic quality factor ${self.QseisVar}$'
         self.xFeSLabel = r'Iron sulfide mixing ratio $x_{\ce{FeS}}$' + self.xUnitsParen
         self.qSurfLabel = r'Surface heat flux $q_\mathrm{surf}$ ($\si{' + self.fluxUnits + '}$)'
-        self.silPhiLabel = r'Silicate maximum porosity $\phi_\mathrm{sil,max}$' + self.phiUnitsParen
-        self.icePhiLabel = r'Ice maximum porosity $\phi_\mathrm{sil,max}$' + self.phiUnitsParen
+        self.silPhiInLabel = r'Rock maximum porosity search value $\phi_\mathrm{rock,max,in}$' + self.phiUnitsParen
+        self.silPhiOutLabel = r'Rock maximum porosity match $\phi_\mathrm{rock,max}$' + self.phiUnitsParen
+        self.icePhiLabel = r'Ice maximum porosity $\phi_\mathrm{rock,max}$' + self.phiUnitsParen
         self.sigmaIonosLabel = r'Ionosphere conductivity $\sigma$ ($\si{' + self.sigUnits + '}$)'
         self.sigmaMeanLabel = r'Ocean conductivity $\overline{\sigma}$ ($\si{' + self.sigUnits + '}$)'
-        self.HtidalLabel = r'Silicate tidal heating rate ($\si{' + self.volHeatUnits + '}$)'
-        self.QradLabel = r'Silicate radiogenic heating rate ($\si{' + self.radHeatUnits + '}$)'
+        self.HtidalLabel = r'Rock tidal heating rate ($\si{' + self.volHeatUnits + '}$)'
+        self.QradLabel = r'Rock radiogenic heating rate ($\si{' + self.radHeatUnits + '}$)'
         self.CpLabel = r'Heat capacity $C_P$ ($\si{' + self.CpUnits + '}$)'
         self.kThermLabel = r'Thermal conductivity $k_T$ ($\si{' + self.kThermUnits + '}$)'
         self.alphaLabel = r'Expansivity $\alpha$ ($\si{' + self.alphaUnits + '}$)'
@@ -1609,13 +1612,16 @@ class FigLblStruct:
             'sigmaIonos_Sm': self.sigmaIonosLabel,
             'sigmaMean_Sm': self.sigmaMeanLabel,
             'rhoSilMean_kgm3': self.rhoSilMeanLabel,
-            'silPhi_frac': self.silPhiLabel,
+            'silPhi_frac': self.silPhiInLabel,
+            'silPhiCalc_frac': self.silPhiOutLabel,
+            'phiSeafloor_frac': self.silPhiSeaLabel,
             'silPclosure_MPa': self.silPclosureLabel,
             'icePhi_frac': self.icePhiLabel,
             'icePclosure_MPa': self.icePclosureLabel,
             'Htidal_Wm3': self.HtidalLabel,
             'Qrad_Wkg': self.QradLabel,
-            'qSurf_Wm2': self.qSurfLabel
+            'qSurf_Wm2': self.qSurfLabel,
+            'CMR2calc': self.CMR2label
         }
         self.axisMultsExplore = {
             'xFeS': self.xMult,

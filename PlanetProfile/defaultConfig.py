@@ -11,7 +11,7 @@ def configAssign():
     Params = ParamsStruct()
     ExploreParams = ExploreParamsStruct()
 
-    Params.VERBOSE =       True  # Provides extra runtime messages. Overrides QUIET below
+    Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
     Params.QUIET =         False  # Hides all log messages except warnings and errors
     Params.QUIET_MOONMAG = True  # If True, sets MoonMag logging level to WARNING, otherwise uses the same as PlanetProfile.
     Params.QUIET_LBF = True  # If True, sets lbftd and mlbspline logging levels to ERROR, otherwise uses the same as PlanetProfile.
@@ -80,7 +80,12 @@ def configAssign():
     # "silPhi_frac", "silPclosure_MPa", "icePhi_frac", "icePclosure_MPa", "Htidal_Wm3", "Qrad_Wkg", "qSurf_Wm2" (Do.NO_H2O only)
     ExploreParams.xName = 'wOcean_ppt'  # x variable over which to iterate for exploreograms. Options are as above.
     ExploreParams.yName = 'Tb_K'  # y variable over which to iterate for exploreograms. Options are as above.
-    ExploreParams.zName = ['D_km', 'zb_km', 'dzWetHPs_km', 'rhoSilMean_kgm3', 'sigmaMean_Sm']  # heatmap/colorbar/z variable to plot for exploreograms. Options are "D_km", "dzIceI_km", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km", "dzIceV_km", "dzIceVund_km", "dzIceVI_km", "dzWetHPs_km", "eLid_km", "Rcore_km", "rhoSilMean_kgm3", "sigmaMean_Sm", "zb_km", "zSeafloor_km", "qSurf_Wm2" (only if Do.NO_H2O is False). New options must be added to ExplorationStruct attributes in Main (assign+save+reload) and in defineStructs, and FigLbls.exploreDescrip, .<var>Label, and .axisLabels in defineStructs. Accepts a list.
+    # Options for z variables: "CMR2mean", "D_km", "dzIceI_km", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km",
+    # "dzIceV_km", "dzIceVund_km", "dzIceVI_km", "dzWetHPs_km", "eLid_km", "phiSeafloor_frac", "Rcore_km", "rhoSilMean_kgm3",
+    # "sigmaMean_Sm", "silPhiCalc_frac", "zb_km", "zSeafloor_km", "qSurf_Wm2" (only if Do.NO_H2O is False).
+    # New options must be added to ExplorationStruct attributes in Main (assign+save+reload) and in defineStructs, and
+    # FigLbls.exploreDescrip, .<var>Label, and .axisLabels in defineStructs.
+    ExploreParams.zName = ['CMR2calc', 'silPhiCalc_frac', 'phiSeafloor_frac', 'D_km', 'zb_km', 'dzWetHPs_km', 'rhoSilMean_kgm3', 'Pseafloor_MPa', 'zSeafloor_km', 'sigmaMean_Sm']  # heatmap/colorbar/z variable to plot for exploreograms. Options are as above; accepts a list.
     ExploreParams.xRange = [10.0, 100.0]  # [min, max] values for the x variable above
     ExploreParams.yRange = [249.0, 272.5]  # Same as above for y variable
     ExploreParams.nx = 30  # Number of points to use in linspace with above x range

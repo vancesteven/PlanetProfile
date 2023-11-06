@@ -1358,6 +1358,7 @@ def CalcMoIWithEOS(Planet, Params):
             = (np.zeros((1, Planet.Steps.nSil+1)) for _ in range(14))
         phaseSilPore = np.zeros((1, Planet.Steps.nSil+1), dtype=np.int_)
         coreProps = (np.zeros(Planet.Steps.nCore) for _ in range(9))
+        Planet.Sil.phiCalc_frac = np.nan
         Planet.Sil.rhoMean_kgm3 = np.nan
         Planet.Core.rhoMean_kgm3 = np.nan
         Planet.Mtot_kg = Planet.Bulk.M_kg
@@ -1435,8 +1436,13 @@ def CalcMoIWithEOS(Planet, Params):
                          MLayerCore_kg[iCMR2core,:])
         else:
             if Planet.Do.POROUS_ROCK and not Planet.Do.FIXED_POROSITY:
-                RcoreOrHtidalLine = f'phi_vac = {phiTop_frac[iCMR2sil]:.3f}, '
+                Planet.Sil.phiCalc_frac = phiTop_frac[iCMR2sil]
+                RcoreOrHtidalLine = f'phi_vac = {Planet.Sil.phiCalc_frac:.3f}, '
             else:
+                if Planet.Do.FIXED_POROSITY:
+                    Planet.Sil.phiCalc_frac = Planet.Sil.phiRockMax_frac
+                else:
+                    Planet.Sil.phiCalc_frac = np.nan
                 RcoreOrHtidalLine = f'H_tidal = {Planet.Sil.Htidal_Wm3:.2e} W/m^3, '
             MtotCore_kg = 0
             Planet.Core.rhoMean_kgm3 = 0
