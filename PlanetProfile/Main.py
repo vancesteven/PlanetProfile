@@ -1415,6 +1415,10 @@ def ExploreOgram(bodyname, Params):
         # Organize data into a format that can be plotted/saved for plotting
         Exploration.bodyname = bodyname
         Exploration.NO_H2O = PlanetGrid[0,0].Do.NO_H2O
+        Exploration.CMR2str = f'$C/MR^2 = {PlanetGrid[0,0].CMR2str}$'
+        Exploration.Cmeasured = PlanetGrid[0,0].Bulk.Cmeasured
+        Exploration.Cupper = PlanetGrid[0,0].Bulk.CuncertaintyUpper
+        Exploration.Clower = PlanetGrid[0,0].Bulk.CuncertaintyLower
         Exploration.wOcean_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
         Exploration.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
         Exploration.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
@@ -1576,6 +1580,10 @@ def WriteExploreOgram(Exploration, Params):
     saveDict = {
         'bodyname': Exploration.bodyname,
         'NO_H2O': Exploration.NO_H2O,
+        'CMR2str': Exploration.CMR2str,
+        'Cmeasured': Exploration.Cmeasured,
+        'Cupper': Exploration.Cupper,
+        'Clower': Exploration.Clower,
         'xName': Exploration.xName,
         'yName': Exploration.yName,
         'wOcean_ppt': Exploration.wOcean_ppt,
@@ -1610,7 +1618,10 @@ def WriteExploreOgram(Exploration, Params):
         'dzWetHPs_km': Exploration.dzWetHPs_km,
         'eLid_km': Exploration.eLid_km,
         'Rcore_km': Exploration.Rcore_km,
+        'silPhiCalc_frac': Exploration.silPhiCalc_frac,
         'Pseafloor_MPa': Exploration.Pseafloor_MPa,
+        'phiSeafloor_frac': Exploration.phiSeafloor_frac,
+        'CMR2calc': Exploration.CMR2calc,
         'VALID': Exploration.VALID,
         'invalidReason': Exploration.invalidReason
     }
@@ -1642,6 +1653,10 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
     Exploration = ExplorationResults
     Exploration.bodyname = reload['bodyname'][0]
     Exploration.NO_H2O = reload['NO_H2O'][0]
+    Exploration.CMR2str = reload['CMR2str'][0]
+    Exploration.Cmeasured = reload['Cmeasured'][0]
+    Exploration.Cupper = reload['Cupper'][0]
+    Exploration.Clower = reload['Clower'][0]
     Exploration.xName = reload['xName'][0]
     Exploration.yName = reload['yName'][0]
     Exploration.wOcean_ppt = reload['wOcean_ppt']
@@ -1677,6 +1692,9 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
     Exploration.eLid_km = reload['eLid_km']
     Exploration.Rcore_km = reload['Rcore_km']
     Exploration.Pseafloor_MPa = reload['Pseafloor_MPa']
+    Exploration.phiSeafloor_frac = reload['phiSeafloor_frac']
+    Exploration.silPhiCalc_frac = reload['silPhiCalc_frac']
+    Exploration.CMR2calc = reload['CMR2calc']
     Exploration.VALID = reload['VALID']
     Exploration.invalidReason = reload['invalidReason']
 

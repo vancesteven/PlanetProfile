@@ -973,6 +973,9 @@ def PlotExploreOgram(ExplorationList, Params):
             ax.grid()
             ax.set_axisbelow(True)
 
+        if Exploration.zName == 'CMR2calc':
+            FigLbl.SetExploreTitle(Exploration.bodyname, Exploration.zName, Exploration.CMR2str)
+
         if Params.TITLES:
             fig.suptitle(FigLbl.explorationTitle)
         ax.set_xlabel(FigLbl.xLabelExplore)
@@ -994,8 +997,8 @@ def PlotExploreOgram(ExplorationList, Params):
         z = np.reshape(z, zShape)
         mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], rasterized=FigMisc.PT_RASTER)
         cont = ax.contour(x, y, z, colors='black')
-        lbls = plt.clabel(cont, fmt='%1.0f')
-        cbar = fig.colorbar(mesh, ax=ax)
+        lbls = plt.clabel(cont, fmt=FigLbl.cfmt)
+        cbar = fig.colorbar(mesh, ax=ax, format=FigLbl.cbarFmt)
         # Add the min and max values to the colorbar for reading convenience
         # We compare z values to z values to exclude nans from the max finding,
         # exploiting the fact that nan == nan is False.
@@ -1048,8 +1051,8 @@ def PlotExploreOgram(ExplorationList, Params):
             z = np.append(z, thisz)
         mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], rasterized=FigMisc.PT_RASTER)
         cont = ax.contour(x, y, z, colors='black')
-        lbls = plt.clabel(cont, fmt='%1.0f')
-        cbar = fig.colorbar(mesh, ax=ax)
+        lbls = plt.clabel(cont, fmt=FigLbl.cfmt)
+        cbar = fig.colorbar(mesh, ax=ax, format=FigLbl.cbarFmt)
         # Append the max value to the colorbar for reading convenience
         # We compare z values to z values to exclude nans from the max finding,
         # exploiting the fact that nan == nan is False.
@@ -1104,7 +1107,7 @@ def PlotExploreOgramDsigma(ExplorationList, Params):
                          cmap=Color.cmap[Exploration.oceanComp[0,0]],
                          marker=Style.MS_Induction, s=Style.MW_Induction**2)
 
-        cbar = fig.colorbar(pts, ax=ax)
+        cbar = fig.colorbar(pts, ax=ax, format=FigLbl.cbarFmt)
         # Append the max value to the colorbar for reading convenience
         # We compare z values to z values to exclude nans from the max finding,
         # exploiting the fact that nan == nan is False.

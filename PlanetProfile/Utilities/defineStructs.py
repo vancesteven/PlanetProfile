@@ -245,7 +245,7 @@ class SilSubstruct:
         self.mantleEOSName = None  # Same as above but containing keywords like clathrates in filenames
         self.mantleEOSDry = None  # Name of mantle EOS to use assuming non-hydrated silicates
         self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
-        self.rhoSilWithCore_kgm3 = 3300  # Assumed density of silicates when a core is present in kg/m^3
+        self.rhoSilWithCore_kgm3 = 3300  # Assumed density of rocks when a core is present in kg/m^3
         # Derived quantities
         self.Rmean_m = None  # Mantle radius for mean compatible moment of inertia (MoI)
         self.Rrange_m = None  # Mantle radius range for compatible MoI
@@ -709,12 +709,12 @@ class ParamsStruct:
 """ Inductogram settings """
 class InductOgramParamsStruct:
     # Do not set any values below (except V2021 values). All other values are assigned in PlanetProfile.GetConfig.
-    def __init__(self, inductOtype, cLevels, dftC, cFmt):
+    def __init__(self, inductOtype, cLevels, dftC, cfmt):
         self.bodyname = None
         self.inductOtype = inductOtype
         self.cLevels = cLevels
         self.dftC = dftC
-        self.cFmt = cFmt
+        self.cfmt = cfmt
         self.colorType = 'zb'  # What parameter to use for color of points in phase space plots. Options are "Tmean", "zb".
         self.SPECIFIC_CLEVELS = False  # Whether to use the specific cLevels listed below or default numbers
         self.excSelectionCalc = {'synodic': True, 'orbital': True, 'true anomaly': True,  'synodic harmonic': True}  # Which magnetic excitations to include in calculations
@@ -894,12 +894,16 @@ class ExplorationStruct:
     def __init__(self):
         self.bodyname = None  # Name of body modeled.
         self.NO_H2O = False  # Whether the exploreogram is for a waterless body.
+        self.CMR2str = None  # LaTeX-formatted string describing input moment of inertia and valid model range.
+        self.Cmeasured = None  # Input moment of inertia to match against for all models.
+        self.Cupper = None  # Upper bound for "valid" moment of inertia matches for all models.
+        self.Clower = None  # Lower bound for "valid" moment of inertia matches for all models.
         self.x = None  # 2D data of x axis variable for exploreogram plots
         self.y = None  # 2D data of y axis variable for exploreogram plots
         self.z = None  # 2D data to plot as z axis of exploreogram plots
-        self.xName = None  # Name of variable along x axis. Options are ___
-        self.yName = None  # Name of variable along y axis. Options are ___
-        self.zName = None  # Name of z variable. Options are ___
+        self.xName = None  # Name of variable along x axis. Options are listed in defaultConfig.py.
+        self.yName = None  # Name of variable along y axis. Options are listed in defaultConfig.py.
+        self.zName = None  # Name of z variable. Options are listed in defaultConfig.py.
         self.xScale = 'linear'
         self.yScale = 'linear'
         self.wOcean_ppt = None  # Values of salinity in g/kg set.
@@ -935,6 +939,9 @@ class ExplorationStruct:
         self.eLid_km = None  # Thickness of surface stagnant-lid conductive ice layer result (may include Ih or clathrates or both) in km.
         self.Rcore_km = None  # Core radius result in km.
         self.Pseafloor_MPa = None  # Pressure at the bottom of the liquid ocean layer in MPa.
+        self.silPhiCalc_frac = None  # Best-match result value for P=0 rock porosity in volume fraction.
+        self.phiSeafloor_frac = None  # Rock porosity at the seafloor result in volume fraction.
+        self.CMR2calc = None  # Best-match result value for CMR2mean, i.e. CMR2 value closest to Cmeasured within the specified uncertainty.
         self.VALID = None  # Flags for whether each profile found a valid solution
         self.invalidReason = None  # Explanation for why any invalid solution failed
 
@@ -1343,6 +1350,7 @@ class FigLblStruct:
         self.yLabelExplore = None
         self.yScaleExplore = None
         self.cbarLabelExplore = None
+        self.cfmt = None
         self.xMultExplore = 1
         self.yMultExplore = 1
         self.zMultExplore = 1
@@ -1412,9 +1420,30 @@ class FigLblStruct:
             'Qrad_Wkg',
             'qSurf_Wm2'
         ]
+        self.fineContoursExplore = [
+            'CMR2calc',
+            'phiSeafloor_frac',
+            'sigmaMean_Sm',
+            'silPhiCalc_frac',
+            'zb_km'
+        ]
+        self.cfmtExplore = {
+            'CMR2calc': '%.3f',
+            'phiSeafloor_frac': '%.2f',
+            'sigmaMean_Sm': None,
+            'silPhiCalc_frac': '%.2f',
+            'zb_km': None
+        }
+        self.cbarfmtExplore = {
+            'CMR2calc': '%.4f',
+            'phiSeafloor_frac': '%.2f',
+            'sigmaMean_Sm': None,
+            'silPhiCalc_frac': '%.2f',
+            'zb_km': '%.1f'
+        }
         self.exploreDescrip = {
             'xFeS': 'core FeS mixing ratio',
-            'rhoSilInput_kgm3': 'silicate density',
+            'rhoSilInput_kgm3': 'rock density',
             'Rcore_km': 'core size',
             'D_km': 'ocean layer thickness',
             'zb_km': 'ice shell thickness',
@@ -1434,15 +1463,17 @@ class FigLblStruct:
             'ionosTop_km': 'ionosphere top altitude',
             'sigmaIonos_Sm': 'ionosphere conductivity',
             'sigmaMean_Sm': 'ocean mean conductivity',
-            'rhoSilMean_kgm3': 'mean silicate density',
-            'silPhi_frac': 'silicate maximum porosity',
-            'silPclosure_MPa': 'silicate pore closure pressure',
+            'rhoSilMean_kgm3': 'mean rock density',
+            'phiSeafloor_frac': 'seafloor rock porosity',
+            'silPhi_frac': 'rock maximum porosity',
+            'silPhiCalc_frac': 'rock maximum porosity',
+            'silPclosure_MPa': 'rock pore closure pressure',
             'icePhi_frac': 'ice maximum porosity',
             'icePclosure_MPa': 'ice pore closure pressure',
-            'Htidal_Wm3': 'silicate tidal heating',
-            'Qrad_Wkg': 'silicate radiogenic heating',
+            'Htidal_Wm3': 'rock tidal heating',
+            'Qrad_Wkg': 'rock radiogenic heating',
             'qSurf_Wm2': 'surface heat flux',
-            'CMR2calc': 'best match axial moment of inertia'
+            'CMR2calc': 'axial moment of inertia'
         }
 
 
@@ -1652,7 +1683,7 @@ class FigLblStruct:
         self.yLabelInduct = self.yLabelsInduct[IndParams.inductOtype]
         self.yScaleInduct = self.yScalesInduct[IndParams.inductOtype]
 
-    def SetExploration(self, bodyname, xName, yName, zName):
+    def SetExploration(self, bodyname, xName, yName, zName, titleData=None):
         # Set titles, labels, and axis settings pertaining to exploreogram plots
         self.xLabelExplore = '' if xName not in self.axisLabelsExplore.keys() else self.axisLabelsExplore[xName]
         self.xScaleExplore = 'log' if xName in self.axisLogScalesExplore else 'linear'
@@ -1662,10 +1693,19 @@ class FigLblStruct:
         self.yMultExplore = 1 if yName not in self.axisMultsExplore.keys() else self.axisMultsExplore[yName]
         self.cbarLabelExplore = '' if zName not in self.axisLabelsExplore.keys() else self.axisLabelsExplore[zName]
         self.zMultExplore = 1 if zName not in self.axisMultsExplore.keys() else self.axisMultsExplore[zName]
+        self.cfmt = '%1.0f' if zName not in self.fineContoursExplore else self.cfmtExplore[zName]
+        self.cbarFmt = None if zName not in self.fineContoursExplore else self.cbarfmtExplore[zName]
 
-        self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration}}'
+        self.SetExploreTitle(bodyname, zName, titleData)
         self.explorationDsigmaTitle = f'\\textbf{{{bodyname} ocean $D/\\sigma$ vs.\\ {self.exploreDescrip[zName]}}}'
         self.exploreCompareTitle = self.explorationTitle
+
+    def SetExploreTitle(self, bodyname, zName, titleData):
+        # Set title for exploreogram plots
+        if titleData is None:
+            self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration}}'
+        else:
+            self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration, {titleData}}}'
 
     def rStr(self, rinEval_Rp, bodyname):
         # Get r strings to add to titles and log messages for magnetic field surface plots
