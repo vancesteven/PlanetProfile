@@ -424,7 +424,7 @@ def WriteProfile(Planet, Params):
         f'CMR2more = {Planet.CMR2more:.5f}',
         f'QfromMantle_W = {Planet.Ocean.QfromMantle_W:.6e}',
         f'rhoOcean_kgm3 = {Planet.Ocean.rhoMean_kgm3:.3f}',
-        f'phiRockMax = {Planet.Sil.phiRockMax_frac:.3f}',
+        f'phiRockCalc_frac = {Planet.Sil.phiCalc_frac:.3f}',
         f'Qrad_Wkg = {Planet.Sil.Qrad_Wkg:.3f}',
         f'HtidalSil_Wm3 = {Planet.Sil.HtidalMean_Wm3:.3f}',
         f'RsilMean_m = {Planet.Sil.Rmean_m:.3f}',
@@ -589,7 +589,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.qSurf_Wm2, Planet.qCon_Wm2, \
         Planet.Bulk.Tb_K, Planet.zb_km, Planet.zClath_m, Planet.D_km, Planet.Pb_MPa, Planet.PbI_MPa, \
         Planet.Ocean.deltaP, Planet.Mtot_kg, Planet.CMR2mean, Planet.CMR2less, Planet.CMR2more, Planet.Ocean.QfromMantle_W, \
-        Planet.Ocean.rhoMean_kgm3, Planet.Sil.phiRockMax_frac, Planet.Sil.Qrad_Wkg, Planet.Sil.HtidalMean_Wm3, \
+        Planet.Ocean.rhoMean_kgm3, Planet.Sil.phiCalc_frac, Planet.Sil.Qrad_Wkg, Planet.Sil.HtidalMean_Wm3, \
         Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Sil.rhoMean_kgm3, Planet.Core.Rmean_m, Planet.Core.Rrange_m, \
         Planet.Core.rhoMean_kgm3, Planet.MH2O_kg, Planet.Mrock_kg, Planet.Mcore_kg, Planet.Mice_kg, \
         Planet.Msalt_kg, Planet.MporeSalt_kg, Planet.Mocean_kg, Planet.Mfluid_kg, Planet.MporeFluid_kg, \
