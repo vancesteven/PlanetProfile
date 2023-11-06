@@ -12,20 +12,20 @@ def inductAssign():
 
     # Construct information for accessing by functions
     cLevels = GetClevels(inductOtype, dftC, testBody)
-    cFmt = GetContourFmt(testBody)
-    SigParams, ExcSpecParams, InductParams = GetInductParams(inductOtype, cLevels, dftC, cFmt)
+    cfmt = GetContourFmt(testBody)
+    SigParams, ExcSpecParams, InductParams = GetInductParams(inductOtype, cLevels, dftC, cfmt)
 
     return SigParams, ExcSpecParams, InductParams, testBody
 
 
-def GetInductParams(inductOtype, cLevels, dftC, cFmt):
+def GetInductParams(inductOtype, cLevels, dftC, cfmt):
     """ Lots of these settings depend on each other, so for convenience we
         include settings in this function so they can live at the top of
         this file.
     """
     SigParams = ConductLayerParamsStruct()
     ExcSpecParams = ExcitationSpectrumParamsStruct()
-    InductParams = InductOgramParamsStruct(inductOtype, cLevels, dftC, cFmt)
+    InductParams = InductOgramParamsStruct(inductOtype, cLevels, dftC, cfmt)
 
     # Conducting layer parameter settings
     SigParams.REDUCED_INDUCT = True  # Whether to limit number of ocean layers for faster computation of layered induction
@@ -102,7 +102,7 @@ def GetContourFmt(testBody):
     deftFmt = '%1.1f'  # Default contour label format string
     deftPhi = '%1.0f'  # Default for phases in degrees (whole numbers)
     deftAmp = '%1.1f'  # Default for amplitudes (which are typically less than 1)
-    cFmt = {
+    cfmt = {
         'Europa': {
             'synodic':         {'Amp': deftAmp, 'Bx': '%1.0f', 'By': '%1.0f', 'Bz': deftFmt, 'phase': deftPhi},
             'orbital':         {'Amp': deftAmp, 'Bx': deftFmt, 'By': deftFmt, 'Bz': deftFmt, 'phase': deftPhi},
@@ -111,5 +111,5 @@ def GetContourFmt(testBody):
         }
     }
 
-    cFmt['Test'] = cFmt[testBody]
-    return cFmt
+    cfmt['Test'] = cfmt[testBody]
+    return cfmt

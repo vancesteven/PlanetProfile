@@ -268,7 +268,7 @@ def PlotInductOgram(Induction, Params):
         Params.Induct.Dmax[Induction.bodyname] = np.log10(Dmax)
         
     # Let matplotlib decide contour levels and format if we haven't explicitly set them
-    if Induction.bodyname not in Params.Induct.cLevels.keys() or Induction.bodyname not in Params.Induct.cFmt.keys():
+    if Induction.bodyname not in Params.Induct.cLevels.keys() or Induction.bodyname not in Params.Induct.cfmt.keys():
         Params.Induct.SPECIFIC_CLEVELS = False
         
     FigLbl.SetInduction(Induction.bodyname, Params.Induct, Texc_hr)

@@ -174,10 +174,10 @@ for bodyname in _DefaultList:
         InductParams.cLevels[bodyname] = {}
         for Tname in Tnames:
             InductParams.cLevels[bodyname][Tname] = {zName: None for zName in zNames}
-    if bodyname not in InductParams.cFmt.keys():
-        InductParams.cFmt[bodyname] = {}
+    if bodyname not in InductParams.cfmt.keys():
+        InductParams.cfmt[bodyname] = {}
         for Tname in Tnames:
-            InductParams.cFmt[bodyname][Tname] = {zName: None for zName in zNames}
+            InductParams.cfmt[bodyname][Tname] = {zName: None for zName in zNames}
         
 
 # Load induction and excitation spectrum settings into Params so they
