@@ -2,7 +2,7 @@
 % formulation
 
 function printMgSO4phaseChunks
-    outDir = fullfile('Thermodynamics','MgSO4');
+    outDir = fullfile('.');
     Plim = [0, 3000];
     Tlim = [246.5, 500];
     wlim = [0, 150];
