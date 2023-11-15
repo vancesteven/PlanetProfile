@@ -1,0 +1,7 @@
+PlanetProfile.BuildTest module
+==============================
+
+.. automodule:: PlanetProfile.BuildTest
+   :members:
+   :undoc-members:
+   :show-inheritance:

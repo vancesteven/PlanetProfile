@@ -1,0 +1,7 @@
+PlanetProfileCLI module
+=======================
+
+.. automodule:: PlanetProfileCLI
+   :members:
+   :undoc-members:
+   :show-inheritance:

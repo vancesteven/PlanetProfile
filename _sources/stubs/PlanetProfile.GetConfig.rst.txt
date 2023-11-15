@@ -1,0 +1,7 @@
+PlanetProfile.GetConfig module
+==============================
+
+.. automodule:: PlanetProfile.GetConfig
+   :members:
+   :undoc-members:
+   :show-inheritance:

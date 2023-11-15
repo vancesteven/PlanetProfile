@@ -1,0 +1,7 @@
+PlanetProfile.Main module
+=========================
+
+.. automodule:: PlanetProfile.Main
+   :members:
+   :undoc-members:
+   :show-inheritance:

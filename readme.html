@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlanetProfile v2.3 &mdash; PlanetProfile v2.3.18 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+    <link rel="shortcut icon" href="_static/PPlogo.ico"/>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=a52ba35e"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="PlanetProfile Python documentation" href="pythonModules.html" />
+    <link rel="prev" title="PlanetProfile documentation" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+
+          
+          
+          <a href="index.html">
+            
+              <img src="_static/PPlogo.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">README</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#acknowledging-planetprofile">Acknowledging PlanetProfile</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-started">Getting started</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#for-python"><em>For Python</em></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#pip-installation">Pip installation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#developers">Developers</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#for-matlab"><em>For Matlab</em></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#note-about-seafreeze-versions-prior-to-v0-9-3">Note about SeaFreeze versions prior to v0.9.3</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#installation-of-prerequisites">Installation of prerequisites</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#python">Python</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#matlab">Matlab</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#uninstalling">Uninstalling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#contributing">Contributing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#notes">Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pythonModules.html">PlanetProfile Python documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">PlanetProfile</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">PlanetProfile v2.3</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/readme.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="planetprofile-v2-3">
+<h1>PlanetProfile v2.3<a class="headerlink" href="#planetprofile-v2-3" title="Permalink to this heading"></a></h1>
+<p><img alt="PlanetProfile logo" src="_images/PPlogoDocs.png" /></p>
+<p>Software framework for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data.</p>
+<p>The main repository is mirrored at <a class="reference external" href="https://github.com/NASA-Planetary-Science/PlanetProfile">https://github.com/NASA-Planetary-Science/PlanetProfile</a>; any pull requests should be submitted to <a class="reference external" href="https://github.com/vancesteven/PlanetProfile">https://github.com/vancesteven/PlanetProfile</a>. Read the software documentation at <a class="reference external" href="https://vancesteven.github.io/PlanetProfile">https://vancesteven.github.io/PlanetProfile</a>.</p>
+<section id="acknowledging-planetprofile">
+<h2>Acknowledging PlanetProfile<a class="headerlink" href="#acknowledging-planetprofile" title="Permalink to this heading"></a></h2>
+<p>We want to hear about your work with PlanetProfile! Please consider sending us a message alerting us to your work (svance&#64;jpl.nasa.gov). Suggested acknowledgement in publications: “Data used in this work were generated using the open-source <em>PlanetProfile</em> software hosted on GitHub (<a class="reference external" href="https://github.com/vancesteven/PlanetProfile">https://github.com/vancesteven/PlanetProfile</a>).”</p>
+</section>
+<section id="getting-started">
+<h2>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this heading"></a></h2>
+<p>PlanetProfile is available in Python and Matlab.</p>
+<section id="for-python">
+<h3><em>For Python</em><a class="headerlink" href="#for-python" title="Permalink to this heading"></a></h3>
+<p>The recommended way to install is with pip.
+Developers: see below–do not install via pip.</p>
+<section id="pip-installation">
+<h4>Pip installation<a class="headerlink" href="#pip-installation" title="Permalink to this heading"></a></h4>
+<ol class="arabic simple">
+<li><p>(Recommended) Install all dependencies listed in the next section before proceeding.</p></li>
+<li><p>At a terminal:
+<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pip</span> <span class="pre">install</span> <span class="pre">PlanetProfile</span></code>
+Python 3.8 or higher is required, and Python 3.11 is recommended.
+A later version of PlanetProfile will require Python 3.11.
+Pip will install dependencies, but a conda environment with the prerequisites listed below is recommended.</p></li>
+<li><p>Create a directory where you’d like to store configurations and have folders for each body.</p></li>
+<li><p>Navigate into the new directory.</p></li>
+<li><p>At a terminal:
+<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">PlanetProfile.install</span></code>
+This will copy files from their defaults to the current directory.</p></li>
+<li><p>Run the software with, for example:
+<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">PlanetProfile.Main</span> <span class="pre">Europa</span></code>
+or
+<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">PlanetProfile.Main</span> <span class="pre">path/to/PPBody.py</span></code>
+or in a Python script with
+<code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">PlanetProfile.Main</span> <span class="pre">import</span> <span class="pre">RunPPfile</span> <span class="pre">RunPPfile('Europa',</span> <span class="pre">'PPEuropa.py')</span></code></p></li>
+</ol>
+</section>
+<section id="developers">
+<h4>Developers<a class="headerlink" href="#developers" title="Permalink to this heading"></a></h4>
+<ol class="arabic simple">
+<li><p>Install all prerequisites below to a dedicated conda environment.
+Python 3.11 is required for developers.
+If you are not yet using Python 3.11, upgrade before installing prerequisites.</p></li>
+<li><p>Clone this repository.</p></li>
+<li><p>Navigate to the top-level directory of the repository.</p></li>
+<li><p>At a terminal:
+<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">PlanetProfile.install</span> <span class="pre">PPinstall</span></code></p></li>
+<li><p>Run the software with the command line interface (CLI) script, for example:
+<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">PlanetProfileCLI.py</span> <span class="pre">Europa</span></code>
+or
+<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">PlanetProfileCLI.py</span> <span class="pre">path/to/PPBody.py</span></code></p></li>
+</ol>
+</section>
+</section>
+<section id="for-matlab">
+<h3><em>For Matlab</em><a class="headerlink" href="#for-matlab" title="Permalink to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Download or clone this repository.</p></li>
+<li><p>Install prerequisites below.</p></li>
+<li><p>At a terminal:
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install</span></code>
+Or, add everything in the top-level directory except the PlanetProfile sub-folder to the Matlab path.</p></li>
+<li><p>In Matlab, set the current directory to the top-level directory of the downloaded repository (top PlanetProfile folder).</p></li>
+<li><p>Run the software with <code class="docutils literal notranslate"><span class="pre">PPEuropa</span></code> in the Matlab command prompt, or by opening and running one of the files located at Body/PPBody.m (e.g. Titan/PPTitan.m).</p></li>
+</ol>
+</section>
+</section>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading"></a></h2>
+<p>A simple list with install commands for Python is in the next section.</p>
+<ul class="simple">
+<li><p>SeaFreeze – see <a class="reference external" href="https://github.com/Bjournaux/SeaFreeze">https://github.com/Bjournaux/SeaFreeze</a></p>
+<ul>
+<li><p>Python: Installed with pip: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">SeaFreeze</span></code></p></li>
+<li><p>Matlab: Download the repository to Thermodynamics/SeaFreeze and add the contents to the Matlab path.</p></li>
+</ul>
+</li>
+<li><p>MoonMag – see <a class="reference external" href="https://github.com/itsmoosh/MoonMag">https://github.com/itsmoosh/MoonMag</a></p>
+<ul>
+<li><p>Python only – Installed with pip: <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">MoonMag</span></code></p></li>
+<li><p>In Matlab, magnetic induction calculations are performed numerically and cannot incorporate lateral asymmetry in conducting layers.</p></li>
+</ul>
+</li>
+<li><p>Gibbs Seawater toolbox of TEOS-10 – see <a class="reference external" href="https://www.teos-10.org/">https://www.teos-10.org/</a></p>
+<ul>
+<li><p>Python: Installed with conda via conda-forge: <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">install</span> <span class="pre">-c</span> <span class="pre">conda-forge</span> <span class="pre">gsw</span></code></p></li>
+<li><p>Matlab: Already packaged into the PlanetProfile repository along with the original license.</p></li>
+</ul>
+</li>
+<li><p>Perple_X – see <a class="reference external" href="http://www.perplex.ethz.ch/">http://www.perplex.ethz.ch/</a></p>
+<ul>
+<li><p>For both Python and Matlab, Perple_X outputs are currently hosted as part of the installation, in Thermodynamics/Perple_X for Matlab and in PlanetProfile/Thermodynamics/EOSdata/Perple_X for Python. The files we use were generated with Perple_X v6.7.9.</p></li>
+</ul>
+</li>
+<li><p>TauP/ObsPy (optional) – see <a class="reference external" href="https://www.seis.sc.edu/taup/">https://www.seis.sc.edu/taup/</a></p>
+<ul>
+<li><p>Python: Installed with conda via conda-forge: <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">install</span> <span class="pre">-c</span> <span class="pre">conda-forge</span> <span class="pre">obspy</span></code></p></li>
+<li><p>Matlab: Download mMatTauP contents into Utilities/ and add-with-subfolders to the Matlab path.</p></li>
+</ul>
+</li>
+<li><p>A working TeX/LaTeX distribution (such as TeXlive) is recommended for optimum plot labels. TeXlive is available at: <a class="reference external" href="https://tug.org/texlive/acquire-netinstall.html">https://tug.org/texlive/acquire-netinstall.html</a>
+It can also be installed using pip.</p></li>
+</ul>
+<section id="note-about-seafreeze-versions-prior-to-v0-9-3">
+<h3>Note about SeaFreeze versions prior to v0.9.3<a class="headerlink" href="#note-about-seafreeze-versions-prior-to-v0-9-3" title="Permalink to this heading"></a></h3>
+<p>If you had installed SeaFreeze before version v0.9.3, you will need to manually remove the prior installation because it was improperly packaged before.
+To do so, run the command <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">site</span></code> and open the listed directory that ends in <code class="docutils literal notranslate"><span class="pre">site-packages</span></code>.
+Delete the files <code class="docutils literal notranslate"><span class="pre">seafreeze.py</span></code> and <code class="docutils literal notranslate"><span class="pre">SeaFreeze_Gibbs.mat</span></code> and any directories beginning with “SeaFreeze” (e.g. <code class="docutils literal notranslate"><span class="pre">SeaFreeze.egg-info</span></code>).
+Once these files have been removed, install the newer version of SeaFreeze with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">SeaFreeze</span></code>.</p>
+</section>
+</section>
+<section id="installation-of-prerequisites">
+<h2>Installation of prerequisites<a class="headerlink" href="#installation-of-prerequisites" title="Permalink to this heading"></a></h2>
+<section id="python">
+<h3>Python<a class="headerlink" href="#python" title="Permalink to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Python version 3.8+ must be installed, preferably via Anaconda. Required modules can be installed in Miniconda with the following command:</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">install</span> <span class="pre">numpy</span> <span class="pre">scipy</span> <span class="pre">matplotlib</span> <span class="pre">mpmath</span></code></p></li>
+<li><p>Conda-forge modules can be installed in Anaconda or Miniconda with the following command:</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">install</span> <span class="pre">-c</span> <span class="pre">conda-forge</span> <span class="pre">gsw</span> <span class="pre">obspy</span> <span class="pre">spiceypy</span> <span class="pre">cmasher</span></code></p></li>
+<li><p>AFTER the above modules have been installed with conda, install SeaFreeze and MoonMag with the following command:</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">SeaFreeze</span> <span class="pre">MoonMag</span></code></p></li>
+<li><p>Finally, install PlanetProfile as described above.</p></li>
+</ol>
+</section>
+<section id="matlab">
+<h3>Matlab<a class="headerlink" href="#matlab" title="Permalink to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Download PlanetProfile repository.</p></li>
+<li><p>Download SeaFreeze repository to PlanetProfile/Thermodynamics/SeaFreeze/ (NOT PlanetProfile/PlanetProfile/Thermodynamics).</p></li>
+<li><p>Add SeaFreeze folder and sub-folders to Matlab path.
+Some magnetic field features require use of the <a class="reference external" href="https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/MATLAB/index.html">SPICE toolkit through Mice</a>. To install Mice:</p></li>
+<li><p>Navigate to <a class="reference external" href="https://naif.jpl.nasa.gov/naif/toolkit_MATLAB.html">https://naif.jpl.nasa.gov/naif/toolkit_MATLAB.html</a></p></li>
+<li><p>Follow the link for your operating system and download the .zip or .tar.Z file to PlanetProfile/Utilities/spice/</p></li>
+<li><p>Unpack the archive (into PlanetProfile/Utilities/mice/)</p></li>
+<li><p>Add PlanetProfile/Utilities/mice/src/mice/ and PlanetProfile/Utilities/mice/lib/ to your Matlab path.</p></li>
+<li><p>Install necessary SPICE kernels by downloading them from <a class="reference external" href="https://naif.jpl.nasa.gov/pub/naif/generic_kernels/">https://naif.jpl.nasa.gov/pub/naif/generic_kernels/</a> and placing them in PlanetProfile/Utilities/spice/. The planetary constants kernel (PCK) and leap-seconds kernel (TLS) are saved in this repository, but the generic ephemeris kernels (SPK, .bsp files) are too large for us to save here. There is one for each planet’s satellites, located at <a class="reference external" href="https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/">https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/</a>. Currently in use are:</p></li>
+<li><p>jup365.bsp</p></li>
+<li><p>sat441.bsp</p></li>
+<li><p>ura111.bsp</p></li>
+<li><p>nep095.bsp</p></li>
+</ol>
+</section>
+</section>
+<section id="uninstalling">
+<h2>Uninstalling<a class="headerlink" href="#uninstalling" title="Permalink to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>In the top-level directory, run the command <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-c</span> <span class="pre">&quot;from</span> <span class="pre">PlanetProfile.install</span> <span class="pre">import</span> <span class="pre">PPuninstall;</span> <span class="pre">PPuninstall()&quot;</span></code>.
+All files named the same as the defaults will be deleted.
+If any non-default files have been added, you will be prompted whether you would like to delete them as well as the defaults.
+Empty folders will be deleted.
+Complete the uninstallation by deleting the entire directory and running the command <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">uninstall</span> <span class="pre">PlanetProfile</span></code>.</p></li>
+</ol>
+</section>
+<section id="contributing">
+<h2>Contributing<a class="headerlink" href="#contributing" title="Permalink to this heading"></a></h2>
+<p>PlanetProfile is open source software. Please see the <a class="reference external" href="https://github.com/vancesteven/PlanetProfile/blob/main/LICENSE">LICENSE</a> file and read the guidelines for contrbuting in <a class="reference external" href="https://github.com/vancesteven/PlanetProfile/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a> if you are interested in joining the project. Also see our community guidelines in <a class="reference external" href="https://github.com/vancesteven/PlanetProfile/blob/main/CODE_OF_CONDUCT.md">CODE_OF_CONDUCT.md</a>.</p>
+</section>
+<section id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>With the PlanetProfile 2.0 release, both Python and Matlab are available. The two branches do not have the same functionality yet with this release–some features exist in the Python version that are not yet implemented in the Matlab. A later release will align their functionality as much as possible. For now, the Python version is recommended.</p></li>
+<li><p>As of 2020-09-28, PlanetProfile v1.1.0 was released along with code for making calculations regarding magnetic induction. The development (main) branch of PlanetProfile is set up to generate profiles from minimal inputs. Output profiles that may be used along with the induction calculations may be found in the v1.1.0 release.</p></li>
+<li><p>The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.</p></li>
+</ul>
+<p>Some calculations in Python use parallel computing with the multiprocessing builtin module. There are sometimes cross-platform compatibility issues that crop up. By default, multiprocessing is enabled; disable it by setting Params.DO_PARALLEL = False in configPP.py.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="PlanetProfile documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="pythonModules.html" class="btn btn-neutral float-right" title="PlanetProfile Python documentation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Steven D. Vance and Marshall J. Styczinski.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

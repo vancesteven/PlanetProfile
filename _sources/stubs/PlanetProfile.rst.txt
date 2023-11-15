@@ -1,0 +1,28 @@
+PlanetProfile package
+=====================
+
+.. automodule:: PlanetProfile
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   PlanetProfile.Default
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   PlanetProfile.BuildTest
+   PlanetProfile.GetConfig
+   PlanetProfile.Main
+   PlanetProfile.defaultConfig
+   PlanetProfile.install
+   PlanetProfile.reset

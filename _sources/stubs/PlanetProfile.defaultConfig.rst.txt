@@ -1,0 +1,7 @@
+PlanetProfile.defaultConfig module
+==================================
+
+.. automodule:: PlanetProfile.defaultConfig
+   :members:
+   :undoc-members:
+   :show-inheritance:

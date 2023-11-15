@@ -1,0 +1,7 @@
+PlanetProfile.install module
+============================
+
+.. automodule:: PlanetProfile.install
+   :members:
+   :undoc-members:
+   :show-inheritance:
