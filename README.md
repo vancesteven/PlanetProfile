@@ -1,21 +1,21 @@
 # PlanetProfile v2.3
-<img src="Utilities/PPlogo.png" width=240 title="PlanetProfile logo"/>
+![PlanetProfile logo](misc/PPlogoDocs.png)
 
 Software framework for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data.
 
-The main repository is mirrored at https://github.com/NASA-Planetary-Science/PlanetProfile; any pull requests should be submitted to https://github.com/vancesteven/PlanetProfile.
+The main repository is mirrored at <https://github.com/NASA-Planetary-Science/PlanetProfile>; any pull requests should be submitted to <https://github.com/vancesteven/PlanetProfile>. Read the software documentation at <https://vancesteven.github.io/PlanetProfile>.
 
 ## Acknowledging PlanetProfile
-We want to hear about your work with PlanetProfile! Please consider sending us a message alerting us to your work (svance@jpl.nasa.gov). Suggested acknowledgement in publications: "Data used in this work were generated using the open-source _PlanetProfile_ software hosted on GitHub (https://github.com/vancesteven/PlanetProfile)."
+We want to hear about your work with PlanetProfile! Please consider sending us a message alerting us to your work (svance@jpl.nasa.gov). Suggested acknowledgement in publications: "Data used in this work were generated using the open-source _PlanetProfile_ software hosted on GitHub (<https://github.com/vancesteven/PlanetProfile>)."
 
 ## Getting started
 PlanetProfile is available in Python and Matlab.
 
 ### *For Python*
-The recommended way to install is with with pip.
+The recommended way to install is with pip.
 Developers: see below--do not install via pip.
 
-Pip installation:
+#### Pip installation
 1. (Recommended) Install all dependencies listed in the next section before proceeding.
 1. At a terminal:
 `python -m pip install PlanetProfile`
@@ -35,7 +35,7 @@ or in a Python script with
 `from PlanetProfile.Main import RunPPfile
 RunPPfile('Europa', 'PPEuropa.py')`
 
-#### Developers:
+#### Developers
 1. Install all prerequisites below to a dedicated conda environment.
 Python 3.11 is required for developers.
 If you are not yet using Python 3.11, upgrade before installing prerequisites.
@@ -59,21 +59,21 @@ or
   
 ## Prerequisites
 A simple list with install commands for Python is in the next section.
-* SeaFreeze -- see https://github.com/Bjournaux/SeaFreeze
+* SeaFreeze -- see <https://github.com/Bjournaux/SeaFreeze>
   * Python: Installed with pip: `pip install SeaFreeze`
   * Matlab: Download the repository to Thermodynamics/SeaFreeze and add the contents to the Matlab path.
-* MoonMag -- see https://github.com/itsmoosh/MoonMag
+* MoonMag -- see <https://github.com/itsmoosh/MoonMag>
   * Python only -- Installed with pip: `pip install MoonMag`
   * In Matlab, magnetic induction calculations are performed numerically and cannot incorporate lateral asymmetry in conducting layers.
-* Gibbs Seawater toolbox of TEOS-10 -- see https://www.teos-10.org/
+* Gibbs Seawater toolbox of TEOS-10 -- see <https://www.teos-10.org/>
   * Python: Installed with conda via conda-forge: `conda install -c conda-forge gsw` 
   * Matlab: Already packaged into the PlanetProfile repository along with the original license.
-* Perple_X -- see http://www.perplex.ethz.ch/
+* Perple_X -- see <http://www.perplex.ethz.ch/>
   * For both Python and Matlab, Perple_X outputs are currently hosted as part of the installation, in Thermodynamics/Perple_X for Matlab and in PlanetProfile/Thermodynamics/EOSdata/Perple_X for Python. The files we use were generated with Perple_X v6.7.9.
-* TauP/ObsPy (optional) -- see https://www.seis.sc.edu/taup/
+* TauP/ObsPy (optional) -- see <https://www.seis.sc.edu/taup/>
   * Python: Installed with conda via conda-forge: `conda install -c conda-forge obspy`
   * Matlab: Download mMatTauP contents into Utilities/ and add-with-subfolders to the Matlab path.
-* A working TeX/LaTeX distribution (such as TeXlive) is recommended for optimum plot labels. TeXlive is available at: https://tug.org/texlive/acquire-netinstall.html
+* A working TeX/LaTeX distribution (such as TeXlive) is recommended for optimum plot labels. TeXlive is available at: <https://tug.org/texlive/acquire-netinstall.html>
     It can also be installed using pip.
 
 ### Note about SeaFreeze versions prior to v0.9.3
@@ -97,11 +97,11 @@ Once these files have been removed, install the newer version of SeaFreeze with 
 1. Download SeaFreeze repository to PlanetProfile/Thermodynamics/SeaFreeze/ (NOT PlanetProfile/PlanetProfile/Thermodynamics).
 1. Add SeaFreeze folder and sub-folders to Matlab path.
 Some magnetic field features require use of the [SPICE toolkit through Mice](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/MATLAB/index.html). To install Mice:
-1. Navigate to https://naif.jpl.nasa.gov/naif/toolkit_MATLAB.html
+1. Navigate to <https://naif.jpl.nasa.gov/naif/toolkit_MATLAB.html>
 1. Follow the link for your operating system and download the .zip or .tar.Z file to PlanetProfile/Utilities/spice/
 1. Unpack the archive (into PlanetProfile/Utilities/mice/)
 1. Add PlanetProfile/Utilities/mice/src/mice/ and PlanetProfile/Utilities/mice/lib/ to your Matlab path.
-1. Install necessary SPICE kernels by downloading them from https://naif.jpl.nasa.gov/pub/naif/generic_kernels/ and placing them in PlanetProfile/Utilities/spice/. The planetary constants kernel (PCK) and leap-seconds kernel (TLS) are saved in this repository, but the generic ephemeris kernels (SPK, .bsp files) are too large for us to save here. There is one for each planet's satellites, located at https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/. Currently in use are:
+1. Install necessary SPICE kernels by downloading them from <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/> and placing them in PlanetProfile/Utilities/spice/. The planetary constants kernel (PCK) and leap-seconds kernel (TLS) are saved in this repository, but the generic ephemeris kernels (SPK, .bsp files) are too large for us to save here. There is one for each planet's satellites, located at <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/>. Currently in use are:
   1. jup365.bsp
   1. sat441.bsp
   1. ura111.bsp
