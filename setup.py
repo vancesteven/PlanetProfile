@@ -11,7 +11,7 @@ setup(
     url='https://github.com/vancesteven/PlanetProfile',
     project_urls={
         'Bug tracker': 'https://github.com/vancesteven/PlanetProfile/issues',
-        'Publication': 'https://doi.org/10.1002/2017JE005341'
+        'Publication': 'https://doi.org/10.1029/2022EA002748'
     },
     classifiers=[
         'Programming Language :: Python :: 3.8',
@@ -25,8 +25,8 @@ setup(
         'scipy >= 1.10.1',
         'mpmath >= 1.2.1',
         'matplotlib >= 3.7.1',
-        'SeaFreeze >= 0.9.3',
-        'MoonMag >= 1.5.3',
+        'SeaFreeze >= 0.9.6',
+        'MoonMag >= 1.6.0',
         'gsw >= 3.6.16',
         'spiceypy >= 5.1.1',
         'cmasher >= 1.6.3'
