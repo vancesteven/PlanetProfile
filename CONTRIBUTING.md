@@ -118,7 +118,8 @@ Install prerequisites with pip: `pip install sphinx sphinxcontrib-matlabdomain s
 
 ### Building the docs from scratch
 In the event of a major restructure, Sphinx is not well set up to reformat the docs without a lot of manual intervention. Here are the steps to redraw the documentation pages from scratch.
-1. Install sphinx prerequisites and extensions [listed above](#testing-the-documentation-build).
+1. Install sphinx prerequisites and extensions [listed above](#testing-the-documentation-build).\
+   **Note:** The current package release of `sphinxcontrib.apidoc` does not support user-defined templates. To support templates, replace `__init.py__` and `ext.py` in your local `site-packages` folder for `sphinxcontrib/apidoc` with the files at <https://github.com/itsmoosh/apidoc/tree/master/sphinxcontrib/apidoc>.
 1. Copy any custom or edited documentation files, including: 
    1. `conf.py`
    1. `index.rst`
@@ -128,6 +129,7 @@ In the event of a major restructure, Sphinx is not well set up to reformat the d
    1. `.gitignore`
    1. `.nojekyll`
    1. `misc/` and its contents
+   1. `templates/` and its contents
    1. `SPICE/` and its contents
 1. Delete the entire `docs` directory
 1. Navigate to the repo top-level directory and run the following command:\
