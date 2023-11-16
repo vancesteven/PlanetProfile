@@ -35,7 +35,8 @@ sys.path.insert(0, _PACKAGE_DIR)
 #sys.path.insert(0, _SUBPACKAGE_DIR)
 
 apidoc_module_dir = _ROOT_DIR
-apidoc_output_dir = 'stubs/'
+apidoc_output_dir = 'stubs'
+apidoc_template_dir = 'templates'
 apidoc_excluded_paths = ['configP*', 'setup.py']
 apidoc_separate_modules = True
 apidoc_module_first = True
