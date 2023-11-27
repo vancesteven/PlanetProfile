@@ -11,6 +11,11 @@ Custom Dynamic Frames Kernel
 Version and Date
 ========================================================================
 
+    Version 1.4 -- November 27, 2023 -- Marshall J. Styczinski, JPL
+    
+      Added Earth-Sun-Magnetic and Earth-Sun-Orbital frames akin to
+      those for the giant planets.
+
     Version 1.3 -- August 28, 2022 -- Marshall J. Styczinski, JPL
     
       Added NLS frame for Neptune, used in magnetic field modeling.
@@ -34,8 +39,8 @@ Version and Date
     Version 0.9 -- July 20, 2022 -- Marshall J. Styczinski, JPL
    
       Initial version; includes MPhiO frames for the Galilean moons,
-      as well as Planet-Solar-Orbital and Planet-Solar-Magnetospheric
-      (PSO and PSM) frames for each giant planet.
+      as well as Planet-Sun-Orbital and Planet-Sun-Magnetic (PSO and
+      PSM) frames for each giant planet.
 
 
 References
@@ -157,12 +162,13 @@ Frames Definitions
         Name                  Relative to            NAIF ID
     ======================  =====================  ============
                                     
+      ESO                     J2000                  1850063
       JSO                     J2000                  1850065
       KSO                     J2000                  1850066
       USO                     J2000                  1850067
       NSO                     J2000                  1850068
       
-      Planet-Solar-Orbital frames:
+      Planet-Sun-Orbit frames:
         -- +X axis is along the geometric position of the Sun as seen
            from Jupiter (primary axis)
         -- +Y axis is in the direction of the inertial geometric velocity
@@ -172,12 +178,13 @@ Frames Definitions
         Name                  Relative to            NAIF ID
     ======================  =====================  ============
     
+      ESM                     J2000                  1850073
       JSM                     J2000                  1850075
       KSM                     J2000                  1850076
       USM                     J2000                  1850077
       NSM                     J2000                  1850078
       
-      Planet-Solar-Magnetospheric frames:
+      Planet-Sun-Magnetic frames:
         -- as defined in [3], with dipole orientations as defined in [6-9]
         -- originally referred to as Magnetic Equatorial coordinates
            in [10], with the O4 model for Jupiter.
@@ -389,6 +396,26 @@ Frames Definitions
     FRAME_1859504_SEC_TARGET       = 'JUPITER'
     FRAME_1859504_SEC_ABCORR       = 'NONE'
       
+    FRAME_ESO                     = 1850063
+    FRAME_1850063_NAME            = 'ESO'
+    FRAME_1850063_CLASS           = 5
+    FRAME_1850063_CLASS_ID        = 1850063
+    FRAME_1850063_CENTER          = 399
+    FRAME_1850063_RELATIVE        = 'J2000'
+    FRAME_1850063_DEF_STYLE       = 'PARAMETERIZED'
+    FRAME_1850063_FAMILY          = 'TWO-VECTOR'
+    FRAME_1850063_PRI_AXIS        = 'X'
+    FRAME_1850063_PRI_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
+    FRAME_1850063_PRI_OBSERVER    = 'EARTH'
+    FRAME_1850063_PRI_TARGET      = 'SUN'
+    FRAME_1850063_PRI_ABCORR      = 'NONE'
+    FRAME_1850063_SEC_AXIS        = 'Y'
+    FRAME_1850063_SEC_VECTOR_DEF  = 'OBSERVER_TARGET_VELOCITY'
+    FRAME_1850063_SEC_OBSERVER    = 'EARTH'
+    FRAME_1850063_SEC_TARGET      = 'SUN'
+    FRAME_1850063_SEC_ABCORR      = 'NONE'
+    FRAME_1850063_SEC_FRAME       = 'J2000'
+      
     FRAME_JSO                     = 1850065
     FRAME_1850065_NAME            = 'JSO'
     FRAME_1850065_CLASS           = 5
@@ -468,6 +495,27 @@ Frames Definitions
     FRAME_1850068_SEC_TARGET      = 'SUN'
     FRAME_1850068_SEC_ABCORR      = 'NONE'
     FRAME_1850068_SEC_FRAME       = 'J2000'
+      
+    FRAME_ESM                     = 1850073
+    FRAME_1850073_NAME            = 'ESM'
+    FRAME_1850073_CLASS           = 5
+    FRAME_1850073_CLASS_ID        = 1850073
+    FRAME_1850073_CENTER          = 399
+    FRAME_1850073_RELATIVE        = 'J2000'
+    FRAME_1850073_DEF_STYLE       = 'PARAMETERIZED'
+    FRAME_1850073_FAMILY          = 'TWO-VECTOR'
+    FRAME_1850073_PRI_AXIS        = 'X'
+    FRAME_1850073_PRI_VECTOR_DEF  = 'OBSERVER_TARGET_POSITION'
+    FRAME_1850073_PRI_OBSERVER    = 'EARTH'
+    FRAME_1850073_PRI_TARGET      = 'SUN'
+    FRAME_1850073_PRI_ABCORR      = 'LT+S'
+    FRAME_1850073_SEC_AXIS        = 'Z'
+    FRAME_1850073_SEC_VECTOR_DEF  = 'CONSTANT'
+    FRAME_1850073_SEC_FRAME       = 'IAU_EARTH'
+    FRAME_1850073_SEC_SPEC        = 'LATITUDINAL'
+    FRAME_1850073_SEC_UNITS       = 'DEGREES'
+    FRAME_1850073_SEC_LONGITUDE   = 107.32
+    FRAME_1850073_SEC_LATITUDE    = -80.59
       
     FRAME_JSM                     = 1850075
     FRAME_1850075_NAME            = 'JSM'
