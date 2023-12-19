@@ -288,6 +288,7 @@ class CoreSubstruct:
         # the Matlab code, these x variables should be molar fractions (# this species/total # molecules).
         self.xFeSmeteoritic = None  # CM2 mean from Jarosewich 1990
         self.xH2O = None  # Total fraction of water in CM2; use this to compute the excess or deficit indicated by the mineralogical model
+        self.xFeS = np.nan  # Number ratio of S to Fe in core material
 
 
 """ Seismic properties """
