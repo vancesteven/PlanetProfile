@@ -132,12 +132,12 @@ Frames Definitions
            These values are assumed to be in reference to J2000 or ICRF.
         -- 167.7 degrees W longitude is at the location of Voyager 2
            near closest approach, at 0356 SCET day 237 as defined in [9].
-           Voyager 2 was at -155.6848 degrees E longitude in the
+           Voyager 2 was at -155.6860 degrees E longitude in the
            IAU_NEPTUNE frame at this time, according to the VG2 SPK
-           generated using the nep081.bsp generic kernel, and evaluated
+           generated using the nep097.bsp generic kernel, and evaluated
            using that same kernel.
-           This results in a shift of 12.0152 degrees E longitude,
-           i.e. +X of NLS points toward IAU E longitude 12.0152.
+           This results in a shift of 12.0140 degrees E longitude,
+           i.e. +X of NLS points toward IAU E longitude 12.0140.
         -- centered on the planet
       
       NLS_RADEC frame:
@@ -294,7 +294,7 @@ Frames Definitions
     FRAME_1850018_SEC_FRAME        = 'IAU_NEPTUNE'
     FRAME_1850018_SEC_SPEC         = 'LATITUDINAL'
     FRAME_1850018_SEC_UNITS        = 'DEGREES'
-    FRAME_1850018_SEC_LONGITUDE    = 12.0152
+    FRAME_1850018_SEC_LONGITUDE    = 12.0140
     FRAME_1850018_SEC_LATITUDE     =  0.0
 
     FRAME_NLS_RADEC                = 1850028

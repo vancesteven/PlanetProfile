@@ -43,6 +43,10 @@ class FlybyCAStruct:
                 'Uranus':  {'U': '1986-01-24T17:58:51.346'},
                 'Neptune': {'N': '1989-08-25T03:55:40.076'}
             }
+            self.tPLS_UTC = {
+                'Uranus':  {'U': '1986-01-24T18:00:00.000'},
+                'Neptune': {'N': '1989-08-25T03:56:00.000'}
+            }
         elif self.scName == 'Galileo':
             self.tCA_UTC = {
                 'Io': {
@@ -125,6 +129,15 @@ class FlybyCAStruct:
             body: {flybyID: spice.str2et(tCA) for flybyID, tCA in self.tCA_UTC[body].items() if tCA is not None}
         for body in self.tCA_UTC.keys()}
 
+        if self.scName == 'Voyager 2':
+            # Dict of body: flyby ID: specific times for definitions of planetary longitude system (ULS, NLS) frames
+            self.etPLS = {
+                body: {flybyID: spice.str2et(tPLS) for flybyID, tPLS in self.tPLS_UTC[body].items() if tPLS is not None}
+            for body in self.tPLS_UTC.keys()}
+            self.GetrPLS()
+        else:
+            self.etPLS = None
+
         self.GetrCA()
         self.GetSunDir()
 
@@ -137,6 +150,17 @@ class FlybyCAStruct:
             self.rCA_km[body] = {flybyID: rCA for flybyID, rCA in zip(self.tCA_UTC[body].keys(), r_km)}
             self.latCA_deg[body] = {flybyID: latCA for flybyID, latCA in zip(self.tCA_UTC[body].keys(), lat_deg)}
             self.lonCA_deg[body] = {flybyID: lonCA for flybyID, lonCA in zip(self.tCA_UTC[body].keys(), lon_deg)}
+
+    def GetrPLS(self):
+        self.rPLS_km, self.latPLS_deg, self.lonPLS_deg = ({}, {}, {})
+        if self.etPLS is not None:
+            for body in self.tPLS_UTC.keys():
+                x_km, y_km, z_km, r_km = BodyDist_km(self.spiceName, body, list(self.etPLS[body].values()))
+                lat_deg = np.degrees(np.arctan2(z_km, np.sqrt(x_km**2 + y_km**2)))
+                lon_deg = np.degrees(np.arctan2(y_km, x_km))
+                self.rPLS_km[body] = {flybyID: rPLS for flybyID, rPLS in zip(self.tPLS_UTC[body].keys(), r_km)}
+                self.latPLS_deg[body] = {flybyID: latPLS for flybyID, latPLS in zip(self.tPLS_UTC[body].keys(), lat_deg)}
+                self.lonPLS_deg[body] = {flybyID: lonPLS for flybyID, lonPLS in zip(self.tPLS_UTC[body].keys(), lon_deg)}
 
     def GetSunDir(self):
         self.latSunCA_deg, self.lonSunCA_deg = ({}, {})
@@ -179,3 +203,4 @@ def GetActualCA(spiceSCname, t_UTC, bodyname, range_min=5, res_s=0.001):
 
 
 FlybyCA = {scName: FlybyCAStruct(scName) for scName in scNames}
+a=0
