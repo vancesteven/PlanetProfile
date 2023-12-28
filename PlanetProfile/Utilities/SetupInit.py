@@ -178,9 +178,14 @@ def SetupInit(Planet, Params):
                                        Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                        scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                        phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                                       sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
+                                       sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
         # Get separate, simpler EOS for evaluating the melting curve
         if Planet.Do.BOTTOM_ICEV:
+            # Make sure Tb values are physically reasonable
+            if Planet.Bulk.Tb_K > Planet.Bulk.TbV_K or Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K:
+                raise ValueError('Bulk.Tb_K must be less than underplate layer Tb values.')
+            if Planet.Bulk.TbIII_K > Planet.Bulk.TbV_K:
+                raise ValueError('Bulk.TbIII_K must be less than underplate TbV_K value.')
             TmeltI_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
             TmeltIII_K = np.linspace(Planet.Bulk.TbIII_K - 0.01, Planet.Bulk.TbIII_K + 0.01, 11)
             TmeltV_K = np.linspace(Planet.Bulk.TbV_K - 0.01, Planet.Bulk.TbV_K + 0.01, 11)
@@ -190,6 +195,8 @@ def SetupInit(Planet, Params):
                          'ice V is stable up to 700 MPa. PfreezeUpper_MPa will be raised to this value.')
                 Planet.PfreezeUpper_MPa = 700
         elif Planet.Do.BOTTOM_ICEIII:
+            if Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K:
+                raise ValueError('Bulk.Tb_K must be less than underplate TbIII_K value.')
             TmeltI_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
             TmeltIII_K = np.linspace(Planet.Bulk.TbIII_K - 0.01, Planet.Bulk.TbIII_K + 0.01, 11)
             Tmelt_K = np.concatenate((TmeltI_K, TmeltIII_K))
@@ -201,7 +208,8 @@ def SetupInit(Planet, Params):
             Tmelt_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
         Pmelt_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.PfreezeUpper_MPa, Planet.PfreezeRes_MPa)
         Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K, None,
-                                           phaseType=Planet.Ocean.phaseType, FORCE_NEW=True, MELT=True)
+                                           phaseType=Planet.Ocean.phaseType, FORCE_NEW=True, MELT=True,
+                                           LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
 
     # Make sure convection checking outputs are set if we won't be modeling them
     if Planet.Do.NO_ICE_CONVECTION:
@@ -298,11 +306,15 @@ def SetupInit(Planet, Params):
                                              Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                              scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                              phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=True,
-                                             sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm)
+                                             sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
 
             # Make sure Sil.phiRockMax_frac is set in case we're using a porosType that doesn't require it
             if Planet.Sil.phiRockMax_frac is None or Planet.Sil.porosType != 'Han2014':
                 Planet.Sil.phiRockMax_frac = Planet.Sil.EOS.fn_phi_frac(0, 0)
+            if Planet.Sil.phiRockMax_frac > 1.0:
+                raise ValueError(f'A maximum rock porosity value of {Planet.Sil.phiRockMax_frac}' +
+                                 'has been set. Values greater than 1 are unphysical--check input' +
+                                 'file settings.')
 
         # Iron core if present
         if Planet.Do.Fe_CORE:
