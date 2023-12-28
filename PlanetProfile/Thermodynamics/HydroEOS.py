@@ -1,13 +1,10 @@
 import numpy as np
-import os, logging
+import logging
 from copy import deepcopy
-from collections.abc import Iterable
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 from scipy.optimize import root_scalar as GetZero
-from scipy.io import loadmat
 from seafreeze.seafreeze import seafreeze as SeaFreeze
 from seafreeze.seafreeze import whichphase as WhichPhase
-from PlanetProfile import _ROOT
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, \
     ClathStableNagashima2017, ClathSeismic
 from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper
@@ -21,10 +18,10 @@ from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 log = logging.getLogger('PlanetProfile')
 
 def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
-                EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None):
+                EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None, LOOKUP_HIRES=False):
     oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
                               phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE,
-                              sigmaFixed_Sm=sigmaFixed_Sm)
+                              sigmaFixed_Sm=sigmaFixed_Sm, LOOKUP_HIRES=LOOKUP_HIRES)
     if oceanEOS.ALREADY_LOADED and not FORCE_NEW:
         log.debug(f'{wOcean_ppt} ppt {compstr} EOS already loaded. Reusing existing EOS.')
         oceanEOS = EOSlist.loaded[oceanEOS.EOSlabel]
@@ -40,7 +37,8 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
 
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
-                 phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None):
+                 phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False,
+                 sigmaFixed_Sm=None, LOOKUP_HIRES=False):
         if elecType is None:
             self.elecType = 'Vance2018'
         else:
@@ -65,7 +63,7 @@ class OceanEOSStruct:
             meltStr = ''
             meltPrint = ''
 
-        self.EOSlabel = f'{meltStr}Comp{compstr}wppt{wOcean_ppt}elec{elecType}rho{rhoType}scaling{scalingType}phase{phaseType}extrap{EXTRAP}pore{PORE}'
+        self.EOSlabel = f'{meltStr}Comp{compstr}wppt{wOcean_ppt}elec{elecType}rho{rhoType}scaling{scalingType}phase{phaseType}extrap{EXTRAP}pore{PORE}hires{LOOKUP_HIRES}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, FORCE_NEW=FORCE_NEW)
 
@@ -200,7 +198,7 @@ class OceanEOSStruct:
                 P_MPa, T_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
                     = MgSO4Props(P_MPa, T_K, self.w_ppt, self.EXTRAP)
                 if self.PHASE_LOOKUP:
-                    self.ufn_phase = MgSO4PhaseLookup(self.w_ppt)
+                    self.ufn_phase = MgSO4PhaseLookup(self.w_ppt, HIRES=LOOKUP_HIRES)
                     self.phasePmax = self.ufn_phase.Pmax
                     # Save EOS grid resolution from MgSO4 lookup table loaded from disk
                     self.EOSdeltaP = self.ufn_phase.deltaP

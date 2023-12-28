@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import logging
-from scipy.io import loadmat
+from hdf5storage import loadmat
 from collections.abc import Iterable
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline, interp1d
 from seafreeze.seafreeze import seafreeze as SeaFreeze
@@ -292,10 +292,16 @@ class MgSO4PhaseLookup:
         The lookup table is created based on models from Vance et al. (2014):
         https://doi.org/10.1016/j.pss.2014.03.011
     """
-    def __init__(self, wOcean_ppt):
+    def __init__(self, wOcean_ppt, HIRES=False):
         self.w_ppt = wOcean_ppt
         self.xH2O, self.mBar_gmol = Massppt2molFrac(self.w_ppt, Constants.m_gmol['MgSO4'])
-        self.fLookup = os.path.join(_ROOT, 'Thermodynamics','MgSO4','phaseLookupMgSO4.mat')
+        self.HIRES = HIRES
+        if self.HIRES:
+            hiresEnd = '_hires'
+            log.warning('Using high-resolution phase lookup table, which may take a lot of time and memory.')
+        else:
+            hiresEnd = ''
+        self.fLookup = os.path.join(_ROOT, 'Thermodynamics','MgSO4',f'phaseLookupMgSO4{hiresEnd}.mat')
         if self.fLookup in EOSlist.loaded.keys():
             log.debug('MgSO4 phase lookup table already loaded. Reusing previously loaded table.')
             self.fn_phaseRGI = EOSlist.loaded[self.fLookup]
@@ -487,4 +493,3 @@ def LarionovKryukov1984(w_ppt, rhoType='Millero', scalingType='Vance2018'):
     sigmaExtrap_Sm = np.array([interp1d(TLK_K[:3], sigmaPextrap_Sm[:,iP], kind='linear', fill_value='extrapolate')(Textrap_K) for iP in range(nPs)])
 
     return Pextrap_MPa, Textrap_K, sigmaExtrap_Sm * Vance2018scaling
-
