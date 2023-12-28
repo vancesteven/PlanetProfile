@@ -1,5 +1,4 @@
-% For creating a lookup table for MgSO4 phase calculations under Margules
-% formulation
+% For creating a lookup table for MgSO4 phase calculations under Margules formulation
 
 function printMgSO4phaseChunks
     outDir = fullfile('.');

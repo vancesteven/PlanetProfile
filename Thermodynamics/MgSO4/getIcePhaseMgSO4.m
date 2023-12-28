@@ -21,6 +21,7 @@ end
 
 phase(phase==5) = 6;
 phase(phase==4) = 5;
+phase = unit8(phase); % Cast to small integer
 
 function dmu = deltaMuILiqMgSO4(P,T,x)
 Rsp = 8.314/0.018;

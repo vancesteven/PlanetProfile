@@ -2,7 +2,7 @@
 % table compatible with PlanetProfile.
 
 function stitchMgSO4lookupChunks
-    datDir = fullfile('Thermodynamics','MgSO4');
+    datDir = fullfile('Thermodynamics', 'MgSO4', 'phaseData');
     
     fNameBase = 'phaseLookupMgSO4';
     files = dir(fullfile(datDir, [fNameBase '_*']));
@@ -21,9 +21,9 @@ function stitchMgSO4lookupChunks
         wUnsort_ppt(k) = thisw;
     end
     [w_ppt, iSortw] = sort(wUnsort_ppt);
-    phase = allPhase(:,:,iSortw);
+    phase = cast(allPhase(:,:,iSortw), 'uint8');
     fName = fullfile(datDir, fNameBase);
-    save(fName, 'P_MPa', 'T_K', 'w_ppt', 'phase');
+    save(fName, 'P_MPa', 'T_K', 'w_ppt', 'phase', '-v7.3');
     disp(['Phase lookup table printed to ' [fName '.mat'] '.'])
 
 end
