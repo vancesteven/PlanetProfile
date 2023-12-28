@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='PlanetProfile',
-    version='2.3.18',
+    version='2.3.19',
     author='Marshall J. Styczinski',
     author_email='itsmoosh@gmail.com',
     description='Self-consistent geophysical models for large moons and ocean worlds',
@@ -29,7 +29,8 @@ setup(
         'MoonMag >= 1.6.0',
         'gsw >= 3.6.16',
         'spiceypy >= 5.1.1',
-        'cmasher >= 1.6.3'
+        'cmasher >= 1.6.3',
+        'hdf5storage >= 0.1.19'
     ],
     include_package_data=True  # Files to include are listed in MANIFEST.in
 )
