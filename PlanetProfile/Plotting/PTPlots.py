@@ -52,7 +52,7 @@ def PlotHydroPhase(PlanetList, Params):
                                Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                               sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
+                               sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
 
         phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
         # Add clathrates to phase and property diagrams where it is stable (if modeled)
@@ -174,7 +174,7 @@ def PlotPvThydro(PlanetList, Params):
                                Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                               sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
+                               sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
 
         phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
         ices = [PhaseConv(ice) for ice in np.unique(phases[phases != 0])]
