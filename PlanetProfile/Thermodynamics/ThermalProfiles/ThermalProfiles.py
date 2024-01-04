@@ -46,6 +46,10 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
                 and convective region in m
             qbot_Wm2 (float): Heat flux at the bottom of the ice in W/m^2
     """
+    if Tb_K < Ttop_K:
+        raise ValueError('Tb_K is less than Ttop_K, which will result in a negative Rayleigh' +
+                         'number. Try adjusting Tb_K, TbIII_K, TbV_K, etc.')
+
     # Get phase of convecting region from passed iceEOS
     phaseMid = iceEOS.phaseID
     # Numerical constants derived in Cartesian geometry from Deschamps and Sotin (2000) and used in
@@ -132,8 +136,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         # Set heat flux to be equal to that passing the conductive lid
         # according to Ojakangas and Stevenson (1989): https://doi.org/10.1016/0019-1035(89)90052-3
         #Qbot_W = kMid_WmK * Ttop_K / eLid_m * np.log(Tconv_K/Ttop_K) * 4*np.pi * (rTop_m - eLid_m)**2
-        # Doing lower TBL instead because eLid_m gets set to 0 if Tconv > Ttop
-        qBot_Wm2 = kMid_WmK * Tconv_K / deltaTBL_m * np.log(Tb_K/Tconv_K)
+        qBot_Wm2 = kMid_WmK * Tconv_K / eLid_m * np.log(Tb_K/Tconv_K)
 
         # The commented out lines match the Matlab, but this is not what Deschamps
         # and Sotin (2001) do, it is not consistent with the results of Andersson
@@ -275,4 +278,3 @@ def GetPbConduct(Ttop_K, Tb_K, rTop_m, Ptop_MPa, gTop_ms2, qTop_Wm2, EOS, rRes_m
         i += 1
 
     return Pb_MPa
-
