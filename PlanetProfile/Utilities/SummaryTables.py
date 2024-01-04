@@ -113,8 +113,12 @@ def GetLayerMeans(PlanetList, Params):
                                                            Planet.z_m[:-1] < Planet.z_m[Planet.Steps.nIbottom] + Planet.eLidIII_m)
                     iConvIII = np.logical_and(Planet.z_m[:-1] >= Planet.z_m[Planet.Steps.nIbottom] + Planet.eLidIII_m,
                                                            Planet.z_m[:-1] < Planet.z_m[Planet.Steps.nIIIbottom])
-                    Planet.Ocean.rhoCondMean_kgm3['III'] = np.sum(Planet.MLayer_kg[iCondIII]) / np.sum(Planet.VLayer_m3[iCondIII])
-                    Planet.Ocean.rhoConvMean_kgm3['III'] = np.sum(Planet.MLayer_kg[iConvIII]) / np.sum(Planet.VLayer_m3[iConvIII])
+                    if np.sum(iCondIII) > 0:
+                        Planet.Ocean.rhoCondMean_kgm3['III'] = np.sum(Planet.MLayer_kg[iCondIII]) / np.sum(Planet.VLayer_m3[iCondIII])
+                    if np.sum(iConvIII) > 0:
+                        Planet.Ocean.rhoConvMean_kgm3['III'] = np.sum(Planet.MLayer_kg[iConvIII]) / np.sum(Planet.VLayer_m3[iConvIII])
+                    else:
+                        Planet.Ocean.rhoConvMean_kgm3['III'] = np.nan
                     if Params.CALC_CONDUCT:
                         Planet.Ocean.sigmaCondMean_Sm['III'] = np.mean(Planet.sigma_Sm[iCondIII])
                         if np.sum(iConvIII) > 0:
@@ -124,13 +128,17 @@ def GetLayerMeans(PlanetList, Params):
                         Planet.Ocean.GScondMean_GPa['III'] = np.mean(Planet.Seismic.GS_GPa[iCondIII])
                         if np.sum(iConvIII) > 0:
                             Planet.Ocean.GSconvMean_GPa['III'] = np.mean(Planet.Seismic.GS_GPa[iConvIII])
+
                 if Planet.Do.BOTTOM_ICEV:
                     iCondV = np.logical_and(Planet.z_m[:-1] >= Planet.z_m[Planet.Steps.nIIIbottom],
                                                          Planet.z_m[:-1] < Planet.z_m[Planet.Steps.nIIIbottom] + Planet.eLidV_m)
                     iConvV = np.logical_and(Planet.z_m[:-1] >= Planet.z_m[Planet.Steps.nIIIbottom] + Planet.eLidV_m,
                                                          Planet.z_m[:-1] < Planet.z_m[Planet.Steps.nSurfIce])
-                    Planet.Ocean.rhoCondMean_kgm3['V'] = np.sum(Planet.MLayer_kg[iCondV]) / np.sum(Planet.VLayer_m3[iCondV])
-                    Planet.Ocean.rhoConvMean_kgm3['V'] = np.sum(Planet.MLayer_kg[iConvV]) / np.sum(Planet.VLayer_m3[iConvV])
+                    if np.sum(iCondV) > 0:
+                        Planet.Ocean.rhoCondMean_kgm3['V'] = np.sum(Planet.MLayer_kg[iCondV]) / np.sum(Planet.VLayer_m3[iCondV])
+                    if np.sum(iConvV) > 0:
+                        Planet.Ocean.rhoConvMean_kgm3['V'] = np.sum(Planet.MLayer_kg[iConvV]) / np.sum(Planet.VLayer_m3[iConvV])
+
                     if Params.CALC_CONDUCT:
                         Planet.Ocean.sigmaCondMean_Sm['V'] = np.mean(Planet.sigma_Sm[iCondV])
                         if np.sum(iConvV) > 0:
