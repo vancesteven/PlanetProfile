@@ -1418,6 +1418,16 @@ def CalcMoIWithEOS(Planet, Params):
                            (rSil_m[iCMR2sil,:nSilFinal[iCMR2sil]]**3 - rSil_m[iCMR2sil,1:nSilFinal[iCMR2sil]+1]**3))
         Planet.Sil.Htidal_Wm3 = HtotSil_W / VtotSil_m3
 
+        if Planet.Do.POROUS_ROCK and not Planet.Do.FIXED_POROSITY:
+            if Planet.Do.Fe_CORE:
+                Planet.Sil.phiCalc_frac = Planet.Sil.phiRockMax_frac
+            else:
+                Planet.Sil.phiCalc_frac = phiTop_frac[iCMR2sil]
+        else:
+            if Planet.Do.FIXED_POROSITY:
+                Planet.Sil.phiCalc_frac = Planet.Sil.phiRockMax_frac
+            else:
+                Planet.Sil.phiCalc_frac = np.nan
         if Planet.Do.Fe_CORE:
             # Get indices for iron layer arrays
             iCMR2core = np.where(indsSilValid == iCMR2sil)[0][0]
@@ -1436,13 +1446,8 @@ def CalcMoIWithEOS(Planet, Params):
                          MLayerCore_kg[iCMR2core,:])
         else:
             if Planet.Do.POROUS_ROCK and not Planet.Do.FIXED_POROSITY:
-                Planet.Sil.phiCalc_frac = phiTop_frac[iCMR2sil]
                 RcoreOrHtidalLine = f'phi_vac = {Planet.Sil.phiCalc_frac:.3f}, '
             else:
-                if Planet.Do.FIXED_POROSITY:
-                    Planet.Sil.phiCalc_frac = Planet.Sil.phiRockMax_frac
-                else:
-                    Planet.Sil.phiCalc_frac = np.nan
                 RcoreOrHtidalLine = f'H_tidal = {Planet.Sil.Htidal_Wm3:.2e} W/m^3, '
             MtotCore_kg = 0
             Planet.Core.rhoMean_kgm3 = 0
