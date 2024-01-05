@@ -990,7 +990,7 @@ def PlotExploreOgram(ExplorationList, Params):
         ax.set_ylim([np.min(y), np.max(y)])
         # Only keep data points for which a valid model was determined
         zShape = np.shape(z)
-        z = np.reshape(z, -1)
+        z = np.reshape(z, -1).astype(np.float_)
         INVALID = np.logical_not(np.reshape(Exploration.VALID, -1))
         z[INVALID] = np.nan
         # Return data to original organization
