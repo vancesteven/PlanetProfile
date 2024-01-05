@@ -1109,6 +1109,11 @@ def CalcMoIConstantRho(Planet, Params):
         Planet.Core.rhoMean_kgm3 = rhoCore_kgm3
         Planet.Mtot_kg = Planet.Bulk.M_kg
 
+    if Planet.Do.POROUS_ROCK:
+        Planet.Sil.phiCalc_frac = Planet.Sil.phiRockMax_frac
+    else:
+        Planet.Sil.phiCalc_frac = np.nan
+
     mantleProps = (Psil_MPa[0,:Planet.Steps.nSil], Tsil_K[0,:Planet.Steps.nSil], rSil_m[0,:Planet.Steps.nSil],
                    rhoSilEOS_kgm3[0,:Planet.Steps.nSil], gSil_ms2[0,:Planet.Steps.nSil],
                    phiSil_frac[0,:Planet.Steps.nSil], HtidalSil_Wm3[0,:Planet.Steps.nSil],

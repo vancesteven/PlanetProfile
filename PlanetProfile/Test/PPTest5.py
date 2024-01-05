@@ -30,7 +30,7 @@ Planet.Do.POROUS_ROCK = False
 Planet.Sil.poreH2Orho_kgm3 = 0.0
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
-Planet.Do.CONSTANT_INNER_DENSITY = True  # Forcing this on because we don't have a good Io-specific composition dialed in yet
+Planet.Do.CONSTANT_INNER_DENSITY = True  # Testing this feature
 Planet.Sil.rhoSilWithCore_kgm3 = 3290.0
 
 """ Core assumptions """
