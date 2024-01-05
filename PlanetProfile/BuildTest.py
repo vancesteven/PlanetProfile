@@ -13,7 +13,7 @@ from copy import deepcopy
 from PlanetProfile import _Test, _TestImport
 from PlanetProfile.GetConfig import Params as configParams
 from PlanetProfile.Main import PlanetProfile, InductOgram, ReloadInductOgram, ExploreOgram, ReloadExploreOgram
-from PlanetProfile.Plotting.ProfilePlots import PlotExploreOgram
+from PlanetProfile.Plotting.ProfilePlots import PlotExploreOgram, PlotExploreOgramDsigma
 from PlanetProfile.Plotting.MagPlots import PlotInductOgram
 from PlanetProfile.Test.TestBayes import TestBayes
 
@@ -272,7 +272,15 @@ def TestExploreOgram(testNum, Params, CALC_NEW=True):
     else:
         Exploration, Params = ReloadExploreOgram(testName, Params)
         end = ' RELOAD'
-    PlotExploreOgram([Exploration], Params)
+
+    if isinstance(Params.Explore.zName, list):
+        figNames = Params.FigureFiles.explore + []
+        for zName, figName in zip(Params.Explore.zName, figNames):
+            Exploration.zName = zName
+            Params.FigureFiles.explore = figName
+            PlotExploreOgram([Exploration], Params)
+        Params.FigureFiles.explore = figNames
+    PlotExploreOgramDsigma([Exploration], Params)
     Exploration.name = testName
     Exploration.saveLabel = f'{Params.Explore.xName} x {Params.Explore.yName} explore-o-gram{end}'
 
