@@ -586,7 +586,7 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
             nprmMax = 1
 
         if os.path.isfile(os.path.join(fPath, f'{fNames[0]}.txt')):
-            inpTexc_hr, inpBenm_nT, B0_nT = GetBenm(nprmMax, pMax, fpath=fPath, fName=fNames[0])
+            inpTexc_hr, inpBenm_nT, B0_nT, BeNames = GetBenm(nprmMax, pMax, fpath=fPath, fName=fNames[0])
             BeList = Excitations(bodyname)
             eachT = np.logical_and([excSelection[key] for key in BeList.keys()], [BeList[key] is not None for key in BeList.keys()])
             nPeaks = sum(eachT)
