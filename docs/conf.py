@@ -9,6 +9,9 @@
 import os
 import sys
 
+sys.path.append(os.path.dirname(__file__))
+from misc.upgreek import upgreekDefs
+
 project = 'PlanetProfile'
 copyright = '2023, Steven D. Vance and Marshall J. Styczinski'
 author = 'Steven D. Vance, Marshall J. Styczinski, and PlanetProfile collaborators'
@@ -20,10 +23,11 @@ release = 'v2.3.18'
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
               'sphinxcontrib.apidoc',
-              'sphinx.ext.autosummary',
               'sphinxcontrib.matlab',
+              'sphinx.ext.mathjax',
               'myst_parser']
 source_suffix = ['.rst', '.md']
+mathjaxVer = 2
 
 _HERE = os.path.dirname(__file__)
 _ROOT_DIR = os.path.abspath(os.path.join(_HERE, '..'))
@@ -64,3 +68,26 @@ html_theme_options = {
     'sticky_navigation': True,
     'navigation_depth': -1
 }
+
+
+# -- Options for LaTeX math formatting-----------
+# https://www.sphinx-doc.org/en/master/latex.html
+
+# This block is used when the sphinx.ext.mathjax extension is loaded
+latex_packages = ['upgreek', 'mhchem']
+if mathjaxVer == 3:
+    # Does not support STIX fonts as of v3.2.
+    mathjax_path='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js'
+    mathjax3_config = {
+      'loader': {'load': [f'[tex]/{pkg}' for pkg in latex_packages]},
+      'tex': {'packages': {'[+]': [latex_packages]}}
+    }
+else:
+    mathjax_path = 'https://cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
+    latex_packages.remove('upgreek')
+    latex_packages += ['unicode']
+    mathjax2_config = {
+        'extensions': ['tex2jax.js'] , #+ [f'TeX/{pkg}.js' for pkg in latex_packages],
+        'TeX': {'extensions': [f'{pkg}.js' for pkg in latex_packages], 'Macros': upgreekDefs},
+        'HTML-CSS': {'fonts': ['STIX-Web']}
+    }
