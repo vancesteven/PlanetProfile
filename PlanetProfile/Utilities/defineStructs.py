@@ -719,8 +719,8 @@ class InductOgramParamsStruct:
         self.cfmt = cfmt
         self.colorType = 'zb'  # What parameter to use for color of points in phase space plots. Options are "Tmean", "zb".
         self.SPECIFIC_CLEVELS = False  # Whether to use the specific cLevels listed below or default numbers
-        self.excSelectionCalc = {'synodic': True, 'orbital': True, 'true anomaly': True,  'synodic harmonic': True}  # Which magnetic excitations to include in calculations
-        self.excSelectionPlot = {'synodic': True, 'orbital': True, 'true anomaly': False, 'synodic harmonic': True}  # Which magnetic excitations to include in plotting
+        self.excSelectionCalc = {'synodic': True, 'orbital': True, 'true anomaly': True,  'synodic 2nd': True}  # Which magnetic excitations to include in calculations
+        self.excSelectionPlot = {'synodic': True, 'orbital': True, 'true anomaly': False, 'synodic 2nd': True}  # Which magnetic excitations to include in plotting
         self.nwPts = None  # Resolution for salinity values in ocean salinity vs. other plots
         self.wMin = None
         self.wMax = None
@@ -821,7 +821,7 @@ class InductOgramParamsStruct:
                 bodyname = 'Europa'
             else:
                 bodyname = self.bodyname
-            return self.cFmt[bodyname][Tname][zName]
+            return self.cfmt[bodyname][Tname][zName]
         
         else:
             return None
@@ -952,7 +952,7 @@ class ExplorationStruct:
 class ColorStruct:
     # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
     def __init__(self):
-        self.Induction = {'synodic': None, 'orbital': None, 'true anomaly': None, 'synodic harmonic': None}  # Colors for inductOgram plots
+        self.Induction = {'synodic': None, 'orbital': None, 'true anomaly': None, 'synodic 2nd': None}  # Colors for inductOgram plots
         self.ref = None
         self.PALE_SILICATES = False  # Whether to use a lighter color scheme for silicate layers, or a more "orangey" saturated one
         self.geotherm = None  # Color to use for geotherm in silicate/core PT plots
