@@ -41,7 +41,8 @@ def LoadKernels(Params, parent, scName):
             os.path.join(Params.spiceDir, Params.spicePCK),
             os.path.join(Params.spiceDir, Params.spiceBSP[parentStr])
         ] + [os.path.join(Params.spiceDir, FK) for FK in Params.spiceFK] \
-          + GetFilesFromPattern(os.path.join(Params.spiceSC[scName], '*.bsp'))
+          + GetFilesFromPattern(os.path.join(Params.spiceSC[scName], '*.bsp')) \
+          + GetFilesFromPattern(os.path.join(Params.spiceSC[scName], '*.tm'))
         kernelList = kernelList + [os.path.join(Params.spiceDir, Params.spiceBSP[xparent]) for xparent in extraParents if xparent is not None]
         log.debug(', '.join(kernelList))
         ERRORS = False
