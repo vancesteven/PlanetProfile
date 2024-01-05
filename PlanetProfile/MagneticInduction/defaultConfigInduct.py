@@ -3,7 +3,7 @@ import numpy as np
 from PlanetProfile.Utilities.defineStructs import InductOgramParamsStruct, \
     ExcitationSpectrumParamsStruct, ConductLayerParamsStruct, Constants
 
-configInductVersion = 4  # Integer number for config file version. Increment when new settings are added to the default config file.
+configInductVersion = 5  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def inductAssign():
     inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
@@ -41,8 +41,8 @@ def GetInductParams(inductOtype, cLevels, dftC, cfmt):
     # Inductogram calculation and plot settings
     InductParams.colorType = 'zb'  # What parameter to use for color of points in phase space plots. Options are "Tmean", "zb".
     InductParams.SPECIFIC_CLEVELS = True  # Whether to use the specific cLevels listed below (in GetClevels) or use default numbers
-    InductParams.excSelectionCalc = {'synodic':  True, 'orbital':  True, 'true anomaly':  True, 'synodic harmonic':  True, 'synodic 2nd harmonic':  True, 'synodic-TA slow beat':  True, 'synodic-TA fast beat':  True}  # Which magnetic excitations to include in calculations
-    InductParams.excSelectionPlot = {'synodic':  True, 'orbital':  True, 'true anomaly':  True, 'synodic harmonic':  True, 'synodic 2nd harmonic': False, 'synodic-TA slow beat': False, 'synodic-TA fast beat': False}  # Which magnetic excitations to include in plotting
+    InductParams.excSelectionCalc = {'synodic':  True, 'orbital':  True, 'true anomaly':  True, 'synodic 2nd':  True, 'synodic 3rd':  True, 'synodic-TA beat':  True, 'synodic+TA beat':  True}  # Which magnetic excitations to include in calculations
+    InductParams.excSelectionPlot = {'synodic':  True, 'orbital':  True, 'true anomaly':  True, 'synodic 2nd':  True, 'synodic 3rd': False, 'synodic-TA beat': False, 'synodic+TA beat': False}  # Which magnetic excitations to include in plotting
     InductParams.nwPts = 40  # Resolution for salinity values in ocean salinity vs. other plots
     InductParams.wMin = {'Europa': np.log10(1), 'Enceladus': np.log10(0.1)}
     InductParams.wMax = {'Europa': np.log10(Constants.stdSeawater_ppt), 'Enceladus': np.log10(1.5*Constants.stdSeawater_ppt)}
@@ -81,7 +81,7 @@ def GetClevels(inductOtype, dftC, testBody):
                 'synodic':         {'Amp': dftC, 'Bx': [15, 50, 80, 170, 190, 200], 'By': dftC, 'Bz': dftC, 'phase': dftC+2},
                 'orbital':         {'Amp': dftC, 'Bx': [1, 4, 11, 12.5, 13.3, 14.3], 'By': dftC, 'Bz': dftC, 'phase': dftC-2},
                 'true anomaly':    {'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC-3},
-                'synodic harmonic':{'Amp': dftC, 'Bx': [6, 9, 9.9], 'By': dftC, 'Bz': dftC, 'phase': dftC-2}
+                'synodic 2nd':{'Amp': dftC, 'Bx': [6, 9, 9.9], 'By': dftC, 'Bz': dftC, 'phase': dftC-2}
             }
         }
     else:
@@ -90,7 +90,7 @@ def GetClevels(inductOtype, dftC, testBody):
                 'synodic': {'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC+2},
                 'orbital': {'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC-2},
                 'true anomaly': {'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC-3},
-                'synodic harmonic': {'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC-2}
+                'synodic 2nd': {'Amp': dftC, 'Bx': dftC, 'By': dftC, 'Bz': dftC, 'phase': dftC-2}
             }
         }
 
@@ -107,7 +107,7 @@ def GetContourFmt(testBody):
             'synodic':         {'Amp': deftAmp, 'Bx': '%1.0f', 'By': '%1.0f', 'Bz': deftFmt, 'phase': deftPhi},
             'orbital':         {'Amp': deftAmp, 'Bx': deftFmt, 'By': deftFmt, 'Bz': deftFmt, 'phase': deftPhi},
             'true anomaly':    {'Amp': deftAmp, 'Bx': '%1.2f', 'By': '%1.2f', 'Bz': deftFmt, 'phase': deftPhi},
-            'synodic harmonic':{'Amp': deftAmp, 'Bx': deftFmt, 'By': deftFmt, 'Bz': '%1.2f', 'phase': deftPhi}
+            'synodic 2nd':{'Amp': deftAmp, 'Bx': deftFmt, 'By': deftFmt, 'Bz': '%1.2f', 'phase': deftPhi}
         }
     }
 

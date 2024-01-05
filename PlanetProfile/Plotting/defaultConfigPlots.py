@@ -14,7 +14,7 @@ def plotAssign():
     FigMisc = FigMiscStruct()
 
     """ Figure color options """
-    Color.Induction = {'synodic': 'blue', 'orbital': 'purple', 'true anomaly': 'green', 'synodic harmonic': 'goldenrod'}  # Colors for inductOgram plots
+    Color.Induction = {'synodic': 'blue', 'orbital': 'purple', 'true anomaly': 'green', 'synodic 2nd': 'goldenrod'}  # Colors for inductOgram plots
     Color.ref = 'gray'
     Color.geothermHydro = 'yellow'
     Color.geothermInner = 'white'
@@ -156,8 +156,8 @@ def plotAssign():
     Style.LS_seis = {'KS': '-', 'GS': '--', 'VP': '-', 'VS': '--', 'QS': '-', 'P': '-', 'T': '--', 'rho': '-.'}
     Style.LS_ref = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-'}  # Style for reference profiles
     Style.LW_ref = 0.75  # Linewidth for reference profiles
-    Style.LS_Induction = {'synodic': '-', 'orbital': ':', 'true anomaly': ':', 'synodic harmonic': '--'}  # Style for inductOgram plots
-    Style.LW_Induction = {'synodic': 1.5, 'orbital': 1.5, 'true anomaly': 1.5, 'synodic harmonic': 1.5}  # Widths for inductOgram plots
+    Style.LS_Induction = {'synodic': '-', 'orbital': ':', 'true anomaly': ':', 'synodic 2nd': '--'}  # Style for inductOgram plots
+    Style.LW_Induction = {'synodic': 1.5, 'orbital': 1.5, 'true anomaly': 1.5, 'synodic 2nd': 1.5}  # Widths for inductOgram plots
     Style.MW_Induction = 2  # Marker size to use for induction scatter plots
     Style.MS_Induction = 'o'  # Marker style for induction scatter plots
 
@@ -172,8 +172,8 @@ def plotAssign():
     Style.LW_markRadii = 0.375  # Linewidth for radii mark line when toggled on
 
     # Complex dipole plots
-    Style.MW_dip = {'synodic': 5, 'orbital': 6, 'true anomaly': 6, 'synodic harmonic': 4.5}  # Marker size for each period in complex dipole plots
-    Style.MS_dip = {'synodic': '*', 'orbital': 'o', 'true anomaly': 'P', 'synodic harmonic': 'h'}  # Marker style for each period in complex dipole plots
+    Style.MW_dip = {'synodic': 5, 'orbital': 6, 'true anomaly': 6, 'synodic 2nd': 4.5}  # Marker size for each period in complex dipole plots
+    Style.MS_dip = {'synodic': '*', 'orbital': 'o', 'true anomaly': 'P', 'synodic 2nd': 'h'}  # Marker style for each period in complex dipole plots
     Style.MAlims = [0, 1]  # Alpha channel (opacity) limits for markers
     Style.LS_BdipInset = '-'  # Linestyle for inset box
     Style.LW_BdipInset = 0.5  # Linewidth for inset box
