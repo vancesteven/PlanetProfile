@@ -1101,7 +1101,8 @@ def PlotExploreOgramDsigma(ExplorationList, Params):
         VALID = np.logical_not(np.logical_or(np.isnan(x), np.isnan(y)))
         x = x[VALID]
         y = y[VALID]
-        ax.set_xlim([np.min(x), np.max(x)])
+        if np.size(x) > 0:
+            ax.set_xlim([np.min(x), np.max(x)])
         linzb = np.reshape(Exploration.zb_km, -1)[VALID]
         pts = ax.scatter(x, y, c=linzb,
                          cmap=Color.cmap[Exploration.oceanComp[0,0]],
@@ -1111,8 +1112,9 @@ def PlotExploreOgramDsigma(ExplorationList, Params):
         # Append the max value to the colorbar for reading convenience
         # We compare z values to z values to exclude nans from the max finding,
         # exploiting the fact that nan == nan is False.
-        new_ticks = np.insert(np.append(cbar.get_ticks(), np.max(linzb)), 0, np.min(linzb))
-        cbar.set_ticks(np.unique(new_ticks))
+        if np.size(linzb) > 0:
+            new_ticks = np.insert(np.append(cbar.get_ticks(), np.max(linzb)), 0, np.min(linzb))
+            cbar.set_ticks(np.unique(new_ticks))
         cbar.set_label(FigLbl.cbarLabelExplore, size=12)
 
         plt.tight_layout()
@@ -1121,5 +1123,3 @@ def PlotExploreOgramDsigma(ExplorationList, Params):
         plt.close()
 
     return
-
-

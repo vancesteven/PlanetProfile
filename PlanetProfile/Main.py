@@ -1387,6 +1387,7 @@ def ExploreOgram(bodyname, Params):
         Exploration = ExplorationResults
         Exploration.xName = Params.Explore.xName
         Exploration.yName = Params.Explore.yName
+        Exploration.zName = Params.Explore.zName
         Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Exploration.yName}',
                                                 figExploreAppend=Params.Explore.zName)
         if bodyname == 'Test':
