@@ -409,6 +409,12 @@ def OceanLayers(Planet, Params):
             raise ValueError('Phase of first "ocean" layer is not zero.')
 
         # Start ocean pressure at the melting pressure and assign linear pressure profile for layers
+        # First, check that PHydroMax is high enough for the ice shell solution
+        if Planet.Ocean.PHydroMax_MPa < Planet.Pb_MPa:
+            raise ValueError(f'Ocean.PHydroMax_MPa is {Planet.Ocean.PHydroMax_MPa:.1f}, but the ' +
+                             f'ice shell bottom temperature was found to be {Planet.Pb_MPa} MPa. ' +
+                             f'Increase Ocean.PHydroMax_MPa to well beyond this value to avoid ' +
+                             f'this problem.')
         POcean_MPa = np.arange(Planet.Pb_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
         Planet.Steps.nOceanMax = np.size(POcean_MPa)
 
