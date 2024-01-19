@@ -73,6 +73,9 @@ class DoSubstruct:
         self.CLATHRATE = False  # Whether to model clathrates
         self.NAGASHIMA_CLATH_DISSOC = False  # Whether to use extrapolation of Nagashima (2017) dissertation provided by S. Nozaki (private communication) for clathrate dissociation (alternative is Sloan (1998)). WIP.
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
+        self.PARTIAL_DIFFERENTIATION = False  # Whether to model a partially differentiated body, with no ocean, but variable mixing/porosity and pore melt possible
+        self.NO_DIFFERENTIATION = False  # Whether to model a completely undifferentiated body, with no ocean, with fixed mixing/porosity and pore melt possible
+        self.NO_OCEAN = False  # Tracks whether no ocean is present---this flag is set programmatically.
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
         self.ICEIh_DIFFERENT = True  # Whether to use an amalgamation fit to a broad swath of data from Wolfenbarger et al. (2021) for ice Ih thermal conductivity (in place of all-phases fit model).
@@ -2106,6 +2109,7 @@ class ConstantsStruct:
         self.R = 8.314  # Ideal gas constant in J/mol/K
         self.mu0 = 4e-7*np.pi  # Permeability of free space (magnetic constant)
         self.Pmin_MPa = 1e-16  # Minimum value to set for pressure to avoid taking log(0)
+        self.PclosureUniform_MPa = 2e12  # Pore closure pressure value to use for uniform porosity
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
         self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0).
         self.m_gmol = {  # Molecular mass of common solutes and gases in g/mol. From https://pubchem.ncbi.nlm.nih.gov/ search

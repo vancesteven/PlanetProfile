@@ -27,220 +27,210 @@ def IceLayers(Planet, Params):
         Assigns Planet attributes:
             Steps.nSurfIce, phase, r_m, z_m, g_ms2, T_K, P_MPa, rho_kgm3, Cp_JkgK, alpha_pK, MLayer_kg, PbI_MPa, Pb_MPa
     """
-    Planet.Steps.nIbottom = Planet.Steps.nClath + Planet.Steps.nIceI
-    Planet.Steps.nIIIbottom = Planet.Steps.nIbottom + Planet.Steps.nIceIIILitho
-    Planet.Steps.nSurfIce = Planet.Steps.nIIIbottom + Planet.Steps.nIceVLitho
-    # Assign phase values for near-surface ices
-    Planet.phase[:Planet.Steps.nIbottom] = 1  # Ice Ih layers (some will be reassigned if Do.CLATHRATE = True)
-    Planet.phase[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom] = 3  # Ice III layers
-    Planet.phase[Planet.Steps.nIIIbottom:Planet.Steps.nSurfIce] = 5  # Ice V layers
 
-    # Get the pressure consistent with the bottom of the surface ice layer that is
-    # consistent with the choice of Tb_K we suppose for this model
-    Planet.PbI_MPa = GetPfreeze(Planet.Ocean.meltEOS, 1, Planet.Bulk.Tb_K,
-                                PLower_MPa=Planet.PfreezeLower_MPa, PUpper_MPa=Planet.PfreezeUpper_MPa,
-                                PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=(Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV),
-                                ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
-    if(Planet.Do.CLATHRATE and
-            (Planet.Bulk.clathType == 'bottom' or
-             Planet.Bulk.clathType == 'whole')):
-        PbClath_MPa = Planet.Ocean.ClathDissoc.PbClath_MPa()
-        if not np.isnan(PbClath_MPa):
-            log.debug(f'Clathrate dissociation pressure: {PbClath_MPa:.3f} MPa.')
-            if PbClath_MPa < Planet.PbI_MPa:
-                raise ValueError('Dissociation pressure for clathrates is lower than the ice Ih ' +
-                                 'melting pressure consistent with Bulk.Tb_K. This means ice Ih layers ' +
-                                 'will be found underneath the clathrate layers, inconsistent with the ' +
-                                 'assumption that clathrates are in contact with the ocean. Increase ' +
-                                 f'Bulk.Tb_K until PbClath_MPa ({PbClath_MPa:.3f} MPa) ' +
-                                 f'exceeds PbI_MPa ({Planet.PbI_MPa:.3f} MPa).')
-        Planet.PbI_MPa = PbClath_MPa
+    if Planet.Do.PARTIAL_DIFFERENTIATION:
+        log.debug('Skipping ice layer in partially differentiated body. A future update will ' +
+                  'include an option for whether to include an ice shell atop a mixed rock-and-' +
+                  'ice interior. The current implementation includes only variable mixing in an ' +
+                  'entirely rock+ice body.')
     else:
-        if np.isnan(Planet.PbI_MPa):
-            msg = f'No valid phase transition was found for Tb_K = {Planet.Bulk.Tb_K:.3f} K for P in the range ' + \
-                  f'[{Planet.PfreezeLower_MPa:.1f} MPa, {Planet.PfreezeUpper_MPa:.1f} MPa]. ' + \
-                  'This likely means Tb_K is too high and the phase at the lower end of this range matches ' + \
-                  'the phase at the upper end. Try decreasing Tb_K. The ice shell will be set to zero thickness.'
-            if (not Params.DO_EXPLOREOGRAM) and (not Params.DO_INDUCTOGRAM):
-                if Planet.Bulk.Tb_K > 271:
-                    log.warning(msg)
-                else:
-                    raise ValueError(msg)
-            Planet.PbI_MPa = 0.0
-        log.debug(f'Ice Ih transition pressure: {Planet.PbI_MPa:.3f} MPa.')
+        Planet.Steps.nIbottom = Planet.Steps.nClath + Planet.Steps.nIceI
+        Planet.Steps.nIIIbottom = Planet.Steps.nIbottom + Planet.Steps.nIceIIILitho
+        Planet.Steps.nSurfIce = Planet.Steps.nIIIbottom + Planet.Steps.nIceVLitho
+        # Assign phase values for near-surface ices
+        Planet.phase[:Planet.Steps.nIbottom] = 1  # Ice Ih layers (some will be reassigned if Do.CLATHRATE = True)
+        Planet.phase[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom] = 3  # Ice III layers
+        Planet.phase[Planet.Steps.nIIIbottom:Planet.Steps.nSurfIce] = 5  # Ice V layers
 
-    if Planet.PbI_MPa > 0:
-        # Now do the same for HP ices, if present, to make sure we have a possible configuration before continuing
-        if Planet.Do.BOTTOM_ICEV:
-            Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.meltEOS, 3, Planet.Bulk.TbIII_K,
-                       PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
-                       PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=True,
-                       ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
-            if(Planet.PbIII_MPa <= Planet.PbI_MPa) or np.isnan(Planet.PbIII_MPa):
-                msg = 'Ice III bottom pressure is not greater than ice I bottom pressure. ' + \
-                      'This likely indicates TbIII_K is too high for the corresponding Tb_K.' + \
-                      f'\nPbI_MPa = {Planet.PbI_MPa:.3f}' + \
-                      f', Tb_K = {Planet.Bulk.Tb_K:.3f}' + \
-                      f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' + \
-                      f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}'
-                if Params.ALLOW_BROKEN_MODELS:
-                    Planet.PbIII_MPa = np.nan
-                    if Params.DO_EXPLOREOGRAM:
-                        log.info(msg)
+        # Get the pressure consistent with the bottom of the surface ice layer that is
+        # consistent with the choice of Tb_K we suppose for this model
+        Planet.PbI_MPa = GetPfreeze(Planet.Ocean.meltEOS, 1, Planet.Bulk.Tb_K,
+                                    PLower_MPa=Planet.PfreezeLower_MPa, PUpper_MPa=Planet.PfreezeUpper_MPa,
+                                    PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=(Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV),
+                                    ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
+        if(Planet.Do.CLATHRATE and
+                (Planet.Bulk.clathType == 'bottom' or
+                 Planet.Bulk.clathType == 'whole')):
+            PbClath_MPa = Planet.Ocean.ClathDissoc.PbClath_MPa()
+            if not np.isnan(PbClath_MPa):
+                log.debug(f'Clathrate dissociation pressure: {PbClath_MPa:.3f} MPa.')
+                if PbClath_MPa < Planet.PbI_MPa:
+                    raise ValueError('Dissociation pressure for clathrates is lower than the ice Ih ' +
+                                     'melting pressure consistent with Bulk.Tb_K. This means ice Ih layers ' +
+                                     'will be found underneath the clathrate layers, inconsistent with the ' +
+                                     'assumption that clathrates are in contact with the ocean. Increase ' +
+                                     f'Bulk.Tb_K until PbClath_MPa ({PbClath_MPa:.3f} MPa) ' +
+                                     f'exceeds PbI_MPa ({Planet.PbI_MPa:.3f} MPa).')
+            Planet.PbI_MPa = PbClath_MPa
+        else:
+            if np.isnan(Planet.PbI_MPa):
+                msg = f'No valid phase transition was found for Tb_K = {Planet.Bulk.Tb_K:.3f} K for P in the range ' + \
+                      f'[{Planet.PfreezeLower_MPa:.1f} MPa, {Planet.PfreezeUpper_MPa:.1f} MPa]. ' + \
+                      'This likely means Tb_K is too high and the phase at the lower end of this range matches ' + \
+                      'the phase at the upper end. Try decreasing Tb_K or increasing Planet.PfreezeUpper_MPa. ' + \
+                      'For this model, the ice shell will be set to zero thickness.'
+                if (not Params.DO_EXPLOREOGRAM) and (not Params.DO_INDUCTOGRAM):
+                    if Planet.Bulk.Tb_K > 271:
+                        log.warning(msg)
                     else:
-                        log.error(msg)
-                    Planet.Do.VALID = False
-                    Planet.invalidReason = 'TbIII_K is too high compared to Tb_K'
+                        raise ValueError(msg)
+                Planet.PbI_MPa = 0.0
+            log.debug(f'Ice Ih transition pressure: {Planet.PbI_MPa:.3f} MPa.')
+
+        if Planet.PbI_MPa > 0:
+            # Now do the same for HP ices, if present, to make sure we have a possible configuration before continuing
+            if Planet.Do.BOTTOM_ICEV:
+                Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.meltEOS, 3, Planet.Bulk.TbIII_K,
+                           PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
+                           PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=True,
+                           ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
+                if(Planet.PbIII_MPa <= Planet.PbI_MPa) or np.isnan(Planet.PbIII_MPa):
+                    msg = 'Ice III bottom pressure is not greater than ice I bottom pressure. ' + \
+                          'This likely indicates TbIII_K is too high for the corresponding Tb_K.' + \
+                          f'\nPbI_MPa = {Planet.PbI_MPa:.3f}' + \
+                          f', Tb_K = {Planet.Bulk.Tb_K:.3f}' + \
+                          f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' + \
+                          f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}'
+                    if Params.ALLOW_BROKEN_MODELS:
+                        Planet.PbIII_MPa = np.nan
+                        if Params.DO_EXPLOREOGRAM:
+                            log.info(msg)
+                        else:
+                            log.error(msg)
+                        Planet.Do.VALID = False
+                        Planet.invalidReason = 'TbIII_K is too high compared to Tb_K'
+                    else:
+                        raise ValueError(msg)
+                if not np.isnan(Planet.PbIII_MPa):
+                    Planet.PbV_MPa = GetPfreeze(Planet.Ocean.meltEOS, 5, Planet.Bulk.TbV_K,
+                                                  PLower_MPa=Planet.PbIII_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
+                                                  PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False,
+                                                  ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS,
+                                                  DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
                 else:
-                    raise ValueError(msg)
-            if not np.isnan(Planet.PbIII_MPa):
-                Planet.PbV_MPa = GetPfreeze(Planet.Ocean.meltEOS, 5, Planet.Bulk.TbV_K,
-                                              PLower_MPa=Planet.PbIII_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
+                    Planet.PbV_MPa = np.nan
+                Planet.Pb_MPa = Planet.PbV_MPa
+                if(Planet.PbV_MPa <= Planet.PbIII_MPa) or np.isnan(Planet.PbV_MPa):
+                    msg = 'Ice V bottom pressure is not greater than ice III bottom pressure. ' + \
+                          'This likely indicates TbV_K is too high for the corresponding TbIII_K.' + \
+                          f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' + \
+                          f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}' + \
+                          f'\nPbV_MPa = {Planet.PbV_MPa:.3f}' + \
+                          f', TbV_K = {Planet.Bulk.TbV_K:.3f}'
+                    if Params.ALLOW_BROKEN_MODELS:
+                        Planet.PbIII_MPa = np.nan
+                        if Params.DO_EXPLOREOGRAM:
+                            log.info(msg)
+                        else:
+                            log.error(msg)
+                        Planet.Do.VALID = False
+                        Planet.invalidReason = 'TbV_K is too high compared to Tb_K'
+                    else:
+                        raise ValueError(msg)
+            elif Planet.Do.BOTTOM_ICEIII:
+                Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.meltEOS, 3, Planet.Bulk.TbIII_K,
+                                              PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
                                               PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False,
                                               ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS,
                                               DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
+                if(Planet.PbIII_MPa <= Planet.PbI_MPa) or np.isnan(Planet.PbIII_MPa):
+                    msg = 'Ice III bottom pressure is not greater than ice I bottom pressure. ' + \
+                          'This likely indicates TbIII_K is too high for the corresponding Tb_K.' + \
+                          f'\nPbI_MPa = {Planet.PbI_MPa:.3f}' + \
+                          f', Tb_K = {Planet.Bulk.Tb_K:.3f}' + \
+                          f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' + \
+                          f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}'
+                    if Params.ALLOW_BROKEN_MODELS:
+                        Planet.PbIII_MPa = np.nan
+                        if Params.DO_EXPLOREOGRAM:
+                            log.info(msg)
+                        else:
+                            log.error(msg)
+                        Planet.Do.VALID = False
+                        Planet.invalidReason = 'TbIII_K is too high compared to Tb_K'
+                    else:
+                        raise ValueError(msg)
+                Planet.Pb_MPa = Planet.PbIII_MPa
             else:
-                Planet.PbV_MPa = np.nan
-            Planet.Pb_MPa = Planet.PbV_MPa
-            if(Planet.PbV_MPa <= Planet.PbIII_MPa) or np.isnan(Planet.PbV_MPa):
-                msg = 'Ice V bottom pressure is not greater than ice III bottom pressure. ' + \
-                      'This likely indicates TbV_K is too high for the corresponding TbIII_K.' + \
-                      f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' + \
-                      f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}' + \
-                      f'\nPbV_MPa = {Planet.PbV_MPa:.3f}' + \
-                      f', TbV_K = {Planet.Bulk.TbV_K:.3f}'
-                if Params.ALLOW_BROKEN_MODELS:
-                    Planet.PbIII_MPa = np.nan
-                    if Params.DO_EXPLOREOGRAM:
-                        log.info(msg)
-                    else:
-                        log.error(msg)
-                    Planet.Do.VALID = False
-                    Planet.invalidReason = 'TbV_K is too high compared to Tb_K'
-                else:
-                    raise ValueError(msg)
-        elif Planet.Do.BOTTOM_ICEIII:
-            Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.meltEOS, 3, Planet.Bulk.TbIII_K,
-                                          PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
-                                          PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False,
-                                          ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS,
-                                          DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
-            if(Planet.PbIII_MPa <= Planet.PbI_MPa) or np.isnan(Planet.PbIII_MPa):
-                msg = 'Ice III bottom pressure is not greater than ice I bottom pressure. ' + \
-                      'This likely indicates TbIII_K is too high for the corresponding Tb_K.' + \
-                      f'\nPbI_MPa = {Planet.PbI_MPa:.3f}' + \
-                      f', Tb_K = {Planet.Bulk.Tb_K:.3f}' + \
-                      f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' + \
-                      f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}'
-                if Params.ALLOW_BROKEN_MODELS:
-                    Planet.PbIII_MPa = np.nan
-                    if Params.DO_EXPLOREOGRAM:
-                        log.info(msg)
-                    else:
-                        log.error(msg)
-                    Planet.Do.VALID = False
-                    Planet.invalidReason = 'TbIII_K is too high compared to Tb_K'
-                else:
-                    raise ValueError(msg)
-            Planet.Pb_MPa = Planet.PbIII_MPa
+                Planet.Pb_MPa = Planet.PbI_MPa
+
+        elif Planet.Pb_MPa == 0 and Planet.Bulk.Tsurf_K == Planet.Bulk.Tb_K:
+            # This config needs to be caught in SetupInit.
+            pass
+
         else:
-            Planet.Pb_MPa = Planet.PbI_MPa
-
-    elif Planet.Pb_MPa == 0 and Planet.Bulk.Tsurf_K == Planet.Bulk.Tb_K:
-        # This config needs to be caught in SetupInit.
-        pass
-
-    else:
-        Planet.Pb_MPa = np.nan
-        Planet.Do.VALID = False
-        Planet.invalidReason = 'Tb_K too high compared to underplate TbIII_K and/or TbV_K'
-        if not Params.ALLOW_BROKEN_MODELS:
-            raise RuntimeError('Unable to find a valid pressure corresponding to Bulk.TbX_K values. ' +
-                               f'This is usually because Bulk.Tb_K (currently {Planet.Bulk.Tb_K:.3f}) ' +
-                               'is set too high. Try decreasing Bulk.Tb_K before running again.')
-
-    # Now, we want to check for a convective profile. First, we need to get zb_km, so we need to suppose
-    # a whole-layer conductive profile. The densities will change slightly, so we depart from self-consistency
-    # here. Repeated applications of IceConvect will get closer to self-consistency.
-
-    if Planet.Pb_MPa > 0 and Planet.Pb_MPa < Planet.P_MPa[0]:
-        negDeltaPmsg = f'Calculated Pb value of {Planet.Pb_MPa:.2f} MPa is less than surface pressure of {Planet.P_MPa[0]:.2f} MPa. ' + \
-            'This likely means Tb_K is set too high. Try to decrease and run again to get a valid model.'
-        if Params.ALLOW_BROKEN_MODELS:
-            log.warning(negDeltaPmsg + ' ALLOW_BROKEN_MODELS is True, so execution will continue.')
+            Planet.Pb_MPa = np.nan
             Planet.Do.VALID = False
-            Planet.invalidReason = 'Pb_MPa is greater than Psurf_MPa'
-        else:
-            raise ValueError(negDeltaPmsg)
+            Planet.invalidReason = 'Tb_K too high compared to underplate TbIII_K and/or TbV_K'
+            if not Params.ALLOW_BROKEN_MODELS:
+                raise RuntimeError('Unable to find a valid pressure corresponding to Bulk.TbX_K values. ' +
+                                   f'This is usually because Bulk.Tb_K (currently {Planet.Bulk.Tb_K:.3f}) ' +
+                                   'is set too high. Try decreasing Bulk.Tb_K before running again.')
 
-    elif Planet.Pb_MPa > 0:
-        if Planet.Do.CLATHRATE:
-            """ For ice shells insulated by a layer of clathrate at the surface or against the bottom
-                Calculates state variables of the layer with each pressure step
-                Applies different behavior based on Bulk.clathType:
-                    'top': Models a conductive lid of clathrates limited to Bulk.clathMaxThick_m or eLid_m
-                        (calculated for convection), whichever is less
-                    'bottom': Models a clathrate layer at the ice-ocean interface with a fixed thickness
-                        equal to Bulk.clathMaxThick_m. Assumes a purely conductive lid, as justified in
-                        Kamata et al. (2019) for Pluto: https://doi.org/10.1038/s41561-019-0369-8
-                    'whole': Models clathrates as present throughout the outer ice shell, checking for
-                        convection, and assumes no ice I is present in the shell. This option is handled in IceLayers.
-            """
-            if Planet.Bulk.clathType == 'top':
-                log.debug('Applying clathrate lid conduction.')
-                Planet.phase[:Planet.Steps.nClath] = Constants.phaseClath
-                if Planet.Do.POROUS_ICE:
-                    Planet = IceIConductClathLidPorous(Planet, Params)
-                else:
-                    Planet = IceIConductClathLidSolid(Planet, Params)
-            elif Planet.Bulk.clathType == 'bottom':
-                log.debug('Applying clathrate underplating to ice I shell.')
-                Planet.phase[Planet.Steps.nIceI:Planet.Steps.nIbottom] = Constants.phaseClath
-                if Planet.Do.POROUS_ICE:
-                    Planet = IceIConductClathUnderplatePorous(Planet, Params)
-                else:
-                    Planet = IceIConductClathUnderplateSolid(Planet, Params)
+        # Now, we want to check for a convective profile. First, we need to get zb_km, so we need to suppose
+        # a whole-layer conductive profile. The densities will change slightly, so we depart from self-consistency
+        # here. Repeated applications of IceConvect will get closer to self-consistency.
 
-            elif Planet.Bulk.clathType == 'whole':
-                log.debug('Applying whole-shell clathrate modeling with possible convection.')
-                Planet.phase[:Planet.Steps.nIbottom] = Constants.phaseClath
+        if Planet.Pb_MPa > 0 and Planet.Pb_MPa < Planet.P_MPa[0]:
+            negDeltaPmsg = f'Calculated Pb value of {Planet.Pb_MPa:.2f} MPa is less than surface pressure of {Planet.P_MPa[0]:.2f} MPa. ' + \
+                'This likely means Tb_K is set too high. Try to decrease and run again to get a valid model.'
+            if Params.ALLOW_BROKEN_MODELS:
+                log.warning(negDeltaPmsg + ' ALLOW_BROKEN_MODELS is True, so execution will continue.')
+                Planet.Do.VALID = False
+                Planet.invalidReason = 'Pb_MPa is greater than Psurf_MPa'
+            else:
+                raise ValueError(negDeltaPmsg)
+
+        elif Planet.Pb_MPa > 0:
+            if Planet.Do.CLATHRATE:
+                """ For ice shells insulated by a layer of clathrate at the surface or against the bottom
+                    Calculates state variables of the layer with each pressure step
+                    Applies different behavior based on Bulk.clathType:
+                        'top': Models a conductive lid of clathrates limited to Bulk.clathMaxThick_m or eLid_m
+                            (calculated for convection), whichever is less
+                        'bottom': Models a clathrate layer at the ice-ocean interface with a fixed thickness
+                            equal to Bulk.clathMaxThick_m. Assumes a purely conductive lid, as justified in
+                            Kamata et al. (2019) for Pluto: https://doi.org/10.1038/s41561-019-0369-8
+                        'whole': Models clathrates as present throughout the outer ice shell, checking for
+                            convection, and assumes no ice I is present in the shell. This option is handled in IceLayers.
+                """
+                if Planet.Bulk.clathType == 'top':
+                    log.debug('Applying clathrate lid conduction.')
+                    Planet.phase[:Planet.Steps.nClath] = Constants.phaseClath
+                    if Planet.Do.POROUS_ICE:
+                        Planet = IceIConductClathLidPorous(Planet, Params)
+                    else:
+                        Planet = IceIConductClathLidSolid(Planet, Params)
+                elif Planet.Bulk.clathType == 'bottom':
+                    log.debug('Applying clathrate underplating to ice I shell.')
+                    Planet.phase[Planet.Steps.nIceI:Planet.Steps.nIbottom] = Constants.phaseClath
+                    if Planet.Do.POROUS_ICE:
+                        Planet = IceIConductClathUnderplatePorous(Planet, Params)
+                    else:
+                        Planet = IceIConductClathUnderplateSolid(Planet, Params)
+
+                elif Planet.Bulk.clathType == 'whole':
+                    log.debug('Applying whole-shell clathrate modeling with possible convection.')
+                    Planet.phase[:Planet.Steps.nIbottom] = Constants.phaseClath
+                    if Planet.Do.POROUS_ICE:
+                        Planet = IceIWholeConductPorous(Planet, Params)
+                    else:
+                        Planet = IceIWholeConductSolid(Planet, Params)
+                else:
+                    raise ValueError(f'Bulk.clathType option "{Planet.Bulk.clathType}" is not supported. ' +
+                                     'Options are "top", "bottom", and "whole".')
+            else:
                 if Planet.Do.POROUS_ICE:
                     Planet = IceIWholeConductPorous(Planet, Params)
                 else:
                     Planet = IceIWholeConductSolid(Planet, Params)
-            else:
-                raise ValueError(f'Bulk.clathType option "{Planet.Bulk.clathType}" is not supported. ' +
-                                 'Options are "top", "bottom", and "whole".')
-        else:
-            if Planet.Do.POROUS_ICE:
-                Planet = IceIWholeConductPorous(Planet, Params)
-            else:
-                Planet = IceIWholeConductSolid(Planet, Params)
 
-        log.debug('Upper ice initial conductive profile complete.')
+            log.debug('Upper ice initial conductive profile complete.')
 
-        if not Planet.Do.NO_ICE_CONVECTION and not Planet.Bulk.clathType == 'bottom':
-            # Record zb_m to see if it gets adjusted significantly
-            zbOld_m = Planet.z_m[Planet.Steps.nIbottom-1] + 0.0
-            # Now check for convective region and get dimensions if present
-            if Planet.Do.CLATHRATE and Planet.Bulk.clathType == 'whole':
-                if Planet.Do.POROUS_ICE:
-                    Planet = ClathShellConvectPorous(Planet, Params)
-                else:
-                    Planet = ClathShellConvectSolid(Planet, Params)
-            else:
-                if Planet.Do.POROUS_ICE:
-                    Planet = IceIConvectPorous(Planet, Params)
-                else:
-                    Planet = IceIConvectSolid(Planet, Params)
-                if Planet.Bulk.clathType == 'top':
-                    # Reassign clathrate/ice I transition following convection calcs
-                    Planet.zClath_m =  Planet.z_m[Planet.Steps.nClath]
-            # Run IceIConvect a second time if zbI_m changed by more than a set tolerance
-            if(np.abs(Planet.z_m[Planet.Steps.nIbottom-1] - zbOld_m)/Planet.z_m[Planet.Steps.nIbottom-1] > Planet.Bulk.zbChangeTol_frac):
-                log.debug('The bottom depth of surface ice I changed by ' +
-                        f'{(Planet.z_m[Planet.Steps.nIbottom-1] - zbOld_m)/1e3:.2f} km from IceIConvect, which is greater than ' +
-                        f'{Planet.Bulk.zbChangeTol_frac * 100:.0f}%. running IceIConvect a second time...')
+            if not Planet.Do.NO_ICE_CONVECTION and not Planet.Bulk.clathType == 'bottom':
+                # Record zb_m to see if it gets adjusted significantly
+                zbOld_m = Planet.z_m[Planet.Steps.nIbottom-1] + 0.0
+                # Now check for convective region and get dimensions if present
                 if Planet.Do.CLATHRATE and Planet.Bulk.clathType == 'whole':
                     if Planet.Do.POROUS_ICE:
                         Planet = ClathShellConvectPorous(Planet, Params)
@@ -251,60 +241,78 @@ def IceLayers(Planet, Params):
                         Planet = IceIConvectPorous(Planet, Params)
                     else:
                         Planet = IceIConvectSolid(Planet, Params)
+                    if Planet.Bulk.clathType == 'top':
+                        # Reassign clathrate/ice I transition following convection calcs
+                        Planet.zClath_m =  Planet.z_m[Planet.Steps.nClath]
+                # Run IceIConvect a second time if zbI_m changed by more than a set tolerance
+                if(np.abs(Planet.z_m[Planet.Steps.nIbottom-1] - zbOld_m)/Planet.z_m[Planet.Steps.nIbottom-1] > Planet.Bulk.zbChangeTol_frac):
+                    log.debug('The bottom depth of surface ice I changed by ' +
+                            f'{(Planet.z_m[Planet.Steps.nIbottom-1] - zbOld_m)/1e3:.2f} km from IceIConvect, which is greater than ' +
+                            f'{Planet.Bulk.zbChangeTol_frac * 100:.0f}%. running IceIConvect a second time...')
+                    if Planet.Do.CLATHRATE and Planet.Bulk.clathType == 'whole':
+                        if Planet.Do.POROUS_ICE:
+                            Planet = ClathShellConvectPorous(Planet, Params)
+                        else:
+                            Planet = ClathShellConvectSolid(Planet, Params)
+                    else:
+                        if Planet.Do.POROUS_ICE:
+                            Planet = IceIConvectPorous(Planet, Params)
+                        else:
+                            Planet = IceIConvectSolid(Planet, Params)
+            else:
+                if Planet.Do.NO_ICE_CONVECTION:
+                    log.debug('NO_ICE_CONVECTION is True -- skipping ice I convection calculations.')
+                Planet.RaConvect = np.nan
+                Planet.RaCrit = np.nan
+                Planet.Tconv_K = np.nan
+                Planet.etaConv_Pas = np.nan
+
+                Planet.eLid_m = Planet.z_m[Planet.Steps.nSurfIce]
+                Planet.Dconv_m = 0.0
+                Planet.deltaTBL_m = 0.0
+                # Find the surface heat flux from the conductive profile. This assumes there is no tidal heating!
+                Planet.Ocean.QfromMantle_W = Planet.kTherm_WmK[Planet.Steps.nIbottom-2] * Planet.T_K[Planet.Steps.nIbottom-2] / \
+                                             (Planet.z_m[Planet.Steps.nIbottom-1] - Planet.z_m[Planet.Steps.nIbottom-2]) \
+                                             * np.log(Planet.T_K[Planet.Steps.nIbottom-1]/Planet.T_K[Planet.Steps.nIbottom-2]) \
+                                             * 4*np.pi*(Planet.Bulk.R_m - Planet.z_m[Planet.Steps.nIbottom-1])**2
+
+            # Additional adiabats + possible convection in ice III and/or V underplate layers --
+            # for thick, cold ice shells and saline oceans
+            if Planet.Do.BOTTOM_ICEV:
+                log.debug('Modeling ice III and V underplating...')
+                Planet = IceIIIUnderplate(Planet, Params)
+                Planet = IceVUnderplate(Planet, Params)
+            elif Planet.Do.BOTTOM_ICEIII:
+                log.debug('Modeling ice III underplating...')
+                Planet = IceIIIUnderplate(Planet, Params)
+
+            # Print and save transition pressure and upper ice thickness
+            Planet.zb_km = Planet.z_m[Planet.Steps.nSurfIce] / 1e3
+            log.info(f'Upper ice transition pressure: {Planet.Pb_MPa:.3f} MPa, ' +
+                     f'thickness: {Planet.zb_km:.3f} km.')
+
+            # Set surface HP ice layers to have negative phase ID to differentiate from in-ocean HP ices
+            indsHP = np.where(np.logical_and(abs(Planet.phase[:Planet.Steps.nSurfIce]) > 1,
+                                             abs(Planet.phase[:Planet.Steps.nSurfIce]) <= 6))[0]
+            Planet.phase[:Planet.Steps.nSurfIce][indsHP] = -Planet.phase[:Planet.Steps.nSurfIce][indsHP]
+
+            # Get heat flux out of the possibly convecting region
+            Planet.qCon_Wm2 = Planet.Ocean.QfromMantle_W / (4*np.pi * (Planet.Bulk.R_m - Planet.z_m[Planet.Steps.nSurfIce])**2)
+            # Get heat flux at the surface, assuming Htidal = Qrad = 0 throughout the entire hydrosphere.
+            Planet.qSurf_Wm2 = Planet.Ocean.QfromMantle_W / (4*np.pi * Planet.Bulk.R_m**2)
+
+        elif Planet.Pb_MPa == 0 and Planet.Bulk.Tsurf_K == Planet.Bulk.Tb_K:
+            Planet.zb_km = 0
+            # This configuration should be accounted for in SetupInit.
         else:
-            if Planet.Do.NO_ICE_CONVECTION:
-                log.debug('NO_ICE_CONVECTION is True -- skipping ice I convection calculations.')
-            Planet.RaConvect = np.nan
-            Planet.RaCrit = np.nan
-            Planet.Tconv_K = np.nan
-            Planet.etaConv_Pas = np.nan
-            
-            Planet.eLid_m = Planet.z_m[Planet.Steps.nSurfIce]
-            Planet.Dconv_m = 0.0
-            Planet.deltaTBL_m = 0.0
-            # Find the surface heat flux from the conductive profile. This assumes there is no tidal heating!
-            Planet.Ocean.QfromMantle_W = Planet.kTherm_WmK[Planet.Steps.nIbottom-2] * Planet.T_K[Planet.Steps.nIbottom-2] / \
-                                         (Planet.z_m[Planet.Steps.nIbottom-1] - Planet.z_m[Planet.Steps.nIbottom-2]) \
-                                         * np.log(Planet.T_K[Planet.Steps.nIbottom-1]/Planet.T_K[Planet.Steps.nIbottom-2]) \
-                                         * 4*np.pi*(Planet.Bulk.R_m - Planet.z_m[Planet.Steps.nIbottom-1])**2
-
-        # Additional adiabats + possible convection in ice III and/or V underplate layers --
-        # for thick, cold ice shells and saline oceans
-        if Planet.Do.BOTTOM_ICEV:
-            log.debug('Modeling ice III and V underplating...')
-            Planet = IceIIIUnderplate(Planet, Params)
-            Planet = IceVUnderplate(Planet, Params)
-        elif Planet.Do.BOTTOM_ICEIII:
-            log.debug('Modeling ice III underplating...')
-            Planet = IceIIIUnderplate(Planet, Params)
-
-        # Print and save transition pressure and upper ice thickness
-        Planet.zb_km = Planet.z_m[Planet.Steps.nSurfIce] / 1e3
-        log.info(f'Upper ice transition pressure: {Planet.Pb_MPa:.3f} MPa, ' +
-                 f'thickness: {Planet.zb_km:.3f} km.')
-
-        # Set surface HP ice layers to have negative phase ID to differentiate from in-ocean HP ices
-        indsHP = np.where(np.logical_and(abs(Planet.phase[:Planet.Steps.nSurfIce]) > 1,
-                                         abs(Planet.phase[:Planet.Steps.nSurfIce]) <= 6))[0]
-        Planet.phase[:Planet.Steps.nSurfIce][indsHP] = -Planet.phase[:Planet.Steps.nSurfIce][indsHP]
-
-        # Get heat flux out of the possibly convecting region
-        Planet.qCon_Wm2 = Planet.Ocean.QfromMantle_W / (4*np.pi * (Planet.Bulk.R_m - Planet.z_m[Planet.Steps.nSurfIce])**2)
-        # Get heat flux at the surface, assuming Htidal = Qrad = 0 throughout the entire hydrosphere.
-        Planet.qSurf_Wm2 = Planet.Ocean.QfromMantle_W / (4*np.pi * Planet.Bulk.R_m**2)
-
-    elif Planet.Pb_MPa == 0 and Planet.Bulk.Tsurf_K == Planet.Bulk.Tb_K:
-        Planet.zb_km = 0
-        # This configuration should be accounted for in SetupInit.
-    else:
-        # Set necessary empty variables for when we have an invalid profile
-        Planet.Do.VALID = False
-        Planet.invalidReason = 'Pb_MPa is negative'
-        Planet.zb_km, Planet.PbClathMax_MPa, Planet.PbIII_MPa, Planet.PbV_MPa, Planet.RaConvect, \
-        Planet.RaCrit, Planet.Tconv_K, Planet.TconvIII_K, Planet.TconvV_K, Planet.etaConv_Pas, \
-        Planet.etaConvIII_Pas, Planet.etaConvV_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, \
-        Planet.qCon_Wm2, Planet.qSurf_Wm2, Planet.TclathTrans_K, Planet.Ocean.QfromMantle_W \
-            = (np.nan for _ in range(19))
+            # Set necessary empty variables for when we have an invalid profile
+            Planet.Do.VALID = False
+            Planet.invalidReason = 'Pb_MPa is negative'
+            Planet.zb_km, Planet.PbClathMax_MPa, Planet.PbIII_MPa, Planet.PbV_MPa, Planet.RaConvect, \
+            Planet.RaCrit, Planet.Tconv_K, Planet.TconvIII_K, Planet.TconvV_K, Planet.etaConv_Pas, \
+            Planet.etaConvIII_Pas, Planet.etaConvV_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, \
+            Planet.qCon_Wm2, Planet.qSurf_Wm2, Planet.TclathTrans_K, Planet.Ocean.QfromMantle_W \
+                = (np.nan for _ in range(19))
 
     return Planet
 
@@ -399,7 +407,7 @@ def OceanLayers(Planet, Params):
         Assigns Planet attributes:
             phase, r_m, z_m, g_ms2, T_K, P_MPa, rho_kgm3, Cp_JkgK, alpha_pK, MLayer_kg
     """
-    if Planet.Do.VALID:
+    if Planet.Do.VALID and not Planet.Do.NO_OCEAN:
         log.debug('Evaluating ocean layers.')
 
         # Confirm that we haven't made mistakes in phase assignment in IceLayers()
@@ -757,8 +765,9 @@ def InnerLayers(Planet, Params):
         else:
             Planet, mantleProps, coreProps = CalcMoIWithEOS(Planet, Params)
 
-        if(Planet.Steps.nHydro <= Planet.Steps.nSurfIce) and (not Planet.Do.NO_H2O):
+        if Planet.Steps.nHydro <= Planet.Steps.nSurfIce and not Planet.Do.NO_H2O:
             log.warning('For these run settings, the hydrosphere is entirely frozen and contains only surface ice.')
+            Planet.Do.NO_OCEAN = True
         Planet.Steps.nTotal = Planet.Steps.nHydro + Planet.Steps.nSil + Planet.Steps.nCore
 
         log.debug('Evaluating remaining quantities for layer arrays...')
@@ -1195,7 +1204,9 @@ def CalcMoIWithEOS(Planet, Params):
             phiMin_frac = Planet.Sil.phiRockMax_frac - Planet.Sil.phiRockMax_frac / Planet.Sil.phiRangeMult
             phiMax_frac = Planet.Sil.phiRockMax_frac + (1 - Planet.Sil.phiRockMax_frac) / Planet.Sil.phiRangeMult
             multphi_frac = (phiMax_frac/phiMin_frac)**(1/Planet.Steps.nPoros)
-            log.debug(f'Propagating silicate EOS for each possible mantle size and porosity from phiVac = {phiMin_frac:.3f} to {phiMax_frac:.3f} in {Planet.Steps.nPoros} steps...')
+            log.debug(f'Propagating silicate EOS for each possible mantle size and porosity from ' +
+                      f'phiVac = {phiMin_frac:.3f} to {phiMax_frac:.3f} in {Planet.Steps.nPoros} ' +
+                      f'steps...')
         else:
             # In this case, we will use Sil.HtidalMin_Wm3 and Sil.deltaHtidal_logUnits to get
             # a valid set of profiles.

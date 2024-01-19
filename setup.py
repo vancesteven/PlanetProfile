@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='PlanetProfile',
-    version='2.3.20',
+    version='2.4.0',
     author='Marshall J. Styczinski',
     author_email='itsmoosh@gmail.com',
     description='Self-consistent geophysical models for large moons and ocean worlds',
@@ -26,7 +26,7 @@ setup(
         'mpmath >= 1.3.0',
         'matplotlib >= 3.8.2',
         'SeaFreeze >= 0.9.6',
-        'MoonMag >= 1.7.1',
+        'MoonMag >= 1.7.2',
         'gsw >= 3.6.16',
         'spiceypy >= 6.0.0',
         'cmasher >= 1.6.3',

@@ -41,19 +41,20 @@ def SetupInit(Planet, Params):
             Planet.Bulk.CuncertaintyLower = Planet.Bulk.Cuncertainty
     Planet = SetCMR2strings(Planet)
 
-    # Waterless bodies. We have to do this first, before filename
-    # generation, to ensure ocean comp is set.
-    if Planet.Do.NO_H2O:
-        log.info('Modeling a waterless body.')
+    # Waterless, partially differentiated, and undifferentiated bodies. We have to do this first,
+    # before filename generation, to ensure ocean comp is set.
+    if Planet.Do.NO_H2O or Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
+        Planet.Do.NO_OCEAN = True
+
         if Planet.Bulk.qSurf_Wm2 is None:
-            raise ValueError('Bulk.qSurf_Wm2 must be set in order to model waterless bodies.')
+            raise ValueError('Bulk.qSurf_Wm2 must be set in order to model waterless or ' +
+                             'partial/undifferentiated bodies.')
         Planet.Ocean.QfromMantle_W = Planet.Bulk.qSurf_Wm2 * 4*np.pi * Planet.Bulk.R_m**2
         Planet.qSurf_Wm2 = Planet.Bulk.qSurf_Wm2
         Planet.qCon_Wm2 = np.nan
         Planet.etaConv_Pas = np.nan
         Planet.Pb_MPa = Planet.Bulk.Psurf_MPa
         Planet.PbI_MPa = Planet.Bulk.Psurf_MPa
-        Planet.Sil.PHydroMax_MPa = Planet.Bulk.Psurf_MPa
         Planet.Bulk.Tb_K = Planet.Bulk.Tsurf_K
         Planet.zb_km = 0.0
         Planet.Steps.nIceI = 0
@@ -66,11 +67,59 @@ def SetupInit(Planet, Params):
         Planet.Ocean.wOcean_ppt = 0.0
         Planet.Ocean.deltaP = 0.1
         Planet.Do.NO_ICE_CONVECTION = True
-        if Planet.Do.POROUS_ROCK:
-            # Generate zero-yielding ocean "EOS" for use in porosity calculations
-            # Note that there must be enough input points for creating spline
-            # interpolators, even though we will not use them.
-            Planet.Ocean.EOS = GetOceanEOS('none', None, np.linspace(0, 1, 10), np.linspace(0, 1, 10), None)
+        Planet.Do.CLATHRATE = False
+
+        if Planet.Do.NO_H2O:
+            log.info('Modeling a waterless body.')
+            Planet.Sil.PHydroMax_MPa = Planet.Bulk.Psurf_MPa
+            if Planet.Do.POROUS_ROCK:
+                # Generate zero-yielding ocean "EOS" for use in porosity calculations
+                # Note that there must be enough input points for creating spline
+                # interpolators, even though we will not use them.
+                Planet.Ocean.EOS = GetOceanEOS('none', None, np.linspace(0, 1, 10), np.linspace(0, 1, 10), None)
+
+        else:
+            if Planet.Do.NO_DIFFERENTIATION:
+                log.info('Modeling an undifferentiated body.')
+                Planet.Sil.Pclosure_MPa = Constants.PclosureUniform_MPa
+            else:
+                log.info('Modeling a partially differentiated body.')
+
+            Planet.Sil.PHydroMax_MPa = Planet.Ocean.PHydroMax_MPa
+            # Make sure everything needed is set
+            Planet.Do.POROUS_ROCK = True
+            if Planet.Sil.phiRockMax_frac is None:
+                raise ValueError('Sil.phiRockMax_frac must be set for partial/undifferentiated bodies.')
+            if Planet.Do.Fe_CORE:
+                raise ValueError('Do.Fe_CORE must be False for partial/undifferentiated bodies.')
+
+            if Planet.Ocean.comp is None and Planet.Sil.poreComp is None:
+                raise ValueError(f'Either Ocean.comp or Sil.poreComp must be set.')
+            elif Planet.Ocean.comp is None:
+                Planet.Ocean.comp = Planet.Sil.poreComp
+            elif Planet.Sil.poreComp is None:
+                Planet.Sil.poreComp = Planet.Ocean.comp
+            else:
+                if Planet.Sil.poreComp != Planet.Ocean.comp:
+                    log.warning(f'Sil.poreComp ("{Planet.Sil.poreComp}") does not match ' +
+                                f'Ocean.comp ("{Planet.Ocean.comp}"), but only pore fluids are ' +
+                                f'modeled for partial/undifferentiated bodies. Sil.poreComp will ' +
+                                f'be ignored.')
+                Planet.Sil.poreComp = Planet.Ocean.comp
+
+            if Planet.Ocean.wOcean_ppt is None and Planet.Sil.wPore_ppt is None:
+                raise ValueError(f'Either Ocean.wOcean_ppt or Sil.wPore_ppt must be set.')
+            elif Planet.Ocean.wOcean_ppt is None:
+                Planet.Ocean.wOcean_ppt = Planet.Sil.wPore_ppt
+            elif Planet.Sil.wPore_ppt is None:
+                Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
+            else:
+                if Planet.Sil.wPore_ppt != Planet.Ocean.wOcean_ppt:
+                    log.warning(f'Sil.wPore_ppt ("{Planet.Sil.wPore_ppt}") does not match ' +
+                                f'Ocean.wOcean_ppt ("{Planet.Ocean.wOcean_ppt}"), but only pore ' +
+                                f'fluids are modeled for partial/undifferentiated bodies. ' +
+                                f'Sil.wPore_ppt will be ignored.')
+                Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
 
     # Get filenames for saving/loading
     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
@@ -115,7 +164,7 @@ def SetupInit(Planet, Params):
         Planet.zClath_m = 0
         Planet.Bulk.clathType = 'none'
 
-    if not Planet.Do.NO_H2O:
+    if not Planet.Do.NO_OCEAN:
         # In addition, perform some checks on underplating settings to be sure they make sense
         if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:
             Planet.Steps.nIceIIILitho = 0
@@ -137,20 +186,20 @@ def SetupInit(Planet, Params):
             Planet.eLidV_m = 0
             Planet.DconvV_m = 0
             Planet.deltaTBLV_m = 0
-            if(Planet.Ocean.PHydroMax_MPa < 209.9):
+            if Planet.Ocean.PHydroMax_MPa < 209.9:
                 raise ValueError('Hydrosphere max pressure is less than the pressure of the ice I-III phase transition, ' +
                                  'but Do.BOTTOM_ICEIII is True.')
-            if(Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K):
+            if Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K:
                 log.warning('Bottom temperature of ice I (Tb_K) is greater than bottom temperature of underplate ' +
                             'ice III (TbIII_K). This likely represents a non-equilibrium state.')
         else:
-            if(Planet.Ocean.PHydroMax_MPa < 344.3):
+            if Planet.Ocean.PHydroMax_MPa < 344.3:
                 raise ValueError('Hydrosphere max pressure is less than the pressure of the ice III-V phase transition, ' +
                                  'but Do.BOTTOM_ICEV is True.')
-            if(Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K):
+            if Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K:
                 log.warning('Bottom temperature of ice I (Tb_K) is greater than bottom temperature of underplate ' +
                             'ice III (TbIII_K). This likely represents a non-equilibrium state.')
-            if(Planet.Bulk.TbIII_K > Planet.Bulk.TbV_K):
+            if Planet.Bulk.TbIII_K > Planet.Bulk.TbV_K:
                 log.warning('Bottom temperature of ice III (Tb_K) is greater than bottom temperature of underplate ' +
                             'ice V (TbV_K). This likely represents a non-equilibrium state.')
             if Planet.Do.CLATHRATE:
@@ -366,6 +415,28 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
         setStr = f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*FigLbl.qMult:.1f}\,\si{{{FigLbl.fluxUnits}}}$'
         label += setStr
         Planet.compStr = r'No~\ce{H2O}'
+
+    elif Planet.Do.NO_DIFFERENTIATION:
+        saveLabel += f'NoDiff_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
+        setStr = f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*FigLbl.qMult:.1f}\,\si{{{FigLbl.fluxUnits}}}$'
+        label += setStr
+        Planet.compStr = r'Undifferentiated'
+
+    elif Planet.Do.PARTIAL_DIFFERENTIATION:
+        saveLabel += f'PartialDiff_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
+        setStr = f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*FigLbl.qMult:.1f}\,\si{{{FigLbl.fluxUnits}}}$'
+        label += setStr
+
+        if Planet.Sil.poreComp == 'PureH2O':
+            Planet.compStr = r'Pure~\ce{H2O}'
+            saveLabel += f'_{Planet.Sil.poreComp}Pores'
+        else:
+            Planet.compStr = f'${Planet.Sil.wPore_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Sil.poreComp}}}'
+            saveLabel += f'_{Planet.Sil.poreComp}_{Planet.Sil.wPore_ppt:.1f}pptPores'
+
+        saveLabel += f'_PorousRock_phi{Planet.Sil.phiRockMax_frac:.2f}_Pc{Planet.Sil.Pclosure_MPa:5.2e}'
+        label += ' w/$\phi_\mathrm{sil}$'
+
     else:
         if Planet.Ocean.comp == 'PureH2O':
             saveLabel += f'{Planet.Ocean.comp}_Tb{Planet.Bulk.Tb_K}K'

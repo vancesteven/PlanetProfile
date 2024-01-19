@@ -194,8 +194,9 @@ def PlanetProfile(Planet, Params):
     if Params.CALC_NEW:
         # Initialize
         Planet, Params = SetupInit(Planet, Params)
-        if not Planet.Do.NO_H2O:
+        if (not Planet.Do.NO_H2O) and (not Planet.Do.NO_DIFFERENTIATION):
             Planet = IceLayers(Planet, Params)
+        if not Planet.Do.NO_OCEAN:
             Planet = OceanLayers(Planet, Params)
         Planet = InnerLayers(Planet, Params)
         Planet = ElecConduct(Planet, Params)
