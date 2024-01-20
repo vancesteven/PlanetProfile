@@ -34,7 +34,7 @@ def GeneratePlots(PlanetList, Params):
 
     if Params.PLOT_GRAVITY:
         PlotGravPres(PlanetList, Params)
-    if Params.PLOT_HYDROSPHERE and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
+    if Params.PLOT_HYDROSPHERE and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]):
         PlotHydrosphereProps(PlanetList, Params)
     if Params.PLOT_TRADEOFF:
         PlotSilTradeoff(PlanetList, Params)
@@ -106,7 +106,7 @@ def PlotHydrosphereProps(PlanetList, Params):
             sigCutoff_Sm = 0
         else:
             sigCutoff_Sm = FigMisc.lowSigCutoff_Sm
-        maxSig_Sm = np.max([np.max(Planet.sigma_Sm[:Planet.Steps.nHydro]) for Planet in PlanetList if not Planet.Do.NO_H2O])
+        maxSig_Sm = np.max([np.max(Planet.sigma_Sm[:Planet.Steps.nHydro]) for Planet in PlanetList if not Planet.Do.NO_OCEAN])
         if maxSig_Sm > sigCutoff_Sm:
             DO_SIGS = True
             vRow += 1
@@ -468,6 +468,14 @@ def PlotPorosity(PlanetList, Params):
             ax.grid()
             ax.set_axisbelow(True)
 
+        # Check that it's worth converting to GPa if that setting has been selected -- reset labels if not
+        if Planet.P_MPa[-1] < 100 and FigLbl.PFULL_IN_GPa:
+            log.debug('FigLbl.PFULL_IN_GPa is True, but Pmax is less than 0.1 GPa. Pressures will be plotted in MPa.')
+            FigLbl.PFULL_IN_GPa = False
+            FigLbl.SetUnits()
+            if not FigMisc.TEX_INSTALLED:
+                FigLbl.StripLatex()
+
         ax.set_xlabel(FigLbl.phiLabel)
         ax.set_ylabel(FigLbl.zLabel)
         ax.invert_yaxis()
@@ -680,7 +688,8 @@ def PlotWedge(PlanetList, Params):
             else:
                 xStr = f'{Planet.Core.xS_frac * 1e3 * FigLbl.wMult:.2f}'
             coreLine = f'\ce{{Fe}} core with \SI{{{xStr}}}{{{FigLbl.wUnits}}}~\ce{{S}}'
-        elif Planet.Sil.EOS is not None and 'undifferentiated' in Planet.Sil.EOS.comp:
+        elif Planet.Sil.EOS is not None and 'undifferentiated' in Planet.Sil.EOS.comp and not (
+            Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION):
             coreLine = 'undifferentiated'
         else:
             coreLine = ''
@@ -714,9 +723,25 @@ def PlotWedge(PlanetList, Params):
                 compStr = r'Pure \ce{H2O} ocean'
             else:
                 compStr = f'\SI{{{Planet.Ocean.wOcean_ppt:.1f}}}{{{FigLbl.wUnits}}}~\ce{{{Planet.Ocean.comp}}}'
-            wedgeLabel = f'{silLine} mantle\n{coreLine}\n{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
 
-        if Planet.Do.POROUS_ROCK:
+            if Planet.Do.NO_DIFFERENTIATION:
+                wedgeLabel = f'{silLine}\n$q_\mathrm{{surf}}$' + \
+                             f'~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{{FigLbl.fluxUnits}}}\n' + \
+                             f'{compStr}'
+            elif Planet.Do.PARTIAL_DIFFERENTIATION:
+                if Planet.Do.DIFFERENTIATE_VOLATILES:
+                    wedgeLabel = f'Undifferentiated ice+{silLine}\n$q_\mathrm{{surf}}$' + \
+                                 f'~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{{FigLbl.fluxUnits}}}\n' + \
+                                 f'{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
+                else:
+                    wedgeLabel = f'Partially differentiated ice+{silLine}\n$q_\mathrm{{surf}}$' + \
+                                 f'~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{{FigLbl.fluxUnits}}}\n' + \
+                                 f'{compStr}'
+            else:
+                wedgeLabel = f'{silLine} mantle\n{coreLine}\n{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
+
+        if Planet.Do.POROUS_ROCK and not (Planet.Do.NO_DIFFERENTIATION
+                                          or Planet.Do.PARTIAL_DIFFERENTIATION):
             wedgeLabel = f'Porous {wedgeLabel}'
 
         if Params.ALL_ONE_BODY and not nWedges == 1:

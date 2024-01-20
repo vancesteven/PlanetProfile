@@ -6,7 +6,7 @@ import logging
 from collections.abc import Iterable
 from PlanetProfile import _ROOT
 from PlanetProfile.GetConfig import FigMisc, FigLbl
-from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
+from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathDissoc
 from PlanetProfile.Utilities.PPversion import ppVerNum, CheckCompat
@@ -63,14 +63,14 @@ def SetupInit(Planet, Params):
         Planet.Steps.nOceanMax = 1
         Planet.Steps.nHydroMax = 1
         Planet.Steps.iSilStart = 0
-        Planet.Ocean.comp = 'none'
-        Planet.Ocean.wOcean_ppt = 0.0
         Planet.Ocean.deltaP = 0.1
         Planet.Do.NO_ICE_CONVECTION = True
         Planet.Do.CLATHRATE = False
 
         if Planet.Do.NO_H2O:
             log.info('Modeling a waterless body.')
+            Planet.Ocean.comp = 'none'
+            Planet.Ocean.wOcean_ppt = 0.0
             Planet.Sil.PHydroMax_MPa = Planet.Bulk.Psurf_MPa
             if Planet.Do.POROUS_ROCK:
                 # Generate zero-yielding ocean "EOS" for use in porosity calculations
@@ -84,6 +84,8 @@ def SetupInit(Planet, Params):
                 Planet.Sil.Pclosure_MPa = Constants.PclosureUniform_MPa
             else:
                 log.info('Modeling a partially differentiated body.')
+                if Planet.Do.DIFFERENTIATE_VOLATILES:
+                    raise ValueError('Do.DIFFERENTIATE_VOLATILES is not implemented yet.')
 
             Planet.Sil.PHydroMax_MPa = Planet.Ocean.PHydroMax_MPa
             # Make sure everything needed is set
@@ -356,6 +358,12 @@ def SetupInit(Planet, Params):
                                              scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                              phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=True,
                                              sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+            if Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
+                Planet.Ocean.EOS = Planet.Sil.poreEOS
+                for icePhase in ['Ih', 'II', 'III', 'V', 'VI']:
+                    Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(Ppore_MPa, Tpore_K, icePhase,
+                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                                  ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
 
             # Make sure Sil.phiRockMax_frac is set in case we're using a porosType that doesn't require it
             if Planet.Sil.phiRockMax_frac is None or Planet.Sil.porosType != 'Han2014':

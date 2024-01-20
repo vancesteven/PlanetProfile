@@ -75,6 +75,7 @@ class DoSubstruct:
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
         self.PARTIAL_DIFFERENTIATION = False  # Whether to model a partially differentiated body, with no ocean, but variable mixing/porosity and pore melt possible
         self.NO_DIFFERENTIATION = False  # Whether to model a completely undifferentiated body, with no ocean, with fixed mixing/porosity and pore melt possible
+        self.DIFFERENTIATE_VOLATILES = False  # Whether to include an ice layer atop a partially differentiated body, with rock+ice mantle
         self.NO_OCEAN = False  # Tracks whether no ocean is present---this flag is set programmatically.
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).

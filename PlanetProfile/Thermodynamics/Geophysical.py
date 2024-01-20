@@ -610,8 +610,6 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
         _, KSpore_GPa[:,0] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa0, Tsil_K0)
         GSpore_GPa[:,0] = np.zeros_like(KSpore_GPa[:,0])
         DeltaPpore_MPa[:,0] = 1e-6 * rhoPore_kgm30 * gSil_ms20 * (rSil_m0 - rSil_m1)
-    elif not np.any(liqP):
-        rhoPore_kgm30 = np.zeros_like(liqP)
     else:
         rhoPore_kgm30 = np.zeros_like(Psil_MPa0)
         # For the pores filled with liquid, use ocean liquid EOS
@@ -839,5 +837,3 @@ def SilRecursionPorous(Planet, Params,
     return Psil_MPa, Tsil_K, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
            HtidalSil_Wm3, kThermSil_WmK, rhoTot_kgm3, phiSil_frac, kThermTot_WmK, \
            Ppore_MPa, rhoPore_kgm3, phasePore
-
-

@@ -27,11 +27,18 @@ def PlotHydroPhase(PlanetList, Params):
     else:
         Pmax_MPa = FigMisc.PmaxHydro_MPa
     if FigMisc.TminHydro_K is None:
-        Tmin_K = np.min([np.min(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
+        if not np.any([Planet.Do.NO_OCEAN for Planet in PlanetList]):
+            Tmin_K = np.min([np.min(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
+        else:
+            Tmin_K = np.min([np.min(Planet.T_K) for Planet in PlanetList])
     else:
         Tmin_K = FigMisc.TminHydro_K
     if FigMisc.TmaxHydro_K is None:
-        Tmax_K = np.max([np.max(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
+        if np.all([Planet.Do.NO_OCEAN for Planet in PlanetList]):
+            Tmax_K = np.max([Planet.Sil.THydroMax_K for Planet in PlanetList])
+        else:
+            Tmax_K = np.max([np.max(Planet.T_K[:Planet.Steps.nHydro])
+                             for Planet in PlanetList if not Planet.Do.NO_OCEAN])
     else:
         Tmax_K = FigMisc.TmaxHydro_K
 
@@ -117,8 +124,12 @@ def PlotHydroPhase(PlanetList, Params):
                 thisColor = None
             else:
                 thisColor = Color.geothermHydro
-            Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
-            Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
+            if eachPlanet.Do.NO_DIFFERENTIATION or eachPlanet.Do.PARTIAL_DIFFERENTIATION:
+                Pgeo = eachPlanet.P_MPa * FigLbl.PmultHydro
+                Tgeo = eachPlanet.T_K
+            else:
+                Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
+                Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
             ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm,
                      color=thisColor, label=eachPlanet.label)
 
@@ -150,11 +161,18 @@ def PlotPvThydro(PlanetList, Params):
         else:
             Pmax_MPa = FigMisc.PmaxHydro_MPa
         if FigMisc.TminHydro_K is None:
-            Tmin_K = np.min([np.min(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
+            if not np.any([Planet.Do.NO_OCEAN for Planet in PlanetList]):
+                Tmin_K = np.min([np.min(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
+            else:
+                Tmin_K = np.min([np.min(Planet.T_K) for Planet in PlanetList])
         else:
             Tmin_K = FigMisc.TminHydro_K
         if FigMisc.TmaxHydro_K is None:
-            Tmax_K = np.max([np.max(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
+            if np.all([Planet.Do.NO_OCEAN for Planet in PlanetList]):
+                Tmax_K = np.max([Planet.Sil.THydroMax_K for Planet in PlanetList])
+            else:
+                Tmax_K = np.max([np.max(Planet.T_K[:Planet.Steps.nHydro])
+                                 for Planet in PlanetList if not Planet.Do.NO_OCEAN])
         else:
             Tmax_K = FigMisc.TmaxHydro_K
 
@@ -177,7 +195,7 @@ def PlotPvThydro(PlanetList, Params):
                                sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
 
         phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
-        ices = [PhaseConv(ice) for ice in np.unique(phases[phases != 0])]
+        ices = [PhaseConv(ice) for ice in np.unique(np.append(phases[phases != 0], 1))]
         iceEOS = {PhaseInv(ice): GetIceEOS(P_MPa, T_K, ice,
                                  porosType=Planet.Ocean.porosType[ice],
                                  phiTop_frac=Planet.Ocean.phiMax_frac[ice],
@@ -231,6 +249,10 @@ def PlotPvThydro(PlanetList, Params):
         sig = oceanEOS.fn_sigma_Sm(P_MPa, T_K, grid=True)
         VS, GS = (np.empty_like(rho)*np.nan for _ in range(2))
 
+        # Exclude obviously erroneous Cp values, which happen when extending beyond the knots
+        # for the input EOS. This is mainly a problem with GSW and Seawater compositions.
+        Cp[np.logical_or(Cp < 3200, Cp > 5200)] = np.nan
+
         # Now get data for all ice EOSs and replace in grid
         for iceStr in ices:
             ice = PhaseInv(iceStr)
@@ -278,8 +300,12 @@ def PlotPvThydro(PlanetList, Params):
                 thisColor = None
             else:
                 thisColor = Color.geothermHydro
-            Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
-            Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
+            if Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
+                Pgeo = eachPlanet.P_MPa * FigLbl.PmultHydro
+                Tgeo = eachPlanet.T_K
+            else:
+                Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
+                Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
             [ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm,
                      color=thisColor, label=eachPlanet.label) for ax in axf]
 

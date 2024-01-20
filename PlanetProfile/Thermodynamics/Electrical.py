@@ -244,11 +244,12 @@ def CalcElecPorRock(Planet, Params, indsSil, indsSilLiq, indsSilI, indsSilII, in
     """
 
     # First, get pore fluid conductivity
-    sigmaFluid_Sm = Planet.Ocean.EOS.fn_sigma_Sm(Planet.Ppore_MPa[indsSilLiq], Planet.T_K[indsSilLiq])
+    sigmaFluid_Sm = Planet.Sil.poreEOS.fn_sigma_Sm(Planet.Ppore_MPa[indsSilLiq], Planet.T_K[indsSilLiq])
     # Account for possible errors in pore fluid conductivity calcs
     validSigs = np.logical_not(np.isnan(sigmaFluid_Sm))
-    # Interpolate over NaNs to remove them
-    sigmaFluid_Sm = spi.griddata(Planet.r_m[indsSilLiq][validSigs], sigmaFluid_Sm[validSigs], Planet.r_m[indsSilLiq])
+    if np.size(sigmaFluid_Sm) > 0:
+        # Interpolate over NaNs to remove them
+        sigmaFluid_Sm = spi.griddata(Planet.r_m[indsSilLiq][validSigs], sigmaFluid_Sm[validSigs], Planet.r_m[indsSilLiq])
 
     # Initialize conductivity array for all pore materials
     sigmaPore_Sm = np.zeros_like(Planet.sigma_Sm)

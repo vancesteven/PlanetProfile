@@ -1229,10 +1229,12 @@ def CalcMoIWithEOS(Planet, Params):
         phiSilTemp_frac, HtidalSilTemp_Wm3, kThermSilTemp_WmK, PporeTemp_MPa, rhoSilMatrixTemp_kgm3, rhoSilPoreTemp_kgm3, phaseSilPoreTemp \
             = SilicateLayers(Planet, Params)
         if (np.size(indsSilValidTemp) == 0):
+            masses = np.sum(MLayerSilTemp_kg, axis=1)
             msg = 'No silicate mantle size was less than the total body mass for the initialization ' + \
-                 f'setting of {thisHtidal_Wm3} W/m^3 tidal heating and the expected maximum porosity ' + \
-                 f'of {thisphiTop_frac}. Try adjusting run settings that affect mantle density, ' + \
-                  'like porosity, silicate composition, and radiogenic heat flux.'
+                 f'setting of {thisHtidal_Wm3:.2e} W/m^3 tidal heating\nand the expected maximum porosity ' + \
+                 f'of {thisphiTop_frac:.3f}. The min silicate mass was {np.min(masses)/Planet.Bulk.M_kg:.3f} M_P. ' + \
+                  'Try adjusting run settings that affect mantle density,\nlike porosity, silicate ' + \
+                  'composition, and radiogenic heat flux.'
             if Params.ALLOW_BROKEN_MODELS:
                 if Params.DO_EXPLOREOGRAM:
                     log.info(msg)
