@@ -646,6 +646,7 @@ def InitBayes(bodyname, fEnd):
     # Make sure CALC_NEW settings are as desired
     Params.CALC_NEW = True
     Params.CALC_NEW_INDUCT = True
+    Params.SKIP_INDUCTION = False
     # Quiet messages unless we're debugging
     if bodyname != 'Test':
         log.setLevel(logging.WARN+5)

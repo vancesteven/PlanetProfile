@@ -61,4 +61,4 @@ def TestBayes(bodyname):
     return Planet, Params
 
 if __name__ == '__main__':
-    _, _ = TestBayes('Europa')
+    _, _ = TestBayes('Test')
