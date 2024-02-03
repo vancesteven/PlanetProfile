@@ -3,13 +3,12 @@ import numpy as np
 import logging
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from matplotlib.patches import Wedge, Rectangle
+from matplotlib.patches import Wedge
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Plotting.PTPlots import PlotHydroPhase, PlotPvThydro, PlotPvTPerpleX
 from PlanetProfile.Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
 from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices, PhaseConv
-from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Utilities.defineStructs import Constants
 
 # Assign logger
@@ -830,20 +829,34 @@ def PlotWedge(PlanetList, Params):
             else:
                 # Ice Ih at the surface in this case
                 # Conductive ice I
-                ax.add_patch(Wedge((0.5,0), R_km/rMax_km, ang1, ang2,
-                                   width=Planet.eLid_m/1e3/rMax_km,
-                                   fc=Color.iceIcond, lw=Style.LW_wedge, ec=iceConvBd))
-                # Convective ice I
-                if (Planet.Dconv_m + Planet.deltaTBL_m) > 0:
-                    ax.add_patch(Wedge((0.5,0), (R_km - Planet.eLid_m/1e3)/rMax_km, ang1, ang2,
-                                       width=(Planet.Dconv_m + Planet.deltaTBL_m)/1e3/rMax_km,
-                                       fc=Color.iceIconv, lw=Style.LW_wedge, ec=iceConvBd))
+                if Planet.Bulk.asymIce is None:
+                    ax.add_patch(Wedge((0.5,0), R_km/rMax_km, ang1, ang2,
+                                       width=Planet.eLid_m/1e3/rMax_km,
+                                       fc=Color.iceIcond, lw=Style.LW_wedge, ec=iceConvBd))
+                    # Convective ice I
+                    if (Planet.Dconv_m + Planet.deltaTBL_m) > 0:
+                        ax.add_patch(Wedge((0.5,0), (R_km - Planet.eLid_m/1e3)/rMax_km, ang1, ang2,
+                                           width=(Planet.Dconv_m + Planet.deltaTBL_m)/1e3/rMax_km,
+                                           fc=Color.iceIconv, lw=Style.LW_wedge, ec=iceConvBd))
+                else:
+                    nWdg = np.size(Planet.Bulk.asymIce)
+                    angWdg = 2*Style.wedgeAngle_deg/nWdg
+                    for iWdg, thickDiff in enumerate(Planet.Bulk.asymIce):
+                        ax.add_patch(Wedge((0.5, 0), R_km/rMax_km, ang1 + iWdg*angWdg, ang1 + (iWdg+1)*angWdg,
+                                           width=(Planet.dzIceI_km + thickDiff)/rMax_km, zorder=100,
+                                           fc=Color.iceIcond, lw=Style.LW_wedge, ec=iceConvBd))
             
             # Outer boundary around ice I
             if Planet.dzIceI_km > 0:
-                ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceI_m/1e3)/rMax_km, ang1, ang2,
-                                   width=Planet.dzIceI_km/rMax_km,
-                                   fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
+                if Planet.Bulk.asymIce is None:
+                    ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceI_m/1e3)/rMax_km, ang1, ang2,
+                                       width=Planet.dzIceI_km/rMax_km,
+                                       fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
+                else:
+                    for iWdg, thickDiff in enumerate(Planet.Bulk.asymIce):
+                        ax.add_patch(Wedge((0.5, 0), R_km/rMax_km, ang1 + iWdg*angWdg, ang1 + (iWdg+1)*angWdg,
+                                           width=(Planet.dzIceI_km + thickDiff)/rMax_km, zorder=100,
+                                           fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
                 
             # Surface HP ices
             if Planet.dzIceIIIund_km > 0:
