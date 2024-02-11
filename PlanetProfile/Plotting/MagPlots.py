@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import logging
 from copy import deepcopy
@@ -11,7 +10,7 @@ from matplotlib.patches import Rectangle
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
-from PlanetProfile.Utilities.defineStructs import Constants, xyzComps, vecComps
+from PlanetProfile.Utilities.defineStructs import xyzComps, vecComps
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
 
@@ -22,26 +21,31 @@ def GenerateMagPlots(PlanetList, Params):
     
     # Catch if we get here and induction calcs have not been done
     if np.all([Planet.Magnetic.Binm_nT is not None for Planet in PlanetList]):
-    
-        # Remove latex styling from legend labels if Latex is not installed
-        if not FigMisc.TEX_INSTALLED:
-            for Planet in PlanetList:
-                Planet.label = FigLbl.StripLatexFromString(Planet.label)
-    
-        if Params.PLOT_BDIP:
-            PlotComplexBdip(PlanetList, Params)
-        if Params.PLOT_MAG_SPECTRUM and np.any([Planet.Magnetic.FT_LOADED for Planet in PlanetList]):
-            PlotMagSpectrum(PlanetList, Params)
-        if Params.PLOT_BSURF:
-            PlotMagSurface(PlanetList, Params)
-        if Params.PLOT_ASYM and Params.CALC_ASYM:
-            PlotAsym(PlanetList, Params)
-            
-        elif np.any([Planet.Magnetic.Binm_nT is not None for Planet in PlanetList]):
-            log.warning('Induction calculations have only been completed for some bodies. Asymmetry contour plotting will be skipped.')
+
+        if np.any([isinstance(Planet.Magnetic.Benm_nT, dict) for Planet in PlanetList]):
+            log.warning('Multiple spacecraft eras are being modeled, which will break many ' +
+                        'magnetic field plotting functions. General plots will be skipped.')
+
         else:
-            log.warning('Induction calculations have not been completed for any bodies. Asymmetry contour plotting will be skipped. ' +
-                        'Set Params.SKIP_INDUCTION = True in configPP.py to skip induction calculations.')
+            # Remove latex styling from legend labels if Latex is not installed
+            if not FigMisc.TEX_INSTALLED:
+                for Planet in PlanetList:
+                    Planet.label = FigLbl.StripLatexFromString(Planet.label)
+
+            if Params.PLOT_BDIP:
+                PlotComplexBdip(PlanetList, Params)
+            if Params.PLOT_MAG_SPECTRUM and np.any([Planet.Magnetic.FT_LOADED for Planet in PlanetList]):
+                PlotMagSpectrum(PlanetList, Params)
+            if Params.PLOT_BSURF:
+                PlotMagSurface(PlanetList, Params)
+            if Params.PLOT_ASYM and Params.CALC_ASYM:
+                PlotAsym(PlanetList, Params)
+
+            elif np.any([Planet.Magnetic.Binm_nT is not None for Planet in PlanetList]):
+                log.warning('Induction calculations have only been completed for some bodies. Asymmetry contour plotting will be skipped.')
+            else:
+                log.warning('Induction calculations have not been completed for any bodies. Asymmetry contour plotting will be skipped. ' +
+                            'Set Params.SKIP_INDUCTION = True in configPP.py to skip induction calculations.')
 
     return
 
@@ -605,7 +609,6 @@ def AddV2021points(IndParams, bodyname, inductOtype, axes):
 
 def PlotComplexBdip(PlanetList, Params):
     if PlanetList[0].bodyname in Excitations.Texc_hr.keys():
-        axComps = ['x', 'y', 'z']
         refs = {}
         nPeaksToPlot = np.sum([Tdo and Thave for Tdo, Thave, Texc in zip(Params.Induct.excSelectionPlot.values(),
                                                                          Params.Induct.excSelectionCalc.values(),
@@ -645,7 +648,7 @@ def PlotComplexBdip(PlanetList, Params):
                 fig = plt.figure(figsize=figSize)
                 grid = GridSpec(3, nCol)
                 axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(nCol)] for i in range(3)])
-                axc = {vComp: row for vComp, row in zip(axComps, axes)}
+                axc = {vComp: row for vComp, row in zip(xyzComps, axes)}
                 if Style.GRIDS:
                     axf = axes.flatten()
                     [ax.grid() for ax in axf]
@@ -665,7 +668,7 @@ def PlotComplexBdip(PlanetList, Params):
                     else:
                         fig.suptitle(titleToUse[1])
 
-                insetx, insety = ({vComp: 0 for vComp in axComps} for _ in range(2))
+                insetx, insety = ({vComp: 0 for vComp in xyzComps} for _ in range(2))
                 for iPlanet, Planet in enumerate(PlanetList):
                     if Planet.Magnetic.calcedExc is not None and np.size(Planet.Magnetic.calcedExc) >= 1:
                         # Set color options
@@ -682,7 +685,7 @@ def PlotComplexBdip(PlanetList, Params):
                             thisEdgeColor = None
                             thisFaceColor = None
 
-                        for iRow, axComp in enumerate(axComps):
+                        for iRow, axComp in enumerate(xyzComps):
                             xPlotted, yPlotted, absBiPlotted = (np.empty(0) for _ in range(3))
                             for iPeak, Tkey in enumerate(Planet.Magnetic.calcedExc):
                                 if Params.Induct.excSelectionPlot[Tkey]:
@@ -716,7 +719,7 @@ def PlotComplexBdip(PlanetList, Params):
                     refs[f'inset'] = \
                     axes[0, -1].plot([0, 1], [1, 0], color=Color.BdipInset, linewidth=Style.LW_BdipInset,
                                      linestyle=Style.LS_BdipInset, label='Inset region')[0]
-                    for iRow, axComp in enumerate(axComps):
+                    for iRow, axComp in enumerate(xyzComps):
                         axes[iRow, -1].add_patch(
                             Rectangle((0, 0), insetx[axComp], insety[axComp], edgecolor=Color.BdipInset, zorder=-1,
                                       linewidth=Style.LW_BdipInset, linestyle=Style.LS_BdipInset, facecolor='None'))
@@ -735,7 +738,7 @@ def PlotComplexBdip(PlanetList, Params):
                 plt.close()
 
             else:
-                for axComp in axComps:
+                for axComp in xyzComps:
                     if DO_ZOOM:
                         figSize = FigSize.Bdip
                     else:
@@ -1389,7 +1392,6 @@ def PlotMagSpectrum(PlanetList, Params):
         amplitude, and induced dipole components.
     """
 
-    axComps = ['x', 'y', 'z']
     # Get first entry in PlanetList for which FT_LOADED is True
     if PlanetList[0].Magnetic.FT_LOADED:
         mainPlanet = PlanetList[0]
@@ -1442,9 +1444,9 @@ def PlotMagSpectrum(PlanetList, Params):
 
     # Plot the data
     [axes[0].plot(freqVar, np.abs(mainPlanet.Magnetic.Be1xyzFT_nT[vComp]), label=f'$B^e_{vComp}$',
-                  color=Color.BeiFT[vComp], linestyle=Style.LS_FT, linewidth=Style.LW_FT) for vComp in axComps]
+                  color=Color.BeiFT[vComp], linestyle=Style.LS_FT, linewidth=Style.LW_FT) for vComp in xyzComps]
     [axes[2].plot(freqVar, np.abs(mainPlanet.Magnetic.Bi1xyzFT_nT[vComp]), label=f'$B^i_{vComp}$',
-                  color=Color.BeiFT[vComp], linestyle=Style.LS_FT, linewidth=Style.LW_FT) for vComp in axComps]
+                  color=Color.BeiFT[vComp], linestyle=Style.LS_FT, linewidth=Style.LW_FT) for vComp in xyzComps]
     if np.size(PlanetList) > 1 and Params.COMPARE:
         # Only plot comparisons on amplitude plot
         [axes[1].plot(freqVar, np.abs(Planet.Magnetic.Ae1FT), label=Planet.label,
@@ -1468,5 +1470,3 @@ def PlotMagSpectrum(PlanetList, Params):
     plt.close()
 
     return
-
-

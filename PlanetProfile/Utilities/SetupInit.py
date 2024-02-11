@@ -11,6 +11,9 @@ from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathDissoc
 from PlanetProfile.Utilities.PPversion import ppVerNum, CheckCompat
 from PlanetProfile.Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
+from PlanetProfile.TrajecAnalysis import _MAGdir, _scList
+from PlanetProfile.TrajecAnalysis.FlybyEvents import scTargets
+from PlanetProfile.TrajecAnalysis.RefileMAGdata import RefileName, MAGtoHDF5, LoadMAG
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -395,6 +398,63 @@ def SetupInit(Planet, Params):
     return Planet, Params
 
 
+def SetupInversion(Params):
+
+    # Ensure configPP/Params toggles are set as needed
+    Params.INVERSION_IN_PROGRESS = True
+    Params.SKIP_INDUCTION = False
+    Params.CALC_NEW = True
+    Params.CALC_CONDUCT = True
+    Params.CALC_SEISMIC = False
+
+    # Check if relevant spacecraft data has been refiled into HDF5, and create if not
+    magFnames = {}
+    magData = {}
+    for scName in Params.Trajec.scSelect:
+        if Params.Trajec.targetBody not in scTargets[scName]:
+            log.warning(f'Target {Params.Trajec.targetBody} not listed in scTargets for {scName}:' +
+                        f' {scTargets[scName]}.')
+
+        # Make sure data for this spacecraft will be found
+        if scName not in _scList:
+            log.warning(f'"{scName}" not found in {_MAGdir}.')
+
+        # Make sure files are present
+        magFnames[scName] = RefileName(Params.Trajec.targetBody, scName,
+                                       MAGdir=Params.Trajec.MAGdir)
+        if Params.Trajec.FORCE_MAG_RECALC or not os.path.isfile(magFnames[scName]):
+            MAGtoHDF5(Params, scName)
+
+        # Load magnetometer data
+        magData[scName] = LoadMAG(Params, magFnames[scName], scName)
+
+    # Fill TrajecParams from selections
+    Params.Trajec.flybys = {scName: [fbID for fbID in data.t_UTC.keys()]
+                            for scName, data in magData.items()}
+    Params.Trajec.flybyNames = {scName: {fbID: f'{Params.Trajec.fbDescrip[scName]}{fbID}'
+                                         for fbID in fbList} for scName, fbList in
+                                Params.Trajec.flybys.items()}
+    Params.Trajec.flybyFnames = {scName: {fbID: fbName.replace(' ', '')
+                                          for fbID, fbName in fbList.items()} for scName, fbList in
+                                 Params.Trajec.flybyNames.items()}
+    Params.Trajec.nFitParams = Params.Trajec.nFitParamsGlobal + Params.Trajec.nFitParamsFlybys * \
+                               np.sum([data.nFlybys for data in magData.values()])
+
+    datPath = Params.Trajec.targetBody
+    if datPath == 'Test':
+        datPath = os.path.join(_ROOT, datPath)
+    figPath = os.path.join(datPath, 'figures')
+    Params.Trajec.FigureFiles = FigureFilesSubstruct(figPath, '', FigMisc.xtn,
+                                                     flybys=Params.Trajec.flybyFnames)
+    scStr = ''.join([f'{scName}{np.size(fbList)}'
+                     for scName, fbList in Params.Trajec.flybys.items()])
+    fitFbase = f'{Params.Trajec.targetBody}Fit{scStr}Trajec'
+    Params.Trajec.DataFiles = DataFilesSubstruct(datPath, fitFbase, None,
+                                                 inductAppend=Params.Trajec.trajecAppend)
+
+    return Params, magData
+
+
 def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
     """ Generate filenames for saving data and figures.
     """
@@ -502,6 +562,9 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
     FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn,
                                        comp=Planet.Ocean.comp, exploreBase=exploreBase, inductBase=inductBase,
                                        exploreAppend=figExploreAppend, inductAppend=inductAppend)
+
+    # Attach profile name to PlanetStruct in addition to Params
+    Planet.saveFile = DataFiles.saveFile + ''
 
     return Planet, DataFiles, FigureFiles
 

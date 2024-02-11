@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 13  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 14  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def configAssign():
     Params = ParamsStruct()
@@ -63,6 +63,8 @@ def configAssign():
     Params.PLOT_BDIP =        False  # Whether to plot induced dipole surface strength in complex plane
     Params.PLOT_BSURF =       True  # Whether to plot induced field surface map
     Params.PLOT_ASYM =        False  # Whether to plot asymmetric boundary shape(s) when induced fields are calculated from them
+    Params.PLOT_TRAJECS =     False  # Whether to plot spacecraft flyby trajectories for those involved in inversion
+    Params.PLOT_BINVERSION =  False  # Whether to plot magnetic field vector components for flyby inversion
     Params.LEGEND =           True  # Whether to plot legends
     Params.TITLES =           True  # Whether to include a (sup)title on plots
 
@@ -109,25 +111,11 @@ def configAssign():
         'custom_frames_v01.tf',  # Defines MOON_PHI_O (for Galilean moons), PSO, PSM, and PDSZ frames
     ]
     Params.spiceBSP = {
+        'Earth': 'de430.bsp',  # Generic kernel for solar system planets
         'Jupiter': 'jup365.bsp',  # Generic kernel for Jupiter + Galilean moons
         'Saturn': 'sat441.bsp',  # Generic kernel for Saturn + large moons
         'Uranus': 'ura111.bsp',  # Generic kernel for Uranus + large moons
         'Neptune': 'nep097.bsp'  # Generic kernel for Neptune + Triton
     }
-
-    Params.SCmagFnameFmt = {
-        'Galileo': 'ORB*_SYS3.TAB',
-        'Cassini': '*_KRTP_1S.TAB',
-        'Juno': 'fgm_jno_l3_*pc_r1s_v*.sts',
-        'Voyager 1': 'vg1_*_sph.tab',
-        'Voyager 2': 'vg2_*_sph.tab',
-        'Clipper': 'mag_clp*.tab'
-    }
-    Params.SCnames = list(Params.SCmagFnameFmt.keys())
-    Params.spiceSC = {scName: os.path.join(Params.spiceDir, scName) for scName in Params.SCnames}
-
-    # MAG data to use
-    Params.MAGdir = 'SpacecraftMAGdata'
-    Params.SCmagData = {scName: os.path.join(Params.MAGdir, scName) for scName in Params.SCnames}
 
     return Params, ExploreParams

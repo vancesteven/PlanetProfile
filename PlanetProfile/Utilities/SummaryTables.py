@@ -443,6 +443,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
     header = '\n' + tab.join(columns) + endl
     if FigMisc.HF_HLINES:
         header = hline + header
+
     tOpen = r'\begin{tabular}{' + v + v.join(['l' for _ in columns]) + v + '}'
     condIceLbl = 'Conductive ice Ih'
     convIceLbl = 'Convective ice Ih'
@@ -940,6 +941,124 @@ def PrintLayerTableLatex(PlanetList, Params):
         {Tb_K}
         {qSurf}{qCon}{etaI}{DI}{DIIIund}{DVund}{Docean}{DIIIwet}{DVwet}{DVI}{sigOcean}{Rsurf}
         {Rrock}{Rcore}{phiIce}{phiRock}
+    {tClose}
+    """)
+
+    return
+
+
+def PrintTrajecFit(FitOutputs, Params):
+    infoHeader = 'Goodness-of-fit summary:'
+    chiSquaredName = 'chi^2: '
+    RsquaredName = 'R^2: '
+    stdDevName = 'std dev: '
+    RMSeName = 'RMS error: '
+    fitParamNames = [chiSquaredName, RsquaredName, stdDevName, RMSeName]
+    maxW = np.max([len(name) for name in fitParamNames]) + 1
+    scHeader = f'{"":>{maxW}}' + f'{"":>9} ' + ' '.join([
+        f'{scName:>9} ' + ' '.join([f'{"":>9}' for _ in list(R2.keys())[:-1]])
+        for scName, R2 in FitOutputs.Rsquared.items() if scName != 'total'])
+    fbHeader = f'{"":>{maxW}}' + f'    Total ' + ' '.join([
+        ' '.join([f'{Params.Trajec.fbDescrip[scName]:>7}{fbID}' for fbID in R2.keys()])
+        for scName, R2 in FitOutputs.Rsquared.items() if scName != 'total'])
+
+    chiSquaredLine = f'{chiSquaredName:>{maxW}}' + f'{FitOutputs.chiSquared["total"]:>9.3e} ' + ' '.join([
+        ' '.join([f'{thisChi2:>9.3e}' for thisChi2 in chi2.values()])
+        for scName, chi2 in FitOutputs.chiSquared.items() if scName != 'total'])
+    RsquaredLine = f'{RsquaredName:>{maxW}}' + f'{FitOutputs.Rsquared["total"]:>9.7f} ' + ' '.join([
+        ' '.join([f'{thisR2:>9.7f}' for thisR2 in R2.values()])
+        for scName, R2 in FitOutputs.Rsquared.items() if scName != 'total'])
+    stdDevLine = f'{stdDevName:>{maxW}}' + f'{FitOutputs.stdDev["total"]:>9.3e} ' + ' '.join([
+        ' '.join([f'{thisstdDev:>9.3e}' for thisstdDev in stdDev.values()])
+        for scName, stdDev in FitOutputs.stdDev.items() if scName != 'total'])
+    RMSeLine = f'{RMSeName:>{maxW}}' + f'{FitOutputs.RMSe["total"]:>9.3e} ' + ' '.join([
+        ' '.join([f'{thisRMSe:>9.3e}' for thisRMSe in RMSe.values()])
+        for scName, RMSe in FitOutputs.RMSe.items() if scName != 'total'])
+
+    log.info(f"""{infoHeader}
+    {scHeader}
+    {fbHeader}
+    {chiSquaredLine}
+    {RsquaredLine}
+    {stdDevLine}
+    {RMSeLine}
+    """)
+
+    return
+
+
+def PrintTrajecTableLatex(FitOutputs, Params):
+
+    # Table column separator
+    tab = ' & '
+    # Table horizontal division constant
+    hline = r'\hline'
+    # Table vertical division constant
+    if FigMisc.LATEX_HLINES:
+        endl = r' \\ \hline'
+    else:
+        endl = r' \\'
+    newline = '\n        '
+    # Vertical lines for table, if present
+    if FigMisc.LATEX_VLINES:
+        v = ' | '
+    else:
+        v = ' '
+    # Table end
+    tClose = r'\end{tabular}'
+
+    # Layer table labels
+    scHeader = tab.join(['']*2 + [tab.join([f'\multicolumn{{1}}{{{v}r}}{{{scName}}}']
+                                  + [r'\multicolumn{1}{r}{ }']*(nFlybys-1))
+                        for scName, nFlybys in FitOutputs.nFlybys.items()])
+    lastCol = scHeader.rfind(r'}{')
+    scHeader = scHeader[:lastCol] + v + scHeader[lastCol:] + endl
+    fbHeader = '    ' + tab.join(['', 'Total'] + [f'{Params.Trajec.fbDescrip[scName]}{fbID}'
+        for scName, R2 in FitOutputs.Rsquared.items() if scName != 'total' for fbID in R2.keys()]) \
+        + endl
+    if FigMisc.HF_HLINES and not FigMisc.LATEX_HLINES:
+        scHeader = hline + newline + scHeader
+        if FigMisc.LATEX_VLINES:
+            fbHeader = f'{hline}\n    ' + fbHeader
+        fbHeader = fbHeader + f'\n    {hline}'
+
+        tClose = f'{hline}\n    ' + tClose
+    elif FigMisc.LATEX_HLINES:
+        scHeader = hline + newline + scHeader
+    else:
+        scHeader = '    ' + scHeader
+
+
+    tOpen = r'\begin{tabular}{' + v + v.join(['r' for _ in fbHeader.split(tab)]) + v + '}'
+
+    title = r'\section{Goodness-of-fit summary}'
+    chiSquaredName = 'Reduced $\chi^2$'
+    RsquaredName = '$R^2$'
+    stdDevName = 'std dev'
+    RMSeName = 'RMS error'
+
+    chiSquaredLine = f'{chiSquaredName}' + tab + f'{FitOutputs.chiSquared["total"]:>9.3e}' + tab \
+        + tab.join([tab.join([f'{thisChi2:>9.3e}' for thisChi2 in chi2.values()])
+        for scName, chi2 in FitOutputs.chiSquared.items() if scName != 'total']) + endl
+    RsquaredLine = f'{RsquaredName}' + tab + f'{FitOutputs.Rsquared["total"]:>9.7f}' + tab \
+        + tab.join([tab.join([f'{thisR2:>9.7f}' for thisR2 in R2.values()])
+        for scName, R2 in FitOutputs.Rsquared.items() if scName != 'total']) + endl
+    stdDevLine = f'{stdDevName}' + tab + f'{FitOutputs.stdDev["total"]:>9.3e}' + tab \
+        + tab.join([tab.join([f'{thisstdDev:>9.3e}' for thisstdDev in stdDev.values()])
+        for scName, stdDev in FitOutputs.stdDev.items() if scName != 'total']) + endl
+    RMSeLine = f'{RMSeName}' + tab + f'{FitOutputs.RMSe["total"]:>9.3e}' + tab \
+        + tab.join([tab.join([f'{thisRMSe:>9.3e}' for thisRMSe in RMSe.values()])
+        for scName, RMSe in FitOutputs.RMSe.items() if scName != 'total']) + endl
+
+    log.info(f"""
+    {title}
+    {tOpen}
+    {scHeader}
+    {fbHeader}
+        {chiSquaredLine}
+        {RsquaredLine}
+        {stdDevLine}
+        {RMSeLine}
     {tClose}
     """)
 

@@ -2,7 +2,6 @@ import os
 import numpy as np
 import logging
 import scipy.interpolate as spi
-import spiceypy as spice
 from scipy.integrate import solve_ivp as ODEsolve
 from collections.abc import Iterable
 from glob import glob as FilesMatchingPattern
@@ -11,7 +10,6 @@ from PlanetProfile import _Test, _Defaults
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from PlanetProfile.GetConfig import FigMisc, SigParams
-from PlanetProfile.TrajecAnalysis.SpiceFuncs import BodyDist_km
 from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq_single as GeodesyNorm2chipq, \
     get_all_Xid as LoadXid, get_rsurf as GetrSurf, norm4pi as normFactor_4pi
 from MoonMag.symmetry_funcs import InducedAeList as AeList
@@ -101,80 +99,157 @@ def CalcInducedMoments(Planet, Params):
     Planet.Magnetic.mprmLin = [m for n in range(1, Planet.Magnetic.nprmMax+1) for m in range(-n, n+1)]
     Nnm = np.size(Planet.Magnetic.nLin)
 
-    Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex_)
-    Planet.Magnetic.BinmLin_nT = np.zeros((Planet.Magnetic.nExc, Nnm), dtype=np.complex_)
+    if isinstance(Planet.Magnetic.nExc, dict):
+        Planet.Magnetic.Aen = {SCera: np.zeros((nExc, Planet.Magnetic.nprmMax + 1),
+            dtype=np.complex_) for SCera, nExc in Planet.Magnetic.nExc.items()}
+        Planet.Magnetic.BinmLin_nT = {SCera: np.zeros((nExc, Nnm), dtype=np.complex_)
+                                      for SCera, nExc in Planet.Magnetic.nExc.items()}
+    else:
+        Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex_)
+        Planet.Magnetic.BinmLin_nT = np.zeros((Planet.Magnetic.nExc, Nnm), dtype=np.complex_)
+        
     if Planet.Magnetic.inductMethod == 'Eckhardt1963' or Planet.Magnetic.inductMethod == 'numeric':
         if Params.CALC_ASYM:
             log.warning('Asymmetry can only be modeled with Srivastava1966 (layer) method, but ' +
                         'Eckhardt1963 (numeric) method is selected. Asymmetry will be ignored.')
 
         # Get wavenumbers for each layer for each frequency
-        k_pm = np.array([np.sqrt(1j * Constants.mu0 * omega * Planet.Magnetic.sigmaLayers_Sm)
-                     for omega in Planet.Magnetic.omegaExc_radps])
+        if isinstance(Planet.Magnetic.omegaExc_radps, dict):
+            k_pm = {SCera: np.array([np.sqrt(1j * Constants.mu0 * omega * Planet.Magnetic.sigmaLayers_Sm)
+                for omega in omegaExc_radps])
+                for SCera, omegaExc_radps in Planet.Magnetic.omegaExc_radps.items()}
+        else:
+            k_pm = np.array([np.sqrt(1j * Constants.mu0 * omega * Planet.Magnetic.sigmaLayers_Sm)
+                         for omega in Planet.Magnetic.omegaExc_radps])
 
-        for nprm in range(1, Planet.Magnetic.nprmMax+1):
-            Q = np.array([SolveForQ(nprm, k_pm[i,:], Planet.Magnetic.rSigChange_m, Planet.Bulk.R_m,
-                                    Params.Induct.EckhardtSolveMethod, rMin=Params.Induct.rMinODE)
-                                    for i,omega in enumerate(Planet.Magnetic.omegaExc_radps)])
-            Planet.Magnetic.Aen[:,nprm] = Q * (nprm+1) / nprm
-            Planet.Magnetic.Binm_nT[:,:,nprm,:] = [Planet.Magnetic.Benm_nT[i,:,nprm,:] * Planet.Magnetic.Aen[i,nprm]
-                                                   for i in range(Planet.Magnetic.nExc)]
+        if isinstance(Planet.Magnetic.nExc, dict):
+            for SCera in Planet.Magnetic.nExc.keys():
+                for nprm in range(1, Planet.Magnetic.nprmMax+1):
+                    Q = np.array([SolveForQ(nprm, k_pm[i,:], Planet.Magnetic.rSigChange_m, Planet.Bulk.R_m,
+                                            Params.Induct.EckhardtSolveMethod, rMin=Params.Induct.rMinODE)
+                                            for i,omega in enumerate(Planet.Magnetic.omegaExc_radps[SCera])])
+                    Planet.Magnetic.Aen[SCera][:,nprm] = Q * (nprm+1) / nprm
+                    Planet.Magnetic.Binm_nT[SCera][:,:,nprm,:] = [Planet.Magnetic.Benm_nT[SCera][i,:,nprm,:] * Planet.Magnetic.Aen[SCera][i,nprm]
+                                                           for i in range(Planet.Magnetic.nExc[SCera])]
+        else:
+            for nprm in range(1, Planet.Magnetic.nprmMax+1):
+                Q = np.array([SolveForQ(nprm, k_pm[i,:], Planet.Magnetic.rSigChange_m, Planet.Bulk.R_m,
+                                        Params.Induct.EckhardtSolveMethod, rMin=Params.Induct.rMinODE)
+                                        for i,omega in enumerate(Planet.Magnetic.omegaExc_radps)])
+                Planet.Magnetic.Aen[:,nprm] = Q * (nprm+1) / nprm
+                Planet.Magnetic.Binm_nT[:,:,nprm,:] = [Planet.Magnetic.Benm_nT[i,:,nprm,:] * Planet.Magnetic.Aen[i,nprm]
+                                                       for i in range(Planet.Magnetic.nExc)]
 
-        Planet.Magnetic.Amp = np.abs(Planet.Magnetic.Aen[:, 1])
-        Planet.Magnetic.phase = -np.angle(Planet.Magnetic.Aen[:, 1], deg=True)
+        if isinstance(Planet.Magnetic.Aen, dict):
+            Planet.Magnetic.Amp = {SCera: np.abs(Aen[:, 1]) for SCera, Aen in Planet.Magnetic.Aen.items()}
+            Planet.Magnetic.phase = {SCera: -np.angle(Aen[:, 1], deg=True) for SCera, Aen in Planet.Magnetic.Aen.items()}
+        else:
+            Planet.Magnetic.Amp = np.abs(Planet.Magnetic.Aen[:, 1])
+            Planet.Magnetic.phase = -np.angle(Planet.Magnetic.Aen[:, 1], deg=True)
 
     elif Planet.Magnetic.inductMethod == 'Srivastava1966' or Planet.Magnetic.inductMethod == 'layer':
         # Evaluate 1st-order complex response amplitudes
-        Planet.Magnetic.Aen[:,1], Planet.Magnetic.Amp, AeArg \
-            = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
-                     Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=1, writeout=False,
-                     do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
-        Planet.Magnetic.phase = -np.degrees(AeArg)
-        for n in range(2, Planet.Magnetic.nprmMax):
-            Planet.Magnetic.Aen[:,n], _, _ \
+        if isinstance(Planet.Magnetic.Aen, dict):
+            Planet.Magnetic.Amp, Planet.Magnetic.phase, AeArg = ({} for _ in range(3))
+            for SCera in Planet.Magnetic.Aen.keys():
+                Planet.Magnetic.Aen[SCera][:,1], Planet.Magnetic.Amp[SCera], AeArg[SCera] \
+                    = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
+                             Planet.Magnetic.omegaExc_radps[SCera], 1/Planet.Bulk.R_m, nn=1, writeout=False,
+                             do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+                Planet.Magnetic.phase[SCera] = -np.degrees(AeArg[SCera])
+                for n in range(2, Planet.Magnetic.nprmMax):
+                    Planet.Magnetic.Aen[SCera][:,n], _, _ \
+                        = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
+                                 Planet.Magnetic.omegaExc_radps[SCera], 1/Planet.Bulk.R_m, nn=n, writeout=False,
+                                 do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+
+        else:
+            Planet.Magnetic.Aen[:,1], Planet.Magnetic.Amp, AeArg \
                 = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
-                         Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=n, writeout=False,
+                         Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=1, writeout=False,
                          do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+            Planet.Magnetic.phase = -np.degrees(AeArg)
+            for n in range(2, Planet.Magnetic.nprmMax):
+                Planet.Magnetic.Aen[:,n], _, _ \
+                    = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
+                             Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=n, writeout=False,
+                             do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
 
         if Params.CALC_ASYM:
             # Use a separate function for evaluating asymmetric induced moments, as Binm is not as simple as
             # Aen * Benm for this case.
-            Planet.Magnetic.Binm_nT = BiAsym(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
-                                             Planet.Magnetic.omegaExc_radps, Planet.Magnetic.asymShape_m,
-                                             Planet.Magnetic.gravShape_m, Planet.Magnetic.Benm_nT, 1/Planet.Bulk.R_m,
-                                             Planet.Magnetic.nLin, Planet.Magnetic.mLin, Planet.Magnetic.pMax,
-                                             nprm_max=Planet.Magnetic.nprmMax, writeout=False,
-                                             do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM),
-                                             Xid=Planet.Magnetic.Xid)
+            if isinstance(Planet.Magnetic.Binm_nT, dict):
+                for SCera in Planet.Magnetic.Binm_nT.keys():
+                    Planet.Magnetic.Binm_nT[SCera] = BiAsym(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
+                                                     Planet.Magnetic.omegaExc_radps[SCera], Planet.Magnetic.asymShape_m,
+                                                     Planet.Magnetic.gravShape_m, Planet.Magnetic.Benm_nT[SCera], 1/Planet.Bulk.R_m,
+                                                     Planet.Magnetic.nLin, Planet.Magnetic.mLin, Planet.Magnetic.pMax,
+                                                     nprm_max=Planet.Magnetic.nprmMax, writeout=False,
+                                                     do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS),
+                                                     Xid=Planet.Magnetic.Xid)
+            else:
+                Planet.Magnetic.Binm_nT = BiAsym(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
+                                                 Planet.Magnetic.omegaExc_radps, Planet.Magnetic.asymShape_m,
+                                                 Planet.Magnetic.gravShape_m, Planet.Magnetic.Benm_nT, 1/Planet.Bulk.R_m,
+                                                 Planet.Magnetic.nLin, Planet.Magnetic.mLin, Planet.Magnetic.pMax,
+                                                 nprm_max=Planet.Magnetic.nprmMax, writeout=False,
+                                                 do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS),
+                                                 Xid=Planet.Magnetic.Xid)
         else:
             # Multiply complex response by Benm to get Binm for spherically symmetric case
-            for iPeak in range(Planet.Magnetic.nExc):
-                for n in Planet.Magnetic.nprmLin:
-                    for m in Planet.Magnetic.mprmLin:
-                        Planet.Magnetic.Binm_nT[iPeak, int(m<0), n, m] \
-                            = n/(n+1) * Planet.Magnetic.Benm_nT[iPeak, int(m<0), n, m] * Planet.Magnetic.Aen[iPeak, n]
+            if isinstance(Planet.Magnetic.nExc, dict):
+                for SCera, nExc in Planet.Magnetic.nExc.items():
+                    for iPeak in range(nExc):
+                        for n in Planet.Magnetic.nprmLin:
+                            for m in Planet.Magnetic.mprmLin:
+                                Planet.Magnetic.Binm_nT[SCera][iPeak, int(m<0), n, m] \
+                                    = n/(n+1) * Planet.Magnetic.Benm_nT[SCera][iPeak, int(m<0), n, m] * Planet.Magnetic.Aen[SCera][iPeak, n]
+            else:
+                for iPeak in range(Planet.Magnetic.nExc):
+                    for n in Planet.Magnetic.nprmLin:
+                        for m in Planet.Magnetic.mprmLin:
+                            Planet.Magnetic.Binm_nT[iPeak, int(m<0), n, m] \
+                                = n/(n+1) * Planet.Magnetic.Benm_nT[iPeak, int(m<0), n, m] * Planet.Magnetic.Aen[iPeak, n]
     else:
         raise ValueError(f'Induction method "{Planet.Magnetic.inductMethod}" not defined.')
 
     # Get linear lists of Binm for more convenient post-processing
-    Planet.Magnetic.BinmLin_nT[:,:Nnm] \
-        = np.array([[Planet.Magnetic.Binm_nT[iPeak,int(m<0),n,m]
-                   for n, m in zip(Planet.Magnetic.nLin, Planet.Magnetic.mLin)]
-                   for iPeak in range(Planet.Magnetic.nExc)])
+    if isinstance(Planet.Magnetic.BinmLin_nT, dict):
+        for SCera in Planet.Magnetic.BinmLin_nT.keys():
+            Planet.Magnetic.BinmLin_nT[SCera][:,:Nnm] \
+                = np.array([[Planet.Magnetic.Binm_nT[SCera][iPeak,int(m<0),n,m]
+                           for n, m in zip(Planet.Magnetic.nLin, Planet.Magnetic.mLin)]
+                           for iPeak in range(Planet.Magnetic.nExc[SCera])])
+    else:
+        Planet.Magnetic.BinmLin_nT[:,:Nnm] \
+            = np.array([[Planet.Magnetic.Binm_nT[iPeak,int(m<0),n,m]
+                       for n, m in zip(Planet.Magnetic.nLin, Planet.Magnetic.mLin)]
+                       for iPeak in range(Planet.Magnetic.nExc)])
 
     # Get surface strength in IAU components for plotting, with conjugate phase to match
     # Zimmer et al. (2000) phase convention
-    Bex, Bey, Bez = Benm2absBexyz(Planet.Magnetic.Benm_nT)
-    Planet.Magnetic.Bi1xyz_nT = {
-        'x': Bex * np.conj(Planet.Magnetic.Aen[:,1]),
-        'y': Bey * np.conj(Planet.Magnetic.Aen[:,1]),
-        'z': Bez * np.conj(Planet.Magnetic.Aen[:,1])
-    }
+    if isinstance(Planet.Magnetic.Benm_nT, dict):
+        Planet.Magnetic.Bi1xyz_nT = {}
+        for SCera, Benm_nT in Planet.Magnetic.Benm_nT.items():
+            Bex, Bey, Bez = Benm2absBexyz(Benm_nT)
+            Planet.Magnetic.Bi1xyz_nT[SCera] = {
+                'x': Bex * np.conj(Planet.Magnetic.Aen[SCera][:,1]),
+                'y': Bey * np.conj(Planet.Magnetic.Aen[SCera][:,1]),
+                'z': Bez * np.conj(Planet.Magnetic.Aen[SCera][:,1])
+            }
+    else:
+        Bex, Bey, Bez = Benm2absBexyz(Planet.Magnetic.Benm_nT)
+        Planet.Magnetic.Bi1xyz_nT = {
+            'x': Bex * np.conj(Planet.Magnetic.Aen[:,1]),
+            'y': Bey * np.conj(Planet.Magnetic.Aen[:,1]),
+            'z': Bez * np.conj(Planet.Magnetic.Aen[:,1])
+        }
 
     Planet.Magnetic.calcedExc = [key for key, CALCED in Params.Induct.excSelectionCalc.items()
-                                 if CALCED and Excitations.Texc_hr[Planet.bodyname][key] is not None]
+                                 if CALCED and key in Excitations.Texc_hr[Planet.bodyname].keys()
+                                 and Excitations.Texc_hr[Planet.bodyname][key] is not None]
     # Save calculated magnetic moments to disk
-    if not Params.NO_SAVEFILE:
+    if (not Params.NO_SAVEFILE) and (not Params.INVERSION_IN_PROGRESS):
         saveDict = {
             'Benm_nT': Planet.Magnetic.Benm_nT,
             'Binm_nT': Planet.Magnetic.Binm_nT,
@@ -454,7 +529,7 @@ def SetupInduction(Planet, Params):
                     if np.size(indsLiq) == 1:
                         log.warning(f'Only 1 layer found in ocean, but number of layers to ' +
                                     f'interpolate over is {Params.Induct.nIntL}. Arbitrary layers will be introduced.')
-                        rModel_m = np.concatenate(([rBot_m], rLayers_m[indsLiq]))
+                        rModel_m = np.concatenate((np.array([rBot_m]), rLayers_m[indsLiq]))
                         sigmaModel_Sm = np.concatenate((sigmaInduct_Sm[indsLiq] * 1.001, sigmaInduct_Sm[indsLiq]))
                     else:
                         rModel_m = rLayers_m[indsLiq]
@@ -512,16 +587,22 @@ def SetupInduction(Planet, Params):
             Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, 1, 1))
         
         # Get excitation spectrum
-        if not Params.DO_INDUCTOGRAM:
-            # Block if we're doing an inductogram, so that we only attempt to load once
-            Planet.Magnetic.Texc_hr, Planet.Magnetic.omegaExc_radps, Planet.Magnetic.Benm_nT, Planet.Magnetic.B0_nT \
-                = GetBexc(Planet.name, Planet.Magnetic.SCera, Planet.Magnetic.extModel, Params.Induct.excSelectionCalc,
-                          nprmMax=Planet.Magnetic.nprmMax, pMax=Planet.Magnetic.pMax)
+        if not (Params.DO_INDUCTOGRAM or Params.INVERSION_IN_PROGRESS):
+            # Block if we're doing an inductogram or inversion, so that we only attempt to load once
+            Planet.Magnetic.Texc_hr, Planet.Magnetic.omegaExc_radps, Planet.Magnetic.Benm_nT, \
+            Planet.Magnetic.B0_nT, Planet.Magnetic.Bexyz_nT \
+                = GetBexc(Planet.name, Planet.Magnetic.SCera, Planet.Magnetic.extModel,
+                          Params.Induct.excSelectionCalc, nprmMax=Planet.Magnetic.nprmMax,
+                          pMax=Planet.Magnetic.pMax)
             Planet.Magnetic.nExc = np.size(Planet.Magnetic.Texc_hr)
 
         # Initialize Binm array to have the same shape and data type as Benm
-        if Planet.Magnetic.Binm_nT is None: 
-            Planet.Magnetic.Binm_nT = np.zeros_like(Planet.Magnetic.Benm_nT)
+        if Planet.Magnetic.Binm_nT is None:
+            if isinstance(Planet.Magnetic.Benm_nT, dict):
+                Planet.Magnetic.Binm_nT = {SCera: np.zeros_like(Benm_nT)
+                                           for SCera, Benm_nT in Planet.Magnetic.Benm_nT.items()}
+            else:
+                Planet.Magnetic.Binm_nT = np.zeros_like(Planet.Magnetic.Benm_nT)
 
     else:
         # Make sure explore-o-grams play nice when ionosphere properties are not set
@@ -567,7 +648,7 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
 
     if BeLabel in EOSlist.loaded.keys():
         log.debug(f'{bodyname} excitation spectrum for {model} model and {era} era already loaded. Reusing existing.')
-        Texc_hr, omegaExc_radps, Benm_nT, B0_nT = EOSlist.loaded[BeLabel]
+        Texc_hr, omegaExc_radps, Benm_nT, B0_nT, Bexyz_nT = EOSlist.loaded[BeLabel]
     else:
         if bodyname[:4] == 'Test':
             fNames = [f'Be{npi}xyz_Test' for npi in range(1, nprmMax+1)]
@@ -586,7 +667,8 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
             nprmMax = 1
 
         if os.path.isfile(os.path.join(fPath, f'{fNames[0]}.txt')):
-            inpTexc_hr, inpBenm_nT, B0_nT, BeNames = GetBenm(nprmMax, pMax, fpath=fPath, fName=fNames[0])
+            inpTexc_hr, inpBenm_nT, B0_nT, BeNames, Bexyz_nT = GetBenm(nprmMax, pMax, fpath=fPath,
+                                                                    fName=fNames[0])
             BeList = Excitations(bodyname)
             eachT = np.logical_and([excSelection[key] for key in BeList.keys()], [BeList[key] is not None for key in BeList.keys()])
             nPeaks = sum(eachT)
@@ -595,7 +677,7 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
             # Include in the excitation spectrum only the periods specified in configPPinduct.py
             iPeak = 0
             for oscillation, included in excSelection.items():
-                if included and BeList[oscillation] is not None:
+                if included and oscillation in BeList.keys() and BeList[oscillation] is not None:
                     iClosest = np.argmin(abs(inpTexc_hr - BeList[oscillation]))
                     Texc_hr[iPeak] = inpTexc_hr[iClosest]
                     Benm_nT[iPeak, ...] = inpBenm_nT[inpTexc_hr == Texc_hr[iPeak], ...]
@@ -603,21 +685,23 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
 
             omegaExc_radps = 2*np.pi / Texc_hr / 3600
 
-            EOSlist.loaded[BeLabel] = (Texc_hr, omegaExc_radps, Benm_nT, B0_nT)
+            EOSlist.loaded[BeLabel] = (Texc_hr, omegaExc_radps, Benm_nT, B0_nT, Bexyz_nT)
             EOSlist.ranges[BeLabel] = Texc_hr
 
         else:
             log.warning(f'Excitation moments file(s) not found in {fPath}. Induction calculations will be skipped.')
-            Texc_hr, omegaExc_radps, Benm_nT, B0_nT = (None for _ in range(4))
+            Texc_hr, omegaExc_radps, Benm_nT, B0_nT, Bexyz_nT = (None for _ in range(5))
 
-    return Texc_hr, omegaExc_radps, Benm_nT, B0_nT
+    return Texc_hr, omegaExc_radps, Benm_nT, B0_nT, Bexyz_nT
 
 
 def Benm2absBexyz(Benm):
+
     A1 = np.sqrt(2*np.pi/3)
     Bex = np.abs(-1 /2/A1 * (Benm[:,1,1,1] - Benm[:,0,1,1]))
     Bey = np.abs( 1j/2/A1 * (Benm[:,1,1,1] + Benm[:,0,1,1]))
     Bez = np.abs(-1 /np.sqrt(2)/A1 * Benm[:,0,1,0])
+
     return Bex, Bey, Bez
 
 
@@ -839,17 +923,6 @@ def SetAsymShape(Planet, Params):
     return Planet
 
 
-def Bxyz2Bsph(Bx, By, Bz, theta, phi):
-    # Convert vector components aligned to cartesian axes
-    # into vector components aligned to spherical coordinates.
-    # Source: Arfken, Weber, Harris, Mathematical Methods for Physicists,
-    # 7th ed, pg. 199 for the unit vectors.
-    Br   =  np.sin(theta) * np.cos(phi) * Bx + np.sin(theta) * np.sin(phi) * By + np.cos(theta) * Bz
-    Bth  =  np.cos(theta) * np.cos(phi) * Bx + np.cos(theta) * np.sin(phi) * By - np.sin(theta) * Bz
-    Bphi =                 -np.sin(phi) * Bx +                 np.cos(phi) * By
-    return Br, Bth, Bphi
-
-
 def FourierSpectrum(Planet, Params):
     """ Load a Fourier spectrum of magnetic excitations applied to the body,
         calculate the spherically symmetric induction amplitude across this
@@ -946,19 +1019,5 @@ def ReloadSpectrum(Planet, Params):
         log.warning(f'Magnetic Fourier spectrum was intended to be reloaded, but {Params.DataFiles.FTdata} ' +
                     f'was not found. Re-run with CALC_NEW_INDUCT = True in configPP.py.')
         Planet.Magnetic.FT_LOADED = False
-
-    return Planet
-
-
-def FindBindCA(Planet, Params, scName, tStrList):
-    """ Get induced magnetic field vector at a list of closest approach times
-        for the named spacecraft.
-    """
-    etCAapprox = spice.str2et(tStrList)
-    etCA = np.zeros_like(etCAapprox)
-    for i, etCAnamed in enumerate(etCAapprox):
-        etSearch = np.arange(etCAnamed-Params.tRangeCA_s, etCAnamed+Params.tRangeCA_s, Params.tSearchRes_s)
-        _, _, _, rRange_km = BodyDist_km(scName, Planet.bodyname, etSearch)
-        etCA[i] = etSearch[np.argmin(rRange_km)]
 
     return Planet

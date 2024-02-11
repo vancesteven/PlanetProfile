@@ -203,7 +203,7 @@ def PlanetProfile(Planet, Params):
         Planet = SeismicCalcs(Planet, Params)
 
         # Save data after modeling
-        if not Params.NO_SAVEFILE and Planet.Do.VALID:
+        if (not Params.NO_SAVEFILE) and Planet.Do.VALID and (not Params.INVERSION_IN_PROGRESS):
             WriteProfile(Planet, Params)
             if Params.CALC_SEISMIC and not Params.SKIP_INNER:
                 WriteSeismic(Planet, Params)
@@ -212,7 +212,8 @@ def PlanetProfile(Planet, Params):
         Planet, Params = ReloadProfile(Planet, Params)
 
     # Main plotting functions
-    if ((not Params.SKIP_PLOTS) and not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM)) \
+    if ((not Params.SKIP_PLOTS) and not (
+            Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS)) \
         and Planet.Do.VALID:
         # Calculate large-scale layer properties
         PlanetList, Params = GetLayerMeans(np.array([Planet]), Params)
@@ -233,7 +234,7 @@ def PlanetProfile(Planet, Params):
                         'set to False. Try to re-run with CALC_NEW_INDUCT set to True in '
                         'configPP.py.')
         elif (not Params.SKIP_PLOTS) and \
-            not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM):
+            not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS):
             GenerateMagPlots([Planet], Params)
 
     PrintCompletion(Planet, Params)
@@ -601,7 +602,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
             = (float(f.readline().split('=')[-1]) for _ in range(64))
         # Note porosity flags
         Planet.Do.POROUS_ICE = bool(strtobool(f.readline().split('=')[-1].strip()))
-        Planet.Do.POROUS_ROCK = Planet.Sil.phiRockMax_frac > 0
+        Planet.Do.POROUS_ROCK = not np.isnan(Planet.Sil.phiCalc_frac)
         # Get integer values from header (nSteps values)
         Planet.Steps.nClath, Planet.Steps.nIceI, \
         Planet.Steps.nIceIIILitho, Planet.Steps.nIceVLitho, \
@@ -725,9 +726,11 @@ def InductOgram(bodyname, Params):
             Planet.Magnetic.pMax = 2
         else:
             Planet.Magnetic.pMax = 0
-        Planet.Magnetic.Texc_hr, Planet.Magnetic.omegaExc_radps, Planet.Magnetic.Benm_nT, Planet.Magnetic.B0_nT \
-            = GetBexc(Planet.name, Planet.Magnetic.SCera, Planet.Magnetic.extModel, Params.Induct.excSelectionCalc,
-                      nprmMax=Planet.Magnetic.nprmMax, pMax=Planet.Magnetic.pMax)
+        Planet.Magnetic.Texc_hr, Planet.Magnetic.omegaExc_radps, Planet.Magnetic.Benm_nT, \
+        Planet.Magnetic.B0_nT, _ \
+            = GetBexc(Planet.name, Planet.Magnetic.SCera, Planet.Magnetic.extModel,
+                      Params.Induct.excSelectionCalc, nprmMax=Planet.Magnetic.nprmMax,
+                      pMax=Planet.Magnetic.pMax)
         Planet.Magnetic.nExc = np.size(Planet.Magnetic.Texc_hr)
         Benm_nT = Planet.Magnetic.Benm_nT
 

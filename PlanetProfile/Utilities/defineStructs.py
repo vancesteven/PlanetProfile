@@ -18,10 +18,11 @@ from copy import deepcopy
 import cmasher
 import logging
 from collections.abc import Iterable
+from cycler import cycler
 import matplotlib.pyplot as plt
-from matplotlib.cm import get_cmap
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb, ListedColormap
 from scipy.interpolate import interp1d
+from PlanetProfile import _defaultCycler
 
 #from MoonMag.plotting_funcs import east_formatted as LonFormatter, lat_formatted as LatFormatter, get_sign as GetSign
 
@@ -32,6 +33,20 @@ log = logging.getLogger('PlanetProfile')
 zComps = ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']
 xyzComps = ['x', 'y', 'z']
 vecComps = xyzComps + ['mag']
+
+# Default colors for color cycler
+_tableau10_v10colors = [
+    "#4e79a7",  # blue
+    "#f28e2b",  # orange
+    "#e15759",  # red
+    "#76b7b2",  # cyan
+    "#59a14f",  # green
+    "#edc948",  # yellow
+    "#b07aa1",  # purple
+    "#ff9da7",  # pink
+    "#9c755f",  # brown
+    "#bab0ac",  # grey
+]
 
 # We have to define subclasses first in order to make them instanced to each Planet object
 """ Run settings """
@@ -379,6 +394,7 @@ class MagneticSubstruct:
         self.nBds = None  # Number of radial boundaries between conductors specified
         self.nExc = None  # Number of excitation frequencies modeled
         self.Benm_nT = None  # Excitation moments (amplitude and phase of magnetic oscillations) applied to the body in nT
+        self.Bexyz_nT = None  # Complex excitation moments in Cartesian (IAU) coordinates.
         self.nprmMax = 1  # Maximum n' to use in excitation moments (1 for uniform).
         self.pMax = None  # Maximum p to use in asymmetric shape (0 for spherically symmetric; 2 for up to and incuding gravity coefficients).
         self.asymShape_m = None  # Asymmetric shape to use in induction calculations. Only used when inductType = "Srivastava1966".
@@ -439,6 +455,7 @@ class PlanetStruct:
 
         self.fname = None  # Relative path used for .py file import
         self.saveLabel = None  # Label for savefile
+        self.saveFile = None  # File path used for output profile
         self.label = None  # Label for legend entries
         self.tradeLabel = None  # Label for legend entries in tradeoff plots
         self.CMR2strPrint = None  # String of Cmeasured +/- Cuncertainty to print to terminal. Handles differing +/- values.
@@ -556,7 +573,8 @@ class PlanetStruct:
 """ Params substructs """
 # Construct filenames for data, saving/reloading
 class DataFilesSubstruct:
-    def __init__(self, datPath, saveBase, comp, inductBase=None, exploreAppend=None, inductAppend=None, EXPLORE=False):
+    def __init__(self, datPath, saveBase, comp, inductBase=None, exploreAppend=None,
+                 inductAppend=None, EXPLORE=False):
         if inductBase is None:
             inductBase = saveBase
         if exploreAppend is None:
@@ -601,11 +619,13 @@ class DataFilesSubstruct:
         self.BeFTdata = os.path.join('inductionData', 'Be1xyzFTdata.mat')
         self.FTdata = os.path.join(self.inductPath, 'Bi1xyzFTdata.mat')
         self.asymFile = self.fNameInduct + '_asymDevs.mat'
+        self.Btrajec = os.path.join(self.inductPath, f'{inductBase}{self.inductAppend}.mat')
 
 
 # Construct filenames for figures etc.
 class FigureFilesSubstruct:
-    def __init__(self, figPath, figBase, xtn, comp=None, exploreBase=None, inductBase=None, exploreAppend=None, inductAppend=None):
+    def __init__(self, figPath, figBase, xtn, comp=None, exploreBase=None, inductBase=None,
+                 exploreAppend=None, inductAppend=None, flybys=None):
         if inductBase is None:
             self.inductBase = figBase
         else:
@@ -626,6 +646,10 @@ class FigureFilesSubstruct:
             self.inductAppend = ''
         else:
             self.inductAppend = inductAppend
+        if flybys is None:
+            self.flybys = {'none': {'NA': ''}}
+        else:
+            self.flybys = flybys
 
         self.path = figPath
         self.inductPath = os.path.join(self.path, 'induction')
@@ -636,6 +660,7 @@ class FigureFilesSubstruct:
         self.fName = os.path.join(self.path, figBase)
         self.fNameInduct = os.path.join(self.inductPath, self.inductBase + self.comp + self.inductAppend)
         self.fNameExplore = os.path.join(self.path, self.exploreBase)
+        self.fNameFlybys = os.path.join(self.inductPath, self.inductBase, os.path.dirname(figPath))
 
         # Figure filename strings
         vpore = 'Porosity'
@@ -660,6 +685,9 @@ class FigureFilesSubstruct:
         MagSurfDiff = 'MagSurfDiff'
         MagSurfComp = 'MagSurfModelDiff'
         MagCA = 'MagCA'
+        Btrajec = 'Btrajec'
+        SCtrajec = 'FlybyTrajec'
+        SCtrajec3D = 'FlybyTrajec3D'
         asym = 'asymDevs'
         apsidal = 'apsidalPrec'
         # Construct Figure Filenames
@@ -678,24 +706,28 @@ class FigureFilesSubstruct:
         self.asym = self.fName + asym
         self.apsidal = self.fName + apsidal + xtn
         if isinstance(self.exploreAppend, list):
-            self.explore =           [f'{self.fNameExplore}_{eApp}{xtn}' for eApp in self.exploreAppend]
+            self.explore =            [f'{self.fNameExplore}_{eApp}{xtn}' for eApp in self.exploreAppend]
         else:
-            self.explore =           f'{self.fNameExplore}_{self.exploreAppend}{xtn}'
-        self.exploreDsigma =         f'{self.fNameExplore}_Dsigma{xtn}'
-        self.phaseSpace =            f'{self.fNameInduct}_{induct}_phaseSpace{xtn}'
-        self.phaseSpaceCombo =       f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{xtn}'
-        self.induct =        {zType: f'{self.fNameInduct}_{induct}_{zType}{xtn}' for zType in zComps}
-        self.inductCompare = {zType: f'{self.fNameInduct}Compare_{zType}{xtn}' for zType in zComps}
-        self.sigma =         {zType: f'{self.fNameInduct}_{sigma}_{zType}{xtn}' for zType in zComps}
-        self.sigmaOnly =     {zType: f'{self.fNameInduct}_{sigma}Only_{zType}{xtn}' for zType in zComps}
-        self.Bdip =         {axComp: f'{self.fNameInduct}_{Bdip}{axComp}{xtn}' for axComp in xyzComps + ['all']}
-        self.MagFT =                 f'{self.fNameInduct}_{MagFT}{xtn}'
-        self.MagSurf =       {vComp: f'{self.fNameInduct}_{MagSurf}B{vComp}' for vComp in vecComps}
-        self.MagSurfSym =    {vComp: f'{self.fNameInduct}_{MagSurfSym}B{vComp}' for vComp in vecComps}
-        self.MagSurfCombo =  {vComp: f'{self.fNameInduct}_{MagSurfCombo}B{vComp}' for vComp in vecComps}
-        self.MagSurfDiff =   {vComp: f'{self.fNameInduct}_{MagSurfDiff}B{vComp}' for vComp in vecComps}
-        self.MagSurfComp =   {vComp: f'{self.fNameInduct}_{MagSurfComp}B{vComp}' for vComp in vecComps}
-        self.MagCA =                 f'{self.fNameInduct}_{MagCA}{xtn}'
+            self.explore =             f'{self.fNameExplore}_{self.exploreAppend}{xtn}'
+        self.exploreDsigma =           f'{self.fNameExplore}_Dsigma{xtn}'
+        self.phaseSpace =              f'{self.fNameInduct}_{induct}_phaseSpace{xtn}'
+        self.phaseSpaceCombo =         f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{xtn}'
+        self.induct =          {zType: f'{self.fNameInduct}_{induct}_{zType}{xtn}' for zType in zComps}
+        self.inductCompare =   {zType: f'{self.fNameInduct}Compare_{zType}{xtn}' for zType in zComps}
+        self.sigma =           {zType: f'{self.fNameInduct}_{sigma}_{zType}{xtn}' for zType in zComps}
+        self.sigmaOnly =       {zType: f'{self.fNameInduct}_{sigma}Only_{zType}{xtn}' for zType in zComps}
+        self.Bdip =           {axComp: f'{self.fNameInduct}_{Bdip}{axComp}{xtn}' for axComp in xyzComps + ['all']}
+        self.MagFT =                   f'{self.fNameInduct}_{MagFT}{xtn}'
+        self.MagSurf =         {vComp: f'{self.fNameInduct}_{MagSurf}B{vComp}' for vComp in vecComps}
+        self.MagSurfSym =      {vComp: f'{self.fNameInduct}_{MagSurfSym}B{vComp}' for vComp in vecComps}
+        self.MagSurfCombo =    {vComp: f'{self.fNameInduct}_{MagSurfCombo}B{vComp}' for vComp in vecComps}
+        self.MagSurfDiff =     {vComp: f'{self.fNameInduct}_{MagSurfDiff}B{vComp}' for vComp in vecComps}
+        self.MagSurfComp =     {vComp: f'{self.fNameInduct}_{MagSurfComp}B{vComp}' for vComp in vecComps}
+        self.MagCA =                   f'{self.fNameInduct}_{MagCA}{xtn}'
+        self.SCtrajec =                f'{self.fNameFlybys}{SCtrajec}{xtn}'
+        self.SCtrajec3D =              f'{self.fNameFlybys}{SCtrajec3D}{xtn}'
+        self.Btrajec = {scName: {fbID: f'{self.fNameFlybys}{Btrajec}{scName}{fbName}{xtn}'
+                                 for fbID, fbName in fbList.items()} for scName, fbList in self.flybys.items()}
 
 
 """ General parameter options """
@@ -706,11 +738,13 @@ class ParamsStruct:
         self.FigureFiles = FigureFilesSubstruct('', '', '')
         self.Sig = None  # General induction settings
         self.Induct = None  # Induction calculation settings
-        self.Explore = ExploreParamsStruct()  # ExploreOgram calculation settings
+        self.Explore = None  # ExploreOgram calculation settings
         self.MagSpectrum = None  # Excitation spectrum settings
+        self.Trajec = None  # Trajectory analysis settings
         self.cLevels = None  # Contour level specifications
         self.cFmt = None  # Format of contour labels
         self.compareDir = 'Comparison'
+        self.INVERSION_IN_PROGRESS = False  # Flag for running inversion studies
         
         
 """ Inductogram settings """
@@ -957,6 +991,8 @@ class ExplorationStruct:
 class ColorStruct:
     # Do not set any values below. All values are assigned in PlanetProfile.GetConfig.
     def __init__(self):
+        self.cycler = None  # Color cycler to use for multi-line plots when colors are not important to specify individually. None uses a custom cycler. 'default' uses the default, which is not well-adapted for colorblind viewers.
+
         self.Induction = {'synodic': None, 'orbital': None, 'true anomaly': None, 'synodic 2nd': None}  # Colors for inductOgram plots
         self.ref = None
         self.PALE_SILICATES = False  # Whether to use a lighter color scheme for silicate layers, or a more "orangey" saturated one
@@ -1029,13 +1065,27 @@ class ColorStruct:
         self.TexcFT = None
 
         # Color options for trajectory and CA plots
+        self.bodySurface = None
         self.CAdot = None
         self.thresh = None
+        self.CAline = None
+        self.MAGdata = None  # MAG data in trajectory plots
+        self.BcompsModelNet = None  # Net magnetic field from models in trajectory plots
+        self.BcompsModelExc = None  # Excitation field
+        self.BcompsModelInd = None  # Induced field
+        self.BcompsModelPls = None  # Fields from plasma contributions
 
 
     def SetCmaps(self):
-        """ Assign colormaps to make use of the above parameters
+        """ Assign colormaps and cycler to make use of the above parameters
         """
+        if self.cycler == 'default':
+            plt.rcParams['axes.prop_cycle'] = _defaultCycler
+        elif self.cycler is None:
+            plt.rcParams['axes.prop_cycle'] = Constants.PPcycler
+        else:
+            plt.rcParams['axes.prop_cycle'] = self.cycler
+
         self.ionoCmap = cmasher.get_sub_cmap(self.ionoCmapName, self.ionoTop, self.ionoBot)
         self.oceanCmap = cmasher.get_sub_cmap(self.oceanCmapName, self.oceanTop, self.oceanBot)
         if self.PALE_SILICATES:
@@ -1171,7 +1221,23 @@ class StyleStruct:
         self.LW_thresh = None  # Linewidth of MAG precision floor line
         self.MS_CA = None  # Marker style for closest approach points
         self.MW_CA = None  # Marker size for closest approach dots
-        
+        self.LS_CA = None  # Linestyle for closest approach line
+        self.LW_CA = None  # Linewidth for closest approach line
+        self.LS_MAGdata = None  # Linestyle of MAG data in trajectory plots
+        self.LW_MAGdata = None  # Linewidth of MAG data in trajectory plots
+        self.LS_modelNet = None  # Linestyle of net model field in trajectory plots
+        self.LW_modelNet = None  # Linewidth of net model field in trajectory plots
+        self.LS_modelExc = None  # Linestyle of excitation field
+        self.LW_modelExc = None  # Linewidth of excitation field
+        self.LS_modelInd = None  # Linestyle of induced field
+        self.LW_modelInd = None  # Linewidth of induced field
+        self.LS_modelPls = None  # Linestyle of fields from plasma contributions
+        self.LW_modelPls = None  # Linewidth of fields from plasma contributions
+        self.LS_SCtrajec = None  # Linestyle of spacecraft trajectories
+        self.LW_SCtrajec = None  # Linewidth of spacecraft trajectories
+        self.MS_exit = None  # Marker style for trajectory exit points
+        self.MW_exit = None  # Marker size for trajectory exit dots
+
 
     def GetLW(self, wOcean_ppt, wMinMax_ppt):
         linewidth = interp1d(wMinMax_ppt, self.LWlims,
@@ -1204,6 +1270,7 @@ class FigLblStruct:
         self.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
         self.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
         self.PVT_CBAR_LABELS = False  # Whether to add short labels identifying silicate/core colorbars in PvT properties plots
+        self.tCA_RELATIVE = True  # Whether to display trajectory x axes in time relative to closest approach or absolute times
         self.sciLimits = None  # Powers of 10 to use as limits on axis labels, e.g. [-2, 4] means anything < 0.01 or >= 10000 will use scientific notation.
 
         # General plot labels and settings
@@ -1328,16 +1395,37 @@ class FigLblStruct:
         self.asymDepthTitle = r'Asymmetric layer boundary ($\si{km}$), $\overline{z}$ = '
         self.asymAfterTitle = r' ($\si{km}$)'
 
-        # Trajectory and CA plot labels
+        # Magnetic/trajectory and CA plot labels
         self.MagCAtitle = r'Induction signal at closest approach'
-        self.BCA = r'$B_{CA}$ ($\si{nT}$)'
+        self.BCA = r'$B_\mathrm{CA}$ ($\si{nT}$)'
         self.rCA = r'Altitude above surface at CA ($\si{km}$)'
         self.thresh = r'MAG signal floor'
         self.tJ2000units = 'yr'
+        self.BtrajecTitleStart = r'Data/model comparison for '
+        self.BtrajecTitleMid = r' flyby of '
+        self.tCArel = r'Time relative to CA '
+        self.CAtxt = 'CA'
+        self.MAGdataLabel = 'MAG data'
+        self.modelNetLabel = 'Model net field'
+        self.modelExcLabel = r'Ambient field $B_\mathrm{amb}$'
+        self.modelIndLabel = r'Induced field $B_\mathrm{ind} + B_\mathrm{amb}$'
+        self.modelPlsLabel = r'Plasma contributions $+ B_\mathrm{amb}$'
+        self.yLabelsBtrajec = {comp: f'$B_{comp}$ (nT)' for comp in xyzComps}
+        self.CAoffset = None  # Offset for text of CA label from top-middle of marker lines. x units are axis units, y units are fractional of the line full height.
+        self.trajecTitleStart = r'Trajectories for spacecraft flybys of '
+        self.xLabelsTrajecBase = r'IAU $x$ position'
+        self.yLabelsTrajecBase = r'IAU $y$ position'
+        self.zLabelsTrajecBase = r'IAU $z$ position'
+        self.AXES_INFO = False  # Whether to add explanatory info for IAU axis directions
+        self.IAUxInfo = r', toward planet $\rightarrow$'
+        self.IAUyInfoJS = r', orbital velocity $\leftarrow$'
+        self.IAUyInfoUN = r', orbital velocity $\rightarrow$'
+        self.IAUzInfoJS = r', spin axis $\rightarrow$'
+        self.IAUzInfoUN = r', spin axis $\leftarrow$'
         self.apsidalTitle = 'Apsidal precession'
         self.argPeri = 'Argument of periapsis ($^\circ$)'
 
-        # Induction parameter-dependent settings
+        # Magnetic and trajectory parameter-dependent settings
         self.phaseSpaceTitle = None
         self.inductionTitle = None
         self.inductCompareTitle = None
@@ -1348,6 +1436,16 @@ class FigLblStruct:
         self.yScaleInduct = None
         self.xLabelsInduct = None
         self.yLabelsInduct = None
+        self.BtrajecTitle = None
+        self.trajecTitle = None
+        self.trajecUnits = None
+        self.xLabelsTrajec = None
+        self.yLabelsTrajec = None
+        self.zLabelsTrajec = None
+        self.IAUxLabel = ''
+        self.IAUyLabel = ''
+        self.IAUzLabel = ''
+        self.FBlabel = None
 
         # Exploration parameter-dependent settings
         self.explorationTitle = None
@@ -1413,6 +1511,9 @@ class FigLblStruct:
         self.VPlabel = None
         self.VSlabel = None
         self.tPastJ2000 = None
+        self.tCArelLabel = None
+        self.tCArelUnits = None
+        self.tCArelMult = None
 
         # ExploreOgram setting and label dicts
         self.axisLabelsExplore = None
@@ -1481,6 +1582,11 @@ class FigLblStruct:
             'Qrad_Wkg': 'rock radiogenic heating',
             'qSurf_Wm2': 'surface heat flux',
             'CMR2calc': 'axial moment of inertia'
+        }
+        self.tCArelDescrip = {
+            's': r'($\si{s}$)',
+            'min': r'($\si{min}$)',
+            'h': r'($\si{h}$)'
         }
 
 
@@ -1570,9 +1676,20 @@ class FigLblStruct:
         elif self.tJ2000units == 's':
             self.tJ2000mult = 1
         else:
-            log.warning('tJ2000units not recognized. Defaulting to years.')
+            log.warning(f'tJ2000units "{self.tJ2000units}" not recognized. Defaulting to years.')
             self.tJ2000units = 'yr'
             self.tJ2000mult = 1 / 24 / 3600 / 365.25
+
+        if self.tCArelUnits == 'min':
+            self.tCArelMult = 1 / 60
+        elif self.tCArelUnits == 's':
+            self.tCArelMult = 1
+        elif self.tCArelUnits == 'h':
+            self.tCArelMult = 1 / 3600
+        else:
+            log.warning(f'tCArelUnits "{self.tCArelUnits}" not recognized. Defaulting to minutes.')
+            self.tCArelUnits = 'min'
+            self.tCArelMult = 1 / 60
 
         # What to put for NA or not calculated numbers
         if self.NAN_FOR_EMPTY:
@@ -1779,12 +1896,36 @@ class FigLblStruct:
             tFnameEnd = np.repeat(tFnameEnd, nts)
 
         return tMagEvalLbl, tMagEvalPrint, tFnameEnd
+
+    def SetTrajec(self, targetBody, flybyNames):
+        self.BtrajecTitle = {scName: {fbID: f'{self.BtrajecTitleStart}{scName} {fbName}' +
+                                           f'{self.BtrajecTitleMid}{targetBody}'
+            for fbID, fbName in fbList.items()} for scName, fbList in flybyNames.items()}
+        self.trajecTitle = f'{self.trajecTitleStart}{targetBody}'
+        self.tCArelLabel = f'{self.tCArel}{self.tCArelDescrip[self.tCArelUnits]}'
+        self.trajecUnits = f'$R_{targetBody[0]}$'
+
+        if self.AXES_INFO:
+            self.IAUxLabel = self.IAUxInfo
+            if targetBody in ['Miranda', 'Ariel', 'Umbriel', 'Oberon', 'Titania', 'Triton']:
+                self.IAUyLabel = self.IAUyInfoUN
+                self.IAUzLabel = self.IAUzInfoUN
+            else:
+                self.IAUyLabel = self.IAUyInfoJS
+                self.IAUzLabel = self.IAUzInfoJS
+
+        self.xLabelsTrajec = f'{self.xLabelsTrajecBase} ({self.trajecUnits}){self.IAUxLabel}'
+        self.yLabelsTrajec = f'{self.yLabelsTrajecBase} ({self.trajecUnits}){self.IAUyLabel}'
+        self.zLabelsTrajec = f'{self.zLabelsTrajecBase} ({self.trajecUnits}){self.IAUzLabel}'
+        self.FBlabel = {scName: {fbID: f'{scName} {fbName}' for fbID, fbName in fbList.items()}
+                        for scName, fbList in flybyNames.items()}
+
     
     def StripLatexFromString(self, str2strip):
         str2strip = str2strip.replace('\si{', '\mathrm{')
         str2strip = str2strip.replace('\SI{', '{')
         str2strip = str2strip.replace('\ce{', '{')
-        str2strip = str2strip.replace('\\textbf{', '{')
+        str2strip = str2strip.replace(r'\textbf{', '{')
         return str2strip
     
     def StripLatex(self):
@@ -1803,6 +1944,7 @@ class FigLblStruct:
             self.meta['Software'] = self.metaStr
         else:
             self.meta['Creator'] = self.metaStr
+
 
 """ Figure size settings """
 class FigSizeStruct:
@@ -1830,6 +1972,9 @@ class FigSizeStruct:
         self.MagFT = None
         self.MagSurf = None
         self.MagSurfCombo = None
+        self.BtrajecCombo = None
+        self.SCtrajecCombo = None
+        self.SCtrajec3D = None
         self.asym = None
         self.apsidal = None
 
@@ -1978,11 +2123,18 @@ class FigMiscStruct:
         self.phiMap_rad = None  # East longitude values to use for maps in radians
 
         # Magnetic field trajectory and CA plots
+        self.trajLims = None  # Distance in body radii at which to cut off trajectory plots
+        self.EXIT_ARROWS = False  # Whether to use arrows or other marker types to indicate exit points
+        self.MARK_CA_B = False  # Whether to mark closest approach on B trajectory plots with a line and text
+        self.MARK_CA_POS = False  # Whether to mark closest approach on trajectory plots with a line and text
         self.CAlblSize = None  # Size of text labels on CA points
         self.SHOW_MAG_THRESH = False  # Whether to show a line indicating the precision floor of a magnetometer
         self.thresh_nT = None  # Precision floor in nT for magnetometer to plot
         self.threshCenter = None  # x coordinate to place the MAG floor label
         self.hCAmax_km = None  # Maximum altitude to show on CA plot
+        self.SHOW_EXCITATION = False  # Whether to show the background field in trajectory plots, separately from the net model field
+        self.SHOW_INDUCED = False  # Whether to show induced field in trajectory plots, separately from the net model field
+        self.SHOW_PLASMA = False  # Whether to show plasma contributions in trajectory plots, separately from the net model field
 
         # Inductogram phase space plots
         self.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.
@@ -2090,6 +2242,205 @@ class FigMiscStruct:
         return fmt_string.format(field=abs(val), sign=GetSign(val), num_format='.3g')
 
 
+""" Trajectory analysis options """
+class TrajecParamsStruct:
+    def __init__(self):
+        self.targetBody = None  # Body for which to analyze spacecraft data to invert interior structure
+        self.scSelect = None  # List of spacecraft to include in analysis
+        self.plasmaType = None  # A string describing the type of large-scale plasma model to apply. Options are 'Alfven' and 'none'.
+        self.trajecAppend = None  # Custom string to use to save/reload specific settings
+        self.MAGdir = None  # Directory where spacecraft magnetic data is stored
+        self.FORCE_MAG_RECALC = False  # Whether to read in MAG data from disk and regenerate reformatted HDF5 version.
+        self.EXPANDED_RANGE = False  # Whether to plot an expanded set of B measurements farther from the encounter CA, with range set by etExpandRange_s
+        self.PLANETMAG_MODEL = False  # Whether to load in evaluated magnetic field models printed to disk from PlanetMag instead of directly evaluating excitation moments
+        self.fbInclude = None  # Dict of list of flyby/rev/periapse number strings to include in analysis, or 'all' to include all available
+        self.fbRange_Rp = None  # Maximum distance in planetary radii (of parent planet, for moons) within which to mark flyby encounters
+        self.etPredRange_s = None  # Range in seconds for the span across closest approach to use for predicted spacecraft trajectories, i.e. those for which we do not yet have data
+        self.etExpandRange_s = None  # Range in seconds for the span across closest approach to use for expanded spacecraft trajectories, i.e. beyond the main PDS files near CA
+        self.etStep_s = None  # Step size to use in spanning the above
+        self.spiceSPK = None  # File names of spice kernels to use for spacecraft trajectories
+        self.fbDescrip = None  # String to prepend to flyby ID number based on how each mission labels orbits
+        self.nFitParamsGlobal = None  # Number of fit parameters that persist across flybys, e.g. ocean salinity or ice melting temp
+        self.nFitParamsFlybys = None  # Number of fit parameters that vary with each flyby, e.g. Alfven wave characteristics
+        self.nFitParams = None  # Total number of fit parameters, i.e. the number of degrees of freedom for the fit
+        self.flybys = None  # Dict constructed of spacecraft: flyby ID list for convenience
+        self.flybyNames = None  # Dict of spacecraft: flyby ID name list in a standard format, specific to each mission, e.g. E04 for the Galileo Europa flyby on Jupiter orbit 4
+        self.flybyFnames = None  # Same as above but with spaces stripped, for use in file names
+        self.SCera = None  # Spacecraft era to use for excitation moments. If None, the sc name will be used to select the era.
+        self.BextModel = None  # Planetary magnetic field from which to use excitation moments derived using PlanetMag for induction calculations. If None, use the model from the defaults listed in the class definition (below).
+        self.BextDefault = {
+            'Io': 'JRM33C2020noMP',
+            'Europa': 'JRM33C2020noMP',
+            'Ganymede': 'JRM33C2020noMP',
+            'Callisto': 'VIP4K1997noMP',
+            'Mimas': 'Cassini11noMP',
+            'Enceladus': 'Cassini11noMP',
+            'Tethys': 'Cassini11noMP',
+            'Dione': 'Cassini11noMP',
+            'Rhea': 'Cassini11noMP',
+            'Titan': 'Cassini11noMP',
+            'Iapetus': 'Cassini11noMP',
+            'Miranda': 'AH5noMP',
+            'Ariel': 'AH5noMP',
+            'Umbriel': 'AH5noMP',
+            'Titania': 'AH5noMP',
+            'Oberon': 'AH5noMP',
+            'Triton': 'O8noMP',
+        }
+
+
+""" Magnetometer data """
+class MAGdataStruct:
+    def __init__(self, Params, fName, data):
+        # Reload saved data and record the reformatted data file name
+        self.fName = fName
+        self.scName = list(data['fbInclude'].keys())[0]
+        self.allFlybys = list(data['t_UTC'].keys())
+        self.nFlybys = np.size(self.allFlybys)
+        self.pdsFiles = data['pdsFiles']
+        self.t_UTC = data['t_UTC']
+        self.ets = data['ets']
+        self.BxS3_nT = data['BxS3_nT']
+        self.ByS3_nT = data['ByS3_nT']
+        self.BzS3_nT = data['BzS3_nT']
+        self.BxIAU_nT = data['BxIAU_nT']
+        self.ByIAU_nT = data['ByIAU_nT']
+        self.BzIAU_nT = data['BzIAU_nT']
+        self.ambModel = data['ambModel']  # Ambient magnetic field model, if evaluated with PlanetMag
+        self.BxIAUamb_nT = data['BxIAUamb_nT']  # Dicts of fbID: Ambient magnetic field model in IAU frame, if evaluated with PlanetMag
+        self.ByIAUamb_nT = data['ByIAUamb_nT']
+        self.BzIAUamb_nT = data['BzIAUamb_nT']
+
+        # Concatenate data for convenience
+        fbList = Params.Trajec.fbInclude[self.scName]
+        if fbList == 'all':
+            self.etsAll = np.concatenate(([fbets for fbId, fbets in self.ets.items()]))
+            self.BxAll_nT = np.concatenate(([BcIAU_nT for fbId, BcIAU_nT in self.BxIAU_nT.items()]))
+            self.ByAll_nT = np.concatenate(([BcIAU_nT for fbId, BcIAU_nT in self.ByIAU_nT.items()]))
+            self.BzAll_nT = np.concatenate(([BcIAU_nT for fbId, BcIAU_nT in self.BzIAU_nT.items()]))
+        else:
+            self.etsAll = np.concatenate(([self.ets[fbID] for fbID in fbList]))
+            self.BxAll_nT = np.concatenate(([self.BxIAU_nT[fbID] for fbID in fbList]))
+            self.ByAll_nT = np.concatenate(([self.ByIAU_nT[fbID] for fbID in fbList]))
+            self.BzAll_nT = np.concatenate(([self.BzIAU_nT[fbID] for fbID in fbList]))
+
+            for fbID in self.allFlybys:
+                if fbID not in fbList:
+                    del self.pdsFiles[fbID]
+                    del self.t_UTC[fbID]
+                    del self.ets[fbID]
+                    del self.BxS3_nT[fbID]
+                    del self.ByS3_nT[fbID]
+                    del self.BzS3_nT[fbID]
+                    del self.BxIAU_nT[fbID]
+                    del self.ByIAU_nT[fbID]
+                    del self.BzIAU_nT[fbID]
+
+        self.x_km = {}  # Spacecraft location in IAU frame
+        self.y_km = {}
+        self.z_km = {}
+        self.r_km = {}
+
+
+""" Induced field model """
+class ModelDataStruct:
+    def __init__(self, loadDict=None):
+        # These do not need to be set on reload, they are just used for efficient fit finding calcs.
+        self.etsAll = None  # Concatenated array of ephemeris times across all considered flybys
+        self.BxAll_nT = None  # Concatenated array of BxIAU across all considered flybys
+        self.ByAll_nT = None  # Concatenated array of ByIAU across all considered flybys
+        self.BzAll_nT = None  # Concatenated array of BzIAU across all considered flybys
+
+        if loadDict is None:
+            self.fitProfileFname = None
+            self.allFlybys = None  # scName: fbID: fbName dict of all flybys included in analysis
+            self.fbInclude = {}
+            self.t_UTC = {}
+            self.ets = {}  # Dict of scName: fbID: array of ephemeris times
+            self.BxIAU_nT = {}
+            self.ByIAU_nT = {}
+            self.BzIAU_nT = {}
+            self.BxIAUexc_nT = {}
+            self.ByIAUexc_nT = {}
+            self.BzIAUexc_nT = {}
+            self.BxIAUind_nT = {}
+            self.ByIAUind_nT = {}
+            self.BzIAUind_nT = {}
+            self.BxIAUpls_nT = {}
+            self.ByIAUpls_nT = {}
+            self.BzIAUpls_nT = {}
+            self.x_Rp = {}  # Spacecraft location in IAU frame in planetary radii
+            self.y_Rp = {}
+            self.z_Rp = {}
+            self.r_Rp = {}
+        else:
+            self.fitProfileFname = loadDict['fitProfileFname']
+            self.allFlybys =       loadDict['allFlybys']
+            self.fbInclude =       loadDict['fbInclude']
+            self.t_UTC =           loadDict['t_UTC']
+            self.ets =             loadDict['ets']
+            self.BxIAU_nT =        loadDict['BxIAU_nT']
+            self.ByIAU_nT =        loadDict['ByIAU_nT']
+            self.BzIAU_nT =        loadDict['BzIAU_nT']
+            self.BxIAUexc_nT =     loadDict['BxIAUexc_nT']
+            self.ByIAUexc_nT =     loadDict['ByIAUexc_nT']
+            self.BzIAUexc_nT =     loadDict['BzIAUexc_nT']
+            self.BxIAUind_nT =     loadDict['BxIAUind_nT']
+            self.ByIAUind_nT =     loadDict['ByIAUind_nT']
+            self.BzIAUind_nT =     loadDict['BzIAUind_nT']
+            self.BxIAUpls_nT =     loadDict['BxIAUpls_nT']
+            self.ByIAUpls_nT =     loadDict['ByIAUpls_nT']
+            self.BzIAUpls_nT =     loadDict['BzIAUpls_nT']
+            self.x_Rp =            loadDict['x_Rp']  # Spacecraft location in IAU frame in planetary radii
+            self.y_Rp =            loadDict['y_Rp']
+            self.z_Rp =            loadDict['z_Rp']
+            self.r_Rp =            loadDict['r_Rp']
+
+
+""" Goodness-of-fit calculation information """
+class FitData:
+    def __init__(self, Params, magData, modelData):
+        self.chiSquared, self.Rsquared, self.sqrResiduals, self.RMSe, self.stdDev = ({scName: {}
+            for scName in Params.Trajec.scSelect} for _ in range(5))
+        totData = np.empty(0)
+        self.nFlybys = {scName: data.nFlybys for scName, data in magData.items()}
+
+        for scName, scMagData in magData.items():
+            for fbID in scMagData.allFlybys:
+                fbData = np.concatenate((magData[scName].BxIAU_nT[fbID],
+                                         magData[scName].ByIAU_nT[fbID],
+                                         magData[scName].BzIAU_nT[fbID]))
+                fbModel = np.concatenate((modelData.BxIAU_nT[scName][fbID],
+                                          modelData.ByIAU_nT[scName][fbID],
+                                          modelData.BzIAU_nT[scName][fbID]))
+                nPts = np.size(fbData)
+                self.sqrResiduals[scName][fbID] = np.sum((fbData - fbModel)**2)
+                self.RMSe[scName][fbID] = np.sqrt(self.sqrResiduals[scName][fbID])
+                self.chiSquared[scName][fbID] = self.sqrResiduals[scName][fbID]/(
+                    nPts - Params.Trajec.nFitParams)
+                fbMean = np.mean(fbData)
+                totSquares = np.sum((fbData - fbMean)**2)
+                self.stdDev[scName][fbID] = np.sqrt(totSquares/nPts)
+                self.Rsquared[scName][fbID] = 1 - self.sqrResiduals[scName][fbID]/totSquares
+
+            totData = np.concatenate((totData, magData[scName].BxAll_nT,
+                                               magData[scName].ByAll_nT,
+                                               magData[scName].BzAll_nT))
+
+        totModel = np.concatenate((modelData.BxAll_nT,
+                                   modelData.ByAll_nT,
+                                   modelData.BzAll_nT))
+
+        self.sqrResiduals['total'] = np.sum((totData - totModel)**2)
+        self.RMSe['total'] = np.sqrt(self.sqrResiduals['total'])
+        self.chiSquared['total'] = self.sqrResiduals['total']/(
+            np.size(totData) - Params.Trajec.nFitParams)
+        totMean = np.mean(totData)
+        totSquares = np.sum((totData - totMean)**2)
+        self.stdDev['total'] = np.sqrt(totSquares)
+        self.Rsquared['total'] = 1 - self.sqrResiduals['total']/totSquares
+
+
 """ Global EOS list """
 class EOSlistStruct:
     def __init__(self):
@@ -2164,6 +2515,8 @@ class ConstantsStruct:
         # Default settings for ionosphere when altitude or conductivity is set, but not the other
         self.ionosTopDefault_km = 100  # Default ionosphere cutoff altitude in km
         self.sigmaIonosPedersenDefault_Sm = 1e-4  # Default ionospheric Pedersen conductivity in S/m
+        self.PPcycler = cycler(linestyle=['-', '--', ':', '-.']) * \
+                        cycler(color=_tableau10_v10colors)  # Color cycler for plots
 
 
 def ParentName(bodyname):

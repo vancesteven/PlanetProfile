@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='PlanetProfile',
-    version='2.4.1',
+    version='2.5.0',
     author='Marshall J. Styczinski',
     author_email='itsmoosh@gmail.com',
     description='Self-consistent geophysical models for large moons and ocean worlds',
@@ -18,15 +18,16 @@ setup(
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Operating System :: OS Independent'
     ],
-    packages=['PlanetProfile'],
-    package_dir={'PlanetProfile': 'PlanetProfile'},
+    packages=['PlanetProfile', 'PlanetProfile.TrajecAnalysis'],
+    package_dir={'PlanetProfile': 'PlanetProfile',
+                 'PlanetProfile.TrajecAnalysis': 'PlanetProfile/TrajecAnalysis'},
     install_requires=[
-        'numpy >= 1.26.3',
+        'numpy >= 1.24.4',
         'scipy >= 1.11.4',
         'mpmath >= 1.3.0',
         'matplotlib >= 3.8.2',
         'SeaFreeze >= 0.9.6',
-        'MoonMag >= 1.7.2',
+        'MoonMag >= 1.7.3',
         'gsw >= 3.6.16',
         'spiceypy >= 6.0.0',
         'cmasher >= 1.6.3',

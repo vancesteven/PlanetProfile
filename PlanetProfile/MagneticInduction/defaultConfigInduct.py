@@ -3,7 +3,7 @@ import numpy as np
 from PlanetProfile.Utilities.defineStructs import InductOgramParamsStruct, \
     ExcitationSpectrumParamsStruct, ConductLayerParamsStruct, Constants
 
-configInductVersion = 5  # Integer number for config file version. Increment when new settings are added to the default config file.
+configInductVersion = 6  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def inductAssign():
     inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
@@ -41,8 +41,60 @@ def GetInductParams(inductOtype, cLevels, dftC, cfmt):
     # Inductogram calculation and plot settings
     InductParams.colorType = 'zb'  # What parameter to use for color of points in phase space plots. Options are "Tmean", "zb".
     InductParams.SPECIFIC_CLEVELS = True  # Whether to use the specific cLevels listed below (in GetClevels) or use default numbers
-    InductParams.excSelectionCalc = {'synodic':  True, 'orbital':  True, 'true anomaly':  True, 'synodic 2nd':  True, 'synodic 3rd':  True, 'synodic-TA beat':  True, 'synodic+TA beat':  True}  # Which magnetic excitations to include in calculations
-    InductParams.excSelectionPlot = {'synodic':  True, 'orbital':  True, 'true anomaly':  True, 'synodic 2nd':  True, 'synodic 3rd': False, 'synodic-TA beat': False, 'synodic+TA beat': False}  # Which magnetic excitations to include in plotting
+    InductParams.excSelectionCalc = {  # Which magnetic excitations to include in calculations
+        'orbital': True,  # Key excitation
+        'orbital 2nd': True,
+        'orbital 2nd-TA beat': True,
+        'orbital 2nd-TA-year beat': True,
+        'orbital 2nd-TA-half year beat': True,
+        'orbital 4th-TA 2nd-half year beat': True,
+        'orbital-half year beat': True,
+        'orbital-synodic beat': True,
+        'orbital-year beat': True,
+        'orbital+year beat': True,
+        'synodic': True,  # Key excitation
+        'synodic 2nd': True,  # Key excitation
+        'synodic 2nd+orbital beat': True,
+        'synodic 2nd-TA beat': True,
+        'synodic 3rd': True,
+        'synodic 4th': True,
+        'synodic 5th': True,
+        'synodic-orbital beat': True,
+        'synodic+orbital beat': True,
+        'synodic-TA beat': True,
+        'synodic+TA beat': True,
+        'true anomaly': True,  # Key excitation
+        'TA-year beat': True,
+        'TA+year beat': True,
+        'TA 2nd-orbital beat': True
+    }
+    InductParams.excSelectionPlot = {  # Which magnetic excitations to include in plotting
+        'orbital': True,  # Key excitation
+        'orbital 2nd': False,
+        'orbital 2nd-TA beat': False,
+        'orbital 2nd-TA-year beat': False,
+        'orbital 2nd-TA-half year beat': False,
+        'orbital 4th-TA 2nd-half year beat': False,
+        'orbital-half year beat': False,
+        'orbital-synodic beat': False,
+        'orbital-year beat': False,
+        'orbital+year beat': False,
+        'synodic': True,  # Key excitation
+        'synodic 2nd': True,  # Key excitation
+        'synodic 2nd+orbital beat': False,
+        'synodic 2nd-TA beat': False,
+        'synodic 3rd': False,
+        'synodic 4th': False,
+        'synodic 5th': False,
+        'synodic-orbital beat': False,
+        'synodic+orbital beat': False,
+        'synodic-TA beat': False,
+        'synodic+TA beat': False,
+        'true anomaly': True,  # Key excitation
+        'TA-year beat': False,
+        'TA+year beat': False,
+        'TA 2nd-orbital beat': False
+    }
     InductParams.nwPts = 40  # Resolution for salinity values in ocean salinity vs. other plots
     InductParams.wMin = {'Europa': np.log10(1), 'Enceladus': np.log10(0.1)}
     InductParams.wMax = {'Europa': np.log10(Constants.stdSeawater_ppt), 'Enceladus': np.log10(1.5*Constants.stdSeawater_ppt)}

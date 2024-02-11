@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 14  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 15  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def plotAssign():
     Color = ColorStruct()
@@ -14,6 +14,7 @@ def plotAssign():
     FigMisc = FigMiscStruct()
 
     """ Figure color options """
+    Color.cycler = None  # Color cycler to use for multi-line plots when colors are not important to specify individually. None uses a custom cycler. 'default' uses the default, which is not well-adapted for colorblind viewers.
     Color.Induction = {'synodic': 'blue', 'orbital': 'purple', 'true anomaly': 'green', 'synodic 2nd': 'goldenrod'}  # Colors for inductOgram plots
     Color.ref = 'gray'
     Color.geothermHydro = 'yellow'
@@ -138,8 +139,15 @@ def plotAssign():
     Color.TexcFT = 'red'
 
     # Color options for trajectory and CA plots
+    Color.bodySurface = 'xkcd:grey'
     Color.CAdot = 'black'
     Color.thresh = 'blue'
+    Color.CAline = 'black'
+    Color.MAGdata = 'xkcd:pastel red'  # MAG data in trajectory plots
+    Color.BcompsModelNet = 'xkcd:true green'  # Net magnetic field from models in trajectory plots
+    Color.BcompsModelExc = 'xkcd:mustard yellow'  # Excitation field
+    Color.BcompsModelInd = 'xkcd:royal blue'  # Induced field
+    Color.BcompsModelPls = 'xkcd:dark magenta'  # Fields from plasma contributions
 
 
     """ Figure style options """
@@ -188,7 +196,29 @@ def plotAssign():
     Style.LS_thresh = '-'  # Linestyle of MAG precision floor line
     Style.LW_thresh = 0.75  # Linewidth of MAG precision floor line
     Style.MS_CA = 'o'  # Marker style for closest approach points
-    Style.MW_CA = 5  # Marker size for closest approach dots
+    Style.MW_CA = 2  # Marker size for closest approach dots
+    Style.LS_CA = '-'  # Linestyle for closest approach line
+    Style.LW_CA = 0.5  # Linewidth for closest approach line
+    Style.LS_MAGdata = '-'  # Linestyle of MAG data in trajectory plots
+    Style.LW_MAGdata = 1  # Linewidth of MAG data in trajectory plots
+    Style.LS_modelNet = '-'  # Linestyle of net model field in trajectory plots
+    Style.LW_modelNet = 1  # Linewidth of net model field in trajectory plots
+    Style.LS_modelExc = '--'  # Linestyle of excitation field
+    Style.LW_modelExc = 1  # Linewidth of excitation field
+    Style.LS_modelInd = '--'  # Linestyle of induced field
+    Style.LW_modelInd = 1  # Linewidth of induced field
+    Style.LS_modelPls = ':'  # Linestyle of fields from plasma contributions
+    Style.LW_modelPls = 1  # Linewidth of fields from plasma contributions
+    Style.LS_SCtrajec = {  # Linestyle of spacecraft trajectories
+        'Cassini': '-',
+        'Clipper': '-',
+        'Galileo': '-',
+        'Juno': '-',
+        'JUICE': '-'
+    }
+    Style.LW_SCtrajec = 1  # Linewidth of spacecraft trajectories
+    Style.MS_exit = 'o'  # Marker style for trajectory exit points
+    Style.MW_exit = 10  # Marker size for trajectory exit dots
 
 
     """ Figure labels """
@@ -204,6 +234,10 @@ def plotAssign():
     FigLbl.qSURF_IN_mW = True  # Whether to print qSurf in mW/m^2 (or W/m^2)
     FigLbl.phi_IN_VOLPCT = False  # Whether to print porosity (phi) in vol% (or unitless volume fraction)
     FigLbl.PVT_CBAR_LABELS = False  # Whether to add short labels identifying silicate/core colorbars in PvT properties plots
+    FigLbl.tCA_RELATIVE = True  # Whether to display trajectory x axes in time relative to closest approach or absolute times
+    FigLbl.tCArelUnits = 'min'  # Units to use for times relative to closest approach in trajectory plots. Options are 'h', 'min', 's'.
+    FigLbl.CAoffset = [0, 0.05]  # Offset for text of CA label from top-middle of marker lines. x units are axis units, y units are fractional of the line full height.
+    FigLbl.AXES_INFO = True  # Whether to add explanatory info for IAU axis directions
     FigLbl.sciLimits = (-2, 4)  # Powers of 10 to use as limits on axis labels, e.g. [-2, 4] means anything < 0.01 or >= 10000 will use scientific notation.
     FigLbl.SetUnits()  # Make use of above toggles and assign labels
 
@@ -232,6 +266,9 @@ def plotAssign():
     FigSize.MagSurf = (8, 5)
     FigSize.MagSurfCombo = (16, 5)
     FigSize.MagCA = (4, 4)
+    FigSize.BtrajecCombo = (6, 9)
+    FigSize.SCtrajecCombo = (6, 4)
+    FigSize.SCtrajec3D = (6, 6)
     FigSize.asym = (8, 5)
     FigSize.apsidal = (6, 6)
 
@@ -318,11 +355,18 @@ def plotAssign():
     FigMisc.vmaxMagSurfComp_nT = None  # Minimum value for model comparison colormap in magnetic field surface plots (None uses data min/max). Overwritten by FIXED_COLORBAR.
 
     # Magnetic field trajectory and CA plots
+    FigMisc.trajLims = None  # Distance in body radii at which to cut off trajectory plots
+    FigMisc.MARK_CA_B = True  # Whether to mark closest approach on B trajectory plots with a line and text
+    FigMisc.MARK_CA_POS = True  # Whether to mark closest approach on trajectory plots with a line and text
+    FigMisc.EXIT_ARROWS = True  # Whether to use arrows or other marker types to indicate exit points (selected in Style.MS_exit)
     FigMisc.CAlblSize = 12  # Size of text labels on CA points
     FigMisc.SHOW_MAG_THRESH = True  # Whether to show a line indicating the precision floor of a magnetometer
     FigMisc.thresh_nT = 0.0488  # Precision floor in nT for magnetometer to plot
     FigMisc.threshCenter = 100  # x coordinate to place the MAG floor label
     FigMisc.hCAmax_km = 500  # Maximum altitude to show on CA plot
+    FigMisc.SHOW_EXCITATION = False  # Whether to show the background field in trajectory plots, separately from the net model field
+    FigMisc.SHOW_INDUCED = False  # Whether to show induced field in trajectory plots, separately from the net model field
+    FigMisc.SHOW_PLASMA = False  # Whether to show plasma contributions in trajectory plots, separately from the net model field
 
     # Inductogram phase space plots
     FigMisc.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.

@@ -5,6 +5,7 @@ PlanetProfile.egg-info/*
 configPP.py
 configPPplots.py
 configPPinduct.py
+configPPtrajec.py
 */PP*.py
 *~
 .DS_Store
