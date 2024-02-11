@@ -1,0 +1,7 @@
+PlanetProfile.TrajecAnalysis.InvertInterior module
+==================================================
+
+.. automodule:: PlanetProfile.TrajecAnalysis.InvertInterior
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -1,0 +1,20 @@
+PlanetProfile.TrajecAnalysis
+============================
+
+.. automodule:: PlanetProfile.TrajecAnalysis
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   PlanetProfile.TrajecAnalysis.FlybyEvents
+   PlanetProfile.TrajecAnalysis.InvertInterior
+   PlanetProfile.TrajecAnalysis.MagneticFields
+   PlanetProfile.TrajecAnalysis.RefileMAGdata
+   PlanetProfile.TrajecAnalysis.SpiceFuncs
+   PlanetProfile.TrajecAnalysis.defaultConfigTrajec

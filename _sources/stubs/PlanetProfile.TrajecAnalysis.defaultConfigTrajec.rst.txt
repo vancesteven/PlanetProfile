@@ -1,0 +1,7 @@
+PlanetProfile.TrajecAnalysis.defaultConfigTrajec module
+=======================================================
+
+.. automodule:: PlanetProfile.TrajecAnalysis.defaultConfigTrajec
+   :members:
+   :undoc-members:
+   :show-inheritance:

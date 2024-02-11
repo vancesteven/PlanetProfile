@@ -1,0 +1,7 @@
+PlanetProfile.TrajecAnalysis.FlybyEvents module
+===============================================
+
+.. automodule:: PlanetProfile.TrajecAnalysis.FlybyEvents
+   :members:
+   :undoc-members:
+   :show-inheritance:

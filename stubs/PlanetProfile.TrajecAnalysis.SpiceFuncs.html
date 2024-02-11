@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PlanetProfile.install module &mdash; PlanetProfile v2.3.18 documentation</title>
+  <title>PlanetProfile.TrajecAnalysis.SpiceFuncs module &mdash; PlanetProfile v2.3.18 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -22,8 +22,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="PlanetProfile.reset module" href="PlanetProfile.reset.html" />
-    <link rel="prev" title="PlanetProfile.defaultConfig module" href="PlanetProfile.defaultConfig.html" /> 
+    <link rel="next" title="PlanetProfile.TrajecAnalysis.defaultConfigTrajec module" href="PlanetProfile.TrajecAnalysis.defaultConfigTrajec.html" />
+    <link rel="prev" title="PlanetProfile.TrajecAnalysis.RefileMAGdata module" href="PlanetProfile.TrajecAnalysis.RefileMAGdata.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -52,16 +52,23 @@
 <li class="toctree-l1 current"><a class="reference internal" href="../pythonModules.html">PlanetProfile Python documentation</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="modules.html">workspace</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="PlanetProfile.html">PlanetProfile</a><ul class="current">
-<li class="toctree-l4"><a class="reference internal" href="PlanetProfile.html#subpackages">Subpackages</a></li>
-<li class="toctree-l4 current"><a class="reference internal" href="PlanetProfile.html#submodules">Submodules</a><ul class="current">
-<li class="toctree-l5"><a class="reference internal" href="PlanetProfile.BuildTest.html">PlanetProfile.BuildTest module</a></li>
-<li class="toctree-l5"><a class="reference internal" href="PlanetProfile.GetConfig.html">PlanetProfile.GetConfig module</a></li>
-<li class="toctree-l5"><a class="reference internal" href="PlanetProfile.Main.html">PlanetProfile.Main module</a></li>
-<li class="toctree-l5"><a class="reference internal" href="PlanetProfile.defaultConfig.html">PlanetProfile.defaultConfig module</a></li>
-<li class="toctree-l5 current"><a class="current reference internal" href="#">PlanetProfile.install module</a></li>
-<li class="toctree-l5"><a class="reference internal" href="PlanetProfile.reset.html">PlanetProfile.reset module</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="PlanetProfile.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l5"><a class="reference internal" href="PlanetProfile.Default.html">PlanetProfile.Default</a></li>
+<li class="toctree-l5 current"><a class="reference internal" href="PlanetProfile.TrajecAnalysis.html">PlanetProfile.TrajecAnalysis</a><ul class="current">
+<li class="toctree-l6 current"><a class="reference internal" href="PlanetProfile.TrajecAnalysis.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l7"><a class="reference internal" href="PlanetProfile.TrajecAnalysis.FlybyEvents.html">PlanetProfile.TrajecAnalysis.FlybyEvents module</a></li>
+<li class="toctree-l7"><a class="reference internal" href="PlanetProfile.TrajecAnalysis.InvertInterior.html">PlanetProfile.TrajecAnalysis.InvertInterior module</a></li>
+<li class="toctree-l7"><a class="reference internal" href="PlanetProfile.TrajecAnalysis.MagneticFields.html">PlanetProfile.TrajecAnalysis.MagneticFields module</a></li>
+<li class="toctree-l7"><a class="reference internal" href="PlanetProfile.TrajecAnalysis.RefileMAGdata.html">PlanetProfile.TrajecAnalysis.RefileMAGdata module</a></li>
+<li class="toctree-l7 current"><a class="current reference internal" href="#">PlanetProfile.TrajecAnalysis.SpiceFuncs module</a></li>
+<li class="toctree-l7"><a class="reference internal" href="PlanetProfile.TrajecAnalysis.defaultConfigTrajec.html">PlanetProfile.TrajecAnalysis.defaultConfigTrajec module</a></li>
 </ul>
 </li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="PlanetProfile.html#submodules">Submodules</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="PlanetProfileCLI.html">PlanetProfileCLI module</a></li>
@@ -88,9 +95,10 @@
           <li class="breadcrumb-item"><a href="../pythonModules.html">PlanetProfile Python documentation</a></li>
           <li class="breadcrumb-item"><a href="modules.html">workspace</a></li>
           <li class="breadcrumb-item"><a href="PlanetProfile.html">PlanetProfile</a></li>
-      <li class="breadcrumb-item active">PlanetProfile.install module</li>
+          <li class="breadcrumb-item"><a href="PlanetProfile.TrajecAnalysis.html">PlanetProfile.TrajecAnalysis</a></li>
+      <li class="breadcrumb-item active">PlanetProfile.TrajecAnalysis.SpiceFuncs module</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/stubs/PlanetProfile.install.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/stubs/PlanetProfile.TrajecAnalysis.SpiceFuncs.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -98,16 +106,16 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="planetprofile-install-module">
-<h1>PlanetProfile.install module<a class="headerlink" href="#planetprofile-install-module" title="Permalink to this heading"></a></h1>
+  <section id="planetprofile-trajecanalysis-spicefuncs-module">
+<h1>PlanetProfile.TrajecAnalysis.SpiceFuncs module<a class="headerlink" href="#planetprofile-trajecanalysis-spicefuncs-module" title="Permalink to this heading"></a></h1>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="PlanetProfile.defaultConfig.html" class="btn btn-neutral float-left" title="PlanetProfile.defaultConfig module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="PlanetProfile.reset.html" class="btn btn-neutral float-right" title="PlanetProfile.reset module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="PlanetProfile.TrajecAnalysis.RefileMAGdata.html" class="btn btn-neutral float-left" title="PlanetProfile.TrajecAnalysis.RefileMAGdata module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="PlanetProfile.TrajecAnalysis.defaultConfigTrajec.html" class="btn btn-neutral float-right" title="PlanetProfile.TrajecAnalysis.defaultConfigTrajec module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

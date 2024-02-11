@@ -1,0 +1,7 @@
+PlanetProfile.TrajecAnalysis.MagneticFields module
+==================================================
+
+.. automodule:: PlanetProfile.TrajecAnalysis.MagneticFields
+   :members:
+   :undoc-members:
+   :show-inheritance:

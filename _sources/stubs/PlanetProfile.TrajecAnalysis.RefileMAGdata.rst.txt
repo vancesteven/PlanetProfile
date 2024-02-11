@@ -1,0 +1,7 @@
+PlanetProfile.TrajecAnalysis.RefileMAGdata module
+=================================================
+
+.. automodule:: PlanetProfile.TrajecAnalysis.RefileMAGdata
+   :members:
+   :undoc-members:
+   :show-inheritance:
