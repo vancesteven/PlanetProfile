@@ -616,7 +616,7 @@ class DataFilesSubstruct:
         self.fNameInductOgram = os.path.join(self.inductPath, inductBase + self.inductAppend)
         self.inductOgramFile = self.fNameInductOgram + f'{comp}_inductOgram.mat'
         self.inductOgramSigmaFile = self.fNameInductOgram + '_sigma_inductOgram.mat'
-        self.BeFTdata = os.path.join('inductionData', 'Be1xyzFTdata.mat')
+        self.BeFTdata = os.path.join(self.inductPath, f'{os.path.dirname(self.inductPath)}FTdata.mat')
         self.FTdata = os.path.join(self.inductPath, 'Bi1xyzFTdata.mat')
         self.asymFile = self.fNameInduct + '_asymDevs.mat'
         self.Btrajec = os.path.join(self.inductPath, f'{inductBase}{self.inductAppend}.mat')

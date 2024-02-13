@@ -978,7 +978,7 @@ def LoadFTdata(Planet, Params):
     if Planet.bodyname == 'Test':
         BeFTdataPath = os.path.join(_Test, Params.DataFiles.BeFTdata)
     else:
-        BeFTdataPath = os.path.join(_Defaults, Planet.bodyname, Params.DataFiles.BeFTdata)
+        BeFTdataPath = Params.DataFiles.BeFTdata
 
     if os.path.isfile(BeFTdataPath):
         BeFTdata = loadmat(BeFTdataPath)
@@ -987,9 +987,9 @@ def LoadFTdata(Planet, Params):
         Planet.Magnetic.extModelFT = BeFTdata['magModelDescrip'][0]
         Planet.Magnetic.coordTypeFT = BeFTdata['coordType'][0]
         Planet.Magnetic.Be1xyzFT_nT = {
-            'x': BeFTdata['B1x_nT'][0],
-            'y': BeFTdata['B1y_nT'][0],
-            'z': BeFTdata['B1z_nT'][0],
+            'x': BeFTdata['B1vec1'][0],
+            'y': BeFTdata['B1vec2'][0],
+            'z': BeFTdata['B1vec3'][0],
         }
         log.debug(f'Loaded magnetic excitation spectrum from file: {BeFTdataPath}')
         Planet.Magnetic.FT_LOADED = True
