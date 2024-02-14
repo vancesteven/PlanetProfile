@@ -72,7 +72,8 @@ def configAssign():
     Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question
     Params.INDUCTOGRAM_IN_PROGRESS = False  # Whether we are currently working on constructing an inductogram
     Params.COMBINE_BCOMPS =          False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp -- same for Bdip components
-    Params.PLOT_MAG_SPECTRUM =       False  # Whether to show plots of fourier space for magnetic induction
+    Params.PLOT_MAG_SPECTRUM_COMBO = False  # Whether to show plots of fourier space for magnetic induction, including induced spectrum
+    Params.PLOT_MAG_SPECTRUM =       False  # Whether to show plot of fourier space of excitation moments for magnetic induction
     Params.tRangeCA_s =              120  # Range in seconds relative to named closest approach UTC datetime to search for the actual CA as identified by querying SPICE kernels
 
     # Parameter exploration plot settings

@@ -679,6 +679,7 @@ class FigureFilesSubstruct:
         sigma = 'InductOgramSigma'
         Bdip = 'Bdip'
         MagFT = 'MagSpectrum'
+        MagFTexc = 'MagExcSpectrum'
         MagSurf = 'MagSurf'
         MagSurfSym = 'MagSurfSym'
         MagSurfCombo = 'MagSurfComp'
@@ -718,6 +719,7 @@ class FigureFilesSubstruct:
         self.sigmaOnly =       {zType: f'{self.fNameInduct}_{sigma}Only_{zType}{xtn}' for zType in zComps}
         self.Bdip =           {axComp: f'{self.fNameInduct}_{Bdip}{axComp}{xtn}' for axComp in xyzComps + ['all']}
         self.MagFT =                   f'{self.fNameInduct}_{MagFT}{xtn}'
+        self.MagFTexc =                f'{self.fNameInduct}_{MagFTexc}{xtn}'
         self.MagSurf =         {vComp: f'{self.fNameInduct}_{MagSurf}B{vComp}' for vComp in vecComps}
         self.MagSurfSym =      {vComp: f'{self.fNameInduct}_{MagSurfSym}B{vComp}' for vComp in vecComps}
         self.MagSurfCombo =    {vComp: f'{self.fNameInduct}_{MagSurfCombo}B{vComp}' for vComp in vecComps}
@@ -1368,10 +1370,14 @@ class FigLblStruct:
         
         # Magnetic excitation spectrum labels
         self.MagFTtitle = r'magnetic Fourier spectra'
-        self.TexcLabel = r'Excitation period $T_\mathrm{exc}$ ($\si{hr}$)'
-        self.fExcLabel = r'Excitation frequency $f_\mathrm{exc}$ ($\si{Hz}$)'
+        self.MagFTexcTitle = r'magnetic excitation spectrum'
+        self.TexcUnits = 'h'
+        self.fExcUnits = 'Hz'
+        self.TexcLabel = f'Excitation period $T_\mathrm{{exc}}$ ($\si{{{self.TexcUnits}}}$)'
+        self.fExcLabel = f'Excitation frequency $f_\mathrm{{exc}}$ ($\si{{{self.fExcUnits}}}$)'
         self.BeFTtitle = r'Excitation amplitude'
         self.BeFTlabel = r'$|B^e_{x,y,z}|$ ($\si{nT}$)'
+        self.BeFTexcLabel = r'Amplitude ($\si{nT}$)'
         self.Ae1FTtitle = r'Dipolar complex response amplitude'
         self.Ae1FTlabel = r'$|\mathcal{A}^e_1|$'
         self.BiFTtitle = r'Induced dipole surface strength'
@@ -1970,6 +1976,7 @@ class FigSizeStruct:
         self.BdipSolo = None
         self.BdipSoloCombo = None
         self.MagFT = None
+        self.MagFTexc = None
         self.MagSurf = None
         self.MagSurfCombo = None
         self.BtrajecCombo = None
@@ -2145,7 +2152,11 @@ class FigMiscStruct:
         self.MARK_INDUCT_BOUNDS = True  # Whether to draw a border around the models on sigma/D plot when combined
         self.PLOT_V2021 = False  # Whether to mark the selected ocean/conductivity combos used in Vance et al. 2021
         # Excitation spectra
-        self.DO_PER = True  # Convert frequency axes to periods for FFT plots
+        self.MAG_SPECTRA_PERIODS = True  # Plot against periods for magnetic spectra plots (or frequencies)
+        self.MARK_TEXC = True  # Add lines marking the main excitation periods/frequencies on Ae1 plot
+        self.MARK_BEXC_MAX = True  # Whether to annotate excitation spectrum plots with label for highest peak
+        self.peakLblSize = None  # Font size in pt for highest-peak annotation
+        self.Tmin_hr = None  # Cutoff period to limit range of Fourier space plots
 
         # Legends
         self.REFS_IN_LEGEND = True  # Hydrosphere plot: Whether to include reference profiles in legend

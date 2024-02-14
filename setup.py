@@ -27,7 +27,7 @@ setup(
         'mpmath >= 1.3.0',
         'matplotlib >= 3.8.2',
         'SeaFreeze >= 0.9.6',
-        'MoonMag >= 1.7.3',
+        'MoonMag >= 1.7.5',
         'gsw >= 3.6.16',
         'spiceypy >= 6.0.0',
         'cmasher >= 1.6.3',

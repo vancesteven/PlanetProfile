@@ -614,7 +614,7 @@ def SetupInduction(Planet, Params):
     return Planet, Params
 
 
-def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
+def GetBexc(bodyname, era, model, excSelection, MPmodel=None, nprmMax=1, pMax=0):
     """ Read in magnetic excitation information, including oscillation
         frequencies/periods and complex amplitudes and phases (moments).
 
@@ -628,6 +628,7 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
             excSelection (dict): Boolean flags for the major excitations identifying which
                 ones should be included in calculations. Keys must match those in
                 ExcitationsList in config.
+            MPmodel = None (str): Magnetopause current magnetic field model for excitation moments.
             nprmMax = 1 (int): Maximum n' value to use for Benm. 1 is uniform field
                 applied by the parent planet (uniform across the body).
             pMax = 0 (int): Maximum p value to use for asymmetric shape chipq. 0 is
@@ -659,8 +660,12 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
         # Append era and model info
         if era is not None:
             fNames = [f'{fNamenp}_{era}' for fNamenp in fNames]
-        if model is not None:
-            fNames = [f'{fNamenp}_{model}' for fNamenp in fNames]
+            if model is not None:
+                fNames = [f'{fNamenp}_{model}' for fNamenp in fNames]
+                if MPmodel is not None:
+                    fNames = [f'{fNamenp}{MPmodel}' for fNamenp in fNames]
+                else:
+                    fNames = [f'{fNamenp}noMP' for fNamenp in fNames]
         log.debug(f'Loading {bodyname} excitation spectrum for {model} model and {era} era.')
         if nprmMax > 1:
             log.warning('n\'_max greater than 1 is not yet supported. Be only up to n=1 will be loaded.')
@@ -689,7 +694,7 @@ def GetBexc(bodyname, era, model, excSelection, nprmMax=1, pMax=0):
             EOSlist.ranges[BeLabel] = Texc_hr
 
         else:
-            log.warning(f'Excitation moments file(s) not found in {fPath}. Induction calculations will be skipped.')
+            log.warning(f'Excitation moments file not found in {fPath}. Induction calculations will be skipped.')
             Texc_hr, omegaExc_radps, Benm_nT, B0_nT, Bexyz_nT = (None for _ in range(5))
 
     return Texc_hr, omegaExc_radps, Benm_nT, B0_nT, Bexyz_nT
@@ -932,7 +937,7 @@ def FourierSpectrum(Planet, Params):
     # Load Fourier spectrum data from disk
     Planet = LoadFTdata(Planet, Params)
     
-    if Planet.Magnetic.FT_LOADED:
+    if Planet.Magnetic.FT_LOADED and Params.PLOT_MAG_SPECTRUM_COMBO:
         if Params.CALC_NEW_INDUCT:
             log.debug('Calculating magnetic Fourier spectrum.')
             

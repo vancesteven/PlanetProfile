@@ -34,8 +34,12 @@ def GenerateMagPlots(PlanetList, Params):
 
             if Params.PLOT_BDIP:
                 PlotComplexBdip(PlanetList, Params)
-            if Params.PLOT_MAG_SPECTRUM and np.any([Planet.Magnetic.FT_LOADED for Planet in PlanetList]):
-                PlotMagSpectrum(PlanetList, Params)
+            if (Params.PLOT_MAG_SPECTRUM_COMBO or Params.PLOT_MAG_SPECTRUM) and np.any(
+                    [Planet.Magnetic.FT_LOADED for Planet in PlanetList]):
+                if Params.PLOT_MAG_SPECTRUM_COMBO:
+                    PlotMagSpectrumInduced(PlanetList, Params)
+                if Params.PLOT_MAG_SPECTRUM:
+                    PlotMagSpectrum(PlanetList, Params)
             if Params.PLOT_BSURF:
                 PlotMagSurface(PlanetList, Params)
             if Params.PLOT_ASYM and Params.CALC_ASYM:
@@ -1387,7 +1391,7 @@ def PlotAsym(PlanetList, Params):
     return
 
 
-def PlotMagSpectrum(PlanetList, Params):
+def PlotMagSpectrumInduced(PlanetList, Params):
     """ Plot Fourier spectra of magnetic excitations, complex response
         amplitude, and induced dipole components.
     """
@@ -1407,10 +1411,10 @@ def PlotMagSpectrum(PlanetList, Params):
         [ax.set_axisbelow(True) for ax in axes]
 
     # Labels and titles
-    if Params.MagSpectrum.Tmin_hr is None:
+    if FigMisc.Tmin_hr is None:
         Tmin_hr = np.min(mainPlanet.Magnetic.TexcFT_hr)
     else:
-        Tmin_hr = Params.MagSpectrum.Tmin_hr
+        Tmin_hr = FigMisc.Tmin_hr
     Tmax_hr = np.minimum(np.max(mainPlanet.Magnetic.TexcFT_hr), mainPlanet.Magnetic.TmaxFT_hr)
     Texc_hr = np.array(list(Excitations.Texc_hr[mainPlanet.bodyname].values()), dtype=np.float_)
     Texc_hr = Texc_hr[np.isfinite(Texc_hr)]
@@ -1467,6 +1471,92 @@ def PlotMagSpectrum(PlanetList, Params):
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.MagFT, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
     log.debug(f'Magnetic Fourier spectra plot saved to file: {Params.FigureFiles.MagFT}')
+    plt.close()
+
+    return
+
+
+def PlotMagSpectrum(PlanetList, Params):
+    """ Plot Fourier spectra of magnetic excitations with optional highest peak annotated.
+    """
+
+    # Get first entry in PlanetList for which FT_LOADED is True
+    if PlanetList[0].Magnetic.FT_LOADED:
+        mainPlanet = PlanetList[0]
+    else:
+        mainPlanet = next(Planet for Planet in PlanetList if Planet.Magnetic.FT_LOADED)
+
+    # Create figure
+    fig = plt.figure(figsize=FigSize.MagFTexc)
+    grid = GridSpec(1, 1)
+    ax = fig.add_subplot(grid[0, 0])
+    if Style.GRIDS:
+        ax.grid(color='#CCCCCC', linestyle='-', linewidth=0.40, which='major')
+        ax.grid(color='#CCCCCC', linestyle=':', linewidth=0.25, which='minor')
+        ax.set_axisbelow(True)
+
+    # Labels and titles
+    if FigMisc.Tmin_hr is None:
+        Tmin_hr = np.min(mainPlanet.Magnetic.TexcFT_hr)
+    else:
+        Tmin_hr = FigMisc.Tmin_hr
+    Tmax_hr = np.minimum(np.max(mainPlanet.Magnetic.TexcFT_hr), mainPlanet.Magnetic.TmaxFT_hr)
+    Texc_hr = np.array(list(Excitations.Texc_hr[mainPlanet.bodyname].values()), dtype=np.float_)
+    Texc_hr = Texc_hr[np.isfinite(Texc_hr)]
+    if FigMisc.MAG_SPECTRA_PERIODS:
+        freqLabel = FigLbl.TexcLabel
+        freqVar = mainPlanet.Magnetic.TexcFT_hr
+        freqUnits = FigLbl.TexcUnits
+        freqLims = [Tmin_hr, Tmax_hr]
+        mainExc = np.sort(Texc_hr)
+    else:
+        freqLabel = FigLbl.fExcLabel
+        freqVar = 1 / mainPlanet.Magnetic.TexcFT_hr / 3600
+        freqUnits = FigLbl.fExcUnits
+        freqLims = [1 / Tmax_hr / 3600, 1 / Tmin_hr / 3600]
+        mainExc = np.sort(1 / Texc_hr / 3600)
+    ax.set_xlim(freqLims)
+    ax.set_xlabel(freqLabel)
+    ax.set_ylabel(FigLbl.BeFTexcLabel)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.0f'))
+    ax.xaxis.set_minor_formatter(ticker.FormatStrFormatter('%.0f'))
+    if Params.TITLES:
+        if mainPlanet.Magnetic.coordTypeFT is not None:
+            FTtitle = f'{mainPlanet.name} {FigLbl.MagFTexcTitle}, ' + \
+                      f'{mainPlanet.Magnetic.coordTypeFT} coordinates'
+        else:
+            FTtitle = f'{mainPlanet.name} {FigLbl.MagFTExcTitle}'
+        fig.suptitle(FTtitle)
+
+    # Plot the data
+    Bexc_nT = {vComp: np.abs(mainPlanet.Magnetic.Be1xyzFT_nT[vComp]) for vComp in xyzComps}
+    [ax.plot(freqVar, Bexc_nT[vComp], label=f'$B^e_{vComp}$', color=Color.BeiFT[vComp],
+             linestyle=Style.LS_FT, linewidth=Style.LW_FT) for vComp in xyzComps]
+    if FigMisc.MARK_BEXC_MAX:
+        iPeak = np.argmax(np.max([Bexc_nT[vComp] for vComp in xyzComps], axis=0))
+        xMax = Bexc_nT[xyzComps[0]][iPeak]
+        yMax = Bexc_nT[xyzComps[1]][iPeak]
+        zMax = Bexc_nT[xyzComps[2]][iPeak]
+        compMax = np.argmax([xMax, yMax, zMax])
+        peakMax = Bexc_nT[xyzComps[compMax]][iPeak]
+        peakLabel = f'$T = \SI{{{freqVar[iPeak]:.2f}}}{{{freqUnits}}}$\n' + \
+                    f'$|B_{xyzComps[compMax]}| = \SI{{{peakMax:.2f}}}{{nT}}$'
+        hadj = FigMisc.peakLblSize * 8
+        vadj = FigMisc.peakLblSize * 2
+        ax.annotate(peakLabel, (freqVar[iPeak], peakMax), (-hadj, -vadj), textcoords='offset points',
+                    fontsize=FigMisc.peakLblSize, arrowprops={'width': Style.LW_FT*2,
+                    'shrink': 0.05, 'headwidth': Style.LW_FT*6, 'headlength': Style.LW_FT*6,
+                    'fc': 'black'}, bbox={'boxstyle': 'square', 'fc': 'white', 'ec': 'black',
+                    'linewidth': 0.5})
+
+    if Params.LEGEND:
+        ax.legend()
+
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.MagFTexc, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    log.debug(f'Magnetic excitation spectrum plot saved to file: {Params.FigureFiles.MagFTexc}')
     plt.close()
 
     return

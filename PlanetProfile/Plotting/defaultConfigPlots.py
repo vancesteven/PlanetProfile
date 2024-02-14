@@ -263,6 +263,7 @@ def plotAssign():
     FigSize.BdipSolo = (2.5, 3)
     FigSize.BdipSoloCombo = (3, 9)
     FigSize.MagFT = (6, 10)
+    FigSize.MagFTexc = (5, 5)
     FigSize.MagSurf = (8, 5)
     FigSize.MagSurfCombo = (16, 5)
     FigSize.MagCA = (4, 4)
@@ -378,6 +379,9 @@ def plotAssign():
     # Excitation spectra
     FigMisc.MAG_SPECTRA_PERIODS = True  # Plot against periods for magnetic spectra plots (or frequencies)
     FigMisc.MARK_TEXC = True  # Add lines marking the main excitation periods/frequencies on Ae1 plot
+    FigMisc.MARK_BEXC_MAX = True  # Whether to annotate excitation spectrum plots with label for highest peak
+    FigLbl.peakLblSize = 14  # Font size in pt for highest-peak annotation
+    FigMisc.Tmin_hr = None  # Cutoff period to limit range of Fourier space plots
 
     # Legends
     FigMisc.REFS_IN_LEGEND = True  # Hydrosphere plot: Whether to include reference profiles in legend
