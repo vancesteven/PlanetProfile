@@ -186,7 +186,6 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
                                                                                   Planet.phi_frac[indsVI],
                                                                                   Planet.Ocean.Jsigma)
 
-
     return Planet
 
 

@@ -6,19 +6,21 @@ from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator, inte
 from PlanetProfile import _ROOT
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper
+from PlanetProfile.Thermodynamics.Viscosity import ViscRockUniform_Pas, ViscCoreUniform_Pas
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
 def GetInnerEOS(EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
                 HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None,
-                EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None):
+                EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaFixed_Pas=None, TviscTrans_K=None):
     innerEOS = PerplexEOSStruct(EOSfname, EOSinterpMethod=EOSinterpMethod, nHeaders=nHeaders,
                                 Fe_EOS=Fe_EOS, kThermConst_WmK=kThermConst_WmK,
                                 HtidalConst_Wm3=HtidalConst_Wm3, porosType=porosType,
                                 phiTop_frac=phiTop_frac, Pclosure_MPa=Pclosure_MPa,
                                 phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
-                                wFeCore_ppt=wFeCore_ppt, wScore_ppt=wScore_ppt)
+                                wFeCore_ppt=wFeCore_ppt, wScore_ppt=wScore_ppt,
+                                etaFixed_Pas=etaFixed_Pas, TviscTrans_K=TviscTrans_K)
     if innerEOS.ALREADY_LOADED:
         log.debug(f'{innerEOS.comp} EOS already loaded. Reusing existing EOS.')
         innerEOS = EOSlist.loaded[innerEOS.EOSlabel]
@@ -38,10 +40,13 @@ class PerplexEOSStruct:
     """
     def __init__(self, EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
                  HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None,
-                 EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None):
+                 EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaFixed_Pas=None, TviscTrans_K=None):
         self.comp = EOSfname[:-4]
-        self.EOSlabel = f'comp{self.comp}interp{EOSinterpMethod}kTherm{kThermConst_WmK}Htidal{HtidalConst_Wm3}poros{porosType}' + \
-                        f'phi{phiTop_frac}Pclose{Pclosure_MPa}phiMin{phiMin_frac}extrap{EXTRAP}wFeppt{wFeCore_ppt}wSppt{wScore_ppt}'
+        self.EOSlabel = f'comp{self.comp}interp{EOSinterpMethod}kTherm{kThermConst_WmK}' + \
+                        f'Htidal{HtidalConst_Wm3}poros{porosType}phi{phiTop_frac}' + \
+                        f'Pclose{Pclosure_MPa}phiMin{phiMin_frac}extrap{EXTRAP}' + \
+                        f'wFeppt{wFeCore_ppt}wSppt{wScore_ppt}etaFixed{etaFixed_Pas}' + \
+                        f'TviscTrans{TviscTrans_K}'
         if self.EOSlabel in EOSlist.loaded.keys():
             self.ALREADY_LOADED = True
         else:
@@ -270,30 +275,38 @@ class PerplexEOSStruct:
 
             # Assign tidal heating function
             # (currently a placeholder)
-            Htidal_Wm3 = np.zeros_like(kTherm_WmK) + HtidalConst_Wm3  # Placeholder until a self-consistent determination is implemented
             self.fn_Htidal_Wm3 = GetHtidalFunc(HtidalConst_Wm3)
 
-            # Assign porosity model function, if applicable
+            # Assign viscosity and porosity model functions, if applicable
             if Fe_EOS:
                 # No porosity modeled
                 self.ufn_phi_frac = ReturnZeros(1)
 
-            elif porosType is None or porosType == 'none':
-                # No porosity modeled, but need a dummy field for cross-compatibility
-                self.ufn_phi_frac = ReturnZeros(1)
-
+                # Assign viscosity function
+                self.ufn_eta_Pas = ViscCoreUniform_Pas(etaSet_Pas=etaFixed_Pas,
+                                                       TviscTrans_K=TviscTrans_K)
             else:
-                if porosType == 'Vitovtova2014' or porosType == 'Chen2020':
-                    # Pressure-depth lookup using the Preliminary Earth Reference Model,
-                    # Dziewonski and Anderson (1981): https://doi.org/10.1016/0031-9201(81)90046-7
-                    PREMzPfile = os.path.join(_ROOT, 'Thermodynamics', 'EOSdata', 'PREMtable.txt')
-                    zPREM_km, PPREM_kbar = np.loadtxt(PREMzPfile, skiprows=2, unpack=True, delimiter=',')
-                    PPREM_MPa = PPREM_kbar * 1e3 * Constants.bar2MPa
-                    self.PREMlookup = Interp1D(PPREM_MPa, zPREM_km)
+
+                # Assign viscosity function
+                self.ufn_eta_Pas = ViscRockUniform_Pas(etaSet_Pas=etaFixed_Pas,
+                                                       TviscTrans_K=TviscTrans_K)
+
+                if porosType is None or porosType == 'none':
+                    # No porosity modeled, but need a dummy field for cross-compatibility
+                    self.ufn_phi_frac = ReturnZeros(1)
+
                 else:
-                    self.PREMlookup = None
-                self.ufn_phi_frac = GetphiFunc(self.porosType, self.phiTop_frac, self.Pclosure_MPa,
-                                              self.PREMlookup, P_MPa, T_K)
+                    if porosType == 'Vitovtova2014' or porosType == 'Chen2020':
+                        # Pressure-depth lookup using the Preliminary Earth Reference Model,
+                        # Dziewonski and Anderson (1981): https://doi.org/10.1016/0031-9201(81)90046-7
+                        PREMzPfile = os.path.join(_ROOT, 'Thermodynamics', 'EOSdata', 'PREMtable.txt')
+                        zPREM_km, PPREM_kbar = np.loadtxt(PREMzPfile, skiprows=2, unpack=True, delimiter=',')
+                        PPREM_MPa = PPREM_kbar * 1e3 * Constants.bar2MPa
+                        self.PREMlookup = Interp1D(PPREM_MPa, zPREM_km)
+                    else:
+                        self.PREMlookup = None
+                    self.ufn_phi_frac = GetphiFunc(self.porosType, self.phiTop_frac, self.Pclosure_MPa,
+                                                  self.PREMlookup, P_MPa, T_K)
 
             # Store complete EOSStruct in global list of loaded EOSs
             EOSlist.loaded[self.EOSlabel] = self
@@ -341,6 +354,10 @@ class PerplexEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_phi_frac(P_MPa, T_K, grid=grid)
+    def fn_eta_Pas(self, P_MPa, T_K, grid=False):
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        return self.ufn_eta_Pas(P_MPa, T_K, grid=grid)
 
 
 def TsolidusHirschmann2000(P_MPa):

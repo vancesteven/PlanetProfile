@@ -12,16 +12,18 @@ from PlanetProfile.Thermodynamics.InnerEOS import GetphiFunc, GetphiCalc
 from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4PhaseMargules, MgSO4PhaseLookup, \
     MgSO4Seismic, MgSO4Conduct, Ppt2molal
 from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
+from PlanetProfile.Thermodynamics.Viscosity import ViscOceanUniform_Pas, ViscIceUniform_Pas
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
 def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
-                EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None, LOOKUP_HIRES=False):
+                EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None, LOOKUP_HIRES=False,
+                etaFixed_Pas=None):
     oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
                               phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE,
-                              sigmaFixed_Sm=sigmaFixed_Sm, LOOKUP_HIRES=LOOKUP_HIRES)
+                              sigmaFixed_Sm=sigmaFixed_Sm, LOOKUP_HIRES=LOOKUP_HIRES, etaFixed_Pas=etaFixed_Pas)
     if oceanEOS.ALREADY_LOADED and not FORCE_NEW:
         log.debug(f'{wOcean_ppt} ppt {compstr} EOS already loaded. Reusing existing EOS.')
         oceanEOS = EOSlist.loaded[oceanEOS.EOSlabel]
@@ -38,7 +40,7 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
                  phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False,
-                 sigmaFixed_Sm=None, LOOKUP_HIRES=False):
+                 sigmaFixed_Sm=None, LOOKUP_HIRES=False, etaFixed_Pas=None):
         if elecType is None:
             self.elecType = 'Vance2018'
         else:
@@ -63,7 +65,9 @@ class OceanEOSStruct:
             meltStr = ''
             meltPrint = ''
 
-        self.EOSlabel = f'{meltStr}Comp{compstr}wppt{wOcean_ppt}elec{elecType}rho{rhoType}scaling{scalingType}phase{phaseType}extrap{EXTRAP}pore{PORE}hires{LOOKUP_HIRES}'
+        self.EOSlabel = f'{meltStr}Comp{compstr}wppt{wOcean_ppt}elec{elecType}rho{rhoType}' + \
+                        f'scaling{scalingType}phase{phaseType}extrap{EXTRAP}pore{PORE}' + \
+                        f'hires{LOOKUP_HIRES}etaFixed{etaFixed_Pas}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, FORCE_NEW=FORCE_NEW)
 
@@ -227,6 +231,7 @@ class OceanEOSStruct:
             self.ufn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, Cp_JkgK)
             self.ufn_alpha_pK = RectBivariateSpline(P_MPa, T_K, alpha_pK)
             self.ufn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, kTherm_WmK)
+            self.ufn_eta_Pas = ViscOceanUniform_Pas(etaSet_Pas=etaFixed_Pas, comp=compstr)
 
             # Include placeholder to overlap infrastructure with other EOS classes
             self.fn_porosCorrect = None
@@ -268,14 +273,20 @@ class OceanEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_sigma_Sm(P_MPa, T_K, grid=grid)
+    def fn_eta_Pas(self, P_MPa, T_K, grid=False):
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        return self.ufn_eta_Pas(P_MPa, T_K, grid=grid)
 
 
-def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False,
-              ClathDissoc=None, minPres_MPa=None, minTres_K=None, ICEIh_DIFFERENT=False):
+def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0,
+              EXTRAP=False, ClathDissoc=None, minPres_MPa=None, minTres_K=None,
+              ICEIh_DIFFERENT=False, etaFixed_Pas=None, TviscTrans_K=None):
     iceEOS = IceEOSStruct(P_MPa, T_K, phaseStr, porosType=porosType, phiTop_frac=phiTop_frac,
                           Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
                           ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa, minTres_K=minTres_K,
-                          ICEIh_DIFFERENT=ICEIh_DIFFERENT)
+                          ICEIh_DIFFERENT=ICEIh_DIFFERENT, etaFixed_Pas=etaFixed_Pas,
+                          TviscTrans_K=TviscTrans_K)
     if iceEOS.ALREADY_LOADED:
         log.debug(f'Ice {phaseStr} EOS already loaded. Reusing existing EOS.')
         iceEOS = EOSlist.loaded[iceEOS.EOSlabel]
@@ -290,9 +301,12 @@ def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=
     return iceEOSwrapper
 
 class IceEOSStruct:
-    def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False,
-                 ClathDissoc=None, minPres_MPa=None, minTres_K=None, ICEIh_DIFFERENT=False):
-        self.EOSlabel = f'phase{phaseStr}poros{porosType}phi{phiTop_frac}Pclose{Pclosure_MPa}phiMin{phiMin_frac}extrap{EXTRAP}'
+    def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0,
+                 phiMin_frac=0, EXTRAP=False, ClathDissoc=None, minPres_MPa=None, minTres_K=None,
+                 ICEIh_DIFFERENT=False, etaFixed_Pas=None, TviscTrans_K=None):
+        self.EOSlabel = f'phase{phaseStr}poros{porosType}phi{phiTop_frac}Pclose{Pclosure_MPa}' + \
+                        f'phiMin{phiMin_frac}extrap{EXTRAP}etaFixed{etaFixed_Pas}' + \
+                        f'TviscTrans{TviscTrans_K}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, minPres_MPa=minPres_MPa, minTres_K=minTres_K)
         if not self.ALREADY_LOADED:
@@ -359,6 +373,7 @@ class IceEOSStruct:
             self.ufn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, Cp_JkgK)
             self.ufn_alpha_pK = RectBivariateSpline(P_MPa, T_K, alpha_pK)
             self.ufn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, kTherm_WmK)
+            self.ufn_eta_Pas = ViscIceUniform_Pas(etaSet_Pas=etaFixed_Pas, TviscTrans_K=TviscTrans_K)
 
             if porosType is None or porosType == 'none':
                 self.ufn_phi_frac = ReturnZeros(1)
@@ -411,6 +426,10 @@ class IceEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_sigma_Sm(P_MPa, T_K, grid=grid)
+    def fn_eta_Pas(self, P_MPa, T_K, grid=False):
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        return self.ufn_eta_Pas(P_MPa, T_K, grid=grid)
 
 class returnVal:
     def __init__(self, val):
