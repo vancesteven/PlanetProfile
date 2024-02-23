@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 14  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 15  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def configAssign():
     Params = ParamsStruct()
@@ -32,6 +32,7 @@ def configAssign():
     Params.CALC_NEW_ASYM =    False  # Recalculate asymmetric boundary plot(s)?
     Params.CALC_SEISMIC =     True  # Calculate sound speeds and elastic moduli?
     Params.CALC_CONDUCT =     True  # Calculate electrical conductivity?
+    Params.CALC_VISCOSITY =   True  # Calculate viscosity for all layers as a post-processing step?
     Params.CALC_ASYM =        True  # Calculate induction with asymmetric shape?
     Params.RUN_ALL_PROFILES = False  # Whether to run all PPBody.py files for the named body and plot together
     Params.SPEC_FILE =        False  # Whether we are running a specific file or files

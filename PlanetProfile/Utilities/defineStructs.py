@@ -261,6 +261,7 @@ class SilSubstruct:
         self.JGS = 0.35
         self.JVP = 0.75
         self.JVS = 0.85
+        self.Jvisc = 1  # Viscosity, placeholder guess.
         """ Mantle Equation of State (EOS) model """
         self.mantleEOS = None  # Equation of state data to use for silicates
         self.mantleEOSName = None  # Same as above but containing keywords like clathrates in filenames
@@ -484,6 +485,7 @@ class PlanetStruct:
         self.VLayer_m3 = None  # Volume of each layer in m^3
         self.kTherm_WmK = None  # Thermal conductivity of each layer in W/(m K)
         self.Htidal_Wm3 = None  # Tidal heating rate of each layer in W/m^3
+        self.eta_Pas = None  # Viscosity in Pa*s
         self.Ppore_MPa = None  # Pressure of fluids assumed to occupy full pore space
         self.rhoMatrix_kgm3 = None  # Mass density of matrix material (rock or ice)
         self.rhoPore_kgm3 = None  # Mass density of pore material (typically ocean water)
@@ -2492,7 +2494,7 @@ class ConstantsStruct:
         }
         self.wSat_ppt = {  # 1-bar saturation concentration of above solutes in g/kg.
             'H2O': 1000,
-            'NaCl': 233.06, # Chang et al. 2022: https://doi.org/10.1016/j.xcrp.2022.100856
+            'NaCl': 233.06,  # Chang et al. 2022: https://doi.org/10.1016/j.xcrp.2022.100856
             'Fe': np.nan,
             'FeS': np.nan
         }
@@ -2516,8 +2518,19 @@ class ConstantsStruct:
         self.Eact_kJmol, self.etaMelt_Pas, self.EYoung_GPa = (np.ones(self.phaseClath+1) * np.nan for _ in range(3))
         self.Eact_kJmol[1:7] = np.array([59.4, 76.5, 127, np.nan, 136, 110])  # Activation energy for diffusion of ice phases Ih-VI in kJ/mol
         self.Eact_kJmol[self.phaseClath] = 90.0  # From Durham et al. (2003), at 50 and 100 MPa and 260-283 K: https://doi.org/10.1029/2002JB001872
+        self.etaH2O_Pas = 1.786e-3  # Assumed viscosity of pure H2O based on the value at 0.1 C from https://ittc.info/media/4048/75-02-01-03.pdf. Agrees well with Kestin et al., (1978): https://doi.org/10.1063/1.555581
+        self.etaSeawater_Pas = 1.900e-3  # Assumed viscosity of Seawater based on the value at 0.1 C from https://ittc.info/media/4048/75-02-01-03.pdf.
+        self.etaIce_Pas = [1.0e19, 1.0e15]  # Assumed viscosity of ice Ih below and above the listed transition temperatures in TviscIce_K.
+        self.TviscIce_K = [241]  # Transition temperatures for ice to go from one viscosity value to another.
+        self.etaRock_Pas = [1e32, 1e20]  # Assumed viscosities of rock, generic value
+        self.TviscRock_K = [1100]  # Transition temperatures for solid rock to go from one viscosity value to another.
+        self.etaFeSolid_Pas = 1e14  # Assumed viscosity of solid iron core material, generic value
+        self.etaFeLiquid_Pas = 5e-3  # Assumed viscosity of liquid iron core material, based on Kono et al., (2015): https://doi.org/10.1016/j.pepi.2015.02.006
+        self.TviscFe_K = [1100]  # Transition temperatures for iron to go from one viscosity value to another. If only one value, this is considered to be the melting temp.
         self.etaMelt_Pas[1:7] = np.array([1e14, 1e18, 5e12, np.nan, 5e14, 5e14])  # Viscosity at the melting temperature of ice phases Ih-VI in Pa*s. Ice Ih range of 5e13-1e16 is from Tobie et al. (2003), others unknown
         self.etaMelt_Pas[self.phaseClath] = self.etaMelt_Pas[1] * 20  # Estimate of clathrate viscosity 20x that of ice Ih at comparable conditions from Durham et al. (2003): https://doi.org/10.1029/2002JB001872
+        self.etaMelt_Pas[self.phaseFe] = 5e-3  # Assumed viscosity of liquid iron core material, based on Kono et al., (2015): https://doi.org/10.1016/j.pepi.2015.02.006
+        self.etaMelt_Pas[self.phaseFeSolid] = 1e14  # Assumed viscosity of solid iron core material, generic value
         self.PminHPices_MPa = 200.0  # Min plausible pressure of high-pressure ices for any ocean composition in MPa
         self.PmaxLiquid_MPa = 2250.0  # Maximum plausible pressure for liquid water oceans
         self.sigmaDef_Sm = 1e-8  # Default minimum conductivity to use for layers with NaN or 0 conductivity
