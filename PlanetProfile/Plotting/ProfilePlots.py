@@ -8,7 +8,7 @@ from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Plotting.PTPlots import PlotHydroPhase, PlotPvThydro, PlotPvTPerpleX
 from PlanetProfile.Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
-from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices, PhaseConv
+from PlanetProfile.Utilities.Indexing import GetPhaseIndices, PhaseConv
 from PlanetProfile.Utilities.defineStructs import Constants
 
 # Assign logger
@@ -43,6 +43,8 @@ def GeneratePlots(PlanetList, Params):
         PlotPorosity(PlanetList, Params)
     if Params.PLOT_SEISMIC and Params.CALC_SEISMIC:
         PlotSeismic(PlanetList, Params)
+    if Params.PLOT_VISCOSITY and Params.CALC_VISCOSITY:
+        PlotViscosity(PlanetList, Params)
     if Params.PLOT_WEDGE:
         PlotWedge(PlanetList, Params)
     if Params.PLOT_HYDRO_PHASE and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
@@ -360,8 +362,9 @@ def PlotHydrosphereProps(PlanetList, Params):
 
 
 def PlotCoreTradeoff(PlanetList, Params):
-
-    fig, ax = plt.subplots(1, 1, figsize=FigSize.vcore)
+    fig = plt.figure(figsize=FigSize.vcore)
+    grid = GridSpec(1, 1)
+    ax = fig.add_subplot(grid[0, 0])
     if Style.GRIDS:
         ax.grid()
         ax.set_axisbelow(True)
@@ -402,8 +405,9 @@ def PlotCoreTradeoff(PlanetList, Params):
 
 
 def PlotSilTradeoff(PlanetList, Params):
-
-    fig, ax = plt.subplots(1, 1, figsize=FigSize.vmant)
+    fig = plt.figure(figsize=FigSize.vmant)
+    grid = GridSpec(1, 1)
+    ax = fig.add_subplot(grid[0, 0])
     if Style.GRIDS:
         ax.grid()
         ax.set_axisbelow(True)
@@ -548,6 +552,46 @@ def PlotPorosity(PlanetList, Params):
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vpore, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
     log.debug(f'Porosity plot saved to file: {Params.FigureFiles.vpore}')
+    plt.close()
+
+    return
+
+
+def PlotViscosity(PlanetList, Params):
+
+    fig = plt.figure(figsize=FigSize.vvisc)
+    grid = GridSpec(1, 1)
+    ax = fig.add_subplot(grid[0, 0])
+    if Style.GRIDS:
+        ax.grid()
+        ax.set_axisbelow(True)
+
+    ax.set_xlabel(FigLbl.etaLabel)
+    ax.set_ylabel(FigLbl.rLabel)
+    ax.set_xscale('log')
+    if Params.TITLES:
+        if Params.ALL_ONE_BODY:
+            fig.suptitle(f'{PlanetList[0].name}{FigLbl.viscTitle}')
+        else:
+            fig.suptitle(FigLbl.viscCompareTitle)
+
+    for Planet in PlanetList:
+        legLbl = Planet.label
+        if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
+            legLbl = f'{Planet.name} {legLbl}'
+        ax.plot(Planet.eta_Pas, Planet.r_m[:-1]/1e3,
+                label=legLbl, linewidth=Style.LW_std)
+
+    if FigMisc.FORCE_0_EDGES:
+        ax.set_ylim(bottom=0)
+
+    if Params.LEGEND:
+        ax.legend()
+
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.vvisc, format=FigMisc.figFormat, dpi=FigMisc.dpi,
+                metadata=FigLbl.meta)
+    log.debug(f'Viscosity plot saved to file: {Params.FigureFiles.vvisc}')
     plt.close()
 
     return
@@ -1006,7 +1050,9 @@ def PlotExploreOgram(ExplorationList, Params):
         FigLbl.StripLatex()
 
     for Exploration in ExplorationList:
-        fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
+        fig = plt.figure(figsize=FigSize.explore)
+        grid = GridSpec(1, 1)
+        ax = fig.add_subplot(grid[0, 0])
         if Style.GRIDS:
             ax.grid()
             ax.set_axisbelow(True)
@@ -1053,7 +1099,9 @@ def PlotExploreOgram(ExplorationList, Params):
 
     # Plot combination
     if Params.COMPARE and np.size(ExplorationList) > 1:
-        fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
+        fig = plt.figure(figsize=FigSize.vexplore)
+        grid = GridSpec(1, 1)
+        ax = fig.add_subplot(grid[0, 0])
         if Style.GRIDS:
             ax.grid()
             ax.set_axisbelow(True)
@@ -1119,7 +1167,9 @@ def PlotExploreOgramDsigma(ExplorationList, Params):
         FigLbl.StripLatex()
 
     for Exploration in (ex for ex in ExplorationList if not ex.NO_H2O):
-        fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
+        fig = plt.figure(figsize=FigSize.explore)
+        grid = GridSpec(1, 1)
+        ax = fig.add_subplot(grid[0, 0])
         if Style.GRIDS:
             ax.grid()
             ax.set_axisbelow(True)

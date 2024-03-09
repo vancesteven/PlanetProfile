@@ -1,7 +1,8 @@
 import numpy as np
 import logging
 import scipy.interpolate as spi
-from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices, GetOceanEOS
+from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
+from PlanetProfile.Utilities.Indexing import GetPhaseIndices
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 
 # Assign logger

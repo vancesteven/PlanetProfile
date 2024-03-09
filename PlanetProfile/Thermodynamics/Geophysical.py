@@ -1,6 +1,7 @@
 import numpy as np
 import logging
-from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv, GetIceEOS
+from PlanetProfile.Thermodynamics.HydroEOS import GetIceEOS
+from PlanetProfile.Utilities.Indexing import PhaseConv
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConductiveTemperature
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 

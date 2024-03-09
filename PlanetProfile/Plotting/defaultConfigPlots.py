@@ -250,6 +250,7 @@ def plotAssign():
     FigSize.vgrav = (6, 5)
     FigSize.vmant = (6, 6)
     FigSize.vcore = (6, 6)
+    FigSize.vvisc = (6, 6)
     FigSize.vpvt = (12, 6)
     FigSize.vwedg = (4.5, 4.5)
     FigSize.vphase = (5, 6)

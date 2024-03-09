@@ -57,6 +57,7 @@ def configAssign():
     Params.PLOT_TRADEOFF =    True  # Whether to plot mantle properties tradeoff
     Params.PLOT_POROSITY =    True  # Whether to plot porosities in rock and/or ice for bodies that have it modeled
     Params.PLOT_SEISMIC =     True  # Whether to plot seismic quantities if they have been calculated
+    Params.PLOT_VISCOSITY =   True  # Whether to plot viscosities
     Params.PLOT_WEDGE =       True  # Whether to plot interior wedge diagram
     Params.PLOT_HYDRO_PHASE = False  # Whether to plot phase diagram
     Params.PLOT_PVT_HYDRO =   False  # Whether to plot hydrosphere PT property plots

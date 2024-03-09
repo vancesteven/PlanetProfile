@@ -211,6 +211,7 @@ class OceanSubstruct:
         self.JGS = 0.35
         self.JVP = 0.75
         self.JVS = 0.85
+        self.Jvisc = 1
 
 
 """ Silicate layers """
@@ -673,6 +674,7 @@ class FigureFilesSubstruct:
         vgrav = 'Gravity'
         vmant = 'MantleDens'
         vcore = 'CoreMantTrade'
+        vvisc = 'Viscosity'
         vpvtHydro = 'HydroPTprops'
         vpvtPerpleX = 'InnerPTprops'
         vwedg = 'Wedge'
@@ -704,6 +706,7 @@ class FigureFilesSubstruct:
         self.vmant = self.fName + vmant + xtn
         self.vcore = self.fName + vcore + xtn
         self.vphase = self.fName + vphase + xtn
+        self.vvisc = self.fName + vvisc + xtn
         self.vpvtHydro = self.fName + vpvtHydro + xtn
         self.vpvtPerpleX = self.fName + vpvtPerpleX + xtn
         self.asym = self.fName + asym
@@ -1300,6 +1303,7 @@ class FigLblStruct:
         self.CMR2label = r'Calculated axial moment of inertia $C/MR^2$'
         self.rLabel = r'Radius $r$ ($\si{km}$)'
         self.zLabel = r'Depth $z$ ($\si{km}$)'
+        self.etaLabel = r'Viscosity $\eta$ ($\si{Pa\,s}$)'
         self.sil = r'Rock'
         self.core = r'Core'
 
@@ -1316,6 +1320,8 @@ class FigLblStruct:
         self.poreCompareTitle = r'Porosity comparison'
         self.seisTitle = r' seismic properties'
         self.seisCompareTitle = r'Seismic property comparison'
+        self.viscTitle = r' viscosity'
+        self.viscCompareTitle = r'Viscosity comparison'
         self.PvTtitleHydro = r' hydrosphere EOS properties with geotherm'
         self.PvTtitleSil = r' silicate interior properties with geotherm'
         self.PvTtitleCore = r' silicate and core interior properties with geotherm'
@@ -2527,6 +2533,7 @@ class ConstantsStruct:
         self.etaFeSolid_Pas = 1e14  # Assumed viscosity of solid iron core material, generic value
         self.etaFeLiquid_Pas = 5e-3  # Assumed viscosity of liquid iron core material, based on Kono et al., (2015): https://doi.org/10.1016/j.pepi.2015.02.006
         self.TviscFe_K = [1100]  # Transition temperatures for iron to go from one viscosity value to another. If only one value, this is considered to be the melting temp.
+        self.etaMelt_Pas = np.empty(self.phaseFeSolid+1) * np.nan
         self.etaMelt_Pas[1:7] = np.array([1e14, 1e18, 5e12, np.nan, 5e14, 5e14])  # Viscosity at the melting temperature of ice phases Ih-VI in Pa*s. Ice Ih range of 5e13-1e16 is from Tobie et al. (2003), others unknown
         self.etaMelt_Pas[self.phaseClath] = self.etaMelt_Pas[1] * 20  # Estimate of clathrate viscosity 20x that of ice Ih at comparable conditions from Durham et al. (2003): https://doi.org/10.1029/2002JB001872
         self.etaMelt_Pas[self.phaseFe] = 5e-3  # Assumed viscosity of liquid iron core material, based on Kono et al., (2015): https://doi.org/10.1016/j.pepi.2015.02.006

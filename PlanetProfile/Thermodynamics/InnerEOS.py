@@ -6,7 +6,6 @@ from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator, inte
 from PlanetProfile import _ROOT
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper
-from PlanetProfile.Thermodynamics.Viscosity import ViscRockUniform_Pas, ViscCoreUniform_Pas
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -487,3 +486,55 @@ def nuPoisson(VP_kms, VS_kms):
     :return: nu: Dimensionless Poisson ratio, typically around 0.3 for ices and rocks.
     """
     return 0.5 * (1 - 1/((VP_kms/VS_kms)**2 - 1))
+
+
+class ViscRockUniform_Pas:
+    def __init__(self, etaSet_Pas=None, TviscTrans_K=None):
+        if etaSet_Pas is None:
+            self.eta_Pas = Constants.etaRock_Pas
+        else:
+            self.eta_Pas = etaSet_Pas
+
+        if TviscTrans_K is None:
+            self.TviscTrans_K = Constants.TviscRock_K
+        else:
+            self.TviscTrans_K = TviscTrans_K
+
+    def __call__(self, P_MPa, T_K, grid=False):
+        Ttrans_K = np.insert([0.0, np.inf], 1, self.TviscTrans_K)
+        if grid:
+            eta_Pas = np.zeros((np.size(P_MPa), np.size(T_K)))
+            for Tlow_K, Tupp_K, etaConst_Pas in zip(Ttrans_K[:-1], Ttrans_K[1:], self.eta_Pas):
+                eta_Pas[:, np.logical_and(T_K >= Tlow_K, T_K < Tupp_K)] = etaConst_Pas
+        else:
+            eta_Pas = np.zeros_like(P_MPa)
+            for Tlow_K, Tupp_K, etaConst_Pas in zip(Ttrans_K[:-1], Ttrans_K[1:], self.eta_Pas):
+                eta_Pas[np.logical_and(T_K >= Tlow_K, T_K < Tupp_K)] = etaConst_Pas
+
+        return eta_Pas
+
+
+class ViscCoreUniform_Pas:
+    def __init__(self, etaSet_Pas=None, TviscTrans_K=None):
+        if etaSet_Pas is None:
+            self.eta_Pas = [Constants.etaFeSolid_Pas, Constants.etaFeLiquid_Pas]
+        else:
+            self.eta_Pas = etaSet_Pas
+
+        if TviscTrans_K is None:
+            self.TviscTrans_K = Constants.TviscFe_K
+        else:
+            self.TviscTrans_K = TviscTrans_K
+
+    def __call__(self, P_MPa, T_K, grid=False):
+        Ttrans_K = np.insert([0.0, np.inf], 1, self.TviscTrans_K)
+        if grid:
+            eta_Pas = np.zeros((np.size(P_MPa), np.size(T_K)))
+            for Tlow_K, Tupp_K, etaConst_Pas in zip(Ttrans_K[:-1], Ttrans_K[1:], self.eta_Pas):
+                eta_Pas[:, np.logical_and(T_K >= Tlow_K, T_K < Tupp_K)] = etaConst_Pas
+        else:
+            eta_Pas = np.zeros_like(P_MPa)
+            for Tlow_K, Tupp_K, etaConst_Pas in zip(Ttrans_K[:-1], Ttrans_K[1:], self.eta_Pas):
+                eta_Pas[:, np.logical_and(T_K >= Tlow_K, T_K < Tupp_K)] = etaConst_Pas
+
+        return eta_Pas

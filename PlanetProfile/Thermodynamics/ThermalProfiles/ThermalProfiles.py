@@ -1,9 +1,9 @@
 import numpy as np
 import logging
 from PlanetProfile.Utilities.defineStructs import Constants
-from seafreeze.seafreeze import seafreeze as SeaFreeze
-from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv, GetTfreeze, GetPfreeze, kThermMelinder2007, \
+from PlanetProfile.Thermodynamics.HydroEOS import GetTfreeze, GetPfreeze, kThermMelinder2007, \
     kThermHobbs1974, GetOceanEOS
+from PlanetProfile.Utilities.Indexing import PhaseConv
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')

@@ -4,7 +4,8 @@ from scipy.signal import savgol_filter
 
 from PlanetProfile.Thermodynamics.IronCore import IronCoreLayers
 from PlanetProfile.Thermodynamics.HydroEOS import GetPfreeze, GetTfreeze, \
-    PhaseConv, GetPhaseIndices, GetIceEOS, GetOceanEOS
+    GetIceEOS, GetOceanEOS
+from PlanetProfile.Utilities.Indexing import PhaseConv, GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import GetHtidalFunc, GetphiCalc, GetInnerEOS
 from PlanetProfile.Thermodynamics.Silicates import SilicateLayers
 from PlanetProfile.Thermodynamics.ThermalProfiles.Convection import IceIConvectSolid, IceIConvectPorous, \

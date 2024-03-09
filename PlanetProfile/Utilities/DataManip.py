@@ -135,5 +135,7 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].fn_porosCorrect(propBulk, propPore, phi, J)
     def fn_sigma_Sm(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_sigma_Sm(P_MPa, T_K, grid=grid)
+    def fn_eta_Pas(self, P_MPa, T_K, grid=False):
+        return EOSlist.loaded[self.key].fn_eta_Pas(P_MPa, T_K, grid=grid)
     def fn_Seismic(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K, grid=grid)

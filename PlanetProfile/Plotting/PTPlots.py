@@ -6,7 +6,8 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.colors import LinearSegmentedColormap as DiscreteCmap, to_rgb, BoundaryNorm
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
-from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS, PhaseConv, PhaseInv
+from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
+from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Utilities.defineStructs import Constants
 
