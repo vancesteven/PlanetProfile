@@ -118,9 +118,13 @@ def full(iTestStart=2, skipType=None):
         # Test out all the inductogram config options
         TestPlanets, Params, tMarks = TestAllInductOgrams(TestPlanets, Params, tMarks)
 
-    if skipType is None or skipType.lower() == 'explore':
+    if skipType is None or skipType.lower() == 'explore' or skipType.lower() == 'explorewaterless':
         # Test out all the exploreogram config options
-        TestPlanets, Params, tMarks = TestAllExploreOgrams(TestPlanets, Params, tMarks)
+        if skipType is not None and skipType.lower() == 'explorewaterless':
+            SKIP_HYDRO = True
+        else:
+            SKIP_HYDRO = False
+        TestPlanets, Params, tMarks = TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=SKIP_HYDRO)
 
     log.info('Testing complete!')
 
@@ -167,7 +171,7 @@ def TestAllInductOgrams(TestPlanets, Params, tMarks):
     return TestPlanets, Params, tMarks
 
 
-def TestAllExploreOgrams(TestPlanets, Params, tMarks):
+def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
     # Run all types of exploreogram on Test7, with Test5 for waterless
     Params.DO_EXPLOREOGRAM = True
     Params.NO_SAVEFILE = True
@@ -198,24 +202,25 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks):
         'qSurf_Wm2': [50e-3, 400e-3]
     }
 
-    log.info('Running exploreOgrams for icy bodies for all input types.')
-    for xName in hydroExploreBds.keys():
-        for yName in hydroExploreBds.keys():
-            if xName != yName:
-                Params.Explore.xName = xName
-                Params.Explore.yName = yName
-                Params.Explore.xRange = hydroExploreBds[xName]
-                Params.Explore.yRange = hydroExploreBds[yName]
-                Params.DO_PARALLEL = False
-                _ = TestExploreOgram(7, Params)
-                Params.DO_PARALLEL = True
-                Exploration = TestExploreOgram(7, Params)
-                TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
-                tMarks = np.append(tMarks, time.time())
+    if not SKIP_HYDRO:
+        log.info('Running exploreOgrams for icy bodies for all input types.')
+        for xName in hydroExploreBds.keys():
+            for yName in hydroExploreBds.keys():
+                if xName != yName:
+                    Params.Explore.xName = xName
+                    Params.Explore.yName = yName
+                    Params.Explore.xRange = hydroExploreBds[xName]
+                    Params.Explore.yRange = hydroExploreBds[yName]
+                    Params.DO_PARALLEL = False
+                    _ = TestExploreOgram(7, Params)
+                    Params.DO_PARALLEL = True
+                    Exploration = TestExploreOgram(7, Params)
+                    TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
+                    tMarks = np.append(tMarks, time.time())
 
-                Exploration = TestExploreOgram(7, Params, CALC_NEW=False)
-                TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
-                tMarks = np.append(tMarks, time.time())
+                    Exploration = TestExploreOgram(7, Params, CALC_NEW=False)
+                    TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
+                    tMarks = np.append(tMarks, time.time())
 
     log.info('Running exploreOgrams for waterless bodies for all input types.')
     for xName in waterlessExploreBds.keys():
