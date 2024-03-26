@@ -2,8 +2,7 @@ import numpy as np
 import logging
 import scipy.interpolate as spi
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
-from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
-from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+from PlanetProfile.Utilities.defineStructs import EOSlist
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices
 
 # Assign logger
@@ -71,24 +70,24 @@ def CalcViscPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
             Planet.Ocean.surfIceEOS['Ih'].fn_eta_Pas(Planet.P_MPa[indsI], Planet.T_K[indsI]), 0,
             Planet.phi_frac[indsI], Planet.Ocean.Jvisc)
     if np.size(indsClath) != 0:
-        Planet.eta_Pas[indsClath] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+        Planet.eta_Pas[indsClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
             Planet.Ocean.surfIceEOS['Clath'].fn_eta_Pas(Planet.P_MPa[indsClath], Planet.T_K[indsClath]), 0,
             Planet.phi_frac[indsClath], Planet.Ocean.Jvisc)
     # We use the negative underplate phase IDs for dry HP ices
     if np.size(indsIIund) != 0:
-        Planet.eta_Pas[indsIIund] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+        Planet.eta_Pas[indsIIund] = Planet.Ocean.surfIceEOS['II'].fn_porosCorrect(
             Planet.Ocean.surfIceEOS['II'].fn_eta_Pas(Planet.P_MPa[indsIIund], Planet.T_K[indsIIund]), 0,
             Planet.phi_frac[indsIIund], Planet.Ocean.Jvisc)
     if np.size(indsIIIund) != 0:
-        Planet.eta_Pas[indsIIIund] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+        Planet.eta_Pas[indsIIIund] = Planet.Ocean.surfIceEOS['III'].fn_porosCorrect(
             Planet.Ocean.surfIceEOS['III'].fn_eta_Pas(Planet.P_MPa[indsIIIund], Planet.T_K[indsIIIund]), 0,
             Planet.phi_frac[indsIIIund], Planet.Ocean.Jvisc)
     if np.size(indsVund) != 0:
-        Planet.eta_Pas[indsVund] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+        Planet.eta_Pas[indsVund] = Planet.Ocean.surfIceEOS['V'].fn_porosCorrect(
             Planet.Ocean.surfIceEOS['V'].fn_eta_Pas(Planet.P_MPa[indsVund], Planet.T_K[indsVund]), 0,
             Planet.phi_frac[indsVund], Planet.Ocean.Jvisc)
     if np.size(indsVIund) != 0:
-        Planet.eta_Pas[indsVIund] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
+        Planet.eta_Pas[indsVIund] = Planet.Ocean.surfIceEOS['VI'].fn_porosCorrect(
             Planet.Ocean.surfIceEOS['VI'].fn_eta_Pas(Planet.P_MPa[indsVIund], Planet.T_K[indsVIund]), 0,
             Planet.phi_frac[indsVIund], Planet.Ocean.Jvisc)
     # Next, do liquid-filled ice and clathrate pores
@@ -133,7 +132,8 @@ def CalcViscSolidIce(Planet, Params, indsLiq, indsI, indsII, indsIIund, indsIII,
     if np.size(indsLiq) != 0:
         Planet.eta_Pas[indsLiq] = Planet.Ocean.EOS.fn_eta_Pas(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq])
 
-    Planet.eta_Pas[indsI] = Planet.Ocean.surfIceEOS['Ih'].fn_eta_Pas(Planet.P_MPa[indsI], Planet.T_K[indsI])
+    if np.size(indsI) != 0:
+        Planet.eta_Pas[indsI] = Planet.Ocean.surfIceEOS['Ih'].fn_eta_Pas(Planet.P_MPa[indsI], Planet.T_K[indsI])
 
     if np.size(indsIIund) != 0:
         Planet.eta_Pas[indsIIund] = Planet.Ocean.surfIceEOS['II'].fn_eta_Pas(Planet.P_MPa[indsIIund], Planet.T_K[indsIIund])
