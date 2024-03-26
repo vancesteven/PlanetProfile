@@ -30,7 +30,7 @@ logging.getLogger('PIL').setLevel(logging.WARNING)
 logging.getLogger('MoonMag').setLevel(logging.DEBUG)
 
 
-def full(iTestStart=2):
+def full(iTestStart=2, skipType=None):
     testBase = f'{_TestImport}.PPTest'
 
     # Set general testing config atop standard config options
@@ -64,45 +64,48 @@ def full(iTestStart=2):
     # Loop over remaining test profiles (2 onwards)
     if iTestStart is None:
         iTestStart = 2
-    for i in range(iTestStart, nTests+1):
-        testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
-        log.info(f'Test case body: {testBase}{i}')
-        TestPlanets = np.append(TestPlanets, PlanetProfile(testPlanetN, Params)[0])
+
+    if skipType is None:
+        for i in range(iTestStart, nTests+1):
+            testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
+            log.info(f'Test case body: {testBase}{i}')
+            TestPlanets = np.append(TestPlanets, PlanetProfile(testPlanetN, Params)[0])
+            tMarks = np.append(tMarks, time.time())
+
+            # Verify that we can reload things as needed in each case
+            Params.CALC_NEW = False
+            Params.CALC_NEW_REF = False
+            Params.CALC_NEW_INDUCT = False
+            TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanetN), Params)[0])
+            TestPlanets[-1].saveLabel += ' RELOAD'
+            tMarks = np.append(tMarks, time.time())
+
+            Params.CALC_NEW = True
+            Params.CALC_NEW_REF = True
+            Params.CALC_NEW_INDUCT = True
+
+        testPlanet1.name = 'Test0'
+        # Test that we can successfully run standard profiles with parallelization options
+        Params.DO_PARALLEL = True
+        TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanet1), Params)[0])
+        TestPlanets[-1].saveLabel += ' NO_PARALLEL'
         tMarks = np.append(tMarks, time.time())
 
-        # Verify that we can reload things as needed in each case
-        Params.CALC_NEW = False
-        Params.CALC_NEW_REF = False
-        Params.CALC_NEW_INDUCT = False
-        TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanetN), Params)[0])
-        TestPlanets[-1].saveLabel += ' RELOAD'
+        # Make sure our auxiliary calculation flags work correctly
+        Params.CALC_SEISMIC = False
+        Params.CALC_CONDUCT = False
+        TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanet1), Params)[0])
+        TestPlanets[-1].saveLabel += ' NO_SEISMIC_OR_CONDUCT'
         tMarks = np.append(tMarks, time.time())
+        Params.CALC_SEISMIC = True
+        Params.CALC_CONDUCT = True
 
-        Params.CALC_NEW = True
-        Params.CALC_NEW_REF = True
-        Params.CALC_NEW_INDUCT = True
-
-    testPlanet1.name = 'Test0'
-    # Test that we can successfully run standard profiles with parallelization options
-    Params.DO_PARALLEL = True
-    TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanet1), Params)[0])
-    TestPlanets[-1].saveLabel += ' NO_PARALLEL'
-    tMarks = np.append(tMarks, time.time())
-
-    # Make sure our auxiliary calculation flags work correctly
-    Params.CALC_SEISMIC = False
-    Params.CALC_CONDUCT = False
-    TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanet1), Params)[0])
-    TestPlanets[-1].saveLabel += ' NO_SEISMIC_OR_CONDUCT'
-    tMarks = np.append(tMarks, time.time())
-    Params.CALC_SEISMIC = True
-    Params.CALC_CONDUCT = True
-
-    # Test Bayesian analysis UpdateRun capabilities
-    PlanetBayes, _ = TestBayes('Test')
-    PlanetBayes.saveLabel = 'Bayes'
-    TestPlanets = np.append(TestPlanets, PlanetBayes)
-    tMarks = np.append(tMarks, time.time())
+    if skipType is None or skipType.lower() == 'bayes':
+        # Test Bayesian analysis UpdateRun capabilities
+        PlanetBayes, _ = TestBayes('Test')
+        PlanetBayes.saveLabel = 'Bayes'
+        TestPlanets = np.append(TestPlanets, PlanetBayes)
+        tMarks = np.append(tMarks, time.time())
 
     # Check that skipping layers/portions works correctly
     Params.SKIP_INNER = True
@@ -111,11 +114,13 @@ def full(iTestStart=2):
     tMarks = np.append(tMarks, time.time())
     Params.SKIP_INNER = False
 
-    # Test out all the inductogram config options
-    TestPlanets, Params, tMarks = TestAllInductOgrams(TestPlanets, Params, tMarks)
+    if skipType is None or skipType.lower() == 'induct':
+        # Test out all the inductogram config options
+        TestPlanets, Params, tMarks = TestAllInductOgrams(TestPlanets, Params, tMarks)
 
-    # Test out all the exploreogram config options
-    TestPlanets, Params, tMarks = TestAllExploreOgrams(TestPlanets, Params, tMarks)
+    if skipType is None or skipType.lower() == 'explore':
+        # Test out all the exploreogram config options
+        TestPlanets, Params, tMarks = TestAllExploreOgrams(TestPlanets, Params, tMarks)
 
     log.info('Testing complete!')
 
@@ -323,12 +328,18 @@ def simple(iTests=None):
 
 
 if __name__ == '__main__':
+    skipType = None
     if len(sys.argv) > 1:
         # Test type was passed as command line argument
         testType = sys.argv[1]
         if len(sys.argv) > 2:
-            # Test profile number was passed as command line argument
-            iTest = int(sys.argv[2])
+            if sys.argv[2].isdigit():
+                # Test profile number was passed as command line argument
+                iTest = int(sys.argv[2])
+            else:
+                # Skip to specific testing section was passed as command line arg
+                iTest = None
+                skipType = sys.argv[2]
         else:
             iTest = None
     else:
@@ -340,4 +351,4 @@ if __name__ == '__main__':
     elif testType == 'Bayes':
         _, _ = TestBayes('Test')
     else:
-        full(iTest)
+        full(iTest, skipType=skipType)
