@@ -535,6 +535,6 @@ class ViscCoreUniform_Pas:
         else:
             eta_Pas = np.zeros_like(P_MPa)
             for Tlow_K, Tupp_K, etaConst_Pas in zip(Ttrans_K[:-1], Ttrans_K[1:], self.eta_Pas):
-                eta_Pas[:, np.logical_and(T_K >= Tlow_K, T_K < Tupp_K)] = etaConst_Pas
+                eta_Pas[np.logical_and(T_K >= Tlow_K, T_K < Tupp_K)] = etaConst_Pas
 
         return eta_Pas
