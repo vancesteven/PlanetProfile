@@ -543,6 +543,7 @@ class PlanetStruct:
         self.index = None  # Numeric indicator to aid in progress info in multi-model runs
         self.compStr = None  # Latex string for describing ocean comp to humans in tables
         self.THIN_OCEAN = False  # Flag for when we have to adjust ocean layering so that it's not a single layer
+        self.phiSeafloor_frac = None  # Porosity at the first rock layer below the hydrosphere
         # Layer thicknesses for table printout
         self.zIceI_m = np.nan
         self.zClath_km = np.nan  # Note this one breaks with the pattern because zClath_m is already in use.

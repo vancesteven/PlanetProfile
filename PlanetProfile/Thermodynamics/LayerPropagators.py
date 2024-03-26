@@ -813,7 +813,8 @@ def InnerLayers(Planet, Params):
         Planet.phase[iOS:iSC] = Constants.phaseSil + phasePore
         Planet.phase[iSC:iCC] = Constants.phaseFe
 
-        # Record ocean layer thickness
+        # Record ocean layer thickness and properties
+        Planet.phiSeafloor_frac = Planet.phi_frac[iOS]
         if Planet.Do.NO_H2O or not np.any(Planet.phase == 0):
             Planet.D_km = 0
             Planet.Pseafloor_MPa = np.nan
@@ -899,7 +900,7 @@ def InnerLayers(Planet, Params):
             Planet.Mocean_kg, Planet.MporeFluid_kg, Planet.MporeSalt_kg, Planet.Mrock_kg, Planet.Msalt_kg, \
             Planet.Mtot_kg, Planet.Sil.Rmean_m, Planet.Sil.Rrange_m, Planet.Core.Rmean_m, Planet.Core.Rrange_m, \
             Planet.Sil.rhoMean_kgm3, Planet.Core.rhoMean_kgm3, Planet.Sil.GSmean_GPa, Planet.Core.GSmean_GPa, \
-            Planet.Pseafloor_MPa, Planet.Sil.phiCalc_frac = (np.nan for _ in range(31))
+            Planet.Pseafloor_MPa, Planet.Sil.phiCalc_frac, Planet.phiSeafloor_frac = (np.nan for _ in range(32))
         Planet.Sil.Rtrade_m, Planet.Core.Rtrade_m, Planet.Sil.rhoTrade_kgm3 \
             = (np.array([np.nan]) for _ in range(3))
         Planet.Steps.nHydro = 1
