@@ -25,7 +25,7 @@ setup(
         'numpy >= 1.24.4',
         'scipy >= 1.11.4',
         'mpmath >= 1.3.0',
-        'matplotlib >= 3.8.2',
+        'matplotlib >= 3.8.4',
         'SeaFreeze >= 0.9.6',
         'MoonMag >= 1.7.5',
         'gsw >= 3.6.16',
