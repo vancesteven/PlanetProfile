@@ -40,7 +40,7 @@ Keep the below informational notice intact at the top of each .py file.
 # Contact: itsmoosh@gmail.com
 ########################################
 
-Copy-pastable bare template:
+Copy-pastable bare template for functions:
     """
     Brief description.
 
@@ -51,4 +51,19 @@ Copy-pastable bare template:
     Returns
     -------
     outputName : type, dims
+    """
+
+
+Bare template for classes:
+    """
+    Brief description.
+
+    Attributes
+    ----------
+    attrName : type, dims
+
+    Methods
+    -------
+    methodName : type, dims
+        Include only when applicable methods are used in public API.
     """

@@ -54,7 +54,7 @@ docstring.
 Copy-pastable bare template (the entire rest of this file--don't forget the informational notice
 where it's required!):
 
-% Brief description.
+% Brief description for functions.
 %
 % Parameters
 % ----------
@@ -66,8 +66,11 @@ where it's required!):
 % outputName : type, dims
 %   Description.
 
-% Part of the PlanetProfile framework for geophysical analysis of planetary interior structure.
-% Created by Steven D. Vance, Marshall J. Styczinski, and PlanetProfile contributors
-% Maintained by Marshall J. Styczinski
-% Contact: itsmoosh@gmail.com
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% Brief description for struct builds.
+%
+% Fields
+% ------
+% inputName : type, dims
+%   Description.
