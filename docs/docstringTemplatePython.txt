@@ -1,0 +1,54 @@
+    """
+    Brief description of function purpose.
+
+    Notes the user needs to know to use FuncName properly.
+
+    Parameters
+    ----------
+    examplePlanet : PlanetStruct
+        Requires the following attributes to be set:
+
+          * Steps.nCore
+          * Ocean.Tb_K
+
+        Sets the following attributes:
+
+          * r_m
+          * Cp_JkgK
+
+    inputName : type, dims
+        Description of variable. Delete dims for a scalar or replace with e.g. 1xN for a 1D row
+        vector, Nx1 for a 1D column vector, NxM for a matrix, etc. For struct inputs, specify which
+        fields are required and what they must contain.
+    exampleNums : double, 1xP
+        Example row vector of doubles. Use a different letter for each dummy vector size unless the
+        size must match another input parameter.
+    optionalInput : type, dims, default=DefVal
+        Explanation of optional argument.
+
+    Returns
+    -------
+    outputName : type, dims
+        Description of output variable.
+    """
+
+Keep the below informational notice intact at the top of each .py file.
+
+# Part of the PlanetProfile framework for geophysical analysis of planetary interior structure.
+# Created by Steven D. Vance, Marshall J. Styczinski, and PlanetProfile contributors
+# Maintained by Marshall J. Styczinski
+# Contact: itsmoosh@gmail.com
+########################################
+
+Copy-pastable bare template:
+    """
+    Brief description.
+
+    Parameters
+    ----------
+    inputName : type, dims
+
+    Returns
+    -------
+    outputName : type, dims
+    """

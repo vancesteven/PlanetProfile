@@ -1,0 +1,73 @@
+% Brief description of function purpose.
+%
+% Extended description or important information needed for correct function use.
+%
+% Parameters
+% ----------
+% examplePlanet : PlanetStruct
+%   Requires the following attributes to be set:
+%
+%     * Steps.nCore
+%     * Ocean.Tb_K
+%
+%   Sets the following attributes:
+%
+%     * r_m
+%     * Cp_JkgK
+%
+% inputName : type, dims
+%     Description of variable. Delete dims for a scalar or replace with e.g. 1xN for a 1D row
+%     vector, Nx1 for a 1D column vector, NxM for a matrix, etc. For struct inputs, specify which
+%     fields are required and what they must contain.
+% exampleNums : double, 1xP
+%     Example row vector of doubles. Use a different letter for each dummy vector size unless the
+%     size must match another input parameter.
+% optionalInput : type, dims, default=DefVal
+%     Explanation of optional argument.
+%
+% Returns
+% -------
+% outputName : type, dims
+%     Description of output variable. This whole section can be omitted for scripts and functions that return nothing.
+%
+% Note
+% ----
+% Further information or user warnings. Refer to https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html#docstring-sections for valid headings:
+%
+% * Bullet point 1. For a very long line that extends onto the next, indent to the same
+%   as the start of text after the asterisk.
+% * Same for this other bullet. There must be blank lines between bullets and surrounding text.
+%   Indentation REALLY matters with sphinx.
+%
+% Concluding text for the note block.
+
+% Part of the PlanetProfile framework for geophysical analysis of planetary interior structure.
+% Created by Steven D. Vance, Marshall J. Styczinski, and PlanetProfile contributors
+% Maintained by Marshall J. Styczinski
+% Contact: itsmoosh@gmail.com
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Keep the above informational notice intact, separated from docstring by an empty line, not preceded
+by a %. The informational notice must appear in the first function in each file, AFTER the
+docstring.
+
+Copy-pastable bare template (the entire rest of this file--don't forget the informational notice
+where it's required!):
+
+% Brief description.
+%
+% Parameters
+% ----------
+% inputName : type, dims
+%   Description.
+%
+% Returns
+% -------
+% outputName : type, dims
+%   Description.
+
+% Part of the PlanetProfile framework for geophysical analysis of planetary interior structure.
+% Created by Steven D. Vance, Marshall J. Styczinski, and PlanetProfile contributors
+% Maintained by Marshall J. Styczinski
+% Contact: itsmoosh@gmail.com
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
