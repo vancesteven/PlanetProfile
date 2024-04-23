@@ -17,7 +17,7 @@ Planet.Bulk.R_m = 235.8e3  # Value from mean radius in Archinal et al. (2018): h
 Planet.Bulk.M_kg = 0.659e20  # From Jacobson et al. (1992): https://adsabs.harvard.edu/pdf/1992AJ....103.2068J
 Planet.Bulk.Tsurf_K = 60
 Planet.Bulk.Psurf_MPa = 0.0
-Planet.Bulk.Cmeasured = 0.35  # Based on rough forward models with fixed layer densities in Hussmann et al. (2006): https://doi.org/10.1016/j.icarus.2006.06.005
+Planet.Bulk.Cmeasured = 0.346  # Based on rough forward models with fixed layer densities in Hussmann et al. (2006): https://doi.org/10.1016/j.icarus.2006.06.005
 Planet.Bulk.Cuncertainty = 0.03
 Planet.Bulk.Tb_K = 272.356
 

@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices, GetIceEOS
+from PlanetProfile.Thermodynamics.HydroEOS import GetIceEOS
+from PlanetProfile.Utilities.Indexing import GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import TsolidusHirschmann2000
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.PPversion import ppVerNum

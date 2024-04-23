@@ -197,3 +197,5 @@ class ClathSeismic:
         GS_GPa = -4.2e-3*T_C + 9e-5*P_MPa + 3.541
 
         return VP_kms, VS_kms, KS_GPa, GS_GPa
+
+a=0

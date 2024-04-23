@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import logging
 from copy import deepcopy
@@ -11,7 +10,7 @@ from matplotlib.patches import Rectangle
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
-from PlanetProfile.Utilities.defineStructs import Constants, xyzComps, vecComps
+from PlanetProfile.Utilities.defineStructs import xyzComps, vecComps
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
 
@@ -22,26 +21,35 @@ def GenerateMagPlots(PlanetList, Params):
     
     # Catch if we get here and induction calcs have not been done
     if np.all([Planet.Magnetic.Binm_nT is not None for Planet in PlanetList]):
-    
-        # Remove latex styling from legend labels if Latex is not installed
-        if not FigMisc.TEX_INSTALLED:
-            for Planet in PlanetList:
-                Planet.label = FigLbl.StripLatexFromString(Planet.label)
-    
-        if Params.PLOT_BDIP:
-            PlotComplexBdip(PlanetList, Params)
-        if Params.PLOT_MAG_SPECTRUM and np.any([Planet.Magnetic.FT_LOADED for Planet in PlanetList]):
-            PlotMagSpectrum(PlanetList, Params)
-        if Params.PLOT_BSURF:
-            PlotMagSurface(PlanetList, Params)
-        if Params.PLOT_ASYM and Params.CALC_ASYM:
-            PlotAsym(PlanetList, Params)
-            
-        elif np.any([Planet.Magnetic.Binm_nT is not None for Planet in PlanetList]):
-            log.warning('Induction calculations have only been completed for some bodies. Asymmetry contour plotting will be skipped.')
+
+        if np.any([isinstance(Planet.Magnetic.Benm_nT, dict) for Planet in PlanetList]):
+            log.warning('Multiple spacecraft eras are being modeled, which will break many ' +
+                        'magnetic field plotting functions. General plots will be skipped.')
+
         else:
-            log.warning('Induction calculations have not been completed for any bodies. Asymmetry contour plotting will be skipped. ' +
-                        'Set Params.SKIP_INDUCTION = True in configPP.py to skip induction calculations.')
+            # Remove latex styling from legend labels if Latex is not installed
+            if not FigMisc.TEX_INSTALLED:
+                for Planet in PlanetList:
+                    Planet.label = FigLbl.StripLatexFromString(Planet.label)
+
+            if Params.PLOT_BDIP:
+                PlotComplexBdip(PlanetList, Params)
+            if (Params.PLOT_MAG_SPECTRUM_COMBO or Params.PLOT_MAG_SPECTRUM) and np.any(
+                    [Planet.Magnetic.FT_LOADED for Planet in PlanetList]):
+                if Params.PLOT_MAG_SPECTRUM_COMBO:
+                    PlotMagSpectrumInduced(PlanetList, Params)
+                if Params.PLOT_MAG_SPECTRUM:
+                    PlotMagSpectrum(PlanetList, Params)
+            if Params.PLOT_BSURF:
+                PlotMagSurface(PlanetList, Params)
+            if Params.PLOT_ASYM and Params.CALC_ASYM:
+                PlotAsym(PlanetList, Params)
+
+            elif np.any([Planet.Magnetic.Binm_nT is not None for Planet in PlanetList]):
+                log.warning('Induction calculations have only been completed for some bodies. Asymmetry contour plotting will be skipped.')
+            else:
+                log.warning('Induction calculations have not been completed for any bodies. Asymmetry contour plotting will be skipped. ' +
+                            'Set Params.SKIP_INDUCTION = True in configPP.py to skip induction calculations.')
 
     return
 
@@ -605,7 +613,6 @@ def AddV2021points(IndParams, bodyname, inductOtype, axes):
 
 def PlotComplexBdip(PlanetList, Params):
     if PlanetList[0].bodyname in Excitations.Texc_hr.keys():
-        axComps = ['x', 'y', 'z']
         refs = {}
         nPeaksToPlot = np.sum([Tdo and Thave for Tdo, Thave, Texc in zip(Params.Induct.excSelectionPlot.values(),
                                                                          Params.Induct.excSelectionCalc.values(),
@@ -645,7 +652,7 @@ def PlotComplexBdip(PlanetList, Params):
                 fig = plt.figure(figsize=figSize)
                 grid = GridSpec(3, nCol)
                 axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(nCol)] for i in range(3)])
-                axc = {vComp: row for vComp, row in zip(axComps, axes)}
+                axc = {vComp: row for vComp, row in zip(xyzComps, axes)}
                 if Style.GRIDS:
                     axf = axes.flatten()
                     [ax.grid() for ax in axf]
@@ -665,7 +672,7 @@ def PlotComplexBdip(PlanetList, Params):
                     else:
                         fig.suptitle(titleToUse[1])
 
-                insetx, insety = ({vComp: 0 for vComp in axComps} for _ in range(2))
+                insetx, insety = ({vComp: 0 for vComp in xyzComps} for _ in range(2))
                 for iPlanet, Planet in enumerate(PlanetList):
                     if Planet.Magnetic.calcedExc is not None and np.size(Planet.Magnetic.calcedExc) >= 1:
                         # Set color options
@@ -682,7 +689,7 @@ def PlotComplexBdip(PlanetList, Params):
                             thisEdgeColor = None
                             thisFaceColor = None
 
-                        for iRow, axComp in enumerate(axComps):
+                        for iRow, axComp in enumerate(xyzComps):
                             xPlotted, yPlotted, absBiPlotted = (np.empty(0) for _ in range(3))
                             for iPeak, Tkey in enumerate(Planet.Magnetic.calcedExc):
                                 if Params.Induct.excSelectionPlot[Tkey]:
@@ -716,7 +723,7 @@ def PlotComplexBdip(PlanetList, Params):
                     refs[f'inset'] = \
                     axes[0, -1].plot([0, 1], [1, 0], color=Color.BdipInset, linewidth=Style.LW_BdipInset,
                                      linestyle=Style.LS_BdipInset, label='Inset region')[0]
-                    for iRow, axComp in enumerate(axComps):
+                    for iRow, axComp in enumerate(xyzComps):
                         axes[iRow, -1].add_patch(
                             Rectangle((0, 0), insetx[axComp], insety[axComp], edgecolor=Color.BdipInset, zorder=-1,
                                       linewidth=Style.LW_BdipInset, linestyle=Style.LS_BdipInset, facecolor='None'))
@@ -735,7 +742,7 @@ def PlotComplexBdip(PlanetList, Params):
                 plt.close()
 
             else:
-                for axComp in axComps:
+                for axComp in xyzComps:
                     if DO_ZOOM:
                         figSize = FigSize.Bdip
                     else:
@@ -1384,12 +1391,11 @@ def PlotAsym(PlanetList, Params):
     return
 
 
-def PlotMagSpectrum(PlanetList, Params):
+def PlotMagSpectrumInduced(PlanetList, Params):
     """ Plot Fourier spectra of magnetic excitations, complex response
         amplitude, and induced dipole components.
     """
 
-    axComps = ['x', 'y', 'z']
     # Get first entry in PlanetList for which FT_LOADED is True
     if PlanetList[0].Magnetic.FT_LOADED:
         mainPlanet = PlanetList[0]
@@ -1405,10 +1411,10 @@ def PlotMagSpectrum(PlanetList, Params):
         [ax.set_axisbelow(True) for ax in axes]
 
     # Labels and titles
-    if Params.MagSpectrum.Tmin_hr is None:
+    if FigMisc.Tmin_hr is None:
         Tmin_hr = np.min(mainPlanet.Magnetic.TexcFT_hr)
     else:
-        Tmin_hr = Params.MagSpectrum.Tmin_hr
+        Tmin_hr = FigMisc.Tmin_hr
     Tmax_hr = np.minimum(np.max(mainPlanet.Magnetic.TexcFT_hr), mainPlanet.Magnetic.TmaxFT_hr)
     Texc_hr = np.array(list(Excitations.Texc_hr[mainPlanet.bodyname].values()), dtype=np.float_)
     Texc_hr = Texc_hr[np.isfinite(Texc_hr)]
@@ -1442,9 +1448,9 @@ def PlotMagSpectrum(PlanetList, Params):
 
     # Plot the data
     [axes[0].plot(freqVar, np.abs(mainPlanet.Magnetic.Be1xyzFT_nT[vComp]), label=f'$B^e_{vComp}$',
-                  color=Color.BeiFT[vComp], linestyle=Style.LS_FT, linewidth=Style.LW_FT) for vComp in axComps]
+                  color=Color.BeiFT[vComp], linestyle=Style.LS_FT, linewidth=Style.LW_FT) for vComp in xyzComps]
     [axes[2].plot(freqVar, np.abs(mainPlanet.Magnetic.Bi1xyzFT_nT[vComp]), label=f'$B^i_{vComp}$',
-                  color=Color.BeiFT[vComp], linestyle=Style.LS_FT, linewidth=Style.LW_FT) for vComp in axComps]
+                  color=Color.BeiFT[vComp], linestyle=Style.LS_FT, linewidth=Style.LW_FT) for vComp in xyzComps]
     if np.size(PlanetList) > 1 and Params.COMPARE:
         # Only plot comparisons on amplitude plot
         [axes[1].plot(freqVar, np.abs(Planet.Magnetic.Ae1FT), label=Planet.label,
@@ -1470,3 +1476,87 @@ def PlotMagSpectrum(PlanetList, Params):
     return
 
 
+def PlotMagSpectrum(PlanetList, Params):
+    """ Plot Fourier spectra of magnetic excitations with optional highest peak annotated.
+    """
+
+    # Get first entry in PlanetList for which FT_LOADED is True
+    if PlanetList[0].Magnetic.FT_LOADED:
+        mainPlanet = PlanetList[0]
+    else:
+        mainPlanet = next(Planet for Planet in PlanetList if Planet.Magnetic.FT_LOADED)
+
+    # Create figure
+    fig = plt.figure(figsize=FigSize.MagFTexc)
+    grid = GridSpec(1, 1)
+    ax = fig.add_subplot(grid[0, 0])
+    if Style.GRIDS:
+        ax.grid(color='#CCCCCC', linestyle='-', linewidth=0.40, which='major')
+        ax.grid(color='#CCCCCC', linestyle=':', linewidth=0.25, which='minor')
+        ax.set_axisbelow(True)
+
+    # Labels and titles
+    if FigMisc.Tmin_hr is None:
+        Tmin_hr = np.min(mainPlanet.Magnetic.TexcFT_hr)
+    else:
+        Tmin_hr = FigMisc.Tmin_hr
+    Tmax_hr = np.minimum(np.max(mainPlanet.Magnetic.TexcFT_hr), mainPlanet.Magnetic.TmaxFT_hr)
+    Texc_hr = np.array(list(Excitations.Texc_hr[mainPlanet.bodyname].values()), dtype=np.float_)
+    Texc_hr = Texc_hr[np.isfinite(Texc_hr)]
+    if FigMisc.MAG_SPECTRA_PERIODS:
+        freqLabel = FigLbl.TexcLabel
+        freqVar = mainPlanet.Magnetic.TexcFT_hr
+        freqUnits = FigLbl.TexcUnits
+        freqLims = [Tmin_hr, Tmax_hr]
+        mainExc = np.sort(Texc_hr)
+    else:
+        freqLabel = FigLbl.fExcLabel
+        freqVar = 1 / mainPlanet.Magnetic.TexcFT_hr / 3600
+        freqUnits = FigLbl.fExcUnits
+        freqLims = [1 / Tmax_hr / 3600, 1 / Tmin_hr / 3600]
+        mainExc = np.sort(1 / Texc_hr / 3600)
+    ax.set_xlim(freqLims)
+    ax.set_xlabel(freqLabel)
+    ax.set_ylabel(FigLbl.BeFTexcLabel)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.0f'))
+    ax.xaxis.set_minor_formatter(ticker.FormatStrFormatter('%.0f'))
+    if Params.TITLES:
+        if mainPlanet.Magnetic.coordTypeFT is not None:
+            FTtitle = f'{mainPlanet.name} {FigLbl.MagFTexcTitle}, ' + \
+                      f'{mainPlanet.Magnetic.coordTypeFT} coordinates'
+        else:
+            FTtitle = f'{mainPlanet.name} {FigLbl.MagFTExcTitle}'
+        fig.suptitle(FTtitle)
+
+    # Plot the data
+    Bexc_nT = {vComp: np.abs(mainPlanet.Magnetic.Be1xyzFT_nT[vComp]) for vComp in xyzComps}
+    [ax.plot(freqVar, Bexc_nT[vComp], label=f'$B^e_{vComp}$', color=Color.BeiFT[vComp],
+             linestyle=Style.LS_FT, linewidth=Style.LW_FT) for vComp in xyzComps]
+    if FigMisc.MARK_BEXC_MAX:
+        iPeak = np.argmax(np.max([Bexc_nT[vComp] for vComp in xyzComps], axis=0))
+        xMax = Bexc_nT[xyzComps[0]][iPeak]
+        yMax = Bexc_nT[xyzComps[1]][iPeak]
+        zMax = Bexc_nT[xyzComps[2]][iPeak]
+        compMax = np.argmax([xMax, yMax, zMax])
+        peakMax = Bexc_nT[xyzComps[compMax]][iPeak]
+        peakLabel = f'$T = \SI{{{freqVar[iPeak]:.2f}}}{{{freqUnits}}}$\n' + \
+                    f'$|B_{xyzComps[compMax]}| = \SI{{{peakMax:.2f}}}{{nT}}$'
+        hadj = FigMisc.peakLblSize * 8
+        vadj = FigMisc.peakLblSize * 2
+        ax.annotate(peakLabel, (freqVar[iPeak], peakMax), (-hadj, -vadj), textcoords='offset points',
+                    fontsize=FigMisc.peakLblSize, arrowprops={'width': Style.LW_FT*2,
+                    'shrink': 0.05, 'headwidth': Style.LW_FT*6, 'headlength': Style.LW_FT*6,
+                    'fc': 'black'}, bbox={'boxstyle': 'square', 'fc': 'white', 'ec': 'black',
+                    'linewidth': 0.5})
+
+    if Params.LEGEND:
+        ax.legend()
+
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.MagFTexc, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    log.debug(f'Magnetic excitation spectrum plot saved to file: {Params.FigureFiles.MagFTexc}')
+    plt.close()
+
+    return

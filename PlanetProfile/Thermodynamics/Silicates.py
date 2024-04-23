@@ -22,18 +22,27 @@ def SilicateLayers(Planet, Params):
                  Later, we truncate this array to shape Planet.Steps.nSil with the MoI- and mass-
                  matching profile.
     """
-    if Planet.Do.CONSTANT_INNER_DENSITY or Planet.Do.NO_H2O:
+    if Planet.Do.CONSTANT_INNER_DENSITY or Planet.Do.NO_H2O or Planet.Do.NO_DIFFERENTIATION:
         # If CONSTANT_INNER_DENSITY is True, we have already done the C/MR^2 calculations
         # and now we are just evaluating the EOS for the winning silicate layer set
         # Similarly, if Do.NO_H2O is True, we have 0 ice layers so there is just 1 profile to run
         nProfiles = 1
-        if Planet.Do.NO_H2O:
+        if Planet.Do.NO_OCEAN:
             Planet.Steps.iSilStart = 0
             Planet.Steps.nHydro = 0
         profRange = [Planet.Steps.nHydro - Planet.Steps.iSilStart]
     else:
-        nProfiles = Planet.Steps.nSurfIce - Planet.Steps.iSilStart + Planet.Steps.nOceanMax - 1
-        profRange = range(nProfiles)
+        if Planet.Do.PARTIAL_DIFFERENTIATION:
+            log.debug('Ice layers are currently not modeled for any partially differentiated model.' +
+                      'A future update will include an option for ice layers atop a rock-ice core.')
+            nProfiles = 1
+            Planet.Steps.iSilStart = 0
+            Planet.Steps.nHydro = 0
+            profRange = [Planet.Steps.nHydro - Planet.Steps.iSilStart]
+
+        else:
+            nProfiles = Planet.Steps.nSurfIce - Planet.Steps.iSilStart + Planet.Steps.nOceanMax - 1
+            profRange = range(nProfiles)
 
     # Check if we set the core radius to 0, or a found C/MR^2 value (for constant-density approach)
     if Planet.Core.Rset_m is not None:

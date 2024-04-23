@@ -1,4 +1,5 @@
 import os, shutil
+import matplotlib.pyplot as plt
 
 def CopyCarefully(source, destination):
     try:
@@ -38,19 +39,26 @@ _ROOT = os.path.abspath(os.path.dirname(__file__))
 _defaultConfig = os.path.join(_ROOT, 'defaultConfig.py')
 _defaultConfigPlots = os.path.join(_ROOT, 'Plotting', 'defaultConfigPlots.py')
 _defaultConfigInduct = os.path.join(_ROOT, 'MagneticInduction', 'defaultConfigInduct.py')
+_defaultConfigTrajec = os.path.join(_ROOT, 'TrajecAnalysis', 'defaultConfigTrajec.py')
 _Defaults = os.path.join(_ROOT, 'Default')
 _DefaultList = next(os.walk(_Defaults))[1]
 _Test = os.path.join(_ROOT, 'Test')
 _TestImport = 'PlanetProfile.Test'
 _PPverNumFile = os.path.join(_ROOT, 'Utilities', 'PPverNum.txt')
+_healpixSphere = os.path.join(_ROOT, 'Utilities', 'healpixSphere.txt')
 _SPICE = os.path.join(_ROOT, 'SPICE')
 
 # Copy user config files to local dir if the user does not have them yet
 _userConfig = 'configPP.py'
 _userConfigPlots = 'configPPplots.py'
 _userConfigInduct = 'configPPinduct.py'
-configTemplates = [_defaultConfig, _defaultConfigPlots, _defaultConfigInduct]
-configLocals = [_userConfig, _userConfigPlots, _userConfigInduct]
-for template, local in zip(configTemplates, configLocals):
-    CopyOnlyIfNeeded(template, local)
+_userConfigTrajec = 'configPPtrajec.py'
+configTemplates = [_defaultConfig, _defaultConfigPlots, _defaultConfigInduct, _defaultConfigTrajec]
+configLocals = [_userConfig, _userConfigPlots, _userConfigInduct, _userConfigTrajec]
+if any([not os.path.isfile(cfg) for cfg in configLocals]):
+    if input(f'configPP files not found in pwd: {os.getcwd()}. Copy from defaults to local dir? ' +
+             f'[y]/n ') in ['', 'y', 'Y', 'yes', 'Yes']:
+        for template, local in zip(configTemplates, configLocals):
+            CopyOnlyIfNeeded(template, local)
 
+_defaultCycler = plt.rcParams['axes.prop_cycle']  # Default matplotlib cycler for colors/styles

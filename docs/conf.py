@@ -13,9 +13,9 @@ sys.path.append(os.path.dirname(__file__))
 from misc.upgreek import upgreekDefs
 
 project = 'PlanetProfile'
-copyright = '2023, Steven D. Vance and Marshall J. Styczinski'
+copyright = '2024, Steven D. Vance and Marshall J. Styczinski'
 author = 'Steven D. Vance, Marshall J. Styczinski, and PlanetProfile collaborators'
-release = 'v2.3.18'
+release = 'v2.5.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -32,11 +32,11 @@ mathjaxVer = 2
 _HERE = os.path.dirname(__file__)
 _ROOT_DIR = os.path.abspath(os.path.join(_HERE, '..'))
 _PACKAGE_DIR = os.path.abspath(os.path.join(_HERE, '../PlanetProfile'))
-#_SUBPACKAGE_DIR = os.path.abspath(os.path.join(_HERE, '../PlanetProfile/subfolder'))
+_TRAJEC_DIR = os.path.abspath(os.path.join(_HERE, '../PlanetProfile/TrajecAnalysis'))
 
 sys.path.insert(0, _ROOT_DIR)
 sys.path.insert(0, _PACKAGE_DIR)
-#sys.path.insert(0, _SUBPACKAGE_DIR)
+sys.path.insert(0, _TRAJEC_DIR)
 
 apidoc_module_dir = _ROOT_DIR
 apidoc_output_dir = 'stubs'

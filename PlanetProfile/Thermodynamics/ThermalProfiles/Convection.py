@@ -3,7 +3,7 @@ import logging
 from PlanetProfile.Thermodynamics.Geophysical import PropagateConduction, EvalLayerProperties, \
     PorosityCorrectionVacIce, PorosityCorrectionFilledIce, PropagateAdiabaticSolid, \
     PropagateAdiabaticPorousVacIce, PropagateAdiabaticPorousFilledIce
-from PlanetProfile.Thermodynamics.HydroEOS import PhaseConv
+from PlanetProfile.Utilities.Indexing import PhaseConv
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConvectionDeschampsSotin2001, \
     kThermHobbs1974, kThermMelinder2007
 from PlanetProfile.Utilities.defineStructs import Constants

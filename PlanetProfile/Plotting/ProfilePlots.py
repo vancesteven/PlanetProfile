@@ -3,13 +3,12 @@ import numpy as np
 import logging
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from matplotlib.patches import Wedge, Rectangle
+from matplotlib.patches import Wedge
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Plotting.PTPlots import PlotHydroPhase, PlotPvThydro, PlotPvTPerpleX
 from PlanetProfile.Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
-from PlanetProfile.Thermodynamics.HydroEOS import GetPhaseIndices, PhaseConv
-from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
+from PlanetProfile.Utilities.Indexing import GetPhaseIndices, PhaseConv
 from PlanetProfile.Utilities.defineStructs import Constants
 
 # Assign logger
@@ -34,7 +33,7 @@ def GeneratePlots(PlanetList, Params):
 
     if Params.PLOT_GRAVITY:
         PlotGravPres(PlanetList, Params)
-    if Params.PLOT_HYDROSPHERE and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
+    if Params.PLOT_HYDROSPHERE and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]):
         PlotHydrosphereProps(PlanetList, Params)
     if Params.PLOT_TRADEOFF:
         PlotSilTradeoff(PlanetList, Params)
@@ -44,6 +43,8 @@ def GeneratePlots(PlanetList, Params):
         PlotPorosity(PlanetList, Params)
     if Params.PLOT_SEISMIC and Params.CALC_SEISMIC:
         PlotSeismic(PlanetList, Params)
+    if Params.PLOT_VISCOSITY and Params.CALC_VISCOSITY:
+        PlotViscosity(PlanetList, Params)
     if Params.PLOT_WEDGE:
         PlotWedge(PlanetList, Params)
     if Params.PLOT_HYDRO_PHASE and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
@@ -106,7 +107,7 @@ def PlotHydrosphereProps(PlanetList, Params):
             sigCutoff_Sm = 0
         else:
             sigCutoff_Sm = FigMisc.lowSigCutoff_Sm
-        maxSig_Sm = np.max([np.max(Planet.sigma_Sm[:Planet.Steps.nHydro]) for Planet in PlanetList if not Planet.Do.NO_H2O])
+        maxSig_Sm = np.max([np.max(Planet.sigma_Sm[:Planet.Steps.nHydro]) for Planet in PlanetList if not Planet.Do.NO_OCEAN])
         if maxSig_Sm > sigCutoff_Sm:
             DO_SIGS = True
             vRow += 1
@@ -361,8 +362,9 @@ def PlotHydrosphereProps(PlanetList, Params):
 
 
 def PlotCoreTradeoff(PlanetList, Params):
-
-    fig, ax = plt.subplots(1, 1, figsize=FigSize.vcore)
+    fig = plt.figure(figsize=FigSize.vcore)
+    grid = GridSpec(1, 1)
+    ax = fig.add_subplot(grid[0, 0])
     if Style.GRIDS:
         ax.grid()
         ax.set_axisbelow(True)
@@ -403,8 +405,9 @@ def PlotCoreTradeoff(PlanetList, Params):
 
 
 def PlotSilTradeoff(PlanetList, Params):
-
-    fig, ax = plt.subplots(1, 1, figsize=FigSize.vmant)
+    fig = plt.figure(figsize=FigSize.vmant)
+    grid = GridSpec(1, 1)
+    ax = fig.add_subplot(grid[0, 0])
     if Style.GRIDS:
         ax.grid()
         ax.set_axisbelow(True)
@@ -467,6 +470,14 @@ def PlotPorosity(PlanetList, Params):
         if Style.GRIDS:
             ax.grid()
             ax.set_axisbelow(True)
+
+        # Check that it's worth converting to GPa if that setting has been selected -- reset labels if not
+        if Planet.P_MPa[-1] < 100 and FigLbl.PFULL_IN_GPa:
+            log.debug('FigLbl.PFULL_IN_GPa is True, but Pmax is less than 0.1 GPa. Pressures will be plotted in MPa.')
+            FigLbl.PFULL_IN_GPa = False
+            FigLbl.SetUnits()
+            if not FigMisc.TEX_INSTALLED:
+                FigLbl.StripLatex()
 
         ax.set_xlabel(FigLbl.phiLabel)
         ax.set_ylabel(FigLbl.zLabel)
@@ -541,6 +552,46 @@ def PlotPorosity(PlanetList, Params):
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vpore, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
     log.debug(f'Porosity plot saved to file: {Params.FigureFiles.vpore}')
+    plt.close()
+
+    return
+
+
+def PlotViscosity(PlanetList, Params):
+
+    fig = plt.figure(figsize=FigSize.vvisc)
+    grid = GridSpec(1, 1)
+    ax = fig.add_subplot(grid[0, 0])
+    if Style.GRIDS:
+        ax.grid()
+        ax.set_axisbelow(True)
+
+    ax.set_xlabel(FigLbl.etaLabel)
+    ax.set_ylabel(FigLbl.rLabel)
+    ax.set_xscale('log')
+    if Params.TITLES:
+        if Params.ALL_ONE_BODY:
+            fig.suptitle(f'{PlanetList[0].name}{FigLbl.viscTitle}')
+        else:
+            fig.suptitle(FigLbl.viscCompareTitle)
+
+    for Planet in PlanetList:
+        legLbl = Planet.label
+        if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
+            legLbl = f'{Planet.name} {legLbl}'
+        ax.plot(Planet.eta_Pas, Planet.r_m[:-1]/1e3,
+                label=legLbl, linewidth=Style.LW_std)
+
+    if FigMisc.FORCE_0_EDGES:
+        ax.set_ylim(bottom=0)
+
+    if Params.LEGEND:
+        ax.legend()
+
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.vvisc, format=FigMisc.figFormat, dpi=FigMisc.dpi,
+                metadata=FigLbl.meta)
+    log.debug(f'Viscosity plot saved to file: {Params.FigureFiles.vvisc}')
     plt.close()
 
     return
@@ -680,7 +731,8 @@ def PlotWedge(PlanetList, Params):
             else:
                 xStr = f'{Planet.Core.xS_frac * 1e3 * FigLbl.wMult:.2f}'
             coreLine = f'\ce{{Fe}} core with \SI{{{xStr}}}{{{FigLbl.wUnits}}}~\ce{{S}}'
-        elif Planet.Sil.EOS is not None and 'undifferentiated' in Planet.Sil.EOS.comp:
+        elif Planet.Sil.EOS is not None and 'undifferentiated' in Planet.Sil.EOS.comp and not (
+            Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION):
             coreLine = 'undifferentiated'
         else:
             coreLine = ''
@@ -714,9 +766,25 @@ def PlotWedge(PlanetList, Params):
                 compStr = r'Pure \ce{H2O} ocean'
             else:
                 compStr = f'\SI{{{Planet.Ocean.wOcean_ppt:.1f}}}{{{FigLbl.wUnits}}}~\ce{{{Planet.Ocean.comp}}}'
-            wedgeLabel = f'{silLine} mantle\n{coreLine}\n{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
 
-        if Planet.Do.POROUS_ROCK:
+            if Planet.Do.NO_DIFFERENTIATION:
+                wedgeLabel = f'{silLine}\n$q_\mathrm{{surf}}$' + \
+                             f'~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{{FigLbl.fluxUnits}}}\n' + \
+                             f'{compStr}'
+            elif Planet.Do.PARTIAL_DIFFERENTIATION:
+                if Planet.Do.DIFFERENTIATE_VOLATILES:
+                    wedgeLabel = f'Undifferentiated ice+{silLine}\n$q_\mathrm{{surf}}$' + \
+                                 f'~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{{FigLbl.fluxUnits}}}\n' + \
+                                 f'{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
+                else:
+                    wedgeLabel = f'Partially differentiated ice+{silLine}\n$q_\mathrm{{surf}}$' + \
+                                 f'~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{{FigLbl.fluxUnits}}}\n' + \
+                                 f'{compStr}'
+            else:
+                wedgeLabel = f'{silLine} mantle\n{coreLine}\n{compStr}, $z_b$~\SI{{{Planet.zb_km:.1f}}}{{km}}'
+
+        if Planet.Do.POROUS_ROCK and not (Planet.Do.NO_DIFFERENTIATION
+                                          or Planet.Do.PARTIAL_DIFFERENTIATION):
             wedgeLabel = f'Porous {wedgeLabel}'
 
         if Params.ALL_ONE_BODY and not nWedges == 1:
@@ -805,20 +873,34 @@ def PlotWedge(PlanetList, Params):
             else:
                 # Ice Ih at the surface in this case
                 # Conductive ice I
-                ax.add_patch(Wedge((0.5,0), R_km/rMax_km, ang1, ang2,
-                                   width=Planet.eLid_m/1e3/rMax_km,
-                                   fc=Color.iceIcond, lw=Style.LW_wedge, ec=iceConvBd))
-                # Convective ice I
-                if (Planet.Dconv_m + Planet.deltaTBL_m) > 0:
-                    ax.add_patch(Wedge((0.5,0), (R_km - Planet.eLid_m/1e3)/rMax_km, ang1, ang2,
-                                       width=(Planet.Dconv_m + Planet.deltaTBL_m)/1e3/rMax_km,
-                                       fc=Color.iceIconv, lw=Style.LW_wedge, ec=iceConvBd))
+                if Planet.Bulk.asymIce is None:
+                    ax.add_patch(Wedge((0.5,0), R_km/rMax_km, ang1, ang2,
+                                       width=Planet.eLid_m/1e3/rMax_km,
+                                       fc=Color.iceIcond, lw=Style.LW_wedge, ec=iceConvBd))
+                    # Convective ice I
+                    if (Planet.Dconv_m + Planet.deltaTBL_m) > 0:
+                        ax.add_patch(Wedge((0.5,0), (R_km - Planet.eLid_m/1e3)/rMax_km, ang1, ang2,
+                                           width=(Planet.Dconv_m + Planet.deltaTBL_m)/1e3/rMax_km,
+                                           fc=Color.iceIconv, lw=Style.LW_wedge, ec=iceConvBd))
+                else:
+                    nWdg = np.size(Planet.Bulk.asymIce)
+                    angWdg = 2*Style.wedgeAngle_deg/nWdg
+                    for iWdg, thickDiff in enumerate(Planet.Bulk.asymIce):
+                        ax.add_patch(Wedge((0.5, 0), R_km/rMax_km, ang1 + iWdg*angWdg, ang1 + (iWdg+1)*angWdg,
+                                           width=(Planet.dzIceI_km + thickDiff)/rMax_km, zorder=100,
+                                           fc=Color.iceIcond, lw=Style.LW_wedge, ec=iceConvBd))
             
             # Outer boundary around ice I
             if Planet.dzIceI_km > 0:
-                ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceI_m/1e3)/rMax_km, ang1, ang2,
-                                   width=Planet.dzIceI_km/rMax_km,
-                                   fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
+                if Planet.Bulk.asymIce is None:
+                    ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceI_m/1e3)/rMax_km, ang1, ang2,
+                                       width=Planet.dzIceI_km/rMax_km,
+                                       fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
+                else:
+                    for iWdg, thickDiff in enumerate(Planet.Bulk.asymIce):
+                        ax.add_patch(Wedge((0.5, 0), R_km/rMax_km, ang1 + iWdg*angWdg, ang1 + (iWdg+1)*angWdg,
+                                           width=(Planet.dzIceI_km + thickDiff)/rMax_km, zorder=100,
+                                           fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
                 
             # Surface HP ices
             if Planet.dzIceIIIund_km > 0:
@@ -968,7 +1050,9 @@ def PlotExploreOgram(ExplorationList, Params):
         FigLbl.StripLatex()
 
     for Exploration in ExplorationList:
-        fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
+        fig = plt.figure(figsize=FigSize.explore)
+        grid = GridSpec(1, 1)
+        ax = fig.add_subplot(grid[0, 0])
         if Style.GRIDS:
             ax.grid()
             ax.set_axisbelow(True)
@@ -1015,7 +1099,9 @@ def PlotExploreOgram(ExplorationList, Params):
 
     # Plot combination
     if Params.COMPARE and np.size(ExplorationList) > 1:
-        fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
+        fig = plt.figure(figsize=FigSize.vexplore)
+        grid = GridSpec(1, 1)
+        ax = fig.add_subplot(grid[0, 0])
         if Style.GRIDS:
             ax.grid()
             ax.set_axisbelow(True)
@@ -1081,7 +1167,9 @@ def PlotExploreOgramDsigma(ExplorationList, Params):
         FigLbl.StripLatex()
 
     for Exploration in (ex for ex in ExplorationList if not ex.NO_H2O):
-        fig, ax = plt.subplots(1, 1, figsize=FigSize.explore)
+        fig = plt.figure(figsize=FigSize.explore)
+        grid = GridSpec(1, 1)
+        ax = fig.add_subplot(grid[0, 0])
         if Style.GRIDS:
             ax.grid()
             ax.set_axisbelow(True)

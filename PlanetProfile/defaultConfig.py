@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 13  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 15  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def configAssign():
     Params = ParamsStruct()
@@ -32,6 +32,7 @@ def configAssign():
     Params.CALC_NEW_ASYM =    False  # Recalculate asymmetric boundary plot(s)?
     Params.CALC_SEISMIC =     True  # Calculate sound speeds and elastic moduli?
     Params.CALC_CONDUCT =     True  # Calculate electrical conductivity?
+    Params.CALC_VISCOSITY =   True  # Calculate viscosity for all layers as a post-processing step?
     Params.CALC_ASYM =        True  # Calculate induction with asymmetric shape?
     Params.RUN_ALL_PROFILES = False  # Whether to run all PPBody.py files for the named body and plot together
     Params.SPEC_FILE =        False  # Whether we are running a specific file or files
@@ -56,6 +57,7 @@ def configAssign():
     Params.PLOT_TRADEOFF =    True  # Whether to plot mantle properties tradeoff
     Params.PLOT_POROSITY =    True  # Whether to plot porosities in rock and/or ice for bodies that have it modeled
     Params.PLOT_SEISMIC =     True  # Whether to plot seismic quantities if they have been calculated
+    Params.PLOT_VISCOSITY =   True  # Whether to plot viscosities
     Params.PLOT_WEDGE =       True  # Whether to plot interior wedge diagram
     Params.PLOT_HYDRO_PHASE = False  # Whether to plot phase diagram
     Params.PLOT_PVT_HYDRO =   False  # Whether to plot hydrosphere PT property plots
@@ -63,6 +65,8 @@ def configAssign():
     Params.PLOT_BDIP =        False  # Whether to plot induced dipole surface strength in complex plane
     Params.PLOT_BSURF =       True  # Whether to plot induced field surface map
     Params.PLOT_ASYM =        False  # Whether to plot asymmetric boundary shape(s) when induced fields are calculated from them
+    Params.PLOT_TRAJECS =     False  # Whether to plot spacecraft flyby trajectories for those involved in inversion
+    Params.PLOT_BINVERSION =  False  # Whether to plot magnetic field vector components for flyby inversion
     Params.LEGEND =           True  # Whether to plot legends
     Params.TITLES =           True  # Whether to include a (sup)title on plots
 
@@ -70,7 +74,8 @@ def configAssign():
     Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question
     Params.INDUCTOGRAM_IN_PROGRESS = False  # Whether we are currently working on constructing an inductogram
     Params.COMBINE_BCOMPS =          False  # Whether to plot Bx, By, Bz with phase all in one plot, or separate for each comp -- same for Bdip components
-    Params.PLOT_MAG_SPECTRUM =       False  # Whether to show plots of fourier space for magnetic induction
+    Params.PLOT_MAG_SPECTRUM_COMBO = False  # Whether to show plots of fourier space for magnetic induction, including induced spectrum
+    Params.PLOT_MAG_SPECTRUM =       False  # Whether to show plot of fourier space of excitation moments for magnetic induction
     Params.tRangeCA_s =              120  # Range in seconds relative to named closest approach UTC datetime to search for the actual CA as identified by querying SPICE kernels
 
     # Parameter exploration plot settings
@@ -109,25 +114,11 @@ def configAssign():
         'custom_frames_v01.tf',  # Defines MOON_PHI_O (for Galilean moons), PSO, PSM, and PDSZ frames
     ]
     Params.spiceBSP = {
+        'Earth': 'de430.bsp',  # Generic kernel for solar system planets
         'Jupiter': 'jup365.bsp',  # Generic kernel for Jupiter + Galilean moons
         'Saturn': 'sat441.bsp',  # Generic kernel for Saturn + large moons
         'Uranus': 'ura111.bsp',  # Generic kernel for Uranus + large moons
         'Neptune': 'nep097.bsp'  # Generic kernel for Neptune + Triton
     }
-
-    Params.SCmagFnameFmt = {
-        'Galileo': 'ORB*_SYS3.TAB',
-        'Cassini': '*_KRTP_1S.TAB',
-        'Juno': 'fgm_jno_l3_*pc_r1s_v*.sts',
-        'Voyager 1': 'vg1_*_sph.tab',
-        'Voyager 2': 'vg2_*_sph.tab',
-        'Clipper': 'mag_clp*.tab'
-    }
-    Params.SCnames = list(Params.SCmagFnameFmt.keys())
-    Params.spiceSC = {scName: os.path.join(Params.spiceDir, scName) for scName in Params.SCnames}
-
-    # MAG data to use
-    Params.MAGdir = 'SpacecraftMAGdata'
-    Params.SCmagData = {scName: os.path.join(Params.MAGdir, scName) for scName in Params.SCnames}
 
     return Params, ExploreParams

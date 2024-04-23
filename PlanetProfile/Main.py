@@ -20,6 +20,7 @@ from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
 from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
+from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, ExplorationResults
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
@@ -194,15 +195,17 @@ def PlanetProfile(Planet, Params):
     if Params.CALC_NEW:
         # Initialize
         Planet, Params = SetupInit(Planet, Params)
-        if not Planet.Do.NO_H2O:
+        if (not Planet.Do.NO_H2O) and (not Planet.Do.NO_DIFFERENTIATION):
             Planet = IceLayers(Planet, Params)
+        if not Planet.Do.NO_OCEAN:
             Planet = OceanLayers(Planet, Params)
         Planet = InnerLayers(Planet, Params)
         Planet = ElecConduct(Planet, Params)
         Planet = SeismicCalcs(Planet, Params)
+        Planet = ViscosityCalcs(Planet, Params)
 
         # Save data after modeling
-        if not Params.NO_SAVEFILE and Planet.Do.VALID:
+        if (not Params.NO_SAVEFILE) and Planet.Do.VALID and (not Params.INVERSION_IN_PROGRESS):
             WriteProfile(Planet, Params)
             if Params.CALC_SEISMIC and not Params.SKIP_INNER:
                 WriteSeismic(Planet, Params)
@@ -211,7 +214,8 @@ def PlanetProfile(Planet, Params):
         Planet, Params = ReloadProfile(Planet, Params)
 
     # Main plotting functions
-    if ((not Params.SKIP_PLOTS) and not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM)) \
+    if ((not Params.SKIP_PLOTS) and not (
+            Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS)) \
         and Planet.Do.VALID:
         # Calculate large-scale layer properties
         PlanetList, Params = GetLayerMeans(np.array([Planet]), Params)
@@ -232,7 +236,7 @@ def PlanetProfile(Planet, Params):
                         'set to False. Try to re-run with CALC_NEW_INDUCT set to True in '
                         'configPP.py.')
         elif (not Params.SKIP_PLOTS) and \
-            not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM):
+            not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS):
             GenerateMagPlots([Planet], Params)
 
     PrintCompletion(Planet, Params)
@@ -493,7 +497,8 @@ def WriteProfile(Planet, Params):
                   'rhoPore (kg/m3)'.ljust(24),
                   'MLayer (kg)'.ljust(24),
                   'VLayer (m3)'.ljust(24),
-                  'Htidal (W/m3)']
+                  'Htidal (W/m3)'.ljust(24),
+                  'eta (Pa s)']
     # Print number of header lines early so we can skip the rest on read-in if we want to
     Params.nHeadLines = np.size(headerLines) + 3
     headerLines = np.insert(headerLines, 0, f'  nHeadLines = {Params.nHeadLines:d}')
@@ -525,7 +530,8 @@ def WriteProfile(Planet, Params):
                 f'{Planet.rhoPore_kgm3[i]:24.17e}',
                 f'{Planet.MLayer_kg[i]:24.17e}',
                 f'{Planet.VLayer_m3[i]:24.17e}',
-                f'{Planet.Htidal_Wm3[i]:24.17e}']) + '\n')
+                f'{Planet.Htidal_Wm3[i]:24.17e}',
+                f'{Planet.eta_Pas[i]:24.17e}']) + '\n')
 
     # Write out data from core/mantle trade
     with open(Params.DataFiles.mantCoreFile, 'w') as f:
@@ -600,7 +606,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
             = (float(f.readline().split('=')[-1]) for _ in range(64))
         # Note porosity flags
         Planet.Do.POROUS_ICE = bool(strtobool(f.readline().split('=')[-1].strip()))
-        Planet.Do.POROUS_ROCK = Planet.Sil.phiRockMax_frac > 0
+        Planet.Do.POROUS_ROCK = not np.isnan(Planet.Sil.phiCalc_frac)
         # Get integer values from header (nSteps values)
         Planet.Steps.nClath, Planet.Steps.nIceI, \
         Planet.Steps.nIceIIILitho, Planet.Steps.nIceVLitho, \
@@ -620,7 +626,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.phase, Planet.rho_kgm3, Planet.Cp_JkgK, Planet.alpha_pK, \
     Planet.g_ms2, Planet.phi_frac, Planet.sigma_Sm, Planet.kTherm_WmK, Planet.Seismic.VP_kms, Planet.Seismic.VS_kms,\
     Planet.Seismic.QS, Planet.Seismic.KS_GPa, Planet.Seismic.GS_GPa, Planet.Ppore_MPa, Planet.rhoMatrix_kgm3, \
-    Planet.rhoPore_kgm3, Planet.MLayer_kg, Planet.VLayer_m3, Planet.Htidal_Wm3 \
+    Planet.rhoPore_kgm3, Planet.MLayer_kg, Planet.VLayer_m3, Planet.Htidal_Wm3, Planet.eta_Pas \
         = np.loadtxt(Params.DataFiles.saveFile, skiprows=Params.nHeadLines, unpack=True)
     Planet.r_m = np.concatenate((Planet.r_m, [0]))
     Planet.z_m = Planet.Bulk.R_m - Planet.r_m
@@ -645,6 +651,7 @@ def InitBayes(bodyname, fEnd):
     # Make sure CALC_NEW settings are as desired
     Params.CALC_NEW = True
     Params.CALC_NEW_INDUCT = True
+    Params.SKIP_INDUCTION = False
     # Quiet messages unless we're debugging
     if bodyname != 'Test':
         log.setLevel(logging.WARN+5)
@@ -723,9 +730,11 @@ def InductOgram(bodyname, Params):
             Planet.Magnetic.pMax = 2
         else:
             Planet.Magnetic.pMax = 0
-        Planet.Magnetic.Texc_hr, Planet.Magnetic.omegaExc_radps, Planet.Magnetic.Benm_nT, Planet.Magnetic.B0_nT \
-            = GetBexc(Planet.name, Planet.Magnetic.SCera, Planet.Magnetic.extModel, Params.Induct.excSelectionCalc,
-                      nprmMax=Planet.Magnetic.nprmMax, pMax=Planet.Magnetic.pMax)
+        Planet.Magnetic.Texc_hr, Planet.Magnetic.omegaExc_radps, Planet.Magnetic.Benm_nT, \
+        Planet.Magnetic.B0_nT, _ \
+            = GetBexc(Planet.name, Planet.Magnetic.SCera, Planet.Magnetic.extModel,
+                      Params.Induct.excSelectionCalc, nprmMax=Planet.Magnetic.nprmMax,
+                      pMax=Planet.Magnetic.pMax)
         Planet.Magnetic.nExc = np.size(Planet.Magnetic.Texc_hr)
         Benm_nT = Planet.Magnetic.Benm_nT
 
@@ -1428,7 +1437,7 @@ def ExploreOgram(bodyname, Params):
         Exploration.rhoSilInput_kgm3 = np.array([[Planeti.Sil.rhoSilWithCore_kgm3 for Planeti in line] for line in PlanetGrid])
         Exploration.silPhi_frac = np.array([[Planeti.Sil.phiRockMax_frac for Planeti in line] for line in PlanetGrid])
         Exploration.silPhiCalc_frac = np.array([[Planeti.Sil.phiCalc_frac for Planeti in line] for line in PlanetGrid])
-        Exploration.phiSeafloor_frac = np.array([[Planeti.phi_frac[Planeti.Steps.nHydro] for Planeti in line] for line in PlanetGrid])
+        Exploration.phiSeafloor_frac = np.array([[Planeti.phiSeafloor_frac for Planeti in line] for line in PlanetGrid])
         Exploration.icePhi_frac = np.array([[Planeti.Ocean.phiMax_frac['Ih'] for Planeti in line] for line in PlanetGrid])
         Exploration.silPclosure_MPa = np.array([[Planeti.Sil.Pclosure_MPa for Planeti in line] for line in PlanetGrid])
         Exploration.icePclosure_MPa = np.array([[Planeti.Ocean.Pclosure_MPa['Ih'] for Planeti in line] for line in PlanetGrid])

@@ -27,7 +27,7 @@ from configPP import configAssign as userConfigAssign
 Params, ExploreParams = configAssign()
 userParams, userExploreParams = userConfigAssign()
 
-if hasattr(userParams,'spiceTLS') and hasattr(userParams,'spiceDir'):
+if hasattr(userParams, 'spiceTLS') and hasattr(userParams, 'spiceDir'):
     userLSK = os.path.join(userParams.spiceDir, userParams.spiceTLS)
     if not os.path.isfile(userLSK):
         raise FileNotFoundError(f'Leapseconds kernel was not found at {userLSK}. This likely means PlanetProfile ' +
@@ -50,22 +50,26 @@ from configPPplots import configPlotsVersion as userConfigPlotsVersion
 # Check sub-config file versions and warn user if they differ
 if configInductVersion != userConfigInductVersion:
     warn(f'User configPPinduct file is version {userConfigInductVersion}, but the default file is ' +
-                      f'version {configInductVersion}. Some settings may be missing; default values will be used. ' +
-                      'To align the file version, delete configPPinduct.py and run again, or execute reset.py ' +
-                      'with python -m PlanetProfile.reset')
+         f'version {configInductVersion}. Some settings may be missing; default values will be used. ' +
+         f'To align the file version, delete configPPinduct.py and run again, or execute reset.py ' +
+         f'with python -m PlanetProfile.reset')
 if configPlotsVersion != userConfigPlotsVersion:
     warn(f'User configPPplots file is version {userConfigPlotsVersion}, but the default file is ' +
-                      f'version {configPlotsVersion}. Some settings may be missing; default values will be used. ' +
-                      'To align the file version, delete configPPplots.py and run again, or execute reset.py ' +
-                      'with python -m PlanetProfile.reset')
+         f'version {configPlotsVersion}. Some settings may be missing; default values will be used. ' +
+         f'To align the file version, delete configPPplots.py and run again, or execute reset.py ' +
+         f'with python -m PlanetProfile.reset')
 
 from PlanetProfile.MagneticInduction.defaultConfigInduct import inductAssign
 from configPPinduct import inductAssign as userInductAssign
+from PlanetProfile.TrajecAnalysis.defaultConfigTrajec import trajecAssign
+from configPPtrajec import trajecAssign as userTrajecAssign
 from PlanetProfile.Plotting.defaultConfigPlots import plotAssign
 from configPPplots import plotAssign as userPlotAssign
 
 SigParams, ExcSpecParams, InductParams, _ = inductAssign()
 userSigParams, userExcSpecParams, userInductParams, userTestBody = userInductAssign()
+TrajecParams = trajecAssign()
+userTrajecParams = userTrajecAssign()
 Color, Style, FigLbl, FigSize, FigMisc = plotAssign()
 userColor, userStyle, userFigLbl, userFigSize, userFigMisc = userPlotAssign()
 
@@ -81,6 +85,9 @@ for attr, value in userExcSpecParams.__dict__.items():
     setattr(ExcSpecParams, attr, value)
 for attr, value in userInductParams.__dict__.items():
     setattr(InductParams, attr, value)
+
+for attr, value in userTrajecParams.__dict__.items():
+    setattr(TrajecParams, attr, value)
 
 for attr, value in userColor.__dict__.items():
     setattr(Color, attr, value)
@@ -178,11 +185,10 @@ for bodyname in _DefaultList:
         InductParams.cfmt[bodyname] = {}
         for Tname in Tnames:
             InductParams.cfmt[bodyname][Tname] = {zName: None for zName in zNames}
-        
 
-# Load induction and excitation spectrum settings into Params so they
-# can be passed around together
+# Load sub-settings into Params so they can be passed around together
 Params.Sig = SigParams
 Params.Induct = InductParams
 Params.MagSpectrum = ExcSpecParams
 Params.Explore = ExploreParams
+Params.Trajec = TrajecParams
