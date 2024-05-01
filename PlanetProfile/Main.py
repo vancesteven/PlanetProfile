@@ -23,6 +23,7 @@ from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
 from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, ExplorationResults
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
+from PlanetProfile.Utilities.PPversion import ppVerNum
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
 
 # Parallel processing
@@ -398,6 +399,7 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
 def WriteProfile(Planet, Params):
     """ Write out all profile calculations to disk """
     headerLines = [
+        f'PlanetProfile version = {ppVerNum}',
         f'MoI label = {Planet.tradeLabel}',
         f'Iron core = {Planet.Do.Fe_CORE}',
         f'Silicate EOS file = {Planet.Sil.mantleEOS}',
@@ -577,6 +579,8 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.label = f.readline().strip()
         # Get number of header lines to read in from (and skip for columnar data)
         Params.nHeadLines = int(f.readline().split('=')[-1])
+        # Skip version number read-in
+        _ = f.readline()
         # Get MoI-included label for tradeoff plots
         Planet.tradeLabel = f.readline().split('=')[-1].strip()
         # Get whether iron core is modeled
