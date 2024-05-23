@@ -1,7 +1,9 @@
 import logging
 import numpy as np
-from PlanetProfile.TrajecAnalysis.SpiceFuncs import BodyDist_km
-from PlanetProfile.Utilities.defineStructs import ModelDataStruct
+from PlanetProfile.TrajecAnalysis.SpiceFuncs import BodyDist_km, RotateFrame, RotateFrameManual, spiceS3coords
+from PlanetProfile.TrajecAnalysis.Alfven import AlfvenWingField
+from PlanetProfile.Utilities.defineStructs import ModelDataStruct, Constants
+from PlanetProfile.GetConfig import FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import GetBexc
 from MoonMag.field_xyz import eval_Bi as EvalBi
 
@@ -18,13 +20,13 @@ mtpContext = mtp.get_context(mtpType)
 log = logging.getLogger('PlanetProfile')
 
 
-def CalcModel(Planet, Params, magData, modelData):
+def CalcModelAndSumAll(Planet, Params, magData, modelData):
 
     # Calculate stuff
     modelData.fitProfileFname = Planet.saveFile
     modelData = CalcModelAmbient(Planet, Params, magData, modelData)
-    modelData = CalcModelInduced(Planet, Params, modelData)
-    modelData = CalcModelPlasma(Planet, Params, modelData)
+    modelData = CalcModelInduced(Planet, Params, magData, modelData)
+    modelData = CalcModelPlasma(Planet, Params, magData, modelData)
 
     # Sum net fields
     modelData.BxAll_nT, modelData.ByAll_nT, modelData.BzAll_nT = (np.empty(0) for _ in range(3))
@@ -60,7 +62,9 @@ def CalcModelAmbient(Planet, Params, magData, modelData):
     return modelData
 
 
-def CalcModelInduced(Planet, Params, modelData):
+def CalcModelInduced(Planet, Params, magData, modelData):
+    # TODO: Add option for evaluating the instantaneous induced field based on the complex amplitude
+    #  from the instantaneous external field instead of excitation moments
 
     Nnm = np.size(Planet.Magnetic.nLin)
 
@@ -117,10 +121,10 @@ def CalcModelInduced(Planet, Params, modelData):
     return modelData
 
 
-def CalcModelPlasma(Planet, Params, modelData):
+def CalcModelPlasma(Planet, Params, magData, modelData):
 
     if Params.Trajec.plasmaType == 'Alfven':
-        raise ValueError(f'Params.Trajec.plasmaType "Alfven" not implemented yet.')
+        modelData = AlfvenWingField(Planet, Params, magData, modelData)
 
     else:
         if Params.Trajec.plasmaType != 'none':
@@ -136,7 +140,7 @@ def CalcModelPlasma(Planet, Params, modelData):
     return modelData
 
 
-def InitModelData(Planet, Magnetic, Params, magData):
+def InitModelData(Planet, Params, magData):
 
     R_km = Planet.Bulk.R_m / 1e3
 
@@ -163,11 +167,11 @@ def InitModelData(Planet, Magnetic, Params, magData):
         modelData.z_Rp[scName] = {fbID: z_km/R_km for fbID, z_km in data.z_km.items()}
         modelData.r_Rp[scName] = {fbID: r_km/R_km for fbID, r_km in data.r_km.items()}
 
-    modelData.etsAll = np.concatenate(([data.etsAll for data in magData.values()]))
+        for fbID in modelData.fbInclude[scName]:
+            if fbID not in Planet.Magnetic.IoverImax[scName].keys():
+                Planet.Magnetic.IoverImax[scName][fbID] = Planet.Magnetic.IoverImaxDefault
 
-    # Carry over MagneticSubStruct settings from body input file
-    Magnetic.ionosBounds_m = Planet.Magnetic.ionosBounds_m
-    Magnetic.sigmaIonosPedersen_Sm = Planet.Magnetic.sigmaIonosPedersen_Sm
+    modelData.etsAll = np.concatenate(([data.etsAll for data in magData.values()]))
 
     return modelData
 
@@ -228,7 +232,7 @@ def SetupMagnetic(Planet, Params):
             Texc_hr[SCera], omegaExc_radps[SCera], Benm_nT[SCera], B0_nT[SCera], Bexyz_nT[SCera] \
                 = GetBexc(Params.Trajec.targetBody, SCera, BextModel,
                           Params.Induct.excSelectionCalc, nprmMax=Magnetic.nprmMax,
-                          pMax=Magnetic.pMax)
+                          pMax=Magnetic.pMax, MPmodel='')
             nExc[SCera] = np.size(Texc_hr[SCera])
 
     else:
@@ -340,5 +344,50 @@ def Bsph2Bxyz(Br, Bth, Bphi, theta, phi):
     Bx =  np.sin(theta) * np.cos(phi) * Br + np.cos(theta) * np.cos(phi) * Bth - np.sin(phi) * Bphi
     By =  np.sin(theta) * np.sin(phi) * Br + np.cos(theta) * np.sin(phi) * Bth + np.cos(phi) * Bphi
     Bz =                np.cos(theta) * Br               - np.sin(theta) * Bth
+
+    return Bx, By, Bz
+
+
+def Bxyz2Bcyl(Bx, By, Bz, phi):
+    """
+    Convert vector components aligned to cartesian axes into vector components aligned to
+    cylindrical axes.
+    Source: Arfken, Weber, Harris, Mathematical Methods for Physicists, 7th ed, pg. 197 for the unit
+    vectors.
+
+    Parameters
+    ----------
+    Bx, By, Bz : float, array_like
+    phi : float, array_like
+
+    Returns
+    -------
+    Brho, Bphi, Bz : float, array_like
+    """
+
+    Brho =  np.cos(phi) * Bx + np.sin(phi) * By
+    Bphi = -np.sin(phi) * Bx + np.cos(phi) * By
+
+    return Brho, Bphi, Bz
+
+
+def Bcyl2Bxyz(Brho, Bphi, Bz, phi):
+    """
+    Convert vector components aligned to cylindrical coordinates into vector components aligned to
+    Cartesian axes.
+    Source: Arfken, Weber, Harris, Mathematical Methods for Physicists, 7th ed, pg. 197 for the unit
+    vectors.
+
+    Parameters
+    ----------
+    Brho, Bphi, Bz : float, array_like
+    phi : float, array_like
+
+    Returns
+    -------
+    Bx, By, Bz : float, array_like
+    """
+    Bx = np.cos(phi) * Brho - np.sin(phi) * Bphi
+    By = np.sin(phi) * Brho + np.cos(phi) * Bphi
 
     return Bx, By, Bz

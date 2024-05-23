@@ -454,7 +454,10 @@ class GetphiCalc:
             self.ZEROS = True
         else:
             self.EOSphiMax_frac = np.squeeze(fn_phiEOS_frac(0, 0))
-            self.multFactor = phiMax_frac / self.EOSphiMax_frac
+            if self.EOSphiMax_frac == 0:
+                self.multFactor = 1
+            else:
+                self.multFactor = phiMax_frac / self.EOSphiMax_frac
             self.fn_phiEOS_frac = fn_phiEOS_frac
             self.ZEROS = False
 

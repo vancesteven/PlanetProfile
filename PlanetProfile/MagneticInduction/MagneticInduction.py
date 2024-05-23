@@ -66,7 +66,7 @@ def MagneticInduction(Planet, Params, fNameOverride=None):
             Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
         Planet.Magnetic.calcedExc = []
     else:
-        if not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM):
+        if not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS):
             if Params.PLOT_MAG_SPECTRUM:
                 Planet = FourierSpectrum(Planet, Params)
 

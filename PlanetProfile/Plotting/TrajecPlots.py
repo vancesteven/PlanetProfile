@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import logging
 import matplotlib.pyplot as plt
@@ -25,6 +24,8 @@ def PlotFlybys(Params, magData, modelData):
         PlotModelBxyz(Params, magData, modelData, FlybyCA)
     if Params.PLOT_TRAJECS:
         PlotTrajecs(Params, modelData, FlybyCA)
+    if Params.Trajec.plasmaType == 'Alfven' and Params.PLOT_ALFVEN and Params.Trajec.FIXED_ALFVEN:
+        PlotAlfvenWings(Params, modelData, FlybyCA)
 
     return
 
@@ -55,26 +56,31 @@ def PlotModelBxyz(Params, magData, modelData, FlybyCA):
                 datefmt = mdt.ConciseDateFormatter(mdt.AutoDateLocator())
                 axes[2].xaxis.set_major_formatter(datefmt)
 
-            [ax.set_xlim([np.min(t), np.max(t)]) for ax in axes]
+            if FigMisc.LIMIT_TRAJ_RANGE:
+                iPlot = np.abs(data.ets[fbID] - FlybyCA[scName].etCA[Params.Trajec.targetBody][fbID])/60 < FigMisc.tCAlims_min
+            else:
+                iPlot = True
+
+            [ax.set_xlim([np.min(t[iPlot]), np.max(t[iPlot])]) for ax in axes]
             [ax.set_ylabel(FigLbl.yLabelsBtrajec[comp]) for ax, comp in zip(axes, xyzComps)]
             if Params.TITLES:
                 fig.suptitle(FigLbl.BtrajecTitle[scName][fbID])
 
             # Plot the data
             MAGdata = [data.BxIAU_nT[fbID], data.ByIAU_nT[fbID], data.BzIAU_nT[fbID]]
-            [ax.plot(t, MAG, label=FigLbl.MAGdataLabel, color=Color.MAGdata,
+            [ax.plot(t[iPlot], MAG[iPlot], label=FigLbl.MAGdataLabel, color=Color.MAGdata,
                      linestyle=Style.LS_MAGdata, linewidth=Style.LW_MAGdata)
                 for ax, MAG in zip(axes, MAGdata)]
             modelNet = [modelData.BxIAU_nT[scName][fbID], modelData.ByIAU_nT[scName][fbID],
                         modelData.BzIAU_nT[scName][fbID]]
-            [ax.plot(t, net, label=FigLbl.modelNetLabel, color=Color.BcompsModelNet,
+            [ax.plot(t[iPlot], net[iPlot], label=FigLbl.modelNetLabel, color=Color.BcompsModelNet,
                      linestyle=Style.LS_modelNet, linewidth=Style.LW_modelNet)
                 for ax, net in zip(axes, modelNet)]
 
             if FigMisc.SHOW_EXCITATION:
                 modelExc = [modelData.BxIAUexc_nT[scName][fbID], modelData.ByIAUexc_nT[scName][fbID],
                             modelData.BzIAUexc_nT[scName][fbID]]
-                [ax.plot(t, exc, label=FigLbl.modelExcLabel, color=Color.BcompsModelExc,
+                [ax.plot(t[iPlot], exc[iPlot], label=FigLbl.modelExcLabel, color=Color.BcompsModelExc,
                          linestyle=Style.LS_modelExc, linewidth=Style.LW_modelExc)
                  for ax, exc in zip(axes, modelExc)]
 
@@ -83,7 +89,7 @@ def PlotModelBxyz(Params, magData, modelData, FlybyCA):
                     modelData.BxIAUexc_nT[scName][fbID] + modelData.BxIAUind_nT[scName][fbID],
                     modelData.ByIAUexc_nT[scName][fbID] + modelData.ByIAUind_nT[scName][fbID],
                     modelData.BzIAUexc_nT[scName][fbID] + modelData.BzIAUind_nT[scName][fbID]]
-                [ax.plot(t, ind, label=FigLbl.modelIndLabel, color=Color.BcompsModelInd,
+                [ax.plot(t[iPlot], ind[iPlot], label=FigLbl.modelIndLabel, color=Color.BcompsModelInd,
                          linestyle=Style.LS_modelInd, linewidth=Style.LW_modelInd)
                  for ax, ind in zip(axes, modelInd)]
 
@@ -92,7 +98,7 @@ def PlotModelBxyz(Params, magData, modelData, FlybyCA):
                     modelData.BxIAUexc_nT[scName][fbID] + modelData.BxIAUpls_nT[scName][fbID],
                     modelData.ByIAUexc_nT[scName][fbID] + modelData.ByIAUpls_nT[scName][fbID],
                     modelData.BzIAUexc_nT[scName][fbID] + modelData.BzIAUpls_nT[scName][fbID]]
-                [ax.plot(t, pls, label=FigLbl.modelPlsLabel, color=Color.BcompsModelPls,
+                [ax.plot(t[iPlot], pls[iPlot], label=FigLbl.modelPlsLabel, color=Color.BcompsModelPls,
                          linestyle=Style.LS_modelPls, linewidth=Style.LW_modelPls)
                  for ax, pls in zip(axes, modelPls)]
 
@@ -409,5 +415,125 @@ def PlotApsidalPrec(bodynames, Params, tStart_UTC, tEnd_UTC, tRes_d=1):
     fig.savefig(Params.FigureFiles.apsidal, format=FigMisc.figFormat, dpi=FigMisc.dpi)
     log.debug(f'Plot saved to file: {Params.FigureFiles.apsidal}')
     plt.close()
+
+    return
+
+
+def PlotAlfvenWings(Params, modelData, FlybyCA):
+    """ Plot Alfven wing representations at moment of CA.
+    """
+
+    # Get points for body surface
+    # Load 1D lists of healpix surface pixels
+    thHealpix, phiHealpix = np.loadtxt(_healpixSphere, delimiter=',', skiprows=2, unpack=True)
+    # Interpolate healpix locations for compatibility with matplotlib 3D plotting functions
+    th = np.unique(np.concatenate((np.array([0]), thHealpix, np.array([np.pi]))))
+    phi = np.unique(np.concatenate((np.array([0]), phiHealpix, np.array([2*np.pi]))))
+    thSurf, phiSurf = np.meshgrid(th, phi, indexing='ij')
+    xSurf = np.sin(thSurf) * np.cos(phiSurf)
+    ySurf = np.sin(thSurf) * np.sin(phiSurf)
+    zSurf = np.cos(thSurf)
+
+    # Plot the trajectories
+    for scName, fbList in modelData.allFlybys.items():
+        for fbID, fbName in fbList.items():
+            
+            # Create figures
+            fig = plt.figure(figsize=FigSize.AlfvenWing)
+            grid = GridSpec(1, 1)
+            ax = fig.add_subplot(grid[0, 0], projection='3d')
+            if Style.GRIDS:
+                ax.grid()
+                ax.set_axisbelow(True)
+
+            # Labels and titles
+            ax.set_xlabel(FigLbl.xLabelsTrajec)
+            ax.set_ylabel(FigLbl.yLabelsTrajec)
+            if FigLbl.AXES_INFO:
+                ax.zaxis.set_rotate_label(False)
+            ax.set_zlabel(FigLbl.zLabelsTrajec, rotation=90)
+
+            if Params.TITLES:
+                fig.suptitle(FigLbl.AlfvenTitle[scName][fbID])
+
+            ax.plot_surface(xSurf, ySurf, zSurf, color=Color.bodySurface)
+            ax.set_aspect('equal')
+
+            # Copy to locals for convenience
+            xSC = modelData.x_Rp[scName][fbID]
+            ySC = modelData.y_Rp[scName][fbID]
+            zSC = modelData.z_Rp[scName][fbID]
+            if FigMisc.trajLims is not None:
+                inBounds = np.logical_and(modelData.r_Rp[scName][fbID] > -FigMisc.trajLims,
+                                          modelData.r_Rp[scName][fbID] < FigMisc.trajLims)
+                xSC = xSC[inBounds]
+                ySC = ySC[inBounds]
+                zSC = zSC[inBounds]
+            else:
+                inBounds = None
+
+            # Get CA xyz
+            tCA = FlybyCA[scName].etCA[Params.Trajec.targetBody][fbID]
+            iCA = np.argmin(np.abs(modelData.ets[scName][fbID][inBounds] - tCA))
+            xCA = xSC[iCA]
+            yCA = ySC[iCA]
+            zCA = zSC[iCA]
+
+            xSign = np.sign(xSC)
+            ySign = np.sign(ySC)
+            zSign = np.sign(zSC)
+            # Protect from edge cases where a coordinate is exactly 0
+            xSign[xSign==0] = 1
+            ySign[ySign==0] = 1
+            zSign[zSign==0] = 1
+
+            # Plot spacecraft trajectory
+            trajPlot, = ax.plot(xSC, ySC, zSC, label=FigLbl.FBlabel[scName][fbID],
+                linestyle=Style.LS_SCtrajec[scName], linewidth=Style.LW_SCtrajec, color=Color.trajec)
+
+            # Mark exit points
+            xExit, yExit, zExit = xSC[-1], ySC[-1], zSC[-1]
+            if FigMisc.EXIT_ARROWS:
+                vx, vy, vz, _ = BodyVel_kms(spiceSCname[scName], Params.Trajec.targetBody,
+                                            modelData.ets[scName][fbID][inBounds][-1])
+                ax.quiver(xExit, yExit, zExit, vx, vy, vz, length=1, normalize=True,
+                            linewidth=Style.LW_SCtrajec, color=Color.trajec)
+
+            if FigMisc.MARK_CA_POS:
+                ax.scatter(xCA, yCA, zCA, marker=Style.MS_CA, s=Style.MW_CA,
+                             color=Color.trajec)
+
+            # Plot ring currents
+            for ring in ['upperRing', 'lowerRing', 'eqRing']:
+                xRing = modelData.wireAlfven_RP[scName][fbID][ring][:,0]
+                yRing = modelData.wireAlfven_RP[scName][fbID][ring][:,1]
+                zRing = modelData.wireAlfven_RP[scName][fbID][ring][:,2]
+                ringPlot, = ax.plot(np.append(xRing, xRing[0]), np.append(yRing, yRing[0]), np.append(zRing, zRing[0]), label=FigLbl.ringCurrents,
+                                   linestyle=Style.LS_AlfvenRingCurrent, linewidth=Style.LW_AlfvenRingCurrent, color=Color.AlfvenRingCurrent)
+
+            # Plot wire currents
+            for i in range(Params.Trajec.nWiresAlfven):
+                uS = modelData.wireAlfven_RP[scName][fbID]['upperRing'][i,:]
+                uE = modelData.wireAlfven_RP[scName][fbID]['upperEnd'][i,:]
+                lS = modelData.wireAlfven_RP[scName][fbID]['lowerRing'][i,:]
+                lE = modelData.wireAlfven_RP[scName][fbID]['lowerEnd'][i,:]
+                ax.plot([uS[0],uE[0]], [uS[1],uE[1]], [uS[2],uE[2]],
+                                   linestyle=Style.LS_AlfvenWingCurrent, linewidth=Style.LW_AlfvenWingCurrent, color=Color.AlfvenWingCurrent)
+                wirePlot, = ax.plot([lS[0],lE[0]], [lS[1],lE[1]], [lS[2],lE[2]], label=FigLbl.wingWireCurrents,
+                                   linestyle=Style.LS_AlfvenWingCurrent, linewidth=Style.LW_AlfvenWingCurrent, color=Color.AlfvenWingCurrent)
+
+            ax.set_xlim([-FigMisc.LAlfven_RP, FigMisc.LAlfven_RP])
+            ax.set_ylim([-FigMisc.LAlfven_RP, FigMisc.LAlfven_RP])
+            ax.set_zlim([-FigMisc.LAlfven_RP, FigMisc.LAlfven_RP])
+
+            if Params.LEGEND:
+                ax.legend(handles=[trajPlot, ringPlot, wirePlot])
+
+            fig.tight_layout()
+            fig.savefig(Params.Trajec.FigureFiles.AlfvenWing[scName][fbID], format=FigMisc.figFormat,
+                          dpi=FigMisc.dpi, metadata=FigLbl.meta)
+            log.debug(f'Alfven wing plot saved to file: {Params.Trajec.FigureFiles.AlfvenWing[scName][fbID]}')
+            plt.show()
+            plt.close()
 
     return

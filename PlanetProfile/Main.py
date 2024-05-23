@@ -233,7 +233,7 @@ def PlanetProfile(Planet, Params):
         # Plot induced dipole surface strength
         if Planet.Magnetic.Binm_nT is None:
             log.warning('Tried to GenerateMagPlots, but Magnetic.Binm_nT is None. ' +
-                        'this likely means a reload file was not found with CALC_NEW_INDUCT ' +
+                        'This likely means a reload file was not found with CALC_NEW_INDUCT ' +
                         'set to False. Try to re-run with CALC_NEW_INDUCT set to True in '
                         'configPP.py.')
         elif (not Params.SKIP_PLOTS) and \
@@ -1354,7 +1354,7 @@ def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
     PlanetList1D = np.reshape(PlanetGrid, -1)
     if Params.DO_PARALLEL:
         # Prevent slowdowns from competing process spawning when #cores > #jobs
-        nCores = np.min([Params.maxCores, np.product(np.shape(PlanetList1D)), Params.threadLimit])
+        nCores = np.min([Params.maxCores, np.prod(np.shape(PlanetList1D)), Params.threadLimit])
         pool = mtpContext.Pool(nCores)
         parResult = [pool.apply_async(FuncName, (deepcopy(Planet), deepcopy(Params))) for Planet in PlanetList1D]
         pool.close()
@@ -1371,7 +1371,7 @@ def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
     return PlanetGrid
 
 
-def ExploreOgram(bodyname, Params):
+def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
     """ Run PlanetProfile models over a variety of settings to get interior
         properties for each input.
     """
@@ -1396,6 +1396,9 @@ def ExploreOgram(bodyname, Params):
         Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
+
+        if Magnetic is not None:
+            Planet.Magnetic = Magnetic
 
         Exploration = ExplorationResults
         Exploration.xName = Params.Explore.xName
@@ -1487,8 +1490,14 @@ def ExploreOgram(bodyname, Params):
     else:
         log.info(f'Reloading explore-o-gram for {bodyname}.')
         Exploration, Params = ReloadExploreOgram(bodyname, Params)
+        PlanetGrid = None
+        if RETURN_GRID:
+            log.warning(f'Reloaded ExploreOgram and RETURN_GRID is True. No PlanetGrid is available, None will be returned.')
 
-    return Exploration, Params
+    if RETURN_GRID:
+        return PlanetGrid, Exploration, Params
+    else:
+        return Exploration, Params
 
 
 def AssignPlanetVal(Planet, name, val):
@@ -1586,7 +1595,7 @@ def AssignPlanetVal(Planet, name, val):
     return Planet
 
 
-def WriteExploreOgram(Exploration, Params):
+def WriteExploreOgram(Exploration, Params, INVERSION=False):
     """ Organize Exploration results from an explore-o-gram run into a dict
         and print to a .mat file.
     """
@@ -1639,13 +1648,25 @@ def WriteExploreOgram(Exploration, Params):
         'VALID': Exploration.VALID,
         'invalidReason': Exploration.invalidReason
     }
-    savemat(Params.DataFiles.exploreOgramFile, saveDict)
-    log.info(f'Saved explore-o-gram {Params.DataFiles.exploreOgramFile} to disk.')
+
+    if INVERSION:
+        saveDict['Amp'] = Exploration.Amp
+        saveDict['phase'] = Exploration.phase
+        saveDict['RMSe'] = Exploration.RMSe
+        saveDict['chiSquared'] = Exploration.chiSquared
+        saveDict['stdDev'] = Exploration.stdDev
+        saveDict['Rsquared'] = Exploration.Rsquared
+        fName = Params.DataFiles.invertOgramFile
+    else:
+        fName = Params.DataFiles.exploreOgramFile
+
+    savemat(fName, saveDict)
+    log.info(f'Saved explore-o-gram {fName} to disk.')
 
     return
 
 
-def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
+def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
     """ Reload a previously run explore-o-gram from disk.
     """
 
@@ -1660,7 +1681,11 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
         Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
                                                               exploreAppend=f'{Params.Explore.xName}{Params.Explore.yName}',
                                                               figExploreAppend=Params.Explore.zName)
-        reload = loadmat(Params.DataFiles.exploreOgramFile)
+        if INVERSION:
+            fName = Params.DataFiles.invertOgramFile
+        else:
+            fName = Params.DataFiles.exploreOgramFile
+        reload = loadmat(fName)
     else:
         reload = loadmat(fNameOverride)
 
@@ -1711,6 +1736,14 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None):
     Exploration.CMR2calc = reload['CMR2calc']
     Exploration.VALID = reload['VALID']
     Exploration.invalidReason = reload['invalidReason']
+    
+    if INVERSION:
+        Exploration.Amp = reload['Amp']
+        Exploration.phase = reload['phase']
+        Exploration.RMSe = reload['RMSe']
+        Exploration.chiSquared = reload['chiSquared']
+        Exploration.stdDev = reload['stdDev']
+        Exploration.Rsquared = reload['Rsquared']
 
     return Exploration, Params
 
