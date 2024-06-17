@@ -12,7 +12,7 @@ def trajecAssign():
     Trajec.trajecAppend = ''  # Custom string to use to save/reload specific settings
     Trajec.MAGdir = 'SpacecraftMAGdata'  # Directory where spacecraft magnetic data is stored
     Trajec.FORCE_MAG_RECALC = False  # Whether to read in MAG data from disk and regenerate reformatted HDF5 version.
-    Trajec.EXPANDED_RANGE = False  # Whether to plot an expanded set of B measurements farther from the encounter CA, with range set by etExpandRange_s
+    Trajec.EXPANDED_RANGE = False  # Whether to plot an expanded set of B measurements farther from the encounter CA, with range set by etExpandRange_s. Overridden by REDUCED_RANGE for plotting purposes.
     Trajec.PLANETMAG_MODEL = False  # Whether to load in evaluated magnetic field models printed to disk from PlanetMag instead of directly evaluating excitation moments
 
     Trajec.fbInclude = {  # Set to 'all' or a list of strings of encounter ID numbers
@@ -59,6 +59,8 @@ def trajecAssign():
     }
     Trajec.nFitParamsGlobal = 3  # Number of fit parameters that persist across flybys, e.g. ocean salinity or ice melting temp
     Trajec.nFitParamsFlybys = 3  # Number of fit parameters that vary with each flyby, e.g. Alfven wave characteristics
+    Trajec.nWiresAlfven = 90  # Number of discrete wires to use to represent Alfven wing currents
+    Trajec.FIXED_ALFVEN = False  # Whether to fix direction of Alfven wings at the moment of closest approach for each encounter
 
     Trajec.SCera = None  # Spacecraft era to use for excitation moments. If None, the sc name will be used to select the era.
     Trajec.BextModel = None  # Planetary magnetic field from which to use excitation moments derived using PlanetMag for induction calculations. If None, use the model from the defaults listed in the class definition.

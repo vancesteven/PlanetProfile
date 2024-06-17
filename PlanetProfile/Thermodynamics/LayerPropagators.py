@@ -74,7 +74,12 @@ def IceLayers(Planet, Params):
                     if Planet.Bulk.Tb_K > 271:
                         log.warning(msg)
                     else:
-                        raise ValueError(msg)
+                        if Params.ALLOW_BROKEN_MODELS:
+                            Planet.Do.VALID = False
+                            Planet.invalidReason = f'No valid phase transition was found for Tb_K = {Planet.Bulk.Tb_K:.3f} K for P in the range ' + \
+                                                   f'[{Planet.PfreezeLower_MPa:.1f} MPa, {Planet.PfreezeUpper_MPa:.1f} MPa]. '
+                        else:
+                            raise ValueError(msg)
                 Planet.PbI_MPa = 0.0
             log.debug(f'Ice Ih transition pressure: {Planet.PbI_MPa:.3f} MPa.')
 

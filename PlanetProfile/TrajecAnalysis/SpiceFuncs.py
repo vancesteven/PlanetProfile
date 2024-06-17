@@ -150,6 +150,72 @@ def RotateFrame(vec, ets, fromCoord, toCoord):
     return outVec
 
 
+def RotateFrameManual(vec, axisIn, ang_rad, O=None):
+    """
+    Perform frame transformations manually, for dynamic frames not implemented in a SPICE frames
+    kernel.
+
+    Parameters
+    ----------
+    vec : float, array_like, shape Nx3
+        Input vector to transform.
+    axisIn : float, array_like
+        Unit vectors representing axis direction about which to make a right-handed rotation.
+    ang_rad : float, array_like
+        Angle in radians to rotate about axis. Must be a single value or have same size as the first
+        dimension of axis.
+    O : float, array_like, shape 3, default=None
+        Origin of frame to transform to in bases of vec, for coordinate transforms.
+
+
+    Returns
+    -------
+    outVec : float, array_like
+    """
+    if np.size(axisIn) == 3:
+        axis = axisIn[np.newaxis, :]
+        ONE_ROT = True
+    else:
+        axis = axisIn * 1
+        ONE_ROT = False
+
+    # Confirm axis is unit length
+    if np.any(np.sqrt(axis[:,0]**2 + axis[:,1]**2 + axis[:,2]**2)) - 1 > 1e-8:
+        raise ValueError('axis vector is not unit length.')
+
+    # Translate origin for coordinate transformations
+    if O is not None:
+        if np.size(O) == 3:
+            transVec = np.array([vec[i,:] - O for i in range(np.shape(vec)[0])])
+        elif np.shape(vec) == np.shape(O):
+            transVec = vec - O
+        else:
+            raise ValueError('Origin transformation must be a single point or one for each vec.')
+    else:
+        transVec = vec * 1
+
+    # Construct rotation matrices
+    rot = np.array([[
+        [np.cos(ang) + axis[i,0]**2*(1-np.cos(ang)), axis[i,0]*axis[i,1]*(1-np.cos(ang)) - axis[i,2]*np.sin(ang), axis[i,0]*axis[i,2]*(1-np.cos(ang)) + axis[i,1]*np.sin(ang)],
+        [axis[i,1]*axis[i,0]*(1-np.cos(ang)) + axis[i,2]*np.sin(ang), np.cos(ang) + axis[i,1]**2*(1-np.cos(ang)), axis[i,1]*axis[i,2]*(1-np.cos(ang) - axis[i,0]*np.sin(ang))],
+        [axis[i,2]*axis[i,0]*(1-np.cos(ang)) - axis[i,1]*np.sin(ang), axis[i,2]*axis[i,1]*(1-np.cos(ang)) + axis[i,0]*np.sin(ang), np.cos(ang) + axis[i,2]**2*(1-np.cos(ang))]
+    ] for i, ang in enumerate(ang_rad)])
+
+    if ONE_ROT:
+        outVec = np.array([
+            np.dot(rot[0,:,:], tVec)
+            for tVec in transVec
+        ])
+    else:
+        outVec = np.array([
+            np.dot(rot[i,:,:], tVec)
+            for i, tVec in enumerate(transVec)
+        ])
+
+    return outVec
+
+
+
 def spiceCode(name):
     if name == 'Pioneer 11':
         code, parent = (-24, 0)

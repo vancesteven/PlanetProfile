@@ -401,7 +401,6 @@ def SetupInit(Planet, Params):
 def SetupInversion(Params):
 
     # Ensure configPP/Params toggles are set as needed
-    Params.INVERSION_IN_PROGRESS = True
     Params.SKIP_INDUCTION = False
     Params.CALC_NEW = True
     Params.CALC_CONDUCT = True

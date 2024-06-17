@@ -432,6 +432,15 @@ class MagneticSubstruct:
         self.asymDescrip = None  # List of strings to use for describing contour plots in titles
         self.asymContours_km = {}  # List of contours to mark
         self.asymPlotType = None  # Type of asymmetry contour plot, to decide which title to use. Options are 'surf', 'ionos', 'ice', 'depth'.
+        # Large-scale plasma structure characteristics
+        self.vPlasmaAmbient_kms = None  # Speed of ambient plasma in km/s
+        self.nPlasmaAmbient_pcc = None  # Number density of ambient plasma in ions per cubic cm
+        self.mPlasmaAmbientAvg_gmol = None  # Average mass per ion in ambient plasma in g/mol
+        self.latAlfvenIntersect_deg = 20  # Latitudes at which the Alfven wings intersect the ionosphere in degrees
+        self.dWireAlfven_RP = 0.02  # Cross-sectional diameter of wire currents used to represent Alfven wing in units of planetary radii
+        self.IoverImax = {}  # Per-flyby adjustment of the ratio of actual Alfven wing current vs. theoretical maximum
+        self.nPlasmaAmbientDefault_pcc = 100  # Default value to use for ambient plasma number density when encounter value is not set
+        self.IoverImaxDefault = 0.2  # Default value to use when specific encounter values are not defined for IoverImax
 
 
 """ Main body profile info--settings and variables """
@@ -614,6 +623,7 @@ class DataFilesSubstruct:
         self.AxiSEMfile = self.fNameSeis + '_AxiSEM.bm'
         self.fNameExplore = self.fName + f'_{self.exploreAppend}ExploreOgram'
         self.exploreOgramFile = f'{self.fNameExplore}.mat'
+        self.invertOgramFile = f'{self.fNameExplore}Inversion.mat'
         self.fNameInduct = os.path.join(self.inductPath, saveBase)
         self.inductLayersFile = self.fNameInduct + '_inductLayers.txt'
         self.inducedMomentsFile = self.fNameInduct + '_inducedMoments.mat'
@@ -694,6 +704,7 @@ class FigureFilesSubstruct:
         Btrajec = 'Btrajec'
         SCtrajec = 'FlybyTrajec'
         SCtrajec3D = 'FlybyTrajec3D'
+        AlfvenWing = 'AlfvenWings'
         asym = 'asymDevs'
         apsidal = 'apsidalPrec'
         # Construct Figure Filenames
@@ -735,6 +746,8 @@ class FigureFilesSubstruct:
         self.SCtrajec =                f'{self.fNameFlybys}{SCtrajec}{xtn}'
         self.SCtrajec3D =              f'{self.fNameFlybys}{SCtrajec3D}{xtn}'
         self.Btrajec = {scName: {fbID: f'{self.fNameFlybys}{Btrajec}{scName}{fbName}{xtn}'
+                                 for fbID, fbName in fbList.items()} for scName, fbList in self.flybys.items()}
+        self.AlfvenWing = {scName: {fbID: f'{self.fNameFlybys}{AlfvenWing}{scName}{fbName}{xtn}'
                                  for fbID, fbName in fbList.items()} for scName, fbList in self.flybys.items()}
 
 
@@ -994,6 +1007,14 @@ class ExplorationStruct:
         self.VALID = None  # Flags for whether each profile found a valid solution
         self.invalidReason = None  # Explanation for why any invalid solution failed
 
+        # Additional attributes filled for InvertOgram-flavored struct
+        self.Amp = None  # Amplitude of dipole response (modulus of complex dipole response).
+        self.phase = None  # (Positive) phase delay in degrees.
+        self.RMSe = None  # Root-mean-square errors between MAG data and net field forward model
+        self.chiSquared = None  # Chi-squared parameter, the squared residuals divided by the number of degrees of freedom
+        self.stdDev = None  # Standard deviation of data from overall mean
+        self.Rsquared = None  # R^2 goodness-of-fit parameter
+
 
 """ Figure color options """
 class ColorStruct:
@@ -1074,6 +1095,9 @@ class ColorStruct:
 
         # Color options for trajectory and CA plots
         self.bodySurface = None
+        self.AlfvenWingCurrent = None
+        self.AlfvenRingCurrent = None
+        self.trajec = None
         self.CAdot = None
         self.thresh = None
         self.CAline = None
@@ -1243,6 +1267,10 @@ class StyleStruct:
         self.LW_modelPls = None  # Linewidth of fields from plasma contributions
         self.LS_SCtrajec = None  # Linestyle of spacecraft trajectories
         self.LW_SCtrajec = None  # Linewidth of spacecraft trajectories
+        self.LS_AlfvenRingCurrent = None  # Linestyle of Alfven ring currents
+        self.LW_AlfvenRingCurrent = None  # Linewidth of Alfven ring currents
+        self.LS_AlfvenWingCurrent = None  # Linestyle of Alfven wing wire currents
+        self.LW_AlfvenWingCurrent = None  # Linewidth of Alfven wing wire currents
         self.MS_exit = None  # Marker style for trajectory exit points
         self.MW_exit = None  # Marker size for trajectory exit dots
 
@@ -1428,6 +1456,10 @@ class FigLblStruct:
         self.yLabelsBtrajec = {comp: f'$B_{comp}$ (nT)' for comp in xyzComps}
         self.CAoffset = None  # Offset for text of CA label from top-middle of marker lines. x units are axis units, y units are fractional of the line full height.
         self.trajecTitleStart = r'Trajectories for spacecraft flybys of '
+        self.AlfvenTitleStart = r'Alfv\'{e}n wing representation for '
+        self.AlfvenTitleMid = r' flyby of '
+        self.ringCurrents = r'Ring closure currents'
+        self.wingWireCurrents = r'Alfven wing wire currents'
         self.xLabelsTrajecBase = r'IAU $x$ position'
         self.yLabelsTrajecBase = r'IAU $y$ position'
         self.zLabelsTrajecBase = r'IAU $z$ position'
@@ -1916,6 +1948,9 @@ class FigLblStruct:
         self.BtrajecTitle = {scName: {fbID: f'{self.BtrajecTitleStart}{scName} {fbName}' +
                                            f'{self.BtrajecTitleMid}{targetBody}'
             for fbID, fbName in fbList.items()} for scName, fbList in flybyNames.items()}
+        self.AlfvenTitle = {scName: {fbID: f'{self.AlfvenTitleStart}{scName} {fbName}' +
+                                           f'{self.AlfvenTitleMid}{targetBody}'
+            for fbID, fbName in fbList.items()} for scName, fbList in flybyNames.items()}
         self.trajecTitle = f'{self.trajecTitleStart}{targetBody}'
         self.tCArelLabel = f'{self.tCArel}{self.tCArelDescrip[self.tCArelUnits]}'
         self.trajecUnits = f'$R_{targetBody[0]}$'
@@ -1991,6 +2026,7 @@ class FigSizeStruct:
         self.BtrajecCombo = None
         self.SCtrajecCombo = None
         self.SCtrajec3D = None
+        self.AlfvenWing = None
         self.asym = None
         self.apsidal = None
 
@@ -2140,6 +2176,8 @@ class FigMiscStruct:
 
         # Magnetic field trajectory and CA plots
         self.trajLims = None  # Distance in body radii at which to cut off trajectory plots
+        self.LIMIT_TRAJ_RANGE = False  # Whether to apply the below temporal cutoff for trajectory plots
+        self.tCAlims_min = None  # Time in minutes relative to CA at which to cut off trajectory B plots
         self.EXIT_ARROWS = False  # Whether to use arrows or other marker types to indicate exit points
         self.MARK_CA_B = False  # Whether to mark closest approach on B trajectory plots with a line and text
         self.MARK_CA_POS = False  # Whether to mark closest approach on trajectory plots with a line and text
@@ -2151,6 +2189,7 @@ class FigMiscStruct:
         self.SHOW_EXCITATION = False  # Whether to show the background field in trajectory plots, separately from the net model field
         self.SHOW_INDUCED = False  # Whether to show induced field in trajectory plots, separately from the net model field
         self.SHOW_PLASMA = False  # Whether to show plasma contributions in trajectory plots, separately from the net model field
+        self.LAlfven_RP = None  # Length to show for semi-infinite wire currents used to represent Alfven wings in units of body radii
 
         # Inductogram phase space plots
         self.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.
@@ -2272,17 +2311,21 @@ class TrajecParamsStruct:
         self.MAGdir = None  # Directory where spacecraft magnetic data is stored
         self.FORCE_MAG_RECALC = False  # Whether to read in MAG data from disk and regenerate reformatted HDF5 version.
         self.EXPANDED_RANGE = False  # Whether to plot an expanded set of B measurements farther from the encounter CA, with range set by etExpandRange_s
+        self.REDUCED_RANGE = False  # Whether to plot a reduced range of B measurements near the encounter CA, with range set by etReducedRange_s
         self.PLANETMAG_MODEL = False  # Whether to load in evaluated magnetic field models printed to disk from PlanetMag instead of directly evaluating excitation moments
         self.fbInclude = None  # Dict of list of flyby/rev/periapse number strings to include in analysis, or 'all' to include all available
         self.fbRange_Rp = None  # Maximum distance in planetary radii (of parent planet, for moons) within which to mark flyby encounters
         self.etPredRange_s = None  # Range in seconds for the span across closest approach to use for predicted spacecraft trajectories, i.e. those for which we do not yet have data
         self.etExpandRange_s = None  # Range in seconds for the span across closest approach to use for expanded spacecraft trajectories, i.e. beyond the main PDS files near CA
+        self.etReducedRange_s = None  # Range in seconds for the span across closest approach to use for reduced spacecraft trajectories, i.e. within the main PDS files near CA
         self.etStep_s = None  # Step size to use in spanning the above
         self.spiceSPK = None  # File names of spice kernels to use for spacecraft trajectories
         self.fbDescrip = None  # String to prepend to flyby ID number based on how each mission labels orbits
         self.nFitParamsGlobal = None  # Number of fit parameters that persist across flybys, e.g. ocean salinity or ice melting temp
         self.nFitParamsFlybys = None  # Number of fit parameters that vary with each flyby, e.g. Alfven wave characteristics
         self.nFitParams = None  # Total number of fit parameters, i.e. the number of degrees of freedom for the fit
+        self.nWiresAlfven = None  # Number of discrete wires to use to represent Alfven wing currents
+        self.FIXED_ALFVEN = False  # Whether to fix direction of Alfven wings at the moment of closest approach for each encounter
         self.flybys = None  # Dict constructed of spacecraft: flyby ID list for convenience
         self.flybyNames = None  # Dict of spacecraft: flyby ID name list in a standard format, specific to each mission, e.g. E04 for the Galileo Europa flyby on Jupiter orbit 4
         self.flybyFnames = None  # Same as above but with spaces stripped, for use in file names
@@ -2293,13 +2336,13 @@ class TrajecParamsStruct:
             'Europa': 'JRM33C2020noMP',
             'Ganymede': 'JRM33C2020noMP',
             'Callisto': 'VIP4K1997noMP',
-            'Mimas': 'Cassini11noMP',
-            'Enceladus': 'Cassini11noMP',
-            'Tethys': 'Cassini11noMP',
-            'Dione': 'Cassini11noMP',
-            'Rhea': 'Cassini11noMP',
-            'Titan': 'Cassini11noMP',
-            'Iapetus': 'Cassini11noMP',
+            'Mimas': 'Cassini11plusnoMP',
+            'Enceladus': 'Cassini11plusnoMP',
+            'Tethys': 'Cassini11plusnoMP',
+            'Dione': 'Cassini11plusnoMP',
+            'Rhea': 'Cassini11plusnoMP',
+            'Titan': 'Cassini11plusnoMP',
+            'Iapetus': 'Cassini11plusnoMP',
             'Miranda': 'AH5noMP',
             'Ariel': 'AH5noMP',
             'Umbriel': 'AH5noMP',
@@ -2330,6 +2373,9 @@ class MAGdataStruct:
         self.BxIAUamb_nT = data['BxIAUamb_nT']  # Dicts of fbID: Ambient magnetic field model in IAU frame, if evaluated with PlanetMag
         self.ByIAUamb_nT = data['ByIAUamb_nT']
         self.BzIAUamb_nT = data['BzIAUamb_nT']
+        self.BxS3moon_nT = data['BxS3moon_nT']  # Dicts of fbID: Ambient magnetic field model at moon center in System III frame, if evaluated with PlanetMag
+        self.ByS3moon_nT = data['ByS3moon_nT']
+        self.BzS3moon_nT = data['BzS3moon_nT']
 
         # Concatenate data for convenience
         fbList = Params.Trajec.fbInclude[self.scName]
@@ -2393,6 +2439,9 @@ class ModelDataStruct:
             self.y_Rp = {}
             self.z_Rp = {}
             self.r_Rp = {}
+            self.wireAlfven_RP = {}  # Dict of scName: fbID: feature: Nx3 arrays for points representing Alfven wings in IAU frame in planetary radii
+            self.IwireRings_A = {}  # Dict of scName: fbID: size N array of currents in each ring segment
+            self.IwireWings_A = {}  # Dict of scName: fbID: size N array of currents in each Alfven wing wire current
         else:
             self.fitProfileFname = loadDict['fitProfileFname']
             self.allFlybys =       loadDict['allFlybys']
@@ -2415,50 +2464,66 @@ class ModelDataStruct:
             self.y_Rp =            loadDict['y_Rp']
             self.z_Rp =            loadDict['z_Rp']
             self.r_Rp =            loadDict['r_Rp']
+            self.wireAlfven_RP =   loadDict['wireAlfven_RP']
 
 
 """ Goodness-of-fit calculation information """
 class FitData:
-    def __init__(self, Params, magData, modelData):
+    def __init__(self, Params, magData, modelData, VALID=True):
         self.chiSquared, self.Rsquared, self.sqrResiduals, self.RMSe, self.stdDev = ({scName: {}
             for scName in Params.Trajec.scSelect} for _ in range(5))
-        totData = np.empty(0)
         self.nFlybys = {scName: data.nFlybys for scName, data in magData.items()}
 
-        for scName, scMagData in magData.items():
-            for fbID in scMagData.allFlybys:
-                fbData = np.concatenate((magData[scName].BxIAU_nT[fbID],
-                                         magData[scName].ByIAU_nT[fbID],
-                                         magData[scName].BzIAU_nT[fbID]))
-                fbModel = np.concatenate((modelData.BxIAU_nT[scName][fbID],
-                                          modelData.ByIAU_nT[scName][fbID],
-                                          modelData.BzIAU_nT[scName][fbID]))
-                nPts = np.size(fbData)
-                self.sqrResiduals[scName][fbID] = np.sum((fbData - fbModel)**2)
-                self.RMSe[scName][fbID] = np.sqrt(self.sqrResiduals[scName][fbID])
-                self.chiSquared[scName][fbID] = self.sqrResiduals[scName][fbID]/(
-                    nPts - Params.Trajec.nFitParams)
-                fbMean = np.mean(fbData)
-                totSquares = np.sum((fbData - fbMean)**2)
-                self.stdDev[scName][fbID] = np.sqrt(totSquares/nPts)
-                self.Rsquared[scName][fbID] = 1 - self.sqrResiduals[scName][fbID]/totSquares
+        if VALID:
+            totData = np.empty(0)
 
-            totData = np.concatenate((totData, magData[scName].BxAll_nT,
-                                               magData[scName].ByAll_nT,
-                                               magData[scName].BzAll_nT))
+            self.Rsquared['total'] = 1
+            totSquaresAll = 0
+            for scName, scMagData in magData.items():
+                for fbID in scMagData.allFlybys:
+                    fbData = np.concatenate((magData[scName].BxIAU_nT[fbID],
+                                             magData[scName].ByIAU_nT[fbID],
+                                             magData[scName].BzIAU_nT[fbID]))
+                    fbModel = np.concatenate((modelData.BxIAU_nT[scName][fbID],
+                                              modelData.ByIAU_nT[scName][fbID],
+                                              modelData.BzIAU_nT[scName][fbID]))
+                    nPts = np.size(fbData)
+                    self.sqrResiduals[scName][fbID] = np.sum((fbData - fbModel)**2)
+                    self.RMSe[scName][fbID] = np.sqrt(self.sqrResiduals[scName][fbID])
+                    self.chiSquared[scName][fbID] = self.sqrResiduals[scName][fbID]/(
+                        nPts - Params.Trajec.nFitParams)
+                    fbMean = np.mean(fbData)
+                    totSquares = np.sum((fbData - fbMean)**2)
+                    totSquaresAll += totSquares
+                    self.stdDev[scName][fbID] = np.sqrt(totSquares/nPts)
+                    R2diff = self.sqrResiduals[scName][fbID]/totSquares
+                    self.Rsquared[scName][fbID] = 1 - R2diff
+                    self.Rsquared['total'] -= R2diff
 
-        totModel = np.concatenate((modelData.BxAll_nT,
-                                   modelData.ByAll_nT,
-                                   modelData.BzAll_nT))
+                totData = np.concatenate((totData, magData[scName].BxAll_nT,
+                                                   magData[scName].ByAll_nT,
+                                                   magData[scName].BzAll_nT))
 
-        self.sqrResiduals['total'] = np.sum((totData - totModel)**2)
-        self.RMSe['total'] = np.sqrt(self.sqrResiduals['total'])
-        self.chiSquared['total'] = self.sqrResiduals['total']/(
-            np.size(totData) - Params.Trajec.nFitParams)
-        totMean = np.mean(totData)
-        totSquares = np.sum((totData - totMean)**2)
-        self.stdDev['total'] = np.sqrt(totSquares)
-        self.Rsquared['total'] = 1 - self.sqrResiduals['total']/totSquares
+            totModel = np.concatenate((modelData.BxAll_nT,
+                                       modelData.ByAll_nT,
+                                       modelData.BzAll_nT))
+
+            self.sqrResiduals['total'] = np.sum((totData - totModel)**2)
+            self.RMSe['total'] = np.sqrt(self.sqrResiduals['total'])
+            self.chiSquared['total'] = self.sqrResiduals['total']/(
+                np.size(totData) - Params.Trajec.nFitParams)
+            self.stdDev['total'] = np.sqrt(totSquaresAll)
+
+        else:
+            for scName, scMagData in magData.items():
+                for fbID in scMagData.allFlybys:
+                    self.chiSquared[scName][fbID], self.Rsquared[scName][fbID], \
+                    self.sqrResiduals[scName][fbID], self.RMSe[scName][fbID], self.stdDev[scName][fbID] \
+                        = (np.nan for _ in range(5))
+
+            self.chiSquared['total'], self.Rsquared['total'], \
+                self.sqrResiduals['total'], self.RMSe['total'], self.stdDev['total'] \
+                = (np.nan for _ in range(5))
 
 
 """ Global EOS list """
@@ -2481,6 +2546,7 @@ class ConstantsStruct:
         self.P0 = 0.101325  # One standard atmosphere in MPa
         self.R = 8.314  # Ideal gas constant in J/mol/K
         self.mu0 = 4e-7*np.pi  # Permeability of free space (magnetic constant)
+        self.NAvo = 6.022e23  # Avogadro's number
         self.Pmin_MPa = 1e-16  # Minimum value to set for pressure to avoid taking log(0)
         self.PclosureUniform_MPa = 2e12  # Pore closure pressure value to use for uniform porosity
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)

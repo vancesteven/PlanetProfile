@@ -144,8 +144,10 @@ def MAGtoHDF5(Params, scName, MAGdir=None):
 
     if Params.Trajec.PLANETMAG_MODEL:
         ambModel = Params.Trajec.BextDefault[Params.Trajec.targetBody]
-        BxS3amb_nT, ByS3amb_nT, BzS3amb_nT, BxIAUamb_nT, ByIAUamb_nT, BzIAUamb_nT \
-            = ({} for _ in range(6))
+        BxS3amb_nT, ByS3amb_nT, BzS3amb_nT, \
+        BxIAUamb_nT, ByIAUamb_nT, BzIAUamb_nT, \
+        BxS3moon_nT, ByS3moon_nT, BzS3moon_nT \
+            = ({} for _ in range(9))
 
         for fbID, pdsFile in pdsFiles.items():
             fdir = os.path.join(MAGdir, scName)
@@ -162,10 +164,13 @@ def MAGtoHDF5(Params, scName, MAGdir=None):
             BxS3amb_nT[fbID] = np.squeeze(ambModelData['BxS3_nT'])
             ByS3amb_nT[fbID] = np.squeeze(ambModelData['ByS3_nT'])
             BzS3amb_nT[fbID] = np.squeeze(ambModelData['BzS3_nT'])
+            BxS3moon_nT[fbID] = np.squeeze(ambModelData['BxS3moon_nT'])
+            ByS3moon_nT[fbID] = np.squeeze(ambModelData['ByS3moon_nT'])
+            BzS3moon_nT[fbID] = np.squeeze(ambModelData['BzS3moon_nT'])
 
     else:
         ambModel, BxIAUamb_nT, ByIAUamb_nT, BzIAUamb_nT = (Constants.NA for _ in range(4))
-        BxS3amb_nT, ByS3amb_nT, BzS3amb_nT = (None for _ in range(3))
+        BxS3amb_nT, ByS3amb_nT, BzS3amb_nT, BxS3moon_nT, ByS3moon_nT, BzS3moon_nT = (None for _ in range(6))
 
     if Params.Trajec.EXPANDED_RANGE:
         span_s = Params.Trajec.etExpandRange_s / 2
@@ -187,6 +192,9 @@ def MAGtoHDF5(Params, scName, MAGdir=None):
             BxS3amb_nT = {fbID: BxS3amb_nT[fbID][fbkeep] for fbID, fbkeep in keep.items()}
             ByS3amb_nT = {fbID: ByS3amb_nT[fbID][fbkeep] for fbID, fbkeep in keep.items()}
             BzS3amb_nT = {fbID: BzS3amb_nT[fbID][fbkeep] for fbID, fbkeep in keep.items()}
+            BxS3moon_nT = {fbID: BxS3moon_nT[fbID][fbkeep] for fbID, fbkeep in keep.items()}
+            ByS3moon_nT = {fbID: ByS3moon_nT[fbID][fbkeep] for fbID, fbkeep in keep.items()}
+            BzS3moon_nT = {fbID: BzS3moon_nT[fbID][fbkeep] for fbID, fbkeep in keep.items()}
 
     # Adjust data to common format
     scCode, pCode, parent = spiceCode(scName)
@@ -246,7 +254,10 @@ def MAGtoHDF5(Params, scName, MAGdir=None):
         'ambModel': ambModel,
         'BxIAUamb_nT': BxIAUamb_nT,
         'ByIAUamb_nT': ByIAUamb_nT,
-        'BzIAUamb_nT': BzIAUamb_nT
+        'BzIAUamb_nT': BzIAUamb_nT,
+        'BxS3moon_nT': BxS3moon_nT,
+        'ByS3moon_nT': ByS3moon_nT,
+        'BzS3moon_nT': BzS3moon_nT
     }
 
     magFname = RefileName(Params.Trajec.targetBody, scName)

@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 15  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 17  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def plotAssign():
     Color = ColorStruct()
@@ -140,6 +140,9 @@ def plotAssign():
 
     # Color options for trajectory and CA plots
     Color.bodySurface = 'xkcd:grey'
+    Color.AlfvenWingCurrent = 'xkcd:hot pink'
+    Color.AlfvenRingCurrent = 'xkcd:steel blue'
+    Color.trajec = 'xkcd:emerald'
     Color.CAdot = 'black'
     Color.thresh = 'blue'
     Color.CAline = 'black'
@@ -217,6 +220,10 @@ def plotAssign():
         'JUICE': '-'
     }
     Style.LW_SCtrajec = 1  # Linewidth of spacecraft trajectories
+    Style.LS_AlfvenRingCurrent = '-'  # Linestyle of Alfven ring currents
+    Style.LW_AlfvenRingCurrent = 1  # Linewidth of Alfven ring currents
+    Style.LS_AlfvenWingCurrent = '-'  # Linestyle of Alfven wing wire currents
+    Style.LW_AlfvenWingCurrent = 1  # Linewidth of Alfven wing wire currents
     Style.MS_exit = 'o'  # Marker style for trajectory exit points
     Style.MW_exit = 10  # Marker size for trajectory exit dots
 
@@ -271,6 +278,7 @@ def plotAssign():
     FigSize.BtrajecCombo = (6, 9)
     FigSize.SCtrajecCombo = (6, 4)
     FigSize.SCtrajec3D = (6, 6)
+    FigSize.AlfvenWing = (6, 6)
     FigSize.asym = (8, 5)
     FigSize.apsidal = (6, 6)
 
@@ -358,6 +366,8 @@ def plotAssign():
 
     # Magnetic field trajectory and CA plots
     FigMisc.trajLims = None  # Distance in body radii at which to cut off trajectory plots
+    FigMisc.LIMIT_TRAJ_RANGE = False  # Whether to apply the below temporal cutoff for trajectory plots
+    FigMisc.tCAlims_min = 15  # Time in minutes relative to CA at which to cut off trajectory B plots
     FigMisc.MARK_CA_B = True  # Whether to mark closest approach on B trajectory plots with a line and text
     FigMisc.MARK_CA_POS = True  # Whether to mark closest approach on trajectory plots with a line and text
     FigMisc.EXIT_ARROWS = True  # Whether to use arrows or other marker types to indicate exit points (selected in Style.MS_exit)
@@ -369,6 +379,7 @@ def plotAssign():
     FigMisc.SHOW_EXCITATION = False  # Whether to show the background field in trajectory plots, separately from the net model field
     FigMisc.SHOW_INDUCED = False  # Whether to show induced field in trajectory plots, separately from the net model field
     FigMisc.SHOW_PLASMA = False  # Whether to show plasma contributions in trajectory plots, separately from the net model field
+    FigMisc.LAlfven_RP = 5  # Length to show for semi-infinite wire currents used to represent Alfven wings in units of body radii
 
     # Inductogram phase space plots
     FigMisc.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.
