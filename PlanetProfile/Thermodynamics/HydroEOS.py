@@ -14,6 +14,7 @@ from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4Phase
 from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -223,6 +224,26 @@ class OceanEOSStruct:
                                                     scalingType=self.scalingType)
                 self.propsPmax = self.ufn_Seismic.Pmax
                 self.Pmax = np.min([self.Pmax, self.phasePmax])
+            elif self.comp == 'CustomSolution':
+                # For now, define species list and ratio here
+                aqueous_species_list = "H2O"
+                speciation_ratio_mol_kg = {}
+                self.type = 'Reaktoro'
+                self.m_gmol = Constants.m_gmol['H2O']
+                # For now, specify the Tmin and Tmax (since this needs to be hard coded, might be better to use the PFreeze approach)
+                self.Tmin = 250
+                self.Tmax = 300
+                self.ufn_phase = RktPhase(aqueous_species_list, speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
+                # Use the Seawater implementation to get rest of thermal properties for now
+                self.EOSdeltaP = np.nan
+                self.EOSdeltaT = np.nan
+                rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = SwProps(P_MPa, T_K, self.w_ppt)
+                self.ufn_Seismic = SwSeismic(self.w_ppt, self.EXTRAP)
+                if sigmaFixed_Sm is not None:
+                    self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
+                else:
+                    self.ufn_sigma_Sm = SwConduct(self.w_ppt)
+                self.propsPmax = self.Pmax
             else:
                 raise ValueError(f'Unable to load ocean EOS. self.comp="{self.comp}" but options are "Seawater", "NH3", "MgSO4", ' +
                                  '"NaCl", and "none" (for waterless bodies).')
