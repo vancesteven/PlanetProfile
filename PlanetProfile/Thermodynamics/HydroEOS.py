@@ -15,7 +15,7 @@ from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSe
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase
-
+from PlanetProfile.Thermodynamics.Reaktoro.sigmaElectricMcCleskey2012 import elecCondMcCleskey2012
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
@@ -249,7 +249,9 @@ class OceanEOSStruct:
                 if sigmaFixed_Sm is not None:
                     self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
                 else:
-                    self.ufn_sigma_Sm = sigmaElectricMcCleskey2012(speciation_ratio_mol_kg,self.w_ppt) # see McCleskeyFig1 benchmark for example usage. this is a placeholder that doesn't have the inputs set up correctly. Has no pressure dependence currently
+                    # ions = {'Na_p1': {'mols': 0.1}, 'Cl_m1': {'mols': 0.1}}
+                    # self.ufn_sigma_Sm = elecCondMcCleskey2012(T_K,ions) # see McCleskeyFig1 benchmark for example usage. this is a placeholder that doesn't have the inputs set up correctly. Has no pressure dependence currently
+                    self.ufn_sigma_Sm = SwConduct(self.w_ppt)
                 self.propsPmax = self.Pmax
             else:
                 raise ValueError(f'Unable to load ocean EOS. self.comp="{self.comp}" but options are "Seawater", "NH3", "MgSO4", ' +
