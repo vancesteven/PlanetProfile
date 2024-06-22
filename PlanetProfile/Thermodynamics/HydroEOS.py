@@ -233,6 +233,13 @@ class OceanEOSStruct:
                 # For now, specify the Tmin and Tmax (since this needs to be hard coded, might be better to use the PFreeze approach)
                 self.Tmin = 250
                 self.Tmax = 300
+                if self.Pmax > Constants.PminHPices_MPa:
+                    log.warning('Reaktoro handles only ice Ih for determining phases in the ocean. At ' +
+                                'low temperatures or high pressures, this model will be wrong as no ' +
+                                'high-pressure ice phases will be found.')
+                    self.Pmax = 100; # expected max for phreeqc
+
+
                 self.ufn_phase = RktPhase(aqueous_species_list, speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
                 # Use the Seawater implementation to get rest of thermal properties for now
                 self.EOSdeltaP = np.nan
@@ -242,7 +249,7 @@ class OceanEOSStruct:
                 if sigmaFixed_Sm is not None:
                     self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
                 else:
-                    self.ufn_sigma_Sm = SwConduct(self.w_ppt)
+                    self.ufn_sigma_Sm = sigmaElectricMcCleskey2012(speciation_ratio_mol_kg,self.w_ppt) # see McCleskeyFig1 benchmark for example usage. this is a placeholder that doesn't have the inputs set up correctly. Has no pressure dependence currently
                 self.propsPmax = self.Pmax
             else:
                 raise ValueError(f'Unable to load ocean EOS. self.comp="{self.comp}" but options are "Seawater", "NH3", "MgSO4", ' +
