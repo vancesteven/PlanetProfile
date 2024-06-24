@@ -40,8 +40,12 @@ def CalcRefProfiles(PlanetList, Params):
                     Pmax = Params.PrefOverride_MPa
                 Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(0.1, Pmax, Params.nRefPts[Planet.Ocean.comp])
                 Tref_K = np.arange(220, 450, 0.05)
+                if Planet.Ocean.comp == 'CustomSolution':
+                    speciation = Planet.Ocean.species
+                else:
+                    speciation = None
                 for i, w_ppt in enumerate(wList):
-                    EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType,
+                    EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType, speciation = speciation,
                             rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType, phaseType='lookup',
                             EXTRAP=Params.EXTRAP_REF, FORCE_NEW=Params.FORCE_EOS_RECALC, MELT=True)
                     if EOSref.propsPmax < Pmax or EOSref.Pmax < Pmax:
@@ -77,7 +81,6 @@ def CalcRefProfiles(PlanetList, Params):
                 EOSlist.loaded[thisRefLabel] = Params.Pref_MPa[Planet.Ocean.comp], Params.rhoRef_kgm3[Planet.Ocean.comp]
                 EOSlist.ranges[thisRefLabel] = Pmax
                 newRef[Planet.Ocean.comp] = False
-
     return Params
 
 

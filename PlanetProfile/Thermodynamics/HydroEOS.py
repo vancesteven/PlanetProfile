@@ -21,10 +21,10 @@ from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase, Specie
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
-def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
+def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, speciation = None, rhoType=None, scalingType=None, phaseType=None,
                 EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None, LOOKUP_HIRES=False,
                 etaFixed_Pas=None):
-    oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
+    oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, speciation = speciation, rhoType=rhoType, scalingType=scalingType,
                               phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE,
                               sigmaFixed_Sm=sigmaFixed_Sm, LOOKUP_HIRES=LOOKUP_HIRES, etaFixed_Pas=etaFixed_Pas)
     if oceanEOS.ALREADY_LOADED and not FORCE_NEW:
@@ -41,7 +41,7 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
     return oceanEOSwrapper
 
 class OceanEOSStruct:
-    def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
+    def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, speciation = None, rhoType=None, scalingType=None,
                  phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False,
                  sigmaFixed_Sm=None, LOOKUP_HIRES=False, etaFixed_Pas=None):
         if elecType is None:
@@ -229,36 +229,35 @@ class OceanEOSStruct:
                                                     scalingType=self.scalingType)
                 self.propsPmax = self.ufn_Seismic.Pmax
                 self.Pmax = np.min([self.Pmax, self.phasePmax])
-            elif self.comp == 'CustomSolution':
+            elif self.comp.startswith("CustomSolution"):
+                self.speciation = speciation
                 # Parse out the species list and ratio into a format compatible with Reaktoro
-                aqueous_species_string, speciation_ratio_mol_kg = SpeciesParser(self.w_ppt)
+                self.aqueous_species_string, self.speciation_ratio_mol_kg = SpeciesParser(self.speciation)
                 self.type = 'Reaktoro'
                 self.m_gmol = Constants.m_gmol['H2O']
                 # For now, specify the Tmin and Tmax (since this needs to be hard coded, might be better to use the PFreeze approach)
                 self.Tmin = 200
                 self.Tmax = 330
-                self.ufn_phase = RktPhase(aqueous_species_string, speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
+                self.ufn_phase = RktPhase(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
                 self.Tmin = 250
                 self.Tmax = 300
                 if self.Pmax > Constants.PminHPices_MPa:
                     log.warning('Reaktoro handles only ice Ih for determining phases in the ocean. At ' +
                                 'low temperatures or high pressures, this model will be wrong as no ' +
                                 'high-pressure ice phases will be found.')
-                    self.Pmax = 100; # expected max for phreeqc
-
-
-                self.ufn_phase = RktPhase(aqueous_species_string, speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
+                    self.Pmax = Constants.PminHPices_MPa; # expected max for phreeqc
+                self.ufn_phase = RktPhase(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
                 # Use the Seawater implementation to get rest of thermal properties for now
                 self.EOSdeltaP = np.nan
                 self.EOSdeltaT = np.nan
-                rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = SwProps(P_MPa, T_K, 0)
-                self.ufn_Seismic = SwSeismic(0, self.EXTRAP)
+                rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = SwProps(P_MPa, T_K, self.w_ppt)
+                self.ufn_Seismic = SwSeismic(self.w_ppt, self.EXTRAP)
                 if sigmaFixed_Sm is not None:
                     self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
                 else:
                     # ions = {'Na_p1': {'mols': 0.1}, 'Cl_m1': {'mols': 0.1}}
                     # self.ufn_sigma_Sm = elecCondMcCleskey2012(T_K,ions) # see McCleskeyFig1 benchmark for example usage. this is a placeholder that doesn't have the inputs set up correctly. Has no pressure dependence currently
-                    self.ufn_sigma_Sm = SwConduct(0) # Currently w_ppt is a string so just set to zero to prevent errors
+                    self.ufn_sigma_Sm = SwConduct(self.w_ppt)
                 self.propsPmax = self.Pmax
             else:
                 raise ValueError(f'Unable to load ocean EOS. self.comp="{self.comp}" but options are "Seawater", "NH3", "MgSO4", ' +
