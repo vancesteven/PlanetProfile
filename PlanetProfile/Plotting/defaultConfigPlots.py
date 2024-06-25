@@ -88,6 +88,7 @@ def plotAssign():
         'MgSO4': 'winter',
         'NH3': 'spring',
         'NaCl': 'summer',
+        'CustomSolution': 'autumn',
         'Ice': 'coolwarm_r',
         'BmapPos': 'afmhot',
         'BmapNeg': 'afmhot_r',
@@ -103,6 +104,7 @@ def plotAssign():
         'MgSO4': [0.0, 1.0],
         'NH3': [0.0, 1.0],
         'NaCl': [0.0, 1.0],
+        'CustomSolution': [0.0, 1.0],
         'Ice': [0.2, 0.8],
         'BmapPos': [0.2, 1.0],
         'BmapNeg': [0.2, 1.0],
@@ -120,7 +122,8 @@ def plotAssign():
         'Seawater': 304.0,
         'MgSO4': 282.0,
         'NH3': 100.0,
-        'NaCl': 304.0
+        'NaCl': 304.0,
+        'CustomSolution': 304.0
     }
     # Saturation & color brightness ("value" in HSV) values for salinity/conductivity axis bounds
     Color.fresh = [0.5, 1.0]
@@ -155,7 +158,7 @@ def plotAssign():
 
     """ Figure style options """
     Style.GRIDS = False  # Whether to plot grids
-    Style.LS = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-'}  # LineStyle options for hydrosphere plots
+    Style.LS = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-', 'CustomSolution': '--'}  # LineStyle options for hydrosphere plots
     Style.LWlims = [0.5, 2]  # Bounds of linewidths to use for salinity mapping
     Style.MW_hydro = 3  # Marker size for hydrosphere plot endpoint, in the factor by which to multiply the linewidth.
     Style.MS_hydro = 'o'  # Marker style for hydrosphere plot endpoint
@@ -165,7 +168,7 @@ def plotAssign():
     Style.LS_geotherm = '-'  # Linestyle for geotherm on PT plots
     Style.LW_seis = 1  # Linewidth for seismic plots
     Style.LS_seis = {'KS': '-', 'GS': '--', 'VP': '-', 'VS': '--', 'QS': '-', 'P': '-', 'T': '--', 'rho': '-.'}
-    Style.LS_ref = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-'}  # Style for reference profiles
+    Style.LS_ref = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-', 'CustomSolution': '--'}  # Style for reference profiles
     Style.LW_ref = 0.75  # Linewidth for reference profiles
     Style.LS_Induction = {'synodic': '-', 'orbital': ':', 'true anomaly': ':', 'synodic 2nd': '--'}  # Style for inductOgram plots
     Style.LW_Induction = {'synodic': 1.5, 'orbital': 1.5, 'true anomaly': 1.5, 'synodic 2nd': 1.5}  # Widths for inductOgram plots

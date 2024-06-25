@@ -19,7 +19,7 @@ Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346  # Value from Anderson et al. (1998): https://doi.org/10.1126/science.281.5385.2019
 Planet.Bulk.Cuncertainty = 0.005
-Planet.Bulk.Tb_K = 268.305  # 30 km ice with 1.0x Seawater
+Planet.Bulk.Tb_K = 263.305  # 30 km ice with 1.0x Seawater
 
 """ Layer step settings """
 Planet.Steps.nIceI = 200
@@ -29,8 +29,8 @@ Planet.Steps.iSilStart = Planet.Steps.nIceI
 
 """ Hydrosphere assumptions/settings """
 Planet.Ocean.comp = "CustomSolution"
-Planet.Ocean.wOcean_ppt = 35.15
-Planet.Ocean.species = "Cl-: 0.5657647, Na+: 0.4860597, Mg+2: 0.0547421, Ca+2: 0.0106568, K+: 0.0105797, SO4-2: 0.0292643"
+Planet.Ocean.wOcean_ppt = 0
+Planet.Ocean.speciation = "Cl-: 0.5657647, Na+: 0.4860597, Mg+2: 0.0547421, Ca+2: 0.0106568, K+: 0.0105797, SO4-2: 0.0292643"
 Planet.Ocean.deltaP = 1.0
 Planet.Ocean.deltaT = 0.1
 Planet.Ocean.PHydroMax_MPa = 350.0

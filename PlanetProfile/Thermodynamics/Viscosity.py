@@ -29,7 +29,7 @@ def ViscosityCalcs(Planet, Params):
                 Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt,
                                                POcean_MPa, TOcean_K,
                                                Planet.Ocean.MgSO4elecType,
-                                               rhoType=Planet.Ocean.MgSO4rhoType,
+                                               speciation = Planet.Ocean.speciation, rhoType=Planet.Ocean.MgSO4rhoType,
                                                scalingType=Planet.Ocean.MgSO4scalingType,
                                                FORCE_NEW=Params.FORCE_EOS_RECALC,
                                                phaseType=Planet.Ocean.phaseType,

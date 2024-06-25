@@ -86,9 +86,6 @@ class OceanEOSStruct:
             self.Tmax = np.max(T_K)
             if self.w_ppt is None:
                 wStr = '0.0'
-            elif isinstance(self.w_ppt, str):
-                # Likely using Reaktoro custom species, so set wStr to 'custom'
-                wStr = 'custom'
             else:
                 wStr = f'{self.w_ppt:.1f}'
             log.debug(f'Loading {meltPrint}EOS for {wStr} ppt {self.comp} with ' +
@@ -236,16 +233,12 @@ class OceanEOSStruct:
                 self.type = 'Reaktoro'
                 self.m_gmol = Constants.m_gmol['H2O']
                 # For now, specify the Tmin and Tmax (since this needs to be hard coded, might be better to use the PFreeze approach)
-                self.Tmin = 200
-                self.Tmax = 330
-                self.ufn_phase = RktPhase(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
-                self.Tmin = 250
-                self.Tmax = 300
-                if self.Pmax > Constants.PminHPices_MPa:
+                if ((self.Tmin <= 250) or (self.Pmax > Constants.PminHPices_MPa)):
                     log.warning('Reaktoro handles only ice Ih for determining phases in the ocean. At ' +
                                 'low temperatures or high pressures, this model will be wrong as no ' +
                                 'high-pressure ice phases will be found.')
-                    self.Pmax = Constants.PminHPices_MPa; # expected max for phreeqc
+                    self.Tmin = 250
+                    self.Pmax = Constants.PminHPices_MPa
                 self.ufn_phase = RktPhase(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
                 # Use the Seawater implementation to get rest of thermal properties for now
                 self.EOSdeltaP = np.nan
