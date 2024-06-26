@@ -232,13 +232,16 @@ class OceanEOSStruct:
                 self.aqueous_species_string, self.speciation_ratio_mol_kg = SpeciesParser(self.speciation)
                 self.type = 'Reaktoro'
                 self.m_gmol = Constants.m_gmol['H2O']
-                # For now, specify the Tmin and Tmax (since this needs to be hard coded, might be better to use the PFreeze approach)
-                if ((self.Tmin <= 250) or (self.Pmax > Constants.PminHPices_MPa)):
+                if ((self.Tmin < 200) or (self.Pmax > 100)):
                     log.warning('Reaktoro handles only ice Ih for determining phases in the ocean. At ' +
                                 'low temperatures or high pressures, this model will be wrong as no ' +
                                 'high-pressure ice phases will be found.')
-                    self.Tmin = 250
-                    self.Pmax = Constants.PminHPices_MPa
+                    self.Tmin = 200
+                    self.Pmax = 100
+                if self.Tmax > 550:
+                    log.warning('Reaktoro handles physically valid properties only up to about 550 K. ' +
+                                'Maximum temperature for this custom EOS will be set to that value.')
+                    self.TMax = 550
                 self.ufn_phase = RktPhase(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
                 # Use the Seawater implementation to get rest of thermal properties for now
                 self.EOSdeltaP = np.nan

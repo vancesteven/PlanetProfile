@@ -57,7 +57,7 @@ def PlotHydroPhase(PlanetList, Params):
             T_K = np.linspace(Tmin_K, Tmax_K, FigMisc.nTphase)
         # Load EOS independently from model run, because we will query wider ranges of conditions
         oceanEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, P_MPa, T_K,
-                               Planet.Ocean.MgSO4elecType, speciation = Planet.Ocean.speciation, rhoType=Planet.Ocean.MgSO4rhoType,
+                               Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
                                sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
@@ -190,7 +190,7 @@ def PlotPvThydro(PlanetList, Params):
 
         # Load EOS independently from model run, because we will query wider ranges of conditions
         oceanEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, P_MPa, T_K,
-                               Planet.Ocean.MgSO4elecType, speciation = Planet.Ocean.speciation, rhoType=Planet.Ocean.MgSO4rhoType,
+                               Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
                                sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)

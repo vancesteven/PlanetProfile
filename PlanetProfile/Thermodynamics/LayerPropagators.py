@@ -757,7 +757,7 @@ def InnerLayers(Planet, Params):
                 Tpore_K = np.linspace(Planet.Bulk.Tb_K, Planet.Sil.THydroMax_K, 140)
             # Get pore fluid EOS
             Planet.Sil.poreEOS = GetOceanEOS(Planet.Sil.poreComp, Planet.Sil.wPore_ppt, Ppore_MPa, Tpore_K,
-                                             Planet.Ocean.MgSO4elecType, speciation = Planet.Ocean.speciation, rhoType=Planet.Ocean.MgSO4rhoType,
+                                             Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                              scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                              phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=True,
                                              sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm)
