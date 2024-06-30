@@ -16,7 +16,7 @@ from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase
 # from PlanetProfile.Thermodynamics.Reaktoro.sigmaElectricMcCleskey2012 import elecCondMcCleskey2012
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase, SpeciesParser
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase, SpeciesParser, RktProps
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -231,22 +231,26 @@ class OceanEOSStruct:
                 # Parse out the species list and ratio into a format compatible with Reaktoro
                 self.aqueous_species_string, self.speciation_ratio_mol_kg = SpeciesParser(self.speciation)
                 self.type = 'Reaktoro'
+                # Not sure what m_gmol is; should determine later if this line is necessary
                 self.m_gmol = Constants.m_gmol['H2O']
-                if ((self.Tmin < 200) or (self.Pmax > 100)):
+                if ((self.Tmin < 250) or (self.Pmax > 150)):
                     log.warning('Reaktoro handles only ice Ih for determining phases in the ocean. At ' +
                                 'low temperatures or high pressures, this model will be wrong as no ' +
                                 'high-pressure ice phases will be found.')
-                    self.Tmin = 200
-                    self.Pmax = 100
+                    self.Tmin = 250
+                    self.Pmax = 150
                 if self.Tmax > 550:
                     log.warning('Reaktoro handles physically valid properties only up to about 550 K. ' +
                                 'Maximum temperature for this custom EOS will be set to that value.')
                     self.TMax = 550
+                # Obtain the phase function
                 self.ufn_phase = RktPhase(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
-                # Use the Seawater implementation to get rest of thermal properties for now
+                # Lookup table is not used -- flag with nan for grid resolution.
                 self.EOSdeltaP = np.nan
                 self.EOSdeltaT = np.nan
-                rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = SwProps(P_MPa, T_K, self.w_ppt)
+                # Obtain the thermodynamic properties
+                rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = RktProps(self.aqueous_species_string, self.speciation_ratio_mol_kg, P_MPa, T_K)
+                # Will implement RKT Seismic in next version: placeholder for now
                 self.ufn_Seismic = SwSeismic(self.w_ppt, self.EXTRAP)
                 if sigmaFixed_Sm is not None:
                     self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
