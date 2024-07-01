@@ -239,6 +239,7 @@ class OceanEOSStruct:
                                 'high-pressure ice phases will be found.')
                     self.Tmin = 250
                     self.Pmax = 150
+                # Unsure what the maximum temperature that RKt can handle, since it depends on the database.
                 if self.Tmax > 550:
                     log.warning('Reaktoro handles physically valid properties only up to about 550 K. ' +
                                 'Maximum temperature for this custom EOS will be set to that value.')
