@@ -16,7 +16,7 @@ from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase
 # from PlanetProfile.Thermodynamics.Reaktoro.sigmaElectricMcCleskey2012 import elecCondMcCleskey2012
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase, SpeciesParser, RktProps, ConstraintFinder
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase, SpeciesParser, RktProps, ConstraintFinder, RktSeismic
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -245,7 +245,7 @@ class OceanEOSStruct:
                 # Obtain the thermodynamic properties
                 rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = RktProps(self.aqueous_species_string, self.speciation_ratio_mol_kg, P_MPa, T_K)
                 # Will implement RKT Seismic in next version: placeholder for now
-                self.ufn_Seismic = SwSeismic(self.w_ppt, self.EXTRAP)
+                self.ufn_Seismic = RktSeismic(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
                 if sigmaFixed_Sm is not None:
                     self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
                 else:
