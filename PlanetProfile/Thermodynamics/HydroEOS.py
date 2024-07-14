@@ -16,7 +16,7 @@ from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase
 # from PlanetProfile.Thermodynamics.Reaktoro.sigmaElectricMcCleskey2012 import elecCondMcCleskey2012
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase, SpeciesParser, RktProps, ConstraintFinder, RktSeismic
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase, SpeciesParser, RktProps, ConstraintFinder, RktSeismic, RktConduct
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -244,14 +244,13 @@ class OceanEOSStruct:
                 self.EOSdeltaT = np.nan
                 # Obtain the thermodynamic properties
                 rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = RktProps(self.aqueous_species_string, self.speciation_ratio_mol_kg, P_MPa, T_K)
-                # Will implement RKT Seismic in next version: placeholder for now
                 self.ufn_Seismic = RktSeismic(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
                 if sigmaFixed_Sm is not None:
                     self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
                 else:
                     # ions = {'Na_p1': {'mols': 0.1}, 'Cl_m1': {'mols': 0.1}}
                     # self.ufn_sigma_Sm = elecCondMcCleskey2012(T_K,ions) # see McCleskeyFig1 benchmark for example usage. this is a placeholder that doesn't have the inputs set up correctly. Has no pressure dependence currently
-                    self.ufn_sigma_Sm = SwConduct(self.w_ppt)
+                    self.ufn_sigma_Sm = RktConduct(self.aqueous_species_string, self.speciation_ratio_mol_kg)
                 self.propsPmax = self.Pmax
             else:
                 raise ValueError(f'Unable to load ocean EOS. self.comp="{self.comp}" but options are "Seawater", "NH3", "MgSO4", ' +
