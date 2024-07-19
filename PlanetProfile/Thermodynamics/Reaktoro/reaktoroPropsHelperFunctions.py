@@ -9,19 +9,19 @@ from PlanetProfile.Thermodynamics.Reaktoro.sigmaElectricMcCleskey2012 import ele
 log = logging.getLogger('PlanetProfile')
 
 
-def PhreeqcGenerator(aqueous_species_list, speciation_ratio_mol_kg, database):
+def PhreeqcGenerator(aqueous_species_list, speciation_ratio_mol_kg, database_name):
     """ Create a Phreeqc Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
         Works for both core10.dat and frezchem.dat.
     Args:
         aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
      speciation_ratio_mol_kg: the ratio of species in the aqueous solution in mol/kg of water. Should be a dictionary
      with the species as the key and its ratio as its value.
-        database: frezchem or core10
+        database_name: frezchem or core10
     Returns:
         db, system, state, conditions, solver, props, ice_name: Relevant reaktoro objects
     """
     # Initialize the database
-    db = rkt.PhreeqcDatabase(database)
+    db = rkt.PhreeqcDatabase(database_name)
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
     # Obtain all related solid phases
@@ -43,12 +43,12 @@ def PhreeqcGenerator(aqueous_species_list, speciation_ratio_mol_kg, database):
     # Create a conditions object
     conditions = rkt.EquilibriumConditions(specs)
     # Obtain ice name
-    if database == "frezchem.dat":
+    if database_name == "frezchem.dat":
         ice_name = "Ice(s)"
     else:
         ice_name = "Ice"
     # Return the Reaktoro objects that user will need to interact with
-    return db, system, state, conditions, solver, props, ice_name
+    return db, system, state, conditions, solver, props, ice_name, database_name
 
 
 def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_mol_kg, database):
@@ -238,10 +238,12 @@ def database_to_use(T_K):
     """
     # The temperature to switch between frezchem and core10
     switch_T_K = 298.15
-    index = np.searchsorted(T_K, switch_T_K, side = 'left')
-    frezchem_indices = range(0, index)
-    core_indices = range(index, np.size(T_K))
-    return frezchem_indices, core_indices
+    if T_K.ndim == 1:
+        index = np.searchsorted(T_K, switch_T_K, side = 'left')
+    elif T_K.ndim == 2:
+        row_of_temperatures = T_K[0]
+        index = np.searchsorted(row_of_temperatures, switch_T_K, side='left')
+    return index
 
 
 def pressure_constraint(P_MPa, aqueous_species_list, speciation_ratio_mol_kg, database, dP = -1):
@@ -268,7 +270,7 @@ def pressure_constraint(P_MPa, aqueous_species_list, speciation_ratio_mol_kg, da
             aqueous_species_list, speciation_ratio_mol_kg)
         db, system, state, conditions, solver, props = SupcrtGenerator(aqueous_species_list, speciation_ratio_mol_kg, database)
     else:
-        db, system, state, conditions, solver, props, ice_name = PhreeqcGenerator(aqueous_species_list, speciation_ratio_mol_kg, database)
+        db, system, state, conditions, solver, props, ice_name, database_name = PhreeqcGenerator(aqueous_species_list, speciation_ratio_mol_kg, database)
     # Establish pressure constraint of 273 K
     conditions.temperature(273, "K")
     # Tracker variable for equilibrium being found
@@ -319,7 +321,7 @@ def temperature_constraint(T_K, aqueous_species_list, speciation_ratio_mol_kg, d
             aqueous_species_list, speciation_ratio_mol_kg)
         db, system, state, conditions, solver, props = SupcrtGenerator(aqueous_species_list, speciation_ratio_mol_kg, database)
     else:
-        db, system, state, conditions, solver, props, ice_name = PhreeqcGenerator(aqueous_species_list, speciation_ratio_mol_kg, database)
+        db, system, state, conditions, solver, props, ice_name, database_name = PhreeqcGenerator(aqueous_species_list, speciation_ratio_mol_kg, database)
     # Establish pressure constraint of 1bar
     conditions.pressure(0.1, "MPa")
     # Tracker variable for equilibrium being found

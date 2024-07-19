@@ -1,10 +1,11 @@
 import numpy as np
 import logging
+from PlanetProfile.Utilities.defineStructs import Constants
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
-def elecCondMcCleskey2012(T_C, ions):
+def elecCondMcCleskey2012(P_MPa, T_C, ions):
     # Full data structure including all ions from the MATLAB data matrix
     data = {
         'K_p1': {'z': 1, 'lam2': 0.003046, 'lam1': 1.261, 'lam0': 40.7, 'A2': 0.00535, 'A1': 0.9316, 'A0': 22.59, 'B': 1.5},
@@ -36,51 +37,45 @@ def elecCondMcCleskey2012(T_C, ions):
         'HSO4_m1': {'z': -1, 'lam2': 0.000927, 'lam1': 0.8337, 'lam0': 29.56, 'A2': 0.02887, 'A1': 0.873, 'A0': 36.25, 'B': 7},
         'NaCO3_m1': {'z': -1, 'lam2': 0.00336, 'lam1': 3.845, 'lam0': 89.51, 'A2': 0.00061, 'A1': 6.387, 'A0': 141.7, 'B': 2}
     }
-
-    # Initialize sigma_Sm with appropriate dimensions
-    # Convert T_C to an array if it is not already one
-    T_C = np.atleast_1d(T_C)
-    lT = T_C.size
-
+    # Ensure there is at least one ion in the ions list, otherwise we will just set the conductivity to pure water
     if ions:
-        first_ion_key = next(iter(ions))
-        mols = np.atleast_1d(ions[first_ion_key]['mols'])
-        size_mols = mols.size
-        sigma_Sm = np.zeros((lT, size_mols))
+        sigma_Sm = np.zeros_like(T_C)
     else:
-        raise log.error("No ion data available")
-
+        raise log.error("No ion data available. Assuming pure water")
+        return np.zeros_like(P_MPa) + Constants.sigmaH2O_Sm
     for ion_name, ion_data in ions.items():
         if ion_name in data:
-            mols = np.atleast_1d(ion_data['mols'])
+            # Get relevant data
+            mols = np.array(ion_data['mols'])
             z = data[ion_name]['z']
             B = data[ion_name]['B']
             Ad = np.array([data[ion_name]['A2'], data[ion_name]['A1'], data[ion_name]['A0']])
             l210 = np.array([data[ion_name]['lam2'], data[ion_name]['lam1'], data[ion_name]['lam0']])
 
-            # Ionic strength calculations
-            I = 0.5 * mols * z**2
-            I2 = np.sqrt(I)
+        # Ionic strength calculations
+        I = 0.5 * mols * z**2
+        I2 = np.sqrt(I)
 
-            # Evaluate polynomial coefficients for temperature dependency
-            lam0 = np.polyval(l210, T_C)  # (num_TC,)
-            At = np.polyval(Ad, T_C)  # (num_TC,)
+        # Evaluate polynomial coefficients for temperature dependency
+        lam0 = np.polyval(l210, T_C)
+        At = np.polyval(Ad, T_C)
 
-            # Reshape for broadcasting
-            lam0 = lam0[:, np.newaxis]  # (num_TC, 1)
-            At = At[:, np.newaxis]  # (num_TC, 1)
-            xI = I2[np.newaxis, :]/(1+B*I2[np.newaxis, :])  # (1, num_mols)
+        # Evaluate (I^1/2)/(1+B*I1/2)
+        xI = I2/(1+B*I2)
 
-            # Broadcasting to make all arrays (num_TC, num_mols)
-            lamda = lam0 - At * xI  # Use broadcasting
+        # Evaluate molal conductivity
+        lamda = lam0 - At * xI  # Use broadcasting
 
-            ion_data['I'] = I
-            ion_data['z'] = z
-            ion_data['xI'] = xI
-            ion_data['lamda'] = lamda
+        # IMPLEMENT PRESSURE ADJUSTMENT HERE
 
-            # Update sigma_Sm with conductivity contributions from each ion
-            sigma_Sm += lamda * mols[np.newaxis, :]  # Broadcasting mols across num_TC
+        # Append all data to ion_data dictionary
+        ion_data['I'] = I
+        ion_data['z'] = z
+        ion_data['xI'] = xI
+        ion_data['lamda'] = lamda
+
+        # Update sigma_Sm with conductivity contributions from each ion
+        sigma_Sm += lamda * mols  # Broadcasting mols across num_TC
 
 
     ions['sigma_Sm'] = sigma_Sm * 100 / 1000  # convert from mS/cm to S/m
