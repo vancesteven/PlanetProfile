@@ -77,7 +77,6 @@ def elecCondMcCleskey2012(P_MPa, T_C, ions):
         # Update sigma_Sm with conductivity contributions from each ion
         sigma_Sm += lamda * mols  # Broadcasting mols across num_TC
 
-
     ions['sigma_Sm'] = sigma_Sm * 100 / 1000  # convert from mS/cm to S/m
 
     return ions

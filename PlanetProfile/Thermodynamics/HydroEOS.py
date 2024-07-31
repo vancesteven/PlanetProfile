@@ -14,9 +14,8 @@ from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4Phase
 from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase
 # from PlanetProfile.Thermodynamics.Reaktoro.sigmaElectricMcCleskey2012 import elecCondMcCleskey2012
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase, SpeciesParser, RktProps, ConstraintFinder, RktSeismic, RktConduct
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase, SpeciesParser, RktProps, ConstraintFinder, RktSeismic, RktConduct, Reaktoro_Hydro_Species_Generator
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -242,6 +241,7 @@ class OceanEOSStruct:
                 # Lookup table is not used -- flag with nan for grid resolution.
                 self.EOSdeltaP = np.nan
                 self.EOSdeltaT = np.nan
+                self.ufn_species = Reaktoro_Hydro_Species_Generator(self.aqueous_species_string, self.speciation_ratio_mol_kg)
                 # Obtain the thermodynamic properties
                 rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = RktProps(self.aqueous_species_string, self.speciation_ratio_mol_kg, P_MPa, T_K)
                 self.ufn_Seismic = RktSeismic(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
@@ -306,6 +306,14 @@ class OceanEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_eta_Pas(P_MPa, T_K, grid=grid)
+    def fn_species(self, P_MPa, T_K, grid = False):
+        """
+        Function only relevant for Reaktoro custom solution.
+        """
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        return self.ufn_species(P_MPa, T_K, grid=grid)
+
 
 
 def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0,

@@ -15,7 +15,7 @@ from PlanetProfile.Utilities.defineStructs import Constants
 log = logging.getLogger('PlanetProfile')
 
 def GeneratePlots(PlanetList, Params):
-    
+
     # Remove latex styling from legend labels if Latex is not installed
     if not FigMisc.TEX_INSTALLED:
         for Planet in PlanetList:
@@ -35,6 +35,8 @@ def GeneratePlots(PlanetList, Params):
         PlotGravPres(PlanetList, Params)
     if Params.PLOT_HYDROSPHERE and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]):
         PlotHydrosphereProps(PlanetList, Params)
+    if Params.PLOT_SPECIES_HYDROSPHERE and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]):
+        PlotHydrosphereSpecies(PlanetList, Params)
     if Params.PLOT_TRADEOFF:
         PlotSilTradeoff(PlanetList, Params)
         if np.any([Planet.Do.Fe_CORE for Planet in PlanetList]):
@@ -360,6 +362,77 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     return
 
+
+def PlotHydrosphereSpecies(PlanetList, Params):
+    fig = plt.figure(figsize=FigSize.vmant)
+    grid = GridSpec(1, 1)
+    ax = fig.add_subplot(grid[0, 0])
+    if Style.GRIDS:
+        ax.grid()
+        ax.set_axisbelow(True)
+
+    ax.set_xlabel("Aqueous species moles per kg fluid")
+    ax.set_ylabel("Depth z (km)")
+    # Now plot all profiles together
+    for Planet in PlanetList:
+        # This is a hydrosphere-only plot for Reaktoro, so skip waterless bodies or bodies not utilizing Reaktoro
+        if "CustomSolution" in Planet.Ocean.comp:
+            legLbl = Planet.label
+            if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
+                legLbl = f'{Planet.name} {legLbl}'
+            indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
+                indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
+                indsFe = GetPhaseIndices(Planet.phase)
+            if np.size(indsLiq) != 0:
+                Planet.Ocean.EquilibriumSpecies = Planet.Ocean.EOS.fn_species(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq])
+                lower_threshold = 1e-14
+                upper_threshold = 10
+                all_relevant_df_columns = [col for col in Planet.Ocean.EquilibriumSpecies.columns if 'amount' in col]
+                all_equilibrium_species_df = Planet.Ocean.EquilibriumSpecies[all_relevant_df_columns]
+                mask_of_equilibrium_species_to_plot = (all_equilibrium_species_df > lower_threshold) & (all_equilibrium_species_df < upper_threshold)
+                species_columns_to_plot = mask_of_equilibrium_species_to_plot.any()
+                df_of_equilibrium_species_to_plot = all_equilibrium_species_df.loc[:, species_columns_to_plot]
+                num_lines = len(df_of_equilibrium_species_to_plot.columns)
+                line_styles = ['-', '--', '-.', ':', 'None', ' ', '', 'solid', 'dashed', 'dashdot', 'dotted']
+                colormap = plt.cm.get_cmap('viridis')
+                colors = [colormap(i / num_lines) for i in range(num_lines)]
+                for i, species in enumerate(df_of_equilibrium_species_to_plot.columns):
+                    style = line_styles[i % len(line_styles)]
+                    species_column = df_of_equilibrium_species_to_plot[species]
+                    line, = ax.plot(species_column, Planet.z_m[indsLiq]/1e3, linestyle = style, color = colors[i])
+                    x_label_pos = species_column[-i % len(species_column)]  # x position of the end of the line
+                    y_label_pos = Planet.z_m[indsLiq][-i % len(species_column)]/1e3  # y position of the end of the line
+                    ax.text(x_label_pos, y_label_pos, species,
+                            color=line.get_color(),
+                            verticalalignment='bottom',
+                            horizontalalignment='right',
+                            fontsize=9)
+                ax.set_xscale('log')
+                current_xlim = ax.get_xlim()
+                new_xmax = 10**np.ceil(np.log10(current_xlim[1]))
+                ax.set_xlim([current_xlim[0], new_xmax])
+                ax.invert_yaxis()
+                plt.tight_layout()
+                file_name = Params.FigureFiles.vhydro.replace("Hydrosphere", "OceanSpecies")
+                fig.savefig(file_name, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                log.debug(f'Ocean aqueous species plot saved to file: {file_name}')
+                plt.close()
+            else:
+                log.warning("There is no ocean, thus will not plot a hydrosphere species plot.")
+
+
+
+
+            ax.plot(Planet.Sil.Rtrade_m/1e3, Planet.Sil.rhoTrade_kgm3,
+                    label=legLbl, linewidth=Style.LW_std)
+
+    if Params.LEGEND:
+        ax.legend()
+
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.vmant, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    log.debug(f'Mantle trade plot saved to file: {Params.FigureFiles.vmant}')
+    plt.close()
 
 def PlotCoreTradeoff(PlanetList, Params):
     fig = plt.figure(figsize=FigSize.vcore)
@@ -865,7 +938,7 @@ def PlotWedge(PlanetList, Params):
                     ax.add_patch(Wedge((0.5,0), (R_km - Planet.zClath_km)/rMax_km, ang1, ang2,
                                        width=Planet.dzClath_km/rMax_km,
                                        fc=Color.clathCond, lw=Style.LW_wedge, ec=clathConvBd))
-                    
+
                 # Outer boundary around clathrates
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zClath_km)/rMax_km, ang1, ang2,
                                    width=Planet.dzClath_km/rMax_km,
@@ -889,7 +962,7 @@ def PlotWedge(PlanetList, Params):
                         ax.add_patch(Wedge((0.5, 0), R_km/rMax_km, ang1 + iWdg*angWdg, ang1 + (iWdg+1)*angWdg,
                                            width=(Planet.dzIceI_km + thickDiff)/rMax_km, zorder=100,
                                            fc=Color.iceIcond, lw=Style.LW_wedge, ec=iceConvBd))
-            
+
             # Outer boundary around ice I
             if Planet.dzIceI_km > 0:
                 if Planet.Bulk.asymIce is None:
@@ -901,7 +974,7 @@ def PlotWedge(PlanetList, Params):
                         ax.add_patch(Wedge((0.5, 0), R_km/rMax_km, ang1 + iWdg*angWdg, ang1 + (iWdg+1)*angWdg,
                                            width=(Planet.dzIceI_km + thickDiff)/rMax_km, zorder=100,
                                            fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
-                
+
             # Surface HP ices
             if Planet.dzIceIIIund_km > 0:
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceIIIund_m/1e3)/rMax_km, ang1, ang2,
@@ -911,7 +984,7 @@ def PlotWedge(PlanetList, Params):
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceVund_m/1e3)/rMax_km, ang1, ang2,
                                    width=Planet.dzIceVund_km/rMax_km,
                                    fc=Color.iceV, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
-            
+
             # @@@@@@@@@@@
             # Ocean layer
             # @@@@@@@@@@@
@@ -931,11 +1004,11 @@ def PlotWedge(PlanetList, Params):
                     ax.add_patch(Wedge((0.5, 0), ((R_km - Planet.zb_km) - thisOceanFrac*Planet.D_km)/rMax_km, ang1, ang2,
                                        width=dz*Planet.D_km/rMax_km, clip_path=oceanOuter,
                                        fc=Color.oceanCmap(thisOceanFrac), ec=Color.oceanCmap(thisOceanFrac)))
-    
+
                 # Draw outer boundary
                 oceanOuter.set_edgecolor(Color.wedgeBd)
                 ax.add_patch(oceanOuter)
-                    
+
             # Undersea HP ices
             if Planet.dzIceIII_km > 0:
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceIII_m/1e3)/rMax_km, ang1, ang2,
@@ -949,7 +1022,7 @@ def PlotWedge(PlanetList, Params):
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceVI_m/1e3)/rMax_km, ang1, ang2,
                                    width=Planet.dzIceVI_km/rMax_km,
                                    fc=Color.iceVI, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
-             
+
         # @@@@@@@@@
         # Silicates
         # @@@@@@@@@

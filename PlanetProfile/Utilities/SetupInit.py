@@ -8,6 +8,7 @@ from PlanetProfile import _ROOT
 from PlanetProfile.GetConfig import FigMisc, FigLbl
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
+from PlanetProfile.Thermodynamics.Reaktoro.ReaktoroAdjustments import ReaktoroConfigAdjustments
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathDissoc
 from PlanetProfile.Utilities.PPversion import ppVerNum, CheckCompat
 from PlanetProfile.Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
@@ -32,6 +33,10 @@ def SetupInit(Planet, Params):
     if Planet.Ocean.comp == 'Seawater': CheckCompat('gsw')  # Gibbs Seawater
     if Planet.Do.TAUP_SEISMIC: CheckCompat('obspy')  # TauP (accessed as obspy.taup)
     if Params.CALC_NEW_INDUCT: CheckCompat('MoonMag')  # MoonMag
+
+    # Check if Custom Reaktoro Solution is being used and if so then update Params with necessary parameters to plot
+    if 'CustomSolution' in Planet.Ocean.comp:
+        Params = ReaktoroConfigAdjustments(Planet, Params)
 
     # Afford for additional MoI lower-bound uncertainty under non-hydrostatic conditions of 3% of C/MR^2,
     # in accordance with Gao and Stevenson (2013): https://doi.org/10.1016/j.icarus.2013.07.034

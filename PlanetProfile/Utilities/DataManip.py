@@ -139,3 +139,6 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].fn_eta_Pas(P_MPa, T_K, grid=grid)
     def fn_Seismic(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K, grid=grid)
+    def fn_species(self, P_MPa, T_K, grid = False):
+        return EOSlist.loaded[self.key].fn_species(P_MPa, T_K, grid=grid)
+
