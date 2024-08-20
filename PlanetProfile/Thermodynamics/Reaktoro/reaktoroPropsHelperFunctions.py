@@ -130,7 +130,10 @@ def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio
         db, system, state, conditions, solver, props: Relevant reaktoro objects
     """
     # Initialize the database
-    db = rkt.PhreeqcDatabase(database)
+    if database == 'frezchem.dat':
+        db = rkt.PhreeqcDatabase(database)
+    else:
+        db = rkt.PhreeqcDatabase.fromFile("PlanetProfile/Thermodynamics/Reaktoro/"+database)
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
     solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
