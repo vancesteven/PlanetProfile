@@ -41,7 +41,7 @@ def elecCondMcCleskey2012(P_MPa, T_C, ions):
     if ions:
         sigma_Sm = np.zeros_like(T_C)
     else:
-        raise log.error("No ion data available. Assuming pure water")
+        log.error("No ion data available. Assuming pure water")
         return np.zeros_like(P_MPa) + Constants.sigmaH2O_Sm
     for ion_name, ion_data in ions.items():
         if ion_name in data:

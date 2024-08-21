@@ -176,7 +176,15 @@ def PlotHydrosphereProps(PlanetList, Params):
             fig.suptitle(FigLbl.hydroCompareTitle)
 
     # Plot reference profiles first, so they plot on bottom of everything
-    comps = np.unique([Planet.Ocean.comp for Planet in PlanetList])
+    # Ensure that we only have one unique CustomSolution identifier in comps
+    comps = []
+    for Planet in PlanetList:
+        if "CustomSolution" in Planet.Ocean.comp:
+            if Planet.Ocean.comp.split('=')[0] not in comps:
+                comps.append(Planet.Ocean.comp)
+        else:
+            comps.append(Planet.Ocean.comp)
+    comps = np.unique(comps)
     if Params.PLOT_REF:
         # Keep track of which reference profiles have been plotted so that we do each only once
         newRef = {comp:True for comp in comps}
@@ -188,7 +196,11 @@ def PlotHydrosphereProps(PlanetList, Params):
         for Planet in PlanetList:
             if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
                 # Get strings for referencing and labeling
-                wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp}}} \\{{'
+                # If using CustomSolution, then adjust label so compatible with Latex formating
+                if "CustomSolution" in Planet.Ocean.comp:
+                    wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp.split('=')[0].strip()}}} \\{{'
+                else:
+                    wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp}}} \\{{'
                 wList += ', '.join([f'{w*FigLbl.wMult:.0f}' for w in Params.wRef_ppt[Planet.Ocean.comp]])
                 wList += '\}\,$\si{' + FigLbl.wUnits + '}$'
                 if not FigMisc.TEX_INSTALLED:
@@ -365,14 +377,16 @@ def PlotHydrosphereProps(PlanetList, Params):
 
 def PlotHydrosphereSpecies(PlanetList, Params):
     fig = plt.figure(figsize=FigSize.vmant)
-    grid = GridSpec(1, 1)
-    ax = fig.add_subplot(grid[0, 0])
+    grid = GridSpec(1, 2)
+    allspeciesax = fig.add_subplot(grid[0, 0])
+    aqueouspseciesax = fig.add_subplot(grid[0, 1])
+    axs = [allspeciesax, aqueouspseciesax]
     if Style.GRIDS:
-        ax.grid()
-        ax.set_axisbelow(True)
-
-    ax.set_xlabel("Aqueous species moles per kg fluid")
-    ax.set_ylabel("Depth z (km)")
+        allspeciesax.grid()
+        allspeciesax.set_axisbelow(True)
+    allspeciesax.set_xlabel("All species (moles)")
+    allspeciesax.set_ylabel("Depth z (km)")
+    aqueouspseciesax.set_xlabel("Aqueous species (moles per kg fluid)")
     # Now plot all profiles together
     for Planet in PlanetList:
         # This is a hydrosphere-only plot for Reaktoro, so skip waterless bodies or bodies not utilizing Reaktoro
@@ -387,31 +401,41 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                 Planet.Ocean.EquilibriumSpecies = Planet.Ocean.EOS.fn_species(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq])
                 lower_threshold = 1e-14
                 upper_threshold = 10
-                all_relevant_df_columns = [col for col in Planet.Ocean.EquilibriumSpecies.columns if 'amount' in col]
+                all_relevant_df_columns = [col for col in Planet.Ocean.EquilibriumSpecies.columns if 'Amount' in col]
                 all_equilibrium_species_df = Planet.Ocean.EquilibriumSpecies[all_relevant_df_columns]
                 mask_of_equilibrium_species_to_plot = (all_equilibrium_species_df > lower_threshold) & (all_equilibrium_species_df < upper_threshold)
                 species_columns_to_plot = mask_of_equilibrium_species_to_plot.any()
                 df_of_equilibrium_species_to_plot = all_equilibrium_species_df.loc[:, species_columns_to_plot]
                 num_lines = len(df_of_equilibrium_species_to_plot.columns)
-                line_styles = ['-', '--', '-.', ':', 'None', ' ', '', 'solid', 'dashed', 'dashdot', 'dotted']
+                line_styles = ['-', '--', '-.', ':']
                 colormap = plt.cm.get_cmap('viridis')
                 colors = [colormap(i / num_lines) for i in range(num_lines)]
                 for i, species in enumerate(df_of_equilibrium_species_to_plot.columns):
                     style = line_styles[i % len(line_styles)]
                     species_column = df_of_equilibrium_species_to_plot[species]
-                    line, = ax.plot(species_column, Planet.z_m[indsLiq]/1e3, linestyle = style, color = colors[i])
-                    x_label_pos = species_column[-i % len(species_column)]  # x position of the end of the line
-                    y_label_pos = Planet.z_m[indsLiq][-i % len(species_column)]/1e3  # y position of the end of the line
-                    ax.text(x_label_pos, y_label_pos, species,
+                    line, = allspeciesax.plot(species_column, Planet.z_m[indsLiq]/1e3, linestyle = style, color = colors[i])
+
+                    x_label_pos = species_column[0 % len(species_column)]  # x position of the end of the line
+                    y_label_pos = Planet.z_m[indsLiq][0 % len(species_column)]/1e3  # y position of the end of the line
+                    species_label = species.replace(species[:species.find("Amount")+len("Amount")], "")
+                    allspeciesax.text(x_label_pos, y_label_pos, species_label,
                             color=line.get_color(),
                             verticalalignment='bottom',
                             horizontalalignment='right',
-                            fontsize=9)
-                ax.set_xscale('log')
-                current_xlim = ax.get_xlim()
-                new_xmax = 10**np.ceil(np.log10(current_xlim[1]))
-                ax.set_xlim([current_xlim[0], new_xmax])
-                ax.invert_yaxis()
+                            fontsize=14)
+                    if "Aqueous" in species:
+                        aqueouspseciesax.plot(species_column, Planet.z_m[indsLiq]/1e3, linestyle = style, color = colors[i])
+                        aqueouspseciesax.text(x_label_pos, y_label_pos, species_label,
+                                          color=line.get_color(),
+                                          verticalalignment='bottom',
+                                          horizontalalignment='right',
+                                          fontsize=9)
+                for ax in axs:
+                    ax.set_xscale('log')
+                    current_xlim = ax.get_xlim()
+                    new_xmax = 10**np.ceil(np.log10(current_xlim[1]))
+                    ax.set_xlim([current_xlim[0], new_xmax])
+                    ax.invert_yaxis()
                 plt.tight_layout()
                 file_name = Params.FigureFiles.vhydro.replace("Hydrosphere", "OceanSpecies")
                 fig.savefig(file_name, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
@@ -419,20 +443,6 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                 plt.close()
             else:
                 log.warning("There is no ocean, thus will not plot a hydrosphere species plot.")
-
-
-
-
-            ax.plot(Planet.Sil.Rtrade_m/1e3, Planet.Sil.rhoTrade_kgm3,
-                    label=legLbl, linewidth=Style.LW_std)
-
-    if Params.LEGEND:
-        ax.legend()
-
-    plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vmant, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
-    log.debug(f'Mantle trade plot saved to file: {Params.FigureFiles.vmant}')
-    plt.close()
 
 def PlotCoreTradeoff(PlanetList, Params):
     fig = plt.figure(figsize=FigSize.vcore)
@@ -837,6 +847,9 @@ def PlotWedge(PlanetList, Params):
         else:
             if Planet.Ocean.comp == 'PureH2O':
                 compStr = r'Pure \ce{H2O} ocean'
+            elif 'CustomSolution' in Planet.Ocean.comp:
+                solutionTitle = Planet.Ocean.comp.split('=')[0].strip()
+                compStr = f'\SI{{{Planet.Ocean.wOcean_ppt:.1f}}}{{{FigLbl.wUnits}}}~\ce{{{solutionTitle}}}'
             else:
                 compStr = f'\SI{{{Planet.Ocean.wOcean_ppt:.1f}}}{{{FigLbl.wUnits}}}~\ce{{{Planet.Ocean.comp}}}'
 

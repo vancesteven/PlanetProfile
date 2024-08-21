@@ -226,7 +226,7 @@ class OceanEOSStruct:
                 self.propsPmax = self.ufn_Seismic.Pmax
                 self.Pmax = np.min([self.Pmax, self.phasePmax])
             elif self.comp.startswith("CustomSolution"):
-                self.speciation = speciation
+                self.speciation = compstr.split('=')[1].strip()
                 # Parse out the species list and ratio into a format compatible with Reaktoro
                 self.aqueous_species_string, self.speciation_ratio_mol_kg = SpeciesParser(self.speciation)
                 self.type = 'Reaktoro'

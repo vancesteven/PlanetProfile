@@ -31,7 +31,7 @@ def SpeciesParser(species_string_with_ratios):
 
     '''
     # Initialize the Phreeqc database with frezchem
-    db = rkt.PhreeqcDatabase("frezchem.dat")
+    db = rkt.PhreeqcDatabase.fromFile("PlanetProfile/Thermodynamics/Reaktoro/frezchem_new2.dat")
     # Create a new string that will hold all the aqueous species in a format compatible with Reaktoro
     aqueous_species_string = ""
     # Create a new dictionary that will hold all the aqueous species with a specified amount to add in a format compatible with Reaktoro
@@ -438,62 +438,49 @@ def interpolation_2d_seismic(zero_indices, sound_speeds, densities):
     densities = updated_array_lists[1]
     log.warning("Performed 2d linear interpolation on missing thermodynamic properties")
     return sound_speeds, densities
-def interpolation_2d(zero_indices, rho_kgm3, Cp_JKgK, alpha_pK):
-    """ Utilized as a helper function for thermodynamic properties calculation. Performs a 2d interpolation on any values that are non-zero in the
-        provided arrays, allowing the zero values to be interpolated.
-    Args:
-        zero_indices: Array of indices where there are zeros
-        rho_kgm3 (float, shape NxM): Mass density of liquid in kg/m^3
-        Cp_JkgK (float, shape NxM): Isobaric heat capacity of liquid in J/(kg K)
-        alpha_pK (float, shape NxM): Thermal expansivity of liquid in 1/K
-    Returns:
-        rho_kgm3 (float, shape NxM): Mass density of liquid in kg/m^3 whose zero values have been replaced by interpolated values
-        Cp_JkgK (float, shape NxM): Isobaric heat capacity of liquid in J/(kg K) whose zero values have been replaced by interpolated values
-        alpha_pK (float, shape NxM): Thermal expansivity of liquid in 1/K whose zero values have been replaced by interpolated values
 
-    """
-    initial_array_lists = [rho_kgm3, Cp_JKgK, alpha_pK]
-    updated_array_lists = []
-    for array in initial_array_lists:
-        # Create mask of non-zero values
-        nonzero_mask = (array != 0)
-        # Interpolate using scipy interp2d function
-        x, y = np.meshgrid(np.arange(array.shape[1]), np.arange(array.shape[0]))
-        x_interp = x[nonzero_mask]
-        y_interp = y[nonzero_mask]
-        z_interp = array[nonzero_mask]
-        updated_array_lists.append(interpolate.griddata((x_interp, y_interp), z_interp, (x, y)))
-    rho_kgm3 = updated_array_lists[0]
-    Cp_JKgK = updated_array_lists[1]
-    alpha_pK = updated_array_lists[2]
-    log.warning("Performed 2d linear interpolation on missing thermodynamic properties")
-    return rho_kgm3, Cp_JKgK, alpha_pK
+def interpolation_2d(P_MPa, arrays):
+    """ Utilized as a helper function for thermodynamic properties calculation. Performs a 2d interpolation on any values that are NaN in the
+        provided arrays, allowing the zero values to be interpolated."""
+    interpolated_arrays = []
+    P_MPa = P_MPa[:, 0]
+    for array in arrays:
+        interpolated_array = np.copy(array)
+        for col in range(array.shape[1]):
+            column_data = array[:, col]
+            nan_mask = np.isnan(column_data)
+            if np.any(nan_mask):
+                x_known = P_MPa[~nan_mask]
+                y_known = column_data[~nan_mask]
+                spline = interpolate.make_interp_spline(x_known, y_known, k = 2)
+                interpolated_values = spline(P_MPa)
+                interpolated_array[:, col] = interpolated_values
+        interpolated_arrays.append(interpolated_array)
+    return tuple(interpolated_arrays)
 
 
-def interpolation_1d(zero_indices, array1, array2):
-    array_lists = [array1, array2]
-    for array in array_lists:
-        # Create mask of non-zero values
-        nonzero_mask = (array != 0)
-        # Interpolate using scipy interp2d function
-        x_interp = np.arange(len(array))
-        x_interp_nonzero = x_interp[nonzero_mask]
-        y_interp_nonzero = array[nonzero_mask]
-        f = interpolate.interp1d(x_interp_nonzero, y_interp_nonzero, kind = 'linear', fill_value = 'extrapolate')
-        for idx in zero_indices:
-            if array[idx] == 0:
-                array[idx] = f(idx)
-    log.warning("Performed 1d linear interpolation on missing seismic properties")
-    return array1, array2
+def interpolation_1d(P_MPa, arrays):
+    interpolated_arrays = []
+    for array in arrays:
+        # Create mask for known values (not NaN)
+        nan_mask = np.isnan(array)
+        # Extract known points and values
+        x_known = P_MPa[~nan_mask]
+        y_known = array[~nan_mask]
+        spline = interpolate.make_interp_spline(x_known, y_known, k=2)
+        # Perform the interpolation
+        interpolated_results = spline(P_MPa)
+        interpolated_arrays.append(interpolated_results)
+    return tuple(interpolated_arrays)
 
 
 def panda_df_generator(system):
-    columns = ["P (MPa)", "T (K)", "pH", "Amount", "Charge", "SolidAmount", "LiquidAmount"]
+    columns = ["P (MPa)", "T (K)", "pH", "Amount", "Charge", "SolidTotal", "LiquidTotal"]
     species = []
     for speciesItem in system.species():
-        species.append(speciesItem.name())
+        species.append(speciesItem.aggregateState().name + "Amount" + speciesItem.name())
     # Dictionary that maps certain column names that require using species list to Reaktoro code
-    translation_dictionary_for_species_list = {"Amount": ["amount" + name for name in species]}
+    translation_dictionary_for_species_list = {"Amount": species}
     df_column_names = []
     for column in columns:
         if column in translation_dictionary_for_species_list:

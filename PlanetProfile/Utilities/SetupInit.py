@@ -234,7 +234,7 @@ def SetupInit(Planet, Params):
         else:
             TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
         Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
-                                       Planet.Ocean.MgSO4elecType, speciation= Planet.Ocean.species, rhoType=Planet.Ocean.MgSO4rhoType,
+                                       Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                        scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                        phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
                                        sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
@@ -266,7 +266,7 @@ def SetupInit(Planet, Params):
         else:
             Tmelt_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
         Pmelt_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.PfreezeUpper_MPa, Planet.PfreezeRes_MPa)
-        Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K,  None, speciation=Planet.Ocean.species,
+        Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K,  None,
                                            phaseType=Planet.Ocean.phaseType, FORCE_NEW=True, MELT=True,
                                            LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
 
@@ -515,6 +515,10 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             setStr = f'Pure \ce{{H2O}}'
             label += f'{setStr}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
             Planet.compStr = r'Pure~\ce{H2O}'
+        elif "CustomSolution" in Planet.Ocean.comp:
+            saveLabel += Planet.Ocean.comp.split('=')[0].strip()
+            label = f'{saveLabel}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+            Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Ocean.comp}}}'
         else:
             saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
                         f'_Tb{Planet.Bulk.Tb_K}K'
