@@ -35,8 +35,8 @@ def GeneratePlots(PlanetList, Params):
         PlotGravPres(PlanetList, Params)
     if Params.PLOT_HYDROSPHERE and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]):
         PlotHydrosphereProps(PlanetList, Params)
-    # if Params.PLOT_SPECIES_HYDROSPHERE and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]):
-    #     PlotHydrosphereSpecies(PlanetList, Params)
+    if Params.PLOT_SPECIES_HYDROSPHERE and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]) and np.any(["CustomSolution" in Planet.Ocean.comp for Planet in PlanetList]):
+        PlotHydrosphereSpecies(PlanetList, Params)
     if Params.PLOT_TRADEOFF:
         PlotSilTradeoff(PlanetList, Params)
         if np.any([Planet.Do.Fe_CORE for Planet in PlanetList]):
@@ -442,7 +442,7 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                 log.debug(f'Ocean aqueous species plot saved to file: {file_name}')
                 plt.close()
             else:
-                log.warning("There is no ocean, thus will not plot a hydrosphere species plot.")
+                log.warning("There is no ocean, thus will not plot a hydrosphere species plot for this model.")
 
 def PlotCoreTradeoff(PlanetList, Params):
     fig = plt.figure(figsize=FigSize.vcore)

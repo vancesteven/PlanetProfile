@@ -3,6 +3,7 @@
 import os
 import numpy as np
 import logging
+from datetime import datetime
 from collections.abc import Iterable
 from PlanetProfile import _ROOT
 from PlanetProfile.GetConfig import FigMisc, FigLbl
@@ -547,6 +548,11 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             label += ' w/$\phi_\mathrm{sil}$'
     if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSname}'
 
+    # Add time and date label
+    if Params.TIME_AND_DATE_LABEL:
+        current_datetime = datetime.now()
+        formatted_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M")
+        saveLabel += f"_{formatted_datetime}"
     Planet.saveLabel = saveLabel
     Planet.tradeLabel = f'{label}, $C/MR^2\,{Planet.CMR2str}$'
     if Planet.label is None:
@@ -563,6 +569,8 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             exploreBase = f'{Planet.name}ExploreOgram_{exploreAppend}_{saveLabel}'
         else:
             exploreBase = None
+
+
     DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, Planet.Ocean.comp, inductBase=inductBase,
                                    exploreAppend=exploreAppend, EXPLORE=(Params.DO_INDUCTOGRAM or
                                        Params.DO_EXPLOREOGRAM or Params.INDUCTOGRAM_IN_PROGRESS),

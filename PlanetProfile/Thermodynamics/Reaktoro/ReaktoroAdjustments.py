@@ -5,7 +5,6 @@ from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import FileSetupFromCon
 def ReaktoroConfigAdjustments(Planet, Params):
     Params.wRef_ppt[Planet.Ocean.comp] = Params.wRef_ppt["CustomSolution"]
     Params.fNameRef[Planet.Ocean.comp] = f'{Planet.Ocean.comp}Ref.txt'
-    Params.PLOT_SPECIES_HYDROSPHERE = True
 
     Color.cmapName[Planet.Ocean.comp] = Color.cmapName["CustomSolution"]
     Color.cmapBounds[Planet.Ocean.comp] = Color.cmapBounds["CustomSolution"]

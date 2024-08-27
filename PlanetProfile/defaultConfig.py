@@ -46,12 +46,12 @@ def configAssign():
     Params.DISP_TABLE =       True  # Whether to print latex-formatted table
     Params.ALLOW_BROKEN_MODELS = False  # Whether to continue running models that don't match physical constraints (i.e. MoI), with many values set to nan. Currently only implemented for CONSTANT_INNER_DENSITY = True and only allows broken MoI matching. Broken Tb_K matching is also intended.
     Params.DEPRECATED =       False  # Whether to allow deprecated code to run. Will often cause errors.
+    Params.TIME_AND_DATE_LABEL = False # Whether to add a time and date stamp to the end of saved file names
 
     # Plot Settings
     Params.SKIP_PLOTS =       False  # Whether to skip creation of all plots
     Params.PLOT_GRAVITY =     True  # Whether to plot Gravity and Pressure
     Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
-    Params.PLOT_SPECIES_HYDROSPHERE = False # Whether to plot Aqueous species as a function of ocean depth (applicable to CustomSolution)
     Params.PLOT_REF =         True  # Whether to plot reference melting curve densities on hydrosphere plot
     Params.PLOT_SIGS =        True  # Whether to plot conductivities as a function of radius on hydrosphere plot if they have been calculated
     Params.PLOT_SOUNDS =      True  # Whether to plot sound speeds as a function of radius on hydrosphere plot if they have been calculated
@@ -70,6 +70,9 @@ def configAssign():
     Params.PLOT_BINVERSION =  False  # Whether to plot magnetic field vector components for flyby inversion
     Params.LEGEND =           True  # Whether to plot legends
     Params.TITLES =           True  # Whether to include a (sup)title on plots
+
+    # Custom ocean solution plot settings
+    Params.PLOT_SPECIES_HYDROSPHERE = True # Whether to plot aqueous species concentration as a function of ocean depth
 
     # Magnetic induction plot settings
     Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question
