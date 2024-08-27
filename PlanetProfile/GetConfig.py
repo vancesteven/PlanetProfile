@@ -46,6 +46,8 @@ from PlanetProfile.MagneticInduction.defaultConfigInduct import configInductVers
 from configPPinduct import configInductVersion as userConfigInductVersion
 from PlanetProfile.Plotting.defaultConfigPlots import configPlotsVersion
 from configPPplots import configPlotsVersion as userConfigPlotsVersion
+from PlanetProfile.CustomSolution.defaultConfigCustomSolution import configCustomSolutionVersion
+from configPPcustomsolution import configCustomSolutionVersion as userCustomSolutionVersion
 
 # Check sub-config file versions and warn user if they differ
 if configInductVersion != userConfigInductVersion:
@@ -58,6 +60,11 @@ if configPlotsVersion != userConfigPlotsVersion:
          f'version {configPlotsVersion}. Some settings may be missing; default values will be used. ' +
          f'To align the file version, delete configPPplots.py and run again, or execute reset.py ' +
          f'with python -m PlanetProfile.reset')
+if configCustomSolutionVersion != userCustomSolutionVersion:
+    warn(f'User configPPcustomsolution file is version {userCustomSolutionVersion}, but the default file is ' +
+         f'version {configCustomSolutionVersion}. Some settings may be missing; default values will be used. ' +
+         f'To align the file version, delete cconfigPPcustomsolution.py and run again, or execute reset.py ' +
+         f'with python -m PlanetProfile.reset')
 
 from PlanetProfile.MagneticInduction.defaultConfigInduct import inductAssign
 from configPPinduct import inductAssign as userInductAssign
@@ -65,6 +72,8 @@ from PlanetProfile.TrajecAnalysis.defaultConfigTrajec import trajecAssign
 from configPPtrajec import trajecAssign as userTrajecAssign
 from PlanetProfile.Plotting.defaultConfigPlots import plotAssign
 from configPPplots import plotAssign as userPlotAssign
+from PlanetProfile.CustomSolution.defaultConfigCustomSolution import customSolutionAssign
+from configPPcustomsolution import customSolutionAssign as userCustomSolutionAssign
 
 SigParams, ExcSpecParams, InductParams, _ = inductAssign()
 userSigParams, userExcSpecParams, userInductParams, userTestBody = userInductAssign()
@@ -72,13 +81,15 @@ TrajecParams = trajecAssign()
 userTrajecParams = userTrajecAssign()
 Color, Style, FigLbl, FigSize, FigMisc = plotAssign()
 userColor, userStyle, userFigLbl, userFigSize, userFigMisc = userPlotAssign()
+CustomSolutionParams = customSolutionAssign()
+userCustomSolutionParams = userCustomSolutionAssign()
+
 
 # Load user settings to allow for configuration
 for attr, value in userParams.__dict__.items():
     setattr(Params, attr, value)
 for attr, value in userExploreParams.__dict__.items():
     setattr(ExploreParams, attr, value)
-    
 for attr, value in userSigParams.__dict__.items():
     setattr(SigParams, attr, value)
 for attr, value in userExcSpecParams.__dict__.items():
@@ -99,6 +110,9 @@ for attr, value in userFigSize.__dict__.items():
     setattr(FigSize, attr, value)
 for attr, value in userFigMisc.__dict__.items():
     setattr(FigMisc, attr, value)
+
+for attr, value in userCustomSolutionParams.__dict__.items():
+    setattr(CustomSolutionParams, attr, value)
 
 # Execute necessary adjustments and add non-settings to Params objects
 Params.tStart_s = time.time()
@@ -192,3 +206,4 @@ Params.Induct = InductParams
 Params.MagSpectrum = ExcSpecParams
 Params.Explore = ExploreParams
 Params.Trajec = TrajecParams
+Params.CustomSolution = CustomSolutionParams

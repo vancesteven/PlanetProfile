@@ -2031,6 +2031,13 @@ class FigSizeStruct:
         self.apsidal = None
 
 
+"Custom ocean solution settings"
+class CustomSolutionStruct:
+    def __init__(self):
+        self.FREZCHEM_DATABASE = None
+        self.SPECIES_CONCENTRATION_UNIT = None
+
+
 # For configuring longitudes from -180 to 180 or 0 to 360.
 def LonFormatter(longitude, EAST=True):
     fmtString = u'{longitude:{num_format}}{degree}{hemisphere}'

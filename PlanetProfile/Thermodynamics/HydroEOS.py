@@ -20,10 +20,10 @@ from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase, Specie
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
-def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, speciation = None, rhoType=None, scalingType=None, phaseType=None,
+def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
                 EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None, LOOKUP_HIRES=False,
                 etaFixed_Pas=None):
-    oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, speciation = speciation, rhoType=rhoType, scalingType=scalingType,
+    oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
                               phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE,
                               sigmaFixed_Sm=sigmaFixed_Sm, LOOKUP_HIRES=LOOKUP_HIRES, etaFixed_Pas=etaFixed_Pas)
     if oceanEOS.ALREADY_LOADED and not FORCE_NEW:
@@ -40,7 +40,7 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, speciation = None, rh
     return oceanEOSwrapper
 
 class OceanEOSStruct:
-    def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, speciation = None, rhoType=None, scalingType=None,
+    def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
                  phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False,
                  sigmaFixed_Sm=None, LOOKUP_HIRES=False, etaFixed_Pas=None):
         if elecType is None:

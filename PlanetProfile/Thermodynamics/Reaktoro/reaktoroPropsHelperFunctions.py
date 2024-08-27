@@ -1,4 +1,6 @@
 import copy
+
+import reaktoro
 import reaktoro as rkt
 import numpy as np
 import logging
@@ -12,51 +14,7 @@ from PlanetProfile.Utilities.DataManip import ResetNearestExtrap
 from scipy import interpolate
 log = logging.getLogger('PlanetProfile')
 
-
-def SpeciesParser(species_string_with_ratios):
-    '''
-    Converts the provided String of species and their molar ratios into formats necessary for Reaktoro. Namely, creates
-    a String of all the species in the list and a dictionary with 'active' species that are added to solution (the observer species are
-    automatically generated to be 1e-16 moles in the solution by Reaktoro). It also returns the w_ppt of the solution. If any of the species do not exist in the database Reaktoro is implementing
-    (namely frezchem), this method raises an error that the species does not exist.
-
-     Parameters
-     ----------
-     species_string_with_ratios: String of all the species that should be considered in aqueous phase and their corresponding molar ratios.
-        For example, "Cl-: 19.076, Na+: 5.002, Ca2+: 0.0"
-     Returns
-     -------
-     aqueous_species_string: String that has all species names that should be considered in aqueous phase
-     speciation_ratio_mol_kg: Dictionary of active species and the values of their molar ratio (mol/kg of water)
-
-    '''
-    # Initialize the Phreeqc database with frezchem
-    db = rkt.PhreeqcDatabase.fromFile("PlanetProfile/Thermodynamics/Reaktoro/frezchem_new2.dat")
-    # Create a new string that will hold all the aqueous species in a format compatible with Reaktoro
-    aqueous_species_string = ""
-    # Create a new dictionary that will hold all the aqueous species with a specified amount to add in a format compatible with Reaktoro
-    speciation_ratio_mol_kg = {}
-    # Go through each species and corresponding ratio_mol_kg and add to corresponding lists
-    for species_with_ratio in species_string_with_ratios.split(", "):
-        species, ratio_mol_kg = species_with_ratio.split(": ")
-        # Ensure that species is in frezchem database and if not then raise error
-        try:
-            db.species(species)
-        except:
-            raise ValueError(f'{species} does not exist in the Phreeqc database. Check that it is entered correctly in the Planet.ocean.species')
-        # Add species to string
-        aqueous_species_string = aqueous_species_string + species + " "
-        # Check if the species is active (amount > 0 mol) and if so, add it to the dictionary
-        if (float(ratio_mol_kg) > 0):
-            speciation_ratio_mol_kg[species] = float(ratio_mol_kg)
-    # Check if water is in the aqueous species string and dictionary and if not, add it, ensuring to update the weight to be 1kg
-    if not "H2O" in aqueous_species_string:
-        aqueous_species_string = aqueous_species_string + "H2O "
-    # Ensure H2O amount is a mol equivalent of 1kg
-    speciation_ratio_mol_kg.update({"H2O": float(1/rkt.waterMolarMass)})
-    # Return the species string and dictionary (remove the trailing white space from the String as well with rstrip())
-    return aqueous_species_string.rstrip(" "), speciation_ratio_mol_kg
-
+species_concentration_unit = None
 
 
 def TemperatureCorrectionSplineGenerator():
@@ -74,19 +32,19 @@ def TemperatureCorrectionSplineGenerator():
     return spline
 
 
-def PhreeqcGenerator(aqueous_species_list, speciation_ratio_mol_kg, database_name):
+def PhreeqcGenerator(aqueous_species_list, speciation_ratio_mol_kg, database_file):
     """ Create a Phreeqc Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
         Works for both core10.dat and frezchem.dat.
     Args:
         aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
      speciation_ratio_mol_kg: the ratio of species in the aqueous solution in mol/kg of water. Should be a dictionary
      with the species as the key and its ratio as its value.
-        database_name: frezchem or core10
+        database_file: file path of Phreeqc database
     Returns:
         db, system, state, conditions, solver, props, ice_name: Relevant reaktoro objects
     """
     # Initialize the database
-    db = rkt.PhreeqcDatabase(database_name)
+    db = rkt.PhreeqcDatabase.fromFile(database_file)
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
     solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
@@ -105,19 +63,19 @@ def PhreeqcGenerator(aqueous_species_list, speciation_ratio_mol_kg, database_nam
     props = rkt.ChemicalProps(state)
     # Populate the state with the prescribed species at the given ratios
     for ion, ratio in speciation_ratio_mol_kg.items():
-        state.add(ion, ratio, "mol")
+        state.add(ion, ratio, species_concentration_unit)
     # Create a conditions object
     conditions = rkt.EquilibriumConditions(specs)
     # Obtain ice name
-    if database_name == "frezchem.dat":
+    if "frezchem" in database_file:
         ice_name = "Ice(s)"
     else:
         ice_name = "Ice"
     # Return the Reaktoro objects that user will need to interact with
-    return db, system, state, conditions, solver, props, ice_name, database_name
+    return db, system, state, conditions, solver, props, ice_name, database_file
 
 
-def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_mol_kg, database):
+def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_mol_kg, database_file):
     """ Create a Phreeqc Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
         Works for both core10.dat and frezchem.dat.
         THIS IS DIFFERENT IN THAT IT ASSUMES TEMPERATURE IS UNKNOWN AND SPECIFIES CHEMICAL CONSTRAINT AT EQUILIBIRUM.
@@ -125,15 +83,12 @@ def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio
         aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
      speciation_ratio_mol_kg: the ratio of species in the aqueous solution in mol/kg of water. Should be a dictionary
      with the species as the key and its ratio as its value.
-        database: frezchem or core10
+        database_file: file path of Phreeqc database
     Returns:
         db, system, state, conditions, solver, props: Relevant reaktoro objects
     """
     # Initialize the database
-    if database == 'frezchem.dat':
-        db = rkt.PhreeqcDatabase(database)
-    else:
-        db = rkt.PhreeqcDatabase.fromFile("PlanetProfile/Thermodynamics/Reaktoro/"+database)
+    db = rkt.PhreeqcDatabase.fromFile(database_file)
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
     solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
@@ -159,7 +114,7 @@ def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio
     props = rkt.ChemicalProps(state)
     # Populate the state with the prescribed species at the given ratios
     for ion, ratio in speciation_ratio_mol_kg.items():
-        state.add(ion, ratio, "mol")
+        state.add(ion, ratio, species_concentration_unit)
     # Create a conditions object
     conditions = rkt.EquilibriumConditions(specs)
     # Return the Reaktoro objects that user will need to interact with
@@ -195,7 +150,7 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_mol_kg, database):
     props = rkt.ChemicalProps(state)
     # Populate the state with the prescribed species at the given ratios
     for ion, ratio in speciation_ratio_mol_kg.items():
-        state.add(ion, ratio, "mol")
+        state.add(ion, ratio, species_concentration_unit)
     # Create a conditions object
     conditions = rkt.EquilibriumConditions(specs)
     # Return the Reaktoro objects that user will need to interact with
@@ -213,7 +168,7 @@ def reset_state(system, speciation_ratio_mol_kg):
     """
     state = rkt.ChemicalState(system)
     for ion, ratio in speciation_ratio_mol_kg.items():
-        state.add(ion, ratio, "mol")
+        state.add(ion, ratio, species_concentration_unit)
     return state
 
 
@@ -268,12 +223,18 @@ def species_convertor_compatible_with_supcrt(aqueous_species_string, speciation_
     return aqueous_species_string, deep_copy_ratio_mol_kg
 
 
-def McClevskyIonParser(aqueous_species_list, speciation_ratio_mol_kg):
+def McClevskyIonParser(aqueous_species_list, speciation_ratio_per_kg):
     ions = {}
-    for species, mol_kg in speciation_ratio_mol_kg.items():
+    for species, per_kg in speciation_ratio_per_kg.items():
         # Check that the species is an ion
         if "+" in species or "-" in species:
             # Rewrite the species into a format that McCLevsky can handle
+            # First, convert speciation ratio into mols to be compatible with McClevskyIonParser
+            mol_amount = per_kg
+            if species_concentration_unit == "g":
+                formula = reaktoro.ChemicalFormula(species)
+                molar_mass_kg_mol = formula.molarMass()
+                mol_amount = (1/molar_mass_kg_mol)/1000*per_kg
             # Namely, change the + to a _p or the - to a _m
             if "+" in species:
                 # If there is no number after the +, then we must append _p1, not just _p
@@ -288,7 +249,7 @@ def McClevskyIonParser(aqueous_species_list, speciation_ratio_mol_kg):
                 # Change the - to a _m
                 species = species.replace('-', '_m')
             # Format the mol amount into a dictionary
-            mol_dictionary = {'mols': mol_kg}
+            mol_dictionary = {'mols': mol_amount}
             # Append the new species and mol dictionary to the ion dictionary
             ions[species] = mol_dictionary
         else:
@@ -489,6 +450,11 @@ def panda_df_generator(system):
             df_column_names += [column]
     df = pd.DataFrame(columns=df_column_names)
     return df
+
+
+def HelperFileUpdate(concentration_unit):
+    global species_concentration_unit
+    species_concentration_unit = concentration_unit
 
 
 def dictionary_pressure_correction_generator(file_path_to_save):

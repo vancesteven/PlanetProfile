@@ -1,4 +1,6 @@
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import FileSetupFromConfig
+
 
 def ReaktoroConfigAdjustments(Planet, Params):
     Params.wRef_ppt[Planet.Ocean.comp] = Params.wRef_ppt["CustomSolution"]
@@ -11,5 +13,7 @@ def ReaktoroConfigAdjustments(Planet, Params):
     Color.SetCmaps()
     Style.LS[Planet.Ocean.comp] = Style.LS["CustomSolution"]
     Style.LS_ref[Planet.Ocean.comp] = Style.LS_ref["CustomSolution"]
+
+    FileSetupFromConfig(Params.CustomSolution)
 
     return Params

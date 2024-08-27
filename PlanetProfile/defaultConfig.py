@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 15  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 16  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def configAssign():
     Params = ParamsStruct()
@@ -51,6 +51,7 @@ def configAssign():
     Params.SKIP_PLOTS =       False  # Whether to skip creation of all plots
     Params.PLOT_GRAVITY =     True  # Whether to plot Gravity and Pressure
     Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
+    Params.PLOT_SPECIES_HYDROSPHERE = False # Whether to plot Aqueous species as a function of ocean depth (applicable to CustomSolution)
     Params.PLOT_REF =         True  # Whether to plot reference melting curve densities on hydrosphere plot
     Params.PLOT_SIGS =        True  # Whether to plot conductivities as a function of radius on hydrosphere plot if they have been calculated
     Params.PLOT_SOUNDS =      True  # Whether to plot sound speeds as a function of radius on hydrosphere plot if they have been calculated
@@ -102,7 +103,7 @@ def configAssign():
                        'Seawater':[0, 0.5*Constants.stdSeawater_ppt, Constants.stdSeawater_ppt, 1.5*Constants.stdSeawater_ppt],
                        'MgSO4':[0, 33.3, 66.7, 100],
                        'NH3':[0, 5, 10, 15],
-                       'NaCl':[0, 17.5, 35]}
+                       'NaCl':[0, 17.5, 35], 'CustomSolution':[0]}
     Params.nRefRho = 50  # Number of values for plotting reference density curves (sets resolution)
     Params.PrefOverride_MPa = None  # Pressure setting to force refprofile recalc to go to a specific value instead of automatically using the first hydrosphere max
 
