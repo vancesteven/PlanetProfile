@@ -15,7 +15,7 @@ from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSe
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
 # from PlanetProfile.Thermodynamics.Reaktoro.sigmaElectricMcCleskey2012 import elecCondMcCleskey2012
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase, SpeciesParser, RktProps, ConstraintFinder, RktSeismic, RktConduct, Reaktoro_Hydro_Species_Generator
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhase, SpeciesParser, RktProps, RktSeismic, RktConduct, Reaktoro_Hydro_Species_Generator
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -56,7 +56,7 @@ class OceanEOSStruct:
         else:
             self.scalingType = scalingType
         if phaseType is None or phaseType == 'lookup':
-            self.PHASE_LOOKUP = True
+             self.PHASE_LOOKUP = True
         else:
             self.PHASE_LOOKUP = False
         # Add ID for melting curve EOS
@@ -227,24 +227,25 @@ class OceanEOSStruct:
                 self.Pmax = np.min([self.Pmax, self.phasePmax])
             elif self.comp.startswith("CustomSolution"):
                 self.speciation = compstr.split('=')[1].strip()
-                # Parse out the species list and ratio into a format compatible with Reaktoro
-                self.aqueous_species_string, self.speciation_ratio_mol_kg = SpeciesParser(self.speciation)
+                # Parse out the species list and ratio into a format compatible with Reaktoro and create a CustomSolution EOS label
+                self.aqueous_species_string, self.speciation_ratio_mol_kg, self.EOS_lookup_label = SpeciesParser(self.speciation)
                 self.type = 'Reaktoro'
-                # Obtain ranges of P_MPa and T_K that are valid for both Phreeqc and Supcrt and adjust max pressure and min temperature accordingly
-                P_MPa, T_K = ConstraintFinder(P_MPa, T_K, self.aqueous_species_string, self.speciation_ratio_mol_kg)
+                P_MPa, T_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = RktProps(self.EOS_lookup_label, self.aqueous_species_string, self.speciation_ratio_mol_kg, P_MPa, T_K, self.EXTRAP)
+                self.Pmin = np.min(P_MPa)
                 self.Pmax = np.max(P_MPa)
                 self.Tmin = np.min(T_K)
+                self.Tmax = np.max(T_K)
+
                 # Not sure what m_gmol is; should determine later if this line is necessary
                 self.m_gmol = Constants.m_gmol['H2O']
-                # Obtain the phase function
+                # Obtain the phase EOS
                 self.ufn_phase = RktPhase(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
                 # Lookup table is not used -- flag with nan for grid resolution.
                 self.EOSdeltaP = np.nan
                 self.EOSdeltaT = np.nan
                 self.ufn_species = Reaktoro_Hydro_Species_Generator(self.aqueous_species_string, self.speciation_ratio_mol_kg)
-                # Obtain the thermodynamic properties
-                rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK = RktProps(self.aqueous_species_string, self.speciation_ratio_mol_kg, P_MPa, T_K)
                 self.ufn_Seismic = RktSeismic(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.Tmin, self.Tmax, self.Pmin, self.Pmax)
+
                 if sigmaFixed_Sm is not None:
                     self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
                 else:

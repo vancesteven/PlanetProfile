@@ -2031,11 +2031,30 @@ class FigSizeStruct:
         self.apsidal = None
 
 
-"Custom ocean solution settings"
-class CustomSolutionStruct:
+"Custom ocean solution input settings"
+class CustomSolutionParamsStruct:
     def __init__(self):
         self.FREZCHEM_DATABASE = None
         self.SPECIES_CONCENTRATION_UNIT = None
+        self.EOS_deltaP = None
+        self.EOS_deltaT = None
+
+" Reaktoro file settings"
+class ReaktoroStruct:
+    def __init__(self, _ROOT):
+        self.FREZCHEM_DATABASE = None
+        self.SPECIES_CONCENTRATION_UNIT = None
+        self.EOS_deltaP = None
+        self.EOS_deltaT = None
+
+        self.rktPath = os.path.join(_ROOT, 'Thermodynamics', 'Reaktoro')
+        self.databasePath = os.path.join(self.rktPath, 'Databases')
+        self.frezchemPath = None
+
+    def setPaths(self):
+        self.frezchemPath = os.path.join(self.databasePath, self.FREZCHEM_DATABASE)
+
+
 
 
 # For configuring longitudes from -180 to 180 or 0 to 360.
@@ -2614,7 +2633,6 @@ class ConstantsStruct:
         self.etaMelt_Pas[self.phaseFeSolid] = 1e14  # Assumed viscosity of solid iron core material, generic value
         self.PminHPices_MPa = 200.0  # Min plausible pressure of high-pressure ices for any ocean composition in MPa
         self.PmaxLiquid_MPa = 2250.0  # Maximum plausible pressure for liquid water oceans
-        self.TminRkt_K = 220 # Minimum plasuible temperature at which supcrt database in Reaktoro could find equilibrium
         self.sigmaDef_Sm = 1e-8  # Default minimum conductivity to use for layers with NaN or 0 conductivity
         self.sigmaMin_Sm = 1e-8  # Threshold conductivity below which we set to the default to reduce computational overhead
         self.wFeDef_ppt = 750  # Mass concentration in ppt of iron in core -- default to use when unset but 3D EOS file is specified.
@@ -2623,7 +2641,15 @@ class ConstantsStruct:
         self.sigmaIonosPedersenDefault_Sm = 1e-4  # Default ionospheric Pedersen conductivity in S/m
         self.PPcycler = cycler(linestyle=['-', '--', ':', '-.']) * \
                         cycler(color=_tableau10_v10colors)  # Color cycler for plots
+        """ Reaktoro constants """
+        self.SupcrtTmin_K = 240 # Minimum temperature at which Supcrt has been found to converge at for pure water
+        self.SupcrtTmax_K = 400 # Maximum temperature to query Supcrt at
+        self.SupcrtPmin_MPa = 0.1 # Minimum pressure at which Supcrt is accurate
 
+        self.PhreeqcToSupcrtNames = { # Dictionary of species names that must be converted from Phreeqc to Supcrt for compatibility
+            'H2O': 'H2O(aq)',
+            'CO2': 'CO2(aq)'
+        }
 
 def ParentName(bodyname):
     if bodyname in ['Io', 'Europa', 'Ganymede', 'Callisto']:
