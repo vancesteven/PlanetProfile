@@ -2644,7 +2644,8 @@ class ConstantsStruct:
         """ Reaktoro constants """
         self.SupcrtTmin_K = 240 # Minimum temperature at which Supcrt has been found to converge at for pure water
         self.SupcrtTmax_K = 400 # Maximum temperature to query Supcrt at
-        self.SupcrtPmin_MPa = 0.1 # Minimum pressure at which Supcrt is accurate
+        self.RktPmin_MPa = 0.1 # Minimum pressure at which Reaktoro is accurate
+        self.FrezchemPmax_MPa = 100 # Maximum pressure to which Frezchem can accurately converge to perform calculation
 
         self.PhreeqcToSupcrtNames = { # Dictionary of species names that must be converted from Phreeqc to Supcrt for compatibility
             'H2O': 'H2O(aq)',
