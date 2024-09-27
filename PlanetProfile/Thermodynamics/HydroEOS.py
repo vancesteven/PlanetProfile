@@ -111,10 +111,10 @@ class OceanEOSStruct:
                 self.m_gmol = Constants.m_gmol[self.comp]
 
                 # Set extrapolation boundaries to limits defined in SeaFreeze
-                Pmax = {'PureH2O':   2300.6, 'NH3': 2228.4, 'NaCl': 8001.0}
+                Pmax = {'PureH2O':   2300.6, 'NH3': 2228.4, 'NaCl': 1000.0}
                 Tmin = {'PureH2O':    239,   'NH3':  241,   'NaCl':  229.0}
                 Tmax = {'PureH2O':    501,   'NH3':  399.2, 'NaCl':  501.0}
-                wMax = {'PureH2O': np.nan,   'NH3':  290.1, 'NaCl':  293.2}
+                wMax = {'PureH2O': np.nan,   'NH3':  290.1, 'NaCl':  290.3} # concentration is 7mol/kgH2O
                 self.Pmax = np.minimum(self.Pmax, Pmax[self.comp])
                 self.Tmin = np.maximum(self.Tmin, Tmin[self.comp])
                 self.Tmax = np.minimum(self.Tmax, Tmax[self.comp])
@@ -138,11 +138,15 @@ class OceanEOSStruct:
                     PTmGrid = sfPTgrid(P_MPa, T_K)
                     self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
                 else:
-                    SFcomp = self.comp
                     if self.w_ppt > wMax[self.comp]:
                         log.warning(f'Input wOcean_ppt greater than SeaFreeze limit for {self.comp}. Resetting to SF max.')
                         self.w_ppt = wMax[self.comp]
-                    self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)  # Placeholder until lab data can be implemented
+                    if self.comp == 'NaCl':
+                        SFcomp = 'NaClaq'
+                        self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
+                    else:
+                        SFcomp = self.comp
+                        self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)  # Placeholder until lab data can be implemented
 
                     PTmGrid = sfPTmGrid(P_MPa, T_K, Ppt2molal(self.w_ppt, self.m_gmol))
                 seaOut = SeaFreeze(deepcopy(PTmGrid), SFcomp)
@@ -566,7 +570,8 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
                      f'{Tmin:.3f},{Tmax:.3f},{deltaT:.2e}'
         # Use of np.arange would be simpler here, but can cause errors when loading an EOS for a thin layer, e.g. for
         # some cases with ice VI inside pores.
-        outP_MPa = np.linspace(Pmin, Pmax, np.minimum(round(abs(Pmax-Pmin)/deltaP), 10))
+        # outP_MPa = np.linspace(Pmin, Pmax, np.minimum(round(abs(Pmax-Pmin)/deltaP), 10))
+        outP_MPa = np.arange(Pmin, Pmax, deltaP)
         nTs = np.minimum(round(abs(Tmax-Tmin)/deltaT), np.size(outP_MPa)+1)
         outT_K = np.linspace(Tmin, Tmax, nTs)
 
