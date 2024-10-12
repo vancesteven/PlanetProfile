@@ -2042,14 +2042,14 @@ class CustomSolutionParamsStruct:
 " Reaktoro file settings"
 class ReaktoroStruct:
     def __init__(self, _ROOT):
-        self.FREZCHEM_DATABASE = None
-        self.SPECIES_CONCENTRATION_UNIT = None
-        self.EOS_deltaP = None
-        self.EOS_deltaT = None
+        self.FREZCHEM_DATABASE = 'frezchem.dat'
+        self.SPECIES_CONCENTRATION_UNIT = 'mol'
+        self.EOS_deltaP = 1.0
+        self.EOS_deltaT = 1.0
 
         self.rktPath = os.path.join(_ROOT, 'Thermodynamics', 'Reaktoro')
         self.databasePath = os.path.join(self.rktPath, 'Databases')
-        self.frezchemPath = None
+        self.frezchemPath = os.path.join(self.databasePath, self.FREZCHEM_DATABASE)
 
     def setPaths(self):
         self.frezchemPath = os.path.join(self.databasePath, self.FREZCHEM_DATABASE)
@@ -2643,14 +2643,17 @@ class ConstantsStruct:
                         cycler(color=_tableau10_v10colors)  # Color cycler for plots
         """ Reaktoro constants """
         self.SupcrtTmin_K = 240 # Minimum temperature at which Supcrt has been found to converge at for pure water
-        self.SupcrtTmax_K = 400 # Maximum temperature to query Supcrt at
-        self.RktPmin_MPa = 0.1 # Minimum pressure at which Reaktoro is accurate
+        self.SupcrtTmax_K = 400 # Maximum reasonable temperature to query Supcrt at
+        self.SupcrtPmax_MPa = 500 # Maximum pressure at which Supcrt is parameterized for
+        self.RktPmin_MPa = 0.01 # Minimum pressure at which Reaktoro is accurate
         self.FrezchemPmax_MPa = 100 # Maximum pressure to which Frezchem can accurately converge to perform calculation
 
         self.PhreeqcToSupcrtNames = { # Dictionary of species names that must be converted from Phreeqc to Supcrt for compatibility
             'H2O': 'H2O(aq)',
             'CO2': 'CO2(aq)'
         }
+
+        self.seafreeze_ice_phases = {0: 'water', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
 
 def ParentName(bodyname):
     if bodyname in ['Io', 'Europa', 'Ganymede', 'Callisto']:

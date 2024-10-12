@@ -660,7 +660,7 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa, minPres_MPa=None, minTres_K=Non
                                               minPres_MPa=minPres_MPa, minTres_K=minTres_K)
     else:
         # Get phase of each P,T combination
-        expandPhases = Planet.Ocean.EOS.fn_phase(PHPicesLin_MPa, THPicesLin_K)
+        expandPhases = Planet.Ocean.EOS.fn_phase(POceanHPices_MPa, TOceanHPices_K, grid = True)
         # Check if any of them are not liquid
         if np.any(expandPhases != 0):
             _, _, _, indsIceII, _, indsIceIII, _, indsIceV, _, indsIceVI, _, _, _, _, _, _, _, _, _, _, _ \

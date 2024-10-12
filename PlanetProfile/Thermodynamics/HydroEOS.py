@@ -240,7 +240,7 @@ class OceanEOSStruct:
                 self.ufn_Seismic = RktSeismic(self.EOS_lookup_label,  self.aqueous_species_string, self.speciation_ratio_mol_kg, self.EXTRAP)
 
                 if self.PHASE_LOOKUP:
-                    self.ufn_phase = RktPhaseLookup(self.EOS_lookup_label, self.aqueous_species_string, self.speciation_ratio_mol_kg)
+                    self.ufn_phase = RktPhaseLookup(self.EOS_lookup_label, self.aqueous_species_string, self.speciation_ratio_mol_kg, P_MPa, T_K)
                 else:
                     self.ufn_phase = RktPhaseOnDemand(self.aqueous_species_string, self.speciation_ratio_mol_kg)
                 self.ufn_species = Reaktoro_Hydro_Species_Generator(self.aqueous_species_string, self.speciation_ratio_mol_kg)
@@ -568,10 +568,16 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
             deltaT = minTres_K
         rangeLabel = f'{Pmin:.2f},{Pmax:.2f},{deltaP:.2e},' + \
                      f'{Tmin:.3f},{Tmax:.3f},{deltaT:.2e}'
+        # Ensure that P_MPa is strictly ascending, namely that {Pmin and Pmax are not the same
+        # If so, then increment Pmax just slightly
+        if Pmax - Pmin == 0:
+            Pmax = Pmax + 0.001
+            deltaP = 0.001
+
         # Use of np.arange would be simpler here, but can cause errors when loading an EOS for a thin layer, e.g. for
         # some cases with ice VI inside pores.
-        # outP_MPa = np.linspace(Pmin, Pmax, np.minimum(round(abs(Pmax-Pmin)/deltaP), 10))
-        outP_MPa = np.arange(Pmin, Pmax, deltaP)
+        outP_MPa = np.linspace(Pmin, Pmax, np.maximum(round(abs(Pmax-Pmin)/deltaP), 10))
+        # outP_MPa = np.arange(Pmin, Pmax, np.maximum(deltaP)
         nTs = np.minimum(round(abs(Tmax-Tmin)/deltaT), np.size(outP_MPa)+1)
         outT_K = np.linspace(Tmin, Tmax, nTs)
 
