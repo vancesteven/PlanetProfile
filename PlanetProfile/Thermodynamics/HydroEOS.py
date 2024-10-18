@@ -404,6 +404,22 @@ class IceEOSStruct:
                     kTherm_WmK = np.array([kThermIsobaricAnderssonInaba2005(T_K, PhaseInv(phaseStr)) for _ in P_MPa])
                 self.ufn_Seismic = IceSeismic(phaseStr, self.EXTRAP)
                 self.ufn_phase = returnVal(self.phaseID)
+            # To interpolate functions with rectBivariateSpline, we must remove all values that have np.nan otherwise RectBivariateSpline returns np.nan always
+            # This line is only hit when plotting PvThydro plot, since it queries ice EOS for pressure ranges not valid for ice which causes np.nan to be returned
+            if np.any(np.isnan(rho_kgm3)):
+                P_indices, T_indices = np.where(~np.isnan(rho_kgm3))
+                Pmin_index = np.min(P_indices)
+                Pmax_index = np.max(P_indices)
+                Tmin_index = np.min(T_indices)
+                Tmax_index = np.max(T_indices)
+                P_MPa = P_MPa[Pmin_index:Pmax_index+1]
+                T_K = T_K[Tmin_index:Tmax_index+1]
+                kTherm_WmK = kTherm_WmK[~np.isnan(rho_kgm3)].reshape(P_MPa.size, -1)
+                rho_kgm3 = rho_kgm3[~np.isnan(rho_kgm3)].reshape(P_MPa.size, -1)
+                Cp_JkgK = Cp_JkgK[~np.isnan(Cp_JkgK)].reshape(P_MPa.size, -1)
+                alpha_pK = alpha_pK[~np.isnan(alpha_pK)].reshape(P_MPa.size, -1)
+                self.rangeLabel = f'{np.min(P_MPa):.2f},{np.max(P_MPa):.2f},{(P_MPa[1]-P_MPa[0]):.2e},' + \
+                 f'{np.min(T_K):.3f},{np.max(T_K):.3f},{(T_K[1]-T_K[0]):.2e}'
 
             # Interpolate functions for this ice phase that can be queried for properties
             self.ufn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, rho_kgm3)

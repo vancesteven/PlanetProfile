@@ -122,8 +122,10 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     solution = rkt.AqueousPhase(aqueous_species_list)
     # Obtain all related solid phases
     solids = rkt.MineralPhases()
+    # Obtain all related gas phases
+    gases = rkt.GaseousPhase()
     # Initialize the system
-    system = rkt.ChemicalSystem(db, solution, solids)
+    system = rkt.ChemicalSystem(db, solution, solids, gases)
     # Create constraints on equilibrium - pressure and temperature
     specs = rkt.EquilibriumSpecs(system)
     specs.pressure()

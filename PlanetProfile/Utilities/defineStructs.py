@@ -2645,8 +2645,10 @@ class ConstantsStruct:
         self.SupcrtTmin_K = 240 # Minimum temperature at which Supcrt has been found to converge at for pure water
         self.SupcrtTmax_K = 400 # Maximum reasonable temperature to query Supcrt at
         self.SupcrtPmax_MPa = 500 # Maximum pressure at which Supcrt is parameterized for
-        self.RktPmin_MPa = 0.01 # Minimum pressure at which Reaktoro is accurate
-        self.FrezchemPmax_MPa = 100 # Maximum pressure to which Frezchem can accurately converge to perform calculation
+        self.RktPmin_MPa = 1 # Minimum pressure at which Reaktoro is accurate
+        self.FrezchemPmax_MPa = 200 # Maximum pressure to which Frezchem can accurately converge to perform calculation
+        self.EOSPmax_MPa = 2000 # Maximum pressure to make EOS lookup table for
+        self.EOSdeltaP_For_Extrapolation = 5 # Extrapolation pressure step
 
         self.PhreeqcToSupcrtNames = { # Dictionary of species names that must be converted from Phreeqc to Supcrt for compatibility
             'H2O': 'H2O(aq)',

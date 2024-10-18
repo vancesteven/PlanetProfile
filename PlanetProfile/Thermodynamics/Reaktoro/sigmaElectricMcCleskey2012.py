@@ -38,11 +38,12 @@ def elecCondMcCleskey2012(P_MPa, T_C, ions):
         'NaCO3_m1': {'z': -1, 'lam2': 0.00336, 'lam1': 3.845, 'lam0': 89.51, 'A2': 0.00061, 'A1': 6.387, 'A0': 141.7, 'B': 2}
     }
     # Ensure there is at least one ion in the ions list, otherwise we will just set the conductivity to pure water
+    # Make deep copy of ions
     if ions:
-        sigma_Sm = np.zeros_like(T_C)
+        sigma_mS_cm = np.zeros_like(T_C)
     else:
         log.error("No ion data available. Assuming pure water")
-        return np.zeros_like(P_MPa) + Constants.sigmaH2O_Sm
+        return np.zeros_like(T_C) + Constants.sigmaH2O_Sm
     for ion_name, ion_data in ions.items():
         if ion_name in data:
             # Get relevant data
@@ -68,15 +69,8 @@ def elecCondMcCleskey2012(P_MPa, T_C, ions):
 
         # IMPLEMENT PRESSURE ADJUSTMENT HERE
 
-        # Append all data to ion_data dictionary
-        ion_data['I'] = I
-        ion_data['z'] = z
-        ion_data['xI'] = xI
-        ion_data['lamda'] = lamda
-
         # Update sigma_Sm with conductivity contributions from each ion
-        sigma_Sm += lamda * mols  # Broadcasting mols across num_TC
+        sigma_mS_cm += lamda * mols  # Broadcasting mols across num_TC
 
-    ions['sigma_Sm'] = sigma_Sm * 100 / 1000  # convert from mS/cm to S/m
+    return (sigma_mS_cm * 100 / 1000)  # convert from mS/cm to S/m
 
-    return ions
