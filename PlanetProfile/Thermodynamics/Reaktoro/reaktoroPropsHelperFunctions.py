@@ -255,7 +255,6 @@ def interpolation_2d(P_MPa, arrays):
     """ Utilized as a helper function for thermodynamic properties calculation. Performs a 2d interpolation on any values that are NaN in the
         provided arrays, allowing the zero values to be interpolated."""
     interpolated_arrays = []
-    P_MPa = P_MPa[:, 0]
     for array in arrays:
         interpolated_array = np.copy(array)
         for col in range(array.shape[1]):

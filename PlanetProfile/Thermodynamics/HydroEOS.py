@@ -126,7 +126,7 @@ class OceanEOSStruct:
                 if np.max(P_MPa) > self.Pmax:
                     log.warning(f'Input Pmax greater than SeaFreeze limit for {self.comp}. Resetting to SF max of {self.Pmax} MPa.')
                     P_MPa = np.linspace(np.min(P_MPa), self.Pmax, np.size(P_MPa))
-                if np.min(T_K) > self.Tmin:
+                if np.min(T_K) < self.Tmin:
                     log.warning(f'Input Tmin less than SeaFreeze limit for {self.comp}. Resetting to SF min of {self.Tmin} K.')
                     T_K = np.linspace(self.Tmin, np.max(T_K), np.size(T_K))
                 if np.max(T_K) > self.Tmax:
@@ -589,12 +589,18 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
         if Pmax - Pmin == 0:
             Pmax = Pmax + 0.001
             deltaP = 0.001
-
+        if Tmax - Tmin == 0:
+            Tmax = Tmin + 0.001
+            deltaT = 0.001
         # Use of np.arange would be simpler here, but can cause errors when loading an EOS for a thin layer, e.g. for
         # some cases with ice VI inside pores.
-        outP_MPa = np.linspace(Pmin, Pmax, np.maximum(round(abs(Pmax-Pmin)/deltaP), 10))
+        nPs = np.maximum(round(abs(Pmax-Pmin)/deltaP), 10)
+        outP_MPa = np.linspace(Pmin, Pmax, nPs)
         # outP_MPa = np.arange(Pmin, Pmax, np.maximum(deltaP)
-        nTs = np.minimum(round(abs(Tmax-Tmin)/deltaT), np.size(outP_MPa)+1)
+        nTs = np.maximum(round(abs(Tmax-Tmin)/deltaT), 11)
+        # To prevent Seafreeze errors, ensure that nTs and nPs don't have same size
+        if nTs == nPs:
+            nTs = nTs + 1
         outT_K = np.linspace(Tmin, Tmax, nTs)
 
     return ALREADY_LOADED, rangeLabel, outP_MPa, outT_K, deltaP, deltaT
