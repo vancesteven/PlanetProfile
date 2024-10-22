@@ -5,8 +5,8 @@ We welcome input from everyone! If you are interested to contribute to PlanetPro
 
 ## Governance
 * Owner: Dr. Steven D. Vance - steven.d.vance@jpl.nasa.gov
-* Maintainer: Dr. Marshall J. Styczinski - itsmoosh@gmail.com
-* Lead developers: Dr. Steven D. Vance - steven.d.vance@jpl.nasa.gov, Dr. Marshall J. Styczinski - itsmoosh@gmail.com, Dr. Mohit Melwani Daswani - mohit.melwani.daswani@jpl.nasa.gov
+* Maintainer: Dr. Steven D. Vance - steven.d.vance@jpl.nasa.gov
+* Lead developers: Dr. Steven D. Vance - steven.d.vance@jpl.nasa.gov, Dr. Mohit Melwani Daswani - mohit.melwani.daswani@jpl.nasa.gov
 
 ## Contribution guidelines
 PlanetProfile is designed for use in scientific applications. As such, we hold the software to a high standard for usability, compatibility, and accuracy. We review all contributions to ensure the quality of all improvements to the software. Proposed changes may be rejected if they cause runtime errors, physical inaccuracy, etc. In the event a change is rejected, we will work with the author to find a solution. Command line operations are assumed in the instruction below, but you can substitute another method if it has the same effect.

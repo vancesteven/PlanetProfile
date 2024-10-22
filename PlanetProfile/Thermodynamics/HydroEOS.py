@@ -584,23 +584,8 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
             deltaT = minTres_K
         rangeLabel = f'{Pmin:.2f},{Pmax:.2f},{deltaP:.2e},' + \
                      f'{Tmin:.3f},{Tmax:.3f},{deltaT:.2e}'
-        # Ensure that P_MPa is strictly ascending, namely that {Pmin and Pmax are not the same
-        # If so, then increment Pmax just slightly
-        if Pmax - Pmin == 0:
-            Pmax = Pmax + 0.001
-            deltaP = 0.001
-        if Tmax - Tmin == 0:
-            Tmax = Tmin + 0.001
-            deltaT = 0.001
-        # Use of np.arange would be simpler here, but can cause errors when loading an EOS for a thin layer, e.g. for
-        # some cases with ice VI inside pores.
-        nPs = np.maximum(round(abs(Pmax-Pmin)/deltaP), 10)
-        outP_MPa = np.linspace(Pmin, Pmax, nPs)
-        # outP_MPa = np.arange(Pmin, Pmax, np.maximum(deltaP)
-        nTs = np.maximum(round(abs(Tmax-Tmin)/deltaT), 11)
-        # To prevent Seafreeze errors, ensure that nTs and nPs don't have same size
-        if nTs == nPs:
-            nTs = nTs + 1
+        outP_MPa = np.arange(Pmin, Pmax, deltaP)
+        nTs = np.minimum(round(abs(Tmax-Tmin)/deltaT), np.size(outP_MPa)+1)
         outT_K = np.linspace(Tmin, Tmax, nTs)
 
     return ALREADY_LOADED, rangeLabel, outP_MPa, outT_K, deltaP, deltaT
