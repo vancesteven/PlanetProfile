@@ -2038,6 +2038,8 @@ class CustomSolutionParamsStruct:
         self.SPECIES_CONCENTRATION_UNIT = None
         self.EOS_deltaP = None
         self.EOS_deltaT = None
+        self.SOLID_PHASES = None
+        self.SOLID_PHASES_TO_CONSIDER = None
 
 " Reaktoro file settings"
 class ReaktoroStruct:
@@ -2046,6 +2048,9 @@ class ReaktoroStruct:
         self.SPECIES_CONCENTRATION_UNIT = 'mol'
         self.EOS_deltaP = 1.0
         self.EOS_deltaT = 1.0
+
+        self.SOLID_PHASES = True
+        self.SOLID_PHASES_TO_CONSIDER = None
 
         self.rktPath = os.path.join(_ROOT, 'Thermodynamics', 'Reaktoro')
         self.databasePath = os.path.join(self.rktPath, 'Databases')
@@ -2653,6 +2658,11 @@ class ConstantsStruct:
         self.PhreeqcToSupcrtNames = { # Dictionary of species names that must be converted from Phreeqc to Supcrt for compatibility
             'H2O': 'H2O(aq)',
             'CO2': 'CO2(aq)'
+        }
+
+        self.SolidPhases = { # Dictionary of keyword solid phases to the corresponding solid phases that exist in Supcrt
+            'Carbonates': ["Aragonite", "Artinite", "Azurite", "Calcite", "Cerussite", "Dolomite", "Dolomite,disordered", "Dolomite,ordered", "Huntite", "Hydromagnesite", "Magnesite", "Malachite", "Nesquehonite", "Rhodochrosite", "Siderite", "Smithsonite", "Strontianite"],  # Solids with CO3 in formula
+            'Sulfates': ["Alunite", "Anglesite", "Anhydrite", "Barite", "Celestite"] # Solids with SO4 in formula
         }
 
         self.seafreeze_ice_phases = {0: 'water', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}

@@ -105,7 +105,7 @@ def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio
     return db, system, state, conditions, solver, props
 
 
-def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database):
+def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database, consider_solid_phases, solid_phases_to_consider):
     """ Create a Supcrt Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
     Args:
     aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
@@ -113,6 +113,8 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
         with the species as the key and its ratio as its value.
     species_unit: "mol" or "g" that species ratio is in
     database: Supcrt database to use
+    consider_solid_phases: whether or not to consider solid phases in calculations
+    solid_phases_to_consider: the solid phases to consider
     Returns:
         db, system, state, conditions, solver, props, ice_name: Relevant reaktoro objects
     """
@@ -120,12 +122,29 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     db = rkt.SupcrtDatabase(database)
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
+    # If we are considering solid phases, create a solid phase
+    if consider_solid_phases:
+        if solid_phases_to_consider is None:
+            solids = rkt.MineralPhases()
+        else:
+            # If we are specifying what phases to consider, note that we should only consider the phases that are relevant to the speices in the solution
+            # I.e. don't consider all clathrates if they aren't possible to form (greatly decreases runtime if we do consider irrelevant phases)
+            final_phases_to_consider = ''
+            solids_tester = rkt.MineralPhases()
+            system_tester = rkt.ChemicalSystem(db, solution, solids_tester)
+            RelevantPhases = system_tester.species().withAggregateState(rkt.AggregateState.Solid)
+            for solid in solid_phases_to_consider:
+                if RelevantPhases.findWithName(solid) < RelevantPhases.size():
+                    final_phases_to_consider = final_phases_to_consider + f' {solid}'
+            solids = rkt.MineralPhases(final_phases_to_consider)
+        system = rkt.ChemicalSystem(db, solution, solids)
+    else:
+        system = rkt.ChemicalSystem(db, solution)
     # Obtain all related solid phases
     # solids = rkt.MineralPhases()
     # Obtain all related gas phases
     # gases = rkt.GaseousPhase()
     # Initialize the system
-    system = rkt.ChemicalSystem(db, solution)
     # Create constraints on equilibrium - pressure and temperature
     specs = rkt.EquilibriumSpecs(system)
     specs.pressure()
