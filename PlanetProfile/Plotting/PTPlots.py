@@ -398,6 +398,23 @@ def PlotPvThydro(PlanetList, Params):
             plt.close()
 
     return
+
+def PlotCustomSolutionProperties(PlanetList, Params):
+    Planet = PlanetList[0]
+    # This is a hydrosphere-only plot for Reaktoro, so skip waterless bodies or bodies not utilizing Reaktoro
+    if "CustomSolution" in Planet.Ocean.comp:
+        fig = plt.figure(figsize=FigSize.vmant)
+        grid = GridSpec(1, 1)
+        allspeciesax = fig.add_subplot(grid[0, 0])
+        aqueouspseciesax = fig.add_subplot(grid[0, 1])
+        axs = [allspeciesax, aqueouspseciesax]
+        if Style.GRIDS:
+            allspeciesax.grid()
+            allspeciesax.set_axisbelow(True)
+        allspeciesax.set_xlabel("All species (moles)")
+        allspeciesax.set_ylabel("Depth z (km)")
+        aqueouspseciesax.set_xlabel("Aqueous species (moles per kg fluid)")
+
 def PlotPvThydroOld(PlanetList, Params):
 
     if os.path.dirname(Params.FigureFiles.vpvtHydro) != 'Comparison':
