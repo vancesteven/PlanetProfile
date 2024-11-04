@@ -25,7 +25,7 @@ def GeneratePlots(PlanetList, Params):
     if Params.PLOT_HYDROSPHERE and not Params.ALL_NO_H2O:
         if Params.CALC_NEW_REF:
             # Calculate reference profiles showing melting curves for
-            # several salinities specified in configPP.py
+            # several salinities specified in configPP.py¡
             Params = CalcRefProfiles(PlanetList, Params)
         else:
             # Reload refprofiles for this composition
@@ -598,8 +598,6 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                 # This is a hydrosphere-only plot for Reaktoro, so skip waterless bodies or bodies not utilizing Reaktoro
                 if "CustomSolution" in Planet.Ocean.comp:
                     legLbl = Planet.label
-                    if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
-                        legLbl = f'{Planet.name} {legLbl}'
                     indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
                         indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
                         indsFe = GetPhaseIndices(Planet.phase)

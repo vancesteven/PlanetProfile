@@ -37,7 +37,8 @@ def SetupInit(Planet, Params):
 
     # Check if Custom Reaktoro Solution is being used and if so then update Params with necessary parameters to plot
     if Planet.Ocean.comp is not None and 'CustomSolution' in Planet.Ocean.comp:
-        Params = ReaktoroConfigAdjustments(Planet, Params)
+        # ADJUST THIS CODE HERE, DOESNT MAKE MUCH SENSE
+        Params = ReaktoroConfigAdjustments(Planet, Params, _ROOT)
 
     # Afford for additional MoI lower-bound uncertainty under non-hydrostatic conditions of 3% of C/MR^2,
     # in accordance with Gao and Stevenson (2013): https://doi.org/10.1016/j.icarus.2013.07.034
@@ -517,8 +518,23 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             label += f'{setStr}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
             Planet.compStr = r'Pure~\ce{H2O}'
         elif "CustomSolution" in Planet.Ocean.comp:
-            saveLabel += Planet.Ocean.comp.split('=')[0].strip()
-            label = f'{saveLabel}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+            # Get text to left of = sign
+            CustomSolutionLabel = Planet.Ocean.comp.split('=')[0].strip()
+            saveLabel += CustomSolutionLabel
+            abbreviatedLabel = CustomSolutionLabel.replace("CustomSolution", "")
+            label = f'{abbreviatedLabel}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+            SpeciesLabel = Planet.Ocean.comp.split('=')[1].strip()
+            i = 0
+            for species_with_ratio in SpeciesLabel.split(", "):
+                species, ratio_per_kg = species_with_ratio.split(": ")
+                ratio_per_kg = f"{float(ratio_per_kg):.2g}"
+                species_with_ratio = f'{species}:{ratio_per_kg}'
+                # Add newline for every four species
+                if (i % 4) == 0:
+                    label += '\n'
+                label += f'{species_with_ratio},'
+                i += 1
+            label = label.rstrip(',')
             Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Ocean.comp}}}'
         else:
             saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \

@@ -2041,25 +2041,13 @@ class CustomSolutionParamsStruct:
         self.SOLID_PHASES = None
         self.SOLID_PHASES_TO_CONSIDER = None
 
-" Reaktoro file settings"
-class ReaktoroStruct:
-    def __init__(self, _ROOT):
-        self.FREZCHEM_DATABASE = 'frezchem.dat'
-        self.SPECIES_CONCENTRATION_UNIT = 'mol'
-        self.EOS_deltaP = 1.0
-        self.EOS_deltaT = 1.0
-
-        self.SOLID_PHASES = True
-        self.SOLID_PHASES_TO_CONSIDER = None
-
-        self.rktPath = os.path.join(_ROOT, 'Thermodynamics', 'Reaktoro')
+        self.rktPath = ''
+        self.databasePath = ''
+        self.frezchemPath = ''
+    def setPaths(self, ROOT):
+        self.rktPath = os.path.join(ROOT, 'Thermodynamics', 'Reaktoro')
         self.databasePath = os.path.join(self.rktPath, 'Databases')
         self.frezchemPath = os.path.join(self.databasePath, self.FREZCHEM_DATABASE)
-
-    def setPaths(self):
-        self.frezchemPath = os.path.join(self.databasePath, self.FREZCHEM_DATABASE)
-
-
 
 
 # For configuring longitudes from -180 to 180 or 0 to 360.
