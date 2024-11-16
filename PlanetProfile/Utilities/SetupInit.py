@@ -7,7 +7,7 @@ from datetime import datetime
 from collections.abc import Iterable
 from PlanetProfile import _ROOT
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigMisc
-from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
+from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS, GetTfreeze
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Thermodynamics.Reaktoro.ReaktoroAdjustments import ReaktoroConfigAdjustments
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathDissoc
@@ -39,7 +39,7 @@ def SetupInit(Planet, Params):
     # Check if Custom Reaktoro Solution is being used and if so then update Params with necessary parameters to plot
     if Planet.Ocean.comp is not None and 'CustomSolution' in Planet.Ocean.comp:
         # ADJUST THIS CODE HERE, DOESNT MAKE MUCH SENSE
-        Planet, Params = ReaktoroConfigAdjustments(Planet, Params)
+        Planet, Params = SetupCustomSolution(Planet, Params)
 
     # Afford for additional MoI lower-bound uncertainty under non-hydrostatic conditions of 3% of C/MR^2,
     # in accordance with Gao and Stevenson (2013): https://doi.org/10.1016/j.icarus.2013.07.034
@@ -133,6 +133,35 @@ def SetupInit(Planet, Params):
                                 f'fluids are modeled for partial/undifferentiated bodies. ' +
                                 f'Sil.wPore_ppt will be ignored.')
                 Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
+    # For water bodies, if user specifies bottom Ice Ih thickness then we must find the associated Tb_K, which then be used in
+    # self-consistent model generation (model's bottom ice thickness may not be exactly the input, but should be approxiamtely close enough).
+    # We have to do this first, before filename generation, to ensure ocean comp is set.
+    if not Planet.Do.NO_H2O and not Planet.Do.NO_OCEAN and Planet.Do.ICEIh_THICKNESS:
+        # Obtain density of ice Ih at STP
+        density_Ih_kg_m3  = Constants.rhoIce_kg_m3_stp['Ih']
+        # Calculate planet's bulk gravity to use for first order pressure calculation
+        bulk_gravity_m_s2 = (Constants.G*Planet.Bulk.M_kg)/(Planet.Bulk.R_m**2)
+        # Calculate lower approximate Pb_MPa using P = rho * g * h
+        approx_Pb_MPa = density_Ih_kg_m3 * bulk_gravity_m_s2 * (Planet.Bulk.zb_approximate_km * 1000) * 1e-6
+        # Calculate upper approximate Pb_MPa, this time using the dnesity of ice Ih at aprox_Pb_MPa
+        # Obtain a meltEOS to find corresponding Tb_K
+        approx_Pmelt_MPa = np.linspace(approx_Pb_MPa - 0.01, approx_Pb_MPa + 0.01, 11)
+        approx_Tmelt_K = np.arange(Planet.TfreezeLower_K, Planet.TfreezeUpper_K, Planet.TfreezeRes_K)
+        Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, approx_Pmelt_MPa, approx_Tmelt_K, None,
+                                           phaseType=Planet.Ocean.phaseType, FORCE_NEW=True, MELT=True,
+                                           LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+        approx_Tb_K = GetTfreeze(Planet.Ocean.meltEOS, approx_Pb_MPa, Planet.TfreezeLower_K,
+                   TfreezeRange_K = Planet.TfreezeUpper_K - Planet.TfreezeLower_K, TRes_K= Planet.TfreezeRes_K)
+        log.info(f'Using a hydrostatic pressure assumption, we calculated an approximate bottom pressure and temperature of '
+                 f'{approx_Pb_MPa:.3f} MPa and {approx_Tb_K:.3f} K for an ice shell thickness of {Planet.Bulk.zb_approximate_km}.'
+                 f'\n We will use the bottom T_K as our input to the ice layer calculations, allowing for self consistency. '
+                 f'This means that the model ice shell thickness will not be exactly as input, but should be fairly close.')
+        Planet.Bulk.Tb_K = round(approx_Tb_K, 3) # Round Bulk Tb_K to 3 decimal places
+
+
+
+
+
 
     # Get filenames for saving/loading
     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
@@ -657,7 +686,7 @@ def SetCMR2strings(Planet):
     return Planet
 
 
-def ReaktoroConfigAdjustments(Planet, Params):
+def SetupCustomSolution(Planet, Params):
     # Adjust config settings and make sure they are valid
     Params.wRef_ppt[Planet.Ocean.comp] = Params.wRef_ppt["CustomSolution"]
     Params.fNameRef[Planet.Ocean.comp] = f'{Planet.Ocean.comp}Ref.txt'

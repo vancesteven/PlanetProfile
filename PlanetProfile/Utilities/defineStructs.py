@@ -54,6 +54,7 @@ class BulkSubstruct():
 
     def __init__(self):
         self.Tb_K = None  # Temperature at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers). Ranges from 238.5 to 261.165 K for ice III transition and 251.165 to 273.16 for melting temp. This must remain set to None here as a default. Exactly two out of three of Bulk.Tb_K, Bulk.zb_km, and Ocean.wOcean_ppt must be set for every model with surface H2O.
+        self.zb_approximate_km = None  # Desired thickness of ice I layer (entire ice interface when no ice III or V underplate layers) that is used to find bottom temperature. This bottom temperature is then used to propogate ice layer, ensuring self-consistency (but means model zb_km might not be exactly the same as zb_approximate_km)
         self.rho_kgm3 = None  # Bulk density in kg/m^3 -- note that this is intended to be derived and not set.
         self.R_m = None  # Mean body outer radius in m
         self.M_kg = None  # Total body mass in kg
@@ -93,6 +94,7 @@ class DoSubstruct:
         self.NO_DIFFERENTIATION = False  # Whether to model a completely undifferentiated body, with no ocean, with fixed mixing/porosity and pore melt possible
         self.DIFFERENTIATE_VOLATILES = False  # Whether to include an ice layer atop a partially differentiated body, with rock+ice mantle
         self.NO_OCEAN = False  # Tracks whether no ocean is present---this flag is set programmatically.
+        self.ICEIh_THICKNESS = False  # Use the Ice Ih shell thickness parameter setting of a planet, calculating the associated bottom pressure and temperature
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
         self.ICEIh_DIFFERENT = True  # Whether to use an amalgamation fit to a broad swath of data from Wolfenbarger et al. (2021) for ice Ih thermal conductivity (in place of all-phases fit model).
@@ -477,6 +479,11 @@ class PlanetStruct:
         self.PfreezeLower_MPa = 0.01  # Lower boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeUpper_MPa = 230  # Upper boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeRes_MPa = 0.05  # Step size in pressure for GetPfreeze to use in searching for phase transition
+        # Settings for GetTfreeze start, stop, and step size. Used when ice shell thickness is input.
+        self.TfreezeLower_K = 240 # Lower boundary for GetTFreeze to search for ice Ih phase transition
+        self.TfreezeUpper_K = 274 # Upper boundary for GetTFreeze to search for ice Ih phase transition
+        self.TfreezeRes_K = 0.05 # Step size in temperature for GetTfreeze to use in searching for phase transition
+
 
         """ Derived quantities (assigned during PlanetProfile runs) """
         # Layer arrays
@@ -2644,6 +2651,8 @@ class ConstantsStruct:
         self.FrezchemPmax_MPa = 200 # Maximum pressure to which Frezchem can accurately converge to perform calculation
         self.EOSPmax_MPa = 2000 # Maximum pressure to make EOS lookup table for
         self.EOSdeltaP_For_Extrapolation = 5 # Extrapolation pressure step
+
+        self.rhoIce_kg_m3_stp = {'Ih': 917} # Density of ice at standard temperature and pressure (STP) - used for first order Tb and Pb calculation for input ice shell thickness
 
         self.PhreeqcToSupcrtNames = { # Dictionary of species names that must be converted from Phreeqc to Supcrt for compatibility
             'H2O': 'H2O(aq)',
