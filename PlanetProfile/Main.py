@@ -31,6 +31,7 @@ from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, ExplorationResults
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
 from PlanetProfile.Utilities.PPversion import ppVerNum
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import CustomSolutionPlanetSetup
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
 
 # Parallel processing
@@ -907,7 +908,8 @@ def InductOgram(bodyname, Params):
 
             else:
                 raise ValueError(f'inductOtype {Params.Induct.inductOtype} behavior not defined.')
-
+        if 'CustomSolution' in Planet.Ocean.comp:
+            CustomSolutionEOSGenerator(PlanetGrid, Params)
         tMarks = np.append(tMarks, time.time())
         log.info('PlanetGrid constructed. Calculating induction responses.')
         Params.INDUCTOGRAM_IN_PROGRESS = True
@@ -1051,7 +1053,7 @@ def ParPlanet(PlanetList, Params):
 
         Args:
             PlanetList (PlanetStruct, shape N, NxM, Nx...): List of Planet objects
-                over which to run in parallel. 
+                over which to run in parallel.
     """
     if Params.logParallel > logging.INFO:
         log.info('Quieting messages to avoid spam in gridded run.')
@@ -1360,6 +1362,28 @@ def ParPlanetExplore(Planet, Params, xList, yList):
     log.setLevel(saveLevel)
 
     return PlanetGrid
+
+def CustomSolutionEOSGenerator(PlanetGrid, Params):
+    """
+    Wrapper to (optionally) parallel load EOS over unique values of w_ppt, ensuring that these EOS have been generated and written to disk. Especially useful to prevent simultaenous writing in InductoGram.
+    Args:
+
+    Returns:
+
+    """
+    # Dictionary to store one planet for each unique wOcean_ppt
+    unique_planets = {}
+
+    # Iterate through the list of planets and keep only the first planet for each unique wOcean_ppt
+    for planet in PlanetGrid.flatten():
+        wOcean_ppt = planet.Ocean.wOcean_ppt
+        # If the wOcean_ppt is not already in the dictionary, add the planet
+        if wOcean_ppt not in unique_planets:
+            unique_planets[wOcean_ppt] = planet
+    # Extract the values (planets) from the dictionary
+    unique_planets_list = list(unique_planets.values())
+    # Call parallel computing on CustomSOlutionEOSGEenerator
+    GridPlanetProfileFunc(CustomSolutionPlanetSetup, unique_planets_list, Params)
 
 
 def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):

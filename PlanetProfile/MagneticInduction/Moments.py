@@ -51,6 +51,10 @@ class InductionStruct:
     def SetComps(self, inductOtype):
         # Set some attributes pertaining to handling multiple ocean compositions in plots
         self.compsList = self.oceanComp.flatten()
+        # Change any array with CustomSolution to just CustomSolution
+        for i in range(self.compsList.size):
+            if 'CustomSolution' in self.compsList[i]:
+                self.compsList[i] = 'CustomSolution'
         if np.all(self.compsList == self.compsList[0]) and inductOtype != 'sigma':
             self.SINGLE_COMP = True
             self.comps = [self.compsList[0]]

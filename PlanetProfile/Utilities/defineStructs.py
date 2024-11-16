@@ -1387,6 +1387,7 @@ class FigLblStruct:
         self.Dscale = 'log'
         self.phaseTitle = r'Phase delay $\upphi$ ($^\circ$)'
         self.oceanTempLbl = r'Mean ocean temp ($\si{K}$)'
+        self.iceThickLbl = r'Ice thickness ($\si{km}$)'
         self.xScalesInduct = {
             'sigma': self.sigScale,
             'Tb': self.wScale,
@@ -2044,6 +2045,7 @@ class CustomSolutionParamsStruct:
         self.rktPath = ''
         self.databasePath = ''
         self.frezchemPath = ''
+
     def setPaths(self, ROOT):
         self.rktPath = os.path.join(ROOT, 'Thermodynamics', 'Reaktoro')
         self.databasePath = os.path.join(self.rktPath, 'Databases')

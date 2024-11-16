@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from collections.abc import Iterable
 from PlanetProfile import _ROOT
-from PlanetProfile.GetConfig import FigMisc, FigLbl
+from PlanetProfile.GetConfig import Color, Style, FigLbl, FigMisc
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Thermodynamics.Reaktoro.ReaktoroAdjustments import ReaktoroConfigAdjustments
@@ -16,6 +16,7 @@ from PlanetProfile.Utilities.defineStructs import DataFilesSubstruct, FigureFile
 from PlanetProfile.TrajecAnalysis import _MAGdir, _scList
 from PlanetProfile.TrajecAnalysis.FlybyEvents import scTargets
 from PlanetProfile.TrajecAnalysis.RefileMAGdata import RefileName, MAGtoHDF5, LoadMAG
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import CustomSolutionPlanetSetup
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -38,7 +39,7 @@ def SetupInit(Planet, Params):
     # Check if Custom Reaktoro Solution is being used and if so then update Params with necessary parameters to plot
     if Planet.Ocean.comp is not None and 'CustomSolution' in Planet.Ocean.comp:
         # ADJUST THIS CODE HERE, DOESNT MAKE MUCH SENSE
-        Params = ReaktoroConfigAdjustments(Planet, Params, _ROOT)
+        Planet, Params = ReaktoroConfigAdjustments(Planet, Params)
 
     # Afford for additional MoI lower-bound uncertainty under non-hydrostatic conditions of 3% of C/MR^2,
     # in accordance with Gao and Stevenson (2013): https://doi.org/10.1016/j.icarus.2013.07.034
@@ -654,3 +655,21 @@ def SetCMR2strings(Planet):
             Planet.CMR2str5 = f'{Planet.Bulk.Cmeasured:.5f}^{{+{Planet.Bulk.CuncertaintyUpper:.5f}}}_{{-{Planet.Bulk.CuncertaintyLower:.5f}}}'
 
     return Planet
+
+
+def ReaktoroConfigAdjustments(Planet, Params):
+    # Adjust config settings and make sure they are valid
+    Params.wRef_ppt[Planet.Ocean.comp] = Params.wRef_ppt["CustomSolution"]
+    Params.fNameRef[Planet.Ocean.comp] = f'{Planet.Ocean.comp}Ref.txt'
+    Color.cmapName[Planet.Ocean.comp] = Color.CustomSolutionCmapNames.pop(0)
+    Color.CustomSolutionCmapNames.append(Color.cmapName[Planet.Ocean.comp])
+    Color.cmapBounds[Planet.Ocean.comp] = Color.cmapBounds["CustomSolution"]
+    Color.saturation[Planet.Ocean.comp] = Color.saturation["CustomSolution"]
+    Color.SetCmaps()
+    Style.LS[Planet.Ocean.comp] = Style.LS["CustomSolution"]
+    Style.LS_ref[Planet.Ocean.comp] = Style.LS_ref["CustomSolution"]
+
+    # Setup the Reaktoro file and Planet.Ocean.comp/Planet.Ocean.w_ppt settings, and ensure the EOS can be generated
+    Planet, Params = CustomSolutionPlanetSetup(Planet, Params)
+
+    return Planet, Params
