@@ -153,7 +153,7 @@ def SetupInit(Planet, Params):
         approx_Tb_K = GetTfreeze(Planet.Ocean.meltEOS, approx_Pb_MPa, Planet.TfreezeLower_K,
                    TfreezeRange_K = Planet.TfreezeUpper_K - Planet.TfreezeLower_K, TRes_K= Planet.TfreezeRes_K)
         log.info(f'Using a hydrostatic pressure assumption, we calculated an approximate bottom pressure and temperature of '
-                 f'{approx_Pb_MPa:.3f} MPa and {approx_Tb_K:.3f} K for an ice shell thickness of {Planet.Bulk.zb_approximate_km}.'
+                 f'{approx_Pb_MPa:.3f} MPa and {approx_Tb_K:.3f} K for an ice shell thickness of {Planet.Bulk.zb_approximate_km}km.'
                  f'\n We will use the bottom T_K as our input to the ice layer calculations, allowing for self consistency. '
                  f'This means that the model ice shell thickness will not be exactly as input, but should be fairly close.')
         Planet.Bulk.Tb_K = round(approx_Tb_K, 3) # Round Bulk Tb_K to 3 decimal places

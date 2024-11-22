@@ -1086,7 +1086,7 @@ class ColorStruct:
         self.PvTcoreCmapName = None
         self.PvTcoreHi = None
         self.PvTcoreLo = None
-
+        self.CustomSolutionCmapNames = [] # Colormaps for CustomSolution model plots
         self.cmapName = {}  # Colormaps for inductogram phase space plots, hydrosphere plots, etc
         self.cmapBounds = {}  # Select only a subset of the available colormap, if we choose to
         self.Tbounds_K = [245.0, 300.0]  # Set temperature bounds to use for ocean colormap normalization
