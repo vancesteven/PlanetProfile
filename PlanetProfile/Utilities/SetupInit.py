@@ -687,6 +687,8 @@ def SetCMR2strings(Planet):
 
 
 def SetupCustomSolution(Planet, Params):
+    # Setup the Reaktoro file and Planet.Ocean.comp/Planet.Ocean.w_ppt settings, and ensure the EOS can be generated
+    Planet, Params = CustomSolutionPlanetSetup(Planet, Params)
     # Adjust config settings and make sure they are valid
     Params.wRef_ppt[Planet.Ocean.comp] = Params.wRef_ppt["CustomSolution"]
     Params.fNameRef[Planet.Ocean.comp] = f'{Planet.Ocean.comp}Ref.txt'
@@ -697,8 +699,5 @@ def SetupCustomSolution(Planet, Params):
     Color.SetCmaps()
     Style.LS[Planet.Ocean.comp] = Style.LS["CustomSolution"]
     Style.LS_ref[Planet.Ocean.comp] = Style.LS_ref["CustomSolution"]
-
-    # Setup the Reaktoro file and Planet.Ocean.comp/Planet.Ocean.w_ppt settings, and ensure the EOS can be generated
-    Planet, Params = CustomSolutionPlanetSetup(Planet, Params)
 
     return Planet, Params
