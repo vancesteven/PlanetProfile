@@ -90,9 +90,9 @@ def PlotHydroPhase(PlanetList, Params):
         # Set overall figure title
         if Params.TITLES:
             if "CustomSolution" in Planet.Ocean.comp:
-                fig.suptitle(f'{Planet.Ocean.comp.split('=')[0].strip()}{FigLbl.hydroPhaseTitle}')
+                fig.suptitle(f"{Planet.Ocean.comp.split('=')[0].strip()}{FigLbl.hydroPhaseTitle}")
             else:
-                fig.suptitle(f'{Planet.compStr}{FigLbl.hydroPhaseTitle}')
+                fig.suptitle(f"{Planet.compStr}{FigLbl.hydroPhaseTitle}")
 
         # Plot as colormesh
         phaseColors = DiscreteCmap.from_list('icePhases',

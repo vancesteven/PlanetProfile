@@ -201,9 +201,9 @@ def PlotHydrosphereProps(PlanetList, Params):
                 # Get strings for referencing and labeling
                 # If using CustomSolution, then adjust label so compatible with Latex formating
                 if "CustomSolution" in Planet.Ocean.comp:
-                    wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp.split('=')[0].strip()}}} \\{{'
+                    wList = f"$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp.split('=')[0].strip()}}} \\{{"
                 else:
-                    wList = f'$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp}}} \\{{'
+                    wList = f"$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp}}} \\{{"
                 wList += ', '.join([f'{w*FigLbl.wMult:.0f}' for w in Params.wRef_ppt[Planet.Ocean.comp]])
                 wList += '\}\,$\si{' + FigLbl.wUnits + '}$'
                 if not FigMisc.TEX_INSTALLED:

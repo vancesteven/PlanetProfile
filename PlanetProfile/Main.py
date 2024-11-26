@@ -160,7 +160,7 @@ def run(bodyname=None, opt=None, fNames=None):
 
         """ Post-processing """
         # Loading BodyProfile...txt files to plot them together
-        if Params.COMPARE and not Params.RUN_ALL_PROFILES:
+        if Params.COMPARE and len(loadNames)>1 and not Params.RUN_ALL_PROFILES:
             fNamesToCompare = np.array(FilesMatchingPattern(os.path.join(PlanetList[0].bodyname, f'{PlanetList[0].name}Profile*.txt')))
             isProfile = [Params.DataFiles.saveFile != fName and 'mantle' not in fName for fName in fNamesToCompare]
             fProfiles = fNamesToCompare[isProfile]
