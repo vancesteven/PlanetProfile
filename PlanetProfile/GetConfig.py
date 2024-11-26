@@ -84,7 +84,6 @@ userColor, userStyle, userFigLbl, userFigSize, userFigMisc = userPlotAssign()
 CustomSolutionParams = customSolutionAssign()
 userCustomSolutionParams = userCustomSolutionAssign()
 
-
 # Load user settings to allow for configuration
 for attr, value in userParams.__dict__.items():
     setattr(Params, attr, value)
@@ -110,7 +109,6 @@ for attr, value in userFigSize.__dict__.items():
     setattr(FigSize, attr, value)
 for attr, value in userFigMisc.__dict__.items():
     setattr(FigMisc, attr, value)
-
 for attr, value in userCustomSolutionParams.__dict__.items():
     setattr(CustomSolutionParams, attr, value)
 

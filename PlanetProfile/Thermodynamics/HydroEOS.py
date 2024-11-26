@@ -127,7 +127,7 @@ class OceanEOSStruct:
                 if np.max(P_MPa) > self.Pmax:
                     log.warning(f'Input Pmax greater than SeaFreeze limit for {self.comp}. Resetting to SF max of {self.Pmax} MPa.')
                     P_MPa = np.linspace(np.min(P_MPa), self.Pmax, np.size(P_MPa))
-                if np.min(T_K) < self.Tmin:
+                if np.min(T_K) > self.Tmin:
                     log.warning(f'Input Tmin less than SeaFreeze limit for {self.comp}. Resetting to SF min of {self.Tmin} K.')
                     T_K = np.linspace(self.Tmin, np.max(T_K), np.size(T_K))
                 if np.max(T_K) > self.Tmax:
@@ -148,7 +148,9 @@ class OceanEOSStruct:
                     else:
                         SFcomp = self.comp
                         self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)  # Placeholder until lab data can be implemented
-
+                    if self.w_ppt > wMax[self.comp]:
+                        log.warning(f'Input wOcean_ppt greater than SeaFreeze limit for {self.comp}. Resetting to SF max.')
+                        self.w_ppt = wMax[self.comp]
                     PTmGrid = sfPTmGrid(P_MPa, T_K, Ppt2molal(self.w_ppt, self.m_gmol))
                 seaOut = SeaFreeze(deepcopy(PTmGrid), SFcomp)
                 rho_kgm3 = seaOut.rho
@@ -313,7 +315,6 @@ class OceanEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_species(P_MPa, T_K, grid=grid)
-
 
 
 def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0,

@@ -1053,7 +1053,11 @@ def ParPlanet(PlanetList, Params):
 
         Args:
             PlanetList (PlanetStruct, shape N, NxM, Nx...): List of Planet objects
+<<<<<<< HEAD
                 over which to run in parallel.
+=======
+                over which to run in parallel. 
+>>>>>>> 97ce6dc4edf45f87ceaeeed5079793bfc4eb7c01
     """
     if Params.logParallel > logging.INFO:
         log.info('Quieting messages to avoid spam in gridded run.')
@@ -1384,7 +1388,6 @@ def CustomSolutionEOSGenerator(PlanetGrid, Params):
     unique_planets_list = list(unique_planets.values())
     # Call parallel computing on CustomSOlutionEOSGEenerator
     GridPlanetProfileFunc(CustomSolutionPlanetSetup, unique_planets_list, Params)
-
 
 def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
     """ Wrapper for (optionally) parallel run of multiple Planet objects through the

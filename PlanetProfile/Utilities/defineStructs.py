@@ -484,7 +484,6 @@ class PlanetStruct:
         self.TfreezeUpper_K = 274 # Upper boundary for GetTFreeze to search for ice Ih phase transition
         self.TfreezeRes_K = 0.05 # Step size in temperature for GetTfreeze to use in searching for phase transition
 
-
         """ Derived quantities (assigned during PlanetProfile runs) """
         # Layer arrays
         self.phase = None  # Phase of the layer input as an integer: ocean=0, ice I through VI are 1 through 6, clathrate=Constants.phaseClath, silicates=Constants.phaseSil, iron=Constants.phaseFe.
@@ -1086,7 +1085,11 @@ class ColorStruct:
         self.PvTcoreCmapName = None
         self.PvTcoreHi = None
         self.PvTcoreLo = None
+<<<<<<< HEAD
         self.CustomSolutionCmapNames = [] # Colormaps for CustomSolution model plots
+=======
+
+>>>>>>> 97ce6dc4edf45f87ceaeeed5079793bfc4eb7c01
         self.cmapName = {}  # Colormaps for inductogram phase space plots, hydrosphere plots, etc
         self.cmapBounds = {}  # Select only a subset of the available colormap, if we choose to
         self.Tbounds_K = [245.0, 300.0]  # Set temperature bounds to use for ocean colormap normalization
@@ -2039,6 +2042,7 @@ class FigSizeStruct:
         self.apsidal = None
 
 
+<<<<<<< HEAD
 "Custom ocean solution input settings"
 class CustomSolutionParamsStruct:
     def __init__(self):
@@ -2057,7 +2061,6 @@ class CustomSolutionParamsStruct:
         self.rktPath = os.path.join(ROOT, 'Thermodynamics', 'Reaktoro')
         self.databasePath = os.path.join(self.rktPath, 'Databases')
         self.frezchemPath = os.path.join(self.databasePath, self.FREZCHEM_DATABASE)
-
 
 # For configuring longitudes from -180 to 180 or 0 to 360.
 def LonFormatter(longitude, EAST=True):

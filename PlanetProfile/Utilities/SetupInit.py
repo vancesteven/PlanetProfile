@@ -159,10 +159,6 @@ def SetupInit(Planet, Params):
         Planet.Bulk.Tb_K = round(approx_Tb_K, 3) # Round Bulk Tb_K to 3 decimal places
 
 
-
-
-
-
     # Get filenames for saving/loading
     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
 
@@ -615,8 +611,6 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             exploreBase = f'{Planet.name}ExploreOgram_{exploreAppend}_{saveLabel}'
         else:
             exploreBase = None
-
-
     DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, Planet.Ocean.comp, inductBase=inductBase,
                                    exploreAppend=exploreAppend, EXPLORE=(Params.DO_INDUCTOGRAM or
                                        Params.DO_EXPLOREOGRAM or Params.INDUCTOGRAM_IN_PROGRESS),
@@ -684,7 +678,6 @@ def SetCMR2strings(Planet):
             Planet.CMR2str5 = f'{Planet.Bulk.Cmeasured:.5f}^{{+{Planet.Bulk.CuncertaintyUpper:.5f}}}_{{-{Planet.Bulk.CuncertaintyLower:.5f}}}'
 
     return Planet
-
 
 def SetupCustomSolution(Planet, Params):
     # Setup the Reaktoro file and Planet.Ocean.comp/Planet.Ocean.w_ppt settings, and ensure the EOS can be generated

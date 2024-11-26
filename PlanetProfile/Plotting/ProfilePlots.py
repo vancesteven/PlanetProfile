@@ -15,7 +15,6 @@ from PlanetProfile.Utilities.defineStructs import Constants
 log = logging.getLogger('PlanetProfile')
 
 def GeneratePlots(PlanetList, Params):
-
     # Remove latex styling from legend labels if Latex is not installed
     if not FigMisc.TEX_INSTALLED:
         for Planet in PlanetList:
@@ -25,7 +24,7 @@ def GeneratePlots(PlanetList, Params):
     if Params.PLOT_HYDROSPHERE and not Params.ALL_NO_H2O:
         if Params.CALC_NEW_REF:
             # Calculate reference profiles showing melting curves for
-            # several salinities specified in configPP.py¡
+            # several salinities specified in configPP.py
             Params = CalcRefProfiles(PlanetList, Params)
         else:
             # Reload refprofiles for this composition
@@ -572,8 +571,6 @@ def PlotPorosity(PlanetList, Params):
     plt.close()
 
     return
-
-
 def PlotHydrosphereSpecies(PlanetList, Params):
     # Only make this plot once for a planet
     if np.size(PlanetList) == 1:
@@ -661,7 +658,6 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                     plt.close()
                 else:
                     log.warning("There is no ocean, thus will not plot a hydrosphere species plot for this model.")
-
 
 def PlotViscosity(PlanetList, Params):
 
@@ -974,7 +970,6 @@ def PlotWedge(PlanetList, Params):
                     ax.add_patch(Wedge((0.5,0), (R_km - Planet.zClath_km)/rMax_km, ang1, ang2,
                                        width=Planet.dzClath_km/rMax_km,
                                        fc=Color.clathCond, lw=Style.LW_wedge, ec=clathConvBd))
-
                 # Outer boundary around clathrates
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zClath_km)/rMax_km, ang1, ang2,
                                    width=Planet.dzClath_km/rMax_km,
@@ -998,7 +993,6 @@ def PlotWedge(PlanetList, Params):
                         ax.add_patch(Wedge((0.5, 0), R_km/rMax_km, ang1 + iWdg*angWdg, ang1 + (iWdg+1)*angWdg,
                                            width=(Planet.dzIceI_km + thickDiff)/rMax_km, zorder=100,
                                            fc=Color.iceIcond, lw=Style.LW_wedge, ec=iceConvBd))
-
             # Outer boundary around ice I
             if Planet.dzIceI_km > 0:
                 if Planet.Bulk.asymIce is None:
@@ -1010,7 +1004,6 @@ def PlotWedge(PlanetList, Params):
                         ax.add_patch(Wedge((0.5, 0), R_km/rMax_km, ang1 + iWdg*angWdg, ang1 + (iWdg+1)*angWdg,
                                            width=(Planet.dzIceI_km + thickDiff)/rMax_km, zorder=100,
                                            fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
-
             # Surface HP ices
             if Planet.dzIceIIIund_km > 0:
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceIIIund_m/1e3)/rMax_km, ang1, ang2,
@@ -1020,7 +1013,6 @@ def PlotWedge(PlanetList, Params):
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceVund_m/1e3)/rMax_km, ang1, ang2,
                                    width=Planet.dzIceVund_km/rMax_km,
                                    fc=Color.iceV, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
-
             # @@@@@@@@@@@
             # Ocean layer
             # @@@@@@@@@@@
@@ -1040,11 +1032,9 @@ def PlotWedge(PlanetList, Params):
                     ax.add_patch(Wedge((0.5, 0), ((R_km - Planet.zb_km) - thisOceanFrac*Planet.D_km)/rMax_km, ang1, ang2,
                                        width=dz*Planet.D_km/rMax_km, clip_path=oceanOuter,
                                        fc=Color.oceanCmap(thisOceanFrac), ec=Color.oceanCmap(thisOceanFrac)))
-
                 # Draw outer boundary
                 oceanOuter.set_edgecolor(Color.wedgeBd)
                 ax.add_patch(oceanOuter)
-
             # Undersea HP ices
             if Planet.dzIceIII_km > 0:
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceIII_m/1e3)/rMax_km, ang1, ang2,
@@ -1058,7 +1048,6 @@ def PlotWedge(PlanetList, Params):
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceVI_m/1e3)/rMax_km, ang1, ang2,
                                    width=Planet.dzIceVI_km/rMax_km,
                                    fc=Color.iceVI, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
-
         # @@@@@@@@@
         # Silicates
         # @@@@@@@@@
