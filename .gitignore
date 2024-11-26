@@ -22,3 +22,4 @@ configPPtrajec.py
 *.log
 *.bm
 startup.m
+Thermodynamics/MgSO4/phaseLookupMgSO4.mat
