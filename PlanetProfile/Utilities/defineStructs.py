@@ -1085,11 +1085,7 @@ class ColorStruct:
         self.PvTcoreCmapName = None
         self.PvTcoreHi = None
         self.PvTcoreLo = None
-<<<<<<< HEAD
         self.CustomSolutionCmapNames = [] # Colormaps for CustomSolution model plots
-=======
-
->>>>>>> 97ce6dc4edf45f87ceaeeed5079793bfc4eb7c01
         self.cmapName = {}  # Colormaps for inductogram phase space plots, hydrosphere plots, etc
         self.cmapBounds = {}  # Select only a subset of the available colormap, if we choose to
         self.Tbounds_K = [245.0, 300.0]  # Set temperature bounds to use for ocean colormap normalization
@@ -2041,8 +2037,6 @@ class FigSizeStruct:
         self.asym = None
         self.apsidal = None
 
-
-<<<<<<< HEAD
 "Custom ocean solution input settings"
 class CustomSolutionParamsStruct:
     def __init__(self):
