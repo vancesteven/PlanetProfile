@@ -613,12 +613,15 @@ def AddV2021points(IndParams, bodyname, inductOtype, axes):
 
 def PlotComplexBdip(PlanetList, Params):
     if PlanetList[0].bodyname in Excitations.Texc_hr.keys():
+
         refs = {}
-        nPeaksToPlot = np.sum([Tdo and Thave for Tdo, Thave, Texc in zip(Params.Induct.excSelectionPlot.values(),
-                                                                         Params.Induct.excSelectionCalc.values(),
-                                                                         Excitations.Texc_hr[
-                                                                             PlanetList[0].bodyname].values()) if
-                               Texc is not None])
+        if Excitations.Texc_hr[PlanetList[0].bodyname].keys() is None:
+            nPeaksToPlot = 0
+        else:
+            common_keys = set(Excitations.Texc_hr[PlanetList[0].bodyname].keys()) & set(
+                Params.Induct.excSelectionPlot.keys()) & set(Params.Induct.excSelectionCalc.keys())
+            nPeaksToPlot = np.sum([Params.Induct.excSelectionPlot[key] and Params.Induct.excSelectionCalc[key] and
+                               Excitations.Texc_hr[PlanetList[0].bodyname][key] is not None for key in common_keys])
         nPeaksCalced = np.sum([np.size(Planeti.Magnetic.calcedExc) for Planeti in PlanetList])
         if nPeaksToPlot >= 1 and nPeaksCalced >= 1:
             if nPeaksToPlot == 1:

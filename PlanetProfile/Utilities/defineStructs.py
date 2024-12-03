@@ -1051,6 +1051,8 @@ class ColorStruct:
         self.clathCond = None
         self.clathConv = None
         self.oceanCmapName = None
+        self.correctPhase = None # Matching phase between two phase diagrams
+        self.diffPhase = None # Different phase between two Planet profile runs
         self.oceanTop = None  # Fraction of ocean colormap to start at (from 0 to 1)
         self.oceanBot = None  # Fraction of ocean colormap to end at (from 0 to 1)
         self.oceanN = None

@@ -419,6 +419,38 @@ def PlotCoreTradeoff(PlanetList, Params):
 
     return
 
+"""
+def PlotCustomSolutionSpeciesTable(PlanetList, Params):
+    # Step 1: Get all unique species across all planets
+    species_set = set()
+    planet_compositions = []
+    CustomSolutionPlanets = [Planet for Planet in PlanetList if "CustomSolution" in Planet.Ocean.comp]
+
+    for Planet in CustomSolutionPlanets:
+        species = Planet.Ocean.speciation_ratio_mol_kg
+        planet_compositions.append(species)
+        species_set.update(species.keys())
+
+    # Step 2: Create a list of species in sorted order
+    sorted_species = sorted(species_set)
+
+    # Step 3: Prepare the data for the DataFrame (rows: species, columns: planets)
+    data = []
+
+    for species in sorted_species:
+        row = [species]  # Start with the species name as the first column
+        for i, planet_compositions_i in enumerate(planet_compositions):
+            # If the species exists in this planet's composition, add the value, else add '---'
+            row.append(planet_compositions_i.get(species, '---'))
+        data.append(row)
+
+    # Step 4: Create a list of column names
+    planet_names = [Planet.label 
+    columns = ["Species"] + planet_names
+
+    # Step 5: Create a DataFrame from the data
+    df = pd.DataFrame(data, columns=columns)
+"""
 
 def PlotSilTradeoff(PlanetList, Params):
     fig = plt.figure(figsize=FigSize.vmant)
@@ -868,7 +900,8 @@ def PlotWedge(PlanetList, Params):
                 compStr = r'Pure \ce{H2O} ocean'
             elif 'CustomSolution' in Planet.Ocean.comp:
                 solutionTitle = Planet.Ocean.comp.split('=')[0].strip()
-                compStr = f'\SI{{{Planet.Ocean.wOcean_ppt:.1f}}}{{{FigLbl.wUnits}}}~\ce{{{solutionTitle}}}'
+                solutionTitle = solutionTitle.replace("CustomSolution", "")
+                compStr = f'{solutionTitle}'
             else:
                 compStr = f'\SI{{{Planet.Ocean.wOcean_ppt:.1f}}}{{{FigLbl.wUnits}}}~\ce{{{Planet.Ocean.comp}}}'
 
