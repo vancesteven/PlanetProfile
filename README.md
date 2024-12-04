@@ -1,6 +1,10 @@
 # PlanetProfile v2.5
 ![PlanetProfile logo](misc/PPlogoDocs.png)
 
+Update as of November 26, 2025:
+The code was rebased to push many changes undertaken over the recent 8 months. Due to new file size limitations, this meant excluding a large phase lookup file for MgSO4. Please clone a fresh installation into a new folder and retain your prior installation. There are some lingering fixes underway prior to releasing these changes as a new version.
+Major updates include use of a in-development NaCl(aq) EOS for SeaFreeze, and implementation of a CustomSolution feature using Reaktoro.
+
 Software framework for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data.
 
 The main repository is mirrored at <https://github.com/NASA-Planetary-Science/PlanetProfile>; any pull requests should be submitted to <https://github.com/vancesteven/PlanetProfile>. Read the software documentation at <https://vancesteven.github.io/PlanetProfile>.
@@ -12,7 +16,7 @@ We want to hear about your work with PlanetProfile! Please consider sending us a
 PlanetProfile is available in Python and Matlab.
 
 ### *For Python*
-The recommended way to install is with pip.
+The recommended way to install is with pip. 
 Developers: see below--do not install via pip.
 
 #### Pip installation
@@ -75,6 +79,8 @@ A simple list with install commands for Python is in the next section.
   * Matlab: Download mMatTauP contents into Utilities/ and add-with-subfolders to the Matlab path.
 * A working TeX/LaTeX distribution (such as TeXlive) is recommended for optimum plot labels. TeXlive is available at: <https://tug.org/texlive/acquire-netinstall.html>
     It can also be installed using pip.
+* Reaktoro (optional) -- see <https://reaktoro.org>
+  * Python: Installed with pip: `pip install reaktoro=2`
 
 ### Note about SeaFreeze versions prior to v0.9.3
 If you had installed SeaFreeze before version v0.9.3, you will need to manually remove the prior installation because it was improperly packaged before.
