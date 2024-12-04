@@ -10,7 +10,9 @@ Software framework for constructing 1D interior structure models based on planet
 The main repository is mirrored at <https://github.com/NASA-Planetary-Science/PlanetProfile>; any pull requests should be submitted to <https://github.com/vancesteven/PlanetProfile>. Read the software documentation at <https://vancesteven.github.io/PlanetProfile>.
 
 ## Acknowledging PlanetProfile
-We want to hear about your work with PlanetProfile! Please consider sending us a message alerting us to your work (svance@jpl.nasa.gov). Suggested acknowledgement in publications: "Data used in this work were generated using the open-source _PlanetProfile_ software hosted on GitHub (<https://github.com/vancesteven/PlanetProfile>)."
+We want to hear about your work with PlanetProfile! Please consider sending us a message alerting us to your work (svance@jpl.nasa.gov). Suggested acknowledgement in publications: "Data used in this work were generated using the open-source _PlanetProfile_ software hosted on GitHub (<https://github.com/vancesteven/PlanetProfile>)." Please also cite: Vance et al. (2018) Geophysical investigations of habitability in ice-covered ocean worlds. Journal of Geophysical Research: Planets, 10.1002/2017JE005341. Styczinski, S. D. Vance, and M. Melwani Daswani (2023) PlanetProfile: Self-consistent interior structure modeling for ocean worlds and rocky dwarf planets in Python. Earth and Space Science, 10(8), 10.1029/2022ea002748.
+
+
 
 ## Getting started
 PlanetProfile is available in Python and Matlab.
@@ -65,10 +67,7 @@ or
 A simple list with install commands for Python is in the next section.
 * SeaFreeze -- see <https://github.com/Bjournaux/SeaFreeze>
   * Python: Installed with pip: `pip install SeaFreeze`
-  * Matlab: Download the repository to Thermodynamics/SeaFreeze and add the contents to the Matlab path.
-* MoonMag -- see <https://github.com/itsmoosh/MoonMag>
-  * Python only -- Installed with pip: `pip install MoonMag`
-  * In Matlab, magnetic induction calculations are performed numerically and cannot incorporate lateral asymmetry in conducting layers.
+  * Matlab: Download the repository to Thermodynamics/SeaFreeze and add the contents to the Matlab path
 * Gibbs Seawater toolbox of TEOS-10 -- see <https://www.teos-10.org/>
   * Python: Installed with conda via conda-forge: `conda install -c conda-forge gsw` 
   * Matlab: Already packaged into the PlanetProfile repository along with the original license.
@@ -81,6 +80,8 @@ A simple list with install commands for Python is in the next section.
     It can also be installed using pip.
 * Reaktoro (optional) -- see <https://reaktoro.org>
   * Python: Installed with pip: `pip install reaktoro=2`
+* PlanetMag (optional) -- see <https://github.com/coreyjcochrane/PlanetMag>
+  * Matlab only: Installed following detailed instructions on the repo. 
 
 ### Note about SeaFreeze versions prior to v0.9.3
 If you had installed SeaFreeze before version v0.9.3, you will need to manually remove the prior installation because it was improperly packaged before.
