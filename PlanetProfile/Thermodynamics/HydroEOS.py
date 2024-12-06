@@ -127,7 +127,7 @@ class OceanEOSStruct:
                 if np.max(P_MPa) > self.Pmax:
                     log.warning(f'Input Pmax greater than SeaFreeze limit for {self.comp}. Resetting to SF max of {self.Pmax} MPa.')
                     P_MPa = np.linspace(np.min(P_MPa), self.Pmax, np.size(P_MPa))
-                if np.min(T_K) < self.Tmin:
+                if np.min(T_K) > self.Tmin:
                     log.warning(f'Input Tmin less than SeaFreeze limit for {self.comp}. Resetting to SF min of {self.Tmin} K.')
                     T_K = np.linspace(self.Tmin, np.max(T_K), np.size(T_K))
                 if np.max(T_K) > self.Tmax:
