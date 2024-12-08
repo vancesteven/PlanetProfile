@@ -549,6 +549,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             saveLabel += CustomSolutionLabel
             abbreviatedLabel = CustomSolutionLabel.replace("CustomSolution", "")
             label = f'{abbreviatedLabel}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+            """
             SpeciesLabel = Planet.Ocean.comp.split('=')[1].strip()
             i = 0
             for species_with_ratio in SpeciesLabel.split(", "):
@@ -561,7 +562,8 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
                 label += f'{species_with_ratio},'
                 i += 1
             label = label.rstrip(',')
-            Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Ocean.comp}}}'
+            """
+            Planet.compStr = f'{CustomSolutionLabel}'
         else:
             saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
                         f'_Tb{Planet.Bulk.Tb_K}K'

@@ -29,7 +29,7 @@ from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
 from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, ExplorationResults
-from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
+from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings, SetupCustomSolution
 from PlanetProfile.Utilities.PPversion import ppVerNum
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import CustomSolutionPlanetSetup
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
@@ -604,11 +604,11 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         # Get silicate mantle Perple_X EOS file
         Planet.Sil.mantleEOS = f.readline().split('=')[-1].strip()
         # Get iron core Perple_X EOS file
-        Planet.Core.coreEOS = f.readline().split('=')[-1].strip() 
+        Planet.Core.coreEOS = f.readline().split('=')[-1].strip()
         # Get dissolved salt supposed for ocean (present in filename, but this is intended for future-proofing when we move to a database lookup)
-        Planet.Ocean.comp = f.readline().split('=')[-1].strip()
+        Planet.Ocean.comp = f.readline().split('=', 1)[-1].strip()
         # Get dissolved salt supposed for pore space
-        Planet.Sil.poreComp = f.readline().split('=')[-1].strip()
+        Planet.Sil.poreComp = f.readline().split('=', 1)[-1].strip()
         # Get float values from header
         Planet.Ocean.wOcean_ppt, Planet.Sil.wPore_ppt, Planet.Bulk.R_m, Planet.Bulk.M_kg, Planet.Bulk.Cmeasured, \
         Planet.Bulk.CuncertaintyLower, Planet.Bulk.CuncertaintyUpper, Planet.Bulk.Psurf_MPa, Planet.Bulk.Tsurf_K, \
@@ -658,6 +658,10 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     # Read in data for core/mantle trade
     Planet.Sil.Rtrade_m, Planet.Core.Rtrade_m, Planet.Sil.rhoTrade_kgm3, \
         = np.loadtxt(Params.DataFiles.mantCoreFile, skiprows=1, unpack=True)
+
+    # Setup CustomSolution settings
+    if 'CustomSolution' in Planet.Ocean.comp:
+        Planet, Params = SetupCustomSolution(Planet, Params)
 
     return Planet, Params
 
@@ -1052,12 +1056,7 @@ def ParPlanet(PlanetList, Params):
     """ Run a list of PlanetProfile models over arrays of run settings.
 
         Args:
-            PlanetList (PlanetStruct, shape N, NxM, Nx...): List of Planet objects
-<<<<<<< HEAD
-                over which to run in parallel.
-=======
-                over which to run in parallel. 
->>>>>>> 97ce6dc4edf45f87ceaeeed5079793bfc4eb7c01
+            PlanetList (PlanetStruct, shape N, NxM, Nx...): List of Planet objects over which to run in parallel.
     """
     if Params.logParallel > logging.INFO:
         log.info('Quieting messages to avoid spam in gridded run.')

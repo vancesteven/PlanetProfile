@@ -20,6 +20,197 @@ log = logging.getLogger('PlanetProfile')
 # Just make these plots for the first model, which is the primary.
 
 def PlotHydroPhase(PlanetList, Params):
+    if os.path.dirname(Params.FigureFiles.vpvtHydro) != 'Comparison':
+        if FigMisc.PminHydro_MPa is None:
+            Pmin_MPa = np.min([Planet.P_MPa[0] for Planet in PlanetList])
+        else:
+            Pmin_MPa = FigMisc.PminHydro_MPa
+        if FigMisc.PmaxHydro_MPa is None:
+            Pmax_MPa = np.max([Planet.P_MPa[Planet.Steps.nHydro-1] for Planet in PlanetList])
+        else:
+            Pmax_MPa = FigMisc.PmaxHydro_MPa
+        if FigMisc.TminHydro_K is None:
+            if not np.any([Planet.Do.NO_OCEAN for Planet in PlanetList]):
+                Tmin_K = np.min([np.min(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
+            else:
+                Tmin_K = np.min([np.min(Planet.T_K) for Planet in PlanetList])
+        else:
+            Tmin_K = FigMisc.TminHydro_K
+        if FigMisc.TmaxHydro_K is None:
+            if np.all([Planet.Do.NO_OCEAN for Planet in PlanetList]):
+                Tmax_K = np.max([Planet.Sil.THydroMax_K for Planet in PlanetList])
+            else:
+                Tmax_K = np.max([np.max(Planet.T_K[:Planet.Steps.nHydro])
+                                 for Planet in PlanetList if not Planet.Do.NO_OCEAN])
+        else:
+            Tmax_K = FigMisc.TmaxHydro_K
+
+        if FigMisc.nPhydro is None:
+            Planet = PlanetList[0]
+            P_MPa = Planet.P_MPa[:Planet.Steps.nHydro]
+            P_MPa = P_MPa[np.logical_and(P_MPa >= Pmin_MPa, P_MPa <= Pmax_MPa)]
+            for Planet in PlanetList:
+                # Get highest fidelity pressure range
+                P = Planet.P_MPa[:Planet.Steps.nHydro]
+                P = P[np.logical_and(P >= Pmin_MPa, P <= Pmax_MPa)]
+                if P.size > P_MPa.size:
+                    P_MPa = P
+        else:
+            P_MPa = np.linspace(Pmin_MPa, Pmax_MPa, FigMisc.nPhydro)
+        if FigMisc.nThydro is None:
+            Planet = PlanetList[0]
+            T_K = Planet.T_K[:Planet.Steps.nHydro]
+            T_K = T_K[np.logical_and(T_K >= Tmin_K, T_K <= Tmax_K)]
+            for Planet in PlanetList:
+                # Get highest fidelity pressure range
+                T = Planet.T_K[:Planet.Steps.nHydro]
+                T = T[np.logical_and(T >= Tmin_K, T <= Tmax_K)]
+                if T.size > T_K.size:
+                    T_K = T
+        else:
+            T_K = np.linspace(Tmin_K, Tmax_K, FigMisc.nThydro)
+        oceanListEOS = []
+        phasesList = []
+        ices = {}
+        iceEOS = {}
+        for Planet in PlanetList:
+            # Load EOS independently from model run, because we will query wider ranges of conditions
+            oceanEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, P_MPa, T_K,
+                                   Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
+                                   scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
+                                   phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
+                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+            phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
+            new_ices = set([PhaseConv(ice) for ice in np.unique(np.append(phases[phases != 0], 1))])
+            if not new_ices.issubset(ices):
+                ices = new_ices
+                iceEOS = {PhaseInv(ice): GetIceEOS(P_MPa, T_K, ice,
+                                                   porosType=Planet.Ocean.porosType[ice],
+                                                   phiTop_frac=Planet.Ocean.phiMax_frac[ice],
+                                                   Pclosure_MPa=Planet.Ocean.Pclosure_MPa[ice],
+                                                   phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[ice],
+                                                   ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                          for ice in ices}
+            # Add clathrates to phase and property diagrams where it is stable (if modeled)
+            if Planet.Do.CLATHRATE:
+                clath = PhaseConv(Constants.phaseClath)
+                if clath not in ices:
+                    ices.add(clath)
+                    iceEOS[Constants.phaseClath] = GetIceEOS(P_MPa, T_K, clath,
+                                                             porosType=Planet.Ocean.porosType[clath],
+                                                             phiTop_frac=Planet.Ocean.phiMax_frac[clath],
+                                                             Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
+                                                             phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                             EXTRAP=Params.EXTRAP_ICE[clath])
+                clathStable = iceEOS[Constants.phaseClath].fn_phase(P_MPa, T_K, grid=True)
+                phases[clathStable == Constants.phaseClath] = Constants.phaseClath
+            oceanListEOS.append(oceanEOS)
+            phasesList.append(phases)
+
+        # Go through every two combination
+        SinglePlanetPlot = (len(PlanetList) == 1)
+        # If we are plotting for only one run, then compare it to a blank HydroEOS
+        if SinglePlanetPlot:
+            combinations = [(0, 0)]
+        else:
+            combinations = itertools.combinations(range(0, PlanetList.size), 2)
+        for comparison in combinations:
+            FirstPlanetIndex = comparison[0]
+            SecondPlanetIndex = comparison[1]
+            FirstPlanet = PlanetList[FirstPlanetIndex]
+            SecondPlanet = PlanetList[SecondPlanetIndex]
+            fig = plt.figure(figsize=FigSize.vphase)
+            grid = GridSpec(1, 1)
+            ax = fig.add_subplot(grid[0, 0])
+            if Style.GRIDS:
+                ax.grid()
+                ax.set_axisbelow(False)
+            # Labels and titles
+            ax.set_xlabel(FigLbl.Tlabel)
+            ax.set_ylabel(FigLbl.PlabelHydro)
+
+            # Set overall figure title
+            if Params.TITLES:
+
+                if SinglePlanetPlot:
+                    fig.suptitle(f'{FirstPlanet.compStr}{FigLbl.hydroPhaseTitle}')
+                else:
+                    fig.suptitle(
+                        f'Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.hydroPhaseTitle}')
+
+            # Plot as colormesh
+            if SinglePlanetPlot:
+                phases = phasesList[0]
+                phaseColors = DiscreteCmap.from_list('icePhases',
+                                                     [Color.oceanCmap(1),
+                                                      Color.iceIcond,
+                                                      Color.iceII,
+                                                      Color.iceIII,
+                                                      Color.iceV,
+                                                      Color.iceVI,
+                                                      Color.clathCond], N=7)
+                phaseBounds = np.array([0, 0.5, 1.5, 2.5, 4, 5.5, (Constants.phaseClath + 6) / 2, Constants.phaseClath])
+                bNorm = BoundaryNorm(boundaries=phaseBounds, ncolors=7)
+            else:
+                # If we are doing a comparison, then we must find difference between ices
+                phases = phasesList[0] - phasesList[1]
+                phaseColors = DiscreteCmap.from_list('icePhases',
+                                                     [Color.diffPhase,
+                                                      Color.correctPhase, Color.diffPhase], N=3)
+                phaseBounds = np.array([-1.5, -0.5, 0.5, 1.5])
+                bNorm = BoundaryNorm(boundaries=phaseBounds, ncolors=3)
+
+            c = ax.pcolormesh(T_K, P_MPa * FigLbl.PmultHydro, phases, norm=bNorm, cmap=phaseColors,
+                          rasterized=FigMisc.PT_RASTER)
+
+            ices = np.unique(phases[phases != 0])
+            if SinglePlanetPlot:
+                P2D_MPa, T2D_K = np.meshgrid(P_MPa, T_K, indexing='ij')
+                for ice in ices:
+                    theseP = P2D_MPa[np.where(phases == ice)]
+                    theseT = T2D_K[np.where(phases == ice)]
+                    P = (np.max(theseP) + np.min(theseP)) / 2
+                    T = (np.max(theseT) + np.min(theseT)) / 2
+                    ax.text(T, P, PhaseConv(ice), ha='center', va='center', fontsize=FigLbl.hydroPhaseSize)
+
+                if np.any(phases == 0):
+                    Pliq = P2D_MPa[np.where(phases == 0)]
+                    Tliq = T2D_K[np.where(phases == 0)]
+                    P = (np.max(Pliq) + np.min(Pliq)) / 2
+                    T = (np.max(Tliq) + np.min(Tliq)) / 2
+                    ax.text(T, P, 'liquid', ha='center', va='center', fontsize=FigLbl.hydroPhaseSize)
+
+                    # Plot geotherm(s) on top of colormaps
+                    for eachPlanet in PlanetList:
+                        # Geotherm curve
+                        if np.size(PlanetList) > 1:
+                            thisColor = None
+                        else:
+                            thisColor = Color.geothermHydro
+                        if eachPlanet.Do.NO_DIFFERENTIATION or eachPlanet.Do.PARTIAL_DIFFERENTIATION:
+                            Pgeo = eachPlanet.P_MPa * FigLbl.PmultHydro
+                            Tgeo = eachPlanet.T_K
+                        else:
+                            Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
+                            Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
+                        ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm,
+                                color=thisColor, label=eachPlanet.label)
+
+                        if Params.LEGEND and np.size(PlanetList) > 1:
+                            handles, lbls = ax.get_legend_handles_labels()
+                            ax.legend(handles, lbls)
+
+            else:
+                colorbar = plt.colorbar(c, ax=ax, boundaries=phaseBounds, ticks=[-1, 0,  1])
+                colorbar.set_ticklabels([f'Ice vs Water Difference', 'Same Phase Prediction', 'Water vs Ice Difference'])
+            ax.set_xlim([Tmin_K, Tmax_K])
+            ax.set_ylim([Pmin_MPa, Pmax_MPa])
+            ax.invert_yaxis()
+            plt.tight_layout()
+            fig.savefig(Params.FigureFiles.vphase, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+            log.debug(f'Hydrosphere phase diagram saved to file: {Params.FigureFiles.vphase}')
+            plt.close()
+def OldPlotHydroPhase(PlanetList, Params):
 
     if FigMisc.PminHydro_MPa is None:
         Pmin_MPa = np.min([Planet.P_MPa[0] for Planet in PlanetList])
@@ -93,7 +284,6 @@ def PlotHydroPhase(PlanetList, Params):
                 fig.suptitle(f"{Planet.Ocean.comp.split('=')[0].strip()}{FigLbl.hydroPhaseTitle}")
             else:
                 fig.suptitle(f"{Planet.compStr}{FigLbl.hydroPhaseTitle}")
-            fig.suptitle(f'{Planet.compStr}{FigLbl.hydroPhaseTitle}')
 
         # Plot as colormesh
         phaseColors = DiscreteCmap.from_list('icePhases',
@@ -283,9 +473,10 @@ def PlotPvThydro(PlanetList, Params):
             # Set overall figure title
             if Params.TITLES:
                 if SinglePlanetPlot:
-                    fig.suptitle(f'{FirstPlanet.name}{FigLbl.PvTtitleHydro}')
+                    fig.suptitle(f'{FirstPlanet.compStr}{FigLbl.PvTtitleHydro}')
                 else:
-                    fig.suptitle(f'Comparison of {FirstPlanet.Ocean.comp} and {SecondPlanet.Ocean.comp}{FigLbl.PvTtitleHydro}')
+                    fig.suptitle(
+                        f'Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.PvTtitleHydro}')
 
             # Get each Planet's data to plot -- ocean EOS properties first
             all_data = []

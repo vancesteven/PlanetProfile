@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 19  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 20  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def plotAssign():
     Color = ColorStruct()
@@ -37,6 +37,8 @@ def plotAssign():
     Color.iceVI = '#91d1d4'
     Color.clathCond = 'xkcd:pastel blue'
     Color.clathConv = 'xkcd:dusty blue'
+    Color.correctPhase = 'xkcd:ice blue'
+    Color.diffPhase = 'xkcd:bright red'
     Color.oceanCmapName = 'ocean_r'
     Color.oceanTop = 0.2  # Fraction of ocean colormap to start at
     Color.oceanBot = 0.45  # Fraction of ocean colormap to end at
