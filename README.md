@@ -27,7 +27,7 @@ Developers: see below--do not install via pip.
 `python -m pip install PlanetProfile`
 Python 3.8 or higher is required, and Python 3.11 is recommended.
 A later version of PlanetProfile will require Python 3.11. 
-Pip will install dependencies, but a conda environment with the prerequisites listed below is recommended.
+Pip will install dependencies, but a conda or mamba (better) environment with the prerequisites listed below is recommended.
 1. Create a directory where you'd like to store configurations and have folders for each body.
 1. Navigate into the new directory.
 1. At a terminal:
@@ -43,7 +43,7 @@ RunPPfile('Europa', 'PPEuropa.py')`
 
 #### Developers
 1. Install all prerequisites below to a dedicated conda environment.
-Python 3.11 is required for developers.
+Python 3.11 or 3.12 is required for developers.
 If you are not yet using Python 3.11, upgrade before installing prerequisites.
 1. Clone this repository.
 1. Navigate to the top-level directory of the repository.
@@ -92,7 +92,7 @@ Once these files have been removed, install the newer version of SeaFreeze with 
 ## Installation of prerequisites
 ### Python 
 1. Python version 3.8+ must be installed, preferably via Anaconda. Required modules can be installed in Miniconda with the following command:
-  1. `conda install numpy scipy matplotlib mpmath`
+  1. `conda install numpy scipy matplotlib mpmath pandas`
 1. Conda-forge modules can be installed in Anaconda or Miniconda with the following command:
   1. `conda install -c conda-forge gsw obspy spiceypy cmasher`
 1. AFTER the above modules have been installed with conda, install SeaFreeze, MoonMag, and hdf5storage with the following command:
