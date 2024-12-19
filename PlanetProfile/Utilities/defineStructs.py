@@ -153,6 +153,8 @@ class OceanSubstruct:
     def __init__(self):
         self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'PureH2O', 'NH3', 'NaCl', 'none'
         self.wOcean_ppt = None  # (Absolute) salinity: Mass concentration of above composition in parts per thousand (ppt)
+        self.pH = None # pH of ocean (Only customizable for CustomSolution - pH for other compositions are overridden
+                       # automatically [See Constants]
         self.ClathDissoc = None  # Subclass containing functions/options for evaluating clathrate dissociation conditions
         self.sigmaMean_Sm = np.nan  # Mean conductivity across all ocean layers (linear average, ignoring spherical geometry effects)
         self.sigmaTop_Sm = np.nan  # Conductivity of shallowest ocean layer
@@ -214,6 +216,15 @@ class OceanSubstruct:
         self.JVP = 0.75
         self.JVS = 0.85
         self.Jvisc = 1
+        # Derived ocean quantities
+        self.pHs = None # pH of each liquid layer
+        self.aqueousSpecies = None  # All species considered in each liquid ocean layer (i.e. the species considered in
+        # Reaktoro calculations
+        self.aqueousSpeciesAmount_mol = None # Species amount at each liquid ocean layer (nested 2D array of dimensions
+        # np.size(aqueousSpecies) x len(total layers that are liquid))
+
+
+
 
 
 """ Silicate layers """
@@ -622,6 +633,7 @@ class DataFilesSubstruct:
         self.fName = os.path.join(self.path, saveBase)
         self.saveFile = self.fName + '.txt'
         self.mantCoreFile = self.fName + '_mantleCore.txt'
+        self.oceanPropsFile = self.fName + '_liquidOceanProps.txt'
         self.permFile = self.fName + '_mantlePerm.txt'
         self.fNameSeis = os.path.join(self.seisPath, saveBase)
         self.minEOSvelFile = os.path.join(self.fNameSeis, 'velmodel')
@@ -694,6 +706,7 @@ class FigureFilesSubstruct:
         vvisc = 'Viscosity'
         vpvtHydro = 'HydroPTprops'
         vpvtPerpleX = 'InnerPTprops'
+        hydroSpecies = 'OceanSpecies'
         vwedg = 'Wedge'
         vphase = 'HydroPhase'
         induct = 'InductOgram'
@@ -726,6 +739,7 @@ class FigureFilesSubstruct:
         self.vphase = self.fName + vphase + xtn
         self.vvisc = self.fName + vvisc + xtn
         self.vpvtHydro = self.fName + vpvtHydro + xtn
+        self.hydroSpecies = self.fName + hydroSpecies + xtn
         self.vpvtPerpleX = self.fName + vpvtPerpleX + xtn
         self.asym = self.fName + asym
         self.apsidal = self.fName + apsidal + xtn
@@ -772,8 +786,8 @@ class ParamsStruct:
         self.cFmt = None  # Format of contour labels
         self.compareDir = 'Comparison'
         self.INVERSION_IN_PROGRESS = False  # Flag for running inversion studies
-        
-        
+
+
 """ Inductogram settings """
 class InductOgramParamsStruct:
     # Do not set any values below (except V2021 values). All other values are assigned in PlanetProfile.GetConfig.
@@ -888,7 +902,7 @@ class InductOgramParamsStruct:
             else:
                 bodyname = self.bodyname
             return self.cfmt[bodyname][Tname][zName]
-        
+
         else:
             return None
 
@@ -1095,7 +1109,7 @@ class ColorStruct:
         # Saturation & color brightness ("value" in HSV) values for salinity/conductivity axis bounds
         self.fresh = [0.5, 1.0]
         self.salty = [1.0, 0.5]
-        
+
         # Fourier spectrum plots
         self.BeiFT = {'x': None, 'y': None, 'z': None}
         self.Ae1FT = None
@@ -1129,11 +1143,11 @@ class ColorStruct:
         self.ionoCmap = cmasher.get_sub_cmap(self.ionoCmapName, self.ionoTop, self.ionoBot)
         self.oceanCmap = cmasher.get_sub_cmap(self.oceanCmapName, self.oceanTop, self.oceanBot)
         if self.PALE_SILICATES:
-            self.silPorousCmap = cmasher.get_sub_cmap(self.paleSilPorousCmapName, 
+            self.silPorousCmap = cmasher.get_sub_cmap(self.paleSilPorousCmapName,
                                                       self.paleSilPorousTop, self.paleSilPorousBot)
             self.silCondCmap = cmasher.get_sub_cmap(self.paleSilCondCmapName, self.paleSilCondTop, self.paleSilCondBot)
         else:
-            self.silPorousCmap = cmasher.get_sub_cmap(self.silPorousCmapName, 
+            self.silPorousCmap = cmasher.get_sub_cmap(self.silPorousCmapName,
                                                       self.silPorousTop, self.silPorousBot)
             self.silCondCmap = cmasher.get_sub_cmap(self.silCondCmapName, self.silCondTop, self.silCondBot)
         self.silConvCmap = cmasher.get_sub_cmap(self.silConvCmapName, self.silConvTop, self.silConvBot)
@@ -1165,19 +1179,19 @@ class ColorStruct:
         """
         return interp1d([self.Tbounds_K[0], self.Tbounds_K[1]], [0.0, 1.0],
                  bounds_error=False, fill_value='extrapolate')(T_K)
-    
+
     def GetSat(self, w_ppt):
         """ Calculate color saturation value based on salinity relative to
             saturation concentration
         """
-        return interp1d([0.0, 1.0], [self.fresh[0], self.salty[0]], 
+        return interp1d([0.0, 1.0], [self.fresh[0], self.salty[0]],
                         bounds_error=False, fill_value=self.salty[0])(w_ppt)
 
     def GetVal(self, w_ppt):
         """ Calculate color value (light/dark) based on salinity relative to
             saturation concentration
         """
-        return interp1d([0.0, 1.0], [self.fresh[1], self.salty[1]], 
+        return interp1d([0.0, 1.0], [self.fresh[1], self.salty[1]],
                         bounds_error=False, fill_value=self.salty[1])(w_ppt)
 
     def OceanCmap(self, comps, w_normFrac, Tmean_normFrac, DARKEN_SALINITIES=True):
@@ -1250,7 +1264,7 @@ class StyleStruct:
         self.MAlims = None  # Alpha channel (opacity) limits for markers 
         self.LS_BdipInset = '-'  # Linestyle for inset box 
         self.LW_BdipInset = 0.5  # Linewidth for inset box
-        
+
         # Fourier spectrum plots
         self.LS_FT = None  # Linestyle of Fourier spectrum plots
         self.LW_FT = None  # Linewidth for Ae1, Bx, By, Bz in Fourier spectrum plots
@@ -1413,7 +1427,7 @@ class FigLblStruct:
         self.ionosTopLabel = r'Ionosphere maximum altitude ($\si{km}$)'
         self.silPclosureLabel = r'Silicate pore closure pressure ($\si{MPa}$)'
         self.icePclosureLabel = r'Ice pore closure pressure ($\si{MPa}$)'
-        
+
         # Magnetic excitation spectrum labels
         self.MagFTtitle = r'magnetic Fourier spectra'
         self.MagFTexcTitle = r'magnetic excitation spectrum'
@@ -1979,14 +1993,14 @@ class FigLblStruct:
         self.FBlabel = {scName: {fbID: f'{scName} {fbName}' for fbID, fbName in fbList.items()}
                         for scName, fbList in flybyNames.items()}
 
-    
+
     def StripLatexFromString(self, str2strip):
         str2strip = str2strip.replace('\si{', '\mathrm{')
         str2strip = str2strip.replace('\SI{', '{')
         str2strip = str2strip.replace('\ce{', '{')
         str2strip = str2strip.replace(r'\textbf{', '{')
         return str2strip
-    
+
     def StripLatex(self):
         for key, val in self.__dict__.items():
             if type(val) == str:
@@ -1995,7 +2009,7 @@ class FigLblStruct:
                 newVal = val
                 for subkey, subval in val.items():
                     if type(subval) == str:
-                        newVal[subkey] = self.StripLatexFromString(subval) 
+                        newVal[subkey] = self.StripLatexFromString(subval)
                 self.__setattr__(key, newVal)
 
     def SetMeta(self, xtn):
@@ -2161,7 +2175,7 @@ class FigMiscStruct:
         self.nPgeo = None  # Number of pressure points to evaluate/plot for PT property plots
         self.nPgeoCore = None  # Subset of nPgeo to use for core, if present
         self.PTtitleSize = None  # Font size to use for titles of PT plots (too-long titles don't get shown)
-        
+
         # Induced dipole surface strength plots
         self.BdipZoomMult = None  # Extra space to include around zoomed-in part, in fraction of largest value.
         self.SHOW_INSET = False  # Whether to show the inset box for the zoom-in plot, when applicable
@@ -2288,7 +2302,7 @@ class FigMiscStruct:
 
     def SetFontSizes(self):
         # Assign the set font sizes to rcParams.
-        plt.rcParams['legend.fontsize'] = self.legendFontSize        
+        plt.rcParams['legend.fontsize'] = self.legendFontSize
 
     def SetLatLon(self):
         self.nLonMap = self.nPPGCmapRes + 1
@@ -2313,7 +2327,7 @@ class FigMiscStruct:
         self.phiMap_rad = np.radians(self.lonMap_deg)
         self.lonMapTicks_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonTicks, dtype=np.int_)
         self.latMapTicks_deg = np.linspace(-90, 90, self.nLatTicks, dtype=np.int_)
-        
+
     def LatMapFormatter(self, lat, pos):
         # Tick formatter function to use for latitude labels
         return LatFormatter(lat)
@@ -2642,6 +2656,20 @@ class ConstantsStruct:
         self.sigmaIonosPedersenDefault_Sm = 1e-4  # Default ionospheric Pedersen conductivity in S/m
         self.PPcycler = cycler(linestyle=['-', '--', ':', '-.']) * \
                         cycler(color=_tableau10_v10colors)  # Color cycler for plots
+        self.SfzComposition:{}
+        self.KnownCompositions = {'PureH2O': {'ppt_reference_g_kg': None, 'pH': 7, 'species': None},  # Pure water
+                                      'NaCl': {'ppt_reference_g_kg': None, 'pH': 7,
+                                               'species': {'Na+': 1/self.m_gmol['NaCl'], 'Cl-': 1/self.m_gmol['NaCl']}},
+                                      # NaCl with molar masses in mol/g
+                                      'Seawater': {'ppt_reference_g_kg': 35.17, 'pH': 8.1,
+                                                   'species': {'Na+': 0.486, 'Mg+2': 0.0547, 'Ca+2': 0.0107,
+                                                               'K+': 0.0106, 'Cl-': 0.566, 'SO4-2': 0.0293}},
+                                      # Standard Seawater Composition in # mol/kg (# Millero, 2008)
+                                      'MgSO4': {'ppt_reference_g_kg': None, 'pH': 6.4,
+                                                'species': {'Mg+2:': 1/self.m_gmol['MgSO4'], 'SO4-2:': 1/self.m_gmol[
+                                                    'MgSO4']}} # MgSO4 with molar masses in mol/g
+                                      }
+
         """ Reaktoro constants """
         self.SupcrtTmin_K = 240 # Minimum temperature at which Supcrt has been found to converge at for pure water
         self.SupcrtTmax_K = 400 # Maximum reasonable temperature to query Supcrt at

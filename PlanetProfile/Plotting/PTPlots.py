@@ -7,9 +7,10 @@ from matplotlib.colors import LinearSegmentedColormap as DiscreteCmap, to_rgb, B
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
-from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
+from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv, GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Utilities.defineStructs import Constants
+
 import itertools
 import copy
 
@@ -18,6 +19,90 @@ log = logging.getLogger('PlanetProfile')
 
 # Unlike most other plotting routines, for those below we can't plot multiple bodies together.
 # Just make these plots for the first model, which is the primary.
+
+def PlotHydrosphereSpecies(PlanetList, Params):
+    """
+    Plot species in hydrosphere.
+    """
+    # Only make this plot once for a planet
+    Planet = PlanetList[0]
+    if not Planet.Do.NO_H2O:
+        fig = plt.figure(figsize=FigSize.vmant)
+        grid = GridSpec(4, 2)
+        allspeciesax = fig.add_subplot(grid[0:3, 0])
+        aqueouspseciesax = fig.add_subplot(grid[0:3, 1])
+        pHax = fig.add_subplot(grid[3, :])
+        axs = [allspeciesax, aqueouspseciesax]
+        if Style.GRIDS:
+            allspeciesax.grid()
+            allspeciesax.set_axisbelow(True)
+        allspeciesax.set_xlabel("All species (moles)")
+        allspeciesax.set_ylabel("Depth z (km)")
+        aqueouspseciesax.set_xlabel("Aqueous species (moles per kg fluid)")
+        pHax.set_xlabel("Depth z (km)")
+        pHax.set_ylabel("pH")
+
+        # Get liquid indices
+        indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
+            indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
+            indsFe = GetPhaseIndices(Planet.phase)
+        # If we have liquid indices then let's plot hydrosphere species
+        if np.size(indsLiq) != 0:
+                # Get indices of rows that could be calculated to speciate (Particularly in the case for Reaktoro
+                # speciation)
+                indsCalculated = np.where(~np.isnan(Planet.Ocean.aqueousSpeciesAmount_mol).any(axis=1))[0]
+                if np.size(indsCalculated) != 0:
+                    # Get all relevant column names and their speciation
+                    aqueous_species_to_plot = [index for index, value in enumerate(
+                        Planet.Ocean.aqueousSpecies) if
+                                                 "H2O(aq)" not in value and "H+" not in value and "OH-" not in
+                                                                 value]
+                    relevant_ocean_species = Planet.Ocean.aqueousSpecies[aqueous_species_to_plot]
+                    relevant_ocean_depth = Planet.z_m[indsLiq[indsCalculated]]
+                    for i, speciesName in enumerate(relevant_ocean_species):
+                        style = Style.LS_hydroSpecies[i % len(Style.LS_hydroSpecies)]
+                        color = Color.cmap['hydroSpecies'](i % len(
+                            aqueous_species_to_plot))
+                        speciesColumnData = Planet.Ocean.aqueousSpeciesAmount_mol[:, i]
+                        speciesColumnDataAboveThreshold = speciesColumnData[speciesColumnData > FigMisc.minThreshold]
+                        if np.size(speciesColumnDataAboveThreshold) > 0:
+                            ocean_depth_to_plot = relevant_ocean_depth[speciesColumnData > FigMisc.minThreshold]
+                            line, = allspeciesax.plot(speciesColumnDataAboveThreshold,
+                                                      ocean_depth_to_plot / 1e3, linestyle=style,
+                                                      color=color)
+                            x_label_pos = speciesColumnDataAboveThreshold[0]  # x # position of the end
+                            # of the line
+                            y_label_pos = ocean_depth_to_plot[
+                                (i*3) % len(aqueous_species_to_plot)] / 1e3  # y position of the end of the line
+                            allspeciesax.text(x_label_pos, y_label_pos, speciesName,
+                                              color=line.get_color(),
+                                              verticalalignment='bottom',
+                                              horizontalalignment='right',
+                                              fontsize=6)
+                            if "+" or "-" in speciesName:
+                                aqueouspseciesax.plot(speciesColumnDataAboveThreshold, ocean_depth_to_plot / 1e3, linestyle=style,
+                                                      color=color)
+                                aqueouspseciesax.text(x_label_pos, y_label_pos, speciesName,
+                                                      color=line.get_color(),
+                                                      verticalalignment='bottom',
+                                                      horizontalalignment='right',
+                                                      fontsize=6)
+                    for ax in axs:
+                        ax.set_xscale('log')
+                        current_xlim = ax.get_xlim()
+                        new_xmax = 10 ** np.ceil(np.log10(current_xlim[1]))
+                        ax.set_xlim([current_xlim[0], new_xmax])
+                        ax.invert_yaxis()
+                    pH_df = Planet.Ocean.pHs[indsCalculated]
+                    line, = pHax.plot(ocean_depth_to_plot / 1e3, pH_df, linestyle = '-', color = 'black')
+                    plt.tight_layout()
+                    fig.savefig(Params.FigureFiles.hydroSpecies, format=FigMisc.figFormat, dpi=FigMisc.dpi,
+                                metadata=FigLbl.meta)
+                    log.debug(f'Ocean aqueous species plot saved to file: {Params.FigureFiles.hydroSpecies}')
+                    plt.close()
+        else:
+            log.warning("There is no ocean, thus will not plot a hydrosphere species plot for this model.")
+
 
 def PlotHydroPhase(PlanetList, Params):
     if os.path.dirname(Params.FigureFiles.vpvtHydro) != 'Comparison':
@@ -201,8 +286,9 @@ def PlotHydroPhase(PlanetList, Params):
                             ax.legend(handles, lbls)
 
             else:
-                colorbar = plt.colorbar(c, ax=ax, boundaries=phaseBounds, ticks=[-1, 0,  1])
-                colorbar.set_ticklabels([f'Ice vs Water Difference', 'Same Phase Prediction', 'Water vs Ice Difference'])
+                if Params.LEGEND:
+                    colorbar = plt.colorbar(c, ax=ax, boundaries=phaseBounds, ticks=[-1, 0,  1])
+                    colorbar.set_ticklabels([f'Ice vs Water Difference', 'Same Phase Prediction', 'Water vs Ice Difference'])
             ax.set_xlim([Tmin_K, Tmax_K])
             ax.set_ylim([Pmin_MPa, Pmax_MPa])
             ax.invert_yaxis()

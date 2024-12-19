@@ -7,7 +7,7 @@ from seafreeze.seafreeze import seafreeze as SeaFreeze
 from seafreeze.seafreeze import whichphase as WhichPhase
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, \
     ClathStableNagashima2017, ClathSeismic
-from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper
+from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper, ReturnConstantSpecies
 from PlanetProfile.Thermodynamics.InnerEOS import GetphiFunc, GetphiCalc
 from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4PhaseMargules, MgSO4PhaseLookup, \
     MgSO4Seismic, MgSO4Conduct, Ppt2molal
@@ -16,7 +16,7 @@ from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
 # from PlanetProfile.Thermodynamics.Reaktoro.sigmaElectricMcCleskey2012 import elecCondMcCleskey2012
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand, SpeciesParser, RktProps, RktSeismic, RktConduct, Reaktoro_Hydro_Species_Generator
-
+from PlanetProfile.Utilities.DataManip import ReturnConstantPTw
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
@@ -176,6 +176,16 @@ class OceanEOSStruct:
                     self.EOSdeltaT = np.nan
 
                 self.ufn_Seismic = SFSeismic(self.comp, P_MPa, T_K, seaOut, self.w_ppt, self.EXTRAP)
+                if self.comp == 'PureH2O':
+                    Ocean_Speciation_Info = Constants.KnownCompositions['PureH2O']
+                elif self.comp == 'NaCl':
+                    Ocean_Speciation_Info = Constants.KnownCompositions['NaCl']
+                else:
+                    # Placeholder until we get other species
+                    Ocean_Speciation_Info = {'ppt_reference_g_kg': None, 'pH': None, 'species': None}
+                self.ufn_species = ReturnConstantSpecies(wOcean_ppt, Ocean_Speciation_Info['ppt_reference_g_kg'],
+                    Ocean_Speciation_Info['pH'], Ocean_Speciation_Info['species'])
+
             elif self.comp == 'Seawater':
                 self.type = 'GSW'
                 self.m_gmol = Constants.m_gmol['H2O']
@@ -200,6 +210,9 @@ class OceanEOSStruct:
                 else:
                     self.ufn_sigma_Sm = SwConduct(self.w_ppt)
                 self.propsPmax = self.Pmax
+                Ocean_Speciation_Info = Constants.KnownCompositions['Seawater']
+                self.ufn_species = ReturnConstantSpecies(wOcean_ppt, Ocean_Speciation_Info['ppt_reference_g_kg'],
+                    Ocean_Speciation_Info['pH'], Ocean_Speciation_Info['species'])
             elif self.comp == 'MgSO4':
                 if self.elecType == 'Pan2020' and round(self.w_ppt) != 100:
                     log.warning('elecType "Pan2020" behavior is defined only for Ocean.wOcean_ppt = 100. ' +
@@ -207,7 +220,6 @@ class OceanEOSStruct:
                     self.elecType = 'Vance2018'
                 self.type = 'ChoukronGrasset2010'
                 self.m_gmol = Constants.m_gmol['MgSO4']
-
                 P_MPa, T_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
                     = MgSO4Props(P_MPa, T_K, self.w_ppt, self.EXTRAP)
                 if self.PHASE_LOOKUP:
@@ -223,7 +235,7 @@ class OceanEOSStruct:
                     # Lookup table is not used -- flag with nan for grid resolution.
                     self.EOSdeltaP = np.nan
                     self.EOSdeltaT = np.nan
-
+                # self.ufn_species =
                 self.ufn_Seismic = MgSO4Seismic(self.w_ppt, self.EXTRAP)
                 if sigmaFixed_Sm is not None:
                     self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
@@ -232,6 +244,9 @@ class OceanEOSStruct:
                                                     scalingType=self.scalingType)
                 self.propsPmax = self.ufn_Seismic.Pmax
                 self.Pmax = np.min([self.Pmax, self.phasePmax])
+                Ocean_Speciation_Info = Constants.KnownCompositions['MgSO4']
+                self.ufn_species = ReturnConstantSpecies(wOcean_ppt, Ocean_Speciation_Info['ppt_reference_g_kg'],
+                    Ocean_Speciation_Info['pH'], Ocean_Speciation_Info['species'])
             elif self.comp.startswith("CustomSolution"):
                 # Parse out the species list and ratio into a format compatible with Reaktoro and create a CustomSolution EOS label
                 self.aqueous_species_string, self.speciation_ratio_mol_kg, self.EOS_lookup_label = SpeciesParser(self.comp)
@@ -310,7 +325,7 @@ class OceanEOSStruct:
         return self.ufn_eta_Pas(P_MPa, T_K, grid=grid)
     def fn_species(self, P_MPa, T_K, grid = False):
         """
-        Function only relevant for Reaktoro custom solution.
+        Returns speciation at provided P_MPa and T_K
         """
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)

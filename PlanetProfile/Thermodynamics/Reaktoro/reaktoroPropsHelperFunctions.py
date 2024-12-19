@@ -203,7 +203,7 @@ def species_convertor_compatible_with_supcrt(aqueous_species_string, speciation_
     """
     Converts aqueous species string and speciation ratio dictionary into formats compatible with supcrt. Namely, in phreeqc the liquid phase of H2O
     is labeled "H2O", whereas in supcrt it requires "H2O(aq)". Thus, converts "H2O" in the string and speciation ratio dictionary to "H2O(aq)".
-    Importantly, since speciation_ratio_mol_kg is a dictionary, we must make a deep copy before editing so as to not disturb the original dictionary, which
+    Importantly, since speciation_ratio_per_kg is a dictionary, we must make a deep copy before editing so as to not disturb the original dictionary, which
     will still be used by the phreeqc database in the phase change function.
     Args:
         aqueous_species_string: String that has all species names that should be considered in aqueous phase
@@ -304,22 +304,6 @@ def interpolation_1d(P_MPa, arrays):
     return tuple(interpolated_arrays)
 
 
-def panda_df_generator(system):
-    columns = ["P (MPa)", "T (K)", "pH", "Amount", "Charge", "SolidTotal", "LiquidTotal"]
-    species = []
-    for speciesItem in system.species():
-        species.append(speciesItem.aggregateState().name + "Amount" + speciesItem.name())
-    # Dictionary that maps certain column names that require using species list to Reaktoro code
-    translation_dictionary_for_species_list = {"Amount": species}
-    df_column_names = []
-    for column in columns:
-        if column in translation_dictionary_for_species_list:
-            df_column_names += translation_dictionary_for_species_list[column]
-        else:
-            df_column_names += [column]
-    df = pd.DataFrame(columns=df_column_names)
-    return df
-
 def freezing_temperature_correction_calculator():
     eos_P_MPa = np.linspace(0.1, 100, 150)
     eos_T_K = np.linspace(260, 280, 500)
@@ -409,14 +393,14 @@ def SupcrtH2OChemicalPotentialCorrectionSplineGenerator():
 NOT USED FUNCTIONS
 
 
-def pressure_constraint(P_MPa, aqueous_species_list, speciation_ratio_mol_kg, database, dP = -1):
+def pressure_constraint(P_MPa, aqueous_species_list, speciation_ratio_per_kg, database, dP = -1):
     Find the pressure constraint at which Reaktoro can find equilibrium for the given speciation and database. Starts at P_MPa and checks if rkt can find equilibrium
         with a temperature of 273K. If it cannot, then adjusts P_MPa by dP and tries again, continuing this process until a compatible P_MPa is found.
         If we are looking for upper pressure cosntraint (dP is negative), then we stop also if it reaches <= 1.1 MPa, which Rkt should be compatible with.
     Args:
         P_MPa: Initial pressure constraint in MPa
         aqueous_species_list: String that has all species names that should be considered in aqueous phase
-        speciation_ratio_mol_kg: Dictionary of active species and the values of their molar ratio (mol/kg of water)
+        speciation_ratio_per_kg: Dictionary of active species and the values of their molar ratio (mol/kg of water)
         database: Database to find pressure constraint for
         dP: The amount to change P_MPa by if equilibrium is not achieved. Defaults to -1 (for upper constraint)
 
@@ -428,11 +412,11 @@ def pressure_constraint(P_MPa, aqueous_species_list, speciation_ratio_mol_kg, da
     # Initilialize the database, either being supcrt of phreeqc
     if "supcrt" in database:
         # Since supcrt labels "H2O(aq)", we need to adjust our species list and dictionary accordingly
-        aqueous_species_list, speciation_ratio_mol_kg = species_convertor_compatible_with_supcrt(
-            aqueous_species_list, speciation_ratio_mol_kg)
-        db, system, state, conditions, solver, props = SupcrtGenerator(aqueous_species_list, speciation_ratio_mol_kg, database)
+        aqueous_species_list, speciation_ratio_per_kg = species_convertor_compatible_with_supcrt(
+            aqueous_species_list, speciation_ratio_per_kg)
+        db, system, state, conditions, solver, props = SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, database)
     else:
-        db, system, state, conditions, solver, props, ice_name, database_name = PhreeqcGenerator(aqueous_species_list, speciation_ratio_mol_kg, database)
+        db, system, state, conditions, solver, props, ice_name, database_name = PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, database)
     # Establish pressure constraint of 273 K
     conditions.temperature(273, "K")
     # Tracker variable for equilibrium being found
@@ -453,7 +437,7 @@ def pressure_constraint(P_MPa, aqueous_species_list, speciation_ratio_mol_kg, da
             success = True
         # Otherwise, equilibrium is not achieved so we should reset the state and adjust P_MPa by dP, and reattempt the equilibrium problem
         else:
-            state = reset_state(system, speciation_ratio_mol_kg)
+            state = reset_state(system, speciation_ratio_per_kg)
             P_MPa += dP
     # Return the adjusted P_MPa
     return P_MPa

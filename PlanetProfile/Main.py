@@ -26,6 +26,7 @@ from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
     PlotInductOgramPhaseSpace
 from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from PlanetProfile.Thermodynamics.Electrical import ElecConduct
+from PlanetProfile.Thermodynamics.OceanProps import LiquidOceanPropsCalc, WriteLiquidOceanProps
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
 from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, ExplorationResults
@@ -217,6 +218,7 @@ def PlanetProfile(Planet, Params):
         if not Planet.Do.NO_OCEAN:
             Planet = OceanLayers(Planet, Params)
         Planet = InnerLayers(Planet, Params)
+        Planet = LiquidOceanPropsCalc(Planet, Params)
         Planet = ElecConduct(Planet, Params)
         Planet = SeismicCalcs(Planet, Params)
         Planet = ViscosityCalcs(Planet, Params)
@@ -224,6 +226,8 @@ def PlanetProfile(Planet, Params):
         # Save data after modeling
         if (not Params.NO_SAVEFILE) and Planet.Do.VALID and (not Params.INVERSION_IN_PROGRESS):
             WriteProfile(Planet, Params)
+            if not Planet.Do.NO_H2O:
+                WriteLiquidOceanProps(Planet, Params)
             if Params.CALC_SEISMIC and not Params.SKIP_INNER:
                 WriteSeismic(Planet, Params)
     else:
@@ -580,6 +584,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Params.DataFiles.saveFile = fnameOverride
         Params.DataFiles.mantCoreFile = f'{fnameOverride[:-4]}_mantleCore.txt'
         Params.DataFiles.mantPermFile = f'{fnameOverride[:-4]}_mantlePerm.txt'
+        Params.DataFiles.oceanPropsFile = f'{fnameOverride[:-4]}_oceanProps.txt'
         nSkip = len(os.path.join(Planet.bodyname, f'{Planet.name}Profile_'))
         Planet.saveLabel = fnameOverride[nSkip:-4]
     else:
@@ -658,6 +663,15 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     # Read in data for core/mantle trade
     Planet.Sil.Rtrade_m, Planet.Core.Rtrade_m, Planet.Sil.rhoTrade_kgm3, \
         = np.loadtxt(Params.DataFiles.mantCoreFile, skiprows=1, unpack=True)
+
+    # Read in data for ocean properties
+    if not Planet.Do.NO_H2O:
+        with open(Params.DataFiles.oceanPropsFile) as f:
+            Planet.Ocean.aqueousSpecies = np.array(f.readline().split('=')[-1].strip().split())
+        OceanSpecificProps = np.loadtxt(Params.DataFiles.oceanPropsFile,
+                                                                             skiprows=2, unpack=True)
+        Planet.Ocean.pHs = OceanSpecificProps[2]
+        Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[3: ].T
 
     # Setup CustomSolution settings
     if 'CustomSolution' in Planet.Ocean.comp:

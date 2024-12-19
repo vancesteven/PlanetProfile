@@ -5,6 +5,7 @@ a more specific location.
 
 import numpy as np
 from PlanetProfile.Utilities.defineStructs import EOSlist
+from PlanetProfile.Utilities.defineStructs import Constants
 import logging
 
 # Assign logger
@@ -83,6 +84,50 @@ class ReturnConstantPTw:
             else:
                 out = np.zeros(np.max([nPs, nTs, nws]))
         return out
+
+class ReturnConstantSpecies:
+    """ Returns 3 arrays of constant values, for functions of
+        properties not modeled that still work with querying routines. We have to
+        run things this way and not with a lambda because anonymous functions
+        can't be used in parallel processing.
+        reference_ppt: Only applicable to Seawater. Gives the reference ppt of the speciation in the associated
+        Standard Seawater dictionary and its species
+    """
+    def __init__(self, ppt, reference_ppt, pH, species):
+        if reference_ppt is None:
+            speciation_factor = ppt
+        else:
+            speciation_factor = ppt/reference_ppt # Relative ratio between ppt of HydroEOS and reference ppt in
+            # Constant dictionary
+        if pH is None:
+            self.pH = np.nan
+        else:
+            self.pH = pH
+        if species is None:
+            self.species_names = np.array([])
+            self.speciation = np.array([])
+        else:
+            self.species_names = np.array(list(species.keys()))
+            self.speciation = np.array(list(species.values())) * speciation_factor
+        # Add 55.5mol/kg of water to speciation and species_name
+        self.species_names = np.append(self.species_names,'H2O(aq)')
+        self.speciation = np.append(self.speciation, 1/Constants.m_gmol['H2O']*1000)
+
+    def __call__(self, P, T, grid = False):
+        ### NEED TO IMPLEMENT GRID IN FUTURE, SINCE RIGHT NOW WE ONYL CALL UFN_SPECIES FOR NON-GRIDS (i.e. to get
+        # speciation of ocean layers)
+        nPs = np.size(P)
+        nTs = np.size(T)
+
+        pH = (np.zeros(nPs)) + self.pH
+        speciation = np.zeros((nPs, len(self.species_names)))
+        # Populate the speciation array
+        for col_index, value in enumerate(self.speciation):
+            speciation[:, col_index] = value  # Fill the entire column with the corresponding speciation value
+        species_names = np.array(self.species_names)
+        return pH, speciation, species_names
+
+
 
 
 class EOSwrapper:
