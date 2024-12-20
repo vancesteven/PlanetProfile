@@ -491,7 +491,7 @@ class PlanetStruct:
         self.PfreezeUpper_MPa = 230  # Upper boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeRes_MPa = 0.05  # Step size in pressure for GetPfreeze to use in searching for phase transition
         # Settings for GetTfreeze start, stop, and step size. Used when ice shell thickness is input.
-        self.TfreezeLower_K = 240 # Lower boundary for GetTFreeze to search for ice Ih phase transition
+        self.TfreezeLower_K = 229 # Lower boundary for GetTFreeze to search for ice Ih phase transition
         self.TfreezeUpper_K = 274 # Upper boundary for GetTFreeze to search for ice Ih phase transition
         self.TfreezeRes_K = 0.05 # Step size in temperature for GetTfreeze to use in searching for phase transition
 
@@ -2687,7 +2687,8 @@ class ConstantsStruct:
         }
 
         self.SolidPhases = { # Dictionary of keyword solid phases to the corresponding solid phases that exist in Supcrt
-            'Carbonates': ["Aragonite", "Artinite", "Azurite", "Calcite", "Cerussite", "Dolomite", "Dolomite,disordered", "Dolomite,ordered", "Huntite", "Hydromagnesite", "Magnesite", "Malachite", "Nesquehonite", "Rhodochrosite", "Siderite", "Smithsonite", "Strontianite"],  # Solids with CO3 in formula
+            # 'Carbonates': ["Aragonite", "Artinite", "Azurite", "Calcite", "Cerussite", "Dolomite", "Dolomite,disordered", "Dolomite,ordered", "Huntite", "Hydromagnesite", "Magnesite", "Malachite", "Nesquehonite", "Rhodochrosite", "Siderite", "Smithsonite", "Strontianite"],  # Solids with CO3 in formula
+            'Carbonates': ["Aragonite", "Artinite", "Azurite", "Calcite", "Cerussite", "Huntite", "Hydromagnesite", "Magnesite", "Malachite", "Nesquehonite", "Rhodochrosite", "Siderite", "Smithsonite", "Strontianite"],  # Solids with CO3 in formula
             'Sulfates': ["Alunite", "Anglesite", "Anhydrite", "Barite", "Celestite"] # Solids with SO4 in formula
         }
 

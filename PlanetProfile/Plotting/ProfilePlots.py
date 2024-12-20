@@ -603,7 +603,6 @@ def PlotPorosity(PlanetList, Params):
 
     return
 
-
 def PlotViscosity(PlanetList, Params):
 
     fig = plt.figure(figsize=FigSize.vvisc)

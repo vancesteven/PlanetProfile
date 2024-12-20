@@ -127,7 +127,7 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
         if solid_phases_to_consider is None:
             solids = rkt.MineralPhases()
         else:
-            # If we are specifying what phases to consider, note that we should only consider the phases that are relevant to the speices in the solution
+            # If we are specifying what phases to consider, note that we should only consider the phases that are relevant to the species in the solution
             # I.e. don't consider all clathrates if they aren't possible to form (greatly decreases runtime if we do consider irrelevant phases)
             final_phases_to_consider = ''
             solids_tester = rkt.MineralPhases()

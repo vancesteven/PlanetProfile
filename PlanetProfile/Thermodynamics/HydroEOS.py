@@ -112,7 +112,7 @@ class OceanEOSStruct:
 
                 # Set extrapolation boundaries to limits defined in SeaFreeze
                 # Pmax = {'PureH2O':   2300.6, 'NH3': 2228.4, 'NaCl': 1000.1}
-                Pmax = {'PureH2O':   2300.6, 'NH3': 2228.4, 'NaCl': 3000.1}
+                Pmax = {'PureH2O':   2300.6, 'NH3': 2228.4, 'NaCl': 5000.1}
                 Tmin = {'PureH2O':    239,   'NH3':  241,   'NaCl':  229.0}
                 Tmax = {'PureH2O':    501,   'NH3':  399.2, 'NaCl':  501.0}
                 wMax = {'PureH2O': np.nan,   'NH3':  290.1, 'NaCl':  290.3} # upper NaCl concentration is 7mol/kgH2O

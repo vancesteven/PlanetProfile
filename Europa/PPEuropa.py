@@ -28,12 +28,9 @@ Planet.Steps.nCore = 10
 Planet.Steps.iSilStart = Planet.Steps.nIceI
 
 """ Hydrosphere assumptions/settings """
-Planet.Ocean.comp = "CustomSolution"
-# Planet.Ocean.comp = "NaCl"
-# Planet.Ocean.comp = "Seawater"
-Planet.Ocean.wOcean_ppt = 35.15
-Planet.Ocean.species = "Cl-: 0.5657647, Na+: 0.4860597, Mg+2: 0.0547421, Ca+2: 0.0106568, K+: 0.0105797, SO4-2: 0.0292643"
-# Planet.Ocean.species = "NH4+: 0.5, Cl-: 0.5657647, Na+: 0.4860597, Mg+2: 0.0547421, Ca+2: 0.0106568, K+: 0.0105797, SO4-2: 0.0292643"
+# Planet.Ocean.comp = 'Seawater'
+Planet.Ocean.comp = 'NaCl'
+Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
 Planet.Ocean.deltaP = 1.0
 Planet.Ocean.deltaT = 0.1
 Planet.Ocean.PHydroMax_MPa = 350.0
