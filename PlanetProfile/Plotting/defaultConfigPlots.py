@@ -4,7 +4,8 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 20  # Integer number for config file version. Increment when new settings are added to the default config file.
+configPlotsVersion = 21  # Integer number for config file version. Increment when new settings are added to the
+# default config file.
 
 def plotAssign():
     Color = ColorStruct()
@@ -96,11 +97,12 @@ def plotAssign():
         'BmapNeg': 'afmhot_r',
         'BmapDiv': 'seismic',
         'asymDev': 'PuBu_r',
-        'default': 'plasma'
+        'default': 'plasma',
+        'hydroSpecies': 'tab20'
     }
     # CustomSolution cMapName
     # Temproary fix to get different color lines
-    Color.CustomSolutionCmapNames = ['autumn', 'Greens', 'Reds', 'Greys', 'Purples']
+    Color.CustomSolutionCmapNames = ['Greens', 'autumn', 'Purples', 'Reds', 'Blues', 'Greys', 'cool']
     # Select only a subset of the available colormap, if we choose to
     Color.cmapBounds = {
         'none': [0.0, 1.0],
@@ -115,7 +117,8 @@ def plotAssign():
         'BmapNeg': [0.2, 1.0],
         'BmapDiv': [0.0, 1.0],
         'asymDev': [0.0, 1.0],
-        'default': [0.0, 1.0]
+        'default': [0.0, 1.0],
+        'hydroSpecies': [0.0, 1.0]
     }
     # Set temperature bounds to use for colormap normalization
     Color.Tbounds_K = [255.0, 273.0]
@@ -174,6 +177,7 @@ def plotAssign():
     Style.LS_geotherm = '-'  # Linestyle for geotherm on PT plots
     Style.LW_seis = 1  # Linewidth for seismic plots
     Style.LS_seis = {'KS': '-', 'GS': '--', 'VP': '-', 'VS': '--', 'QS': '-', 'P': '-', 'T': '--', 'rho': '-.'}
+    Style.LS_hydroSpecies = ['-', '--', '-.', ':']
     Style.LS_ref = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-',
                     'CustomSolution': '--'}  # Style for reference profiles
     Style.LW_ref = 0.75  # Linewidth for reference profiles
