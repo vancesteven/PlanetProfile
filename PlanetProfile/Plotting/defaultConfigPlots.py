@@ -343,6 +343,9 @@ def plotAssign():
     FigMisc.TminHydro_K = 220  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use min of geotherm.
     FigLbl.hydroPhaseSize = 14  # Font size of label for phase in phase diagram
 
+    #Hydrosphere Species diagrams
+    FigMisc.minThreshold = 1e-14 # Minimum mol of species needed to be considered to plot on hydrospehre species diagram
+
     # Silicate/core PT diagrams
     FigMisc.nTgeo = 80  # Number of temperature points to evaluate/plot for PT property plots
     FigMisc.nPgeo = 100  # Number of pressure points to evaluate/plot for PT property plots
