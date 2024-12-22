@@ -48,58 +48,68 @@ def PlotHydrosphereSpecies(PlanetList, Params):
             indsFe = GetPhaseIndices(Planet.phase)
         # If we have liquid indices then let's plot hydrosphere species
         if np.size(indsLiq) != 0:
-                # Get indices of rows that could be calculated to speciate (Particularly in the case for Reaktoro
-                # speciation)
-                indsCalculated = np.where(~np.isnan(Planet.Ocean.aqueousSpeciesAmount_mol).any(axis=1))[0]
-                if np.size(indsCalculated) != 0:
-                    # Get all relevant column names and their speciation
-                    aqueous_species_to_plot = [index for index, value in enumerate(
-                        Planet.Ocean.aqueousSpecies) if
-                                                 "H2O(aq)" not in value and "H+" not in value and "OH-" not in
-                                                                 value]
-                    relevant_ocean_species = Planet.Ocean.aqueousSpecies[aqueous_species_to_plot]
-                    relevant_ocean_depth = Planet.z_m[indsLiq[indsCalculated]]
-                    for i, speciesName in enumerate(relevant_ocean_species):
-                        style = Style.LS_hydroSpecies[i % len(Style.LS_hydroSpecies)]
-                        color = Color.cmap['hydroSpecies'](i % len(
-                            aqueous_species_to_plot))
-                        speciesColumnData = Planet.Ocean.aqueousSpeciesAmount_mol[:, i]
-                        speciesColumnDataAboveThreshold = speciesColumnData[speciesColumnData > FigMisc.minThreshold]
-                        if np.size(speciesColumnDataAboveThreshold) > 0:
-                            ocean_depth_to_plot = relevant_ocean_depth[speciesColumnData > FigMisc.minThreshold]
-                            line, = allspeciesax.plot(speciesColumnDataAboveThreshold,
-                                                      ocean_depth_to_plot / 1e3, linestyle=style,
-                                                      color=color)
-                            x_label_pos = speciesColumnDataAboveThreshold[0]  # x # position of the end
-                            # of the line
-                            y_label_pos = ocean_depth_to_plot[
-                                (i*3) % len(aqueous_species_to_plot)] / 1e3  # y position of the end of the line
-                            allspeciesax.text(x_label_pos, y_label_pos, speciesName,
+            # Set overall figure title
+            if Params.TITLES:
+                fig.suptitle(
+                    f'{PlanetList[0].name}{FigLbl.hydroSpeciesTitle}')
+            # Get all relevant species to plot and their speciation
+            relevant_species_to_plot = []
+            relevant_indices_of_species_to_plot = []
+            for index, value in enumerate(Planet.Ocean.aqueousSpecies):
+                if value not in FigMisc.excludeSpeciesFromHydrospherePlot:
+                    relevant_species_to_plot.append(value)
+                    relevant_indices_of_species_to_plot.append(index)
+            relevant_species_amount_to_plot = Planet.Ocean.aqueousSpeciesAmount_mol[:, relevant_indices_of_species_to_plot]
+            ocean_depth = Planet.z_m[indsLiq]
+
+            # Go through each species and plot
+            for i, species in enumerate(relevant_species_to_plot):
+                style = Style.LS_hydroSpecies[i % len(Style.LS_hydroSpecies)]
+                color = Color.cmap['hydroSpecies'](i % len(relevant_species_to_plot))
+                speciesAmountData = relevant_species_amount_to_plot[:, i]
+                line, = allspeciesax.plot(speciesAmountData,
+                                          ocean_depth / 1e3, linestyle=style,
+                                          color=color)
+                # Plot species labels - But only if they are above FigMisc.minThreshold
+                indices_above_min_threshold = np.where(speciesAmountData > FigMisc.minThreshold)[0]
+                x_label_pos = speciesAmountData[indices_above_min_threshold[0]] if (
+                        indices_above_min_threshold.size > 0) else -1
+                if x_label_pos >= 0:
+                    y_label_pos = ocean_depth[
+                        (i*3) % len(relevant_species_to_plot)] / 1e3  # y position of the end of the line
+                    allspeciesax.text(x_label_pos, y_label_pos, species,
+                                      color=line.get_color(),
+                                      verticalalignment='bottom',
+                                      horizontalalignment='right',
+                                      fontsize=FigLbl.speciesSize)
+                if any(aqueousSpeciesToPlot in species for aqueousSpeciesToPlot in
+                       FigMisc.speciesForAqueousHydrospherePlot):
+                    aqueouspseciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style,
+                                          color=color)
+                    if x_label_pos >= 0:
+                        y_label_pos = ocean_depth[(i * 3) % len(
+                            relevant_species_to_plot)] / 1e3  # y position of the end of the line
+                        aqueouspseciesax.text(x_label_pos, y_label_pos, species,
                                               color=line.get_color(),
                                               verticalalignment='bottom',
                                               horizontalalignment='right',
-                                              fontsize=6)
-                            if "+" or "-" in speciesName:
-                                aqueouspseciesax.plot(speciesColumnDataAboveThreshold, ocean_depth_to_plot / 1e3, linestyle=style,
-                                                      color=color)
-                                aqueouspseciesax.text(x_label_pos, y_label_pos, speciesName,
-                                                      color=line.get_color(),
-                                                      verticalalignment='bottom',
-                                                      horizontalalignment='right',
-                                                      fontsize=6)
-                    for ax in axs:
-                        ax.set_xscale('log')
-                        current_xlim = ax.get_xlim()
-                        new_xmax = 10 ** np.ceil(np.log10(current_xlim[1]))
-                        ax.set_xlim([current_xlim[0], new_xmax])
-                        ax.invert_yaxis()
-                    pH_df = Planet.Ocean.pHs[indsCalculated]
-                    line, = pHax.plot(ocean_depth_to_plot / 1e3, pH_df, linestyle = '-', color = 'black')
-                    plt.tight_layout()
-                    fig.savefig(Params.FigureFiles.hydroSpecies, format=FigMisc.figFormat, dpi=FigMisc.dpi,
-                                metadata=FigLbl.meta)
-                    log.debug(f'Ocean aqueous species plot saved to file: {Params.FigureFiles.hydroSpecies}')
-                    plt.close()
+                                              fontsize=FigLbl.speciesSize)
+            for ax in axs:
+                ax.set_xscale('log')
+                current_xlim = ax.get_xlim()
+                new_xmax = 10 ** np.ceil(np.log10(current_xlim[1]))
+                new_xmin = max(current_xlim[0], FigMisc.minThreshold)
+                ax.set_xlim([new_xmin, new_xmax])
+                ax.invert_yaxis()
+            # Plot pH plot
+            pH_not_nan = np.where(~np.isnan(Planet.Ocean.pHs))[0]
+            line, = pHax.plot(ocean_depth[pH_not_nan] / 1e3, Planet.Ocean.pHs[pH_not_nan], linestyle = '-',
+                              color = 'black')
+            plt.tight_layout()
+            fig.savefig(Params.FigureFiles.hydroSpecies, format=FigMisc.figFormat, dpi=FigMisc.dpi,
+                        metadata=FigLbl.meta)
+            log.debug(f'Ocean aqueous species plot saved to file: {Params.FigureFiles.hydroSpecies}')
+            plt.close()
         else:
             log.warning("There is no ocean, thus will not plot a hydrosphere species plot for this model.")
 

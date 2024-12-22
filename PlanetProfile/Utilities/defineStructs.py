@@ -1377,6 +1377,7 @@ class FigLblStruct:
         self.PvTtitleSil = r' silicate interior properties with geotherm'
         self.PvTtitleCore = r' silicate and core interior properties with geotherm'
         self.hydroPhaseTitle = r' phase diagram'
+        self.hydroSpeciesTitle = r' ocean species diagram'
 
         # Wedge diagram labels
         self.wedgeTitle = 'interior structure diagram'

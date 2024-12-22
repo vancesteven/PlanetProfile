@@ -344,7 +344,10 @@ def plotAssign():
     FigLbl.hydroPhaseSize = 14  # Font size of label for phase in phase diagram
 
     #Hydrosphere Species diagrams
-    FigMisc.minThreshold = 1e-14 # Minimum mol of species needed to be considered to plot on hydrospehre species diagram
+    FigMisc.minThreshold = 1e-14 # Minimum mol of species needed to be considered to plot on hydrosphere species diagram
+    FigMisc.excludeSpeciesFromHydrospherePlot = ['H2O(aq)', 'H+', 'OH-'] # Species to exclude from the hydrosphere plots
+    FigMisc.speciesForAqueousHydrospherePlot = ['+', '-'] # Species to include in the aqueous-specific hydrosphere plot (By default we only include species with + or -
+    FigLbl.speciesSize = 6
 
     # Silicate/core PT diagrams
     FigMisc.nTgeo = 80  # Number of temperature points to evaluate/plot for PT property plots

@@ -667,7 +667,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     # Read in data for ocean properties
     if not Planet.Do.NO_H2O:
         with open(Params.DataFiles.oceanPropsFile) as f:
-            Planet.Ocean.aqueousSpecies = np.array(f.readline().split('=')[-1].strip().split())
+            Planet.Ocean.aqueousSpecies = np.array(f.readline().split('=')[-1].strip().replace(',', '').split())
         OceanSpecificProps = np.loadtxt(Params.DataFiles.oceanPropsFile,
                                                                              skiprows=2, unpack=True)
         Planet.Ocean.pHs = OceanSpecificProps[2]
