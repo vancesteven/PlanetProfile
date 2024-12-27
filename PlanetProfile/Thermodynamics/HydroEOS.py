@@ -409,6 +409,39 @@ class IceEOSStruct:
                 self.ufn_Seismic = ClathSeismic()
             else:
                 # Get tabular data from SeaFreeze for all other ice phases
+                # Set extrapolation boundaries to limits defined in SeaFreeze
+                Pmin = {'Ih':   0, 'II': 0, 'III': 0, 'V': 0, 'VI': 0}
+                Pmax = {'Ih':   400, 'II': 900, 'III': 500, 'V': 1000, 'VI': 3000}
+                Tmin = {'Ih':    1.0,   'II':  0,   'III':  0, 'V': 0, 'VI': 0}
+                Tmax = {'Ih':    300.99999999999983,   'II':  270.00000000000006, 'III':  270.00000000000006,
+                        'V': 300.0000000000001, 'VI': 400.0000000000001}
+                self.Pmin = np.maximum(self.Pmin, Pmin[self.phaseStr])
+                self.Pmax = np.minimum(self.Pmax, Pmax[self.phaseStr])
+                self.Tmin = np.maximum(self.Tmin, Tmin[self.phaseStr])
+                self.Tmax = np.minimum(self.Tmax, Tmax[self.phaseStr])
+                if np.min(P_MPa) < self.Pmin:
+                    log.warning(f'Input Pmin less than SeaFreeze limit for ice {self.phaseStr}. Resetting to SF min of'
+                                f' {self.Pmin} MPa.')
+                    P_MPa = np.linspace(self.Pmin, np.max(P_MPa), np.size(P_MPa))
+                if np.min(P_MPa) > self.Pmax:
+                    # Sometimes when querying for HP ices, the pressure input does not make sense for the given ice and sfz returns np.nan for this phase.
+                    # In this case, we should reset np.min(P_MPa) to just slightly below Pmax so we do not get np.nan returned
+                    log.warning(f'Input Pmin is greater than the SeaFreeze limit for ice {self.phaseStr}. Resetting to SF max of'
+                                f' {self.Pmax} MPa.')
+                    P_MPa = np.linspace(self.Pmax*0.99999, np.max(P_MPa), np.size(P_MPa))
+                if np.max(P_MPa) > self.Pmax:
+                    log.warning(f'Input Pmax greater than SeaFreeze limit for ice {self.phaseStr}. Resetting to SF '
+                                f'max of {self.Pmax} MPa.')
+                    P_MPa = np.linspace(np.min(P_MPa), self.Pmax, np.size(P_MPa))
+                if np.min(T_K) < self.Tmin:
+                    log.warning(f'Input Tmin less than SeaFreeze limit for ice {self.phaseStr}. Resetting to SF min of'
+                                f' {self.Tmin} K.')
+                    T_K = np.linspace(self.Tmin, np.max(T_K), np.size(T_K))
+                if np.max(T_K) > self.Tmax:
+                    log.warning(f'Input Tmax greater than SeaFreeze limit for ice {self.phaseStr}. Resetting to SF '
+                                f'max of'
+                                f' {self.Tmax} K.')
+                    T_K = np.linspace(np.min(T_K), self.Tmax, np.size(T_K))
                 PTgrid = sfPTgrid(P_MPa, T_K)
                 iceOut = SeaFreeze(PTgrid, phaseStr)
                 rho_kgm3 = iceOut.rho
@@ -420,23 +453,6 @@ class IceEOSStruct:
                     kTherm_WmK = np.array([kThermIsobaricAnderssonInaba2005(T_K, PhaseInv(phaseStr)) for _ in P_MPa])
                 self.ufn_Seismic = IceSeismic(phaseStr, self.EXTRAP)
                 self.ufn_phase = returnVal(self.phaseID)
-            # To interpolate functions with rectBivariateSpline, we must remove all values that have np.nan otherwise RectBivariateSpline returns np.nan always
-            # This line is only hit when plotting PvThydro plot, since it queries ice EOS for pressure ranges not valid for ice which causes np.nan to be returned
-            if np.any(np.isnan(rho_kgm3)):
-                P_indices, T_indices = np.where(~np.isnan(rho_kgm3))
-                Pmin_index = np.min(P_indices)
-                Pmax_index = np.max(P_indices)
-                Tmin_index = np.min(T_indices)
-                Tmax_index = np.max(T_indices)
-                P_MPa = P_MPa[Pmin_index:Pmax_index+1]
-                T_K = T_K[Tmin_index:Tmax_index+1]
-                kTherm_WmK = kTherm_WmK[~np.isnan(rho_kgm3)].reshape(P_MPa.size, -1)
-                rho_kgm3 = rho_kgm3[~np.isnan(rho_kgm3)].reshape(P_MPa.size, -1)
-                Cp_JkgK = Cp_JkgK[~np.isnan(Cp_JkgK)].reshape(P_MPa.size, -1)
-                alpha_pK = alpha_pK[~np.isnan(alpha_pK)].reshape(P_MPa.size, -1)
-                self.rangeLabel = f'{np.min(P_MPa):.2f},{np.max(P_MPa):.2f},{(P_MPa[1]-P_MPa[0]):.2e},' + \
-                 f'{np.min(T_K):.3f},{np.max(T_K):.3f},{(T_K[1]-T_K[0]):.2e}'
-
             # Interpolate functions for this ice phase that can be queried for properties
             self.ufn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, rho_kgm3)
             self.ufn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, Cp_JkgK)
