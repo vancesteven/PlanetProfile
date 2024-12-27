@@ -20,7 +20,7 @@ def LiquidOceanPropsCalc(Planet, Params):
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
             indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
             indsFe = GetPhaseIndices(Planet.phase)
-        if not Planet.Do.NO_H2O and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
+        if not Planet.Do.NO_OCEAN and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
             POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
             TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
             Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,

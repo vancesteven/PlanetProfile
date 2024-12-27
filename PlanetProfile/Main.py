@@ -226,7 +226,7 @@ def PlanetProfile(Planet, Params):
         # Save data after modeling
         if (not Params.NO_SAVEFILE) and Planet.Do.VALID and (not Params.INVERSION_IN_PROGRESS):
             WriteProfile(Planet, Params)
-            if not Planet.Do.NO_H2O:
+            if not Planet.Do.NO_OCEAN:
                 WriteLiquidOceanProps(Planet, Params)
             if Params.CALC_SEISMIC and not Params.SKIP_INNER:
                 WriteSeismic(Planet, Params)
@@ -665,13 +665,15 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         = np.loadtxt(Params.DataFiles.mantCoreFile, skiprows=1, unpack=True)
 
     # Read in data for ocean properties
-    if not Planet.Do.NO_H2O:
+    if not Planet.Do.NO_OCEAN:
         with open(Params.DataFiles.oceanPropsFile) as f:
             Planet.Ocean.aqueousSpecies = np.array(f.readline().split('=')[-1].strip().replace(',', '').split())
         OceanSpecificProps = np.loadtxt(Params.DataFiles.oceanPropsFile,
                                                                              skiprows=2, unpack=True)
         Planet.Ocean.pHs = OceanSpecificProps[2]
         Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[3: ].T
+    else:
+        Planet.Ocean.pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan
 
     # Setup CustomSolution settings
     if 'CustomSolution' in Planet.Ocean.comp:
