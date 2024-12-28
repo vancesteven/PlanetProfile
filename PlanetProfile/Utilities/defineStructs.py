@@ -682,7 +682,7 @@ class FigureFilesSubstruct:
             self.flybys = {'none': {'NA': ''}}
         else:
             self.flybys = flybys
-
+        self.xtn = xtn
         self.path = figPath
         self.inductPath = os.path.join(self.path, 'induction')
         if not self.path == '' and not os.path.isdir(self.path):
@@ -727,48 +727,55 @@ class FigureFilesSubstruct:
         asym = 'asymDevs'
         apsidal = 'apsidalPrec'
         # Construct Figure Filenames
-        self.vwedg = self.fName + vwedg + xtn
-        self.vpore = self.fName + vpore + xtn
-        self.vporeDbl = self.fName + vporeDbl + xtn
-        self.vperm = self.fName + vperm + xtn
-        self.vseis = self.fName + vseis + xtn
-        self.vhydro = self.fName + vhydro + xtn
-        self.vgrav = self.fName + vgrav + xtn
-        self.vmant = self.fName + vmant + xtn
-        self.vcore = self.fName + vcore + xtn
-        self.vphase = self.fName + vphase + xtn
-        self.vvisc = self.fName + vvisc + xtn
-        self.vpvtHydro = self.fName + vpvtHydro + xtn
-        self.hydroSpecies = self.fName + hydroSpecies + xtn
-        self.vpvtPerpleX = self.fName + vpvtPerpleX + xtn
+        self.vwedg = self.fName + vwedg + self.xtn
+        self.vpore = self.fName + vpore + self.xtn
+        self.vporeDbl = self.fName + vporeDbl + self.xtn
+        self.vperm = self.fName + vperm + self.xtn
+        self.vseis = self.fName + vseis + self.xtn
+        self.vhydro = self.fName + vhydro + self.xtn
+        self.vgrav = self.fName + vgrav + self.xtn
+        self.vmant = self.fName + vmant + self.xtn
+        self.vcore = self.fName + vcore + self.xtn
+        self.vphase = self.fName + vphase + self.xtn
+        self.vvisc = self.fName + vvisc + self.xtn
+        self.vpvtHydro = self.fName + vpvtHydro + self.xtn
+        self.hydroSpecies = self.fName + hydroSpecies + self.xtn
+        self.vpvtPerpleX = self.fName + vpvtPerpleX + self.xtn
         self.asym = self.fName + asym
-        self.apsidal = self.fName + apsidal + xtn
+        self.apsidal = self.fName + apsidal + self.xtn
         if isinstance(self.exploreAppend, list):
-            self.explore =            [f'{self.fNameExplore}_{eApp}{xtn}' for eApp in self.exploreAppend]
+            self.explore =            [f'{self.fNameExplore}_{eApp}{self.xtn}' for eApp in self.exploreAppend]
         else:
-            self.explore =             f'{self.fNameExplore}_{self.exploreAppend}{xtn}'
-        self.exploreDsigma =           f'{self.fNameExplore}_Dsigma{xtn}'
-        self.phaseSpace =              f'{self.fNameInduct}_{induct}_phaseSpace{xtn}'
-        self.phaseSpaceCombo =         f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{xtn}'
-        self.induct =          {zType: f'{self.fNameInduct}_{induct}_{zType}{xtn}' for zType in zComps}
-        self.inductCompare =   {zType: f'{self.fNameInduct}Compare_{zType}{xtn}' for zType in zComps}
-        self.sigma =           {zType: f'{self.fNameInduct}_{sigma}_{zType}{xtn}' for zType in zComps}
-        self.sigmaOnly =       {zType: f'{self.fNameInduct}_{sigma}Only_{zType}{xtn}' for zType in zComps}
-        self.Bdip =           {axComp: f'{self.fNameInduct}_{Bdip}{axComp}{xtn}' for axComp in xyzComps + ['all']}
-        self.MagFT =                   f'{self.fNameInduct}_{MagFT}{xtn}'
-        self.MagFTexc =                f'{self.fNameInduct}_{MagFTexc}{xtn}'
+            self.explore =             f'{self.fNameExplore}_{self.exploreAppend}{self.xtn}'
+        self.exploreDsigma =           f'{self.fNameExplore}_Dsigma{self.xtn}'
+        self.phaseSpace =              f'{self.fNameInduct}_{induct}_phaseSpace{self.xtn}'
+        self.phaseSpaceCombo =         f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{self.xtn}'
+        self.induct =          {zType: f'{self.fNameInduct}_{induct}_{zType}{self.xtn}' for zType in zComps}
+        self.inductCompare =   {zType: f'{self.fNameInduct}Compare_{zType}{self.xtn}' for zType in zComps}
+        self.sigma =           {zType: f'{self.fNameInduct}_{sigma}_{zType}{self.xtn}' for zType in zComps}
+        self.sigmaOnly =       {zType: f'{self.fNameInduct}_{sigma}Only_{zType}{self.xtn}' for zType in zComps}
+        self.Bdip =           {axComp: f'{self.fNameInduct}_{Bdip}{axComp}{self.xtn}' for axComp in xyzComps + ['all']}
+        self.MagFT =                   f'{self.fNameInduct}_{MagFT}{self.xtn}'
+        self.MagFTexc =                f'{self.fNameInduct}_{MagFTexc}{self.xtn}'
         self.MagSurf =         {vComp: f'{self.fNameInduct}_{MagSurf}B{vComp}' for vComp in vecComps}
         self.MagSurfSym =      {vComp: f'{self.fNameInduct}_{MagSurfSym}B{vComp}' for vComp in vecComps}
         self.MagSurfCombo =    {vComp: f'{self.fNameInduct}_{MagSurfCombo}B{vComp}' for vComp in vecComps}
         self.MagSurfDiff =     {vComp: f'{self.fNameInduct}_{MagSurfDiff}B{vComp}' for vComp in vecComps}
         self.MagSurfComp =     {vComp: f'{self.fNameInduct}_{MagSurfComp}B{vComp}' for vComp in vecComps}
-        self.MagCA =                   f'{self.fNameInduct}_{MagCA}{xtn}'
-        self.SCtrajec =                f'{self.fNameFlybys}{SCtrajec}{xtn}'
-        self.SCtrajec3D =              f'{self.fNameFlybys}{SCtrajec3D}{xtn}'
-        self.Btrajec = {scName: {fbID: f'{self.fNameFlybys}{Btrajec}{scName}{fbName}{xtn}'
+        self.MagCA =                   f'{self.fNameInduct}_{MagCA}{self.xtn}'
+        self.SCtrajec =                f'{self.fNameFlybys}{SCtrajec}{self.xtn}'
+        self.SCtrajec3D =              f'{self.fNameFlybys}{SCtrajec3D}{self.xtn}'
+        self.Btrajec = {scName: {fbID: f'{self.fNameFlybys}{Btrajec}{scName}{fbName}{self.xtn}'
                                  for fbID, fbName in fbList.items()} for scName, fbList in self.flybys.items()}
-        self.AlfvenWing = {scName: {fbID: f'{self.fNameFlybys}{AlfvenWing}{scName}{fbName}{xtn}'
+        self.AlfvenWing = {scName: {fbID: f'{self.fNameFlybys}{AlfvenWing}{scName}{fbName}{self.xtn}'
                                  for fbID, fbName in fbList.items()} for scName, fbList in self.flybys.items()}
+    def comparisonFileGenerator(self, Planet1Title, Planet2Title, plot_type):
+        """
+        Generate comparison file names between two planet name inputs with the given file extension. Used for generating comparison pdfs
+        """
+        if plot_type == 'vpvtHydro':
+            vpvtHydro = 'HydroPTprops'
+            return self.fName + vpvtHydro + Planet1Title + Planet2Title + self.xtn
 
 
 """ General parameter options """

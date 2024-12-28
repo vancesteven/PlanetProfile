@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 21  # Integer number for config file version. Increment when new settings are added to the
+configPlotsVersion = 22  # Integer number for config file version. Increment when new settings are added to the
 # default config file.
 
 def plotAssign():
@@ -121,7 +121,7 @@ def plotAssign():
         'hydroSpecies': [0.0, 1.0]
     }
     # Set temperature bounds to use for colormap normalization
-    Color.Tbounds_K = [255.0, 273.0]
+    Color.Tbounds_K = [240.0, 273.0]
 
     # Set upper bounds for max concentrations to use for darkening
     Color.saturation = {

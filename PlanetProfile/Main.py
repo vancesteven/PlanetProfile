@@ -665,6 +665,8 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         = np.loadtxt(Params.DataFiles.mantCoreFile, skiprows=1, unpack=True)
 
     # Read in data for ocean properties
+    if Planet.Do.NO_H2O or Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
+        Planet.Do.NO_OCEAN = True
     if not Planet.Do.NO_OCEAN:
         with open(Params.DataFiles.oceanPropsFile) as f:
             Planet.Ocean.aqueousSpecies = np.array(f.readline().split('=')[-1].strip().replace(',', '').split())
