@@ -472,7 +472,7 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
              'VS': HydrosphereProp('VS', 'fn_Seismic', None, None, FigLbl.VSlabel, None, 1),
              'GS': HydrosphereProp('GS', 'fn_Seismic', None, None, FigLbl.GSlabel, None, 3)}
     # This will get the actual HydrosphereProp instances, not just their names
-    props_to_plot = [props[prop] for prop in props if prop in FigMisc.propsToPlot]
+    props_to_plot = [props[prop] for prop in FigMisc.propsToPlot if prop in props]
     if len(props_to_plot) == 0:
         log.warning("No valid props provided to plot. Check that FigMisc.propsToPlot has valid names. Will plot all available properties.")
         props_to_plot = [props[prop] for prop in props]
@@ -626,7 +626,7 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
                 fig.suptitle(f'{FirstPlanet.compStr}{FigLbl.isoThermPvTtitleHydro}')
             else:
                 fig.suptitle(
-                    f'% Difference Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.isoThermPvTtitleHydro}')  # Now plot the data dynamically on the correct ax for each property
+                    f'Weight Difference Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.isoThermPvTtitleHydro}')  # Now plot the data dynamically on the correct ax for each property
         for idx, prop in enumerate(props_to_plot):
             ax = prop.ax  # Get the axis for this property
             if SinglePlanetPlot:
