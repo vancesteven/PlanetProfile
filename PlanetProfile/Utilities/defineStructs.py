@@ -705,6 +705,7 @@ class FigureFilesSubstruct:
         vcore = 'CoreMantTrade'
         vvisc = 'Viscosity'
         vpvtHydro = 'HydroPTprops'
+        isoThermvpvtHydro = 'IsoThermHydroPTprops'
         vpvtPerpleX = 'InnerPTprops'
         hydroSpecies = 'OceanSpecies'
         vwedg = 'Wedge'
@@ -739,6 +740,7 @@ class FigureFilesSubstruct:
         self.vphase = self.fName + vphase + self.xtn
         self.vvisc = self.fName + vvisc + self.xtn
         self.vpvtHydro = self.fName + vpvtHydro + self.xtn
+        self.isoThermvpvtHydro = self.fName + isoThermvpvtHydro + self.xtn
         self.hydroSpecies = self.fName + hydroSpecies + self.xtn
         self.vpvtPerpleX = self.fName + vpvtPerpleX + self.xtn
         self.asym = self.fName + asym
@@ -773,9 +775,9 @@ class FigureFilesSubstruct:
         """
         Generate comparison file names between two planet name inputs with the given file extension. Used for generating comparison pdfs
         """
-        if plot_type == 'vpvtHydro':
-            vpvtHydro = 'HydroPTprops'
-            return self.fName + vpvtHydro + Planet1Title + Planet2Title + self.xtn
+        if plot_type == 'isoThermvpvtHydro':
+            isoThermvpvtHydro = 'isoThermvpvtHydro'
+            return self.fName + isoThermvpvtHydro + Planet1Title + Planet2Title + self.xtn
 
 
 """ General parameter options """
@@ -1113,6 +1115,10 @@ class ColorStruct:
         self.cmapBounds = {}  # Select only a subset of the available colormap, if we choose to
         self.Tbounds_K = [245.0, 300.0]  # Set temperature bounds to use for ocean colormap normalization
         self.saturation = {}  # Set upper bounds for max concentrations
+        #Cmap settings for PvT isotherm plots
+        self.isoThermPvThydroCmapName = None
+        self.isoThermPvThydroHi = None
+        self.isoThermPvThydroLo = None
         # Saturation & color brightness ("value" in HSV) values for salinity/conductivity axis bounds
         self.fresh = [0.5, 1.0]
         self.salty = [1.0, 0.5]
@@ -1162,6 +1168,7 @@ class ColorStruct:
         self.negPvThydroCmap = cmasher.get_sub_cmap(self.negPvThydroCmapName, self.negPvThydroLo, self.negPvThydroHi)
         self.PvTsilCmap = cmasher.get_sub_cmap(self.PvTsilCmapName, self.PvTsilLo, self.PvTsilHi)
         self.PvTcoreCmap = cmasher.get_sub_cmap(self.PvTcoreCmapName, self.PvTcoreLo, self.PvTcoreHi)
+        self.isoThermPvThydroCmap = cmasher.get_sub_cmap(self.isoThermPvThydroCmapName, self.isoThermPvThydroLo, self.isoThermPvThydroHi)
         # Use cmasher to return colormap objects that do the down-select for us
         self.cmap = {comp: cmasher.get_sub_cmap(cmap, self.cmapBounds[comp][0], self.cmapBounds[comp][1])
                      for comp, cmap in self.cmapName.items()}
@@ -1181,11 +1188,15 @@ class ColorStruct:
         return comboCmap
 
 
-    def GetNormT(self, T_K):
+    def GetNormT(self, T_K, Tbound_lower = None, Tbound_upper = None):
         """ Calculate normalized temperature to use with colormaps
         """
-        return interp1d([self.Tbounds_K[0], self.Tbounds_K[1]], [0.0, 1.0],
-                 bounds_error=False, fill_value='extrapolate')(T_K)
+        if Tbound_lower is None or Tbound_upper is None:
+            return interp1d([self.Tbounds_K[0], self.Tbounds_K[1]], [0.0, 1.0],
+                     bounds_error=False, fill_value='extrapolate')(T_K)
+        else:
+            return interp1d([Tbound_lower, Tbound_upper], [0.0, 1.0], bounds_error=False,
+                            fill_value='extrapolate')(T_K)
 
     def GetSat(self, w_ppt):
         """ Calculate color saturation value based on salinity relative to
@@ -1381,6 +1392,7 @@ class FigLblStruct:
         self.viscTitle = r' viscosity'
         self.viscCompareTitle = r'Viscosity comparison'
         self.PvTtitleHydro = r' hydrosphere EOS properties with geotherm'
+        self.isoThermPvTtitleHydro = r' hydrosphere EOS properties at constant temperatures'
         self.PvTtitleSil = r' silicate interior properties with geotherm'
         self.PvTtitleCore = r' silicate and core interior properties with geotherm'
         self.hydroPhaseTitle = r' phase diagram'

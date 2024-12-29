@@ -3,6 +3,7 @@ import numpy as np
 import logging
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+from matplotlib.axes import Axes
 from matplotlib.colors import LinearSegmentedColormap as DiscreteCmap, to_rgb, BoundaryNorm
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
@@ -10,6 +11,7 @@ from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv, GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Utilities.defineStructs import Constants
+from typing import Optional, List
 
 import itertools
 import copy
@@ -440,250 +442,491 @@ def OldPlotHydroPhase(PlanetList, Params):
     
     return
 
+class HydrosphereProp:
+    def __init__(self,
+                 prop: str,
+                 fn_name: str,
+                 fig_location: tuple,
+                 ax: Axes,
+                 prop_label: str,
+                 ocean_prop_index: Optional[int] = None,
+                 ice_prop_index: Optional[int] = None):
+        self.prop = prop
+        self.fn_name = fn_name
+        self.fig_location = fig_location
+        self.ax = ax
+        self.prop_label = prop_label
+        self.ocean_prop_index = ocean_prop_index
+        self.ice_prop_index = ice_prop_index
+        # Initialize prop_data as an empty list
+        self.prop_data = []
 
-def PlotPvThydro(PlanetList, Params):
-    """
-    Overhauling PvThydro
-    """
-    if os.path.dirname(Params.FigureFiles.vpvtHydro) != 'Comparison':
-        if FigMisc.PminHydro_MPa is None:
-            Pmin_MPa = np.min([Planet.P_MPa[0] for Planet in PlanetList])
-        else:
-            Pmin_MPa = FigMisc.PminHydro_MPa
-        if FigMisc.PmaxHydro_MPa is None:
-            Pmax_MPa = np.max([Planet.P_MPa[Planet.Steps.nHydro-1] for Planet in PlanetList])
-        else:
-            Pmax_MPa = FigMisc.PmaxHydro_MPa
-        if FigMisc.TminHydro_K is None:
-            if not np.any([Planet.Do.NO_OCEAN for Planet in PlanetList]):
-                Tmin_K = np.min([np.min(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
-            else:
-                Tmin_K = np.min([np.min(Planet.T_K) for Planet in PlanetList])
-        else:
-            Tmin_K = FigMisc.TminHydro_K
-        if FigMisc.TmaxHydro_K is None:
-            if np.all([Planet.Do.NO_OCEAN for Planet in PlanetList]):
-                Tmax_K = np.max([Planet.Sil.THydroMax_K for Planet in PlanetList])
-            else:
-                Tmax_K = np.max([np.max(Planet.T_K[:Planet.Steps.nHydro])
-                                 for Planet in PlanetList if not Planet.Do.NO_OCEAN])
-        else:
-            Tmax_K = FigMisc.TmaxHydro_K
 
-        if FigMisc.nPhydro is None:
-            Planet = PlanetList[0]
-            P_MPa = Planet.P_MPa[:Planet.Steps.nHydro]
-            P_MPa = P_MPa[np.logical_and(P_MPa >= Pmin_MPa, P_MPa <= Pmax_MPa)]
-            for Planet in PlanetList:
-                # Get highest fidelity pressure range
-                P = Planet.P_MPa[:Planet.Steps.nHydro]
-                P = P[np.logical_and(P >= Pmin_MPa, P <= Pmax_MPa)]
-                if P.size > P_MPa.size:
-                    P_MPa = P
-        else:
-            P_MPa = np.linspace(Pmin_MPa, Pmax_MPa, FigMisc.nPhydro)
-        if FigMisc.nThydro is None:
-            Planet = PlanetList[0]
-            T_K = Planet.T_K[:Planet.Steps.nHydro]
-            T_K = T_K[np.logical_and(T_K >= Tmin_K, T_K <= Tmax_K)]
-            for Planet in PlanetList:
-                # Get highest fidelity pressure range
-                T = Planet.T_K[:Planet.Steps.nHydro]
-                T = T[np.logical_and(T >= Tmin_K, T <= Tmax_K)]
-                if T.size > T_K.size:
-                    T_K = T
-        else:
-            T_K = np.linspace(Tmin_K, Tmax_K, FigMisc.nThydro)
-        oceanListEOS = []
-        phasesList = []
-        ices = {}
-        iceEOS = {}
+def PlotIsoThermalPvThydro(PlanetList, Params):
+    props = {'rho': HydrosphereProp('rho', 'fn_rho_kgm3', None, None, FigLbl.rhoLabel),
+             'Cp': HydrosphereProp('Cp', 'fn_Cp_JkgK', None, None, FigLbl.CpLabel),
+             'alpha': HydrosphereProp('alpha', 'fn_alpha_pK', None, None, FigLbl.alphaLabel),
+             'VP': HydrosphereProp('VP', 'fn_Seismic', None, None, FigLbl.VPlabel, 0, 0),
+             'KS': HydrosphereProp('KS', 'fn_Seismic', None, None, FigLbl.KSlabel, 0, 2),
+             'sig': HydrosphereProp('sig', 'fn_sigma_Sm', None, None, FigLbl.sigLabel, ),
+             'VS': HydrosphereProp('VS', 'fn_Seismic', None, None, FigLbl.VSlabel, None, 1),
+             'GS': HydrosphereProp('GS', 'fn_Seismic', None, None, FigLbl.GSlabel, None, 3)}
+    # This will get the actual HydrosphereProp instances, not just their names
+    props_to_plot = [props[prop] for prop in props if prop in FigMisc.propsToPlot]
+    if len(props_to_plot) == 0:
+        log.warning("No valid props provided to plot. Check that FigMisc.propsToPlot has valid names. Will plot all available properties.")
+        props_to_plot = [props[prop] for prop in props]
+    elif len(props_to_plot) <= 4:
+        rows = 1
+        cols = len(props_to_plot)
+    else:
+        rows = 2
+        cols = (len(props_to_plot) + 1) // 2
+    if FigMisc.PminHydro_MPa is None:
+        Pmin_MPa = np.min([Planet.P_MPa[0] for Planet in PlanetList])
+    else:
+        Pmin_MPa = FigMisc.PminHydro_MPa
+    if FigMisc.PmaxHydro_MPa is None:
+        Pmax_MPa = np.max([Planet.P_MPa[Planet.Steps.nHydro - 1] for Planet in PlanetList])
+    else:
+        Pmax_MPa = FigMisc.PmaxHydro_MPa
+    # Get highest Tmin
+    if not np.any([Planet.Do.NO_OCEAN for Planet in PlanetList]):
+        Tmin_K = np.max([np.min(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
+    else:
+        Tmin_K = np.max([np.min(Planet.T_K) for Planet in PlanetList])
+    # Get lowest Tmax
+    if not np.any([Planet.Do.NO_OCEAN for Planet in PlanetList]):
+        Tmax_K = np.min([Planet.Sil.THydroMax_K for Planet in PlanetList])
+    else:
+        Tmax_K = np.min([np.max(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList if not Planet.Do.NO_OCEAN])
+
+    if FigMisc.nPhydro is None:
+        Planet = PlanetList[0]
+        P_MPa = Planet.P_MPa[:Planet.Steps.nHydro]
+        P_MPa = P_MPa[np.logical_and(P_MPa >= Pmin_MPa, P_MPa <= Pmax_MPa)]
         for Planet in PlanetList:
-            # Load EOS independently from model run, because we will query wider ranges of conditions
-            oceanEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, P_MPa, T_K,
-                                   Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
-                                   scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
-                                   phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
-            phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
-            new_ices = set([PhaseConv(ice) for ice in np.unique(np.append(phases[phases != 0], 1))])
-            if not new_ices.issubset(ices):
-                ices = new_ices
-                iceEOS = {PhaseInv(ice): GetIceEOS(P_MPa, T_K, ice,
-                                         porosType=Planet.Ocean.porosType[ice],
-                                         phiTop_frac=Planet.Ocean.phiMax_frac[ice],
-                                         Pclosure_MPa=Planet.Ocean.Pclosure_MPa[ice],
-                                         phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[ice],
-                                         ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
-                      for ice in ices}
-            # Add clathrates to phase and property diagrams where it is stable (if modeled)
-            if Planet.Do.CLATHRATE:
-                clath = PhaseConv(Constants.phaseClath)
-                if clath not in ices:
-                    ices.add(clath)
-                    iceEOS[Constants.phaseClath] = GetIceEOS(P_MPa, T_K, clath,
-                                                porosType=Planet.Ocean.porosType[clath],
-                                                phiTop_frac=Planet.Ocean.phiMax_frac[clath],
-                                                Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
-                                                phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[clath])
-                clathStable = iceEOS[Constants.phaseClath].fn_phase(P_MPa, T_K, grid=True)
-                phases[clathStable == Constants.phaseClath] = Constants.phaseClath
-            oceanListEOS.append(oceanEOS)
-            phasesList.append(phases)
+            # Get highest fidelity pressure range
+            P = Planet.P_MPa[:Planet.Steps.nHydro]
+            P = P[np.logical_and(P >= Pmin_MPa, P <= Pmax_MPa)]
+            if P.size > P_MPa.size:
+                P_MPa = P
+    else:
+        P_MPa = np.linspace(Pmin_MPa, Pmax_MPa, FigMisc.nPhydro)
+
+    # Get temperatures to plot that are within bounds
+    T_K = np.array([T for T in FigMisc.TtoPlot_K if Tmin_K <= T <= Tmax_K])
+    # If no temperatures in T_K, then should just use Tmax_K and plot a single isotherm
+    if T_K.size == 0:
+        T_K = np.array([Tmax_K])
 
 
-        # Go through every two combination
-        SinglePlanetPlot = (len(PlanetList) == 1)
-        # If we are plotting for only one run, then compare it to a blank HydroEOS
-        if SinglePlanetPlot:
-            combinations = [(0,0)]
-        else:
-            combinations = itertools.combinations(range(0, PlanetList.size), 2)
-        for comparison in combinations:
-            FirstPlanetIndex = comparison[0]
-            SecondPlanetIndex = comparison[1]
-            FirstPlanet = PlanetList[FirstPlanetIndex]
-            SecondPlanet = PlanetList[SecondPlanetIndex]
-            fig = plt.figure(figsize=FigSize.vpvt)
-            grid = GridSpec(2, 4)
-            axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(4)] for i in range(2)])
-            axf = axes.flatten()
-            if Style.GRIDS:
-                [ax.grid() for ax in axf]
-                [ax.set_axisbelow(False) for ax in axf]
-            # Labels and titles
-            [ax.set_xlabel(FigLbl.Tlabel) for ax in axes[1, :]]
-            [ax.set_ylabel(FigLbl.PlabelHydro) for ax in axes[:, 0]]
-            [ax.set_xlim([Tmin_K, Tmax_K]) for ax in axf]
-            [ax.set_ylim([Pmin_MPa, Pmax_MPa]) for ax in axf]
-            [ax.invert_yaxis() for ax in axf]
-            axes[0,0].set_title(FigLbl.rhoLabel)
-            axes[1,0].set_title(FigLbl.CpLabel)
-            axes[1,1].set_title(FigLbl.alphaLabel)
-            axes[0,1].set_title(FigLbl.sigLabel)
-            axes[0,2].set_title(FigLbl.VPlabel)
-            axes[1,2].set_title(FigLbl.VSlabel)
-            axes[0,3].set_title(FigLbl.KSlabel)
-            axes[1,3].set_title(FigLbl.GSlabel)
-
-            # Set overall figure title
-            if Params.TITLES:
-                if SinglePlanetPlot:
-                    fig.suptitle(f'{FirstPlanet.compStr}{FigLbl.PvTtitleHydro}')
-                else:
-                    fig.suptitle(
-                        f'Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.PvTtitleHydro}')
-
-            # Get each Planet's data to plot -- ocean EOS properties first
-            all_data = []
-            for index in comparison:
-                oceanEOS = oceanListEOS[index]
-                phases = phasesList[index]
-                rho = oceanEOS.fn_rho_kgm3(P_MPa, T_K, grid=True)
-                Cp = oceanEOS.fn_Cp_JkgK(P_MPa, T_K, grid=True)
-                alpha = oceanEOS.fn_alpha_pK(P_MPa, T_K, grid=True)
-                VP, KS = oceanEOS.fn_Seismic(P_MPa, T_K, grid=True)
-                sig = oceanEOS.fn_sigma_Sm(P_MPa, T_K, grid=True)
-                VS, GS = (np.empty_like(rho)*np.nan for _ in range(2))
+    oceanListEOS = []
+    phasesList = []
+    ices = {}
+    iceEOS = {}
+    for Planet in PlanetList:
+        # Load EOS independently from model run, because we will query wider ranges of conditions
+        oceanEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, P_MPa, T_K, Planet.Ocean.MgSO4elecType,
+                               rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType,
+                               FORCE_NEW=Params.FORCE_EOS_RECALC, phaseType=Planet.Ocean.phaseType,
+                               EXTRAP=Params.EXTRAP_OCEAN, sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm,
+                               LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+        phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
+        new_ices = set([PhaseConv(ice) for ice in np.unique(np.append(phases[phases != 0], 1))])
+        if not new_ices.issubset(ices):
+            ices = new_ices
+            iceEOS = {PhaseInv(ice): GetIceEOS(P_MPa, T_K, ice, porosType=Planet.Ocean.porosType[ice],
+                                               phiTop_frac=Planet.Ocean.phiMax_frac[ice],
+                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa[ice],
+                                               phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[ice],
+                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT) for ice in ices}
+        # Add clathrates to phase and property diagrams where it is stable (if modeled)
+        if Planet.Do.CLATHRATE:
+            clath = PhaseConv(Constants.phaseClath)
+            if clath not in ices:
+                ices.add(clath)
+                iceEOS[Constants.phaseClath] = GetIceEOS(P_MPa, T_K, clath, porosType=Planet.Ocean.porosType[clath],
+                                                         phiTop_frac=Planet.Ocean.phiMax_frac[clath],
+                                                         Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
+                                                         phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                         EXTRAP=Params.EXTRAP_ICE[clath])
+            clathStable = iceEOS[Constants.phaseClath].fn_phase(P_MPa, T_K, grid=True)
+            phases[clathStable == Constants.phaseClath] = Constants.phaseClath
+        oceanListEOS.append(oceanEOS)
+        phasesList.append(phases)
+    # Obtain data for each planet
+    for i, Planet in enumerate(PlanetList):
+        oceanEOS = oceanListEOS[i]
+        phases = phasesList[i]
+        # Loop over each property in props_to_plot
+        for prop in props_to_plot:
+            if prop.prop in ['VS', 'GS']:
+                # For VS and GS, these properties only apply to solid ice phases
+                prop_data = np.empty((len(P_MPa), len(T_K))) * np.nan
+            else:
+                # Call the function dynamically with the required arguments
+                prop_data = getattr(oceanEOS, prop.fn_name)(P_MPa, T_K, grid=True)
+                # In case of VP or KS, we need to get the appropriate data since fn_seismic returns both VP and KS
+                if prop.prop in ['VP', 'KS']:
+                    prop_data = prop_data[prop.ocean_prop_index]
                 # Exclude obviously erroneous Cp values, which happen when extending beyond the knots
                 # for the input EOS. This is mainly a problem with GSW and Seawater compositions.
-                Cp[np.logical_or(Cp < 3200, Cp > 5200)] = np.nan
-                # Now get data for all ice EOSs and replace in grid
-                for iceStr in ices:
-                    ice = PhaseInv(iceStr)
-                    if np.any(phases == ice):
-                        rho[np.where(phases == ice)] = iceEOS[ice].fn_rho_kgm3(P_MPa, T_K, grid=True)[np.where(phases == ice)]
-                        Cp[np.where(phases == ice)] = iceEOS[ice].fn_Cp_JkgK(P_MPa, T_K, grid=True)[np.where(phases == ice)]
-                        alpha[np.where(phases == ice)] = iceEOS[ice].fn_alpha_pK(P_MPa, T_K, grid=True)[np.where(phases == ice)]
-                        VPice, VSice, KSice, GSice = iceEOS[ice].fn_Seismic(P_MPa, T_K, grid=True)
-                        VP[np.where(phases == ice)] = VPice[np.where(phases == ice)]
-                        VS[np.where(phases == ice)] = VSice[np.where(phases == ice)]
-                        KS[np.where(phases == ice)] = KSice[np.where(phases == ice)]
-                        GS[np.where(phases == ice)] = GSice[np.where(phases == ice)]
-                        sig[np.where(phases == ice)] = PlanetList[index].Ocean.sigmaIce_Sm[iceStr]
-                all_data += [rho, Cp, alpha, VP, KS, sig, VS, GS]
-            # Convert data into 8x2 numpy array, where each column contains a single Planet's data
-            all_data = np.array(all_data).reshape(2, 8, all_data[0].shape[0], all_data[0].shape[1])
-            # Create list that will hold weight percent difference data
-            data = []
-            for i in range(all_data.shape[1]):
-                firstPlanetData = all_data[0, i, :, :]
-                secondPlanetData = all_data[1, i, :, :]
-                if SinglePlanetPlot:
-                    prop_data = firstPlanetData
-                else:
-                    # Find weight percent difference
-                    prop_data = np.abs(firstPlanetData-secondPlanetData)/((firstPlanetData+secondPlanetData) / 2) * 100
-                    phase_difference = (phasesList[0] != phasesList[1])
-                    phase_different_indices = np.where(phase_difference)
-                    prop_data[phase_different_indices] = 0
-                data.append(prop_data)
-            rho = data[0]
-            Cp = data[1]
-            alpha = data[2]
-            VP = data[3]
-            KS = data[4]
-            sig = data[5]
-            VS = data[6]
-            GS = data[7]
-            # Highlight places where alpha is negative with opposite side of diverging colormap, 0 pegged to middle
+                if prop.prop == 'Cp':
+                    prop_data[np.logical_or(prop_data < 3200, prop_data > 5200)] = np.nan
+            # Now get data for all ice EOSs and replace in grid
+            for iceStr in ices:
+                ice = PhaseInv(iceStr)
+                if np.any(phases == ice):
+                    if prop.prop != 'sig':
+                        ice_prop_data = getattr(iceEOS[ice], prop.fn_name)(P_MPa, T_K, grid=True)
+                        if prop.prop in ['VP', 'KS', 'VS', 'GS']:
+                            prop_data[np.where(phases == ice)] = ice_prop_data[prop.ice_prop_index][
+                                np.where(phases == ice)]
+                        else:
+                            prop_data[np.where(phases == ice)] = ice_prop_data[np.where(phases == ice)]
+                    else:
+                        # In the case of sig, we need to set a different way
+                        prop_data[np.where(phases == ice)] = Planet.Ocean.sigmaIce_Sm[iceStr]
+            # Add the data for this planet to the prop.prop_data list
+            prop.prop_data.append(prop_data)
+    # Go through every two combination and plot
+    SinglePlanetPlot = (len(PlanetList) == 1)
+    # If we are plotting for only one run, then do not compare it to anything
+    if SinglePlanetPlot:
+        combinations = [(0, 0)]
+    else:
+        combinations = itertools.combinations(range(0, PlanetList.size), 2)
+
+    for comparison in combinations:
+        FirstPlanetIndex = comparison[0]
+        SecondPlanetIndex = comparison[1]
+        FirstPlanet = PlanetList[FirstPlanetIndex]
+        SecondPlanet = PlanetList[SecondPlanetIndex]
+        # Create the figure grid
+        fig = plt.figure(figsize=FigSize.vpvt)
+        grid = GridSpec(rows, cols)
+        axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(cols)] for i in range(rows)])
+        axf = axes.flatten()
+        # Assign fig_location dynamically to each property and update ax
+        for idx, prop in enumerate(props_to_plot):
+            row, col = divmod(idx, cols)
+            prop.fig_location = (row, col)
+            ax = axes[row, col]
+            prop.ax = ax  # Update ax in HydrosphereProp
+        # Hide extra subplots if there are fewer properties than subplots
+        for idx in range(len(props_to_plot), len(axf)):
+            axf[idx].set_visible(False)
+        if Style.GRIDS:
+            [ax.grid() for ax in axf]
+            [ax.set_axisbelow(False) for ax in axf]
+        # Set overall figure title
+        if Params.TITLES:
             if SinglePlanetPlot:
-                minAlpha = np.minimum(0, np.min(data[2]))
-                alphaCmap = Color.ComboPvThydroCmap(minAlpha, np.max(alpha))
+                fig.suptitle(f'{FirstPlanet.compStr}{FigLbl.isoThermPvTtitleHydro}')
             else:
-                alphaCmap = Color.PvThydroCmap
+                fig.suptitle(
+                    f'% Difference Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.isoThermPvTtitleHydro}')  # Now plot the data dynamically on the correct ax for each property
+        for idx, prop in enumerate(props_to_plot):
+            ax = prop.ax  # Get the axis for this property
+            if SinglePlanetPlot:
+                prop_data_to_plot = prop.prop_data[FirstPlanetIndex]
+            else:
+                firstPlanetData = prop.prop_data[FirstPlanetIndex]
+                secondPlanetData = prop.prop_data[SecondPlanetIndex]
+                prop_data_to_plot = np.abs(firstPlanetData - secondPlanetData) / (
+                            (firstPlanetData + secondPlanetData) / 2) * 100
+                # Handle phase differences
+                phase_difference = (phasesList[FirstPlanetIndex] != phasesList[SecondPlanetIndex])
+                phase_different_indices = np.where(phase_difference)
+                prop_data_to_plot[phase_different_indices] = np.nan
+            # Plot scatter points and isothermal lines
+            for i, T in enumerate(T_K):
+                # Set style options
+                thisColor = Color.PvThydroCmap(Color.GetNormT(T, T_K[0], T_K[-1]))
+                thisMarker = Style.MS_isoThermPvTHydro[i % len(Style.MS_isoThermPvTHydro)]
+
+                # Plot the isothermal line
+                ax.plot(P_MPa * FigLbl.PmultHydro, prop_data_to_plot[:, i], color=thisColor, linestyle='-')
+
+                # Add a scatter point at a representative pressure on the line
+                # Choose a index for visibility and add index to offset for each temperature (modulus by len(P_MPa) to ensure we are within bounds of P_MPa
+                scatter_idx = (len(P_MPa) // 4 + i) % len(P_MPa)
+                ax.scatter(P_MPa[scatter_idx] * FigLbl.PmultHydro, prop_data_to_plot[scatter_idx, i], color=thisColor,
+                           marker=thisMarker, label=f'{T} K', s=100)
+            # Set labels, title, etc.
+            ax.set_xlabel(FigLbl.PlabelHydro)
+            if SinglePlanetPlot:
+                ax.set_ylabel(prop.prop_label)
+            else:
+                ax.set_ylabel('Weight Difference')
+            ax.set_xlim([Pmin_MPa, Pmax_MPa])
+            # In case of sig or alpha plots, we should increment ymax a bit to not cut off top line
+            if prop.prop in ['sig', 'alpha']:
+                ymin = np.nanmin(prop_data_to_plot) * 0.95
+                ymax = np.nanmax(prop_data_to_plot) * 1.05
+            else:
+                ymin = np.nanmin(prop_data_to_plot)
+                ymax = np.nanmax(prop_data_to_plot)
+            if np.isnan(ymin) and np.isnan(ymin):
+                ax.set_title(prop.prop_label)
+                ax.text(0.5, 0.5, "No valid values\nfor this property.",
+                        transform=ax.transAxes, ha='center', va='center')
+            else:
+                ax.set_ylim([ymin, ymax])
+                ax.set_title(prop.prop_label)
+        if Params.LEGEND:
+            # Add a legend to the plot
+            axf[0].legend(title="Temperature (K)")
+        plt.tight_layout()
+        if SinglePlanetPlot:
+            saveFile = Params.FigureFiles.isoThermvpvtHydro
+        else:
+            saveFile = Params.FigureFiles.comparisonFileGenerator(FirstPlanet.saveLabel, SecondPlanet.saveLabel,
+                                                                  'isoThermvpvtHydro')
+        fig.savefig(saveFile, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        log.debug(f'IsoTherm Hydrosphere PT properties plot saved to file: {saveFile}')
+        plt.close()
+
+    return
 
 
+def PlotPvThydro(PlanetList, Params):
+    props = {'rho': HydrosphereProp('rho', 'fn_rho_kgm3', None, None, FigLbl.rhoLabel),
+            'Cp': HydrosphereProp('Cp', 'fn_Cp_JkgK', None, None, FigLbl.CpLabel),
+            'alpha': HydrosphereProp('alpha', 'fn_alpha_pK', None, None, FigLbl.alphaLabel),
+            'VP': HydrosphereProp('VP', 'fn_Seismic', None, None, FigLbl.VPlabel, 0, 0),
+             'KS': HydrosphereProp('KS', 'fn_Seismic', None, None, FigLbl.KSlabel, 0, 2),
+            'sig': HydrosphereProp('sig', 'fn_sigma_Sm', None, None, FigLbl.sigLabel,),
+            'VS': HydrosphereProp('VS', 'fn_Seismic', None, None, FigLbl.VSlabel, None, 1),
+             'GS': HydrosphereProp('GS', 'fn_Seismic', None, None, FigLbl.GSlabel, None, 3)}
+    # This will get the actual HydrosphereProp instances, not just their names
+    props_to_plot = [props[prop] for prop in props if prop in FigMisc.propsToPlot]
+    if len(props_to_plot) == 0:
+        log.warning("No valid props provided to plot. Check that FigMisc.propsToPlot has valid names. Will plot all available properties.")
+        props_to_plot = [props[prop] for prop in props]
+    elif len(props_to_plot) <= 4:
+        rows = 1
+        cols = len(props_to_plot)
+    else:
+        rows = 2
+        cols = (len(props_to_plot) + 1) // 2
+    if FigMisc.PminHydro_MPa is None:
+        Pmin_MPa = np.min([Planet.P_MPa[0] for Planet in PlanetList])
+    else:
+        Pmin_MPa = FigMisc.PminHydro_MPa
+    if FigMisc.PmaxHydro_MPa is None:
+        Pmax_MPa = np.max([Planet.P_MPa[Planet.Steps.nHydro - 1] for Planet in PlanetList])
+    else:
+        Pmax_MPa = FigMisc.PmaxHydro_MPa
+    if FigMisc.TminHydro_K is None:
+        if not np.any([Planet.Do.NO_OCEAN for Planet in PlanetList]):
+            Tmin_K = np.min([np.min(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
+        else:
+            Tmin_K = np.min([np.min(Planet.T_K) for Planet in PlanetList])
+    else:
+        Tmin_K = FigMisc.TminHydro_K
+    if FigMisc.TmaxHydro_K is None:
+        if np.all([Planet.Do.NO_OCEAN for Planet in PlanetList]):
+            Tmax_K = np.max([Planet.Sil.THydroMax_K for Planet in PlanetList])
+        else:
+            Tmax_K = np.max(
+                [np.max(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList if not Planet.Do.NO_OCEAN])
+    else:
+        Tmax_K = FigMisc.TmaxHydro_K
 
-
-            # Plot colormaps of hydrosphere data
-            Pscaled = P_MPa * FigLbl.PmultHydro
-            rhoPlot =   axes[0,0].pcolormesh(T_K, Pscaled, rho, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)
-            CpPlot =    axes[1,0].pcolormesh(T_K, Pscaled, Cp, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)
-            alphaPlot = axes[1,1].pcolormesh(T_K, Pscaled, alpha, cmap=alphaCmap, rasterized=FigMisc.PT_RASTER)
-            sigPlot =   axes[0,1].pcolormesh(T_K, Pscaled, sig, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)
-            VPplot =    axes[0,2].pcolormesh(T_K, Pscaled, VP, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)
-            VSplot =    axes[1,2].pcolormesh(T_K, Pscaled, VS, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)
-            KSplot =    axes[0,3].pcolormesh(T_K, Pscaled, KS, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)
-            GSplot =    axes[1,3].pcolormesh(T_K, Pscaled, GS, cmap=Color.PvThydroCmap, rasterized=FigMisc.PT_RASTER)
-
-            # Add colorbars for each plot
-            cbars = [
-                fig.colorbar(rhoPlot, ax=axes[0,0]),
-                fig.colorbar(CpPlot, ax=axes[1,0]),
-                fig.colorbar(alphaPlot, ax=axes[1,1]),
-                fig.colorbar(sigPlot, ax=axes[0,1]),
-                fig.colorbar(VPplot, ax=axes[0,2]),
-                fig.colorbar(VSplot, ax=axes[1,2]),
-                fig.colorbar(KSplot, ax=axes[0,3]),
-                fig.colorbar(GSplot, ax=axes[1,3])
-            ]
-
-            # Plot geotherm on top of colormaps
-            for eachPlanet in PlanetList:
-                # Geotherm curve
-                if np.size(PlanetList) > 1:
-                    thisColor = None
+    if FigMisc.nPhydro is None:
+        Planet = PlanetList[0]
+        P_MPa = Planet.P_MPa[:Planet.Steps.nHydro]
+        P_MPa = P_MPa[np.logical_and(P_MPa >= Pmin_MPa, P_MPa <= Pmax_MPa)]
+        for Planet in PlanetList:
+            # Get highest fidelity pressure range
+            P = Planet.P_MPa[:Planet.Steps.nHydro]
+            P = P[np.logical_and(P >= Pmin_MPa, P <= Pmax_MPa)]
+            if P.size > P_MPa.size:
+                P_MPa = P
+    else:
+        P_MPa = np.linspace(Pmin_MPa, Pmax_MPa, FigMisc.nPhydro)
+    if FigMisc.nThydro is None:
+        Planet = PlanetList[0]
+        T_K = Planet.T_K[:Planet.Steps.nHydro]
+        T_K = T_K[np.logical_and(T_K >= Tmin_K, T_K <= Tmax_K)]
+        for Planet in PlanetList:
+            # Get highest fidelity temperature range
+            T = Planet.T_K[:Planet.Steps.nHydro]
+            T = T[np.logical_and(T >= Tmin_K, T <= Tmax_K)]
+            if T.size > T_K.size:
+                T_K = T
+    else:
+        T_K = np.linspace(Tmin_K, Tmax_K, FigMisc.nThydro)
+    oceanListEOS = []
+    phasesList = []
+    ices = {}
+    iceEOS = {}
+    for Planet in PlanetList:
+        # Load EOS independently from model run, because we will query wider ranges of conditions
+        oceanEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, P_MPa, T_K, Planet.Ocean.MgSO4elecType,
+                               rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType,
+                               FORCE_NEW=Params.FORCE_EOS_RECALC, phaseType=Planet.Ocean.phaseType,
+                               EXTRAP=Params.EXTRAP_OCEAN, sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm,
+                               LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+        phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
+        new_ices = set([PhaseConv(ice) for ice in np.unique(np.append(phases[phases != 0], 1))])
+        if not new_ices.issubset(ices):
+            ices = new_ices
+            iceEOS = {PhaseInv(ice): GetIceEOS(P_MPa, T_K, ice, porosType=Planet.Ocean.porosType[ice],
+                                               phiTop_frac=Planet.Ocean.phiMax_frac[ice],
+                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa[ice],
+                                               phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[ice],
+                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT) for ice in ices}
+        # Add clathrates to phase and property diagrams where it is stable (if modeled)
+        if Planet.Do.CLATHRATE:
+            clath = PhaseConv(Constants.phaseClath)
+            if clath not in ices:
+                ices.add(clath)
+                iceEOS[Constants.phaseClath] = GetIceEOS(P_MPa, T_K, clath, porosType=Planet.Ocean.porosType[clath],
+                                                         phiTop_frac=Planet.Ocean.phiMax_frac[clath],
+                                                         Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
+                                                         phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                         EXTRAP=Params.EXTRAP_ICE[clath])
+            clathStable = iceEOS[Constants.phaseClath].fn_phase(P_MPa, T_K, grid=True)
+            phases[clathStable == Constants.phaseClath] = Constants.phaseClath
+        oceanListEOS.append(oceanEOS)
+        phasesList.append(phases)
+    # Obtain data for each planet
+    for i, Planet in enumerate(PlanetList):
+        oceanEOS = oceanListEOS[i]
+        phases = phasesList[i]
+        # Loop over each property in props_to_plot
+        for prop in props_to_plot:
+            if prop.prop in ['VS', 'GS']:
+                # For VS and GS, these properties only apply to solid ice phases
+                prop_data = np.empty((len(P_MPa), len(T_K))) * np.nan
+            else:
+                # Call the function dynamically with the required arguments
+                prop_data = getattr(oceanEOS, prop.fn_name)(P_MPa, T_K, grid=True)
+                # In case of VP or KS, we need to get the appropriate data since fn_seismic returns both VP and KS
+                if prop.prop in ['VP', 'KS']:
+                    prop_data = prop_data[prop.ocean_prop_index]
+                # Exclude obviously erroneous Cp values, which happen when extending beyond the knots
+                # for the input EOS. This is mainly a problem with GSW and Seawater compositions.
+                if prop.prop == 'Cp':
+                    prop_data[np.logical_or(prop_data < 3200, prop_data > 5200)] = np.nan
+            # Now get data for all ice EOSs and replace in grid
+            for iceStr in ices:
+                ice = PhaseInv(iceStr)
+                if np.any(phases == ice):
+                    if prop.prop != 'sig':
+                        ice_prop_data = getattr(iceEOS[ice], prop.fn_name)(P_MPa, T_K, grid=True)
+                        if prop.prop in ['VP', 'KS', 'VS', 'GS']:
+                            prop_data[np.where(phases == ice)] = ice_prop_data[prop.ice_prop_index][
+                                np.where(phases == ice)]
+                        else:
+                            prop_data[np.where(phases == ice)] = ice_prop_data[
+                                np.where(phases == ice)]
+                    else:
+                        # In the case of sig, we need to set a different way
+                        prop_data[np.where(phases == ice)] = Planet.Ocean.sigmaIce_Sm[iceStr]
+            # Add the data for this planet to the prop.prop_data list
+            prop.prop_data.append(prop_data)
+    # Go through every two combination and plot
+    SinglePlanetPlot = (len(PlanetList) == 1)
+    # If we are plotting for only one run, then do not compare it to anything
+    if SinglePlanetPlot:
+        combinations = [(0, 0)]
+    else:
+        combinations = itertools.combinations(range(0, PlanetList.size), 2)
+    for comparison in combinations:
+        FirstPlanetIndex = comparison[0]
+        SecondPlanetIndex = comparison[1]
+        FirstPlanet = PlanetList[FirstPlanetIndex]
+        SecondPlanet = PlanetList[SecondPlanetIndex]
+        # Create the figure grid
+        fig = plt.figure(figsize=FigSize.vpvt)
+        grid = GridSpec(rows, cols)
+        axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(cols)] for i in range(rows)])
+        axf = axes.flatten()
+        # Assign fig_location dynamically to each property and update ax
+        for idx, prop in enumerate(props_to_plot):
+            row, col = divmod(idx, cols)
+            prop.fig_location = (row, col)
+            ax = axes[row, col]
+            prop.ax = ax  # Update ax in HydrosphereProp
+        # Hide extra subplots if there are fewer properties than subplots
+        for idx in range(len(props_to_plot), len(axf)):
+            axf[idx].set_visible(False)
+        if Style.GRIDS:
+            [ax.grid() for ax in axf]
+            [ax.set_axisbelow(False) for ax in axf]
+        # Set overall figure title
+        if Params.TITLES:
+            if SinglePlanetPlot:
+                fig.suptitle(f'{FirstPlanet.compStr}{FigLbl.PvTtitleHydro}')
+            else:
+                fig.suptitle(
+                    f'Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.PvTtitleHydro}')  # Now plot the data dynamically on the correct ax for each property
+        for idx, prop in enumerate(props_to_plot):
+            ax = prop.ax  # Get the axis for this property
+            if SinglePlanetPlot:
+                prop_data_to_plot = prop.prop_data[FirstPlanetIndex]
+            else:
+                firstPlanetData = prop.prop_data[FirstPlanetIndex]
+                secondPlanetData = prop.prop_data[SecondPlanetIndex]
+                prop_data_to_plot = np.abs(firstPlanetData - secondPlanetData) / ((firstPlanetData + secondPlanetData) / 2) * 100
+                # Handle phase differences
+                phase_difference = (phasesList[FirstPlanetIndex] != phasesList[SecondPlanetIndex])
+                phase_different_indices = np.where(phase_difference)
+                prop_data_to_plot[phase_different_indices] = np.nan
+            # Plot property data
+            if prop.prop != 'alpha':
+                cmap = Color.PvThydroCmap
+            else:
+                if SinglePlanetPlot:
+                    # Highlight places where alpha is negative with opposite side of diverging colormap, 0 pegged to middle
+                    minAlpha = np.minimum(0, np.min(prop_data_to_plot))
+                    cmap = Color.ComboPvThydroCmap(minAlpha, np.max(prop_data_to_plot))
                 else:
-                    thisColor = Color.geothermHydro
-                if Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
-                    Pgeo = eachPlanet.P_MPa * FigLbl.PmultHydro
-                    Tgeo = eachPlanet.T_K
-                else:
-                    Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
-                    Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
-                [ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm,
-                         color=thisColor, label=eachPlanet.label) for ax in axf]
+                    cmap = Color.PvThydroCmap
+            pcolormesh = ax.pcolormesh(T_K, P_MPa * FigLbl.PmultHydro, prop_data_to_plot, cmap=cmap,
+                                       rasterized=FigMisc.PT_RASTER)
+            # Add colorbar
+            fig.colorbar(pcolormesh, ax=ax)
+            # Set labels, title, etc.
+            ax.set_xlabel(FigLbl.Tlabel)
+            ax.set_ylabel(FigLbl.PlabelHydro)
+            ax.set_xlim([Tmin_K, Tmax_K])
+            ax.set_ylim([Pmin_MPa, Pmax_MPa])
+            ax.invert_yaxis()
+            ax.set_title(prop.prop_label)
 
-                if Params.LEGEND and np.size(PlanetList) > 1:
-                    handles, lbls = axes[-1,0].get_legend_handles_labels()
-                    axes[0,-1].legend(handles, lbls)
+        # Plot geotherm on top of colormaps
+        for eachPlanet in PlanetList:
+            # Geotherm curve
+            if np.size(PlanetList) > 1:
+                thisColor = None
+            else:
+                thisColor = Color.geothermHydro
+            if Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
+                Pgeo = eachPlanet.P_MPa * FigLbl.PmultHydro
+                Tgeo = eachPlanet.T_K
+            else:
+                Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
+                Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
+            [ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm, color=thisColor,
+                     label=eachPlanet.label) for ax in axf]
 
+            if Params.LEGEND and np.size(PlanetList) > 1:
+                handles, lbls = axes[-1, 0].get_legend_handles_labels()
+                axes[0, -1].legend(handles, lbls)
 
-            plt.tight_layout()
-            fig.savefig(Params.FigureFiles.vpvtHydro, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
-            log.debug(f'Hydrosphere PT properties plot saved to file: {Params.FigureFiles.vpvtHydro}')
-            plt.close()
+        plt.tight_layout()
+        if SinglePlanetPlot:
+            saveFile = Params.FigureFiles.vpvtHydro
+        else:
+            saveFile = Params.FigureFiles.comparisonFileGenerator(FirstPlanet.saveLabel, SecondPlanet.saveLabel, 'vpvtHydro')
+        fig.savefig(saveFile, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        log.debug(f'Hydrosphere PT properties plot saved to file: {saveFile}')
+        plt.close()
 
     return
 

@@ -6,7 +6,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Wedge
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
-from PlanetProfile.Plotting.PTPlots import PlotHydroPhase, PlotPvThydro, PlotPvTPerpleX, PlotHydrosphereSpecies
+from PlanetProfile.Plotting.PTPlots import PlotHydroPhase, PlotPvThydro, PlotPvTPerpleX, PlotHydrosphereSpecies, PlotIsoThermalPvThydro
 from PlanetProfile.Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices, PhaseConv
 from PlanetProfile.Utilities.defineStructs import Constants
@@ -55,6 +55,8 @@ def GeneratePlots(PlanetList, Params):
         PlotHydroPhase(PlanetList, Params)
     if Params.PLOT_PVT_HYDRO and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
         PlotPvThydro(PlanetList, Params)
+    if Params.PLOT_PVT_ISOTHERMAL_HYDRO and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
+        PlotIsoThermalPvThydro(PlanetList, Params)
     if Params.PLOT_PVT_INNER and not Params.SKIP_INNER:
         PlotPvTPerpleX(PlanetList, Params)
 

@@ -75,6 +75,11 @@ def plotAssign():
     Color.negPvThydroHi = 0.5
     Color.negPvThydroLo = 0.0
 
+    # IsoThermPvThydro properties colormaps
+    Color.isoThermPvThydroCmapName = 'Blues'
+    Color.isoThermPvThydroHi = 1.0
+    Color.isoThermPvThydroLo = 0.2
+
     # PvTPerpleX properties colormaps
     Color.PvTsilCmapName = 'copper'
     Color.PvTsilHi = 1.0
@@ -185,6 +190,8 @@ def plotAssign():
     Style.LW_Induction = {'synodic': 1.5, 'orbital': 1.5, 'true anomaly': 1.5, 'synodic 2nd': 1.5}  # Widths for inductOgram plots
     Style.MW_Induction = 2  # Marker size to use for induction scatter plots
     Style.MS_Induction = 'o'  # Marker style for induction scatter plots
+    Style.MS_isoThermPvTHydro = ['o', 's', '>', '*', 'p', '^', 'v', '<', '>']  # Marker styles for temperature in isothermal PvT plots
+    Style.MS_isoThermPvTHydro_size = 75 # Text size in pt for marker styles
 
     # Wedge diagrams
     Style.wedgeAngle_deg = 25  # Angular size of wedge diagrams in degrees
@@ -342,6 +349,8 @@ def plotAssign():
     FigMisc.PminHydro_MPa = 0.1  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use min of geotherm.
     FigMisc.TminHydro_K = 220  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use min of geotherm.
     FigLbl.hydroPhaseSize = 14  # Font size of label for phase in phase diagram
+    FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS'] # Properties to plot in PvT or IsoTherm plots. Options are - 'rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS'
+    FigMisc.TtoPlot_K = [273, 278, 283, 288, 298, 305] # Temperatures to plot in isothermal configuration
 
     #Hydrosphere Species diagrams
     FigMisc.minThreshold = 1e-14 # Minimum mol of species needed to be considered to plot on hydrosphere species diagram

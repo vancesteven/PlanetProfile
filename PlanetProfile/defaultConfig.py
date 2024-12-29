@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 16  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 17  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def configAssign():
     Params = ParamsStruct()
@@ -62,6 +62,7 @@ def configAssign():
     Params.PLOT_WEDGE =       True  # Whether to plot interior wedge diagram
     Params.PLOT_HYDRO_PHASE = False  # Whether to plot phase diagram
     Params.PLOT_PVT_HYDRO =   False  # Whether to plot hydrosphere PT property plots
+    Params.PLOT_PVT_ISOTHERMAL_HYDRO = True # Whether to plot hydrosphere PT isothermal property plots
     Params.PLOT_PVT_INNER =   False  # Whether to plot silicate/core PT property plots
     Params.PLOT_BDIP =        False  # Whether to plot induced dipole surface strength in complex plane
     Params.PLOT_BSURF =       True  # Whether to plot induced field surface map
