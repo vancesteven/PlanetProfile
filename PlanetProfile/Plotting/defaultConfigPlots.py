@@ -347,7 +347,7 @@ def plotAssign():
     FigMisc.nThydro = 160  # Number of temperature points to evaluate/plot for PT property plots
     FigMisc.nPhydro = 200  # Number of pressure points to evaluate/plot for PT property plots
     FigMisc.PminHydro_MPa = 0.1  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use min of geotherm.
-    FigMisc.TminHydro_K = 220  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use min of geotherm.
+    FigMisc.TminHydro_K = 240  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use min of geotherm.
     FigLbl.hydroPhaseSize = 14  # Font size of label for phase in phase diagram
     FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS'] # Properties to plot in PvT or IsoTherm plots. Options are - 'rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS'
     FigMisc.TtoPlot_K = [273, 278, 283, 288, 298, 305] # Temperatures to plot in isothermal configuration
