@@ -455,6 +455,34 @@ class MagneticSubstruct:
         self.nPlasmaAmbientDefault_pcc = 100  # Default value to use for ambient plasma number density when encounter value is not set
         self.IoverImaxDefault = 0.2  # Default value to use when specific encounter values are not defined for IoverImax
 
+""" Gravity parameter """
+class GravitySubstruct:
+    def __init__(self):
+        # Parameters needed for PyALMA3
+        self.columns = ['P', 'T', 'r', 'phase', 'rho', 'Cp', 'alpha',
+               'g', 'phi', 'sigma', 'kTherm', 'VP', 'VS',
+               'QS', 'KS', 'GS', 'Ppore', 'rhoMatrix',
+               'rhoPore', 'MLayer', 'VLayer', 'Htidal', 'eta']  # Column names of PP - Should be updated whenever main PP is updated with new outputs
+        self.units_PyALMA3 = ['Pa', 'K', 'm', '', 'kg m-3', 'J kg-1 K-1', 'K-1',
+             'm s-2', '-', 'S m-1', 'W m-1 K-1', 'm s-1', 'm s-1',
+             '', 'Pa', 'Pa', 'Pa', 'kg m-3',
+             'kg m-3', 'kg', 'm3', 'W m-3', 'Pa s'] # Units of each column for compatibility with PyALMA3 - Namely, uses Pascals and meters
+        self.parameters_to_convert = {'P': 1e6, 'VP': 1e3, 'VS': 1e3,
+                                      'KS': 1e9, 'GS': 1e9, 'Ppore': 1e6} # Parameters that need to be converted to units of PyALMA3 and conversion factor
+
+        self.model = None # Compatible form of Planet data
+
+
+        # Calculated parameters needed for PyALMA3
+        self.LAMBDA_Pa = None # 1st Lame parameter in Pascals
+        self.MU_Pa = None # Shear modulus in Pascals
+        self.K_Pa = None # Bulk modulus in Pascals
+        self.SIGMA = None # Poisson's ratio
+        self.Y_Pa = None # Young's modulus in Pascals
+        self.RIGIDITY_Pa = None # Rigidity in Pascals
+        self.grad_Vs_s = None # Gradient of shear wave velocity in 1/s
+        self.VISCOSITY_kgms = None # Viscosity in kg/m*s
+
 
 """ Main body profile info--settings and variables """
 class PlanetStruct:
@@ -476,6 +504,7 @@ class PlanetStruct:
         self.Core = CoreSubstruct()
         self.Seismic = SeismicSubstruct()
         self.Magnetic = MagneticSubstruct()
+        self.Gravity = GravitySubstruct()
 
         self.fname = None  # Relative path used for .py file import
         self.saveLabel = None  # Label for savefile
