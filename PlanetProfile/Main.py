@@ -20,6 +20,7 @@ from glob import glob as FilesMatchingPattern
 from PlanetProfile import _Defaults, _TestImport, CopyCarefully
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, GetBexc, Benm2absBexyz
+from PlanetProfile.Gravity.Gravity import GravityParameters
 from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitations as Mag
 from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram, PlotExploreOgramDsigma
 from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
@@ -259,6 +260,11 @@ def PlanetProfile(Planet, Params):
         elif (not Params.SKIP_PLOTS) and \
             not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS):
             GenerateMagPlots([Planet], Params)
+
+    # Gravity calcuations and plots
+    # if (Params.CALC_CONDUCT and Planet.Do.VALID) and not Params.SKIP_GRAVITY:
+        # Calculate gravity parameters
+        # Planet, Params = GravityParameters(Planet, Params)
 
     PrintCompletion(Planet, Params)
     return Planet, Params

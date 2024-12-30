@@ -82,6 +82,8 @@ A simple list with install commands for Python is in the next section.
   * Python: Installed with pip: `pip install reaktoro=2`
 * PlanetMag (optional) -- see <https://github.com/coreyjcochrane/PlanetMag>
   * Matlab only: Installed following detailed instructions on the repo. 
+*  PyALMA3 (optional) -- see <https://github.com/drsaikirant88/PyALMA3>
+  * Python: Installed with pip: `pip install PyALMA3`
 
 ### Note about SeaFreeze versions prior to v0.9.3
 If you had installed SeaFreeze before version v0.9.3, you will need to manually remove the prior installation because it was improperly packaged before.
