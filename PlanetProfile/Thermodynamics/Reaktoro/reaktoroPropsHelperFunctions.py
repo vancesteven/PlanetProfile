@@ -141,10 +141,6 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
         system = rkt.ChemicalSystem(db, solution, solids)
     else:
         system = rkt.ChemicalSystem(db, solution)
-    # Obtain all related solid phases
-    # solids = rkt.MineralPhases()
-    # Obtain all related gas phases
-    # gases = rkt.GaseousPhase()
     # Initialize the system
     # Create constraints on equilibrium - pressure and temperature
     specs = rkt.EquilibriumSpecs(system)
@@ -303,6 +299,27 @@ def interpolation_1d(P_MPa, arrays):
         interpolated_results = spline(P_MPa)
         interpolated_arrays.append(interpolated_results)
     return tuple(interpolated_arrays)
+
+def extract_species_from_reaction(species_dict, reaction_dict):
+    """
+    Extract species from a dictionary that are mentioned in a parsed reaction dictionary.
+
+    Parameters:
+    species_dict (dict): Dictionary of species names and their concentrations.
+    reaction_dict (dict): Parsed reaction dictionary with "reactants" and "products".
+
+    Returns:
+    dict: A dictionary containing only the species mentioned in the reaction dictionary.
+    """
+    # Combine species from reactants and products into a single set
+    reaction_species = set(reaction_dict["reactants"].keys()) | set(reaction_dict["products"].keys())
+
+    # Filter the original dictionary to include only keys found in the reaction
+    filtered_species_dict = {
+        key: value for key, value in species_dict.items() if key in reaction_species
+    }
+
+    return filtered_species_dict
 
 
 def freezing_temperature_correction_calculator():

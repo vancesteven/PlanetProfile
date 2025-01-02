@@ -20,14 +20,13 @@ from glob import glob as FilesMatchingPattern
 from PlanetProfile import _Defaults, _TestImport, CopyCarefully
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, GetBexc, Benm2absBexyz
-from PlanetProfile.Gravity.Gravity import GravityParameters
 from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitations as Mag
 from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram, PlotExploreOgramDsigma
 from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
     PlotInductOgramPhaseSpace
 from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
 from PlanetProfile.Thermodynamics.Electrical import ElecConduct
-from PlanetProfile.Thermodynamics.OceanProps import LiquidOceanPropsCalc, WriteLiquidOceanProps
+from PlanetProfile.Thermodynamics.OceanProps import LiquidOceanPropsCalcs, WriteLiquidOceanProps
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
 from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, ExplorationResults
@@ -219,7 +218,7 @@ def PlanetProfile(Planet, Params):
         if not Planet.Do.NO_OCEAN:
             Planet = OceanLayers(Planet, Params)
         Planet = InnerLayers(Planet, Params)
-        Planet = LiquidOceanPropsCalc(Planet, Params)
+        Planet = LiquidOceanPropsCalcs(Planet, Params)
         Planet = ElecConduct(Planet, Params)
         Planet = SeismicCalcs(Planet, Params)
         Planet = ViscosityCalcs(Planet, Params)
@@ -675,13 +674,16 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Do.NO_OCEAN = True
     if not Planet.Do.NO_OCEAN:
         with open(Params.DataFiles.oceanPropsFile) as f:
+            nHeadLines = int(f.readline().split('=')[-1])
             Planet.Ocean.aqueousSpecies = np.array(f.readline().split('=')[-1].strip().replace(',', '').split())
-        OceanSpecificProps = np.loadtxt(Params.DataFiles.oceanPropsFile,
-                                                                             skiprows=2, unpack=True)
+            Planet.Ocean.reaction = f.readline().split('=')[-1].strip()
+            Planet.Ocean.reactionDisequilibriumConcentrations = f.readline().split('=')[-1].strip()
+        OceanSpecificProps = np.loadtxt(Params.DataFiles.oceanPropsFile, skiprows=nHeadLines, unpack=True)
         Planet.Ocean.pHs = OceanSpecificProps[2]
-        Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[3: ].T
+        Planet.Ocean.Affinities = OceanSpecificProps[3]
+        Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[4: ].T
     else:
-        Planet.Ocean.pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan
+        Planet.Ocean.pHs, Planet.Ocean.Affinities, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan
 
     # Setup CustomSolution settings
     if 'CustomSolution' in Planet.Ocean.comp:

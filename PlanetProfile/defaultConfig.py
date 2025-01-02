@@ -52,6 +52,7 @@ def configAssign():
     Params.SKIP_PLOTS =       False  # Whether to skip creation of all plots
     Params.PLOT_GRAVITY =     True  # Whether to plot Gravity and Pressure
     Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
+    Params.PLOT_SPECIES_HYDROSPHERE = True # Whether to plot aqueous species concentration as a function of ocean depth
     Params.PLOT_REF =         True  # Whether to plot reference melting curve densities on hydrosphere plot
     Params.PLOT_SIGS =        True  # Whether to plot conductivities as a function of radius on hydrosphere plot if they have been calculated
     Params.PLOT_SOUNDS =      True  # Whether to plot sound speeds as a function of radius on hydrosphere plot if they have been calculated
@@ -71,9 +72,6 @@ def configAssign():
     Params.PLOT_BINVERSION =  False  # Whether to plot magnetic field vector components for flyby inversion
     Params.LEGEND =           True  # Whether to plot legends
     Params.TITLES =           True  # Whether to include a (sup)title on plots
-
-    # Custom ocean solution plot settings
-    Params.PLOT_SPECIES_HYDROSPHERE = True # Whether to plot aqueous species concentration as a function of ocean depth
 
     # Magnetic induction plot settings
     Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question

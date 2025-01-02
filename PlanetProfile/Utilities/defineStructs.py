@@ -154,7 +154,9 @@ class OceanSubstruct:
         self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'PureH2O', 'NH3', 'NaCl', 'none'
         self.wOcean_ppt = None  # (Absolute) salinity: Mass concentration of above composition in parts per thousand (ppt)
         self.pH = None # pH of ocean (Only customizable for CustomSolution - pH for other compositions are overridden
-                       # automatically [See Constants]
+                       # automatically [See Constants] #HAVE TO DO
+        self.reaction = None # Reaction to consider in ocean
+        self.reactionDisequilibriumConcentrations = None # Concentration of reaction species at disequilibrium
         self.ClathDissoc = None  # Subclass containing functions/options for evaluating clathrate dissociation conditions
         self.sigmaMean_Sm = np.nan  # Mean conductivity across all ocean layers (linear average, ignoring spherical geometry effects)
         self.sigmaTop_Sm = np.nan  # Conductivity of shallowest ocean layer
@@ -219,9 +221,9 @@ class OceanSubstruct:
         # Derived ocean quantities
         self.pHs = None # pH of each liquid layer
         self.aqueousSpecies = None  # All species considered in each liquid ocean layer (i.e. the species considered in
-        # Reaktoro calculations
         self.aqueousSpeciesAmount_mol = None # Species amount at each liquid ocean layer (nested 2D array of dimensions
-        # np.size(aqueousSpecies) x len(total layers that are liquid))
+            # np.size(aqueousSpecies) x len(total layers that are liquid))
+        self.affinity_kJ = None # Affinity of Planet.Ocean.reaction (if specified) across ocean depth
 
 
 

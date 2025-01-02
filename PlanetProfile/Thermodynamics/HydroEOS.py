@@ -15,7 +15,8 @@ from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSe
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
 # from PlanetProfile.Thermodynamics.Reaktoro.sigmaElectricMcCleskey2012 import elecCondMcCleskey2012
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand, SpeciesParser, RktProps, RktSeismic, RktConduct, Reaktoro_Hydro_Species_Generator
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand,  \
+    SpeciesParser, RktProps, RktSeismic, RktConduct, Reaktoro_Hydro_Species_Generator, RktRxnAffinity
 from PlanetProfile.Utilities.DataManip import ReturnConstantPTw
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -261,7 +262,7 @@ class OceanEOSStruct:
                 else:
                     self.ufn_phase = RktPhaseOnDemand(self.aqueous_species_string, self.speciation_ratio_mol_kg)
                 self.ufn_species = Reaktoro_Hydro_Species_Generator(self.aqueous_species_string, self.speciation_ratio_mol_kg)
-
+                self.ufn_rxn_affinity = RktRxnAffinity(self.aqueous_species_string, self.speciation_ratio_mol_kg)
                 if sigmaFixed_Sm is not None:
                     self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
                 else:
@@ -271,7 +272,7 @@ class OceanEOSStruct:
                 self.propsPmax = self.Pmax
             else:
                 raise ValueError(f'Unable to load ocean EOS. self.comp="{self.comp}" but options are "Seawater", "NH3", "MgSO4", ' +
-                                 '"NaCl", and "none" (for waterless bodies).')
+                                 '"NaCl", "CustomSolution", and "none" (for waterless bodies).')
 
             self.ufn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, rho_kgm3)
             self.ufn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, Cp_JkgK)
@@ -330,6 +331,15 @@ class OceanEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_species(P_MPa, T_K, grid=grid)
+    def fn_rxn_affinity(self, P_MPa, T_K, reaction, concentrations, grid = False):
+        """
+        Calculates the affinity of a reaction whose species are at prescribed concentrations at disequilibrium
+
+        ONLY APPLICABLE TO CUSTOMSOLUTION FOR NOW
+        """
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        return self.ufn_rxn_affinity(P_MPa, T_K, reaction, concentrations, grid=grid)
 
 
 def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0,
