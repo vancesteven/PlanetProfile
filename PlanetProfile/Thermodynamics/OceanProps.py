@@ -10,7 +10,7 @@ def LiquidOceanPropsCalcs(Planet, Params):
     """ Calculate/assign aqueous-specific properties for each layer
 
         Assigns Planet attributes:
-            Ocean.pHs
+            Ocean.Bulk_pHs
             Ocean.aqueousSpeciesAmount_mol
             Ocean.aqueousSpecies
             Ocean.
@@ -33,22 +33,22 @@ def LiquidOceanPropsCalcs(Planet, Params):
         # Check if we have liquid phases
         if np.size(indsLiq) != 0:
             # If so, then get pH and speciation of ocean
-            Planet.Ocean.pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = (
+            Planet.Ocean.Bulk_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = (
                 Planet.Ocean.EOS.fn_species(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq]))
             if "CustomSolution" in Planet.Ocean.comp and Planet.Ocean.reaction is not None:
-                Planet.Ocean.Affinities = Planet.Ocean.EOS.fn_rxn_affinity(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq], Planet.Ocean.reaction, Planet.Ocean.reactionDisequilibriumConcentrations)
+                Planet.Ocean.affinity_kJ, Planet.Ocean.Reaction_pHs = Planet.Ocean.EOS.fn_rxn_affinity(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq], Planet.Ocean.reaction, Planet.Ocean.reactionDisequilibriumConcentrations)
             else:
-                Planet.Ocean.Affinities = (np.zeros(np.size(indsLiq))) * np.nan
-                Planet.Ocean.reaction = "nan"
-                Planet.Ocean.reactionDisequilibriumConcentrations = "nan"
-
+                Planet.Ocean.affinity_kJ, Planet.Ocean.Reaction_pHs = (np.zeros(np.size(indsLiq))) * np.nan, (np.zeros(np.size(indsLiq))) * np.nan
+                Planet.Ocean.reaction = 'NaN'
+                Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN'
         else:
-            Planet.Ocean.pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.Affinities = np.nan, np.nan, np.nan, np.nan
-
-
-
+            Planet.Ocean.Bulk_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ, Planet.Ocean.Reaction_pHs  = np.nan, np.nan, np.nan, np.nan, np.nan
+            Planet.Ocean.reaction = 'NaN'
+            Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN'
     else:
-        Planet.Ocean.pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.Affinities = np.nan, np.nan, np.nan, np.nan
+        Planet.Ocean.Bulk_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ, Planet.Ocean.Reaction_pHs  = np.nan, np.nan, np.nan, np.nan, np.nan
+        Planet.Ocean.reaction = 'NaN'
+        Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN'
     return Planet
 
 def WriteLiquidOceanProps(Planet, Params):
@@ -59,9 +59,10 @@ def WriteLiquidOceanProps(Planet, Params):
         f'Concentration of Reaction Species at Disequilibrium = {Planet.Ocean.reactionDisequilibriumConcentrations}'
         ]
 
-    colHeaders = [' P (MPa)'.ljust(24),
+    colHeaders = ([' P (MPa)'.ljust(24),
                   'T (K)'.ljust(24),
-                   'pH'.ljust(24), 'Affinity (kJ)'.ljust(24)] + [f'{SpeciesCol.ljust(23)}' for SpeciesCol in Planet.Ocean.aqueousSpecies]
+                   'Bulk pH'.ljust(24), 'Reaction pH'.ljust(24), 'Affinity (kJ)'.ljust(24)]
+                  + [f'{SpeciesCol.ljust(23)}' for SpeciesCol in Planet.Ocean.aqueousSpecies])
     indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, indsFe = GetPhaseIndices(
         Planet.phase)
     Params.nHeadLines = np.size(headerLines) + 2
@@ -74,8 +75,9 @@ def WriteLiquidOceanProps(Planet, Params):
             line = ' '.join([
                 f'{Planet.P_MPa[idx]:24.17e}',
                 f'{Planet.T_K[idx]:24.17e}',
-                f'{Planet.Ocean.pHs[i]:24.17e}',
-                f'{Planet.Ocean.Affinities[i]:24.17e}'])
+                f'{Planet.Ocean.Bulk_pHs[i]:24.17e}',
+                f'{Planet.Ocean.Reaction_pHs[i]:24.17e}'
+                f'{Planet.Ocean.affinity_kJ[i]:24.17e}'])
             for j in range(len(Planet.Ocean.aqueousSpecies)):
                 line = line + f'{Planet.Ocean.aqueousSpeciesAmount_mol[i][j]:24.17e}'
             line = line + '\n'

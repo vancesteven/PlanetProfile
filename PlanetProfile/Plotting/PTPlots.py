@@ -33,7 +33,16 @@ def PlotHydrosphereSpecies(PlanetList, Params):
         grid = GridSpec(4, 2)
         allspeciesax = fig.add_subplot(grid[0:3, 0])
         aqueouspseciesax = fig.add_subplot(grid[0:3, 1])
-        pHax = fig.add_subplot(grid[3, :])
+        # If we have a reaction with affinities to plot, then we should split the second axis into two columns
+        plot_reaction_marker = Planet.Ocean.reaction != "NaN"
+        if plot_reaction_marker:
+            pHax = fig.add_subplot(grid[3, 0])
+            affinityax = fig.add_subplot(grid[3, 1])
+            affinityax.set_xlabel("Depth z (km)")
+            affinityax.set_ylabel("Affinity per mol rxn (kJ)")
+        # If not, then just plot pH
+        else:
+            pHax = fig.add_subplot(grid[3, :])
         axs = [allspeciesax, aqueouspseciesax]
         if Style.GRIDS:
             allspeciesax.grid()
@@ -104,9 +113,23 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                 ax.set_xlim([new_xmin, new_xmax])
                 ax.invert_yaxis()
             # Plot pH plot
-            pH_not_nan = np.where(~np.isnan(Planet.Ocean.pHs))[0]
-            line, = pHax.plot(ocean_depth[pH_not_nan] / 1e3, Planet.Ocean.pHs[pH_not_nan], linestyle = '-',
+            bulk_pH_not_nan = np.where(~np.isnan(Planet.Ocean.Bulk_pHs))[0]
+            bulk_line, = pHax.plot(ocean_depth[bulk_pH_not_nan] / 1e3, Planet.Ocean.Bulk_pHs[bulk_pH_not_nan], linestyle ='-',
+                              color = 'black', label = 'Bulk Ocean pH')
+            # If we should plot reaction, then let's plot reaction pHs and affinity
+            if plot_reaction_marker:
+                reaction_pH_not_nan = np.where(~np.isnan(Planet.Ocean.Reaction_pHs))[0]
+                if FigMisc.TEX_INSTALLED:
+                    reaction_label = rf"$\ce{{{Planet.Ocean.reaction}}}$"
+                else:
+                    reaction_label = Planet.Ocean.reaction
+                reaction_line, = pHax.plot(ocean_depth[reaction_pH_not_nan] / 1e3, Planet.Ocean.Reaction_pHs[reaction_pH_not_nan],
+                                  linestyle='-', color='red', label = f'Ocean pH w/ rxn {reaction_label}')
+                # Add legend to pH plot
+                pHax.legend(fontsize = 4)
+                affinityax.plot(ocean_depth[reaction_pH_not_nan] / 1e3, Planet.Ocean.affinity_kJ[reaction_pH_not_nan], linestyle ='-',
                               color = 'black')
+
             plt.tight_layout()
             fig.savefig(Params.FigureFiles.hydroSpecies, format=FigMisc.figFormat, dpi=FigMisc.dpi,
                         metadata=FigLbl.meta)

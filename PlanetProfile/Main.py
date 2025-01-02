@@ -679,11 +679,13 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
             Planet.Ocean.reaction = f.readline().split('=')[-1].strip()
             Planet.Ocean.reactionDisequilibriumConcentrations = f.readline().split('=')[-1].strip()
         OceanSpecificProps = np.loadtxt(Params.DataFiles.oceanPropsFile, skiprows=nHeadLines, unpack=True)
-        Planet.Ocean.pHs = OceanSpecificProps[2]
-        Planet.Ocean.Affinities = OceanSpecificProps[3]
-        Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[4: ].T
+        Planet.Ocean.Bulk_pHs = OceanSpecificProps[2]
+        Planet.Ocean.Reaction_pHs = OceanSpecificProps[3]
+        Planet.Ocean.affinity_kJ = OceanSpecificProps[4]
+        Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[5: ].T
     else:
-        Planet.Ocean.pHs, Planet.Ocean.Affinities, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan
+        Planet.Ocean.reaction, Planet.Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN', 'NaN'
+        Planet.Ocean.Bulk_pHs, Planet.Ocean.affinity_kJ, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
 
     # Setup CustomSolution settings
     if 'CustomSolution' in Planet.Ocean.comp:

@@ -219,7 +219,8 @@ class OceanSubstruct:
         self.JVS = 0.85
         self.Jvisc = 1
         # Derived ocean quantities
-        self.pHs = None # pH of each liquid layer
+        self.Bulk_pHs = None # pH of each liquid layer for bulk ocean
+        self.Reaction_pHs = None # pH of each liquid layer for ocean considering reaction concentrations at equilibrium
         self.aqueousSpecies = None  # All species considered in each liquid ocean layer (i.e. the species considered in
         self.aqueousSpeciesAmount_mol = None # Species amount at each liquid ocean layer (nested 2D array of dimensions
             # np.size(aqueousSpecies) x len(total layers that are liquid))
