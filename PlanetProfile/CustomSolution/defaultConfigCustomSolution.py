@@ -1,13 +1,14 @@
 """ Default custom ocean solution settings """
 from PlanetProfile.Utilities.defineStructs import CustomSolutionParamsStruct
 
-configCustomSolutionVersion = 3 # Integer number for config file version. Increment when new settings are added to the default config file.
+configCustomSolutionVersion = 4 # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def customSolutionAssign():
     CustomSolutionParams = CustomSolutionParamsStruct()
 
     # Frezchem database to use - frezchem.dat, frezchemNH3.dat (has ammonia and CO2 species), frezchemSiCH4.dat (has CH4 and many minerals)
     CustomSolutionParams.FREZCHEM_DATABASE = "frezchemNH3.dat"
+    CustomSolutionParams.SUPCRT_DATABASE = "supcrt16"
 
     # Unit of species input (can be "g" for grams, or "mol" for mols
     CustomSolutionParams.SPECIES_CONCENTRATION_UNIT = "mol"
