@@ -257,7 +257,7 @@ class OceanEOSStruct:
                 self.ufn_Seismic = RktSeismic(self.EOS_lookup_label,  self.aqueous_species_string, self.speciation_ratio_mol_kg, self.EXTRAP)
 
                 if self.PHASE_LOOKUP:
-                    self.ufn_phase = RktPhaseLookup(self.EOS_lookup_label, self.aqueous_species_string, self.speciation_ratio_mol_kg, P_MPa, T_K)
+                    self.ufn_phase = RktPhaseLookup(self.EOS_lookup_label, self.aqueous_species_string, self.speciation_ratio_mol_kg, P_MPa, T_K, self.deltaP, self.deltaT)
                 else:
                     self.ufn_phase = RktPhaseOnDemand(self.aqueous_species_string, self.speciation_ratio_mol_kg)
                 self.ufn_species = Reaktoro_Hydro_Species_Generator(self.aqueous_species_string, self.speciation_ratio_mol_kg)

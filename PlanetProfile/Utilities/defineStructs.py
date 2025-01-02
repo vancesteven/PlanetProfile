@@ -2106,6 +2106,7 @@ class FigSizeStruct:
 class CustomSolutionParamsStruct:
     def __init__(self):
         self.FREZCHEM_DATABASE = None
+        self.SUPCRT_DATABASE = None
         self.SPECIES_CONCENTRATION_UNIT = None
         self.EOS_deltaP = None
         self.EOS_deltaT = None

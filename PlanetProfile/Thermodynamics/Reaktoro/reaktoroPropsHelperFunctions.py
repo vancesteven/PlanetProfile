@@ -122,13 +122,14 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     db = rkt.SupcrtDatabase(database)
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
+    solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
     # If we are considering solid phases, create a solid phase
     if consider_solid_phases:
         if solid_phases_to_consider is None:
             solids = rkt.MineralPhases()
         else:
             # If we are specifying what phases to consider, note that we should only consider the phases that are relevant to the species in the solution
-            # I.e. don't consider all clathrates if they aren't possible to form (greatly decreases runtime if we do consider irrelevant phases)
+            # I.e. don't consider all clathrates if they aren't possible to form (greatly decreases runtime if we consider only relevant phases)
             final_phases_to_consider = ''
             solids_tester = rkt.MineralPhases()
             system_tester = rkt.ChemicalSystem(db, solution, solids_tester)
@@ -153,10 +154,10 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     solver = rkt.EquilibriumSolver(specs)
     # Create a chemical state and its associated properties
     state = rkt.ChemicalState(system)
-    props = rkt.ChemicalProps(state)
     # Populate the state with the prescribed species at the given ratios
     for ion, ratio in speciation_ratio_per_kg.items():
         state.add(ion, ratio, species_unit)
+    props = rkt.ChemicalProps(state)
     # Create a conditions object
     conditions = rkt.EquilibriumConditions(specs)
     # Return the Reaktoro objects that user will need to interact with
@@ -346,49 +347,6 @@ def freezing_temperature_correction_calculator():
     difference_in_T_freezings = sfz_T_freezing-rkt_T_freezing
     return eos_P_MPa, difference_in_T_freezings
 
-def SupcrtH2OChemicalPotentialCorrectionSplineGenerator():
-    """ Obtain the Supcrt16 aqueous H2O chemical potential differnce of pure water for Supcrt and Seafreeze across a 2-D grid of pressure and temperatures."""
-    eos_P_MPa = np.linspace(0.1, 500, 500)
-    eos_T_K = np.linspace(240, 400, 500)
-    PT = np.array([eos_P_MPa, eos_T_K])
-    out = sfz.getProp(PT, 'water1')
-    sfz_chem_potential = out.G * rkt.waterMolarMass # Multiply Gibbs free energy by molar mass of H2O to get chemical potential of pure water
-
-    rkt_chemical_potential = []
-    aqueous_species_list = 'H+ OH- H2O(aq)'
-    speciation_ratio_mol_kg = {'H2O(aq)': float(1/rkt.waterMolarMass)}
-    supcrt = SupcrtGenerator(aqueous_species_list, speciation_ratio_mol_kg, "mol", "supcrt16")
-    db, system, state, conditions, solver, props = supcrt
-    P_MPa, T_K = np.meshgrid(eos_P_MPa, eos_T_K, indexing='ij')
-    # Create a nditer iterator
-    it = np.nditer([P_MPa, T_K], flags=['multi_index'])
-    # Go through each P, T combination
-    for P, T in it:
-        P = float(P)
-        T = float(T)
-        conditions.temperature(T, "K")
-        # Establish equilibrium pressure constraint value
-        conditions.pressure(P, "MPa")
-        # Solve the equilibrium problem
-        result = solver.solve(state, conditions)
-        # Update the properties
-        props.update(state)
-        # Check if the equilibrium problem succeeded
-        if result.succeeded():
-            rkt_chemical_potential.append(float(props.speciesChemicalPotential('H2O(aq)')))
-        else:
-            print("HELLO")
-    rkt_chemical_potential = np.array(rkt_chemical_potential).reshape(P_MPa.shape)
-
-    # Find difference in chemical potentials
-    difference_in_chemical_potential = rkt_chemical_potential-sfz_chem_potential
-
-    return eos_P_MPa, eos_T_K, difference_in_chemical_potential
-
-
-
-
-
 """
 NOT USED FUNCTIONS
 
@@ -441,4 +399,44 @@ def pressure_constraint(P_MPa, aqueous_species_list, speciation_ratio_per_kg, da
             P_MPa += dP
     # Return the adjusted P_MPa
     return P_MPa
+    
+def SupcrtH2OChemicalPotentialCorrectionSplineGenerator():
+    Obtain the Supcrt16 aqueous H2O chemical potential differnce of pure water for Supcrt and Seafreeze across a 2-D grid of pressure and temperatures.
+    eos_P_MPa = np.linspace(0.1, 500, 500)
+    eos_T_K = np.linspace(240, 400, 500)
+    PT = np.array([eos_P_MPa, eos_T_K])
+    out = sfz.getProp(PT, 'water1')
+    sfz_chem_potential = out.G * rkt.waterMolarMass # Multiply Gibbs free energy by molar mass of H2O to get chemical potential of pure water
+
+    rkt_chemical_potential = []
+    aqueous_species_list = 'H+ OH- H2O(aq)'
+    speciation_ratio_mol_kg = {'H2O(aq)': float(1/rkt.waterMolarMass)}
+    supcrt = SupcrtGenerator(aqueous_species_list, speciation_ratio_mol_kg, "mol", "supcrt16")
+    db, system, state, conditions, solver, props = supcrt
+    P_MPa, T_K = np.meshgrid(eos_P_MPa, eos_T_K, indexing='ij')
+    # Create a nditer iterator
+    it = np.nditer([P_MPa, T_K], flags=['multi_index'])
+    # Go through each P, T combination
+    for P, T in it:
+        P = float(P)
+        T = float(T)
+        conditions.temperature(T, "K")
+        # Establish equilibrium pressure constraint value
+        conditions.pressure(P, "MPa")
+        # Solve the equilibrium problem
+        result = solver.solve(state, conditions)
+        # Update the properties
+        props.update(state)
+        # Check if the equilibrium problem succeeded
+        if result.succeeded():
+            rkt_chemical_potential.append(float(props.speciesChemicalPotential('H2O(aq)')))
+        else:
+            print("HELLO")
+    rkt_chemical_potential = np.array(rkt_chemical_potential).reshape(P_MPa.shape)
+
+    # Find difference in chemical potentials
+    difference_in_chemical_potential = rkt_chemical_potential-sfz_chem_potential
+
+    return eos_P_MPa, eos_T_K, difference_in_chemical_potential
+
 """
