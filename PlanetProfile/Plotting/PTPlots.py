@@ -118,16 +118,13 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                               color = 'black', label = 'Bulk Ocean pH')
             # If we should plot reaction, then let's plot reaction pHs and affinity
             if plot_reaction_marker:
-                reaction_pH_not_nan = np.where(~np.isnan(Planet.Ocean.Reaction_pHs))[0]
                 if FigMisc.TEX_INSTALLED:
                     reaction_label = rf"$\ce{{{Planet.Ocean.reaction}}}$"
                 else:
                     reaction_label = Planet.Ocean.reaction
-                reaction_line, = pHax.plot(ocean_depth[reaction_pH_not_nan] / 1e3, Planet.Ocean.Reaction_pHs[reaction_pH_not_nan],
-                                  linestyle='-', color='red', label = f'Ocean pH w/ rxn {reaction_label}')
                 # Add legend to pH plot
                 pHax.legend(fontsize = 4)
-                affinityax.plot(ocean_depth[reaction_pH_not_nan] / 1e3, Planet.Ocean.affinity_kJ[reaction_pH_not_nan], linestyle ='-',
+                affinityax.plot(ocean_depth[bulk_pH_not_nan] / 1e3, Planet.Ocean.affinity_kJ[bulk_pH_not_nan], linestyle ='-',
                               color = 'black')
 
             plt.tight_layout()
