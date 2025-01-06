@@ -30,7 +30,7 @@ def PlotHydrosphereSpecies(PlanetList, Params):
     # Only make this plot once for a planet
     Planet = PlanetList[0]
     if not Planet.Do.NO_H2O:
-        fig = plt.figure(figsize=FigSize.vmant)
+        fig = plt.figure(figsize=FigSize.vhydroSpecies)
         grid = GridSpec(4, 2)
         allspeciesax = fig.add_subplot(grid[0:3, 0])
         aqueouspseciesax = fig.add_subplot(grid[0:3, 1])
@@ -81,14 +81,24 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                 x_label_pos = speciesAmountData[indices_above_min_threshold[0]] if (
                         indices_above_min_threshold.size > 0) else -1
                 if x_label_pos >= 0:
+                    species_phase = ''
+                    if any(aqueousSpeciesToPlot in species for aqueousSpeciesToPlot in
+                           FigMisc.aqueousSpeciesLabels):
+                        species_phase = 'aqueous'
+                    elif any(aqueousSpeciesToPlot in species for aqueousSpeciesToPlot in
+                           FigMisc.gasSpeciesLabels):
+                        species_phase = 'gas'
+                    else:
+                        species_phase = 'solid'
                     if FigMisc.TEX_INSTALLED:
                         species_name = re.sub(r'(\w)(\+|\-)(\d+)', r'\1^{\3\2}', species)
                         species_label = rf"$\ce{{{species_name}}}$"
                     else:
                         species_label = species
-                    style = Style.LS_hydroSpecies
+                    style = Style.LS_hydroSpecies[species_phase]
+                    linewidth = Style.LW_hydroSpecies[species_phase]
                     color = Color.cmap['hydroSpecies'](i % len(relevant_species_to_plot))
-                    line, = allspeciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style, color=color)
+                    line, = allspeciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style, color=color, linewidth = linewidth)
                     y_label_pos = ocean_depth[
                         (i*3) % len(relevant_species_to_plot)] / 1e3  # y position of the end of the line
                     allspeciesax.text(x_label_pos, y_label_pos, species_label,
@@ -97,9 +107,8 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                                       horizontalalignment='right',
                                       fontsize=FigLbl.speciesSize)
                     if any(aqueousSpeciesToPlot in species for aqueousSpeciesToPlot in
-                           FigMisc.speciesForAqueousHydrospherePlot):
-                        aqueouspseciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style,
-                                              color=color)
+                           FigMisc.aqueousSpeciesLabels):
+                        aqueouspseciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style, color=color, linewidth = linewidth)
                         if x_label_pos >= 0:
                             y_label_pos = ocean_depth[(i * 3) % len(
                                 relevant_species_to_plot)] / 1e3  # y position of the end of the line

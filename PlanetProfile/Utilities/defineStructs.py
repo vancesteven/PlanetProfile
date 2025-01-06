@@ -2096,6 +2096,7 @@ class FigSizeStruct:
         self.vpvt = None
         self.vwedg = None
         self.vphase = None
+        self.vhydroSpecies = None
         self.explore = None
         self.phaseSpaceSolo = None
         self.phaseSpaceCombo = None

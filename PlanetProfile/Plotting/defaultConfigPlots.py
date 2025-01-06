@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 22  # Integer number for config file version. Increment when new settings are added to the
+configPlotsVersion = 24  # Integer number for config file version. Increment when new settings are added to the
 # default config file.
 
 def plotAssign():
@@ -182,12 +182,13 @@ def plotAssign():
     Style.LS_geotherm = '-'  # Linestyle for geotherm on PT plots
     Style.LW_seis = 1  # Linewidth for seismic plots
     Style.LS_seis = {'KS': '-', 'GS': '--', 'VP': '-', 'VS': '--', 'QS': '-', 'P': '-', 'T': '--', 'rho': '-.'}
-    Style.LS_hydroSpecies = ['-', '--', '-.', ':']
+    Style.LS_hydroSpecies = {'aqueous': '--', 'solid': '-', 'gas': '---'}
     Style.LS_ref = {'none': None, 'PureH2O': ':', 'Seawater': '-', 'MgSO4': '--', 'NH3': '-.', 'NaCl': '-',
                     'CustomSolution': '--'}  # Style for reference profiles
     Style.LW_ref = 0.75  # Linewidth for reference profiles
     Style.LS_Induction = {'synodic': '-', 'orbital': ':', 'true anomaly': ':', 'synodic 2nd': '--'}  # Style for inductOgram plots
     Style.LW_Induction = {'synodic': 1.5, 'orbital': 1.5, 'true anomaly': 1.5, 'synodic 2nd': 1.5}  # Widths for inductOgram plots
+    Style.LW_hydroSpecies = {'aqueous': 1.0, 'solid': 2.0, 'gas': 0.5}
     Style.MW_Induction = 2  # Marker size to use for induction scatter plots
     Style.MS_Induction = 'o'  # Marker style for induction scatter plots
     Style.MS_isoThermPvTHydro = ['o', 's', '>', '*', 'p', '^', 'v', '<', '>']  # Marker styles for temperature in isothermal PvT plots
@@ -282,6 +283,7 @@ def plotAssign():
     FigSize.vpvt = (12, 6)
     FigSize.vwedg = (4.5, 4.5)
     FigSize.vphase = (5, 6)
+    FigSize.vhydroSpecies = (7, 5)
     FigSize.explore = (6, 4)
     FigSize.phaseSpaceSolo = (6, 4)
     FigSize.phaseSpaceCombo = (9, 4)
@@ -355,7 +357,8 @@ def plotAssign():
     #Hydrosphere Species diagrams
     FigMisc.minThreshold = 1e-14 # Minimum mol of species needed to be considered to plot on hydrosphere species diagram
     FigMisc.excludeSpeciesFromHydrospherePlot = ['H2O(aq)', 'H+', 'OH-'] # Species to exclude from the hydrosphere plots
-    FigMisc.speciesForAqueousHydrospherePlot = ['+', '-'] # Species to include in the aqueous-specific hydrosphere plot (By default we only include species with + or -
+    FigMisc.aqueousSpeciesLabels = ['+', '-', '(aq)'] # Aqueous species to include in the aqueous-specific hydrosphere plot
+    FigMisc.gasSpeciesLabels = ['(g)'] # Solid species to include in the aqueous-specific hydrosphere plot
     FigLbl.speciesSize = 6
 
     # Silicate/core PT diagrams
