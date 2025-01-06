@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import re
 import logging
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
@@ -38,8 +39,8 @@ def PlotHydrosphereSpecies(PlanetList, Params):
         if plot_reaction_marker:
             pHax = fig.add_subplot(grid[3, 0])
             affinityax = fig.add_subplot(grid[3, 1])
-            affinityax.set_xlabel("Depth z (km)")
-            affinityax.set_ylabel("Affinity per mol rxn (kJ)")
+            affinityax.set_xlabel(FigLbl.zLabel)
+            affinityax.set_ylabel(FigLbl.rxnAffinityLabel)
         # If not, then just plot pH
         else:
             pHax = fig.add_subplot(grid[3, :])
@@ -47,11 +48,11 @@ def PlotHydrosphereSpecies(PlanetList, Params):
         if Style.GRIDS:
             allspeciesax.grid()
             allspeciesax.set_axisbelow(True)
-        allspeciesax.set_xlabel("All species (moles)")
-        allspeciesax.set_ylabel("Depth z (km)")
-        aqueouspseciesax.set_xlabel("Aqueous species (moles per kg fluid)")
-        pHax.set_xlabel("Depth z (km)")
-        pHax.set_ylabel("pH")
+        allspeciesax.set_xlabel(FigLbl.allOceanSpeciesLabel)
+        allspeciesax.set_ylabel(FigLbl.zLabel)
+        aqueouspseciesax.set_xlabel(FigLbl.aqueousSpeciesLabel)
+        pHax.set_xlabel(FigLbl.zLabel)
+        pHax.set_ylabel(FigLbl.pHLabel)
 
         # Get liquid indices
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
@@ -72,44 +73,46 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                     relevant_indices_of_species_to_plot.append(index)
             relevant_species_amount_to_plot = Planet.Ocean.aqueousSpeciesAmount_mol[:, relevant_indices_of_species_to_plot]
             ocean_depth = Planet.z_m[indsLiq]
-
             # Go through each species and plot
             for i, species in enumerate(relevant_species_to_plot):
-                style = Style.LS_hydroSpecies[i % len(Style.LS_hydroSpecies)]
-                color = Color.cmap['hydroSpecies'](i % len(relevant_species_to_plot))
                 speciesAmountData = relevant_species_amount_to_plot[:, i]
-                line, = allspeciesax.plot(speciesAmountData,
-                                          ocean_depth / 1e3, linestyle=style,
-                                          color=color)
                 # Plot species labels - But only if they are above FigMisc.minThreshold
                 indices_above_min_threshold = np.where(speciesAmountData > FigMisc.minThreshold)[0]
                 x_label_pos = speciesAmountData[indices_above_min_threshold[0]] if (
                         indices_above_min_threshold.size > 0) else -1
                 if x_label_pos >= 0:
+                    if FigMisc.TEX_INSTALLED:
+                        species_name = re.sub(r'(\w)(\+|\-)(\d+)', r'\1^{\3\2}', species)
+                        species_label = rf"$\ce{{{species_name}}}$"
+                    else:
+                        species_label = species
+                    style = Style.LS_hydroSpecies
+                    color = Color.cmap['hydroSpecies'](i % len(relevant_species_to_plot))
+                    line, = allspeciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style, color=color)
                     y_label_pos = ocean_depth[
                         (i*3) % len(relevant_species_to_plot)] / 1e3  # y position of the end of the line
-                    allspeciesax.text(x_label_pos, y_label_pos, species,
+                    allspeciesax.text(x_label_pos, y_label_pos, species_label,
                                       color=line.get_color(),
                                       verticalalignment='bottom',
                                       horizontalalignment='right',
                                       fontsize=FigLbl.speciesSize)
-                if any(aqueousSpeciesToPlot in species for aqueousSpeciesToPlot in
-                       FigMisc.speciesForAqueousHydrospherePlot):
-                    aqueouspseciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style,
-                                          color=color)
-                    if x_label_pos >= 0:
-                        y_label_pos = ocean_depth[(i * 3) % len(
-                            relevant_species_to_plot)] / 1e3  # y position of the end of the line
-                        aqueouspseciesax.text(x_label_pos, y_label_pos, species,
-                                              color=line.get_color(),
-                                              verticalalignment='bottom',
-                                              horizontalalignment='right',
-                                              fontsize=FigLbl.speciesSize)
+                    if any(aqueousSpeciesToPlot in species for aqueousSpeciesToPlot in
+                           FigMisc.speciesForAqueousHydrospherePlot):
+                        aqueouspseciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style,
+                                              color=color)
+                        if x_label_pos >= 0:
+                            y_label_pos = ocean_depth[(i * 3) % len(
+                                relevant_species_to_plot)] / 1e3  # y position of the end of the line
+                            aqueouspseciesax.text(x_label_pos, y_label_pos, species_label,
+                                                  color=line.get_color(),
+                                                  verticalalignment='bottom',
+                                                  horizontalalignment='right',
+                                                  fontsize=FigLbl.speciesSize)
             for ax in axs:
                 ax.set_xscale('log')
                 current_xlim = ax.get_xlim()
-                new_xmax = 10 ** np.ceil(np.log10(current_xlim[1]))
                 new_xmin = max(current_xlim[0], FigMisc.minThreshold)
+                new_xmax = 10 ** np.ceil(np.log10(current_xlim[1]))
                 ax.set_xlim([new_xmin, new_xmax])
                 ax.invert_yaxis()
             # Plot pH plot
@@ -122,10 +125,11 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                     reaction_label = rf"$\ce{{{Planet.Ocean.reaction}}}$"
                 else:
                     reaction_label = Planet.Ocean.reaction
-                # Add legend to pH plot
-                pHax.legend(fontsize = 4)
                 affinityax.plot(ocean_depth[bulk_pH_not_nan] / 1e3, Planet.Ocean.affinity_kJ[bulk_pH_not_nan], linestyle ='-',
-                              color = 'black')
+                              color = 'black', label = reaction_label)
+                if Params.LEGEND:
+                    handles, lbls = affinityax.get_legend_handles_labels()
+                    affinityax.legend(handles, lbls, fontsize = 5)
 
             plt.tight_layout()
             fig.savefig(Params.FigureFiles.hydroSpecies, format=FigMisc.figFormat, dpi=FigMisc.dpi,

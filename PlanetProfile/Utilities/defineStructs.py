@@ -1404,6 +1404,7 @@ class FigLblStruct:
         self.rLabel = r'Radius $r$ ($\si{km}$)'
         self.zLabel = r'Depth $z$ ($\si{km}$)'
         self.etaLabel = r'Viscosity $\eta$ ($\si{Pa\,s}$)'
+        self.pHLabel = r'pH'
         self.sil = r'Rock'
         self.core = r'Core'
 
@@ -1596,6 +1597,8 @@ class FigLblStruct:
         self.CpUnits = None
         self.kThermUnits = None
         self.alphaUnits = None
+        self.affinityUnits = None
+        self.hydrosphereSpeciesUnits = None
         self.wMult = None
         self.xMult = None
         self.phiMult = None
@@ -1616,6 +1619,9 @@ class FigLblStruct:
         self.QseisLabel = None
         self.rhoSilLabel = None
         self.rhoHydroLabel = None
+        self.rxnAffinityLabel = None
+        self.allOceanSpeciesLabel = None
+        self.aqueousSpeciesLabel = None
         self.phiLabel = None
         self.silPhiSeaLabel = None
         self.silPhiInLabel = None
@@ -1728,6 +1734,8 @@ class FigLblStruct:
             self.CpUnits = r'J\,kg^{-1}\,K^{-1}'
             self.kThermUnits = r'W\,m^{-1}\,K^{-1}'
             self.alphaUnits = r'K^{-1}'
+            self.affinityUnits = r'kJ\,mol^{-1}'
+            self.hydrosphereSpeciesUnits = r'mol\,kg^{-1}'
         else:
             self.rhoUnits = r'kg/m^3'
             self.sigUnits = r'S/m'
@@ -1741,6 +1749,7 @@ class FigLblStruct:
             self.CpUnits = r'J/kg/K'
             self.kThermUnits = r'W/m/K'
             self.alphaUnits = '1/K'
+            self.affinityUnits = r'kJ/mol'
 
         self.PunitsFull = 'MPa'
         self.PmultFull = 1
@@ -1831,6 +1840,9 @@ class FigLblStruct:
         self.rhoSilMeanLabel = r'Rock density $\overline{\rho}_\mathrm{rock}$ ($\si{' + self.rhoUnits + '}$)'
         self.silPhiSeaLabel = r'Seafloor porosity $\phi_\mathrm{rock}$' + self.phiUnitsParen
         self.phiLabel = r'Porosity $\phi$' + self.phiUnitsParen
+        self.rxnAffinityLabel = r'Affinity ($\si{' + self.affinityUnits + '}$)'
+        self.allOceanSpeciesLabel = r'All species ($\si{' + self.hydrosphereSpeciesUnits + '}$)'
+        self.aqueousSpeciesLabel = r'Aqueous species ($\si{' + self.hydrosphereSpeciesUnits + '}$)'
         self.vSoundLabel = r'Sound speeds $V_P$, $V_S$ ($\si{' + self.vSoundUnits + '}$)'
         self.vPoceanLabel = r'Ocean $V_P$ ($\si{' + self.vSoundUnits + '}$)'
         self.vPiceLabel = r'Ice $V_P$ ($\si{' + self.vSoundUnits + '}$)'
