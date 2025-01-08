@@ -806,9 +806,7 @@ class FigureFilesSubstruct:
         """
         Generate comparison file names between two planet name inputs with the given file extension. Used for generating comparison pdfs
         """
-        if plot_type == 'isoThermvpvtHydro':
-            isoThermvpvtHydro = 'isoThermvpvtHydro'
-            return self.fName + isoThermvpvtHydro + Planet1Title + Planet2Title + self.xtn
+        return self.fName + plot_type + Planet1Title + Planet2Title + self.xtn
 
 
 """ General parameter options """
