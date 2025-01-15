@@ -9,14 +9,13 @@ from PlanetProfile import _ROOT
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigMisc
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS, GetTfreeze
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
-from PlanetProfile.Thermodynamics.Reaktoro.ReaktoroAdjustments import ReaktoroConfigAdjustments
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import FileSetupFromConfig, MolalConverter, wpptCalculator
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathDissoc
 from PlanetProfile.Utilities.PPversion import ppVerNum, CheckCompat
 from PlanetProfile.Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
 from PlanetProfile.TrajecAnalysis import _MAGdir, _scList
 from PlanetProfile.TrajecAnalysis.FlybyEvents import scTargets
 from PlanetProfile.TrajecAnalysis.RefileMAGdata import RefileName, MAGtoHDF5, LoadMAG
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import CustomSolutionPlanetSetup
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -495,6 +494,10 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
         datPath = os.path.join(_ROOT, datPath)
     figPath = os.path.join(datPath, 'figures')
 
+    # Account for wppt being None or less than or equal to zero for CustomSolution, which in this case we need to set Do parameter so we don't have Nonetype error when generating filenames
+    if Planet.Ocean.wOcean_ppt is None or Planet.Ocean.wOcean_ppt < 0:
+        # Flag that we are not using wOcean_ppt as independent parameter
+        Planet.Do.USE_WOCEAN_PPT = False
     # Account for differing ocean/pore composition here, since we need it for filenames
     # Use ocean composition and salinity if user has not specified different ones for pore space
     Planet.Do.PORE_EOS_DIFFERENT = False
@@ -506,6 +509,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
         Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
     elif Planet.Sil.wPore_ppt != Planet.Ocean.wOcean_ppt:
         Planet.Do.PORE_EOS_DIFFERENT = True
+
         
     saveBase = Planet.name + 'Profile_'
     saveLabel = ''
@@ -546,24 +550,18 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
         elif "CustomSolution" in Planet.Ocean.comp:
             # Get text to left of = sign
             CustomSolutionLabel = Planet.Ocean.comp.split('=')[0].strip()
-            saveLabel += CustomSolutionLabel
-            abbreviatedLabel = CustomSolutionLabel.replace("CustomSolution", "")
-            label = f'{abbreviatedLabel}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
-            """
-            SpeciesLabel = Planet.Ocean.comp.split('=')[1].strip()
-            i = 0
-            for species_with_ratio in SpeciesLabel.split(", "):
-                species, ratio_per_kg = species_with_ratio.split(": ")
-                ratio_per_kg = f"{float(ratio_per_kg):.2g}"
-                species_with_ratio = f'{species}:{ratio_per_kg}'
-                # Add newline for every four species
-                if (i % 4) == 0:
-                    label += '\n'
-                label += f'{species_with_ratio},'
-                i += 1
-            label = label.rstrip(',')
-            """
-            Planet.compStr = f'{CustomSolutionLabel}'
+            setStr = CustomSolutionLabel.replace("CustomSolution", "")
+            # In this case, we are using input speciation from user with no input w_ppt, so we will generate filenames without w_ppt
+            if not Planet.Do.USE_WOCEAN_PPT:
+                saveLabel += f'{CustomSolutionLabel}_Tb{Planet.Bulk.Tb_K}K'
+                label = f'{setStr}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+                Planet.compStr = f'{CustomSolutionLabel}'
+            else:
+                saveLabel += f'{CustomSolutionLabel}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
+                        f'_Tb{Planet.Bulk.Tb_K}K'
+                label = f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
+                        f'_Tb{Planet.Bulk.Tb_K}K'
+                Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}${CustomSolutionLabel}'
         else:
             saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
                         f'_Tb{Planet.Bulk.Tb_K}K'
@@ -682,10 +680,19 @@ def SetCMR2strings(Planet):
     return Planet
 
 def SetupCustomSolution(Planet, Params):
-    # Setup the Reaktoro file and Planet.Ocean.comp/Planet.Ocean.w_ppt settings, and ensure the EOS can be generated
-    Planet, Params = CustomSolutionPlanetSetup(Planet, Params)
-    # Adjust config settings and make sure they are valid
-    Params.wRef_ppt[Planet.Ocean.comp] = Params.wRef_ppt["CustomSolution"]
+    # Setup the Reaktoro file settings
+    Params.CustomSolution = FileSetupFromConfig(Params.CustomSolution)
+    # Ensure that ocean composition is in molal
+    if Params.CustomSolution.SPECIES_CONCENTRATION_UNIT == 'g':
+        Planet.Ocean.comp = MolalConverter(Planet.Ocean.comp)
+    # Calculate w_ppt for Planet Ocean comp if not specified
+    if Planet.Ocean.wOcean_ppt is None or Planet.Ocean.wOcean_ppt < 0:
+        # Flag that we are not using wOcean_ppt as independent parameter - used in file name generation
+        Planet.Do.USE_WOCEAN_PPT = False
+        Planet.Ocean.wOcean_ppt = wpptCalculator(Planet.Ocean.comp.split('=')[1].strip())
+    # Here we need to add the Planets CustomSolution composition to some parameter dictionaries for plotting purposes, which we must do dynamically since input can be anything
+    # Add wRef_ppts - namely, we will add the Planet.Ocean.wOcean_ppt and any wRef_ppt in CustomSolution
+    Params.wRef_ppt[Planet.Ocean.comp] = Params.wRef_ppt["CustomSolution"] + [Planet.Ocean.wOcean_ppt]
     Params.fNameRef[Planet.Ocean.comp] = f'{Planet.Ocean.comp}Ref.txt'
     if Planet.Ocean.comp not in Color.cmapName:
         Color.cmapName[Planet.Ocean.comp] = Color.CustomSolutionCmapNames.pop(0)

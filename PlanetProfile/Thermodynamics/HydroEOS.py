@@ -16,7 +16,7 @@ from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
 # from PlanetProfile.Thermodynamics.Reaktoro.sigmaElectricMcCleskey2012 import elecCondMcCleskey2012
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand,  \
-    SpeciesParser, RktProps, RktSeismic, RktConduct, Reaktoro_Hydro_Species_Generator, RktRxnAffinity
+    SpeciesParser, RktProps, RktSeismic, RktConduct, RktHydroSpecies, RktRxnAffinity, EOSLookupTableLoader
 from PlanetProfile.Utilities.DataManip import ReturnConstantPTw
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -250,25 +250,27 @@ class OceanEOSStruct:
                     Ocean_Speciation_Info['pH'], Ocean_Speciation_Info['species'])
             elif self.comp.startswith("CustomSolution"):
                 # Parse out the species list and ratio into a format compatible with Reaktoro and create a CustomSolution EOS label
-                self.aqueous_species_string, self.speciation_ratio_mol_kg, self.EOS_lookup_label = SpeciesParser(self.comp)
+                self.aqueous_species_string, self.speciation_ratio_mol_kg, self.ocean_solid_phases, self.EOS_lookup_label = SpeciesParser(self.comp, self.w_ppt)
 
+                EOSLookupTable = EOSLookupTableLoader(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.ocean_solid_phases, self.EOS_lookup_label)
                 self.type = 'Reaktoro'
-
-                P_MPa, T_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK, self.EOSdeltaP, self.EOSdeltaT = RktProps(self.EOS_lookup_label, self.aqueous_species_string, self.speciation_ratio_mol_kg, P_MPa, T_K, self.EXTRAP)
-                self.ufn_Seismic = RktSeismic(self.EOS_lookup_label,  self.aqueous_species_string, self.speciation_ratio_mol_kg, self.EXTRAP)
+                P_MPa, T_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK, self.EOSdeltaP, self.EOSdeltaT = (
+                    RktProps(EOSLookupTable, P_MPa, T_K, self.EXTRAP))
+                self.ufn_Seismic = RktSeismic(EOSLookupTable, self.EXTRAP)
 
                 if self.PHASE_LOOKUP:
-                    self.ufn_phase = RktPhaseLookup(self.EOS_lookup_label, self.aqueous_species_string, self.speciation_ratio_mol_kg, P_MPa, T_K, self.deltaP, self.deltaT)
+                    self.ufn_phase = RktPhaseLookup(EOSLookupTable, P_MPa, T_K, self.deltaP, self.deltaT)
                 else:
                     self.ufn_phase = RktPhaseOnDemand(self.aqueous_species_string, self.speciation_ratio_mol_kg)
-                self.ufn_species = Reaktoro_Hydro_Species_Generator(self.aqueous_species_string, self.speciation_ratio_mol_kg)
-                self.ufn_rxn_affinity = RktRxnAffinity(self.aqueous_species_string, self.speciation_ratio_mol_kg)
+
+                self.ufn_species = RktHydroSpecies(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.ocean_solid_phases)
+                self.ufn_rxn_affinity = RktRxnAffinity(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.ocean_solid_phases)
                 if sigmaFixed_Sm is not None:
                     self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
                 else:
                     # ions = {'Na_p1': {'mols': 0.1}, 'Cl_m1': {'mols': 0.1}}
                     # self.ufn_sigma_Sm = elecCondMcCleskey2012(T_K,ions) # see McCleskeyFig1 benchmark for example usage. this is a placeholder that doesn't have the inputs set up correctly. Has no pressure dependence currently
-                    self.ufn_sigma_Sm = RktConduct(self.aqueous_species_string, self.speciation_ratio_mol_kg)
+                    self.ufn_sigma_Sm = RktConduct(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.ocean_solid_phases, self.ufn_species)
                 self.propsPmax = self.Pmax
             else:
                 raise ValueError(f'Unable to load ocean EOS. self.comp="{self.comp}" but options are "Seawater", "NH3", "MgSO4", ' +

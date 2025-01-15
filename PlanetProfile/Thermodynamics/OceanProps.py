@@ -78,7 +78,7 @@ def WriteLiquidOceanProps(Planet, Params):
                 f'{Planet.Ocean.Bulk_pHs[i]:24.17e}',
                 f'{Planet.Ocean.affinity_kJ[i]:24.17e}'])
             for j in range(len(Planet.Ocean.aqueousSpecies)):
-                line = line + f'{Planet.Ocean.aqueousSpeciesAmount_mol[i][j]:24.17e}'
+                line = line + f'{Planet.Ocean.aqueousSpeciesAmount_mol[j][i]:24.17e}'
             line = line + '\n'
             f.write(line)
     log.info(f'Ocean specific properties saved to file: {Params.DataFiles.oceanPropsFile}')

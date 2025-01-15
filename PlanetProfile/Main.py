@@ -32,7 +32,7 @@ from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, ExplorationResults
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings, SetupCustomSolution
 from PlanetProfile.Utilities.PPversion import ppVerNum
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import CustomSolutionPlanetSetup
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import EOSLookupTableLoader
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
 
 # Parallel processing
@@ -429,10 +429,10 @@ def WriteProfile(Planet, Params):
         f'Iron core = {Planet.Do.Fe_CORE}',
         f'Silicate EOS file = {Planet.Sil.mantleEOS}',
         f'Iron core EOS file = {Planet.Core.coreEOS}',
-        f'Ocean salt = {Planet.Ocean.comp}',
-        f'Pore salt = {Planet.Sil.poreComp}',
-        f'wOcean_ppt = {Planet.Ocean.wOcean_ppt:.3f}',
-        f'wPore_ppt = {Planet.Sil.wPore_ppt:.3f}',
+        f'Ocean salt (mols, if applicable) = {Planet.Ocean.comp}',
+        f'Pore salt (mols, if applicable) = {Planet.Sil.poreComp}',
+        f'wOcean_ppt = {Planet.Ocean.wOcean_ppt}',
+        f'wPore_ppt = {Planet.Sil.wPore_ppt}',
         f'R_m = {Planet.Bulk.R_m:.3f}',
         f'M_kg = {Planet.Bulk.M_kg:.5e}',
         f'Cmeasured = {Planet.Bulk.Cmeasured}',
@@ -681,13 +681,15 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         OceanSpecificProps = np.loadtxt(Params.DataFiles.oceanPropsFile, skiprows=nHeadLines, unpack=True)
         Planet.Ocean.Bulk_pHs = OceanSpecificProps[2]
         Planet.Ocean.affinity_kJ = OceanSpecificProps[3]
-        Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[4: ].T
+        Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[4: ]
     else:
         Planet.Ocean.reaction, Planet.Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN', 'NaN'
         Planet.Ocean.Bulk_pHs, Planet.Ocean.affinity_kJ, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
 
     # Setup CustomSolution settings
     if 'CustomSolution' in Planet.Ocean.comp:
+        # We save Planet.Ocean.comp in txt file in mols so change ReaktoroParams setting
+        Params.CustomSolution.SPECIES_CONCENTRATION_UNIT = 'mol'
         Planet, Params = SetupCustomSolution(Planet, Params)
 
     return Planet, Params
@@ -1413,7 +1415,7 @@ def CustomSolutionEOSGenerator(PlanetGrid, Params):
     # Extract the values (planets) from the dictionary
     unique_planets_list = list(unique_planets.values())
     # Call parallel computing on CustomSOlutionEOSGEenerator
-    GridPlanetProfileFunc(CustomSolutionPlanetSetup, unique_planets_list, Params)
+    GridPlanetProfileFunc(EOSLookupTableLoader, unique_planets_list, Params)
 
 def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
     """ Wrapper for (optionally) parallel run of multiple Planet objects through the

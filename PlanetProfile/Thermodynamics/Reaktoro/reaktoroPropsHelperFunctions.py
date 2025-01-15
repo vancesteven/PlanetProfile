@@ -8,11 +8,19 @@ import pickle as pickle
 from seafreeze import seafreeze as sfz
 from scipy.interpolate import BSpline, splrep
 from scipy import interpolate
+import pickle
+import gzip
 log = logging.getLogger('PlanetProfile')
 
 
+def save_dict_to_pkl(dictionary, filename):
+    with gzip.open(filename, "wb") as file:
+        pickle.dump(dictionary, file, protocol=pickle.HIGHEST_PROTOCOL)
 
 
+def load_dict_from_pkl(filename):
+    with gzip.open(filename, "rb") as file:
+        return pickle.load(file)
 
 def PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file):
     """ Create a Phreeqc Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
@@ -105,7 +113,7 @@ def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio
     return db, system, state, conditions, solver, props
 
 
-def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database, consider_solid_phases, solid_phases_to_consider):
+def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database, ocean_solid_species, PhreeqcToSupcrtNames):
     """ Create a Supcrt Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
     Args:
     aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
@@ -113,31 +121,20 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
         with the species as the key and its ratio as its value.
     species_unit: "mol" or "g" that species ratio is in
     database: Supcrt database to use
-    consider_solid_phases: whether or not to consider solid phases in calculations
-    solid_phases_to_consider: the solid phases to consider
+    ocean_solid_phases: whether or not to consider solid phases in calculations
+    PhreeqcToSupcrtNames: Names that need to be converted in species list and speciation ratio per kg
     Returns:
         db, system, state, conditions, solver, props, ice_name: Relevant reaktoro objects
     """
+    aqueous_species_list, speciation_ratio_per_kg = species_convertor_compatible_with_supcrt(aqueous_species_list, speciation_ratio_per_kg, PhreeqcToSupcrtNames)
     # Initialize the database
     db = rkt.SupcrtDatabase(database)
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
     solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
     # If we are considering solid phases, create a solid phase
-    if consider_solid_phases:
-        if solid_phases_to_consider is None:
-            solids = rkt.MineralPhases()
-        else:
-            # If we are specifying what phases to consider, note that we should only consider the phases that are relevant to the species in the solution
-            # I.e. don't consider all clathrates if they aren't possible to form (greatly decreases runtime if we consider only relevant phases)
-            final_phases_to_consider = ''
-            solids_tester = rkt.MineralPhases()
-            system_tester = rkt.ChemicalSystem(db, solution, solids_tester)
-            RelevantPhases = system_tester.species().withAggregateState(rkt.AggregateState.Solid)
-            for solid in solid_phases_to_consider:
-                if RelevantPhases.findWithName(solid) < RelevantPhases.size():
-                    final_phases_to_consider = final_phases_to_consider + f' {solid}'
-            solids = rkt.MineralPhases(final_phases_to_consider)
+    if ocean_solid_species is not None:
+        solids = rkt.MineralPhases(ocean_solid_species)
         system = rkt.ChemicalSystem(db, solution, solids)
     else:
         system = rkt.ChemicalSystem(db, solution)
@@ -159,21 +156,25 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     # Return the Reaktoro objects that user will need to interact with
     return db, system, state, conditions, solver, props
 
-
-def reset_state(system, speciation_ratio_per_kg, species_unit):
-    """ Returns a new Reaktoro state for given system populated with provided species.
-
-    Args:
-        system: Reaktoro system
-        speciation_ratio_per_kg: the ratio of species in the aqueous solution in mol/kg of water. Should be a dictionary
-        species_unit: "mol" or "g" that species ratio is in
-    Returns:
-        state: Reaktoro state populated with provided species
+def RelevantSolidSpecies(db, aqueous_species_list, solid_phases):
     """
-    state = rkt.ChemicalState(system)
-    for ion, ratio in speciation_ratio_per_kg.items():
-        state.add(ion, ratio, species_unit)
-    return state
+    Finds the relevant solid species to consider from a list of solid phases, or if solid phases is None, then return all solids
+    """
+    # Prescribe the solution
+    solution = rkt.AqueousPhase(aqueous_species_list)
+    # If we are specifying what phases to consider, note that we should only consider the phases that are relevant to the species in the solution
+    # I.e. don't consider all clathrates if they aren't possible to form (greatly decreases runtime if we consider only relevant phases)
+    solid_phases_to_consider = ''
+    solids_tester = rkt.MineralPhases()
+    system_tester = rkt.ChemicalSystem(db, solution, solids_tester)
+    relevant_solid_phases = system_tester.species().withAggregateState(rkt.AggregateState.Solid)
+    if solid_phases is None:
+        for solid_phase in relevant_solid_phases:
+            solid_phases_to_consider = solid_phases_to_consider + f' {solid_phase.name()}'
+    for solid in solid_phases:
+        if relevant_solid_phases.findWithName(solid) < relevant_solid_phases.size():
+            solid_phases_to_consider = solid_phases_to_consider + f' {solid}'
+    return solid_phases_to_consider
 
 
 def ices_phases_amount_mol(props: rkt.ChemicalProps):
@@ -215,7 +216,7 @@ def species_convertor_compatible_with_supcrt(aqueous_species_string, speciation_
     # Dictionary of known values that are different between Phreeqc and supcrt
     for phreeqc_name, supcrt_name in Phreeqc_to_Supcrt_names.items():
         # Check if name is in the string (and thus dictionary), indicating it is not compatible with supcrt
-        if phreeqc_name in aqueous_species_string:
+        if phreeqc_name in speciation_ratio_per_kg:
             # Change label
             aqueous_species_string = aqueous_species_string.replace(phreeqc_name, supcrt_name)
             # Now change the phreeqc key in the dictionary to supcrt key
@@ -223,49 +224,6 @@ def species_convertor_compatible_with_supcrt(aqueous_species_string, speciation_
     # Return the string and adapted dictionary
     return aqueous_species_string, supcrt_speciation_ratio_per_kg
 
-
-def McClevskyIonParser(speciation_ratio_per_kg, species_unit):
-    """
-    Parse through provided species list and convert to format compatible with McClevsky
-    Args:
-        speciation_ratio_per_kg: the ratio of species in the aqueous solution in mol/kg of water. Should be a dictionary
-        species_unit: "mol" or "g" that species ratio is in
-    Returns:
-        Ion list compatible with McClevsky
-    """
-    ions = {}
-    for species, per_kg in speciation_ratio_per_kg.items():
-        # Check that the species is an ion
-        if "+" in species or "-" in species:
-            # Rewrite the species into a format that McCLevsky can handle
-            # First, convert speciation ratio into mols to be compatible with McClevskyIonParser
-            mol_amount = per_kg
-            if species_unit == "g":
-                formula = rkt.ChemicalFormula(species)
-                molar_mass_kg_mol = formula.molarMass()
-                mol_amount = (1/molar_mass_kg_mol)/1000*per_kg
-            # Namely, change the + to a _p or the - to a _m
-            if "+" in species:
-                # If there is no number after the +, then we must append _p1, not just _p
-                if species.endswith("+"):
-                    species = species + "1"
-                # CHange the - to a _p
-                species = species.replace('+', '_p')
-            elif "-" in species:
-                # If there is no number after the -, then we must append a 1 to signify it is a -1 charge
-                if species.endswith("-"):
-                    species = species + "1"
-                # Change the - to a _m
-                species = species.replace('-', '_m')
-            # Format the mol amount into a dictionary
-            mol_dictionary = {'mols': mol_amount}
-            # Append the new species and mol dictionary to the ion dictionary
-            ions[species] = mol_dictionary
-        else:
-            # If the species is not an ion, then it is not relevant to electrical conductivity so do not add to ion dictionary
-            pass
-    # Return ions list
-    return ions
 
 def interpolation_2d(P_MPa, arrays):
     """ Utilized as a helper function for thermodynamic properties calculation. Performs a 2d interpolation on any values that are NaN in the
@@ -340,14 +298,15 @@ def freezing_temperature_correction_calculator():
     speciation_ratio_mol_kg = {'H2O': float(1/rkt.waterMolarMass)}
     frezchem_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Databases', 'frezchem.dat')
     frezchem = PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_mol_kg, "mol", frezchem_file_path)
-    db, system, state, conditions, solver, props = frezchem
-    state = rkt.ChemicalState(state)
+    db, system, initial_state, conditions, solver, props = frezchem
     # Create an iterator to go through P_MPa
     it = np.nditer([eos_P_MPa])
     conditions.set("IP", 0.1)
     conditions.setLowerBoundTemperature(240, "K")
     conditions.setUpperBoundTemperature(280, "K")
     for P in it:
+        # Reset the state
+        state = initial_state.clone()
         P = float(P)
         conditions.pressure(P, "MPa")
         # Solve the equilibrium problem
@@ -356,8 +315,6 @@ def freezing_temperature_correction_calculator():
         props.update(state)
         # Obtain the equilibrium temperature
         rkt_T_freezing.append(float(props.temperature()))
-        # Reset the state
-        state = reset_state(system, speciation_ratio_mol_kg, "mol")
     rkt_T_freezing = np.array(rkt_T_freezing)
 
     # Find difference in freezing temperatures

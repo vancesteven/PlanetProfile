@@ -114,16 +114,15 @@ class ReturnConstantSpecies:
         self.speciation = np.append(self.speciation, 1/Constants.m_gmol['H2O']*1000)
 
     def __call__(self, P, T, grid = False):
-        ### NEED TO IMPLEMENT GRID IN FUTURE, SINCE RIGHT NOW WE ONYL CALL UFN_SPECIES FOR NON-GRIDS (i.e. to get
-        # speciation of ocean layers)
         nPs = np.size(P)
         nTs = np.size(T)
-
         pH = (np.zeros(nPs)) + self.pH
-        speciation = np.zeros((nPs, len(self.species_names)))
+
+        speciation = np.zeros((len(self.species_names), nPs))
+
         # Populate the speciation array
-        for col_index, value in enumerate(self.speciation):
-            speciation[:, col_index] = value  # Fill the entire column with the corresponding speciation value
+        for row_index, value in enumerate(self.speciation):
+            speciation[row_index] = value  # Fill the entire row with the corresponding speciation value
         species_names = np.array(self.species_names)
         return pH, speciation, species_names
 

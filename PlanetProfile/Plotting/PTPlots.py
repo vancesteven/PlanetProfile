@@ -71,11 +71,11 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                 if value not in FigMisc.excludeSpeciesFromHydrospherePlot:
                     relevant_species_to_plot.append(value)
                     relevant_indices_of_species_to_plot.append(index)
-            relevant_species_amount_to_plot = Planet.Ocean.aqueousSpeciesAmount_mol[:, relevant_indices_of_species_to_plot]
+            relevant_species_amount_to_plot = Planet.Ocean.aqueousSpeciesAmount_mol[relevant_indices_of_species_to_plot]
             ocean_depth = Planet.z_m[indsLiq]
             # Go through each species and plot
             for i, species in enumerate(relevant_species_to_plot):
-                speciesAmountData = relevant_species_amount_to_plot[:, i]
+                speciesAmountData = relevant_species_amount_to_plot[i]
                 # Plot species labels - But only if they are above FigMisc.minThreshold
                 indices_above_min_threshold = np.where(speciesAmountData > FigMisc.minThreshold)[0]
                 x_label_pos = speciesAmountData[indices_above_min_threshold[0]] if (
