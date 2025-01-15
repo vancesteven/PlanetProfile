@@ -807,9 +807,7 @@ class FigureFilesSubstruct:
         """
         Generate comparison file names between two planet name inputs with the given file extension. Used for generating comparison pdfs
         """
-        if plot_type == 'isoThermvpvtHydro':
-            isoThermvpvtHydro = 'isoThermvpvtHydro'
-            return self.fName + isoThermvpvtHydro + Planet1Title + Planet2Title + self.xtn
+        return self.fName + plot_type + Planet1Title + Planet2Title + self.xtn
 
 
 """ General parameter options """
@@ -1429,10 +1427,10 @@ class FigLblStruct:
         self.PvTtitleSil = r' silicate interior properties with geotherm'
         self.PvTtitleCore = r' silicate and core interior properties with geotherm'
         self.hydroPhaseTitle = r' phase diagram'
-        self.hydroSpeciesTitle = r' ocean species diagram'
+        self.hydroSpeciesTitle = r' ocean species'
 
         # Wedge diagram labels
-        self.wedgeTitle = 'interior structure diagram'
+        self.wedgeTitle = 'interior structure'
         self.wedgeRadius = r'Radius ($\si{km}$)'
         self.ionosTickLbl = r'$R_\mathrm{ionos}$'
         self.surfTickLbl = r'$R_\mathrm{surf}$'
