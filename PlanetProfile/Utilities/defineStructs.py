@@ -2636,6 +2636,7 @@ class EOSlistStruct:
     def __init__(self):
         pass
     loaded = {}  # Dict listing the loaded EOSs. Since we define this attribute outside of __init__, it will be common to all EOSlist structs when set.
+    loaded['CustomSolutionEOS'] = {} # Dict listing the loaded EOSs for CustomSolution. We separate these EOS to save them all to disk at end
     ranges = {}  # Dict listing the P, T ranges of the loaded EOSs.
 
 

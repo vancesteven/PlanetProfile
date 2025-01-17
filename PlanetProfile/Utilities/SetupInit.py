@@ -9,7 +9,7 @@ from PlanetProfile import _ROOT
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigMisc
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS, GetTfreeze
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import FileSetupFromConfig, MolalConverter, wpptCalculator
+from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolution
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathDissoc
 from PlanetProfile.Utilities.PPversion import ppVerNum, CheckCompat
 from PlanetProfile.Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
@@ -37,7 +37,6 @@ def SetupInit(Planet, Params):
 
     # Check if Custom Reaktoro Solution is being used and if so then update Params with necessary parameters to plot
     if Planet.Ocean.comp is not None and 'CustomSolution' in Planet.Ocean.comp:
-        # ADJUST THIS CODE HERE, DOESNT MAKE MUCH SENSE
         Planet, Params = SetupCustomSolution(Planet, Params)
 
     # Afford for additional MoI lower-bound uncertainty under non-hydrostatic conditions of 3% of C/MR^2,
@@ -678,28 +677,3 @@ def SetCMR2strings(Planet):
             Planet.CMR2str5 = f'{Planet.Bulk.Cmeasured:.5f}^{{+{Planet.Bulk.CuncertaintyUpper:.5f}}}_{{-{Planet.Bulk.CuncertaintyLower:.5f}}}'
 
     return Planet
-
-def SetupCustomSolution(Planet, Params):
-    # Setup the Reaktoro file settings
-    Params.CustomSolution = FileSetupFromConfig(Params.CustomSolution)
-    # Ensure that ocean composition is in molal
-    if Params.CustomSolution.SPECIES_CONCENTRATION_UNIT == 'g':
-        Planet.Ocean.comp = MolalConverter(Planet.Ocean.comp)
-    # Calculate w_ppt for Planet Ocean comp if not specified
-    if Planet.Ocean.wOcean_ppt is None or Planet.Ocean.wOcean_ppt < 0:
-        # Flag that we are not using wOcean_ppt as independent parameter - used in file name generation
-        Planet.Do.USE_WOCEAN_PPT = False
-        Planet.Ocean.wOcean_ppt = wpptCalculator(Planet.Ocean.comp.split('=')[1].strip())
-    # Here we need to add the Planets CustomSolution composition to some parameter dictionaries for plotting purposes, which we must do dynamically since input can be anything
-    # Add wRef_ppts - namely, we will add the Planet.Ocean.wOcean_ppt and any wRef_ppt in CustomSolution
-    Params.wRef_ppt[Planet.Ocean.comp] = Params.wRef_ppt["CustomSolution"] + [Planet.Ocean.wOcean_ppt]
-    Params.fNameRef[Planet.Ocean.comp] = f'{Planet.Ocean.comp}Ref.txt'
-    if Planet.Ocean.comp not in Color.cmapName:
-        Color.cmapName[Planet.Ocean.comp] = Color.CustomSolutionCmapNames.pop(0)
-        Color.CustomSolutionCmapNames.append(Color.cmapName[Planet.Ocean.comp])
-        Color.cmapBounds[Planet.Ocean.comp] = Color.cmapBounds["CustomSolution"]
-        Color.saturation[Planet.Ocean.comp] = Color.saturation["CustomSolution"]
-        Color.SetCmaps()
-        Style.LS[Planet.Ocean.comp] = Style.LS["CustomSolution"]
-        Style.LS_ref[Planet.Ocean.comp] = Style.LS_ref["CustomSolution"]
-    return Planet, Params

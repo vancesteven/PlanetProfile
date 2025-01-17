@@ -1033,3 +1033,4 @@ class ViscIceUniform_Pas:
                 eta_Pas[np.logical_and(T_K >= Tlow_K, T_K < Tupp_K)] = etaConst_Pas
 
         return eta_Pas
+

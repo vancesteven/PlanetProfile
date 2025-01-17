@@ -29,8 +29,9 @@ from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.OceanProps import LiquidOceanPropsCalcs, WriteLiquidOceanProps
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
 from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
-from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, ExplorationResults
-from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings, SetupCustomSolution
+from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, EOSlist, ExplorationResults
+from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
+from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolution, SetupCustomSolutionPlotSettings, SaveEOSToDisk
 from PlanetProfile.Utilities.PPversion import ppVerNum
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import EOSLookupTableLoader
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
@@ -80,8 +81,8 @@ def run(bodyname=None, opt=None, fNames=None):
         else:
             Induction, Params = InductOgram(bodyname, Params)
         if not Params.SKIP_PLOTS:
+            SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
             PlotInductOgram(Induction, Params)
-
             if Params.COMPARE:
                 inductOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.inductPath, '*.mat'))
                 Params.nModels = np.size(inductOgramFiles)
@@ -102,6 +103,7 @@ def run(bodyname=None, opt=None, fNames=None):
         else:
             Exploration, Params = ExploreOgram(bodyname, Params)
         if not Params.SKIP_PLOTS:
+            SetupCustomSolutionPlotSettings(Exploration.oceanComp, Params)
             if Params.COMPARE:
                 exploreOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fNameExplore+'*.mat'))
                 Params.nModels = np.size(exploreOgramFiles)
@@ -202,6 +204,9 @@ def run(bodyname=None, opt=None, fNames=None):
                 PrintLayerTableLatex(CompareList, Params)
             if Params.DISP_TABLE:
                 PrintGeneralSummary(CompareList, Params)
+    """Post-processing"""
+    # Save generated EOS grids to disk - important for CustomSolution to save post-run to prevent race conditions in parallel computing
+    SaveEOSToDisk(EOSlist)
 
     return
 
@@ -941,8 +946,6 @@ def InductOgram(bodyname, Params):
 
             else:
                 raise ValueError(f'inductOtype {Params.Induct.inductOtype} behavior not defined.')
-        if 'CustomSolution' in Planet.Ocean.comp:
-            CustomSolutionEOSGenerator(PlanetGrid, Params)
         tMarks = np.append(tMarks, time.time())
         log.info('PlanetGrid constructed. Calculating induction responses.')
         Params.INDUCTOGRAM_IN_PROGRESS = True
@@ -1394,28 +1397,6 @@ def ParPlanetExplore(Planet, Params, xList, yList):
     log.setLevel(saveLevel)
 
     return PlanetGrid
-
-def CustomSolutionEOSGenerator(PlanetGrid, Params):
-    """
-    Wrapper to (optionally) parallel load EOS over unique values of w_ppt, ensuring that these EOS have been generated and written to disk. Especially useful to prevent simultaenous writing in InductoGram.
-    Args:
-
-    Returns:
-
-    """
-    # Dictionary to store one planet for each unique wOcean_ppt
-    unique_planets = {}
-
-    # Iterate through the list of planets and keep only the first planet for each unique wOcean_ppt
-    for planet in PlanetGrid.flatten():
-        wOcean_ppt = planet.Ocean.wOcean_ppt
-        # If the wOcean_ppt is not already in the dictionary, add the planet
-        if wOcean_ppt not in unique_planets:
-            unique_planets[wOcean_ppt] = planet
-    # Extract the values (planets) from the dictionary
-    unique_planets_list = list(unique_planets.values())
-    # Call parallel computing on CustomSOlutionEOSGEenerator
-    GridPlanetProfileFunc(EOSLookupTableLoader, unique_planets_list, Params)
 
 def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
     """ Wrapper for (optionally) parallel run of multiple Planet objects through the
