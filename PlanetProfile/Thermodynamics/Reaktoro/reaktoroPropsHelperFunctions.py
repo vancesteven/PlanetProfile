@@ -126,9 +126,9 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     Returns:
         db, system, state, conditions, solver, props, ice_name: Relevant reaktoro objects
     """
-    aqueous_species_list, speciation_ratio_per_kg = species_convertor_compatible_with_supcrt(aqueous_species_list, speciation_ratio_per_kg, PhreeqcToSupcrtNames)
     # Initialize the database
     db = rkt.SupcrtDatabase(database)
+    aqueous_species_list, speciation_ratio_per_kg = species_convertor_compatible_with_supcrt(db, aqueous_species_list, speciation_ratio_per_kg, PhreeqcToSupcrtNames)
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
     solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
@@ -168,9 +168,9 @@ def RelevantSolidSpecies(db, aqueous_species_list, solid_phases):
     solids_tester = rkt.MineralPhases()
     system_tester = rkt.ChemicalSystem(db, solution, solids_tester)
     relevant_solid_phases = system_tester.species().withAggregateState(rkt.AggregateState.Solid)
-    if solid_phases is None:
+    if solid_phases == 'All':
         for solid_phase in relevant_solid_phases:
-            solid_phases_to_consider = solid_phases_to_consider + f' {solid_phase.name()}'
+            solid_phases = solid_phases + f' {solid_phase.name()}'
     for solid in solid_phases:
         if relevant_solid_phases.findWithName(solid) < relevant_solid_phases.size():
             solid_phases_to_consider = solid_phases_to_consider + f' {solid}'
@@ -197,13 +197,14 @@ def ices_phases_amount_mol(props: rkt.ChemicalProps):
     return ice_chem_potential - water_chem_potential
 
 
-def species_convertor_compatible_with_supcrt(aqueous_species_string, speciation_ratio_per_kg, Phreeqc_to_Supcrt_names):
+def species_convertor_compatible_with_supcrt(supcrt_db, aqueous_species_string, speciation_ratio_per_kg, Phreeqc_to_Supcrt_names):
     """
     Converts aqueous species string and speciation ratio dictionary into formats compatible with supcrt. Namely, in phreeqc the liquid phase of H2O
     is labeled "H2O", whereas in supcrt it requires "H2O(aq)". Thus, converts "H2O" in the string and speciation ratio dictionary to "H2O(aq)".
     Importantly, since speciation_ratio_per_kg is a dictionary, we must make a deep copy before editing so as to not disturb the original dictionary, which
     will still be used by the phreeqc database in the phase change function.
     Args:
+        supcrt_db: Supcrt database that we are using
         aqueous_species_string: String that has all species names that should be considered in aqueous phase
         speciation_ratio_per_kg: Dictionary of active species and the values of their molar ratio (mol/kg of water)
         Phreeqc_to_Supcrt_names: Dictionary of Phreeqc names that must be converted to Supcrt for compatibility
@@ -213,16 +214,20 @@ def species_convertor_compatible_with_supcrt(aqueous_species_string, speciation_
     """
     # Since python passes dictionary by reference, need to make deep copy to preserve original dictionary
     supcrt_speciation_ratio_per_kg = copy.deepcopy(speciation_ratio_per_kg)
-    # Dictionary of known values that are different between Phreeqc and supcrt
-    for phreeqc_name, supcrt_name in Phreeqc_to_Supcrt_names.items():
-        # Check if name is in the string (and thus dictionary), indicating it is not compatible with supcrt
-        if phreeqc_name in speciation_ratio_per_kg:
-            # Change label
-            aqueous_species_string = aqueous_species_string.replace(phreeqc_name, supcrt_name)
+    supcrt_aqueous_species = supcrt_db.species().withAggregateState(rkt.AggregateState.Aqueous)
+    for phreeqc_formula in speciation_ratio_per_kg:
+        # First, let's check if we can find the matching compound by formula, since Phreeqc uses formula whereas supcrt uses compound names
+        if supcrt_aqueous_species.findWithFormula(phreeqc_formula) < supcrt_aqueous_species.size():
+            supcrt_name = supcrt_aqueous_species.getWithFormula(phreeqc_formula).name()
             # Now change the phreeqc key in the dictionary to supcrt key
-            supcrt_speciation_ratio_per_kg[supcrt_name] = supcrt_speciation_ratio_per_kg.pop(phreeqc_name)
+            supcrt_speciation_ratio_per_kg[supcrt_name] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
+        # Otherwise, let's check if we can find matching compound in Phreeqc_to_supcrt_names
+        elif phreeqc_formula in Phreeqc_to_Supcrt_names:
+            # Now change the phreeqc key in the dictionary to supcrt key
+            supcrt_speciation_ratio_per_kg[Phreeqc_to_Supcrt_names[phreeqc_formula]] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
+
     # Return the string and adapted dictionary
-    return aqueous_species_string, supcrt_speciation_ratio_per_kg
+    return " ".join(supcrt_speciation_ratio_per_kg.keys()), supcrt_speciation_ratio_per_kg
 
 
 def interpolation_2d(P_MPa, arrays):
