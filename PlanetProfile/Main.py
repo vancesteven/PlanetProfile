@@ -1460,8 +1460,18 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
         if bodyname == 'Test':
             Params.Explore.nx = 5
             Params.Explore.ny = 5
-        xList = np.linspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
-        yList = np.linspace(Params.Explore.yRange[0], Params.Explore.yRange[1], Params.Explore.ny)
+        if Params.Explore.xName in Params.Explore.provideExploreRange:
+            xList = loadmat(DataFiles.xRangeData)['Data'].flatten().tolist()
+            if Params.Explore.nx != len(xList):
+                raise ValueError(f"Size of provided range list ({len(xList)}) does not match input Params.Explore.nx {Params.Explore.nx}. Adjust so they match.")
+        else:
+            xList = np.linspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
+        if Params.Explore.yName in Params.Explore.provideExploreRange:
+            yList = loadmat(DataFiles.yRangeData)['Data'].flatten().tolist()
+            if Params.Explore.ny != len(yList):
+                raise ValueError(f"Size of provided range list ({len(yList)}) does not match input Params.Explore.nx {Params.Explore.ny}. Adjust so they match.")
+        else:
+            yList = np.linspace(Params.Explore.yRange[0], Params.Explore.yRange[1], Params.Explore.ny)
         Params.nModels = Params.Explore.nx * Params.Explore.ny
         if not Params.SKIP_INNER:
             log.warning('Running explore-o-gram with interior calculations, which will be slow.')
