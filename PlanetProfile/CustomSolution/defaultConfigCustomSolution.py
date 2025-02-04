@@ -1,7 +1,7 @@
 """ Default custom ocean solution settings """
 from PlanetProfile.Utilities.defineStructs import CustomSolutionParamsStruct
 
-configCustomSolutionVersion = 4 # Integer number for config file version. Increment when new settings are added to the default config file.
+configCustomSolutionVersion = 5 # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def customSolutionAssign():
     CustomSolutionParams = CustomSolutionParamsStruct()
