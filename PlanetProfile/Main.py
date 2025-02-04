@@ -1638,7 +1638,7 @@ def AssignPlanetVal(Planet, name, val):
         Planet.Sil.Qrad_Wkg = val
     elif name == 'qSurf_Wm2':
         Planet.Bulk.qSurf_Wm2 = val
-    elif name == 'compOcean':
+    elif name == 'oceanComp':
         Planet.Ocean.comp = val
     elif name == 'compSil':
         Planet.Sil.mantleEOS = val

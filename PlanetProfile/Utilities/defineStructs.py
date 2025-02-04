@@ -1009,10 +1009,10 @@ class ExploreParamsStruct:
             'Htidal_Wm3': 'inner',
             'Qrad_Wkg': 'inner',
             'qSurf_Wm2': 'inner',
-            'compOcean': 'hydro'
+            'oceanComp': 'hydro'
         }
 
-        self.provideExploreRange = ['compOcean'] # List of explore options where user must provide the array to explore over
+        self.provideExploreRange = ['oceanComp'] # List of explore options where user must provide the array to explore over
 
 
 
