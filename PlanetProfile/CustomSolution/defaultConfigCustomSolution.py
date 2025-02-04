@@ -23,4 +23,9 @@ def customSolutionAssign():
     # Only valid if SOLID_PHASES is True. Specify the Solid Phases to consider - specifying only primary phases can speed up runtime. None considers all possible phases available in database
     CustomSolutionParams.SOLID_PHASES_TO_CONSIDER = ['Carbonates', 'Sulfates'] # Can specify minerals specifically, or add keywords that include 'Carbonates', 'Sulfates'
 
+    # Have PlanetProfile remove species that Frezchem does not have in database so we can consider more diverse speciated compositions in the ocean thermodynamcis
+    # This removes self-consistency between the phase equilibria (up to 200MPa) and ocean thermodynamics since frezchem is calculating liquid-IceI equilibria of a less speciated chemistry
+    # Example usage is when user wants to consider an ocean with Fe aqueous species, which Frezchem does not have. So we remove any Fe species from the Frezchem system, but they are still considered in Supcrt system.
+    CustomSolutionParams.REMOVE_SPECIES_NA_IN_FREZCHEM = False
+
     return CustomSolutionParams
