@@ -1112,9 +1112,25 @@ def PlotExploreOgram(ExplorationList, Params):
         ax.set_xscale(FigLbl.xScaleExplore)
         ax.set_yscale(FigLbl.yScaleExplore)
 
-        x = Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore
-        y = Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore
+
+        x = Exploration.__getattribute__(Exploration.xName)
+        if np.issubdtype(x.dtype, np.number):
+            x = x * FigLbl.xMultExplore
+        else:
+            x = np.zeros(x.shape)
+            # Loop over each row and assign the same increasing integer
+            for i in range(x.shape[0]):
+                x[i, :] = i
+        y = Exploration.__getattribute__(Exploration.yName)
+        if  np.issubdtype(y.dtype, np.number):
+            y = y * FigLbl.yMultExplore
+        else:
+            y = np.zeros(y.shape)
+            # Loop over each row and assign the same increasing integer
+            for i in range(y.shape[1]):
+                y[:, i] = i
         z = Exploration.__getattribute__(Exploration.zName) * FigLbl.zMultExplore
+
         ax.set_xlim([np.min(x), np.max(x)])
         ax.set_ylim([np.min(y), np.max(y)])
         # Only keep data points for which a valid model was determined
@@ -1158,9 +1174,23 @@ def PlotExploreOgram(ExplorationList, Params):
         ax.set_xscale(FigLbl.xScaleExplore)
         ax.set_yscale(FigLbl.yScaleExplore)
 
-        x = ExplorationList[0].__getattribute__(ExplorationList[0].xName) * FigLbl.xMultExplore
-        y = ExplorationList[0].__getattribute__(ExplorationList[0].yName) * FigLbl.yMultExplore
-        z = ExplorationList[0].__getattribute__(ExplorationList[0].zName) * FigLbl.zMultExplore
+        x = Exploration.__getattribute__(Exploration.xName)
+        if np.issubdtype(x.dtype, np.number):
+            x = x * FigLbl.xMultExplore
+        else:
+            x = np.zeros(x.shape)
+            # Loop over each row and assign the same increasing integer
+            for i in range(x.shape[0]):
+                x[i, :] = i
+        y = Exploration.__getattribute__(Exploration.yName)
+        if np.issubdtype(y.dtype, np.number):
+            y = y * FigLbl.yMultExplore
+        else:
+            y = np.zeros(y.shape)
+            # Loop over each row and assign the same increasing integer
+            for i in range(y.shape[1]):
+                y[:, i] = i
+        z = Exploration.__getattribute__(Exploration.zName) * FigLbl.zMultExplore
         # Only keep data points for which a valid model was determined
         zShape = np.shape(z)
         z = np.reshape(z, -1)
@@ -1169,8 +1199,8 @@ def PlotExploreOgram(ExplorationList, Params):
         # Return data to original organization
         z = np.reshape(z, zShape)
         for Exploration in ExplorationList[1:]:
-            x = np.append(x, Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore)
-            y = np.append(y, Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore)
+            x = np.append(x, Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore if np.issubdtype(x.dtype, np.number) else np.repeat(np.arange(x.shape[0])[:, np.newaxis], x.shape[1], axis=1))
+            y = np.append(y, Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore if np.issubdtype(y.dtype, np.number) else np.repeat(np.arange(y.shape[1])[np.newaxis, :], y.shape[0], axis=0))
             thisz = Exploration.__getattribute__(Exploration.zName) * FigLbl.zMultExplore
             # Only keep data points for which a valid model was determined
             zShape = np.shape(thisz)
