@@ -10,6 +10,7 @@ from PlanetProfile.Plotting.PTPlots import PlotHydroPhase, PlotPvThydro, PlotPvT
 from PlanetProfile.Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices, PhaseConv
 from PlanetProfile.Utilities.defineStructs import Constants
+from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
