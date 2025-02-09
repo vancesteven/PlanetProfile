@@ -19,6 +19,9 @@ def GeneratePlots(PlanetList, Params):
     if not FigMisc.TEX_INSTALLED:
         for Planet in PlanetList:
             Planet.label = FigLbl.StripLatexFromString(Planet.label)
+    # Generate CustomSolution plot settings
+    if any('CustomSolution' in Planet.Ocean.comp for Planet in PlanetList ):
+        Params = SetupCustomSolutionPlotSettings(np.array([Planet.Ocean.comp for Planet in PlanetList]), Params)
 
     # Handle refprofiles first, so we can print log messages before silencing them
     if Params.PLOT_HYDROSPHERE and not Params.ALL_NO_H2O:

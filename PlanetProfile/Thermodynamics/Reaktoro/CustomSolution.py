@@ -1,33 +1,36 @@
-""" File for functions relevant to Custom Solution"""
-from PlanetProfile.GetConfig import Color, Style, FigLbl, FigMisc
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import MolalConverter, wpptCalculator
+""" File for functions relevant to Custom Solution implementation into PlanetProfile"""
+from PlanetProfile.GetConfig import Color, Style
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import MolalConverter, wpptCalculator, SpeciesParser, EOSLookupTableLoader
 import numpy as np
-from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import EOSLookupTableLoader
+
 
 def SetupCustomSolution(Planet, Params):
-    # Ensure that ocean composition is in molal
-    if Params.CustomSolution.SPECIES_CONCENTRATION_UNIT == 'g':
-        Planet.Ocean.comp = MolalConverter(Planet.Ocean.comp)
-    # Calculate w_ppt for Planet Ocean comp if not specified
-    if Planet.Ocean.wOcean_ppt is None or Planet.Ocean.wOcean_ppt < 0:
-        # Flag that we are not using wOcean_ppt as independent parameter - used in file name generation
-        Planet.Do.USE_WOCEAN_PPT = False
-        Planet.Ocean.wOcean_ppt = wpptCalculator(Planet.Ocean.comp.split('=')[1].strip())
-    SetupCustomSolutionPlotSettings(np.array(Planet.Ocean.comp), Params)
+    """
+    Configure a Planet's ocean comp and wOcean_ppt based on settings specified in PPCustomSolution.py
+    """
+    if 'CustomSolution' in Planet.Ocean.comp:
+        # Ensure that ocean composition is in molal
+        if Params.CustomSolution.SPECIES_CONCENTRATION_UNIT == 'g':
+            Planet.Ocean.comp = MolalConverter(Planet.Ocean.comp)
+        # Calculate w_ppt for Planet Ocean comp if not specified
+        if Planet.Ocean.wOcean_ppt is None or Planet.Ocean.wOcean_ppt < 0:
+            # Flag that we are not using wOcean_ppt as independent parameter - used in file name generation
+            Planet.Do.USE_WOCEAN_PPT = False
+            Planet.Ocean.wOcean_ppt = wpptCalculator(Planet.Ocean.comp.split('=')[1].strip())
+        Params = SetupCustomSolutionPlotSettings(np.array(Planet.Ocean.comp), Params)
+        SetupCustomSolutionEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt)
     return Planet, Params
 
 
-def SaveEOSToDisk(EOSList):
+def SetupCustomSolutionEOS(CustomSolutionComp, wOcean_ppt):
     """
-    Save EOS to disk, so we can load from disk rather than having to re-generate next time.
-    This currently applies to CustomSolution, where we generate EOS during Profile run and save to EOSList
+    Generate/Load a Planet's custom solution EOS. We generate and load here so when GetOceanEOS is called, the file is already loaded.
     """
-    for EOS in EOSlist.loaded['CustomSolutionEOS']:
-        # If we have an EOSLookupTableLoader, then we need to save to disk
-        if isinstance(EOSlist.loaded['CustomSolutionEOS'][EOS], EOSLookupTableLoader):
-            EOSlist.loaded['CustomSolutionEOS'][EOS].saveEOSToDisk()
-
+    # Parse out the species list and ratio into a format compatible with Reaktoro and create a CustomSolution EOS label
+    aqueous_species_string, speciation_ratio_mol_kg, ocean_solid_phases, EOS_lookup_label = SpeciesParser(
+        CustomSolutionComp, wOcean_ppt)
+    # Call function to generate EOS table
+    EOSLookupTableLoader(aqueous_species_string, speciation_ratio_mol_kg, ocean_solid_phases, EOS_lookup_label)
 
 
 def SetupCustomSolutionPlotSettings(PlanetOceanArray, Params):
@@ -49,3 +52,4 @@ def SetupCustomSolutionPlotSettings(PlanetOceanArray, Params):
             Style.LS_ref[CustomSolutionOceanComp] = Style.LS_ref["CustomSolution"]
             Params.wRef_ppt[CustomSolutionOceanComp] = Params.wRef_ppt["CustomSolution"]
             Params.fNameRef[CustomSolutionOceanComp] = f'{CustomSolutionOceanComp}Ref.txt'
+    return Params

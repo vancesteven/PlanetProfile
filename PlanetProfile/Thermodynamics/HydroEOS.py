@@ -14,10 +14,8 @@ from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4Phase
 from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
-# from PlanetProfile.Thermodynamics.Reaktoro.sigmaElectricMcCleskey2012 import elecCondMcCleskey2012
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand,  \
     SpeciesParser, RktProps, RktSeismic, RktConduct, RktHydroSpecies, RktRxnAffinity, EOSLookupTableLoader
-from PlanetProfile.Utilities.DataManip import ReturnConstantPTw
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 

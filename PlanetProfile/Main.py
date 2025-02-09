@@ -31,7 +31,7 @@ from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
 from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, EOSlist, ExplorationResults
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
-from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolution, SetupCustomSolutionPlotSettings, SaveEOSToDisk
+from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 from PlanetProfile.Utilities.PPversion import ppVerNum
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import EOSLookupTableLoader
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
@@ -81,7 +81,7 @@ def run(bodyname=None, opt=None, fNames=None):
         else:
             Induction, Params = InductOgram(bodyname, Params)
         if not Params.SKIP_PLOTS:
-            SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
+            Params = SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
             PlotInductOgram(Induction, Params)
             if Params.COMPARE:
                 inductOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.inductPath, '*.mat'))
@@ -103,7 +103,7 @@ def run(bodyname=None, opt=None, fNames=None):
         else:
             Exploration, Params = ExploreOgram(bodyname, Params)
         if not Params.SKIP_PLOTS:
-            SetupCustomSolutionPlotSettings(Exploration.oceanComp, Params)
+            Params = SetupCustomSolutionPlotSettings(Exploration.oceanComp, Params)
             if Params.COMPARE:
                 exploreOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fNameExplore+'*.mat'))
                 Params.nModels = np.size(exploreOgramFiles)
@@ -204,10 +204,6 @@ def run(bodyname=None, opt=None, fNames=None):
                 PrintLayerTableLatex(CompareList, Params)
             if Params.DISP_TABLE:
                 PrintGeneralSummary(CompareList, Params)
-    """Post-processing"""
-    # Save generated EOS grids to disk - important for CustomSolution to save post-run to prevent race conditions in parallel computing
-    SaveEOSToDisk(EOSlist)
-
     return
 
 """ END MAIN RUN BLOCK """
@@ -695,8 +691,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     if 'CustomSolution' in Planet.Ocean.comp:
         # We save Planet.Ocean.comp in txt file in mols so change ReaktoroParams setting
         Params.CustomSolution.SPECIES_CONCENTRATION_UNIT = 'mol'
-        Planet, Params = SetupCustomSolution(Planet, Params)
-
+        Params = SetupCustomSolutionPlotSettings(Planet, Params)
     return Planet, Params
 
 
@@ -1460,6 +1455,7 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
         if bodyname == 'Test':
             Params.Explore.nx = 5
             Params.Explore.ny = 5
+
         if Params.Explore.xName in Params.Explore.provideExploreRange:
             xList = loadmat(DataFiles.xRangeData)['Data'].flatten().tolist()
             if Params.Explore.nx != len(xList):
@@ -1472,6 +1468,7 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
                 raise ValueError(f"Size of provided range list ({len(yList)}) does not match input Params.Explore.nx {Params.Explore.ny}. Adjust so they match.")
         else:
             yList = np.linspace(Params.Explore.yRange[0], Params.Explore.yRange[1], Params.Explore.ny)
+
         Params.nModels = Params.Explore.nx * Params.Explore.ny
         if not Params.SKIP_INNER:
             log.warning('Running explore-o-gram with interior calculations, which will be slow.')
