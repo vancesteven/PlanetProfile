@@ -691,7 +691,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     if 'CustomSolution' in Planet.Ocean.comp:
         # We save Planet.Ocean.comp in txt file in mols so change ReaktoroParams setting
         Params.CustomSolution.SPECIES_CONCENTRATION_UNIT = 'mol'
-        Params = SetupCustomSolutionPlotSettings(Planet, Params)
+        Params = SetupCustomSolutionPlotSettings(np.array(Planet.Ocean.comp), Params)
     return Planet, Params
 
 
