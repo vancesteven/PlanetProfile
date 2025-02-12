@@ -33,8 +33,9 @@ from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruc
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 from PlanetProfile.Utilities.PPversion import ppVerNum
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import EOSLookupTableLoader
+from PlanetProfile.Gravity.Gravity import GravityParameters
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
+from PlanetProfile.Utilities.reducedPlanetModel import GetReducedPlanetProfile
 
 # Parallel processing
 import multiprocessing as mtp
@@ -245,7 +246,9 @@ def PlanetProfile(Planet, Params):
 
         GeneratePlots(PlanetList, Params)
         Planet = PlanetList[0]
-
+    # Create a simplified reduced planet structure for magnetic induction and/or gravity calculations
+    if Planet.Do.VALID:
+        Planet, Params = GetReducedPlanetProfile(Planet, Params)
     # Magnetic induction calculations and plots
     if (Params.CALC_CONDUCT and Planet.Do.VALID) and not Params.SKIP_INDUCTION:
         # Calculate induced magnetic moments
@@ -262,9 +265,9 @@ def PlanetProfile(Planet, Params):
             GenerateMagPlots([Planet], Params)
 
     # Gravity calcuations and plots
-    # if (Params.CALC_CONDUCT and Planet.Do.VALID) and not Params.SKIP_GRAVITY:
+    if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY and Planet.Do.VALID) and not Params.SKIP_GRAVITY:
         # Calculate gravity parameters
-        # Planet, Params = GravityParameters(Planet, Params)
+        Planet, Params = GravityParameters(Planet, Params)
 
     PrintCompletion(Planet, Params)
     return Planet, Params

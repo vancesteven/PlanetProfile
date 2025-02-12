@@ -461,30 +461,25 @@ class MagneticSubstruct:
 """ Gravity parameter """
 class GravitySubstruct:
     def __init__(self):
-        # Parameters needed for PyALMA3
-        self.columns = ['P', 'T', 'r', 'phase', 'rho', 'Cp', 'alpha',
-               'g', 'phi', 'sigma', 'kTherm', 'VP', 'VS',
-               'QS', 'KS', 'GS', 'Ppore', 'rhoMatrix',
-               'rhoPore', 'MLayer', 'VLayer', 'Htidal', 'eta']  # Column names of PP - Should be updated whenever main PP is updated with new outputs
-        self.units_PyALMA3 = ['Pa', 'K', 'm', '', 'kg m-3', 'J kg-1 K-1', 'K-1',
-             'm s-2', '-', 'S m-1', 'W m-1 K-1', 'm s-1', 'm s-1',
-             '', 'Pa', 'Pa', 'Pa', 'kg m-3',
-             'kg m-3', 'kg', 'm3', 'W m-3', 'Pa s'] # Units of each column for compatibility with PyALMA3 - Namely, uses Pascals and meters
-        self.parameters_to_convert = {'P': 1e6, 'VP': 1e3, 'VS': 1e3,
-                                      'KS': 1e9, 'GS': 1e9, 'Ppore': 1e6} # Parameters that need to be converted to units of PyALMA3 and conversion factor
-
+        self.columns = ['r', 'phase', 'rho', 'VP', 'VS', 'GS', 'eta']
+        self.units_PyALMA3 = ['m', '', 'kg m-3', 'm s-1', 'm s-1', 'GPa', 'kg/m*s']
+        self.parameters_to_convert = {'VP': 1e3, 'VS': 1e3, 'GS': 1e9} # Parameters that need to be converted to units of PyALMA3 and conversion factor
         self.model = None # Compatible form of Planet data
+        self.ALMAModel = None # Dictionary of data necessary for ALMA functions
 
 
-        # Calculated parameters needed for PyALMA3
+        # Properties needed for PyALMA3
         self.LAMBDA_Pa = None # 1st Lame parameter in Pascals
         self.MU_Pa = None # Shear modulus in Pascals
-        self.K_Pa = None # Bulk modulus in Pascals
         self.SIGMA = None # Poisson's ratio
         self.Y_Pa = None # Young's modulus in Pascals
-        self.RIGIDITY_Pa = None # Rigidity in Pascals
         self.grad_Vs_s = None # Gradient of shear wave velocity in 1/s
-        self.VISCOSITY_kgms = None # Viscosity in kg/m*s
+        self.VISCOSITY_kg_ms = None # Viscosity in kg/m*s
+
+        # Calculated love numbers - 2d array of shape len(harmonic_degrees)xlen(time_log_kyrs) [see configPPgravity]
+        self.h = None # h love number
+        self.l = None # l love number
+        self.k = None # k love number
 
 
 """ Main body profile info--settings and variables """
@@ -506,6 +501,7 @@ class PlanetStruct:
         self.Sil = SilSubstruct()
         self.Core = CoreSubstruct()
         self.Seismic = SeismicSubstruct()
+        self.Reduced = ReducedPlanetStruct()
         self.Magnetic = MagneticSubstruct()
         self.Gravity = GravitySubstruct()
 
@@ -630,6 +626,19 @@ class PlanetStruct:
 
         # Info for diagnosing out-of-bounds models
         self.invalidReason = None
+
+""" Reduced planet struct """
+class ReducedPlanetStruct:
+    def __init__(self):
+        self.rPhase = None #Reduced phase to use
+        self.rLayers_m = None # The reduced layer radii to use
+        self.rSigma_Sm = None # The reduced sigma to use
+        self.rRho_kgm3 = None # The reduced density to use
+        self.rVS_kms = None # The reduced VS to use
+        self.rVP_kms = None # The reduced VP to use
+        self.rGS_GPa = None # The reduced GS to use
+        self.reta_Pas = None # The reduced viscosity to use
+
 
 
 """ Params substructs """
@@ -980,6 +989,34 @@ class ExcitationSpectrumParamsStruct:
         self.nOmegaPts = 100  # Resolution in log frequency space for magnetic excitation spectra
         self.interpMethod = 'cubic'  # Interpolation method for complex response amplitudes in Fourier spectrum
         self.Tmin_hr = None  # Cutoff period in hr to limit Fourier space plots to
+
+""" Gravity response settings """
+class GravityParamsStruct:
+    def __init__(self):
+        # Verbose settings of PyALMA - #TODO: Need to update PYALMA to use logger
+        self.verbose = True
+
+        # Parallel computing
+        self.parallel = False # Use Parallel computing for PyALMA calculations. #TODO: Need to implement way to do this if Parallel already being used in Exploreogram
+        # Parsing parameters
+        self.rheology_structure = ['elastic', 'newton', 'newton', 'maxwell'] # Rheology structure model, where each model corresponds to a layer (core to surface)
+        self.layer_radius = False # Manually define transition in layers (see PyAlma.init.infer_rheology_pp). Set to False since we define transitions by ReducedPlanetStruct
+        self.layer_radius_index = False # If set to true, layer_radius values will be treated as index (see PyAlma.init.infer_rheology_pp). Set to False since we define transitions by ReducedPlanetStruct
+
+        # General parameters
+        self.num_digits = 128 # Set precision
+        self.gorder = 8 # Order of Gaver method
+        self.tau = 0 #TODO: FIGURE OUT WHAT TAU DOES
+        self.loading_type = 'tidal' # Loading type to calculate love numbers - 'tidal' or 'loading'
+
+        # Harmonic degrees
+        self.harmonic_degrees = None # List of harmonic degrees to calculate
+        self.time_log_kyrs = None # List of time range in log_kyrs
+        self.time_history_function = 'step' # Function to use for time - 'step' or 'ramp'
+        self.ramp_function_length_kyrs = None # Ramp length in kyrs
+
+        # Output parameters
+        self.output_type = 'real' # Output type - 'complex' or 'real'
 
 
 """ ExploreOgram input parameters struct """

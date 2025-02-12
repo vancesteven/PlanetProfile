@@ -492,7 +492,8 @@ def SetupInduction(Planet, Params):
                     Planet.Magnetic.ionosBounds_m = [np.nan]
                     Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
                 # Now, we handle unset ionospheres
-                if np.all(np.isnan(Planet.Magnetic.ionosBounds_m)) or np.all(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
+                if np.all(np.isnan(Planet.Magnetic.ionosBounds_m)) or np.all(
+                        np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
                     # Make sure the arrays are both just length 1 of nan
                     Planet.Magnetic.ionosBounds_m = [np.nan]
                     Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
@@ -507,41 +508,12 @@ def SetupInduction(Planet, Params):
                     if np.size(Planet.Magnetic.sigmaIonosPedersen_Sm) == 1 and np.size(Planet.Magnetic.ionosBounds_m) == 2:
                         sigmaIonos_Sm = np.append(0, sigmaIonos_Sm)
                 # Flip arrays to be in radial ascending order as needed in induction calculations, then add ionosphere
-                rLayers_m = np.append(np.flip(Planet.r_m[:-1]), zIonos_m)
-                sigmaInduct_Sm = np.append(np.flip(Planet.sigma_Sm), sigmaIonos_Sm)
-
-                # Eliminate NaN values and 0 values, assigning them to a default minimum
-                sigmaInduct_Sm[np.logical_or(np.isnan(sigmaInduct_Sm), sigmaInduct_Sm == 0)] = Constants.sigmaDef_Sm
-                # Set low conductivities to all be the same default value so we can shrink them down to single layers
-                sigmaInduct_Sm[sigmaInduct_Sm < Constants.sigmaMin_Sm] = Constants.sigmaDef_Sm
-
-                # Optionally, further reduce computational overhead by shrinking the number of ocean layers modeled
-                if np.size(indsLiq) != 0 and Params.Sig.REDUCED_INDUCT and not Planet.Do.NO_H2O:
-                    if not np.all(np.diff(indsLiq) == 1):
-                        log.warning('HP ices found in ocean while REDUCED_INDUCT is True. They will be ignored ' +
-                                    'in the interpolation.')
-
-                    # Get radius values from D/nIntL above the seafloor to the ice shell
-                    rBot_m = Planet.Bulk.R_m - (Planet.zb_km + Planet.D_km) * 1e3
-                    rTop_m = rLayers_m[indsLiq[-1]]
-                    rOcean_m = np.linspace(rBot_m, rTop_m, Params.Induct.nIntL+1)[1:]
-                    # Interpolate the conductivities corresponding to those radii
-                    if np.size(indsLiq) == 1:
-                        log.warning(f'Only 1 layer found in ocean, but number of layers to ' +
-                                    f'interpolate over is {Params.Induct.nIntL}. Arbitrary layers will be introduced.')
-                        rModel_m = np.concatenate((np.array([rBot_m]), rLayers_m[indsLiq]))
-                        sigmaModel_Sm = np.concatenate((sigmaInduct_Sm[indsLiq] * 1.001, sigmaInduct_Sm[indsLiq]))
-                    else:
-                        rModel_m = rLayers_m[indsLiq]
-                        sigmaModel_Sm = sigmaInduct_Sm[indsLiq]
-                    sigmaOcean_Sm = spi.interp1d(rModel_m, sigmaModel_Sm, kind=Params.Induct.oceanInterpMethod,
-                                                 bounds_error=False, fill_value=Constants.sigmaDef_Sm)(rOcean_m)
-                    # Stitch together the r and sigma arrays with the new ocean values
-                    rLayers_m = np.concatenate((rLayers_m[:indsLiq[0]], rOcean_m, rLayers_m[indsLiq[-1]+1:]))
-                    sigmaInduct_Sm = np.concatenate((sigmaInduct_Sm[:indsLiq[0]], sigmaOcean_Sm, sigmaInduct_Sm[indsLiq[-1]+1:]))
-
+                rLayers_m = np.append(np.flip(Planet.Reduced.rLayers_m), zIonos_m)
+                sigmaInduct_Sm = np.append(np.flip(Planet.Reduced.rSigma_Sm), sigmaIonos_Sm)
+                # We must append the ionosphere layers where changes happen
                 # Get the indices of layers just below where changes happen
-                iChange = [i for i,sig in enumerate(sigmaInduct_Sm) if sig != np.append(sigmaInduct_Sm, np.nan)[i+1]]
+                iChange = [i for i, sig in enumerate(sigmaInduct_Sm) if
+                           sig != np.append(sigmaInduct_Sm, np.nan)[i + 1]]
                 Planet.Magnetic.sigmaLayers_Sm = sigmaInduct_Sm[iChange]
                 Planet.Magnetic.rSigChange_m = rLayers_m[iChange]
 
