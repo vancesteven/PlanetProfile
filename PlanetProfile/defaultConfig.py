@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 18  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 19  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def configAssign():
     Params = ParamsStruct()
@@ -29,6 +29,7 @@ def configAssign():
     Params.CALC_NEW =         True  # Recalculate profiles? If not, read data from disk and re-plot.
     Params.CALC_NEW_REF =     True  # Recalculate reference melting curve densities?
     Params.CALC_NEW_INDUCT =  True  # Recalculate magnetic induction responses?
+    Params.CALC_NEW_GRAVITY = True  # Recalculate gravity parameters (i.e. love numbers)?
     Params.CALC_NEW_ASYM =    False  # Recalculate asymmetric boundary plot(s)?
     Params.CALC_SEISMIC =     True  # Calculate sound speeds and elastic moduli?
     Params.CALC_CONDUCT =     True  # Calculate electrical conductivity?
@@ -63,7 +64,7 @@ def configAssign():
     Params.PLOT_WEDGE =       True  # Whether to plot interior wedge diagram
     Params.PLOT_HYDRO_PHASE = False  # Whether to plot phase diagram
     Params.PLOT_PVT_HYDRO =   False  # Whether to plot hydrosphere PT property plots
-    Params.PLOT_PVT_ISOTHERMAL_HYDRO = True # Whether to plot hydrosphere PT isothermal property plots
+    Params.PLOT_PVT_ISOTHERMAL_HYDRO = False # Whether to plot hydrosphere PT isothermal property plots
     Params.PLOT_PVT_INNER =   False  # Whether to plot silicate/core PT property plots
     Params.PLOT_BDIP =        False  # Whether to plot induced dipole surface strength in complex plane
     Params.PLOT_BSURF =       True  # Whether to plot induced field surface map
@@ -72,6 +73,9 @@ def configAssign():
     Params.PLOT_BINVERSION =  False  # Whether to plot magnetic field vector components for flyby inversion
     Params.LEGEND =           True  # Whether to plot legends
     Params.TITLES =           True  # Whether to include a (sup)title on plots
+
+    # Reduced planet calculation settings
+    Params.REDUCE_ACCORDING_TO = 'MagneticInduction'  # Whether to reduce according to induction parameters (change in sigma) or gravity settings (not implemented currently)
 
     # Magnetic induction plot settings
     Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question
@@ -84,6 +88,7 @@ def configAssign():
     # Parameter exploration plot settings
     Params.DO_EXPLOREOGRAM = False  # Whether to evaluate and/or plot an exploreogram for the body in question
     Params.SKIP_INDUCTION = False  # Whether to skip past induction calculations. Primarily intended to avoid duplicate calculations in exploreOgrams
+    Params.SKIP_GRAVITY = False  # Whether to skip past gravity calculations. Primarily intended to avoid duplicate calculations in exploreOgrams
     # Options for x/y variables: "xFeS", "rhoSilInput_kgm3", "oceanComp", "wOcean_ppt", "Tb_K", "ionosTop_km", "sigmaIonos_Sm",
     # "silPhi_frac", "silPclosure_MPa", "icePhi_frac", "icePclosure_MPa", "Htidal_Wm3", "Qrad_Wkg", "qSurf_Wm2" (Do.NO_H2O only)
     # For "oceanComp" option, must provide a .mat file titled xRangeData.mat or yRangeData.mat of a dictionary whose key 'Data' corresponds to a list of ocean comps to query over. Exploreparams.nx/ny should match lens of list.
