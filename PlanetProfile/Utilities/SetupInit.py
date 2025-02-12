@@ -513,6 +513,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
     saveBase = Planet.name + 'Profile_'
     saveLabel = ''
     label = ''
+    comp = Planet.Ocean.comp
     if Planet.Do.NO_H2O:
         saveLabel += f'NoH2O_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
         setStr = f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*FigLbl.qMult:.1f}\,\si{{{FigLbl.fluxUnits}}}$'
@@ -550,6 +551,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             # Get text to left of = sign
             CustomSolutionLabel = Planet.Ocean.comp.split('=')[0].strip()
             setStr = CustomSolutionLabel.replace("CustomSolution", "")
+            comp = CustomSolutionLabel
             # In this case, we are using input speciation from user with no input w_ppt, so we will generate filenames without w_ppt
             if not Planet.Do.USE_WOCEAN_PPT:
                 saveLabel += f'{CustomSolutionLabel}_Tb{Planet.Bulk.Tb_K}K'
@@ -610,12 +612,12 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             exploreBase = f'{Planet.name}ExploreOgram_{exploreAppend}_{saveLabel}'
         else:
             exploreBase = None
-    DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, Planet.Ocean.comp, inductBase=inductBase,
+    DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, comp, inductBase=inductBase,
                                    exploreAppend=exploreAppend, EXPLORE=(Params.DO_INDUCTOGRAM or
                                        Params.DO_EXPLOREOGRAM or Params.INDUCTOGRAM_IN_PROGRESS),
                                    inductAppend=inductAppend)
     FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn,
-                                       comp=Planet.Ocean.comp, exploreBase=exploreBase, inductBase=inductBase,
+                                       comp=comp, exploreBase=exploreBase, inductBase=inductBase,
                                        exploreAppend=figExploreAppend, inductAppend=inductAppend)
 
     # Attach profile name to PlanetStruct in addition to Params
