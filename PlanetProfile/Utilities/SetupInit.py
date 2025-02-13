@@ -31,12 +31,14 @@ def SetupInit(Planet, Params):
 
     # Check dependency compatibility
     CheckCompat('seafreeze')  # SeaFreeze
-    if Planet.Ocean.comp == 'Seawater': CheckCompat('gsw')  # Gibbs Seawater
+    if Planet.Ocean.comp is not None and Planet.Ocean.comp == 'Seawater': CheckCompat('gsw')  # Gibbs Seawater
     if Planet.Do.TAUP_SEISMIC: CheckCompat('obspy')  # TauP (accessed as obspy.taup)
     if Params.CALC_NEW_INDUCT: CheckCompat('MoonMag')  # MoonMag
+    if Params.CALC_NEW_GRAVITY: CheckCompat('pyalma3')
 
     # Check if Custom Reaktoro Solution is being used and if so then update Params with necessary parameters to plot
     if Planet.Ocean.comp is not None and 'CustomSolution' in Planet.Ocean.comp:
+        CheckCompat('reaktoro')
         Planet, Params = SetupCustomSolution(Planet, Params)
 
     # Afford for additional MoI lower-bound uncertainty under non-hydrostatic conditions of 3% of C/MR^2,
