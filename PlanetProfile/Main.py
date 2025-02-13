@@ -82,7 +82,6 @@ def run(bodyname=None, opt=None, fNames=None):
         else:
             Induction, Params = InductOgram(bodyname, Params)
         if not Params.SKIP_PLOTS:
-            Params = SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
             PlotInductOgram(Induction, Params)
             if Params.COMPARE:
                 inductOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.inductPath, '*.mat'))
@@ -104,7 +103,6 @@ def run(bodyname=None, opt=None, fNames=None):
         else:
             Exploration, Params = ExploreOgram(bodyname, Params)
         if not Params.SKIP_PLOTS:
-            Params = SetupCustomSolutionPlotSettings(Exploration.oceanComp, Params)
             if Params.COMPARE:
                 exploreOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fNameExplore+'*.mat'))
                 Params.nModels = np.size(exploreOgramFiles)
@@ -1079,6 +1077,8 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     Induction.SetAxes(Params.Induct.inductOtype)
     Induction.SetComps(Params.Induct.inductOtype)
 
+    Params = SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
+
     return Induction, Planet, Params
 
 
@@ -1805,6 +1805,8 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
         Exploration.chiSquared = reload['chiSquared']
         Exploration.stdDev = reload['stdDev']
         Exploration.Rsquared = reload['Rsquared']
+
+    Params = SetupCustomSolutionPlotSettings(Exploration.oceanComp, Params)
 
     return Exploration, Params
 
