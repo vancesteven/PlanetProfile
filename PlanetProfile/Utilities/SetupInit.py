@@ -34,7 +34,7 @@ def SetupInit(Planet, Params):
     if Planet.Ocean.comp is not None and Planet.Ocean.comp == 'Seawater': CheckCompat('gsw')  # Gibbs Seawater
     if Planet.Do.TAUP_SEISMIC: CheckCompat('obspy')  # TauP (accessed as obspy.taup)
     if Params.CALC_NEW_INDUCT: CheckCompat('MoonMag')  # MoonMag
-    if Params.CALC_NEW_GRAVITY: CheckCompat('pyalma3')
+    # if Params.CALC_NEW_GRAVITY: CheckCompat('pyalma3')
 
     # Check if Custom Reaktoro Solution is being used and if so then update Params with necessary parameters to plot
     if Planet.Ocean.comp is not None and 'CustomSolution' in Planet.Ocean.comp:
