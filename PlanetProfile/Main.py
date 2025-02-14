@@ -1533,6 +1533,9 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
         Exploration.Rcore_km = np.array([[Planeti.Core.Rmean_m/1e3 for Planeti in line] for line in PlanetGrid])
         Exploration.Pseafloor_MPa = np.array([[Planeti.Pseafloor_MPa for Planeti in line] for line in PlanetGrid])
         Exploration.qSurf_Wm2 = np.array([[Planeti.qSurf_Wm2 for Planeti in line] for line in PlanetGrid])
+        Exploration.h_love_number = np.array([[Planeti.Gravity.h for Planeti in line] for line in PlanetGrid])
+        Exploration.l_love_number = np.array([[Planeti.Gravity.l for Planeti in line] for line in PlanetGrid])
+        Exploration.k_love_number = np.array([[Planeti.Gravity.k for Planeti in line] for line in PlanetGrid])
         Exploration.CMR2calc = np.array([[Planeti.CMR2mean for Planeti in line] for line in PlanetGrid])
         Exploration.VALID = np.array([[Planeti.Do.VALID for Planeti in line] for line in PlanetGrid])
         Exploration.invalidReason = np.array([[Planeti.invalidReason for Planeti in line] for line in PlanetGrid])
@@ -1705,6 +1708,9 @@ def WriteExploreOgram(Exploration, Params, INVERSION=False):
         'silPhiCalc_frac': Exploration.silPhiCalc_frac,
         'Pseafloor_MPa': Exploration.Pseafloor_MPa,
         'phiSeafloor_frac': Exploration.phiSeafloor_frac,
+        'h_love_number': Exploration.h_love_number,
+        'l_love_number': Exploration.l_love_number,
+        'k_love_number': Exploration.k_love_number,
         'CMR2calc': Exploration.CMR2calc,
         'VALID': Exploration.VALID,
         'invalidReason': Exploration.invalidReason
@@ -1794,6 +1800,9 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
     Exploration.Pseafloor_MPa = reload['Pseafloor_MPa']
     Exploration.phiSeafloor_frac = reload['phiSeafloor_frac']
     Exploration.silPhiCalc_frac = reload['silPhiCalc_frac']
+    Exploration.h_love_number = reload['h_love_number']
+    Exploration.l_love_number = reload['l_love_number']
+    Exploration.k_love_number = reload['k_love_number']
     Exploration.CMR2calc = reload['CMR2calc']
     Exploration.VALID = reload['VALID']
     Exploration.invalidReason = reload['invalidReason']

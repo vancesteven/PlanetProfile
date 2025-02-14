@@ -475,11 +475,13 @@ class GravitySubstruct:
         self.Y_Pa = None # Young's modulus in Pascals
         self.grad_Vs_s = None # Gradient of shear wave velocity in 1/s
         self.VISCOSITY_kg_ms = None # Viscosity in kg/m*s
+        self.time_log_kyrs = None # Time scale of calculations
+        self.harmonic_degrees = None # Harmonic degrees to calculate
 
         # Calculated love numbers - 2d array of shape len(harmonic_degrees)xlen(time_log_kyrs) [see configPPgravity]
-        self.h = None # h love number
-        self.l = None # l love number
-        self.k = None # k love number
+        self.h = np.nan # h love number
+        self.l = np.nan # l love number
+        self.k = np.nan # k love number
 
 
 """ Main body profile info--settings and variables """
@@ -661,6 +663,8 @@ class DataFilesSubstruct:
         self.inductPath = os.path.join(self.path, 'inductionData')
         self.seisPath = os.path.join(self.path, 'seismicData')
         self.fNameSeis = os.path.join(self.seisPath, saveBase)
+        self.gravityPath = os.path.join(self.path, 'gravityData')
+        self.fNameGravity = os.path.join(self.gravityPath, saveBase)
         if not self.path == '':
             if not os.path.isdir(self.path):
                 os.makedirs(self.path)
@@ -670,6 +674,8 @@ class DataFilesSubstruct:
                 os.makedirs(self.seisPath)
             if not EXPLORE and not os.path.isdir(self.fNameSeis):
                 os.makedirs(self.fNameSeis)
+            if not os.path.isdir(self.gravityPath):
+                os.makedirs(self.gravityPath)
 
         self.fName = os.path.join(self.path, saveBase)
         self.saveFile = self.fName + '.txt'
@@ -689,6 +695,7 @@ class DataFilesSubstruct:
         self.fNameInductOgram = os.path.join(self.inductPath, inductBase + self.inductAppend)
         self.inductOgramFile = self.fNameInductOgram + f'{comp}_inductOgram.mat'
         self.inductOgramSigmaFile = self.fNameInductOgram + '_sigma_inductOgram.mat'
+        self.gravityParametersFile = self.fNameGravity + '_gravityParameters.txt'
         self.xRangeData = os.path.join(self.path, 'xRangeData.mat')
         self.yRangeData = os.path.join(self.path, 'yRangeData.mat')
         self.BeFTdata = os.path.join(self.inductPath, f'{os.path.dirname(self.inductPath)}FTdata.mat')
@@ -1099,6 +1106,9 @@ class ExplorationStruct:
         self.dzIceV_km = None  # Thickness of undersea ice V layer result in km.
         self.dzIceVund_km = None  # Thickness of underplate ice V layer result in km.
         self.dzIceVI_km = None  # Thickness of undersea ice VI layer result in km.
+        self.h_love_number = None # h love number
+        self.l_love_number = None # l love number
+        self.k_love_number = None # k love number
         self.dzWetHPs_km = None  # Total resultant thickness of all undersea high-pressure ices (III, V, and VI) in km.
         self.eLid_km = None  # Thickness of surface stagnant-lid conductive ice layer result (may include Ih or clathrates or both) in km.
         self.Rcore_km = None  # Core radius result in km.
@@ -1748,6 +1758,9 @@ class FigLblStruct:
             'icePhi_frac': 'ice maximum porosity',
             'icePclosure_MPa': 'ice pore closure pressure',
             'Htidal_Wm3': 'rock tidal heating',
+            'h_love_number': 'h love number',
+            'l_love_number': 'l love number',
+            'k_love_number': 'k love number',
             'Qrad_Wkg': 'rock radiogenic heating',
             'qSurf_Wm2': 'surface heat flux',
             'CMR2calc': 'axial moment of inertia'
@@ -1891,6 +1904,9 @@ class FigLblStruct:
         self.vSiceLabel = r'Ice $V_S$ ($\si{' + self.vSoundUnits + '}$)'
         self.QseisLabel = f'Seismic quality factor ${self.QseisVar}$'
         self.xFeSLabel = r'Iron sulfide mixing ratio $x_{\ce{FeS}}$' + self.xUnitsParen
+        self.hLoveLabel = r'h Love Number'
+        self.lLoveLabel = r'l Love Number'
+        self.kLoveLabel = r'k Love Number'
         self.qSurfLabel = r'Surface heat flux $q_\mathrm{surf}$ ($\si{' + self.fluxUnits + '}$)'
         self.silPhiInLabel = r'Rock maximum porosity search value $\phi_\mathrm{rock,max,in}$' + self.phiUnitsParen
         self.silPhiOutLabel = r'Rock maximum porosity match $\phi_\mathrm{rock,max}$' + self.phiUnitsParen
@@ -1950,6 +1966,9 @@ class FigLblStruct:
             'icePclosure_MPa': self.icePclosureLabel,
             'Htidal_Wm3': self.HtidalLabel,
             'Qrad_Wkg': self.QradLabel,
+            'h_love_number': self.hLoveLabel,
+            'l_love_number': self.lLoveLabel,
+            'k_love_number': self.kLoveLabel,
             'qSurf_Wm2': self.qSurfLabel,
             'CMR2calc': self.CMR2label
         }
