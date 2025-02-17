@@ -95,7 +95,6 @@ def GetReducedLayers(Planet, Params):
     """
     Get the reduced planet according to Params.reduceLayersAccordingTo
     """
-    test_dictionary = {'0': 500, 'Ih': 500, 'Clath': 500, 'Sil': 500, 'Fe': 500}
     phase = Planet.phase.copy()  # Create a copy to avoid modifying the original attribute
 
     # Find change points and include start/end
@@ -128,7 +127,7 @@ def GetReducedLayers(Planet, Params):
         layer_str = PhaseConv(layer_phase, liq='0')  # Convert phase to string
         r_layer_m = rPhase_m[start:end]  # Extract radii for this layer
 
-        target_layers = min(test_dictionary[layer_str], len(r_layer_m))  # Get target layer count
+        target_layers = min(Params.REDUCED_LAYERS_SIZE[layer_str], len(r_layer_m))  # Get target layer count
 
         # Generate original and reduced depth points
         original_points = r_layer_m
