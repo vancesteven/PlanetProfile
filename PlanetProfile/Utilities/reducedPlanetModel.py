@@ -4,6 +4,7 @@ import numpy as np
 import logging
 import scipy.interpolate as spi
 from PlanetProfile.Utilities.defineStructs import Constants
+from PlanetProfile.Utilities.Indexing import PhaseConv
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -15,19 +16,23 @@ def GetReducedPlanetProfile(Planet, Params):
         Planet, Params = GetMagneticReducedLayers(Planet, Params)
         # We need to ensure we calculated seismic to be able to interpolate these values
         if not Params.SKIP_GRAVITY and Params.CALC_SEISMIC:
-            Planet.Reduced.rPhase = spi.interp1d(Planet.r_m[:-1], Planet.phase, kind=Params.Induct.oceanInterpMethod,
-                                                 bounds_error=False)(Planet.Reduced.rLayers_m)
-            Planet.Reduced.rRho_kgm3 = spi.interp1d(Planet.r_m[:-1], Planet.rho_kgm3, kind=Params.Induct.oceanInterpMethod,
-                                                 bounds_error=False)(Planet.Reduced.rLayers_m)
-            Planet.Reduced.rVS_kms = spi.interp1d(Planet.r_m[:-1], Planet.Seismic.VS_kms,
-                                                    kind=Params.Induct.oceanInterpMethod, bounds_error=False)(Planet.Reduced.rLayers_m)
-            Planet.Reduced.rVP_kms = spi.interp1d(Planet.r_m[:-1], Planet.Seismic.VP_kms,
-                                                  kind=Params.Induct.oceanInterpMethod, bounds_error=False)(Planet.Reduced.rLayers_m)
-            Planet.Reduced.rGS_GPa= spi.interp1d(Planet.r_m[:-1], Planet.Seismic.GS_GPa,
-                                                   kind=Params.Induct.oceanInterpMethod, bounds_error=False)(Planet.Reduced.rLayers_m)
-            Planet.Reduced.reta_Pas = spi.interp1d(Planet.r_m[:-1], Planet.eta_Pas,
+            Planet.Reduced.phase = spi.interp1d(Planet.r_m[:-1], Planet.phase, kind=Params.Induct.oceanInterpMethod,
+                                                 bounds_error=False)(Planet.Reduced.r_m)
+            Planet.Reduced.rho_kgm3 = spi.interp1d(Planet.r_m[:-1], Planet.rho_kgm3, kind=Params.Induct.oceanInterpMethod,
+                                                 bounds_error=False)(Planet.Reduced.r_m)
+            Planet.Reduced.Seismic.VS_kms = spi.interp1d(Planet.r_m[:-1], Planet.Seismic.VS_kms,
+                                                    kind=Params.Induct.oceanInterpMethod, bounds_error=False)(Planet.Reduced.r_m)
+            Planet.Reduced.Seismic.VP_kms = spi.interp1d(Planet.r_m[:-1], Planet.Seismic.VP_kms,
+                                                  kind=Params.Induct.oceanInterpMethod, bounds_error=False)(Planet.Reduced.r_m)
+            Planet.Reduced.Seismic.GS_GPa = spi.interp1d(Planet.r_m[:-1], Planet.Seismic.GS_GPa,
+                                                   kind=Params.Induct.oceanInterpMethod, bounds_error=False)(Planet.Reduced.r_m)
+            Planet.Reduced.eta_Pas = spi.interp1d(Planet.r_m[:-1], Planet.eta_Pas,
                                                   kind=Params.Induct.oceanInterpMethod, bounds_error=False)(
-                Planet.Reduced.rLayers_m)
+                Planet.Reduced.r_m)
+    elif Params.REDUCE_ACCORDING_TO == 'AveragedLayers':
+        Planet, Params = GetAverageLayers(Planet, Params)
+    elif Params.REDUCE_ACCORDING_TO == 'ReducedLayers':
+        Planet, Params = GetReducedLayers(Planet, Params)
     return Planet, Params
 
 
@@ -81,6 +86,110 @@ def GetMagneticReducedLayers(Planet, Params):
 
                 # Get the indices of layers just below where changes happen
                 iChange = [i for i, sig in enumerate(sigmaInduct_Sm) if sig != np.append(sigmaInduct_Sm, np.nan)[i + 1]]
-                Planet.Reduced.rLayers_m = rLayers_m[iChange]
-                Planet.Reduced.rSigma_Sm = sigmaInduct_Sm[iChange]
+                Planet.Reduced.r_m = rLayers_m[iChange]
+                Planet.Reduced.sigma_Sm = sigmaInduct_Sm[iChange]
     return Planet, Params
+
+
+def GetReducedLayers(Planet, Params):
+    """
+    Get the reduced planet according to Params.reduceLayersAccordingTo
+    """
+    test_dictionary = {'0': 500, 'Ih': 500, 'Clath': 500, 'Sil': 500, 'Fe': 500}
+    phase = Planet.phase.copy()  # Create a copy to avoid modifying the original attribute
+
+    # Find change points and include start/end
+    change_indices = np.concatenate(([0], np.where(np.diff(phase) != 0)[0] + 1, [len(phase)]))
+
+    rPhase_m = Planet.r_m[:-1]
+
+    # Define attributes to interpolate (separating seismic attributes)
+    attributes_to_reduce = {
+        "phase": Planet,
+        "r_m": Planet,
+        "sigma_Sm": Planet,
+        "rho_kgm3": Planet,
+        "VS_kms": Planet.Seismic,
+        "VP_kms": Planet.Seismic,
+        "GS_GPa": Planet.Seismic,
+        "eta_Pas": Planet
+    }
+
+    # Initialize attributes in the correct substructure
+    for attr, source in attributes_to_reduce.items():
+        if source is Planet.Seismic:
+            setattr(Planet.Reduced.Seismic, attr, [])  # Store in Reduced.Seismic
+        else:
+            setattr(Planet.Reduced, attr, [])
+
+    # Iterate through each segment
+    for start, end in zip(change_indices[:-1], change_indices[1:]):
+        layer_phase = phase[start]
+        layer_str = PhaseConv(layer_phase, liq='0')  # Convert phase to string
+        r_layer_m = rPhase_m[start:end]  # Extract radii for this layer
+
+        target_layers = min(test_dictionary[layer_str], len(r_layer_m))  # Get target layer count
+
+        # Generate original and reduced depth points
+        original_points = r_layer_m
+        reduced_points = np.linspace(r_layer_m[0], r_layer_m[-1], target_layers)
+
+        for attr, source in attributes_to_reduce.items():
+            original_values = getattr(source, attr)[start:end]  # Extract original data
+            interpolator = spi.interp1d(original_points, original_values, kind='linear', fill_value="extrapolate")
+            reduced_values = interpolator(reduced_points)  # Interpolated values
+
+            # Store reduced values in the correct location
+            if source is Planet.Seismic:
+                getattr(Planet.Reduced.Seismic, attr).extend(reduced_values.tolist())  # Store in Seismic
+            else:
+                getattr(Planet.Reduced, attr).extend(reduced_values.tolist())  # Convert all attributes in Planet.Reduced and Planet.Reduced.Seismic to NumPy arrays
+    for attr, source in attributes_to_reduce.items():
+        if source is Planet.Seismic:
+            setattr(Planet.Reduced.Seismic, attr, np.array(getattr(Planet.Reduced.Seismic, attr)))
+        else:
+            setattr(Planet.Reduced, attr, np.array(getattr(Planet.Reduced, attr)))
+
+    return Planet, Params
+
+
+def GetAverageLayers(Planet, Params):
+    """Reduce planet into each of its differentiated layers, taking the average of all of its properties"""
+    iChange = np.where(Planet.phase[:-1] != Planet.phase[1:])[0] + 1
+    layerChangeIndices = np.insert(iChange, 0, 0)
+    if Planet.DO.VALID:
+
+        r_phases = []
+        indsLiq = np.where((Planet.phase) == 0)[0]
+        for i in range(iChange.size):
+            layerIndices = layerChangeIndices[i, i+1]
+            reduced_layer = Planet.phase[layerIndices]
+            # Obtain radius and induction of layers
+            rLayers_m = Planet.r_m[layerIndices]
+            sigmaInduct_Sm = Planet.sigma_Sm[layerIndices]
+            rho_kgm3 = Planet.rho_kgm3[layerIndices]
+            vs_kms = Planet.Seismic.VS_kms[layerIndices]
+            vp_kms = Planet.Seismic.VP_kms[layerIndices]
+            gs_GPa = Planet.Seismic.GS_GPa[layerIndices]
+            reta_Pas = Planet.eta_Pas[layerIndices]
+
+            if reduced_layer[0] == 0:
+                if Params.Sig.REDUCED_INDUCT:
+                    # Get radius values from D/nIntL above the seafloor to the ice shell
+                    rBot_m = Planet.Bulk.R_m - (Planet.zb_km + Planet.D_km) * 1e3
+                    rTop_m = rLayers_m[indsLiq[0]]
+                    rOcean_m = np.linspace(rTop_m, rBot_m, Params.Induct.nIntL + 1)[:-1]
+                    # Interpolate the conductivities corresponding to those radii
+                    if np.size(indsLiq) == 1:
+                        log.warning(
+                            f'Only 1 layer found in ocean, but number of layers to ' + f'interpolate over is {Params.Induct.nIntL}. Arbitrary layers will be introduced.')
+                        rModel_m = np.concatenate((np.array([rBot_m]), rLayers_m[indsLiq]))
+                    else:
+                        rModel_m = rLayers_m[indsLiq]
+                    # Stitch together the r and sigma arrays with the new ocean values
+                    rLayers_m = np.concatenate((rLayers_m[:indsLiq[0]], rOcean_m, rLayers_m[indsLiq[-1] + 1:]))
+
+
+
+
+

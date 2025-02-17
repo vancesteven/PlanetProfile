@@ -54,7 +54,7 @@ def SetupGravity(Planet, Params):
         """Combine data into model format that is required by PyALMA3"""
         # Note we have to use r_m[:-1] since r_m has one extra value than other arrays
         Planet.Gravity.model = np.vstack(
-            [Planet.Reduced.rLayers_m, Planet.Reduced.rPhase, Planet.Reduced.rRho_kgm3, Planet.Reduced.rVP_kms, Planet.Reduced.rVS_kms, Planet.Reduced.rGS_GPa, Planet.Reduced.reta_Pas]).T
+            [Planet.Reduced.r_m, Planet.Reduced.phase, Planet.Reduced.rho_kgm3, Planet.Reduced.Seismic.VP_kms, Planet.Reduced.Seismic.VS_kms, Planet.Reduced.Seismic.GS_GPa, Planet.Reduced.eta_Pas]).T
 
         # Convert parameter units to Pa and meters
         for index, (header, unit) in enumerate(zip(Planet.Gravity.columns, Planet.Gravity.units_PyALMA3)):

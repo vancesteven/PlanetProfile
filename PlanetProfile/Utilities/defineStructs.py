@@ -632,15 +632,13 @@ class PlanetStruct:
 """ Reduced planet struct """
 class ReducedPlanetStruct:
     def __init__(self):
-        self.rPhase = None #Reduced phase to use
-        self.rLayers_m = None # The reduced layer radii to use
-        self.rSigma_Sm = None # The reduced sigma to use
-        self.rRho_kgm3 = None # The reduced density to use
-        self.rVS_kms = None # The reduced VS to use
-        self.rVP_kms = None # The reduced VP to use
-        self.rGS_GPa = None # The reduced GS to use
-        self.reta_Pas = None # The reduced viscosity to use
+        self.Seismic = SeismicSubstruct()
 
+        self.phase = None #Reduced phase to use
+        self.r_m = None # The reduced layer radii to use
+        self.sigma_Sm = None # The reduced sigma to use
+        self.rho_kgm3 = None # The reduced density to use
+        self.eta_Pas = None # The reduced viscosity to use
 
 
 """ Params substructs """

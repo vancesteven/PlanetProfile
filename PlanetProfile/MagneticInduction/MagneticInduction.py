@@ -508,8 +508,8 @@ def SetupInduction(Planet, Params):
                     if np.size(Planet.Magnetic.sigmaIonosPedersen_Sm) == 1 and np.size(Planet.Magnetic.ionosBounds_m) == 2:
                         sigmaIonos_Sm = np.append(0, sigmaIonos_Sm)
                 # Flip arrays to be in radial ascending order as needed in induction calculations, then add ionosphere
-                rLayers_m = np.append(np.flip(Planet.Reduced.rLayers_m), zIonos_m)
-                sigmaInduct_Sm = np.append(np.flip(Planet.Reduced.rSigma_Sm), sigmaIonos_Sm)
+                rLayers_m = np.append(np.flip(Planet.Reduced.r_m), zIonos_m)
+                sigmaInduct_Sm = np.append(np.flip(Planet.Reduced.sigma_Sm), sigmaIonos_Sm)
                 # We must append the ionosphere layers where changes happen
                 # Get the indices of layers just below where changes happen
                 iChange = [i for i, sig in enumerate(sigmaInduct_Sm) if
