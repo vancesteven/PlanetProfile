@@ -29,7 +29,7 @@ def PlotHydrosphereSpecies(PlanetList, Params):
     """
     # Only make this plot once for a planet
     Planet = PlanetList[0]
-    if not Planet.Do.NO_H2O:
+    if not Planet.Do.NO_H2O and 'CustomSolution' in Planet.Ocean.comp:
         fig = plt.figure(figsize=FigSize.vhydroSpecies)
         grid = GridSpec(4, 2)
         allspeciesax = fig.add_subplot(grid[0:3, 0])
