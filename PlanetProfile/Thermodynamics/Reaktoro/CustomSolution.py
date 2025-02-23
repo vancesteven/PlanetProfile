@@ -12,7 +12,7 @@ def SetupCustomSolution(Planet, Params):
     Configure a Planet's ocean comp and wOcean_ppt based on settings specified in PPCustomSolution.py
     """
     if 'CustomSolution' in Planet.Ocean.comp:
-        log.debug('Setting up Planet for compatability with CustomSolution. This includes converting string to mols if setting is in grams,\n'
+        log.info('Setting up Planet for compatability with CustomSolution implementation. This includes converting string to mols if setting is in grams,\n'
                   'calculating wOcean_ppt if None is passed in, and setting up plot settings and generating EOS data.')
         # Ensure that ocean composition is in molal
         if Params.CustomSolution.SPECIES_CONCENTRATION_UNIT == 'g':

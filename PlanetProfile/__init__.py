@@ -41,6 +41,7 @@ _defaultConfigPlots = os.path.join(_ROOT, 'Plotting', 'defaultConfigPlots.py')
 _defaultConfigInduct = os.path.join(_ROOT, 'MagneticInduction', 'defaultConfigInduct.py')
 _defaultConfigTrajec = os.path.join(_ROOT, 'TrajecAnalysis', 'defaultConfigTrajec.py')
 _defaultConfigCustomSolution = os.path.join(_ROOT, 'CustomSolution', 'defaultConfigCustomSolution.py')
+_defaultConfigGravity = os.path.join(_ROOT, 'Gravity', 'defaultConfigGravity.py')
 _Defaults = os.path.join(_ROOT, 'Default')
 _DefaultList = next(os.walk(_Defaults))[1]
 _Test = os.path.join(_ROOT, 'Test')
@@ -55,8 +56,9 @@ _userConfigPlots = 'configPPplots.py'
 _userConfigInduct = 'configPPinduct.py'
 _userConfigTrajec = 'configPPtrajec.py'
 _userConfigCustomSolution = 'configPPcustomsolution.py'
-configTemplates = [_defaultConfig, _defaultConfigPlots, _defaultConfigInduct, _defaultConfigTrajec, _defaultConfigCustomSolution]
-configLocals = [_userConfig, _userConfigPlots, _userConfigInduct, _userConfigTrajec, _userConfigCustomSolution]
+_userConfigGravity = 'configPPgravity.py'
+configTemplates = [_defaultConfig, _defaultConfigPlots, _defaultConfigInduct, _defaultConfigTrajec, _defaultConfigCustomSolution, _defaultConfigGravity]
+configLocals = [_userConfig, _userConfigPlots, _userConfigInduct, _userConfigTrajec, _userConfigCustomSolution, _userConfigGravity]
 if any([not os.path.isfile(cfg) for cfg in configLocals]):
     if input(f'configPP files not found in pwd: {os.getcwd()}. Copy from defaults to local dir? ' +
              f'[y]/n ') in ['', 'y', 'Y', 'yes', 'Yes']:

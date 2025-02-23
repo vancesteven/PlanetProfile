@@ -48,6 +48,8 @@ from PlanetProfile.Plotting.defaultConfigPlots import configPlotsVersion
 from configPPplots import configPlotsVersion as userConfigPlotsVersion
 from PlanetProfile.CustomSolution.defaultConfigCustomSolution import configCustomSolutionVersion
 from configPPcustomsolution import configCustomSolutionVersion as userCustomSolutionVersion
+from PlanetProfile.Gravity.defaultConfigGravity import configGravityVersion
+from configPPgravity import configGravityVersion as userConfigGravityVersion
 
 # Check sub-config file versions and warn user if they differ
 if configInductVersion != userConfigInductVersion:
@@ -63,7 +65,12 @@ if configPlotsVersion != userConfigPlotsVersion:
 if configCustomSolutionVersion != userCustomSolutionVersion:
     warn(f'User configPPcustomsolution file is version {userCustomSolutionVersion}, but the default file is ' +
          f'version {configCustomSolutionVersion}. Some settings may be missing; default values will be used. ' +
-         f'To align the file version, delete cconfigPPcustomsolution.py and run again, or execute reset.py ' +
+         f'To align the file version, delete configPPcustomsolution.py and run again, or execute reset.py ' +
+         f'with python -m PlanetProfile.reset')
+if configGravityVersion != userConfigGravityVersion:
+    warn(f'User configPPgravity file is version {userConfigGravityVersion}, but the default file is ' +
+         f'version {configGravityVersion}. Some settings may be missing; default values will be used. ' +
+         f'To align the file version, delete configPPgravity.py and run again, or execute reset.py ' +
          f'with python -m PlanetProfile.reset')
 
 from PlanetProfile.MagneticInduction.defaultConfigInduct import inductAssign
@@ -74,6 +81,8 @@ from PlanetProfile.Plotting.defaultConfigPlots import plotAssign
 from configPPplots import plotAssign as userPlotAssign
 from PlanetProfile.CustomSolution.defaultConfigCustomSolution import customSolutionAssign
 from configPPcustomsolution import customSolutionAssign as userCustomSolutionAssign
+from PlanetProfile.Gravity.defaultConfigGravity import gravityAssign
+from configPPgravity import gravityAssign as userGravityAssign
 
 SigParams, ExcSpecParams, InductParams, _ = inductAssign()
 userSigParams, userExcSpecParams, userInductParams, userTestBody = userInductAssign()
@@ -83,6 +92,8 @@ Color, Style, FigLbl, FigSize, FigMisc = plotAssign()
 userColor, userStyle, userFigLbl, userFigSize, userFigMisc = userPlotAssign()
 CustomSolutionParams = customSolutionAssign()
 userCustomSolutionParams = userCustomSolutionAssign()
+GravityParams = gravityAssign()
+userGravityParams = userGravityAssign()
 
 # Load user settings to allow for configuration
 for attr, value in userParams.__dict__.items():
@@ -95,6 +106,8 @@ for attr, value in userExcSpecParams.__dict__.items():
     setattr(ExcSpecParams, attr, value)
 for attr, value in userInductParams.__dict__.items():
     setattr(InductParams, attr, value)
+for attr, value in userGravityParams.__dict__.items():
+    setattr(GravityParams, attr, value)
 
 for attr, value in userTrajecParams.__dict__.items():
     setattr(TrajecParams, attr, value)
@@ -205,3 +218,4 @@ Params.MagSpectrum = ExcSpecParams
 Params.Explore = ExploreParams
 Params.Trajec = TrajecParams
 Params.CustomSolution = CustomSolutionParams
+Params.Gravity = GravityParams

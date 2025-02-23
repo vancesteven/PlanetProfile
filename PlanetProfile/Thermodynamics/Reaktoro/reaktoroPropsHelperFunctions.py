@@ -14,9 +14,11 @@ log = logging.getLogger('PlanetProfile')
 
 
 def save_dict_to_pkl(dictionary, filename):
-    with gzip.open(filename, "wb") as file:
+    temp_filename = filename + ".tmp"
+    with gzip.open(temp_filename, "wb") as file:
         pickle.dump(dictionary, file, protocol=pickle.HIGHEST_PROTOCOL)
-
+    os.replace(temp_filename, filename)  # Atomic rename
+    return
 
 def load_dict_from_pkl(filename):
     with gzip.open(filename, "rb") as file:

@@ -24,7 +24,7 @@ from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitation
 from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram, PlotExploreOgramDsigma
 from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
     PlotInductOgramPhaseSpace
-from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
+from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers, GetIceShellTFreeze
 from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.OceanProps import LiquidOceanPropsCalcs, WriteLiquidOceanProps
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
@@ -33,8 +33,9 @@ from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruc
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 from PlanetProfile.Utilities.PPversion import ppVerNum
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import EOSLookupTableLoader
+from PlanetProfile.Gravity.Gravity import GravityParameters
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
+from PlanetProfile.Utilities.reducedPlanetModel import GetReducedPlanetProfile
 
 # Parallel processing
 import multiprocessing as mtp
@@ -81,7 +82,6 @@ def run(bodyname=None, opt=None, fNames=None):
         else:
             Induction, Params = InductOgram(bodyname, Params)
         if not Params.SKIP_PLOTS:
-            Params = SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
             PlotInductOgram(Induction, Params)
             if Params.COMPARE:
                 inductOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.inductPath, '*.mat'))
@@ -103,7 +103,6 @@ def run(bodyname=None, opt=None, fNames=None):
         else:
             Exploration, Params = ExploreOgram(bodyname, Params)
         if not Params.SKIP_PLOTS:
-            Params = SetupCustomSolutionPlotSettings(Exploration.oceanComp, Params)
             if Params.COMPARE:
                 exploreOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fNameExplore+'*.mat'))
                 Params.nModels = np.size(exploreOgramFiles)
@@ -215,6 +214,8 @@ def PlanetProfile(Planet, Params):
         # Initialize
         Planet, Params = SetupInit(Planet, Params)
         if (not Planet.Do.NO_H2O) and (not Planet.Do.NO_DIFFERENTIATION):
+            if Planet.Do.ICEIh_THICKNESS:
+                Planet = GetIceShellTFreeze(Planet, Params, Planet.TfreezeLower_K, Planet.TfreezeUpper_K, Planet.TfreezeRes_K)
             Planet = IceLayers(Planet, Params)
         if not Planet.Do.NO_OCEAN:
             Planet = OceanLayers(Planet, Params)
@@ -245,7 +246,9 @@ def PlanetProfile(Planet, Params):
 
         GeneratePlots(PlanetList, Params)
         Planet = PlanetList[0]
-
+    # Create a simplified reduced planet structure for magnetic induction and/or gravity calculations
+    if Planet.Do.VALID:
+        Planet, Params = GetReducedPlanetProfile(Planet, Params)
     # Magnetic induction calculations and plots
     if (Params.CALC_CONDUCT and Planet.Do.VALID) and not Params.SKIP_INDUCTION:
         # Calculate induced magnetic moments
@@ -262,9 +265,9 @@ def PlanetProfile(Planet, Params):
             GenerateMagPlots([Planet], Params)
 
     # Gravity calcuations and plots
-    # if (Params.CALC_CONDUCT and Planet.Do.VALID) and not Params.SKIP_GRAVITY:
+    if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY and Planet.Do.VALID) and not Params.SKIP_GRAVITY:
         # Calculate gravity parameters
-        # Planet, Params = GravityParameters(Planet, Params)
+        Planet, Params = GravityParameters(Planet, Params)
 
     PrintCompletion(Planet, Params)
     return Planet, Params
@@ -1076,6 +1079,8 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     Induction.SetAxes(Params.Induct.inductOtype)
     Induction.SetComps(Params.Induct.inductOtype)
 
+    Params = SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
+
     return Induction, Planet, Params
 
 
@@ -1458,12 +1463,14 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
 
         if Params.Explore.xName in Params.Explore.provideExploreRange:
             xList = loadmat(DataFiles.xRangeData)['Data'].flatten().tolist()
+            xList = [s.strip() if isinstance(s, str) else s for s in xList]
             if Params.Explore.nx != len(xList):
                 raise ValueError(f"Size of provided range list ({len(xList)}) does not match input Params.Explore.nx {Params.Explore.nx}. Adjust so they match.")
         else:
             xList = np.linspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
         if Params.Explore.yName in Params.Explore.provideExploreRange:
             yList = loadmat(DataFiles.yRangeData)['Data'].flatten().tolist()
+            yList = [s.strip() if isinstance(s, str) else s for s in yList]
             if Params.Explore.ny != len(yList):
                 raise ValueError(f"Size of provided range list ({len(yList)}) does not match input Params.Explore.nx {Params.Explore.ny}. Adjust so they match.")
         else:
@@ -1498,6 +1505,7 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
         Exploration.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
         Exploration.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
         Exploration.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
+        Exploration.zb_approximate_km = np.array([[Planeti.Bulk.zb_approximate_km for Planeti in line] for line in PlanetGrid])
         Exploration.xFeS = np.array([[Planeti.Core.xFeS for Planeti in line] for line in PlanetGrid])
         Exploration.rhoSilInput_kgm3 = np.array([[Planeti.Sil.rhoSilWithCore_kgm3 for Planeti in line] for line in PlanetGrid])
         Exploration.silPhi_frac = np.array([[Planeti.Sil.phiRockMax_frac for Planeti in line] for line in PlanetGrid])
@@ -1530,6 +1538,9 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
         Exploration.Rcore_km = np.array([[Planeti.Core.Rmean_m/1e3 for Planeti in line] for line in PlanetGrid])
         Exploration.Pseafloor_MPa = np.array([[Planeti.Pseafloor_MPa for Planeti in line] for line in PlanetGrid])
         Exploration.qSurf_Wm2 = np.array([[Planeti.qSurf_Wm2 for Planeti in line] for line in PlanetGrid])
+        Exploration.h_love_number = np.array([[Planeti.Gravity.h for Planeti in line] for line in PlanetGrid])
+        Exploration.l_love_number = np.array([[Planeti.Gravity.l for Planeti in line] for line in PlanetGrid])
+        Exploration.k_love_number = np.array([[Planeti.Gravity.k for Planeti in line] for line in PlanetGrid])
         Exploration.CMR2calc = np.array([[Planeti.CMR2mean for Planeti in line] for line in PlanetGrid])
         Exploration.VALID = np.array([[Planeti.Do.VALID for Planeti in line] for line in PlanetGrid])
         Exploration.invalidReason = np.array([[Planeti.invalidReason for Planeti in line] for line in PlanetGrid])
@@ -1591,6 +1602,8 @@ def AssignPlanetVal(Planet, name, val):
         Planet.Ocean.wOcean_ppt = val
     elif name == 'Tb_K':
         Planet.Bulk.Tb_K = val
+    elif name == 'zb_approximate_km':
+        Planet.Bulk.zb_approximate_km = val
     elif name == 'ionosTop_km' or name == 'sigmaIonos_Sm':
         # Make sure ionosphere top altitude and conductivity are both set and valid
         if Planet.Magnetic.ionosBounds_m is None or np.any(np.isnan(Planet.Magnetic.ionosBounds_m)):
@@ -1671,6 +1684,7 @@ def WriteExploreOgram(Exploration, Params, INVERSION=False):
         'oceanComp': Exploration.oceanComp,
         'R_m': Exploration.R_m,
         'Tb_K': Exploration.Tb_K,
+        'zb_approximate_km': Exploration.zb_approximate_km,
         'xFeS': Exploration.xFeS,
         'rhoSilInput_kgm3': Exploration.rhoSilInput_kgm3,
         'silPhi_frac': Exploration.silPhi_frac,
@@ -1702,6 +1716,9 @@ def WriteExploreOgram(Exploration, Params, INVERSION=False):
         'silPhiCalc_frac': Exploration.silPhiCalc_frac,
         'Pseafloor_MPa': Exploration.Pseafloor_MPa,
         'phiSeafloor_frac': Exploration.phiSeafloor_frac,
+        'h_love_number': Exploration.h_love_number,
+        'l_love_number': Exploration.l_love_number,
+        'k_love_number': Exploration.k_love_number,
         'CMR2calc': Exploration.CMR2calc,
         'VALID': Exploration.VALID,
         'invalidReason': Exploration.invalidReason
@@ -1760,6 +1777,7 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
     Exploration.oceanComp = reload['oceanComp']
     Exploration.R_m = reload['R_m']
     Exploration.Tb_K = reload['Tb_K']
+    Exploration.zb_approximate_km = reload['zb_approximate_km']
     Exploration.xFeS = reload['xFeS']
     Exploration.rhoSilInput_kgm3 = reload['rhoSilInput_kgm3']
     Exploration.silPhi_frac = reload['silPhi_frac']
@@ -1791,6 +1809,9 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
     Exploration.Pseafloor_MPa = reload['Pseafloor_MPa']
     Exploration.phiSeafloor_frac = reload['phiSeafloor_frac']
     Exploration.silPhiCalc_frac = reload['silPhiCalc_frac']
+    Exploration.h_love_number = reload['h_love_number']
+    Exploration.l_love_number = reload['l_love_number']
+    Exploration.k_love_number = reload['k_love_number']
     Exploration.CMR2calc = reload['CMR2calc']
     Exploration.VALID = reload['VALID']
     Exploration.invalidReason = reload['invalidReason']
@@ -1802,6 +1823,8 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
         Exploration.chiSquared = reload['chiSquared']
         Exploration.stdDev = reload['stdDev']
         Exploration.Rsquared = reload['Rsquared']
+
+    Params = SetupCustomSolutionPlotSettings(Exploration.oceanComp, Params)
 
     return Exploration, Params
 

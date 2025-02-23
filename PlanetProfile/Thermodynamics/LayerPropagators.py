@@ -1,6 +1,8 @@
 import numpy as np
 import logging
 from scipy.signal import savgol_filter
+from copy import deepcopy
+from scipy.optimize import root_scalar as GetZero
 
 from PlanetProfile.Thermodynamics.IronCore import IronCoreLayers
 from PlanetProfile.Thermodynamics.HydroEOS import GetPfreeze, GetTfreeze, \
@@ -404,6 +406,51 @@ def IceVUnderplate(Planet, Params):
         Planet.deltaTBLV_m = 0.0
 
     return Planet
+
+
+def iceShellTFreeze(T, Planet, Params, zb_approximate_km):
+    """Updates Planet.T_K and computes the difference in ice shell thickness."""
+    Planet = deepcopy(Planet)
+    Planet.Bulk.Tb_K = T  # Explicitly update the temperature
+    result = IceLayers(deepcopy(Planet), deepcopy(Params))
+    if result.PbI_MPa == 0.0:
+        raise ValueError('Error')
+    ansewr = zb_approximate_km - result.zb_km
+    return ansewr
+
+def GetIceShellTFreeze(Planet, Params, Tlower_K = 260, Tupper_K = 270, TFreezeRes_K = 0.01):
+    """Returns the temperature at which ice becomes water for a given ice shell thickness.
+
+    Assigns Planet attributes:
+        T_K
+    """
+    # Store the reference ice shell thickness before calling GetZero
+    zb_approximate_km = Planet.Bulk.zb_approximate_km
+    while True:
+        try:
+            # Attempt the function call
+            iceShellTFreeze(Tupper_K, Planet, Params, zb_approximate_km)
+            break  # Success: exit the loop
+        except Exception as e:
+            print(f"Error encountered: {e}")
+            Tupper_K -= 0.1  # Decrease Tupper_K
+            print(f"Retrying with Tupper_K = {Tupper_K}")
+    while True:
+        try:
+            # Attempt the function call
+            iceShellTFreeze(Tlower_K, Planet, Params, zb_approximate_km)
+            break  # Success: exit the loop
+        except Exception as e:
+            print(f"Error encountered: {e}")
+            Tlower_K += 0.5  # Decrease Tupper_K
+            print(f"Retrying with Tupper_K = {Tlower_K}")
+
+    T_freeze = GetZero(iceShellTFreeze, args=(Planet, Params, zb_approximate_km),
+                       bracket=[Tlower_K, Tupper_K], xtol = 0.01).root + TFreezeRes_K / 5
+
+    Planet.Bulk.Tb_K = T_freeze
+    return Planet  # Apply correction factor if necessary
+
 
 
 def OceanLayers(Planet, Params):

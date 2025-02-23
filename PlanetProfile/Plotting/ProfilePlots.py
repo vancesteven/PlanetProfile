@@ -145,7 +145,10 @@ def PlotHydrosphereProps(PlanetList, Params):
     axTz = fig.add_subplot(grid[0, 3:])
 
     axPrho.set_xlabel(FigLbl.rhoLabel)
-    axPrho.set_ylabel(FigLbl.PlabelHydro)
+    if FigMisc.PLOT_DENSITY_VERSUS_DEPTH:
+        axPrho.set_ylabel(FigLbl.zLabel)
+    else:
+        axPrho.set_ylabel(FigLbl.PlabelHydro)
     axPrho.invert_yaxis()
     axTz.set_xlabel(FigLbl.Tlabel)
     axTz.set_ylabel(FigLbl.zLabel)
@@ -185,6 +188,7 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     # Plot reference profiles first, so they plot on bottom of everything
     # Ensure that we only have one unique CustomSolution identifier in comps
+    ###TODO FIX THIS CODE
     comps = []
     for Planet in PlanetList:
         if "CustomSolution" in Planet.Ocean.comp:
@@ -258,12 +262,16 @@ def PlotHydrosphereProps(PlanetList, Params):
                 thisLW = Style.GetLW(Planet.Ocean.wOcean_ppt, wMinMax_ppt[Planet.Ocean.comp])
             else:
                 thisLW = Style.LW_std
-
-            # Plot density vs. pressure curve for hydrosphere
-            axPrho.plot(Planet.rho_kgm3[:Planet.Steps.nHydro],
-                        Planet.P_MPa[:Planet.Steps.nHydro]*FigLbl.PmultHydro,
-                        label=legLbl, color=thisColor, linewidth=thisLW,
-                        linestyle=Style.LS[Planet.Ocean.comp])
+            if FigMisc.PLOT_DENSITY_VERSUS_DEPTH:
+                # Plot density vs. depth for hydrosphere
+                axPrho.plot(Planet.rho_kgm3[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro] / 1e3,
+                            label=legLbl, color=thisColor, linewidth=thisLW,
+                            linestyle=Style.LS[Planet.Ocean.comp])
+            else:
+                # Plot density vs. pressure curve for hydrosphere
+                axPrho.plot(Planet.rho_kgm3[:Planet.Steps.nHydro],
+                            Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro, label=legLbl, color=thisColor,
+                            linewidth=thisLW, linestyle=Style.LS[Planet.Ocean.comp])
             # Plot thermal profile vs. depth in hydrosphere
             therm = axTz.plot(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub,
                               Planet.z_m[:Planet.Steps.nHydro]/1e3,

@@ -256,10 +256,8 @@ class OceanEOSStruct:
                     RktProps(EOSLookupTable, P_MPa, T_K, self.EXTRAP))
                 self.ufn_Seismic = RktSeismic(EOSLookupTable, self.EXTRAP)
 
-                if self.PHASE_LOOKUP:
-                    self.ufn_phase = RktPhaseLookup(EOSLookupTable, P_MPa, T_K, self.deltaP, self.deltaT)
-                else:
-                    self.ufn_phase = RktPhaseOnDemand(self.aqueous_species_string, self.speciation_ratio_mol_kg)
+
+                self.ufn_phase = RktPhaseLookup(EOSLookupTable, P_MPa, T_K, self.deltaP, self.deltaT)
 
                 self.ufn_species = RktHydroSpecies(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.ocean_solid_phases)
                 self.ufn_rxn_affinity = RktRxnAffinity(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.ocean_solid_phases)
