@@ -133,31 +133,6 @@ def SetupInit(Planet, Params):
                                 f'fluids are modeled for partial/undifferentiated bodies. ' +
                                 f'Sil.wPore_ppt will be ignored.')
                 Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
-    # For water bodies, if user specifies bottom Ice Ih thickness then we must find the associated Tb_K, which then be used in
-    # self-consistent model generation (model's bottom ice thickness may not be exactly the input, but should be approxiamtely close enough).
-    # We have to do this first, before filename generation, to ensure ocean comp is set.
-    if not Planet.Do.NO_H2O and not Planet.Do.NO_OCEAN and Planet.Do.ICEIh_THICKNESS:
-        # Obtain density of ice Ih at STP
-        density_Ih_kg_m3  = Constants.rhoIce_kg_m3_stp['Ih']
-        # Calculate planet's bulk gravity to use for first order pressure calculation
-        bulk_gravity_m_s2 = (Constants.G*Planet.Bulk.M_kg)/(Planet.Bulk.R_m**2)
-        # Calculate lower approximate Pb_MPa using P = rho * g * h
-        approx_Pb_MPa = density_Ih_kg_m3 * bulk_gravity_m_s2 * (Planet.Bulk.zb_approximate_km * 1000) * 1e-6
-        # Calculate upper approximate Pb_MPa, this time using the dnesity of ice Ih at aprox_Pb_MPa
-        # Obtain a meltEOS to find corresponding Tb_K
-        approx_Pmelt_MPa = np.linspace(approx_Pb_MPa - 0.01, approx_Pb_MPa + 0.01, 11)
-        approx_Tmelt_K = np.arange(Planet.TfreezeLower_K, Planet.TfreezeUpper_K, Planet.TfreezeRes_K)
-        Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, approx_Pmelt_MPa, approx_Tmelt_K, None,
-                                           phaseType=Planet.Ocean.phaseType, FORCE_NEW=True, MELT=True,
-                                           LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
-        approx_Tb_K = GetTfreeze(Planet.Ocean.meltEOS, approx_Pb_MPa, Planet.TfreezeLower_K,
-                   TfreezeRange_K = Planet.TfreezeUpper_K - Planet.TfreezeLower_K, TRes_K= Planet.TfreezeRes_K)
-        log.info(f'Using a hydrostatic pressure assumption, we calculated an approximate bottom pressure and temperature of '
-                 f'{approx_Pb_MPa:.3f} MPa and {approx_Tb_K:.3f} K for an ice shell thickness of {Planet.Bulk.zb_approximate_km}km.'
-                 f'\n We will use the bottom T_K as our input to the ice layer calculations, allowing for self consistency. '
-                 f'This means that the model ice shell thickness will not be exactly as input, but should be fairly close.')
-        Planet.Bulk.Tb_K = round(approx_Tb_K, 3) # Round Bulk Tb_K to 3 decimal places
-
 
     # Get filenames for saving/loading
     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
@@ -267,32 +242,36 @@ def SetupInit(Planet, Params):
                                        phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
                                        sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
         # Get separate, simpler EOS for evaluating the melting curve
-        if Planet.Do.BOTTOM_ICEV:
-            # Make sure Tb values are physically reasonable
-            if Planet.Bulk.Tb_K > Planet.Bulk.TbV_K or Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K:
-                raise ValueError('Bulk.Tb_K must be less than underplate layer Tb values.')
-            if Planet.Bulk.TbIII_K > Planet.Bulk.TbV_K:
-                raise ValueError('Bulk.TbIII_K must be less than underplate TbV_K value.')
-            TmeltI_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
-            TmeltIII_K = np.linspace(Planet.Bulk.TbIII_K - 0.01, Planet.Bulk.TbIII_K + 0.01, 11)
-            TmeltV_K = np.linspace(Planet.Bulk.TbV_K - 0.01, Planet.Bulk.TbV_K + 0.01, 11)
-            Tmelt_K = np.concatenate((TmeltI_K, TmeltIII_K, TmeltV_K))
-            if Planet.PfreezeUpper_MPa < 700:
-                log.info(f'PfreezeUpper_MPa is set to {Planet.PfreezeUpper_MPa}, but Do.BOTTOM_ICEV is True and ' +
-                         'ice V is stable up to 700 MPa. PfreezeUpper_MPa will be raised to this value.')
-                Planet.PfreezeUpper_MPa = 700
-        elif Planet.Do.BOTTOM_ICEIII:
-            if Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K:
-                raise ValueError('Bulk.Tb_K must be less than underplate TbIII_K value.')
-            TmeltI_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
-            TmeltIII_K = np.linspace(Planet.Bulk.TbIII_K - 0.01, Planet.Bulk.TbIII_K + 0.01, 11)
-            Tmelt_K = np.concatenate((TmeltI_K, TmeltIII_K))
-            if Planet.PfreezeUpper_MPa < 700:
-                log.info(f'PfreezeUpper_MPa is set to {Planet.PfreezeUpper_MPa}, but Do.BOTTOM_ICEIII is True and ' +
-                         'ice V is stable up to 400 MPa. PfreezeUpper_MPa will be raised to this value.')
-                Planet.PfreezeUpper_MPa = 400
+        if Planet.Do.ICEIh_THICKNESS:
+            Tmelt_K = np.arange(Planet.TfreezeLower_K, Planet.TfreezeUpper_K, Planet.TfreezeRes_K)
         else:
-            Tmelt_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
+            Planet.Bulk.zb_approximate_km = np.nan
+            if Planet.Do.BOTTOM_ICEV:
+                # Make sure Tb values are physically reasonable
+                if Planet.Bulk.Tb_K > Planet.Bulk.TbV_K or Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K:
+                    raise ValueError('Bulk.Tb_K must be less than underplate layer Tb values.')
+                if Planet.Bulk.TbIII_K > Planet.Bulk.TbV_K:
+                    raise ValueError('Bulk.TbIII_K must be less than underplate TbV_K value.')
+                TmeltI_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
+                TmeltIII_K = np.linspace(Planet.Bulk.TbIII_K - 0.01, Planet.Bulk.TbIII_K + 0.01, 11)
+                TmeltV_K = np.linspace(Planet.Bulk.TbV_K - 0.01, Planet.Bulk.TbV_K + 0.01, 11)
+                Tmelt_K = np.concatenate((TmeltI_K, TmeltIII_K, TmeltV_K))
+                if Planet.PfreezeUpper_MPa < 700:
+                    log.info(f'PfreezeUpper_MPa is set to {Planet.PfreezeUpper_MPa}, but Do.BOTTOM_ICEV is True and ' +
+                             'ice V is stable up to 700 MPa. PfreezeUpper_MPa will be raised to this value.')
+                    Planet.PfreezeUpper_MPa = 700
+            elif Planet.Do.BOTTOM_ICEIII:
+                if Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K:
+                    raise ValueError('Bulk.Tb_K must be less than underplate TbIII_K value.')
+                TmeltI_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
+                TmeltIII_K = np.linspace(Planet.Bulk.TbIII_K - 0.01, Planet.Bulk.TbIII_K + 0.01, 11)
+                Tmelt_K = np.concatenate((TmeltI_K, TmeltIII_K))
+                if Planet.PfreezeUpper_MPa < 700:
+                    log.info(f'PfreezeUpper_MPa is set to {Planet.PfreezeUpper_MPa}, but Do.BOTTOM_ICEIII is True and ' +
+                             'ice V is stable up to 400 MPa. PfreezeUpper_MPa will be raised to this value.')
+                    Planet.PfreezeUpper_MPa = 400
+            else:
+                Tmelt_K = np.linspace(Planet.Bulk.Tb_K - 0.01, Planet.Bulk.Tb_K + 0.01, 11)
         Pmelt_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.PfreezeUpper_MPa, Planet.PfreezeRes_MPa)
         Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K,  None,
                                            phaseType=Planet.Ocean.phaseType, FORCE_NEW=True, MELT=True,
@@ -544,10 +523,16 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
         label += ' w/$\phi_\mathrm{sil}$'
 
     else:
+        if Planet.Do.ICEIh_THICKNESS:
+            saveLabelAppendage = f'zb{Planet.Bulk.zb_approximate_km}km'
+            labelAppendage = f'$z_b\,\SI{{{Planet.Bulk.zb_approximate_km}}}{{\kilo\meter}}$'
+        else:
+            saveLabelAppendage = f'Tb{Planet.Bulk.Tb_K}K'
+            labelAppendage = f'$T_b\,\SI{{{Planet.Bulk.zb_approximate_km}}}{{K}}$'
         if Planet.Ocean.comp == 'PureH2O':
-            saveLabel += f'{Planet.Ocean.comp}_Tb{Planet.Bulk.Tb_K}K'
+            saveLabel += f'{Planet.Ocean.comp}_{saveLabelAppendage}'
             setStr = f'Pure \ce{{H2O}}'
-            label += f'{setStr}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+            label += f'{setStr}, {labelAppendage}'
             Planet.compStr = r'Pure~\ce{H2O}'
         elif "CustomSolution" in Planet.Ocean.comp:
             # Get text to left of = sign
@@ -556,21 +541,21 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             comp = CustomSolutionLabel
             # In this case, we are using input speciation from user with no input w_ppt, so we will generate filenames without w_ppt
             if not Planet.Do.USE_WOCEAN_PPT:
-                saveLabel += f'{CustomSolutionLabel}_Tb{Planet.Bulk.Tb_K}K'
-                label = f'{setStr}, $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+                saveLabel += f'{CustomSolutionLabel}_{saveLabelAppendage}'
+                label = f'{setStr}, {labelAppendage}'
                 Planet.compStr = f'{CustomSolutionLabel}'
             else:
                 saveLabel += f'{CustomSolutionLabel}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
-                        f'_Tb{Planet.Bulk.Tb_K}K'
+                        f'_{saveLabelAppendage}'
                 label = f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
-                        f'_Tb{Planet.Bulk.Tb_K}K'
+                        f'_{labelAppendage}'
                 Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}${CustomSolutionLabel}'
         else:
             saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
-                        f'_Tb{Planet.Bulk.Tb_K}K'
+                        f'_{saveLabelAppendage}'
             setStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$ \ce{{{Planet.Ocean.comp}}}'
             label += setStr + \
-                f', $T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+                f', {labelAppendage}'
             Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Ocean.comp}}}'
         if Planet.Do.CLATHRATE:
             saveLabel += '_Clathrates'

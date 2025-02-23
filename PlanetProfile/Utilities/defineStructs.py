@@ -521,9 +521,9 @@ class PlanetStruct:
         self.PfreezeUpper_MPa = 230  # Upper boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeRes_MPa = 0.05  # Step size in pressure for GetPfreeze to use in searching for phase transition
         # Settings for GetTfreeze start, stop, and step size. Used when ice shell thickness is input.
-        self.TfreezeLower_K = 229 # Lower boundary for GetTFreeze to search for ice Ih phase transition
-        self.TfreezeUpper_K = 274 # Upper boundary for GetTFreeze to search for ice Ih phase transition
-        self.TfreezeRes_K = 0.05 # Step size in temperature for GetTfreeze to use in searching for phase transition
+        self.TfreezeLower_K = 260 # Lower boundary for GetTFreeze to search for ice Ih phase transition
+        self.TfreezeUpper_K = 270 # Upper boundary for GetTFreeze to search for ice Ih phase transition
+        self.TfreezeRes_K = 0.01 # Step size in temperature for GetTfreeze to use in searching for phase transition
 
         """ Derived quantities (assigned during PlanetProfile runs) """
         # Layer arrays
@@ -1051,7 +1051,8 @@ class ExploreParamsStruct:
             'Htidal_Wm3': 'inner',
             'Qrad_Wkg': 'inner',
             'qSurf_Wm2': 'inner',
-            'oceanComp': 'hydro'
+            'oceanComp': 'hydro',
+            'zb_approximate_km': 'hydro'
         }
 
         self.provideExploreRange = ['oceanComp'] # List of explore options where user must provide the array to explore over
@@ -1080,6 +1081,7 @@ class ExplorationStruct:
         self.R_m = None  # Body radius in m set.
         self.Tb_K = None  # Values of Bulk.Tb_K set.
         self.xFeS = None  # Values of core FeS mole fraction set.
+        self.zb_approximate_km = None # Values of zb_approximate_km, if used.
         self.rhoSilInput_kgm3 = None  # Values of silicate density in kg/m^3 set.
         self.silPhi_frac = None  # Values of Sil.phiRockMax_frac set.
         self.icePhi_frac = None  # Values of surfIceEOS[phaseStr].phiMax_frac set.
@@ -1710,21 +1712,29 @@ class FigLblStruct:
             'phiSeafloor_frac',
             'sigmaMean_Sm',
             'silPhiCalc_frac',
-            'zb_km'
+            'zb_km',
+            'h_love_number',
+            'l_love_number',
+            'k_love_number'
         ]
         self.cfmtExplore = {
             'CMR2calc': '%.3f',
             'phiSeafloor_frac': '%.2f',
             'sigmaMean_Sm': None,
             'silPhiCalc_frac': '%.2f',
-            'zb_km': None
+            'zb_km': None,
+            'h_love_number': '%.2f',
+            'l_love_number': '%.2f',
+            'k_love_number': '%.2f',
+
         }
         self.cbarfmtExplore = {
             'CMR2calc': '%.4f',
             'phiSeafloor_frac': '%.2f',
             'sigmaMean_Sm': None,
             'silPhiCalc_frac': '%.2f',
-            'zb_km': '%.1f'
+            'zb_km': '%.1f', 'h_love_number': '%.2f', 'l_love_number': '%.2f', 'k_love_number': '%.2f'
+
         }
         self.exploreDescrip = {
             'xFeS': 'core FeS mixing ratio',

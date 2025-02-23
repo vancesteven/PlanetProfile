@@ -24,7 +24,7 @@ from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitation
 from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram, PlotExploreOgramDsigma
 from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
     PlotInductOgramPhaseSpace
-from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers
+from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers, GetIceShellTFreeze
 from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.OceanProps import LiquidOceanPropsCalcs, WriteLiquidOceanProps
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
@@ -214,6 +214,8 @@ def PlanetProfile(Planet, Params):
         # Initialize
         Planet, Params = SetupInit(Planet, Params)
         if (not Planet.Do.NO_H2O) and (not Planet.Do.NO_DIFFERENTIATION):
+            if Planet.Do.ICEIh_THICKNESS:
+                Planet = GetIceShellTFreeze(Planet, Params, Planet.TfreezeLower_K, Planet.TfreezeUpper_K, Planet.TfreezeRes_K)
             Planet = IceLayers(Planet, Params)
         if not Planet.Do.NO_OCEAN:
             Planet = OceanLayers(Planet, Params)
@@ -1461,12 +1463,14 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
 
         if Params.Explore.xName in Params.Explore.provideExploreRange:
             xList = loadmat(DataFiles.xRangeData)['Data'].flatten().tolist()
+            xList = [s.strip() if isinstance(s, str) else s for s in xList]
             if Params.Explore.nx != len(xList):
                 raise ValueError(f"Size of provided range list ({len(xList)}) does not match input Params.Explore.nx {Params.Explore.nx}. Adjust so they match.")
         else:
             xList = np.linspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
         if Params.Explore.yName in Params.Explore.provideExploreRange:
             yList = loadmat(DataFiles.yRangeData)['Data'].flatten().tolist()
+            yList = [s.strip() if isinstance(s, str) else s for s in yList]
             if Params.Explore.ny != len(yList):
                 raise ValueError(f"Size of provided range list ({len(yList)}) does not match input Params.Explore.nx {Params.Explore.ny}. Adjust so they match.")
         else:
@@ -1501,6 +1505,7 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
         Exploration.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
         Exploration.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
         Exploration.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
+        Exploration.zb_approximate_km = np.array([[Planeti.Bulk.zb_approximate_km for Planeti in line] for line in PlanetGrid])
         Exploration.xFeS = np.array([[Planeti.Core.xFeS for Planeti in line] for line in PlanetGrid])
         Exploration.rhoSilInput_kgm3 = np.array([[Planeti.Sil.rhoSilWithCore_kgm3 for Planeti in line] for line in PlanetGrid])
         Exploration.silPhi_frac = np.array([[Planeti.Sil.phiRockMax_frac for Planeti in line] for line in PlanetGrid])
@@ -1597,6 +1602,8 @@ def AssignPlanetVal(Planet, name, val):
         Planet.Ocean.wOcean_ppt = val
     elif name == 'Tb_K':
         Planet.Bulk.Tb_K = val
+    elif name == 'zb_approximate_km':
+        Planet.Bulk.zb_approximate_km = val
     elif name == 'ionosTop_km' or name == 'sigmaIonos_Sm':
         # Make sure ionosphere top altitude and conductivity are both set and valid
         if Planet.Magnetic.ionosBounds_m is None or np.any(np.isnan(Planet.Magnetic.ionosBounds_m)):
@@ -1677,6 +1684,7 @@ def WriteExploreOgram(Exploration, Params, INVERSION=False):
         'oceanComp': Exploration.oceanComp,
         'R_m': Exploration.R_m,
         'Tb_K': Exploration.Tb_K,
+        'zb_approximate_km': Exploration.zb_approximate_km,
         'xFeS': Exploration.xFeS,
         'rhoSilInput_kgm3': Exploration.rhoSilInput_kgm3,
         'silPhi_frac': Exploration.silPhi_frac,
@@ -1769,6 +1777,7 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
     Exploration.oceanComp = reload['oceanComp']
     Exploration.R_m = reload['R_m']
     Exploration.Tb_K = reload['Tb_K']
+    Exploration.zb_approximate_km = reload['zb_approximate_km']
     Exploration.xFeS = reload['xFeS']
     Exploration.rhoSilInput_kgm3 = reload['rhoSilInput_kgm3']
     Exploration.silPhi_frac = reload['silPhi_frac']
