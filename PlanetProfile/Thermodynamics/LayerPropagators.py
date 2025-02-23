@@ -1037,14 +1037,19 @@ def CalcMoIConstantRho(Planet, Params):
             Planet.Steps.nHydro = Planet.Steps.nOceanMax
 
     else:
-        # Find the C/MR^2 value most closely matching the measured value
-        CMR2diff = np.abs(CMR2[CMR2inds] - Planet.Bulk.Cmeasured)
-        # Get index of closest match in CMR2inds
-        iCMR2ind = np.argmin(CMR2diff)
-        # Find Planet array index corresponding to closest matching value
+        CMR2indsInner = [ind - Planet.Steps.iSilStart - nTooBig for ind in CMR2inds]
+        if Planet.Do.HYDROSPHERE_THICKNESS:
+            hydrosphere_thickness_m = Planet.Bulk.R_m  - Planet.r_m[CMR2inds]
+            CMR2diff = np.abs(hydrosphere_thickness_m - Planet.Bulk.Dhsphere_m)
+            # Get index of closest match in CMR2inds
+            iCMR2ind = np.argmin(CMR2diff)
+        else:# Find the C/MR^2 value most closely matching the measured value
+            CMR2diff = np.abs(CMR2[CMR2inds] - Planet.Bulk.Cmeasured)
+            # Get index of closest match in CMR2inds
+            iCMR2ind = np.argmin(CMR2diff)
+            # Find Planet array index corresponding to closest matching value
         iCMR2 = CMR2inds[iCMR2ind]
         iCMR2inner = iCMR2 - Planet.Steps.iSilStart - nTooBig
-        CMR2indsInner = [ind - Planet.Steps.iSilStart - nTooBig for ind in CMR2inds]
         # Record the best-match C/MR^2 value
         Planet.CMR2mean = CMR2[iCMR2]
         # We don't have neighboring values because we used the MoI to calculate properties
