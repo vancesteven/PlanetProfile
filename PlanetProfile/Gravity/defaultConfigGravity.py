@@ -21,7 +21,7 @@ def gravityAssign():
     GravityParams.loading_type = 'tidal'  # Loading type to calculate love numbers - 'tidal' or 'loading'
 
     # Harmonic degrees parameters
-    GravityParams.harmonic_degrees = [2]  # List of harmonic degrees to calculate
+    GravityParams.harmonic_degrees = [2]  # List of harmonic degrees to calculate - not that for compatibility with PlanetProfile plotting, user should only specify one harmonic to calculate if they desire PlanetProfile's plotting functionality.
     GravityParams.time_log_kyrs = [1e-9]  # List of time range in log_kyrs
     GravityParams.time_history_function = 'step'  # Function to use for time - 'step' or 'ramp'
     GravityParams.ramp_function_length_kyrs = None  # Ramp length in kyrs
