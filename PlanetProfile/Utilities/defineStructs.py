@@ -55,6 +55,7 @@ class BulkSubstruct():
     def __init__(self):
         self.Tb_K = None  # Temperature at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers). Ranges from 238.5 to 261.165 K for ice III transition and 251.165 to 273.16 for melting temp. This must remain set to None here as a default. Exactly two out of three of Bulk.Tb_K, Bulk.zb_km, and Ocean.wOcean_ppt must be set for every model with surface H2O.
         self.zb_approximate_km = None  # Desired thickness of ice I layer (entire ice interface when no ice III or V underplate layers) that is used to find bottom temperature. This bottom temperature is then used to propogate ice layer, ensuring self-consistency (but means model zb_km might not be exactly the same as zb_approximate_km)
+        self.Dhsphere_m = None # Desired hydrosphere thickness. Instead of matching CMR2 to input CMR2, we match CMR2 to that which optimizes hydrosphere thickness.
         self.rho_kgm3 = None  # Bulk density in kg/m^3 -- note that this is intended to be derived and not set.
         self.R_m = None  # Mean body outer radius in m
         self.M_kg = None  # Total body mass in kg
@@ -95,6 +96,7 @@ class DoSubstruct:
         self.DIFFERENTIATE_VOLATILES = False  # Whether to include an ice layer atop a partially differentiated body, with rock+ice mantle
         self.NO_OCEAN = False  # Tracks whether no ocean is present---this flag is set programmatically.
         self.ICEIh_THICKNESS = False  # Use the Ice Ih shell thickness parameter setting of a planet, calculating the associated bottom pressure and temperature
+        self.HYDROSPHERE_THICKNESS = False # Specify hydrosphere thickness. Removes self-consistency with input CMR2 by instead matching CMR2 with best fit for input hydrosphere thickness.
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
         self.ICEIh_DIFFERENT = True  # Whether to use an amalgamation fit to a broad swath of data from Wolfenbarger et al. (2021) for ice Ih thermal conductivity (in place of all-phases fit model).

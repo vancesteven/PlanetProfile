@@ -591,6 +591,9 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
         elif Planet.Do.POROUS_ROCK:
             saveLabel += f'_PorousRock_phi{Planet.Sil.phiRockMax_frac:.2f}_Pc{Planet.Sil.Pclosure_MPa:5.2e}'
             label += ' w/$\phi_\mathrm{sil}$'
+        if Planet.Do.HYDROSPHERE_THICKNESS:
+            saveLabel += f'_{Planet.Bulk.Dhsphere_m}'
+            label += f'$hydroThickness\,\SI{{{Planet.Bulk.Dhsphere_m}}}{{\meter}}$'
     if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSname}'
 
     # Add time and date label
