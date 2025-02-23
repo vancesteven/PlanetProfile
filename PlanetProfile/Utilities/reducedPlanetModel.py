@@ -11,7 +11,7 @@ log = logging.getLogger('PlanetProfile')
 
 def GetReducedPlanetProfile(Planet, Params):
     """ Generate a reduced planet profile to be used in magnetic induction and/or gravity calculations
-    #TODO Only implemented for magnetic induction currently"""
+    #TODO Only implemented for reduced layer currently, and not used for magnetic induction calculations until it can be further stress tested"""
     if Params.REDUCE_ACCORDING_TO == 'MagneticInduction':
         Planet, Params = GetMagneticReducedLayers(Planet, Params)
         # We need to ensure we calculated seismic to be able to interpolate these values
@@ -29,8 +29,6 @@ def GetReducedPlanetProfile(Planet, Params):
             Planet.Reduced.eta_Pas = spi.interp1d(Planet.r_m[:-1], Planet.eta_Pas,
                                                   kind=Params.Induct.oceanInterpMethod, bounds_error=False)(
                 Planet.Reduced.r_m)
-    elif Params.REDUCE_ACCORDING_TO == 'AveragedLayers':
-        Planet, Params = GetAverageLayers(Planet, Params)
     elif Params.REDUCE_ACCORDING_TO == 'ReducedLayers':
         Planet, Params = GetReducedLayers(Planet, Params)
     return Planet, Params

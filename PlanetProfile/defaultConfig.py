@@ -75,8 +75,10 @@ def configAssign():
     Params.TITLES =           True  # Whether to include a (sup)title on plots
 
     # Reduced planet calculation settings
-    Params.REDUCE_ACCORDING_TO = 'MagneticInduction'  # Whether to reduce according to induction parameters (change in sigma) or gravity settings (not implemented currently)
-    Params.REDUCED_LAYERS_SIZE = {'0': 5, 'Ih': 5, 'Clath': 5, 'Sil': 5, 'Fe': 5} # If using ReducedLayers method, then determine how many layers the reduced layer should have
+    Params.REDUCE_ACCORDING_TO = 'ReducedLayers'  # Whether to reduce according to induction parameters (change in sigma) or gravity settings (not implemented currently)
+    Params.REDUCED_LAYERS_SIZE = {'0': 5, 'Ih': 5, 'Clath': 5, 'Sil': 5,
+                                  'Fe': 5}  # If using ReducedLayers method, then determine how many layers the reduced layer should have
+
     # Magnetic induction plot settings
     Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question
     Params.INDUCTOGRAM_IN_PROGRESS = False  # Whether we are currently working on constructing an inductogram
@@ -90,13 +92,13 @@ def configAssign():
     Params.SKIP_INDUCTION = False  # Whether to skip past induction calculations. Primarily intended to avoid duplicate calculations in exploreOgrams
     Params.SKIP_GRAVITY = False  # Whether to skip past gravity calculations. Primarily intended to avoid duplicate calculations in exploreOgrams
     # Options for x/y variables: "xFeS", "rhoSilInput_kgm3", "oceanComp", "wOcean_ppt", "Tb_K", "ionosTop_km", "sigmaIonos_Sm",
-    # "silPhi_frac", "silPclosure_MPa", "icePhi_frac", "icePclosure_MPa", "Htidal_Wm3", "Qrad_Wkg", "qSurf_Wm2" (Do.NO_H2O only)
+    # "silPhi_frac", "silPclosure_MPa", "icePhi_frac", "icePclosure_MPa", "Htidal_Wm3", "Qrad_Wkg", "zb_approximate_km", "qSurf_Wm2" (Do.NO_H2O only)
     # For "oceanComp" option, must provide a .mat file titled xRangeData.mat or yRangeData.mat of a dictionary whose key 'Data' corresponds to a list of ocean comps to query over. Exploreparams.nx/ny should match lens of list.
     ExploreParams.xName = 'wOcean_ppt'  # x variable over which to iterate for exploreograms. Options are as above.
     ExploreParams.yName = 'Tb_K'  # y variable over which to iterate for exploreograms. Options are as above.
     # Options for z variables: "CMR2mean", "D_km", "dzIceI_km", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km",
     # "dzIceV_km", "dzIceVund_km", "dzIceVI_km", "dzWetHPs_km", "eLid_km", "phiSeafloor_frac", "Rcore_km", "rhoSilMean_kgm3",
-    # "sigmaMean_Sm", "silPhiCalc_frac", "zb_km", "zSeafloor_km", "qSurf_Wm2" (only if Do.NO_H2O is False).
+    # "sigmaMean_Sm", "silPhiCalc_frac", "zb_km", "zSeafloor_km", "h_love_number", "k_love_number", "l_love_number", "qSurf_Wm2" (only if Do.NO_H2O is False).
     # New options must be added to ExplorationStruct attributes in Main (assign+save+reload) and in defineStructs, and
     # FigLbls.exploreDescrip, .<var>Label, and .axisLabels in defineStructs.
     ExploreParams.zName = ['CMR2calc', 'silPhiCalc_frac', 'phiSeafloor_frac', 'D_km', 'zb_km', 'dzWetHPs_km', 'rhoSilMean_kgm3', 'Pseafloor_MPa', 'zSeafloor_km', 'sigmaMean_Sm']  # heatmap/colorbar/z variable to plot for exploreograms. Options are as above; accepts a list.
