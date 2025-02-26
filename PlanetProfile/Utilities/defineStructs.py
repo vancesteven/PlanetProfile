@@ -484,6 +484,7 @@ class GravitySubstruct:
         self.h = np.nan # h love number
         self.l = np.nan # l love number
         self.k = np.nan # k love number
+        self.delta = np.nan # delta relationship between love numbers (1+k-h)
 
 
 """ Main body profile info--settings and variables """
@@ -800,6 +801,7 @@ class FigureFilesSubstruct:
         else:
             self.explore =             f'{self.fNameExplore}_{self.exploreAppend}{self.xtn}'
         self.exploreDsigma =           f'{self.fNameExplore}_Dsigma{self.xtn}'
+        self.exploreLoveComparison = f'{self.fNameExplore}_LoveNumberComparison{self.xtn}'
         self.phaseSpace =              f'{self.fNameInduct}_{induct}_phaseSpace{self.xtn}'
         self.phaseSpaceCombo =         f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{self.xtn}'
         self.induct =          {zType: f'{self.fNameInduct}_{induct}_{zType}{self.xtn}' for zType in zComps}
@@ -1093,6 +1095,7 @@ class ExplorationStruct:
         self.sigmaIonos_Sm = None  # Values set of outermost ionosphere Pedersen conductivity in S/m.
         self.Htidal_Wm3 = None  # Values of Sil.Htidal_Wm3 set.
         self.Qrad_Wkg = None  # Values of Sil.Qrad_Wkg set.
+        self.rhoOceanMean_kgm3 = None # Values of Ocean.rhoMean_kgm3 result (also equal to those set for all but phi inductOtype).
         self.rhoSilMean_kgm3 = None  # Values of Sil.rhoMean_kgm3 result (also equal to those set for all but phi inductOtype).
         self.rhoCoreMean_kgm3 = None  # Values of Core.rhoMean_kgm3 result (also equal to those set for all but phi inductOtype).
         self.sigmaMean_Sm = None  # Mean ocean conductivity result in S/m.
@@ -1111,6 +1114,7 @@ class ExplorationStruct:
         self.h_love_number = None # h love number
         self.l_love_number = None # l love number
         self.k_love_number = None # k love number
+        self.delta_love_number_relation = None # delta relation of love number (1+k-h)
         self.dzWetHPs_km = None  # Total resultant thickness of all undersea high-pressure ices (III, V, and VI) in km.
         self.eLid_km = None  # Thickness of surface stagnant-lid conductive ice layer result (may include Ih or clathrates or both) in km.
         self.Rcore_km = None  # Core radius result in km.
@@ -1717,7 +1721,8 @@ class FigLblStruct:
             'zb_km',
             'h_love_number',
             'l_love_number',
-            'k_love_number'
+            'k_love_number',
+            'delta_love_number_relation'
         ]
         self.cfmtExplore = {
             'CMR2calc': '%.3f',
@@ -1728,14 +1733,18 @@ class FigLblStruct:
             'h_love_number': '%.2f',
             'l_love_number': '%.2f',
             'k_love_number': '%.2f',
-
+            'delta_love_number_relation': '%.2f'
         }
         self.cbarfmtExplore = {
             'CMR2calc': '%.4f',
             'phiSeafloor_frac': '%.2f',
             'sigmaMean_Sm': None,
             'silPhiCalc_frac': '%.2f',
-            'zb_km': '%.1f', 'h_love_number': '%.2f', 'l_love_number': '%.2f', 'k_love_number': '%.2f'
+            'zb_km': '%.1f',
+            'h_love_number': '%.2f',
+            'l_love_number': '%.2f',
+            'k_love_number': '%.2f',
+            'delta_love_number_relation': '%.2f'
 
         }
         self.exploreDescrip = {
@@ -1755,11 +1764,13 @@ class FigLblStruct:
             'dzWetHPs_km': 'undersea high-pressure ice thickness',
             'eLid_km': 'ice conductive lid thickness',
             'Pseafloor_MPa': 'seafloor pressure',
+            'oceanComp': 'ocean composition',
             'wOcean_ppt': 'ocean salinity',
             'Tb_K': 'ocean melting temperature',
             'ionosTop_km': 'ionosphere top altitude',
             'sigmaIonos_Sm': 'ionosphere conductivity',
             'sigmaMean_Sm': 'ocean mean conductivity',
+            'rhoOceanMean_kgm3': 'mean ocean density',
             'rhoSilMean_kgm3': 'mean rock density',
             'phiSeafloor_frac': 'seafloor rock porosity',
             'silPhi_frac': 'rock maximum porosity',
@@ -1771,6 +1782,7 @@ class FigLblStruct:
             'h_love_number': 'h love number',
             'l_love_number': 'l love number',
             'k_love_number': 'k love number',
+            'delta_love_number_relation': '1+k-h',
             'Qrad_Wkg': 'rock radiogenic heating',
             'qSurf_Wm2': 'surface heat flux',
             'CMR2calc': 'axial moment of inertia'
@@ -1902,6 +1914,7 @@ class FigLblStruct:
         self.rhoLabel = r'Density $\rho$ ($\si{' + self.rhoUnits + '}$)'
         self.PTrhoLabel = r'$P$ ($\si{MPa}$), $T$ ($\si{K}$), and $\rho$ ($\si{' + self.rhoUnits + '}$)'
         self.rhoSilLabel = r'Rock density $\rho_\mathrm{rock}$ ($\si{' + self.rhoUnits + '}$)'
+        self.rhoOceanMeanLabel = r'Ocean density $\overline{\rho}_\mathrm{ocean}$ ($\si{' + self.rhoUnits + '}$)'
         self.rhoSilMeanLabel = r'Rock density $\overline{\rho}_\mathrm{rock}$ ($\si{' + self.rhoUnits + '}$)'
         self.silPhiSeaLabel = r'Seafloor porosity $\phi_\mathrm{rock}$' + self.phiUnitsParen
         self.phiLabel = r'Porosity $\phi$' + self.phiUnitsParen
@@ -1914,9 +1927,10 @@ class FigLblStruct:
         self.vSiceLabel = r'Ice $V_S$ ($\si{' + self.vSoundUnits + '}$)'
         self.QseisLabel = f'Seismic quality factor ${self.QseisVar}$'
         self.xFeSLabel = r'Iron sulfide mixing ratio $x_{\ce{FeS}}$' + self.xUnitsParen
-        self.hLoveLabel = r'h Love Number'
-        self.lLoveLabel = r'l Love Number'
-        self.kLoveLabel = r'k Love Number'
+        self.hLoveLabel = r'Tidal Love Number $h_2$'
+        self.lLoveLabel = r'Tidal Love Number $l_2$'
+        self.kLoveLabel = r'Tidal Love Number $k_2$'
+        self.deltaLoveLabel = r'$\Delta = 1 + k_2 - h_2$'
         self.qSurfLabel = r'Surface heat flux $q_\mathrm{surf}$ ($\si{' + self.fluxUnits + '}$)'
         self.silPhiInLabel = r'Rock maximum porosity search value $\phi_\mathrm{rock,max,in}$' + self.phiUnitsParen
         self.silPhiOutLabel = r'Rock maximum porosity match $\phi_\mathrm{rock,max}$' + self.phiUnitsParen
@@ -1967,6 +1981,7 @@ class FigLblStruct:
             'ionosTop_km': self.ionosTopLabel,
             'sigmaIonos_Sm': self.sigmaIonosLabel,
             'sigmaMean_Sm': self.sigmaMeanLabel,
+            'rhoOceanMean_kgm3': self.rhoOceanMeanLabel,
             'rhoSilMean_kgm3': self.rhoSilMeanLabel,
             'silPhi_frac': self.silPhiInLabel,
             'silPhiCalc_frac': self.silPhiOutLabel,
@@ -1979,6 +1994,7 @@ class FigLblStruct:
             'h_love_number': self.hLoveLabel,
             'l_love_number': self.lLoveLabel,
             'k_love_number': self.kLoveLabel,
+            'delta_love_number_relation': self.deltaLoveLabel,
             'qSurf_Wm2': self.qSurfLabel,
             'CMR2calc': self.CMR2label
         }
@@ -2026,6 +2042,7 @@ class FigLblStruct:
 
         self.SetExploreTitle(bodyname, zName, titleData)
         self.explorationDsigmaTitle = f'\\textbf{{{bodyname} ocean $D/\\sigma$ vs.\\ {self.exploreDescrip[zName]}}}'
+        self.explorationLoveComparisonTitle = f'\\textbf{{{bodyname} $\Delta = 1 + k_2 - h_2$ vs.\\ Tidal Love Number $k_2$ vs.\\ {self.exploreDescrip[zName]}}}'
         self.exploreCompareTitle = self.explorationTitle
 
     def SetExploreTitle(self, bodyname, zName, titleData):

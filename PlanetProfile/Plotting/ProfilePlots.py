@@ -1298,3 +1298,99 @@ def PlotExploreOgramDsigma(ExplorationList, Params):
         plt.close()
 
     return
+
+def PlotExploreOgramLoveComparison(ExplorationList, Params):
+    """ Plot a scatter showing the evaluated tidal love number k2 versus delta (1+k2-h2),
+        for comparison against canonical k2/delta exploration plots.
+    """
+
+    ExplorationList[0].xName = 'delta_love_number_relation'
+    ExplorationList[0].yName = 'k_love_number'
+    ExplorationList[0].zName = 'oceanComp'
+    FigLbl.SetExploration(ExplorationList[0].bodyname, ExplorationList[0].xName, ExplorationList[0].yName,
+                          ExplorationList[0].zName)
+    if not FigMisc.TEX_INSTALLED:
+        FigLbl.StripLatex()
+
+    for Exploration in (ex for ex in ExplorationList if not ex.NO_H2O):
+        fig = plt.figure(figsize=FigSize.explore)
+        grid = GridSpec(1, 1)
+        ax = fig.add_subplot(grid[0, 0])
+        if Style.GRIDS:
+            ax.grid()
+            ax.set_axisbelow(True)
+
+        if Params.TITLES:
+            fig.suptitle(FigLbl.explorationLoveComparisonTitle)
+        ax.set_xlabel(FigLbl.xLabelExplore)
+        ax.set_ylabel(FigLbl.yLabelExplore)
+        # Override standard settings for this type of plot
+        ax.set_xscale('linear')
+        ax.set_yscale('linear')
+
+        x = np.reshape(Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore, -1)
+        y = np.reshape(Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore, -1)
+        z = np.reshape(Exploration.__getattribute__(Exploration.zName), -1)
+        # Only keep data points for which a valid model was determined
+        VALID = np.logical_not(np.logical_or(np.isnan(x), np.isnan(y)))
+        x, y, z = x[VALID], y[VALID], z[VALID]
+
+        # Group by unique z values and plot connecting lines
+        unique_z = np.unique(z)
+        for z_val in unique_z:
+            TminMax_K = {}
+            Tall_K = np.reshape(Exploration.__getattribute__('Tb_K'), -1)
+            TminMax_K[z_val] = [np.min(Tall_K), np.max(Tall_K)]
+            # Set style options
+            if FigMisc.MANUAL_HYDRO_COLORS:
+                Color.Tbounds_K = TminMax_K[z_val]
+                thisColor = Color.cmap[z_val](Color.GetNormT(270))
+            else:
+                thisColor = None
+            indices = np.where(z == z_val)[0]
+            x_line, y_line = x[indices], y[indices]
+            # Sort points by x for connected lines
+            sorted_idx = np.argsort(x_line)
+            x_line = x_line[sorted_idx]
+            y_line = y_line[sorted_idx]
+            if 'CustomSolution' in z_val:
+                z_label = z_val.split('=')[0]
+            else:
+                z_label = z_val
+            # Plot line for each z group
+            ax.plot(x_line, y_line, color = thisColor, label=f'{z_label}', linewidth=2, zorder = 2)
+            # Add error bars
+            ax.errorbar(x_line, y_line, yerr=0.014  , fmt='none', color=thisColor, capsize=3)
+
+        # TODO Make these param options
+        MANUAL_ICE_THICKNESS_COLORS = True
+        if MANUAL_ICE_THICKNESS_COLORS:
+            # Get ice shell thickness and reshape
+            ice_thickness = np.reshape(Exploration.__getattribute__('zb_approximate_km'), -1)
+            ice_thickness = ice_thickness[VALID]  # Filter invalid data like x and y
+            # Set bounds for normalization (min and max of ice thickness)
+            Tbound_lower = np.min(ice_thickness)
+            Tbound_upper = np.max(ice_thickness)
+
+            # Get normalized values using GetNormT
+            norm_thickness = Color.GetNormT(ice_thickness, Tbound_lower, Tbound_upper)
+        else:
+            norm_thickness = None
+
+        # Apply colormap using normalized thickness
+        pts = ax.scatter(x, y, c=norm_thickness,  # Use normalized values
+                         cmap='Greys',  # Use your chosen colormap
+                         marker=Style.MS_Induction, s=Style.MW_Induction ** 2, edgecolors='black', linewidths = 0.5, zorder = 3)
+        if np.size(x) > 0:
+            ax.set_xlim([0, 0.16])
+        if np.size(y) > 0:
+            ax.set_ylim([np.floor(np.min(y)*100)/100, np.ceil(np.max(y)*100)/100])
+        if Params.LEGEND:
+            ax.legend(title="Ocean Composition", fontsize=10, title_fontsize=12)
+
+        plt.tight_layout()
+        fig.savefig(Params.FigureFiles.exploreLoveComparison, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        log.debug(f'Plot saved to file: {Params.FigureFiles.exploreLoveComparison}')
+        plt.close()
+
+    return

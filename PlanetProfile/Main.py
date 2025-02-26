@@ -21,7 +21,7 @@ from PlanetProfile import _Defaults, _TestImport, CopyCarefully
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, GetBexc, Benm2absBexyz
 from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitations as Mag
-from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram, PlotExploreOgramDsigma
+from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram, PlotExploreOgramDsigma, PlotExploreOgramLoveComparison
 from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
     PlotInductOgramPhaseSpace
 from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers, GetIceShellTFreeze
@@ -82,6 +82,7 @@ def run(bodyname=None, opt=None, fNames=None):
         else:
             Induction, Params = InductOgram(bodyname, Params)
         if not Params.SKIP_PLOTS:
+            Params = SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
             PlotInductOgram(Induction, Params)
             if Params.COMPARE:
                 inductOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.inductPath, '*.mat'))
@@ -103,6 +104,7 @@ def run(bodyname=None, opt=None, fNames=None):
         else:
             Exploration, Params = ExploreOgram(bodyname, Params)
         if not Params.SKIP_PLOTS:
+            Params = SetupCustomSolutionPlotSettings(Exploration.oceanComp, Params)
             if Params.COMPARE:
                 exploreOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fNameExplore+'*.mat'))
                 Params.nModels = np.size(exploreOgramFiles)
@@ -129,6 +131,7 @@ def run(bodyname=None, opt=None, fNames=None):
                     Exploration.zName = Params.Explore.zName
                 PlotExploreOgram(ExplorationList, Params)
             PlotExploreOgramDsigma(ExplorationList, Params)
+            PlotExploreOgramLoveComparison(ExplorationList, Params)
     else:
         # Set timekeeping for recording elapsed times
         tMarks = np.empty(0)
@@ -1137,6 +1140,13 @@ def ParPlanetExplore(Planet, Params, xList, yList):
                 Planet = AssignPlanetVal(Planet, Params.Explore.yName, yVal)
                 Planet.index = k
                 PlanetGrid[i,j] = deepcopy(Planet)
+                if Planet.Ocean.comp == 'Seawater':
+                    PlanetGrid[i, j].Ocean.wOcean_ppt = 35.1
+                elif Planet.Ocean.comp == 'MgSO4':
+                    PlanetGrid[i,j].Ocean.wOcean_ppt = 231
+                    PlanetGrid[i, j].TfreezeUpper_K = 267.5
+                elif Planet.Ocean.comp == 'PureH2O':
+                    PlanetGrid[i, j].Ocean.wOcean_ppt = 0
         log.info('PlanetGrid constructed. Calculating exploration responses.')
         Params.nModels = nTot
         Params.tStart_s = time.time()
@@ -1518,6 +1528,7 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
         Exploration.sigmaIonos_Sm = np.array([[Planeti.Magnetic.sigmaIonosPedersen_Sm[-1] for Planeti in line] for line in PlanetGrid])
         Exploration.Htidal_Wm3 = np.array([[Planeti.Sil.Htidal_Wm3 for Planeti in line] for line in PlanetGrid])
         Exploration.Qrad_Wkg = np.array([[Planeti.Sil.Qrad_Wkg for Planeti in line] for line in PlanetGrid])
+        Exploration.rhoOceanMean_kgm3 = np.array([[Planeti.Ocean.rhoMean_kgm3 for Planeti in line] for line in PlanetGrid])
         Exploration.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 for Planeti in line] for line in PlanetGrid])
         Exploration.rhoCoreMean_kgm3 = np.array([[Planeti.Core.rhoMean_kgm3 for Planeti in line] for line in PlanetGrid])
         Exploration.sigmaMean_Sm = np.array([[Planeti.Ocean.sigmaMean_Sm for Planeti in line] for line in PlanetGrid])
@@ -1541,6 +1552,7 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
         Exploration.h_love_number = np.array([[Planeti.Gravity.h for Planeti in line] for line in PlanetGrid])
         Exploration.l_love_number = np.array([[Planeti.Gravity.l for Planeti in line] for line in PlanetGrid])
         Exploration.k_love_number = np.array([[Planeti.Gravity.k for Planeti in line] for line in PlanetGrid])
+        Exploration.delta_love_number_relation = np.array([[Planeti.Gravity.delta for Planeti in line] for line in PlanetGrid])
         Exploration.CMR2calc = np.array([[Planeti.CMR2mean for Planeti in line] for line in PlanetGrid])
         Exploration.VALID = np.array([[Planeti.Do.VALID for Planeti in line] for line in PlanetGrid])
         Exploration.invalidReason = np.array([[Planeti.invalidReason for Planeti in line] for line in PlanetGrid])
@@ -1695,6 +1707,7 @@ def WriteExploreOgram(Exploration, Params, INVERSION=False):
         'sigmaIonos_Sm': Exploration.sigmaIonos_Sm,
         'Htidal_Wm3': Exploration.Htidal_Wm3,
         'Qrad_Wkg': Exploration.Qrad_Wkg,
+        'rhoOceanMean_kgm3': Exploration.rhoOceanMean_kgm3,
         'rhoSilMean_kgm3': Exploration.rhoSilMean_kgm3,
         'rhoCoreMean_kgm3': Exploration.rhoCoreMean_kgm3,
         'sigmaMean_Sm': Exploration.sigmaMean_Sm,
@@ -1719,6 +1732,7 @@ def WriteExploreOgram(Exploration, Params, INVERSION=False):
         'h_love_number': Exploration.h_love_number,
         'l_love_number': Exploration.l_love_number,
         'k_love_number': Exploration.k_love_number,
+        'delta_love_number_relation': Exploration.delta_love_number_relation,
         'CMR2calc': Exploration.CMR2calc,
         'VALID': Exploration.VALID,
         'invalidReason': Exploration.invalidReason
@@ -1775,6 +1789,7 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
     Exploration.yName = reload['yName'][0]
     Exploration.wOcean_ppt = reload['wOcean_ppt']
     Exploration.oceanComp = reload['oceanComp']
+    Exploration.oceanComp = np.char.rstrip(Exploration.oceanComp)
     Exploration.R_m = reload['R_m']
     Exploration.Tb_K = reload['Tb_K']
     Exploration.zb_approximate_km = reload['zb_approximate_km']
@@ -1788,6 +1803,7 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
     Exploration.sigmaIonos_Sm = reload['sigmaIonos_Sm']
     Exploration.Htidal_Wm3 = reload['Htidal_Wm3']
     Exploration.Qrad_Wkg = reload['Qrad_Wkg']
+    Exploration.rhoOceanMean_kgm3 = reload['rhoOceanMean_kgm3']
     Exploration.rhoSilMean_kgm3 = reload['rhoSilMean_kgm3']
     Exploration.rhoCoreMean_kgm3 = reload['rhoCoreMean_kgm3']
     Exploration.sigmaMean_Sm = reload['sigmaMean_Sm']
@@ -1812,6 +1828,8 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
     Exploration.h_love_number = reload['h_love_number']
     Exploration.l_love_number = reload['l_love_number']
     Exploration.k_love_number = reload['k_love_number']
+    Exploration.delta_love_number_relation = 1 + Exploration.k_love_number - Exploration.h_love_number
+    # Exploration.delta_love_number_relation = reload['delta_love_number_relation']
     Exploration.CMR2calc = reload['CMR2calc']
     Exploration.VALID = reload['VALID']
     Exploration.invalidReason = reload['invalidReason']
@@ -1823,8 +1841,6 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
         Exploration.chiSquared = reload['chiSquared']
         Exploration.stdDev = reload['stdDev']
         Exploration.Rsquared = reload['Rsquared']
-
-    Params = SetupCustomSolutionPlotSettings(Exploration.oceanComp, Params)
 
     return Exploration, Params
 
