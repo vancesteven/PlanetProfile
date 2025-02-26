@@ -122,6 +122,9 @@ def GetReducedLayers(Planet, Params):
     # Iterate through each segment
     for start, end in zip(change_indices[:-1], change_indices[1:]):
         layer_phase = phase[start]
+        if layer_phase >= 10 and Params.SKIP_INNER:
+            # In this case where we skip inner calculations, we do not reduce the inner layers
+            continue
         layer_str = PhaseConv(layer_phase, liq='0')  # Convert phase to string
         r_layer_m = rPhase_m[start:end]  # Extract radii for this layer
 

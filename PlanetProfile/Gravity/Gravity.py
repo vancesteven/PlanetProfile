@@ -2,6 +2,7 @@ import numpy as np
 from alma import infer_rheology_pp, build_model, love_numbers
 import logging
 import ast
+import os
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -9,7 +10,7 @@ log = logging.getLogger('PlanetProfile')
 def GravityParameters(Planet, Params):
     """ Calculate induced gravity responses for the body and prints them to disk."""
     SKIP = False
-    if Planet.Do.VALID and Params.CALC_NEW_GRAVITY and Params.CALC_VISCOSITY and Params.CALC_SEISMIC:
+    if Planet.Do.VALID and Params.CALC_NEW_GRAVITY and Params.CALC_VISCOSITY and Params.CALC_SEISMIC and not Params.SKIP_INNER:
         # Set Magnetic struct layer arrays as we need for induction calculations
         Planet, Params = SetupGravity(Planet, Params)
         rheology, params = infer_rheology_pp(Planet.Gravity.ALMAModel, structure=Params.Gravity.rheology_structure,
@@ -25,18 +26,24 @@ def GravityParameters(Planet, Params):
                                                                 Params.Gravity.loading_type, Params.Gravity.time_history_function, Params.Gravity.tau, model_params,
                                                                 Params.Gravity.output_type, Params.Gravity.gorder, verbose=Params.Gravity.verbose,
                                                                 parallel=Params.Gravity.parallel)
+        # Compute delta relation
+        Planet.Gravity.delta = 1 + Planet.Gravity.k - Planet.Gravity.h
         # If our love numbers are 1x1 numpy array, let's convert to float - important for plotting and output
         if len(Planet.Gravity.time_log_kyrs) == 1 and len(Planet.Gravity.harmonic_degrees) == 1:
             Planet.Gravity.h = float(Planet.Gravity.h[0, 0])
             Planet.Gravity.l = float(Planet.Gravity.l[0, 0])
             Planet.Gravity.k = float(Planet.Gravity.k[0, 0])
+            Planet.Gravity.delta = float(Planet.Gravity.delta[0, 0])
         Planet, Params = WriteGravityParameters(Planet, Params)
-        # TEMPROARY PRINTING LOVE NUMBERS FOR NOW
+        # Temporary printing of numbers
         print(f"h number: {Planet.Gravity.h}, l number: {Planet.Gravity.l}, k number: {Planet.Gravity.k}")
     elif Planet.Do.VALID:
-        # Reload gravity parameters from disk
-        Planet, Params = ReloadGravityParameters(Planet, Params)
-
+        if os.path.isfile(Params.DataFiles.gravityParametersFile):
+            # Reload gravity parameters from disk
+            Planet, Params = ReloadGravityParameters(Planet, Params)
+        else:
+            log.warning(
+                f'CALC_NEW_GRAVITY is False, but {Params.DataFiles.gravityParametersFile} was not found. ' + f'Skipping gravity parameter calculations.')
     return Planet, Params
 
 
@@ -50,7 +57,7 @@ def SetupGravity(Planet, Params):
 
         Requires Planet attributes:
     """
-    if Params.CALC_NEW_GRAVITY and Planet.Do.VALID:
+    if Params.CALC_NEW_GRAVITY and Planet.Do.VALID and not Params.SKIP_INNER:
         """Combine data into model format that is required by PyALMA3"""
         # Note we have to use r_m[:-1] since r_m has one extra value than other arrays
         Planet.Gravity.model = np.vstack(
@@ -139,4 +146,5 @@ def ReloadGravityParameters(Planet, Params):
             Planet.Gravity.h = np.array(ast.literal_eval(f.readline().split('=')[-1]))
             Planet.Gravity.l = np.array(ast.literal_eval(f.readline().split('=')[-1]))
             Planet.Gravity.k = np.array(ast.literal_eval(f.readline().split('=')[-1]))
+        Planet.Gravity.delta = 1 + Planet.Gravity.k - Planet.Gravity.h
     return Planet, Params
