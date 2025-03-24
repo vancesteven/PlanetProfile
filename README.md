@@ -1,4 +1,7 @@
-# PlanetProfile v2.5
+# PlanetProfile v4.0 WIP
+
+# Work towards moving PlanetProfile to framework generating geophysical structures that can be self-consistent or not. 
+
 ![PlanetProfile logo](misc/PPlogoDocs.png)
 
 Update as of November 26, 2025:
