@@ -234,6 +234,8 @@ def SetupInit(Planet, Params):
         # Check ocean parameter space and load EOS
         if Planet.Ocean.THydroMax_K < Planet.Bulk.Tb_K:
             raise ValueError(f'Ocean.THydroMax_K of {Planet.Ocean.THydroMax_K} is less than Bulk.Tb_K of {Planet.Bulk.Tb_K}.')
+        elif Planet.Do.ICEIh_THICKNESS:
+            TOcean_K = np.arange(Planet.TfreezeLower_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
         else:
             TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
         Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,

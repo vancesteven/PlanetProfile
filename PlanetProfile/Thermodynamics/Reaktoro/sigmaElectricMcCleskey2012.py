@@ -53,24 +53,24 @@ def elecCondMcCleskey2012(P_MPa, T_C, ions):
             Ad = np.array([data[ion_name]['A2'], data[ion_name]['A1'], data[ion_name]['A0']])
             l210 = np.array([data[ion_name]['lam2'], data[ion_name]['lam1'], data[ion_name]['lam0']])
 
-        # Ionic strength calculations
-        I = 0.5 * mols * z**2
-        I2 = np.sqrt(I)
+            # Ionic strength calculations
+            I = 0.5 * mols * z**2
+            I2 = np.sqrt(I)
 
-        # Evaluate polynomial coefficients for temperature dependency
-        lam0 = np.polyval(l210, T_C)
-        At = np.polyval(Ad, T_C)
+            # Evaluate polynomial coefficients for temperature dependency
+            lam0 = np.polyval(l210, T_C)
+            At = np.polyval(Ad, T_C)
 
-        # Evaluate (I^1/2)/(1+B*I1/2)
-        xI = I2/(1+B*I2)
+            # Evaluate (I^1/2)/(1+B*I1/2)
+            xI = I2/(1+B*I2)
 
-        # Evaluate molal conductivity
-        lamda = lam0 - At * xI  # Use broadcasting
+            # Evaluate molal conductivity
+            lamda = lam0 - At * xI  # Use broadcasting
 
-        # IMPLEMENT PRESSURE ADJUSTMENT HERE
+            # IMPLEMENT PRESSURE ADJUSTMENT HERE
 
-        # Update sigma_Sm with conductivity contributions from each ion
-        sigma_mS_cm += lamda * mols  # Broadcasting mols across num_TC
+            # Update sigma_Sm with conductivity contributions from each ion
+            sigma_mS_cm += lamda * mols  # Broadcasting mols across num_TC
 
     return (sigma_mS_cm * 100 / 1000)  # convert from mS/cm to S/m
 

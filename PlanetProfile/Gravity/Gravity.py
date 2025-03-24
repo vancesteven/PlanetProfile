@@ -25,7 +25,7 @@ def GravityParameters(Planet, Params):
         Planet.Gravity.h, Planet.Gravity.l, Planet.Gravity.k = love_numbers(Params.Gravity.harmonic_degrees, Params.Gravity.time_log_kyrs,
                                                                 Params.Gravity.loading_type, Params.Gravity.time_history_function, Params.Gravity.tau, model_params,
                                                                 Params.Gravity.output_type, Params.Gravity.gorder, verbose=Params.Gravity.verbose,
-                                                                parallel=Params.Gravity.parallel)
+                                                                parallel=Params.Gravity.parallel and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
         # Compute delta relation
         Planet.Gravity.delta = 1 + Planet.Gravity.k - Planet.Gravity.h
         # If our love numbers are 1x1 numpy array, let's convert to float - important for plotting and output

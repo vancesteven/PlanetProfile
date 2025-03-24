@@ -964,6 +964,7 @@ def InductOgram(bodyname, Params):
             Induction.yName = Params.Induct.inductOtype
             Induction.wOcean_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
             Induction.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
+            Induction.oceanComp = np.char.rstrip(Induction.oceanComp)
             Induction.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
             Induction.Tmean_K = np.array([[Planeti.Ocean.Tmean_K if Planeti.Ocean.Tmean_K is not None else np.nan for Planeti in line] for line in PlanetGrid])
             Induction.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 if Planeti.Sil.rhoMean_kgm3 is not None else np.nan for Planeti in line] for line in PlanetGrid])
@@ -1067,6 +1068,7 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     Induction.Biz_nT = reload['Biz_nT']
     Induction.wOcean_ppt = reload['w_ppt']
     Induction.oceanComp = reload['oceanComp']
+    Induction.oceanComp = np.char.rstrip(Induction.oceanComp)
     Induction.Tb_K = reload['Tb_K']
     Induction.Tmean_K = reload['Tmean_K']
     Induction.rhoSilMean_kgm3 = reload['rhoSilMean_kgm3']
