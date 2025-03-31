@@ -530,7 +530,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             labelAppendage = f'$z_b\,\SI{{{Planet.Bulk.zb_approximate_km}}}{{\kilo\meter}}$'
         else:
             saveLabelAppendage = f'Tb{Planet.Bulk.Tb_K}K'
-            labelAppendage = f'$T_b\,\SI{{{Planet.Bulk.zb_approximate_km}}}{{K}}$'
+            labelAppendage = f'$T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
         if Planet.Ocean.comp == 'PureH2O':
             saveLabel += f'{Planet.Ocean.comp}_{saveLabelAppendage}'
             setStr = f'Pure \ce{{H2O}}'
