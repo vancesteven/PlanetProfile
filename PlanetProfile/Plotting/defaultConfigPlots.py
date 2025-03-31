@@ -68,9 +68,9 @@ def plotAssign():
     Color.paleSilCondBot = 0.78
 
     # PvThydro properties colormaps
-    Color.PvThydroCmapName = 'Blues'
+    Color.PvThydroCmapName = 'RdBu'
     Color.PvThydroHi = 1.0
-    Color.PvThydroLo = 0.2
+    Color.PvThydroLo = 0.0
     Color.negPvThydroCmapName = 'Reds'
     Color.negPvThydroHi = 0.5
     Color.negPvThydroLo = 0.0
@@ -78,7 +78,7 @@ def plotAssign():
     # IsoThermPvThydro properties colormaps
     Color.isoThermPvThydroCmapName = 'Blues'
     Color.isoThermPvThydroHi = 1.0
-    Color.isoThermPvThydroLo = 0.2
+    Color.isoThermPvThydroLo = 0.0
 
     # PvTPerpleX properties colormaps
     Color.PvTsilCmapName = 'copper'

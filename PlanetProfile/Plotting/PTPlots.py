@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.axes import Axes
 from matplotlib.colors import LinearSegmentedColormap as DiscreteCmap, to_rgb, BoundaryNorm
+from matplotlib.colors import TwoSlopeNorm
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
@@ -911,17 +912,20 @@ def PlotPvThydro(PlanetList, Params):
                 phase_different_indices = np.where(phase_difference)
                 prop_data_to_plot[phase_different_indices] = np.nan
             # Plot property data
-            if prop.prop != 'alpha':
-                cmap = Color.PvThydroCmap
+            cmap = Color.PvThydroCmap
+            if SinglePlanetPlot:
+                vmin = np.nanmin(prop_data_to_plot)
+                vmax = np.nanmax(prop_data_to_plot)
+                vmedian = float(np.nanmedian(prop_data_to_plot))
+                norm = TwoSlopeNorm(vmin = vmin, vcenter = vmedian, vmax = vmax)
             else:
-                if SinglePlanetPlot:
-                    # Highlight places where alpha is negative with opposite side of diverging colormap, 0 pegged to middle
-                    minAlpha = np.minimum(0, np.min(prop_data_to_plot))
-                    cmap = Color.ComboPvThydroCmap(minAlpha, np.max(prop_data_to_plot))
-                else:
-                    cmap = Color.PvThydroCmap
+                # Determine the limits for each property so we can peg 0 to middle of color plot
+                abs_max = max(abs(np.nanmin(prop_data_to_plot)), abs(np.nanmax(prop_data_to_plot)))
+                if abs_max == 0:
+                    abs_max = 1e-14
+                norm = TwoSlopeNorm(vmin = -abs_max, vcenter= 0, vmax = abs_max)
             pcolormesh = ax.pcolormesh(T_K, P_MPa * FigLbl.PmultHydro, prop_data_to_plot, cmap=cmap,
-                                       rasterized=FigMisc.PT_RASTER)
+                                       rasterized=FigMisc.PT_RASTER, norm = norm)
             # Add colorbar
             fig.colorbar(pcolormesh, ax=ax)
             # Set labels, title, etc.
@@ -933,24 +937,25 @@ def PlotPvThydro(PlanetList, Params):
             ax.set_title(prop.prop_label)
 
         # Plot geotherm on top of colormaps
-        for eachPlanet in PlanetList:
-            # Geotherm curve
-            if np.size(PlanetList) > 1:
-                thisColor = None
-            else:
-                thisColor = Color.geothermHydro
-            if Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
-                Pgeo = eachPlanet.P_MPa * FigLbl.PmultHydro
-                Tgeo = eachPlanet.T_K
-            else:
-                Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
-                Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
-            [ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm, color=thisColor,
-                     label=eachPlanet.label) for ax in axf]
+        if FigMisc.SHOW_GEOTHERM:
+            for eachPlanet in PlanetList:
+                # Geotherm curve
+                if np.size(PlanetList) > 1:
+                    thisColor = None
+                else:
+                    thisColor = Color.geothermHydro
+                if Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
+                    Pgeo = eachPlanet.P_MPa * FigLbl.PmultHydro
+                    Tgeo = eachPlanet.T_K
+                else:
+                    Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
+                    Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
+                [ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm, color=thisColor,
+                         label=eachPlanet.label) for ax in axf]
 
-            if Params.LEGEND and np.size(PlanetList) > 1:
-                handles, lbls = axes[-1, 0].get_legend_handles_labels()
-                axes[0, -1].legend(handles, lbls)
+                if Params.LEGEND and np.size(PlanetList) > 1:
+                    handles, lbls = axes[-1, 0].get_legend_handles_labels()
+                    axes[0, -1].legend(handles, lbls)
 
         plt.tight_layout()
         if SinglePlanetPlot:
