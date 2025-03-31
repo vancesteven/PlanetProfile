@@ -360,7 +360,7 @@ def IceIIIUnderplate(Planet, Params):
                 Planet = IceIIIConvectSolid(Planet, Params)
     else:
         log.debug('NO_ICE_CONVECTION is True -- skipping ice III convection calculations.')
-        Planet.eLidIII_m = Planet.Planet.z_m[Planet.Steps.nIIIbottom-1]
+        Planet.eLidIII_m = Planet.z_m[Planet.Steps.nIIIbottom-1]
         Planet.DconvIII_m = 0.0
         Planet.deltaTBLIII_m = 0.0
 
@@ -401,7 +401,49 @@ def IceVUnderplate(Planet, Params):
                 Planet = IceVConvectSolid(Planet, Params)
     else:
         log.debug('NO_ICE_CONVECTION is True -- skipping ice V convection calculations.')
-        Planet.eLidV_m = Planet.Planet.z_m[Planet.Steps.nSurfIce-1]
+        Planet.eLidV_m = Planet.z_m[Planet.Steps.nSurfIce-1]
+        Planet.DconvV_m = 0.0
+        Planet.deltaTBLV_m = 0.0
+
+    return Planet
+
+
+
+def IceVIUnderplate(Planet, Params):
+    """ Conductive and convective profile calculations for ice V layers between
+        the ocean and surface ice III layer.
+
+        Assigns Planet attributes:
+            PbV_MPa, all physical layer arrays
+    """
+    log.debug(f'Ice V bottom phase transition pressure: {Planet.PbV_MPa:.3f} MPa ' +
+                             f'at TbV_K = {Planet.Bulk.TbV_K:.3f} K.')
+
+    if Planet.Do.POROUS_ICE:
+        Planet = IceVIConductPorous(Planet, Params)
+    else:
+        Planet = IceVIConductSolid(Planet, Params)
+
+    if not Planet.Do.NO_ICE_CONVECTION:
+        # Record zbV_m to see if it gets adjusted significantly
+        zbVold_m = Planet.z_m[Planet.Steps.nSurfIce-1] + 0.0
+        # Now check for convective region and get dimensions if present
+        if Planet.Do.POROUS_ICE:
+            Planet = IceVIConvectPorous(Planet, Params)
+        else:
+            Planet = IceVIConvectSolid(Planet, Params)
+        # Run IceVIConvect a second time if zbV_m changed by more than a set tolerance
+        if(np.abs(Planet.z_m[Planet.Steps.nSurfIce-1] - zbVold_m)/Planet.z_m[Planet.Steps.nSurfIce-1] > Planet.Bulk.zbChangeTol_frac):
+            log.debug('The bottom depth of underplate ice V changed by ' +
+                     f'{(Planet.z_m[Planet.Steps.nSurfIce-1] - zbVold_m)/1e3:.2f} km from IceVIConvect, which is greater than ' +
+                     f'{Planet.Bulk.zbChangeTol_frac * 100:.0f}%. running IceVIConvect a second time...')
+            if Planet.Do.POROUS_ICE:
+                Planet = IceVIConvectPorous(Planet, Params)
+            else:
+                Planet = IceVIConvectSolid(Planet, Params)
+    else:
+        log.debug('NO_ICE_CONVECTION is True -- skipping ice V convection calculations.')
+        Planet.eLidV_m = Planet.z_m[Planet.Steps.nSurfIce-1]
         Planet.DconvV_m = 0.0
         Planet.deltaTBLV_m = 0.0
 
@@ -1036,8 +1078,8 @@ def CalcMoIConstantRho(Planet, Params):
     CMR2 = C_kgm2 / MR2_kgm2
 
     CMR2inds = [i[0] for i, valCMR2 in np.ndenumerate(CMR2)
-                 if valCMR2 > Planet.Bulk.Cmeasured - Planet.Bulk.CuncertaintyLower
-                and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.CuncertaintyUpper]
+                 if valCMR2 >= Planet.Bulk.Cmeasured - Planet.Bulk.CuncertaintyLower
+                and valCMR2 <= Planet.Bulk.Cmeasured + Planet.Bulk.CuncertaintyUpper]
 
     if len(CMR2inds) == 0:
         if Planet.Do.NO_H2O:
@@ -1084,8 +1126,8 @@ def CalcMoIConstantRho(Planet, Params):
             Planet.Steps.nHydro = Planet.Steps.nOceanMax
 
     else:
-        CMR2indsInner = [ind - Planet.Steps.iSilStart - nTooBig for ind in CMR2inds]
         if Planet.Do.HYDROSPHERE_THICKNESS:
+            # CMR2inds = np.nonzero(CMR2) # remove constraint of CMR2 in specified bounds
             hydrosphere_thickness_m = Planet.Bulk.R_m  - Planet.r_m[CMR2inds]
             CMR2diff = np.abs(hydrosphere_thickness_m - Planet.Bulk.Dhsphere_m)
             # Get index of closest match in CMR2inds
@@ -1095,6 +1137,7 @@ def CalcMoIConstantRho(Planet, Params):
             # Get index of closest match in CMR2inds
             iCMR2ind = np.argmin(CMR2diff)
             # Find Planet array index corresponding to closest matching value
+        CMR2indsInner = [ind - Planet.Steps.iSilStart - nTooBig for ind in CMR2inds]
         iCMR2 = CMR2inds[iCMR2ind]
         iCMR2inner = iCMR2 - Planet.Steps.iSilStart - nTooBig
         # Record the best-match C/MR^2 value
