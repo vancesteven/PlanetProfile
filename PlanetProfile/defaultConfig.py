@@ -76,7 +76,7 @@ def configAssign():
 
     # Reduced planet calculation settings
     Params.REDUCE_ACCORDING_TO = 'ReducedLayers'  # Whether to reduce according to induction parameters (change in sigma) or gravity settings (not implemented currently)
-    Params.REDUCED_LAYERS_SIZE = {'0': 5, 'Ih': 5, 'Clath': 5, 'Sil': 5,
+    Params.REDUCED_LAYERS_SIZE = {'0': 5, 'Ih': 5, 'II': 5, 'III': 5, 'V': 5, 'VI': 5, 'Clath': 5, 'Sil': 5,
                                   'Fe': 5}  # If using ReducedLayers method, then determine how many layers the reduced layer should have
 
     # Magnetic induction plot settings
