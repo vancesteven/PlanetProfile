@@ -11,8 +11,8 @@ Params = configParams
 os.chdir(os.path.dirname(os.path.abspath(__file__))) # Reset directory back to this directory
 
 # We have to import PlanetProfile dependencies here in order to prevent __init__.py of /PlanetProfile directory running before we load configs
-from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct
-from PlanetProfile.Plotting.PTPlots import PlotHydroPhase, PlotPvThydro
+from PlanetProfile.Utilities.defineStructs import PlanetStruct
+from PlanetProfile.Plotting.PTPlots import PlotPvThydro
 
 FigMisc.PminHydro_MPa = 0.1
 FigMisc.PmaxHydro_MPa = 2000
@@ -20,9 +20,13 @@ FigMisc.TminHydro_K = 240
 FigMisc.TmaxHydro_K = 300
 FigMisc.SHOW_GEOTHERM = False
 FigMisc.dpi = 600
+FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS', 'sig']
 Params.FigureFiles.xtn = '.png'
 
-Seafreeze_Pure_H2O_Planet = PlanetStruct('Test')
+"""
+Generate the Seafreeze and Reaktoro (corrected) Pure H2O Comparison
+"""
+"""Seafreeze_Pure_H2O_Planet = PlanetStruct('Test')
 Seafreeze_Pure_H2O_Planet.Ocean.comp = 'PureH2O'
 Seafreeze_Pure_H2O_Planet.saveLabel = 'PureH2O_Seafreeze'
 Reaktoro_Pure_H2O_Planet = PlanetStruct('Test')
@@ -30,4 +34,52 @@ Reaktoro_Pure_H2O_Planet.Ocean.comp = "CustomSolutionPureH2O = H+: 1e-7, OH-: 1e
 Reaktoro_Pure_H2O_Planet.saveLabel = 'PureH2O_Reaktoro'
 
 Pure_H2O_PlanetList = np.array([Reaktoro_Pure_H2O_Planet, Seafreeze_Pure_H2O_Planet])
-PlotPvThydro(Pure_H2O_PlanetList, Params)
+PlotPvThydro(Pure_H2O_PlanetList, Params)"""
+
+"""
+Generate the Seafreeze and Reaktoro (corrected) 1g NaCl Comparison
+"""
+Seafreeze_NaCl_Planet = PlanetStruct('Test')
+Seafreeze_NaCl_Planet.Ocean.comp = 'NaCl'
+Seafreeze_NaCl_Planet.saveLabel = '1g_NaCl_Seafreeze'
+Seafreeze_NaCl_Planet.Ocean.wOcean_ppt = 1
+Reaktoro_NaCl_Planet = PlanetStruct('Test')
+Reaktoro_NaCl_Planet.Ocean.comp = "CustomSolution1gNaCl = Na+: 0.01711, Cl-: 0.01711"
+Reaktoro_NaCl_Planet.Ocean.wOcean_ppt = 1
+Reaktoro_NaCl_Planet.saveLabel = '1g_NaCl_Reaktoro'
+Params.FigureFiles.vpvtHydro = 'vpvtHydro.png'
+OneGram_NaCl_PlanetList = np.array([Reaktoro_NaCl_Planet, Seafreeze_NaCl_Planet])
+PlotPvThydro([Seafreeze_NaCl_Planet], Params)
+PlotPvThydro(OneGram_NaCl_PlanetList, Params)
+
+Seafreeze_NaCl_Planet.Ocean.wOcean_ppt = 50
+Seafreeze_NaCl_Planet.saveLabel = '50g_NaCl_Seafreeze'
+Reaktoro_NaCl_Planet.Ocean.wOcean_ppt = 50
+Reaktoro_NaCl_Planet.saveLabel = '50g_NaCl_Reaktoro'
+
+
+FiftyGram_NaCl_PlanetList = np.array([Reaktoro_NaCl_Planet, Seafreeze_NaCl_Planet])
+PlotPvThydro(FiftyGram_NaCl_PlanetList, Params)
+
+Seafreeze_NaCl_Planet.Ocean.wOcean_ppt = 100
+Seafreeze_NaCl_Planet.saveLabel = '100g_NaCl_Seafreeze'
+Reaktoro_NaCl_Planet.Ocean.wOcean_ppt = 100
+Reaktoro_NaCl_Planet.saveLabel = '100g_NaCl_Reaktoro'
+
+
+HundredGram_NaCl_PlanetList = np.array([Reaktoro_NaCl_Planet, Seafreeze_NaCl_Planet])
+PlotPvThydro(HundredGram_NaCl_PlanetList, Params)
+
+Seawater_Planet = PlanetStruct('Test')
+Seawater_Planet.Ocean.comp = 'Seawater'
+Seawater_Planet.saveLabel = 'GSW_10ppt_Seawater'
+Seawater_Planet.Ocean.wOcean_ppt = 10
+Reaktoro_Seawater_Planet = PlanetStruct('Test')
+Reaktoro_Seawater_Planet.Ocean.comp = "CustomSolution10pptSeawater = Cl-: 0.5657647, Na+: 0.4860597, Mg+2: 0.0547421, Ca+2: 0.0106568, K+: 0.0105797, SO4-2: 0.0292643"
+Reaktoro_Seawater_Planet.Ocean.wOcean_ppt = 10
+Reaktoro_Seawater_Planet.saveLabel = 'Reaktoro_10ppt_Seawater'
+
+FigMisc.PmaxHydro_MPa = 200
+
+TenPPT_Seawater_PlanetList = np.array([Reaktoro_Seawater_Planet, Seawater_Planet])
+PlotPvThydro(TenPPT_Seawater_PlanetList, Params)

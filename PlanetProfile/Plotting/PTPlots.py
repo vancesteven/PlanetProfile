@@ -916,8 +916,8 @@ def PlotPvThydro(PlanetList, Params):
             if SinglePlanetPlot:
                 vmin = np.nanmin(prop_data_to_plot)
                 vmax = np.nanmax(prop_data_to_plot)
-                vmedian = float(np.nanmedian(prop_data_to_plot))
-                norm = TwoSlopeNorm(vmin = vmin, vcenter = vmedian, vmax = vmax)
+                vmean = float(np.nanmean(prop_data_to_plot))
+                norm = TwoSlopeNorm(vmin = vmin, vcenter = vmean, vmax = vmax)
             else:
                 # Determine the limits for each property so we can peg 0 to middle of color plot
                 abs_max = max(abs(np.nanmin(prop_data_to_plot)), abs(np.nanmax(prop_data_to_plot)))
