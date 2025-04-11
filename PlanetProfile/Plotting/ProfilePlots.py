@@ -277,12 +277,13 @@ def PlotHydrosphereProps(PlanetList, Params):
                               Planet.z_m[:Planet.Steps.nHydro]/1e3,
                               color=thisColor, linewidth=thisLW,
                               linestyle=Style.LS[Planet.Ocean.comp])
-            # Make a dot at the end of the thermal profile
-            Tdots_K[i] = np.max(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub)
-            axTz.scatter(Tdots_K[i],
-                         np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
-                         color=therm[-1].get_color(), edgecolors=therm[-1].get_color(),
-                         marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
+            # Make a dot at the end of the thermal profile, if there's an ocean
+            if Planet.Steps.nHydro > 0:
+                Tdots_K[i] = np.max(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub)
+                axTz.scatter(Tdots_K[i],
+                             np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
+                             color=therm[-1].get_color(), edgecolors=therm[-1].get_color(),
+                             marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
 
             if DO_SIGS or DO_SOUNDS:
                 indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
@@ -995,6 +996,10 @@ def PlotWedge(PlanetList, Params):
                 oceanOuter.set_edgecolor(Color.wedgeBd)
                 ax.add_patch(oceanOuter)
             # Undersea HP ices
+            if Planet.dzIceII_km > 0:
+                ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceII_m/1e3)/rMax_km, ang1, ang2,
+                                   width=Planet.dzIceII_km/rMax_km,
+                                   fc=Color.iceIII, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
             if Planet.dzIceIII_km > 0:
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceIII_m/1e3)/rMax_km, ang1, ang2,
                                    width=Planet.dzIceIII_km/rMax_km,

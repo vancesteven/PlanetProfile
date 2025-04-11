@@ -177,7 +177,7 @@ def SetupInit(Planet, Params):
         Planet.zClath_m = 0
         Planet.Bulk.clathType = 'none'
 
-    if not Planet.Do.NO_OCEAN:
+    if not (Planet.Do.NO_OCEAN and Planet.Do.NO_ICE_CONVECTION):
         # In addition, perform some checks on underplating settings to be sure they make sense
         if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:
             Planet.Steps.nIceIIILitho = 0

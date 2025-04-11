@@ -180,12 +180,15 @@ class OceanSubstruct:
         self.sigmaConvMean_Sm = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean conductivity for convecting ice layers
         self.GScondMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for conducting ice layers
         self.GSconvMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for convecting ice layers
+        self.rhoMeanIIwet_kgm3 = np.nan  # Mean density for in-ocean ice II layers
         self.rhoMeanIIIwet_kgm3 = np.nan  # Mean density for in-ocean ice III layers
         self.rhoMeanVwet_kgm3 = np.nan  # Mean density for in-ocean ice V layers
         self.rhoMeanVI_kgm3 = np.nan  # Mean density for in-ocean ice VI layers
+        self.sigmaMeanIIwet_Sm = np.nan  # Mean electrical conductivity for in-ocean ice II layers
         self.sigmaMeanIIIwet_Sm = np.nan  # Mean electrical conductivity for in-ocean ice III layers
         self.sigmaMeanVwet_Sm = np.nan  # Mean electrical conductivity for in-ocean ice V layers
         self.sigmaMeanVI_Sm = np.nan  # Mean electrical conductivity for in-ocean ice VI layers
+        self.GSmeanIIwet_GPa = np.nan  # Mean shear modulus for in-ocean ice II layers
         self.GSmeanIIIwet_GPa = np.nan  # Mean shear modulus for in-ocean ice III layers
         self.GSmeanVwet_GPa = np.nan  # Mean shear modulus for in-ocean ice V layers
         self.GSmeanVI_GPa = np.nan  # Mean shear modulus for in-ocean ice VI layers
@@ -606,6 +609,7 @@ class PlanetStruct:
         # Layer thicknesses for table printout
         self.zIceI_m = np.nan
         self.zClath_km = np.nan  # Note this one breaks with the pattern because zClath_m is already in use.
+        self.zIceII_m = np.nan
         self.zIceIIIund_m = np.nan
         self.zIceIII_m = np.nan
         self.zIceVund_m = np.nan
@@ -613,6 +617,7 @@ class PlanetStruct:
         self.zIceVI_m = np.nan
         self.dzIceI_km = np.nan
         self.dzClath_km = np.nan
+        self.dzIceII_km = np.nan
         self.dzIceIIIund_km = np.nan
         self.dzIceIII_km = np.nan
         self.dzIceVund_km = np.nan
@@ -1106,6 +1111,7 @@ class ExplorationStruct:
         self.zSeafloor_km = None  # Depth to bottom of ocean result (sum of zb and D) in km.
         self.dzIceI_km = None  # Thickness of surface ice Ih layer result in km.
         self.dzClath_km = None  # Thickness of clathrate layer result in surface ice shell (may be at top, bottom, or all of ice shell) in km.
+        self.dzIceII_km = None  # Thickness of undersea ice II layer result in km.
         self.dzIceIII_km = None  # Thickness of undersea ice III layer result in km.
         self.dzIceIIIund_km = None  # Thickness of underplate ice III layer result in km.
         self.dzIceV_km = None  # Thickness of undersea ice V layer result in km.
@@ -1115,7 +1121,7 @@ class ExplorationStruct:
         self.l_love_number = None # l love number
         self.k_love_number = None # k love number
         self.delta_love_number_relation = None # delta relation of love number (1+k-h)
-        self.dzWetHPs_km = None  # Total resultant thickness of all undersea high-pressure ices (III, V, and VI) in km.
+        self.dzWetHPs_km = None  # Total resultant thickness of all undersea high-pressure ices (II, III, V, and VI) in km.
         self.eLid_km = None  # Thickness of surface stagnant-lid conductive ice layer result (may include Ih or clathrates or both) in km.
         self.Rcore_km = None  # Core radius result in km.
         self.Pseafloor_MPa = None  # Pressure at the bottom of the liquid ocean layer in MPa.
@@ -1444,6 +1450,7 @@ class FigLblStruct:
         self.zSeafloorLabel = r'Seafloor depth $z_\mathrm{sea}$ ($\si{km}$)'
         self.dzIceIlabel = r'Ice Ih layer thickness $dz_\mathrm{Ih}$ ($\si{km}$)'
         self.dzClathlabel = r'Clathrate layer thickness $dz_\mathrm{clath}$ ($\si{km}$)'
+        self.dzIceIIlabel = r'Undersea ice II thickness $dz_\mathrm{II}$ ($\si{km}$)'
         self.dzIceIIIlabel = r'Undersea ice III thickness $dz_\mathrm{III}$ ($\si{km}$)'
         self.dzIceIIIundlabel = r'Underplate ice III thickness $dz_\mathrm{III,und}$ ($\si{km}$)'
         self.dzIceVlabel = r'Undersea ice V thickness $dz_\mathrm{V}$ ($\si{km}$)'
@@ -1756,6 +1763,7 @@ class FigLblStruct:
             'zSeafloor_km': 'seafloor depth',
             'dzIceI_km': 'ice Ih layer thickness',
             'dzClath_km': 'clathrate layer thickness',
+            'dzIceII_km': 'undersea ice II thickness',
             'dzIceIII_km': 'undersea ice III thickness',
             'dzIceIIIund_km': 'underplate ice III thickness',
             'dzIceV_km': 'undersea ice V thickness',
@@ -1968,6 +1976,7 @@ class FigLblStruct:
             'zSeafloor_km': self.zSeafloorLabel,
             'dzIceI_km': self.dzIceIlabel,
             'dzClath_km': self.dzClathlabel,
+            'dzIceII_km': self.dzIceIIlabel,
             'dzIceIII_km': self.dzIceIIIlabel,
             'dzIceIIIund_km': self.dzIceIIIundlabel,
             'dzIceV_km': self.dzIceVlabel,

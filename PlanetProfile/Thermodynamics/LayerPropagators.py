@@ -47,10 +47,16 @@ def IceLayers(Planet, Params):
 
         # Get the pressure consistent with the bottom of the surface ice layer that is
         # consistent with the choice of Tb_K we suppose for this model
-        Planet.PbI_MPa = GetPfreeze(Planet.Ocean.meltEOS, 1, Planet.Bulk.Tb_K,
-                                    PLower_MPa=Planet.PfreezeLower_MPa, PUpper_MPa=Planet.PfreezeUpper_MPa,
-                                    PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=(Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV),
-                                    ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
+        if Planet.Do.NO_OCEAN:
+            Planet.PbI_MPa = 208.566 # just pure water for now
+            Planet.Bulk.Tb_K = 251.165
+            Planet.Pb_MPa = Planet.PbI_MPa
+            Planet.Steps.nOceanMax = 0
+        else:
+            Planet.PbI_MPa = GetPfreeze(Planet.Ocean.meltEOS, 1, Planet.Bulk.Tb_K,
+                                        PLower_MPa=Planet.PfreezeLower_MPa, PUpper_MPa=Planet.PfreezeUpper_MPa,
+                                        PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=(Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV),
+                                        ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
         if(Planet.Do.CLATHRATE and
                 (Planet.Bulk.clathType == 'bottom' or
                  Planet.Bulk.clathType == 'whole')):
@@ -87,80 +93,81 @@ def IceLayers(Planet, Params):
 
         if Planet.PbI_MPa > 0:
             # Now do the same for HP ices, if present, to make sure we have a possible configuration before continuing
-            if Planet.Do.BOTTOM_ICEV:
-                Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.meltEOS, 3, Planet.Bulk.TbIII_K,
-                           PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
-                           PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=True,
-                           ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
-                if(Planet.PbIII_MPa <= Planet.PbI_MPa) or np.isnan(Planet.PbIII_MPa):
-                    msg = 'Ice III bottom pressure is not greater than ice I bottom pressure. ' + \
-                          'This likely indicates TbIII_K is too high for the corresponding Tb_K.' + \
-                          f'\nPbI_MPa = {Planet.PbI_MPa:.3f}' + \
-                          f', Tb_K = {Planet.Bulk.Tb_K:.3f}' + \
-                          f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' + \
-                          f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}'
-                    if Params.ALLOW_BROKEN_MODELS:
-                        Planet.PbIII_MPa = np.nan
-                        if Params.DO_EXPLOREOGRAM:
-                            log.info(msg)
+            if not Planet.Do.NO_OCEAN:
+                if Planet.Do.BOTTOM_ICEV:
+                    Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.meltEOS, 3, Planet.Bulk.TbIII_K,
+                               PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
+                               PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=True,
+                               ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
+                    if(Planet.PbIII_MPa <= Planet.PbI_MPa) or np.isnan(Planet.PbIII_MPa):
+                        msg = 'Ice III bottom pressure is not greater than ice I bottom pressure. ' + \
+                              'This likely indicates TbIII_K is too high for the corresponding Tb_K.' + \
+                              f'\nPbI_MPa = {Planet.PbI_MPa:.3f}' + \
+                              f', Tb_K = {Planet.Bulk.Tb_K:.3f}' + \
+                              f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' + \
+                              f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}'
+                        if Params.ALLOW_BROKEN_MODELS:
+                            Planet.PbIII_MPa = np.nan
+                            if Params.DO_EXPLOREOGRAM:
+                                log.info(msg)
+                            else:
+                                log.error(msg)
+                            Planet.Do.VALID = False
+                            Planet.invalidReason = 'TbIII_K is too high compared to Tb_K'
                         else:
-                            log.error(msg)
-                        Planet.Do.VALID = False
-                        Planet.invalidReason = 'TbIII_K is too high compared to Tb_K'
+                            raise ValueError(msg)
+                    if not np.isnan(Planet.PbIII_MPa):
+                        Planet.PbV_MPa = GetPfreeze(Planet.Ocean.meltEOS, 5, Planet.Bulk.TbV_K,
+                                                      PLower_MPa=Planet.PbIII_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
+                                                      PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False,
+                                                      ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS,
+                                                      DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
                     else:
-                        raise ValueError(msg)
-                if not np.isnan(Planet.PbIII_MPa):
-                    Planet.PbV_MPa = GetPfreeze(Planet.Ocean.meltEOS, 5, Planet.Bulk.TbV_K,
-                                                  PLower_MPa=Planet.PbIII_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
+                        Planet.PbV_MPa = np.nan
+                    Planet.Pb_MPa = Planet.PbV_MPa
+                    if(Planet.PbV_MPa <= Planet.PbIII_MPa) or np.isnan(Planet.PbV_MPa):
+                        msg = 'Ice V bottom pressure is not greater than ice III bottom pressure. ' + \
+                              'This likely indicates TbV_K is too high for the corresponding TbIII_K.' + \
+                              f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' + \
+                              f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}' + \
+                              f'\nPbV_MPa = {Planet.PbV_MPa:.3f}' + \
+                              f', TbV_K = {Planet.Bulk.TbV_K:.3f}'
+                        if Params.ALLOW_BROKEN_MODELS:
+                            Planet.PbIII_MPa = np.nan
+                            if Params.DO_EXPLOREOGRAM:
+                                log.info(msg)
+                            else:
+                                log.error(msg)
+                            Planet.Do.VALID = False
+                            Planet.invalidReason = 'TbV_K is too high compared to Tb_K'
+                        else:
+                            raise ValueError(msg)
+                elif Planet.Do.BOTTOM_ICEIII:
+                    Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.meltEOS, 3, Planet.Bulk.TbIII_K,
+                                                  PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
                                                   PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False,
                                                   ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS,
                                                   DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
+                    if(Planet.PbIII_MPa <= Planet.PbI_MPa) or np.isnan(Planet.PbIII_MPa):
+                        msg = 'Ice III bottom pressure is not greater than ice I bottom pressure. ' + \
+                              'This likely indicates TbIII_K is too high for the corresponding Tb_K.' + \
+                              f'\nPbI_MPa = {Planet.PbI_MPa:.3f}' + \
+                              f', Tb_K = {Planet.Bulk.Tb_K:.3f}' + \
+                              f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' + \
+                              f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}'
+                        if Params.ALLOW_BROKEN_MODELS:
+                            Planet.PbIII_MPa = np.nan
+                            if Params.DO_EXPLOREOGRAM:
+                                log.info(msg)
+                            else:
+                                log.error(msg)
+                            Planet.Do.VALID = False
+                            Planet.invalidReason = 'TbIII_K is too high compared to Tb_K'
+                        else:
+                            raise ValueError(msg)
+                    Planet.Pb_MPa = Planet.PbIII_MPa
                 else:
-                    Planet.PbV_MPa = np.nan
-                Planet.Pb_MPa = Planet.PbV_MPa
-                if(Planet.PbV_MPa <= Planet.PbIII_MPa) or np.isnan(Planet.PbV_MPa):
-                    msg = 'Ice V bottom pressure is not greater than ice III bottom pressure. ' + \
-                          'This likely indicates TbV_K is too high for the corresponding TbIII_K.' + \
-                          f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' + \
-                          f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}' + \
-                          f'\nPbV_MPa = {Planet.PbV_MPa:.3f}' + \
-                          f', TbV_K = {Planet.Bulk.TbV_K:.3f}'
-                    if Params.ALLOW_BROKEN_MODELS:
-                        Planet.PbIII_MPa = np.nan
-                        if Params.DO_EXPLOREOGRAM:
-                            log.info(msg)
-                        else:
-                            log.error(msg)
-                        Planet.Do.VALID = False
-                        Planet.invalidReason = 'TbV_K is too high compared to Tb_K'
-                    else:
-                        raise ValueError(msg)
-            elif Planet.Do.BOTTOM_ICEIII:
-                Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.meltEOS, 3, Planet.Bulk.TbIII_K,
-                                              PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
-                                              PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False,
-                                              ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS,
-                                              DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
-                if(Planet.PbIII_MPa <= Planet.PbI_MPa) or np.isnan(Planet.PbIII_MPa):
-                    msg = 'Ice III bottom pressure is not greater than ice I bottom pressure. ' + \
-                          'This likely indicates TbIII_K is too high for the corresponding Tb_K.' + \
-                          f'\nPbI_MPa = {Planet.PbI_MPa:.3f}' + \
-                          f', Tb_K = {Planet.Bulk.Tb_K:.3f}' + \
-                          f'\nPbIII_MPa = {Planet.PbIII_MPa:.3f}' + \
-                          f', TbIII_K = {Planet.Bulk.TbIII_K:.3f}'
-                    if Params.ALLOW_BROKEN_MODELS:
-                        Planet.PbIII_MPa = np.nan
-                        if Params.DO_EXPLOREOGRAM:
-                            log.info(msg)
-                        else:
-                            log.error(msg)
-                        Planet.Do.VALID = False
-                        Planet.invalidReason = 'TbIII_K is too high compared to Tb_K'
-                    else:
-                        raise ValueError(msg)
-                Planet.Pb_MPa = Planet.PbIII_MPa
-            else:
-                Planet.Pb_MPa = Planet.PbI_MPa
+                    Planet.Pb_MPa = Planet.PbI_MPa
 
         elif Planet.Pb_MPa == 0 and Planet.Bulk.Tsurf_K == Planet.Bulk.Tb_K:
             # This config needs to be caught in SetupInit.
@@ -502,7 +509,7 @@ def OceanLayers(Planet, Params):
         Assigns Planet attributes:
             phase, r_m, z_m, g_ms2, T_K, P_MPa, rho_kgm3, Cp_JkgK, alpha_pK, MLayer_kg
     """
-    if Planet.Do.VALID and not Planet.Do.NO_OCEAN:
+    if Planet.Do.VALID:
         log.debug('Evaluating ocean layers.')
 
         # Confirm that we haven't made mistakes in phase assignment in IceLayers()
@@ -595,7 +602,7 @@ def OceanLayers(Planet, Params):
 
         for i in range(iStart, Planet.Steps.nOceanMax):
             Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int_)
-            if i < 4 and Planet.phase[Planet.Steps.nSurfIce+i] != 0:
+            if i < 4 and Planet.phase[Planet.Steps.nSurfIce+i] != 0 and not Planet.Do.NO_OCEAN:
                 log.debug(f'Top ocean layers (i={i}) are not liquid. This will cause indexing problems. ' +
                           'T will be set to exceed the melting temp temporarily to construct at least 4 ocean layers.')
                 Planet.THIN_OCEAN = True

@@ -584,11 +584,18 @@ def WriteSeismic(Planet, Params):
         QmuInner = interp1d(z_m[iObotPP+1:-1], QS[iObotPP+1:],            **intArgs)(zInner_m)
 
         # Interpolate layers within ocean
-        rhoOcean_kgm3 = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], rho_kgm3[Planet.Steps.nSurfIce:iObotPP+1], **intArgs)(zOcean_m)
-        VPocean_ms = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], VP_ms[Planet.Steps.nSurfIce:iObotPP+1],       **intArgs)(zOcean_m)
-        VSocean_ms = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], VS_ms[Planet.Steps.nSurfIce:iObotPP+1],       **intArgs)(zOcean_m)
-        QkappaOcean = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], KS_GPa[Planet.Steps.nSurfIce:iObotPP+1],     **intArgs)(zOcean_m)
-        QmuOcean = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], QS[Planet.Steps.nSurfIce:iObotPP+1],            **intArgs)(zOcean_m)
+        if len(rho_kgm3[Planet.Steps.nSurfIce:iObotPP+1])>1:
+            rhoOcean_kgm3 = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], rho_kgm3[Planet.Steps.nSurfIce:iObotPP+1], **intArgs)(zOcean_m)
+            VPocean_ms = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], VP_ms[Planet.Steps.nSurfIce:iObotPP+1],       **intArgs)(zOcean_m)
+            VSocean_ms = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], VS_ms[Planet.Steps.nSurfIce:iObotPP+1],       **intArgs)(zOcean_m)
+            QkappaOcean = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], KS_GPa[Planet.Steps.nSurfIce:iObotPP+1],     **intArgs)(zOcean_m)
+            QmuOcean = interp1d(z_m[Planet.Steps.nSurfIce:iObotPP+1], QS[Planet.Steps.nSurfIce:iObotPP+1],            **intArgs)(zOcean_m)
+        else: # an attempt to account for the no ocean case which currently has a single entry of fluid. This is not acceptable for seismic simulations, which will create reflections where VS = 0
+            rhoOcean_kgm3 = rho_kgm3[Planet.Steps.nSurfIce:iObotPP+1]
+            VPocean_ms = VP_ms[Planet.Steps.nSurfIce:iObotPP+1]
+            VSocean_ms = VS_ms[Planet.Steps.nSurfIce:iObotPP+1]
+            QkappaOcean = KS_GPa[Planet.Steps.nSurfIce:iObotPP+1]
+            QmuOcean = QS[Planet.Steps.nSurfIce:iObotPP+1]
 
         # Interpolate layers above ocean
         rhoShell_kgm3 = interp1d(z_m[:Planet.Steps.nSurfIce], rho_kgm3[:Planet.Steps.nSurfIce], **intArgs)(zShell_m)

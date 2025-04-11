@@ -217,10 +217,9 @@ def PlanetProfile(Planet, Params):
         # Initialize
         Planet, Params = SetupInit(Planet, Params)
         if (not Planet.Do.NO_H2O) and (not Planet.Do.NO_DIFFERENTIATION):
-            if Planet.Do.ICEIh_THICKNESS:
+            if Planet.Do.ICEIh_THICKNESS and not Planet.Do.NO_OCEAN:
                 Planet = GetIceShellTFreeze(Planet, Params, Planet.TfreezeLower_K, Planet.TfreezeUpper_K, Planet.TfreezeRes_K)
             Planet = IceLayers(Planet, Params)
-        if not Planet.Do.NO_OCEAN:
             Planet = OceanLayers(Planet, Params)
         Planet = InnerLayers(Planet, Params)
         Planet = LiquidOceanPropsCalcs(Planet, Params)
