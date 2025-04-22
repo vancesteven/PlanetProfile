@@ -544,12 +544,22 @@ def OceanLayers(Planet, Params):
 
         # Do initial ocean step separately in order to catch potential Melosh layer--
         # see Melosh et al. (2004): https://doi.org/10.1016/j.icarus.2003.11.026
+        # insert no_ocean first layer as ice Ih if Planet.Do.NO_OCEAN is True
+        if Planet.Do.NO_OCEAN:
+            Planet.phase[Planet.Steps.nSurfIce] = 1
+            rhoOcean_kgm3[0] = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
+            CpOcean_JkgK[0] = Planet.Ocean.surfIceEOS['Ih'].fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
+            alphaOcean_pK[0] = Planet.Ocean.surfIceEOS['Ih'].fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
+            kThermOcean_WmK[0] = Planet.Ocean.surfIceEOS['Ih'].fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
+        else:
+            rhoOcean_kgm3[0] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
+            CpOcean_JkgK[0] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
+            alphaOcean_pK[0] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
+            kThermOcean_WmK[0] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
+
         log.debug(f'il: {Planet.Steps.nSurfIce:d}; P_MPa: {POcean_MPa[0]:.3f}; ' +
                   f'T_K: {TOcean_K[0]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce]:d}')
-        rhoOcean_kgm3[0] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
-        CpOcean_JkgK[0] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
-        alphaOcean_pK[0] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
-        kThermOcean_WmK[0] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
+
         if alphaOcean_pK[0] < 0 and not Planet.Do.NO_MELOSH_LAYER:
             log.info(f'Thermal expansivity alpha at the ice-ocean interface is negative. Modeling Melosh et al. conductive layer.')
             # Layer should be thin, so we just use a fixed dT/dz value
