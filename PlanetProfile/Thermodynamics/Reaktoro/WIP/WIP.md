@@ -15,6 +15,8 @@
 
 - **MoonMag** - 1.7.5
 
+- **adjustText** - 1.1.1
+
 # Papers
 
 

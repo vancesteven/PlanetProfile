@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import LogFormatterExponent
 from scipy.io import savemat
+from adjustText import adjust_text
 
 # Define ROOT (for loading files)
 _ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -20,8 +21,15 @@ siunitx = 'siunitx'
 plt.rcParams.update({
     'text.usetex': True,
     'text.latex.preamble': f'\\usepackage{{{stix}}}\\usepackage{{{mhchem}}}\\usepackage{{{siunitx}}}',
-    'font.family': 'serif',  # Options: 'serif', 'sans-serif', 'monospace', etc.
-    'font.serif': 'STIXGeneral'
+    'font.family': 'sans-serif',  # Changed from 'serif' to 'sans-serif'
+    'font.sans-serif': 'Arial',    # Set to Arial
+    'axes.labelsize': 16,      # Axis label font size
+    'xtick.labelsize': 14,     # X tick label font size
+    'ytick.labelsize': 14,     # Y tick label font size
+    'axes.titlesize': 18,
+        'font.weight': 'bold',           # Makes all text bold
+    'axes.labelweight': 'bold',      # Makes axis labels bold
+    'axes.titleweight': 'bold', 
 })
 
 # Modeling setup
@@ -237,19 +245,23 @@ def Replicate_Zolotov_Core11_Melwani_CO2():
 
     # Generate plots
     figname = os.path.join(_ROOT, 'Zolotov_CO2_Replication')
-    generate_Zolotov_plots(data=(element_names, aqueous_species_names, solid_phases_names, pH_array, aqueous_species_array_molal, element_species_array_molal, solid_species_array_mol, solid_phases_volume_array), x=log_CO2_fugacity, species_lim = species_lim, pH_lim = pH_lim, figname = figname)
+    generate_Zolotov_plots(data=(element_names, aqueous_species_names, solid_phases_names, pH_array, aqueous_species_array_molal, element_species_array_molal, solid_species_array_mol, solid_phases_volume_array), x=log_CO2_fugacity, species_lim = species_lim, pH_lim = pH_lim, figname = figname, exclude_species={'HS-+H2S'})
 
 
 
 
-def generate_Zolotov_plots(data, x, species_lim, pH_lim, figname):
+def generate_Zolotov_plots(data, x, species_lim, pH_lim, figname, exclude_species=None):
     """
     Function to generate plots, modeled after Zolotov's
     :param data: data to plot
     :param x: x range to plot
     :param species_lim: species axis limits
     :param pH_lim: pH axis limits
+    :param figname: output filename
+    :param exclude_species: set of species names to exclude from plotting (optional)
     """
+    if exclude_species is None:
+        exclude_species = set()
     # Define the elements and aqeuous species we want to plot as lines
     lines = {
      ChemicalSpecies('tab:cyan', 'Fe', 'Fe'),
@@ -263,9 +275,10 @@ def generate_Zolotov_plots(data, x, species_lim, pH_lim, figname):
     ChemicalSpecies('tab:olive', 'C', 'C'),
         ChemicalSpecies('tab:olive', 'HS^{-}+H_{2}S', 'HS-+H2S')
     }
+    # Filter out excluded species
+    desired_species_to_plot = [s for s in lines if s.species not in exclude_species]
     # Get data
     element_names, aqueous_species_names, solid_phases_names, pH_array, aqueous_species_array_molal, element_species_array_molal, solid_species_array_mol, solid_phases_volume_array = data
-    desired_species_to_plot = lines
 
     # Set up the plot
     # Create subplots (one on top and one below)
@@ -274,6 +287,8 @@ def generate_Zolotov_plots(data, x, species_lim, pH_lim, figname):
     ax1 = fig.add_subplot(grid[0:3, 0])
     ax2 = fig.add_subplot(grid[3, 0])
     ax3 = fig.add_subplot(grid[4:7, 0])
+    texts_ax1 = []
+    texts_ax3 = []
     for species in desired_species_to_plot:
         if species.species == 'SO4':
             index_species = np.where(np.char.find(aqueous_species_names, species.species) != -1)
@@ -298,8 +313,9 @@ def generate_Zolotov_plots(data, x, species_lim, pH_lim, figname):
             # Find the index of the maximum y value
             max_index = np.argmax(species_molality)
             line,  = ax1.plot(x, species_molality, label=species.species, color = species.color)
-            ax1.text(x[max_index], species_molality[max_index], rf'$\ce{{{species.mhchem_name}}}$', ha='left',
-                       va='top', color=line.get_color(), fontsize=20)
+            text_obj = ax1.text(x[max_index], species_molality[max_index], rf'$\ce{{{species.mhchem_name}}}$', ha='left',
+                       va='top', color=line.get_color(), fontsize=14)
+            texts_ax1.append(text_obj)
     # Add labels and title
     ax1.set_yscale('log')
     # Apply LogFormatterExponent to show only exponents
@@ -317,11 +333,12 @@ def generate_Zolotov_plots(data, x, species_lim, pH_lim, figname):
     ax2.set_ylim(6, 12.5)
     ax2.set_yticks([6, 8, 10, 12])  # Set desired tick locations
     ax2.set_yticklabels(['6', '8', '10', '12'])  # Align text to left
+    ax2.set_xticklabels([]) # hide labels but keep ticks
 
     # Plot the lower plot: pH vs log CO2 fugacity
     ax2.plot(x, pH_array, color='black', linestyle='-', label='pH')
     ax2.set_ylabel('pH')
-    ax2.set_xlabel(r'Log $\text{H}_2$ Fugacity')
+    ax3.set_xlabel(r'Log $\text{H}_2$ Fugacity')
     desired_solid_species_to_plot = solid_phases_names
     for i, species_name in enumerate(desired_solid_species_to_plot):
         species_molality = solid_phases_volume_array[i]
@@ -333,11 +350,29 @@ def generate_Zolotov_plots(data, x, species_lim, pH_lim, figname):
             # Find the index of the maximum y value
             max_index = np.argmax(species_molality)
             line, = ax3.plot(x, species_molality, label=species_name)
-            ax3.text(x[max_index], species_molality[max_index], species_name, ha='left', va='top',
+            text_obj = ax3.text(x[max_index], species_molality[max_index], species_name, ha='left', va='top',
                      color=line.get_color(), fontsize=10)
+            texts_ax3.append(text_obj)
     y_limit_min, y_limit_max = pH_lim
     ax2.set_ylim(bottom=y_limit_min, top = y_limit_max)
     ax3.set_ylabel(r"Vol. of minerals, $\mathrm{cm^{3}}/\mathrm{kg}$ rock")
+    # Set x-axis limits and ticks for ax3
+    x_start = float(np.min(x))
+    x_end = float(np.max(x))
+    ax3.set_xlim(x_start, x_end)
+    # Generate ticks every 2 units from min(x) up to max(x) (not exceeding max)
+    tick_start = int(np.ceil(x_start))
+    tick_end = int(np.floor(x_end))
+    ticks = list(range(tick_start, tick_end + 1, 2))
+    if ticks and ticks[-1] > x_end:
+        ticks = ticks[:-1]
+    ax3.set_xticks(ticks)
+    # After plotting everything, synchronize x-ticks across all axes
+    ax1.set_xticks(ticks)
+    ax2.set_xticks(ticks)
+    # Adjust text to prevent overlap and keep within bounds
+    adjust_text(texts_ax1, ax=ax1, only_move={'points':'y', 'text':'xy'}, arrowprops=dict(arrowstyle='-', color='gray', lw=0.5))
+    adjust_text(texts_ax3, ax=ax3, only_move={'points':'y', 'text':'xy'}, arrowprops=dict(arrowstyle='-', color='gray', lw=0.5))
     plt.tight_layout()
     plt.show()
 

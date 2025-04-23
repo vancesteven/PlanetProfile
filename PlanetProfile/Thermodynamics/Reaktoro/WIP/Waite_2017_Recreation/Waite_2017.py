@@ -1,6 +1,7 @@
 from reaktoro import *
 import matplotlib.pyplot as plt
 import numpy as np
+import csv
 
 # Load the thermodynamic database
 db = SupcrtDatabase("supcrt16-organics")
@@ -13,8 +14,23 @@ ratio_H2_CO2 = 1.6
 P_MPa = [0.1]  # Pressure range in MPa
 T_K = [273]  # Temperature range in K
 
-import csv
-
+# Enable LaTeX rendering and add mhchem to the preamble for plotting
+stix = 'stix'
+mhchem = 'mhchem'
+siunitx = 'siunitx'
+plt.rcParams.update({
+    'text.usetex': True,
+    'text.latex.preamble': f'\\usepackage{{{stix}}}\\usepackage{{{mhchem}}}\\usepackage{{{siunitx}}}',
+    'font.family': 'sans-serif',  # Changed from 'serif' to 'sans-serif'
+    'font.sans-serif': 'Arial',    # Set to Arial
+    'axes.labelsize': 16,      # Axis label font size
+    'xtick.labelsize': 14,     # X tick label font size
+    'ytick.labelsize': 14,     # Y tick label font size
+    'axes.titlesize': 18,
+        'font.weight': 'bold',           # Makes all text bold
+    'axes.labelweight': 'bold',      # Makes axis labels bold
+    'axes.titleweight': 'bold', 
+})
 
 def TableS11_recreation():
     """
@@ -164,7 +180,7 @@ def Fig4_recreation():
                         print(f"ERROR at P = {P} MPa and T = {T} K")
 
     # Plot the calculated affinity values against H2/H2O ratios
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(8.48, 6.727))
     for ph in pH_list:
         ratios = [data[0] for data in pH_affinity_data[ph]]
         affinities = [data[1] for data in pH_affinity_data[ph]]
@@ -179,9 +195,9 @@ def Fig4_recreation():
     # Add observed region indicators
     plt.axvline(x=0.005, color='orange', linestyle='-', label='Observed region', zorder=5)
     plt.axvline(x=0.014, color='orange', linestyle='-', label='Observed region', zorder=5)
-    plt.text(0.0085, 160, 'Observed', ha='center', fontsize=10, color='orange')
+    plt.text(0.0085, 160, 'Observed', ha='center', fontsize=14, color='orange')
     plt.axhline(y=0, color='red', linestyle='--')
-    plt.text(0.0001, 5, 'Equilibrium', color='red', fontsize=10, ha='left')
+    plt.text(0.0001, 5, 'Equilibrium', color='red', fontsize=16, ha='left')
 
     # Highlight the observed region between pH 9 and pH 11
     ratios_pH9 = np.array([data[0] for data in pH_affinity_data[9]])
@@ -202,7 +218,7 @@ def Fig4_recreation():
     ax.spines['right'].set_visible(False)
 
     # Save and display the plot
-    plt.savefig("Fig4_Recreation.png", dpi=600)
+    plt.savefig("Fig4_Recreation.png", dpi=600, bbox_inches='tight')
     plt.show()
 
 

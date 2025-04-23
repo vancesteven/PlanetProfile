@@ -3,9 +3,13 @@ Quick file to generate benchmark figures. Note that these benchmark figures can 
 Params.PLOT_PVT_HYDRO and Params.PLOT_HYDRO_PHASE. I make this separate file just to speed up the process by not requiring a Planet profile to ahve to be generated each time.
 """
 import os
+import sys
 import numpy as np
 
-os.chdir("../../../../../") # Change current working directory to '../PlanetProfile/' so we don't get errors when grabbing default configs
+# Add the project root to sys.path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
 Params = configParams
 os.chdir(os.path.dirname(os.path.abspath(__file__))) # Reset directory back to this directory
@@ -26,7 +30,7 @@ Params.FigureFiles.xtn = '.png'
 """
 Generate the Seafreeze and Reaktoro (corrected) Pure H2O Comparison
 """
-"""Seafreeze_Pure_H2O_Planet = PlanetStruct('Test')
+Seafreeze_Pure_H2O_Planet = PlanetStruct('Test')
 Seafreeze_Pure_H2O_Planet.Ocean.comp = 'PureH2O'
 Seafreeze_Pure_H2O_Planet.saveLabel = 'PureH2O_Seafreeze'
 Reaktoro_Pure_H2O_Planet = PlanetStruct('Test')
@@ -34,7 +38,7 @@ Reaktoro_Pure_H2O_Planet.Ocean.comp = "CustomSolutionPureH2O = H+: 1e-7, OH-: 1e
 Reaktoro_Pure_H2O_Planet.saveLabel = 'PureH2O_Reaktoro'
 
 Pure_H2O_PlanetList = np.array([Reaktoro_Pure_H2O_Planet, Seafreeze_Pure_H2O_Planet])
-PlotPvThydro(Pure_H2O_PlanetList, Params)"""
+PlotPvThydro(Pure_H2O_PlanetList, Params)
 
 """
 Generate the Seafreeze and Reaktoro (corrected) 1g NaCl Comparison
