@@ -219,15 +219,28 @@ def species_convertor_compatible_with_supcrt(supcrt_db, aqueous_species_string, 
     supcrt_aqueous_species = supcrt_db.species().withAggregateState(rkt.AggregateState.Aqueous)
     for phreeqc_formula in speciation_ratio_per_kg:
         # First, let's check if we can find the matching compound by formula, since Phreeqc uses formula whereas supcrt uses compound names
-        if supcrt_aqueous_species.findWithFormula(phreeqc_formula) < supcrt_aqueous_species.size():
-            supcrt_name = supcrt_aqueous_species.getWithFormula(phreeqc_formula).name()
-            # Now change the phreeqc key in the dictionary to supcrt key
-            supcrt_speciation_ratio_per_kg[supcrt_name] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
-        # Otherwise, let's check if we can find matching compound in Phreeqc_to_supcrt_names
-        elif phreeqc_formula in Phreeqc_to_Supcrt_names:
-            # Now change the phreeqc key in the dictionary to supcrt key
-            supcrt_speciation_ratio_per_kg[Phreeqc_to_Supcrt_names[phreeqc_formula]] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
-
+        try:
+            if supcrt_aqueous_species.findWithFormula(phreeqc_formula) < supcrt_aqueous_species.size():
+                supcrt_name = supcrt_aqueous_species.getWithFormula(phreeqc_formula).name()
+                # Now change the phreeqc key in the dictionary to supcrt key
+                supcrt_speciation_ratio_per_kg[supcrt_name] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
+                # Otherwise, let's check if we can find matching compound in Phreeqc_to_supcrt_names
+            elif phreeqc_formula in Phreeqc_to_Supcrt_names:
+                # Now change the phreeqc key in the dictionary to supcrt key
+                supcrt_speciation_ratio_per_kg[Phreeqc_to_Supcrt_names[phreeqc_formula]] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
+        except:
+            # Secoond, let's check if we can find the matching compound by name
+            try:
+                if supcrt_aqueous_species.findWithName(phreeqc_formula) < supcrt_aqueous_species.size():
+                    supcrt_name = supcrt_aqueous_species.getWithName(phreeqc_formula).name()
+                    # Now change the phreeqc key in the dictionary to supcrt key
+                    supcrt_speciation_ratio_per_kg[supcrt_name] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
+                elif phreeqc_formula in Phreeqc_to_Supcrt_names:
+                    # Now change the phreeqc key in the dictionary to supcrt key
+                    supcrt_speciation_ratio_per_kg[Phreeqc_to_Supcrt_names[phreeqc_formula]] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
+            except:
+                pass
+            
     # Return the string and adapted dictionary
     return " ".join(supcrt_speciation_ratio_per_kg.keys()), supcrt_speciation_ratio_per_kg
 
