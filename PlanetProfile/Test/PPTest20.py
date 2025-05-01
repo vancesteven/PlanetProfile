@@ -1,7 +1,7 @@
 """
 PPTest20
 Ganymede-like, CustomSolution MgSO4 ocean, with ice III and V underplate
-Modeled after PPTest 9 but uses CustomSolution instead to test high pressure extrapolatioin
+Modeled after PPTest 9 but uses CustomSolution instead to test high pressure extrapolation
 For testing purposes
 """
 import numpy as np

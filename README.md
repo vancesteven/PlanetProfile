@@ -2,17 +2,17 @@
 ![PlanetProfile logo](misc/PPlogoDocs.png)
 
 ## Version 3.0 Patch Notes - Expanding the World of Ocean Chemistry
-We have pushed PlanetProfile to its latest version, v3.0. This update pushes many chnages undertaken over the past year, headlined by 
-- Ability to model an NaCl ocean model through an In-development NaCl(aq) Equation of State from Seafreeze
-- New capability to model arbitrary ocean chemistries (which we refer to as CustomSolutions) using the Frezchem and Supcrt16 databases adapted through the chemical modeling package Reaktoro.
-- Affinity for chemical reactions up to 1GPa, using the Supcrt16-organics database adapted through the chemical modeling package Reaktoro.
+This update implements many changes undertaken over the past year, headlined by 
+- Ability to model an NaCl ocean model using an In-development NaCl(aq) Equation of State from Seafreeze
+- New capability to model speciated ocean chemistries (which we refer to as CustomSolutions) using the Frezchem and Supcrt16 databases adapted through the chemical modeling package Reaktoro.
+- Affinity for chemical (metabolic) reactions up to 1GPa, using the Supcrt16-organics database adapted through the chemical modeling package Reaktoro.
 - Integration of the package PyALMA3, the python version of ALMA3, to calculate tidal Love numbers.
 
 These updates expand the modeling of ocean worlds beyond the existing Seawater, MgSO4, and pure H2O compositions currently available in PlanetProfile. For details on using the CustomSolution capability, please do not hesitate to reach out. Additionally, there is a PlanetProfile tutorial webpage in progress!
 
-Other updates include bug fixes
+This update also fixes many incidental bugs.
 
-There are 
+**USERS WHO HAVE CLONED PLNAETPROFILE PRIOR TO 2025 SHOULD REINSTALL A FRESH CLONE. SEE THE UNINSTALLING SECTION FOR MORE DETAILS**
 The code was rebased to push many changes undertaken over the past year. Due to new file size limitations, this meant excluding a large 
 Software framework for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data.
 
@@ -29,6 +29,9 @@ PlanetProfile is available in Python and Matlab.
 ### *For Python*
 The recommended way to install is with pip. 
 Developers: see below--do not install via pip.
+
+However you install, you can run a test suite by "python Testing.py" from the main PlanetProfile directory.
+Developers should add test modules for new features and ensure to run the full test suite before deploying updates.
 
 #### Pip installation
 1. (Recommended) Install all dependencies listed in the next section before proceeding.
@@ -52,7 +55,7 @@ RunPPfile('Europa', 'PPEuropa.py')`
 
 #### Developers
 1. Install all prerequisites below to a dedicated conda environment.
-Python 3.11 or 3.12 is required for developers.
+Python 3.11 is required for developers.
 If you are not yet using Python 3.11, upgrade before installing prerequisites.
 1. Clone this repository.
 1. Navigate to the top-level directory of the repository.
@@ -87,15 +90,15 @@ A simple list with install commands for Python is in the next section.
   * Matlab: Download mMatTauP contents into Utilities/ and add-with-subfolders to the Matlab path.
 * A working TeX/LaTeX distribution (such as TeXlive) is recommended for optimum plot labels. TeXlive is available at: <https://tug.org/texlive/acquire-netinstall.html>
     It can also be installed using pip.
-* Reaktoro (optional) -- see <https://reaktoro.org>
+* Reaktoro -- see <https://reaktoro.org>
   * Python: Installed with pip: `pip install reaktoro=2`
 * PlanetMag (optional) -- see <https://github.com/coreyjcochrane/PlanetMag>
   * Matlab only: Installed following detailed instructions on the repo. 
-*  PyALMA3 (optional) -- see <https://github.com/drsaikirant88/PyALMA3>
+*  PyALMA3 -- see <https://github.com/drsaikirant88/PyALMA3>
    * Python: Installed with pip: `pip install PyALMA3`
 
-### Note about SeaFreeze versions prior to v0.9.3
-If you had installed SeaFreeze before version v0.9.3, you will need to manually remove the prior installation because it was improperly packaged before.
+### Note about SeaFreeze versions prior to v1.0.0
+If you had installed SeaFreeze before version v1.0.0, you will need to manually remove the prior installation because the new features are required.
 To do so, run the command `python -m site` and open the listed directory that ends in `site-packages`.
 Delete the files `seafreeze.py` and `SeaFreeze_Gibbs.mat` and any directories beginning with "SeaFreeze" (e.g. `SeaFreeze.egg-info`).
 Once these files have been removed, install the newer version of SeaFreeze with `pip install SeaFreeze`.
