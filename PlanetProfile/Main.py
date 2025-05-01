@@ -689,7 +689,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Ocean.affinity_kJ = OceanSpecificProps[3]
         Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[4: ]
     else:
-        Planet.Ocean.reaction, Planet.Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN', 'NaN'
+        Planet.Ocean.reaction, Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN', 'NaN'
         Planet.Ocean.Bulk_pHs, Planet.Ocean.affinity_kJ, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
 
     # Setup CustomSolution settings
@@ -1439,23 +1439,27 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
     """
     if Params.CALC_NEW:
         log.info(f'Running {Params.Explore.xName} x {Params.Explore.yName} explore-o-gram for {bodyname}.')
-        if bodyname[:4] == 'Test':
-            loadname = bodyname + ''
-            bodyname = 'Test'
-            bodydir = os.path.join('PlanetProfile', 'Test')
-        else:
+        if isinstance(bodyname, PlanetStruct):
+            Planet = bodyname
+            bodyname = Planet.bodyname
             loadname = bodyname
-            bodydir = bodyname
-
-        fName = f'PP{loadname}Explore.py'
-        expected = os.path.join(bodydir, fName)
-        if not os.path.isfile(expected):
-            default = os.path.join(_Defaults, bodydir, fName)
-            if os.path.isfile(default):
-                CopyCarefully(default, expected)
+        else:
+            if bodyname[:4] == 'Test':
+                loadname = bodyname + ''
+                bodyname = 'Test'
+                bodydir = os.path.join('PlanetProfile', 'Test')
             else:
-                log.warning(f'{expected} does not exist and no default was found at {default}.')
-        Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
+                loadname = bodyname
+                bodydir = bodyname
+            fName = f'PP{loadname}Explore.py'
+            expected = os.path.join(bodydir, fName)
+            if not os.path.isfile(expected):
+                default = os.path.join(_Defaults, bodydir, fName)
+                if os.path.isfile(default):
+                    CopyCarefully(default, expected)
+                else:
+                    log.warning(f'{expected} does not exist and no default was found at {default}.')
+            Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
 
@@ -1759,8 +1763,20 @@ def WriteExploreOgram(Exploration, Params, INVERSION=False):
 def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
     """ Reload a previously run explore-o-gram from disk.
     """
-
-    if fNameOverride is None:
+    if isinstance(bodyname, PlanetStruct):
+        Planet = bodyname
+        bodyname = bodyname.bodyname
+        loadname = bodyname
+        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
+                                                              exploreAppend=f'{Params.Explore.xName}{Params.Explore.yName}',
+                                                              figExploreAppend=Params.Explore.zName)
+        if INVERSION:
+            fName = Params.DataFiles.invertOgramFile
+        else:
+            fName = Params.DataFiles.exploreOgramFile
+        print(fName)
+        reload = loadmat(fName)
+    elif fNameOverride is None:
         if bodyname[:4] == 'Test':
             loadname = bodyname + ''
             bodydir = _TestImport

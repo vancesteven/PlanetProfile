@@ -1,10 +1,19 @@
-# PlanetProfile v2.5
+# PlanetProfile v3.0
 ![PlanetProfile logo](misc/PPlogoDocs.png)
 
-Update as of November 26, 2025:
-The code was rebased to push many changes undertaken over the recent 8 months. Due to new file size limitations, this meant excluding a large phase lookup file for MgSO4. Please clone a fresh installation into a new folder and retain your prior installation. There are some lingering fixes underway prior to releasing these changes as a new version.
-Major updates include use of a in-development NaCl(aq) EOS for SeaFreeze, and implementation of a CustomSolution feature using Reaktoro.
+## Version 3.0 Patch Notes - Expanding the World of Ocean Chemistry
+We have pushed PlanetProfile to its latest version, v3.0. This update pushes many chnages undertaken over the past year, headlined by 
+- Ability to model an NaCl ocean model through an In-development NaCl(aq) Equation of State from Seafreeze
+- New capability to model arbitrary ocean chemistries (which we refer to as CustomSolutions) using the Frezchem and Supcrt16 databases adapted through the chemical modeling package Reaktoro.
+- Affinity for chemical reactions up to 1GPa, using the Supcrt16-organics database adapted through the chemical modeling package Reaktoro.
+- Integration of the package PyALMA3, the python version of ALMA3, to calculate tidal Love numbers.
 
+These updates expand the modeling of ocean worlds beyond the existing Seawater, MgSO4, and pure H2O compositions currently available in PlanetProfile. For details on using the CustomSolution capability, please do not hesitate to reach out. Additionally, there is a PlanetProfile tutorial webpage in progress!
+
+Other updates include bug fixes
+
+There are 
+The code was rebased to push many changes undertaken over the past year. Due to new file size limitations, this meant excluding a large 
 Software framework for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data.
 
 The main repository is mirrored at <https://github.com/NASA-Planetary-Science/PlanetProfile>; any pull requests should be submitted to <https://github.com/vancesteven/PlanetProfile>. Read the software documentation at <https://vancesteven.github.io/PlanetProfile>.

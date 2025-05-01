@@ -69,8 +69,13 @@ def full(iTestStart=2, skipType=None):
         for i in range(iTestStart, nTests+1):
             testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
             log.info(f'Test case body: {testBase}{i}')
-            TestPlanets = np.append(TestPlanets, PlanetProfile(testPlanetN, Params)[0])
-            tMarks = np.append(tMarks, time.time())
+            try:
+                TestPlanets = np.append(TestPlanets, PlanetProfile(testPlanetN, Params)[0])
+                tMarks = np.append(tMarks, time.time())
+            except Exception as e:
+                log.error(f"Error running PlanetProfile for test {i}: {e}")
+                print(f"Error in test {i}: {e}")
+                raise  # Stop execution on error
 
             # Verify that we can reload things as needed in each case
             Params.CALC_NEW = False
