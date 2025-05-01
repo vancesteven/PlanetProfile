@@ -545,7 +545,7 @@ def OceanLayers(Planet, Params):
         # Do initial ocean step separately in order to catch potential Melosh layer--
         # see Melosh et al. (2004): https://doi.org/10.1016/j.icarus.2003.11.026
         # insert no_ocean first layer as ice Ih if Planet.Do.NO_OCEAN is True
-        if Planet.Do.NO_OCEAN:
+        if Planet.Do.NO_OCEAN: # this introduces a bug because PlanetProfile
             Planet.phase[Planet.Steps.nSurfIce] = 1
             rhoOcean_kgm3[0] = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
             CpOcean_JkgK[0] = Planet.Ocean.surfIceEOS['Ih'].fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
