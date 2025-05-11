@@ -509,7 +509,7 @@ def OceanLayers(Planet, Params):
         Assigns Planet attributes:
             phase, r_m, z_m, g_ms2, T_K, P_MPa, rho_kgm3, Cp_JkgK, alpha_pK, MLayer_kg
     """
-    if Planet.Do.VALID:
+    if Planet.Do.VALID or (Planet.Do.NO_OCEAN and Planet.Bulk.Tb_K < Constants.triplePointT_K):
         log.debug('Evaluating ocean layers.')
 
         # Confirm that we haven't made mistakes in phase assignment in IceLayers()
