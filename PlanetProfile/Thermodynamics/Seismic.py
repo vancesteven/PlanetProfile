@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from PlanetProfile.Thermodynamics.HydroEOS import GetIceEOS
+from PlanetProfile.Thermodynamics.HydroEOS import GetIceEOS, GetOceanEOS
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import TsolidusHirschmann2000
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
@@ -21,6 +21,15 @@ def SeismicCalcs(Planet, Params):
         Planet.Seismic.GS_GPa = (np.zeros(Planet.Steps.nTotal) for _ in range(5))
 
     if Params.CALC_SEISMIC and Planet.Do.VALID:
+        # Make sure the necessary EOSs have been loaded (mainly only important in parallel ExploreOgram runs)
+        if not Planet.Do.NO_H2O and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
+                POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
+                TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
+                Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
+                                   Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
+                                   scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
+                                   phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
+                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
 
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
             indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \

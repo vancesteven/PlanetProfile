@@ -1,8 +1,8 @@
 import numpy as np
 import logging
 import scipy.interpolate as spi
-from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
-from PlanetProfile.Utilities.Indexing import GetPhaseIndices
+from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
+from PlanetProfile.Utilities.Indexing import GetPhaseIndices, PhaseConv
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 
 # Assign logger
@@ -34,7 +34,6 @@ def ElecConduct(Planet, Params):
                                    scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                    phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
                                    sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
-
             if Planet.Do.POROUS_ICE:
                 Planet = CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
                                                         indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet)
@@ -90,32 +89,97 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
         Assigns Planet attributes:
             sigma_Sm
     """
-
     # First do ocean (if present) and dry surface ice and clathrates
     if np.size(indsLiq) != 0:
         Planet.sigma_Sm[indsLiq] = Planet.Ocean.EOS.fn_sigma_Sm(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq])
     if np.size(indsI) != 0:
+        icePhase = 'Ih'
+        if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
+            PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
+            TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
+            Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
+                                                            porosType=Planet.Ocean.porosType[icePhase],
+                                                            phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
+                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
+                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                            EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
         Planet.sigma_Sm[indsI] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['Ih'], 0,
                                                                                Planet.phi_frac[indsI],
                                                                                Planet.Ocean.Jsigma)
     if np.size(indsClath) != 0:
+        icePhase = 'Clath'
+        if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
+            PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
+            TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
+            Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
+                                                            porosType=Planet.Ocean.porosType[icePhase],
+                                                            phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
+                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
+                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                            EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
         Planet.sigma_Sm[indsClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['Clath'], 0,
                                                                                       Planet.phi_frac[indsClath],
                                                                                       Planet.Ocean.Jsigma)
     # We use the negative underplate phase IDs for dry HP ices
     if np.size(indsIIund) != 0:
+        icePhase = 'II'
+        if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
+            PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
+            TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
+            Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
+                                                            porosType=Planet.Ocean.porosType[icePhase],
+                                                            phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
+                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
+                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                            EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
         Planet.sigma_Sm[indsIIund] = Planet.Ocean.surfIceEOS['II'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['II'], 0,
                                                                                    Planet.phi_frac[indsIIund],
                                                                                    Planet.Ocean.Jsigma)
     if np.size(indsIIIund) != 0:
+        icePhase = 'III'
+        if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
+            PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
+            TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
+            Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
+                                                            porosType=Planet.Ocean.porosType[icePhase],
+                                                            phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
+                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
+                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                            EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
         Planet.sigma_Sm[indsIIIund] = Planet.Ocean.surfIceEOS['III'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['III'], 0,
                                                                                      Planet.phi_frac[indsIIIund],
                                                                                      Planet.Ocean.Jsigma)
     if np.size(indsVund) != 0:
+        icePhase = 'V'
+        if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
+            PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
+            TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
+            Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
+                                                            porosType=Planet.Ocean.porosType[icePhase],
+                                                            phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
+                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
+                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                            EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
         Planet.sigma_Sm[indsVund] = Planet.Ocean.surfIceEOS['V'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['V'], 0,
                                                                                  Planet.phi_frac[indsVund],
                                                                                  Planet.Ocean.Jsigma)
     if np.size(indsVIund) != 0:
+        icePhase = 'VI'
+        if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
+            PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
+            TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
+            Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
+                                                            porosType=Planet.Ocean.porosType[icePhase],
+                                                            phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
+                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
+                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                            EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
         Planet.sigma_Sm[indsVIund] = Planet.Ocean.surfIceEOS['VI'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['VI'], 0,
                                                                                    Planet.phi_frac[indsVIund],
                                                                                    Planet.Ocean.Jsigma)
