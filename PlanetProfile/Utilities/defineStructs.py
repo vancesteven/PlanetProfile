@@ -230,6 +230,8 @@ class OceanSubstruct:
         self.aqueousSpeciesAmount_mol = None # Species amount at each liquid ocean layer (nested 2D array of dimensions
             # np.size(aqueousSpecies) x len(total layers that are liquid))
         self.affinity_kJ = None # Affinity of Planet.Ocean.reaction (if specified) across ocean depth
+        self.affinityMean_kJ = None # Mean affinity of Planet.Ocean.reaction (if specified) across ocean depth
+        self.affinitySeafloor_kJ = None # Affinity of Planet.Ocean.reaction (if specified) at seafloor
 
 
 
@@ -1120,6 +1122,8 @@ class ExplorationStruct:
         self.h_love_number = None # h love number
         self.l_love_number = None # l love number
         self.k_love_number = None # k love number
+        self.affinitySeafloor_kJ = None # Available energy for chemical reaction at seafloor (see Planet.Ocean.reaction for more details)
+        self.affinityMean_kJ = None # Mean available energy for chemical reaction (see Planet.Ocean.reaction for more details)
         self.delta_love_number_relation = None # delta relation of love number (1+k-h)
         self.dzWetHPs_km = None  # Total resultant thickness of all undersea high-pressure ices (II, III, V, and VI) in km.
         self.eLid_km = None  # Thickness of surface stagnant-lid conductive ice layer result (may include Ih or clathrates or both) in km.
@@ -1466,6 +1470,8 @@ class FigLblStruct:
         self.KSlabel = r'Bulk modulus $K_S$ ($\si{GPa}$)'
         self.GSlabel = r'Shear modulus $G_S$ ($\si{GPa}$)'
         self.CMR2label = r'Calculated axial moment of inertia $C/MR^2$'
+        self.affinitySeafloorLabel = r'Chemical reaction affinity at seafloor $A_\mathrm{sea}$ ($\si{kJ/mol}$)'
+        self.affinityMeanLabel = r'Mean chemical reaction affinity $A_\mathrm{mean}$ ($\si{kJ/mol}$)'
         self.rLabel = r'Radius $r$ ($\si{km}$)'
         self.zLabel = r'Depth $z$ ($\si{km}$)'
         self.etaLabel = r'Viscosity $\eta$ ($\si{Pa\,s}$)'
@@ -1721,6 +1727,8 @@ class FigLblStruct:
             'qSurf_Wm2'
         ]
         self.fineContoursExplore = [
+            'affinitySeafloor_kJ',
+            'affinityMean_kJ',
             'CMR2calc',
             'phiSeafloor_frac',
             'sigmaMean_Sm',
@@ -1732,6 +1740,8 @@ class FigLblStruct:
             'delta_love_number_relation'
         ]
         self.cfmtExplore = {
+            'affinitySeafloor_kJ': '%.0f',
+            'affinityMean_kJ': '%.0f',
             'CMR2calc': '%.3f',
             'phiSeafloor_frac': '%.2f',
             'sigmaMean_Sm': None,
@@ -1743,6 +1753,8 @@ class FigLblStruct:
             'delta_love_number_relation': '%.2f'
         }
         self.cbarfmtExplore = {
+            'affinitySeafloor_kJ': '%.0f',
+            'affinityMean_kJ': '%.0f',
             'CMR2calc': '%.4f',
             'phiSeafloor_frac': '%.2f',
             'sigmaMean_Sm': None,
@@ -1793,7 +1805,9 @@ class FigLblStruct:
             'delta_love_number_relation': '1+k-h',
             'Qrad_Wkg': 'rock radiogenic heating',
             'qSurf_Wm2': 'surface heat flux',
-            'CMR2calc': 'axial moment of inertia'
+            'CMR2calc': 'axial moment of inertia',
+            'affinitySeafloor_kJ': 'seafloor affinity for chemical reaction',
+            'affinityMean_kJ': 'average affinity for chemical reaction'
         }
         self.tCArelDescrip = {
             's': r'($\si{s}$)',
@@ -2005,7 +2019,9 @@ class FigLblStruct:
             'k_love_number': self.kLoveLabel,
             'delta_love_number_relation': self.deltaLoveLabel,
             'qSurf_Wm2': self.qSurfLabel,
-            'CMR2calc': self.CMR2label
+            'CMR2calc': self.CMR2label,
+            'affinitySeafloor_kJ': self.affinitySeafloorLabel,
+            'affinityMean_kJ': self.affinityMeanLabel,
         }
         self.axisMultsExplore = {
             'xFeS': self.xMult,
@@ -2755,6 +2771,7 @@ class ConstantsStruct:
         self.PclosureUniform_MPa = 2e12  # Pore closure pressure value to use for uniform porosity
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
         self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0).
+        self.triplePointT_K = 251.18 # Triple point of water
         self.m_gmol = {  # Molecular mass of common solutes and gases in g/mol. From https://pubchem.ncbi.nlm.nih.gov/ search
             'H2O': 18.015,
             'MgSO4': 120.37,
@@ -2813,6 +2830,7 @@ class ConstantsStruct:
         self.PmaxLiquid_MPa = 2250.0  # Maximum plausible pressure for liquid water oceans
         self.sigmaDef_Sm = 1e-8  # Default minimum conductivity to use for layers with NaN or 0 conductivity
         self.sigmaMin_Sm = 1e-8  # Threshold conductivity below which we set to the default to reduce computational overhead
+        self.defaultReducedLayerSize = 5 # Default size of reduced layer to use for reducing planet struct (overridden by Params.Params.REDUCED_LAYERS_SIZE)
         self.wFeDef_ppt = 750  # Mass concentration in ppt of iron in core -- default to use when unset but 3D EOS file is specified.
         # Default settings for ionosphere when altitude or conductivity is set, but not the other
         self.ionosTopDefault_km = 100  # Default ionosphere cutoff altitude in km

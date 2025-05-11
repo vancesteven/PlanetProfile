@@ -3,13 +3,13 @@ from alma import infer_rheology_pp, build_model, love_numbers
 import logging
 import ast
 import os
+from PlanetProfile.Utilities.Indexing import PhaseConv
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
 def GravityParameters(Planet, Params):
     """ Calculate induced gravity responses for the body and prints them to disk."""
-    SKIP = False
     if Planet.Do.VALID and Params.CALC_NEW_GRAVITY and Params.CALC_VISCOSITY and Params.CALC_SEISMIC and not Params.SKIP_INNER:
         # Set Magnetic struct layer arrays as we need for induction calculations
         Planet, Params = SetupGravity(Planet, Params)
@@ -34,9 +34,8 @@ def GravityParameters(Planet, Params):
             Planet.Gravity.l = float(Planet.Gravity.l[0, 0])
             Planet.Gravity.k = float(Planet.Gravity.k[0, 0])
             Planet.Gravity.delta = float(Planet.Gravity.delta[0, 0])
-        Planet, Params = WriteGravityParameters(Planet, Params)
-        # Temporary printing of numbers
-        print(f"h number: {Planet.Gravity.h}, l number: {Planet.Gravity.l}, k number: {Planet.Gravity.k}")
+        if (not Params.NO_SAVEFILE) and (not Params.INVERSION_IN_PROGRESS) and (not Params.DO_EXPLOREOGRAM):
+            Planet, Params = WriteGravityParameters(Planet, Params)
     elif Planet.Do.VALID:
         if os.path.isfile(Params.DataFiles.gravityParametersFile):
             # Reload gravity parameters from disk
@@ -62,13 +61,14 @@ def SetupGravity(Planet, Params):
         # Note we have to use r_m[:-1] since r_m has one extra value than other arrays
         Planet.Gravity.model = np.vstack(
             [Planet.Reduced.r_m, Planet.Reduced.phase, Planet.Reduced.rho_kgm3, Planet.Reduced.Seismic.VP_kms, Planet.Reduced.Seismic.VS_kms, Planet.Reduced.Seismic.GS_GPa, Planet.Reduced.eta_Pas]).T
-
+    
         # Convert parameter units to Pa and meters
         for index, (header, unit) in enumerate(zip(Planet.Gravity.columns, Planet.Gravity.units_PyALMA3)):
             if header in Planet.Gravity.parameters_to_convert:
                 Planet.Gravity.model[:, index] = Planet.Gravity.model[:, index] * Planet.Gravity.parameters_to_convert[header]
         # Get indices of used properties
         rIndex  = Planet.Gravity.columns.index('r')
+        pIndex = Planet.Gravity.columns.index('phase')
         rhoIndex = Planet.Gravity.columns.index('rho')
         VPIndex = Planet.Gravity.columns.index('VP')
         VSIndex = Planet.Gravity.columns.index('VS')
@@ -110,6 +110,33 @@ def SetupGravity(Planet, Params):
         # Set Planet time scale and harmonic degrees from Params
         Planet.Gravity.time_log_kyrs = Params.Gravity.time_log_kyrs
         Planet.Gravity.harmonic_degrees = Params.Gravity.harmonic_degrees
+
+        # Finally, we must setup the rheology structure, from core to surface
+        # Track phase changes while preserving order
+        phases = Planet.Gravity.model[:, pIndex]
+        # Initialize with the first phase
+        phase_transitions = [phases[0]]
+        # Iterate through the model to find phase transitions
+        for i in range(1, len(phases)):
+            if phases[i] != phases[i-1]:
+                # We've found a phase transition
+                phase_transitions.append(phases[i])
+        # Map phases to rheology models
+        rheology_structure = []
+        for phase in phase_transitions:
+            # Convert numerical phase to string representation for dictionary lookup
+            phase_str = PhaseConv(phase, liq='0')
+        
+            # Try to use PhaseConv if direct lookup fails
+            if phase_str not in Params.Gravity.rheology_models:
+                raise ValueError(f"Phase {phase_str} not found in rheology models.")
+            else:
+                rheology_model = Params.Gravity.rheology_models[phase_str]
+            rheology_structure.append(rheology_model)
+        
+        # Store the compiled structures in Planet.Gravity
+        Params.Gravity.rheology_structure = rheology_structure
+        
     # Return Planet and Params
     return Planet, Params
 

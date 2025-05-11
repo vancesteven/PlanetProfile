@@ -284,7 +284,6 @@ def HydroOnly(Planet, Params):
     if not Planet.Do.NO_H2O:
         Planet = IceLayers(Planet, Params)
         Planet = OceanLayers(Planet, Params)
-
     PrintCompletion(Planet, Params)
     return Planet, Params
 
@@ -297,10 +296,17 @@ def InteriorEtc(Planet, Params):
     Planet = InnerLayers(Planet, Params)
     Planet = ElecConduct(Planet, Params)
     Planet = SeismicCalcs(Planet, Params)
+    Planet = ViscosityCalcs(Planet, Params)
+    # Create a simplified reduced planet structure for magnetic induction and/or gravity calculations
+    if Planet.Do.VALID:
+        Planet, Params = GetReducedPlanetProfile(Planet, Params)
     if not Params.SKIP_INDUCTION and (Params.CALC_CONDUCT and Params.CALC_NEW_INDUCT):
         # Calculate induced magnetic moments
         Planet, Params = MagneticInduction(Planet, Params)
-
+        # Gravity calcuations and plots
+    if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY) and not Params.SKIP_GRAVITY:
+        # Calculate gravity parameters
+        Planet, Params = GravityParameters(Planet, Params)
     PrintCompletion(Planet, Params)
     return Planet, Params
 
@@ -1557,6 +1563,8 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
         Exploration.h_love_number = np.array([[Planeti.Gravity.h for Planeti in line] for line in PlanetGrid])
         Exploration.l_love_number = np.array([[Planeti.Gravity.l for Planeti in line] for line in PlanetGrid])
         Exploration.k_love_number = np.array([[Planeti.Gravity.k for Planeti in line] for line in PlanetGrid])
+        Exploration.affinityMean_kJ = np.array([[Planeti.Ocean.affinityMean_kJ for Planeti in line] for line in PlanetGrid])
+        Exploration.affinitySeafloor_kJ = np.array([[Planeti.Ocean.affinitySeafloor_kJ for Planeti in line] for line in PlanetGrid])
         Exploration.delta_love_number_relation = np.array([[Planeti.Gravity.delta for Planeti in line] for line in PlanetGrid])
         Exploration.CMR2calc = np.array([[Planeti.CMR2mean for Planeti in line] for line in PlanetGrid])
         Exploration.VALID = np.array([[Planeti.Do.VALID for Planeti in line] for line in PlanetGrid])
@@ -1737,6 +1745,8 @@ def WriteExploreOgram(Exploration, Params, INVERSION=False):
         'h_love_number': Exploration.h_love_number,
         'l_love_number': Exploration.l_love_number,
         'k_love_number': Exploration.k_love_number,
+        'affinityMean_kJ': Exploration.affinityMean_kJ,
+        'affinitySeafloor_kJ': Exploration.affinitySeafloor_kJ,
         'delta_love_number_relation': Exploration.delta_love_number_relation,
         'CMR2calc': Exploration.CMR2calc,
         'VALID': Exploration.VALID,
@@ -1845,6 +1855,8 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
     Exploration.h_love_number = reload['h_love_number']
     Exploration.l_love_number = reload['l_love_number']
     Exploration.k_love_number = reload['k_love_number']
+    Exploration.affinityMean_kJ = reload['affinityMean_kJ']
+    Exploration.affinitySeafloor_kJ = reload['affinitySeafloor_kJ']
     Exploration.delta_love_number_relation = 1 + Exploration.k_love_number - Exploration.h_love_number
     # Exploration.delta_love_number_relation = reload['delta_love_number_relation']
     Exploration.CMR2calc = reload['CMR2calc']
