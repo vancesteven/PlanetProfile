@@ -1,3 +1,16 @@
+"""
+PlanetProfile version checking module
+This module checks the version of PlanetProfile and its dependencies.
+It is intended to be imported by other modules in the package.
+
+To update the version number, change the value of the file number in PPverNum.txt and update the setup.py file 
+in the root directory.
+The version number in PPverNum.txt should be the same as the version number in setup.py.
+
+To add packages to the compatibility check, add them to the compatNums dictionary, pkgNames dictionary, 
+installInstruct dictionary, and upgradeInstruct dictionary.
+Also add the package to the dependencies in setup.py.
+"""
 from importlib.metadata import version
 from pathlib import Path
 from PlanetProfile import _PPverNumFile
