@@ -104,14 +104,22 @@ def GetReducedLayers(Planet, Params):
     attributes_to_reduce = {
         "phase": Planet,
         "r_m": Planet,
-        "sigma_Sm": Planet,
         "rho_kgm3": Planet,
-        "VS_kms": Planet.Seismic,
-        "VP_kms": Planet.Seismic,
-        "GS_GPa": Planet.Seismic,
-        "eta_Pas": Planet
     }
-
+    if Params.CALC_SEISMIC:
+        attributes_to_reduce.update({
+            "VP_kms": Planet.Seismic,
+            "VS_kms": Planet.Seismic,
+            "GS_GPa": Planet.Seismic
+        })
+    if Params.CALC_VISCOSITY:
+        attributes_to_reduce.update({
+            "eta_Pas": Planet
+        })
+    if Params.CALC_CONDUCT:
+        attributes_to_reduce.update({
+            "sigma_Sm": Planet
+        })
     # Initialize attributes in the correct substructure
     for attr, source in attributes_to_reduce.items():
         if source is Planet.Seismic:
@@ -125,21 +133,22 @@ def GetReducedLayers(Planet, Params):
         if layer_phase >= 10 and Params.SKIP_INNER:
             # In this case where we skip inner calculations, we do not reduce the inner layers
             continue
-        layer_str = PhaseConv(layer_phase, liq='0')  # Convert phase to string
+        layer_str = PhaseConv(layer_phase, PORE=Planet.Do.POROUS_ROCK, liq='0')  # Convert phase to string
         r_layer_m = rPhase_m[start:end]  # Extract radii for this layer
-
-        target_layers = min(Params.REDUCED_LAYERS_SIZE[layer_str], len(r_layer_m))  # Get target layer count
-
+        if layer_str in Params.REDUCED_LAYERS_SIZE:
+            target_layers = min(Params.REDUCED_LAYERS_SIZE[layer_str], len(r_layer_m))  # Get target layer count
+        else:
+            target_layers = min(Constants.defaultReducedLayerSize, len(r_layer_m))  # Default to a constant if not specified
         # Generate original and reduced depth points
         original_points = r_layer_m
         reduced_points = np.linspace(r_layer_m[0], r_layer_m[-1], target_layers)
 
         for attr, source in attributes_to_reduce.items():
             original_values = getattr(source, attr)[start:end]  # Extract original data
-            interpolator = spi.interp1d(original_points, original_values, kind='linear', fill_value="extrapolate")
+            interpolator = spi.interp1d(original_points, original_values, kind='linear')
             reduced_values = interpolator(reduced_points)  # Interpolated values
 
-            # Store reduced values in the correct location
+            # Stoei reduced values in the correct location
             if source is Planet.Seismic:
                 getattr(Planet.Reduced.Seismic, attr).extend(reduced_values.tolist())  # Store in Seismic
             else:
