@@ -581,7 +581,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
         if Planet.Do.HYDROSPHERE_THICKNESS:
             saveLabel += f'_{Planet.Bulk.Dhsphere_m}'
             label += f'$hydroThickness\,\SI{{{Planet.Bulk.Dhsphere_m}}}{{\meter}}$'
-    if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSname}'
+    if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSName}'
 
     # Add time and date label
     if Params.TIME_AND_DATE_LABEL:
