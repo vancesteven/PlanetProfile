@@ -998,16 +998,38 @@ class RktPhaseLookup:
         if P_MPa_below_200_MPa_index < P_MPa.size:
             P_MPa_above_200_MPa = P_MPa[P_MPa_below_200_MPa_index:]
             evalPts_RGI = tuple(np.meshgrid(P_MPa_above_200_MPa, T_K))
+            # Make sure we're always passing a properly formatted array to seafreeze
+            # Create a 2-element array with pressure and temperature arrays
             evalPts_sfz = np.array([P_MPa_above_200_MPa, T_K], dtype=object)
             ptsh = (P_MPa_above_200_MPa.size, T_K.size)
             max_phase_num = max([p for p in Constants.seafreeze_ice_phases.keys()])
             comp = np.full(ptsh + (max_phase_num + 1,), np.nan)
+            
             for phase, name in Constants.seafreeze_ice_phases.items():
                 if phase == 0:
                     mu_J_mol = mu_function_above_200_MPa(evalPts_RGI).T
                 else:
-                    mu_J_mol = sfz.getProp(evalPts_sfz, name).G * Constants.m_gmol['H2O'] / 1000
-
+                    # Ensure we handle single value arrays properly
+                    if P_MPa_above_200_MPa.size == 1 or T_K.size == 1:
+                        # Create a proper grid for seafreeze to work with
+                        sfz_P, sfz_T = np.meshgrid(P_MPa_above_200_MPa, T_K, indexing='ij')
+                        sfz_PT = np.array([sfz_P.flatten(), sfz_T.flatten()], dtype=object)
+                        mu_J_mol = sfz.getProp(sfz_PT, name).G * Constants.m_gmol['H2O'] / 1000
+                        mu_J_mol = mu_J_mol.reshape(sfz_P.shape)
+                    else:
+                        try:
+                            mu_J_mol = sfz.getProp(evalPts_sfz, name).G * Constants.m_gmol['H2O'] / 1000
+                        except:
+                            from seafreeze.seafreeze import defpath, _get_tdvs, _is_scatter
+                            from seafreeze.seafreeze import phases as seafreeze_phases
+                            from mlbspline import load
+                            phasedesc = seafreeze_phases[name]
+                            sp = load.loadSpline(defpath, phasedesc.sp_name)
+                            # Calc density and isentropic bulk modulus
+                            isscatter = _is_scatter(evalPts_sfz)
+                            tdvs = _get_tdvs(sp, evalPts_sfz, isscatter)
+                            mu_J_mol = tdvs.G * Constants.m_gmol['H2O'] / 1000
+                            #raise ValueError(f"Error in seafreeze calculation for phase {name}. Check the input values {mu_J_mol}.")
                 sl = tuple(repeat(slice(None), 2)) + (phase,)
                 comp[sl] = np.squeeze(mu_J_mol)
             all_nan_sl = np.all(np.isnan(comp), -1)  # Find slices where all values are nan along the innermost axis

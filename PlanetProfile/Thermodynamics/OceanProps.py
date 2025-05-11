@@ -35,18 +35,23 @@ def LiquidOceanPropsCalcs(Planet, Params):
             # If so, then get pH and speciation of ocean
             Planet.Ocean.Bulk_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = (
                 Planet.Ocean.EOS.fn_species(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq]))
+            Planet.Ocean.Mean_pH = np.mean(Planet.Ocean.Bulk_pHs)
             if "CustomSolution" in Planet.Ocean.comp and Planet.Ocean.reaction is not None:
                 Planet.Ocean.affinity_kJ = Planet.Ocean.EOS.fn_rxn_affinity(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq], Planet.Ocean.reaction, Planet.Ocean.reactionDisequilibriumConcentrations)
+                Planet.Ocean.affinityMean_kJ = np.mean(Planet.Ocean.affinity_kJ)
+                Planet.Ocean.affinitySeafloor_kJ = Planet.Ocean.affinity_kJ[-1]
             else:
                 Planet.Ocean.affinity_kJ = (np.zeros(np.size(indsLiq))) * np.nan
+                Planet.Ocean.affinitySeafloor_kJ = np.nan
+                Planet.Ocean.affinityMean_kJ = np.nan
                 Planet.Ocean.reaction = 'NaN'
                 Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN'
         else:
-            Planet.Ocean.Bulk_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ = np.nan, np.nan, np.nan, np.nan
+            Planet.Ocean.Bulk_pHs, Planet.Ocean.Mean_pH, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ, Planet.Ocean.affinitySeafloor_kJ, Planet.Ocean.affinityMean_kJ = np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
             Planet.Ocean.reaction = 'NaN'
             Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN'
     else:
-        Planet.Ocean.Bulk_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ = np.nan, np.nan, np.nan, np.nan
+        Planet.Ocean.Bulk_pHs, Planet.Ocean.Mean_pH, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ, Planet.Ocean.affinitySeafloor_kJ, Planet.Ocean.affinityMean_kJ = np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
         Planet.Ocean.reaction = 'NaN'
         Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN'
     return Planet
