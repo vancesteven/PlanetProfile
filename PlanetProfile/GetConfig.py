@@ -50,6 +50,8 @@ from PlanetProfile.CustomSolution.defaultConfigCustomSolution import configCusto
 from configPPcustomsolution import configCustomSolutionVersion as userCustomSolutionVersion
 from PlanetProfile.Gravity.defaultConfigGravity import configGravityVersion
 from configPPgravity import configGravityVersion as userConfigGravityVersion
+from PlanetProfile.Model.defaultConfigModel import configModelVersion
+from configPPmodel import configModelVersion as userConfigModelVersion
 
 # Check sub-config file versions and warn user if they differ
 if configInductVersion != userConfigInductVersion:
@@ -72,6 +74,11 @@ if configGravityVersion != userConfigGravityVersion:
          f'version {configGravityVersion}. Some settings may be missing; default values will be used. ' +
          f'To align the file version, delete configPPgravity.py and run again, or execute reset.py ' +
          f'with python -m PlanetProfile.reset')
+if configModelVersion != userConfigModelVersion:
+    warn(f'User configPPmodel file is version {userConfigModelVersion}, but the default file is ' +
+         f'version {configModelVersion}. Some settings may be missing; default values will be used. ' +
+         f'To align the file version, delete configPPmodel.py and run again, or execute reset.py ' +
+         f'with python -m PlanetProfile.reset')
 
 from PlanetProfile.MagneticInduction.defaultConfigInduct import inductAssign
 from configPPinduct import inductAssign as userInductAssign
@@ -83,6 +90,8 @@ from PlanetProfile.CustomSolution.defaultConfigCustomSolution import customSolut
 from configPPcustomsolution import customSolutionAssign as userCustomSolutionAssign
 from PlanetProfile.Gravity.defaultConfigGravity import gravityAssign
 from configPPgravity import gravityAssign as userGravityAssign
+from PlanetProfile.Model.defaultConfigModel import modelAssign
+from configPPmodel import modelAssign as userModelAssign
 
 SigParams, ExcSpecParams, InductParams, _ = inductAssign()
 userSigParams, userExcSpecParams, userInductParams, userTestBody = userInductAssign()
@@ -94,6 +103,8 @@ CustomSolutionParams = customSolutionAssign()
 userCustomSolutionParams = userCustomSolutionAssign()
 GravityParams = gravityAssign()
 userGravityParams = userGravityAssign()
+ModelParams = modelAssign()
+userModelParams = userModelAssign()
 
 # Load user settings to allow for configuration
 for attr, value in userParams.__dict__.items():
@@ -108,6 +119,8 @@ for attr, value in userInductParams.__dict__.items():
     setattr(InductParams, attr, value)
 for attr, value in userGravityParams.__dict__.items():
     setattr(GravityParams, attr, value)
+for attr, value in userModelParams.__dict__.items():
+    setattr(ModelParams, attr, value)
 
 for attr, value in userTrajecParams.__dict__.items():
     setattr(TrajecParams, attr, value)
@@ -219,3 +232,4 @@ Params.Explore = ExploreParams
 Params.Trajec = TrajecParams
 Params.CustomSolution = CustomSolutionParams
 Params.Gravity = GravityParams
+Params.Model = ModelParams
