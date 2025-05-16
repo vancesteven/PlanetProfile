@@ -12,7 +12,7 @@ These updates expand the modeling of ocean worlds beyond the existing Seawater, 
 
 This update also fixes many incidental bugs.
 
-**USERS WHO HAVE CLONED PLNAETPROFILE PRIOR TO 2025 SHOULD REINSTALL A FRESH CLONE. SEE THE UNINSTALLING SECTION FOR MORE DETAILS**
+**USERS WHO HAVE CLONED PLANETPROFILE PRIOR TO 2025 SHOULD REINSTALL A FRESH CLONE. SEE THE UNINSTALLING SECTION FOR MORE DETAILS**
 The code was rebased to push many changes undertaken over the past year. Due to new file size limitations, this meant excluding a large 
 Software framework for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data.
 
