@@ -297,6 +297,7 @@ def InteriorEtc(Planet, Params):
     Planet = ElecConduct(Planet, Params)
     Planet = SeismicCalcs(Planet, Params)
     Planet = ViscosityCalcs(Planet, Params)
+    Planet = LiquidOceanPropsCalcs(Planet, Params)
     # Create a simplified reduced planet structure for magnetic induction and/or gravity calculations
     if Planet.Do.VALID:
         Planet, Params = GetReducedPlanetProfile(Planet, Params)

@@ -445,20 +445,43 @@ class IceEOSStruct:
                     log.warning(f'Input Tmin less than SeaFreeze limit for ice {self.phaseStr}. Resetting to SF min of'
                                 f' {self.Tmin} K.')
                     T_K = np.linspace(self.Tmin, np.max(T_K), np.size(T_K))
+
                 if np.max(T_K) > self.Tmax:
                     log.warning(f'Input Tmax greater than SeaFreeze limit for ice {self.phaseStr}. Resetting to SF '
                                 f'max of'
                                 f' {self.Tmax} K.')
                     T_K = np.linspace(np.min(T_K), self.Tmax, np.size(T_K))
-                PTgrid = sfPTgrid(P_MPa, T_K)
-                iceOut = SeaFreeze(PTgrid, phaseStr)
-                rho_kgm3 = iceOut.rho
-                Cp_JkgK = iceOut.Cp
-                alpha_pK = iceOut.alpha
-                if ICEIh_DIFFERENT and phaseStr == 'Ih':
-                    kTherm_WmK = np.array([kThermIceIhWolfenbarger2021(T_K) for _ in P_MPa])
+                if (T_K[-1] - T_K[0]) < self.EOSdeltaT:
+                    # Sometimes when querying for HP ices, we reset the input arrays below the EOS deltas specified by user. In this case, we should reset to the EOS delta value
+                    T_K = np.linspace(T_K[0] - self.EOSdeltaT, T_K[-1], 4)
+                    self.Tmin = np.min(T_K)
+                if (P_MPa[-1] - P_MPa[0]) < self.EOSdeltaP:
+                    # Sometimes when querying for HP ices, we reset the input arrays below the EOS deltas specified by user. In this case, we should reset to the EOS delta value
+                    P_MPa = np.linspace(P_MPa[0] - self.EOSdeltaT, P_MPa[-1], 4)
+                    self.Pmin = np.min(P_MPa)
+                    log.warning(f'Input T_K or P_MPa range is less than SeaFreeze limit for ice {self.phaseStr}. Resetting to SF min of'
+                                f' {self.Tmin} K and SF max of {self.Pmax} MPa.')
+                    T_K = np.linspace(self.Tmin, self.Tmax, np.size(T_K))
+                    P_MPa = np.linspace(self.Pmin, self.Pmax, np.size(P_MPa))
+                if (T_K[0] >= T_K[-1]) or (P_MPa[0] >= P_MPa[-1]):
+                    # Sometimes when querying for HP ices, the temperature or pressure reset makes the array no longer strictly increasing and rectbivariatespline requires strictly increasing inputs.
+                    # In this case, we are outside the bounds of plausible range of this HP ice forming, so let's set all to np.nan
+                    T_K = np.linspace(np.min(T_K)*0.9999, np.max(T_K), np.size(T_K))
+                    P_MPa = np.linspace(np.min(P_MPa)*0.9999, np.max(P_MPa), np.size(P_MPa))
+                    rho_kgm3 = np.zeros((np.size(P_MPa), np.size(T_K))) + np.nan
+                    Cp_JkgK = rho_kgm3
+                    alpha_pK = rho_kgm3
+                    kTherm_WmK = rho_kgm3
                 else:
-                    kTherm_WmK = np.array([kThermIsobaricAnderssonInaba2005(T_K, PhaseInv(phaseStr)) for _ in P_MPa])
+                    PTgrid = sfPTgrid(P_MPa, T_K)
+                    iceOut = SeaFreeze(PTgrid, phaseStr)
+                    rho_kgm3 = iceOut.rho
+                    Cp_JkgK = iceOut.Cp
+                    alpha_pK = iceOut.alpha
+                    if ICEIh_DIFFERENT and phaseStr == 'Ih':
+                        kTherm_WmK = np.array([kThermIceIhWolfenbarger2021(T_K) for _ in P_MPa])
+                    else:
+                        kTherm_WmK = np.array([kThermIsobaricAnderssonInaba2005(T_K, PhaseInv(phaseStr)) for _ in P_MPa])
                 self.ufn_Seismic = IceSeismic(phaseStr, self.EXTRAP)
                 self.ufn_phase = returnVal(self.phaseID)
             # Interpolate functions for this ice phase that can be queried for properties
@@ -642,7 +665,6 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
         if nTs == nPs:
             nTs = nTs + 1
         outT_K = np.linspace(Tmin, Tmax, nTs)
-
     return ALREADY_LOADED, rangeLabel, outP_MPa, outT_K, deltaP, deltaT
 
 
