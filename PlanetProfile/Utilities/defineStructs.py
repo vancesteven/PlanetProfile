@@ -514,6 +514,7 @@ class PlanetStruct:
         self.Reduced = ReducedPlanetStruct()
         self.Magnetic = MagneticSubstruct()
         self.Gravity = GravitySubstruct()
+        self.Model = ModelSubstruct()
 
         self.fname = None  # Relative path used for .py file import
         self.saveLabel = None  # Label for savefile
@@ -2240,6 +2241,7 @@ class CustomSolutionParamsStruct:
         self.EOS_deltaT = None
         self.SOLID_PHASES = None
         self.SOLID_PHASES_TO_CONSIDER = None
+        self.REMOVE_SPECIES_NA_IN_FREZCHEM = None
 
         self.rktPath = ''
         self.databasePath = ''
@@ -2249,6 +2251,36 @@ class CustomSolutionParamsStruct:
         self.rktPath = os.path.join(ROOT, 'Thermodynamics', 'Reaktoro')
         self.databasePath = os.path.join(self.rktPath, 'Databases')
         self.frezchemPath = os.path.join(self.databasePath, self.FREZCHEM_DATABASE)
+class ModelSubstruct:
+    def __init__(self):
+        # Initialize ice layer parameter dictionaries
+        self.T_K = {}
+        self.P_MPa = {}
+        self.rho_kgm3 = {}
+        self.Cp_JkgK = {}
+        self.alpha_pK = {}
+        self.kTherm_WmK = {}
+        self.phi_frac = {}
+        self.sigma_Sm = {}
+        self.Htidal_Wm3 = {}
+        self.Tb_K = {}
+        self.Pb_MPa = {}
+        self.thickness_km = {}
+        
+        # Set default values for each ice phase
+        for phase in ['Ih', 'III', 'V']:
+            self.T_K[phase] = None
+            self.P_MPa[phase] = None
+            self.rho_kgm3[phase] = None
+            self.Cp_JkgK[phase] = None
+            self.alpha_pK[phase] = None
+            self.kTherm_WmK[phase] = None
+            self.phi_frac[phase] = None
+            self.sigma_Sm[phase] = None
+            self.Htidal_Wm3[phase] = None
+            self.Tb_K[phase] = None
+            self.Pb_MPa[phase] = None
+            self.thickness_km[phase] = None
 
 # For configuring longitudes from -180 to 180 or 0 to 360.
 def LonFormatter(longitude, EAST=True):

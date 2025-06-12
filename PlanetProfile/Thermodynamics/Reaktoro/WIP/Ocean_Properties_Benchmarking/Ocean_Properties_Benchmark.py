@@ -10,6 +10,7 @@ import numpy as np
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+os.chdir(project_root) # Change directory to the project root
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
 Params = configParams
 os.chdir(os.path.dirname(os.path.abspath(__file__))) # Reset directory back to this directory
@@ -24,8 +25,9 @@ FigMisc.TminHydro_K = 240
 FigMisc.TmaxHydro_K = 300
 FigMisc.SHOW_GEOTHERM = False
 FigMisc.dpi = 600
-FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS', 'sig']
+FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS']
 Params.FigureFiles.xtn = '.png'
+Params.TITLES = False
 
 """
 Generate the Seafreeze and Reaktoro (corrected) Pure H2O Comparison
@@ -73,6 +75,8 @@ Reaktoro_NaCl_Planet.saveLabel = '100g_NaCl_Reaktoro'
 
 HundredGram_NaCl_PlanetList = np.array([Reaktoro_NaCl_Planet, Seafreeze_NaCl_Planet])
 PlotPvThydro(HundredGram_NaCl_PlanetList, Params)
+
+FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS', 'sig']
 
 Seawater_Planet = PlanetStruct('Test')
 Seawater_Planet.Ocean.comp = 'Seawater'
