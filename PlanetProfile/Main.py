@@ -718,18 +718,17 @@ def InitBayes(bodyname, fEnd):
     Params.CALC_NEW_INDUCT = True
     Params.SKIP_INDUCTION = False
     # Quiet messages unless we're debugging
-    if bodyname != 'Test':
+    if bodyname[:4] == 'Test':
+        loadname = bodyname + ''
+        bodydir = _TestImport
+    else:
         log.setLevel(logging.WARN+5)
+        loadname = bodyname
+        bodydir = bodyname
 
     # Fetch starting parameters
     fName = f'PP{bodyname}{fEnd}.py'
-    expected = os.path.join(bodyname, fName)
-    if not os.path.isfile(expected):
-        default = os.path.join(_Defaults, bodyname, fName)
-        if os.path.isfile(default):
-            CopyCarefully(default, expected)
-        else:
-            log.warning(f'{expected} does not exist and no default was found at {default}.')
+    expected = os.path.join(bodydir, fName)
     Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
     return Planet, Params
 

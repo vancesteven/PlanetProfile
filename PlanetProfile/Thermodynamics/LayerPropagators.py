@@ -48,10 +48,7 @@ def IceLayers(Planet, Params):
         # Get the pressure consistent with the bottom of the surface ice layer that is
         # consistent with the choice of Tb_K we suppose for this model
         if Planet.Do.NO_OCEAN:
-            Planet.PbI_MPa = 208.566 # just pure water for now
-            Planet.Bulk.Tb_K = 251.165
-            Planet.Pb_MPa = Planet.PbI_MPa
-            Planet.Steps.nOceanMax = 0
+            pass # We handle this in SetupInit.py now
         else:
             Planet.PbI_MPa = GetPfreeze(Planet.Ocean.meltEOS, 1, Planet.Bulk.Tb_K,
                                         PLower_MPa=Planet.PfreezeLower_MPa, PUpper_MPa=Planet.PfreezeUpper_MPa,
@@ -509,7 +506,7 @@ def OceanLayers(Planet, Params):
         Assigns Planet attributes:
             phase, r_m, z_m, g_ms2, T_K, P_MPa, rho_kgm3, Cp_JkgK, alpha_pK, MLayer_kg
     """
-    if Planet.Do.VALID or (Planet.Do.NO_OCEAN and Planet.Bulk.Tb_K < Constants.triplePointT_K):
+    if Planet.Do.VALID and not (Planet.Do.NO_OCEAN and Planet.Bulk.Tb_K > Constants.triplePointT_K):
         log.debug('Evaluating ocean layers.')
 
         # Confirm that we haven't made mistakes in phase assignment in IceLayers()

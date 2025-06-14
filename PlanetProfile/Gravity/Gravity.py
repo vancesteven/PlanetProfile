@@ -11,31 +11,36 @@ log = logging.getLogger('PlanetProfile')
 def GravityParameters(Planet, Params):
     """ Calculate induced gravity responses for the body and prints them to disk."""
     if Planet.Do.VALID and Params.CALC_NEW_GRAVITY and Params.CALC_VISCOSITY and Params.CALC_SEISMIC and not Params.SKIP_INNER:
-        # Set Magnetic struct layer arrays as we need for induction calculations
-        Planet, Params = SetupGravity(Planet, Params)
-        rheology, params = infer_rheology_pp(Planet.Gravity.ALMAModel, structure=Params.Gravity.rheology_structure,
-                                             layer_radius=Params.Gravity.layer_radius,
-                                             layer_radius_index=Params.Gravity.layer_radius_index)
-        model_params = build_model(Planet.Gravity.ALMAModel['model'][:, Planet.Gravity.ALMAModel['columns'].index('r')],
-                                   Planet.Gravity.ALMAModel['model'][:, Planet.Gravity.ALMAModel['columns'].index('rho')],
-                                   Planet.Gravity.ALMAModel['mu'],
-                                   Planet.Gravity.ALMAModel['vis'],
-                                   rheology, params, ndigits=Params.Gravity.num_digits, verbose=Params.Gravity.verbose)
-        # Compute love numbers
-        Planet.Gravity.h, Planet.Gravity.l, Planet.Gravity.k = love_numbers(Params.Gravity.harmonic_degrees, Params.Gravity.time_log_kyrs,
-                                                                Params.Gravity.loading_type, Params.Gravity.time_history_function, Params.Gravity.tau, model_params,
-                                                                Params.Gravity.output_type, Params.Gravity.gorder, verbose=Params.Gravity.verbose,
-                                                                parallel=Params.Gravity.parallel and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
-        # Compute delta relation
-        Planet.Gravity.delta = 1 + Planet.Gravity.k - Planet.Gravity.h
-        # If our love numbers are 1x1 numpy array, let's convert to float - important for plotting and output
-        if len(Planet.Gravity.time_log_kyrs) == 1 and len(Planet.Gravity.harmonic_degrees) == 1:
-            Planet.Gravity.h = float(Planet.Gravity.h[0, 0])
-            Planet.Gravity.l = float(Planet.Gravity.l[0, 0])
-            Planet.Gravity.k = float(Planet.Gravity.k[0, 0])
-            Planet.Gravity.delta = float(Planet.Gravity.delta[0, 0])
-        if (not Params.NO_SAVEFILE) and (not Params.INVERSION_IN_PROGRESS) and (not Params.DO_EXPLOREOGRAM):
-            Planet, Params = WriteGravityParameters(Planet, Params)
+        # Check if there are any phase transitions in the model, or if this is a 1-layer model
+        if not np.any(Planet.Reduced.phase[:-1] != Planet.Reduced.phase[1:]):
+            # If we have only one phase in our model, pyalma is not able to calculate love numbers so we must pass
+            pass
+        else:
+            # Set Magnetic struct layer arrays as we need for induction calculations
+            Planet, Params = SetupGravity(Planet, Params)
+            rheology, params = infer_rheology_pp(Planet.Gravity.ALMAModel, structure=Params.Gravity.rheology_structure,
+                                                layer_radius=Params.Gravity.layer_radius,
+                                                layer_radius_index=Params.Gravity.layer_radius_index)
+            model_params = build_model(Planet.Gravity.ALMAModel['model'][:, Planet.Gravity.ALMAModel['columns'].index('r')],
+                                    Planet.Gravity.ALMAModel['model'][:, Planet.Gravity.ALMAModel['columns'].index('rho')],
+                                    Planet.Gravity.ALMAModel['mu'],
+                                    Planet.Gravity.ALMAModel['vis'],
+                                    rheology, params, ndigits=Params.Gravity.num_digits, verbose=Params.Gravity.verbose)
+            # Compute love numbers
+            Planet.Gravity.h, Planet.Gravity.l, Planet.Gravity.k = love_numbers(Params.Gravity.harmonic_degrees, Params.Gravity.time_log_kyrs,
+                                                                    Params.Gravity.loading_type, Params.Gravity.time_history_function, Params.Gravity.tau, model_params,
+                                                                    Params.Gravity.output_type, Params.Gravity.gorder, verbose=Params.Gravity.verbose,
+                                                                    parallel=Params.Gravity.parallel and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+            # Compute delta relation
+            Planet.Gravity.delta = 1 + Planet.Gravity.k - Planet.Gravity.h
+            # If our love numbers are 1x1 numpy array, let's convert to float - important for plotting and output
+            if len(Planet.Gravity.time_log_kyrs) == 1 and len(Planet.Gravity.harmonic_degrees) == 1:
+                Planet.Gravity.h = float(Planet.Gravity.h[0, 0])
+                Planet.Gravity.l = float(Planet.Gravity.l[0, 0])
+                Planet.Gravity.k = float(Planet.Gravity.k[0, 0])
+                Planet.Gravity.delta = float(Planet.Gravity.delta[0, 0])
+            if (not Params.NO_SAVEFILE) and (not Params.INVERSION_IN_PROGRESS) and (not Params.DO_EXPLOREOGRAM):
+                Planet, Params = WriteGravityParameters(Planet, Params)
     elif Planet.Do.VALID:
         if os.path.isfile(Params.DataFiles.gravityParametersFile):
             # Reload gravity parameters from disk

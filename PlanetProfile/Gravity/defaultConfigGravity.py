@@ -1,7 +1,7 @@
 """ Configuration settings specific to gravity response calculations and plots """
 from PlanetProfile.Utilities.defineStructs import GravityParamsStruct
 
-configGravityVersion = 2 # Integer number for config file version. Increment when new settings are added to the default config file.
+configGravityVersion = 3 # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def gravityAssign():
     GravityParams = GravityParamsStruct()
@@ -12,7 +12,9 @@ def gravityAssign():
     GravityParams.parallel = False  # Use Parallel computing for PyALMA calculations. #TODO: Need to implement way to do this if Parallel already being used in Exploreogram
 
      # Parsing parameters
-    GravityParams.rheology_models = {'0': 'newton', 'Ih': 'maxwell', 'Sil': 'elastic', 'Fe': 'elastic'}  # Rheology structure model, where each model corresponds to a layer
+    GravityParams.rheology_models = {'0': 'newton', 'Ih': 'maxwell', 'II': 'maxwell', 'III': 'maxwell',
+                                     'IV': 'maxwell', 'V': 'maxwell', 'VI': 'maxwell',
+                                     'Sil': 'elastic', 'Fe': 'elastic', 'Clath': 'newton'}  # Rheology structure model, where each model corresponds to a layer
 
     # General parameters
     GravityParams.num_digits = 128  # Set precision

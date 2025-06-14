@@ -79,6 +79,11 @@ def SetupInit(Planet, Params):
         Planet.Do.CLATHRATE = False
 
         if Planet.Do.NO_H2O:
+            # Set up settings so we can still run ocean layers function to check for high pressure ices - hacky fix, should address in future
+            Planet.PbI_MPa = 208.566 # just pure water for now
+            Planet.Bulk.Tb_K = Constants.triplePointT_K
+            Planet.Pb_MPa = Planet.PbI_MPa
+            Planet.Steps.nOceanMax = 0
             log.info('Modeling a waterless body.')
             Planet.Ocean.comp = 'none'
             Planet.Ocean.wOcean_ppt = 0.0
@@ -90,6 +95,7 @@ def SetupInit(Planet, Params):
                 Planet.Ocean.EOS = GetOceanEOS('none', None, np.linspace(0, 1, 10), np.linspace(0, 1, 10), None)
 
         else:
+            Planet.Bulk.Tb_K = Constants.triplePointT_K + 0.00001 # Go slightly above triple point to avoid runnign OceanLayers function - hacky fix, shoudl address in future
             if Planet.Do.NO_DIFFERENTIATION:
                 log.info('Modeling an undifferentiated body.')
                 Planet.Sil.Pclosure_MPa = Constants.PclosureUniform_MPa
