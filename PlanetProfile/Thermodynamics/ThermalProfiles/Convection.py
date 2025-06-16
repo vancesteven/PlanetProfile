@@ -36,8 +36,8 @@ def IceIConvectSolid(Planet, Params):
         Planet.RaConvect, Planet.RaCrit = \
         ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
                                      zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.EOS,
-                                     Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q)
-
+                                     Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol)
+    
     log.debug(f'Ice I convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
               f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
               f'    Conductive lid thickness eLid = {Planet.eLid_m/1e3:.1f} km,\n' +
@@ -190,7 +190,7 @@ def IceIConvectPorous(Planet, Params):
         Planet.RaConvect, Planet.RaCrit = \
         ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
                                      zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.EOS,
-                                     Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q)
+                                     Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol)
 
     log.debug(f'Ice I convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
               f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
@@ -353,7 +353,7 @@ def IceIIIConvectSolid(Planet, Params):
         Planet.RaConvectIII, Planet.RaCritIII = ConvectionDeschampsSotin2001(Planet.Bulk.Tb_K, Planet.r_m[Planet.Steps.nIbottom],
                                      Planet.kTherm_WmK[Planet.Steps.nIbottom], Planet.Bulk.TbIII_K, zbIII_m,
                                      Planet.g_ms2[Planet.Steps.nIbottom], PmidIII_MPa, Planet.Ocean.EOS,
-                                     Planet.Ocean.surfIceEOS['III'], 3, Planet.Do.EQUIL_Q)
+                                     Planet.Ocean.surfIceEOS['III'], 3, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol)
 
     log.debug(f'Ice III convection parameters:\n    T_convectIII = {Planet.TconvIII_K:.3f} K,\n' +
               f'    Viscosity etaConvectIII = {Planet.etaConvIII_Pas:.3e} Pa*s,\n' +
@@ -450,7 +450,7 @@ def IceIIIConvectPorous(Planet, Params):
         Planet.RaConvectIII, Planet.RaCritIII = ConvectionDeschampsSotin2001(Planet.Bulk.Tb_K, Planet.r_m[Planet.Steps.nIbottom],
                                      Planet.kTherm_WmK[Planet.Steps.nIbottom], Planet.Bulk.TbIII_K, zbIII_m,
                                      Planet.g_ms2[Planet.Steps.nIbottom], PmidIII_MPa, Planet.Ocean.EOS,
-                                     Planet.Ocean.surfIceEOS['III'], 3, Planet.Do.EQUIL_Q)
+                                     Planet.Ocean.surfIceEOS['III'], 3, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol)
 
     log.debug(f'Ice III convection parameters:\n    T_convectIII = {Planet.TconvIII_K:.3f} K,\n' +
               f'    Viscosity etaConvectIII = {Planet.etaConvIII_Pas:.3e} Pa*s,\n' +
@@ -554,7 +554,7 @@ def IceVConvectSolid(Planet, Params):
         Planet.RaConvectV, Planet.RaCritV = ConvectionDeschampsSotin2001(Planet.Bulk.TbIII_K, Planet.r_m[Planet.Steps.nIIIbottom],
                                      Planet.kTherm_WmK[Planet.Steps.nIIIbottom], Planet.Bulk.TbV_K, zbV_m,
                                      Planet.g_ms2[Planet.Steps.nIIIbottom], PmidV_MPa, Planet.Ocean.EOS,
-                                     Planet.Ocean.surfIceEOS['V'], 5, Planet.Do.EQUIL_Q)
+                                     Planet.Ocean.surfIceEOS['V'], 5, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol)
 
     log.debug(f'Ice V convection parameters:\n    T_convectV = {Planet.TconvV_K:.3f} K,\n' +
               f'    Viscosity etaConvectV = {Planet.etaConvV_Pas:.3e} Pa*s,\n' +
@@ -653,7 +653,7 @@ def IceVConvectPorous(Planet, Params):
         Planet.RaConvectV, Planet.RaCritV = ConvectionDeschampsSotin2001(Planet.Bulk.TbIII_K, Planet.r_m[Planet.Steps.nIIIbottom],
                                      Planet.kTherm_WmK[Planet.Steps.nIIIbottom], Planet.Bulk.TbV_K, zbV_m,
                                      Planet.g_ms2[Planet.Steps.nIIIbottom], PmidV_MPa, Planet.Ocean.EOS,
-                                     Planet.Ocean.surfIceEOS['V'], 5, Planet.Do.EQUIL_Q)
+                                     Planet.Ocean.surfIceEOS['V'], 5, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol)
 
     log.debug(f'Ice V convection parameters:\n    T_convectV = {Planet.TconvV_K:.3f} K,\n' +
               f'    Viscosity etaConvectV = {Planet.etaConvV_Pas:.3e} Pa*s,\n' +

@@ -21,10 +21,10 @@ log = logging.getLogger('PlanetProfile')
 
 def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
                 EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None, LOOKUP_HIRES=False,
-                etaFixed_Pas=None):
+                etaFixed_Pas=None, kThermConst_WmK=None):
     oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
                               phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE,
-                              sigmaFixed_Sm=sigmaFixed_Sm, LOOKUP_HIRES=LOOKUP_HIRES, etaFixed_Pas=etaFixed_Pas)
+                              sigmaFixed_Sm=sigmaFixed_Sm, LOOKUP_HIRES=LOOKUP_HIRES, etaFixed_Pas=etaFixed_Pas, kThermConst_WmK=kThermConst_WmK)
     if oceanEOS.ALREADY_LOADED and not FORCE_NEW:
         log.debug(f'{wOcean_ppt} ppt {compstr} EOS already loaded. Reusing existing EOS.')
         oceanEOS = EOSlist.loaded[oceanEOS.EOSlabel]
@@ -41,7 +41,7 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
                  phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False,
-                 sigmaFixed_Sm=None, LOOKUP_HIRES=False, etaFixed_Pas=None):
+                 sigmaFixed_Sm=None, LOOKUP_HIRES=False, etaFixed_Pas=None, kThermConst_WmK=None):
         if elecType is None:
             self.elecType = 'Vance2018'
         else:
@@ -58,6 +58,10 @@ class OceanEOSStruct:
              self.PHASE_LOOKUP = True
         else:
             self.PHASE_LOOKUP = False
+        if kThermConst_WmK is None:
+            kThermConst_WmK = Constants.kThermWater_WmK
+        else:
+            kThermConst_WmK = kThermConst_WmK
         # Add ID for melting curve EOS
         if MELT:
             meltStr = f'melt{np.max(P_MPa)}'
@@ -155,7 +159,7 @@ class OceanEOSStruct:
                 rho_kgm3 = seaOut.rho
                 Cp_JkgK = seaOut.Cp
                 alpha_pK = seaOut.alpha
-                kTherm_WmK = np.zeros_like(alpha_pK) + Constants.kThermWater_WmK  # Placeholder until we implement a self-consistent calculation
+                kTherm_WmK = np.zeros_like(alpha_pK) + kThermConst_WmK # Placeholder until we implement a self-consistent calculation
 
                 if self.PHASE_LOOKUP:
                     if self.comp == 'PureH2O':
@@ -272,6 +276,8 @@ class OceanEOSStruct:
                 raise ValueError(f'Unable to load ocean EOS. self.comp="{self.comp}" but options are "Seawater", "NH3", "MgSO4", ' +
                                  '"NaCl", "CustomSolution", and "none" (for waterless bodies).')
 
+            kTherm_WmK = np.zeros_like(alpha_pK) + kThermConst_WmK # Placeholder until we implement a self-consistent calculation - should be kept for non self consistent modeling
+                            
             self.ufn_rho_kgm3 = RectBivariateSpline(P_MPa, T_K, rho_kgm3)
             self.ufn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, Cp_JkgK)
             self.ufn_alpha_pK = RectBivariateSpline(P_MPa, T_K, alpha_pK)
@@ -379,7 +385,7 @@ def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=
 class IceEOSStruct:
     def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0,
                  phiMin_frac=0, EXTRAP=False, ClathDissoc=None, minPres_MPa=None, minTres_K=None,
-                 ICEIh_DIFFERENT=False, etaFixed_Pas=None, TviscTrans_K=None):
+                 ICEIh_DIFFERENT=False, etaFixed_Pas=None, TviscTrans_K=None, kThermConst_WmK=None):
         self.EOSlabel = f'phase{phaseStr}poros{porosType}phi{phiTop_frac}Pclose{Pclosure_MPa}' + \
                         f'phiMin{phiMin_frac}extrap{EXTRAP}etaFixed{etaFixed_Pas}' + \
                         f'TviscTrans{TviscTrans_K}'
@@ -493,10 +499,13 @@ class IceEOSStruct:
                     rho_kgm3 = iceOut.rho
                     Cp_JkgK = iceOut.Cp
                     alpha_pK = iceOut.alpha
-                    if ICEIh_DIFFERENT and phaseStr == 'Ih':
-                        kTherm_WmK = np.array([kThermIceIhWolfenbarger2021(T_K) for _ in P_MPa])
+                    if kThermConst_WmK[phaseStr] is not None:
+                        kTherm_WmK = np.zeros((np.size(P_MPa), np.size(T_K))) + kThermConst_WmK[phaseStr]
                     else:
-                        kTherm_WmK = np.array([kThermIsobaricAnderssonInaba2005(T_K, PhaseInv(phaseStr)) for _ in P_MPa])
+                        if ICEIh_DIFFERENT and phaseStr == 'Ih':
+                            kTherm_WmK = np.array([kThermIceIhWolfenbarger2021(T_K) for _ in P_MPa])
+                        else:
+                            kTherm_WmK = np.array([kThermIsobaricAnderssonInaba2005(T_K, PhaseInv(phaseStr)) for _ in P_MPa])
                 self.ufn_Seismic = IceSeismic(phaseStr, self.EXTRAP)
                 self.ufn_phase = returnVal(self.phaseID)
             # Interpolate functions for this ice phase that can be queried for properties

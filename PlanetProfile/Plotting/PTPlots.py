@@ -214,7 +214,8 @@ def PlotHydroPhase(PlanetList, Params):
                                    Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                    scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                    phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+
             phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
             new_ices = set([PhaseConv(ice) for ice in np.unique(np.append(phases[phases != 0], 1))])
             if not new_ices.issubset(ices):
@@ -224,7 +225,7 @@ def PlotHydroPhase(PlanetList, Params):
                                                    phiTop_frac=Planet.Ocean.phiMax_frac[ice],
                                                    Pclosure_MPa=Planet.Ocean.Pclosure_MPa[ice],
                                                    phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[ice],
-                                                   ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                                                   ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
                           for ice in ices}
             # Add clathrates to phase and property diagrams where it is stable (if modeled)
             if Planet.Do.CLATHRATE:
@@ -242,7 +243,7 @@ def PlotHydroPhase(PlanetList, Params):
                                                              phiTop_frac=Planet.Ocean.phiMax_frac[clath],
                                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
                                                              phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                             EXTRAP=Params.EXTRAP_ICE[phaseStr],
+                                                             EXTRAP=Params.EXTRAP_ICE[phaseStr], kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
                                                              mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
                 clathStable = iceEOS[phaseIndex].fn_phase(P_MPa, T_K, grid=True)
                 phases[clathStable == phaseIndex] = phaseIndex
@@ -397,7 +398,8 @@ def OldPlotHydroPhase(PlanetList, Params):
                                Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                               sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+                               sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+
 
         phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
         # Add clathrates to phase and property diagrams where it is stable (if modeled)
@@ -584,7 +586,8 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
                                rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType,
                                FORCE_NEW=Params.FORCE_EOS_RECALC, phaseType=Planet.Ocean.phaseType,
                                EXTRAP=Params.EXTRAP_OCEAN, sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm,
-                               LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+                               LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+
         phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
         new_ices = set([PhaseConv(ice) for ice in np.unique(np.append(phases[phases != 0], 1))])
         if not new_ices.issubset(ices):
@@ -830,7 +833,8 @@ def PlotPvThydro(PlanetList, Params):
                                rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType,
                                FORCE_NEW=Params.FORCE_EOS_RECALC, phaseType=Planet.Ocean.phaseType,
                                EXTRAP=Params.EXTRAP_OCEAN, sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm,
-                               LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+                               LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+
         phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
         new_ices = set([PhaseConv(ice) for ice in np.unique(np.append(phases[phases != 0], 1))])
         if not new_ices.issubset(ices):
@@ -1129,7 +1133,8 @@ def PlotPvThydroOld(PlanetList, Params):
                                Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                               sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+                               sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+
 
         phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
         ices = [PhaseConv(ice) for ice in np.unique(np.append(phases[phases != 0], 1))]
@@ -1276,12 +1281,12 @@ def PlotPvTPerpleX(PlanetList, Params):
                         kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
                         porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
                         Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
-                        EXTRAP=Params.EXTRAP_SIL)
+                        EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas])
         INCLUDING_CORE = FigMisc.PVT_INCLUDE_CORE and Planet.Do.Fe_CORE
         if INCLUDING_CORE and Planet.Core.EOS is None:
             Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
                         kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
-                        wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt)
+                        wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas])
 
         # Check that it's worth converting to GPa if that setting has been selected -- reset labels if not
         if Planet.P_MPa[-1] < 100 and FigLbl.PFULL_IN_GPa:

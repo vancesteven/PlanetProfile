@@ -9,7 +9,7 @@ from PlanetProfile.Utilities.Indexing import PhaseConv, MixedPhaseSeparator, Pha
 log = logging.getLogger('PlanetProfile')
 
 def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa,
-                                 oceanEOS, iceEOS, phaseBot, EQUIL_Q):
+                                 oceanEOS, iceEOS, phaseBot, EQUIL_Q, Eact_kJmol):
     """ Thermodynamics calculations for convection in an ice layer
         based on Deschamps and Sotin (2001): https://doi.org/10.1029/2000JE001253
         Note that these authors solved for the scaling laws we apply in Cartesian
@@ -56,9 +56,15 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     # Deschamps and Sotin (2001) parameterization
     c1 = 1.43
     c2 = -0.03
-    # Numerical constants appearing in equations
-    A = Constants.Eact_kJmol[phaseMid] * 1e3 / Constants.R / Tb_K
-    B = Constants.Eact_kJmol[phaseMid] * 1e3 / 2 / Constants.R / c1
+    if Eact_kJmol[phaseMid] is not None:
+        # If we specify Eact_kJmol in Planet, then we should use those values, otherwise use constants
+        A = Eact_kJmol[phaseMid] * 1e3 / Constants.R / Tb_K
+        B = Eact_kJmol[phaseMid] * 1e3 / 2 / Constants.R / c1
+    else:
+        # Numerical constants appearing in equations
+        A = Constants.Eact_kJmol[phaseMid] * 1e3 / Constants.R / Tb_K
+        B = Constants.Eact_kJmol[phaseMid] * 1e3 / 2 / Constants.R / c1
+        
     C = c2 * (Tb_K - Ttop_K)
     # Temperature and viscosity of the "well-mixed" convective region
     Tconv_K = B * (np.sqrt(1 + 2/B*(Tb_K - C)) - 1)
@@ -126,9 +132,12 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     # will be what determines the conductive thermal profile based on the heat flux through the lid.
     #eLid_m = kMid_WmK * (Tconv_K - Ttop_K) / qTop_Wm2
     eLid_m = kTop_WmK * (Tconv_K - Ttop_K) / qTop_Wm2
-
-    # If the Rayleigh number is less than some critical value, convection does not occur.
-    RaCrit = GetRaCrit(Constants.Eact_kJmol[phaseBot], Tb_K, Ttop_K, Tconv_K)
+    if Eact_kJmol[phaseBot] is not None:
+        # Again, if we specify Eact_kJmol[phaseBot] in Planet, then we should use those values, otherwise use constants
+        RaCrit = GetRaCrit(Eact_kJmol[phaseBot], Tb_K, Ttop_K, Tconv_K)
+    else:
+        # If the Rayleigh number is less than some critical value, convection does not occur.
+        RaCrit = GetRaCrit(Constants.Eact_kJmol[phaseBot], Tb_K, Ttop_K, Tconv_K)
     if(Ra < RaCrit):
         log.debug(f'Rayleigh number of {Ra:.3e} in the surface ice {PhaseConv(phaseBot)} ' +
                   f'layer is less than the critical value of {RaCrit:.3e}. ' +

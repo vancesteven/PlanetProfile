@@ -37,7 +37,8 @@ def ViscosityCalcs(Planet, Params):
                                                phaseType=Planet.Ocean.phaseType,
                                                EXTRAP=Params.EXTRAP_OCEAN,
                                                sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm,
-                                               etaFixed_Pas=None)  # Causes ocean EOS to use default behavior for this comp
+                                               etaFixed_Pas=None, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+  # Causes ocean EOS to use default behavior for this comp
 
             if Planet.Do.POROUS_ICE:
                 Planet = CalcViscPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund,

@@ -669,8 +669,7 @@ class RktPropsLookup:
             self.Tmin = EOSLookupTable.Tmin
             self.Tmax = EOSLookupTable.Tmax
             self.EOSdeltaT = EOSLookupTable.EOSdeltaT
-
-            self.fn_kTherm_WmK = ReturnConstantPTw(const=Constants.kThermWater_WmK)
+            
             # Save functions to EOSlist so they can be referenced in future
             EOSlist.loaded[self.fLookup] = (
                 self.fn_rho_kgm3, self.fn_Cp_JkgK, self.fn_alpha_pK, self.fn_kTherm_WmK, self.fn_VP_kms, self.fn_KS_GPa,

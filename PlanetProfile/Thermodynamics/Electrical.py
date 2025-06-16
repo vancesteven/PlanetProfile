@@ -35,7 +35,8 @@ def ElecConduct(Planet, Params):
                                    Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                    scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                    phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
+                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+
             if Planet.Do.POROUS_ICE:
                 Planet = CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
                                                         indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, 
@@ -111,7 +112,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
                                                             Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                             phiMin_frac=Planet.Ocean.phiMin_frac,
                                                             EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
         Planet.sigma_Sm[indsI] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['Ih'], 0,
                                                                                Planet.phi_frac[indsI],
                                                                                Planet.Ocean.Jsigma)
@@ -126,7 +127,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
                                                             Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                             phiMin_frac=Planet.Ocean.phiMin_frac,
                                                             EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
         Planet.sigma_Sm[indsClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['Clath'], 0,
                                                                                       Planet.phi_frac[indsClath],
                                                                                       Planet.Ocean.Jsigma)
@@ -142,7 +143,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
                                                             Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                             phiMin_frac=Planet.Ocean.phiMin_frac,
                                                             EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
         Planet.sigma_Sm[indsIIund] = Planet.Ocean.surfIceEOS['II'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['II'], 0,
                                                                                    Planet.phi_frac[indsIIund],
                                                                                    Planet.Ocean.Jsigma)
@@ -157,7 +158,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
                                                             Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                             phiMin_frac=Planet.Ocean.phiMin_frac,
                                                             EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
         Planet.sigma_Sm[indsIIIund] = Planet.Ocean.surfIceEOS['III'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['III'], 0,
                                                                                      Planet.phi_frac[indsIIIund],
                                                                                      Planet.Ocean.Jsigma)
@@ -172,7 +173,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
                                                             Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                             phiMin_frac=Planet.Ocean.phiMin_frac,
                                                             EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
         Planet.sigma_Sm[indsVund] = Planet.Ocean.surfIceEOS['V'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['V'], 0,
                                                                                  Planet.phi_frac[indsVund],
                                                                                  Planet.Ocean.Jsigma)
@@ -187,7 +188,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
                                                             Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                             phiMin_frac=Planet.Ocean.phiMin_frac,
                                                             EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
         Planet.sigma_Sm[indsVIund] = Planet.Ocean.surfIceEOS['VI'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['VI'], 0,
                                                                                    Planet.phi_frac[indsVIund],
                                                                                    Planet.Ocean.Jsigma)

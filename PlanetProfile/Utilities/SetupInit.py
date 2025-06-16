@@ -140,92 +140,96 @@ def SetupInit(Planet, Params):
 
     # Get filenames for saving/loading
     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
-
-    # Set steps and settings for unused options to zero, check that we have settings we need
-    # Core settings
-    if Planet.Do.Fe_CORE:
-        # (Re)set a predefined core radius, i.e. from CONSTANT_INNER_DENSITY, so that we can
-        # check if it's None to see if we used that option.
-        Planet.Core.Rset_m = None
+    if Planet.Do.NON_SELF_CONSISTENT:
+        Params.CALC_VISCOSITY = False
+        Params.CALC_SEISMIC = False
+        Params.CALC_CONDUCT = False
     else:
-        Planet.Steps.nCore = 0
-
-    # Clathrates
-    if Planet.Do.CLATHRATE:
-        if Planet.Bulk.clathType is None:
-            raise ValueError('Clathrate model type must be set. Options are "top", "bottom", and "whole".')
-        elif Planet.Bulk.clathType == 'whole':
-            # Pick whichever number of layers is greater, if the user has set Steps.nClath.
-            # This allows the user to skip setting Steps.nClath separately if they just want
-            # to model whole-shell clathrates with other standard run settings.
-            if Planet.Steps.nClath is None: Planet.Steps.nClath = 0
-            Planet.Steps.nClath = np.maximum(Planet.Steps.nIceI, Planet.Steps.nClath)
-            Planet.Steps.nIceI = 0
+        # Set steps and settings for unused options to zero, check that we have settings we need
+        # Core settings
+        if Planet.Do.Fe_CORE:
+            # (Re)set a predefined core radius, i.e. from CONSTANT_INNER_DENSITY, so that we can
+            # check if it's None to see if we used that option.
+            Planet.Core.Rset_m = None
         else:
-            if Planet.Bulk.clathMaxThick_m is None:
-                raise ValueError('Bulk.clathMaxThick_m must be set for this clathType model.')
-            elif Planet.Steps.nClath is None:
-                raise ValueError('Steps.nClath must be set for this clathType model.')
-            elif Planet.Bulk.clathType == 'bottom':
-                if Planet.Bulk.qSurf_Wm2 is None:
-                    raise ValueError('Bulk.qSurf_Wm2 must be set for this clathType model.')
-                if not Planet.Do.NO_ICE_CONVECTION:
-                    log.warning('Do.NO_ICE_CONVECTION is False, but convection is incompatible with clathrate underplating. ' +
-                                'Do.NO_ICE_CONVECTION will be forced on.')
-                    Planet.Do.NO_ICE_CONVECTION = True
-        Planet.Ocean.ClathDissoc = ClathDissoc(Planet.Bulk.Tb_K, NAGASHIMA_CLATH_DISSOC=Planet.Do.NAGASHIMA_CLATH_DISSOC,
-                                               ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS,
-                                               DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
-    else:
-        Planet.Steps.nClath = 0
-        Planet.zClath_m = 0
-        Planet.Bulk.clathType = 'none'
+            Planet.Steps.nCore = 0
 
-    if not (Planet.Do.NO_OCEAN and Planet.Do.NO_ICE_CONVECTION):
-        # In addition, perform some checks on underplating settings to be sure they make sense
-        if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:
-            Planet.Steps.nIceIIILitho = 0
-            Planet.Steps.nIceVLitho = 0
-            Planet.RaConvectIII = np.nan
-            Planet.RaConvectV = np.nan
-            Planet.RaCritIII = np.nan
-            Planet.RaCritV = np.nan
-            Planet.eLidIII_m = 0
-            Planet.eLidV_m = 0
-            Planet.DconvIII_m = 0
-            Planet.DconvV_m = 0
-            Planet.deltaTBLIII_m = 0
-            Planet.deltaTBLV_m = 0
-        elif not Planet.Do.BOTTOM_ICEV:
-            Planet.Steps.nIceVLitho = 0
-            Planet.RaConvectV = np.nan
-            Planet.RaCritV = np.nan
-            Planet.eLidV_m = 0
-            Planet.DconvV_m = 0
-            Planet.deltaTBLV_m = 0
-            if Planet.Ocean.PHydroMax_MPa < 209.9:
-                raise ValueError('Hydrosphere max pressure is less than the pressure of the ice I-III phase transition, ' +
-                                 'but Do.BOTTOM_ICEIII is True.')
-            if Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K:
-                log.warning('Bottom temperature of ice I (Tb_K) is greater than bottom temperature of underplate ' +
-                            'ice III (TbIII_K). This likely represents a non-equilibrium state.')
+        # Clathrates
+        if Planet.Do.CLATHRATE:
+            if Planet.Bulk.clathType is None:
+                raise ValueError('Clathrate model type must be set. Options are "top", "bottom", and "whole".')
+            elif Planet.Bulk.clathType == 'whole':
+                # Pick whichever number of layers is greater, if the user has set Steps.nClath.
+                # This allows the user to skip setting Steps.nClath separately if they just want
+                # to model whole-shell clathrates with other standard run settings.
+                if Planet.Steps.nClath is None: Planet.Steps.nClath = 0
+                Planet.Steps.nClath = np.maximum(Planet.Steps.nIceI, Planet.Steps.nClath)
+                Planet.Steps.nIceI = 0
+            else:
+                if Planet.Bulk.clathMaxThick_m is None:
+                    raise ValueError('Bulk.clathMaxThick_m must be set for this clathType model.')
+                elif Planet.Steps.nClath is None:
+                    raise ValueError('Steps.nClath must be set for this clathType model.')
+                elif Planet.Bulk.clathType == 'bottom':
+                    if Planet.Bulk.qSurf_Wm2 is None:
+                        raise ValueError('Bulk.qSurf_Wm2 must be set for this clathType model.')
+                    if not Planet.Do.NO_ICE_CONVECTION:
+                        log.warning('Do.NO_ICE_CONVECTION is False, but convection is incompatible with clathrate underplating. ' +
+                                    'Do.NO_ICE_CONVECTION will be forced on.')
+                        Planet.Do.NO_ICE_CONVECTION = True
+            Planet.Ocean.ClathDissoc = ClathDissoc(Planet.Bulk.Tb_K, NAGASHIMA_CLATH_DISSOC=Planet.Do.NAGASHIMA_CLATH_DISSOC,
+                                                ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS,
+                                                DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
         else:
-            if Planet.Ocean.PHydroMax_MPa < 344.3:
-                raise ValueError('Hydrosphere max pressure is less than the pressure of the ice III-V phase transition, ' +
-                                 'but Do.BOTTOM_ICEV is True.')
-            if Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K:
-                log.warning('Bottom temperature of ice I (Tb_K) is greater than bottom temperature of underplate ' +
-                            'ice III (TbIII_K). This likely represents a non-equilibrium state.')
-            if Planet.Bulk.TbIII_K > Planet.Bulk.TbV_K:
-                log.warning('Bottom temperature of ice III (Tb_K) is greater than bottom temperature of underplate ' +
-                            'ice V (TbV_K). This likely represents a non-equilibrium state.')
-            if Planet.Do.CLATHRATE:
-                log.warning('Clathrates are stable under a very large range of pressures and temperatures, and this ' +
-                            'may be contradictory with having underplating ice III or V.')
+            Planet.Steps.nClath = 0
+            Planet.zClath_m = 0
+            Planet.Bulk.clathType = 'none'
 
-        # Make sure ocean max temp is above melting temp
-        if Planet.Ocean.THydroMax_K <= Planet.Bulk.Tb_K:
-            Planet.Ocean.THydroMax_K = Planet.Bulk.Tb_K + 30
+        if not (Planet.Do.NO_OCEAN and Planet.Do.NO_ICE_CONVECTION):
+            # In addition, perform some checks on underplating settings to be sure they make sense
+            if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:
+                Planet.Steps.nIceIIILitho = 0
+                Planet.Steps.nIceVLitho = 0
+                Planet.RaConvectIII = np.nan
+                Planet.RaConvectV = np.nan
+                Planet.RaCritIII = np.nan
+                Planet.RaCritV = np.nan
+                Planet.eLidIII_m = 0
+                Planet.eLidV_m = 0
+                Planet.DconvIII_m = 0
+                Planet.DconvV_m = 0
+                Planet.deltaTBLIII_m = 0
+                Planet.deltaTBLV_m = 0
+            elif not Planet.Do.BOTTOM_ICEV:
+                Planet.Steps.nIceVLitho = 0
+                Planet.RaConvectV = np.nan
+                Planet.RaCritV = np.nan
+                Planet.eLidV_m = 0
+                Planet.DconvV_m = 0
+                Planet.deltaTBLV_m = 0
+                if Planet.Ocean.PHydroMax_MPa < 209.9:
+                    raise ValueError('Hydrosphere max pressure is less than the pressure of the ice I-III phase transition, ' +
+                                    'but Do.BOTTOM_ICEIII is True.')
+                if Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K:
+                    log.warning('Bottom temperature of ice I (Tb_K) is greater than bottom temperature of underplate ' +
+                                'ice III (TbIII_K). This likely represents a non-equilibrium state.')
+            else:
+                if Planet.Ocean.PHydroMax_MPa < 344.3:
+                    raise ValueError('Hydrosphere max pressure is less than the pressure of the ice III-V phase transition, ' +
+                                    'but Do.BOTTOM_ICEV is True.')
+                if Planet.Bulk.Tb_K > Planet.Bulk.TbIII_K:
+                    log.warning('Bottom temperature of ice I (Tb_K) is greater than bottom temperature of underplate ' +
+                                'ice III (TbIII_K). This likely represents a non-equilibrium state.')
+                if Planet.Bulk.TbIII_K > Planet.Bulk.TbV_K:
+                    log.warning('Bottom temperature of ice III (Tb_K) is greater than bottom temperature of underplate ' +
+                                'ice V (TbV_K). This likely represents a non-equilibrium state.')
+                if Planet.Do.CLATHRATE:
+                    log.warning('Clathrates are stable under a very large range of pressures and temperatures, and this ' +
+                                'may be contradictory with having underplating ice III or V.')
+
+            # Make sure ocean max temp is above melting temp
+            if Planet.Ocean.THydroMax_K <= Planet.Bulk.Tb_K:
+                Planet.Ocean.THydroMax_K = Planet.Bulk.Tb_K + 30
 
         # Get ocean EOS functions
         POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
@@ -290,146 +294,147 @@ def SetupInit(Planet, Params):
                                            phaseType=Planet.Ocean.phaseType, FORCE_NEW=True, MELT=True,
                                            LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
 
-    # Make sure convection checking outputs are set if we won't be modeling them
-    if Planet.Do.NO_ICE_CONVECTION:
-        Planet.RaConvect = np.nan
-        Planet.RaConvectIII = np.nan
-        Planet.RaConvectV = np.nan
-        Planet.RaCrit = np.nan
-        Planet.RaCritIII = np.nan
-        Planet.RaCritV = np.nan
-        Planet.Tconv_K = np.nan
-        Planet.TconvIII_K = np.nan
-        Planet.TconvV_K = np.nan
-        Planet.eLid_m = 0.0
-        Planet.eLidIII_m = 0.0
-        Planet.eLidV_m = 0.0
-        Planet.Dconv_m = 0.0
-        Planet.DconvIII_m = 0.0
-        Planet.DconvV_m = 0.0
-        Planet.deltaTBL_m = 0.0
-        Planet.deltaTBLIII_m = 0.0
-        Planet.deltaTBLV_m = 0.0
+        # Make sure convection checking outputs are set if we won't be modeling them
+        if Planet.Do.NO_ICE_CONVECTION:
+            Planet.RaConvect = np.nan
+            Planet.RaConvectIII = np.nan
+            Planet.RaConvectV = np.nan
+            Planet.RaCrit = np.nan
+            Planet.RaCritIII = np.nan
+            Planet.RaCritV = np.nan
+            Planet.Tconv_K = np.nan
+            Planet.TconvIII_K = np.nan
+            Planet.TconvV_K = np.nan
+            Planet.eLid_m = 0.0
+            Planet.eLidIII_m = 0.0
+            Planet.eLidV_m = 0.0
+            Planet.Dconv_m = 0.0
+            Planet.DconvIII_m = 0.0
+            Planet.DconvV_m = 0.0
+            Planet.deltaTBL_m = 0.0
+            Planet.deltaTBLIII_m = 0.0
+            Planet.deltaTBLV_m = 0.0
 
-    # Porous rock
-    if Planet.Do.POROUS_ROCK:
-        # Make sure pore max pressure is set, since we will need it to check if we'll need HP ices
-        if not Planet.Do.PORE_EOS_DIFFERENT and Planet.Sil.PHydroMax_MPa is None:
-            Planet.Sil.PHydroMax_MPa = Planet.Ocean.PHydroMax_MPa
-
-        if Planet.Sil.porosType == 'Han2014':
-            if Planet.Sil.phiRockMax_frac is None:
-                log.warning('Sil.phiRockMax_frac is not set. Using arbitrary max porosity of 0.7.')
-                Planet.Sil.phiRockMax_frac = 0.7
-        else:
-            Planet.Do.FIXED_POROSITY = True
-        if Planet.Sil.phiRangeMult <= 1:
-            raise ValueError(f'Sil.phiRangeMult = {Planet.Sil.phiRangeMult}, but it must be greater than 1.')
-        # Ensure we set pore comp to ocean comp if not specified as different
-        if Planet.Sil.poreComp is None:
-            Planet.Sil.poreComp = Planet.Ocean.comp
-            Planet.Do.PORE_EOS_DIFFERENT = False
-        else:
-            Planet.Do.PORE_EOS_DIFFERENT = True
-        if Planet.Sil.wPore_ppt is None:
-            Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
-            Planet.Do.PORE_EOS_DIFFERENT = False
-        else:
-            Planet.Do.PORE_EOS_DIFFERENT = True
-    else:
-        if (not Planet.Do.Fe_CORE) and (not Planet.Do.CONSTANT_INNER_DENSITY):
-            raise RuntimeError('Matching the body MoI requires either a core or porosity in the rock.' +
-                               'Set Planet.Do.POROUS_ROCK to True and rerun to continue modeling with no core.')
-        Planet.Sil.porosType = 'none'
-        Planet.Sil.poreH2Orho_kgm3 = 0
-        Planet.Sil.phiRockMax_frac = 0
-        Planet.Sil.poreComp = Planet.Ocean.comp
-        Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
-
-    # Porous ice
-    if not Planet.Do.POROUS_ICE:
-        Planet.Ocean.phiMax_frac = {key:0 for key in Planet.Ocean.phiMax_frac.keys()}
-        Planet.Ocean.porosType = {key:None for key in Planet.Ocean.porosType.keys()}
-
-    # Effective pressure in pore space
-    if not Planet.Do.P_EFFECTIVE:
-        # Peffective is calculated from Pmatrix - alpha*Ppore, so setting alpha to zero avoids the need for repeated
-        # conditional checks during layer propagation -- calculations are typically faster than conditional checks.
-        if Planet.Sil.alphaPeff != 0:
-            log.debug('Sil.alphaPeff was not 0, but is being set to 0 because Do.P_EFFECTIVE is False.')
-        Planet.Sil.alphaPeff = 0
-        for phase in Planet.Ocean.alphaPeff.keys():
-            if Planet.Ocean.alphaPeff[phase] != 0:
-                log.debug(f'Ocean.alphaPeff[{phase}] was not 0, but is being set to 0 because Do.P_EFFECTIVE is False.')
-            Planet.Ocean.alphaPeff[phase] = 0
-
-    # Calculate bulk density from total mass and radius, and warn user if they specified density
-    if Planet.Bulk.M_kg is None:
-        Planet.Bulk.M_kg = Planet.Bulk.rho_kgm3 * (4/3*np.pi * Planet.Bulk.R_m**3)
-    else:
-        if Planet.Bulk.rho_kgm3 is not None and not Params.DO_EXPLOREOGRAM:
-            log.warning('Both bulk mass and density were specified. Only one is required--' +
-                        'density will be recalculated from bulk mass for consistency.')
-        Planet.Bulk.rho_kgm3 = Planet.Bulk.M_kg / (4/3*np.pi * Planet.Bulk.R_m**3)
-
-    # Load EOS functions for deeper interior
-    if not Params.SKIP_INNER:
-        # Get silicate EOS
-        Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.lookupInterpMethod,
-                                     kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
-                                     porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
-                                     Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
-                                     EXTRAP=Params.EXTRAP_SIL)
-
-        # Pore fluids if present
+        # Porous rock
         if Planet.Do.POROUS_ROCK:
-            if Planet.Do.NO_H2O:
-                Ppore_MPa, Tpore_K = (np.linspace(0, 1, 10) for _ in range(2))
+            # Make sure pore max pressure is set, since we will need it to check if we'll need HP ices
+            if not Planet.Do.PORE_EOS_DIFFERENT and Planet.Sil.PHydroMax_MPa is None:
+                Planet.Sil.PHydroMax_MPa = Planet.Ocean.PHydroMax_MPa
+
+            if Planet.Sil.porosType == 'Han2014':
+                if Planet.Sil.phiRockMax_frac is None:
+                    log.warning('Sil.phiRockMax_frac is not set. Using arbitrary max porosity of 0.7.')
+                    Planet.Sil.phiRockMax_frac = 0.7
             else:
-                if Planet.Sil.poreComp == 'Seawater' and Planet.Sil.PHydroMax_MPa > 300:
-                    log.warning('GSW yields NaN for Cp at pressures above 300 MPa. Reducing PsilMax to this value.')
-                    Planet.Sil.PHydroMax_MPa = 300
-                Ppore_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Sil.PHydroMax_MPa, 100)
-                Tpore_K = np.linspace(Planet.Bulk.Tb_K, Planet.Sil.THydroMax_K, 140)
-            # Get pore fluid EOS
-            Planet.Sil.poreEOS = GetOceanEOS(Planet.Sil.poreComp, Planet.Sil.wPore_ppt, Ppore_MPa, Tpore_K,
-                                             Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
-                                             scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
-                                             phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=True,
-                                             sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
-            if Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
-                Planet.Ocean.EOS = Planet.Sil.poreEOS
-                for icePhase in ['Ih', 'II', 'III', 'V', 'VI']:
-                    Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(Ppore_MPa, Tpore_K, icePhase,
-                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                                  ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                Planet.Do.FIXED_POROSITY = True
+            if Planet.Sil.phiRangeMult <= 1:
+                raise ValueError(f'Sil.phiRangeMult = {Planet.Sil.phiRangeMult}, but it must be greater than 1.')
+            # Ensure we set pore comp to ocean comp if not specified as different
+            if Planet.Sil.poreComp is None:
+                Planet.Sil.poreComp = Planet.Ocean.comp
+                Planet.Do.PORE_EOS_DIFFERENT = False
+            else:
+                Planet.Do.PORE_EOS_DIFFERENT = True
+            if Planet.Sil.wPore_ppt is None:
+                Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
+                Planet.Do.PORE_EOS_DIFFERENT = False
+            else:
+                Planet.Do.PORE_EOS_DIFFERENT = True
+        else:
+            if (not Planet.Do.Fe_CORE) and (not Planet.Do.CONSTANT_INNER_DENSITY):
+                raise RuntimeError('Matching the body MoI requires either a core or porosity in the rock.' +
+                                'Set Planet.Do.POROUS_ROCK to True and rerun to continue modeling with no core.')
+            Planet.Sil.porosType = 'none'
+            Planet.Sil.poreH2Orho_kgm3 = 0
+            Planet.Sil.phiRockMax_frac = 0
+            Planet.Sil.poreComp = Planet.Ocean.comp
+            Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
 
-            # Make sure Sil.phiRockMax_frac is set in case we're using a porosType that doesn't require it
-            if Planet.Sil.phiRockMax_frac is None or Planet.Sil.porosType != 'Han2014':
-                Planet.Sil.phiRockMax_frac = Planet.Sil.EOS.fn_phi_frac(0, 0)
-            if Planet.Sil.phiRockMax_frac > 1.0:
-                raise ValueError(f'A maximum rock porosity value of {Planet.Sil.phiRockMax_frac}' +
-                                 'has been set. Values greater than 1 are unphysical--check input' +
-                                 'file settings.')
+        # Porous ice
+        if not Planet.Do.POROUS_ICE:
+            Planet.Ocean.phiMax_frac = {key:0 for key in Planet.Ocean.phiMax_frac.keys()}
+            Planet.Ocean.porosType = {key:None for key in Planet.Ocean.porosType.keys()}
 
-        # Iron core if present
-        if Planet.Do.Fe_CORE:
-            Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
-                                          kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
-                                          wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt)
+        # Effective pressure in pore space
+        if not Planet.Do.P_EFFECTIVE:
+            # Peffective is calculated from Pmatrix - alpha*Ppore, so setting alpha to zero avoids the need for repeated
+            # conditional checks during layer propagation -- calculations are typically faster than conditional checks.
+            if Planet.Sil.alphaPeff != 0:
+                log.debug('Sil.alphaPeff was not 0, but is being set to 0 because Do.P_EFFECTIVE is False.')
+            Planet.Sil.alphaPeff = 0
+            for phase in Planet.Ocean.alphaPeff.keys():
+                if Planet.Ocean.alphaPeff[phase] != 0:
+                    log.debug(f'Ocean.alphaPeff[{phase}] was not 0, but is being set to 0 because Do.P_EFFECTIVE is False.')
+                Planet.Ocean.alphaPeff[phase] = 0
 
-    # Ensure ionosphere bounds and conductivity are in a format we expect
-    if Planet.Magnetic.ionosBounds_m is None:
-        Planet.Magnetic.ionosBounds_m = [np.nan]
-    elif not isinstance(Planet.Magnetic.ionosBounds_m, Iterable):
-        Planet.Magnetic.ionosBounds_m = [Planet.Magnetic.ionosBounds_m]
-    if Planet.Magnetic.sigmaIonosPedersen_Sm is None:
-        Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
-    elif not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
-        Planet.Magnetic.sigmaIonosPedersen_Sm = [Planet.Magnetic.sigmaIonosPedersen_Sm]
+        # Calculate bulk density from total mass and radius, and warn user if they specified density
+        if Planet.Bulk.M_kg is None:
+            Planet.Bulk.M_kg = Planet.Bulk.rho_kgm3 * (4/3*np.pi * Planet.Bulk.R_m**3)
+        else:
+            if Planet.Bulk.rho_kgm3 is not None and not Params.DO_EXPLOREOGRAM:
+                log.warning('Both bulk mass and density were specified. Only one is required--' +
+                            'density will be recalculated from bulk mass for consistency.')
+            Planet.Bulk.rho_kgm3 = Planet.Bulk.M_kg / (4/3*np.pi * Planet.Bulk.R_m**3)
 
-    # Preallocate layer physical quantity arrays
-    Planet = SetupLayers(Planet)
+        # Load EOS functions for deeper interior
+        if not Params.SKIP_INNER:
+            # Get silicate EOS
+            Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.lookupInterpMethod,
+                                        kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
+                                        porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
+                                        Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
+                                        EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas])
+
+            # Pore fluids if present
+            if Planet.Do.POROUS_ROCK:
+                if Planet.Do.NO_H2O:
+                    Ppore_MPa, Tpore_K = (np.linspace(0, 1, 10) for _ in range(2))
+                else:
+                    if Planet.Sil.poreComp == 'Seawater' and Planet.Sil.PHydroMax_MPa > 300:
+                        log.warning('GSW yields NaN for Cp at pressures above 300 MPa. Reducing PsilMax to this value.')
+                        Planet.Sil.PHydroMax_MPa = 300
+                    Ppore_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Sil.PHydroMax_MPa, 100)
+                    Tpore_K = np.linspace(Planet.Bulk.Tb_K, Planet.Sil.THydroMax_K, 140)
+                # Get pore fluid EOS
+                Planet.Sil.poreEOS = GetOceanEOS(Planet.Sil.poreComp, Planet.Sil.wPore_ppt, Ppore_MPa, Tpore_K,
+                                                Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
+                                                scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
+                                                phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=True,
+                                                sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+
+                if Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
+                    Planet.Ocean.EOS = Planet.Sil.poreEOS
+                    for icePhase in ['Ih', 'II', 'III', 'V', 'VI']:
+                        Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(Ppore_MPa, Tpore_K, icePhase,
+                                                                    EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                                    ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+
+                # Make sure Sil.phiRockMax_frac is set in case we're using a porosType that doesn't require it
+                if Planet.Sil.phiRockMax_frac is None or Planet.Sil.porosType != 'Han2014':
+                    Planet.Sil.phiRockMax_frac = Planet.Sil.EOS.fn_phi_frac(0, 0)
+                if Planet.Sil.phiRockMax_frac > 1.0:
+                    raise ValueError(f'A maximum rock porosity value of {Planet.Sil.phiRockMax_frac}' +
+                                    'has been set. Values greater than 1 are unphysical--check input' +
+                                    'file settings.')
+
+            # Iron core if present
+            if Planet.Do.Fe_CORE:
+                Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
+                                            kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
+                                            wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas])
+
+        # Ensure ionosphere bounds and conductivity are in a format we expect
+        if Planet.Magnetic.ionosBounds_m is None:
+            Planet.Magnetic.ionosBounds_m = [np.nan]
+        elif not isinstance(Planet.Magnetic.ionosBounds_m, Iterable):
+            Planet.Magnetic.ionosBounds_m = [Planet.Magnetic.ionosBounds_m]
+        if Planet.Magnetic.sigmaIonosPedersen_Sm is None:
+            Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
+        elif not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
+            Planet.Magnetic.sigmaIonosPedersen_Sm = [Planet.Magnetic.sigmaIonosPedersen_Sm]
+
+        # Preallocate layer physical quantity arrays
+        Planet = SetupLayers(Planet)
 
     return Planet, Params
 

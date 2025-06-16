@@ -12,14 +12,14 @@ log = logging.getLogger('PlanetProfile')
 
 def GetInnerEOS(EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
                 HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None,
-                EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaFixed_Pas=None, TviscTrans_K=None):
+                EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaSilFixed_Pas=None, etaCoreFixed_Pas=None, TviscTrans_K=None):
     innerEOS = PerplexEOSStruct(EOSfname, EOSinterpMethod=EOSinterpMethod, nHeaders=nHeaders,
                                 Fe_EOS=Fe_EOS, kThermConst_WmK=kThermConst_WmK,
                                 HtidalConst_Wm3=HtidalConst_Wm3, porosType=porosType,
                                 phiTop_frac=phiTop_frac, Pclosure_MPa=Pclosure_MPa,
                                 phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
                                 wFeCore_ppt=wFeCore_ppt, wScore_ppt=wScore_ppt,
-                                etaFixed_Pas=etaFixed_Pas, TviscTrans_K=TviscTrans_K)
+                                etaSilFixed_Pas=etaSilFixed_Pas, etaCoreFixed_Pas=etaCoreFixed_Pas, TviscTrans_K=TviscTrans_K)
     if innerEOS.ALREADY_LOADED:
         log.debug(f'{innerEOS.comp} EOS already loaded. Reusing existing EOS.')
         innerEOS = EOSlist.loaded[innerEOS.EOSlabel]
@@ -39,12 +39,12 @@ class PerplexEOSStruct:
     """
     def __init__(self, EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
                  HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None,
-                 EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaFixed_Pas=None, TviscTrans_K=None):
+                 EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaSilFixed_Pas=None, etaCoreFixed_Pas=None, TviscTrans_K=None):
         self.comp = EOSfname[:-4]
         self.EOSlabel = f'comp{self.comp}interp{EOSinterpMethod}kTherm{kThermConst_WmK}' + \
                         f'Htidal{HtidalConst_Wm3}poros{porosType}phi{phiTop_frac}' + \
                         f'Pclose{Pclosure_MPa}phiMin{phiMin_frac}extrap{EXTRAP}' + \
-                        f'wFeppt{wFeCore_ppt}wSppt{wScore_ppt}etaFixed{etaFixed_Pas}' + \
+                        f'wFeppt{wFeCore_ppt}wSppt{wScore_ppt}etaFixed{etaSilFixed_Pas}' + \
                         f'TviscTrans{TviscTrans_K}'
         if self.EOSlabel in EOSlist.loaded.keys():
             self.ALREADY_LOADED = True
@@ -282,12 +282,12 @@ class PerplexEOSStruct:
                 self.ufn_phi_frac = ReturnZeros(1)
 
                 # Assign viscosity function
-                self.ufn_eta_Pas = ViscCoreUniform_Pas(etaSet_Pas=etaFixed_Pas,
+                self.ufn_eta_Pas = ViscCoreUniform_Pas(etaSet_Pas=etaCoreFixed_Pas,
                                                        TviscTrans_K=TviscTrans_K)
             else:
 
                 # Assign viscosity function
-                self.ufn_eta_Pas = ViscRockUniform_Pas(etaSet_Pas=etaFixed_Pas,
+                self.ufn_eta_Pas = ViscRockUniform_Pas(etaSet_Pas=etaSilFixed_Pas,
                                                        TviscTrans_K=TviscTrans_K)
 
                 if porosType is None or porosType == 'none':

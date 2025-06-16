@@ -320,6 +320,11 @@ def simple(iTests=None):
     Params.SKIP_INDUCTION = False
 
     tStart = time.time()
+    # Normalize iTests into a list
+    if isinstance(iTests, int):
+        iTests = [iTests]
+    else:
+        iTests = list(iTests) 
     for iTest in iTests:
         bodyname = f'{testMod}{iTest}'
         testPlanet = importlib.import_module(bodyname).Planet
@@ -342,7 +347,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         # Test type was passed as command line argument
         testType = sys.argv[1]
-        if len(sys.argv) > 2:
+        if len(sys.argv) == 3:
             if sys.argv[2].isdigit():
                 # Test profile number was passed as command line argument
                 iTest = int(sys.argv[2])
@@ -350,6 +355,11 @@ if __name__ == '__main__':
                 # Skip to specific testing section was passed as command line arg
                 iTest = None
                 skipType = sys.argv[2]
+        elif len(sys.argv) > 3:
+            iTest = []
+            for arg in sys.argv[2:]:
+                if arg.isdigit():
+                    iTest.append(int(arg))
         else:
             iTest = None
     else:
@@ -357,7 +367,7 @@ if __name__ == '__main__':
         iTest = None
 
     if testType == 'simple':
-        simple([iTest])
+        simple(iTest)
     elif testType == 'Bayes':
         _, _ = TestBayes('Test')
     else:

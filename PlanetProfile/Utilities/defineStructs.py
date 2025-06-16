@@ -123,6 +123,7 @@ class DoSubstruct:
         self.CONSTANT_GRAVITY = False  # Whether to force gravity to be constant throughout each material layer, instead of recalculating self-consistently with each progressive layer.
         self.OCEAN_PHASE_HIRES = False  # Whether to use a high-resolution grid for phase equilibrium lookup table in ocean EOS. Currently only implemented for MgSO4. WARNING: Uses a lot of memory, potentially 20+ GB.
         self.USE_WOCEAN_PPT = True # Whether to use wOcean_ppt to match with ocean composition (in case of CustomSolution, we can set this to false if we do not want to specify w_ppt)
+        self.NON_SELF_CONSISTENT = False  # Whether to use non-self-consistent modeling (using mean values for layer properties instead of detailed EOS calculations)
 
 
 """ Layer step settings """
@@ -186,6 +187,7 @@ class OceanSubstruct:
         self.sigmaConvMean_Sm = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean conductivity for convecting ice layers
         self.GScondMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for conducting ice layers
         self.GSconvMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for convecting ice layers
+        self.Eact_kJmol = np.array([np.nan, None, None, None, None, None, None]) # Activation energy for diffusion of ice phases Ih-VI in kJ/mol (start at index 1) - Overrides Constants.Eact_kJmol if specified
         self.rhoMeanIIwet_kgm3 = np.nan  # Mean density for in-ocean ice II layers
         self.rhoMeanIIIwet_kgm3 = np.nan  # Mean density for in-ocean ice III layers
         self.rhoMeanVwet_kgm3 = np.nan  # Mean density for in-ocean ice V layers
@@ -199,7 +201,9 @@ class OceanSubstruct:
         self.GSmeanVwet_GPa = np.nan  # Mean shear modulus for in-ocean ice V layers
         self.GSmeanVI_GPa = np.nan  # Mean shear modulus for in-ocean ice VI layers
         self.TfreezeOffset_K = 0.01  # Offset from the freezing temperature to avoid overshooting in HP ices
-        self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
+        # self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
+        self.kThermWater_WmK = None # Thermal conductivity for water layers  - Overrides kThermWater_WmK in Constants
+        self.kThermIce_WmK = {phase: None for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']} # Constant thermal conductivity for each ice layer in non-self-consistent models
         self.dkdTI_WmK2 = -0.012  # Temperature derivative of ice I relative to the melting temp. Default is from Melinder (2007).
         self.sigmaIce_Sm = {'Ih':1e-8, 'II':1e-8, 'III':1e-8, 'V':1e-8, 'VI':1e-8, 'Clath':5e-5}  # Assumed conductivity of solid ice phases (see Constants.sigmaClath_Sm below)
         self.THydroMax_K = 320  # Assumed maximum ocean temperature for generating ocean EOS functions. For large bodies like Ganymede, Callisto, and Titan, larger values are required.
@@ -255,6 +259,7 @@ class SilSubstruct:
         self.HtidalMax_Wm3 = 1e-7  # Maximum average tidal heating to stop MoI search
         self.deltaHtidal_logUnits = 1/3  # Step size by which to increment Htidal_Wm3 for finding MoI match with no core.
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermSil_WmK)
+        self.etaRock_Pas = [None, None] # Assumed viscosities of rock - Overrides Constants.etaRock_Pas if specified
         self.kThermCMB_WmK = None  # Constant thermal conductivity to use for determining core-mantle boundary thermal boundary layer thickness when convection is happening
         """ Porosity parameters """
         self.phiRockMax_frac = None  # Porosity (void fraction) of the rocks in vacuum. This is the expected value for core-less bodies, and porosity is modeled for a range around here to find a matching MoI. For bodies with a core, this is a fixed value for rock porosity at P=0.
@@ -322,6 +327,8 @@ class CoreSubstruct:
         self.coreEOS = 'Fe-S_3D_EOS.mat'  # Default core EOS to use
         self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermFe_WmK)
+        self.etaFeSolid_Pas = None # Assumed viscosity of solid iron in Pa*s - Overrides Constants.etaFeSolid_Pas if specified
+        self.etaFeLiquid_Pas = None # Assumed viscosity of liquid iron in Pa*s - Overrides Constants.etaFeLiquid_Pas if specified
         # Derived quantities
         self.rhoMean_kgm3 = None  # Core bulk density calculated from final MoI match using EOS properties
         self.rhoMeanFe_kgm3 = np.nan  # Pure iron layer bulk density calculated from final MoI match using EOS properties
@@ -589,6 +596,9 @@ class PlanetStruct:
         self.etaConv_Pas = None  # Viscosity of ice I at Tconv_K
         self.etaConvIII_Pas = None  # Same as above but for ice III underplate layers.
         self.etaConvV_Pas = None  # Same as above but for ice V underplate layers.
+        self.etaMelt_Pas = None # Viscosity of ice I at Tb_K
+        self.etaMeltIII_Pas = None # Same as above but for ice III underplate layers.
+        self.etaMeltV_Pas = None # Same as above but for ice V underplate layers.
         self.eLid_m = None  # Thickness of conducting stagnant lid layer in m.
         self.eLidIII_m = None  # Same as above but for ice III underplate layers.
         self.eLidV_m = None  # Same as above but for ice V underplate layers.
@@ -2900,6 +2910,7 @@ class ConstantsStruct:
             'Fe': np.nan,
             'FeS': np.nan
         }
+        self.STP_kgm3 = {'Ih': 917} # Density of ices at standard temperature and pressure (STP) - used for first order Tb and Pb calculation for input ice shell thickness
         self.m_gmol['PureH2O'] = self.m_gmol['H2O']  # Add alias for H2O so that we can use the Ocean.comp string for dict entry
         self.mClathGas_gmol = self.m_gmol['CH4'] + 5.75 * self.m_gmol['H2O']  # Molecular mass of clathrate unit cell
         self.clathGasFrac_ppt = 1e3 * self.m_gmol['CH4'] / self.mClathGas_gmol  # Mass fraction of gases trapped in clathrates in ppt
@@ -2969,7 +2980,6 @@ class ConstantsStruct:
         self.EOSPmax_MPa = 2000 # Maximum pressure to make EOS lookup table for
         self.EOSdeltaP_For_Extrapolation = 5 # Extrapolation pressure step
 
-        self.rhoIce_kg_m3_stp = {'Ih': 917} # Density of ice at standard temperature and pressure (STP) - used for first order Tb and Pb calculation for input ice shell thickness
 
         self.PhreeqcToSupcrtNames = { # Dictionary of species names that must be converted from Phreeqc to Supcrt for compatibility
             'H2O': 'H2O(aq)',

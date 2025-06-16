@@ -29,7 +29,8 @@ def SeismicCalcs(Planet, Params):
                                    Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                    scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                    phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
+                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+
 
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
             indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
@@ -51,7 +52,7 @@ def SeismicCalcs(Planet, Params):
                                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                               phiMin_frac=Planet.Ocean.phiMin_frac,
                                                               EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                              ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                                                              ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
 
             Planet.Seismic.VP_kms[indsAllI], Planet.Seismic.VS_kms[indsAllI], Planet.Seismic.KS_GPa[indsAllI], \
             Planet.Seismic.GS_GPa[indsAllI] = Planet.Ocean.surfIceEOS['Ih'].fn_Seismic(Planet.P_MPa[indsAllI], Planet.T_K[indsAllI])
@@ -72,7 +73,7 @@ def SeismicCalcs(Planet, Params):
                                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                               phiMin_frac=Planet.Ocean.phiMin_frac,
                                                               EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                              ClathDissoc=Planet.Ocean.ClathDissoc)
+                                                              ClathDissoc=Planet.Ocean.ClathDissoc, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
 
             Planet.Seismic.VP_kms[indsAllClath], Planet.Seismic.VS_kms[indsAllClath], \
             Planet.Seismic.KS_GPa[indsAllClath], Planet.Seismic.GS_GPa[indsAllClath] \
@@ -120,7 +121,7 @@ def SeismicCalcs(Planet, Params):
                                                                   phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
                                                                   Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                                   phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase])
+                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
 
                 Planet.Seismic.VP_kms[indsIIund], Planet.Seismic.VS_kms[indsIIund], \
                 Planet.Seismic.KS_GPa[indsIIund], Planet.Seismic.GS_GPa[indsIIund] \
@@ -135,7 +136,7 @@ def SeismicCalcs(Planet, Params):
                                                               phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
                                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                               phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                              EXTRAP=Params.EXTRAP_ICE[icePhase])
+                                                              EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
 
                 Planet.Seismic.VP_kms[indsII], Planet.Seismic.VS_kms[indsII], \
                 Planet.Seismic.KS_GPa[indsII], Planet.Seismic.GS_GPa[indsII] \
@@ -157,7 +158,7 @@ def SeismicCalcs(Planet, Params):
                                                                   phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
                                                                   Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                                   phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase])
+                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
 
                 Planet.Seismic.VP_kms[indsIIIund], Planet.Seismic.VS_kms[indsIIIund], \
                 Planet.Seismic.KS_GPa[indsIIIund], Planet.Seismic.GS_GPa[indsIIIund] \
@@ -172,7 +173,7 @@ def SeismicCalcs(Planet, Params):
                                                               phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
                                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                               phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                              EXTRAP=Params.EXTRAP_ICE[icePhase])
+                                                              EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
 
                 Planet.Seismic.VP_kms[indsIII], Planet.Seismic.VS_kms[indsIII], \
                 Planet.Seismic.KS_GPa[indsIII], Planet.Seismic.GS_GPa[indsIII] \
@@ -194,7 +195,7 @@ def SeismicCalcs(Planet, Params):
                                                                   phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
                                                                   Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                                   phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase])
+                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
 
                 Planet.Seismic.VP_kms[indsVund], Planet.Seismic.VS_kms[indsVund], \
                 Planet.Seismic.KS_GPa[indsVund], Planet.Seismic.GS_GPa[indsVund] \
@@ -209,7 +210,7 @@ def SeismicCalcs(Planet, Params):
                                                               phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
                                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                               phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                              EXTRAP=Params.EXTRAP_ICE[icePhase])
+                                                              EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
 
                 Planet.Seismic.VP_kms[indsV], Planet.Seismic.VS_kms[indsV], \
                 Planet.Seismic.KS_GPa[indsV], Planet.Seismic.GS_GPa[indsV] \
@@ -231,7 +232,7 @@ def SeismicCalcs(Planet, Params):
                                                                   phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
                                                                   Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                                   phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase])
+                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
 
                 Planet.Seismic.VP_kms[indsVIund], Planet.Seismic.VS_kms[indsVIund], \
                 Planet.Seismic.KS_GPa[indsVIund], Planet.Seismic.GS_GPa[indsVIund] \
@@ -246,7 +247,7 @@ def SeismicCalcs(Planet, Params):
                                                               phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
                                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                               phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                              EXTRAP=Params.EXTRAP_ICE[icePhase])
+                                                              EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
 
                 Planet.Seismic.VP_kms[indsVI], Planet.Seismic.VS_kms[indsVI], \
                 Planet.Seismic.KS_GPa[indsVI], Planet.Seismic.GS_GPa[indsVI] \

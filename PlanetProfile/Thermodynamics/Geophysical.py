@@ -635,7 +635,7 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
                                                                   Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                                   phiMin_frac=Planet.Ocean.phiMin_frac,
                                                                   EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                                  ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                                                                  ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
                 thisIceEOS = Planet.Ocean.surfIceEOS['Ih']
             else:
                 # Get ice EOS if not currently loaded
@@ -801,7 +801,7 @@ def SilRecursionPorous(Planet, Params,
                                                                       Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                                       phiMin_frac=Planet.Ocean.phiMin_frac,
                                                                       EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                                      ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                                                                      ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
                     thisIceEOS = Planet.Ocean.surfIceEOS['Ih']
                 else:
                     # Get ice EOS if not currently loaded
