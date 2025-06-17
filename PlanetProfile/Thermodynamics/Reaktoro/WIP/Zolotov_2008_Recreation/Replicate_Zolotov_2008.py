@@ -279,7 +279,25 @@ def generate_Zolotov_plots(data, x, species_lim, pH_lim, figname, exclude_specie
     desired_species_to_plot = [s for s in lines if s.species not in exclude_species]
     # Get data
     element_names, aqueous_species_names, solid_phases_names, pH_array, aqueous_species_array_molal, element_species_array_molal, solid_species_array_mol, solid_phases_volume_array = data
+    """ Uncomment to plot the aqueous species as a function of H2 fugacity
+    fig2 = plt.figure(figsize=(8, 10))
+    ax4 = fig2.add_subplot(1, 1, 1)  # Create a new subplot for fig2
+    for i, species_name in enumerate(aqueous_species_names):
+        if species_name != 'H2O':
+            aqueous_species_data = aqueous_species_array_molal[i]
+            max_index = np.argmax(aqueous_species_data)
+            line, = ax4.plot(x, aqueous_species_data, label=species_name)
+            ax4.text(x[max_index], aqueous_species_data[max_index], rf'$\ce{{{species_name}}}$', ha='left', va='top',
+                     color=line.get_color(), fontsize=10)
+    ax4.set_yscale('log')
+    ax4.set_ylim(10**-6, 10**0)
+    ax4.set_ylabel(r'Log Mole (kg $\ce{H2O^{-1}}$)')
+    ax4.set_xlabel(r"$\mathrm{Log (H_2 fugacity)}$")
+    #ax4.legend()  # Add legend to ax4
 
+    plt.tight_layout()
+    plt.show()  # Use plt.show() instead of fig2.show()
+    """
     # Set up the plot
     # Create subplots (one on top and one below)
     fig = plt.figure(figsize=(8,10))
