@@ -1185,18 +1185,18 @@ class RktHydroSpecies():
         if grid:
             P_MPa_flat = P_MPa.ravel()
             T_K_flat = T_K.ravel()
-            pH, species, species_names = self.species_at_equilibrium(P_MPa_flat, T_K_flat, self.speciation_ratio_mol_kg)
+            pH, species, species_names = self.species_at_equilibrium(P_MPa_flat, T_K_flat)
             # Reshape species to (num_species, P_MPa.size, T_K.size)
             num_species = species_names.size
             species = species.reshape((num_species, P_MPa.shape[0], P_MPa.shape[1]))
             pH = pH.reshape(P_MPa.shape)
         else:
-            pH, species, species_names = self.species_at_equilibrium(P_MPa, T_K, self.speciation_ratio_mol_kg)
+            pH, species, species_names = self.species_at_equilibrium(P_MPa, T_K)
         # Let's save the speciation in the dictionary (which we will reference in RktConduct to reduce runtime)
         self.calculated_speciations[(tuple(P_MPa.ravel()), tuple(T_K.ravel()))] = pH, species, species_names
         return pH, species, species_names
 
-    def species_at_equilibrium(self, P_MPa, T_K, speciation_ratio_mol_per_kg):
+    def species_at_equilibrium(self, P_MPa, T_K):
         """
         Go through P_MPa and T_K  and calculate equilibrium speciation of aqueous and solid species, as well as pH.
         Return species above
@@ -1284,6 +1284,18 @@ class RktRxnAffinity():
         return self.reaction_affinity(parsed_reaction, concentrations, P_MPa, T_K)
 
     def reaction_affinity(self, reaction, rxn_disequilibrium_concentrations, P_MPa, T_K):
+        # First, parse through the rxn_disequilibrium_concentrations and convert to a dictionary of species and their concentrations
+        for species, concentration in rxn_disequilibrium_concentrations.items():
+            if concentration is None:
+                concentration = self.speciation_ratio_mol_per_kg[species]
+                rxn_disequilibrium_concentrations[species] = concentration
+            if type(concentration) == float:
+                rxn_disequilibrium_concentrations[species] = concentration
+            elif type(concentration) == dict:
+                species_reference = concentration['reference species']
+                lambda_function = concentration['equation']
+                concentration = lambda_function(self.speciation_ratio_mol_per_kg[species_reference])
+                rxn_disequilibrium_concentrations[species] = float(concentration)
         # Update speciation_ratio_mol_per_kg dictionary with disequilibrium concentrations
         speciation_ratio_mol_per_kg = {**self.speciation_ratio_mol_per_kg, **rxn_disequilibrium_concentrations}
 
