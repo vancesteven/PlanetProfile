@@ -842,10 +842,6 @@ def PlotPvThydro(PlanetList, Params):
                 # In case of VP or KS, we need to get the appropriate data since fn_seismic returns both VP and KS
                 if prop.prop in ['VP', 'KS']:
                     prop_data = prop_data[prop.ocean_prop_index]
-                # Exclude obviously erroneous Cp values, which happen when extending beyond the knots
-                # for the input EOS. This is mainly a problem with GSW and Seawater compositions.
-                if prop.prop == 'Cp':
-                    prop_data[np.logical_or(prop_data < 3200, prop_data > 5200)] = np.nan
             # Now get data for all ice EOSs and replace in grid
             for iceStr in ices:
                 ice = PhaseInv(iceStr)
@@ -906,7 +902,7 @@ def PlotPvThydro(PlanetList, Params):
             else:
                 firstPlanetData = prop.prop_data[FirstPlanetIndex]
                 secondPlanetData = prop.prop_data[SecondPlanetIndex]
-                prop_data_to_plot = np.abs(firstPlanetData - secondPlanetData) / ((firstPlanetData + secondPlanetData) / 2) * 100
+                prop_data_to_plot = (firstPlanetData - secondPlanetData) / ((firstPlanetData + secondPlanetData) / 2) * 100
                 # Handle phase differences
                 phase_difference = (phasesList[FirstPlanetIndex] != phasesList[SecondPlanetIndex])
                 phase_different_indices = np.where(phase_difference)
@@ -938,7 +934,8 @@ def PlotPvThydro(PlanetList, Params):
 
         # Plot geotherm on top of colormaps
         if FigMisc.SHOW_GEOTHERM:
-            for eachPlanet in PlanetList:
+            geothermList = [FirstPlanet, SecondPlanet] if not SinglePlanetPlot else [FirstPlanet]
+            for eachPlanet in geothermList:
                 # Geotherm curve
                 if np.size(PlanetList) > 1:
                     thisColor = None

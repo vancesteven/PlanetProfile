@@ -171,8 +171,9 @@ def RelevantSolidSpecies(db, aqueous_species_list, solid_phases):
     system_tester = rkt.ChemicalSystem(db, solution, solids_tester)
     relevant_solid_phases = system_tester.species().withAggregateState(rkt.AggregateState.Solid)
     if solid_phases == 'All':
+        solid_phases = []
         for solid_phase in relevant_solid_phases:
-            solid_phases = solid_phases + f' {solid_phase.name()}'
+            solid_phases.append(solid_phase.name())
     for solid in solid_phases:
         if relevant_solid_phases.findWithName(solid) < relevant_solid_phases.size():
             solid_phases_to_consider = solid_phases_to_consider + f' {solid}'

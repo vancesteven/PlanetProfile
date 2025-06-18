@@ -1123,8 +1123,9 @@ class RktConduct():
                 mol_amount = speciation_array[index]
                 # If any values are NaN, then we replace with constant speciation
                 nan_indices = np.isnan(mol_amount)
-                # Replace NaN values with dictionary values (in this case 0.0)
-                mol_amount[nan_indices] = speciation_ratio_mol_kg[species]
+                # Interpolate NaN values using the other values
+                if np.any(nan_indices):
+                    mol_amount[nan_indices] = np.interp(np.flatnonzero(nan_indices), np.flatnonzero(~nan_indices), mol_amount[~nan_indices])
                 # Namely, change the + to a _p or the - to a _m
                 if "+" in species:
                     # If there is no number after the +, then we must append _p1, not just _p
