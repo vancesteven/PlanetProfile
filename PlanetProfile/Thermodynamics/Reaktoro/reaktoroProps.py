@@ -272,15 +272,15 @@ class EOSLookupTableLoader():
                             f'This will remove self-consistency between ocean thermodynamics and Ih phase equilibria')
                 frezchem_aqueous_species_string, frezchem_speciation_ratio_mol_per_kg = checkSpeciesCompatibleWithFrezchem(aqueous_species_string, speciation_ratio_mol_per_kg, CustomSolutionParams.frezchemPath)
                 Frezchem_System = PhreeqcGeneratorForChemicalConstraint(frezchem_aqueous_species_string, frezchem_speciation_ratio_mol_per_kg,
-                                                                        "mol", CustomSolutionParams.frezchemPath)
+                                                                        "mol", CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations)
             else:
                 Frezchem_System = PhreeqcGeneratorForChemicalConstraint(aqueous_species_string,
                                                                         speciation_ratio_mol_per_kg, "mol",
-                                                                        CustomSolutionParams.frezchemPath)
+                                                                        CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations)
 
             Supcrt_System = SupcrtGenerator(aqueous_species_string, speciation_ratio_mol_per_kg, "mol",
                                             CustomSolutionParams.SUPCRT_DATABASE, ocean_solid_species,
-                                            Constants.PhreeqcToSupcrtNames)
+                                            Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations)
             # Get freezing temperatures for pressure range calculated by Frezchem
             TFreezing_K = self.RktFreezingTemperatureFinder(Frezchem_System, PRkt_MPa)
             # Get Seafreeze correction
@@ -749,7 +749,7 @@ class SeafreezePureWaterCorrector:
         speciation_ratio_mol_kg = {'H2O': float(1 / rkt.waterMolarMass)}
         frezchem_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Databases', 'frezchem.dat')
         frezchem = PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_mol_kg, "mol",
-                                                         frezchem_file_path)
+                                                         frezchem_file_path, CustomSolutionParams.maxIterations)
         db, system, initial_state, conditions, solver, props = frezchem
         state = initial_state.clone()
         # Create an iterator to go through P_MPa
@@ -798,7 +798,7 @@ class SeafreezePureWaterCorrector:
         rkt_mu = []
         aqueous_species_list = 'H+ OH- H2O(aq)'
         speciation_ratio_mol_kg = {'H2O(aq)': float(1 / rkt.waterMolarMass)}
-        supcrt = SupcrtGenerator(aqueous_species_list, speciation_ratio_mol_kg, "mol", "supcrt16", None, Constants.PhreeqcToSupcrtNames)
+        supcrt = SupcrtGenerator(aqueous_species_list, speciation_ratio_mol_kg, "mol", "supcrt16", None, Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations)
         db, system, initial_state, conditions, solver, props = supcrt
         state = initial_state.clone()
         P_MPa_mesh, T_K_mesh = np.meshgrid(P_MPa_supcrt, T_K, indexing='ij')
@@ -1206,7 +1206,7 @@ class RktHydroSpecies():
         start_time = time.time()
         # Establish supcrt generator
         db, system, initial_state, conditions, solver, props = SupcrtGenerator(self.aqueous_species_list, self.speciation_ratio_mol_kg,
-                                      "mol", CustomSolutionParams.SUPCRT_DATABASE, self.ocean_solid_phases, Constants.PhreeqcToSupcrtNames)
+                                      "mol", CustomSolutionParams.SUPCRT_DATABASE, self.ocean_solid_phases, Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations)
         state = initial_state.clone()
         # Prepare lists for pH and species amounts
         pH_list = []
@@ -1308,7 +1308,7 @@ class RktRxnAffinity():
         db, system, initial_state, conditions, solver, props = SupcrtGenerator(aqueous_species_list,
                                                                        speciation_ratio_mol_per_kg,
                                                                        "mol",
-                                                                       CustomSolutionParams.SUPCRT_DATABASE, self.ocean_solid_species, Constants.PhreeqcToSupcrtNames)
+                                                                       CustomSolutionParams.SUPCRT_DATABASE, self.ocean_solid_species, Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations)
         affinity_kJ = []
         # Create a copy of the state
         state = initial_state.clone()
@@ -1524,7 +1524,7 @@ class RktSeismicOnDemand():
         db, system, initial_state, conditions, solver, props = SupcrtGenerator(aqueous_species_list,
                                                                        speciation_ratio_mol_kg,
                                                                        "mol",
-                                                                       CustomSolutionParams.SUPCRT_DATABASE, CustomSolutionParams.SOLID_PHASES_TO_CONSIDER, Constants.PhreeqcToSupcrtNames)
+                                                                       CustomSolutionParams.SUPCRT_DATABASE, CustomSolutionParams.SOLID_PHASES_TO_CONSIDER, Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations)
         state = initial_state.clone()
         # Create an iterator to go through P_MPa and T_K
         it = np.nditer([P_MPa, T_K], flags=['multi_index'])
@@ -1591,7 +1591,7 @@ class RktPhaseOnDemand:
         # Create both frezchem and core Reaktoro systems that can be utilized later on
         self.frezchem = PhreeqcGeneratorForChemicalConstraint(self.aqueous_species_list, self.speciation_ratio_mol_kg,
                                                               "mol",
-                                                              CustomSolutionParams.frezchemPath)
+                                                              CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations)
         # Obtain internal temperature correction spline
         # self.temperature_correction_spline = FrezchemFreezingTemperatureCorrectionSplineGenerator()
         self.spline_for_pressures_above_100_MPa, self.PMax_MPa = self.Frezchem_Spline_Generator(
@@ -1633,7 +1633,7 @@ class RktPhaseOnDemand:
         db, system, initial_state, conditions, solver, props = PhreeqcGeneratorForChemicalConstraint(aqueous_species_list,
                                                                                              speciation_ratio_mol_kg,
                                                                                              "mol",
-                                                                                             CustomSolutionParams.frezchemPath)
+                                                                                             CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations)
         # Create freezing temperatures list and indices of pressures to remove, if necessary
         freezing_temperatures = []
         indices_to_remove = []

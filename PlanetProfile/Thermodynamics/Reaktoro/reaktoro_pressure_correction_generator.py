@@ -26,7 +26,7 @@ def dictionary_pressure_correction_generator():
 
     pure_water_speciation = "H+: 1e-7, OH-: 1e-7"
     aqueous_species_list, speciation_ratio_mol_kg = SpeciesParser(pure_water_speciation)
-    frezchem = PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_mol_kg, "frezchem.dat")
+    frezchem = PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_mol_kg, "frezchem.dat",)
     rkt_T_freezing = rkt_t_freeze_without_pressure_correction(aqueous_species_list, speciation_ratio_mol_kg, eos_P_MPa, frezchem, 100, 0, {})
 
     sfz_T_freezing = np.array(sfz_T_freezing)

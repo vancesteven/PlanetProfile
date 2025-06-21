@@ -24,7 +24,7 @@ def load_dict_from_pkl(filename):
     with gzip.open(filename, "rb") as file:
         return pickle.load(file)
 
-def PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file):
+def PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file, iterations = 200):
     """ Create a Phreeqc Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
         Works for both core10.dat and frezchem.dat.
     Args:
@@ -51,6 +51,9 @@ def PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit
     specs.temperature()
     # Create a solver object
     solver = rkt.EquilibriumSolver(specs)
+    options = rkt.EquilibriumOptions()
+    options.optima.maxiters = iterations
+    solver.setOptions(options)
     # Create a chemical state and its associated properties
     state = rkt.ChemicalState(system)
     props = rkt.ChemicalProps(state)
@@ -68,7 +71,7 @@ def PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit
     return db, system, state, conditions, solver, props, ice_name, database_file
 
 
-def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file):
+def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file, iterations):
     """ Create a Phreeqc Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
         Works for both core10.dat and frezchem.dat.
         THIS IS DIFFERENT IN THAT IT ASSUMES TEMPERATURE IS UNKNOWN AND SPECIFIES CHEMICAL CONSTRAINT AT EQUILIBIRUM.
@@ -103,6 +106,9 @@ def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio
     specs.addConstraint(ices_phase_constraint)
     # Create a solver object
     solver = rkt.EquilibriumSolver(specs)
+    options = rkt.EquilibriumOptions()
+    options.optima.maxiters = iterations
+    solver.setOptions(options)
     # Create a chemical state and its associated properties
     state = rkt.ChemicalState(system)
     props = rkt.ChemicalProps(state)
@@ -115,7 +121,7 @@ def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio
     return db, system, state, conditions, solver, props
 
 
-def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database, ocean_solid_species, PhreeqcToSupcrtNames):
+def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database, ocean_solid_species, PhreeqcToSupcrtNames, iterations = 200):
     """ Create a Supcrt Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
     Args:
     aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
@@ -125,6 +131,7 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     database: Supcrt database to use
     ocean_solid_phases: whether or not to consider solid phases in calculations
     PhreeqcToSupcrtNames: Names that need to be converted in species list and speciation ratio per kg
+    iterations: maximum number of iterations to allow for when solving for equilibrium before throwing error
     Returns:
         db, system, state, conditions, solver, props, ice_name: Relevant reaktoro objects
     """
@@ -147,6 +154,10 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     specs.temperature()
     # Create a solver object
     solver = rkt.EquilibriumSolver(specs)
+    # Set # of iterations to use
+    options =rkt.EquilibriumOptions()
+    options.optima.maxiters = iterations
+    solver.setOptions(options)
     # Create a chemical state and its associated properties
     state = rkt.ChemicalState(system)
     # Populate the state with the prescribed species at the given ratios

@@ -101,7 +101,7 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                     color = Color.cmap['hydroSpecies'](i % len(relevant_species_to_plot))
                     line, = allspeciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style, color=color, linewidth = linewidth)
                     y_label_pos = ocean_depth[
-                        (i*3) % len(relevant_species_to_plot)] / 1e3  # y position of the end of the line
+                        (i*3) % len(ocean_depth)] / 1e3  # y position of the end of the line
                     allspeciesax.text(x_label_pos, y_label_pos, species_label,
                                       color=line.get_color(),
                                       verticalalignment='bottom',
@@ -112,7 +112,7 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                         aqueouspseciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style, color=color, linewidth = linewidth)
                         if x_label_pos >= 0:
                             y_label_pos = ocean_depth[(i * 3) % len(
-                                relevant_species_to_plot)] / 1e3  # y position of the end of the line
+                                ocean_depth)] / 1e3  # y position of the end of the line
                             aqueouspseciesax.text(x_label_pos, y_label_pos, species_label,
                                                   color=line.get_color(),
                                                   verticalalignment='bottom',

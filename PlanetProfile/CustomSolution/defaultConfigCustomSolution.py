@@ -1,7 +1,7 @@
 """ Default custom ocean solution settings """
 from PlanetProfile.Utilities.defineStructs import CustomSolutionParamsStruct
 
-configCustomSolutionVersion = 5 # Integer number for config file version. Increment when new settings are added to the default config file.
+configCustomSolutionVersion = 6 # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def customSolutionAssign():
     CustomSolutionParams = CustomSolutionParamsStruct()
@@ -27,5 +27,9 @@ def customSolutionAssign():
     # This removes self-consistency between the phase equilibria (up to 200MPa) and ocean thermodynamics since frezchem is calculating liquid-IceI equilibria of a less speciated chemistry
     # Example usage is when user wants to consider an ocean with Fe aqueous species, which Frezchem does not have. So we remove any Fe species from the Frezchem system, but they are still considered in Supcrt system.
     CustomSolutionParams.REMOVE_SPECIES_NA_IN_FREZCHEM = False
+
+    # Maximum number of iterations to allow when calculating equilibrium before throwing convergence error
+    # For complicated systems, increase this number by an order of magnitude (i.e. 2000) - dramatically incresaes runtime though
+    CustomSolutionParams.maxIterations = 200
 
     return CustomSolutionParams

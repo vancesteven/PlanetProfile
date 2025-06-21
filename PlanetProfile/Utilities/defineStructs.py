@@ -484,7 +484,12 @@ class GravitySubstruct:
         self.VISCOSITY_kg_ms = None # Viscosity in kg/m*s
         self.time_log_kyrs = None # Time scale of calculations
         self.harmonic_degrees = None # Harmonic degrees to calculate
-
+        self.rheology = None # Rheology for PyALMA3
+        self.pyAlmaParams = None # List of parameters for andrade and Burgers layers that we set
+        self.andradExponent = 0.2 # Andrade exponent for andrade layers
+        self.BurgerFirstParameter = 0 # First parameter for Burgers layers
+        self.BurgerSecondParameter = 0 # Second parameter for Burgers layers
+        
         # Calculated love numbers - 2d array of shape len(harmonic_degrees)xlen(time_log_kyrs) [see configPPgravity]
         self.h = np.nan # h love number
         self.l = np.nan # l love number
