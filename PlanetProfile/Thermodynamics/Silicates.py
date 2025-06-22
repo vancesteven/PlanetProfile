@@ -27,7 +27,7 @@ def SilicateLayers(Planet, Params):
         # and now we are just evaluating the EOS for the winning silicate layer set
         # Similarly, if Do.NO_H2O is True, we have 0 ice layers so there is just 1 profile to run
         nProfiles = 1
-        if Planet.Do.NO_OCEAN:
+        if Planet.Do.NO_H2O:
             Planet.Steps.iSilStart = 0
             Planet.Steps.nHydro = 0
         profRange = [Planet.Steps.nHydro - Planet.Steps.iSilStart]
