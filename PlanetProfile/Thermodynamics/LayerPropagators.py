@@ -232,7 +232,7 @@ def IceLayers(Planet, Params):
                         Planet = IceIWholeConductPorous(Planet, Params)
                     else:
                         Planet = IceIWholeConductSolid(Planet, Params)
-               else:
+                else:
                     raise ValueError(f'Bulk.clathType option "{Planet.Bulk.clathType}" is not supported. ' +
                                      'Options are "top", "bottom", and "whole".')
             else:
