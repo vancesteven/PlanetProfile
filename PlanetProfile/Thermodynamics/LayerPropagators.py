@@ -546,16 +546,16 @@ def OceanLayers(Planet, Params):
         # If we are not allowing liquid layers in the ocean, we need to make sure the first layer is a high pressure ice
         if Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES:
             # Check the initial phase of the first layer
-            thisPhase = Planet.Ocean.EOS.fn_phase(POcean_MPa[0], TOcean_K[0]).astype(np.int_)
-            Planet.phase[Planet.Steps.nSurfIce] = thisPhase
+            Planet.phase[Planet.Steps.nSurfIce] = Planet.Ocean.EOS.fn_phase(POcean_MPa[0], TOcean_K[0]).astype(np.int_)
+            thisPhase = PhaseConv(Planet.phase[Planet.Steps.nSurfIce])
             if Planet.phase[Planet.Steps.nSurfIce] == 0:
                 raise ValueError(f'The first calculated phase is a liquid layer. \n' +
                                  f'When Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES is True, the layers below the initial ice propogation should be high pressure ices.\n' +
                                  f'Try decreasing the input bottom temperature of {Planet.Tb_K} K.')
-            rhoOcean_kgm3[i] = Planet.Ocean.iceEOS[thisPhase].fn_rho_kgm3(POcean_MPa[i], TOcean_K[i])
-            CpOcean_JkgK[i] = Planet.Ocean.iceEOS[thisPhase].fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
-            alphaOcean_pK[i] = Planet.Ocean.iceEOS[thisPhase].fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
-            kThermOcean_WmK[i] = Planet.Ocean.iceEOS[thisPhase].fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i])
+            rhoOcean_kgm3[0] = Planet.Ocean.iceEOS[thisPhase].fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
+            CpOcean_JkgK[0] = Planet.Ocean.iceEOS[thisPhase].fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
+            alphaOcean_pK[0] = Planet.Ocean.iceEOS[thisPhase].fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
+            kThermOcean_WmK[0] = Planet.Ocean.iceEOS[thisPhase].fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
         else:
             # Do initial ocean step separately in order to catch potential Melosh layer--
             # see Melosh et al. (2004): https://doi.org/10.1016/j.icarus.2003.11.026
