@@ -93,112 +93,166 @@ def GetReducedLayers(Planet, Params):
     """
     Get the reduced planet according to Params.reduceLayersAccordingTo
     """
-    phase = Planet.phase.copy()  # Create a copy to avoid modifying the original attribute
+    # Find where phase changes occur
+    phase_transitions = np.diff(Planet.phase) != 0
+    layer_boundaries = phase_transitions.copy()
+    
+    # Also include convection boundaries if ice convection is enabled
+    if not Planet.Do.NO_ICE_CONVECTION:
+        # Find phase transitions within the ice shell (surface ice layers only)
+        ice_phase_transitions = np.diff(Planet.phase[:Planet.Steps.nSurfIce]) != 0
+        
+        # Find where convection state changes (convective vs conductive layers)
+        convection_transitions = np.diff(Planet.Steps.iConv) != 0
+        
+        # Combine both types of boundaries in ice - either phase change OR convection change
+        ice_layer_boundaries = np.logical_or(ice_phase_transitions, convection_transitions)
+        
+        # Update the overall layer boundaries array for ice shell portion only
+        # (nSurfIce-1 because diff reduces array size by 1)
+        layer_boundaries[:Planet.Steps.nSurfIce-1] = ice_layer_boundaries
+    
+    # Get the indices where layer boundaries occur (add 1 to account for diff offset)
+    boundary_indices = np.where(layer_boundaries)[0] + 1
 
-    # Find change points and include start/end
-    change_indices = np.concatenate(([0], np.where(np.diff(phase) != 0)[0] + 1, [len(phase)]))
+    # Include start and end
+    change_indices = np.concatenate(([0], boundary_indices, [len(Planet.phase)]))
 
     rPhase_m = Planet.r_m[:-1]
 
-    # Define attributes to interpolate (separating seismic attributes)
-    attributes_to_reduce = {
-        "phase": Planet,
-        "r_m": Planet,
-        "rho_kgm3": Planet,
-    }
+    # Pre-allocate lists for reduced attributes - more efficient than repeated extend
+    reduced_phase = []
+    reduced_r_m = []
+    reduced_rho_kgm3 = []
+    reduced_changeIndices = [0]
+    reduced_VP_kms = [] if Params.CALC_SEISMIC else None
+    reduced_VS_kms = [] if Params.CALC_SEISMIC else None
+    reduced_GS_GPa = [] if Params.CALC_SEISMIC else None
+    reduced_eta_Pas = [] if Params.CALC_VISCOSITY else None
+    reduced_sigma_Sm = [] if Params.CALC_CONDUCT else None
+
+    # Initialize reduced attributes
+    Planet.Reduced.phase = []
+    Planet.Reduced.r_m = []
+    Planet.Reduced.rho_kgm3 = []
+    Planet.Reduced.iConv = []
+    
     if Params.CALC_SEISMIC:
-        attributes_to_reduce.update({
-            "VP_kms": Planet.Seismic,
-            "VS_kms": Planet.Seismic,
-            "GS_GPa": Planet.Seismic
-        })
+        Planet.Reduced.Seismic.VP_kms = []
+        Planet.Reduced.Seismic.VS_kms = []
+        Planet.Reduced.Seismic.GS_GPa = []
+    
     if Params.CALC_VISCOSITY:
-        attributes_to_reduce.update({
-            "eta_Pas": Planet
-        })
+        Planet.Reduced.eta_Pas = []
+    
     if Params.CALC_CONDUCT:
-        attributes_to_reduce.update({
-            "sigma_Sm": Planet
-        })
-    # Initialize attributes in the correct substructure
-    for attr, source in attributes_to_reduce.items():
-        if source is Planet.Seismic:
-            setattr(Planet.Reduced.Seismic, attr, [])  # Store in Reduced.Seismic
-        else:
-            setattr(Planet.Reduced, attr, [])
+        Planet.Reduced.sigma_Sm = []
 
     # Iterate through each segment
     for start, end in zip(change_indices[:-1], change_indices[1:]):
-        layer_phase = phase[start]
+        layer_phase = Planet.phase[start]
+        
+        if not Planet.Do.NO_ICE_CONVECTION and start < Planet.Steps.nSurfIce:
+            convection = Planet.Steps.iConv[start]
+        else:
+            convection = False
+        
+            
+        # Skip inner layers if requested
         if layer_phase >= 10 and Params.SKIP_INNER:
-            # In this case where we skip inner calculations, we do not reduce the inner layers
             continue
+            
         layer_str = PhaseConv(layer_phase, PORE=Planet.Do.POROUS_ROCK, liq='0')  # Convert phase to string
         r_layer_m = rPhase_m[start:end]  # Extract radii for this layer
+        n_layers = len(r_layer_m)
+
+        
+        # Get target layer count
         if layer_str in Params.REDUCED_LAYERS_SIZE:
-            target_layers = min(Params.REDUCED_LAYERS_SIZE[layer_str], len(r_layer_m))  # Get target layer count
+            target_layers = min(Params.REDUCED_LAYERS_SIZE[layer_str], n_layers)
         else:
-            target_layers = min(Constants.defaultReducedLayerSize, len(r_layer_m))  # Default to a constant if not specified
-        # Generate original and reduced depth points
-        original_points = r_layer_m
-        reduced_points = np.linspace(r_layer_m[0], r_layer_m[-1], target_layers)
-
-        for attr, source in attributes_to_reduce.items():
-            original_values = getattr(source, attr)[start:end]  # Extract original data
-            interpolator = spi.interp1d(original_points, original_values, kind='linear')
-            reduced_values = interpolator(reduced_points)  # Interpolated values
-
-            # Stoei reduced values in the correct location
-            if source is Planet.Seismic:
-                getattr(Planet.Reduced.Seismic, attr).extend(reduced_values.tolist())  # Store in Seismic
-            else:
-                getattr(Planet.Reduced, attr).extend(reduced_values.tolist())  # Convert all attributes in Planet.Reduced and Planet.Reduced.Seismic to NumPy arrays
-    for attr, source in attributes_to_reduce.items():
-        if source is Planet.Seismic:
-            setattr(Planet.Reduced.Seismic, attr, np.array(getattr(Planet.Reduced.Seismic, attr)))
+            target_layers = min(Constants.defaultReducedLayerSize, n_layers)
+        # Determine convection state for this layer segment
+        # Check if we're in a surface ice layer and convection modeling is enabled
+        if not Planet.Do.NO_ICE_CONVECTION and start < Planet.Steps.nSurfIce:
+            # Use the convection state from the original model at this layer's starting index
+            convection = Planet.Steps.iConv[start]
         else:
-            setattr(Planet.Reduced, attr, np.array(getattr(Planet.Reduced, attr)))
+            # No convection for non-ice layers or when convection modeling is disabled
+            convection = False
+
+        # Apply the same convection state to all reduced layers in this segment
+        # This maintains consistency within each homogeneous layer
+        Planet.Reduced.iConv.extend([convection] * target_layers)
+        
+        # Only do interpolation if we actually need to reduce layers
+        if n_layers > target_layers:
+            # Interpolate to reduce number of layers
+            original_points = r_layer_m
+            reduced_points = np.linspace(r_layer_m[0], r_layer_m[-1], target_layers)
+            
+            # Direct attribute access for interpolation - much faster than getattr/setattr
+            # Core attributes (always present)
+            phase_interp = spi.interp1d(original_points, Planet.phase[start:end], kind='nearest')
+            r_m_interp = spi.interp1d(original_points, Planet.r_m[start:end], kind='linear')
+            rho_interp = spi.interp1d(original_points, Planet.rho_kgm3[start:end], kind='linear')
+            
+            reduced_phase.extend(phase_interp(reduced_points).tolist())
+            reduced_r_m.extend(r_m_interp(reduced_points).tolist())
+            reduced_rho_kgm3.extend(rho_interp(reduced_points).tolist())
+            
+            # Optional attributes - only interpolate if needed
+            if Params.CALC_SEISMIC:
+                vp_interp = spi.interp1d(original_points, Planet.Seismic.VP_kms[start:end], kind='linear')
+                vs_interp = spi.interp1d(original_points, Planet.Seismic.VS_kms[start:end], kind='linear')
+                gs_interp = spi.interp1d(original_points, Planet.Seismic.GS_GPa[start:end], kind='linear')
+                
+                reduced_VP_kms.extend(vp_interp(reduced_points).tolist())
+                reduced_VS_kms.extend(vs_interp(reduced_points).tolist())
+                reduced_GS_GPa.extend(gs_interp(reduced_points).tolist())
+            
+            if Params.CALC_VISCOSITY:
+                eta_interp = spi.interp1d(original_points, Planet.eta_Pas[start:end], kind='linear')
+                reduced_eta_Pas.extend(eta_interp(reduced_points).tolist())
+            
+            if Params.CALC_CONDUCT:
+                sigma_interp = spi.interp1d(original_points, Planet.sigma_Sm[start:end], kind='linear')
+                reduced_sigma_Sm.extend(sigma_interp(reduced_points).tolist())
+                
+        else:
+            # Already reduced enough, just copy the original values - no interpolation needed
+            reduced_phase.extend(Planet.phase[start:end].tolist())
+            reduced_r_m.extend(Planet.r_m[start:end].tolist())
+            reduced_rho_kgm3.extend(Planet.rho_kgm3[start:end].tolist())
+            
+            if Params.CALC_SEISMIC:
+                reduced_VP_kms.extend(Planet.Seismic.VP_kms[start:end].tolist())
+                reduced_VS_kms.extend(Planet.Seismic.VS_kms[start:end].tolist())
+                reduced_GS_GPa.extend(Planet.Seismic.GS_GPa[start:end].tolist())
+            
+            if Params.CALC_VISCOSITY:
+                reduced_eta_Pas.extend(Planet.eta_Pas[start:end].tolist())
+            
+            if Params.CALC_CONDUCT:
+                reduced_sigma_Sm.extend(Planet.sigma_Sm[start:end].tolist())
+
+        # Set the reduced change index
+        reduced_changeIndices.extend([len(reduced_phase)])
+    # Assign all reduced attributes at once - more efficient than individual assignments
+    Planet.Reduced.phase = reduced_phase
+    Planet.Reduced.r_m = reduced_r_m
+    Planet.Reduced.rho_kgm3 = reduced_rho_kgm3
+    Planet.Reduced.changeIndices = reduced_changeIndices
+    
+    if Params.CALC_SEISMIC:
+        Planet.Reduced.Seismic.VP_kms = reduced_VP_kms
+        Planet.Reduced.Seismic.VS_kms = reduced_VS_kms
+        Planet.Reduced.Seismic.GS_GPa = reduced_GS_GPa
+    
+    if Params.CALC_VISCOSITY:
+        Planet.Reduced.eta_Pas = reduced_eta_Pas
+    
+    if Params.CALC_CONDUCT:
+        Planet.Reduced.sigma_Sm = reduced_sigma_Sm
 
     return Planet, Params
-
-
-def GetAverageLayers(Planet, Params):
-    """Reduce planet into each of its differentiated layers, taking the average of all of its properties"""
-    iChange = np.where(Planet.phase[:-1] != Planet.phase[1:])[0] + 1
-    layerChangeIndices = np.insert(iChange, 0, 0)
-    if Planet.DO.VALID:
-
-        r_phases = []
-        indsLiq = np.where((Planet.phase) == 0)[0]
-        for i in range(iChange.size):
-            layerIndices = layerChangeIndices[i, i+1]
-            reduced_layer = Planet.phase[layerIndices]
-            # Obtain radius and induction of layers
-            rLayers_m = Planet.r_m[layerIndices]
-            sigmaInduct_Sm = Planet.sigma_Sm[layerIndices]
-            rho_kgm3 = Planet.rho_kgm3[layerIndices]
-            vs_kms = Planet.Seismic.VS_kms[layerIndices]
-            vp_kms = Planet.Seismic.VP_kms[layerIndices]
-            gs_GPa = Planet.Seismic.GS_GPa[layerIndices]
-            reta_Pas = Planet.eta_Pas[layerIndices]
-
-            if reduced_layer[0] == 0:
-                if Params.Sig.REDUCED_INDUCT:
-                    # Get radius values from D/nIntL above the seafloor to the ice shell
-                    rBot_m = Planet.Bulk.R_m - (Planet.zb_km + Planet.D_km) * 1e3
-                    rTop_m = rLayers_m[indsLiq[0]]
-                    rOcean_m = np.linspace(rTop_m, rBot_m, Params.Induct.nIntL + 1)[:-1]
-                    # Interpolate the conductivities corresponding to those radii
-                    if np.size(indsLiq) == 1:
-                        log.warning(
-                            f'Only 1 layer found in ocean, but number of layers to ' + f'interpolate over is {Params.Induct.nIntL}. Arbitrary layers will be introduced.')
-                        rModel_m = np.concatenate((np.array([rBot_m]), rLayers_m[indsLiq]))
-                    else:
-                        rModel_m = rLayers_m[indsLiq]
-                    # Stitch together the r and sigma arrays with the new ocean values
-                    rLayers_m = np.concatenate((rLayers_m[:indsLiq[0]], rOcean_m, rLayers_m[indsLiq[-1] + 1:]))
-
-
-
-
-

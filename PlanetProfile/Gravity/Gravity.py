@@ -1,5 +1,5 @@
 import numpy as np
-from alma import infer_rheology_pp, build_model, love_numbers
+from alma import build_model, love_numbers
 import logging
 import ast
 import os
@@ -18,14 +18,11 @@ def GravityParameters(Planet, Params):
         else:
             # Set Magnetic struct layer arrays as we need for induction calculations
             Planet, Params = SetupGravity(Planet, Params)
-            rheology, params = infer_rheology_pp(Planet.Gravity.ALMAModel, structure=Params.Gravity.rheology_structure,
-                                                layer_radius=Params.Gravity.layer_radius,
-                                                layer_radius_index=Params.Gravity.layer_radius_index)
             model_params = build_model(Planet.Gravity.ALMAModel['model'][:, Planet.Gravity.ALMAModel['columns'].index('r')],
                                     Planet.Gravity.ALMAModel['model'][:, Planet.Gravity.ALMAModel['columns'].index('rho')],
                                     Planet.Gravity.ALMAModel['mu'],
                                     Planet.Gravity.ALMAModel['vis'],
-                                    rheology, params, ndigits=Params.Gravity.num_digits, verbose=Params.Gravity.verbose)
+                                    Planet.Gravity.rheology, Planet.Gravity.pyAlmaParams, ndigits=Params.Gravity.num_digits, verbose=Params.Gravity.verbose, parallel=False) # False parallel for now since it is throwing a bad file desciptor
             # Compute love numbers
             Planet.Gravity.h, Planet.Gravity.l, Planet.Gravity.k = love_numbers(Params.Gravity.harmonic_degrees, Params.Gravity.time_log_kyrs,
                                                                     Params.Gravity.loading_type, Params.Gravity.time_history_function, Params.Gravity.tau, model_params,
@@ -115,24 +112,24 @@ def SetupGravity(Planet, Params):
         # Set Planet time scale and harmonic degrees from Params
         Planet.Gravity.time_log_kyrs = Params.Gravity.time_log_kyrs
         Planet.Gravity.harmonic_degrees = Params.Gravity.harmonic_degrees
-
+    
         # Finally, we must setup the rheology structure, from core to surface
-        # Track phase changes while preserving order
+        layers = [] # List of layer indices where layer change occurs (index right before the change)
+        # Find where phase changes occur
         phases = Planet.Gravity.model[:, pIndex]
-        # Initialize with the first phase
-        phase_transitions = [phases[0]]
-        # Iterate through the model to find phase transitions
-        for i in range(1, len(phases)):
-            if phases[i] != phases[i-1]:
-                # We've found a phase transition
-                phase_transitions.append(phases[i])
-        # Map phases to rheology models
+        # Flip changeIndices so that the largest index becomes 0 and 0 becomes the largest
+        # This reverses the ordering while maintaining the relative spacing between indices
+        changeIndices = np.max(Planet.Reduced.changeIndices) - np.flipud(Planet.Reduced.changeIndices)
         rheology_structure = []
-        for phase in phase_transitions:
+        for start, end in zip(changeIndices[:-1], changeIndices[1:]):
+            if end != changeIndices[-1]:  # Exclude the last index, which is the end of the model
+                layers.append(end - 1)
+            phase = phases[start]
+            convection = np.flipud(Planet.Reduced.iConv)[start]
             # Convert numerical phase to string representation for dictionary lookup
             phase_str = PhaseConv(phase, liq='0')
-        
-            # Try to use PhaseConv if direct lookup fails
+            if convection:
+                phase_str += '_conv'
             if phase_str not in Params.Gravity.rheology_models:
                 raise ValueError(f"Phase {phase_str} not found in rheology models.")
             else:
@@ -142,6 +139,49 @@ def SetupGravity(Planet, Params):
         # Store the compiled structures in Planet.Gravity
         Params.Gravity.rheology_structure = rheology_structure
         
+        # Verify we have the right number of structural regions
+        if len(rheology_structure) != len(layers) + 1:
+            raise ValueError(f"Number of rheology structures ({len(rheology_structure)}) does not match "
+                           f"number of layer regions ({len(layers) + 1})")
+        
+        # Create rheology array for each model layer
+        rheo = []
+        for layer_idx in range(len(rheology_structure)):
+            if layer_idx == 0:
+                # First region: from start to first transition
+                end_idx = layers[layer_idx] + 1 if layers else len(phases)
+                rheo.extend([rheology_structure[layer_idx] for _ in range(end_idx)])
+                
+            elif layer_idx < len(rheology_structure) - 1:
+                # Intermediate regions: from previous transition to next transition
+                start_idx = layers[layer_idx - 1] + 1
+                end_idx = layers[layer_idx] + 1
+                rheo.extend([rheology_structure[layer_idx] for _ in range(end_idx - start_idx)])
+                
+            else:
+                # Last region: from last transition to end
+                start_idx = layers[-1] + 1
+                rheo.extend([rheology_structure[layer_idx] for _ in range(len(phases) - start_idx)])
+        
+        # Create parameters array (can be customized for Andrade/Burgers layers)
+        params = np.zeros((len(rheo), 2))
+        
+        # Finally, let's create our own PyALMA3 parameters structure for Andrade and Burgers layers
+        # We do this because the infer_rheology_pp function doesn't let you customize the Andrade exponent
+        for i, rheol in enumerate(rheo):
+            if rheol == 'andrade' or rheol == 6:
+                # Set Andrade exponent (alpha) - default to 0.2, can be customized
+                params[i, 0] = Planet.Gravity.andradExponent
+                # params[i, 1] will be auto-calculated as gamma(alpha + 1)
+            elif rheol == 'burgers' or rheol == 5:
+                # Set Burgers parameters - can be customized
+                params[i, 0] = Planet.Gravity.BurgerFirstParameter  # mu2/mu1 ratio
+                params[i, 1] = Planet.Gravity.BurgerSecondParameter  # eta2/eta1 ratio
+        
+        # Store rheology and params for use in build_model
+        Planet.Gravity.rheology = rheo
+        Planet.Gravity.pyAlmaParams = params
+
     # Return Planet and Params
     return Planet, Params
 

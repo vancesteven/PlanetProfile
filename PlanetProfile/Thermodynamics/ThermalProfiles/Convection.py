@@ -137,6 +137,8 @@ def IceIConvectSolid(Planet, Params):
         log.debug('Stagnant lid conductive profile complete. Modeling ice I convecting layer...')
 
         Planet = PropagateAdiabaticSolid(Planet, Params, nConduct, nConduct+nConvect, Planet.Ocean.surfIceEOS['Ih'])
+        # Set logical array for convective ice layers
+        Planet.Steps.iConv[nConduct:nConduct+nConvect] = True
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         # Reassign conductive profile with new top temperature for conductive layer
@@ -300,6 +302,8 @@ def IceIConvectPorous(Planet, Params):
         # Propagate adiabatic thermal profile
         Planet = PropagateAdiabaticPorousVacIce(Planet, Params, nConduct, nConduct+nConvect,
                                                 Planet.Ocean.surfIceEOS['Ih'])
+        # Set logical array for convective ice layers
+        Planet.Steps.iConv[nConduct:nConduct+nConvect] = True
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         # Reassign conductive profile with new top temperature for conductive layer
@@ -391,7 +395,8 @@ def IceIIIConvectSolid(Planet, Params):
 
         Planet = PropagateAdiabaticSolid(Planet, Params, iConductEnd, iConvectEnd,
                                          Planet.Ocean.surfIceEOS['III'])
-
+        # Set logical array for convective ice layers
+        Planet.Steps.iConv[iConductEnd:iConvectEnd] = True
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         if(Planet.T_K[iConvectEnd-1] > Planet.Bulk.TbIII_K):
@@ -492,7 +497,8 @@ def IceIIIConvectPorous(Planet, Params):
 
         Planet = PropagateAdiabaticPorousVacIce(Planet, Params, iConductEnd, iConvectEnd,
                                                 Planet.Ocean.surfIceEOS['III'])
-
+        # Set logical array for convective ice layers
+        Planet.Steps.iConv[iConductEnd:iConvectEnd] = True
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         if(Planet.T_K[iConvectEnd-1] > Planet.Bulk.TbIII_K):
@@ -596,7 +602,8 @@ def IceVConvectSolid(Planet, Params):
 
         Planet = PropagateAdiabaticSolid(Planet, Params, iConductEnd, iConvectEnd,
                                          Planet.Ocean.surfIceEOS['V'])
-
+        # Set logical array for convective ice layers
+        Planet.Steps.iConv[iConductEnd:iConvectEnd] = True
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         if(Planet.T_K[iConvectEnd-1] > Planet.Bulk.TbV_K):
@@ -699,7 +706,8 @@ def IceVConvectPorous(Planet, Params):
 
         Planet = PropagateAdiabaticPorousVacIce(Planet, Params, iConductEnd, iConvectEnd,
                                                 Planet.Ocean.surfIceEOS['V'])
-
+        # Set logical array for convective ice layers
+        Planet.Steps.iConv[iConductEnd:iConvectEnd] = True
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         if(Planet.T_K[iConvectEnd-1] > Planet.Bulk.TbV_K):
@@ -797,7 +805,8 @@ def ClathShellConvectSolid(Planet, Params):
 
         Planet = PropagateAdiabaticSolid(Planet, Params, nConduct, nConduct + nConvect,
                                          Planet.Ocean.surfIceEOS['Clath'])
-
+        # Set logical array for convective clathrate layers
+        Planet.Steps.iConv[nConduct:nConduct+nConvect] = True
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         # Reassign conductive profile with new top temperature for conductive layer
@@ -891,7 +900,8 @@ def ClathShellConvectPorous(Planet, Params):
 
         Planet = PropagateAdiabaticPorousVacIce(Planet, Params, nConduct, nConduct + nConvect,
                                                 Planet.Ocean.surfIceEOS['Clath'])
-
+        # Set logical array for convective clathrate layers
+        Planet.Steps.iConv[nConduct:nConduct+nConvect] = True
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         # Reassign conductive profile with new top temperature for conductive layer

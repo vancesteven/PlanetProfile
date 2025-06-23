@@ -656,6 +656,8 @@ class ReducedPlanetStruct:
         self.sigma_Sm = None # The reduced sigma to use
         self.rho_kgm3 = None # The reduced density to use
         self.eta_Pas = None # The reduced viscosity to use
+        self.phaseConv = None # Truth array of convecting layers
+        self.changeIndices = None # Indices of layer changes (either phase or convecting changes)
 
 
 """ Params substructs """

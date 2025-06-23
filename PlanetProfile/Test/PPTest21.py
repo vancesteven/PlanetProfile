@@ -7,7 +7,7 @@ For testing purposes
 import numpy as np
 from PlanetProfile.Utilities.defineStructs import PlanetStruct, Constants
 
-Planet = PlanetStruct('Test')
+Planet = PlanetStruct('Test21')
 
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 2574.73e3  # Value from mean radius in Archinal et al. (2018): https://doi.org/10.1007/s10569-017-9805-5

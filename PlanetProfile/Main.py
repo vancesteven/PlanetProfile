@@ -249,7 +249,7 @@ def PlanetProfile(Planet, Params):
         GeneratePlots(PlanetList, Params)
         Planet = PlanetList[0]
     # Create a simplified reduced planet structure for magnetic induction and/or gravity calculations
-    if Planet.Do.VALID:
+    if Planet.Do.VALID and (not Params.SKIP_INDUCTION or not Params.SKIP_GRAVITY):
         Planet, Params = GetReducedPlanetProfile(Planet, Params)
     # Magnetic induction calculations and plots
     if (Params.CALC_CONDUCT and Planet.Do.VALID) and not Params.SKIP_INDUCTION:

@@ -20,8 +20,8 @@ def customSolutionAssign():
 
     # Consider solid phases when calculating thermodynamic properties
     CustomSolutionParams.SOLID_PHASES = True
-    # Only valid if SOLID_PHASES is True. Specify the Solid Phases to consider - specifying only primary phases can speed up runtime. None considers all possible phases available in database
-    CustomSolutionParams.SOLID_PHASES_TO_CONSIDER = ['Carbonates', 'Sulfates'] # Can specify minerals specifically, or add keywords that include 'Carbonates', 'Sulfates'
+    # Only valid if SOLID_PHASES is True. Specify the Solid Phases to consider - specifying only primary phases can speed up runtime. 'All' considers all possible phases available in database
+    CustomSolutionParams.SOLID_PHASES_TO_CONSIDER = ['Carbonates', 'Sulfates'] # Can specify minerals specifically, or add keywords that include 'Carbonates', 'Sulfates' that are defined in Constants.py
 
     # Have PlanetProfile remove species that Frezchem does not have in database so we can consider more diverse speciated compositions in the ocean thermodynamcis
     # This removes self-consistency between the phase equilibria (up to 200MPa) and ocean thermodynamics since frezchem is calculating liquid-IceI equilibria of a less speciated chemistry

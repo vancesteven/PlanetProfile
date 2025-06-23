@@ -27,7 +27,7 @@ Planet.Steps.nPoros = 15
 Planet.Steps.iSilStart = Planet.Steps.nIceI
 
 """ Hydrosphere assumptions/settings """
-Planet.Ocean.comp = "CustomSolutionEnceladusSeawater = Cl-: 0.1885882, Na+: 0.1620199, Mg+2: 0.0182474, Ca+2: 0.0035523, K+: 0.0035266, SO4-2: 0.0097548"
+Planet.Ocean.comp = "CustomSolutionSeawater = Cl-: 0.1885882, Na+: 0.1620199, Mg+2: 0.0182474, Ca+2: 0.0035523, K+: 0.0035266, SO4-2: 0.0097548"
 Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt / 3
 Planet.Ocean.deltaP = 0.1
 Planet.Ocean.PHydroMax_MPa = 25.0
