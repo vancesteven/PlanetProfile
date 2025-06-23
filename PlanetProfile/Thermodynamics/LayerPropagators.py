@@ -545,17 +545,32 @@ def OceanLayers(Planet, Params):
         
         # If we are not allowing liquid layers in the ocean, we need to make sure the first layer is a high pressure ice
         if Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES:
-            # Check the initial phase of the first layer
-            Planet.phase[Planet.Steps.nSurfIce] = Planet.Ocean.EOS.fn_phase(POcean_MPa[0], TOcean_K[0]).astype(np.int_)
-            thisPhase = PhaseConv(Planet.phase[Planet.Steps.nSurfIce])
-            if Planet.phase[Planet.Steps.nSurfIce] == 0:
-                raise ValueError(f'The first calculated phase is a liquid layer. \n' +
+            initialPOcean_MPa = POcean_MPa[0]
+            thisPhase = Planet.Ocean.EOS.fn_phase(initialPOcean_MPa, TOcean_K[0]).astype(np.int_)
+            if thisPhase == 0:
+                log.warning(f'The first calculated phase is a liquid layer. \n' +
                                  f'When Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES is True, the layers below the initial ice propogation should be high pressure ices.\n' +
-                                 f'Try decreasing the input bottom temperature of {Planet.Tb_K} K.')
-            rhoOcean_kgm3[0] = Planet.Ocean.iceEOS[thisPhase].fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
-            CpOcean_JkgK[0] = Planet.Ocean.iceEOS[thisPhase].fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
-            alphaOcean_pK[0] = Planet.Ocean.iceEOS[thisPhase].fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
-            kThermOcean_WmK[0] = Planet.Ocean.iceEOS[thisPhase].fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
+                                 f' T will be set to be lower than the melting temp temporarily and P will be set slightly higher than the melting pressure to construct the first high pressure ice layer.')
+                # Increase P by deltaP temporarily so we can move into the next 'layer' of phase diagram
+                initialPOcean_MPa += Planet.Ocean.deltaP
+                # Get the freezing temperature and decrease by TfreezeOffset_K to ensure we stay within the high pressure phase diagram
+                TOcean_K[0] = GetTfreeze(Planet.Ocean.EOS, initialPOcean_MPa, TOcean_K[0], TRes_K=0) - Planet.Ocean.TfreezeOffset_K
+                thisPhase = Planet.Ocean.EOS.fn_phase(initialPOcean_MPa, TOcean_K[0]).astype(np.int_)
+                if thisPhase == 0:
+                    raise ValueError('Even after slightly increasing P and slightly decreasingT, the first phase is still a liquid. \n' +
+                                     f'Generating an ocean is not desired when Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES is True. \n' +
+                                     f'Please check your Planet.Bulk.Tb_K is set correctly for high pressure ices to form. Namely, try decreasing it further.')
+            Planet.phase[Planet.Steps.nSurfIce] = thisPhase
+            log.debug(f'il: {Planet.Steps.nSurfIce:d}; P_MPa: {POcean_MPa[0]:.3f}; ' +
+            f'T_K: {TOcean_K[0]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce]:d}')
+            thisPhaseName = PhaseConv(thisPhase)
+            rhoOcean_kgm3[0] = Planet.Ocean.iceEOS[thisPhaseName].fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
+            CpOcean_JkgK[0] = Planet.Ocean.iceEOS[thisPhaseName].fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
+            alphaOcean_pK[0] = Planet.Ocean.iceEOS[thisPhaseName].fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
+            kThermOcean_WmK[0] = Planet.Ocean.iceEOS[thisPhaseName].fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
+            # We use GetTfreeze here to propagate the next high pressure ice layer temperature
+            TOcean_K[1] = np.mean([GetTfreeze(Planet.Ocean.EOS, initialPOcean_MPa, TOcean_K[0], TRes_K=Planet.Ocean.TfreezeOffset_K) - Planet.Ocean.TfreezeOffset_K, TOcean_K[0]])
+            iStart = 1
         else:
             # Do initial ocean step separately in order to catch potential Melosh layer--
             # see Melosh et al. (2004): https://doi.org/10.1016/j.icarus.2003.11.026
@@ -568,55 +583,54 @@ def OceanLayers(Planet, Params):
             log.debug(f'il: {Planet.Steps.nSurfIce:d}; P_MPa: {POcean_MPa[0]:.3f}; ' +
                     f'T_K: {TOcean_K[0]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce]:d}')
 
-        if Planet.phase[Planet.Steps.nSurfIce] == 0 and alphaOcean_pK[0] < 0 and not Planet.Do.NO_MELOSH_LAYER:
-            log.info(f'Thermal expansivity alpha at the ice-ocean interface is negative. Modeling Melosh et al. conductive layer.')
-            # Layer should be thin, so we just use a fixed dT/dz value
-            dTdz = Planet.Ocean.QfromMantle_W / (4*np.pi * Planet.r_m[Planet.Steps.nSurfIce]**2) / kThermOcean_WmK[0]
-            i = 0
-            # Use a smaller pressure step to make sure we don't overshoot by a lot
-            deltaPMelosh = Planet.Ocean.deltaP / 100
-            # Initialize for while loop
-            alphaMelosh_pK = alphaOcean_pK[0] + 0
-            rhoMelosh_kgm3 = rhoOcean_kgm3[0] + 0
-            gMelosh_ms2 = Planet.g_ms2[Planet.Steps.nSurfIce] + 0
-            TMelosh_K = TOcean_K[0] + 0
-            deltaPtop = 0
-            zMelosh = 0
-            while alphaMelosh_pK < 0 and Planet.phase[Planet.Steps.nSurfIce+i] == 0:
-                dz = deltaPMelosh*1e6 / gMelosh_ms2 / rhoMelosh_kgm3
-                zMelosh += dz
-                deltaPtop += deltaPMelosh
-                thisP_MPa = deltaPtop + POcean_MPa[0]
-                # Model temperature as linear and conductive in this layer
-                TMelosh_K += dTdz * dz
+            if Planet.phase[Planet.Steps.nSurfIce] == 0 and alphaOcean_pK[0] < 0 and not Planet.Do.NO_MELOSH_LAYER:
+                log.info(f'Thermal expansivity alpha at the ice-ocean interface is negative. Modeling Melosh et al. conductive layer.')
+                # Layer should be thin, so we just use a fixed dT/dz value
+                dTdz = Planet.Ocean.QfromMantle_W / (4*np.pi * Planet.r_m[Planet.Steps.nSurfIce]**2) / kThermOcean_WmK[0]
+                i = 0
+                # Use a smaller pressure step to make sure we don't overshoot by a lot
+                deltaPMelosh = Planet.Ocean.deltaP / 100
+                # Initialize for while loop
+                alphaMelosh_pK = alphaOcean_pK[0] + 0
+                rhoMelosh_kgm3 = rhoOcean_kgm3[0] + 0
+                gMelosh_ms2 = Planet.g_ms2[Planet.Steps.nSurfIce] + 0
+                TMelosh_K = TOcean_K[0] + 0
+                deltaPtop = 0
+                zMelosh = 0
+                while alphaMelosh_pK < 0 and Planet.phase[Planet.Steps.nSurfIce+i] == 0:
+                    dz = deltaPMelosh*1e6 / gMelosh_ms2 / rhoMelosh_kgm3
+                    zMelosh += dz
+                    deltaPtop += deltaPMelosh
+                    thisP_MPa = deltaPtop + POcean_MPa[0]
+                    # Model temperature as linear and conductive in this layer
+                    TMelosh_K += dTdz * dz
 
-                rhoMelosh_kgm3 = Planet.Ocean.EOS.fn_rho_kgm3(thisP_MPa, TMelosh_K)
-                alphaMelosh_pK = Planet.Ocean.EOS.fn_alpha_pK(thisP_MPa, TMelosh_K)
+                    rhoMelosh_kgm3 = Planet.Ocean.EOS.fn_rho_kgm3(thisP_MPa, TMelosh_K)
+                    alphaMelosh_pK = Planet.Ocean.EOS.fn_alpha_pK(thisP_MPa, TMelosh_K)
 
-                if alphaMelosh_pK > 0 or deltaPtop >= (i+1)*Planet.Ocean.deltaP:
-                    i += 1
-                    POcean_MPa[i] = thisP_MPa + 0
-                    TOcean_K[i] = TMelosh_K + 0
-                    rhoOcean_kgm3[i] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[i], TOcean_K[i])
-                    CpOcean_JkgK[i] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
-                    alphaOcean_pK[i] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
-                    kThermOcean_WmK[i] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i])
-                    Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int_)
-                    log.debug(f'il: {Planet.Steps.nSurfIce+i:d}; P_MPa: {POcean_MPa[i]:.3f}; ' +
-                              f'T_K: {TOcean_K[i]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce+i]:d}')
-            iStart = i
-            # Reset pressure profile to use standard pressure step below Melosh layer bottom
-            POcean_MPa[i+1:] = np.linspace(POcean_MPa[i], POcean_MPa[-1], Planet.Steps.nOceanMax - i)[1:]
-            log.info(f'Melosh et al. layer complete, thickness {zMelosh:.1f} m.')
-
-        else:
-            if Planet.phase[Planet.Steps.nSurfIce] == 0 and Planet.Do.NO_MELOSH_LAYER and alphaOcean_pK[0] < 0:
-                log.debug('Melosh layer is present, but Do.NO_MELOSH_LAYER is True. alpha_pK will be set to zero here.')
-                alphaOcean_pK[0] = 0
-            # Now use the present layer's properties to calculate an adiabatic thermal profile for layers below
-            TOcean_K[1] = TOcean_K[0] + alphaOcean_pK[0] * TOcean_K[0] / \
-                              CpOcean_JkgK[0] / rhoOcean_kgm3[0] * Planet.Ocean.deltaP*1e6
-            iStart = 1
+                    if alphaMelosh_pK > 0 or deltaPtop >= (i+1)*Planet.Ocean.deltaP:
+                        i += 1
+                        POcean_MPa[i] = thisP_MPa + 0
+                        TOcean_K[i] = TMelosh_K + 0
+                        rhoOcean_kgm3[i] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[i], TOcean_K[i])
+                        CpOcean_JkgK[i] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
+                        alphaOcean_pK[i] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
+                        kThermOcean_WmK[i] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i])
+                        Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int_)
+                        log.debug(f'il: {Planet.Steps.nSurfIce+i:d}; P_MPa: {POcean_MPa[i]:.3f}; ' +
+                                f'T_K: {TOcean_K[i]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce+i]:d}')
+                iStart = i
+                # Reset pressure profile to use standard pressure step below Melosh layer bottom
+                POcean_MPa[i+1:] = np.linspace(POcean_MPa[i], POcean_MPa[-1], Planet.Steps.nOceanMax - i)[1:]
+                log.info(f'Melosh et al. layer complete, thickness {zMelosh:.1f} m.')
+            else:
+                if Planet.Do.NO_MELOSH_LAYER and alphaOcean_pK[0] < 0:
+                    log.debug('Melosh layer is present, but Do.NO_MELOSH_LAYER is True. alpha_pK will be set to zero here.')
+                    alphaOcean_pK[0] = 0
+                # Now use the present layer's properties to calculate an adiabatic thermal profile for layers below
+                TOcean_K[1] = TOcean_K[0] + alphaOcean_pK[0] * TOcean_K[0] / \
+                                CpOcean_JkgK[0] / rhoOcean_kgm3[0] * Planet.Ocean.deltaP*1e6
+                iStart = 1
 
         for i in range(iStart, Planet.Steps.nOceanMax):
             Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int_)
