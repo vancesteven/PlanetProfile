@@ -45,6 +45,9 @@ def IceLayers(Planet, Params):
         Planet.phase[:Planet.Steps.nIbottom] = 1  # Ice Ih layers (some will be reassigned if Do.CLATHRATE = True)
         Planet.phase[Planet.Steps.nIbottom:Planet.Steps.nIIIbottom] = 3  # Ice III layers
         Planet.phase[Planet.Steps.nIIIbottom:Planet.Steps.nSurfIce] = 5  # Ice V layers
+        # Finally, we need to set up the logical array for ice convection layers (this will be default False and overriden if we do ice convection))
+        Planet.Steps.iConv = np.zeros(Planet.Steps.nSurfIce, dtype=bool)
+        
 
         # Get the pressure consistent with the bottom of the surface ice layer that is
         # consistent with the choice of Tb_K we suppose for this model
@@ -540,26 +543,30 @@ def OceanLayers(Planet, Params):
         if PHydroMax_MPa > Constants.PminHPices_MPa:
             GetOceanHPIceEOS(Planet, Params, PHPices_MPa, minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
         
-        # Check the initial phase of the first layer
-        Planet.phase[Planet.Steps.nSurfIce] = Planet.Ocean.EOS.fn_phase(POcean_MPa[0], TOcean_K[0]).astype(np.int_)
-        
         # If we are not allowing liquid layers in the ocean, we need to make sure the first layer is a high pressure ice
         if Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES:
+            # Check the initial phase of the first layer
+            thisPhase = Planet.Ocean.EOS.fn_phase(POcean_MPa[0], TOcean_K[0]).astype(np.int_)
+            Planet.phase[Planet.Steps.nSurfIce] = thisPhase
             if Planet.phase[Planet.Steps.nSurfIce] == 0:
                 raise ValueError(f'The first calculated phase is a liquid layer. \n' +
                                  f'When Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES is True, the layers below the initial ice propogation should be high pressure ices.\n' +
                                  f'Try decreasing the input bottom temperature of {Planet.Tb_K} K.')
-                
-        # Do initial ocean step separately in order to catch potential Melosh layer--
-        # see Melosh et al. (2004): https://doi.org/10.1016/j.icarus.2003.11.026
-        # insert no_ocean first layer as ice Ih if Planet.Do.NO_OCEAN is True
-        rhoOcean_kgm3[0] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
-        CpOcean_JkgK[0] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
-        alphaOcean_pK[0] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
-        kThermOcean_WmK[0] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
+            rhoOcean_kgm3[i] = Planet.Ocean.iceEOS[thisPhase].fn_rho_kgm3(POcean_MPa[i], TOcean_K[i])
+            CpOcean_JkgK[i] = Planet.Ocean.iceEOS[thisPhase].fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
+            alphaOcean_pK[i] = Planet.Ocean.iceEOS[thisPhase].fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
+            kThermOcean_WmK[i] = Planet.Ocean.iceEOS[thisPhase].fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i])
+        else:
+            # Do initial ocean step separately in order to catch potential Melosh layer--
+            # see Melosh et al. (2004): https://doi.org/10.1016/j.icarus.2003.11.026
+            # insert no_ocean first layer as ice Ih if Planet.Do.NO_OCEAN is True
+            rhoOcean_kgm3[0] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
+            CpOcean_JkgK[0] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
+            alphaOcean_pK[0] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
+            kThermOcean_WmK[0] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
 
-        log.debug(f'il: {Planet.Steps.nSurfIce:d}; P_MPa: {POcean_MPa[0]:.3f}; ' +
-                  f'T_K: {TOcean_K[0]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce]:d}')
+            log.debug(f'il: {Planet.Steps.nSurfIce:d}; P_MPa: {POcean_MPa[0]:.3f}; ' +
+                    f'T_K: {TOcean_K[0]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce]:d}')
 
         if Planet.phase[Planet.Steps.nSurfIce] == 0 and alphaOcean_pK[0] < 0 and not Planet.Do.NO_MELOSH_LAYER:
             log.info(f'Thermal expansivity alpha at the ice-ocean interface is negative. Modeling Melosh et al. conductive layer.')
