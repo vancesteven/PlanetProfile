@@ -95,6 +95,7 @@ class DoSubstruct:
         self.NO_DIFFERENTIATION = False  # Whether to model a completely undifferentiated body, with no ocean, with fixed mixing/porosity and pore melt possible
         self.DIFFERENTIATE_VOLATILES = False  # Whether to include an ice layer atop a partially differentiated body, with rock+ice mantle
         self.NO_OCEAN = False  # Tracks whether no ocean is present---this flag is set programmatically.
+        self.NO_OCEAN_EXCEPT_INNER_ICES = False # Whether to model oceanless worlds but calculate potential inner HP ices (if they exist) - relevant for large worlds
         self.ICEIh_THICKNESS = False  # Use the Ice Ih shell thickness parameter setting of a planet, calculating the associated bottom pressure and temperature
         self.HYDROSPHERE_THICKNESS = False # Specify hydrosphere thickness. Removes self-consistency with input CMR2 by instead matching CMR2 with best fit for input hydrosphere thickness.
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition

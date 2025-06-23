@@ -48,13 +48,7 @@ def IceLayers(Planet, Params):
 
         # Get the pressure consistent with the bottom of the surface ice layer that is
         # consistent with the choice of Tb_K we suppose for this model
-        if Planet.Do.NO_OCEAN:
-            Planet.PbI_MPa = 208.566 # just pure water for now
-            Planet.Bulk.Tb_K = 251.165
-            Planet.Pb_MPa = Planet.PbI_MPa
-            Planet.Steps.nOceanMax = 0
-        else:
-            Planet.PbI_MPa = GetPfreeze(Planet.Ocean.meltEOS, 1, Planet.Bulk.Tb_K,
+        Planet.PbI_MPa = GetPfreeze(Planet.Ocean.meltEOS, 1, Planet.Bulk.Tb_K,
                                         PLower_MPa=Planet.PfreezeLower_MPa, PUpper_MPa=Planet.PfreezeUpper_MPa,
                                         PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=(Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV),
                                         ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
@@ -510,8 +504,11 @@ def OceanLayers(Planet, Params):
         Assigns Planet attributes:
             phase, r_m, z_m, g_ms2, T_K, P_MPa, rho_kgm3, Cp_JkgK, alpha_pK, MLayer_kg
     """
-    if Planet.Do.VALID or (Planet.Do.NO_OCEAN and Planet.Bulk.Tb_K < Constants.triplePointT_K):
+    if Planet.Do.VALID and (not Planet.Do.NO_OCEAN or Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES):
         log.debug('Evaluating ocean layers.')
+        if Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES:
+            log.debug(f'Planet.Do.NO_OCEAN_EXCEPT_INNER_LAYERS is set to True. In this case, we will propogate the ocean layers function from the calculated bottom pressure of {Planet.Pb_MPa} MPa' +
+                      f' and input bottom temperature of {Planet.Bulk.Tb_K} to calculate high pressure ices. These input conditions should be such that no liquid layers will form, else we will raise an error.')
 
         # Confirm that we haven't made mistakes in phase assignment in IceLayers()
         # Note that this assignment is only temporary, as we re-check the phase of
@@ -542,26 +539,29 @@ def OceanLayers(Planet, Params):
             PHPices_MPa = POcean_MPa
         if PHydroMax_MPa > Constants.PminHPices_MPa:
             GetOceanHPIceEOS(Planet, Params, PHPices_MPa, minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
-
+        
+        # Check the initial phase of the first layer
+        Planet.phase[Planet.Steps.nSurfIce] = Planet.Ocean.EOS.fn_phase(POcean_MPa[0], TOcean_K[0]).astype(np.int_)
+        
+        # If we are not allowing liquid layers in the ocean, we need to make sure the first layer is a high pressure ice
+        if Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES:
+            if Planet.phase[Planet.Steps.nSurfIce] == 0:
+                raise ValueError(f'The first calculated phase is a liquid layer. \n' +
+                                 f'When Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES is True, the layers below the initial ice propogation should be high pressure ices.\n' +
+                                 f'Try decreasing the input bottom temperature of {Planet.Tb_K} K.')
+                
         # Do initial ocean step separately in order to catch potential Melosh layer--
         # see Melosh et al. (2004): https://doi.org/10.1016/j.icarus.2003.11.026
         # insert no_ocean first layer as ice Ih if Planet.Do.NO_OCEAN is True
-        if Planet.Do.NO_OCEAN: # this introduces a bug because PlanetProfile
-            Planet.phase[Planet.Steps.nSurfIce] = 1
-            rhoOcean_kgm3[0] = Planet.Ocean.surfIceEOS['Ih'].fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
-            CpOcean_JkgK[0] = Planet.Ocean.surfIceEOS['Ih'].fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
-            alphaOcean_pK[0] = Planet.Ocean.surfIceEOS['Ih'].fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
-            kThermOcean_WmK[0] = Planet.Ocean.surfIceEOS['Ih'].fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
-        else:
-            rhoOcean_kgm3[0] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
-            CpOcean_JkgK[0] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
-            alphaOcean_pK[0] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
-            kThermOcean_WmK[0] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
+        rhoOcean_kgm3[0] = Planet.Ocean.EOS.fn_rho_kgm3(POcean_MPa[0], TOcean_K[0])
+        CpOcean_JkgK[0] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[0], TOcean_K[0])
+        alphaOcean_pK[0] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
+        kThermOcean_WmK[0] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
 
         log.debug(f'il: {Planet.Steps.nSurfIce:d}; P_MPa: {POcean_MPa[0]:.3f}; ' +
                   f'T_K: {TOcean_K[0]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce]:d}')
 
-        if alphaOcean_pK[0] < 0 and not Planet.Do.NO_MELOSH_LAYER:
+        if Planet.phase[Planet.Steps.nSurfIce] == 0 and alphaOcean_pK[0] < 0 and not Planet.Do.NO_MELOSH_LAYER:
             log.info(f'Thermal expansivity alpha at the ice-ocean interface is negative. Modeling Melosh et al. conductive layer.')
             # Layer should be thin, so we just use a fixed dT/dz value
             dTdz = Planet.Ocean.QfromMantle_W / (4*np.pi * Planet.r_m[Planet.Steps.nSurfIce]**2) / kThermOcean_WmK[0]
@@ -603,7 +603,7 @@ def OceanLayers(Planet, Params):
             log.info(f'Melosh et al. layer complete, thickness {zMelosh:.1f} m.')
 
         else:
-            if Planet.Do.NO_MELOSH_LAYER and alphaOcean_pK[0] < 0:
+            if Planet.phase[Planet.Steps.nSurfIce] == 0 and Planet.Do.NO_MELOSH_LAYER and alphaOcean_pK[0] < 0:
                 log.debug('Melosh layer is present, but Do.NO_MELOSH_LAYER is True. alpha_pK will be set to zero here.')
                 alphaOcean_pK[0] = 0
             # Now use the present layer's properties to calculate an adiabatic thermal profile for layers below
@@ -613,7 +613,7 @@ def OceanLayers(Planet, Params):
 
         for i in range(iStart, Planet.Steps.nOceanMax):
             Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int_)
-            if i < 4 and Planet.phase[Planet.Steps.nSurfIce+i] != 0 and not Planet.Do.NO_OCEAN:
+            if not Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES and i < 4 and Planet.phase[Planet.Steps.nSurfIce+i] != 0:
                 log.debug(f'Top ocean layers (i={i}) are not liquid. This will cause indexing problems. ' +
                           'T will be set to exceed the melting temp temporarily to construct at least 4 ocean layers.')
                 Planet.THIN_OCEAN = True
