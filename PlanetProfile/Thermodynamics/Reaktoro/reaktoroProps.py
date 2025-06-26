@@ -428,6 +428,7 @@ class EOSLookupTableLoader():
                 log.debug(
                     f'Failed to find freezing temperature at pressure {P} MPa when generating phase data from Frezchem. Will extrapolate this value.')
                 freezing_temperatures.append(np.nan)
+                state = initial_state.clone()
         freezing_temperatures = np.array(freezing_temperatures)
         # Make interpolator for values that could converge
         P_MPa_calculated = P_MPa[~np.isnan(freezing_temperatures)]
@@ -527,14 +528,14 @@ class EOSLookupTableLoader():
                 conditions.temperature(T, "K")
                 # Solve the equilibrium problem
                 result = solver.solve(state, conditions)
-                # Update the properties
-                props.update(state)
                 # Check if the equilibrium problem failed from this warm start approach
                 if not result.succeeded():
                     # Cold restart the state and try again
                     state = initial_state.clone()
                     result = solver.solve(state, conditions)
                 if result.succeeded():
+                    # Update the properties
+                    props.update(state)
                     # If it did succeed, obtain the relevant aqueous only phase props
                     aqueous_props = props.phaseProps("AqueousPhase")
                     # Obtain the thermodynamic properties of the aqueous phase
@@ -573,7 +574,7 @@ class EOSLookupTableLoader():
                     # Log to the user that the computation was unsuccessful and that missed value will be extrapolated
                     log.debug(
                         f"Unsuccessful computation at: {props.pressure() / 1e+6} MPa and {props.temperature()} K.\n"
-                        f"The temperature and pressure may be out of bounds, thus we will linearly extrapolate this value from previous ones using a 2d interopolation")
+                        f"The temperature and pressure may be out of bounds, thus we will linearly extrapolate this value from previous ones using a 1d interopolation")
                     # Reset the state
                     state = initial_state.clone()
                     # Append zeros, which will be modified later
@@ -593,7 +594,7 @@ class EOSLookupTableLoader():
 
         # In the case that any properties could not be calculated, we must linearly interpolate these
         # THIS IS HIGHLY UNLIKELY SINCE WE HAVE FOUND CONSTRAINTS COMPATIBLE WITH RKT, BUT JUST IN CASE THIS IS IMPLEMENTED (has not been rigorously tested)
-        if np.sum(np.isnan(rho_kgm3)) > 0:
+        if np.sum(np.isnan(rho_kgm3) | np.isinf(rho_kgm3)) > 0:
             rho_kgm3, Cp_JKgK, alpha_pK, Vp_kms, mu_J_mol = interpolation_2d(P_MPa,
                                                                              [rho_kgm3, Cp_JKgK, alpha_pK, Vp_kms,
                                                                               mu_J_mol])
@@ -1417,11 +1418,12 @@ def temperature_constraint(T_K, System):
     """
     # Initialize the database
     db, system, state, conditions, solver, props = System
+    initial_state = state.clone()
     # Establish pressure constraint of 1bar
     conditions.pressure(1, "MPa")
     conditions.temperature(T_K, "K")
     # Solve the equilibrium problem
-    result = solver.solve(state, conditions)
+    result = solver.solve(initial_state, conditions)
     # Check if the equilibrium problem succeeded
     if result.succeeded():
         return 1
@@ -1444,11 +1446,12 @@ def pressure_constraint(P_MPa, System):
     rkt.Warnings.disable(906)
     # Initilialize the database
     db, system, state, conditions, solver, props = System
+    initial_state = state.clone()
     # Establish pressure constraint of 1bar
     conditions.pressure(P_MPa, "MPa")
     conditions.temperature(Constants.T0, "K")
     # Solve the equilibrium problem
-    result = solver.solve(state, conditions)
+    result = solver.solve(initial_state, conditions)
     # Check if the equilibrium problem succeeded
     if result.succeeded():
         return 1

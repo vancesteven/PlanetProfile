@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 25  # Integer number for config file version. Increment when new settings are added to the
+configPlotsVersion = 26  # Integer number for config file version. Increment when new settings are added to the
 # default config file.
 
 def plotAssign():
@@ -331,6 +331,7 @@ def plotAssign():
     FigMisc.TmaxHydro_K = None  # When set, maximum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use max of geotherm.
     FigMisc.PHASE_LABELS = True  # Whether to print phase labels on density plots
     FigLbl.TS_hydroLabels = 18  # Font size for hydrosphere phase labels in pt
+    FigMisc.SHOW_GEOTHERM = True # Whether to plot geotherm on PTplots
 
     # Wedge diagrams
     FigMisc.IONOSPHERE_IN_WEDGE = False  # Whether to include specified ionosphere in wedge diagram

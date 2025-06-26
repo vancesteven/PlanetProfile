@@ -312,24 +312,25 @@ def PlotHydroPhase(PlanetList, Params):
                     ax.text(T, P, 'liquid', ha='center', va='center', fontsize=FigLbl.hydroPhaseSize)
 
                     # Plot geotherm(s) on top of colormaps
-                    for eachPlanet in PlanetList:
-                        # Geotherm curve
-                        if np.size(PlanetList) > 1:
-                            thisColor = None
-                        else:
-                            thisColor = Color.geothermHydro
-                        if eachPlanet.Do.NO_DIFFERENTIATION or eachPlanet.Do.PARTIAL_DIFFERENTIATION:
-                            Pgeo = eachPlanet.P_MPa * FigLbl.PmultHydro
-                            Tgeo = eachPlanet.T_K
-                        else:
-                            Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
-                            Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
-                        ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm,
-                                color=thisColor, label=eachPlanet.label)
+                    if FigMisc.SHOW_GEOTHERM:
+                        for eachPlanet in PlanetList:
+                            # Geotherm curve
+                            if np.size(PlanetList) > 1:
+                                thisColor = None
+                            else:
+                                thisColor = Color.geothermHydro
+                            if eachPlanet.Do.NO_DIFFERENTIATION or eachPlanet.Do.PARTIAL_DIFFERENTIATION:
+                                Pgeo = eachPlanet.P_MPa * FigLbl.PmultHydro
+                                Tgeo = eachPlanet.T_K
+                            else:
+                                Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
+                                Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
+                            ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm,
+                                    color=thisColor, label=eachPlanet.label)
 
-                        if Params.LEGEND and np.size(PlanetList) > 1:
-                            handles, lbls = ax.get_legend_handles_labels()
-                            ax.legend(handles, lbls)
+                            if Params.LEGEND and np.size(PlanetList) > 1:
+                                handles, lbls = ax.get_legend_handles_labels()
+                                ax.legend(handles, lbls)
 
             else:
                 if Params.LEGEND:

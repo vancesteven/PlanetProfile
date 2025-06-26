@@ -265,13 +265,58 @@ def interpolation_2d(P_MPa, arrays):
         interpolated_array = np.copy(array)
         for col in range(array.shape[1]):
             column_data = array[:, col]
-            nan_mask = np.isnan(column_data)
-            if np.any(nan_mask):
-                x_known = P_MPa[~nan_mask]
-                y_known = column_data[~nan_mask]
-                spline = interpolate.make_interp_spline(x_known, y_known, k = 2)
-                interpolated_values = spline(P_MPa)
-                interpolated_array[:, col] = interpolated_values
+            # Create mask for both NaN and inf values - these are considered invalid data points
+            invalid_mask = np.isnan(column_data) | np.isinf(column_data)
+            if np.isinf(column_data).any():
+                log.warning("Inf values detected in column " + str(col) + " of array " + str(array))
+            
+            if np.any(invalid_mask):
+                # Step 1: Handle edge case filling - extend valid edge values to cover all invalid edge regions
+                # This prevents spline extrapolation which can cause numerical instability and -inf values
+                valid_indices = np.where(~invalid_mask)[0]
+                if len(valid_indices) > 0:
+                    # Fill ALL invalid values at the beginning (not just first position) with the first valid value
+                    # Example: [NaN, NaN, NaN, valid, ...] becomes [valid, valid, valid, valid, ...]
+                    first_valid_idx = valid_indices[0]
+                    if first_valid_idx > 0:
+                        column_data[:first_valid_idx] = column_data[first_valid_idx]
+                    
+                    # Fill ALL invalid values at the end (not just last position) with the last valid value
+                    # Example: [..., valid, NaN, NaN, NaN] becomes [..., valid, valid, valid, valid]
+                    last_valid_idx = valid_indices[-1]
+                    if last_valid_idx < len(column_data) - 1:
+                        column_data[last_valid_idx+1:] = column_data[last_valid_idx]
+                    
+                    # Step 2: Update invalid_mask after edge filling to identify remaining interior gaps
+                    invalid_mask = np.isnan(column_data) | np.isinf(column_data)
+                    
+                    # Step 3: Handle any remaining interior invalid values with spline interpolation
+                    # Now we have guaranteed valid edge values, so interpolation will be stable
+                    if np.any(invalid_mask):
+                        # Get updated valid points for interpolation
+                        valid_mask = ~invalid_mask
+                        x_known = P_MPa[valid_mask]  # Pressure values at valid data points
+                        y_known = column_data[valid_mask]  # Valid property values
+                        
+                        # Only interpolate if we have sufficient valid points for spline creation
+                        if len(x_known) >= 2:
+                            # Use linear interpolation (k=1) for robustness - more stable than cubic splines
+                            # Linear splines are less prone to oscillations and numerical instability
+                            spline_degree = min(1, len(x_known) - 1)
+                            spline = interpolate.make_interp_spline(x_known, y_known, k=spline_degree)
+                            # Only interpolate for the remaining invalid interior points
+                            invalid_indices = np.where(invalid_mask)[0]
+                            column_data[invalid_indices] = spline(P_MPa[invalid_indices])
+                    
+                    # Update the interpolated array with the processed column data
+                    interpolated_array[:, col] = column_data
+                else:
+                    # Fallback: If no valid data exists in this column, fill with zeros
+                    # This prevents propagation of invalid values through the calculation
+                    interpolated_array[:, col] = 0.0
+            else:
+                # No invalid values in this column - use original data as-is
+                interpolated_array[:, col] = column_data
         interpolated_arrays.append(interpolated_array)
     return tuple(interpolated_arrays)
 
