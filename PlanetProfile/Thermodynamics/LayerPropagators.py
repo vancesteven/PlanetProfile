@@ -1,4 +1,3 @@
-
 import numpy as np
 import logging
 from scipy.signal import savgol_filter
@@ -38,6 +37,8 @@ def IceLayers(Planet, Params):
                   'ice interior. The current implementation includes only variable mixing in an ' +
                   'entirely rock+ice body.')
     else:
+        if Planet.Do.ICEIh_THICKNESS:
+            Planet.Bulk.Tb_K = GetIceShellTFreeze(Planet, Params)
         Planet.Steps.nIbottom = Planet.Steps.nClath + Planet.Steps.nIceI
         Planet.Steps.nIIIbottom = Planet.Steps.nIbottom + Planet.Steps.nIceIIILitho
         Planet.Steps.nSurfIce = Planet.Steps.nIIIbottom + Planet.Steps.nIceVLitho
@@ -455,47 +456,107 @@ def IceVIUnderplate(Planet, Params):
 
 
 def iceShellTFreeze(T, Planet, Params, zb_approximate_km):
-    """Updates Planet.T_K and computes the difference in ice shell thickness."""
-    Planet = deepcopy(Planet)
-    Planet.Bulk.Tb_K = T  # Explicitly update the temperature
-    result = IceLayers(deepcopy(Planet), deepcopy(Params))
-    if result.PbI_MPa == 0.0:
-        raise ValueError('Error')
-    ansewr = zb_approximate_km - result.zb_km
-    return ansewr
-
-def GetIceShellTFreeze(Planet, Params, Tlower_K = 260, Tupper_K = 270, TFreezeRes_K = 0.01):
-    """Returns the temperature at which ice becomes water for a given ice shell thickness.
-
-    Assigns Planet attributes:
-        T_K
+    """Computes the difference between target and actual ice shell thickness for a given temperature.
+    
+    Args:
+        T: Temperature at ice-ocean boundary (K)
+        Planet: Planet object
+        Params: Parameters object
+        zb_approximate_km: Target ice shell thickness (km)
+        
+    Returns:
+        Difference between target and computed ice shell thickness (km)
+        
+    Raises:
+        ValueError: If ice computation fails (PbI_MPa == 0.0)
     """
-    # Store the reference ice shell thickness before calling GetZero
+    Planet_copy = deepcopy(Planet)
+    Params_copy = deepcopy(Params)
+    Planet_copy.Do.ICEIh_THICKNESS  = False
+    Planet_copy.Bulk.Tb_K = T
+    result = IceLayers(Planet_copy, Params_copy)
+    
+    if result.PbI_MPa == 0.0:
+        raise ValueError('Ice layer computation failed: PbI_MPa == 0.0')
+    
+    return zb_approximate_km - result.zb_km
+
+
+def GetIceShellTFreeze(Planet, Params):
+    """
+    Determines the temperature at which ice transitions to water for a given ice shell thickness.
+    
+    This function operates in two main stages:
+    1. It establishes a valid temperature bracket [T_lower, T_upper] where the
+       IceLayers computation can succeed. It starts by calculating freezing
+       temperatures at the boundaries of the pressure search range (PfreezeLower_MPa
+       and PfreezeUpper_MPa).
+    2. It uses a root-finding algorithm on the `iceShellTFreeze` helper function
+       to find the precise temperature (Tb_K) that results in the desired ice
+       shell thickness (Planet.Bulk.zb_approximate_km). It iteratively adjusts
+       the bracket if the initial range does not contain the solution.
+
+    Args:
+        Planet: Planet object containing ice shell properties.
+        Params: Parameters object.
+        
+    Returns:
+        float: Computed freezing temperature (K).
+        
+    Raises:
+        ValueError: If a valid temperature bracket for the root-finding cannot be established.
+    """
     zb_approximate_km = Planet.Bulk.zb_approximate_km
-    while True:
-        try:
-            # Attempt the function call
-            iceShellTFreeze(Tupper_K, Planet, Params, zb_approximate_km)
-            break  # Success: exit the loop
-        except Exception as e:
-            print(f"Error encountered: {e}")
-            Tupper_K -= 0.1  # Decrease Tupper_K
-            print(f"Retrying with Tupper_K = {Tupper_K}")
-    while True:
-        try:
-            # Attempt the function call
-            iceShellTFreeze(Tlower_K, Planet, Params, zb_approximate_km)
-            break  # Success: exit the loop
-        except Exception as e:
-            print(f"Error encountered: {e}")
-            Tlower_K += 0.5  # Decrease Tupper_K
-            print(f"Retrying with Tupper_K = {Tlower_K}")
+    
+    # Deepcopy Params once to avoid repeatedly copying it inside the solver loop.
+    Params_copy = deepcopy(Params)
 
-    T_freeze = GetZero(iceShellTFreeze, args=(Planet, Params, zb_approximate_km),
-                       bracket=[Tlower_K, Tupper_K], xtol = 0.01).root + TFreezeRes_K / 5
+    def iceShellTFreeze_solver(T, Planet_original):
+        """
+        Computes the difference between target and actual ice shell thickness for a given temperature.
+        This function is designed to be called by a root-finding solver.
+        """
+        # A deepcopy of the Planet object is necessary here because IceLayers modifies its state.
+        Planet_copy = deepcopy(Planet_original)
+        Planet_copy.Do.ICEIh_THICKNESS  = False
+        Planet_copy.Bulk.Tb_K = T
+        result = IceLayers(Planet_copy, Params_copy)
+        
+        if result.PbI_MPa == 0.0:
+            raise ValueError('Ice layer computation failed: PbI_MPa == 0.0')
+        
+        return zb_approximate_km - result.zb_km
 
-    Planet.Bulk.Tb_K = T_freeze
-    return Planet  # Apply correction factor if necessary
+    # Part 1: Establish a valid temperature bracket
+    try:
+        # Find the lower and upper temperature limits given the loewr and upper P freeze we specify
+        # Note we have to subtract the TfreezeRes_K from the upper limit to ensure we have a valid upper Tb_K (i.e. within the phase diagram we generate)
+        TupperLimit_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.PfreezeLower_MPa, Planet.TfreezeLower_K, TRes_K=-Planet.TfreezeRes_K)
+        TlowerLimit_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.PfreezeUpper_MPa, Planet.TfreezeLower_K, TRes_K=Planet.TfreezeRes_K)
+        log.debug(f"Established temperature bounds from phase diagram: [{TlowerLimit_K:.2f}, {TupperLimit_K:.2f}] K")
+    except Exception as e:
+        raise ValueError(f"Could not determine temperature bounds from phase diagram. Try suggestions here: {e}. Alternatively, try lowering Planet.TfreezeLower_K, which represents the lower limit of the temperature search.")
+
+    # Find the precise freezing temperature using root finding
+    try:
+        sol = GetZero(iceShellTFreeze_solver, 
+                      args=(Planet,),
+                      bracket=[TlowerLimit_K, TupperLimit_K], 
+                      xtol=Planet.TfreezeRes_K)
+        
+        T_freeze = sol.root
+        
+        log.debug(f"Computed ice shell freezing temperature: {T_freeze:.3f} K after {sol.function_calls} iterations.")
+        
+        return T_freeze
+        
+    except Exception as e:
+        msg = ''
+        if Planet.TfreezeLower_K < TlowerLimit_K + Planet.TfreezeRes_K:
+            msg += 'Try increasing Planet.PfreezeUpper_MPa.'
+        else:
+            msg += 'Try decreasing Planet.TfreezeLower_K.'
+        raise ValueError(f"Root finding for corresponding Tb_K to achieve a given zb_approximate_km failed for temperature bracket [{TlowerLimit_K:.2f}, {TupperLimit_K:.2f}] K. {msg}")
 
 
 

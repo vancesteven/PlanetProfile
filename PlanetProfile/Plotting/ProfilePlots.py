@@ -1177,7 +1177,8 @@ def PlotExploreOgram(ExplorationList, Params):
 
     # Plot combination
     if Params.COMPARE and np.size(ExplorationList) > 1:
-        fig = plt.figure(figsize=FigSize.vexplore)
+        Exploration = ExplorationList[0]
+        fig = plt.figure(figsize=FigSize.explore)
         grid = GridSpec(1, 1)
         ax = fig.add_subplot(grid[0, 0])
         if Style.GRIDS:
@@ -1191,33 +1192,50 @@ def PlotExploreOgram(ExplorationList, Params):
         ax.set_xscale(FigLbl.xScaleExplore)
         ax.set_yscale(FigLbl.yScaleExplore)
 
-        x = Exploration.__getattribute__(Exploration.xName)
-        if np.issubdtype(x.dtype, np.number):
-            x = x * FigLbl.xMultExplore
+        # Initialize with first exploration's data
+        initial_x_values = Exploration.__getattribute__(Exploration.xName)
+        if np.issubdtype(initial_x_values.dtype, np.number):
+            x = initial_x_values * FigLbl.xMultExplore
         else:
-            x = np.zeros(x.shape)
+            x = np.zeros(initial_x_values.shape)
             # Loop over each row and assign the same increasing integer
-            for i in range(x.shape[0]):
+            for i in range(initial_x_values.shape[0]):
                 x[i, :] = i
-        y = Exploration.__getattribute__(Exploration.yName)
-        if np.issubdtype(y.dtype, np.number):
-            y = y * FigLbl.yMultExplore
+        initial_y_values = Exploration.__getattribute__(Exploration.yName)
+        if np.issubdtype(initial_y_values.dtype, np.number):
+            y = initial_y_values * FigLbl.yMultExplore
         else:
-            y = np.zeros(y.shape)
+            y = np.zeros(initial_y_values.shape)
             # Loop over each row and assign the same increasing integer
-            for i in range(y.shape[1]):
+            for i in range(initial_y_values.shape[1]):
                 y[:, i] = i
         z = Exploration.__getattribute__(Exploration.zName) * FigLbl.zMultExplore
         # Only keep data points for which a valid model was determined
         zShape = np.shape(z)
-        z = np.reshape(z, -1)
-        INVALID = np.logical_not(np.reshape(ExplorationList[0].VALID, -1))
+        z = np.reshape(z, -1).astype(np.float64)
+        INVALID = np.logical_not(np.reshape(Exploration.VALID, -1))
         z[INVALID] = np.nan
         # Return data to original organization
         z = np.reshape(z, zShape)
+        
         for Exploration in ExplorationList[1:]:
-            x = np.append(x, Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore if np.issubdtype(x.dtype, np.number) else np.repeat(np.arange(x.shape[0])[:, np.newaxis], x.shape[1], axis=1))
-            y = np.append(y, Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore if np.issubdtype(y.dtype, np.number) else np.repeat(np.arange(y.shape[1])[np.newaxis, :], y.shape[0], axis=0))
+            # Get new exploration data
+            x_values = Exploration.__getattribute__(Exploration.xName)
+            if np.issubdtype(x_values.dtype, np.number):
+                new_x = x_values * FigLbl.xMultExplore
+            else:
+                new_x = np.zeros(x_values.shape)
+                for i in range(x_values.shape[0]):
+                    new_x[i, :] = i
+                    
+            y_values = Exploration.__getattribute__(Exploration.yName)
+            if np.issubdtype(y_values.dtype, np.number):
+                new_y = y_values * FigLbl.yMultExplore
+            else:
+                new_y = np.zeros(y_values.shape)
+                for i in range(y_values.shape[1]):
+                    new_y[:, i] = i
+                    
             thisz = Exploration.__getattribute__(Exploration.zName) * FigLbl.zMultExplore
             # Only keep data points for which a valid model was determined
             zShape = np.shape(thisz)
@@ -1226,7 +1244,29 @@ def PlotExploreOgram(ExplorationList, Params):
             thisz[INVALID] = np.nan
             # Return data to original organization
             thisz = np.reshape(thisz, zShape)
-            z = np.append(z, thisz)
+            
+            # Determine concatenation axis based on which dimension matches
+            if new_x.shape[0] == x.shape[0] and (
+                (np.issubdtype(x_values.dtype, np.number) and np.allclose(x_values[:, 0], initial_x_values[:, 0], equal_nan=True)) or
+                (not np.issubdtype(x_values.dtype, np.number) and np.array_equal(x_values[:, 0], initial_x_values[:, 0]))
+            ):
+                # x arrays match, concatenate along y-axis (axis=0)
+                axis = 1
+            elif new_y.shape[1] == y.shape[1] and (
+                (np.issubdtype(y_values.dtype, np.number) and np.allclose(y_values[0, :], initial_y_values[0, :], equal_nan=True)) or
+                (not np.issubdtype(y_values.dtype, np.number) and np.array_equal(y_values[0, :], initial_y_values[0, :]))
+            ):
+                # y arrays match, concatenate along x-axis (axis=1)
+                axis = 0
+            else:
+                log.warning('The exploreogram comparison plot cannot be made because the x or y axes are not the same. Skipping the comparison plot.')
+                break
+            
+            # Concatenate arrays along determined axis
+            x = np.concatenate([x, new_x], axis=axis)
+            y = np.concatenate([y, new_y], axis=axis)
+            z = np.concatenate([z, thisz], axis=axis)
+            
         mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], rasterized=FigMisc.PT_RASTER)
         cont = ax.contour(x, y, z, colors='black')
         lbls = plt.clabel(cont, fmt=FigLbl.cfmt)
@@ -1259,6 +1299,9 @@ def PlotExploreOgramDsigma(ExplorationList, Params):
         FigLbl.StripLatex()
 
     for Exploration in (ex for ex in ExplorationList if not ex.NO_H2O):
+        Exploration.xName = 'D_km'
+        Exploration.yName = 'sigmaMean_Sm'
+        Exploration.zName = 'zb_km'
         fig = plt.figure(figsize=FigSize.explore)
         grid = GridSpec(1, 1)
         ax = fig.add_subplot(grid[0, 0])
@@ -1359,13 +1402,14 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
             x_line = x_line[sorted_idx]
             y_line = y_line[sorted_idx]
             if 'CustomSolution' in z_val:
-                z_label = z_val.split('=')[0]
+                z_label = z_val.split('=')[0].replace('CustomSolution', '')
             else:
                 z_label = z_val
             # Plot line for each z group
             ax.plot(x_line, y_line, color = thisColor, label=f'{z_label}', linewidth=2, zorder = 2)
-            # Add error bars
-            ax.errorbar(x_line, y_line, yerr=0.014  , fmt='none', color=thisColor, capsize=3)
+            # Add error bars if enabled
+            if FigMisc.SHOW_ERROR_BARS:
+                ax.errorbar(x_line, y_line, yerr=FigMisc.ERROR_BAR_MAGNITUDE, fmt='none', color=thisColor, capsize=3)
 
         # TODO Make these param options
         MANUAL_ICE_THICKNESS_COLORS = True
@@ -1389,7 +1433,14 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
         if np.size(x) > 0:
             ax.set_xlim([0, 0.16])
         if np.size(y) > 0:
-            ax.set_ylim([np.floor(np.min(y)*100)/100, np.ceil(np.max(y)*100)/100])
+            # Account for error bars when setting y limits
+            if FigMisc.SHOW_ERROR_BARS:
+                error_magnitude = FigMisc.ERROR_BAR_MAGNITUDE
+                y_min_with_error = np.min(y) - error_magnitude
+                y_max_with_error = np.max(y) + error_magnitude
+                ax.set_ylim([np.floor(y_min_with_error*100)/100, np.ceil(y_max_with_error*100)/100])
+            else:
+                ax.set_ylim([np.floor(np.min(y)*100)/100, np.ceil(np.max(y)*100)/100])
         if Params.LEGEND:
             ax.legend(title="Ocean Composition", fontsize=10, title_fontsize=12)
 

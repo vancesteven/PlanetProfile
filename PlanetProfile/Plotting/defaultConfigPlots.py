@@ -352,6 +352,8 @@ def plotAssign():
     FigMisc.nPhydro = 200  # Number of pressure points to evaluate/plot for PT property plots
     FigMisc.PminHydro_MPa = 0.1  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use min of geotherm.
     FigMisc.TminHydro_K = 240  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use min of geotherm.
+    FigMisc.TmaxHydro_K = 300
+    FigMisc.PmaxHydro_MPa = 200
     FigLbl.hydroPhaseSize = 14  # Font size of label for phase in phase diagram
     FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS'] # Properties to plot in PvT or IsoTherm plots. Options are - 'rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS'
     FigMisc.TtoPlot_K = [273, 278, 283, 288, 298, 305] # Temperatures to plot in isothermal configuration
@@ -428,7 +430,9 @@ def plotAssign():
     FigMisc.MARK_BEXC_MAX = True  # Whether to annotate excitation spectrum plots with label for highest peak
     FigLbl.peakLblSize = 14  # Font size in pt for highest-peak annotation
     FigMisc.Tmin_hr = None  # Cutoff period to limit range of Fourier space plots
-
+    # Explore-o-gram tidal love number plot
+    FigMisc.SHOW_ERROR_BARS = True # Whether to show error bars on plots
+    FigMisc.ERROR_BAR_MAGNITUDE = 0.014 # Magnitude of error bars to show on plots
     # Legends
     FigMisc.REFS_IN_LEGEND = True  # Hydrosphere plot: Whether to include reference profiles in legend
     FigMisc.wedgeLegendPos = 'center right'  # Wedge diagram: Where in axes added at right to place legend
@@ -455,7 +459,8 @@ def plotAssign():
     FigMisc.HF_HLINES = True  # Whether to print horizontal lines at head and foot of latex tables
     FigMisc.COMP_ROW = True  # Whether to force composition into a row instead of printing a separate summary table for each ocean comp
     FigMisc.BODY_NAME_ROW = True  # Whether to print a row with body name in bold in summary table
-
+    # Custom solution settings
+    FigMisc.CustomSolutionSingleCmap = True # Whether to use a single colormap for all custom solution plots - where each custom solution is a different color based on the colormap.
     # Contour labels
     FigMisc.cLabelSize = 10  # Font size in pt for contour labels
     FigMisc.cLabelPad = 5  # Padding in pt to set beside contour labels

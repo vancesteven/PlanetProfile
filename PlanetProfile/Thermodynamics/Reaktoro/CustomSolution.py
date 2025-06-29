@@ -1,5 +1,5 @@
 """ File for functions relevant to Custom Solution implementation into PlanetProfile"""
-from PlanetProfile.GetConfig import Color, Style
+from PlanetProfile.GetConfig import Color, Style, FigMisc
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import MolalConverter, wpptCalculator, SpeciesParser, EOSLookupTableLoader
 import numpy as np
 import logging
@@ -48,9 +48,22 @@ def SetupCustomSolutionPlotSettings(PlanetOceanArray, Params):
         # Here we need to add the Planets CustomSolution composition to some parameter dictionaries for plotting purposes, which we must do dynamically since input can be anything
         # Add wRef_ppts - namely, we will add the Planet.Ocean.wOcean_ppt and any wRef_ppt in CustomSolution
         if CustomSolutionOceanComp not in Color.cmapName:
-            Color.cmapName[CustomSolutionOceanComp] = Color.CustomSolutionCmapNames.pop(0)
-            Color.CustomSolutionCmapNames.append(Color.cmapName[CustomSolutionOceanComp])
-            Color.cmapBounds[CustomSolutionOceanComp] = Color.cmapBounds["CustomSolution"]
+            if FigMisc.CustomSolutionSingleCmap:
+                Color.cmapName[CustomSolutionOceanComp] = Color.CustomSolutionCmapNames[0]
+                
+                # Count existing CustomSolution comps in cmapName to determine bounds
+                custom_comps = [comp for comp in Color.cmapName.keys() if 'CustomSolution' in comp]
+                n_custom_comps = len(custom_comps)
+                
+                # Set cmapBounds based on number of CustomSolution comps
+                for i, comp in enumerate(custom_comps):
+                    lower_bound = i / n_custom_comps
+                    upper_bound = (i + 1) / n_custom_comps
+                    Color.cmapBounds[comp] = [lower_bound, upper_bound]
+            else:
+                Color.cmapName[CustomSolutionOceanComp] = Color.CustomSolutionCmapNames.pop(0)
+                Color.CustomSolutionCmapNames.append(Color.cmapName[CustomSolutionOceanComp])
+                Color.cmapBounds[CustomSolutionOceanComp] = Color.cmapBounds["CustomSolution"]
             Color.saturation[CustomSolutionOceanComp] = Color.saturation["CustomSolution"]
             Color.SetCmaps()
             Style.LS[CustomSolutionOceanComp] = Style.LS["CustomSolution"]

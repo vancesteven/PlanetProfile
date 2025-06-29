@@ -536,7 +536,7 @@ class PlanetStruct:
         self.PfreezeUpper_MPa = 230  # Upper boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeRes_MPa = 0.05  # Step size in pressure for GetPfreeze to use in searching for phase transition
         # Settings for GetTfreeze start, stop, and step size. Used when ice shell thickness is input.
-        self.TfreezeLower_K = 260 # Lower boundary for GetTFreeze to search for ice Ih phase transition
+        self.TfreezeLower_K = 240 # Lower boundary for GetTFreeze to search for ice Ih phase transition
         self.TfreezeUpper_K = 270 # Upper boundary for GetTFreeze to search for ice Ih phase transition
         self.TfreezeRes_K = 0.01 # Step size in temperature for GetTfreeze to use in searching for phase transition
 
@@ -689,7 +689,7 @@ class DataFilesSubstruct:
                 os.makedirs(self.inductPath)
             if not os.path.isdir(self.seisPath):
                 os.makedirs(self.seisPath)
-            if not EXPLORE and not os.path.isdir(self.fNameSeis):
+            if not os.path.isdir(self.fNameSeis):
                 os.makedirs(self.fNameSeis)
             if not os.path.isdir(self.gravityPath):
                 os.makedirs(self.gravityPath)

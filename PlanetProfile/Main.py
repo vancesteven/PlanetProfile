@@ -102,11 +102,13 @@ def run(bodyname=None, opt=None, fNames=None):
         if bodyname == '':
             raise ValueError('A single body must be specified for an ExploreOgram.')
         else:
-            Exploration, Params = ExploreOgram(bodyname, Params)
-        if not Params.SKIP_PLOTS:
-            Params = SetupCustomSolutionPlotSettings(Exploration.oceanComp, Params)
+            if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
+                PlanetGrid, Exploration, Params = ExploreOgram(bodyname, Params, RETURN_GRID=True, fNameOverride=fNames[0])
+            else:
+                Exploration, Params = ExploreOgram(bodyname, Params,fNameOverride = fNames[0])
+        if not Params.SKIP_PLOTS: 
             if Params.COMPARE:
-                exploreOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fNameExplore+'*.mat'))
+                exploreOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fName+'*.mat'))
                 Params.nModels = np.size(exploreOgramFiles)
                 ExplorationList = np.empty(Params.nModels, dtype=object)
                 ExplorationList[0] = deepcopy(Exploration)
@@ -118,20 +120,38 @@ def run(bodyname=None, opt=None, fNames=None):
                     ExplorationList[i+1] = ReloadExploreOgram(bodyname, Params, fNameOverride=reloadExplore)[0]
             else:
                 ExplorationList = [Exploration]
-            if isinstance(Params.Explore.zName, list):
-                figNames = Params.FigureFiles.explore + []
-                for zName, figName in zip(Params.Explore.zName, figNames):
+            PLOT_EXPLORATION = not (Params.Explore.nx == 1 or Params.Explore.ny == 1) # If either axis is of size 1, then we cannot plot 
+            # Setup CustomSolution plot settings
+            all_ocean_comps = []
+            for Exploration in ExplorationList:
+                all_ocean_comps.extend(np.array(Exploration.oceanComp).flatten())
+            Params = SetupCustomSolutionPlotSettings(np.array(all_ocean_comps), Params)
+            if PLOT_EXPLORATION:
+                if isinstance(Params.Explore.zName, list):
+                    figNames = Params.FigureFiles.explore + []
+                    for zName, figName in zip(Params.Explore.zName, figNames):
+                        for Exploration in ExplorationList:
+                            Exploration.zName = zName
+                        Params.FigureFiles.explore = figName
+                        PlotExploreOgram(ExplorationList, Params)
+                    Params.FigureFiles.explore = figNames
+                else:
                     for Exploration in ExplorationList:
-                        Exploration.zName = zName
-                    Params.FigureFiles.explore = figName
+                        Exploration.zName = Params.Explore.zName
                     PlotExploreOgram(ExplorationList, Params)
-                Params.FigureFiles.explore = figNames
-            else:
-                for Exploration in ExplorationList:
-                    Exploration.zName = Params.Explore.zName
-                PlotExploreOgram(ExplorationList, Params)
-            PlotExploreOgramDsigma(ExplorationList, Params)
-            PlotExploreOgramLoveComparison(ExplorationList, Params)
+                PlotExploreOgramDsigma(ExplorationList, Params)
+                PlotExploreOgramLoveComparison(ExplorationList, Params)
+            if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
+                # Get large-scale layer properties, which are needed for table outputs and some plots
+                CompareList = PlanetGrid.flatten()
+
+                comparePath = os.path.join(CompareList[0].bodyname, 'figures')
+                compareBase = f'{CompareList[0].name}Comparison'
+                
+                Params.FigureFiles = FigureFilesSubstruct(comparePath, compareBase, FigMisc.xtn)
+                GeneratePlots(CompareList, Params)
+
+            
     else:
         # Set timekeeping for recording elapsed times
         tMarks = np.empty(0)
@@ -217,8 +237,6 @@ def PlanetProfile(Planet, Params):
         # Initialize
         Planet, Params = SetupInit(Planet, Params)
         if (not Planet.Do.NO_H2O) and (not Planet.Do.NO_DIFFERENTIATION):
-            if Planet.Do.ICEIh_THICKNESS and not Planet.Do.NO_OCEAN:
-                Planet = GetIceShellTFreeze(Planet, Params, Planet.TfreezeLower_K, Planet.TfreezeUpper_K, Planet.TfreezeRes_K)
             Planet = IceLayers(Planet, Params)
             Planet = OceanLayers(Planet, Params)
         Planet = InnerLayers(Planet, Params)
@@ -298,6 +316,15 @@ def InteriorEtc(Planet, Params):
     Planet = SeismicCalcs(Planet, Params)
     Planet = ViscosityCalcs(Planet, Params)
     Planet = LiquidOceanPropsCalcs(Planet, Params)
+    
+    # Save data after modeling
+    if (not Params.NO_SAVEFILE) and Planet.Do.VALID and (not Params.INVERSION_IN_PROGRESS):
+        WriteProfile(Planet, Params)
+        if not Planet.Do.NO_OCEAN:
+            WriteLiquidOceanProps(Planet, Params)
+        if Params.CALC_SEISMIC and not Params.SKIP_INNER:
+            WriteSeismic(Planet, Params)
+            
     # Create a simplified reduced planet structure for magnetic induction and/or gravity calculations
     if Planet.Do.VALID:
         Planet, Params = GetReducedPlanetProfile(Planet, Params)
@@ -1129,6 +1156,7 @@ def ParPlanetExplore(Planet, Params, xList, yList):
     """
     # Construct PlanetGrid to use for exploration
     PlanetGrid = np.empty((Params.Explore.nx, Params.Explore.ny), dtype=object)
+    Planet = deepcopy(Planet)
     nTot = Params.Explore.nx * Params.Explore.ny
     IND_SKIP_SAVE = Params.SKIP_INDUCTION and True
     k = 0
@@ -1147,13 +1175,6 @@ def ParPlanetExplore(Planet, Params, xList, yList):
                 Planet = AssignPlanetVal(Planet, Params.Explore.yName, yVal)
                 Planet.index = k
                 PlanetGrid[i,j] = deepcopy(Planet)
-                if Planet.Ocean.comp == 'Seawater':
-                    PlanetGrid[i, j].Ocean.wOcean_ppt = 35.1
-                elif Planet.Ocean.comp == 'MgSO4':
-                    PlanetGrid[i,j].Ocean.wOcean_ppt = 231
-                    PlanetGrid[i, j].TfreezeUpper_K = 267.5
-                elif Planet.Ocean.comp == 'PureH2O':
-                    PlanetGrid[i, j].Ocean.wOcean_ppt = 0
         log.info('PlanetGrid constructed. Calculating exploration responses.')
         Params.nModels = nTot
         Params.tStart_s = time.time()
@@ -1439,33 +1460,32 @@ def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
     return PlanetGrid
 
 
-def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
+def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnetic=None):
     """ Run PlanetProfile models over a variety of settings to get interior
         properties for each input.
     """
     if Params.CALC_NEW:
         log.info(f'Running {Params.Explore.xName} x {Params.Explore.yName} explore-o-gram for {bodyname}.')
-        if isinstance(bodyname, PlanetStruct):
-            Planet = bodyname
-            bodyname = Planet.bodyname
-            loadname = bodyname
+
+        if bodyname[:4] == 'Test':
+            loadname = bodyname + ''
+            bodyname = 'Test'
+            bodydir = os.path.join('PlanetProfile', 'Test')
         else:
-            if bodyname[:4] == 'Test':
-                loadname = bodyname + ''
-                bodyname = 'Test'
-                bodydir = os.path.join('PlanetProfile', 'Test')
-            else:
-                loadname = bodyname
-                bodydir = bodyname
+            loadname = bodyname
+            bodydir = bodyname
+        if fNameOverride is not None:
+            fName = fNameOverride
+        else:
             fName = f'PP{loadname}Explore.py'
-            expected = os.path.join(bodydir, fName)
-            if not os.path.isfile(expected):
-                default = os.path.join(_Defaults, bodydir, fName)
-                if os.path.isfile(default):
-                    CopyCarefully(default, expected)
-                else:
-                    log.warning(f'{expected} does not exist and no default was found at {default}.')
-            Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
+        expected = os.path.join(bodydir, fName)
+        if not os.path.isfile(expected):
+            default = os.path.join(_Defaults, bodydir, fName)
+            if os.path.isfile(default):
+                CopyCarefully(default, expected)
+            else:
+                log.warning(f'{expected} does not exist and no default was found at {default}.')
+        Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
 
@@ -1476,7 +1496,7 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
         Exploration.xName = Params.Explore.xName
         Exploration.yName = Params.Explore.yName
         Exploration.zName = Params.Explore.zName
-        Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Exploration.yName}',
+        Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}_{Exploration.yName}{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}',
                                                 figExploreAppend=Params.Explore.zName)
         if bodyname == 'Test':
             Params.Explore.nx = 5
@@ -1500,7 +1520,10 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
         Params.nModels = Params.Explore.nx * Params.Explore.ny
         if not Params.SKIP_INNER:
             log.warning('Running explore-o-gram with interior calculations, which will be slow.')
-        Params.NO_SAVEFILE = True
+        
+        if not Params.NO_SAVEFILE:
+            log.warning(f'Params.NO_SAVEFILE is False. Individual Planet runs will be saved. This can lead to large disk usage as each valid Planet run is saved to disk.')
+
         Params.ALLOW_BROKEN_MODELS = True
 
         tMarks = np.append(tMarks, time.time())
@@ -1583,10 +1606,34 @@ def ExploreOgram(bodyname, Params, RETURN_GRID=False, Magnetic=None):
         WriteExploreOgram(Exploration, Params)
     else:
         log.info(f'Reloading explore-o-gram for {bodyname}.')
-        Exploration, Params = ReloadExploreOgram(bodyname, Params)
-        PlanetGrid = None
         if RETURN_GRID:
-            log.warning(f'Reloaded ExploreOgram and RETURN_GRID is True. No PlanetGrid is available, None will be returned.')
+            Planet, Exploration, Params = ReloadExploreOgram(bodyname, Params, fNameOverride=fNameOverride, RETURN_PLANET = True)
+            PlanetGrid = np.empty((Params.Explore.nx, Params.Explore.ny), dtype=object)
+            
+            # Get the parameter arrays from the exploration object
+            x_attr = getattr(Exploration, Params.Explore.xName, None)
+            y_attr = getattr(Exploration, Params.Explore.yName, None)
+            valid_attr = getattr(Exploration, 'VALID', None)
+            
+            if x_attr is None or y_attr is None:
+                raise ValueError(f"Unable to find parameter {Params.Explore.xName} or {Params.Explore.yName} in Exploration object")
+            
+            # Populate PlanetGrid by setting values from exploration object
+            for i in range(Params.Explore.nx):
+                for j in range(Params.Explore.ny):
+                    # Create a copy of the base Planet for this grid position
+                    PlanetGrid[i,j] = deepcopy(Planet)
+                    # Set the x parameter value
+                    PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.xName, x_attr[i,j])
+                    # Set the y parameter value  
+                    PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.yName, y_attr[i,j])
+                    PlanetGrid[i,j].Do.VALID = valid_attr[i,j]
+            # Load the profiles for the valid models
+            for Planet in PlanetGrid.flatten():
+                if Planet.Do.VALID:
+                    Planet, _ = ReloadProfile(Planet, deepcopy(Params))
+        else:
+            Exploration, Params = ReloadExploreOgram(bodyname, Params, fNameOverride=fNameOverride)
 
     if RETURN_GRID:
         return PlanetGrid, Exploration, Params
@@ -1770,40 +1817,33 @@ def WriteExploreOgram(Exploration, Params, INVERSION=False):
     return
 
 
-def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False):
+def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False, RETURN_PLANET = False):
     """ Reload a previously run explore-o-gram from disk.
     """
-    if isinstance(bodyname, PlanetStruct):
-        Planet = bodyname
-        bodyname = bodyname.bodyname
-        loadname = bodyname
-        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
-                                                              exploreAppend=f'{Params.Explore.xName}{Params.Explore.yName}',
-                                                              figExploreAppend=Params.Explore.zName)
-        if INVERSION:
-            fName = Params.DataFiles.invertOgramFile
-        else:
-            fName = Params.DataFiles.exploreOgramFile
-        print(fName)
-        reload = loadmat(fName)
-    elif fNameOverride is None:
+    if fNameOverride is None:
         if bodyname[:4] == 'Test':
             loadname = bodyname + ''
             bodydir = _TestImport
         else:
             loadname = bodyname
             bodydir = bodyname
+            
         Planet = importlib.import_module(f'{bodydir}.PP{loadname}Explore').Planet
-        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
-                                                              exploreAppend=f'{Params.Explore.xName}{Params.Explore.yName}',
-                                                              figExploreAppend=Params.Explore.zName)
-        if INVERSION:
-            fName = Params.DataFiles.invertOgramFile
-        else:
-            fName = Params.DataFiles.exploreOgramFile
-        reload = loadmat(fName)
     else:
-        reload = loadmat(fNameOverride)
+        if '.mat' in fNameOverride:
+            reload = loadmat(fNameOverride)
+        else:
+            bodydir = bodyname
+            Planet = importlib.import_module(f'{bodydir}.{fNameOverride[:-3]}').Planet
+    
+    # Common setup for fnames that are not .mat already
+    if not (fNameOverride and '.mat' in fNameOverride):
+        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
+                                                              exploreAppend=f'{Params.Explore.xName}{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}_{Params.Explore.yName}{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}',
+                                                              figExploreAppend=Params.Explore.zName)
+        fName = Params.DataFiles.invertOgramFile if INVERSION else Params.DataFiles.exploreOgramFile
+        reload = loadmat(fName)
+            
 
     Exploration = ExplorationResults
     Exploration.bodyname = reload['bodyname'][0]

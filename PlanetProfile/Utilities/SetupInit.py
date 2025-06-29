@@ -485,13 +485,9 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
     # Account for differing ocean/pore composition here, since we need it for filenames
     # Use ocean composition and salinity if user has not specified different ones for pore space
     Planet.Do.PORE_EOS_DIFFERENT = False
-    if Planet.Sil.poreComp is None:
-        Planet.Sil.poreComp = Planet.Ocean.comp
-    elif Planet.Sil.poreComp != Planet.Ocean.comp:
+    if Planet.Sil.poreComp is not None and Planet.Sil.poreComp != Planet.Ocean.comp:
         Planet.Do.PORE_EOS_DIFFERENT = True
-    if Planet.Sil.wPore_ppt is None:
-        Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
-    elif Planet.Sil.wPore_ppt != Planet.Ocean.wOcean_ppt:
+    elif Planet.Sil.wPore_ppt is not None and Planet.Sil.wPore_ppt != Planet.Ocean.wOcean_ppt:
         Planet.Do.PORE_EOS_DIFFERENT = True
 
         
