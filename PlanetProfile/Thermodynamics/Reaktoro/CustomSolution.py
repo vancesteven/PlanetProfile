@@ -3,7 +3,7 @@ from PlanetProfile.GetConfig import Color, Style, FigMisc
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import MolalConverter, wpptCalculator, SpeciesParser, EOSLookupTableLoader
 import numpy as np
 import logging
-
+import re
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
@@ -45,6 +45,8 @@ def SetupCustomSolutionPlotSettings(PlanetOceanArray, Params):
 
     CustomSolutionOceanComps = [CustomOceanComp for CustomOceanComp in PlanetOceanArray.flatten() if 'CustomSolution' in CustomOceanComp]
     for CustomSolutionOceanComp in CustomSolutionOceanComps:
+        # Force native string since numpy strings can be problematic (i.e. '<str_, len() = 344>')
+        CustomSolutionOceanComp = str(CustomSolutionOceanComp)
         # Here we need to add the Planets CustomSolution composition to some parameter dictionaries for plotting purposes, which we must do dynamically since input can be anything
         # Add wRef_ppts - namely, we will add the Planet.Ocean.wOcean_ppt and any wRef_ppt in CustomSolution
         if CustomSolutionOceanComp not in Color.cmapName:
@@ -71,3 +73,14 @@ def SetupCustomSolutionPlotSettings(PlanetOceanArray, Params):
             Params.wRef_ppt[CustomSolutionOceanComp] = Params.wRef_ppt["CustomSolution"]
             Params.fNameRef[CustomSolutionOceanComp] = f'{CustomSolutionOceanComp}Ref.txt'
     return Params
+
+def strip_latex_formatting_from_CustomSolutionLabel(s):
+    # Remove $...$
+    s = re.sub(r'\$+', '', s)
+    # Remove \mathrm{...}
+    s = re.sub(r'\\mathrm\{(.*?)\}', r'\1', s)
+    # Remove other latex commands like \textbf{...}
+    s = re.sub(r'\\[a-zA-Z]+\{(.*?)\}', r'\1', s)
+    # Remove remaining braces
+    s = s.replace('{', '').replace('}', '')
+    return s

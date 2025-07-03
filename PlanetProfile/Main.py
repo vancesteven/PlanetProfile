@@ -144,6 +144,7 @@ def run(bodyname=None, opt=None, fNames=None):
             if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
                 # Get large-scale layer properties, which are needed for table outputs and some plots
                 CompareList = PlanetGrid.flatten()
+                CompareList, Params = GetLayerMeans(CompareList, Params)
 
                 comparePath = os.path.join(CompareList[0].bodyname, 'figures')
                 compareBase = f'{CompareList[0].name}Comparison'
@@ -730,7 +731,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     if 'CustomSolution' in Planet.Ocean.comp:
         # We save Planet.Ocean.comp in txt file in mols so change ReaktoroParams setting
         Params.CustomSolution.SPECIES_CONCENTRATION_UNIT = 'mol'
-        Params = SetupCustomSolutionPlotSettings(np.array(Planet.Ocean.comp), Params)
+        Params = SetupCustomSolutionPlotSettings(np.array([Planet.Ocean.comp]), Params)
     return Planet, Params
 
 
@@ -1631,7 +1632,7 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
             # Load the profiles for the valid models
             for Planet in PlanetGrid.flatten():
                 if Planet.Do.VALID:
-                    Planet, _ = ReloadProfile(Planet, deepcopy(Params))
+                    Planet, _ = ReloadProfile(Planet, Params)
         else:
             Exploration, Params = ReloadExploreOgram(bodyname, Params, fNameOverride=fNameOverride)
 
@@ -1910,8 +1911,10 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False, RE
         Exploration.chiSquared = reload['chiSquared']
         Exploration.stdDev = reload['stdDev']
         Exploration.Rsquared = reload['Rsquared']
-
-    return Exploration, Params
+    if RETURN_PLANET:
+        return Planet, Exploration, Params
+    else:
+        return Exploration, Params
 
 
 def LoadPPfiles(Params, fNames, bodyname=''):

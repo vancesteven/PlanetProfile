@@ -1504,6 +1504,7 @@ class FigLblStruct:
         self.viscTitle = r' viscosity'
         self.viscCompareTitle = r'Viscosity comparison'
         self.PvTtitleHydro = r' hydrosphere EOS properties with geotherm'
+        self.PvTtitleHydroComparison = r' hydrosphere EOS properties (\% difference)'
         self.isoThermPvTtitleHydro = r' hydrosphere EOS properties at constant temperatures'
         self.PvTtitleSil = r' silicate interior properties with geotherm'
         self.PvTtitleCore = r' silicate and core interior properties with geotherm'

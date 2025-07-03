@@ -9,7 +9,7 @@ from PlanetProfile import _ROOT
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigMisc
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS, GetTfreeze
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
-from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolution
+from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolution, strip_latex_formatting_from_CustomSolutionLabel
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathDissoc
 from PlanetProfile.Utilities.PPversion import ppVerNum, CheckCompat
 from PlanetProfile.Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
@@ -537,15 +537,19 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
         elif "CustomSolution" in Planet.Ocean.comp:
             # Get text to left of = sign
             CustomSolutionLabel = Planet.Ocean.comp.split('=')[0].strip()
+            # Get label for plotting
             setStr = CustomSolutionLabel.replace("CustomSolution", "")
+            # Strip latex formatting for save label
+            saveCustomSolutionLabel = strip_latex_formatting_from_CustomSolutionLabel(CustomSolutionLabel)
             comp = CustomSolutionLabel
             # In this case, we are using input speciation from user with no input w_ppt, so we will generate filenames without w_ppt
             if not Planet.Do.USE_WOCEAN_PPT:
-                saveLabel += f'{CustomSolutionLabel}_{saveLabelAppendage}'
-                label = f'{setStr}, {labelAppendage}'
+                saveLabel += f'{saveCustomSolutionLabel}_{saveLabelAppendage}'
+                #label = f'{setStr}, {labelAppendage}'
+                label = f'{setStr}'
                 Planet.compStr = f'{CustomSolutionLabel}'
             else:
-                saveLabel += f'{CustomSolutionLabel}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
+                saveLabel += f'{saveCustomSolutionLabel}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
                         f'_{saveLabelAppendage}'
                 label = f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
                         f'_{labelAppendage}'
@@ -588,8 +592,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
         saveLabel += f"_{formatted_datetime}"
     Planet.saveLabel = saveLabel
     Planet.tradeLabel = f'{label}, $C/MR^2\,{Planet.CMR2str}$'
-    if Planet.label is None:
-        Planet.label = label
+    Planet.label = label
     if Params.DO_INDUCTOGRAM:
         inductBase = f'{Planet.name}_{Params.Induct.inductOtype}'
         Params.Induct.SetFlabel(Planet.bodyname)

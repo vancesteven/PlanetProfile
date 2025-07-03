@@ -895,7 +895,7 @@ def PlotPvThydro(PlanetList, Params):
                 fig.suptitle(f'{FirstPlanet.compStr}{FigLbl.PvTtitleHydro}')
             else:
                 fig.suptitle(
-                    f'Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.PvTtitleHydro}')  # Now plot the data dynamically on the correct ax for each property
+                    f'Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.PvTtitleHydroComparison}')  # Now plot the data dynamically on the correct ax for each property
         for idx, prop in enumerate(props_to_plot):
             ax = prop.ax  # Get the axis for this property
             if SinglePlanetPlot:
@@ -920,11 +920,32 @@ def PlotPvThydro(PlanetList, Params):
                 abs_max = max(abs(np.nanmin(prop_data_to_plot)), abs(np.nanmax(prop_data_to_plot)))
                 if abs_max == 0:
                     abs_max = 1e-14
-                norm = TwoSlopeNorm(vmin = -abs_max, vcenter= 0, vmax = abs_max)
+                
+                # Calculate a more reasonable range using 95th percentile to avoid extreme outliers
+                valid_data = prop_data_to_plot[~np.isnan(prop_data_to_plot)]
+                if len(valid_data) > 0:
+                    data_95th = np.nanpercentile(np.abs(valid_data), 95)
+                    if prop.prop == 'alpha': # Alpha can sometimes show extremely high differences at borders, so we only use 95th percentile
+                        display_max = data_95th
+                    else:
+                        display_max = max(data_95th, abs_max * 0.1)  # Ensure at least 10% of full range
+                    data_min = np.nanmin(prop_data_to_plot)
+                    data_max = np.nanmax(prop_data_to_plot)
+                else:
+                    display_max = abs_max
+                    data_min = -abs_max
+                    data_max = abs_max
+                
+                norm = TwoSlopeNorm(vmin=-display_max, vcenter=0, vmax=display_max)
             pcolormesh = ax.pcolormesh(T_K, P_MPa * FigLbl.PmultHydro, prop_data_to_plot, cmap=cmap,
-                                       rasterized=FigMisc.PT_RASTER, norm = norm)
-            # Add colorbar
-            fig.colorbar(pcolormesh, ax=ax)
+                                       rasterized=FigMisc.PT_RASTER, norm=norm)
+            # Add colorbar with extend to indicate values beyond visible range
+            cbar = fig.colorbar(pcolormesh, ax=ax, extend='both')
+            # Display the actual data min and max in the colorbar label
+            cbar.ax.text(1.05, 1.05, f'Max: {data_max:.2e}', transform=cbar.ax.transAxes, 
+                        fontsize=8, verticalalignment='bottom')
+            cbar.ax.text(1.05, -0.05, f'Min: {data_min:.2e}', transform=cbar.ax.transAxes, 
+                        fontsize=8, verticalalignment='top')
             # Set labels, title, etc.
             ax.set_xlabel(FigLbl.Tlabel)
             ax.set_ylabel(FigLbl.PlabelHydro)

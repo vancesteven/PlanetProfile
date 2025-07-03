@@ -21,7 +21,7 @@ def GeneratePlots(PlanetList, Params):
         for Planet in PlanetList:
             Planet.label = FigLbl.StripLatexFromString(Planet.label)
     # Generate CustomSolution plot settings
-    if any('CustomSolution' in Planet.Ocean.comp for Planet in PlanetList ):
+    if any('CustomSolution' in Planet.Ocean.comp for Planet in PlanetList):
         Params = SetupCustomSolutionPlotSettings(np.array([Planet.Ocean.comp for Planet in PlanetList]), Params)
 
     # Handle refprofiles first, so we can print log messages before silencing them
@@ -231,6 +231,8 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     wMinMax_ppt = {}
     TminMax_K = {}
+    rhodots_kgm3 = np.empty(np.size(PlanetList))
+    conddots_Sm = np.empty(np.size(PlanetList))
     Tdots_K = np.empty(np.size(PlanetList))
     if FigMisc.SCALE_HYDRO_LW or FigMisc.MANUAL_HYDRO_COLORS:
         # Get min and max salinities and temps for each comp for scaling
@@ -264,9 +266,16 @@ def PlotHydrosphereProps(PlanetList, Params):
                 thisLW = Style.LW_std
             if FigMisc.PLOT_DENSITY_VERSUS_DEPTH:
                 # Plot density vs. depth for hydrosphere
-                axPrho.plot(Planet.rho_kgm3[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro] / 1e3,
+                density = axPrho.plot(Planet.rho_kgm3[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro] / 1e3,
                             label=legLbl, color=thisColor, linewidth=thisLW,
                             linestyle=Style.LS[Planet.Ocean.comp])
+                # Make a dot at the end of the thermal profile, if there's an ocean
+                if Planet.Steps.nHydro > 0:
+                    rhodots_kgm3[i] = np.max(Planet.rho_kgm3[:Planet.Steps.nHydro])
+                    axPrho.scatter(rhodots_kgm3[i],
+                                np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
+                                color=density[-1].get_color(), edgecolors=density[-1].get_color(),
+                                marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
             else:
                 # Plot density vs. pressure curve for hydrosphere
                 axPrho.plot(Planet.rho_kgm3[:Planet.Steps.nHydro],
@@ -302,9 +311,16 @@ def PlotHydrosphereProps(PlanetList, Params):
                         indsWet = np.sort(np.concatenate((indsIwet, indsII, indsIII, indsV, indsVI, indsClathWet)))
                         sigma_Sm[indsWet] = Planet.sigma_Sm[indsWet]
                     sigma_Sm[sigma_Sm < sigCutoff_Sm] = np.nan
-                    axsigz.plot(sigma_Sm, z_km,
+                    conductivity = axsigz.plot(sigma_Sm, z_km,
                                 color=thisColor, linewidth=thisLW,
                                 linestyle=Style.LS[Planet.Ocean.comp])
+                     # Make a dot at the end of the thermal profile, if there's an ocean
+                    if Planet.Steps.nHydro > 0:
+                        conddots_Sm[i] = np.nanmax(sigma_Sm)
+                        axsigz.scatter(conddots_Sm[i],
+                                    np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
+                                    color=conductivity[-1].get_color(), edgecolors=conductivity[-1].get_color(),
+                                    marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
 
                 if DO_SOUNDS:
                     # Plot sound speeds in ocean and ices vs. depth in hydrosphere
@@ -377,7 +393,7 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     if Params.LEGEND:
         handles, lbls = axPrho.get_legend_handles_labels()
-        axPrho.legend(handles, lbls, loc='lower left')
+        axPrho.legend(handles, lbls, loc='upper right')
 
     if DO_SIGS:
         axsigz.set_ylim(top=0)

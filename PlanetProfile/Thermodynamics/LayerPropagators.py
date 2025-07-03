@@ -535,7 +535,7 @@ def GetIceShellTFreeze(Planet, Params):
         TlowerLimit_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.PfreezeUpper_MPa, Planet.TfreezeLower_K, TRes_K=Planet.TfreezeRes_K)
         log.debug(f"Established temperature bounds from phase diagram: [{TlowerLimit_K:.2f}, {TupperLimit_K:.2f}] K")
     except Exception as e:
-        raise ValueError(f"Could not determine temperature bounds from phase diagram. Try suggestions here: {e}. Alternatively, try lowering Planet.TfreezeLower_K, which represents the lower limit of the temperature search.")
+        raise ValueError(f"Could not determine temperature bounds from phase diagram. Try lowering Planet.TfreezeLower_K, which represents the lower limit of the temperature search.")
 
     # Find the precise freezing temperature using root finding
     try:

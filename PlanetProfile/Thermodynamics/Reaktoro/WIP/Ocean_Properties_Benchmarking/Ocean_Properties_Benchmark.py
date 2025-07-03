@@ -19,75 +19,127 @@ os.chdir(os.path.dirname(os.path.abspath(__file__))) # Reset directory back to t
 from PlanetProfile.Utilities.defineStructs import PlanetStruct
 from PlanetProfile.Plotting.PTPlots import PlotPvThydro
 
+# Set default figure parameters
 FigMisc.PminHydro_MPa = 0.1
-FigMisc.PmaxHydro_MPa = 2000
+FigMisc.PmaxHydro_MPa = 200
 FigMisc.TminHydro_K = 240
-FigMisc.TmaxHydro_K = 300
+FigMisc.TmaxHydro_K = 350
 FigMisc.SHOW_GEOTHERM = False
 FigMisc.dpi = 600
-FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS']
-Params.FigureFiles.xtn = '.png'
-Params.TITLES = False
-
-"""
-Generate the Seafreeze and Reaktoro (corrected) Pure H2O Comparison
-"""
-Seafreeze_Pure_H2O_Planet = PlanetStruct('Test')
-Seafreeze_Pure_H2O_Planet.Ocean.comp = 'PureH2O'
-Seafreeze_Pure_H2O_Planet.saveLabel = 'PureH2O_Seafreeze'
-Reaktoro_Pure_H2O_Planet = PlanetStruct('Test')
-Reaktoro_Pure_H2O_Planet.Ocean.comp = "CustomSolutionPureH2O = H+: 1e-7, OH-: 1e-7"
-Reaktoro_Pure_H2O_Planet.saveLabel = 'PureH2O_Reaktoro'
-
-Pure_H2O_PlanetList = np.array([Reaktoro_Pure_H2O_Planet, Seafreeze_Pure_H2O_Planet])
-PlotPvThydro(Pure_H2O_PlanetList, Params)
-
-"""
-Generate the Seafreeze and Reaktoro (corrected) 1g NaCl Comparison
-"""
-Seafreeze_NaCl_Planet = PlanetStruct('Test')
-Seafreeze_NaCl_Planet.Ocean.comp = 'NaCl'
-Seafreeze_NaCl_Planet.saveLabel = '1g_NaCl_Seafreeze'
-Seafreeze_NaCl_Planet.Ocean.wOcean_ppt = 1
-Reaktoro_NaCl_Planet = PlanetStruct('Test')
-Reaktoro_NaCl_Planet.Ocean.comp = "CustomSolution1gNaCl = Na+: 0.01711, Cl-: 0.01711"
-Reaktoro_NaCl_Planet.Ocean.wOcean_ppt = 1
-Reaktoro_NaCl_Planet.saveLabel = '1g_NaCl_Reaktoro'
-Params.FigureFiles.vpvtHydro = 'vpvtHydro.png'
-OneGram_NaCl_PlanetList = np.array([Reaktoro_NaCl_Planet, Seafreeze_NaCl_Planet])
-PlotPvThydro([Seafreeze_NaCl_Planet], Params)
-PlotPvThydro(OneGram_NaCl_PlanetList, Params)
-
-Seafreeze_NaCl_Planet.Ocean.wOcean_ppt = 50
-Seafreeze_NaCl_Planet.saveLabel = '50g_NaCl_Seafreeze'
-Reaktoro_NaCl_Planet.Ocean.wOcean_ppt = 50
-Reaktoro_NaCl_Planet.saveLabel = '50g_NaCl_Reaktoro'
-
-
-FiftyGram_NaCl_PlanetList = np.array([Reaktoro_NaCl_Planet, Seafreeze_NaCl_Planet])
-PlotPvThydro(FiftyGram_NaCl_PlanetList, Params)
-
-Seafreeze_NaCl_Planet.Ocean.wOcean_ppt = 100
-Seafreeze_NaCl_Planet.saveLabel = '100g_NaCl_Seafreeze'
-Reaktoro_NaCl_Planet.Ocean.wOcean_ppt = 100
-Reaktoro_NaCl_Planet.saveLabel = '100g_NaCl_Reaktoro'
-
-
-HundredGram_NaCl_PlanetList = np.array([Reaktoro_NaCl_Planet, Seafreeze_NaCl_Planet])
-PlotPvThydro(HundredGram_NaCl_PlanetList, Params)
-
 FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS', 'sig']
+Params.FigureFiles.xtn = '.png'
+Params.TITLES = True
 
-Seawater_Planet = PlanetStruct('Test')
-Seawater_Planet.Ocean.comp = 'Seawater'
-Seawater_Planet.saveLabel = 'GSW_10ppt_Seawater'
-Seawater_Planet.Ocean.wOcean_ppt = 10
-Reaktoro_Seawater_Planet = PlanetStruct('Test')
-Reaktoro_Seawater_Planet.Ocean.comp = "CustomSolution10pptSeawater = Cl-: 0.5657647, Na+: 0.4860597, Mg+2: 0.0547421, Ca+2: 0.0106568, K+: 0.0105797, SO4-2: 0.0292643"
-Reaktoro_Seawater_Planet.Ocean.wOcean_ppt = 10
-Reaktoro_Seawater_Planet.saveLabel = 'Reaktoro_10ppt_Seawater'
 
-FigMisc.PmaxHydro_MPa = 200
+def benchmark_compositions(comp_str1, comp_str2, save_label1, save_label2, comp_str_1, comp_str_2, wOcean_ppt=None, 
+                          plot_individual=False):
+    """
+    Benchmark two compositions using PlotPvThydro.
+    
+    Parameters:
+    -----------
+    comp_str1, comp_str2 : str
+        Ocean composition strings for the two compositions to compare
+    save_label1, save_label2 : str
+        Save labels for the two compositions
+    comp_str_1, comp_str_2 : str
+        Composition strings specifically for the compStr attributes
+    wOcean_ppt : float, optional
+        Ocean salinity in parts per thousand. If None, defaults are used.
+    plot_individual : bool, optional
+        Whether to plot individual compositions before comparison (default: False)
+    
+    Returns:
+    --------
+    tuple
+        (planet1, planet2) - The two PlanetStruct objects created
+    """
+    
+    # Create planet structures
+    planet1 = PlanetStruct('Test')
+    planet1.Ocean.comp = comp_str1
+    planet1.saveLabel = save_label1
+    planet1.compStr = comp_str_1
+    
+    planet2 = PlanetStruct('Test')
+    planet2.Ocean.comp = comp_str2
+    planet2.saveLabel = save_label2
+    planet2.compStr = comp_str_2
+    
+    # Set ocean salinity if provided
+    if wOcean_ppt is not None:
+        planet1.Ocean.wOcean_ppt = wOcean_ppt
+        planet2.Ocean.wOcean_ppt = wOcean_ppt
+    
+    # Plot individual compositions if requested
+    if plot_individual:
+        PlotPvThydro([planet1], Params)
+        PlotPvThydro([planet2], Params)
+    
+    # Plot comparison
+    planet_list = np.array([planet1, planet2])
+    PlotPvThydro(planet_list, Params)
+    
+    return planet1, planet2
 
-TenPPT_Seawater_PlanetList = np.array([Reaktoro_Seawater_Planet, Seawater_Planet])
-PlotPvThydro(TenPPT_Seawater_PlanetList, Params)
+
+# ============================================================================
+# BENCHMARK COMPARISONS
+# ============================================================================
+
+print("Generating Pure H2O comparison...")
+benchmark_compositions(
+    comp_str1="CustomSolutionPureH2O = H+: 1e-7, OH-: 1e-7",
+    comp_str2='PureH2O',
+    save_label1='PureH2O_Reaktoro',
+    save_label2='PureH2O_Seafreeze',
+    comp_str_1="CustomSolutionPureH2O = H+: 1e-7, OH-: 1e-7",
+    comp_str_2='PureH2O',
+    wOcean_ppt=None
+)
+
+print("Generating 3.5ppt Seawater comparison...")
+benchmark_compositions(
+    comp_str1="CustomSolution3.5pptSeawater = Cl-: 0.5657647, Na+: 0.4860597, Mg+2: 0.0547421, Ca+2: 0.0106568, K+: 0.0105797, SO4-2: 0.0292643",
+    comp_str2='Seawater',
+    save_label1='CustomSolution_3.5ppt_Seawater',
+    save_label2='GSW_3.5ppt_Seawater',
+    comp_str_1="CustomSolutionSeawater",
+    comp_str_2='GSW Seawater at 3.5ppt',
+    wOcean_ppt=3.5
+)
+
+print("Generating 35.1ppt Seawater comparison...")
+benchmark_compositions(
+    comp_str1="CustomSolution35.1pptSeawater = Cl-: 0.5657647, Na+: 0.4860597, Mg+2: 0.0547421, Ca+2: 0.0106568, K+: 0.0105797, SO4-2: 0.0292643",
+    comp_str2='Seawater',
+    save_label1='CustomSolution_35.1ppt_Seawater',
+    save_label2='GSW_35.1ppt_Seawater',
+    comp_str_1="CustomSolutionSeawater",
+    comp_str_2='GSW Seawater at 35.1ppt',
+    wOcean_ppt=35.1
+)
+
+print("Generating 10ppt MgSO4 comparison...")
+benchmark_compositions(
+    comp_str1="CustomSolution10pptMgSO4 = Mg+2: 1, SO4-2: 1",
+    comp_str2='MgSO4',
+    save_label1='CustomSolution_10ppt_MgSO4',
+    save_label2='Vance_10ppt_MgSO4',
+    comp_str_1="CustomSolutionMgSO4",
+    comp_str_2='Vance(2018) MgSO4 at 10ppt',
+    wOcean_ppt=10
+)
+
+print("Generating 100ppt MgSO4 comparison...")
+benchmark_compositions(
+    comp_str1="CustomSolution100pptMgSO4 = Mg+2: 1, SO4-2: 1",
+    comp_str2='MgSO4',
+    save_label1='CustomSolution_100ppt_MgSO4',
+    save_label2='Vance_100ppt_MgSO4',
+    comp_str_1="CustomSolutionMgSO4",
+    comp_str_2='Vance(2018) MgSO4 at 100ppt',
+    wOcean_ppt=100
+)
+
+print("Benchmark generation complete!")
