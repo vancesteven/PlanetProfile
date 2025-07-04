@@ -54,7 +54,7 @@ def IceLayers(Planet, Params):
         # consistent with the choice of Tb_K we suppose for this model
         Planet.PbI_MPa = GetPfreeze(Planet.Ocean.meltEOS, 1, Planet.Bulk.Tb_K,
                                         PLower_MPa=Planet.PfreezeLower_MPa, PUpper_MPa=Planet.PfreezeUpper_MPa,
-                                        PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=(Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV),
+                                        PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=(Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV), HPNOOCEAN=Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES,
                                         ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
         if(Planet.Do.CLATHRATE and
                 (Planet.Bulk.clathType == 'bottom' or
@@ -95,7 +95,7 @@ def IceLayers(Planet, Params):
             if Planet.Do.BOTTOM_ICEV:
                 Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.meltEOS, 3, Planet.Bulk.TbIII_K,
                             PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
-                            PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=True,
+                            PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=True, HPNOOCEAN=False,
                             ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
                 if(Planet.PbIII_MPa <= Planet.PbI_MPa) or np.isnan(Planet.PbIII_MPa):
                     msg = 'Ice III bottom pressure is not greater than ice I bottom pressure. ' + \
@@ -117,7 +117,7 @@ def IceLayers(Planet, Params):
                 if not np.isnan(Planet.PbIII_MPa):
                     Planet.PbV_MPa = GetPfreeze(Planet.Ocean.meltEOS, 5, Planet.Bulk.TbV_K,
                                                     PLower_MPa=Planet.PbIII_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
-                                                    PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False,
+                                                    PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False, HPNOOCEAN=False,
                                                     ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS,
                                                     DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
                 else:
@@ -143,7 +143,7 @@ def IceLayers(Planet, Params):
             elif Planet.Do.BOTTOM_ICEIII:
                 Planet.PbIII_MPa = GetPfreeze(Planet.Ocean.meltEOS, 3, Planet.Bulk.TbIII_K,
                                                 PLower_MPa=Planet.PbI_MPa, PUpper_MPa=Planet.Ocean.PHydroMax_MPa,
-                                                PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False,
+                                                PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=False, HPNOOCEAN=False,
                                                 ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS,
                                                 DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
                 if(Planet.PbIII_MPa <= Planet.PbI_MPa) or np.isnan(Planet.PbIII_MPa):
@@ -607,8 +607,8 @@ def OceanLayers(Planet, Params):
         if Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES:
             initialPOcean_MPa = POcean_MPa[0]
             thisPhase = Planet.Ocean.EOS.fn_phase(initialPOcean_MPa, TOcean_K[0]).astype(np.int_)
-            if thisPhase == 0:
-                log.warning(f'The first calculated phase is a liquid layer. \n' +
+            if thisPhase < 2:
+                log.warning(f'The first calculated phase is not a high pressure ice layer. \n' +
                                  f'When Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES is True, the layers below the initial ice propogation should be high pressure ices.\n' +
                                  f' T will be set to be lower than the melting temp temporarily and P will be set slightly higher than the melting pressure to construct the first high pressure ice layer.')
                 # Increase P by deltaP temporarily so we can move into the next 'layer' of phase diagram

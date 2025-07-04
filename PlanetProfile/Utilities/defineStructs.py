@@ -2812,7 +2812,7 @@ class ConstantsStruct:
         self.PclosureUniform_MPa = 2e12  # Pore closure pressure value to use for uniform porosity
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
         self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0).
-        self.triplePointT_K = 251.18 # Triple point of water
+        self.triplePointT_K = 251.165 # Triple point of water
         self.m_gmol = {  # Molecular mass of common solutes and gases in g/mol. From https://pubchem.ncbi.nlm.nih.gov/ search
             'H2O': 18.015,
             'MgSO4': 120.37,

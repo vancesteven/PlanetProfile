@@ -35,6 +35,8 @@ Planet.Ocean.PHydroMax_MPa = 250.0
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.33e-12
 Planet.Sil.Htidal_Wm3 = 1e-10
+Planet.Sil.poreComp = Planet.Ocean.comp
+Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
 # Mantle equation of state model

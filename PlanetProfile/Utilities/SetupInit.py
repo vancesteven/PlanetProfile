@@ -245,6 +245,13 @@ def SetupInit(Planet, Params):
                                        scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                        phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
                                        sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+        if Planet.Ocean.EOS.deltaP != Planet.Ocean.deltaP:
+            log.debug(f'Updating Ocean.deltaP to match the more refined EOS.deltaP ({Planet.Ocean.EOS.deltaP}).')
+            Planet.Ocean.deltaP = Planet.Ocean.EOS.deltaP
+        if Planet.Ocean.EOS.deltaT != Planet.Ocean.deltaT:
+            log.debug(f'Updating Ocean.deltaT to match the more refined EOS.deltaT ({Planet.Ocean.EOS.deltaT}).')
+            Planet.Ocean.deltaT = Planet.Ocean.EOS.deltaT
+        
         # Get separate, simpler EOS for evaluating the melting curve
         if Planet.Do.ICEIh_THICKNESS:
             Tmelt_K = np.arange(Planet.TfreezeLower_K, Planet.TfreezeUpper_K, Planet.TfreezeRes_K)
@@ -316,6 +323,17 @@ def SetupInit(Planet, Params):
             Planet.Do.FIXED_POROSITY = True
         if Planet.Sil.phiRangeMult <= 1:
             raise ValueError(f'Sil.phiRangeMult = {Planet.Sil.phiRangeMult}, but it must be greater than 1.')
+        # Ensure we set pore comp to ocean comp if not specified as different
+        if Planet.Sil.poreComp is None:
+            Planet.Sil.poreComp = Planet.Ocean.comp
+            Planet.Do.PORE_EOS_DIFFERENT = False
+        else:
+            Planet.Do.PORE_EOS_DIFFERENT = True
+        if Planet.Sil.wPore_ppt is None:
+            Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
+            Planet.Do.PORE_EOS_DIFFERENT = False
+        else:
+            Planet.Do.PORE_EOS_DIFFERENT = True
     else:
         if (not Planet.Do.Fe_CORE) and (not Planet.Do.CONSTANT_INNER_DENSITY):
             raise RuntimeError('Matching the body MoI requires either a core or porosity in the rock.' +

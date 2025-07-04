@@ -38,6 +38,8 @@ Planet.Sil.Htidal_Wm3 = 3.38e-8
 
 # Rock porosity
 Planet.Do.POROUS_ROCK = True
+Planet.Sil.poreComp = Planet.Ocean.comp
+Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
 Planet.Sil.porosType = 'Han2014'
 Planet.Sil.HtidalMin_Wm3 = 1e-9  # Only needed for non-Han 2014 porosTypes
 Planet.Sil.phiRockMax_frac = 0.32

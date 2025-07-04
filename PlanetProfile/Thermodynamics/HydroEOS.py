@@ -792,24 +792,27 @@ class IceSeismic:
         return seaOut.Vp * 1e-3, seaOut.Vs * 1e-3,  seaOut.Ks * 1e-3, seaOut.shear * 1e-3
 
 
-def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0.1, PUpper_MPa=300, PRes_MPa=0.1, UNDERPLATE=None,
+def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0.1, PUpper_MPa=300, PRes_MPa=0.1, UNDERPLATE=None, HPNOOCEAN = None,
                ALLOW_BROKEN_MODELS=False, DO_EXPLOREOGRAM=False):
     """ Returns the pressure at which ice changes phase based on temperature, salinity, and composition
 
         Args:
             oceanEOS (OceanEOSStruct): Interpolator functions for evaluating the ocean EOS
             Tb_K (float): Temperature of the phase transition in K
+            HPNOOCEAN (bool): Whether to find the pressure transition to high pressure ice (just like we do for underplating)
         Returns:
             Pfreeze_MPa (float): Pressure at the phase change interface consistent with Tb_K
     """
-    phaseChangeUnderplate = lambda P: 0.5 + (phaseTop - oceanEOS.fn_phase(P, Tb_K))
-    if UNDERPLATE is None:
+    phaseChangeUnderplateOrHPNoOcean = lambda P: 0.5 + (phaseTop - oceanEOS.fn_phase(P, Tb_K))
+    if (UNDERPLATE or HPNOOCEAN) is None:
+        raise ValueError('UNDERPLATE or HPNOOCEAN is not set. Please set one of these to True or False.')
         TRY_BOTH = True
-        UNDERPLATE = True
+        UNDERPLATEOrHPNOOCEAN = True
     else:
         TRY_BOTH = False
-    if UNDERPLATE:
-        phaseChange = phaseChangeUnderplate
+        UNDERPLATEOrHPNOOCEAN = UNDERPLATE or HPNOOCEAN
+    if UNDERPLATEOrHPNOOCEAN:
+        phaseChange = phaseChangeUnderplateOrHPNoOcean
     else:
         phaseChange = lambda P: 0.5 - (phaseTop - oceanEOS.fn_phase(P, Tb_K))
 
@@ -827,8 +830,8 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0.1, PUpper_MPa=300, PRes_MP
         try:
             Pfreeze_MPa = GetZero(phaseChange, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa/5
         except ValueError:
-            if UNDERPLATE:
-                msg = f'Tb_K of {Tb_K:.3f} is not consistent with underplating ice III; ' + \
+            if UNDERPLATEOrHPNOOCEAN:
+                msg = f'Tb_K of {Tb_K:.3f} is not consistent with explicit underplating or automatic high pressure no ocean ice III; ' + \
                       f'the phases at the top and bottom of this range are ' + \
                       f'{PhaseConv(oceanEOS.fn_phase(PLower_MPa, Tb_K))} and ' + \
                       f'{PhaseConv(oceanEOS.fn_phase(PUpper_MPa, Tb_K))}, respectively.'
@@ -842,7 +845,7 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0.1, PUpper_MPa=300, PRes_MP
                     raise ValueError(msg)
             elif TRY_BOTH:
                 try:
-                    Pfreeze_MPa = GetZero(phaseChangeUnderplate, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa / 5
+                    Pfreeze_MPa = GetZero(phaseChangeUnderplateOrHPNoOcean, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa / 5
                 except ValueError:
                     msg = f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' + \
                           f'for ice {PhaseConv(phaseTop)}. Increase PUpper_MPa until one is found.'
@@ -856,7 +859,7 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0.1, PUpper_MPa=300, PRes_MP
                         raise ValueError(msg)
             else:
                 msg = f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' + \
-                      f'for ice {PhaseConv(phaseTop)} and UNDERPLATE is explicitly set to False.'
+                      f'for ice {PhaseConv(phaseTop)} and with explicit underplating and automatic high pressure is explicitly set to False.'
                 if DO_EXPLOREOGRAM:
                     log.info(msg)
                 else:

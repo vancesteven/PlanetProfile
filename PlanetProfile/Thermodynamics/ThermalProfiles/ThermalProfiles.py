@@ -81,7 +81,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
                          'throughout the ice shell.'
         log.warning(f'Convecting temperature of {iceType} exceeds a phase transition. ' + suggestion)
         oldPmid_MPa = Pmid_MPa + 0.0
-        Pmid_MPa = GetPfreeze(oceanEOS, phaseMid, Tconv_K, UNDERPLATE=False)
+        Pmid_MPa = GetPfreeze(oceanEOS, phaseMid, Tconv_K, UNDERPLATE=False, HPNOOCEAN=False)
         log.warning(f'Pmid_MPa has been adjusted upward from {oldPmid_MPa} to {Pmid_MPa} to compensate.')
 
     # Get melting temperature for calculating viscosity relative to this temp
