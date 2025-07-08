@@ -25,6 +25,9 @@ class InductionStruct:
         self.R_m = None  # Body radius in m, used to scale amplitudes.
         self.rBds_m = None  # Conducting layer upper boundaries in m.
         self.sigmaLayers_Sm = None  # Conductivities below each boundary in S/m.
+        self.zb_approximate_km = None  # Upper approximate ice shell thickness in km.
+        self.oceanComp = None  # Ocean compositions
+        
 
         self.x = None  # Variable to plot on x axis of inductogram plots
         self.y = None  # Variable to plot on y axis of inductogram plots
@@ -45,6 +48,8 @@ class InductionStruct:
                 self.y = self.rhoSilMean_kgm3
             elif inductOtype == 'phi':
                 self.y = self.phiRockMax_frac
+            elif inductOtype == 'oceanComp':
+                self.y = self.oceanComp
             else:
                 raise ValueError(f'inductOtype {inductOtype} not recognized.')
 
@@ -161,7 +166,6 @@ class ExcitationsList:
 
 
 Excitations = ExcitationsList()
-InductionResults = InductionStruct()
 
 it = 'Europa'
 Excitations.Texc_hr['Test'] = Excitations.Texc_hr[it]

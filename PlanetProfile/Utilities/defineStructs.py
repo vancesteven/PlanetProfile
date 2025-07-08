@@ -882,6 +882,9 @@ class InductOgramParamsStruct:
         self.nTbPts = None  # Resolution for Tb values in ocean salinity/Tb plots
         self.TbMin = None
         self.TbMax = None
+        self.nZbPts = None  # Resolution for upper ice shell thickness in km
+        self.zbMin = None
+        self.zbMax = None
         self.nphiPts = None  # Resolution for phiRockMax values in ocean salinity/phiMax plots
         self.phiMin = None
         self.phiMax = None
@@ -1950,6 +1953,8 @@ class FigLblStruct:
         self.rhoSilMeanLabel = r'Rock density $\overline{\rho}_\mathrm{rock}$ ($\si{' + self.rhoUnits + '}$)'
         self.silPhiSeaLabel = r'Seafloor porosity $\phi_\mathrm{rock}$' + self.phiUnitsParen
         self.phiLabel = r'Porosity $\phi$' + self.phiUnitsParen
+        self.oceanCompLabel = r'Ocean composition'
+        self.zbApproximateLabel = r'Approximate ice shell thickness ($\si{km}$)'
         self.rxnAffinityLabel = r'Affinity ($\si{' + self.affinityUnits + '}$)'
         self.allOceanSpeciesLabel = r'All species ($\si{' + self.hydrosphereSpeciesUnits + '}$)'
         self.aqueousSpeciesLabel = r'Aqueous species ($\si{' + self.hydrosphereSpeciesUnits + '}$)'
@@ -1982,13 +1987,15 @@ class FigLblStruct:
             'sigma': self.sigLabel,
             'Tb': self.wLabel,
             'rho': self.wLabel,
-            'phi': self.wLabel
+            'phi': self.wLabel,
+            'oceanComp': self.oceanCompLabel
         }
         self.yLabelsInduct = {
             'sigma': self.Dlabel,
             'Tb': self.TbLabel,
             'rho': self.rhoSilLabel,
-            'phi': self.phiLabel
+            'phi': self.phiLabel,
+            'oceanComp': self.zbLabel
         }
 
         self.axisLabelsExplore = {
@@ -2933,4 +2940,3 @@ def ParentName(bodyname):
 
 Constants = ConstantsStruct()
 EOSlist = EOSlistStruct()
-ExplorationResults = ExplorationStruct()

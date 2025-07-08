@@ -20,7 +20,7 @@ from glob import glob as FilesMatchingPattern
 from PlanetProfile import _Defaults, _TestImport, CopyCarefully
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, GetBexc, Benm2absBexyz
-from PlanetProfile.MagneticInduction.Moments import InductionResults, Excitations as Mag
+from PlanetProfile.MagneticInduction.Moments import InductionStruct, Excitations as Mag
 from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram, PlotExploreOgramDsigma, PlotExploreOgramLoveComparison
 from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
     PlotInductOgramPhaseSpace
@@ -29,7 +29,7 @@ from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.OceanProps import LiquidOceanPropsCalcs, WriteLiquidOceanProps
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
 from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
-from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, EOSlist, ExplorationResults
+from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, EOSlist, ExplorationStruct
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 from PlanetProfile.Utilities.PPversion import ppVerNum
@@ -80,7 +80,7 @@ def run(bodyname=None, opt=None, fNames=None):
         if bodyname == '':
             raise ValueError('A single body must be specified for an InductOgram.')
         else:
-            Induction, Params = InductOgram(bodyname, Params)
+            Induction, Params = InductOgram(bodyname, Params, fNameOverride=fNames[0])
         if not Params.SKIP_PLOTS:
             Params = SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
             PlotInductOgram(Induction, Params)
@@ -781,7 +781,7 @@ def UpdateRun(Planet, Params, changes=None):
     return Planet, Params
 
 
-def InductOgram(bodyname, Params):
+def InductOgram(bodyname, Params, fNameOverride=None):
     """ Run PlanetProfile models over a variety of settings to get induction
         responses for each input. 
     """
@@ -798,8 +798,10 @@ def InductOgram(bodyname, Params):
             else:
                 loadname = bodyname
                 bodydir = bodyname
-
-            fName = f'PP{loadname}InductOgram.py'
+            if fNameOverride is not None:
+                fName = fNameOverride
+            else:
+                fName = f'PP{loadname}InductOgram.py'
             expected = os.path.join(bodydir, fName)
             if not os.path.isfile(expected):
                 default = os.path.join(_Defaults, bodydir, fName)
@@ -807,15 +809,16 @@ def InductOgram(bodyname, Params):
                     CopyCarefully(default, expected)
                 else:
                     log.warning(f'{expected} does not exist and no default was found at {default}.')
+
             Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
             Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
-            Induction = InductionResults
+            Induction = InductionStruct()
 
         else:
             # Re-use interior modeling, but recalculate the induced field.
             log.info(f'Reloading induct-o-gram type {Params.Induct.inductOtype} to recalculate induction. ' +
                      'Axis settings in configPPinduct will be ignored.')
-            Induction, Planet, Params = ReloadInductOgram(bodyname, Params)
+            Induction, Planet, Params = ReloadInductOgram(bodyname, Params, fNameOverride=fNameOverride)
 
         if Params.CALC_ASYM:
             # If we are doing asymmetry, limit to low-degree moments to compute in a reasonable time
@@ -867,7 +870,38 @@ def InductOgram(bodyname, Params):
                     Planet.index = k
                     k += 1
                     PlanetGrid[i,j] = deepcopy(Planet)
+        elif Params.Induct.inductOtype == 'oceanComp':
+            if Params.CALC_NEW:
+                zbApproximateList = np.linspace(Params.Induct.zbMin[bodyname], Params.Induct.zbMax[bodyname], Params.Induct.nZbPts)
+                oceanCompList = loadmat(Params.DataFiles.xRangeData)['Data'].flatten().tolist()
+            else:
+                zbApproximateList = Induction.zb_approximate_km[0,:]
+                oceanCompList = Induction.oceanComp[0,:]
 
+            Params.Induct.nOceanCompPts = np.size(oceanCompList)
+
+            Params.nModels = Params.Induct.nZbPts * Params.Induct.nOceanCompPts
+            PlanetGrid = np.empty((Params.Induct.nZbPts, Params.Induct.nOceanCompPts), dtype=object)
+
+            if Params.CALC_NEW:
+                for i, zbApproximate_km in enumerate(zbApproximateList):
+                    for j, oceanComp in enumerate(oceanCompList):
+                        Planet.zb_approximate_km = zbApproximate_km
+                        Planet.Ocean.comp = oceanComp
+                        Planet.index = k
+                        k += 1
+                        PlanetGrid[i,j] = deepcopy(Planet)
+            else:
+                for i, zbApproximate_km in enumerate(zbApproximateList):
+                    for j, oceanComp in enumerate(oceanCompList):
+                        Planet.zb_approximate_km = zbApproximate_km
+                        Planet.Ocean.comp = oceanComp
+                        if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
+                            Planet.Do.VALID = False
+                            Planet.invalidReason = 'Some conductivity layers invalid'
+                        Planet.index = k
+                        k += 1
+                        PlanetGrid[i,j] = deepcopy(Planet)
         else:
             if Params.CALC_NEW:
                 wList = np.logspace(Params.Induct.wMin[bodyname], Params.Induct.wMax[bodyname], Params.Induct.nwPts)
@@ -977,6 +1011,7 @@ def InductOgram(bodyname, Params):
                             Planet.index = k
                             k += 1
                             PlanetGrid[i,j] = deepcopy(Planet)
+                
 
             else:
                 raise ValueError(f'inductOtype {Params.Induct.inductOtype} behavior not defined.')
@@ -998,6 +1033,7 @@ def InductOgram(bodyname, Params):
             Induction.wOcean_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
             Induction.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
             Induction.oceanComp = np.char.rstrip(Induction.oceanComp)
+            Induction.zb_approximate_km = np.array([[Planeti.zb_approximate_km for Planeti in line] for line in PlanetGrid])
             Induction.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
             Induction.Tmean_K = np.array([[Planeti.Ocean.Tmean_K if Planeti.Ocean.Tmean_K is not None else np.nan for Planeti in line] for line in PlanetGrid])
             Induction.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 if Planeti.Sil.rhoMean_kgm3 is not None else np.nan for Planeti in line] for line in PlanetGrid])
@@ -1027,7 +1063,7 @@ def InductOgram(bodyname, Params):
 
     else:
         log.info(f'Reloading induct-o-gram type {Params.Induct.inductOtype}.')
-        Induction, _, Params = ReloadInductOgram(bodyname, Params)
+        Induction, _, Params = ReloadInductOgram(bodyname, Params, fNameOverride=fNameOverride)
 
     return Induction, Params
 
@@ -1059,7 +1095,8 @@ def WriteInductOgram(Induction, Params):
         'zb_km': Induction.zb_km,
         'R_m': Induction.R_m,
         'rBds_m': Induction.rBds_m,
-        'sigmaLayers_Sm': Induction.sigmaLayers_Sm
+        'sigmaLayers_Sm': Induction.sigmaLayers_Sm,
+        'zb_approximate_km': Induction.zb_approximate_km,
     }
     savemat(Params.DataFiles.inductOgramFile, saveDict)
     log.info(f'Saved induct-o-gram {Params.DataFiles.inductOgramFile} to disk.')
@@ -1083,14 +1120,28 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     if fNameOverride is None:
         loadFile = Params.DataFiles.inductOgramFile
     else:
+        if '.mat' in fNameOverride:
+            reload = loadmat(fNameOverride)
+        else:
+            bodydir = bodyname
+            Planet = importlib.import_module(f'{bodydir}.{fNameOverride[:-3]}').Planet
         loadFile = fNameOverride
+        # Common setup for fnames that are not .mat already
+    if not (fNameOverride and '.mat' in fNameOverride):
+        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
+                                                              exploreAppend=f'{Params.Explore.xName}{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}_{Params.Explore.yName}{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}',
+                                                              figExploreAppend=Params.Explore.zName)
+        loadFile = Params.DataFiles.inductOgramFile
+        
+        
     if os.path.isfile(loadFile):
         reload = loadmat(loadFile)
+        
     else:
         raise FileNotFoundError(f'Attempted to reload inductogram, but {loadFile} was not found. ' +
                                 'Re-run with Params.CALC_NEW_INDUCT = True in configPP.py.')
 
-    Induction = InductionResults
+    Induction = InductionStruct()
     Induction.bodyname = reload['bodyname'][0]
     Induction.yName = reload['yName'][0]
     Induction.Texc_hr = {key.strip(): value if np.isfinite(value) else None for key, value in zip(reload['Texc_hr_keys'], reload['Texc_hr_values'][0])}
@@ -1113,6 +1164,8 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     Induction.R_m = reload['R_m']
     Induction.rBds_m = reload['rBds_m']
     Induction.sigmaLayers_Sm = reload['sigmaLayers_Sm']
+    Induction.zb_approximate_km = reload['zb_approximate_km']
+    Induction.oceanComp = reload['oceanComp']
 
     Induction.SetAxes(Params.Induct.inductOtype)
     Induction.SetComps(Params.Induct.inductOtype)
@@ -1493,7 +1546,7 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
         if Magnetic is not None:
             Planet.Magnetic = Magnetic
 
-        Exploration = ExplorationResults
+        Exploration = ExplorationStruct()
         Exploration.xName = Params.Explore.xName
         Exploration.yName = Params.Explore.yName
         Exploration.zName = Params.Explore.zName
@@ -1699,8 +1752,6 @@ def AssignPlanetVal(Planet, name, val):
             Planet.Do.POROUS_ROCK = False
         else:
             Planet.Do.POROUS_ROCK = True
-        if Planet.Sil.porosType is None or Planet.Sil.porosType == 'none':
-            Planet.Sil.porosType = 'Han2014'
         Planet.Do.CONSTANT_INNER_DENSITY = False
     elif name == 'silPclosure_MPa':
         Planet.Sil.Pclosure_MPa = val
@@ -1736,6 +1787,15 @@ def AssignPlanetVal(Planet, name, val):
     else:
         log.warning(f'No defined behavior for Planet setting named "{name}". Returning unchanged.')
 
+    # Do some final checks to ensure we have set all variables correctly
+    if Planet.Do.POROUS_ROCK:
+        if Planet.Sil.poreComp is None:
+            Planet.Sil.poreComp = Planet.Ocean.comp
+        if Planet.Sil.wPore_ppt is None:
+            Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
+        if Planet.Sil.porosType is None or Planet.Sil.porosType == 'none':
+            Planet.Sil.porosType = 'Han2014'
+            
     return Planet
 
 
@@ -1846,7 +1906,7 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False, RE
         reload = loadmat(fName)
             
 
-    Exploration = ExplorationResults
+    Exploration = ExplorationStruct()
     Exploration.bodyname = reload['bodyname'][0]
     Exploration.NO_H2O = reload['NO_H2O'][0]
     Exploration.CMR2str = reload['CMR2str'][0]
