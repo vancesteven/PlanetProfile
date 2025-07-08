@@ -22,7 +22,7 @@ from PlanetProfile.Plotting.PTPlots import PlotPvThydro
 # Set default figure parameters
 FigMisc.PminHydro_MPa = 0.1
 FigMisc.PmaxHydro_MPa = 200
-FigMisc.TminHydro_K = 240
+FigMisc.TminHydro_K = 250
 FigMisc.TmaxHydro_K = 350
 FigMisc.SHOW_GEOTHERM = False
 FigMisc.dpi = 600

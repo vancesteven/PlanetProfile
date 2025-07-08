@@ -924,19 +924,35 @@ def PlotPvThydro(PlanetList, Params):
                 # Calculate a more reasonable range using 95th percentile to avoid extreme outliers
                 valid_data = prop_data_to_plot[~np.isnan(prop_data_to_plot)]
                 if len(valid_data) > 0:
-                    data_95th = np.nanpercentile(np.abs(valid_data), 95)
-                    if prop.prop == 'alpha': # Alpha can sometimes show extremely high differences at borders, so we only use 95th percentile
-                        display_max = data_95th
+                    # Use 95th percentile for both positive and negative values
+                    vmin_95th = np.nanpercentile(valid_data, 5)   # 5th percentile for lower bound
+                    vmax_95th = np.nanpercentile(valid_data, 95)  # 95th percentile for upper bound
+
+                    # Adjust vcenter based on whether data crosses zero
+                    if vmin_95th >= 0:
+                        # All positive data - center at middle of range
+                        vcenter = (vmin_95th + vmax_95th) / 2
+                    elif vmax_95th <= 0:
+                        # All negative data - center at middle of range
+                        vcenter = (vmin_95th + vmax_95th) / 2
                     else:
-                        display_max = max(data_95th, abs_max * 0.1)  # Ensure at least 10% of full range
+                        # Data crosses zero - keep center at 0
+                        vcenter = 0
+                        # Make range symmetric around zero for better visualization
+                        abs_display_max = max(abs(vmin_95th), abs(vmax_95th))
+                        vmin_95th = -abs_display_max
+                        vmax_95th = abs_display_max
+                    
                     data_min = np.nanmin(prop_data_to_plot)
                     data_max = np.nanmax(prop_data_to_plot)
                 else:
-                    display_max = abs_max
+                    vmin_95th = -abs_max
+                    vmax_95th = abs_max
+                    vcenter = 0
                     data_min = -abs_max
                     data_max = abs_max
                 
-                norm = TwoSlopeNorm(vmin=-display_max, vcenter=0, vmax=display_max)
+                norm = TwoSlopeNorm(vmin=-vmax_95th, vcenter=vcenter, vmax=vmax_95th)
             pcolormesh = ax.pcolormesh(T_K, P_MPa * FigLbl.PmultHydro, prop_data_to_plot, cmap=cmap,
                                        rasterized=FigMisc.PT_RASTER, norm=norm)
             # Add colorbar with extend to indicate values beyond visible range

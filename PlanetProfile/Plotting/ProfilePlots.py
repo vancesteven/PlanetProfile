@@ -1173,16 +1173,30 @@ def PlotExploreOgram(ExplorationList, Params):
         z[INVALID] = np.nan
         # Return data to original organization
         z = np.reshape(z, zShape)
-        mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], rasterized=FigMisc.PT_RASTER)
+        
+        # Calculate valid data range for colorbar
+        zValid = z[z == z]  # Exclude NaNs
+        if np.size(zValid) > 0:
+            vmin = np.min(zValid)
+            vmax = np.max(zValid)
+        else:
+            vmin = vmax = None
+            
+        mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], 
+                           vmin=vmin, vmax=vmax, rasterized=FigMisc.PT_RASTER)
         cont = ax.contour(x, y, z, colors='black')
         lbls = plt.clabel(cont, fmt=FigLbl.cfmt)
         cbar = fig.colorbar(mesh, ax=ax, format=FigLbl.cbarFmt)
         # Add the min and max values to the colorbar for reading convenience
         # We compare z values to z values to exclude nans from the max finding,
         # exploiting the fact that nan == nan is False.
-        zValid = z[z == z]
         if np.size(zValid) > 0:
-            new_ticks = np.insert(np.append(cbar.get_ticks(), np.max(zValid)), 0, np.min(zValid))
+            mesh.set_clim(vmin=vmin, vmax=vmax)
+            # Filter existing ticks to only include those within valid data range
+            existing_ticks = cbar.get_ticks()
+            valid_ticks = existing_ticks[(existing_ticks >= vmin) & (existing_ticks <= vmax)]
+            # Add min and max values to the filtered ticks
+            new_ticks = np.insert(np.append(valid_ticks, vmax), 0, vmin)
             cbar.set_ticks(np.unique(new_ticks))
         cbar.set_label(FigLbl.cbarLabelExplore, size=12)
 
@@ -1255,7 +1269,7 @@ def PlotExploreOgram(ExplorationList, Params):
             thisz = Exploration.__getattribute__(Exploration.zName) * FigLbl.zMultExplore
             # Only keep data points for which a valid model was determined
             zShape = np.shape(thisz)
-            thisz = np.reshape(thisz, -1)
+            thisz = np.reshape(thisz, -1).astype(np.float64)
             INVALID = np.logical_not(np.reshape(Exploration.VALID, -1))
             thisz[INVALID] = np.nan
             # Return data to original organization
@@ -1266,31 +1280,56 @@ def PlotExploreOgram(ExplorationList, Params):
                 (np.issubdtype(x_values.dtype, np.number) and np.allclose(x_values[:, 0], initial_x_values[:, 0], equal_nan=True)) or
                 (not np.issubdtype(x_values.dtype, np.number) and np.array_equal(x_values[:, 0], initial_x_values[:, 0]))
             ):
-                # x arrays match, concatenate along y-axis (axis=0)
-                axis = 1
+                # x arrays match, concatenate along y-axis (axis=1)
+                # Find insertion point to maintain monotonic order
+                y_existing = y[0, :]
+                y_new_start = new_y[0, 0]
+                insert_idx = np.searchsorted(y_existing, y_new_start)
+                # Insert new data at the appropriate position
+                x = np.concatenate([x[:, :insert_idx], new_x, x[:, insert_idx:]], axis=1)
+                y = np.concatenate([y[:, :insert_idx], new_y, y[:, insert_idx:]], axis=1)
+                z = np.concatenate([z[:, :insert_idx], thisz, z[:, insert_idx:]], axis=1)
             elif new_y.shape[1] == y.shape[1] and (
                 (np.issubdtype(y_values.dtype, np.number) and np.allclose(y_values[0, :], initial_y_values[0, :], equal_nan=True)) or
                 (not np.issubdtype(y_values.dtype, np.number) and np.array_equal(y_values[0, :], initial_y_values[0, :]))
             ):
-                # y arrays match, concatenate along x-axis (axis=1)
-                axis = 0
+                # y arrays match, concatenate along x-axis (axis=0)
+                # Find insertion point to maintain monotonic order
+                x_existing = x[:, 0]
+                x_new_start = new_x[0, 0]
+                insert_idx = np.searchsorted(x_existing, x_new_start)
+                # Insert new data at the appropriate position
+                x = np.concatenate([x[:insert_idx, :], new_x, x[insert_idx:, :]], axis=0)
+                y = np.concatenate([y[:insert_idx, :], new_y, y[insert_idx:, :]], axis=0)
+                z = np.concatenate([z[:insert_idx, :], thisz, z[insert_idx:, :]], axis=0)
             else:
                 log.warning('The exploreogram comparison plot cannot be made because the x or y axes are not the same. Skipping the comparison plot.')
                 break
             
-            # Concatenate arrays along determined axis
-            x = np.concatenate([x, new_x], axis=axis)
-            y = np.concatenate([y, new_y], axis=axis)
-            z = np.concatenate([z, thisz], axis=axis)
+        # Calculate valid data range for colorbar
+        zValid = z[z == z]  # Exclude NaNs
+        if np.size(zValid) > 0:
+            vmin = np.min(zValid)
+            vmax = np.max(zValid)
+        else:
+            vmin = vmax = None
             
-        mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], rasterized=FigMisc.PT_RASTER)
+        mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], 
+                           vmin=vmin, vmax=vmax, rasterized=FigMisc.PT_RASTER)
         cont = ax.contour(x, y, z, colors='black')
         lbls = plt.clabel(cont, fmt=FigLbl.cfmt)
         cbar = fig.colorbar(mesh, ax=ax, format=FigLbl.cbarFmt)
-        # Append the max value to the colorbar for reading convenience
+        # Add the min and max values to the colorbar for reading convenience
         # We compare z values to z values to exclude nans from the max finding,
         # exploiting the fact that nan == nan is False.
-        cbar.set_ticks(np.append(cbar.get_ticks(), np.max(z[z == z])))
+        if np.size(zValid) > 0:
+            mesh.set_clim(vmin=vmin, vmax=vmax)
+            # Filter existing ticks to only include those within valid data range
+            existing_ticks = cbar.get_ticks()
+            valid_ticks = existing_ticks[(existing_ticks >= vmin) & (existing_ticks <= vmax)]
+            # Add min and max values to the filtered ticks
+            new_ticks = np.insert(np.append(valid_ticks, vmax), 0, vmin)
+            cbar.set_ticks(np.unique(new_ticks))
         cbar.set_label(FigLbl.cbarLabelExplore, size=12)
 
         plt.tight_layout()
@@ -1368,15 +1407,14 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
         for comparison against canonical k2/delta exploration plots.
     """
 
-    ExplorationList[0].xName = 'delta_love_number_relation'
-    ExplorationList[0].yName = 'k_love_number'
-    ExplorationList[0].zName = 'oceanComp'
-    FigLbl.SetExploration(ExplorationList[0].bodyname, ExplorationList[0].xName, ExplorationList[0].yName,
-                          ExplorationList[0].zName)
-    if not FigMisc.TEX_INSTALLED:
-        FigLbl.StripLatex()
-
     for Exploration in (ex for ex in ExplorationList if not ex.NO_H2O):
+        Exploration.xName = 'delta_love_number_relation'
+        Exploration.yName = 'k_love_number'
+        Exploration.zName = 'oceanComp'
+        FigLbl.SetExploration(Exploration.bodyname, Exploration.xName, Exploration.yName, Exploration.zName)
+        if not FigMisc.TEX_INSTALLED:
+            FigLbl.StripLatex()
+
         fig = plt.figure(figsize=FigSize.explore)
         grid = GridSpec(1, 1)
         ax = fig.add_subplot(grid[0, 0])
@@ -1404,11 +1442,11 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
         for z_val in unique_z:
             TminMax_K = {}
             Tall_K = np.reshape(Exploration.__getattribute__('Tb_K'), -1)
-            TminMax_K[z_val] = [np.min(Tall_K), np.max(Tall_K)]
+            TminMax_K[z_val] = [np.nanmin(Tall_K), np.nanmax(Tall_K)]
             # Set style options
             if FigMisc.MANUAL_HYDRO_COLORS:
                 Color.Tbounds_K = TminMax_K[z_val]
-                thisColor = Color.cmap[z_val](Color.GetNormT(270))
+                thisColor = Color.cmap[z_val](Color.GetNormT(np.nanmax(Tall_K)))
             else:
                 thisColor = None
             indices = np.where(z == z_val)[0]
@@ -1447,7 +1485,7 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
                          cmap='Greys',  # Use your chosen colormap
                          marker=Style.MS_Induction, s=Style.MW_Induction ** 2, edgecolors='black', linewidths = 0.5, zorder = 3)
         if np.size(x) > 0:
-            ax.set_xlim([0, 0.16])
+            ax.set_xlim([0, np.max(x) + 0.01])
         if np.size(y) > 0:
             # Account for error bars when setting y limits
             if FigMisc.SHOW_ERROR_BARS:
@@ -1464,5 +1502,151 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
         fig.savefig(Params.FigureFiles.exploreLoveComparison, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
         log.debug(f'Plot saved to file: {Params.FigureFiles.exploreLoveComparison}')
         plt.close()
+
+    # Plot combination
+    if Params.COMPARE and np.size(ExplorationList) > 1:
+        # Filter out explorations with no H2O
+        ValidExplorations = [ex for ex in ExplorationList if not ex.NO_H2O]
+        
+        if len(ValidExplorations) > 1:
+            # Set up exploration parameters for the first valid exploration
+            Exploration = ValidExplorations[0]
+            Exploration.xName = 'delta_love_number_relation'
+            Exploration.yName = 'k_love_number'
+            Exploration.zName = 'oceanComp'
+            FigLbl.SetExploration(Exploration.bodyname, Exploration.xName, Exploration.yName, Exploration.zName)
+            if not FigMisc.TEX_INSTALLED:
+                FigLbl.StripLatex()
+
+            fig = plt.figure(figsize=FigSize.explore)
+            grid = GridSpec(1, 1)
+            ax = fig.add_subplot(grid[0, 0])
+            if Style.GRIDS:
+                ax.grid()
+                ax.set_axisbelow(True)
+
+            if Params.TITLES:
+                fig.suptitle(FigLbl.explorationLoveComparisonTitle)
+            ax.set_xlabel(FigLbl.xLabelExplore)
+            ax.set_ylabel(FigLbl.yLabelExplore)
+            # Override standard settings for this type of plot
+            ax.set_xscale('linear')
+            ax.set_yscale('linear')
+
+            # Collect data from all explorations
+            all_x = []
+            all_y = []
+            all_z = []
+            all_ice_thickness = []
+            exploration_labels = []
+            
+            for i, Exploration in enumerate(ValidExplorations):
+                x = np.reshape(Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore, -1)
+                y = np.reshape(Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore, -1)
+                z = np.reshape(Exploration.__getattribute__(Exploration.zName), -1)
+                # Only keep data points for which a valid model was determined
+                VALID = np.logical_not(np.logical_or(np.isnan(x), np.isnan(y)))
+                x, y, z = x[VALID], y[VALID], z[VALID]
+                
+                # Get ice thickness data
+                ice_thickness = np.reshape(Exploration.__getattribute__('zb_approximate_km'), -1)
+                ice_thickness = ice_thickness[VALID]
+                
+                # Add exploration identifier
+                exploration_id = np.full(len(x), i)
+                
+                all_x.extend(x)
+                all_y.extend(y)
+                all_z.extend(z)
+                all_ice_thickness.extend(ice_thickness)
+                exploration_labels.extend(exploration_id)
+
+            # Convert to numpy arrays
+            all_x = np.array(all_x)
+            all_y = np.array(all_y)
+            all_z = np.array(all_z)
+            all_ice_thickness = np.array(all_ice_thickness)
+            exploration_labels = np.array(exploration_labels)
+
+            # Group by unique z values and plot connecting lines
+            unique_z = np.unique(all_z)
+            plotted_labels = set()  # Keep track of which labels have been plotted
+            
+            for z_val in unique_z:
+                z_indices = np.where(all_z == z_val)[0]
+                
+                # Collect all points for this z value across all explorations
+                x_line, y_line = all_x[z_indices], all_y[z_indices]
+                
+                # Sort points by x for connected lines
+                sorted_idx = np.argsort(x_line)
+                x_line = x_line[sorted_idx]
+                y_line = y_line[sorted_idx]
+                
+                # Set style options (use first exploration's temperature bounds)
+                TminMax_K = {}
+                Tall_K = np.reshape(ValidExplorations[0].__getattribute__('Tb_K'), -1)
+                TminMax_K[z_val] = [np.nanmin(Tall_K), np.nanmax(Tall_K)]
+                
+                if FigMisc.MANUAL_HYDRO_COLORS:
+                    Color.Tbounds_K = TminMax_K[z_val]
+                    thisColor = Color.cmap[z_val](Color.GetNormT(np.nanmax(Tall_K)))
+                else:
+                    thisColor = None
+                
+                if 'CustomSolution' in z_val:
+                    z_label = z_val.split('=')[0].replace('CustomSolution', '')
+                else:
+                    z_label = z_val
+                
+                # Only add label if this composition hasn't been plotted yet
+                line_label = z_label if z_label not in plotted_labels else None
+                if line_label:
+                    plotted_labels.add(z_label)
+                
+                # Plot line for each z group combining all explorations
+                ax.plot(x_line, y_line, color=thisColor, label=line_label, linewidth=2, zorder=2)
+                
+                # Add error bars if enabled
+                if FigMisc.SHOW_ERROR_BARS:
+                    ax.errorbar(x_line, y_line, yerr=FigMisc.ERROR_BAR_MAGNITUDE, fmt='none', color=thisColor, capsize=3)
+
+            # TODO Make these param options
+            MANUAL_ICE_THICKNESS_COLORS = True
+            if MANUAL_ICE_THICKNESS_COLORS and len(all_ice_thickness) > 0:
+                # Set bounds for normalization (min and max of ice thickness across all explorations)
+                Tbound_lower = np.min(all_ice_thickness)
+                Tbound_upper = np.max(all_ice_thickness)
+                
+                # Get normalized values using GetNormT
+                norm_thickness = Color.GetNormT(all_ice_thickness, Tbound_lower, Tbound_upper)
+            else:
+                norm_thickness = None
+
+            # Plot scatter points using the same marker for all explorations
+            ax.scatter(all_x, all_y, c=norm_thickness,
+                      cmap='Greys', marker=Style.MS_Induction, s=Style.MW_Induction ** 2, 
+                      edgecolors='black', linewidths=0.5, zorder=3)
+
+            # Set axis limits
+            if np.size(all_x) > 0:
+                ax.set_xlim([0, np.max(all_x) + 0.01])
+            if np.size(all_y) > 0:
+                # Account for error bars when setting y limits
+                if FigMisc.SHOW_ERROR_BARS:
+                    error_magnitude = FigMisc.ERROR_BAR_MAGNITUDE
+                    y_min_with_error = np.min(all_y) - error_magnitude
+                    y_max_with_error = np.max(all_y) + error_magnitude
+                    ax.set_ylim([np.floor(y_min_with_error*100)/100, np.ceil(y_max_with_error*100)/100])
+                else:
+                    ax.set_ylim([np.floor(np.min(all_y)*100)/100, np.ceil(np.max(all_y)*100)/100])
+
+            if Params.LEGEND:
+                ax.legend(title="Ocean Composition", fontsize=10, title_fontsize=12)
+
+            plt.tight_layout()
+            fig.savefig(Params.FigureFiles.exploreLoveComparison, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+            log.debug(f'Combined Love comparison plot saved to file: {Params.FigureFiles.exploreLoveComparison}')
+            plt.close()
 
     return
