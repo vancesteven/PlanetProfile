@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 19  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 20  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def configAssign():
     Params = ParamsStruct()
@@ -60,6 +60,7 @@ def configAssign():
     Params.PLOT_TRADEOFF =    True  # Whether to plot mantle properties tradeoff
     Params.PLOT_POROSITY =    True  # Whether to plot porosities in rock and/or ice for bodies that have it modeled
     Params.PLOT_SEISMIC =     True  # Whether to plot seismic quantities if they have been calculated
+    Params.PLOT_PRESSURE_DEPTH = False  # Whether to plot pressure vs depth in hydrosphere plot
     Params.PLOT_VISCOSITY =   True  # Whether to plot viscosities
     Params.PLOT_WEDGE =       True  # Whether to plot interior wedge diagram
     Params.PLOT_HYDRO_PHASE = False  # Whether to plot phase diagram
@@ -77,7 +78,7 @@ def configAssign():
     # Reduced planet calculation settings
     Params.REDUCE_ACCORDING_TO = 'ReducedLayers'  # Whether to reduce according to induction parameters (change in sigma) or gravity settings (not implemented currently)
     Params.REDUCED_LAYERS_SIZE = {'0': 5, 'Ih': 5, 'II': 5, 'III': 5, 'V': 5,'VI': 5, 'Clath': 5, 'Sil': 5,
-                                  'Fe': 5}  # If using ReducedLayers method, then determine how many layers the reduced layer should have
+                                  'Fe': 5}  # If using ReducedLayers method, then determine how many layers the reduced layer should have # If using ReducedLayers method, then determine how many layers the reduced layer should have
 
     # Magnetic induction plot settings
     Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question

@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 26  # Integer number for config file version. Increment when new settings are added to the
+configPlotsVersion = 27  # Integer number for config file version. Increment when new settings are added to the
 # default config file.
 
 def plotAssign():
@@ -37,7 +37,9 @@ def plotAssign():
     Color.iceV = 'xkcd:light periwinkle'
     Color.iceVI = '#91d1d4'
     Color.clathCond = 'xkcd:pastel blue'
+    Color.mixedClathcond = 'xkcd:cobalt'
     Color.clathConv = 'xkcd:dusty blue'
+    Color.mixedClathconv = 'xkcd:cornflower'
     Color.correctPhase = 'xkcd:ice blue'
     Color.diffPhase = 'xkcd:bright red'
     Color.oceanCmapName = 'ocean_r'
@@ -275,7 +277,7 @@ def plotAssign():
     FigSize.vpore = (6, 6)
     FigSize.vperm = (6, 6)
     FigSize.vseis = (6, 6)
-    FigSize.vhydro = (9, 5)
+    FigSize.vhydro = (9, 8)
     FigSize.vgrav = (6, 5)
     FigSize.vmant = (6, 6)
     FigSize.vcore = (6, 6)
@@ -331,6 +333,7 @@ def plotAssign():
     FigMisc.TmaxHydro_K = None  # When set, maximum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use max of geotherm.
     FigMisc.PHASE_LABELS = True  # Whether to print phase labels on density plots
     FigLbl.TS_hydroLabels = 18  # Font size for hydrosphere phase labels in pt
+    FigLbl.hydroTitleSize = 20  # Font size for hydrosphere title in pt
     FigMisc.SHOW_GEOTHERM = True # Whether to plot geotherm on PTplots
 
     # Wedge diagrams

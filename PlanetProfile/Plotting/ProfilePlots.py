@@ -136,13 +136,60 @@ def PlotHydrosphereProps(PlanetList, Params):
     else:
         DO_SOUNDS = False
         axv = None
+    
+    # Check if we should plot seismic properties (separate from viscosity now) 
+    if Params.PLOT_SEISMIC and Params.CALC_SEISMIC:
+        DO_SEISMIC_PROPS = True
+        vRow += 1
+    else:
+        DO_SEISMIC_PROPS = False
+        axseismic = None
 
-    # Generate canvas and add labels
+    # Check if we should plot viscosity (will be in conductivity row)
+    DO_VISCOSITY = Params.PLOT_VISCOSITY and Params.CALC_VISCOSITY
+
+    # Check if we should plot pressure vs depth
+    DO_PRESSURE = Params.PLOT_PRESSURE_DEPTH
+
+    # Generate canvas and add labels - Always 6×7 grid
     fig = plt.figure(figsize=FigSize.vhydro)
-    grid = GridSpec(vRow, 6)
+    grid = GridSpec(6, 7)
 
-    axPrho = fig.add_subplot(grid[:, :3])
-    axTz = fig.add_subplot(grid[0, 3:])
+    # Fixed layout: 
+    # - Density: top 4 rows (0-3), left 4 columns (0-3)
+    # - Thermal: bottom 2 rows (4-5), positioning depends on pressure plot
+    # - Pressure: bottom 2 rows (4-5), next 2 columns (2-3) - if enabled
+    # - Properties: right 3 columns (4-6), distributed vertically
+    
+    # Count property plots to determine right column layout
+    right_plots = []
+    if DO_SOUNDS:
+        right_plots.append('sounds')
+    if DO_SEISMIC_PROPS:
+        right_plots.append('seismic')
+    if DO_SIGS:
+        right_plots.append('sigs')
+    
+    num_right_plots = len(right_plots)
+    
+    if num_right_plots == 0:
+        # No property plots - density spans top, thermal and pressure span bottom
+        axPrho = fig.add_subplot(grid[0:4, :])      # Top 4 rows, all columns
+        if DO_PRESSURE:
+            axTz = fig.add_subplot(grid[4:6, :4])   # Bottom 2 rows, left 4 columns
+            axPz = fig.add_subplot(grid[4:6, 4:])   # Bottom 2 rows, right 3 columns
+        else:
+            axTz = fig.add_subplot(grid[4:6, :])    # Bottom 2 rows, all columns
+            axPz = None
+    else:
+        # Property plots present - left 4 columns for density/thermal/pressure, right 3 for properties
+        axPrho = fig.add_subplot(grid[0:4, 0:4])    # Top 4 rows, left 4 columns
+        if DO_PRESSURE:
+            axTz = fig.add_subplot(grid[4:6, 0:2])  # Bottom 2 rows, first 2 columns
+            axPz = fig.add_subplot(grid[4:6, 2:4])  # Bottom 2 rows, next 2 columns
+        else:
+            axTz = fig.add_subplot(grid[4:6, 0:4])  # Bottom 2 rows, all left 4 columns
+            axPz = None
 
     axPrho.set_xlabel(FigLbl.rhoLabel)
     if FigMisc.PLOT_DENSITY_VERSUS_DEPTH:
@@ -150,31 +197,77 @@ def PlotHydrosphereProps(PlanetList, Params):
     else:
         axPrho.set_ylabel(FigLbl.PlabelHydro)
     axPrho.invert_yaxis()
+    
     axTz.set_xlabel(FigLbl.Tlabel)
     axTz.set_ylabel(FigLbl.zLabel)
     axTz.invert_yaxis()
+    
     zMax = np.max([Planet.z_m[Planet.Steps.nHydro-1]/1e3 for Planet in PlanetList if not Planet.Do.NO_H2O], initial=0) * 1.05
     axTz.set_ylim([zMax, 0])
-
+    
     axes = [axPrho, axTz]
-    if DO_SIGS:
-        axsigz = fig.add_subplot(grid[-1, 3:])
-        axsigz.set_xlabel(FigLbl.sigLabel)
-        axsigz.set_ylabel(FigLbl.zLabel)
-        axsigz.invert_yaxis()
-        if FigMisc.LOG_SIG:
-            axsigz.set_xscale('log')
-        axes.append(axsigz)
+    
+    if DO_PRESSURE:
+        axPz.set_xlabel(FigLbl.PlabelHydro)
+        axPz.invert_yaxis()
+        axPz.set_ylim([zMax, 0])
+        axes.append(axPz)
 
-    if DO_SOUNDS:
-        axv = [fig.add_subplot(grid[1, i]) for i in range(3, 6)]
-        axv[0].set_ylabel(FigLbl.zLabel)
-        axv[0].set_xlabel(FigLbl.vPoceanLabel)
-        axv[1].set_xlabel(FigLbl.vPiceLabel)
-        axv[2].set_xlabel(FigLbl.vSiceLabel)
-        [ax.invert_yaxis() for ax in axv]
-        [ax.set_ylim([zMax, 0]) for ax in axv]
-        axes = axes + axv
+    # Add property plots to right 3 columns (4-6)
+    if num_right_plots > 0:
+        # Determine row distribution for property plots
+        if num_right_plots == 1:
+            # 1 property: spans all 6 rows
+            row_ranges = [(0, 6)]
+        elif num_right_plots == 2:
+            # 2 properties: each gets 3 rows
+            row_ranges = [(0, 3), (3, 6)]
+        elif num_right_plots == 3:
+            # 3 properties: each gets 2 rows
+            row_ranges = [(0, 2), (2, 4), (4, 6)]
+        
+        for i, plot_type in enumerate(right_plots):
+            start_row, end_row = row_ranges[i]
+            
+            if plot_type == 'sounds':
+                axv = [fig.add_subplot(grid[start_row:end_row, j]) for j in range(4, 7)]
+                axv[0].set_xlabel(FigLbl.vPoceanLabel)
+                axv[1].set_xlabel(FigLbl.vPiceLabel)
+                axv[2].set_xlabel(FigLbl.vSiceLabel)
+                [ax.invert_yaxis() for ax in axv]
+                [ax.set_ylim([zMax, 0]) for ax in axv]
+                axes = axes + axv
+                
+            elif plot_type == 'seismic':
+                # Split seismic into 3 plots: Ocean KS, Ice KS, Ice GS
+                axseismic = [fig.add_subplot(grid[start_row:end_row, j]) for j in range(4, 7)]
+                axseismic[0].set_xlabel(FigLbl.KSoceanLabel)
+                axseismic[1].set_xlabel(FigLbl.KSiceLabel)
+                axseismic[2].set_xlabel(FigLbl.GSiceLabel)
+                [ax.invert_yaxis() for ax in axseismic]
+                [ax.set_ylim([zMax, 0]) for ax in axseismic]
+                axes = axes + axseismic
+                
+            elif plot_type == 'sigs':
+                # Conductivity plot - check if viscosity should be added
+                if DO_VISCOSITY:
+                    # Split conductivity row: columns 4-5 for sigma, column 6 for viscosity
+                    axsigz = fig.add_subplot(grid[start_row:end_row, 4:6])
+                    axviscz = fig.add_subplot(grid[start_row:end_row, 6:7])
+                    axviscz.set_xlabel(FigLbl.etaLabel)
+                    axviscz.invert_yaxis()
+                    axviscz.set_xscale('log')
+                    axviscz.set_ylim([zMax, 0])
+                    axes.append(axviscz)
+                else:
+                    # Standard conductivity plot spanning all 3 right columns
+                    axsigz = fig.add_subplot(grid[start_row:end_row, 4:7])
+                axsigz.set_xlabel(FigLbl.sigLabel)
+                axsigz.invert_yaxis()
+                if FigMisc.LOG_SIG:
+                    axsigz.set_xscale('log')
+                axsigz.set_ylim([zMax, 0])
+                axes.append(axsigz)
 
     if Style.GRIDS:
         [ax.grid() for ax in axes]
@@ -182,9 +275,9 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     if Params.TITLES:
         if Params.ALL_ONE_BODY:
-            fig.suptitle(f'{PlanetList[0].name}{FigLbl.hydroTitle}')
+            fig.suptitle(f'{PlanetList[0].name}{FigLbl.hydroTitle}', fontsize=FigLbl.hydroTitleSize)
         else:
-            fig.suptitle(FigLbl.hydroCompareTitle)
+            fig.suptitle(FigLbl.hydroCompareTitle, fontsize=FigLbl.hydroTitleSize)
 
     # Plot reference profiles first, so they plot on bottom of everything
     # Ensure that we only have one unique CustomSolution identifier in comps
@@ -294,12 +387,29 @@ def PlotHydrosphereProps(PlanetList, Params):
                              color=therm[-1].get_color(), edgecolors=therm[-1].get_color(),
                              marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
 
-            if DO_SIGS or DO_SOUNDS:
+            # Plot pressure profile vs. depth in hydrosphere
+            if DO_PRESSURE:
+                press = axPz.plot(Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro,
+                                  Planet.z_m[:Planet.Steps.nHydro]/1e3,
+                                  color=thisColor, linewidth=thisLW,
+                                  linestyle=Style.LS[Planet.Ocean.comp])
+                # Make a dot at the end of the pressure profile, if there's an ocean
+                if Planet.Steps.nHydro > 0:
+                    axPz.scatter(np.max(Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro),
+                                 np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
+                                 color=press[-1].get_color(), edgecolors=press[-1].get_color(),
+                                 marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
+
+            if DO_SIGS or DO_SOUNDS or DO_SEISMIC_PROPS:
                 indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
-                indsClath, indsClathWet, _, indsSilLiq, _, _, _, _, _, _ = GetPhaseIndices(Planet.phase)
+                indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+                indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
+                indsSil, indsSilLiq, _, _, _, _, _, _ = GetPhaseIndices(Planet.phase)
 
                 indsIce = np.sort(np.concatenate((indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
-                                                  indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet)))
+                                                  indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet, 
+                                                  indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, 
+                                                  indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund)))
 
                 if DO_SIGS:
                     # Plot electrical conductivity vs. depth for hydrosphere
@@ -308,7 +418,8 @@ def PlotHydrosphereProps(PlanetList, Params):
                     if not FigMisc.SHOW_ICE_CONDUCT:
                         sigma_Sm[indsIce] = np.nan
                     if Planet.Do.POROUS_ICE:
-                        indsWet = np.sort(np.concatenate((indsIwet, indsII, indsIII, indsV, indsVI, indsClathWet)))
+                        indsWet = np.sort(np.concatenate((indsIwet, indsII, indsIII, indsV, indsVI, indsClathWet, 
+                                                          indsMixedClathrateIhwet, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI)))
                         sigma_Sm[indsWet] = Planet.sigma_Sm[indsWet]
                     sigma_Sm[sigma_Sm < sigCutoff_Sm] = np.nan
                     conductivity = axsigz.plot(sigma_Sm, z_km,
@@ -342,9 +453,74 @@ def PlotHydrosphereProps(PlanetList, Params):
                                 color=thisColor, linewidth=Style.LW_sound,
                                 linestyle=Style.LS[Planet.Ocean.comp])
 
+                if DO_SEISMIC_PROPS:
+                    # Plot seismic properties (GS, KS) and viscosity vs. depth in hydrosphere
+                    # Safely concatenate indices, handling cases where one might be empty
+                    if np.size(indsIce) > 0 and np.size(indsLiq) > 0:
+                        indsHydro = np.sort(np.concatenate((indsIce, indsLiq)))
+                    elif np.size(indsIce) > 0:
+                        indsHydro = indsIce
+                    elif np.size(indsLiq) > 0:
+                        indsHydro = indsLiq
+                    else:
+                        # Use all hydrosphere indices as fallback
+                        indsHydro = np.arange(Planet.Steps.nHydro)
+                    
+                    z_vals = Planet.z_m[indsHydro]/1e3
+                    
+                    # Plot bulk modulus KS and shear modulus GS if seismic calculations were done
+                    if Params.CALC_SEISMIC:
+                        GS_vals = Planet.Seismic.GS_GPa[indsHydro]
+                        KS_vals = Planet.Seismic.KS_GPa[indsHydro]
+                        
+                        # Separate ocean and ice phases for different plots
+                        ocean_KS = KS_vals.copy()
+                        ice_KS = KS_vals.copy()
+                        ice_GS = GS_vals.copy()
+                        
+                        # Set values to NaN for inappropriate phases
+                        if np.size(indsLiq) > 0:
+                            # Find which of indsHydro correspond to liquid phases
+                            liquid_mask = np.isin(indsHydro, indsLiq)
+                            # Ocean plot shows liquid phases only
+                            ocean_KS[~liquid_mask] = np.nan
+                            # Ice plots show solid phases only
+                            ice_KS[liquid_mask] = np.nan
+                            ice_GS[liquid_mask] = np.nan
+                        
+                        if np.size(indsIce) > 0:
+                            # Find which of indsHydro correspond to ice phases
+                            ice_mask = np.isin(indsHydro, indsIce)
+                            # Ocean plot shows liquid phases only
+                            ocean_KS[ice_mask] = np.nan
+                        
+                        # Plot to appropriate subplots
+                        axseismic[0].plot(ocean_KS, z_vals,
+                                          color=thisColor, linewidth=thisLW,
+                                          linestyle=Style.LS[Planet.Ocean.comp])
+                        axseismic[1].plot(ice_KS, z_vals,
+                                          color=thisColor, linewidth=thisLW,
+                                          linestyle=Style.LS[Planet.Ocean.comp])
+                        axseismic[2].plot(ice_GS, z_vals,
+                                          color=thisColor, linewidth=thisLW,
+                                          linestyle=Style.LS[Planet.Ocean.comp])
+                    
+                    # Plot viscosity if viscosity calculations were done and viscosity plotting is enabled
+                    if DO_VISCOSITY and Params.CALC_VISCOSITY:
+                        eta_vals = Planet.eta_Pas[indsHydro]
+                        # Handle potential NaN values and zero/negative values for log scale
+                        eta_plot = eta_vals.copy()
+                        eta_plot[eta_plot <= 0] = np.nan
+                        
+                        axviscz.plot(eta_plot, z_vals,
+                                     color=thisColor, linewidth=thisLW,
+                                     linestyle=Style.LS[Planet.Ocean.comp])
+
 
     if FigMisc.FORCE_0_EDGES:
         axPrho.set_ylim(top=0)
+        if DO_PRESSURE:
+            axPz.set_ylim(top=0)
 
     # Limit Tmin so the relevant plot can better show what's going on in the ocean
     Tmax = np.max(Tdots_K)
@@ -380,7 +556,7 @@ def PlotHydrosphereProps(PlanetList, Params):
                 axPrho.text(rhoLoc_kgm3 + adj2, Ploc_MPa*FigLbl.PmultHydro,
                             'liquid', ha='center', va='center', fontsize=FigLbl.TS_hydroLabels)
             else:
-                if phase == Constants.phaseClath:
+                if phase >= Constants.phaseClath and phase < Constants.phaseClath + 10:
                     adj2 = 2*adj
                 else:
                     adj2 = 0
@@ -395,10 +571,19 @@ def PlotHydrosphereProps(PlanetList, Params):
         handles, lbls = axPrho.get_legend_handles_labels()
         axPrho.legend(handles, lbls, loc='upper right')
 
+    # Set y-limits for right column plots
     if DO_SIGS:
         axsigz.set_ylim(top=0)
         if FigMisc.COMMON_ZMAX_SIG:
             axsigz.set_ylim(bottom=zMax)
+
+    if DO_SEISMIC_PROPS:
+        [ax.set_ylim(top=0) for ax in axseismic]
+        [ax.set_ylim(bottom=zMax) for ax in axseismic]
+
+    if DO_VISCOSITY:
+        axviscz.set_ylim(top=0)
+        axviscz.set_ylim(bottom=zMax)
 
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
@@ -749,7 +934,6 @@ def PlotSeismic(PlanetList, Params):
 
     return
 
-
 def PlotWedge(PlanetList, Params):
     """ Plot a wedge diagram showing a visual representation of the major layer structure.
     """
@@ -779,18 +963,19 @@ def PlotWedge(PlanetList, Params):
     # Get largest radius across all wedges
     rMax_km = np.max([ionoTop_km + Planet.Bulk.R_m/1e3 for ionoTop_km, Planet in zip(ionosUpper_km, PlanetList)])
 
-    # Optional boundaries
-    if FigMisc.DRAW_CONVECTION_BOUND:
-        iceConvBd = Color.wedgeBd
-        clathConvBd = Color.wedgeBd
-        silConvBd = Color.wedgeBd
-    else:
-        iceConvBd = Color.iceIcond
-        clathConvBd = Color.clathCond
-        silConvBd = Color.silCondCmap(1.0)
 
     # Plot each significant layer for each model, from the outside inward
     for Planet, ax, ionoTop_km, ionoBot_km in zip(PlanetList, axes, ionosUpper_km, ionosLower_km):
+        
+        # Optional boundaries
+        if FigMisc.DRAW_CONVECTION_BOUND:
+            iceConvBd = Color.wedgeBd
+            clathConvBd = Color.wedgeBd
+            silConvBd = Color.wedgeBd
+        else:
+            iceConvBd = Color.iceIcond
+            clathConvBd = Color.mixedClathconv if Planet.Do.MIXED_CLATHRATE_ICE else Color.clathConv
+            silConvBd = Color.silCondCmap(1.0)
 
         # Construct labels
         if Planet.Do.Fe_CORE:
@@ -910,11 +1095,14 @@ def PlotWedge(PlanetList, Params):
 
             # Starting with ice I or clathrates
             if Planet.Do.CLATHRATE:
+                clathCond = Color.mixedClathcond if Planet.Do.MIXED_CLATHRATE_ICE else Color.clathCond
+                clathConv = Color.mixedClathconv if Planet.Do.MIXED_CLATHRATE_ICE else Color.clathConv
+                    
                 if Planet.Bulk.clathType == 'top' or Planet.Bulk.clathType == 'whole':
                     # Clathrates at the surface in this case
                     ax.add_patch(Wedge((0.5,0), R_km/rMax_km, ang1, ang2,
                                        width=Planet.eLid_m/1e3/rMax_km,
-                                       fc=Color.clathCond, lw=Style.LW_wedge, ec=clathConvBd))
+                                       fc=clathCond, lw=Style.LW_wedge, ec=clathConvBd))
                     if Planet.Bulk.clathType == 'top':
                         # Ice I boundary line
                         ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceI_m/1e3)/rMax_km, ang1, ang2,
@@ -935,7 +1123,7 @@ def PlotWedge(PlanetList, Params):
                         if (Planet.Dconv_m + Planet.deltaTBL_m) > 0:
                             ax.add_patch(Wedge((0.5,0), (R_km - Planet.eLid_m/1e3)/rMax_km, ang1, ang2,
                                                width=(Planet.Dconv_m + Planet.deltaTBL_m)/1e3/rMax_km,
-                                               fc=Color.clathConv, lw=Style.LW_wedge, ec=clathConvBd))
+                                               fc=clathConv, lw=Style.LW_wedge, ec=clathConvBd))
                 else:
                     # Clathrates in an underplate in this case, always conductive
                     # Conductive ice I at the surface
@@ -945,7 +1133,7 @@ def PlotWedge(PlanetList, Params):
                     # Clathrate underplate
                     ax.add_patch(Wedge((0.5,0), (R_km - Planet.zClath_km)/rMax_km, ang1, ang2,
                                        width=Planet.dzClath_km/rMax_km,
-                                       fc=Color.clathCond, lw=Style.LW_wedge, ec=clathConvBd))
+                                       fc=clathCond, lw=Style.LW_wedge, ec=clathConvBd))
                 # Outer boundary around clathrates
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zClath_km)/rMax_km, ang1, ang2,
                                    width=Planet.dzClath_km/rMax_km,

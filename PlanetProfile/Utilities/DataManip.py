@@ -187,3 +187,5 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].fn_species(P_MPa, T_K, grid=grid)
     def fn_rxn_affinity(self, P_MPa, T_K, reaction, concentrations, grid = False):
         return EOSlist.loaded[self.key].fn_rxn_affinity(P_MPa, T_K, reaction, concentrations, grid=grid)
+    def fn_averageValuesAccordingtoRule(self, prop1, prop2, rule):
+        return EOSlist.loaded[self.key].fn_averageValuesAccordingtoRule(prop1, prop2, rule)

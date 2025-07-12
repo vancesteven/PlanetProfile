@@ -207,16 +207,21 @@ def IceLayers(Planet, Params):
                         'whole': Models clathrates as present throughout the outer ice shell, checking for
                             convection, and assumes no ice I is present in the shell. This option is handled in IceLayers.
                 """
+                if Planet.Do.MIXED_CLATHRATE_ICE:
+                    phaseIndex = Constants.phaseClath + 1
+                else:
+                    phaseIndex = Constants.phaseClath
                 if Planet.Bulk.clathType == 'top':
                     log.debug('Applying clathrate lid conduction.')
-                    Planet.phase[:Planet.Steps.nClath] = Constants.phaseClath
+
+                    Planet.phase[:Planet.Steps.nClath] = phaseIndex
                     if Planet.Do.POROUS_ICE:
                         Planet = IceIConductClathLidPorous(Planet, Params)
                     else:
                         Planet = IceIConductClathLidSolid(Planet, Params)
                 elif Planet.Bulk.clathType == 'bottom':
                     log.debug('Applying clathrate underplating to ice I shell.')
-                    Planet.phase[Planet.Steps.nIceI:Planet.Steps.nIbottom] = Constants.phaseClath
+                    Planet.phase[Planet.Steps.nIceI:Planet.Steps.nIbottom] = phaseIndex
                     if Planet.Do.POROUS_ICE:
                         Planet = IceIConductClathUnderplatePorous(Planet, Params)
                     else:
@@ -224,7 +229,7 @@ def IceLayers(Planet, Params):
 
                 elif Planet.Bulk.clathType == 'whole':
                     log.debug('Applying whole-shell clathrate modeling with possible convection.')
-                    Planet.phase[:Planet.Steps.nIbottom] = Constants.phaseClath
+                    Planet.phase[:Planet.Steps.nIbottom] = phaseIndex
                     if Planet.Do.POROUS_ICE:
                         Planet = IceIWholeConductPorous(Planet, Params)
                     else:
@@ -850,8 +855,9 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa, minPres_MPa=None, minTres_K=Non
         # Get phase of each P,T combination
         expandPhases = Planet.Ocean.EOS.fn_phase(POceanHPices_MPa, TOceanHPices_K, grid = True).flatten()
         # Check if any of them are not liquid
+        #TODO Expand this implementation for underplate clathrates mixed with high pressure ices
         if np.any(expandPhases != 0):
-            _, _, _, indsIceII, _, indsIceIII, _, indsIceV, _, indsIceVI, _, _, _, _, _, _, _, _, _, _, _ \
+            _, _, _, indsIceII, _, indsIceIII, _, indsIceV, _, indsIceVI, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ \
                 = GetPhaseIndices(expandPhases)
 
             if(np.size(indsIceII) != 0):
@@ -1043,7 +1049,8 @@ def InnerLayers(Planet, Params):
         # The remainder is the ocean fluids, including H2O and salts and pore spaces.
         Planet.Mfluid_kg = Planet.Mtot_kg - Planet.Mcore_kg - Planet.Mrock_kg - Planet.Mice_kg
         # Get the mass contained in clathrate layers and just the trapped gas
-        Planet.Mclath_kg = np.sum(Planet.MLayer_kg[abs(Planet.phase) == Constants.phaseClath])
+        clathPhases = np.logical_and(Planet.phase >= Constants.phaseClath, Planet.phase < Constants.phaseClath + 10)
+        Planet.Mclath_kg = np.sum(Planet.MLayer_kg[clathPhases])
         Planet.MclathGas_kg = Planet.Mclath_kg * Constants.clathGasFrac_ppt / 1e3
         # The portion just in the ocean is simple to evaluate:
         Planet.Mocean_kg = np.sum(Planet.MLayer_kg[Planet.phase == 0])

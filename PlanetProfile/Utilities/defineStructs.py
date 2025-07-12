@@ -69,6 +69,10 @@ class BulkSubstruct():
         self.qSurf_Wm2 = None  # Heat flux leaving the planetary surface. Currently required only for clathType = 'bottom'.
         self.clathMaxThick_m = None  # (Approximate) fixed limit for thickness of clathrate layer in m. Treated as an assumed layer thickness when clathType = 'bottom' or Do.NO_ICE_CONVECTION is True, and as a maximum for 'top', where clathrates are only modeled for the conductive lid.
         self.clathType = None  # Type of model for sI methane clathrates in outer ice shell. Options are 'top', 'bottom', and 'whole', and indicate where clathrates are allowed to be and which type of model to use.
+        """ Mixed clathrate/ice parameters """
+        self.volumeFractionClathrate = 0.5  # Volume fraction of clathrate in mixed clathrate/ice phases
+        self.JmixedRheologyConstant = 1  # Constant for rheology of mixed clathrate/ice phases used in Carahan(2004) equation for viscosity
+        
         self.asymIce = None  # List of deviations from zb in km to show asymmetry in ice--ocean interface
         self.TbIII_K = None  # Temperature at bottom of ice III underplate layer in K. Ranges from 248.85 to 256.164 K for transition to ice V and from 251.165 to 256.164 K for melting temp.
         self.TbV_K = None  # Temperature at bottom of ice V underplate layer in K. Ranges from 256.164 to 272.99 K for melting temp, and 218 to 272.99 for transition to ice VI.
@@ -89,6 +93,7 @@ class DoSubstruct:
         self.Fe_CORE = False  # Whether to model an iron core for this body
         self.CONSTANT_INNER_DENSITY = False  # Whether to use a fixed density in silicates and core instead of using Perple_X EOS for each
         self.CLATHRATE = False  # Whether to model clathrates
+        self.MIXED_CLATHRATE_ICE = False # Whether to model mixed clathrate/ice phases. If False, assumes whole clathrate layers.
         self.NAGASHIMA_CLATH_DISSOC = False  # Whether to use extrapolation of Nagashima (2017) dissertation provided by S. Nozaki (private communication) for clathrate dissociation (alternative is Sloan (1998)). WIP.
         self.NO_H2O = False  # Whether to model waterless worlds (like Io)
         self.PARTIAL_DIFFERENTIATION = False  # Whether to model a partially differentiated body, with no ocean, but variable mixing/porosity and pore melt possible
@@ -1183,7 +1188,9 @@ class ColorStruct:
         self.iceV = None
         self.iceVI = None
         self.clathCond = None
+        self.mixedClathcond = None
         self.clathConv = None
+        self.mixedClathconv = None
         self.oceanCmapName = None
         self.correctPhase = None # Matching phase between two phase diagrams
         self.diffPhase = None # Different phase between two Planet profile runs
@@ -1962,6 +1969,9 @@ class FigLblStruct:
         self.vPoceanLabel = r'Ocean $V_P$ ($\si{' + self.vSoundUnits + '}$)'
         self.vPiceLabel = r'Ice $V_P$ ($\si{' + self.vSoundUnits + '}$)'
         self.vSiceLabel = r'Ice $V_S$ ($\si{' + self.vSoundUnits + '}$)'
+        self.GSiceLabel = r'Ice shear $G_S$ ($\si{GPa}$)'
+        self.KSiceLabel = r'Ice bulk $K_S$ ($\si{GPa}$)'
+        self.KSoceanLabel = r'Ocean bulk $K_S$ ($\si{GPa}$)'
         self.QseisLabel = f'Seismic quality factor ${self.QseisVar}$'
         self.xFeSLabel = r'Iron sulfide mixing ratio $x_{\ce{FeS}}$' + self.xUnitsParen
         self.hLoveLabel = r'Tidal Love Number $h_2$'

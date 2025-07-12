@@ -11,6 +11,7 @@ from PlanetProfile.Utilities.defineStructs import Constants
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
+
 def IceIConvectSolid(Planet, Params):
     """ Apply convection models from literature to determine thermal profile and
         state variables for possibly convecting ice I layers
@@ -113,9 +114,12 @@ def IceIConvectSolid(Planet, Params):
                     Planet.T_K[:Planet.Steps.nClath+1] = Planet.TclathTrans_K**(PlidRatiosClath) * Planet.T_K[0]**(1 - PlidRatiosClath)
                     PlidRatiosIceI = (Planet.P_MPa[Planet.Steps.nClath:nConduct+1] - Planet.PbClathMax_MPa) / (PconvTop_MPa - Planet.PbClathMax_MPa)
                     Planet.T_K[Planet.Steps.nClath:nConduct+1] = Planet.Tconv_K**(PlidRatiosIceI) * Planet.TclathTrans_K**(1 - PlidRatiosIceI)
-
+                if Planet.Do.MIXED_CLATHRATE_ICE:
+                    phaseStr = 'MixedClathrateIh'
+                else:
+                    phaseStr = 'Clath'
                 # Get physical properties of clathrate lid
-                Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nClath, Planet.Ocean.surfIceEOS['Clath'],
+                Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nClath, Planet.Ocean.surfIceEOS[phaseStr],
                                                   Planet.P_MPa[:Planet.Steps.nClath], Planet.T_K[:Planet.Steps.nClath])
 
                 Planet.rho_kgm3[:Planet.Steps.nClath] = Planet.rhoMatrix_kgm3[:Planet.Steps.nClath] + 0.0
@@ -265,15 +269,18 @@ def IceIConvectPorous(Planet, Params):
                     Planet.T_K[:Planet.Steps.nClath+1] = Planet.TclathTrans_K**(PlidRatiosClath) * Planet.T_K[0]**(1 - PlidRatiosClath)
                     PlidRatiosIceI = (Planet.P_MPa[Planet.Steps.nClath:nConduct+1] - Planet.PbClathMax_MPa) / (PconvTop_MPa - Planet.PbClathMax_MPa)
                     Planet.T_K[Planet.Steps.nClath:nConduct+1] = Planet.Tconv_K**(PlidRatiosIceI) * Planet.TclathTrans_K**(1 - PlidRatiosIceI)
-
+                if Planet.Do.MIXED_CLATHRATE_ICE:
+                    phaseStr = 'MixedClathrateIh'
+                else:
+                    phaseStr = 'Clath'
                 # Get physical properties of clathrate lid
                 Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nClath,
-                                             Planet.Ocean.surfIceEOS['Clath'],
+                                             Planet.Ocean.surfIceEOS[phaseStr],
                                              Planet.P_MPa[:Planet.Steps.nClath],
                                              Planet.T_K[:Planet.Steps.nClath])
                 # Correct for porosity in clathrate layers
                 Planet = PorosityCorrectionVacIce(Planet, Params, 0, Planet.Steps.nClath,
-                                                  Planet.Ocean.surfIceEOS['Clath'],
+                                                  Planet.Ocean.surfIceEOS[phaseStr],
                                                   Planet.P_MPa[:Planet.Steps.nClath],
                                                   Planet.T_K[:Planet.Steps.nClath])
 
@@ -303,7 +310,7 @@ def IceIConvectPorous(Planet, Params):
         Planet = PropagateAdiabaticPorousVacIce(Planet, Params, nConduct, nConduct+nConvect,
                                                 Planet.Ocean.surfIceEOS['Ih'])
         # Set logical array for convective ice layers
-        Planet.Steps.iConv[nConduct:nConduct+nConvect] = True
+        Planet.Steps.iConv[nConduct:nConvect] = True
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         # Reassign conductive profile with new top temperature for conductive layer
@@ -744,19 +751,24 @@ def ClathShellConvectSolid(Planet, Params):
         Assigns Planet attributes:
             Tconv_K, etaConv_Pas, eLid_m, deltaTBL_m, QfromMantle_W, all physical layer arrays
     """
-
+    if Planet.Do.MIXED_CLATHRATE_ICE:
+        phaseStr = 'MixedClathrateIh'
+        phaseIndex = Constants.phaseClath + 1
+    else:
+        phaseStr = 'Clath'
+        phaseIndex = Constants.phaseClath
     log.debug('Applying solid-state convection to surface clathrates based on Deschamps and Sotin (2001).')
     zbI_m = Planet.z_m[Planet.Steps.nIbottom]
     # Get "middle" pressure
     Pmid_MPa = (Planet.PbI_MPa - Planet.P_MPa[0]) / 2
-    Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.P_MPa[0], Planet.Bulk.Tb_K)
+    Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[phaseStr].fn_kTherm_WmK(Planet.P_MPa[0], Planet.Bulk.Tb_K)
 
     # Run calculations to get convection layer parameters
     Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, \
         Planet.RaConvect, Planet.RaCrit = \
         ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
-                                     zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.surfIceEOS['Clath'],
-                                     Planet.Ocean.surfIceEOS['Clath'], Constants.phaseClath, Planet.Do.EQUIL_Q)
+                                     zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.surfIceEOS[phaseStr],
+                                     Planet.Ocean.surfIceEOS[phaseStr], phaseIndex, Planet.Do.EQUIL_Q)
 
     log.debug(f'Clathrate shell convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
               f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
@@ -796,7 +808,7 @@ def ClathShellConvectSolid(Planet, Params):
 
         # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
         Planet = EvalLayerProperties(Planet, Params, 0, nConduct+1,
-                                     Planet.Ocean.surfIceEOS['Clath'],
+                                     Planet.Ocean.surfIceEOS[phaseStr],
                                      Planet.P_MPa[:nConduct+1], Planet.T_K[:nConduct+1])
 
         Planet = PropagateConduction(Planet, Params, 0, nConduct-1)
@@ -804,9 +816,9 @@ def ClathShellConvectSolid(Planet, Params):
         log.debug('Stagnant lid conductive profile complete. Modeling ice I convecting layer...')
 
         Planet = PropagateAdiabaticSolid(Planet, Params, nConduct, nConduct + nConvect,
-                                         Planet.Ocean.surfIceEOS['Clath'])
+                                         Planet.Ocean.surfIceEOS[phaseStr])
         # Set logical array for convective clathrate layers
-        Planet.Steps.iConv[nConduct:nConduct+nConvect] = True
+        Planet.Steps.iConv[nConduct:nConvect] = True
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         # Reassign conductive profile with new top temperature for conductive layer
@@ -815,7 +827,7 @@ def ClathShellConvectSolid(Planet, Params):
 
         # Get physical properties of thermal boundary layer
         Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
-                                    Planet.Ocean.surfIceEOS['Clath'],
+                                    Planet.Ocean.surfIceEOS[phaseStr],
                                     Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
 
         Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
@@ -835,19 +847,22 @@ def ClathShellConvectPorous(Planet, Params):
         Assigns Planet attributes:
             Tconv_K, etaConv_Pas, eLid_m, deltaTBL_m, QfromMantle_W, all physical layer arrays
     """
-
+    if Planet.Do.MIXED_CLATHRATE_ICE:
+        phaseStr = 'MixedClathrateIh'
+    else:
+        phaseStr = 'Clath'
     log.debug('Applying solid-state convection to surface clathrates based on Deschamps and Sotin (2001).')
     zbI_m = Planet.z_m[Planet.Steps.nIbottom]
     # Get "middle" pressure
     Pmid_MPa = (Planet.PbI_MPa - Planet.P_MPa[0]) / 2
-    Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS['Clath'].fn_kTherm_WmK(Planet.P_MPa[0], Planet.Bulk.Tb_K)
+    Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[phaseStr].fn_kTherm_WmK(Planet.P_MPa[0], Planet.Bulk.Tb_K)
 
     # Run calculations to get convection layer parameters
     Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, \
         Planet.RaConvect, Planet.RaCrit = \
         ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
-                                     zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.surfIceEOS['Clath'],
-                                     Planet.Ocean.surfIceEOS['Clath'], Constants.phaseClath, Planet.Do.EQUIL_Q)
+                                     zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.surfIceEOS[phaseStr],
+                                     Planet.Ocean.surfIceEOS[phaseStr], Constants.phaseClath, Planet.Do.EQUIL_Q)
 
     log.debug(f'Clathrate shell convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
               f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
@@ -887,11 +902,11 @@ def ClathShellConvectPorous(Planet, Params):
 
         # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
         Planet = EvalLayerProperties(Planet, Params, 0, nConduct+1,
-                                     Planet.Ocean.surfIceEOS['Clath'],
+                                     Planet.Ocean.surfIceEOS[phaseStr],
                                      Planet.P_MPa[:nConduct+1], Planet.T_K[:nConduct+1])
 
         Planet = PorosityCorrectionVacIce(Planet, Params, 0, nConduct+1,
-                                          Planet.Ocean.surfIceEOS['Clath'],
+                                          Planet.Ocean.surfIceEOS[phaseStr],
                                           Planet.P_MPa[:nConduct+1], Planet.T_K[:nConduct+1])
 
         Planet = PropagateConduction(Planet, Params, 0, nConduct-1)
@@ -899,9 +914,9 @@ def ClathShellConvectPorous(Planet, Params):
         log.debug('Stagnant lid conductive profile complete. Modeling ice I convecting layer...')
 
         Planet = PropagateAdiabaticPorousVacIce(Planet, Params, nConduct, nConduct + nConvect,
-                                                Planet.Ocean.surfIceEOS['Clath'])
+                                                Planet.Ocean.surfIceEOS[phaseStr])
         # Set logical array for convective clathrate layers
-        Planet.Steps.iConv[nConduct:nConduct+nConvect] = True
+        Planet.Steps.iConv[nConduct:nConvect] = True
         log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
 
         # Reassign conductive profile with new top temperature for conductive layer
@@ -910,11 +925,11 @@ def ClathShellConvectPorous(Planet, Params):
 
         # Get physical properties of thermal boundary layer
         Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
-                                    Planet.Ocean.surfIceEOS['Clath'],
+                                    Planet.Ocean.surfIceEOS[phaseStr],
                                     Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
 
         Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1]+1,
-                                          Planet.Ocean.surfIceEOS['Clath'],
+                                          Planet.Ocean.surfIceEOS[phaseStr],
                                           Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
 
         Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])

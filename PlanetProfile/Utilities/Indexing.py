@@ -9,6 +9,33 @@ from PlanetProfile.Utilities.defineStructs import Constants
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
+def MixedPhaseSeparator(phaseStr):
+    """ Separate mixed phase strings into different phases
+
+        Arguments:
+            phaseStr (string): String for each phase ID
+        Returns:
+            primaryPhase, secondaryPhase (string): Corresponding strings for each phase
+    """
+    if phaseStr == 'MixedClathrateIh':
+        phaseOne = 'Clath'
+        phaseTwo = 'Ih'
+    elif phaseStr == 'MixedClathrateII':
+        phaseOne = 'Clath'
+        phaseTwo = 'II'
+    elif phaseStr == 'MixedClathrateIII':
+        phaseOne = 'Clath'
+        phaseTwo = 'III'
+    elif phaseStr == 'MixedClathrateV':
+        phaseOne = 'Clath'
+        phaseTwo = 'V'
+    elif phaseStr == 'MixedClathrateVI':
+        phaseOne = 'Clath'
+        phaseTwo = 'VI'
+    else:
+        raise ValueError(f'MixedPhaseSeparator does not have a definition for phase string "{phaseStr}".')
+    
+    return phaseOne, phaseTwo
 
 def PhaseConv(phase, PORE=False, liq='water1'):
     """ Convert phase integers into strings compatible with SeaFreeze
@@ -40,6 +67,16 @@ def PhaseConv(phase, PORE=False, liq='water1'):
             phaseStr = liq
         else:
             phaseStr = 'Clath'
+    elif abs(phase) == Constants.phaseClath + 1:
+        phaseStr = 'MixedClathrateIh'
+    elif abs(phase) == Constants.phaseClath + 2:
+        phaseStr = 'MixedClathrateII'
+    elif abs(phase) == Constants.phaseClath + 3:
+        phaseStr = 'MixedClathrateIII'
+    elif abs(phase) == Constants.phaseClath + 5:
+        phaseStr = 'MixedClathrateV'
+    elif abs(phase) == Constants.phaseClath + 6:
+        phaseStr = 'MixedClathrateVI'
     elif phase >= Constants.phaseSil and phase < Constants.phaseSil+10:
         if PORE and phase != Constants.phaseSil:
             phaseStr = PhaseConv(phase % 10, PORE=False, liq=liq)
@@ -75,6 +112,16 @@ def PhaseInv(phaseStr):
         phase = 6
     elif phaseStr == 'Clath':
         phase = Constants.phaseClath
+    elif phaseStr == 'MixedClathrateIh':
+        phase = Constants.phaseClath + 1
+    elif phaseStr == 'MixedClathrateII':
+        phase = Constants.phaseClath + 2
+    elif phaseStr == 'MixedClathrateIII':
+        phase = Constants.phaseClath + 3
+    elif phaseStr == 'MixedClathrateV':
+        phase = Constants.phaseClath + 5
+    elif phaseStr == 'MixedClathrateVI':
+        phase = Constants.phaseClath + 6
     elif phaseStr == 'Sil':
         phase = Constants.phaseSil
     elif phaseStr == 'Fe':
@@ -111,6 +158,16 @@ def GetPhaseIndices(phase):
     indsIceVIund = np.where(phase==-6)[0]
     indsClath = np.where(phase==Constants.phaseClath)[0]
     indsClathWet = np.where(phase==-Constants.phaseClath)[0]
+    indsMixedClathrateIh = np.where(phase==Constants.phaseClath+1)[0]
+    indsMixedClathrateII = np.where(phase==Constants.phaseClath+2)[0]
+    indsMixedClathrateIII = np.where(phase==Constants.phaseClath+3)[0]
+    indsMixedClathrateV = np.where(phase==Constants.phaseClath+5)[0]
+    indsMixedClathrateVI = np.where(phase==Constants.phaseClath+6)[0]
+    indsMixedClathrateIhwet = np.where(phase==-Constants.phaseClath-1)[0]
+    indsMixedClathrateIIund = np.where(phase==-Constants.phaseClath-2)[0]
+    indsMixedClathrateIIIund = np.where(phase==-Constants.phaseClath-3)[0]
+    indsMixedClathrateVund = np.where(phase==-Constants.phaseClath-5)[0]
+    indsMixedClathrateVIund = np.where(phase==-Constants.phaseClath-6)[0]
     indsSil = np.where(np.logical_and(phase>=Constants.phaseSil, phase<Constants.phaseSil+10))[0]
     indsSilLiq = np.where(phase==Constants.phaseSil)[0]
     indsSilI = np.where(phase==Constants.phaseSil+1)[0]
@@ -121,5 +178,7 @@ def GetPhaseIndices(phase):
     indsFe = np.where(phase>=Constants.phaseFe)[0]
 
     return indsLiquid, indsIceI, indsIceIwet, indsIceII, indsIceIIund, indsIceIII, indsIceIIIund, indsIceV, indsIceVund, \
-               indsIceVI, indsIceVIund, indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, \
+               indsIceVI, indsIceVIund, indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+               indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
+               indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, \
                indsSilV, indsSilVI, indsFe

@@ -648,7 +648,8 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
                                                                   phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
                                                                   Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                                   phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase])
+                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                                      mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
                 thisIceEOS = Planet.Ocean.iceEOS[icePhase]
 
             iP = np.where(phasePore0 == phase)[0]
@@ -813,7 +814,8 @@ def SilRecursionPorous(Planet, Params,
                                                                       phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
                                                                       Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                                       phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                      EXTRAP=Params.EXTRAP_ICE[icePhase])
+                                                                      EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                                      mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
                     thisIceEOS = Planet.Ocean.iceEOS[icePhase]
 
                 # Get indices where this ice phase is present

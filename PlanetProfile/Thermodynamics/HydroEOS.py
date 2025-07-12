@@ -13,7 +13,7 @@ from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4Phase
     MgSO4Seismic, MgSO4Conduct, Ppt2molal
 from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
-from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv
+from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv, MixedPhaseSeparator
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand,  \
     SpeciesParser, RktProps, RktSeismic, RktConduct, RktHydroSpecies, RktRxnAffinity, EOSLookupTableLoader
 # Assign logger
@@ -342,12 +342,27 @@ class OceanEOSStruct:
 
 def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0,
               EXTRAP=False, ClathDissoc=None, minPres_MPa=None, minTres_K=None,
-              ICEIh_DIFFERENT=False, etaFixed_Pas=None, TviscTrans_K=None):
-    iceEOS = IceEOSStruct(P_MPa, T_K, phaseStr, porosType=porosType, phiTop_frac=phiTop_frac,
-                          Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
-                          ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa, minTres_K=minTres_K,
-                          ICEIh_DIFFERENT=ICEIh_DIFFERENT, etaFixed_Pas=etaFixed_Pas,
-                          TviscTrans_K=TviscTrans_K)
+            ICEIh_DIFFERENT=False, etaFixed_Pas=None, TviscTrans_K=None, mixParameters=None):
+    # Check if this is a mixed EOS
+    try:
+        # Check if MixedPhaseSeparator can process this phaseStr (will raise error if not mixed)
+        phaseOne, phaseTwo = MixedPhaseSeparator(phaseStr)
+    except Exception:
+        # MixedPhaseSeparator raised an error, so this is not a mixed EOS - create normal ice EOS
+        iceEOS = IceEOSStruct(P_MPa, T_K, phaseStr, porosType=porosType, phiTop_frac=phiTop_frac,
+                            Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
+                            ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa, minTres_K=minTres_K,
+                            ICEIh_DIFFERENT=ICEIh_DIFFERENT, etaFixed_Pas=etaFixed_Pas,
+                            TviscTrans_K=TviscTrans_K)
+    else:
+        # If no error is thrown, it's a mixed phase - create mixed EOS (allow MixedEOSStruct errors to propagate)
+        iceEOS = MixedEOSStruct(P_MPa, T_K, phaseStr, mixParameters,
+                                  porosType=porosType, phiTop_frac=phiTop_frac, 
+                                  Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac,
+                                  EXTRAP=EXTRAP, ClathDissoc=ClathDissoc, 
+                                  minPres_MPa=minPres_MPa, minTres_K=minTres_K,
+                                  ICEIh_DIFFERENT=ICEIh_DIFFERENT, etaFixed_Pas=etaFixed_Pas,
+                                  TviscTrans_K=TviscTrans_K)
     if iceEOS.ALREADY_LOADED:
         log.debug(f'Ice {phaseStr} EOS already loaded. Reusing existing EOS.')
         iceEOS = EOSlist.loaded[iceEOS.EOSlabel]
@@ -370,11 +385,11 @@ class IceEOSStruct:
                         f'TviscTrans{TviscTrans_K}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, minPres_MPa=minPres_MPa, minTres_K=minTres_K)
+        self.Pmin = np.min(P_MPa)
+        self.Pmax = np.max(P_MPa)
+        self.Tmin = np.min(T_K)
+        self.Tmax = np.max(T_K)
         if not self.ALREADY_LOADED:
-            self.Pmin = np.min(P_MPa)
-            self.Pmax = np.max(P_MPa)
-            self.Tmin = np.min(T_K)
-            self.Tmax = np.max(T_K)
             self.EOSdeltaP = self.deltaP
             self.EOSdeltaT = self.deltaT
             self.EXTRAP = EXTRAP
@@ -547,6 +562,183 @@ class IceEOSStruct:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_eta_Pas(P_MPa, T_K, grid=grid)
 
+
+class MixedEOSStruct:
+    """
+    Mixed equation of state that combines properties from two component EOS phases 
+    using specified mixing rules for each property type. Generates each component EOS and applies mixing rules to return the mixed phase properties.
+    """
+    def __init__(self, P_MPa, T_K, phaseStr, mixParameters, porosType=None, phiTop_frac=0, 
+                 Pclosure_MPa=0, phiMin_frac=0, EXTRAP=False, ClathDissoc=None, 
+                 minPres_MPa=None, minTres_K=None, ICEIh_DIFFERENT=False, 
+                 etaFixed_Pas=None, TviscTrans_K=None):
+        # Get the name of each EOS
+        self.mixFrac = mixParameters['mixFrac']
+        self.JmixedRheologyConstant = mixParameters['JmixedRheologyConstant']
+        self.EOSlabel = f'phase{phaseStr}poros{porosType}phi{phiTop_frac}Pclose{Pclosure_MPa}' + \
+                        f'phiMin{phiMin_frac}extrap{EXTRAP}etaFixed{etaFixed_Pas}' + \
+                        f'TviscTrans{TviscTrans_K}' + \
+                        f'mixFrac{self.mixFrac}' + \
+                        f'JrheologyConstant{self.JmixedRheologyConstant}'
+        self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
+            = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, minPres_MPa=minPres_MPa, minTres_K=minTres_K)
+        if not self.ALREADY_LOADED:
+            self.phaseStr = phaseStr
+            self.phaseID = PhaseInv(phaseStr)
+            self.phaseOne, self.phaseTwo = MixedPhaseSeparator(phaseStr)
+            # Create the component EOS structures
+            self.firstEOS = IceEOSStruct(P_MPa, T_K, self.phaseOne, porosType=porosType,
+                                        phiTop_frac=phiTop_frac, Pclosure_MPa=Pclosure_MPa,
+                                        phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
+                                        ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa,
+                                        minTres_K=minTres_K, ICEIh_DIFFERENT=ICEIh_DIFFERENT,
+                                        etaFixed_Pas=etaFixed_Pas, TviscTrans_K=TviscTrans_K)
+            if self.firstEOS.ALREADY_LOADED:
+                log.debug(f'Ice {self.phaseOne} EOS already loaded. Reusing existing EOS.')
+                self.firstEOS = EOSlist.loaded[self.firstEOS.EOSlabel]
+            
+            self.secondEOS = IceEOSStruct(P_MPa, T_K, self.phaseTwo, porosType=porosType,
+                                            phiTop_frac=phiTop_frac, Pclosure_MPa=Pclosure_MPa,
+                                            phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
+                                            ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa,
+                                            minTres_K=minTres_K, ICEIh_DIFFERENT=ICEIh_DIFFERENT,
+                                            etaFixed_Pas=etaFixed_Pas, TviscTrans_K=TviscTrans_K)
+            if self.secondEOS.ALREADY_LOADED:
+                log.debug(f'Ice {self.phaseTwo} EOS already loaded. Reusing existing EOS.')
+                self.secondEOS = EOSlist.loaded[self.secondEOS.EOSlabel]
+            # Set the limits to the minimal bounds of the component EOSs
+            self.Pmin = self.firstEOS.Pmin if self.firstEOS.Pmin > self.secondEOS.Pmin else self.secondEOS.Pmin
+            self.Pmax = self.firstEOS.Pmax if self.firstEOS.Pmax < self.secondEOS.Pmax else self.secondEOS.Pmax
+            self.Tmin = self.firstEOS.Tmin if self.firstEOS.Tmin > self.secondEOS.Tmin else self.secondEOS.Tmin
+            self.Tmax = self.firstEOS.Tmax if self.firstEOS.Tmax < self.secondEOS.Tmax else self.secondEOS.Tmax
+            self.deltaP = np.maximum(self.firstEOS.deltaP, self.secondEOS.deltaP)
+            self.deltaT = np.maximum(self.firstEOS.deltaT, self.secondEOS.deltaT)
+            self.EOSdeltaP = self.deltaP
+            self.EOSdeltaT = self.deltaT
+            self.EXTRAP = EXTRAP
+            self.EOStype = 'ice'
+            self.POROUS = self.firstEOS.POROUS and self.secondEOS.POROUS
+
+                    
+            log.debug(f'Created mixed EOS "{phaseStr}": {self.mixFrac}% {self.phaseTwo} + ' +
+                    f'{1-self.mixFrac}% {self.phaseOne}')
+            
+            # Store complete EOSStruct in global list of loaded EOSs
+            EOSlist.loaded[self.EOSlabel] = self
+            EOSlist.ranges[self.EOSlabel] = self.rangeLabel
+    
+    def _mixingRule(self, prop1, prop2, rule):
+        if rule == 'arithmetic':
+            if isinstance(prop1, tuple):
+                return tuple(array * self.mixFrac + array2 * (1 - self.mixFrac) for array, array2 in zip(prop1, prop2))
+            else:
+                return (prop1 * self.mixFrac + prop2 * (1 - self.mixFrac))
+        elif rule == 'VRHAverage':
+            if isinstance(prop1, tuple):
+                M_V = tuple(array * self.mixFrac + array2 * (1 - self.mixFrac) for array, array2 in zip(prop1, prop2))
+                M_R_Inverse = tuple(self.mixFrac / (array) + (1 - self.mixFrac) / (array2) for array, array2 in zip(prop1, prop2))
+                M_R = tuple(1 / inv for inv in M_R_Inverse)
+                return tuple((v + r) / 2 for v, r in zip(M_V, M_R))
+            else:
+                M_V = prop1 * self.mixFrac + prop2 * (1 - self.mixFrac)
+                M_R_Inverse = self.mixFrac / (prop1) + (1 - self.mixFrac) / (prop2)
+                M_R = 1 / M_R_Inverse
+                return (M_V + M_R) / 2
+        elif rule == 'Carahan2004Averaging':
+            if self.JmixedRheologyConstant == 0:
+                # Geometric mean for J = 0
+                if isinstance(prop1, tuple):
+                    return tuple(array ** self.mixFrac * array2 ** (1 - self.mixFrac) for array, array2 in zip(prop1, prop2))
+                else:
+                    return prop1 ** self.mixFrac * prop2 ** (1 - self.mixFrac)
+            else:
+                if isinstance(prop1, tuple):
+                    return tuple((array ** self.JmixedRheologyConstant * self.mixFrac + array2 ** self.JmixedRheologyConstant * (1 - self.mixFrac)) ** (1 / self.JmixedRheologyConstant) for array, array2 in zip(prop1, prop2))
+                else:
+                    return (prop1 ** self.JmixedRheologyConstant * self.mixFrac + prop2 ** self.JmixedRheologyConstant * (1 - self.mixFrac)) ** (1 / self.JmixedRheologyConstant)
+        else:
+            raise ValueError(f'Invalid mixing rule: {rule}')
+
+    
+    def fn_phase(self, P_MPa, T_K, grid=False):
+        """ For mixed phases, we call the phase function from both component EOS and add them together. This takes advantage of the two facts:
+        1) that the phaseID of the mixed phase is the sum of the phaseIDs of the component phases.
+        2)  When one phase becomes unstable, the fn_phase returns zero for the unstable phase and the phaseID of the mixed phase will be the phaseID of the only stable phase."""
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        #TODO Fix this implementation so that it uses oceanEOS.fn_phase
+        phase1 = self.firstEOS.fn_phase(P_MPa, T_K, grid)
+        phase2 = self.secondEOS.fn_phase(P_MPa, T_K, grid)
+        if phase1 == 0:
+            return phase1
+        else:
+            return phase1 + phase2
+    
+    def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        rho1 = self.firstEOS.fn_rho_kgm3(P_MPa, T_K, grid)
+        rho2 = self.secondEOS.fn_rho_kgm3(P_MPa, T_K, grid)
+        return self._mixingRule(rho1, rho2, 'arithmetic')
+    
+    def fn_Cp_JkgK(self, P_MPa, T_K, grid=False):
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        Cp1 = self.firstEOS.fn_Cp_JkgK(P_MPa, T_K, grid)
+        Cp2 = self.secondEOS.fn_Cp_JkgK(P_MPa, T_K, grid)
+        return self._mixingRule(Cp1, Cp2, 'arithmetic')
+    
+    def fn_alpha_pK(self, P_MPa, T_K, grid=False):
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        alpha1 = self.firstEOS.fn_alpha_pK(P_MPa, T_K, grid)
+        alpha2 = self.secondEOS.fn_alpha_pK(P_MPa, T_K, grid)
+        return self._mixingRule(alpha1, alpha2, 'arithmetic')
+    
+    def fn_kTherm_WmK(self, P_MPa, T_K, grid=False):
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        kTherm1 = self.firstEOS.fn_kTherm_WmK(P_MPa, T_K, grid)
+        kTherm2 = self.secondEOS.fn_kTherm_WmK(P_MPa, T_K, grid)
+        return self._mixingRule(kTherm1, kTherm2, 'arithmetic')
+    
+    def fn_phi_frac(self, P_MPa, T_K, grid=False):
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        phi1 = self.firstEOS.fn_phi_frac(P_MPa, T_K, grid)
+        phi2 = self.secondEOS.fn_phi_frac(P_MPa, T_K, grid)
+        return self._mixingRule(phi1, phi2, 'arithmetic')
+    
+    def fn_Seismic(self, P_MPa, T_K, grid=False):
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        seismic1 = self.firstEOS.fn_Seismic(P_MPa, T_K, grid)
+        seismic2 = self.secondEOS.fn_Seismic(P_MPa, T_K, grid)
+        return self._mixingRule(seismic1, seismic2, 'VRHAverage')
+    
+    def fn_sigma_Sm(self, P_MPa, T_K, grid=False):
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        sigma1 = self.firstEOS.fn_sigma_Sm(P_MPa, T_K, grid)
+        sigma2 = self.secondEOS.fn_sigma_Sm(P_MPa, T_K, grid)
+        return self._mixingRule(sigma1, sigma2, 'arithmetic')
+    
+    def fn_eta_Pas(self, P_MPa, T_K, grid=False):
+        if not self.EXTRAP:
+            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        eta1 = self.firstEOS.fn_eta_Pas(P_MPa, T_K, grid)
+        eta2 = self.secondEOS.fn_eta_Pas(P_MPa, T_K, grid)
+        return self._mixingRule(eta1, eta2, 'Carahan2004Averaging')
+    
+    def fn_averageValuesAccordingtoRule(self, prop1, prop2, rule):
+        if rule == 'arithmetic':
+            return self._mixingRule(prop1, prop2, 'arithmetic')
+        elif rule == 'VRHAverage':
+            return self._mixingRule(prop1, prop2, 'VRHAverage')
+        elif rule == 'Carahan2004Averaging':
+            return self._mixingRule(prop1, prop2, 'Carahan2004Averaging')
+
+
 class returnVal:
     def __init__(self, val):
         self.val = val
@@ -587,16 +779,20 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
         if EOSlist.ranges[EOSlabel] == rangeLabel:
             # This exact EOS has been loaded already. Reuse the one in memory
             ALREADY_LOADED = True
-            outP_MPa = None
-            outT_K = None
+            outP_MPa = np.array([Pmin, Pmax])
+            outT_K = np.array([Tmin, Tmax])
         else:
             # Check if we can reuse an already-loaded EOS because the
             # P, T ranges are contained within the already-loaded EOS
-            nopeP = np.min(P_MPa) < EOSlist.loaded[EOSlabel].Pmin * 0.9 or \
-                    np.max(P_MPa) > EOSlist.loaded[EOSlabel].Pmax * 1.1 or \
+            EOSPmin = EOSlist.loaded[EOSlabel].Pmin
+            EOSPmax = EOSlist.loaded[EOSlabel].Pmax
+            EOSTmin = EOSlist.loaded[EOSlabel].Tmin
+            EOSTmax = EOSlist.loaded[EOSlabel].Tmax
+            nopeP = np.min(P_MPa) < EOSPmin * 0.9 or \
+                    np.max(P_MPa) > EOSPmax * 1.1 or \
                     deltaP < EOSlist.loaded[EOSlabel].deltaP * 0.9
-            nopeT = np.min(T_K) < EOSlist.loaded[EOSlabel].Tmin - 0.1 or \
-                    np.max(T_K) > EOSlist.loaded[EOSlabel].Tmax + 0.1 or \
+            nopeT = np.min(T_K) < EOSTmin - 0.1 or \
+                    np.max(T_K) > EOSTmax + 0.1 or \
                     deltaT < EOSlist.loaded[EOSlabel].deltaT * 0.9
             if nopeP or nopeT:
                 # The new inputs have at least one min/max value outside the range
@@ -633,8 +829,8 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
                 # A previous EOS has been loaded that has a wider P or T range than the inputs,
                 # so we will use the previously loaded one.
                 ALREADY_LOADED = True
-                outP_MPa = None
-                outT_K = None
+                outP_MPa = np.array([EOSPmin, EOSPmax])
+                outT_K = np.array([EOSTmin, EOSTmax])
     else:
         # This EOS has not been loaded, so we need to load it with the input parameters
         ALREADY_LOADED = False

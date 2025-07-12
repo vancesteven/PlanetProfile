@@ -4,6 +4,7 @@ import logging
 import ast
 import os
 from PlanetProfile.Utilities.Indexing import PhaseConv
+from PlanetProfile.Utilities.defineStructs import Constants
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -125,6 +126,8 @@ def SetupGravity(Planet, Params):
             if end != changeIndices[-1]:  # Exclude the last index, which is the end of the model
                 layers.append(end - 1)
             phase = phases[start]
+            if phase >= Constants.phaseClath and phase < Constants.phaseClath + 10:
+                phase = Constants.phaseClath # Reset phase to phase Clathrate so we can use that rheology model in the config - namely, we treat rheology of mixed layers as same as we treat clathrate
             convection = np.flipud(Planet.Reduced.iConv)[start]
             # Convert numerical phase to string representation for dictionary lookup
             phase_str = PhaseConv(phase, liq='0')

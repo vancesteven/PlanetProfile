@@ -580,8 +580,12 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
                 f', {labelAppendage}'
             Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Ocean.comp}}}'
         if Planet.Do.CLATHRATE:
-            saveLabel += '_Clathrates'
-            label += ' w/clath'
+            if Planet.Do.MIXED_CLATHRATE_ICE:
+                saveLabel += '_MixedClathrates'
+                label += ' w/mixed clathrates'
+            else:
+                saveLabel += '_Clathrates'
+                label += ' w/clath'
         if Planet.Do.POROUS_ICE:
             if Planet.Do.CLATHRATE and Planet.Bulk.clathType != 'bottom':
                 saveLabel += f'_PorousIce_phi{Planet.Ocean.phiMax_frac["Clath"]:.2f}_Pc{Planet.Ocean.Pclosure_MPa["Clath"]:5.2e}'

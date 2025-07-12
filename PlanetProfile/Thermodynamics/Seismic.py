@@ -32,7 +32,9 @@ def SeismicCalcs(Planet, Params):
                                    sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
 
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
-            indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
+            indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+            indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
+            indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
             indsFe = GetPhaseIndices(Planet.phase)
 
         # Get seismic properties of all ice layers, starting with dry phases
@@ -78,7 +80,33 @@ def SeismicCalcs(Planet, Params):
             Hclath = Planet.Seismic.gClath * np.max(Planet.T_K[indsAllClath])
             Planet.Seismic.QS[indsAllClath] = Planet.Seismic.BClath * np.exp(
                 Planet.Seismic.gammaClath * Hclath / Planet.T_K[indsAllClath])
-
+        indsAllMixedClath = (np.concatenate((indsMixedClathrateIh, indsMixedClathrateIhwet)),np.concatenate((indsMixedClathrateII, indsMixedClathrateIIund)),np.concatenate((indsMixedClathrateIII, indsMixedClathrateIIIund)),np.concatenate((indsMixedClathrateV, indsMixedClathrateVund)),np.concatenate((indsMixedClathrateVI, indsMixedClathrateVIund)))
+        clathPhase = ('MixedClathrateIh',  'MixedClathrateII',  'MixedClathrateIII', 'MixedClathrateV', 'MixedClathrateVI')
+        for indsMixedClath, clathPhase in zip(indsAllMixedClath, clathPhase): #TODO FIx this logic for high pressure mixed clathrate phases
+            if np.size(indsMixedClath) != 0:
+                if Planet.Ocean.surfIceEOS[clathPhase].key not in EOSlist.loaded.keys():
+                    PIce_MPa = np.linspace(Planet.P_MPa[indsMixedClath][0], Planet.P_MPa[indsMixedClath][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsMixedClath), 4))
+                    TIce_K = np.linspace(Planet.T_MPa[indsMixedClath][0], Planet.T_MPa[indsMixedClath][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsMixedClath), 4))
+                    Planet.Ocean.surfIceEOS[clathPhase] = GetIceEOS(PIce_MPa, TIce_K, clathPhase,
+                                                                porosType=Planet.Ocean.porosType[clathPhase],
+                                                                phiTop_frac=Planet.Ocean.phiMax_frac[clathPhase],
+                                                                Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clathPhase],
+                                                                phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                                EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                                mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
+                Planet.Seismic.VP_kms[indsMixedClath], Planet.Seismic.VS_kms[indsMixedClath], \
+                Planet.Seismic.KS_GPa[indsMixedClath], Planet.Seismic.GS_GPa[indsMixedClath] \
+                    = Planet.Ocean.surfIceEOS[clathPhase].fn_Seismic(Planet.P_MPa[indsMixedClath], Planet.T_K[indsMixedClath])
+                Hclath = Planet.Seismic.gClath * np.max(Planet.T_K[indsMixedClath])
+                Hice = Planet.Seismic.gIceI * np.max(Planet.T_K[indsMixedClath])
+                QSclath = Planet.Seismic.BClath * np.exp(
+                    Planet.Seismic.gammaClath * Hclath / Planet.T_K[indsMixedClath])
+                QSice = Planet.Seismic.BIceI * np.exp(
+                    Planet.Seismic.gammaIceI * Hice / Planet.T_K[indsMixedClath])
+                M_V = QSclath * Planet.Bulk.volumeFractionClathrate + QSice * (1 - Planet.Bulk.volumeFractionClathrate)
+                M_R_Inverse = 1 / (Planet.Bulk.volumeFractionClathrate * QSclath) + 1 / ((1 - Planet.Bulk.volumeFractionClathrate) * QSice)
+                M_R = 1 / M_R_Inverse
+                Planet.Seismic.QS[indsMixedClath] = (M_V + M_R) / 2
         indsAllII = np.concatenate((indsIIund, indsII))
         if np.size(indsAllII) != 0:
             icePhase = 'II'
@@ -344,7 +372,8 @@ def CalcSeisPorRock(Planet, Params, indsSil, indsSilLiq, indsSilI, indsSilII, in
 
 
 def CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV,
-                                   indsVund, indsVI, indsVIund, indsClath, indsClathWet):
+                                   indsVund, indsVI, indsVIund, indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI,
+                                   indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund):
 
     # Make corrections for dry phases first
     if np.size(indsI) != 0:
@@ -366,6 +395,20 @@ def CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, 
             Planet.Seismic.KS_GPa[indsClath], 0, Planet.phi_frac[indsClath], Planet.Ocean.JKS)
         Planet.Seismic.GS_GPa[indsClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
             Planet.Seismic.GS_GPa[indsClath], 0, Planet.phi_frac[indsClath], Planet.Ocean.JGS)
+
+        # Get all mixed clathrate phases that are not of size zero
+    indsMixedClathrateAll = [indsMixedClathrateIh, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund]
+    mixedPhases = ['MixedClathrateIh', 'MixedClathrateII', 'MixedClathrateIII', 'MixedClathrateV', 'MixedClathrateVI']
+    for indsMixedClath, mixedPhase in zip(indsMixedClathrateAll, mixedPhases):
+        if np.size(indsMixedClath) != 0:
+            Planet.Seismic.VP_kms[indsMixedClath] = Planet.Ocean.surfIceEOS[mixedPhase].fn_porosCorrect(
+                Planet.Seismic.VP_kms[indsMixedClath], 0, Planet.phi_frac[indsMixedClath], Planet.Ocean.JVP)
+            Planet.Seismic.VS_kms[indsMixedClath] = Planet.Ocean.surfIceEOS[mixedPhase].fn_porosCorrect(
+                Planet.Seismic.VS_kms[indsMixedClath], 0, Planet.phi_frac[indsMixedClath], Planet.Ocean.JVS)
+            Planet.Seismic.KS_GPa[indsMixedClath] = Planet.Ocean.surfIceEOS[mixedPhase].fn_porosCorrect(
+                Planet.Seismic.KS_GPa[indsMixedClath], 0, Planet.phi_frac[indsMixedClath], Planet.Ocean.JKS)
+            Planet.Seismic.GS_GPa[indsMixedClath] = Planet.Ocean.surfIceEOS[mixedPhase].fn_porosCorrect(
+                Planet.Seismic.GS_GPa[indsMixedClath], 0, Planet.phi_frac[indsMixedClath], Planet.Ocean.JGS)
 
     if np.size(indsIIund) != 0:
         Planet.Seismic.VP_kms[indsIIund] = Planet.Ocean.surfIceEOS['II'].fn_porosCorrect(
@@ -475,6 +518,17 @@ def CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, 
         Planet.Seismic.GS_GPa[indsVI] = Planet.Ocean.iceEOS['VI'].fn_porosCorrect(
             Planet.Seismic.GS_GPa[indsVI], 0, Planet.phi_frac[indsVI], Planet.Ocean.JGS)
 
+        # Get all mixed clathrate phases that are not of size zero
+    indsMixedWetClathrateAll = [indsMixedClathrateIhwet, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI]
+    mixedPhases = ['MixedClathrateIh', 'MixedClathrateII', 'MixedClathrateIII', 'MixedClathrateV', 'MixedClathrateVI']
+    for indsMixedClathrate, mixedPhase in zip(indsMixedWetClathrateAll, mixedPhases):
+        if np.size(indsMixedClathrate) != 0:
+            Planet.Seismic.VP_kms[indsMixedClathrate] = Planet.Ocean.surfIceEOS[mixedPhase].fn_porosCorrect(
+                Planet.Seismic.VP_kms[indsMixedClathrate], 0, Planet.phi_frac[indsMixedClathrate], Planet.Ocean.JVP)
+            Planet.Seismic.VS_kms[indsMixedClathrate] = Planet.Ocean.surfIceEOS[mixedPhase].fn_porosCorrect(
+                Planet.Seismic.VS_kms[indsMixedClathrate], 0, Planet.phi_frac[indsMixedClathrate], Planet.Ocean.JVS)
+            Planet.Seismic.KS_GPa[indsMixedClathrate] = Planet.Ocean.surfIceEOS[mixedPhase].fn_porosCorrect(
+                Planet.Seismic.KS_GPa[indsMixedClathrate], 0, Planet.phi_frac[indsMixedClathrate], Planet.Ocean.JKS)
 
     return Planet
 

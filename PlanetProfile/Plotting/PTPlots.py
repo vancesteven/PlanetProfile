@@ -21,6 +21,8 @@ import copy
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
+
+
 # Unlike most other plotting routines, for those below we can't plot multiple bodies together.
 # Just make these plots for the first model, which is the primary.
 
@@ -57,7 +59,9 @@ def PlotHydrosphereSpecies(PlanetList, Params):
 
         # Get liquid indices
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
-            indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
+            indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+            indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
+            indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
             indsFe = GetPhaseIndices(Planet.phase)
         # If we have liquid indices then let's plot hydrosphere species
         if np.size(indsLiq) != 0:
@@ -225,16 +229,23 @@ def PlotHydroPhase(PlanetList, Params):
             # Add clathrates to phase and property diagrams where it is stable (if modeled)
             if Planet.Do.CLATHRATE:
                 clath = PhaseConv(Constants.phaseClath)
-                if clath not in ices:
-                    ices.add(clath)
-                    iceEOS[Constants.phaseClath] = GetIceEOS(P_MPa, T_K, clath,
+                if Planet.Do.MIXED_CLATHRATE_ICE:
+                    phaseIndex = Constants.phaseClath + 1
+                    phaseStr = PhaseConv(phaseIndex)
+                else:
+                    phaseIndex = Constants.phaseClath
+                    phaseStr = PhaseConv(phaseIndex)
+                if phaseStr not in ices:
+                    ices.add(phaseStr)
+                    iceEOS[phaseStr] = GetIceEOS(P_MPa, T_K, phaseStr,
                                                              porosType=Planet.Ocean.porosType[clath],
                                                              phiTop_frac=Planet.Ocean.phiMax_frac[clath],
                                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
                                                              phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                             EXTRAP=Params.EXTRAP_ICE[clath])
-                clathStable = iceEOS[Constants.phaseClath].fn_phase(P_MPa, T_K, grid=True)
-                phases[clathStable == Constants.phaseClath] = Constants.phaseClath
+                                                             EXTRAP=Params.EXTRAP_ICE[clath],
+                                                             mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
+                clathStable = iceEOS[phaseIndex].fn_phase(P_MPa, T_K, grid=True)
+                phases[clathStable == phaseIndex] = phaseIndex
             oceanListEOS.append(oceanEOS)
             phasesList.append(phases)
 
@@ -392,14 +403,21 @@ def OldPlotHydroPhase(PlanetList, Params):
         # Add clathrates to phase and property diagrams where it is stable (if modeled)
         if Planet.Do.CLATHRATE:
             clath = PhaseConv(Constants.phaseClath)
-            clathEOS = GetIceEOS(P_MPa, T_K, clath,
+            if Planet.Do.MIXED_CLATHRATE_ICE:
+                phaseIndex = Constants.phaseClath + 1
+                phaseStr = PhaseConv(phaseIndex)
+            else:
+                phaseIndex = Constants.phaseClath
+                phaseStr = PhaseConv(phaseIndex)
+            clathEOS = GetIceEOS(P_MPa, T_K, phaseStr,
                                         porosType=Planet.Ocean.porosType[clath],
                                         phiTop_frac=Planet.Ocean.phiMax_frac[clath],
                                         Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
-                                        phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[clath])
+                                        phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[clath],
+                                        mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
             clathStable = clathEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
-            phases[np.where(np.logical_and(clathStable == Constants.phaseClath, 
-                                           phases == 1))] = Constants.phaseClath
+            phases[np.where(np.logical_and(clathStable == phaseIndex, 
+                                           phases == 1))] = phaseIndex
         
         fig = plt.figure(figsize=FigSize.vphase)
         grid = GridSpec(1, 1)
@@ -575,19 +593,27 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
                                                phiTop_frac=Planet.Ocean.phiMax_frac[ice],
                                                Pclosure_MPa=Planet.Ocean.Pclosure_MPa[ice],
                                                phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[ice],
-                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT) for ice in ices}
+                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT,
+                                               mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant}) for ice in ices}
         # Add clathrates to phase and property diagrams where it is stable (if modeled)
         if Planet.Do.CLATHRATE:
             clath = PhaseConv(Constants.phaseClath)
-            if clath not in ices:
-                ices.add(clath)
-                iceEOS[Constants.phaseClath] = GetIceEOS(P_MPa, T_K, clath, porosType=Planet.Ocean.porosType[clath],
+            if Planet.Do.MIXED_CLATHRATE_ICE:
+                phaseIndex = Constants.phaseClath + 1
+                phaseStr = PhaseConv(phaseIndex)
+            else:
+                phaseIndex = Constants.phaseClath
+                phaseStr = PhaseConv(phaseIndex)
+            if phaseStr not in ices:
+                ices.add(phaseStr)
+                iceEOS[phaseStr] = GetIceEOS(P_MPa, T_K, phaseStr, porosType=Planet.Ocean.porosType[clath],
                                                          phiTop_frac=Planet.Ocean.phiMax_frac[clath],
                                                          Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
                                                          phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                         EXTRAP=Params.EXTRAP_ICE[clath])
-            clathStable = iceEOS[Constants.phaseClath].fn_phase(P_MPa, T_K, grid=True)
-            phases[clathStable == Constants.phaseClath] = Constants.phaseClath
+                                                         EXTRAP=Params.EXTRAP_ICE[clath],
+                                                         mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
+            clathStable = iceEOS[phaseStr].fn_phase(P_MPa, T_K, grid=True)
+            phases[clathStable == phaseIndex] = phaseIndex
         oceanListEOS.append(oceanEOS)
         phasesList.append(phases)
     # Obtain data for each planet
@@ -813,19 +839,27 @@ def PlotPvThydro(PlanetList, Params):
                                                phiTop_frac=Planet.Ocean.phiMax_frac[ice],
                                                Pclosure_MPa=Planet.Ocean.Pclosure_MPa[ice],
                                                phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[ice],
-                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT) for ice in ices}
+                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT,
+                                               mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant}) for ice in ices}
         # Add clathrates to phase and property diagrams where it is stable (if modeled)
         if Planet.Do.CLATHRATE:
             clath = PhaseConv(Constants.phaseClath)
-            if clath not in ices:
-                ices.add(clath)
-                iceEOS[Constants.phaseClath] = GetIceEOS(P_MPa, T_K, clath, porosType=Planet.Ocean.porosType[clath],
+            if Planet.Do.MIXED_CLATHRATE_ICE:
+                phaseIndex = Constants.phaseClath + 1
+                phaseStr = PhaseConv(phaseIndex)
+            else:
+                phaseIndex = Constants.phaseClath
+                phaseStr = PhaseConv(phaseIndex)
+            if phaseStr not in ices:
+                ices.add(phaseStr)
+                iceEOS[phaseStr] = GetIceEOS(P_MPa, T_K, phaseStr, porosType=Planet.Ocean.porosType[clath],
                                                          phiTop_frac=Planet.Ocean.phiMax_frac[clath],
                                                          Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
                                                          phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                         EXTRAP=Params.EXTRAP_ICE[clath])
-            clathStable = iceEOS[Constants.phaseClath].fn_phase(P_MPa, T_K, grid=True)
-            phases[clathStable == Constants.phaseClath] = Constants.phaseClath
+                                                         EXTRAP=Params.EXTRAP_ICE[clath],
+                                                         mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
+            clathStable = iceEOS[phaseStr].fn_phase(P_MPa, T_K, grid=True)
+            phases[clathStable == phaseIndex] = phaseIndex
         oceanListEOS.append(oceanEOS)
         phasesList.append(phases)
     # Obtain data for each planet
@@ -927,36 +961,68 @@ def PlotPvThydro(PlanetList, Params):
                     # Use 95th percentile for both positive and negative values
                     vmin_95th = np.nanpercentile(valid_data, 5)   # 5th percentile for lower bound
                     vmax_95th = np.nanpercentile(valid_data, 95)  # 95th percentile for upper bound
+                    vcenter = 0
 
-                    # Adjust vcenter based on whether data crosses zero
-                    if vmin_95th >= 0:
-                        # All positive data - center at middle of range
-                        vcenter = (vmin_95th + vmax_95th) / 2
-                    elif vmax_95th <= 0:
-                        # All negative data - center at middle of range
-                        vcenter = (vmin_95th + vmax_95th) / 2
-                    else:
-                        # Data crosses zero - keep center at 0
-                        vcenter = 0
-                        # Make range symmetric around zero for better visualization
-                        abs_display_max = max(abs(vmin_95th), abs(vmax_95th))
-                        vmin_95th = -abs_display_max
-                        vmax_95th = abs_display_max
+                    # Make range symmetric around zero for better visualization
+                    abs_display_max = max(abs(vmin_95th), abs(vmax_95th))
+                    vmin_symmetric = -abs_display_max
+                    vmax_symmetric = abs_display_max
                     
                     data_min = np.nanmin(prop_data_to_plot)
                     data_max = np.nanmax(prop_data_to_plot)
                 else:
                     vmin_95th = -abs_max
                     vmax_95th = abs_max
+                    vmin_symmetric = -abs_max
+                    vmax_symmetric = abs_max
                     vcenter = 0
                     data_min = -abs_max
                     data_max = abs_max
                 
-                norm = TwoSlopeNorm(vmin=-vmax_95th, vcenter=vcenter, vmax=vmax_95th)
+                norm = TwoSlopeNorm(vmin=vmin_symmetric, vcenter=vcenter, vmax=vmax_symmetric)
             pcolormesh = ax.pcolormesh(T_K, P_MPa * FigLbl.PmultHydro, prop_data_to_plot, cmap=cmap,
                                        rasterized=FigMisc.PT_RASTER, norm=norm)
             # Add colorbar with extend to indicate values beyond visible range
             cbar = fig.colorbar(pcolormesh, ax=ax, extend='both')
+            
+            # Add annotations for 5th and 95th percentiles on the colorbar using lines and text
+            if not SinglePlanetPlot and len(valid_data) > 0:
+                # Normalize percentile values to [0, 1] range for the colorbar
+                cbar_min, cbar_max = cbar.mappable.get_clim()
+                p5_pos = (vmin_95th - cbar_min) / (cbar_max - cbar_min)
+                p95_pos = (vmax_95th - cbar_min) / (cbar_max - cbar_min)
+
+                # Threshold below which we offset to avoid overlap (in axes fraction)
+                min_sep = 0.05  # adjust as needed
+
+                # Initial positions
+                p5_text_y = p5_pos
+                p95_text_y = p95_pos
+
+                # If too close, offset them slightly
+                if abs(p95_text_y - p5_text_y) < min_sep:
+                    offset = min_sep / 2
+                    p5_text_y -= offset
+                    p95_text_y += offset
+                    # Clip to valid [0,1] range
+                    p5_text_y = max(min(p5_text_y, 1.0), 0.0)
+                    p95_text_y = max(min(p95_text_y, 1.0), 0.0)
+
+                # Optional: background box to improve readability
+                bbox_props = dict(facecolor='white', edgecolor='none', boxstyle='round,pad=0.2', alpha=0.8)
+
+                # Add text labels with safe positioning
+                cbar.ax.text(1.25, p5_text_y, f'5th: {vmin_95th:.2g}',
+                            transform=cbar.ax.transAxes, fontsize=8, color='red',
+                            va='center', ha='left', bbox=bbox_props)
+
+                cbar.ax.text(1.25, p95_text_y, f'95th: {vmax_95th:.2g}',
+                            transform=cbar.ax.transAxes, fontsize=8, color='red',
+                            va='center', ha='left', bbox=bbox_props)
+
+                # Add horizontal lines (optional)
+                cbar.ax.hlines(p5_pos, 0, 1, transform=cbar.ax.transAxes, colors='red', linestyles='--', linewidth=1)
+                cbar.ax.hlines(p95_pos, 0, 1, transform=cbar.ax.transAxes, colors='red', linestyles='--', linewidth=1)
             # Display the actual data min and max in the colorbar label
             cbar.ax.text(1.05, 1.05, f'Max: {data_max:.2e}', transform=cbar.ax.transAxes, 
                         fontsize=8, verticalalignment='bottom')
@@ -1072,17 +1138,25 @@ def PlotPvThydroOld(PlanetList, Params):
                                  phiTop_frac=Planet.Ocean.phiMax_frac[ice],
                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa[ice],
                                  phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[ice],
-                                 ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
+                                 ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT,
+                                 mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
                   for ice in ices}
         # Add clathrates to phase and property diagrams where it is stable (if modeled)
         if Planet.Do.CLATHRATE:
             clath = PhaseConv(Constants.phaseClath)
-            ices.append(clath)
-            iceEOS[Constants.phaseClath] = GetIceEOS(P_MPa, T_K, clath,
+            if Planet.Do.MIXED_CLATHRATE_ICE:
+                phaseIndex = Constants.phaseClath + 1
+                phaseStr = PhaseConv(phaseIndex)
+            else:
+                phaseIndex = Constants.phaseClath
+                phaseStr = PhaseConv(phaseIndex)
+            ices.append(phaseStr)
+            iceEOS[phaseStr] = GetIceEOS(P_MPa, T_K, phaseStr,
                                         porosType=Planet.Ocean.porosType[clath],
                                         phiTop_frac=Planet.Ocean.phiMax_frac[clath],
                                         Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
-                                        phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[clath])
+                                        phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[clath],
+                                        mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
             clathStable = iceEOS[Constants.phaseClath].fn_phase(P_MPa, T_K, grid=True)
             phases[clathStable == Constants.phaseClath] = Constants.phaseClath
 

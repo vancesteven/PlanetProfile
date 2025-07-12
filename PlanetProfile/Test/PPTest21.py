@@ -1,6 +1,6 @@
 """
 PPTest21
-TItane-like, explicit specification of approximate hydrosphere thickness, no explicit ice III or V underplate but rather 
+Titan-like, explicit specification of approximate hydrosphere thickness, no explicit ice III or V underplate but rather 
 checked for in OceanLayers with Planet.Do.NO_OCEAN Planet.Bulk.Tb_K = Constants.triplePointT_K setting
 For testing purposes
 """

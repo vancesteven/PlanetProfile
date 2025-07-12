@@ -16,7 +16,9 @@ def ViscosityCalcs(Planet, Params):
     if Planet.Do.VALID:
         # Identify which indices correspond to which phases
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
-            indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
+            indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+            indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
+            indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
             indsFe = GetPhaseIndices(Planet.phase)
 
         if Params.CALC_VISCOSITY:
@@ -40,11 +42,13 @@ def ViscosityCalcs(Planet, Params):
             if Planet.Do.POROUS_ICE:
                 Planet = CalcViscPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund,
                                         indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund,
-                                        indsClath, indsClathWet)
+                                        indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+                                        indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund)
             else:
                 Planet = CalcViscSolidIce(Planet, Params, indsLiq, indsI, indsII, indsIIund,
                                           indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund,
-                                          indsClath)
+                                          indsClath, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+                                          indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund)
 
             if not Params.SKIP_INNER:
                 if Planet.Do.POROUS_ROCK:
@@ -60,7 +64,9 @@ def ViscosityCalcs(Planet, Params):
 
 
 def CalcViscPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
-                                   indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet):
+                                   indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet,
+                                   indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+                                        indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund):
 
     # First do ocean (if present) and dry surface ice and clathrates
     if np.size(indsLiq) != 0:
@@ -90,6 +96,15 @@ def CalcViscPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
         Planet.eta_Pas[indsVIund] = Planet.Ocean.surfIceEOS['VI'].fn_porosCorrect(
             Planet.Ocean.surfIceEOS['VI'].fn_eta_Pas(Planet.P_MPa[indsVIund], Planet.T_K[indsVIund]), 0,
             Planet.phi_frac[indsVIund], Planet.Ocean.Jvisc)
+    # Get all mixed clathrate phases that are not of size zero
+    indsMixedClathrateAll = [indsMixedClathrateIh, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund]
+    mixedPhases = ['MixedClathrateIh', 'MixedClathrateII', 'MixedClathrateIII', 'MixedClathrateV', 'MixedClathrateVI']
+    for indsMixedClathrate, mixedPhase in zip(indsMixedClathrateAll, mixedPhases):
+        if np.size(indsMixedClathrate) != 0:
+            Planet.eta_Pas[indsMixedClathrate] = Planet.Ocean.surfIceEOS[mixedPhase].fn_porosCorrect(
+                Planet.Ocean.surfIceEOS[mixedPhase].fn_eta_Pas(Planet.P_MPa[indsMixedClathrate], Planet.T_K[indsMixedClathrate]), 0,
+                Planet.phi_frac[indsMixedClathrate], Planet.Ocean.Jvisc)
+            
     # Next, do liquid-filled ice and clathrate pores
     if np.size(indsIwet) != 0:
         etaFluid_Pas = Planet.Ocean.EOS.fn_eta_Pas(Planet.Ppore_MPa[indsIwet], Planet.T_K[indsIwet])
@@ -121,12 +136,21 @@ def CalcViscPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
         Planet.eta_Pas[indsVI] = Planet.Ocean.iceEOS['VI'].fn_porosCorrect(
             Planet.Ocean.iceEOS['VI'].fn_eta_Pas(Planet.P_MPa[indsVI], Planet.T_K[indsVI]),
             etaFluid_Pas, Planet.phi_frac[indsVI], Planet.Ocean.Jvisc)
+    # Get all mixed clathrate phases that are not of size zero
+    indsMixedWetClathrateAll = [indsMixedClathrateIhwet, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI]
+    mixedPhases = ['MixedClathrateIh', 'MixedClathrateII', 'MixedClathrateIII', 'MixedClathrateV', 'MixedClathrateVI']
+    for indsMixedClathrate, mixedPhase in zip(indsMixedWetClathrateAll, mixedPhases):
+        if np.size(indsMixedClathrate) != 0:
+            Planet.eta_Pas[indsMixedClathrate] = Planet.Ocean.iceEOS[mixedPhase].fn_porosCorrect(
+                Planet.Ocean.iceEOS[mixedPhase].fn_eta_Pas(Planet.P_MPa[indsMixedClathrate], Planet.T_K[indsMixedClathrate]), 0,
+                Planet.phi_frac[indsMixedClathrate], Planet.Ocean.Jvisc)
 
     return Planet
 
 
 def CalcViscSolidIce(Planet, Params, indsLiq, indsI, indsII, indsIIund, indsIII, indsIIIund,
-                                     indsV, indsVund, indsVI, indsVIund, indsClath):
+                                     indsV, indsVund, indsVI, indsVIund, indsClath, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+                                          indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund):
 
     # Calculate and/or assign conductivities for each phase type
     if np.size(indsLiq) != 0:
@@ -157,6 +181,19 @@ def CalcViscSolidIce(Planet, Params, indsLiq, indsI, indsII, indsIIund, indsIII,
 
     if np.size(indsClath) != 0:
         Planet.eta_Pas[indsClath] = Planet.Ocean.surfIceEOS['Clath'].fn_eta_Pas(Planet.P_MPa[indsClath], Planet.T_K[indsClath])
+
+    # Get all mixed clathrate phases that are not of size zero
+    indsAllMixedClathDry = (indsMixedClathrateIh, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund)
+    clathPhase = ('MixedClathrateIh',  'MixedClathrateII',  'MixedClathrateIII', 'MixedClathrateV', 'MixedClathrateVI')
+    for indsMixedClath, clathPhase in zip(indsAllMixedClathDry, clathPhase):
+        if np.size(indsMixedClath) != 0:
+            Planet.eta_Pas[indsMixedClath] = Planet.Ocean.surfIceEOS[clathPhase].fn_eta_Pas(Planet.P_MPa[indsMixedClath], Planet.T_K[indsMixedClath])
+    
+    indsAllMixedClathWet = (indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI)
+    clathPhase = ('MixedClathrateII',  'MixedClathrateIII', 'MixedClathrateV', 'MixedClathrateVI')
+    for indsMixedClath, clathPhase in zip(indsAllMixedClathWet, clathPhase):
+        if np.size(indsMixedClath) != 0:
+            Planet.eta_Pas[indsMixedClath] = Planet.Ocean.iceEOS[clathPhase].fn_eta_Pas(Planet.P_MPa[indsMixedClath], Planet.T_K[indsMixedClath])
 
     return Planet
 

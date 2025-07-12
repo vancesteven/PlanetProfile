@@ -2,7 +2,7 @@ import numpy as np
 import logging
 import scipy.interpolate as spi
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
-from PlanetProfile.Utilities.Indexing import GetPhaseIndices, PhaseConv
+from PlanetProfile.Utilities.Indexing import GetPhaseIndices, PhaseConv, MixedPhaseSeparator
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 
 # Assign logger
@@ -21,7 +21,9 @@ def ElecConduct(Planet, Params):
     if Planet.Do.VALID:
         # Identify which indices correspond to which phases
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
-            indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
+            indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+            indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
+            indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
             indsFe = GetPhaseIndices(Planet.phase)
 
         if Params.CALC_CONDUCT:
@@ -36,10 +38,14 @@ def ElecConduct(Planet, Params):
                                    sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
             if Planet.Do.POROUS_ICE:
                 Planet = CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
-                                                        indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet)
+                                                        indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, 
+                                                        indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, indsMixedClathrateIhwet, indsMixedClathrateIIund, 
+                                                        indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund)
             else:
                 Planet = CalcElecSolidIce(Planet, Params, indsLiq, indsI, indsII, indsIIund, indsIII, indsIIIund,
-                                                          indsV, indsVund, indsVI, indsVIund, indsClath)
+                                                          indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, 
+                                                          indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, indsMixedClathrateIhwet, indsMixedClathrateIIund, 
+                                                          indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund)
 
             if not Params.SKIP_INNER:
                 if Planet.Do.POROUS_ROCK:
@@ -74,7 +80,9 @@ def ElecConduct(Planet, Params):
 
 
 def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
-                                   indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet):
+                                   indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, 
+                                   indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, indsMixedClathrateIhwet, indsMixedClathrateIIund, 
+                                   indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund):
     """ Calculation of electrical conductivities for porous ice, which is assumed to contain
         either evacuated pores or ocean fluids in pores.
 
@@ -183,6 +191,32 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
         Planet.sigma_Sm[indsVIund] = Planet.Ocean.surfIceEOS['VI'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['VI'], 0,
                                                                                    Planet.phi_frac[indsVIund],
                                                                                    Planet.Ocean.Jsigma)
+    # Get all mixed clathrate phases that are not of size zero
+    indsMixedClathrateAll = [indsMixedClathrateIh, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund]
+    mixedPhases = ['MixedClathrateIh', 'MixedClathrateII', 'MixedClathrateIII', 'MixedClathrateV', 'MixedClathrateVI']
+    for indsMixedClathrate, mixedPhase in zip(indsMixedClathrateAll, mixedPhases):
+        if np.size(indsMixedClathrate) != 0:
+            # Get the sigma for each phase
+            phaseOne, phaseTwo = MixedPhaseSeparator(mixedPhase)
+            sigmaClath = Planet.Ocean.sigmaIce_Sm[phaseOne]
+            sigmaIce = Planet.Ocean.sigmaIce_Sm[phaseTwo]
+            # Average them
+            sigmaMixed_Sm = sigmaClath * Planet.Bulk.volumeFractionClathrate + sigmaIce * (1 - Planet.Bulk.volumeFractionClathrate)
+            if Planet.Ocean.surfIceEOS[mixedPhase].key not in EOSlist.loaded.keys():
+                PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
+                TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
+                Planet.Ocean.surfIceEOS[mixedPhase] = GetIceEOS(PIce_MPa, TIce_K, mixedPhase,
+                                                            porosType=Planet.Ocean.porosType['Clath'],
+                                                            phiTop_frac=Planet.Ocean.phiMax_frac['Clath'],
+                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Clath'],
+                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                            EXTRAP=Params.EXTRAP_ICE['Clath'],
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT,
+                                                            mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
+            Planet.sigma_Sm[indsMixedClathrate] = Planet.Ocean.surfIceEOS[mixedPhase].fn_porosCorrect(sigmaMixed_Sm, 0,
+                                                                                      Planet.phi_frac[indsMixedClathrate],
+                                                                                      Planet.Ocean.Jsigma)
+
     # Next, do liquid-filled ice and clathrate pores
     if np.size(indsIwet) != 0:
         # First, get pore fluid conductivity
@@ -205,7 +239,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
         # Finally, combine the conductivity of the porous ice with the pore-filling fluid
         Planet.sigma_Sm[indsClathWet] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['Clath'], sigmaFluid_Sm,
                                                                                          Planet.phi_frac[indsClathWet],
-                                                                                         Planet.Ocean.Jsigma)
+                                                                                    Planet.Ocean.Jsigma)
     if np.size(indsII) != 0:
         # First, get pore fluid conductivity
         sigmaFluid_Sm = Planet.Ocean.EOS.fn_sigma_Sm(Planet.Ppore_MPa[indsII], Planet.T_K[indsII])
@@ -250,12 +284,32 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
         Planet.sigma_Sm[indsVI] = Planet.Ocean.iceEOS['VI'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['VI'], sigmaFluid_Sm,
                                                                                   Planet.phi_frac[indsVI],
                                                                                   Planet.Ocean.Jsigma)
-
-    return Planet
-
+    # Get all mixed clathrate phases that are not of size zero
+    indsMixedWetClathrateAll = [indsMixedClathrateIhwet, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI]
+    mixedPhases = ['MixedClathrateIh', 'MixedClathrateII', 'MixedClathrateIII', 'MixedClathrateV', 'MixedClathrateVI']
+    for indsMixedClathrate, mixedPhase in zip(indsMixedWetClathrateAll, mixedPhases):
+        if np.size(indsMixedClathrate) != 0:
+            # Get the sigma for each phase
+            phaseOne, phaseTwo = MixedPhaseSeparator(mixedPhase)
+            sigmaClath = Planet.Ocean.sigmaIce_Sm[phaseOne]
+            sigmaIce = Planet.Ocean.sigmaIce_Sm[phaseTwo]
+            # Average them
+            sigmaMixed_Sm = sigmaClath * Planet.Bulk.volumeFractionClathrate + sigmaIce * (1 - Planet.Bulk.volumeFractionClathrate)
+            # First, get pore fluid conductivity
+            sigmaFluid_Sm = Planet.Ocean.EOS.fn_sigma_Sm(Planet.Ppore_MPa[indsMixedClathrate], Planet.T_K[indsMixedClathrate])
+            # Account for possible errors in pore fluid conductivity calcs
+            validSigs = np.logical_not(np.isnan(sigmaFluid_Sm))
+            # Interpolate over NaNs to remove them
+            sigmaFluid_Sm = spi.griddata(Planet.r_m[indsMixedClathrate][validSigs], sigmaFluid_Sm[validSigs], Planet.r_m[indsMixedClathrate])
+            # Finally, combine the conductivity of the porous ice with the pore-filling fluid
+            Planet.sigma_Sm[indsMixedClathrate] = Planet.Ocean.iceEOS[mixedPhase].fn_porosCorrect(sigmaMixed_Sm, sigmaFluid_Sm,
+                                                                                    Planet.phi_frac[indsMixedClathrate],
+                                                                                    Planet.Ocean.Jsigma)
 
 def CalcElecSolidIce(Planet, Params, indsLiq, indsI, indsII, indsIIund, indsIII, indsIIIund,
-                                     indsV, indsVund, indsVI, indsVIund, indsClath):
+                                     indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, 
+                                     indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, indsMixedClathrateIhwet, indsMixedClathrateIIund, 
+                                     indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund):
     """ Calculation of electrical conductivities for solid (non-porous) ice. All porosity
         considerations are ignored.
 
@@ -282,6 +336,11 @@ def CalcElecSolidIce(Planet, Params, indsLiq, indsI, indsII, indsIIund, indsIII,
     Planet.sigma_Sm[np.concatenate((indsV,   indsVund))] =   Planet.Ocean.sigmaIce_Sm['V']
     Planet.sigma_Sm[np.concatenate((indsVI,  indsVIund))] =  Planet.Ocean.sigmaIce_Sm['VI']
     Planet.sigma_Sm[indsClath] = Planet.Ocean.sigmaIce_Sm['Clath']
+    Planet.sigma_Sm[indsMixedClathrateIh] = Planet.Ocean.sigmaIce_Sm['Clath'] * Planet.Bulk.volumeFractionClathrate + Planet.Ocean.sigmaIce_Sm['Ih'] * (1 - Planet.Bulk.volumeFractionClathrate)
+    Planet.sigma_Sm[np.concatenate((indsMixedClathrateII, indsMixedClathrateIIund))] = Planet.Ocean.sigmaIce_Sm['Clath'] * Planet.Bulk.volumeFractionClathrate + Planet.Ocean.sigmaIce_Sm['II'] * (1 - Planet.Bulk.volumeFractionClathrate)
+    Planet.sigma_Sm[np.concatenate((indsMixedClathrateIII, indsMixedClathrateIIIund))] = Planet.Ocean.sigmaIce_Sm['Clath'] * Planet.Bulk.volumeFractionClathrate + Planet.Ocean.sigmaIce_Sm['III'] * (1 - Planet.Bulk.volumeFractionClathrate)
+    Planet.sigma_Sm[np.concatenate((indsMixedClathrateV, indsMixedClathrateVund))] = Planet.Ocean.sigmaIce_Sm['Clath'] * Planet.Bulk.volumeFractionClathrate + Planet.Ocean.sigmaIce_Sm['V'] * (1 - Planet.Bulk.volumeFractionClathrate)
+    Planet.sigma_Sm[np.concatenate((indsMixedClathrateVI, indsMixedClathrateVIund))] = Planet.Ocean.sigmaIce_Sm['Clath'] * Planet.Bulk.volumeFractionClathrate + Planet.Ocean.sigmaIce_Sm['VI'] * (1 - Planet.Bulk.volumeFractionClathrate)
 
     return Planet
 

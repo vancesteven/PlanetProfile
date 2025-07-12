@@ -19,7 +19,9 @@ def LiquidOceanPropsCalcs(Planet, Params):
     if Planet.Do.VALID:
         # Identify indices of liquid phases
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
-            indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
+            indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+            indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
+            indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
             indsFe = GetPhaseIndices(Planet.phase)
 
         if not Planet.Do.NO_OCEAN and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
@@ -68,7 +70,11 @@ def WriteLiquidOceanProps(Planet, Params):
                   'T (K)'.ljust(24),
                    'Bulk pH'.ljust(24), 'Affinity (kJ)'.ljust(24)]
                   + [f'{SpeciesCol.ljust(23)}' for SpeciesCol in Planet.Ocean.aqueousSpecies])
-    indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet, indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, indsFe = GetPhaseIndices(
+    indsLiq, indsIceI, indsIceIwet, indsIceII, indsIceIIund, indsIceIII, indsIceIIIund, indsIceV, indsIceVund, \
+               indsIceVI, indsIceVIund, indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+               indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
+               indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, \
+               indsSilV, indsSilVI, indsFe = GetPhaseIndices(
         Planet.phase)
     Params.nHeadLines = np.size(headerLines) + 2
     headerLines = np.insert(headerLines, 0, f'nHeadLines = {Params.nHeadLines:d}')

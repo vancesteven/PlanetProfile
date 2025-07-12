@@ -3,7 +3,7 @@ import logging
 from PlanetProfile.Utilities.defineStructs import Constants
 from PlanetProfile.Thermodynamics.HydroEOS import GetTfreeze, GetPfreeze, kThermMelinder2007, \
     kThermHobbs1974, GetOceanEOS
-from PlanetProfile.Utilities.Indexing import PhaseConv
+from PlanetProfile.Utilities.Indexing import PhaseConv, MixedPhaseSeparator, PhaseInv
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -68,7 +68,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
                    'temperature at the top of the layer. Tconv has been set equal to Ttop and ' +
                    'no conductive lid will be modeled.')
     if phaseMid != oceanEOS.fn_phase(Pmid_MPa, Tconv_K) and Tconv_K > oceanEOS.Tmin:
-        if abs(phaseMid) != Constants.phaseClath:
+        if not (abs(phaseMid) >= Constants.phaseClath and abs(phaseMid) < Constants.phaseClath + 10):
             iceType = f'ice {PhaseConv(phaseMid)}'
             suggestion = 'Try adjusting Tb_K values to achieve a possible configuration.'
         else:
@@ -86,7 +86,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
 
     # Get melting temperature for calculating viscosity relative to this temp
     Pmelt_MPa = np.linspace(Pmid_MPa, Pmid_MPa+0.01, 6)
-    if phaseMid == Constants.phaseClath:
+    if phaseMid >= Constants.phaseClath and phaseMid < Constants.phaseClath + 10:
         meltEOS = oceanEOS
         Tupper_K = Tb_K
     else:
@@ -95,7 +95,13 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
                                np.arange(Tconv_K, 274.0, 0.05), None,
                                phaseType='calc', MELT=True)
     Tmelt_K = GetTfreeze(meltEOS, Pmid_MPa, Tconv_K, TfreezeRange_K=Tupper_K-Tconv_K)
-    etaConv_Pas = Constants.etaMelt_Pas[phaseMid] * np.exp(A * (Tmelt_K/Tconv_K - 1))
+    if phaseMid > Constants.phaseClath and phaseMid < Constants.phaseClath + 10:
+        stringClath, stringIce = MixedPhaseSeparator(PhaseConv(phaseMid))
+        phaseClath, phaseIce = PhaseInv(stringClath), PhaseInv(stringIce)
+        etaMelt_Pas = iceEOS.fn_averageValuesAccordingtoRule(Constants.etaMelt_Pas[phaseClath], Constants.etaMelt_Pas[phaseIce], 'Carahan2004Averaging')
+    else:
+        etaMelt_Pas = Constants.etaMelt_Pas[phaseMid]
+    etaConv_Pas = etaMelt_Pas * np.exp(A * (Tmelt_K/Tconv_K - 1))
     # Get physical properties of ice at the "middle" of the convective region
     rhoMid_kgm3 = iceEOS.fn_rho_kgm3(Pmid_MPa, Tconv_K)
     CpMid_JkgK = iceEOS.fn_Cp_JkgK(Pmid_MPa, Tconv_K)

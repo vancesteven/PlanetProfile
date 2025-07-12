@@ -20,7 +20,7 @@ def GetLayerMeans(PlanetList, Params):
     # Get flags to pass on regarding types of layers we have
     Params.yesPorousRock = np.any([Planet.Do.POROUS_ROCK for Planet in PlanetList])
     Params.yesPorousIce = np.any([Planet.Do.POROUS_ICE for Planet in PlanetList])
-    Params.yesClath = np.any([np.any(abs(Planet.phase) == Constants.phaseClath) for Planet in PlanetList])
+    Params.yesClath = np.any([np.any(np.logical_and(Planet.phase >= Constants.phaseClath, Planet.phase < Constants.phaseClath + 10)) for Planet in PlanetList])
     Params.yesIceII = np.any([np.any(Planet.phase == 2) for Planet in PlanetList])
     Params.yesIceIIIund = np.any([np.any(Planet.phase == -3) for Planet in PlanetList])
     Params.yesIceIII = np.any([np.any(Planet.phase == 3) for Planet in PlanetList])
@@ -79,9 +79,10 @@ def GetLayerMeans(PlanetList, Params):
                 iCond = Planet.z_m[:-1] < Planet.eLid_m
                 iConv = np.logical_and(Planet.z_m[:-1] >= Planet.eLid_m, Planet.z_m[:-1] < Planet.zb_km*1e3)
                 iCondI = abs(Planet.phase[iCond]) == 1
-                iCondClath = abs(Planet.phase[iCond]) == Constants.phaseClath
+                iCondClath = np.logical_and(Planet.phase[iCond] >= Constants.phaseClath, Planet.phase[iCond] < Constants.phaseClath + 10)
                 iConvI = abs(Planet.phase[iConv]) == 1
-                iConvClath = abs(Planet.phase[iConv]) == Constants.phaseClath
+                iConvClath = np.logical_and(Planet.phase[iConv] >= Constants.phaseClath, Planet.phase[iConv] < Constants.phaseClath + 10)
+                clathStr = 'Clath' if not Planet.Do.MIXED_CLATHRATE_ICE else 'MixedClathrateIh'
                 if np.any(iCondI):
                     Planet.Ocean.rhoCondMean_kgm3['Ih'] = np.sum(Planet.MLayer_kg[iCond][iCondI]) / np.sum(Planet.VLayer_m3[iCond][iCondI])
                     # Get mean conductivity, ignoring spherical effects
@@ -97,17 +98,17 @@ def GetLayerMeans(PlanetList, Params):
                     if Params.CALC_SEISMIC:
                         Planet.Ocean.GSconvMean_GPa['Ih'] = np.mean(Planet.Seismic.GS_GPa[iConv][iConvI])
                 if np.any(iCondClath):
-                    Planet.Ocean.rhoCondMean_kgm3['Clath'] = np.sum(Planet.MLayer_kg[iCond][iCondClath]) / np.sum(Planet.VLayer_m3[iCond][iCondClath])
+                    Planet.Ocean.rhoCondMean_kgm3[clathStr] = np.sum(Planet.MLayer_kg[iCond][iCondClath]) / np.sum(Planet.VLayer_m3[iCond][iCondClath])
                     if Params.CALC_CONDUCT:
-                        Planet.Ocean.sigmaCondMean_Sm['Clath'] = np.mean(Planet.sigma_Sm[iCond][iCondClath])
+                        Planet.Ocean.sigmaCondMean_Sm[clathStr] = np.mean(Planet.sigma_Sm[iCond][iCondClath])
                     if Params.CALC_SEISMIC:
-                        Planet.Ocean.GScondMean_GPa['Clath'] = np.mean(Planet.Seismic.GS_GPa[iCond][iCondClath])
+                        Planet.Ocean.GScondMean_GPa[clathStr] = np.mean(Planet.Seismic.GS_GPa[iCond][iCondClath])
                 if np.any(iConvClath):
-                    Planet.Ocean.rhoConvMean_kgm3['Clath'] = np.sum(Planet.MLayer_kg[iConv][iConvClath]) / np.sum(Planet.VLayer_m3[iConv][iConvClath])
+                    Planet.Ocean.rhoConvMean_kgm3[clathStr] = np.sum(Planet.MLayer_kg[iConv][iConvClath]) / np.sum(Planet.VLayer_m3[iConv][iConvClath])
                     if Params.CALC_CONDUCT:
-                        Planet.Ocean.sigmaConvMean_Sm['Clath'] = np.mean(Planet.sigma_Sm[iConv][iConvClath])
+                        Planet.Ocean.sigmaConvMean_Sm[clathStr] = np.mean(Planet.sigma_Sm[iConv][iConvClath])
                     if Params.CALC_SEISMIC:
-                        Planet.Ocean.GSconvMean_GPa['Clath'] = np.mean(Planet.Seismic.GS_GPa[iConv][iConvClath])
+                        Planet.Ocean.GSconvMean_GPa[clathStr] = np.mean(Planet.Seismic.GS_GPa[iConv][iConvClath])
 
                 if Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV:
                     iCondIII = np.logical_and(Planet.z_m[:-1] >= Planet.z_m[Planet.Steps.nIbottom],
@@ -159,11 +160,11 @@ def GetLayerMeans(PlanetList, Params):
                 else:
                     Planet.zIceI_m = np.nan
                     Planet.dzIceI_km = np.nan
-                if np.any(abs(Planet.phase) == Constants.phaseClath):
+                if np.any(np.logical_and(Planet.phase >= Constants.phaseClath, Planet.phase < Constants.phaseClath + 10)):
                     # Note that this differs from Planet.zClath_m, which is used to set the thickness/depth of the BOTTOM
                     # of the clathrate lid in the "top" clathrate model.
-                    Planet.zClath_km = np.min(Planet.z_m[:-1][abs(Planet.phase) == Constants.phaseClath])/1e3
-                    Planet.dzClath_km = np.max(Planet.z_m[:-1][abs(Planet.phase) == Constants.phaseClath])/1e3 \
+                    Planet.zClath_km = np.min(Planet.z_m[:-1][np.logical_and(Planet.phase >= Constants.phaseClath, Planet.phase < Constants.phaseClath + 10)])/1e3
+                    Planet.dzClath_km = np.max(Planet.z_m[:-1][np.logical_and(Planet.phase >= Constants.phaseClath, Planet.phase < Constants.phaseClath + 10)])/1e3 \
                                        - Planet.zClath_km
                 else:
                     Planet.zClath_km = np.nan
@@ -467,8 +468,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
     convIceIIIlbl = 'Convective ice III'
     condIceVlbl = 'Conductive ice V'
     convIceVlbl = 'Convective ice V'
-    condClathLbl = 'Conductive \ce{CH4} clathrates'
-    convClathLbl = 'Convective \ce{CH4} clathrates'
+
     wetIceIIlbl = 'Ice II'
     wetIceIIIlbl = 'Ice III'
     wetIceVlbl = 'Ice V'
@@ -479,25 +479,29 @@ def PrintLayerSummaryLatex(PlanetList, Params):
     notPresent = [FigLbl.NA, FigLbl.NA, zero, FigLbl.NA, FigLbl.NA]
     emptyCondIce = newline + tab.join(np.append(condIceLbl, notPresent)) + endl
     emptyConvIce = newline + tab.join(np.append(convIceLbl, notPresent)) + endl
-    emptyConvClath = newline + tab.join(np.append(convClathLbl, notPresent)) + endl
 
     log.info(FigMisc.latexPreamble)
 
     log.info('Layer tables:')
     for Planet in PlanetList:
         title = f'\section*{{{Planet.name}}}'
+        # Get clathrate labels here since it depends on whether we have mixed clathrates or not for each specific Planet
+        condClathLbl = 'Conductive \ce{CH4} clathrates' if not Planet.Do.MIXED_CLATHRATE_ICE else 'Conductive \ce{CH4} mixed clathrates and ice Ih'
+        convClathLbl = 'Convective \ce{CH4} clathrates' if not Planet.Do.MIXED_CLATHRATE_ICE else 'Convuctive \ce{CH4} mixed clathrates and ice Ih'
+        emptyConvClath = newline + tab.join(np.append(convClathLbl, notPresent)) + endl
         if Planet.Do.NO_H2O:
             surfIceLayers = ''
             HPiceLayers = ''
         else:
             if Planet.Do.CLATHRATE:
+                phaseStr = "Clath" if not Planet.Do.MIXED_CLATHRATE_ICE else "MixedClathrateIh"
                 if Planet.Bulk.clathType == 'top' or Planet.Bulk.clathType == 'whole':
                     condClathLayers = newline + tab.join([condClathLbl,
                                                           f'\\num{{{Planet.Bulk.R_m/1e3:.1f}}}',
-                                                          f'\\num{{{Planet.Ocean.rhoCondMean_kgm3["Clath"]:.0f}}}',
+                                                          f'\\num{{{Planet.Ocean.rhoCondMean_kgm3[phaseStr]:.0f}}}',
                                                           f'\\num{{{np.minimum(Planet.dzClath_km, Planet.eLid_m/1e3):.1f}}}',
-                                                          f'\\num{{{Planet.Ocean.GScondMean_GPa["Clath"]:.1f}}}',
-                                                          f'\\num{{{Planet.Ocean.sigmaCondMean_Sm["Clath"]:.1e}}}']) + endl
+                                                          f'\\num{{{Planet.Ocean.GScondMean_GPa[phaseStr]:.1f}}}',
+                                                          f'\\num{{{Planet.Ocean.sigmaCondMean_Sm[phaseStr]:.1e}}}']) + endl
                     # For "top" clathrate model, clathrates are limited to the conductive lid
                     # of the ice shell, so if there are any convecting layers they will not be
                     # clathrates.
@@ -525,10 +529,10 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                     else:
                         convClathLayers = newline + tab.join([convClathLbl,
                                                               f'\\num{{{(Planet.Bulk.R_m - Planet.eLid_m)/1e3:.1f}}}',
-                                                              f'\\num{{{Planet.Ocean.rhoConvMean_kgm3["Clath"]:.0f}}}',
+                                                              f'\\num{{{Planet.Ocean.rhoConvMean_kgm3[phaseStr]:.0f}}}',
                                                               f'\\num{{{(Planet.Dconv_m + Planet.deltaTBL_m)/1e3:.1f}}}',
-                                                              f'\\num{{{Planet.Ocean.GSconvMean_GPa["Clath"]:.1f}}}',
-                                                              f'\\num{{{Planet.Ocean.sigmaCondMean_Sm["Clath"]:.1e}}}']) + endl
+                                                              f'\\num{{{Planet.Ocean.GSconvMean_GPa[phaseStr]:.1f}}}',
+                                                              f'\\num{{{Planet.Ocean.sigmaCondMean_Sm[phaseStr]:.1e}}}']) + endl
                         surfIceLayers = condClathLayers + convClathLayers
     
                 else:
@@ -545,10 +549,10 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                     convIceLayers = emptyConvIce
                     condClathLayers = newline + tab.join([condClathLbl,
                                                           f'\\num{{{Planet.Bulk.R_m/1e3 - Planet.zClath_km:.1f}}}',
-                                                          f'\\num{{{Planet.Ocean.rhoCondMean_kgm3["Clath"]:.0f}}}',
+                                                          f'\\num{{{Planet.Ocean.rhoCondMean_kgm3[phaseStr]:.0f}}}',
                                                           f'\\num{{{Planet.dzClath_km:.1f}}}',
-                                                          f'\\num{{{Planet.Ocean.GScondMean_GPa["Clath"]:.1f}}}',
-                                                          f'\\num{{{Planet.Ocean.sigmaCondMean_Sm["Clath"]:.1e}}}']) + endl
+                                                          f'\\num{{{Planet.Ocean.GScondMean_GPa[phaseStr]:.1f}}}',
+                                                          f'\\num{{{Planet.Ocean.sigmaCondMean_Sm[phaseStr]:.1e}}}']) + endl
                     convClathLayers = emptyConvClath
                     surfIceLayers = condIceLayers + convIceLayers + condClathLayers + convClathLayers
             else:
@@ -729,7 +733,6 @@ def PrintLayerTableLatex(PlanetList, Params):
     Vund = r'\mathrm{V,under}'
     Vwet = r'\mathrm{V}'
     VI = r'\mathrm{VI}'
-    clath = r'\mathrm{clath}'
     mixed = r'\mathrm{Ih+clath}'
     ocean = r'\mathrm{ocean}'
     rock = r'\mathrm{rock}'
@@ -760,6 +763,8 @@ def PrintLayerTableLatex(PlanetList, Params):
 
     # Organize values into strings for tabulating
     for i, Planet in enumerate(PlanetList):
+        # Get clathrate labels here since it depends on whether we have mixed clathrates or not for each specific Planet
+        clath = r'\mathrm{clath}' if not Planet.Do.MIXED_CLATHRATE_ICE else r'\mathrm{mixedIh+clath}'
         Cp = Planet.CMR2more - Planet.CMR2mean
         Cm = Planet.CMR2mean - Planet.CMR2less
         if not np.isnan(Cp) or not np.isnan(Cm):

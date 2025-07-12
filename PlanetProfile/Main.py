@@ -702,6 +702,18 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     Planet.r_m = np.concatenate((Planet.r_m, [0]))
     Planet.z_m = Planet.Bulk.R_m - Planet.r_m
     Planet.phase = Planet.phase.astype(np.int_)
+    Planet.Steps.iConv = np.zeros(Planet.Steps.nSurfIce, dtype=bool)
+    
+    # Reconstruct convection indices from saved convection parameters
+    iConductI, iConvectI = (next(i for i, val in enumerate(Planet.z_m) if val > threshold) for threshold in (Planet.eLid_m, Planet.z_m[Planet.Steps.nIbottom] - Planet.deltaTBL_m))
+    iConductIII, iConvectIII = (next(i for i, val in enumerate(Planet.z_m) if val > threshold) for threshold in (Planet.eLidIII_m + Planet.z_m[Planet.Steps.nIbottom], Planet.z_m[Planet.Steps.nIIIbottom] - Planet.deltaTBLIII_m))
+    iConductV, iConvectV = (next(i for i, val in enumerate(Planet.z_m) if val > threshold) for threshold in (Planet.eLidV_m + Planet.z_m[Planet.Steps.nIIIbottom], Planet.z_m[Planet.Steps.nSurfIce] - Planet.deltaTBLV_m))
+    Planet.Steps.iConv[iConductI:iConvectI] = True
+    Planet.Steps.iConv[iConductIII:iConvectIII] = True
+    Planet.Steps.iConv[iConductV:iConvectV] = True
+    if np.any(Planet.Steps.iConv):
+        Planet.Do.ICE_CONVECTION = True
+    
     Planet = SetCMR2strings(Planet)
     if np.sum(Planet.phase == 0) < 10:
         Planet.THIN_OCEAN = True

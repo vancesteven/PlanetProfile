@@ -224,6 +224,13 @@ for bodyname in _DefaultList:
         for Tname in Tnames:
             InductParams.cfmt[bodyname][Tname] = {zName: None for zName in zNames}
 
+# Assign extrapolation settings for Mixed Clathrates in dictionary
+mixedClathExtrap = ['MixedClathrateIh', 'MixedClathrateII', 'MixedClathrateIII', 'MixedClathrateV', 'MixedClathrateVI']
+icePhase = ['Ih', 'II', 'III', 'V', 'VI']
+for i, phase in enumerate(mixedClathExtrap):
+    if phase not in Params.EXTRAP_ICE.keys():
+        Params.EXTRAP_ICE[phase] = Params.EXTRAP_ICE['Clath'] and Params.EXTRAP_ICE[icePhase[i]]
+
 # Load sub-settings into Params so they can be passed around together
 Params.Sig = SigParams
 Params.Induct = InductParams
