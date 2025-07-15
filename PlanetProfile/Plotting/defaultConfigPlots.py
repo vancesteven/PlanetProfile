@@ -277,7 +277,7 @@ def plotAssign():
     FigSize.vpore = (6, 6)
     FigSize.vperm = (6, 6)
     FigSize.vseis = (6, 6)
-    FigSize.vhydro = (9, 8)
+    FigSize.vhydro = (12, 9)
     FigSize.vgrav = (6, 5)
     FigSize.vmant = (6, 6)
     FigSize.vcore = (6, 6)
@@ -433,6 +433,42 @@ def plotAssign():
     FigMisc.MARK_BEXC_MAX = True  # Whether to annotate excitation spectrum plots with label for highest peak
     FigLbl.peakLblSize = 14  # Font size in pt for highest-peak annotation
     FigMisc.Tmin_hr = None  # Cutoff period to limit range of Fourier space plots
+    # Exploreogram D/sigma settings
+    FigMisc.DRAW_COMPOSITION_LINE = True # Whether to draw a line for each composition in the exploreogram D/sigma plot
+    FigMisc.SHOW_ICE_THICKNESS_DOTS = True # Whether to show ice thickness dots instead of colorbar in D/sigma plots
+    FigMisc.DSIGMA_YLIMS = [1e-2, 20] # Y-axis limits for D/sigma plots [min, max] in S/m
+    FigMisc.DSIGMA_ICE_THICKNESS_CMAP = 'Greys' # Colormap to use for ice thickness dots in D/sigma plots
+    FigMisc.DSIGMA_DOT_EDGE_COLOR = 'black' # Edge color for scatter dots in D/sigma plots
+    FigMisc.DSIGMA_DOT_EDGE_WIDTH = 0.5 # Edge line width for scatter dots in D/sigma plots
+    FigMisc.DSIGMA_COMP_LINE_WIDTH = 2 # Line width for composition lines in D/sigma plots
+    FigMisc.DSIGMA_COMP_LINE_ALPHA = 0.7 # Alpha transparency for composition lines in D/sigma plots
+    FigMisc.DSIGMA_ICE_LEGEND_FONT_SIZE = 8 # Font size for ice thickness legend entries
+    FigMisc.DSIGMA_ICE_LEGEND_TITLE_SIZE = 10 # Font size for ice thickness legend title
+    FigMisc.DSIGMA_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries
+    FigMisc.DSIGMA_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title
+    FigMisc.DSIGMA_MAX_LEGEND_ENTRIES = 10 # Maximum number of entries to show in ice thickness legend
+    # Exploreogram Love comparison settings
+    FigMisc.LOVE_ICE_THICKNESS_CMAP = 'Greys' # Colormap to use for ice thickness dots in Love comparison plots
+    FigMisc.LOVE_DOT_EDGE_COLOR = 'black' # Edge color for scatter dots in Love comparison plots
+    FigMisc.LOVE_DOT_EDGE_WIDTH = 0.5 # Edge line width for scatter dots in Love comparison plots
+    FigMisc.LOVE_COMP_LINE_WIDTH = 2 # Line width for composition lines in Love comparison plots
+    FigMisc.LOVE_COMP_LINE_ALPHA = 0.7 # Alpha transparency for composition lines in Love comparison plots
+    FigMisc.LOVE_ICE_LEGEND_FONT_SIZE = 8 # Font size for ice thickness legend entries in Love plots
+    FigMisc.LOVE_ICE_LEGEND_TITLE_SIZE = 10 # Font size for ice thickness legend title in Love plots
+    FigMisc.LOVE_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries in Love plots
+    FigMisc.LOVE_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title in Love plots
+    FigMisc.LOVE_MAX_LEGEND_ENTRIES = 10 # Maximum number of entries to show in ice thickness legend for Love plots
+    # Exploreogram ZbD (ice shell vs ocean thickness) settings
+    FigMisc.ZBD_DOT_EDGE_COLOR = 'black' # Edge color for scatter dots in ZbD plots
+    FigMisc.ZBD_DOT_EDGE_WIDTH = 0.5 # Edge line width for scatter dots in ZbD plots
+    FigMisc.ZBD_COMP_LINE_WIDTH = 2 # Line width for composition lines in ZbD plots
+    FigMisc.ZBD_COMP_LINE_ALPHA = 0.7 # Alpha transparency for composition lines in ZbD plots
+    FigMisc.ZBD_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries in ZbD plots
+    FigMisc.ZBD_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title in ZbD plots
+    FigMisc.ZBD_COLORMAP = 'Greys' # Colormap to use for z-variable in ZbD plots
+    FigMisc.ZBD_NAN_COLOR = 'red' # Color to use for NaN points in ZbD plots
+    FigMisc.ZBD_NAN_MARKER = 'x' # Marker style to use for NaN points in ZbD plots
+    FigMisc.ZBD_AXIS_PADDING = 0.02 # Fraction of axis range to add as padding around plot edges
     # Explore-o-gram tidal love number plot
     FigMisc.SHOW_ERROR_BARS = True # Whether to show error bars on plots
     FigMisc.ERROR_BAR_MAGNITUDE = 0.014 # Magnitude of error bars to show on plots

@@ -21,7 +21,7 @@ from PlanetProfile import _Defaults, _TestImport, CopyCarefully
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, GetBexc, Benm2absBexyz
 from PlanetProfile.MagneticInduction.Moments import InductionStruct, Excitations as Mag
-from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram, PlotExploreOgramDsigma, PlotExploreOgramLoveComparison
+from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram, PlotExploreOgramDsigma, PlotExploreOgramLoveComparison, PlotExploreOgramZbD
 from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
     PlotInductOgramPhaseSpace
 from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers, GetIceShellTFreeze
@@ -139,6 +139,19 @@ def run(bodyname=None, opt=None, fNames=None):
                     for Exploration in ExplorationList:
                         Exploration.zName = Params.Explore.zName
                     PlotExploreOgram(ExplorationList, Params)
+                # Now we plot the ZbD plots (must plot after exploreogram plots since we change the x and y variables)
+                if Params.PLOT_Zb_D:
+                    if isinstance(Params.Explore.zName, list):
+                        figNames = Params.FigureFiles.explore + []
+                        for zName, figName in zip(Params.Explore.zName, figNames):
+                            for Exploration in ExplorationList:
+                                Exploration.zName = zName
+                            Params.FigureFiles.exploreZbD = figName
+                            PlotExploreOgramZbD(ExplorationList, Params)
+                    else:
+                        for Exploration in ExplorationList:
+                            Exploration.zName = Params.Explore.zName
+                        PlotExploreOgramZbD(ExplorationList, Params)
                 PlotExploreOgramDsigma(ExplorationList, Params)
                 PlotExploreOgramLoveComparison(ExplorationList, Params)
             if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
@@ -705,8 +718,9 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     Planet.Steps.iConv = np.zeros(Planet.Steps.nSurfIce, dtype=bool)
     
     # Reconstruct convection indices from saved convection parameters
-    iConductI, iConvectI = (next(i for i, val in enumerate(Planet.z_m) if val > threshold) for threshold in (Planet.eLid_m, Planet.z_m[Planet.Steps.nIbottom] - Planet.deltaTBL_m))
-    iConductIII, iConvectIII = (next(i for i, val in enumerate(Planet.z_m) if val > threshold) for threshold in (Planet.eLidIII_m + Planet.z_m[Planet.Steps.nIbottom], Planet.z_m[Planet.Steps.nIIIbottom] - Planet.deltaTBLIII_m))
+    if not Planet.Do.NO_H2O:
+        iConductI, iConvectI = (next(i for i, val in enumerate(Planet.z_m) if val > threshold) for threshold in (Planet.eLid_m, Planet.z_m[Planet.Steps.nIbottom] - Planet.deltaTBL_m))
+        iConductIII, iConvectIII = (next(i for i, val in enumerate(Planet.z_m) if val > threshold) for threshold in (Planet.eLidIII_m + Planet.z_m[Planet.Steps.nIbottom], Planet.z_m[Planet.Steps.nIIIbottom] - Planet.deltaTBLIII_m))
     iConductV, iConvectV = (next(i for i, val in enumerate(Planet.z_m) if val > threshold) for threshold in (Planet.eLidV_m + Planet.z_m[Planet.Steps.nIIIbottom], Planet.z_m[Planet.Steps.nSurfIce] - Planet.deltaTBLV_m))
     Planet.Steps.iConv[iConductI:iConvectI] = True
     Planet.Steps.iConv[iConductIII:iConvectIII] = True

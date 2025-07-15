@@ -819,8 +819,10 @@ class FigureFilesSubstruct:
         self.apsidal = self.fName + apsidal + self.xtn
         if isinstance(self.exploreAppend, list):
             self.explore =            [f'{self.fNameExplore}_{eApp}{self.xtn}' for eApp in self.exploreAppend]
+            self.exploreZbD =          [f'{self.fNameExplore}_{eApp}_ZbD{self.xtn}' for eApp in self.exploreAppend]
         else:
             self.explore =             f'{self.fNameExplore}_{self.exploreAppend}{self.xtn}'
+            self.exploreZbD =          f'{self.fNameExplore}_ZbD{self.xtn}'
         self.exploreDsigma =           f'{self.fNameExplore}_Dsigma{self.xtn}'
         self.exploreLoveComparison = f'{self.fNameExplore}_LoveNumberComparison{self.xtn}'
         self.phaseSpace =              f'{self.fNameInduct}_{induct}_phaseSpace{self.xtn}'
@@ -1969,9 +1971,9 @@ class FigLblStruct:
         self.vPoceanLabel = r'Ocean $V_P$ ($\si{' + self.vSoundUnits + '}$)'
         self.vPiceLabel = r'Ice $V_P$ ($\si{' + self.vSoundUnits + '}$)'
         self.vSiceLabel = r'Ice $V_S$ ($\si{' + self.vSoundUnits + '}$)'
-        self.GSiceLabel = r'Ice shear $G_S$ ($\si{GPa}$)'
-        self.KSiceLabel = r'Ice bulk $K_S$ ($\si{GPa}$)'
-        self.KSoceanLabel = r'Ocean bulk $K_S$ ($\si{GPa}$)'
+        self.GSiceLabel = r'Ice $G_S$ ($\si{GPa}$)'
+        self.KSiceLabel = r'Ice $K_S$ ($\si{GPa}$)'
+        self.KSoceanLabel = r'Ocean $K_S$ ($\si{GPa}$)'
         self.QseisLabel = f'Seismic quality factor ${self.QseisVar}$'
         self.xFeSLabel = r'Iron sulfide mixing ratio $x_{\ce{FeS}}$' + self.xUnitsParen
         self.hLoveLabel = r'Tidal Love Number $h_2$'
@@ -2379,7 +2381,7 @@ class FigMiscStruct:
         self.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
         self.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
         self.lowSigCutoff_Sm = None  # Cutoff conductivity below which profiles will be excluded. Setting to None includes all profiles
-        self.TminHydro = None  # Minimum temperature to display on hydrosphere plots
+        self.TminHydro = 200  # Minimum temperature to display on hydrosphere plots
         self.PHASE_LABELS = False  # Whether to print phase labels on density plots
 
         # Wedge diagrams
@@ -2482,6 +2484,46 @@ class FigMiscStruct:
         self.MARK_BEXC_MAX = True  # Whether to annotate excitation spectrum plots with label for highest peak
         self.peakLblSize = None  # Font size in pt for highest-peak annotation
         self.Tmin_hr = None  # Cutoff period to limit range of Fourier space plots
+        # Exploreogram D/sigma settings
+        self.DRAW_COMPOSITION_LINE = False # Whether to draw a line for each composition in the exploreogram D/sigma plot
+        self.SHOW_ICE_THICKNESS_DOTS = False # Whether to show ice thickness dots instead of colorbar in D/sigma plots
+        self.DSIGMA_YLIMS = [1e-2, 20] # Y-axis limits for D/sigma plots [min, max] in S/m
+        self.DSIGMA_ICE_THICKNESS_CMAP = 'Greys' # Colormap to use for ice thickness dots in D/sigma plots
+        self.DSIGMA_DOT_EDGE_COLOR = 'black' # Edge color for scatter dots in D/sigma plots
+        self.DSIGMA_DOT_EDGE_WIDTH = 0.5 # Edge line width for scatter dots in D/sigma plots
+        self.DSIGMA_COMP_LINE_WIDTH = 2 # Line width for composition lines in D/sigma plots
+        self.DSIGMA_COMP_LINE_ALPHA = 0.7 # Alpha transparency for composition lines in D/sigma plots
+        self.DSIGMA_ICE_LEGEND_FONT_SIZE = 8 # Font size for ice thickness legend entries
+        self.DSIGMA_ICE_LEGEND_TITLE_SIZE = 10 # Font size for ice thickness legend title
+        self.DSIGMA_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries
+        self.DSIGMA_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title
+        self.DSIGMA_MAX_LEGEND_ENTRIES = 10 # Maximum number of entries to show in ice thickness legend
+        # Exploreogram Love comparison settings
+        self.LOVE_ICE_THICKNESS_CMAP = 'Greys' # Colormap to use for ice thickness dots in Love comparison plots
+        self.LOVE_DOT_EDGE_COLOR = 'black' # Edge color for scatter dots in Love comparison plots
+        self.LOVE_DOT_EDGE_WIDTH = 0.5 # Edge line width for scatter dots in Love comparison plots
+        self.LOVE_COMP_LINE_WIDTH = 2 # Line width for composition lines in Love comparison plots
+        self.LOVE_COMP_LINE_ALPHA = 0.7 # Alpha transparency for composition lines in Love comparison plots
+        self.LOVE_ICE_LEGEND_FONT_SIZE = 8 # Font size for ice thickness legend entries in Love plots
+        self.LOVE_ICE_LEGEND_TITLE_SIZE = 10 # Font size for ice thickness legend title in Love plots
+        self.LOVE_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries in Love plots
+        self.LOVE_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title in Love plots
+        self.LOVE_MAX_LEGEND_ENTRIES = 10 # Maximum number of entries to show in ice thickness legend for Love plots
+           # Exploreogram ZbD (ice shell vs ocean thickness) settings
+        self.ZBD_DOT_EDGE_COLOR = 'black' # Edge color for scatter dots in ZbD plots
+        self.ZBD_DOT_EDGE_WIDTH = 0.5 # Edge line width for scatter dots in ZbD plots
+        self.ZBD_COMP_LINE_WIDTH = 2 # Line width for composition lines in ZbD plots
+        self.ZBD_COMP_LINE_ALPHA = 0.7 # Alpha transparency for composition lines in ZbD plots
+        self.ZBD_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries in ZbD plots
+        self.ZBD_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title in ZbD plots
+        self.ZBD_COLORMAP = 'Greys' # Colormap to use for z-variable in ZbD plots
+        self.ZBD_NAN_COLOR = 'red' # Color to use for NaN points in ZbD plots
+        self.ZBD_NAN_MARKER = 'x' # Marker style to use for NaN points in ZbD plots
+        self.ZBD_AXIS_PADDING = 0.05 # Fraction of axis range to add as padding around plot edges
+        # Explore-o-gram tidal love number plot
+        self.SHOW_ERROR_BARS = False # Whether to show error bars on plots
+        self.ERROR_BAR_MAGNITUDE = 0.01 # Magnitude of error bars to show on plots
+        
 
         # Legends
         self.REFS_IN_LEGEND = True  # Hydrosphere plot: Whether to include reference profiles in legend
@@ -2867,9 +2909,10 @@ class ConstantsStruct:
         self.sigmaCO2Clath_Sm = 6.5e-4  # Also from Stern et al. (2021), at 273 K and 25% gas-filled porosity
         self.EactCO2Clath_kJmol = 46.5  # Also from Stern et al. (2021)
         # Initialize activation energies and melting point viscosities, for use in convection calculations
-        self.Eact_kJmol, self.etaMelt_Pas, self.EYoung_GPa = (np.ones(self.phaseClath+1) * np.nan for _ in range(3))
+        self.Eact_kJmol, self.etaMelt_Pas, self.EYoung_GPa = (np.ones(self.phaseClath+7) * np.nan for _ in range(3))
         self.Eact_kJmol[1:7] = np.array([59.4, 76.5, 127, np.nan, 136, 110])  # Activation energy for diffusion of ice phases Ih-VI in kJ/mol
         self.Eact_kJmol[self.phaseClath] = 90.0  # From Durham et al. (2003), at 50 and 100 MPa and 260-283 K: https://doi.org/10.1029/2002JB001872
+        self.Eact_kJmol[self.phaseClath+1:self.phaseClath+7] = (self.Eact_kJmol[self.phaseClath] + self.Eact_kJmol[1:7]) / 2  # Average of clathrate and ice activation energies
         self.etaH2O_Pas = 1.786e-3  # Assumed viscosity of pure H2O based on the value at 0.1 C from https://ittc.info/media/4048/75-02-01-03.pdf. Agrees well with Kestin et al., (1978): https://doi.org/10.1063/1.555581
         self.etaSeawater_Pas = 1.900e-3  # Assumed viscosity of Seawater based on the value at 0.1 C from https://ittc.info/media/4048/75-02-01-03.pdf.
         self.etaIce_Pas = [1.0e19, 1.0e15]  # Assumed viscosity of ice Ih below and above the listed transition temperatures in TviscIce_K.

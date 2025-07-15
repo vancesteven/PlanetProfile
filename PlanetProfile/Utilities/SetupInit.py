@@ -71,6 +71,8 @@ def SetupInit(Planet, Params):
         Planet.Bulk.Tb_K = Planet.Bulk.Tsurf_K
         Planet.zb_km = 0.0
         Planet.Steps.nIceI = 0
+        Planet.Steps.nIceIIILitho = 0
+        Planet.Steps.nIceVLitho = 0
         Planet.Steps.nIbottom = 0
         Planet.Steps.nSurfIce = 0
         Planet.Steps.nOceanMax = 1

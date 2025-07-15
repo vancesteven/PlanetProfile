@@ -1559,7 +1559,7 @@ def PlotExploreOgramDsigma(ExplorationList, Params):
         # Override standard settings for this type of plot
         ax.set_xscale('linear')
         ax.set_yscale('log')
-        ax.set_ylim([1e-2, 20])
+        ax.set_ylim(FigMisc.DSIGMA_YLIMS)
 
         x = np.reshape(Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore, -1)
         y = np.reshape(Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore, -1)
@@ -1570,25 +1570,560 @@ def PlotExploreOgramDsigma(ExplorationList, Params):
         if np.size(x) > 0:
             ax.set_xlim([np.min(x), np.max(x)])
         linzb = np.reshape(Exploration.zb_km, -1)[VALID]
-        pts = ax.scatter(x, y, c=linzb,
-                         cmap=Color.cmap[Exploration.oceanComp[0,0]],
-                         marker=Style.MS_Induction, s=Style.MW_Induction**2)
+        
+        # Get ocean composition for composition line drawing
+        ocean_comp = np.reshape(Exploration.oceanComp, -1)[VALID]
+        
+        # Draw composition lines if enabled
+        if FigMisc.DRAW_COMPOSITION_LINE:
+            # Group by unique ocean compositions and plot connecting lines
+            unique_comps = np.unique(ocean_comp)
+            for comp in unique_comps:
+                comp_indices = np.where(ocean_comp == comp)[0]
+                x_line, y_line = x[comp_indices], y[comp_indices]
+                
+                # Sort points by x for connected lines
+                sorted_idx = np.argsort(x_line)
+                x_line = x_line[sorted_idx]
+                y_line = y_line[sorted_idx]
+                
+                # Set color based on composition
+                if FigMisc.MANUAL_HYDRO_COLORS:
+                    thisColor = Color.cmap[comp](Color.GetNormT(np.nanmax(linzb[comp_indices])))
+                else:
+                    thisColor = Color.cmap[comp](0.5)
+                
+                # Clean composition label
+                if 'CustomSolution' in comp:
+                    comp_label = comp.split('=')[0].replace('CustomSolution', '')
+                else:
+                    comp_label = comp
+                
+                # Plot line for this composition
+                ax.plot(x_line, y_line, color=thisColor, linewidth=FigMisc.DSIGMA_COMP_LINE_WIDTH, 
+                       alpha=FigMisc.DSIGMA_COMP_LINE_ALPHA, label=f'{comp_label}', zorder=2)
+        
+        # Handle ice thickness coloring or regular colorbar
+        if FigMisc.SHOW_ICE_THICKNESS_DOTS:
+            # Get ice shell thickness and normalize for coloring
+            ice_thickness = np.reshape(Exploration.zb_km, -1)[VALID]
+            if np.size(ice_thickness) > 0:
+                # Set bounds for normalization (min and max of ice thickness)
+                Tbound_lower = np.min(ice_thickness)
+                Tbound_upper = np.max(ice_thickness)
+                # Get normalized values using GetNormT
+                norm_thickness = Color.GetNormT(ice_thickness, Tbound_lower, Tbound_upper)
+            else:
+                norm_thickness = None
+            
+            # Plot scatter with ice thickness coloring
+            pts = ax.scatter(x, y, c=norm_thickness,
+                            cmap=FigMisc.DSIGMA_ICE_THICKNESS_CMAP, marker=Style.MS_Induction, 
+                            s=Style.MW_Induction**2, edgecolors=FigMisc.DSIGMA_DOT_EDGE_COLOR, 
+                            linewidths=FigMisc.DSIGMA_DOT_EDGE_WIDTH, zorder=3)
+            
+            # Create legend showing ice thickness values instead of colorbar
+            if np.size(ice_thickness) > 0:
+                # Round thickness values to avoid floating-point duplicates
+                rounded_thicknesses = np.round(ice_thickness)
+                unique_thicknesses = np.unique(rounded_thicknesses)
+                
+                if len(unique_thicknesses) > 10:  # Limit number of legend entries
+                    # Select representative values
+                    indices = np.linspace(0, len(unique_thicknesses)-1, 10, dtype=int)
+                    selected_thicknesses = unique_thicknesses[indices]
+                else:
+                    selected_thicknesses = unique_thicknesses
+                
+                # Create legend elements
+                legend_elements = []
+                for thickness in selected_thicknesses:
+                    norm_val = Color.GetNormT(thickness, Tbound_lower, Tbound_upper)
+                    color = plt.cm.Greys(norm_val)
+                    legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
+                                                    markerfacecolor=color, markeredgecolor='black',
+                                                    markersize=8, label=f'{thickness:.0f} km'))
+                
+                # Add legend for ice thickness
+                thickness_legend = ax.legend(handles=legend_elements, title="Ice Shell Thickness", 
+                                           loc='upper right', bbox_to_anchor=(1.0, 1.0), 
+                                           fontsize=8, title_fontsize=10)
+                ax.add_artist(thickness_legend)  # Keep this legend when adding composition legend
+        else:
+            # Standard colorbar approach
+            pts = ax.scatter(x, y, c=linzb,
+                            cmap=Color.cmap[Exploration.oceanComp[0,0]],
+                            marker=Style.MS_Induction, s=Style.MW_Induction**2, zorder=3)
 
-        cbar = fig.colorbar(pts, ax=ax, format=FigLbl.cbarFmt)
-        # Append the max value to the colorbar for reading convenience
-        # We compare z values to z values to exclude nans from the max finding,
-        # exploiting the fact that nan == nan is False.
-        if np.size(linzb) > 0:
-            new_ticks = np.insert(np.append(cbar.get_ticks(), np.max(linzb)), 0, np.min(linzb))
-            cbar.set_ticks(np.unique(new_ticks))
-        cbar.set_label(FigLbl.cbarLabelExplore, size=12)
+            cbar = fig.colorbar(pts, ax=ax, format=FigLbl.cbarFmt)
+            # Append the max value to the colorbar for reading convenience
+            # We compare z values to z values to exclude nans from the max finding,
+            # exploiting the fact that nan == nan is False.
+            if np.size(linzb) > 0:
+                new_ticks = np.insert(np.append(cbar.get_ticks(), np.max(linzb)), 0, np.min(linzb))
+                cbar.set_ticks(np.unique(new_ticks))
+            cbar.set_label(FigLbl.cbarLabelExplore, size=12)
+        
+        # Add legend for composition lines if enabled
+        if FigMisc.DRAW_COMPOSITION_LINE and Params.LEGEND:
+            if FigMisc.SHOW_ICE_THICKNESS_DOTS:
+                # Position composition legend to avoid overlap with ice thickness legend
+                ax.legend(title="Ocean Composition", fontsize=FigMisc.DSIGMA_COMP_LEGEND_FONT_SIZE, 
+                         title_fontsize=FigMisc.DSIGMA_COMP_LEGEND_TITLE_SIZE,
+                         loc='upper left', bbox_to_anchor=(0.0, 1.0))
+            else:
+                ax.legend(title="Ocean Composition", fontsize=FigMisc.DSIGMA_COMP_LEGEND_FONT_SIZE, 
+                         title_fontsize=FigMisc.DSIGMA_COMP_LEGEND_TITLE_SIZE)
 
         plt.tight_layout()
         fig.savefig(Params.FigureFiles.exploreDsigma, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
         log.debug(f'Plot saved to file: {Params.FigureFiles.exploreDsigma}')
         plt.close()
 
+    # Plot combination
+    if Params.COMPARE and np.size(ExplorationList) > 1:
+        # Filter out explorations with no H2O
+        ValidExplorations = [ex for ex in ExplorationList if not ex.NO_H2O]
+        
+        if len(ValidExplorations) > 1:
+            # Set up exploration parameters for the first valid exploration
+            Exploration = ValidExplorations[0]
+            Exploration.xName = 'D_km'
+            Exploration.yName = 'sigmaMean_Sm'
+            Exploration.zName = 'zb_km'
+            FigLbl.SetExploration(Exploration.bodyname, Exploration.xName, 
+                                  Exploration.yName, Exploration.zName)
+            if not FigMisc.TEX_INSTALLED:
+                FigLbl.StripLatex()
+
+            fig = plt.figure(figsize=FigSize.explore)
+            grid = GridSpec(1, 1)
+            ax = fig.add_subplot(grid[0, 0])
+            if Style.GRIDS:
+                ax.grid()
+                ax.set_axisbelow(True)
+
+            if Params.TITLES:
+                fig.suptitle(FigLbl.explorationDsigmaTitle)
+            ax.set_xlabel(FigLbl.xLabelExplore)
+            ax.set_ylabel(FigLbl.yLabelExplore)
+            # Override standard settings for this type of plot
+            ax.set_xscale('linear')
+            ax.set_yscale('log')
+            ax.set_ylim(FigMisc.DSIGMA_YLIMS)
+
+            # Collect data from all explorations
+            all_x = []
+            all_y = []
+            all_zb = []
+            all_ocean_comp = []
+            
+            for Exploration in ValidExplorations:
+                x = np.reshape(Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore, -1)
+                y = np.reshape(Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore, -1)
+                # Only keep data points for which a valid model was determined
+                VALID = np.logical_not(np.logical_or(np.isnan(x), np.isnan(y)))
+                x, y = x[VALID], y[VALID]
+                
+                # Get zb_km and ocean composition data
+                zb = np.reshape(Exploration.zb_km, -1)[VALID]
+                ocean_comp = np.reshape(Exploration.oceanComp, -1)[VALID]
+                
+                all_x.extend(x)
+                all_y.extend(y)
+                all_zb.extend(zb)
+                all_ocean_comp.extend(ocean_comp)
+
+            # Convert to numpy arrays
+            all_x = np.array(all_x)
+            all_y = np.array(all_y)
+            all_zb = np.array(all_zb)
+            all_ocean_comp = np.array(all_ocean_comp)
+
+            # Draw composition lines if enabled
+            if FigMisc.DRAW_COMPOSITION_LINE:
+                # Group by unique ocean compositions and plot connecting lines
+                unique_comps = np.unique(all_ocean_comp)
+                plotted_labels = set()  # Keep track of which labels have been plotted
+                
+                for comp in unique_comps:
+                    comp_indices = np.where(all_ocean_comp == comp)[0]
+                    x_line, y_line = all_x[comp_indices], all_y[comp_indices]
+                    
+                    # Sort points by x for connected lines
+                    sorted_idx = np.argsort(x_line)
+                    x_line = x_line[sorted_idx]
+                    y_line = y_line[sorted_idx]
+                    
+                    # Set color based on composition
+                    if FigMisc.MANUAL_HYDRO_COLORS:
+                        thisColor = Color.cmap[comp](Color.GetNormT(np.nanmax(all_zb[comp_indices])))
+                    else:
+                        thisColor = Color.cmap[comp](0.5)
+                    
+                    # Clean composition label
+                    if 'CustomSolution' in comp:
+                        comp_label = comp.split('=')[0].replace('CustomSolution', '')
+                    else:
+                        comp_label = comp
+                    
+                    # Only add label if this composition hasn't been plotted yet
+                    line_label = comp_label if comp_label not in plotted_labels else None
+                    if line_label:
+                        plotted_labels.add(comp_label)
+                    
+                    # Plot line for this composition
+                    ax.plot(x_line, y_line, color=thisColor, linewidth=FigMisc.DSIGMA_COMP_LINE_WIDTH, 
+                           alpha=FigMisc.DSIGMA_COMP_LINE_ALPHA, label=line_label, zorder=2)
+
+            # Plot scatter points using the same marker for all explorations
+            if np.size(all_x) > 0:
+                ax.set_xlim([np.min(all_x), np.max(all_x)])
+            
+            # Handle ice thickness coloring or regular colorbar for combined plot
+            if FigMisc.SHOW_ICE_THICKNESS_DOTS:
+                # Get ice shell thickness and normalize for coloring
+                if np.size(all_zb) > 0:
+                    # Set bounds for normalization (min and max of ice thickness across all explorations)
+                    Tbound_lower = np.min(all_zb)
+                    Tbound_upper = np.max(all_zb)
+                    # Get normalized values using GetNormT
+                    norm_thickness = Color.GetNormT(all_zb, Tbound_lower, Tbound_upper)
+                else:
+                    norm_thickness = None
+                
+                # Plot scatter with ice thickness coloring
+                pts = ax.scatter(all_x, all_y, c=norm_thickness,
+                                cmap=FigMisc.DSIGMA_ICE_THICKNESS_CMAP, marker=Style.MS_Induction, 
+                                s=Style.MW_Induction**2, edgecolors=FigMisc.DSIGMA_DOT_EDGE_COLOR, 
+                                linewidths=FigMisc.DSIGMA_DOT_EDGE_WIDTH, zorder=3)
+                
+                # Create legend showing ice thickness values instead of colorbar
+                if np.size(all_zb) > 0:
+                    # Round thickness values to avoid floating-point duplicates
+                    rounded_thicknesses = np.round(all_zb)
+                    unique_thicknesses = np.unique(rounded_thicknesses)
+                    
+                    if len(unique_thicknesses) > FigMisc.DSIGMA_MAX_LEGEND_ENTRIES:  # Limit number of legend entries
+                        # Select representative values
+                        indices = np.linspace(0, len(unique_thicknesses)-1, FigMisc.DSIGMA_MAX_LEGEND_ENTRIES, dtype=int)
+                        selected_thicknesses = unique_thicknesses[indices]
+                else:
+                    selected_thicknesses = unique_thicknesses
+                
+                # Create legend elements
+                legend_elements = []
+                for thickness in selected_thicknesses:
+                    norm_val = Color.GetNormT(thickness, Tbound_lower, Tbound_upper)
+                    color = getattr(plt.cm, FigMisc.DSIGMA_ICE_THICKNESS_CMAP)(norm_val)
+                    legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
+                                                    markerfacecolor=color, markeredgecolor=FigMisc.DSIGMA_DOT_EDGE_COLOR,
+                                                    markersize=8, label=f'{thickness:.0f}'))
+                
+                # Add legend for ice thickness
+                thickness_legend = ax.legend(handles=legend_elements, title="Ice Shell Thickness (km)", 
+                                           loc='upper right', bbox_to_anchor=(1.0, 1.0), 
+                                           fontsize=FigMisc.DSIGMA_ICE_LEGEND_FONT_SIZE, title_fontsize=FigMisc.DSIGMA_ICE_LEGEND_TITLE_SIZE)
+                ax.add_artist(thickness_legend)  # Keep this legend when adding composition legend
+            else:
+                # Standard colorbar approach
+                pts = ax.scatter(all_x, all_y, c=all_zb,
+                                cmap=Color.cmap['default'], marker=Style.MS_Induction, 
+                                s=Style.MW_Induction**2, zorder=3)
+
+                cbar = fig.colorbar(pts, ax=ax, format=FigLbl.cbarFmt)
+                # Append the max value to the colorbar for reading convenience
+                if np.size(all_zb) > 0:
+                    new_ticks = np.insert(np.append(cbar.get_ticks(), np.max(all_zb)), 0, np.min(all_zb))
+                    cbar.set_ticks(np.unique(new_ticks))
+                cbar.set_label(FigLbl.cbarLabelExplore, size=12)
+            
+            # Add legend for composition lines if enabled
+            if FigMisc.DRAW_COMPOSITION_LINE and Params.LEGEND:
+                if FigMisc.SHOW_ICE_THICKNESS_DOTS:
+                    # Position composition legend to avoid overlap with ice thickness legend
+                    ax.legend(title="Ocean Composition", fontsize=FigMisc.DSIGMA_COMP_LEGEND_FONT_SIZE, 
+                             title_fontsize=FigMisc.DSIGMA_COMP_LEGEND_TITLE_SIZE,
+                             bbox_to_anchor=(0.0, 1.0))
+                else:
+                    ax.legend(title="Ocean Composition", fontsize=FigMisc.DSIGMA_COMP_LEGEND_FONT_SIZE, 
+                             title_fontsize=FigMisc.DSIGMA_COMP_LEGEND_TITLE_SIZE)
+
+            plt.tight_layout()
+            fig.savefig(Params.FigureFiles.exploreDsigma, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+            log.debug(f'Combined D/sigma plot saved to file: {Params.FigureFiles.exploreDsigma}')
+            plt.close()
+
     return
+
+def PlotExploreOgramZbD(ExplorationList, Params):
+    """ Plot a scatter showing ice shell thickness vs ocean thickness with user-configurable z variable,
+        with optional ocean composition lines.
+    """
+
+    FigLbl.SetExploration(ExplorationList[0].bodyname, 'zb_km', 'D_km', ExplorationList[0].zName)
+    if not FigMisc.TEX_INSTALLED:
+        FigLbl.StripLatex()
+
+    for Exploration in (ex for ex in ExplorationList if not ex.NO_H2O):
+        Exploration.xName = 'zb_km'
+        Exploration.yName = 'D_km'
+        # zName should already be set by user
+        
+        fig = plt.figure(figsize=FigSize.explore)
+        grid = GridSpec(1, 1)
+        ax = fig.add_subplot(grid[0, 0])
+        if Style.GRIDS:
+            ax.grid()
+            ax.set_axisbelow(True)
+
+        if Params.TITLES:
+            fig.suptitle(FigLbl.explorationTitle)
+        ax.set_xlabel(FigLbl.xLabelExplore)
+        ax.set_ylabel(FigLbl.yLabelExplore)
+        ax.set_xscale('linear')
+        ax.set_yscale('linear')
+
+        x = np.reshape(Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore, -1)
+        y = np.reshape(Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore, -1)
+        z = np.reshape(Exploration.__getattribute__(Exploration.zName) * FigLbl.zMultExplore, -1)
+        # Only keep data points for which a valid model was determined
+        VALID = np.logical_not(np.logical_or(np.isnan(x), np.isnan(y)))
+        x, y, z = x[VALID], y[VALID], z[VALID]
+        
+        if np.size(x) > 0:
+            # Add padding to prevent marker cutoff at edges
+            x_range = np.max(x) - np.min(x)
+            y_range = np.max(y) - np.min(y)
+            x_padding = x_range * FigMisc.ZBD_AXIS_PADDING
+            y_padding = y_range * FigMisc.ZBD_AXIS_PADDING
+            ax.set_xlim([np.min(x) - x_padding, np.max(x) + x_padding])
+            ax.set_ylim([np.min(y) - y_padding, np.max(y) + y_padding])
+
+        # Get ocean composition for composition line drawing
+        ocean_comp = np.reshape(Exploration.oceanComp, -1)[VALID]
+        
+        # Draw composition lines if enabled
+        if FigMisc.DRAW_COMPOSITION_LINE:
+            # Group by unique ocean compositions and plot connecting lines
+            unique_comps = np.unique(ocean_comp)
+            for comp in unique_comps:
+                comp_indices = np.where(ocean_comp == comp)[0]
+                x_line, y_line = x[comp_indices], y[comp_indices]
+                
+                # Sort points by x for connected lines
+                sorted_idx = np.argsort(x_line)
+                x_line = x_line[sorted_idx]
+                y_line = y_line[sorted_idx]
+                
+                # Set color based on composition
+                if FigMisc.MANUAL_HYDRO_COLORS:
+                    thisColor = Color.cmap[comp](Color.GetNormT(np.nanmax(z[comp_indices])))
+                else:
+                    thisColor = Color.cmap[comp](0.5)
+                
+                # Clean composition label
+                if 'CustomSolution' in comp:
+                    comp_label = comp.split('=')[0].replace('CustomSolution', '')
+                else:
+                    comp_label = comp
+                
+                # Plot line for this composition
+                ax.plot(x_line, y_line, color=thisColor, linewidth=FigMisc.ZBD_COMP_LINE_WIDTH, 
+                       alpha=FigMisc.ZBD_COMP_LINE_ALPHA, label=f'{comp_label}', zorder=2)
+
+        # Separate NaN and non-NaN points for different plotting
+        nan_mask = np.isnan(z)
+        valid_mask = ~nan_mask
+        
+        # Plot non-NaN points colored by z variable
+        if np.any(valid_mask):
+            z_valid = z[valid_mask]
+            pts = ax.scatter(x[valid_mask], y[valid_mask], c=z_valid,
+                            cmap=FigMisc.ZBD_COLORMAP, marker=Style.MS_Induction, 
+                            s=Style.MW_Induction**2, edgecolors=FigMisc.ZBD_DOT_EDGE_COLOR,
+                            linewidths=FigMisc.ZBD_DOT_EDGE_WIDTH, zorder=3, 
+                            vmin=np.nanmin(z_valid), vmax=np.nanmax(z_valid))
+            
+            # Add colorbar
+            cbar = fig.colorbar(pts, ax=ax, format=FigLbl.cbarFmt)
+            # Extend colorbar to cover the full range of default ticks
+            default_ticks = cbar.get_ticks()
+            if len(default_ticks) > 0:
+                pts.set_clim(vmin=np.min(default_ticks), vmax=np.max(default_ticks))
+            cbar.set_label(FigLbl.cbarLabelExplore, size=12)
+        
+        # Plot NaN points with distinct color
+        if np.any(nan_mask):
+            ax.scatter(x[nan_mask], y[nan_mask], c=FigMisc.ZBD_NAN_COLOR,
+                      marker=FigMisc.ZBD_NAN_MARKER, s=Style.MW_Induction**2, 
+                      edgecolors=FigMisc.ZBD_DOT_EDGE_COLOR, linewidths=FigMisc.ZBD_DOT_EDGE_WIDTH,
+                      zorder=3, label='Invalid data')
+        
+        # Add legend for composition lines if enabled
+        if FigMisc.DRAW_COMPOSITION_LINE and Params.LEGEND:
+            ax.legend(title="Ocean Composition", fontsize=FigMisc.ZBD_COMP_LEGEND_FONT_SIZE, 
+                     title_fontsize=FigMisc.ZBD_COMP_LEGEND_TITLE_SIZE)
+        elif np.any(nan_mask) and Params.LEGEND:
+            # Show legend for invalid data points if no composition lines are shown
+            ax.legend(fontsize=FigMisc.ZBD_COMP_LEGEND_FONT_SIZE)
+
+        plt.tight_layout()
+        fig.savefig(Params.FigureFiles.exploreZbD, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        log.debug(f'Plot saved to file: {Params.FigureFiles.exploreZbD}')
+        plt.close()
+
+    # Plot combination
+    if Params.COMPARE and np.size(ExplorationList) > 1:
+        # Filter out explorations with no H2O
+        ValidExplorations = [ex for ex in ExplorationList if not ex.NO_H2O]
+        
+        if len(ValidExplorations) > 1:
+            # Set up exploration parameters for the first valid exploration
+            Exploration = ValidExplorations[0]
+            Exploration.xName = 'zb_km'
+            Exploration.yName = 'D_km'
+            # zName should already be set by user
+            FigLbl.SetExploration(Exploration.bodyname, Exploration.xName, 
+                                  Exploration.yName, Exploration.zName)
+            if not FigMisc.TEX_INSTALLED:
+                FigLbl.StripLatex()
+
+            fig = plt.figure(figsize=FigSize.explore)
+            grid = GridSpec(1, 1)
+            ax = fig.add_subplot(grid[0, 0])
+            if Style.GRIDS:
+                ax.grid()
+                ax.set_axisbelow(True)
+
+            if Params.TITLES:
+                fig.suptitle(FigLbl.explorationTitle)
+            ax.set_xlabel(FigLbl.xLabelExplore)
+            ax.set_ylabel(FigLbl.yLabelExplore)
+            ax.set_xscale(FigLbl.xScaleExplore)
+            ax.set_yscale(FigLbl.yScaleExplore)
+
+            # Collect data from all explorations
+            all_x = []
+            all_y = []
+            all_z = []
+            all_ocean_comp = []
+            
+            for Exploration in ValidExplorations:
+                x = np.reshape(Exploration.__getattribute__(Exploration.xName) * FigLbl.xMultExplore, -1)
+                y = np.reshape(Exploration.__getattribute__(Exploration.yName) * FigLbl.yMultExplore, -1)
+                z = np.reshape(Exploration.__getattribute__(Exploration.zName) * FigLbl.zMultExplore, -1)
+                # Only keep data points for which a valid model was determined
+                VALID = np.logical_not(np.logical_or(np.isnan(x), np.isnan(y)))
+                x, y, z = x[VALID], y[VALID], z[VALID]
+                
+                if np.size(x) > 0:
+                    ax.set_xlim([np.min(x), np.max(x)])
+                    ax.set_ylim([np.min(y), np.max(y)])
+                
+                # Get ocean composition data
+                ocean_comp = np.reshape(Exploration.oceanComp, -1)[VALID]
+                
+                all_x.extend(x)
+                all_y.extend(y)
+                all_z.extend(z)
+                all_ocean_comp.extend(ocean_comp)
+
+            # Convert to numpy arrays
+            all_x = np.array(all_x)
+            all_y = np.array(all_y)
+            all_z = np.array(all_z)
+            all_ocean_comp = np.array(all_ocean_comp)
+
+            # Draw composition lines if enabled
+            if FigMisc.DRAW_COMPOSITION_LINE:
+                # Group by unique ocean compositions and plot connecting lines
+                unique_comps = np.unique(all_ocean_comp)
+                plotted_labels = set()  # Keep track of which labels have been plotted
+                
+                for comp in unique_comps:
+                    comp_indices = np.where(all_ocean_comp == comp)[0]
+                    x_line, y_line = all_x[comp_indices], all_y[comp_indices]
+                    
+                    # Sort points by x for connected lines
+                    sorted_idx = np.argsort(x_line)
+                    x_line = x_line[sorted_idx]
+                    y_line = y_line[sorted_idx]
+                    
+                    # Set color based on composition
+                    if FigMisc.MANUAL_HYDRO_COLORS:
+                        thisColor = Color.cmap[comp](Color.GetNormT(np.nanmax(all_z[comp_indices])))
+                    else:
+                        thisColor = Color.cmap[comp](0.5)
+                    
+                    # Clean composition label
+                    if 'CustomSolution' in comp:
+                        comp_label = comp.split('=')[0].replace('CustomSolution', '')
+                    else:
+                        comp_label = comp
+                    
+                    # Only add label if this composition hasn't been plotted yet
+                    line_label = comp_label if comp_label not in plotted_labels else None
+                    if line_label:
+                        plotted_labels.add(comp_label)
+                    
+                    # Plot line for this composition
+                    ax.plot(x_line, y_line, color=thisColor, linewidth=FigMisc.ZBD_COMP_LINE_WIDTH, 
+                           alpha=FigMisc.ZBD_COMP_LINE_ALPHA, label=line_label, zorder=2)
+
+            # Plot scatter points using combined data
+            if np.size(all_x) > 0:
+                # Add padding to prevent marker cutoff at edges
+                x_range = np.max(all_x) - np.min(all_x)
+                y_range = np.max(all_y) - np.min(all_y)
+                x_padding = x_range * FigMisc.ZBD_AXIS_PADDING
+                y_padding = y_range * FigMisc.ZBD_AXIS_PADDING
+                ax.set_xlim([np.min(all_x) - x_padding, np.max(all_x) + x_padding])
+                ax.set_ylim([np.min(all_y) - y_padding, np.max(all_y) + y_padding])
+            
+            # Separate NaN and non-NaN points for different plotting
+            nan_mask = np.isnan(all_z)
+            valid_mask = ~nan_mask
+            
+            # Plot non-NaN points colored by z variable
+            if np.any(valid_mask):
+                z_valid = all_z[valid_mask]
+                pts = ax.scatter(all_x[valid_mask], all_y[valid_mask], c=z_valid,
+                                cmap=FigMisc.ZBD_COLORMAP, marker=Style.MS_Induction, 
+                                s=Style.MW_Induction**2, edgecolors=FigMisc.ZBD_DOT_EDGE_COLOR,
+                                linewidths=FigMisc.ZBD_DOT_EDGE_WIDTH, zorder=3, 
+                                vmin=np.nanmin(z_valid), vmax=np.nanmax(z_valid))
+
+                # Add colorbar
+                cbar = fig.colorbar(pts, ax=ax, format=FigLbl.cbarFmt)
+                # Extend colorbar to cover the full range of default ticks
+                default_ticks = cbar.get_ticks()
+                if len(default_ticks) > 0:
+                    pts.set_clim(vmin=np.min(default_ticks), vmax=np.max(default_ticks))
+                cbar.set_label(FigLbl.cbarLabelExplore, size=12)
+            
+            # Plot NaN points with distinct color
+            if np.any(nan_mask):
+                ax.scatter(all_x[nan_mask], all_y[nan_mask], c=FigMisc.ZBD_NAN_COLOR,
+                          marker=FigMisc.ZBD_NAN_MARKER, s=Style.MW_Induction**2, 
+                          edgecolors=FigMisc.ZBD_DOT_EDGE_COLOR, linewidths=FigMisc.ZBD_DOT_EDGE_WIDTH,
+                          zorder=3, label='Invalid data')
+            
+            # Add legend for composition lines if enabled
+            if FigMisc.DRAW_COMPOSITION_LINE and Params.LEGEND:
+                ax.legend(title="Ocean Composition", fontsize=FigMisc.ZBD_COMP_LEGEND_FONT_SIZE, 
+                         title_fontsize=FigMisc.ZBD_COMP_LEGEND_TITLE_SIZE)
+            elif np.any(nan_mask) and Params.LEGEND:
+                # Show legend for invalid data points if no composition lines are shown
+                ax.legend(fontsize=FigMisc.ZBD_COMP_LEGEND_FONT_SIZE)
+
+            plt.tight_layout()
+            fig.savefig(Params.FigureFiles.exploreZbD, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+            log.debug(f'Combined ZbD plot saved to file: {Params.FigureFiles.exploreZbD}')
+            plt.close()
+
+    return
+
 
 def PlotExploreOgramLoveComparison(ExplorationList, Params):
     """ Plot a scatter showing the evaluated tidal love number k2 versus delta (1+k2-h2),
@@ -1625,53 +2160,106 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
         VALID = np.logical_not(np.logical_or(np.isnan(x), np.isnan(y)))
         x, y, z = x[VALID], y[VALID], z[VALID]
 
-        # Group by unique z values and plot connecting lines
-        unique_z = np.unique(z)
-        for z_val in unique_z:
-            TminMax_K = {}
-            Tall_K = np.reshape(Exploration.__getattribute__('Tb_K'), -1)
-            TminMax_K[z_val] = [np.nanmin(Tall_K), np.nanmax(Tall_K)]
-            # Set style options
-            if FigMisc.MANUAL_HYDRO_COLORS:
-                Color.Tbounds_K = TminMax_K[z_val]
-                thisColor = Color.cmap[z_val](Color.GetNormT(np.nanmax(Tall_K)))
-            else:
-                thisColor = None
-            indices = np.where(z == z_val)[0]
-            x_line, y_line = x[indices], y[indices]
-            # Sort points by x for connected lines
-            sorted_idx = np.argsort(x_line)
-            x_line = x_line[sorted_idx]
-            y_line = y_line[sorted_idx]
-            if 'CustomSolution' in z_val:
-                z_label = z_val.split('=')[0].replace('CustomSolution', '')
-            else:
-                z_label = z_val
-            # Plot line for each z group
-            ax.plot(x_line, y_line, color = thisColor, label=f'{z_label}', linewidth=2, zorder = 2)
-            # Add error bars if enabled
-            if FigMisc.SHOW_ERROR_BARS:
-                ax.errorbar(x_line, y_line, yerr=FigMisc.ERROR_BAR_MAGNITUDE, fmt='none', color=thisColor, capsize=3)
+        # Draw composition lines if enabled
+        if FigMisc.DRAW_COMPOSITION_LINE:
+            # Group by unique z values and plot connecting lines
+            unique_z = np.unique(z)
+            for z_val in unique_z:
+                TminMax_K = {}
+                Tall_K = np.reshape(Exploration.__getattribute__('Tb_K'), -1)
+                TminMax_K[z_val] = [np.nanmin(Tall_K), np.nanmax(Tall_K)]
+                # Set style options
+                if FigMisc.MANUAL_HYDRO_COLORS:
+                    Color.Tbounds_K = TminMax_K[z_val]
+                    thisColor = Color.cmap[z_val](Color.GetNormT(np.nanmax(Tall_K)))
+                else:
+                    thisColor = None
+                indices = np.where(z == z_val)[0]
+                x_line, y_line = x[indices], y[indices]
+                # Sort points by x for connected lines
+                sorted_idx = np.argsort(x_line)
+                x_line = x_line[sorted_idx]
+                y_line = y_line[sorted_idx]
+                if 'CustomSolution' in z_val:
+                    z_label = z_val.split('=')[0].replace('CustomSolution', '')
+                else:
+                    z_label = z_val
+                # Plot line for each z group
+                ax.plot(x_line, y_line, color=thisColor, label=f'{z_label}', 
+                       linewidth=FigMisc.LOVE_COMP_LINE_WIDTH, alpha=FigMisc.LOVE_COMP_LINE_ALPHA, zorder=2)
+                # Add error bars if enabled
+                if FigMisc.SHOW_ERROR_BARS:
+                    ax.errorbar(x_line, y_line, yerr=FigMisc.ERROR_BAR_MAGNITUDE, fmt='none', color=thisColor, capsize=3)
 
-        # TODO Make these param options
-        MANUAL_ICE_THICKNESS_COLORS = True
-        if MANUAL_ICE_THICKNESS_COLORS:
-            # Get ice shell thickness and reshape
+        # Handle ice thickness coloring or regular scatter
+        if FigMisc.SHOW_ICE_THICKNESS_DOTS:
+            # Get ice shell thickness and normalize for coloring
             ice_thickness = np.reshape(Exploration.__getattribute__('zb_approximate_km'), -1)
             ice_thickness = ice_thickness[VALID]  # Filter invalid data like x and y
-            # Set bounds for normalization (min and max of ice thickness)
-            Tbound_lower = np.min(ice_thickness)
-            Tbound_upper = np.max(ice_thickness)
-
-            # Get normalized values using GetNormT
-            norm_thickness = Color.GetNormT(ice_thickness, Tbound_lower, Tbound_upper)
+            if np.size(ice_thickness) > 0:
+                # Set bounds for normalization (min and max of ice thickness)
+                Tbound_lower = np.min(ice_thickness)
+                Tbound_upper = np.max(ice_thickness)
+                # Get normalized values using GetNormT
+                norm_thickness = Color.GetNormT(ice_thickness, Tbound_lower, Tbound_upper)
+            else:
+                norm_thickness = None
+            
+            # Apply colormap using normalized thickness
+            pts = ax.scatter(x, y, c=norm_thickness,
+                            cmap=FigMisc.LOVE_ICE_THICKNESS_CMAP, marker=Style.MS_Induction, 
+                            s=Style.MW_Induction**2, edgecolors=FigMisc.LOVE_DOT_EDGE_COLOR, 
+                            linewidths=FigMisc.LOVE_DOT_EDGE_WIDTH, zorder=3)
+            
+            # Create legend showing ice thickness values instead of colorbar
+            if np.size(ice_thickness) > 0:
+                # Round thickness values to avoid floating-point duplicates
+                rounded_thicknesses = np.round(ice_thickness)
+                unique_thicknesses = np.unique(rounded_thicknesses)
+                
+                if len(unique_thicknesses) > FigMisc.LOVE_MAX_LEGEND_ENTRIES:  # Limit number of legend entries
+                    # Select representative values
+                    indices = np.linspace(0, len(unique_thicknesses)-1, FigMisc.LOVE_MAX_LEGEND_ENTRIES, dtype=int)
+                    selected_thicknesses = unique_thicknesses[indices]
+                else:
+                    selected_thicknesses = unique_thicknesses
+                
+                # Create legend elements
+                legend_elements = []
+                for thickness in selected_thicknesses:
+                    norm_val = Color.GetNormT(thickness, Tbound_lower, Tbound_upper)
+                    color = getattr(plt.cm, FigMisc.LOVE_ICE_THICKNESS_CMAP)(norm_val)
+                    legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
+                                                    markerfacecolor=color, markeredgecolor=FigMisc.LOVE_DOT_EDGE_COLOR,
+                                                    markersize=8, label=f'{thickness:.0f}'))
+                
+                # Add legend for ice thickness
+                if Params.LEGEND:
+                    thickness_legend = ax.legend(handles=legend_elements, title="Ice Shell Thickness (km)", 
+                                               loc='upper right', bbox_to_anchor=(1.0, 1.0), 
+                                               fontsize=FigMisc.LOVE_ICE_LEGEND_FONT_SIZE, title_fontsize=FigMisc.LOVE_ICE_LEGEND_TITLE_SIZE)
+                    ax.add_artist(thickness_legend)  # Keep this legend when adding composition legend
         else:
-            norm_thickness = None
+            # Standard scatter plot without ice thickness coloring
+            # Get ice shell thickness for backward compatibility
+            ice_thickness = np.reshape(Exploration.__getattribute__('zb_approximate_km'), -1)
+            ice_thickness = ice_thickness[VALID]
+            if np.size(ice_thickness) > 0:
+                # Set bounds for normalization (min and max of ice thickness)
+                Tbound_lower = np.min(ice_thickness)
+                Tbound_upper = np.max(ice_thickness)
+                # Get normalized values using GetNormT
+                norm_thickness = Color.GetNormT(ice_thickness, Tbound_lower, Tbound_upper)
+            else:
+                norm_thickness = None
+            
+            # Apply colormap using normalized thickness (maintaining backward compatibility)
+            pts = ax.scatter(x, y, c=norm_thickness,
+                            cmap=FigMisc.LOVE_ICE_THICKNESS_CMAP, marker=Style.MS_Induction, 
+                            s=Style.MW_Induction**2, edgecolors=FigMisc.LOVE_DOT_EDGE_COLOR, 
+                            linewidths=FigMisc.LOVE_DOT_EDGE_WIDTH, zorder=3)
 
-        # Apply colormap using normalized thickness
-        pts = ax.scatter(x, y, c=norm_thickness,  # Use normalized values
-                         cmap='Greys',  # Use your chosen colormap
-                         marker=Style.MS_Induction, s=Style.MW_Induction ** 2, edgecolors='black', linewidths = 0.5, zorder = 3)
+        # Set axis limits
         if np.size(x) > 0:
             ax.set_xlim([0, np.max(x) + 0.01])
         if np.size(y) > 0:
@@ -1683,8 +2271,17 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
                 ax.set_ylim([np.floor(y_min_with_error*100)/100, np.ceil(y_max_with_error*100)/100])
             else:
                 ax.set_ylim([np.floor(np.min(y)*100)/100, np.ceil(np.max(y)*100)/100])
-        if Params.LEGEND:
-            ax.legend(title="Ocean Composition", fontsize=10, title_fontsize=12)
+
+        # Add legend for composition lines if enabled
+        if FigMisc.DRAW_COMPOSITION_LINE and Params.LEGEND:
+            if FigMisc.SHOW_ICE_THICKNESS_DOTS:
+                # Position composition legend to avoid overlap with ice thickness legend
+                ax.legend(title="Ocean Composition", fontsize=FigMisc.LOVE_COMP_LEGEND_FONT_SIZE, 
+                         title_fontsize=FigMisc.LOVE_COMP_LEGEND_TITLE_SIZE,
+                         loc='upper left', bbox_to_anchor=(0.0, 1.0))
+            else:
+                ax.legend(title="Ocean Composition", fontsize=FigMisc.LOVE_COMP_LEGEND_FONT_SIZE, 
+                         title_fontsize=FigMisc.LOVE_COMP_LEGEND_TITLE_SIZE)
 
         plt.tight_layout()
         fig.savefig(Params.FigureFiles.exploreLoveComparison, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
@@ -1756,52 +2353,54 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
             all_ice_thickness = np.array(all_ice_thickness)
             exploration_labels = np.array(exploration_labels)
 
-            # Group by unique z values and plot connecting lines
-            unique_z = np.unique(all_z)
-            plotted_labels = set()  # Keep track of which labels have been plotted
-            
-            for z_val in unique_z:
-                z_indices = np.where(all_z == z_val)[0]
+            # Draw composition lines if enabled
+            if FigMisc.DRAW_COMPOSITION_LINE:
+                # Group by unique z values and plot connecting lines
+                unique_z = np.unique(all_z)
+                plotted_labels = set()  # Keep track of which labels have been plotted
                 
-                # Collect all points for this z value across all explorations
-                x_line, y_line = all_x[z_indices], all_y[z_indices]
-                
-                # Sort points by x for connected lines
-                sorted_idx = np.argsort(x_line)
-                x_line = x_line[sorted_idx]
-                y_line = y_line[sorted_idx]
-                
-                # Set style options (use first exploration's temperature bounds)
-                TminMax_K = {}
-                Tall_K = np.reshape(ValidExplorations[0].__getattribute__('Tb_K'), -1)
-                TminMax_K[z_val] = [np.nanmin(Tall_K), np.nanmax(Tall_K)]
-                
-                if FigMisc.MANUAL_HYDRO_COLORS:
-                    Color.Tbounds_K = TminMax_K[z_val]
-                    thisColor = Color.cmap[z_val](Color.GetNormT(np.nanmax(Tall_K)))
-                else:
-                    thisColor = None
-                
-                if 'CustomSolution' in z_val:
-                    z_label = z_val.split('=')[0].replace('CustomSolution', '')
-                else:
-                    z_label = z_val
-                
-                # Only add label if this composition hasn't been plotted yet
-                line_label = z_label if z_label not in plotted_labels else None
-                if line_label:
-                    plotted_labels.add(z_label)
-                
-                # Plot line for each z group combining all explorations
-                ax.plot(x_line, y_line, color=thisColor, label=line_label, linewidth=2, zorder=2)
-                
-                # Add error bars if enabled
-                if FigMisc.SHOW_ERROR_BARS:
-                    ax.errorbar(x_line, y_line, yerr=FigMisc.ERROR_BAR_MAGNITUDE, fmt='none', color=thisColor, capsize=3)
+                for z_val in unique_z:
+                    z_indices = np.where(all_z == z_val)[0]
+                    
+                    # Collect all points for this z value across all explorations
+                    x_line, y_line = all_x[z_indices], all_y[z_indices]
+                    
+                    # Sort points by x for connected lines
+                    sorted_idx = np.argsort(x_line)
+                    x_line = x_line[sorted_idx]
+                    y_line = y_line[sorted_idx]
+                    
+                    # Set style options (use first exploration's temperature bounds)
+                    TminMax_K = {}
+                    Tall_K = np.reshape(ValidExplorations[0].__getattribute__('Tb_K'), -1)
+                    TminMax_K[z_val] = [np.nanmin(Tall_K), np.nanmax(Tall_K)]
+                    
+                    if FigMisc.MANUAL_HYDRO_COLORS:
+                        Color.Tbounds_K = TminMax_K[z_val]
+                        thisColor = Color.cmap[z_val](Color.GetNormT(np.nanmax(Tall_K)))
+                    else:
+                        thisColor = None
+                    
+                    if 'CustomSolution' in z_val:
+                        z_label = z_val.split('=')[0].replace('CustomSolution', '')
+                    else:
+                        z_label = z_val
+                    
+                    # Only add label if this composition hasn't been plotted yet
+                    line_label = z_label if z_label not in plotted_labels else None
+                    if line_label:
+                        plotted_labels.add(z_label)
+                    
+                    # Plot line for each z group combining all explorations
+                    ax.plot(x_line, y_line, color=thisColor, label=line_label, 
+                           linewidth=FigMisc.LOVE_COMP_LINE_WIDTH, alpha=FigMisc.LOVE_COMP_LINE_ALPHA, zorder=2)
+                    
+                    # Add error bars if enabled
+                    if FigMisc.SHOW_ERROR_BARS:
+                        ax.errorbar(x_line, y_line, yerr=FigMisc.ERROR_BAR_MAGNITUDE, fmt='none', color=thisColor, capsize=3)
 
-            # TODO Make these param options
-            MANUAL_ICE_THICKNESS_COLORS = True
-            if MANUAL_ICE_THICKNESS_COLORS and len(all_ice_thickness) > 0:
+            # Handle ice thickness coloring or regular scatter
+            if FigMisc.SHOW_ICE_THICKNESS_DOTS and len(all_ice_thickness) > 0:
                 # Set bounds for normalization (min and max of ice thickness across all explorations)
                 Tbound_lower = np.min(all_ice_thickness)
                 Tbound_upper = np.max(all_ice_thickness)
@@ -1813,8 +2412,37 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
 
             # Plot scatter points using the same marker for all explorations
             ax.scatter(all_x, all_y, c=norm_thickness,
-                      cmap='Greys', marker=Style.MS_Induction, s=Style.MW_Induction ** 2, 
-                      edgecolors='black', linewidths=0.5, zorder=3)
+                      cmap=FigMisc.LOVE_ICE_THICKNESS_CMAP, marker=Style.MS_Induction, 
+                      s=Style.MW_Induction**2, edgecolors=FigMisc.LOVE_DOT_EDGE_COLOR, 
+                      linewidths=FigMisc.LOVE_DOT_EDGE_WIDTH, zorder=3)
+                
+            # Create legend showing ice thickness values instead of colorbar
+            if FigMisc.SHOW_ICE_THICKNESS_DOTS and len(all_ice_thickness) > 0 and Params.LEGEND:
+                # Round thickness values to avoid floating-point duplicates
+                rounded_thicknesses = np.round(all_ice_thickness)
+                unique_thicknesses = np.unique(rounded_thicknesses)
+                
+                if len(unique_thicknesses) > FigMisc.LOVE_MAX_LEGEND_ENTRIES:  # Limit number of legend entries
+                    # Select representative values
+                    indices = np.linspace(0, len(unique_thicknesses)-1, FigMisc.LOVE_MAX_LEGEND_ENTRIES, dtype=int)
+                    selected_thicknesses = unique_thicknesses[indices]
+                else:
+                    selected_thicknesses = unique_thicknesses
+                
+                # Create legend elements
+                legend_elements = []
+                for thickness in selected_thicknesses:
+                    norm_val = Color.GetNormT(thickness, Tbound_lower, Tbound_upper)
+                    color = getattr(plt.cm, FigMisc.LOVE_ICE_THICKNESS_CMAP)(norm_val)
+                    legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
+                                                    markerfacecolor=color, markeredgecolor=FigMisc.LOVE_DOT_EDGE_COLOR,
+                                                    markersize=8, label=f'{thickness:.0f}'))
+                
+                # Add legend for ice thickness
+                thickness_legend = ax.legend(handles=legend_elements, title="Ice Shell Thickness (km)", 
+                                           loc='upper right', bbox_to_anchor=(1.0, 1.0), 
+                                           fontsize=FigMisc.LOVE_ICE_LEGEND_FONT_SIZE, title_fontsize=FigMisc.LOVE_ICE_LEGEND_TITLE_SIZE)
+                ax.add_artist(thickness_legend)  # Keep this legend when adding composition legend
 
             # Set axis limits
             if np.size(all_x) > 0:
@@ -1829,8 +2457,16 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
                 else:
                     ax.set_ylim([np.floor(np.min(all_y)*100)/100, np.ceil(np.max(all_y)*100)/100])
 
-            if Params.LEGEND:
-                ax.legend(title="Ocean Composition", fontsize=10, title_fontsize=12)
+            # Add legend for composition lines if enabled
+            if FigMisc.DRAW_COMPOSITION_LINE and Params.LEGEND:
+                if FigMisc.SHOW_ICE_THICKNESS_DOTS:
+                    # Position composition legend to avoid overlap with ice thickness legend
+                    ax.legend(title="Ocean Composition", fontsize=FigMisc.LOVE_COMP_LEGEND_FONT_SIZE, 
+                             title_fontsize=FigMisc.LOVE_COMP_LEGEND_TITLE_SIZE,
+                             loc='upper left', bbox_to_anchor=(0.0, 1.0))
+                else:
+                    ax.legend(title="Ocean Composition", fontsize=FigMisc.LOVE_COMP_LEGEND_FONT_SIZE, 
+                             title_fontsize=FigMisc.LOVE_COMP_LEGEND_TITLE_SIZE)
 
             plt.tight_layout()
             fig.savefig(Params.FigureFiles.exploreLoveComparison, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
