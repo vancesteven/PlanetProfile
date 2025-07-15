@@ -257,7 +257,8 @@ def SeismicCalcs(Planet, Params):
 
         if Planet.Do.POROUS_ICE:
             Planet = CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV,
-                                    indsVund, indsVI, indsVIund, indsClath, indsClathWet)
+                                   indsVund, indsVI, indsVIund, indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI,
+                                   indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund)
 
         # Get seismic properties of ocean layers
         if np.size(indsLiq) != 0:

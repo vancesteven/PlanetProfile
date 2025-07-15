@@ -721,12 +721,12 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     if not Planet.Do.NO_H2O:
         iConductI, iConvectI = (next(i for i, val in enumerate(Planet.z_m) if val > threshold) for threshold in (Planet.eLid_m, Planet.z_m[Planet.Steps.nIbottom] - Planet.deltaTBL_m))
         iConductIII, iConvectIII = (next(i for i, val in enumerate(Planet.z_m) if val > threshold) for threshold in (Planet.eLidIII_m + Planet.z_m[Planet.Steps.nIbottom], Planet.z_m[Planet.Steps.nIIIbottom] - Planet.deltaTBLIII_m))
-    iConductV, iConvectV = (next(i for i, val in enumerate(Planet.z_m) if val > threshold) for threshold in (Planet.eLidV_m + Planet.z_m[Planet.Steps.nIIIbottom], Planet.z_m[Planet.Steps.nSurfIce] - Planet.deltaTBLV_m))
-    Planet.Steps.iConv[iConductI:iConvectI] = True
-    Planet.Steps.iConv[iConductIII:iConvectIII] = True
-    Planet.Steps.iConv[iConductV:iConvectV] = True
-    if np.any(Planet.Steps.iConv):
-        Planet.Do.ICE_CONVECTION = True
+        iConductV, iConvectV = (next(i for i, val in enumerate(Planet.z_m) if val > threshold) for threshold in (Planet.eLidV_m + Planet.z_m[Planet.Steps.nIIIbottom], Planet.z_m[Planet.Steps.nSurfIce] - Planet.deltaTBLV_m))
+        Planet.Steps.iConv[iConductI:iConvectI] = True
+        Planet.Steps.iConv[iConductIII:iConvectIII] = True
+        Planet.Steps.iConv[iConductV:iConvectV] = True
+        if np.any(Planet.Steps.iConv):
+            Planet.Do.ICE_CONVECTION = True
     
     Planet = SetCMR2strings(Planet)
     if np.sum(Planet.phase == 0) < 10:

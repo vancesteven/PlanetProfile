@@ -112,7 +112,7 @@ def IceIConductClathLidSolid(Planet, Params):
     Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(Plin_MPa, Tlin_K, 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'],
                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT)
     # Get clathrate EOS
-    Planet.Ocean.surfIceEOS[phaseStr] = GetIceEOS(Plin_MPa, Tlin_K, phaseStr, EXTRAP=Params.EXTRAP_ICE['Clath'],
+    Planet.Ocean.surfIceEOS[phaseStr] = GetIceEOS(Plin_MPa, Tlin_K, phaseStr, EXTRAP=Params.EXTRAP_ICE[phaseStr],
                                                  ClathDissoc=Planet.Ocean.ClathDissoc,
                                                  mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
 
@@ -210,7 +210,7 @@ def IceIConductClathLidPorous(Planet, Params):
                                                  porosType=Planet.Ocean.porosType['Clath'],
                                                  phiTop_frac=Planet.Ocean.phiMax_frac['Clath'],
                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Clath'],
-                                                 phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Clath'],
+                                                 phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[phaseStr],
                                                  ClathDissoc=Planet.Ocean.ClathDissoc,
                                                  mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
 
@@ -302,7 +302,7 @@ def IceIConductClathUnderplateSolid(Planet, Params):
     # Get clathrate EOS
     PIceFull_MPa = np.linspace(Planet.P_MPa[0], Planet.PbI_MPa, Planet.Steps.nIbottom+1)
     TIceFull_K = np.linspace(Planet.T_K[0], Planet.Bulk.Tb_K, Planet.Steps.nIbottom)
-    Planet.Ocean.surfIceEOS[phaseStr] = GetIceEOS(PIceFull_MPa, TIceFull_K, phaseStr, EXTRAP=Params.EXTRAP_ICE['Clath'],
+    Planet.Ocean.surfIceEOS[phaseStr] = GetIceEOS(PIceFull_MPa, TIceFull_K, phaseStr, EXTRAP=Params.EXTRAP_ICE[phaseStr],
                                                  ClathDissoc=Planet.Ocean.ClathDissoc,
                                                  mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
 
@@ -415,7 +415,7 @@ def IceIConductClathUnderplatePorous(Planet, Params):
                                                  porosType=Planet.Ocean.porosType['Clath'],
                                                  phiTop_frac=Planet.Ocean.phiMax_frac['Clath'],
                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Clath'],
-                                                 phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Clath'],
+                                                 phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[phaseStr],
                                                  ClathDissoc=Planet.Ocean.ClathDissoc,
                                                  mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
 

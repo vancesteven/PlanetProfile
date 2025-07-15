@@ -210,7 +210,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
                                                             phiTop_frac=Planet.Ocean.phiMax_frac['Clath'],
                                                             Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Clath'],
                                                             phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                            EXTRAP=Params.EXTRAP_ICE['Clath'],
+                                                            EXTRAP=Params.EXTRAP_ICE[mixedPhase],
                                                             ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT,
                                                             mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
             Planet.sigma_Sm[indsMixedClathrate] = Planet.Ocean.surfIceEOS[mixedPhase].fn_porosCorrect(sigmaMixed_Sm, 0,
@@ -305,6 +305,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
             Planet.sigma_Sm[indsMixedClathrate] = Planet.Ocean.iceEOS[mixedPhase].fn_porosCorrect(sigmaMixed_Sm, sigmaFluid_Sm,
                                                                                     Planet.phi_frac[indsMixedClathrate],
                                                                                     Planet.Ocean.Jsigma)
+    return Planet
 
 def CalcElecSolidIce(Planet, Params, indsLiq, indsI, indsII, indsIIund, indsIII, indsIIIund,
                                      indsV, indsVund, indsVI, indsVIund, indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, 
