@@ -169,6 +169,9 @@ def PlotHydrosphereProps(PlanetList, Params):
         right_plots.append('seismic')
     if DO_SIGS:
         right_plots.append('sigs')
+    elif DO_VISCOSITY:
+        # Add viscosity as separate plot if conductivity is not being plotted
+        right_plots.append('viscosity')
     
     num_right_plots = len(right_plots)
     
@@ -268,6 +271,15 @@ def PlotHydrosphereProps(PlanetList, Params):
                     axsigz.set_xscale('log')
                 axsigz.set_ylim([zMax, 0])
                 axes.append(axsigz)
+                
+            elif plot_type == 'viscosity':
+                # Standalone viscosity plot
+                axviscz = fig.add_subplot(grid[start_row:end_row, 4:7])
+                axviscz.set_xlabel(FigLbl.etaLabel)
+                axviscz.invert_yaxis()
+                axviscz.set_xscale('log')
+                axviscz.set_ylim([zMax, 0])
+                axes.append(axviscz)
 
     if Style.GRIDS:
         [ax.grid() for ax in axes]
@@ -400,7 +412,7 @@ def PlotHydrosphereProps(PlanetList, Params):
                                  color=press[-1].get_color(), edgecolors=press[-1].get_color(),
                                  marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
 
-            if DO_SIGS or DO_SOUNDS or DO_SEISMIC_PROPS:
+            if DO_SIGS or DO_SOUNDS or DO_SEISMIC_PROPS or DO_VISCOSITY:
                 indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
                 indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
                 indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
@@ -454,7 +466,7 @@ def PlotHydrosphereProps(PlanetList, Params):
                                 linestyle=Style.LS[Planet.Ocean.comp])
 
                 if DO_SEISMIC_PROPS:
-                    # Plot seismic properties (GS, KS) and viscosity vs. depth in hydrosphere
+                    # Plot seismic properties (GS, KS) vs. depth in hydrosphere
                     # Safely concatenate indices, handling cases where one might be empty
                     if np.size(indsIce) > 0 and np.size(indsLiq) > 0:
                         indsHydro = np.sort(np.concatenate((indsIce, indsLiq)))
@@ -504,17 +516,26 @@ def PlotHydrosphereProps(PlanetList, Params):
                         axseismic[2].plot(ice_GS, z_vals,
                                           color=thisColor, linewidth=thisLW,
                                           linestyle=Style.LS[Planet.Ocean.comp])
+                if DO_VISCOSITY:
+                    # Plot viscosity vs. depth in hydrosphere
+                    # Safely concatenate indices, handling cases where one might be empty
+                    if np.size(indsIce) > 0 and np.size(indsLiq) > 0:
+                        indsHydro = np.sort(np.concatenate((indsIce, indsLiq)))
+                    elif np.size(indsIce) > 0:
+                        indsHydro = indsIce
+                    elif np.size(indsLiq) > 0:
+                        indsHydro = indsLiq
+                    else:
+                        # Use all hydrosphere indices as fallback
+                        indsHydro = np.arange(Planet.Steps.nHydro)
+                    eta_vals = Planet.eta_Pas[indsHydro]
+                    # Handle potential NaN values and zero/negative values for log scale
+                    eta_plot = eta_vals.copy()
+                    eta_plot[eta_plot <= 0] = np.nan
                     
-                    # Plot viscosity if viscosity calculations were done and viscosity plotting is enabled
-                    if DO_VISCOSITY and Params.CALC_VISCOSITY:
-                        eta_vals = Planet.eta_Pas[indsHydro]
-                        # Handle potential NaN values and zero/negative values for log scale
-                        eta_plot = eta_vals.copy()
-                        eta_plot[eta_plot <= 0] = np.nan
-                        
-                        axviscz.plot(eta_plot, z_vals,
-                                     color=thisColor, linewidth=thisLW,
-                                     linestyle=Style.LS[Planet.Ocean.comp])
+                    axviscz.plot(eta_plot, z_vals,
+                                    color=thisColor, linewidth=thisLW,
+                                    linestyle=Style.LS[Planet.Ocean.comp])
 
 
     if FigMisc.FORCE_0_EDGES:
@@ -581,7 +602,7 @@ def PlotHydrosphereProps(PlanetList, Params):
         [ax.set_ylim(top=0) for ax in axseismic]
         [ax.set_ylim(bottom=zMax) for ax in axseismic]
 
-    if DO_VISCOSITY:
+    if DO_VISCOSITY and 'axviscz' in locals():
         axviscz.set_ylim(top=0)
         axviscz.set_ylim(bottom=zMax)
 
