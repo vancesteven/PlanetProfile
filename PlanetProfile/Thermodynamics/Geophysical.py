@@ -175,6 +175,70 @@ def PropagateConduction(Planet, Params, iStart, iEnd):
 
     return Planet
 
+def PropogateConductionFromDepth(Planet, Params, iStart, iEnd, Tbot_K, EOS, propogateNextLayer=True):
+    """ Use P, T, and layer properties as determined from conductive layer profile to evaluate
+        an EOS to get the layer thicknesses, gravity, and masses.
+
+        Args:
+            iStart, iEnd (int): Layer array indices corresponding to the last evaluated
+                layer and the end of the conductive profile (e.g. material transition),
+                respectively.
+        Assigns Planet attributes:
+            z_m, r_m, MLayer_kg, g_ms2
+    """
+
+    # Add a catch in case we call with invalid indices, which is convenient
+    # after convection calculations when no convection is happening
+    if iStart < iEnd:
+        log.debug(f'il: {iStart:d}; P_MPa: {Planet.P_MPa[iStart]:.3f}; T_K: {Planet.T_K[iStart]:.3f}; phase: {Planet.phase[iStart]:d}')
+        # Get initial layer properties
+        Planet.rhoMatrix_kgm3[iStart] = EOS.fn_rho_kgm3(  Planet.P_MPa[iStart], Planet.T_K[iStart])
+        Planet.Cp_JkgK[iStart] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[iStart], Planet.T_K[iStart])
+        Planet.alpha_pK[iStart] =       EOS.fn_alpha_pK(  Planet.P_MPa[iStart], Planet.T_K[iStart])
+        Planet.kTherm_WmK[iStart] =     EOS.fn_kTherm_WmK(Planet.P_MPa[iStart], Planet.T_K[iStart])
+        # Calculate heat flux using Fouriers equation
+        q_Wm2 = Planet.kTherm_WmK[iStart] * (Tbot_K - Planet.T_K[iStart]) / (Planet.z_m[iEnd] - Planet.z_m[iStart])
+        thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart])
+        # Get constant gravity if we will be assigning it
+        if Planet.Do.CONSTANT_GRAVITY:
+            Planet.g_ms2[iStart+1:] = Constants.G * (Planet.Bulk.M_kg - thisMAbove_kg) / Planet.r_m[iStart]**2
+        else:
+            # Ensure g values to be assigned are zero since we will be adding to them
+            Planet.g_ms2[iStart+1:] = 0
+        # Assign 0 or 1 multiplier for constant/variable gravity calcs in loop
+        VAR_GRAV = int(not Planet.Do.CONSTANT_GRAVITY)
+        # Propogate from iStart+1 to start of next layer
+        for i in range(iStart+1, iEnd+1):
+            if i == iEnd and not propogateNextLayer:
+                continue
+            # Increment depth based on change in pressure, combined with gravity and density
+            Planet.P_MPa[i] = Planet.P_MPa[i-1] + Planet.rhoMatrix_kgm3[i-1] * Planet.g_ms2[i-1] * (Planet.z_m[i] - Planet.z_m[i-1]) * 1e-6
+            
+            # Calculate temperature using fouriers heat flux and the assumption that the heat flux is constant
+            Planet.T_K[i] = Planet.T_K[i-1] + q_Wm2 * (Planet.z_m[i] - Planet.z_m[i-1]) / Planet.kTherm_WmK[i-1]
+            Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
+            Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rhoMatrix_kgm3[i-1] * (Planet.r_m[i-1] ** 3 - Planet.r_m[i] ** 3)
+            thisMAbove_kg += Planet.MLayer_kg[i-1]
+            thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+            Planet.g_ms2[i] += VAR_GRAV * Constants.G * thisMBelow_kg / Planet.r_m[i]**2
+            
+            # Now use P and T for this layer to get physical properties - except for iEnd layer, since that is the start of a new layer
+            if i < iEnd:
+                Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i])
+                Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i])
+                Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i])
+                Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i])
+                
+            if i == iEnd:
+                log.debug(f'Propogating starting point for next layer...')
+                log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}')
+            else:
+                log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+    
+    Planet.rho_kgm3[iStart:iEnd+1] = Planet.rhoMatrix_kgm3[iStart:iEnd+1] + 0.0
+    return Planet
+    
+
 
 def PropagateAdiabaticSolid(Planet, Params, iStart, iEnd, EOS):
     """ Use layer-top values and assumption of an adiabatic thermal profile
@@ -224,6 +288,69 @@ def PropagateAdiabaticSolid(Planet, Params, iStart, iEnd, EOS):
         Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i])
 
         log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+
+    Planet.rho_kgm3[iStart:iEnd] = Planet.rhoMatrix_kgm3[iStart:iEnd] + 0.0
+
+    return Planet
+
+
+def PropagateAdiabaticSolidFromDepth(Planet, Params, iStart, iEnd, EOS):
+    """ Use layer-top values and assumption of an adiabatic thermal profile
+        to evaluate the conditions at the bottom of each layer in the specified
+        zone (iStart to iEnd). This function assumes no porosity.
+
+        Args:
+            iStart, iEnd (int): Layer array indices corresponding to the last evaluated
+                layer and the end of the conductive profile (e.g. material transition),
+                respectively.
+            EOS (EOSStruct): Ice, ocean, sil, or core EOS to query for layer properties.
+        Assigns Planet attributes:
+            z_m, r_m, MLayer_kg, g_ms2, rhoMatrix_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK,
+            rho_kgm3
+    """
+    # Get initial layer properties
+    Planet.rhoMatrix_kgm3[iStart] = EOS.fn_rho_kgm3(  Planet.P_MPa[iStart], Planet.T_K[iStart])
+    Planet.Cp_JkgK[iStart] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[iStart], Planet.T_K[iStart])
+    Planet.alpha_pK[iStart] =       EOS.fn_alpha_pK(  Planet.P_MPa[iStart], Planet.T_K[iStart])
+    Planet.kTherm_WmK[iStart] =     EOS.fn_kTherm_WmK(Planet.P_MPa[iStart], Planet.T_K[iStart])
+    thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart-1])
+    # Get constant gravity if we will be assigning it
+    if Planet.Do.CONSTANT_GRAVITY:
+        Planet.g_ms2[iStart+1:] = Constants.G * (Planet.Bulk.M_kg - thisMAbove_kg) / Planet.r_m[iStart-1]**2
+    else:
+        # Ensure g values to be assigned are zero since we will be adding to them
+        Planet.g_ms2[iStart+1:] = 0
+    # Assign 0 or 1 multiplier for constant/variable gravity calcs in loop
+    VAR_GRAV = int(not Planet.Do.CONSTANT_GRAVITY)
+
+    for i in range(iStart+1, iEnd+1):
+        # Increment depth based on change in pressure, combined with gravity and density
+                    # Increment depth based on change in pressure, combined with gravity and density
+        Planet.P_MPa[i] = Planet.P_MPa[i-1] + Planet.rhoMatrix_kgm3[i-1] * Planet.g_ms2[i-1] * (Planet.z_m[i] - Planet.z_m[i-1]) * 1e-6
+        # Convert depth to radius
+        Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
+        # Calculate layer mass
+        Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rhoMatrix_kgm3[i-1] * (Planet.r_m[i-1] ** 3 - Planet.r_m[i] ** 3)
+        thisMAbove_kg += Planet.MLayer_kg[i-1]
+        thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+        # Use remaining mass below in Gauss's law for gravity to get g at the top of this layer
+        Planet.g_ms2[i] += VAR_GRAV * Constants.G * thisMBelow_kg / Planet.r_m[i] ** 2
+
+        # Propagate adiabatic thermal profile
+        Planet.T_K[i] = Planet.T_K[i-1] + Planet.T_K[i-1] * Planet.alpha_pK[i-1] / \
+                        Planet.Cp_JkgK[i-1] / Planet.rhoMatrix_kgm3[i-1] * (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6
+        # Now use P and T for this layer to get physical properties - except for iEnd layer, since that is the start of a new layer
+        if i < iEnd:
+            Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i])
+            Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i])
+            Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i])
+            Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i])
+            
+        if i == iEnd:
+            log.debug(f'Propogating starting point for next layer...')
+            log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}')
+        else:
+            log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     Planet.rho_kgm3[iStart:iEnd] = Planet.rhoMatrix_kgm3[iStart:iEnd] + 0.0
 

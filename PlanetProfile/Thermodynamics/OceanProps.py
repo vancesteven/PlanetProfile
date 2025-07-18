@@ -16,7 +16,7 @@ def LiquidOceanPropsCalcs(Planet, Params):
             Ocean.
     """
     # Only perform calculations if this is a valid profile
-    if Planet.Do.VALID:
+    if (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and not Planet.Do.NON_SELF_CONSISTENT:
         # Identify indices of liquid phases
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
             indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \

@@ -124,6 +124,7 @@ class DoSubstruct:
         self.OCEAN_PHASE_HIRES = False  # Whether to use a high-resolution grid for phase equilibrium lookup table in ocean EOS. Currently only implemented for MgSO4. WARNING: Uses a lot of memory, potentially 20+ GB.
         self.USE_WOCEAN_PPT = True # Whether to use wOcean_ppt to match with ocean composition (in case of CustomSolution, we can set this to false if we do not want to specify w_ppt)
         self.NON_SELF_CONSISTENT = False  # Whether to use non-self-consistent modeling (using mean values for layer properties instead of detailed EOS calculations)
+        self.STILL_CALCULATE_BROKEN_PROPERTIES = False # Progromatically set flag for still calculating properties even if the model is invalid - namely, is set to True only when ALLOW_BROKEN_MODELS is True and the reason it is invalid is mismatch mass or CMR2
 
 
 """ Layer step settings """
@@ -135,6 +136,7 @@ class StepsSubstruct:
         self.nHydroMax = None  # Derived working length of hydrosphere layers, gets truncated after layer calcs
         self.nOceanMax = None  # Derived working length of ocean layers, also truncated after layer calcs
         self.nHydro = None  # Derived final number of steps in hydrosphere
+        self.nOcean = None # Derived final number of steps in ocean
         self.nTotal = None  # Total number of layers in profile
         self.nIbottom = None  # Derived number of clathrate + ice I layers
         self.nIIIbottom = 0  # Derived number of clathrate + ice I + ice III layers
@@ -149,12 +151,8 @@ class StepsSubstruct:
         self.nPsHP = 150  # Number of interpolation steps to use for getting HP ice EOS (pressures)
         self.nTsHP = 100  # Number of interpolation steps to use for getting HP ice EOS (temperatures)
         self.nPoros = 10  # Number of steps in porosity to use in geometric series between phiMin and phiMax for porous rock when no core is present
-        self.iCond = []  # Logical array to select indices corresponding to surface ice I
-        self.iConv = []  # As above, for convecting ice I (and lower TBL)
-        self.iCondIII = []  # As above, for conducting ice III
-        self.iConvIII = []  # As above, for convecting ice III
-        self.iCondV = []  # As above, for conducting ice V
-        self.iConvV = []  # As above, for convecting ice V
+        self.iCond = []  # Logical array to select indices corresponding to surface conducting ice
+        self.iConv = []  # Logical array to select indices corresponding to surface convecting ice
 
 
 """ Hydrosphere assumptions """
@@ -179,6 +177,8 @@ class OceanSubstruct:
         self.Vtot_m3 = None  # Total volume of all ocean layers
         self.rhoMean_kgm3 = None  # Mean density for ocean layers
         self.Tmean_K = None  # Mean temperature of ocean layers based on total thermal energy
+        self.oceanConstantProperties = None  # Constant properties for ocean layers if specified with Planet
+        self.constantProperties = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Constant properties for conducting ice layers if specified with Planet
         self.rhoCondMean_kgm3 = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean density for conducting ice layers
         self.rhoConvMean_kgm3 = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean density for convecting ice layers
         self.sigmaCondMean_Sm = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean conductivity for conducting ice layers
@@ -187,7 +187,7 @@ class OceanSubstruct:
         self.sigmaConvMean_Sm = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean conductivity for convecting ice layers
         self.GScondMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for conducting ice layers
         self.GSconvMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for convecting ice layers
-        self.Eact_kJmol = np.array([np.nan, None, None, None, None, None, None]) # Activation energy for diffusion of ice phases Ih-VI in kJ/mol (start at index 1) - Overrides Constants.Eact_kJmol if specified
+        self.Eact_kJmol = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']} # Activation energy for diffusion of ice phases Ih-VI in kJ/mol (start at index 1) - Overrides Constants.Eact_kJmol if specified
         self.rhoMeanIIwet_kgm3 = np.nan  # Mean density for in-ocean ice II layers
         self.rhoMeanIIIwet_kgm3 = np.nan  # Mean density for in-ocean ice III layers
         self.rhoMeanVwet_kgm3 = np.nan  # Mean density for in-ocean ice V layers
@@ -549,8 +549,8 @@ class PlanetStruct:
         self.PfreezeRes_MPa = 0.05  # Step size in pressure for GetPfreeze to use in searching for phase transition
         # Settings for GetTfreeze start, stop, and step size. Used when ice shell thickness is input.
         self.TfreezeLower_K = 240 # Lower boundary for GetTFreeze to search for ice Ih phase transition
-        self.TfreezeUpper_K = 270 # Upper boundary for GetTFreeze to search for ice Ih phase transition
-        self.TfreezeRes_K = 0.01 # Step size in temperature for GetTfreeze to use in searching for phase transition
+        self.TfreezeUpper_K = 280 # Upper boundary for GetTFreeze to search for ice Ih phase transition
+        self.TfreezeRes_K = 0.05 # Step size in temperature for GetTfreeze to use in searching for phase transition
 
         """ Derived quantities (assigned during PlanetProfile runs) """
         # Layer arrays
@@ -2910,12 +2910,19 @@ class ConstantsStruct:
             'Fe': np.nan,
             'FeS': np.nan
         }
-        self.STP_kgm3 = {'Ih': 917} # Density of ices at standard temperature and pressure (STP) - used for first order Tb and Pb calculation for input ice shell thickness
+        self.STP_kgm3 = {'Ih': 917, '0': 1000} # Density of ices at standard temperature and pressure (STP) - used for first order Tb and Pb calculation for input ice shell thickness
         self.m_gmol['PureH2O'] = self.m_gmol['H2O']  # Add alias for H2O so that we can use the Ocean.comp string for dict entry
         self.mClathGas_gmol = self.m_gmol['CH4'] + 5.75 * self.m_gmol['H2O']  # Molecular mass of clathrate unit cell
         self.clathGasFrac_ppt = 1e3 * self.m_gmol['CH4'] / self.mClathGas_gmol  # Mass fraction of gases trapped in clathrates in ppt
         self.QScore = 1e4  # Fixed QS value to use for core layers if not set in PPBody.py file
+        self.alphaIce_pK = {'Ih': 1.6e-4, 'II': 1.6e-4, 'III': 1.6e-4, 'V': 1.6e-4, 'VI': 1.6e-4} # Thermal expansivity of ice phases Ih-VI in 1/K
+        self.alphaWater_pK = 2.1e-4  # Thermal expansivity of water in 1/K
+        self.CpWater_JkgK = 4.184e3  # Heat capacity of water in J/(kg K)
+        self.Cp_JkgK = {'Ih': 2.108e3, 'II': 2.108e3, 'III': 2.108e3, 'V': 2.108e3, 'VI': 2.108e3} # Heat capacity of ice phases Ih-VI in J/(kg K)
+        self.VPOcean_kms = 1.4  # Fixed bulk sound speed of ocean in km/s
+        self.VSOcean_kms = 0.0  # Fixed shear sound speed of ocean in km/s
         self.kThermWater_WmK = 0.55  # Fixed thermal conductivity of liquid water in W/(m K)
+        self.kThermIce_WmK = {'Ih': 2.1, 'II': 2.1, 'III': 2.1, 'V': 2.1, 'VI': 2.1}  # Fixed thermal  of ice phases Ih-VI in W/(m K)
         self.kThermSil_WmK = 4.0  # Fixed thermal conductivity of silicates in W/(m K)
         self.kThermFe_WmK = 33.3  # Fixed thermal conductivity of core material in W/(m K)
         self.phaseClath = 30  # Phase ID to use for (sI methane) clathrates. Must be larger than 6 to keep space for pure ice phases
@@ -2928,7 +2935,10 @@ class ConstantsStruct:
         self.sigmaCO2Clath_Sm = 6.5e-4  # Also from Stern et al. (2021), at 273 K and 25% gas-filled porosity
         self.EactCO2Clath_kJmol = 46.5  # Also from Stern et al. (2021)
         # Initialize activation energies and melting point viscosities, for use in convection calculations
-        self.Eact_kJmol, self.etaMelt_Pas, self.EYoung_GPa = (np.ones(self.phaseClath+7) * np.nan for _ in range(3))
+        self.Eact_kJmol, self.etaMelt_Pas, self.EYoung_GPa, self.VP_GPa, self.VS_GPa, self.KS_GPa, self.GS_GPa = (np.ones(self.phaseFeSolid+7) * np.nan for _ in range(7))
+        self.GS_GPa[1:7] = np.array([2, 2, 2, np.nan, 2, 2])  # Mean shear modulus of ice phases Ih-VI in GPa
+        self.VP_GPa[1:7] = np.array([1.4, 1.4, 1.4, np.nan, 1.4, 1.4])  # Mean bulk modulus of ice phases Ih-VI in GPa
+        self.GS_GPa[self.phaseSil] = 50  # Shear modulus of silicates in GPa
         self.Eact_kJmol[1:7] = np.array([59.4, 76.5, 127, np.nan, 136, 110])  # Activation energy for diffusion of ice phases Ih-VI in kJ/mol
         self.Eact_kJmol[self.phaseClath] = 90.0  # From Durham et al. (2003), at 50 and 100 MPa and 260-283 K: https://doi.org/10.1029/2002JB001872
         self.Eact_kJmol[self.phaseClath+1:self.phaseClath+7] = (self.Eact_kJmol[self.phaseClath] + self.Eact_kJmol[1:7]) / 2  # Average of clathrate and ice activation energies

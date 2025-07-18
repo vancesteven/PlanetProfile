@@ -137,13 +137,18 @@ def SetupInit(Planet, Params):
                                 f'fluids are modeled for partial/undifferentiated bodies. ' +
                                 f'Sil.wPore_ppt will be ignored.')
                 Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
+    if Planet.Do.POROUS_ROCK:
+        if Planet.Ocean.wOcean_ppt is None and Planet.Sil.wPore_ppt is None:
+            raise ValueError(f'Either Ocean.wOcean_ppt or Sil.wPore_ppt must be set.')
+        elif Planet.Ocean.wOcean_ppt is None:
+            Planet.Ocean.wOcean_ppt = Planet.Sil.wPore_ppt
+        elif Planet.Sil.wPore_ppt is None:
+            Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
 
     # Get filenames for saving/loading
     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
     if Planet.Do.NON_SELF_CONSISTENT:
-        Params.CALC_VISCOSITY = False
-        Params.CALC_SEISMIC = False
-        Params.CALC_CONDUCT = False
+        SetupNonSelfConsistent(Planet, Params)
     else:
         # Set steps and settings for unused options to zero, check that we have settings we need
         # Core settings
@@ -185,7 +190,7 @@ def SetupInit(Planet, Params):
             Planet.zClath_m = 0
             Planet.Bulk.clathType = 'none'
 
-        if not (Planet.Do.NO_OCEAN and Planet.Do.NO_ICE_CONVECTION):
+        if not Planet.Do.NO_OCEAN:
             # In addition, perform some checks on underplating settings to be sure they make sense
             if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:
                 Planet.Steps.nIceIIILitho = 0
@@ -226,7 +231,7 @@ def SetupInit(Planet, Params):
                 if Planet.Do.CLATHRATE:
                     log.warning('Clathrates are stable under a very large range of pressures and temperatures, and this ' +
                                 'may be contradictory with having underplating ice III or V.')
-
+      
             # Make sure ocean max temp is above melting temp
             if Planet.Ocean.THydroMax_K <= Planet.Bulk.Tb_K:
                 Planet.Ocean.THydroMax_K = Planet.Bulk.Tb_K + 30
@@ -433,8 +438,8 @@ def SetupInit(Planet, Params):
         elif not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
             Planet.Magnetic.sigmaIonosPedersen_Sm = [Planet.Magnetic.sigmaIonosPedersen_Sm]
 
-        # Preallocate layer physical quantity arrays
-        Planet = SetupLayers(Planet)
+    # Preallocate layer physical quantity arrays
+    Planet = SetupLayers(Planet)
 
     return Planet, Params
 
@@ -520,99 +525,103 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
     saveLabel = ''
     label = ''
     comp = Planet.Ocean.comp
-    if Planet.Do.NO_H2O:
-        saveLabel += f'NoH2O_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
-        setStr = f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*FigLbl.qMult:.1f}\,\si{{{FigLbl.fluxUnits}}}$'
-        label += setStr
-        Planet.compStr = r'No~\ce{H2O}'
-
-    elif Planet.Do.NO_DIFFERENTIATION:
-        saveLabel += f'NoDiff_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
-        setStr = f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*FigLbl.qMult:.1f}\,\si{{{FigLbl.fluxUnits}}}$'
-        label += setStr
-        Planet.compStr = r'Undifferentiated'
-
-    elif Planet.Do.PARTIAL_DIFFERENTIATION:
-        saveLabel += f'PartialDiff_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
-        setStr = f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*FigLbl.qMult:.1f}\,\si{{{FigLbl.fluxUnits}}}$'
-        label += setStr
-
-        if Planet.Sil.poreComp == 'PureH2O':
-            Planet.compStr = r'Pure~\ce{H2O}'
-            saveLabel += f'_{Planet.Sil.poreComp}Pores'
-        else:
-            Planet.compStr = f'${Planet.Sil.wPore_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Sil.poreComp}}}'
-            saveLabel += f'_{Planet.Sil.poreComp}_{Planet.Sil.wPore_ppt:.1f}pptPores'
-
-        saveLabel += f'_PorousRock_phi{Planet.Sil.phiRockMax_frac:.2f}_Pc{Planet.Sil.Pclosure_MPa:5.2e}'
-        label += ' w/$\phi_\mathrm{sil}$'
-
+    if Planet.Do.NON_SELF_CONSISTENT:
+        saveLabel = 'NonSelfConsistent_'
+        setStr = 'Non-self-consistent'
     else:
-        if Planet.Do.ICEIh_THICKNESS:
-            saveLabelAppendage = f'zb{Planet.Bulk.zb_approximate_km}km'
-            labelAppendage = f'$z_b\,\SI{{{Planet.Bulk.zb_approximate_km}}}{{\kilo\meter}}$'
-        else:
-            saveLabelAppendage = f'Tb{Planet.Bulk.Tb_K}K'
-            labelAppendage = f'$T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
-        if Planet.Ocean.comp == 'PureH2O':
-            saveLabel += f'{Planet.Ocean.comp}_{saveLabelAppendage}'
-            setStr = f'Pure \ce{{H2O}}'
-            label += f'{setStr}, {labelAppendage}'
-            Planet.compStr = r'Pure~\ce{H2O}'
-        elif "CustomSolution" in Planet.Ocean.comp:
-            # Get text to left of = sign
-            CustomSolutionLabel = Planet.Ocean.comp.split('=')[0].strip()
-            # Get label for plotting
-            setStr = CustomSolutionLabel.replace("CustomSolution", "")
-            # Strip latex formatting for save label
-            saveCustomSolutionLabel = strip_latex_formatting_from_CustomSolutionLabel(CustomSolutionLabel)
-            comp = CustomSolutionLabel
-            # In this case, we are using input speciation from user with no input w_ppt, so we will generate filenames without w_ppt
-            if not Planet.Do.USE_WOCEAN_PPT:
-                saveLabel += f'{saveCustomSolutionLabel}_{saveLabelAppendage}'
-                #label = f'{setStr}, {labelAppendage}'
-                label = f'{setStr}'
-                Planet.compStr = f'{CustomSolutionLabel}'
-            else:
-                saveLabel += f'{saveCustomSolutionLabel}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
-                        f'_{saveLabelAppendage}'
-                label = f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
-                        f'_{labelAppendage}'
-                Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}${CustomSolutionLabel}'
-        else:
-            saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
-                        f'_{saveLabelAppendage}'
-            setStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$ \ce{{{Planet.Ocean.comp}}}'
-            label += setStr + \
-                f', {labelAppendage}'
-            Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Ocean.comp}}}'
-        if Planet.Do.CLATHRATE:
-            if Planet.Do.MIXED_CLATHRATE_ICE:
-                saveLabel += '_MixedClathrates'
-                label += ' w/mixed clathrates'
-            else:
-                saveLabel += '_Clathrates'
-                label += ' w/clath'
-        if Planet.Do.POROUS_ICE:
-            if Planet.Do.CLATHRATE and Planet.Bulk.clathType != 'bottom':
-                saveLabel += f'_PorousIce_phi{Planet.Ocean.phiMax_frac["Clath"]:.2f}_Pc{Planet.Ocean.Pclosure_MPa["Clath"]:5.2e}'
-            else:
-                saveLabel += f'_PorousIce_phi{Planet.Ocean.phiMax_frac["Ih"]:.2f}_Pc{Planet.Ocean.Pclosure_MPa["Ih"]:5.2e}'
-            label += ' w/$\phi_\mathrm{ice}$'
-        if Planet.Do.PORE_EOS_DIFFERENT:
+        if Planet.Do.NO_H2O:
+            saveLabel += f'NoH2O_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
+            setStr = f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*FigLbl.qMult:.1f}\,\si{{{FigLbl.fluxUnits}}}$'
+            label += setStr
+            Planet.compStr = r'No~\ce{H2O}'
+
+        elif Planet.Do.NO_DIFFERENTIATION:
+            saveLabel += f'NoDiff_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
+            setStr = f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*FigLbl.qMult:.1f}\,\si{{{FigLbl.fluxUnits}}}$'
+            label += setStr
+            Planet.compStr = r'Undifferentiated'
+
+        elif Planet.Do.PARTIAL_DIFFERENTIATION:
+            saveLabel += f'PartialDiff_qSurf{Planet.Bulk.qSurf_Wm2*1e3:.1f}mWm2'
+            setStr = f'$q_\mathrm{{surf}}\,{Planet.Bulk.qSurf_Wm2*FigLbl.qMult:.1f}\,\si{{{FigLbl.fluxUnits}}}$'
+            label += setStr
+
             if Planet.Sil.poreComp == 'PureH2O':
+                Planet.compStr = r'Pure~\ce{H2O}'
                 saveLabel += f'_{Planet.Sil.poreComp}Pores'
-                label += f'Pure \ce{{H2O}} pores'
             else:
+                Planet.compStr = f'${Planet.Sil.wPore_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Sil.poreComp}}}'
                 saveLabel += f'_{Planet.Sil.poreComp}_{Planet.Sil.wPore_ppt:.1f}pptPores'
-                label += f', {Planet.Sil.wPore_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}} \ce{{{Planet.Sil.poreComp}}} pores'
-        elif Planet.Do.POROUS_ROCK:
+
             saveLabel += f'_PorousRock_phi{Planet.Sil.phiRockMax_frac:.2f}_Pc{Planet.Sil.Pclosure_MPa:5.2e}'
             label += ' w/$\phi_\mathrm{sil}$'
-        if Planet.Do.HYDROSPHERE_THICKNESS:
-            saveLabel += f'_{Planet.Bulk.Dhsphere_m}'
-            label += f'$hydroThickness\,\SI{{{Planet.Bulk.Dhsphere_m}}}{{\meter}}$'
-    if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSName}'
+        
+        else:
+            if Planet.Do.ICEIh_THICKNESS:
+                saveLabelAppendage = f'zb{Planet.Bulk.zb_approximate_km}km'
+                labelAppendage = f'$z_b\,\SI{{{Planet.Bulk.zb_approximate_km}}}{{\kilo\meter}}$'
+            else:
+                saveLabelAppendage = f'Tb{Planet.Bulk.Tb_K}K'
+                labelAppendage = f'$T_b\,\SI{{{Planet.Bulk.Tb_K}}}{{K}}$'
+            if Planet.Ocean.comp == 'PureH2O':
+                saveLabel += f'{Planet.Ocean.comp}_{saveLabelAppendage}'
+                setStr = f'Pure \ce{{H2O}}'
+                label += f'{setStr}, {labelAppendage}'
+                Planet.compStr = r'Pure~\ce{H2O}'
+            elif "CustomSolution" in Planet.Ocean.comp:
+                # Get text to left of = sign
+                CustomSolutionLabel = Planet.Ocean.comp.split('=')[0].strip()
+                # Get label for plotting
+                setStr = CustomSolutionLabel.replace("CustomSolution", "")
+                # Strip latex formatting for save label
+                saveCustomSolutionLabel = strip_latex_formatting_from_CustomSolutionLabel(CustomSolutionLabel)
+                comp = CustomSolutionLabel
+                # In this case, we are using input speciation from user with no input w_ppt, so we will generate filenames without w_ppt
+                if not Planet.Do.USE_WOCEAN_PPT:
+                    saveLabel += f'{saveCustomSolutionLabel}_{saveLabelAppendage}'
+                    #label = f'{setStr}, {labelAppendage}'
+                    label = f'{setStr}'
+                    Planet.compStr = f'{CustomSolutionLabel}'
+                else:
+                    saveLabel += f'{saveCustomSolutionLabel}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
+                            f'_{saveLabelAppendage}'
+                    label = f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
+                            f'_{labelAppendage}'
+                    Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}${CustomSolutionLabel}'
+            else:
+                saveLabel += f'{Planet.Ocean.comp}_{Planet.Ocean.wOcean_ppt:.1f}ppt' + \
+                            f'_{saveLabelAppendage}'
+                setStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$ \ce{{{Planet.Ocean.comp}}}'
+                label += setStr + \
+                    f', {labelAppendage}'
+                Planet.compStr = f'${Planet.Ocean.wOcean_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}}$~\ce{{{Planet.Ocean.comp}}}'
+            if Planet.Do.CLATHRATE:
+                if Planet.Do.MIXED_CLATHRATE_ICE:
+                    saveLabel += '_MixedClathrates'
+                    label += ' w/mixed clathrates'
+                else:
+                    saveLabel += '_Clathrates'
+                    label += ' w/clath'
+            if Planet.Do.POROUS_ICE:
+                if Planet.Do.CLATHRATE and Planet.Bulk.clathType != 'bottom':
+                    saveLabel += f'_PorousIce_phi{Planet.Ocean.phiMax_frac["Clath"]:.2f}_Pc{Planet.Ocean.Pclosure_MPa["Clath"]:5.2e}'
+                else:
+                    saveLabel += f'_PorousIce_phi{Planet.Ocean.phiMax_frac["Ih"]:.2f}_Pc{Planet.Ocean.Pclosure_MPa["Ih"]:5.2e}'
+                label += ' w/$\phi_\mathrm{ice}$'
+            if Planet.Do.PORE_EOS_DIFFERENT:
+                if Planet.Sil.poreComp == 'PureH2O':
+                    saveLabel += f'_{Planet.Sil.poreComp}Pores'
+                    label += f'Pure \ce{{H2O}} pores'
+                else:
+                    saveLabel += f'_{Planet.Sil.poreComp}_{Planet.Sil.wPore_ppt:.1f}pptPores'
+                    label += f', {Planet.Sil.wPore_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}} \ce{{{Planet.Sil.poreComp}}} pores'
+            elif Planet.Do.POROUS_ROCK:
+                saveLabel += f'_PorousRock_phi{Planet.Sil.phiRockMax_frac:.2f}_Pc{Planet.Sil.Pclosure_MPa:5.2e}'
+                label += ' w/$\phi_\mathrm{sil}$'
+            if Planet.Do.HYDROSPHERE_THICKNESS:
+                saveLabel += f'_{Planet.Bulk.Dhsphere_m}'
+                label += f'$hydroThickness\,\SI{{{Planet.Bulk.Dhsphere_m}}}{{\meter}}$'
+        if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSName}'
 
     # Add time and date label
     if Params.TIME_AND_DATE_LABEL:
@@ -653,15 +662,19 @@ def SetupLayers(Planet):
     """
 
     if not Planet.Do.NO_H2O:
-        nOceanMax = int(Planet.Ocean.PHydroMax_MPa / Planet.Ocean.deltaP)
-        Planet.Steps.nHydroMax = Planet.Steps.nClath + Planet.Steps.nIceI + Planet.Steps.nIceIIILitho + Planet.Steps.nIceVLitho + nOceanMax
+        if not Planet.Do.NON_SELF_CONSISTENT:
+            nOceanMax = int(Planet.Ocean.PHydroMax_MPa / Planet.Ocean.deltaP)
+            Planet.Steps.nHydroMax = Planet.Steps.nClath + Planet.Steps.nIceI + Planet.Steps.nIceIIILitho + Planet.Steps.nIceVLitho + nOceanMax
+            nStepsForArrays = Planet.Steps.nHydroMax
+        else:
+            nStepsForArrays = Planet.Steps.nTotal
     
-    Planet.phase = np.zeros(Planet.Steps.nHydroMax, dtype=np.int_)
-    Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
-        Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \
-        Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.VLayer_m3, Planet.kTherm_WmK, \
-        Planet.Htidal_Wm3, Planet.Ppore_MPa, Planet.rhoMatrix_kgm3, Planet.rhoPore_kgm3 = \
-        (np.zeros(Planet.Steps.nHydroMax) for _ in range(17))
+        Planet.phase = np.zeros(nStepsForArrays, dtype=np.int_)
+        Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
+            Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \
+            Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.VLayer_m3, Planet.kTherm_WmK, \
+            Planet.Htidal_Wm3, Planet.Ppore_MPa, Planet.rhoMatrix_kgm3, Planet.rhoPore_kgm3 = \
+            (np.zeros(nStepsForArrays) for _ in range(17))
 
     # Layer property initialization for surface
     Planet.z_m[0] = 0.0  # Set first layer depth to zero (layer properties correspond to outer radius)
@@ -700,4 +713,231 @@ def SetCMR2strings(Planet):
             Planet.CMR2str = f'{CmidStr}^{{{CpStr}}}_{{{CmStr}}}'
             Planet.CMR2str5 = f'{Planet.Bulk.Cmeasured:.5f}^{{+{Planet.Bulk.CuncertaintyUpper:.5f}}}_{{-{Planet.Bulk.CuncertaintyLower:.5f}}}'
 
+    return Planet
+
+
+def SetupNonSelfConsistent(Planet, Params):
+    """ Initialize non-self-consistent layer arrays in Planet.
+    """        # Verify that all depths have been specified
+    if Planet.Do.NON_SELF_CONSISTENT:
+        Planet.zb_km = 0
+        if Planet.dzIceI_km == np.nan or Planet.dzIceI_km < 0:
+            raise ValueError('Planet.dzIceI_km must be set to non-negative thickness for non-self-consistent ice modeling.')
+        elif Planet.dzIceI_km == 0:
+            Planet.Steps.nIceI = 0
+        else:
+            Planet.zb_km += Planet.dzIceI_km
+            # Check that ice shell density is set, otherwise use default
+            if Planet.Ocean.rhoCondMean_kgm3['Ih'] is None:
+                Planet.Ocean.rhoCondMean_kgm3['Ih'] = Constants.STP_kgm3['Ih']
+                log.warning('Planet.Sil.rhoCondMean_kgm3 is not set, using Constants.STP_kgm3["Ih"].')
+            else:
+                Planet.Do.CONSTANTPROPSEOS = True
+        
+            # Set up melting point viscosity
+            if Planet.etaMelt_Pas is None:
+                Planet.etaMelt_Pas = Constants.etaMelt_Pas[1]
+                log.warning('Planet.Sil.etaMelt_Pas is not set, using Constants.etaMelt_Pas[1].')
+            else:
+                Planet.Do.CONSTANTPROPSEOS = True
+        
+            # Set up thermal conductivity
+            if Planet.Ocean.kThermIce_WmK['Ih'] is None:
+                Planet.Ocean.kThermIce_WmK['Ih'] = Constants.kThermIce_WmK['Ih']
+                log.warning('Planet.Sil.kThermIce_WmK is not set, using Constants.kThermIce_WmK["Ih"].')
+            else:
+                Planet.Do.CONSTANTPROPSEOS = True
+            
+            # Set up creep parameters
+            if Planet.Ocean.Eact_kJmol['Ih'] is None:
+                Planet.Ocean.Eact_kJmol['Ih'] = Constants.Eact_kJmol[1]
+                log.warning('Planet.Sil.Eact_kJmol is not set, using Constants.Eact_kJmol[1].')
+            else:
+                Planet.Do.CONSTANTPROPSEOS = True
+                
+            # Set up shear modulus in conducting layer
+            if Planet.Ocean.GScondMean_GPa['Ih'] is None:
+                Planet.Ocean.GScondMean_GPa['Ih'] = Constants.GS_GPa[1]
+                log.warning('Planet.Sil.GScondMean_GPa is not set, using Constants.GS_GPa[1].')
+            else:
+                Planet.Do.CONSTANTPROPSEOS = True
+            
+            if Planet.Do.CONSTANTPROPSEOS:
+                Planet.Ocean.constantProperties['Ih'] = {'rho_kgm3': Planet.Ocean.rhoCondMean_kgm3['Ih'],
+                                    'Cp_JkgK': Constants.Cp_JkgK['Ih'],
+                                    'alpha_pK': Constants.alphaIce_pK['Ih'],
+                                    'kTherm_WmK': Planet.Ocean.kThermIce_WmK['Ih'],
+                                    'VP_GPa': Constants.VP_GPa[1],
+                                    'VS_GPa': Constants.VS_GPa[1],
+                                    'KS_GPa': Constants.KS_GPa[1],
+                                    'GS_GPa': Planet.Ocean.GScondMean_GPa['Ih'],
+                                    'sigma_Sm': Planet.Ocean.sigmaIce_Sm['Ih'],
+                                    'eta_Pas': Constants.etaIce_Pas[0]}
+        
+        if Planet.Do.BOTTOM_ICEIII:
+            if (Planet.dzIceIII_km == np.nan or Planet.dzIceIII_km < 0):
+                raise ValueError('Planet.Do.BOTTOM_ICEIII is True, but Planet.dzIceIII_km is not set or is negative.')
+            else:
+                Planet.zb_km += Planet.dzIceIII_km
+                            # Check that ice shell density is set, otherwise use default
+                if Planet.Ocean.rhoCondMean_kgm3['III'] is None:
+                    Planet.Ocean.rhoCondMean_kgm3['III'] = Constants.STP_kgm3['III']
+                    log.warning('Planet.Sil.rhoCondMean_kgm3 is not set, using Constants.STP_kgm3["III"].')
+                else:
+                    Planet.Do.CONSTANTPROPSEOS = True
+            
+                # Set up melting point viscosity
+                if Planet.etaMeltIII_Pas is None:
+                    Planet.etaMeltIII_Pas = Constants.etaMelt_Pas[3]
+                    log.warning('Planet.Sil.etaMeltIII_Pas is not set, using Constants.etaMelt_Pas[3].')
+                else:
+                    Planet.Do.CONSTANTPROPSEOS = True
+            
+                # Set up thermal conductivity
+                if Planet.Ocean.kThermIce_WmK['III'] is None:
+                    Planet.Ocean.kThermIce_WmK['III'] = Constants.kThermIce_WmK['III']
+                    log.warning('Planet.Sil.kThermIce_WmK is not set, using Constants.kThermIce_WmK["III"].')
+                else:
+                    Planet.Do.CONSTANTPROPSEOS = True
+                
+                # Set up creep parameters
+                if Planet.Ocean.Eact_kJmol['III'] is None:
+                    Planet.Ocean.Eact_kJmol['III'] = Constants.Eact_kJmol[3]
+                    log.warning('Planet.Sil.Eact_kJmol is not set, using Constants.Eact_kJmol[3].')
+                else:
+                    Planet.Do.CONSTANTPROPSEOS = True
+                    
+                # Set up shear modulus in conducting layer
+                if Planet.Ocean.GScondMean_GPa['III'] is None:
+                    Planet.Ocean.GScondMean_GPa['III'] = Constants.GS_GPa[3]
+                    log.warning('Planet.Sil.GScondMean_GPa is not set, using Constants.GS_GPa[3].')
+                else:
+                    Planet.Do.CONSTANTPROPSEOS = True
+                
+                if Planet.Do.CONSTANTPROPSEOS:
+                    Planet.Ocean.constantProperties['III'] = {'rho_kgm3': Planet.Ocean.rhoCondMean_kgm3['III'],
+                                        'Cp_JkgK': Constants.Cp_JkgK['III'],
+                                        'alpha_pK': Constants.alphaIce_pK['III'],
+                                        'kTherm_WmK': Planet.Ocean.kThermIce_WmK['III'],
+                                        'VP_GPa': Constants.VP_GPa[3],
+                                        'VS_GPa': Constants.VS_GPa[3],
+                                        'KS_GPa': Constants.KS_GPa[3],
+                                        'GS_GPa': Planet.Ocean.GScondMean_GPa['III'],
+                                        'sigma_Sm': Planet.Ocean.sigmaIce_Sm['III'],
+                                        }
+        else:
+            Planet.Steps.nIceIIILitho = 0
+            Planet.Steps.nIceVLitho = 0
+        if Planet.Do.BOTTOM_ICEV:
+            if (Planet.dzIceV_km == np.nan or Planet.dzIceV_km < 0):
+                raise ValueError('Planet.Do.BOTTOM_ICEV is True, but Planet.dzIceV_km is not set or is negative.')
+            else:
+                Planet.zb_km += Planet.dzIceV_km
+                                        # Check that ice shell density is set, otherwise use default
+                if Planet.Ocean.rhoCondMean_kgm3['V'] is None:
+                    Planet.Ocean.rhoCondMean_kgm3['V'] = Constants.STP_kgm3['V']
+                    log.warning('Planet.Sil.rhoCondMean_kgm3 is not set, using Constants.STP_kgm3["V"].')
+                else:
+                    Planet.Do.CONSTANTPROPSEOS = True
+            
+                # Set up melting point viscosity
+                if Planet.etaMeltV_Pas is None:
+                    Planet.etaMeltV_Pas = Constants.etaMelt_Pas[5]
+                    log.warning('Planet.Sil.etaMeltV_Pas is not set, using Constants.etaMelt_Pas[5].')
+                else:
+                    Planet.Do.CONSTANTPROPSEOS = True
+            
+                # Set up thermal conductivity
+                if Planet.Ocean.kThermIce_WmK['V'] is None:
+                    Planet.Ocean.kThermIce_WmK['V'] = Constants.kThermIce_WmK['V']
+                    log.warning('Planet.Sil.kThermIce_WmK is not set, using Constants.kThermIce_WmK["V"].')
+                else:
+                    Planet.Do.CONSTANTPROPSEOS = True
+                
+                # Set up creep parameters
+                if Planet.Ocean.Eact_kJmol['V'] is None:
+                    Planet.Ocean.Eact_kJmol['V'] = Constants.Eact_kJmol[5]
+                    log.warning('Planet.Sil.Eact_kJmol is not set, using Constants.Eact_kJmol[5].')
+                else:
+                    Planet.Do.CONSTANTPROPSEOS = True
+                    
+                # Set up shear modulus in conducting layer
+                if Planet.Ocean.GScondMean_GPa['V'] is None:
+                    Planet.Ocean.GScondMean_GPa['V'] = Constants.GS_GPa[5]
+                    log.warning('Planet.Sil.GScondMean_GPa is not set, using Constants.GS_GPa[5].')
+                else:
+                    Planet.Do.CONSTANTPROPSEOS = True
+                
+                if Planet.Do.CONSTANTPROPSEOS:
+                    Planet.Ocean.constantProperties['V'] = {'rho_kgm3': Planet.Ocean.rhoCondMean_kgm3['V'],
+                                        'Cp_JkgK': Constants.Cp_JkgK['V'],
+                                        'alpha_pK': Constants.alphaIce_pK['V'],
+                                        'kTherm_WmK': Planet.Ocean.kThermIce_WmK['V'],
+                                        'VP_GPa': Constants.VP_GPa[5],
+                                        'VS_GPa': Constants.VS_GPa[5],
+                                        'KS_GPa': Constants.KS_GPa[5],
+                                        'GS_GPa': Planet.Ocean.GScondMean_GPa['V'],
+                                        'sigma_Sm': Planet.Ocean.sigmaIce_Sm['V'],
+                                        }
+        else:
+            Planet.Steps.nIceVLitho = 0
+        if Planet.Do.CLATHRATE:
+            Planet.Steps.nClath = 0
+        else:
+            Planet.Steps.nClath = 0
+        Planet.Steps.nSurfIce = Planet.Steps.nIceI+Planet.Steps.nIceIIILitho+Planet.Steps.nIceVLitho+Planet.Steps.nClath
+        if Planet.D_km is None or Planet.D_km < 0:
+            raise ValueError('Planet.D_km must be set to non-negative thickness for non-self-consistent ocean modeling.')
+        elif Planet.D_km == 0:
+            Planet.Do.NO_OCEAN = True
+            Planet.Steps.nOcean = 0
+        else:
+            # Set up ocean density, if specified
+            if Planet.Ocean.rhoMean_kgm3 is None:
+                Planet.Ocean.rhoMean_kgm3 = Constants.STP_kgm3['0']
+                log.warning('Planet.Ocean.rhoMean_kgm3 is not set, using Constants.STP_kgm3["0"].')
+            else:
+                Planet.Do.CONSTANTPROPSEOS = True
+
+            # Set up thermal conductivity, if specified
+            if Planet.Ocean.kThermWater_WmK is None:
+                Planet.Ocean.kThermOcean_WmK = Constants.kThermWater_WmK
+                log.warning('Planet.Ocean.kThermWater_WmK is not set, using Constants.kThermWater_WmK.')
+            else:
+                Planet.Do.CONSTANTPROPSEOS = True
+                
+            # Set up electrical condonctvity, if specified
+            if Planet.Ocean.sigmaFixed_Sm is None:
+                Planet.Ocean.sigmaFixed_Sm = Constants.sigmaH2O_Sm
+                log.warning('Planet.Ocean.sigmaFixed_Sm is not set, using Constants.sigmaH2O_Sm.')
+            else:
+                Planet.Do.CONSTANTPROPSEOS = True
+            
+            if Planet.Do.CONSTANTPROPSEOS:
+                Planet.Ocean.oceanConstantProperties = {'rho_kgm3': Planet.Ocean.rhoMean_kgm3,
+                                    'Cp_JkgK': Constants.CpWater_JkgK,
+                                    'alpha_pK': Constants.alphaWater_pK,
+                                    'kTherm_WmK': Planet.Ocean.kThermWater_WmK,
+                                    'VP_kms': Constants.VPOcean_kms,
+                                    'VS_kms': Constants.VSOcean_kms,
+                                    'sigma_Sm': Planet.Ocean.sigmaFixed_Sm,
+                                    'eta_Pas': Constants.etaH2O_Pas,
+                                    }
+        Planet.Steps.nHydro = Planet.Steps.nSurfIce + Planet.Steps.nOcean
+        if Planet.Core.Rmean_m is None or Planet.Core.Rmean_m < 0:
+            raise ValueError('Planet.Core.Rmean_m must be set to non-negative radius for non-self-consistent inner modeling.')
+        elif Planet.Core.Rmean_m == 0:
+            Planet.Do.Fe_CORE = False
+            Planet.Steps.nCore = 0
+        Planet.Sil.mantleEOS = 'none'
+        
+        # Check if we have specified a valid ocean composition
+        if Planet.Ocean.comp is None:
+            Planet.Ocean.comp = 'none'
+            Planet.Ocean.wOcean_ppt = 0.0
+            Planet.Sil.PHydroMax_MPa = Planet.Bulk.Psurf_MPa
+        else:
+            # If so, then we will use the ocean composition to query bulk temperature andEC
+            pass
+        Planet.Steps.nTotal = Planet.Steps.nHydro + Planet.Steps.nSil + Planet.Steps.nCore
     return Planet

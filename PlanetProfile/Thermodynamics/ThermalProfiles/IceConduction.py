@@ -2,10 +2,10 @@ import numpy as np
 import logging
 import scipy.interpolate as spi
 from PlanetProfile.Thermodynamics.Geophysical import PropagateConduction, EvalLayerProperties, \
-    PorosityCorrectionVacIce, PorosityCorrectionFilledIce
-from PlanetProfile.Thermodynamics.HydroEOS import GetIceEOS
+    PorosityCorrectionVacIce, PorosityCorrectionFilledIce, PropogateConductionFromDepth
+from PlanetProfile.Thermodynamics.HydroEOS import GetIceEOS, GetOceanEOS
 from PlanetProfile.Utilities.Indexing import PhaseConv
-from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import GetPbConduct
+from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import GetPbConduct, GetTfreeze
 from PlanetProfile.Utilities.defineStructs import Constants
 
 # Assign logger
@@ -21,27 +21,56 @@ def IceIWholeConductSolid(Planet, Params):
             All physical layer arrays
     """
     icePhase = PhaseConv(Planet.phase[0])
-
-    # Set linear P and adiabatic T in ice I layers. Include 1 extra for P and T to assign next phase to the values
-    # at the phase transition
-    PIceI_MPa = np.linspace(Planet.P_MPa[0], Planet.PbI_MPa, Planet.Steps.nIbottom+1)
-    Pratios = (PIceI_MPa - Planet.P_MPa[0]) / (Planet.PbI_MPa - Planet.P_MPa[0])
-    TIceI_K = Planet.Bulk.Tb_K**(Pratios) * Planet.T_K[0]**(1 - Pratios)
-    Planet.P_MPa[:Planet.Steps.nIbottom+1] = PIceI_MPa
-    Planet.T_K[:Planet.Steps.nIbottom+1] = TIceI_K
+    if Planet.Do.NON_SELF_CONSISTENT:
+        zIceI_m = np.linspace(Planet.z_m[0], Planet.dzIceI_km * 1e3, Planet.Steps.nIbottom+1)
+        Planet.z_m[:Planet.Steps.nIbottom+1] = zIceI_m
+        # Set linear P and adiabatic T in ice I layers. Include 1 extra for P and T to assign next phase to the values
+        # at the phase transition
+        PIceI_MPa = np.arange(Planet.P_MPa[0], Planet.PfreezeUpper_MPa, Planet.Ocean.deltaP)
+        TIceI_K = np.arange(Planet.Bulk.Tsurf_K, Planet.Bulk.TfreezeUpper_K, Planet.Ocean.deltaT)
+        Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIceI_MPa, TIceI_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                    ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK, 
+                                                  mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant},
+                                                  doConstantProps=Planet.Do.CONSTANTPROPSEOS,
+                                                  constantProperties=Planet.Ocean.constantProperties[icePhase])
+        # Getfreezing temperature
+        # Calculate the bottom ice temperature, otherwise use the bulk temperature
+        if Planet.Ocean.comp == 'none':
+            Planet.Bulk.Tb_K = Constants.T0
+        else:
+            # Query bulk temperature and EC from ocean composition
+            Pbottom_MPa = Planet.dzIceI_km * 1e3 * Planet.g_ms2[0] * Planet.Ocean.surfIceEOS[icePhase].fn_rho_kgm3(Planet.Bulk.Psurf_MPa, Planet.Bulk.Tsurf_K)
+            Pmelt_MPa = np.linspace(Pbottom_MPa - 0.01, Planet.Bulk.Psurf_MPa + 0.01, 3)
+            Tmelt_K = np.linspace(Planet.TfreezeLower_MPa, Planet.TfreezeUpper_MPa, Planet.TfreezeRes_K)
+            Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K)
+            Planet.Bulk.Tb_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.Pb_MPa, Planet.TfreezeLower_K, TRes_K=Planet.TfreezeRes_K)
+        
+        # Calculate remaining physical properites of upper ice I from depth
+        Planet = PropogateConductionFromDepth(Planet, Params, 0, Planet.Steps.nIbottom, Planet.Bulk.Tb_K, Planet.Ocean.surfIceEOS[icePhase])
+        Planet.PbI_MPa = Planet.P_MPa[Planet.Steps.nIbottom]
+        PIceI_MPa = np.linspace(Planet.P_MPa[0], Planet.PbI_MPa, Planet.Steps.nIbottom+1)
+    else:
+        # Set linear P and adiabatic T in ice I layers. Include 1 extra for P and T to assign next phase to the values
+        # at the phase transition
+        PIceI_MPa = np.linspace(Planet.P_MPa[0], Planet.PbI_MPa, Planet.Steps.nIbottom+1)
+        Pratios = (PIceI_MPa - Planet.P_MPa[0]) / (Planet.PbI_MPa - Planet.P_MPa[0])
+        TIceI_K = Planet.Bulk.Tb_K**(Pratios) * Planet.T_K[0]**(1 - Pratios)
+        Planet.P_MPa[:Planet.Steps.nIbottom+1] = PIceI_MPa
+        Planet.T_K[:Planet.Steps.nIbottom+1] = TIceI_K
     
-    # Get ice EOS
-    Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIceI_MPa, TIceI_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                  ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
+        # Get ice EOS
+        Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIceI_MPa, TIceI_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                    ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK, 
+                                                  mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
 
-    # Evaluate thermodynamic properties of uppermost ice
-    Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nIbottom,
-                                 Planet.Ocean.surfIceEOS[icePhase], PIceI_MPa[:-1], TIceI_K[:-1])
-    # Fill additional arrays as needed for later compatibility with porosity calculations
-    Planet.rho_kgm3[:Planet.Steps.nIbottom] = Planet.rhoMatrix_kgm3[:Planet.Steps.nIbottom] + 0.0
+        # Evaluate thermodynamic properties of uppermost ice
+        Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nIbottom,
+                                    Planet.Ocean.surfIceEOS[icePhase], PIceI_MPa[:-1], TIceI_K[:-1])
+        # Fill additional arrays as needed for later compatibility with porosity calculations
+        Planet.rho_kgm3[:Planet.Steps.nIbottom] = Planet.rhoMatrix_kgm3[:Planet.Steps.nIbottom] + 0.0
 
-    # Calculate remaining physical properties of upper ice I
-    Planet = PropagateConduction(Planet, Params, 0, Planet.Steps.nIbottom)
+        # Calculate remaining physical properties of upper ice I
+        Planet = PropagateConduction(Planet, Params, 0, Planet.Steps.nIbottom)
 
     return Planet
 

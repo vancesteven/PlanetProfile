@@ -6,6 +6,7 @@ configPP.py
 configPPplots.py
 configPPinduct.py
 configPPtrajec.py
+configPPmontecarlo.py
 */PP*.py
 *~
 .DS_Store

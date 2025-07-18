@@ -35,7 +35,7 @@ from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolu
 from PlanetProfile.Utilities.PPversion import ppVerNum
 from PlanetProfile.Gravity.Gravity import GravityParameters
 from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
-from PlanetProfile.Utilities.reducedPlanetModel import GetReducedPlanetProfile
+from PlanetProfile.Utilities.reducedPlanetModel import GetReducedPlanet
 
 # Parallel processing
 import multiprocessing as mtp
@@ -164,7 +164,11 @@ def run(bodyname=None, opt=None, fNames=None):
                 
                 Params.FigureFiles = FigureFilesSubstruct(comparePath, compareBase, FigMisc.xtn)
                 GeneratePlots(CompareList, Params)
-
+    elif Params.DO_MONTECARLO:
+        if bodyname == '':
+            raise ValueError('A single body must be specified for a Monte Carlo run.')
+        else:
+            MCResults, Params = MonteCarlo(bodyname, Params, fNameOverride=fNames[0])
             
     else:
         # Set timekeeping for recording elapsed times
@@ -281,8 +285,8 @@ def PlanetProfile(Planet, Params):
         GeneratePlots(PlanetList, Params)
         Planet = PlanetList[0]
     # Create a simplified reduced planet structure for magnetic induction and/or gravity calculations
-    if Planet.Do.VALID and (not Params.SKIP_INDUCTION or not Params.SKIP_GRAVITY):
-        Planet, Params = GetReducedPlanetProfile(Planet, Params)
+    if (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and (not Params.SKIP_INDUCTION or not Params.SKIP_GRAVITY):
+        Planet, Params = GetReducedPlanet(Planet, Params)
     # Magnetic induction calculations and plots
     if (Params.CALC_CONDUCT and Planet.Do.VALID) and not Params.SKIP_INDUCTION:
         # Calculate induced magnetic moments
@@ -299,11 +303,12 @@ def PlanetProfile(Planet, Params):
             GenerateMagPlots([Planet], Params)
 
     # Gravity calcuations and plots
-    if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY and Planet.Do.VALID) and not Params.SKIP_GRAVITY:
+    if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY) and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and not Params.SKIP_GRAVITY:
         # Calculate gravity parameters
         Planet, Params = GravityParameters(Planet, Params)
 
-    PrintCompletion(Planet, Params)
+    if Params.PRINT_COMPLETION:
+        PrintCompletion(Planet, Params)
     return Planet, Params
 
 
@@ -341,7 +346,7 @@ def InteriorEtc(Planet, Params):
             
     # Create a simplified reduced planet structure for magnetic induction and/or gravity calculations
     if Planet.Do.VALID:
-        Planet, Params = GetReducedPlanetProfile(Planet, Params)
+        Planet, Params = GetReducedPlanet(Planet, Params)
     if not Params.SKIP_INDUCTION and (Params.CALC_CONDUCT and Params.CALC_NEW_INDUCT):
         # Calculate induced magnetic moments
         Planet, Params = MagneticInduction(Planet, Params)
@@ -2066,6 +2071,7 @@ def RunPPfile(bodyname, fName, Params=None):
     Planet, Params = PlanetProfile(Planet, Params)
     
     return Planet, Params
+
 
 
 if __name__ == '__main__':

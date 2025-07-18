@@ -18,7 +18,7 @@ def ElecConduct(Planet, Params):
     Planet.sigma_Sm = np.zeros(Planet.Steps.nTotal) * np.nan
 
     # Only perform calculations if this is a valid profile
-    if Planet.Do.VALID:
+    if Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES):
         # Identify which indices correspond to which phases
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
             indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
@@ -28,7 +28,7 @@ def ElecConduct(Planet, Params):
 
         if Params.CALC_CONDUCT:
             # Make sure the necessary EOSs have been loaded (mainly only important in parallel ExploreOgram runs)
-            if not Planet.Do.NO_H2O and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
+            if not (Planet.Do.NO_H2O or Planet.Do.NO_OCEAN) and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
                 POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
                 TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
                 Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,

@@ -6,20 +6,25 @@ from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator, inte
 from PlanetProfile import _ROOT
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper
+from PlanetProfile.Thermodynamics.ConstantEOS import ConstantEOSStruct
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
 def GetInnerEOS(EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
                 HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None,
-                EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaSilFixed_Pas=None, etaCoreFixed_Pas=None, TviscTrans_K=None):
-    innerEOS = PerplexEOSStruct(EOSfname, EOSinterpMethod=EOSinterpMethod, nHeaders=nHeaders,
-                                Fe_EOS=Fe_EOS, kThermConst_WmK=kThermConst_WmK,
-                                HtidalConst_Wm3=HtidalConst_Wm3, porosType=porosType,
-                                phiTop_frac=phiTop_frac, Pclosure_MPa=Pclosure_MPa,
-                                phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
-                                wFeCore_ppt=wFeCore_ppt, wScore_ppt=wScore_ppt,
-                                etaSilFixed_Pas=etaSilFixed_Pas, etaCoreFixed_Pas=etaCoreFixed_Pas, TviscTrans_K=TviscTrans_K)
+                EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaSilFixed_Pas=None, etaCoreFixed_Pas=None, TviscTrans_K=None, 
+                doConstantProps=False, constantProperties=None):
+    if not doConstantProps:
+        innerEOS = PerplexEOSStruct(EOSfname, EOSinterpMethod=EOSinterpMethod, nHeaders=nHeaders,
+                                    Fe_EOS=Fe_EOS, kThermConst_WmK=kThermConst_WmK,
+                                    HtidalConst_Wm3=HtidalConst_Wm3, porosType=porosType,
+                                    phiTop_frac=phiTop_frac, Pclosure_MPa=Pclosure_MPa,
+                                    phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
+                                    wFeCore_ppt=wFeCore_ppt, wScore_ppt=wScore_ppt,
+                                    etaSilFixed_Pas=etaSilFixed_Pas, etaCoreFixed_Pas=etaCoreFixed_Pas, TviscTrans_K=TviscTrans_K)
+    else:
+        innerEOS = ConstantEOSStruct(constantProperties, EOStype = 'inner')
     if innerEOS.ALREADY_LOADED:
         log.debug(f'{innerEOS.comp} EOS already loaded. Reusing existing EOS.')
         innerEOS = EOSlist.loaded[innerEOS.EOSlabel]
@@ -493,7 +498,7 @@ def nuPoisson(VP_kms, VS_kms):
 
 class ViscRockUniform_Pas:
     def __init__(self, etaSet_Pas=None, TviscTrans_K=None):
-        if etaSet_Pas is None:
+        if etaSet_Pas is None or any(eta is None for eta in etaSet_Pas):
             self.eta_Pas = Constants.etaRock_Pas
         else:
             self.eta_Pas = etaSet_Pas
@@ -519,7 +524,7 @@ class ViscRockUniform_Pas:
 
 class ViscCoreUniform_Pas:
     def __init__(self, etaSet_Pas=None, TviscTrans_K=None):
-        if etaSet_Pas is None:
+        if etaSet_Pas is None or any(eta is None for eta in etaSet_Pas):
             self.eta_Pas = [Constants.etaFeSolid_Pas, Constants.etaFeLiquid_Pas]
         else:
             self.eta_Pas = etaSet_Pas
