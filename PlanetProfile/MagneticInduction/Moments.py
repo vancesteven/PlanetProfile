@@ -40,6 +40,9 @@ class InductionStruct:
         if inductOtype == 'sigma':
             self.x = self.sigmaMean_Sm
             self.y = self.D_km
+        elif inductOtype == 'oceanComp':
+            self.x = self.oceanComp
+            self.y = self.zb_approximate_km
         else:
             self.x = self.wOcean_ppt
             if inductOtype == 'Tb':
@@ -48,8 +51,6 @@ class InductionStruct:
                 self.y = self.rhoSilMean_kgm3
             elif inductOtype == 'phi':
                 self.y = self.phiRockMax_frac
-            elif inductOtype == 'oceanComp':
-                self.y = self.oceanComp
             else:
                 raise ValueError(f'inductOtype {inductOtype} not recognized.')
 

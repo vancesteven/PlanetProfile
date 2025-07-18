@@ -595,6 +595,7 @@ class EOSLookupTableLoader():
         # In the case that any properties could not be calculated, we must linearly interpolate these
         # THIS IS HIGHLY UNLIKELY SINCE WE HAVE FOUND CONSTRAINTS COMPATIBLE WITH RKT, BUT JUST IN CASE THIS IS IMPLEMENTED (has not been rigorously tested)
         if np.sum(np.isnan(rho_kgm3) | np.isinf(rho_kgm3)) > 0:
+            log.warning(f"Interpolation failed for {np.sum(np.isnan(rho_kgm3) | np.isinf(rho_kgm3))} points.")
             rho_kgm3, Cp_JKgK, alpha_pK, Vp_kms, mu_J_mol = interpolation_2d(P_MPa,
                                                                              [rho_kgm3, Cp_JKgK, alpha_pK, Vp_kms,
                                                                               mu_J_mol])

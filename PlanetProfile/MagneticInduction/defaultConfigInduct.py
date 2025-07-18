@@ -6,7 +6,7 @@ from PlanetProfile.Utilities.defineStructs import InductOgramParamsStruct, \
 configInductVersion = 6  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def inductAssign():
-    inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness. Sigma/D plot is not self-consistent.
+    inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "oceanComp","sigma", where the first 3 are vs. salinity, oceanComp is vs. approximate ice shell thickness,and sigma is vs. thickness. Sigma/D plot is not self-consistent.
     testBody = 'Europa'  # Assign test profiles to use excitation moments for this body
     dftC = 5  # Default number of contours to include in induct-o-grams
 
@@ -110,6 +110,9 @@ def GetInductParams(inductOtype, cLevels, dftC, cfmt):
     InductParams.nSigmaPts = 40  # Resolution for conductivity values in ocean conductivity/thickness plots
     InductParams.sigmaMin = {'Europa': np.log10(1e-1), 'Enceladus': np.log10(1e-2)}
     InductParams.sigmaMax = {'Europa': np.log10(1e2), 'Enceladus': np.log10(1e1)}
+    InductParams.zbMin = {'Europa': 10}
+    InductParams.zbMax = {'Europa': 90}
+    InductParams.nZbPts = 2  # Resolution for upper ice shell thickness in km
     InductParams.nDpts = 50  # Resolution for ocean thickness as for conductivity
     InductParams.Dmin = {'Europa': np.log10(1e0), 'Enceladus': np.log10(1e0)}
     InductParams.Dmax = {'Europa': np.log10(2e2), 'Enceladus': np.log10(1e2)}

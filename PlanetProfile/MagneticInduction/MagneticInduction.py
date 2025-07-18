@@ -470,17 +470,19 @@ def SetupInduction(Planet, Params):
             Magnetic.rSigChange_m, Magnetic.sigmaLayers_Sm, Magnetic.asymShape_m
     """
 
-    # Lots of errors can happen if we haven't calculated the electrical conductivity,
-    # so we make this contingent on having it.
-    indsLiq = np.where(np.flip(Planet.phase) == 0)[0]
-    if np.size(indsLiq) == 0 and not Params.Induct.inductOtype == 'sigma':
-        if Params.DO_INDUCTOGRAM:
-            log.info('Ocean is completely frozen for this body. Profile will be marked invalid for inductogram.')
-            Planet.Do.VALID = False
-            Planet.invalidReason = 'Ocean completely frozen in inductogram'
-        elif Params.Sig.REDUCED_INDUCT and not Planet.Do.NO_H2O:
-            log.debug('Ocean is completely frozen for this body. This will cause errors in conducting layer reductions, ' +
-                      'so those calculations will be skipped for this model.')
+    if not (not Params.CALC_NEW and Params.DO_INDUCTOGRAM):
+        # If we are recalculating the induction from a previously run inductogram, we can skip this step since Planet.phase will not be initialized
+        # Lots of errors can happen if we haven't calculated the electrical conductivity,
+        # so we make this contingent on having it.
+        indsLiq = np.where(np.flip(Planet.phase) == 0)[0]
+        if np.size(indsLiq) == 0 and not Params.Induct.inductOtype == 'sigma':
+            if Params.DO_INDUCTOGRAM:
+                log.info('Ocean is completely frozen for this body. Profile will be marked invalid for inductogram.')
+                Planet.Do.VALID = False
+                Planet.invalidReason = 'Ocean completely frozen in inductogram'
+            elif Params.Sig.REDUCED_INDUCT and not Planet.Do.NO_H2O:
+                log.debug('Ocean is completely frozen for this body. This will cause errors in conducting layer reductions, ' +
+                        'so those calculations will be skipped for this model.')
     if Params.CALC_CONDUCT and Planet.Do.VALID:
         # Reconfigure layer conducting boundaries as needed.
         # For inductOtype == 'sigma', we have already set these arrays.

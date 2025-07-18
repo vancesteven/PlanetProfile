@@ -83,9 +83,8 @@ def run(bodyname=None, opt=None, fNames=None):
             Induction, Params = InductOgram(bodyname, Params, fNameOverride=fNames[0])
         if not Params.SKIP_PLOTS:
             Params = SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
-            PlotInductOgram(Induction, Params)
             if Params.COMPARE:
-                inductOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.inductPath, '*.mat'))
+                inductOgramFiles = FilesMatchingPattern(Params.DataFiles.fNameInductOgramBase+'*.mat')
                 Params.nModels = np.size(inductOgramFiles)
                 InductionList = np.empty(Params.nModels, dtype=object)
                 InductionList[0] = deepcopy(Induction)
@@ -97,6 +96,7 @@ def run(bodyname=None, opt=None, fNames=None):
                     InductionList[i+1] = ReloadInductOgram(bodyname, Params, fNameOverride=reloadInduct)[0]
             else:
                 InductionList = [Induction]
+            PlotInductOgram(InductionList, Params)
             PlotInductOgramPhaseSpace(InductionList, Params)
     elif Params.DO_EXPLOREOGRAM:
         if bodyname == '':
@@ -898,36 +898,37 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                     PlanetGrid[i,j] = deepcopy(Planet)
         elif Params.Induct.inductOtype == 'oceanComp':
             if Params.CALC_NEW:
-                zbApproximateList = np.linspace(Params.Induct.zbMin[bodyname], Params.Induct.zbMax[bodyname], Params.Induct.nZbPts)
                 oceanCompList = loadmat(Params.DataFiles.xRangeData)['Data'].flatten().tolist()
+                zbApproximateList = np.linspace(Params.Induct.zbMin[bodyname], Params.Induct.zbMax[bodyname], Params.Induct.nZbPts)
             else:
                 zbApproximateList = Induction.zb_approximate_km[0,:]
-                oceanCompList = Induction.oceanComp[0,:]
+                oceanCompList = Induction.oceanComp[:,0]
 
             Params.Induct.nOceanCompPts = np.size(oceanCompList)
 
             Params.nModels = Params.Induct.nZbPts * Params.Induct.nOceanCompPts
-            PlanetGrid = np.empty((Params.Induct.nZbPts, Params.Induct.nOceanCompPts), dtype=object)
+            PlanetGrid = np.empty((Params.Induct.nOceanCompPts, Params.Induct.nZbPts), dtype=object)
 
             if Params.CALC_NEW:
-                for i, zbApproximate_km in enumerate(zbApproximateList):
-                    for j, oceanComp in enumerate(oceanCompList):
-                        Planet.zb_approximate_km = zbApproximate_km
+                for i, oceanComp in enumerate(oceanCompList):
+                    for j, zbApproximate_km in enumerate(zbApproximateList):
+                        Planet.Bulk.zb_approximate_km = zbApproximate_km
+                        Planet.Do.ICEIh_THICKNESS = True
                         Planet.Ocean.comp = oceanComp
                         Planet.index = k
                         k += 1
                         PlanetGrid[i,j] = deepcopy(Planet)
             else:
-                for i, zbApproximate_km in enumerate(zbApproximateList):
-                    for j, oceanComp in enumerate(oceanCompList):
-                        Planet.zb_approximate_km = zbApproximate_km
-                        Planet.Ocean.comp = oceanComp
-                        if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
-                            Planet.Do.VALID = False
-                            Planet.invalidReason = 'Some conductivity layers invalid'
-                        Planet.index = k
-                        k += 1
-                        PlanetGrid[i,j] = deepcopy(Planet)
+                for i, oceanComp in enumerate(oceanCompList):
+                    for j, zbApproximate_km in enumerate(zbApproximateList):
+                            Planet.Magnetic.rSigChange_m = Induction.rBds_m[i,j]
+                            Planet.Magnetic.sigmaLayers_Sm = Induction.sigmaLayers_Sm[i,j]
+                            if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
+                                Planet.Do.VALID = False
+                                Planet.invalidReason = 'Some conductivity layers invalid'
+                            Planet.index = k
+                            k += 1
+                            PlanetGrid[i,j] = deepcopy(Planet)
         else:
             if Params.CALC_NEW:
                 wList = np.logspace(Params.Induct.wMin[bodyname], Params.Induct.wMax[bodyname], Params.Induct.nwPts)
@@ -1059,7 +1060,7 @@ def InductOgram(bodyname, Params, fNameOverride=None):
             Induction.wOcean_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
             Induction.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
             Induction.oceanComp = np.char.rstrip(Induction.oceanComp)
-            Induction.zb_approximate_km = np.array([[Planeti.zb_approximate_km for Planeti in line] for line in PlanetGrid])
+            Induction.zb_approximate_km = np.array([[Planeti.Bulk.zb_approximate_km for Planeti in line] for line in PlanetGrid])
             Induction.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
             Induction.Tmean_K = np.array([[Planeti.Ocean.Tmean_K if Planeti.Ocean.Tmean_K is not None else np.nan for Planeti in line] for line in PlanetGrid])
             Induction.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 if Planeti.Sil.rhoMean_kgm3 is not None else np.nan for Planeti in line] for line in PlanetGrid])
@@ -1073,8 +1074,8 @@ def InductOgram(bodyname, Params, fNameOverride=None):
             nanLayers = np.nan*np.empty(nLayers)
             # Note: Induction.rBds_m and Induction.sigmaLayers_Sm can have different lengths for each entry in PlanetGrid.
             # To make an array under this condition, the lists for these entries must be objects (tuples here).
-            Induction.rBds_m = np.array([[Planeti.Magnetic.rSigChange_m if Planeti.Magnetic.rSigChange_m is not None else nanLayers for Planeti in line] for line in PlanetGrid], dtype=object)
-            Induction.sigmaLayers_Sm = np.array([[Planeti.Magnetic.sigmaLayers_Sm if Planeti.Magnetic.sigmaLayers_Sm is not None else nanLayers for Planeti in line] for line in PlanetGrid], dtype=object)
+            Induction.rBds_m = np.array([[Planeti.Magnetic.rSigChange_m if Planeti.Magnetic.rSigChange_m is not None else nanLayers for Planeti in line] for line in PlanetGrid], dtype=np.float64)
+            Induction.sigmaLayers_Sm = np.array([[Planeti.Magnetic.sigmaLayers_Sm if Planeti.Magnetic.sigmaLayers_Sm is not None else nanLayers for Planeti in line] for line in PlanetGrid], dtype=np.float64)
 
         Induction.Texc_hr = Mag.Texc_hr[bodyname]
         Induction.Amp = np.array([[[Planeti.Magnetic.Amp[i] if Planeti.Magnetic.Amp is not None else np.nan for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
@@ -1154,9 +1155,7 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
         loadFile = fNameOverride
         # Common setup for fnames that are not .mat already
     if not (fNameOverride and '.mat' in fNameOverride):
-        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
-                                                              exploreAppend=f'{Params.Explore.xName}{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}_{Params.Explore.yName}{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}',
-                                                              figExploreAppend=Params.Explore.zName)
+        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
         loadFile = Params.DataFiles.inductOgramFile
         
         
@@ -1756,6 +1755,7 @@ def AssignPlanetVal(Planet, name, val):
         Planet.Bulk.Tb_K = val
     elif name == 'zb_approximate_km':
         Planet.Bulk.zb_approximate_km = val
+        Planet.Do.ICEIh_THICKNESS = True
     elif name == 'ionosTop_km' or name == 'sigmaIonos_Sm':
         # Make sure ionosphere top altitude and conductivity are both set and valid
         if Planet.Magnetic.ionosBounds_m is None or np.any(np.isnan(Planet.Magnetic.ionosBounds_m)):

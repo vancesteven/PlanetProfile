@@ -242,7 +242,7 @@ def PlotHydroPhase(PlanetList, Params):
                                                              phiTop_frac=Planet.Ocean.phiMax_frac[clath],
                                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
                                                              phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                             EXTRAP=Params.EXTRAP_ICE[clath],
+                                                             EXTRAP=Params.EXTRAP_ICE[phaseStr],
                                                              mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
                 clathStable = iceEOS[phaseIndex].fn_phase(P_MPa, T_K, grid=True)
                 phases[clathStable == phaseIndex] = phaseIndex
@@ -413,7 +413,7 @@ def OldPlotHydroPhase(PlanetList, Params):
                                         porosType=Planet.Ocean.porosType[clath],
                                         phiTop_frac=Planet.Ocean.phiMax_frac[clath],
                                         Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
-                                        phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[clath],
+                                        phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[phaseStr],
                                         mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
             clathStable = clathEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)
             phases[np.where(np.logical_and(clathStable == phaseIndex, 
@@ -610,7 +610,7 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
                                                          phiTop_frac=Planet.Ocean.phiMax_frac[clath],
                                                          Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
                                                          phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                         EXTRAP=Params.EXTRAP_ICE[clath],
+                                                         EXTRAP=Params.EXTRAP_ICE[phaseStr],
                                                          mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
             clathStable = iceEOS[phaseStr].fn_phase(P_MPa, T_K, grid=True)
             phases[clathStable == phaseIndex] = phaseIndex
@@ -856,7 +856,7 @@ def PlotPvThydro(PlanetList, Params):
                                                          phiTop_frac=Planet.Ocean.phiMax_frac[clath],
                                                          Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
                                                          phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                         EXTRAP=Params.EXTRAP_ICE[clath],
+                                                         EXTRAP=Params.EXTRAP_ICE[phaseStr],
                                                          mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
             clathStable = iceEOS[phaseStr].fn_phase(P_MPa, T_K, grid=True)
             phases[clathStable == phaseIndex] = phaseIndex
@@ -1155,7 +1155,7 @@ def PlotPvThydroOld(PlanetList, Params):
                                         porosType=Planet.Ocean.porosType[clath],
                                         phiTop_frac=Planet.Ocean.phiMax_frac[clath],
                                         Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
-                                        phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[clath],
+                                        phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[phaseStr],
                                         mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
             clathStable = iceEOS[Constants.phaseClath].fn_phase(P_MPa, T_K, grid=True)
             phases[clathStable == Constants.phaseClath] = Constants.phaseClath

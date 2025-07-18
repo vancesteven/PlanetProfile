@@ -714,8 +714,9 @@ class DataFilesSubstruct:
         self.fNameInduct = os.path.join(self.inductPath, saveBase)
         self.inductLayersFile = self.fNameInduct + '_inductLayers.txt'
         self.inducedMomentsFile = self.fNameInduct + '_inducedMoments.mat'
+        self.fNameInductOgramBase = os.path.join(self.inductPath, inductBase)
         self.fNameInductOgram = os.path.join(self.inductPath, inductBase + self.inductAppend)
-        self.inductOgramFile = self.fNameInductOgram + f'{comp}_inductOgram.mat'
+        self.inductOgramFile = self.fNameInductOgram + f'_inductOgram.mat'
         self.inductOgramSigmaFile = self.fNameInductOgram + '_sigma_inductOgram.mat'
         self.gravityParametersFile = self.fNameGravity + '_gravityParameters.txt'
         self.xRangeData = os.path.join(self.path, 'xRangeData.mat')
@@ -1000,6 +1001,8 @@ class InductOgramParamsStruct:
             self.fLabel = f'{10**self.phiMin[bodyname]}-{10**self.phiMax[bodyname]}'
         elif self.inductOtype == 'rho':
             self.fLabel = f'{self.rhoMin[bodyname]}-{self.rhoMax[bodyname]}kgm3'
+        elif self.inductOtype == 'oceanComp':
+            self.fLabel = f'{self.zbMin[bodyname]}-{self.zbMax[bodyname]}km'
         else:
             self.fLabel = 'NDEF'
 
@@ -1472,6 +1475,7 @@ class FigLblStruct:
         # General plot labels and settings
         self.Dlabel = r'Ocean thickness $D$ ($\si{km}$)'
         self.zbLabel = r'Ice shell thickness $z_b$ ($\si{km}$)'
+        self.oceanCompLabel = r'Ocean composition'
         self.zSeafloorLabel = r'Seafloor depth $z_\mathrm{sea}$ ($\si{km}$)'
         self.dzIceIlabel = r'Ice Ih layer thickness $dz_\mathrm{Ih}$ ($\si{km}$)'
         self.dzClathlabel = r'Clathrate layer thickness $dz_\mathrm{clath}$ ($\si{km}$)'
@@ -1552,20 +1556,22 @@ class FigLblStruct:
         self.wScale = 'log'
         self.sigScale = 'log'
         self.Dscale = 'log'
-        self.phaseTitle = r'Phase delay $\upphi$ ($^\circ$)'
+        self.phaseTitle = r'Phase delay $\phi$ ($^\circ$)'
         self.oceanTempLbl = r'Mean ocean temp ($\si{K}$)'
         self.iceThickLbl = r'Ice thickness ($\si{km}$)'
         self.xScalesInduct = {
             'sigma': self.sigScale,
             'Tb': self.wScale,
             'rho': self.wScale,
-            'phi': self.wScale
+            'phi': self.wScale,
+            'oceanComp': 'linear'
         }
         self.yScalesInduct = {
             'sigma': self.Dscale,
             'Tb': 'linear',
             'rho': 'linear',
-            'phi': 'log'
+            'phi': 'log',
+            'oceanComp': 'linear'
         }
 
         # ExploreOgram labels
@@ -2078,7 +2084,9 @@ class FigLblStruct:
         self.Dlims = [10**IndParams.Dmin[bodyname], 10**IndParams.Dmax[bodyname]]
         self.legendTexc = np.array([f'{T_h:.2f} h' for T_h in Texc_h if T_h is not None])
 
+        self.xLabelInduct = self.xLabelsInduct[IndParams.inductOtype]
         self.yLabelInduct = self.yLabelsInduct[IndParams.inductOtype]
+        self.xScaleInduct = self.xScalesInduct[IndParams.inductOtype]
         self.yScaleInduct = self.yScalesInduct[IndParams.inductOtype]
 
     def SetExploration(self, bodyname, xName, yName, zName, titleData=None):
