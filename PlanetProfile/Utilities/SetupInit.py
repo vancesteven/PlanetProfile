@@ -500,7 +500,7 @@ def SetupInversion(Params):
     return Params, magData
 
 
-def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
+def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None, monteCarloAppend=None):
     """ Generate filenames for saving data and figures.
     """
     datPath = Planet.bodyname
@@ -643,13 +643,18 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None):
             exploreBase = f'{Planet.name}ExploreOgram_{exploreAppend}_{saveLabel}'
         else:
             exploreBase = None
+            if Params.DO_MONTECARLO:
+                monteCarloBase = f'{Planet.name}MonteCarlo_{monteCarloAppend}_{saveLabel}'
+            else:
+                monteCarloBase = None
+    
     DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, comp, inductBase=inductBase,
                                    exploreAppend=exploreAppend, EXPLORE=(Params.DO_INDUCTOGRAM or
-                                       Params.DO_EXPLOREOGRAM or Params.INDUCTOGRAM_IN_PROGRESS),
-                                   inductAppend=inductAppend)
+                                       Params.DO_EXPLOREOGRAM or Params.DO_MONTECARLO or Params.INDUCTOGRAM_IN_PROGRESS),
+                                   inductAppend=inductAppend, monteCarloAppend=monteCarloAppend)
     FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn,
-                                       comp=comp, exploreBase=exploreBase, inductBase=inductBase,
-                                       exploreAppend=figExploreAppend, inductAppend=inductAppend)
+                                       comp=comp, exploreBase=exploreBase, inductBase=inductBase, monteCarloBase=monteCarloBase,
+                                       exploreAppend=figExploreAppend, inductAppend=inductAppend, monteCarloAppend=monteCarloAppend)
 
     # Attach profile name to PlanetStruct in addition to Params
     Planet.saveFile = DataFiles.saveFile + ''

@@ -1396,7 +1396,11 @@ def NonSelfConsistentInnerLayer(Planet, Params):
                 Planet.invalidReason = f'Mass of planet is more than {100 * MdiffThresh:g}% less than the total body mass.'
                 invalidMessage = Planet.invalidReason + ' Try increasing the density of layers or increasing the inner layers thickness, which should have the highest density.'
             if Params.ALLOW_BROKEN_MODELS:
-                log.error(invalidMessage + ' Params.ALLOW_BROKEN_MODELS is True, so calculations will proceed ' +
+                if Params.DO_EXPLOREOGRAM or Params.DO_INDUCTOGRAM or Params.DO_MONTECARLO:
+                    log.info(invalidMessage + ' Params.ALLOW_BROKEN_MODELS is True, so calculations will proceed ' +
+                                             'with many values set to nan.')
+                else:
+                    log.error(invalidMessage + ' Params.ALLOW_BROKEN_MODELS is True, so calculations will proceed ' +
                                              'with many values set to nan.')
                 Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES = True
             else:
@@ -1411,7 +1415,11 @@ def NonSelfConsistentInnerLayer(Planet, Params):
                 Planet.invalidReason = f'CMR2 of planet is less than {100 * CMR2diff_lower:.1f}% less than the measured value.'
                 invalidMessage = Planet.invalidReason + ' Try increasing the density of layers or increasing the inner layers thickness, which should have the highest density.'
             if Params.ALLOW_BROKEN_MODELS:
-                log.error(invalidMessage + ' Params.ALLOW_BROKEN_MODELS is True, so calculations will proceed ' +
+                if Params.DO_EXPLOREOGRAM or Params.DO_INDUCTOGRAM or Params.DO_MONTECARLO:
+                    log.info(invalidMessage + ' Params.ALLOW_BROKEN_MODELS is True, so calculations will proceed ' +
+                                             'with many values set to nan.')
+                else:
+                    log.error(invalidMessage + ' Params.ALLOW_BROKEN_MODELS is True, so calculations will proceed ' +
                                              'with many values set to nan.')
                 Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES = True
             else:
@@ -1572,7 +1580,7 @@ def CalcMoIConstantRho(Planet, Params):
         if Params.ALLOW_BROKEN_MODELS:
             Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES = True
             fullMsg = msg + suggestion + ' Params.ALLOW_BROKEN_MODELS is True, so calculations will proceed with many values set to nan.'
-            if Params.DO_EXPLOREOGRAM or Params.DO_INDUCTOGRAM:
+            if Params.DO_EXPLOREOGRAM or Params.DO_INDUCTOGRAM or Params.DO_MONTECARLO:
                 log.info(msg)
             else:
                 log.error(fullMsg)

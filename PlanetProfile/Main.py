@@ -15,6 +15,7 @@ from distutils.util import strtobool
 from collections.abc import Iterable
 from os.path import isfile
 from glob import glob as FilesMatchingPattern
+import pandas as pd
 
 # Import all function definitions for this file
 from PlanetProfile import _Defaults, _TestImport, CopyCarefully
@@ -29,7 +30,7 @@ from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.OceanProps import LiquidOceanPropsCalcs, WriteLiquidOceanProps
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
 from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
-from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, EOSlist, ExplorationStruct
+from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, EOSlist, ExplorationStruct, MonteCarloStruct
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 from PlanetProfile.Utilities.PPversion import ppVerNum
@@ -276,7 +277,7 @@ def PlanetProfile(Planet, Params):
 
     # Main plotting functions
     if ((not Params.SKIP_PLOTS) and not (
-            Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS)) \
+            Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.DO_MONTECARLO)) \
         and Planet.Do.VALID:
         # Calculate large-scale layer properties
         PlanetList, Params = GetLayerMeans(np.array([Planet]), Params)
@@ -1544,6 +1545,518 @@ def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
     return PlanetGrid
 
 
+def MonteCarlo(bodyname, Params, fNameOverride=None):
+    """ Run PlanetProfile models with Monte Carlo parameter sampling to explore
+        parameter space and assess uncertainty.
+    """
+    if Params.CALC_NEW:
+        log.info(f'Running Monte Carlo exploration for {bodyname} with {Params.MonteCarlo.nRuns} samples.')
+
+        if bodyname[:4] == 'Test':
+            loadname = bodyname + ''
+            bodyname = 'Test'
+            bodydir = os.path.join('PlanetProfile', 'Test')
+        else:
+            loadname = bodyname
+            bodydir = bodyname
+        if fNameOverride is not None:
+            fName = fNameOverride
+        else:
+            fName = f'PP{loadname}.py'
+        expected = os.path.join(bodydir, fName)
+        if not os.path.isfile(expected):
+            default = os.path.join(_Defaults, bodydir, fName)
+            if os.path.isfile(default):
+                CopyCarefully(default, expected)
+            else:
+                log.warning(f'{expected} does not exist and no default was found at {default}.')
+        Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
+        tMarks = np.empty(0)
+        tMarks = np.append(tMarks, time.time())
+
+        # Initialize Monte Carlo results structure
+        MCResults = MonteCarloStruct()
+        MCResults.bodyname = bodyname
+        MCResults.nRuns = Params.MonteCarlo.nRuns
+        MCResults.seed = Params.MonteCarlo.seed
+        
+        # Set random seed if provided
+        if Params.MonteCarlo.seed is not None:
+            np.random.seed(Params.MonteCarlo.seed)
+        
+        # Determine which parameters to search over
+        if Planet.Do.NON_SELF_CONSISTENT:
+            MCResults.paramsToSearch = Params.MonteCarlo.paramsToSearchNonSelfConsistent
+        else:
+            MCResults.paramsToSearch = Params.MonteCarlo.paramsToSearchSelfConsistent
+        
+        MCResults.paramsUsed = MCResults.paramsToSearch.copy()
+        MCResults.paramsRanges = {param: Params.MonteCarlo.paramsRanges[param] for param in MCResults.paramsToSearch}
+        MCResults.paramsDistributions = {param: Params.MonteCarlo.paramsDistributions[param] for param in MCResults.paramsToSearch}
+        
+        # Generate parameter samples
+        log.info(f'Generating {MCResults.nRuns} parameter samples...')
+        PlanetList = SampleMonteCarloParameters(MCResults, Planet, Params)
+        
+        # Set up filenames
+        Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params, monteCarloAppend='MonteCarlo')
+        Params.DataFiles = DataFiles
+        Params.FigureFiles = FigureFiles
+        
+        # Configure parameters for Monte Carlo runs
+        Params.nModels = MCResults.nRuns
+        Params.ALLOW_BROKEN_MODELS = True
+        if not Params.NO_SAVEFILE:
+            log.warning(f'Params.NO_SAVEFILE is False. Individual Planet runs will be saved. This can lead to large disk usage.')
+        if Params.CALC_NEW_GRAVITY:
+            log.warning(f'Params.CALC_NEW_GRAVITY is True. Will enable seismic and viscosity calculations.')
+            Params.CALC_VISCOSITY = True
+            Params.CALC_SEISMIC = True
+        
+        # Set log level
+        if Params.DO_PARALLEL:
+                if Params.logParallel > logging.INFO:
+                    log.info('Quieting messages to avoid spam in gridded run.')
+                saveLevel = log.getEffectiveLevel() + 0
+                log.setLevel(Params.logParallel)
+        else:
+            saveLevel = log.getEffectiveLevel() + 0
+            
+        # Run Monte Carlo models in parallel
+        log.info(f'Running {MCResults.nRuns} Monte Carlo models...')
+        tMarks = np.append(tMarks, time.time())
+        PlanetList = GridPlanetProfileFunc(PlanetProfile, np.array(PlanetList), Params)
+        tMarks = np.append(tMarks, time.time())
+        dt = tMarks[-1] - tMarks[-2]
+        MCResults.totalTime_s = dt
+        MCResults.avgTime_s = dt / MCResults.nRuns
+        log.info(f'Monte Carlo run elapsed time: {dt:.1f} s.')
+        # Reset log level
+        log.setLevel(saveLevel)
+        
+        # Calculate additional parameters from profiles
+        PlanetList, Params = GetLayerMeans(PlanetList, Params)
+        
+        # Extract results from Planet structures
+        MCResults = ExtractMonteCarloResults(MCResults, PlanetList, Params)
+        
+        # Save results
+        WriteMonteCarloResults(MCResults, Params)
+        
+        # Create plots if requested
+        if Params.MonteCarlo.showPlots and not Params.SKIP_PLOTS:
+            PlotMonteCarlo(MCResults, Params)
+        
+    else:
+        log.info(f'Reloading Monte Carlo results for {bodyname}.')
+        MCResults, Params = ReloadMonteCarloResults(bodyname, Params, fNameOverride=fNameOverride)
+    
+    return MCResults, Params
+
+
+def SampleMonteCarloParameters(MCResults, basePlanet, Params):
+    """ Generate Monte Carlo parameter samples and create PlanetList with sampled parameters.
+    """
+    PlanetList = []
+    MCResults.paramValues = {}
+    
+    # Initialize parameter value storage
+    for param in MCResults.paramsToSearch:
+        MCResults.paramValues[param] = np.empty(MCResults.nRuns)
+    
+    # Set index marker
+    k = 1
+    for i in range(MCResults.nRuns):
+        planet = deepcopy(basePlanet)
+        planet.index = k
+        
+        # Sample and assign parameters
+        for param in MCResults.paramsToSearch:
+            paramRange = MCResults.paramsRanges[param]
+            distribution = MCResults.paramsDistributions[param]
+            
+            if distribution == 'uniform':
+                val = np.random.uniform(paramRange[0], paramRange[1])
+            else:
+                raise ValueError(f'Distribution type {distribution} not implemented.')
+            
+            # Store sampled value
+            MCResults.paramValues[param][i] = val
+            
+            # Assign value to planet
+            planet = AssignPlanetVal(planet, param, val)
+        
+        PlanetList.append(planet)
+        
+        # Update index
+        k += 1
+    
+    return PlanetList
+
+
+def ExtractMonteCarloResults(MCResults, PlanetList, Params):
+    """ Extract results from completed Monte Carlo runs.
+    """
+    nRuns = len(PlanetList)
+    
+    # Initialize result arrays
+    MCResults.VALID = np.array([Planet.Do.VALID for Planet in PlanetList])
+    MCResults.nSuccess = np.sum(MCResults.VALID)
+    MCResults.successRate = MCResults.nSuccess / nRuns
+    MCResults.invalidReason = np.array([Planet.invalidReason for Planet in PlanetList])
+    
+    # Initialize arrays for results
+    MCResults.CMR2calc = np.full(nRuns, np.nan)
+    MCResults.Mtot_kg = np.full(nRuns, np.nan)
+    MCResults.k2_love = np.full(nRuns, np.nan)
+    MCResults.h2_love = np.full(nRuns, np.nan)
+    MCResults.l2_love = np.full(nRuns, np.nan)
+    MCResults.D_km = np.full(nRuns, np.nan)
+    MCResults.zb_km = np.full(nRuns, np.nan)
+    MCResults.Rcore_km = np.full(nRuns, np.nan)
+    MCResults.rhoOceanMean_kgm3 = np.full(nRuns, np.nan)
+    MCResults.rhoSilMean_kgm3 = np.full(nRuns, np.nan)
+    MCResults.rhoCoreMean_kgm3 = np.full(nRuns, np.nan)
+    MCResults.sigmaMean_Sm = np.full(nRuns, np.nan)
+    MCResults.Tmean_K = np.full(nRuns, np.nan)
+    MCResults.runtimePerModel_s = np.full(nRuns, np.nan)
+    
+    # Extract results from valid models
+    for i, Planet in enumerate(PlanetList):
+        if Planet.Do.VALID or Params.ALLOW_BROKEN_MODELS:
+            MCResults.CMR2calc[i] = Planet.CMR2mean if hasattr(Planet, 'CMR2mean') else np.nan
+            MCResults.Mtot_kg[i] = Planet.Mtot_kg if hasattr(Planet, 'Mtot_kg') else np.nan
+            MCResults.k2_love[i] = Planet.Gravity.k if hasattr(Planet.Gravity, 'k') else np.nan
+            MCResults.h2_love[i] = Planet.Gravity.h if hasattr(Planet.Gravity, 'h') else np.nan
+            MCResults.l2_love[i] = Planet.Gravity.l if hasattr(Planet.Gravity, 'l') else np.nan
+            MCResults.D_km[i] = Planet.D_km if hasattr(Planet, 'D_km') else np.nan
+            MCResults.zb_km[i] = Planet.zb_km if hasattr(Planet, 'zb_km') else np.nan
+            MCResults.Rcore_km[i] = Planet.Core.Rmean_m / 1e3 if hasattr(Planet.Core, 'Rmean_m') else np.nan
+            MCResults.rhoOceanMean_kgm3[i] = Planet.Ocean.rhoMean_kgm3 if hasattr(Planet.Ocean, 'rhoMean_kgm3') else np.nan
+            MCResults.rhoSilMean_kgm3[i] = Planet.Sil.rhoMean_kgm3 if hasattr(Planet.Sil, 'rhoMean_kgm3') else np.nan
+            MCResults.rhoCoreMean_kgm3[i] = Planet.Core.rhoMean_kgm3 if hasattr(Planet.Core, 'rhoMean_kgm3') else np.nan
+            MCResults.sigmaMean_Sm[i] = Planet.Ocean.sigmaMean_Sm if hasattr(Planet.Ocean, 'sigmaMean_Sm') else np.nan
+            MCResults.Tmean_K[i] = Planet.Ocean.Tmean_K if hasattr(Planet.Ocean, 'Tmean_K') else np.nan
+            # Runtime per model would need to be tracked during execution - for now set to average
+            MCResults.runtimePerModel_s[i] = MCResults.avgTime_s
+    
+    return MCResults
+
+
+def WriteMonteCarloResults(MCResults, Params):
+    """ Save Monte Carlo results to files.
+    """
+    from scipy.io import savemat
+    import pandas as pd
+    import time
+    # Convert seed None to string
+    # Save to .mat file
+    saveDict = {
+        'bodyname': MCResults.bodyname,
+        'nRuns': MCResults.nRuns,
+        'nSuccess': MCResults.nSuccess,
+        'successRate': MCResults.successRate,
+        'totalTime_s': MCResults.totalTime_s,
+        'avgTime_s': MCResults.avgTime_s,
+        'seed': str(MCResults.seed),
+        'paramsToSearch': MCResults.paramsToSearch,
+        'paramsRanges': MCResults.paramsRanges,
+        'paramsDistributions': MCResults.paramsDistributions,
+        'paramValues': MCResults.paramValues,
+        'VALID': MCResults.VALID,
+        'invalidReason': MCResults.invalidReason,
+        'CMR2calc': MCResults.CMR2calc,
+        'Mtot_kg': MCResults.Mtot_kg,
+        'k2_love': MCResults.k2_love,
+        'h2_love': MCResults.h2_love,
+        'l2_love': MCResults.l2_love,
+        'D_km': MCResults.D_km,
+        'zb_km': MCResults.zb_km,
+        'Rcore_km': MCResults.Rcore_km,
+        'rhoOceanMean_kgm3': MCResults.rhoOceanMean_kgm3,
+        'rhoSilMean_kgm3': MCResults.rhoSilMean_kgm3,
+        'rhoCoreMean_kgm3': MCResults.rhoCoreMean_kgm3,
+        'sigmaMean_Sm': MCResults.sigmaMean_Sm,
+        'Tmean_K': MCResults.Tmean_K,
+        'runtimePerModel_s': MCResults.runtimePerModel_s
+    }
+    
+    savemat(Params.DataFiles.montecarloFile, saveDict)
+    log.info(f'Monte Carlo results saved to: {Params.DataFiles.montecarloFile}')
+    
+    # Save to CSV file for easy analysis
+    resultsData = {}
+    # Add parameter values
+    for param in MCResults.paramsToSearch:
+        resultsData[param] = MCResults.paramValues[param]
+    
+    # Add results
+    resultsData.update({
+        'VALID': MCResults.VALID,
+        'invalidReason': MCResults.invalidReason,
+        'CMR2calc': MCResults.CMR2calc,
+        'Mtot_kg': MCResults.Mtot_kg,
+        'k2_love': MCResults.k2_love,
+        'h2_love': MCResults.h2_love,
+        'l2_love': MCResults.l2_love,
+        'D_km': MCResults.D_km,
+        'zb_km': MCResults.zb_km,
+        'Rcore_km': MCResults.Rcore_km,
+        'rhoOceanMean_kgm3': MCResults.rhoOceanMean_kgm3,
+        'rhoSilMean_kgm3': MCResults.rhoSilMean_kgm3,
+        'rhoCoreMean_kgm3': MCResults.rhoCoreMean_kgm3,
+        'sigmaMean_Sm': MCResults.sigmaMean_Sm,
+        'Tmean_K': MCResults.Tmean_K,
+        'runtimePerModel_s': MCResults.runtimePerModel_s
+    })
+    
+    df = pd.DataFrame(resultsData)
+    df.to_csv(Params.DataFiles.montecarloResultsFile, index=False)
+    log.info(f'Monte Carlo results saved to: {Params.DataFiles.montecarloResultsFile}')
+    
+    # Save summary statistics
+    with open(Params.DataFiles.montecarloSummaryFile, 'w') as f:
+        f.write("MONTE CARLO PARAMETER EXPLORATION RESULTS\n")
+        f.write("=" * 80 + "\n")
+        f.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Body: {MCResults.bodyname}\n")
+        f.write(f"Total samples: {MCResults.nRuns}\n")
+        f.write(f"Successful models: {MCResults.nSuccess}/{MCResults.nRuns}\n")
+        f.write(f"Success rate: {100*MCResults.successRate:.1f}%\n")
+        f.write(f"Total execution time: {MCResults.totalTime_s:.2f} seconds\n")
+        f.write(f"Average time per model: {MCResults.avgTime_s:.4f} seconds\n")
+        f.write(f"Random seed: {MCResults.seed}\n")
+        f.write("\n")
+        
+        f.write("PARAMETER RANGES:\n")
+        f.write("-" * 50 + "\n")
+        for param in MCResults.paramsToSearch:
+            paramRange = MCResults.paramsRanges[param]
+            f.write(f"{param}: {paramRange[0]} - {paramRange[1]}\n")
+        f.write("\n")
+        
+        # Output statistics for successful models
+        validMask = MCResults.VALID
+        if np.sum(validMask) > 0:
+            f.write("OUTPUT STATISTICS (Successful Models Only):\n")
+            f.write("-" * 50 + "\n")
+            
+            outputParams = ['CMR2calc', 'Mtot_kg', 'k2_love', 'h2_love', 'D_km', 'zb_km']
+            for param in outputParams:
+                values = getattr(MCResults, param)[validMask]
+                validValues = values[~np.isnan(values)]
+                if len(validValues) > 0:
+                    f.write(f"{param}:\n")
+                    f.write(f"  Mean: {np.mean(validValues):.6e}\n")
+                    f.write(f"  Std:  {np.std(validValues):.6e}\n")
+                    f.write(f"  Min:  {np.min(validValues):.6e}\n")
+                    f.write(f"  Max:  {np.max(validValues):.6e}\n")
+                    f.write("\n")
+    
+    log.info(f'Monte Carlo summary saved to: {Params.DataFiles.montecarloSummaryFile}')
+
+
+def PlotMonteCarlo(MCResults, Params):
+    """ Create plots of Monte Carlo results.
+    """
+    import matplotlib.pyplot as plt
+    
+    # Only plot if we have successful models
+    if MCResults.nSuccess == 0:
+        log.warning('No successful models to plot.')
+        return
+    
+    # Plot parameter distributions
+    if Params.MonteCarlo.plotDistributions:
+        PlotMonteCarloDistributions(MCResults, Params)
+    
+    if Params.MonteCarlo.plotResults:
+        PlotMonteCarloResults(MCResults, Params)
+    
+
+
+def PlotMonteCarloDistributions(MCResults, Params):
+    """ Plot histograms of parameter distributions and results.
+    """
+    import matplotlib.pyplot as plt
+    
+    nParams = len(MCResults.paramsToSearch)
+    nCols = 4
+    nRows = int(np.ceil(nParams / nCols))
+    
+    fig, axes = plt.subplots(nRows, nCols, figsize=(16, 4*nRows))
+    if nRows == 1:
+        axes = axes.reshape(1, -1)
+    
+    fig.suptitle(f'Monte Carlo Parameter Distributions - {MCResults.bodyname}', fontsize=16)
+    
+    for i, param in enumerate(MCResults.paramsToSearch):
+        row, col = i // nCols, i % nCols
+        ax = axes[row, col]
+        
+        values = MCResults.paramValues[param]
+        validValues = values[MCResults.VALID]
+        
+        # Plot all samples
+        ax.hist(values, bins=30, alpha=0.5, label='All samples', density=True)
+        
+        ax.set_xlabel(param)
+        ax.set_ylabel('Density')
+        ax.set_title(f'{param} Distribution')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+    
+    # Hide unused subplots
+    for i in range(nParams, nRows * nCols):
+        row, col = i // nCols, i % nCols
+        axes[row, col].set_visible(False)
+    
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.montecarloDistributions, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.info(f'Monte Carlo distributions plot saved to: {Params.FigureFiles.montecarloDistributions}')
+    plt.close()
+    
+    return
+
+
+def PlotMonteCarloResults(MCResults, Params):
+    """ Plot results of Monte Carlo models.
+    """
+    import matplotlib.pyplot as plt
+    
+    if Params.ALLOW_BROKEN_MODELS:
+        log.warning('Params.ALLOW_BROKEN_MODELS is True. Will plot all models, not just successful ones.')
+        validMask = np.ones(MCResults.nRuns, dtype=bool)
+    else:
+        validMask = MCResults.VALID
+    
+    # Plot histograms of key results
+    resultParams = ['CMR2calc', 'Mtot_kg', 'k2_love', 'h2_love']
+    nParams = len(resultParams)
+    nCols = 2
+    nRows = int(np.ceil(nParams / nCols))
+    
+    fig, axes = plt.subplots(nRows, nCols, figsize=(12, 6*nRows))
+    if nRows == 1:
+        axes = axes.reshape(1, -1)
+    
+    fig.suptitle(f'Monte Carlo Results Distributions - {MCResults.bodyname}', fontsize=16)
+    
+    for i, param in enumerate(resultParams):
+        row, col = i // nCols, i % nCols
+        ax = axes[row, col]
+        
+        values = getattr(MCResults, param).flatten()
+        validValues = values[validMask]
+        
+        # Plot histogram of valid results
+        ax.hist(validValues, bins=30, alpha=0.7, density=True, edgecolor='black')
+        
+        ax.set_xlabel(param)
+        ax.set_ylabel('Density')
+        ax.set_title(f'{param} Distribution')
+        ax.grid(True, alpha=0.3)
+    
+    # Hide unused subplots if any
+    for i in range(nParams, nRows * nCols):
+        row, col = i // nCols, i % nCols
+        axes[row, col].set_visible(False)
+    
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.montecarloResults, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.info(f'Monte Carlo results plot saved to: {Params.FigureFiles.montecarloResults}')
+    plt.close()
+    
+    return
+    
+
+def PlotMonteCarloCorrelations(MCResults, Params):
+    """ Plot correlation matrix of parameters and results.
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    
+    # Create correlation data
+    corrData = {}
+    for param in MCResults.paramsToSearch:
+        corrData[param] = MCResults.paramValues[param][MCResults.VALID]
+    
+    # Add result parameters
+    resultParams = ['CMR2calc', 'Mtot_kg', 'k2_love', 'h2_love', 'D_km', 'zb_km']
+    for param in resultParams:
+        values = getattr(MCResults, param)[MCResults.VALID]
+        if not np.all(np.isnan(values)):
+            corrData[param] = values
+    
+    # Create DataFrame and correlation matrix
+    df = pd.DataFrame(corrData)
+    corrMatrix = df.corr()
+    
+    # Plot correlation matrix
+    fig, ax = plt.subplots(figsize=(12, 10))
+    sns.heatmap(corrMatrix, annot=True, cmap='coolwarm', center=0,
+                square=True, ax=ax, fmt='.3f')
+    ax.set_title(f'Monte Carlo Parameter Correlation Matrix - {MCResults.bodyname}')
+    
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.montecarloCorrelations, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.info(f'Monte Carlo correlations plot saved to: {Params.FigureFiles.montecarloCorrelations}')
+    plt.close()
+
+
+def ReloadMonteCarloResults(bodyname, Params, fNameOverride=None):
+    """ Reload previously saved Monte Carlo results.
+    """
+    from scipy.io import loadmat
+    
+    if fNameOverride is None:
+        if bodyname[:4] == 'Test':
+            loadname = bodyname + ''
+            bodydir = _TestImport
+        else:
+            loadname = bodyname
+            bodydir = bodyname
+        Planet = importlib.import_module(f'{bodydir}.PP{loadname}').Planet
+        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params, monteCarloAppend='MonteCarlo')
+        fName = Params.DataFiles.montecarloFile
+    else:
+        fName = fNameOverride
+    
+    reload = loadmat(fName)
+    
+    # Reconstruct MCResults from saved data
+    MCResults = MonteCarloStruct()
+    MCResults.bodyname = reload['bodyname'][0]
+    MCResults.nRuns = reload['nRuns'][0, 0]
+    MCResults.nSuccess = reload['nSuccess'][0, 0]
+    MCResults.successRate = reload['successRate'][0, 0]
+    MCResults.totalTime_s = reload['totalTime_s'][0, 0]
+    MCResults.avgTime_s = reload['avgTime_s'][0, 0]
+    MCResults.seed = int(reload['seed'][0, 0]) if reload['seed'] != 'None' else None
+    MCResults.paramsToSearch = [param.strip() for param in reload['paramsToSearch'].flatten()]
+    MCResults.paramsRanges = reload['paramsRanges'].item()
+    MCResults.paramsDistributions = reload['paramsDistributions'].item()
+    MCResults.paramValues = reload['paramValues'].item()
+    MCResults.VALID = reload['VALID'].flatten()
+    MCResults.invalidReason = reload['invalidReason'].flatten()
+    MCResults.CMR2calc = reload['CMR2calc'].flatten()
+    MCResults.Mtot_kg = reload['Mtot_kg'].flatten()
+    MCResults.k2_love = reload['k2_love'].flatten()
+    MCResults.h2_love = reload['h2_love'].flatten()
+    MCResults.l2_love = reload['l2_love'].flatten()
+    MCResults.D_km = reload['D_km'].flatten()
+    MCResults.zb_km = reload['zb_km'].flatten()
+    MCResults.Rcore_km = reload['Rcore_km'].flatten()
+    MCResults.rhoOceanMean_kgm3 = reload['rhoOceanMean_kgm3'].flatten()
+    MCResults.rhoSilMean_kgm3 = reload['rhoSilMean_kgm3'].flatten()
+    MCResults.rhoCoreMean_kgm3 = reload['rhoCoreMean_kgm3'].flatten()
+    MCResults.sigmaMean_Sm = reload['sigmaMean_Sm'].flatten()
+    MCResults.Tmean_K = reload['Tmean_K'].flatten()
+    MCResults.runtimePerModel_s = reload['runtimePerModel_s'].flatten()
+    
+    return MCResults, Params
+
+
 def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnetic=None):
     """ Run PlanetProfile models over a variety of settings to get interior
         properties for each input.
@@ -1744,79 +2257,135 @@ def AssignPlanetVal(Planet, name, val):
             qSurf_Wm2: Surface heat flux for waterless bodies in Planet.Bulk.qSurf_Wm2
             ionosTop_km: Ionosphere upper limit altitude above the surface in km, used in Planet.Magnetic.ionosBounds_m.
             sigmaIonos_Sm: Ionosphere Pedersen conductivity in S/m in Planet.Magnetic.sigmaIonosPedersen_Sm.
+            
+            Monte Carlo non-self-consistent parameters:
+            dzIceI_km: Ice shell thickness in km in Planet.dzIceI_km
+            D_km: Ocean thickness in km in Planet.D_km
+            Core_R_km: Core radius in km (converted to m in Planet.Core.Rmean_m)
+            rho_iceCond_kgm3: Conductive ice density in kg/m³ in Planet.Ocean.rhoCondMean_kgm3['Ih']
+            rho_iceConv_kgm3: Convective ice density in kg/m³ in Planet.Ocean.rhoConvMean_kgm3['Ih']
+            rho_ocean_kgm3: Ocean density in kg/m³ in Planet.Ocean.rhoMean_kgm3
+            rho_sil_kgm3: Silicate density in kg/m³ in Planet.Sil.rhoMean_kgm3
+            rho_core_kgm3: Core density in kg/m³ in Planet.Core.rhoMean_kgm3
+            GS_ice_GPa: Ice shear modulus in GPa in Planet.Ocean.GScondMean_GPa['Ih']
+            GS_sil_GPa: Silicate shear modulus in GPa in Planet.Sil.GSmean_GPa
+            GS_core_GPa: Core shear modulus in GPa in Planet.Core.GSmean_GPa
     """
-
+    
     if name == 'R_m':
         Planet.Bulk.R_m = val
-    elif name == 'xFeS':
-        Planet.Core.xFeS = val
-        Planet.Do.CONSTANT_INNER_DENSITY = True
-    elif name == 'rhoSilInput_kgm3':
-        Planet.Sil.rhoSilWithCore_kgm3 = val
-        Planet.Do.CONSTANT_INNER_DENSITY = True
-    elif name == 'wOcean_ppt':
-        Planet.Ocean.wOcean_ppt = val
-    elif name == 'Tb_K':
-        Planet.Bulk.Tb_K = val
-    elif name == 'zb_approximate_km':
-        Planet.Bulk.zb_approximate_km = val
-        Planet.Do.ICEIh_THICKNESS = True
-    elif name == 'ionosTop_km' or name == 'sigmaIonos_Sm':
-        # Make sure ionosphere top altitude and conductivity are both set and valid
-        if Planet.Magnetic.ionosBounds_m is None or np.any(np.isnan(Planet.Magnetic.ionosBounds_m)):
-            Planet.Magnetic.ionosBounds_m = [Constants.ionosTopDefault_km*1e3]
-        elif not isinstance(Planet.Magnetic.ionosBounds_m, Iterable):
-            Planet.Magnetic.ionosBounds_m = [Planet.Magnetic.ionosBounds_m]
+    elif not Planet.Do.NON_SELF_CONSISTENT:
+        if name == 'xFeS':
+            Planet.Core.xFeS = val
+            Planet.Do.CONSTANT_INNER_DENSITY = True
+        elif name == 'rhoSilInput_kgm3':
+            Planet.Sil.rhoSilWithCore_kgm3 = val
+            Planet.Do.CONSTANT_INNER_DENSITY = True
+        elif name == 'wOcean_ppt':
+            Planet.Ocean.wOcean_ppt = val
+        elif name == 'Tb_K':
+            Planet.Bulk.Tb_K = val
+        elif name == 'zb_approximate_km':
+            Planet.Bulk.zb_approximate_km = val
+            Planet.Do.ICEIh_THICKNESS = True
+        elif name == 'ionosTop_km' or name == 'sigmaIonos_Sm':
+            # Make sure ionosphere top altitude and conductivity are both set and valid
+            if Planet.Magnetic.ionosBounds_m is None or np.any(np.isnan(Planet.Magnetic.ionosBounds_m)):
+                Planet.Magnetic.ionosBounds_m = [Constants.ionosTopDefault_km*1e3]
+            elif not isinstance(Planet.Magnetic.ionosBounds_m, Iterable):
+                Planet.Magnetic.ionosBounds_m = [Planet.Magnetic.ionosBounds_m]
 
-        if Planet.Magnetic.sigmaIonosPedersen_Sm is None or np.any(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
-            Planet.Magnetic.sigmaIonosPedersen_Sm = [Constants.sigmaIonosPedersenDefault_Sm]
-        elif not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
-            Planet.Magnetic.sigmaIonosPedersen_Sm = [Planet.Magnetic.sigmaIonosPedersen_Sm]
+            if Planet.Magnetic.sigmaIonosPedersen_Sm is None or np.any(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
+                Planet.Magnetic.sigmaIonosPedersen_Sm = [Constants.sigmaIonosPedersenDefault_Sm]
+            elif not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
+                Planet.Magnetic.sigmaIonosPedersen_Sm = [Planet.Magnetic.sigmaIonosPedersen_Sm]
 
-        if name == 'ionosTop_km':
-            Planet.Magnetic.ionosBounds_m[-1] = val*1e3
-        else:
-            Planet.Magnetic.sigmaIonosPedersen_Sm[-1] = val
-    elif name == 'silPhi_frac':
-        Planet.Sil.phiRockMax_frac = val
-        if val == 0:
-            Planet.Do.POROUS_ROCK = False
-        else:
+            if name == 'ionosTop_km':
+                Planet.Magnetic.ionosBounds_m[-1] = val*1e3
+            else:
+                Planet.Magnetic.sigmaIonosPedersen_Sm[-1] = val
+        elif name == 'silPhi_frac':
+            Planet.Sil.phiRockMax_frac = val
+            if val == 0:
+                Planet.Do.POROUS_ROCK = False
+            else:
+                Planet.Do.POROUS_ROCK = True
+            Planet.Do.CONSTANT_INNER_DENSITY = False
+        elif name == 'silPclosure_MPa':
+            Planet.Sil.Pclosure_MPa = val
             Planet.Do.POROUS_ROCK = True
-        Planet.Do.CONSTANT_INNER_DENSITY = False
-    elif name == 'silPclosure_MPa':
-        Planet.Sil.Pclosure_MPa = val
-        Planet.Do.POROUS_ROCK = True
-        Planet.Do.CONSTANT_INNER_DENSITY = False
-    elif name == 'icePhi_frac':
-        Planet.Ocean.phiMax_frac = {key: val for key in Planet.Ocean.phiMax_frac.keys()}
-        if val == 0:
-            Planet.Do.POROUS_ICE = False
-        else:
+            Planet.Do.CONSTANT_INNER_DENSITY = False
+        elif name == 'icePhi_frac':
+            Planet.Ocean.phiMax_frac = {key: val for key in Planet.Ocean.phiMax_frac.keys()}
+            if val == 0:
+                Planet.Do.POROUS_ICE = False
+            else:
+                Planet.Do.POROUS_ICE = True
+        elif name == 'icePclosure_MPa':
+            Planet.Ocean.Pclosure_MPa = {key: val for key in Planet.Ocean.Pclosure_MPa.keys()}
             Planet.Do.POROUS_ICE = True
-    elif name == 'icePclosure_MPa':
-        Planet.Ocean.Pclosure_MPa = {key: val for key in Planet.Ocean.Pclosure_MPa.keys()}
-        Planet.Do.POROUS_ICE = True
-    elif name == 'Htidal_Wm3':
-        Planet.Sil.Htidal_Wm3 = val
-    elif name == 'Qrad_Wkg':
-        Planet.Sil.Qrad_Wkg = val
-    elif name == 'qSurf_Wm2':
-        Planet.Bulk.qSurf_Wm2 = val
-    elif name == 'oceanComp':
-        Planet.Ocean.comp = val
-    elif name == 'compSil':
-        Planet.Sil.mantleEOS = val
-        Planet.Do.CONSTANT_INNER_DENSITY = False
-    elif name == 'compFe':
-        Planet.Core.coreEOS = val
-        Planet.Do.CONSTANT_INNER_DENSITY = False
-    elif name == 'wFeCore_ppt':
-        Planet.Core.wFe_ppt = val
-        Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
-        Planet.Do.CONSTANT_INNER_DENSITY = False
+        elif name == 'Htidal_Wm3':
+            Planet.Sil.Htidal_Wm3 = val
+        elif name == 'Qrad_Wkg':
+            Planet.Sil.Qrad_Wkg = val
+        elif name == 'qSurf_Wm2':
+            Planet.Bulk.qSurf_Wm2 = val
+        elif name == 'oceanComp':
+            Planet.Ocean.comp = val
+        elif name == 'compSil':
+            Planet.Sil.mantleEOS = val
+            Planet.Do.CONSTANT_INNER_DENSITY = False
+        elif name == 'compFe':
+            Planet.Core.coreEOS = val
+            Planet.Do.CONSTANT_INNER_DENSITY = False
+        elif name == 'wFeCore_ppt':
+            Planet.Core.wFe_ppt = val
+            Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
+            Planet.Do.CONSTANT_INNER_DENSITY = False
     else:
-        log.warning(f'No defined behavior for Planet setting named "{name}". Returning unchanged.')
+        # Monte Carlo non-self-consistent parameters
+        if name == 'dzIceI_km':
+            Planet.dzIceI_km = val
+        elif name == 'D_km':
+            Planet.D_km = val
+        elif name == 'Core_R_km':
+            Planet.Core.Rmean_m = val * 1e3  # Convert km to m
+        elif name == 'rho_iceIhCond_kgm3':
+            Planet.Ocean.rhoCondMean_kgm3['Ih'] = val
+        elif name == 'rho_iceIhConv_kgm3':
+            Planet.Ocean.rhoConvMean_kgm3['Ih'] = val
+        elif name == 'rho_ocean_kgm3':
+            Planet.Ocean.rhoMean_kgm3 = val
+        elif name == 'rho_sil_kgm3':
+            Planet.Sil.rhoMean_kgm3 = val
+        elif name == 'rho_core_kgm3':
+            Planet.Core.rhoMean_kgm3 = val
+        elif name == 'GS_condIh_GPa':
+            Planet.Ocean.GScondMean_GPa['Ih'] = val
+        elif name == 'GS_convIh_GPa':
+            Planet.Ocean.GSconvMean_GPa['Ih'] = val
+        elif name == 'GS_sil_GPa':
+            Planet.Sil.GSmean_GPa = val
+        elif name == 'GS_core_GPa':
+            Planet.Core.GSmean_GPa = val
+        elif name == 'kThermWater_WmK':
+            Planet.Ocean.kThermWater_WmK = val
+        elif name == 'kThermIceIh_WmK':
+            Planet.Ocean.kThermIce_WmK['Ih'] = val
+        elif name == 'kThermCore_WmK':
+            Planet.Core.kTherm_WmK = val
+        elif name == 'etaSil_Pas':
+            Planet.Sil.etaRock_Pas = val
+        elif name == 'etaMelt_Pas':
+            Planet.etaMelt_Pas = val
+        elif name == 'TSurf_K':
+            Planet.Bulk.TSurf_K = val
+        elif name == 'EactIceIh_kJmol':
+            Planet.Ocean.Eact_kJmol['Ih'] = val
+        elif name == 'AndradeExponent':
+            Planet.Gravity.andradExponent = val
+        else:
+            log.warning(f'No defined behavior for Planet setting named "{name}". Returning unchanged.')
 
     # Do some final checks to ensure we have set all variables correctly
     if Planet.Do.POROUS_ROCK:

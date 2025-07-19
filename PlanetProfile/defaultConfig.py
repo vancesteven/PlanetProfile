@@ -13,6 +13,7 @@ def configAssign():
 
     Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
     Params.QUIET =         False  # Hides all log messages except warnings and errors
+    Params.PRINT_COMPLETION = True # Print completion message
     Params.QUIET_MOONMAG = True  # If True, sets MoonMag logging level to WARNING, otherwise uses the same as PlanetProfile.
     Params.QUIET_LBF = True  # If True, sets lbftd and mlbspline logging levels to ERROR, otherwise uses the same as PlanetProfile.
     Params.printFmt = '[%(levelname)s] %(message)s'  # Format for printing log messages

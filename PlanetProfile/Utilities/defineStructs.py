@@ -679,7 +679,7 @@ class ReducedPlanetStruct:
 # Construct filenames for data, saving/reloading
 class DataFilesSubstruct:
     def __init__(self, datPath, saveBase, comp, inductBase=None, exploreAppend=None,
-                 inductAppend=None, EXPLORE=False):
+                 inductAppend=None, monteCarloAppend=None, EXPLORE=False):
         if inductBase is None:
             inductBase = saveBase
         if exploreAppend is None:
@@ -690,6 +690,10 @@ class DataFilesSubstruct:
             self.inductAppend = ''
         else:
             self.inductAppend = inductAppend
+        if monteCarloAppend is None:
+            self.monteCarloAppend = ''
+        else:
+            self.monteCarloAppend = monteCarloAppend
 
         self.path = datPath
         self.inductPath = os.path.join(self.path, 'inductionData')
@@ -697,6 +701,8 @@ class DataFilesSubstruct:
         self.fNameSeis = os.path.join(self.seisPath, saveBase)
         self.gravityPath = os.path.join(self.path, 'gravityData')
         self.fNameGravity = os.path.join(self.gravityPath, saveBase)
+        self.montecarloPath = os.path.join(self.path, 'montecarloData')
+        self.fNameMonteCarlo = os.path.join(self.montecarloPath, saveBase)
         if not self.path == '':
             if not os.path.isdir(self.path):
                 os.makedirs(self.path)
@@ -708,6 +714,8 @@ class DataFilesSubstruct:
                 os.makedirs(self.fNameSeis)
             if not os.path.isdir(self.gravityPath):
                 os.makedirs(self.gravityPath)
+            if not os.path.isdir(self.montecarloPath):
+                os.makedirs(self.montecarloPath)
 
         self.fName = os.path.join(self.path, saveBase)
         self.saveFile = self.fName + '.txt'
@@ -735,12 +743,15 @@ class DataFilesSubstruct:
         self.FTdata = os.path.join(self.inductPath, 'Bi1xyzFTdata.mat')
         self.asymFile = self.fNameInduct + '_asymDevs.mat'
         self.Btrajec = os.path.join(self.inductPath, f'{inductBase}{self.inductAppend}.mat')
+        self.montecarloFile = self.fNameMonteCarlo + '_montecarlo.mat'
+        self.montecarloSummaryFile = self.fNameMonteCarlo + '_montecarlo_summary.txt'
+        self.montecarloResultsFile = self.fNameMonteCarlo + '_montecarlo_results.csv'
 
 
 # Construct filenames for figures etc.
 class FigureFilesSubstruct:
-    def __init__(self, figPath, figBase, xtn, comp=None, exploreBase=None, inductBase=None,
-                 exploreAppend=None, inductAppend=None, flybys=None):
+    def __init__(self, figPath, figBase, xtn, comp=None, exploreBase=None, inductBase=None,monteCarloBase=None,
+                 exploreAppend=None, inductAppend=None, monteCarloAppend=None,flybys=None):
         if inductBase is None:
             self.inductBase = figBase
         else:
@@ -749,6 +760,10 @@ class FigureFilesSubstruct:
             self.exploreBase = figBase
         else:
             self.exploreBase = exploreBase
+        if monteCarloBase is None:
+            self.monteCarloBase = figBase
+        else:
+            self.monteCarloBase = monteCarloBase
         if comp is None:
             self.comp = ''
         else:
@@ -761,6 +776,10 @@ class FigureFilesSubstruct:
             self.inductAppend = ''
         else:
             self.inductAppend = inductAppend
+        if monteCarloAppend is None:
+            self.monteCarloAppend = ''
+        else:
+            self.monteCarloAppend = monteCarloAppend
         if flybys is None:
             self.flybys = {'none': {'NA': ''}}
         else:
@@ -768,13 +787,17 @@ class FigureFilesSubstruct:
         self.xtn = xtn
         self.path = figPath
         self.inductPath = os.path.join(self.path, 'induction')
+        self.montecarloPath = os.path.join(self.path, 'montecarlo')
         if not self.path == '' and not os.path.isdir(self.path):
             os.makedirs(self.path)
         if not self.path == '' and not os.path.isdir(self.inductPath):
             os.makedirs(self.inductPath)
+        if not self.path == '' and not os.path.isdir(self.montecarloPath):
+            os.makedirs(self.montecarloPath)
         self.fName = os.path.join(self.path, figBase)
         self.fNameInduct = os.path.join(self.inductPath, self.inductBase + self.comp + self.inductAppend)
         self.fNameExplore = os.path.join(self.path, self.exploreBase)
+        self.fNameMonteCarlo = os.path.join(self.montecarloPath, self.monteCarloBase)
         self.fNameFlybys = os.path.join(self.inductPath, self.inductBase, os.path.dirname(figPath))
 
         # Figure filename strings
@@ -857,6 +880,12 @@ class FigureFilesSubstruct:
                                  for fbID, fbName in fbList.items()} for scName, fbList in self.flybys.items()}
         self.AlfvenWing = {scName: {fbID: f'{self.fNameFlybys}{AlfvenWing}{scName}{fbName}{self.xtn}'
                                  for fbID, fbName in fbList.items()} for scName, fbList in self.flybys.items()}
+        
+        # Monte Carlo figure filenames
+        self.montecarloDistributions = f'{self.fNameMonteCarlo}_distributions{self.xtn}'
+        self.montecarloCorrelations = f'{self.fNameMonteCarlo}_correlations{self.xtn}'
+        self.montecarloResults = f'{self.fNameMonteCarlo}_results{self.xtn}'
+        self.montecarloTiming = f'{self.fNameMonteCarlo}_timing{self.xtn}'
     def comparisonFileGenerator(self, Planet1Title, Planet2Title, plot_type):
         """
         Generate comparison file names between two planet name inputs with the given file extension. Used for generating comparison pdfs
@@ -1174,6 +1203,67 @@ class ExplorationStruct:
         self.chiSquared = None  # Chi-squared parameter, the squared residuals divided by the number of degrees of freedom
         self.stdDev = None  # Standard deviation of data from overall mean
         self.Rsquared = None  # R^2 goodness-of-fit parameter
+
+
+""" Monte Carlo results struct """
+class MonteCarloStruct:
+    def __init__(self):
+        self.bodyname = None  # Name of body modeled.
+        self.nRuns = None  # Number of Monte Carlo runs performed.
+        self.nSuccess = None  # Number of successful runs.
+        self.successRate = None  # Success rate as a fraction.
+        self.paramsUsed = None  # List of parameter names that were varied.
+        self.paramsToSearch = None  # List of parameters that were searched over.
+        self.paramsRanges = None  # Dictionary of parameter ranges used.
+        self.paramsDistributions = None  # Dictionary of distribution types used.
+        self.totalTime_s = None  # Total execution time in seconds.
+        self.avgTime_s = None  # Average time per model in seconds.
+        self.seed = None  # Random seed used for reproducibility.
+        
+        # Parameter distributions (sampled values)
+        self.paramValues = None  # Dictionary of parameter name: array of sampled values
+        
+        # Results from successful runs
+        self.CMR2calc = None  # Array of calculated C/MR^2 values
+        self.Mtot_kg = None  # Array of total mass values in kg
+        self.k2_love = None  # Array of k2 Love numbers
+        self.h2_love = None  # Array of h2 Love numbers
+        self.l2_love = None  # Array of l2 Love numbers
+        self.D_km = None  # Array of ocean thickness values in km
+        self.zb_km = None  # Array of ice shell thickness values in km
+        self.runtimePerModel_s = None  # Array of runtime per model in seconds
+        self.VALID = None  # Array of validity flags for each run
+        self.invalidReason = None  # Array of reasons for invalid runs
+        
+        # Additional results that may be of interest
+        self.Rcore_km = None  # Array of core radius values in km
+        self.rhoOceanMean_kgm3 = None  # Array of mean ocean density values
+        self.rhoSilMean_kgm3 = None  # Array of mean silicate density values
+        self.rhoCoreMean_kgm3 = None  # Array of mean core density values
+        self.sigmaMean_Sm = None  # Array of mean ocean conductivity values
+        self.Tmean_K = None  # Array of mean ocean temperature values
+
+
+""" Monte Carlo parameter options """
+class MonteCarloParamsStruct:
+    def __init__(self):
+        self.nRuns = 1000  # Number of Monte Carlo runs to perform
+        self.seed = None  # Random seed for reproducibility
+        self.useParallel = True  # Whether to use parallel processing
+        
+        # Parameters to search over for different model types
+        self.paramsToSearchSelfConsistent = []  # Parameters for self-consistent models
+        self.paramsToSearchNonSelfConsistent = []  # Parameters for non-self-consistent models
+        
+        # Parameter distributions and ranges
+        self.paramsDistributions = {}  # Dictionary of parameter name: distribution type
+        self.paramsRanges = {}  # Dictionary of parameter name: [min, max] range
+        
+        # Output settings
+        self.saveResults = True  # Whether to save results to file
+        self.showPlots = True  # Whether to display plots
+        self.plotDistributions = True  # Whether to plot parameter distributions
+        self.plotCorrelations = True  # Whether to plot parameter correlations
 
 
 """ Figure color options """
