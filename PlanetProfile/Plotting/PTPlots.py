@@ -5,16 +5,14 @@ import logging
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.axes import Axes
-from matplotlib.colors import LinearSegmentedColormap as DiscreteCmap, to_rgb, BoundaryNorm
-from matplotlib.colors import TwoSlopeNorm
-from scipy.interpolate import interp1d
+from matplotlib.colors import LinearSegmentedColormap as DiscreteCmap, to_rgb, BoundaryNorm, ListedColormap, TwoSlopeNorm
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv, GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Utilities.defineStructs import Constants
 from typing import Optional, List
-
+import reaktoro as rkt
 import itertools
 import copy
 
@@ -35,8 +33,16 @@ def PlotHydrosphereSpecies(PlanetList, Params):
     if not Planet.Do.NO_H2O and 'CustomSolution' in Planet.Ocean.comp:
         fig = plt.figure(figsize=FigSize.vhydroSpecies)
         grid = GridSpec(4, 2)
-        allspeciesax = fig.add_subplot(grid[0:3, 0])
-        aqueouspseciesax = fig.add_subplot(grid[0:3, 1])
+        # Get supcrt database to check phase type
+        supcrt_database = rkt.SupcrtDatabase(Params.CustomSolution.SUPCRT_DATABASE)
+        speciesPhase = [supcrt_database.species(species).aggregateState() for species in Planet.Ocean.aqueousSpecies]
+        if np.any([speciesPhase[i] == rkt.AggregateState.Solid for i in range(len(speciesPhase))]):
+            solidAx = True
+            solidspeciesax = fig.add_subplot(grid[0:3, 0])
+            aqueousSpeciesAx = fig.add_subplot(grid[0:3, 1])
+        else:
+            solidAx = False
+            aqueousSpeciesAx = fig.add_subplot(grid[0:3, 0:2])
         # If we have a reaction with affinities to plot, then we should split the second axis into two columns
         plot_reaction_marker = Planet.Ocean.reaction != "NaN"
         if plot_reaction_marker:
@@ -47,13 +53,18 @@ def PlotHydrosphereSpecies(PlanetList, Params):
         # If not, then just plot pH
         else:
             pHax = fig.add_subplot(grid[3, :])
-        axs = [allspeciesax, aqueouspseciesax]
-        if Style.GRIDS:
-            allspeciesax.grid()
-            allspeciesax.set_axisbelow(True)
-        allspeciesax.set_xlabel(FigLbl.allOceanSpeciesLabel)
-        allspeciesax.set_ylabel(FigLbl.zLabel)
-        aqueouspseciesax.set_xlabel(FigLbl.aqueousSpeciesLabel)
+        if solidAx:
+            axs = [solidspeciesax, aqueousSpeciesAx]
+            solidspeciesax.set_xlabel(FigLbl.solidSpeciesLabel)
+            solidspeciesax.set_ylabel(FigLbl.zLabel)
+        else:
+            axs = [aqueousSpeciesAx]
+            aqueousSpeciesAx.set_ylabel(FigLbl.zLabel)
+        aqueousSpeciesAx.set_xlabel(FigLbl.aqueousSpeciesLabel)
+        for ax in axs:
+            if Style.GRIDS:
+                ax.grid()
+                ax.set_axisbelow(True)
         pHax.set_xlabel(FigLbl.zLabel)
         pHax.set_ylabel(FigLbl.pHLabel)
 
@@ -68,64 +79,77 @@ def PlotHydrosphereSpecies(PlanetList, Params):
             # Set overall figure title
             if Params.TITLES:
                 fig.suptitle(
-                    f'{PlanetList[0].name}{FigLbl.hydroSpeciesTitle}')
-            # Get all relevant species to plot and their speciation
-            relevant_species_to_plot = []
-            relevant_indices_of_species_to_plot = []
-            for index, value in enumerate(Planet.Ocean.aqueousSpecies):
-                if value not in FigMisc.excludeSpeciesFromHydrospherePlot:
-                    relevant_species_to_plot.append(value)
-                    relevant_indices_of_species_to_plot.append(index)
-            relevant_species_amount_to_plot = Planet.Ocean.aqueousSpeciesAmount_mol[relevant_indices_of_species_to_plot]
+                    f'{PlanetList[0].bodyname} {PlanetList[0].label},{FigLbl.hydroSpeciesTitle}')
             ocean_depth = Planet.z_m[indsLiq]
+            
             # Go through each species and plot
-            for i, species in enumerate(relevant_species_to_plot):
-                speciesAmountData = relevant_species_amount_to_plot[i]
+            text_objects = []  # Store text objects for adjust_text if available
+            
+            for i, species in enumerate(Planet.Ocean.aqueousSpecies):
+                speciesAmountData = Planet.Ocean.aqueousSpeciesAmount_mol[i]
+                species_phase = ''
+                if supcrt_database.species(species).aggregateState() == rkt.AggregateState.Aqueous:
+                    species_phase = 'aqueous'
+                elif supcrt_database.species(species).aggregateState() == rkt.AggregateState.Gas:
+                    species_phase = 'gas'
+                else:
+                    species_phase = 'solid'
+                if FigMisc.TEX_INSTALLED:
+                    species_name = re.sub(r'(\w)(\+|\-)(\d+)', r'\1^{\3\2}', species)
+                    species_label = rf"$\ce{{{species_name}}}$"
+                else:
+                    species_label = species
                 # Plot species labels - But only if they are above FigMisc.minThreshold
-                indices_above_min_threshold = np.where(speciesAmountData > FigMisc.minThreshold)[0]
-                x_label_pos = speciesAmountData[indices_above_min_threshold[0]] if (
-                        indices_above_min_threshold.size > 0) else -1
-                if x_label_pos >= 0:
-                    species_phase = ''
-                    if any(aqueousSpeciesToPlot in species for aqueousSpeciesToPlot in
-                           FigMisc.aqueousSpeciesLabels):
-                        species_phase = 'aqueous'
-                    elif any(aqueousSpeciesToPlot in species for aqueousSpeciesToPlot in
-                           FigMisc.gasSpeciesLabels):
-                        species_phase = 'gas'
-                    else:
-                        species_phase = 'solid'
-                    if FigMisc.TEX_INSTALLED:
-                        species_name = re.sub(r'(\w)(\+|\-)(\d+)', r'\1^{\3\2}', species)
-                        species_label = rf"$\ce{{{species_name}}}$"
-                    else:
-                        species_label = species
+                if species_phase == 'solid':
+                    indices_above_min_threshold = np.where(speciesAmountData > FigMisc.minVolSolidThreshold_cm3)[0]
+                    x_label_pos = speciesAmountData[indices_above_min_threshold[0]] if (
+                            indices_above_min_threshold.size > 0) else -1
+                else:
+                    # Plot species labels - But only if they are above FigMisc.minThreshold
+                    indices_above_min_threshold = np.where(speciesAmountData > FigMisc.minAqueousThreshold)[0]
+                    x_label_pos = speciesAmountData[indices_above_min_threshold[0]] if (
+                            indices_above_min_threshold.size > 0) else -1
+                if x_label_pos >= 0 and species not in FigMisc.excludeSpeciesFromHydrospherePlot:
                     style = Style.LS_hydroSpecies[species_phase]
                     linewidth = Style.LW_hydroSpecies[species_phase]
-                    color = Color.cmap['hydroSpecies'](i % len(relevant_species_to_plot))
-                    line, = allspeciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style, color=color, linewidth = linewidth)
-                    y_label_pos = ocean_depth[
-                        (i*3) % len(ocean_depth)] / 1e3  # y position of the end of the line
-                    allspeciesax.text(x_label_pos, y_label_pos, species_label,
-                                      color=line.get_color(),
-                                      verticalalignment='bottom',
-                                      horizontalalignment='right',
-                                      fontsize=FigLbl.speciesSize)
-                    if any(aqueousSpeciesToPlot in species for aqueousSpeciesToPlot in
-                           FigMisc.aqueousSpeciesLabels):
-                        aqueouspseciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style, color=color, linewidth = linewidth)
-                        if x_label_pos >= 0:
-                            y_label_pos = ocean_depth[(i * 3) % len(
-                                ocean_depth)] / 1e3  # y position of the end of the line
-                            aqueouspseciesax.text(x_label_pos, y_label_pos, species_label,
-                                                  color=line.get_color(),
-                                                  verticalalignment='bottom',
-                                                  horizontalalignment='right',
-                                                  fontsize=FigLbl.speciesSize)
+                    cmap = Color.cmap['hydroSpecies']
+                    if isinstance(cmap, ListedColormap):
+                        nColors = len(cmap.colors)
+                        color = Color.cmap['hydroSpecies'](i % nColors)
+                    else:
+                        color = Color.cmap['hydroSpecies'](i % len(Planet.Ocean.aqueousSpecies)) / len(Planet.Ocean.aqueousSpecies)
+                    if species_phase == 'solid':
+                        line, = solidspeciesax.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style, color=color, linewidth = linewidth)
+                        valid_ocean_depth = ocean_depth[np.where(speciesAmountData > FigMisc.minVolSolidThreshold_cm3)[0]]
+                        y_label_pos = valid_ocean_depth[
+                            (i*3) % len(valid_ocean_depth)] / 1e3  # y position of the end of the line
+                        # Add text to all species axis
+                        text_obj = solidspeciesax.text(x_label_pos, y_label_pos, species_label,
+                                        color=line.get_color(),
+                                        verticalalignment='bottom',
+                                        horizontalalignment='center',
+                                        fontsize=FigLbl.speciesSize, bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.5, edgecolor='none'), zorder=10)
+                        text_objects.append(text_obj)
+                    elif species_phase == 'aqueous':
+                            line, = aqueousSpeciesAx.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style, color=color, linewidth = linewidth)
+                            if x_label_pos >= 0:
+                                y_label_pos = ocean_depth[(i * 7) % len(
+                                    ocean_depth)] / 1e3  # y position of the end of the line
+                                aqueousSpeciesAx.text(x_label_pos, y_label_pos, species_label,
+                                                    color=line.get_color(),
+                                                    verticalalignment='bottom',
+                                                    horizontalalignment='center',
+                                                    fontsize=FigLbl.speciesSize,
+                                                    bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.5, edgecolor='none'), zorder=10)
+            
+            
             for ax in axs:
                 ax.set_xscale('log')
                 current_xlim = ax.get_xlim()
-                new_xmin = max(current_xlim[0], FigMisc.minThreshold)
+                if solidAx and ax == solidspeciesax: 
+                    new_xmin = max(current_xlim[0], FigMisc.minVolSolidThreshold_cm3)
+                else:
+                    new_xmin = max(current_xlim[0], FigMisc.minAqueousThreshold)
                 new_xmax = 10 ** np.ceil(np.log10(current_xlim[1]))
                 ax.set_xlim([new_xmin, new_xmax])
                 ax.invert_yaxis()

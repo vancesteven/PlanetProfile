@@ -1005,32 +1005,47 @@ class RktPhaseLookup:
             ptsh = (P_MPa_above_200_MPa.size, T_K.size)
             max_phase_num = max([p for p in Constants.seafreeze_ice_phases.keys()])
             comp = np.full(ptsh + (max_phase_num + 1,), np.nan)
+            sfz_Pmin = np.min(P_MPa_above_200_MPa)
+            sfz_Pmax = np.max(P_MPa_above_200_MPa)
+            sfz_Tmin = np.min(T_K)
+            sfz_Tmax = np.max(T_K)
+            sfz_deltaP = np.round(np.mean(np.diff(P_MPa_above_200_MPa)), 2)
+            sfz_deltaT = np.round(np.mean(np.diff(T_K)), 2)
+            seafreezeRange = f'Pmin_{sfz_Pmin}_Pmax_{sfz_Pmax}_Tmin_{sfz_Tmin}_Tmax_{sfz_Tmax}_deltaP_{sfz_deltaP}_deltaT_{sfz_deltaT}'
+            seafreezeMuTag = f'mu_J_mol_{seafreezeRange}'
             
             for phase, name in Constants.seafreeze_ice_phases.items():
                 if phase == 0:
                     mu_J_mol = mu_function_above_200_MPa(evalPts_RGI).T
                 else:
-                    # Ensure we handle single value arrays properly
-                    if P_MPa_above_200_MPa.size == 1 or T_K.size == 1:
-                        # Create a proper grid for seafreeze to work with
-                        sfz_P, sfz_T = np.meshgrid(P_MPa_above_200_MPa, T_K, indexing='ij')
-                        sfz_PT = np.array([sfz_P.flatten(), sfz_T.flatten()], dtype=object)
-                        mu_J_mol = sfz.getProp(sfz_PT, name).G * Constants.m_gmol['H2O'] / 1000
-                        mu_J_mol = mu_J_mol.reshape(sfz_P.shape)
+                    seafreezeMuPhaseTag = f'{seafreezeMuTag}_{name}'
+                    if seafreezeMuPhaseTag in EOSlist.loaded.keys():
+                        mu_J_mol = EOSlist.loaded[seafreezeMuPhaseTag]
                     else:
-                        try:
-                            mu_J_mol = sfz.getProp(evalPts_sfz, name).G * Constants.m_gmol['H2O'] / 1000
-                        except:
-                            from seafreeze.seafreeze import defpath, _get_tdvs, _is_scatter
-                            from seafreeze.seafreeze import phases as seafreeze_phases
-                            from mlbspline import load
-                            phasedesc = seafreeze_phases[name]
-                            sp = load.loadSpline(defpath, phasedesc.sp_name)
-                            # Calc density and isentropic bulk modulus
-                            isscatter = _is_scatter(evalPts_sfz)
-                            tdvs = _get_tdvs(sp, evalPts_sfz, isscatter)
-                            mu_J_mol = tdvs.G * Constants.m_gmol['H2O'] / 1000
-                            #raise ValueError(f"Error in seafreeze calculation for phase {name}. Check the input values {mu_J_mol}.")
+                        # Ensure we handle single value arrays properly
+                        if P_MPa_above_200_MPa.size == 1 or T_K.size == 1:
+                            # Create a proper grid for seafreeze to work with
+                            sfz_P, sfz_T = np.meshgrid(P_MPa_above_200_MPa, T_K, indexing='ij')
+                            sfz_PT = np.array([sfz_P.flatten(), sfz_T.flatten()], dtype=object)
+                            mu_J_mol = sfz.getProp(sfz_PT, name).G * Constants.m_gmol['H2O'] / 1000
+                            mu_J_mol = mu_J_mol.reshape(sfz_P.shape)
+                            # Save the grid to the EOSlist for future reference
+                            EOSlist.loaded[seafreezeMuTag] = mu_J_mol
+                        else:
+                            try:
+                                mu_J_mol = sfz.getProp(evalPts_sfz, name).G * Constants.m_gmol['H2O'] / 1000
+                            except:
+                                from seafreeze.seafreeze import defpath, _get_tdvs, _is_scatter
+                                from seafreeze.seafreeze import phases as seafreeze_phases
+                                from mlbspline import load
+                                phasedesc = seafreeze_phases[name]
+                                sp = load.loadSpline(defpath, phasedesc.sp_name)
+                                # Calc density and isentropic bulk modulus
+                                isscatter = _is_scatter(evalPts_sfz)
+                                tdvs = _get_tdvs(sp, evalPts_sfz, isscatter)
+                                mu_J_mol = tdvs.G * Constants.m_gmol['H2O'] / 1000
+                                #raise ValueError(f"Error in seafreeze calculation for phase {name}. Check the input values {mu_J_mol}.")
+                        EOSlist.loaded[seafreezeMuPhaseTag] = mu_J_mol
                 sl = tuple(repeat(slice(None), 2)) + (phase,)
                 comp[sl] = np.squeeze(mu_J_mol)
             all_nan_sl = np.all(np.isnan(comp), -1)  # Find slices where all values are nan along the innermost axis
@@ -1211,7 +1226,8 @@ class RktHydroSpecies():
         state = initial_state.clone()
         # Prepare lists for pH and species amounts
         pH_list = []
-        species_list = [[] for _ in range(len(system.species()))]
+        species_amount_list = [[] for _ in range(len(system.species()))]
+        species_volume_list = [[] for _ in range(len(system.species()))]
         species_names = np.array([species.name() for species in system.species()])  # Extract species names
         for P, T in zip(P_MPa, T_K):
             conditions.pressure(P, "MPa")
@@ -1228,18 +1244,21 @@ class RktHydroSpecies():
                 aprops = rkt.AqueousProps(props)
                 pH_list.append(float(aprops.pH()))
                 for k, species in enumerate(system.species()):
-                    species_list[k].append(float(state.speciesAmount(species.name())))
+                    if species.aggregateState() != rkt.AggregateState.Aqueous:
+                        species_amount_list[k].append(float(props.phaseProps(species.name()).volume())*100**3)
+                    else:
+                        species_amount_list[k].append(float(state.speciesAmount(species.name())))
             else:
                 # If we fail to find equilibrium, let's just append the pH from last successful attempt
                 log.warning(f"Failed to find equilibrium at {P} MPa and {T} K. Filling with NaN.")
                 pH_list.append(np.nan)
                 for k in range(len(system.species())):
-                    species_list[k].append(np.nan)
+                    species_amount_list[k].append(np.nan)
                 # Reset after each temperature
                 state = initial_state.clone()
         # Convert lists to arrays
         pH_array = np.array(pH_list)
-        species_array = np.array(species_list)
+        species_array = np.array(species_amount_list)
 
         # Log time it took to calculate speciation
         end_time = time.time()
@@ -1305,6 +1324,12 @@ class RktRxnAffinity():
 
         # Keep track of time it takes to do calculation
         start_time = time.time()
+        
+        # We need to increase the minimum mol treshold if we looking at small concentratiosn to prevent numerical errors since reaktoro,by default, increases all concentrations to 1e-16 even if they are below this number
+        if np.any([value < 1e-10 for value in rxn_disequilibrium_concentrations.values()]):
+            alwaysRecalculateState = True
+        else:
+            alwaysRecalculateState = False
         # Establish supcrt generator
         db, system, initial_state, conditions, solver, props = SupcrtGenerator(aqueous_species_list,
                                                                        speciation_ratio_mol_per_kg,
@@ -1335,12 +1360,13 @@ class RktRxnAffinity():
                 props.update(state)
                 # Calculate K equilibrium constant
                 K = self.calculate_reaction_quotient(props, reaction)
-
                 # Calculate affinity
                 R = 8.31446
                 A = 2.3026 * R * T * (np.log10(K) - np.log10(Q)) / 1000  # Affinity in kJ
                 # Store the affinity (A)
                 affinity_kJ.append(A)
+                if alwaysRecalculateState:
+                    state = initial_state.clone()
             else:
                 log.warning(f"Failed to find equilibrium at {P} MPa and {T} K. Filling with NaN.")
                 affinity_kJ.append(np.nan)
@@ -1364,10 +1390,12 @@ class RktRxnAffinity():
         # Multiply activities raised to their stoichiometric coefficients for products
         for species, coefficient in reaction["products"].items():
             speciesActivity = float(prop.speciesActivity(species))
+            log.debug(f"Species {species} activity: {speciesActivity}")
             Q_numerator *= speciesActivity ** coefficient
         # Multiply activities raised to their stoichiometric coefficients for reactants
         for species, coefficient in reaction["reactants"].items():
             speciesActivity = float(prop.speciesActivity(species))
+            log.debug(f"Species {species} activity: {speciesActivity}")
             Q_denominator *= speciesActivity ** coefficient
 
         # Calculate the reaction quotient Q

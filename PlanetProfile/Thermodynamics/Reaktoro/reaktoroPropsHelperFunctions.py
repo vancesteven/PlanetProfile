@@ -157,6 +157,7 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     # Set # of iterations to use
     options =rkt.EquilibriumOptions()
     options.optima.maxiters = iterations
+
     solver.setOptions(options)
     # Create a chemical state and its associated properties
     state = rkt.ChemicalState(system)

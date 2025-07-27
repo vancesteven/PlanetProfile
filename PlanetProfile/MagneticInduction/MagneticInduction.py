@@ -66,7 +66,7 @@ def MagneticInduction(Planet, Params, fNameOverride=None):
             Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
         Planet.Magnetic.calcedExc = []
     else:
-        if not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS):
+        if not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS):
             if Params.PLOT_MAG_SPECTRUM:
                 Planet = FourierSpectrum(Planet, Params)
 
@@ -155,25 +155,25 @@ def CalcInducedMoments(Planet, Params):
                 Planet.Magnetic.Aen[SCera][:,1], Planet.Magnetic.Amp[SCera], AeArg[SCera] \
                     = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                              Planet.Magnetic.omegaExc_radps[SCera], 1/Planet.Bulk.R_m, nn=1, writeout=False,
-                             do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+                             do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS))
                 Planet.Magnetic.phase[SCera] = -np.degrees(AeArg[SCera])
                 for n in range(2, Planet.Magnetic.nprmMax):
                     Planet.Magnetic.Aen[SCera][:,n], _, _ \
                         = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                                  Planet.Magnetic.omegaExc_radps[SCera], 1/Planet.Bulk.R_m, nn=n, writeout=False,
-                                 do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+                                 do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS))
 
         else:
             Planet.Magnetic.Aen[:,1], Planet.Magnetic.Amp, AeArg \
                 = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                          Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=1, writeout=False,
-                         do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+                         do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS))
             Planet.Magnetic.phase = -np.degrees(AeArg)
             for n in range(2, Planet.Magnetic.nprmMax):
                 Planet.Magnetic.Aen[:,n], _, _ \
                     = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                              Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=n, writeout=False,
-                             do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+                             do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS  ))
 
         if Params.CALC_ASYM:
             # Use a separate function for evaluating asymmetric induced moments, as Binm is not as simple as
@@ -185,7 +185,7 @@ def CalcInducedMoments(Planet, Params):
                                                      Planet.Magnetic.gravShape_m, Planet.Magnetic.Benm_nT[SCera], 1/Planet.Bulk.R_m,
                                                      Planet.Magnetic.nLin, Planet.Magnetic.mLin, Planet.Magnetic.pMax,
                                                      nprm_max=Planet.Magnetic.nprmMax, writeout=False,
-                                                     do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS),
+                                                     do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS),
                                                      Xid=Planet.Magnetic.Xid)
             else:
                 Planet.Magnetic.Binm_nT = BiAsym(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
@@ -193,7 +193,7 @@ def CalcInducedMoments(Planet, Params):
                                                  Planet.Magnetic.gravShape_m, Planet.Magnetic.Benm_nT, 1/Planet.Bulk.R_m,
                                                  Planet.Magnetic.nLin, Planet.Magnetic.mLin, Planet.Magnetic.pMax,
                                                  nprm_max=Planet.Magnetic.nprmMax, writeout=False,
-                                                 do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS),
+                                                 do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS),
                                                  Xid=Planet.Magnetic.Xid)
         else:
             # Multiply complex response by Benm to get Binm for spherically symmetric case
@@ -249,7 +249,7 @@ def CalcInducedMoments(Planet, Params):
                                  if CALCED and key in Excitations.Texc_hr[Planet.bodyname].keys()
                                  and Excitations.Texc_hr[Planet.bodyname][key] is not None]
     # Save calculated magnetic moments to disk
-    if (not Params.NO_SAVEFILE) and (not Params.INVERSION_IN_PROGRESS):
+    if (not Params.NO_SAVEFILE) and (not Params.INVERSION_IN_PROGRESS or not Params.MONTECARLO_IN_PROGRESS):
         saveDict = {
             'Benm_nT': Planet.Magnetic.Benm_nT,
             'Binm_nT': Planet.Magnetic.Binm_nT,
@@ -589,7 +589,7 @@ def SetupInduction(Planet, Params):
             Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, 1, 1))
         
         # Get excitation spectrum
-        if not (Params.DO_INDUCTOGRAM or Params.INVERSION_IN_PROGRESS):
+        if not (Params.DO_INDUCTOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS):
             # Block if we're doing an inductogram or inversion, so that we only attempt to load once
             Planet.Magnetic.Texc_hr, Planet.Magnetic.omegaExc_radps, Planet.Magnetic.Benm_nT, \
             Planet.Magnetic.B0_nT, Planet.Magnetic.Bexyz_nT \

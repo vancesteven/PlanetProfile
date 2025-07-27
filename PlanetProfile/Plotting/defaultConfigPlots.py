@@ -444,6 +444,13 @@ def plotAssign():
     FigMisc.DSIGMA_COMP_LINE_ALPHA = 0.7 # Alpha transparency for composition lines in D/sigma plots
     FigMisc.DSIGMA_ICE_LEGEND_FONT_SIZE = 8 # Font size for ice thickness legend entries
     FigMisc.DSIGMA_ICE_LEGEND_TITLE_SIZE = 10 # Font size for ice thickness legend title
+    
+    # Monte Carlo scatter plot ice thickness highlighting
+    FigMisc.HIGHLIGHT_ICE_THICKNESSES = True  # Whether to highlight specific ice shell thicknesses in scatter plots
+    FigMisc.ICE_THICKNESSES_TO_SHOW = [30]  # List of ice shell thicknesses in km to highlight
+    FigMisc.ICE_THICKNESS_TOLERANCE = 1.0  # Tolerance in km for matching ice thicknesses
+    FigMisc.SCATTER_DOT_SIZE = 10 # Size of scatter dots
+    FigMisc.DIMMED_ALPHA = 0.01  # Alpha value for non-highlighted points when ice thickness highlighting is enabled
     FigMisc.DSIGMA_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries
     FigMisc.DSIGMA_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title
     FigMisc.DSIGMA_MAX_LEGEND_ENTRIES = 10 # Maximum number of entries to show in ice thickness legend

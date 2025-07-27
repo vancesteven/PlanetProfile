@@ -38,7 +38,7 @@ def GeneratePlots(PlanetList, Params):
         PlotGravPres(PlanetList, Params)
     if Params.PLOT_HYDROSPHERE and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]):
         PlotHydrosphereProps(PlanetList, Params)
-    if Params.PLOT_SPECIES_HYDROSPHERE and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]):
+    if Params.PLOT_SPECIES_HYDROSPHERE and Params.CALC_OCEAN_PROPS and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]):
         PlotHydrosphereSpecies(PlanetList, Params)
    # if Params.PLOT_CUSTOMSOLUTION_EOS_PROPERTIES_TABLE and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]) and np.any(
       #      ["CustomSolution" in Planet.Ocean.comp for Planet in PlanetList]):
@@ -2146,6 +2146,8 @@ def PlotExploreOgramZbD(ExplorationList, Params):
     return
 
 
+
+
 def PlotExploreOgramLoveComparison(ExplorationList, Params):
     """ Plot a scatter showing the evaluated tidal love number k2 versus delta (1+k2-h2),
         for comparison against canonical k2/delta exploration plots.
@@ -2494,4 +2496,113 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
             log.debug(f'Combined Love comparison plot saved to file: {Params.FigureFiles.exploreLoveComparison}')
             plt.close()
 
+    return
+
+def PlotMonteCarloOceanCompositions(MCResults, Params):
+    """ Plot dot histograms of results where each dot represents an ocean composition.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import MaxNLocator
+    
+    if Params.ALLOW_BROKEN_MODELS:
+        log.warning('Params.ALLOW_BROKEN_MODELS is True. Will plot all models, not just successful ones.')
+        validMask = np.ones(MCResults.nRuns, dtype=bool)
+    else:
+        validMask = MCResults.VALID
+    
+    # Get valid ocean compositions and results
+    validOceanComps = MCResults.oceanComp[validMask]
+    
+    # Plot dot histograms of key results grouped by ocean composition
+    resultParams = ['CMR2calc', 'Mtot_kg', 'k2_love', 'h2_love', 'zb_km']
+    nParams = len(resultParams)
+    nCols = 3
+    nRows = int(np.ceil(nParams / nCols))
+    
+    fig, axes = plt.subplots(nRows, nCols, figsize=(12, 6*nRows))
+    if nRows == 1:
+        axes = axes.reshape(1, -1)
+    
+    fig.suptitle(f'Monte Carlo Results by Ocean Composition - {MCResults.bodyname}', fontsize=16)
+    
+    # Get unique ocean compositions for color mapping
+    uniqueComps = np.unique(validOceanComps)
+    
+    # Set up color mapping using coolwarm colormap based on order in paramsRanges
+    oceanCompList = MCResults.paramsRanges['oceanComp']
+    # Convert to list if it's a numpy array
+    if isinstance(oceanCompList, np.ndarray):
+        oceanCompList = oceanCompList.tolist()
+    
+    cmap = plt.cm.coolwarm
+    
+    global_max_count = 0
+    for i, param in enumerate(resultParams):
+        row, col = i // nCols, i % nCols
+        ax = axes[row, col]
+        
+        values = getattr(MCResults, param).flatten()
+        validValues = values[validMask]
+        
+        # Compute global bin edges across all compositions (exclude NaNs)
+        allValidValues = validValues[~np.isnan(validValues)]
+        _, bin_edges = np.histogram(allValidValues, bins=20)
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+        
+        # Create dot histogram for each ocean composition
+        for j, comp in enumerate(uniqueComps):
+            compMask = validOceanComps == comp
+            compValues = validValues[compMask]
+            
+            if len(compValues) > 0:
+                compValues_clean = compValues[~np.isnan(compValues)]
+                hist, _ = np.histogram(compValues_clean, bins=bin_edges)
+                global_max_count = max(global_max_count, np.max(hist))
+                
+                # Set color based on composition order in paramsRanges
+                try:
+                    comp_index = oceanCompList.index(comp)
+                    norm_val = comp_index / (len(oceanCompList) - 1) if len(oceanCompList) > 1 else 0.5
+                    thisColor = cmap(norm_val)
+                except ValueError:
+                    # Fallback if composition not found in paramsRanges
+                    norm_val = j / (len(uniqueComps) - 1) if len(uniqueComps) > 1 else 0.5
+                    thisColor = cmap(norm_val)
+                
+                # Plot dots for each bin
+                for k, (center, count) in enumerate(zip(bin_centers, hist)):
+                    if count > 0:
+                        # Handle composition label formatting
+                        if 'CustomSolution' in comp:
+                            comp_label = comp.split('=')[0].replace('CustomSolution', '')
+                        else:
+                            comp_label = comp
+                        
+                        # Create vertical scatter of dots
+                        ax.scatter(center, count, 
+                        color=thisColor, alpha=0.7, s=40,
+                        label=f'{comp_label}' if k == 0 else "",
+                        marker='o')
+        
+        ax.set_xlabel(param)
+        ax.set_ylabel('Count')
+        ax.set_ylim(0, global_max_count + 2)  # +2 for margin
+        ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+        ax.set_title(f'{param} by Ocean Composition')
+        ax.grid(True, alpha=0.3)
+        
+        # Add legend only to first subplot
+        if i == 0:
+            ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    
+    # Hide unused subplots if any
+    for i in range(nParams, nRows * nCols):
+        row, col = i // nCols, i % nCols
+        axes[row, col].set_visible(False)
+    
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.montecarloOceanComps, format=FigMisc.figFormat, dpi=FigMisc.dpi)
+    log.info(f'Monte Carlo ocean compositions plot saved to: {Params.FigureFiles.montecarloOceanComps}')
+    plt.close()
+    
     return

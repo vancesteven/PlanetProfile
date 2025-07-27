@@ -65,15 +65,13 @@ class OceanEOSStruct:
             kThermConst_WmK = kThermConst_WmK
         # Add ID for melting curve EOS
         if MELT:
-            meltStr = f'melt{np.max(P_MPa)}'
+            meltStr = f'melt'
             meltPrint = 'melting curve '
         else:
             meltStr = ''
             meltPrint = ''
 
-        self.EOSlabel = f'{meltStr}Comp{compstr}wppt{wOcean_ppt}elec{elecType}rho{rhoType}' + \
-                        f'scaling{scalingType}phase{phaseType}extrap{EXTRAP}pore{PORE}' + \
-                        f'hires{LOOKUP_HIRES}etaFixed{etaFixed_Pas}'
+        self.EOSlabel = GetOceanEOSLabel(compstr, wOcean_ppt, elecType, rhoType, scalingType, phaseType, EXTRAP, PORE, LOOKUP_HIRES, etaFixed_Pas, meltStr)
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, FORCE_NEW=FORCE_NEW)
 
@@ -401,9 +399,7 @@ class IceEOSStruct:
                  phiMin_frac=0, EXTRAP=False, ClathDissoc=None, minPres_MPa=None, minTres_K=None,
                  ICEIh_DIFFERENT=False, etaFixed_Pas=None, TviscTrans_K=None, kThermConst_WmK=None, doConstantProps = False, constantProperties = None):
 
-        self.EOSlabel = f'phase{phaseStr}poros{porosType}phi{phiTop_frac}Pclose{Pclosure_MPa}' + \
-                    f'phiMin{phiMin_frac}extrap{EXTRAP}etaFixed{etaFixed_Pas}' + \
-                        f'TviscTrans{TviscTrans_K}'
+        self.EOSlabel = GetIceEOSLabel(phaseStr, porosType, phiTop_frac, Pclosure_MPa, phiMin_frac, EXTRAP, etaFixed_Pas, TviscTrans_K)
         if doConstantProps:
             self.EOSlabel += f'constantProperties{constantProperties}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
@@ -939,6 +935,12 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
     # Create label for identifying P, T arrays
     deltaP = np.maximum(np.round(np.mean(np.diff(P_MPa)), 2), 0.001)
     deltaT = np.maximum(np.round(np.mean(np.diff(T_K)), 2), 0.001)
+    # Override min resolution if set
+    if minPres_MPa is not None and deltaP < minPres_MPa:
+        log.debug(f'deltaP of {deltaP:.2f} MPa less than minimum res setting of {minPres_MPa}. Resetting to {minPres_MPa}.')
+        deltaP = minPres_MPa
+        if minTres_K is not None and deltaT < minTres_K:
+            log.debug(f'deltaT of {deltaT:.2f} K less than minimum res setting of {minTres_K}. Resetting to {minTres_K}.')
     Pmin = np.min(P_MPa)
     Pmax = np.max(P_MPa)
     Tmin = np.min(T_K)
@@ -960,10 +962,10 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
             EOSTmax = EOSlist.loaded[EOSlabel].Tmax
             nopeP = np.min(P_MPa) < EOSPmin * 0.9 or \
                     np.max(P_MPa) > EOSPmax * 1.1 or \
-                    deltaP < EOSlist.loaded[EOSlabel].deltaP * 0.9
+                    deltaP < EOSlist.loaded[EOSlabel].deltaP
             nopeT = np.min(T_K) < EOSTmin - 0.1 or \
                     np.max(T_K) > EOSTmax + 0.1 or \
-                    deltaT < EOSlist.loaded[EOSlabel].deltaT * 0.9
+                    deltaT < EOSlist.loaded[EOSlabel].deltaT
             if nopeP or nopeT:
                 # The new inputs have at least one min/max value outside the range
                 # of the previously loaded EOS, so we have to load a new one.
@@ -1004,13 +1006,6 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
     else:
         # This EOS has not been loaded, so we need to load it with the input parameters
         ALREADY_LOADED = False
-        # Override min resolution if set
-        if minPres_MPa is not None and deltaP < minPres_MPa:
-            log.warning(f'deltaP of {deltaP:.2f} MPa less than minimum res setting of {minPres_MPa}. Resetting to {minPres_MPa}.')
-            deltaP = minPres_MPa
-        if minTres_K is not None and deltaT < minTres_K:
-            log.warning(f'deltaT of {deltaT:.2f} K less than minimum res setting of {minTres_K}. Resetting to {minTres_K}.')
-            deltaT = minTres_K
         rangeLabel = f'{Pmin:.2f},{Pmax:.2f},{deltaP:.2e},' + \
                      f'{Tmin:.3f},{Tmax:.3f},{deltaT:.2e}'
         # Ensure that P_MPa is strictly ascending, namely that {Pmin and Pmax are not the same
@@ -1252,7 +1247,7 @@ def GetTfreeze(oceanEOS, P_MPa, T_K, TfreezeRange_K=50, TRes_K=0.05):
     phaseChange = lambda T: 0.5 - (1 - int(oceanEOS.fn_phase(P_MPa, T) > 0))
 
     try:
-        Tfreeze_K = GetZero(phaseChange, bracket=[T_K, T_K+TfreezeRange_K]).root + TRes_K/5
+        Tfreeze_K = GetZero(phaseChange, bracket=[T_K, T_K+TfreezeRange_K], xtol=abs(TRes_K)).root + TRes_K
     except ValueError:
         raise ValueError(f'No melting temperature was found above {T_K:.3f} K ' +
                          f'for ice {PhaseConv(topPhase)} at pressure {P_MPa:.3f} MPa. ' +
@@ -1421,3 +1416,31 @@ class ViscIceUniform_Pas:
 
         return eta_Pas
 
+
+def GetOceanEOSLabel(compstr, wOcean_ppt, elecType, rhoType, scalingType, phaseType, EXTRAP, PORE, LOOKUP_HIRES, etaFixed_Pas, meltStr):
+    return f'meltStr{meltStr}Comp{compstr}wppt{wOcean_ppt}elec{elecType}rho{rhoType}' + \
+                        f'scaling{scalingType}phase{phaseType}extrap{EXTRAP}pore{PORE}' + \
+                        f'hires{LOOKUP_HIRES}etaFixed{etaFixed_Pas}'
+def DeconstructOceanEOSLabel(EOSlabel):
+    meltStr = EOSlabel.split('meltStr')[1].split('Comp')[0]
+    compstr = EOSlabel.split('Comp')[1].split('wppt')[0]
+    wOcean_ppt = EOSlabel.split('wppt')[1].split('elec')[0]
+    elecType = EOSlabel.split('elec')[1].split('rho')[0]
+    rhoType = EOSlabel.split('rho')[1].split('scaling')[0]
+    scalingType = EOSlabel.split('scaling')[1].split('phase')[0]
+    return meltStr, compstr, wOcean_ppt, elecType, rhoType, scalingType
+
+def GetIceEOSLabel(phaseStr, porosType, phiTop_frac, Pclosure_MPa, phiMin_frac, EXTRAP, etaFixed_Pas, TviscTrans_K):
+    return f'phase{phaseStr}poros{porosType}phi{phiTop_frac}Pclose{Pclosure_MPa}' + \
+                    f'phiMin{phiMin_frac}extrap{EXTRAP}etaFixed{etaFixed_Pas}' + \
+                        f'TviscTrans{TviscTrans_K}'
+def DeconstructIceEOSLabel(EOSlabel):
+    phaseStr = EOSlabel.split('phase')[1].split('poros')[0]
+    porosType = EOSlabel.split('poros')[1].split('phi')[0]
+    phiTop_frac = EOSlabel.split('phi')[1].split('Pclose')[0]
+    Pclosure_MPa = EOSlabel.split('Pclose')[1].split('phiMin')[0]
+    phiMin_frac = EOSlabel.split('phiMin')[1].split('extrap')[0]
+    EXTRAP = EOSlabel.split('extrap')[1].split('etaFixed')[0]
+    etaFixed_Pas = EOSlabel.split('etaFixed')[1].split('TviscTrans')[0]
+    TviscTrans_K = EOSlabel.split('TviscTrans')[1]
+    return phaseStr, porosType, phiTop_frac, Pclosure_MPa, phiMin_frac, EXTRAP, etaFixed_Pas, TviscTrans_K

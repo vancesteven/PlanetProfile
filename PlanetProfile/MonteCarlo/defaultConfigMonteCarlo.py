@@ -93,6 +93,16 @@ def montecarloAssign():
     MonteCarloParams.saveResults = True  # Whether to save results to file
     MonteCarloParams.showPlots = True  # Whether to display plots
     MonteCarloParams.plotDistributions = True  # Whether to plot parameter distributions
+    MonteCarloParams.plotResults = True  # Whether to plot Monte Carlo results distributions
+    MonteCarloParams.plotOceanComps = False  # Whether to plot results by ocean composition
     MonteCarloParams.plotCorrelations = True  # Whether to plot parameter correlations
+    MonteCarloParams.plotScatter = False  # Whether to plot scatter plots of parameter pairs
+    MonteCarloParams.scatterParams = [['k2_love', 'Amp'], ['h2_love', 'phase']]  # Parameter pairs to plot
+    MonteCarloParams.excSelectionScatter = {  # Which magnetic excitations to include in scatter plots
+        'orbital': True,  # Key excitation
+        'synodic': True,  # Key excitation  
+        'synodic 2nd': False,
+        'true anomaly': False
+    }
     
     return MonteCarloParams

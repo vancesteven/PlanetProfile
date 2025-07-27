@@ -17,43 +17,49 @@ def LiquidOceanPropsCalcs(Planet, Params):
     """
     # Only perform calculations if this is a valid profile
     if (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and not Planet.Do.NON_SELF_CONSISTENT:
-        # Identify indices of liquid phases
-        indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
-            indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
-            indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
-            indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
-            indsFe = GetPhaseIndices(Planet.phase)
+        if Params.CALC_OCEAN_PROPS:
+            # Identify indices of liquid phases
+            indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
+                indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
+                indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
+                indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
+                indsFe = GetPhaseIndices(Planet.phase)
 
-        if not Planet.Do.NO_OCEAN and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
-            POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
-            TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
-            Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
-                               Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
-                               scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
-                               phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                               sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
-        # Check if we have liquid phases
-        if np.size(indsLiq) != 0:
-            # If so, then get pH and speciation of ocean
-            Planet.Ocean.Bulk_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = (
-                Planet.Ocean.EOS.fn_species(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq]))
-            Planet.Ocean.Mean_pH = np.mean(Planet.Ocean.Bulk_pHs)
-            if "CustomSolution" in Planet.Ocean.comp and Planet.Ocean.reaction is not None:
-                Planet.Ocean.affinity_kJ = Planet.Ocean.EOS.fn_rxn_affinity(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq], Planet.Ocean.reaction, Planet.Ocean.reactionDisequilibriumConcentrations)
-                Planet.Ocean.affinityMean_kJ = np.mean(Planet.Ocean.affinity_kJ)
-                Planet.Ocean.affinitySeafloor_kJ = Planet.Ocean.affinity_kJ[-1]
+            if not Planet.Do.NO_OCEAN and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
+                POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
+                TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
+                Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
+                                Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
+                                scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
+                                phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
+                                sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
+            # Check if we have liquid phases
+            if np.size(indsLiq) != 0:
+                # If so, then get pH and speciation of ocean
+                Planet.Ocean.Bulk_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = (
+                    Planet.Ocean.EOS.fn_species(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq]))
+                Planet.Ocean.Mean_pH = np.mean(Planet.Ocean.Bulk_pHs)
+                Planet.Ocean.pHSeafloor = Planet.Ocean.Bulk_pHs[-1]
+                if "CustomSolution" in Planet.Ocean.comp and Planet.Ocean.reaction is not None:
+                    Planet.Ocean.affinity_kJ = Planet.Ocean.EOS.fn_rxn_affinity(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq], Planet.Ocean.reaction, Planet.Ocean.reactionDisequilibriumConcentrations)
+                    Planet.Ocean.affinityMean_kJ = np.mean(Planet.Ocean.affinity_kJ)
+                    Planet.Ocean.affinitySeafloor_kJ = Planet.Ocean.affinity_kJ[-1]
+                else:
+                    Planet.Ocean.affinity_kJ = (np.zeros(np.size(indsLiq))) * np.nan
+                    Planet.Ocean.affinitySeafloor_kJ = np.nan
+                    Planet.Ocean.affinityMean_kJ = np.nan
+                    Planet.Ocean.reaction = 'NaN'
+                    Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN'
             else:
-                Planet.Ocean.affinity_kJ = (np.zeros(np.size(indsLiq))) * np.nan
-                Planet.Ocean.affinitySeafloor_kJ = np.nan
-                Planet.Ocean.affinityMean_kJ = np.nan
+                Planet.Ocean.Bulk_pHs, Planet.Ocean.Mean_pH, Planet.Ocean.pHSeafloor, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ, Planet.Ocean.affinitySeafloor_kJ, Planet.Ocean.affinityMean_kJ = np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
                 Planet.Ocean.reaction = 'NaN'
                 Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN'
         else:
-            Planet.Ocean.Bulk_pHs, Planet.Ocean.Mean_pH, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ, Planet.Ocean.affinitySeafloor_kJ, Planet.Ocean.affinityMean_kJ = np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+            Planet.Ocean.Bulk_pHs, Planet.Ocean.Mean_pH, Planet.Ocean.pHSeafloor, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ, Planet.Ocean.affinitySeafloor_kJ, Planet.Ocean.affinityMean_kJ = np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
             Planet.Ocean.reaction = 'NaN'
             Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN'
     else:
-        Planet.Ocean.Bulk_pHs, Planet.Ocean.Mean_pH, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ, Planet.Ocean.affinitySeafloor_kJ, Planet.Ocean.affinityMean_kJ = np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+        Planet.Ocean.Bulk_pHs, Planet.Ocean.Mean_pH, Planet.Ocean.pHSeafloor, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ, Planet.Ocean.affinitySeafloor_kJ, Planet.Ocean.affinityMean_kJ = np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
         Planet.Ocean.reaction = 'NaN'
         Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN'
     return Planet

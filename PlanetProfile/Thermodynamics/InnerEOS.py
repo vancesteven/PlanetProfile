@@ -47,10 +47,10 @@ class PerplexEOSStruct:
                  EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaSilFixed_Pas=None, etaCoreFixed_Pas=None, TviscTrans_K=None):
         self.comp = EOSfname[:-4]
         self.EOSlabel = f'comp{self.comp}interp{EOSinterpMethod}kTherm{kThermConst_WmK}' + \
-                        f'Htidal{HtidalConst_Wm3}poros{porosType}phi{phiTop_frac}' + \
-                        f'Pclose{Pclosure_MPa}phiMin{phiMin_frac}extrap{EXTRAP}' + \
-                        f'wFeppt{wFeCore_ppt}wSppt{wScore_ppt}etaFixed{etaSilFixed_Pas}' + \
-                        f'TviscTrans{TviscTrans_K}'
+                f'Htidal{HtidalConst_Wm3}poros{porosType}phi{phiTop_frac}' + \
+                f'Pclose{Pclosure_MPa}phiMin{phiMin_frac}extrap{EXTRAP}' + \
+                f'wFeppt{wFeCore_ppt}wSppt{wScore_ppt}etaFixed{etaSilFixed_Pas}' + \
+                f'TviscTrans{TviscTrans_K}'
         if self.EOSlabel in EOSlist.loaded.keys():
             self.ALREADY_LOADED = True
         else:

@@ -148,7 +148,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         log.warning(f'Pmid_MPa has been adjusted upward from {oldPmid_MPa} to {Pmid_MPa} to compensate.')
 
     # Get melting temperature for calculating viscosity relative to this temp
-    Pmelt_MPa = np.linspace(Pmid_MPa, Pmid_MPa+0.01, 6)
+    Pmelt_MPa = np.arange(Pmid_MPa - 0.05*3, Pmid_MPa+0.05*3, 0.05)
     if phaseMid >= Constants.phaseClath and phaseMid < Constants.phaseClath + 10:
         meltEOS = oceanEOS
         Tupper_K = Tb_K

@@ -121,6 +121,7 @@ class DoSubstruct:
         self.NONHYDROSTATIC = False  # Whether to use different lower bound for C/MR^2 matching commensurate with nonhydrostaticity resulting in an artificially high MoI value
         self.SKIP_POROUS_PHASE = False  # Whether to assume pores are only filled with liquid, and skip phase calculations there.
         self.CONSTANT_GRAVITY = False  # Whether to force gravity to be constant throughout each material layer, instead of recalculating self-consistently with each progressive layer.
+        self.CONSTANTPROPSEOS = False  # Whether to use constant properties for EOS. Used for non-self-consistent modeling.
         self.OCEAN_PHASE_HIRES = False  # Whether to use a high-resolution grid for phase equilibrium lookup table in ocean EOS. Currently only implemented for MgSO4. WARNING: Uses a lot of memory, potentially 20+ GB.
         self.USE_WOCEAN_PPT = True # Whether to use wOcean_ppt to match with ocean composition (in case of CustomSolution, we can set this to false if we do not want to specify w_ppt)
         self.NON_SELF_CONSISTENT = False  # Whether to use non-self-consistent modeling (using mean values for layer properties instead of detailed EOS calculations)
@@ -236,6 +237,7 @@ class OceanSubstruct:
         self.Jvisc = 1
         # Derived ocean quantities
         self.Bulk_pHs = None # pH of each liquid layer for bulk ocean
+        self.pHSeafloor = None # pH at the seafloor
         self.aqueousSpecies = None  # All species considered in each liquid ocean layer (i.e. the species considered in
         self.aqueousSpeciesAmount_mol = None # Species amount at each liquid ocean layer (nested 2D array of dimensions
             # np.size(aqueousSpecies) x len(total layers that are liquid))
@@ -548,7 +550,7 @@ class PlanetStruct:
         self.PfreezeUpper_MPa = 230  # Upper boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeRes_MPa = 0.05  # Step size in pressure for GetPfreeze to use in searching for phase transition
         # Settings for GetTfreeze start, stop, and step size. Used when ice shell thickness is input.
-        self.TfreezeLower_K = 240 # Lower boundary for GetTFreeze to search for ice Ih phase transition
+        self.TfreezeLower_K = 230 # Lower boundary for GetTFreeze to search for ice Ih phase transition
         self.TfreezeUpper_K = 280 # Upper boundary for GetTFreeze to search for ice Ih phase transition
         self.TfreezeRes_K = 0.05 # Step size in temperature for GetTfreeze to use in searching for phase transition
 
@@ -660,6 +662,10 @@ class PlanetStruct:
 
         # Info for diagnosing out-of-bounds models
         self.invalidReason = None
+        
+        # Info for timing profiles
+        self.profileStartTime = None # Start time of profile
+        self.index = None # Index of profile - used for printing number of profiles complete
 
 """ Reduced planet struct """
 class ReducedPlanetStruct:
@@ -743,9 +749,8 @@ class DataFilesSubstruct:
         self.FTdata = os.path.join(self.inductPath, 'Bi1xyzFTdata.mat')
         self.asymFile = self.fNameInduct + '_asymDevs.mat'
         self.Btrajec = os.path.join(self.inductPath, f'{inductBase}{self.inductAppend}.mat')
-        self.montecarloFile = self.fNameMonteCarlo + '_montecarlo.mat'
-        self.montecarloSummaryFile = self.fNameMonteCarlo + '_montecarlo_summary.txt'
-        self.montecarloResultsFile = self.fNameMonteCarlo + '_montecarlo_results.csv'
+        self.montecarloFile = self.fNameMonteCarlo + '_montecarlo.pkl'
+        self.montecarloMatFile = self.fNameMonteCarlo + '_montecarlo.mat'
 
 
 # Construct filenames for figures etc.
@@ -858,6 +863,7 @@ class FigureFilesSubstruct:
             self.explore =             f'{self.fNameExplore}_{self.exploreAppend}{self.xtn}'
             self.exploreZbD =          f'{self.fNameExplore}_ZbD{self.xtn}'
         self.exploreDsigma =           f'{self.fNameExplore}_Dsigma{self.xtn}'
+        self.exploreDY =               f'{self.fNameExplore}_DY{self.xtn}'
         self.exploreLoveComparison = f'{self.fNameExplore}_LoveNumberComparison{self.xtn}'
         self.phaseSpace =              f'{self.fNameInduct}_{induct}_phaseSpace{self.xtn}'
         self.phaseSpaceCombo =         f'{os.path.join(self.inductPath, self.inductBase)}Compare_{induct}_phaseSpace{self.xtn}'
@@ -885,6 +891,7 @@ class FigureFilesSubstruct:
         self.montecarloDistributions = f'{self.fNameMonteCarlo}_distributions{self.xtn}'
         self.montecarloCorrelations = f'{self.fNameMonteCarlo}_correlations{self.xtn}'
         self.montecarloResults = f'{self.fNameMonteCarlo}_results{self.xtn}'
+        self.montecarloOceanComps = f'{self.fNameMonteCarlo}_oceanComps{self.xtn}'
         self.montecarloTiming = f'{self.fNameMonteCarlo}_timing{self.xtn}'
     def comparisonFileGenerator(self, Planet1Title, Planet2Title, plot_type):
         """
@@ -908,6 +915,7 @@ class ParamsStruct:
         self.cFmt = None  # Format of contour labels
         self.compareDir = 'Comparison'
         self.INVERSION_IN_PROGRESS = False  # Flag for running inversion studies
+        self.PRELOAD_EOS_IN_PROGRESS = False  # Flag for pre-loading EOSs for faster profile runs
 
 
 """ Inductogram settings """
@@ -1185,6 +1193,7 @@ class ExplorationStruct:
         self.k_love_number = None # k love number
         self.affinitySeafloor_kJ = None # Available energy for chemical reaction at seafloor (see Planet.Ocean.reaction for more details)
         self.affinityMean_kJ = None # Mean available energy for chemical reaction (see Planet.Ocean.reaction for more details)
+        self.pHSeafloor = None # pH at the seafloor
         self.delta_love_number_relation = None # delta relation of love number (1+k-h)
         self.dzWetHPs_km = None  # Total resultant thickness of all undersea high-pressure ices (II, III, V, and VI) in km.
         self.eLid_km = None  # Thickness of surface stagnant-lid conductive ice layer result (may include Ih or clathrates or both) in km.
@@ -1263,7 +1272,12 @@ class MonteCarloParamsStruct:
         self.saveResults = True  # Whether to save results to file
         self.showPlots = True  # Whether to display plots
         self.plotDistributions = True  # Whether to plot parameter distributions
+        self.plotResults = True  # Whether to plot Monte Carlo results distributions
+        self.plotOceanComps = False  # Whether to plot results by ocean composition
         self.plotCorrelations = True  # Whether to plot parameter correlations
+        self.plotScatter = False  # Whether to plot scatter plots of parameter pairs
+        self.scatterParams = None  # List of [x_param, y_param] pairs to scatter plot
+        self.excSelectionScatter = None  # Dict of which magnetic excitations to include in scatter plots
 
 
 """ Figure color options """
@@ -1625,7 +1639,7 @@ class FigLblStruct:
         self.PvTtitleSil = r' silicate interior properties with geotherm'
         self.PvTtitleCore = r' silicate and core interior properties with geotherm'
         self.hydroPhaseTitle = r' phase diagram'
-        self.hydroSpeciesTitle = r' ocean species'
+        self.hydroSpeciesTitle = r' ocean precipitation, aqueous speciation, pH, and reaction affinity'
 
         # Wedge diagram labels
         self.wedgeTitle = 'interior structure'
@@ -1798,6 +1812,7 @@ class FigLblStruct:
         self.alphaUnits = None
         self.affinityUnits = None
         self.hydrosphereSpeciesUnits = None
+        self.hydrosphereSolidSpeciesVolUnits = None
         self.wMult = None
         self.xMult = None
         self.phiMult = None
@@ -1935,7 +1950,8 @@ class FigLblStruct:
             'qSurf_Wm2': 'surface heat flux',
             'CMR2calc': 'axial moment of inertia',
             'affinitySeafloor_kJ': 'seafloor affinity for chemical reaction',
-            'affinityMean_kJ': 'average affinity for chemical reaction'
+            'affinityMean_kJ': 'average affinity for chemical reaction',
+            'pHSeafloor': 'seafloor pH'
         }
         self.tCArelDescrip = {
             's': r'($\si{s}$)',
@@ -1963,6 +1979,7 @@ class FigLblStruct:
             self.alphaUnits = r'K^{-1}'
             self.affinityUnits = r'kJ\,mol^{-1}'
             self.hydrosphereSpeciesUnits = r'mol\,kg^{-1}'
+            self.hydrosphereSolidSpeciesVolUnits = r'cm^3'
         else:
             self.rhoUnits = r'kg/m^3'
             self.sigUnits = r'S/m'
@@ -1977,6 +1994,8 @@ class FigLblStruct:
             self.kThermUnits = r'W/m/K'
             self.alphaUnits = '1/K'
             self.affinityUnits = r'kJ/mol'
+            self.hydrosphereSpeciesUnits = r'mol/kg'
+            self.hydrosphereSolidSpeciesVolUnits = r'cm^3'
 
         self.PunitsFull = 'MPa'
         self.PmultFull = 1
@@ -2072,6 +2091,7 @@ class FigLblStruct:
         self.zbApproximateLabel = r'Approximate ice shell thickness ($\si{km}$)'
         self.rxnAffinityLabel = r'Affinity ($\si{' + self.affinityUnits + '}$)'
         self.allOceanSpeciesLabel = r'All species ($\si{' + self.hydrosphereSpeciesUnits + '}$)'
+        self.solidSpeciesLabel = r'Solid species ($\si{' + self.hydrosphereSolidSpeciesVolUnits + '}$)'
         self.aqueousSpeciesLabel = r'Aqueous species ($\si{' + self.hydrosphereSpeciesUnits + '}$)'
         self.vSoundLabel = r'Sound speeds $V_P$, $V_S$ ($\si{' + self.vSoundUnits + '}$)'
         self.vPoceanLabel = r'Ocean $V_P$ ($\si{' + self.vSoundUnits + '}$)'
@@ -2157,6 +2177,7 @@ class FigLblStruct:
             'CMR2calc': self.CMR2label,
             'affinitySeafloor_kJ': self.affinitySeafloorLabel,
             'affinityMean_kJ': self.affinityMeanLabel,
+            'pHSeafloor': self.pHLabel,
         }
         self.axisMultsExplore = {
             'xFeS': self.xMult,
