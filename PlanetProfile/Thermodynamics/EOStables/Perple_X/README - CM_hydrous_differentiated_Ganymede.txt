@@ -1,6 +1,6 @@
 This is a description file for all CM_hydrous_differentiated_Ganymede_CoreXFe_YS Perple_X runs.
 
-They was run with Perple_X version 6.8.6.
+They were run with Perple_X version 6.8.6.
 
 The compositions represent the bulk silicate portion of Ganymede, based on CM chondrite (From Lodders and Fegley, 1998), minus Fe + S to make a Fe + S core, with varying amounts of S partitioned into the core, from 20 wt. % to 0 wt. %. The amount of water is equivalent to the concentration in CM chondrites. See the complementary XFeYS_core Perple_X runs for corresponding core properties.
 
