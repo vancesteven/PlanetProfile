@@ -2,13 +2,15 @@ import numpy as np
 import logging
 import scipy.interpolate as spi
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
-from PlanetProfile.Utilities.defineStructs import EOSlist
+from PlanetProfile.Utilities.defineStructs import EOSlist, Timing
+import time
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
 def ViscosityCalcs(Planet, Params):
+    Timing.setFunctionTime(time.time())
     # Initialize outputs as NaN so that we get errors if we missed any layers
     Planet.eta_Pas = np.zeros(Planet.Steps.nTotal) * np.nan
 
@@ -60,6 +62,7 @@ def ViscosityCalcs(Planet, Params):
                 if Planet.Do.Fe_CORE:
                     Planet = CalcViscCore(Planet, Params, indsFe)
 
+    Timing.printFunctionTimeDifference('ViscosityCalcs()', time.time())
     return Planet
 
 

@@ -13,9 +13,11 @@ def configAssign():
 
     Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
     Params.QUIET =         False  # Hides all log messages except warnings and errors
+    Params.TIMING =        False  # Whether to print timing messages to analyze performance
     Params.PRINT_COMPLETION = True # Print completion message
     Params.QUIET_MOONMAG = True  # If True, sets MoonMag logging level to WARNING, otherwise uses the same as PlanetProfile.
     Params.QUIET_LBF = True  # If True, sets lbftd and mlbspline logging levels to ERROR, otherwise uses the same as PlanetProfile.
+    Params.QUIET_ALMA = True # If True, sets pyAlma logging level Warning, otherwise uses the same as PlanetProfile.
     Params.printFmt = '[%(levelname)s] %(message)s'  # Format for printing log messages
     # The below flags allow or prevents extrapolation of EOS functions beyond the definition grid.
     Params.EXTRAP_ICE = {'Ih':False, 'II':False, 'III':False, 'V':False, 'VI':False, 'Clath':False}
@@ -26,6 +28,7 @@ def configAssign():
     Params.lookupInterpMethod = 'nearest'  # Interpolation method to use for EOS lookup tables. Options are 'nearest', 'linear', 'cubic'.
     Params.minPres_MPa = None  # Only applies to ice EOS! Applies a lower bound to how small the pressure step can be in loading the EOS. Avoids major slowdowns when chaining models for small and large bodies.
     Params.minTres_K = None  # Same as above. Set to None to allow default behavior for ice EOS resolution.
+    Params.PRELOAD_EOS = True  # Whether to preload EOS tables for all planets in the grid for large scale explorations. Improves runtime.
 
     Params.CALC_NEW =         True  # Recalculate profiles? If not, read data from disk and re-plot.
     Params.CALC_NEW_REF =     True  # Recalculate reference melting curve densities?
@@ -35,6 +38,7 @@ def configAssign():
     Params.CALC_SEISMIC =     True  # Calculate sound speeds and elastic moduli?
     Params.CALC_CONDUCT =     True  # Calculate electrical conductivity?
     Params.CALC_VISCOSITY =   True  # Calculate viscosity for all layers as a post-processing step?
+    Params.CALC_OCEAN_PROPS = True  # Calculate ocean properties?
     Params.CALC_ASYM =        True  # Calculate induction with asymmetric shape?
     Params.RUN_ALL_PROFILES = False  # Whether to run all PPBody.py files for the named body and plot together
     Params.SPEC_FILE =        False  # Whether we are running a specific file or files
@@ -54,6 +58,8 @@ def configAssign():
     Params.SKIP_PLOTS =       False  # Whether to skip creation of all plots
     Params.PLOT_GRAVITY =     True  # Whether to plot Gravity and Pressure
     Params.PLOT_HYDROSPHERE = True  # Whether to plot Conductivity with Interior Properties (Hydrosphere)
+    Params.PLOT_HYDROSPHERE_THERMODYNAMICS = False  # Whether to plot thermodynamic properties (T, P, rho, alpha, Cp) vs depth in hydrosphere
+    Params.PLOT_MELTING_CURVES = False  # Whether to plot melting curves in P-T space for all ocean compositions modeled
     Params.PLOT_SPECIES_HYDROSPHERE = True # Whether to plot aqueous species concentration as a function of ocean depth
     Params.PLOT_REF =         True  # Whether to plot reference melting curve densities on hydrosphere plot
     Params.PLOT_SIGS =        True  # Whether to plot conductivities as a function of radius on hydrosphere plot if they have been calculated
@@ -101,7 +107,7 @@ def configAssign():
     ExploreParams.yName = 'Tb_K'  # y variable over which to iterate for exploreograms. Options are as above.
     # Options for z variables: "CMR2mean", "D_km", "dzIceI_km", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km",
     # "dzIceV_km", "dzIceVund_km", "dzIceVI_km", "dzWetHPs_km", "eLid_km", "phiSeafloor_frac", "Rcore_km", "rhoSilMean_kgm3",
-    # "sigmaMean_Sm", "silPhiCalc_frac", "zb_km", "zSeafloor_km", "h_love_number", "k_love_number", "l_love_number", "qSurf_Wm2" (only if Do.NO_H2O is False).
+    # "sigmaMean_Sm", "silPhiCalc_frac", "zb_km", "zSeafloor_km", "hLoveAmp", "kLoveAmp", "lLoveAmp", "qSurf_Wm2" (only if Do.NO_H2O is False).
     # New options must be added to ExplorationStruct attributes in Main (assign+save+reload) and in defineStructs, and
     # FigLbls.exploreDescrip, .<var>Label, and .axisLabels in defineStructs.
     ExploreParams.zName = ['CMR2calc', 'silPhiCalc_frac', 'phiSeafloor_frac', 'D_km', 'zb_km', 'dzWetHPs_km', 'rhoSilMean_kgm3', 'Pseafloor_MPa', 'zSeafloor_km', 'sigmaMean_Sm']  # heatmap/colorbar/z variable to plot for exploreograms. Options are as above; accepts a list.
@@ -109,6 +115,7 @@ def configAssign():
     ExploreParams.yRange = [249.0, 272.5]  # Same as above for y variable
     ExploreParams.nx = 30  # Number of points to use in linspace with above x range
     ExploreParams.ny = 24  # Same as above for y
+    ExploreParams.contourName = None  # Name of variable to use for contours (if None, uses z variable). Allows plotting contours of one variable while coloring by another.
 
     # Reference profile settings
     # Salinities of reference melting curves in ppt
@@ -119,8 +126,8 @@ def configAssign():
                        'NaCl':[0, 17.5, 35], 'CustomSolution':[0]}
     Params.nRefRho = 50  # Number of values for plotting reference density curves (sets resolution)
     Params.PrefOverride_MPa = None  # Pressure setting to force refprofile recalc to go to a specific value instead of automatically using the first hydrosphere max
-
-    # SPICE kernels to use
+    #Monte Carlo settings
+    Params.DO_MONTECARLO =     False# Whether to evaluate and/or plot a Monte Carlo parameter exploration for the body in question    # SPICE kernels to use
     Params.spiceDir = 'SPICE'
     Params.spiceTLS = 'naif0012.tls'  # Leap-seconds kernel
     Params.spicePCK = 'pck00010.tpc'  # Planetary Constants Kernel from SPICE in order to get body radii

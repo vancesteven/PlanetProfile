@@ -3,9 +3,10 @@ from scipy.interpolate import interp1d
 from PlanetProfile.Thermodynamics.HydroEOS import GetIceEOS, GetOceanEOS
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import TsolidusHirschmann2000
-from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 from PlanetProfile.Utilities.PPversion import ppVerNum
 import logging
+import time
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -16,6 +17,7 @@ def SeismicCalcs(Planet, Params):
         Assigns Planet attributes:
             Seismic.VP_kms, Seismic.VS_kms, Seismic.QS, Seismic.KS_GPa, Seismic.GS_GPa
     """
+    Timing.setFunctionTime(time.time())
     # Initialize arrays
     Planet.Seismic.VP_kms, Planet.Seismic.VS_kms, Planet.Seismic.QS, Planet.Seismic.KS_GPa, \
         Planet.Seismic.GS_GPa = (np.zeros(Planet.Steps.nTotal) for _ in range(5))
@@ -308,7 +310,7 @@ def SeismicCalcs(Planet, Params):
     if np.any(Planet.Seismic.QS > Planet.Seismic.QSmax):
         log.debug(f'Resetting unnecessarily high QS values to max value: {Planet.Seismic.QSmax}')
         Planet.Seismic.QS[Planet.Seismic.QS > Planet.Seismic.QSmax] = Planet.Seismic.QSmax
-
+    Timing.printFunctionTimeDifference('SeismicCalcs()', time.time())
     return Planet
 
 

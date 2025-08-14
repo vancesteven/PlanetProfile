@@ -17,13 +17,15 @@ def montecarloAssign():
     
     # Parameters to search over for self-consistent models
     MonteCarloParams.paramsToSearchSelfConsistent = [
-        'R_m', 'Tb_K', 'wOcean_ppt', 'xFeS', 'rhoSilInput_kgm3'
+        'zb_approximate_km', 'oceanComp'
     ]
     
     # Parameters to search over for non-self-consistent models
     MonteCarloParams.paramsToSearchNonSelfConsistent = [
         'dzIceI_km', 'D_km', 'Core_R_km', 'rho_iceIhCond_kgm3', 'rho_iceIhConv_kgm3',
-        'rho_ocean_kgm3', 'rho_sil_kgm3', 'rho_core_kgm3', 'GS_ice_GPa', 'GS_sil_GPa', 'GS_core_GPa'
+        'rho_ocean_kgm3', 'rho_sil_kgm3', 'rho_core_kgm3', 'GS_condIh_GPa', 'GS_convIh_GPa',
+        'GS_sil_GPa', 'GS_core_GPa', 'kThermWater_WmK', 'kThermIceIh_WmK', 'kThermCore_WmK',
+        'etaSil_Pas', 'etaMelt_Pas', 'TSurf_K', 'EactIceIh_kJmol', 'AndradeExponent'
     ]
     
     # Distribution types for each parameter (currently only 'uniform' is supported)
@@ -34,6 +36,8 @@ def montecarloAssign():
         'wOcean_ppt': 'uniform',
         'xFeS': 'uniform',
         'rhoSilInput_kgm3': 'uniform',
+        'zb_approximate_km': 'uniform',
+        'oceanComp': 'discrete',
         
         # Non-self-consistent parameters
         'dzIceI_km': 'uniform',
@@ -44,7 +48,8 @@ def montecarloAssign():
         'rho_ocean_kgm3': 'uniform',
         'rho_sil_kgm3': 'uniform',
         'rho_core_kgm3': 'uniform',
-        'GSConvIh_GPa': 'uniform',
+        'GS_condIh_GPa': 'uniform',
+        'GS_convIh_GPa': 'uniform',
         'GS_sil_GPa': 'uniform',
         'GS_core_GPa': 'uniform',
         'kThermWater_WmK': 'uniform',
@@ -97,12 +102,5 @@ def montecarloAssign():
     MonteCarloParams.plotOceanComps = False  # Whether to plot results by ocean composition
     MonteCarloParams.plotCorrelations = True  # Whether to plot parameter correlations
     MonteCarloParams.plotScatter = False  # Whether to plot scatter plots of parameter pairs
-    MonteCarloParams.scatterParams = [['k2_love', 'Amp'], ['h2_love', 'phase']]  # Parameter pairs to plot
-    MonteCarloParams.excSelectionScatter = {  # Which magnetic excitations to include in scatter plots
-        'orbital': True,  # Key excitation
-        'synodic': True,  # Key excitation  
-        'synodic 2nd': False,
-        'true anomaly': False
-    }
-    
+    MonteCarloParams.scatterParams = [['kLoveAmp', 'Amp'], ['hLoveAmp', 'phase']]  # Parameter pairs to plot
     return MonteCarloParams

@@ -285,6 +285,7 @@ def plotAssign():
     FigSize.vpvt = (12, 6)
     FigSize.vwedg = (4.5, 4.5)
     FigSize.vphase = (5, 6)
+    FigSize.vmeltingCurves = (8, 6)
     FigSize.vhydroSpecies = (7, 5)
     FigSize.explore = (6, 4)
     FigSize.phaseSpaceSolo = (6, 4)
@@ -336,6 +337,17 @@ def plotAssign():
     FigLbl.hydroTitleSize = 20  # Font size for hydrosphere title in pt
     FigMisc.SHOW_GEOTHERM = True # Whether to plot geotherm on PTplots
 
+    # Melting curve plots
+    FigMisc.SHOW_GEOTHERM = False  # Whether to show geotherm curves on melting curve plots
+    FigMisc.MARK_MODEL_POINTS = True  # Whether to mark the model melting points (Tb_K, Pb_MPa) on melting curves
+    FigMisc.nTmeltingCurve = 500  # Number of temperature points to use for melting curve calculation
+    FigMisc.nPmeltingCurve = 500  # Number of pressure points to use for melting curve calculation
+    FigMisc.MELTING_CURVE_LINE_WIDTH = 2.0  # Line width for melting curves
+    FigMisc.MODEL_POINT_SIZE = 50  # Marker size for model melting points
+    FigMisc.LS_SOLID_MELTING_CURVES = True  # Whether to use solid linestyle for melting curves
+    FigMisc.TmaxMeltingCurve_K = 280  # When set, maximum temperature to use for melting curves in K. Set to None to use max of geotherm.
+    FigMisc.TminMeltingCurve_K = 250  # When set, minimum temperature to use for melting curves in K. Set to None to use min of geotherm.
+    
     # Wedge diagrams
     FigMisc.IONOSPHERE_IN_WEDGE = False  # Whether to include specified ionosphere in wedge diagram
     FigMisc.WEDGE_ICE_TICKS = False  # Whether to print ticks for ice shell, which usually overlap with the body outer radius
@@ -439,7 +451,7 @@ def plotAssign():
     FigMisc.DSIGMA_YLIMS = [1e-2, 20] # Y-axis limits for D/sigma plots [min, max] in S/m
     FigMisc.DSIGMA_ICE_THICKNESS_CMAP = 'Greys' # Colormap to use for ice thickness dots in D/sigma plots
     FigMisc.DSIGMA_DOT_EDGE_COLOR = 'black' # Edge color for scatter dots in D/sigma plots
-    FigMisc.DSIGMA_DOT_EDGE_WIDTH = 0.5 # Edge line width for scatter dots in D/sigma plots
+    FigMisc.DSIGMA_DOT_EDGE_WIDTH = 5 # Edge line width for scatter dots in D/sigma plots
     FigMisc.DSIGMA_COMP_LINE_WIDTH = 2 # Line width for composition lines in D/sigma plots
     FigMisc.DSIGMA_COMP_LINE_ALPHA = 0.7 # Alpha transparency for composition lines in D/sigma plots
     FigMisc.DSIGMA_ICE_LEGEND_FONT_SIZE = 8 # Font size for ice thickness legend entries
@@ -447,10 +459,11 @@ def plotAssign():
     
     # Monte Carlo scatter plot ice thickness highlighting
     FigMisc.HIGHLIGHT_ICE_THICKNESSES = True  # Whether to highlight specific ice shell thicknesses in scatter plots
+    FigMisc.DO_SCATTER_INSET = True
     FigMisc.ICE_THICKNESSES_TO_SHOW = [30]  # List of ice shell thicknesses in km to highlight
-    FigMisc.ICE_THICKNESS_TOLERANCE = 1.0  # Tolerance in km for matching ice thicknesses
+    FigMisc.ICE_THICKNESS_TOLERANCE = 1  # Tolerance in km for matching ice thicknesses
     FigMisc.SCATTER_DOT_SIZE = 10 # Size of scatter dots
-    FigMisc.DIMMED_ALPHA = 0.01  # Alpha value for non-highlighted points when ice thickness highlighting is enabled
+    FigMisc.DIMMED_ALPHA = 0.0 # Alpha value for non-highlighted points when ice thickness highlighting is enabled
     FigMisc.DSIGMA_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries
     FigMisc.DSIGMA_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title
     FigMisc.DSIGMA_MAX_LEGEND_ENTRIES = 10 # Maximum number of entries to show in ice thickness legend
@@ -465,13 +478,14 @@ def plotAssign():
     FigMisc.LOVE_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries in Love plots
     FigMisc.LOVE_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title in Love plots
     FigMisc.LOVE_MAX_LEGEND_ENTRIES = 10 # Maximum number of entries to show in ice thickness legend for Love plots
+    FigMisc.SHOW_CONVECTION_WITH_SHAPE = True # Whether to use different marker shapes for convection vs non-convection in Love comparison plots
     # Exploreogram ZbD (ice shell vs ocean thickness) settings
     FigMisc.ZBD_DOT_EDGE_COLOR = 'black' # Edge color for scatter dots in ZbD plots
     FigMisc.ZBD_DOT_EDGE_WIDTH = 0.5 # Edge line width for scatter dots in ZbD plots
     FigMisc.ZBD_COMP_LINE_WIDTH = 2 # Line width for composition lines in ZbD plots
     FigMisc.ZBD_COMP_LINE_ALPHA = 0.7 # Alpha transparency for composition lines in ZbD plots
-    FigMisc.ZBD_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries in ZbD plots
-    FigMisc.ZBD_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title in ZbD plots
+    FigMisc.ZBD_COMP_LEGEND_FONT_SIZE = 8 # Font size for composition legend entries in ZbD plots
+
     FigMisc.ZBD_COLORMAP = 'Greys' # Colormap to use for z-variable in ZbD plots
     FigMisc.ZBD_NAN_COLOR = 'red' # Color to use for NaN points in ZbD plots
     FigMisc.ZBD_NAN_MARKER = 'x' # Marker style to use for NaN points in ZbD plots

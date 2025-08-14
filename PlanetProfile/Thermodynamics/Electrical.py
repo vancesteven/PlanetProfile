@@ -3,7 +3,8 @@ import logging
 import scipy.interpolate as spi
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices, PhaseConv, MixedPhaseSeparator
-from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
+import time
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -14,6 +15,7 @@ def ElecConduct(Planet, Params):
         Assigns Planet attributes:
             sigma_Sm
     """
+    Timing.setFunctionTime(time.time())
     # Initialize outputs as NaN so that we get errors if we missed any layers
     Planet.sigma_Sm = np.zeros(Planet.Steps.nTotal) * np.nan
 
@@ -76,7 +78,7 @@ def ElecConduct(Planet, Params):
         Planet.Sil.sigmaPorousLayerMean_Sm = np.nan
         Planet.Ocean.sigmaMean_Sm = np.nan
         Planet.Ocean.sigmaTop_Sm = np.nan
-
+    Timing.printFunctionTimeDifference('ElecConduct()', time.time())
     return Planet
 
 

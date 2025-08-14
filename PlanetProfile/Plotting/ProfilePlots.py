@@ -6,7 +6,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Wedge
 from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
-from PlanetProfile.Plotting.PTPlots import PlotHydroPhase, PlotPvThydro, PlotPvTPerpleX, PlotHydrosphereSpecies, PlotIsoThermalPvThydro
+from PlanetProfile.Plotting.PTPlots import PlotHydroPhase, PlotPvThydro, PlotPvTPerpleX, PlotHydrosphereSpecies, PlotIsoThermalPvThydro, PlotMeltingCurves
 from PlanetProfile.Thermodynamics.RefProfiles.RefProfiles import CalcRefProfiles, ReloadRefProfiles
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices, PhaseConv
 from PlanetProfile.Utilities.defineStructs import Constants
@@ -38,6 +38,8 @@ def GeneratePlots(PlanetList, Params):
         PlotGravPres(PlanetList, Params)
     if Params.PLOT_HYDROSPHERE and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]):
         PlotHydrosphereProps(PlanetList, Params)
+    if Params.PLOT_HYDROSPHERE_THERMODYNAMICS and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]):
+        PlotHydrosphereThermodynamics(PlanetList, Params)
     if Params.PLOT_SPECIES_HYDROSPHERE and Params.CALC_OCEAN_PROPS and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]):
         PlotHydrosphereSpecies(PlanetList, Params)
    # if Params.PLOT_CUSTOMSOLUTION_EOS_PROPERTIES_TABLE and np.any([not Planet.Do.NO_OCEAN for Planet in PlanetList]) and np.any(
@@ -63,6 +65,8 @@ def GeneratePlots(PlanetList, Params):
         PlotIsoThermalPvThydro(PlanetList, Params)
     if Params.PLOT_PVT_INNER and not Params.SKIP_INNER:
         PlotPvTPerpleX(PlanetList, Params)
+    if Params.PLOT_MELTING_CURVES and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
+        PlotMeltingCurves(PlanetList, Params)
 
     return
 
@@ -2154,8 +2158,8 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
     """
 
     for Exploration in (ex for ex in ExplorationList if not ex.NO_H2O):
-        Exploration.xName = 'delta_love_number_relation'
-        Exploration.yName = 'k_love_number'
+        Exploration.xName = 'deltaLoveAmp'
+        Exploration.yName = 'kLoveAmp'
         Exploration.zName = 'oceanComp'
         FigLbl.SetExploration(Exploration.bodyname, Exploration.xName, Exploration.yName, Exploration.zName)
         if not FigMisc.TEX_INSTALLED:
@@ -2319,8 +2323,8 @@ def PlotExploreOgramLoveComparison(ExplorationList, Params):
         if len(ValidExplorations) > 1:
             # Set up exploration parameters for the first valid exploration
             Exploration = ValidExplorations[0]
-            Exploration.xName = 'delta_love_number_relation'
-            Exploration.yName = 'k_love_number'
+            Exploration.xName = 'deltaLoveAmp'
+            Exploration.yName = 'kLoveAmp'
             Exploration.zName = 'oceanComp'
             FigLbl.SetExploration(Exploration.bodyname, Exploration.xName, Exploration.yName, Exploration.zName)
             if not FigMisc.TEX_INSTALLED:
@@ -2514,7 +2518,7 @@ def PlotMonteCarloOceanCompositions(MCResults, Params):
     validOceanComps = MCResults.oceanComp[validMask]
     
     # Plot dot histograms of key results grouped by ocean composition
-    resultParams = ['CMR2calc', 'Mtot_kg', 'k2_love', 'h2_love', 'zb_km']
+    resultParams = ['CMR2calc', 'Mtot_kg', 'kLoveAmp', 'hLoveAmp', 'zb_km']
     nParams = len(resultParams)
     nCols = 3
     nRows = int(np.ceil(nParams / nCols))
@@ -2605,4 +2609,221 @@ def PlotMonteCarloOceanCompositions(MCResults, Params):
     log.info(f'Monte Carlo ocean compositions plot saved to: {Params.FigureFiles.montecarloOceanComps}')
     plt.close()
     
+    return
+
+def PlotHydrosphereThermodynamics(PlanetList, Params):
+    """
+    Plot thermodynamic properties (temperature, pressure, density, thermal expansion coefficient, 
+    and specific heat capacity) as functions of depth in the hydrosphere.
+    
+    Layout: 2x6 grid
+    - Top row (3 rows each): Temperature and Pressure profiles
+    - Bottom row (2 rows each): Density, Alpha, and Cp
+    """
+    
+    # Generate canvas and add labels - 2x6 grid
+    fig = plt.figure(figsize=FigSize.vhydro)
+    grid = GridSpec(6, 6)
+    
+    # Top row: Temperature and Pressure (each spanning 3 rows)
+    axTz = fig.add_subplot(grid[0:3, 0:3])  # Temperature: top 3 rows, left 3 columns
+    axPz = fig.add_subplot(grid[0:3, 3:6])  # Pressure: top 3 rows, right 3 columns
+    
+    # Bottom row: Density, Alpha, Cp (each spanning 2 rows)
+    axrho = fig.add_subplot(grid[3:5, 0:2])  # Density: bottom 2 rows, first 2 columns
+    axalpha = fig.add_subplot(grid[3:5, 2:4])  # Alpha: bottom 2 rows, middle 2 columns
+    axCp = fig.add_subplot(grid[3:5, 4:6])  # Cp: bottom 2 rows, last 2 columns
+    
+    # Set labels
+    axTz.set_xlabel(FigLbl.Tlabel)
+    axTz.set_ylabel(FigLbl.zLabel)
+    axTz.invert_yaxis()
+    
+    axPz.set_xlabel(FigLbl.PlabelHydro)
+    axPz.set_ylabel(FigLbl.zLabel)
+    axPz.invert_yaxis()
+    
+    axrho.set_xlabel(FigLbl.rhoLabel)
+    axrho.set_ylabel(FigLbl.zLabel)
+    axrho.invert_yaxis()
+    
+    axalpha.set_xlabel(FigLbl.alphaLabel)
+    axalpha.set_ylabel(FigLbl.zLabel)
+    axalpha.invert_yaxis()
+    
+    axCp.set_xlabel(FigLbl.CpLabel)
+    axCp.set_ylabel(FigLbl.zLabel)
+    axCp.invert_yaxis()
+    
+    # Set y-axis limits based on maximum depth
+    zMax = np.max([Planet.z_m[Planet.Steps.nHydro-1]/1e3 for Planet in PlanetList if not Planet.Do.NO_H2O], initial=0) * 1.05
+    [ax.set_ylim([zMax, 0]) for ax in [axTz, axPz, axrho, axalpha, axCp]]
+    
+    axes = [axTz, axPz, axrho, axalpha, axCp]
+    
+    if Style.GRIDS:
+        [ax.grid() for ax in axes]
+        [ax.set_axisbelow(True) for ax in axes]
+
+    if Params.TITLES:
+        if Params.ALL_ONE_BODY:
+            fig.suptitle(f'{PlanetList[0].name}{FigLbl.hydroThermoTitle}', fontsize=FigLbl.hydroTitleSize)
+        else:
+            fig.suptitle(FigLbl.hydroThermoCompareTitle, fontsize=FigLbl.hydroTitleSize)
+
+    # Get unique compositions for reference profiles
+    comps = []
+    for Planet in PlanetList:
+        if "CustomSolution" in Planet.Ocean.comp:
+            if Planet.Ocean.comp.split('=')[0] not in comps:
+                comps.append(Planet.Ocean.comp)
+        else:
+            comps.append(Planet.Ocean.comp)
+    comps = np.unique(comps)
+
+    # Plot reference profiles first (if enabled)
+    if Params.PLOT_REF:
+        # Keep track of which reference profiles have been plotted so that we do each only once
+        newRef = {comp:True for comp in comps}
+
+        # Get max pressure among all profiles so we know how far out to plot refs
+        Plist = np.concatenate([Planet.P_MPa[:Planet.Steps.nHydro] for Planet in PlanetList])
+        Pmax_MPa = np.max(Plist)
+
+        for Planet in PlanetList:
+            if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
+                # Get strings for referencing and labeling
+                # If using CustomSolution, then adjust label so compatible with Latex formating
+                if "CustomSolution" in Planet.Ocean.comp:
+                    wList = f"$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp.split('=')[0].strip()}}} \\{{"
+                else:
+                    wList = f"$\\rho_\mathrm{{melt}}$ \ce{{{Planet.Ocean.comp}}} \\{{"
+                wList += ', '.join([f'{w*FigLbl.wMult:.0f}' for w in Params.wRef_ppt[Planet.Ocean.comp]])
+                wList += '\}\,$\si{' + FigLbl.wUnits + '}$'
+                if not FigMisc.TEX_INSTALLED:
+                    wList = FigLbl.StripLatexFromString(wList)
+                # Take care to only plot the values consistent with layer solutions
+                iPlot = Params.Pref_MPa[Planet.Ocean.comp] < Pmax_MPa
+                # Plot all reference melting curve densities
+                for i in range(Params.nRef[Planet.Ocean.comp]):
+                    thisRef, = axrho.plot(Params.rhoRef_kgm3[Planet.Ocean.comp][i,iPlot],
+                                           Params.Pref_MPa[Planet.Ocean.comp][iPlot]*FigLbl.PmultHydro,
+                                           color=Color.ref,
+                                           lw=Style.LW_ref,
+                                           ls=Style.LS_ref[Planet.Ocean.comp])
+                    if FigMisc.REFS_IN_LEGEND and i == 0: thisRef.set_label(wList)
+                newRef[Planet.Ocean.comp] = False
+
+    # Get min and max salinities and temps for each comp for scaling
+    wMinMax_ppt = {}
+    TminMax_K = {}
+    if FigMisc.SCALE_HYDRO_LW or FigMisc.MANUAL_HYDRO_COLORS:
+        for comp in comps:
+            if comp != 'none':
+                wAll_ppt = [Planet.Ocean.wOcean_ppt for Planet in PlanetList if Planet.Ocean.comp == comp]
+                wMinMax_ppt[comp] = [np.min(wAll_ppt), np.max(wAll_ppt)]
+                Tall_K = [Planet.Bulk.Tb_K for Planet in PlanetList if Planet.Ocean.comp == comp]
+                TminMax_K[comp] = [np.min(Tall_K), np.max(Tall_K)]
+                # Reset to default if all models are the same or if desired
+                if not FigMisc.RELATIVE_Tb_K or TminMax_K[comp][0] == TminMax_K[comp][1]:
+                    TminMax_K[comp] = Color.Tbounds_K
+
+    # Now plot all profiles together
+    for i, Planet in enumerate(PlanetList):
+        # This is a hydrosphere-only plot, so skip waterless bodies
+        if Planet.Ocean.comp != 'none':
+            legLbl = Planet.label
+            if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
+                legLbl = f'{Planet.name} {legLbl}'
+
+            # Set style options
+            if FigMisc.MANUAL_HYDRO_COLORS:
+                Color.Tbounds_K = TminMax_K[Planet.Ocean.comp]
+                thisColor = Color.cmap[Planet.Ocean.comp](Color.GetNormT(Planet.Bulk.Tb_K))
+            else:
+                thisColor = None
+            if FigMisc.SCALE_HYDRO_LW and wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
+                thisLW = Style.GetLW(Planet.Ocean.wOcean_ppt, wMinMax_ppt[Planet.Ocean.comp])
+            else:
+                thisLW = Style.LW_std
+
+            # Plot temperature profile vs. depth in hydrosphere
+            therm = axTz.plot(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub,
+                              Planet.z_m[:Planet.Steps.nHydro]/1e3,
+                              color=thisColor, linewidth=thisLW,
+                              linestyle=Style.LS[Planet.Ocean.comp], label = legLbl)
+            # Make a dot at the end of the thermal profile, if there's an ocean
+            if Planet.Steps.nHydro > 0:
+                Tdots_K = np.max(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub)
+                axTz.scatter(Tdots_K,
+                             np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
+                             color=therm[-1].get_color(), edgecolors=therm[-1].get_color(),
+                             marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
+
+            # Plot pressure profile vs. depth in hydrosphere
+            press = axPz.plot(Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro,
+                              Planet.z_m[:Planet.Steps.nHydro]/1e3,
+                              color=thisColor, linewidth=thisLW,
+                              linestyle=Style.LS[Planet.Ocean.comp])
+            # Make a dot at the end of the pressure profile, if there's an ocean
+            if Planet.Steps.nHydro > 0:
+                axPz.scatter(np.max(Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro),
+                             np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
+                             color=press[-1].get_color(), edgecolors=press[-1].get_color(),
+                             marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
+
+            # Plot density vs. depth in hydrosphere
+            density = axrho.plot(Planet.rho_kgm3[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro] / 1e3,
+                                color=thisColor, linewidth=thisLW,
+                                linestyle=Style.LS[Planet.Ocean.comp])
+            # Make a dot at the end of the density profile, if there's an ocean
+            if Planet.Steps.nHydro > 0:
+                rhodots_kgm3 = np.max(Planet.rho_kgm3[:Planet.Steps.nHydro])
+                axrho.scatter(rhodots_kgm3,
+                            np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
+                            color=density[-1].get_color(), edgecolors=density[-1].get_color(),
+                            marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
+
+            # Plot thermal expansion coefficient vs. depth in hydrosphere
+            alpha = axalpha.plot(Planet.alpha_pK[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro] / 1e3,
+                                color=thisColor, linewidth=thisLW,
+                                linestyle=Style.LS[Planet.Ocean.comp])
+            # Make a dot at the end of the alpha profile, if there's an ocean
+            if Planet.Steps.nHydro > 0:
+                alphadots_pK = Planet.alpha_pK[:Planet.Steps.nHydro][-1]
+                axalpha.scatter(alphadots_pK,
+                              np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
+                              color=alpha[-1].get_color(), edgecolors=alpha[-1].get_color(),
+                              marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
+
+            # Plot specific heat capacity vs. depth in hydrosphere
+            cp = axCp.plot(Planet.Cp_JkgK[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro] / 1e3,
+                          color=thisColor, linewidth=thisLW,
+                          linestyle=Style.LS[Planet.Ocean.comp])
+            # Make a dot at the end of the Cp profile, if there's an ocean
+            if Planet.Steps.nHydro > 0:
+                cpdots_JkgK = Planet.Cp_JkgK[:Planet.Steps.nHydro][-1]
+                axCp.scatter(cpdots_JkgK,
+                           np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
+                           color=cp[-1].get_color(), edgecolors=cp[-1].get_color(),
+                           marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
+
+    if FigMisc.FORCE_0_EDGES:
+        [ax.set_ylim(top=0) for ax in axes]
+
+    # Limit Tmin so the relevant plot can better show what's going on in the ocean
+    Tmax = np.max([np.max(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub) for Planet in PlanetList if not Planet.Do.NO_H2O])
+    Tlims = [FigMisc.TminHydro, FigMisc.TminHydro + 1.05*(Tmax - FigMisc.TminHydro)]
+    axTz.set_xlim([np.min(Tlims), np.max(Tlims)])
+
+    if Params.LEGEND:
+        handles, lbls = axTz.get_legend_handles_labels()
+        axTz.legend(handles, lbls, loc='upper right')
+
+    plt.tight_layout()
+    fig.savefig(Params.FigureFiles.vhydro.replace('.png', '_thermodynamics.png'), 
+                format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    log.debug(f'Hydrosphere thermodynamics plot saved to file: {Params.FigureFiles.vhydro.replace(".png", "_thermodynamics.png")}')
+    plt.close()
+
     return

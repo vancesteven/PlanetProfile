@@ -17,7 +17,8 @@ from PlanetProfile.Thermodynamics.ThermalProfiles.IceConduction import IceIWhole
     IceIConductClathLidSolid, IceIConductClathLidPorous, IceIConductClathUnderplateSolid, IceIConductClathUnderplatePorous, \
     IceIIIConductSolid, IceIIIConductPorous, IceVConductSolid, IceVConductPorous
 from PlanetProfile.Thermodynamics.Geophysical import PropogateConductionFromDepth
-from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
+import time
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -25,12 +26,13 @@ log = logging.getLogger('PlanetProfile')
 def IceLayers(Planet, Params):
     """ Wrapper function for ice layer propogation. Decides between self consistent and non-self consistent modeling.
     """
-
+    Timing.setFunctionTime(time.time())
     # Early branching for non-self-consistent modeling
     if Planet.Do.NON_SELF_CONSISTENT:
         Planet, Params =  NonSelfConsistentIceLayer(Planet, Params)
     else:
         Planet, Params = SelfConsistentIceLayer(Planet, Params)
+    Timing.printFunctionTimeDifference('IceLayers()', time.time())
     return Planet
 
 def SelfConsistentIceLayer(Planet, Params):
@@ -102,7 +104,6 @@ def SelfConsistentIceLayer(Planet, Params):
                                 raise ValueError(msg)
                     Planet.PbI_MPa = 0.0
                 log.debug(f'Ice Ih transition pressure: {Planet.PbI_MPa:.3f} MPa.')
-
             if Planet.PbI_MPa > 0:
                 # Now do the same for HP ices, if present, to make sure we have a possible configuration before continuing
                 if Planet.Do.BOTTOM_ICEV:
@@ -179,7 +180,6 @@ def SelfConsistentIceLayer(Planet, Params):
                     Planet.Pb_MPa = Planet.PbIII_MPa
                 else:
                     Planet.Pb_MPa = Planet.PbI_MPa
-
             elif Planet.Pb_MPa == 0 and Planet.Bulk.Tsurf_K == Planet.Bulk.Tb_K:
                 # This config needs to be caught in SetupInit.
                 pass
@@ -257,7 +257,6 @@ def SelfConsistentIceLayer(Planet, Params):
                         Planet = IceIWholeConductSolid(Planet, Params)
 
                 log.debug('Upper ice initial conductive profile complete.')
-
                 if not Planet.Do.NO_ICE_CONVECTION and not Planet.Bulk.clathType == 'bottom':
                     # Record zb_m to see if it gets adjusted significantly
                     zbOld_m = Planet.z_m[Planet.Steps.nIbottom-1] + 0.0
@@ -619,6 +618,7 @@ def GetIceShellTFreeze(Planet, Params):
             # Save the best result
             self.last_residual = abs_residual
             self.best_planet = Planet_copy
+            self.best_planet.Do.ICEIh_THICKNESS = True
             self.best_T = T
 
             # Early exit condition
@@ -636,7 +636,7 @@ def GetIceShellTFreeze(Planet, Params):
         log.debug(f"Established temperature bounds from phase diagram: [{TlowerLimit_K:.2f}, {TupperLimit_K:.2f}] K")
     except Exception as e:
         raise ValueError(f"Could not determine temperature bounds from phase diagram. Try lowering Planet.TfreezeLower_K, which represents the lower limit of the temperature search.")
-    solver = IceShellResidual(Planet, Params, zb_approximate_km, zb_tol_km=1)
+    solver = IceShellResidual(Planet, Params, zb_approximate_km, zb_tol_km=0.01)
     # Find the precise freezing temperature using root finding
     try:
         sol = GetZero(solver, 
@@ -644,7 +644,6 @@ def GetIceShellTFreeze(Planet, Params):
                       xtol=Planet.TfreezeRes_K)
         
         T_freeze = sol.root
-        
         log.debug(f"Computed ice shell freezing temperature: {T_freeze:.3f} K after {sol.function_calls} iterations.")
         return solver.best_planet
 
@@ -664,12 +663,13 @@ def GetIceShellTFreeze(Planet, Params):
 def OceanLayers(Planet, Params):
     """ Wrapper function for ocean layer propogation. Decides between self consistent and non-self consistent modeling.
     """
-    
+    Timing.setStartingTime(time.time())
     # Early branching for non-self-consistent modeling
     if Planet.Do.NON_SELF_CONSISTENT:
         Planet, Params = NonSelfConsistentOceanLayer(Planet, Params)
     else:
         Planet, Params = SelfConsistentOceanLayer(Planet, Params)
+    Timing.printFunctionTimeDifference('OceanLayers()', time.time())
     return Planet
 
 
@@ -1119,12 +1119,13 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa, minPres_MPa=None, minTres_K=Non
 def InnerLayers(Planet, Params):
     """ Wrapper function for inner layer propogation. Decides between self consistent and non-self consistent modeling.
     """
-    
+    Timing.setFunctionTime(time.time())
     # Early branching for non-self-consistent modeling
     if Planet.Do.NON_SELF_CONSISTENT:
         Planet, Params = NonSelfConsistentInnerLayer(Planet, Params)
     else:
         Planet, Params = SelfConsistentInnerLayer(Planet, Params)
+    Timing.printFunctionTimeDifference('InnerLayers()', time.time())
     return Planet
 
 def SelfConsistentInnerLayer(Planet, Params):

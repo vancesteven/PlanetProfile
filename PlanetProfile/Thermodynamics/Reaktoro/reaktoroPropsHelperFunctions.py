@@ -158,9 +158,13 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     options =rkt.EquilibriumOptions()
     options.optima.maxiters = iterations
 
-    solver.setOptions(options)
     # Create a chemical state and its associated properties
     state = rkt.ChemicalState(system)
+    # We need to increase the minimum mol treshold if we looking at small concentratiosn to prevent numerical errors since reaktoro,by default, increases all concentrations to 1e-16 even if they are below this number
+    if np.any([value < 1e-16 for value in speciation_ratio_per_kg.values()]):
+        state.setSpeciesAmounts(1e-40)
+        options.epsilon = 1e-30
+    solver.setOptions(options)
     # Populate the state with the prescribed species at the given ratios
     for ion, ratio in speciation_ratio_per_kg.items():
         state.add(ion, ratio, species_unit)
@@ -170,26 +174,29 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     # Return the Reaktoro objects that user will need to interact with
     return db, system, state, conditions, solver, props
 
-def RelevantSolidSpecies(db, aqueous_species_list, solid_phases):
+def RelevantSolidSpecies(db, aqueous_species_list, solid_phases_to_consider, solid_phases_to_suppress):
     """
     Finds the relevant solid species to consider from a list of solid phases, or if solid phases is None, then return all solids
     """
+    solid_phases = ''
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
     # If we are specifying what phases to consider, note that we should only consider the phases that are relevant to the species in the solution
     # I.e. don't consider all clathrates if they aren't possible to form (greatly decreases runtime if we consider only relevant phases)
-    solid_phases_to_consider = ''
     solids_tester = rkt.MineralPhases()
     system_tester = rkt.ChemicalSystem(db, solution, solids_tester)
     relevant_solid_phases = system_tester.species().withAggregateState(rkt.AggregateState.Solid)
-    if solid_phases == 'All':
-        solid_phases = []
+    if solid_phases_to_consider == 'All':
+        solid_phases_to_consider = []
         for solid_phase in relevant_solid_phases:
-            solid_phases.append(solid_phase.name())
-    for solid in solid_phases:
+            if solid_phase.name() not in solid_phases_to_suppress:
+                solid_phases_to_consider.append(solid_phase.name())
+            else:
+                log.debug(f"Solid phase {solid_phase.name()} is suppressed and will not be considered in the equilibrium calculations.")
+    for solid in solid_phases_to_consider:
         if relevant_solid_phases.findWithName(solid) < relevant_solid_phases.size():
-            solid_phases_to_consider = solid_phases_to_consider + f' {solid}'
-    return solid_phases_to_consider
+            solid_phases += f' {solid}'
+    return solid_phases
 
 
 def ices_phases_amount_mol(props: rkt.ChemicalProps):
@@ -325,15 +332,58 @@ def interpolation_2d(P_MPa, arrays):
 def interpolation_1d(P_MPa, arrays):
     interpolated_arrays = []
     for array in arrays:
+        # Create a copy to avoid modifying the original array
+        array_copy = array.copy()
+        
         # Create mask for known values (not NaN)
-        nan_mask = np.isnan(array)
-        # Extract known points and values
-        x_known = P_MPa[~nan_mask]
-        y_known = array[~nan_mask]
-        spline = interpolate.make_interp_spline(x_known, y_known, k=2)
-        # Perform the interpolation
-        interpolated_results = spline(P_MPa)
-        interpolated_arrays.append(interpolated_results)
+        nan_mask = np.isnan(array_copy)
+        
+        # Step 1: Handle edge case filling - extend valid edge values to cover all invalid edge regions
+        # This prevents spline extrapolation which can cause numerical instability
+        valid_indices = np.where(~nan_mask)[0]
+        if len(valid_indices) > 0:
+            # Fill ALL invalid values at the beginning with the first valid value
+            first_valid_idx = valid_indices[0]
+            if first_valid_idx > 0:
+                array_copy[:first_valid_idx] = array_copy[first_valid_idx]
+            
+            # Fill ALL invalid values at the end with the last valid value
+            last_valid_idx = valid_indices[-1]
+            if last_valid_idx < len(array_copy) - 1:
+                array_copy[last_valid_idx+1:] = array_copy[last_valid_idx]
+            
+            # Step 2: Update nan_mask after edge filling to identify remaining interior gaps
+            nan_mask = np.isnan(array_copy)
+            
+            # Step 3: Handle any remaining interior invalid values
+            if np.any(nan_mask):
+                # Extract known points and values for interpolation
+                x_known = P_MPa[~nan_mask]
+                y_known = array_copy[~nan_mask]
+                
+                # Check if we have sufficient points for spline interpolation
+                if len(x_known) >= 2:
+                    # Use linear interpolation (k=1) for robustness
+                    spline = interpolate.make_interp_spline(x_known, y_known, k=1)
+                    # Only interpolate for the remaining invalid interior points
+                    invalid_indices = np.where(nan_mask)[0]
+                    array_copy[invalid_indices] = spline(P_MPa[invalid_indices])
+                else:
+                    # Fallback to nearest neighbor if insufficient points for interpolation
+                    for i in np.where(nan_mask)[0]:
+                        # Find distances to all valid points
+                        valid_indices = np.where(~nan_mask)[0]
+                        distances = np.abs(valid_indices - i)
+                        # Find the index of the nearest valid point
+                        nearest_valid_idx = valid_indices[np.argmin(distances)]
+                        # Fill with nearest neighbor value
+                        array_copy[i] = array_copy[nearest_valid_idx]
+            
+            interpolated_arrays.append(array_copy)
+        else:
+            # Fallback: If no valid data exists in this array, fill with zeros
+            interpolated_arrays.append(np.zeros_like(array_copy))
+    
     return tuple(interpolated_arrays)
 
 def extract_species_from_reaction(species_dict, reaction_dict):

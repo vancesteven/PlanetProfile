@@ -33,6 +33,23 @@ def ResetNearestExtrap(var1, var2, min1, max1, min2, max2):
 
     return outVar1, outVar2
 
+def ReAssignPT(P_MPa, T_K, Pmin, Pmax, Tmin, Tmax, MELT=False):
+    # Find indices where P_MPa is within bounds [Pmin, Pmax]
+    deltaP = np.mean(np.diff(P_MPa))
+    deltaT = np.mean(np.diff(T_K))
+    P_MPa = np.arange(Pmin, Pmax+deltaP, deltaP)
+    T_K = np.arange(Tmin, Tmax+deltaT, deltaT)
+    if MELT:
+        PropsP_MPa = np.linspace(P_MPa[0], P_MPa[-1], 10)
+        PropsT_K = np.linspace(T_K[0], T_K[-1], 11)
+        Pphase_MPa = P_MPa
+        Tphase_K = T_K
+    else:
+        PropsP_MPa = P_MPa
+        PropsT_K = T_K
+        Pphase_MPa = P_MPa
+        Tphase_K = T_K
+    return PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K
 
 class ReturnZeros:
     """ Returns an array or tuple of arrays of zeros, for functions of properties
@@ -183,9 +200,7 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].fn_eta_Pas(P_MPa, T_K, grid=grid)
     def fn_Seismic(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K, grid=grid)
-    def fn_species(self, P_MPa, T_K, grid = False):
-        return EOSlist.loaded[self.key].fn_species(P_MPa, T_K, grid=grid)
-    def fn_rxn_affinity(self, P_MPa, T_K, reaction, concentrations, grid = False):
-        return EOSlist.loaded[self.key].fn_rxn_affinity(P_MPa, T_K, reaction, concentrations, grid=grid)
+    def fn_species(self, P_MPa, T_K, grid = False, reactionSubstruct=None):
+        return EOSlist.loaded[self.key].fn_species(P_MPa, T_K, grid=grid, reactionSubstruct=reactionSubstruct)
     def fn_averageValuesAccordingtoRule(self, prop1, prop2, rule):
         return EOSlist.loaded[self.key].fn_averageValuesAccordingtoRule(prop1, prop2, rule)

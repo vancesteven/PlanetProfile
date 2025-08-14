@@ -61,7 +61,8 @@ def run(bodyname=None, opt=None, fNames=None):
     This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.""")
 
-    
+    # Intializing timing structure
+    Timing.setStartingTime(time.time())
     # Copy global Params settings to local variable so we can add things like filenames
     Params = configParams
     
@@ -245,6 +246,7 @@ def run(bodyname=None, opt=None, fNames=None):
                 PrintLayerTableLatex(CompareList, Params)
             if Params.DISP_TABLE:
                 PrintGeneralSummary(CompareList, Params)
+    Timing.printTotalTimeDifference('Total run time for PlanetProfile: ')
     return
 
 """ END MAIN RUN BLOCK """
@@ -267,7 +269,7 @@ def PlanetProfile(Planet, Params):
         # Save data after modeling
         if (not Params.NO_SAVEFILE) and Planet.Do.VALID and (not Params.INVERSION_IN_PROGRESS):
             WriteProfile(Planet, Params)
-            if not Planet.Do.NO_OCEAN:
+            if Params.CALC_OCEAN_PROPS and not Planet.Do.NO_OCEAN:
                 WriteLiquidOceanProps(Planet, Params)
             if Params.CALC_SEISMIC and not Params.SKIP_INNER:
                 WriteSeismic(Planet, Params)
@@ -289,7 +291,7 @@ def PlanetProfile(Planet, Params):
     if (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and (not Params.SKIP_INDUCTION or not Params.SKIP_GRAVITY):
         Planet, Params = GetReducedPlanet(Planet, Params)
     # Magnetic induction calculations and plots
-    if (Params.CALC_CONDUCT and Planet.Do.VALID) and not Params.SKIP_INDUCTION:
+    if (Params.CALC_CONDUCT and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES))) and not Params.SKIP_INDUCTION:
         # Calculate induced magnetic moments
         Planet, Params = MagneticInduction(Planet, Params)
 
@@ -300,7 +302,7 @@ def PlanetProfile(Planet, Params):
                         'set to False. Try to re-run with CALC_NEW_INDUCT set to True in '
                         'configPP.py.')
         elif (not Params.SKIP_PLOTS) and \
-            not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS):
+            not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS):
             GenerateMagPlots([Planet], Params)
 
     # Gravity calcuations and plots
@@ -317,7 +319,8 @@ def HydroOnly(Planet, Params):
     """ Wrapper for PlanetProfile function, up through hydrosphere calculations,
         for parameter exploration that needs only to redo the interior.
     """
-
+    # Reset profile start time to now
+    Planet.profileStartTime = time.time()
     Planet, Params = SetupInit(Planet, Params)
     if not Planet.Do.NO_H2O:
         Planet = IceLayers(Planet, Params)
@@ -330,7 +333,8 @@ def InteriorEtc(Planet, Params):
     """ Wrapper for PlanetProfile function, minus hydrosphere calculations,
         for parameter exploration that needs only to redo the interior.
     """
-
+    # Reset profile start time to now
+    Planet.profileStartTime = time.time()
     Planet = InnerLayers(Planet, Params)
     Planet = ElecConduct(Planet, Params)
     Planet = SeismicCalcs(Planet, Params)
@@ -346,13 +350,13 @@ def InteriorEtc(Planet, Params):
             WriteSeismic(Planet, Params)
             
     # Create a simplified reduced planet structure for magnetic induction and/or gravity calculations
-    if Planet.Do.VALID:
+    if (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and (not Params.SKIP_INDUCTION or not Params.SKIP_GRAVITY):
         Planet, Params = GetReducedPlanet(Planet, Params)
-    if not Params.SKIP_INDUCTION and (Params.CALC_CONDUCT and Params.CALC_NEW_INDUCT):
+    if (Params.CALC_CONDUCT and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES))) and not Params.SKIP_INDUCTION:
         # Calculate induced magnetic moments
         Planet, Params = MagneticInduction(Planet, Params)
         # Gravity calcuations and plots
-    if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY) and not Params.SKIP_GRAVITY:
+    if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY) and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and not Params.SKIP_GRAVITY:
         # Calculate gravity parameters
         Planet, Params = GravityParameters(Planet, Params)
     PrintCompletion(Planet, Params)
@@ -362,7 +366,9 @@ def InteriorEtc(Planet, Params):
 def InductionOnly(Planet, Params):
     """ Wrapper for MagneticInduction function similar to above that includes PrintCompletion.
     """
-
+    # Reset profile start time to now
+    Planet.profileStartTime = time.time()
+    if (Params.CALC_CONDUCT and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES))) and not Params.SKIP_INDUCTION:
     Planet, Params = MagneticInduction(Planet, Params)
 
     PrintCompletion(Planet, Params)
@@ -382,6 +388,11 @@ def PrintCompletion(Planet, Params):
             ending = '!'
         else:
             tNow_s = time.time()
+            if Planet.profileStartTime is not None:
+                tProfile_s = tNow_s - Planet.profileStartTime
+                tProfileString = f'Profile took {tProfile_s:.3f} s'
+            else:
+                tProfileString = ''
             tTot_s = Params.nModels / Planet.index * (tNow_s - Params.tStart_s)
             tRemain_s = (Params.tStart_s + tTot_s - tNow_s)
             remain = ''
@@ -395,7 +406,7 @@ def PrintCompletion(Planet, Params):
                     remain += f' {int(tRemain_s/60)} min'
                 remain += f' {int(tRemain_s % 60)} s'
 
-            ending = f'. Approx.{remain} remaining.'
+            ending = f'. {tProfileString}. Approx.{remain} remaining.'
     log.profile(f'Profile{indicator} complete{ending}')
     return
 
@@ -746,17 +757,27 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     if Planet.Do.NO_H2O or Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
         Planet.Do.NO_OCEAN = True
     if not Planet.Do.NO_OCEAN:
+        if Params.CALC_OCEAN_PROPS:
         with open(Params.DataFiles.oceanPropsFile) as f:
             nHeadLines = int(f.readline().split('=')[-1])
-            Planet.Ocean.aqueousSpecies = np.array(f.readline().split('=')[-1].strip().replace(',', '').split())
-            Planet.Ocean.reaction = f.readline().split('=')[-1].strip()
-            Planet.Ocean.reactionDisequilibriumConcentrations = f.readline().split('=')[-1].strip()
+                Planet.Ocean.aqueousSpecies = np.array(f.readline().split('=')[-1].strip().replace(';', '').split())
+                Planet.Ocean.Reaction.reaction = f.readline().split('=')[-1].strip()
+                Planet.Ocean.Reaction.useReferenceSpecies = bool(strtobool(f.readline().split('=')[-1].strip()))
+                Planet.Ocean.Reaction.referenceSpecies = f.readline().split('=')[-1].strip()
+                Planet.Ocean.Reaction.disequilibriumConcentrations = ast.literal_eval(f.readline().split('=')[-1].strip())
         OceanSpecificProps = np.loadtxt(Params.DataFiles.oceanPropsFile, skiprows=nHeadLines, unpack=True)
         Planet.Ocean.Bulk_pHs = OceanSpecificProps[2]
         Planet.Ocean.affinity_kJ = OceanSpecificProps[3]
         Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[4: ]
+            Planet.Ocean.pHSeafloor = Planet.Ocean.Bulk_pHs[-1]
+            Planet.Ocean.Mean_pH = np.mean(Planet.Ocean.Bulk_pHs)
+            Planet.Ocean.affinitySeafloor_kJ = Planet.Ocean.affinity_kJ[-1]
+            Planet.Ocean.affinityMean_kJ = np.mean(Planet.Ocean.affinity_kJ)
     else:
-        Planet.Ocean.reaction, Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN', 'NaN'
+            Planet.Ocean.Reaction.reaction, Planet.Ocean.Reaction.disequilibriumConcentrations = 'NaN', 'NaN'
+            Planet.Ocean.Bulk_pHs, Planet.Ocean.affinity_kJ, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
+    else:
+        Planet.Ocean.Reaction.reaction, Planet.Ocean.Reaction.disequilibriumConcentrations = 'NaN', 'NaN'
         Planet.Ocean.Bulk_pHs, Planet.Ocean.affinity_kJ, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
 
     # Setup CustomSolution settings
@@ -852,18 +873,7 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                      'Axis settings in configPPinduct will be ignored.')
             Induction, Planet, Params = ReloadInductOgram(bodyname, Params, fNameOverride=fNameOverride)
 
-        if Params.CALC_ASYM:
-            # If we are doing asymmetry, limit to low-degree moments to compute in a reasonable time
-            Planet.Magnetic.pMax = 2
-        else:
-            Planet.Magnetic.pMax = 0
-        Planet.Magnetic.Texc_hr, Planet.Magnetic.omegaExc_radps, Planet.Magnetic.Benm_nT, \
-        Planet.Magnetic.B0_nT, _ \
-            = GetBexc(Planet.name, Planet.Magnetic.SCera, Planet.Magnetic.extModel,
-                      Params.Induct.excSelectionCalc, nprmMax=Planet.Magnetic.nprmMax,
-                      pMax=Planet.Magnetic.pMax)
-        Planet.Magnetic.nExc = np.size(Planet.Magnetic.Texc_hr)
-        Benm_nT = Planet.Magnetic.Benm_nT
+        Planet, Params = SetupInduction(Planet, Params)
 
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
@@ -1052,10 +1062,13 @@ def InductOgram(bodyname, Params, fNameOverride=None):
         log.info('PlanetGrid constructed. Calculating induction responses.')
         Params.INDUCTOGRAM_IN_PROGRESS = True
         PlanetGrid = ParPlanet(PlanetGrid, Params)
+        Params.INDUCTOGRAM_IN_PROGRESS = False
         tMarks = np.append(tMarks, time.time())
         dt = tMarks[-1] - tMarks[-2]
         log.info(f'Parallel run elapsed time: {dt:.1f} s.')
 
+        # Extract magnetic induction results from the PlanetGrid
+        Benm_nT = Planet.Magnetic.Benm_nT
         # Organize data into a format that can be plotted/saved for plotting
         Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(Benm_nT)
         nPeaks = np.size(Bex_nT)
@@ -1526,6 +1539,9 @@ def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
         funcName function.
     """
     PlanetList1D = np.reshape(PlanetGrid, -1)
+    if Params.PRELOAD_EOS:
+        log.info('Preloading EOS tables. This may take some time.')
+        PrecomputeEOS(PlanetList1D, Params)
     if Params.DO_PARALLEL:
         # Prevent slowdowns from competing process spawning when #cores > #jobs
         nCores = np.min([Params.maxCores, np.prod(np.shape(PlanetList1D)), Params.threadLimit])
@@ -2088,6 +2104,11 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
 
         if Magnetic is not None:
             Planet.Magnetic = Magnetic
+        else:
+            if Params.CALC_NEW_INDUCT:
+                Params.CALC_CONDUCT = True
+                Planet, Params = SetupInduction(Planet, Params)
+
 
         Exploration = ExplorationStruct()
         Exploration.xName = Params.Explore.xName
@@ -2105,12 +2126,18 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
             if Params.Explore.nx != len(xList):
                 raise ValueError(f"Size of provided range list ({len(xList)}) does not match input Params.Explore.nx {Params.Explore.nx}. Adjust so they match.")
         else:
+            if Exploration.xName in Params.Explore.exploreLogScale:
+                xList = np.logspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
+        else:
             xList = np.linspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
         if Params.Explore.yName in Params.Explore.provideExploreRange:
             yList = loadmat(DataFiles.yRangeData)['Data'].flatten().tolist()
             yList = [s.strip() if isinstance(s, str) else s for s in yList]
             if Params.Explore.ny != len(yList):
                 raise ValueError(f"Size of provided range list ({len(yList)}) does not match input Params.Explore.nx {Params.Explore.ny}. Adjust so they match.")
+        else:
+            if Exploration.yName in Params.Explore.exploreLogScale:
+                yList = np.logspace(Params.Explore.yRange[0], Params.Explore.yRange[1], Params.Explore.ny)
         else:
             yList = np.linspace(Params.Explore.yRange[0], Params.Explore.yRange[1], Params.Explore.ny)
 
@@ -2124,7 +2151,9 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
         Params.ALLOW_BROKEN_MODELS = True
 
         tMarks = np.append(tMarks, time.time())
+        Params.EXPLOREOGRAM_IN_PROGRESS = True
         PlanetGrid = ParPlanetExplore(Planet, Params, xList, yList)
+        Params.EXPLOREOGRAM_IN_PROGRESS = False
         tMarks = np.append(tMarks, time.time())
         dt = tMarks[-1] - tMarks[-2]
         log.info(f'Parallel run elapsed time: {dt:.1f} s.')

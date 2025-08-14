@@ -4,13 +4,15 @@ import logging
 import ast
 import os
 from PlanetProfile.Utilities.Indexing import PhaseConv
-from PlanetProfile.Utilities.defineStructs import Constants
+from PlanetProfile.Utilities.defineStructs import Constants, Timing
+import time
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
 def GravityParameters(Planet, Params):
     """ Calculate induced gravity responses for the body and prints them to disk."""
+    Timing.setFunctionTime(time.time())
     if (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and Params.CALC_NEW_GRAVITY and Params.CALC_VISCOSITY and Params.CALC_SEISMIC and not Params.SKIP_INNER:
         # Check if there are any phase transitions in the model, or if this is a 1-layer model
         if not np.any(Planet.Reduced.phase[:-1] != Planet.Reduced.phase[1:]):
@@ -31,12 +33,22 @@ def GravityParameters(Planet, Params):
                                                                     parallel=Params.Gravity.parallel and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
             # Compute delta relation
             Planet.Gravity.delta = 1 + Planet.Gravity.k - Planet.Gravity.h
+
             # If our love numbers are 1x1 numpy array, let's convert to float - important for plotting and output
             if len(Planet.Gravity.time_log_kyrs) == 1 and len(Planet.Gravity.harmonic_degrees) == 1:
-                Planet.Gravity.h = float(Planet.Gravity.h[0, 0])
-                Planet.Gravity.l = float(Planet.Gravity.l[0, 0])
-                Planet.Gravity.k = float(Planet.Gravity.k[0, 0])
-                Planet.Gravity.delta = float(Planet.Gravity.delta[0, 0])
+                Planet.Gravity.h = Planet.Gravity.h[0, 0]
+                Planet.Gravity.l = Planet.Gravity.l[0, 0]
+                Planet.Gravity.k = Planet.Gravity.k[0, 0]
+                Planet.Gravity.delta = Planet.Gravity.delta[0, 0]
+            # Convert love numbers from complex to magnitude and phase delay
+            Planet.Gravity.hAmp = np.abs(Planet.Gravity.h)
+            Planet.Gravity.hPhase = -np.degrees(np.angle(Planet.Gravity.h))
+            Planet.Gravity.lAmp = np.abs(Planet.Gravity.l)
+            Planet.Gravity.lPhase = -np.degrees(np.angle(Planet.Gravity.l))
+            Planet.Gravity.kAmp = np.abs(Planet.Gravity.k)
+            Planet.Gravity.kPhase = -np.degrees(np.angle(Planet.Gravity.k))
+            Planet.Gravity.deltaAmp = np.abs(Planet.Gravity.delta)
+            Planet.Gravity.deltaPhase = -np.degrees(np.angle(Planet.Gravity.delta))
             if (not Params.NO_SAVEFILE) and (not Params.INVERSION_IN_PROGRESS) and (not Params.DO_EXPLOREOGRAM):
                 Planet, Params = WriteGravityParameters(Planet, Params)
     elif Planet.Do.VALID:
@@ -46,6 +58,7 @@ def GravityParameters(Planet, Params):
         else:
             log.warning(
                 f'CALC_NEW_GRAVITY is False, but {Params.DataFiles.gravityParametersFile} was not found. ' + f'Skipping gravity parameter calculations.')
+    Timing.printFunctionTimeDifference('GravityParameters()', time.time())
     return Planet, Params
 
 

@@ -175,8 +175,15 @@ elif Params.QUIET:
     # Allow progress printout to be silenced if QUIET is selected
     Params.logParallel += 10
     
-# Set up message logging and apply verbosity level
+# === Custom Log Level: PERFORMANCE ===
+logging.TIMING = logging.INFO + 5
+logging.addLevelName(logging.TIMING, 'TIMING')
+logging.Logger.timing = partialmethod(logging.Logger.log, logging.TIMING)
+logging.timing = partial(logging.log, logging.TIMING)
+    
+# Set up message logging, child loggers, and apply verbosity level
 log = logging.getLogger('PlanetProfile')
+timeLog = logging.getLogger('PlanetProfile.Timing')
 if Params.VERBOSE:
     logLevel = logging.DEBUG
 elif Params.QUIET:
@@ -191,11 +198,20 @@ if Params.QUIET_LBF:
     logLevelLBF = logging.ERROR
 else:
     logLevelLBF = logLevel
+if Params.TIMING:
+    timingLogLevel = logging.TIMING
+else:
+    timingLogLevel = logging.TIMING + 1
 
 stream = logging.StreamHandler(sys.stdout)
 stream.setFormatter(logging.Formatter(Params.printFmt))
 log.setLevel(logLevel)
 log.addHandler(stream)
+timeLog.setLevel(timingLogLevel)
+timeStream = logging.StreamHandler(sys.stdout)
+timeStream.setFormatter(logging.Formatter(Params.printFmt))
+timeLog.addHandler(timeStream)
+timeLog.propagate = False # Prevent double logging to parent handlers
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger('PIL').setLevel(logging.WARNING)
 logging.getLogger('MoonMag').setLevel(logLevelMoonMag)
