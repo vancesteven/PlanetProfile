@@ -1,7 +1,7 @@
 """ Default custom ocean solution settings """
 from PlanetProfile.Utilities.defineStructs import CustomSolutionParamsStruct
 
-configCustomSolutionVersion = 6 # Integer number for config file version. Increment when new settings are added to the default config file.
+configCustomSolutionVersion = 7 # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def customSolutionAssign():
     CustomSolutionParams = CustomSolutionParamsStruct()
@@ -22,6 +22,7 @@ def customSolutionAssign():
     CustomSolutionParams.SOLID_PHASES = True
     # Only valid if SOLID_PHASES is True. Specify the Solid Phases to consider - specifying only primary phases can speed up runtime. 'All' considers all possible phases available in database
     CustomSolutionParams.SOLID_PHASES_TO_CONSIDER = ['Carbonates', 'Sulfates'] # Can specify minerals specifically, or add keywords that include 'Carbonates', 'Sulfates' that are defined in Constants.py
+    CustomSolutionParams.SOLID_PHASES_TO_SUPPRESS = None # Specify solid phases to suppress from equilibrium calculations. None suppresses none. Should be in a list format like ['Dolomite', 'Calcite']
 
     # Have PlanetProfile remove species that Frezchem does not have in database so we can consider more diverse speciated compositions in the ocean thermodynamcis
     # This removes self-consistency between the phase equilibria (up to 200MPa) and ocean thermodynamics since frezchem is calculating liquid-IceI equilibria of a less speciated chemistry
