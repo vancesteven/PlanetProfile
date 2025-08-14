@@ -134,6 +134,9 @@ def IceIConvectSolid(Planet, Params):
                 f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n' +
                 f'    Lower TBL thickness deltaTBL = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
                 f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
+        
+        # Update the viscosity of the Ice Ih EOS to use the convective viscosity
+        Planet.Ocean.surfIceEOS['Ih'].updateConvectionViscosity(Planet.etaConv_Pas, Planet.Tconv_K)
 
         # Check for whole-lid conduction
         if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
@@ -292,14 +295,16 @@ def IceIConvectPorous(Planet, Params):
         ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
                                      zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.EOS,
                                      Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol)
-
+    # Update the viscosity of the Ice Ih EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['Ih'].fn_eta_Pas.updateConvectionViscosity(Planet.etaConv_Pas, Planet.Tconv_K)
     log.debug(f'Ice I convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
               f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
               f'    Conductive lid thickness eLid = {Planet.eLid_m/1e3:.1f} km,\n' +
               f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n' +
               f'    Lower TBL thickness deltaTBL = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
               f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
-
+    # Update the viscosity of the Ice Ih EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['Ih'].fn_eta_Pas.updateConvectionViscosity(Planet.etaConv_Pas, Planet.Tconv_K)
     # Check for whole-lid conduction
     if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
         log.info(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
@@ -462,7 +467,8 @@ def IceIIIConvectSolid(Planet, Params):
               f'    Convecting layer thickness DconvIII = {Planet.DconvIII_m/1e3:.1f} km,\n' +
               f'    Lower TBL thickness deltaTBLIII = {Planet.deltaTBLIII_m/1e3:.1f} km,\n' +
               f'    Rayleigh number RaIII = {Planet.RaConvectIII:.3e}.')
-
+    # Update the viscosity of the Ice III EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['III'].fn_eta_Pas.updateConvectionViscosity(Planet.etaConvIII_Pas, Planet.TconvIII_K)
     # Check for whole-lid conduction
     if(zbIII_m <= Planet.eLidIII_m + Planet.deltaTBLIII_m):
         log.info(f'Underplate ice III thickness ({zbIII_m/1e3:.1f} km) is less than that of the thermal ' +
@@ -559,7 +565,8 @@ def IceIIIConvectPorous(Planet, Params):
               f'    Convecting layer thickness DconvIII = {Planet.DconvIII_m/1e3:.1f} km,\n' +
               f'    Lower TBL thickness deltaTBLIII = {Planet.deltaTBLIII_m/1e3:.1f} km,\n' +
               f'    Rayleigh number RaIII = {Planet.RaConvectIII:.3e}.')
-
+    # Update the viscosity of the Ice III EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['III'].fn_eta_Pas.updateConvectionViscosity(Planet.etaConvIII_Pas, Planet.TconvIII_K)
     # Check for whole-lid conduction
     if(zbIII_m <= Planet.eLidIII_m + Planet.deltaTBLIII_m):
         log.info(f'Underplate ice III thickness ({zbIII_m/1e3:.1f} km) is less than that of the thermal ' +
@@ -663,7 +670,8 @@ def IceVConvectSolid(Planet, Params):
               f'    Convecting layer thickness DconvV = {Planet.DconvV_m/1e3:.1f} km,\n' +
               f'    Lower TBL thickness deltaTBLV = {Planet.deltaTBLV_m/1e3:.1f} km,\n' +
               f'    Rayleigh number RaV = {Planet.RaConvectV:.3e}.')
-
+    # Update the viscosity of the Ice V EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['V'].fn_eta_Pas.updateConvectionViscosity(Planet.etaConvV_Pas, Planet.TconvV_K)
     # Check for whole-lid conduction
     if(zbV_m <= Planet.eLidV_m + Planet.deltaTBLV_m):
         log.info(f'Underplate ice V thickness ({zbV_m/1e3:.1f} km) is less than that of the thermal ' +
@@ -762,7 +770,8 @@ def IceVConvectPorous(Planet, Params):
               f'    Convecting layer thickness DconvV = {Planet.DconvV_m/1e3:.1f} km,\n' +
               f'    Lower TBL thickness deltaTBLV = {Planet.deltaTBLV_m/1e3:.1f} km,\n' +
               f'    Rayleigh number RaV = {Planet.RaConvectV:.3e}.')
-
+    # Update the viscosity of the Ice V EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['V'].fn_eta_Pas.updateConvectionViscosity(Planet.etaConvV_Pas, Planet.TconvV_K)
     # Check for whole-lid conduction
     if(zbV_m <= Planet.eLidV_m + Planet.deltaTBLV_m):
         log.info(f'Underplate ice V thickness ({zbV_m/1e3:.1f} km) is less than that of the thermal ' +
@@ -877,7 +886,8 @@ def ClathShellConvectSolid(Planet, Params):
               f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n' +
               f'    Lower TBL thickness deltaTBL = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
               f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
-
+    # Update the viscosity of the Ice Ih EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS[phaseStr].fn_eta_Pas.updateConvectionViscosity(Planet.etaConv_Pas, Planet.Tconv_K)
     # Check for whole-lid conduction
     if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
         log.info(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
@@ -971,7 +981,8 @@ def ClathShellConvectPorous(Planet, Params):
               f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n' +
               f'    Lower TBL thickness deltaTBL = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
               f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
-
+    # Update the viscosity of the Ice Ih EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS[phaseStr].updateConvectionViscosity(Planet.etaConv_Pas, Planet.Tconv_K)
     # Check for whole-lid conduction
     if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
         log.info(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
