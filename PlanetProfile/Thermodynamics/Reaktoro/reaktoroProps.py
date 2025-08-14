@@ -5,7 +5,7 @@ from PlanetProfile import _ROOT
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.GetConfig import CustomSolutionParams
 from hdf5storage import loadmat, savemat
-from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnConstantPTw
+from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnConstantPTw, Nearest2DInterpolator as PhaseInterpolator
 from collections.abc import Iterable
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 from scipy.optimize import root_scalar as GetZero
@@ -627,14 +627,13 @@ def RktProps(EOSLookupTable, P_MPa, T_K, EXTRAP):
             P_MPa = np.linspace(P_MPa[0], P_MPa[-1] + EOS_deltaP, 5)
             EOS_deltaP = np.maximum(np.round(np.mean(np.diff(P_MPa)), 2), 0.001)
 
-    evalPts = fn_RktProps.fn_evalPts(P_MPa, T_K)
     nPs = np.size(P_MPa)
     # Interpolate the input data to get the values corresponding to the current ocean comp,
     # then get the property values for the input (P,T) pairs and reshape to how they need
     # to be formatted for use in the ocean EOS.
-    rho_kgm3 = np.reshape(fn_RktProps.fn_rho_kgm3(evalPts), (nPs, -1))
-    Cp_JkgK = np.reshape(fn_RktProps.fn_Cp_JkgK(evalPts), (nPs, -1))
-    alpha_pK = np.reshape(fn_RktProps.fn_alpha_pK(evalPts), (nPs, -1))
+    rho_kgm3 = np.reshape(fn_RktProps.fn_rho_kgm3(P_MPa, T_K), (nPs, -1))
+    Cp_JkgK = np.reshape(fn_RktProps.fn_Cp_JkgK(P_MPa, T_K), (nPs, -1))
+    alpha_pK = np.reshape(fn_RktProps.fn_alpha_pK(P_MPa, T_K), (nPs, -1))
     kTherm_WmK = fn_RktProps.fn_kTherm_WmK(P_MPa, T_K, 0, grid =True)
 
     return P_MPa, T_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK, EOS_deltaP, EOS_deltaT
@@ -642,36 +641,23 @@ def RktProps(EOSLookupTable, P_MPa, T_K, EXTRAP):
 
 class RktPropsLookup:
     def __init__(self, EOSLookupTable):
-        self.fLookup = f'{EOSLookupTable.name}_Props'
-        if self.fLookup in EOSlist.loaded.keys():
-            log.debug(f'EOS properties lookup table with label {self.fLookup} already loaded.')
-            self.fn_rho_kgm3, self.fn_Cp_JkgK, self.fn_alpha_pK, self.fn_kTherm_WmK, self.fn_VP_kms, self.fn_KS_GPa, self.fn_mu_J_mol, self.fn_evalPts = \
-            EOSlist.loaded[self.fLookup]
-            self.Pmin, self.Pmax, self.EOSdeltaP, self.Tmin, self.Tmax, self.EOSdeltaT = EOSlist.ranges[self.fLookup]
-        else:
-            fRktProps = EOSLookupTable.props_EOS
-            TRkt_K = fRktProps["T_K"]
-            PRkt_MPa = fRktProps["P_MPa"]
-            self.fn_rho_kgm3 = RectBivariateSpline(PRkt_MPa, TRkt_K, fRktProps["rho"])
-            self.fn_Cp_JkgK = RectBivariateSpline(PRkt_MPa, TRkt_K, fRktProps["Cp"])
-            self.fn_alpha_pK = RectBivariateSpline(PRkt_MPa, TRkt_K, fRktProps["alpha"])
-            self.fn_VP_kms = RectBivariateSpline(PRkt_MPa, TRkt_K, fRktProps["VP"])
-            self.fn_KS_GPa = RectBivariateSpline(PRkt_MPa, TRkt_K, fRktProps["KS"])
-            self.fn_mu_J_mol = RectBivariateSpline(PRkt_MPa, TRkt_K, fRktProps["mu"])
-            self.fn_kTherm_WmK = ReturnConstantPTw(const=Constants.kThermWater_WmK)
+        fRktProps = EOSLookupTable.props_EOS
+        TRkt_K = fRktProps["T_K"]
+        PRkt_MPa = fRktProps["P_MPa"]
+        self.fn_rho_kgm3 = RectBivariateSpline(PRkt_MPa, TRkt_K, fRktProps["rho"])
+        self.fn_Cp_JkgK = RectBivariateSpline(PRkt_MPa, TRkt_K, fRktProps["Cp"])
+        self.fn_alpha_pK = RectBivariateSpline(PRkt_MPa, TRkt_K, fRktProps["alpha"])
+        self.fn_VP_kms = RectBivariateSpline(PRkt_MPa, TRkt_K, fRktProps["VP"])
+        self.fn_KS_GPa = RectBivariateSpline(PRkt_MPa, TRkt_K, fRktProps["KS"])
+        self.fn_mu_J_mol = RectBivariateSpline(PRkt_MPa, TRkt_K, fRktProps["mu"])
+        self.fn_kTherm_WmK = ReturnConstantPTw(const=Constants.kThermWater_WmK)
 
-            self.Pmin = EOSLookupTable.Pmin
-            self.Pmax = EOSLookupTable.Pmax
-            self.EOSdeltaP = EOSLookupTable.EOSdeltaP
-            self.Tmin = EOSLookupTable.Tmin
-            self.Tmax = EOSLookupTable.Tmax
-            self.EOSdeltaT = EOSLookupTable.EOSdeltaT
-
-            # Save functions to EOSlist so they can be referenced in future
-            EOSlist.loaded[self.fLookup] = (
-                self.fn_rho_kgm3, self.fn_Cp_JkgK, self.fn_alpha_pK, self.fn_kTherm_WmK, self.fn_VP_kms, self.fn_KS_GPa,
-                self.fn_mu_J_mol, self.fn_evalPts)
-            EOSlist.ranges[self.fLookup] = (self.Pmin, self.Pmax, self.EOSdeltaP, self.Tmin, self.Tmax, self.EOSdeltaT)
+        self.Pmin = EOSLookupTable.Pmin
+        self.Pmax = EOSLookupTable.Pmax
+        self.EOSdeltaP = EOSLookupTable.EOSdeltaP
+        self.Tmin = EOSLookupTable.Tmin
+        self.Tmax = EOSLookupTable.Tmax
+        self.EOSdeltaT = EOSLookupTable.EOSdeltaT
 
     def fn_evalPts(self, Pin_MPa, Tin_K):
         P_MPa = ensureArray(Pin_MPa)
@@ -940,49 +926,39 @@ class RktSeismic:
 
 class RktPhaseLookup:
     def __init__(self, EOSLookupTable, P_MPa, T_K, EOS_deltaP, EOS_deltaT):
-        self.fLookup = f'{EOSLookupTable.name}_Phase'
-        if self.fLookup in EOSlist.loaded.keys():
-            log.debug(f'EOS phase lookup table with label {self.fLookup} already loaded.')
-            self.fn_frezchem_phaseRGI, self.fn_mu_J_mol = EOSlist.loaded[self.fLookup]
-            self.Pmin, self.Pmax, self.deltaP, self.deltaT = EOSlist.ranges[self.fLookup]
-        else:
-            fRktPhase = EOSLookupTable.phase_EOS
-            PRkt_MPa = fRktPhase['P_MPa']
-            self.Pmin = np.min(PRkt_MPa)
-            self.deltaP = np.maximum(np.round(np.mean(np.diff(PRkt_MPa)), 2), 0.001)
-            self.fn_frezchem_phaseRGI = RegularGridInterpolator((PRkt_MPa,), fRktPhase['TFreezing_K'],
-                                                       method='linear', bounds_error=False, fill_value=None)
- 
-            # Gets the RktPropsLookup again. This should be quick as we have already loaded it into EOSlist using RktProps called before
-            fn_RktProps = RktPropsLookup(EOSLookupTable)
+        fRktPhase = EOSLookupTable.phase_EOS
+        PRkt_MPa = fRktPhase['P_MPa']
+        self.Pmin = np.min(PRkt_MPa)
+        self.deltaP = np.maximum(np.round(np.mean(np.diff(PRkt_MPa)), 2), 0.001)
+        fn_frezchem_phaseRGI = RegularGridInterpolator((PRkt_MPa,), fRktPhase['TFreezing_K'],
+                                                    method='linear', bounds_error=False, fill_value=None)
 
-            # Get the temperature limits
-            self.Pmax = fn_RktProps.Pmax
-            self.Tmin = fn_RktProps.Tmin
-            self.Tmax = fn_RktProps.Tmax
-            self.deltaT = fn_RktProps.EOSdeltaT
-            # Reassign the functions so they can be referenced when object is called
-            self.fn_mu_J_mol = fn_RktProps.fn_mu_J_mol
+        # Gets the RktPropsLookup again. This should be quick as we have already loaded it into EOSlist using RktProps called before
+        fn_RktProps = RktPropsLookup(EOSLookupTable)
 
-            EOSlist.loaded[self.fLookup] = self.fn_frezchem_phaseRGI, self.fn_mu_J_mol
-            EOSlist.ranges[self.fLookup] = (self.Pmin, self.Pmax, self.deltaP, self.deltaT)
+        # Get the temperature limits
+        self.Pmax = fn_RktProps.Pmax
+        self.Tmin = fn_RktProps.Tmin
+        self.Tmax = fn_RktProps.Tmax
+        self.deltaT = fn_RktProps.EOSdeltaT
+        # Reassign the functions so they can be referenced when object is called
+        fn_mu_J_mol = fn_RktProps.fn_mu_J_mol
+        
         # Generate pressure and temperature arrays that extend to limits of EOS pressure and temperature but
         # use the fidelity of the temperature and pressure steps of EOS (i.e. deltaT and deltaP)
         self.deltaP = np.min([self.deltaP, EOS_deltaP])
         self.deltaT = np.min([self.deltaT, EOS_deltaT])
-        self.P_MPa_to_query = np.arange(P_MPa[0], P_MPa[-1], self.deltaP)
-        self.T_K_to_query = np.arange(T_K[0], T_K[-1], self.deltaT)
-        self.phase_lookup_grid = self.phase_lookup_grid_generator(self.P_MPa_to_query, self.T_K_to_query, self.fn_frezchem_phaseRGI, self.fn_mu_J_mol)
-        self.fn_phase = RegularGridInterpolator((self.P_MPa_to_query, self.T_K_to_query), self.phase_lookup_grid, method='nearest', bounds_error=False, fill_value=None)
+        P_MPa_to_query = np.arange(P_MPa[0], P_MPa[-1], self.deltaP)
+        T_K_to_query = np.arange(T_K[0], T_K[-1], self.deltaT)
+        phase_lookup_grid = self.phase_lookup_grid_generator(P_MPa_to_query, T_K_to_query, fn_frezchem_phaseRGI, fn_mu_J_mol)
+        self.fn_phase = PhaseInterpolator(P_MPa_to_query, T_K_to_query, phase_lookup_grid)
 
     def __call__(self, P_MPa, T_K,  grid=False):
-        if grid:
-            P_MPa, T_K = np.meshgrid(P_MPa, T_K, indexing='ij')
-        return (self.fn_phase((P_MPa, T_K)))
+        return self.fn_phase(P_MPa, T_K, grid=grid)
 
     def phase_lookup_grid_generator(self, P_MPa, T_K, freezing_temperature_function_below_200_MPa, mu_function_above_200_MPa):
         P_MPa_below_200_MPa_index = np.searchsorted(P_MPa, 200, side="left")
-        phases = np.zeros((P_MPa.size, T_K.size))
+        phases = np.zeros((P_MPa.size, T_K.size), dtype=np.uint8)
         if P_MPa_below_200_MPa_index > 0:
             P_MPa_below_200_MPa = P_MPa[0:P_MPa_below_200_MPa_index]
             freezing_temperatures = freezing_temperature_function_below_200_MPa(P_MPa_below_200_MPa)
@@ -1025,8 +1001,6 @@ class RktPhaseLookup:
                             # Create a proper grid for seafreeze to work with
                             sfz_PT = np.array([P_MPa_above_200_MPa, T_K], dtype=object)
                             mu_J_mol = (sfz.getProp(sfz_PT, name).G * Constants.m_gmol['H2O'] / 1000)
-                            # Save the grid to the EOSlist for future reference
-                            EOSlist.loaded[seafreezeMuTag] = mu_J_mol
                         else:
                             try:
                                 mu_J_mol = (sfz.getProp(evalPts_sfz, name).G * Constants.m_gmol['H2O'] / 1000)
@@ -1367,6 +1341,62 @@ class RktHydroSpecies():
         Q = Q_numerator / Q_denominator
         return Q
 
+
+def temperature_constraint(T_K, System):
+    """
+    Find the pressure constraint at which Reaktoro can find equilibrium for the given speciation and database. Checks if rkt can find equilibrium
+        with a pressure of 0.1 MPa at T_K temperature. If it cannot, then returns 0. If it can, then returns 1.
+    Args:
+        T_K: Initial temperature constraint in K
+        System: System tuple with following items: db, system, state, conditions, solver, props
+
+    Returns:
+        1 if equilibrium found
+        0 if equilibrium not found
+    """
+    # Initialize the database
+    db, system, state, conditions, solver, props = System
+    initial_state = state.clone()
+    # Establish pressure constraint of 1bar
+    conditions.pressure(1, "MPa")
+    conditions.temperature(T_K, "K")
+    # Solve the equilibrium problem
+    result = solver.solve(initial_state, conditions)
+    # Check if the equilibrium problem succeeded
+    if result.succeeded():
+        return 1
+    else:
+        return 0
+
+
+def pressure_constraint(P_MPa, System):
+    """Find the pressure constraint at which Reaktoro can find equilibrium for the given speciation and database. Checks if rkt can find equilibrium at 273K at P_MPa pressure.
+    If it cannot, then returns 0. If it can, then returns 1.
+    Args:
+        P_MPa: Pressure to find equilibrium: P_MPa
+        System: System tuple with following items: db, system, state, conditions, solver, props
+
+    Returns:
+        1 if equilibrium found
+        0 if equilibrium not found
+    """
+    # Disable chemical convergence warnings that Reaktoro raises. We handle these internally instead and throw more specific warnings when they appear.
+    rkt.Warnings.disable(906)
+    # Initilialize the database
+    db, system, state, conditions, solver, props = System
+    initial_state = state.clone()
+    # Establish pressure constraint of 1bar
+    conditions.pressure(P_MPa, "MPa")
+    conditions.temperature(Constants.T0, "K")
+    # Solve the equilibrium problem
+    result = solver.solve(initial_state, conditions)
+    # Check if the equilibrium problem succeeded
+    if result.succeeded():
+        return 1
+    else:
+        return 0
+    
+    
 # RktRxnAffinity is not used anymore, but is kept here for reference
 """class RktRxnAffinity:
     def __init__(self, aqueous_species_list, speciation_ratio_mol_per_kg, ocean_solid_species):
@@ -1514,60 +1544,8 @@ class RktHydroSpecies():
         # Calculate the reaction quotient Q
         Q = Q_numerator / Q_denominator
         return Q
-
-
-def temperature_constraint(T_K, System):
-    Find the pressure constraint at which Reaktoro can find equilibrium for the given speciation and database. Checks if rkt can find equilibrium
-        with a pressure of 0.1 MPa at T_K temperature. If it cannot, then returns 0. If it can, then returns 1.
-    Args:
-        T_K: Initial temperature constraint in K
-        System: System tuple with following items: db, system, state, conditions, solver, props
-
-    Returns:
-        1 if equilibrium found
-        0 if equilibrium not found
-    # Initialize the database
-    db, system, state, conditions, solver, props = System
-    initial_state = state.clone()
-    # Establish pressure constraint of 1bar
-    conditions.pressure(1, "MPa")
-    conditions.temperature(T_K, "K")
-    # Solve the equilibrium problem
-    result = solver.solve(initial_state, conditions)
-    # Check if the equilibrium problem succeeded
-    if result.succeeded():
-        return 1
-    else:
-        return 0
-
-
-def pressure_constraint(P_MPa, System):
-    Find the pressure constraint at which Reaktoro can find equilibrium for the given speciation and database. Checks if rkt can find equilibrium at 273K at P_MPa pressure.
-    If it cannot, then returns 0. If it can, then returns 1.
-    Args:
-        P_MPa: Pressure to find equilibrium: P_MPa
-        System: System tuple with following items: db, system, state, conditions, solver, props
-
-    Returns:
-        1 if equilibrium found
-        0 if equilibrium not found
-    
-    # Disable chemical convergence warnings that Reaktoro raises. We handle these internally instead and throw more specific warnings when they appear.
-    rkt.Warnings.disable(906)
-    # Initilialize the database
-    db, system, state, conditions, solver, props = System
-    initial_state = state.clone()
-    # Establish pressure constraint of 1bar
-    conditions.pressure(P_MPa, "MPa")
-    conditions.temperature(Constants.T0, "K")
-    # Solve the equilibrium problem
-    result = solver.solve(initial_state, conditions)
-    # Check if the equilibrium problem succeeded
-    if result.succeeded():
-        return 1
-    else:
-        return 0
 """
+
 
 
 

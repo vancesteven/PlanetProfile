@@ -8,7 +8,7 @@ import time
 from collections.abc import Iterable
 from PlanetProfile import _ROOT
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigMisc
-from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS, GetOceanEOSLabel, GetIceEOSLabel, DeconstructOceanEOSLabel, DeconstructIceEOSLabel
+from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS, GetOceanEOSLabel, GetIceEOSLabel
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolution, strip_latex_formatting_from_CustomSolutionLabel, SetupCustomSolutionEOS
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathDissoc
@@ -1090,10 +1090,10 @@ def PrecomputeEOS(PlanetList, Params):
                 for comp, wOcean_ppt in uniqueEOSCustomSolutions:
                     SetupCustomSolutionEOS(comp, wOcean_ppt)
 
-        TOcean_K = np.arange(minTOcean_K, maxTOcean_K, deltaTOcean)
-        POcean_MPa = np.arange(minPOcean_MPa, maxPOcean_MPa, deltaPOcean)
-        Pmelt_MPa = np.arange(minPmelt_MPa, maxPmelt_MPa, deltaPmelt)
-        Tmelt_K = np.arange(minTmelt_K, maxTmelt_K, deltaTmelt)
+        TOcean_K = np.arange(minTOcean_K, maxTOcean_K, deltaTOcean, dtype=np.float32)
+        POcean_MPa = np.arange(minPOcean_MPa, maxPOcean_MPa, deltaPOcean, dtype=np.float32)
+        Pmelt_MPa = np.arange(minPmelt_MPa, maxPmelt_MPa, deltaPmelt, dtype=np.float32)
+        Tmelt_K = np.arange(minTmelt_K, maxTmelt_K, deltaTmelt, dtype=np.float32)
         for i, oceanPlanet in enumerate(oceanPlanets):
             GetOceanEOS(oceanPlanet.Ocean.comp, oceanPlanet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K, oceanPlanet.Ocean.MgSO4elecType, rhoType = oceanPlanet.Ocean.MgSO4rhoType, scalingType = oceanPlanet.Ocean.MgSO4scalingType, phaseType = oceanPlanet.Ocean.phaseType, EXTRAP = Params.EXTRAP_OCEAN, LOOKUP_HIRES = oceanPlanet.Do.OCEAN_PHASE_HIRES, etaFixed_Pas = oceanPlanet.Ocean.kThermWater_WmK, doConstantProps=oceanPlanet.Do.CONSTANTPROPSEOS, constantProperties=oceanPlanet.Ocean.oceanConstantProperties)
             GetOceanEOS(oceanPlanet.Ocean.comp, oceanPlanet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K, elecType=None,
@@ -1103,8 +1103,8 @@ def PrecomputeEOS(PlanetList, Params):
     
     if DoConvectionTracker:
         log.profile(f'Pre-generating Pure H2O ocean EOS for convection.')
-        Pmelt_MPa = np.arange(minPmelt_MPa, maxPmelt_MPa, deltaPmelt)
-        Tmelt_K = np.arange(240,280, .05)
+        Pmelt_MPa = np.arange(minPmelt_MPa, maxPmelt_MPa, deltaPmelt, dtype=np.float32)
+        Tmelt_K = np.arange(240,280, .05, dtype=np.float32)
         GetOceanEOS('PureH2O', 0.0, Pmelt_MPa, Tmelt_K, elecType=None,
                                             phaseType='calc',  MELT=True)
         log.profile(f'Pure H2O ocean EOS for convection pre-generated.')
@@ -1112,10 +1112,10 @@ def PrecomputeEOS(PlanetList, Params):
     if GetIceEOSTracker:        
         icePhases = ['Ih', 'II', 'III', 'V', 'VI']
         log.profile(f'Pre-generating ice EOS for {len(icePhases)} ice phases.')
-        PIceI_MPa = np.arange(minPIce_MPa, maxPIce_MPa, deltaPIce)
-        TIceI_K = np.arange(minTIce_K, maxTIce_K, deltaTIce)
+        PIce_MPa = np.arange(minPIce_MPa, maxPIce_MPa, deltaPIce, dtype=np.float32)
+        TIce_K = np.arange(minTIce_K, maxTIce_K, deltaTIce, dtype=np.float32)
         for i, icePhase in enumerate(icePhases):
-            GetIceEOS(PIceI_MPa, TIceI_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase],
+            GetIceEOS(PIce_MPa, TIce_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase],
                                                         ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK, 
                                                     mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant},
                                                     doConstantProps=Planet.Do.CONSTANTPROPSEOS,

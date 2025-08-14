@@ -143,7 +143,74 @@ class ReturnConstantSpecies:
         species_names = np.array(self.species_names)
         return pH, speciation, species_names
 
-
+class Nearest2DInterpolator:
+    """Simplified version that may be faster for many use cases.
+    We use our own 2D interpolator to reduce memory overhead by allowing x, y, and z to keep their data types, rather than upcasting to float64 like scipy does.
+    This is particularly relevant for the phase lookup tables, where we can store the phase lookup table as a uint8 array."""
+    def __init__(self, x, y, z):
+        self.x = np.asarray(x)
+        self.y = np.asarray(y) 
+        self.z = np.asarray(z)
+        self.nx = len(x)
+        self.ny = len(y)
+    
+    def __call__(self, xi, yi, grid=False):
+        if grid:
+            return self._interpolate_grid(xi, yi)
+        else:
+            return self._interpolate(xi, yi)
+    
+    def _interpolate_grid(self, xi, yi):
+        """Fast grid interpolation without creating intermediate meshgrids"""
+        xi = np.asarray(xi)
+        yi = np.asarray(yi)
+        
+        # Find nearest indices for each dimension independently
+        ix = np.searchsorted(self.x, xi)
+        iy = np.searchsorted(self.y, yi)
+        
+        # Handle boundaries
+        ix_left = ix == 0
+        iy_left = iy == 0
+        
+        ix = np.minimum(ix, self.nx - 1)
+        iy = np.minimum(iy, self.ny - 1)
+        
+        # Distance comparisons
+        ix_adj = ~ix_left & ((xi - self.x[ix-1]) < (self.x[ix] - xi))
+        iy_adj = ~iy_left & ((yi - self.y[iy-1]) < (self.y[iy] - yi))
+        
+        ix -= ix_adj.astype(np.intp)
+        iy -= iy_adj.astype(np.intp)
+        
+        # Use advanced indexing to get grid result directly
+        # This creates the meshgrid effect without storing intermediate arrays
+        return self.z[np.ix_(ix, iy)]
+    
+    def _interpolate(self, xi, yi):
+        xi = np.asarray(xi)
+        yi = np.asarray(yi)
+        
+        # Binary search
+        ix = np.searchsorted(self.x, xi)
+        iy = np.searchsorted(self.y, yi)
+        
+        # Boundary handling with single operations
+        ix_left = ix == 0
+        iy_left = iy == 0
+        
+        # Clamp and adjust in one step
+        ix = np.minimum(ix, self.nx - 1)
+        iy = np.minimum(iy, self.ny - 1)
+        
+        # Distance comparison (avoid where ix/iy is 0)
+        ix_adj = ~ix_left & ((xi - self.x[ix-1]) < (self.x[ix] - xi))
+        iy_adj = ~iy_left & ((yi - self.y[iy-1]) < (self.y[iy] - yi))
+        
+        ix -= ix_adj.astype(np.intp)
+        iy -= iy_adj.astype(np.intp)
+        
+        return self.z[ix, iy]
 
 
 class EOSwrapper:
@@ -198,6 +265,8 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].fn_sigma_Sm(P_MPa, T_K, grid=grid)
     def fn_eta_Pas(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_eta_Pas(P_MPa, T_K, grid=grid)
+    def updateConvectionViscosity(self, etaConv_Pas, Tconv_K):
+        return EOSlist.loaded[self.key].updateConvectionViscosity(etaConv_Pas, Tconv_K)
     def fn_Seismic(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K, grid=grid)
     def fn_species(self, P_MPa, T_K, grid = False, reactionSubstruct=None):

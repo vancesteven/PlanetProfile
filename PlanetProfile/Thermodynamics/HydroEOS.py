@@ -8,7 +8,7 @@ from seafreeze.seafreeze import seafreeze as SeaFreeze
 from seafreeze.seafreeze import whichphase as WhichPhase
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, \
     ClathStableNagashima2017, ClathSeismic
-from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper, ReturnConstantSpecies, ReAssignPT
+from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper, ReturnConstantSpecies, ReAssignPT, Nearest2DInterpolator as PhaseInterpolator
 from PlanetProfile.Thermodynamics.InnerEOS import GetphiFunc, GetphiCalc
 from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4PhaseMargules, MgSO4PhaseLookup, \
     MgSO4Seismic, MgSO4Conduct, Ppt2molal
@@ -16,7 +16,7 @@ from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSe
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv, MixedPhaseSeparator
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand,  \
-    SpeciesParser, RktProps, RktSeismic, RktConduct, RktHydroSpecies, RktRxnAffinity, EOSLookupTableLoader
+    SpeciesParser, RktProps, RktSeismic, RktConduct, RktHydroSpecies, EOSLookupTableLoader
 # Assign logger 
 log = logging.getLogger('PlanetProfile')
 
@@ -190,8 +190,7 @@ class OceanEOSStruct:
                         else:
                             self.phase = WhichPhase(deepcopy(PTmGridPhase), solute=SFcomp)
                         # Create phase finder -- note that the results from this function must be cast to int after retrieval
-                        self.ufn_phase = RGIwrap(RegularGridInterpolator((Pphase_MPa, Tphase_K), self.phase, method='nearest'),
-                                                self.deltaP, self.deltaT)
+                        self.ufn_phase = PhaseInterpolator(Pphase_MPa, Tphase_K, self.phase)
                         # Save EOS grid resolution in lookup table
                         self.EOSdeltaP = self.deltaP
                         self.EOSdeltaT = self.deltaT
@@ -249,7 +248,7 @@ class OceanEOSStruct:
                     PropsP_MPa, PropsT_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
                         = MgSO4Props(PropsP_MPa, PropsT_K, self.w_ppt, self.EXTRAP)
                     if self.PHASE_LOOKUP:
-                        self.ufn_phase = MgSO4PhaseLookup(self.w_ppt, HIRES=LOOKUP_HIRES)
+                        self.ufn_phase = MgSO4PhaseLookup(self.w_ppt, P_MPa=PropsP_MPa, T_K=PropsT_K)
                         self.phasePmax = self.ufn_phase.Pmax
                         # Save EOS grid resolution from MgSO4 lookup table loaded from disk
                         self.EOSdeltaP = self.ufn_phase.deltaP
@@ -284,10 +283,8 @@ class OceanEOSStruct:
                     PropsP_MPa, PropsT_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK, self.EOSdeltaP, self.EOSdeltaT = (
                         RktProps(EOSLookupTable, PropsP_MPa, PropsT_K, self.EXTRAP))
                     Timing.logTime('RktProps()', time.time())
-                    Timing.setTime(time.time())
                     # Reassign P and T of phase to match new inputs from RktProps
                     _, _, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, PropsP_MPa[0], PropsP_MPa[-1], PropsT_K[0], PropsT_K[-1], MELT=MELT)
-                    Timing.logTime('ReAssignPT()', time.time())
                     Timing.setTime(time.time())
                     self.ufn_Seismic = RktSeismic(EOSLookupTable, self.EXTRAP)  
                     Timing.logTime('RktSeismic()', time.time())
@@ -480,8 +477,7 @@ class IceEOSStruct:
 
                     # Create phase finder -- note that the results from this function must be cast to int after retrieval
                     # Returns either Constants.phaseClath (stable) or 0 (not stable), making it compatible with GetTfreeze
-                    self.ufn_phase = RGIwrap(RegularGridInterpolator((P_MPa, T_K), self.phase, method='nearest'),
-                                            self.deltaP, self.deltaT)
+                    self.ufn_phase = PhaseInterpolator(P_MPa, T_K, self.phase)
                     self.ufn_Seismic = ClathSeismic()
                 else:
                     # Get tabular data from SeaFreeze for all other ice phases
@@ -617,6 +613,8 @@ class IceEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_eta_Pas(P_MPa, T_K, grid=grid)
+    def updateConvectionViscosity(self, etaConv_Pas, Tconv_K):
+        self.ufn_eta_Pas.updateConvectionViscosity(etaConv_Pas, Tconv_K)
 
 
 class MixedEOSStruct:
@@ -1107,18 +1105,6 @@ class SFphase:
             else:
                 PTm = self.PTmTrips(P_MPa, T_K)
             return WhichPhase(PTm, solute=self.comp).astype(np.int_)
-    
-class RGIwrap:
-    """ Creates a wrapper for passing P, T arguments as a tuple to RegularGridInterpolator """
-    def __init__(self, RGIfunc, deltaP, deltaT):
-        self.RGIfunc = RGIfunc
-        self.deltaP = deltaP
-        self.deltaT = deltaT
-        
-    def __call__(self, P_MPa, T_K, grid=False):
-        if grid:
-            P_MPa, T_K = np.meshgrid(P_MPa, T_K, indexing='ij')
-        return (self.RGIfunc((P_MPa, T_K)))
         
 
 class SFSeismic:
@@ -1428,6 +1414,10 @@ class ViscIceUniform_Pas:
                 eta_Pas[np.logical_and(T_K >= Tlow_K, T_K < Tupp_K)] = etaConst_Pas
 
         return eta_Pas
+    
+    def updateConvectionViscosity(self, etaConv_Pas, Tconv_K):
+        self.eta_Pas[-1] = etaConv_Pas
+        self.TviscTrans_K[-1] = Tconv_K
     
 
 def GetOceanEOSLabel(compstr, wOcean_ppt, elecType, rhoType, scalingType, phaseType, EXTRAP, PORE, LOOKUP_HIRES, etaFixed_Pas, meltStr):
