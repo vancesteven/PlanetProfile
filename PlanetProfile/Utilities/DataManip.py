@@ -130,7 +130,7 @@ class ReturnConstantSpecies:
         self.species_names = np.append(self.species_names,'H2O(aq)')
         self.speciation = np.append(self.speciation, 1/Constants.m_gmol['H2O']*1000)
 
-    def __call__(self, P, T, grid = False):
+    def __call__(self, P, T, grid = False, reactionSubstruct = None):
         nPs = np.size(P)
         nTs = np.size(T)
         pH = (np.zeros(nPs)) + self.pH

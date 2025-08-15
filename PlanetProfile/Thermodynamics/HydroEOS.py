@@ -248,7 +248,7 @@ class OceanEOSStruct:
                     PropsP_MPa, PropsT_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
                         = MgSO4Props(PropsP_MPa, PropsT_K, self.w_ppt, self.EXTRAP)
                     if self.PHASE_LOOKUP:
-                        self.ufn_phase = MgSO4PhaseLookup(self.w_ppt, P_MPa=PropsP_MPa, T_K=PropsT_K)
+                        self.ufn_phase = MgSO4PhaseLookup(self.w_ppt, HIRES=LOOKUP_HIRES)
                         self.phasePmax = self.ufn_phase.Pmax
                         # Save EOS grid resolution from MgSO4 lookup table loaded from disk
                         self.EOSdeltaP = self.ufn_phase.deltaP
@@ -1048,10 +1048,22 @@ def sfPTmTrips(P_MPa, T_K, m_molal):
     return np.array([(P, T, m_molal) for P, T in zip(P_MPa, T_K)], dtype='f,f,f').astype(object)
 # Same as above but for a grid
 def sfPTgrid(P_MPa, T_K):
-    return np.array([P_MPa, T_K], dtype=object)
+    if P_MPa.size == T_K.size:
+        P_MPa = np.append(P_MPa, P_MPa[-1])
+        PT = np.array([P_MPa, T_K], dtype=object)
+        PT[0] = PT[0][:-1]
+    else:
+        PT = np.array([P_MPa, T_K], dtype=object)
+    return PT
 # Same for PTm grid
 def sfPTmGrid(P_MPa, T_K, m_molal):
-    return np.array([P_MPa, T_K, np.array([m_molal])], dtype=object)
+    if P_MPa.size == T_K.size:
+        P_MPa = np.append(P_MPa, P_MPa[-1])
+        PT = np.array([P_MPa, T_K, np.array([m_molal])], dtype=object)
+        PT[0] = PT[0][:-1]
+    else:
+        PT = np.array([P_MPa, T_K, np.array([m_molal])], dtype=object)
+    return PT
 
 # Create callable class to act as a wrapper for SeaFreeze phase lookup
 class SFphase:
@@ -1166,8 +1178,6 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0.1, PUpper_MPa=300, PRes_MP
     phaseChangeUnderplateOrHPNoOcean = lambda P: 0.5 + (phaseTop - oceanEOS.fn_phase(P, Tb_K))
     if (UNDERPLATE or HPNOOCEAN) is None:
         raise ValueError('UNDERPLATE or HPNOOCEAN is not set. Please set one of these to True or False.')
-        TRY_BOTH = True
-        UNDERPLATEOrHPNOOCEAN = True
     else:
         TRY_BOTH = False
         UNDERPLATEOrHPNOOCEAN = UNDERPLATE or HPNOOCEAN

@@ -547,10 +547,10 @@ def SetupInduction(Planet, Params):
                 rLayers_m = np.concatenate((rLayers_m[:indsLiq[0]], rOcean_m, rLayers_m[indsLiq[-1]+1:]))
                 sigmaInduct_Sm = np.concatenate((sigmaInduct_Sm[:indsLiq[0]], sigmaOcean_Sm, sigmaInduct_Sm[indsLiq[-1]+1:]))
 
-                # Get the indices of layers just below where changes happen
-                iChange = [i for i,sig in enumerate(sigmaInduct_Sm) if sig != np.append(sigmaInduct_Sm, np.nan)[i+1]]
-                Planet.Magnetic.sigmaLayers_Sm = sigmaInduct_Sm[iChange]
-                Planet.Magnetic.rSigChange_m = rLayers_m[iChange]
+            # Get the indices of layers just below where changes happen
+            iChange = [i for i,sig in enumerate(sigmaInduct_Sm) if sig != np.append(sigmaInduct_Sm, np.nan)[i+1]]
+            Planet.Magnetic.sigmaLayers_Sm = sigmaInduct_Sm[iChange]
+            Planet.Magnetic.rSigChange_m = rLayers_m[iChange]
 
             if Planet.Magnetic.sigmaScaling is not None:
                 log.debug(f'Applying arbitary scaling factor of {Planet.Magnetic.sigmaScaling} to interior conducting layers.')

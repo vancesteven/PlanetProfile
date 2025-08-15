@@ -292,30 +292,38 @@ class MgSO4PhaseLookup:
         The lookup table is created based on models from Vance et al. (2014):
         https://doi.org/10.1016/j.pss.2014.03.011
     """
-    def __init__(self, wOcean_ppt, P_MPa, T_K):
+    def __init__(self, wOcean_ppt, HIRES=False):
         self.w_ppt = wOcean_ppt
-        self.Pmin = np.min(P_MPa)
-        self.Pmax = np.max(P_MPa)
-        self.Tmin = np.min(T_K)
-        self.Tmax = np.max(T_K)
-        self.deltaP = np.mean(np.diff(P_MPa))
-        self.deltaT = np.mean(np.diff(T_K))
-        self.wMax = 100
-        self.phaseRange = ('MgSO4Phase', self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.deltaP, self.deltaT, self.wMax)
-        if self.phaseRange in EOSlist.loaded.keys():
-            log.debug('MgSO4 phase lookup table already loaded. Reusing previously loaded table.')
-            self.fn_phaseRGI = EOSlist.loaded[self.phaseRange]
-            self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.deltaP, self.deltaT, self.wMax \
-                = EOSlist.ranges[self.phaseRange]
+        self.xH2O, self.mBar_gmol = Massppt2molFrac(self.w_ppt, Constants.m_gmol['MgSO4'])
+        self.HIRES = HIRES
+        if self.HIRES:
+            hiresEnd = '_hires'
+            log.warning('Using high-resolution phase lookup table, which may take a lot of time and memory.')
         else:
-            # We will generate hires table on the fly with the PhaseMargules, since we no longer have access to the table in Git
-            phaseMargules = MgSO4PhaseMargules(self.w_ppt)
-            phases = phaseMargules.arrays(P_MPa, T_K, grid=True)
-            self.ufn_phase = PhaseInterpolator(P_MPa, T_K, phases)
+            hiresEnd = ''
+        self.fLookup = os.path.join(_ROOT, 'Thermodynamics','MgSO4',f'phaseLookupMgSO4{hiresEnd}.mat')
+        if self.fLookup in EOSlist.loaded.keys():
+            log.debug('MgSO4 phase lookup table already loaded. Reusing previously loaded table.')
+            self.fn_phaseRGI = EOSlist.loaded[self.fLookup]
+            self.Pmin, self.Pmax, self.Tmin, self.Tmax, self.deltaP, self.deltaT, self.wMax \
+                = EOSlist.ranges[self.fLookup]
+        else:
+            log.debug(f'Loading MgSO4 phase lookup table at {self.fLookup}.')
+            fMgSO4phase = loadmat(self.fLookup)
+            self.Pmin = np.min(fMgSO4phase['P_MPa'][0])
+            self.Pmax = np.max(fMgSO4phase['P_MPa'][0])
+            self.Tmin = np.min(fMgSO4phase['T_K'][0])
+            self.Tmax = np.max(fMgSO4phase['T_K'][0])
+            self.deltaP = fMgSO4phase['P_MPa'][0][1] - fMgSO4phase['P_MPa'][0][0]
+            self.deltaT = fMgSO4phase['T_K'][0][1] - fMgSO4phase['T_K'][0][0]
+            self.wMax = np.max(fMgSO4phase['w_ppt'][0])
+            self.fn_phaseRGI = RegularGridInterpolator((fMgSO4phase['P_MPa'][0], fMgSO4phase['T_K'][0],
+                                                     fMgSO4phase['w_ppt'][0]), fMgSO4phase['phase'],
+                                                     method='nearest', bounds_error=False, fill_value=None)
 
-        EOSlist.loaded[self.phaseRange] = self.fn_phaseRGI
-        EOSlist.ranges[self.phaseRange] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax,
-                                        self.deltaP, self.deltaT, self.wMax)
+            EOSlist.loaded[self.fLookup] = self.fn_phaseRGI
+            EOSlist.ranges[self.fLookup] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax,
+                                            self.deltaP, self.deltaT, self.wMax)
 
         if self.w_ppt > self.wMax:
             log.warning(f'Input wOcean_ppt of {self.w_ppt:.1f} is greater than ' +
@@ -323,7 +331,26 @@ class MgSO4PhaseLookup:
                         f'at {self.fLookup}.')
 
     def __call__(self, P_MPa, T_K, grid=False):
-        return self.ufn_phase(P_MPa, T_K, grid=grid)
+        nPs = np.size(P_MPa)
+        nTs = np.size(T_K)
+        if grid:
+            evalPts = tuple(np.meshgrid(P_MPa, T_K, self.w_ppt, indexing='ij'))
+        else:
+            if nPs == 1 and nTs == 1:
+                evalPts = np.array([np.squeeze(P_MPa), np.squeeze(T_K), self.w_ppt])
+            else:
+                if nPs == nTs:
+                    evalPts = np.array([[P, T, self.w_ppt] for P, T in zip(P_MPa, T_K)])
+                elif nPs == 1:
+                    evalPts = np.array([[np.squeeze(P_MPa), T, self.w_ppt] for T in T_K])
+                elif nTs == 1:
+                    evalPts = np.array([[P, np.squeeze(T_K), self.w_ppt] for P in P_MPa])
+                else:
+                    log.warning(f'Length {nPs} array of P values does not match ' +
+                                f'length {nTs} array of T values. A 2D grid will be output.')
+                    evalPts = tuple(np.meshgrid(P_MPa, T_K, self.w_ppt, indexing='ij'))
+
+        return np.squeeze(self.fn_phaseRGI(evalPts))
 
 
 class MgSO4Seismic:

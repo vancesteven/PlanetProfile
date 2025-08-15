@@ -13,8 +13,8 @@ from copy import deepcopy
 from PlanetProfile import _Test, _TestImport
 from PlanetProfile.GetConfig import Params as configParams
 from PlanetProfile.Main import PlanetProfile, InductOgram, ReloadInductOgram, ExploreOgram, ReloadExploreOgram
-from PlanetProfile.Plotting.ProfilePlots import PlotExploreOgram, PlotExploreOgramDsigma
-from PlanetProfile.Plotting.MagPlots import PlotInductOgram
+from PlanetProfile.Plotting.ExplorationPlots import GenerateExplorationPlots
+from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, GenerateExplorationMagPlots
 from PlanetProfile.Test.TestBayes import TestBayes
 
 # Include timestamps in messages and force debug level logging for all testing
@@ -267,7 +267,7 @@ def TestInductOgram(testNum, Params, CALC_NEW=True):
     else:
         Induction, _, Params = ReloadInductOgram(testName, Params)
         end = ' RELOAD'
-    PlotInductOgram(Induction, Params)
+    GenerateMagPlots([Induction], Params)
     Induction.name = testName
     Induction.saveLabel = f'{Params.Induct.inductOtype} induct-o-gram{end}'
 
@@ -288,14 +288,7 @@ def TestExploreOgram(testNum, Params, CALC_NEW=True):
         Exploration, Params = ReloadExploreOgram(testName, Params)
         end = ' RELOAD'
 
-    if isinstance(Params.Explore.zName, list):
-        figNames = Params.FigureFiles.explore + []
-        for zName, figName in zip(Params.Explore.zName, figNames):
-            Exploration.zName = zName
-            Params.FigureFiles.explore = figName
-            PlotExploreOgram([Exploration], Params)
-        Params.FigureFiles.explore = figNames
-    PlotExploreOgramDsigma([Exploration], Params)
+    GenerateExplorationPlots([Exploration], Params)
     Exploration.name = testName
     Exploration.saveLabel = f'{Params.Explore.xName} x {Params.Explore.yName} explore-o-gram{end}'
 

@@ -261,7 +261,7 @@ def SetupInit(Planet, Params):
                 log.warning('Ocean.deltaT is not set--defaulting to 0.1 K. This may not be precise enough ' +
                             'for shallow oceans or fine control over ice shell thickness calculations. ' +
                             'It is recommended to set Ocean.deltaT manually in the PPBody.py file.')
-            elif Planet.Do.ICEIh_THICKNESS:
+            if Planet.Do.ICEIh_THICKNESS:
                 TOcean_K = np.arange(Planet.TfreezeLower_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
             else:
                 TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
@@ -691,20 +691,20 @@ def SetupLayers(Planet):
     """ Initialize layer arrays in Planet.
     """
 
-    if not Planet.Do.NO_H2O:
-        if not Planet.Do.NON_SELF_CONSISTENT:
+    if not Planet.Do.NON_SELF_CONSISTENT:
+        if not Planet.Do.NO_H2O:
             nOceanMax = int(Planet.Ocean.PHydroMax_MPa / Planet.Ocean.deltaP)
             Planet.Steps.nHydroMax = Planet.Steps.nClath + Planet.Steps.nIceI + Planet.Steps.nIceIIILitho + Planet.Steps.nIceVLitho + nOceanMax
-            nStepsForArrays = Planet.Steps.nHydroMax
-        else:
-            nStepsForArrays = Planet.Steps.nTotal
+        nStepsForArrays = Planet.Steps.nHydroMax
+    else:
+        nStepsForArrays = Planet.Steps.nTotal
     
-        Planet.phase = np.zeros(nStepsForArrays, dtype=np.int_)
-        Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
-            Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \
-            Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.VLayer_m3, Planet.kTherm_WmK, \
-            Planet.Htidal_Wm3, Planet.Ppore_MPa, Planet.rhoMatrix_kgm3, Planet.rhoPore_kgm3 = \
-            (np.zeros(nStepsForArrays) for _ in range(17))
+    Planet.phase = np.zeros(nStepsForArrays, dtype=np.int_)
+    Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
+        Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \
+        Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.VLayer_m3, Planet.kTherm_WmK, \
+        Planet.Htidal_Wm3, Planet.Ppore_MPa, Planet.rhoMatrix_kgm3, Planet.rhoPore_kgm3 = \
+        (np.zeros(nStepsForArrays) for _ in range(17))
 
     # Layer property initialization for surface
     Planet.z_m[0] = 0.0  # Set first layer depth to zero (layer properties correspond to outer radius)

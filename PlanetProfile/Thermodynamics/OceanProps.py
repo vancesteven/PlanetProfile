@@ -39,10 +39,15 @@ def LiquidOceanPropsCalcs(Planet, Params):
                                 sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm)
             # Check if we have liquid phases
             if np.size(indsLiq) != 0:
-                # If so, then get pH and speciation of ocean
-                Planet.Ocean.Reaction = setupReactionSubstruct(Planet.Ocean.Reaction)
-                Planet.Ocean.Bulk_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ = (
-                    Planet.Ocean.EOS.fn_species(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq], reactionSubstruct = Planet.Ocean.Reaction))
+                if 'CustomSolution' in Planet.Ocean.comp:
+                    # If so, then get pH and speciation of ocean
+                    Planet.Ocean.Reaction = setupReactionSubstruct(Planet.Ocean.Reaction)
+                    Planet.Ocean.Bulk_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies, Planet.Ocean.affinity_kJ = (
+                        Planet.Ocean.EOS.fn_species(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq], reactionSubstruct = Planet.Ocean.Reaction))
+                else:
+                    Planet.Ocean.Bulk_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = (
+                        Planet.Ocean.EOS.fn_species(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq]))
+                    Planet.Ocean.affinity_kJ = np.repeat(np.nan, len(indsLiq))
                 Planet.Ocean.Mean_pH = np.mean(Planet.Ocean.Bulk_pHs)
                 Planet.Ocean.pHSeafloor = Planet.Ocean.Bulk_pHs[-1]
                 Planet.Ocean.pHTop = Planet.Ocean.Bulk_pHs[0]
@@ -62,7 +67,7 @@ def LiquidOceanPropsCalcs(Planet, Params):
     Timing.printFunctionTimeDifference('LiquidOceanPropsCalcs()', time.time())
     return Planet
 def setupReactionSubstruct(reactionSubstruct):
-    if reactionSubstruct is None:
+    if reactionSubstruct.reaction is None:
         reactionSubstruct.reaction = 'NaN'
     if reactionSubstruct.reaction != 'NaN':
         reactionSubstruct.parsed_reaction = reaction_parser(reactionSubstruct.reaction)
@@ -78,7 +83,7 @@ def setupReactionSubstruct(reactionSubstruct):
                     if species in reactionSubstruct.relativeRatioToReferenceSpecies.keys():
                         reactionSubstruct.disequilibriumConcentrations[species] = reactionSubstruct.disequilibriumConcentrations[referenceSpecies]
     else:
-        reactionSubstruct.disequilibriumConcentrations = 'NaN'
+        reactionSubstruct.disequilibriumConcentrations = {}
         reactionSubstruct.useReferenceSpecies = False
         reactionSubstruct.useH2ORatio = False
         reactionSubstruct.referenceSpecies = 'NaN'

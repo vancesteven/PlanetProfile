@@ -12,13 +12,13 @@ from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Utilities.defineStructs import xyzComps, vecComps
 from PlanetProfile.MagneticInduction.Moments import Excitations
+from PlanetProfile.Plotting.EssentialHelpers import get_excitation_indices_and_names, count_plottable_excitations, format_composition_label
 from MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
 def GenerateMagPlots(PlanetList, Params):
-    
     # Catch if we get here and induction calcs have not been done
     if np.all([Planet.Magnetic.Binm_nT is not None for Planet in PlanetList]):
 
@@ -53,101 +53,69 @@ def GenerateMagPlots(PlanetList, Params):
 
     return
 
-
-def PlotInductOgramPhaseSpace(InductionList, Params):
-    """ For plotting points showing the various models used in making
-        inductogram plots.
+def GenerateExplorationMagPlots(ResultsList, Params):
     """
+    Generate magnetic induction plots for a given list of results.
+    """
+    PlotInductOgramPhaseSpace(ResultsList, Params)
+    PLOT_2D = not np.any([ResultsList[i].nx == 1 or ResultsList[i].ny == 1 for i in range(len(ResultsList))]) # If either axis is of size 1, then we cannot plot 
+    if PLOT_2D:
+        PlotInductOgram(ResultsList, Params)
+        
 
-    if InductionList[0].SINGLE_COMP:
-        FigLbl.singleComp(InductionList[0].comps[0])
-    FigLbl.SetInduction(InductionList[0].bodyname, Params.Induct, InductionList[0].Texc_hr.values())
+def PlotInductOgramPhaseSpace(results_list, Params):
+    # Get first result for configuration - assume all have same body and settings
+    first_result = results_list[0]
+    
+    # Check if this is single composition setup
+    if hasattr(first_result, 'SINGLE_COMP') and first_result.SINGLE_COMP:
+        if hasattr(first_result, 'comps'):
+            FigLbl.singleComp(first_result.comps[0])
+    
+    # Set up figure labels using original pattern
+    texc_values = first_result.induction.Texc_hr
+    FigLbl.SetInduction(first_result.base.bodyname, Params.Induct, texc_values)
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
 
-    # Initialize data arrays
-    sigma_Sm, D_km, ptColors, x_data, y_data, iValid, iValidFlat \
-        = (np.empty_like(InductionList) for _ in range(7))
+    # Initialize data arrays for all results
+    n_results = len(results_list)
+    sigma_Sm = np.empty(n_results, dtype=object)
+    D_km = np.empty(n_results, dtype=object)
+    ptColors = np.empty(n_results, dtype=object)
+    x_data = np.empty(n_results, dtype=object)
+    y_data = np.empty(n_results, dtype=object)
+    oceanComp = np.empty(n_results, dtype=object)
+    iValid = np.empty(n_results, dtype=object)
+    iValidFlat = np.empty(n_results, dtype=object)
     
-    for i, Induction in enumerate(InductionList):
-        iValid[i] = np.where(np.isfinite(Induction.Amp[0,...]))
-        iValidFlat[i] = np.where(np.isfinite(Induction.Amp[0,...].flatten()))[0]
-        sigma_Sm[i] = Induction.sigmaMean_Sm[iValid[i]].flatten()
-        D_km[i] = Induction.D_km[iValid[i]].flatten()
-        
-        # Get axis data based on inductOtype
-        if Params.Induct.inductOtype == 'sigma':
-            x_data[i] = Induction.sigmaMean_Sm[iValid[i]].flatten()
-            y_data[i] = Induction.D_km[iValid[i]].flatten()
-        elif Params.Induct.inductOtype == 'oceanComp':
-            x_data[i] = Induction.oceanComp[iValid[i]].flatten()
-            y_data[i] = Induction.zb_approximate_km[iValid[i]].flatten()
+    for i, result in enumerate(results_list):
+        # Get valid data indices using first excitation (maintaining original behavior)
+        # Use Amp[0,...] like original - this assumes magnetic data is in induction substruct
+        if hasattr(result.induction, 'Amp') and result.induction.Amp is not None:
+            iValid[i] = np.where(np.isfinite(result.induction.Amp[0,...]))
+            iValidFlat[i] = np.where(np.isfinite(result.induction.Amp[0,...].flatten()))[0]
         else:
-            x_data[i] = Induction.x[iValid[i]].flatten()
-            y_data[i] = Induction.y[iValid[i]].flatten()
+            # Fallback if no magnetic data - use sigma data for validity
+            iValid[i] = np.where(np.isfinite(result.base.sigmaMean_Sm))
+            iValidFlat[i] = np.where(np.isfinite(result.base.sigmaMean_Sm.flatten()))[0]
         
-        # Handle coloring
-        if Params.Induct.inductOtype == 'sigma':
-            # In this case, we likely don't have salinity and ocean temp information
-            # so we need to set the colormap to use the info we do have
-            sigmaNorm = sigma_Sm[i] / 10**Params.Induct.sigmaMax[Induction.bodyname]
-            Dnorm = D_km[i] / np.max(D_km)
-            ptColors[i] = Color.OceanCmap(Induction.compsList[iValidFlat[i]], sigmaNorm, Dnorm,
-                                          DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
-        elif Params.Induct.inductOtype == 'oceanComp':
-            # For oceanComp, use a different coloring scheme
-            # Color by ice shell thickness or another appropriate variable
-            if Params.Induct.colorType == 'Tmean':
-                cbar_data = Induction.Tmean_K[iValid[i]].flatten()
-            else:
-                cbar_data = Induction.zb_km[iValid[i]].flatten()
-            if np.size(cbar_data) > 1:
-                cbar_norm = interp1d([np.min(cbar_data), np.max(cbar_data)], [0.0, 1.0])(cbar_data)
-            else:
-                cbar_norm = np.ones_like(cbar_data) * 0.5
-            # Use a simple color scheme for ocean compositions
-            ptColors[i] = Color.OceanCmap(Induction.compsList[iValidFlat[i]], cbar_norm, cbar_norm,
-                                          DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
-        else:
-            # Standard coloring for other inductOtypes
-            Tmean_K = Induction.Tmean_K[iValid[i]].flatten()
-            if FigMisc.NORMALIZED_SALINITIES:
-                wMax_ppt = np.array([Color.saturation[comp] for comp in Induction.compsList[iValidFlat[i]]])
-                if hasattr(Induction, 'x') and np.size(Induction.x[iValid[i]]) > 0:
-                    w_normFrac = Induction.x[iValid[i]].flatten() / wMax_ppt
-                else:
-                    w_normFrac = np.ones_like(Tmean_K) * 0.5
-            else:
-                if hasattr(Induction, 'x') and np.size(Induction.x[iValid[i]]) > 0:
-                    x_vals = Induction.x[iValid[i]].flatten()
-                    if np.max(x_vals) > np.min(x_vals):
-                        w_normFrac = interp1d([np.min(x_vals), np.max(x_vals)], [0.0, 1.0])(x_vals)
-                    else:
-                        w_normFrac = np.ones_like(x_vals) * 0.5
-                else:
-                    w_normFrac = np.ones_like(Tmean_K) * 0.5
-            
-            if Params.Induct.colorType == 'Tmean':
-                if FigMisc.NORMALIZED_TEMPERATURES:
-                    Tmean_normFrac = Color.GetNormT(Tmean_K)
-                else:
-                    if np.max(Tmean_K) > np.min(Tmean_K):
-                        Tmean_normFrac = interp1d([np.min(Tmean_K), np.max(Tmean_K)], [0.0, 1.0])(Tmean_K)
-                    else:
-                        Tmean_normFrac = np.ones_like(Tmean_K) * 0.5
-                ptColors[i] = Color.OceanCmap(Induction.compsList[iValidFlat[i]], w_normFrac, Tmean_normFrac,
-                                              DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
-            elif Params.Induct.colorType == 'zb':
-                zb_km = Induction.zb_km[iValid[i]].flatten()
-                if np.max(zb_km) > np.min(zb_km):
-                    zb_normFrac = interp1d([np.min(zb_km), np.max(zb_km)], [0.0, 1.0])(zb_km)
-                else:
-                    zb_normFrac = np.ones_like(zb_km) * 0.5
-                ptColors[i] = Color.OceanCmap(Induction.compsList[iValidFlat[i]], w_normFrac, zb_normFrac,
-                                              DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
-            else:
-                raise ValueError(f'Inductogram colortype {Params.Induct.colorType} not recognized.')
+        # Extract plot data using helper
+        plot_data = extract_induction_phase_space_data(result, Params.Induct.inductOtype, 
+                                                      iValid[i], iValidFlat[i])
+        
+        sigma_Sm[i] = plot_data['sigma_Sm']
+        D_km[i] = plot_data['D_km']
+        x_data[i] = plot_data['x_data']
+        y_data[i] = plot_data['y_data']
+        oceanComp[i] = plot_data['comp_list']
+        
+        # Set up coloring using helper
+        ptColors[i] = setup_induction_coloring(result, Params.Induct.inductOtype, 
+                                              Params.Induct.colorType, iValid[i], iValidFlat[i],
+                                              sigma_Sm[i], D_km[i], oceanComp[i])
 
+    # Set up plot layout parameters
     widthPlot = 25
     widthCbar = 1
     
@@ -158,105 +126,123 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
     y_scale = FigLbl.yScaleInduct
     x_lims, y_lims = None, None
     
-    if Params.Induct.inductOtype == 'sigma':
-        comps = ['Ice']
-        fig = plt.figure(figsize=FigSize.phaseSpaceSolo, constrained_layout=True)
-        grid = GridSpec(1, 2, width_ratios=[widthPlot, widthCbar], figure=fig)
-        axes = [fig.add_subplot(grid[0, 0])]
-        if Style.GRIDS:
-            axes[0].grid()
-            axes[0].set_axisbelow(True)
-        cbarAx = fig.add_subplot(grid[0, 1])
-        cbarUnits = InductionList[0].zb_km[iValid[0]].flatten()
-        cbarLabel = FigLbl.iceThickLbl
-    else:
-        comps = np.unique(InductionList[0].comps)
-        if Params.Induct.colorType == 'Tmean':
-            cbarUnits = InductionList[0].Tmean_K[iValid[0]].flatten()
-            cbarLabel = FigLbl.oceanTempLbl
-        elif Params.Induct.colorType == 'zb':
-            cbarUnits = InductionList[0].zb_km[iValid[0]].flatten()
+    for i, result in enumerate(results_list):
+        # Create figure based on inductOtype (maintaining original complex logic)
+        if Params.Induct.inductOtype == 'sigma':
+            oceanComp = ['Ice']
+            fig = plt.figure(figsize=FigSize.phaseSpaceSolo, constrained_layout=True)
+            grid = GridSpec(1, 2, width_ratios=[widthPlot, widthCbar], figure=fig)
+            axes = [fig.add_subplot(grid[0, 0])]
+            if Style.GRIDS:
+                axes[0].grid()
+                axes[0].set_axisbelow(True)
+            cbarAx = fig.add_subplot(grid[0, 1])
+            cbarUnits = results_list[0].base.zb_km[iValid[0]].flatten()
             cbarLabel = FigLbl.iceThickLbl
-
-        fig = plt.figure(figsize=FigSize.phaseSpaceCombo, constrained_layout=True)
-        nComps = np.size(comps)
-        grid = GridSpec(1, 2 + nComps, width_ratios=np.append([widthPlot, widthPlot], [widthCbar for _ in range(nComps)]), figure=fig)
-        axes = [fig.add_subplot(grid[0, i]) for i in range(2)]
-        if Style.GRIDS:
-            [ax.grid() for ax in axes]
-            [ax.set_axisbelow(True) for ax in axes]
-        cbarAxes = [fig.add_subplot(grid[0, i+2]) for i in range(nComps)]
-        
-        # Set up the secondary plot (right side)
-        axes[1].set_xlabel(x_label)
-        axes[1].set_ylabel(y_label)
-        axes[1].set_xscale(x_scale)
-        axes[1].set_yscale(y_scale)
-        
-        # Handle different plot types for the secondary plot
-        if Params.Induct.inductOtype == 'oceanComp':
-            # For oceanComp, create a categorical scatter plot
-            # Convert ocean compositions to numeric indices for plotting
-            unique_comps = np.unique(x_data[0])
-            comp_to_idx = {comp: i for i, comp in enumerate(unique_comps)}
-            x_numeric = np.array([comp_to_idx[comp] for comp in x_data[0]])
-            axes[1].scatter(x_numeric, y_data[0], s=Style.MW_Induction,
-                            marker=Style.MS_Induction, c=ptColors[0])
-            axes[1].set_xticks(range(len(unique_comps)))
-            axes[1].set_xticklabels(unique_comps, rotation=45)
+            
         else:
-            axes[1].scatter(x_data[0], y_data[0], s=Style.MW_Induction,
-                            marker=Style.MS_Induction, c=ptColors[0])
+            if Params.Induct.colorType == 'Tmean':
+                cbarUnits = results_list[0].base.Tmean_K[iValid[0]].flatten()
+                cbarLabel = FigLbl.oceanTempLbl
+            elif Params.Induct.colorType == 'zb':
+                cbarUnits = results_list[0].base.zb_km[iValid[0]].flatten()
+                cbarLabel = FigLbl.iceThickLbl
 
-    # Labels and titles
-    if Params.TITLES:
-        fig.suptitle(FigLbl.phaseSpaceTitle)
-    axes[0].set_xlabel(FigLbl.sigMeanLabel)
-    axes[0].set_ylabel(FigLbl.Dlabel)
-    if x_lims is not None:
-        axes[0].set_xlim(x_lims)
-    if y_lims is not None:
-        axes[0].set_ylim(y_lims)
-    axes[0].set_xscale(FigLbl.sigScale)
-    axes[0].set_yscale(FigLbl.Dscale)
+            fig = plt.figure(figsize=FigSize.phaseSpaceCombo, constrained_layout=True)
+            nComps = np.size(oceanComp)
+            grid = GridSpec(1, 2 + nComps, width_ratios=np.append([widthPlot, widthPlot], 
+                                                                [widthCbar for _ in range(nComps)]), figure=fig)
+            axes = [fig.add_subplot(grid[0, i]) for i in range(2)]
+            if Style.GRIDS:
+                [ax.grid() for ax in axes]
+                [ax.set_axisbelow(True) for ax in axes]
+            cbarAxes = [fig.add_subplot(grid[0, i+2]) for i in range(nComps)]
+            
+            # Set up the secondary plot (right side)
+            axes[1].set_xlabel(x_label)
+            axes[1].set_ylabel(y_label)
+            axes[1].set_xscale(x_scale)
+            axes[1].set_yscale(y_scale)
+            
+            # Handle different plot types for the secondary plot
+            if Params.Induct.inductOtype == 'oceanComp':
+                # For oceanComp, create a categorical scatter plot
+                # Convert ocean compositions to numeric indices for plotting
+                unique_comps = np.unique(x_data[0])
+                comp_to_idx = {comp: i for i, comp in enumerate(unique_comps)}
+                x_numeric = np.array([comp_to_idx[comp] for comp in x_data[0]])
+                axes[1].scatter(x_numeric, y_data[0], s=Style.MW_Induction,
+                                marker=Style.MS_Induction, c=ptColors[0])
+                axes[1].set_xticks(range(len(unique_comps)))
+                axes[1].set_xticklabels(unique_comps, rotation=45)
+            else:
+                axes[1].scatter(x_data[0], y_data[0], s=Style.MW_Induction,
+                                marker=Style.MS_Induction, c=ptColors[0])
 
-    pts = {}
-    cbar = {}
-    if Params.Induct.inductOtype == 'sigma':
-        pts[comps[0]] = axes[0].scatter(sigma_Sm[0], D_km[0], s=Style.MW_Induction,
-                              marker=Style.MS_Induction, c=cbarUnits, cmap=Color.cmap[comps[0]])
-        cbar[comps[0]] = fig.colorbar(pts[comps[0]], cax=cbarAx)
-    else:
-        for comp, cbarAx in zip(comps, cbarAxes):
-            thisComp = InductionList[0].compsList[iValidFlat[0]] == comp
-            pts[comp] = axes[0].scatter(sigma_Sm[0][thisComp], D_km[0][thisComp], s=Style.MW_Induction,
-                            marker=Style.MS_Induction, c=cbarUnits[thisComp], cmap=Color.cmap[comp])
-            cbar[comp] = fig.colorbar(pts[comp], cax=cbarAx)
-            lbl = f'\ce{{{comp}}}'
-            if not FigMisc.TEX_INSTALLED:
-                lbl = FigLbl.StripLatexFromString(lbl)
-            cbarAx.set_title(lbl, fontsize=FigMisc.cbarTitleSize)
+        # Labels and titles
+        if Params.TITLES:
+            fig.suptitle(FigLbl.phaseSpaceTitle)
+        axes[0].set_xlabel(FigLbl.sigMeanLabel)
+        axes[0].set_ylabel(FigLbl.Dlabel)
+        if x_lims is not None:
+            axes[0].set_xlim(x_lims)
+        if y_lims is not None:
+            axes[0].set_ylim(y_lims)
+        axes[0].set_xscale(FigLbl.sigScale)
+        axes[0].set_yscale(FigLbl.Dscale)
 
-            # Only add bounds for supported inductOtypes
-            if FigMisc.MARK_INDUCT_BOUNDS and Params.Induct.inductOtype != 'oceanComp':
-                boundStyle = {'ls': Style.LS_BdipInset, 'lw': Style.LW_BdipInset, 'c': Color.BdipInset}
-                if hasattr(InductionList[0], 'x') and hasattr(InductionList[0], 'y'):
-                    x_vals = InductionList[0].x[iValid[0]].flatten()
-                    y_vals = InductionList[0].y[iValid[0]].flatten()
-                    _ = axes[0].plot(sigma_Sm[0][thisComp][x_vals == np.min(x_vals)], D_km[0][thisComp][x_vals == np.min(x_vals)], **boundStyle)
-                    _ = axes[0].plot(sigma_Sm[0][thisComp][x_vals == np.max(x_vals)], D_km[0][thisComp][x_vals == np.max(x_vals)], **boundStyle)
-                    _ = axes[0].plot(sigma_Sm[0][thisComp][y_vals == np.min(y_vals)], D_km[0][thisComp][y_vals == np.min(y_vals)], **boundStyle)
-                    _ = axes[0].plot(sigma_Sm[0][thisComp][y_vals == np.max(y_vals)], D_km[0][thisComp][y_vals == np.max(y_vals)], **boundStyle)
+        # Create scatter plots and colorbars
+        pts = {}
+        cbar = {}
+        if Params.Induct.inductOtype == 'sigma':
+            pts[oceanComp[0]] = axes[0].scatter(sigma_Sm[i], D_km[i], s=Style.MW_Induction,
+                                marker=Style.MS_Induction, c=cbarUnits, cmap=Color.cmap[oceanComp[0]])
+            cbar[oceanComp[0]] = fig.colorbar(pts[oceanComp[0]], cax=cbarAx)
+        else:
+            # Plot by ocean composition
+            for comp, cbarAx in zip(oceanComp[i], cbarAxes):
+                thisComp = oceanComp[i] == comp
+                pts[comp] = axes[0].scatter(sigma_Sm[i][thisComp], D_km[i][thisComp], s=Style.MW_Induction,
+                                marker=Style.MS_Induction, c=cbarUnits[thisComp], cmap=Color.cmap[comp])
+                cbar[comp] = fig.colorbar(pts[comp], cax=cbarAx)
+                lbl = format_composition_label(comp)
+                if not FigMisc.TEX_INSTALLED:
+                    lbl = FigLbl.StripLatexFromString(lbl)
+                cbarAx.set_title(lbl, fontsize=FigMisc.cbarTitleSize)
 
-    cbar[comps[-1]].set_label(cbarLabel)
-    fig.savefig(Params.FigureFiles.phaseSpace, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
-    log.debug(f'InductOgram phase space plot saved to file: {Params.FigureFiles.phaseSpace}')
-    plt.close()
+                # Only add bounds for supported inductOtypes
+                if FigMisc.MARK_INDUCT_BOUNDS and Params.Induct.inductOtype != 'oceanComp':
+                    boundStyle = {'ls': Style.LS_BdipInset, 'lw': Style.LW_BdipInset, 'c': Color.BdipInset}
+                    if hasattr(results_list[0], 'x') and hasattr(results_list[0], 'y'):
+                        x_vals = results_list[i].x[iValid[i]].flatten()
+                        y_vals = results_list[i].y[iValid[i]].flatten()
+                        _ = axes[0].plot(sigma_Sm[i][thisComp][x_vals == np.min(x_vals)], 
+                                    D_km[i][thisComp][x_vals == np.min(x_vals)], **boundStyle)
+                        _ = axes[0].plot(sigma_Sm[i][thisComp][x_vals == np.max(x_vals)], 
+                                    D_km[i][thisComp][x_vals == np.max(x_vals)], **boundStyle)
+                        _ = axes[0].plot(sigma_Sm[i][thisComp][y_vals == np.min(y_vals)], 
+                                    D_km[i][thisComp][y_vals == np.min(y_vals)], **boundStyle)
+                        _ = axes[0].plot(sigma_Sm[i][thisComp][y_vals == np.max(y_vals)], 
+                                    D_km[i][thisComp][y_vals == np.max(y_vals)], **boundStyle)
+
+            cbar[comp].set_label(cbarLabel)
+            fig.savefig(Params.FigureFiles.phaseSpace, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+            log.debug(f'InductOgram phase space plot saved to file: {Params.FigureFiles.phaseSpace}')
+            plt.close()
 
     # Plot combination
-    if Params.COMPARE and np.size(InductionList) > 1 and Params.Induct.inductOtype != 'sigma':
-        comps = np.unique(np.append([], [Induction.comps for Induction in InductionList]))
-        nComps = np.size(comps)
+    if Params.COMPARE and np.size(results_list) > 1 and Params.Induct.inductOtype != 'sigma':
+        
+        # Get all unique compositions from all results
+        all_comps = []
+        for result in results_list:
+            if hasattr(result, 'comps'):
+                all_comps.extend(result.comps)
+            else:
+                all_comps.extend(np.unique(result.base.oceanComp))
+        oceanComp = np.unique(all_comps)
+        nComps = np.size(oceanComp)
+        
         figWidth = FigSize.phaseSpaceSolo[0] + nComps * FigMisc.cbarSpace
         fig, ax = plt.subplots(1, 1, figsize=(figWidth, FigSize.phaseSpaceSolo[1]))
         if Style.GRIDS:
@@ -277,7 +263,13 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
 
         divider = make_axes_locatable(ax)
         extraPad = 0
-        comboCompsList = np.concatenate(tuple(Induction.compsList for Induction in InductionList))
+        
+        # Combine data from all results
+        if hasattr(results_list[0], 'compsList'):
+            comboCompsList = np.concatenate(tuple(result.compsList for result in results_list))
+        else:
+            comboCompsList = np.concatenate(tuple(result.base.oceanComp.flatten() for result in results_list))
+            
         comboSigma_Sm = np.concatenate(tuple(sigmai for sigmai in sigma_Sm))
         comboD_km = np.concatenate(tuple(Di for Di in D_km))
         comboColors = np.concatenate(tuple(ptColi for ptColi in ptColors))
@@ -285,21 +277,24 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
         comboY_data = np.concatenate(tuple(yi for yi in y_data))
         
         if Params.Induct.colorType == 'Tmean':
-            comboCbarUnits = np.concatenate(tuple(Induction.Tmean_K[iValid[i]].flatten() for i,Induction in enumerate(InductionList)))
+            comboCbarUnits = np.concatenate(tuple(result.base.Tmean_K[iValid[i]].flatten() 
+                                                for i, result in enumerate(results_list)))
         elif Params.Induct.colorType == 'zb':
-            comboCbarUnits = np.concatenate(tuple(Induction.zb_km[iValid[i]].flatten() for i,Induction in enumerate(InductionList)))
+            comboCbarUnits = np.concatenate(tuple(result.base.zb_km[iValid[i]].flatten() 
+                                                for i, result in enumerate(results_list)))
         
         pts = {}
-        for comp in comps:
+        for comp in oceanComp:
             thisComp = comboCompsList == comp
             pts[comp] = ax.scatter(comboSigma_Sm[thisComp], comboD_km[thisComp], s=Style.MW_Induction,
                                         marker=Style.MS_Induction, c=comboColors[thisComp])
             cbarAx = divider.new_horizontal(size=FigMisc.cbarSize, pad=FigMisc.cbarSpace + extraPad)
             extraPad = FigMisc.extraPad
             cbar = mcbar.ColorbarBase(cbarAx, cmap=Color.cmap[comp], format=FigMisc.cbarFmt,
-                                      values=np.linspace(np.min(comboCbarUnits[thisComp]), np.max(comboCbarUnits[thisComp]), FigMisc.nCbarPts))
+                                      values=np.linspace(np.min(comboCbarUnits[thisComp]), 
+                                                        np.max(comboCbarUnits[thisComp]), FigMisc.nCbarPts))
             fig.add_axes(cbarAx)
-            lbl = f'\ce{{{comp}}}'
+            lbl = f'\\ce{{{comp}}}'
             if not FigMisc.TEX_INSTALLED:
                 lbl = FigLbl.StripLatexFromString(lbl)
             cbarAx.set_title(lbl, fontsize=FigMisc.cbarTitleSize)
@@ -310,10 +305,14 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
                 thisY_data = comboY_data[thisComp]
                 boundStyle = {'ls': Style.LS_BdipInset, 'lw': Style.LW_BdipInset, 'c': Color.BdipInset}
                 if np.size(thisX_data) > 0 and np.size(thisY_data) > 0:
-                    _ = ax.plot(comboSigma_Sm[thisComp][thisX_data == np.min(thisX_data)], comboD_km[thisComp][thisX_data == np.min(thisX_data)], **boundStyle)
-                    _ = ax.plot(comboSigma_Sm[thisComp][thisX_data == np.max(thisX_data)], comboD_km[thisComp][thisX_data == np.max(thisX_data)], **boundStyle)
-                    _ = ax.plot(comboSigma_Sm[thisComp][thisY_data == np.min(thisY_data)], comboD_km[thisComp][thisY_data == np.min(thisY_data)], **boundStyle)
-                    _ = ax.plot(comboSigma_Sm[thisComp][thisY_data == np.max(thisY_data)], comboD_km[thisComp][thisY_data == np.max(thisY_data)], **boundStyle)
+                    _ = ax.plot(comboSigma_Sm[thisComp][thisX_data == np.min(thisX_data)], 
+                              comboD_km[thisComp][thisX_data == np.min(thisX_data)], **boundStyle)
+                    _ = ax.plot(comboSigma_Sm[thisComp][thisX_data == np.max(thisX_data)], 
+                              comboD_km[thisComp][thisX_data == np.max(thisX_data)], **boundStyle)
+                    _ = ax.plot(comboSigma_Sm[thisComp][thisY_data == np.min(thisY_data)], 
+                              comboD_km[thisComp][thisY_data == np.min(thisY_data)], **boundStyle)
+                    _ = ax.plot(comboSigma_Sm[thisComp][thisY_data == np.max(thisY_data)], 
+                              comboD_km[thisComp][thisY_data == np.max(thisY_data)], **boundStyle)
 
         cbar.set_label(cbarLabel, size=12)
         plt.tight_layout()
@@ -324,88 +323,98 @@ def PlotInductOgramPhaseSpace(InductionList, Params):
     return
 
 
-def PlotInductOgram(InductionList, Params):
-    """ Plot contours showing magnetic induction responses for an array of models
-    """
-    if Params.COMPARE:  
-        CombinedInduction = deepcopy(InductionList[0])
-        CombinedInductionList = np.concatenate((InductionList, [CombinedInduction]))
-    else:
-        CombinedInductionList = InductionList
+def PlotInductOgram(results_list, Params):
+    for resultListIndex, result in enumerate(results_list):
+        if resultListIndex == len(results_list) - 1:
+            log.debug("Processing combined result for comparison plot")
         
-    for inductionListIndex, Induction in enumerate(CombinedInductionList):
-        if inductionListIndex == len(CombinedInductionList) - 1:
-            print("HERE")
         # Get indices for the oscillations that we can and want to plot
-        excSelectionCalc = {key:(Texc is not None) for key, Texc in Induction.Texc_hr.items()}
-        TexcCalcd = excSelectionCalc and Induction.Texc_hr
-        whichTexc = excSelectionCalc and Params.Induct.excSelectionPlot
-        allTexc_hr = np.fromiter(TexcCalcd.values(), dtype=np.float_)
-        allAvailableTexc_hr = allTexc_hr[np.isfinite(allTexc_hr)]
-        iTexc = [np.where(allTexc_hr == Texc)[0][0] for key, Texc in TexcCalcd.items() if whichTexc[key] and np.size(np.where(allTexc_hr == Texc)[0]) > 0]
-        iTexcAvail = [np.where(allAvailableTexc_hr == Texc)[0][0] for key, Texc in TexcCalcd.items() if whichTexc[key] and np.size(np.where(allAvailableTexc_hr == Texc)[0]) > 0]
-        TexcPlotNames = np.fromiter(Induction.Texc_hr.keys(), dtype='<U20')[iTexc]
-        Texc_hr = allTexc_hr[iTexc]
-        iSort = np.argsort(Texc_hr)
-        if Induction.bodyname not in Params.Induct.sigmaMax.keys() or Induction.bodyname not in Params.Induct.sigmaMin.keys():
-            sigmaMin = np.min(Induction.sigmaMean_Sm[np.isfinite(Induction.sigmaMean_Sm)])
-            sigmaMax = np.max(Induction.sigmaMean_Sm[np.isfinite(Induction.sigmaMean_Sm)])
-            Dmin = np.min(Induction.D_km[np.isfinite(Induction.D_km)])
-            Dmax = np.max(Induction.D_km[np.isfinite(Induction.D_km)])
-            log.warning(f'At least one of [sigmaMin, sigmaMax, Dmin, Dmax] are not set for {Induction.bodyname} in configPPinduct. ' +
+        # Use existing helper from EssentialHelpers
+        iTexc, iTexcAvail, TexcPlotNames, Texc_hr, iSort = get_excitation_indices_and_names(result.induction, Params.Induct)
+        # Handle sigma/D bounds checking like original
+        if result.base.bodyname not in Params.Induct.sigmaMax.keys() or result.base.bodyname not in Params.Induct.sigmaMin.keys():
+            sigmaMin = np.min(result.base.sigmaMean_Sm[np.isfinite(result.base.sigmaMean_Sm)])
+            sigmaMax = np.max(result.base.sigmaMean_Sm[np.isfinite(result.base.sigmaMean_Sm)])
+            Dmin = np.min(result.base.D_km[np.isfinite(result.base.D_km)])
+            Dmax = np.max(result.base.D_km[np.isfinite(result.base.D_km)])
+            log.warning(f'At least one of [sigmaMin, sigmaMax, Dmin, Dmax] are not set for {result.base.bodyname} in configPPinduct. ' +
                         f'Using min/max for this inductOgram run:\\n' +
                         f'sigmaMin: {sigmaMin} S/m\\n' +
                         f'sigmaMax: {sigmaMax} S/m\\n' +
                         f'Dmin: {Dmin} km\\n' +
                         f'Dmax: {Dmax} km\\n')
-            Params.Induct.sigmaMin[Induction.bodyname] = np.log10(sigmaMin)
-            Params.Induct.sigmaMax[Induction.bodyname] = np.log10(sigmaMax)
-            Params.Induct.Dmin[Induction.bodyname] = np.log10(Dmin)
-            Params.Induct.Dmax[Induction.bodyname] = np.log10(Dmax)
+            Params.Induct.sigmaMin[result.base.bodyname] = np.log10(sigmaMin)
+            Params.Induct.sigmaMax[result.base.bodyname] = np.log10(sigmaMax)
+            Params.Induct.Dmin[result.base.bodyname] = np.log10(Dmin)
+            Params.Induct.Dmax[result.base.bodyname] = np.log10(Dmax)
             
         # Let matplotlib decide contour levels and format if we haven't explicitly set them
-        if Induction.bodyname not in Params.Induct.cLevels.keys() or Induction.bodyname not in Params.Induct.cfmt.keys():
+        if result.base.bodyname not in Params.Induct.cLevels.keys() or result.base.bodyname not in Params.Induct.cfmt.keys():
             Params.Induct.SPECIFIC_CLEVELS = False
             
-        FigLbl.SetInduction(Induction.bodyname, Params.Induct, Texc_hr)
+        FigLbl.SetInduction(result.base.bodyname, Params.Induct, Texc_hr)
         if not FigMisc.TEX_INSTALLED:
             FigLbl.StripLatex()
 
-        # Get all common labels and data for zipping
-        zData = [Induction.Amp[iTexcAvail,...], np.abs(Induction.Bix_nT[iTexcAvail,...]),
-                np.abs(Induction.Biy_nT[iTexcAvail,...]), np.abs(Induction.Biz_nT[iTexcAvail,...])]
-        if Induction.SINGLE_COMP:
-            FigLbl.singleComp(Induction.comps[0])
+        # Get all common labels and data for zipping - use hierarchical structure
+        zData = [result.induction.Amp[iTexcAvail,...], 
+                np.abs(result.induction.Bix_nT[iTexcAvail,...]),
+                np.abs(result.induction.Biy_nT[iTexcAvail,...]), 
+                np.abs(result.induction.Biz_nT[iTexcAvail,...])]
+        
+        if hasattr(result, 'SINGLE_COMP') and result.SINGLE_COMP:
+            if hasattr(result, 'comps'):
+                FigLbl.singleComp(result.comps[0])
 
-        # Adjust phi values in case we're plotting void volume % instead of void fraction
+        # Set up contour coordinate system based on inductOtype
+        # This uses the same logic as the helper but for contour plotting
         if Params.Induct.inductOtype == 'phi':
-            Induction.y = Induction.y * FigLbl.phiMult
-
-        # Handle oceanComp special case - convert compositions to numeric indices
-        if Params.Induct.inductOtype == 'oceanComp':
-            # Get unique compositions and create mapping
-            unique_comps = np.unique(Induction.oceanComp.flatten())
+            # Adjust phi values in case we're plotting void volume % instead of void fraction
+            if hasattr(result, 'y'):
+                contour_y = result.y * FigLbl.phiMult
+            else:
+                contour_y = result.base.D_km  # Fallback
+        elif Params.Induct.inductOtype == 'oceanComp':
+            # Handle oceanComp special case - convert compositions to numeric indices
+            # Get unique compositions while preserving original order
+            seen = set()
+            unique_comps = []
+            for comp in result.base.oceanComp.flatten():
+                if comp not in seen:
+                    unique_comps.append(comp)
+                    seen.add(comp)
+            unique_comps = np.array(unique_comps)
             comp_to_index = {comp: i for i, comp in enumerate(unique_comps)}
             
             # Convert x-axis (compositions) to numeric indices
-            x_numeric = np.zeros_like(Induction.x, dtype=float)
-            for i, comp in enumerate(Induction.x.flatten()):
+            x_numeric = np.zeros_like(result.base.oceanComp, dtype=float)
+            for i, comp in enumerate(result.base.oceanComp.flatten()):
                 x_numeric.flat[i] = comp_to_index[comp]
-            x_numeric = x_numeric.reshape(Induction.x.shape)
+            x_numeric = x_numeric.reshape(result.base.oceanComp.shape)
             
             # Use numeric indices for contour plotting
             contour_x = x_numeric
-            contour_y = Induction.y
-
-        else:
-            # For sigma plots, use sigma/D space if available
-            if Params.Induct.inductOtype == 'sigma':
-                contour_x = Induction.sigmaMean_Sm
-                contour_y = Induction.D_km
+            if not np.any(np.isnan(result.base.zb_km)):
+                contour_y = result.base.zb_approximate_km
             else:
-                contour_x = Induction.x
-                contour_y = Induction.y
-
+                contour_y = result.base.zb_km
+        elif Params.Induct.inductOtype == 'sigma':
+            # For sigma plots, use sigma/D space
+            contour_x = result.base.sigmaMean_Sm
+            contour_y = result.base.D_km
+        elif Params.Induct.inductOtype == 'Tb':
+            # For temperature-based plots
+            contour_x = result.base.Tb_K
+            contour_y = result.base.D_km
+        else:
+            # Default case - try to get x/y from result object (compatibility)
+            if hasattr(result, 'x') and hasattr(result, 'y'):
+                contour_x = result.x
+                contour_y = result.y
+            else:
+                # Ultimate fallback
+                contour_x = result.base.sigmaMean_Sm
+                contour_y = result.base.D_km
 
         # Get axis labels and scales from existing FigLbl
         x_label = FigLbl.xLabelInduct
@@ -413,9 +422,9 @@ def PlotInductOgram(InductionList, Params):
         x_scale = FigLbl.xScaleInduct
         y_scale = FigLbl.yScaleInduct
 
+        # Create combination plot if requested (like original)
         if Params.COMBINE_BCOMPS:
             # Plot B components all together with phase. Amplitude is still separate
-            # Generate canvas and add labels
             fig = plt.figure(figsize=FigSize.inductCombo)
             grid = GridSpec(2, 2)
             axes = np.array([[fig.add_subplot(grid[i, j]) for j in range(2)] for i in range(2)])
@@ -432,14 +441,17 @@ def PlotInductOgram(InductionList, Params):
             [ax.set_ylabel(y_label) for ax in (axes[0,0], axes[1,0])]
             [ax.set_xscale(x_scale) for ax in allAxes]
             [ax.set_yscale(y_scale) for ax in allAxes]
+            
             # If we are doing ocean comp inductogram, set x axis to be whole numbers
             if Params.Induct.inductOtype == 'oceanComp':
                 axes[0,0].xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
                 axes[0,1].xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
             
             coords = {'Bx': (0,0), 'By': (0,1), 'Bz': (1,0), 'phase': (1,1)}
-            comboData = [np.abs(Induction.Bix_nT[iTexcAvail,...]), np.abs(Induction.Biy_nT[iTexcAvail,...]),
-                        np.abs(Induction.Biz_nT[iTexcAvail,...]), Induction.phase[iTexcAvail,...]]
+            comboData = [np.abs(result.induction.Bix_nT[iTexcAvail,...]), 
+                        np.abs(result.induction.Biy_nT[iTexcAvail,...]),
+                        np.abs(result.induction.Biz_nT[iTexcAvail,...]), 
+                        result.induction.phase[iTexcAvail,...]]
             comboTitles = np.append(FigLbl.plotTitles[1:], FigLbl.phaseTitle)
             comboLabels = list(coords.keys())
 
@@ -454,15 +466,15 @@ def PlotInductOgram(InductionList, Params):
                         for zContour, T in zip(zContours, TexcPlotNames[iSort])]
 
             # Add V2021 points if available
-            if Induction.bodyname in Params.Induct.V2021_zb_km.keys():
-                AddV2021points(Params.Induct, Induction.bodyname, Params.Induct.inductOtype, allAxes)
+            if hasattr(Params.Induct, 'V2021_zb_km') and result.base.bodyname in Params.Induct.V2021_zb_km.keys():
+                AddV2021points(Params.Induct, result.base.bodyname, Params.Induct.inductOtype, allAxes)
 
             plt.tight_layout()
             fig.savefig(Params.FigureFiles.inductCombo, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
             log.debug(f'Induction combination plot saved to file: {Params.FigureFiles.inductCombo}')
             plt.close()
 
-        # Plot each component separately
+        # Plot each component separately (like original)
         for z, name, fLabel in zip(zData, FigLbl.plotTitles, FigLbl.fLabels):
             fig = plt.figure(figsize=FigSize.induct)
             grid = GridSpec(1, 2)
@@ -489,7 +501,7 @@ def PlotInductOgram(InductionList, Params):
                             colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                             linewidths=Style.LW_Induction[T], levels=Params.Induct.GetClevels(fLabel, T))
                             for i,T in enumerate(TexcPlotNames[iSort])]
-            phaseContours = [axes[1].contour(contour_x, contour_y, Induction.phase[i, ...],
+            phaseContours = [axes[1].contour(contour_x, contour_y, result.induction.phase[i, ...],
                             colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                             linewidths=Style.LW_Induction[T], levels=Params.Induct.GetClevels('phase', T))
                             for i, T in enumerate(TexcPlotNames)]
@@ -499,111 +511,17 @@ def PlotInductOgram(InductionList, Params):
                             for phaseContour, T in zip(phaseContours, TexcPlotNames)]
 
             # Add V2021 points if available
-            if FigMisc.PLOT_V2021 and Induction.bodyname in Params.Induct.V2021_zb_km.keys():
-                AddV2021points(Params.Induct, Induction.bodyname, Params.Induct.inductOtype, [ax])
+            if FigMisc.PLOT_V2021 and hasattr(Params.Induct, 'V2021_zb_km') and result.base.bodyname in Params.Induct.V2021_zb_km.keys():
+                AddV2021points(Params.Induct, result.base.bodyname, Params.Induct.inductOtype, axes)
 
             if Params.LEGEND:
-                    lines = np.array([contour.legend_elements()[0][0] for contour in phaseContours])
-                    axes[1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
+                lines = np.array([contour.legend_elements()[0][0] for contour in phaseContours])
+                axes[1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
             plt.tight_layout()
             fig.savefig(Params.FigureFiles.induct[fLabel], format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
             log.debug(f'Plot saved to file: {Params.FigureFiles.induct[fLabel]}')
             plt.close()
-        if Params.COMPARE:
-            # First we must get the x array
-            if inductionListIndex == 0 or inductionListIndex == len(CombinedInductionList) - 1:
-                # Do nothing
-                pass
-            else:
-                # Determine concatenation axis based on which dimension matches
-                if CombinedInduction.x.shape[0] == Induction.x.shape[0] and (
-                    (np.issubdtype(Induction.x.dtype, np.number) and np.allclose(Induction.x[:, 0], CombinedInduction.x[:, 0], equal_nan=True)) or
-                    (not np.issubdtype(Induction.x.dtype, np.number) and np.array_equal(Induction.x[:, 0], CombinedInduction.x[:, 0]))
-                ):
-                    # x arrays match, concatenate along y-axis (axis=1)
-                    # Find insertion point to maintain monotonic order
-                    y_existing = CombinedInduction.y[0, :]
-                    y_new_start = Induction.y[0, 0]
-                    indexToAppendAt = np.searchsorted(y_existing, y_new_start)
-                    concat_axis = 1
-                elif CombinedInduction.x.shape[1] == Induction.x.shape[1] and (
-                    (np.issubdtype(Induction.x.dtype, np.number) and np.allclose(Induction.x[0, :], CombinedInduction.x[0, :], equal_nan=True)) or
-                    (not np.issubdtype(Induction.x.dtype, np.number) and np.array_equal(Induction.x[0, :], CombinedInduction.x[0, :]))
-                ):
-                    # y arrays match, concatenate along x-axis (axis=0)
-                    # Find insertion point to maintain monotonic order
-                    x_existing = CombinedInduction.x[:, 0]
-                    x_new_start = Induction.x[0, 0]
-                    indexToAppendAt = np.searchsorted(x_existing, x_new_start)
-                    concat_axis = 0
-                else:
-                    log.warning('The inductogram comparison plot cannot be made because the x or y axes are not the same. Skipping the comparison plot.')
-                    break
-                for prop in Induction.__dict__.keys():
-                    prop_value = getattr(Induction, prop)
-                    if isinstance(prop_value, np.ndarray):
-                        try:
-                            combined_prop = getattr(CombinedInduction, prop)
-                            new_prop = getattr(Induction, prop)
-                            if prop_value.ndim == 1:
-                                result = np.insert(combined_prop, indexToAppendAt, new_prop)
-                                setattr(CombinedInduction, prop, result)
-                            # Check array dimensionality and handle accordingly
-                            elif prop_value.ndim == 2:
-                                # Determine axis to insert along
-                                if concat_axis == 0:
-                                    # Inserting along rows (x-axis)
-                                    result = np.concatenate((
-                                        combined_prop[:indexToAppendAt, :],
-                                        new_prop,
-                                        combined_prop[indexToAppendAt:, :]
-                                    ), axis=0)
-                                else:
-                                    # Inserting along columns (y-axis)
-                                    result = np.concatenate((
-                                        combined_prop[:, :indexToAppendAt],
-                                        new_prop,
-                                        combined_prop[:, indexToAppendAt:]
-                                    ), axis=1)
-
-                                setattr(CombinedInduction, prop, result)
-                            elif prop_value.ndim == 3:
-                                # (Nprop, Nx, Ny)
-                                if concat_axis == 0:
-                                    insert_axis = 1  # x → axis 1
-                                else:
-                                    insert_axis = 2  # y → axis 2
-
-                                combined_shape = combined_prop.shape
-                                new_shape = new_prop.shape
-
-                                # Confirm shape match on all but insert axis
-                                if all(combined_shape[i] == new_shape[i] for i in range(3) if i != insert_axis):
-                                    try:
-                                        # Manual insert using np.concatenate
-                                        if insert_axis == 1:
-                                            result = np.concatenate((
-                                                combined_prop[:, :indexToAppendAt, :],
-                                                new_prop,
-                                                combined_prop[:, indexToAppendAt:, :]
-                                            ), axis=1)
-                                        else:
-                                            result = np.concatenate((
-                                                combined_prop[:, :, :indexToAppendAt],
-                                                new_prop,
-                                                combined_prop[:, :, indexToAppendAt:]
-                                            ), axis=2)
-                                        setattr(CombinedInduction, prop, result)
-                                    except Exception as e:
-                                        log.warning(f'3D insert failed for {prop} at axis {insert_axis}: {e}')
-                                else:
-                                    log.warning(f"Shape mismatch for {prop}: can't insert {new_shape} into {combined_shape} along axis {insert_axis}")
-
-                            else:
-                                # For other dimensionalities, try the original approach
-                                setattr(CombinedInduction, prop, np.insert(combined_prop, indexToAppendAt, new_prop, axis=concat_axis))
-                        except Exception as e:
-                            log.warning(f'Could not concatenate {prop} for {Induction.bodyname}. Error: {str(e)}. Skipping.')
+                
     return
 
 
@@ -636,20 +554,8 @@ def AddV2021points(IndParams, bodyname, inductOtype, axes):
 def PlotComplexBdip(PlanetList, Params):
     if PlanetList[0].bodyname in Excitations.Texc_hr.keys():
         refs = {}
-        if Excitations.Texc_hr[PlanetList[0].bodyname].keys() is None:
-            nPeaksToPlot = 0
-        else:
-            common_keys = set(Excitations.Texc_hr[PlanetList[0].bodyname].keys()) & set(
-                Params.Induct.excSelectionPlot.keys()) & set(Params.Induct.excSelectionCalc.keys())
-            nPeaksToPlot = np.sum([Params.Induct.excSelectionPlot[key] and Params.Induct.excSelectionCalc[key] and
-                               Excitations.Texc_hr[PlanetList[0].bodyname][key] is not None for key in common_keys])
-        nPeaksToPlot = np.sum([Tdo and Thave for Tdo, Thave, Texc in zip(Params.Induct.excSelectionPlot.values(),
-                                                                         Params.Induct.excSelectionCalc.values(),
-                                                                         Excitations.Texc_hr[
-                                                                             PlanetList[0].bodyname].values()) if
-                               Texc is not None])
-        nPeaksCalced = np.sum([np.size(Planeti.Magnetic.calcedExc) for Planeti in PlanetList])
-        if nPeaksToPlot >= 1 and nPeaksCalced >= 1:
+        nPeaksToPlot, peaksToPlotNames = count_plottable_excitations(PlanetList[0].Magnetic.calcedExc, Params.Induct)
+        if nPeaksToPlot >= 1:
             if nPeaksToPlot == 1:
                 DO_ZOOM = False
                 nCol = 1
@@ -1592,3 +1498,158 @@ def PlotMagSpectrum(PlanetList, Params):
 
 
 
+
+def extract_induction_phase_space_data(result_obj, inductOtype, i_valid, i_valid_flat):
+    """
+    Extract data for inductogram phase space plotting based on inductOtype.
+    
+    This helper consolidates the complex data extraction logic that determines
+    what x/y data to use based on the inductOtype parameter. This logic block
+    appears in both PlotInductOgramPhaseSpace and potentially PlotInductOgram.
+    
+    Args:
+        result_obj: Result object with hierarchical structure (result.base.*, result.induction.*)
+        inductOtype: Type of induction plot ('sigma', 'oceanComp', 'Tb', etc.)
+        i_valid: Valid indices in 2D grid format
+        i_valid_flat: Valid indices in flattened format
+        
+    Returns:
+        dict: {'x_data': x_values, 'y_data': y_values, 'comp_list': compositions}
+    """
+    
+    # Extract base data always needed
+    sigma_Sm = result_obj.base.sigmaMean_Sm[i_valid].flatten()
+    D_km = result_obj.base.D_km[i_valid].flatten()
+    comp_list = result_obj.base.oceanComp[i_valid].flatten()
+    
+    # Get axis data based on inductOtype
+    if inductOtype == 'sigma':
+        x_data = sigma_Sm
+        y_data = D_km
+    elif inductOtype == 'oceanComp':
+        x_data = result_obj.base.oceanComp[i_valid].flatten()
+        # Use approximate ice thickness if available, otherwise regular ice thickness
+        if hasattr(result_obj.base, 'zb_approximate_km'):
+            y_data = result_obj.base.zb_approximate_km[i_valid].flatten()
+        else:
+            y_data = result_obj.base.zb_km[i_valid].flatten()
+    elif inductOtype == 'Tb':
+        # For temperature-based plots, get temperature from base structure
+        x_data = result_obj.base.Tb_K[i_valid].flatten()
+        y_data = D_km
+    else:
+        # Default case - try to get x/y from result object
+        if hasattr(result_obj, 'x') and hasattr(result_obj, 'y'):
+            x_data = result_obj.x[i_valid].flatten()
+            y_data = result_obj.y[i_valid].flatten()
+        else:
+            # Fallback to sigma/D for unknown types
+            log.warning(f'Unknown inductOtype {inductOtype}, falling back to sigma/D')
+            x_data = sigma_Sm
+            y_data = D_km
+    
+    return {
+        'x_data': x_data,
+        'y_data': y_data,
+        'sigma_Sm': sigma_Sm,
+        'D_km': D_km,
+        'comp_list': comp_list
+    }
+
+
+def setup_induction_coloring(result_obj, inductOtype, color_type, i_valid, i_valid_flat, 
+                            sigma_Sm, D_km, comp_list):
+    """
+    Set up point coloring for inductogram phase space plots.
+    
+    This helper consolidates the complex coloring logic that appears in 
+    PlotInductOgramPhaseSpace and potentially other magnetic plotting functions.
+    The coloring logic is quite complex with different branches for different
+    inductOtype and colorType combinations.
+    
+    Args:
+        result_obj: Result object with hierarchical structure
+        inductOtype: Type of induction plot ('sigma', 'oceanComp', etc.)
+        color_type: Type of coloring ('Tmean', 'zb', etc.)
+        i_valid: Valid indices in 2D grid format
+        i_valid_flat: Valid indices in flattened format
+        sigma_Sm: Extracted sigma values
+        D_km: Extracted D values
+        comp_list: Composition list for each point
+        
+    Returns:
+        np.array: Point colors for scatter plot
+    """
+    
+    if inductOtype == 'sigma':
+        # In this case, we likely don't have salinity and ocean temp information
+        # so we need to set the colormap to use the info we do have
+        if hasattr(result_obj, 'sigmaMax') and hasattr(result_obj, 'bodyname'):
+            sigma_norm = sigma_Sm / 10**result_obj.sigmaMax[result_obj.bodyname]
+        else:
+            # Fallback normalization
+            sigma_norm = sigma_Sm / np.max(sigma_Sm) if len(sigma_Sm) > 0 else np.array([0.5])
+        
+        D_norm = D_km / np.max(D_km) if len(D_km) > 1 else np.ones_like(D_km) * 0.5
+        pt_colors = Color.OceanCmap(comp_list, sigma_norm, D_norm,
+                                  DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
+    
+    elif inductOtype == 'oceanComp':
+        # For oceanComp, use a different coloring scheme
+        # Color by ice shell thickness or another appropriate variable
+        if color_type == 'Tmean':
+            cbar_data = result_obj.base.Tmean_K[i_valid].flatten()
+        else:
+            cbar_data = result_obj.base.zb_km[i_valid].flatten()
+        
+        if np.size(cbar_data) > 1:
+            cbar_norm = interp1d([np.min(cbar_data), np.max(cbar_data)], [0.0, 1.0])(cbar_data)
+        else:
+            cbar_norm = np.ones_like(cbar_data) * 0.5
+            
+        # Use a simple color scheme for ocean compositions
+        pt_colors = Color.OceanCmap(comp_list, cbar_norm, cbar_norm,
+                                  DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
+    
+    else:
+        # Standard coloring for other inductOtypes
+        Tmean_K = result_obj.base.Tmean_K[i_valid].flatten()
+        
+        if FigMisc.NORMALIZED_SALINITIES:
+            wMax_ppt = np.array([Color.saturation[comp] for comp in comp_list])
+            if hasattr(result_obj, 'x') and np.size(result_obj.x[i_valid]) > 0:
+                w_normFrac = result_obj.x[i_valid].flatten() / wMax_ppt
+            else:
+                w_normFrac = np.ones_like(Tmean_K) * 0.5
+        else:
+            if hasattr(result_obj, 'x') and np.size(result_obj.x[i_valid]) > 0:
+                x_vals = result_obj.x[i_valid].flatten()
+                if np.max(x_vals) > np.min(x_vals):
+                    w_normFrac = interp1d([np.min(x_vals), np.max(x_vals)], [0.0, 1.0])(x_vals)
+                else:
+                    w_normFrac = np.ones_like(x_vals) * 0.5
+            else:
+                w_normFrac = np.ones_like(Tmean_K) * 0.5
+        
+        if color_type == 'Tmean':
+            if FigMisc.NORMALIZED_TEMPERATURES:
+                Tmean_normFrac = Color.GetNormT(Tmean_K)
+            else:
+                if np.max(Tmean_K) > np.min(Tmean_K):
+                    Tmean_normFrac = interp1d([np.min(Tmean_K), np.max(Tmean_K)], [0.0, 1.0])(Tmean_K)
+                else:
+                    Tmean_normFrac = np.ones_like(Tmean_K) * 0.5
+            pt_colors = Color.OceanCmap(comp_list, w_normFrac, Tmean_normFrac,
+                                      DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
+        elif color_type == 'zb':
+            zb_km = result_obj.base.zb_km[i_valid].flatten()
+            if np.max(zb_km) > np.min(zb_km):
+                zb_normFrac = interp1d([np.min(zb_km), np.max(zb_km)], [0.0, 1.0])(zb_km)
+            else:
+                zb_normFrac = np.ones_like(zb_km) * 0.5
+            pt_colors = Color.OceanCmap(comp_list, w_normFrac, zb_normFrac,
+                                      DARKEN_SALINITIES=FigMisc.DARKEN_SALINITIES)
+        else:
+            raise ValueError(f'Inductogram colortype {color_type} not recognized.')
+    
+    return pt_colors

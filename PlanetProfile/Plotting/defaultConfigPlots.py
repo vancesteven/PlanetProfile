@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 27  # Integer number for config file version. Increment when new settings are added to the
+configPlotsVersion = 28  # Integer number for config file version. Increment when new settings are added to the
 # default config file.
 
 def plotAssign():
@@ -307,6 +307,7 @@ def plotAssign():
     FigSize.AlfvenWing = (6, 6)
     FigSize.asym = (8, 5)
     FigSize.apsidal = (6, 6)
+    FigSize.imaginaryRealSoloCombo = (6, 6)
 
 
     """ Miscellaneous figure options """
@@ -326,7 +327,6 @@ def plotAssign():
     FigMisc.SCALE_HYDRO_LW = True  # Whether to adjust thickness of lines on hydrosphere plot according to relative salinity
     FigMisc.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
     FigMisc.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
-    FigMisc.PLOT_DENSITY_VERSUS_DEPTH = False  # Whether to plot density versus depth instead of pressure
     FigMisc.lowSigCutoff_Sm = 1e-3  # Cutoff conductivity below which profiles will be excluded. Setting to None includes all profiles
     FigMisc.PminHydro_MPa = None  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use min of geotherm.
     FigMisc.TminHydro = 250  # Minimum temperature to display on hydrosphere plots
@@ -336,6 +336,7 @@ def plotAssign():
     FigLbl.TS_hydroLabels = 18  # Font size for hydrosphere phase labels in pt
     FigLbl.hydroTitleSize = 20  # Font size for hydrosphere title in pt
     FigMisc.SHOW_GEOTHERM = True # Whether to plot geotherm on PTplots
+    FigMisc.PLOT_DENSITY_VERSUS_DEPTH = False  # Whether to plot density versus depth instead of pressure
 
     # Melting curve plots
     FigMisc.SHOW_GEOTHERM = False  # Whether to show geotherm curves on melting curve plots
@@ -367,14 +368,17 @@ def plotAssign():
     FigMisc.nPhydro = 200  # Number of pressure points to evaluate/plot for PT property plots
     FigMisc.PminHydro_MPa = 0.1  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use min of geotherm.
     FigMisc.TminHydro_K = 240  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use min of geotherm.
-    FigMisc.TmaxHydro_K = 300
+    FigMisc.TmaxHydro_K = 350
     FigMisc.PmaxHydro_MPa = 200
     FigLbl.hydroPhaseSize = 14  # Font size of label for phase in phase diagram
     FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS'] # Properties to plot in PvT or IsoTherm plots. Options are - 'rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS'
-    FigMisc.TtoPlot_K = [273, 278, 283, 288, 298, 305] # Temperatures to plot in isothermal configuration
+    
+    # Hydrosphere isobaric plots
+    FigMisc.TtoPlot_K = [273, 278, 283, 288, 298, 305] # Temperatures to plot in isobaric configuration
 
     #Hydrosphere Species diagrams
-    FigMisc.minThreshold = 1e-14 # Minimum mol of species needed to be considered to plot on hydrosphere species diagram
+    FigMisc.minAqueousThreshold = 1e-14 # Minimum mol of species needed to be considered to plot on hydrosphere species diagram
+    FigMisc.minVolSolidThreshold_cm3 = 1e-12 # Minimum volume of solid needed to be considered to plot on hydrosphere species diagram
     FigMisc.excludeSpeciesFromHydrospherePlot = ['H2O(aq)', 'H+', 'OH-'] # Species to exclude from the hydrosphere plots
     FigMisc.aqueousSpeciesLabels = ['+', '-', '(aq)'] # Aqueous species to include in the aqueous-specific hydrosphere plot
     FigMisc.gasSpeciesLabels = ['(g)'] # Solid species to include in the aqueous-specific hydrosphere plot
@@ -436,6 +440,7 @@ def plotAssign():
     FigMisc.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.
     FigMisc.NORMALIZED_SALINITIES = False  # Whether to normalize salinities to absolute concentrations relative to the saturation limit for each salt
     FigMisc.NORMALIZED_TEMPERATURES = False  # Whether to normalize ocean mean temperatures to specified maxima and minima for the colormap
+    FigMisc.EDGE_COLOR_K_IN_COMPLEX_PLOTS = False  # Whether to color the edge of the scatter dots in complex plots by the k2 Love number
     # Inductograms
     FigMisc.MARK_INDUCT_BOUNDS = True  # Whether to draw a border around the models on sigma/D plot when combined
     FigMisc.PLOT_V2021 = False  # Whether to mark the selected ocean/conductivity combos used in Vance et al. 2021
@@ -485,7 +490,7 @@ def plotAssign():
     FigMisc.ZBD_COMP_LINE_WIDTH = 2 # Line width for composition lines in ZbD plots
     FigMisc.ZBD_COMP_LINE_ALPHA = 0.7 # Alpha transparency for composition lines in ZbD plots
     FigMisc.ZBD_COMP_LEGEND_FONT_SIZE = 8 # Font size for composition legend entries in ZbD plots
-
+    FigMisc.ZBD_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title in ZbD plots
     FigMisc.ZBD_COLORMAP = 'Greys' # Colormap to use for z-variable in ZbD plots
     FigMisc.ZBD_NAN_COLOR = 'red' # Color to use for NaN points in ZbD plots
     FigMisc.ZBD_NAN_MARKER = 'x' # Marker style to use for NaN points in ZbD plots
@@ -519,8 +524,10 @@ def plotAssign():
     FigMisc.HF_HLINES = True  # Whether to print horizontal lines at head and foot of latex tables
     FigMisc.COMP_ROW = True  # Whether to force composition into a row instead of printing a separate summary table for each ocean comp
     FigMisc.BODY_NAME_ROW = True  # Whether to print a row with body name in bold in summary table
+    
     # Custom solution settings
     FigMisc.CustomSolutionSingleCmap = True # Whether to use a single colormap for all custom solution plots - where each custom solution is a different color based on the colormap.
+    
     # Contour labels
     FigMisc.cLabelSize = 10  # Font size in pt for contour labels
     FigMisc.cLabelPad = 5  # Padding in pt to set beside contour labels

@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 20  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 21  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def configAssign():
     Params = ParamsStruct()
@@ -29,7 +29,8 @@ def configAssign():
     Params.minPres_MPa = None  # Only applies to ice EOS! Applies a lower bound to how small the pressure step can be in loading the EOS. Avoids major slowdowns when chaining models for small and large bodies.
     Params.minTres_K = None  # Same as above. Set to None to allow default behavior for ice EOS resolution.
     Params.PRELOAD_EOS = True  # Whether to preload EOS tables for all planets in the grid for large scale explorations. Improves runtime.
-
+    Params.SAVE_AS_MATLAB = True  # Whether to also save results also in MATLAB format (.mat files)
+        
     Params.CALC_NEW =         True  # Recalculate profiles? If not, read data from disk and re-plot.
     Params.CALC_NEW_REF =     True  # Recalculate reference melting curve densities?
     Params.CALC_NEW_INDUCT =  True  # Recalculate magnetic induction responses?
@@ -84,8 +85,8 @@ def configAssign():
 
     # Reduced planet calculation settings
     Params.REDUCE_ACCORDING_TO = 'ReducedLayers'  # Whether to reduce according to induction parameters (change in sigma) or gravity settings (not implemented currently)
-    Params.REDUCED_LAYERS_SIZE = {'0': 5, 'Ih': 5, 'II': 5, 'III': 5, 'V': 5,'VI': 5, 'Clath': 5, 'Sil': 5,
-                                  'Fe': 5}  # If using ReducedLayers method, then determine how many layers the reduced layer should have # If using ReducedLayers method, then determine how many layers the reduced layer should have
+    Params.REDUCED_LAYERS_SIZE = {'0': 50, 'Ih': 50, 'II': 50, 'III': 50, 'V': 50,'VI': 50, 'Clath': 50, 'Sil': 50,
+                                  'Fe': 50}  # If using ReducedLayers method, then determine how many layers the reduced layer should have # If using ReducedLayers method, then determine how many layers the reduced layer should have
 
     # Magnetic induction plot settings
     Params.DO_INDUCTOGRAM =          False  # Whether to evaluate and/or plot an inductogram for the body in question
@@ -100,6 +101,9 @@ def configAssign():
     Params.SKIP_INDUCTION = False  # Whether to skip past induction calculations. Primarily intended to avoid duplicate calculations in exploreOgrams
     Params.SKIP_GRAVITY = False  # Whether to skip past gravity calculations. Primarily intended to avoid duplicate calculations in exploreOgrams
     Params.PLOT_INDIVIDUAL_PLANET_PLOTS = False # Whether to plot individual Planet runs that are explore as part of explore-o-gram. By default, this is false since it saves time and disk space for large induction studies. For smaller induction studies where individual plots are still desired, this can be useful to set to True.
+    Params.PLOT_Zb_Y =        False # Whether to plot Zb vs Y for the exploreogram
+    Params.PLOT_ZB_D =        False # Whether to plot Zb vs D for the exploreogram
+    Params.XZPLOT_X_VARIABLE = 'Tb_K' # Default x variable for XZPlot_X_Variable plots
     # Options for x/y variables: "xFeS", "rhoSilInput_kgm3", "oceanComp", "wOcean_ppt", "Tb_K", "ionosTop_km", "sigmaIonos_Sm",
     # "silPhi_frac", "silPclosure_MPa", "icePhi_frac", "icePclosure_MPa", "Htidal_Wm3", "Qrad_Wkg", "zb_approximate_km", "qSurf_Wm2" (Do.NO_H2O only)
     # For "oceanComp" option, must provide a .mat file titled xRangeData.mat or yRangeData.mat of a dictionary whose key 'Data' corresponds to a list of ocean comps to query over. Exploreparams.nx/ny should match lens of list.
