@@ -311,6 +311,7 @@ def simple(iTests=None):
     Params.DO_EXPLOREOGRAM = False
     Params.DO_PARALLEL = False
     Params.SKIP_INDUCTION = False
+    Params.NO_SAVEFILE = False
 
     tStart = time.time()
     # Normalize iTests into a list
@@ -328,6 +329,14 @@ def simple(iTests=None):
             TestExploreOgram(iTest, Params, CALC_NEW=Params.CALC_NEW_INDUCT)
         else:
             _ = PlanetProfile(testPlanet, Params)
+            # Verify that we can reload things as needed in each case
+            Params.CALC_NEW = False
+            Params.CALC_NEW_REF = False
+            Params.CALC_NEW_INDUCT = False
+            _ = PlanetProfile(testPlanet, Params)
+            Params.CALC_NEW = True
+            Params.CALC_NEW_REF = True
+            Params.CALC_NEW_INDUCT = True
     tEnd = time.time()
     log.info('Simple test complete!')
 
