@@ -1005,16 +1005,15 @@ class RktPhaseLookup:
                             try:
                                 mu_J_mol = (sfz.getProp(evalPts_sfz, name).G * Constants.m_gmol['H2O'] / 1000)
                             except:
+                                # Sometimes seafreeze will fail to calculate some bulk properties for a given phase, so we will use its imports directly to calculate only the chemical potential
                                 from seafreeze.seafreeze import defpath, _get_tdvs, _is_scatter
                                 from seafreeze.seafreeze import phases as seafreeze_phases
                                 from mlbspline import load
                                 phasedesc = seafreeze_phases[name]
                                 sp = load.loadSpline(defpath, phasedesc.sp_name)
-                                # Calc density and isentropic bulk modulus
                                 isscatter = _is_scatter(evalPts_sfz)
                                 tdvs = _get_tdvs(sp, evalPts_sfz, isscatter)
                                 mu_J_mol = tdvs.G * Constants.m_gmol['H2O'] / 1000
-                                #raise ValueError(f"Error in seafreeze calculation for phase {name}. Check the input values {mu_J_mol}.")
                         EOSlist.loaded[seafreezeMuPhaseTag] = mu_J_mol
                 sl = tuple(repeat(slice(None), 2)) + (phase,)
                 comp[sl] = np.squeeze(mu_J_mol)

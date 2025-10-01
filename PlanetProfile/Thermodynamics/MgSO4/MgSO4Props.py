@@ -4,8 +4,9 @@ import logging
 from hdf5storage import loadmat
 from collections.abc import Iterable
 from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline, interp1d
-from seafreeze.seafreeze import seafreeze as SeaFreeze
+import seafreeze.seafreeze as sfz
 from PlanetProfile import _ROOT
+from itertools import repeat
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnConstantPTw, Nearest2DInterpolator as PhaseInterpolator
 
@@ -215,41 +216,72 @@ class MgSO4PhaseMargules:
     """ Calculate phase of liquid/ice within the hydrosphere for an ocean with
         dissolved MgSO4, given a span of P_MPa, T_K, and w_ppt, based on models
         from Vance et al. 2014: https://doi.org/10.1016/j.pss.2014.03.011
+        
+        This function has been updated to use seafreeze for the chemical potential of all ice phases and the reference pure water. The Margules equations are still used to calculate the chemical potential of the MgSO4 addition. This approach is similar to that used in the CustomSolution implementation (see ReaktoroProps.py)
     """
-    def __init__(self, wOcean_ppt):
+    def __init__(self, P_MPa, T_K, wOcean_ppt):
         self.w_ppt = wOcean_ppt
         self.xH2O, self.mBar_gmol = Massppt2molFrac(self.w_ppt, Constants.m_gmol['MgSO4'])
         self.Tmin = 0
         self.Tmax = np.inf
         self.Pmin = 0
         self.Pmax = np.inf
-
+        phaseLookupGrid = self.phaseLookupGridGenerator(P_MPa, T_K)
+        self.fn_phase = PhaseInterpolator(P_MPa, T_K, phaseLookupGrid)
+        
     def __call__(self, P_MPa, T_K):
-        self.nPs = np.size(P_MPa)
-        self.nTs = np.size(T_K)
-        if(self.nPs == 0 or self.nTs == 0):
-            # If input is empty, return empty array
-            return np.array([])
-        elif(self.nPs != 1 or self.nTs != 1):
-            raise RuntimeError('For computational reasons, the Margules formulation has not been ' +
-                               'fully implemented for arrays of P and T. Query MgSO4 phase for ' +
-                               'single points only until a more rapid+accurate method is implemented.')
-        #
-        # elif((self.nPs != self.nTs) and not (self.nPs == 1 or self.nTs == 1)):
-        #     # If arrays are different lengths, they are probably meant to get a 2D output
-        #     P_MPa, T_K = np.meshgrid(P_MPa, T_K, indexing='ij')
+        return self.fn_phase
+    def phaseLookupGridGenerator(self, P_MPa, T_K):
+        evalPts_sfz = np.array([P_MPa, T_K], dtype=object)
+        ptsh = (P_MPa.size, T_K.size)
+        max_phase_num = max([p for p in Constants.seafreeze_ice_phases.keys()])
+        comp = np.full(ptsh + (max_phase_num + 1,), np.nan)
+        sfz_Pmin = np.min(P_MPa)
+        sfz_Pmax = np.max(P_MPa)
+        sfz_Tmin = np.min(T_K)
+        sfz_Tmax = np.max(T_K)
+        if P_MPa.size == 1:
+            sfz_deltaP = 0
+        else:
+            sfz_deltaP = np.round(np.mean(np.diff(P_MPa)), 2)
+        sfz_deltaT = np.round(np.mean(np.diff(T_K)), 2)
+        seafreezeRange = f'Pmin_{sfz_Pmin}_Pmax_{sfz_Pmax}_Tmin_{sfz_Tmin}_Tmax_{sfz_Tmax}_deltaP_{sfz_deltaP}_deltaT_{sfz_deltaT}'
+        seafreezeMuTag = f'mu_J_mol_{seafreezeRange}'
 
-        # Determine the chemical potential mu for the ocean liquid based on
-        # the Margules equations as in Eqs. 2-4 of Vance et al. 2014:
-        # http://dx.doi.org/10.1016/j.pss.2014.03.011
-        DeltamuLiquid_Jkg = (CG.W_Jkg(P_MPa,T_K) * (1 - self.xH2O)**2 + Constants.R*T_K/(self.mBar_gmol*1e-3) * np.log(self.xH2O))
-        DeltamuIce_Jkg = np.array([CG.DeltaH0_Jkg[phase] - T_K*CG.DeltaS0_JkgK[phase] + CG.CpRelativeIntegral[phase-1](T_K)
-                                    + CG.VRelativeIntegral[phase](P_MPa,T_K) for phase in range(1,7)])
-        DeltamuAll_Jkg = np.insert(DeltamuIce_Jkg, 0, DeltamuLiquid_Jkg, axis=0)
-        # Set ice IV to have infinite chemical potential so it is never considered energetically favorable
-        DeltamuAll_Jkg[4] = np.inf
-
-        return np.argmin(DeltamuAll_Jkg, axis=0)
+        for phase, name in Constants.seafreeze_ice_phases.items():
+            seafreezeMuPhaseTag = f"{seafreezeMuTag}_{name}"
+            if seafreezeMuPhaseTag in EOSlist.loaded.keys():
+                mu_J_mol = EOSlist.loaded[seafreezeMuPhaseTag]
+            # Ensure we handle single value arrays properly
+            if P_MPa.size == 1 or T_K.size == 1:
+                # Create a proper grid for seafreeze to work with
+                sfz_PT = np.array([P_MPa, T_K], dtype=object)
+                mu_J_mol = (sfz.getProp(sfz_PT, name).G * Constants.m_gmol['H2O'] / 1000)
+            else:
+                try:
+                    mu_J_mol = (sfz.getProp(evalPts_sfz, name).G * Constants.m_gmol['H2O'] / 1000)
+                except:
+                    from seafreeze.seafreeze import defpath, _get_tdvs, _is_scatter
+                    from seafreeze.seafreeze import phases as seafreeze_phases
+                    from mlbspline import load
+                    phasedesc = seafreeze_phases[name]
+                    sp = load.loadSpline(defpath, phasedesc.sp_name)
+                    # Sometimes seafreeze will fail to calculate some bulk properties for a given phase, so we will use its imports
+                    # directly to calculate only the chemical potential
+                    isscatter = _is_scatter(evalPts_sfz)
+                    tdvs = _get_tdvs(sp, evalPts_sfz, isscatter)
+                    mu_J_mol = tdvs.G * Constants.m_gmol['H2O'] / 1000
+            sl = tuple(repeat(slice(None), 2)) + (phase,)
+            if phase == 0:
+                # First assign to new variable to avoid modifying original array mu_J_mol which is saved to EOSlist
+                MgSO4MargulesAdjustedMu_Jmol = np.array([CG.W_Jkg(P,T_K) for P in P_MPa])
+                adjusted_mu_Jmol = mu_J_mol + (MgSO4MargulesAdjustedMu_Jmol * (1 - self.xH2O)**2 + Constants.R*T_K/(self.mBar_gmol*1e-3) * np.log(self.xH2O)) * Constants.m_gmol['H2O'] / 1000
+                mu_J_mol = adjusted_mu_Jmol
+            comp[sl] = np.squeeze(mu_J_mol)
+        all_nan_sl = np.all(np.isnan(comp), -1)  # Find slices where all values are nan along the innermost axis
+        phases = np.zeros((P_MPa.size, T_K.size), dtype=np.uint8)
+        phases[~all_nan_sl] = np.nanargmin(comp[~all_nan_sl], -1)
+        return phases
 
     def arrays(self, P_MPa, T_K, grid=True):
         self.nPs = np.size(P_MPa)
@@ -478,7 +510,7 @@ def LarionovKryukov1984(w_ppt, rhoType='Millero', scalingType='Vance2018'):
                                [1.0051, 1.0015, 0.9885, 0.9668, 0.9374, 0.9374, 0.9374]]) * 1e3
     elif rhoType == 'SeaFreeze':
         # Values in Larionov and Kryukov are calculated assuming pure water densities
-        rhoLK_kgm3 = SeaFreeze(np.array([PLK_MPa, TLK_K], dtype=object), 'water1').rho
+        rhoLK_kgm3 = sfz.getProp(np.array([PLK_MPa, TLK_K], dtype=object), 'water1').rho
     else:
         raise ValueError(f'Unrecognized rhoType "{rhoType}".')
     # Reconfiguring the first Eq. from Larionov and Kryukov (1984), and using

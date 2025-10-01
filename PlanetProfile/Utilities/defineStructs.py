@@ -225,7 +225,7 @@ class OceanSubstruct:
         self.MgSO4elecType = 'Vance2018'  # Type of electrical conductivity model to use for MgSO4. Options: 'Vance2018', 'Pan2020'
         self.MgSO4scalingType = 'Vance2018'  # Type of scaling to apply to Larionov and Kryukov model. Options: 'Vance2018', 'LK1984'
         self.MgSO4rhoType = 'Millero'  # Type of water density model to use in Larionov and Kryukov model. Options: 'Millero', 'SeaFreeze'
-        self.phaseType = 'lookup'  # Type of phase calculation to use for MgSO4 and pure water. Currently, "lookup" runs a fast lookup table like the Perplex EOS functions, and anything else forces a (slow) individual calc for each P, T point.
+        self.phaseType = 'calc'  # Type of phase calculation to use for MgSO4 and pure water. Currently, "lookup" runs a fast lookup table like the Perplex EOS functions. 'Calc' dynamically generates phase grid based on input P, T steps by user (has been made very quick, so selected by default now).
         self.QfromMantle_W = None  # Heat flow from mantle into hydrosphere (calculated from ice thermal profile and applied to mantle)
         self.EOS = None  # Equation of state data to use for ocean layers
         self.meltEOS = None  # EOS just for finding ice I/liquid transition pressure Pb
@@ -3268,7 +3268,7 @@ class ConstantsStruct:
             'Sulfates': ["Alunite", "Anglesite", "Anhydrite", "Barite", "Celestite"] # Solids with SO4 in formula
         }
 
-        self.seafreeze_ice_phases = {0: 'water', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
+        self.seafreeze_ice_phases = {0: 'water1', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
 
 def ParentName(bodyname):
     if bodyname in ['Io', 'Europa', 'Ganymede', 'Callisto']:

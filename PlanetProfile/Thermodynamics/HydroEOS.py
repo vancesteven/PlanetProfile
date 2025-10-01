@@ -57,7 +57,7 @@ class OceanEOSStruct:
             self.scalingType = 'Vance2018'
         else:
             self.scalingType = scalingType
-        if phaseType is None or phaseType == 'lookup':
+        if phaseType == 'lookup':
              self.PHASE_LOOKUP = True
         else:
             self.PHASE_LOOKUP = False
@@ -109,6 +109,7 @@ class OceanEOSStruct:
                         f'T_K = [{self.Tmin:.1f}, {self.Tmax:.1f}, {self.deltaT:.3f}], ' +
                         f'for [min, max, step] with EXTRAP = {self.EXTRAP}.')
                 # If we are doing melt, we only need to use high fidelity P_MPa and T_K for phase grid, since we won't use it to query any thermodynamic properties
+                # This will reduce runtime and memory usage for high resolution grids
                 if MELT:
                     PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax, MELT=True)
                 else:
@@ -254,8 +255,8 @@ class OceanEOSStruct:
                         self.EOSdeltaP = self.ufn_phase.deltaP
                         self.EOSdeltaT = self.ufn_phase.deltaT
                     else:
-                        Margules = MgSO4PhaseMargules(self.w_ppt)
-                        self.ufn_phase = Margules.arrays
+                        Margules = MgSO4PhaseMargules(Pphase_MPa, Tphase_K, self.w_ppt)
+                        self.ufn_phase = Margules.fn_phase
                         self.phasePmax = Margules.Pmax
                         # Lookup table is not used -- flag with nan for grid resolution.
                         self.EOSdeltaP = np.nan
