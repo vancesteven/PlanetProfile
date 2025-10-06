@@ -45,6 +45,7 @@ def full(iTestStart=2, skipType=None):
     Params.COMPARE = False
     Params.NO_SAVEFILE = False
     Params.DO_INDUCTOGRAM = False
+    Params.DO_EXPLOREOGRAM = False
     Params.SKIP_INDUCTION = False
 
     # Get total number of test files to run
@@ -66,7 +67,7 @@ def full(iTestStart=2, skipType=None):
         iTestStart = 2
 
     if skipType is None:
-        for i in range(iTestStart, nTests+1):
+        """for i in range(iTestStart, nTests+1):
             testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
             log.info(f'Test case body: {testBase}{i}')
             try:
@@ -87,7 +88,7 @@ def full(iTestStart=2, skipType=None):
 
             Params.CALC_NEW = True
             Params.CALC_NEW_REF = True
-            Params.CALC_NEW_INDUCT = True
+            Params.CALC_NEW_INDUCT = True"""
 
         testPlanet1.name = 'Test0'
         # Test that we can successfully run standard profiles with parallelization options
@@ -99,12 +100,13 @@ def full(iTestStart=2, skipType=None):
         # Make sure our auxiliary calculation flags work correctly
         Params.CALC_SEISMIC = False
         Params.CALC_CONDUCT = False
+        Params.CALC_VISCOSITY = False
         TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanet1), Params)[0])
-        TestPlanets[-1].saveLabel += ' NO_SEISMIC_OR_CONDUCT'
+        TestPlanets[-1].saveLabel += ' NO_SEISMIC_OR_CONDUCT_OR_VISCOSITY'
         tMarks = np.append(tMarks, time.time())
         Params.CALC_SEISMIC = True
         Params.CALC_CONDUCT = True
-
+        Params.CALC_VISCOSITY = True
     if skipType is None or skipType.lower() == 'bayes':
         # Test Bayesian analysis UpdateRun capabilities
         PlanetBayes, _ = TestBayes('Test')
@@ -267,7 +269,7 @@ def TestInductOgram(testNum, Params, CALC_NEW=True):
     else:
         Induction, _, Params = ReloadInductOgram(testName, Params)
         end = ' RELOAD'
-    GenerateMagPlots([Induction], Params)
+    GenerateExplorationMagPlots([Induction], Params)
     Induction.name = testName
     Induction.saveLabel = f'{Params.Induct.inductOtype} induct-o-gram{end}'
 

@@ -468,8 +468,9 @@ def PlotHydrosphereProps(PlanetList, Params):
                     axv[2].plot(VSice, Planet.z_m[indsHydro]/1e3,
                                 color=thisColor, linewidth=Style.LW_sound,
                                 linestyle=Style.LS[Planet.Ocean.comp])
-
+                
                 if DO_SEISMIC_PROPS:
+                    z_vals = Planet.z_m[indsHydro]/1e3
                     # Plot seismic properties (GS, KS) vs. depth in hydrosphere
                     # Safely concatenate indices, handling cases where one might be empty
                     if np.size(indsIce) > 0 and np.size(indsLiq) > 0:
@@ -482,7 +483,6 @@ def PlotHydrosphereProps(PlanetList, Params):
                         # Use all hydrosphere indices as fallback
                         indsHydro = np.arange(Planet.Steps.nHydro)
                     
-                    z_vals = Planet.z_m[indsHydro]/1e3
                     
                     # Plot bulk modulus KS and shear modulus GS if seismic calculations were done
                     if Params.CALC_SEISMIC:
@@ -521,6 +521,7 @@ def PlotHydrosphereProps(PlanetList, Params):
                                           color=thisColor, linewidth=thisLW,
                                           linestyle=Style.LS[Planet.Ocean.comp])
                 if DO_VISCOSITY:
+                    z_vals = Planet.z_m[indsHydro]/1e3
                     # Plot viscosity vs. depth in hydrosphere
                     # Safely concatenate indices, handling cases where one might be empty
                     if np.size(indsIce) > 0 and np.size(indsLiq) > 0:

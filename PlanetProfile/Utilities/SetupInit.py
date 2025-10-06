@@ -18,6 +18,7 @@ from PlanetProfile.Utilities.defineStructs import DataFilesSubstruct, FigureFile
 from PlanetProfile.TrajecAnalysis import _MAGdir, _scList
 from PlanetProfile.TrajecAnalysis.FlybyEvents import scTargets
 from PlanetProfile.TrajecAnalysis.RefileMAGdata import RefileName, MAGtoHDF5, LoadMAG
+from PlanetProfile.Utilities.Indexing import PhaseInv
 
 # Parallel processing
 import multiprocessing as mtp
@@ -203,7 +204,8 @@ def SetupInit(Planet, Params):
             Planet.zClath_m = 0
             Planet.Bulk.clathType = 'none'
 
-        if not Planet.Do.NO_OCEAN:
+        if not Planet.Do.NO_OCEAN or Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES:
+            # Even if are we not modeling an ocean, if we are still modeling inner HP ices we need to get the ocean EOS for the phase diagram
             # In addition, perform some checks on underplating settings to be sure they make sense
             if not Planet.Do.BOTTOM_ICEIII and not Planet.Do.BOTTOM_ICEV:
                 Planet.Steps.nIceIIILitho = 0
@@ -273,10 +275,10 @@ def SetupInit(Planet, Params):
                                             phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
                                             sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
 
-                if Planet.Ocean.EOS.deltaP != Planet.Ocean.deltaP:
+                if Planet.Ocean.EOS.deltaP < Planet.Ocean.deltaP:
                     log.debug(f'Updating Ocean.deltaP to match the more refined EOS.deltaP ({Planet.Ocean.EOS.deltaP}).')
                     Planet.Ocean.deltaP = Planet.Ocean.EOS.deltaP
-                if Planet.Ocean.EOS.deltaT != Planet.Ocean.deltaT:
+                if Planet.Ocean.EOS.deltaT < Planet.Ocean.deltaT:
                     log.debug(f'Updating Ocean.deltaT to match the more refined EOS.deltaT ({Planet.Ocean.EOS.deltaT}).')
                     Planet.Ocean.deltaT = Planet.Ocean.EOS.deltaT
         
@@ -316,6 +318,11 @@ def SetupInit(Planet, Params):
                 Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K,  None,
                                                 phaseType=Planet.Ocean.phaseType, FORCE_NEW=(not (Params.DO_EXPLOREOGRAM and Params.PRELOAD_EOS) and not(Params.DO_MONTECARLO and Params.PRELOAD_EOS) and not(Params.DO_INDUCTOGRAM and Params.PRELOAD_EOS)), MELT=True,
                                                 LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+            
+            # Setup parameters
+            for phase in Planet.Ocean.Eact_kJmol.keys():
+                if Planet.Ocean.Eact_kJmol[phase] is np.nan:
+                    Planet.Ocean.Eact_kJmol[phase] = Constants.Eact_kJmol[PhaseInv(phase)]
 
         # Make sure convection checking outputs are set if we won't be modeling them
         if Planet.Do.NO_ICE_CONVECTION:
@@ -690,13 +697,13 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None, mo
 def SetupLayers(Planet):
     """ Initialize layer arrays in Planet.
     """
-
     if not Planet.Do.NON_SELF_CONSISTENT:
         if not Planet.Do.NO_H2O:
             nOceanMax = int(Planet.Ocean.PHydroMax_MPa / Planet.Ocean.deltaP)
             Planet.Steps.nHydroMax = Planet.Steps.nClath + Planet.Steps.nIceI + Planet.Steps.nIceIIILitho + Planet.Steps.nIceVLitho + nOceanMax
         nStepsForArrays = Planet.Steps.nHydroMax
     else:
+        """ For non-self-consistent modeling, we use nTotal rather than hydromax, since we are setting layers for non-self consistent modeling"""
         nStepsForArrays = Planet.Steps.nTotal
     
     Planet.phase = np.zeros(nStepsForArrays, dtype=np.int_)
@@ -749,6 +756,11 @@ def SetCMR2strings(Planet):
 def SetupNonSelfConsistent(Planet, Params):
     """ Initialize non-self-consistent layer arrays in Planet.
     """        # Verify that all depths have been specified
+    # For now we must disable writing since code isn't properly setting all output values
+    Params.NO_SAVEFILE = True
+    Params.PLOT_BDIP = False
+    Params.CALC_NEW_GRAVITY = False
+    
     if Planet.Do.NON_SELF_CONSISTENT:
         Planet.zb_km = 0
         if Planet.dzIceI_km == np.nan or Planet.dzIceI_km < 0:
@@ -953,6 +965,13 @@ def SetupNonSelfConsistent(Planet, Params):
                                     'sigma_Sm': Planet.Ocean.sigmaFixed_Sm,
                                     'eta_Pas': Constants.etaH2O_Pas,
                                     }
+        
+        # Setup inner properties #TODO
+        if Planet.Core.etaFeSolid_Pas is None:
+            Planet.Core.etaFeSolid_Pas = Constants.etaFeSolid_Pas
+        if Planet.Core.etaFeLiquid_Pas is None:
+            Planet.Core.etaFeLiquid_Pas = Constants.etaFeLiquid_Pas
+        
         Planet.Steps.nHydro = Planet.Steps.nSurfIce + Planet.Steps.nOcean
         if Planet.Core.Rmean_m is None or Planet.Core.Rmean_m < 0:
             raise ValueError('Planet.Core.Rmean_m must be set to non-negative radius for non-self-consistent inner modeling.')
@@ -969,7 +988,14 @@ def SetupNonSelfConsistent(Planet, Params):
         else:
             # If so, then we will use the ocean composition to query bulk temperature andEC
             pass
+        
         Planet.Steps.nTotal = Planet.Steps.nHydro + Planet.Steps.nSil + Planet.Steps.nCore
+                
+        # Finally set parameters that are not used in non-self-consistent modeling to be consistent with the self-consistent setup
+        Planet.Steps.nHydroMax = Planet.Steps.nHydro
+        Planet.Steps.nOceanMax = Planet.Steps.nOcean
+        Planet.Steps.nSilMax = Planet.Steps.nSil
+        Planet.Steps.nCoreMax = Planet.Steps.nCore
     return Planet
 
 
@@ -993,6 +1019,7 @@ def PrecomputeEOS(PlanetList, Params):
     innerPlanetEOSlabels = set()
     innerPlanets = []
     Planet = PlanetList.flatten()[0]
+    Planet, _ = SetupInit(Planet, Params)
     # Determine the maximum P,T ranges needed across all models
     maxPmelt_MPa = Planet.PfreezeUpper_MPa
     maxTmelt_K = Planet.TfreezeUpper_K
@@ -1095,7 +1122,8 @@ def PrecomputeEOS(PlanetList, Params):
         Pmelt_MPa = np.arange(minPmelt_MPa, maxPmelt_MPa, deltaPmelt, dtype=np.float32)
         Tmelt_K = np.arange(minTmelt_K, maxTmelt_K, deltaTmelt, dtype=np.float32)
         for i, oceanPlanet in enumerate(oceanPlanets):
-            GetOceanEOS(oceanPlanet.Ocean.comp, oceanPlanet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K, oceanPlanet.Ocean.MgSO4elecType, rhoType = oceanPlanet.Ocean.MgSO4rhoType, scalingType = oceanPlanet.Ocean.MgSO4scalingType, phaseType = oceanPlanet.Ocean.phaseType, EXTRAP = Params.EXTRAP_OCEAN, LOOKUP_HIRES = oceanPlanet.Do.OCEAN_PHASE_HIRES, etaFixed_Pas = oceanPlanet.Ocean.kThermWater_WmK, doConstantProps=oceanPlanet.Do.CONSTANTPROPSEOS, constantProperties=oceanPlanet.Ocean.oceanConstantProperties)
+            GetOceanEOS(oceanPlanet.Ocean.comp, oceanPlanet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K, oceanPlanet.Ocean.MgSO4elecType, rhoType = oceanPlanet.Ocean.MgSO4rhoType, scalingType = oceanPlanet.Ocean.MgSO4scalingType, phaseType = oceanPlanet.Ocean.phaseType, EXTRAP = Params.EXTRAP_OCEAN, LOOKUP_HIRES = oceanPlanet.Do.OCEAN_PHASE_HIRES, 
+                        etaFixed_Pas = oceanPlanet.Ocean.kThermWater_WmK, doConstantProps=oceanPlanet.Do.CONSTANTPROPSEOS, constantProperties=oceanPlanet.Ocean.oceanConstantProperties)
             GetOceanEOS(oceanPlanet.Ocean.comp, oceanPlanet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K, elecType=None,
                                                 phaseType=oceanPlanet.Ocean.phaseType,  MELT=True,
                                                 LOOKUP_HIRES=oceanPlanet.Do.OCEAN_PHASE_HIRES)

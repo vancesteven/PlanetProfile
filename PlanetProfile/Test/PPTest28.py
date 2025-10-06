@@ -32,7 +32,6 @@ Planet.Ocean.deltaP = 1.0
 Planet.Ocean.PHydroMax_MPa = 250.0
 Planet.Ocean.kThermIce_WmK = {phase: 2 for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']} # New setting
 Planet.Ocean.kThermWater_WmK = 0.6 # New setting
-Planet.Ocean.Eact_kJmol = [np.nan, 50, 50, 50, 50, 50, 50] # New setting
 
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.33e-12

@@ -59,6 +59,20 @@ def ExtractResults(Results, PlanetGrid, Params):
     Results.ny = PlanetGrid.shape[1]
     Results.base = ExtractBasePlanetData(Results.base, PlanetGrid)
     Results.induction = ExtractInductionData(Results.induction, Results.base.bodyname, PlanetGrid, Params)
+    # Set exploration-specific fields that don't fit the base pattern
+    Results.CMR2str = f'$C/MR^2 = {PlanetGrid[0,0].CMR2str}$'
+    Results.Cmeasured = PlanetGrid[0,0].Bulk.Cmeasured
+    Results.Cupper = PlanetGrid[0,0].Bulk.CuncertaintyUpper  
+    Results.Clower = PlanetGrid[0,0].Bulk.CuncertaintyLower
+    
+    # Set grid information
+    Results.xName = Params.Explore.xName
+    Results.yName = Params.Explore.yName
+    Results.zName  = Params.Explore.zName
+    Results.xData = getattr(Results.base, Params.Explore.xName)
+    Results.yData = getattr(Results.base, Params.Explore.yName)
+    Results.nx = Params.Explore.nx
+    Results.ny = Params.Explore.ny
     return Results
 
 
@@ -90,7 +104,7 @@ def ExtractBasePlanetData(baseStruct, PlanetGrid):
         'Mtot_kg': np.array([[getattr(Planeti, 'Mtot_kg', np.nan) for Planeti in line] for line in PlanetGrid]),
         'D_km': np.array([[getattr(Planeti, 'D_km', np.nan) for Planeti in line] for line in PlanetGrid]),
         'zb_km': np.array([[getattr(Planeti, 'zb_km', np.nan) for Planeti in line] for line in PlanetGrid]),
-        'Rcore_km': np.array([[getattr(Planeti.Core, 'Rmean_m', np.nan) / 1e3 for Planeti in line] for line in PlanetGrid]),
+        'Rcore_km': np.array([[getattr(Planeti.Core, 'Rmean_m', np.nan) / 1e3 if getattr(Planeti.Core, 'Rmean_m', np.nan) is not None else np.nan for Planeti in line] for line in PlanetGrid]),
         
         # Body structure  
         'R_m': np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid]),
@@ -104,7 +118,7 @@ def ExtractBasePlanetData(baseStruct, PlanetGrid):
         'dzIceVI_km': np.array([[getattr(Planeti, 'dzIceVI_km', np.nan) for Planeti in line] for line in PlanetGrid]),
         'Dconv_m': np.array([[getattr(Planeti, 'Dconv_m', np.nan) for Planeti in line] for line in PlanetGrid]),
         'dzWetHPs_km': np.array([[getattr(Planeti, 'dzWetHPs_km', np.nan) for Planeti in line] for line in PlanetGrid]),
-        'eLid_km': np.array([[getattr(Planeti, 'eLid_m', np.nan) / 1e3 for Planeti in line] for line in PlanetGrid]),
+        'eLid_km': np.array([[getattr(Planeti, 'eLid_m', np.nan) / 1e3 if getattr(Planeti, 'eLid_m', np.nan) is not None else np.nan for Planeti in line] for line in PlanetGrid]),
         
         # Densities
         'rhoOceanMean_kgm3': np.array([[getattr(Planeti.Ocean, 'rhoMean_kgm3', np.nan) for Planeti in line] for line in PlanetGrid]),
@@ -170,12 +184,12 @@ def ExtractBasePlanetData(baseStruct, PlanetGrid):
     # Ensure everything is set so things will play nicely with .mat saving and plotting functions
     nans = np.nan * base_data['R_m']
     for name, attr in base_data.items():
-        if attr is None:
+        if isinstance(attr, np.ndarray) and attr.ndim == 2 and np.all(attr == None):
             base_data[name] = nans
-    for key, value in base_data.items():
-        if value is not None:
-            setattr(baseStruct, key, value)
-        
+        setattr(baseStruct, name, base_data[name])
+    for name, attr in baseStruct.__dict__.items():
+        if attr is None:
+            baseStruct.__dict__[name] = nans
     # Data is now always 2D - no need to flatten for Monte Carlo
     return baseStruct
 
@@ -358,18 +372,21 @@ def flatten_dict_for_matlab(obj, prefix='', flat_dict=None, max_key_length=31):
                                 flat_dict[dict_safe_key] = dict_value
                     else:
                         flat_dict[safe_key] = attr_value
-    
+    possibleNestedResultStructs = {'base', 'induction', 'inversion'}
+    nestedResultsStructs = {}
+    for nestedResultStruct in possibleNestedResultStructs:
+        if hasattr(obj, nestedResultStruct):
+            nestedResultsStructs[nestedResultStruct] = getattr(obj, nestedResultStruct)
+        
     # Flatten nested objects (base and induction) with their respective prefixes
-    _flatten_object_attributes(obj.base, 'base_')
-    _flatten_object_attributes(obj.induction, 'induction_')
-    _flatten_object_attributes(obj.inversion, 'inversion_')
+    for nestedResultStruct in nestedResultsStructs:
+        _flatten_object_attributes(nestedResultsStructs[nestedResultStruct], f'{nestedResultStruct}_')
     
     # Handle top-level attributes that are not nested objects
-    nested_objects = {'base', 'induction', 'inversion'}  # Define which attributes are nested objects to skip
     for attr_name in dir(obj):
         # Skip private attributes (starting with '_'), nested objects, and callable methods
         if (not attr_name.startswith('_') and 
-            attr_name not in nested_objects and
+            attr_name not in nestedResultsStructs.keys() and
             not callable(getattr(obj, attr_name))):
             attr_value = getattr(obj, attr_name)
             # Only process attributes that have actual values (not None)

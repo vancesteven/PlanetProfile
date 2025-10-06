@@ -201,7 +201,7 @@ class OceanSubstruct:
         self.sigmaConvMean_Sm = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean conductivity for convecting ice layers
         self.GScondMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for conducting ice layers
         self.GSconvMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for convecting ice layers
-        self.Eact_kJmol = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']} # Activation energy for diffusion of ice phases Ih-VI in kJ/mol (start at index 1) - Overrides Constants.Eact_kJmol if specified
+        self.Eact_kJmol = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath', 'MixedClathrateIh']} # Activation energy for diffusion of ice phases Ih-VI in kJ/mol (start at index 1) - Overrides Constants.Eact_kJmol if specified
         self.rhoMeanIIwet_kgm3 = np.nan  # Mean density for in-ocean ice II layers
         self.rhoMeanIIIwet_kgm3 = np.nan  # Mean density for in-ocean ice III layers
         self.rhoMeanVwet_kgm3 = np.nan  # Mean density for in-ocean ice V layers
@@ -225,7 +225,8 @@ class OceanSubstruct:
         self.MgSO4elecType = 'Vance2018'  # Type of electrical conductivity model to use for MgSO4. Options: 'Vance2018', 'Pan2020'
         self.MgSO4scalingType = 'Vance2018'  # Type of scaling to apply to Larionov and Kryukov model. Options: 'Vance2018', 'LK1984'
         self.MgSO4rhoType = 'Millero'  # Type of water density model to use in Larionov and Kryukov model. Options: 'Millero', 'SeaFreeze'
-        self.phaseType = 'calc'  # Type of phase calculation to use for MgSO4 and pure water. Currently, "lookup" runs a fast lookup table like the Perplex EOS functions. 'Calc' dynamically generates phase grid based on input P, T steps by user (has been made very quick, so selected by default now).
+        self.phaseType = 'lookup'  # Type of phase calculation to use for MgSO4 and pure water. Currently, "lookup" runs a fast lookup table like the Perplex EOS functions. 'Lookup' dynamically generates phase grid based on input P, T steps by user (has been made very quick, so selected by default now). 
+        #'calc' dynamically calculates phase at each P,T step. Most accurate but very slow. #'preload' uses a precomputed phase grid (only applicable for MgSO4) - most inaccurate phase grid.
         self.QfromMantle_W = None  # Heat flow from mantle into hydrosphere (calculated from ice thermal profile and applied to mantle)
         self.EOS = None  # Equation of state data to use for ocean layers
         self.meltEOS = None  # EOS just for finding ice I/liquid transition pressure Pb
@@ -326,7 +327,10 @@ class SilSubstruct:
         self.Rrange_m = None  # Mantle radius range for compatible MoI
         self.Rtrade_m = None  # Array of mantle radii for compatible MoIs
         self.rhoMean_kgm3 = None  # Mean mantle density determined from MoI calculations
-        self.GSmean_GPa = None  # Mean shear modulus in silicate layers
+        self.GSmean_GPa = np.nan  # Mean shear modulus in silicate layers
+        self.KSmean_GPa = np.nan  # Mean bulk modulus in silicate layers
+        self.VSmean_kms = np.nan  # Mean shear modulus in silicate layers
+        self.VPmean_kms = np.nan  # Mean bulk modulus in silicate layers
         self.HtidalMean_Wm3 = None  # Mean tidal heating in silicate layers
         self.sigmaMean_Sm = np.nan  # Mean conductivity across all silicate layers, ignoring spherical effects
         self.rhoTrade_kgm3 = None  # Array of mantle densities for compatible MoIs for core vs. mantle tradeoff plot

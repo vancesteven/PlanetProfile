@@ -211,7 +211,117 @@ def Integral(func, a, b, nPts=50):
     else:
         return result
 
+class MgSO4PhaseMargulesOnDemand:
+    """ Calculate phase of liquid/ice within the hydrosphere for an ocean with
+        dissolved MgSO4, given a span of P_MPa, T_K, and w_ppt, based on models
+        from Vance et al. 2014: https://doi.org/10.1016/j.pss.2014.03.011
+        This class is used to calculate phase on demand, with P,T input queried directly. This is very slow, but is the most accurate.
+        See MgSO4PhaseMargules for a more efficient way that precomputes entire phase grid.
+    """
+    def __init__(self, wOcean_ppt):
+        self.w_ppt = wOcean_ppt
+        self.xH2O, self.mBar_gmol = Massppt2molFrac(self.w_ppt, Constants.m_gmol['MgSO4'])
+        self.Tmin = 0
+        self.Tmax = np.inf
+        self.Pmin = 0
+        self.Pmax = np.inf
 
+    def __call__(self, P_MPa, T_K):
+        self.nPs = np.size(P_MPa)
+        self.nTs = np.size(T_K)
+        if(self.nPs == 0 or self.nTs == 0):
+            # If input is empty, return empty array
+            return np.array([])
+        elif(self.nPs != 1 or self.nTs != 1):
+            raise RuntimeError('For computational reasons, the Margules formulation has not been ' +
+                               'fully implemented for arrays of P and T. Query MgSO4 phase for ' +
+                               'single points only until a more rapid+accurate method is implemented.')
+
+        evalPts_sfz = np.array([P_MPa, T_K], dtype=object)
+        ptsh = (P_MPa.size, T_K.size)
+        max_phase_num = max([p for p in Constants.seafreeze_ice_phases.keys()])
+        comp = np.full(ptsh + (max_phase_num + 1,), np.nan)
+        sfz_Pmin = np.min(P_MPa)
+        sfz_Pmax = np.max(P_MPa)
+        sfz_Tmin = np.min(T_K)
+        sfz_Tmax = np.max(T_K)
+        if P_MPa.size == 1:
+            sfz_deltaP = 0
+        else:
+            sfz_deltaP = np.round(np.mean(np.diff(P_MPa)), 2)
+        sfz_deltaT = np.round(np.mean(np.diff(T_K)), 2)
+        seafreezeRange = f'Pmin_{sfz_Pmin}_Pmax_{sfz_Pmax}_Tmin_{sfz_Tmin}_Tmax_{sfz_Tmax}_deltaP_{sfz_deltaP}_deltaT_{sfz_deltaT}'
+        seafreezeMuTag = f'mu_J_mol_{seafreezeRange}'
+
+        for phase, name in Constants.seafreeze_ice_phases.items():
+            seafreezeMuPhaseTag = f"{seafreezeMuTag}_{name}"
+            if seafreezeMuPhaseTag in EOSlist.loaded.keys():
+                mu_J_mol = EOSlist.loaded[seafreezeMuPhaseTag]
+            # Ensure we handle single value arrays properly
+            if P_MPa.size == 1 or T_K.size == 1:
+                # Create a proper grid for seafreeze to work with
+                sfz_PT = np.array([P_MPa, T_K], dtype=object)
+                mu_J_mol = (sfz.getProp(sfz_PT, name).G * Constants.m_gmol['H2O'] / 1000)
+            else:
+                try:
+                    mu_J_mol = (sfz.getProp(evalPts_sfz, name).G * Constants.m_gmol['H2O'] / 1000)
+                except:
+                    from seafreeze.seafreeze import defpath, _get_tdvs, _is_scatter
+                    from seafreeze.seafreeze import phases as seafreeze_phases
+                    from mlbspline import load
+                    phasedesc = seafreeze_phases[name]
+                    sp = load.loadSpline(defpath, phasedesc.sp_name)
+                    # Sometimes seafreeze will fail to calculate some bulk properties for a given phase, so we will use its imports
+                    # directly to calculate only the chemical potential
+                    isscatter = _is_scatter(evalPts_sfz)
+                    tdvs = _get_tdvs(sp, evalPts_sfz, isscatter)
+                    mu_J_mol = tdvs.G * Constants.m_gmol['H2O'] / 1000
+            sl = tuple(repeat(slice(None), 2)) + (phase,)
+            if phase == 0:
+                # First assign to new variable to avoid modifying original array mu_J_mol which is saved to EOSlist
+                MgSO4MargulesAdjustedMu_Jmol = np.array([CG.W_Jkg(P,T_K) for P in P_MPa])
+                adjusted_mu_Jmol = mu_J_mol + (MgSO4MargulesAdjustedMu_Jmol * (1 - self.xH2O)**2 + Constants.R*T_K/(self.mBar_gmol*1e-3) * np.log(self.xH2O)) * Constants.m_gmol['H2O'] / 1000
+                mu_J_mol = adjusted_mu_Jmol
+            comp[sl] = np.squeeze(mu_J_mol)
+        all_nan_sl = np.all(np.isnan(comp), -1)  # Find slices where all values are nan along the innermost axis
+        phases = np.zeros((P_MPa.size, T_K.size), dtype=np.uint8)
+        phases[~all_nan_sl] = np.nanargmin(comp[~all_nan_sl], -1)
+        return phases
+
+    def arrays(self, P_MPa, T_K, grid=True):
+        self.nPs = np.size(P_MPa)
+        self.nTs = np.size(T_K)
+        if self.nPs * self.nTs > 300:
+            WARN_LONG = True
+        else:
+            WARN_LONG = False
+        if(self.nPs == 0 or self.nTs == 0):
+            # If input is empty, return empty array
+            return np.array([])
+        elif self.nPs == 1 and self.nTs == 1:
+            phase = self.__call__(P_MPa, T_K)
+        elif self.nPs == 1:
+            if WARN_LONG:
+                log.debug(f'Applying Margules phase finder for MgSO4 with {self.nTs} T values. This may take some time.')
+            phase = np.array([self.__call__(P_MPa, T) for T in T_K])
+        elif self.nTs == 1:
+            if WARN_LONG:
+               log.debug(f'Applying Margules phase finder for MgSO4 with {self.nPs} P values. This may take some time.')
+            phase = np.array([self.__call__(P, T_K) for P in P_MPa])
+        elif self.nTs == self.nPs:
+            if WARN_LONG:
+                log.debug(f'Applying Margules phase finder for MgSO4 with {self.nPs} (P,T) pairs. This may take some time.')
+            phase = np.array([self.__call__(P, T_K[i]) for i, P in np.ndenumerate(P_MPa)])
+        else:
+            if WARN_LONG:
+                log.debug(f'Applying Margules phase finder for MgSO4 with {self.nPs} P values and ' +
+                     f'{self.nTs} T values. This may take some time.')
+            phase = np.array([[self.__call__(P, T) for T in T_K] for P in P_MPa])
+
+        if not grid and np.size(phase) == 1 and isinstance(phase, Iterable):
+            phase = phase[0]
+        return phase
+    
 class MgSO4PhaseMargules:
     """ Calculate phase of liquid/ice within the hydrosphere for an ocean with
         dissolved MgSO4, given a span of P_MPa, T_K, and w_ppt, based on models

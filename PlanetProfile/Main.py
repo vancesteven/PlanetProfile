@@ -33,7 +33,7 @@ from PlanetProfile.Thermodynamics.OceanProps import LiquidOceanPropsCalcs, Write
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
 from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, Timing
-from PlanetProfile.Utilities.ResultsStructs import ExplorationResults, MonteCarloResults, InductionResults
+from PlanetProfile.Utilities.ResultsStructs import ExplorationResultsStruct, MonteCarloResultsStruct, InductionResultsStruct
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings, PrecomputeEOS
 from PlanetProfile.Utilities.ResultsIO import WriteResults, ReloadResultsFromPickle, ExtractResults, InductionCalced
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
@@ -110,7 +110,7 @@ def run(bodyname=None, opt=None, fNames=None):
             if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
                 PlanetGrid, Exploration, Params = ExploreOgram(bodyname, Params, RETURN_GRID=True, fNameOverride=fNames[0])
             else:
-                Exploration, Params = ExploreOgram(bodyname, Params,fNameOverride = fNames[0])
+                Exploration, Params = ExploreOgram(bodyname, Params,fNameOverride = fName)
         if not Params.SKIP_PLOTS: 
             if Params.COMPARE:
                 exploreOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fName+'*.mat'))
@@ -871,7 +871,7 @@ def InductOgram(bodyname, Params, fNameOverride=None):
 
             Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
             Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
-            InductionResults = InductionResults()
+            InductionResults = InductionResultsStruct()
 
         else:
             # Re-use interior modeling, but recalculate the induced field.
@@ -1074,6 +1074,7 @@ def InductOgram(bodyname, Params, fNameOverride=None):
         log.info(f'Parallel run elapsed time: {dt:.1f} s.')
         
         InductionResults = ExtractResults(InductionResults, PlanetGrid, Params)
+        InductionResults.oceanComp = InductionResults.base.oceanComp
         WriteResults(InductionResults, Params.DataFiles.inductOgramFile, Params.SAVE_AS_MATLAB, Params.DataFiles.inductOgramMatFile)
         InductionResults.SetAxes(Params.Induct.inductOtype)
         InductionResults.SetComps(Params.Induct.inductOtype)
@@ -1488,7 +1489,7 @@ def MonteCarlo(bodyname, Params, fNameOverride=None):
         tMarks = np.append(tMarks, time.time())
 
         # Initialize Monte Carlo results structure
-        MCResults = MonteCarloResults()
+        MCResults = MonteCarloResultsStruct()
         MCResults.base.bodyname = bodyname
         MCResults.statistics.nRuns = Params.MonteCarlo.nRuns
         MCResults.statistics.seed = Params.MonteCarlo.seed
@@ -1679,7 +1680,7 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
                 Planet, Params = SetupInduction(Planet, Params)
 
 
-        Exploration = ExplorationResults()
+        Exploration = ExplorationResultsStruct()
         Exploration.xName = Params.Explore.xName
         Exploration.yName = Params.Explore.yName
         Exploration.zName = Params.Explore.zName

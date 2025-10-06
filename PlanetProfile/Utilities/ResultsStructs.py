@@ -206,7 +206,7 @@ class MonteCarloStatistics:
         self.avgTime_s = None  # Average time per model in seconds
 
 
-class MonteCarloResults:
+class MonteCarloResultsStruct:
     """
     Container for Monte Carlo analysis results.
     
@@ -224,7 +224,7 @@ class MonteCarloResults:
     
 
 
-class ExplorationResults:
+class ExplorationResultsStruct:
     """
     Container for Exploration analysis results.
     
@@ -260,7 +260,7 @@ class ExplorationResults:
     
 
 
-class InductionResults:
+class InductionResultsStruct:
     """
     Container for Inductogram analysis results.
     

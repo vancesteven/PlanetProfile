@@ -33,8 +33,9 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
 
     # Ensure each EOSlabel is included in EOSlist, in case we have reused EOSs with
     # e.g. a smaller range that can reuse the larger-range already-loaded EOS.
-    if oceanEOS.EOSlabel not in EOSlist.loaded.keys() or FORCE_NEW:
+    if oceanEOS.EOSlabel not in EOSlist.loaded.keys():
         EOSlist.loaded[oceanEOS.EOSlabel] = oceanEOS
+        EOSlist.ranges[oceanEOS.EOSlabel] = oceanEOS.rangeLabel
 
     oceanEOSwrapper = EOSwrapper(oceanEOS.EOSlabel)
 
@@ -59,8 +60,13 @@ class OceanEOSStruct:
             self.scalingType = scalingType
         if phaseType == 'lookup':
              self.PHASE_LOOKUP = True
+             self.PRELOAD_LOOKUP = False
+        elif phaseType == 'preload':
+            self.PRELOAD_LOOKUP = True
+            self.PHASE_LOOKUP = False
         else:
             self.PHASE_LOOKUP = False
+            self.PRELOAD_LOOKUP = False
         if kThermConst_WmK is None:
             kThermConst_WmK = Constants.kThermWater_WmK
         else:
@@ -248,19 +254,21 @@ class OceanEOSStruct:
                     self.m_gmol = Constants.m_gmol['MgSO4']
                     PropsP_MPa, PropsT_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
                         = MgSO4Props(PropsP_MPa, PropsT_K, self.w_ppt, self.EXTRAP)
-                    if self.PHASE_LOOKUP:
+                    if self.PRELOAD_LOOKUP:
                         self.ufn_phase = MgSO4PhaseLookup(self.w_ppt, HIRES=LOOKUP_HIRES)
                         self.phasePmax = self.ufn_phase.Pmax
                         # Save EOS grid resolution from MgSO4 lookup table loaded from disk
                         self.EOSdeltaP = self.ufn_phase.deltaP
                         self.EOSdeltaT = self.ufn_phase.deltaT
-                    else:
+                    elif self.PHASE_LOOKUP:
                         Margules = MgSO4PhaseMargules(Pphase_MPa, Tphase_K, self.w_ppt)
                         self.ufn_phase = Margules.fn_phase
                         self.phasePmax = Margules.Pmax
                         # Lookup table is not used -- flag with nan for grid resolution.
                         self.EOSdeltaP = np.nan
                         self.EOSdeltaT = np.nan
+                    else:
+                        Margules = MgSO4PhaseMargules(Pphase_MPa, Tphase_K, self.w_ppt)
                     # self.ufn_species =
                     self.ufn_Seismic = MgSO4Seismic(self.w_ppt, self.EXTRAP)
                     if sigmaFixed_Sm is not None:
@@ -318,13 +326,11 @@ class OceanEOSStruct:
             # Include placeholder to overlap infrastructure with other EOS classes
             self.fn_porosCorrect = None
 
-            # Store complete EOSStruct in global list of loaded EOSs,
-            # but only if we weren't forcing a recalculation. This allows
+            # Store complete EOSStruct in global list of loaded EOSs. This allows
             # us to use a finer step in getting the ice shell thickness while
             # not slowing down ocean calculations.
-            if not FORCE_NEW:
-                EOSlist.loaded[self.EOSlabel] = self
-                EOSlist.ranges[self.EOSlabel] = self.rangeLabel
+            EOSlist.loaded[self.EOSlabel] = self
+            EOSlist.ranges[self.EOSlabel] = self.rangeLabel
         Timing.logTime('OceanEOSStruct()', time.time())
 
     # Limit extrapolation to use nearest value from evaluated fit
@@ -785,6 +791,10 @@ class MixedEOSStruct:
         eta2 = self.secondEOS.fn_eta_Pas(P_MPa, T_K, grid)
         return self._mixingRule(eta1, eta2, 'Carahan2004Averaging')
     
+    def updateConvectionViscosity(self, etaConv_Pas, Tconv_K):
+        self.firstEOS.updateConvectionViscosity(etaConv_Pas, Tconv_K)
+        self.secondEOS.updateConvectionViscosity(etaConv_Pas, Tconv_K)
+    
     def fn_averageValuesAccordingtoRule(self, prop1, prop2, rule):
         if rule == 'arithmetic':
             return self._mixingRule(prop1, prop2, 'arithmetic')
@@ -1199,7 +1209,7 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0.1, PUpper_MPa=300, PRes_MP
 
     if Pfreeze_MPa is None:
         try:
-            Pfreeze_MPa = GetZero(phaseChange, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa/5
+            Pfreeze_MPa = GetZero(phaseChange, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa
         except ValueError:
             if UNDERPLATEOrHPNOOCEAN:
                 msg = f'Tb_K of {Tb_K:.3f} is not consistent with explicit underplating or automatic high pressure no ocean ice III; ' + \
@@ -1216,7 +1226,7 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0.1, PUpper_MPa=300, PRes_MP
                     raise ValueError(msg)
             elif TRY_BOTH:
                 try:
-                    Pfreeze_MPa = GetZero(phaseChangeUnderplateOrHPNoOcean, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa / 5
+                    Pfreeze_MPa = GetZero(phaseChangeUnderplateOrHPNoOcean, bracket=[PLower_MPa, PUpper_MPa]).root + PRes_MPa
                 except ValueError:
                     msg = f'No transition pressure was found below {PUpper_MPa:.3f} MPa ' + \
                           f'for ice {PhaseConv(phaseTop)}. Increase PUpper_MPa until one is found.'
