@@ -1153,12 +1153,18 @@ def SelfConsistentInnerLayer(Planet, Params):
                                          kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
                                          porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
                                          Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
-                                         EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas])
+                                         EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                         doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Sil.rhoSilWithCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
+                                                                                   'VP_kms': Planet.Sil.VPmean_kms, 'VS_kms': Planet.Sil.VSmean_kms, 'KS_GPa': Planet.Sil.KSmean_GPa, 'GS_GPa': Planet.Sil.GSmean_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
+                                                                                   'sigma_Sm': Planet.Sil.sigmaMean_Sm})
         # Iron core if present
         if not Params.SKIP_INNER and Planet.Do.Fe_CORE and Planet.Core.EOS.key not in EOSlist.loaded.keys():
             Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
                                           kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
-                                          wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas])
+                                          wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                          doConstantProps=True, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
+                                                                                   'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSmean_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
+                                                                                   'sigma_Sm': Planet.Core.sigmaMean_Sm})
 
         # Pore fluids if present
         if not Params.SKIP_INNER and Planet.Do.POROUS_ROCK and Planet.Sil.poreEOS.key not in EOSlist.loaded.keys():
@@ -1222,7 +1228,7 @@ def SelfConsistentInnerLayer(Planet, Params):
             = mantleProps
 
         iCC = Planet.Steps.nTotal
-        if Planet.Do.Fe_CORE:
+        if Planet.Do.Fe_CORE and iCC > iSC:
             # Unpack results from MoI calculations
             Planet.P_MPa[iSC:iCC], Planet.T_K[iSC:iCC], Planet.r_m[iSC:iCC], Planet.g_ms2[iSC:iCC], Planet.rho_kgm3[iSC:iCC], \
                 Planet.Cp_JkgK[iSC:iCC], Planet.alpha_pK[iSC:iCC], Planet.kTherm_WmK[iSC:iCC], Planet.MLayer_kg[iSC:iCC] \
@@ -1369,7 +1375,7 @@ def NonSelfConsistentInnerLayer(Planet, Params):
                                          porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
                                          Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
                                          EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
-                                         doConstantProps=True, constantProperties={'rho_kgm3': Planet.Sil.rhoMean_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
+                                         doConstantProps=True, constantProperties={'rho_kgm3': Planet.Sil.rhoSilWithCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
                                                                                    'VP_kms': Planet.Sil.VPmean_kms, 'VS_kms': Planet.Sil.VSmean_kms, 'KS_GPa': Planet.Sil.KSmean_GPa, 'GS_GPa': Planet.Sil.GSmean_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
                                                                                    'sigma_Sm': Planet.Sil.sigmaMean_Sm})
             
@@ -1396,7 +1402,7 @@ def NonSelfConsistentInnerLayer(Planet, Params):
             Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
                                           kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
                                           wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
-                                          doConstantProps=True, constantProperties={'rho_kgm3': Planet.Core.rhoMean_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
+                                          doConstantProps=True, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
                                                                                    'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSmean_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
                                                                                    'sigma_Sm': Planet.Core.sigmaMean_Sm})
             
@@ -1564,15 +1570,18 @@ def CalcMoIConstantRho(Planet, Params):
             nTooBig = next((i[0] for i, val in np.ndenumerate(VCore_m3) if val>0))
         except StopIteration:
             msg = f'Failed to find a core size consistent with rhoSil = {Planet.Sil.rhoSilWithCore_kgm3:.1f} kg/m3 ' + \
-                  f'and xFeS = {Planet.Core.xFeS:.3f} for PHydroMax_MPa = {Planet.Ocean.PHydroMax_MPa:.1f}. ' + \
-                   'Core size will be set to zero.'
+                  f'and xFeS = {Planet.Core.xFeS:.3f} for PHydroMax_MPa = {Planet.Ocean.PHydroMax_MPa:.1f}. ' #+ \
+                   #'Core size will be set to zero.'
             if Params.DO_EXPLOREOGRAM:
                 log.debug(msg)
             else:
-                log.warning(msg)
+                raise ValueError(msg)
             nTooBig = 0
             rCore_m = np.zeros_like(VCore_m3)
+            Planet.Steps.nCore = 0
+            INVALIDCORE = True
         else:
+            INVALIDCORE = False
             # Calculate corresponding core radii based on above density
             rCore_m = (VCore_m3[nTooBig:]*3/4/np.pi)**(1/3)
 
@@ -1587,6 +1596,7 @@ def CalcMoIConstantRho(Planet, Params):
         # Set core radius and density to zero so calculations can proceed
         rCore_m = np.zeros(nHydroActual-1 - Planet.Steps.iSilStart)
         rhoCore_kgm3 = 0
+        INVALIDCORE = False
 
     # Calculate C for a mantle extending up to each hydrosphere layer in turn
     C_kgm2 = np.zeros(nHydroActual - 1)
@@ -1599,8 +1609,8 @@ def CalcMoIConstantRho(Planet, Params):
     CMR2inds = [i[0] for i, valCMR2 in np.ndenumerate(CMR2)
                  if valCMR2 >= Planet.Bulk.Cmeasured - Planet.Bulk.CuncertaintyLower
                 and valCMR2 <= Planet.Bulk.Cmeasured + Planet.Bulk.CuncertaintyUpper]
-
-    if len(CMR2inds) == 0:
+    print(f'max(CMR2): {np.max(CMR2)}, zb_km: {Planet.Bulk.zb_approximate_km:.1f}, last CMR2: {CMR2[-1]:.3f}')
+    if len(CMR2inds) == 0 or INVALIDCORE:
         if Planet.Do.NO_H2O:
             suggestion = '\nTry adjusting properties of silicates and core to get C/MR^2 values in range.'
         else:
@@ -1634,6 +1644,7 @@ def CalcMoIConstantRho(Planet, Params):
         Planet.Core.Rmean_m = np.nan
         Planet.Core.Rtrade_m = nans
         Planet.Core.Rrange_m = np.nan
+        Planet.Sil.rhoNoCore_kgm3 = np.nan
         Planet.Steps.nSil = Planet.Steps.nSilMax
         # Use Rset_m to indicate that we have already determined the core size in using SilicateLayers
         Planet.Core.Rset_m = np.nan
@@ -1672,6 +1683,7 @@ def CalcMoIConstantRho(Planet, Params):
         Planet.Core.Rmean_m = rCore_m[iCMR2inner]
         Planet.Core.Rtrade_m = rCore_m[CMR2indsInner]
         Planet.Core.Rrange_m = np.max(Planet.Core.Rtrade_m) - np.min(Planet.Core.Rtrade_m)
+        Planet.Sil.rhoNoCore_kgm3 = rhoSil_kgm3[iCMR2inner]
         # Now we finally know how many layers there are in the hydrosphere
         Planet.Steps.nHydro = iCMR2
         # Use Rset_m to indicate that we have already determined the core size in using SilicateLayers
@@ -1686,7 +1698,7 @@ def CalcMoIConstantRho(Planet, Params):
             = SilicateLayers(Planet, Params)
         nSilTooBig = nProfiles - np.size(indsSilValid)
 
-        if Planet.Do.Fe_CORE:
+        if Planet.Do.Fe_CORE and Planet.Steps.nCore > 0:
             # Evaluate the core EOS for each layer
             nSilFinal, Pcore_MPa, Tcore_K, rCoreEOS_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK, \
                 kThermCore_WmK = IronCoreLayers(Planet, Params,

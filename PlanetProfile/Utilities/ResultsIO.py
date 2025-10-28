@@ -5,11 +5,13 @@ hierarchical data structures, supporting both pickle and MATLAB formats.
 """
 
 import numpy as np
+import os
 import logging
 import pickle
 from scipy.io import savemat
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from PlanetProfile.MagneticInduction.MagneticInduction import Benm2absBexyz
+from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -36,7 +38,7 @@ def WriteResults(Results, pklFilePath, saveMatlab = False, matlabFilePath=None):
 
 def ReloadResultsFromPickle(fName):
     """
-    Reload results from pickle file using new hierarchical structure.
+    Reload results from pickle file.
     
     Args:
         fName (str): Path to pickle file
@@ -44,6 +46,8 @@ def ReloadResultsFromPickle(fName):
     Returns:
         MonteCarloResults, ExplorationResults, or InductionResults object
     """
+    if not os.path.isfile(fName):
+        raise FileNotFoundError(f"File {fName} not found.")
     with open(fName, 'rb') as f:
         results = pickle.load(f)
     
@@ -73,6 +77,7 @@ def ExtractResults(Results, PlanetGrid, Params):
     Results.yData = getattr(Results.base, Params.Explore.yName)
     Results.nx = Params.Explore.nx
     Results.ny = Params.Explore.ny
+    Results.titleAddendum = FigLbl.titleAddendum
     return Results
 
 
@@ -239,8 +244,8 @@ def ExtractInductionData(InductionResults, bodyname, PlanetGrid, Params):
         'calcedExc': None,
         'Texc_hr': None,
     }
-    induction_data['calcedExc'] = PlanetGrid[0, 0].Magnetic.calcedExc
-    induction_data['Texc_hr'] = PlanetGrid[0, 0].Magnetic.Texc_hr
+    induction_data['calcedExc'] = {}
+    induction_data['Texc_hr'] = []
     if nPeaks > 0:
         # Extract amplitude and phase data as 3D arrays (nPeaks x rows x cols)
         # For 1D case, this will be nPeaks x 1 x N, then we'll flatten later
@@ -265,6 +270,11 @@ def ExtractInductionData(InductionResults, bodyname, PlanetGrid, Params):
                     Bi1y_nT_3D[:nPeaks, i, j] = Planet.Magnetic.Bi1xyz_nT['y'][:]
                     Bi1z_nT_3D[:nPeaks, i, j] = Planet.Magnetic.Bi1xyz_nT['z'][:]
                     Bi1Tot_3D[:nPeaks, i, j] = Planet.Magnetic.Bi1Tot_nT[:]
+                    
+                    # Set attributes that are consistent across all planets - in some cases where planets are invalid, they will not have this data, so this is why we only reset values for which their magnetic data has been calculated
+                    induction_data['calcedExc'] = Planet.Magnetic.calcedExc
+                    induction_data['Texc_hr'] = Planet.Magnetic.Texc_hr
+                    
         
         induction_data['Amp'] = Amp_3d
         induction_data['phase'] = phase_3d

@@ -334,6 +334,7 @@ class SilSubstruct:
         self.HtidalMean_Wm3 = None  # Mean tidal heating in silicate layers
         self.sigmaMean_Sm = np.nan  # Mean conductivity across all silicate layers, ignoring spherical effects
         self.rhoTrade_kgm3 = None  # Array of mantle densities for compatible MoIs for core vs. mantle tradeoff plot
+        self.rhoNoCore_kgm3 = np.nan  # Derived density of silicate layers when no core is present
         self.mFluids = None  # WIP for tracking loss of fluids along the geotherm -- needs a better name.
 
 
@@ -1763,6 +1764,7 @@ class FigLblStruct:
         self.yScaleExplore = None
         self.cbarLabelExplore = None
         self.cfmt = None
+        self.titleAddendum = None
         self.xMultExplore = 1
         self.yMultExplore = 1
         self.zMultExplore = 1
@@ -2335,11 +2337,12 @@ class FigLblStruct:
         # Set title for exploreogram plots
         if titleData is None:
             self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration}}'
+            self.subplotExplorationTitle = f'\\textbf{{{bodyname} Properties across {self.exploreDescrip[xName]} and {self.exploreDescrip[yName]}}}'
         else:
             self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration, {titleData}}}'
+            self.subplotExplorationTitle = f'\\textbf{{{bodyname} Properties across {self.exploreDescrip[xName]} and {self.exploreDescrip[yName]}, {titleData}}}'
         if excName is not None:
             self.explorationTitle += f', {excName}'
-        self.subplotExplorationTitle = f'\\textbf{{{bodyname} Properties across {self.exploreDescrip[xName]} and {self.exploreDescrip[yName]}}}'
     def SetExploreYTitle(self, bodyname, yName, titleData):
         # Set y-axis title for exploreogram plots
         if titleData is None:

@@ -110,8 +110,8 @@ def run(bodyname=None, opt=None, fNames=None):
             if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
                 PlanetGrid, Exploration, Params = ExploreOgram(bodyname, Params, RETURN_GRID=True, fNameOverride=fNames[0])
             else:
-                Exploration, Params = ExploreOgram(bodyname, Params,fNameOverride = fName)
-        if not Params.SKIP_PLOTS: 
+                Exploration, Params = ExploreOgram(bodyname, Params,fNameOverride = fNames[0])
+        if not Params.SKIP_PLOTS and not np.all(Exploration.base.VALID == False): 
             if Params.COMPARE:
                 exploreOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fName+'*.mat'))
                 Params.nModels = np.size(exploreOgramFiles)

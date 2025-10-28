@@ -411,10 +411,13 @@ def SetupInit(Planet, Params):
             if not Params.PRELOAD_EOS_IN_PROGRESS:
                 # Get silicate EOS
                 Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.lookupInterpMethod,
-                                            kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
-                                            porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
-                                            Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
-                                            EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas])
+                                         kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
+                                         porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
+                                         Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
+                                         EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                         doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Sil.rhoSilWithCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
+                                                                                   'VP_kms': Planet.Sil.VPmean_kms, 'VS_kms': Planet.Sil.VSmean_kms, 'KS_GPa': Planet.Sil.KSmean_GPa, 'GS_GPa': Planet.Sil.GSmean_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
+                                                                                   'sigma_Sm': Planet.Sil.sigmaMean_Sm})
 
             # Pore fluids if present
             if Planet.Do.POROUS_ROCK:
@@ -455,8 +458,11 @@ def SetupInit(Planet, Params):
             if Planet.Do.Fe_CORE:
                 if not Params.PRELOAD_EOS_IN_PROGRESS:
                     Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
-                                                kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
-                                                wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas])
+                                          kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
+                                          wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                          doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
+                                                                                   'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSmean_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
+                                                                                   'sigma_Sm': Planet.Core.sigmaMean_Sm})
 
         # Ensure ionosphere bounds and conductivity are in a format we expect
         if Planet.Magnetic.ionosBounds_m is None:
@@ -652,6 +658,11 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None, mo
                 saveLabel += f'_{Planet.Bulk.Dhsphere_m}'
                 label += f'$hydroThickness\,\SI{{{Planet.Bulk.Dhsphere_m}}}{{\meter}}$'
         if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSName}'
+        if Planet.Do.CONSTANT_INNER_DENSITY: 
+            if Planet.Do.Fe_CORE:
+                saveLabel += f'_ConstantInnerRho_Fe{Planet.Core.rhoFe_kgm3}_FeS{Planet.Core.rhoFeS_kgm3}_xFeS{Planet.Core.xFeS:.3f}_Sil{Planet.Sil.rhoSilWithCore_kgm3}kgm3'
+            else:
+                saveLabel += f'_ConstantInnerRho'
 
     # Add time and date label
     if Params.TIME_AND_DATE_LABEL:
@@ -1153,15 +1164,23 @@ def PrecomputeEOS(PlanetList, Params):
     if len(innerPlanets) > 0:
         log.profile(f'Pre-generating inner EOS for {len(innerPlanets)} inner planets.')
         for i, innerPlanet in enumerate(innerPlanets):
+            Planet.Sil.GSmean_GPa = 50.0
             GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.lookupInterpMethod,
-                                            kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
-                                            porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
-                                            Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
-                                            EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas])
+                                         kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
+                                         porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
+                                         Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
+                                         EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                         doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Sil.rhoSilWithCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
+                                                                                   'VP_kms': Planet.Sil.VPmean_kms, 'VS_kms': Planet.Sil.VSmean_kms, 'KS_GPa': Planet.Sil.KSmean_GPa, 'GS_GPa': Planet.Sil.GSmean_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
+                                                                                   'sigma_Sm': Planet.Sil.sigmaMean_Sm})
             if Planet.Do.Fe_CORE:
+                Planet.Core.GSmean_GPa = 50.0
                 GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
-                                            kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
-                                            wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas])
+                                          kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
+                                          wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                          doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
+                                                                                   'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSmean_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
+                                                                                   'sigma_Sm': Planet.Core.sigmaMean_Sm})
             log.profile(f'Inner EOS {i+1} of {len(innerPlanets)} pre-generated.')
     Params.PRELOAD_EOS_IN_PROGRESS = False
     log.profile(f'Pre-generating EOS complete.')

@@ -57,8 +57,10 @@ def GenerateExplorationPlots(ExplorationList, Params):
                 for Exploration in ExplorationList:
                     Exploration.zName = Params.Explore.zNameZbY
                 PlotExploreOgramXZ(ExplorationList, Params)
-        PlotExploreOgramDsigma(ExplorationList, Params)
-        PlotExploreOgramLoveComparison(ExplorationList, Params)
+        if Params.PLOT_D_SIGMA:
+            PlotExploreOgramDsigma(ExplorationList, Params)
+        if Params.PLOT_LOVE_COMPARISON:
+            PlotExploreOgramLoveComparison(ExplorationList, Params)
 
     
 def PlotExploreOgramDsigma(results_list, Params):
@@ -119,7 +121,7 @@ def PlotExploreOgramDsigma(results_list, Params):
         ax.set_xscale('linear')
         ax.set_yscale('log')
         ax.set_ylim(FigMisc.DSIGMA_YLIMS)
-        ax.set_xlim([np.min(plot_data['x']), np.max(plot_data['x'])])
+        ax.set_xlim([np.nanmin(plot_data['x']), np.nanmax(plot_data['x'])])
         
         # Get ocean composition data for composition lines and legends
         ocean_comp = result.base.oceanComp.flatten()
@@ -186,7 +188,7 @@ def PlotExploreOgram(results_list, Params, ax=None):
     # Set up basic figure labels using first result
     first_result = results_list[0]
     FigLbl.SetExploration(first_result.base.bodyname, first_result.xName,
-                          first_result.yName, first_result.zName, Params.Explore.contourName, first_result.excName)
+                          first_result.yName, first_result.zName, Params.Explore.contourName, first_result.excName, FigLbl.titleAddendum)
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
     
@@ -333,7 +335,7 @@ def PlotExploreOgram(results_list, Params, ax=None):
                 tooManyContours = True
                 cSpacingExplore = FigLbl.cSpacingExplore
                 while tooManyContours:
-                    cSpacingExplore = 9
+                    cSpacingExplore *= 2
                     contour_levels = np.arange(np.ceil(contourMin / cSpacingExplore) * cSpacingExplore, np.floor(contourMax / cSpacingExplore) * cSpacingExplore + 0.0001, cSpacingExplore)
                     if len(contour_levels) <= 20:
                         tooManyContours = False
@@ -389,10 +391,13 @@ def PlotExploreOgram(results_list, Params, ax=None):
                 if len(existing_ticks) > 1:
                     tick_diff = existing_ticks[1] - existing_ticks[0]
                     valid_ticks = existing_ticks[(existing_ticks >= data_min) & (existing_ticks <= data_max)]
-                    if valid_ticks[0] - data_min < tick_diff * 0.2:
-                        valid_ticks = np.delete(valid_ticks, 0)
-                    if data_max - valid_ticks[-1] < tick_diff * 0.2:
-                        valid_ticks = np.delete(valid_ticks, -1)
+                    if valid_ticks.size > 1:
+                        if valid_ticks[0] - data_min < tick_diff * 0.2:
+                            valid_ticks = np.delete(valid_ticks, 0)
+                        if data_max - valid_ticks[-1] < tick_diff * 0.2:
+                            valid_ticks = np.delete(valid_ticks, -1)
+                    else:
+                        valid_ticks = existing_ticks
                 else:
                     valid_ticks = existing_ticks
                 # Add min and max values to the filtered ticks (using actual data range)
@@ -584,12 +589,12 @@ def PlotExploreOgramZbD(results_list, Params):
         
         # Set axis limits with padding
         if np.size(x) > 0:
-            x_range = np.max(x) - np.min(x)
-            y_range = np.max(y) - np.min(y)
+            x_range = np.nanmax(x) - np.nanmin(x)
+            y_range = np.nanmax(y) - np.nanmin(y)
             x_padding = x_range * FigMisc.ZBD_AXIS_PADDING
             y_padding = y_range * FigMisc.ZBD_AXIS_PADDING
-            ax.set_xlim([np.min(x) - x_padding, np.max(x) + x_padding])
-            ax.set_ylim([np.min(y) - y_padding, np.max(y) + y_padding])
+            ax.set_xlim([np.nanmin(x) - x_padding, np.nanmax(x) + x_padding])
+            ax.set_ylim([np.nanmin(y) - y_padding, np.nanmax(y) + y_padding])
         
         # Get ocean composition data for composition lines
         ocean_comp = result.base.oceanComp.flatten()
@@ -932,16 +937,16 @@ def PlotExploreOgramLoveComparison(results_list, Params):
         
         # Set axis limits with special Love plot formatting
         if np.size(x) > 0:
-            ax.set_xlim([0, np.max(x) + 0.01])
+            ax.set_xlim([0, np.nanmax(x) + 0.01])
         if np.size(y) > 0:
             # Account for error bars when setting y limits
             if FigMisc.SHOW_ERROR_BARS:
                 error_magnitude = FigMisc.ERROR_BAR_MAGNITUDE
-                y_min_with_error = np.min(y) - error_magnitude
-                y_max_with_error = np.max(y) + error_magnitude
+                y_min_with_error = np.nanmin(y) - error_magnitude
+                y_max_with_error = np.nanmax(y) + error_magnitude
                 ax.set_ylim([np.floor(y_min_with_error*100)/100, np.ceil(y_max_with_error*100)/100])
             else:
-                ax.set_ylim([np.floor(np.min(y)*100)/100, np.ceil(np.max(y)*100)/100])
+                ax.set_ylim([np.floor(np.nanmin(y)*100)/100, np.ceil(np.nanmax(y)*100)/100])
         
         # Add legend for composition lines if enabled
         if FigMisc.DRAW_COMPOSITION_LINE and Params.LEGEND:

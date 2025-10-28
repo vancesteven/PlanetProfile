@@ -8,11 +8,18 @@ from matplotlib.gridspec import GridSpec
 from PlanetProfile.Plotting.EssentialHelpers import *
 import logging
 logger = logging.getLogger('PlanetProfile')
-def InvertBestPlanetList(BestPlanetList, Params, fName):
-    Exploration, Params = ExploreOgram(BestPlanetList[0].bodyname, Params, fNameOverride=fName)
-    InvertBestPlanetMultiplot(BestPlanetList, Exploration, Params)
+def InvertBestPlanetList(BestPlanetList, Params, fNames):
+    ExplorationList = []
+    if len(fNames) == 1:
+        Exploration, Params = ExploreOgram(BestPlanetList[0].bodyname, Params, fNameOverride=fNames[0])
+        ExplorationList.append(Exploration)
+    else:
+        for fName in fNames:
+            Exploration, Params = ExploreOgram(BestPlanetList[0].bodyname, Params, fNameOverride=fName)
+            ExplorationList.append(Exploration)
+    InvertBestPlanetMultiplot(BestPlanetList, ExplorationList, Params)
 
-def InvertBestPlanet(BestPlanet, Params, fName):
+def InvertBestPlanet(BestPlanet, Params, fNames):
     """
     Invert for best-fit interior structure/constraints based on a set of input parameters.
     
@@ -21,10 +28,17 @@ def InvertBestPlanet(BestPlanet, Params, fName):
     - If BestPlanet is a list of planets, creates multiplot with all planets
     """
     Params.Inversion.assignRealPlanetModel(BestPlanet, BestPlanet.xBestFit, BestPlanet.yBestFit)
-    Exploration, Params = ExploreOgram(BestPlanet.bodyname, Params, fNameOverride=fName)
-    Exploration = FitWithinUncertainty(Exploration, Params)
+    ExplorationList = []
+    if len(fNames) == 1:
+        Exploration, Params = ExploreOgram(BestPlanet.bodyname, Params, fNameOverride=fNames[0])
+        ExplorationList.append(Exploration)
+    else:
+        for fName in fNames:
+            Exploration, Params = ExploreOgram(BestPlanet.bodyname, Params, fNameOverride=fName)
+            ExplorationList.append(Exploration)
+    ExplorationList = FitWithinUncertainty(ExplorationList, Params)
     
-    PlotUncertainty(Exploration, Params)
+    PlotUncertainty(ExplorationList, Params)
 
 
 def InvertBestPlanetMultiplot(BestPlanetList, Exploration, Params):
@@ -54,7 +68,7 @@ def InvertBestPlanetMultiplot(BestPlanetList, Exploration, Params):
     n_rows = 2
     
     # Calculate figure size with scaling (same as PlotExploreOgramMultiSubplot)
-    base_size = (12, 8)  # Same as PlotUncertainty default
+    base_size = (6, 4)  # Same as PlotUncertainty default
     scale_factor = 1
     fig_width = base_size[0] * n_cols * scale_factor
     fig_height = base_size[1] * n_rows * scale_factor
@@ -79,9 +93,9 @@ def InvertBestPlanetMultiplot(BestPlanetList, Exploration, Params):
         # Call PlotUncertainty with this specific axis
         ax_result = PlotUncertaintySubplot(Exploration, Params, ax=ax, planet_name=Planet.bodyname)
         
-        # Store legend elements from the first subplot for shared legend
-        if i == 0 and hasattr(ax_result, 'get_legend') and ax_result.get_legend() is not None:
-            legend_elements = ax_result.get_legend().get_children()
+        # Remove legend from all plots except the first one
+        if i > 0 and ax.get_legend() is not None:
+            ax.get_legend().remove()
         
         
         # Add subplot label (a, b, c, etc.) if enabled
@@ -110,7 +124,6 @@ def InvertBestPlanetMultiplot(BestPlanetList, Exploration, Params):
         if not is_left_column:
             ax.set_ylabel('')
             ax.tick_params(axis='y', labelleft=False)
-    
     # Hide unused subplots
     total_subplots = n_rows * n_cols
     for i in range(n_planets, total_subplots):
@@ -147,18 +160,19 @@ def PlotUncertaintySubplot(Exploration, Params, ax=None, planet_name=None):
         planet_name: Optional planet name for custom subplot title
     """
     return PlotUncertainty(Exploration, Params, ax=ax, planet_name=planet_name)
-def FitWithinUncertainty(Exploration, Params):
+def FitWithinUncertainty(ExplorationList, Params):
     """
     Fit the best-fit model within the uncertainty of the best-fit model.
     """
-    xInductionResponseUncertainty = CalcGridWithinUncertainty(Params.Inversion.Bi1xyz_nT['x'], Exploration.induction.Bi1x_nT, Params.Inversion.InductionResponseUncertainty_nT)
-    yInductionResponseUncertainty = CalcGridWithinUncertainty(Params.Inversion.Bi1xyz_nT['y'], Exploration.induction.Bi1y_nT, Params.Inversion.InductionResponseUncertainty_nT)
-    zInductionResponseUncertainty = CalcGridWithinUncertainty(Params.Inversion.Bi1xyz_nT['z'], Exploration.induction.Bi1z_nT, Params.Inversion.InductionResponseUncertainty_nT)
-    Exploration.inversion.gridWithinInductionResponseUncertainty = np.all([xInductionResponseUncertainty, yInductionResponseUncertainty, zInductionResponseUncertainty], axis=0)
-    Exploration.inversion.gridWithinkLoveAmpUncertainty = CalcGridWithinUncertainty(Params.Inversion.kLoveAmp, Exploration.base.kLoveAmp, Params.Inversion.kLoveAmpUncertainity)
-    Exploration.inversion.gridWithinhLoveAmpUncertainty = CalcGridWithinUncertainty(Params.Inversion.hLoveAmp, Exploration.base.hLoveAmp, Params.Inversion.hLoveAmpUncertainity)
-    Exploration.inversion.gridWithinAllUncertainty = np.all([Exploration.inversion.gridWithinInductionResponseUncertainty, Exploration.inversion.gridWithinkLoveAmpUncertainty, Exploration.inversion.gridWithinhLoveAmpUncertainty], axis=0)
-    return Exploration
+    for Exploration in ExplorationList:
+        xInductionResponseUncertainty = CalcGridWithinUncertainty(Params.Inversion.Bi1xyz_nT['x'], Exploration.induction.Bi1x_nT, Params.Inversion.InductionResponseUncertainty_nT)
+        yInductionResponseUncertainty = CalcGridWithinUncertainty(Params.Inversion.Bi1xyz_nT['y'], Exploration.induction.Bi1y_nT, Params.Inversion.InductionResponseUncertainty_nT)
+        zInductionResponseUncertainty = CalcGridWithinUncertainty(Params.Inversion.Bi1xyz_nT['z'], Exploration.induction.Bi1z_nT, Params.Inversion.InductionResponseUncertainty_nT)
+        Exploration.inversion.gridWithinInductionResponseUncertainty = np.all([xInductionResponseUncertainty, yInductionResponseUncertainty, zInductionResponseUncertainty], axis=0)
+        Exploration.inversion.gridWithinkLoveAmpUncertainty = CalcGridWithinUncertainty(Params.Inversion.kLoveAmp, Exploration.base.kLoveAmp, Params.Inversion.kLoveAmpUncertainity)
+        Exploration.inversion.gridWithinhLoveAmpUncertainty = CalcGridWithinUncertainty(Params.Inversion.hLoveAmp, Exploration.base.hLoveAmp, Params.Inversion.hLoveAmpUncertainity)
+        Exploration.inversion.gridWithinAllUncertainty = np.all([Exploration.inversion.gridWithinInductionResponseUncertainty, Exploration.inversion.gridWithinkLoveAmpUncertainty, Exploration.inversion.gridWithinhLoveAmpUncertainty], axis=0)
+    return ExplorationList
     
 def CalcGridWithinUncertainty(bestPlanetData, GridData, UncertaintyData):
     """
@@ -195,11 +209,13 @@ def CalcGridWithinUncertainty(bestPlanetData, GridData, UncertaintyData):
         # If within_uncertainty is 3D (nexc, planetGridWidth, planetGridHeight),
         # check if any of the nexc rows are within uncertainty
         if within_uncertainty.ndim == 3:
-            within_uncertainty = np.all(within_uncertainty, axis=0)
+            if within_uncertainty.shape[0] == 0:
+                within_uncertainty = np.zeros((within_uncertainty.shape[1], within_uncertainty.shape[2]), dtype=bool)
+            else:
+                within_uncertainty = np.all(within_uncertainty, axis=0)
     else:
         # For real data, use direct comparison (linear bounds)
         within_uncertainty = _check_within_bounds(bestPlanetData, GridData, UncertaintyData)
-    
     return within_uncertainty
 
 def _compute_interpolated_uncertainty_regions(Exploration, Params, x_data, y_data, x_interp, y_interp):
@@ -307,7 +323,7 @@ def _check_within_bounds(best_value, grid_values, uncertainty):
     return (grid_values >= lower_bound) & (grid_values <= upper_bound)
     
     
-def PlotUncertainty(Exploration, Params, ax=None, planet_name=None):
+def PlotUncertainty(ExplorationList, Params, ax=None, planet_name=None):
     """
     Plot the uncertainty of the best-fit model.
     
@@ -326,7 +342,7 @@ def PlotUncertainty(Exploration, Params, ax=None, planet_name=None):
     
     # Determine if we're creating a new figure or using existing axis
     create_new_figure = (ax is None)
-    
+    multiExploration = len(ExplorationList) > 1
     # Plot Configuration Dictionary
     # Controls which contours are displayed and their visual properties
     plot_config = {
@@ -334,7 +350,7 @@ def PlotUncertainty(Exploration, Params, ax=None, planet_name=None):
         'combined': {
             'gravity': False,         # Combined k + h Love number constraints
             'induction': False,       # Combined induction response constraints
-            'all_data': False,        # All constraints combined (gravity + induction)
+            'all_data': True,        # All constraints combined (gravity + induction)
         },
         # Visual properties
         'alpha': {
@@ -342,7 +358,6 @@ def PlotUncertainty(Exploration, Params, ax=None, planet_name=None):
             'combined': 0.4,         # Higher transparency for combined contours (more prominent)
         }
     }
-    
     # Configurable variables (will make these parameters later)
     induction_x_color = 'orange'
     induction_y_color = 'orange'
@@ -357,12 +372,13 @@ def PlotUncertainty(Exploration, Params, ax=None, planet_name=None):
     true_model_size = 200
     contour_alpha = plot_config['alpha']['individual']
     combined_alpha = plot_config['alpha']['combined']
-    figure_size = (12, 8)
+    figure_size = (3, 4)
     legend_font_size = 10
     title_font_size = 14
     interpolation_factor = 10 # Factor to increase grid resolution for smoother contours
     
     # Set up exploration data
+    Exploration = ExplorationList[0]
     Exploration.zName = Exploration.xName
     FigLbl.SetExploration(Exploration.base.bodyname, Exploration.xName,
                           Exploration.yName, Exploration.zName)
@@ -398,118 +414,130 @@ def PlotUncertainty(Exploration, Params, ax=None, planet_name=None):
             title += f'\n{FigLbl.xLabelExplore} vs {FigLbl.yLabelExplore}'
         
         ax.set_title(title, fontsize=title_font_size-2)  # Slightly smaller for subplots
-    
-    # Extract x and y data from exploration
-    data = extract_and_validate_plot_data(result_obj=Exploration, x_field=Exploration.xName, y_field=Exploration.yName,
-                                         x_multiplier=FigLbl.xMultExplore, y_multiplier=FigLbl.yMultExplore,
-                                         custom_x_axis=FigLbl.xCustomAxis, custom_y_axis=FigLbl.yCustomAxis)
-    x_data = data['x'].reshape(data['original_shape'])
-    y_data = data['y'].reshape(data['original_shape'])
-    
-    # Create higher resolution grid for smoother contours
-    x_interp, y_interp = _create_interpolated_grid(x_data, y_data, interpolation_factor)
-    
-    ax.set_xlabel(FigLbl.xLabelExplore)
-    ax.set_ylabel(FigLbl.yLabelExplore)
-    ax.set_xscale(FigLbl.xScaleExplore)
-    ax.set_yscale(FigLbl.yScaleExplore)
-    
     legend_elements = []
-    
-    # Compute interpolation-aware uncertainty regions for combined contours
-    uncertainty_regions = _compute_interpolated_uncertainty_regions(
-        Exploration, Params, x_data, y_data, x_interp, y_interp
-    )
-    
-    # Define individual contour specifications
-    individual_specs = [
-        {
-            'data': Exploration.base.kLoveAmp,
-            'color': klove_color,
-            'label': 'k Love Number',
-            'best_value': Params.Inversion.kLoveAmp,
-            'uncertainty': Params.Inversion.kLoveAmpUncertainity,
-            'config_key': 'k_love',
-            'group': 'gravity'
-        },
-        {
-            'data': Exploration.base.hLoveAmp,
-            'color': hlove_color,
-            'label': 'h Love Number', 
-            'best_value': Params.Inversion.hLoveAmp,
-            'uncertainty': Params.Inversion.hLoveAmpUncertainity,
-            'config_key': 'h_love',
-            'group': 'gravity'
-        },
-        {
-            'data': Exploration.induction.Bi1x_nT[0], 
-            'color': induction_x_color,
-            'label': 'Bi1x (Orbital)',
-            'best_value': Params.Inversion.Bi1xyz_nT['x'][0],
-            'uncertainty': Params.Inversion.InductionResponseUncertainty_nT,
-            'config_key': 'induction_orbital',
-            'group': 'induction'
-        },
-        {
-            'data': Exploration.induction.Bi1x_nT[1], 
-            'color': 'red',
-            'label': 'Bi1x (Synodic)',
-            'best_value': Params.Inversion.Bi1xyz_nT['x'][1],
-            'uncertainty': Params.Inversion.InductionResponseUncertainty_nT,
-            'config_key': 'induction_synodic',
-            'group': 'induction'
-        }]
+    for i, Exploration in enumerate(ExplorationList):
+        # Extract x and y data from exploration
+        data = extract_and_validate_plot_data(result_obj=Exploration, x_field=Exploration.xName, y_field=Exploration.yName,
+                                            x_multiplier=FigLbl.xMultExplore, y_multiplier=FigLbl.yMultExplore,
+                                            custom_x_axis=FigLbl.xCustomAxis, custom_y_axis=FigLbl.yCustomAxis)
+        x_data = data['x'].reshape(data['original_shape'])
+        y_data = data['y'].reshape(data['original_shape'])
         
-        # Note: Additional induction components can be enabled by setting their config flags to True
+        # Create higher resolution grid for smoother contours
+        x_interp, y_interp = _create_interpolated_grid(x_data, y_data, interpolation_factor)
+        
+        ax.set_xlabel(FigLbl.xLabelExplore)
+        ax.set_ylabel(FigLbl.yLabelExplore)
+        ax.set_xscale(FigLbl.xScaleExplore)
+        ax.set_yscale(FigLbl.yScaleExplore)
+    
+        
+        # Compute interpolation-aware uncertainty regions for combined contours
+        uncertainty_regions = _compute_interpolated_uncertainty_regions(
+            Exploration, Params, x_data, y_data, x_interp, y_interp
+        )
+        
+        # Define individual contour specifications
+        individual_specs = [
+            {
+                'data': Exploration.base.kLoveAmp,
+                'color': klove_color,
+                'label': 'k Love Number',
+                'best_value': Params.Inversion.kLoveAmp,
+                'uncertainty': Params.Inversion.kLoveAmpUncertainity,
+                'config_key': 'k_love',
+                'group': 'gravity'
+            },
+            {
+                'data': Exploration.base.hLoveAmp,
+                'color': hlove_color,
+                'label': 'h Love Number', 
+                'best_value': Params.Inversion.hLoveAmp,
+                'uncertainty': Params.Inversion.hLoveAmpUncertainity,
+                'config_key': 'h_love',
+                'group': 'gravity'
+            },
+            {
+                'data': Exploration.induction.Bi1x_nT[0], 
+                'color': induction_x_color,
+                'label': 'Bi1x (Orbital)',
+                'best_value': Params.Inversion.Bi1xyz_nT['x'][0],
+                'uncertainty': Params.Inversion.InductionResponseUncertainty_nT,
+                'config_key': 'induction_orbital',
+                'group': 'induction'
+            },
+            {
+                'data': Exploration.induction.Bi1x_nT[1], 
+                'color': 'red',
+                'label': 'Bi1x (Synodic)',
+                'best_value': Params.Inversion.Bi1xyz_nT['x'][1],
+                'uncertainty': Params.Inversion.InductionResponseUncertainty_nT,
+                'config_key': 'induction_synodic',
+                'group': 'induction'
+            }]
+            
+            # Note: Additional induction components can be enabled by setting their config flags to True
 
-    
-    # Plot individual uncertainty contours (if enabled)
-    for spec in individual_specs:
-        if (spec['data'] is not None):
+
+        # Plot individual uncertainty contours (if enabled)
+        if not np.any([plot_config['combined'][key] for key in plot_config['combined']]):
+            for spec in individual_specs:
+                if (spec['data'] is not None):
+                
+                    contour_fill = _plot_uncertainty_contour(
+                        ax, x_data, y_data, spec['data'], 
+                        spec['best_value'], spec['uncertainty'],
+                        spec['color'], contour_alpha, x_interp, y_interp
+                    )
+                    if contour_fill is not None:
+                        legend_elements.append(plt.Rectangle((0,0),1,1, fc=spec['color'], 
+                                                        alpha=contour_alpha, label=spec['label']))
             
-            contour_fill = _plot_uncertainty_contour(
-                ax, x_data, y_data, spec['data'], 
-                spec['best_value'], spec['uncertainty'],
-                spec['color'], contour_alpha, x_interp, y_interp
-            )
-            if contour_fill is not None:
-                legend_elements.append(plt.Rectangle((0,0),1,1, fc=spec['color'], 
-                                                   alpha=contour_alpha, label=spec['label']))
+        # Plot combined uncertainty contours (if enabled)
+        combined_specs = [
+            {
+                'region': uncertainty_regions['gravity'],
+                'color': gravity_color,
+                'label': 'Gravity Constraints (k+h Love)',
+                'config_key': 'gravity'
+            },
+            {
+                'region': uncertainty_regions['induction'],
+                'color': induction_color,
+                'label': 'Induction Constraints',
+                'config_key': 'induction'
+            },
+            {
+                'region': uncertainty_regions['all_data'],
+                'color': all_data_color,
+                'label': 'All Constraints Combined',
+                'config_key': 'all_data'
+            }
+        ]
+        
+        for spec in combined_specs:
+            if (spec['region'] is not None and 
+                plot_config['combined'].get(spec['config_key'], False)):
+                
+                    if multiExploration:
+                        label = Params.Explore.titleName[i]
+                        color = Params.Explore.color[i]
+                    else:
+                        label = spec['label']
+                        color = spec['color']
+                    contour_fill = _plot_boolean_contour(
+                        ax, x_interp, y_interp, spec['region'],
+                        color, combined_alpha
+                    )
+                    legend_elements.append(plt.Rectangle((0,0),1,1, fc=color, ec=color,
+                                                    alpha=combined_alpha, label=label))
     
-    # Plot combined uncertainty contours (if enabled)
-    combined_specs = [
-        {
-            'region': uncertainty_regions['gravity'],
-            'color': gravity_color,
-            'label': 'Gravity Constraints (k+h Love)',
-            'config_key': 'gravity'
-        },
-        {
-            'region': uncertainty_regions['induction'],
-            'color': induction_color,
-            'label': 'Induction Constraints',
-            'config_key': 'induction'
-        },
-        {
-            'region': uncertainty_regions['all_data'],
-            'color': all_data_color,
-            'label': 'All Constraints Combined',
-            'config_key': 'all_data'
-        }
-    ]
-    
-    for spec in combined_specs:
-        if (spec['region'] is not None and 
-            plot_config['combined'].get(spec['config_key'], False)):
-            
-            contour_fill = _plot_boolean_contour(
-                ax, x_interp, y_interp, spec['region'],
-                spec['color'], combined_alpha
-            )
-            if contour_fill is not None:
-                legend_elements.append(plt.Rectangle((0,0),1,1, fc=spec['color'], 
-                                                   alpha=combined_alpha, label=spec['label']))
-    
+        
+        ax.set_xlim(np.min(x_data), np.max(x_data))
+        ax.set_ylim(np.min(y_data), np.max(y_data))
+        # Set minor grid lines with low alpha
+        ax.grid(True, which='minor', alpha=0.1, linestyle='-', linewidth=0.5)
+        ax.grid(True, which='major', alpha=0.5, linestyle='-', linewidth=0.5)
     # Add marker for true model location if available
     true_marker = ax.scatter(Params.Inversion.xBestFit, Params.Inversion.yBestFit, c=true_model_color, 
                             marker=true_model_marker, s=true_model_size, 
@@ -520,14 +548,7 @@ def PlotUncertainty(Exploration, Params, ax=None, planet_name=None):
     # Add legend (only for standalone plots or first subplot)
     if legend_elements:
         ax.legend(handles=legend_elements, loc='best', fontsize=legend_font_size,
-                 framealpha=0.9)
-    
-    ax.set_xlim(np.min(x_data), np.max(x_data))
-    ax.set_ylim(np.min(y_data), np.max(y_data))
-    # Set minor grid lines with low alpha
-    ax.grid(True, which='minor', alpha=0.1, linestyle='-', linewidth=0.5)
-    ax.grid(True, which='major', alpha=0.5, linestyle='-', linewidth=0.5)
- 
+                framealpha=0.9)
     # Save and show only if we created a new figure
     if create_new_figure:
         # Tight layout and save (if file path is available)
@@ -536,7 +557,7 @@ def PlotUncertainty(Exploration, Params, ax=None, planet_name=None):
         # Save figure if Params has figure files configured
         if hasattr(Params, 'FigureFiles') and hasattr(Params.FigureFiles, 'path'):
             fig_path = f"{Params.FigureFiles.path}/uncertainty_plot.pdf"
-            fig.savefig(fig_path, format='pdf', dpi=300)
+            fig.savefig(fig_path, format='pdf', dpi=600)
             print(f"Uncertainty plot saved to: {fig_path}")
         
         plt.show()

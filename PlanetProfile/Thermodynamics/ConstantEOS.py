@@ -41,6 +41,7 @@ class  ConstantEOSStruct:
             self.ufn_VS_kms = returnVal(constantProperties['VS_kms'])
             self.ufn_KS_GPa = returnVal(constantProperties['KS_GPa'])
             self.ufn_GS_GPa = returnVal(constantProperties['GS_GPa'])
+            self.ufn_phi_frac = ReturnZeros(1)
             self.ufn_sigma_Sm = returnVal(constantProperties['sigma_Sm'])
             self.ufn_eta_Pas = returnVal(constantProperties['eta_Pas'])
             self.EOSdeltaP = None

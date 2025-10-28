@@ -5,7 +5,7 @@ Overridden by any settings contained within PPBody.py files.
 import os
 from PlanetProfile.Utilities.defineStructs import ParamsStruct, ExploreParamsStruct, Constants
 
-configVersion = 21  # Integer number for config file version. Increment when new settings are added to the default config file.
+configVersion = 22  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def configAssign():
     Params = ParamsStruct()
@@ -104,6 +104,8 @@ def configAssign():
     Params.PLOT_Zb_Y =        False # Whether to plot Zb vs Y for the exploreogram
     Params.PLOT_ZB_D =        False # Whether to plot Zb vs D for the exploreogram
     Params.XZPLOT_X_VARIABLE = 'Tb_K' # Default x variable for XZPlot_X_Variable plots
+    Params.PLOT_D_SIGMA = False # Whether to plot D vs sigma for the exploreogram
+    Params.PLOT_LOVE_COMPARISON = False # Whether to plot love number comparison for the exploreogram
     # Options for x/y variables: "xFeS", "rhoSilInput_kgm3", "oceanComp", "wOcean_ppt", "Tb_K", "ionosTop_km", "sigmaIonos_Sm",
     # "silPhi_frac", "silPclosure_MPa", "icePhi_frac", "icePclosure_MPa", "Htidal_Wm3", "Qrad_Wkg", "zb_approximate_km", "qSurf_Wm2" (Do.NO_H2O only)
     # For "oceanComp" option, must provide a .mat file titled xRangeData.mat or yRangeData.mat of a dictionary whose key 'Data' corresponds to a list of ocean comps to query over. Exploreparams.nx/ny should match lens of list.

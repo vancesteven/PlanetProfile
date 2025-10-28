@@ -248,6 +248,7 @@ class ExplorationResultsStruct:
         self.yUnits = None  # Units for y-axis variable
         self.xScale = 'linear'  # Scale type for x-axis ('linear' or 'log')
         self.yScale = 'linear'  # Scale type for y-axis ('linear' or 'log')
+        self.titleAddendum = None  # Additional title information
         
         # Additional exploration-specific results
         self.zName = None  # Name of z-axis variable

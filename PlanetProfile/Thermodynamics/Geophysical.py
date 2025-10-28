@@ -660,7 +660,12 @@ def InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m):
     rSil_m = np.array([np.linspace(Planet.r_m[i+Planet.Steps.iSilStart], rSilEnd_m, Planet.Steps.nSilMax+1) for i in profRange])
     Psil_MPa[:,0] = [Planet.P_MPa[i+Planet.Steps.iSilStart] for i in profRange]
     Tsil_K[:,0] = [Planet.T_K[i+Planet.Steps.iSilStart] for i in profRange]
-    rhoSil_kgm3[:,0] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,0], Tsil_K[:,0])
+    if Planet.Do.CONSTANT_INNER_DENSITY and not Planet.Do.Fe_CORE:
+        # If we are doing constant inner density and no core, we need to set the density to that calculated
+        rhoSil_kgm3[:,0] = Planet.Sil.rhoNoCore_kgm3
+    else:
+        # If we are doing constant inner density w/ core or EOS-based sil, then sil density is specified by user/EOS and we set it up in EOS already
+        rhoSil_kgm3[:,0] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,0], Tsil_K[:,0])
     kThermSil_WmK[:,0] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,0], Tsil_K[:,0])
     KSsil_GPa[:,0] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,0], Tsil_K[:,0])
     GSsil_GPa[:,0] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,0], Tsil_K[:,0])
@@ -830,7 +835,12 @@ def SilRecursionSolid(Planet, Params,
         Tsil_K[:,j], qTop_Wm2 = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
                     kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
                     qTop_Wm2)
-        rhoSil_kgm3[:,j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,j], Tsil_K[:,j])
+        if Planet.Do.CONSTANT_INNER_DENSITY and not Planet.Do.Fe_CORE:
+            # If we are doing constant inner density and no core, we need to set the density to that calculated
+            rhoSil_kgm3[:,j] = Planet.Sil.rhoNoCore_kgm3
+        else:
+            # If we are doing constant inner density, then sil density is specified by user and we set it up in EOS already
+            rhoSil_kgm3[:,j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,j], Tsil_K[:,j])
         kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j])
         # Get KS and GS now as they are needed for Htidal calculation;
         # we will calculate them again later along with other seismic calcs
@@ -871,7 +881,12 @@ def SilRecursionPorous(Planet, Params,
                     kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
                     qTop_Wm2)
         # Get matrix material physical properties
-        rhoSil_kgm3[:,j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,j], Tsil_K[:,j])
+        if Planet.Do.CONSTANT_INNER_DENSITY and not Planet.Do.Fe_CORE:
+            # If we are doing constant inner density and no core, we need to set the density to that calculated
+            rhoSil_kgm3[:,j] = Planet.Sil.rhoNoCore_kgm3
+        else:
+            # If we are doing constant inner density, then sil density is specified by user and we set it up in EOS already
+            rhoSil_kgm3[:,j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,j], Tsil_K[:,j])
         kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j])
         # Get KS and GS now as they are needed for Htidal calculation;
         # we will calculate them again later along with other seismic calcs
