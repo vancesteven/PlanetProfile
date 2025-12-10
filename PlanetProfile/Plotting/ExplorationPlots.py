@@ -8,11 +8,11 @@ import matplotlib.ticker as ticker
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Plotting.EssentialHelpers import *
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
-
+from scipy.interpolate import griddata
 import logging
 log = logging.getLogger('PlanetProfile')
 
-def GenerateExplorationPlots(ExplorationList, Params):
+def GenerateExplorationPlots(ExplorationList, FigureFilesList, Params):
     """
     Generate all exploration plots for a given list of results.
     """
@@ -22,15 +22,15 @@ def GenerateExplorationPlots(ExplorationList, Params):
     for Exploration in ExplorationList:
         all_ocean_comps.extend(np.array(Exploration.base.oceanComp).flatten())
     Params = SetupCustomSolutionPlotSettings(np.array(all_ocean_comps), Params)
-    if PLOT_EXPLORATION:
+    if PLOT_EXPLORATION:         
         # Use multi-subplot function only for multiple z-variables
         if isinstance(Params.Explore.zName, list):
-            PlotExploreOgramMultiSubplot(ExplorationList, Params)
+            PlotExploreOgramMultiSubplot(ExplorationList, FigureFilesList, Params)
         else:
             # Use original single-plot function for single z-variable
             for Exploration in ExplorationList:
                 Exploration.zName = Params.Explore.zName
-            PlotExploreOgram(ExplorationList, Params)
+            PlotExploreOgram(ExplorationList, FigureFilesList, Params)
         # Now we plot the ZbD plots (must plot after exploreogram plots since we change the x and y variables)
         if Params.PLOT_Zb_D:
             if isinstance(Params.Explore.zName, list):
@@ -39,38 +39,18 @@ def GenerateExplorationPlots(ExplorationList, Params):
                     for Exploration in ExplorationList:
                         Exploration.zName = zName
                     Params.FigureFiles.exploreZbD = figName
-                    PlotExploreOgramZbD(ExplorationList, Params)
+                    PlotExploreOgramZbD(ExplorationList, FigureFilesList, Params)
             else:
                 for Exploration in ExplorationList:
                     Exploration.zName = Params.Explore.zNameZbD
-                PlotExploreOgramZbD(ExplorationList, Params)
-        # Now we plot the ZbY plots (ice shell thickness vs specified property with ocean thickness as color)
-        if Params.PLOT_Zb_Y:
-            if isinstance(Params.Explore.zName, list):
-                figNames = Params.FigureFiles.exploreZbY + []
-                for zName, figName in zip(Params.Explore.zName, figNames):
-                    for Exploration in ExplorationList:
-                        Exploration.zName = zName
-                    Params.FigureFiles.exploreZbY = figName
-                    PlotExploreOgramXZ(ExplorationList, Params)
-            else:
-                for Exploration in ExplorationList:
-                    Exploration.zName = Params.Explore.zNameZbY
-                PlotExploreOgramXZ(ExplorationList, Params)
+                PlotExploreOgramZbD(ExplorationList, FigureFilesList, Params)
         if Params.PLOT_D_SIGMA:
-            PlotExploreOgramDsigma(ExplorationList, Params)
+            PlotExploreOgramDsigma(ExplorationList, FigureFilesList, Params)
         if Params.PLOT_LOVE_COMPARISON:
-            PlotExploreOgramLoveComparison(ExplorationList, Params)
+            PlotExploreOgramLoveComparison(ExplorationList, FigureFilesList, Params)
 
     
-def PlotExploreOgramDsigma(results_list, Params):
-    """
-    TODO: Create comparison structure creation function that:
-    - Combines data from all individual results into a single comparison structure
-    - Sets appropriate comparison titles and labels
-    - Appends to results_list so plotting treats it like any other result
-    """
-    
+def PlotExploreOgramDsigma(results_list, FigureFilesList, Params):
     # Step 1: Configure FigLbl using existing system (original pattern)
     results_list[0].xName = 'D_km'
     results_list[0].yName = 'sigmaMean_Sm' 
@@ -83,8 +63,10 @@ def PlotExploreOgramDsigma(results_list, Params):
 
     # Step 2: Create plots for each result (individual + comparison if present)
     for i, result in enumerate(r for r in results_list if not r.base.NO_H2O):
-        result.xName = 'D_km'
-        result.yName = 'sigmaMean_Sm'
+        FigureFiles = FigureFilesList[i]
+        Params.FigureFiles = FigureFiles
+        xName = 'D_km'
+        yName = 'sigmaMean_Sm'
         result.zName = 'zb_km'
         
         # Determine if this is the comparison plot (last result when COMPARE is enabled)
@@ -92,7 +74,7 @@ def PlotExploreOgramDsigma(results_list, Params):
                              and len(results_list) > 1)
         
         # Extract and validate data using helper
-        plot_data = extract_and_validate_plot_data(result_obj = result, x_field = result.xName, y_field = result.yName, c_field = result.zName,
+        plot_data = extract_and_validate_plot_data(result_obj = result, x_field = xName, y_field = yName, c_field = result.zName,
                                                   x_multiplier = FigLbl.xMultExplore, y_multiplier = FigLbl.yMultExplore, c_multiplier = 1.0, contour_multiplier = 1.0,
                                                   custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
         
@@ -184,25 +166,22 @@ def PlotExploreOgramDsigma(results_list, Params):
         plt.close()
 
 
-def PlotExploreOgram(results_list, Params, ax=None):
+def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None):
     # Set up basic figure labels using first result
-    first_result = results_list[0]
+    first_result = ExplorationList[0]
     FigLbl.SetExploration(first_result.base.bodyname, first_result.xName,
                           first_result.yName, first_result.zName, Params.Explore.contourName, first_result.excName, FigLbl.titleAddendum)
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
+    # Handle axis creation - support for multi-subplot usage
+    createNewFigure = ax is None
     
-    # Plot each result (individual exploration results + optional comparison)
-    last_index = len(results_list) - 1
-    for i, exploration in enumerate(results_list):
+    DO_SMOOTHING = FigMisc.EXPLOREOGRAM_SMOOTHING
+    for i, exploration in enumerate(ExplorationList):
+        FigureFiles = FigureFilesList[i]
+        Params.FigureFiles = FigureFiles
         
-        
-        # Detect if this is a comparison plot (last result when COMPARE=True)
-        is_comparison_plot = Params.COMPARE and i == last_index
-        
-        # Handle axis creation - support for multi-subplot usage
-        create_new_figure = ax is None
-        if create_new_figure:
+        if createNewFigure:
             # Create new figure/axes and save it (original behavior)
             fig = plt.figure(figsize=FigSize.explore)
             grid = GridSpec(1, 1)
@@ -216,18 +195,14 @@ def PlotExploreOgram(results_list, Params, ax=None):
         if Style.GRIDS:
             ax.grid()
             ax.set_axisbelow(True)
-        
-        # Set title based on plot type - only set individual titles, not figure titles
-        if exploration.zName == 'CMR2calc':
-            FigLbl.SetExploreTitle(exploration.base.bodyname, exploration.zName, exploration.CMR2str)
-        
+        else:
+            ax.grid(False)
+            ax.set_axisbelow(False)
+            
         # Only set figure title if we created the figure (not in subplot mode)
-        if Params.TITLES and create_new_figure:
-            if is_comparison_plot:
-                fig.suptitle(FigLbl.exploreCompareTitle)
-            else:
-                fig.suptitle(FigLbl.explorationTitle)
-        elif Params.TITLES and not create_new_figure:
+        if Params.TITLES and createNewFigure:
+            fig.suptitle(FigLbl.explorationTitle)
+        elif Params.TITLES and not createNewFigure:
             # In subplot mode, set the subplot title instead of figure title
             ax.set_title(FigLbl.cbarLabelExplore)
         
@@ -239,7 +214,7 @@ def PlotExploreOgram(results_list, Params, ax=None):
         
         # Extract x, y, z, and contour data using enhanced helper function
         contour_field = Params.Explore.contourName
-            
+        
         plot_data = extract_and_validate_plot_data(exploration, exploration.xName, exploration.yName, exploration.zName, contour_field,
                                   x_multiplier=FigLbl.xMultExplore, y_multiplier=FigLbl.yMultExplore, c_multiplier=FigLbl.zMultExplore, 
                                   contour_multiplier=1.0, custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
@@ -247,7 +222,9 @@ def PlotExploreOgram(results_list, Params, ax=None):
         x = plot_data['x'].reshape(original_shape)
         y = plot_data['y'].reshape(original_shape)
         z = plot_data['c'].reshape(original_shape)
+        contourData = z if contour_field is None else plot_data['contour'].reshape(original_shape)
         
+
         # Set axis limits
         ax.set_xlim([np.min(x), np.max(x)])
         ax.set_ylim([np.min(y), np.max(y)])
@@ -259,12 +236,52 @@ def PlotExploreOgram(results_list, Params, ax=None):
         z[INVALID] = np.nan
         # Return data to original organization
         z = np.reshape(z, z_shape)
-        
+                
+        if DO_SMOOTHING:
+            # Create finer resolution grid for smoothing
+            x_min, x_max = np.min(x), np.max(x)
+            y_min, y_max = np.min(y), np.max(y)
+            
+            # Get original grid dimensions
+            original_x_size = x.shape[1]
+            original_y_size = x.shape[0]
+            
+            # Create finer grid with higher resolution
+            smoothing_factor = 5  # Increase resolution by this factor
+            n_x_fine = original_x_size * smoothing_factor
+            n_y_fine = original_y_size * smoothing_factor
+            
+            # Create evenly spaced, strictly ascending fine grids
+            x_fine_1d = np.linspace(x_min, x_max, n_x_fine)
+            y_fine_1d = np.linspace(y_min, y_max, n_y_fine)
+            x_fine, y_fine = np.meshgrid(x_fine_1d, y_fine_1d)
+            
+            # Flatten original data for interpolation
+            x_flat = x.flatten()
+            y_flat = y.flatten()
+            z_flat = z.flatten()
+            contour_flat = contourData.flatten()
+            
+            # Remove invalid points for interpolation
+            valid_mask = ~np.isnan(z_flat)
+            x_valid = x_flat[valid_mask]
+            y_valid = y_flat[valid_mask]
+            z_valid = z_flat[valid_mask]
+            contour_valid = contour_flat[valid_mask]
+            if len(z_valid) > 0:
 
-        
-        contour_levels=[]
+                z_fine = griddata((x_valid, y_valid), z_valid, 
+                                (x_fine, y_fine), method='linear', fill_value=np.nan)
+                contour_fine = griddata((x_valid, y_valid), contour_valid, 
+                                (x_fine, y_fine), method='linear', fill_value=np.nan)
+                # Update x, y, z to use the finer resolution data
+                x = x_fine
+                y = y_fine
+                z = z_fine
+                contourData = contour_fine
         # Calculate valid data range for colorbar
         z_valid = z[z == z]  # Exclude NaNs
+        
         if np.size(z_valid) > 0:
                             
             data_min = np.min(z_valid)
@@ -281,88 +298,27 @@ def PlotExploreOgram(results_list, Params, ax=None):
                 # Use actual data range for colormap
                 vmin = data_min
                 vmax = data_max
-                        # Create the main plot
+            # Create the main plot
             mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], 
-                            vmin=vmin, vmax=vmax, rasterized=FigMisc.PT_RASTER)
-             # Add colorbar
+                            vmin=vmin, vmax=vmax, rasterized=FigMisc.PT_RASTER, edgecolors='none', linewidth = 0)
+            
+            """Colorbar""" 
+            # Add colorbar
             cbar = fig.colorbar(mesh, ax=ax, format=FigLbl.cbarFmt)
-            # Get colorbar tick values to use as contour levels
-            cbar_ticks = cbar.get_ticks()
+            # Change tick spacing if specified
             if FigLbl.cTicksSpacingExplore is not None:
                 cbar_ticks = np.arange(np.ceil(data_min / FigLbl.cTicksSpacingExplore) * FigLbl.cTicksSpacingExplore, np.floor(data_max / FigLbl.cTicksSpacingExplore) * FigLbl.cTicksSpacingExplore + 0.0001, FigLbl.cTicksSpacingExplore)
             
-                if len(cbar_ticks) > 10:
+                if len(cbar_ticks) > 8:
                     tooManyTicks = True
                     cTicksSpacingExplore = FigLbl.cTicksSpacingExplore
                     while tooManyTicks:
                         cTicksSpacingExplore = cTicksSpacingExplore + FigLbl.cTicksSpacingExplore
                         cbar_ticks = np.arange(np.ceil(data_min / cTicksSpacingExplore) * cTicksSpacingExplore, np.floor(data_max / cTicksSpacingExplore) * cTicksSpacingExplore + 0.0001, cTicksSpacingExplore)
-                        if len(cbar_ticks) <= 10:
+                        if len(cbar_ticks) <= 8:
                             tooManyTicks = False
                 cbar.set_ticks(cbar_ticks)
-            if vmin is not None and vmax is not None:
-                contour_levels = cbar_ticks[(cbar_ticks > vmin) & (cbar_ticks < vmax)]
-            else:
-                contour_levels = cbar_ticks
-            if len(contour_levels) > 0:
-                contourMin = np.min(contour_levels)
-                contourMax = np.max(contour_levels)
-                if FigLbl.cSpacingExplore is not None:
-                    contour_levels = np.arange(np.ceil(data_min / FigLbl.cSpacingExplore) * FigLbl.cSpacingExplore, np.floor(data_max / FigLbl.cSpacingExplore) * FigLbl.cSpacingExplore + 0.0001, FigLbl.cSpacingExplore)
-            # Determine contour variable and levels
-            contour_variable = z  # Default to using z variable for contours
-            if plot_data['contour'] is not None:
-                # Use the separate contour variable
-                contour_variable = plot_data['contour'].reshape(original_shape)
-                
-                # Apply same validity mask to contour variable
-                contour_shape = np.shape(contour_variable)
-                contour_variable = np.reshape(contour_variable, -1).astype(np.float64)
-                contour_variable[INVALID] = np.nan
-                contour_variable = np.reshape(contour_variable, contour_shape)
-                # Calculate valid data range for colorbar
-                contour_valid = contour_variable[contour_variable == contour_variable]  # Exclude NaNs
-                if np.size(contour_valid) > 0:
-                    contourMin = np.min(contour_valid)
-                    contourMax = np.max(contour_valid)
-                else:
-                    contourMin = contourMax = None
-                if contourMin is not None and contourMax is not None:
-                    contour_levels = np.linspace(contourMin, contourMax, 5)
-                
-        if FigLbl.cSpacingExplore is not None:
-            if len(contour_levels) > 20:
-                tooManyContours = True
-                cSpacingExplore = FigLbl.cSpacingExplore
-                while tooManyContours:
-                    cSpacingExplore *= 2
-                    contour_levels = np.arange(np.ceil(contourMin / cSpacingExplore) * cSpacingExplore, np.floor(contourMax / cSpacingExplore) * cSpacingExplore + 0.0001, cSpacingExplore)
-                    if len(contour_levels) <= 20:
-                        tooManyContours = False
-            
-        # Create contours at colorbar tick levels
-        if len(contour_levels) > 0:
-            cont = ax.contour(x, y, contour_variable, levels=contour_levels, colors='black')
-            lbls = plt.clabel(cont, fmt=FigLbl.cfmt, fontsize=20, colors='black')
-                            # Get pixel positions of all labels
-            positions = np.array([ax.transData.transform(txt.get_position()) for txt in lbls])
-            n = len(lbls)
-            
-            close_to_another = np.zeros(n, dtype=bool)
-            
-            for i in range(n):
-                for j in range(i+1, n):
-                    dist = np.linalg.norm(positions[i] - positions[j])
-                    if dist < 25:
-                        close_to_another[i] = True
-                        close_to_another[j] = True
-            
-            for i, txt in enumerate(lbls):
-                if close_to_another[i]:
-                    txt.set_fontsize(2)
-        # Add the min and max values to the colorbar for reading convenience
-        if np.size(z_valid) > 0:
-            # Use the adjusted vmin/vmax that may have been zero-pinned
+                        # Use the adjusted vmin/vmax that may have been zero-pinned
             mesh.set_clim(vmin=vmin, vmax=vmax)
             
             # Check if we should truncate the colorbar (only for zero-pinned colormaps)
@@ -398,6 +354,14 @@ def PlotExploreOgram(results_list, Params, ax=None):
                             valid_ticks = np.delete(valid_ticks, -1)
                     else:
                         valid_ticks = existing_ticks
+                elif len(existing_ticks) == 1:
+                    tick_diff = data_max - data_min
+                    if existing_ticks[0] - data_min < tick_diff * 0.2:
+                        valid_ticks = np.delete(existing_ticks, 0)
+                    elif data_max - existing_ticks[0] < tick_diff * 0.2:
+                        valid_ticks = np.delete(existing_ticks, 0)
+                    else:
+                        valid_ticks = existing_ticks
                 else:
                     valid_ticks = existing_ticks
                 # Add min and max values to the filtered ticks (using actual data range)
@@ -405,24 +369,80 @@ def PlotExploreOgram(results_list, Params, ax=None):
                 cbar.set_ticks(np.unique(new_ticks))  
             
             cbar.ax.tick_params(labelsize=20)
-            if create_new_figure:
+            if createNewFigure:
                 cbar.set_label(FigLbl.cbarLabelExplore, size=25)
-        
+            
+            
+            """Contour levels"""
+            # If no contour field is provided, then we use the color field (i.e. z variable)
+            if contour_field is None:
+                # Get colorbar tick values to use as contour levels
+                cbar_ticks = cbar.get_ticks()
+                # Ensure contour levels are within the data range
+                contourLevels = cbar_ticks[(cbar_ticks > vmin) & (cbar_ticks < vmax)]
+            else:
+                # Apply same validity mask to contour variable
+                contourShape = np.shape(contourData)
+                contourData = np.reshape(contourData, -1).astype(np.float64)
+                contourData[INVALID] = np.nan
+                contourData = np.reshape(contourData, contourShape)
+                # Calculate valid data range for colorbar
+                contourValid = contourData[contourData == contourData]  # Exclude NaNs
+                
+                if np.size(contourValid) > 0:
+                    contourLevels = np.linspace(np.min(contourValid), np.max(contourValid), 5)
+                else:
+                    contourLevels = np.array([])
+            # Change contour spacing if specified
+            if FigLbl.cSpacingExplore is not None and contourLevels.size > 0:
+                contourMin = np.min(contourLevels)
+                contourMax = np.max(contourLevels)
+                # Ensure contour levels are within the data range
+                contourLevels = np.arange(np.ceil(contourLevels[0] / FigLbl.cSpacingExplore) * FigLbl.cSpacingExplore, np.floor(contourLevels[-1] / FigLbl.cSpacingExplore) * FigLbl.cSpacingExplore + 0.0001, FigLbl.cSpacingExplore)
+                if len(contourLevels) > 5:
+                    tooManyContours = True
+                    cSpacingExplore = FigLbl.cSpacingExplore
+                    while tooManyContours:
+                        cSpacingExplore *= 2
+                        contourLevels = np.arange(np.ceil(contourMin / cSpacingExplore) * cSpacingExplore, np.floor(contourMax / cSpacingExplore) * cSpacingExplore + 0.0001, cSpacingExplore)
+                        if len(contourLevels) <= 5:
+                            tooManyContours = False
+
+            # Reduce contour text size if they are close to other contours
+            if len(contourLevels) > 0:
+                cont = ax.contour(x, y, contourData, levels=contourLevels, colors='black')
+                lbls = plt.clabel(cont, fmt=FigLbl.cfmt, fontsize=15,
+                  colors='black', inline=True)
+                # Get pixel positions of all labels
+                positions = np.array([ax.transData.transform(txt.get_position()) for txt in lbls])
+                n = len(lbls)
+                
+                close_to_another = np.zeros(n, dtype=bool)
+                
+                for i in range(n):
+                    for j in range(i+1, n):
+                        dist = np.linalg.norm(positions[i] - positions[j])
+                        if dist < 25:
+                            close_to_another[i] = True
+                            close_to_another[j] = True
+                
+                for i, txt in enumerate(lbls):
+                    if close_to_another[i]:
+                        txt.set_fontsize(2)
     
-    # Save the plot only if we created a new figure
-    if create_new_figure:
-        plt.tight_layout()
-        fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat,
-                   dpi=FigMisc.dpi, metadata=FigLbl.meta)
-        log.debug(f'Plot saved to file: {Params.FigureFiles.explore}')
-        plt.close()
-    
-    # Return the axis for multi-subplot usage (only if ax was provided)
-    if not create_new_figure:
-        return ax
+        # Save the plot only if we created a new figure
+        if createNewFigure:
+            plt.tight_layout()
+            fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat,
+                    dpi=FigMisc.dpi, metadata=FigLbl.meta)
+            log.debug(f'Plot saved to file: {Params.FigureFiles.explore}')
+            plt.close()
+        # Return the axis for multi-subplot usage (only if ax was provided)
+        else:
+            return ax
     
 
-def PlotExploreOgramMultiSubplot(results_list, Params):
+def PlotExploreOgramMultiSubplot(results_list, FigureFilesList, Params):
     """
     Create multiple exploration subplots with different z-variables in a single figure.
     
@@ -471,67 +491,71 @@ def PlotExploreOgramMultiSubplot(results_list, Params):
     fig_width = base_size[0] * n_cols * scale_factor
     fig_height = base_size[1] * n_rows * scale_factor
     
-    # Create figure with subplots
-    fig = plt.figure(figsize=(fig_width, fig_height))
     
     
-    # Create subplots and let PlotExploreOgram handle individual plots
-    axes = []
-    for i in range(n_subplots):
-        row = i // n_cols
-        col = i % n_cols
-        ax = fig.add_subplot(n_rows, n_cols, i + 1)
-        axes.append(ax)
+    for j, Exploration in enumerate(results_list):
+        # Create figure with subplots
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(fig_width, fig_height), constrained_layout=True, squeeze=False)
+        SubListFigureFiles = [FigureFilesList[j]]
+        # Create subplots and let PlotExploreOgram handle individual plots
+        for i in range(n_subplots):
+            row = i // n_cols
+            col = i % n_cols
+            ax = axes[row, col]
+            
+            # Set z-variable for all results
+            Exploration.zName = zNames[i]
+            Exploration.excName = zExcNames[i]
+            
+            # Call PlotExploreOgram with this axis - let it handle the subplot title
+            PlotExploreOgram([Exploration], SubListFigureFiles, Params, ax=ax)
+            # Explicitly disable grid after plotting to prevent grid lines from appearing on save
+            if not Style.GRIDS:
+                ax.grid(False)
+                ax.set_axisbelow(False)
+            # Add subplot label (a, b, c, etc.) if enabled
+            if FigMisc.SUBPLOT_LABELS:
+                # Generate label: 'a)', 'b)', 'c)', etc.
+                label = f"{chr(ord('a') + i)}"
+                ax.text(FigMisc.SUBPLOT_LABEL_X, FigMisc.SUBPLOT_LABEL_Y, label, 
+                    transform=ax.transAxes, fontsize=FigMisc.SUBPLOT_LABEL_FONTSIZE,
+                    fontweight='bold', ha='left', va='top',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+            
+            # After plotting, hide axis labels selectively
+            is_bottom_row = (row == n_rows - 1) or (i >= n_subplots - n_cols)
+            is_left_column = (col == 0) 
+            
+            if not is_bottom_row:
+                ax.set_xlabel('')
+                ax.tick_params(axis='x', labelbottom=False)
+            
+            if not is_left_column:
+                ax.set_ylabel('')
+                ax.tick_params(axis='y', labelleft=False)
         
-        # Set z-variable for all results
-        z_name = zNames[i]
-        exc_name = zExcNames[i]
-        for result in results_list:
-            result.zName = z_name
-            result.excName = exc_name
+        # Hide unused subplots
+        total_subplots = n_rows * n_cols
+        for i in range(n_subplots, total_subplots):
+            ax = fig.add_subplot(n_rows, n_cols, i + 1)
+            ax.set_visible(False)
+            # Set overall title if configured
+        fig.suptitle(FigLbl.subplotExplorationTitle, fontsize=15)
+        # Explicitly disable grid after plotting to prevent grid lines from appearing on save
+        for ax in axes.flatten():
+            if not Style.GRIDS:
+                ax.grid(False)
+                ax.set_axisbelow(False)
         
-        # Call PlotExploreOgram with this axis - let it handle the subplot title
-        PlotExploreOgram(results_list, Params, ax=ax)
-        
-        # Add subplot label (a, b, c, etc.) if enabled
-        if FigMisc.SUBPLOT_LABELS:
-            # Generate label: 'a)', 'b)', 'c)', etc.
-            label = f"{chr(ord('a') + i)}"
-            ax.text(FigMisc.SUBPLOT_LABEL_X, FigMisc.SUBPLOT_LABEL_Y, label, 
-                   transform=ax.transAxes, fontsize=FigMisc.SUBPLOT_LABEL_FONTSIZE,
-                   fontweight='bold', ha='left', va='top',
-                   bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
-        
-        # After plotting, hide axis labels selectively
-        is_bottom_row = (row == n_rows - 1) or (i >= n_subplots - n_cols)
-        is_left_column = (col == 0) 
-        
-        if not is_bottom_row:
-            ax.set_xlabel('')
-            ax.tick_params(axis='x', labelbottom=False)
-        
-        if not is_left_column:
-            ax.set_ylabel('')
-            ax.tick_params(axis='y', labelleft=False)
-    
-    # Hide unused subplots
-    total_subplots = n_rows * n_cols
-    for i in range(n_subplots, total_subplots):
-        ax = fig.add_subplot(n_rows, n_cols, i + 1)
-        ax.set_visible(False)
-        # Set overall title if configured
-    fig.suptitle(FigLbl.subplotExplorationTitle, fontsize=15)
-    # Save the combined figure
-    plt.tight_layout()
 
-    
-    fig.savefig(Params.FigureFiles.exploreMultiSubplot, format=FigMisc.figFormat,
-               dpi=FigMisc.dpi, metadata=FigLbl.meta)
-    log.debug(f'Multi-subplot exploration plot saved to file: {Params.FigureFiles.exploreMultiSubplot}')
-    plt.close()
+        
+        fig.savefig(Params.FigureFiles.exploreMultiSubplot, format=FigMisc.figFormat,
+                dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        log.debug(f'Multi-subplot exploration plot saved to file: {Params.FigureFiles.exploreMultiSubplot}')
+        plt.close()
 
 
-def PlotExploreOgramZbD(results_list, Params):
+def PlotExploreOgramZbD(results_list, FigureFilesList, Params):
     # Set up basic figure labels using first result
     first_result = results_list[0]
     FigLbl.SetExploration(first_result.base.bodyname, 'zb_km', 'D_km', first_result.zName)
@@ -541,21 +565,22 @@ def PlotExploreOgramZbD(results_list, Params):
     # Plot each result (individual exploration results + optional comparison)
     last_index = len(results_list) - 1
     for i, result in enumerate(results_list):
-        
+        FigureFiles = FigureFilesList[i]
+        Params.FigureFiles = FigureFiles
         # Skip results with no H2O
         if result.base.NO_H2O:
             continue
             
         # Set axis variable names for this plot type
-        _, result.xName = getIceShellThickness(result)
-        result.yName = 'D_km' 
+        _, xName = getIceShellThickness(result)
+        yName = 'D_km' 
         # zName should already be set by user
         
         # Detect if this is a comparison plot (last result when COMPARE=True)
         is_comparison_plot = Params.COMPARE and i == last_index
         
         # Extract and validate data using helper
-        plot_data = extract_and_validate_plot_data(result_obj = result, x_field = result.xName, y_field = result.yName, c_field = result.zName,
+        plot_data = extract_and_validate_plot_data(result_obj = result, x_field = xName, y_field = yName, c_field = result.zName,
                                                   x_multiplier = FigLbl.xMultExplore, y_multiplier = FigLbl.yMultExplore, c_multiplier = FigLbl.zMultExplore,
                                                   custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
         
@@ -644,7 +669,206 @@ def PlotExploreOgramZbD(results_list, Params):
         plt.close()
 
 
-def PlotExploreOgramXZ(results_list, Params):
+def PlotExploreOgramLoveComparison(results_list, FigureFilesList, Params):
+    """
+    
+    Plots scatter showing tidal love number k2 versus delta (1+k2-h2) for comparison 
+    against canonical k2/delta exploration plots. Features ice thickness coloring,
+    composition lines, dual legend system, and optional error bars.
+    
+    Args:
+        results_list: List of ExplorationResults objects (individual + optional comparison)
+        Params: Configuration parameters
+    """
+    
+    # Set up basic figure labels using first result
+    first_result = results_list[0]
+    FigLbl.SetExploration(first_result.base.bodyname, 'deltaLoveAmp', 
+                          'kLoveAmp', 'oceanComp')
+    if not FigMisc.TEX_INSTALLED:
+        FigLbl.StripLatex()
+    
+    # Plot each result (individual exploration results + optional comparison)
+    last_index = len(results_list) - 1
+    for i, result in enumerate(results_list):
+        FigureFiles = FigureFilesList[i]
+        Params.FigureFiles = FigureFiles
+        # Skip results with no H2O
+        if result.base.NO_H2O:
+            continue
+            
+        # Set axis variable names for this plot type
+        xName = 'deltaLoveAmp'
+        yName = 'kLoveAmp'
+        result.zName = 'oceanComp'
+        
+        # Detect if this is a comparison plot (last result when COMPARE=True)
+        is_comparison_plot = Params.COMPARE and i == last_index
+        
+        # Extract and validate data using helper
+        plot_data = extract_and_validate_plot_data(result_obj = result, x_field = xName, y_field = yName, c_field = result.zName,
+                                                  x_multiplier = FigLbl.xMultExplore, y_multiplier = FigLbl.yMultExplore, c_multiplier = FigLbl.zMultExplore,
+                                                  custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
+        
+        if len(plot_data['x']) == 0:
+            log.warning(f"No valid data points for {result.base.bodyname}")
+            continue
+        
+        # Create figure and axis
+        fig = plt.figure(figsize=FigSize.explore)
+        grid = GridSpec(1, 1)
+        ax = fig.add_subplot(grid[0, 0])
+        if Style.GRIDS:
+            ax.grid()
+            ax.set_axisbelow(True)
+        
+        # Set title based on plot type
+        if Params.TITLES:
+            if is_comparison_plot:
+                fig.suptitle(FigLbl.exploreCompareTitle)
+            else:
+                fig.suptitle(FigLbl.explorationLoveComparisonTitle)
+        
+        # Set up axis labels and scales
+        ax.set_xlabel(FigLbl.xLabelExplore)
+        ax.set_ylabel(FigLbl.yLabelExplore)
+        ax.set_xscale('linear')  # Love plots use linear scales
+        ax.set_yscale('linear')
+        
+        # Extract plot data
+        x, y, z = plot_data['x'], plot_data['y'], plot_data['c']
+        
+        # Get ice thickness data for coloring
+        ice_thickness_data = extract_and_validate_plot_data(result_obj = result, x_field = 'zb_approximate_km', y_field = yName,
+                                                           c_field = None, contour_field = None,
+                                                           x_multiplier = 1.0, y_multiplier = 1.0, c_multiplier = 1.0, contour_multiplier = 1.0,
+                                                           custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
+        ice_thickness = ice_thickness_data['x']  # x field contains the ice thickness
+        
+        # Get ocean composition data for composition lines
+        ocean_comp = result.base.oceanComp.flatten()
+        
+        # Draw composition lines if enabled using helper
+        if FigMisc.DRAW_COMPOSITION_LINE:
+            # Get temperature data for color scaling
+            temp_data = extract_and_validate_plot_data(result_obj = result, x_field = 'Tb_K', y_field = yName, c_field = None, contour_field = None,
+                                                       x_multiplier = 1.0, y_multiplier = 1.0, c_multiplier = 1.0, contour_multiplier = 1.0,
+                                                       custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
+            temp_values = temp_data['x']  # Temperature values for color scaling
+            
+            # Set up temperature bounds for color mapping
+            if len(temp_values) > 0:
+                TminMax_K = [np.nanmin(temp_values), np.nanmax(temp_values)]
+                Color.Tbounds_K = TminMax_K
+            
+            draw_ocean_composition_lines(ax, x, y, temp_values, ocean_comp, 
+                                       FigMisc.MANUAL_HYDRO_COLORS,
+                                       FigMisc.LOVE_COMP_LINE_WIDTH, FigMisc.LOVE_COMP_LINE_ALPHA)
+            
+            # Add error bars if enabled
+            if FigMisc.SHOW_ERROR_BARS:
+                ax.errorbar(x, y, yerr=FigMisc.ERROR_BAR_MAGNITUDE, fmt='none', 
+                           color='gray', capsize=3, alpha=0.5)
+        
+        # Handle ice thickness coloring
+        if len(ice_thickness) > 0:
+            # Set bounds for normalization
+            Tbound_lower = np.min(ice_thickness)
+            Tbound_upper = np.max(ice_thickness)
+            # Get normalized values using GetNormT
+            norm_thickness = Color.GetNormT(ice_thickness, Tbound_lower, Tbound_upper)
+        else:
+            norm_thickness = np.ones(np.shape(x))
+        
+        # Plot scatter points with ice thickness coloring and optional convection-based markers
+        if FigMisc.SHOW_CONVECTION_WITH_SHAPE:
+            # Plot with different markers for convection vs non-convection
+            # Convection points (Dconv_m > 0): use circle marker
+            # Non-convection points (Dconv_m <= 0): use square marker
+            convection_data = extract_and_validate_plot_data(result_obj = result, x_field = xName, y_field = yName,
+                                                           c_field = 'Dconv_m', contour_field = None,
+                                                           x_multiplier = 1.0, y_multiplier = 1.0, c_multiplier = 1.0, contour_multiplier = 1.0,
+                                                           custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
+            # Create boolean array: True for convection (Dconv_m > 0), False for no convection
+            convection_markers = convection_data['c'] > 0
+            conv_mask = convection_markers
+            non_conv_mask = ~convection_markers
+            # 2. Create a Normalize object to map your data range to [0, 1]
+            norm = Normalize(vmin=norm_thickness.min(), vmax=norm_thickness.max())
+
+            # 3. Apply the colormap to normalized data to get RGBA values
+            colors = get_cmap(FigMisc.LOVE_ICE_THICKNESS_CMAP)(norm(norm_thickness)) 
+            
+        
+            # Plot convection points
+            if np.any(conv_mask):
+                ax.scatter(x[conv_mask], y[conv_mask], c=colors[conv_mask], marker='v', 
+                          s=Style.MW_Induction**2, edgecolors=FigMisc.LOVE_DOT_EDGE_COLOR, 
+                          linewidths=FigMisc.LOVE_DOT_EDGE_WIDTH, zorder=3)
+            
+            # Plot non-convection points
+            if np.any(non_conv_mask):
+                ax.scatter(x[non_conv_mask], y[non_conv_mask], c=colors[non_conv_mask], marker='^', 
+                          s=Style.MW_Induction**2, edgecolors=FigMisc.LOVE_DOT_EDGE_COLOR, 
+                          linewidths=FigMisc.LOVE_DOT_EDGE_WIDTH, zorder=3)
+        else:
+            # Plot with default marker
+            pts = ax.scatter(x, y, c=norm_thickness,
+                            cmap=FigMisc.LOVE_ICE_THICKNESS_CMAP, marker=Style.MS_Induction, 
+                            s=Style.MW_Induction**2, edgecolors=FigMisc.LOVE_DOT_EDGE_COLOR, 
+                            linewidths=FigMisc.LOVE_DOT_EDGE_WIDTH, zorder=3)
+        
+        # Create ice thickness legend if enabled
+        if FigMisc.SHOW_ICE_THICKNESS_DOTS and len(ice_thickness) > 0 and Params.LEGEND:
+            ice_legend = create_ice_thickness_colorbar(
+                ax, ice_thickness,
+                cmap_name=FigMisc.LOVE_ICE_THICKNESS_CMAP,
+            )
+        
+        # Set axis limits with special Love plot formatting
+        if np.size(x) > 0:
+            ax.set_xlim([0, np.nanmax(x) + 0.01])
+        if np.size(y) > 0:
+            # Account for error bars when setting y limits
+            if FigMisc.SHOW_ERROR_BARS:
+                error_magnitude = FigMisc.ERROR_BAR_MAGNITUDE
+                y_min_with_error = np.nanmin(y) - error_magnitude
+                y_max_with_error = np.nanmax(y) + error_magnitude
+                ax.set_ylim([np.floor(y_min_with_error*100)/100, np.ceil(y_max_with_error*100)/100])
+            else:
+                ax.set_ylim([np.floor(np.nanmin(y)*100)/100, np.ceil(np.nanmax(y)*100)/100])
+        
+        # Add legend for composition lines if enabled
+        if FigMisc.DRAW_COMPOSITION_LINE and Params.LEGEND:
+            legend1 = ax.legend(fontsize=FigMisc.LOVE_COMP_LEGEND_FONT_SIZE,
+                               loc='upper right', bbox_to_anchor=(1.0, 1.0))
+            ax.add_artist(legend1)
+        
+        # Add second legend for convection markers if enabled
+        if FigMisc.SHOW_CONVECTION_WITH_SHAPE and Params.LEGEND:
+            legend_elements = [
+                Line2D([0], [0], marker='v', color='w', markerfacecolor='gray', 
+                       markersize=8, label='Convection'),
+                Line2D([0], [0], marker='^', color='w', markerfacecolor='gray', 
+                       markersize=8, label='No Convection')
+            ]
+            legend2 = ax.legend(handles=legend_elements, fontsize=FigMisc.LOVE_COMP_LEGEND_FONT_SIZE,
+                               loc='lower left', bbox_to_anchor=(0.0, 0.0))
+            ax.add_artist(legend2)
+        # Save the plot
+        plt.tight_layout()
+        fig.savefig(Params.FigureFiles.exploreLoveComparison, format=FigMisc.figFormat,
+                   dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        log.debug(f'Plot saved to file: {Params.FigureFiles.exploreLoveComparison}')
+        plt.close()
+    
+
+
+
+
+# Unused Functions
+
+def PlotExploreOgramXZ(results_list, FigureFilesList, Params):
     """
     Plots scatter showing any x variable vs any z variable with ocean thickness as color,
     with optional ocean composition lines. The x variable is configurable via Params.XZPLOT_X_VARIABLE
@@ -665,22 +889,23 @@ def PlotExploreOgramXZ(results_list, Params):
     
     # Set up basic figure labels using first result
     first_result = results_list[0]
-    first_result.yName = first_result.zName
+    first_yName = first_result.zName
     # Use configurable x variable instead of hardcoded 'D_km'
     x_variable = Params.XZPLOT_X_VARIABLE
-    FigLbl.SetExploration(first_result.base.bodyname, x_variable, first_result.yName, 'zb_km')
+    FigLbl.SetExploration(first_result.base.bodyname, x_variable, first_yName, 'zb_km')
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
     
     # Plot each result (individual exploration results + optional comparison)
     last_index = len(results_list) - 1
     for i, result in enumerate(results_list):
-        
+        FigureFiles = FigureFilesList[i]
+        Params.FigureFiles = FigureFiles
         # Skip results with no H2O
         if result.base.NO_H2O:
             continue
         # Use configurable x variable instead of hardcoded 'D_km'
-        result.xName = Params.XZPLOT_X_VARIABLE
+        xName = Params.XZPLOT_X_VARIABLE
         # Set axis variable names for this plot type
         _, result.zName = getIceShellThickness(result)
         
@@ -688,7 +913,7 @@ def PlotExploreOgramXZ(results_list, Params):
         is_comparison_plot = Params.COMPARE and i == last_index
         
         # Extract and validate data using helper
-        plot_data = extract_and_validate_plot_data(result_obj = result, x_field = result.xName, y_field = result.yName, c_field = result.zName,
+        plot_data = extract_and_validate_plot_data(result_obj = result, x_field = xName, y_field = yName, c_field = result.zName,
                                                   x_multiplier = FigLbl.xMultExplore, y_multiplier = FigLbl.yMultExplore, c_multiplier = FigLbl.zMultExplore,
                                                   custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
         
@@ -778,202 +1003,9 @@ def PlotExploreOgramXZ(results_list, Params):
                    dpi=FigMisc.dpi, metadata=FigLbl.meta)
         log.debug(f'Plot saved to file: {Params.FigureFiles.exploreZbY}')
         plt.close()
-
-
-def PlotExploreOgramLoveComparison(results_list, Params):
-    """
-    
-    Plots scatter showing tidal love number k2 versus delta (1+k2-h2) for comparison 
-    against canonical k2/delta exploration plots. Features ice thickness coloring,
-    composition lines, dual legend system, and optional error bars.
-    
-    Args:
-        results_list: List of ExplorationResults objects (individual + optional comparison)
-        Params: Configuration parameters
-    """
-    
-    # Set up basic figure labels using first result
-    first_result = results_list[0]
-    FigLbl.SetExploration(first_result.base.bodyname, 'deltaLoveAmp', 
-                          'kLoveAmp', 'oceanComp')
-    if not FigMisc.TEX_INSTALLED:
-        FigLbl.StripLatex()
-    
-    # Plot each result (individual exploration results + optional comparison)
-    last_index = len(results_list) - 1
-    for i, result in enumerate(results_list):
         
-        # Skip results with no H2O
-        if result.base.NO_H2O:
-            continue
-            
-        # Set axis variable names for this plot type
-        result.xName = 'deltaLoveAmp'
-        result.yName = 'kLoveAmp'
-        result.zName = 'oceanComp'
         
-        # Detect if this is a comparison plot (last result when COMPARE=True)
-        is_comparison_plot = Params.COMPARE and i == last_index
-        
-        # Extract and validate data using helper
-        plot_data = extract_and_validate_plot_data(result_obj = result, x_field = result.xName, y_field = result.yName, c_field = result.zName,
-                                                  x_multiplier = FigLbl.xMultExplore, y_multiplier = FigLbl.yMultExplore, c_multiplier = FigLbl.zMultExplore,
-                                                  custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
-        
-        if len(plot_data['x']) == 0:
-            log.warning(f"No valid data points for {result.base.bodyname}")
-            continue
-        
-        # Create figure and axis
-        fig = plt.figure(figsize=FigSize.explore)
-        grid = GridSpec(1, 1)
-        ax = fig.add_subplot(grid[0, 0])
-        if Style.GRIDS:
-            ax.grid()
-            ax.set_axisbelow(True)
-        
-        # Set title based on plot type
-        if Params.TITLES:
-            if is_comparison_plot:
-                fig.suptitle(FigLbl.exploreCompareTitle)
-            else:
-                fig.suptitle(FigLbl.explorationLoveComparisonTitle)
-        
-        # Set up axis labels and scales
-        ax.set_xlabel(FigLbl.xLabelExplore)
-        ax.set_ylabel(FigLbl.yLabelExplore)
-        ax.set_xscale('linear')  # Love plots use linear scales
-        ax.set_yscale('linear')
-        
-        # Extract plot data
-        x, y, z = plot_data['x'], plot_data['y'], plot_data['c']
-        
-        # Get ice thickness data for coloring
-        ice_thickness_data = extract_and_validate_plot_data(result_obj = result, x_field = 'zb_approximate_km', y_field = result.yName,
-                                                           c_field = None, contour_field = None,
-                                                           x_multiplier = 1.0, y_multiplier = 1.0, c_multiplier = 1.0, contour_multiplier = 1.0,
-                                                           custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
-        ice_thickness = ice_thickness_data['x']  # x field contains the ice thickness
-        
-        # Get ocean composition data for composition lines
-        ocean_comp = result.base.oceanComp.flatten()
-        
-        # Draw composition lines if enabled using helper
-        if FigMisc.DRAW_COMPOSITION_LINE:
-            # Get temperature data for color scaling
-            temp_data = extract_and_validate_plot_data(result_obj = result, x_field = 'Tb_K', y_field = result.yName, c_field = None, contour_field = None,
-                                                       x_multiplier = 1.0, y_multiplier = 1.0, c_multiplier = 1.0, contour_multiplier = 1.0,
-                                                       custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
-            temp_values = temp_data['x']  # Temperature values for color scaling
-            
-            # Set up temperature bounds for color mapping
-            if len(temp_values) > 0:
-                TminMax_K = [np.nanmin(temp_values), np.nanmax(temp_values)]
-                Color.Tbounds_K = TminMax_K
-            
-            draw_ocean_composition_lines(ax, x, y, temp_values, ocean_comp, 
-                                       FigMisc.MANUAL_HYDRO_COLORS,
-                                       FigMisc.LOVE_COMP_LINE_WIDTH, FigMisc.LOVE_COMP_LINE_ALPHA)
-            
-            # Add error bars if enabled
-            if FigMisc.SHOW_ERROR_BARS:
-                ax.errorbar(x, y, yerr=FigMisc.ERROR_BAR_MAGNITUDE, fmt='none', 
-                           color='gray', capsize=3, alpha=0.5)
-        
-        # Handle ice thickness coloring
-        if len(ice_thickness) > 0:
-            # Set bounds for normalization
-            Tbound_lower = np.min(ice_thickness)
-            Tbound_upper = np.max(ice_thickness)
-            # Get normalized values using GetNormT
-            norm_thickness = Color.GetNormT(ice_thickness, Tbound_lower, Tbound_upper)
-        else:
-            norm_thickness = np.ones(np.shape(x))
-        
-        # Plot scatter points with ice thickness coloring and optional convection-based markers
-        if FigMisc.SHOW_CONVECTION_WITH_SHAPE:
-            # Plot with different markers for convection vs non-convection
-            # Convection points (Dconv_m > 0): use circle marker
-            # Non-convection points (Dconv_m <= 0): use square marker
-            convection_data = extract_and_validate_plot_data(result_obj = result, x_field = result.xName, y_field = result.yName,
-                                                           c_field = 'Dconv_m', contour_field = None,
-                                                           x_multiplier = 1.0, y_multiplier = 1.0, c_multiplier = 1.0, contour_multiplier = 1.0,
-                                                           custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
-            # Create boolean array: True for convection (Dconv_m > 0), False for no convection
-            convection_markers = convection_data['c'] > 0
-            conv_mask = convection_markers
-            non_conv_mask = ~convection_markers
-            # 2. Create a Normalize object to map your data range to [0, 1]
-            norm = Normalize(vmin=norm_thickness.min(), vmax=norm_thickness.max())
-
-            # 3. Apply the colormap to normalized data to get RGBA values
-            colors = get_cmap(FigMisc.LOVE_ICE_THICKNESS_CMAP)(norm(norm_thickness)) 
-            
-        
-            # Plot convection points
-            if np.any(conv_mask):
-                ax.scatter(x[conv_mask], y[conv_mask], c=colors[conv_mask], marker='v', 
-                          s=Style.MW_Induction**2, edgecolors=FigMisc.LOVE_DOT_EDGE_COLOR, 
-                          linewidths=FigMisc.LOVE_DOT_EDGE_WIDTH, zorder=3)
-            
-            # Plot non-convection points
-            if np.any(non_conv_mask):
-                ax.scatter(x[non_conv_mask], y[non_conv_mask], c=colors[non_conv_mask], marker='^', 
-                          s=Style.MW_Induction**2, edgecolors=FigMisc.LOVE_DOT_EDGE_COLOR, 
-                          linewidths=FigMisc.LOVE_DOT_EDGE_WIDTH, zorder=3)
-        else:
-            # Plot with default marker
-            pts = ax.scatter(x, y, c=norm_thickness,
-                            cmap=FigMisc.LOVE_ICE_THICKNESS_CMAP, marker=Style.MS_Induction, 
-                            s=Style.MW_Induction**2, edgecolors=FigMisc.LOVE_DOT_EDGE_COLOR, 
-                            linewidths=FigMisc.LOVE_DOT_EDGE_WIDTH, zorder=3)
-        
-        # Create ice thickness legend if enabled
-        if FigMisc.SHOW_ICE_THICKNESS_DOTS and len(ice_thickness) > 0 and Params.LEGEND:
-            ice_legend = create_ice_thickness_colorbar(
-                ax, ice_thickness,
-                cmap_name=FigMisc.LOVE_ICE_THICKNESS_CMAP,
-            )
-        
-        # Set axis limits with special Love plot formatting
-        if np.size(x) > 0:
-            ax.set_xlim([0, np.nanmax(x) + 0.01])
-        if np.size(y) > 0:
-            # Account for error bars when setting y limits
-            if FigMisc.SHOW_ERROR_BARS:
-                error_magnitude = FigMisc.ERROR_BAR_MAGNITUDE
-                y_min_with_error = np.nanmin(y) - error_magnitude
-                y_max_with_error = np.nanmax(y) + error_magnitude
-                ax.set_ylim([np.floor(y_min_with_error*100)/100, np.ceil(y_max_with_error*100)/100])
-            else:
-                ax.set_ylim([np.floor(np.nanmin(y)*100)/100, np.ceil(np.nanmax(y)*100)/100])
-        
-        # Add legend for composition lines if enabled
-        if FigMisc.DRAW_COMPOSITION_LINE and Params.LEGEND:
-            legend1 = ax.legend(fontsize=FigMisc.LOVE_COMP_LEGEND_FONT_SIZE,
-                               loc='upper right', bbox_to_anchor=(1.0, 1.0))
-            ax.add_artist(legend1)
-        
-        # Add second legend for convection markers if enabled
-        if FigMisc.SHOW_CONVECTION_WITH_SHAPE and Params.LEGEND:
-            legend_elements = [
-                Line2D([0], [0], marker='v', color='w', markerfacecolor='gray', 
-                       markersize=8, label='Convection'),
-                Line2D([0], [0], marker='^', color='w', markerfacecolor='gray', 
-                       markersize=8, label='No Convection')
-            ]
-            legend2 = ax.legend(handles=legend_elements, fontsize=FigMisc.LOVE_COMP_LEGEND_FONT_SIZE,
-                               loc='lower left', bbox_to_anchor=(0.0, 0.0))
-            ax.add_artist(legend2)
-        # Save the plot
-        plt.tight_layout()
-        fig.savefig(Params.FigureFiles.exploreLoveComparison, format=FigMisc.figFormat,
-                   dpi=FigMisc.dpi, metadata=FigLbl.meta)
-        log.debug(f'Plot saved to file: {Params.FigureFiles.exploreLoveComparison}')
-        plt.close()
-    
-
-def PlotImaginaryVersusReal(results_list, Params, ax=None):
+def PlotImaginaryVersusReal(results_list, FigureFilesList, Params, ax=None):
     """
     Creates subplots for each excitation/peak with ice thickness-based zoom insets similar to 
     PlotMonteCarloScatter. Features composition-based coloring, marker shapes per excitation,
@@ -1148,7 +1180,7 @@ def PlotImaginaryVersusReal(results_list, Params, ax=None):
                 plotted_dimmed_coords = set()
                 
                 for comp_idx, ocean_comp in enumerate(uniqueOceanComps):
-                    oceanCompLabel = format_composition_label(ocean_comp)
+                    oceanCompLabel = formatOceanCompositionLabel(ocean_comp)
                     comp_mask = all_ocean_comps == ocean_comp
                     
                     if not np.any(comp_mask):

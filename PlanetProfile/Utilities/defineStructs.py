@@ -786,7 +786,12 @@ class DataFilesSubstruct:
 # Construct filenames for figures etc.
 class FigureFilesSubstruct:
     def __init__(self, figPath, figBase, xtn, comp=None, exploreBase=None, inductBase=None,monteCarloBase=None,
-                 exploreAppend=None, inductAppend=None, monteCarloAppend=None,flybys=None):
+                 exploreAppend=None, inductAppend=None, monteCarloAppend=None,flybys=None, inputBaseOverride=None):
+        if inputBaseOverride is not None:
+            figBase = inputBaseOverride
+            exploreBase = inputBaseOverride
+            inductBase = inputBaseOverride
+            monteCarloBase = inputBaseOverride
         if inductBase is None:
             self.inductBase = figBase
         else:
@@ -950,6 +955,7 @@ class ParamsStruct:
         self.Trajec = None  # Trajectory analysis settings
         self.cLevels = None  # Contour level specifications
         self.cFmt = None  # Format of contour labels
+        self.OverrideFigureBase = None  # Override the base figure name for the figure files
         self.compareDir = 'Comparison'
         self.INVERSION_IN_PROGRESS = False  # Flag for running inversion studies
         self.INDUCTOGRAM_IN_PROGRESS  = False
@@ -1768,7 +1774,11 @@ class FigLblStruct:
         self.xMultExplore = 1
         self.yMultExplore = 1
         self.zMultExplore = 1
-
+        
+        # Exploration user-override settings
+        self.overrideSubplotExplorationTitle = None # Overrides subplotExplorationTitle
+        self.overrideExplorationTitle = None # Overrides explorationTitle
+        
         # Unit-dependent labels set by SetUnits
         self.rhoUnits = None
         self.distanceUnits = None
@@ -1848,7 +1858,7 @@ class FigLblStruct:
         self.fineContoursExplore = [
             'affinitySeafloor_kJ',
             'affinityMean_kJ',
-            'CMR2calc',
+            'CMR2mean',
             'phiSeafloor_frac',
             'sigmaMean_Sm',
             'silPhiCalc_frac',
@@ -1864,10 +1874,12 @@ class FigLblStruct:
             'affinityTop_kJ',
             'pHTop'
         ]
+        # Contour format strings for exploreograms
         self.cfmtExplore = {
+            'Rcore_km': '%.0f',
             'affinitySeafloor_kJ': '%.0f',
             'affinityMean_kJ': '%.0f',
-            'CMR2calc': '%.3f',
+            'CMR2mean': '%.3f',
             'phiSeafloor_frac': '%.2f',
             'sigmaMean_Sm': None,
             'silPhiCalc_frac': '%.2f',
@@ -1894,10 +1906,11 @@ class FigLblStruct:
             'InductioniBi1z_nT': '%.0f',
         }
         self.cbarfmtExplore = {
+            'Rcore_km': '%.0f',
             'affinitySeafloor_kJ': '%.0f',
             'affinityTop_kJ': '%.0f',
             'affinityMean_kJ': '%.0f',
-            'CMR2calc': '%.4f',
+            'CMR2mean': '%.4f',
             'phiSeafloor_frac': '%.2f',
             'sigmaMean_Sm': None,
             'silPhiCalc_frac': '%.2f',
@@ -1937,6 +1950,7 @@ class FigLblStruct:
             'InductioniBi1z_nT': 3,
         }
         self.cTicksSpacingsExplore = {
+            'Rcore_km': 10,
             'affinitySeafloor_kJ': 40,
             'affinityTop_kJ': 40,
             'kLoveAmp': 0.036,
@@ -1950,10 +1964,11 @@ class FigLblStruct:
             'InductioniBi1y_nT': 3,
             'InductioniBi1z_nT': 10,
         }
+        # Variables for which to pin colormap center to zero (useful for variables that can be positive/negative)
         self.cMapZero = {
             'affinitySeafloor_kJ',
             'affinityTop_kJ'
-        }  # Variables for which to pin colormap center to zero (useful for variables that can be positive/negative)
+        } 
         self.exploreDescrip = {
             'xFeS': 'core FeS mixing ratio',
             'rhoSilInput_kgm3': 'rock density',
@@ -1998,7 +2013,7 @@ class FigLblStruct:
             'deltaLovePhase': 'tidal Love number $\delta_2$ phase',
             'Qrad_Wkg': 'rock radiogenic heating',
             'qSurf_Wm2': 'surface heat flux',
-            'CMR2calc': 'axial moment of inertia',
+            'CMR2mean': 'axial moment of inertia',
             'affinitySeafloor_kJ': 'seafloor affinity for chemical reaction',
             'affinityTop_kJ': 'top of ocean affinity for chemical reaction',
             'affinityMean_kJ': 'average affinity for chemical reaction',
@@ -2253,7 +2268,7 @@ class FigLblStruct:
             'kLovePhase': self.kLovePhaseLabel,
             'deltaLovePhase': self.deltaLovePhaseLabel,
             'qSurf_Wm2': self.qSurfLabel,
-            'CMR2calc': self.CMR2label,
+            'CMR2mean': self.CMR2label,
             'affinitySeafloor_kJ': self.affinitySeafloorLabel,
             'affinityTop_kJ': self.affinityTopLabel,
             'affinityMean_kJ': self.affinityMeanLabel,
@@ -2334,13 +2349,17 @@ class FigLblStruct:
         self.exploreCompareTitle = self.explorationTitle
 
     def SetExploreTitle(self, bodyname, xName, yName, zName, titleData, excName):
-        # Set title for exploreogram plots
         if titleData is None:
             self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration}}'
             self.subplotExplorationTitle = f'\\textbf{{{bodyname} Properties across {self.exploreDescrip[xName]} and {self.exploreDescrip[yName]}}}'
         else:
             self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration, {titleData}}}'
             self.subplotExplorationTitle = f'\\textbf{{{bodyname} Properties across {self.exploreDescrip[xName]} and {self.exploreDescrip[yName]}, {titleData}}}'
+        # Set title for exploreogram plots
+        if self.overrideSubplotExplorationTitle is not None:
+            self.subplotExplorationTitle = self.overrideSubplotExplorationTitle
+        if self.overrideExplorationTitle is not None:
+            self.explorationTitle = self.overrideExplorationTitle
         if excName is not None:
             self.explorationTitle += f', {excName}'
     def SetExploreYTitle(self, bodyname, yName, titleData):
@@ -2726,6 +2745,8 @@ class FigMiscStruct:
         self.MARK_BEXC_MAX = True  # Whether to annotate excitation spectrum plots with label for highest peak
         self.peakLblSize = None  # Font size in pt for highest-peak annotation
         self.Tmin_hr = None  # Cutoff period to limit range of Fourier space plots
+        # Exploreogram settings
+        self.EXPLOREOGRAM_SMOOTHING = False # Whether to smooth the exploreogram plots by interpolating to a finer grid
         # Exploreogram D/sigma settings
         self.DRAW_COMPOSITION_LINE = False # Whether to draw a line for each composition in the exploreogram D/sigma plot
         self.SHOW_ICE_THICKNESS_DOTS = False # Whether to show ice thickness dots instead of colorbar in D/sigma plots

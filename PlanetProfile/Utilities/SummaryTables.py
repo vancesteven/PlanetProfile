@@ -2,11 +2,118 @@ import numpy as np
 import logging
 from PlanetProfile.GetConfig import FigMisc, FigLbl
 from PlanetProfile.Utilities.Indexing import PhaseConv
-from PlanetProfile.Utilities.defineStructs import Constants
+from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct
 from PlanetProfile.MagneticInduction.Moments import Excitations
-
+from PlanetProfile.Utilities.ResultsStructs import ExplorationResultsStruct
+from PlanetProfile.Utilities.ResultsIO import InductionCalced
+import itertools
+import os
 # Assign logger
 log = logging.getLogger('PlanetProfile')
+
+
+def GetExplorationComparisons(ExplorationList, Params):
+    """ Get comparisons between exploration results. To compare exploraitons, they must be for same body and same x and y variable/ranges. """
+    ComparisonList = []
+    FigureFilesList = []
+    # Get all pairwise combinations of exploration results
+    combinations = itertools.combinations(range(0, len(ExplorationList)), 2)
+    # Get difference type
+    differenceType = FigMisc.EXPLOREOGRAM_COMPARISON_DIFFERENCE_TYPE
+    # For each comparison, get the comparison exploration results
+    for i, comparison in enumerate(combinations):
+        # Ensure that the two explorations are for the same body, x variable, x range, y variable, and y range, otherwise comparison doesn't make sense
+        FirstExplorationIndex = comparison[0]
+        SecondExplorationIndex = comparison[1]
+        FirstExploration = ExplorationList[FirstExplorationIndex]
+        SecondExploration = ExplorationList[SecondExplorationIndex]
+        sameBody = FirstExploration.base.bodyname == SecondExploration.base.bodyname
+        sameXVariable = FirstExploration.xName == SecondExploration.xName
+        sameXRange = np.all(FirstExploration.xData == SecondExploration.xData)
+        sameYVariable = FirstExploration.yName == SecondExploration.yName
+        sameYRange = np.all(FirstExploration.yData == SecondExploration.yData)
+        if not sameBody or not sameXVariable or not sameYVariable or not sameXRange or not sameYRange:
+            continue
+        else:
+            comparisonExploration = ExplorationResultsStruct()
+            comparisonExploration.base.bodyname = FirstExploration.base.bodyname
+            comparisonExploration.base.VALID = FirstExploration.base.VALID & SecondExploration.base.VALID
+            comparisonExploration.base.oceanComp = FirstExploration.base.oceanComp
+            comparisonExploration.xName = FirstExploration.xName
+            comparisonExploration.yName = FirstExploration.yName
+            comparisonExploration.nx = FirstExploration.nx
+            comparisonExploration.ny = FirstExploration.ny
+            comparisonExploration.xData = FirstExploration.xData
+            comparisonExploration.yData = FirstExploration.yData
+            comparisonExploration.base.wOcean_ppt = FirstExploration.base.wOcean_ppt
+            comparisonExploration.base.zb_approximate_km = FirstExploration.base.zb_approximate_km
+            comparisonExploration.base.Tb_K = FirstExploration.base.Tb_K
+            
+            # Get comparisons of z variables that can be plotted
+            comparisonExploration.base.CMR2mean = getDifference(FirstExploration.base.CMR2mean, SecondExploration.base.CMR2mean, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.D_km = getDifference(FirstExploration.base.D_km, SecondExploration.base.D_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.Dconv_m = getDifference(FirstExploration.base.Dconv_m, SecondExploration.base.Dconv_m, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.dzIceI_km = getDifference(FirstExploration.base.dzIceI_km, SecondExploration.base.dzIceI_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.dzClath_km = getDifference(FirstExploration.base.dzClath_km, SecondExploration.base.dzClath_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.dzIceIII_km = getDifference(FirstExploration.base.dzIceIII_km, SecondExploration.base.dzIceIII_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.dzIceIIIund_km = getDifference(FirstExploration.base.dzIceIIIund_km, SecondExploration.base.dzIceIIIund_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.dzIceV_km = getDifference(FirstExploration.base.dzIceV_km, SecondExploration.base.dzIceV_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.dzIceVund_km = getDifference(FirstExploration.base.dzIceVund_km, SecondExploration.base.dzIceVund_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.dzIceVI_km = getDifference(FirstExploration.base.dzIceVI_km, SecondExploration.base.dzIceVI_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.dzWetHPs_km = getDifference(FirstExploration.base.dzWetHPs_km, SecondExploration.base.dzWetHPs_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.eLid_km = getDifference(FirstExploration.base.eLid_km, SecondExploration.base.eLid_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.phiSeafloor_frac = getDifference(FirstExploration.base.phiSeafloor_frac, SecondExploration.base.phiSeafloor_frac, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.Rcore_km = getDifference(FirstExploration.base.Rcore_km, SecondExploration.base.Rcore_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.rhoSilMean_kgm3 = getDifference(FirstExploration.base.rhoSilMean_kgm3, SecondExploration.base.rhoSilMean_kgm3, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.rhoCoreMean_kgm3 = getDifference(FirstExploration.base.rhoCoreMean_kgm3, SecondExploration.base.rhoCoreMean_kgm3, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.sigmaMean_Sm = getDifference(FirstExploration.base.sigmaMean_Sm, SecondExploration.base.sigmaMean_Sm, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.silPhiCalc_frac = getDifference(FirstExploration.base.silPhiCalc_frac, SecondExploration.base.silPhiCalc_frac, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.zb_km = getDifference(FirstExploration.base.zb_km, SecondExploration.base.zb_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.zSeafloor_km = getDifference(FirstExploration.base.zSeafloor_km, SecondExploration.base.zSeafloor_km, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.qSurf_Wm2 = getDifference(FirstExploration.base.qSurf_Wm2, SecondExploration.base.qSurf_Wm2, comparisonExploration.base.VALID, differenceType)
+            
+            # Get tidal Love number comparisons
+            comparisonExploration.base.kLoveAmp = getDifference(FirstExploration.base.kLoveAmp, SecondExploration.base.kLoveAmp, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.hLoveAmp = getDifference(FirstExploration.base.hLoveAmp, SecondExploration.base.hLoveAmp, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.lLoveAmp = getDifference(FirstExploration.base.lLoveAmp, SecondExploration.base.lLoveAmp, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.deltaLoveAmp = getDifference(FirstExploration.base.deltaLoveAmp, SecondExploration.base.deltaLoveAmp, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.kLovePhase = getDifference(FirstExploration.base.kLovePhase, SecondExploration.base.kLovePhase, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.hLovePhase = getDifference(FirstExploration.base.hLovePhase, SecondExploration.base.hLovePhase, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.lLovePhase = getDifference(FirstExploration.base.lLovePhase, SecondExploration.base.lLovePhase, comparisonExploration.base.VALID, differenceType)
+            comparisonExploration.base.deltaLovePhase = getDifference(FirstExploration.base.deltaLovePhase, SecondExploration.base.deltaLovePhase, comparisonExploration.base.VALID, differenceType)
+            # Get magnetic induction comparions
+            if InductionCalced([FirstExploration, SecondExploration]) and np.all(FirstExploration.induction.calcedExc == SecondExploration.induction.calcedExc):
+                comparisonExploration.induction.Texc_hr = FirstExploration.induction.Texc_hr
+                comparisonExploration.induction.freq_Hz = FirstExploration.induction.freq_Hz
+                comparisonExploration.induction.calcedExc = FirstExploration.induction.calcedExc
+                comparisonExploration.induction.nPeaks = FirstExploration.induction.nPeaks
+    
+                comparisonExploration.induction.Amp = getDifference(FirstExploration.induction.Amp, SecondExploration.induction.Amp, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.phase = getDifference(FirstExploration.induction.phase, SecondExploration.induction.phase, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.Bix_nT = getDifference(FirstExploration.induction.Bix_nT, SecondExploration.induction.Bix_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.Biy_nT = getDifference(FirstExploration.induction.Biy_nT, SecondExploration.induction.Biy_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.Biz_nT = getDifference(FirstExploration.induction.Biz_nT, SecondExploration.induction.Biz_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.Bi1x_nT = getDifference(FirstExploration.induction.Bi1x_nT, SecondExploration.induction.Bi1x_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.Bi1y_nT = getDifference(FirstExploration.induction.Bi1y_nT, SecondExploration.induction.Bi1y_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.Bi1z_nT = getDifference(FirstExploration.induction.Bi1z_nT, SecondExploration.induction.Bi1z_nT, comparisonExploration.base.VALID, differenceType)
+                
+                comparisonExploration.induction.rBi1x_nT = getDifference(FirstExploration.induction.rBi1x_nT, SecondExploration.induction.rBi1x_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.rBi1y_nT = getDifference(FirstExploration.induction.rBi1y_nT, SecondExploration.induction.rBi1y_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.rBi1z_nT = getDifference(FirstExploration.induction.rBi1z_nT, SecondExploration.induction.rBi1z_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.iBi1x_nT = getDifference(FirstExploration.induction.iBi1x_nT, SecondExploration.induction.iBi1x_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.iBi1y_nT = getDifference(FirstExploration.induction.iBi1y_nT, SecondExploration.induction.iBi1y_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.iBi1z_nT = getDifference(FirstExploration.induction.iBi1z_nT, SecondExploration.induction.iBi1z_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.Bi1Tot_nT = getDifference(FirstExploration.induction.Bi1Tot_nT, SecondExploration.induction.Bi1Tot_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.rBi1Tot_nT = getDifference(FirstExploration.induction.rBi1Tot_nT, SecondExploration.induction.rBi1Tot_nT, comparisonExploration.base.VALID, differenceType)
+                comparisonExploration.induction.iBi1Tot_nT = getDifference(FirstExploration.induction.iBi1Tot_nT, SecondExploration.induction.iBi1Tot_nT, comparisonExploration.base.VALID, differenceType)
+            # Append ComparisonExploration to ComparisonList
+            ComparisonList.append(comparisonExploration)
+            # Create FigureFiles
+            comparePath = os.path.join(comparisonExploration.base.bodyname, 'figures')
+            compareBase = f'{comparisonExploration.base.bodyname}ComparisonxRange{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}yRange{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}'
+            FigureFiles = FigureFilesSubstruct(comparePath, compareBase, FigMisc.xtn, exploreAppend=Params.Explore.zName)
+            FigureFilesList.append(FigureFiles)
+    return ComparisonList, Params,FigureFilesList
 
 def GetLayerMeans(PlanetList, Params):
     """ For calculating layer means we didn't need at any other point in our analysis,
@@ -1101,3 +1208,58 @@ def PrintTrajecTableLatex(FitOutputs, Params):
     """)
 
     return
+
+
+def PercentDifference(x, y, validDataMask):
+    """ Calculate the percent difference between 2d or 3d arrays for exploration results"""
+    # Create output arrays with same shape as input, filled with NaN
+    percentDifference = np.full_like(x, np.nan, dtype=float)
+    # Calculate percent difference only for valid data points
+    if np.any(validDataMask):
+        if x.ndim == 2:
+            x_valid = x[validDataMask]
+            y_valid = y[validDataMask]
+            
+            diff = x_valid - y_valid
+            avg = (x_valid + y_valid) / 2
+            percentDifference[validDataMask] = np.where(diff == 0, 0, abs(100 * diff / avg))
+        else:
+            # Expand validDataMask to match first dimension of x
+            expandedValidDataMask = np.expand_dims(validDataMask, axis=0)
+            expandedValidDataMask = np.repeat(expandedValidDataMask, x.shape[0], axis=0)
+            x_valid = x[expandedValidDataMask]
+            y_valid = y[expandedValidDataMask]
+            diff = x_valid - y_valid
+            avg = (x_valid + y_valid) / 2
+            percentDifference[expandedValidDataMask] = np.where(diff == 0, 0, abs(100 * diff / avg))
+    return percentDifference
+
+def absoluteDifference(x, y, validDataMask):
+    """ Calculate the absolute difference between 2d or 3d arrays for exploration results"""
+    # Create output arrays with same shape as input, filled with NaN
+    absoluteDifference = np.full_like(x, np.nan, dtype=float)
+    # Calculate absolute difference only for valid data points
+    if np.any(validDataMask):
+        if x.ndim == 2:
+            x_valid = x[validDataMask]
+            y_valid = y[validDataMask]
+            
+            diff = x_valid - y_valid
+            absoluteDifference[validDataMask] = np.where(diff == 0, 0, abs(diff))
+        else:
+            # Expand validDataMask to match first dimension of x
+            expandedValidDataMask = np.expand_dims(validDataMask, axis=0)
+            expandedValidDataMask = np.repeat(expandedValidDataMask, x.shape[0], axis=0)
+            x_valid = x[expandedValidDataMask]
+            y_valid = y[expandedValidDataMask]
+            diff = x_valid - y_valid
+            absoluteDifference[expandedValidDataMask] = np.where(diff == 0, 0, abs(diff))
+    return absoluteDifference
+
+def getDifference(x, y, validDataMask, differenceType):
+    if differenceType == 'percent':
+        return PercentDifference(x, y, validDataMask)
+    elif differenceType == 'absolute':
+        return absoluteDifference(x, y, validDataMask)
+    else:
+        raise ValueError(f"Invalid difference type: {differenceType}")

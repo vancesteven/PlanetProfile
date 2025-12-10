@@ -39,7 +39,7 @@ from PlanetProfile.Utilities.ResultsIO import WriteResults, ReloadResultsFromPic
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 from PlanetProfile.Utilities.PPversion import ppVerNum
 from PlanetProfile.Gravity.Gravity import GravityParameters
-from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
+from PlanetProfile.Utilities.SummaryTables import GetExplorationComparisons, GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
 from PlanetProfile.Utilities.reducedPlanetModel import GetReducedPlanet
 
 # Parallel processing
@@ -107,26 +107,18 @@ def run(bodyname=None, opt=None, fNames=None):
         if bodyname == '':
             raise ValueError('A single body must be specified for an ExploreOgram.')
         else:
-            if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
-                PlanetGrid, Exploration, Params = ExploreOgram(bodyname, Params, RETURN_GRID=True, fNameOverride=fNames[0])
-            else:
-                Exploration, Params = ExploreOgram(bodyname, Params,fNameOverride = fNames[0])
-        if not Params.SKIP_PLOTS and not np.all(Exploration.base.VALID == False): 
-            if Params.COMPARE:
-                exploreOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fName+'*.mat'))
-                Params.nModels = np.size(exploreOgramFiles)
-                ExplorationList = np.empty(Params.nModels, dtype=object)
-                ExplorationList[0] = deepcopy(Exploration)
-                # Move the filename for this run to the front of the list
-                if Params.DataFiles.exploreOgramFile in exploreOgramFiles:
-                    exploreOgramFiles.remove(Params.DataFiles.exploreOgramFile)
-                    exploreOgramFiles.insert(0, Params.DataFiles.exploreOgramFile)
-                for i, reloadExplore in enumerate(exploreOgramFiles[1:]):
-                    ExplorationList[i+1] = ReloadExploreOgram(bodyname, Params, fNameOverride=reloadExplore)[0]
-            else:
-                ExplorationList = [Exploration]
-            GenerateExplorationPlots(ExplorationList, Params)
-            if InductionCalced(ExplorationList):
+            ExplorationList = []
+            FigureFilesList = []
+            for fName in fNames:
+                if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
+                    PlanetGrid, Exploration, Params = ExploreOgram(bodyname, Params, RETURN_GRID=True, fNameOverride=fName)
+                else:
+                    Exploration, Params = ExploreOgram(bodyname, Params,fNameOverride = fName)
+                ExplorationList.append(Exploration)
+                FigureFilesList.append(deepcopy(Params.FigureFiles))
+        if not Params.SKIP_PLOTS and not np.all([Exploration.base.VALID == False for Exploration in ExplorationList]): 
+            GenerateExplorationPlots(ExplorationList, FigureFilesList, Params)
+            if False:
                 GenerateExplorationMagPlots(ExplorationList, Params)
             if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
                 for Planet in PlanetGrid.flatten():
@@ -143,6 +135,16 @@ def run(bodyname=None, opt=None, fNames=None):
                 
                 Params.FigureFiles = FigureFilesSubstruct(comparePath, compareBase, FigMisc.xtn)
                 GeneratePlots(CompareList, Params)
+            
+            # Plot combined figures
+            MULTIPLOT = Params.COMPARE and len(ExplorationList) > 1
+            if MULTIPLOT:
+                ExplorationCompareList, Params, FigureFilesList = GetExplorationComparisons(ExplorationList, Params)
+                if len(ExplorationCompareList) > 0:
+                    for ExplorationCompare, FigureFiles in zip(ExplorationCompareList, FigureFilesList):
+                        Params.FigureFiles = FigureFiles
+                        GenerateExplorationPlots([ExplorationCompare], [FigureFiles], Params)
+
     elif Params.DO_MONTECARLO:
         if bodyname == '':
             raise ValueError('A single body must be specified for a Monte Carlo run.')
@@ -300,7 +302,6 @@ def PlanetProfile(Planet, Params):
     if (Params.CALC_CONDUCT and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES))) and not Params.SKIP_INDUCTION:
         # Calculate induced magnetic moments
         Planet, Params = MagneticInduction(Planet, Params)
-
         # Plot induced dipole surface strength
         if Planet.Magnetic.Binm_nT is None:
             log.warning('Tried to GenerateMagPlots, but Magnetic.Binm_nT is None. ' +
@@ -310,12 +311,10 @@ def PlanetProfile(Planet, Params):
         elif (not Params.SKIP_PLOTS) and \
             not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS):
             GenerateMagPlots([Planet], Params)
-
     # Gravity calcuations and plots
     if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY) and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and not Params.SKIP_GRAVITY:
         # Calculate gravity parameters
         Planet, Params = GravityParameters(Planet, Params)
-
     if Params.PRINT_COMPLETION:
         PrintCompletion(Planet, Params)
     return Planet, Params

@@ -366,7 +366,8 @@ def extract_and_validate_plot_data(result_obj, x_field, y_field, c_field=None, c
             contour_valid = extract_magnetic_field_data(result_obj, contour_field, contour_multiplier)
         else:
             log.warning(f"Contour field {contour_field} not found in result.base or result.induction, contours will use color field")
-    
+    elif contour_field is None and c_field is not None:
+        contour_valid = c_valid
     return {
         'x': x_valid,
         'y': y_valid, 
@@ -798,7 +799,7 @@ def find_optimal_inset_position(ax, x_data, y_data, inset_size_frac=0.4):
         return best_location
 
 
-def format_composition_label(comp):
+def formatOceanCompositionLabel(comp):
     """
     Format ocean composition labels for display.
     
@@ -809,7 +810,7 @@ def format_composition_label(comp):
         str: Formatted label
     """
     if 'CustomSolution' in comp:
-        return comp.split('=')[0].replace('CustomSolution', '')
+        return comp.split('=')[0].replace('CustomSolution', '').strip()
     else:
         return comp
 

@@ -450,6 +450,11 @@ def plotAssign():
     FigMisc.MARK_BEXC_MAX = True  # Whether to annotate excitation spectrum plots with label for highest peak
     FigLbl.peakLblSize = 14  # Font size in pt for highest-peak annotation
     FigMisc.Tmin_hr = None  # Cutoff period to limit range of Fourier space plots
+    """Exploreogram plot settings"""
+    FigMisc.EXPLOREOGRAM_SMOOTHING = False # Whether to smooth the exploreogram plots by interpolating to a finer grid
+    FigMisc.EXPLOREOGRAM_COMPARISON_DIFFERENCE_TYPE = 'absolute' # Whether to calculate the absolute or relative difference between exploration results
+    FigLbl.overrideSubplotExplorationTitle = None # Overrides exploreogram subplot title (i.e. when zName is a list to plot) with user-specified title string
+    FigLbl.overrideExplorationTitle = None # Overrides exploreogram figure title with user-specified title string
     # Exploreogram D/sigma settings
     FigMisc.DRAW_COMPOSITION_LINE = True # Whether to draw a line for each composition in the exploreogram D/sigma plot
     FigMisc.SHOW_ICE_THICKNESS_DOTS = True # Whether to show ice thickness dots instead of colorbar in D/sigma plots

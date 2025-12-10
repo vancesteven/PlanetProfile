@@ -12,7 +12,7 @@ from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Utilities.defineStructs import xyzComps, vecComps
 from PlanetProfile.MagneticInduction.Moments import Excitations
-from PlanetProfile.Plotting.EssentialHelpers import get_excitation_indices_and_names, count_plottable_excitations, format_composition_label
+from PlanetProfile.Plotting.EssentialHelpers import get_excitation_indices_and_names, count_plottable_excitations, formatOceanCompositionLabel
 from MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
 
 # Assign logger
@@ -205,7 +205,7 @@ def PlotInductOgramPhaseSpace(results_list, Params):
                 pts[comp] = axes[0].scatter(sigma_Sm[i][thisComp], D_km[i][thisComp], s=Style.MW_Induction,
                                 marker=Style.MS_Induction, c=cbarUnits[thisComp], cmap=Color.cmap[comp])
                 cbar[comp] = fig.colorbar(pts[comp], cax=cbarAx)
-                lbl = format_composition_label(comp)
+                lbl = formatOceanCompositionLabel(comp)
                 if not FigMisc.TEX_INSTALLED:
                     lbl = FigLbl.StripLatexFromString(lbl)
                 cbarAx.set_title(lbl, fontsize=FigMisc.cbarTitleSize)
@@ -294,7 +294,7 @@ def PlotInductOgramPhaseSpace(results_list, Params):
                                       values=np.linspace(np.min(comboCbarUnits[thisComp]), 
                                                         np.max(comboCbarUnits[thisComp]), FigMisc.nCbarPts))
             fig.add_axes(cbarAx)
-            lbl = f'\\ce{{{comp}}}'
+            lbl = f'\\ce{{{formatOceanCompositionLabel(comp)}}}'
             if not FigMisc.TEX_INSTALLED:
                 lbl = FigLbl.StripLatexFromString(lbl)
             cbarAx.set_title(lbl, fontsize=FigMisc.cbarTitleSize)

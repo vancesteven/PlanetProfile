@@ -43,7 +43,7 @@ class BaseResultsStruct:
         self.invalidReason = None  # Explanation for why any invalid solution failed
         
         # Core results
-        self.CMR2calc = None  # Calculated C/MR^2 value
+        self.CMR2mean = None  # Calculated C/MR^2 value
         self.Mtot_kg = None  # Total body mass in kg
         self.D_km = None  # Ocean layer thickness in km
         self.zb_km = None  # Ice shell thickness in km

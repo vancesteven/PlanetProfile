@@ -105,7 +105,7 @@ def ExtractBasePlanetData(baseStruct, PlanetGrid):
         'NO_H2O': PlanetGrid[0,0].Do.NO_H2O,
         
         # Core results
-        'CMR2calc': np.array([[getattr(Planeti, 'CMR2mean', np.nan) for Planeti in line] for line in PlanetGrid]),
+        'CMR2mean': np.array([[getattr(Planeti, 'CMR2mean', np.nan) for Planeti in line] for line in PlanetGrid]),
         'Mtot_kg': np.array([[getattr(Planeti, 'Mtot_kg', np.nan) for Planeti in line] for line in PlanetGrid]),
         'D_km': np.array([[getattr(Planeti, 'D_km', np.nan) for Planeti in line] for line in PlanetGrid]),
         'zb_km': np.array([[getattr(Planeti, 'zb_km', np.nan) for Planeti in line] for line in PlanetGrid]),
