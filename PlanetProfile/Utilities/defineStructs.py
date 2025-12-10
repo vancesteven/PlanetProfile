@@ -846,6 +846,7 @@ class FigureFilesSubstruct:
         vperm = 'Permeability'
         vseis = 'Seismic'
         vhydro = 'Hydrosphere'
+        vhydroThermo = 'HydrosphereThermodynamics'
         vgrav = 'Gravity'
         vmant = 'MantleDens'
         vcore = 'CoreMantTrade'

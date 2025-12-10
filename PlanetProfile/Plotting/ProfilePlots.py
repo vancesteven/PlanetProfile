@@ -785,9 +785,10 @@ def PlotPorosity(PlanetList, Params):
             ax.set_xlim(left=0)
 
         # Prevent uniform porosity from overlapping the right border
-        phiMax = np.max(Planet.phiPlot)
-        if phiMax - np.min(Planet.phiPlot) < 0.05 and phiMax > 0.15:
-            ax.set_xlim(right=np.minimum(phiMax*1.3, 1.0))
+        if len(Planet.phiPlot) > 0:
+            phiMax = np.max(Planet.phiPlot)
+            if phiMax - np.min(Planet.phiPlot) < 0.05 and phiMax > 0.15:
+                ax.set_xlim(right=np.minimum(phiMax*1.3, 1.0))
 
         if Params.LEGEND:
             ax.legend()
@@ -816,7 +817,7 @@ def PlotPorosity(PlanetList, Params):
             fig.suptitle(FigLbl.poreCompareTitle)
 
     for Planet in PlanetList:
-        if Planet.Do.POROUS_ROCK or Planet.Do.POROUS_ICE:
+        if (Planet.Do.POROUS_ROCK or Planet.Do.POROUS_ICE) and len(Planet.phiPlot) > 0:
             legLbl = Planet.label
             if (not Params.ALL_ONE_BODY) and FigLbl.BODYNAME_IN_LABEL:
                 legLbl = f'{Planet.name} {legLbl}'
@@ -831,9 +832,10 @@ def PlotPorosity(PlanetList, Params):
 
     # Prevent uniform porosity from overlapping the right border
     for Planet in PlanetList:
-        phiMax = np.max(Planet.phiPlot)
-        if phiMax - np.min(Planet.phiPlot) < 0.05 and phiMax > 0.15:
-            [ax.set_xlim(right=np.minimum(phiMax*1.3, 1.0)) for ax in axes]
+        if len(Planet.phiPlot) > 0:
+            phiMax = np.max(Planet.phiPlot)
+            if phiMax - np.min(Planet.phiPlot) < 0.05 and phiMax > 0.15:
+                [ax.set_xlim(right=np.minimum(phiMax*1.3, 1.0)) for ax in axes]
 
     if Params.LEGEND:
         axes[1].legend()
@@ -1542,9 +1544,9 @@ def PlotHydrosphereThermodynamics(PlanetList, Params):
         axTz.legend(handles, lbls, loc='upper right')
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vhydro.replace('.png', '_thermodynamics.png'), 
+    fig.savefig(Params.FigureFiles.vhydroThermo, 
                 format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
-    log.debug(f'Hydrosphere thermodynamics plot saved to file: {Params.FigureFiles.vhydro.replace(".png", "_thermodynamics.png")}')
+    log.debug(f'Hydrosphere thermodynamics plot saved to file: {Params.FigureFiles.vhydroThermo}')
     plt.close()
 
     return
