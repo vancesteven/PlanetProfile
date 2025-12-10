@@ -1345,7 +1345,7 @@ def PlotHydrosphereThermodynamics(PlanetList, Params):
     """
     
     # Generate canvas and add labels - 2x6 grid
-    fig = plt.figure(figsize=FigSize.vhydro)
+    fig = plt.figure(figsize=FigSize.vhydroThermo)
     grid = GridSpec(6, 6)
     
     # Top row: Temperature and Pressure (each spanning 3 rows)
