@@ -504,8 +504,10 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
                                                phiTop_frac=Planet.Ocean.phiMax_frac[ice],
                                                Pclosure_MPa=Planet.Ocean.Pclosure_MPa[ice],
                                                phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[ice],
-                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT,
-                                               mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant}) for ice in ices}
+                                               kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
+                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, 
+                                               mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
+                      for ice in ices}
         # Add clathrates to phase and property diagrams where it is stable (if modeled)
         if Planet.Do.CLATHRATE:
             clath = PhaseConv(Constants.phaseClath)

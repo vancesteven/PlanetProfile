@@ -878,7 +878,7 @@ def ClathShellConvectSolid(Planet, Params):
         Planet.RaConvect, Planet.RaCrit = \
         ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
                                      zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.surfIceEOS[phaseStr],
-                                     Planet.Ocean.surfIceEOS[phaseStr], phaseIndex, Planet.Do.EQUIL_Q)
+                                     Planet.Ocean.surfIceEOS[phaseStr], phaseIndex, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol)
 
     log.debug(f'Clathrate shell convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
               f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
@@ -973,7 +973,7 @@ def ClathShellConvectPorous(Planet, Params):
         Planet.RaConvect, Planet.RaCrit = \
         ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
                                      zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.surfIceEOS[phaseStr],
-                                     Planet.Ocean.surfIceEOS[phaseStr], Constants.phaseClath, Planet.Do.EQUIL_Q)
+                                     Planet.Ocean.surfIceEOS[phaseStr], Constants.phaseClath, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol)
 
     log.debug(f'Clathrate shell convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
               f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
