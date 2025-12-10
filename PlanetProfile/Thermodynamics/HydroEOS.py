@@ -17,16 +17,17 @@ from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv, MixedPhaseSeparator
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand,  \
     SpeciesParser, RktProps, RktSeismic, RktConduct, RktHydroSpecies, EOSLookupTableLoader
+from PlanetProfile.Thermodynamics.Seafreeze.SeafreezeProps import IceSeaFreezeProps
 # Assign logger 
 log = logging.getLogger('PlanetProfile')
 
 def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None, phaseType=None,
                 EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False, sigmaFixed_Sm=None, LOOKUP_HIRES=False,
-                etaFixed_Pas=None, kThermConst_WmK=None, doConstantProps=False, constantProperties=None):
+                etaFixed_Pas=None, kThermConst_WmK=None, doConstantProps=False, constantProperties=None, propsStepReductionFactor=1):
     oceanEOS = OceanEOSStruct(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=rhoType, scalingType=scalingType,
                               phaseType=phaseType, EXTRAP=EXTRAP, FORCE_NEW=FORCE_NEW, MELT=MELT, PORE=PORE,
                               sigmaFixed_Sm=sigmaFixed_Sm, LOOKUP_HIRES=LOOKUP_HIRES, etaFixed_Pas=etaFixed_Pas, kThermConst_WmK=kThermConst_WmK, 
-                              doConstantProps=doConstantProps, constantProperties=constantProperties)
+                              doConstantProps=doConstantProps, constantProperties=constantProperties, propsStepReductionFactor=propsStepReductionFactor)
     if oceanEOS.ALREADY_LOADED and not FORCE_NEW:
         log.debug(f'{wOcean_ppt} ppt {compstr} EOS already loaded. Reusing existing EOS.')
         oceanEOS = EOSlist.loaded[oceanEOS.EOSlabel]
@@ -44,7 +45,7 @@ def GetOceanEOS(compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scaling
 class OceanEOSStruct:
     def __init__(self, compstr, wOcean_ppt, P_MPa, T_K, elecType, rhoType=None, scalingType=None,
                  phaseType=None, EXTRAP=False, FORCE_NEW=False, MELT=False, PORE=False,
-                 sigmaFixed_Sm=None, LOOKUP_HIRES=False, etaFixed_Pas=None, kThermConst_WmK=None, doConstantProps=False, constantProperties=None):
+                 sigmaFixed_Sm=None, LOOKUP_HIRES=False, etaFixed_Pas=None, kThermConst_WmK=None, doConstantProps=False, constantProperties=None, propsStepReductionFactor=1):
         Timing.setTime(time.time())
         if elecType is None:
             self.elecType = 'Vance2018'
@@ -58,10 +59,10 @@ class OceanEOSStruct:
             self.scalingType = 'Vance2018'
         else:
             self.scalingType = scalingType
-        if phaseType == 'lookup':
+        if phaseType.lower() == 'lookup':
              self.PHASE_LOOKUP = True
              self.PRELOAD_LOOKUP = False
-        elif phaseType == 'preload':
+        elif phaseType.lower() == 'preload':
             self.PRELOAD_LOOKUP = True
             self.PHASE_LOOKUP = False
         else:
@@ -79,7 +80,7 @@ class OceanEOSStruct:
             meltStr = ''
             meltPrint = ''
 
-        self.EOSlabel = GetOceanEOSLabel(compstr, wOcean_ppt, elecType, rhoType, scalingType, phaseType, EXTRAP, PORE, LOOKUP_HIRES, etaFixed_Pas, meltStr)
+        self.EOSlabel = GetOceanEOSLabel(compstr, wOcean_ppt, elecType, rhoType, scalingType, phaseType, EXTRAP, PORE, LOOKUP_HIRES, etaFixed_Pas, meltStr, propsStepReductionFactor)
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, FORCE_NEW=FORCE_NEW)
 
@@ -118,6 +119,8 @@ class OceanEOSStruct:
                 # This will reduce runtime and memory usage for high resolution grids
                 if MELT:
                     PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax, MELT=True)
+                elif propsStepReductionFactor > 1:
+                    PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax, MELT=False, propsStepReductionFactor=propsStepReductionFactor)
                 else:
                     PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = P_MPa, T_K, P_MPa, T_K
                 # Get tabular data from the appropriate source for the specified ocean composition
@@ -151,20 +154,20 @@ class OceanEOSStruct:
                     if np.max(P_MPa) > self.Pmax:
                         log.warning(f'Input Pmax greater than SeaFreeze limit for {self.comp}. Resetting to SF max of {self.Pmax} MPa.')
                         P_MPa = np.linspace(np.min(P_MPa), self.Pmax, np.size(P_MPa))
-                        PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, P_MPa[0], self.Pmax, T_K[0], T_K[-1], MELT=MELT)
+                        PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, P_MPa[0], self.Pmax, T_K[0], T_K[-1], MELT=MELT, propsStepReductionFactor=propsStepReductionFactor)
                     if np.min(T_K) < self.Tmin:
                         log.warning(f'Input Tmin less than SeaFreeze limit for {self.comp}. Resetting to SF min of {self.Tmin} K.')
                         T_K = np.linspace(self.Tmin, np.max(T_K), np.size(T_K))
-                        PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, P_MPa[0], P_MPa[-1], T_K[0], T_K[-1], MELT=MELT)
+                        PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, P_MPa[0], P_MPa[-1], T_K[0], T_K[-1], MELT=MELT, propsStepReductionFactor=propsStepReductionFactor)
                     if np.max(T_K) > self.Tmax:
                         log.warning(f'Input Tmax greater than SeaFreeze limit for {self.comp}. Resetting to SF max of {self.Tmax} K.')
                         T_K = np.linspace(np.min(T_K), self.Tmax, np.size(T_K))
-                        PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, P_MPa[0], P_MPa[-1], T_K[0], T_K[-1], MELT=MELT)
+                        PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, P_MPa[0], P_MPa[-1], T_K[0], T_K[-1], MELT=MELT, propsStepReductionFactor=propsStepReductionFactor)
                     if np.size(P_MPa) == np.size(T_K):
                         log.warning(f'Both P and T inputs have length {np.size(P_MPa)}, but they are organized to be ' +
                                     'used as a grid. This will cause an error in SeaFreeze. P list will be adjusted slightly.')
                         P_MPa = np.linspace(P_MPa[0], P_MPa[-1], np.size(P_MPa)+1)
-                        PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, P_MPa[0], P_MPa[-1], T_K[0], T_K[-1], MELT=MELT)
+                        PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, P_MPa[0], P_MPa[-1], T_K[0], T_K[-1], MELT=MELT, propsStepReductionFactor=propsStepReductionFactor)
                     if self.comp == 'PureH2O':
                         SFcomp = 'water1'
                         PTmGridProps = sfPTgrid(PropsP_MPa, PropsT_K)
@@ -269,9 +272,15 @@ class OceanEOSStruct:
                         self.EOSdeltaT = np.nan
                     else:
                         Margules = MgSO4PhaseMargules(Pphase_MPa, Tphase_K, self.w_ppt)
+                        self.ufn_phase = Margules.fn_phase
+                        self.phasePmax = Margules.Pmax
+                        # Lookup table is not used -- flag with nan for grid resolution.
+                        self.EOSdeltaP = np.nan
+                        self.EOSdeltaT = np.nan
                     # self.ufn_species =
                     self.ufn_Seismic = MgSO4Seismic(self.w_ppt, self.EXTRAP)
-                    if sigmaFixed_Sm is not None:
+                    if sigmaFixed_Sm is not None or wOcean_ppt == 0:
+                        # If wOcean_ppt == 0, we are in pure water mode and should use the default conductivity of pure water (the MgSO4Conduct implementation calculates actual conductivity values at 0.0ppt that don't make sense)
                         self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
                     else:
                         self.ufn_sigma_Sm = MgSO4Conduct(self.w_ppt, self.elecType, rhoType=self.rhoType,
@@ -293,19 +302,20 @@ class OceanEOSStruct:
                         RktProps(EOSLookupTable, PropsP_MPa, PropsT_K, self.EXTRAP))
                     Timing.logTime('RktProps()', time.time())
                     # Reassign P and T of phase to match new inputs from RktProps
-                    _, _, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, PropsP_MPa[0], PropsP_MPa[-1], PropsT_K[0], PropsT_K[-1], MELT=MELT)
+                    _, _, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, PropsP_MPa[0], PropsP_MPa[-1], PropsT_K[0], PropsT_K[-1], MELT=MELT, propsStepReductionFactor=propsStepReductionFactor)
                     Timing.setTime(time.time())
                     self.ufn_Seismic = RktSeismic(EOSLookupTable, self.EXTRAP)  
                     Timing.logTime('RktSeismic()', time.time())
                     Timing.setTime(time.time())
-                    self.ufn_phase = RktPhaseLookup(EOSLookupTable, Pphase_MPa, Tphase_K, self.deltaP, self.deltaT)
+                    self.ufn_phase = RktPhaseLookup(EOSLookupTable, Pphase_MPa, Tphase_K)
                     Timing.logTime('RktPhaseLookup()', time.time())
                     Timing.setTime(time.time())
                     self.ufn_species = RktHydroSpecies(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.ocean_solid_phases)
                     Timing.logTime('RktHydroSpecies()', time.time())
                     #self.ufn_rxn_affinity = RktRxnAffinity(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.ocean_solid_phases) Incorporated in self.ufn_species now
                     Timing.setTime(time.time())
-                    if sigmaFixed_Sm is not None:
+                    if sigmaFixed_Sm is not None or wOcean_ppt == 0:
+                        # If wOcean_ppt == 0, we are in pure water mode and should use the default conductivity of pure water
                         self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
                     else:
                         # ions = {'Na_p1': {'mols': 0.1}, 'Cl_m1': {'mols': 0.1}}
@@ -545,7 +555,7 @@ class IceEOSStruct:
                         kTherm_WmK = rho_kgm3
                     else:
                         PTgrid = sfPTgrid(P_MPa, T_K)
-                        iceOut = SeaFreeze(PTgrid, phaseStr)
+                        iceOut, P_MPa, T_K = IceSeaFreezeProps(PTgrid, phaseStr)
                         rho_kgm3 = iceOut.rho
                         Cp_JkgK = iceOut.Cp
                         alpha_pK = iceOut.alpha
@@ -955,14 +965,15 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
     """
 
     # Create label for identifying P, T arrays
-    deltaP = np.maximum(np.round(np.mean(np.diff(P_MPa)), 2), 0.001)
-    deltaT = np.maximum(np.round(np.mean(np.diff(T_K)), 2), 0.001)
+    deltaP = np.round(np.maximum(np.mean(np.diff(P_MPa)), 0.001), 3)
+    deltaT = np.round(np.maximum(np.mean(np.diff(T_K)), 0.001), 3)
     # Override min resolution if set
     if minPres_MPa is not None and deltaP < minPres_MPa:
         log.debug(f'deltaP of {deltaP:.2f} MPa less than minimum res setting of {minPres_MPa}. Resetting to {minPres_MPa}.')
         deltaP = minPres_MPa
-        if minTres_K is not None and deltaT < minTres_K:
-            log.debug(f'deltaT of {deltaT:.2f} K less than minimum res setting of {minTres_K}. Resetting to {minTres_K}.')
+    if minTres_K is not None and deltaT < minTres_K:
+        log.debug(f'deltaT of {deltaT:.2f} K less than minimum res setting of {minTres_K}. Resetting to {minTres_K}.')
+        deltaT = minTres_K
     Pmin = np.min(P_MPa)
     Pmax = np.max(P_MPa)
     Tmin = np.min(T_K)
@@ -1441,10 +1452,10 @@ class ViscIceUniform_Pas:
         self.TviscTrans_K[-1] = Tconv_K
     
 
-def GetOceanEOSLabel(compstr, wOcean_ppt, elecType, rhoType, scalingType, phaseType, EXTRAP, PORE, LOOKUP_HIRES, etaFixed_Pas, meltStr):
+def GetOceanEOSLabel(compstr, wOcean_ppt, elecType, rhoType, scalingType, phaseType, EXTRAP, PORE, LOOKUP_HIRES, etaFixed_Pas, meltStr, propsStepReductionFactor):
     return f'meltStr{meltStr}Comp{compstr}wppt{wOcean_ppt}elec{elecType}rho{rhoType}' + \
                         f'scaling{scalingType}phase{phaseType}extrap{EXTRAP}pore{PORE}' + \
-                        f'hires{LOOKUP_HIRES}etaFixed{etaFixed_Pas}'
+                        f'hires{LOOKUP_HIRES}etaFixed{etaFixed_Pas}propsStepReductionFactor{propsStepReductionFactor}'
 
 def GetIceEOSLabel(phaseStr, porosType, phiTop_frac, Pclosure_MPa, phiMin_frac, EXTRAP, etaFixed_Pas, TviscTrans_K):
     return f'phase{phaseStr}poros{porosType}phi{phiTop_frac}Pclose{Pclosure_MPa}' + \

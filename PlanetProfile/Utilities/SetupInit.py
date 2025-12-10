@@ -273,7 +273,8 @@ def SetupInit(Planet, Params):
                                             Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                             scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                             phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                                            sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+                                            sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK,
+                                            propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
 
                 if Planet.Ocean.EOS.deltaP < Planet.Ocean.deltaP:
                     log.debug(f'Updating Ocean.deltaP to match the more refined EOS.deltaP ({Planet.Ocean.EOS.deltaP}).')
@@ -317,7 +318,7 @@ def SetupInit(Planet, Params):
             if not Params.PRELOAD_EOS_IN_PROGRESS:
                 Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K,  None,
                                                 phaseType=Planet.Ocean.phaseType, FORCE_NEW=(not (Params.DO_EXPLOREOGRAM and Params.PRELOAD_EOS) and not(Params.DO_MONTECARLO and Params.PRELOAD_EOS) and not(Params.DO_INDUCTOGRAM and Params.PRELOAD_EOS)), MELT=True,
-                                                LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES)
+                                                LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, propsStepReductionFactor=1)
             
             # Setup parameters
             for phase in Planet.Ocean.Eact_kJmol.keys():
@@ -408,13 +409,23 @@ def SetupInit(Planet, Params):
 
         # Load EOS functions for deeper interior
         if not Params.SKIP_INNER:
+            # Setup defaults
+            Planet.Sil.kTherm_WmK = Constants.kThermSil_WmK if Planet.Sil.kTherm_WmK is None else Planet.Sil.kTherm_WmK
+            Planet.Sil.etaRock_Pas = Constants.etaRock_Pas if Planet.Sil.etaRock_Pas is None else Planet.Sil.etaRock_Pas
+            Planet.Core.etaFeSolid_Pas = Constants.etaFeSolid_Pas if Planet.Core.etaFeSolid_Pas is None else Planet.Core.etaFeSolid_Pas
+            Planet.Sil.TviscTrans_K = Constants.TviscRock_K if Planet.Sil.TviscTrans_K is None else Planet.Sil.TviscTrans_K
+            Planet.Core.TviscTrans_K = Constants.TviscFe_K if Planet.Core.TviscTrans_K is None else Planet.Core.TviscTrans_K
+            if Planet.Do.CONSTANT_INNER_DENSITY:
+                Planet.Sil.GSmean_GPa = Constants.GS_GPa[Constants.phaseSil]
+                Planet.Core.GSmean_GPa = Constants.GS_GPa[Constants.phaseFe]
             if not Params.PRELOAD_EOS_IN_PROGRESS:
                 # Get silicate EOS
                 Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.lookupInterpMethod,
                                          kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
                                          porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
                                          Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
-                                         EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                         EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas], 
+                                         TviscTrans_K=Planet.Sil.TviscTrans_K,
                                          doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Sil.rhoSilWithCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
                                                                                    'VP_kms': Planet.Sil.VPmean_kms, 'VS_kms': Planet.Sil.VSmean_kms, 'KS_GPa': Planet.Sil.KSmean_GPa, 'GS_GPa': Planet.Sil.GSmean_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
                                                                                    'sigma_Sm': Planet.Sil.sigmaMean_Sm})
@@ -435,7 +446,8 @@ def SetupInit(Planet, Params):
                                                     Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                                     scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                                     phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=True,
-                                                    sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+                                                    sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK,
+                                                    propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
 
                 if Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
                     Planet.Ocean.EOS = Planet.Sil.poreEOS
@@ -460,6 +472,7 @@ def SetupInit(Planet, Params):
                     Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
                                           kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
                                           wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                          TviscTrans_K=Planet.Core.TviscTrans_K,
                                           doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
                                                                                    'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSmean_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
                                                                                    'sigma_Sm': Planet.Core.sigmaMean_Sm})
@@ -697,7 +710,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None, mo
                                    inductAppend=inductAppend, monteCarloAppend=monteCarloAppend)
     FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn,
                                        comp=comp, exploreBase=exploreBase, inductBase=inductBase, monteCarloBase=monteCarloBase,
-                                       exploreAppend=figExploreAppend, inductAppend=inductAppend, monteCarloAppend=monteCarloAppend)
+                                       exploreAppend=figExploreAppend, inductAppend=inductAppend, monteCarloAppend=monteCarloAppend, inputBaseOverride = Params.OverrideFigureBase)
 
     # Attach profile name to PlanetStruct in addition to Params
     Planet.saveFile = DataFiles.saveFile + ''
@@ -1040,20 +1053,21 @@ def PrecomputeEOS(PlanetList, Params):
     deltaTmelt = Planet.TfreezeRes_K
     maxPOcean_MPa = Planet.Ocean.PHydroMax_MPa
     maxTOcean_K = Planet.Ocean.THydroMax_K
-    maxPIce_MPa = Planet.Ocean.PHydroMax_MPa
-    maxTIce_K = Planet.Ocean.THydroMax_K
     minPOcean_MPa = Planet.Bulk.Psurf_MPa
-    minTOcean_K = Planet.Bulk.Tsurf_K
-    minPIce_MPa = Planet.Bulk.Psurf_MPa
-    minTIce_K = Planet.Bulk.Tsurf_K
+    minTOcean_K = Planet.TfreezeLower_K
     deltaPOcean = Planet.Ocean.deltaP
     deltaTOcean = Planet.Ocean.deltaT
-    deltaPIce = Planet.Ocean.deltaP
+    
+    minPSurfIce_MPa = Planet.Bulk.Psurf_MPa
+    minTSurfIce_K = Planet.Bulk.Tsurf_K
+    maxPHPIce_MPa = maxPOcean_MPa
+    maxPHPIceT_K = maxTOcean_K
     if Params.minPres_MPa is not None:
         deltaPIce = Params.minPres_MPa
         log.profile(f'Setting deltaPIce to {deltaPIce} based on Params.minPres_MPa.')
     else:
         deltaPIce = Planet.Ocean.deltaP
+        Params.minPres_MPa = deltaPIce
         log.profile(f'Setting deltaPIce to {deltaPIce} based on Planet.Ocean.deltaP because Params.minPres_MPa is not set. This might be too big for the ice EOS propogation based on the number of input ice steps, considering setting Params.minPres_MPa.')
         
     if Params.minTres_K is not None:
@@ -1061,6 +1075,7 @@ def PrecomputeEOS(PlanetList, Params):
         log.profile(f'Setting deltaTIce to {deltaTIce} based on Params.minTres_K.')
     else:
         deltaTIce = Planet.Ocean.deltaT
+        Params.minTres_K = deltaTIce
         log.profile(f'Setting deltaTIce to {deltaTIce} based on Planet.Ocean.deltaT because Params.minTres_K is not set. This might be too big for the ice EOS propogation based on the number of input ice steps, considering setting Params.minTres_K.')
         
     GetIceEOSTracker = False
@@ -1086,15 +1101,11 @@ def PrecomputeEOS(PlanetList, Params):
             if not Planet.Do.NO_ICE_CONVECTION:
                 DoConvectionTracker = True
             GetIceEOSTracker = True
-            maxPIce_MPa = max(maxPIce_MPa, Planet.Ocean.PHydroMax_MPa)
-            maxTIce_K = max(maxTIce_K, Planet.Ocean.THydroMax_K)
+            minPSurfIce_MPa = min(minPSurfIce_MPa, Planet.Bulk.Psurf_MPa)
+            minTSurfIce_K = min(minTSurfIce_K, Planet.Bulk.Tsurf_K)
             if Planet.Do.POROUS_ROCK or Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
-                maxPIce_MPa = max(maxPIce_MPa, Planet.Sil.PHydroMax_MPa)
-                maxTIce_K = max(maxTIce_K, Planet.Sil.THydroMax_K)
-            minPIce_MPa = min(minPIce_MPa, Planet.Bulk.Psurf_MPa)
-            minTIce_K = min(minTIce_K, Planet.Bulk.Tsurf_K)
-            deltaPIce = min(deltaPIce, Planet.Ocean.deltaP)
-            deltaTIce = min(deltaTIce, Planet.Ocean.deltaT)
+                maxPHPIce_MPa = max(maxPHPIce_MPa, Planet.Sil.PfreezeUpper_MPa)
+                maxPHPIceT_K = max(maxPHPIceT_K, Planet.Sil.TfreezeUpper_K)
 
         
         # Inner EOS configurations  
@@ -1112,7 +1123,10 @@ def PrecomputeEOS(PlanetList, Params):
             uniqueEOSlabels = set()
             for oceanPlanet in oceanPlanets:
                 if 'CustomSolution' in oceanPlanet.Ocean.comp:
-                    EOSlabel = GetOceanEOSLabel(compstr=oceanPlanet.Ocean.comp, wOcean_ppt=oceanPlanet.Ocean.wOcean_ppt, elecType=oceanPlanet.Ocean.MgSO4elecType, rhoType=oceanPlanet.Ocean.MgSO4rhoType, scalingType=oceanPlanet.Ocean.MgSO4scalingType, phaseType=oceanPlanet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=oceanPlanet.Do.OCEAN_PHASE_HIRES, LOOKUP_HIRES=oceanPlanet.Do.OCEAN_PHASE_HIRES, etaFixed_Pas=oceanPlanet.Ocean.kThermWater_WmK, meltStr='')
+                    EOSlabel = GetOceanEOSLabel(compstr=oceanPlanet.Ocean.comp, wOcean_ppt=oceanPlanet.Ocean.wOcean_ppt, elecType=oceanPlanet.Ocean.MgSO4elecType, rhoType=oceanPlanet.Ocean.MgSO4rhoType, 
+                                                scalingType=oceanPlanet.Ocean.MgSO4scalingType, phaseType=oceanPlanet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, 
+                                                PORE=oceanPlanet.Do.OCEAN_PHASE_HIRES, LOOKUP_HIRES=oceanPlanet.Do.OCEAN_PHASE_HIRES, etaFixed_Pas=oceanPlanet.Ocean.kThermWater_WmK, 
+                                                meltStr='', propsStepReductionFactor=oceanPlanet.Ocean.propsStepReductionFactor)
                     if EOSlabel not in uniqueEOSlabels:
                         uniqueEOSlabels.add(EOSlabel)
                         uniqueEOSCustomSolutions.append((oceanPlanet.Ocean.comp, oceanPlanet.Ocean.wOcean_ppt))
@@ -1134,15 +1148,15 @@ def PrecomputeEOS(PlanetList, Params):
         Tmelt_K = np.arange(minTmelt_K, maxTmelt_K, deltaTmelt, dtype=np.float32)
         for i, oceanPlanet in enumerate(oceanPlanets):
             GetOceanEOS(oceanPlanet.Ocean.comp, oceanPlanet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K, oceanPlanet.Ocean.MgSO4elecType, rhoType = oceanPlanet.Ocean.MgSO4rhoType, scalingType = oceanPlanet.Ocean.MgSO4scalingType, phaseType = oceanPlanet.Ocean.phaseType, EXTRAP = Params.EXTRAP_OCEAN, LOOKUP_HIRES = oceanPlanet.Do.OCEAN_PHASE_HIRES, 
-                        etaFixed_Pas = oceanPlanet.Ocean.kThermWater_WmK, doConstantProps=oceanPlanet.Do.CONSTANTPROPSEOS, constantProperties=oceanPlanet.Ocean.oceanConstantProperties)
+                        etaFixed_Pas = oceanPlanet.Ocean.kThermWater_WmK, doConstantProps=oceanPlanet.Do.CONSTANTPROPSEOS, constantProperties=oceanPlanet.Ocean.oceanConstantProperties, propsStepReductionFactor=oceanPlanet.Ocean.propsStepReductionFactor)
             GetOceanEOS(oceanPlanet.Ocean.comp, oceanPlanet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K, elecType=None,
                                                 phaseType=oceanPlanet.Ocean.phaseType,  MELT=True,
-                                                LOOKUP_HIRES=oceanPlanet.Do.OCEAN_PHASE_HIRES)
+                                                LOOKUP_HIRES=oceanPlanet.Do.OCEAN_PHASE_HIRES, propsStepReductionFactor=1)
             log.profile(f'Ocean EOS {i+1} of {len(oceanPlanets)} pre-generated.')
     
     if DoConvectionTracker:
         log.profile(f'Pre-generating Pure H2O ocean EOS for convection.')
-        Pmelt_MPa = np.arange(minPmelt_MPa, maxPmelt_MPa, deltaPmelt, dtype=np.float32)
+        Pmelt_MPa = np.arange(minPmelt_MPa, maxPmelt_MPa, .05, dtype=np.float32)
         Tmelt_K = np.arange(240,280, .05, dtype=np.float32)
         GetOceanEOS('PureH2O', 0.0, Pmelt_MPa, Tmelt_K, elecType=None,
                                             phaseType='calc',  MELT=True)
@@ -1151,16 +1165,33 @@ def PrecomputeEOS(PlanetList, Params):
     if GetIceEOSTracker:        
         icePhases = ['Ih', 'II', 'III', 'V', 'VI']
         log.profile(f'Pre-generating ice EOS for {len(icePhases)} ice phases.')
-        PIce_MPa = np.arange(minPIce_MPa, maxPIce_MPa, deltaPIce, dtype=np.float32)
-        TIce_K = np.arange(minTIce_K, maxTIce_K, deltaTIce, dtype=np.float32)
+        PSurfIce_MPa = np.arange(minPSurfIce_MPa, maxPmelt_MPa, deltaPIce, dtype=np.float32)
+        TSurfIce_K = np.arange(minTSurfIce_K, maxTmelt_K, deltaTIce, dtype=np.float32)
         for i, icePhase in enumerate(icePhases):
-            GetIceEOS(PIce_MPa, TIce_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                        ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK, 
-                                                    mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant},
-                                                    doConstantProps=Planet.Do.CONSTANTPROPSEOS,
-                                                    constantProperties=Planet.Ocean.constantProperties[icePhase],
-                                                    minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)        
-            log.profile(f'Ice EOS {icePhase} pre-generated.')
+            if icePhase != 'Ih' and maxPmelt_MPa < Constants.PminHPices_MPa:
+                pass
+            else:
+                GetIceEOS(PSurfIce_MPa, TSurfIce_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK, 
+                                                        mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant},
+                                                        doConstantProps=Planet.Do.CONSTANTPROPSEOS,
+                                                        constantProperties=Planet.Ocean.constantProperties[icePhase],
+                                                        minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)        
+                log.profile(f'Surfice {icePhase} EOS pre-generated.')
+        
+        PHPIce_MPa = np.arange(minPOcean_MPa, maxPHPIce_MPa, deltaPIce)
+        TOceanHPices_K = np.arange(minTOcean_K, maxPHPIceT_K, deltaTIce)
+        for i, icePhase in enumerate(icePhases):
+            if icePhase == 'Ih':
+                pass
+            else:
+                GetIceEOS(PHPIce_MPa, TOceanHPices_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase],
+                                                      porosType=Planet.Ocean.porosType[icePhase],
+                                                      phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
+                                                      Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
+                                                      phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                      minPres_MPa=deltaPIce, minTres_K=deltaTIce, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+                log.profile(f'HP {icePhase} EOS pre-generated.')
     if len(innerPlanets) > 0:
         log.profile(f'Pre-generating inner EOS for {len(innerPlanets)} inner planets.')
         for i, innerPlanet in enumerate(innerPlanets):
@@ -1170,6 +1201,7 @@ def PrecomputeEOS(PlanetList, Params):
                                          porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
                                          Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
                                          EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                         TviscTrans_K=Planet.Sil.TviscTrans_K,
                                          doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Sil.rhoSilWithCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
                                                                                    'VP_kms': Planet.Sil.VPmean_kms, 'VS_kms': Planet.Sil.VSmean_kms, 'KS_GPa': Planet.Sil.KSmean_GPa, 'GS_GPa': Planet.Sil.GSmean_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
                                                                                    'sigma_Sm': Planet.Sil.sigmaMean_Sm})
@@ -1178,10 +1210,11 @@ def PrecomputeEOS(PlanetList, Params):
                 GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
                                           kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
                                           wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                          TviscTrans_K=Planet.Core.TviscTrans_K,
                                           doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
                                                                                    'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSmean_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
                                                                                    'sigma_Sm': Planet.Core.sigmaMean_Sm})
-            log.profile(f'Inner EOS {i+1} of {len(innerPlanets)} pre-generated.')
+        log.profile(f'Inner EOS pre-generated for {len(innerPlanets)} inner planets.')
     Params.PRELOAD_EOS_IN_PROGRESS = False
     log.profile(f'Pre-generating EOS complete.')
     return

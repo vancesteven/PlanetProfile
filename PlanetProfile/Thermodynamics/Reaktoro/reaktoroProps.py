@@ -11,30 +11,13 @@ from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 from scipy.optimize import root_scalar as GetZero
 from itertools import repeat
 import hashlib
+from PlanetProfile.Thermodynamics.Seafreeze.SeafreezeProps import GenerateSeafreezeChemicalPotentials
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 # Get FileLock, which is important to prevent race conditions in parallel computing when saving EOS
 from multiprocessing import Lock
 FileLock = Lock()
-
-""" 
-Check CustomSolutionConfig inputs are valid, set file paths, and save global reference to object so Rkt file can use
-"""
-# Ensure frezchem database is valid
-CustomSolutionParams.setPaths(_ROOT)
-for file_name in os.listdir(CustomSolutionParams.databasePath):
-    if file_name == CustomSolutionParams.FREZCHEM_DATABASE:
-        break
-else:
-    log.warning(
-        "Input frezchem database does not match any of the available saved files.\nCheck that the input is properly spelled and has .dat at end. Using default frezchem.dat file")
-    CustomSolutionParams.FREZCHEM_DATABASE = "frezchem.dat"
-# Check the unit is 'g' or 'mol' (g - grams, mol - mols)
-if not CustomSolutionParams.SPECIES_CONCENTRATION_UNIT == "g" and not CustomSolutionParams.SPECIES_CONCENTRATION_UNIT == "mol":
-    log.warning(
-        "Input species concentration unit is not valid. Check that it is either g or mol. Using mol as default")
-    CustomSolutionParams.SPECIES_CONCENTRATION_UNIT = "mol"
     
 
 def MolalConverter(ocean_species_string_g_kg):
@@ -380,7 +363,7 @@ class EOSLookupTableLoader():
                 save_dict_to_pkl(self.phase_EOS, self.phase_fLookup)
 
 
-    def RktFreezingTemperatureFinder(self, Frezchem_System, P_MPa, TMin_K=220, TMax_K=300, significant_threshold=0.1):
+    def RktFreezingTemperatureFinder(self, Frezchem_System, P_MPa, TMin_K=220, TMax_K=300, significant_threshold=0.01):
         """
         Calculates the temperature at which the prescribed aqueous solution freezes. Utilizes the reaktoro framework to
         constrain the equilibrium position at the prescribed pressure and the chemical potential difference between ice and liquid water at 0.1,
@@ -925,11 +908,13 @@ class RktSeismic:
         return np.array(out)
 
 class RktPhaseLookup:
-    def __init__(self, EOSLookupTable, P_MPa, T_K, EOS_deltaP, EOS_deltaT):
+    def __init__(self, EOSLookupTable, P_MPa, T_K):
+        inputdeltaP = np.maximum(np.round(np.mean(np.diff(P_MPa)), 3), 0.001)
+        inputdeltaT = np.maximum(np.round(np.mean(np.diff(T_K)), 3), 0.001)
         fRktPhase = EOSLookupTable.phase_EOS
         PRkt_MPa = fRktPhase['P_MPa']
         self.Pmin = np.min(PRkt_MPa)
-        self.deltaP = np.maximum(np.round(np.mean(np.diff(PRkt_MPa)), 2), 0.001)
+        EOSdeltaP = np.maximum(np.round(np.mean(np.diff(PRkt_MPa)), 3), 0.001)
         fn_frezchem_phaseRGI = RegularGridInterpolator((PRkt_MPa,), fRktPhase['TFreezing_K'],
                                                     method='linear', bounds_error=False, fill_value=None)
 
@@ -940,14 +925,14 @@ class RktPhaseLookup:
         self.Pmax = fn_RktProps.Pmax
         self.Tmin = fn_RktProps.Tmin
         self.Tmax = fn_RktProps.Tmax
-        self.deltaT = fn_RktProps.EOSdeltaT
+        EOSdeltaT = fn_RktProps.EOSdeltaT
         # Reassign the functions so they can be referenced when object is called
         fn_mu_J_mol = fn_RktProps.fn_mu_J_mol
         
         # Generate pressure and temperature arrays that extend to limits of EOS pressure and temperature but
         # use the fidelity of the temperature and pressure steps of EOS (i.e. deltaT and deltaP)
-        self.deltaP = np.min([self.deltaP, EOS_deltaP])
-        self.deltaT = np.min([self.deltaT, EOS_deltaT])
+        self.deltaP = np.min([inputdeltaP, EOSdeltaP])
+        self.deltaT = np.min([inputdeltaT, EOSdeltaT])
         P_MPa_to_query = np.arange(P_MPa[0], P_MPa[-1], self.deltaP)
         T_K_to_query = np.arange(T_K[0], T_K[-1], self.deltaT)
         phase_lookup_grid = self.phase_lookup_grid_generator(P_MPa_to_query, T_K_to_query, fn_frezchem_phaseRGI, fn_mu_J_mol)
@@ -966,61 +951,21 @@ class RktPhaseLookup:
             phases[0:P_MPa_below_200_MPa_index, :] = (T_K_pts < freezing_temperatures).astype(np.int_)
         if P_MPa_below_200_MPa_index < P_MPa.size:
             P_MPa_above_200_MPa = P_MPa[P_MPa_below_200_MPa_index:]
-            # Make sure we're always passing a properly formatted array to seafreeze
-            # Create a 2-element array with pressure and temperature arrays
-            evalPts_sfz = np.array([P_MPa_above_200_MPa, T_K], dtype=object)
-            ptsh = (P_MPa_above_200_MPa.size, T_K.size)
-            max_phase_num = max([p for p in Constants.seafreeze_ice_phases.keys()])
-            comp = np.full(ptsh + (max_phase_num + 1,), np.nan)
-            sfz_Pmin = np.min(P_MPa_above_200_MPa)
-            sfz_Pmax = np.max(P_MPa_above_200_MPa)
-            sfz_Tmin = np.min(T_K)
-            sfz_Tmax = np.max(T_K)
-            if P_MPa_above_200_MPa.size == 1:
-                sfz_deltaP = 0
+            if len(P_MPa_above_200_MPa) == len(T_K):
+                P_MPa_To_Query = np.concatenate((P_MPa_above_200_MPa, [P_MPa_above_200_MPa[-1] + 1]))
             else:
-                sfz_deltaP = np.round(np.mean(np.diff(P_MPa_above_200_MPa)), 2)
-            sfz_deltaT = np.round(np.mean(np.diff(T_K)), 2)
-            seafreezeRange = f'Pmin_{sfz_Pmin}_Pmax_{sfz_Pmax}_Tmin_{sfz_Tmin}_Tmax_{sfz_Tmax}_deltaP_{sfz_deltaP}_deltaT_{sfz_deltaT}'
-            seafreezeMuTag = f'mu_J_mol_{seafreezeRange}'
-
-            for phase, name in Constants.seafreeze_ice_phases.items():
-                if phase == 0:
-                    if len(P_MPa_above_200_MPa) == len(T_K):
-                        P_MPa_To_Query = np.concatenate((P_MPa_above_200_MPa, [P_MPa_above_200_MPa[-1] + 1]))
-                        mu_J_mol = mu_function_above_200_MPa(P_MPa_To_Query, T_K)[:-1]
-                    else:
-                        mu_J_mol = mu_function_above_200_MPa(P_MPa_above_200_MPa, T_K)
-                else:
-                    seafreezeMuPhaseTag = f"{seafreezeMuTag}_{name}"
-                    if seafreezeMuPhaseTag in EOSlist.loaded.keys():
-                        mu_J_mol = EOSlist.loaded[seafreezeMuPhaseTag]
-                    else:
-                        # Ensure we handle single value arrays properly
-                        if P_MPa_above_200_MPa.size == 1 or T_K.size == 1:
-                            # Create a proper grid for seafreeze to work with
-                            sfz_PT = np.array([P_MPa_above_200_MPa, T_K], dtype=object)
-                            mu_J_mol = (sfz.getProp(sfz_PT, name).G * Constants.m_gmol['H2O'] / 1000)
-                        else:
-                            try:
-                                mu_J_mol = (sfz.getProp(evalPts_sfz, name).G * Constants.m_gmol['H2O'] / 1000)
-                            except:
-                                # Sometimes seafreeze will fail to calculate some bulk properties for a given phase, so we will use its imports directly to calculate only the chemical potential
-                                from seafreeze.seafreeze import defpath, _get_tdvs, _is_scatter
-                                from seafreeze.seafreeze import phases as seafreeze_phases
-                                from mlbspline import load
-                                phasedesc = seafreeze_phases[name]
-                                sp = load.loadSpline(defpath, phasedesc.sp_name)
-                                isscatter = _is_scatter(evalPts_sfz)
-                                tdvs = _get_tdvs(sp, evalPts_sfz, isscatter)
-                                mu_J_mol = tdvs.G * Constants.m_gmol['H2O'] / 1000
-                        EOSlist.loaded[seafreezeMuPhaseTag] = mu_J_mol
-                sl = tuple(repeat(slice(None), 2)) + (phase,)
-                comp[sl] = np.squeeze(mu_J_mol)
-            all_nan_sl = np.all(np.isnan(comp), -1)  # Find slices where all values are nan along the innermost axis
-            out_phase = np.full(ptsh, np.nan)
-            out_phase[~all_nan_sl] = np.nanargmin(comp[~all_nan_sl], -1)
-            phases[P_MPa_below_200_MPa_index:, :] = out_phase
+                P_MPa_To_Query = P_MPa_above_200_MPa
+            """ First, we will get the minimum chemical potentail of ice phases along PT grid input and its associated most stable phase."""
+            sfzIceMuTag, sfzIcePhaseTag, _ = GenerateSeafreezeChemicalPotentials(P_MPa_To_Query, T_K)
+            """ Next, we will get the chemical potential of the ocean liquid phase. Namely, we will get the pure water chemical potential from seafreeze and adjust with chemical potential adjustment."""
+            # Compute liquid chemical potential
+            aqMu_J_mol = mu_function_above_200_MPa(P_MPa_To_Query, T_K)
+            
+            """ Finally, we will get the most stable phase between the aqueous phase and the ice phase."""
+            # Boolean mask where ice is more stable than liquid
+            liqLessStable = np.isnan(aqMu_J_mol) | (aqMu_J_mol > EOSlist.loaded[sfzIceMuTag])
+            
+            phases[P_MPa_below_200_MPa_index:, :][liqLessStable] = EOSlist.loaded[sfzIcePhaseTag][liqLessStable]
         return phases
 
 
@@ -1078,16 +1023,39 @@ class RktConduct():
 
         # Check if speciation data has already been calculated for this grid
         key = (tuple(P_MPa.ravel()), tuple(T_K.ravel()))  # Use original arrays for the key
-        if key not in self.calculated_speciations:
-            # Calculate speciation if not found
-            self.calculated_speciations[key] = self.fn_species(original_P_MPa, original_T_K, grid = grid)
-        pH, speciation, species_names, affinity = self.calculated_speciations[key]
-
-        # Convert species names to compatible format
-        McClevsky_speciation = self.McClevskyIonParser(speciation, species_names, self.speciation_ratio_mol_per_kg)
-        # McCleskey function requires Celcius units
-        T_C = T_K - Constants.T0
-        return elecCondMcCleskey2012(P_MPa, T_C, McClevsky_speciation)
+        CALC_SPECIATION = False
+        if CALC_SPECIATION:
+            if key not in self.calculated_speciations:
+                # Calculate speciation if not found
+                self.calculated_speciations[key] = self.fn_species(original_P_MPa, original_T_K, grid = grid)
+            pH, speciation, species_names, affinity = self.calculated_speciations[key]
+        else:
+            speciation = []
+            species_names = []
+            for species, ratio in self.speciation_ratio_mol_per_kg.items():
+                if grid:
+                    ratioList = np.full((len(P_MPa), len(T_K)), ratio)
+                else:
+                    ratioList = [ratio] * len(P_MPa)
+                speciation.append(ratioList)
+                species_names.append(species)
+            speciation = np.array(speciation)
+            species_names = np.array(species_names)
+        if grid:
+            # If it is grid, then we must handle by first calculating each T_K
+            # CURRENTLY MCCLESKLY DOES NOT DEPEND ON P_MPA so onyl need to do calculations for each T_K
+            sigma_Sm = np.zeros_like(speciation.shape)
+            for i, T in enumerate(T_K):
+                speciation_T = speciation[:, i, :]
+                McClevsky_speciation = self.McClevskyIonParser(speciation_T, species_names, self.speciation_ratio_mol_per_kg)
+                T_C = T - Constants.T0
+                sigma_Sm[:, i, :] = elecCondMcCleskey2012(P_MPa, T_C, McClevsky_speciation)
+        else:
+            McClevsky_speciation = self.McClevskyIonParser(speciation, species_names, self.speciation_ratio_mol_per_kg)
+            T_C = T_K - Constants.T0
+            sigma_Sm = elecCondMcCleskey2012(P_MPa, T_C, McClevsky_speciation)
+        print(np.mean(sigma_Sm))
+        return sigma_Sm
 
     def McClevskyIonParser(self, speciation_array, species_names_array, speciation_ratio_mol_kg):
         """

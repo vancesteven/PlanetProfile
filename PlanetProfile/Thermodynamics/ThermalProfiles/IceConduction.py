@@ -43,7 +43,8 @@ def IceIWholeConductSolid(Planet, Params):
             Pbottom_MPa = Planet.dzIceI_km * 1e3 * Planet.g_ms2[0] * Planet.Ocean.surfIceEOS[icePhase].fn_rho_kgm3(Planet.Bulk.Psurf_MPa, Planet.Bulk.Tsurf_K)
             Pmelt_MPa = np.linspace(Pbottom_MPa - 0.01, Planet.Bulk.Psurf_MPa + 0.01, 3)
             Tmelt_K = np.linspace(Planet.TfreezeLower_MPa, Planet.TfreezeUpper_MPa, Planet.TfreezeRes_K)
-            Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K)
+            Planet.Ocean.meltEOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, Pmelt_MPa, Tmelt_K,
+                                               propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
             Planet.Bulk.Tb_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.Pb_MPa, Planet.TfreezeLower_K, TRes_K=Planet.TfreezeRes_K)
         
         # Calculate remaining physical properites of upper ice I from depth

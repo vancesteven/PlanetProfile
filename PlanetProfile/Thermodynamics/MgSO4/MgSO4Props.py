@@ -9,6 +9,7 @@ from PlanetProfile import _ROOT
 from itertools import repeat
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnConstantPTw, Nearest2DInterpolator as PhaseInterpolator
+from PlanetProfile.Thermodynamics.Seafreeze.SeafreezeProps import GenerateSeafreezeChemicalPotentials
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -341,56 +342,24 @@ class MgSO4PhaseMargules:
         
     def __call__(self, P_MPa, T_K):
         return self.fn_phase
+    
     def phaseLookupGridGenerator(self, P_MPa, T_K):
-        evalPts_sfz = np.array([P_MPa, T_K], dtype=object)
-        ptsh = (P_MPa.size, T_K.size)
-        max_phase_num = max([p for p in Constants.seafreeze_ice_phases.keys()])
-        comp = np.full(ptsh + (max_phase_num + 1,), np.nan)
-        sfz_Pmin = np.min(P_MPa)
-        sfz_Pmax = np.max(P_MPa)
-        sfz_Tmin = np.min(T_K)
-        sfz_Tmax = np.max(T_K)
-        if P_MPa.size == 1:
-            sfz_deltaP = 0
-        else:
-            sfz_deltaP = np.round(np.mean(np.diff(P_MPa)), 2)
-        sfz_deltaT = np.round(np.mean(np.diff(T_K)), 2)
-        seafreezeRange = f'Pmin_{sfz_Pmin}_Pmax_{sfz_Pmax}_Tmin_{sfz_Tmin}_Tmax_{sfz_Tmax}_deltaP_{sfz_deltaP}_deltaT_{sfz_deltaT}'
-        seafreezeMuTag = f'mu_J_mol_{seafreezeRange}'
+        """ First, we will get the minimum chemical potentail of ice phases along PT grid input and its associated most stable phase."""
+        seafreezeMuTag, seafreezeIcePhaseTag, seafreezePureWaterMuTag = GenerateSeafreezeChemicalPotentials(P_MPa, T_K, doPureWater=True)
+        """ Next, we will get the chemical potential of the ocean liquid phase. Namely, we will get the pure water chemical potential from seafreeze and adjust with MgSO4 based on Margules parameterization."""
+        # Update the pure water chemical potential with MgSO4 based on Margules parameterization
+        MgSO4MargulesAdjustedMu_Jmol = np.array([CG.W_Jkg(P,T_K) for P in P_MPa])
+        # Compute liquid chemical potential
+        liquid_chemical_potential = EOSlist.loaded[seafreezePureWaterMuTag] + (MgSO4MargulesAdjustedMu_Jmol * (1 - self.xH2O)**2 + Constants.R*T_K/(self.mBar_gmol*1e-3) * np.log(self.xH2O)) * Constants.m_gmol['H2O'] / 1000
+        
+        """ Finally, we will get the most stable phase between the aqueous phase and the ice phase."""
+        # Boolean mask where ice is more stable than liquid
+        liquidLessStable = np.isnan(liquid_chemical_potential) | (liquid_chemical_potential > EOSlist.loaded[seafreezeMuTag])
 
-        for phase, name in Constants.seafreeze_ice_phases.items():
-            seafreezeMuPhaseTag = f"{seafreezeMuTag}_{name}"
-            if seafreezeMuPhaseTag in EOSlist.loaded.keys():
-                mu_J_mol = EOSlist.loaded[seafreezeMuPhaseTag]
-            # Ensure we handle single value arrays properly
-            if P_MPa.size == 1 or T_K.size == 1:
-                # Create a proper grid for seafreeze to work with
-                sfz_PT = np.array([P_MPa, T_K], dtype=object)
-                mu_J_mol = (sfz.getProp(sfz_PT, name).G * Constants.m_gmol['H2O'] / 1000)
-            else:
-                try:
-                    mu_J_mol = (sfz.getProp(evalPts_sfz, name).G * Constants.m_gmol['H2O'] / 1000)
-                except:
-                    from seafreeze.seafreeze import defpath, _get_tdvs, _is_scatter
-                    from seafreeze.seafreeze import phases as seafreeze_phases
-                    from mlbspline import load
-                    phasedesc = seafreeze_phases[name]
-                    sp = load.loadSpline(defpath, phasedesc.sp_name)
-                    # Sometimes seafreeze will fail to calculate some bulk properties for a given phase, so we will use its imports
-                    # directly to calculate only the chemical potential
-                    isscatter = _is_scatter(evalPts_sfz)
-                    tdvs = _get_tdvs(sp, evalPts_sfz, isscatter)
-                    mu_J_mol = tdvs.G * Constants.m_gmol['H2O'] / 1000
-            sl = tuple(repeat(slice(None), 2)) + (phase,)
-            if phase == 0:
-                # First assign to new variable to avoid modifying original array mu_J_mol which is saved to EOSlist
-                MgSO4MargulesAdjustedMu_Jmol = np.array([CG.W_Jkg(P,T_K) for P in P_MPa])
-                adjusted_mu_Jmol = mu_J_mol + (MgSO4MargulesAdjustedMu_Jmol * (1 - self.xH2O)**2 + Constants.R*T_K/(self.mBar_gmol*1e-3) * np.log(self.xH2O)) * Constants.m_gmol['H2O'] / 1000
-                mu_J_mol = adjusted_mu_Jmol
-            comp[sl] = np.squeeze(mu_J_mol)
-        all_nan_sl = np.all(np.isnan(comp), -1)  # Find slices where all values are nan along the innermost axis
+        # Directly assign ice phases using boolean mask
         phases = np.zeros((P_MPa.size, T_K.size), dtype=np.uint8)
-        phases[~all_nan_sl] = np.nanargmin(comp[~all_nan_sl], -1)
+        phases[liquidLessStable] = EOSlist.loaded[seafreezeIcePhaseTag][liquidLessStable]
+
         return phases
 
     def arrays(self, P_MPa, T_K, grid=True):

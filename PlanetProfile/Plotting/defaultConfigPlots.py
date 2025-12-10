@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 28  # Integer number for config file version. Increment when new settings are added to the
+configPlotsVersion = 29  # Integer number for config file version. Increment when new settings are added to the
 # default config file.
 
 def plotAssign():
@@ -278,6 +278,7 @@ def plotAssign():
     FigSize.vperm = (6, 6)
     FigSize.vseis = (6, 6)
     FigSize.vhydro = (12, 9)
+    FigSize.vhydroThermo = (12, 9)
     FigSize.vgrav = (6, 5)
     FigSize.vmant = (6, 6)
     FigSize.vcore = (6, 6)

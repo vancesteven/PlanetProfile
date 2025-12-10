@@ -33,7 +33,7 @@ def ResetNearestExtrap(var1, var2, min1, max1, min2, max2):
 
     return outVar1, outVar2
 
-def ReAssignPT(P_MPa, T_K, Pmin, Pmax, Tmin, Tmax, MELT=False):
+def ReAssignPT(P_MPa, T_K, Pmin, Pmax, Tmin, Tmax, MELT=False, propsStepReductionFactor=1):
     # Find indices where P_MPa is within bounds [Pmin, Pmax]
     deltaP = np.mean(np.diff(P_MPa))
     deltaT = np.mean(np.diff(T_K))
@@ -45,8 +45,8 @@ def ReAssignPT(P_MPa, T_K, Pmin, Pmax, Tmin, Tmax, MELT=False):
         Pphase_MPa = P_MPa
         Tphase_K = T_K
     else:
-        PropsP_MPa = P_MPa
-        PropsT_K = T_K
+        PropsP_MPa = np.linspace(P_MPa[0], P_MPa[-1], int(np.ceil(np.size(P_MPa)/propsStepReductionFactor)))
+        PropsT_K = np.linspace(T_K[0], T_K[-1], int(np.ceil(np.size(T_K)/propsStepReductionFactor)))
         Pphase_MPa = P_MPa
         Tphase_K = T_K
     return PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K

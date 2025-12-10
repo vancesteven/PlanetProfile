@@ -24,7 +24,7 @@ def GetInnerEOS(EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, 
                                     wFeCore_ppt=wFeCore_ppt, wScore_ppt=wScore_ppt,
                                     etaSilFixed_Pas=etaSilFixed_Pas, etaCoreFixed_Pas=etaCoreFixed_Pas, TviscTrans_K=TviscTrans_K)
     else:
-        innerEOS = ConstantEOSStruct(constantProperties, EOStype = 'inner')
+        innerEOS = ConstantEOSStruct(constantProperties, TviscTrans_K=TviscTrans_K, EOStype = 'inner')
     if innerEOS.ALREADY_LOADED:
         log.debug(f'{innerEOS.comp} EOS already loaded. Reusing existing EOS.')
         innerEOS = EOSlist.loaded[innerEOS.EOSlabel]

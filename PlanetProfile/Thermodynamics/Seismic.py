@@ -31,7 +31,8 @@ def SeismicCalcs(Planet, Params):
                                    Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                    scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                    phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, kThermConst_WmK=Planet.Ocean.kThermWater_WmK,
+                                   propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
 
 
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \

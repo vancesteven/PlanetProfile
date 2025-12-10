@@ -659,9 +659,9 @@ def GetIceShellTFreeze(Planet, Params):
     except Exception as e:
         msg = ''
         if Planet.TfreezeLower_K < TlowerLimit_K + Planet.TfreezeRes_K:
-            msg += 'Try increasing Planet.PfreezeUpper_MPa.'
+            msg += 'Try increasing Planet.PfreezeUpper_MPa'
         else:
-            msg += 'Try decreasing Planet.TfreezeLower_K.'
+            msg += 'Try decreasing Planet.TfreezeLower_K'
         raise ValueError(f"Root finding for corresponding Tb_K to achieve a given zb_approximate_km failed for temperature bracket [{TlowerLimit_K:.2f}, {TupperLimit_K:.2f}] K. {msg}. Also, the code is directly outptting the error: {e}")
 
 
@@ -711,7 +711,8 @@ def NonSelfConsistentOceanLayer(Planet, Params):
                                         phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
                                         sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK,
                                         doConstantProps=Planet.Do.CONSTANTPROPSEOS,
-                                        constantProperties=Planet.Ocean.oceanConstantProperties)
+                                        constantProperties=Planet.Ocean.oceanConstantProperties,
+                                        propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
             # Log and propogate the first ocean layer separately - to prevent index issues
             log.debug(f'il: {Planet.Steps.nSurfIce:d}; P_MPa: {Planet.P_MPa[Planet.Steps.nSurfIce]:.3f}; T_K: {Planet.T_K[Planet.Steps.nSurfIce]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce]:d}')
             Planet.rhoMatrix_kgm3[Planet.Steps.nSurfIce] = Planet.Ocean.EOS.fn_rho_kgm3(Planet.P_MPa[Planet.Steps.nSurfIce], Planet.T_K[Planet.Steps.nSurfIce])
@@ -804,8 +805,9 @@ def SelfConsistentOceanLayer(Planet, Params):
         TOcean_K = np.insert(TOcean_K, 0, Planet.T_K[Planet.Steps.nSurfIce])
 
         # Add HP ices to iceEOS if needed
-        PHydroMax_MPa = np.maximum(Planet.Ocean.PHydroMax_MPa, Planet.Sil.PHydroMax_MPa)
-        if PHydroMax_MPa > Planet.Ocean.PHydroMax_MPa:
+        PHydroMax_MPa = Planet.Ocean.PHydroMax_MPa
+        if Planet.Do.POROUS_ROCK and Planet.Sil.PHydroMax_MPa > PHydroMax_MPa:
+            PHydroMax_MPa = Planet.Sil.PHydroMax_MPa
             PHPices_MPa = np.arange(POcean_MPa[0], PHydroMax_MPa, Planet.Ocean.deltaP)
         else:
             PHPices_MPa = POcean_MPa
@@ -904,14 +906,13 @@ def SelfConsistentOceanLayer(Planet, Params):
                 TOcean_K[1] = TOcean_K[0] + alphaOcean_pK[0] * TOcean_K[0] / \
                                 CpOcean_JkgK[0] / rhoOcean_kgm3[0] * Planet.Ocean.deltaP*1e6
                 iStart = 1
-
         for i in range(iStart, Planet.Steps.nOceanMax):
             Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int_)
             if not Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES and i < 4 and Planet.phase[Planet.Steps.nSurfIce+i] != 0:
                 log.debug(f'Top ocean layers (i={i}) are not liquid. This will cause indexing problems. ' +
                           'T will be set to exceed the melting temp temporarily to construct at least 4 ocean layers.')
                 Planet.THIN_OCEAN = True
-                TOcean_K[i] = GetTfreeze(Planet.Ocean.EOS, POcean_MPa[i], TOcean_K[i], TRes_K=Planet.Ocean.TfreezeOffset_K) + Planet.Ocean.TfreezeOffset_K
+                TOcean_K[i] = GetTfreeze(Planet.Ocean.EOS, POcean_MPa[i], TOcean_K[i], TRes_K = 0.00001)
                 Planet.phase[Planet.Steps.nSurfIce+i] = 0
             log.debug(f'il: {Planet.Steps.nSurfIce+i:d}; P_MPa: {POcean_MPa[i]:.3f}; ' +
                       f'T_K: {TOcean_K[i]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce+i]:d}')
@@ -1034,7 +1035,7 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa, minPres_MPa=None, minTres_K=Non
 
     # Stopgap measure to avoid MgSO4 calcs taking ages with the slow Margules formulation phase calcs
     # Remove this if/else block (just do the "else") when a faster phase calculation is implemented!
-    if Planet.Ocean.comp == 'MgSO4' or Planet.Sil.poreComp == 'MgSO4':
+    if (Planet.Ocean.comp == 'MgSO4' or Planet.Sil.poreComp == 'MgSO4') and Planet.Ocean.phaseType == 'calc':
         # Just load all HP ice phases in case we need them. This part is way faster than Margules phase calcs
         Planet.Ocean.iceEOS['II'] = GetIceEOS(POceanHPices_MPa, TOceanHPices_K, 'II',
                                               porosType=Planet.Ocean.porosType['II'],
@@ -1154,6 +1155,7 @@ def SelfConsistentInnerLayer(Planet, Params):
                                          porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
                                          Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
                                          EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                         TviscTrans_K=Planet.Sil.TviscTrans_K,
                                          doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Sil.rhoSilWithCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
                                                                                    'VP_kms': Planet.Sil.VPmean_kms, 'VS_kms': Planet.Sil.VSmean_kms, 'KS_GPa': Planet.Sil.KSmean_GPa, 'GS_GPa': Planet.Sil.GSmean_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
                                                                                    'sigma_Sm': Planet.Sil.sigmaMean_Sm})
@@ -1162,6 +1164,7 @@ def SelfConsistentInnerLayer(Planet, Params):
             Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
                                           kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
                                           wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                          TviscTrans_K=Planet.Core.TviscTrans_K,
                                           doConstantProps=True, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
                                                                                    'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSmean_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
                                                                                    'sigma_Sm': Planet.Core.sigmaMean_Sm})
@@ -1181,7 +1184,8 @@ def SelfConsistentInnerLayer(Planet, Params):
                                              Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                              scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                              phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=True,
-                                             sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+                                             sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm, kThermConst_WmK=Planet.Ocean.kThermWater_WmK,
+                                             propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
 
 
             # Make sure Sil.phiRockMax_frac is set in case we're using a porosType that doesn't require it
@@ -1375,6 +1379,7 @@ def NonSelfConsistentInnerLayer(Planet, Params):
                                          porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
                                          Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
                                          EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                         TviscTrans_K=Planet.Sil.TviscTrans_K,
                                          doConstantProps=True, constantProperties={'rho_kgm3': Planet.Sil.rhoSilWithCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
                                                                                    'VP_kms': Planet.Sil.VPmean_kms, 'VS_kms': Planet.Sil.VSmean_kms, 'KS_GPa': Planet.Sil.KSmean_GPa, 'GS_GPa': Planet.Sil.GSmean_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
                                                                                    'sigma_Sm': Planet.Sil.sigmaMean_Sm})
@@ -1402,6 +1407,7 @@ def NonSelfConsistentInnerLayer(Planet, Params):
             Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
                                           kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
                                           wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                          TviscTrans_K=Planet.Core.TviscTrans_K,
                                           doConstantProps=True, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
                                                                                    'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSmean_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
                                                                                    'sigma_Sm': Planet.Core.sigmaMean_Sm})
@@ -1609,7 +1615,6 @@ def CalcMoIConstantRho(Planet, Params):
     CMR2inds = [i[0] for i, valCMR2 in np.ndenumerate(CMR2)
                  if valCMR2 >= Planet.Bulk.Cmeasured - Planet.Bulk.CuncertaintyLower
                 and valCMR2 <= Planet.Bulk.Cmeasured + Planet.Bulk.CuncertaintyUpper]
-    print(f'max(CMR2): {np.max(CMR2)}, zb_km: {Planet.Bulk.zb_approximate_km:.1f}, last CMR2: {CMR2[-1]:.3f}')
     if len(CMR2inds) == 0 or INVALIDCORE:
         if Planet.Do.NO_H2O:
             suggestion = '\nTry adjusting properties of silicates and core to get C/MR^2 values in range.'

@@ -9,7 +9,7 @@ from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, E
 
 
 class  ConstantEOSStruct:
-    def __init__(self, constantProperties, EOStype = None):
+    def __init__(self, constantProperties, TviscTrans_K=None, EOStype = None):
         if EOStype == 'inner':
             self.EOStype = 'inner'
             self.comp = 'inner'
@@ -26,6 +26,7 @@ class  ConstantEOSStruct:
             self.ALREADY_LOADED = False
 
         if not self.ALREADY_LOADED:
+            self.TviscTrans_K = TviscTrans_K
             self.EXTRAP = True
             self.Pmin = 0
             self.Pmax = 10000
@@ -43,7 +44,10 @@ class  ConstantEOSStruct:
             self.ufn_GS_GPa = returnVal(constantProperties['GS_GPa'])
             self.ufn_phi_frac = ReturnZeros(1)
             self.ufn_sigma_Sm = returnVal(constantProperties['sigma_Sm'])
-            self.ufn_eta_Pas = returnVal(constantProperties['eta_Pas'])
+            if not isinstance(constantProperties['eta_Pas'], list):
+                self.ufn_eta_Pas = returnVal(constantProperties['eta_Pas'])
+            else:
+                self.ufn_eta_Pas = returnValWithThreshold(constantProperties['eta_Pas'][0], constantProperties['eta_Pas'][1], TviscTrans_K)
             self.EOSdeltaP = None
             self.EOSdeltaT = None
             self.propsPmax = 0

@@ -184,6 +184,7 @@ class OceanSubstruct:
         self.sigmaTop_Sm = np.nan  # Conductivity of shallowest ocean layer
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
+        self.propsStepReductionFactor = 1  #  Optional factor to reduce resolution (increase deltaP and deltaT) specifically for EOS properties calculations. For high-resolution modeling, deltaP and deltaT are set low to get high-resolution phase grid, but this is not as necessary for the properties which will be interpolated, so can decrease the resoltuion to improve runtime and decrease memory usage. Default is 1, meaning no reduction.
         self.sigmaFixed_Sm = None  # Optional setting to force ocean conductivity to be a certain uniform value.
         self.smoothingPolyOrder = 2  # Polynomial order to use for smoothing of melting-curve-following HP ice adiabats
         self.smoothingWindowOverride = 7  # Number of points to use for smoothing window when Do.FIXED_HPSMOOTH_WINDOW is True. Must be odd.
@@ -278,7 +279,8 @@ class SilSubstruct:
         self.HtidalMax_Wm3 = 1e-7  # Maximum average tidal heating to stop MoI search
         self.deltaHtidal_logUnits = 1/3  # Step size by which to increment Htidal_Wm3 for finding MoI match with no core.
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermSil_WmK)
-        self.etaRock_Pas = [None, None] # Assumed viscosities of rock - Overrides Constants.etaRock_Pas if specified
+        self.etaRock_Pas = None # Assumed viscosities of rock - Overrides Constants.etaRock_Pas if specified
+        self.TviscTrans_K = None # Transition temperatures for rock to go from one viscosity value to another - Overrides Constants.TviscRock_K if specified
         self.kThermCMB_WmK = None  # Constant thermal conductivity to use for determining core-mantle boundary thermal boundary layer thickness when convection is happening
         """ Porosity parameters """
         self.phiRockMax_frac = None  # Porosity (void fraction) of the rocks in vacuum. This is the expected value for core-less bodies, and porosity is modeled for a range around here to find a matching MoI. For bodies with a core, this is a fixed value for rock porosity at P=0.
@@ -352,6 +354,7 @@ class CoreSubstruct:
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermFe_WmK)
         self.etaFeSolid_Pas = None # Assumed viscosity of solid iron in Pa*s - Overrides Constants.etaFeSolid_Pas if specified
         self.etaFeLiquid_Pas = None # Assumed viscosity of liquid iron in Pa*s - Overrides Constants.etaFeLiquid_Pas if specified
+        self.TviscTrans_K = None # Transition temperatures for iron to go from one viscosity value to another - Overrides Constants.TviscFe_K if specified
         # Derived quantities
         self.rhoMean_kgm3 = None  # Core bulk density calculated from final MoI match using EOS properties
         self.rhoMeanFe_kgm3 = np.nan  # Pure iron layer bulk density calculated from final MoI match using EOS properties
@@ -882,6 +885,7 @@ class FigureFilesSubstruct:
         self.vperm = self.fName + vperm + self.xtn
         self.vseis = self.fName + vseis + self.xtn
         self.vhydro = self.fName + vhydro + self.xtn
+        self.vhydroThermo = self.fName + vhydroThermo + self.xtn
         self.vgrav = self.fName + vgrav + self.xtn
         self.vmant = self.fName + vmant + self.xtn
         self.vcore = self.fName + vcore + self.xtn
@@ -2495,6 +2499,7 @@ class FigSizeStruct:
         self.vperm = None
         self.vseis = None
         self.vhydro = None
+        self.vhydroThermo = None
         self.vgrav = None
         self.vmant = None
         self.vcore = None
@@ -3234,6 +3239,7 @@ class ConstantsStruct:
         self.GS_GPa[1:7] = np.array([2, 2, 2, np.nan, 2, 2])  # Mean shear modulus of ice phases Ih-VI in GPa
         self.VP_GPa[1:7] = np.array([1.4, 1.4, 1.4, np.nan, 1.4, 1.4])  # Mean bulk modulus of ice phases Ih-VI in GPa
         self.GS_GPa[self.phaseSil] = 50  # Shear modulus of silicates in GPa
+        self.GS_GPa[self.phaseFe] = 50  # Shear modulus of iron core material in GPa
         self.Eact_kJmol[1:7] = np.array([59.4, 76.5, 127, np.nan, 136, 110])  # Activation energy for diffusion of ice phases Ih-VI in kJ/mol
         self.Eact_kJmol[self.phaseClath] = 90.0  # From Durham et al. (2003), at 50 and 100 MPa and 260-283 K: https://doi.org/10.1029/2002JB001872
         self.Eact_kJmol[self.phaseClath+1:self.phaseClath+7] = (self.Eact_kJmol[self.phaseClath] + self.Eact_kJmol[1:7]) / 2  # Average of clathrate and ice activation energies

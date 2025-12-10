@@ -39,7 +39,8 @@ def ViscosityCalcs(Planet, Params):
                                                phaseType=Planet.Ocean.phaseType,
                                                EXTRAP=Params.EXTRAP_OCEAN,
                                                sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm,
-                                               etaFixed_Pas=None, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+                                               etaFixed_Pas=None, kThermConst_WmK=Planet.Ocean.kThermWater_WmK,
+                                               propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
 
             if Planet.Do.POROUS_ICE:
                 Planet = CalcViscPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund,
