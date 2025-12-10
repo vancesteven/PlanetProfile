@@ -1,0 +1,8 @@
+*.txt
+*.png
+*.pdf
+/figures
+/seismicData
+/inductionData
+/gravityData
+/monteCarloData
