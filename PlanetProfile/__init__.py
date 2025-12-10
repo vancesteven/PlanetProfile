@@ -52,18 +52,18 @@ _healpixSphere = os.path.join(_ROOT, 'Utilities', 'healpixSphere.txt')
 _SPICE = os.path.join(_ROOT, 'SPICE')
 
 # Copy user config files to local dir if the user does not have them yet
-_userConfig = 'configPP.py'
-_userConfigPlots = 'configPPplots.py'
-_userConfigInduct = 'configPPinduct.py'
-_userConfigTrajec = 'configPPtrajec.py'
-_userConfigCustomSolution = 'configPPcustomsolution.py'
-_userConfigGravity = 'configPPgravity.py'
-_userConfigInversion = 'configPPinversion.py'
+_userConfig = os.path.join('UserConfigs', 'configPP.py')
+_userConfigPlots = os.path.join('UserConfigs', 'configPPplots.py')
+_userConfigInduct = os.path.join('UserConfigs', 'configPPinduct.py')
+_userConfigTrajec = os.path.join('UserConfigs', 'configPPtrajec.py')
+_userConfigCustomSolution = os.path.join('UserConfigs', 'configPPcustomsolution.py')
+_userConfigGravity = os.path.join('UserConfigs', 'configPPgravity.py')
+_userConfigInversion = os.path.join('UserConfigs', 'configPPinversion.py')
 configTemplates = [_defaultConfig, _defaultConfigPlots, _defaultConfigInduct, _defaultConfigTrajec, _defaultConfigCustomSolution, _defaultConfigGravity, _defaultConfigInversion]
 configLocals = [_userConfig, _userConfigPlots, _userConfigInduct, _userConfigTrajec, _userConfigCustomSolution, _userConfigGravity, _userConfigInversion]
 if any([not os.path.isfile(cfg) for cfg in configLocals]):
-    if input(f'configPP files not found in pwd: {os.getcwd()}. Copy from defaults to local dir? ' +
-             f'[y]/n ') in ['', 'y', 'Y', 'yes', 'Yes']:
+    if input(f'configPP files not found in pwd: {os.path.join(os.getcwd(), "UserConfigs")}. Copy from defaults to local dir? ' +
+             f'y/n ') in ['', 'y', 'Y', 'yes', 'Yes', '[y]']:
         for template, local in zip(configTemplates, configLocals):
             CopyOnlyIfNeeded(template, local)
 
