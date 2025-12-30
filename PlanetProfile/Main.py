@@ -1778,8 +1778,10 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
                     PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.yName, y_attr[i,j])
                     PlanetGrid[i,j].Do.VALID = valid_attr[i,j]
             # Load the profiles for the valid models
+            Params.DO_EXPLOREOGRAM = False
             for Planet in PlanetGrid.flatten():
                 Planet, _ = PlanetProfile(Planet, deepcopy(Params))     
+            Params.DO_EXPLOREOGRAM = True
         else:
             Exploration, Params = ReloadExploreOgram(bodyname, Params, fNameOverride=fNameOverride)
 

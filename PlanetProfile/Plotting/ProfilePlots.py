@@ -63,7 +63,7 @@ def GeneratePlots(PlanetList, Params):
         PlotPvThydro(PlanetList, Params)
     if Params.PLOT_PVT_ISOTHERMAL_HYDRO and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
         PlotIsoThermalPvThydro(PlanetList, Params)
-    if Params.PLOT_PVT_INNER and not Params.SKIP_INNER:
+    if Params.PLOT_PVT_INNER and not Params.SKIP_INNER and not np.any([Planet.Do.CONSTANT_INNER_DENSITY for Planet in PlanetList]):
         PlotPvTPerpleX(PlanetList, Params)
     if Params.PLOT_MELTING_CURVES and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
         PlotMeltingCurves(PlanetList, Params)

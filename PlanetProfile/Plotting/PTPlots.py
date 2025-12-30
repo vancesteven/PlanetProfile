@@ -294,7 +294,7 @@ def PlotHydroPhase(PlanetList, Params):
                                                              phiMin_frac=Planet.Ocean.phiMin_frac,
                                                              EXTRAP=Params.EXTRAP_ICE[phaseStr], kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
                                                              mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
-                clathStable = iceEOS[phaseIndex].fn_phase(P_MPa, T_K, grid=True)
+                clathStable = iceEOS[phaseStr].fn_phase(P_MPa, T_K, grid=True)
                 phases[clathStable == phaseIndex] = phaseIndex
             oceanListEOS.append(oceanEOS)
             phasesList.append(phases)
@@ -459,9 +459,9 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
         Tmin_K = np.max([np.min(Planet.T_K) for Planet in PlanetList])
     # Get lowest Tmax
     if not np.any([Planet.Do.NO_OCEAN for Planet in PlanetList]):
-        Tmax_K = np.min([Planet.Sil.THydroMax_K for Planet in PlanetList])
+        Tmax_K = np.min([np.max(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList])
     else:
-        Tmax_K = np.min([np.max(Planet.T_K[:Planet.Steps.nHydro]) for Planet in PlanetList if not Planet.Do.NO_OCEAN])
+        Tmax_K = np.min([Planet.Sil.THydroMax_K for Planet in PlanetList])
 
     if FigMisc.nPhydro is None:
         Planet = PlanetList[0]
@@ -500,7 +500,7 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
         new_ices = set([PhaseConv(ice) for ice in np.unique(np.append(phases[phases != 0], 1))])
         if not new_ices.issubset(ices):
             ices = new_ices
-            iceEOS = {PhaseInv(ice): GetIceEOS(P_MPa, T_K, ice, porosType=Planet.Ocean.porosType[ice],
+            iceEOS = {ice: GetIceEOS(P_MPa, T_K, ice, porosType=Planet.Ocean.porosType[ice],
                                                phiTop_frac=Planet.Ocean.phiMax_frac[ice],
                                                Pclosure_MPa=Planet.Ocean.Pclosure_MPa[ice],
                                                phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[ice],
@@ -553,7 +553,7 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
                 ice = PhaseInv(iceStr)
                 if np.any(phases == ice):
                     if prop.prop != 'sig':
-                        ice_prop_data = getattr(iceEOS[ice], prop.fn_name)(P_MPa, T_K, grid=True)
+                        ice_prop_data = getattr(iceEOS[iceStr], prop.fn_name)(P_MPa, T_K, grid=True)
                         if prop.prop in ['VP', 'KS', 'VS', 'GS']:
                             prop_data[np.where(phases == ice)] = ice_prop_data[prop.ice_prop_index][
                                 np.where(phases == ice)]
@@ -750,7 +750,7 @@ def PlotPvThydro(PlanetList, Params):
         new_ices = set([PhaseConv(ice) for ice in np.unique(np.append(phases[phases != 0], 1))])
         if not new_ices.issubset(ices):
             ices = new_ices
-            iceEOS = {PhaseInv(ice): GetIceEOS(P_MPa, T_K, ice, porosType=Planet.Ocean.porosType[ice],
+            iceEOS = {ice: GetIceEOS(P_MPa, T_K, ice, porosType=Planet.Ocean.porosType[ice],
                                                phiTop_frac=Planet.Ocean.phiMax_frac[ice],
                                                Pclosure_MPa=Planet.Ocean.Pclosure_MPa[ice],
                                                phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[ice],
@@ -798,7 +798,7 @@ def PlotPvThydro(PlanetList, Params):
                 ice = PhaseInv(iceStr)
                 if np.any(phases == ice):
                     if prop.prop != 'sig':
-                        ice_prop_data = getattr(iceEOS[ice], prop.fn_name)(P_MPa, T_K, grid=True)
+                        ice_prop_data = getattr(iceEOS[iceStr], prop.fn_name)(P_MPa, T_K, grid=True)
                         if prop.prop in ['VP', 'KS', 'VS', 'GS']:
                             prop_data[np.where(phases == ice)] = ice_prop_data[prop.ice_prop_index][
                                 np.where(phases == ice)]
@@ -1253,7 +1253,7 @@ def PlotMeltingCurves(PlanetList, Params):
                                    scalingType=ref_planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                    phaseType=ref_planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
                                    sigmaFixed_Sm=ref_planet.Ocean.sigmaFixed_Sm, LOOKUP_HIRES=ref_planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=ref_planet.Ocean.kThermWater_WmK,
-                                   propsStepReductionFactor=ref_Planet.Ocean.propsStepReductionFactor)
+                                   propsStepReductionFactor=ref_planet.Ocean.propsStepReductionFactor)
 
             # Calculate phase diagram
             phases = oceanEOS.fn_phase(P_MPa, T_K, grid=True).astype(int)

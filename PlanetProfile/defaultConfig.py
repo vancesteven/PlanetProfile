@@ -42,7 +42,6 @@ def configAssign():
     Params.CALC_OCEAN_PROPS = True  # Calculate ocean properties?
     Params.CALC_ASYM =        True  # Calculate induction with asymmetric shape?
     Params.RUN_ALL_PROFILES = False  # Whether to run all PPBody.py files for the named body and plot together
-    Params.SPEC_FILE =        False  # Whether we are running a specific file or files
     Params.COMPARE =          False  # Whether to plot each new run against other runs from the same body
     Params.DO_PARALLEL =      True  # Whether to use multiprocessing module for parallel computation where applicable
     Params.threadLimit =      1000  # Upper limit to number of processors/threads for parallel computation
@@ -132,8 +131,9 @@ def configAssign():
                        'NaCl':[0, 17.5, 35], 'CustomSolution':[0]}
     Params.nRefRho = 50  # Number of values for plotting reference density curves (sets resolution)
     Params.PrefOverride_MPa = None  # Pressure setting to force refprofile recalc to go to a specific value instead of automatically using the first hydrosphere max
+    
     #Monte Carlo settings
-    Params.DO_MONTECARLO =     False# Whether to evaluate and/or plot a Monte Carlo parameter exploration for the body in question    # SPICE kernels to use
+    Params.DO_MONTECARLO =  False # Whether to evaluate and/or plot a Monte Carlo parameter exploration for the body in question    # SPICE kernels to use
     Params.spiceDir = 'SPICE'
     Params.spiceTLS = 'naif0012.tls'  # Leap-seconds kernel
     Params.spicePCK = 'pck00010.tpc'  # Planetary Constants Kernel from SPICE in order to get body radii

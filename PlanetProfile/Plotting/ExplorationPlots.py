@@ -22,7 +22,7 @@ def GenerateExplorationPlots(ExplorationList, FigureFilesList, Params):
     for Exploration in ExplorationList:
         all_ocean_comps.extend(np.array(Exploration.base.oceanComp).flatten())
     Params = SetupCustomSolutionPlotSettings(np.array(all_ocean_comps), Params)
-    if PLOT_EXPLORATION:         
+    if PLOT_EXPLORATION and not Params.SKIP_PLOTS:         
         # Use multi-subplot function only for multiple z-variables
         if isinstance(Params.Explore.zName, list):
             PlotExploreOgramMultiSubplot(ExplorationList, FigureFilesList, Params)

@@ -31,22 +31,13 @@ logging.getLogger('MoonMag').setLevel(logging.DEBUG)
 
 
 def full(iTestStart=2, skipType=None):
+    
     testBase = f'{_TestImport}.PPTest'
 
     # Set general testing config atop standard config options
     Params = configParams
-    Params.CALC_NEW = True
-    Params.CALC_NEW_REF = True
-    Params.CALC_NEW_INDUCT = True
-    Params.CALC_SEISMIC = True
-    Params.CALC_CONDUCT = True
-    Params.DO_PARALLEL = False
-    Params.RUN_ALL_PROFILES = False
-    Params.COMPARE = False
-    Params.NO_SAVEFILE = False
-    Params.DO_INDUCTOGRAM = False
-    Params.DO_EXPLOREOGRAM = False
-    Params.SKIP_INDUCTION = False
+    Params = setFullSettings(Params)
+    
 
     # Get total number of test files to run
     fList = fnmatch.filter(os.listdir(_Test), 'PPTest*')
@@ -67,7 +58,7 @@ def full(iTestStart=2, skipType=None):
         iTestStart = 2
 
     if skipType is None:
-        """for i in range(iTestStart, nTests+1):
+        for i in range(iTestStart, nTests+1):
             testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
             log.info(f'Test case body: {testBase}{i}')
             try:
@@ -82,37 +73,45 @@ def full(iTestStart=2, skipType=None):
             Params.CALC_NEW = False
             Params.CALC_NEW_REF = False
             Params.CALC_NEW_INDUCT = False
+            Params.CALC_NEW_GRAVITY = False
+            Params.CALC_NEW_ASYM = False
             TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanetN), Params)[0])
             TestPlanets[-1].saveLabel += ' RELOAD'
             tMarks = np.append(tMarks, time.time())
 
             Params.CALC_NEW = True
             Params.CALC_NEW_REF = True
-            Params.CALC_NEW_INDUCT = True"""
+            Params.CALC_NEW_INDUCT = True
+            Params.CALC_NEW_GRAVITY = True
+            Params.CALC_NEW_ASYM = False
 
         testPlanet1.name = 'Test0'
         # Test that we can successfully run standard profiles with parallelization options
         Params.DO_PARALLEL = True
         TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanet1), Params)[0])
-        TestPlanets[-1].saveLabel += ' NO_PARALLEL'
+        TestPlanets[-1].saveLabel += '  PARALLEL'
         tMarks = np.append(tMarks, time.time())
 
         # Make sure our auxiliary calculation flags work correctly
         Params.CALC_SEISMIC = False
         Params.CALC_CONDUCT = False
         Params.CALC_VISCOSITY = False
+        Params.CALC_OCEAN_PROPS = False
         TestPlanets = np.append(TestPlanets, PlanetProfile(deepcopy(testPlanet1), Params)[0])
         TestPlanets[-1].saveLabel += ' NO_SEISMIC_OR_CONDUCT_OR_VISCOSITY'
         tMarks = np.append(tMarks, time.time())
         Params.CALC_SEISMIC = True
         Params.CALC_CONDUCT = True
         Params.CALC_VISCOSITY = True
+        Params.CALC_OCEAN_PROPS = True
+    """ Bayes testing disabled for now
     if skipType is None or skipType.lower() == 'bayes':
         # Test Bayesian analysis UpdateRun capabilities
         PlanetBayes, _ = TestBayes('Test')
         PlanetBayes.saveLabel = 'Bayes'
         TestPlanets = np.append(TestPlanets, PlanetBayes)
         tMarks = np.append(tMarks, time.time())
+    """
 
     # Check that skipping layers/portions works correctly
     Params.SKIP_INNER = True
@@ -144,13 +143,16 @@ def full(iTestStart=2, skipType=None):
 def TestAllInductOgrams(TestPlanets, Params, tMarks):
     # Run all types of inductogram on Test7, with Test11 for porosity
     Params.DO_INDUCTOGRAM = True
+    Params.CALC_NEW_INDUCT = False
     Params.NO_SAVEFILE = True
     Params.SKIP_INNER = True
-    for inductOtype in ['sigma', 'Tb', 'rho']:
+    for inductOtype in ['sigma', 'Tb', 'rho', 'oceanComp']:
         Params.Induct.inductOtype = inductOtype
         Params.DO_PARALLEL = False
+        Params.PRELOAD_EOS = False
         _ = TestInductOgram(7, Params)
         Params.DO_PARALLEL = True
+        Params.PRELOAD_EOS = True
         Induction = TestInductOgram(7, Params)
         TestPlanets = np.append(TestPlanets, deepcopy(Induction))
         tMarks = np.append(tMarks, time.time())
@@ -162,8 +164,10 @@ def TestAllInductOgrams(TestPlanets, Params, tMarks):
     for inductOtype in ['phi']:
         Params.Induct.inductOtype = inductOtype
         Params.DO_PARALLEL = False
+        Params.PRELOAD_EOS = False
         _ = TestInductOgram(11, Params)
         Params.DO_PARALLEL = True
+        Params.PRELOAD_EOS = True
         Induction = TestInductOgram(11, Params)
         TestPlanets = np.append(TestPlanets, deepcopy(Induction))
         tMarks = np.append(tMarks, time.time())
@@ -195,7 +199,9 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
         'icePhi_frac': [0, 0.8],
         'icePclosure_MPa': [5, 40],
         'Htidal_Wm3': [1e-18, 1e-11],
-        'Qrad_Wkg': [1e-20, 1e-14]
+        'Qrad_Wkg': [1e-20, 1e-14],
+        'oceanComp': [-12, -3], # Placeholder - range is determined by input range file data,
+        'zb_approximate_km': [10, 90]
     }
     waterlessExploreBds = {
         'xFeS': [0, 1],
@@ -208,6 +214,12 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
         'Qrad_Wkg': [1e-20, 1e-14],
         'qSurf_Wm2': [50e-3, 400e-3]
     }
+    Params.Explore.zName =["CMR2mean", "D_km", "Dconv_m", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km",
+    "dzIceV_km", "dzIceVund_km", "dzIceVI_km", "dzWetHPs_km", "eLid_km", "phiSeafloor_frac", "Rcore_km", "rhoSilMean_kgm3", "rhoCoreMean_kgm3",
+    "sigmaMean_Sm", "silPhiCalc_frac", "zb_km", "zSeafloor_km",  
+    "hLoveAmp", "kLoveAmp", "lLoveAmp", "deltaLoveAmp", "hLovePhase", "kLovePhase", "lLovePhase", "deltaLovePhase",
+    'InductionAmp', 'InductionPhase', 'InductionrBi1Tot_nT', 'InductioniBi1Tot_nT', 'InductionrBi1x_nT', 'InductionrBi1y_nT', 
+    'InductionrBi1z_nT', 'InductioniBi1x_nT', 'InductioniBi1y_nT', 'InductioniBi1z_nT']
 
     if not SKIP_HYDRO:
         log.info('Running exploreOgrams for icy bodies for all input types.')
@@ -219,8 +231,10 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
                     Params.Explore.xRange = hydroExploreBds[xName]
                     Params.Explore.yRange = hydroExploreBds[yName]
                     Params.DO_PARALLEL = False
+                    Params.PRELOAD_EOS = False
                     _ = TestExploreOgram(7, Params)
                     Params.DO_PARALLEL = True
+                    Params.PRELOAD_EOS = True
                     Exploration = TestExploreOgram(7, Params)
                     TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
                     tMarks = np.append(tMarks, time.time())
@@ -230,6 +244,7 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
                     tMarks = np.append(tMarks, time.time())
 
     log.info('Running exploreOgrams for waterless bodies for all input types.')
+    Params.Explore.zName.append('qSurf_Wm2')
     for xName in waterlessExploreBds.keys():
         for yName in waterlessExploreBds.keys():
             if xName != yName:
@@ -238,8 +253,10 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
                 Params.Explore.xRange = waterlessExploreBds[xName]
                 Params.Explore.yRange = waterlessExploreBds[yName]
                 Params.DO_PARALLEL = False
+                Params.PRELOAD_EOS = False
                 _ = TestExploreOgram(5, Params)
                 Params.DO_PARALLEL = True
+                Params.PRELOAD_EOS = True
                 Exploration = TestExploreOgram(5, Params)
                 TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
                 tMarks = np.append(tMarks, time.time())
@@ -260,8 +277,8 @@ def TestInductOgram(testNum, Params, CALC_NEW=True):
 
     # Set sizes low so things don't take ages to run
     Params.Induct.nwPts, Params.Induct.nTbPts, Params.Induct.nphiPts,  \
-    Params.Induct.nrhoPts, Params.Induct.nSigmaPts, Params.Induct.nDpts \
-        = (4 for _ in range(6))
+    Params.Induct.nrhoPts, Params.Induct.nSigmaPts, Params.Induct.nDpts, Params.Induct.nOceanCompPts \
+        = (4 for _ in range(7))
     
     if CALC_NEW:
         Induction, Params = InductOgram(testName, Params)
@@ -302,18 +319,7 @@ def simple(iTests=None):
 
     # Set general testing config atop standard config options
     Params = configParams
-    Params.CALC_NEW = True
-    Params.CALC_NEW_REF = True
-    Params.CALC_NEW_INDUCT = True
-    Params.CALC_SEISMIC = True
-    Params.CALC_CONDUCT = True
-    Params.RUN_ALL_PROFILES = False
-    Params.COMPARE = False
-    Params.DO_INDUCTOGRAM = False
-    Params.DO_EXPLOREOGRAM = False
-    Params.DO_PARALLEL = False
-    Params.SKIP_INDUCTION = False
-    Params.NO_SAVEFILE = False
+    Params = setFullSettings(Params)
 
     tStart = time.time()
     # Normalize iTests into a list
@@ -346,6 +352,69 @@ def simple(iTests=None):
     return
 
 
+def setFullSettings(Params):
+    Params.CALC_NEW = True
+    Params.CALC_NEW_REF = True
+    Params.CALC_NEW_INDUCT = True
+    Params.CALC_NEW_GRAVITY = True
+    Params.CALC_NEW_ASYM = False
+    Params.CALC_SEISMIC = True
+    Params.CALC_CONDUCT = True
+    Params.CALC_VISCOSITY = True
+    Params.CALC_OCEAN_PROPS = True
+    Params.CALC_ASYM = True
+    Params.DO_PARALLEL = False
+    Params.RUN_ALL_PROFILES = False
+    Params.COMPARE = False
+    Params.NO_SAVEFILE = False
+    Params.FORCE_EOS_RECALC = True
+    Params.SKIP_INNER = False
+    Params.DISP_LAYERS = True
+    Params.DISP_TABLE  = True
+    Params.ALLOW_BROKEN_MODELS = False
+    Params.DEPRECATED = False
+    Params.TIME_AND_DATE_LABEL = False
+    # Set plotting options
+    Params.SKIP_PLOTS = False
+    Params.PLOT_GRAVITY = True
+    Params.PLOT_HYDROSPHERE = True
+    Params.PLOT_HYDROSPHERE_THERMODYNAMICS = True
+    Params.PLOT_MELTING_CURVES = True
+    Params.PLOT_SPECIES_HYDROSPHERE = True
+    Params.PLOT_REF = True
+    Params.PLOT_SIGS = True
+    Params.PLOT_SOUNDS = True
+    Params.PLOT_REF = True
+    Params.PLOT_SIGS = True
+    Params.PLOT_SOUNDS = True
+    Params.PLOT_TRADEOFF = True
+    Params.PLOT_POROSITY = True
+    Params.PLOT_SEISMIC = True
+    Params.PLOT_PRESSURE_DEPTH = True
+    Params.PLOT_VISCOSITY = True
+    Params.PLOT_WEDGE = True
+    Params.PLOT_HYDRO_PHASE = True
+    Params.PLOT_PVT_HYDRO = True
+    Params.PLOT_PVT_ISOTHERMAL_HYDRO = True
+    Params.PLOT_PVT_INNER = True
+    Params.PLOT_BDIP = True
+    Params.PLOT_BSURF = True
+    Params.PLOT_ASYM = True
+    Params.PLOT_TRAJECS = True
+    Params.PLOT_BINVERSION = True
+    Params.LEGEND = True
+    Params.TITLES = True
+
+    # Disable other features not relevant to single model runs
+    Params.DO_INDUCTOGRAM = False
+    Params.DO_EXPLOREOGRAM = False
+    Params.DO_MONTECARLO = False
+    Params.SKIP_INDUCTION = False
+    Params.SKIP_GRAVITY = False
+    Params.PRELOAD_EOS = False
+    
+    return Params
+    
 if __name__ == '__main__':
     skipType = None
     if len(sys.argv) > 1:
