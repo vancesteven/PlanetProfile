@@ -12,7 +12,7 @@ from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Utilities.defineStructs import xyzComps, vecComps
 from PlanetProfile.MagneticInduction.Moments import Excitations
-from PlanetProfile.Plotting.EssentialHelpers import get_excitation_indices_and_names, count_plottable_excitations, formatOceanCompositionLabel
+from PlanetProfile.Plotting.EssentialHelpers import get_excitation_indices_and_names, countPlottableExcitations, formatOceanCompositionLabel
 from MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
 
 # Assign logger
@@ -226,7 +226,7 @@ def PlotInductOgramPhaseSpace(results_list, Params):
                                     D_km[i][thisComp][y_vals == np.max(y_vals)], **boundStyle)
 
             cbar[comp].set_label(cbarLabel)
-            fig.savefig(Params.FigureFiles.phaseSpace, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+            fig.savefig(Params.FigureFiles.phaseSpace, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
             log.debug(f'InductOgram phase space plot saved to file: {Params.FigureFiles.phaseSpace}')
             plt.close()
 
@@ -316,7 +316,7 @@ def PlotInductOgramPhaseSpace(results_list, Params):
 
         cbar.set_label(cbarLabel, size=12)
         plt.tight_layout()
-        fig.savefig(Params.FigureFiles.phaseSpaceCombo, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        fig.savefig(Params.FigureFiles.phaseSpaceCombo, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
         log.debug(f'Plot saved to file: {Params.FigureFiles.phaseSpaceCombo}')
         plt.close()
 
@@ -470,7 +470,7 @@ def PlotInductOgram(results_list, Params):
                 AddV2021points(Params.Induct, result.base.bodyname, Params.Induct.inductOtype, allAxes)
 
             plt.tight_layout()
-            fig.savefig(Params.FigureFiles.inductCombo, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+            fig.savefig(Params.FigureFiles.inductCombo, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
             log.debug(f'Induction combination plot saved to file: {Params.FigureFiles.inductCombo}')
             plt.close()
 
@@ -518,7 +518,7 @@ def PlotInductOgram(results_list, Params):
                 lines = np.array([contour.legend_elements()[0][0] for contour in phaseContours])
                 axes[1].legend(lines[iSort], FigLbl.legendTexc[iSort], framealpha=FigMisc.cLegendOpacity)
             plt.tight_layout()
-            fig.savefig(Params.FigureFiles.induct[fLabel], format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+            fig.savefig(Params.FigureFiles.induct[fLabel], format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
             log.debug(f'Plot saved to file: {Params.FigureFiles.induct[fLabel]}')
             plt.close()
                 
@@ -554,7 +554,7 @@ def AddV2021points(IndParams, bodyname, inductOtype, axes):
 def PlotComplexBdip(PlanetList, Params):
     if PlanetList[0].bodyname in Excitations.Texc_hr.keys():
         refs = {}
-        nPeaksToPlot, peaksToPlotNames = count_plottable_excitations(PlanetList[0].Magnetic.calcedExc, Params.Induct)
+        nPeaksToPlot, peaksToPlotNames = countPlottableExcitations(PlanetList[0].Magnetic.calcedExc, Params.Induct)
         if nPeaksToPlot >= 1:
             if nPeaksToPlot == 1:
                 DO_ZOOM = False
@@ -672,7 +672,7 @@ def PlotComplexBdip(PlanetList, Params):
                 [axes[iRow, -1].set_xlim(left=0) for iRow in range(3)]
                 [axes[iRow, -1].set_ylim(bottom=0) for iRow in range(3)]
                 plt.tight_layout()
-                fig.savefig(Params.FigureFiles.Bdip['all'], format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                fig.savefig(Params.FigureFiles.Bdip['all'], format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
                 log.debug(f'Induced dipole surface strength plot saved to file: {Params.FigureFiles.Bdip["all"]}')
                 plt.close()
 
@@ -769,7 +769,7 @@ def PlotComplexBdip(PlanetList, Params):
                     axes[-1].set_xlim(left=0)
                     axes[-1].set_ylim(bottom=0)
                     plt.tight_layout()
-                    fig.savefig(Params.FigureFiles.Bdip[axComp], format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                    fig.savefig(Params.FigureFiles.Bdip[axComp], format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
                     log.debug(f'Induced dipole surface strength plot saved to file: {Params.FigureFiles.Bdip[axComp]}')
                     plt.close()
 
@@ -938,7 +938,7 @@ def PlotMagSurface(PlanetList, Params):
                     if not (Params.CALC_ASYM and FigMisc.BASYM_WITH_SYM):
                         plt.tight_layout()
                         fName = f'{Params.FigureFiles.MagSurf[vCompMagSurf]}{tFnameEnd[iEval]}{FigMisc.xtn}'
-                        fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                        fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
                         log.debug(f'Induced field surface map saved to file: {fName}')
                         plt.close()
 
@@ -983,11 +983,11 @@ def PlotMagSurface(PlanetList, Params):
                         plt.tight_layout()
                         if FigMisc.BASYM_WITH_SYM:
                             fName = f'{Params.FigureFiles.MagSurfCombo[vCompMagSurf]}{tFnameEnd[iEval]}{FigMisc.xtn}'
-                            fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                            fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
                             log.debug(f'Symmetric/asymmetric induced field surface maps saved to file: {fName}')
                         else:
                             fName = f'{Params.FigureFiles.MagSurfSym[vCompMagSurf]}{tFnameEnd[iEval]}{FigMisc.xtn}'
-                            fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                            fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
                             log.debug(f'Symmetric induced field surface map saved to file: {fName}')
 
                         plt.close()
@@ -1028,7 +1028,7 @@ def PlotMagSurface(PlanetList, Params):
                         ax.set_aspect(1)
                         plt.tight_layout()
                         fName = f'{Params.FigureFiles.MagSurfDiff[vCompMagSurf]}{tFnameEnd[iEval]}{FigMisc.xtn}'
-                        fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                        fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
                         log.debug(f'Induced field difference surface map saved to file: {fName}')
                         plt.close()
 
@@ -1075,7 +1075,7 @@ def PlotMagSurface(PlanetList, Params):
                     ax.set_aspect(1)
                     plt.tight_layout()
                     fName = f'{Params.FigureFiles.MagSurfComp[vCompMagSurf]}{tFnameEnd[iEval]}{FigMisc.xtn}'
-                    fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                    fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
                     log.debug(f'Induced field surface map saved to file: {fName}')
                     plt.close()
 
@@ -1319,7 +1319,7 @@ def PlotAsym(PlanetList, Params):
             ax.set_aspect(1)
             plt.tight_layout()
             fName = f'{Params.FigureFiles.asym}z{zMean_km:.1f}km{FigMisc.xtn}'
-            fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+            fig.savefig(fName, bbox_inches='tight', format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
             log.debug(f'Asymmetric boundary surface map for z = {zMean_km:.1f} km saved to file: {fName}')
             plt.close()
 
@@ -1404,7 +1404,7 @@ def PlotMagSpectrumInduced(PlanetList, Params):
         [ax.legend() for ax in axes]
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.MagFT, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    fig.savefig(Params.FigureFiles.MagFT, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
     log.debug(f'Magnetic Fourier spectra plot saved to file: {Params.FigureFiles.MagFT}')
     plt.close()
 
@@ -1490,7 +1490,7 @@ def PlotMagSpectrum(PlanetList, Params):
         ax.legend()
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.MagFTexc, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    fig.savefig(Params.FigureFiles.MagFTexc, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
     log.debug(f'Magnetic excitation spectrum plot saved to file: {Params.FigureFiles.MagFTexc}')
     plt.close()
 

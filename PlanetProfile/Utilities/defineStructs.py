@@ -1783,6 +1783,8 @@ class FigLblStruct:
         # Exploration user-override settings
         self.overrideSubplotExplorationTitle = None # Overrides subplotExplorationTitle
         self.overrideExplorationTitle = None # Overrides explorationTitle
+        self.xCustomAxis = None # Custom x axis for exploration plots
+        self.yCustomAxis = None # Custom y axis for exploration plots
         
         # Unit-dependent labels set by SetUnits
         self.rhoUnits = None
@@ -2192,10 +2194,10 @@ class FigLblStruct:
         self.KSoceanLabel = r'Ocean $K_S$ ($\si{GPa}$)'
         self.QseisLabel = f'Seismic quality factor ${self.QseisVar}$'
         self.xFeSLabel = r'Iron sulfide mixing ratio $x_{\ce{FeS}}$' + self.xUnitsParen
-        self.hLoveAmpLabel = r'Tidal Love $h_2$ amplitude'
-        self.lLoveAmpLabel = r'Tidal Love $l_2$ amplitude'
-        self.kLoveAmpLabel = r'Tidal Love $k_2$ amplitude'
-        self.deltaLoveAmpLabel = r'$\delta_2$ ($= 1 + k_2 - h_2$) amplitude'
+        self.hLoveAmpLabel = r'Tidal Love $h_2$ Amplitude'
+        self.lLoveAmpLabel = r'Tidal Love $l_2$ Amplitude'
+        self.kLoveAmpLabel = r'Tidal Love $k_2$ Amplitude'
+        self.deltaLoveAmpLabel = r'$\delta_2$ ($= 1 + k_2 - h_2$) Amplitude'
         self.hLovePhaseLabel = r'Tidal Love $h_2$ phase delay'
         self.lLovePhaseLabel = r'Tidal Love $l_2$ phase delay'
         self.kLovePhaseLabel = r'Tidal Love $k_2$ phase delay'
@@ -2753,6 +2755,7 @@ class FigMiscStruct:
         self.Tmin_hr = None  # Cutoff period to limit range of Fourier space plots
         # Exploreogram settings
         self.EXPLOREOGRAM_SMOOTHING = False # Whether to smooth the exploreogram plots by interpolating to a finer grid
+        self.EXPLOREOGRAM_SMOOTHING_FACTOR = 10 # Factor to use for smoothing the exploreogram plots by interpolating to a finer grid when EXPLOREOGRAM_SMOOTHING is True
         # Exploreogram D/sigma settings
         self.DRAW_COMPOSITION_LINE = False # Whether to draw a line for each composition in the exploreogram D/sigma plot
         self.SHOW_ICE_THICKNESS_DOTS = False # Whether to show ice thickness dots instead of colorbar in D/sigma plots

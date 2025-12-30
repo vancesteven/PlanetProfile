@@ -202,7 +202,8 @@ def plotAssign():
     Style.LW_wedgeMajor = 0.375  # Linewidth in pt for major layer boundaries in wedge diagrams
     Style.TS_ticks = 12  # Text size in pt for tick marks on radius scale
     Style.TS_desc = 14  # Text size in pt for model description and label
-    Style.TS_super = 16  # Text size in pt for overall ("suptitle") label with multiple wedges
+    Style.TS_super = 26  # Text size in pt for overall ("suptitle") label with multiple wedges
+    Style.TS_axis = 20  # Text size in pt for axis labels
     Style.LS_markRadii = '--'  # Linestyle for radii mark line when toggled on
     Style.LW_markRadii = 0.375  # Linewidth for radii mark line when toggled on
 
@@ -320,7 +321,9 @@ def plotAssign():
     FigMisc.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
     FigMisc.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
     FigMisc.FORCE_0_EDGES = True  # Sets the edge of plots with 0 radius, depth, pressure, etc. to be the edge of the axes, instead of including white space which is the default.
-
+    FigMisc.TRANSPARENT = True  # Whether to make the background transparent for all plots #TODO Implement for all plots
+    
+    
     # Hydrosphere plots
     FigMisc.LOG_SIG = False  # Whether to print conductivity plot on a log scale
     FigMisc.COMMON_ZMAX_SIG = False  # Whether to force conductivity plot to have the same maximum depth as other hydrosphere plots, or to let the bottom axis set automatically to zoom in on the ocean. Only has an effect for undersea HP ices.
@@ -452,7 +455,8 @@ def plotAssign():
     FigLbl.peakLblSize = 14  # Font size in pt for highest-peak annotation
     FigMisc.Tmin_hr = None  # Cutoff period to limit range of Fourier space plots
     """Exploreogram plot settings"""
-    FigMisc.EXPLOREOGRAM_SMOOTHING = False # Whether to smooth the exploreogram plots by interpolating to a finer grid
+    FigMisc.EXPLOREOGRAM_SMOOTHING = True # Whether to smooth the exploreogram plots by interpolating to a finer grid
+    FigMisc.EXPLOREOGRAM_SMOOTHING_FACTOR = 10 # Factor to use for smoothing the exploreogram plots by interpolating to a finer grid when EXPLOREOGRAM_SMOOTHING is True
     FigMisc.EXPLOREOGRAM_COMPARISON_DIFFERENCE_TYPE = 'absolute' # Whether to calculate the absolute or relative difference between exploration results
     FigLbl.overrideSubplotExplorationTitle = None # Overrides exploreogram subplot title (i.e. when zName is a list to plot) with user-specified title string
     FigLbl.overrideExplorationTitle = None # Overrides exploreogram figure title with user-specified title string

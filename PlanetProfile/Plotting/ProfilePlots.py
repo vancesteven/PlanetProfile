@@ -106,7 +106,7 @@ def PlotGravPres(PlanetList, Params):
         axes[1].legend()
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vgrav, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    fig.savefig(Params.FigureFiles.vgrav, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
     log.debug(f'Gravity and pressure plot saved to file: {Params.FigureFiles.vgrav}')
     plt.close()
 
@@ -114,6 +114,7 @@ def PlotGravPres(PlanetList, Params):
 
 
 def PlotHydrosphereProps(PlanetList, Params):
+
 
     vRow = 1
     if Params.PLOT_SIGS and Params.CALC_CONDUCT:
@@ -157,7 +158,7 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     # Generate canvas and add labels - Always 6×7 grid
     fig = plt.figure(figsize=FigSize.vhydro)
-    grid = GridSpec(6, 7)
+    grid = GridSpec(6, 8)
 
     # Fixed layout: 
     # - Density: top 4 rows (0-3), left 4 columns (0-3)
@@ -204,10 +205,12 @@ def PlotHydrosphereProps(PlanetList, Params):
     else:
         axPrho.set_ylabel(FigLbl.PlabelHydro)
     axPrho.invert_yaxis()
+    axPrho.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
     
     axTz.set_xlabel(FigLbl.Tlabel)
     axTz.set_ylabel(FigLbl.zLabel)
     axTz.invert_yaxis()
+    axTz.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
     
     zMax = np.max([Planet.z_m[Planet.Steps.nHydro-1]/1e3 for Planet in PlanetList if not Planet.Do.NO_H2O], initial=0) * 1.05
     axTz.set_ylim([zMax, 0])
@@ -218,6 +221,7 @@ def PlotHydrosphereProps(PlanetList, Params):
         axPz.set_xlabel(FigLbl.PlabelHydro)
         axPz.invert_yaxis()
         axPz.set_ylim([zMax, 0])
+        axPz.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
         axes.append(axPz)
 
     # Add property plots to right 3 columns (4-6)
@@ -228,7 +232,7 @@ def PlotHydrosphereProps(PlanetList, Params):
             row_ranges = [(0, 6)]
         elif num_right_plots == 2:
             # 2 properties: each gets 3 rows
-            row_ranges = [(0, 3), (3, 6)]
+            row_ranges = [(0, 2), (2, 6)]
         elif num_right_plots == 3:
             # 3 properties: each gets 2 rows
             row_ranges = [(0, 2), (2, 4), (4, 6)]
@@ -243,6 +247,7 @@ def PlotHydrosphereProps(PlanetList, Params):
                 axv[2].set_xlabel(FigLbl.vSiceLabel)
                 [ax.invert_yaxis() for ax in axv]
                 [ax.set_ylim([zMax, 0]) for ax in axv]
+                [ax.tick_params(axis='both', which='major', labelsize=Style.TS_ticks) for ax in axv]
                 axes = axes + axv
                 
             elif plot_type == 'seismic':
@@ -253,6 +258,7 @@ def PlotHydrosphereProps(PlanetList, Params):
                 axseismic[2].set_xlabel(FigLbl.GSiceLabel)
                 [ax.invert_yaxis() for ax in axseismic]
                 [ax.set_ylim([zMax, 0]) for ax in axseismic]
+                [ax.tick_params(axis='both', which='major', labelsize=Style.TS_ticks) for ax in axseismic]
                 axes = axes + axseismic
                 
             elif plot_type == 'sigs':
@@ -265,24 +271,27 @@ def PlotHydrosphereProps(PlanetList, Params):
                     axviscz.invert_yaxis()
                     axviscz.set_xscale('log')
                     axviscz.set_ylim([zMax, 0])
+                    axviscz.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
                     axes.append(axviscz)
                 else:
                     # Standard conductivity plot spanning all 3 right columns
-                    axsigz = fig.add_subplot(grid[start_row:end_row, 4:7])
+                    axsigz = fig.add_subplot(grid[start_row:end_row, 4:])
                 axsigz.set_xlabel(FigLbl.sigLabel)
                 axsigz.invert_yaxis()
                 if FigMisc.LOG_SIG:
                     axsigz.set_xscale('log')
                 axsigz.set_ylim([zMax, 0])
+                axsigz.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
                 axes.append(axsigz)
                 
             elif plot_type == 'viscosity':
                 # Standalone viscosity plot
-                axviscz = fig.add_subplot(grid[start_row:end_row, 4:7])
+                axviscz = fig.add_subplot(grid[start_row:end_row, 4:])
                 axviscz.set_xlabel(FigLbl.etaLabel)
                 axviscz.invert_yaxis()
                 axviscz.set_xscale('log')
                 axviscz.set_ylim([zMax, 0])
+                axviscz.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
                 axes.append(axviscz)
 
     if Style.GRIDS:
@@ -612,7 +621,7 @@ def PlotHydrosphereProps(PlanetList, Params):
         axviscz.set_ylim(bottom=zMax)
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    fig.savefig(Params.FigureFiles.vhydro, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent = FigMisc.TRANSPARENT)
     log.debug(f'Hydrosphere plot saved to file: {Params.FigureFiles.vhydro}')
     plt.close()
 
@@ -655,7 +664,7 @@ def PlotCoreTradeoff(PlanetList, Params):
         ax.legend()
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vcore, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    fig.savefig(Params.FigureFiles.vcore, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
     log.debug(f'Core trade plot saved to file: {Params.FigureFiles.vcore}')
     plt.close()
 
@@ -729,7 +738,7 @@ def PlotSilTradeoff(PlanetList, Params):
         ax.legend()
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vmant, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    fig.savefig(Params.FigureFiles.vmant, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
     log.debug(f'Mantle trade plot saved to file: {Params.FigureFiles.vmant}')
     plt.close()
 
@@ -793,7 +802,7 @@ def PlotPorosity(PlanetList, Params):
         if Params.LEGEND:
             ax.legend()
 
-        fig.savefig(Params.FigureFiles.vporeDbl, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        fig.savefig(Params.FigureFiles.vporeDbl, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
         log.debug(f'Porosity plot (dual axis) saved to file: {Params.FigureFiles.vporeDbl}')
         plt.close()
 
@@ -841,7 +850,7 @@ def PlotPorosity(PlanetList, Params):
         axes[1].legend()
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vpore, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    fig.savefig(Params.FigureFiles.vpore, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
     log.debug(f'Porosity plot saved to file: {Params.FigureFiles.vpore}')
     plt.close()
 
@@ -880,7 +889,7 @@ def PlotViscosity(PlanetList, Params):
 
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vvisc, format=FigMisc.figFormat, dpi=FigMisc.dpi,
-                metadata=FigLbl.meta)
+                metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
     log.debug(f'Viscosity plot saved to file: {Params.FigureFiles.vvisc}')
     plt.close()
 
@@ -956,7 +965,7 @@ def PlotSeismic(PlanetList, Params):
         [ax.set_ylim(bottom=0) for ax in axf]
 
     plt.tight_layout()
-    fig.savefig(Params.FigureFiles.vseis, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    fig.savefig(Params.FigureFiles.vseis, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
     log.debug(f'Seismic plot saved to file: {Params.FigureFiles.vseis}')
     plt.close()
 
@@ -1326,7 +1335,7 @@ def PlotWedge(PlanetList, Params):
         ax.set_aspect('equal')
 
     fig.tight_layout()
-    fig.savefig(Params.FigureFiles.vwedg, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+    fig.savefig(Params.FigureFiles.vwedg, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
     log.debug(f'Wedge plot saved to file: {Params.FigureFiles.vwedg}')
     plt.close()
 
@@ -1545,7 +1554,7 @@ def PlotHydrosphereThermodynamics(PlanetList, Params):
 
     plt.tight_layout()
     fig.savefig(Params.FigureFiles.vhydroThermo, 
-                format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
     log.debug(f'Hydrosphere thermodynamics plot saved to file: {Params.FigureFiles.vhydroThermo}')
     plt.close()
 

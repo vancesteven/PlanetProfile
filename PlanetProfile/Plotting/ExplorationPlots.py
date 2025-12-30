@@ -7,6 +7,7 @@ from matplotlib.lines import Line2D
 import matplotlib.ticker as ticker
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Plotting.EssentialHelpers import *
+from PlanetProfile.Utilities.DataManip import smoothGrid
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 from scipy.interpolate import griddata
 import logging
@@ -161,7 +162,7 @@ def PlotExploreOgramDsigma(results_list, FigureFilesList, Params):
         # Save figure (original pattern)
         plt.tight_layout()
         fig.savefig(Params.FigureFiles.exploreDsigma, format=FigMisc.figFormat, 
-                   dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                   dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
         log.debug(f'Plot saved to file: {Params.FigureFiles.exploreDsigma}')
         plt.close()
 
@@ -238,47 +239,8 @@ def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None):
         z = np.reshape(z, z_shape)
                 
         if DO_SMOOTHING:
-            # Create finer resolution grid for smoothing
-            x_min, x_max = np.min(x), np.max(x)
-            y_min, y_max = np.min(y), np.max(y)
-            
-            # Get original grid dimensions
-            original_x_size = x.shape[1]
-            original_y_size = x.shape[0]
-            
-            # Create finer grid with higher resolution
-            smoothing_factor = 5  # Increase resolution by this factor
-            n_x_fine = original_x_size * smoothing_factor
-            n_y_fine = original_y_size * smoothing_factor
-            
-            # Create evenly spaced, strictly ascending fine grids
-            x_fine_1d = np.linspace(x_min, x_max, n_x_fine)
-            y_fine_1d = np.linspace(y_min, y_max, n_y_fine)
-            x_fine, y_fine = np.meshgrid(x_fine_1d, y_fine_1d)
-            
-            # Flatten original data for interpolation
-            x_flat = x.flatten()
-            y_flat = y.flatten()
-            z_flat = z.flatten()
-            contour_flat = contourData.flatten()
-            
-            # Remove invalid points for interpolation
-            valid_mask = ~np.isnan(z_flat)
-            x_valid = x_flat[valid_mask]
-            y_valid = y_flat[valid_mask]
-            z_valid = z_flat[valid_mask]
-            contour_valid = contour_flat[valid_mask]
-            if len(z_valid) > 0:
-
-                z_fine = griddata((x_valid, y_valid), z_valid, 
-                                (x_fine, y_fine), method='linear', fill_value=np.nan)
-                contour_fine = griddata((x_valid, y_valid), contour_valid, 
-                                (x_fine, y_fine), method='linear', fill_value=np.nan)
-                # Update x, y, z to use the finer resolution data
-                x = x_fine
-                y = y_fine
-                z = z_fine
-                contourData = contour_fine
+            smoothFactor = FigMisc.EXPLOREOGRAM_SMOOTHING_FACTOR
+            x, y, [z, contourData] = smoothGrid(x, y, [z, contourData], smoothFactor)
         # Calculate valid data range for colorbar
         z_valid = z[z == z]  # Exclude NaNs
         
@@ -368,7 +330,7 @@ def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None):
                 new_ticks = np.insert(np.append(valid_ticks, data_max), 0, data_min)
                 cbar.set_ticks(np.unique(new_ticks))  
             
-            cbar.ax.tick_params(labelsize=20)
+            cbar.ax.tick_params(labelsize=17)
             if createNewFigure:
                 cbar.set_label(FigLbl.cbarLabelExplore, size=25)
             
@@ -434,7 +396,7 @@ def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None):
         if createNewFigure:
             plt.tight_layout()
             fig.savefig(Params.FigureFiles.explore, format=FigMisc.figFormat,
-                    dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                    dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
             log.debug(f'Plot saved to file: {Params.FigureFiles.explore}')
             plt.close()
         # Return the axis for multi-subplot usage (only if ax was provided)
@@ -464,7 +426,7 @@ def PlotExploreOgramMultiSubplot(results_list, FigureFilesList, Params):
         if z_name in FigLbl.zNamePlotRealImag:
             real_name = FigLbl.zNamePlotRealImag[z_name][0]
             imag_name = FigLbl.zNamePlotRealImag[z_name][1]
-            nExc_subplot, excNames = count_plottable_excitations(results_list[0].induction.calcedExc, Params.Induct)
+            nExc_subplot, excNames = countPlottableExcitations(results_list[0].induction.calcedExc, Params.Induct)
             for excName in excNames:
                 zNames.append(real_name)
                 zExcNames.append(excName)
@@ -472,7 +434,7 @@ def PlotExploreOgramMultiSubplot(results_list, FigureFilesList, Params):
                 zExcNames.append(excName)
                 n_subplots += 2
         elif 'Induction' in z_name:
-            nExc_subplot, excNames = count_plottable_excitations(results_list[0].induction.calcedExc, Params.Induct)
+            nExc_subplot, excNames = countPlottableExcitations(results_list[0].induction.calcedExc, Params.Induct)
             n_subplots += nExc_subplot
             for excName in excNames:
                 zNames.append(z_name)
@@ -526,13 +488,13 @@ def PlotExploreOgramMultiSubplot(results_list, FigureFilesList, Params):
             is_bottom_row = (row == n_rows - 1) or (i >= n_subplots - n_cols)
             is_left_column = (col == 0) 
             
-            if not is_bottom_row:
-                ax.set_xlabel('')
-                ax.tick_params(axis='x', labelbottom=False)
-            
+            #if not is_bottom_row:
+                #ax.set_xlabel('')
+                #ax.tick_params(axis='x', labelbottom=False)
+            ax.tick_params(axis='x', labelsize=FigMisc.SUBPLOT_LABEL_FONTSIZE)
             if not is_left_column:
                 ax.set_ylabel('')
-                ax.tick_params(axis='y', labelleft=False)
+                ax.tick_params(axis='y', labelleft=False, labelsize=FigMisc.SUBPLOT_LABEL_FONTSIZE)
         
         # Hide unused subplots
         total_subplots = n_rows * n_cols
@@ -550,7 +512,7 @@ def PlotExploreOgramMultiSubplot(results_list, FigureFilesList, Params):
 
         
         fig.savefig(Params.FigureFiles.exploreMultiSubplot, format=FigMisc.figFormat,
-                dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
         log.debug(f'Multi-subplot exploration plot saved to file: {Params.FigureFiles.exploreMultiSubplot}')
         plt.close()
 
@@ -664,7 +626,7 @@ def PlotExploreOgramZbD(results_list, FigureFilesList, Params):
         # Save the plot
         plt.tight_layout()
         fig.savefig(Params.FigureFiles.exploreZbD, format=FigMisc.figFormat,
-                   dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                   dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
         log.debug(f'Plot saved to file: {Params.FigureFiles.exploreZbD}')
         plt.close()
 
@@ -858,7 +820,7 @@ def PlotExploreOgramLoveComparison(results_list, FigureFilesList, Params):
         # Save the plot
         plt.tight_layout()
         fig.savefig(Params.FigureFiles.exploreLoveComparison, format=FigMisc.figFormat,
-                   dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                   dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
         log.debug(f'Plot saved to file: {Params.FigureFiles.exploreLoveComparison}')
         plt.close()
     
@@ -1000,7 +962,7 @@ def PlotExploreOgramXZ(results_list, FigureFilesList, Params):
         # Save the plot
         plt.tight_layout()
         fig.savefig(Params.FigureFiles.exploreZbY, format=FigMisc.figFormat,
-                   dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                   dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
         log.debug(f'Plot saved to file: {Params.FigureFiles.exploreZbY}')
         plt.close()
         
@@ -1030,7 +992,6 @@ def PlotImaginaryVersusReal(results_list, FigureFilesList, Params, ax=None):
     
     # For now, only handle magnetic data types
     data_types_to_try = ['magnetic']
-    edgeLineWidth = 1 #TODO Make variable
     for data_type in data_types_to_try:
         # Extract complex data from first result to determine data type and setup
         first_result = results_list[0]
@@ -1202,7 +1163,7 @@ def PlotImaginaryVersusReal(results_list, FigureFilesList, Params, ax=None):
                         highlight_edge_color = comp_edge_color[highlight_comp_mask]
                         if np.any(highlight_comp_mask):
                             ax_subplot.scatter(comp_real[highlight_comp_mask], comp_imag[highlight_comp_mask],
-                                             facecolor=color, edgecolor=highlight_edge_color, linewidths=edgeLineWidth,
+                                             facecolor=color, edgecolor=highlight_edge_color, linewidths=3, 
                                              s=comp_sizes[highlight_comp_mask], marker=markerShape, zorder=3,
                                              alpha=1.0, label=f'{oceanCompLabel}' if comp_idx == 0 else "")
                         
@@ -1239,7 +1200,7 @@ def PlotImaginaryVersusReal(results_list, FigureFilesList, Params, ax=None):
                     else:
                         # Standard plotting without highlighting
                         ax_subplot.scatter(comp_real, comp_imag,
-                                         facecolor=color, edgecolor=comp_edge_color, linewidths=edgeLineWidth,
+                                         facecolor=color, edgecolor=comp_edge_color, linewidths=3,
                                          s=comp_sizes, marker=markerShape,
                                          alpha=1.0, label=f'{oceanCompLabel}')
                     
@@ -1258,7 +1219,7 @@ def PlotImaginaryVersusReal(results_list, FigureFilesList, Params, ax=None):
                                                       ha='center', va='bottom',
                                                       fontsize=8, 
                                                       alpha=0.8)
-                    legendElements.append(plt.Line2D([0], [0], marker=markerShape, color='none', markerfacecolor=color, markeredgecolor='black', markeredgewidth=edgeLineWidth,
+                    legendElements.append(plt.Line2D([0], [0], marker=markerShape, color='none', markerfacecolor=color, markeredgecolor='black', markeredgewidth=3,
                                     markersize=np.sqrt(comp_sizes[0]), label=f'{oceanCompLabel}'))
                 if not FigMisc.DO_SCATTER_INSET:
                     DO_INSET = False
@@ -1383,7 +1344,7 @@ def PlotImaginaryVersusReal(results_list, FigureFilesList, Params, ax=None):
                     # For Love numbers, create file path
                     save_path = getattr(Params.FigureFiles, 'Love', {}).get(comp, f'love_numbers_{comp}.png')
                 
-                fig.savefig(save_path, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+                fig.savefig(save_path, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
                 log.debug(f'Complex {data_type} {comp} subplot plot saved to file: {save_path}')
                 plt.close()
     

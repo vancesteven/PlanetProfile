@@ -194,8 +194,7 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                     affinityax.legend(handles, lbls, fontsize = 5)
 
             plt.tight_layout()
-            fig.savefig(Params.FigureFiles.hydroSpecies, format=FigMisc.figFormat, dpi=FigMisc.dpi,
-                        metadata=FigLbl.meta)
+            fig.savefig(Params.FigureFiles.hydroSpecies, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
             log.debug(f'Ocean aqueous species plot saved to file: {Params.FigureFiles.hydroSpecies}')
             plt.close()
         else:
@@ -401,7 +400,7 @@ def PlotHydroPhase(PlanetList, Params):
             ax.set_ylim([Pmin_MPa, Pmax_MPa])
             ax.invert_yaxis()
             plt.tight_layout()
-            fig.savefig(Params.FigureFiles.vphase, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+            fig.savefig(Params.FigureFiles.vphase, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
             log.debug(f'Hydrosphere phase diagram saved to file: {Params.FigureFiles.vphase}')
             plt.close()
 class HydrosphereProp:
@@ -658,7 +657,7 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
         else:
             saveFile = Params.FigureFiles.comparisonFileGenerator(FirstPlanet.saveLabel, SecondPlanet.saveLabel,
                                                                   'isoThermvpvtHydro')
-        fig.savefig(saveFile, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        fig.savefig(saveFile, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
         log.debug(f'IsoTherm Hydrosphere PT properties plot saved to file: {saveFile}')
         plt.close()
 
@@ -979,7 +978,7 @@ def PlotPvThydro(PlanetList, Params):
             saveFile = Params.FigureFiles.vpvtHydro
         else:
             saveFile = Params.FigureFiles.comparisonFileGenerator(FirstPlanet.saveLabel, SecondPlanet.saveLabel, 'vpvtHydro')
-        fig.savefig(saveFile, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        fig.savefig(saveFile, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
         log.debug(f'Hydrosphere PT properties plot saved to file: {saveFile}')
         plt.close()
 
@@ -1146,7 +1145,7 @@ def PlotPvTPerpleX(PlanetList, Params):
                  color=Color.geothermInner) for ax in axf]
 
         plt.tight_layout()
-        fig.savefig(Params.FigureFiles.vpvtPerpleX, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        fig.savefig(Params.FigureFiles.vpvtPerpleX, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
         log.debug(f'Silicate/core PT properties plot saved to file: {Params.FigureFiles.vpvtPerpleX}')
         plt.close()
 
@@ -1377,7 +1376,7 @@ def PlotMeltingCurves(PlanetList, Params):
             ax.legend(handles, labels, loc='upper left')
         
         plt.tight_layout()
-        fig.savefig(Params.FigureFiles.vmeltingCurves, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta)
+        fig.savefig(Params.FigureFiles.vmeltingCurves, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
         log.debug(f'Melting curves plot saved to file: {Params.FigureFiles.vmeltingCurves}')
         plt.close()
 

@@ -96,7 +96,7 @@ def get_available_excitations(result_obj, exc_selection_calc=None):
     return []
 
 
-def count_plottable_excitations(calcedExc, params_induct):
+def countPlottableExcitations(calcedExc, params_induct):
     """
     Count number of excitations that can be plotted for PlotComplexBdip logic.
     
