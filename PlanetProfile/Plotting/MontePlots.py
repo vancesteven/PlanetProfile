@@ -49,7 +49,7 @@ def PlotMonteCarloResults(results_list, Params):
         if n_rows == 1:
             axes = axes.reshape(1, -1)
         
-        fig.suptitle(f'Output Parameter Distributions - {result.base.bodyname}', fontsize=16)
+        fig.suptitle(f'Output Parameter Distributions - {result.bodyname}', fontsize=16)
         
         # Ocean composition setup if needed
         if plot_by_ocean_comp:
@@ -170,7 +170,7 @@ def PlotMonteCarloDistributions(results_list, Params):
         
         # Skip if no successful models
         if mc_result.base.nSuccess == 0:
-            log.warning(f'No successful models to plot for {mc_result.base.bodyname}')
+            log.warning(f'No successful models to plot for {mc_result.bodyname}')
             continue
         
         # Get parameter information
@@ -183,7 +183,7 @@ def PlotMonteCarloDistributions(results_list, Params):
         if n_rows == 1:
             axes = axes.reshape(1, -1)
         
-        fig.suptitle(f'Monte Carlo Parameter Distributions - {mc_result.base.bodyname}', fontsize=16)
+        fig.suptitle(f'Monte Carlo Parameter Distributions - {mc_result.bodyname}', fontsize=16)
         
         # Plot each parameter distribution
         for i, param in enumerate(mc_result.base.paramsToSearch):
@@ -294,10 +294,10 @@ def PlotMonteCarloScatter(results_list, Params):
         
         # Set main title
         if color_by_ocean_comp:
-            fig.suptitle(f'Monte Carlo Parameter Scatter Plots by Ocean Composition - {result.base.bodyname}', 
+            fig.suptitle(f'Monte Carlo Parameter Scatter Plots by Ocean Composition - {result.bodyname}', 
                         fontsize=14)
         else:
-            fig.suptitle(f'Monte Carlo Parameter Scatter Plots - {result.base.bodyname}', fontsize=14)
+            fig.suptitle(f'Monte Carlo Parameter Scatter Plots - {result.bodyname}', fontsize=14)
         
         # Create scatter plots
         for plot_idx, (x_param, y_param, x_exc, y_exc) in enumerate(plot_info):

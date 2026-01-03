@@ -1157,8 +1157,8 @@ def SelfConsistentInnerLayer(Planet, Params):
                                          EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
                                          TviscTrans_K=Planet.Sil.TviscTrans_K,
                                          doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Sil.rhoSilWithCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
-                                                                                   'VP_kms': Planet.Sil.VPmean_kms, 'VS_kms': Planet.Sil.VSmean_kms, 'KS_GPa': Planet.Sil.KSmean_GPa, 'GS_GPa': Planet.Sil.GSmean_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
-                                                                                   'sigma_Sm': Planet.Sil.sigmaMean_Sm})
+                                                                                   'VP_kms': Planet.Sil.VPset_kms, 'VS_kms': Planet.Sil.VSset_kms, 'KS_GPa': Planet.Sil.KSset_GPa, 'GS_GPa': Planet.Sil.GSset_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
+                                                                                   'sigma_Sm': Planet.Sil.sigmaSil_Sm})
         # Iron core if present
         if not Params.SKIP_INNER and Planet.Do.Fe_CORE and Planet.Core.EOS.key not in EOSlist.loaded.keys():
             Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
@@ -1166,8 +1166,8 @@ def SelfConsistentInnerLayer(Planet, Params):
                                           wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
                                           TviscTrans_K=Planet.Core.TviscTrans_K,
                                           doConstantProps=True, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
-                                                                                   'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSmean_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
-                                                                                   'sigma_Sm': Planet.Core.sigmaMean_Sm})
+                                                                                   'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSset_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
+                                                                                   'sigma_Sm': Planet.Core.sigmaCore_Sm})
 
         # Pore fluids if present
         if not Params.SKIP_INNER and Planet.Do.POROUS_ROCK and Planet.Sil.poreEOS.key not in EOSlist.loaded.keys():
@@ -1381,8 +1381,8 @@ def NonSelfConsistentInnerLayer(Planet, Params):
                                          EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
                                          TviscTrans_K=Planet.Sil.TviscTrans_K,
                                          doConstantProps=True, constantProperties={'rho_kgm3': Planet.Sil.rhoSilWithCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
-                                                                                   'VP_kms': Planet.Sil.VPmean_kms, 'VS_kms': Planet.Sil.VSmean_kms, 'KS_GPa': Planet.Sil.KSmean_GPa, 'GS_GPa': Planet.Sil.GSmean_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
-                                                                                   'sigma_Sm': Planet.Sil.sigmaMean_Sm})
+                                                                                   'VP_kms': Planet.Sil.VPset_kms, 'VS_kms': Planet.Sil.VSset_kms, 'KS_GPa': Planet.Sil.KSset_GPa, 'GS_GPa': Planet.Sil.GSset_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
+                                                                                   'sigma_Sm': Planet.Sil.sigmaSil_Sm})
             
             # Propogate conduction
             Tbot_K = Planet.T_K[Planet.Steps.nHydro] #TODO Fix this to make it self consistent
@@ -1409,8 +1409,8 @@ def NonSelfConsistentInnerLayer(Planet, Params):
                                           wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
                                           TviscTrans_K=Planet.Core.TviscTrans_K,
                                           doConstantProps=True, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
-                                                                                   'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSmean_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
-                                                                                   'sigma_Sm': Planet.Core.sigmaMean_Sm})
+                                                                                   'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSset_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
+                                                                                   'sigma_Sm': Planet.Core.sigmaCore_Sm})
             
             # Propogate conduction
             Tbot_K = Planet.T_K[startCore-1] #TODO Fix this to make it self consistent

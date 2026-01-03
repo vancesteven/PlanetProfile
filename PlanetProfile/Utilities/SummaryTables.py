@@ -27,7 +27,7 @@ def GetExplorationComparisons(ExplorationList, Params):
         SecondExplorationIndex = comparison[1]
         FirstExploration = ExplorationList[FirstExplorationIndex]
         SecondExploration = ExplorationList[SecondExplorationIndex]
-        sameBody = FirstExploration.base.bodyname == SecondExploration.base.bodyname
+        sameBody = FirstExploration.bodyname == SecondExploration.bodyname
         sameXVariable = FirstExploration.xName == SecondExploration.xName
         sameXRange = np.all(FirstExploration.xData == SecondExploration.xData)
         sameYVariable = FirstExploration.yName == SecondExploration.yName
@@ -36,7 +36,7 @@ def GetExplorationComparisons(ExplorationList, Params):
             continue
         else:
             comparisonExploration = ExplorationResultsStruct()
-            comparisonExploration.base.bodyname = FirstExploration.base.bodyname
+            comparisonExploration.bodyname = FirstExploration.bodyname
             comparisonExploration.base.VALID = FirstExploration.base.VALID & SecondExploration.base.VALID
             comparisonExploration.base.oceanComp = FirstExploration.base.oceanComp
             comparisonExploration.xName = FirstExploration.xName
@@ -109,8 +109,8 @@ def GetExplorationComparisons(ExplorationList, Params):
             # Append ComparisonExploration to ComparisonList
             ComparisonList.append(comparisonExploration)
             # Create FigureFiles
-            comparePath = os.path.join(comparisonExploration.base.bodyname, 'figures')
-            compareBase = f'{comparisonExploration.base.bodyname}ComparisonxRange{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}yRange{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}'
+            comparePath = os.path.join(comparisonExploration.bodyname, 'figures')
+            compareBase = f'{comparisonExploration.bodyname}ComparisonxRange{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}yRange{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}'
             FigureFiles = FigureFilesSubstruct(comparePath, compareBase, FigMisc.xtn, exploreAppend=Params.Explore.zName)
             FigureFilesList.append(FigureFiles)
     return ComparisonList, Params,FigureFilesList

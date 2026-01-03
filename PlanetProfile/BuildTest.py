@@ -11,9 +11,9 @@ import numpy as np
 import importlib, os, fnmatch, sys, time
 from copy import deepcopy
 from PlanetProfile import _Test, _TestImport
-from PlanetProfile.GetConfig import Params as configParams
+from PlanetProfile.GetConfig import Params as configParams, FigMisc
 from PlanetProfile.Main import PlanetProfile, InductOgram, ReloadInductOgram, ExploreOgram, ReloadExploreOgram
-from PlanetProfile.Plotting.ExplorationPlots import GenerateExplorationPlots
+from PlanetProfile.Plotting.ExplorationPlots import GenerateExplorationPlots, PlotExploreOgramMultiSubplot
 from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, GenerateExplorationMagPlots
 from PlanetProfile.Test.TestBayes import TestBayes
 
@@ -143,11 +143,13 @@ def full(iTestStart=2, skipType=None):
 def TestAllInductOgrams(TestPlanets, Params, tMarks):
     # Run all types of inductogram on Test7, with Test11 for porosity
     Params.DO_INDUCTOGRAM = True
-    Params.CALC_NEW_INDUCT = False
+    Params.CALC_NEW_INDUCT = True
+    Params.CALC_NEW = True
     Params.NO_SAVEFILE = True
     Params.SKIP_INNER = True
     for inductOtype in ['sigma', 'Tb', 'rho', 'oceanComp']:
         Params.Induct.inductOtype = inductOtype
+        # Test non-parallel and parallel processing
         Params.DO_PARALLEL = False
         Params.PRELOAD_EOS = False
         _ = TestInductOgram(7, Params)
@@ -156,7 +158,7 @@ def TestAllInductOgrams(TestPlanets, Params, tMarks):
         Induction = TestInductOgram(7, Params)
         TestPlanets = np.append(TestPlanets, deepcopy(Induction))
         tMarks = np.append(tMarks, time.time())
-
+        # Test reloading
         Induction = TestInductOgram(7, Params, CALC_NEW=False)
         TestPlanets = np.append(TestPlanets, deepcopy(Induction))
         tMarks = np.append(tMarks, time.time())
@@ -185,8 +187,15 @@ def TestAllInductOgrams(TestPlanets, Params, tMarks):
 def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
     # Run all types of exploreogram on Test7, with Test5 for waterless
     Params.DO_EXPLOREOGRAM = True
+    Params.CALC_NEW = True
     Params.NO_SAVEFILE = True
-    Params.SKIP_INNER = True
+    Params.Explore.zName = 'CMR2mean'
+    allZNames = ["CMR2mean", "D_km", "Dconv_m", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km",
+    "dzIceV_km", "dzIceVund_km", "dzIceVI_km", "dzWetHPs_km", "eLid_km", "phiSeafloor_frac", "Rcore_km", "rhoSilMean_kgm3", "rhoCoreMean_kgm3",
+    "sigmaMean_Sm", "silPhiCalc_frac", "zb_km", "zSeafloor_km",  
+    "hLoveAmp", "kLoveAmp", "lLoveAmp", "deltaLoveAmp", "hLovePhase", "kLovePhase", "lLovePhase", "deltaLovePhase",
+    'InductionAmp', 'InductionPhase', 'InductionrBi1Tot_nT', 'InductioniBi1Tot_nT', 'InductionrBi1x_nT', 'InductionrBi1y_nT', 
+    'InductionrBi1z_nT', 'InductioniBi1x_nT', 'InductioniBi1y_nT', 'InductioniBi1z_nT']
     hydroExploreBds = {
         'xFeS': [0, 1],
         'rhoSilInput_kgm3': [2000, 4500],
@@ -203,6 +212,7 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
         'oceanComp': [-12, -3], # Placeholder - range is determined by input range file data,
         'zb_approximate_km': [10, 90]
     }
+    
     waterlessExploreBds = {
         'xFeS': [0, 1],
         'rhoSilInput_kgm3': [2000, 4500],
@@ -214,13 +224,7 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
         'Qrad_Wkg': [1e-20, 1e-14],
         'qSurf_Wm2': [50e-3, 400e-3]
     }
-    Params.Explore.zName =["CMR2mean", "D_km", "Dconv_m", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km",
-    "dzIceV_km", "dzIceVund_km", "dzIceVI_km", "dzWetHPs_km", "eLid_km", "phiSeafloor_frac", "Rcore_km", "rhoSilMean_kgm3", "rhoCoreMean_kgm3",
-    "sigmaMean_Sm", "silPhiCalc_frac", "zb_km", "zSeafloor_km",  
-    "hLoveAmp", "kLoveAmp", "lLoveAmp", "deltaLoveAmp", "hLovePhase", "kLovePhase", "lLovePhase", "deltaLovePhase",
-    'InductionAmp', 'InductionPhase', 'InductionrBi1Tot_nT', 'InductioniBi1Tot_nT', 'InductionrBi1x_nT', 'InductionrBi1y_nT', 
-    'InductionrBi1z_nT', 'InductioniBi1x_nT', 'InductioniBi1y_nT', 'InductioniBi1z_nT']
-
+    
     if not SKIP_HYDRO:
         log.info('Running exploreOgrams for icy bodies for all input types.')
         for xName in hydroExploreBds.keys():
@@ -242,9 +246,16 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
                     Exploration = TestExploreOgram(7, Params, CALC_NEW=False)
                     TestPlanets = np.append(TestPlanets, deepcopy(Exploration))
                     tMarks = np.append(tMarks, time.time())
-
+        
+        log.info('Testing all zName options for exploreOgrams.')
+        Exploration = TestExploreOgram(7, Params, CALC_NEW=False)
+        # Now test the multi-subplot function if not already tested (dividing into groups of 10 to prevent errors in too big of file size)
+        for i in range(0, len(allZNames), 10):
+            Params.Explore.zName = allZNames[i:i+10]
+            Exploration = TestExploreOgram(7, Params, CALC_NEW=False)
+    
     log.info('Running exploreOgrams for waterless bodies for all input types.')
-    Params.Explore.zName.append('qSurf_Wm2')
+    Params.Explore.zName = 'CMR2mean'
     for xName in waterlessExploreBds.keys():
         for yName in waterlessExploreBds.keys():
             if xName != yName:
@@ -277,8 +288,8 @@ def TestInductOgram(testNum, Params, CALC_NEW=True):
 
     # Set sizes low so things don't take ages to run
     Params.Induct.nwPts, Params.Induct.nTbPts, Params.Induct.nphiPts,  \
-    Params.Induct.nrhoPts, Params.Induct.nSigmaPts, Params.Induct.nDpts, Params.Induct.nOceanCompPts \
-        = (4 for _ in range(7))
+    Params.Induct.nrhoPts, Params.Induct.nSigmaPts, Params.Induct.nDpts, Params.Induct.nOceanCompPts, Params.Induct.nZbPts \
+        = (4 for _ in range(8))
     
     if CALC_NEW:
         Induction, Params = InductOgram(testName, Params)
@@ -286,7 +297,7 @@ def TestInductOgram(testNum, Params, CALC_NEW=True):
     else:
         Induction, _, Params = ReloadInductOgram(testName, Params)
         end = ' RELOAD'
-    GenerateExplorationMagPlots([Induction], Params)
+    GenerateExplorationMagPlots([Induction], [Params.FigureFiles], Params)
     Induction.name = testName
     Induction.saveLabel = f'{Params.Induct.inductOtype} induct-o-gram{end}'
 
@@ -301,13 +312,16 @@ def TestExploreOgram(testNum, Params, CALC_NEW=True):
         = (4 for _ in range(2))
 
     if CALC_NEW:
+        Params.CALC_NEW = True
         Exploration, Params = ExploreOgram(testName, Params)
         end = ''
     else:
+        Params.CALC_NEW = False
         Exploration, Params = ReloadExploreOgram(testName, Params)
         end = ' RELOAD'
 
-    GenerateExplorationPlots([Exploration], Params)
+    GenerateExplorationPlots([Exploration], [Params.FigureFiles], Params)
+    GenerateExplorationMagPlots([Exploration], [Params.FigureFiles], Params)
     Exploration.name = testName
     Exploration.saveLabel = f'{Params.Explore.xName} x {Params.Explore.yName} explore-o-gram{end}'
 
@@ -404,7 +418,9 @@ def setFullSettings(Params):
     Params.PLOT_BINVERSION = True
     Params.LEGEND = True
     Params.TITLES = True
-
+    Params.PLOT_COMBO_EXPLORATIONS = True
+    FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS']
+    
     # Disable other features not relevant to single model runs
     Params.DO_INDUCTOGRAM = False
     Params.DO_EXPLOREOGRAM = False

@@ -220,7 +220,7 @@ class OceanSubstruct:
         self.kThermWater_WmK = None # Thermal conductivity for water layers  - Overrides kThermWater_WmK in Constants
         self.kThermIce_WmK = {phase: None for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']} # Constant thermal conductivity for each ice layer in non-self-consistent models
         self.dkdTI_WmK2 = -0.012  # Temperature derivative of ice I relative to the melting temp. Default is from Melinder (2007).
-        self.sigmaIce_Sm = {'Ih':1e-8, 'II':1e-8, 'III':1e-8, 'V':1e-8, 'VI':1e-8, 'Clath':5e-5}  # Assumed conductivity of solid ice phases (see Constants.sigmaClath_Sm below)
+        self.sigmaIce_Sm = {'Ih':1e-8, 'II':1e-8, 'III':1e-8, 'V':1e-8, 'VI':1e-8, 'Clath':5e-5, 'MixedClathrateIh': 5e-5}  # Assumed conductivity of solid ice phases (see Constants.sigmaClath_Sm below)
         self.THydroMax_K = 320  # Assumed maximum ocean temperature for generating ocean EOS functions. For large bodies like Ganymede, Callisto, and Titan, larger values are required.
         self.PHydroMax_MPa = 200  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
         self.MgSO4elecType = 'Vance2018'  # Type of electrical conductivity model to use for MgSO4. Options: 'Vance2018', 'Pan2020'
@@ -323,7 +323,16 @@ class SilSubstruct:
         self.mantleEOSName = None  # Same as above but containing keywords like clathrates in filenames
         self.mantleEOSDry = None  # Name of mantle EOS to use assuming non-hydrated silicates
         self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
+        """ Constant properties when using CONSTANT_INNER_DENSITY = True """
         self.rhoSilWithCore_kgm3 = 3300  # Assumed density of rocks when a core is present in kg/m^3
+        self.GSset_GPa = None  # Assumed shear modulus in GPa for the silicate layers (overrides Constants.GS_GPa[Constants.phaseSil])
+        self.VPset_kms = None  # Assumed bulk modulus in km/s for the silicate layers (overrides Constants.VP_kms[Constants.phaseSil])
+        self.VSset_kms = None  # Assumed shear modulus in km/s for the silicate layers (overrides Constants.VS_kms[Constants.phaseSil])
+        self.KSset_GPa = None  # Assumed bulk modulus in GPa for the silicate layers (overrides Constants.KS_GPa[Constants.phaseSil])
+        self.GSset_GPa = None  # Assumed shear modulus in GPa for the silicate layers (overrides Constants.GS_GPa[Constants.phaseSil])
+        self.sigmaSet_Sm = None  # Assumed conductivity in S/m for the silicate layers (overrides Constants.sigma_Sm[Constants.phaseSil])
+        
+        
         # Derived quantities
         self.Rmean_m = None  # Mantle radius for mean compatible moment of inertia (MoI)
         self.Rrange_m = None  # Mantle radius range for compatible MoI
@@ -355,6 +364,12 @@ class CoreSubstruct:
         self.etaFeSolid_Pas = None # Assumed viscosity of solid iron in Pa*s - Overrides Constants.etaFeSolid_Pas if specified
         self.etaFeLiquid_Pas = None # Assumed viscosity of liquid iron in Pa*s - Overrides Constants.etaFeLiquid_Pas if specified
         self.TviscTrans_K = None # Transition temperatures for iron to go from one viscosity value to another - Overrides Constants.TviscFe_K if specified
+        """ Constant properties when using CONSTANT_INNER_DENSITY = True """
+        self.GSset_GPa = None  # Assumed shear modulus in GPa for the silicate layers (overrides Constants.GS_GPa[Constants.phaseSil])
+        self.VPset_kms = None  # Assumed bulk modulus in km/s for the silicate layers (overrides Constants.VP_kms[Constants.phaseSil])
+        self.VSset_kms = None  # Assumed shear modulus in km/s for the silicate layers (overrides Constants.VS_kms[Constants.phaseSil])
+        self.KSset_GPa = None  # Assumed bulk modulus in GPa for the silicate layers (overrides Constants.KS_GPa[Constants.phaseSil])
+        self.sigmaSet_Sm = None  # Assumed conductivity in S/m for the silicate layers (overrides Constants.sigma_Sm[Constants.phaseSil])
         # Derived quantities
         self.rhoMean_kgm3 = None  # Core bulk density calculated from final MoI match using EOS properties
         self.rhoMeanFe_kgm3 = np.nan  # Pure iron layer bulk density calculated from final MoI match using EOS properties
@@ -582,7 +597,7 @@ class PlanetStruct:
         self.PfreezeUpper_MPa = 230  # Upper boundary for GetPfreeze to search for ice Ih phase transition
         self.PfreezeRes_MPa = 0.05  # Step size in pressure for GetPfreeze to use in searching for phase transition
         # Settings for GetTfreeze start, stop, and step size. Used when ice shell thickness is input.
-        self.TfreezeLower_K = 230 # Lower boundary for GetTFreeze to search for ice Ih phase transition
+        self.TfreezeLower_K = 240 # Lower boundary for GetTFreeze to search for ice Ih phase transition
         self.TfreezeUpper_K = 280 # Upper boundary for GetTFreeze to search for ice Ih phase transition
         self.TfreezeRes_K = 0.05 # Step size in temperature for GetTfreeze to use in searching for phase transition
 
@@ -717,6 +732,7 @@ class ReducedPlanetStruct:
 class DataFilesSubstruct:
     def __init__(self, datPath, saveBase, comp, inductBase=None, exploreAppend=None,
                  inductAppend=None, monteCarloAppend=None, EXPLORE=False):
+        self.saveBase = saveBase
         if inductBase is None:
             inductBase = saveBase
         if exploreAppend is None:
@@ -803,6 +819,7 @@ class FigureFilesSubstruct:
             self.exploreBase = figBase
         else:
             self.exploreBase = exploreBase
+        self.inversionBase = figBase
         if monteCarloBase is None:
             self.monteCarloBase = figBase
         else:
@@ -840,9 +857,10 @@ class FigureFilesSubstruct:
         self.fName = os.path.join(self.path, figBase)
         self.fNameInduct = os.path.join(self.inductPath, self.inductBase + self.comp + self.inductAppend)
         self.fNameExplore = os.path.join(self.path, self.exploreBase)
+        self.fNameInversion = os.path.join(self.path, self.inversionBase)
         self.fNameMonteCarlo = os.path.join(self.montecarloPath, self.monteCarloBase)
         self.fNameFlybys = os.path.join(self.inductPath, self.inductBase, os.path.dirname(figPath))
-
+    
         # Figure filename strings
         vpore = 'Porosity'
         vporeDbl = 'Porosity2axes'
@@ -878,6 +896,8 @@ class FigureFilesSubstruct:
         AlfvenWing = 'AlfvenWings'
         asym = 'asymDevs'
         apsidal = 'apsidalPrec'
+        inversion = 'Inversion'
+        
         # Construct Figure Filenames
         self.vwedg = self.fName + vwedg + self.xtn
         self.vpore = self.fName + vpore + self.xtn
@@ -898,11 +918,16 @@ class FigureFilesSubstruct:
         self.vpvtPerpleX = self.fName + vpvtPerpleX + self.xtn
         self.asym = self.fName + asym
         self.apsidal = self.fName + apsidal + self.xtn
+        self.inversion = self.fName + inversion + self.xtn
         if isinstance(self.exploreAppend, list):
             self.explore =            [f'{self.fNameExplore}_{eApp}{self.xtn}' for eApp in self.exploreAppend]
             self.exploreZbD =          [f'{self.fNameExplore}_{eApp}_ZbD{self.xtn}' for eApp in self.exploreAppend]
             self.exploreZbY =          [f'{self.fNameExplore}_{eApp}_ZbY{self.xtn}' for eApp in self.exploreAppend]
-            self.exploreMultiSubplot = f'{self.fNameExplore}_MultiSubplot_' + '_'.join(eApp for eApp in self.exploreAppend) + self.xtn
+            exploreMultiSubplotExtension = '_'.join(eApp for eApp in self.exploreAppend)
+            if len(exploreMultiSubplotExtension) > 80:
+                log.warning(f"Explore multi-subplot filename is too long, truncating extension to 100 characters")
+                exploreMultiSubplotExtension = exploreMultiSubplotExtension[:80]
+            self.exploreMultiSubplot = f'{self.fNameExplore}_MultiSubplot_' + exploreMultiSubplotExtension + self.xtn
         else:
             self.explore =             f'{self.fNameExplore}_{self.exploreAppend}{self.xtn}'
             self.exploreZbD =          f'{self.fNameExplore}_ZbD{self.xtn}'
@@ -956,6 +981,7 @@ class ParamsStruct:
         self.Sig = None  # General induction settings
         self.Induct = None  # Induction calculation settings
         self.Explore = None  # ExploreOgram calculation settings
+        self.Inversion: InversionParamsStruct | None = None  # Inversion calculation settings
         self.MagSpectrum = None  # Excitation spectrum settings
         self.Trajec = None  # Trajectory analysis settings
         self.cLevels = None  # Contour level specifications
@@ -1220,6 +1246,13 @@ class MonteCarloParamsStruct:
 """ Inversion parameter options """
 class InversionParamsStruct:
     def __init__(self):
+        """ Set which observations to invert """
+        self.invertXName = None
+        self.invertYName = None
+        self.INVERT_GRAVITY = True
+        self.INVERT_INDUCTION = True
+        self.INVERT_JOINT = True
+        """ Parameters for inversion calculations """
         self.Amp = None  # Amplitude of dipole response (modulus of complex dipole response).
         self.phase = None  # (Positive) phase delay in degrees.
         self.InductionResponseUncertainty_nT = None  # Uncertainity in dipole response in nT
@@ -1230,10 +1263,18 @@ class InversionParamsStruct:
         self.Bi1xyz_nT = None  # Surface strength of dipole response in IAU components
         self.Bi1Tot_nT = None  # Surface strength of dipole response in total field
         
-        self.xBestFit = None
-        self.yBestFit = None
+        self.xTrueFit = None
+        self.yTrueFit = None
         self.spacecraftUncertainties = {'Clipper': {'InductionResponseUncertainty_nT': 1.5, 'kLoveAmpUncertainity': 0.036}
                                         }
+        """ Grid of models within uncertainty """
+        self.gridWithinAllUncertainty = None
+        self.gridWithinGravityUncertainty = None
+        self.gridWithinInductionUncertainty = None
+        self.gridWithinkLoveAmpUncertainty = None
+        self.gridWithinhLoveAmpUncertainty = None
+        self.gridWithinBi1Tot_nTUncertainty = None
+        
     def assignRealPlanetModel(self, Planet, xBestFit=None, yBestFit=None):
         self.Amp = Planet.Magnetic.Amp
         self.phase = Planet.Magnetic.phase
@@ -1241,8 +1282,8 @@ class InversionParamsStruct:
         self.hLoveAmp = Planet.Gravity.hAmp
         self.Bi1xyz_nT = Planet.Magnetic.Bi1xyz_nT
         self.Bi1Tot_nT = Planet.Magnetic.Bi1Tot_nT
-        self.xBestFit = xBestFit
-        self.yBestFit = yBestFit
+        self.xTrueFit = xBestFit
+        self.yTrueFit = yBestFit
     def setSpaceCraft(self, spacecraft):
         self.InductionResponseUncertainty_nT = self.spacecraftUncertainties[spacecraft]['InductionResponseUncertainty_nT']
         self.kLoveAmpUncertainity = self.spacecraftUncertainties[spacecraft]['kLoveAmpUncertainity']
@@ -1480,6 +1521,7 @@ class StyleStruct:
         self.TS_ticks = None  # Text size in pt for tick marks on radius scale
         self.TS_desc = None  # Text size in pt for model description and label
         self.TS_super = None  # Text size in pt for overall ("suptitle") label with multiple wedges
+        self.TS_axis = None  # Text size in pt for axis labels
         self.LS_markRadii = None  # Linestyle for radii mark line when toggled on
         self.LW_markRadii = None  # Linewidth for radii mark line when toggled on
 
@@ -1647,6 +1689,7 @@ class FigLblStruct:
         self.BdipImLabel = {axComp: r'$\mathrm{Im}\{B^i_' + axComp + r'\}$ ($\si{nT}$)' for axComp in ['x', 'y', 'z']}
         self.BdipReTotLabel = r'$\mathrm{Re}\{B^i_{tot}\}$ ($\si{nT}$)'
         self.BdipImTotLabel = r'$\mathrm{Im}\{B^i_{tot}\}$ ($\si{nT}$)'
+        self.Bi1Tot_nTLabel = r'$B^i_{tot}$'
         # InductOgram labels and axis scales
         self.plotTitles = ['Amplitude $A$', '$B_x$ component', '$B_y$ component', '$B_z$ component']
         self.fLabels = ['Amp', 'Bx', 'By', 'Bz']
@@ -2027,6 +2070,7 @@ class FigLblStruct:
             'pHSeafloor': 'seafloor pH',
             'pHTop': 'top of ocean pH',
             'zb_approximate_km': 'approximate ice shell thickness',
+            'oceanComp': 'ocean composition',
             'mixingRatioToH2O': 'mixing ratio in the ocean',
             'InductionAmp': 'induction amplitude',
             'InductionPhase': 'induction phase',
@@ -2038,6 +2082,7 @@ class FigLblStruct:
             'InductioniBi1x_nT': 'induction imaginary x-component',
             'InductioniBi1y_nT': 'induction imaginary y-component',
             'InductioniBi1z_nT': 'induction imaginary z-component',
+            'rhoCoreMean_kgm3': 'core density',
         }
         self.tCArelDescrip = {
             's': r'($\si{s}$)',
@@ -2177,6 +2222,7 @@ class FigLblStruct:
         self.rhoSilLabel = r'Rock density $\rho_\mathrm{rock}$ ($\si{' + self.rhoUnits + '}$)'
         self.rhoOceanMeanLabel = r'Ocean density $\overline{\rho}_\mathrm{ocean}$ ($\si{' + self.rhoUnits + '}$)'
         self.rhoSilMeanLabel = r'Rock density $\overline{\rho}_\mathrm{rock}$ ($\si{' + self.rhoUnits + '}$)'
+        self.rhoCoreMeanLabel = r'Core density $\overline{\rho}_\mathrm{core}$ ($\si{' + self.rhoUnits + '}$)'
         self.silPhiSeaLabel = r'Seafloor porosity $\phi_\mathrm{rock}$' + self.phiUnitsParen
         self.phiLabel = r'Porosity $\phi$' + self.phiUnitsParen
         self.zbApproximateLabel = r'Ice shell thickness ($\si{km}$)'
@@ -2258,6 +2304,7 @@ class FigLblStruct:
             'sigmaMean_Sm': self.sigmaMeanLabel,
             'rhoOceanMean_kgm3': self.rhoOceanMeanLabel,
             'rhoSilMean_kgm3': self.rhoSilMeanLabel,
+            'rhoCoreMean_kgm3': self.rhoCoreMeanLabel,
             'silPhi_frac': self.silPhiInLabel,
             'silPhiCalc_frac': self.silPhiOutLabel,
             'phiSeafloor_frac': self.silPhiSeaLabel,
@@ -2293,6 +2340,7 @@ class FigLblStruct:
             'InductioniBi1x_nT': self.BdipImLabel['x'],
             'InductioniBi1y_nT': self.BdipImLabel['y'],
             'InductioniBi1z_nT': self.BdipImLabel['z'],
+            'oceanComp': self.oceanCompLabel,
         }
         self.axisMultsExplore = {
             'xFeS': self.xMult,
@@ -2354,7 +2402,16 @@ class FigLblStruct:
         self.explorationDsigmaTitle = f'\\textbf{{{bodyname} ocean $D/\\sigma$ vs.\\ {self.exploreDescrip[zName]}}}'
         self.explorationLoveComparisonTitle = f'\\textbf{{{bodyname} $\delta_2$ vs.\\ $k_2$'
         self.exploreCompareTitle = self.explorationTitle
-
+    def SetInversion(self, bodyname, xName, yName, titleData  = None):
+        self.inversionTitle = f'\\textbf{{{bodyname} inversion results}}'
+        self.xLabelExplore = '' if xName not in self.axisLabelsExplore.keys() else self.axisLabelsExplore[xName]
+        self.xScaleExplore = 'log' if xName in self.axisLogScalesExplore else 'linear'
+        self.xMultExplore = 1 if xName not in self.axisMultsExplore.keys() else self.axisMultsExplore[xName]
+        self.yLabelExplore = '' if yName not in self.axisLabelsExplore.keys() else self.axisLabelsExplore[yName]
+        self.yScaleExplore = 'log' if yName in self.axisLogScalesExplore else 'linear'
+        self.yMultExplore = 1 if yName not in self.axisMultsExplore.keys() else self.axisMultsExplore[yName]
+        self.xCustomAxis = None if xName not in self.axisCustomScalesExplore.keys() else self.axisCustomScalesExplore[xName]
+        self.yCustomAxis = None if yName not in self.axisCustomScalesExplore.keys() else self.axisCustomScalesExplore[yName]
     def SetExploreTitle(self, bodyname, xName, yName, zName, titleData, excName):
         if titleData is None:
             self.explorationTitle = f'\\textbf{{{bodyname} {self.exploreDescrip[zName]} exploration}}'

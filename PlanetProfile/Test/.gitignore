@@ -1,6 +1,6 @@
 *~
 .DS_Store
 *.asv
-*.mat
+*.pkl
 *.dat
 *.txt

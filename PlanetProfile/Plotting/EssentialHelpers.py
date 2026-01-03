@@ -75,7 +75,7 @@ def get_available_excitations(result_obj, exc_selection_calc=None):
     """
     # Get bodyname from result object
     if hasattr(result_obj, 'base') and hasattr(result_obj.base, 'bodyname'):
-        bodyname = result_obj.base.bodyname
+        bodyname = result_obj.bodyname
     else:
         # Fallback for older structures
         bodyname = getattr(result_obj, 'bodyname', 'Unknown')
@@ -284,50 +284,54 @@ def extract_and_validate_plot_data(result_obj, x_field, y_field, c_field=None, c
     """
     
     # Extract data using original pattern - check base structure
-    if hasattr(result_obj.base, x_field):
+    if x_field == result_obj.xName:
+        x_raw = result_obj.xData
+    elif hasattr(result_obj.base, x_field):
         x_raw = result_obj.base.__dict__[x_field]
-        # Handle string vs numeric data (like in PlotExploreOgramModern)
-        if np.issubdtype(x_raw.dtype, np.number):
-            x = np.reshape(x_raw * x_multiplier, -1)
-        else:
-            x = np.array([])
-            for i in range(x_raw.shape[0]):
-                row = np.repeat(int(i), x_raw.shape[1])
-                x = np.concatenate((x, row))
-            x = x.reshape(-1)
-        if custom_x_axis is not None:
-            if len(custom_x_axis) == len(x):
-                x = custom_x_axis
-            elif len(custom_x_axis) == x_raw.shape[0]:
-                x = np.repeat(custom_x_axis, x_raw.shape[1])
-            else:
-                log.warning(f"Custom x axis length {len(custom_x_axis)} does not match x length {len(x)}")
-        else:
-            x = x
     else:
         raise ValueError(f"Field {x_field} not found in result.base")
-        
-    if hasattr(result_obj.base, y_field):
+    # Handle string vs numeric data (like in PlotExploreOgramModern)
+    if np.issubdtype(x_raw.dtype, np.number):
+        x = np.reshape(x_raw * x_multiplier, -1)
+    else:
+        x = np.array([])
+        for i in range(x_raw.shape[0]):
+            row = np.repeat(int(i), x_raw.shape[1])
+            x = np.concatenate((x, row))
+        x = x.reshape(-1)
+    if custom_x_axis is not None:
+        if len(custom_x_axis) == len(x):
+            x = custom_x_axis
+        elif len(custom_x_axis) == x_raw.shape[0]:
+            x = np.repeat(custom_x_axis, x_raw.shape[1])
+        else:
+            log.warning(f"Custom x axis length {len(custom_x_axis)} does not match x length {len(x)}")
+    else:
+        x = x
+    
+    if y_field == result_obj.yName:
+        y_raw = result_obj.yData
+    elif hasattr(result_obj.base, y_field):
         y_raw = result_obj.base.__dict__[y_field]
-        # Handle string vs numeric data (like in PlotExploreOgramModern)
-        if np.issubdtype(y_raw.dtype, np.number):
-            y = np.reshape(y_raw * y_multiplier, -1)
-        else:
-            y = np.array([])
-            for i in range(y_raw.shape[0]):
-                y = np.concatenate((y, np.arange(0, y_raw.shape[1], dtype=np.float_)))
-            y = y.reshape(-1)
-        if custom_y_axis is not None:
-            if len(custom_y_axis) == len(y):
-                y = custom_y_axis
-            elif len(custom_y_axis) == y_raw.shape[1]:
-                y = np.tile(custom_y_axis, y_raw.shape[0])
-            else:
-                log.warning(f"Custom y axis length {len(custom_y_axis)} does not match y length {len(y)}")
-        else:
-            y = y
     else:
         raise ValueError(f"Field {y_field} not found in result.base")
+    # Handle string vs numeric data (like in PlotExploreOgramModern)
+    if np.issubdtype(y_raw.dtype, np.number):
+        y = np.reshape(y_raw * y_multiplier, -1)
+    else:
+        y = np.array([])
+        for i in range(y_raw.shape[0]):
+            y = np.concatenate((y, np.arange(0, y_raw.shape[1], dtype=np.float_)))
+        y = y.reshape(-1)
+    if custom_y_axis is not None:
+        if len(custom_y_axis) == len(y):
+            y = custom_y_axis
+        elif len(custom_y_axis) == y_raw.shape[1]:
+            y = np.tile(custom_y_axis, y_raw.shape[0])
+        else:
+            log.warning(f"Custom y axis length {len(custom_y_axis)} does not match y length {len(y)}")
+    else:
+        y = y
 
     
     x_valid = x
@@ -821,7 +825,10 @@ def extract_magnetic_field_data(result_obj, field_name):
     inductionFieldName = field_name.replace('Induction', '')
     calcedExc = result_obj.induction.calcedExc
     iExcName = calcedExc.index(excitation_name)
-    fullMagneticInductionData = getattr(result_obj.induction, inductionFieldName)
+    try:
+        fullMagneticInductionData = getattr(result_obj.induction, inductionFieldName)
+    except:
+        raise ValueError(f"Field {inductionFieldName} not found in result.induction")
     excExcitationData = fullMagneticInductionData[iExcName, :, :]
     return excExcitationData
 

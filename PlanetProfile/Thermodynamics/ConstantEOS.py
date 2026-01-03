@@ -9,11 +9,11 @@ from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, E
 
 
 class  ConstantEOSStruct:
-    def __init__(self, constantProperties, TviscTrans_K=None, EOStype = None):
+    def __init__(self, constantProperties, TviscTrans_K=None, EOStype = None, innerComp = None):
         if EOStype == 'inner':
             self.EOStype = 'inner'
-            self.comp = 'inner'
-            self.EOSlabel = f'constant{EOStype}constantProps{constantProperties}'
+            self.comp = innerComp
+            self.EOSlabel = f'constant{EOStype}comp{innerComp}constantProps{constantProperties}'
         elif EOStype == 'ocean':
             self.EOStype = 'ocean'
             self.EOSlabel = f'constant{EOStype}constantProps{constantProperties}'
@@ -32,8 +32,50 @@ class  ConstantEOSStruct:
             self.Pmax = 10000
             self.Tmin = 0
             self.Tmax = 10000
-            self.EOStype = EOStype
-            self.constantProperties = constantProperties
+            
+            if EOStype == 'inner':
+                if constantProperties['kTherm_WmK'] is None:
+                    if self.comp == 'core':
+                        constantProperties['kTherm_WmK'] = Constants.kThermFe_WmK
+                    elif self.comp == 'sil':
+                        constantProperties['kTherm_WmK'] = Constants.kThermSil_WmK
+                if constantProperties['eta_Pas'] is None:
+                    if self.comp == 'core':
+                        constantProperties['eta_Pas'] = Constants.etaFeSolid_Pas
+                    elif self.comp == 'sil':
+                        constantProperties['eta_Pas'] = Constants.etaRock_Pas
+                if TviscTrans_K is None:
+                    if self.comp == 'core':
+                        self.TviscTrans_K = Constants.TviscFe_K
+                    elif self.comp == 'sil':
+                        self.TviscTrans_K = Constants.TviscRock_K
+                if constantProperties['GS_GPa'] is None:
+                    if self.comp == 'core':
+                        constantProperties['GS_GPa'] = Constants.GS_GPa[Constants.phaseFe]
+                    elif self.comp == 'sil':
+                        constantProperties['GS_GPa'] = Constants.GS_GPa[Constants.phaseSil]
+                if constantProperties['VP_kms'] is None:
+                    if self.comp == 'core':
+                        constantProperties['VP_kms'] = np.nan
+                    elif self.comp == 'sil':
+                        constantProperties['VP_kms'] = np.nan
+                if constantProperties['VS_kms'] is None:
+                    if self.comp == 'core':
+                        constantProperties['VS_kms'] = np.nan
+                    elif self.comp == 'sil':
+                        constantProperties['VS_kms'] = np.nan
+                
+                if constantProperties['KS_GPa'] is None:
+                    if self.comp == 'core':
+                        constantProperties['KS_GPa'] = np.nan
+                    elif self.comp == 'sil':
+                        constantProperties['KS_GPa'] = np.nan
+                if constantProperties['sigma_Sm'] is None:
+                    if self.comp == 'core':
+                        constantProperties['sigma_Sm'] = np.nan
+                    elif self.comp == 'sil':
+                        constantProperties['sigma_Sm'] = np.nan
+            
             self.ufn_rho_kgm3 = returnVal(constantProperties['rho_kgm3'])
             self.ufn_Cp_JkgK = returnVal(constantProperties['Cp_JkgK'])
             self.ufn_alpha_pK = returnVal(constantProperties['alpha_pK'])
@@ -47,7 +89,7 @@ class  ConstantEOSStruct:
             if not isinstance(constantProperties['eta_Pas'], list):
                 self.ufn_eta_Pas = returnVal(constantProperties['eta_Pas'])
             else:
-                self.ufn_eta_Pas = returnValWithThreshold(constantProperties['eta_Pas'][0], constantProperties['eta_Pas'][1], TviscTrans_K)
+                self.ufn_eta_Pas = returnValWithThreshold(constantProperties['eta_Pas'][0], constantProperties['eta_Pas'][1], self.TviscTrans_K)
             self.EOSdeltaP = None
             self.EOSdeltaT = None
             self.propsPmax = 0

@@ -25,14 +25,29 @@ def GenerateExplorationPlots(ExplorationList, FigureFilesList, Params):
     Params = SetupCustomSolutionPlotSettings(np.array(all_ocean_comps), Params)
     if PLOT_EXPLORATION and not Params.SKIP_PLOTS:         
         # Use multi-subplot function only for multiple z-variables
-        if isinstance(Params.Explore.zName, list):
+        if isinstance(Params.Explore.zName, list) and Params.PLOT_COMBO_EXPLORATIONS:
             PlotExploreOgramMultiSubplot(ExplorationList, FigureFilesList, Params)
         else:
-            # Use original single-plot function for single z-variable
-            for Exploration in ExplorationList:
-                Exploration.zName = Params.Explore.zName
-            PlotExploreOgram(ExplorationList, FigureFilesList, Params)
-        # Now we plot the ZbD plots (must plot after exploreogram plots since we change the x and y variables)
+            if isinstance(Params.Explore.zName, list):
+                originalZName = Params.Explore.zName
+                zNamesList = Params.Explore.zName
+                originalFigName = Params.FigureFiles.explore
+                figNames = Params.FigureFiles.explore
+            else:
+                originalZName = Params.Explore.zName
+                zNamesList = [Params.Explore.zName]
+                originalFigName = Params.FigureFiles.explore
+                figNames = [Params.FigureFiles.explore]
+            for zName, figName in zip(zNamesList, figNames):
+                Params.Explore.zName = zName
+                Params.FigureFiles.explore = figName
+                # Use original single-plot function for single z-variable
+                for Exploration in ExplorationList:
+                    Exploration.zName = zName
+                PlotExploreOgram(ExplorationList, FigureFilesList, Params)
+            Params.Explore.zName = originalZName
+            Params.FigureFiles.explore = originalFigName
+            # Now we plot the ZbD plots (must plot after exploreogram plots since we change the x and y variables)
         if Params.PLOT_Zb_D:
             if isinstance(Params.Explore.zName, list):
                 figNames = Params.FigureFiles.exploreZbD + []
@@ -57,7 +72,7 @@ def PlotExploreOgramDsigma(results_list, FigureFilesList, Params):
     results_list[0].yName = 'sigmaMean_Sm' 
     results_list[0].zName = 'zb_km'
     
-    FigLbl.SetExploration(results_list[0].base.bodyname, results_list[0].xName,
+    FigLbl.SetExploration(results_list[0].bodyname, results_list[0].xName,
                           results_list[0].yName, results_list[0].zName)
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
@@ -80,7 +95,7 @@ def PlotExploreOgramDsigma(results_list, FigureFilesList, Params):
                                                   custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
         
         if len(plot_data['x']) == 0:
-            log.warning(f"No valid data points for {result.base.bodyname}")
+            log.warning(f"No valid data points for {result.bodyname}")
             continue
         
         # Create figure and axis (original pattern)
@@ -170,7 +185,7 @@ def PlotExploreOgramDsigma(results_list, FigureFilesList, Params):
 def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None):
     # Set up basic figure labels using first result
     first_result = ExplorationList[0]
-    FigLbl.SetExploration(first_result.base.bodyname, first_result.xName,
+    FigLbl.SetExploration(first_result.bodyname, first_result.xName,
                           first_result.yName, first_result.zName, Params.Explore.contourName, first_result.excName, FigLbl.titleAddendum)
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
@@ -477,20 +492,30 @@ def PlotExploreOgramMultiSubplot(results_list, FigureFilesList, Params):
                 ax.set_axisbelow(False)
             # Add subplot label (a, b, c, etc.) if enabled
             if FigMisc.SUBPLOT_LABELS:
-                # Generate label: 'a)', 'b)', 'c)', etc.
-                label = f"{chr(ord('a') + i)}"
-                ax.text(FigMisc.SUBPLOT_LABEL_X, FigMisc.SUBPLOT_LABEL_Y, label, 
-                    transform=ax.transAxes, fontsize=FigMisc.SUBPLOT_LABEL_FONTSIZE,
-                    fontweight='bold', ha='left', va='top',
-                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+                letters = "abcdefghijklmnopqrstuvwxyz"
+                label = ""
+                n = i + 1
+                while n:
+                    n, r = divmod(n - 1, 26)
+                    label = letters[r] + label
+
+                ax.text(
+                    FigMisc.SUBPLOT_LABEL_X, FigMisc.SUBPLOT_LABEL_Y, label,
+                    transform=ax.transAxes,
+                    fontsize=FigMisc.SUBPLOT_LABEL_FONTSIZE,
+                    fontweight='bold',
+                    ha='left',
+                    va='top',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8)
+                )
             
             # After plotting, hide axis labels selectively
             is_bottom_row = (row == n_rows - 1) or (i >= n_subplots - n_cols)
             is_left_column = (col == 0) 
             
-            #if not is_bottom_row:
-                #ax.set_xlabel('')
-                #ax.tick_params(axis='x', labelbottom=False)
+            if not is_bottom_row:
+                ax.set_xlabel('')
+                ax.tick_params(axis='x', labelbottom=False)
             ax.tick_params(axis='x', labelsize=FigMisc.SUBPLOT_LABEL_FONTSIZE)
             if not is_left_column:
                 ax.set_ylabel('')
@@ -509,18 +534,16 @@ def PlotExploreOgramMultiSubplot(results_list, FigureFilesList, Params):
                 ax.grid(False)
                 ax.set_axisbelow(False)
         
-
-        
         fig.savefig(Params.FigureFiles.exploreMultiSubplot, format=FigMisc.figFormat,
                 dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
-        log.debug(f'Multi-subplot exploration plot saved to file: {Params.FigureFiles.exploreMultiSubplot}')
+        log.debug(f'Multi-subplot exploration plot sved to file: {Params.FigureFiles.exploreMultiSubplot}')
         plt.close()
 
 
 def PlotExploreOgramZbD(results_list, FigureFilesList, Params):
     # Set up basic figure labels using first result
     first_result = results_list[0]
-    FigLbl.SetExploration(first_result.base.bodyname, 'zb_km', 'D_km', first_result.zName)
+    FigLbl.SetExploration(first_result.bodyname, 'zb_km', 'D_km', first_result.zName)
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
     
@@ -547,7 +570,7 @@ def PlotExploreOgramZbD(results_list, FigureFilesList, Params):
                                                   custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
         
         if len(plot_data['x']) == 0:
-            log.warning(f"No valid data points for {result.base.bodyname}")
+            log.warning(f"No valid data points for {result.bodyname}")
             continue
         
         # Create figure and axis
@@ -645,7 +668,7 @@ def PlotExploreOgramLoveComparison(results_list, FigureFilesList, Params):
     
     # Set up basic figure labels using first result
     first_result = results_list[0]
-    FigLbl.SetExploration(first_result.base.bodyname, 'deltaLoveAmp', 
+    FigLbl.SetExploration(first_result.bodyname, 'deltaLoveAmp', 
                           'kLoveAmp', 'oceanComp')
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
@@ -672,9 +695,8 @@ def PlotExploreOgramLoveComparison(results_list, FigureFilesList, Params):
                                                   x_multiplier = FigLbl.xMultExplore, y_multiplier = FigLbl.yMultExplore, c_multiplier = FigLbl.zMultExplore,
                                                   custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
         
-        if len(plot_data['x']) == 0:
-            log.warning(f"No valid data points for {result.base.bodyname}")
-            continue
+        if np.all(np.isnan(plot_data['x'])) or np.all(np.isnan(plot_data['y'])):
+            log.warning(f'Love numbers not calculated')
         
         # Create figure and axis
         fig = plt.figure(figsize=FigSize.explore)
@@ -854,7 +876,7 @@ def PlotExploreOgramXZ(results_list, FigureFilesList, Params):
     first_yName = first_result.zName
     # Use configurable x variable instead of hardcoded 'D_km'
     x_variable = Params.XZPLOT_X_VARIABLE
-    FigLbl.SetExploration(first_result.base.bodyname, x_variable, first_yName, 'zb_km')
+    FigLbl.SetExploration(first_result.bodyname, x_variable, first_yName, 'zb_km')
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
     
@@ -875,12 +897,12 @@ def PlotExploreOgramXZ(results_list, FigureFilesList, Params):
         is_comparison_plot = Params.COMPARE and i == last_index
         
         # Extract and validate data using helper
-        plot_data = extract_and_validate_plot_data(result_obj = result, x_field = xName, y_field = yName, c_field = result.zName,
+        plot_data = extract_and_validate_plot_data(result_obj = result, x_field = xName, y_field = xName, c_field = result.zName,
                                                   x_multiplier = FigLbl.xMultExplore, y_multiplier = FigLbl.yMultExplore, c_multiplier = FigLbl.zMultExplore,
                                                   custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
         
         if len(plot_data['x']) == 0:
-            log.warning(f"No valid data points for {result.base.bodyname}")
+            log.warning(f"No valid data points for {result.bodyname}")
             continue
         
         # Create figure and axis

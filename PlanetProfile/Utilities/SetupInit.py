@@ -105,7 +105,7 @@ def SetupInit(Planet, Params):
                 # Generate zero-yielding ocean "EOS" for use in porosity calculations
                 # Note that there must be enough input points for creating spline
                 # interpolators, even though we will not use them.
-                Planet.Ocean.EOS = GetOceanEOS('none', None, np.linspace(0, 1, 10), np.linspace(0, 1, 10), None)
+                Planet.Ocean.EOS = GetOceanEOS(compstr = 'none', wOcean_ppt = None, P_MPa = np.linspace(0, 1, 10), T_K = np.linspace(0, 1, 10), elecType = None)
 
         else:
             if Planet.Do.NO_DIFFERENTIATION:
@@ -409,15 +409,6 @@ def SetupInit(Planet, Params):
 
         # Load EOS functions for deeper interior
         if not Params.SKIP_INNER:
-            # Setup defaults
-            Planet.Sil.kTherm_WmK = Constants.kThermSil_WmK if Planet.Sil.kTherm_WmK is None else Planet.Sil.kTherm_WmK
-            Planet.Sil.etaRock_Pas = Constants.etaRock_Pas if Planet.Sil.etaRock_Pas is None else Planet.Sil.etaRock_Pas
-            Planet.Core.etaFeSolid_Pas = Constants.etaFeSolid_Pas if Planet.Core.etaFeSolid_Pas is None else Planet.Core.etaFeSolid_Pas
-            Planet.Sil.TviscTrans_K = Constants.TviscRock_K if Planet.Sil.TviscTrans_K is None else Planet.Sil.TviscTrans_K
-            Planet.Core.TviscTrans_K = Constants.TviscFe_K if Planet.Core.TviscTrans_K is None else Planet.Core.TviscTrans_K
-            if Planet.Do.CONSTANT_INNER_DENSITY:
-                Planet.Sil.GSmean_GPa = Constants.GS_GPa[Constants.phaseSil]
-                Planet.Core.GSmean_GPa = Constants.GS_GPa[Constants.phaseFe]
             if not Params.PRELOAD_EOS_IN_PROGRESS:
                 # Get silicate EOS
                 Planet.Sil.EOS = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.lookupInterpMethod,
@@ -427,8 +418,8 @@ def SetupInit(Planet, Params):
                                          EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas], 
                                          TviscTrans_K=Planet.Sil.TviscTrans_K,
                                          doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Sil.rhoSilWithCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
-                                                                                   'VP_kms': Planet.Sil.VPmean_kms, 'VS_kms': Planet.Sil.VSmean_kms, 'KS_GPa': Planet.Sil.KSmean_GPa, 'GS_GPa': Planet.Sil.GSmean_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
-                                                                                   'sigma_Sm': Planet.Sil.sigmaMean_Sm})
+                                                                                   'VP_kms': Planet.Sil.VPset_kms, 'VS_kms': Planet.Sil.VSset_kms, 'KS_GPa': Planet.Sil.KSset_GPa, 'GS_GPa': Planet.Sil.GSset_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
+                                                                                   'sigma_Sm': Planet.Sil.sigmaSil_Sm})
 
             # Pore fluids if present
             if Planet.Do.POROUS_ROCK:
@@ -438,8 +429,8 @@ def SetupInit(Planet, Params):
                     if Planet.Sil.poreComp == 'Seawater' and Planet.Sil.PHydroMax_MPa > 300:
                         log.warning('GSW yields NaN for Cp at pressures above 300 MPa. Reducing PsilMax to this value.')
                         Planet.Sil.PHydroMax_MPa = 300
-                    Ppore_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Sil.PHydroMax_MPa, 100)
-                    Tpore_K = np.linspace(Planet.Bulk.Tb_K, Planet.Sil.THydroMax_K, 140)
+                    Ppore_MPa = np.arange(Planet.Bulk.Psurf_MPa, Planet.Sil.PHydroMax_MPa + Planet.Ocean.deltaP, Planet.Ocean.deltaP)
+                    Tpore_K = np.arange(Planet.Bulk.Tb_K, Planet.Sil.THydroMax_K + Planet.Ocean.deltaT, Planet.Ocean.deltaT)
                 # Get pore fluid EOS
                 if not Params.PRELOAD_EOS_IN_PROGRESS:
                     Planet.Sil.poreEOS = GetOceanEOS(Planet.Sil.poreComp, Planet.Sil.wPore_ppt, Ppore_MPa, Tpore_K,
@@ -474,8 +465,8 @@ def SetupInit(Planet, Params):
                                           wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
                                           TviscTrans_K=Planet.Core.TviscTrans_K,
                                           doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
-                                                                                   'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSmean_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
-                                                                                   'sigma_Sm': Planet.Core.sigmaMean_Sm})
+                                                                                   'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSset_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
+                                                                                   'sigma_Sm': Planet.Core.sigmaCore_Sm})
 
         # Ensure ionosphere bounds and conductivity are in a format we expect
         if Planet.Magnetic.ionosBounds_m is None:
@@ -1104,8 +1095,11 @@ def PrecomputeEOS(PlanetList, Params):
             minPSurfIce_MPa = min(minPSurfIce_MPa, Planet.Bulk.Psurf_MPa)
             minTSurfIce_K = min(minTSurfIce_K, Planet.Bulk.Tsurf_K)
             if Planet.Do.POROUS_ROCK or Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
-                maxPHPIce_MPa = max(maxPHPIce_MPa, Planet.Sil.PfreezeUpper_MPa)
-                maxPHPIceT_K = max(maxPHPIceT_K, Planet.Sil.TfreezeUpper_K)
+                maxPHPIce_MPa = max(maxPHPIce_MPa, Planet.Sil.PHydroMax_MPa)
+                maxPHPIceT_K = max(maxPHPIceT_K, Planet.Sil.THydroMax_K)
+                if Planet.Do.POROUS_ROCK:
+                    maxTOcean_K = max(maxTOcean_K, Planet.Sil.THydroMax_K)
+                    maxPOcean_MPa = max(maxPOcean_MPa, Planet.Sil.PHydroMax_MPa)
 
         
         # Inner EOS configurations  
@@ -1203,8 +1197,8 @@ def PrecomputeEOS(PlanetList, Params):
                                          EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
                                          TviscTrans_K=Planet.Sil.TviscTrans_K,
                                          doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Sil.rhoSilWithCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Sil.kTherm_WmK,
-                                                                                   'VP_kms': Planet.Sil.VPmean_kms, 'VS_kms': Planet.Sil.VSmean_kms, 'KS_GPa': Planet.Sil.KSmean_GPa, 'GS_GPa': Planet.Sil.GSmean_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
-                                                                                   'sigma_Sm': Planet.Sil.sigmaMean_Sm})
+                                                                                   'VP_kms': Planet.Sil.VPset_kms, 'VS_kms': Planet.Sil.VSset_kms, 'KS_GPa': Planet.Sil.KSset_GPa, 'GS_GPa': Planet.Sil.GSset_GPa, 'eta_Pas': Planet.Sil.etaRock_Pas,
+                                                                                   'sigma_Sm': Planet.Sil.sigmaSil_Sm})
             if Planet.Do.Fe_CORE:
                 Planet.Core.GSmean_GPa = 50.0
                 GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
@@ -1212,8 +1206,8 @@ def PrecomputeEOS(PlanetList, Params):
                                           wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
                                           TviscTrans_K=Planet.Core.TviscTrans_K,
                                           doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
-                                                                                   'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSmean_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
-                                                                                   'sigma_Sm': Planet.Core.sigmaMean_Sm})
+                                                                                   'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSset_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
+                                                                                   'sigma_Sm': Planet.Core.sigmaCore_Sm})
         log.profile(f'Inner EOS pre-generated for {len(innerPlanets)} inner planets.')
     Params.PRELOAD_EOS_IN_PROGRESS = False
     log.profile(f'Pre-generating EOS complete.')

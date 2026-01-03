@@ -56,41 +56,47 @@ def ReAssignPT(P_MPa, T_K, Pmin, Pmax, Tmin, Tmax, MELT=False, propsStepReductio
 def smoothGrid(x, y, zs, factor):
     """ Smooth a grid by a factor """
     # Create finer resolution grid for smoothing
-    x_min, x_max = np.min(x), np.max(x)
-    y_min, y_max = np.min(y), np.max(y)
+    x_min, x_max = np.nanmin(x), np.nanmax(x)
+    y_min, y_max = np.nanmin(y), np.nanmax(y)
     
-    # Get original grid dimensions
-    original_x_size = x.shape[0]
-    original_y_size = x.shape[1]
-    
-    # Create finer grid with higher resolution
-    n_x_fine = original_x_size * factor
-    n_y_fine = original_y_size * factor
-    
-    # Create evenly spaced, strictly ascending fine grids
-    x_fine_1d = np.linspace(x_min, x_max, n_x_fine)
-    y_fine_1d = np.linspace(y_min, y_max, n_y_fine)
-    x_fine, y_fine = np.meshgrid(x_fine_1d, y_fine_1d, indexing='ij')
-    
-    # Flatten original data for interpolation
-    x_flat = x.flatten()
-    y_flat = y.flatten()
-    for i, z in enumerate(zs):
-        z_flat = z.flatten()
+    # Ensure x and y are above machine error to prevent interpolation errors
+    if (x_min < 1e-10 and x_max < 1e-10) or (y_min < 1e-10 and y_max < 1e-10):
+        log.warning('x or y is below machine error. Smoothing will not be performed.')
+        x_fine = x
+        y_fine = y
+    else: 
+        # Get original grid dimensions
+        original_x_size = x.shape[0]
+        original_y_size = x.shape[1]
         
-        # Remove invalid points for interpolation
-        valid_mask = ~np.isnan(z_flat)
-        x_valid = x_flat[valid_mask]
-        y_valid = y_flat[valid_mask]
-        z_valid = z_flat[valid_mask]
-        if len(z_valid) > 0:
+        # Create finer grid with higher resolution
+        n_x_fine = original_x_size * factor
+        n_y_fine = original_y_size * factor
+        
+        # Create evenly spaced, strictly ascending fine grids
+        x_fine_1d = np.linspace(x_min, x_max, n_x_fine)
+        y_fine_1d = np.linspace(y_min, y_max, n_y_fine)
+        x_fine, y_fine = np.meshgrid(x_fine_1d, y_fine_1d, indexing='ij')
+        
+        # Flatten original data for interpolation
+        x_flat = x.flatten()
+        y_flat = y.flatten()
+        for i, z in enumerate(zs):
+            z_flat = z.flatten()
+            
+            # Remove invalid points for interpolation
+            valid_mask = ~np.isnan(z_flat)
+            x_valid = x_flat[valid_mask]
+            y_valid = y_flat[valid_mask]
+            z_valid = z_flat[valid_mask]
+            if len(z_valid) > 0:
 
-            z_fine = griddata((x_valid, y_valid), z_valid, 
-                            (x_fine, y_fine), method='linear', fill_value=np.nan)
-            # Update x, y, z to use the finer resolution data
-            zs[i] = z_fine
-        else:
-            zs[i] = np.zeros((n_x_fine, n_y_fine)) * np.nan
+                z_fine = griddata((x_valid, y_valid), z_valid, 
+                                (x_fine, y_fine), method='linear', fill_value=np.nan)
+                # Update x, y, z to use the finer resolution data
+                zs[i] = z_fine
+            else:
+                zs[i] = np.zeros((n_x_fine, n_y_fine)) * np.nan
     return x_fine, y_fine, zs
 class ReturnZeros:
     """ Returns an array or tuple of arrays of zeros, for functions of properties

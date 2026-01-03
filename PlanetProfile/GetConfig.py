@@ -239,7 +239,7 @@ def loadUserSettings(configModule: str = ''):
 
     # Add Test body settings to InductParams
     inductOgramAttr = ['wMin', 'wMax', 'TbMin', 'TbMax', 'phiMin', 'phiMax', 'rhoMin',
-                    'rhoMax', 'sigmaMin', 'sigmaMax', 'Dmin', 'Dmax', 'zbFixed_km']
+                    'rhoMax', 'sigmaMin', 'sigmaMax', 'Dmin', 'Dmax', 'zbFixed_km', 'zbMin', 'zbMax']
     [getattr(InductParams, attr).update({'Test': getattr(InductParams, attr)[userTestBody]})
         for attr in inductOgramAttr]
 

@@ -14,6 +14,7 @@ from PlanetProfile.Utilities.defineStructs import xyzComps, vecComps
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from PlanetProfile.Plotting.EssentialHelpers import get_excitation_indices_and_names, countPlottableExcitations, formatOceanCompositionLabel
 from MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
+from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -53,17 +54,24 @@ def GenerateMagPlots(PlanetList, Params):
 
     return
 
-def GenerateExplorationMagPlots(ResultsList, Params):
+def GenerateExplorationMagPlots(ResultsList, FigureFilesList, Params):
     """
     Generate magnetic induction plots for a given list of results.
     """
-    PlotInductOgramPhaseSpace(ResultsList, Params)
-    PLOT_2D = not np.any([ResultsList[i].nx == 1 or ResultsList[i].ny == 1 for i in range(len(ResultsList))]) # If either axis is of size 1, then we cannot plot 
-    if PLOT_2D:
-        PlotInductOgram(ResultsList, Params)
+    # Catch if we get here and induction calcs have not been done
+    if not np.all([np.all(np.isnan(Result.induction.Amp)) for Result in ResultsList]):
+        # Setup CustomSolution plot settings
+        all_ocean_comps = []
+        for Result in ResultsList:
+            all_ocean_comps.extend(np.array(Result.base.oceanComp).flatten())
+        Params = SetupCustomSolutionPlotSettings(np.array(all_ocean_comps), Params)
+        PlotInductOgramPhaseSpace(ResultsList, FigureFilesList, Params)
+        PLOT_2D = not np.any([ResultsList[i].nx == 1 or ResultsList[i].ny == 1 for i in range(len(ResultsList))]) # If either axis is of size 1, then we cannot plot 
+        if PLOT_2D:
+            PlotInductOgram(ResultsList, FigureFilesList, Params)
         
 
-def PlotInductOgramPhaseSpace(results_list, Params):
+def PlotInductOgramPhaseSpace(results_list, FigureFilesList, Params):
     # Get first result for configuration - assume all have same body and settings
     first_result = results_list[0]
     
@@ -74,7 +82,7 @@ def PlotInductOgramPhaseSpace(results_list, Params):
     
     # Set up figure labels using original pattern
     texc_values = first_result.induction.Texc_hr
-    FigLbl.SetInduction(first_result.base.bodyname, Params.Induct, texc_values)
+    FigLbl.SetInduction(first_result.bodyname, Params.Induct, texc_values)
     if not FigMisc.TEX_INSTALLED:
         FigLbl.StripLatex()
 
@@ -91,7 +99,6 @@ def PlotInductOgramPhaseSpace(results_list, Params):
     
     for i, result in enumerate(results_list):
         # Get valid data indices using first excitation (maintaining original behavior)
-        # Use Amp[0,...] like original - this assumes magnetic data is in induction substruct
         if hasattr(result.induction, 'Amp') and result.induction.Amp is not None:
             iValid[i] = np.where(np.isfinite(result.induction.Amp[0,...]))
             iValidFlat[i] = np.where(np.isfinite(result.induction.Amp[0,...].flatten()))[0]
@@ -101,8 +108,8 @@ def PlotInductOgramPhaseSpace(results_list, Params):
             iValidFlat[i] = np.where(np.isfinite(result.base.sigmaMean_Sm.flatten()))[0]
         
         # Extract plot data using helper
-        plot_data = extract_induction_phase_space_data(result, Params.Induct.inductOtype, 
-                                                      iValid[i], iValidFlat[i])
+        plot_data = extractInductionData(result, Params.Induct.inductOtype, 
+                                                      iValid[i])
         
         sigma_Sm[i] = plot_data['sigma_Sm']
         D_km[i] = plot_data['D_km']
@@ -127,6 +134,8 @@ def PlotInductOgramPhaseSpace(results_list, Params):
     x_lims, y_lims = None, None
     
     for i, result in enumerate(results_list):
+        FigureFiles = FigureFilesList[i]
+        Params.FigureFiles = FigureFiles
         # Create figure based on inductOtype (maintaining original complex logic)
         if Params.Induct.inductOtype == 'sigma':
             oceanComp = ['Ice']
@@ -323,36 +332,35 @@ def PlotInductOgramPhaseSpace(results_list, Params):
     return
 
 
-def PlotInductOgram(results_list, Params):
+def PlotInductOgram(results_list, FigureFilesList, Params):
     for resultListIndex, result in enumerate(results_list):
-        if resultListIndex == len(results_list) - 1:
-            log.debug("Processing combined result for comparison plot")
-        
+        FigureFiles = FigureFilesList[resultListIndex]
+        Params.FigureFiles = FigureFiles
         # Get indices for the oscillations that we can and want to plot
         # Use existing helper from EssentialHelpers
         iTexc, iTexcAvail, TexcPlotNames, Texc_hr, iSort = get_excitation_indices_and_names(result.induction, Params.Induct)
         # Handle sigma/D bounds checking like original
-        if result.base.bodyname not in Params.Induct.sigmaMax.keys() or result.base.bodyname not in Params.Induct.sigmaMin.keys():
+        if result.bodyname not in Params.Induct.sigmaMax.keys() or result.bodyname not in Params.Induct.sigmaMin.keys():
             sigmaMin = np.min(result.base.sigmaMean_Sm[np.isfinite(result.base.sigmaMean_Sm)])
             sigmaMax = np.max(result.base.sigmaMean_Sm[np.isfinite(result.base.sigmaMean_Sm)])
             Dmin = np.min(result.base.D_km[np.isfinite(result.base.D_km)])
             Dmax = np.max(result.base.D_km[np.isfinite(result.base.D_km)])
-            log.warning(f'At least one of [sigmaMin, sigmaMax, Dmin, Dmax] are not set for {result.base.bodyname} in configPPinduct. ' +
+            log.warning(f'At least one of [sigmaMin, sigmaMax, Dmin, Dmax] are not set for {result.bodyname} in configPPinduct. ' +
                         f'Using min/max for this inductOgram run:\\n' +
                         f'sigmaMin: {sigmaMin} S/m\\n' +
                         f'sigmaMax: {sigmaMax} S/m\\n' +
                         f'Dmin: {Dmin} km\\n' +
                         f'Dmax: {Dmax} km\\n')
-            Params.Induct.sigmaMin[result.base.bodyname] = np.log10(sigmaMin)
-            Params.Induct.sigmaMax[result.base.bodyname] = np.log10(sigmaMax)
-            Params.Induct.Dmin[result.base.bodyname] = np.log10(Dmin)
-            Params.Induct.Dmax[result.base.bodyname] = np.log10(Dmax)
+            Params.Induct.sigmaMin[result.bodyname] = np.log10(sigmaMin)
+            Params.Induct.sigmaMax[result.bodyname] = np.log10(sigmaMax)
+            Params.Induct.Dmin[result.bodyname] = np.log10(Dmin)
+            Params.Induct.Dmax[result.bodyname] = np.log10(Dmax)
             
         # Let matplotlib decide contour levels and format if we haven't explicitly set them
-        if result.base.bodyname not in Params.Induct.cLevels.keys() or result.base.bodyname not in Params.Induct.cfmt.keys():
+        if result.bodyname not in Params.Induct.cLevels.keys() or result.bodyname not in Params.Induct.cfmt.keys():
             Params.Induct.SPECIFIC_CLEVELS = False
             
-        FigLbl.SetInduction(result.base.bodyname, Params.Induct, Texc_hr)
+        FigLbl.SetInduction(result.bodyname, Params.Induct, Texc_hr)
         if not FigMisc.TEX_INSTALLED:
             FigLbl.StripLatex()
 
@@ -367,55 +375,11 @@ def PlotInductOgram(results_list, Params):
                 FigLbl.singleComp(result.comps[0])
 
         # Set up contour coordinate system based on inductOtype
-        # This uses the same logic as the helper but for contour plotting
-        if Params.Induct.inductOtype == 'phi':
-            # Adjust phi values in case we're plotting void volume % instead of void fraction
-            if hasattr(result, 'y'):
-                contour_y = result.y * FigLbl.phiMult
-            else:
-                contour_y = result.base.D_km  # Fallback
-        elif Params.Induct.inductOtype == 'oceanComp':
-            # Handle oceanComp special case - convert compositions to numeric indices
-            # Get unique compositions while preserving original order
-            seen = set()
-            unique_comps = []
-            for comp in result.base.oceanComp.flatten():
-                if comp not in seen:
-                    unique_comps.append(comp)
-                    seen.add(comp)
-            unique_comps = np.array(unique_comps)
-            comp_to_index = {comp: i for i, comp in enumerate(unique_comps)}
-            
-            # Convert x-axis (compositions) to numeric indices
-            x_numeric = np.zeros_like(result.base.oceanComp, dtype=float)
-            for i, comp in enumerate(result.base.oceanComp.flatten()):
-                x_numeric.flat[i] = comp_to_index[comp]
-            x_numeric = x_numeric.reshape(result.base.oceanComp.shape)
-            
-            # Use numeric indices for contour plotting
-            contour_x = x_numeric
-            if not np.any(np.isnan(result.base.zb_km)):
-                contour_y = result.base.zb_approximate_km
-            else:
-                contour_y = result.base.zb_km
-        elif Params.Induct.inductOtype == 'sigma':
-            # For sigma plots, use sigma/D space
-            contour_x = result.base.sigmaMean_Sm
-            contour_y = result.base.D_km
-        elif Params.Induct.inductOtype == 'Tb':
-            # For temperature-based plots
-            contour_x = result.base.Tb_K
-            contour_y = result.base.D_km
-        else:
-            # Default case - try to get x/y from result object (compatibility)
-            if hasattr(result, 'x') and hasattr(result, 'y'):
-                contour_x = result.x
-                contour_y = result.y
-            else:
-                # Ultimate fallback
-                contour_x = result.base.sigmaMean_Sm
-                contour_y = result.base.D_km
-
+        plotShape = (result.nx, result.ny)
+        allValid = np.ones(plotShape, dtype=bool) # Create a boolean array of Trues to extract entire data
+        plot_data = extractInductionData(result, Params.Induct.inductOtype, allValid)
+        contour_x = plot_data['x_data'].reshape(plotShape)
+        contour_y = plot_data['y_data'].reshape(plotShape)
         # Get axis labels and scales from existing FigLbl
         x_label = FigLbl.xLabelInduct
         y_label = FigLbl.yLabelInduct
@@ -451,7 +415,7 @@ def PlotInductOgram(results_list, Params):
             comboData = [np.abs(result.induction.Bix_nT[iTexcAvail,...]), 
                         np.abs(result.induction.Biy_nT[iTexcAvail,...]),
                         np.abs(result.induction.Biz_nT[iTexcAvail,...]), 
-                        result.induction.phase[iTexcAvail,...]]
+                        result.induction.Phase[iTexcAvail,...]]
             comboTitles = np.append(FigLbl.plotTitles[1:], FigLbl.phaseTitle)
             comboLabels = list(coords.keys())
 
@@ -466,8 +430,8 @@ def PlotInductOgram(results_list, Params):
                         for zContour, T in zip(zContours, TexcPlotNames[iSort])]
 
             # Add V2021 points if available
-            if hasattr(Params.Induct, 'V2021_zb_km') and result.base.bodyname in Params.Induct.V2021_zb_km.keys():
-                AddV2021points(Params.Induct, result.base.bodyname, Params.Induct.inductOtype, allAxes)
+            if hasattr(Params.Induct, 'V2021_zb_km') and result.bodyname in Params.Induct.V2021_zb_km.keys():
+                AddV2021points(Params.Induct, result.bodyname, Params.Induct.inductOtype, allAxes)
 
             plt.tight_layout()
             fig.savefig(Params.FigureFiles.inductCombo, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
@@ -501,7 +465,7 @@ def PlotInductOgram(results_list, Params):
                             colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                             linewidths=Style.LW_Induction[T], levels=Params.Induct.GetClevels(fLabel, T))
                             for i,T in enumerate(TexcPlotNames[iSort])]
-            phaseContours = [axes[1].contour(contour_x, contour_y, result.induction.phase[i, ...],
+            phaseContours = [axes[1].contour(contour_x, contour_y, result.induction.Phase[i, ...],
                             colors=Color.Induction[T], linestyles=Style.LS_Induction[T],
                             linewidths=Style.LW_Induction[T], levels=Params.Induct.GetClevels('phase', T))
                             for i, T in enumerate(TexcPlotNames)]
@@ -511,8 +475,8 @@ def PlotInductOgram(results_list, Params):
                             for phaseContour, T in zip(phaseContours, TexcPlotNames)]
 
             # Add V2021 points if available
-            if FigMisc.PLOT_V2021 and hasattr(Params.Induct, 'V2021_zb_km') and result.base.bodyname in Params.Induct.V2021_zb_km.keys():
-                AddV2021points(Params.Induct, result.base.bodyname, Params.Induct.inductOtype, axes)
+            if FigMisc.PLOT_V2021 and hasattr(Params.Induct, 'V2021_zb_km') and result.bodyname in Params.Induct.V2021_zb_km.keys():
+                AddV2021points(Params.Induct, result.bodyname, Params.Induct.inductOtype, axes)
 
             if Params.LEGEND:
                 lines = np.array([contour.legend_elements()[0][0] for contour in phaseContours])
@@ -1499,7 +1463,7 @@ def PlotMagSpectrum(PlanetList, Params):
 
 
 
-def extract_induction_phase_space_data(result_obj, inductOtype, i_valid, i_valid_flat):
+def extractInductionData(result_obj, inductOtype, i_valid):
     """
     Extract data for inductogram phase space plotting based on inductOtype.
     
@@ -1527,27 +1491,20 @@ def extract_induction_phase_space_data(result_obj, inductOtype, i_valid, i_valid
         x_data = sigma_Sm
         y_data = D_km
     elif inductOtype == 'oceanComp':
-        x_data = result_obj.base.oceanComp[i_valid].flatten()
+        # Convert ocean composition strings to numeric indices
+        x_raw = result_obj.base.oceanComp
+        x_data = np.array([])
+        for i in range(x_raw.shape[0]):
+            row = np.repeat(int(i), x_raw.shape[1])
+            x_data = np.concatenate((x_data, row))
+        x_data = x_data.reshape(x_raw.shape)
+        x_data = x_data[i_valid].flatten()
         # Use approximate ice thickness if available, otherwise regular ice thickness
-        if hasattr(result_obj.base, 'zb_approximate_km'):
-            y_data = result_obj.base.zb_approximate_km[i_valid].flatten()
-        else:
-            y_data = result_obj.base.zb_km[i_valid].flatten()
-    elif inductOtype == 'Tb':
-        # For temperature-based plots, get temperature from base structure
-        x_data = result_obj.base.Tb_K[i_valid].flatten()
-        y_data = D_km
+        y_data = result_obj.base.zb_approximate_km[i_valid].flatten()
     else:
-        # Default case - try to get x/y from result object
-        if hasattr(result_obj, 'x') and hasattr(result_obj, 'y'):
-            x_data = result_obj.x[i_valid].flatten()
-            y_data = result_obj.y[i_valid].flatten()
-        else:
-            # Fallback to sigma/D for unknown types
-            log.warning(f'Unknown inductOtype {inductOtype}, falling back to sigma/D')
-            x_data = sigma_Sm
-            y_data = D_km
-    
+        x_data = result_obj.xData[i_valid].flatten()
+        y_data = result_obj.yData[i_valid].flatten()
+        
     return {
         'x_data': x_data,
         'y_data': y_data,
@@ -1622,14 +1579,11 @@ def setup_induction_coloring(result_obj, inductOtype, color_type, i_valid, i_val
             else:
                 w_normFrac = np.ones_like(Tmean_K) * 0.5
         else:
-            if hasattr(result_obj, 'x') and np.size(result_obj.x[i_valid]) > 0:
-                x_vals = result_obj.x[i_valid].flatten()
-                if np.max(x_vals) > np.min(x_vals):
-                    w_normFrac = interp1d([np.min(x_vals), np.max(x_vals)], [0.0, 1.0])(x_vals)
-                else:
-                    w_normFrac = np.ones_like(x_vals) * 0.5
+            x_vals = result_obj.xData[i_valid].flatten()
+            if np.max(x_vals) > np.min(x_vals):
+                w_normFrac = interp1d([np.min(x_vals), np.max(x_vals)], [0.0, 1.0])(x_vals)
             else:
-                w_normFrac = np.ones_like(Tmean_K) * 0.5
+                w_normFrac = np.ones_like(x_vals) * 0.5
         
         if color_type == 'Tmean':
             if FigMisc.NORMALIZED_TEMPERATURES:

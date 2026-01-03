@@ -35,9 +35,6 @@ class BaseResultsStruct:
     """
     
     def __init__(self):
-        # Identity
-        self.bodyname = None  # Name of body modeled
-        
         # Validity
         self.VALID = None  # Whether this profile is physically possible
         self.invalidReason = None  # Explanation for why any invalid solution failed
@@ -155,7 +152,7 @@ class InductionData:
     
     def __init__(self):
         self.Amp = None  # Amplitude of dipole response (modulus of complex response)
-        self.phase = None  # Phase delay in degrees (positive)
+        self.Phase = None  # Phase delay in degrees (positive)
         self.Bix_nT = None  # Induced magnetic field x-component in nT
         self.Biy_nT = None  # Induced magnetic field y-component in nT  
         self.Biz_nT = None  # Induced magnetic field z-component in nT
@@ -233,6 +230,7 @@ class ExplorationResultsStruct:
     """
     
     def __init__(self):
+        self.bodyname = None  # Name of body modeled
         self.base = BaseResultsStruct()  # Common results data
         self.induction = InductionData()  # Induction results (if applicable)
         self.inversion = InversionData()  # Inversion results (if applicable)
@@ -277,7 +275,7 @@ class InductionResultsStruct:
         self.yName = None  # Name of variable along y axis. Options are "Tb", "phi", "rho", "sigma", where the first 3 are vs. salinity, and sigma is vs. thickness.
         self.Texc_hr = None  # Dict of excitation periods modeled.
         self.Amp = None  # Amplitude of dipole response (modulus of complex dipole response).
-        self.phase = None  # (Positive) phase delay in degrees.
+        self.Phase = None  # (Positive) phase delay in degrees.
         self.Bix_nT = None  # Induced Bx dipole moments relative to body surface in nT for each excitation.
         self.Biy_nT = None  # Induced By dipole moments relative to body surface in nT for each excitation.
         self.Biz_nT = None  # Induced Bz dipole moments relative to body surface in nT for each excitation.

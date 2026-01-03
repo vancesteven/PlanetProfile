@@ -521,8 +521,10 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
                 iceEOS[phaseStr] = GetIceEOS(P_MPa, T_K, phaseStr, porosType=Planet.Ocean.porosType[clath],
                                                          phiTop_frac=Planet.Ocean.phiMax_frac[clath],
                                                          Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clath],
-                                                         phiMin_frac=Planet.Ocean.phiMin_frac,
+                                                         phiMin_frac=Planet.Ocean.phiMin_frac, 
+                                                         kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
                                                          EXTRAP=Params.EXTRAP_ICE[phaseStr],
+                                                         ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, 
                                                          mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
             clathStable = iceEOS[phaseStr].fn_phase(P_MPa, T_K, grid=True)
             phases[clathStable == phaseIndex] = phaseIndex

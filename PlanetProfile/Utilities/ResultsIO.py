@@ -59,10 +59,17 @@ def ExtractResults(Results, PlanetGrid, Params):
     """
     Extract results from PlanetGrid.
     """
+    planetBodyName = PlanetGrid[0,0].name
+    if planetBodyName[:4] == 'Test':
+        bodyName = 'Test'
+    else:
+        bodyName = planetBodyName
+    
+    Results.bodyname = bodyName
     Results.nx = PlanetGrid.shape[0]
     Results.ny = PlanetGrid.shape[1]
     Results.base = ExtractBasePlanetData(Results.base, PlanetGrid)
-    Results.induction = ExtractInductionData(Results.induction, Results.base.bodyname, PlanetGrid, Params)
+    Results.induction = ExtractInductionData(Results.induction, Results.bodyname, PlanetGrid, Params)
     # Set exploration-specific fields that don't fit the base pattern
     Results.CMR2str = f'$C/MR^2 = {PlanetGrid[0,0].CMR2str}$'
     Results.Cmeasured = PlanetGrid[0,0].Bulk.Cmeasured
@@ -73,11 +80,11 @@ def ExtractResults(Results, PlanetGrid, Params):
     Results.xName = Params.Explore.xName
     Results.yName = Params.Explore.yName
     Results.zName  = Params.Explore.zName
-    Results.xData = getattr(Results.base, Params.Explore.xName)
-    Results.yData = getattr(Results.base, Params.Explore.yName)
-    Results.nx = Params.Explore.nx
-    Results.ny = Params.Explore.ny
     Results.titleAddendum = FigLbl.titleAddendum
+    
+    # Rearrange x and y data to be 2D (for comaptibility with plotting functions)
+    Results.xData = np.tile(Results.xData, (Results.ny, 1)).T
+    Results.yData = np.tile(Results.yData, (Results.nx, 1))
     return Results
 
 
@@ -227,7 +234,7 @@ def ExtractInductionData(InductionResults, bodyname, PlanetGrid, Params):
         'nPeaks': nPeaks,
         'Amp': None,
         'Aen': None,
-        'phase': None,
+        'Phase': None,
         'Bix_nT': None,
         'Biy_nT': None,
         'Biz_nT': None,
@@ -277,7 +284,7 @@ def ExtractInductionData(InductionResults, bodyname, PlanetGrid, Params):
                     
         
         induction_data['Amp'] = Amp_3d
-        induction_data['phase'] = phase_3d
+        induction_data['Phase'] = phase_3d
         induction_data['Aen'] = Aen_3d
         induction_data['Bi1x_nT'] = Bi1x_nT_3D
         induction_data['Bi1y_nT'] = Bi1y_nT_3D

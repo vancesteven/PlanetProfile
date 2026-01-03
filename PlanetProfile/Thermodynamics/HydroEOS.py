@@ -59,15 +59,17 @@ class OceanEOSStruct:
             self.scalingType = 'Vance2018'
         else:
             self.scalingType = scalingType
+        if phaseType is None:
+            phaseType = 'lookup'
         if phaseType.lower() == 'lookup':
              self.PHASE_LOOKUP = True
-             self.PRELOAD_LOOKUP = False
+             self.PHASE_PRELOAD = False
         elif phaseType.lower() == 'preload':
-            self.PRELOAD_LOOKUP = True
+            self.PHASE_PRELOAD = True
             self.PHASE_LOOKUP = False
         else:
             self.PHASE_LOOKUP = False
-            self.PRELOAD_LOOKUP = False
+            self.PHASE_PRELOAD = False
         if kThermConst_WmK is None:
             kThermConst_WmK = Constants.kThermWater_WmK
         else:
@@ -257,7 +259,7 @@ class OceanEOSStruct:
                     self.m_gmol = Constants.m_gmol['MgSO4']
                     PropsP_MPa, PropsT_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK \
                         = MgSO4Props(PropsP_MPa, PropsT_K, self.w_ppt, self.EXTRAP)
-                    if self.PRELOAD_LOOKUP:
+                    if self.PHASE_PRELOAD:
                         self.ufn_phase = MgSO4PhaseLookup(self.w_ppt, HIRES=LOOKUP_HIRES)
                         self.phasePmax = self.ufn_phase.Pmax
                         # Save EOS grid resolution from MgSO4 lookup table loaded from disk
@@ -389,18 +391,7 @@ def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=
               EXTRAP=False, ClathDissoc=None, minPres_MPa=None, minTres_K=None,
             ICEIh_DIFFERENT=False, etaFixed_Pas=None, TviscTrans_K=None, mixParameters=None, doConstantProps = False, constantProperties = None, kThermConst_WmK=None):
     # Check if this is a mixed EOS
-    try:
-        # Check if MixedPhaseSeparator can process this phaseStr (will raise error if not mixed)
-        phaseOne, phaseTwo = MixedPhaseSeparator(phaseStr)
-    except Exception:
-        # MixedPhaseSeparator raised an error, so this is not a mixed EOS - create normal ice EOS
-        iceEOS = IceEOSStruct(P_MPa, T_K, phaseStr, porosType=porosType, phiTop_frac=phiTop_frac,
-                            Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
-                            ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa, minTres_K=minTres_K,
-                            ICEIh_DIFFERENT=ICEIh_DIFFERENT, etaFixed_Pas=etaFixed_Pas,
-                            TviscTrans_K=TviscTrans_K, kThermConst_WmK=kThermConst_WmK, doConstantProps = doConstantProps, constantProperties = constantProperties)
-    else:
-        # If no error is thrown, it's a mixed phase - create mixed EOS (allow MixedEOSStruct errors to propagate)
+    if 'mixed' in phaseStr.lower():
         iceEOS = MixedEOSStruct(P_MPa, T_K, phaseStr, mixParameters,
                                   porosType=porosType, phiTop_frac=phiTop_frac, 
                                   Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac,
@@ -408,6 +399,12 @@ def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=
                                   minPres_MPa=minPres_MPa, minTres_K=minTres_K,
                                   ICEIh_DIFFERENT=ICEIh_DIFFERENT, etaFixed_Pas=etaFixed_Pas,
                                   TviscTrans_K=TviscTrans_K, kThermConst_WmK=kThermConst_WmK, doConstantProps = doConstantProps, constantProperties = constantProperties)
+    else:
+        iceEOS = IceEOSStruct(P_MPa, T_K, phaseStr, porosType=porosType, phiTop_frac=phiTop_frac,
+                            Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
+                            ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa, minTres_K=minTres_K,
+                            ICEIh_DIFFERENT=ICEIh_DIFFERENT, etaFixed_Pas=etaFixed_Pas,
+                            TviscTrans_K=TviscTrans_K, kThermConst_WmK=kThermConst_WmK, doConstantProps = doConstantProps, constantProperties = constantProperties)
     if iceEOS.ALREADY_LOADED:
         log.debug(f'Ice {phaseStr} EOS already loaded. Reusing existing EOS.')
         iceEOS = EOSlist.loaded[iceEOS.EOSlabel]
@@ -559,7 +556,7 @@ class IceEOSStruct:
                         rho_kgm3 = iceOut.rho
                         Cp_JkgK = iceOut.Cp
                         alpha_pK = iceOut.alpha
-                        if kThermConst_WmK[phaseStr] is not None:
+                        if kThermConst_WmK is not None and kThermConst_WmK[phaseStr] is not None:
                             kTherm_WmK = np.zeros((np.size(P_MPa), np.size(T_K))) + kThermConst_WmK[phaseStr]
                         else:
                             if ICEIh_DIFFERENT and phaseStr == 'Ih':
@@ -657,6 +654,12 @@ class MixedEOSStruct:
             self.phaseStr = phaseStr
             self.phaseID = PhaseInv(phaseStr)
             self.phaseOne, self.phaseTwo = MixedPhaseSeparator(phaseStr)
+            if 'Clath' in self.phaseOne or 'Clath' in self.phaseTwo:
+                self.mixType = 'Clathrate'
+            else:
+                # Implement new mix types as they are needed - important for defining fn_phase
+                self.mixType = 'None'
+                
             # Create the component EOS structures
             self.firstEOS = IceEOSStruct(P_MPa, T_K, self.phaseOne, porosType=porosType,
                                         phiTop_frac=phiTop_frac, Pclosure_MPa=Pclosure_MPa,
@@ -734,16 +737,26 @@ class MixedEOSStruct:
     def fn_phase(self, P_MPa, T_K, grid=False):
         """ For mixed phases, we call the phase function from both component EOS and add them together. This takes advantage of the two facts:
         1) that the phaseID of the mixed phase is the sum of the phaseIDs of the component phases.
-        2)  When one phase becomes unstable, the fn_phase returns zero for the unstable phase and the phaseID of the mixed phase will be the phaseID of the only stable phase."""
+        2) For ice EOS, the returned phaseID is only the ice phaseID, since we use the ocean fn phase for ice phase stability. This means we should just return the phaseID of the clathrate phase if it is present.
+        """
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         #TODO Fix this implementation so that it uses oceanEOS.fn_phase
         phase1 = self.firstEOS.fn_phase(P_MPa, T_K, grid)
         phase2 = self.secondEOS.fn_phase(P_MPa, T_K, grid)
-        if phase1 == 0:
-            return phase1
+        if self.mixType == 'Clathrate':
+            if self.firstEOS.phaseID == Constants.phaseClath:
+                # Replace all zeros in phase1 with the negative of phaseID of secondEOS so that when we add it, we get the phaseID of the mixed clathrate phase or zero if clathrate is unstable
+                phase1 = np.where(phase1 == 0, -self.secondEOS.phaseID, phase1)
+                return phase1 + phase2 # Add the phaseIDs of the component phases to get the phaseID of the mixed clathrate phase
+            else:
+                # Replace all zeros in phase2 with the negative of phaseID of firstEOS so that when we add it, we get the phaseID of the mixed clathrate phase or zero if clathrate is unstable
+                phase2 = np.where(phase2 == 0, -self.firstEOS.phaseID, phase2)
+                return phase1 + phase2 # Add the phaseIDs of the component phases to get the phaseID of the mixed clathrate phase
         else:
+            # Implement new mix types as they are needed - important for defining fn_phase
             return phase1 + phase2
+                
     
     def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
@@ -1011,8 +1024,8 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
                 maxTmax = np.maximum(np.max(T_K), EOSlist.loaded[EOSlabel].Tmax)
                 deltaP = np.round(np.minimum(np.mean(np.diff(P_MPa)), EOSlist.loaded[EOSlabel].deltaP), 2)
                 deltaT = np.round(np.minimum(np.mean(np.diff(T_K)), EOSlist.loaded[EOSlabel].deltaT), 2)
-                if deltaP == 0: deltaP = 0.01
-                if deltaT == 0: deltaT = 0.01
+                if deltaP == 0 or np.isnan(deltaP): deltaP = 0.01
+                if deltaT == 0 or np.isnan(deltaT): deltaT = 0.01
                 if minPres_MPa is not None and deltaP < minPres_MPa:
                     log.warning(f'deltaP of {deltaP:.2f} MPa less than minimum res setting of {minPres_MPa}. Resetting to {minPres_MPa}.')
                     deltaP = minPres_MPa

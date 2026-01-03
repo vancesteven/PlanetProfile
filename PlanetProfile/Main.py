@@ -86,23 +86,14 @@ def run(bodyname=None, opt=None, fNames=None):
         if bodyname == '':
             raise ValueError('A single body must be specified for an InductOgram.')
         else:
-            Induction, Params = InductOgram(bodyname, Params, fNameOverride=fNames[0])
+            InductionList = []
+            FigureFilesList = []
+            for fName in fNames:
+                Induction, Params = InductOgram(bodyname, Params, fNameOverride=fName)
+                InductionList.append(Induction)
+                FigureFilesList.append(deepcopy(Params.FigureFiles))
         if not Params.SKIP_PLOTS:
-            Params = SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
-            if Params.COMPARE:
-                inductOgramFiles = FilesMatchingPattern(Params.DataFiles.fNameInductOgramBase+'*.mat')
-                Params.nModels = np.size(inductOgramFiles)
-                InductionList = np.empty(Params.nModels, dtype=object)
-                InductionList[0] = deepcopy(Induction)
-                # Move the filename for this run to the front of the list
-                if Params.DataFiles.inductOgramFile in inductOgramFiles:
-                    inductOgramFiles.remove(Params.DataFiles.inductOgramFile)
-                    inductOgramFiles.insert(0, Params.DataFiles.inductOgramFile)
-                for i, reloadInduct in enumerate(inductOgramFiles[1:]):
-                    InductionList[i+1], _, _= ReloadInductOgram(bodyname, Params, fNameOverride=reloadInduct)
-            else:
-                InductionList = [Induction]
-            GenerateMagPlots(InductionList, Params)
+            GenerateExplorationMagPlots(InductionList, FigureFilesList, Params)
     elif Params.DO_EXPLOREOGRAM:
         if bodyname == '':
             raise ValueError('A single body must be specified for an ExploreOgram.')
@@ -118,8 +109,8 @@ def run(bodyname=None, opt=None, fNames=None):
                 FigureFilesList.append(deepcopy(Params.FigureFiles))
         if not Params.SKIP_PLOTS and not np.all([Exploration.base.VALID == False for Exploration in ExplorationList]): 
             GenerateExplorationPlots(ExplorationList, FigureFilesList, Params)
-            if False:
-                GenerateExplorationMagPlots(ExplorationList, Params)
+            if not Params.SKIP_INDUCTION:
+                GenerateExplorationMagPlots(ExplorationList, FigureFilesList, Params)
             if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
                 for Planet in PlanetGrid.flatten():
                     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
@@ -899,6 +890,8 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                 Params.Induct.zbFixed_km[bodyname] = InductionResults.zb_km[0,0]
 
             Params.nModels = Params.Induct.nSigmaPts * Params.Induct.nDpts
+            InductionResults.xData = sigmaList
+            InductionResults.yData = Dlist
             Planet.zb_km = Params.Induct.zbFixed_km[bodyname]
             Planet.Magnetic.rSigChange_m = np.array([0, Planet.Bulk.R_m - Planet.zb_km * 1e3, Planet.Bulk.R_m])
             Planet.Magnetic.sigmaLayers_Sm = np.array([Planet.Ocean.sigmaIce_Sm['Ih'], 0, Planet.Sil.sigmaSil_Sm])
@@ -926,7 +919,9 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                 oceanCompList = InductionResults.oceanComp[:,0]
 
             Params.Induct.nOceanCompPts = np.size(oceanCompList)
-
+            
+            InductionResults.xData = oceanCompList
+            InductionResults.yData = zbApproximateList
             Params.nModels = Params.Induct.nZbPts * Params.Induct.nOceanCompPts
             PlanetGrid = np.empty((Params.Induct.nOceanCompPts, Params.Induct.nZbPts), dtype=object)
 
@@ -968,6 +963,8 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                     Params.Induct.TbMax[bodyname] = np.max(TbList)
                     Params.Induct.nTbPts = np.size(TbList)
 
+                InductionResults.xData = wList
+                InductionResults.yData = TbList
                 Params.nModels = Params.Induct.nwPts * Params.Induct.nTbPts
                 PlanetGrid = np.empty((Params.Induct.nwPts, Params.Induct.nTbPts), dtype=object)
 
@@ -1003,6 +1000,8 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                     Params.Induct.phiMax[bodyname] = np.max(phiList)
                     Params.Induct.nphiPts = np.size(phiList)
 
+                InductionResults.xData = wList
+                InductionResults.yData = phiList
                 Params.nModels = Params.Induct.nwPts * Params.Induct.nphiPts
                 PlanetGrid = np.empty((Params.Induct.nwPts, Params.Induct.nphiPts), dtype=object)
 
@@ -1037,6 +1036,8 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                     Params.Induct.rhoMax[bodyname] = np.max(rhoList)
                     Params.Induct.nrhoPts = np.size(rhoList)
 
+                InductionResults.xData = wList
+                InductionResults.yData = rhoList
                 Params.nModels = Params.Induct.nwPts * Params.Induct.nrhoPts
                 PlanetGrid = np.empty((Params.Induct.nwPts, Params.Induct.nrhoPts), dtype=object)
 
@@ -1489,7 +1490,7 @@ def MonteCarlo(bodyname, Params, fNameOverride=None):
 
         # Initialize Monte Carlo results structure
         MCResults = MonteCarloResultsStruct()
-        MCResults.base.bodyname = bodyname
+        MCResults.bodyname = bodyname
         MCResults.statistics.nRuns = Params.MonteCarlo.nRuns
         MCResults.statistics.seed = Params.MonteCarlo.seed
         
@@ -1685,9 +1686,6 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
         Exploration.zName = Params.Explore.zName
         Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}_{Exploration.yName}{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}',
                                                 figExploreAppend=Params.Explore.zName)
-        if bodyname == 'Test':
-            Params.Explore.nx = 5
-            Params.Explore.ny = 5
 
         if Params.Explore.xName in Params.Explore.provideExploreRange:
             xList = loadmat(DataFiles.xRangeData)['Data'].flatten().tolist()
@@ -1711,6 +1709,8 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
                 yList = np.linspace(Params.Explore.yRange[0], Params.Explore.yRange[1], Params.Explore.ny)
 
         Params.nModels = Params.Explore.nx * Params.Explore.ny
+        Exploration.xData = xList
+        Exploration.yData = yList
         if not Params.SKIP_INNER:
             log.warning('Running explore-o-gram with interior calculations, which will be slow.')
         
@@ -1734,18 +1734,7 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
         PlanetGrid = np.reshape(PlanetList, gridShape)
         
         Exploration = ExtractResults(Exploration, PlanetGrid, Params)
-        
-        # Set exploration-specific fields that don't fit the base pattern
-        Exploration.CMR2str = f'$C/MR^2 = {PlanetGrid[0,0].CMR2str}$'
-        Exploration.Cmeasured = PlanetGrid[0,0].Bulk.Cmeasured
-        Exploration.Cupper = PlanetGrid[0,0].Bulk.CuncertaintyUpper  
-        Exploration.Clower = PlanetGrid[0,0].Bulk.CuncertaintyLower
-        
-        # Set grid information
-        Exploration.xName = Params.Explore.xName
-        Exploration.yName = Params.Explore.yName
-        Exploration.xData = getattr(Exploration.base, Params.Explore.xName)
-        Exploration.yData = getattr(Exploration.base, Params.Explore.yName)
+
         
         if not np.any(Exploration.base.VALID):
             log.warning('No valid models appeared for the given input settings in this ExploreOgram.')
@@ -1859,10 +1848,7 @@ def AssignPlanetVal(Planet, name, val):
                 Planet.Magnetic.sigmaIonosPedersen_Sm[-1] = val
         elif name == 'silPhi_frac':
             Planet.Sil.phiRockMax_frac = val
-            if val == 0:
-                Planet.Do.POROUS_ROCK = False
-            else:
-                Planet.Do.POROUS_ROCK = True
+            Planet.Do.POROUS_ROCK = True
             Planet.Do.CONSTANT_INNER_DENSITY = False
         elif name == 'silPclosure_MPa':
             Planet.Sil.Pclosure_MPa = val
@@ -1870,10 +1856,7 @@ def AssignPlanetVal(Planet, name, val):
             Planet.Do.CONSTANT_INNER_DENSITY = False
         elif name == 'icePhi_frac':
             Planet.Ocean.phiMax_frac = {key: val for key in Planet.Ocean.phiMax_frac.keys()}
-            if val == 0:
-                Planet.Do.POROUS_ICE = False
-            else:
-                Planet.Do.POROUS_ICE = True
+            Planet.Do.POROUS_ICE = True
         elif name == 'icePclosure_MPa':
             Planet.Ocean.Pclosure_MPa = {key: val for key in Planet.Ocean.Pclosure_MPa.keys()}
             Planet.Do.POROUS_ICE = True

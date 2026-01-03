@@ -1000,61 +1000,62 @@ class RktConduct():
             grid (bool): Whether or not to convert to coordinate grid (optional)
 
         Returns:
-            VP_kms (float, Shape N): Corresponding sound speeds in km/s
-            KS_GPa (float, Shape N): Corresponding bulk modulus in GPa
+            sigma_Sm (float or array): Electrical conductivity in S/m
         """
         # Ensure P_MPa and T_K are numpy arrays
         P_MPa, T_K = np.array(P_MPa), np.array(T_K)
 
-        # Store the original P_MPa and T_K for the cache key
-        original_P_MPa, original_T_K = P_MPa, T_K
-
-        # If grid is needed or if inputs are not 1D arrays, create a grid
-        if grid or (P_MPa.ndim != 1 or T_K.ndim != 1):
-            P_MPa, T_K = np.meshgrid(P_MPa, T_K, indexing='ij')
-        elif P_MPa.size == 0 or T_K.size == 0:
-            # Return empty array if input is empty
+        # Handle empty inputs
+        if P_MPa.size == 0 or T_K.size == 0:
             return np.array([])
 
-        # Check if arrays are mismatched but might be intended for grid
-        if P_MPa.size != T_K.size and not (P_MPa.size == 1 or T_K.size == 1):
-            P_MPa, T_K = np.meshgrid(P_MPa, T_K, indexing='ij')
-            grid = True  # Indicate that grid should be used
+        # Store original arrays for cache key
+        original_P_MPa, original_T_K = P_MPa.copy(), T_K.copy()
 
-        # Check if speciation data has already been calculated for this grid
-        key = (tuple(P_MPa.ravel()), tuple(T_K.ravel()))  # Use original arrays for the key
+        # Determine if we need to create a grid
+        grid = grid or (P_MPa.ndim != 1 or T_K.ndim != 1) or (P_MPa.size != T_K.size and not (P_MPa.size == 1 or T_K.size == 1))
+        
+        # If we need grid then make P_MPa and T_K into a grid
+        if grid:
+            P_MPa, T_K = np.meshgrid(P_MPa, T_K, indexing='ij')
+        # Get speciation data
+        key = (tuple(original_P_MPa.ravel()), tuple(original_T_K.ravel()))
         CALC_SPECIATION = False
+        
         if CALC_SPECIATION:
             if key not in self.calculated_speciations:
-                # Calculate speciation if not found
-                self.calculated_speciations[key] = self.fn_species(original_P_MPa, original_T_K, grid = grid)
+                self.calculated_speciations[key] = self.fn_species(original_P_MPa, original_T_K, grid=grid)
             pH, speciation, species_names, affinity = self.calculated_speciations[key]
         else:
+            # Use constant speciation ratios
             speciation = []
             species_names = []
+            
             for species, ratio in self.speciation_ratio_mol_per_kg.items():
-                if grid:
-                    ratioList = np.full((len(P_MPa), len(T_K)), ratio)
-                else:
-                    ratioList = [ratio] * len(P_MPa)
-                speciation.append(ratioList)
+                ratio_array = np.full(P_MPa.shape, ratio)
+                speciation.append(ratio_array)
                 species_names.append(species)
+            
             speciation = np.array(speciation)
             species_names = np.array(species_names)
+
+        # Calculate conductivity
+        T_C = T_K - Constants.T0
+        
         if grid:
-            # If it is grid, then we must handle by first calculating each T_K
-            # CURRENTLY MCCLESKLY DOES NOT DEPEND ON P_MPA so onyl need to do calculations for each T_K
-            sigma_Sm = np.zeros_like(speciation.shape)
-            for i, T in enumerate(T_K):
-                speciation_T = speciation[:, i, :]
-                McClevsky_speciation = self.McClevskyIonParser(speciation_T, species_names, self.speciation_ratio_mol_per_kg)
-                T_C = T - Constants.T0
-                sigma_Sm[:, i, :] = elecCondMcCleskey2012(P_MPa, T_C, McClevsky_speciation)
+            # Handle grid case: calculate for each temperature slice
+            sigma_Sm = np.zeros_like(P_MPa)
+            for i in range(T_K.shape[0]):
+                speciation_slice = speciation[:, i, :]
+                mccleskey_ions = self.McClevskyIonParser(speciation_slice, species_names, 
+                                                       self.speciation_ratio_mol_per_kg)
+                sigma_Sm[i, :] = elecCondMcCleskey2012(P_MPa[i, :], T_C[i, :], mccleskey_ions)
         else:
-            McClevsky_speciation = self.McClevskyIonParser(speciation, species_names, self.speciation_ratio_mol_per_kg)
-            T_C = T_K - Constants.T0
-            sigma_Sm = elecCondMcCleskey2012(P_MPa, T_C, McClevsky_speciation)
-        print(np.mean(sigma_Sm))
+            # Handle non-grid case
+            mccleskey_ions = self.McClevskyIonParser(speciation, species_names, 
+                                                   self.speciation_ratio_mol_per_kg)
+            sigma_Sm = elecCondMcCleskey2012(P_MPa, T_C, mccleskey_ions)
+        
         return sigma_Sm
 
     def McClevskyIonParser(self, speciation_array, species_names_array, speciation_ratio_mol_kg):
