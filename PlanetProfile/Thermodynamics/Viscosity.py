@@ -2,18 +2,20 @@ import numpy as np
 import logging
 import scipy.interpolate as spi
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
-from PlanetProfile.Utilities.defineStructs import EOSlist
+from PlanetProfile.Utilities.defineStructs import EOSlist, Timing
+import time
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
 def ViscosityCalcs(Planet, Params):
+    Timing.setFunctionTime(time.time())
     # Initialize outputs as NaN so that we get errors if we missed any layers
     Planet.eta_Pas = np.zeros(Planet.Steps.nTotal) * np.nan
 
     # Only perform calculations if this is a valid profile
-    if Planet.Do.VALID:
+    if Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES):
         # Identify which indices correspond to which phases
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
             indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
@@ -23,7 +25,7 @@ def ViscosityCalcs(Planet, Params):
 
         if Params.CALC_VISCOSITY:
             # Make sure the necessary EOSs have been loaded (mainly only important in parallel ExploreOgram runs)
-            if not Planet.Do.NO_H2O and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
+            if not (Planet.Do.NO_H2O or Planet.Do.NO_OCEAN) and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
                 POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa,
                                        Planet.Ocean.deltaP)
                 TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K,
@@ -37,7 +39,8 @@ def ViscosityCalcs(Planet, Params):
                                                phaseType=Planet.Ocean.phaseType,
                                                EXTRAP=Params.EXTRAP_OCEAN,
                                                sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm,
-                                               etaFixed_Pas=None)  # Causes ocean EOS to use default behavior for this comp
+                                               etaFixed_Pas=None, kThermConst_WmK=Planet.Ocean.kThermWater_WmK,
+                                               propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
 
             if Planet.Do.POROUS_ICE:
                 Planet = CalcViscPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund,
@@ -60,6 +63,7 @@ def ViscosityCalcs(Planet, Params):
                 if Planet.Do.Fe_CORE:
                     Planet = CalcViscCore(Planet, Params, indsFe)
 
+    Timing.printFunctionTimeDifference('ViscosityCalcs()', time.time())
     return Planet
 
 

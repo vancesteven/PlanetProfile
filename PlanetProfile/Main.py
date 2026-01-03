@@ -8,6 +8,7 @@
 # Import necessary Python modules
 import os, sys, time, importlib
 import numpy as np
+import pickle
 import logging
 from scipy.io import savemat, loadmat
 from copy import deepcopy
@@ -15,27 +16,31 @@ from distutils.util import strtobool
 from collections.abc import Iterable
 from os.path import isfile
 from glob import glob as FilesMatchingPattern
+import pandas as pd
+import ast
 
 # Import all function definitions for this file
 from PlanetProfile import _Defaults, _TestImport, CopyCarefully
 from PlanetProfile.GetConfig import Params as configParams, FigMisc
-from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, GetBexc, Benm2absBexyz
-from PlanetProfile.MagneticInduction.Moments import InductionStruct, Excitations as Mag
-from PlanetProfile.Plotting.ProfilePlots import GeneratePlots, PlotExploreOgram, PlotExploreOgramDsigma, PlotExploreOgramLoveComparison, PlotExploreOgramZbD
-from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, PlotInductOgram, \
-    PlotInductOgramPhaseSpace
+from PlanetProfile.MagneticInduction.MagneticInduction import MagneticInduction, ReloadInduction, GetBexc, Benm2absBexyz, SetupInduction
+from PlanetProfile.MagneticInduction.Moments import Excitations as Mag
+from PlanetProfile.Plotting.ProfilePlots import GeneratePlots
+from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, GenerateExplorationMagPlots
+from PlanetProfile.Plotting.ExplorationPlots import GenerateExplorationPlots
 from PlanetProfile.Thermodynamics.LayerPropagators import IceLayers, OceanLayers, InnerLayers, GetIceShellTFreeze
 from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.OceanProps import LiquidOceanPropsCalcs, WriteLiquidOceanProps
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
 from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
-from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, EOSlist, ExplorationStruct
-from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings
+from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, Timing
+from PlanetProfile.Utilities.ResultsStructs import ExplorationResultsStruct, MonteCarloResultsStruct, InductionResultsStruct
+from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings, PrecomputeEOS
+from PlanetProfile.Utilities.ResultsIO import WriteResults, ReloadResultsFromPickle, ExtractResults, InductionCalced
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 from PlanetProfile.Utilities.PPversion import ppVerNum
 from PlanetProfile.Gravity.Gravity import GravityParameters
-from PlanetProfile.Utilities.SummaryTables import GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
-from PlanetProfile.Utilities.reducedPlanetModel import GetReducedPlanetProfile
+from PlanetProfile.Utilities.SummaryTables import GetExplorationComparisons, GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
+from PlanetProfile.Utilities.reducedPlanetModel import GetReducedPlanet
 
 # Parallel processing
 import multiprocessing as mtp
@@ -60,7 +65,8 @@ def run(bodyname=None, opt=None, fNames=None):
     This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.""")
 
-    
+    # Intializing timing structure
+    Timing.setStartingTime(time.time())
     # Copy global Params settings to local variable so we can add things like filenames
     Params = configParams
     
@@ -80,81 +86,37 @@ def run(bodyname=None, opt=None, fNames=None):
         if bodyname == '':
             raise ValueError('A single body must be specified for an InductOgram.')
         else:
-            Induction, Params = InductOgram(bodyname, Params, fNameOverride=fNames[0])
+            InductionList = []
+            FigureFilesList = []
+            for fName in fNames:
+                Induction, Params = InductOgram(bodyname, Params, fNameOverride=fName)
+                InductionList.append(Induction)
+                FigureFilesList.append(deepcopy(Params.FigureFiles))
         if not Params.SKIP_PLOTS:
-            Params = SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
-            if Params.COMPARE:
-                inductOgramFiles = FilesMatchingPattern(Params.DataFiles.fNameInductOgramBase+'*.mat')
-                Params.nModels = np.size(inductOgramFiles)
-                InductionList = np.empty(Params.nModels, dtype=object)
-                InductionList[0] = deepcopy(Induction)
-                # Move the filename for this run to the front of the list
-                if Params.DataFiles.inductOgramFile in inductOgramFiles:
-                    inductOgramFiles.remove(Params.DataFiles.inductOgramFile)
-                    inductOgramFiles.insert(0, Params.DataFiles.inductOgramFile)
-                for i, reloadInduct in enumerate(inductOgramFiles[1:]):
-                    InductionList[i+1] = ReloadInductOgram(bodyname, Params, fNameOverride=reloadInduct)[0]
-            else:
-                InductionList = [Induction]
-            PlotInductOgram(InductionList, Params)
-            PlotInductOgramPhaseSpace(InductionList, Params)
+            GenerateExplorationMagPlots(InductionList, FigureFilesList, Params)
     elif Params.DO_EXPLOREOGRAM:
         if bodyname == '':
             raise ValueError('A single body must be specified for an ExploreOgram.')
         else:
-            if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
-                PlanetGrid, Exploration, Params = ExploreOgram(bodyname, Params, RETURN_GRID=True, fNameOverride=fNames[0])
-            else:
-                Exploration, Params = ExploreOgram(bodyname, Params,fNameOverride = fNames[0])
-        if not Params.SKIP_PLOTS: 
-            if Params.COMPARE:
-                exploreOgramFiles = FilesMatchingPattern(os.path.join(Params.DataFiles.fName+'*.mat'))
-                Params.nModels = np.size(exploreOgramFiles)
-                ExplorationList = np.empty(Params.nModels, dtype=object)
-                ExplorationList[0] = deepcopy(Exploration)
-                # Move the filename for this run to the front of the list
-                if Params.DataFiles.exploreOgramFile in exploreOgramFiles:
-                    exploreOgramFiles.remove(Params.DataFiles.exploreOgramFile)
-                    exploreOgramFiles.insert(0, Params.DataFiles.exploreOgramFile)
-                for i, reloadExplore in enumerate(exploreOgramFiles[1:]):
-                    ExplorationList[i+1] = ReloadExploreOgram(bodyname, Params, fNameOverride=reloadExplore)[0]
-            else:
-                ExplorationList = [Exploration]
-            PLOT_EXPLORATION = not (Params.Explore.nx == 1 or Params.Explore.ny == 1) # If either axis is of size 1, then we cannot plot 
-            # Setup CustomSolution plot settings
-            all_ocean_comps = []
-            for Exploration in ExplorationList:
-                all_ocean_comps.extend(np.array(Exploration.oceanComp).flatten())
-            Params = SetupCustomSolutionPlotSettings(np.array(all_ocean_comps), Params)
-            if PLOT_EXPLORATION:
-                if isinstance(Params.Explore.zName, list):
-                    figNames = Params.FigureFiles.explore + []
-                    for zName, figName in zip(Params.Explore.zName, figNames):
-                        for Exploration in ExplorationList:
-                            Exploration.zName = zName
-                        Params.FigureFiles.explore = figName
-                        PlotExploreOgram(ExplorationList, Params)
-                    Params.FigureFiles.explore = figNames
+            ExplorationList = []
+            FigureFilesList = []
+            for fName in fNames:
+                if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
+                    PlanetGrid, Exploration, Params = ExploreOgram(bodyname, Params, RETURN_GRID=True, fNameOverride=fName)
                 else:
-                    for Exploration in ExplorationList:
-                        Exploration.zName = Params.Explore.zName
-                    PlotExploreOgram(ExplorationList, Params)
-                # Now we plot the ZbD plots (must plot after exploreogram plots since we change the x and y variables)
-                if Params.PLOT_Zb_D:
-                    if isinstance(Params.Explore.zName, list):
-                        figNames = Params.FigureFiles.explore + []
-                        for zName, figName in zip(Params.Explore.zName, figNames):
-                            for Exploration in ExplorationList:
-                                Exploration.zName = zName
-                            Params.FigureFiles.exploreZbD = figName
-                            PlotExploreOgramZbD(ExplorationList, Params)
-                    else:
-                        for Exploration in ExplorationList:
-                            Exploration.zName = Params.Explore.zName
-                        PlotExploreOgramZbD(ExplorationList, Params)
-                PlotExploreOgramDsigma(ExplorationList, Params)
-                PlotExploreOgramLoveComparison(ExplorationList, Params)
+                    Exploration, Params = ExploreOgram(bodyname, Params,fNameOverride = fName)
+                ExplorationList.append(Exploration)
+                FigureFilesList.append(deepcopy(Params.FigureFiles))
+        if not Params.SKIP_PLOTS and not np.all([Exploration.base.VALID == False for Exploration in ExplorationList]): 
+            GenerateExplorationPlots(ExplorationList, FigureFilesList, Params)
+            if not Params.SKIP_INDUCTION:
+                GenerateExplorationMagPlots(ExplorationList, FigureFilesList, Params)
             if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
+                for Planet in PlanetGrid.flatten():
+                    Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
+                    IndividualPlanetList, Params = GetLayerMeans(np.array([Planet]), Params)
+                    GeneratePlots(IndividualPlanetList, Params)
+                 
                 # Get large-scale layer properties, which are needed for table outputs and some plots
                 CompareList = PlanetGrid.flatten()
                 CompareList, Params = GetLayerMeans(CompareList, Params)
@@ -164,7 +126,50 @@ def run(bodyname=None, opt=None, fNames=None):
                 
                 Params.FigureFiles = FigureFilesSubstruct(comparePath, compareBase, FigMisc.xtn)
                 GeneratePlots(CompareList, Params)
+            
+            # Plot combined figures
+            MULTIPLOT = Params.COMPARE and len(ExplorationList) > 1
+            if MULTIPLOT:
+                ExplorationCompareList, Params, FigureFilesList = GetExplorationComparisons(ExplorationList, Params)
+                if len(ExplorationCompareList) > 0:
+                    for ExplorationCompare, FigureFiles in zip(ExplorationCompareList, FigureFilesList):
+                        Params.FigureFiles = FigureFiles
+                        GenerateExplorationPlots([ExplorationCompare], [FigureFiles], Params)
 
+    elif Params.DO_MONTECARLO:
+        if bodyname == '':
+            raise ValueError('A single body must be specified for a Monte Carlo run.')
+        else:
+            MCResults, Params = MonteCarlo(bodyname, Params, fNameOverride=fNames[0])
+            """# Create plots if requested
+            if Params.MonteCarlo.showPlots and not Params.SKIP_PLOTS:
+                # Setup CustomSolution plot settings
+                all_ocean_comps = []
+                for MCResult in [MCResults]:
+                    all_ocean_comps.extend(np.array(MCResult.base.oceanComp).flatten())
+                Params = SetupCustomSolutionPlotSettings(np.array(all_ocean_comps), Params)
+                if Params.PLOT_Zb_D:
+                    if isinstance(Params.Explore.zName, list):
+                        figNames = Params.FigureFiles.exploreZbD + []
+                        for zName, figName in zip(Params.Explore.zName, figNames):
+                            MCResults.zName = zName
+                            Params.FigureFiles.exploreZbD = figName
+                            PlotExploreOgramZbD([MCResults], Params)
+                    else:
+                        MCResults.zName = Params.Explore.zNameZbD
+                        PlotExploreOgramZbD([MCResults], Params)
+                # Now we plot the ZbY plots (ice shell thickness vs specified property with ocean thickness as color)
+                if Params.PLOT_Zb_Y:
+                    if isinstance(Params.Explore.zName, list):
+                        figNames = Params.FigureFiles.exploreZbY + []
+                        for zName, figName in zip(Params.Explore.zName, figNames):
+                            MCResults.zName = zName
+                            Params.FigureFiles.exploreZbY = figName
+                            PlotExploreOgramXZ([MCResults], Params)
+                    else:
+                        MCResults.zName = Params.Explore.zNameZbY
+                        PlotExploreOgramXZ([MCResults], Params)
+                PlotMonteCarlo(MCResults, Params)"""
             
     else:
         # Set timekeeping for recording elapsed times
@@ -240,6 +245,7 @@ def run(bodyname=None, opt=None, fNames=None):
                 PrintLayerTableLatex(CompareList, Params)
             if Params.DISP_TABLE:
                 PrintGeneralSummary(CompareList, Params)
+    Timing.printTotalTimeDifference('Total run time for PlanetProfile: ')
     return
 
 """ END MAIN RUN BLOCK """
@@ -262,7 +268,7 @@ def PlanetProfile(Planet, Params):
         # Save data after modeling
         if (not Params.NO_SAVEFILE) and Planet.Do.VALID and (not Params.INVERSION_IN_PROGRESS):
             WriteProfile(Planet, Params)
-            if not Planet.Do.NO_OCEAN:
+            if Params.CALC_OCEAN_PROPS and not Planet.Do.NO_OCEAN:
                 WriteLiquidOceanProps(Planet, Params)
             if Params.CALC_SEISMIC and not Params.SKIP_INNER:
                 WriteSeismic(Planet, Params)
@@ -272,7 +278,7 @@ def PlanetProfile(Planet, Params):
 
     # Main plotting functions
     if ((not Params.SKIP_PLOTS) and not (
-            Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS)) \
+            Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.DO_MONTECARLO)) \
         and Planet.Do.VALID:
         # Calculate large-scale layer properties
         PlanetList, Params = GetLayerMeans(np.array([Planet]), Params)
@@ -281,13 +287,12 @@ def PlanetProfile(Planet, Params):
         GeneratePlots(PlanetList, Params)
         Planet = PlanetList[0]
     # Create a simplified reduced planet structure for magnetic induction and/or gravity calculations
-    if Planet.Do.VALID and (not Params.SKIP_INDUCTION or not Params.SKIP_GRAVITY):
-        Planet, Params = GetReducedPlanetProfile(Planet, Params)
+    if (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and (not Params.SKIP_INDUCTION or not Params.SKIP_GRAVITY):
+        Planet, Params = GetReducedPlanet(Planet, Params)
     # Magnetic induction calculations and plots
-    if (Params.CALC_CONDUCT and Planet.Do.VALID) and not Params.SKIP_INDUCTION:
+    if (Params.CALC_CONDUCT and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES))) and not Params.SKIP_INDUCTION:
         # Calculate induced magnetic moments
         Planet, Params = MagneticInduction(Planet, Params)
-
         # Plot induced dipole surface strength
         if Planet.Magnetic.Binm_nT is None:
             log.warning('Tried to GenerateMagPlots, but Magnetic.Binm_nT is None. ' +
@@ -295,15 +300,14 @@ def PlanetProfile(Planet, Params):
                         'set to False. Try to re-run with CALC_NEW_INDUCT set to True in '
                         'configPP.py.')
         elif (not Params.SKIP_PLOTS) and \
-            not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS):
+            not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS):
             GenerateMagPlots([Planet], Params)
-
     # Gravity calcuations and plots
-    if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY and Planet.Do.VALID) and not Params.SKIP_GRAVITY:
+    if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY) and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and not Params.SKIP_GRAVITY:
         # Calculate gravity parameters
         Planet, Params = GravityParameters(Planet, Params)
-
-    PrintCompletion(Planet, Params)
+    if Params.PRINT_COMPLETION:
+        PrintCompletion(Planet, Params)
     return Planet, Params
 
 
@@ -311,7 +315,8 @@ def HydroOnly(Planet, Params):
     """ Wrapper for PlanetProfile function, up through hydrosphere calculations,
         for parameter exploration that needs only to redo the interior.
     """
-
+    # Reset profile start time to now
+    Planet.profileStartTime = time.time()
     Planet, Params = SetupInit(Planet, Params)
     if not Planet.Do.NO_H2O:
         Planet = IceLayers(Planet, Params)
@@ -324,7 +329,8 @@ def InteriorEtc(Planet, Params):
     """ Wrapper for PlanetProfile function, minus hydrosphere calculations,
         for parameter exploration that needs only to redo the interior.
     """
-
+    # Reset profile start time to now
+    Planet.profileStartTime = time.time()
     Planet = InnerLayers(Planet, Params)
     Planet = ElecConduct(Planet, Params)
     Planet = SeismicCalcs(Planet, Params)
@@ -340,13 +346,13 @@ def InteriorEtc(Planet, Params):
             WriteSeismic(Planet, Params)
             
     # Create a simplified reduced planet structure for magnetic induction and/or gravity calculations
-    if Planet.Do.VALID:
-        Planet, Params = GetReducedPlanetProfile(Planet, Params)
-    if not Params.SKIP_INDUCTION and (Params.CALC_CONDUCT and Params.CALC_NEW_INDUCT):
+    if (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and (not Params.SKIP_INDUCTION or not Params.SKIP_GRAVITY):
+        Planet, Params = GetReducedPlanet(Planet, Params)
+    if (Params.CALC_CONDUCT and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES))) and not Params.SKIP_INDUCTION:
         # Calculate induced magnetic moments
         Planet, Params = MagneticInduction(Planet, Params)
         # Gravity calcuations and plots
-    if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY) and not Params.SKIP_GRAVITY:
+    if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY) and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and not Params.SKIP_GRAVITY:
         # Calculate gravity parameters
         Planet, Params = GravityParameters(Planet, Params)
     PrintCompletion(Planet, Params)
@@ -356,8 +362,10 @@ def InteriorEtc(Planet, Params):
 def InductionOnly(Planet, Params):
     """ Wrapper for MagneticInduction function similar to above that includes PrintCompletion.
     """
-
-    Planet, Params = MagneticInduction(Planet, Params)
+    # Reset profile start time to now
+    Planet.profileStartTime = time.time()
+    if (Params.CALC_CONDUCT and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES))) and not Params.SKIP_INDUCTION:
+        Planet, Params = MagneticInduction(Planet, Params)
 
     PrintCompletion(Planet, Params)
     return Planet, Params
@@ -376,6 +384,11 @@ def PrintCompletion(Planet, Params):
             ending = '!'
         else:
             tNow_s = time.time()
+            if Planet.profileStartTime is not None:
+                tProfile_s = tNow_s - Planet.profileStartTime
+                tProfileString = f'Profile took {tProfile_s:.3f} s'
+            else:
+                tProfileString = ''
             tTot_s = Params.nModels / Planet.index * (tNow_s - Params.tStart_s)
             tRemain_s = (Params.tStart_s + tTot_s - tNow_s)
             remain = ''
@@ -389,7 +402,7 @@ def PrintCompletion(Planet, Params):
                     remain += f' {int(tRemain_s/60)} min'
                 remain += f' {int(tRemain_s % 60)} s'
 
-            ending = f'. Approx.{remain} remaining.'
+            ending = f'. {tProfileString}. Approx.{remain} remaining.'
     log.profile(f'Profile{indicator} complete{ending}')
     return
 
@@ -740,17 +753,27 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
     if Planet.Do.NO_H2O or Planet.Do.NO_DIFFERENTIATION or Planet.Do.PARTIAL_DIFFERENTIATION:
         Planet.Do.NO_OCEAN = True
     if not Planet.Do.NO_OCEAN:
-        with open(Params.DataFiles.oceanPropsFile) as f:
-            nHeadLines = int(f.readline().split('=')[-1])
-            Planet.Ocean.aqueousSpecies = np.array(f.readline().split('=')[-1].strip().replace(',', '').split())
-            Planet.Ocean.reaction = f.readline().split('=')[-1].strip()
-            Planet.Ocean.reactionDisequilibriumConcentrations = f.readline().split('=')[-1].strip()
-        OceanSpecificProps = np.loadtxt(Params.DataFiles.oceanPropsFile, skiprows=nHeadLines, unpack=True)
-        Planet.Ocean.Bulk_pHs = OceanSpecificProps[2]
-        Planet.Ocean.affinity_kJ = OceanSpecificProps[3]
-        Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[4: ]
+        if Params.CALC_OCEAN_PROPS:
+            with open(Params.DataFiles.oceanPropsFile) as f:
+                nHeadLines = int(f.readline().split('=')[-1])
+                Planet.Ocean.aqueousSpecies = np.array(f.readline().split('=')[-1].strip().replace(';', '').split())
+                Planet.Ocean.Reaction.reaction = f.readline().split('=')[-1].strip()
+                Planet.Ocean.Reaction.useReferenceSpecies = bool(strtobool(f.readline().split('=')[-1].strip()))
+                Planet.Ocean.Reaction.referenceSpecies = f.readline().split('=')[-1].strip()    
+                Planet.Ocean.Reaction.disequilibriumConcentrations = ast.literal_eval(f.readline().split('=')[-1].strip())
+            OceanSpecificProps = np.loadtxt(Params.DataFiles.oceanPropsFile, skiprows=nHeadLines, unpack=True)
+            Planet.Ocean.Bulk_pHs = OceanSpecificProps[2]
+            Planet.Ocean.affinity_kJ = OceanSpecificProps[3]
+            Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[4: ]
+            Planet.Ocean.pHSeafloor = Planet.Ocean.Bulk_pHs[-1]
+            Planet.Ocean.Mean_pH = np.mean(Planet.Ocean.Bulk_pHs)
+            Planet.Ocean.affinitySeafloor_kJ = Planet.Ocean.affinity_kJ[-1]
+            Planet.Ocean.affinityMean_kJ = np.mean(Planet.Ocean.affinity_kJ)
+        else:
+            Planet.Ocean.Reaction.reaction, Planet.Ocean.Reaction.disequilibriumConcentrations = 'NaN', 'NaN'
+            Planet.Ocean.Bulk_pHs, Planet.Ocean.affinity_kJ, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
     else:
-        Planet.Ocean.reaction, Planet.Ocean.reactionDisequilibriumConcentrations = 'NaN', 'NaN'
+        Planet.Ocean.Reaction.reaction, Planet.Ocean.Reaction.disequilibriumConcentrations = 'NaN', 'NaN'
         Planet.Ocean.Bulk_pHs, Planet.Ocean.affinity_kJ, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
 
     # Setup CustomSolution settings
@@ -838,26 +861,15 @@ def InductOgram(bodyname, Params, fNameOverride=None):
 
             Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
             Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
-            Induction = InductionStruct()
+            InductionResults = InductionResultsStruct()
 
         else:
             # Re-use interior modeling, but recalculate the induced field.
             log.info(f'Reloading induct-o-gram type {Params.Induct.inductOtype} to recalculate induction. ' +
                      'Axis settings in configPPinduct will be ignored.')
-            Induction, Planet, Params = ReloadInductOgram(bodyname, Params, fNameOverride=fNameOverride)
-
-        if Params.CALC_ASYM:
-            # If we are doing asymmetry, limit to low-degree moments to compute in a reasonable time
-            Planet.Magnetic.pMax = 2
-        else:
-            Planet.Magnetic.pMax = 0
-        Planet.Magnetic.Texc_hr, Planet.Magnetic.omegaExc_radps, Planet.Magnetic.Benm_nT, \
-        Planet.Magnetic.B0_nT, _ \
-            = GetBexc(Planet.name, Planet.Magnetic.SCera, Planet.Magnetic.extModel,
-                      Params.Induct.excSelectionCalc, nprmMax=Planet.Magnetic.nprmMax,
-                      pMax=Planet.Magnetic.pMax)
-        Planet.Magnetic.nExc = np.size(Planet.Magnetic.Texc_hr)
-        Benm_nT = Planet.Magnetic.Benm_nT
+            InductionResults, Planet, Params = ReloadInductOgram(bodyname, Params, fNameOverride=fNameOverride)
+        
+        Planet, Params = SetupInduction(Planet, Params)
 
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
@@ -867,17 +879,19 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                 sigmaList = np.logspace(Params.Induct.sigmaMin[bodyname], Params.Induct.sigmaMax[bodyname], Params.Induct.nSigmaPts)
                 Dlist = np.logspace(Params.Induct.Dmin[bodyname], Params.Induct.Dmax[bodyname], Params.Induct.nDpts)
             else:
-                sigmaList = Induction.sigmaMean_Sm[:,0]
-                Dlist = Induction.D_km[0,:]
+                sigmaList = InductionResults.sigmaMean_Sm[:,0]
+                Dlist = InductionResults.D_km[0,:]
                 Params.Induct.sigmaMin[bodyname] = np.min(sigmaList)
                 Params.Induct.sigmaMax[bodyname] = np.max(sigmaList)
                 Params.Induct.nSigmaPts = np.size(sigmaList)
                 Params.Induct.Dmin[bodyname] = np.min(Dlist)
                 Params.Induct.Dmax[bodyname] = np.max(Dlist)
                 Params.Induct.nDpts = np.size(Dlist)
-                Params.Induct.zbFixed_km[bodyname] = Induction.zb_km[0,0]
+                Params.Induct.zbFixed_km[bodyname] = InductionResults.zb_km[0,0]
 
             Params.nModels = Params.Induct.nSigmaPts * Params.Induct.nDpts
+            InductionResults.xData = sigmaList
+            InductionResults.yData = Dlist
             Planet.zb_km = Params.Induct.zbFixed_km[bodyname]
             Planet.Magnetic.rSigChange_m = np.array([0, Planet.Bulk.R_m - Planet.zb_km * 1e3, Planet.Bulk.R_m])
             Planet.Magnetic.sigmaLayers_Sm = np.array([Planet.Ocean.sigmaIce_Sm['Ih'], 0, Planet.Sil.sigmaSil_Sm])
@@ -901,11 +915,13 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                 oceanCompList = loadmat(Params.DataFiles.xRangeData)['Data'].flatten().tolist()
                 zbApproximateList = np.linspace(Params.Induct.zbMin[bodyname], Params.Induct.zbMax[bodyname], Params.Induct.nZbPts)
             else:
-                zbApproximateList = Induction.zb_approximate_km[0,:]
-                oceanCompList = Induction.oceanComp[:,0]
+                zbApproximateList = InductionResults.zb_approximate_km[0,:]
+                oceanCompList = InductionResults.oceanComp[:,0]
 
             Params.Induct.nOceanCompPts = np.size(oceanCompList)
-
+            
+            InductionResults.xData = oceanCompList
+            InductionResults.yData = zbApproximateList
             Params.nModels = Params.Induct.nZbPts * Params.Induct.nOceanCompPts
             PlanetGrid = np.empty((Params.Induct.nOceanCompPts, Params.Induct.nZbPts), dtype=object)
 
@@ -921,8 +937,8 @@ def InductOgram(bodyname, Params, fNameOverride=None):
             else:
                 for i, oceanComp in enumerate(oceanCompList):
                     for j, zbApproximate_km in enumerate(zbApproximateList):
-                            Planet.Magnetic.rSigChange_m = Induction.rBds_m[i,j]
-                            Planet.Magnetic.sigmaLayers_Sm = Induction.sigmaLayers_Sm[i,j]
+                            Planet.Magnetic.rSigChange_m = InductionResults.rBds_m[i,j]
+                            Planet.Magnetic.sigmaLayers_Sm = InductionResults.sigmaLayers_Sm[i,j]
                             if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
                                 Planet.Do.VALID = False
                                 Planet.invalidReason = 'Some conductivity layers invalid'
@@ -933,7 +949,7 @@ def InductOgram(bodyname, Params, fNameOverride=None):
             if Params.CALC_NEW:
                 wList = np.logspace(Params.Induct.wMin[bodyname], Params.Induct.wMax[bodyname], Params.Induct.nwPts)
             else:
-                wList = Induction.wOcean_ppt[:,0]
+                wList = InductionResults.wOcean_ppt[:,0]
                 Params.Induct.wMin[bodyname] = np.min(wList)
                 Params.Induct.wMax[bodyname] = np.max(wList)
                 Params.Induct.nwPts = np.size(wList)
@@ -942,11 +958,13 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                 if Params.CALC_NEW:
                     TbList = np.linspace(Params.Induct.TbMin[bodyname], Params.Induct.TbMax[bodyname], Params.Induct.nTbPts)
                 else:
-                    TbList = Induction.Tb_K[0,:]
+                    TbList = InductionResults.Tb_K[0,:]
                     Params.Induct.TbMin[bodyname] = np.min(TbList)
                     Params.Induct.TbMax[bodyname] = np.max(TbList)
                     Params.Induct.nTbPts = np.size(TbList)
 
+                InductionResults.xData = wList
+                InductionResults.yData = TbList
                 Params.nModels = Params.Induct.nwPts * Params.Induct.nTbPts
                 PlanetGrid = np.empty((Params.Induct.nwPts, Params.Induct.nTbPts), dtype=object)
 
@@ -961,8 +979,8 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                 else:
                     for i, w_ppt in enumerate(wList):
                         for j, Tb_K in enumerate(TbList):
-                            Planet.Magnetic.rSigChange_m = Induction.rBds_m[i,j]
-                            Planet.Magnetic.sigmaLayers_Sm = Induction.sigmaLayers_Sm[i,j]
+                            Planet.Magnetic.rSigChange_m = InductionResults.rBds_m[i,j]
+                            Planet.Magnetic.sigmaLayers_Sm = InductionResults.sigmaLayers_Sm[i,j]
                             if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
                                 Planet.Do.VALID = False
                                 Planet.invalidReason = 'Some conductivity layers invalid'
@@ -977,11 +995,13 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                 if Params.CALC_NEW:
                     phiList = np.logspace(Params.Induct.phiMin[bodyname], Params.Induct.phiMax[bodyname], Params.Induct.nphiPts)
                 else:
-                    phiList = Induction.phiRockMax_frac[0,:]
+                    phiList = InductionResults.phiRockMax_frac[0,:]
                     Params.Induct.phiMin[bodyname] = np.min(phiList)
                     Params.Induct.phiMax[bodyname] = np.max(phiList)
                     Params.Induct.nphiPts = np.size(phiList)
 
+                InductionResults.xData = wList
+                InductionResults.yData = phiList
                 Params.nModels = Params.Induct.nwPts * Params.Induct.nphiPts
                 PlanetGrid = np.empty((Params.Induct.nwPts, Params.Induct.nphiPts), dtype=object)
 
@@ -996,8 +1016,8 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                 else:
                     for i, w_ppt in enumerate(wList):
                         for j, phiRockMax_frac in enumerate(phiList):
-                            Planet.Magnetic.rSigChange_m = Induction.rBds_m[i,j]
-                            Planet.Magnetic.sigmaLayers_Sm = Induction.sigmaLayers_Sm[i,j]
+                            Planet.Magnetic.rSigChange_m = InductionResults.rBds_m[i,j]
+                            Planet.Magnetic.sigmaLayers_Sm = InductionResults.sigmaLayers_Sm[i,j]
                             if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
                                 Planet.Do.VALID = False
                                 Planet.invalidReason = 'Some conductivity layers invalid'
@@ -1011,11 +1031,13 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                 if Params.CALC_NEW:
                     rhoList = np.linspace(Params.Induct.rhoMin[bodyname], Params.Induct.rhoMax[bodyname], Params.Induct.nrhoPts)
                 else:
-                    rhoList = Induction.rhoSilMean_kgm3[0,:]
+                    rhoList = InductionResults.rhoSilMean_kgm3[0,:]
                     Params.Induct.rhoMin[bodyname] = np.min(rhoList)
                     Params.Induct.rhoMax[bodyname] = np.max(rhoList)
                     Params.Induct.nrhoPts = np.size(rhoList)
 
+                InductionResults.xData = wList
+                InductionResults.yData = rhoList
                 Params.nModels = Params.Induct.nwPts * Params.Induct.nrhoPts
                 PlanetGrid = np.empty((Params.Induct.nwPts, Params.Induct.nrhoPts), dtype=object)
 
@@ -1030,8 +1052,8 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                 else:
                     for i, w_ppt in enumerate(wList):
                         for j, rhoSilWithCore_kgm3 in enumerate(rhoList):
-                            Planet.Magnetic.rSigChange_m = Induction.rBds_m[i,j]
-                            Planet.Magnetic.sigmaLayers_Sm = Induction.sigmaLayers_Sm[i,j]
+                            Planet.Magnetic.rSigChange_m = InductionResults.rBds_m[i,j]
+                            Planet.Magnetic.sigmaLayers_Sm = InductionResults.sigmaLayers_Sm[i,j]
                             if np.any(np.isnan(Planet.Magnetic.sigmaLayers_Sm)):
                                 Planet.Do.VALID = False
                                 Planet.invalidReason = 'Some conductivity layers invalid'
@@ -1046,158 +1068,53 @@ def InductOgram(bodyname, Params, fNameOverride=None):
         log.info('PlanetGrid constructed. Calculating induction responses.')
         Params.INDUCTOGRAM_IN_PROGRESS = True
         PlanetGrid = ParPlanet(PlanetGrid, Params)
+        Params.INDUCTOGRAM_IN_PROGRESS = False
         tMarks = np.append(tMarks, time.time())
         dt = tMarks[-1] - tMarks[-2]
         log.info(f'Parallel run elapsed time: {dt:.1f} s.')
-
-        # Organize data into a format that can be plotted/saved for plotting
-        Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(Benm_nT)
-        nPeaks = np.size(Bex_nT)
-
-        if Params.CALC_NEW:
-            Induction.bodyname = bodyname
-            Induction.yName = Params.Induct.inductOtype
-            Induction.wOcean_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
-            Induction.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
-            Induction.oceanComp = np.char.rstrip(Induction.oceanComp)
-            Induction.zb_approximate_km = np.array([[Planeti.Bulk.zb_approximate_km for Planeti in line] for line in PlanetGrid])
-            Induction.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
-            Induction.Tmean_K = np.array([[Planeti.Ocean.Tmean_K if Planeti.Ocean.Tmean_K is not None else np.nan for Planeti in line] for line in PlanetGrid])
-            Induction.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 if Planeti.Sil.rhoMean_kgm3 is not None else np.nan for Planeti in line] for line in PlanetGrid])
-            Induction.phiRockMax_frac = np.array([[Planeti.Sil.phiRockMax_frac if Planeti.Sil.phiRockMax_frac is not None else np.nan for Planeti in line] for line in PlanetGrid])
-            Induction.sigmaMean_Sm = np.array([[Planeti.Ocean.sigmaMean_Sm if Planeti.Ocean.sigmaMean_Sm is not None else np.nan for Planeti in line] for line in PlanetGrid])
-            Induction.sigmaTop_Sm = np.array([[Planeti.Ocean.sigmaTop_Sm if Planeti.Ocean.sigmaTop_Sm is not None else np.nan for Planeti in line] for line in PlanetGrid])
-            Induction.D_km = np.array([[Planeti.D_km if Planeti.D_km is not None else np.nan for Planeti in line] for line in PlanetGrid])
-            Induction.zb_km = np.array([[Planeti.zb_km if Planeti.zb_km is not None else np.nan for Planeti in line] for line in PlanetGrid])
-            Induction.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
-            nLayers = next(np.size(Planet.Magnetic.rSigChange_m) for Planet in PlanetGrid.flatten() if Planet.Magnetic.rSigChange_m is not None)
-            nanLayers = np.nan*np.empty(nLayers)
-            # Note: Induction.rBds_m and Induction.sigmaLayers_Sm can have different lengths for each entry in PlanetGrid.
-            # To make an array under this condition, the lists for these entries must be objects (tuples here).
-            Induction.rBds_m = np.array([[Planeti.Magnetic.rSigChange_m if Planeti.Magnetic.rSigChange_m is not None else nanLayers for Planeti in line] for line in PlanetGrid], dtype=np.float64)
-            Induction.sigmaLayers_Sm = np.array([[Planeti.Magnetic.sigmaLayers_Sm if Planeti.Magnetic.sigmaLayers_Sm is not None else nanLayers for Planeti in line] for line in PlanetGrid], dtype=np.float64)
-
-        Induction.Texc_hr = Mag.Texc_hr[bodyname]
-        Induction.Amp = np.array([[[Planeti.Magnetic.Amp[i] if Planeti.Magnetic.Amp is not None else np.nan for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
-        Induction.phase = np.array([[[Planeti.Magnetic.phase[i] if Planeti.Magnetic.phase is not None else np.nan for Planeti in line] for line in PlanetGrid] for i in range(nPeaks)])
-        Induction.Bix_nT = np.array([Induction.Amp[i, ...] * Bex_nT[i] for i in range(nPeaks)])
-        Induction.Biy_nT = np.array([Induction.Amp[i, ...] * Bey_nT[i] for i in range(nPeaks)])
-        Induction.Biz_nT = np.array([Induction.Amp[i, ...] * Bez_nT[i] for i in range(nPeaks)])
-
-        WriteInductOgram(Induction, Params)
-        Induction.SetAxes(Params.Induct.inductOtype)
-        Induction.SetComps(Params.Induct.inductOtype)
+        
+        InductionResults = ExtractResults(InductionResults, PlanetGrid, Params)
+        InductionResults.oceanComp = InductionResults.base.oceanComp
+        WriteResults(InductionResults, Params.DataFiles.inductOgramFile, Params.SAVE_AS_MATLAB, Params.DataFiles.inductOgramMatFile)
+        InductionResults.SetAxes(Params.Induct.inductOtype)
+        InductionResults.SetComps(Params.Induct.inductOtype)
 
     else:
         log.info(f'Reloading induct-o-gram type {Params.Induct.inductOtype}.')
-        Induction, _, Params = ReloadInductOgram(bodyname, Params, fNameOverride=fNameOverride)
+        InductionResults, _, Params = ReloadInductOgram(bodyname, Params, fNameOverride=fNameOverride)
 
-    return Induction, Params
-
-
-def WriteInductOgram(Induction, Params):
-    """ Organize Induction results from an induct-o-gram run into a dict
-        and print to a .mat file.
-    """
-
-    saveDict = {
-        'bodyname': Induction.bodyname,
-        'yName': Induction.yName,
-        'Texc_hr_keys': [key for key in Induction.Texc_hr.keys()],
-        'Texc_hr_values': [value if value is not None else np.nan for value in Induction.Texc_hr.values()],
-        'Amp': Induction.Amp,
-        'phase': Induction.phase,
-        'Bix_nT': Induction.Bix_nT,
-        'Biy_nT': Induction.Biy_nT,
-        'Biz_nT': Induction.Biz_nT,
-        'w_ppt': Induction.wOcean_ppt,
-        'oceanComp': Induction.oceanComp,
-        'Tb_K': Induction.Tb_K,
-        'Tmean_K': Induction.Tmean_K,
-        'rhoSilMean_kgm3': Induction.rhoSilMean_kgm3,
-        'phiRockMax_frac': Induction.phiRockMax_frac,
-        'sigmaMean_Sm': Induction.sigmaMean_Sm,
-        'sigmaTop_Sm': Induction.sigmaTop_Sm,
-        'D_km': Induction.D_km,
-        'zb_km': Induction.zb_km,
-        'R_m': Induction.R_m,
-        'rBds_m': Induction.rBds_m,
-        'sigmaLayers_Sm': Induction.sigmaLayers_Sm,
-        'zb_approximate_km': Induction.zb_approximate_km,
-    }
-    savemat(Params.DataFiles.inductOgramFile, saveDict)
-    log.info(f'Saved induct-o-gram {Params.DataFiles.inductOgramFile} to disk.')
-
-    return
+    return InductionResults, Params
 
 
 def ReloadInductOgram(bodyname, Params, fNameOverride=None):
     """ Reload a previously run induct-o-gram from disk.
     """
-
-    if bodyname[:4] == 'Test':
-        loadname = bodyname + ''
-        bodydir = _TestImport
+    if fNameOverride is None:
+        if bodyname[:4] == 'Test':
+            loadname = bodyname + ''
+            bodydir = _TestImport
+        else:
+            loadname = bodyname
+            bodydir = bodyname
+        planetModuleName = f'{bodydir}.PP{loadname}InductOgram'
     else:
-        loadname = bodyname
-        bodydir = bodyname
-    Planet = importlib.import_module(f'{bodydir}.PP{loadname}InductOgram').Planet
+        planetModuleName = f'{bodyname}.{fNameOverride[:-3]}'
+    
+    Planet = importlib.import_module(planetModuleName).Planet
     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
 
-    if fNameOverride is None:
-        loadFile = Params.DataFiles.inductOgramFile
+    if os.path.isfile(Params.DataFiles.inductOgramFile):
+        InductionResults = ReloadResultsFromPickle(Params.DataFiles.inductOgramFile)
     else:
-        if '.mat' in fNameOverride:
-            reload = loadmat(fNameOverride)
-        else:
-            bodydir = bodyname
-            Planet = importlib.import_module(f'{bodydir}.{fNameOverride[:-3]}').Planet
-        loadFile = fNameOverride
-        # Common setup for fnames that are not .mat already
-    if not (fNameOverride and '.mat' in fNameOverride):
-        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
-        loadFile = Params.DataFiles.inductOgramFile
-        
-        
-    if os.path.isfile(loadFile):
-        reload = loadmat(loadFile)
-        
-    else:
-        raise FileNotFoundError(f'Attempted to reload inductogram, but {loadFile} was not found. ' +
+        raise FileNotFoundError(f'Attempted to reload inductogram, but {Params.DataFiles.inductOgramFile} was not found. ' +
                                 'Re-run with Params.CALC_NEW_INDUCT = True in configPP.py.')
 
-    Induction = InductionStruct()
-    Induction.bodyname = reload['bodyname'][0]
-    Induction.yName = reload['yName'][0]
-    Induction.Texc_hr = {key.strip(): value if np.isfinite(value) else None for key, value in zip(reload['Texc_hr_keys'], reload['Texc_hr_values'][0])}
-    Induction.Amp = reload['Amp']
-    Induction.phase = reload['phase']
-    Induction.Bix_nT = reload['Bix_nT']
-    Induction.Biy_nT = reload['Biy_nT']
-    Induction.Biz_nT = reload['Biz_nT']
-    Induction.wOcean_ppt = reload['w_ppt']
-    Induction.oceanComp = reload['oceanComp']
-    Induction.oceanComp = np.char.rstrip(Induction.oceanComp)
-    Induction.Tb_K = reload['Tb_K']
-    Induction.Tmean_K = reload['Tmean_K']
-    Induction.rhoSilMean_kgm3 = reload['rhoSilMean_kgm3']
-    Induction.phiRockMax_frac = reload['phiRockMax_frac']
-    Induction.sigmaMean_Sm = reload['sigmaMean_Sm']
-    Induction.sigmaTop_Sm = reload['sigmaTop_Sm']
-    Induction.D_km = reload['D_km']
-    Induction.zb_km = reload['zb_km']
-    Induction.R_m = reload['R_m']
-    Induction.rBds_m = reload['rBds_m']
-    Induction.sigmaLayers_Sm = reload['sigmaLayers_Sm']
-    Induction.zb_approximate_km = reload['zb_approximate_km']
-    Induction.oceanComp = reload['oceanComp']
+    InductionResults.SetAxes(Params.Induct.inductOtype)
+    InductionResults.SetComps(Params.Induct.inductOtype)
 
-    Induction.SetAxes(Params.Induct.inductOtype)
-    Induction.SetComps(Params.Induct.inductOtype)
+    Params = SetupCustomSolutionPlotSettings(InductionResults.base.oceanComp, Params)
 
-    Params = SetupCustomSolutionPlotSettings(Induction.oceanComp, Params)
-
-    return Induction, Planet, Params
+    return InductionResults, Planet, Params
 
 
 def ParPlanet(PlanetList, Params):
@@ -1520,6 +1437,9 @@ def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
         funcName function.
     """
     PlanetList1D = np.reshape(PlanetGrid, -1)
+    if Params.PRELOAD_EOS:
+        log.info('Preloading EOS tables. This may take some time.')
+        PrecomputeEOS(PlanetList1D, Params)
     if Params.DO_PARALLEL:
         # Prevent slowdowns from competing process spawning when #cores > #jobs
         nCores = np.min([Params.maxCores, np.prod(np.shape(PlanetList1D)), Params.threadLimit])
@@ -1537,6 +1457,190 @@ def GridPlanetProfileFunc(FuncName, PlanetGrid, Params):
     PlanetGrid = np.reshape(PlanetList1D, np.shape(PlanetGrid))
 
     return PlanetGrid
+
+
+def MonteCarlo(bodyname, Params, fNameOverride=None):
+    """ Run PlanetProfile models with Monte Carlo parameter sampling to explore
+        parameter space and assess uncertainty.
+    """
+    if Params.CALC_NEW:
+        log.info(f'Running Monte Carlo exploration for {bodyname} with {Params.MonteCarlo.nRuns} samples.')
+
+        if bodyname[:4] == 'Test':
+            loadname = bodyname + ''
+            bodyname = 'Test'
+            bodydir = os.path.join('PlanetProfile', 'Test')
+        else:
+            loadname = bodyname
+            bodydir = bodyname
+        if fNameOverride is not None:
+            fName = fNameOverride
+        else:
+            fName = f'PP{loadname}.py'
+        expected = os.path.join(bodydir, fName)
+        if not os.path.isfile(expected):
+            default = os.path.join(_Defaults, bodydir, fName)
+            if os.path.isfile(default):
+                CopyCarefully(default, expected)
+            else:
+                log.warning(f'{expected} does not exist and no default was found at {default}.')
+        Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
+        tMarks = np.empty(0)
+        tMarks = np.append(tMarks, time.time())
+
+        # Initialize Monte Carlo results structure
+        MCResults = MonteCarloResultsStruct()
+        MCResults.bodyname = bodyname
+        MCResults.statistics.nRuns = Params.MonteCarlo.nRuns
+        MCResults.statistics.seed = Params.MonteCarlo.seed
+        
+        # Set random seed if provided
+        if Params.MonteCarlo.seed is not None:
+            np.random.seed(Params.MonteCarlo.seed)
+        
+        # Determine which parameters to search over
+        if Planet.Do.NON_SELF_CONSISTENT:
+            MCResults.statistics.paramsToSearch = Params.MonteCarlo.paramsToSearchNonSelfConsistent
+        else:
+            MCResults.statistics.paramsToSearch = Params.MonteCarlo.paramsToSearchSelfConsistent
+        
+        MCResults.statistics.paramsUsed = MCResults.statistics.paramsToSearch.copy()
+        MCResults.statistics.paramsRanges = {param: Params.MonteCarlo.paramsRanges[param] for param in MCResults.statistics.paramsToSearch}
+        MCResults.statistics.paramsDistributions = {param: Params.MonteCarlo.paramsDistributions[param] for param in MCResults.statistics.paramsToSearch}
+        
+        # Configure parameters for Monte Carlo runs
+        Params.nModels = MCResults.statistics.nRuns
+        Params.ALLOW_BROKEN_MODELS = True
+        Params.NO_SAVEFILE = True
+        if Params.CALC_NEW_GRAVITY:
+            log.warning(f'Params.CALC_NEW_GRAVITY is True. Will enable seismic and viscosity calculations.')
+            Params.CALC_VISCOSITY = True
+        if Params.CALC_NEW_INDUCT:
+            log.warning(f'Params.CALC_INDUCT is True. Will enable conductivity calculations and pre-load induction.')
+            Params.CALC_CONDUCT = True
+            Planet, Params = SetupInduction(Planet, Params)
+        else:
+            MCResults.induction.excSelectionCalc = {}
+            MCResults.induction.nPeaks = 0
+            
+        # Generate parameter samples
+        log.info(f'Generating {MCResults.statistics.nRuns} parameter samples...')
+        PlanetList = SampleMonteCarloParameters(MCResults, Planet, Params)
+        
+        # Set up filenames
+        Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params, monteCarloAppend='MonteCarlo', figExploreAppend=Params.Explore.zName)
+        Params.DataFiles = DataFiles
+        Params.FigureFiles = FigureFiles
+    
+            
+        # Set log level
+        if Params.DO_PARALLEL:
+                if Params.logParallel > logging.INFO:
+                    log.info('Quieting messages to avoid spam in gridded run.')
+                saveLevel = log.getEffectiveLevel() + 0
+                log.setLevel(Params.logParallel)
+        else:
+            saveLevel = log.getEffectiveLevel() + 0
+        
+        # Set flag to indicate that we are running Monte Carlo
+        Params.MONTECARLO_IN_PROGRESS = True
+        
+        # Run Monte Carlo models in parallel
+        log.info(f'Running {MCResults.statistics.nRuns} Monte Carlo models...')
+        tMarks = np.append(tMarks, time.time())
+        PlanetList = GridPlanetProfileFunc(PlanetProfile, np.array(PlanetList), Params)
+        tMarks = np.append(tMarks, time.time())
+        dt = tMarks[-1] - tMarks[-2]
+        MCResults.statistics.totalTime_s = dt
+        MCResults.statistics.avgTime_s = dt / MCResults.statistics.nRuns
+        log.info(f'Monte Carlo run elapsed time: {dt:.1f} s.')
+        # Reset log level
+        log.setLevel(saveLevel)
+        # Reset flag to indicate that we are not running Monte Carlo
+        Params.MONTECARLO_IN_PROGRESS = False
+        
+        # Exploreogram results
+        MCResults = ExtractResults(MCResults, PlanetList, Params)
+        # Save results
+        WriteResults(MCResults, Params.DataFiles.montecarloFile, Params.SAVE_AS_MATLAB, Params.DataFiles.montecarloMatFile)
+        
+        
+    else:
+        log.info(f'Reloading Monte Carlo results for {bodyname}.')
+        MCResults, Params = ReloadMonteCarloResults(bodyname, Params, fNameOverride=fNameOverride)
+    
+    return MCResults, Params
+
+
+def SampleMonteCarloParameters(MCResults, basePlanet, Params):
+    """ Generate Monte Carlo parameter samples and create PlanetList with sampled parameters.
+    """
+    PlanetList = []
+    MCResults.statistics.paramValues = {}
+    
+    # Initialize parameter value storage
+    for param in MCResults.statistics.paramsToSearch:
+        if param == 'oceanComp':
+            MCResults.statistics.paramValues[param] = np.empty(MCResults.statistics.nRuns, dtype=object)
+        else:
+            MCResults.statistics.paramValues[param] = np.empty(MCResults.statistics.nRuns)
+    
+    # Set index marker
+    k = 1
+    for i in range(MCResults.statistics.nRuns):
+        planet = deepcopy(basePlanet)
+        planet.index = k
+        
+        # Sample and assign parameters
+        for param in MCResults.statistics.paramsToSearch:
+            paramRange = MCResults.statistics.paramsRanges[param]
+            distribution = MCResults.statistics.paramsDistributions[param]
+            
+            if distribution == 'uniform':
+                val = np.random.uniform(paramRange[0], paramRange[1])
+            elif distribution == 'discrete':
+                paramSize = len(paramRange)
+                index = np.random.randint(0, paramSize)
+                val = paramRange[index]
+            else:
+                raise ValueError(f'Distribution type {distribution} not implemented.')
+            
+            # Store sampled value
+            MCResults.statistics.paramValues[param][i] = val
+            
+            # Assign value to planet
+            planet = AssignPlanetVal(planet, param, val)
+        
+        PlanetList.append(planet)
+        
+        # Update index
+        k += 1
+    
+    return PlanetList
+
+
+def ReloadMonteCarloResults(bodyname, Params, fNameOverride=None):
+    """ Reload previously saved Monte Carlo results.
+    """
+    if fNameOverride is None:
+        if bodyname[:4] == 'Test':
+            loadname = bodyname + ''
+            bodydir = _TestImport
+        else:
+            loadname = bodyname
+            bodydir = bodyname
+        Planet = importlib.import_module(f'{bodydir}.PP{loadname}').Planet
+        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params, monteCarloAppend='MonteCarlo', figExploreAppend=Params.Explore.zName)
+        fName = Params.DataFiles.montecarloFile
+    else:
+        bodydir = bodyname
+        Planet = importlib.import_module(f'{bodydir}.{fNameOverride[:-3]}').Planet
+        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params, monteCarloAppend='MonteCarlo', figExploreAppend=Params.Explore.zName)
+        fName = Params.DataFiles.montecarloFile
+
+    MCResults = ReloadResultsFromPickle(fName)
+
+    return MCResults, Params
 
 
 def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnetic=None):
@@ -1570,16 +1674,18 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
 
         if Magnetic is not None:
             Planet.Magnetic = Magnetic
+        else:
+            if Params.CALC_NEW_INDUCT:
+                Params.CALC_CONDUCT = True
+                Planet, Params = SetupInduction(Planet, Params)
 
-        Exploration = ExplorationStruct()
+
+        Exploration = ExplorationResultsStruct()
         Exploration.xName = Params.Explore.xName
         Exploration.yName = Params.Explore.yName
         Exploration.zName = Params.Explore.zName
         Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}_{Exploration.yName}{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}',
                                                 figExploreAppend=Params.Explore.zName)
-        if bodyname == 'Test':
-            Params.Explore.nx = 5
-            Params.Explore.ny = 5
 
         if Params.Explore.xName in Params.Explore.provideExploreRange:
             xList = loadmat(DataFiles.xRangeData)['Data'].flatten().tolist()
@@ -1587,16 +1693,24 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
             if Params.Explore.nx != len(xList):
                 raise ValueError(f"Size of provided range list ({len(xList)}) does not match input Params.Explore.nx {Params.Explore.nx}. Adjust so they match.")
         else:
-            xList = np.linspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
+            if Exploration.xName in Params.Explore.exploreLogScale:
+                xList = np.logspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
+            else:
+                xList = np.linspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
         if Params.Explore.yName in Params.Explore.provideExploreRange:
             yList = loadmat(DataFiles.yRangeData)['Data'].flatten().tolist()
             yList = [s.strip() if isinstance(s, str) else s for s in yList]
             if Params.Explore.ny != len(yList):
                 raise ValueError(f"Size of provided range list ({len(yList)}) does not match input Params.Explore.nx {Params.Explore.ny}. Adjust so they match.")
         else:
-            yList = np.linspace(Params.Explore.yRange[0], Params.Explore.yRange[1], Params.Explore.ny)
+            if Exploration.yName in Params.Explore.exploreLogScale:
+                yList = np.logspace(Params.Explore.yRange[0], Params.Explore.yRange[1], Params.Explore.ny)
+            else:
+                yList = np.linspace(Params.Explore.yRange[0], Params.Explore.yRange[1], Params.Explore.ny)
 
         Params.nModels = Params.Explore.nx * Params.Explore.ny
+        Exploration.xData = xList
+        Exploration.yData = yList
         if not Params.SKIP_INNER:
             log.warning('Running explore-o-gram with interior calculations, which will be slow.')
         
@@ -1606,7 +1720,9 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
         Params.ALLOW_BROKEN_MODELS = True
 
         tMarks = np.append(tMarks, time.time())
+        Params.EXPLOREOGRAM_IN_PROGRESS = True
         PlanetGrid = ParPlanetExplore(Planet, Params, xList, yList)
+        Params.EXPLOREOGRAM_IN_PROGRESS = False
         tMarks = np.append(tMarks, time.time())
         dt = tMarks[-1] - tMarks[-2]
         log.info(f'Parallel run elapsed time: {dt:.1f} s.')
@@ -1616,83 +1732,26 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
         PlanetList = np.reshape(PlanetGrid, -1)
         PlanetList, Params = GetLayerMeans(PlanetList, Params)
         PlanetGrid = np.reshape(PlanetList, gridShape)
+        
+        Exploration = ExtractResults(Exploration, PlanetGrid, Params)
 
-        # Organize data into a format that can be plotted/saved for plotting
-        Exploration.bodyname = bodyname
-        Exploration.NO_H2O = PlanetGrid[0,0].Do.NO_H2O
-        Exploration.CMR2str = f'$C/MR^2 = {PlanetGrid[0,0].CMR2str}$'
-        Exploration.Cmeasured = PlanetGrid[0,0].Bulk.Cmeasured
-        Exploration.Cupper = PlanetGrid[0,0].Bulk.CuncertaintyUpper
-        Exploration.Clower = PlanetGrid[0,0].Bulk.CuncertaintyLower
-        Exploration.wOcean_ppt = np.array([[Planeti.Ocean.wOcean_ppt for Planeti in line] for line in PlanetGrid])
-        Exploration.oceanComp = np.array([[Planeti.Ocean.comp for Planeti in line] for line in PlanetGrid])
-        Exploration.R_m = np.array([[Planeti.Bulk.R_m for Planeti in line] for line in PlanetGrid])
-        Exploration.Tb_K = np.array([[Planeti.Bulk.Tb_K for Planeti in line] for line in PlanetGrid])
-        Exploration.zb_approximate_km = np.array([[Planeti.Bulk.zb_approximate_km for Planeti in line] for line in PlanetGrid])
-        Exploration.xFeS = np.array([[Planeti.Core.xFeS for Planeti in line] for line in PlanetGrid])
-        Exploration.rhoSilInput_kgm3 = np.array([[Planeti.Sil.rhoSilWithCore_kgm3 for Planeti in line] for line in PlanetGrid])
-        Exploration.silPhi_frac = np.array([[Planeti.Sil.phiRockMax_frac for Planeti in line] for line in PlanetGrid])
-        Exploration.silPhiCalc_frac = np.array([[Planeti.Sil.phiCalc_frac for Planeti in line] for line in PlanetGrid])
-        Exploration.phiSeafloor_frac = np.array([[Planeti.phiSeafloor_frac for Planeti in line] for line in PlanetGrid])
-        Exploration.icePhi_frac = np.array([[Planeti.Ocean.phiMax_frac['Ih'] for Planeti in line] for line in PlanetGrid])
-        Exploration.silPclosure_MPa = np.array([[Planeti.Sil.Pclosure_MPa for Planeti in line] for line in PlanetGrid])
-        Exploration.icePclosure_MPa = np.array([[Planeti.Ocean.Pclosure_MPa['Ih'] for Planeti in line] for line in PlanetGrid])
-        Exploration.ionosTop_km = np.array([[Planeti.Magnetic.ionosBounds_m[-1]/1e3 for Planeti in line] for line in PlanetGrid])
-        Exploration.sigmaIonos_Sm = np.array([[Planeti.Magnetic.sigmaIonosPedersen_Sm[-1] for Planeti in line] for line in PlanetGrid])
-        Exploration.Htidal_Wm3 = np.array([[Planeti.Sil.Htidal_Wm3 for Planeti in line] for line in PlanetGrid])
-        Exploration.Qrad_Wkg = np.array([[Planeti.Sil.Qrad_Wkg for Planeti in line] for line in PlanetGrid])
-        Exploration.rhoOceanMean_kgm3 = np.array([[Planeti.Ocean.rhoMean_kgm3 for Planeti in line] for line in PlanetGrid])
-        Exploration.rhoSilMean_kgm3 = np.array([[Planeti.Sil.rhoMean_kgm3 for Planeti in line] for line in PlanetGrid])
-        Exploration.rhoCoreMean_kgm3 = np.array([[Planeti.Core.rhoMean_kgm3 for Planeti in line] for line in PlanetGrid])
-        Exploration.sigmaMean_Sm = np.array([[Planeti.Ocean.sigmaMean_Sm for Planeti in line] for line in PlanetGrid])
-        Exploration.sigmaTop_Sm = np.array([[Planeti.Ocean.sigmaTop_Sm for Planeti in line] for line in PlanetGrid])
-        Exploration.Tmean_K = np.array([[Planeti.Ocean.Tmean_K for Planeti in line] for line in PlanetGrid])
-        Exploration.D_km = np.array([[Planeti.D_km for Planeti in line] for line in PlanetGrid])
-        Exploration.zb_km = np.array([[Planeti.zb_km for Planeti in line] for line in PlanetGrid])
-        Exploration.zSeafloor_km = Exploration.zb_km + Exploration.D_km
-        Exploration.dzIceI_km = np.array([[Planeti.dzIceI_km for Planeti in line] for line in PlanetGrid])
-        Exploration.dzClath_km = np.array([[Planeti.dzClath_km for Planeti in line] for line in PlanetGrid])
-        Exploration.dzIceIII_km = np.array([[Planeti.dzIceIII_km for Planeti in line] for line in PlanetGrid])
-        Exploration.dzIceIIIund_km = np.array([[Planeti.dzIceIIIund_km for Planeti in line] for line in PlanetGrid])
-        Exploration.dzIceV_km = np.array([[Planeti.dzIceV_km for Planeti in line] for line in PlanetGrid])
-        Exploration.dzIceVund_km = np.array([[Planeti.dzIceVund_km for Planeti in line] for line in PlanetGrid])
-        Exploration.dzIceVI_km = np.array([[Planeti.dzIceVI_km for Planeti in line] for line in PlanetGrid])
-        Exploration.dzWetHPs_km = np.array([[Planeti.dzWetHPs_km for Planeti in line] for line in PlanetGrid])
-        Exploration.eLid_km = np.array([[Planeti.eLid_m/1e3 for Planeti in line] for line in PlanetGrid])
-        Exploration.Rcore_km = np.array([[Planeti.Core.Rmean_m/1e3 for Planeti in line] for line in PlanetGrid])
-        Exploration.Pseafloor_MPa = np.array([[Planeti.Pseafloor_MPa for Planeti in line] for line in PlanetGrid])
-        Exploration.qSurf_Wm2 = np.array([[Planeti.qSurf_Wm2 for Planeti in line] for line in PlanetGrid])
-        Exploration.h_love_number = np.array([[Planeti.Gravity.h for Planeti in line] for line in PlanetGrid])
-        Exploration.l_love_number = np.array([[Planeti.Gravity.l for Planeti in line] for line in PlanetGrid])
-        Exploration.k_love_number = np.array([[Planeti.Gravity.k for Planeti in line] for line in PlanetGrid])
-        Exploration.affinityMean_kJ = np.array([[Planeti.Ocean.affinityMean_kJ for Planeti in line] for line in PlanetGrid])
-        Exploration.affinitySeafloor_kJ = np.array([[Planeti.Ocean.affinitySeafloor_kJ for Planeti in line] for line in PlanetGrid])
-        Exploration.delta_love_number_relation = np.array([[Planeti.Gravity.delta for Planeti in line] for line in PlanetGrid])
-        Exploration.CMR2calc = np.array([[Planeti.CMR2mean for Planeti in line] for line in PlanetGrid])
-        Exploration.VALID = np.array([[Planeti.Do.VALID for Planeti in line] for line in PlanetGrid])
-        Exploration.invalidReason = np.array([[Planeti.invalidReason for Planeti in line] for line in PlanetGrid])
-        if not np.any(Exploration.VALID):
+        
+        if not np.any(Exploration.base.VALID):
             log.warning('No valid models appeared for the given input settings in this ExploreOgram.')
-
-        # Ensure everything is set so things will play nicely with .mat saving and plotting functions
-        nans = np.nan * Exploration.R_m
-        for name, attr in Exploration.__dict__.items():
-            if attr is None:
-                setattr(Exploration, name, nans)
 
         Params.DataFiles = DataFiles
         Params.FigureFiles = FigureFiles
-        WriteExploreOgram(Exploration, Params)
+        WriteResults(Exploration, Params.DataFiles.exploreOgramFile, Params.SAVE_AS_MATLAB, Params.DataFiles.exploreOgramMatFile)
     else:
         log.info(f'Reloading explore-o-gram for {bodyname}.')
         if RETURN_GRID:
-            Planet, Exploration, Params = ReloadExploreOgram(bodyname, Params, fNameOverride=fNameOverride, RETURN_PLANET = True)
+            Exploration, Planet, Params = ReloadExploreOgram(bodyname, Params, fNameOverride=fNameOverride, RETURN_PLANET = True)
             PlanetGrid = np.empty((Params.Explore.nx, Params.Explore.ny), dtype=object)
             
             # Get the parameter arrays from the exploration object
-            x_attr = getattr(Exploration, Params.Explore.xName, None)
-            y_attr = getattr(Exploration, Params.Explore.yName, None)
-            valid_attr = getattr(Exploration, 'VALID', None)
+            x_attr = getattr(Exploration.base, Params.Explore.xName)
+            y_attr = getattr(Exploration.base, Params.Explore.yName)
+            valid_attr = getattr(Exploration.base, 'VALID')
             
             if x_attr is None or y_attr is None:
                 raise ValueError(f"Unable to find parameter {Params.Explore.xName} or {Params.Explore.yName} in Exploration object")
@@ -1708,9 +1767,10 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
                     PlanetGrid[i,j] = AssignPlanetVal(PlanetGrid[i,j], Params.Explore.yName, y_attr[i,j])
                     PlanetGrid[i,j].Do.VALID = valid_attr[i,j]
             # Load the profiles for the valid models
+            Params.DO_EXPLOREOGRAM = False
             for Planet in PlanetGrid.flatten():
-                if Planet.Do.VALID:
-                    Planet, _ = ReloadProfile(Planet, Params)
+                Planet, _ = PlanetProfile(Planet, deepcopy(Params))     
+            Params.DO_EXPLOREOGRAM = True
         else:
             Exploration, Params = ReloadExploreOgram(bodyname, Params, fNameOverride=fNameOverride)
 
@@ -1739,79 +1799,134 @@ def AssignPlanetVal(Planet, name, val):
             qSurf_Wm2: Surface heat flux for waterless bodies in Planet.Bulk.qSurf_Wm2
             ionosTop_km: Ionosphere upper limit altitude above the surface in km, used in Planet.Magnetic.ionosBounds_m.
             sigmaIonos_Sm: Ionosphere Pedersen conductivity in S/m in Planet.Magnetic.sigmaIonosPedersen_Sm.
+            
+            Monte Carlo non-self-consistent parameters:
+            dzIceI_km: Ice shell thickness in km in Planet.dzIceI_km
+            D_km: Ocean thickness in km in Planet.D_km
+            Core_R_km: Core radius in km (converted to m in Planet.Core.Rmean_m)
+            rho_iceCond_kgm3: Conductive ice density in kg/m³ in Planet.Ocean.rhoCondMean_kgm3['Ih']
+            rho_iceConv_kgm3: Convective ice density in kg/m³ in Planet.Ocean.rhoConvMean_kgm3['Ih']
+            rho_ocean_kgm3: Ocean density in kg/m³ in Planet.Ocean.rhoMean_kgm3
+            rho_sil_kgm3: Silicate density in kg/m³ in Planet.Sil.rhoMean_kgm3
+            rho_core_kgm3: Core density in kg/m³ in Planet.Core.rhoMean_kgm3
+            GS_ice_GPa: Ice shear modulus in GPa in Planet.Ocean.GScondMean_GPa['Ih']
+            GS_sil_GPa: Silicate shear modulus in GPa in Planet.Sil.GSmean_GPa
+            GS_core_GPa: Core shear modulus in GPa in Planet.Core.GSmean_GPa
     """
-
+    
     if name == 'R_m':
         Planet.Bulk.R_m = val
-    elif name == 'xFeS':
-        Planet.Core.xFeS = val
-        Planet.Do.CONSTANT_INNER_DENSITY = True
-    elif name == 'rhoSilInput_kgm3':
-        Planet.Sil.rhoSilWithCore_kgm3 = val
-        Planet.Do.CONSTANT_INNER_DENSITY = True
-    elif name == 'wOcean_ppt':
-        Planet.Ocean.wOcean_ppt = val
-    elif name == 'Tb_K':
-        Planet.Bulk.Tb_K = val
-    elif name == 'zb_approximate_km':
-        Planet.Bulk.zb_approximate_km = val
-        Planet.Do.ICEIh_THICKNESS = True
-    elif name == 'ionosTop_km' or name == 'sigmaIonos_Sm':
-        # Make sure ionosphere top altitude and conductivity are both set and valid
-        if Planet.Magnetic.ionosBounds_m is None or np.any(np.isnan(Planet.Magnetic.ionosBounds_m)):
-            Planet.Magnetic.ionosBounds_m = [Constants.ionosTopDefault_km*1e3]
-        elif not isinstance(Planet.Magnetic.ionosBounds_m, Iterable):
-            Planet.Magnetic.ionosBounds_m = [Planet.Magnetic.ionosBounds_m]
+    elif not Planet.Do.NON_SELF_CONSISTENT:
+        if name == 'xFeS':
+            Planet.Core.xFeS = val
+            Planet.Do.CONSTANT_INNER_DENSITY = True
+        elif name == 'rhoSilInput_kgm3':
+            Planet.Sil.rhoSilWithCore_kgm3 = val
+            Planet.Do.CONSTANT_INNER_DENSITY = True
+        elif name == 'wOcean_ppt':
+            Planet.Ocean.wOcean_ppt = val
+        elif name == 'Tb_K':
+            Planet.Bulk.Tb_K = val
+        elif name == 'zb_approximate_km':
+            Planet.Bulk.zb_approximate_km = val
+            Planet.Do.ICEIh_THICKNESS = True
+        elif name == 'ionosTop_km' or name == 'sigmaIonos_Sm':
+            # Make sure ionosphere top altitude and conductivity are both set and valid
+            if Planet.Magnetic.ionosBounds_m is None or np.any(np.isnan(Planet.Magnetic.ionosBounds_m)):
+                Planet.Magnetic.ionosBounds_m = [Constants.ionosTopDefault_km*1e3]
+            elif not isinstance(Planet.Magnetic.ionosBounds_m, Iterable):
+                Planet.Magnetic.ionosBounds_m = [Planet.Magnetic.ionosBounds_m]
 
-        if Planet.Magnetic.sigmaIonosPedersen_Sm is None or np.any(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
-            Planet.Magnetic.sigmaIonosPedersen_Sm = [Constants.sigmaIonosPedersenDefault_Sm]
-        elif not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
-            Planet.Magnetic.sigmaIonosPedersen_Sm = [Planet.Magnetic.sigmaIonosPedersen_Sm]
+            if Planet.Magnetic.sigmaIonosPedersen_Sm is None or np.any(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
+                Planet.Magnetic.sigmaIonosPedersen_Sm = [Constants.sigmaIonosPedersenDefault_Sm]
+            elif not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
+                Planet.Magnetic.sigmaIonosPedersen_Sm = [Planet.Magnetic.sigmaIonosPedersen_Sm]
 
-        if name == 'ionosTop_km':
-            Planet.Magnetic.ionosBounds_m[-1] = val*1e3
-        else:
-            Planet.Magnetic.sigmaIonosPedersen_Sm[-1] = val
-    elif name == 'silPhi_frac':
-        Planet.Sil.phiRockMax_frac = val
-        if val == 0:
-            Planet.Do.POROUS_ROCK = False
-        else:
+            if name == 'ionosTop_km':
+                Planet.Magnetic.ionosBounds_m[-1] = val*1e3
+            else:
+                Planet.Magnetic.sigmaIonosPedersen_Sm[-1] = val
+        elif name == 'silPhi_frac':
+            Planet.Sil.phiRockMax_frac = val
             Planet.Do.POROUS_ROCK = True
-        Planet.Do.CONSTANT_INNER_DENSITY = False
-    elif name == 'silPclosure_MPa':
-        Planet.Sil.Pclosure_MPa = val
-        Planet.Do.POROUS_ROCK = True
-        Planet.Do.CONSTANT_INNER_DENSITY = False
-    elif name == 'icePhi_frac':
-        Planet.Ocean.phiMax_frac = {key: val for key in Planet.Ocean.phiMax_frac.keys()}
-        if val == 0:
-            Planet.Do.POROUS_ICE = False
-        else:
+            Planet.Do.CONSTANT_INNER_DENSITY = False
+        elif name == 'silPclosure_MPa':
+            Planet.Sil.Pclosure_MPa = val
+            Planet.Do.POROUS_ROCK = True
+            Planet.Do.CONSTANT_INNER_DENSITY = False
+        elif name == 'icePhi_frac':
+            Planet.Ocean.phiMax_frac = {key: val for key in Planet.Ocean.phiMax_frac.keys()}
             Planet.Do.POROUS_ICE = True
-    elif name == 'icePclosure_MPa':
-        Planet.Ocean.Pclosure_MPa = {key: val for key in Planet.Ocean.Pclosure_MPa.keys()}
-        Planet.Do.POROUS_ICE = True
-    elif name == 'Htidal_Wm3':
-        Planet.Sil.Htidal_Wm3 = val
-    elif name == 'Qrad_Wkg':
-        Planet.Sil.Qrad_Wkg = val
-    elif name == 'qSurf_Wm2':
-        Planet.Bulk.qSurf_Wm2 = val
-    elif name == 'oceanComp':
-        Planet.Ocean.comp = val
-    elif name == 'compSil':
-        Planet.Sil.mantleEOS = val
-        Planet.Do.CONSTANT_INNER_DENSITY = False
-    elif name == 'compFe':
-        Planet.Core.coreEOS = val
-        Planet.Do.CONSTANT_INNER_DENSITY = False
-    elif name == 'wFeCore_ppt':
-        Planet.Core.wFe_ppt = val
-        Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
-        Planet.Do.CONSTANT_INNER_DENSITY = False
+        elif name == 'icePclosure_MPa':
+            Planet.Ocean.Pclosure_MPa = {key: val for key in Planet.Ocean.Pclosure_MPa.keys()}
+            Planet.Do.POROUS_ICE = True
+        elif name == 'Htidal_Wm3':
+            Planet.Sil.Htidal_Wm3 = val
+        elif name == 'Qrad_Wkg':
+            Planet.Sil.Qrad_Wkg = val
+        elif name == 'qSurf_Wm2':
+            Planet.Bulk.qSurf_Wm2 = val
+        elif name == 'oceanComp':
+            Planet.Ocean.comp = val
+        elif name == 'compSil':
+            Planet.Sil.mantleEOS = val
+            Planet.Do.CONSTANT_INNER_DENSITY = False
+        elif name == 'compFe':
+            Planet.Core.coreEOS = val
+            Planet.Do.CONSTANT_INNER_DENSITY = False
+        elif name == 'wFeCore_ppt':
+            Planet.Core.wFe_ppt = val
+            Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
+            Planet.Do.CONSTANT_INNER_DENSITY = False
+        elif name == 'mixingRatioToH2O':
+            if Planet.Ocean.Reaction.speciesRatioToChange is None:
+                raise ValueError(f'Planet.Ocean.Reaction.speciesRatioToChange is not set but you are trying to explore over mixingRatioToH2O. Please set it to the species you want to change the ratio of.')
+            Planet.Ocean.Reaction.speciesToChangeMixingRatio = val
+            Planet.Ocean.Reaction.mixingRatioToH2O[Planet.Ocean.Reaction.speciesRatioToChange] = Planet.Ocean.Reaction.speciesToChangeMixingRatio
     else:
-        log.warning(f'No defined behavior for Planet setting named "{name}". Returning unchanged.')
+        # Monte Carlo non-self-consistent parameters
+        if name == 'dzIceI_km':
+            Planet.dzIceI_km = val
+        elif name == 'D_km':
+            Planet.D_km = val
+        elif name == 'Core_R_km':
+            Planet.Core.Rmean_m = val * 1e3  # Convert km to m
+        elif name == 'rho_iceIhCond_kgm3':
+            Planet.Ocean.rhoCondMean_kgm3['Ih'] = val
+        elif name == 'rho_iceIhConv_kgm3':
+            Planet.Ocean.rhoConvMean_kgm3['Ih'] = val
+        elif name == 'rho_ocean_kgm3':
+            Planet.Ocean.rhoMean_kgm3 = val
+        elif name == 'rho_sil_kgm3':
+            Planet.Sil.rhoMean_kgm3 = val
+        elif name == 'rho_core_kgm3':
+            Planet.Core.rhoMean_kgm3 = val
+        elif name == 'GS_condIh_GPa':
+            Planet.Ocean.GScondMean_GPa['Ih'] = val
+        elif name == 'GS_convIh_GPa':
+            Planet.Ocean.GSconvMean_GPa['Ih'] = val
+        elif name == 'GS_sil_GPa':
+            Planet.Sil.GSmean_GPa = val
+        elif name == 'GS_core_GPa':
+            Planet.Core.GSmean_GPa = val
+        elif name == 'kThermWater_WmK':
+            Planet.Ocean.kThermWater_WmK = val
+        elif name == 'kThermIceIh_WmK':
+            Planet.Ocean.kThermIce_WmK['Ih'] = val
+        elif name == 'kThermCore_WmK':
+            Planet.Core.kTherm_WmK = val
+        elif name == 'etaSil_Pas':
+            Planet.Sil.etaRock_Pas = val
+        elif name == 'etaMelt_Pas':
+            Planet.etaMelt_Pas = val
+        elif name == 'TSurf_K':
+            Planet.Bulk.TSurf_K = val
+        elif name == 'EactIceIh_kJmol':
+            Planet.Ocean.Eact_kJmol['Ih'] = val
+        elif name == 'AndradeExponent':
+            Planet.Gravity.andradExponent = val
+        else:
+            log.warning(f'No defined behavior for Planet setting named "{name}". Returning unchanged.')
 
     # Do some final checks to ensure we have set all variables correctly
     if Planet.Do.POROUS_ROCK:
@@ -1825,85 +1940,6 @@ def AssignPlanetVal(Planet, name, val):
     return Planet
 
 
-def WriteExploreOgram(Exploration, Params, INVERSION=False):
-    """ Organize Exploration results from an explore-o-gram run into a dict
-        and print to a .mat file.
-    """
-
-    saveDict = {
-        'bodyname': Exploration.bodyname,
-        'NO_H2O': Exploration.NO_H2O,
-        'CMR2str': Exploration.CMR2str,
-        'Cmeasured': Exploration.Cmeasured,
-        'Cupper': Exploration.Cupper,
-        'Clower': Exploration.Clower,
-        'xName': Exploration.xName,
-        'yName': Exploration.yName,
-        'wOcean_ppt': Exploration.wOcean_ppt,
-        'oceanComp': Exploration.oceanComp,
-        'R_m': Exploration.R_m,
-        'Tb_K': Exploration.Tb_K,
-        'zb_approximate_km': Exploration.zb_approximate_km,
-        'xFeS': Exploration.xFeS,
-        'rhoSilInput_kgm3': Exploration.rhoSilInput_kgm3,
-        'silPhi_frac': Exploration.silPhi_frac,
-        'icePhi_frac': Exploration.icePhi_frac,
-        'silPclosure_MPa': Exploration.silPclosure_MPa,
-        'icePclosure_MPa': Exploration.icePclosure_MPa,
-        'ionosTop_km': Exploration.ionosTop_km,
-        'sigmaIonos_Sm': Exploration.sigmaIonos_Sm,
-        'Htidal_Wm3': Exploration.Htidal_Wm3,
-        'Qrad_Wkg': Exploration.Qrad_Wkg,
-        'rhoOceanMean_kgm3': Exploration.rhoOceanMean_kgm3,
-        'rhoSilMean_kgm3': Exploration.rhoSilMean_kgm3,
-        'rhoCoreMean_kgm3': Exploration.rhoCoreMean_kgm3,
-        'sigmaMean_Sm': Exploration.sigmaMean_Sm,
-        'sigmaTop_Sm': Exploration.sigmaTop_Sm,
-        'Tmean_K': Exploration.Tmean_K,
-        'D_km': Exploration.D_km,
-        'zb_km': Exploration.zb_km,
-        'zSeafloor_km': Exploration.zSeafloor_km,
-        'dzIceI_km': Exploration.dzIceI_km,
-        'dzClath_km': Exploration.dzClath_km,
-        'dzIceIII_km': Exploration.dzIceIII_km,
-        'dzIceIIIund_km': Exploration.dzIceIIIund_km,
-        'dzIceV_km': Exploration.dzIceV_km,
-        'dzIceVund_km': Exploration.dzIceVund_km,
-        'dzIceVI_km': Exploration.dzIceVI_km,
-        'dzWetHPs_km': Exploration.dzWetHPs_km,
-        'eLid_km': Exploration.eLid_km,
-        'Rcore_km': Exploration.Rcore_km,
-        'silPhiCalc_frac': Exploration.silPhiCalc_frac,
-        'Pseafloor_MPa': Exploration.Pseafloor_MPa,
-        'phiSeafloor_frac': Exploration.phiSeafloor_frac,
-        'h_love_number': Exploration.h_love_number,
-        'l_love_number': Exploration.l_love_number,
-        'k_love_number': Exploration.k_love_number,
-        'affinityMean_kJ': Exploration.affinityMean_kJ,
-        'affinitySeafloor_kJ': Exploration.affinitySeafloor_kJ,
-        'delta_love_number_relation': Exploration.delta_love_number_relation,
-        'CMR2calc': Exploration.CMR2calc,
-        'VALID': Exploration.VALID,
-        'invalidReason': Exploration.invalidReason
-    }
-
-    if INVERSION:
-        saveDict['Amp'] = Exploration.Amp
-        saveDict['phase'] = Exploration.phase
-        saveDict['RMSe'] = Exploration.RMSe
-        saveDict['chiSquared'] = Exploration.chiSquared
-        saveDict['stdDev'] = Exploration.stdDev
-        saveDict['Rsquared'] = Exploration.Rsquared
-        fName = Params.DataFiles.invertOgramFile
-    else:
-        fName = Params.DataFiles.exploreOgramFile
-
-    savemat(fName, saveDict)
-    log.info(f'Saved explore-o-gram {fName} to disk.')
-
-    return
-
-
 def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False, RETURN_PLANET = False):
     """ Reload a previously run explore-o-gram from disk.
     """
@@ -1914,91 +1950,20 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False, RE
         else:
             loadname = bodyname
             bodydir = bodyname
-            
+        fName = fNameOverride
         Planet = importlib.import_module(f'{bodydir}.PP{loadname}Explore').Planet
     else:
-        if '.mat' in fNameOverride:
-            reload = loadmat(fNameOverride)
-        else:
-            bodydir = bodyname
-            Planet = importlib.import_module(f'{bodydir}.{fNameOverride[:-3]}').Planet
-    
-    # Common setup for fnames that are not .mat already
-    if not (fNameOverride and '.mat' in fNameOverride):
-        Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
-                                                              exploreAppend=f'{Params.Explore.xName}{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}_{Params.Explore.yName}{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}',
-                                                              figExploreAppend=Params.Explore.zName)
-        fName = Params.DataFiles.invertOgramFile if INVERSION else Params.DataFiles.exploreOgramFile
-        reload = loadmat(fName)
+        bodydir = bodyname
+        Planet = importlib.import_module(f'{bodydir}.{fNameOverride[:-3]}').Planet
+    Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
+                                                            exploreAppend=f'{Params.Explore.xName}{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}_{Params.Explore.yName}{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}',
+                                                            figExploreAppend=Params.Explore.zName)
+    fName = Params.DataFiles.invertOgramFile if INVERSION else Params.DataFiles.exploreOgramFile
             
+    Exploration = ReloadResultsFromPickle(fName)
 
-    Exploration = ExplorationStruct()
-    Exploration.bodyname = reload['bodyname'][0]
-    Exploration.NO_H2O = reload['NO_H2O'][0]
-    Exploration.CMR2str = reload['CMR2str'][0]
-    Exploration.Cmeasured = reload['Cmeasured'][0]
-    Exploration.Cupper = reload['Cupper'][0]
-    Exploration.Clower = reload['Clower'][0]
-    Exploration.xName = reload['xName'][0]
-    Exploration.yName = reload['yName'][0]
-    Exploration.wOcean_ppt = reload['wOcean_ppt']
-    Exploration.oceanComp = reload['oceanComp']
-    Exploration.oceanComp = np.char.rstrip(Exploration.oceanComp)
-    Exploration.R_m = reload['R_m']
-    Exploration.Tb_K = reload['Tb_K']
-    Exploration.zb_approximate_km = reload['zb_approximate_km']
-    Exploration.xFeS = reload['xFeS']
-    Exploration.rhoSilInput_kgm3 = reload['rhoSilInput_kgm3']
-    Exploration.silPhi_frac = reload['silPhi_frac']
-    Exploration.icePhi_frac = reload['icePhi_frac']
-    Exploration.silPclosure_MPa = reload['silPclosure_MPa']
-    Exploration.icePclosure_MPa = reload['icePclosure_MPa']
-    Exploration.ionosTop_km = reload['ionosTop_km']
-    Exploration.sigmaIonos_Sm = reload['sigmaIonos_Sm']
-    Exploration.Htidal_Wm3 = reload['Htidal_Wm3']
-    Exploration.Qrad_Wkg = reload['Qrad_Wkg']
-    Exploration.rhoOceanMean_kgm3 = reload['rhoOceanMean_kgm3']
-    Exploration.rhoSilMean_kgm3 = reload['rhoSilMean_kgm3']
-    Exploration.rhoCoreMean_kgm3 = reload['rhoCoreMean_kgm3']
-    Exploration.sigmaMean_Sm = reload['sigmaMean_Sm']
-    Exploration.sigmaTop_Sm = reload['sigmaTop_Sm']
-    Exploration.Tmean_K = reload['Tmean_K']
-    Exploration.D_km = reload['D_km']
-    Exploration.zb_km = reload['zb_km']
-    Exploration.zSeafloor_km = reload['zSeafloor_km']
-    Exploration.dzIceI_km = reload['dzIceI_km']
-    Exploration.dzClath_km = reload['dzClath_km']
-    Exploration.dzIceIII_km = reload['dzIceIII_km']
-    Exploration.dzIceIIIund_km = reload['dzIceIIIund_km']
-    Exploration.dzIceV_km = reload['dzIceV_km']
-    Exploration.dzIceVund_km = reload['dzIceVund_km']
-    Exploration.dzIceVI_km = reload['dzIceVI_km']
-    Exploration.dzWetHPs_km = reload['dzWetHPs_km']
-    Exploration.eLid_km = reload['eLid_km']
-    Exploration.Rcore_km = reload['Rcore_km']
-    Exploration.Pseafloor_MPa = reload['Pseafloor_MPa']
-    Exploration.phiSeafloor_frac = reload['phiSeafloor_frac']
-    Exploration.silPhiCalc_frac = reload['silPhiCalc_frac']
-    Exploration.h_love_number = reload['h_love_number']
-    Exploration.l_love_number = reload['l_love_number']
-    Exploration.k_love_number = reload['k_love_number']
-    Exploration.affinityMean_kJ = reload['affinityMean_kJ']
-    Exploration.affinitySeafloor_kJ = reload['affinitySeafloor_kJ']
-    Exploration.delta_love_number_relation = 1 + Exploration.k_love_number - Exploration.h_love_number
-    # Exploration.delta_love_number_relation = reload['delta_love_number_relation']
-    Exploration.CMR2calc = reload['CMR2calc']
-    Exploration.VALID = reload['VALID']
-    Exploration.invalidReason = reload['invalidReason']
-    
-    if INVERSION:
-        Exploration.Amp = reload['Amp']
-        Exploration.phase = reload['phase']
-        Exploration.RMSe = reload['RMSe']
-        Exploration.chiSquared = reload['chiSquared']
-        Exploration.stdDev = reload['stdDev']
-        Exploration.Rsquared = reload['Rsquared']
     if RETURN_PLANET:
-        return Planet, Exploration, Params
+        return Exploration, Planet, Params
     else:
         return Exploration, Params
 
@@ -2066,6 +2031,7 @@ def RunPPfile(bodyname, fName, Params=None):
     Planet, Params = PlanetProfile(Planet, Params)
     
     return Planet, Params
+
 
 
 if __name__ == '__main__':

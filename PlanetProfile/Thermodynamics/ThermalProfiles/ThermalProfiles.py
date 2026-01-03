@@ -8,8 +8,64 @@ from PlanetProfile.Utilities.Indexing import PhaseConv, MixedPhaseSeparator, Pha
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
+def ConvectionPetricca2024(Tmelt_K, Ttop_K, zb_m, Eact_kJmol, etaMelt_Pas, rhoMid_kgm3, alphaMid_pK, KthermMid_WmK, CpMid_JkgK, gtop_ms2, phaseBot, rTop_m):
+    """ Thermodynamics calculations for convection in an ice layer
+        based on Petricca et al. (2024): https://doi.org/10.1016/j.icarus.2024.116120
+        Petricca presents a model for convection in an ice layer based on the approximation
+        of convective temperature in the ice shell presented by Howell et al. (2021), approximation of
+        viscosity in the convective layer given by the Arrhenius equation, and
+        the assumption that the ice behavior is described by diffusion creep.
+    """
+    # Calculate approximate convective temperature using Howell et al. (2021)
+    Tconv_K = (np.sqrt((4 * Tmelt_K * Constants.R / (Eact_kJmol * 1e3)) + 1) - 1) / (2 * Constants.R / (Eact_kJmol * 1e3))
+    
+    
+    # Calculate viscosity by Arrhenius equation
+    etaConv_Pas = etaMelt_Pas * np.exp(Eact_kJmol * 1e3 * (Tmelt_K / Tconv_K - 1) / Constants.R / Tmelt_K)
+    
+    # Calculate thermal diffusivity
+    alphaMid_m2s = KthermMid_WmK / (rhoMid_kgm3 * CpMid_JkgK)
+    
+    # Calculate Rayleigh number
+    Ra = alphaMid_pK * rhoMid_kgm3 * gtop_ms2 * (Tmelt_K - Ttop_K) * zb_m**3 / etaConv_Pas / alphaMid_m2s
+    
+    # Calcualte critical Rayleigh number
+    RaCrit = GetRaCrit(Eact_kJmol, Tmelt_K, Ttop_K, Tconv_K)
+    
+    # Calculate curvature f, which is the ratio of the ice shell thickness to the radius of the planet
+    f = 1 - zb_m / rTop_m
+    # Calculate gamma, which describes the temperature dependence of viscosity
+    gamma = Eact_kJmol * 1e3 * (Tmelt_K - Ttop_K) / (Constants.R * Tconv_K**2)
+    # Calculate Nusselt number
+    Nu = (1.46 * Ra**(0.27)) / ((gamma ** 1.21)*(f ** 0.78))
+    # Calculate deltaTv
+    deltaTv = (Tmelt_K - Ttop_K) / gamma
+    # Calculate heat flux throughout entire ice shell
+    qSurface_Wm2 = KthermMid_WmK * (Tmelt_K - Ttop_K) / (zb_m * f)
+    # Calculate heat flux through the convective region
+    qBot_Wm2 = 1.46 * Ra ** 0.27 / (f**1.78) * (deltaTv / (Tmelt_K - Ttop_K)) ** 1.21 * qSurface_Wm2
+    
+    # Calculate thickness of conductive portion
+    eLid_m = KthermMid_WmK * (Tconv_K - Ttop_K) / qBot_Wm2
+    
+    if eLid_m > zb_m:
+        log.warning('Conductive portion of ice shell is thicker than the ice shell. Only conduction will be modeled in this layer.')
+        eLid_m = zb_m
+        Tconv_K = Ttop_K
+        Dconv_m = 0
+    else:
+        Dconv_m = zb_m - eLid_m
+
+    # This method does not calculate the thickness of the lower thermalboundary layer, so we set it to 0
+    deltaTBL_m = 0.0
+    
+    Qbot_W = qBot_Wm2 * 4*np.pi * (rTop_m - zb_m)**2
+    return Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit
+        
+    
+
 def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa,
-                                 oceanEOS, iceEOS, phaseBot, EQUIL_Q):
+                                 oceanEOS, iceEOS, phaseBot, EQUIL_Q, Eact_kJmol):
     """ Thermodynamics calculations for convection in an ice layer
         based on Deschamps and Sotin (2001): https://doi.org/10.1029/2000JE001253
         Note that these authors solved for the scaling laws we apply in Cartesian
@@ -52,13 +108,20 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
 
     # Get phase of convecting region from passed iceEOS
     phaseMid = iceEOS.phaseID
+    phaseMidString = PhaseConv(phaseMid)
     # Numerical constants derived in Cartesian geometry from Deschamps and Sotin (2000) and used in
     # Deschamps and Sotin (2001) parameterization
     c1 = 1.43
     c2 = -0.03
-    # Numerical constants appearing in equations
-    A = Constants.Eact_kJmol[phaseMid] * 1e3 / Constants.R / Tb_K
-    B = Constants.Eact_kJmol[phaseMid] * 1e3 / 2 / Constants.R / c1
+    if not np.isnan(Eact_kJmol[phaseMidString]):
+        # If we specify Eact_kJmol in Planet, then we should use those values, otherwise use constants
+        A = Eact_kJmol[phaseMidString] * 1e3 / Constants.R / Tb_K
+        B = Eact_kJmol[phaseMidString] * 1e3 / 2 / Constants.R / c1
+    else:
+        # Numerical constants appearing in equations
+        A = Constants.Eact_kJmol[phaseMid] * 1e3 / Constants.R / Tb_K
+        B = Constants.Eact_kJmol[phaseMid] * 1e3 / 2 / Constants.R / c1
+        
     C = c2 * (Tb_K - Ttop_K)
     # Temperature and viscosity of the "well-mixed" convective region
     Tconv_K = B * (np.sqrt(1 + 2/B*(Tb_K - C)) - 1)
@@ -85,7 +148,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         log.warning(f'Pmid_MPa has been adjusted upward from {oldPmid_MPa} to {Pmid_MPa} to compensate.')
 
     # Get melting temperature for calculating viscosity relative to this temp
-    Pmelt_MPa = np.linspace(Pmid_MPa, Pmid_MPa+0.01, 6)
+    Pmelt_MPa = np.arange(Pmid_MPa - 0.05*3, Pmid_MPa+0.05*3, 0.05)
     if phaseMid >= Constants.phaseClath and phaseMid < Constants.phaseClath + 10:
         meltEOS = oceanEOS
         Tupper_K = Tb_K
@@ -126,9 +189,13 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     # will be what determines the conductive thermal profile based on the heat flux through the lid.
     #eLid_m = kMid_WmK * (Tconv_K - Ttop_K) / qTop_Wm2
     eLid_m = kTop_WmK * (Tconv_K - Ttop_K) / qTop_Wm2
-
-    # If the Rayleigh number is less than some critical value, convection does not occur.
-    RaCrit = GetRaCrit(Constants.Eact_kJmol[phaseBot], Tb_K, Ttop_K, Tconv_K)
+    phaseBotString = PhaseConv(phaseBot)
+    if not np.isnan(Eact_kJmol[phaseBotString]):
+        # Again, if we specify Eact_kJmol[phaseBot] in Planet, then we should use those values, otherwise use constants
+        RaCrit = GetRaCrit(Eact_kJmol[phaseBotString], Tb_K, Ttop_K, Tconv_K)
+    else:
+        # If the Rayleigh number is less than some critical value, convection does not occur.
+        RaCrit = GetRaCrit(Constants.Eact_kJmol[phaseBot], Tb_K, Ttop_K, Tconv_K)
     if(Ra < RaCrit):
         log.debug(f'Rayleigh number of {Ra:.3e} in the surface ice {PhaseConv(phaseBot)} ' +
                   f'layer is less than the critical value of {RaCrit:.3e}. ' +

@@ -20,7 +20,6 @@ Planet.Bulk.Cmeasured = 0.33  # Value from Flavio but accounting for Gao and Ste
 Planet.Bulk.Cuncertainty = 0.01  # No uncertainty is reported by Durante et al.
 Planet.Do.NONHYDROSTATIC = False
 Planet.Bulk.Tb_K = Constants.triplePointT_K - 5 # Set the Tb_K to be slightly below the triple point to ensure we are in the ice Ih to high pressure ice phase transition
-Planet.Pb_MPa = 208.566
 # Planet.Do.ICEIh_THICKNESS = True
 # Planet.Bulk.zb_approximate_km = 300 # The approximate ice shell thickness desired
 Planet.Do.HYDROSPHERE_THICKNESS = True

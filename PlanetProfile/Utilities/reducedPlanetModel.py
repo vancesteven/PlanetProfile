@@ -9,7 +9,7 @@ from PlanetProfile.Utilities.Indexing import PhaseConv
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
-def GetReducedPlanetProfile(Planet, Params):
+def GetReducedPlanet(Planet, Params):
     """ Generate a reduced planet profile to be used in magnetic induction and/or gravity calculations
     #TODO Only implemented for reduced layer currently, and not used for magnetic induction calculations until it can be further stress tested"""
     if Params.REDUCE_ACCORDING_TO == 'MagneticInduction':

@@ -7,6 +7,7 @@ import numpy as np
 from PlanetProfile.Utilities.defineStructs import EOSlist
 from PlanetProfile.Utilities.defineStructs import Constants
 import logging
+from scipy.interpolate import griddata
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -33,7 +34,70 @@ def ResetNearestExtrap(var1, var2, min1, max1, min2, max2):
 
     return outVar1, outVar2
 
+def ReAssignPT(P_MPa, T_K, Pmin, Pmax, Tmin, Tmax, MELT=False, propsStepReductionFactor=1):
+    # Find indices where P_MPa is within bounds [Pmin, Pmax]
+    deltaP = np.mean(np.diff(P_MPa))
+    deltaT = np.mean(np.diff(T_K))
+    P_MPa = np.arange(Pmin, Pmax+deltaP, deltaP)
+    T_K = np.arange(Tmin, Tmax+deltaT, deltaT)
+    if MELT:
+        PropsP_MPa = np.linspace(P_MPa[0], P_MPa[-1], 10)
+        PropsT_K = np.linspace(T_K[0], T_K[-1], 11)
+        Pphase_MPa = P_MPa
+        Tphase_K = T_K
+    else:
+        PropsP_MPa = np.linspace(P_MPa[0], P_MPa[-1], int(np.ceil(np.size(P_MPa)/propsStepReductionFactor)))
+        PropsT_K = np.linspace(T_K[0], T_K[-1], int(np.ceil(np.size(T_K)/propsStepReductionFactor)))
+        Pphase_MPa = P_MPa
+        Tphase_K = T_K
+    return PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K
 
+
+def smoothGrid(x, y, zs, factor):
+    """ Smooth a grid by a factor """
+    # Create finer resolution grid for smoothing
+    x_min, x_max = np.nanmin(x), np.nanmax(x)
+    y_min, y_max = np.nanmin(y), np.nanmax(y)
+    
+    # Ensure x and y are above machine error to prevent interpolation errors
+    if (x_min < 1e-10 and x_max < 1e-10) or (y_min < 1e-10 and y_max < 1e-10):
+        log.warning('x or y is below machine error. Smoothing will not be performed.')
+        x_fine = x
+        y_fine = y
+    else: 
+        # Get original grid dimensions
+        original_x_size = x.shape[0]
+        original_y_size = x.shape[1]
+        
+        # Create finer grid with higher resolution
+        n_x_fine = original_x_size * factor
+        n_y_fine = original_y_size * factor
+        
+        # Create evenly spaced, strictly ascending fine grids
+        x_fine_1d = np.linspace(x_min, x_max, n_x_fine)
+        y_fine_1d = np.linspace(y_min, y_max, n_y_fine)
+        x_fine, y_fine = np.meshgrid(x_fine_1d, y_fine_1d, indexing='ij')
+        
+        # Flatten original data for interpolation
+        x_flat = x.flatten()
+        y_flat = y.flatten()
+        for i, z in enumerate(zs):
+            z_flat = z.flatten()
+            
+            # Remove invalid points for interpolation
+            valid_mask = ~np.isnan(z_flat)
+            x_valid = x_flat[valid_mask]
+            y_valid = y_flat[valid_mask]
+            z_valid = z_flat[valid_mask]
+            if len(z_valid) > 0:
+
+                z_fine = griddata((x_valid, y_valid), z_valid, 
+                                (x_fine, y_fine), method='linear', fill_value=np.nan)
+                # Update x, y, z to use the finer resolution data
+                zs[i] = z_fine
+            else:
+                zs[i] = np.zeros((n_x_fine, n_y_fine)) * np.nan
+    return x_fine, y_fine, zs
 class ReturnZeros:
     """ Returns an array or tuple of arrays of zeros, for functions of properties
         not modeled that still work with querying routines. We have to run things
@@ -113,7 +177,7 @@ class ReturnConstantSpecies:
         self.species_names = np.append(self.species_names,'H2O(aq)')
         self.speciation = np.append(self.speciation, 1/Constants.m_gmol['H2O']*1000)
 
-    def __call__(self, P, T, grid = False):
+    def __call__(self, P, T, grid = False, reactionSubstruct = None):
         nPs = np.size(P)
         nTs = np.size(T)
         pH = (np.zeros(nPs)) + self.pH
@@ -126,7 +190,74 @@ class ReturnConstantSpecies:
         species_names = np.array(self.species_names)
         return pH, speciation, species_names
 
-
+class Nearest2DInterpolator:
+    """Simplified version that may be faster for many use cases.
+    We use our own 2D interpolator to reduce memory overhead by allowing x, y, and z to keep their data types, rather than upcasting to float64 like scipy does.
+    This is particularly relevant for the phase lookup tables, where we can store the phase lookup table as a uint8 array."""
+    def __init__(self, x, y, z):
+        self.x = np.asarray(x)
+        self.y = np.asarray(y) 
+        self.z = np.asarray(z)
+        self.nx = len(x)
+        self.ny = len(y)
+    
+    def __call__(self, xi, yi, grid=False):
+        if grid:
+            return self._interpolate_grid(xi, yi)
+        else:
+            return self._interpolate(xi, yi)
+    
+    def _interpolate_grid(self, xi, yi):
+        """Fast grid interpolation without creating intermediate meshgrids"""
+        xi = np.asarray(xi)
+        yi = np.asarray(yi)
+        
+        # Find nearest indices for each dimension independently
+        ix = np.searchsorted(self.x, xi)
+        iy = np.searchsorted(self.y, yi)
+        
+        # Handle boundaries
+        ix_left = ix == 0
+        iy_left = iy == 0
+        
+        ix = np.minimum(ix, self.nx - 1)
+        iy = np.minimum(iy, self.ny - 1)
+        
+        # Distance comparisons
+        ix_adj = ~ix_left & ((xi - self.x[ix-1]) < (self.x[ix] - xi))
+        iy_adj = ~iy_left & ((yi - self.y[iy-1]) < (self.y[iy] - yi))
+        
+        ix -= ix_adj.astype(np.intp)
+        iy -= iy_adj.astype(np.intp)
+        
+        # Use advanced indexing to get grid result directly
+        # This creates the meshgrid effect without storing intermediate arrays
+        return self.z[np.ix_(ix, iy)]
+    
+    def _interpolate(self, xi, yi):
+        xi = np.asarray(xi)
+        yi = np.asarray(yi)
+        
+        # Binary search
+        ix = np.searchsorted(self.x, xi)
+        iy = np.searchsorted(self.y, yi)
+        
+        # Boundary handling with single operations
+        ix_left = ix == 0
+        iy_left = iy == 0
+        
+        # Clamp and adjust in one step
+        ix = np.minimum(ix, self.nx - 1)
+        iy = np.minimum(iy, self.ny - 1)
+        
+        # Distance comparison (avoid where ix/iy is 0)
+        ix_adj = ~ix_left & ((xi - self.x[ix-1]) < (self.x[ix] - xi))
+        iy_adj = ~iy_left & ((yi - self.y[iy-1]) < (self.y[iy] - yi))
+        
+        ix -= ix_adj.astype(np.intp)
+        iy -= iy_adj.astype(np.intp)
+        
+        return self.z[ix, iy]
 
 
 class EOSwrapper:
@@ -181,11 +312,11 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].fn_sigma_Sm(P_MPa, T_K, grid=grid)
     def fn_eta_Pas(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_eta_Pas(P_MPa, T_K, grid=grid)
+    def updateConvectionViscosity(self, etaConv_Pas, Tconv_K):
+        return EOSlist.loaded[self.key].updateConvectionViscosity(etaConv_Pas, Tconv_K)
     def fn_Seismic(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K, grid=grid)
-    def fn_species(self, P_MPa, T_K, grid = False):
-        return EOSlist.loaded[self.key].fn_species(P_MPa, T_K, grid=grid)
-    def fn_rxn_affinity(self, P_MPa, T_K, reaction, concentrations, grid = False):
-        return EOSlist.loaded[self.key].fn_rxn_affinity(P_MPa, T_K, reaction, concentrations, grid=grid)
+    def fn_species(self, P_MPa, T_K, grid = False, reactionSubstruct=None):
+        return EOSlist.loaded[self.key].fn_species(P_MPa, T_K, grid=grid, reactionSubstruct=reactionSubstruct)
     def fn_averageValuesAccordingtoRule(self, prop1, prop2, rule):
         return EOSlist.loaded[self.key].fn_averageValuesAccordingtoRule(prop1, prop2, rule)

@@ -4,7 +4,7 @@ import spiceypy as spice
 from PlanetProfile.Utilities.defineStructs import ColorStruct, StyleStruct, \
     FigLblStruct, FigSizeStruct, FigMiscStruct
 
-configPlotsVersion = 27  # Integer number for config file version. Increment when new settings are added to the
+configPlotsVersion = 29  # Integer number for config file version. Increment when new settings are added to the
 # default config file.
 
 def plotAssign():
@@ -202,7 +202,8 @@ def plotAssign():
     Style.LW_wedgeMajor = 0.375  # Linewidth in pt for major layer boundaries in wedge diagrams
     Style.TS_ticks = 12  # Text size in pt for tick marks on radius scale
     Style.TS_desc = 14  # Text size in pt for model description and label
-    Style.TS_super = 16  # Text size in pt for overall ("suptitle") label with multiple wedges
+    Style.TS_super = 26  # Text size in pt for overall ("suptitle") label with multiple wedges
+    Style.TS_axis = 20  # Text size in pt for axis labels
     Style.LS_markRadii = '--'  # Linestyle for radii mark line when toggled on
     Style.LW_markRadii = 0.375  # Linewidth for radii mark line when toggled on
 
@@ -278,6 +279,7 @@ def plotAssign():
     FigSize.vperm = (6, 6)
     FigSize.vseis = (6, 6)
     FigSize.vhydro = (12, 9)
+    FigSize.vhydroThermo = (12, 9)
     FigSize.vgrav = (6, 5)
     FigSize.vmant = (6, 6)
     FigSize.vcore = (6, 6)
@@ -285,6 +287,7 @@ def plotAssign():
     FigSize.vpvt = (12, 6)
     FigSize.vwedg = (4.5, 4.5)
     FigSize.vphase = (5, 6)
+    FigSize.vmeltingCurves = (8, 6)
     FigSize.vhydroSpecies = (7, 5)
     FigSize.explore = (6, 4)
     FigSize.phaseSpaceSolo = (6, 4)
@@ -306,6 +309,7 @@ def plotAssign():
     FigSize.AlfvenWing = (6, 6)
     FigSize.asym = (8, 5)
     FigSize.apsidal = (6, 6)
+    FigSize.imaginaryRealSoloCombo = (6, 6)
 
 
     """ Miscellaneous figure options """
@@ -317,7 +321,9 @@ def plotAssign():
     FigMisc.defaultFontCode = 'stix'  # Code name for default font needed in some function calls
     FigMisc.backupFont = 'Times New Roman'  # Backup font that looks similar to STIX that most users are likely to have
     FigMisc.FORCE_0_EDGES = True  # Sets the edge of plots with 0 radius, depth, pressure, etc. to be the edge of the axes, instead of including white space which is the default.
-
+    FigMisc.TRANSPARENT = True  # Whether to make the background transparent for all plots #TODO Implement for all plots
+    
+    
     # Hydrosphere plots
     FigMisc.LOG_SIG = False  # Whether to print conductivity plot on a log scale
     FigMisc.COMMON_ZMAX_SIG = False  # Whether to force conductivity plot to have the same maximum depth as other hydrosphere plots, or to let the bottom axis set automatically to zoom in on the ocean. Only has an effect for undersea HP ices.
@@ -325,7 +331,6 @@ def plotAssign():
     FigMisc.SCALE_HYDRO_LW = True  # Whether to adjust thickness of lines on hydrosphere plot according to relative salinity
     FigMisc.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
     FigMisc.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
-    FigMisc.PLOT_DENSITY_VERSUS_DEPTH = False  # Whether to plot density versus depth instead of pressure
     FigMisc.lowSigCutoff_Sm = 1e-3  # Cutoff conductivity below which profiles will be excluded. Setting to None includes all profiles
     FigMisc.PminHydro_MPa = None  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use min of geotherm.
     FigMisc.TminHydro = 250  # Minimum temperature to display on hydrosphere plots
@@ -335,7 +340,19 @@ def plotAssign():
     FigLbl.TS_hydroLabels = 18  # Font size for hydrosphere phase labels in pt
     FigLbl.hydroTitleSize = 20  # Font size for hydrosphere title in pt
     FigMisc.SHOW_GEOTHERM = True # Whether to plot geotherm on PTplots
+    FigMisc.PLOT_DENSITY_VERSUS_DEPTH = False  # Whether to plot density versus depth instead of pressure
 
+    # Melting curve plots
+    FigMisc.SHOW_GEOTHERM = False  # Whether to show geotherm curves on melting curve plots
+    FigMisc.MARK_MODEL_POINTS = True  # Whether to mark the model melting points (Tb_K, Pb_MPa) on melting curves
+    FigMisc.nTmeltingCurve = 500  # Number of temperature points to use for melting curve calculation
+    FigMisc.nPmeltingCurve = 500  # Number of pressure points to use for melting curve calculation
+    FigMisc.MELTING_CURVE_LINE_WIDTH = 2.0  # Line width for melting curves
+    FigMisc.MODEL_POINT_SIZE = 50  # Marker size for model melting points
+    FigMisc.LS_SOLID_MELTING_CURVES = True  # Whether to use solid linestyle for melting curves
+    FigMisc.TmaxMeltingCurve_K = 280  # When set, maximum temperature to use for melting curves in K. Set to None to use max of geotherm.
+    FigMisc.TminMeltingCurve_K = 250  # When set, minimum temperature to use for melting curves in K. Set to None to use min of geotherm.
+    
     # Wedge diagrams
     FigMisc.IONOSPHERE_IN_WEDGE = False  # Whether to include specified ionosphere in wedge diagram
     FigMisc.WEDGE_ICE_TICKS = False  # Whether to print ticks for ice shell, which usually overlap with the body outer radius
@@ -355,14 +372,17 @@ def plotAssign():
     FigMisc.nPhydro = 200  # Number of pressure points to evaluate/plot for PT property plots
     FigMisc.PminHydro_MPa = 0.1  # Minimum pressure to use for hydrosphere and phase diagram PT plots in MPa. Set to None to use min of geotherm.
     FigMisc.TminHydro_K = 240  # Minimum temperature to use for hydrosphere and phase diagram PT plots in K. Set to None to use min of geotherm.
-    FigMisc.TmaxHydro_K = 300
+    FigMisc.TmaxHydro_K = 350
     FigMisc.PmaxHydro_MPa = 200
     FigLbl.hydroPhaseSize = 14  # Font size of label for phase in phase diagram
     FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS'] # Properties to plot in PvT or IsoTherm plots. Options are - 'rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS'
-    FigMisc.TtoPlot_K = [273, 278, 283, 288, 298, 305] # Temperatures to plot in isothermal configuration
+    
+    # Hydrosphere isobaric plots
+    FigMisc.TtoPlot_K = [273, 278, 283, 288, 298, 305] # Temperatures to plot in isobaric configuration
 
     #Hydrosphere Species diagrams
-    FigMisc.minThreshold = 1e-14 # Minimum mol of species needed to be considered to plot on hydrosphere species diagram
+    FigMisc.minAqueousThreshold = 1e-14 # Minimum mol of species needed to be considered to plot on hydrosphere species diagram
+    FigMisc.minVolSolidThreshold_cm3 = 1e-12 # Minimum volume of solid needed to be considered to plot on hydrosphere species diagram
     FigMisc.excludeSpeciesFromHydrospherePlot = ['H2O(aq)', 'H+', 'OH-'] # Species to exclude from the hydrosphere plots
     FigMisc.aqueousSpeciesLabels = ['+', '-', '(aq)'] # Aqueous species to include in the aqueous-specific hydrosphere plot
     FigMisc.gasSpeciesLabels = ['(g)'] # Solid species to include in the aqueous-specific hydrosphere plot
@@ -424,6 +444,7 @@ def plotAssign():
     FigMisc.DARKEN_SALINITIES = False  # Whether to match hues to the colorbar, but darken points based on salinity, or to just use the colorbar colors.
     FigMisc.NORMALIZED_SALINITIES = False  # Whether to normalize salinities to absolute concentrations relative to the saturation limit for each salt
     FigMisc.NORMALIZED_TEMPERATURES = False  # Whether to normalize ocean mean temperatures to specified maxima and minima for the colormap
+    FigMisc.EDGE_COLOR_K_IN_COMPLEX_PLOTS = False  # Whether to color the edge of the scatter dots in complex plots by the k2 Love number
     # Inductograms
     FigMisc.MARK_INDUCT_BOUNDS = True  # Whether to draw a border around the models on sigma/D plot when combined
     FigMisc.PLOT_V2021 = False  # Whether to mark the selected ocean/conductivity combos used in Vance et al. 2021
@@ -433,17 +454,31 @@ def plotAssign():
     FigMisc.MARK_BEXC_MAX = True  # Whether to annotate excitation spectrum plots with label for highest peak
     FigLbl.peakLblSize = 14  # Font size in pt for highest-peak annotation
     FigMisc.Tmin_hr = None  # Cutoff period to limit range of Fourier space plots
+    """Exploreogram plot settings"""
+    FigMisc.EXPLOREOGRAM_SMOOTHING = True # Whether to smooth the exploreogram plots by interpolating to a finer grid
+    FigMisc.EXPLOREOGRAM_SMOOTHING_FACTOR = 10 # Factor to use for smoothing the exploreogram plots by interpolating to a finer grid when EXPLOREOGRAM_SMOOTHING is True
+    FigMisc.EXPLOREOGRAM_COMPARISON_DIFFERENCE_TYPE = 'absolute' # Whether to calculate the absolute or relative difference between exploration results
+    FigLbl.overrideSubplotExplorationTitle = None # Overrides exploreogram subplot title (i.e. when zName is a list to plot) with user-specified title string
+    FigLbl.overrideExplorationTitle = None # Overrides exploreogram figure title with user-specified title string
     # Exploreogram D/sigma settings
     FigMisc.DRAW_COMPOSITION_LINE = True # Whether to draw a line for each composition in the exploreogram D/sigma plot
     FigMisc.SHOW_ICE_THICKNESS_DOTS = True # Whether to show ice thickness dots instead of colorbar in D/sigma plots
     FigMisc.DSIGMA_YLIMS = [1e-2, 20] # Y-axis limits for D/sigma plots [min, max] in S/m
     FigMisc.DSIGMA_ICE_THICKNESS_CMAP = 'Greys' # Colormap to use for ice thickness dots in D/sigma plots
     FigMisc.DSIGMA_DOT_EDGE_COLOR = 'black' # Edge color for scatter dots in D/sigma plots
-    FigMisc.DSIGMA_DOT_EDGE_WIDTH = 0.5 # Edge line width for scatter dots in D/sigma plots
+    FigMisc.DSIGMA_DOT_EDGE_WIDTH = 5 # Edge line width for scatter dots in D/sigma plots
     FigMisc.DSIGMA_COMP_LINE_WIDTH = 2 # Line width for composition lines in D/sigma plots
     FigMisc.DSIGMA_COMP_LINE_ALPHA = 0.7 # Alpha transparency for composition lines in D/sigma plots
     FigMisc.DSIGMA_ICE_LEGEND_FONT_SIZE = 8 # Font size for ice thickness legend entries
     FigMisc.DSIGMA_ICE_LEGEND_TITLE_SIZE = 10 # Font size for ice thickness legend title
+    
+    # Monte Carlo scatter plot ice thickness highlighting
+    FigMisc.HIGHLIGHT_ICE_THICKNESSES = True  # Whether to highlight specific ice shell thicknesses in scatter plots
+    FigMisc.DO_SCATTER_INSET = True
+    FigMisc.ICE_THICKNESSES_TO_SHOW = [30]  # List of ice shell thicknesses in km to highlight
+    FigMisc.ICE_THICKNESS_TOLERANCE = 1  # Tolerance in km for matching ice thicknesses
+    FigMisc.SCATTER_DOT_SIZE = 10 # Size of scatter dots
+    FigMisc.DIMMED_ALPHA = 0.0 # Alpha value for non-highlighted points when ice thickness highlighting is enabled
     FigMisc.DSIGMA_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries
     FigMisc.DSIGMA_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title
     FigMisc.DSIGMA_MAX_LEGEND_ENTRIES = 10 # Maximum number of entries to show in ice thickness legend
@@ -458,12 +493,13 @@ def plotAssign():
     FigMisc.LOVE_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries in Love plots
     FigMisc.LOVE_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title in Love plots
     FigMisc.LOVE_MAX_LEGEND_ENTRIES = 10 # Maximum number of entries to show in ice thickness legend for Love plots
+    FigMisc.SHOW_CONVECTION_WITH_SHAPE = True # Whether to use different marker shapes for convection vs non-convection in Love comparison plots
     # Exploreogram ZbD (ice shell vs ocean thickness) settings
     FigMisc.ZBD_DOT_EDGE_COLOR = 'black' # Edge color for scatter dots in ZbD plots
     FigMisc.ZBD_DOT_EDGE_WIDTH = 0.5 # Edge line width for scatter dots in ZbD plots
     FigMisc.ZBD_COMP_LINE_WIDTH = 2 # Line width for composition lines in ZbD plots
     FigMisc.ZBD_COMP_LINE_ALPHA = 0.7 # Alpha transparency for composition lines in ZbD plots
-    FigMisc.ZBD_COMP_LEGEND_FONT_SIZE = 10 # Font size for composition legend entries in ZbD plots
+    FigMisc.ZBD_COMP_LEGEND_FONT_SIZE = 8 # Font size for composition legend entries in ZbD plots
     FigMisc.ZBD_COMP_LEGEND_TITLE_SIZE = 12 # Font size for composition legend title in ZbD plots
     FigMisc.ZBD_COLORMAP = 'Greys' # Colormap to use for z-variable in ZbD plots
     FigMisc.ZBD_NAN_COLOR = 'red' # Color to use for NaN points in ZbD plots
@@ -498,8 +534,10 @@ def plotAssign():
     FigMisc.HF_HLINES = True  # Whether to print horizontal lines at head and foot of latex tables
     FigMisc.COMP_ROW = True  # Whether to force composition into a row instead of printing a separate summary table for each ocean comp
     FigMisc.BODY_NAME_ROW = True  # Whether to print a row with body name in bold in summary table
+    
     # Custom solution settings
     FigMisc.CustomSolutionSingleCmap = True # Whether to use a single colormap for all custom solution plots - where each custom solution is a different color based on the colormap.
+    
     # Contour labels
     FigMisc.cLabelSize = 10  # Font size in pt for contour labels
     FigMisc.cLabelPad = 5  # Padding in pt to set beside contour labels

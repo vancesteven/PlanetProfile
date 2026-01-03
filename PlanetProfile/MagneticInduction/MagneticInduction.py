@@ -7,20 +7,20 @@ from collections.abc import Iterable
 from glob import glob as FilesMatchingPattern
 from scipy.io import savemat, loadmat
 from PlanetProfile import _Test, _Defaults
-from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from PlanetProfile.GetConfig import FigMisc, SigParams
 from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq_single as GeodesyNorm2chipq, \
     get_all_Xid as LoadXid, get_rsurf as GetrSurf, norm4pi as normFactor_4pi
 from MoonMag.symmetry_funcs import InducedAeList as AeList
-
+import time
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
 def MagneticInduction(Planet, Params, fNameOverride=None):
     """ Calculate induced magnetic moments for the body and prints them to disk.
     """
-
+    Timing.setFunctionTime(time.time())
     SKIP = False
     if Planet.Do.VALID and Params.CALC_NEW_INDUCT:
         # Set Magnetic struct layer arrays as we need for induction calculations
@@ -66,7 +66,7 @@ def MagneticInduction(Planet, Params, fNameOverride=None):
             Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
         Planet.Magnetic.calcedExc = []
     else:
-        if not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS):
+        if not (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS):
             if Params.PLOT_MAG_SPECTRUM:
                 Planet = FourierSpectrum(Planet, Params)
 
@@ -80,6 +80,7 @@ def MagneticInduction(Planet, Params, fNameOverride=None):
     
     # Must return both Planet and Params in order to use common infrastructure
     # for unpacking parallel runs
+    Timing.printFunctionTimeDifference('MagneticInduction()', time.time())
     return Planet, Params
 
 
@@ -155,25 +156,25 @@ def CalcInducedMoments(Planet, Params):
                 Planet.Magnetic.Aen[SCera][:,1], Planet.Magnetic.Amp[SCera], AeArg[SCera] \
                     = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                              Planet.Magnetic.omegaExc_radps[SCera], 1/Planet.Bulk.R_m, nn=1, writeout=False,
-                             do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+                             do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS))
                 Planet.Magnetic.phase[SCera] = -np.degrees(AeArg[SCera])
                 for n in range(2, Planet.Magnetic.nprmMax):
                     Planet.Magnetic.Aen[SCera][:,n], _, _ \
                         = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                                  Planet.Magnetic.omegaExc_radps[SCera], 1/Planet.Bulk.R_m, nn=n, writeout=False,
-                                 do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+                                 do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS))
 
         else:
             Planet.Magnetic.Aen[:,1], Planet.Magnetic.Amp, AeArg \
                 = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                          Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=1, writeout=False,
-                         do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+                         do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS))
             Planet.Magnetic.phase = -np.degrees(AeArg)
             for n in range(2, Planet.Magnetic.nprmMax):
                 Planet.Magnetic.Aen[:,n], _, _ \
                     = AeList(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
                              Planet.Magnetic.omegaExc_radps, 1/Planet.Bulk.R_m, nn=n, writeout=False,
-                             do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+                             do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS  ))
 
         if Params.CALC_ASYM:
             # Use a separate function for evaluating asymmetric induced moments, as Binm is not as simple as
@@ -185,7 +186,7 @@ def CalcInducedMoments(Planet, Params):
                                                      Planet.Magnetic.gravShape_m, Planet.Magnetic.Benm_nT[SCera], 1/Planet.Bulk.R_m,
                                                      Planet.Magnetic.nLin, Planet.Magnetic.mLin, Planet.Magnetic.pMax,
                                                      nprm_max=Planet.Magnetic.nprmMax, writeout=False,
-                                                     do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS),
+                                                     do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS),
                                                      Xid=Planet.Magnetic.Xid)
             else:
                 Planet.Magnetic.Binm_nT = BiAsym(Planet.Magnetic.rSigChange_m, Planet.Magnetic.sigmaLayers_Sm,
@@ -193,7 +194,7 @@ def CalcInducedMoments(Planet, Params):
                                                  Planet.Magnetic.gravShape_m, Planet.Magnetic.Benm_nT, 1/Planet.Bulk.R_m,
                                                  Planet.Magnetic.nLin, Planet.Magnetic.mLin, Planet.Magnetic.pMax,
                                                  nprm_max=Planet.Magnetic.nprmMax, writeout=False,
-                                                 do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS),
+                                                 do_parallel=Params.DO_PARALLEL and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS),
                                                  Xid=Planet.Magnetic.Xid)
         else:
             # Multiply complex response by Benm to get Binm for spherically symmetric case
@@ -237,6 +238,7 @@ def CalcInducedMoments(Planet, Params):
                 'y': Bey * np.conj(Planet.Magnetic.Aen[SCera][:,1]),
                 'z': Bez * np.conj(Planet.Magnetic.Aen[SCera][:,1])
             }
+            Planet.Magnetic.Bi1Tot_nT[SCera] = np.sqrt(Planet.Magnetic.Bi1xyz_nT[SCera]['x']**2 + Planet.Magnetic.Bi1xyz_nT[SCera]['y']**2 + Planet.Magnetic.Bi1xyz_nT[SCera]['z']**2)
     else:
         Bex, Bey, Bez = Benm2absBexyz(Planet.Magnetic.Benm_nT)
         Planet.Magnetic.Bi1xyz_nT = {
@@ -244,12 +246,13 @@ def CalcInducedMoments(Planet, Params):
             'y': Bey * np.conj(Planet.Magnetic.Aen[:,1]),
             'z': Bez * np.conj(Planet.Magnetic.Aen[:,1])
         }
+        Planet.Magnetic.Bi1Tot_nT = np.sqrt(Planet.Magnetic.Bi1xyz_nT['x']**2 + Planet.Magnetic.Bi1xyz_nT['y']**2 + Planet.Magnetic.Bi1xyz_nT['z']**2)
 
     Planet.Magnetic.calcedExc = [key for key, CALCED in Params.Induct.excSelectionCalc.items()
                                  if CALCED and key in Excitations.Texc_hr[Planet.bodyname].keys()
                                  and Excitations.Texc_hr[Planet.bodyname][key] is not None]
     # Save calculated magnetic moments to disk
-    if (not Params.NO_SAVEFILE) and (not Params.INVERSION_IN_PROGRESS):
+    if (not Params.NO_SAVEFILE) and (not Params.INVERSION_IN_PROGRESS or not Params.MONTECARLO_IN_PROGRESS):
         saveDict = {
             'Benm_nT': Planet.Magnetic.Benm_nT,
             'Binm_nT': Planet.Magnetic.Binm_nT,
@@ -262,6 +265,7 @@ def CalcInducedMoments(Planet, Params):
             'Bi1x_nT': Planet.Magnetic.Bi1xyz_nT['x'],
             'Bi1y_nT': Planet.Magnetic.Bi1xyz_nT['y'],
             'Bi1z_nT': Planet.Magnetic.Bi1xyz_nT['z'],
+            'Bi1Tot_nT': Planet.Magnetic.Bi1Tot_nT,
             'Aen': Planet.Magnetic.Aen,
             'R_km': Planet.Bulk.R_m/1e3,
             'asymShape_m': Planet.Magnetic.asymShape_m,
@@ -291,6 +295,7 @@ def ReloadMoments(Planet, momentsFile):
         'y': reload['Bi1y_nT'][0],
         'z': reload['Bi1z_nT'][0]
     }
+    Planet.Magnetic.Bi1Tot_nT = reload['Bi1Tot_nT'][0]
     Planet.Magnetic.Aen = reload['Aen']
     Planet.Magnetic.asymShape_m = reload['asymShape_m']
     Planet.Magnetic.ionosBounds_m = reload['ionosBounds_m'][0]
@@ -310,7 +315,7 @@ def ReloadMoments(Planet, momentsFile):
         Planet.Magnetic.Amp *= dipScaling
         for comp in ['x', 'y', 'z']:
             Planet.Magnetic.Bi1xyz_nT[comp] *= dipScaling
-
+        Planet.Magnetic.Bi1Tot_nT *= dipScaling
         for n in range(1, np.max(Planet.Magnetic.nLin)+1):
             scaling = (Planet.Bulk.R_m / Rre_m)**(n+2)
             Planet.Magnetic.Aen[:, n] *= scaling
@@ -469,8 +474,9 @@ def SetupInduction(Planet, Params):
         Sets Planet attributes:
             Magnetic.rSigChange_m, Magnetic.sigmaLayers_Sm, Magnetic.asymShape_m
     """
-
-    if not (not Params.CALC_NEW and Params.DO_INDUCTOGRAM):
+    # Exploration, inversion, and inductograms do not need to set up all these settings at the start
+    SKIP_LAYER_SETUP = (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.DO_MONTECARLO) and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS or Params.EXPLOREOGRAM_IN_PROGRESS)
+    if not SKIP_LAYER_SETUP:
         # If we are recalculating the induction from a previously run inductogram, we can skip this step since Planet.phase will not be initialized
         # Lots of errors can happen if we haven't calculated the electrical conductivity,
         # so we make this contingent on having it.
@@ -486,80 +492,80 @@ def SetupInduction(Planet, Params):
     if Params.CALC_CONDUCT and Planet.Do.VALID:
         # Reconfigure layer conducting boundaries as needed.
         # For inductOtype == 'sigma', we have already set these arrays.
-        if not (Params.Induct.inductOtype == 'sigma' and Params.DO_INDUCTOGRAM):
-            if Params.CALC_NEW or not Params.DO_INDUCTOGRAM:
-                # Append optional ionosphere
-                # We first check if these are unset here, then assign them to what they should be if unset
-                if Planet.Magnetic.ionosBounds_m is None or Planet.Magnetic.sigmaIonosPedersen_Sm is None:
-                    Planet.Magnetic.ionosBounds_m = [np.nan]
-                    Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
-                # Now, we handle unset ionospheres
-                if np.all(np.isnan(Planet.Magnetic.ionosBounds_m)) or np.all(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
-                    # Make sure the arrays are both just length 1 of nan
-                    Planet.Magnetic.ionosBounds_m = [np.nan]
-                    Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
-                    zIonos_m = []
-                    sigmaIonos_Sm = []
+        if not Params.Induct.inductOtype == 'sigma' and not SKIP_LAYER_SETUP:
+            # Append optional ionosphere
+            # We first check if these are unset here, then assign them to what they should be if unset
+            if Planet.Magnetic.ionosBounds_m is None or Planet.Magnetic.sigmaIonosPedersen_Sm is None:
+                Planet.Magnetic.ionosBounds_m = [np.nan]
+                Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
+            # Now, we handle unset ionospheres
+            if np.all(np.isnan(Planet.Magnetic.ionosBounds_m)) or np.all(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
+                # Make sure the arrays are both just length 1 of nan
+                Planet.Magnetic.ionosBounds_m = [np.nan]
+                Planet.Magnetic.sigmaIonosPedersen_Sm = [np.nan]
+                zIonos_m = []
+                sigmaIonos_Sm = []
+            else:
+                zIonos_m = Planet.Bulk.R_m + np.array(Planet.Magnetic.ionosBounds_m)
+                sigmaIonos_Sm = np.array(Planet.Magnetic.sigmaIonosPedersen_Sm)
+                # Allow special case for specifying an ionosphere with 1 conductivity and 2 bounds, when
+                # there is a substantial neutral atmosphere and the conducting region is at altitude
+                # (e.g. for Triton)
+                if np.size(Planet.Magnetic.sigmaIonosPedersen_Sm) == 1 and np.size(Planet.Magnetic.ionosBounds_m) == 2:
+                    sigmaIonos_Sm = np.append(0, sigmaIonos_Sm)
+            # Flip arrays to be in radial ascending order as needed in induction calculations, then add ionosphere
+            rLayers_m = np.append(np.flip(Planet.r_m[:-1]), zIonos_m)
+            sigmaInduct_Sm = np.append(np.flip(Planet.sigma_Sm), sigmaIonos_Sm)
+
+            # Eliminate NaN values and 0 values, assigning them to a default minimum
+            sigmaInduct_Sm[np.logical_or(np.isnan(sigmaInduct_Sm), sigmaInduct_Sm == 0)] = Constants.sigmaDef_Sm
+            # Set low conductivities to all be the same default value so we can shrink them down to single layers
+            sigmaInduct_Sm[sigmaInduct_Sm < Constants.sigmaMin_Sm] = Constants.sigmaDef_Sm
+
+            # Optionally, further reduce computational overhead by shrinking the number of ocean layers modeled
+            if np.size(indsLiq) != 0 and Params.Sig.REDUCED_INDUCT and not Planet.Do.NO_H2O:
+                if not np.all(np.diff(indsLiq) == 1):
+                    log.warning('HP ices found in ocean while REDUCED_INDUCT is True. They will be ignored ' +
+                                'in the interpolation.')
+
+                # Get radius values from D/nIntL above the seafloor to the ice shell
+                rBot_m = Planet.Bulk.R_m - (Planet.zb_km + Planet.D_km) * 1e3
+                rTop_m = rLayers_m[indsLiq[-1]]
+                rOcean_m = np.linspace(rBot_m, rTop_m, Params.Induct.nIntL+1)[1:]
+                # Interpolate the conductivities corresponding to those radii
+                if np.size(indsLiq) == 1:
+                    log.warning(f'Only 1 layer found in ocean, but number of layers to ' +
+                                f'interpolate over is {Params.Induct.nIntL}. Arbitrary layers will be introduced.')
+                    rModel_m = np.concatenate((np.array([rBot_m]), rLayers_m[indsLiq]))
+                    sigmaModel_Sm = np.concatenate((sigmaInduct_Sm[indsLiq] * 1.001, sigmaInduct_Sm[indsLiq]))
                 else:
-                    zIonos_m = Planet.Bulk.R_m + np.array(Planet.Magnetic.ionosBounds_m)
-                    sigmaIonos_Sm = np.array(Planet.Magnetic.sigmaIonosPedersen_Sm)
-                    # Allow special case for specifying an ionosphere with 1 conductivity and 2 bounds, when
-                    # there is a substantial neutral atmosphere and the conducting region is at altitude
-                    # (e.g. for Triton)
-                    if np.size(Planet.Magnetic.sigmaIonosPedersen_Sm) == 1 and np.size(Planet.Magnetic.ionosBounds_m) == 2:
-                        sigmaIonos_Sm = np.append(0, sigmaIonos_Sm)
-                # Flip arrays to be in radial ascending order as needed in induction calculations, then add ionosphere
-                rLayers_m = np.append(np.flip(Planet.r_m[:-1]), zIonos_m)
-                sigmaInduct_Sm = np.append(np.flip(Planet.sigma_Sm), sigmaIonos_Sm)
+                    rModel_m = rLayers_m[indsLiq]
+                    sigmaModel_Sm = sigmaInduct_Sm[indsLiq]
+                sigmaOcean_Sm = spi.interp1d(rModel_m, sigmaModel_Sm, kind=Params.Induct.oceanInterpMethod,
+                                                bounds_error=False, fill_value=Constants.sigmaDef_Sm)(rOcean_m)
+                # Stitch together the r and sigma arrays with the new ocean values
+                rLayers_m = np.concatenate((rLayers_m[:indsLiq[0]], rOcean_m, rLayers_m[indsLiq[-1]+1:]))
+                sigmaInduct_Sm = np.concatenate((sigmaInduct_Sm[:indsLiq[0]], sigmaOcean_Sm, sigmaInduct_Sm[indsLiq[-1]+1:]))
 
-                # Eliminate NaN values and 0 values, assigning them to a default minimum
-                sigmaInduct_Sm[np.logical_or(np.isnan(sigmaInduct_Sm), sigmaInduct_Sm == 0)] = Constants.sigmaDef_Sm
-                # Set low conductivities to all be the same default value so we can shrink them down to single layers
-                sigmaInduct_Sm[sigmaInduct_Sm < Constants.sigmaMin_Sm] = Constants.sigmaDef_Sm
-
-                # Optionally, further reduce computational overhead by shrinking the number of ocean layers modeled
-                if np.size(indsLiq) != 0 and Params.Sig.REDUCED_INDUCT and not Planet.Do.NO_H2O:
-                    if not np.all(np.diff(indsLiq) == 1):
-                        log.warning('HP ices found in ocean while REDUCED_INDUCT is True. They will be ignored ' +
-                                    'in the interpolation.')
-
-                    # Get radius values from D/nIntL above the seafloor to the ice shell
-                    rBot_m = Planet.Bulk.R_m - (Planet.zb_km + Planet.D_km) * 1e3
-                    rTop_m = rLayers_m[indsLiq[-1]]
-                    rOcean_m = np.linspace(rBot_m, rTop_m, Params.Induct.nIntL+1)[1:]
-                    # Interpolate the conductivities corresponding to those radii
-                    if np.size(indsLiq) == 1:
-                        log.warning(f'Only 1 layer found in ocean, but number of layers to ' +
-                                    f'interpolate over is {Params.Induct.nIntL}. Arbitrary layers will be introduced.')
-                        rModel_m = np.concatenate((np.array([rBot_m]), rLayers_m[indsLiq]))
-                        sigmaModel_Sm = np.concatenate((sigmaInduct_Sm[indsLiq] * 1.001, sigmaInduct_Sm[indsLiq]))
-                    else:
-                        rModel_m = rLayers_m[indsLiq]
-                        sigmaModel_Sm = sigmaInduct_Sm[indsLiq]
-                    sigmaOcean_Sm = spi.interp1d(rModel_m, sigmaModel_Sm, kind=Params.Induct.oceanInterpMethod,
-                                                 bounds_error=False, fill_value=Constants.sigmaDef_Sm)(rOcean_m)
-                    # Stitch together the r and sigma arrays with the new ocean values
-                    rLayers_m = np.concatenate((rLayers_m[:indsLiq[0]], rOcean_m, rLayers_m[indsLiq[-1]+1:]))
-                    sigmaInduct_Sm = np.concatenate((sigmaInduct_Sm[:indsLiq[0]], sigmaOcean_Sm, sigmaInduct_Sm[indsLiq[-1]+1:]))
-
-                # Get the indices of layers just below where changes happen
-                iChange = [i for i,sig in enumerate(sigmaInduct_Sm) if sig != np.append(sigmaInduct_Sm, np.nan)[i+1]]
-                Planet.Magnetic.sigmaLayers_Sm = sigmaInduct_Sm[iChange]
-                Planet.Magnetic.rSigChange_m = rLayers_m[iChange]
+            # Get the indices of layers just below where changes happen
+            iChange = [i for i,sig in enumerate(sigmaInduct_Sm) if sig != np.append(sigmaInduct_Sm, np.nan)[i+1]]
+            Planet.Magnetic.sigmaLayers_Sm = sigmaInduct_Sm[iChange]
+            Planet.Magnetic.rSigChange_m = rLayers_m[iChange]
 
             if Planet.Magnetic.sigmaScaling is not None:
                 log.debug(f'Applying arbitary scaling factor of {Planet.Magnetic.sigmaScaling} to interior conducting layers.')
                 iOcean = np.logical_and(Planet.Magnetic.rSigChange_m <= Planet.Bulk.R_m - Planet.zb_km, Planet.Magnetic.rSigChange_m > Planet.Bulk.R_m - Planet.D_km)
                 Planet.Magnetic.sigmaLayers_Sm[iOcean] = Planet.Magnetic.sigmaLayers_Sm[iOcean] * Planet.Magnetic.sigmaScaling
-
-        Planet.Magnetic.nBds = np.size(Planet.Magnetic.rSigChange_m)
+        if not SKIP_LAYER_SETUP:
+            Planet.Magnetic.nBds = np.size(Planet.Magnetic.rSigChange_m)
 
         # Set asymmetric shape if applicable
         if Params.CALC_ASYM:
             if Planet.Magnetic.pMax == 0:
                 Params.CALC_ASYM = False
                 log.warning('Magnetic.pMax is 0, asymmetry calculations will be skipped.')
-                Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, 1, 1))
+                if not SKIP_LAYER_SETUP:
+                    Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, 1, 1))
             else:
                 if Planet.Magnetic.pMax is not None and (Planet.Magnetic.pMax < 2 and not SigParams.ALLOW_LOW_PMAX):
                     log.warning('SigParams.INCLUDE_ASYM is True, but Magnetic.pMax is less than 2. ' +
@@ -567,8 +573,9 @@ def SetupInduction(Planet, Params):
                                 'among the largest contributors to asymmetric induction. Magnetic.pMax has been ' +
                                 'increased to 2. Toggle this check with SigParams.ALLOW_LOW_PMAX in configInduct.')
                     Planet.Magnetic.pMax = 2
-                Planet = SetAsymShape(Planet, Params)
-                Planet.Magnetic.nAsymBds = np.size(Planet.Magnetic.zMeanAsym_km)
+                if not SKIP_LAYER_SETUP:
+                    Planet = SetAsymShape(Planet, Params)
+                    Planet.Magnetic.nAsymBds = np.size(Planet.Magnetic.zMeanAsym_km)
 
                 # Fetch Xid array
                 XidLabel = f''
@@ -586,10 +593,11 @@ def SetupInduction(Planet, Params):
                     Planet.Magnetic.Xid = EOSlist.loaded[XidLabel]
         else:
             Planet.Magnetic.pMax = 0
-            Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, 1, 1))
-        
+            if not SKIP_LAYER_SETUP:
+                Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, 1, 1))
+
         # Get excitation spectrum
-        if not (Params.DO_INDUCTOGRAM or Params.INVERSION_IN_PROGRESS):
+        if not (Params.INDUCTOGRAM_IN_PROGRESS or Params.EXPLOREOGRAM_IN_PROGRESS or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS):
             # Block if we're doing an inductogram or inversion, so that we only attempt to load once
             Planet.Magnetic.Texc_hr, Planet.Magnetic.omegaExc_radps, Planet.Magnetic.Benm_nT, \
             Planet.Magnetic.B0_nT, Planet.Magnetic.Bexyz_nT \

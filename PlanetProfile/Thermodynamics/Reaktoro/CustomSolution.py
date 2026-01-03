@@ -22,8 +22,9 @@ def SetupCustomSolution(Planet, Params):
             # Flag that we are not using wOcean_ppt as independent parameter - used in file name generation
             Planet.Do.USE_WOCEAN_PPT = False
             Planet.Ocean.wOcean_ppt = wpptCalculator(Planet.Ocean.comp.split('=')[1].strip())
-        Params = SetupCustomSolutionPlotSettings(np.array(Planet.Ocean.comp), Params)
-        SetupCustomSolutionEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt)
+        if not Params.PRELOAD_EOS_IN_PROGRESS:
+            Params = SetupCustomSolutionPlotSettings(np.array(Planet.Ocean.comp), Params)
+            SetupCustomSolutionEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt)
     return Planet, Params
 
 
@@ -36,6 +37,7 @@ def SetupCustomSolutionEOS(CustomSolutionComp, wOcean_ppt):
         CustomSolutionComp, wOcean_ppt)
     # Call function to generate EOS table
     EOSLookupTableLoader(aqueous_species_string, speciation_ratio_mol_kg, ocean_solid_phases, EOS_lookup_label)
+    return
 
 
 def SetupCustomSolutionPlotSettings(PlanetOceanArray, Params):
@@ -49,6 +51,9 @@ def SetupCustomSolutionPlotSettings(PlanetOceanArray, Params):
         CustomSolutionOceanComp = str(CustomSolutionOceanComp)
         # Here we need to add the Planets CustomSolution composition to some parameter dictionaries for plotting purposes, which we must do dynamically since input can be anything
         # Add wRef_ppts - namely, we will add the Planet.Ocean.wOcean_ppt and any wRef_ppt in CustomSolution
+        if CustomSolutionOceanComp not in Params.wRef_ppt:
+            Params.wRef_ppt[CustomSolutionOceanComp] = Params.wRef_ppt["CustomSolution"]
+            Params.fNameRef[CustomSolutionOceanComp] = f'{CustomSolutionOceanComp}Ref.txt'
         if CustomSolutionOceanComp not in Color.cmapName:
             if FigMisc.CustomSolutionSingleCmap:
                 Color.cmapName[CustomSolutionOceanComp] = Color.CustomSolutionCmapNames[0]
@@ -68,10 +73,9 @@ def SetupCustomSolutionPlotSettings(PlanetOceanArray, Params):
                 Color.cmapBounds[CustomSolutionOceanComp] = Color.cmapBounds["CustomSolution"]
             Color.saturation[CustomSolutionOceanComp] = Color.saturation["CustomSolution"]
             Color.SetCmaps()
+        if CustomSolutionOceanComp not in Style.LS:
             Style.LS[CustomSolutionOceanComp] = Style.LS["CustomSolution"]
             Style.LS_ref[CustomSolutionOceanComp] = Style.LS_ref["CustomSolution"]
-            Params.wRef_ppt[CustomSolutionOceanComp] = Params.wRef_ppt["CustomSolution"]
-            Params.fNameRef[CustomSolutionOceanComp] = f'{CustomSolutionOceanComp}Ref.txt'
     return Params
 
 def strip_latex_formatting_from_CustomSolutionLabel(s):

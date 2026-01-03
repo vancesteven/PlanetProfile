@@ -35,6 +35,8 @@ Planet.Sil.Qrad_Wkg = 5.33e-14
 Planet.Sil.Htidal_Wm3 = 1e-18
 # Rock porosity
 Planet.Do.POROUS_ROCK = True
+Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
+Planet.Sil.poreComp = Planet.Ocean.comp
 Planet.Sil.phiRockMax_frac = 0.4
 # Mantle equation of state model
 Planet.Sil.mantleEOS = 'CM_hydrous_differentiated_Ganymede_Core080Fe020S_excluding_fluid_properties.tab'
