@@ -102,12 +102,13 @@ def configAssign():
     Params.PLOT_INDIVIDUAL_PLANET_PLOTS = False # Whether to plot individual Planet runs that are explore as part of explore-o-gram. By default, this is false since it saves time and disk space for large induction studies. For smaller induction studies where individual plots are still desired, this can be useful to set to True.
     Params.PLOT_D_SIGMA = False # Whether to plot D vs sigma for the exploreogram
     Params.PLOT_LOVE_COMPARISON = False # Whether to plot love number comparison for the exploreogram
-    Params.PLOT_ZB_D =  False # Whether to plot Zb vs D for the exploreogram
+    Params.PLOT_Zb_D =  False # Whether to plot Zb vs D for the exploreogram
     # Options for x/y variables: "xFeS", "rhoSilInput_kgm3", "oceanComp", "wOcean_ppt", "Tb_K", "ionosTop_km", "sigmaIonos_Sm",
     # "silPhi_frac", "silPclosure_MPa", "icePhi_frac", "icePclosure_MPa", "Htidal_Wm3", "Qrad_Wkg", "zb_approximate_km", "qSurf_Wm2" (Do.NO_H2O only)
     # For "oceanComp" option, must provide a .mat file titled xRangeData.mat or yRangeData.mat of a dictionary whose key 'Data' corresponds to a list of ocean comps to query over. Exploreparams.nx/ny should match lens of list.
     ExploreParams.xName = 'wOcean_ppt'  # x variable over which to iterate for exploreograms. Options are as above.
     ExploreParams.yName = 'Tb_K'  # y variable over which to iterate for exploreograms. Options are as above.
+    ExploreParams.oceanCompRangeList = None # List of compositions to explore over when oceanComp is the x or y variable
     # Options for z variables: "CMR2mean", "D_km", "Dconv_m", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km",
     # "dzIceV_km", "dzIceVund_km", "dzIceVI_km", "dzWetHPs_km", "eLid_km", "phiSeafloor_frac", "Rcore_km", "rhoSilMean_kgm3", "rhoCoreMean_kgm3",
     # "sigmaMean_Sm", "silPhiCalc_frac", "zb_km", "zSeafloor_km",  "qSurf_Wm2" (only if Do.NO_H2O is False),

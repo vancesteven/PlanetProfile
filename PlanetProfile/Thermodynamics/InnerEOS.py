@@ -264,7 +264,10 @@ class PerplexEOSStruct:
                                               self.ufn_KS_GPa, self.ufn_GS_GPa, self.ufn_Cp_JkgK, self.ufn_alpha_pK)
                 EOSlist.ranges[tableKey] = (self.Pmin, self.Pmax, self.Tmin, self.Tmax, 
                                             self.deltaP, self.deltaT, self.EOSdeltaP, self.EOSdeltaT)
-
+            self.EOSPmin = self.Pmin
+            self.EOSPmax = self.Pmax
+            self.EOSTmin = self.Tmin
+            self.EOSTmax = self.Tmax
             self.rangeLabel = f'{self.Pmin},{self.Pmax},{self.deltaP},' + \
                               f'{self.Tmin},{self.Tmax},{self.deltaT}'
 

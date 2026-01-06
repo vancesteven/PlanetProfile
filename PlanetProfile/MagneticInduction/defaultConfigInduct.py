@@ -3,13 +3,13 @@ import numpy as np
 from PlanetProfile.Utilities.defineStructs import InductOgramParamsStruct, \
     ExcitationSpectrumParamsStruct, ConductLayerParamsStruct, Constants
 
-configInductVersion = 6  # Integer number for config file version. Increment when new settings are added to the default config file.
+configInductVersion = 7  # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def inductAssign():
-    inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "oceanComp","sigma", where the first 3 are vs. salinity, oceanComp is vs. approximate ice shell thickness,and sigma is vs. thickness. Sigma/D plot is not self-consistent.
+    inductOtype = 'rho'  # Type of inductogram plot to make. Options are "Tb", "phi", "rho", "oceanComp", and "sigma", where the first 3 are vs. salinity, oceanComp is vs. approximate ice shell thickness,and sigma is vs. thickness. Sigma/D plot is not self-consistent.
     testBody = 'Europa'  # Assign test profiles to use excitation moments for this body
     dftC = 5  # Default number of contours to include in induct-o-grams
-
+    
     # Construct information for accessing by functions
     cLevels = GetClevels(inductOtype, dftC, testBody)
     cfmt = GetContourFmt(testBody)

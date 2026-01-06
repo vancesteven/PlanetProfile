@@ -109,8 +109,6 @@ def run(bodyname=None, opt=None, fNames=None):
                 FigureFilesList.append(deepcopy(Params.FigureFiles))
         if not Params.SKIP_PLOTS and not np.all([Exploration.base.VALID == False for Exploration in ExplorationList]): 
             GenerateExplorationPlots(ExplorationList, FigureFilesList, Params)
-            if not Params.SKIP_INDUCTION:
-                GenerateExplorationMagPlots(ExplorationList, FigureFilesList, Params)
             if Params.PLOT_INDIVIDUAL_PLANET_PLOTS:
                 for Planet in PlanetGrid.flatten():
                     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
@@ -912,7 +910,7 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                     PlanetGrid[i,j] = deepcopy(Planet)
         elif Params.Induct.inductOtype == 'oceanComp':
             if Params.CALC_NEW:
-                oceanCompList = loadmat(Params.DataFiles.xRangeData)['Data'].flatten().tolist()
+                oceanCompList = Params.Induct.oceanCompList
                 zbApproximateList = np.linspace(Params.Induct.zbMin[bodyname], Params.Induct.zbMax[bodyname], Params.Induct.nZbPts)
             else:
                 zbApproximateList = InductionResults.zb_approximate_km[0,:]
@@ -1687,21 +1685,19 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
         Planet, DataFiles, FigureFiles = SetupFilenames(Planet, Params, exploreAppend=f'{Exploration.xName}{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}_{Exploration.yName}{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}',
                                                 figExploreAppend=Params.Explore.zName)
 
-        if Params.Explore.xName in Params.Explore.provideExploreRange:
-            xList = loadmat(DataFiles.xRangeData)['Data'].flatten().tolist()
+        if Params.Explore.xName in Params.Explore.provideExploreRange.keys():
+            xList = getattr(Params.Explore, Params.Explore.provideExploreRange[Params.Explore.xName])
             xList = [s.strip() if isinstance(s, str) else s for s in xList]
-            if Params.Explore.nx != len(xList):
-                raise ValueError(f"Size of provided range list ({len(xList)}) does not match input Params.Explore.nx {Params.Explore.nx}. Adjust so they match.")
+            Params.Explore.nx = len(xList)
         else:
             if Exploration.xName in Params.Explore.exploreLogScale:
                 xList = np.logspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
             else:
                 xList = np.linspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
-        if Params.Explore.yName in Params.Explore.provideExploreRange:
-            yList = loadmat(DataFiles.yRangeData)['Data'].flatten().tolist()
+        if Params.Explore.yName in Params.Explore.provideExploreRange.keys():
+            yList = getattr(Params.Explore, Params.Explore.provideExploreRange[Params.Explore.yName])
             yList = [s.strip() if isinstance(s, str) else s for s in yList]
-            if Params.Explore.ny != len(yList):
-                raise ValueError(f"Size of provided range list ({len(yList)}) does not match input Params.Explore.nx {Params.Explore.ny}. Adjust so they match.")
+            Params.Explore.ny = len(yList)
         else:
             if Exploration.yName in Params.Explore.exploreLogScale:
                 yList = np.logspace(Params.Explore.yRange[0], Params.Explore.yRange[1], Params.Explore.ny)

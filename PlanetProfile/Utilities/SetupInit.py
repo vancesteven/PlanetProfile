@@ -93,6 +93,7 @@ def SetupInit(Planet, Params):
         Planet.Steps.nHydroMax = 1
         Planet.Steps.iSilStart = 0
         Planet.Ocean.deltaP = 0.1
+        Planet.Ocean.deltaT = 0.1
         Planet.Do.NO_ICE_CONVECTION = True
         Planet.Do.CLATHRATE = False
 

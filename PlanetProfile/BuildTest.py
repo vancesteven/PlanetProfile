@@ -1,6 +1,6 @@
 """ This is a test script meant to check that the current PlanetProfile
     build maintains all functionality across updates. Run this script
-    as "python Testing.py" from the main PlanetProfile directory
+    as "python -m PlanetProfile.BuildTest" from the main PlanetProfile directory
     before committing any major updates. New major functionality added
     to PlanetProfile should be accompanied by a new PPTest#.py test
     body in the Test/ directory.
@@ -16,6 +16,7 @@ from PlanetProfile.Main import PlanetProfile, InductOgram, ReloadInductOgram, Ex
 from PlanetProfile.Plotting.ExplorationPlots import GenerateExplorationPlots, PlotExploreOgramMultiSubplot
 from PlanetProfile.Plotting.MagPlots import GenerateMagPlots, GenerateExplorationMagPlots
 from PlanetProfile.Test.TestBayes import TestBayes
+from PlanetProfile.Utilities.defineStructs import EOSlist, EOSlistStruct
 
 # Include timestamps in messages and force debug level logging for all testing
 log = logging.getLogger('PlanetProfile')
@@ -147,6 +148,7 @@ def TestAllInductOgrams(TestPlanets, Params, tMarks):
     Params.CALC_NEW = True
     Params.NO_SAVEFILE = True
     Params.SKIP_INNER = True
+    Params.Induct.oceanCompList = ['Seawater', 'MgSO4', 'NaCl', 'PureH2O']
     for inductOtype in ['sigma', 'Tb', 'rho', 'oceanComp']:
         Params.Induct.inductOtype = inductOtype
         # Test non-parallel and parallel processing
@@ -190,6 +192,7 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
     Params.CALC_NEW = True
     Params.NO_SAVEFILE = True
     Params.Explore.zName = 'CMR2mean'
+    Params.Explore.oceanCompRangeList = ['Seawater', 'MgSO4', 'NaCl', 'PureH2O']
     allZNames = ["CMR2mean", "D_km", "Dconv_m", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km",
     "dzIceV_km", "dzIceVund_km", "dzIceVI_km", "dzWetHPs_km", "eLid_km", "phiSeafloor_frac", "Rcore_km", "rhoSilMean_kgm3", "rhoCoreMean_kgm3",
     "sigmaMean_Sm", "silPhiCalc_frac", "zb_km", "zSeafloor_km",  
@@ -228,6 +231,8 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
     if not SKIP_HYDRO:
         log.info('Running exploreOgrams for icy bodies for all input types.')
         for xName in hydroExploreBds.keys():
+            global EOSlist
+            EOSlist = EOSlistStruct()
             for yName in hydroExploreBds.keys():
                 if xName != yName:
                     Params.Explore.xName = xName
@@ -321,7 +326,6 @@ def TestExploreOgram(testNum, Params, CALC_NEW=True):
         end = ' RELOAD'
 
     GenerateExplorationPlots([Exploration], [Params.FigureFiles], Params)
-    GenerateExplorationMagPlots([Exploration], [Params.FigureFiles], Params)
     Exploration.name = testName
     Exploration.saveLabel = f'{Params.Explore.xName} x {Params.Explore.yName} explore-o-gram{end}'
 
@@ -381,7 +385,7 @@ def setFullSettings(Params):
     Params.RUN_ALL_PROFILES = False
     Params.COMPARE = False
     Params.NO_SAVEFILE = False
-    Params.FORCE_EOS_RECALC = True
+    Params.FORCE_EOS_RECALC = False
     Params.SKIP_INNER = False
     Params.DISP_LAYERS = True
     Params.DISP_TABLE  = True

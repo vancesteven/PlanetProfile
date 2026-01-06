@@ -28,10 +28,10 @@ class  ConstantEOSStruct:
         if not self.ALREADY_LOADED:
             self.TviscTrans_K = TviscTrans_K
             self.EXTRAP = True
-            self.Pmin = 0
-            self.Pmax = 10000
-            self.Tmin = 0
-            self.Tmax = 10000
+            self.Pmin, self.EOSPmin = 0, 0
+            self.Pmax, self.EOSPmax = 10000, 10000
+            self.Tmin, self.EOSTmin = 0, 0
+            self.Tmax, self.EOSTmax = 10000, 10000
             
             if EOStype == 'inner':
                 if constantProperties['kTherm_WmK'] is None:

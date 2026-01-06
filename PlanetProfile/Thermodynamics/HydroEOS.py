@@ -91,7 +91,14 @@ class OceanEOSStruct:
             self.w_ppt = wOcean_ppt
             self.EXTRAP = EXTRAP
             self.EOStype = 'ocean'
-
+            
+            # Save the initial EOS P and T limits separately, which will prevent redundant EOS reloading due to changes in P and T limits outside of data
+            self.EOSPmin = np.min(P_MPa)
+            self.EOSPmax = np.max(P_MPa)
+            self.EOSTmin = np.min(T_K)
+            self.EOSTmax = np.max(T_K)
+            
+            # Here we save EOS P and T limits that will be changed dynamically based on limits of compositional data
             self.Pmin = np.min(P_MPa)
             self.Pmax = np.max(P_MPa)
             self.Tmin = np.min(T_K)
@@ -428,6 +435,13 @@ class IceEOSStruct:
             self.EOSlabel += f'constantProperties{constantProperties}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, minPres_MPa=minPres_MPa, minTres_K=minTres_K)
+        # Save the initial EOS P and T limits separately, which will prevent redundant EOS reloading due to changes in P and T limits outside of data
+        self.EOSPmin = np.min(P_MPa)
+        self.EOSPmax = np.max(P_MPa)
+        self.EOSTmin = np.min(T_K)
+        self.EOSTmax = np.max(T_K)
+        
+        # Here we save EOS P and T limits that will be changed dynamically based on limits of compositional data
         self.Pmin = np.min(P_MPa)
         self.Pmax = np.max(P_MPa)
         self.Tmin = np.min(T_K)
@@ -650,6 +664,12 @@ class MixedEOSStruct:
                         f'JrheologyConstant{self.JmixedRheologyConstant}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
             = CheckIfEOSLoaded(self.EOSlabel, P_MPa, T_K, minPres_MPa=minPres_MPa, minTres_K=minTres_K)
+        # Save the initial EOS P and T limits separately, which will prevent redundant EOS reloading due to changes in P and T limits outside of data
+        self.EOSPmin = np.min(P_MPa)
+        self.EOSPmax = np.max(P_MPa)
+        self.EOSTmin = np.min(T_K)
+        self.EOSTmax = np.max(T_K)
+        
         if not self.ALREADY_LOADED:
             self.phaseStr = phaseStr
             self.phaseID = PhaseInv(phaseStr)
@@ -1002,10 +1022,10 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
         else:
             # Check if we can reuse an already-loaded EOS because the
             # P, T ranges are contained within the already-loaded EOS
-            EOSPmin = EOSlist.loaded[EOSlabel].Pmin
-            EOSPmax = EOSlist.loaded[EOSlabel].Pmax
-            EOSTmin = EOSlist.loaded[EOSlabel].Tmin
-            EOSTmax = EOSlist.loaded[EOSlabel].Tmax
+            EOSPmin = EOSlist.loaded[EOSlabel].EOSPmin
+            EOSPmax = EOSlist.loaded[EOSlabel].EOSPmax
+            EOSTmin = EOSlist.loaded[EOSlabel].EOSTmin
+            EOSTmax = EOSlist.loaded[EOSlabel].EOSTmax
             nopeP = np.min(P_MPa) < EOSPmin * 0.9 or \
                     np.max(P_MPa) > EOSPmax * 1.1 or \
                     deltaP < EOSlist.loaded[EOSlabel].deltaP
@@ -1018,10 +1038,10 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
                 ALREADY_LOADED = False
                 # Set P and T ranges to include the outer bounds from
                 # the already-loaded EOS and the one we want now
-                minPmin = np.minimum(np.min(P_MPa), EOSlist.loaded[EOSlabel].Pmin)
-                maxPmax = np.maximum(np.max(P_MPa), EOSlist.loaded[EOSlabel].Pmax)
-                minTmin = np.minimum(np.min(T_K), EOSlist.loaded[EOSlabel].Tmin)
-                maxTmax = np.maximum(np.max(T_K), EOSlist.loaded[EOSlabel].Tmax)
+                minPmin = np.minimum(np.min(P_MPa), EOSlist.loaded[EOSlabel].EOSPmin)
+                maxPmax = np.maximum(np.max(P_MPa), EOSlist.loaded[EOSlabel].EOSPmax)
+                minTmin = np.minimum(np.min(T_K), EOSlist.loaded[EOSlabel].EOSTmin)
+                maxTmax = np.maximum(np.max(T_K), EOSlist.loaded[EOSlabel].EOSTmax)
                 deltaP = np.round(np.minimum(np.mean(np.diff(P_MPa)), EOSlist.loaded[EOSlabel].deltaP), 2)
                 deltaT = np.round(np.minimum(np.mean(np.diff(T_K)), EOSlist.loaded[EOSlabel].deltaT), 2)
                 if deltaP == 0 or np.isnan(deltaP): deltaP = 0.01

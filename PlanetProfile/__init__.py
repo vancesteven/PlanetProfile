@@ -43,6 +43,7 @@ _defaultConfigTrajec = os.path.join(_ROOT, 'TrajecAnalysis', 'defaultConfigTraje
 _defaultConfigCustomSolution = os.path.join(_ROOT, 'CustomSolution', 'defaultConfigCustomSolution.py')
 _defaultConfigGravity = os.path.join(_ROOT, 'Gravity', 'defaultConfigGravity.py')
 _defaultConfigInversion = os.path.join(_ROOT, 'Inversion', 'defaultConfigInversion.py')
+_defaultConfigMonteCarlo = os.path.join(_ROOT, 'MonteCarlo', 'defaultConfigMonteCarlo.py')
 _Defaults = os.path.join(_ROOT, 'Default')
 _DefaultList = next(os.walk(_Defaults))[1]
 _Test = os.path.join(_ROOT, 'Test')
@@ -59,8 +60,9 @@ _userConfigTrajec = os.path.join('UserConfigs', 'configPPtrajec.py')
 _userConfigCustomSolution = os.path.join('UserConfigs', 'configPPcustomsolution.py')
 _userConfigGravity = os.path.join('UserConfigs', 'configPPgravity.py')
 _userConfigInversion = os.path.join('UserConfigs', 'configPPinversion.py')
-configTemplates = [_defaultConfig, _defaultConfigPlots, _defaultConfigInduct, _defaultConfigTrajec, _defaultConfigCustomSolution, _defaultConfigGravity, _defaultConfigInversion]
-configLocals = [_userConfig, _userConfigPlots, _userConfigInduct, _userConfigTrajec, _userConfigCustomSolution, _userConfigGravity, _userConfigInversion]
+_userConfigMonteCarlo = os.path.join('UserConfigs', 'configPPmontecarlo.py')
+configTemplates = [_defaultConfig, _defaultConfigPlots, _defaultConfigInduct, _defaultConfigTrajec, _defaultConfigCustomSolution, _defaultConfigGravity, _defaultConfigInversion, _defaultConfigMonteCarlo]
+configLocals = [_userConfig, _userConfigPlots, _userConfigInduct, _userConfigTrajec, _userConfigCustomSolution, _userConfigGravity, _userConfigInversion, _userConfigMonteCarlo]
 if any([not os.path.isfile(cfg) for cfg in configLocals]):
     if input(f'configPP files not found in pwd: {os.path.join(os.getcwd(), "UserConfigs")}. Copy from defaults to local dir? ' +
              f'y/n ') in ['', 'y', 'Y', 'yes', 'Yes', '[y]']:

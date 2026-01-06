@@ -65,7 +65,9 @@ def GenerateExplorationMagPlots(ResultsList, FigureFilesList, Params):
         for Result in ResultsList:
             all_ocean_comps.extend(np.array(Result.base.oceanComp).flatten())
         Params = SetupCustomSolutionPlotSettings(np.array(all_ocean_comps), Params)
-        PlotInductOgramPhaseSpace(ResultsList, FigureFilesList, Params)
+        if Params.DO_INDUCTOGRAM:
+            # This plot only works for inductogram runs
+            PlotInductOgramPhaseSpace(ResultsList, FigureFilesList, Params)
         PLOT_2D = not np.any([ResultsList[i].nx == 1 or ResultsList[i].ny == 1 for i in range(len(ResultsList))]) # If either axis is of size 1, then we cannot plot 
         if PLOT_2D:
             PlotInductOgram(ResultsList, FigureFilesList, Params)
@@ -222,17 +224,16 @@ def PlotInductOgramPhaseSpace(results_list, FigureFilesList, Params):
                 # Only add bounds for supported inductOtypes
                 if FigMisc.MARK_INDUCT_BOUNDS and Params.Induct.inductOtype != 'oceanComp':
                     boundStyle = {'ls': Style.LS_BdipInset, 'lw': Style.LW_BdipInset, 'c': Color.BdipInset}
-                    if hasattr(results_list[0], 'x') and hasattr(results_list[0], 'y'):
-                        x_vals = results_list[i].x[iValid[i]].flatten()
-                        y_vals = results_list[i].y[iValid[i]].flatten()
-                        _ = axes[0].plot(sigma_Sm[i][thisComp][x_vals == np.min(x_vals)], 
-                                    D_km[i][thisComp][x_vals == np.min(x_vals)], **boundStyle)
-                        _ = axes[0].plot(sigma_Sm[i][thisComp][x_vals == np.max(x_vals)], 
-                                    D_km[i][thisComp][x_vals == np.max(x_vals)], **boundStyle)
-                        _ = axes[0].plot(sigma_Sm[i][thisComp][y_vals == np.min(y_vals)], 
-                                    D_km[i][thisComp][y_vals == np.min(y_vals)], **boundStyle)
-                        _ = axes[0].plot(sigma_Sm[i][thisComp][y_vals == np.max(y_vals)], 
-                                    D_km[i][thisComp][y_vals == np.max(y_vals)], **boundStyle)
+                    x_vals = x_data[i][thisComp]
+                    y_vals = y_data[i][thisComp]
+                    _ = axes[0].plot(sigma_Sm[i][thisComp][x_vals == np.min(x_vals)], 
+                                D_km[i][thisComp][x_vals == np.min(x_vals)], **boundStyle)
+                    _ = axes[0].plot(sigma_Sm[i][thisComp][x_vals == np.max(x_vals)], 
+                                D_km[i][thisComp][x_vals == np.max(x_vals)], **boundStyle)
+                    _ = axes[0].plot(sigma_Sm[i][thisComp][y_vals == np.min(y_vals)], 
+                                D_km[i][thisComp][y_vals == np.min(y_vals)], **boundStyle)
+                    _ = axes[0].plot(sigma_Sm[i][thisComp][y_vals == np.max(y_vals)], 
+                                D_km[i][thisComp][y_vals == np.max(y_vals)], **boundStyle)
 
             cbar[comp].set_label(cbarLabel)
             fig.savefig(Params.FigureFiles.phaseSpace, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)

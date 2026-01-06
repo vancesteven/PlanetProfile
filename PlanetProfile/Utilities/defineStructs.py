@@ -1004,6 +1004,7 @@ class InductOgramParamsStruct:
         self.cLevels = cLevels
         self.dftC = dftC
         self.cfmt = cfmt
+        self.oceanCompList = None # List of ocean compositions to query over (when using the oceanComp inductogram option)
         self.colorType = 'zb'  # What parameter to use for color of points in phase space plots. Options are "Tmean", "zb".
         self.SPECIFIC_CLEVELS = False  # Whether to use the specific cLevels listed below or default numbers
         self.excSelectionCalc = {'synodic': True, 'orbital': True, 'true anomaly': True,  'synodic 2nd': True}  # Which magnetic excitations to include in calculations
@@ -1212,7 +1213,7 @@ class ExploreParamsStruct:
             'mixingRatioToH2O': 'hydro'
         }
         self.exploreLogScale = ['mixingRatioToH2O']
-        self.provideExploreRange = ['oceanComp'] # List of explore options where user must provide the array to explore over
+        self.provideExploreRange = {'oceanComp': 'oceanCompRangeList'} # Dict of explore options where user must provide the array to explore over. Key is the explore option, value is the attribute name to get the array from.
         self.contourName = None  # Name of variable to use for contours (if None, uses z variable). Allows plotting contours of one variable while coloring by another.
 
 
