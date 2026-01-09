@@ -1,16 +1,20 @@
-# PlanetProfile v3.0
+# PlanetProfile
 ![PlanetProfile logo](misc/PPlogoDocs.png)
 
-## Version 3.0 Patch Notes - Expanding the World of Ocean Chemistry
-This update implements many changes undertaken over the past year, headlined by 
-- Ability to model an NaCl ocean model using an In-development NaCl(aq) Equation of State from Seafreeze
-- New capability to model speciated ocean chemistries (which we refer to as CustomSolutions) using the Frezchem and Supcrt16 databases adapted through the chemical modeling package Reaktoro.
-- Affinity for chemical (metabolic) reactions up to 1GPa, using the Supcrt16-organics database adapted through the chemical modeling package Reaktoro.
-- Integration of the package PyALMA3, the python version of ALMA3, to calculate tidal Love numbers.
+PlanetProfile is a software framework for constructing 1D interior structure models based on planetary properties. Self-consistent thermodynamics are used for fluid, rock, and mineral phases. Sound speeds, attenuation, and electrical conductivities are computed as outputs. The main code is called from an input file containing all the planetary data. 
 
-These updates expand the modeling of ocean worlds beyond the existing Seawater, MgSO4, and pure H2O compositions currently available in PlanetProfile. For details on using the CustomSolution capability, please do not hesitate to reach out. Additionally, there is a PlanetProfile tutorial webpage in progress!
+The following is a non-comprehensive list of capabilities offered in PlanetProfile:
+- Self-consistent ocean world modeling: Coupling of geophysics with thermodynamic and transport properties dictated by input ocean geochemistry
+  - Available laboratory-measured ocean compositions: Pure water and Sodium Chloride (Seafreeze), Seawater (GSW), Magnesium Sulfate (Vance)
+  - Can now model arbitrary ocean compositions whose thermodynamics and transport properties are computationally simulated with the geochemical databases Frezchem and Supcrt adapted in the gibbs minimization modeling package Reaktoro
+- Self-consistent interior modeling: Coupling of silicate and core geophysics with thermodynamics dictated by material equation of states (i.e. CV, CM, etc.) defined by PerpleX
+- Forward model Tidal love numbers with PyALMA3
+- Forward model spherical harmonic and asymmetric magnetic induction responses with MoonMag
+- Large scale model explorations that forward model across 2 different properties (ExploreOgrams) or many models via Monte Carlo explorations
+- Export model data via .txt files, .pkl files, and .mat files
+- Built-in plots to visualize models
 
-This update also fixes many incidental bugs.
+For the latest updates being introduced to PlanetProfile, check out the [CHANGELOG.md](CHANGELOG.md) file
 
 **USERS WHO HAVE CLONED PLANETPROFILE PRIOR TO 2025 SHOULD REINSTALL A FRESH CLONE. SEE THE UNINSTALLING SECTION FOR MORE DETAILS**
 The code was rebased to push many changes undertaken over the past year. Due to new file size limitations, this meant excluding a large 
@@ -37,8 +41,8 @@ Developers should add test modules for new features and ensure to run the full t
 1. (Recommended) Install all dependencies listed in the next section before proceeding.
 1. At a terminal:
 `python -m pip install PlanetProfile`
-Python 3.8 or higher is required, and Python 3.11 is recommended.
-A later version of PlanetProfile will require Python 3.11. 
+Python 3.8 or higher is required, and Python 3.11 is recommended (newer version of Python have not been tested).
+A later version of PlanetProfile with Python 3.14 is in the works but not currently available..
 Pip will install dependencies, but a conda or mamba (better) environment with the prerequisites listed below is recommended.
 1. Create a directory where you'd like to store configurations and have folders for each body.
 1. Navigate into the new directory.
@@ -105,8 +109,8 @@ Once these files have been removed, install the newer version of SeaFreeze with 
 
 ## Installation of prerequisites
 ### Python 
-1. Python version 3.8+ must be installed, preferably via Anaconda. Required modules can be installed in Miniconda with the following command:
-  1. `conda install numpy scipy matplotlib mpmath pandas`
+1. Python version 3.8-3.11 must be installed, preferably via miniconda or Anaconda. Required modules can be installed in Miniconda with the following command:
+  1. `conda install nump=1.26.4 scipy matplotlib mpmath pandas`
 1. Conda-forge modules can be installed in Anaconda or Miniconda with the following command:
   1. `conda install -c conda-forge gsw obspy spiceypy cmasher reaktoro`
 1. AFTER the above modules have been installed with conda, install SeaFreeze, MoonMag, and hdf5storage with the following command:
@@ -139,8 +143,9 @@ Complete the uninstallation by deleting the entire directory and running the com
 PlanetProfile is open source software. Please see the [LICENSE](https://github.com/vancesteven/PlanetProfile/blob/main/LICENSE) file and read the guidelines for contrbuting in [CONTRIBUTING.md](https://github.com/vancesteven/PlanetProfile/blob/main/CONTRIBUTING.md) if you are interested in joining the project. Also see our community guidelines in [CODE_OF_CONDUCT.md](https://github.com/vancesteven/PlanetProfile/blob/main/CODE_OF_CONDUCT.md).
 
 ## Notes
-* With the PlanetProfile 2.0 release, both Python and Matlab are available. The two branches do not have the same functionality yet with this release--some features exist in the Python version that are not yet implemented in the Matlab. A later release will align their functionality as much as possible. For now, the Python version is recommended.
+* With the PlanetProfile 3.0 release, both Python and Matlab are available. However, the MATLAB branch does not ahve the same functionality and we do not plan to keep it up to date with the Python version. For the latest features, use the Python version.
+* With the PlanetProfile 2.0 release, both Python and Matlab are available. The two branches do not have the same functionality yet with this release--some features exist in the Python version that are not yet implemented in the Matlab.
 * As of 2020-09-28, PlanetProfile v1.1.0 was released along with code for making calculations regarding magnetic induction. The development (main) branch of PlanetProfile is set up to generate profiles from minimal inputs. Output profiles that may be used along with the induction calculations may be found in the v1.1.0 release.
 * The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.
 
-Some calculations in Python use parallel computing with the multiprocessing builtin module. There are sometimes cross-platform compatibility issues that crop up. By default, multiprocessing is enabled; disable it by setting Params.DO_PARALLEL = False in configPP.py.
+Some calculations in Python use parallel computing with the multiprocessing builtin module. There are sometimes cross-platform compatibility issues that crop up. By default, multiprocessing is enabled; disable it by setting Params.DO_PARALLEL = False in UserConfigs/configPP.py.
