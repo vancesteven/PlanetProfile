@@ -1,9 +1,51 @@
 import os, shutil
 from glob import glob
+from pathlib import Path
+from urllib.request import urlopen, urlretrieve
+import json
 
 import numpy as np
 
 from PlanetProfile import _ROOT, _Defaults, _SPICE, configTemplates, configLocals, CopyOnlyIfNeeded, RemoveCarefully
+
+
+def DownloadPerplexFiles():
+    """Download Perple_X folder from GitHub if not present."""
+    perplex_dir = Path(_ROOT) / 'Thermodynamics' / 'EOStables' / 'Perple_X'
+    # Check if folder exists and has files
+    if perplex_dir.exists() and any(f.suffix == '.tab' for f in perplex_dir.iterdir()):
+        print('\n Perple_X folder already populated.')
+        return
+    
+    # Create folder and download
+    perplex_dir.mkdir(parents=True, exist_ok=True)
+    print('\nDownloading Perple_X folder from GitHub...')
+    print('='*60)
+    
+    # Get file list from GitHub API
+    api_url = "https://api.github.com/repos/vancesteven/PlanetProfile/contents/PlanetProfile/Thermodynamics/EOStables/Perple_X"
+    try:
+        with urlopen(api_url) as response:
+            files = [item['name'] for item in json.loads(response.read()) if item['type'] == 'file']
+    except:
+        # Fallback list if API fails
+        files = ['Fe-S_3D_EOS.mat', 'CM_undifferentiated_hhph_DEW17_nofluid_nomelt_685.tab',
+                 'CI_undifferentiated_hhph_DEW17_nofluid_nomelt_685.tab', 'CV_undifferentiated_v4_687_DEW17_nofluid_nomelt_v2.tab',
+                 'Comet_67P_CG_v7_excluding_fluid_properties.tab', 'CV3hy1wt_678_1.tab',
+                 'CM_hydrous_differentiated_Ganymede_Core080Fe020S_excluding_fluid_properties.tab']
+    
+    # Download each file
+    base_url = "https://raw.githubusercontent.com/vancesteven/PlanetProfile/main/PlanetProfile/Thermodynamics/EOStables/Perple_X/"
+    for filename in files:
+        print(f'  {filename}...', end='', flush=True)
+        try:
+            urlretrieve(base_url + filename, perplex_dir / filename)
+            print(' ✓')
+        except:
+            print(' ✗')
+    
+    print('='*60)
+    print('Perplex Download complete\n')
 
 
 def PPinstall():
@@ -37,6 +79,9 @@ def PPinstall():
     spiceCopies = [file.split(f'{_ROOT}{os.sep}')[-1] for file in spiceFiles]
     for repoSpice, localSpice in zip(spiceFiles, spiceCopies):
         CopyOnlyIfNeeded(repoSpice, localSpice)
+    
+    # Download Perple_X folder if not present
+    DownloadPerplexFiles()
 
 
 def PPuninstall(KEEP_NEW=None):

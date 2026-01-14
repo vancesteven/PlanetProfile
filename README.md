@@ -46,9 +46,12 @@ A later version of PlanetProfile with Python 3.14 is in the works but not curren
 Pip will install dependencies, but a conda or mamba (better) environment with the prerequisites listed below is recommended.
 1. Create a directory where you'd like to store configurations and have folders for each body.
 1. Navigate into the new directory.
-1. At a terminal:
+1. **Run the installation script:**
 `python -m PlanetProfile.install`
-This will copy files from their defaults to the current directory.
+This will:
+   - Copy default configuration files to your working directory
+   - **Automatically download large Perple_X EOS data files (~164 MB) that are not shipped with PlanetProfile package**
+   
 1. Run the software with, for example:
 `python -m PlanetProfile.Main Europa`
 or

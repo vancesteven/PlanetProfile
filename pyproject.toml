@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PlanetProfile"
+version = "3.1.0"
+authors = [
+    {name = "Steven D. Vance", email = "steven.d.vance@jpl.nasa.gov"},
+    {name = "Scott Chang", email = "scochang@uw.edu"}
+]
+maintainers = [
+    {name = "Steven D. Vance", email = "steven.d.vance@jpl.nasa.gov"},
+    {name = "Scott Chang", email = "scott.d.chang@jpl.nasa.gov"},
+]
+description = "Self-consistent geophysical models for large moons and ocean worlds"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "GPL-3.0"}
+keywords = ["planetary science", "geophysics", "ocean worlds", "thermodynamics"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+dependencies = [
+    "numpy>=1.26.4,<2.0.0",
+    "scipy>=1.16.3",
+    "mpmath>=1.3.0",
+    "matplotlib>=3.10.6",
+    "SeaFreeze>=1.0.0",
+    "MoonMag>=1.7.5",
+    "gsw>=3.6.20",
+    "spiceypy>=8.0.0",
+    "cmasher>=1.9.2",
+    "hdf5storage>=0.2.2",
+    "reaktoro>=2.13.0",
+    "pyalma3>=1.0.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/vancesteven/PlanetProfile"
+Documentation = "https://vancesteven.github.io/PlanetProfile"
+Repository = "https://github.com/vancesteven/PlanetProfile"
+"Bug Tracker" = "https://github.com/vancesteven/PlanetProfile/issues"
+Publication = "https://doi.org/10.1029/2022EA002748"
+Changelog = "https://github.com/vancesteven/PlanetProfile/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["PlanetProfile*"]
+exclude = ["tests*", "docs*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.tab", "*.mat", "*.tf", "*.tls", "*.tpc", "*.md"]

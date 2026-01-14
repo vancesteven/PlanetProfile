@@ -3,26 +3,26 @@ PlanetProfile version checking module
 This module checks the version of PlanetProfile and its dependencies.
 It is intended to be imported by other modules in the package.
 
-To update the version number, change the value of the file number in PPverNum.txt and update the setup.py file 
-in the root directory.
-The version number in PPverNum.txt should be the same as the version number in setup.py.
+To update the version number, edit the version field in pyproject.toml (single source of truth).
+Python automatically reads the version from installed package metadata.
 
 To add packages to the compatibility check, add them to the compatNums dictionary, pkgNames dictionary, 
 installInstruct dictionary, and upgradeInstruct dictionary.
-Also add the package to the dependencies in setup.py.
+Also add the package to the dependencies in pyproject.toml.
 """
-from importlib.metadata import version
-from pathlib import Path
-from PlanetProfile import _PPverNumFile
-# Current PlanetProfile version tag
-ppVerNum = Path(_PPverNumFile).read_text().replace('\n', '')
+from importlib.metadata import version, PackageNotFoundError
+
+# Get PlanetProfile version from installed package metadata (pyproject.toml is source of truth)
+
+ppVerNum = version('PlanetProfile')
+
 # Compatible version tag numbers
 compatNums = {
-    'seafreeze': '0.9.3',
-    'gsw': '3.4.0',
-    'obspy': '1.2.2',
-    'MoonMag': '1.5.1',
-    'reaktoro': '2.12.5',
+    'seafreeze': '1.0.0',
+    'gsw': '3.6.20',
+    'obspy': '1.4.2',
+    'MoonMag': '1.7.5',
+    'reaktoro': '2.13.0',
     'pyalma3': '1.0.1'
 }
 # Printable package names

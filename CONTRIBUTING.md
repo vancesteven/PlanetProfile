@@ -56,28 +56,55 @@ Please read [GitHub docs about pull requests](https://docs.github.com/en/free-pr
 
 ## For developers: Packaging
 The python version of PlanetProfile is listed on the Python Package Index, PyPI. Updating the package and release version require access permissions (which can be granted by Dr. Vance) and the following steps:
-1. Update documentation
+
+### Prerequisites
+Ensure you have the latest build tools installed:
+```bash
+pip install --upgrade pip build twine
+```
+
+### Packaging Steps
+
+- PlanetProfile now uses `pyproject.toml` (PEP 517/518/621) for all configuration
+- Package discovery and file inclusion are controlled by:
+  - `[tool.setuptools.packages.find]` in `pyproject.toml`
+  - `[tool.setuptools.package-data]` in `pyproject.toml`
+  - `MANIFEST.in` for additional source distribution files
+- Ensure build and twine are installed (pip install build twine)
+
+1. **Update documentation**
    1. Navigate to the docs/ folder. From the top-level directory: `cd docs`
-   1. Generate HTML files: `rm -rf stubs/ && make clean && make html`. Make a note of any warnings.
-   1. Open `docs/_build/html/index.html` in a browser and confirm that everything looks as it should.
-   1. Resolve any warnings or issues with the documentation web pages before committing changes.
-1. Create pypi package
-   1. Delete previous package files from dist/ folder.
-   1. Update version number in both `setup.py` and `PlanetProfile/Utilities/PPverNum.txt`
-   1. Construct the package from `setup.py` and `MANIFEST.in` instructions: `python -m build`
-1. Upload pypi package and GitHub/Zenodo release
+   2. Generate HTML files: `rm -rf stubs/ && make clean && make html`. Make a note of any warnings.
+   3. Open `docs/_build/html/index.html` in a browser and confirm that everything looks as it should.
+   4. Resolve any warnings or issues with the documentation web pages before committing changes.
+
+2. **Update version numbers**
+   1. Update version in `pyproject.toml` (line 6: `version = "X.X.X"`)
+   2. Update version in `PlanetProfile/Utilities/PPverNum.txt` (for MATLAB compatibility only - keep in sync)
+   3. **Note:** Python automatically reads version from installed package metadata via `importlib.metadata.version('PlanetProfile')`
+
+3. **Create PyPI package**
+   a. Delete previous package files from dist/ folder: `rm -rf dist/*`
+   b. Build the package using modern Python packaging:
+      `python -m build`
+   - Note this creates both:
+      - Source distribution: `dist/planetprofile-X.X.X.tar.gz`
+      - Wheel distribution: `dist/planetprofile-X.X.X-py3-none-any.whl`
+
+4. **Upload PyPI package and GitHub/Zenodo release**
    1. Upload to PyPI: `python -m twine upload dist/* --verbose`
-      1. For Username, enter verbatim: `__token__` and hit enter.
-      1. For Pass, copy to clipboard and paste into the terminal your PyPI API token and hit enter. The token is what you saved during your PyPI account setup.
-   1. Upload GitHub/Zenodo release:
-      1. Navigate to <https://github.com/vancesteven/PlanetProfile/releases/new>
-      1. Drag-and-drop or upload the new `dist/PlanetProfile-#.#.#.tar.gz` file
-      1. Enter the new version number, preceded by "v", in the "Choose a tag" menu at the top. Target should be "main".
-      1. Give the release a title that briefly indicates what's new in this version.
-      1. Add a couple sentences describing the changes in slightly more detail in the "Describe this release" box. See previous releases for examples.
-1. Update the mirror in the NASA-planetary-science org
+      a. For Username, enter verbatim: `__token__` and hit enter.
+      b. For Pass, copy to clipboard and paste into the terminal your PyPI API token and hit enter. The token is what you saved during your PyPI account setup.
+   2. Upload GitHub/Zenodo release:
+      a. Navigate to <https://github.com/vancesteven/PlanetProfile/releases/new>
+      b. Drag-and-drop or upload the new `dist/planetprofile-X.X.X.tar.gz` file
+      c. Enter the new version number, preceded by "v", in the "Choose a tag" menu at the top. Target should be "main".
+      d. Give the release a title that briefly indicates what's new in this version.
+      e. Add a couple sentences describing the changes in slightly more detail in the "Describe this release" box. See previous releases for examples.
+
+5. **Update the mirror in the NASA-planetary-science org**
    1. Navigate to the mirror repo local directory (e.g. `cd ~/NASApp/`)
-   1. Update the mirror: `git remote update && git push --mirror`
+   2. Update the mirror: `git remote update && git push --mirror`
 
 ### Initial setup
 Going through these steps for the first time requires some initial setup. Follow the steps below the first time you are ready to create a new release. You will need write permissions for:

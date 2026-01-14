@@ -48,7 +48,8 @@ _Defaults = os.path.join(_ROOT, 'Default')
 _DefaultList = next(os.walk(_Defaults))[1]
 _Test = os.path.join(_ROOT, 'Test')
 _TestImport = 'PlanetProfile.Test'
-_PPverNumFile = os.path.join(_ROOT, 'Utilities', 'PPverNum.txt')
+# Note: PPverNum.txt is maintained for MATLAB compatibility only
+# Python reads version from pyproject.toml via importlib.metadata
 _healpixSphere = os.path.join(_ROOT, 'Utilities', 'healpixSphere.txt')
 _SPICE = os.path.join(_ROOT, 'SPICE')
 

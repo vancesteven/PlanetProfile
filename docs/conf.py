@@ -15,7 +15,7 @@ from misc.upgreek import upgreekDefs
 project = 'PlanetProfile'
 copyright = '2024, Steven D. Vance and Marshall J. Styczinski'
 author = 'Steven D. Vance, Marshall J. Styczinski, and PlanetProfile collaborators'
-release = 'v2.5.0'
+release = 'v3.1.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

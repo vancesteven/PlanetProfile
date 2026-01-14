@@ -10,3 +10,6 @@ recursive-include PlanetProfile/* *.md
 global-exclude *Ref.txt
 global-exclude Test*Profile*.txt
 global-exclude Test*.mat
+# Exclude large Perple_X data files (downloaded automatically during install)
+global-exclude PlanetProfile/Thermodynamics/EOStables/Perple_X/*.tab
+global-exclude PlanetProfile/Thermodynamics/EOStables/Perple_X/*.mat
