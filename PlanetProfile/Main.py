@@ -1687,6 +1687,8 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
 
         if Params.Explore.xName in Params.Explore.provideExploreRange.keys():
             xList = getattr(Params.Explore, Params.Explore.provideExploreRange[Params.Explore.xName])
+            if xList is None:
+                raise ValueError(f'Params.Explore.provideExploreRange[{Params.Explore.xName}] is not set. Please set it to the list of values to explore over.')
             xList = [s.strip() if isinstance(s, str) else s for s in xList]
             Params.Explore.nx = len(xList)
         else:
@@ -1696,6 +1698,8 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
                 xList = np.linspace(Params.Explore.xRange[0], Params.Explore.xRange[1], Params.Explore.nx)
         if Params.Explore.yName in Params.Explore.provideExploreRange.keys():
             yList = getattr(Params.Explore, Params.Explore.provideExploreRange[Params.Explore.yName])
+            if yList is None:
+                raise ValueError(f'Params.Explore.provideExploreRange[{Params.Explore.yName}] is not set. Please set it to the list of values to explore over.')
             yList = [s.strip() if isinstance(s, str) else s for s in yList]
             Params.Explore.ny = len(yList)
         else:

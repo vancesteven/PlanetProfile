@@ -103,6 +103,7 @@ def configAssign():
     Params.PLOT_D_SIGMA = False # Whether to plot D vs sigma for the exploreogram
     Params.PLOT_LOVE_COMPARISON = False # Whether to plot love number comparison for the exploreogram
     Params.PLOT_Zb_D =  False # Whether to plot Zb vs D for the exploreogram
+    Params.PLOT_COMBO_EXPLORATIONS = True # Whether to plot multiple z variables in a single subplot
     # Options for x/y variables: "xFeS", "rhoSilInput_kgm3", "oceanComp", "wOcean_ppt", "Tb_K", "ionosTop_km", "sigmaIonos_Sm",
     # "silPhi_frac", "silPclosure_MPa", "icePhi_frac", "icePclosure_MPa", "Htidal_Wm3", "Qrad_Wkg", "zb_approximate_km", "qSurf_Wm2" (Do.NO_H2O only)
     # For "oceanComp" option, must provide a .mat file titled xRangeData.mat or yRangeData.mat of a dictionary whose key 'Data' corresponds to a list of ocean comps to query over. Exploreparams.nx/ny should match lens of list.

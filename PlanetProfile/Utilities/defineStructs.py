@@ -1620,7 +1620,7 @@ class FigLblStruct:
         self.dzIceVlabel = r'Undersea ice V thickness $dz_\mathrm{V}$ ($\si{km}$)'
         self.dzIceVundlabel = r'Underplate ice V thickness $dz_\mathrm{V,und}$ ($\si{km}$)'
         self.dzIceVIlabel = r'Ice VI layer thickness $dz_\mathrm{VI}$ ($\si{km}$)'
-        self.dConvlabel = r'Ice Ih convectivelayer thickness $dz_\mathrm{conv}$ ($\si{m}$)'
+        self.dConvlabel = r'Ice Ih convective layer thickness $dz_\mathrm{conv}$ ($\si{m}$)'
         self.dzWetHPslabel = r'Undersea high-pressure ice thickness $dz_\mathrm{HP}$ ($\si{km}$)'
         self.eLidlabel = r'Conductive lid thickness $e_\mathrm{lid}$ ($\si{km}$)'
         self.TbLabel = r'Ice bottom temp $T_b$ ($\si{K}$)'
