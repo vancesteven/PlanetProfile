@@ -56,6 +56,8 @@ Please read [GitHub docs about pull requests](https://docs.github.com/en/free-pr
 
 ## For developers: Packaging
 The python version of PlanetProfile is listed on the Python Package Index, PyPI. Updating the package and release version require access permissions (which can be granted by Dr. Vance) and the following steps:
+
+**Note:** For detailed build instructions and troubleshooting, see [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md).
 1. Update documentation
    1. Navigate to the docs/ folder. From the top-level directory: `cd docs`
    1. Generate HTML files: `rm -rf stubs/ && make clean && make html`. Make a note of any warnings.
@@ -63,8 +65,8 @@ The python version of PlanetProfile is listed on the Python Package Index, PyPI.
    1. Resolve any warnings or issues with the documentation web pages before committing changes.
 1. Create pypi package
    1. Delete previous package files from dist/ folder.
-   1. Update version number in both `setup.py` and `PlanetProfile/Utilities/PPverNum.txt`
-   1. Construct the package from `setup.py` and `MANIFEST.in` instructions: `python -m build`
+   1. Update version number in both `pyproject.toml` and `PlanetProfile/Utilities/PPverNum.txt`
+   1. Construct the package from `pyproject.toml` and `MANIFEST.in` instructions: `python -m build`
 1. Upload pypi package and GitHub/Zenodo release
    1. Upload to PyPI: `python -m twine upload dist/* --verbose`
       1. For Username, enter verbatim: `__token__` and hit enter.
