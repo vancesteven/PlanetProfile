@@ -735,7 +735,7 @@ def PrintLayerSummaryLatex(PlanetList, Params):
                                                     f'\\num{{{Planet.dzIceII_km:.1f}}}',
                                                     f'\\num{{{Planet.Ocean.GSmeanIIwet_GPa:.1f}}}',
                                                     f'\\num{{{Planet.Ocean.sigmaMeanIIwet_Sm:.1e}}}']) + endl
-                HPiceLayers = HPiceLayers + wetIceIIIlayers
+                HPiceLayers = HPiceLayers + wetIceIIlayers
             if np.any(Planet.phase == 3):
                 wetIceIIIlayers = newline + tab.join([wetIceIIIlbl,
                                                     f'\\num{{{(Planet.Bulk.R_m - Planet.zIceIII_m)/1e3:.1f}}}',
