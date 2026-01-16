@@ -1240,7 +1240,7 @@ def PlotWedge(PlanetList, Params):
             if Planet.dzIceII_km > 0:
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceII_m/1e3)/rMax_km, ang1, ang2,
                                    width=Planet.dzIceII_km/rMax_km,
-                                   fc=Color.iceIII, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
+                                   fc=Color.iceII, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
             if Planet.dzIceIII_km > 0:
                 ax.add_patch(Wedge((0.5,0), (R_km - Planet.zIceIII_m/1e3)/rMax_km, ang1, ang2,
                                    width=Planet.dzIceIII_km/rMax_km,
