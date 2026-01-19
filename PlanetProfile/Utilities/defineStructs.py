@@ -2910,6 +2910,12 @@ class FigMiscStruct:
             plt.rcParams['text.latex.preamble'] = f'\\usepackage{{{self.defaultFontCode}}}' \
                                                   + ''.join(self.latexPackages)
             self.TEX_INSTALLED = True
+            plt.rcParams.update({
+                "pdf.fonttype": 42,  # embed TrueType
+                "ps.fonttype": 42,
+                # optional: avoid font weirdness in vector editors
+                "svg.fonttype": "none",
+            })
         else:
             print('A LaTeX installation was not found. Some plots may have fallback options in labels.')
             plt.rcParams['font.serif'] += ', ' + self.backupFont  # Set plots to use the default font if installed, or a backup if not
