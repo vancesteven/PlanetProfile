@@ -2679,6 +2679,13 @@ class FigMiscStruct:
         self.SHOW_ICE_CONDUCT = False  # Whether to force conductivity plot to include (usually arbitrarily small) conductivities in ice phases.
         self.SCALE_HYDRO_LW = True  # Whether to adjust thickness of lines on hydrosphere plot according to relative salinity
         self.MANUAL_HYDRO_COLORS = True  # Whether to set color of lines in hydrosphere according to melting temperature
+        self.HYDRO_COMPARE_COLORS = None # Whether to set color of lines in based on a provided dictionary
+        # e.g. FigMisc.HYDRO_COMPARE_COLORS = ["#1f77b4", "#2ca02c", "#ff7f0e"]
+        # or FigMisc.HYDRO_COMPARE_COLORS = {
+        #     "Europa": "#1f77b4",
+        #     "Ganymede": "#2ca02c",
+        #     "Callisto": "#ff7f0e",
+        # }
         self.RELATIVE_Tb_K = True  # Whether to set colormap of lines based on relative comparison (or fixed settings in ColorStruct)
         self.lowSigCutoff_Sm = None  # Cutoff conductivity below which profiles will be excluded. Setting to None includes all profiles
         self.TminHydro = 200  # Minimum temperature to display on hydrosphere plots
