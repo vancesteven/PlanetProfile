@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb, ListedColormap
 from scipy.interpolate import interp1d
 from PlanetProfile import _defaultCycler
+import platformdirs
 
 #from MoonMag.plotting_funcs import east_formatted as LonFormatter, lat_formatted as LatFormatter, get_sign as GetSign
 
@@ -1602,6 +1603,7 @@ class FigLblStruct:
         # Font size settings
         self.TS_hydroLabels = None  # Font size for hydrosphere phase labels in pt
         self.hydroTitleSize = None  # Font size for hydrosphere title in pt
+        self.TS_hydroLegendSize = None  # Font size for hydrosphere legend in pt
         self.speciesSize = None  # Font size for species labels in hydrosphere species diagrams
         self.cLabelSize = None  # Font size in pt for contour labels
         self.cLabelPad = None  # Padding in pt to set beside contour labels
@@ -1966,7 +1968,7 @@ class FigLblStruct:
             'sigmaMean_Sm': None,
             'silPhiCalc_frac': '%.2f',
             'zb_km': '%.1f',
-            'hLoveAmp': '%.3f',
+            'hLoveAmp': '%.2f',
             'lLoveAmp': '%.3f',
             'kLoveAmp': '%.3f',
             'deltaLoveAmp': '%.3f',
@@ -2604,11 +2606,19 @@ class CustomSolutionParamsStruct:
         self.rktPath = ''
         self.databasePath = ''
         self.frezchemPath = ''
+        self.lookupTableCachePath = ''
 
     def setPaths(self, ROOT):
         self.rktPath = os.path.join(ROOT, 'Thermodynamics', 'Reaktoro')
         self.databasePath = os.path.join(self.rktPath, 'Databases')
         self.frezchemPath = os.path.join(self.databasePath, self.FREZCHEM_DATABASE)
+        
+        # Path to cache - for dynamically generated lookup tables
+        ## We use cache directory rather than saving to directory in package to avoid read/write issues when using code as a package
+        cache_base = platformdirs.user_cache_dir('PlanetProfile', 'PlanetProfile')
+        self.lookupTableCachePath = os.path.join(cache_base, 'CustomSolutionLookupTables')
+        # Create cache directory if it doesn't exist
+        os.makedirs(self.lookupTableCachePath, exist_ok=True)
 
 # For configuring longitudes from -180 to 180 or 0 to 360.
 def LonFormatter(longitude, EAST=True):
@@ -3209,6 +3219,7 @@ class EOSlistStruct:
         pass
     loaded = {}  # Dict listing the loaded EOSs. Since we define this attribute outside of __init__, it will be common to all EOSlist structs when set.
     loaded['CustomSolutionEOS'] = {} # Dict listing the loaded EOSs for CustomSolution. We separate these EOS to save them all to disk at end
+    loaded['ReaktoroDatabases'] = {} # Dict listing the loaded Reaktoro databases (speeds up SetupInit since loading Reaktoro databases is slow)
     ranges = {}  # Dict listing the P, T ranges of the loaded EOSs.
 
 """ Global timing object"""

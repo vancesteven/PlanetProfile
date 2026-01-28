@@ -6,15 +6,15 @@ import json
 
 import numpy as np
 
-from PlanetProfile import _ROOT, _Defaults, _SPICE, configTemplates, configLocals, CopyOnlyIfNeeded, RemoveCarefully
+from PlanetProfile import _ROOT, _Defaults, _SPICE, _PERPLEXCACHE, configTemplates, configLocals, CopyOnlyIfNeeded, RemoveCarefully
 
 
 def DownloadPerplexFiles():
     """Download Perple_X folder from GitHub if not present."""
-    perplex_dir = Path(_ROOT) / 'Thermodynamics' / 'EOStables' / 'Perple_X'
+    perplex_dir = Path(_PERPLEXCACHE)
     # Check if folder exists and has files
     if perplex_dir.exists() and any(f.suffix == '.tab' for f in perplex_dir.iterdir()):
-        print('\n Perple_X folder already populated.')
+        print('\n Perple_X folder already populated in user cache.')
         return
     
     # Create folder and download

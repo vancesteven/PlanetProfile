@@ -3,7 +3,7 @@ import numpy as np
 import logging
 from scipy.io import loadmat
 from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator, interp1d as Interp1D, griddata as GridData
-from PlanetProfile import _ROOT
+from PlanetProfile import _ROOT, _PERPLEXCACHE
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper
 from PlanetProfile.Thermodynamics.ConstantEOS import ConstantEOSStruct
@@ -65,8 +65,9 @@ class PerplexEOSStruct:
                           f'{porosType}, phiTop_frac = {phiTop_frac}, Pclosure_MPa = {Pclosure_MPa}, ' + \
                           f'and EXTRAP = {EXTRAP}.'
             log.debug(f'Loading Perplex EOS for {self.comp}{descrip}')
-            self.dir = os.path.join(_ROOT, 'Thermodynamics', 'EOStables', 'Perple_X')
-            self.fpath = os.path.join(self.dir, EOSfname)
+            cache_fpath = os.path.join(_PERPLEXCACHE, EOSfname)
+            self.dir = _PERPLEXCACHE
+            self.fpath = cache_fpath
             self.Fe_EOS = Fe_EOS
             self.EXTRAP = EXTRAP
             self.EOStype = 'inner'

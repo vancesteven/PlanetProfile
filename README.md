@@ -113,7 +113,7 @@ Once these files have been removed, install the newer version of SeaFreeze with 
 ## Installation of prerequisites
 ### Python 
 1. Python version 3.8-3.11 must be installed, preferably via miniconda or Anaconda. Required modules can be installed in Miniconda with the following command:
-  1. `conda install nump=1.26.4 scipy matplotlib mpmath pandas`
+  1. `conda install numpy=1.26.4 scipy=1.16.3 matplotlib mpmath pandas`
 1. Conda-forge modules can be installed in Anaconda or Miniconda with the following command:
   1. `conda install -c conda-forge gsw obspy spiceypy cmasher reaktoro`
 1. AFTER the above modules have been installed with conda, install SeaFreeze, MoonMag, and hdf5storage with the following command:

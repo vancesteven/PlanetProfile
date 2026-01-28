@@ -1,5 +1,6 @@
 import os, shutil
 import matplotlib.pyplot as plt
+import platformdirs
 
 def CopyCarefully(source, destination):
     try:
@@ -36,6 +37,10 @@ def RemoveCarefully(file):
 
 # Set accessible file paths for installation directory and default configs
 _ROOT = os.path.abspath(os.path.dirname(__file__))
+# Set up user cache directory for dynamically downloaded/generated files
+_CACHE = platformdirs.user_cache_dir('PlanetProfile', 'PlanetProfile')
+_PERPLEXCACHE = os.path.join(_CACHE, 'Perple_X')
+os.makedirs(_PERPLEXCACHE, exist_ok=True)
 _defaultConfig = os.path.join(_ROOT, 'defaultConfig.py')
 _defaultConfigPlots = os.path.join(_ROOT, 'Plotting', 'defaultConfigPlots.py')
 _defaultConfigInduct = os.path.join(_ROOT, 'MagneticInduction', 'defaultConfigInduct.py')

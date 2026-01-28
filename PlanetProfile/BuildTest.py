@@ -424,6 +424,10 @@ def setFullSettings(Params):
     Params.TITLES = True
     Params.PLOT_COMBO_EXPLORATIONS = True
     FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS']
+    FigMisc.PmaxHydro_MPa = None
+    FigMisc.TmaxHydro_K = None
+    FigMisc.TminHydro_K = None
+    FigMisc.SHOW_GEOTHERM = True
     
     # Disable other features not relevant to single model runs
     Params.DO_INDUCTOGRAM = False

@@ -26,8 +26,8 @@ def configAssign():
     Params.EXTRAP_SIL =   False
     Params.EXTRAP_Fe =    False
     Params.lookupInterpMethod = 'nearest'  # Interpolation method to use for EOS lookup tables. Options are 'nearest', 'linear', 'cubic'.
-    Params.minPres_MPa = None  # Only applies to ice EOS! Applies a lower bound to how small the pressure step can be in loading the EOS. Avoids major slowdowns when chaining models for small and large bodies.
-    Params.minTres_K = None  # Same as above. Set to None to allow default behavior for ice EOS resolution.
+    Params.minPres_MPa = 0.5  # Only applies to ice EOS! Applies a lower bound to how small the pressure step can be in loading the EOS. Avoids major slowdowns when chaining models for small and large bodies.
+    Params.minTres_K = 0.5  # Same as above. Set to None to allow default behavior for ice EOS resolution.
     Params.PRELOAD_EOS = True  # Whether to preload EOS tables for all planets in the grid for large scale explorations. Improves runtime.
     Params.SAVE_AS_MATLAB = True  # Whether to also save results also in MATLAB format (.mat files)
         
@@ -39,7 +39,7 @@ def configAssign():
     Params.CALC_SEISMIC =     True  # Calculate sound speeds and elastic moduli?
     Params.CALC_CONDUCT =     True  # Calculate electrical conductivity?
     Params.CALC_VISCOSITY =   True  # Calculate viscosity for all layers as a post-processing step?
-    Params.CALC_OCEAN_PROPS = True  # Calculate ocean properties?
+    Params.CALC_OCEAN_PROPS = False  # Calculate ocean properties?
     Params.CALC_ASYM =        True  # Calculate induction with asymmetric shape?
     Params.RUN_ALL_PROFILES = False  # Whether to run all PPBody.py files for the named body and plot together
     Params.COMPARE =          False  # Whether to plot each new run against other runs from the same body

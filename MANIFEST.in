@@ -7,6 +7,7 @@ recursive-include PlanetProfile/* *.tf
 recursive-include PlanetProfile/* *.tls
 recursive-include PlanetProfile/* *.tpc
 recursive-include PlanetProfile/* *.md
+recursive-include PlanetProfile/* *.dat
 global-exclude *Ref.txt
 global-exclude Test*Profile*.txt
 global-exclude Test*.mat
