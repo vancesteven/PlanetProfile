@@ -65,7 +65,7 @@ def wpptCalculator(species_string_with_ratios_mol_kg):
                 species_molar_mass_g_mol = rkt.Species(species).molarMass() * 1000
             except:
                 try:
-                    db = rkt.SupcrtDatabase(CustomSolutionParams.SUPCRT_DATABASE)
+                    db = EOSlist.loaded['ReaktoroDatabases']['Supcrt']
                     species_molar_mass_g_mol = rkt.Species(str(db.species(species).formula())).molarMass() * 1000
                 except:
                     raise ValueError(f'Species {species} not found in Reaktoro database. Check that the species is spelled correctly and is in the database.')
@@ -136,12 +136,12 @@ def SpeciesParser(species_string_with_ratios_mol_kg, w_ppt):
         if CustomSolutionParams.SOLID_PHASES_TO_CONSIDER == "All":
             solid_phases_to_consider = "All"
         else:
-            solid_phases_to_consider = []
-            for solid_phase in CustomSolutionParams.SOLID_PHASES_TO_CONSIDER:
-                if solid_phase in Constants.SolidPhases:
-                    solid_phases_to_consider = (solid_phases_to_consider + Constants.SolidPhases[solid_phase])
-                else:
-                    solid_phases_to_consider.append(solid_phase)
+            solid_phases_to_consider = CustomSolutionParams.SOLID_PHASES_TO_CONSIDER
+            for solid_phase in Constants.SolidPhases.keys():
+                if solid_phase in solid_phases_to_consider:
+                    # Remove solid phase from list since we will replace with full list of solid phases
+                    solid_phases_to_consider.remove(solid_phase)
+                    solid_phases_to_consider.extend(Constants.SolidPhases[solid_phase])
         # Get only the solid phases that are relevant to the system - reduces runtime by not considering solids that would not appear in system
         db = rkt.SupcrtDatabase(CustomSolutionParams.SUPCRT_DATABASE)
         supcrt_aqueous_species_string, supcrt_speciation_ratio_mol_kg = species_convertor_compatible_with_supcrt(db,aqueous_species_string,final_speciation_mol_kg,Constants.PhreeqcToSupcrtNames)
@@ -193,7 +193,7 @@ def checkSpeciesCompatibleWithFrezchem(aqueous_species_string, speciation_ratio_
         frezchem_aqueous_species_string = ''
         frezchem_speciation_ratio_mol_per_kg = {}
         # Initialize the database
-        db = rkt.PhreeqcDatabase.fromFile(frezchemPath)
+        db = EOSlist.loaded['ReaktoroDatabases']['Phreeqc']
         for species_name in speciation_ratio_mol_kg:
             try:
                 db.species(species_name)
@@ -212,12 +212,14 @@ def checkSpeciesCompatibleWithFrezchem(aqueous_species_string, speciation_ratio_
 
 class EOSLookupTableLoader():
     def __init__(self, aqueous_species_string, speciation_ratio_mol_per_kg, ocean_solid_species, EOS_lookup_label):
-        self.name = EOS_lookup_label
-        self.fHashName = hashlib.md5(EOS_lookup_label.encode()).hexdigest()
+        Pname = f'{Constants.RktPmin_MPa}_{Constants.SupcrtPmax_MPa}_{CustomSolutionParams.EOS_deltaP}'
+        Tname = f'{Constants.SupcrtTmin_K}_{Constants.SupcrtTmax_K}_{CustomSolutionParams.EOS_deltaT}'
+        self.name = EOS_lookup_label + Pname + Tname
+        self.fHashName = hashlib.md5(self.name.encode()).hexdigest()
         self.EOSname = f'{EOS_lookup_label}' # Name used as unique identifier to save to EOS list - See SaveEOSToDisk for use of EOSname
-        self.props_fLookup = os.path.join(CustomSolutionParams.rktPath, 'CustomSolutionLookupTables',
+        self.props_fLookup = os.path.join(CustomSolutionParams.lookupTableCachePath,
                                           f'props_{self.fHashName}.pkl.gz')
-        self.phase_fLookup = os.path.join(CustomSolutionParams.rktPath, 'CustomSolutionLookupTables',
+        self.phase_fLookup = os.path.join(CustomSolutionParams.lookupTableCachePath,
                                           f'phase_{self.fHashName}.pkl.gz')
         if os.path.exists(self.props_fLookup) and os.path.exists(self.phase_fLookup):
             log.debug('EOS table saved to disk for ocean composition with:\n'
@@ -258,15 +260,15 @@ class EOSLookupTableLoader():
                             f'This will remove self-consistency between ocean thermodynamics and Ih phase equilibria')
                 frezchem_aqueous_species_string, frezchem_speciation_ratio_mol_per_kg = checkSpeciesCompatibleWithFrezchem(aqueous_species_string, speciation_ratio_mol_per_kg, CustomSolutionParams.frezchemPath)
                 Frezchem_System = PhreeqcGeneratorForChemicalConstraint(frezchem_aqueous_species_string, frezchem_speciation_ratio_mol_per_kg,
-                                                                        "mol", CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations)
+                                                                        "mol", CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations, rktDatabase = EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
             else:
                 Frezchem_System = PhreeqcGeneratorForChemicalConstraint(aqueous_species_string,
                                                                         speciation_ratio_mol_per_kg, "mol",
-                                                                        CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations)
+                                                                        CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations, rktDatabase = EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
 
             Supcrt_System = SupcrtGenerator(aqueous_species_string, speciation_ratio_mol_per_kg, "mol",
                                             CustomSolutionParams.SUPCRT_DATABASE, ocean_solid_species,
-                                            Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations)
+                                            Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations, rktDatabase = EOSlist.loaded['ReaktoroDatabases']['Supcrt'])
             # Get freezing temperatures for pressure range calculated by Frezchem
             TFreezing_K = self.RktFreezingTemperatureFinder(Frezchem_System, PRkt_MPa)
             # Get Seafreeze correction
@@ -291,7 +293,7 @@ class EOSLookupTableLoader():
             PRkt_MPa = np.linspace(self.Pmin, Pmax_supcrt, nPs)
             PExtrap_MPa = np.linspace(Pmax_supcrt + Constants.EOSdeltaP_For_Extrapolation, self.Pmax, nPs_extra)
             P_MPa = np.concatenate((PRkt_MPa, PExtrap_MPa))
-
+            
             rho_kgm3, Cp_JKgK, alpha_pK, VP_kms, mu_J_mol = self.RktProps(Supcrt_System, PRkt_MPa, TRkt_K)
             # Calculate bulk modulus from sound speed
             KS_GPa = rho_kgm3 * VP_kms ** 2 * 1e-3
@@ -585,6 +587,11 @@ class EOSLookupTableLoader():
             rho_kgm3, Cp_JKgK, alpha_pK, Vp_kms, mu_J_mol = interpolation_2d(P_MPa,
                                                                              [rho_kgm3, Cp_JKgK, alpha_pK, Vp_kms,
                                                                               mu_J_mol])
+        # In some cases, vp_kms will be nan due to a negative compressibility factor, which is not physically possible. We will interpolate over these values.
+        if np.sum(np.isnan(Vp_kms)) > 0:
+            log.warning(f"Interpolation failed for {np.sum(np.isnan(Vp_kms))} points.")
+            Vp_kms = interpolation_2d(P_MPa, [Vp_kms])[0]
+        
         # Return the thermodynamic properties
         return rho_kgm3, Cp_JKgK, alpha_pK, Vp_kms, mu_J_mol
 
@@ -716,7 +723,8 @@ class SeafreezePureWaterCorrector:
         speciation_ratio_mol_kg = {'H2O': float(1 / rkt.waterMolarMass)}
         frezchem_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Databases', 'frezchem.dat')
         frezchem = PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_mol_kg, "mol",
-                                                         frezchem_file_path, CustomSolutionParams.maxIterations)
+                                                         frezchem_file_path, CustomSolutionParams.maxIterations,
+                                                         rktDatabase=EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
         db, system, initial_state, conditions, solver, props = frezchem
         state = initial_state.clone()
         # Create an iterator to go through P_MPa
@@ -765,7 +773,8 @@ class SeafreezePureWaterCorrector:
         rkt_mu = []
         aqueous_species_list = 'H+ OH- H2O(aq)'
         speciation_ratio_mol_kg = {'H2O(aq)': float(1 / rkt.waterMolarMass)}
-        supcrt = SupcrtGenerator(aqueous_species_list, speciation_ratio_mol_kg, "mol", "supcrt16", None, Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations)
+        supcrt = SupcrtGenerator(aqueous_species_list, speciation_ratio_mol_kg, "mol", "supcrt16", None, Constants.PhreeqcToSupcrtNames, 
+                                 CustomSolutionParams.maxIterations, rktDatabase = EOSlist.loaded['ReaktoroDatabases']['Supcrt'])
         db, system, initial_state, conditions, solver, props = supcrt
         state = initial_state.clone()
         P_MPa_mesh, T_K_mesh = np.meshgrid(P_MPa_supcrt, T_K, indexing='ij')
@@ -983,7 +992,7 @@ class RktConduct():
         Initialize the RKtConduct() object and parse the aqueous species list into a format compatible with elecCondMcClevskey2012()
         """
         # Convert H2O label to H2O(aq) label for compatability with Supcrt database
-        db = rkt.SupcrtDatabase(CustomSolutionParams.SUPCRT_DATABASE)
+        db = EOSlist.loaded['ReaktoroDatabases']['Supcrt']
         self.aqueous_species_list, self.speciation_ratio_mol_per_kg = species_convertor_compatible_with_supcrt(db, aqueous_species_list, speciation_ratio_mol_kg, Constants.PhreeqcToSupcrtNames)
         self.ocean_solid_phases = ocean_solid_species
         self.fn_species = fn_species
@@ -1020,7 +1029,7 @@ class RktConduct():
             P_MPa, T_K = np.meshgrid(P_MPa, T_K, indexing='ij')
         # Get speciation data
         key = (tuple(original_P_MPa.ravel()), tuple(original_T_K.ravel()))
-        CALC_SPECIATION = False
+        CALC_SPECIATION = True
         
         if CALC_SPECIATION:
             if key not in self.calculated_speciations:
@@ -1171,7 +1180,7 @@ class RktHydroSpecies():
         start_time = time.time()
         # Establish supcrt generator
         db, system, initial_state, conditions, solver, props = SupcrtGenerator(self.aqueous_species_list, self.speciation_ratio_mol_kg,
-                                      "mol", CustomSolutionParams.SUPCRT_DATABASE, self.ocean_solid_phases, Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations)
+                                      "mol", CustomSolutionParams.SUPCRT_DATABASE, self.ocean_solid_phases, Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations, rktDatabase = EOSlist.loaded['ReaktoroDatabases']['Supcrt'])
         state = initial_state.clone()
         reactionState = initial_state.clone()  # State just for storign equilibrium state before calculating Q if we are using reference species
         # Prepare lists for pH and species amounts
@@ -1309,6 +1318,13 @@ class RktHydroSpecies():
         Q = Q_numerator / Q_denominator
         return Q
 
+def SetupReaktoroDatabases():
+    """
+    Setup the Reaktoro databases for the custom solution.
+    """
+    supcrtDatabase = rkt.SupcrtDatabase(CustomSolutionParams.SUPCRT_DATABASE)
+    phreeqcDatabase = rkt.PhreeqcDatabase.fromFile(CustomSolutionParams.frezchemPath)
+    return {'Supcrt': supcrtDatabase, 'Phreeqc': phreeqcDatabase}
 
 def temperature_constraint(T_K, System):
     """
@@ -1584,7 +1600,8 @@ class RktSeismicOnDemand():
         db, system, initial_state, conditions, solver, props = SupcrtGenerator(aqueous_species_list,
             speciation_ratio_mol_kg,
             "mol",
-                                                                       CustomSolutionParams.SUPCRT_DATABASE, CustomSolutionParams.SOLID_PHASES_TO_CONSIDER, Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations)
+                                                                       CustomSolutionParams.SUPCRT_DATABASE, CustomSolutionParams.SOLID_PHASES_TO_CONSIDER, Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations,
+                                                                       rktDatabase = EOSlist.loaded['ReaktoroDatabases']['Supcrt'])
         state = initial_state.clone()
         # Create an iterator to go through P_MPa and T_K
         it = np.nditer([P_MPa, T_K], flags=['multi_index'])
@@ -1651,7 +1668,8 @@ class RktPhaseOnDemand:
         # Create both frezchem and core Reaktoro systems that can be utilized later on
         self.frezchem = PhreeqcGeneratorForChemicalConstraint(self.aqueous_species_list, self.speciation_ratio_mol_kg,
             "mol",
-                                                              CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations)
+                                                              CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations,
+                                                              rktDatabase=EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
         # Obtain internal temperature correction spline
         # self.temperature_correction_spline = FrezchemFreezingTemperatureCorrectionSplineGenerator()
         self.spline_for_pressures_above_100_MPa, self.PMax_MPa = self.Frezchem_Spline_Generator(
@@ -1693,7 +1711,8 @@ class RktPhaseOnDemand:
         db, system, initial_state, conditions, solver, props = PhreeqcGeneratorForChemicalConstraint(aqueous_species_list,
                 speciation_ratio_mol_kg,
                 "mol",
-                                                                                             CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations)
+                                                                                             CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations,
+                                                                                             rktDatabase=EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
         # Create freezing temperatures list and indices of pressures to remove, if necessary
         freezing_temperatures = []
         indices_to_remove = []

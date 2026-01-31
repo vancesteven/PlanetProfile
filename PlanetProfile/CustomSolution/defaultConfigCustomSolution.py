@@ -9,7 +9,7 @@ def customSolutionAssign():
     # Frezchem database to use - frezchem.dat, frezchemNH3.dat (has ammonia and CO2 species), frezchemSiCH4.dat (has CH4 and many minerals)
     CustomSolutionParams.FREZCHEM_DATABASE = "frezchemNH3.dat"
     # Supcrt database to use - supcrt16, supcrt16-organics (has organic species) are primary options
-    CustomSolutionParams.SUPCRT_DATABASE = "supcrt16"
+    CustomSolutionParams.SUPCRT_DATABASE = "supcrt16-organics"
 
     # Unit of species input (can be "g" for grams, or "mol" for mols
     CustomSolutionParams.SPECIES_CONCENTRATION_UNIT = "mol"

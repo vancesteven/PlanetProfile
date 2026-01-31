@@ -24,7 +24,7 @@ def load_dict_from_pkl(filename):
     with gzip.open(filename, "rb") as file:
         return pickle.load(file)
 
-def PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file, iterations = 200):
+def PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file, iterations = 200, rktDatabase = None):
     """ Create a Phreeqc Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
         Works for both core10.dat and frezchem.dat.
     Args:
@@ -37,7 +37,10 @@ def PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit
         db, system, state, conditions, solver, props, ice_name: Relevant reaktoro objects
     """
     # Initialize the database
-    db = rkt.PhreeqcDatabase.fromFile(database_file)
+    if rktDatabase is None:
+        db = rkt.PhreeqcDatabase.fromFile(database_file)
+    else:
+        db = rktDatabase
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
     solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
@@ -71,7 +74,7 @@ def PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit
     return db, system, state, conditions, solver, props, ice_name, database_file
 
 
-def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file, iterations):
+def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file, iterations, rktDatabase = None):
     """ Create a Phreeqc Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
         Works for both core10.dat and frezchem.dat.
         THIS IS DIFFERENT IN THAT IT ASSUMES TEMPERATURE IS UNKNOWN AND SPECIFIES CHEMICAL CONSTRAINT AT EQUILIBIRUM.
@@ -85,7 +88,10 @@ def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio
         db, system, state, conditions, solver, props: Relevant reaktoro objects
     """
     # Initialize the database
-    db = rkt.PhreeqcDatabase.fromFile(database_file)
+    if rktDatabase is None:
+        db = rkt.PhreeqcDatabase.fromFile(database_file)
+    else:
+        db = rktDatabase
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
     solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
@@ -121,22 +127,26 @@ def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio
     return db, system, state, conditions, solver, props
 
 
-def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database, ocean_solid_species, PhreeqcToSupcrtNames, iterations = 200):
+def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, databaseName, ocean_solid_species, PhreeqcToSupcrtNames, iterations = 200, rktDatabase = None):
     """ Create a Supcrt Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
     Args:
     aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
     speciation_ratio_per_kg: the ratio of species in the aqueous solution per kg of water. Should be a dictionary
         with the species as the key and its ratio as its value.
     species_unit: "mol" or "g" that species ratio is in
-    database: Supcrt database to use
+    databaseName: Supcrt database to use
     ocean_solid_phases: whether or not to consider solid phases in calculations
     PhreeqcToSupcrtNames: Names that need to be converted in species list and speciation ratio per kg
     iterations: maximum number of iterations to allow for when solving for equilibrium before throwing error
+    rktDatabase: Reaktoro database to use (passing in speeds up function). If None, then a new database is created.
     Returns:
         db, system, state, conditions, solver, props, ice_name: Relevant reaktoro objects
     """
     # Initialize the database
-    db = rkt.SupcrtDatabase(database)
+    if rktDatabase is None:
+        db = rkt.SupcrtDatabase(databaseName)
+    else:
+        db = rktDatabase
     aqueous_species_list, speciation_ratio_per_kg = species_convertor_compatible_with_supcrt(db, aqueous_species_list, speciation_ratio_per_kg, PhreeqcToSupcrtNames)
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
