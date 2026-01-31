@@ -1,5 +1,5 @@
 """
-PPTest13
+PPTest26
 Europa-like, pure water model with clathrate underplate layer and porous ice
 For testing purposes
 """
