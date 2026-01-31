@@ -653,6 +653,10 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None, mo
                 if Planet.Sil.poreComp == 'PureH2O':
                     saveLabel += f'_{Planet.Sil.poreComp}Pores'
                     label += f'Pure \ce{{H2O}} pores'
+                elif "CustomSolution" in Planet.Sil.poreComp:
+                    CustomSolutionLabel = Planet.Sil.poreComp.split('=')[0].strip()
+                    saveLabel += f'_{CustomSolutionLabel}Pores'
+                    label += f'{CustomSolutionLabel} pores'
                 else:
                     saveLabel += f'_{Planet.Sil.poreComp}_{Planet.Sil.wPore_ppt:.1f}pptPores'
                     label += f', {Planet.Sil.wPore_ppt*FigLbl.wMult:.1f}\,\si{{{FigLbl.wUnits}}} \ce{{{Planet.Sil.poreComp}}} pores'
@@ -665,7 +669,7 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None, mo
         if Planet.Sil.mantleEOSName is not None: saveLabel += f'_{Planet.Sil.mantleEOSName}'
         if Planet.Do.CONSTANT_INNER_DENSITY: 
             if Planet.Do.Fe_CORE:
-                saveLabel += f'_ConstantInnerRho_Fe{Planet.Core.rhoFe_kgm3}_FeS{Planet.Core.rhoFeS_kgm3}_xFeS{Planet.Core.xFeS:.3f}_Sil{Planet.Sil.rhoSilWithCore_kgm3}kgm3'
+                saveLabel += f'_ConstantInnerRho_Fe{Planet.Core.rhoFe_kgm3:.2f}_FeS{Planet.Core.rhoFeS_kgm3:.2f}_xFeS{Planet.Core.xFeS:.2f}_Sil{Planet.Sil.rhoSilWithCore_kgm3:.2f}kgm3'
             else:
                 saveLabel += f'_ConstantInnerRho'
 

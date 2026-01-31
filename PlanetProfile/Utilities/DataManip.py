@@ -60,8 +60,8 @@ def smoothGrid(x, y, zs, factor):
     y_min, y_max = np.nanmin(y), np.nanmax(y)
     
     # Ensure x and y are above machine error to prevent interpolation errors
-    if (x_min < 1e-10 and x_max < 1e-10) or (y_min < 1e-10 and y_max < 1e-10):
-        log.warning('x or y is below machine error. Smoothing will not be performed.')
+    if (abs(x_min) < 1e-10 and abs(x_max) < 1e-10) or (abs(y_min) < 1e-10 and abs(y_max) < 1e-10):
+        log.debug('Attempting to smooth 2d grid for plotting, but x or y is below machine error. Smoothing will not be performed.')
         x_fine = x
         y_fine = y
     else: 
@@ -90,13 +90,16 @@ def smoothGrid(x, y, zs, factor):
             y_valid = y_flat[valid_mask]
             z_valid = z_flat[valid_mask]
             if len(z_valid) > 0:
-
-                z_fine = griddata((x_valid, y_valid), z_valid, 
-                                (x_fine, y_fine), method='linear', fill_value=np.nan)
-                # Update x, y, z to use the finer resolution data
-                zs[i] = z_fine
+                try:
+                    z_fine = griddata((x_valid, y_valid), z_valid, 
+                                    (x_fine, y_fine), method='linear', fill_value=np.nan)
+                    # Update x, y, z to use the finer resolution data
+                    zs[i] = z_fine
+                except Exception as e:
+                    log.debug(f'Error smoothing 2d grid for plotting: {e}')
+                    zs[i] = z
             else:
-                zs[i] = np.zeros((n_x_fine, n_y_fine)) * np.nan
+                zs[i] = np.full((x_fine.shape[0], y_fine.shape[1]), np.nan)
     return x_fine, y_fine, zs
 class ReturnZeros:
     """ Returns an array or tuple of arrays of zeros, for functions of properties

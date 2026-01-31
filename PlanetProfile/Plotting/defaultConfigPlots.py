@@ -339,6 +339,7 @@ def plotAssign():
     FigMisc.PHASE_LABELS = True  # Whether to print phase labels on density plots
     FigLbl.TS_hydroLabels = 18  # Font size for hydrosphere phase labels in pt
     FigLbl.hydroTitleSize = 20  # Font size for hydrosphere title in pt
+    FigLbl.TS_hydroLegendSize = 14  # Font size for hydrosphere legend in pt
     FigMisc.SHOW_GEOTHERM = True # Whether to plot geotherm on PTplots
     FigMisc.PLOT_DENSITY_VERSUS_DEPTH = False  # Whether to plot density versus depth instead of pressure
 

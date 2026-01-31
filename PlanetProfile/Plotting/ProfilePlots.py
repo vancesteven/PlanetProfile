@@ -158,7 +158,7 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     # Generate canvas and add labels - Always 6×7 grid
     fig = plt.figure(figsize=FigSize.vhydro)
-    grid = GridSpec(6, 8)
+    grid = GridSpec(6, 7)
 
     # Fixed layout: 
     # - Density: top 4 rows (0-3), left 4 columns (0-3)
@@ -604,7 +604,7 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     if Params.LEGEND:
         handles, lbls = axPrho.get_legend_handles_labels()
-        axPrho.legend(handles, lbls, loc='upper right')
+        axPrho.legend(handles, lbls, loc='upper right', fontsize=FigLbl.TS_hydroLegendSize)
 
     # Set y-limits for right column plots
     if DO_SIGS:
