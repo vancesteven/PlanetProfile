@@ -11,10 +11,10 @@ def gravityAssign():
     # Parallel computing
     GravityParams.parallel = False  # Use Parallel computing for PyALMA calculations. #TODO: Need to implement way to do this if Parallel already being used in Exploreogram
 
-    # Parsing parameters
+    # Rheology model for each layer
     GravityParams.rheology_models = {'0': 'newton', 'Ih': 'elastic', 'Ih_conv': 'andrade','II': 'maxwell', 'III': 'maxwell', 'III_conv': 'andrade',
                                      'IV': 'maxwell', 'V': 'maxwell','V_conv': 'andrade', 'VI': 'maxwell',
-                                     'Sil': 'elastic', 'Fe': 'elastic', 'Clath': 'newton', 'Clath_conv': 'andrade'}  # Rheology structure model, where each model corresponds to a layer
+                                     'Sil': 'elastic', 'Sil_conv': 'elastic','Fe': 'elastic', 'Clath': 'newton', 'Clath_conv': 'andrade'}  # Rheology structure model, where each model corresponds to a layer
 
     # General parameters
     GravityParams.num_digits = 128  # Set precision
