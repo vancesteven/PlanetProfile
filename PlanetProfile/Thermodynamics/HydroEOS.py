@@ -232,11 +232,12 @@ class OceanEOSStruct:
                 elif self.comp == 'Seawater':
                     self.type = 'GSW'
                     self.m_gmol = Constants.m_gmol['H2O']
-                    if((self.Tmin <= 250) or (self.Pmax > Constants.PminHPices_MPa)):
+                    if((self.Tmin <= 240) or (self.Pmax > Constants.PminHPices_MPa)):
                         log.warning('GSW handles only ice Ih for determining phases in the ocean. At ' +
                                     'low temperatures or high pressures, this model will be wrong as no ' +
                                     'high-pressure ice phases will be found.')
-                        self.Pmax = Constants.PminHPices_MPa
+                        self.Pmax = np.minimum(self.Pmax, Constants.PminHPices_MPa)
+                        self.Tmin = np.maximum(self.Tmin, 240)
                     if self.Tmax > 350:
                         log.warning('GSW yields physically valid properties only up to about 350 K. ' +
                                     'Maximum temperature for this Seawater EOS will be set to that value.')

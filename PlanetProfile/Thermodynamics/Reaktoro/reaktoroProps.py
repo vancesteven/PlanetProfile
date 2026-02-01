@@ -143,7 +143,7 @@ def SpeciesParser(species_string_with_ratios_mol_kg, w_ppt):
                     solid_phases_to_consider.remove(solid_phase)
                     solid_phases_to_consider.extend(Constants.SolidPhases[solid_phase])
         # Get only the solid phases that are relevant to the system - reduces runtime by not considering solids that would not appear in system
-        db = rkt.SupcrtDatabase(CustomSolutionParams.SUPCRT_DATABASE)
+        db = EOSlist.loaded['ReaktoroDatabases']['Supcrt']
         supcrt_aqueous_species_string, supcrt_speciation_ratio_mol_kg = species_convertor_compatible_with_supcrt(db,aqueous_species_string,final_speciation_mol_kg,Constants.PhreeqcToSupcrtNames)
         if CustomSolutionParams.SOLID_PHASES_TO_SUPPRESS is None:
             solid_phases_to_suppress = []
@@ -156,6 +156,7 @@ def SpeciesParser(species_string_with_ratios_mol_kg, w_ppt):
         solid_phases_to_consider = None
     # Return aqueous species, solid species, and EOS lookup label
     return aqueous_species_string, final_speciation_mol_kg, solid_phases_to_consider, EOS_lookup_label
+
 
 
 def SpeciesFormatter(species_string_with_ratios):
