@@ -2,7 +2,7 @@ import os
 import numpy as np
 import hashlib
 import logging
-from PlanetProfile import _ROOT
+from PlanetProfile import _ROOT, _REFPROFILESCACHE
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetTfreeze
 from PlanetProfile.Utilities.defineStructs import EOSlist
 
@@ -58,10 +58,10 @@ def CalcRefProfiles(PlanetList, Params):
                                            'in configPP.py.')
                     Params.rhoRef_kgm3[Planet.Ocean.comp][i,:] = EOSref.fn_rho_kgm3(Params.Pref_MPa[Planet.Ocean.comp], Tfreeze_K)
 
-                # Save to disk for quick reloading
+                # Save to disk for quick reloading in user cache directory
                 # Get name to save
                 fNameRef = hashlib.md5(Planet.Ocean.comp.split('=')[-1].encode()).hexdigest()
-                with open(os.path.join(_ROOT, 'Thermodynamics', 'RefProfiles', fNameRef), 'w') as f:
+                with open(os.path.join(_REFPROFILESCACHE, fNameRef), 'w') as f:
                     f.write(f'This file contains melting curve densities for one or more "{Planet.Ocean.comp}" salinity values.\n')
                     wListStr = ''
                     colHeader = f'P (MPa)'.ljust(24)
@@ -91,9 +91,9 @@ def ReloadRefProfiles(PlanetList, Params):
 
     for Planet in PlanetList:
         if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
-            # Get name to save
+            # Get name to load - check cache directory first, then package directory
             fNameRef = hashlib.md5(Planet.Ocean.comp.split('=')[-1].encode()).hexdigest()
-            fNameRefReload = os.path.join(_ROOT, 'Thermodynamics', 'RefProfiles', fNameRef)
+            fNameRefReload = os.path.join(_REFPROFILESCACHE, fNameRef)
             if not os.path.isfile(fNameRefReload):
                 raise RuntimeError(f'CALC_NEW_REF is set to False, but a reference profile for {Planet.Ocean.comp} ' +
                                    'was not found. Try running again with CALC_NEW_REF set to True in configPP.py.')
