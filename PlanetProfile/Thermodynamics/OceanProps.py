@@ -81,7 +81,7 @@ def setupReactionSubstruct(reactionSubstruct):
                         reactionSubstruct.disequilibriumConcentrations[species] = reactionSubstruct.mixingRatioToH2O[species] / referenceRatioToH2O
                 else:
                     if species in reactionSubstruct.relativeRatioToReferenceSpecies.keys():
-                        reactionSubstruct.disequilibriumConcentrations[species] = reactionSubstruct.disequilibriumConcentrations[referenceSpecies]
+                        reactionSubstruct.disequilibriumConcentrations[species] = reactionSubstruct.relativeRatioToReferenceSpecies[species]
     else:
         reactionSubstruct.disequilibriumConcentrations = {}
         reactionSubstruct.useReferenceSpecies = False
