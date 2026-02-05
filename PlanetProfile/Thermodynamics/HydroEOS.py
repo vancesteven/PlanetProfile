@@ -151,7 +151,7 @@ class OceanEOSStruct:
                     self.m_gmol = Constants.m_gmol[self.comp]
 
                     # Set extrapolation boundaries to limits defined in SeaFreeze
-                    Pmax = {'PureH2O':   2300.6, 'NH3': 2228.4, 'NaCl': 5000.1}
+                    Pmax = {'PureH2O':   2300.6, 'NH3': 2228.4, 'NaCl': 1000.1}
                     Tmin = {'PureH2O':    239,   'NH3':  241,   'NaCl':  229.0}
                     Tmax = {'PureH2O':    501,   'NH3':  399.2, 'NaCl':  501.0}
                     wMax = {'PureH2O': np.nan,   'NH3':  290.1, 'NaCl':  290.3} # upper NaCl concentration is 7mol/kgH2O
@@ -232,17 +232,18 @@ class OceanEOSStruct:
                 elif self.comp == 'Seawater':
                     self.type = 'GSW'
                     self.m_gmol = Constants.m_gmol['H2O']
-                    if((self.Tmin <= 240) or (self.Pmax > Constants.PminHPices_MPa)):
+                    if self.Tmin <= 240:
+                        log.warning('GSW does not handle low temperatures. Setting Tmin to 240 K.')
+                        self.Tmin = 240
+                    if self.Pmax > Constants.PminHPices_MPa:
                         log.warning('GSW handles only ice Ih for determining phases in the ocean. At ' +
-                                    'low temperatures or high pressures, this model will be wrong as no ' +
+                                    'high pressures, this model will be wrong as no ' +
                                     'high-pressure ice phases will be found.')
-                        self.Pmax = np.minimum(self.Pmax, Constants.PminHPices_MPa)
-                        self.Tmin = np.maximum(self.Tmin, 240)
+                        self.Pmax = Constants.PminHPices_MPa
                     if self.Tmax > 350:
                         log.warning('GSW yields physically valid properties only up to about 350 K. ' +
                                     'Maximum temperature for this Seawater EOS will be set to that value.')
                         self.Tmax = 350
-
                     self.ufn_phase = SwPhase(self.w_ppt)
                     # Lookup table is not used -- flag with nan for grid resolution.
                     self.EOSdeltaP = np.nan

@@ -430,8 +430,8 @@ def SetupInit(Planet, Params):
                     if Planet.Sil.poreComp == 'Seawater' and Planet.Sil.PHydroMax_MPa > 300:
                         log.warning('GSW yields NaN for Cp at pressures above 300 MPa. Reducing PsilMax to this value.')
                         Planet.Sil.PHydroMax_MPa = 300
-                    Ppore_MPa = np.arange(Planet.Bulk.Psurf_MPa, Planet.Sil.PHydroMax_MPa + Planet.Ocean.deltaP, Planet.Ocean.deltaP)
-                    Tpore_K = np.arange(Planet.Bulk.Tb_K, Planet.Sil.THydroMax_K + Planet.Ocean.deltaT, Planet.Ocean.deltaT)
+                    Ppore_MPa = np.arange(Planet.Bulk.Psurf_MPa, Planet.Sil.PHydroMax_MPa + Planet.Ocean.deltaP, 100)
+                    Tpore_K = np.arange(Planet.Bulk.Tb_K, Planet.Sil.THydroMax_K + Planet.Ocean.deltaT, 140)
                 # Get pore fluid EOS
                 if not Params.PRELOAD_EOS_IN_PROGRESS:
                     Planet.Sil.poreEOS = GetOceanEOS(Planet.Sil.poreComp, Planet.Sil.wPore_ppt, Ppore_MPa, Tpore_K,

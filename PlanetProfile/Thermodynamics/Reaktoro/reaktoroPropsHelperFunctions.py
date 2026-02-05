@@ -10,15 +10,25 @@ from scipy.interpolate import BSpline, splrep
 from scipy import interpolate
 import pickle
 import gzip
+import uuid
+
 log = logging.getLogger('PlanetProfile')
 
 
-def save_dict_to_pkl(dictionary, filename):
-    temp_filename = filename + ".tmp"
-    with gzip.open(temp_filename, "wb") as file:
-        pickle.dump(dictionary, file, protocol=pickle.HIGHEST_PROTOCOL)
-    os.replace(temp_filename, filename)  # Atomic rename
-    return
+def save_dict_to_pkl(dictionary, filepath):
+    """ This code is used to save a dictionary to a pickle file in a way that is parellel processing safe. """
+    directory = os.path.dirname(filepath)        # directory where the final file will live (use "." if none given)
+    filename = os.path.basename(filepath)             # just the final file name (no directory)
+
+    temp_filepath = os.path.join(                 # build a temp path in the SAME directory as the final file
+        directory, f"{filename}.{os.getpid()}.{uuid.uuid4().hex}.tmp"  # unique name: base + process id + random UUID
+    )
+
+    with gzip.open(temp_filepath, "wb") as f:     # open the temp file for compressed binary writing
+        pickle.dump(dictionary, f, protocol=pickle.HIGHEST_PROTOCOL)  # write the whole dict into the temp file
+
+    os.replace(temp_filepath, filepath)             # atomically move temp -> final (final is always whole, never partial)
+
 
 def load_dict_from_pkl(filename):
     with gzip.open(filename, "rb") as file:

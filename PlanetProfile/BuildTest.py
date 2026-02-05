@@ -63,6 +63,8 @@ def full(iTestStart=2, skipType=None):
             testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
             log.info(f'Test case body: {testBase}{i}')
             try:
+                if i ==18:
+                    print("HERE")
                 TestPlanets = np.append(TestPlanets, PlanetProfile(testPlanetN, Params)[0])
                 tMarks = np.append(tMarks, time.time())
             except Exception as e:
@@ -85,6 +87,12 @@ def full(iTestStart=2, skipType=None):
             Params.CALC_NEW_INDUCT = True
             Params.CALC_NEW_GRAVITY = True
             Params.CALC_NEW_ASYM = False
+            
+            # At the end of each test, clear the EOS list to prevent memory issues
+            EOSlist.loaded = {}
+            EOSlist.loaded['CustomSolutionEOS'] = {}
+            EOSlist.loaded['ReaktoroDatabases'] = {}
+            EOSlist.ranges = {}
 
         testPlanet1.name = 'Test0'
         # Test that we can successfully run standard profiles with parallelization options

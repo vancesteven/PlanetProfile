@@ -1126,7 +1126,7 @@ class RktHydroSpecies():
         we have to reset the pressure since we cannot calculate equilibrium above 500MPa using Supcrt.
         """
         # Reset P_MPa so that it does not extend above 500MPa, since supcrt cannot go above this pressure
-        newP_MPa, newT_K = ResetNearestExtrap(P_MPa, T_K, P_MPa[0], Constants.SupcrtPmax_MPa, T_K[0], T_K[-1])
+        newP_MPa, newT_K = ResetNearestExtrap(P_MPa, T_K, P_MPa[0], Constants.SupcrtPmax_MPa, Constants.SupcrtTmin_K, T_K[-1])
         if (not np.all(newP_MPa == P_MPa)) or (not np.all(newT_K == T_K)):
             log.warning(
                 'Supcrt can only accurately calculate hydrosphere species up to 500MPa, so we will reset hydro species function call up to the ocean depth that correlates with 500MPa.' + f'{newP_MPa[0]}, {newP_MPa[-1]} MPa and [Tmin, Tmax] = ' + f'{newT_K[0]}, {newT_K[-1]} K. Will reset the inputs to stay within the ranges.')
