@@ -366,7 +366,7 @@ class EOSLookupTableLoader():
                 save_dict_to_pkl(self.phase_EOS, self.phase_fLookup)
 
 
-    def RktFreezingTemperatureFinder(self, Frezchem_System, P_MPa, TMin_K=220, TMax_K=300, significant_threshold=0.01):
+    def RktFreezingTemperatureFinder(self, Frezchem_System, P_MPa, TMin_K=230, TMax_K=275, significant_threshold=1.0):
         """
         Calculates the temperature at which the prescribed aqueous solution freezes. Utilizes the reaktoro framework to
         constrain the equilibrium position at the prescribed pressure and the chemical potential difference between ice and liquid water at 0.1,
