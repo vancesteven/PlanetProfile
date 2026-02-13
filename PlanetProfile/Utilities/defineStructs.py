@@ -989,6 +989,7 @@ class ParamsStruct:
         self.cFmt = None  # Format of contour labels
         self.OverrideFigureBase = None  # Override the base figure name for the figure files
         self.compareDir = 'Comparison'
+        self.SPEC_FILE = False # Whether a specific PP file has been specified
         self.INVERSION_IN_PROGRESS = False  # Flag for running inversion studies
         self.INDUCTOGRAM_IN_PROGRESS  = False
         self.MONTECARLO_IN_PROGRESS =  False
