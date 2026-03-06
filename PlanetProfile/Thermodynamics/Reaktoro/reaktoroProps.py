@@ -65,7 +65,10 @@ def wpptCalculator(species_string_with_ratios_mol_kg):
                 species_molar_mass_g_mol = rkt.Species(species).molarMass() * 1000
             except:
                 try:
-                    db = EOSlist.loaded['ReaktoroDatabases']['Supcrt']
+                    if 'Supcrt' in EOSlist.loaded['ReaktoroDatabases']:
+                        db = EOSlist.loaded['ReaktoroDatabases']['Supcrt']
+                    else:
+                        db = rkt.SupcrtDatabase(CustomSolutionParams.SUPCRT_DATABASE)
                     species_molar_mass_g_mol = rkt.Species(str(db.species(species).formula())).molarMass() * 1000
                 except:
                     raise ValueError(f'Species {species} not found in Reaktoro database. Check that the species is spelled correctly and is in the database.')
@@ -1035,7 +1038,7 @@ class RktConduct():
         if CALC_SPECIATION:
             if key not in self.calculated_speciations:
                 self.calculated_speciations[key] = self.fn_species(original_P_MPa, original_T_K, grid=grid)
-            pH, speciation, species_names, affinity = self.calculated_speciations[key]
+            _, speciation, species_names, _ = self.calculated_speciations[key]
         else:
             # Use constant speciation ratios
             speciation = []
@@ -1121,7 +1124,7 @@ class RktHydroSpecies():
         # Create a dictionary of calculated speciations that will hold calculated speciations for input P_MPa and T_K
         self.calculated_speciations = {}
 
-    def __call__(self, P_MPa, T_K, grid=False, reactionSubstruct=None):
+    def __call__(self, P_MPa, T_K, grid=False, reactionEquation=None):
         """Calculates speciation of composition at provided pressure and temperature using Supcrt. Notably,
         we have to reset the pressure since we cannot calculate equilibrium above 500MPa using Supcrt.
         """
@@ -1150,159 +1153,100 @@ class RktHydroSpecies():
         if grid:
             P_MPa_flat = P_MPa.ravel()
             T_K_flat = T_K.ravel()
-            pH, species, species_names, affinity = self.species_at_equilibrium(P_MPa_flat, T_K_flat, reactionSubstruct)
+            pH, species, species_names, equilibriumConstants = self.species_at_equilibrium(P_MPa_flat, T_K_flat, reactionEquation)
             # Reshape species to (num_species, P_MPa.size, T_K.size)
             num_species = species_names.size
             species = species.reshape((num_species, P_MPa.shape[0], P_MPa.shape[1]))
             pH = pH.reshape(P_MPa.shape)
         else:
-            pH, species, species_names, affinity = self.species_at_equilibrium(P_MPa, T_K, reactionSubstruct)
+            pH, species, species_names, equilibriumConstants = self.species_at_equilibrium(P_MPa, T_K, reactionEquation)
         # Let's save the speciation in the dictionary (which we will reference in RktConduct to reduce runtime)
-        self.calculated_speciations[(tuple(P_MPa.ravel()), tuple(T_K.ravel()))] = pH, species, species_names, affinity
-        return pH, species, species_names, affinity
+        self.calculated_speciations[(tuple(P_MPa.ravel()), tuple(T_K.ravel()))] = pH, species, species_names, equilibriumConstants
+        return pH, species, species_names, equilibriumConstants
 
-    def species_at_equilibrium(self, P_MPa, T_K, reactionSubstruct=None):
+    def species_at_equilibrium(self, P_MPa, T_K, reactionEquation=None):
         """
         Go through P_MPa and T_K  and calculate equilibrium speciation of aqueous and solid species, as well as pH.
         Return species above
         """
-        if reactionSubstruct is None or reactionSubstruct.reaction == "NaN":
+        if reactionEquation == None or reactionEquation == 'none':
             calcReaction = False
         else:
             calcReaction = True
-            """ Setup the reaction structure """
-            for species in reactionSubstruct.parsed_reaction["allSpecies"]:
-                if species not in self.speciation_ratio_mol_kg.keys():
-                    self.speciation_ratio_mol_kg[species] = 0
-                if not reactionSubstruct.useReferenceSpecies:
-                    if reactionSubstruct.disequilibriumConcentrations[species] is not None:
-                        self.speciation_ratio_mol_kg[species] = reactionSubstruct.disequilibriumConcentrations[species]
-        # Keep track of time it takes to do calculation
-        start_time = time.time()
         # Establish supcrt generator
         db, system, initial_state, conditions, solver, props = SupcrtGenerator(self.aqueous_species_list, self.speciation_ratio_mol_kg,
                                       "mol", CustomSolutionParams.SUPCRT_DATABASE, self.ocean_solid_phases, Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations, rktDatabase = EOSlist.loaded['ReaktoroDatabases']['Supcrt'])
         state = initial_state.clone()
-        reactionState = initial_state.clone()  # State just for storign equilibrium state before calculating Q if we are using reference species
         # Prepare lists for pH and species amounts
         pH_list = []
-        affinity_list = []
+        equilibriumConstant_list = []
         species_amount_list = [[] for _ in range(len(system.species()))]
         species_volume_list = [[] for _ in range(len(system.species()))]
         species_names = np.array([species.name() for species in system.species()])  # Extract species names
         for P, T in zip(P_MPa, T_K):
-            setNaN = False
             # Set conditions
             conditions.temperature(T, "K")
             conditions.pressure(P, "MPa")
-            state.setPressure(P, "MPa")
-            state.setTemperature(T, "K")
-            if calcReaction:
-                if reactionSubstruct.useReferenceSpecies:
-                    # We use reactionState here to store equilibrium calculations with reference species separately,
-                    # which speeds up computation time before we add in disequilibrium concentrations to calculate affinity
-                    reactionState.setPressure(P, "MPa")
-                    reactionState.setTemperature(T, "K")
-                    # Equilibriate reaction state
-                    result = solver.solve(reactionState, conditions)
-                    if not result.succeeded():
-                        # Retry with cold start
-                        reactionState = initial_state.clone()
-                        result = solver.solve(reactionState, conditions)
-                    if not result.succeeded():
-                        setNaN = True
-                        reactionState = initial_state.clone()
-                    else:
-                        # Update props with reaction state
-                        props.update(reactionState)
-                        # Copy the reactionState to the main state which gives us equilibrium of ocean
-                        state = reactionState.clone()
-                        referenceSpeciesAmount = props.speciesAmount(reactionSubstruct.referenceSpecies)
-                        # Update main state with disequilibrium concentrations based on reference species equilibrium concentration
-                        for species in reactionSubstruct.parsed_reaction["allSpecies"]:
-                            if reactionSubstruct.disequilibriumConcentrations[species] is not None and species != reactionSubstruct.referenceSpecies:
-                                state.setSpeciesAmount(species, float(referenceSpeciesAmount * reactionSubstruct.disequilibriumConcentrations[species]), "mol")
-                        props.update(state)  # Finally update props with the state that has the disequilibrium concentrations
-                else:
-                    # Otherwise if we have specified absolute disequilibrium concentrations, then these are the concentrations we will use to calculate Q
-                    props.update(initial_state)
-                if not setNaN:
-                    # Calculate Q disequilibrium constant
-                    Q = self.calculate_reaction_quotient(
-                        props, reactionSubstruct.parsed_reaction
-                    )
-            if not setNaN:
-                conditions.pressure(P, "MPa")
-                conditions.temperature(T, "K")
-                # Solve the equilibrium problem using the hot-start approach
+            # Solve the equilibrium problem using the hot-start approach
+            result = solver.solve(state, conditions)
+            if not result.succeeded():
+                # Attempt a cold start
+                state = initial_state.clone()
                 result = solver.solve(state, conditions)
-                if not result.succeeded():
-                    # Attempt a cold start
-                    state = initial_state.clone()
-                    result = solver.solve(state, conditions)
-                if result.succeeded():
-                    # Update props and extract data
-                    props.update(state)
-                    if calcReaction:
-                        # Calculate K equilibrium constant
-                        K = self.calculate_reaction_quotient(props, reactionSubstruct.parsed_reaction)
-                        # Calculate affinity
-                        R = 8.31446
-                        A = 2.3026 * R * T * (np.log10(K) - np.log10(Q)) / 1000  # Affinity in kJ
-                        # Store the affinity (A)
-                        affinity_list.append(A)
+            if result.succeeded():
+                # Update props and extract data
+                props.update(state)
+                aprops = rkt.AqueousProps(props)
+                pH_list.append(float(aprops.pH()))
+                for k, species in enumerate(system.species()):
+                    if species.aggregateState() != rkt.AggregateState.Aqueous:
+                        species_amount_list[k].append(float(props.phaseProps(species.name()).volume())*100**3)
                     else:
-                        affinity_list.append(np.nan)
-                    aprops = rkt.AqueousProps(props)
-                    pH_list.append(float(aprops.pH()))
-                    for k, species in enumerate(system.species()):
-                        if species.aggregateState() != rkt.AggregateState.Aqueous:
-                            species_amount_list[k].append(float(props.phaseProps(species.name()).volume())*100**3)
-                        else:
-                            species_amount_list[k].append(float(state.speciesAmount(species.name())))
-                        if species_amount_list[k][-1] < 0:
-                            species_amount_list[k][-1] = 1e-40
-                else:
-                    setNaN = True
-            if setNaN:
+                        species_amount_list[k].append(float(state.speciesAmount(species.name())))
+                    if species_amount_list[k][-1] < 0:
+                        species_amount_list[k][-1] = 1e-40
+            else:
                 # If we fail to find equilibrium, let's just append the pH from last successful attempt
                 log.warning(f"Failed to find equilibrium at {P} MPa and {T} K. Filling with NaN.")
                 pH_list.append(np.nan)
-                affinity_list.append(np.nan)
-                setNaN = True
+                equilibriumConstant_list.append(np.nan)
                 for k in range(len(system.species())):
                     species_amount_list[k].append(np.nan)
                 # Reset after each temperature
                 state = initial_state.clone()
+            if calcReaction and result.succeeded():
+                    # Calculate K equilibrium constant
+                    K = self.calculate_reaction_quotient(props, reactionEquation)
+                    # Store the equilibrium constant
+                    equilibriumConstant_list.append(K)
+            else:
+                equilibriumConstant_list.append(np.nan)
         # Convert lists to arrays
         pH_array = np.array(pH_list)
         species_array = np.array(species_amount_list)
-        affinity_array = np.array(affinity_list)
+        equilibriumConstant_array = np.array(equilibriumConstant_list)
         # In the case that any properties could not be calculated, we must linearly interpolate these
         # THIS IS HIGHLY UNLIKELY SINCE WE HAVE FOUND CONSTRAINTS COMPATIBLE WITH RKT, BUT JUST IN CASE THIS IS IMPLEMENTED (has not been rigorously tested)
         if np.sum(np.isnan(pH_array)) > 0:
             log.warning(f'Interpolation failed for {np.sum(np.isnan(pH_array))} points.')
             # Interpolate pH and affinit yarrays
             pH_array = interpolation_1d(P_MPa, [pH_array])[0]
-            affinity_array = interpolation_1d(P_MPa, [affinity_array])[0]
+            equilibriumConstant_array = interpolation_1d(P_MPa, [equilibriumConstant_array])[0]
             # Interpolate species arrays
             species_individual_arrays = [species_array[i] for i in range(len(species_array))]
             interpolated_arrays = interpolation_1d(P_MPa, species_individual_arrays)
             for i in range(len(species_individual_arrays)):
                 species_array[i] = interpolated_arrays[i]
 
-        # Log time it took to calculate speciation
-        end_time = time.time()
-        log.debug(f'{end_time-start_time} seconds to calculate hydrosphere species')
-
         # Return the filtered results
-        return pH_array, species_array, species_names, affinity_array
+        return pH_array, species_array, species_names, equilibriumConstant_array
 
     def calculate_reaction_quotient(self, prop, reaction):
-
         # Initialize numerator and denominator for Q
         Q_numerator = 1.0
         Q_denominator = 1.0
+        # Parse the reaction 
+        reaction = reaction_parser(reaction)
 
         # Multiply activities raised to their stoichiometric coefficients for products
         for species, coefficient in reaction["products"].items():
@@ -1318,6 +1262,37 @@ class RktHydroSpecies():
         # Calculate the reaction quotient Q
         Q = Q_numerator / Q_denominator
         return Q
+
+def reaction_parser(reaction):
+    """
+        Parse a chemical reaction string into reactants, products, and optional disequilibrium species.
+
+        Parameters:
+        reaction_str (str): The chemical reaction string (e.g., "CO2 + 4 H2(aq) -> CH4(aq) + 2 H2O(aq)").
+
+        Returns:
+        dict: Parsed reaction with reactants, products, and optional disequilibrium species.
+        """
+    reaction_parts = reaction.split("=")
+    reactants_str, products_str = reaction_parts[0], reaction_parts[1]
+
+    def parse_side(side_str):
+        species_dict = {}
+        components = side_str.split(" + ")
+        for component in components:
+            component = component.strip()
+            if " " in component:
+                coeff, species = component.split(" ", 1)
+                species_dict[species.strip()] = float(coeff)
+            else:
+                species_dict[component.strip()] = 1.0
+        return species_dict
+
+    reactants = parse_side(reactants_str)
+    products = parse_side(products_str)
+
+
+    return {"reactants": reactants, "products": products, "allSpecies": reactants.keys() | products.keys()}
 
 def SetupReaktoroDatabases():
     """

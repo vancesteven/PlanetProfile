@@ -43,16 +43,7 @@ def PlotHydrosphereSpecies(PlanetList, Params):
         else:
             solidAx = False
             aqueousSpeciesAx = fig.add_subplot(grid[0:3, 0:2])
-        # If we have a reaction with affinities to plot, then we should split the second axis into two columns
-        plot_reaction_marker = Planet.Ocean.Reaction.reaction != "NaN"
-        if plot_reaction_marker:
-            pHax = fig.add_subplot(grid[3, 0])
-            affinityax = fig.add_subplot(grid[3, 1])
-            affinityax.set_xlabel(FigLbl.zLabel)
-            affinityax.set_ylabel(FigLbl.rxnAffinityLabel)
-        # If not, then just plot pH
-        else:
-            pHax = fig.add_subplot(grid[3, :])
+        pHax = fig.add_subplot(grid[3, :])
         if solidAx:
             axs = [solidspeciesax, aqueousSpeciesAx]
             solidspeciesax.set_xlabel(FigLbl.solidSpeciesLabel)
@@ -140,32 +131,6 @@ def PlotHydrosphereSpecies(PlanetList, Params):
                                                     horizontalalignment='center',
                                                     fontsize=FigLbl.speciesSize,
                                                     bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.5, edgecolor='none'), zorder=10)
-            """if Planet.Ocean.Reaction.reaction != 'NaN':
-                for species in Planet.Ocean.Reaction.disequilibriumConcentrations.keys():
-                    if not Planet.Ocean.Reaction.useReferenceSpecies:
-                        speciesDisequilibriumAmount = Planet.Ocean.Reaction.disequilibriumConcentrations[species]
-                        speciesIndex = np.where(Planet.Ocean.aqueousSpecies == species)[0][0]
-                        speciesEquilibriumAmount = Planet.Ocean.aqueousSpeciesAmount_mol[speciesIndex]
-                        if speciesAmountData is None:
-                            speciesAmountData = speciesEquilibriumAmount
-                        else:
-                            speciesAmountData = np.repeat(speciesDisequilibriumAmount, len(speciesAmountData))
-                    else:
-                        referenceSpecies = Planet.Ocean.Reaction.referenceSpecies
-                        referenceSpeciesIndex = np.where(Planet.Ocean.aqueousSpecies == referenceSpecies)[0][0]
-                        referenceSpeciesAmount = Planet.Ocean.aqueousSpeciesAmount_mol[referenceSpeciesIndex]
-                        speciesRatioToReferenceSpecies = Planet.Ocean.Reaction.disequilibriumConcentrations[species]
-                        if speciesRatioToReferenceSpecies is None:
-                            speciesIndex = np.where(Planet.Ocean.aqueousSpecies == species)[0][0]
-                            speciesAmountData = Planet.Ocean.aqueousSpeciesAmount_mol[speciesIndex]
-                        else:   
-                            speciesAmountData = speciesRatioToReferenceSpecies * referenceSpeciesAmount
-                    style = Style.LS_hydroSpeciesDisequilibrium
-                    linewidth = Style.LW_hydroSpeciesDisequilibrium
-                    cmap = Color.cmap['hydroSpecies']
-                    line = aqueousSpeciesAx.plot(speciesAmountData, ocean_depth / 1e3, linestyle=style, color=color, linewidth = linewidth)
-                    """
-                    
                 
             for ax in axs:
                 ax.set_xscale('log')
@@ -181,17 +146,6 @@ def PlotHydrosphereSpecies(PlanetList, Params):
             bulk_pH_not_nan = np.where(~np.isnan(Planet.Ocean.Bulk_pHs))[0]
             bulk_line, = pHax.plot(ocean_depth[bulk_pH_not_nan] / 1e3, Planet.Ocean.Bulk_pHs[bulk_pH_not_nan], linestyle ='-',
                               color = 'black', label = 'Bulk Ocean pH')
-            # If we should plot reaction, then let's plot reaction pHs and affinity
-            if plot_reaction_marker:
-                if FigMisc.TEX_INSTALLED:
-                    reaction_label = rf"$\ce{{{Planet.Ocean.Reaction.reaction}}}$"
-                else:
-                    reaction_label = Planet.Ocean.Reaction.reaction
-                affinityax.plot(ocean_depth[bulk_pH_not_nan] / 1e3, Planet.Ocean.affinity_kJ[bulk_pH_not_nan], linestyle ='-',
-                              color = 'black', label = reaction_label)
-                if Params.LEGEND:
-                    handles, lbls = affinityax.get_legend_handles_labels()
-                    affinityax.legend(handles, lbls, fontsize = 5)
 
             plt.tight_layout()
             fig.savefig(Params.FigureFiles.hydroSpecies, format=FigMisc.figFormat, dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)

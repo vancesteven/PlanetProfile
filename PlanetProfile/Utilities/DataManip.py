@@ -180,7 +180,7 @@ class ReturnConstantSpecies:
         self.species_names = np.append(self.species_names,'H2O(aq)')
         self.speciation = np.append(self.speciation, 1/Constants.m_gmol['H2O']*1000)
 
-    def __call__(self, P, T, grid = False, reactionSubstruct = None):
+    def __call__(self, P, T, grid = False, reactionEquation = None):
         nPs = np.size(P)
         nTs = np.size(T)
         pH = (np.zeros(nPs)) + self.pH
@@ -319,7 +319,7 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].updateConvectionViscosity(etaConv_Pas, Tconv_K)
     def fn_Seismic(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K, grid=grid)
-    def fn_species(self, P_MPa, T_K, grid = False, reactionSubstruct=None):
-        return EOSlist.loaded[self.key].fn_species(P_MPa, T_K, grid=grid, reactionSubstruct=reactionSubstruct)
+    def fn_species(self, P_MPa, T_K, grid = False, reactionEquation=None):
+        return EOSlist.loaded[self.key].fn_species(P_MPa, T_K, grid=grid, reactionEquation=reactionEquation)
     def fn_averageValuesAccordingtoRule(self, prop1, prop2, rule):
         return EOSlist.loaded[self.key].fn_averageValuesAccordingtoRule(prop1, prop2, rule)

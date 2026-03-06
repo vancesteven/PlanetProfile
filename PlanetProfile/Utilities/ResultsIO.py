@@ -161,13 +161,8 @@ def ExtractBasePlanetData(baseStruct, PlanetGrid):
         # Seafloor and geochemistry
         'Pseafloor_MPa': np.array([[getattr(Planeti, 'Pseafloor_MPa', np.nan) for Planeti in line] for line in PlanetGrid]),
         'phiSeafloor_frac': np.array([[getattr(Planeti, 'phiSeafloor_frac', np.nan) for Planeti in line] for line in PlanetGrid]),
-        'affinitySeafloor_kJ': np.array([[getattr(Planeti.Ocean, 'affinitySeafloor_kJ', np.nan) for Planeti in line] for line in PlanetGrid]),
-        'affinityMean_kJ': np.array([[getattr(Planeti.Ocean, 'affinityMean_kJ', np.nan) for Planeti in line] for line in PlanetGrid]),
         'pHSeafloor': np.array([[getattr(Planeti.Ocean, 'pHSeafloor', np.nan) for Planeti in line] for line in PlanetGrid]),
         'pHTop': np.array([[getattr(Planeti.Ocean, 'pHTop', np.nan) for Planeti in line] for line in PlanetGrid]),
-        'affinityTop_kJ': np.array([[getattr(Planeti.Ocean, 'affinityTop_kJ', np.nan) for Planeti in line] for line in PlanetGrid]),
-        'speciesRatioToChange': np.array([[getattr(Planeti.Ocean.Reaction, 'speciesRatioToChange', np.nan) for Planeti in line] for line in PlanetGrid]),
-        'mixingRatioToH2O': np.array([[getattr(Planeti.Ocean.Reaction, 'speciesToChangeMixingRatio', np.nan) for Planeti in line] for line in PlanetGrid]),
         
         # Porosity and rock properties  
         'silPhiCalc_frac': np.array([[getattr(Planeti.Sil, 'phiCalc_frac', np.nan) for Planeti in line] for line in PlanetGrid]),
@@ -226,10 +221,6 @@ def ExtractInductionData(InductionResults, bodyname, PlanetGrid, Params):
     BeList = Excitations(bodyname)
     eachT = np.logical_and([Params.Induct.excSelectionCalc[key] for key in BeList.keys()], [BeList[key] is not None for key in BeList.keys()])
     nPeaks = sum(eachT)
-    # Extract magnetic induction results from the PlanetGrid
-    Benm_nT = PlanetGrid[0, 0].Magnetic.Benm_nT
-    # Organize data into a format that can be plotted/saved for plotting
-    Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(Benm_nT)
     induction_data = {
         'nPeaks': nPeaks,
         'Amp': None,
@@ -290,6 +281,10 @@ def ExtractInductionData(InductionResults, bodyname, PlanetGrid, Params):
         induction_data['Bi1y_nT'] = Bi1y_nT_3D
         induction_data['Bi1z_nT'] = Bi1z_nT_3D
         # Calculate induced field components
+        # Extract magnetic induction results from the PlanetGrid
+        Benm_nT = PlanetGrid[0, 0].Magnetic.Benm_nT
+        # Organize data into a format that can be plotted/saved for plotting
+        Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(Benm_nT)
         induction_data['Bix_nT'] = np.array([Amp_3d[i, ...] * Bex_nT[i] for i in range(nPeaks)])
         induction_data['Biy_nT'] = np.array([Amp_3d[i, ...] * Bey_nT[i] for i in range(nPeaks)])
         induction_data['Biz_nT'] = np.array([Amp_3d[i, ...] * Bez_nT[i] for i in range(nPeaks)])

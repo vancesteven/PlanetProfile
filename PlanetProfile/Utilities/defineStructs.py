@@ -157,25 +157,10 @@ class StepsSubstruct:
         self.iCond = []  # Logical array to select indices corresponding to surface conducting ice
         self.iConv = []  # Logical array to select indices corresponding to surface convecting ice
 
-""" Reaction structure """
-class ReactionSubstruct:
-    def __init__(self):
-        self.reaction = None
-        self.disequilibriumConcentrations = {}
-        self.useReferenceSpecies = False
-        self.useH2ORatio = False
-        self.referenceSpecies = None
-        self.mixingRatioToH2O = {}
-        self.relativeRatioToReferenceSpecies = {}
-        """For explorations"""
-        self.speciesRatioToChange = None
-        self.speciesToChangeMixingRatio = np.nan
-
 """ Hydrosphere assumptions """
 class OceanSubstruct:
 
     def __init__(self):
-        self.Reaction = ReactionSubstruct() # Reaction object for calculating affinities related to reactions
         self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'PureH2O', 'NH3', 'NaCl', 'none'
         self.wOcean_ppt = None  # (Absolute) salinity: Mass concentration of above composition in parts per thousand (ppt)
         self.pH = None # pH of ocean (Only customizable for CustomSolution - pH for other compositions are overridden
@@ -217,6 +202,7 @@ class OceanSubstruct:
         self.GSmeanVwet_GPa = np.nan  # Mean shear modulus for in-ocean ice V layers
         self.GSmeanVI_GPa = np.nan  # Mean shear modulus for in-ocean ice VI layers
         self.TfreezeOffset_K = 0.01  # Offset from the freezing temperature to avoid overshooting in HP ices
+        self.reactionEquation = None # Reaction equation to use for calculating equilibrium reaction constant
         # self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
         self.kThermWater_WmK = None # Thermal conductivity for water layers  - Overrides kThermWater_WmK in Constants
         self.kThermIce_WmK = {phase: None for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']} # Constant thermal conductivity for each ice layer in non-self-consistent models
@@ -258,11 +244,7 @@ class OceanSubstruct:
         self.aqueousSpecies = None  # All species considered in each liquid ocean layer (i.e. the species considered in
         self.aqueousSpeciesAmount_mol = None # Species amount at each liquid ocean layer (nested 2D array of dimensions
             # np.size(aqueousSpecies) x len(total layers that are liquid))
-        self.affinity_kJ = None # Affinity of Planet.Ocean.Reaction.reaction (if specified) across ocean depth
-        self.affinityMean_kJ = None # Mean affinity of Planet.Ocean.Reaction.reaction (if specified) across ocean depth
-        self.affinitySeafloor_kJ = None # Affinity of Planet.Ocean.Reaction.reaction (if specified) at seafloor
-        self.mixingRatioToH2O = None # Mixing ratio of H2 to CO2 in the ocean
-        self.speciesOfRatio = None # Species of the ratio in the ocean
+        self.equilibriumReactionConstant = None # Equilibrium reaction constant of Planet.Ocean.reactionEquation of each liquid layer
 
 
 
@@ -1212,9 +1194,8 @@ class ExploreParamsStruct:
             'qSurf_Wm2': 'inner',
             'oceanComp': 'hydro',
             'zb_approximate_km': 'hydro',
-            'mixingRatioToH2O': 'hydro'
         }
-        self.exploreLogScale = ['mixingRatioToH2O']
+        self.exploreLogScale = []
         self.provideExploreRange = {'oceanComp': 'oceanCompRangeList'} # Dict of explore options where user must provide the array to explore over. Key is the explore option, value is the attribute name to get the array from.
         self.contourName = None  # Name of variable to use for contours (if None, uses z variable). Allows plotting contours of one variable while coloring by another.
 
@@ -1634,9 +1615,6 @@ class FigLblStruct:
         self.KSlabel = r'Bulk modulus $K_S$ ($\si{GPa}$)'
         self.GSlabel = r'Shear modulus $G_S$ ($\si{GPa}$)'
         self.CMR2label = r'Calculated axial moment of inertia $C/MR^2$'
-        self.affinitySeafloorLabel = r'Chemical reaction affinity at seafloor $A_\mathrm{sea}$ ($\si{kJ/mol}$)'
-        self.affinityTopLabel = r'Chemical reaction affinity at top of ocean $A_\mathrm{top}$ ($\si{kJ/mol}$)'
-        self.affinityMeanLabel = r'Mean chemical reaction affinity $A_\mathrm{mean}$ ($\si{kJ/mol}$)'
         self.rLabel = r'Radius $r$ ($\si{km}$)'
         self.zLabel = r'Depth $z$ ($\si{km}$)'
         self.etaLabel = r'Viscosity $\eta$ ($\si{Pa\,s}$)'
@@ -1668,7 +1646,7 @@ class FigLblStruct:
         self.PvTtitleCore = r' silicate and core interior properties with geotherm'
         self.hydroPhaseTitle = r' phase diagram'
         self.meltingCurvesTitle = r' melting curves'
-        self.hydroSpeciesTitle = r' ocean precipitation, aqueous speciation, pH, and reaction affinity'
+        self.hydroSpeciesTitle = r' ocean precipitation, aqueous speciation, and pH'
 
         # Wedge diagram labels
         self.wedgeTitle = 'interior structure'
@@ -1849,7 +1827,6 @@ class FigLblStruct:
         self.CpUnits = None
         self.kThermUnits = None
         self.alphaUnits = None
-        self.affinityUnits = None
         self.hydrosphereSpeciesUnits = None
         self.hydrosphereSolidSpeciesVolUnits = None
         self.wMult = None
@@ -1872,7 +1849,6 @@ class FigLblStruct:
         self.QseisLabel = None
         self.rhoSilLabel = None
         self.rhoHydroLabel = None
-        self.rxnAffinityLabel = None
         self.allOceanSpeciesLabel = None
         self.aqueousSpeciesLabel = None
         self.phiLabel = None
@@ -1907,11 +1883,8 @@ class FigLblStruct:
             'Htidal_Wm3',
             'Qrad_Wkg',
             'qSurf_Wm2',
-            'mixingRatioToH2O'
         ]
         self.fineContoursExplore = [
-            'affinitySeafloor_kJ',
-            'affinityMean_kJ',
             'CMR2mean',
             'phiSeafloor_frac',
             'sigmaMean_Sm',
@@ -1925,14 +1898,11 @@ class FigLblStruct:
             'lLovePhase',
             'hLovePhase',
             'deltaLovePhase',
-            'affinityTop_kJ',
             'pHTop'
         ]
         # Contour format strings for exploreograms
         self.cfmtExplore = {
             'Rcore_km': '%.0f',
-            'affinitySeafloor_kJ': '%.0f',
-            'affinityMean_kJ': '%.0f',
             'CMR2mean': '%.3f',
             'phiSeafloor_frac': '%.2f',
             'sigmaMean_Sm': None,
@@ -1947,7 +1917,6 @@ class FigLblStruct:
             'hLovePhase': '%.2f',
             'deltaLovePhase': '%.2f',
             'pHSeafloor': '%.0f',
-            'affinityTop_kJ': '%.0f',
             'pHTop': '%.0f',
             'InductionBi1Tot_nT': '%.0f',
             'InductionrBi1Tot_nT': '%.0f',
@@ -1961,9 +1930,6 @@ class FigLblStruct:
         }
         self.cbarfmtExplore = {
             'Rcore_km': '%.0f',
-            'affinitySeafloor_kJ': '%.0f',
-            'affinityTop_kJ': '%.0f',
-            'affinityMean_kJ': '%.0f',
             'CMR2mean': '%.4f',
             'phiSeafloor_frac': '%.2f',
             'sigmaMean_Sm': None,
@@ -2005,8 +1971,6 @@ class FigLblStruct:
         }
         self.cTicksSpacingsExplore = {
             'Rcore_km': 10,
-            'affinitySeafloor_kJ': 40,
-            'affinityTop_kJ': 40,
             'kLoveAmp': 0.036,
             'hLoveAmp': 0.2,
             'InductionrBi1Tot_nT': 3,
@@ -2020,8 +1984,6 @@ class FigLblStruct:
         }
         # Variables for which to pin colormap center to zero (useful for variables that can be positive/negative)
         self.cMapZero = {
-            'affinitySeafloor_kJ',
-            'affinityTop_kJ'
         } 
         self.exploreDescrip = {
             'xFeS': 'core FeS mixing ratio',
@@ -2068,14 +2030,10 @@ class FigLblStruct:
             'Qrad_Wkg': 'rock radiogenic heating',
             'qSurf_Wm2': 'surface heat flux',
             'CMR2mean': 'axial moment of inertia',
-            'affinitySeafloor_kJ': 'seafloor affinity for chemical reaction',
-            'affinityTop_kJ': 'top of ocean affinity for chemical reaction',
-            'affinityMean_kJ': 'average affinity for chemical reaction',
             'pHSeafloor': 'seafloor pH',
             'pHTop': 'top of ocean pH',
             'zb_approximate_km': 'approximate ice shell thickness',
             'oceanComp': 'ocean composition',
-            'mixingRatioToH2O': 'mixing ratio in the ocean',
             'InductionAmp': 'induction amplitude',
             'InductionPhase': 'induction phase',
             'InductionrBi1Tot_nT': 'induction real total',
@@ -2118,7 +2076,6 @@ class FigLblStruct:
             self.CpUnits = r'J\,kg^{-1}\,K^{-1}'
             self.kThermUnits = r'W\,m^{-1}\,K^{-1}'
             self.alphaUnits = r'K^{-1}'
-            self.affinityUnits = r'kJ\,mol^{-1}'
             self.hydrosphereSpeciesUnits = r'mol\,kg^{-1}'
             self.hydrosphereSolidSpeciesVolUnits = r'cm^3'
         else:
@@ -2134,7 +2091,6 @@ class FigLblStruct:
             self.CpUnits = r'J/kg/K'
             self.kThermUnits = r'W/m/K'
             self.alphaUnits = '1/K'
-            self.affinityUnits = r'kJ/mol'
             self.hydrosphereSpeciesUnits = r'mol/kg'
             self.hydrosphereSolidSpeciesVolUnits = r'cm^3'
         self.distanceUnits = r'$\si{km}$'
@@ -2230,8 +2186,6 @@ class FigLblStruct:
         self.silPhiSeaLabel = r'Seafloor porosity $\phi_\mathrm{rock}$' + self.phiUnitsParen
         self.phiLabel = r'Porosity $\phi$' + self.phiUnitsParen
         self.zbApproximateLabel = r'Ice shell thickness ($\si{km}$)'
-        self.mixingRatioToH2OLabel = r'Mixing ratio in the ocean'
-        self.rxnAffinityLabel = r'Affinity ($\si{' + self.affinityUnits + '}$)'
         self.allOceanSpeciesLabel = r'All species ($\si{' + self.hydrosphereSpeciesUnits + '}$)'
         self.solidSpeciesLabel = r'Solid species ($\si{' + self.hydrosphereSolidSpeciesVolUnits + '}$)'
         self.aqueousSpeciesLabel = r'Aqueous species ($\si{' + self.hydrosphereSpeciesUnits + '}$)'
@@ -2327,13 +2281,9 @@ class FigLblStruct:
             'deltaLovePhase': self.deltaLovePhaseLabel,
             'qSurf_Wm2': self.qSurfLabel,
             'CMR2mean': self.CMR2label,
-            'affinitySeafloor_kJ': self.affinitySeafloorLabel,
-            'affinityTop_kJ': self.affinityTopLabel,
-            'affinityMean_kJ': self.affinityMeanLabel,
             'pHSeafloor': self.pHLabel,
             'pHTop': self.pHLabel,
             'zb_approximate_km': self.zbApproximateLabel,
-            'mixingRatioToH2O': self.mixingRatioToH2OLabel,
             'InductionAmp': self.plotTitles[0],
             'InductionPhase': self.phaseTitle,
             'InductionrBi1Tot_nT': self.BdipReTotLabel,

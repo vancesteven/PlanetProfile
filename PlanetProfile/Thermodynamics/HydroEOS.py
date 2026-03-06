@@ -322,7 +322,6 @@ class OceanEOSStruct:
                     Timing.setTime(time.time())
                     self.ufn_species = RktHydroSpecies(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.ocean_solid_phases)
                     Timing.logTime('RktHydroSpecies()', time.time())
-                    #self.ufn_rxn_affinity = RktRxnAffinity(self.aqueous_species_string, self.speciation_ratio_mol_kg, self.ocean_solid_phases) Incorporated in self.ufn_species now
                     Timing.setTime(time.time())
                     if sigmaFixed_Sm is not None or wOcean_ppt == 0:
                         # If wOcean_ppt == 0, we are in pure water mode and should use the default conductivity of pure water
@@ -386,13 +385,13 @@ class OceanEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_eta_Pas(P_MPa, T_K, grid=grid)
-    def fn_species(self, P_MPa, T_K, grid = False, reactionSubstruct = None):
+    def fn_species(self, P_MPa, T_K, grid = False, reactionEquation = None):
         """
         Returns speciation at provided P_MPa and T_K
         """
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
-        return self.ufn_species(P_MPa, T_K, grid=grid, reactionSubstruct=reactionSubstruct)
+        return self.ufn_species(P_MPa, T_K, grid=grid, reactionEquation=reactionEquation)
 
 
 def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0,

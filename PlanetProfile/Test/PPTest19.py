@@ -18,7 +18,7 @@ Planet.Bulk.Tsurf_K = 75
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.335
 Planet.Bulk.Cuncertainty = 0.001
-Planet.Bulk.Tb_K = 272.353
+Planet.Bulk.Tb_K = 270
 
 """ Layer step settings """
 Planet.Steps.nIceI = 50
@@ -31,6 +31,7 @@ Planet.Ocean.comp = "CustomSolutionSeawater = Cl-: 0.1885882, Na+: 0.1620199, Mg
 Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt / 3
 Planet.Ocean.deltaP = 0.1
 Planet.Ocean.PHydroMax_MPa = 25.0
+Planet.Ocean.reactionEquation = 'Cl- + H2O(aq) = Mg+2 + Ca+2'
 
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.33e-12

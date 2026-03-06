@@ -755,24 +755,19 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
             with open(Params.DataFiles.oceanPropsFile) as f:
                 nHeadLines = int(f.readline().split('=')[-1])
                 Planet.Ocean.aqueousSpecies = np.array(f.readline().split('=')[-1].strip().replace(';', '').split())
-                Planet.Ocean.Reaction.reaction = f.readline().split('=')[-1].strip()
-                Planet.Ocean.Reaction.useReferenceSpecies = bool(strtobool(f.readline().split('=')[-1].strip()))
-                Planet.Ocean.Reaction.referenceSpecies = f.readline().split('=')[-1].strip()    
-                Planet.Ocean.Reaction.disequilibriumConcentrations = ast.literal_eval(f.readline().split('=')[-1].strip())
+                Planet.Ocean.reactionEquation = f.readline().split('=')[-1].strip()
             OceanSpecificProps = np.loadtxt(Params.DataFiles.oceanPropsFile, skiprows=nHeadLines, unpack=True)
             Planet.Ocean.Bulk_pHs = OceanSpecificProps[2]
-            Planet.Ocean.affinity_kJ = OceanSpecificProps[3]
+            Planet.Ocean.equilibriumReactionConstant = OceanSpecificProps[3]
             Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[4: ]
             Planet.Ocean.pHSeafloor = Planet.Ocean.Bulk_pHs[-1]
             Planet.Ocean.Mean_pH = np.mean(Planet.Ocean.Bulk_pHs)
-            Planet.Ocean.affinitySeafloor_kJ = Planet.Ocean.affinity_kJ[-1]
-            Planet.Ocean.affinityMean_kJ = np.mean(Planet.Ocean.affinity_kJ)
         else:
-            Planet.Ocean.Reaction.reaction, Planet.Ocean.Reaction.disequilibriumConcentrations = 'NaN', 'NaN'
-            Planet.Ocean.Bulk_pHs, Planet.Ocean.affinity_kJ, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
+            Planet.Ocean.reactionEquation = None
+            Planet.Ocean.Bulk_pHs, Planet.Ocean.equilibriumReactionConstant, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
     else:
-        Planet.Ocean.Reaction.reaction, Planet.Ocean.Reaction.disequilibriumConcentrations = 'NaN', 'NaN'
-        Planet.Ocean.Bulk_pHs, Planet.Ocean.affinity_kJ, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
+        Planet.Ocean.reactionEquation = None
+        Planet.Ocean.Bulk_pHs, Planet.Ocean.equilibriumReactionConstant, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
 
     # Setup CustomSolution settings
     if 'CustomSolution' in Planet.Ocean.comp:
@@ -1878,11 +1873,6 @@ def AssignPlanetVal(Planet, name, val):
             Planet.Core.wFe_ppt = val
             Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
             Planet.Do.CONSTANT_INNER_DENSITY = False
-        elif name == 'mixingRatioToH2O':
-            if Planet.Ocean.Reaction.speciesRatioToChange is None:
-                raise ValueError(f'Planet.Ocean.Reaction.speciesRatioToChange is not set but you are trying to explore over mixingRatioToH2O. Please set it to the species you want to change the ratio of.')
-            Planet.Ocean.Reaction.speciesToChangeMixingRatio = val
-            Planet.Ocean.Reaction.mixingRatioToH2O[Planet.Ocean.Reaction.speciesRatioToChange] = Planet.Ocean.Reaction.speciesToChangeMixingRatio
     else:
         # Monte Carlo non-self-consistent parameters
         if name == 'dzIceI_km':
