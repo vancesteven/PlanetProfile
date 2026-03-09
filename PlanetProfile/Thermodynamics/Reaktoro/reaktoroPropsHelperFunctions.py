@@ -284,126 +284,112 @@ def species_convertor_compatible_with_supcrt(supcrt_db, aqueous_species_string, 
     # Return the string and adapted dictionary
     return " ".join(supcrt_speciation_ratio_per_kg.keys()), supcrt_speciation_ratio_per_kg
 
-
 def interpolation_2d(P_MPa, arrays):
-    """ Utilized as a helper function for thermodynamic properties calculation. Performs a 2d interpolation on any values that are NaN in the
-        provided arrays, allowing the zero values to be interpolated."""
+    """Utilized as a helper function for thermodynamic properties calculation.
+    Performs column-wise interpolation on any values that are NaN or inf in the
+    provided 2D arrays by calling interpolation_1d on each affected column.
+    """
     interpolated_arrays = []
+    P_MPa = np.asarray(P_MPa)
+
     for array in arrays:
         interpolated_array = np.copy(array)
+
         for col in range(array.shape[1]):
-            column_data = array[:, col]
-            # Create mask for both NaN and inf values - these are considered invalid data points
+            column_data = np.asarray(interpolated_array[:, col]).copy()
+
+            # Treat both NaN and inf as invalid
             invalid_mask = np.isnan(column_data) | np.isinf(column_data)
+
             if np.isinf(column_data).any():
-                log.warning("Inf values detected in column " + str(col) + " of array " + str(array))
-            
+                log.warning(
+                    "Inf values detected in column " + str(col) + " of array " + str(array)
+                )
+
             if np.any(invalid_mask):
-                # Step 1: Handle edge case filling - extend valid edge values to cover all invalid edge regions
-                # This prevents spline extrapolation which can cause numerical instability and -inf values
-                valid_indices = np.where(~invalid_mask)[0]
-                if len(valid_indices) > 0:
-                    # Fill ALL invalid values at the beginning (not just first position) with the first valid value
-                    # Example: [NaN, NaN, NaN, valid, ...] becomes [valid, valid, valid, valid, ...]
-                    first_valid_idx = valid_indices[0]
-                    if first_valid_idx > 0:
-                        column_data[:first_valid_idx] = column_data[first_valid_idx]
-                    
-                    # Fill ALL invalid values at the end (not just last position) with the last valid value
-                    # Example: [..., valid, NaN, NaN, NaN] becomes [..., valid, valid, valid, valid]
-                    last_valid_idx = valid_indices[-1]
-                    if last_valid_idx < len(column_data) - 1:
-                        column_data[last_valid_idx+1:] = column_data[last_valid_idx]
-                    
-                    # Step 2: Update invalid_mask after edge filling to identify remaining interior gaps
-                    invalid_mask = np.isnan(column_data) | np.isinf(column_data)
-                    
-                    # Step 3: Handle any remaining interior invalid values with spline interpolation
-                    # Now we have guaranteed valid edge values, so interpolation will be stable
-                    if np.any(invalid_mask):
-                        # Get updated valid points for interpolation
-                        valid_mask = ~invalid_mask
-                        x_known = P_MPa[valid_mask]  # Pressure values at valid data points
-                        y_known = column_data[valid_mask]  # Valid property values
-                        
-                        # Only interpolate if we have sufficient valid points for spline creation
-                        if len(x_known) >= 2:
-                            # Use linear interpolation (k=1) for robustness - more stable than cubic splines
-                            # Linear splines are less prone to oscillations and numerical instability
-                            spline_degree = min(1, len(x_known) - 1)
-                            spline = interpolate.make_interp_spline(x_known, y_known, k=spline_degree)
-                            # Only interpolate for the remaining invalid interior points
-                            invalid_indices = np.where(invalid_mask)[0]
-                            column_data[invalid_indices] = spline(P_MPa[invalid_indices])
-                    
-                    # Update the interpolated array with the processed column data
-                    interpolated_array[:, col] = column_data
-                else:
-                    # Fallback: If no valid data exists in this column, fill with zeros
-                    # This prevents propagation of invalid values through the calculation
-                    interpolated_array[:, col] = 0.0
+                # Convert inf to NaN so interpolation_1d can handle them
+                column_data[invalid_mask] = np.nan
+
+                # Use interpolation_1d on this single column
+                repaired_column = interpolation_1d(P_MPa, (column_data,))[0]
+
+                # Write repaired column back
+                interpolated_array[:, col] = repaired_column
             else:
                 # No invalid values in this column - use original data as-is
                 interpolated_array[:, col] = column_data
+
         interpolated_arrays.append(interpolated_array)
+
     return tuple(interpolated_arrays)
 
 
 def interpolation_1d(P_MPa, arrays):
     interpolated_arrays = []
+    P_MPa = np.asarray(P_MPa)
+
     for array in arrays:
         # Create a copy to avoid modifying the original array
-        array_copy = array.copy()
-        
+        array_copy = np.asarray(array).copy()
+
         # Create mask for known values (not NaN)
         nan_mask = np.isnan(array_copy)
-        
+
         # Step 1: Handle edge case filling - extend valid edge values to cover all invalid edge regions
-        # This prevents spline extrapolation which can cause numerical instability
+        # This prevents extrapolation at the ends and avoids numerical instability
         valid_indices = np.where(~nan_mask)[0]
         if len(valid_indices) > 0:
             # Fill ALL invalid values at the beginning with the first valid value
             first_valid_idx = valid_indices[0]
             if first_valid_idx > 0:
                 array_copy[:first_valid_idx] = array_copy[first_valid_idx]
-            
+
             # Fill ALL invalid values at the end with the last valid value
             last_valid_idx = valid_indices[-1]
             if last_valid_idx < len(array_copy) - 1:
-                array_copy[last_valid_idx+1:] = array_copy[last_valid_idx]
-            
+                array_copy[last_valid_idx + 1:] = array_copy[last_valid_idx]
+
             # Step 2: Update nan_mask after edge filling to identify remaining interior gaps
             nan_mask = np.isnan(array_copy)
-            
+
             # Step 3: Handle any remaining interior invalid values
             if np.any(nan_mask):
                 # Extract known points and values for interpolation
-                x_known = P_MPa[~nan_mask]
-                y_known = array_copy[~nan_mask]
-                
-                # Check if we have sufficient points for spline interpolation
+                x_known = np.asarray(P_MPa[~nan_mask])
+                y_known = np.asarray(array_copy[~nan_mask])
+
+                # Remove duplicate x values caused by clipping to Pmin/Pmax
+                x_known, unique_idx = np.unique(x_known, return_index=True)
+                y_known = y_known[unique_idx]
+
+                # Only interpolate for the remaining invalid interior points
+                invalid_indices = np.where(nan_mask)[0]
+
+                # Check if we have sufficient points for interpolation
                 if len(x_known) >= 2:
-                    # Use linear interpolation (k=1) for robustness
-                    spline = interpolate.make_interp_spline(x_known, y_known, k=1)
-                    # Only interpolate for the remaining invalid interior points
-                    invalid_indices = np.where(nan_mask)[0]
-                    array_copy[invalid_indices] = spline(P_MPa[invalid_indices])
+                    array_copy[invalid_indices] = np.interp(
+                        P_MPa[invalid_indices], x_known, y_known
+                    )
                 else:
                     # Fallback to nearest neighbor if insufficient points for interpolation
-                    for i in np.where(nan_mask)[0]:
-                        # Find distances to all valid points
-                        valid_indices = np.where(~nan_mask)[0]
+                    # Recompute valid indices from the current array_copy
+                    valid_indices = np.where(~np.isnan(array_copy))[0]
+
+                    for i in invalid_indices:
+                        # Find distances to all valid points in index space
                         distances = np.abs(valid_indices - i)
+
                         # Find the index of the nearest valid point
                         nearest_valid_idx = valid_indices[np.argmin(distances)]
+
                         # Fill with nearest neighbor value
                         array_copy[i] = array_copy[nearest_valid_idx]
-            
+
             interpolated_arrays.append(array_copy)
         else:
             # Fallback: If no valid data exists in this array, fill with zeros
             interpolated_arrays.append(np.zeros_like(array_copy))
-    
+
     return tuple(interpolated_arrays)
 
 def extract_species_from_reaction(species_dict, reaction_dict):

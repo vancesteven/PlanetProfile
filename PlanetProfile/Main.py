@@ -263,6 +263,8 @@ def PlanetProfile(Planet, Params):
         Planet = SeismicCalcs(Planet, Params)
         Planet = ViscosityCalcs(Planet, Params)
 
+        # Set any other necessary data for post-processing of Planet Profile
+        Planet = PostProcessingProfile(Planet, Params)
         # Save data after modeling
         if (not Params.NO_SAVEFILE) and Planet.Do.VALID and (not Params.INVERSION_IN_PROGRESS):
             WriteProfile(Planet, Params)
@@ -273,7 +275,6 @@ def PlanetProfile(Planet, Params):
     else:
         # Reload previous run
         Planet, Params = ReloadProfile(Planet, Params)
-
     # Main plotting functions
     if ((not Params.SKIP_PLOTS) and not (
             Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.DO_MONTECARLO)) \
@@ -335,6 +336,8 @@ def InteriorEtc(Planet, Params):
     Planet = ViscosityCalcs(Planet, Params)
     Planet = LiquidOceanPropsCalcs(Planet, Params)
     
+    # Set any other necessary data for post-processing of Planet Profile
+    Planet = PostProcessingProfile(Planet, Params)
     # Save data after modeling
     if (not Params.NO_SAVEFILE) and Planet.Do.VALID and (not Params.INVERSION_IN_PROGRESS):
         WriteProfile(Planet, Params)
@@ -485,6 +488,10 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
 
     return Params, fNames
 
+def PostProcessingProfile(Planet, Params):
+    """ Post-processing of the planet profile """
+    Planet = SetCMR2strings(Planet)
+    return Planet
 
 def WriteProfile(Planet, Params):
     """ Write out all profile calculations to disk """

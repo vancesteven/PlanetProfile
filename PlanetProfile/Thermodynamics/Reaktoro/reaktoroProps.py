@@ -964,10 +964,7 @@ class RktPhaseLookup:
             phases[0:P_MPa_below_200_MPa_index, :] = (T_K_pts < freezing_temperatures).astype(np.int_)
         if P_MPa_below_200_MPa_index < P_MPa.size:
             P_MPa_above_200_MPa = P_MPa[P_MPa_below_200_MPa_index:]
-            if len(P_MPa_above_200_MPa) == len(T_K):
-                P_MPa_To_Query = np.concatenate((P_MPa_above_200_MPa, [P_MPa_above_200_MPa[-1] + 1]))
-            else:
-                P_MPa_To_Query = P_MPa_above_200_MPa
+            P_MPa_To_Query = P_MPa_above_200_MPa
             """ First, we will get the minimum chemical potentail of ice phases along PT grid input and its associated most stable phase."""
             sfzIceMuTag, sfzIcePhaseTag, _ = GenerateSeafreezeChemicalPotentials(P_MPa_To_Query, T_K)
             """ Next, we will get the chemical potential of the ocean liquid phase. Namely, we will get the pure water chemical potential from seafreeze and adjust with chemical potential adjustment."""

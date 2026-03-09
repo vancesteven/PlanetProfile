@@ -55,16 +55,27 @@ def SetupInit(Planet, Params):
         CheckCompat('reaktoro')
         Planet, Params = SetupCustomSolution(Planet, Params)
 
-    # Afford for additional MoI lower-bound uncertainty under non-hydrostatic conditions of 3% of C/MR^2,
-    # in accordance with Gao and Stevenson (2013): https://doi.org/10.1016/j.icarus.2013.07.034
-    if Planet.Bulk.CuncertaintyUpper is None:
-        Planet.Bulk.CuncertaintyUpper = Planet.Bulk.Cuncertainty
-    if Planet.Bulk.CuncertaintyLower is None:
-        if Planet.Do.NONHYDROSTATIC:
-            Planet.Bulk.CuncertaintyLower = Planet.Bulk.Cuncertainty + 0.03 * Planet.Bulk.Cmeasured
-        else:
-            Planet.Bulk.CuncertaintyLower = Planet.Bulk.Cuncertainty
-    Planet = SetCMR2strings(Planet)
+
+    if Planet.Do.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE:
+        # Set uncertainty to be 0 since we are calculating MoI
+        Planet.Bulk.CuncertaintyUpper = 0
+        Planet.Bulk.CuncertaintyLower = 0
+        Planet.Bulk.Cuncertainty = 0
+        if Planet.Ocean.PHydroSeafloorSet_MPa is None:
+            raise ValueError('Ocean.PHydroSeafloorSet_MPa must be set when Do.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE is True.')
+        # Set PHydroMax_MPa to be the hydrosphere pressure at the seafloor (so it can be used in same way for OceanLayers)
+        Planet.Ocean.PHydroMax_MPa = Planet.Ocean.PHydroSeafloorSet_MPa
+    else:
+        # Afford for additional MoI lower-bound uncertainty under non-hydrostatic conditions of 3% of C/MR^2,
+        # in accordance with Gao and Stevenson (2013): https://doi.org/10.1016/j.icarus.2013.07.034
+        if Planet.Bulk.CuncertaintyUpper is None:
+            Planet.Bulk.CuncertaintyUpper = Planet.Bulk.Cuncertainty
+        if Planet.Bulk.CuncertaintyLower is None:
+            if Planet.Do.NONHYDROSTATIC:
+                Planet.Bulk.CuncertaintyLower = Planet.Bulk.Cuncertainty + 0.03 * Planet.Bulk.Cmeasured
+            else:
+                Planet.Bulk.CuncertaintyLower = Planet.Bulk.Cuncertainty
+    
     # If we are not allowing ocean layers except for inner ices, we need to set NO_OCEAN to True
     if Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES:
         Planet.Do.NO_OCEAN = True
@@ -460,12 +471,15 @@ def SetupInit(Planet, Params):
 
             # Iron core if present
             if Planet.Do.Fe_CORE:
+                rhoCore_kgm3 = Planet.Core.rhoFeS_kgm3 * Planet.Core.rhoFe_kgm3 \
+                * (Planet.Core.xFeS * Constants.m_gmol['FeS'] + (1 - Planet.Core.xFeS) * Constants.m_gmol['Fe'] ) \
+                / (Planet.Core.xFeS * Constants.m_gmol['FeS'] * Planet.Core.rhoFe_kgm3 + (1 - Planet.Core.xFeS) * Constants.m_gmol['Fe'] * Planet.Core.rhoFeS_kgm3)
                 if not Params.PRELOAD_EOS_IN_PROGRESS:
                     Planet.Core.EOS = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
                                           kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
                                           wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
                                           TviscTrans_K=Planet.Core.TviscTrans_K,
-                                          doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': Planet.Core.rhoFe_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
+                                          doConstantProps=Planet.Do.CONSTANT_INNER_DENSITY, constantProperties={'rho_kgm3': rhoCore_kgm3, 'Cp_JkgK': np.nan, 'alpha_pK': np.nan, 'kTherm_WmK': Planet.Core.kTherm_WmK,
                                                                                    'VP_kms': np.nan, 'VS_kms': np.nan, 'KS_GPa': np.nan, 'GS_GPa': Planet.Core.GSset_GPa, 'eta_Pas': Planet.Core.etaFeSolid_Pas,
                                                                                    'sigma_Sm': Planet.Core.sigmaCore_Sm})
 
@@ -719,7 +733,7 @@ def SetupLayers(Planet):
     """
     if not Planet.Do.NON_SELF_CONSISTENT:
         if not Planet.Do.NO_H2O:
-            nOceanMax = int(Planet.Ocean.PHydroMax_MPa / Planet.Ocean.deltaP)
+            nOceanMax = int(np.ceil(Planet.Ocean.PHydroMax_MPa / Planet.Ocean.deltaP))
             Planet.Steps.nHydroMax = Planet.Steps.nClath + Planet.Steps.nIceI + Planet.Steps.nIceIIILitho + Planet.Steps.nIceVLitho + nOceanMax
         nStepsForArrays = Planet.Steps.nHydroMax
     else:

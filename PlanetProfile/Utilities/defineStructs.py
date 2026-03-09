@@ -104,6 +104,7 @@ class DoSubstruct:
         self.NO_OCEAN = False  # Tracks whether no ocean is present---this flag is set programmatically.
         self.NO_OCEAN_EXCEPT_INNER_ICES = False # Whether to model oceanless worlds but calculate potential inner HP ices (if they exist) - relevant for large worlds
         self.ICEIh_THICKNESS = False  # Use the Ice Ih shell thickness parameter setting of a planet, calculating the associated bottom pressure and temperature
+        self.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE = False # Specify hydrosphere pressure at seafloor. Removes self-consistency with input CMR2 by instead calculating CMR2 based on input bulk mass, radius, and hydrosphere seafloor pressure.
         self.HYDROSPHERE_THICKNESS = False # Specify hydrosphere thickness. Removes self-consistency with input CMR2 by instead matching CMR2 with best fit for input hydrosphere thickness.
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
@@ -210,6 +211,7 @@ class OceanSubstruct:
         self.sigmaIce_Sm = {'Ih':1e-8, 'II':1e-8, 'III':1e-8, 'V':1e-8, 'VI':1e-8, 'Clath':5e-5, 'MixedClathrateIh': 5e-5}  # Assumed conductivity of solid ice phases (see Constants.sigmaClath_Sm below)
         self.THydroMax_K = 320  # Assumed maximum ocean temperature for generating ocean EOS functions. For large bodies like Ganymede, Callisto, and Titan, larger values are required.
         self.PHydroMax_MPa = 200  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
+        self.PHydroSeafloorSet_MPa = None # Hydrosphere pressure at the seafloor in MPa, to be used in conjunction with Do.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE
         self.MgSO4elecType = 'Vance2018'  # Type of electrical conductivity model to use for MgSO4. Options: 'Vance2018', 'Pan2020'
         self.MgSO4scalingType = 'Vance2018'  # Type of scaling to apply to Larionov and Kryukov model. Options: 'Vance2018', 'LK1984'
         self.MgSO4rhoType = 'Millero'  # Type of water density model to use in Larionov and Kryukov model. Options: 'Millero', 'SeaFreeze'
