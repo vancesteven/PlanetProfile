@@ -576,7 +576,13 @@ def PlotComplexBdip(PlanetList, Params):
                 for iPlanet, Planet in enumerate(PlanetList):
                     if Planet.Magnetic.calcedExc is not None and np.size(Planet.Magnetic.calcedExc) >= 1:
                         # Set color options
-                        if FigMisc.MANUAL_HYDRO_COLORS and not Planet.Do.NO_H2O:
+                        # Check HYDRO_COMPARE_COLORS first, then fall back to MANUAL_HYDRO_COLORS
+                        compareColor = Color.GetCompareColor(FigMisc, Planet, iPlanet)
+                        if compareColor is not None:
+                            # Use HYDRO_COMPARE_COLORS with full opacity
+                            thisEdgeColor = compareColor
+                            thisFaceColor = compareColor
+                        elif FigMisc.MANUAL_HYDRO_COLORS and not Planet.Do.NO_H2O:
                             if wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
                                 thisAlpha = Style.GetMA(Planet.Ocean.wOcean_ppt, wMinMax_ppt[Planet.Ocean.comp])
                             else:

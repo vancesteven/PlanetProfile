@@ -373,20 +373,22 @@ def PlotHydrosphereProps(PlanetList, Params):
                 legLbl = f'{Planet.name} {legLbl}'
 
             # Set style options
-            if FigMisc.MANUAL_HYDRO_COLORS:
+            # Check HYDRO_COMPARE_COLORS first, then fall back to MANUAL_HYDRO_COLORS
+            thisColor = Color.GetCompareColor(FigMisc, Planet, i)
+            if thisColor is None and FigMisc.MANUAL_HYDRO_COLORS:
                 Color.Tbounds_K = TminMax_K[Planet.Ocean.comp]
                 thisColor = Color.cmap[Planet.Ocean.comp](Color.GetNormT(Planet.Bulk.Tb_K))
-            else:
-                thisColor = None
             if FigMisc.SCALE_HYDRO_LW and wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
                 thisLW = Style.GetLW(Planet.Ocean.wOcean_ppt, wMinMax_ppt[Planet.Ocean.comp])
             else:
                 thisLW = Style.LW_std
             if FigMisc.PLOT_DENSITY_VERSUS_DEPTH:
                 # Plot density vs. depth for hydrosphere
+                plot_kwargs = {'label': legLbl, 'linewidth': thisLW, 'linestyle': Style.LS[Planet.Ocean.comp]}
+                if thisColor is not None:
+                    plot_kwargs['color'] = thisColor
                 density = axPrho.plot(Planet.rho_kgm3[:Planet.Steps.nHydro], Planet.z_m[:Planet.Steps.nHydro] / 1e3,
-                            label=legLbl, color=thisColor, linewidth=thisLW,
-                            linestyle=Style.LS[Planet.Ocean.comp])
+                            **plot_kwargs)
                 # Make a dot at the end of the thermal profile, if there's an ocean
                 if Planet.Steps.nHydro > 0:
                     rhodots_kgm3[i] = np.max(Planet.rho_kgm3[:Planet.Steps.nHydro])
@@ -396,14 +398,18 @@ def PlotHydrosphereProps(PlanetList, Params):
                                 marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
             else:
                 # Plot density vs. pressure curve for hydrosphere
+                plot_kwargs = {'label': legLbl, 'linewidth': thisLW, 'linestyle': Style.LS[Planet.Ocean.comp]}
+                if thisColor is not None:
+                    plot_kwargs['color'] = thisColor
                 axPrho.plot(Planet.rho_kgm3[:Planet.Steps.nHydro],
-                            Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro, label=legLbl, color=thisColor,
-                            linewidth=thisLW, linestyle=Style.LS[Planet.Ocean.comp])
+                            Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro, **plot_kwargs)
             # Plot thermal profile vs. depth in hydrosphere
+            plot_kwargs = {'linewidth': thisLW, 'linestyle': Style.LS[Planet.Ocean.comp]}
+            if thisColor is not None:
+                plot_kwargs['color'] = thisColor
             therm = axTz.plot(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub,
                               Planet.z_m[:Planet.Steps.nHydro]/1e3,
-                              color=thisColor, linewidth=thisLW,
-                              linestyle=Style.LS[Planet.Ocean.comp])
+                              **plot_kwargs)
             # Make a dot at the end of the thermal profile, if there's an ocean
             if Planet.Steps.nHydro > 0:
                 Tdots_K[i] = np.max(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub)
@@ -414,10 +420,12 @@ def PlotHydrosphereProps(PlanetList, Params):
 
             # Plot pressure profile vs. depth in hydrosphere
             if DO_PRESSURE:
+                plot_kwargs = {'linewidth': thisLW, 'linestyle': Style.LS[Planet.Ocean.comp]}
+                if thisColor is not None:
+                    plot_kwargs['color'] = thisColor
                 press = axPz.plot(Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro,
                                   Planet.z_m[:Planet.Steps.nHydro]/1e3,
-                                  color=thisColor, linewidth=thisLW,
-                                  linestyle=Style.LS[Planet.Ocean.comp])
+                                  **plot_kwargs)
                 # Make a dot at the end of the pressure profile, if there's an ocean
                 if Planet.Steps.nHydro > 0:
                     axPz.scatter(np.max(Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro),
@@ -447,9 +455,10 @@ def PlotHydrosphereProps(PlanetList, Params):
                                                           indsMixedClathrateIhwet, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI)))
                         sigma_Sm[indsWet] = Planet.sigma_Sm[indsWet]
                     sigma_Sm[sigma_Sm < sigCutoff_Sm] = np.nan
-                    conductivity = axsigz.plot(sigma_Sm, z_km,
-                                color=thisColor, linewidth=thisLW,
-                                linestyle=Style.LS[Planet.Ocean.comp])
+                    plot_kwargs = {'linewidth': thisLW, 'linestyle': Style.LS[Planet.Ocean.comp]}
+                    if thisColor is not None:
+                        plot_kwargs['color'] = thisColor
+                    conductivity = axsigz.plot(sigma_Sm, z_km, **plot_kwargs)
                      # Make a dot at the end of the thermal profile, if there's an ocean
                     if Planet.Steps.nHydro > 0:
                         conddots_Sm[i] = np.nanmax(sigma_Sm)
@@ -468,15 +477,12 @@ def PlotHydrosphereProps(PlanetList, Params):
                     VPliq[indsIce] = np.nan
                     VPice[indsLiq] = np.nan
                     VSice[indsLiq] = np.nan
-                    axv[0].plot(VPliq, Planet.z_m[indsHydro]/1e3,
-                                color=thisColor, linewidth=Style.LW_sound,
-                                linestyle=Style.LS[Planet.Ocean.comp])
-                    axv[1].plot(VPice, Planet.z_m[indsHydro]/1e3,
-                                color=thisColor, linewidth=Style.LW_sound,
-                                linestyle=Style.LS[Planet.Ocean.comp])
-                    axv[2].plot(VSice, Planet.z_m[indsHydro]/1e3,
-                                color=thisColor, linewidth=Style.LW_sound,
-                                linestyle=Style.LS[Planet.Ocean.comp])
+                    plot_kwargs = {'linewidth': Style.LW_sound, 'linestyle': Style.LS[Planet.Ocean.comp]}
+                    if thisColor is not None:
+                        plot_kwargs['color'] = thisColor
+                    axv[0].plot(VPliq, Planet.z_m[indsHydro]/1e3, **plot_kwargs)
+                    axv[1].plot(VPice, Planet.z_m[indsHydro]/1e3, **plot_kwargs)
+                    axv[2].plot(VSice, Planet.z_m[indsHydro]/1e3, **plot_kwargs)
                 
                 if DO_SEISMIC_PROPS:
                     z_vals = Planet.z_m[indsHydro]/1e3
@@ -520,15 +526,12 @@ def PlotHydrosphereProps(PlanetList, Params):
                             ocean_KS[ice_mask] = np.nan
                         
                         # Plot to appropriate subplots
-                        axseismic[0].plot(ocean_KS, z_vals,
-                                          color=thisColor, linewidth=thisLW,
-                                          linestyle=Style.LS[Planet.Ocean.comp])
-                        axseismic[1].plot(ice_KS, z_vals,
-                                          color=thisColor, linewidth=thisLW,
-                                          linestyle=Style.LS[Planet.Ocean.comp])
-                        axseismic[2].plot(ice_GS, z_vals,
-                                          color=thisColor, linewidth=thisLW,
-                                          linestyle=Style.LS[Planet.Ocean.comp])
+                        plot_kwargs = {'linewidth': thisLW, 'linestyle': Style.LS[Planet.Ocean.comp]}
+                        if thisColor is not None:
+                            plot_kwargs['color'] = thisColor
+                        axseismic[0].plot(ocean_KS, z_vals, **plot_kwargs)
+                        axseismic[1].plot(ice_KS, z_vals, **plot_kwargs)
+                        axseismic[2].plot(ice_GS, z_vals, **plot_kwargs)
                 if DO_VISCOSITY:
                     z_vals = Planet.z_m[indsHydro]/1e3
                     # Plot viscosity vs. depth in hydrosphere
@@ -546,10 +549,11 @@ def PlotHydrosphereProps(PlanetList, Params):
                     # Handle potential NaN values and zero/negative values for log scale
                     eta_plot = eta_vals.copy()
                     eta_plot[eta_plot <= 0] = np.nan
-                    
-                    axviscz.plot(eta_plot, z_vals,
-                                    color=thisColor, linewidth=thisLW,
-                                    linestyle=Style.LS[Planet.Ocean.comp])
+
+                    plot_kwargs = {'linewidth': thisLW, 'linestyle': Style.LS[Planet.Ocean.comp]}
+                    if thisColor is not None:
+                        plot_kwargs['color'] = thisColor
+                    axviscz.plot(eta_plot, z_vals, **plot_kwargs)
 
 
     if FigMisc.FORCE_0_EDGES:
@@ -1469,21 +1473,23 @@ def PlotHydrosphereThermodynamics(PlanetList, Params):
                 legLbl = f'{Planet.name} {legLbl}'
 
             # Set style options
-            if FigMisc.MANUAL_HYDRO_COLORS:
+            # Check HYDRO_COMPARE_COLORS first, then fall back to MANUAL_HYDRO_COLORS
+            thisColor = Color.GetCompareColor(FigMisc, Planet, i)
+            if thisColor is None and FigMisc.MANUAL_HYDRO_COLORS:
                 Color.Tbounds_K = TminMax_K[Planet.Ocean.comp]
                 thisColor = Color.cmap[Planet.Ocean.comp](Color.GetNormT(Planet.Bulk.Tb_K))
-            else:
-                thisColor = None
             if FigMisc.SCALE_HYDRO_LW and wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
                 thisLW = Style.GetLW(Planet.Ocean.wOcean_ppt, wMinMax_ppt[Planet.Ocean.comp])
             else:
                 thisLW = Style.LW_std
 
             # Plot temperature profile vs. depth in hydrosphere
+            plot_kwargs = {'linewidth': thisLW, 'linestyle': Style.LS[Planet.Ocean.comp], 'label': legLbl}
+            if thisColor is not None:
+                plot_kwargs['color'] = thisColor
             therm = axTz.plot(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub,
                               Planet.z_m[:Planet.Steps.nHydro]/1e3,
-                              color=thisColor, linewidth=thisLW,
-                              linestyle=Style.LS[Planet.Ocean.comp], label = legLbl)
+                              **plot_kwargs)
             # Make a dot at the end of the thermal profile, if there's an ocean
             if Planet.Steps.nHydro > 0:
                 Tdots_K = np.max(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub)
@@ -1493,10 +1499,12 @@ def PlotHydrosphereThermodynamics(PlanetList, Params):
                              marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
 
             # Plot pressure profile vs. depth in hydrosphere
+            plot_kwargs = {'linewidth': thisLW, 'linestyle': Style.LS[Planet.Ocean.comp]}
+            if thisColor is not None:
+                plot_kwargs['color'] = thisColor
             press = axPz.plot(Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro,
                               Planet.z_m[:Planet.Steps.nHydro]/1e3,
-                              color=thisColor, linewidth=thisLW,
-                              linestyle=Style.LS[Planet.Ocean.comp])
+                              **plot_kwargs)
             # Make a dot at the end of the pressure profile, if there's an ocean
             if Planet.Steps.nHydro > 0:
                 axPz.scatter(np.max(Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro),

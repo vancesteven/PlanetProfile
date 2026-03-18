@@ -69,7 +69,32 @@ def ExtractResults(Results, PlanetGrid, Params):
     Results.nx = PlanetGrid.shape[0]
     Results.ny = PlanetGrid.shape[1]
     Results.base = ExtractBasePlanetData(Results.base, PlanetGrid)
-    Results.induction = ExtractInductionData(Results.induction, Results.bodyname, PlanetGrid, Params)
+
+    # Check if induction data exists before trying to extract it
+    has_magnetic_attr = hasattr(PlanetGrid[0, 0], 'Magnetic')
+    if has_magnetic_attr:
+        has_benm_attr = hasattr(PlanetGrid[0, 0].Magnetic, 'Benm_nT')
+        if has_benm_attr:
+            benm_not_none = PlanetGrid[0, 0].Magnetic.Benm_nT is not None
+        else:
+            benm_not_none = False
+    else:
+        has_benm_attr = False
+        benm_not_none = False
+
+    has_induction = has_magnetic_attr and has_benm_attr and benm_not_none
+
+    if has_induction and not Params.SKIP_INDUCTION:
+        log.debug(f"Extracting induction data (SKIP_INDUCTION={Params.SKIP_INDUCTION})")
+        try:
+            Results.induction = ExtractInductionData(Results.induction, Results.bodyname, PlanetGrid, Params)
+        except (TypeError, AttributeError) as e:
+            log.warning(f"Failed to extract induction data: {e}. Setting to None.")
+            Results.induction = None
+    else:
+        # Skip induction extraction if data doesn't exist
+        log.debug(f"Skipping induction extraction (has_magnetic={has_magnetic_attr}, has_benm={has_benm_attr}, benm_not_none={benm_not_none}, SKIP_INDUCTION={Params.SKIP_INDUCTION})")
+        Results.induction = None
     # Set exploration-specific fields that don't fit the base pattern
     Results.CMR2str = f'$C/MR^2 = {PlanetGrid[0,0].CMR2str}$'
     Results.Cmeasured = PlanetGrid[0,0].Bulk.Cmeasured
@@ -228,8 +253,28 @@ def ExtractInductionData(InductionResults, bodyname, PlanetGrid, Params):
     nPeaks = sum(eachT)
     # Extract magnetic induction results from the PlanetGrid
     Benm_nT = PlanetGrid[0, 0].Magnetic.Benm_nT
+
+    # Check if Benm_nT is None or invalid - if so, return the input InductionResults unchanged
+    if Benm_nT is None:
+        log.warning("Benm_nT is None - magnetic induction was not calculated. Skipping induction extraction.")
+        return InductionResults
+
+    # Handle dict case (multiple spacecraft eras) - for now, use the first available
+    if isinstance(Benm_nT, dict):
+        if len(Benm_nT) == 0:
+            log.warning("Benm_nT is an empty dict - no magnetic induction data available. Skipping induction extraction.")
+            return InductionResults
+        # Get the first SCera's data
+        first_key = list(Benm_nT.keys())[0]
+        Benm_nT_array = Benm_nT[first_key]
+        if Benm_nT_array is None:
+            log.warning("Benm_nT dict contains None - magnetic induction was not calculated. Skipping induction extraction.")
+            return InductionResults
+    else:
+        Benm_nT_array = Benm_nT
+
     # Organize data into a format that can be plotted/saved for plotting
-    Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(Benm_nT)
+    Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(Benm_nT_array)
     induction_data = {
         'nPeaks': nPeaks,
         'Amp': None,

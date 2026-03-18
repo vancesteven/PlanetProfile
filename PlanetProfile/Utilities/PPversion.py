@@ -13,8 +13,28 @@ Also add the package to the dependencies in pyproject.toml.
 from importlib.metadata import version, PackageNotFoundError
 
 # Get PlanetProfile version from installed package metadata (pyproject.toml is source of truth)
+try:
+    ppVerNum = version('PlanetProfile')
+except PackageNotFoundError:
+    # Running in development mode (cloned repo, not installed via pip)
+    # Read version from pyproject.toml to stay synchronized with source of truth
+    import os
+    from pathlib import Path
 
-ppVerNum = version('PlanetProfile')
+    current_file = Path(__file__)
+    repo_root = current_file.parent.parent.parent
+    pyproject_path = repo_root / 'pyproject.toml'
+
+    ppVerNum = None
+    if pyproject_path.exists():
+        with open(pyproject_path, 'r') as f:
+            for line in f:
+                if line.strip().startswith('version'):
+                    ppVerNum = line.split('=')[1].strip().strip('"').strip("'")
+                    break
+
+    if ppVerNum is None:
+        ppVerNum = 'dev-unknown'
 
 # Compatible version tag numbers
 compatNums = {

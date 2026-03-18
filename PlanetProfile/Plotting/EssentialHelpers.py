@@ -145,23 +145,26 @@ def draw_ocean_composition_lines(ax, x, y, c_values, ocean_comp,
     
     if len(x) == 0 or len(ocean_comp) == 0:
         return set()
-    use_manual_colors = False
     # Group by unique ocean compositions (maintaining order) and plot connecting lines
     unique_comps, indices = np.unique(ocean_comp, return_index=True)
     unique_comps = unique_comps[np.argsort(indices)]
     plotted_labels = set()
-    
+
     for comp in unique_comps:
         comp_indices = np.where(ocean_comp == comp)[0]
         x_line, y_line = x[comp_indices], y[comp_indices]
-        
+
         # Sort points by x for connected lines
         sorted_idx = np.argsort(x_line)
         x_line = x_line[sorted_idx]
         y_line = y_line[sorted_idx]
-        
-        
-        thisColor = Color.cmap[comp](0.5)
+
+        # Set color: Check HYDRO_COMPARE_COLORS (dict format with comp as key), then fall back to color map
+        thisColor = None
+        if FigMisc.HYDRO_COMPARE_COLORS is not None and isinstance(FigMisc.HYDRO_COMPARE_COLORS, dict):
+            thisColor = FigMisc.HYDRO_COMPARE_COLORS.get(comp, None)
+        if thisColor is None:
+            thisColor = Color.cmap[comp](0.5)
         
         # Clean composition label
         if 'CustomSolution' in comp:

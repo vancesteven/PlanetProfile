@@ -1,0 +1,37 @@
+# Streamlit Configuration for PlanetProfileApp
+
+[theme]
+# Primary color - Ocean blue for planetary themes
+primaryColor = "#1f77b4"
+
+# Background colors - Dark theme for science applications
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#262730"
+
+# Text color
+textColor = "#fafafa"
+
+# Font
+font = "sans serif"
+
+[server]
+# Increased file watcher to handle large datasets
+fileWatcherType = "auto"
+maxUploadSize = 200
+
+[browser]
+# Gather usage stats (set to false for privacy)
+gatherUsageStats = false
+
+[runner]
+# Faster rerun for better UX
+fastReruns = true
+
+[client]
+# Show error details for debugging
+showErrorDetails = true
+
+[ui]
+# Hide hamburger menu for cleaner interface (optional)
+hideTopBar = false
+hideSidebarNav = false

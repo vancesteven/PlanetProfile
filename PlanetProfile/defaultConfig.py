@@ -43,6 +43,7 @@ def configAssign():
     Params.CALC_ASYM =        True  # Calculate induction with asymmetric shape?
     Params.RUN_ALL_PROFILES = False  # Whether to run all PPBody.py files for the named body and plot together
     Params.COMPARE =          False  # Whether to plot each new run against other runs from the same body
+    Params.SPEC_FILE =        False  # Whether specific files were passed to run() function
     Params.DO_PARALLEL =      True  # Whether to use multiprocessing module for parallel computation where applicable
     Params.threadLimit =      1000  # Upper limit to number of processors/threads for parallel computation
     Params.FORCE_EOS_RECALC = False  # Whether to reuse previously loaded EOS functions for multi-profile runs

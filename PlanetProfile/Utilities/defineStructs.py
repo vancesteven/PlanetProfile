@@ -1461,6 +1461,35 @@ class ColorStruct:
         return interp1d([0.0, 1.0], [self.fresh[1], self.salty[1]],
                         bounds_error=False, fill_value=self.salty[1])(w_ppt)
 
+    def GetCompareColor(self, FigMisc, Planet, i):
+        """ Get color for comparison plots based on HYDRO_COMPARE_COLORS setting.
+
+            Args:
+                FigMisc: FigMiscStruct object containing HYDRO_COMPARE_COLORS setting
+                Planet: Planet object or body name string
+                i: Index in PlanetList (used when HYDRO_COMPARE_COLORS is a list)
+
+            Returns:
+                Color string/tuple if HYDRO_COMPARE_COLORS is set, None otherwise
+        """
+        if FigMisc.HYDRO_COMPARE_COLORS is None:
+            return None
+
+        # Handle dict format: {"Europa": "#1f77b4", "Ganymede": "#2ca02c", ...}
+        if isinstance(FigMisc.HYDRO_COMPARE_COLORS, dict):
+            bodyname = Planet.name if hasattr(Planet, 'name') else str(Planet)
+            return FigMisc.HYDRO_COMPARE_COLORS.get(bodyname, None)
+
+        # Handle list format: ["#1f77b4", "#2ca02c", "#ff7f0e"]
+        elif isinstance(FigMisc.HYDRO_COMPARE_COLORS, list):
+            if i < len(FigMisc.HYDRO_COMPARE_COLORS):
+                return FigMisc.HYDRO_COMPARE_COLORS[i]
+            else:
+                # Cycle through colors if we have more bodies than colors
+                return FigMisc.HYDRO_COMPARE_COLORS[i % len(FigMisc.HYDRO_COMPARE_COLORS)]
+
+        return None
+
     def OceanCmap(self, comps, w_normFrac, Tmean_normFrac, DARKEN_SALINITIES=True):
         """ Get colormap RGBA vectors for each salinity/T combination.
 

@@ -24,3 +24,20 @@ configPPmontecarlo.py
 startup.m
 Thermodynamics/MgSO4/phaseLookupMgSO4.mat
 WIP/*
+# PlanetProfileApp temporary files
+PlanetProfileApp/sessions/*
+!PlanetProfileApp/sessions/.gitkeep
+.streamlit/secrets.toml
+# Development environment
+venvPP/
+.matplotlib/
+# Progress tracking files
+*_SUMMARY.md
+*_PROGRESS.md
+*_STATUS.md
+*_UPDATE*.md
+*_FEATURE.md
+*_FIX*.md
+*_IMPLEMENTATION*.md
+output/
+test_*.py

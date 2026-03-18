@@ -1280,17 +1280,19 @@ def PlotMeltingCurves(PlanetList, Params):
         for comp in comps:
             if comp == 'none' or comp not in melting_curves:
                 continue
-                
+
             melting_data = melting_curves[comp]
             T_melt = melting_data[:, 0]
             P_melt = melting_data[:, 1]
-            
+
             # Set style options (similar to PlotHydrosphereProps)
-            if FigMisc.MANUAL_HYDRO_COLORS:
+            # Check HYDRO_COMPARE_COLORS first (dict format with comp as key), then fall back to MANUAL_HYDRO_COLORS
+            thisColor = None
+            if FigMisc.HYDRO_COMPARE_COLORS is not None and isinstance(FigMisc.HYDRO_COMPARE_COLORS, dict):
+                thisColor = FigMisc.HYDRO_COMPARE_COLORS.get(comp, None)
+            if thisColor is None and FigMisc.MANUAL_HYDRO_COLORS:
                 Color.Tbounds_K = TminMax_K[comp]
                 thisColor = Color.cmap[comp](Color.GetNormT(np.mean(T_melt)))
-            else:
-                thisColor = None
                 
             if FigMisc.SCALE_HYDRO_LW and wMinMax_ppt[comp][0] != wMinMax_ppt[comp][1]:
                 thisLW = Style.GetLW(np.mean([Planet.Ocean.wOcean_ppt for Planet in PlanetList if Planet.Ocean.comp == comp]), wMinMax_ppt[comp])
@@ -1313,20 +1315,20 @@ def PlotMeltingCurves(PlanetList, Params):
 
         # Mark model melting points if requested
         if FigMisc.MARK_MODEL_POINTS:
-            for Planet in PlanetList:
+            for i, Planet in enumerate(PlanetList):
                 if Planet.Ocean.comp == 'none':
                     continue
-                    
+
                 # Get model melting point (Tb_K, Pb_MPa)
                 T_model = Planet.Bulk.Tb_K
                 P_model = Planet.Pb_MPa
-                
+
                 # Set style for this planet
-                if FigMisc.MANUAL_HYDRO_COLORS:
+                # Check HYDRO_COMPARE_COLORS first, then fall back to MANUAL_HYDRO_COLORS
+                thisColor = Color.GetCompareColor(FigMisc, Planet, i)
+                if thisColor is None and FigMisc.MANUAL_HYDRO_COLORS:
                     Color.Tbounds_K = TminMax_K[Planet.Ocean.comp]
                     thisColor = Color.cmap[Planet.Ocean.comp](Color.GetNormT(T_model))
-                else:
-                    thisColor = None
                     
                 if FigMisc.SCALE_HYDRO_LW and wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
                     thisLW = Style.GetLW(Planet.Ocean.wOcean_ppt, wMinMax_ppt[Planet.Ocean.comp])
@@ -1340,15 +1342,17 @@ def PlotMeltingCurves(PlanetList, Params):
 
         # Plot geotherms if requested
         if FigMisc.SHOW_GEOTHERM:
-            for Planet in PlanetList:
+            for i, Planet in enumerate(PlanetList):
                 if Planet.Ocean.comp == 'none':
                     continue
-                    
+
                 # Set style for this planet
-                if FigMisc.MANUAL_HYDRO_COLORS:
+                # Check HYDRO_COMPARE_COLORS first, then fall back to MANUAL_HYDRO_COLORS
+                thisColor = Color.GetCompareColor(FigMisc, Planet, i)
+                if thisColor is None and FigMisc.MANUAL_HYDRO_COLORS:
                     Color.Tbounds_K = TminMax_K[Planet.Ocean.comp]
                     thisColor = Color.cmap[Planet.Ocean.comp](Color.GetNormT(Planet.Bulk.Tb_K))
-                else:
+                if thisColor is None:
                     thisColor = Color.geothermHydro
                     
                 if FigMisc.SCALE_HYDRO_LW and wMinMax_ppt[Planet.Ocean.comp][0] != wMinMax_ppt[Planet.Ocean.comp][1]:
