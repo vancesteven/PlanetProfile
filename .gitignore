@@ -31,6 +31,9 @@ PlanetProfileApp/sessions/*
 # Development environment
 venvPP/
 .matplotlib/
+# AI assistant instructions (keep local)
+CLAUDE.md
+.claude/
 # Progress tracking files
 *_SUMMARY.md
 *_PROGRESS.md
