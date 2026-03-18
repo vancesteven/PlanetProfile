@@ -55,6 +55,66 @@ mtpContext = mtp.get_context(mtpType)
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
+""" HELPER FUNCTIONS """
+def import_planet_config(module_path, bodyname=None, config_description=None):
+    """
+    Import a planet configuration module with improved error handling.
+
+    Args:
+        module_path: Module path string (e.g., 'Europa.PPEuropa' or 'bodydir.PPBodyname')
+        bodyname: Optional body name for better error messages
+        config_description: Optional description of what's being loaded (e.g., 'configuration file', 'InductOgram file')
+
+    Returns:
+        Imported module
+
+    Raises:
+        ModuleNotFoundError: With clear message about missing configuration file
+        ImportError: With clear message about import errors
+    """
+    try:
+        return importlib.import_module(module_path)
+    except ModuleNotFoundError as e:
+        # Extract the file name from the module path for clearer error messages
+        module_parts = module_path.split('.')
+        likely_file = module_parts[-1] + '.py'
+        likely_dir = '/'.join(module_parts[:-1]) if len(module_parts) > 1 else '.'
+
+        error_msg = f"\n{'='*70}\n"
+        error_msg += f"ERROR: Configuration file not found\n"
+        error_msg += f"{'='*70}\n"
+        if bodyname:
+            error_msg += f"Body: {bodyname}\n"
+        if config_description:
+            error_msg += f"Looking for: {config_description}\n"
+        error_msg += f"Module path: {module_path}\n"
+        error_msg += f"Expected file: {likely_file}\n"
+        error_msg += f"Expected location: {likely_dir}/\n"
+        error_msg += f"\nPossible solutions:\n"
+        error_msg += f"  1. Check if the file '{likely_file}' exists in '{likely_dir}/'\n"
+        error_msg += f"  2. Run 'python -m PlanetProfile.install' to copy default files\n"
+        error_msg += f"  3. Copy the file from PlanetProfile/Default/{bodyname}/ if needed\n"
+        error_msg += f"  4. Check your PyCharm run configuration file paths\n"
+        error_msg += f"\nOriginal error: {str(e)}\n"
+        error_msg += f"{'='*70}\n"
+
+        log.error(error_msg)
+        raise ModuleNotFoundError(error_msg) from e
+    except ImportError as e:
+        error_msg = f"\n{'='*70}\n"
+        error_msg += f"ERROR: Failed to import configuration module\n"
+        error_msg += f"{'='*70}\n"
+        error_msg += f"Module path: {module_path}\n"
+        if bodyname:
+            error_msg += f"Body: {bodyname}\n"
+        error_msg += f"\nThe file may exist but contains errors.\n"
+        error_msg += f"Check the file for syntax errors or missing dependencies.\n"
+        error_msg += f"\nOriginal error: {str(e)}\n"
+        error_msg += f"{'='*70}\n"
+
+        log.error(error_msg)
+        raise ImportError(error_msg) from e
+
 """ MAIN RUN BLOCK """
 def run(bodyname=None, opt=None, fNames=None):
 
@@ -183,14 +243,14 @@ def run(bodyname=None, opt=None, fNames=None):
             Params, loadNames = LoadPPfiles(Params, fNames, bodyname=bodyname)
             PlanetList = np.empty(Params.nModels, dtype=object)
             # Run main model first, so that it always appears as 0-index
-            PlanetList[0] = importlib.import_module(loadNames[0]).Planet
+            PlanetList[0] = import_planet_config(loadNames[0], config_description='main planet configuration').Planet
             PlanetList[0].index = 1
             PlanetList[0].fname = loadNames[0]
             PlanetList[0], Params = PlanetProfile(PlanetList[0], Params)
             tMarks = np.append(tMarks, time.time())
             if Params.RUN_ALL_PROFILES:
                 for i,loadName in enumerate(loadNames[1:]):
-                    PlanetList[i+1] = deepcopy(importlib.import_module(loadName).Planet)
+                    PlanetList[i+1] = deepcopy(import_planet_config(loadName, config_description=f'planet configuration {i+2}').Planet)
                     PlanetList[i+1].fname = loadName
                     PlanetList[i+1].index = i+2
                     PlanetList[i+1], Params = PlanetProfile(PlanetList[i+1], Params)
@@ -288,7 +348,8 @@ def PlanetProfile(Planet, Params):
     if (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and (not Params.SKIP_INDUCTION or not Params.SKIP_GRAVITY):
         Planet, Params = GetReducedPlanet(Planet, Params)
     # Magnetic induction calculations and plots
-    if (Params.CALC_CONDUCT and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES))) and not Params.SKIP_INDUCTION:
+    # Skip induction for pure water oceans (no ions, no conductivity)
+    if (Params.CALC_CONDUCT and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES))) and not Params.SKIP_INDUCTION and Planet.Ocean.comp != 'PureH2O':
         # Calculate induced magnetic moments
         Planet, Params = MagneticInduction(Planet, Params)
         # Plot induced dipole surface strength
@@ -346,8 +407,8 @@ def InteriorEtc(Planet, Params):
     # Create a simplified reduced planet structure for magnetic induction and/or gravity calculations
     if (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and (not Params.SKIP_INDUCTION or not Params.SKIP_GRAVITY):
         Planet, Params = GetReducedPlanet(Planet, Params)
-    if (Params.CALC_CONDUCT and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES))) and not Params.SKIP_INDUCTION:
-        # Calculate induced magnetic moments
+    if (Params.CALC_CONDUCT and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES))) and not Params.SKIP_INDUCTION and Planet.Ocean.comp != 'PureH2O':
+        # Calculate induced magnetic moments (skip for pure water - no ions, no conductivity)
         Planet, Params = MagneticInduction(Planet, Params)
         # Gravity calcuations and plots
     if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY) and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and not Params.SKIP_GRAVITY:
@@ -639,6 +700,15 @@ def WriteProfile(Planet, Params):
             f.write(line)
 
     log.info(f'Profile saved to file: {Params.DataFiles.saveFile}')
+
+    # Write CSV version of profile data
+    try:
+        from PlanetProfile.Utilities.HumanReadableOutput import WriteProfileCSV
+        csv_path = WriteProfileCSV(Planet, Params)
+        log.info(f'Profile CSV saved to: {csv_path}')
+    except Exception as e:
+        log.warning(f'Failed to write CSV profile: {e}')
+
     return
 
 
@@ -804,7 +874,8 @@ def InitBayes(bodyname, fEnd):
     # Fetch starting parameters
     fName = f'PP{bodyname}{fEnd}.py'
     expected = os.path.join(bodydir, fName)
-    Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
+    module_path = expected[:-3].replace(os.sep, '.')
+    Planet = import_planet_config(module_path, bodyname=bodyname, config_description=f'{fName}').Planet
     return Planet, Params
 
 
@@ -857,7 +928,8 @@ def InductOgram(bodyname, Params, fNameOverride=None):
                 else:
                     log.warning(f'{expected} does not exist and no default was found at {default}.')
 
-            Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
+            module_path = expected[:-3].replace(os.sep, '.')
+            Planet = import_planet_config(module_path, bodyname=bodyname, config_description='InductOgram configuration').Planet
             Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
             InductionResults = InductionResultsStruct()
 
@@ -1097,8 +1169,8 @@ def ReloadInductOgram(bodyname, Params, fNameOverride=None):
         planetModuleName = f'{bodydir}.PP{loadname}InductOgram'
     else:
         planetModuleName = f'{bodyname}.{fNameOverride[:-3]}'
-    
-    Planet = importlib.import_module(planetModuleName).Planet
+
+    Planet = import_planet_config(planetModuleName, bodyname=bodyname, config_description=fNameOverride).Planet
     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
 
     if os.path.isfile(Params.DataFiles.inductOgramFile):
@@ -1482,7 +1554,8 @@ def MonteCarlo(bodyname, Params, fNameOverride=None):
                 CopyCarefully(default, expected)
             else:
                 log.warning(f'{expected} does not exist and no default was found at {default}.')
-        Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
+        module_path = expected[:-3].replace(os.sep, '.')
+        Planet = import_planet_config(module_path, bodyname=bodyname, config_description='Monte Carlo configuration').Planet
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
 
@@ -1627,12 +1700,14 @@ def ReloadMonteCarloResults(bodyname, Params, fNameOverride=None):
         else:
             loadname = bodyname
             bodydir = bodyname
-        Planet = importlib.import_module(f'{bodydir}.PP{loadname}').Planet
+        module_path = f'{bodydir}.PP{loadname}'
+        Planet = import_planet_config(module_path, bodyname=bodyname, config_description='Monte Carlo reload').Planet
         Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params, monteCarloAppend='MonteCarlo', figExploreAppend=Params.Explore.zName)
         fName = Params.DataFiles.montecarloFile
     else:
         bodydir = bodyname
-        Planet = importlib.import_module(f'{bodydir}.{fNameOverride[:-3]}').Planet
+        module_path = f'{bodydir}.{fNameOverride[:-3]}'
+        Planet = import_planet_config(module_path, bodyname=bodyname, config_description='Monte Carlo reload with override').Planet
         Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params, monteCarloAppend='MonteCarlo', figExploreAppend=Params.Explore.zName)
         fName = Params.DataFiles.montecarloFile
 
@@ -1666,7 +1741,8 @@ def ExploreOgram(bodyname, Params, fNameOverride=None, RETURN_GRID=False, Magnet
                 CopyCarefully(default, expected)
             else:
                 log.warning(f'{expected} does not exist and no default was found at {default}.')
-        Planet = importlib.import_module(expected[:-3].replace(os.sep, '.')).Planet
+        module_path = expected[:-3].replace(os.sep, '.')
+        Planet = import_planet_config(module_path, bodyname=bodyname, config_description='ExploreOgram configuration').Planet
         tMarks = np.empty(0)
         tMarks = np.append(tMarks, time.time())
 
@@ -1951,10 +2027,12 @@ def ReloadExploreOgram(bodyname, Params, fNameOverride=None, INVERSION=False, RE
             loadname = bodyname
             bodydir = bodyname
         fName = fNameOverride
-        Planet = importlib.import_module(f'{bodydir}.PP{loadname}Explore').Planet
+        module_path = f'{bodydir}.PP{loadname}Explore'
+        Planet = import_planet_config(module_path, bodyname=bodyname, config_description='ExploreOgram reload').Planet
     else:
         bodydir = bodyname
-        Planet = importlib.import_module(f'{bodydir}.{fNameOverride[:-3]}').Planet
+        module_path = f'{bodydir}.{fNameOverride[:-3]}'
+        Planet = import_planet_config(module_path, bodyname=bodyname, config_description='ExploreOgram reload with override').Planet
     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params,
                                                             exploreAppend=f'{Params.Explore.xName}{Params.Explore.xRange[0]}_{Params.Explore.xRange[1]}_{Params.Explore.yName}{Params.Explore.yRange[0]}_{Params.Explore.yRange[1]}',
                                                             figExploreAppend=Params.Explore.zName)
@@ -2027,9 +2105,10 @@ def RunPPfile(bodyname, fName, Params=None):
             CopyCarefully(default, expected)
         else:
             log.warning(f'{expected} does not exist and no default was found at {default}.')
-    Planet = importlib.import_module(f'{bodyname}.{loadName}').Planet
+    module_path = f'{bodyname}.{loadName}'
+    Planet = import_planet_config(module_path, bodyname=bodyname, config_description=f'{loadName}.py').Planet
     Planet, Params = PlanetProfile(Planet, Params)
-    
+
     return Planet, Params
 
 
