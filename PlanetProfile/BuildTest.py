@@ -63,8 +63,6 @@ def full(iTestStart=2, skipType=None):
             testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
             log.info(f'Test case body: {testBase}{i}')
             try:
-                if i ==18:
-                    print("HERE")
                 TestPlanets = np.append(TestPlanets, PlanetProfile(testPlanetN, Params)[0])
                 tMarks = np.append(tMarks, time.time())
             except Exception as e:

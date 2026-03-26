@@ -41,7 +41,7 @@ Planet.Sil.Htidal_Wm3 = 1e-10  # Approximate max. tidal heating in silicates as 
 Planet.Do.POROUS_ROCK = False
 # Mantle equation of state model
 #Planet.Sil.rhoSilWithCore_kgm3 = 3539.0  # This is the 1-bar, 275 K value from CV3hy1wt_678_1.tab
-#Planet.Do.CONSTANT_INNER_DENSITY = True
+#Planet.Do.ConstantProps['Inner'] = True
 #Planet.Sil.rhoSilWithCore_kgm3 = 3300.0
 # Planet.Sil.mantleEOS = 'Simple_CI_HS_green_PP.tab'  # CI chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
 # Planet.Sil.rhoSilWithCore_kgm3 = 2975

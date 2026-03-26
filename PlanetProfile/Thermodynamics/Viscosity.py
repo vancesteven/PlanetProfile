@@ -1,7 +1,7 @@
 import numpy as np
 import logging
 import scipy.interpolate as spi
-from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
+from PlanetProfile.Thermodynamics.HydroEOS import GetPlanetOceanEOS
 from PlanetProfile.Utilities.defineStructs import EOSlist, Timing
 import time
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices
@@ -30,17 +30,7 @@ def ViscosityCalcs(Planet, Params):
                                        Planet.Ocean.deltaP)
                 TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K,
                                      Planet.Ocean.deltaT)
-                Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt,
-                                               POcean_MPa, TOcean_K,
-                                               Planet.Ocean.MgSO4elecType,
-                                               rhoType=Planet.Ocean.MgSO4rhoType,
-                                               scalingType=Planet.Ocean.MgSO4scalingType,
-                                               FORCE_NEW=Params.FORCE_EOS_RECALC,
-                                               phaseType=Planet.Ocean.phaseType,
-                                               EXTRAP=Params.EXTRAP_OCEAN,
-                                               sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm,
-                                               etaFixed_Pas=None, kThermConst_WmK=Planet.Ocean.kThermWater_WmK,
-                                               propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
+                Planet.Ocean.EOS = GetPlanetOceanEOS(Planet, Params, POcean_MPa, TOcean_K)
 
             if Planet.Do.POROUS_ICE:
                 Planet = CalcViscPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund,

@@ -1030,7 +1030,7 @@ class RktConduct():
             P_MPa, T_K = np.meshgrid(P_MPa, T_K, indexing='ij')
         # Get speciation data
         key = (tuple(original_P_MPa.ravel()), tuple(original_T_K.ravel()))
-        CALC_SPECIATION = True
+        CALC_SPECIATION = False
         
         if CALC_SPECIATION:
             if key not in self.calculated_speciations:

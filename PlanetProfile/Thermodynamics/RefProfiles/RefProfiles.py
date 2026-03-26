@@ -16,7 +16,7 @@ def CalcRefProfiles(PlanetList, Params):
     maxPmax = np.max([Planet.P_MPa[Planet.Steps.nHydro-1] for Planet in PlanetList])
 
     for Planet in PlanetList:
-        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
+        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and Planet.Ocean.comp != 'constant':
             wList = Params.wRef_ppt[Planet.Ocean.comp]
             thisRefLabel = f'{Planet.Ocean.comp}' + ','.join([f'{w_ppt}' for w_ppt in wList])
             thisRefRange = maxPmax
@@ -44,7 +44,7 @@ def CalcRefProfiles(PlanetList, Params):
                 for i, w_ppt in enumerate(wList):
                     EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType,
                             rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType, phaseType='lookup',
-                            EXTRAP=Params.EXTRAP_REF, FORCE_NEW=Params.FORCE_EOS_RECALC, MELT=True, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+                            EXTRAP=Params.EXTRAP_REF, FORCE_NEW=Params.FORCE_EOS_RECALC, MELT=False, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
 
                     if EOSref.propsPmax < Pmax or EOSref.Pmax < Pmax:
                         Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(Params.Pref_MPa[Planet.Ocean.comp][0], np.minimum(EOSref.propsPmax, EOSref.Pmax),
@@ -90,7 +90,7 @@ def ReloadRefProfiles(PlanetList, Params):
     newRef = {comp: True for comp in comps}
 
     for Planet in PlanetList:
-        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
+        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and Planet.Ocean.comp != 'constant':
             # Get name to load - check cache directory first, then package directory
             fNameRef = hashlib.md5(Planet.Ocean.comp.split('=')[-1].encode()).hexdigest()
             fNameRefReload = os.path.join(_REFPROFILESCACHE, fNameRef)

@@ -50,7 +50,7 @@ def configAssign():
     Params.NO_SAVEFILE =      False  # Whether to prevent printing run outputs to disk. Saves time and disk space for large induction studies.
     Params.DISP_LAYERS =      True  # Whether to display layer depths and heat fluxes for user
     Params.DISP_TABLE =       True  # Whether to print latex-formatted table
-    Params.ALLOW_BROKEN_MODELS = False  # Whether to continue running models that don't match physical constraints (i.e. MoI), with many values set to nan. Currently only implemented for CONSTANT_INNER_DENSITY = True and only allows broken MoI matching. Broken Tb_K matching is also intended.
+    Params.ALLOW_BROKEN_MODELS = False  # Whether to continue running models that don't match physical constraints (i.e. MoI), with many values set to nan. Currently only implemented for Planet.Do.ConstantProps['Inner'] = True and only allows broken MoI matching. Broken Tb_K matching is also intended.
     Params.DEPRECATED =       False  # Whether to allow deprecated code to run. Will often cause errors.
     Params.TIME_AND_DATE_LABEL = False # Whether to add a time and date stamp to the end of saved file names
 

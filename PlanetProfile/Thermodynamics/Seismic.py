@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from PlanetProfile.Thermodynamics.HydroEOS import GetIceEOS, GetOceanEOS
+from PlanetProfile.Thermodynamics.HydroEOS import GetPlanetIceEOS, GetPlanetOceanEOS
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import TsolidusHirschmann2000
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
@@ -27,13 +27,7 @@ def SeismicCalcs(Planet, Params):
         if not (Planet.Do.NO_H2O or Planet.Do.NO_OCEAN) and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
                 POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
                 TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
-                Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
-                                   Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
-                                   scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
-                                   phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, kThermConst_WmK=Planet.Ocean.kThermWater_WmK,
-                                   propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
-
+                Planet.Ocean.EOS = GetPlanetOceanEOS(Planet, Params, POcean_MPa, TOcean_K)
 
         indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund, indsV, indsVund, indsVI, indsVIund, \
             indsClath, indsClathWet, indsMixedClathrateIh, indsMixedClathrateII, indsMixedClathrateIII, indsMixedClathrateV, indsMixedClathrateVI, \
@@ -49,13 +43,7 @@ def SeismicCalcs(Planet, Params):
             if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
                 PIce_MPa = np.linspace(Planet.P_MPa[indsAllI][0], Planet.P_MPa[indsAllI][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsAllI), 4))
                 TIce_K = np.linspace(Planet.T_K[indsAllI][0], Planet.T_K[indsAllI][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsAllI), 4))
-                Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                              porosType=Planet.Ocean.porosType[icePhase],
-                                                              phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                              phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                              EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                              ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK, doConstantProps = Planet.Do.CONSTANTPROPSEOS)
+                Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
 
             Planet.Seismic.VP_kms[indsAllI], Planet.Seismic.VS_kms[indsAllI], Planet.Seismic.KS_GPa[indsAllI], \
             Planet.Seismic.GS_GPa[indsAllI] = Planet.Ocean.surfIceEOS['Ih'].fn_Seismic(Planet.P_MPa[indsAllI], Planet.T_K[indsAllI])
@@ -70,13 +58,7 @@ def SeismicCalcs(Planet, Params):
             if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
                 PIce_MPa = np.linspace(Planet.P_MPa[indsAllClath][0], Planet.P_MPa[indsAllClath][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsAllClath), 4))
                 TIce_K = np.linspace(Planet.T_K[indsAllClath][0], Planet.T_K[indsAllClath][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsAllClath), 4))
-                Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                              porosType=Planet.Ocean.porosType[icePhase],
-                                                              phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                              phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                              EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                              ClathDissoc=Planet.Ocean.ClathDissoc, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+                Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
 
             Planet.Seismic.VP_kms[indsAllClath], Planet.Seismic.VS_kms[indsAllClath], \
             Planet.Seismic.KS_GPa[indsAllClath], Planet.Seismic.GS_GPa[indsAllClath] \
@@ -91,13 +73,7 @@ def SeismicCalcs(Planet, Params):
                 if Planet.Ocean.surfIceEOS[clathPhase].key not in EOSlist.loaded.keys():
                     PIce_MPa = np.linspace(Planet.P_MPa[indsMixedClath][0], Planet.P_MPa[indsMixedClath][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsMixedClath), 4))
                     TIce_K = np.linspace(Planet.T_MPa[indsMixedClath][0], Planet.T_MPa[indsMixedClath][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsMixedClath), 4))
-                    Planet.Ocean.surfIceEOS[clathPhase] = GetIceEOS(PIce_MPa, TIce_K, clathPhase,
-                                                                porosType=Planet.Ocean.porosType[clathPhase],
-                                                                phiTop_frac=Planet.Ocean.phiMax_frac[clathPhase],
-                                                                Pclosure_MPa=Planet.Ocean.Pclosure_MPa[clathPhase],
-                                                                phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                                mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
+                    Planet.Ocean.surfIceEOS[clathPhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, clathPhase)
                 Planet.Seismic.VP_kms[indsMixedClath], Planet.Seismic.VS_kms[indsMixedClath], \
                 Planet.Seismic.KS_GPa[indsMixedClath], Planet.Seismic.GS_GPa[indsMixedClath] \
                     = Planet.Ocean.surfIceEOS[clathPhase].fn_Seismic(Planet.P_MPa[indsMixedClath], Planet.T_K[indsMixedClath])
@@ -119,12 +95,7 @@ def SeismicCalcs(Planet, Params):
                 if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
                     PIce_MPa = np.linspace(Planet.P_MPa[indsIIund][0], Planet.P_MPa[indsIIund][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsIIund), 4))
                     TIce_K = np.linspace(Planet.T_K[indsIIund][0], Planet.T_K[indsIIund][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsIIund), 4))
-                    Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                                  porosType=Planet.Ocean.porosType[icePhase],
-                                                                  phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                                  phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+                    Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
 
                 Planet.Seismic.VP_kms[indsIIund], Planet.Seismic.VS_kms[indsIIund], \
                 Planet.Seismic.KS_GPa[indsIIund], Planet.Seismic.GS_GPa[indsIIund] \
@@ -134,13 +105,7 @@ def SeismicCalcs(Planet, Params):
                 if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
                     PIce_MPa = np.linspace(Planet.P_MPa[indsII][0], Planet.P_MPa[indsII][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsII), 4))
                     TIce_K = np.linspace(Planet.T_K[indsII][0], Planet.T_K[indsII][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsII), 4))
-                    Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                              porosType=Planet.Ocean.porosType[icePhase],
-                                                              phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                              phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                              EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
-
+                    Planet.Ocean.iceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
                 Planet.Seismic.VP_kms[indsII], Planet.Seismic.VS_kms[indsII], \
                 Planet.Seismic.KS_GPa[indsII], Planet.Seismic.GS_GPa[indsII] \
                     = Planet.Ocean.iceEOS['II'].fn_Seismic(Planet.P_MPa[indsII], Planet.T_K[indsII])
@@ -156,12 +121,7 @@ def SeismicCalcs(Planet, Params):
                 if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
                     PIce_MPa = np.linspace(Planet.P_MPa[indsIIIund][0], Planet.P_MPa[indsIIIund][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsIIIund), 4))
                     TIce_K = np.linspace(Planet.T_K[indsIIIund][0], Planet.T_K[indsIIIund][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsIIIund), 4))
-                    Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                                  porosType=Planet.Ocean.porosType[icePhase],
-                                                                  phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                                  phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+                    Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
 
                 Planet.Seismic.VP_kms[indsIIIund], Planet.Seismic.VS_kms[indsIIIund], \
                 Planet.Seismic.KS_GPa[indsIIIund], Planet.Seismic.GS_GPa[indsIIIund] \
@@ -171,12 +131,7 @@ def SeismicCalcs(Planet, Params):
                 if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
                     PIce_MPa = np.linspace(Planet.P_MPa[indsIII][0], Planet.P_MPa[indsIII][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsIII), 4))
                     TIce_K = np.linspace(Planet.T_K[indsIII][0], Planet.T_K[indsIII][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsIII), 4))
-                    Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                              porosType=Planet.Ocean.porosType[icePhase],
-                                                              phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                              phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                              EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+                    Planet.Ocean.iceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
 
                 Planet.Seismic.VP_kms[indsIII], Planet.Seismic.VS_kms[indsIII], \
                 Planet.Seismic.KS_GPa[indsIII], Planet.Seismic.GS_GPa[indsIII] \
@@ -193,12 +148,7 @@ def SeismicCalcs(Planet, Params):
                 if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
                     PIce_MPa = np.linspace(Planet.P_MPa[indsVund][0], Planet.P_MPa[indsVund][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsVund), 4))
                     TIce_K = np.linspace(Planet.T_K[indsVund][0], Planet.T_K[indsVund][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsVund), 4))
-                    Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                                  porosType=Planet.Ocean.porosType[icePhase],
-                                                                  phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                                  phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+                    Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
 
                 Planet.Seismic.VP_kms[indsVund], Planet.Seismic.VS_kms[indsVund], \
                 Planet.Seismic.KS_GPa[indsVund], Planet.Seismic.GS_GPa[indsVund] \
@@ -208,12 +158,7 @@ def SeismicCalcs(Planet, Params):
                 if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
                     PIce_MPa = np.linspace(Planet.P_MPa[indsV][0], Planet.P_MPa[indsV][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsV), 4))
                     TIce_K = np.linspace(Planet.T_K[indsV][0], Planet.T_K[indsV][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsV), 4))
-                    Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                              porosType=Planet.Ocean.porosType[icePhase],
-                                                              phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                              phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                              EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+                    Planet.Ocean.iceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
 
                 Planet.Seismic.VP_kms[indsV], Planet.Seismic.VS_kms[indsV], \
                 Planet.Seismic.KS_GPa[indsV], Planet.Seismic.GS_GPa[indsV] \
@@ -230,12 +175,7 @@ def SeismicCalcs(Planet, Params):
                 if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
                     PIce_MPa = np.linspace(Planet.P_MPa[indsVIund][0], Planet.P_MPa[indsVIund][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsVIund), 4))
                     TIce_K = np.linspace(Planet.T_K[indsVIund][0], Planet.T_K[indsVIund][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsVIund), 4))
-                    Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                                  porosType=Planet.Ocean.porosType[icePhase],
-                                                                  phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                                  phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+                    Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
 
                 Planet.Seismic.VP_kms[indsVIund], Planet.Seismic.VS_kms[indsVIund], \
                 Planet.Seismic.KS_GPa[indsVIund], Planet.Seismic.GS_GPa[indsVIund] \
@@ -245,12 +185,7 @@ def SeismicCalcs(Planet, Params):
                 if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
                     PIce_MPa = np.linspace(Planet.P_MPa[indsVI][0], Planet.P_MPa[indsVI][-1] + Planet.Ocean.deltaP * 3, np.maximum(np.size(indsVI), 4))
                     TIce_K = np.linspace(Planet.T_K[indsVI][0], Planet.T_K[indsVI][-1] + Planet.Ocean.deltaT * 3, np.maximum(np.size(indsVI), 4))
-                    Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                              porosType=Planet.Ocean.porosType[icePhase],
-                                                              phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                              phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                              EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+                    Planet.Ocean.iceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
 
                 Planet.Seismic.VP_kms[indsVI], Planet.Seismic.VS_kms[indsVI], \
                 Planet.Seismic.KS_GPa[indsVI], Planet.Seismic.GS_GPa[indsVI] \
@@ -266,10 +201,9 @@ def SeismicCalcs(Planet, Params):
 
         # Get seismic properties of ocean layers
         if np.size(indsLiq) != 0:
-            Planet.Seismic.VP_kms[indsLiq], Planet.Seismic.KS_GPa[indsLiq] \
+            Planet.Seismic.VP_kms[indsLiq], _, Planet.Seismic.KS_GPa[indsLiq], _ \
                 = Planet.Ocean.EOS.fn_Seismic(Planet.P_MPa[indsLiq], Planet.T_K[indsLiq])
-            # VS_kms, QS, and GS_GPa were all initialized as zero and are all zero for these
-            # layers, so we just leave them as-is.
+            # VS_kms, QS, and GS_GPa are zero for fluid layers and remain at their initialized values.
 
         if not Params.SKIP_INNER:
             # Get Cp and alpha here, because we didn't calculate them earlier since we didn't need them
@@ -278,10 +212,9 @@ def SeismicCalcs(Planet, Params):
             Planet.Cp_JkgK[indsSil] = Planet.Sil.EOS.fn_Cp_JkgK(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
             Planet.alpha_pK[indsSil] = Planet.Sil.EOS.fn_alpha_pK(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
             # Evaluate silicate EOS for seismic properties
-            Planet.Seismic.VP_kms[indsSil] = Planet.Sil.EOS.fn_VP_kms(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
-            Planet.Seismic.VS_kms[indsSil] = Planet.Sil.EOS.fn_VS_kms(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
-            Planet.Seismic.KS_GPa[indsSil] = Planet.Sil.EOS.fn_KS_GPa(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
-            Planet.Seismic.GS_GPa[indsSil] = Planet.Sil.EOS.fn_GS_GPa(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
+            Planet.Seismic.VP_kms[indsSil], Planet.Seismic.VS_kms[indsSil], \
+            Planet.Seismic.KS_GPa[indsSil], Planet.Seismic.GS_GPa[indsSil] \
+                = Planet.Sil.EOS.fn_Seismic(Planet.P_MPa[indsSil], Planet.T_K[indsSil])
             Hsil = Planet.Seismic.gSil * TsolidusHirschmann2000(Planet.P_MPa[indsSil])
             Planet.Seismic.QS[indsSil] = Planet.Seismic.BSil * np.exp(
                 Planet.Seismic.gammaSil * Hsil / Planet.T_K[indsSil])
@@ -291,10 +224,9 @@ def SeismicCalcs(Planet, Params):
 
             if Planet.Do.Fe_CORE:
                 # Evaluate core EOS for seismic properties
-                Planet.Seismic.VP_kms[indsFe] = Planet.Core.EOS.fn_VP_kms(Planet.P_MPa[indsFe], Planet.T_K[indsFe])
-                Planet.Seismic.VS_kms[indsFe] = Planet.Core.EOS.fn_VS_kms(Planet.P_MPa[indsFe], Planet.T_K[indsFe])
-                Planet.Seismic.KS_GPa[indsFe] = Planet.Core.EOS.fn_KS_GPa(Planet.P_MPa[indsFe], Planet.T_K[indsFe])
-                Planet.Seismic.GS_GPa[indsFe] = Planet.Core.EOS.fn_GS_GPa(Planet.P_MPa[indsFe], Planet.T_K[indsFe])
+                Planet.Seismic.VP_kms[indsFe], Planet.Seismic.VS_kms[indsFe], \
+                Planet.Seismic.KS_GPa[indsFe], Planet.Seismic.GS_GPa[indsFe] \
+                    = Planet.Core.EOS.fn_Seismic(Planet.P_MPa[indsFe], Planet.T_K[indsFe])
                 if Planet.Seismic.QScore is not None:
                     Planet.Seismic.QS[indsFe] = Planet.Seismic.QScore
                 else:
@@ -321,9 +253,9 @@ def CalcSeisPorRock(Planet, Params, indsSil, indsSilLiq, indsSilI, indsSilII, in
         = (np.zeros_like(Planet.Ppore_MPa) for _ in range(6))
 
     if np.size(indsSilLiq) != 0:
-        VPpore_kms[indsSilLiq], KSpore_GPa[indsSilLiq] \
+        VPpore_kms[indsSilLiq], _, KSpore_GPa[indsSilLiq], _ \
             = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsSilLiq], Planet.T_K[indsSilLiq])
-        # VS and GS are already initialized to 0, so we can just leave them be.
+        # VSpore and GSpore are zero for fluid pores and remain at their initialized values.
         CpPore_JkgK[indsSilLiq] = Planet.Ocean.EOS.fn_Cp_JkgK(Planet.Ppore_MPa[indsSilLiq], Planet.T_K[indsSilLiq])
         alphaPore_pK[indsSilLiq] = Planet.Ocean.EOS.fn_alpha_pK(Planet.Ppore_MPa[indsSilLiq], Planet.T_K[indsSilLiq])
 
@@ -458,7 +390,7 @@ def CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, 
     # Now wet phases. First, fluid properties need to be calculated for each, then these
     # are used to correct for the phase mixture.
     if np.size(indsIwet) != 0:
-        VPpore_kms, KSpore_GPa = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsIwet], Planet.T_K[indsIwet])
+        VPpore_kms, _, KSpore_GPa, _ = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsIwet], Planet.T_K[indsIwet])
         Planet.Seismic.VP_kms[indsIwet] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
             Planet.Seismic.VP_kms[indsIwet], VPpore_kms, Planet.phi_frac[indsIwet], Planet.Ocean.JVP)
         Planet.Seismic.VS_kms[indsIwet] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(
@@ -469,7 +401,7 @@ def CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, 
             Planet.Seismic.GS_GPa[indsIwet], 0, Planet.phi_frac[indsIwet], Planet.Ocean.JGS)
 
     if np.size(indsClathWet) != 0:
-        VPpore_kms, KSpore_GPa = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsClathWet], Planet.T_K[indsClathWet])
+        VPpore_kms, _, KSpore_GPa, _ = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsClathWet], Planet.T_K[indsClathWet])
         Planet.Seismic.VP_kms[indsClathWet] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
             Planet.Seismic.VP_kms[indsClathWet], VPpore_kms, Planet.phi_frac[indsClathWet], Planet.Ocean.JVP)
         Planet.Seismic.VS_kms[indsClathWet] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(
@@ -480,7 +412,7 @@ def CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, 
             Planet.Seismic.GS_GPa[indsClathWet], 0, Planet.phi_frac[indsClathWet], Planet.Ocean.JGS)
 
     if np.size(indsII) != 0:
-        VPpore_kms, KSpore_GPa = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsII], Planet.T_K[indsII])
+        VPpore_kms, _, KSpore_GPa, _ = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsII], Planet.T_K[indsII])
         Planet.Seismic.VP_kms[indsII] = Planet.Ocean.iceEOS['II'].fn_porosCorrect(
             Planet.Seismic.VP_kms[indsII], VPpore_kms, Planet.phi_frac[indsII], Planet.Ocean.JVP)
         Planet.Seismic.VS_kms[indsII] = Planet.Ocean.iceEOS['II'].fn_porosCorrect(
@@ -491,7 +423,7 @@ def CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, 
             Planet.Seismic.GS_GPa[indsII], 0, Planet.phi_frac[indsII], Planet.Ocean.JGS)
 
     if np.size(indsIII) != 0:
-        VPpore_kms, KSpore_GPa = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsIII], Planet.T_K[indsIII])
+        VPpore_kms, _, KSpore_GPa, _ = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsIII], Planet.T_K[indsIII])
         Planet.Seismic.VP_kms[indsIII] = Planet.Ocean.iceEOS['III'].fn_porosCorrect(
             Planet.Seismic.VP_kms[indsIII], VPpore_kms, Planet.phi_frac[indsIII], Planet.Ocean.JVP)
         Planet.Seismic.VS_kms[indsIII] = Planet.Ocean.iceEOS['III'].fn_porosCorrect(
@@ -502,7 +434,7 @@ def CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, 
             Planet.Seismic.GS_GPa[indsIII], 0, Planet.phi_frac[indsIII], Planet.Ocean.JGS)
 
     if np.size(indsV) != 0:
-        VPpore_kms, KSpore_GPa = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsV], Planet.T_K[indsV])
+        VPpore_kms, _, KSpore_GPa, _ = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsV], Planet.T_K[indsV])
         Planet.Seismic.VP_kms[indsV] = Planet.Ocean.iceEOS['V'].fn_porosCorrect(
             Planet.Seismic.VP_kms[indsV], VPpore_kms, Planet.phi_frac[indsV], Planet.Ocean.JVP)
         Planet.Seismic.VS_kms[indsV] = Planet.Ocean.iceEOS['V'].fn_porosCorrect(
@@ -513,7 +445,7 @@ def CalcSeisPorIce(Planet, Params, indsI, indsIwet, indsII, indsIIund, indsIII, 
             Planet.Seismic.GS_GPa[indsV], 0, Planet.phi_frac[indsV], Planet.Ocean.JGS)
 
     if np.size(indsVI) != 0:
-        VPpore_kms, KSpore_GPa = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsVI], Planet.T_K[indsVI])
+        VPpore_kms, _, KSpore_GPa, _ = Planet.Ocean.EOS.fn_Seismic(Planet.Ppore_MPa[indsVI], Planet.T_K[indsVI])
         Planet.Seismic.VP_kms[indsVI] = Planet.Ocean.iceEOS['VI'].fn_porosCorrect(
             Planet.Seismic.VP_kms[indsVI], VPpore_kms, Planet.phi_frac[indsVI], Planet.Ocean.JVP)
         Planet.Seismic.VS_kms[indsVI] = Planet.Ocean.iceEOS['VI'].fn_porosCorrect(

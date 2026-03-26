@@ -299,14 +299,6 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].fn_alpha_pK(P_MPa, T_K, grid=grid)
     def fn_kTherm_WmK(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_kTherm_WmK(P_MPa, T_K, grid=grid)
-    def fn_VP_kms(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_VP_kms(P_MPa, T_K, grid=grid)
-    def fn_VS_kms(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_VS_kms(P_MPa, T_K, grid=grid)
-    def fn_KS_GPa(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_KS_GPa(P_MPa, T_K, grid=grid)
-    def fn_GS_GPa(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_GS_GPa(P_MPa, T_K, grid=grid)
     def fn_phi_frac(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_phi_frac(P_MPa, T_K, grid=grid)
     def fn_porosCorrect(self, propBulk, propPore, phi, J):

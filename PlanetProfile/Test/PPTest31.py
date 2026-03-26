@@ -1,12 +1,12 @@
 """
-PPTest30
-Europa-like, Seawater model with specified hydrosphere pressure at seafloor with constant inner properties (MoI is inferred from bulk mass, radius, and hydrosphere pressure at seafloor)
+PPTest31
+Europa-like, Seawater model with specified hydrosphere pressure at seafloor with constant ice, ocean, and inner properties
 For testing purposes
 """
 import numpy as np
 from PlanetProfile.Utilities.defineStructs import PlanetStruct, Constants
 
-Planet = PlanetStruct('Test30')
+Planet = PlanetStruct('Test31')
 
 Planet.PfreezeUpper_MPa = 150
 
@@ -26,29 +26,25 @@ Planet.Steps.nCore = 10
 Planet.Steps.iSilStart = Planet.Steps.nIceI
 
 """ Hydrosphere assumptions/settings """
-Planet.Ocean.comp = 'Seawater'
-Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
-Planet.Ocean.deltaP = 1.0
-Planet.Do.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE = True
-Planet.Ocean.PHydroSeafloorSet_MPa = 250.0 # This is the hydrosphere pressure at the seafloor, so it is explicitly set
+Planet.Do.ConstantProps['Ocean'] = True # (New) Setting constant properties for the ocean layer
+Planet.Ocean.ConstantProps.rho_kgm3 = 1200.0 # (New) Setting the density of the ocean layer
+Planet.Bulk.PbSet_MPa = 50.0 # (New) Setting the ice I / ocean boundary pressure to be at 50 MPa
+Planet.Do.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE = True # Setting the hydrosphere pressure at the seafloor to be explicitly set
+Planet.Ocean.PHydroSeafloorSet_MPa = 250.0 # Setting the hydrosphere pressure at the seafloor to be explicitly set
 
-""" Silicate Mantle """
-Planet.Sil.Qrad_Wkg = 5.33e-12
-Planet.Sil.Htidal_Wm3 = 1e-10
-# Rock porosity
-Planet.Do.POROUS_ROCK = False
-# Mantle equation of state model
-Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
-Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
+""" Ice assumptions/settings """
+Planet.Do.ConstantProps['Ice'] = True # (New) Setting constant properties for the ice layer
+Planet.Ocean.IceConstantProps['Ih'].rho_kgm3 = 900.0 # (New) Setting the density of the ice layer
 
-""" Core assumptions """
+""" Inner assumptions/settings """
+Planet.Do.ConstantProps['Inner'] = True # (New) Setting constant properties for the inner layer
+Planet.Sil.rhoSilWithCore_kgm3 = 3539.0 # (New) Setting the density of the inner layer
+
 Planet.Do.Fe_CORE = True
-Planet.Do.ConstantProps['Inner'] = True
 Planet.Core.rhoFe_kgm3 = 8000.0
 Planet.Core.rhoFeS_kgm3 = 5150.0
 Planet.Core.rhoPoFeFCC = 5455.0
 Planet.Core.QScore = 1e4
-Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
 Planet.Core.wFe_ppt = 850
 
 Planet.Core.xFeSmeteoritic = 0.0405

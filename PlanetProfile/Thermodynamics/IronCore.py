@@ -26,7 +26,7 @@ def IronCoreLayers(Planet, Params,
     # Initialize matching indices as -1 as a flag for unfilled values
     iCoreMatch, nSilFinal = (-1 * np.ones(nProfiles).astype(np.int_) for _ in range(2))
 
-    if Planet.Do.CONSTANT_INNER_DENSITY:
+    if Planet.Do.ConstantProps['Inner']:
         iCoreStart = [-1]
         silEnd = 0
         indsSilValid = [0]
@@ -84,7 +84,7 @@ def IronCoreLayers(Planet, Params,
             # Approximate gravity as linear to avoid blowing up for total mass less than body mass (accurate for constant density only)
             thisgCore_ms2[:,k] += VAR_GRAV * thisgCore_ms2[:,0] * thisrCore_m[:,k] / thisrCore_m[:,0]
 
-        if not Planet.Do.CONSTANT_INNER_DENSITY:
+        if not Planet.Do.ConstantProps['Inner']:
             # Find the first core profile that has a mass just below the body mass
             Mtot_kg = MAbove_kg + thisMLayerCore_kg[:,-1]
             iCoreMatch[iProf] = next(ii[0] for ii,val in np.ndenumerate(Mtot_kg) if val < Planet.Bulk.M_kg)

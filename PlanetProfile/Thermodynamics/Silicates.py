@@ -22,8 +22,8 @@ def SilicateLayers(Planet, Params):
                  Later, we truncate this array to shape Planet.Steps.nSil with the MoI- and mass-
                  matching profile.
     """
-    if Planet.Do.CONSTANT_INNER_DENSITY or Planet.Do.NO_H2O or Planet.Do.NO_DIFFERENTIATION:
-        # If CONSTANT_INNER_DENSITY is True, we have already done the C/MR^2 calculations
+    if Planet.Do.ConstantProps['Inner'] or Planet.Do.NO_H2O or Planet.Do.NO_DIFFERENTIATION:
+        # If Planet.Do.ConstantProps['Inner'] is True, we have already done the C/MR^2 calculations
         # and now we are just evaluating the EOS for the winning silicate layer set
         # Similarly, if Do.NO_H2O is True, we have 0 ice layers so there is just 1 profile to run
         nProfiles = 1
@@ -63,7 +63,7 @@ def SilicateLayers(Planet, Params):
             = PropagateConductionProfilesSolid(Planet, Params, nProfiles, profRange, rSilEnd_m)
 
     # Perform validity checks on outputs and package for return
-    if Planet.Do.CONSTANT_INNER_DENSITY:
+    if Planet.Do.ConstantProps['Inner']:
         # Include all indices for later calculations if we already found the desired C/MR^2 match
         indsSilValid = profRange
     else:

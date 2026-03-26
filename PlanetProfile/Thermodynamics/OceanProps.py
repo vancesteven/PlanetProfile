@@ -1,7 +1,7 @@
 import numpy as np
 import logging
 import scipy.interpolate as spi
-from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
+from PlanetProfile.Thermodynamics.HydroEOS import GetPlanetOceanEOS
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 import time
@@ -19,7 +19,7 @@ def LiquidOceanPropsCalcs(Planet, Params):
     Timing.setFunctionTime(time.time())
     # Only perform calculations if this is a valid profile
     setNaN = False
-    if (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and not Planet.Do.NON_SELF_CONSISTENT:
+    if (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)):
         if Params.CALC_OCEAN_PROPS:
             if Planet.Ocean.reactionEquation is None:
                 Planet.Ocean.reactionEquation = 'none'
@@ -34,11 +34,7 @@ def LiquidOceanPropsCalcs(Planet, Params):
             if not Planet.Do.NO_OCEAN and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
                 POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
                 TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
-                Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
-                                Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
-                                scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
-                                phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                                sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
+                Planet.Ocean.EOS = GetPlanetOceanEOS(Planet, Params, POcean_MPa, TOcean_K)
             # Check if we have liquid phases
             if np.size(indsLiq) != 0:
                 if 'CustomSolution' in Planet.Ocean.comp:

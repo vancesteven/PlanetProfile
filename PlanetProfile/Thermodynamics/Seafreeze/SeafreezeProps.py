@@ -3,9 +3,7 @@ import seafreeze.seafreeze as sfz
 # Use direct seafreeze import for efficiency
 from seafreeze.seafreeze import defpath, _get_tdvs, _is_scatter, phases as seafreeze_phases
 from mlbspline import load
-from sqlalchemy.sql import false
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
-from itertools import repeat
 def IceSeaFreezeProps(PTgrid, phaseName):
     # Get boundarys of P_MPa and T_K grid to generate a unique tag
     sfz_Pmin = np.min(PTgrid[0])

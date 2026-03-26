@@ -2,7 +2,6 @@ import copy
 import reaktoro as rkt
 import numpy as np
 import logging
-import pandas as pd
 import os
 import pickle as pickle
 from seafreeze import seafreeze as sfz

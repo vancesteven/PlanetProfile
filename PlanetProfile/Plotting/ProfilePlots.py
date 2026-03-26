@@ -63,7 +63,7 @@ def GeneratePlots(PlanetList, Params):
         PlotPvThydro(PlanetList, Params)
     if Params.PLOT_PVT_ISOTHERMAL_HYDRO and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
         PlotIsoThermalPvThydro(PlanetList, Params)
-    if Params.PLOT_PVT_INNER and not Params.SKIP_INNER and not np.any([Planet.Do.CONSTANT_INNER_DENSITY for Planet in PlanetList]):
+    if Params.PLOT_PVT_INNER and not Params.SKIP_INNER and not np.any([Planet.Do.ConstantProps['Inner'] for Planet in PlanetList]):
         PlotPvTPerpleX(PlanetList, Params)
     if Params.PLOT_MELTING_CURVES and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
         PlotMeltingCurves(PlanetList, Params)
@@ -324,7 +324,7 @@ def PlotHydrosphereProps(PlanetList, Params):
         Pmax_MPa = np.max(Plist)
 
         for Planet in PlanetList:
-            if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
+            if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and Planet.Ocean.comp != 'constant':
                 # Get strings for referencing and labeling
                 # If using CustomSolution, then adjust label so compatible with Latex formating
                 if "CustomSolution" in Planet.Ocean.comp:
@@ -1423,7 +1423,7 @@ def PlotHydrosphereThermodynamics(PlanetList, Params):
         Pmax_MPa = np.max(Plist)
 
         for Planet in PlanetList:
-            if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
+            if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and Planet.Ocean.comp != 'constant':
                 # Get strings for referencing and labeling
                 # If using CustomSolution, then adjust label so compatible with Latex formating
                 if "CustomSolution" in Planet.Ocean.comp:
