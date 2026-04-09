@@ -63,7 +63,14 @@ def SelfConsistentIceLayer(Planet, Params):
 
             # Get the pressure consistent with the bottom of the surface ice layer that is
             # consistent with the choice of Tb_K we suppose for this model
-            Planet.PbI_MPa = GetPfreeze(Planet.Ocean.meltEOS, 1, Planet.Bulk.Tb_K,
+            if Planet.Do.SPECIFY_ICEI_BOTTOM_PRESSURE:
+                Planet.PbI_MPa = Planet.Bulk.PbISet_MPa
+                Pmelt_MPa = np.arange(Planet.PbI_MPa - Planet.PfreezeRes_MPa*2, Planet.PbI_MPa + Planet.PfreezeRes_MPa*2, Planet.PfreezeRes_MPa)
+                Tmelt_K = np.arange(Planet.TfreezeLower_K, Planet.TfreezeUpper_K, Planet.TfreezeRes_K)
+                Planet.Ocean.meltEOS = GetPlanetOceanEOS(Planet, Params, Pmelt_MPa, Tmelt_K, DO_MELT = True)
+                Planet.Bulk.Tb_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.PbI_MPa, Planet.TfreezeLower_K, TRes_K=Planet.TfreezeRes_K)
+            else:
+                Planet.PbI_MPa = GetPfreeze(Planet.Ocean.meltEOS, 1, Planet.Bulk.Tb_K,
                                             PLower_MPa=Planet.PfreezeLower_MPa, PUpper_MPa=Planet.PfreezeUpper_MPa,
                                             PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=(Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV), HPNOOCEAN=Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES,
                                             ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)

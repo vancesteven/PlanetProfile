@@ -398,6 +398,8 @@ def setFullSettings(Params):
     Params.ALLOW_BROKEN_MODELS = False
     Params.DEPRECATED = False
     Params.TIME_AND_DATE_LABEL = False
+    # Set customsolution settings
+    Params.CustomSolution.SOLID_PHASES = True
     # Set plotting options
     Params.SKIP_PLOTS = False
     Params.PLOT_GRAVITY = True

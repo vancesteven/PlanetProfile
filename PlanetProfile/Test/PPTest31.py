@@ -28,7 +28,7 @@ Planet.Steps.iSilStart = Planet.Steps.nIceI
 """ Hydrosphere assumptions/settings """
 Planet.Do.ConstantProps['Ocean'] = True # (New) Setting constant properties for the ocean layer
 Planet.Ocean.ConstantProps.rho_kgm3 = 1200.0 # (New) Setting the density of the ocean layer
-Planet.Bulk.PbSet_MPa = 50.0 # (New) Setting the ice I / ocean boundary pressure to be at 50 MPa
+Planet.Bulk.PbISet_MPa = 50.0 # (New) Setting the ice I / ocean boundary pressure to be at 50 MPa
 Planet.Do.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE = True # Setting the hydrosphere pressure at the seafloor to be explicitly set
 Planet.Ocean.PHydroSeafloorSet_MPa = 250.0 # Setting the hydrosphere pressure at the seafloor to be explicitly set
 

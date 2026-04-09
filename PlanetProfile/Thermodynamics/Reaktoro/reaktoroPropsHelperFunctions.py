@@ -14,6 +14,37 @@ import uuid
 log = logging.getLogger('PlanetProfile')
 
 
+def supcrt_aqueous_species_generator(supcrtDb):
+    """ Function to turn aqueous species formulas and names in supcrt database into a dictionary
+    to allow quick lookup of species by formula or name in future functions (reduces runtime).
+    """
+    formulaDictionary = {}
+    nameDictionary = {}
+    aqueousSpecies = supcrtDb.species().withAggregateState(rkt.AggregateState.Aqueous)
+    for species in aqueousSpecies:
+        name = species.name()
+        nameDictionary[name] = name
+        formula = str(species.formula())
+        if formula not in formulaDictionary:
+            formulaDictionary[formula] = name
+    return formulaDictionary, nameDictionary
+
+def supcrt_solid_species_generator(supcrtDb):
+    """ Function to turn solid species names in supcrt database into a dictionary
+    to allow quick lookup of species by name in future functions (reduces runtime).
+    """
+    solidSpeciesLookup = {}
+    solidSpecies = supcrtDb.species().withAggregateState(rkt.AggregateState.Solid)
+    for species in solidSpecies:
+        name = species.name()
+        solidSpeciesLookup[name] = name
+    return solidSpeciesLookup
+
+def phreeqc_species_names_generator(phreeqcDb):
+    """ Function to turn all species names in the Phreeqc database into a set to allow quick lookup of species by name in future functions (reduces runtime). """
+    return {species.name() for species in phreeqcDb.species()}
+
+
 def save_dict_to_pkl(dictionary, filepath):
     """ This code is used to save a dictionary to a pickle file in a way that is parellel processing safe. """
     directory = os.path.dirname(filepath)        # directory where the final file will live (use "." if none given)
@@ -136,18 +167,19 @@ def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio
     return db, system, state, conditions, solver, props
 
 
-def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, databaseName, ocean_solid_species, PhreeqcToSupcrtNames, iterations = 200, rktDatabase = None):
+def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, databaseName, ocean_solid_species, PhreeqcToSupcrtNames, iterations = 200, rktDatabase = None, supcrtAqueousLookupFormula = None, supcrtAqueousLookupName = None):
     """ Create a Supcrt Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
     Args:
-    aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
-    speciation_ratio_per_kg: the ratio of species in the aqueous solution per kg of water. Should be a dictionary
-        with the species as the key and its ratio as its value.
-    species_unit: "mol" or "g" that species ratio is in
-    databaseName: Supcrt database to use
-    ocean_solid_phases: whether or not to consider solid phases in calculations
-    PhreeqcToSupcrtNames: Names that need to be converted in species list and speciation ratio per kg
-    iterations: maximum number of iterations to allow for when solving for equilibrium before throwing error
-    rktDatabase: Reaktoro database to use (passing in speeds up function). If None, then a new database is created.
+        aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
+        speciation_ratio_per_kg: the ratio of species in the aqueous solution per kg of water. Should be a dictionary
+            with the species as the key and its ratio as its value.
+        species_unit: "mol" or "g" that species ratio is in
+        databaseName: Supcrt database to use
+        ocean_solid_phases: whether or not to consider solid phases in calculations
+        PhreeqcToSupcrtNames: Names that need to be converted in species list and speciation ratio per kg
+        iterations: maximum number of iterations to allow for when solving for equilibrium before throwing error
+        rktDatabase: Reaktoro database to use (passing in speeds up function). If None, then a new database is created.
+        supcrtAqueousLookup: Optional precomputed dict from build_supcrt_aqueous_lookups; if None, built once inside species_convertor.
     Returns:
         db, system, state, conditions, solver, props, ice_name: Relevant reaktoro objects
     """
@@ -156,7 +188,9 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
         db = rkt.SupcrtDatabase(databaseName)
     else:
         db = rktDatabase
-    aqueous_species_list, speciation_ratio_per_kg = species_convertor_compatible_with_supcrt(db, aqueous_species_list, speciation_ratio_per_kg, PhreeqcToSupcrtNames)
+    aqueous_species_list, speciation_ratio_per_kg = species_convertor_compatible_with_supcrt(
+        db, aqueous_species_list, speciation_ratio_per_kg, PhreeqcToSupcrtNames, supcrtAqueousLookupFormula=supcrtAqueousLookupFormula, supcrtAqueousLookupName=supcrtAqueousLookupName
+    )
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
     solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
@@ -193,29 +227,22 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     # Return the Reaktoro objects that user will need to interact with
     return db, system, state, conditions, solver, props
 
-def RelevantSolidSpecies(db, aqueous_species_list, solid_phases_to_consider, solid_phases_to_suppress):
+def RelevantSolidSpecies(db, aqueous_species_list, solid_phases_to_suppress):
     """
     Finds the relevant solid species to consider from a list of solid phases, or if solid phases is None, then return all solids
     """
-    solid_phases = ''
-    # Prescribe the solution
+    # Get all solid species in supcrt database
+    # Get all solid species that could form given the elements in aqueous species list
     solution = rkt.AqueousPhase(aqueous_species_list)
-    # If we are specifying what phases to consider, note that we should only consider the phases that are relevant to the species in the solution
-    # I.e. don't consider all clathrates if they aren't possible to form (greatly decreases runtime if we consider only relevant phases)
-    solids_tester = rkt.MineralPhases()
-    system_tester = rkt.ChemicalSystem(db, solution, solids_tester)
-    relevant_solid_phases = system_tester.species().withAggregateState(rkt.AggregateState.Solid)
-    if solid_phases_to_consider == 'All':
-        solid_phases_to_consider = []
-        for solid_phase in relevant_solid_phases:
-            if solid_phase.name() not in solid_phases_to_suppress:
-                solid_phases_to_consider.append(solid_phase.name())
-            else:
-                log.debug(f"Solid phase {solid_phase.name()} is suppressed and will not be considered in the equilibrium calculations.")
-    for solid in solid_phases_to_consider:
-        if relevant_solid_phases.findWithName(solid) < relevant_solid_phases.size():
-            solid_phases += f' {solid}'
-    return solid_phases
+    minerals = rkt.MineralPhases()
+    system = rkt.ChemicalSystem(db, solution, minerals)
+    relevantSolidSpecies = system.species().withAggregateState(rkt.AggregateState.Solid)
+    relevantSolidSpeciesNamesList = [sp.name() for sp in relevantSolidSpecies]
+    solid_phases_to_suppress_set = set(solid_phases_to_suppress)
+    filteredSolidSpeciesNamesList = [
+        sp_name for sp_name in relevantSolidSpeciesNamesList if sp_name not in solid_phases_to_suppress_set
+    ]
+    return ' '.join(filteredSolidSpeciesNamesList)
 
 
 def ices_phases_amount_mol(props: rkt.ChemicalProps):
@@ -238,7 +265,8 @@ def ices_phases_amount_mol(props: rkt.ChemicalProps):
     return ice_chem_potential - water_chem_potential
 
 
-def species_convertor_compatible_with_supcrt(supcrt_db, aqueous_species_string, speciation_ratio_per_kg, Phreeqc_to_Supcrt_names):
+def species_convertor_compatible_with_supcrt(
+    supcrt_db, aqueous_species_string, speciation_ratio_per_kg, Phreeqc_to_Supcrt_names, supcrtAqueousLookupFormula=None, supcrtAqueousLookupName=None):
     """
     Converts aqueous species string and speciation ratio dictionary into formats compatible with supcrt. Namely, in phreeqc the liquid phase of H2O
     is labeled "H2O", whereas in supcrt it requires "H2O(aq)". Thus, converts "H2O" in the string and speciation ratio dictionary to "H2O(aq)".
@@ -249,37 +277,34 @@ def species_convertor_compatible_with_supcrt(supcrt_db, aqueous_species_string, 
         aqueous_species_string: String that has all species names that should be considered in aqueous phase
         speciation_ratio_per_kg: Dictionary of active species and the values of their molar ratio (mol/kg of water)
         Phreeqc_to_Supcrt_names: Dictionary of Phreeqc names that must be converted to Supcrt for compatibility
+        supcrtAqueousLookupFormula: Optional dict with keys by_formula from build_supcrt_aqueous_lookups; if None, built once from supcrt_db.
+        supcrtAqueousLookupName: Optional dict with keys by_name from build_supcrt_aqueous_lookups; if None, built once from supcrt_db.
     Returns:
         aqueous_species_string: Adapted string that has all species names in format compatible with supcrt
         supcrt_speciation_ratio_per_kg: Deep copy of dictionary that has species names in format compatible with supcrt
     """
     # Since python passes dictionary by reference, need to make deep copy to preserve original dictionary
     supcrt_speciation_ratio_per_kg = copy.deepcopy(speciation_ratio_per_kg)
-    supcrt_aqueous_species = supcrt_db.species().withAggregateState(rkt.AggregateState.Aqueous)
-    for phreeqc_formula in speciation_ratio_per_kg:
-        # First, let's check if we can find the matching compound by formula, since Phreeqc uses formula whereas supcrt uses compound names
-        try:
-            if supcrt_aqueous_species.findWithFormula(phreeqc_formula) < supcrt_aqueous_species.size():
-                supcrt_name = supcrt_aqueous_species.getWithFormula(phreeqc_formula).name()
-                # Now change the phreeqc key in the dictionary to supcrt key
-                supcrt_speciation_ratio_per_kg[supcrt_name] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
-                # Otherwise, let's check if we can find matching compound in Phreeqc_to_supcrt_names
-            elif phreeqc_formula in Phreeqc_to_Supcrt_names:
-                # Now change the phreeqc key in the dictionary to supcrt key
-                supcrt_speciation_ratio_per_kg[Phreeqc_to_Supcrt_names[phreeqc_formula]] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
-        except:
-            # Secoond, let's check if we can find the matching compound by name
-            try:
-                if supcrt_aqueous_species.findWithName(phreeqc_formula) < supcrt_aqueous_species.size():
-                    supcrt_name = supcrt_aqueous_species.getWithName(phreeqc_formula).name()
-                    # Now change the phreeqc key in the dictionary to supcrt key
-                    supcrt_speciation_ratio_per_kg[supcrt_name] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
-                elif phreeqc_formula in Phreeqc_to_Supcrt_names:
-                    # Now change the phreeqc key in the dictionary to supcrt key
-                    supcrt_speciation_ratio_per_kg[Phreeqc_to_Supcrt_names[phreeqc_formula]] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
-            except:
-                pass
-            
+    if supcrtAqueousLookupFormula is None or supcrtAqueousLookupName is None:
+        supcrtAqueousLookupFormula, supcrtAqueousLookupName = supcrt_aqueous_species_generator(supcrt_db)
+
+    for phreeqcName in speciation_ratio_per_kg:
+        supcrtName = None
+        if phreeqcName in supcrtAqueousLookupFormula:
+            supcrtName = supcrtAqueousLookupFormula[phreeqcName]
+        elif phreeqcName in Phreeqc_to_Supcrt_names:
+            supcrt_speciation_ratio_per_kg[Phreeqc_to_Supcrt_names[phreeqcName]] = supcrt_speciation_ratio_per_kg.pop(
+                phreeqcName
+            )
+            continue
+        elif phreeqcName in supcrtAqueousLookupName:
+            supcrtName = supcrtAqueousLookupName[phreeqcName]
+
+        if supcrtName is not None:
+            supcrt_speciation_ratio_per_kg[supcrtName] = supcrt_speciation_ratio_per_kg.pop(phreeqcName)
+        else:
+            raise ValueError(f"Species {phreeqcName} in Custom Solution is not found in Supcrt database. Please check that you are using the correct supcrt database in configPPCustomSolution.py.")
+
     # Return the string and adapted dictionary
     return " ".join(supcrt_speciation_ratio_per_kg.keys()), supcrt_speciation_ratio_per_kg
 

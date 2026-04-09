@@ -684,15 +684,19 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None, mo
                 monteCarloBase = f'{Planet.name}MonteCarlo_{monteCarloAppend}_{saveLabel}'
             else:
                 monteCarloBase = None
-
-    DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, comp, inductBase=inductBase,
+    if not Params.NO_SAVEFILE: # If not saving data files, we don't need to create data files
+        DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, comp, inductBase=inductBase,
                                    exploreAppend=exploreAppend, EXPLORE=(Params.DO_INDUCTOGRAM or
                                        Params.DO_EXPLOREOGRAM or Params.DO_MONTECARLO or Params.INDUCTOGRAM_IN_PROGRESS),
                                    inductAppend=inductAppend, monteCarloAppend=monteCarloAppend)
-    FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn,
+    else:
+        DataFiles = DataFilesSubstruct('', '', '')
+    if not Params.SKIP_PLOTS: # If skipping plots, we don't need to create figure files
+        FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn,
                                        comp=comp, exploreBase=exploreBase, inductBase=inductBase, monteCarloBase=monteCarloBase,
                                        exploreAppend=figExploreAppend, inductAppend=inductAppend, monteCarloAppend=monteCarloAppend, inputBaseOverride = Params.OverrideFigureBase)
-
+    else:
+        FigureFiles = FigureFilesSubstruct('', '', '')
     # Attach profile name to PlanetStruct in addition to Params
     Planet.saveFile = DataFiles.saveFile + ''
 
@@ -760,7 +764,7 @@ def ValidateConstantProps(Planet):
     Called from SetupInit before any EOS construction. For each layer where
     Do.ConstantProps[layer] is True:
       - Checks required fields are set; logs a warning and assigns defaults if not.
-      - For the ocean layer, checks that Bulk.PbSet_MPa and Bulk.Tb_K are set, which is required for the ocean EOS to be able to build the correct phase boundary.
+      - For the ocean layer, checks that Bulk.PbISet_MPa and Bulk.Tb_K are set, which is required for the ocean EOS to be able to build the correct phase boundary.
     """
     if Planet.Do.ConstantProps['Ice']:
         for phase, iceConstantProps in Planet.Ocean.IceConstantProps.items():
@@ -833,9 +837,9 @@ def ValidateConstantProps(Planet):
         if constantProps.sigma_Sm is None:
             constantProps.sigma_Sm = Constants.sigmaH2O_Sm
             log.warning("Ocean.ConstantProps.sigma_Sm not set; defaulting to electrical conductivity of ocean, {Constants.sigmaOcean_Sm} S/m.")
-        if Planet.Bulk.PbSet_MPa is None:
+        if Planet.Bulk.PbISet_MPa is None:
             raise ValueError(
-                "Do.ConstantProps['Ocean'] is True but Bulk.PbSet_MPa is not set. "
+                "Do.ConstantProps['Ocean'] is True but Bulk.PbISet_MPa is not set. "
                 "Set the ice I / ocean boundary pressure in the PPBody.py file.")
         if Planet.Bulk.Tb_K is None:
             msg = "Do.ConstantProps['Ocean'] is True but Bulk.Tb_K is not set. "
@@ -846,7 +850,7 @@ def ValidateConstantProps(Planet):
                 msg += "Since Do.ConstantProps['Ice'] is True, temperature will be set to 273 K."
                 Planet.Bulk.Tb_K = 273
                 log.warning(msg)
-        constantProps._phase_Pb_MPa = Planet.Bulk.PbSet_MPa
+        constantProps._phase_Pb_MPa = Planet.Bulk.PbISet_MPa
         constantProps._phase_Tb_K = Planet.Bulk.Tb_K
     if Planet.Do.ConstantProps['Inner']:
         # Check siliate properties are properly set
@@ -1041,10 +1045,10 @@ def PrecomputeEOS(PlanetList, Params):
                 for comp, wOcean_ppt in uniqueEOSCustomSolutions:
                     SetupCustomSolutionEOS(comp, wOcean_ppt)
 
-        TOcean_K = np.arange(minTOcean_K, maxTOcean_K, deltaTOcean, dtype=np.float32)
-        POcean_MPa = np.arange(minPOcean_MPa, maxPOcean_MPa, deltaPOcean, dtype=np.float32)
-        Pmelt_MPa = np.arange(minPmelt_MPa, maxPmelt_MPa, deltaPmelt, dtype=np.float32)
-        Tmelt_K = np.arange(minTmelt_K, maxTmelt_K, deltaTmelt, dtype=np.float32)
+        TOcean_K = np.arange(minTOcean_K, maxTOcean_K+deltaTOcean, deltaTOcean, dtype=np.float32)
+        POcean_MPa = np.arange(minPOcean_MPa, maxPOcean_MPa+deltaPOcean, deltaPOcean, dtype=np.float32)
+        Pmelt_MPa = np.arange(minPmelt_MPa, maxPmelt_MPa+deltaPmelt, deltaPmelt, dtype=np.float32)
+        Tmelt_K = np.arange(minTmelt_K, maxTmelt_K+deltaTmelt, deltaTmelt, dtype=np.float32)
         for i, oceanPlanet in enumerate(oceanPlanets):
             GetPlanetOceanEOS(oceanPlanet, Params, POcean_MPa, TOcean_K)
             GetPlanetOceanEOS(oceanPlanet, Params, Pmelt_MPa, Tmelt_K, DO_MELT = True)
@@ -1052,7 +1056,7 @@ def PrecomputeEOS(PlanetList, Params):
     
     if DoConvectionTracker:
         log.profile(f'Pre-generating Pure H2O ocean EOS for convection.')
-        Pmelt_MPa = np.arange(minPmelt_MPa, maxPmelt_MPa, .05, dtype=np.float32)
+        Pmelt_MPa = np.arange(minPmelt_MPa, maxPmelt_MPa+.05, .05, dtype=np.float32)
         Tmelt_K = np.arange(240,280, .05, dtype=np.float32)
         GetOceanEOS('PureH2O', 0.0, Pmelt_MPa, Tmelt_K, elecType=None,  MELT=True)
         log.profile(f'Pure H2O ocean EOS for convection pre-generated.')
@@ -1060,8 +1064,8 @@ def PrecomputeEOS(PlanetList, Params):
     if GetIceEOSTracker:        
         icePhases = ['Ih', 'II', 'III', 'V', 'VI']
         log.profile(f'Pre-generating ice EOS for {len(icePhases)} ice phases.')
-        PSurfIce_MPa = np.arange(minPSurfIce_MPa, maxPmelt_MPa, deltaPIce, dtype=np.float32)
-        TSurfIce_K = np.arange(minTSurfIce_K, maxTmelt_K, deltaTIce, dtype=np.float32)
+        PSurfIce_MPa = np.arange(minPSurfIce_MPa, maxPmelt_MPa+deltaPIce, deltaPIce, dtype=np.float32)
+        TSurfIce_K = np.arange(minTSurfIce_K, maxTmelt_K+deltaTIce, deltaTIce, dtype=np.float32)
         for i, icePhase in enumerate(icePhases):
             if icePhase != 'Ih' and maxPmelt_MPa < Constants.PminHPices_MPa:
                 pass
@@ -1069,8 +1073,8 @@ def PrecomputeEOS(PlanetList, Params):
                 GetPlanetIceEOS(Planet, Params, PSurfIce_MPa, TSurfIce_K, icePhase)
                 log.profile(f'Surfice {icePhase} EOS pre-generated.')
         
-        PHPIce_MPa = np.arange(minPOcean_MPa, maxPHPIce_MPa, deltaPIce)
-        TOceanHPices_K = np.arange(minTOcean_K, maxPHPIceT_K, deltaTIce)
+        PHPIce_MPa = np.arange(minPOcean_MPa, maxPHPIce_MPa+deltaPIce, deltaPIce)
+        TOceanHPices_K = np.arange(minTOcean_K, maxPHPIceT_K+deltaTIce, deltaTIce)
         for i, icePhase in enumerate(icePhases):
             if icePhase == 'Ih':
                 pass

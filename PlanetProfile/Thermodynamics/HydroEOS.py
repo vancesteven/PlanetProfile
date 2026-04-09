@@ -913,6 +913,11 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
     Pmax = np.max(P_MPa)
     Tmin = np.min(T_K)
     Tmax = np.max(T_K)
+    # There are some edge cases where Pmin is negative, so we will take first postiive value to be Pmin and reset Pmin to lowest value of P_MPa
+    if Pmin < 0:
+        nPs = P_MPa.size
+        Pmin = np.min(P_MPa[P_MPa > 0])
+        P_MPa = np.arange(Pmin, Pmax + deltaP,deltaP)
     rangeLabel = f'{Pmin:.2f},{Pmax:.2f},{deltaP:.2e},' + \
                  f'{Tmin:.3f},{Tmax:.3f},{deltaT:.2e}'
     if (not FORCE_NEW) and EOSlabel in EOSlist.loaded.keys():
@@ -928,7 +933,9 @@ def CheckIfEOSLoaded(EOSlabel, P_MPa, T_K, FORCE_NEW=False, minPres_MPa=None, mi
             EOSPmax = EOSlist.loaded[EOSlabel].EOSPmax
             EOSTmin = EOSlist.loaded[EOSlabel].EOSTmin
             EOSTmax = EOSlist.loaded[EOSlabel].EOSTmax
-            nopeP = np.min(P_MPa) < EOSPmin * 0.9 or \
+            # The second part of the first condition is to avoid edge cases where Pmin is close to zero and thus 
+            # EOSPmin (which is often ~0.01 MPa) is low enough that we dont need to regenerate the EOS
+            nopeP = (np.min(P_MPa) < EOSPmin * 0.9 and np.abs(EOSPmin - np.min(P_MPa)) > 0.01) or \
                     np.max(P_MPa) > EOSPmax * 1.1 or \
                     deltaP < EOSlist.loaded[EOSlabel].deltaP
             nopeT = np.min(T_K) < EOSTmin - 0.1 or \

@@ -77,7 +77,7 @@ class BulkSubstruct():
 
     def __init__(self):
         self.Tb_K = None  # Temperature at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers). Ranges from 238.5 to 261.165 K for ice III transition and 251.165 to 273.16 for melting temp. This must remain set to None here as a default. Exactly two out of three of Bulk.Tb_K, Bulk.zb_km, and Ocean.wOcean_ppt must be set for every model with surface H2O.
-        self.PbSet_MPa = None  # (Optional - used when Planet.Do.SPECIFY_ICE_BOTTOM_PRESSURE is True) Specify pressure at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers).
+        self.PbISet_MPa = None  # (Optional - used when Planet.Do.SPECIFY_ICE_BOTTOM_PRESSURE is True) Specify pressure at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers).
         self.zb_approximate_km = None  # Desired thickness of ice I layer (entire ice interface when no ice III or V underplate layers) that is used to find bottom temperature. This bottom temperature is then used to propogate ice layer, ensuring self-consistency (but means model zb_km might not be exactly the same as zb_approximate_km)
         self.Dhsphere_m = None # Desired hydrosphere thickness. Instead of matching CMR2 to input CMR2, we match CMR2 to that which optimizes hydrosphere thickness.
         self.rho_kgm3 = None  # Bulk density in kg/m^3 -- note that this is intended to be derived and not set.
@@ -124,8 +124,12 @@ class DoSubstruct:
         self.DIFFERENTIATE_VOLATILES = False  # Whether to include an ice layer atop a partially differentiated body, with rock+ice mantle
         self.NO_OCEAN = False  # Tracks whether no ocean is present---this flag is set programmatically.
         self.NO_OCEAN_EXCEPT_INNER_ICES = False # Whether to model oceanless worlds but calculate potential inner HP ices (if they exist) - relevant for large worlds
-        self.ICEIh_THICKNESS = False  # Use the Ice Ih shell thickness parameter setting of a planet, calculating the associated bottom pressure and temperature
+       
         self.SPECIFY_CORE_DENSITY_AND_RADIUS = False # Specify core density and radius, rather than core and silicate density. Removes self-consistency with input CMR2 by instead calculating CMR2 based on input bulk mass, radius, and core density and radius.
+        
+        self.ICEIh_THICKNESS = False  # Use the Ice Ih shell thickness parameter setting of a planet, calculating the associated bottom pressure and temperature
+        self.SPECIFY_ICEI_BOTTOM_PRESSURE = False # Specify pressure at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers).
+
         self.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE = False # Specify hydrosphere pressure at seafloor. Removes self-consistency with input CMR2 by instead calculating CMR2 based on input bulk mass, radius, and hydrosphere seafloor pressure.
         self.HYDROSPHERE_THICKNESS = False # Specify hydrosphere thickness. Removes self-consistency with input CMR2 by instead matching CMR2 with best fit for input hydrosphere thickness.
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
@@ -2555,7 +2559,6 @@ class CustomSolutionParamsStruct:
         self.EOS_deltaP = None
         self.EOS_deltaT = None
         self.SOLID_PHASES = None
-        self.SOLID_PHASES_TO_CONSIDER = None
         self.REMOVE_SPECIES_NA_IN_FREZCHEM = None
 
         self.rktPath = ''
@@ -3174,7 +3177,7 @@ class EOSlistStruct:
         pass
     loaded = {}  # Dict listing the loaded EOSs. Since we define this attribute outside of __init__, it will be common to all EOSlist structs when set.
     loaded['CustomSolutionEOS'] = {} # Dict listing the loaded EOSs for CustomSolution. We separate these EOS to save them all to disk at end
-    loaded['ReaktoroDatabases'] = {} # Dict listing the loaded Reaktoro databases (speeds up SetupInit since loading Reaktoro databases is slow)
+    loaded['ReaktoroDatabases'] = {'Supcrt': None, 'Phreeqc': None, 'SupcrtAqueousLookupFormula': None, 'SupcrtAqueousLookupName': None, 'PhreeqcSpeciesNames': None} # Dict listing the loaded Reaktoro databases (speeds up SetupInit since loading Reaktoro databases is slow)
     ranges = {}  # Dict listing the P, T ranges of the loaded EOSs.
 
 """ Global timing object"""
@@ -3336,13 +3339,7 @@ class ConstantsStruct:
             'H2O': 'H2O(aq)',
             'CO2': 'CO2(aq)'
         }
-
-        self.SolidPhases = { # Dictionary of keyword solid phases to the corresponding solid phases that exist in Supcrt
-            # 'Carbonates': ["Aragonite", "Artinite", "Azurite", "Calcite", "Cerussite", "Dolomite", "Dolomite,disordered", "Dolomite,ordered", "Huntite", "Hydromagnesite", "Magnesite", "Malachite", "Nesquehonite", "Rhodochrosite", "Siderite", "Smithsonite", "Strontianite"],  # Solids with CO3 in formula
-            'Carbonates': ["Aragonite", "Artinite", "Azurite", "Calcite", "Cerussite", "Huntite", "Hydromagnesite", "Magnesite", "Malachite", "Nesquehonite", "Rhodochrosite", "Siderite", "Smithsonite", "Strontianite"],  # Solids with CO3 in formula
-            'Sulfates': ["Alunite", "Anglesite", "Anhydrite", "Barite", "Celestite"] # Solids with SO4 in formula
-        }
-
+        
         self.seafreeze_ice_phases = {0: 'water1', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
 
 def ParentName(bodyname):
