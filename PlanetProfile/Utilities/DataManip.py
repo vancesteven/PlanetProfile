@@ -117,7 +117,7 @@ class ReturnZeros:
             nPs = np.size(P)
             nTs = np.size(T)
             if self.nVar > 1:
-                out = (np.zeros(np.maximum(nPs, nTs)) for _ in range(self.nVar))
+                out = tuple(np.zeros(np.maximum(nPs, nTs)) for _ in range(self.nVar))
             else:
                 out = np.zeros(np.maximum(nPs, nTs))
         return out

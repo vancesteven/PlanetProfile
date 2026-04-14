@@ -170,7 +170,7 @@ def ClathStableNagashima2017(P_MPa, T_K):
     return stable
 
 
-class ClathSeismic:
+def ClathSeismic(P_MPa, T_K):
     """ Calculate seismic velocities in clathrates based on Helgerud et al. (2009): https://doi.org/10.1029/2009JB006451
         Note that the original article had a correction for all of the tables' equations--
         the correction is linked in the above DOI.
@@ -184,18 +184,13 @@ class ClathSeismic:
             KS_GPa (float, shape N): Bulk modulus in GPa.
             GS_GPa (float, shape N): Shear modulus in GPa.
     """
-    def __call__(self, Pin_MPa, Tin_K, grid=False):
-        if grid:
-            P_MPa, T_K = np.meshgrid(Pin_MPa, Tin_K, indexing='ij')
-        else:
-            P_MPa = Pin_MPa
-            T_K = Tin_K
-        T_C = T_K - Constants.T0
-        VP_kms = (-1.84*T_C + 0.31*P_MPa + 3766) * 1e-3
-        VS_kms = (-0.892*T_C - 0.1*P_MPa + 1957) * 1e-3
-        KS_GPa = -1.09e-2*T_C + 3.8e-3*P_MPa + 8.39
-        GS_GPa = -4.2e-3*T_C + 9e-5*P_MPa + 3.541
+    # Vectorize to a 2D grid for (P,T) pairs, assuming P_MPa and T_K are 1D arrays
+    P2D_MPa, T2D_K = np.meshgrid(P_MPa, T_K, indexing='ij')
+    T2D_C = T2D_K - Constants.T0
 
-        return VP_kms, VS_kms, KS_GPa, GS_GPa
+    VP_kms = (-1.84*T2D_C + 0.31*P2D_MPa + 3766) * 1e-3
+    VS_kms = (-0.892*T2D_C - 0.1*P2D_MPa + 1957) * 1e-3
+    KS_GPa = -1.09e-2*T2D_C + 3.8e-3*P2D_MPa + 8.39
+    GS_GPa = -4.2e-3*T2D_C + 9e-5*P2D_MPa + 3.541
 
-a=0
+    return VP_kms, VS_kms, KS_GPa, GS_GPa

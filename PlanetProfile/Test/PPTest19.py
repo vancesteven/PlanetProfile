@@ -18,7 +18,7 @@ Planet.Bulk.Tsurf_K = 75
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.335
 Planet.Bulk.Cuncertainty = 0.001
-Planet.Bulk.Tb_K = 270
+Planet.Bulk.Tb_K = 272.353
 
 """ Layer step settings """
 Planet.Steps.nIceI = 50

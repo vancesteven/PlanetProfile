@@ -41,7 +41,7 @@ def SilicateLayers(Planet, Params):
             profRange = [Planet.Steps.nHydro - Planet.Steps.iSilStart]
 
         else:
-            nProfiles = Planet.Steps.nSurfIce - Planet.Steps.iSilStart + Planet.Steps.nOceanMax - 1
+            nProfiles = Planet.Steps.nSurfIce - Planet.Steps.iSilStart + Planet.Steps.nOceanMax
             profRange = range(nProfiles)
 
     # Check if we set the core radius to 0, or a found C/MR^2 value (for constant-density approach)

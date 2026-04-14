@@ -61,7 +61,7 @@ timeLog = logging.getLogger('PlanetProfile.Timing')
 if Params.VERBOSE:
     logLevel = logging.DEBUG
 elif Params.QUIET:
-    logLevel = logging.WARN
+    logLevel = logging.WARN + 1
 else:
     logLevel = logging.INFO
 if Params.QUIET_MOONMAG:

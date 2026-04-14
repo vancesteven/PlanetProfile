@@ -29,6 +29,7 @@ Planet.Steps.iSilStart = Planet.Steps.nIceI
 Planet.Ocean.comp = 'Seawater'
 Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
 Planet.Ocean.deltaP = 1.0
+Planet.Ocean.deltaT = 1.0
 Planet.Ocean.PHydroMax_MPa = 250.0
 
 """ Silicate Mantle """

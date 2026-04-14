@@ -56,8 +56,6 @@ def SetupInit(Planet, Params):
         if Planet.Do.ConstantProps['Ocean']:
             Planet.Ocean.comp = 'PureH2O'
             Planet.Ocean.wOcean_ppt = 0.0
-            Planet.Ocean.deltaP = 0.1
-            Planet.Ocean.deltaT = 0.1
             Planet.Sil.mantleEOS = 'constant'
     # Check if Custom Reaktoro Solution is being used and if so then update Params with necessary parameters to plot
     if Planet.Ocean.comp is not None and 'CustomSolution' in Planet.Ocean.comp:
@@ -289,14 +287,6 @@ def SetupInit(Planet, Params):
             TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
         if not Params.PRELOAD_EOS_IN_PROGRESS:
             Planet.Ocean.EOS = GetPlanetOceanEOS(Planet, Params, POcean_MPa, TOcean_K)
-
-            if Planet.Ocean.EOS.deltaP < Planet.Ocean.deltaP:
-                log.debug(f'Updating Ocean.deltaP to match the more refined EOS.deltaP ({Planet.Ocean.EOS.deltaP}).')
-                Planet.Ocean.deltaP = Planet.Ocean.EOS.deltaP
-            if Planet.Ocean.EOS.deltaT < Planet.Ocean.deltaT:
-                log.debug(f'Updating Ocean.deltaT to match the more refined EOS.deltaT ({Planet.Ocean.EOS.deltaT}).')
-                Planet.Ocean.deltaT = Planet.Ocean.EOS.deltaT
-
         # Get separate, simpler EOS for evaluating the melting curve
         if Planet.Do.ICEIh_THICKNESS:
             Tmelt_K = np.arange(Planet.TfreezeLower_K, Planet.TfreezeUpper_K, Planet.TfreezeRes_K)
@@ -384,8 +374,8 @@ def SetupInit(Planet, Params):
         else:
             Planet.Do.PORE_EOS_DIFFERENT = True
     else:
-        if not Planet.Do.Fe_CORE:
-            raise RuntimeError('Matching the body MoI requires either a core or porosity in the rock.' +
+        if not (Planet.Do.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE) and (not Planet.Do.Fe_CORE and not Planet.Do.ConstantProps['Inner']):
+            raise RuntimeError('Matching the body MoI with EOS for inner layers requires either a core or porosity in the rock.' +
                             'Set Planet.Do.POROUS_ROCK to True and rerun to continue modeling with no core.')
         Planet.Sil.porosType = 'none'
         Planet.Sil.poreH2Orho_kgm3 = 0

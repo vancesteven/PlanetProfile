@@ -12,7 +12,7 @@ def configAssign():
     ExploreParams = ExploreParamsStruct()
 
     Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
-    Params.QUIET =         False  # Hides all log messages except warnings and errors
+    Params.QUIET =         False  # Hides all log messages except errors
     Params.TIMING =        False  # Whether to print timing messages to analyze performance
     Params.PRINT_COMPLETION = True # Print completion message
     Params.QUIET_MOONMAG = True  # If True, sets MoonMag logging level to WARNING, otherwise uses the same as PlanetProfile.

@@ -159,7 +159,7 @@ class OceanEOSStruct:
                 Cp_JkgK = rho_kgm3
                 alpha_pK = rho_kgm3
                 kTherm_WmK = rho_kgm3
-                self.ufn_Seismic = ReturnZeros(4)
+                self.ufn_Seismic = ReturnZeros(2)
                 self.ufn_sigma_Sm = ReturnZeros(1)
                 self.EOSdeltaP = None
                 self.EOSdeltaT = None
@@ -426,8 +426,7 @@ def GetPlanetIceEOS(Planet, Params, P_MPa, T_K, phaseStr, useMinRes = True):
                             phiMin_frac=Planet.Ocean.phiMin_frac,
                             EXTRAP=Params.EXTRAP_ICE[phaseStr],
                             ClathDissoc=Planet.Ocean.ClathDissoc, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                            minPres_MPa=Params.minPres_MPa if useMinRes else None, minTres_K=Params.minTres_K if useMinRes else None,
-                            constantProps=Planet.Ocean.IceConstantProps.get(phaseStr))
+                            minPres_MPa=Params.minPres_MPa if useMinRes else None, minTres_K=Params.minTres_K if useMinRes else None)
         else:
             iceEOSWrapper = GetIceEOS(P_MPa, T_K, phaseStr, EXTRAP=Params.EXTRAP_ICE[phaseStr],
                             ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, 
@@ -526,7 +525,7 @@ class IceEOSStruct:
                 # Create phase finder -- note that the results from this function must be cast to int after retrieval
                 # Returns either Constants.phaseClath (stable) or 0 (not stable), making it compatible with GetTfreeze
                 self.ufn_phase = PhaseInterpolator(P_MPa, T_K, self.phase)
-                self.ufn_Seismic = ClathSeismic()
+                VP_kms, VS_kms, KS_GPa, GS_GPa = ClathSeismic(P_MPa, T_K)
             else:
                 # Get tabular data from SeaFreeze for all other ice phases
                 # Set extrapolation boundaries to limits defined in SeaFreeze
@@ -719,7 +718,7 @@ class MixedEOSStruct:
                                         phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
                                         ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa,
                                         minTres_K=minTres_K, ICEIh_DIFFERENT=ICEIh_DIFFERENT,
-                                        etaFixed_Pas=etaFixed_Pas, TviscTrans_K=TviscTrans_K, kThermConst_WmK=kThermConst_WmK, doConstantProps = doConstantProps, constantProperties = constantProperties)
+                                        etaFixed_Pas=etaFixed_Pas, TviscTrans_K=TviscTrans_K, kThermConst_WmK=kThermConst_WmK)
             if self.firstEOS.ALREADY_LOADED:
                 log.debug(f'Ice {self.phaseOne} EOS already loaded. Reusing existing EOS.')
                 self.firstEOS = EOSlist.loaded[self.firstEOS.EOSlabel]
@@ -729,7 +728,7 @@ class MixedEOSStruct:
                                             phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
                                             ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa,
                                             minTres_K=minTres_K, ICEIh_DIFFERENT=ICEIh_DIFFERENT,
-                                            etaFixed_Pas=etaFixed_Pas, TviscTrans_K=TviscTrans_K, kThermConst_WmK=kThermConst_WmK, doConstantProps = doConstantProps, constantProperties = constantProperties)
+                                            etaFixed_Pas=etaFixed_Pas, TviscTrans_K=TviscTrans_K, kThermConst_WmK=kThermConst_WmK)
             if self.secondEOS.ALREADY_LOADED:
                 log.debug(f'Ice {self.phaseTwo} EOS already loaded. Reusing existing EOS.')
                 self.secondEOS = EOSlist.loaded[self.secondEOS.EOSlabel]

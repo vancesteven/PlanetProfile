@@ -24,7 +24,7 @@ def SetupCustomSolution(Planet, Params):
             Planet.Do.USE_WOCEAN_PPT = False
             Planet.Ocean.wOcean_ppt = wpptCalculator(Planet.Ocean.comp.split('=')[1].strip())
         # Setup reaktoro databases
-        if EOSlist.loaded['ReaktoroDatabases']['Supcrt'] is None or EOSlist.loaded['ReaktoroDatabases']['Phreeqc'] is None:
+        if not EOSlist.loaded['ReaktoroDatabases'] or EOSlist.loaded['ReaktoroDatabases']['Supcrt'] is None or EOSlist.loaded['ReaktoroDatabases']['Phreeqc'] is None:
             EOSlist.loaded['ReaktoroDatabases'] = SetupReaktoroDatabases()
         if not Params.PRELOAD_EOS_IN_PROGRESS:
             if not Params.SKIP_PLOTS:

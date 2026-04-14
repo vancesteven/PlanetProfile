@@ -21,34 +21,7 @@ def GravityParameters(Planet, Params):
         else:
             # Set Magnetic struct layer arrays as we need for induction calculations
             Planet, Params = SetupGravity(Planet, Params)
-            model_params = build_model(Planet.Gravity.ALMAModel['model'][:, Planet.Gravity.ALMAModel['columns'].index('r')],
-                                    Planet.Gravity.ALMAModel['model'][:, Planet.Gravity.ALMAModel['columns'].index('rho')],
-                                    Planet.Gravity.ALMAModel['mu'],
-                                    Planet.Gravity.ALMAModel['vis'],
-                                    Planet.Gravity.rheology, Planet.Gravity.pyAlmaParams, ndigits=Params.Gravity.num_digits, verbose=(not Params.QUIET_ALMA and Params.Gravity.verbose), parallel=False) # False parallel for now since it is throwing a bad file desciptor
-            # Compute love numbers
-            Planet.Gravity.h, Planet.Gravity.l, Planet.Gravity.k = love_numbers(Params.Gravity.harmonic_degrees, Params.Gravity.time_log_kyrs,
-                                                                    Params.Gravity.loading_type, Params.Gravity.time_history_function, Params.Gravity.tau, model_params,
-                                                                    Params.Gravity.output_type, Params.Gravity.gorder, verbose=(not Params.QUIET_ALMA and Params.Gravity.verbose),
-                                                                    parallel=Params.Gravity.parallel and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
-            # Compute delta relation
-            Planet.Gravity.delta = 1 + Planet.Gravity.k - Planet.Gravity.h
-
-            # If our love numbers are 1x1 numpy array, let's convert to float - important for plotting and output
-            if len(Planet.Gravity.time_log_kyrs) == 1 and len(Planet.Gravity.harmonic_degrees) == 1:
-                Planet.Gravity.h = Planet.Gravity.h[0, 0]
-                Planet.Gravity.l = Planet.Gravity.l[0, 0]
-                Planet.Gravity.k = Planet.Gravity.k[0, 0]
-                Planet.Gravity.delta = Planet.Gravity.delta[0, 0]
-            # Convert love numbers from complex to magnitude and phase delay
-            Planet.Gravity.hAmp = np.abs(Planet.Gravity.h)
-            Planet.Gravity.hPhase = -np.degrees(np.angle(Planet.Gravity.h))
-            Planet.Gravity.lAmp = np.abs(Planet.Gravity.l)
-            Planet.Gravity.lPhase = -np.degrees(np.angle(Planet.Gravity.l))
-            Planet.Gravity.kAmp = np.abs(Planet.Gravity.k)
-            Planet.Gravity.kPhase = -np.degrees(np.angle(Planet.Gravity.k))
-            Planet.Gravity.deltaAmp = np.abs(Planet.Gravity.delta)
-            Planet.Gravity.deltaPhase = -np.degrees(np.angle(Planet.Gravity.delta))
+            Planet, Params = ComputeLoveNumbers(Planet, Params)
             if (not Params.NO_SAVEFILE) and (not Params.INVERSION_IN_PROGRESS) and (not Params.DO_EXPLOREOGRAM):
                 Planet, Params = WriteGravityParameters(Planet, Params)
     elif Planet.Do.VALID:
@@ -90,7 +63,7 @@ def SetupGravity(Planet, Params):
     GSIndex = Planet.Gravity.columns.index('GS')
     etaIndex = Planet.Gravity.columns.index('eta')
     # Round radius - In similar PyALMA3 function, it rounds radius so will do so here as well
-    Planet.Gravity.model[:, rIndex] = np.round(Planet.Gravity.model[:, rIndex], 0)
+    Planet.Gravity.model[:, rIndex] = Planet.Gravity.model[:, rIndex]
 
     # Flip model: core at top and surface at bottom
     Planet.Gravity.model = np.flipud(Planet.Gravity.model)
@@ -200,7 +173,38 @@ def SetupGravity(Planet, Params):
     # Return Planet and Params
     return Planet, Params
 
+def ComputeLoveNumbers(Planet, Params):
+    """Compute the love numbers for the body"""
+    model_params = build_model(Planet.Gravity.ALMAModel['model'][:, Planet.Gravity.ALMAModel['columns'].index('r')],
+                            Planet.Gravity.ALMAModel['model'][:, Planet.Gravity.ALMAModel['columns'].index('rho')],
+                            Planet.Gravity.ALMAModel['mu'],
+                            Planet.Gravity.ALMAModel['vis'],
+                            Planet.Gravity.rheology, Planet.Gravity.pyAlmaParams, ndigits=Params.Gravity.num_digits, verbose=(not Params.QUIET_ALMA and Params.Gravity.verbose), parallel=False) # False parallel for now since it is throwing a bad file desciptor
+    # Compute love numbers
+    Planet.Gravity.h, Planet.Gravity.l, Planet.Gravity.k = love_numbers(Params.Gravity.harmonic_degrees, Params.Gravity.time_log_kyrs,
+                                                            Params.Gravity.loading_type, Params.Gravity.time_history_function, Params.Gravity.tau, model_params,
+                                                            Params.Gravity.output_type, Params.Gravity.gorder, verbose=(not Params.QUIET_ALMA and Params.Gravity.verbose),
+                                                            parallel=Params.Gravity.parallel and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.DO_EXPLOREOGRAM))
+    # Compute delta relation
+    Planet.Gravity.delta = 1 + Planet.Gravity.k - Planet.Gravity.h
 
+    # If our love numbers are 1x1 numpy array, let's convert to float - important for plotting and output
+    if len(Planet.Gravity.time_log_kyrs) == 1 and len(Planet.Gravity.harmonic_degrees) == 1:
+        Planet.Gravity.h = Planet.Gravity.h[0, 0]
+        Planet.Gravity.l = Planet.Gravity.l[0, 0]
+        Planet.Gravity.k = Planet.Gravity.k[0, 0]
+        Planet.Gravity.delta = Planet.Gravity.delta[0, 0]
+    # Convert love numbers from complex to magnitude and phase delay
+    Planet.Gravity.hAmp = np.abs(Planet.Gravity.h)
+    Planet.Gravity.hPhase = -np.degrees(np.angle(Planet.Gravity.h))
+    Planet.Gravity.lAmp = np.abs(Planet.Gravity.l)
+    Planet.Gravity.lPhase = -np.degrees(np.angle(Planet.Gravity.l))
+    Planet.Gravity.kAmp = np.abs(Planet.Gravity.k)
+    Planet.Gravity.kPhase = -np.degrees(np.angle(Planet.Gravity.k))
+    Planet.Gravity.deltaAmp = np.abs(Planet.Gravity.delta)
+    Planet.Gravity.deltaPhase = -np.degrees(np.angle(Planet.Gravity.delta))
+    
+    return Planet, Params
 
 def WriteGravityParameters(Planet, Params):
     """Write the gravity parameters to disk"""

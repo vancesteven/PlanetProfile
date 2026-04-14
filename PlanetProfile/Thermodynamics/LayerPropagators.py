@@ -1161,7 +1161,7 @@ def FindInnerWithMoIAndConstantRho(Planet, Params):
     # Get final number of layers modeled in "overshoot" hydrosphere
     if Planet.Do.NO_H2O:
         Planet.Steps.iSilStart = 0
-        nHydroActual = 2
+        nHydroActual = 1
     else:
         nHydroActual = Planet.Steps.nSurfIce + Planet.Steps.nOceanMax
     # Find contribution to axial moment of inertia C from each ocean layer
@@ -1181,7 +1181,7 @@ def FindInnerWithMoIAndConstantRho(Planet, Params):
         # and inner radius equal to the core radius
         VCore_m3 = np.array([(Planet.Bulk.M_kg - MAbove_kg[i] - VsilSphere_m3[i-Planet.Steps.iSilStart] *
                              Planet.Sil.rhoSilWithCore_kgm3) / (rhoCore_kgm3 - Planet.Sil.rhoSilWithCore_kgm3)
-                             for i in range(Planet.Steps.iSilStart, nHydroActual-1)])
+                             for i in range(Planet.Steps.iSilStart, nHydroActual)])
         # Find values for which the silicate radius is too large
         try:
             nTooBig = next((i[0] for i, val in np.ndenumerate(VCore_m3) if val>0))
@@ -1207,20 +1207,20 @@ def FindInnerWithMoIAndConstantRho(Planet, Params):
     else:
         # Find silicate density consistent with observed bulk mass for each radius
         rhoSil_kgm3 = np.array([(Planet.Bulk.M_kg - MAbove_kg[i]) / VsilSphere_m3[i-Planet.Steps.iSilStart]
-                              for i in range(Planet.Steps.iSilStart, nHydroActual-1)])
+                              for i in range(Planet.Steps.iSilStart, nHydroActual)])
         # Density of silicates is scaled to fit the total mass, so there is no nTooBig in this case.
         nTooBig = 0
         # Set core radius and density to zero so calculations can proceed
-        rCore_m = np.zeros(nHydroActual-1 - Planet.Steps.iSilStart)
+        rCore_m = np.zeros(nHydroActual - Planet.Steps.iSilStart)
         rhoCore_kgm3 = 0
         INVALIDCORE = False
 
     # Calculate C for a mantle extending up to each hydrosphere layer in turn
-    C_kgm2 = np.zeros(nHydroActual - 1)
+    C_kgm2 = np.zeros(nHydroActual)
     C_kgm2[Planet.Steps.iSilStart + nTooBig:] = [np.sum(dChydro_kgm2[:i + Planet.Steps.iSilStart + nTooBig + 1]) +
             8*np.pi/15 * rhoSil_kgm3[i] * (Planet.r_m[i + Planet.Steps.iSilStart + nTooBig]**5 - rCore_m[i]**5) +
             8*np.pi/15 * rhoCore_kgm3 * rCore_m[i]**5
-            for i in range(nHydroActual - Planet.Steps.iSilStart - nTooBig - 1)]
+            for i in range(nHydroActual - Planet.Steps.iSilStart - nTooBig)]
     CMR2 = C_kgm2 / MR2_kgm2
 
     CMR2inds = [i[0] for i, valCMR2 in np.ndenumerate(CMR2)
@@ -1767,7 +1767,7 @@ def CalcInnerAndMoIWithConstantRho(Planet, Params):
     # Get final number of layers modeled in "overshoot" hydrosphere
     if Planet.Do.NO_H2O:
         Planet.Steps.iSilStart = 0
-        nHydroActual = 2
+        nHydroActual = 1
         iSeafloor = 0  # NEW: no hydrosphere, so silicates start at the surface
     else:
         nHydroActual = Planet.Steps.nSurfIce + Planet.Steps.nOceanMax
@@ -2015,10 +2015,12 @@ def CalcInnerandMoIWithSpecifiedCore(Planet, Params):
             msg = (f'Specified core radius {rCore_m/1e3:.1f} km exceeds or equals the seafloor '
                    f'radius {rSil_m/1e3:.1f} km. No silicate shell is possible.')
             INVALIDSIL = True
+            rhoSil_kgm3 = np.nan
         elif MSil_kg <= 0:
             msg = (f'Specified core radius {rCore_m/1e3:.1f} km leaves no mass for the '
                    f'silicate shell (M_sil = {MSil_kg/1e21:.3f} × 10²¹ kg).')
             INVALIDSIL = True
+            rhoSil_kgm3 = np.nan
         else:
             rhoSil_kgm3 = MSil_kg / VSilShell_m3
     else:
@@ -2040,6 +2042,7 @@ def CalcInnerandMoIWithSpecifiedCore(Planet, Params):
         if not Params.ALLOW_BROKEN_MODELS:
             raise RuntimeError(msg)
         nans = np.array([np.nan])
+        rhoSil_kgm3 = np.nan
         Planet.CMR2mean = np.nan
         Planet.CMR2less = Planet.CMR2mean
         Planet.CMR2more = Planet.CMR2mean
