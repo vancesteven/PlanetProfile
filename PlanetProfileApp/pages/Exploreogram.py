@@ -5,6 +5,7 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pickle
+import time
 
 # --- Setting up Page ---
 st.set_page_config(
@@ -76,7 +77,17 @@ IONOS_PARAMS = {
     'sigmaIonos_Sm': {'label': 'Ionosphere Conductivity (S/m)', 'default_range': [1e-4, 1e-2], 'desc': 'Ionosphere electrical conductivity'},
 }
 
-ALL_PARAMS = {**HYDRO_PARAMS, **INNER_PARAMS, **IONOS_PARAMS}
+DERIVED_PARAMS = {
+    'D_km': {'label': 'Ocean Thickness (km)', 'default_range': [10, 100], 'desc': 'Ocean layer thickness (derived — requires a driver parameter)',
+             'default_driver': 'Tb_K'},
+    'rhoSilMean_kgm3': {'label': 'Mean Silicate Density (kg/m³)', 'default_range': [2500, 3600], 'desc': 'Model-computed mean rock density (derived — requires a driver parameter)',
+                         'default_driver': 'rhoSilInput_kgm3'},
+}
+
+# Input parameters that can actually be varied during exploration
+INPUT_PARAMS = {**HYDRO_PARAMS, **INNER_PARAMS, **IONOS_PARAMS}
+
+ALL_PARAMS = {**INPUT_PARAMS, **DERIVED_PARAMS}
 
 # Initialize session state for exploreogram settings
 if 'explore_xName' not in st.session_state:
@@ -99,6 +110,10 @@ if 'explore_error' not in st.session_state:
     st.session_state.explore_error = None
 if 'explore_error_traceback' not in st.session_state:
     st.session_state.explore_error_traceback = None
+if 'explore_cache_key' not in st.session_state:
+    st.session_state.explore_cache_key = None
+if 'explore_force_rerun' not in st.session_state:
+    st.session_state.explore_force_rerun = False
 
 # Main layout: settings and results
 col1, col2 = st.columns([1, 2])
@@ -118,17 +133,42 @@ with col1:
     st.session_state.explore_xName = x_param
     st.caption(ALL_PARAMS[x_param]['desc'])
 
-    x_range_default = ALL_PARAMS[x_param]['default_range']
-    x_min = st.number_input(
-        f"{ALL_PARAMS[x_param]['label']} - Min",
-        value=float(x_range_default[0]),
-        key='x_min'
-    )
-    x_max = st.number_input(
-        f"{ALL_PARAMS[x_param]['label']} - Max",
-        value=float(x_range_default[1]),
-        key='x_max'
-    )
+    # If derived parameter, show driver parameter selector
+    if x_param in DERIVED_PARAMS:
+        st.info(f"{ALL_PARAMS[x_param]['label']} is a model output. Select which input parameter to vary — the X-axis will show the resulting {ALL_PARAMS[x_param]['label']}.")
+        x_driver_default = DERIVED_PARAMS[x_param].get('default_driver', list(INPUT_PARAMS.keys())[0])
+        x_driver = st.selectbox(
+            "X driver parameter (varied during exploration)",
+            options=list(INPUT_PARAMS.keys()),
+            index=list(INPUT_PARAMS.keys()).index(x_driver_default),
+            format_func=lambda k: INPUT_PARAMS[k]['label'],
+            key='x_driver_select'
+        )
+        st.session_state['explore_x_driver'] = x_driver
+        x_range_default = INPUT_PARAMS[x_driver]['default_range']
+        x_min = st.number_input(
+            f"{INPUT_PARAMS[x_driver]['label']} - Min",
+            value=float(x_range_default[0]),
+            key='x_min'
+        )
+        x_max = st.number_input(
+            f"{INPUT_PARAMS[x_driver]['label']} - Max",
+            value=float(x_range_default[1]),
+            key='x_max'
+        )
+    else:
+        st.session_state['explore_x_driver'] = None
+        x_range_default = ALL_PARAMS[x_param]['default_range']
+        x_min = st.number_input(
+            f"{ALL_PARAMS[x_param]['label']} - Min",
+            value=float(x_range_default[0]),
+            key='x_min'
+        )
+        x_max = st.number_input(
+            f"{ALL_PARAMS[x_param]['label']} - Max",
+            value=float(x_range_default[1]),
+            key='x_max'
+        )
 
     # Y-axis parameter
     st.markdown("#### Y-Axis Parameter")
@@ -142,17 +182,42 @@ with col1:
     st.session_state.explore_yName = y_param
     st.caption(ALL_PARAMS[y_param]['desc'])
 
-    y_range_default = ALL_PARAMS[y_param]['default_range']
-    y_min = st.number_input(
-        f"{ALL_PARAMS[y_param]['label']} - Min",
-        value=float(y_range_default[0]),
-        key='y_min'
-    )
-    y_max = st.number_input(
-        f"{ALL_PARAMS[y_param]['label']} - Max",
-        value=float(y_range_default[1]),
-        key='y_max'
-    )
+    # If derived parameter, show driver parameter selector
+    if y_param in DERIVED_PARAMS:
+        st.info(f"{ALL_PARAMS[y_param]['label']} is a model output. Select which input parameter to vary — the Y-axis will show the resulting {ALL_PARAMS[y_param]['label']}.")
+        y_driver_default = DERIVED_PARAMS[y_param].get('default_driver', list(INPUT_PARAMS.keys())[0])
+        y_driver = st.selectbox(
+            "Y driver parameter (varied during exploration)",
+            options=list(INPUT_PARAMS.keys()),
+            index=list(INPUT_PARAMS.keys()).index(y_driver_default),
+            format_func=lambda k: INPUT_PARAMS[k]['label'],
+            key='y_driver_select'
+        )
+        st.session_state['explore_y_driver'] = y_driver
+        y_range_default = INPUT_PARAMS[y_driver]['default_range']
+        y_min = st.number_input(
+            f"{INPUT_PARAMS[y_driver]['label']} - Min",
+            value=float(y_range_default[0]),
+            key='y_min'
+        )
+        y_max = st.number_input(
+            f"{INPUT_PARAMS[y_driver]['label']} - Max",
+            value=float(y_range_default[1]),
+            key='y_max'
+        )
+    else:
+        st.session_state['explore_y_driver'] = None
+        y_range_default = ALL_PARAMS[y_param]['default_range']
+        y_min = st.number_input(
+            f"{ALL_PARAMS[y_param]['label']} - Min",
+            value=float(y_range_default[0]),
+            key='y_min'
+        )
+        y_max = st.number_input(
+            f"{ALL_PARAMS[y_param]['label']} - Max",
+            value=float(y_range_default[1]),
+            key='y_max'
+        )
 
     # Grid resolution
     st.markdown("#### Grid Resolution")
@@ -172,13 +237,13 @@ with col1:
 
     Z_VARIABLES = {
         'zb_km': 'Ice Shell Thickness (km)',
+        'D_km': 'Ocean Layer Thickness (km)',
         'Tmean_K': 'Mean Ocean Temperature (K)',
         'Pseafloor_MPa': 'Seafloor Pressure (MPa)',
-        'sigmaOcean_Sm': 'Ocean Conductivity (S/m)',
+        'sigmaMean_Sm': 'Mean Ocean Conductivity (S/m)',
         'Amp_nT': 'Induced Magnetic Field (nT)',
-        'k2': 'k₂ Love Number',
+        'kLoveAmp': 'k₂ Love Number Amplitude',
         'Rcore_km': 'Core Radius (km)',
-        'Rmantle_km': 'Mantle Radius (km)',
     }
 
     z_param = st.selectbox(
@@ -190,11 +255,20 @@ with col1:
     )
     st.session_state.explore_zName = z_param
 
+    # Update cached results zName instantly (no recomputation needed)
+    if st.session_state.explore_results is not None:
+        st.session_state.explore_results['zName'] = z_param
+        if hasattr(st.session_state.explore_results.get('Planet', None), 'Exploration'):
+            st.session_state.explore_results['Planet'].Exploration.zName = z_param
+
     # Show induction frequency selection if magnetic variable is chosen
-    induction_vars = ['Amp_nT']  # Magnetic field amplitude - add more as needed
-    if z_param in induction_vars:
+    induction_z_vars = ['Amp_nT', 'Bix_nT', 'Biy_nT', 'Biz_nT', 'phase_deg',
+                        'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT', 'Bi1Tot_nT',
+                        'rBi1x_nT', 'rBi1y_nT', 'rBi1z_nT', 'rBi1Tot_nT',
+                        'iBi1x_nT', 'iBi1y_nT', 'iBi1z_nT', 'iBi1Tot_nT']
+    if z_param in induction_z_vars:
         st.markdown("#### Magnetic Induction Configuration")
-        st.info("🧲 Magnetic induction calculations enabled for selected output variable")
+        st.info("Magnetic induction calculations enabled for selected output variable")
 
         # Get available excitations for this body
         try:
@@ -249,6 +323,25 @@ with col1:
             if 'selected_excitations' not in st.session_state:
                 st.session_state.selected_excitations = ['orbital', 'synodic', 'true anomaly']
 
+        # Inductogram display mode
+        st.markdown("#### Inductogram Display")
+        induct_display_mode = st.radio(
+            "Component display",
+            options=['real_imaginary', 'amplitude_phase'],
+            format_func=lambda x: 'Real + Imaginary' if x == 'real_imaginary' else 'Amplitude + Phase',
+            index=0,
+            key='induct_display_mode',
+            help="Real+Imaginary is preferred for modern publications. Amplitude+Phase is the traditional format."
+        )
+
+    # Contour option — applies to ALL exploreograms (not just induction)
+    induct_use_contours = st.checkbox(
+        "Use contour lines",
+        value=True,
+        key='induct_use_contours',
+        help="Draw contour lines on the colormap. Uncheck for colormap only."
+    )
+
     st.markdown("---")
 
     # Show warning if parameters are the same
@@ -296,10 +389,54 @@ with col1:
             st.session_state.explore_running = False
             st.rerun()
 
-    # Run button
-    run_button = st.button("🚀 Run Exploreogram", type="primary", disabled=st.session_state.explore_running)
+    # Cache utilities
+    from Utilities.explore_cache import generate_cache_key, get_cache_path, save_to_cache, load_from_cache
 
-    if run_button and not st.session_state.explore_running:
+    cache_dir = os.path.join(parent_directory, 'output', 'exploreograms', 'cache')
+    Planet = st.session_state["Planet"]
+
+    # Determine if induction is needed for current z-variable
+    needs_induction_for_z = z_param in induction_z_vars
+
+    # Generate cache key from current computational parameters
+    # Include excitation selection so changing frequencies triggers recompute
+    selected_exc_for_key = st.session_state.get('selected_excitations', []) if needs_induction_for_z else []
+    current_cache_key = generate_cache_key(
+        bodyname=Planet.name,
+        xName=st.session_state.explore_xName,
+        xRange=[x_min, x_max],
+        yName=st.session_state.explore_yName,
+        yRange=[y_min, y_max],
+        nx=nx, ny=ny,
+        skip_induction=not needs_induction_for_z,
+        exc_names=selected_exc_for_key,
+    )
+
+    # Check if we already have matching cached results (session or disk)
+    has_session_cache = (
+        st.session_state.explore_results is not None and
+        st.session_state.explore_cache_key == current_cache_key
+    )
+
+    # Show cache status
+    if has_session_cache:
+        st.success("Cached results available — changing z-variable is instant")
+    elif os.path.isfile(get_cache_path(cache_dir, current_cache_key)):
+        st.info("Cached results found on disk — will load without recomputation")
+
+    # Run / Force Re-run buttons
+    col_run, col_force = st.columns([2, 1])
+    with col_run:
+        run_button = st.button("Run Exploreogram", type="primary", disabled=st.session_state.explore_running)
+    with col_force:
+        force_rerun = st.button("Force Re-run", disabled=st.session_state.explore_running,
+                                help="Ignore cache and recompute all models")
+
+    if (run_button or force_rerun) and not st.session_state.explore_running:
+        if force_rerun:
+            st.session_state.explore_force_rerun = True
+            st.session_state.explore_results = None
+            st.session_state.explore_cache_key = None
         st.session_state.explore_running = True
         st.session_state.explore_start_time = None
         st.session_state.explore_error = None
@@ -310,23 +447,80 @@ with col2:
     st.subheader("📊 Exploration Results")
 
     if st.session_state.explore_running:
+        # --- CACHE CHECK: try session cache, then disk cache, before computing ---
+        cache_hit = False
+        if not st.session_state.explore_force_rerun:
+            # Session cache check
+            if (st.session_state.explore_results is not None and
+                    st.session_state.explore_cache_key == current_cache_key):
+                cache_hit = True
+                st.success("Using cached results (session) — no recomputation needed")
+                Exploration = st.session_state.explore_results['Planet'].Exploration
+                Params_cached = st.session_state.explore_results['Params']
+
+            # Disk cache check
+            if not cache_hit:
+                cached_exploration = load_from_cache(cache_dir, current_cache_key)
+                if cached_exploration is not None:
+                    cache_hit = True
+                    st.success("Loaded cached results from disk — no recomputation needed")
+                    Exploration = cached_exploration
+                    # Attach to Planet for downstream compatibility
+                    Planet.Exploration = Exploration
+
+                    # Build full Params for plotting (including Induct for matplotlib inductograms)
+                    from configPP import configAssign
+                    from PlanetProfile.MagneticInduction.defaultConfigInduct import inductAssign
+                    Params_cached, ExploreParams = configAssign()
+                    Params_cached.Explore = ExploreParams
+                    Params_cached.Explore.xName = st.session_state.explore_xName
+                    Params_cached.Explore.yName = st.session_state.explore_yName
+                    Params_cached.Explore.zName = st.session_state.explore_zName
+                    Params_cached.Explore.nx = int(nx)
+                    Params_cached.Explore.ny = int(ny)
+
+                    # Load induction params so matplotlib path can access excSelectionPlot
+                    _, _, InductParams_cached, _ = inductAssign()
+                    Params_cached.Induct = InductParams_cached
+
+                    st.session_state.explore_results = {
+                        'Planet': Planet,
+                        'Exploration': Exploration,
+                        'Params': Params_cached,
+                        'xName': st.session_state.explore_xName,
+                        'yName': st.session_state.explore_yName,
+                        'zName': st.session_state.explore_zName,
+                    }
+                    st.session_state.explore_cache_key = current_cache_key
+
+        if cache_hit:
+            # Update z-variable for visualization
+            Exploration.zName = st.session_state.explore_zName
+            st.session_state.explore_running = False
+            st.session_state.explore_force_rerun = False
+            time.sleep(0.5)
+            st.rerun()
+
+        # Reset force flag
+        st.session_state.explore_force_rerun = False
+
+        # --- FULL COMPUTATION (cache miss) ---
         # Estimate time
         est_time_per_model = 8  # seconds (conservative estimate)
         est_total_minutes = (total_runs * est_time_per_model) / 60
 
         # Create prominent information box
         st.info(f"""
-        ### 🔬 Exploreogram Running: {total_runs} models ({nx}×{ny} grid)
+        ### Exploreogram Running: {total_runs} models ({nx} x {ny} grid)
 
-        **⏱️ Estimated time: ~{est_total_minutes:.1f} minutes** ({est_time_per_model} sec/model)
+        **Estimated time: ~{est_total_minutes:.1f} minutes** ({est_time_per_model} sec/model)
 
-        **📊 Progress Monitoring:**
+        **Progress Monitoring:**
         - This window shows overall status
         - **Look at your TERMINAL WINDOW** (where you ran `streamlit run`) for detailed model-by-model progress
-        - The terminal shows: "Running model 1/{total_runs}", "Running model 2/{total_runs}", etc.
         - The GUI will automatically update when complete
 
-        **💡 The GUI may appear frozen** - this is normal! Models are running in the background.
+        The GUI may appear frozen during computation — this is normal.
         """)
 
         # Use st.status() for long-running operation
@@ -335,7 +529,6 @@ with col2:
             st.write("")
 
             try:
-                import time
                 start_time = time.time()
 
                 # Show configuration
@@ -434,16 +627,28 @@ with col2:
                 Params.DO_EXPLOREOGRAM = True
                 Params.CALC_NEW = True
                 Params.EXPLOREOGRAM_IN_PROGRESS = True
-                Params.Explore.xName = st.session_state.explore_xName
-                Params.Explore.yName = st.session_state.explore_yName
+
+                # For derived parameters, use the driver parameter as the actual
+                # exploration variable — the derived value is read from results after the run
+                x_driver = st.session_state.get('explore_x_driver', None)
+                y_driver = st.session_state.get('explore_y_driver', None)
+                x_display_name = st.session_state.explore_xName  # What user wants on the axis
+                y_display_name = st.session_state.explore_yName
+
+                Params.Explore.xName = x_driver if x_driver else x_display_name
+                Params.Explore.yName = y_driver if y_driver else y_display_name
                 Params.Explore.zName = st.session_state.explore_zName
                 Params.Explore.xRange = [x_min, x_max]
                 Params.Explore.yRange = [y_min, y_max]
 
+                if x_driver:
+                    st.write(f"   Derived X-axis: {ALL_PARAMS[x_display_name]['label']} (varying {INPUT_PARAMS[x_driver]['label']})")
+                if y_driver:
+                    st.write(f"   Derived Y-axis: {ALL_PARAMS[y_display_name]['label']} (varying {INPUT_PARAMS[y_driver]['label']})")
+
                 # Configure induction calculations based on z-variable selection
                 # Check if we need induction for the selected output variable
-                induction_vars = ['Amp_nT', 'Bix_nT', 'Biy_nT', 'Biz_nT', 'phase_deg']  # Add more as needed
-                needs_induction = st.session_state.explore_zName in induction_vars
+                needs_induction = st.session_state.explore_zName in induction_z_vars
 
                 if needs_induction:
                     Params.SKIP_INDUCTION = False
@@ -693,6 +898,20 @@ with col2:
 
                     Exploration = ExtractResults(Exploration, PlanetGrid, Params)
 
+                    # For derived parameters: substitute axis data with model outputs
+                    if x_driver and hasattr(Exploration.base, x_display_name):
+                        derived_x = getattr(Exploration.base, x_display_name)
+                        Exploration.xName = x_display_name
+                        Exploration.xData = derived_x
+                        Params.Explore.xName = x_display_name
+                        st.write(f"  ✓ X-axis substituted: {x_display_name} from model output (range: {np.nanmin(derived_x):.2f} – {np.nanmax(derived_x):.2f})")
+                    if y_driver and hasattr(Exploration.base, y_display_name):
+                        derived_y = getattr(Exploration.base, y_display_name)
+                        Exploration.yName = y_display_name
+                        Exploration.yData = derived_y
+                        Params.Explore.yName = y_display_name
+                        st.write(f"  ✓ Y-axis substituted: {y_display_name} from model output (range: {np.nanmin(derived_y):.2f} – {np.nanmax(derived_y):.2f})")
+
                     st.write(f"  ✓ Results extracted successfully")
                     st.write(f"  - Exploration.base exists: {hasattr(Exploration, 'base')}")
                     if hasattr(Exploration, 'base'):
@@ -746,16 +965,23 @@ with col2:
                     else:
                         st.error("❌ Exploration.base is None!")
 
-                    st.write("  - Storing to session state...")
+                    st.write("  - Storing to session state and disk cache...")
                     st.session_state.explore_results = {
                         'Planet': Planet,
+                        'Exploration': Exploration,
                         'Params': Params,
                         'xName': st.session_state.explore_xName,
                         'yName': st.session_state.explore_yName,
                         'zName': st.session_state.explore_zName,
-                        'xData': Exploration.xData,
-                        'yData': Exploration.yData,
                     }
+                    st.session_state.explore_cache_key = current_cache_key
+
+                    # Save to disk cache for cross-session persistence
+                    try:
+                        cache_path = save_to_cache(Exploration, cache_dir, current_cache_key)
+                        st.write(f"  - Cached to disk: {os.path.basename(cache_path)}")
+                    except Exception as e:
+                        st.warning(f"  - Disk cache save failed (non-critical): {e}")
 
                     st.write("  - Calculating statistics...")
                     elapsed_time = time.time() - start_time
@@ -865,115 +1091,109 @@ with col2:
                     st.stop()
 
             except Exception as e:
-                st.error(f"❌ Error extracting plot data: {e}")
+                st.error(f"Error extracting plot data: {e}")
                 import traceback
                 st.code(traceback.format_exc())
                 st.stop()
+
+            # --- INDUCTION GAP DETECTION ---
+            if zName in induction_z_vars:
+                has_induction_data = (
+                    hasattr(Exploration, 'induction') and
+                    Exploration.induction is not None and
+                    getattr(Exploration.induction, 'nPeaks', 0) > 0
+                )
+                if not has_induction_data:
+                    st.warning("Magnetic induction data not available in cached results")
+                    st.info(
+                        "This exploreogram was run without induction calculations. "
+                        "To view magnetic field data, re-run with induction enabled."
+                    )
+                    if st.button("Re-run with Induction Enabled"):
+                        st.session_state.explore_results = None
+                        st.session_state.explore_cache_key = None
+                        st.session_state.explore_force_rerun = True
+                        st.session_state.explore_running = True
+                        st.rerun()
+                    st.stop()
 
             # --- PLOTTING ---
             if use_interactive_plots:
                 # Use enhanced Plotly plotting
                 try:
-                    from Utilities.exploreogram_plotly import create_exploreogram_plotly
-
-                    # Get z-variable data
-                    # Check if this is a magnetic induction variable
-                    induction_vars = ['Amp_nT', 'Bix_nT', 'Biy_nT', 'Biz_nT', 'phase_deg',
-                                      'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT', 'Bi1Tot_nT',
-                                      'rBi1x_nT', 'rBi1y_nT', 'rBi1z_nT', 'rBi1Tot_nT',
-                                      'iBi1x_nT', 'iBi1y_nT', 'iBi1z_nT', 'iBi1Tot_nT']
-
-                    if zName in induction_vars:
-                        # Extract from induction substructure
-                        if hasattr(Exploration, 'induction') and Exploration.induction is not None:
-                            # Map GUI variable names to induction data structure names
-                            induction_var_map = {
-                                'Amp_nT': 'Amp',
-                                'phase_deg': 'Phase',
-                                'Bix_nT': 'Bix_nT',
-                                'Biy_nT': 'Biy_nT',
-                                'Biz_nT': 'Biz_nT',
-                                'Bi1x_nT': 'Bi1x_nT',
-                                'Bi1y_nT': 'Bi1y_nT',
-                                'Bi1z_nT': 'Bi1z_nT',
-                                'Bi1Tot_nT': 'Bi1Tot_nT',
-                                'rBi1x_nT': 'rBi1x_nT',
-                                'rBi1y_nT': 'rBi1y_nT',
-                                'rBi1z_nT': 'rBi1z_nT',
-                                'rBi1Tot_nT': 'rBi1Tot_nT',
-                                'iBi1x_nT': 'iBi1x_nT',
-                                'iBi1y_nT': 'iBi1y_nT',
-                                'iBi1z_nT': 'iBi1z_nT',
-                                'iBi1Tot_nT': 'iBi1Tot_nT',
-                            }
-
-                            induction_attr_name = induction_var_map.get(zName, zName)
-
-                            if hasattr(Exploration.induction, induction_attr_name):
-                                induction_data = getattr(Exploration.induction, induction_attr_name)
-
-                                # Induction data is 3D: (nPeaks, ny, nx)
-                                # For now, use the first frequency peak
-                                if induction_data is not None and len(induction_data.shape) == 3:
-                                    zData = induction_data[0, :, :]  # First frequency peak
-
-                                    # Show which frequency we're plotting
-                                    if hasattr(Exploration.induction, 'calcedExc') and Exploration.induction.calcedExc:
-                                        freq_names = list(Exploration.induction.calcedExc)
-                                        st.info(f"Showing {zName} for frequency: {freq_names[0] if freq_names else 'unknown'}")
-                                else:
-                                    st.error(f"Induction data '{induction_attr_name}' has unexpected shape or is None")
-                                    zData = np.zeros((len(yData), len(xData)))
-                            else:
-                                st.error(f"Could not find '{induction_attr_name}' in induction results. Induction may not have been calculated.")
-                                st.info("Available induction variables: " + str([attr for attr in dir(Exploration.induction) if not attr.startswith('_')]))
-                                zData = np.zeros((len(yData), len(xData)))
-                        else:
-                            st.error(f"Magnetic induction data not found. Make sure induction calculations were enabled.")
-                            zData = np.zeros((len(yData), len(xData)))
-                    elif hasattr(Exploration.base, zName):
-                        # Regular variable from base structure
-                        zData = getattr(Exploration.base, zName)
-                    else:
-                        st.warning(f"Could not find '{zName}' in exploration results. Available variables:")
-                        st.write([attr for attr in dir(Exploration.base) if not attr.startswith('_')])
-                        zData = np.zeros((len(yData), len(xData)))
+                    from Utilities.exploreogram_plotly import (
+                        create_exploreogram_plotly,
+                        create_inductogram_plotly,
+                    )
 
                     # Try to load FigLbl for proper styling
                     try:
                         from PlanetProfile.GetConfig import FigLbl
                         FigLbl.SetExploration(results['Planet'].name, Exploration.xName,
                                             Exploration.yName, Exploration.zName)
-                    except:
+                    except Exception:
                         FigLbl = None
 
-                    # Create enhanced Plotly plot
-                    fig = create_exploreogram_plotly(
-                        Exploration, Params, FigLbl=FigLbl,
-                        smoothing=False, smooth_factor=2
-                    )
+                    # Check if this is a magnetic induction variable
+                    is_induction = (zName in induction_z_vars and
+                                   hasattr(Exploration, 'induction') and
+                                   Exploration.induction is not None and
+                                   getattr(Exploration.induction, 'nPeaks', 0) > 0)
 
-                    st.plotly_chart(fig, use_container_width=True)
+                    if is_induction:
+                        # Multi-frequency inductogram display
+                        display_mode = st.session_state.get('induct_display_mode', 'real_imaginary')
+                        use_contours = st.session_state.get('induct_use_contours', True)
+
+                        nPeaks = Exploration.induction.nPeaks
+                        freq_names = list(Exploration.induction.calcedExc) if hasattr(Exploration.induction, 'calcedExc') and Exploration.induction.calcedExc else []
+                        st.info(f"Showing inductogram for {nPeaks} frequency peak(s): {', '.join(freq_names) if freq_names else 'unknown'}")
+
+                        fig = create_inductogram_plotly(
+                            Exploration, Params, FigLbl=FigLbl,
+                            display_mode=display_mode,
+                            use_contours=use_contours,
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        # Non-induction variable — standard exploreogram heatmap
+                        if zName in induction_z_vars:
+                            st.warning("Magnetic induction data not found. Make sure induction calculations were enabled.")
+
+                        use_contours = st.session_state.get('induct_use_contours', True)
+                        fig = create_exploreogram_plotly(
+                            Exploration, Params, FigLbl=FigLbl,
+                            smoothing=False, smooth_factor=2,
+                            use_contours=use_contours,
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
 
                 except Exception as e:
                     st.error(f"Error creating interactive plot: {e}")
+                    import traceback
+                    with st.expander("Show error details"):
+                        st.code(traceback.format_exc())
                     st.info("Falling back to basic Plotly plot...")
 
                     # Fallback to basic plot
                     if hasattr(Exploration.base, zName):
                         zData = getattr(Exploration.base, zName)
                     else:
-                        zData = np.zeros((len(yData), len(xData)))
+                        zData = np.zeros_like(Exploration.base.VALID, dtype=float)
 
                     # Get axis labels safely
                     xLabel = ALL_PARAMS.get(results["xName"], {}).get("label", results["xName"])
                     yLabel = ALL_PARAMS.get(results["yName"], {}).get("label", results["yName"])
                     zLabel = Z_VARIABLES.get(zName, zName)
 
+                    # Extract 1D axis values from 2D grids
+                    x1d = xData[:, 0] if len(xData.shape) == 2 else xData
+                    y1d = yData[0, :] if len(yData.shape) == 2 else yData
+
                     fig = go.Figure(data=go.Heatmap(
-                        x=xData,
-                        y=yData,
-                        z=zData,
+                        x=x1d,
+                        y=y1d,
+                        z=zData.T,
                         colorscale='Viridis',
                         colorbar=dict(title=zLabel),
                     ))
@@ -1012,10 +1232,90 @@ with col2:
                     FigureFiles = FigureFilesSubstruct(
                         figPath=output_dir,
                         figBase=fig_basename,
-                        xtn='pdf'
+                        xtn='.pdf',
+                        exploreAppend=results['zName']
                     )
 
                     FigureFilesList = [FigureFiles]
+
+                    # Assign FigureFiles to Params so GenerateExplorationPlots can access it
+                    Params.FigureFiles = FigureFiles
+
+                    # Ensure contourName is set
+                    if not hasattr(Params.Explore, 'contourName'):
+                        Params.Explore.contourName = None
+
+                    # Always reset excName — stale induction excitation names
+                    # from prior runs would otherwise append to non-induction labels
+                    Exploration.excName = None
+                    if not hasattr(Exploration, 'contourName'):
+                        Exploration.contourName = Params.Explore.contourName
+
+                    # Configure for induction multi-frequency display
+                    is_induction_z = zName in induction_z_vars
+                    if is_induction_z and hasattr(Exploration, 'induction') and Exploration.induction is not None:
+                        # Read display mode from GUI — controls real+imag vs amp+phase
+                        display_mode = st.session_state.get('induct_display_mode', 'real_imaginary')
+
+                        # Map display_mode to appropriate z-variable list
+                        if display_mode == 'amplitude_phase':
+                            # Force amplitude + phase subplots regardless of selected zName
+                            Params.Explore.zName = ['Amp_nT', 'phase_deg']
+                        elif display_mode == 'real_imaginary':
+                            # If user selected Amp or phase, substitute Bi1Tot for real+imag expansion
+                            if zName in ('Amp_nT', 'phase_deg'):
+                                Params.Explore.zName = ['Bi1Tot_nT']
+                            else:
+                                # zName should be in zNamePlotRealImag for automatic expansion
+                                Params.Explore.zName = [zName]
+                        else:
+                            Params.Explore.zName = [zName]
+
+                        Params.PLOT_COMBO_EXPLORATIONS = True
+
+                        # Ensure Params.Induct is initialized (may be None if loaded from disk cache)
+                        if Params.Induct is None:
+                            try:
+                                from PlanetProfile.MagneticInduction.defaultConfigInduct import inductAssign
+                                _, _, InductParams_display, _ = inductAssign()
+                                Params.Induct = InductParams_display
+                            except Exception:
+                                from PlanetProfile.Utilities.defineStructs import InductOgramParamsStruct
+                                Params.Induct = InductOgramParamsStruct(inductOtype=None, cLevels=None, dftC=None, cfmt=None)
+
+                        # Configure excSelectionPlot to match user-selected frequencies
+                        selected_exc = st.session_state.get('selected_excitations', [])
+                        # Ensure all selected excitations have entries in excSelectionPlot
+                        for exc_name in selected_exc:
+                            if exc_name not in Params.Induct.excSelectionPlot:
+                                Params.Induct.excSelectionPlot[exc_name] = True
+                        for exc_name in Params.Induct.excSelectionPlot.keys():
+                            Params.Induct.excSelectionPlot[exc_name] = exc_name in selected_exc
+
+                        # Rebuild FigureFiles with list-format exploreAppend
+                        FigureFiles = FigureFilesSubstruct(
+                            figPath=output_dir,
+                            figBase=fig_basename,
+                            xtn='.pdf',
+                            exploreAppend=Params.Explore.zName
+                        )
+                        FigureFilesList = [FigureFiles]
+                        Params.FigureFiles = FigureFiles
+                    else:
+                        # Non-induction: single variable mode
+                        Params.Explore.zName = zName
+                        Params.PLOT_COMBO_EXPLORATIONS = False
+
+                    # Plot flags
+                    if not hasattr(Params, 'PLOT_Zb_D'):
+                        Params.PLOT_Zb_D = False
+                    if not hasattr(Params, 'PLOT_D_SIGMA'):
+                        Params.PLOT_D_SIGMA = False
+                    if not hasattr(Params, 'PLOT_LOVE_COMPARISON'):
+                        Params.PLOT_LOVE_COMPARISON = False
+
+                    # Propagate contour toggle from GUI checkbox
+                    Params.Explore.DRAW_CONTOURS = st.session_state.get('induct_use_contours', True)
 
                     # Temporarily enable plots
                     old_skip = Params.SKIP_PLOTS
@@ -1024,19 +1324,32 @@ with col2:
                     # Generate matplotlib plots
                     with st.spinner("Generating publication-quality matplotlib plots..."):
                         GenerateExplorationPlots(ExplorationList, FigureFilesList, Params)
-                        plt.close('all')  # Clean up
+                        plt.close('all')
 
                     Params.SKIP_PLOTS = old_skip
 
-                    # Display the generated PDF
-                    if os.path.exists(FigureFiles.explore):
-                        st.success("✅ Matplotlib plot generated!")
-                        images = convert_from_path(FigureFiles.explore)
-                        st.image(images[0], use_container_width=True, caption="Publication-quality matplotlib plot")
+                    # Display generated plots
+                    explore_path = FigureFiles.explore
+                    if isinstance(explore_path, list):
+                        # Multi-subplot generates one file
+                        explore_path = FigureFiles.exploreMultiSubplot if hasattr(FigureFiles, 'exploreMultiSubplot') else explore_path[0]
+                    if os.path.exists(explore_path):
+                        st.success("Matplotlib plot generated!")
+                        images = convert_from_path(explore_path)
+                        for img in images:
+                            st.image(img, use_container_width=True)
                     else:
-                        st.warning("Plot file not found. Falling back to interactive plot.")
-                        use_interactive_plots = True
-                        st.rerun()
+                        # Try finding any generated PDF in output dir
+                        import glob
+                        pdfs = glob.glob(os.path.join(output_dir, f"{fig_basename}*.pdf"))
+                        if pdfs:
+                            for pdf_path in pdfs:
+                                images = convert_from_path(pdf_path)
+                                for img in images:
+                                    st.image(img, use_container_width=True, caption=os.path.basename(pdf_path))
+                        else:
+                            st.warning(f"Plot file not found at: {explore_path}")
+                            st.info("Try enabling 'Interactive Plots' checkbox for Plotly-based plots instead.")
 
                 except Exception as e:
                     st.error(f"Error generating matplotlib plot: {e}")
@@ -1046,15 +1359,33 @@ with col2:
                         st.code(traceback.format_exc())
 
             # Statistics (get zData for stats regardless of plot type)
-            if hasattr(Exploration.base, zName):
+            induction_var_map = {
+                'Amp_nT': 'Amp', 'phase_deg': 'Phase',
+                'Bix_nT': 'Bix_nT', 'Biy_nT': 'Biy_nT', 'Biz_nT': 'Biz_nT',
+                'Bi1x_nT': 'Bi1x_nT', 'Bi1y_nT': 'Bi1y_nT', 'Bi1z_nT': 'Bi1z_nT',
+                'Bi1Tot_nT': 'Bi1Tot_nT',
+                'rBi1x_nT': 'rBi1x_nT', 'rBi1y_nT': 'rBi1y_nT', 'rBi1z_nT': 'rBi1z_nT',
+                'rBi1Tot_nT': 'rBi1Tot_nT',
+                'iBi1x_nT': 'iBi1x_nT', 'iBi1y_nT': 'iBi1y_nT', 'iBi1z_nT': 'iBi1z_nT',
+                'iBi1Tot_nT': 'iBi1Tot_nT',
+            }
+            if zName in induction_var_map and hasattr(Exploration, 'induction') and Exploration.induction is not None:
+                attr = induction_var_map[zName]
+                raw = getattr(Exploration.induction, attr, None)
+                if raw is not None and len(raw.shape) == 3:
+                    zData_stats = np.real(raw[0, :, :])  # First peak for stats
+                else:
+                    zData_stats = np.zeros_like(Exploration.base.VALID, dtype=float)
+            elif hasattr(Exploration.base, zName):
                 zData_stats = getattr(Exploration.base, zName)
             else:
-                zData_stats = np.zeros((len(yData), len(xData)))
+                zData_stats = np.zeros_like(Exploration.base.VALID, dtype=float)
 
             st.markdown("#### Statistics")
             col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+            n_total = Exploration.base.VALID.size if Exploration.base.VALID is not None else 0
             with col_stat1:
-                st.metric("Valid Models", f"{np.sum(Exploration.base.VALID)}/{len(xData)*len(yData)}")
+                st.metric("Valid Models", f"{np.sum(Exploration.base.VALID)}/{n_total}")
             with col_stat2:
                 st.metric("Min", f"{np.nanmin(zData_stats):.2f}")
             with col_stat3:
@@ -1077,7 +1408,7 @@ with col2:
                         filepath = os.path.join(output_dir, filename)
                         if 'fig' in locals():
                             fig.write_html(filepath)
-                            st.success(f"✅ Saved to {filename}")
+                            st.success(f"Saved to `{filepath}`")
                         else:
                             st.error("No figure available to save")
                 with col_dl2:
@@ -1090,7 +1421,7 @@ with col2:
                         if 'fig' in locals():
                             try:
                                 fig.write_image(filepath, width=1200, height=900)
-                                st.success(f"✅ Saved to {filename}")
+                                st.success(f"Saved to `{filepath}`")
                             except Exception as e:
                                 st.error(f"Error saving PNG: {e}")
                                 st.info("Install kaleido for image export: pip install kaleido")
@@ -1105,18 +1436,40 @@ with col2:
                         filepath = os.path.join(output_dir, filename)
                         with open(filepath, 'wb') as f:
                             pickle.dump(results, f)
-                        st.success(f"✅ Saved to {filename}")
+                        st.success(f"Saved to `{filepath}`")
             else:
                 col_dl1, col_dl2 = st.columns(2)
                 with col_dl1:
                     # PDF already saved by GenerateExplorationPlots
-                    output_dir = os.path.join(parent_directory, 'output', 'exploreograms')
-                    filename = f"{results['Planet'].name}_explore_{results['xName']}_vs_{results['yName']}.pdf"
-                    filepath = os.path.join(output_dir, filename)
-                    if os.path.exists(filepath):
-                        st.info(f"📄 Matplotlib PDF saved at:\n{filename}")
+                    # For induction multi-subplot, use exploreMultiSubplot path
+                    pdf_path = None
+                    is_induction_z = zName in induction_z_vars
+                    if hasattr(FigureFiles, 'exploreMultiSubplot') and is_induction_z:
+                        candidate = FigureFiles.exploreMultiSubplot
+                        if os.path.exists(candidate):
+                            pdf_path = candidate
+                    if pdf_path is None and hasattr(FigureFiles, 'explore'):
+                        candidate = FigureFiles.explore
+                        if isinstance(candidate, list):
+                            for c in candidate:
+                                if os.path.exists(c):
+                                    pdf_path = c
+                                    break
+                        elif os.path.exists(candidate):
+                            pdf_path = candidate
+                    if pdf_path is None:
+                        # Fallback: search output dir for any matching PDF
+                        import glob as glob_mod
+                        output_dir = os.path.join(parent_directory, 'output', 'exploreograms')
+                        fig_basename = f"{results['Planet'].name}_explore_{results['xName']}_vs_{results['yName']}"
+                        matches = glob_mod.glob(os.path.join(output_dir, f"{fig_basename}*.pdf"))
+                        if matches:
+                            pdf_path = matches[0]
+
+                    if pdf_path is not None:
+                        st.info(f"PDF saved at:\n`{pdf_path}`")
                     else:
-                        st.warning("PDF not found")
+                        st.warning("PDF not found — check output/exploreograms/ directory")
 
                 with col_dl2:
                     # Save results
@@ -1127,7 +1480,137 @@ with col2:
                         filepath = os.path.join(output_dir, filename)
                         with open(filepath, 'wb') as f:
                             pickle.dump(results, f)
-                        st.success(f"✅ Saved to {filename}")
+                        st.success(f"Saved to `{filepath}`")
+
+            # Export editable Python script for matplotlib plots
+            if st.button("Export Editable Python Script"):
+                output_dir = os.path.join(parent_directory, 'output', 'exploreograms')
+                os.makedirs(output_dir, exist_ok=True)
+                pkl_filename = f"{results['Planet'].name}_explore_{results['xName']}_vs_{results['yName']}.pkl"
+                pkl_filepath = os.path.join(output_dir, pkl_filename)
+                # Ensure Exploration is stored directly in results for script access
+                if 'Exploration' not in results and hasattr(results.get('Planet'), 'Exploration'):
+                    results['Exploration'] = results['Planet'].Exploration
+                elif 'Exploration' not in results:
+                    results['Exploration'] = Exploration
+                # Save PKL (always overwrite to capture latest Exploration)
+                with open(pkl_filepath, 'wb') as f:
+                    pickle.dump(results, f)
+
+                py_filename = f"plot_{results['Planet'].name}_{results['xName']}_vs_{results['yName']}.py"
+                py_filepath = os.path.join(output_dir, py_filename)
+
+                # Build z-variable info for the script
+                is_induction_z_export = zName in induction_z_vars
+                if is_induction_z_export:
+                    display_mode_export = st.session_state.get('induct_display_mode', 'real_imaginary')
+                    if display_mode_export == 'amplitude_phase':
+                        zname_export = "['Amp_nT', 'phase_deg']"
+                    elif zName in ('Amp_nT', 'phase_deg'):
+                        zname_export = "['Bi1Tot_nT']"
+                    else:
+                        zname_export = f"['{zName}']"
+                    combo_export = 'True'
+                else:
+                    zname_export = f"'{zName}'"
+                    combo_export = 'False'
+
+                use_contours_export = st.session_state.get('induct_use_contours', True)
+
+                script_content = f'''#!/usr/bin/env python
+"""
+Editable matplotlib exploreogram plot script.
+Generated by PlanetProfileApp — modify as needed for publication.
+
+Data file: {pkl_filepath}
+"""
+import sys, os
+import pickle
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+
+# --- Add PlanetProfile to path and set working directory ---
+# GetConfig.py looks for SPICE kernels relative to CWD, so we must
+# change to the repo root before importing anything from PlanetProfile.
+sys.path.insert(0, r'{parent_directory}')
+os.chdir(r'{parent_directory}')
+
+# --- Load data ---
+PKL_PATH = r'{pkl_filepath}'
+with open(PKL_PATH, 'rb') as f:
+    results = pickle.load(f)
+
+from PlanetProfile.GetConfig import FigLbl, FigMisc, Color, Style
+from PlanetProfile.Plotting.ExplorationPlots import GenerateExplorationPlots
+from PlanetProfile.Utilities.defineStructs import FigureFilesSubstruct, ParamsStruct, ExploreParamsStruct
+
+# --- Illustrator-compatible fonts (AFTER GetConfig import, which sets STIX) ---
+mpl.rcParams['text.usetex'] = False
+mpl.rcParams['mathtext.fontset'] = 'dejavusans'
+mpl.rcParams['pdf.fonttype'] = 42      # TrueType — Illustrator can edit
+mpl.rcParams['ps.fonttype'] = 42
+mpl.rcParams['font.family'] = 'sans-serif'
+mpl.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
+
+# --- Reconstruct Params and Exploration ---
+Exploration = results.get('Exploration') or results['Planet'].Exploration
+if Exploration is None:
+    raise RuntimeError("Exploration data not found in PKL. Re-export from PlanetProfileApp.")
+Params = ParamsStruct()
+Params.Explore = ExploreParamsStruct()
+Params.Explore.xName = Exploration.xName
+Params.Explore.yName = Exploration.yName
+Params.Explore.zName = {zname_export}
+Params.Explore.nx = Exploration.nx
+Params.Explore.ny = Exploration.ny
+Params.Explore.contourName = None
+Params.Explore.DRAW_CONTOURS = {use_contours_export}
+Params.PLOT_COMBO_EXPLORATIONS = {combo_export}
+Params.TITLES = True
+Params.SKIP_PLOTS = False
+Params.PLOT_Zb_D = False
+Params.PLOT_D_SIGMA = False
+Params.PLOT_LOVE_COMPARISON = False
+
+# --- Output paths (edit as needed) ---
+OUTPUT_DIR = os.path.dirname(PKL_PATH)
+FIG_BASENAME = '{results["Planet"].name}_explore_{results["xName"]}_vs_{results["yName"]}'
+FigureFiles = FigureFilesSubstruct(
+    figPath=OUTPUT_DIR,
+    figBase=FIG_BASENAME,
+    xtn='.pdf',
+    exploreAppend=Params.Explore.zName
+)
+Params.FigureFiles = FigureFiles
+
+'''
+                # Add induction params if needed
+                if is_induction_z_export:
+                    selected_exc = st.session_state.get('selected_excitations', [])
+                    exc_dict_str = ', '.join(f"'{e}': True" for e in selected_exc)
+                    script_content += f'''# --- Induction configuration ---
+from PlanetProfile.Utilities.defineStructs import InductOgramParamsStruct
+Params.Induct = InductOgramParamsStruct(inductOtype=None, cLevels=None, dftC=None, cfmt=None)
+Params.Induct.excSelectionPlot = {{{exc_dict_str}}}
+
+'''
+
+                script_content += f'''# --- Generate plots ---
+ExplorationList = [Exploration]
+FigureFilesList = [FigureFiles]
+
+GenerateExplorationPlots(ExplorationList, FigureFilesList, Params)
+plt.show()
+
+print(f"Plots saved to {{OUTPUT_DIR}}")
+'''
+
+                with open(py_filepath, 'w') as f:
+                    f.write(script_content)
+                st.success(f"Python script saved to:\n`{py_filepath}`")
+                st.info("Run it with: `python " + py_filename + "` from the output directory, or open and edit in your IDE.")
+
         else:
             st.error("No exploration results found in Planet object.")
 

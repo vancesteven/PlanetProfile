@@ -99,22 +99,31 @@ def get_available_excitations(result_obj, exc_selection_calc=None):
 def countPlottableExcitations(calcedExc, params_induct):
     """
     Count number of excitations that can be plotted for PlotComplexBdip logic.
-    
+
     This consolidates the complex counting logic from PlotComplexBdip that
     determines if we have enough excitations to plot.
-    
+
     Args:
-        bodyname: Name of celestial body
+        calcedExc: Calculated excitations (list, dict, or numpy array)
         params_induct: Induction parameters object
-        
+
     Returns:
-        int: Number of excitations that can be plotted
+        tuple: (count, list_of_excitation_names)
     """
+    # Normalize calcedExc to a list of strings
+    if isinstance(calcedExc, dict):
+        excList = list(calcedExc.keys()) if calcedExc else []
+    elif calcedExc is None:
+        excList = []
+    else:
+        excList = list(calcedExc)
+
     plottable_keys = []
-    for key in calcedExc:
-        if key in params_induct.excSelectionPlot.keys() and params_induct.excSelectionPlot[key]:
+    for key in excList:
+        key = str(key).strip()  # Handle numpy string arrays
+        if key in params_induct.excSelectionPlot and params_induct.excSelectionPlot[key]:
             plottable_keys.append(key)
-    
+
     return len(plottable_keys), plottable_keys
         
 
@@ -344,7 +353,13 @@ def extract_and_validate_plot_data(result_obj, x_field, y_field, c_field=None, c
     # Extract color field if provided
     c_valid = None
     if c_field is not None:
-        if 'Induction' in c_field:
+        # List of magnetic induction variables
+        mag_induction_vars = ['Amp_nT', 'Bix_nT', 'Biy_nT', 'Biz_nT', 'phase_deg',
+                              'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT', 'Bi1Tot_nT',
+                              'rBi1x_nT', 'rBi1y_nT', 'rBi1z_nT', 'rBi1Tot_nT',
+                              'iBi1x_nT', 'iBi1y_nT', 'iBi1z_nT', 'iBi1Tot_nT']
+
+        if 'Induction' in c_field or c_field in mag_induction_vars:
             c_raw = extract_magnetic_field_data(result_obj, c_field)
         elif hasattr(result_obj.base, c_field):
             c_raw = result_obj.base.__dict__[c_field]
@@ -360,7 +375,18 @@ def extract_and_validate_plot_data(result_obj, x_field, y_field, c_field=None, c
     # Extract contour field if provided
     contour_valid = None
     if contour_field is not None:
-        if hasattr(result_obj.base, contour_field):
+        # List of magnetic induction variables (same as c_field)
+        mag_induction_vars = ['Amp_nT', 'Bix_nT', 'Biy_nT', 'Biz_nT', 'phase_deg',
+                              'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT', 'Bi1Tot_nT',
+                              'rBi1x_nT', 'rBi1y_nT', 'rBi1z_nT', 'rBi1Tot_nT',
+                              'iBi1x_nT', 'iBi1y_nT', 'iBi1z_nT', 'iBi1Tot_nT']
+
+        if 'Induction' in contour_field or contour_field in mag_induction_vars:
+            # Handle magnetic induction fields from 3D data
+            contour_raw = extract_magnetic_field_data(result_obj, contour_field)
+            contour = np.reshape(contour_raw * contour_multiplier, -1)
+            contour_valid = contour
+        elif hasattr(result_obj.base, contour_field):
             contour_raw = result_obj.base.__dict__[contour_field]
             # Handle string vs numeric data (like in PlotExploreOgramModern)
             if np.issubdtype(contour_raw.dtype, np.number):
@@ -368,9 +394,6 @@ def extract_and_validate_plot_data(result_obj, x_field, y_field, c_field=None, c
             else:
                 contour = np.reshape(contour_raw, -1)  # Don't multiply string data
             contour_valid = contour
-        elif hasattr(result_obj, 'induction') and hasattr(result_obj.induction, contour_field):
-            # Handle magnetic induction fields from 3D data
-            contour_valid = extract_magnetic_field_data(result_obj, contour_field, contour_multiplier)
         else:
             log.warning(f"Contour field {contour_field} not found in result.base or result.induction, contours will use color field")
     elif contour_field is None and c_field is not None:
@@ -823,14 +846,57 @@ def formatOceanCompositionLabel(comp):
 
 
 def extract_magnetic_field_data(result_obj, field_name):
+    # Map GUI variable names to induction data structure names
+    induction_var_map = {
+        'Amp_nT': 'Amp',
+        'phase_deg': 'Phase',
+        'Bix_nT': 'Bix_nT',
+        'Biy_nT': 'Biy_nT',
+        'Biz_nT': 'Biz_nT',
+        'Bi1x_nT': 'Bi1x_nT',
+        'Bi1y_nT': 'Bi1y_nT',
+        'Bi1z_nT': 'Bi1z_nT',
+        'Bi1Tot_nT': 'Bi1Tot_nT',
+        'rBi1x_nT': 'rBi1x_nT',
+        'rBi1y_nT': 'rBi1y_nT',
+        'rBi1z_nT': 'rBi1z_nT',
+        'rBi1Tot_nT': 'rBi1Tot_nT',
+        'iBi1x_nT': 'iBi1x_nT',
+        'iBi1y_nT': 'iBi1y_nT',
+        'iBi1z_nT': 'iBi1z_nT',
+        'iBi1Tot_nT': 'iBi1Tot_nT'
+    }
 
     excitation_name = result_obj.excName
-    inductionFieldName = field_name.replace('Induction', '')
+
+    # Handle 'Induction' suffix (legacy) or use mapping
+    if 'Induction' in field_name:
+        inductionFieldName = field_name.replace('Induction', '')
+    elif field_name in induction_var_map:
+        inductionFieldName = induction_var_map[field_name]
+    else:
+        inductionFieldName = field_name
+
     calcedExc = result_obj.induction.calcedExc
+    # calcedExc may be a list or dict depending on code path; normalize to list
+    if isinstance(calcedExc, dict):
+        calcedExc = list(calcedExc.keys()) if calcedExc else []
+    elif calcedExc is None:
+        calcedExc = []
+    else:
+        calcedExc = list(calcedExc)
+    # If excName is None, default to first calculated excitation
+    if excitation_name is None and len(calcedExc) > 0:
+        excitation_name = calcedExc[0]
+    if excitation_name not in calcedExc:
+        raise ValueError(
+            f"Excitation '{excitation_name}' not found in calculated excitations {calcedExc}. "
+            f"Ensure induction was computed for this frequency."
+        )
     iExcName = calcedExc.index(excitation_name)
     try:
         fullMagneticInductionData = getattr(result_obj.induction, inductionFieldName)
-    except:
+    except Exception:
         raise ValueError(f"Field {inductionFieldName} not found in result.induction")
     excExcitationData = fullMagneticInductionData[iExcName, :, :]
     return excExcitationData

@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.colors import Normalize
@@ -12,6 +13,51 @@ from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolu
 from scipy.interpolate import griddata
 import logging
 log = logging.getLogger('PlanetProfile')
+
+# Force Illustrator-compatible fonts: no STIX math, no Type 3 fonts.
+# Must disable usetex (set by GetConfig -> SetLatex) to prevent LaTeX
+# from embedding NimbusSanL / STIXMath that Illustrator cannot parse.
+mpl.rcParams['text.usetex'] = False
+mpl.rcParams['mathtext.fontset'] = 'dejavusans'
+mpl.rcParams['pdf.fonttype'] = 42      # TrueType — Illustrator can edit
+mpl.rcParams['ps.fonttype'] = 42
+mpl.rcParams['font.family'] = 'sans-serif'
+mpl.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
+
+import re as _re
+
+def _latex_to_plain(s):
+    """Convert a LaTeX-rich label string to plain text safe for matplotlib
+    mathtext (with usetex=False). Strips \\si, \\SI, \\ce, \\textbf,
+    \\mathrm commands and leaves just the braced content. Preserves
+    $...$ math expressions that mathtext can handle."""
+    if not isinstance(s, str):
+        return s
+    # \si{unit}, \SI{value}{unit}, \ce{formula}, \textbf{text}, \mathrm{text}
+    # → just the braced content
+    s = _re.sub(r'\\SI\{([^}]*)\}\{([^}]*)\}', r'\1 \2', s)
+    for cmd in ('si', 'ce', 'textbf', 'mathrm', 'text', 'mbox'):
+        s = _re.sub(r'\\' + cmd + r'\{([^}]*)\}', r'\1', s)
+    # \upbeta etc. → plain Greek name (niche, but present in some labels)
+    s = _re.sub(r'\\up([a-zA-Z]+)', r'$\\\1$', s)
+    # Remove stray \, (thin space) → regular space
+    s = s.replace(r'\,', ' ')
+    return s
+
+def _strip_labels_for_mathtext(lbl_obj):
+    """Walk all string attrs of a FigLbl-like object and sanitize LaTeX."""
+    for key, val in lbl_obj.__dict__.items():
+        if isinstance(val, str):
+            setattr(lbl_obj, key, _latex_to_plain(val))
+        elif isinstance(val, dict):
+            for k, v in val.items():
+                if isinstance(v, str):
+                    val[k] = _latex_to_plain(v)
+
+# Since we disabled usetex, strip LaTeX commands (\si, \ce, \textbf, etc.)
+# from FigLbl so matplotlib's mathtext parser doesn't choke on them.
+_strip_labels_for_mathtext(FigLbl)
+FigMisc.TEX_INSTALLED = False  # Prevent downstream code from using LaTeX commands
 
 def GenerateExplorationPlots(ExplorationList, FigureFilesList, Params):
     """
@@ -182,7 +228,7 @@ def PlotExploreOgramDsigma(results_list, FigureFilesList, Params):
         plt.close()
 
 
-def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None):
+def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None, subplot_mode=False):
     # Set up basic figure labels using first result
     first_result = ExplorationList[0]
     FigLbl.SetExploration(first_result.bodyname, first_result.xName,
@@ -191,12 +237,13 @@ def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None):
         FigLbl.StripLatex()
     # Handle axis creation - support for multi-subplot usage
     createNewFigure = ax is None
-    
+    FONTSIZE = 12
+
     DO_SMOOTHING = FigMisc.EXPLOREOGRAM_SMOOTHING
     for i, exploration in enumerate(ExplorationList):
         FigureFiles = FigureFilesList[i]
         Params.FigureFiles = FigureFiles
-        
+
         if createNewFigure:
             # Create new figure/axes and save it (original behavior)
             fig = plt.figure(figsize=FigSize.explore)
@@ -207,26 +254,29 @@ def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None):
             fig = ax.figure  # Get figure from provided axis
         else:
             fig = ax.figure  # Get figure from provided axis
-        
+
         if Style.GRIDS:
             ax.grid()
             ax.set_axisbelow(True)
         else:
             ax.grid(False)
             ax.set_axisbelow(False)
-            
+
         # Only set figure title if we created the figure (not in subplot mode)
         if Params.TITLES and createNewFigure:
-            fig.suptitle(FigLbl.explorationTitle)
+            fig.suptitle(FigLbl.explorationTitle, fontsize=FONTSIZE)
         elif Params.TITLES and not createNewFigure:
-            # In subplot mode, set the subplot title instead of figure title
-            ax.set_title(FigLbl.cbarLabelExplore)
-        
+            # In subplot mode, place title INSIDE the plot at upper-right
+            ax.text(0.97, 0.97, FigLbl.cbarLabelExplore, transform=ax.transAxes,
+                    fontsize=FONTSIZE, ha='right', va='top',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+
         # Set up axis labels and scales
-        ax.set_xlabel(FigLbl.xLabelExplore)
-        ax.set_ylabel(FigLbl.yLabelExplore)
+        ax.set_xlabel(FigLbl.xLabelExplore, fontsize=FONTSIZE)
+        ax.set_ylabel(FigLbl.yLabelExplore, fontsize=FONTSIZE)
         ax.set_xscale(FigLbl.xScaleExplore)
         ax.set_yscale(FigLbl.yScaleExplore)
+        ax.tick_params(labelsize=FONTSIZE)
         
         # Extract x, y, z, and contour data using enhanced helper function
         contour_field = Params.Explore.contourName
@@ -275,13 +325,26 @@ def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None):
                 # Use actual data range for colormap
                 vmin = data_min
                 vmax = data_max
+            # Select colormap: diverging (RdBu_r) for variables that span +/- (Re/Im),
+            # sequential (viridis) for everything else (amplitude, phase, non-induction)
+            _diverging_vars = {'rBi1x_nT', 'rBi1y_nT', 'rBi1z_nT', 'rBi1Tot_nT',
+                               'iBi1x_nT', 'iBi1y_nT', 'iBi1z_nT', 'iBi1Tot_nT'}
+            if exploration.zName in _diverging_vars or exploration.zName in FigLbl.cMapZero:
+                cmap_choice = 'RdBu_r'
+            else:
+                cmap_choice = 'viridis'
             # Create the main plot
-            mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=Color.cmap['default'], 
+            mesh = ax.pcolormesh(x, y, z, shading='auto', cmap=cmap_choice,
                             vmin=vmin, vmax=vmax, rasterized=FigMisc.PT_RASTER, edgecolors='none', linewidth = 0)
             
-            """Colorbar""" 
-            # Add colorbar
-            cbar = fig.colorbar(mesh, ax=ax, format=FigLbl.cbarFmt)
+            """Colorbar"""
+            # Add colorbar — use reduced size in subplot mode to prevent overlap
+            cbar_kwargs = dict(format=FigLbl.cbarFmt)
+            if subplot_mode:
+                cbar_kwargs['shrink'] = 0.85
+                cbar_kwargs['pad'] = 0.02
+                cbar_kwargs['aspect'] = 20
+            cbar = fig.colorbar(mesh, ax=ax, **cbar_kwargs)
             # Change tick spacing if specified
             if FigLbl.cTicksSpacingExplore is not None:
                 cbar_ticks = np.arange(np.ceil(data_min / FigLbl.cTicksSpacingExplore) * FigLbl.cTicksSpacingExplore, np.floor(data_max / FigLbl.cTicksSpacingExplore) * FigLbl.cTicksSpacingExplore + 0.0001, FigLbl.cTicksSpacingExplore)
@@ -345,9 +408,10 @@ def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None):
                 new_ticks = np.insert(np.append(valid_ticks, data_max), 0, data_min)
                 cbar.set_ticks(np.unique(new_ticks))  
             
-            cbar.ax.tick_params(labelsize=17)
+            cbar.ax.tick_params(labelsize=FONTSIZE)
             if createNewFigure:
-                cbar.set_label(FigLbl.cbarLabelExplore, size=25)
+                cbar.set_label(FigLbl.cbarLabelExplore, size=FONTSIZE)
+            # In subplot mode, title already shows the variable name — skip colorbar label
             
             
             """Contour levels"""
@@ -386,10 +450,12 @@ def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None):
                             tooManyContours = False
 
             # Reduce contour text size if they are close to other contours
-            if len(contourLevels) > 0:
-                cont = ax.contour(x, y, contourData, levels=contourLevels, colors='black')
-                lbls = plt.clabel(cont, fmt=FigLbl.cfmt, fontsize=15,
-                  colors='black', inline=True)
+            draw_contours = getattr(Params.Explore, 'DRAW_CONTOURS', True)
+            if draw_contours and len(contourLevels) > 0:
+                contour_color = 'black' if cmap_choice == 'RdBu_r' else 'white'
+                cont = ax.contour(x, y, contourData, levels=contourLevels, colors=contour_color)
+                lbls = plt.clabel(cont, fmt=FigLbl.cfmt, fontsize=FONTSIZE,
+                  colors=contour_color, inline=True)
                 # Get pixel positions of all labels
                 positions = np.array([ax.transData.transform(txt.get_position()) for txt in lbls])
                 n = len(lbls)
@@ -433,110 +499,130 @@ def PlotExploreOgramMultiSubplot(results_list, FigureFilesList, Params):
         Params: Configuration parameters (Params.Explore.zName must be a list)
     """
     
+    # GUI-style induction variable names (no 'Induction' prefix)
+    gui_induction_vars = {'Amp_nT', 'phase_deg', 'Bix_nT', 'Biy_nT', 'Biz_nT',
+                          'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT', 'Bi1Tot_nT',
+                          'rBi1x_nT', 'rBi1y_nT', 'rBi1z_nT', 'rBi1Tot_nT',
+                          'iBi1x_nT', 'iBi1y_nT', 'iBi1z_nT', 'iBi1Tot_nT'}
+
+    # Detect paired-variable mode: if zName list contains exactly Amp+Phase or
+    # two paired induction vars, treat as paired (2-col layout like Re+Im)
+    zNameList = list(Params.Explore.zName)
+    amp_phase_pair = set(zNameList) == {'Amp_nT', 'phase_deg'}
+    log.info(f'[MultiSubplot] zNameList={zNameList}, amp_phase_pair={amp_phase_pair}')
+
     # Params.Explore.zName should be a list when this function is called
     zNames = []
     zExcNames = []
     n_subplots = 0
-    for i, z_name in enumerate(Params.Explore.zName):
-        if z_name in FigLbl.zNamePlotRealImag:
-            real_name = FigLbl.zNamePlotRealImag[z_name][0]
-            imag_name = FigLbl.zNamePlotRealImag[z_name][1]
-            nExc_subplot, excNames = countPlottableExcitations(results_list[0].induction.calcedExc, Params.Induct)
-            for excName in excNames:
-                zNames.append(real_name)
-                zExcNames.append(excName)
-                zNames.append(imag_name)
-                zExcNames.append(excName)
-                n_subplots += 2
-        elif 'Induction' in z_name:
-            nExc_subplot, excNames = countPlottableExcitations(results_list[0].induction.calcedExc, Params.Induct)
-            n_subplots += nExc_subplot
-            for excName in excNames:
+
+    if amp_phase_pair:
+        # Paired mode: for each frequency, emit Amp then Phase (mirrors Re+Im layout)
+        log.info(f'Amplitude+Phase paired mode: interleaving Amp/Phase for each excitation')
+        nExc_subplot, excNames = countPlottableExcitations(results_list[0].induction.calcedExc, Params.Induct)
+        for excName in excNames:
+            zNames.append('Amp_nT')
+            zExcNames.append(excName)
+            zNames.append('phase_deg')
+            zExcNames.append(excName)
+            n_subplots += 2
+    else:
+        for i, z_name in enumerate(zNameList):
+            if z_name in FigLbl.zNamePlotRealImag:
+                real_name = FigLbl.zNamePlotRealImag[z_name][0]
+                imag_name = FigLbl.zNamePlotRealImag[z_name][1]
+                nExc_subplot, excNames = countPlottableExcitations(results_list[0].induction.calcedExc, Params.Induct)
+                for excName in excNames:
+                    zNames.append(real_name)
+                    zExcNames.append(excName)
+                    zNames.append(imag_name)
+                    zExcNames.append(excName)
+                    n_subplots += 2
+            elif 'Induction' in z_name or z_name in gui_induction_vars:
+                nExc_subplot, excNames = countPlottableExcitations(results_list[0].induction.calcedExc, Params.Induct)
+                n_subplots += nExc_subplot
+                for excName in excNames:
+                    zNames.append(z_name)
+                    zExcNames.append(excName)
+            else:
+                n_subplots += 1
                 zNames.append(z_name)
-                zExcNames.append(excName)
-        else:
-            n_subplots += 1
-            zNames.append(z_name)
-            zExcNames.append(None)
+                zExcNames.append(None)
     
-    n_cols = int(np.ceil(np.sqrt(n_subplots)))
-    n_rows = int(np.ceil(n_subplots / n_cols))
-    
-    # Calculate figure size with scaling
-    base_size = FigSize.explore
-    scale_factor = 1
-    fig_width = base_size[0] * n_cols * scale_factor
-    fig_height = base_size[1] * n_rows * scale_factor
-    
-    
-    
+    log.info(f'[MultiSubplot] Final subplot order: zNames={zNames}, zExcNames={zExcNames}, n_subplots={n_subplots}')
+
+    if n_subplots == 0:
+        log.warning('No plottable subplots found. Check excSelectionPlot configuration.')
+        return
+
+    # Determine grid layout — use 2-column layout for Real+Imaginary inductograms
+    all_induction = all(excN is not None for excN in zExcNames)
+    if all_induction and n_subplots % 2 == 0:
+        # Inductogram: rows = frequencies, cols = 2 (real + imaginary)
+        n_cols = 2
+        n_rows = n_subplots // 2
+    else:
+        n_cols = int(np.ceil(np.sqrt(n_subplots)))
+        n_rows = int(np.ceil(n_subplots / n_cols))
+
+    # Calculate figure size — give generous space per subplot to avoid overlaps
+    # Each subplot needs ~4in wide (plot + colorbar) and ~3.5in tall (plot + labels + title)
+    subplot_w = 4.5
+    subplot_h = 3.8
+    fig_width = subplot_w * n_cols
+    fig_height = subplot_h * n_rows + 0.6  # extra for suptitle
+
     for j, Exploration in enumerate(results_list):
-        # Create figure with subplots
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(fig_width, fig_height), constrained_layout=True, squeeze=False)
+        # Create figure with subplots — use constrained_layout with generous padding
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(fig_width, fig_height),
+                                 constrained_layout=True, squeeze=False,
+                                 sharex=True, sharey=True)
+        # constrained_layout padding — moderate horizontal gap for colorbars
+        fig.get_layout_engine().set(w_pad=0.08, h_pad=0.15, hspace=0.10, wspace=0.15)
+
         SubListFigureFiles = [FigureFilesList[j]]
         # Create subplots and let PlotExploreOgram handle individual plots
         for i in range(n_subplots):
             row = i // n_cols
             col = i % n_cols
             ax = axes[row, col]
-            
+
             # Set z-variable for all results
             Exploration.zName = zNames[i]
             Exploration.excName = zExcNames[i]
-            
-            # Call PlotExploreOgram with this axis - let it handle the subplot title
-            PlotExploreOgram([Exploration], SubListFigureFiles, Params, ax=ax)
+
+            # Call PlotExploreOgram with subplot_mode for reduced font sizes
+            PlotExploreOgram([Exploration], SubListFigureFiles, Params, ax=ax, subplot_mode=True)
             # Explicitly disable grid after plotting to prevent grid lines from appearing on save
             if not Style.GRIDS:
                 ax.grid(False)
                 ax.set_axisbelow(False)
-            # Add subplot label (a, b, c, etc.) if enabled
-            if FigMisc.SUBPLOT_LABELS:
-                letters = "abcdefghijklmnopqrstuvwxyz"
-                label = ""
-                n = i + 1
-                while n:
-                    n, r = divmod(n - 1, 26)
-                    label = letters[r] + label
 
-                ax.text(
-                    FigMisc.SUBPLOT_LABEL_X, FigMisc.SUBPLOT_LABEL_Y, label,
-                    transform=ax.transAxes,
-                    fontsize=FigMisc.SUBPLOT_LABEL_FONTSIZE,
-                    fontweight='bold',
-                    ha='left',
-                    va='top',
-                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8)
-                )
-            
-            # After plotting, hide axis labels selectively
+            # Hide redundant axis labels — shared axes handle tick labels automatically
             is_bottom_row = (row == n_rows - 1) or (i >= n_subplots - n_cols)
-            is_left_column = (col == 0) 
-            
+            is_left_column = (col == 0)
+
             if not is_bottom_row:
                 ax.set_xlabel('')
-                ax.tick_params(axis='x', labelbottom=False)
-            ax.tick_params(axis='x', labelsize=FigMisc.SUBPLOT_LABEL_FONTSIZE)
             if not is_left_column:
                 ax.set_ylabel('')
-                ax.tick_params(axis='y', labelleft=False, labelsize=FigMisc.SUBPLOT_LABEL_FONTSIZE)
-        
+
         # Hide unused subplots
         total_subplots = n_rows * n_cols
         for i in range(n_subplots, total_subplots):
-            ax = fig.add_subplot(n_rows, n_cols, i + 1)
-            ax.set_visible(False)
-            # Set overall title if configured
-        fig.suptitle(FigLbl.subplotExplorationTitle, fontsize=15)
+            axes.flatten()[i].set_visible(False)
+
+        # Set overall title if configured
+        fig.suptitle(FigLbl.subplotExplorationTitle, fontsize=12, y=1.01)
         # Explicitly disable grid after plotting to prevent grid lines from appearing on save
         for ax in axes.flatten():
             if not Style.GRIDS:
                 ax.grid(False)
                 ax.set_axisbelow(False)
-        
+
         fig.savefig(Params.FigureFiles.exploreMultiSubplot, format=FigMisc.figFormat,
                 dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
-        log.debug(f'Multi-subplot exploration plot sved to file: {Params.FigureFiles.exploreMultiSubplot}')
+        log.debug(f'Multi-subplot exploration plot saved to file: {Params.FigureFiles.exploreMultiSubplot}')
         plt.close()
 
 

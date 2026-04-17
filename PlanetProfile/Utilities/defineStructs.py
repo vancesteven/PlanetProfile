@@ -1199,6 +1199,8 @@ class ExploreParamsStruct:
             'Rcore_km': 'inner',
             'wOcean_ppt': 'hydro',
             'Tb_K': 'hydro',
+            'D_km': 'hydro',
+            'rhoSilMean_kgm3': 'inner',
             'ionosTop_km': 'ionos',
             'sigmaIonos_Sm': 'ionos',
             'silPhi_frac': 'inner',
@@ -1925,7 +1927,6 @@ class FigLblStruct:
         self.axisLabelsExplore = None
         self.axisMultsExplore = None
         self.axisLogScalesExplore = [
-            'D_km',
             'sigmaIonos_Sm',
             'sigmaMean_Sm',
             'silPclosure_MPa',
@@ -1952,7 +1953,18 @@ class FigLblStruct:
             'hLovePhase',
             'deltaLovePhase',
             'affinityTop_kJ',
-            'pHTop'
+            'pHTop',
+            # GUI-style induction keys
+            'rBi1Tot_nT',
+            'iBi1Tot_nT',
+            'rBi1x_nT',
+            'rBi1y_nT',
+            'rBi1z_nT',
+            'iBi1x_nT',
+            'iBi1y_nT',
+            'iBi1z_nT',
+            'Amp_nT',
+            'phase_deg',
         ]
         # Contour format strings for exploreograms
         self.cfmtExplore = {
@@ -1984,6 +1996,18 @@ class FigLblStruct:
             'InductioniBi1x_nT': '%.0f',
             'InductioniBi1y_nT': '%.0f',
             'InductioniBi1z_nT': '%.0f',
+            # GUI-style keys (no 'Induction' prefix)
+            'Bi1Tot_nT': '%.0f',
+            'rBi1Tot_nT': '%.0f',
+            'iBi1Tot_nT': '%.0f',
+            'rBi1x_nT': '%.0f',
+            'rBi1y_nT': '%.0f',
+            'rBi1z_nT': '%.0f',
+            'iBi1x_nT': '%.0f',
+            'iBi1y_nT': '%.0f',
+            'iBi1z_nT': '%.0f',
+            'Amp_nT': '%.1f',
+            'phase_deg': '%.1f',
         }
         self.cbarfmtExplore = {
             'Rcore_km': '%.0f',
@@ -2014,6 +2038,18 @@ class FigLblStruct:
             'InductioniBi1x_nT': '%.0f',
             'InductioniBi1y_nT': '%.0f',
             'InductioniBi1z_nT': '%.0f',
+            # GUI-style keys (no 'Induction' prefix)
+            'Bi1Tot_nT': '%.0f',
+            'rBi1Tot_nT': '%.0f',
+            'iBi1Tot_nT': '%.0f',
+            'rBi1x_nT': '%.0f',
+            'rBi1y_nT': '%.0f',
+            'rBi1z_nT': '%.0f',
+            'iBi1x_nT': '%.0f',
+            'iBi1y_nT': '%.0f',
+            'iBi1z_nT': '%.0f',
+            'Amp_nT': '%.1f',
+            'phase_deg': '%.1f',
         }
         self.cSpacingsExplore = {
             'pHSeafloor': 1,
@@ -2028,6 +2064,15 @@ class FigLblStruct:
             'InductioniBi1x_nT': 3,
             'InductioniBi1y_nT': 3,
             'InductioniBi1z_nT': 3,
+            # GUI-style keys (no 'Induction' prefix)
+            'rBi1Tot_nT': 3,
+            'iBi1Tot_nT': 3,
+            'rBi1x_nT': 3,
+            'rBi1y_nT': 3,
+            'rBi1z_nT': 3,
+            'iBi1x_nT': 3,
+            'iBi1y_nT': 3,
+            'iBi1z_nT': 3,
         }
         self.cTicksSpacingsExplore = {
             'Rcore_km': 10,
@@ -2043,6 +2088,15 @@ class FigLblStruct:
             'InductioniBi1x_nT': 3,
             'InductioniBi1y_nT': 3,
             'InductioniBi1z_nT': 10,
+            # GUI-style keys (no 'Induction' prefix)
+            'rBi1Tot_nT': 3,
+            'iBi1Tot_nT': 3,
+            'rBi1x_nT': 3,
+            'rBi1y_nT': 3,
+            'rBi1z_nT': 3,
+            'iBi1x_nT': 3,
+            'iBi1y_nT': 3,
+            'iBi1z_nT': 10,
         }
         # Variables for which to pin colormap center to zero (useful for variables that can be positive/negative)
         self.cMapZero = {
@@ -2112,6 +2166,23 @@ class FigLblStruct:
             'InductioniBi1x_nT': 'induction imaginary x-component',
             'InductioniBi1y_nT': 'induction imaginary y-component',
             'InductioniBi1z_nT': 'induction imaginary z-component',
+            'Amp_nT': 'induction amplitude',
+            'phase_deg': 'induction phase',
+            'Bix_nT': 'induced $B_{ix}$',
+            'Biy_nT': 'induced $B_{iy}$',
+            'Biz_nT': 'induced $B_{iz}$',
+            'Bi1x_nT': 'induced dipole $B_{1x}$',
+            'Bi1y_nT': 'induced dipole $B_{1y}$',
+            'Bi1z_nT': 'induced dipole $B_{1z}$',
+            'Bi1Tot_nT': 'induced dipole $|B_1|$',
+            'rBi1x_nT': 'Re induced dipole $B_{1x}$',
+            'rBi1y_nT': 'Re induced dipole $B_{1y}$',
+            'rBi1z_nT': 'Re induced dipole $B_{1z}$',
+            'rBi1Tot_nT': 'Re induced dipole $|B_1|$',
+            'iBi1x_nT': 'Im induced dipole $B_{1x}$',
+            'iBi1y_nT': 'Im induced dipole $B_{1y}$',
+            'iBi1z_nT': 'Im induced dipole $B_{1z}$',
+            'iBi1Tot_nT': 'Im induced dipole $|B_1|$',
             'rhoCoreMean_kgm3': 'core density',
         }
         self.tCArelDescrip = {
@@ -2124,6 +2195,11 @@ class FigLblStruct:
             'InductionBi1x_nT': ('InductionrBi1x_nT', 'InductioniBi1x_nT'),
             'InductionBi1y_nT': ('InductionrBi1y_nT', 'InductioniBi1y_nT'),
             'InductionBi1z_nT': ('InductionrBi1z_nT', 'InductioniBi1z_nT'),
+            # GUI-style variable names (no 'Induction' prefix)
+            'Bi1Tot_nT': ('rBi1Tot_nT', 'iBi1Tot_nT'),
+            'Bi1x_nT': ('rBi1x_nT', 'iBi1x_nT'),
+            'Bi1y_nT': ('rBi1y_nT', 'iBi1y_nT'),
+            'Bi1z_nT': ('rBi1z_nT', 'iBi1z_nT'),
         }
 
 
@@ -2363,13 +2439,30 @@ class FigLblStruct:
             'InductionAmp': self.plotTitles[0],
             'InductionPhase': self.phaseTitle,
             'InductionrBi1Tot_nT': self.BdipReTotLabel,
-            'InductioniBi1Tot_nT': self.BdipImTotLabel, 
+            'InductioniBi1Tot_nT': self.BdipImTotLabel,
             'InductionrBi1x_nT': self.BdipReLabel['x'],
             'InductionrBi1y_nT': self.BdipReLabel['y'],
             'InductionrBi1z_nT': self.BdipReLabel['z'],
             'InductioniBi1x_nT': self.BdipImLabel['x'],
             'InductioniBi1y_nT': self.BdipImLabel['y'],
             'InductioniBi1z_nT': self.BdipImLabel['z'],
+            'Amp_nT': self.plotTitles[0],
+            'phase_deg': self.phaseTitle,
+            'Bix_nT': '$B_{ix}$ (nT)',
+            'Biy_nT': '$B_{iy}$ (nT)',
+            'Biz_nT': '$B_{iz}$ (nT)',
+            'Bi1x_nT': '$B_{1x}$ (nT)',
+            'Bi1y_nT': '$B_{1y}$ (nT)',
+            'Bi1z_nT': '$B_{1z}$ (nT)',
+            'Bi1Tot_nT': '$|B_1|$ (nT)',
+            'rBi1x_nT': 'Re $B_{1x}$ (nT)',
+            'rBi1y_nT': 'Re $B_{1y}$ (nT)',
+            'rBi1z_nT': 'Re $B_{1z}$ (nT)',
+            'rBi1Tot_nT': 'Re $|B_1|$ (nT)',
+            'iBi1x_nT': 'Im $B_{1x}$ (nT)',
+            'iBi1y_nT': 'Im $B_{1y}$ (nT)',
+            'iBi1z_nT': 'Im $B_{1z}$ (nT)',
+            'iBi1Tot_nT': 'Im $|B_1|$ (nT)',
             'oceanComp': self.oceanCompLabel,
         }
         self.axisMultsExplore = {

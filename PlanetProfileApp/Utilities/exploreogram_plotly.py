@@ -1,11 +1,124 @@
 """
 Enhanced Plotly plotting for exploreograms that matches matplotlib styling from PlanetProfile.
+Includes multi-frequency inductogram support with contour lines.
 """
+import re
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import sys
 import os
+
+
+def latex_to_plotly(text):
+    """
+    Convert matplotlib-style LaTeX labels to Plotly-compatible Unicode/HTML.
+
+    Converts everything — including $...$ math content — to Unicode so that
+    labels render correctly without MathJax (which is unreliable in Streamlit).
+
+    Examples:
+        'Salinity $w$ ($g\\,kg^{-1}$)' → 'Salinity w (g kg⁻¹)'
+        '\\textbf{Europa}' → '<b>Europa</b>'
+        '$\\mathrm{Re}\\{B^i\\}$ (nT)' → 'Re{Bⁱ} (nT)'
+    """
+    if text is None:
+        return ''
+
+    # \textbf{...} -> <b>...</b>
+    text = re.sub(r'\\textbf\{([^}]*)\}', r'<b>\1</b>', text)
+    # \textit{...} -> <i>...</i>
+    text = re.sub(r'\\textit\{([^}]*)\}', r'<i>\1</i>', text)
+
+    # \si{...} -> clean unit text (e.g. \si{g\,kg^{-1}} -> g kg⁻¹)
+    text = re.sub(r'\\si\{([^}]*)\}', lambda m: _latex_unit_to_text(m.group(1)), text)
+
+    # Strip $...$ delimiters and convert math content to Unicode
+    text = re.sub(r'\$([^$]*)\$', lambda m: _latex_math_to_unicode(m.group(1)), text)
+
+    # Clean remaining LaTeX outside math: \, \; \\ etc.
+    text = text.replace('\\,', ' ')
+    text = text.replace('\\;', ' ')
+    text = text.replace('\\.', '')
+    # Stray ^{...} and _{...} outside math
+    text = re.sub(r'\^\{([^}]*)\}', lambda m: _to_superscript(m.group(1)), text)
+    text = re.sub(r'_\{([^}]*)\}', lambda m: _to_subscript(m.group(1)), text)
+
+    return text
+
+
+def _latex_math_to_unicode(math_content):
+    """Convert LaTeX math content (without $ delimiters) to Unicode."""
+    s = math_content
+    # \mathrm{...} -> {content} (keep braces so _\mathrm{sea} becomes _{sea} for subscript)
+    s = re.sub(r'\\mathrm\{([^}]*)\}', r'{\1}', s)
+    # \mathbf{...} -> {content}
+    s = re.sub(r'\\mathbf\{([^}]*)\}', r'{\1}', s)
+    # \text{...} -> {content}
+    s = re.sub(r'\\text\{([^}]*)\}', r'{\1}', s)
+    # \ce{...} -> {content} (chemistry notation)
+    s = re.sub(r'\\ce\{([^}]*)\}', r'{\1}', s)
+    # Escaped braces: \{ \} -> literal braces
+    s = s.replace('\\{', '{').replace('\\}', '}')
+    # Greek letters
+    _greek = {
+        '\\alpha': '\u03b1', '\\beta': '\u03b2', '\\gamma': '\u03b3',
+        '\\delta': '\u03b4', '\\epsilon': '\u03b5', '\\sigma': '\u03c3',
+        '\\omega': '\u03c9', '\\Omega': '\u03a9', '\\mu': '\u03bc',
+        '\\rho': '\u03c1', '\\theta': '\u03b8', '\\phi': '\u03c6',
+        '\\pi': '\u03c0', '\\lambda': '\u03bb', '\\tau': '\u03c4',
+    }
+    for cmd, char in _greek.items():
+        s = s.replace(cmd, char)
+    # ^{\circ} or ^\circ -> degree symbol (must come before generic \circ)
+    s = s.replace('^{\\circ}', '°')
+    s = s.replace('^\\circ', '°')
+    # \circ -> degree symbol
+    s = s.replace('\\circ', '°')
+    # Spacing
+    s = s.replace('\\,', ' ')
+    s = s.replace('\\;', ' ')
+    s = s.replace('\\:', ' ')
+    s = s.replace('\\ ', ' ')
+    # Superscripts and subscripts
+    s = re.sub(r'\^\{([^}]*)\}', lambda m: _to_superscript(m.group(1)), s)
+    s = re.sub(r'_\{([^}]*)\}', lambda m: _to_subscript(m.group(1)), s)
+    # Single-char super/sub without braces: ^2 -> ², _i -> ᵢ
+    s = re.sub(r'\^([0-9a-zA-Z])', lambda m: _to_superscript(m.group(1)), s)
+    s = re.sub(r'_([0-9a-zA-Z])', lambda m: _to_subscript(m.group(1)), s)
+    # Strip leftover braces from {content} that weren't part of sub/superscripts
+    s = re.sub(r'\{([^}]*)\}', r'\1', s)
+    return s
+
+
+# Unicode superscript/subscript maps for common characters
+_SUPERSCRIPTS = str.maketrans('0123456789+-=()niab', '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱᵃᵇ')
+_SUBSCRIPTS = str.maketrans('0123456789+-=()aehijklmnoprstuvx',
+                            '₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ')
+
+
+def _to_superscript(s):
+    return s.translate(_SUPERSCRIPTS)
+
+
+def _to_subscript(s):
+    return s.translate(_SUBSCRIPTS)
+
+
+def _latex_unit_to_text(unit_str):
+    """Convert LaTeX unit string to plain Unicode text.
+    e.g. 'g\\,kg^{-1}' -> 'g kg⁻¹'
+    """
+    s = unit_str
+    s = s.replace('\\,', ' ')
+    s = s.replace('\\;', ' ')
+    s = s.replace('\\cdot', '\u00b7')
+    # ^{...} -> superscript unicode
+    s = re.sub(r'\^\{([^}]*)\}', lambda m: _to_superscript(m.group(1)), s)
+    # _{...} -> subscript unicode
+    s = re.sub(r'_\{([^}]*)\}', lambda m: _to_subscript(m.group(1)), s)
+    return s
+
 
 def get_matplotlib_colormap_colors(cmap_name='viridis', n_colors=256):
     """
@@ -24,12 +137,12 @@ def get_matplotlib_colormap_colors(cmap_name='viridis', n_colors=256):
             int(r*255), int(g*255), int(b*255)
         ) for r, g, b, a in colors]
         return hex_colors
-    except:
+    except Exception:
         # Fallback to plotly viridis if matplotlib not available
         return None
 
 
-def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False, smooth_factor=2):
+def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False, smooth_factor=2, use_contours=True):
     """
     Create Plotly version of exploreogram that matches matplotlib styling.
 
@@ -165,19 +278,34 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
     else:
         zmin, zmax = data_min, data_max
 
+    # Get axis labels and convert LaTeX to Plotly format (before creating traces)
+    if FigLbl is not None:
+        xLabel = latex_to_plotly(getattr(FigLbl, 'xLabelExplore', Exploration.xName))
+        yLabel = latex_to_plotly(getattr(FigLbl, 'yLabelExplore', Exploration.yName))
+        zLabel = latex_to_plotly(getattr(FigLbl, 'cbarLabelExplore', zName))
+        title = latex_to_plotly(getattr(FigLbl, 'explorationTitle', f'{zName} Exploreogram'))
+    else:
+        xLabel = Exploration.xName
+        yLabel = Exploration.yName
+        zLabel = zName
+        title = f'{zName} vs {Exploration.xName} and {Exploration.yName}'
+
     # Create heatmap
     fig = go.Figure()
 
+    x1d = xData[:, 0] if len(xData.shape) == 2 else xData
+    y1d = yData[0, :] if len(yData.shape) == 2 else yData
+
     heatmap = go.Heatmap(
-        x=xData[0, :] if len(xData.shape) == 2 else xData,
-        y=yData[:, 0] if len(yData.shape) == 2 else yData,
-        z=zData,
+        x=x1d,
+        y=y1d,
+        z=zData.T,
         colorscale=colorscale,
         zmin=zmin,
         zmax=zmax,
         colorbar=dict(
             title=dict(
-                text=zName,
+                text=zLabel,
                 side='right'
             ),
             thickness=20,
@@ -186,22 +314,29 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
         hovertemplate=(
             f'X: %{{x}}<br>' +
             f'Y: %{{y}}<br>' +
-            f'{zName}: %{{z}}<br>' +
+            f'{zLabel}: %{{z}}<br>' +
             '<extra></extra>'
         )
     )
 
     fig.add_trace(heatmap)
 
-    # Get axis labels
-    if FigLbl is not None:
-        xLabel = getattr(FigLbl, 'xLabelExplore', Exploration.xName)
-        yLabel = getattr(FigLbl, 'yLabelExplore', Exploration.yName)
-        title = getattr(FigLbl, 'explorationTitle', f'{zName} Exploreogram')
-    else:
-        xLabel = Exploration.xName
-        yLabel = Exploration.yName
-        title = f'{zName} vs {Exploration.xName} and {Exploration.yName}'
+    # Add contour lines overlay on the heatmap if enabled
+    if use_contours and zmax != zmin:
+        n_contours = 8
+        fig.add_trace(go.Contour(
+            x=x1d, y=y1d, z=zData.T,
+            showscale=False,
+            contours=dict(
+                start=zmin, end=zmax,
+                size=(zmax - zmin) / n_contours,
+                coloring='lines',
+                showlabels=True,
+                labelfont=dict(size=10, color='white'),
+            ),
+            line=dict(color='white', width=1),
+            hoverinfo='skip',
+        ))
 
     # Update layout to match matplotlib style
     fig.update_layout(
@@ -229,17 +364,17 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
         font=dict(family='Arial, sans-serif', size=12),
     )
 
-    # Add contour lines if contour data exists
-    if hasattr(Exploration, 'contourName') and Exploration.contourName is not None:
+    # Add contour lines from a separate contour variable if specified
+    if use_contours and hasattr(Exploration, 'contourName') and Exploration.contourName is not None:
         contour_name = Exploration.contourName
         if hasattr(Exploration.base, contour_name):
             contour_data = getattr(Exploration.base, contour_name)
 
             # Add contour lines
             fig.add_trace(go.Contour(
-                x=xData[0, :] if len(xData.shape) == 2 else xData,
-                y=yData[:, 0] if len(yData.shape) == 2 else yData,
-                z=contour_data,
+                x=xData[:, 0] if len(xData.shape) == 2 else xData,
+                y=yData[0, :] if len(yData.shape) == 2 else yData,
+                z=contour_data.T,
                 showscale=False,
                 contours=dict(
                     coloring='lines',
@@ -271,8 +406,8 @@ def create_multi_exploreogram_plotly(Exploration, Params, zNames, FigLbl=None):
     rows = int(np.ceil(n_plots / 2))
     cols = 2 if n_plots > 1 else 1
 
-    # Create subplot titles
-    subplot_titles = [f'{zName}' for zName in zNames]
+    # Create subplot titles — convert any LaTeX to Unicode
+    subplot_titles = [latex_to_plotly(zName) for zName in zNames]
 
     fig = make_subplots(
         rows=rows, cols=cols,
@@ -321,27 +456,32 @@ def create_multi_exploreogram_plotly(Exploration, Params, zNames, FigLbl=None):
         # Add heatmap
         fig.add_trace(
             go.Heatmap(
-                x=xData[0, :],
-                y=yData[:, 0],
-                z=zData,
+                x=xData[:, 0],
+                y=yData[0, :],
+                z=zData.T,
                 colorscale=colorscale,
                 zmin=data_min,
                 zmax=data_max,
                 colorbar=dict(
-                    title=zName,
+                    title=latex_to_plotly(zName),
                     thickness=15,
                     len=0.4,
                     x=1.02 if col == 2 else 0.48,
                     y=1.0 - (row - 0.5) / rows
                 ),
-                hovertemplate=f'{zName}: %{{z}}<br><extra></extra>'
+                hovertemplate=f'{latex_to_plotly(zName)}: %{{z}}<br><extra></extra>'
             ),
             row=row, col=col
         )
 
-        # Update axes
-        fig.update_xaxes(title_text=Exploration.xName, row=row, col=col, showgrid=True)
-        fig.update_yaxes(title_text=Exploration.yName, row=row, col=col, showgrid=True)
+        # Update axes — convert labels
+        x_title = latex_to_plotly(Exploration.xName)
+        y_title = latex_to_plotly(Exploration.yName)
+        if FigLbl is not None:
+            x_title = latex_to_plotly(getattr(FigLbl, 'xLabelExplore', Exploration.xName))
+            y_title = latex_to_plotly(getattr(FigLbl, 'yLabelExplore', Exploration.yName))
+        fig.update_xaxes(title_text=x_title, row=row, col=col, showgrid=True)
+        fig.update_yaxes(title_text=y_title, row=row, col=col, showgrid=True)
 
     # Update layout
     fig.update_layout(
@@ -357,3 +497,286 @@ def create_multi_exploreogram_plotly(Exploration, Params, zNames, FigLbl=None):
     )
 
     return fig
+
+
+def create_inductogram_plotly(Exploration, Params, FigLbl=None,
+                              display_mode='real_imaginary', use_contours=True):
+    """
+    Create multi-frequency inductogram with contour lines following
+    published literature conventions.
+
+    Each selected frequency gets a row of panels showing either:
+    - Real + Imaginary components (display_mode='real_imaginary')
+    - Amplitude + Phase (display_mode='amplitude_phase')
+
+    Args:
+        Exploration: ExplorationResultsStruct with induction results
+        Params: ParamsStruct with configuration
+        FigLbl: Figure labels struct (optional)
+        display_mode: 'real_imaginary' or 'amplitude_phase'
+        use_contours: If True, use contour lines (paper convention).
+                      If False, use heatmap coloring.
+
+    Returns:
+        Plotly figure object
+    """
+    induction = Exploration.induction
+    if induction is None:
+        raise ValueError("No induction data available in Exploration results")
+
+    nPeaks = induction.nPeaks
+    if nPeaks is None or nPeaks == 0:
+        raise ValueError("No frequency peaks found in induction data")
+
+    # Get frequency labels
+    if hasattr(induction, 'calcedExc') and induction.calcedExc is not None:
+        freq_names = list(induction.calcedExc)
+    else:
+        freq_names = [f'Peak {i}' for i in range(nPeaks)]
+
+    if hasattr(induction, 'Texc_hr') and induction.Texc_hr is not None:
+        periods = induction.Texc_hr
+    else:
+        periods = [None] * nPeaks
+
+    # Extract common grid data
+    xData = Exploration.xData
+    yData = Exploration.yData
+    VALID = Exploration.base.VALID
+
+    if len(xData.shape) == 1:
+        xData, yData = np.meshgrid(xData, yData)
+
+    x1d = xData[:, 0]
+    y1d = yData[0, :]
+
+    # Get axis labels
+    if FigLbl is not None:
+        xLabel = latex_to_plotly(getattr(FigLbl, 'xLabelExplore', Exploration.xName))
+        yLabel = latex_to_plotly(getattr(FigLbl, 'yLabelExplore', Exploration.yName))
+    else:
+        xLabel = Exploration.xName
+        yLabel = Exploration.yName
+
+    # Determine subplot layout: nPeaks rows x 2 columns
+    rows = int(nPeaks)
+    cols = 2
+
+    # Build subplot titles
+    subplot_titles = []
+    for iPeak in range(nPeaks):
+        freq_label = freq_names[iPeak] if iPeak < len(freq_names) else f'Peak {iPeak}'
+        T_str = f' (T = {periods[iPeak]:.2f} hr)' if periods[iPeak] is not None else ''
+
+        if display_mode == 'real_imaginary':
+            subplot_titles.append(f'Re(Bi) — {freq_label}{T_str}')
+            subplot_titles.append(f'Im(Bi) — {freq_label}{T_str}')
+        else:
+            subplot_titles.append(f'Amplitude — {freq_label}{T_str}')
+            subplot_titles.append(f'Phase — {freq_label}{T_str}')
+
+    # Wide horizontal gap for colorbars between columns; generous vertical for titles
+    # Gap sized so left-column colorbar label + 3× ylabel cap-height clears right ylabel
+    v_spacing = 0.15 / rows + 0.06 if rows > 1 else 0.15
+    fig = make_subplots(
+        rows=rows, cols=cols,
+        subplot_titles=subplot_titles,
+        vertical_spacing=v_spacing,
+        horizontal_spacing=0.36,
+        column_widths=[0.45, 0.45],
+    )
+
+    # Get colorscale
+    colorscale_pos = get_matplotlib_colormap_colors('viridis')
+    if colorscale_pos is None:
+        colorscale_pos = 'Viridis'
+
+    # For diverging data (real/imaginary that can be negative), use RdBu
+    colorscale_div = 'RdBu_r'
+
+    for iPeak in range(nPeaks):
+        row = iPeak + 1
+
+        if display_mode == 'real_imaginary':
+            # Real component — use rBi1Tot_nT (total induced field, real part)
+            re_data = _get_induction_slice(induction, 'rBi1Tot_nT', iPeak, VALID)
+            im_data = _get_induction_slice(induction, 'iBi1Tot_nT', iPeak, VALID)
+            left_label = 'Re{B\u2071} (nT)'
+            right_label = 'Im{B\u2071} (nT)'
+            left_data, right_data = re_data, im_data
+            left_cscale = colorscale_div
+            right_cscale = colorscale_div
+        else:
+            # Amplitude + Phase
+            amp_data = _get_induction_slice(induction, 'Amp', iPeak, VALID)
+            phase_data = _get_induction_slice(induction, 'Phase', iPeak, VALID)
+            left_label = 'Amplitude (nT)'
+            right_label = 'Phase (\u00b0)'
+            left_data, right_data = amp_data, phase_data
+            left_cscale = colorscale_pos
+            right_cscale = colorscale_pos
+
+        # Add left panel
+        _add_inductogram_panel(
+            fig, x1d, y1d, left_data, row, 1, left_label,
+            colorscale=left_cscale, use_contours=use_contours,
+            nRows=rows, iPeak=iPeak
+        )
+
+        # Add right panel
+        _add_inductogram_panel(
+            fig, x1d, y1d, right_data, row, 2, right_label,
+            colorscale=right_cscale, use_contours=use_contours,
+            nRows=rows, iPeak=iPeak
+        )
+
+        # Set axis labels — only bottom row gets x-labels, only left column gets y-label
+        is_bottom = (row == rows)
+        fig.update_xaxes(title_text=xLabel if is_bottom else '', row=row, col=1)
+        fig.update_xaxes(title_text=xLabel if is_bottom else '', row=row, col=2)
+        fig.update_yaxes(title_text=yLabel, row=row, col=1)
+        fig.update_yaxes(title_text=yLabel, row=row, col=2)
+
+    # Build title
+    bodyname = getattr(Exploration, 'bodyname', '')
+    if not bodyname and hasattr(Exploration, 'xName'):
+        bodyname = ''
+    mode_str = 'Real + Imaginary' if display_mode == 'real_imaginary' else 'Amplitude + Phase'
+    title_text = f'{bodyname} Inductogram ({mode_str})' if bodyname else f'Inductogram ({mode_str})'
+
+    # Reduce subplot title font sizes and shift upward to avoid overlapping figure border
+    for annotation in fig['layout']['annotations']:
+        annotation['font'] = dict(size=10)
+        # Shift title upward by adding offset to y position
+        if 'y' in annotation:
+            annotation['y'] = annotation['y'] + 0.015
+
+    # Push overall title up by 3× its cap-height so it clears subplot titles
+    fig_height = max(480, 420 * rows)
+    title_font_size = 12
+    title_lift_px = 3 * 0.7 * title_font_size  # 3× cap-height
+    title_y = 0.98 + title_lift_px / fig_height
+    top_margin = 50 + int(title_lift_px)
+
+    fig.update_layout(
+        title=dict(text=title_text, x=0.5, xanchor='center',
+                   font=dict(size=title_font_size), y=title_y, yanchor='top'),
+        height=fig_height,
+        width=1300,
+        showlegend=False,
+        plot_bgcolor='white',
+        font=dict(family='Arial, sans-serif', size=10),
+        margin=dict(l=60, r=100, t=top_margin, b=40),
+    )
+
+    return fig
+
+
+def _get_induction_slice(induction, attr_name, iPeak, VALID):
+    """Extract a 2D slice from a 3D induction array for a given peak index."""
+    data = getattr(induction, attr_name, None)
+    if data is None:
+        return None
+
+    # Handle complex arrays — take real part if complex
+    if np.iscomplexobj(data):
+        data = np.real(data)
+
+    if len(data.shape) == 3:
+        sliced = data[iPeak, :, :].copy()
+    elif len(data.shape) == 2:
+        sliced = data.copy()
+    else:
+        return None
+
+    # Apply validity mask
+    if VALID is not None:
+        sliced[~VALID] = np.nan
+
+    return sliced
+
+
+def _add_inductogram_panel(fig, x1d, y1d, zData, row, col, label,
+                           colorscale='Viridis', use_contours=True,
+                           nRows=1, iPeak=0):
+    """Add a single inductogram panel (contour or heatmap) to a subplot."""
+    if zData is None:
+        return
+
+    # Ensure label is clean Unicode (no raw LaTeX)
+    label = latex_to_plotly(label)
+
+    z_valid = zData[~np.isnan(zData)]
+    if len(z_valid) == 0:
+        return
+
+    zmin = np.nanmin(zData)
+    zmax = np.nanmax(zData)
+
+    # Center diverging colormaps at zero when data spans both signs
+    if isinstance(colorscale, str) and 'RdBu' in colorscale:
+        if zmin < 0 and zmax > 0:
+            abs_max = max(abs(zmin), abs(zmax))
+            zmin, zmax = -abs_max, abs_max
+
+    # Position colorbar to avoid overlap in multi-row layout
+    cbar_len = max(0.12, 0.65 / nRows)
+    cbar_y = 1.0 - (iPeak + 0.5) / nRows
+    # Left colorbars sit just right of left column; right colorbars past right edge
+    cbar_x = 0.36 if col == 1 else 1.04
+    cbar_dict = dict(
+        title=dict(text=label, side='right', font=dict(size=8)),
+        thickness=8,
+        len=cbar_len,
+        y=cbar_y,
+        x=cbar_x,
+        yanchor='middle',
+    )
+
+    if use_contours:
+        # Contour lines — matches paper convention
+        n_contours = 12
+        fig.add_trace(
+            go.Contour(
+                x=x1d,
+                y=y1d,
+                z=zData.T,
+                colorscale=colorscale,
+                contours=dict(
+                    start=zmin,
+                    end=zmax,
+                    size=(zmax - zmin) / n_contours if zmax != zmin else 1,
+                    showlabels=True,
+                    labelfont=dict(size=9, color='black'),
+                ),
+                line=dict(width=1.5),
+                colorbar=cbar_dict,
+                hovertemplate=(
+                    f'X: %{{x:.3g}}<br>'
+                    f'Y: %{{y:.3g}}<br>'
+                    f'{label}: %{{z:.4g}}<br>'
+                    '<extra></extra>'
+                ),
+            ),
+            row=row, col=col
+        )
+    else:
+        # Heatmap fallback
+        fig.add_trace(
+            go.Heatmap(
+                x=x1d,
+                y=y1d,
+                z=zData.T,
+                colorscale=colorscale,
+                zmin=zmin,
+                zmax=zmax,
+                colorbar=cbar_dict,
+                hovertemplate=(
+                    f'X: %{{x:.3g}}<br>'
+                    f'Y: %{{y:.3g}}<br>'
+                    f'{label}: %{{z:.4g}}<br>'
+                    '<extra></extra>'
+                ),
+            ),
+            row=row, col=col
+        )
