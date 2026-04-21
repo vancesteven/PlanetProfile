@@ -324,10 +324,12 @@ def PlotHydroPhase(PlanetList, Params):
             if Params.TITLES:
 
                 if SinglePlanetPlot:
-                    fig.suptitle(f'{FirstPlanet.compStr}{FigLbl.hydroPhaseTitle}')
+                    titleStr = f'{FirstPlanet.compStr}{FigLbl.hydroPhaseTitle}'
                 else:
-                    fig.suptitle(
-                        f'Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.hydroPhaseTitle}')
+                    titleStr = f'Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.hydroPhaseTitle}'
+                if not FigMisc.TEX_INSTALLED:
+                    titleStr = FigLbl.StripLatexFromString(titleStr)
+                fig.suptitle(titleStr)
 
             # Plot as colormesh
             if SinglePlanetPlot:
@@ -385,8 +387,11 @@ def PlotHydroPhase(PlanetList, Params):
                             else:
                                 Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
                                 Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
+                            thisLabel = eachPlanet.label
+                            if not FigMisc.TEX_INSTALLED:
+                                thisLabel = FigLbl.StripLatexFromString(thisLabel)
                             ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm,
-                                    color=thisColor, label=eachPlanet.label)
+                                    color=thisColor, label=thisLabel)
 
                             if Params.LEGEND and np.size(PlanetList) > 1:
                                 handles, lbls = ax.get_legend_handles_labels()
@@ -598,10 +603,12 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
         # Set overall figure title
         if Params.TITLES:
             if SinglePlanetPlot:
-                fig.suptitle(f'{FirstPlanet.compStr}{FigLbl.isoThermPvTtitleHydro}')
+                titleStr = f'{FirstPlanet.compStr}{FigLbl.isoThermPvTtitleHydro}'
             else:
-                fig.suptitle(
-                    f'Weight Difference Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.isoThermPvTtitleHydro}')  # Now plot the data dynamically on the correct ax for each property
+                titleStr = f'Weight Difference Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.isoThermPvTtitleHydro}'
+            if not FigMisc.TEX_INSTALLED:
+                titleStr = FigLbl.StripLatexFromString(titleStr)
+            fig.suptitle(titleStr)  # Now plot the data dynamically on the correct ax for each property
         for idx, prop in enumerate(props_to_plot):
             ax = prop.ax  # Get the axis for this property
             if SinglePlanetPlot:
@@ -843,10 +850,12 @@ def PlotPvThydro(PlanetList, Params):
         # Set overall figure title
         if Params.TITLES:
             if SinglePlanetPlot:
-                fig.suptitle(f'{FirstPlanet.compStr}{FigLbl.PvTtitleHydro}')
+                titleStr = f'{FirstPlanet.compStr}{FigLbl.PvTtitleHydro}'
             else:
-                fig.suptitle(
-                    f'Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.PvTtitleHydroComparison}')  # Now plot the data dynamically on the correct ax for each property
+                titleStr = f'Comparison of {FirstPlanet.compStr} and {SecondPlanet.compStr}{FigLbl.PvTtitleHydroComparison}'
+            if not FigMisc.TEX_INSTALLED:
+                titleStr = FigLbl.StripLatexFromString(titleStr)
+            fig.suptitle(titleStr)  # Now plot the data dynamically on the correct ax for each property
         for idx, prop in enumerate(props_to_plot):
             ax = prop.ax  # Get the axis for this property
             if SinglePlanetPlot:
@@ -968,8 +977,11 @@ def PlotPvThydro(PlanetList, Params):
                 else:
                     Pgeo = eachPlanet.P_MPa[:eachPlanet.Steps.nHydro] * FigLbl.PmultHydro
                     Tgeo = eachPlanet.T_K[:eachPlanet.Steps.nHydro]
+                thisLabel = eachPlanet.label
+                if not FigMisc.TEX_INSTALLED:
+                    thisLabel = FigLbl.StripLatexFromString(thisLabel)
                 [ax.plot(Tgeo, Pgeo, linewidth=Style.LW_geotherm, linestyle=Style.LS_geotherm, color=thisColor,
-                         label=eachPlanet.label) for ax in axf]
+                         label=thisLabel) for ax in axf]
 
                 if Params.LEGEND and np.size(PlanetList) > 1:
                     handles, lbls = axes[-1, 0].get_legend_handles_labels()
@@ -1368,8 +1380,11 @@ def PlotMeltingCurves(PlanetList, Params):
                     Pgeo = Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro
                     Tgeo = Planet.T_K[:Planet.Steps.nHydro]
                 
+                thisLabel = f'{Planet.label} geotherm'
+                if not FigMisc.TEX_INSTALLED:
+                    thisLabel = FigLbl.StripLatexFromString(thisLabel)
                 ax.plot(Tgeo, Pgeo, linewidth=thisLW, linestyle=Style.LS_geotherm,
-                       color=thisColor, alpha=0.7, label=f'{Planet.label} geotherm')
+                       color=thisColor, alpha=0.7, label=thisLabel)
 
         # Set axis limits
         ax.set_xlim([Tmin_K, Tmax_K])

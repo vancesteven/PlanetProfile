@@ -96,9 +96,9 @@ class BaseResultsStruct:
         self.dzIceI_km = None  # Thickness of surface ice layer in km
         self.dzClath_km = None  # Thickness of clathrate layer in km
         self.dzIceIII_km = None  # Thickness of undersea ice III layer in km
-        self.dzIceIIIund_km = None  # Thickness of underplate ice III layer in km
+        self.dzIceIIIund_km = None  # Thickness of ice III layer in km
         self.dzIceV_km = None  # Thickness of undersea ice V layer in km
-        self.dzIceVund_km = None  # Thickness of underplate ice V layer in km
+        self.dzIceVund_km = None  # Thickness of ice V layer in km
         self.dzIceVI_km = None  # Thickness of undersea ice VI layer in km
         self.dzWetHPs_km = None  # Total thickness of all undersea high-pressure ices in km
         self.eLid_km = None  # Thickness of stagnant lid conductive ice layer in km

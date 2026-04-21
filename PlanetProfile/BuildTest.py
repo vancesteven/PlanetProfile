@@ -28,7 +28,7 @@ for deftHandler in log.handlers:
 log.addHandler(stream)
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger('PIL').setLevel(logging.WARNING)
-logging.getLogger('MoonMag').setLevel(logging.DEBUG)
+logging.getLogger('PlanetProfile.MagneticInduction.MoonMag').setLevel(logging.DEBUG)
 
 
 def full(iTestStart=2, skipType=None):

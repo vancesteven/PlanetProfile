@@ -47,7 +47,7 @@ def SetupInit(Planet, Params):
     CheckCompat('seafreeze')  # SeaFreeze
     if Planet.Ocean.comp is not None and Planet.Ocean.comp == 'Seawater': CheckCompat('gsw')  # Gibbs Seawater
     if Planet.Do.TAUP_SEISMIC: CheckCompat('obspy')  # TauP (accessed as obspy.taup)
-    if Params.CALC_NEW_INDUCT: CheckCompat('MoonMag')  # MoonMag
+
     if Params.CALC_NEW_GRAVITY: CheckCompat('pyalma3')
 
     # Check if Custom Reaktoro Solution is being used and if so then update Params with necessary parameters to plot
@@ -331,21 +331,27 @@ def SetupInit(Planet, Params):
             Planet.RaConvect = np.nan
             Planet.RaConvectIII = np.nan
             Planet.RaConvectV = np.nan
+            Planet.RaConvectVI = np.nan
             Planet.RaCrit = np.nan
             Planet.RaCritIII = np.nan
             Planet.RaCritV = np.nan
+            Planet.RaCritVI = np.nan
             Planet.Tconv_K = np.nan
             Planet.TconvIII_K = np.nan
             Planet.TconvV_K = np.nan
+            Planet.TconvVI_K = np.nan
             Planet.eLid_m = 0.0
             Planet.eLidIII_m = 0.0
             Planet.eLidV_m = 0.0
+            Planet.eLidVI_m = 0.0
             Planet.Dconv_m = 0.0
             Planet.DconvIII_m = 0.0
             Planet.DconvV_m = 0.0
+            Planet.DconvVI_m = 0.0
             Planet.deltaTBL_m = 0.0
             Planet.deltaTBLIII_m = 0.0
             Planet.deltaTBLV_m = 0.0
+            Planet.deltaTBLVI_m = 0.0
 
         # Porous rock
         if Planet.Do.POROUS_ROCK:

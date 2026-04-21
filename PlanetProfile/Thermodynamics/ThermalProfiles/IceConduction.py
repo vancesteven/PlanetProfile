@@ -670,3 +670,26 @@ def IceVConductPorous(Planet, Params):
     Planet = PropagateConduction(Planet, Params, Planet.Steps.nIIIbottom, Planet.Steps.nSurfIce)
 
     return Planet
+
+
+def IceVIConductSolid(Planet, Params):
+    """ Calculate conductive profile for ice VI layers.
+
+        Requires Planet.Steps.nVbottom and Planet.Steps.nIceVILitho to be defined
+        in StepsSubstruct (defineStructs.py), and the layer indexing in
+        LayerPropagators.IceLayers to allocate ice VI layers between nVbottom
+        and nSurfIce.
+    """
+    raise NotImplementedError(
+        'Ice VI conduction requires nVbottom and nIceVILitho step indices. '
+        'These have not yet been added to StepsSubstruct in defineStructs.py.')
+
+
+def IceVIConductPorous(Planet, Params):
+    """ Calculate conductive profile for porous ice VI layers.
+
+        Requires the same structural support as IceVIConductSolid.
+    """
+    raise NotImplementedError(
+        'Ice VI porous conduction requires nVbottom and nIceVILitho step indices. '
+        'These have not yet been added to StepsSubstruct in defineStructs.py.')

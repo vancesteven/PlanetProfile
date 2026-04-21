@@ -67,6 +67,19 @@ def GeneratePlots(PlanetList, Params):
         PlotPvTPerpleX(PlanetList, Params)
     if Params.PLOT_MELTING_CURVES and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
         PlotMeltingCurves(PlanetList, Params)
+    # Convection diagnostics and tidal dissipation profile
+    if Params.CALC_VISCOSITY and Params.CALC_SEISMIC:
+        hasConvection = np.any([
+            (Planet.RaConvect is not None and np.isfinite(Planet.RaConvect) and Planet.RaConvect > 0) or
+            (Planet.RaConvectIII is not None and np.isfinite(Planet.RaConvectIII) and Planet.RaConvectIII > 0) or
+            (Planet.RaConvectV is not None and np.isfinite(Planet.RaConvectV) and Planet.RaConvectV > 0) or
+            (Planet.RaConvectVI is not None and np.isfinite(Planet.RaConvectVI) and Planet.RaConvectVI > 0)
+            for Planet in PlanetList
+        ])
+        if hasConvection:
+            from PlanetProfile.Plotting.ConvectionPlots import PlotConvectionDiagnostics, PlotTidalDissipationProfile
+            PlotConvectionDiagnostics(PlanetList, Params)
+            PlotTidalDissipationProfile(PlanetList, Params)
 
     return
 

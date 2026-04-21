@@ -5,7 +5,7 @@ from PlanetProfile.TrajecAnalysis.Alfven import AlfvenWingField
 from PlanetProfile.Utilities.defineStructs import ModelDataStruct, Constants
 from PlanetProfile.GetConfig import FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import GetBexc
-from MoonMag.field_xyz import eval_Bi as EvalBi
+from PlanetProfile.MagneticInduction.MoonMag.field_xyz import eval_Bi as EvalBi
 
 # Parallel processing
 import multiprocessing as mtp

@@ -357,6 +357,137 @@ def PropagateAdiabaticSolidFromDepth(Planet, Params, iStart, iEnd, EOS):
     return Planet
 
 
+def PropagateLinearThermalProfile(Planet, Params, iStart, iEnd, EOS, Ttop_K, Tbot_K):
+    """ Use layer-top values and assumption of a linear temperature profile
+        to evaluate conditions through convecting HP ice layers using Kalousova
+        two-phase convection model. Temperature varies linearly with depth, not
+        adiabatically.
+
+        This function implements the temperature structure observed in numerical
+        simulations (Kalousova & Sotin 2018 SOM Fig. S4, Kalousova & Sotin 2020
+        Fig. 2c), where the convecting interior maintains approximately constant
+        temperature gradient with subcooling below the melting point.
+
+        Args:
+            iStart, iEnd (int): Layer array indices for start/end of convecting region
+            EOS (EOSStruct): Ice EOS for the phase (III, V, or VI)
+            Ttop_K (float): Temperature at top of convecting layer [K]
+            Tbot_K (float): Temperature at bottom of convecting layer [K]
+
+        Assigns Planet attributes:
+            z_m, r_m, MLayer_kg, g_ms2, T_K, rhoMatrix_kgm3, Cp_JkgK, alpha_pK,
+            kTherm_WmK, rho_kgm3
+    """
+
+    # Get total depth range for linear interpolation
+    z_top = Planet.z_m[iStart-1]
+    z_bot = Planet.z_m[iEnd-1]
+
+    thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart-1])
+
+    # Get constant gravity if we will be assigning it
+    if Planet.Do.CONSTANT_GRAVITY:
+        Planet.g_ms2[iStart:] = Constants.G * (Planet.Bulk.M_kg - thisMAbove_kg) / Planet.r_m[iStart-1]**2
+    else:
+        # Ensure g values to be assigned are zero since we will be adding to them
+        Planet.g_ms2[iStart:] = 0
+    # Assign 0 or 1 multiplier for constant/variable gravity calcs in loop
+    VAR_GRAV = int(not Planet.Do.CONSTANT_GRAVITY)
+
+    for i in range(iStart, iEnd):
+        # Increment depth based on change in pressure, combined with gravity and density
+        Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6 / Planet.g_ms2[i-1] / \
+                        Planet.rhoMatrix_kgm3[i-1]
+        # Convert depth to radius
+        Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
+        # Calculate layer mass
+        Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rhoMatrix_kgm3[i-1] * (Planet.r_m[i-1] ** 3 - Planet.r_m[i] ** 3)
+        thisMAbove_kg += Planet.MLayer_kg[i-1]
+        thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+        # Use remaining mass below in Gauss's law for gravity to get g at the top of this layer
+        Planet.g_ms2[i] += VAR_GRAV * Constants.G * thisMBelow_kg / Planet.r_m[i] ** 2
+
+        # Linear temperature profile with depth (Kalousova two-phase convection)
+        # Temperature varies linearly from Ttop_K to Tbot_K
+        z_frac = (Planet.z_m[i] - z_top) / (z_bot - z_top)
+        Planet.T_K[i] = Ttop_K + (Tbot_K - Ttop_K) * z_frac
+
+        # Now use P and T for this layer to get physical properties
+        Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i])
+        Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i])
+        Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i])
+        Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i])
+
+        log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+
+    Planet.rho_kgm3[iStart:iEnd] = Planet.rhoMatrix_kgm3[iStart:iEnd] + 0.0
+
+    return Planet
+
+
+def PropagateMeltingCurveThermalProfile(Planet, Params, iStart, iEnd, EOS):
+    """ Propagate layer properties through convecting HP ice with temperature
+        following the melting curve at each pressure level.
+
+        In the Kalousova & Sotin (2018) two-phase convection model, vigorous
+        convection in HP ice maintains the interior temperature at the solidus
+        (melting curve). This gives a monotonically increasing T(z) profile
+        that follows T_melt(P) through the convecting region, consistent with
+        Kalousova & Sotin (2018) SOM Fig. S4 and Kalousova & Sotin (2020) Fig. 2c.
+
+        Replaces PropagateLinearThermalProfile for the convecting interior, which
+        incorrectly used a linear interpolation between top and bottom temperatures.
+
+        Args:
+            iStart, iEnd (int): Layer array indices for start/end of convecting region
+            EOS (EOSStruct): Ice EOS for the phase (III, V, or VI), must have fn_Tmelt_K
+
+        Assigns Planet attributes:
+            z_m, r_m, MLayer_kg, g_ms2, T_K, rhoMatrix_kgm3, Cp_JkgK, alpha_pK,
+            kTherm_WmK, rho_kgm3
+    """
+
+    thisMAbove_kg = np.sum(Planet.MLayer_kg[:iStart-1])
+
+    # Get constant gravity if we will be assigning it
+    if Planet.Do.CONSTANT_GRAVITY:
+        Planet.g_ms2[iStart:] = Constants.G * (Planet.Bulk.M_kg - thisMAbove_kg) / Planet.r_m[iStart-1]**2
+    else:
+        # Ensure g values to be assigned are zero since we will be adding to them
+        Planet.g_ms2[iStart:] = 0
+    # Assign 0 or 1 multiplier for constant/variable gravity calcs in loop
+    VAR_GRAV = int(not Planet.Do.CONSTANT_GRAVITY)
+
+    for i in range(iStart, iEnd):
+        # Increment depth based on change in pressure, combined with gravity and density
+        Planet.z_m[i] = Planet.z_m[i-1] + (Planet.P_MPa[i] - Planet.P_MPa[i-1]) * 1e6 / Planet.g_ms2[i-1] / \
+                        Planet.rhoMatrix_kgm3[i-1]
+        # Convert depth to radius
+        Planet.r_m[i] = Planet.Bulk.R_m - Planet.z_m[i]
+        # Calculate layer mass
+        Planet.MLayer_kg[i-1] = 4/3*np.pi * Planet.rhoMatrix_kgm3[i-1] * (Planet.r_m[i-1] ** 3 - Planet.r_m[i] ** 3)
+        thisMAbove_kg += Planet.MLayer_kg[i-1]
+        thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
+        # Use remaining mass below in Gauss's law for gravity to get g at the top of this layer
+        Planet.g_ms2[i] += VAR_GRAV * Constants.G * thisMBelow_kg / Planet.r_m[i] ** 2
+
+        # Temperature follows melting curve (Kalousova two-phase convection)
+        # Vigorous two-phase convection maintains interior at solidus T_melt(P)
+        Planet.T_K[i] = EOS.fn_Tmelt_K(Planet.P_MPa[i])
+
+        # Now use P and T for this layer to get physical properties
+        Planet.rhoMatrix_kgm3[i] = EOS.fn_rho_kgm3(  Planet.P_MPa[i], Planet.T_K[i])
+        Planet.Cp_JkgK[i] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[i], Planet.T_K[i])
+        Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i])
+        Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i])
+
+        log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+
+    Planet.rho_kgm3[iStart:iEnd] = Planet.rhoMatrix_kgm3[iStart:iEnd] + 0.0
+
+    return Planet
+
+
 def PropagateAdiabaticPorousVacIce(Planet, Params, iStart, iEnd, EOS):
     """ Use layer-top values and assumption of an adiabatic thermal profile in ices
         to evaluate the conditions at the bottom of each layer in the specified

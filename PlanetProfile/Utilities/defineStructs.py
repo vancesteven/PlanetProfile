@@ -75,14 +75,16 @@ class BulkSubstruct():
         self.JmixedRheologyConstant = 1  # Constant for rheology of mixed clathrate/ice phases used in Carahan(2004) equation for viscosity
         
         self.asymIce = None  # List of deviations from zb in km to show asymmetry in ice--ocean interface
-        self.TbIII_K = None  # Temperature at bottom of ice III underplate layer in K. Ranges from 248.85 to 256.164 K for transition to ice V and from 251.165 to 256.164 K for melting temp.
-        self.TbV_K = None  # Temperature at bottom of ice V underplate layer in K. Ranges from 256.164 to 272.99 K for melting temp, and 218 to 272.99 for transition to ice VI.
+        self.TbIII_K = None  # Temperature at bottom of ice III layer in K. Ranges from 248.85 to 256.164 K for transition to ice V and from 251.165 to 256.164 K for melting temp.
+        self.TbV_K = None  # Temperature at bottom of ice V layer in K. Ranges from 256.164 to 272.99 K for melting temp, and 218 to 272.99 for transition to ice VI.
         self.J2 = None  # Gravitational coefficient associated with oblateness, unnormalized
         self.C20 = None  # Negative of J2, only one of them needs to be set.
         self.C22 = None  # Gravitational coefficient associated with elongation, unnormalized
         self.C21 = None  # Additional gravitational coefficients that are usually set to zero.
         self.S21 = None
         self.S22 = None
+        self.eccentricity = None  # Orbital eccentricity (for tidal heating diagnostics)
+        self.meanMotion_radps = None  # Mean orbital motion in rad/s
         self.zbChangeTol_frac = 0.05  # Fractional change tolerance, which if exceeded, triggers IceConvect to run a second time for better self-consistency
 
 
@@ -110,6 +112,13 @@ class DoSubstruct:
         self.HP_MELT_SMOOTHING = False  # Whether to apply a smoothing filter to avoid bumpiness from discretized phase diagram, when lookup table is used for EOS calcs
         self.FIXED_HPSMOOTH_WINDOW = False  # Whether to force a fixed number of window points for smoothing in HP ices
         self.NO_ICE_CONVECTION = False  # Whether to suppress convection in ice layers
+        self.NO_ICE_CONVECTION_Ih = False  # Whether to suppress convection specifically in ice Ih (overrides NO_ICE_CONVECTION for Ih only)
+        self.NO_ICE_CONVECTION_III = False  # Whether to suppress convection specifically in ice III layer
+        self.NO_ICE_CONVECTION_V = False  # Whether to suppress convection specifically in ice V layer
+        self.NO_ICE_CONVECTION_VI = False  # Whether to suppress convection specifically in ice VI layer
+        self.KALOUSOVA_CONVECTION = False  # Whether to use Kalousova et al. (2018) parameterization for HP ice convection instead of Deschamps & Sotin (2001)
+        self.ARRHENIUS_VISCOSITY = False  # Whether to use Arrhenius temperature-dependent viscosity for HP ice phases (III, V, VI). Uses Constants.etaMelt_Pas and Eact_kJmol per phase.
+        self.DO_SELF_CONSISTENT_HTIDAL = False  # Whether to compute HtidalIce_Wm3 from Im(k2) after gravity calculation, overriding user-specified value
         self.NO_MELOSH_LAYER = False  # Whether to suppress a Melosh layer at the top of the ocean by arbitrarily setting expansivity to zero when one would appear (due to negative expansivity)
         self.EQUIL_Q = True  # Whether to set heat flux from interior to be consistent with heat released through convective profile
         self.POROUS_ICE = False  # Whether to model porosity in ice
@@ -185,6 +194,7 @@ class OceanSubstruct:
         self.deltaP = None  # Increment of pressure between each layer in lower hydrosphere/ocean (sets profile resolution)
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
         self.propsStepReductionFactor = 1  #  Optional factor to reduce resolution (increase deltaP and deltaT) specifically for EOS properties calculations. For high-resolution modeling, deltaP and deltaT are set low to get high-resolution phase grid, but this is not as necessary for the properties which will be interpolated, so can decrease the resoltuion to improve runtime and decrease memory usage. Default is 1, meaning no reduction.
+        self.HtidalIce_Wm3 = 0  # Volumetric tidal heating rate in ice layers in W/m^3 (analogous to Sil.Htidal_Wm3 for silicates)
         self.sigmaFixed_Sm = None  # Optional setting to force ocean conductivity to be a certain uniform value.
         self.smoothingPolyOrder = 2  # Polynomial order to use for smoothing of melting-curve-following HP ice adiabats
         self.smoothingWindowOverride = 7  # Number of points to use for smoothing window when Do.FIXED_HPSMOOTH_WINDOW is True. Must be odd.
@@ -560,6 +570,65 @@ class GravitySubstruct:
         self.deltaPhase = np.nan # Phase of delta relationship between love numbers (1+k-h)
 
 
+""" Lateral (3D) structure """
+class LateralSubstruct:
+    def __init__(self):
+        # Flags
+        self.DO_3D = False  # Whether to compute 3D laterally-varying structure
+        self.DO_CLATH_LATERAL = False  # Whether to include lateral clathrate variation
+        self.DO_TIDAL_3D = False  # Whether to compute 3D tidal heating
+        self.DO_MASS_CONSERVE = True  # Whether to enforce mass conservation
+
+        # Grid configuration
+        self.gridType = 'healpix'  # Grid type: 'healpix' or 'latlon'
+        self.nSide = 8  # HEALPix NSIDE parameter (nPix = 12*nSide^2)
+        self.nLat = None  # Number of latitude points (latlon grid)
+        self.nLon = None  # Number of longitude points (latlon grid)
+        self.theta_rad = None  # Colatitude of each grid point in radians
+        self.phi_rad = None  # Longitude of each grid point in radians
+        self.nPix = None  # Total number of grid points
+        self.pixArea_sr = None  # Area of each pixel in steradians
+
+        # Ice thickness field
+        self.dIce_m = None  # Ice thickness at each grid point in m (nPix,)
+        self.dIce_Cpq_km = None  # Cosine SH coefficients for ice thickness in km
+        self.dIce_Spq_km = None  # Sine SH coefficients for ice thickness in km
+        self.dIce_pMax = None  # Maximum SH degree for ice thickness
+        self.dIce_func = None  # Optional callable f(theta) returning ice thickness in m
+
+        # Clathrate fraction field
+        self.fClath = None  # Clathrate volume fraction at each grid point (nPix,)
+        self.fClath_Cpq = None  # Cosine SH coefficients for clathrate fraction
+        self.fClath_Spq = None  # Sine SH coefficients for clathrate fraction
+        self.fClath_pMax = None  # Maximum SH degree for clathrate fraction
+
+        # Tidal heating
+        self.Htidal_Wm3 = None  # Volumetric tidal heating rate (nPix, nRadial)
+        self.HtidalIce_Wm3 = None  # Column-integrated ice tidal heating (nPix,)
+        # Per-layer-type tidal heating at top and bottom (nPix,)
+        self.HtidalIceI_top_Wm3 = None  # Dissipation at top of ice I layer
+        self.HtidalIceI_bot_Wm3 = None  # Dissipation at bottom of ice I layer
+        self.HtidalHP_top_Wm3 = None  # Dissipation at top of HP ice (below ocean)
+        self.HtidalHP_bot_Wm3 = None  # Dissipation at bottom of HP ice (below ocean)
+        # Full radial dissipation profiles per column (lists of arrays, one per pixel)
+        self.HtidalIceI_profile_Wm3 = None  # H(r) in surface ice for each column
+        self.HtidalHP_profile_Wm3 = None    # H(r) in HP ice for each column
+        self.rIceI_profile_m = None          # Radii corresponding to ice I profiles
+        self.rHP_profile_m = None            # Radii corresponding to HP ice profiles
+
+        # Column summary fields (nPix,)
+        self.Tb_K = None  # Basal ice temperature at each grid point
+        self.qSurf_Wm2 = None  # Surface heat flux at each grid point
+        self.qBase_Wm2 = None  # Basal heat flux at each grid point
+        self.kThermEff_WmK = None  # Effective thermal conductivity at each grid point
+        self.sigma_mean_Sm = None  # Mean ocean conductivity at each grid point
+
+        # Mass conservation
+        self.Mtarget_kg = None  # Target total mass in kg
+        self.Mactual_kg = None  # Actual total mass from 3D model in kg
+        self.massResidual_frac = None  # Fractional mass residual
+
+
 """ Main body profile info--settings and variables """
 class PlanetStruct:
 
@@ -640,29 +709,51 @@ class PlanetStruct:
         self.CMR2less = None  # Neighboring value to CMR2mean in MoI matching, just below it
         self.CMR2more = None  # Neighboring value above CMR2mean
         self.Tconv_K = None  # Temperature of "well-mixed" convecting region in ice I layer in K
-        self.TconvIII_K = None  # Same as above but for ice III underplate layers.
-        self.TconvV_K = None  # Same as above but for ice V underplate layers.
+        self.TconvIII_K = None  # Same as above but for ice III layers.
+        self.TconvV_K = None  # Same as above but for ice V layers.
+        self.TconvVI_K = None  # Same as above but for ice VI layers.
         self.etaConv_Pas = None  # Viscosity of ice I at Tconv_K
-        self.etaConvIII_Pas = None  # Same as above but for ice III underplate layers.
-        self.etaConvV_Pas = None  # Same as above but for ice V underplate layers.
+        self.etaConvIII_Pas = None  # Same as above but for ice III layers.
+        self.etaConvV_Pas = None  # Same as above but for ice V layers.
+        self.etaConvVI_Pas = None  # Same as above but for ice VI layers.
         self.etaMelt_Pas = None # Viscosity of ice I at Tb_K
-        self.etaMeltIII_Pas = None # Same as above but for ice III underplate layers.
-        self.etaMeltV_Pas = None # Same as above but for ice V underplate layers.
+        self.etaMeltIII_Pas = None # Same as above but for ice III layers.
+        self.etaMeltV_Pas = None # Same as above but for ice V layers.
+        self.etaMeltVI_Pas = None # Same as above but for ice VI layers.
         self.eLid_m = None  # Thickness of conducting stagnant lid layer in m.
-        self.eLidIII_m = None  # Same as above but for ice III underplate layers.
-        self.eLidV_m = None  # Same as above but for ice V underplate layers.
+        self.eLidIII_m = None  # Same as above but for ice III layers.
+        self.eLidV_m = None  # Same as above but for ice V layers.
+        self.eLidVI_m = None  # Same as above but for ice VI layers.
         self.Dconv_m = None  # Thickness of convecting layer in m.
-        self.DconvIII_m = None  # Same as above but for ice III underplate layers.
-        self.DconvV_m = None  # Same as above but for ice V underplate layers.
+        self.DconvIII_m = None  # Same as above but for ice III layers.
+        self.DconvV_m = None  # Same as above but for ice V layers.
+        self.DconvVI_m = None  # Same as above but for ice VI layers.
         self.deltaTBL_m = None  # Thickness of lower thermal boundary layer in m when Htidal = 0 in the ice
-        self.deltaTBLIII_m = None  # Same as above but for ice III underplate layers.
-        self.deltaTBLV_m = None  # Same as above but for ice V underplate layers.
+        self.deltaTBLIII_m = None  # Same as above but for ice III layers.
+        self.deltaTBLV_m = None  # Same as above but for ice V layers.
+        self.deltaTBLVI_m = None  # Same as above but for ice VI layers.
         self.RaConvect = None  # Rayleigh number of putative convective layer within the ice I layers. If this number is below Planet.RaCrit, convection does not occur.
-        self.RaConvectIII = None  # Same as above but for ice III underplate layers.
-        self.RaConvectV = None  # Same as above but for ice V underplate layers.
+        self.RaConvectIII = None  # Same as above but for ice III layers.
+        self.RaConvectV = None  # Same as above but for ice V layers.
+        self.RaConvectVI = None  # Same as above but for ice VI layers.
         self.RaCrit = None  # Critical Rayleigh number that determines whether or not we model convection.
-        self.RaCritIII = None  # Same as above but for ice III underplate layers.
-        self.RaCritV = None  # Same as above but for ice V underplate layers.
+        self.RaCritIII = None  # Same as above but for ice III layers.
+        self.RaCritV = None  # Same as above but for ice V layers.
+        self.RaCritVI = None  # Same as above but for ice VI layers.
+        # HP ice melt fractions (Kalousova et al. 2018)
+        self.meltFractionIII = 0.0  # Volume fraction of partial melt in ice III layer (0-1)
+        self.meltFractionV = 0.0  # Volume fraction of partial melt in ice V layer (0-1)
+        self.meltFractionVI = 0.0  # Volume fraction of partial melt in ice VI layer (0-1)
+        self.DO_HP_MELT = False  # Whether HP ice partial melting occurs in any layer
+        # Convection velocity and mass flux
+        self.vConv_ms = np.nan  # Convection velocity in ice Ih layer in m/s
+        self.vConvIII_ms = np.nan  # Same as above but for ice III layers.
+        self.vConvV_ms = np.nan  # Same as above but for ice V layers.
+        self.vConvVI_ms = np.nan  # Same as above but for ice VI layers.
+        self.phi_kgm2s = np.nan  # Mass flux (rho * vConv) in ice Ih layer in kg/m^2/s
+        self.phiIII_kgm2s = np.nan  # Same as above but for ice III layers.
+        self.phiV_kgm2s = np.nan  # Same as above but for ice V layers.
+        self.phiVI_kgm2s = np.nan  # Same as above but for ice VI layers.
         self.MH2O_kg = None  # Total mass of water molecules contained in ice, liquid, and pore spaces
         self.Mrock_kg = None  # Total mass contained in silicate rock (just the matrix, when layers are porous)
         self.Mcore_kg = None  # Total mass contained in iron core material
@@ -713,6 +804,9 @@ class PlanetStruct:
         # Info for timing profiles
         self.profileStartTime = None # Start time of profile
         self.index = None # Index of profile - used for printing number of profiles complete
+
+        # 3D lateral structure
+        self.Lateral = LateralSubstruct()
 
 """ Reduced planet struct """
 class ReducedPlanetStruct:
@@ -1161,6 +1255,10 @@ class GravityParamsStruct:
 
         # Parallel computing
         self.parallel = False # Use Parallel computing for PyALMA calculations. #TODO: Need to implement way to do this if Parallel already being used in Exploreogram
+
+        # Julia ALMA backend (experimental, not yet implemented)
+        self.USE_JULIA_ALMA = False  # Use Julia ALMA.jl backend instead of PyALMA3 (not yet implemented)
+
         # Parsing parameters
         self.layer_radius = False # Manually define transition in layers (see PyAlma.init.infer_rheology_pp). Set to False since we define transitions by ReducedPlanetStruct
         self.layer_radius_index = False # If set to true, layer_radius values will be treated as index (see PyAlma.init.infer_rheology_pp). Set to False since we define transitions by ReducedPlanetStruct
@@ -2649,10 +2747,19 @@ class FigLblStruct:
 
 
     def StripLatexFromString(self, str2strip):
-        str2strip = str2strip.replace('\si{', '\mathrm{')
-        str2strip = str2strip.replace('\SI{', '{')
-        str2strip = str2strip.replace('\ce{', '{')
-        str2strip = str2strip.replace(r'\textbf{', '{')
+        import re
+        # \SI{value}{unit} → value unit (two-argument siunitx command)
+        str2strip = re.sub(r'\\SI\{([^}]*)\}\{([^}]*)\}', r'\1 \2', str2strip)
+        # \si{unit}, \ce{formula}, \textbf{text}, \mathrm{text}, \text{text}, \mbox{text}
+        for cmd in ('si', 'ce', 'textbf', 'mathrm', 'text', 'mbox'):
+            str2strip = re.sub(r'\\' + cmd + r'\{([^}]*)\}', r'\1', str2strip)
+        # \, (thin space) → regular space
+        str2strip = str2strip.replace(r'\,', ' ')
+        # \upbeta etc. → plain Greek name in math mode
+        str2strip = re.sub(r'\\up([a-zA-Z]+)', r'$\\\1$', str2strip)
+        # \meter, \kelvin etc. (stray siunitx unit macros) → plain text
+        for unit in ('meter', 'kelvin', 'pascal', 'second', 'kilogram', 'watt'):
+            str2strip = str2strip.replace('\\' + unit, unit)
         return str2strip
 
     def StripLatex(self):
@@ -3386,6 +3493,11 @@ class ConstantsStruct:
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
         self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0).
         self.triplePointT_K = 251.165 # Triple point of water
+        # Triple points for HP ice convection (Kalousova et al. 2018, from Journaux et al. 2020)
+        self.TtripleIII_V_L_K = 254.0  # Ice III-V-liquid triple point temperature in K
+        self.PtripleIII_V_L_MPa = 350.0  # Ice III-V-liquid triple point pressure in MPa
+        self.TtripleV_VI_L_K = 272.0  # Ice V-VI-liquid triple point temperature in K
+        self.PtripleV_VI_L_MPa = 632.0  # Ice V-VI-liquid triple point pressure in MPa
         self.m_gmol = {  # Molecular mass of common solutes and gases in g/mol. From https://pubchem.ncbi.nlm.nih.gov/ search
             'H2O': 18.015,
             'MgSO4': 120.37,
@@ -3449,10 +3561,14 @@ class ConstantsStruct:
         self.etaFeLiquid_Pas = 5e-3  # Assumed viscosity of liquid iron core material, based on Kono et al., (2015): https://doi.org/10.1016/j.pepi.2015.02.006
         self.TviscFe_K = [1100]  # Transition temperatures for iron to go from one viscosity value to another. If only one value, this is considered to be the melting temp.
         self.etaMelt_Pas = np.empty(self.phaseFeSolid+1) * np.nan
-        self.etaMelt_Pas[1:7] = np.array([1e14, 1e18, 5e12, np.nan, 5e14, 5e14])  # Viscosity at the melting temperature of ice phases Ih-VI in Pa*s. Ice Ih range of 5e13-1e16 is from Tobie et al. (2003), others unknown
+        self.etaMelt_Pas[1:7] = np.array([1e14, 1e18, 5e12, np.nan, 2.8e14, 5e14])  # Viscosity at the melting temperature of ice phases Ih-VI in Pa*s. Ice Ih range of 5e13-1e16 is from Tobie et al. (2003). Ice V lowered from 5e14 per Durham and Stern (2001) flow law analysis.
         self.etaMelt_Pas[self.phaseClath] = self.etaMelt_Pas[1] * 20  # Estimate of clathrate viscosity 20x that of ice Ih at comparable conditions from Durham et al. (2003): https://doi.org/10.1029/2002JB001872
         self.etaMelt_Pas[self.phaseFe] = 5e-3  # Assumed viscosity of liquid iron core material, based on Kono et al., (2015): https://doi.org/10.1016/j.pepi.2015.02.006
         self.etaMelt_Pas[self.phaseFeSolid] = 1e14  # Assumed viscosity of solid iron core material, generic value
+        # Kalousova & Sotin (2018) HP ice convection/melting parameters
+        self.LfusionHP_Jkg = 306e3  # Latent heat of fusion for HP ice in J/kg (Kalousova & Sotin 2018)
+        self.phiPercolation = 0.05  # Percolation threshold (critical porosity) for melt transport in HP ice
+        self.rhoMeltHP_kgm3 = 1270.0  # Reference melt water density in HP ice layer in kg/m3 (Kalousova & Sotin 2018)
         self.PminHPices_MPa = 200.0  # Min plausible pressure of high-pressure ices for any ocean composition in MPa
         self.PmaxLiquid_MPa = 2250.0  # Maximum plausible pressure for liquid water oceans
         self.sigmaDef_Sm = 1e-8  # Default minimum conductivity to use for layers with NaN or 0 conductivity

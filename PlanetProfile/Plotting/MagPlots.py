@@ -13,7 +13,7 @@ from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Utilities.defineStructs import xyzComps, vecComps
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from PlanetProfile.Plotting.EssentialHelpers import get_excitation_indices_and_names, countPlottableExcitations, formatOceanCompositionLabel
-from MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
+from PlanetProfile.MagneticInduction.MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 
 # Assign logger

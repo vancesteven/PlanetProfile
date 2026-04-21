@@ -419,12 +419,38 @@ def PrintGeneralSummary(PlanetList, Params):
     if FigMisc.ALWAYS_SHOW_HP or Params.yesWetHPs:
         dzWetHPs = f'{endl}dz(km) wet ice II + III + V + VI: ' + ', '.join([f'{Planet.dzWetHPs_km:.1f}' for Planet in PlanetList])
 
-    # Convection parameters for ice I/clathrate shell
-    RaI = f'Ice shell Rayleigh number Ra: ' + ', '.join([f'{Planet.RaConvect:.2e}' for Planet in PlanetList])
-    RaCritI = f'Critical Rayleigh number Ra_crit: ' + ', '.join([f'{Planet.RaCrit:.2e}' for Planet in PlanetList])
-    eLidI = f'Conductive lid thickness e (km): ' + ', '.join([f'{Planet.eLid_m/1e3:.2f}' for Planet in PlanetList])
-    DconvI = f'Convecting layer thickness D_conv (km): ' + ', '.join([f'{Planet.Dconv_m/1e3:.2f}' for Planet in PlanetList])
-    deltaTBLI = f'Lower TBL thickness delta (km): ' + ', '.join([f'{Planet.deltaTBL_m/1e3:.2f}' for Planet in PlanetList])
+    # Convection parameters for ice Ih/clathrate shell
+    RaI = f'Ice Ih Rayleigh number Ra: ' + ', '.join([f'{Planet.RaConvect:.2e}' for Planet in PlanetList])
+    RaCritI = f'Ice Ih critical Ra_crit: ' + ', '.join([f'{Planet.RaCrit:.2e}' for Planet in PlanetList])
+    eLidI = f'Ice Ih conductive lid e (km): ' + ', '.join([f'{Planet.eLid_m/1e3:.2f}' for Planet in PlanetList])
+    DconvI = f'Ice Ih convecting layer D_conv (km): ' + ', '.join([f'{Planet.Dconv_m/1e3:.2f}' for Planet in PlanetList])
+    deltaTBLI = f'Ice Ih lower TBL delta (km): ' + ', '.join([f'{Planet.deltaTBL_m/1e3:.2f}' for Planet in PlanetList])
+    vConvI = f'Ice Ih convection velocity (m/yr): ' + ', '.join([f'{Planet.vConv_ms*3.1558e7:.3e}' if np.isfinite(Planet.vConv_ms) else 'nan' for Planet in PlanetList])
+
+    # Convection parameters for HP ice phases (if present)
+    HPiceConv = ''
+    for phaseID, phaseName, suffix in [(3, 'III', 'III'), (5, 'V', 'V'), (6, 'VI', 'VI')]:
+        hasPhase = any(getattr(P, f'RaConvect{suffix}') is not None
+                       and np.isfinite(getattr(P, f'RaConvect{suffix}'))
+                       and getattr(P, f'RaConvect{suffix}') > 0
+                       for P in PlanetList)
+        if hasPhase:
+            HPiceConv += f"""
+    Ice {phaseName} Rayleigh number Ra*: """ + ', '.join([f'{getattr(Planet, f"RaConvect{suffix}"):.2e}' if getattr(Planet, f'RaConvect{suffix}') is not None and np.isfinite(getattr(Planet, f'RaConvect{suffix}')) else 'nan' for Planet in PlanetList])
+            HPiceConv += f"""
+    Ice {phaseName} critical Ra*_c: """ + ', '.join([f'{getattr(Planet, f"RaCrit{suffix}"):.2e}' if getattr(Planet, f'RaCrit{suffix}') is not None and np.isfinite(getattr(Planet, f'RaCrit{suffix}')) else 'nan' for Planet in PlanetList])
+            HPiceConv += f"""
+    Ice {phaseName} conductive lid e (km): """ + ', '.join([f'{getattr(Planet, f"eLid{suffix}_m")/1e3:.2f}' if getattr(Planet, f'eLid{suffix}_m') is not None else 'nan' for Planet in PlanetList])
+            HPiceConv += f"""
+    Ice {phaseName} convecting layer D_conv (km): """ + ', '.join([f'{getattr(Planet, f"Dconv{suffix}_m")/1e3:.2f}' if getattr(Planet, f'Dconv{suffix}_m') is not None else 'nan' for Planet in PlanetList])
+            HPiceConv += f"""
+    Ice {phaseName} lower TBL delta (km): """ + ', '.join([f'{getattr(Planet, f"deltaTBL{suffix}_m")/1e3:.2f}' if getattr(Planet, f'deltaTBL{suffix}_m') is not None else 'nan' for Planet in PlanetList])
+            HPiceConv += f"""
+    Ice {phaseName} convection velocity (m/yr): """ + ', '.join([f'{getattr(Planet, f"vConv{suffix}_ms")*3.1558e7:.3e}' if np.isfinite(getattr(Planet, f'vConv{suffix}_ms')) else 'nan' for Planet in PlanetList])
+            HPiceConv += f"""
+    Ice {phaseName} mass flux (kg/m2/yr): """ + ', '.join([f'{getattr(Planet, f"phi{suffix}_kgm2s")*3.1558e7:.3e}' if np.isfinite(getattr(Planet, f'phi{suffix}_kgm2s')) else 'nan' for Planet in PlanetList])
+            HPiceConv += f"""
+    Ice {phaseName} melt fraction: """ + ', '.join([f'{getattr(Planet, f"meltFraction{suffix}"):.3f}' for Planet in PlanetList])
 
     # Body mass fractions
     MfracH2O = f'Mass fraction H2O (%): ' + ', '.join([f'{100*Planet.MH2O_kg/Planet.Mtot_kg:.1f}' for Planet in PlanetList])
@@ -515,6 +541,7 @@ def PrintGeneralSummary(PlanetList, Params):
     {eLidI}
     {DconvI}
     {deltaTBLI}
+    {vConvI}{HPiceConv}
     
     {MfracH2O}
     {MfracSalt}

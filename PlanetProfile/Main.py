@@ -365,6 +365,11 @@ def PlanetProfile(Planet, Params):
     if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY) and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and not Params.SKIP_GRAVITY:
         # Calculate gravity parameters
         Planet, Params = GravityParameters(Planet, Params)
+    # 3D lateral structure (if configured)
+    if Planet.Lateral.DO_3D and Planet.Do.VALID:
+        from PlanetProfile.Lateral.LateralStructure import RunLateral3D
+        Planet, Params = RunLateral3D(Planet, Params)
+
     if Params.PRINT_COMPLETION:
         PrintCompletion(Planet, Params)
     return Planet, Params
@@ -604,23 +609,45 @@ def WriteProfile(Planet, Params):
         f'sigmaOceanMean_Sm = {Planet.Ocean.sigmaMean_Sm:.3f}',
         f'sigmaPoreMean_Sm = {Planet.Sil.sigmaPoreMean_Sm:.3f}',
         f'sigmaPorousLayerMean_Sm = {Planet.Sil.sigmaPorousLayerMean_Sm:.3f}',
-        f'Tconv_K = {Planet.Tconv_K:.3e}',
-        f'etaConv_Pas = {Planet.etaConv_Pas:.3e}',
-        f'RaConvect = {Planet.RaConvect:.2e}',
-        f'RaConvectIII = {Planet.RaConvectIII:.2e}',
-        f'RaConvectV = {Planet.RaConvectV:.2e}',
-        f'RaCrit = {Planet.RaCrit:.2e}',
-        f'RaCritIII = {Planet.RaCritIII:.2e}',
-        f'RaCritV = {Planet.RaCritV:.2e}',
-        f'eLid_m = {Planet.eLid_m:.3f}',
-        f'eLidIII_m = {Planet.eLidIII_m:.3f}',
-        f'eLidV_m = {Planet.eLidV_m:.3f}',
-        f'Dconv_m = {Planet.Dconv_m:.3f}',
-        f'DconvIII_m = {Planet.DconvIII_m:.3f}',
-        f'DconvV_m = {Planet.DconvV_m:.3f}',
-        f'deltaTBL_m = {Planet.deltaTBL_m:.3f}',
-        f'deltaTBLIII_m = {Planet.deltaTBLIII_m:.3f}',
-        f'deltaTBLV_m = {Planet.deltaTBLV_m:.3f}',
+        f'Tconv_K (Ice I) = {Planet.Tconv_K:.3e}' if Planet.Tconv_K is not None else 'Tconv_K (Ice I) = nan',
+        f'etaConv_Pas (Ice I) = {Planet.etaConv_Pas:.3e}' if Planet.etaConv_Pas is not None else 'etaConv_Pas (Ice I) = nan',
+        f'RaConvect (Ice I) = {Planet.RaConvect:.2e}' if Planet.RaConvect is not None else 'RaConvect (Ice I) = nan',
+        f'RaCrit (Ice I) = {Planet.RaCrit:.2e}' if Planet.RaCrit is not None else 'RaCrit (Ice I) = nan',
+        f'eLid_m (Ice I) = {Planet.eLid_m:.3f}' if Planet.eLid_m is not None else 'eLid_m (Ice I) = nan',
+        f'Dconv_m (Ice I) = {Planet.Dconv_m:.3f}' if Planet.Dconv_m is not None else 'Dconv_m (Ice I) = nan',
+        f'deltaTBL_m (Ice I) = {Planet.deltaTBL_m:.3f}' if Planet.deltaTBL_m is not None else 'deltaTBL_m (Ice I) = nan',
+        f'TconvIII_K = {Planet.TconvIII_K:.3e}' if Planet.TconvIII_K is not None else 'TconvIII_K = nan',
+        f'etaConvIII_Pas = {Planet.etaConvIII_Pas:.3e}' if Planet.etaConvIII_Pas is not None else 'etaConvIII_Pas = nan',
+        f'RaConvectIII = {Planet.RaConvectIII:.2e}' if Planet.RaConvectIII is not None else 'RaConvectIII = nan',
+        f'RaCritIII = {Planet.RaCritIII:.2e}' if Planet.RaCritIII is not None else 'RaCritIII = nan',
+        f'eLidIII_m = {Planet.eLidIII_m:.3f}' if Planet.eLidIII_m is not None else 'eLidIII_m = nan',
+        f'DconvIII_m = {Planet.DconvIII_m:.3f}' if Planet.DconvIII_m is not None else 'DconvIII_m = nan',
+        f'deltaTBLIII_m = {Planet.deltaTBLIII_m:.3f}' if Planet.deltaTBLIII_m is not None else 'deltaTBLIII_m = nan',
+        f'TconvV_K = {Planet.TconvV_K:.3e}' if Planet.TconvV_K is not None else 'TconvV_K = nan',
+        f'etaConvV_Pas = {Planet.etaConvV_Pas:.3e}' if Planet.etaConvV_Pas is not None else 'etaConvV_Pas = nan',
+        f'RaConvectV = {Planet.RaConvectV:.2e}' if Planet.RaConvectV is not None else 'RaConvectV = nan',
+        f'RaCritV = {Planet.RaCritV:.2e}' if Planet.RaCritV is not None else 'RaCritV = nan',
+        f'eLidV_m = {Planet.eLidV_m:.3f}' if Planet.eLidV_m is not None else 'eLidV_m = nan',
+        f'DconvV_m = {Planet.DconvV_m:.3f}' if Planet.DconvV_m is not None else 'DconvV_m = nan',
+        f'deltaTBLV_m = {Planet.deltaTBLV_m:.3f}' if Planet.deltaTBLV_m is not None else 'deltaTBLV_m = nan',
+        f'TconvVI_K = {Planet.TconvVI_K:.3e}' if Planet.TconvVI_K is not None else 'TconvVI_K = nan',
+        f'etaConvVI_Pas = {Planet.etaConvVI_Pas:.3e}' if Planet.etaConvVI_Pas is not None else 'etaConvVI_Pas = nan',
+        f'RaConvectVI = {Planet.RaConvectVI:.2e}' if Planet.RaConvectVI is not None else 'RaConvectVI = nan',
+        f'RaCritVI = {Planet.RaCritVI:.2e}' if Planet.RaCritVI is not None else 'RaCritVI = nan',
+        f'eLidVI_m = {Planet.eLidVI_m:.3f}' if Planet.eLidVI_m is not None else 'eLidVI_m = nan',
+        f'DconvVI_m = {Planet.DconvVI_m:.3f}' if Planet.DconvVI_m is not None else 'DconvVI_m = nan',
+        f'deltaTBLVI_m = {Planet.deltaTBLVI_m:.3f}' if Planet.deltaTBLVI_m is not None else 'deltaTBLVI_m = nan',
+        f'vConv_ms = {Planet.vConv_ms:.6e}' if np.isfinite(Planet.vConv_ms) else 'vConv_ms = nan',
+        f'vConvIII_ms = {Planet.vConvIII_ms:.6e}' if np.isfinite(Planet.vConvIII_ms) else 'vConvIII_ms = nan',
+        f'vConvV_ms = {Planet.vConvV_ms:.6e}' if np.isfinite(Planet.vConvV_ms) else 'vConvV_ms = nan',
+        f'vConvVI_ms = {Planet.vConvVI_ms:.6e}' if np.isfinite(Planet.vConvVI_ms) else 'vConvVI_ms = nan',
+        f'phi_kgm2s = {Planet.phi_kgm2s:.6e}' if np.isfinite(Planet.phi_kgm2s) else 'phi_kgm2s = nan',
+        f'phiIII_kgm2s = {Planet.phiIII_kgm2s:.6e}' if np.isfinite(Planet.phiIII_kgm2s) else 'phiIII_kgm2s = nan',
+        f'phiV_kgm2s = {Planet.phiV_kgm2s:.6e}' if np.isfinite(Planet.phiV_kgm2s) else 'phiV_kgm2s = nan',
+        f'phiVI_kgm2s = {Planet.phiVI_kgm2s:.6e}' if np.isfinite(Planet.phiVI_kgm2s) else 'phiVI_kgm2s = nan',
+        f'meltFractionIII = {Planet.meltFractionIII:.6f}',
+        f'meltFractionV = {Planet.meltFractionV:.6f}',
+        f'meltFractionVI = {Planet.meltFractionVI:.6f}',
         f'Porous ice = {Planet.Do.POROUS_ICE}',
         f'Steps.nClath = {Planet.Steps.nClath:d}',
         f'Steps.nIceI = {Planet.Steps.nIceI:d}',
@@ -765,10 +792,19 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         Planet.Core.rhoMean_kgm3, Planet.MH2O_kg, Planet.Mrock_kg, Planet.Mcore_kg, Planet.Mice_kg, \
         Planet.Msalt_kg, Planet.MporeSalt_kg, Planet.Mocean_kg, Planet.Mfluid_kg, Planet.MporeFluid_kg, \
         Planet.Mclath_kg, Planet.MclathGas_kg, Planet.Ocean.sigmaMean_Sm, Planet.Sil.sigmaPoreMean_Sm, \
-        Planet.Sil.sigmaPorousLayerMean_Sm, Planet.Tconv_K, Planet.etaConv_Pas, Planet.RaConvect, Planet.RaConvectIII, Planet.RaConvectV, \
-        Planet.RaCrit, Planet.RaCritIII, Planet.RaCritV, Planet.eLid_m, Planet.eLidIII_m, Planet.eLidV_m, \
-        Planet.Dconv_m, Planet.DconvIII_m, Planet.DconvV_m, Planet.deltaTBL_m, Planet.deltaTBLIII_m, Planet.deltaTBLV_m \
-            = (float(f.readline().split('=')[-1]) for _ in range(64))
+        Planet.Sil.sigmaPorousLayerMean_Sm, \
+        Planet.Tconv_K, Planet.etaConv_Pas, Planet.RaConvect, Planet.RaCrit, \
+        Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, \
+        Planet.TconvIII_K, Planet.etaConvIII_Pas, Planet.RaConvectIII, Planet.RaCritIII, \
+        Planet.eLidIII_m, Planet.DconvIII_m, Planet.deltaTBLIII_m, \
+        Planet.TconvV_K, Planet.etaConvV_Pas, Planet.RaConvectV, Planet.RaCritV, \
+        Planet.eLidV_m, Planet.DconvV_m, Planet.deltaTBLV_m, \
+        Planet.TconvVI_K, Planet.etaConvVI_Pas, Planet.RaConvectVI, Planet.RaCritVI, \
+        Planet.eLidVI_m, Planet.DconvVI_m, Planet.deltaTBLVI_m, \
+        Planet.vConv_ms, Planet.vConvIII_ms, Planet.vConvV_ms, Planet.vConvVI_ms, \
+        Planet.phi_kgm2s, Planet.phiIII_kgm2s, Planet.phiV_kgm2s, Planet.phiVI_kgm2s, \
+        Planet.meltFractionIII, Planet.meltFractionV, Planet.meltFractionVI \
+            = (float(f.readline().split('=')[-1]) for _ in range(86))
         # Note porosity flags
         Planet.Do.POROUS_ICE = bool(strtobool(f.readline().split('=')[-1].strip()))
         Planet.Do.POROUS_ROCK = not np.isnan(Planet.Sil.phiCalc_frac)

@@ -10,9 +10,9 @@ from PlanetProfile import _Test, _Defaults
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from PlanetProfile.GetConfig import FigMisc, SigParams
-from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq_single as GeodesyNorm2chipq, \
+from PlanetProfile.MagneticInduction.MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq_single as GeodesyNorm2chipq, \
     get_all_Xid as LoadXid, get_rsurf as GetrSurf, norm4pi as normFactor_4pi
-from MoonMag.symmetry_funcs import InducedAeList as AeList
+from PlanetProfile.MagneticInduction.MoonMag.symmetry_funcs import InducedAeList as AeList
 import time
 # Assign logger
 log = logging.getLogger('PlanetProfile')

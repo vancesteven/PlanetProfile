@@ -9,7 +9,7 @@ import multiprocessing as mtp
 from functools import partial, partialmethod
 from PlanetProfile import _DefaultList, _ROOT
 import importlib
-import MoonMag.symmetry_funcs, MoonMag.asymmetry_funcs
+import PlanetProfile.MagneticInduction.MoonMag.symmetry_funcs, PlanetProfile.MagneticInduction.MoonMag.asymmetry_funcs
 
 """ Get default config settings """
 from PlanetProfile.defaultConfig import configAssign, configVersion
@@ -88,7 +88,7 @@ timeLog.addHandler(timeStream)
 timeLog.propagate = False # Prevent double logging to parent handlers
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 logging.getLogger('PIL').setLevel(logging.WARNING)
-logging.getLogger('MoonMag').setLevel(logLevelMoonMag)
+logging.getLogger('PlanetProfile.MagneticInduction.MoonMag').setLevel(logLevelMoonMag)
 logging.getLogger('lbftd').setLevel(logLevelLBF)
 log.debug('Printing verbose runtime messages. Toggle with Params.VERBOSE in configPP.py.')
 

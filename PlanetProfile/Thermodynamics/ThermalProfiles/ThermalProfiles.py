@@ -8,7 +8,7 @@ from PlanetProfile.Utilities.Indexing import PhaseConv, MixedPhaseSeparator, Pha
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
-def ConvectionPetricca2024(Tmelt_K, Ttop_K, zb_m, Eact_kJmol, etaMelt_Pas, rhoMid_kgm3, alphaMid_pK, KthermMid_WmK, CpMid_JkgK, gtop_ms2, phaseBot, rTop_m):
+def ConvectionPetricca2024(Tmelt_K, Ttop_K, zb_m, Eact_kJmol, etaMelt_Pas, rhoMid_kgm3, alphaMid_pK, KthermMid_WmK, CpMid_JkgK, gtop_ms2, phaseBot, rTop_m, Htidal_Wm3=0):
     """ Thermodynamics calculations for convection in an ice layer
         based on Petricca et al. (2024): https://doi.org/10.1016/j.icarus.2024.116120
         Petricca presents a model for convection in an ice layer based on the approximation
@@ -44,7 +44,10 @@ def ConvectionPetricca2024(Tmelt_K, Ttop_K, zb_m, Eact_kJmol, etaMelt_Pas, rhoMi
     qSurface_Wm2 = KthermMid_WmK * (Tmelt_K - Ttop_K) / (zb_m * f)
     # Calculate heat flux through the convective region
     qBot_Wm2 = 1.46 * Ra ** 0.27 / (f**1.78) * (deltaTv / (Tmelt_K - Ttop_K)) ** 1.21 * qSurface_Wm2
-    
+    # Add tidal heating contribution to heat flux (H_tidal * layer_thickness)
+    if Htidal_Wm3 > 0:
+        qBot_Wm2 = qBot_Wm2 + Htidal_Wm3 * zb_m
+
     # Calculate thickness of conductive portion
     eLid_m = KthermMid_WmK * (Tconv_K - Ttop_K) / qBot_Wm2
     
@@ -64,8 +67,155 @@ def ConvectionPetricca2024(Tmelt_K, Ttop_K, zb_m, Eact_kJmol, etaMelt_Pas, rhoMi
         
     
 
+def ConvectionKalousova2018(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa,
+                            oceanEOS, iceEOS, phaseBot, EQUIL_Q, Eact_kJmol, qBot_Wm2=None,
+                            Htidal_Wm3=0):
+    """ Thermodynamics calculations for convection in HP ice layers (III, V, VI)
+        based on Kalousova & Sotin (2018): https://doi.org/10.1029/2018GL078889
+
+        Implements two-phase convection model for HP ice layers with potential partial melting.
+        Key features:
+        1. Temperature at ice-ocean interface follows melting curve (computed before calling this)
+        2. Checks if modified Rayleigh number exceeds critical value for temperate layer formation
+        3. If Ra* > Ra*c, a temperate (partially molten) layer exists at silicate/ice interface
+        4. Returns convection parameters consistent with Deschamps & Sotin interface
+
+        Args:
+            Ttop_K (float): Temperature at top of layer (from ocean, follows melting curve) in K
+            rTop_m (float): Radius of top of ice layer in m
+            kTop_WmK (float): Thermal conductivity at top of ice layer in W/(m K)
+            Tb_K (float): Temperature at bottom of layer (at silicate interface) in K
+            zb_m (float): Thickness of the ice layer in m
+            gtop_ms2 (float): Gravitational acceleration at layer top
+            Pmid_MPa (float): Pressure at the "middle" of the convective region in MPa
+            oceanEOS (OceanEOSStruct): Interpolator functions for evaluating the ocean EOS
+            iceEOS (IceEOSStruct): Interpolator functions for evaluating the ice EOS
+            phaseBot (int): Ice phase index at the bottom of the layer
+            EQUIL_Q (bool): Whether to set heat flux consistent with convective profile
+            Eact_kJmol (dict): Activation energies per phase in kJ/mol
+            qBot_Wm2 (float, optional): Heat flux from silicate layer in W/m². If None, will be computed.
+
+        Returns:
+            Tconv_K (float): Interior temperature (follows melting curve in convecting region) in K
+            etaConv_Pas (float): Reference viscosity at melting temperature in Pa*s
+            eLid_m (float): Thickness of the top temperate layer (if present) in m
+            Dconv_m (float): Thickness of convecting interior in m
+            deltaTBL_m (float): Thickness of lower thermal boundary layer in m
+            Qbot_W (float): Total heat flux at bottom of layer in W
+            Ra (float): Modified Rayleigh number Ra*
+            RaCrit (float): Critical Rayleigh number for temperate layer formation
+
+        Note: Melt fraction is stored separately in Planet.meltFractionIII/V/VI
+    """
+    # Get phase info
+    phaseMid = iceEOS.phaseID
+    phaseMidString = PhaseConv(phaseMid)
+
+    # Get reference viscosity at melting temperature
+    # Use etaMelt_Pas from Constants for this phase
+    if phaseMid > Constants.phaseClath and phaseMid < Constants.phaseClath + 10:
+        # Mixed clathrate phase - use averaging
+        stringClath, stringIce = MixedPhaseSeparator(PhaseConv(phaseMid))
+        phaseClath, phaseIce = PhaseInv(stringClath), PhaseInv(stringIce)
+        etaMelt_Pas = iceEOS.fn_averageValuesAccordingtoRule(Constants.etaMelt_Pas[phaseClath],
+                                                               Constants.etaMelt_Pas[phaseIce],
+                                                               'Carahan2004Averaging')
+    else:
+        etaMelt_Pas = Constants.etaMelt_Pas[phaseMid]
+
+    # Get physical properties at mid-layer pressure and melting temperature
+    # Interior temperature T^i follows the melting curve
+    Tconv_K = Ttop_K  # Interior is at melting temperature (vigorous convection)
+    rhoMid_kgm3 = iceEOS.fn_rho_kgm3(Pmid_MPa, Tconv_K)
+    CpMid_JkgK = iceEOS.fn_Cp_JkgK(Pmid_MPa, Tconv_K)
+    alphaMid_pK = iceEOS.fn_alpha_pK(Pmid_MPa, Tconv_K)
+    kMid_WmK = iceEOS.fn_kTherm_WmK(Pmid_MPa, Tconv_K)
+
+    # Temperature contrast across the convective layer
+    # ΔTc = T_melt(silicate interface) - T_interior
+    # T_interior follows melting curve, so ΔTc = Tb_K - Tconv_K
+    DeltaTc_K = Tb_K - Tconv_K
+
+    if DeltaTc_K <= 0:
+        # No thermal contrast - no convection
+        log.debug(f'No thermal contrast in HP ice {phaseMidString} layer (ΔT = {DeltaTc_K:.2f} K). '
+                  'Convection absent.')
+        eLid_m = 0.0
+        Dconv_m = zb_m
+        deltaTBL_m = 0.0
+        Qbot_W = kMid_WmK * abs(DeltaTc_K) / zb_m * 4*np.pi * (rTop_m - zb_m)**2
+        Ra = 0.0
+        RaCrit = np.inf
+        return Tconv_K, etaMelt_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit
+
+    # Calculate far-field Rayleigh number (Kalousova & Sotin 2018, Eq. 2;
+    # Sotin & Labrosse 1999): Ra* = α ρ g ΔTc Hc³ / (κ μ₀)
+    # Equivalently in terms of conductivity: Ra* = α ρ² g Cp ΔTc Hc³ / (k μ₀)
+    Hc_m = zb_m  # Layer thickness
+    Ra_star = alphaMid_pK * CpMid_JkgK * rhoMid_kgm3**2 * gtop_ms2 * DeltaTc_K * Hc_m**3 / \
+              (etaMelt_Pas * kMid_WmK)
+
+    # Calculate heat flux if not provided
+    if qBot_Wm2 is None:
+        # Use conductive estimate
+        qBot_Wm2 = kMid_WmK * DeltaTc_K / Hc_m
+
+    # Add tidal heating contribution to heat flux (H_tidal * layer_thickness)
+    if Htidal_Wm3 > 0:
+        qBot_Wm2 = qBot_Wm2 + Htidal_Wm3 * Hc_m
+
+    # Convert to mW/m²
+    qs_mWm2 = qBot_Wm2 * 1e3
+
+    # Calculate critical Rayleigh number for temperate layer formation (Eq. 7)
+    # Ra*c = 19.965 × 10³ × (qs [mW/m²])^3.690
+    RaCrit = 19.965e3 * (qs_mWm2**3.690)
+
+    # Check if temperate layer forms
+    if Ra_star > RaCrit:
+        # Supercritical: temperate layer present - calculate thickness (Eq. 9)
+        # Ht[km] = (0.145 × 10⁻³ × qs[mW/m²] + 0.015) × μ₀[Pa·s]^0.21
+        Ht_km = (0.145e-3 * qs_mWm2 + 0.015) * (etaMelt_Pas**0.21)
+        eLid_m = Ht_km * 1e3
+        log.debug(f'HP ice {phaseMidString} temperate layer present: '
+                  f'Ra* = {Ra_star:.3e} > Ra*c = {RaCrit:.3e}, '
+                  f'Ht = {Ht_km:.3f} km')
+
+        # Calculate TBL thickness using scaling (Eq. 4)
+        # delta_i = 2.746 (Ra*)^(-0.271)
+        # delta = delta_i * Hc
+        delta_i = 2.746 * (Ra_star**(-0.271))
+        deltaTBL_m = delta_i * Hc_m
+
+        # Convecting layer thickness
+        Dconv_m = zb_m - eLid_m - deltaTBL_m
+
+        if Dconv_m < 0:
+            # Boundary layers thicker than total layer - no convection possible
+            log.warning(f'HP ice {phaseMidString} boundary layers ({(eLid_m + deltaTBL_m)/1e3:.1f} km) '
+                        f'exceed layer thickness ({zb_m/1e3:.1f} km). Setting to conductive profile.')
+            eLid_m = 0.0
+            Dconv_m = 0.0
+            deltaTBL_m = 0.0
+    else:
+        # Subcritical: entire layer is conductive, no convection
+        eLid_m = zb_m
+        Dconv_m = 0.0
+        deltaTBL_m = 0.0
+        log.debug(f'HP ice {phaseMidString} subcritical: '
+                  f'Ra* = {Ra_star:.3e} < Ra*c = {RaCrit:.3e}. '
+                  f'Entire {zb_m/1e3:.1f} km layer is conductive.')
+
+    # Calculate heat flux
+    Qbot_W = qBot_Wm2 * 4*np.pi * (rTop_m - zb_m)**2
+
+    # Return convection parameters
+    # etaConv is the reference viscosity at melting temperature
+    return Tconv_K, etaMelt_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra_star, RaCrit
+
+
 def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa,
-                                 oceanEOS, iceEOS, phaseBot, EQUIL_Q, Eact_kJmol):
+                                 oceanEOS, iceEOS, phaseBot, EQUIL_Q, Eact_kJmol, Htidal_Wm3=0):
     """ Thermodynamics calculations for convection in an ice layer
         based on Deschamps and Sotin (2001): https://doi.org/10.1029/2000JE001253
         Note that these authors solved for the scaling laws we apply in Cartesian
@@ -146,6 +296,13 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         oldPmid_MPa = Pmid_MPa + 0.0
         Pmid_MPa = GetPfreeze(oceanEOS, phaseMid, Tconv_K, UNDERPLATE=False, HPNOOCEAN=False)
         log.warning(f'Pmid_MPa has been adjusted upward from {oldPmid_MPa} to {Pmid_MPa} to compensate.')
+        if not np.isfinite(Pmid_MPa):
+            log.warning(f'Pmid_MPa is not finite after adjustment. Returning conductive profile.')
+            eLid_m = zb_m
+            Dconv_m = 0.0
+            deltaTBL_m = 0.0
+            Qbot_W = kTop_WmK * abs(Tb_K - Ttop_K) / zb_m * 4*np.pi * (rTop_m - zb_m)**2
+            return Tconv_K, Constants.etaMelt_Pas[phaseMid], eLid_m, Dconv_m, deltaTBL_m, Qbot_W, 0.0, np.inf
 
     # Get melting temperature for calculating viscosity relative to this temp
     Pmelt_MPa = np.arange(Pmid_MPa - 0.05*3, Pmid_MPa+0.05*3, 0.05)
@@ -181,6 +338,9 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
                   alphaMid_pK / CpMid_JkgK / rhoMid_kgm3**2 / gtop_ms2 / (Tb_K - Tconv_K))**(1/3)
     # Heat flux entering the bottom of the ice layer
     qBot_Wm2 = kMid_WmK * (Tb_K - Tconv_K) / deltaTBL_m
+    # Add tidal heating contribution to heat flux (H_tidal * layer_thickness)
+    if Htidal_Wm3 > 0:
+        qBot_Wm2 = qBot_Wm2 + Htidal_Wm3 * zb_m
     # Heat flux leaving the top of the ice layer (adjusted for spherical geometry compared to Deschamps and Sotin, 2001)
     qTop_Wm2 = (rTop_m - zb_m)**2 / rTop_m**2 * qBot_Wm2
     # Thickness of conductive stagnant lid

@@ -41,7 +41,7 @@ compatNums = {
     'seafreeze': '1.0.0',
     'gsw': '3.6.20',
     'obspy': '1.4.2',
-    'MoonMag': '1.7.5',
+
     'reaktoro': '2.13.0',
     'pyalma3': '1.0.1'
 }
@@ -50,7 +50,7 @@ pkgNames = {
     'seafreeze': 'SeaFreeze',
     'gsw': 'GSW',
     'obspy': 'ObsPy.TauP',
-    'MoonMag': 'MoonMag',
+
     'reaktoro': 'reaktoro',
     'pyalma3': 'pyALMA3'
 }
@@ -59,7 +59,7 @@ installInstruct = {
     'seafreeze': 'pip install SeaFreeze',
     'gsw': 'conda install -c conda-forge gsw',
     'obspy': 'conda install -c conda-forge obspy',
-    'MoonMag': 'pip install MoonMag',
+
     'reaktoro': 'pip install reaktoro',
     'pyalma3': 'pip install pyalma3'
 }
@@ -68,7 +68,7 @@ upgradeInstruct = {
     'seafreeze': 'pip install --upgrade SeaFreeze',
     'gsw': 'conda update gsw',
     'obspy': 'conda update obspy',
-    'MoonMag': 'pip install --upgrade MoonMag',
+
     'reaktoro': 'pip install --upgrade reaktoro',
     'pyalma3': 'pip install --upgrade pyalma3'
 }

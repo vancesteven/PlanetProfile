@@ -14,17 +14,8 @@ from scipy.interpolate import griddata
 import logging
 log = logging.getLogger('PlanetProfile')
 
-# Force Illustrator-compatible fonts: no STIX math, no Type 3 fonts.
-# Must disable usetex (set by GetConfig -> SetLatex) to prevent LaTeX
-# from embedding NimbusSanL / STIXMath that Illustrator cannot parse.
-mpl.rcParams['text.usetex'] = False
-mpl.rcParams['mathtext.fontset'] = 'dejavusans'
-mpl.rcParams['pdf.fonttype'] = 42      # TrueType — Illustrator can edit
-mpl.rcParams['ps.fonttype'] = 42
-mpl.rcParams['font.family'] = 'sans-serif'
-mpl.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
-
 import re as _re
+import copy
 
 def _latex_to_plain(s):
     """Convert a LaTeX-rich label string to plain text safe for matplotlib
@@ -54,46 +45,81 @@ def _strip_labels_for_mathtext(lbl_obj):
                 if isinstance(v, str):
                     val[k] = _latex_to_plain(v)
 
-# Since we disabled usetex, strip LaTeX commands (\si, \ce, \textbf, etc.)
-# from FigLbl so matplotlib's mathtext parser doesn't choke on them.
-_strip_labels_for_mathtext(FigLbl)
-FigMisc.TEX_INSTALLED = False  # Prevent downstream code from using LaTeX commands
+def _set_illustrator_fonts():
+    """Temporarily configure matplotlib for Illustrator-compatible fonts.
+    Returns the previous settings so they can be restored."""
+    # Save current settings
+    prev_settings = {
+        'text.usetex': mpl.rcParams.get('text.usetex', False),
+        'mathtext.fontset': mpl.rcParams.get('mathtext.fontset', 'dejavusans'),
+        'pdf.fonttype': mpl.rcParams.get('pdf.fonttype', 42),
+        'ps.fonttype': mpl.rcParams.get('ps.fonttype', 42),
+        'font.family': mpl.rcParams.get('font.family', 'sans-serif'),
+        'font.sans-serif': mpl.rcParams.get('font.sans-serif', ['DejaVu Sans'])
+    }
+
+    # Force Illustrator-compatible fonts: no STIX math, no Type 3 fonts.
+    # Must disable usetex (set by GetConfig -> SetLatex) to prevent LaTeX
+    # from embedding NimbusSanL / STIXMath that Illustrator cannot parse.
+    mpl.rcParams['text.usetex'] = False
+    mpl.rcParams['mathtext.fontset'] = 'dejavusans'
+    mpl.rcParams['pdf.fonttype'] = 42      # TrueType — Illustrator can edit
+    mpl.rcParams['ps.fonttype'] = 42
+    mpl.rcParams['font.family'] = 'sans-serif'
+    mpl.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
+
+    return prev_settings
+
+def _restore_mpl_settings(prev_settings):
+    """Restore matplotlib settings from a previous state."""
+    for key, val in prev_settings.items():
+        mpl.rcParams[key] = val
 
 def GenerateExplorationPlots(ExplorationList, FigureFilesList, Params):
     """
     Generate all exploration plots for a given list of results.
     """
-    PLOT_EXPLORATION = not (Params.Explore.nx == 1 or Params.Explore.ny == 1) # If either axis is of size 1, then we cannot plot 
-    # Setup CustomSolution plot settings
-    all_ocean_comps = []
-    for Exploration in ExplorationList:
-        all_ocean_comps.extend(np.array(Exploration.base.oceanComp).flatten())
-    Params = SetupCustomSolutionPlotSettings(np.array(all_ocean_comps), Params)
-    if PLOT_EXPLORATION and not Params.SKIP_PLOTS:         
-        # Use multi-subplot function only for multiple z-variables
-        if isinstance(Params.Explore.zName, list) and Params.PLOT_COMBO_EXPLORATIONS:
-            PlotExploreOgramMultiSubplot(ExplorationList, FigureFilesList, Params)
-        else:
-            if isinstance(Params.Explore.zName, list):
-                originalZName = Params.Explore.zName
-                zNamesList = Params.Explore.zName
-                originalFigName = Params.FigureFiles.explore
-                figNames = Params.FigureFiles.explore
+    # Save current matplotlib and FigLbl settings for Illustrator compatibility
+    prev_mpl_settings = _set_illustrator_fonts()
+    # Create local copy of FigLbl and strip LaTeX for mathtext compatibility
+    global FigLbl
+    original_FigLbl = copy.deepcopy(FigLbl)
+    _strip_labels_for_mathtext(FigLbl)
+    original_TEX_INSTALLED = FigMisc.TEX_INSTALLED
+    FigMisc.TEX_INSTALLED = False  # Signal downstream code to avoid LaTeX commands
+
+    try:
+        PLOT_EXPLORATION = not (Params.Explore.nx == 1 or Params.Explore.ny == 1) # If either axis is of size 1, then we cannot plot
+        # Setup CustomSolution plot settings
+        all_ocean_comps = []
+        for Exploration in ExplorationList:
+            all_ocean_comps.extend(np.array(Exploration.base.oceanComp).flatten())
+        Params = SetupCustomSolutionPlotSettings(np.array(all_ocean_comps), Params)
+        if PLOT_EXPLORATION and not Params.SKIP_PLOTS:
+            # Use multi-subplot function only for multiple z-variables
+            if isinstance(Params.Explore.zName, list) and Params.PLOT_COMBO_EXPLORATIONS:
+                PlotExploreOgramMultiSubplot(ExplorationList, FigureFilesList, Params)
             else:
-                originalZName = Params.Explore.zName
-                zNamesList = [Params.Explore.zName]
-                originalFigName = Params.FigureFiles.explore
-                figNames = [Params.FigureFiles.explore]
-            for zName, figName in zip(zNamesList, figNames):
-                Params.Explore.zName = zName
-                Params.FigureFiles.explore = figName
-                # Use original single-plot function for single z-variable
-                for Exploration in ExplorationList:
-                    Exploration.zName = zName
-                PlotExploreOgram(ExplorationList, FigureFilesList, Params)
-            Params.Explore.zName = originalZName
-            Params.FigureFiles.explore = originalFigName
-            # Now we plot the ZbD plots (must plot after exploreogram plots since we change the x and y variables)
+                if isinstance(Params.Explore.zName, list):
+                    originalZName = Params.Explore.zName
+                    zNamesList = Params.Explore.zName
+                    originalFigName = Params.FigureFiles.explore
+                    figNames = Params.FigureFiles.explore
+                else:
+                    originalZName = Params.Explore.zName
+                    zNamesList = [Params.Explore.zName]
+                    originalFigName = Params.FigureFiles.explore
+                    figNames = [Params.FigureFiles.explore]
+                for zName, figName in zip(zNamesList, figNames):
+                    Params.Explore.zName = zName
+                    Params.FigureFiles.explore = figName
+                    # Use original single-plot function for single z-variable
+                    for Exploration in ExplorationList:
+                        Exploration.zName = zName
+                    PlotExploreOgram(ExplorationList, FigureFilesList, Params)
+                Params.Explore.zName = originalZName
+                Params.FigureFiles.explore = originalFigName
+                # Now we plot the ZbD plots (must plot after exploreogram plots since we change the x and y variables)
         if Params.PLOT_Zb_D:
             if isinstance(Params.Explore.zName, list):
                 figNames = Params.FigureFiles.exploreZbD + []
@@ -106,12 +132,21 @@ def GenerateExplorationPlots(ExplorationList, FigureFilesList, Params):
                 for Exploration in ExplorationList:
                     Exploration.zName = Params.Explore.zNameZbD
                 PlotExploreOgramZbD(ExplorationList, FigureFilesList, Params)
-        if Params.PLOT_D_SIGMA:
-            PlotExploreOgramDsigma(ExplorationList, FigureFilesList, Params)
-        if Params.PLOT_LOVE_COMPARISON:
-            PlotExploreOgramLoveComparison(ExplorationList, FigureFilesList, Params)
+            if Params.PLOT_D_SIGMA:
+                PlotExploreOgramDsigma(ExplorationList, FigureFilesList, Params)
+            if Params.PLOT_LOVE_COMPARISON:
+                PlotExploreOgramLoveComparison(ExplorationList, FigureFilesList, Params)
 
-    
+    finally:
+        # Restore original matplotlib settings and FigLbl
+        _restore_mpl_settings(prev_mpl_settings)
+        FigLbl = original_FigLbl
+        # Restore all FigLbl attributes from the deep copy
+        for key, val in original_FigLbl.__dict__.items():
+            setattr(FigLbl, key, val)
+        FigMisc.TEX_INSTALLED = original_TEX_INSTALLED
+
+
 def PlotExploreOgramDsigma(results_list, FigureFilesList, Params):
     # Step 1: Configure FigLbl using existing system (original pattern)
     results_list[0].xName = 'D_km'

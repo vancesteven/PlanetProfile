@@ -395,13 +395,15 @@ class OceanEOSStruct:
 
 def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0, phiMin_frac=0,
               EXTRAP=False, ClathDissoc=None, minPres_MPa=None, minTres_K=None,
-            ICEIh_DIFFERENT=False, etaFixed_Pas=None, TviscTrans_K=None, mixParameters=None, doConstantProps = False, constantProperties = None, kThermConst_WmK=None):
+            ICEIh_DIFFERENT=False, etaFixed_Pas=None, TviscTrans_K=None, mixParameters=None,
+            doConstantProps=False, constantProperties=None, kThermConst_WmK=None,
+            ARRHENIUS_VISCOSITY=False, etaMelt_Pas=None, Eact_Jmol=None, Tmelt_K=None):
     # Check if this is a mixed EOS
     if 'mixed' in phaseStr.lower():
         iceEOS = MixedEOSStruct(P_MPa, T_K, phaseStr, mixParameters,
-                                  porosType=porosType, phiTop_frac=phiTop_frac, 
+                                  porosType=porosType, phiTop_frac=phiTop_frac,
                                   Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac,
-                                  EXTRAP=EXTRAP, ClathDissoc=ClathDissoc, 
+                                  EXTRAP=EXTRAP, ClathDissoc=ClathDissoc,
                                   minPres_MPa=minPres_MPa, minTres_K=minTres_K,
                                   ICEIh_DIFFERENT=ICEIh_DIFFERENT, etaFixed_Pas=etaFixed_Pas,
                                   TviscTrans_K=TviscTrans_K, kThermConst_WmK=kThermConst_WmK, doConstantProps = doConstantProps, constantProperties = constantProperties)
@@ -410,7 +412,10 @@ def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=
                             Pclosure_MPa=Pclosure_MPa, phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
                             ClathDissoc=ClathDissoc, minPres_MPa=minPres_MPa, minTres_K=minTres_K,
                             ICEIh_DIFFERENT=ICEIh_DIFFERENT, etaFixed_Pas=etaFixed_Pas,
-                            TviscTrans_K=TviscTrans_K, kThermConst_WmK=kThermConst_WmK, doConstantProps = doConstantProps, constantProperties = constantProperties)
+                            TviscTrans_K=TviscTrans_K, kThermConst_WmK=kThermConst_WmK,
+                            doConstantProps=doConstantProps, constantProperties=constantProperties,
+                            ARRHENIUS_VISCOSITY=ARRHENIUS_VISCOSITY, etaMelt_Pas=etaMelt_Pas,
+                            Eact_Jmol=Eact_Jmol, Tmelt_K=Tmelt_K)
     if iceEOS.ALREADY_LOADED:
         log.debug(f'Ice {phaseStr} EOS already loaded. Reusing existing EOS.')
         iceEOS = EOSlist.loaded[iceEOS.EOSlabel]
@@ -427,7 +432,9 @@ def GetIceEOS(P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=
 class IceEOSStruct:
     def __init__(self, P_MPa, T_K, phaseStr, porosType=None, phiTop_frac=0, Pclosure_MPa=0,
                  phiMin_frac=0, EXTRAP=False, ClathDissoc=None, minPres_MPa=None, minTres_K=None,
-                 ICEIh_DIFFERENT=False, etaFixed_Pas=None, TviscTrans_K=None, kThermConst_WmK=None, doConstantProps = False, constantProperties = None):
+                 ICEIh_DIFFERENT=False, etaFixed_Pas=None, TviscTrans_K=None, kThermConst_WmK=None,
+                 doConstantProps=False, constantProperties=None,
+                 ARRHENIUS_VISCOSITY=False, etaMelt_Pas=None, Eact_Jmol=None, Tmelt_K=None):
 
         self.EOSlabel = GetIceEOSLabel(phaseStr, porosType, phiTop_frac, Pclosure_MPa, phiMin_frac, EXTRAP, etaFixed_Pas, TviscTrans_K)
         if doConstantProps:
@@ -583,7 +590,10 @@ class IceEOSStruct:
                 self.ufn_Cp_JkgK = RectBivariateSpline(P_MPa, T_K, Cp_JkgK)
                 self.ufn_alpha_pK = RectBivariateSpline(P_MPa, T_K, alpha_pK)
                 self.ufn_kTherm_WmK = RectBivariateSpline(P_MPa, T_K, kTherm_WmK)
-                self.ufn_eta_Pas = ViscIceUniform_Pas(etaSet_Pas=etaFixed_Pas, TviscTrans_K=TviscTrans_K)
+                if ARRHENIUS_VISCOSITY and etaMelt_Pas is not None and Eact_Jmol is not None and Tmelt_K is not None:
+                    self.ufn_eta_Pas = ViscIceArrhenius_Pas(etaMelt_Pas, Eact_Jmol, Tmelt_K)
+                else:
+                    self.ufn_eta_Pas = ViscIceUniform_Pas(etaSet_Pas=etaFixed_Pas, TviscTrans_K=TviscTrans_K)
 
             if porosType is None or porosType == 'none':
                 self.ufn_phi_frac = ReturnZeros(1)
@@ -1482,7 +1492,45 @@ class ViscIceUniform_Pas:
     def updateConvectionViscosity(self, etaConv_Pas, Tconv_K):
         self.eta_Pas[-1] = etaConv_Pas
         self.TviscTrans_K[-1] = Tconv_K
-    
+
+
+class ViscIceArrhenius_Pas:
+    """ Arrhenius temperature-dependent viscosity for ice phases.
+
+        eta(T) = etaMelt * exp(Eact/R * (1/T - 1/Tmelt))
+
+        Where etaMelt is the viscosity at the melting temperature and Eact
+        is the activation energy. Per-phase values from Constants.etaMelt_Pas
+        and Constants.Eact_kJmol. Following the formulation in Petricca et al.
+        (2024, 2025) and Tobie et al. (2003).
+
+        Args:
+            etaMelt_Pas: Reference viscosity at melting temperature (Pa s).
+            Eact_Jmol: Activation energy (J/mol).
+            Tmelt_K: Melting temperature (K) at reference pressure.
+            etaMax_Pas: Maximum viscosity cap (Pa s). Default 1e21.
+    """
+    def __init__(self, etaMelt_Pas, Eact_Jmol, Tmelt_K, etaMax_Pas=1e21):
+        self.etaMelt_Pas = etaMelt_Pas
+        self.Eact_Jmol = Eact_Jmol
+        self.Tmelt_K = Tmelt_K
+        self.etaMax_Pas = etaMax_Pas
+        self.R = 8.314  # J/(mol*K)
+
+    def __call__(self, P_MPa, T_K, grid=False):
+        if grid:
+            T = np.atleast_1d(T_K)[np.newaxis, :]
+            eta = self.etaMelt_Pas * np.exp(
+                self.Eact_Jmol / self.R * (1.0 / T - 1.0 / self.Tmelt_K))
+            eta = np.clip(eta, 0, self.etaMax_Pas)
+            return np.broadcast_to(eta, (np.size(P_MPa), np.size(T_K))).copy()
+        else:
+            T = np.atleast_1d(T_K).astype(float)
+            eta = self.etaMelt_Pas * np.exp(
+                self.Eact_Jmol / self.R * (1.0 / T - 1.0 / self.Tmelt_K))
+            eta = np.clip(eta, 0, self.etaMax_Pas)
+            return eta
+
 
 def GetOceanEOSLabel(compstr, wOcean_ppt, elecType, rhoType, scalingType, phaseType, EXTRAP, PORE, LOOKUP_HIRES, etaFixed_Pas, meltStr, propsStepReductionFactor):
     return f'meltStr{meltStr}Comp{compstr}wppt{wOcean_ppt}elec{elecType}rho{rhoType}' + \

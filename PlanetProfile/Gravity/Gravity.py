@@ -58,9 +58,89 @@ def GravityParameters(Planet, Params):
         else:
             log.warning(
                 f'CALC_NEW_GRAVITY is False, but {Params.DataFiles.gravityParametersFile} was not found. ' + f'Skipping gravity parameter calculations.')
+    # Post-hoc check: compare user-specified ice tidal heating with value implied by computed k2
+    Planet = CheckIceTidalHeatingConsistency(Planet)
+
     Timing.printFunctionTimeDifference('GravityParameters()', time.time())
     return Planet, Params
 
+
+def CheckIceTidalHeatingConsistency(Planet):
+    """ Compare user-specified Ocean.HtidalIce_Wm3 with value implied by computed Im(k2).
+
+        Uses the Petricca et al. (2025) formula:
+        H_tidal = (21/2) * n^5 * R^5 * e^2 * Im(k2) / (G * V_ice)
+
+        Only runs if orbital parameters and Love numbers are available.
+        Stores computed value in Planet.Ocean.HtidalIce_Wm3_computed for diagnostics.
+    """
+    # Check prerequisites
+    if Planet.Bulk.eccentricity is None or Planet.Bulk.meanMotion_radps is None:
+        return Planet
+    if not hasattr(Planet.Gravity, 'k') or Planet.Gravity.k is None:
+        return Planet
+
+    k2 = Planet.Gravity.k
+    if not np.isfinite(k2):
+        return Planet
+
+    Im_k2 = np.imag(k2) if np.iscomplex(k2) else 0.0
+    if Im_k2 == 0:
+        return Planet
+
+    n = Planet.Bulk.meanMotion_radps
+    R = Planet.Bulk.R_m
+    e = Planet.Bulk.eccentricity
+    G = Constants.G
+
+    # Compute total tidal dissipation power: E_dot = (21/2) * n^5 * R^5 * e^2 * Im(k2) / G
+    E_dot_W = (21.0 / 2.0) * n**5 * R**5 * e**2 * abs(Im_k2) / G
+
+    # Estimate ice volume from layer structure
+    V_ice_m3 = 0.0
+    if hasattr(Planet, 'phase') and Planet.phase is not None:
+        ice_phases = [1, 2, 3, 5, 6]  # All ice phases
+        for i in range(len(Planet.phase) - 1):
+            if Planet.phase[i] in ice_phases:
+                # Shell volume between radii r[i] and r[i+1]
+                r_outer = Planet.r_m[i]
+                r_inner = Planet.r_m[i + 1]
+                V_ice_m3 += (4.0 / 3.0) * np.pi * (r_outer**3 - r_inner**3)
+
+    if V_ice_m3 <= 0:
+        return Planet
+
+    # Compute implied volumetric heating rate
+    H_computed = E_dot_W / V_ice_m3
+
+    # Store for diagnostics
+    if not hasattr(Planet.Ocean, 'HtidalIce_Wm3_computed'):
+        Planet.Ocean.HtidalIce_Wm3_computed = H_computed
+    else:
+        Planet.Ocean.HtidalIce_Wm3_computed = H_computed
+
+    # Apply self-consistent override if enabled
+    H_user = Planet.Ocean.HtidalIce_Wm3
+    if Planet.Do.DO_SELF_CONSISTENT_HTIDAL and H_computed > 0:
+        Planet.Ocean.HtidalIce_Wm3 = H_computed
+        log.info(f'Self-consistent tidal heating: overriding user value {H_user:.2e} W/m^3 '
+                 f'with k2-implied {H_computed:.2e} W/m^3 (Im(k2) = {Im_k2:.4f}). '
+                 f'Note: convection was computed with the original value; '
+                 f're-run for full convergence.')
+    elif H_user > 0 and H_computed > 0:
+        ratio = H_computed / H_user
+        if ratio > 10 or ratio < 0.1:
+            log.warning(f'Ice tidal heating inconsistency: user-specified {H_user:.2e} W/m^3, '
+                        f'k2-implied {H_computed:.2e} W/m^3 (ratio {ratio:.1f}x). '
+                        f'Im(k2) = {Im_k2:.4f}, V_ice = {V_ice_m3:.3e} m^3')
+        else:
+            log.info(f'Ice tidal heating consistency check: user {H_user:.2e}, '
+                     f'k2-implied {H_computed:.2e} W/m^3 (ratio {ratio:.1f}x)')
+    elif H_computed > 0:
+        log.info(f'k2-implied ice tidal heating: {H_computed:.2e} W/m^3 '
+                 f'(Im(k2) = {Im_k2:.4f}). Set Ocean.HtidalIce_Wm3 to use in convection.')
+
+    return Planet
 
 
 

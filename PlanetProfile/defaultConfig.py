@@ -78,6 +78,7 @@ def configAssign():
     Params.PLOT_BDIP =        False  # Whether to plot induced dipole surface strength in complex plane
     Params.PLOT_BSURF =       True  # Whether to plot induced field surface map
     Params.PLOT_ASYM =        False  # Whether to plot asymmetric boundary shape(s) when induced fields are calculated from them
+    Params.PLOT_LATERAL =     True   # Whether to plot lateral structure maps (ice thickness, tidal heating, etc.) when DO_3D is enabled
     Params.PLOT_TRAJECS =     False  # Whether to plot spacecraft flyby trajectories for those involved in inversion
     Params.PLOT_BINVERSION =  False  # Whether to plot magnetic field vector components for flyby inversion
     Params.LEGEND =           True  # Whether to plot legends
