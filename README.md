@@ -8,11 +8,12 @@ The following is a non-comprehensive list of capabilities offered in PlanetProfi
   - Available laboratory-measured ocean compositions: Pure water and Sodium Chloride (Seafreeze), Seawater (GSW), Magnesium Sulfate (Vance)
   - Can now model arbitrary ocean compositions whose thermodynamics and transport properties are computationally simulated with the geochemical databases Frezchem and Supcrt adapted in the gibbs minimization modeling package Reaktoro
 - Self-consistent interior modeling: Coupling of silicate and core geophysics with thermodynamics dictated by material equation of states (i.e. CV, CM, etc.) defined by PerpleX
-- Forward model Tidal love numbers with PyALMA3
-- Forward model spherical harmonic and asymmetric magnetic induction responses with MoonMag
+- Forward model Tidal love numbers with PyALMA3 or TidalPy (Andrade, Maxwell, and other rheologies)
+- Forward model spherical harmonic and asymmetric magnetic induction responses (MoonMag is included in the repository)
 - Large scale model explorations that forward model across 2 different properties (ExploreOgrams) or many models via Monte Carlo explorations
 - Export model data via .txt files, .pkl files, and .mat files
 - Built-in plots to visualize models
+- PlanetProfileApp: a Streamlit-based graphical interface for interactive model configuration and visualization (included in the repository under `PlanetProfileApp/`)
 
 For the latest updates being introduced to PlanetProfile, check out the [CHANGELOG.md](CHANGELOG.md) file
 
@@ -101,6 +102,10 @@ A simple list with install commands for Python is in the next section.
   * Python: Installed with conda: `conda install reaktoro`
 *  PyALMA3 -- see <https://github.com/drsaikirant88/PyALMA3>
    * Python: Installed with pip: `pip install PyALMA3`
+* TidalPy (optional) -- see <https://github.com/jrenaud90/TidalPy>
+  * Python: Installed with pip: `pip install TidalPy`
+  * Required for Andrade/Maxwell rheology comparisons and per-phase tidal heating calculations
+* MoonMag -- Included in the PlanetProfile repository (no separate installation needed)
 * PlanetMag (optional) -- see <https://github.com/coreyjcochrane/PlanetMag>
   * Matlab only: Installed following detailed instructions on the repo. 
 
@@ -116,8 +121,8 @@ Once these files have been removed, install the newer version of SeaFreeze with 
   1. `conda install nump=1.26.4 scipy matplotlib mpmath pandas`
 1. Conda-forge modules can be installed in Anaconda or Miniconda with the following command:
   1. `conda install -c conda-forge gsw obspy spiceypy cmasher reaktoro`
-1. AFTER the above modules have been installed with conda, install SeaFreeze, MoonMag, and hdf5storage with the following command:
-  1. `pip install SeaFreeze MoonMag hdf5storage PyALMA3`
+1. AFTER the above modules have been installed with conda, install SeaFreeze and other pip dependencies with the following command:
+  1. `pip install SeaFreeze hdf5storage PyALMA3 TidalPy`
   1. Finally, install PlanetProfile as described above.
   
 ### Matlab
