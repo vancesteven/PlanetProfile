@@ -5,6 +5,9 @@ configGravityVersion = 4 # Integer number for config file version. Increment whe
 
 def gravityAssign():
     GravityParams = GravityParamsStruct()
+    # Backend: 'pyalma' (default) or 'tidalpy' (per-layer dissipation)
+    GravityParams.backend = 'pyalma'
+
     # Verbose settings of PyALMA - #TODO: Need to update PYALMA to use logger
     GravityParams.verbose = True
 
@@ -20,9 +23,10 @@ def gravityAssign():
                                            # See JULIA_ALMA3_ASSESSMENT.md for implementation approach
 
     # Parsing parameters
-    GravityParams.rheology_models = {'0': 'newton', 'Ih': 'elastic', 'Ih_conv': 'andrade','II': 'maxwell', 'III': 'maxwell', 'III_conv': 'andrade',
-                                     'IV': 'maxwell', 'V': 'maxwell','V_conv': 'andrade', 'VI': 'maxwell',
-                                     'Sil': 'elastic', 'Fe': 'elastic', 'Clath': 'newton', 'Clath_conv': 'andrade'}  # Rheology structure model, where each model corresponds to a layer
+    GravityParams.rheology_models = {'0': 'newton', 'Ih': 'andrade', 'Ih_conv': 'andrade',
+                                     'II': 'andrade', 'III': 'andrade', 'III_conv': 'andrade',
+                                     'IV': 'andrade', 'V': 'andrade', 'V_conv': 'andrade', 'VI': 'andrade',
+                                     'Sil': 'andrade', 'Fe': 'elastic', 'Clath': 'elastic', 'Clath_conv': 'andrade'}  # Rheology structure model, where each model corresponds to a layer
 
     # General parameters
     GravityParams.num_digits = 128  # Set precision

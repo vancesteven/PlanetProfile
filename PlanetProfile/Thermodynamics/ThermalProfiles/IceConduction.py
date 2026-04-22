@@ -21,6 +21,14 @@ def IceIWholeConductSolid(Planet, Params):
             All physical layer arrays
     """
     icePhase = PhaseConv(Planet.phase[0])
+    _arrheniusKwargs = {}
+    if Planet.Do.ARRHENIUS_VISCOSITY:
+        _arrheniusKwargs = dict(
+            ARRHENIUS_VISCOSITY=True,
+            etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
+            Eact_Jmol=Constants.Eact_kJmol[1] * 1e3,
+            Tmelt_K=Constants.T0
+        )
     if Planet.Do.NON_SELF_CONSISTENT:
         zIceI_m = np.linspace(Planet.z_m[0], Planet.dzIceI_km * 1e3, Planet.Steps.nIbottom+1)
         Planet.z_m[:Planet.Steps.nIbottom+1] = zIceI_m
@@ -29,11 +37,12 @@ def IceIWholeConductSolid(Planet, Params):
         PIceI_MPa = np.arange(Planet.P_MPa[0], Planet.PfreezeUpper_MPa, Planet.Ocean.deltaP)
         TIceI_K = np.arange(Planet.Bulk.Tsurf_K, Planet.Bulk.TfreezeUpper_K, Planet.Ocean.deltaT)
         Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIceI_MPa, TIceI_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                    ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK, 
+                                                    ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
                                                   mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant},
                                                   doConstantProps=Planet.Do.CONSTANTPROPSEOS,
                                                   constantProperties=Planet.Ocean.constantProperties[icePhase],
-                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                                  **_arrheniusKwargs)
         # Getfreezing temperature
         # Calculate the bottom ice temperature, otherwise use the bulk temperature
         if Planet.Ocean.comp == 'none':
@@ -62,9 +71,10 @@ def IceIWholeConductSolid(Planet, Params):
     
         # Get ice EOS
         Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIceI_MPa, TIceI_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                    ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK, 
+                                                    ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
                                                   mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant},
-                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                                  **_arrheniusKwargs)
 
         # Evaluate thermodynamic properties of uppermost ice
         Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nIbottom,
@@ -88,6 +98,14 @@ def IceIWholeConductPorous(Planet, Params):
             All physical layer arrays
     """
     icePhase = PhaseConv(Planet.phase[0])
+    _arrheniusKwargs = {}
+    if Planet.Do.ARRHENIUS_VISCOSITY:
+        _arrheniusKwargs = dict(
+            ARRHENIUS_VISCOSITY=True,
+            etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
+            Eact_Jmol=Constants.Eact_kJmol[1] * 1e3,
+            Tmelt_K=Constants.T0
+        )
 
     # Set linear P and conductive T in ice I layers. Include 1 extra for P and T to assign next phase to the values
     # at the phase transition
@@ -105,7 +123,8 @@ def IceIWholeConductPorous(Planet, Params):
                                                   phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[icePhase],
                                                   ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
                                                   mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant},
-                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                                  **_arrheniusKwargs)
 
     # Evaluate thermodynamic properties of uppermost ice
     Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nIbottom,
@@ -137,6 +156,14 @@ def IceIConductClathLidSolid(Planet, Params):
         phaseStr = PhaseConv(phaseIndex)
     # Assign phases for clathrates, as number of layers is fixed in this case
     Planet.phase[:Planet.Steps.nClath] = phaseIndex
+    _arrheniusKwargs = {}
+    if Planet.Do.ARRHENIUS_VISCOSITY:
+        _arrheniusKwargs = dict(
+            ARRHENIUS_VISCOSITY=True,
+            etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
+            Eact_Jmol=Constants.Eact_kJmol[1] * 1e3,
+            Tmelt_K=Constants.T0
+        )
     # Set linear P and T in ice I layers to use in surfIce.EOS functions
     Plin_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.PbI_MPa, Planet.Steps.nIbottom+1)
     Tlin_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K, Planet.Steps.nIbottom+1)
@@ -144,7 +171,8 @@ def IceIConductClathLidSolid(Planet, Params):
     # Get ice Ih EOS
     Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(Plin_MPa, Tlin_K, 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'],
                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                              minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                              minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                              **_arrheniusKwargs)
     # Get clathrate EOS
     Planet.Ocean.surfIceEOS[phaseStr] = GetIceEOS(Plin_MPa, Tlin_K, phaseStr, EXTRAP=Params.EXTRAP_ICE[phaseStr],
                                                  ClathDissoc=Planet.Ocean.ClathDissoc, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
@@ -229,6 +257,14 @@ def IceIConductClathLidPorous(Planet, Params):
         phaseStr = PhaseConv(phaseIndex)
     # Assign phases for clathrates, as number of layers is fixed in this case
     Planet.phase[:Planet.Steps.nClath] = phaseIndex
+    _arrheniusKwargs = {}
+    if Planet.Do.ARRHENIUS_VISCOSITY:
+        _arrheniusKwargs = dict(
+            ARRHENIUS_VISCOSITY=True,
+            etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
+            Eact_Jmol=Constants.Eact_kJmol[1] * 1e3,
+            Tmelt_K=Constants.T0
+        )
     # Set linear P and T in ice I layers to use in surfIce.EOS functions
     Plin_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.PbI_MPa, Planet.Steps.nIbottom+1)
     Tlin_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K, Planet.Steps.nIbottom+1)
@@ -240,7 +276,8 @@ def IceIConductClathLidPorous(Planet, Params):
                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Ih'],
                                               phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Ih'],
                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                              minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                              minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                              **_arrheniusKwargs)
     # Get clathrate EOS
     Planet.Ocean.surfIceEOS[phaseStr] = GetIceEOS(Plin_MPa, Tlin_K, phaseStr,
                                                  porosType=Planet.Ocean.porosType['Clath'],
@@ -336,6 +373,14 @@ def IceIConductClathUnderplateSolid(Planet, Params):
     else:
         phaseIndex = Constants.phaseClath
         phaseStr = PhaseConv(phaseIndex)
+    _arrheniusKwargs = {}
+    if Planet.Do.ARRHENIUS_VISCOSITY:
+        _arrheniusKwargs = dict(
+            ARRHENIUS_VISCOSITY=True,
+            etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
+            Eact_Jmol=Constants.Eact_kJmol[1] * 1e3,
+            Tmelt_K=Constants.T0
+        )
     # Get clathrate EOS
     PIceFull_MPa = np.linspace(Planet.P_MPa[0], Planet.PbI_MPa, Planet.Steps.nIbottom+1)
     TIceFull_K = np.linspace(Planet.T_K[0], Planet.Bulk.Tb_K, Planet.Steps.nIbottom)
@@ -364,7 +409,8 @@ def IceIConductClathUnderplateSolid(Planet, Params):
         # Get ice I EOS
         Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(PIceI_MPa, TIceFull_K, 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'],
                                                   ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                                  **_arrheniusKwargs)
 
         # Get approximate temperature at top of clathrate layer based on assumed surface heat flux
         # Need approx. depth first for curvature change to heat flux
@@ -447,6 +493,14 @@ def IceIConductClathUnderplatePorous(Planet, Params):
     else:
         phaseIndex = Constants.phaseClath
         phaseStr = PhaseConv(phaseIndex)
+    _arrheniusKwargs = {}
+    if Planet.Do.ARRHENIUS_VISCOSITY:
+        _arrheniusKwargs = dict(
+            ARRHENIUS_VISCOSITY=True,
+            etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
+            Eact_Jmol=Constants.Eact_kJmol[1] * 1e3,
+            Tmelt_K=Constants.T0
+        )
     # Get clathrate EOS
     PIceFull_MPa = np.linspace(Planet.P_MPa[0], Planet.PbI_MPa, Planet.Steps.nIbottom+1)
     TIceFull_K = np.linspace(Planet.T_K[0], Planet.Bulk.Tb_K, Planet.Steps.nIbottom)
@@ -479,7 +533,8 @@ def IceIConductClathUnderplatePorous(Planet, Params):
                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Ih'],
                                               phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Ih'],
                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                              minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                              minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                              **_arrheniusKwargs)
 
     # Get approximate temperature at top of clathrate layer based on assumed surface heat flux
     # Need approx. depth first for curvature change to heat flux

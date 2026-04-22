@@ -117,7 +117,7 @@ class DoSubstruct:
         self.NO_ICE_CONVECTION_V = False  # Whether to suppress convection specifically in ice V layer
         self.NO_ICE_CONVECTION_VI = False  # Whether to suppress convection specifically in ice VI layer
         self.KALOUSOVA_CONVECTION = False  # Whether to use Kalousova et al. (2018) parameterization for HP ice convection instead of Deschamps & Sotin (2001)
-        self.ARRHENIUS_VISCOSITY = False  # Whether to use Arrhenius temperature-dependent viscosity for HP ice phases (III, V, VI). Uses Constants.etaMelt_Pas and Eact_kJmol per phase.
+        self.ARRHENIUS_VISCOSITY = False  # Whether to use Arrhenius temperature-dependent viscosity for ice phases (Ih, III, V, VI). Uses Constants.etaMelt_Pas and Eact_kJmol per phase.
         self.DO_SELF_CONSISTENT_HTIDAL = False  # Whether to compute HtidalIce_Wm3 from Im(k2) after gravity calculation, overriding user-specified value
         self.NO_MELOSH_LAYER = False  # Whether to suppress a Melosh layer at the top of the ocean by arbitrarily setting expansivity to zero when one would appear (due to negative expansivity)
         self.EQUIL_Q = True  # Whether to set heat flux from interior to be consistent with heat released through convective profile
@@ -195,6 +195,7 @@ class OceanSubstruct:
         self.deltaT = None  # Step size in K for temperature values used in generating ocean EOS functions. If set, overrides calculations that otherwise use the specified precision in Tb_K to determine this.
         self.propsStepReductionFactor = 1  #  Optional factor to reduce resolution (increase deltaP and deltaT) specifically for EOS properties calculations. For high-resolution modeling, deltaP and deltaT are set low to get high-resolution phase grid, but this is not as necessary for the properties which will be interpolated, so can decrease the resoltuion to improve runtime and decrease memory usage. Default is 1, meaning no reduction.
         self.HtidalIce_Wm3 = 0  # Volumetric tidal heating rate in ice layers in W/m^3 (analogous to Sil.Htidal_Wm3 for silicates)
+        self.etaMeltKalousova_Pas = None  # Dict of {phase: etaMelt_Pas} for melt-bearing HP ice viscosity overrides when KALOUSOVA_CONVECTION is True. E.g. {3: 5e12, 5: 5e12, 6: 5e12}. If None, uses Constants.etaMelt_Pas.
         self.sigmaFixed_Sm = None  # Optional setting to force ocean conductivity to be a certain uniform value.
         self.smoothingPolyOrder = 2  # Polynomial order to use for smoothing of melting-curve-following HP ice adiabats
         self.smoothingWindowOverride = 7  # Number of points to use for smoothing window when Do.FIXED_HPSMOOTH_WINDOW is True. Must be odd.
@@ -552,6 +553,8 @@ class GravitySubstruct:
         self.rheology = None # Rheology for PyALMA3
         self.pyAlmaParams = None # List of parameters for andrade and Burgers layers that we set
         self.andradExponent = 0.2 # Andrade exponent for andrade layers
+        self.andrade_zeta = 1.0 # Andrade zeta: float for all layers, or dict {'Ih':z1, 'III':z2, ...} for per-phase. <1 amplifies creep (Petricca 2025: 0.01-100)
+        self.andrade_zeta_per_layer = None # Per-layer zeta array computed in SetupGravity (internal)
         self.BurgerFirstParameter = 0 # First parameter for Burgers layers
         self.BurgerSecondParameter = 0 # Second parameter for Burgers layers
         
@@ -568,6 +571,11 @@ class GravitySubstruct:
         self.lPhase = np.nan # Phase of l love number
         self.kPhase = np.nan # Phase of k love number
         self.deltaPhase = np.nan # Phase of delta relationship between love numbers (1+k-h)
+
+        # TidalPy backend results (populated only when backend='tidalpy')
+        self.tidalpy_Htidal_Wm3 = None  # Volumetric heating per radial node, shape (N,) [W/m^3]
+        self.tidalpy_Htidal_perPhase_Wm3 = None  # Dict: phase_str -> volume-averaged W/m^3
+        self.tidalpy_Htidal_perPhase_W = None  # Dict: phase_str -> total power W
 
 
 """ Lateral (3D) structure """
@@ -1250,6 +1258,10 @@ class ExcitationSpectrumParamsStruct:
 """ Gravity response settings """
 class GravityParamsStruct:
     def __init__(self):
+        # Backend selection: 'pyalma' (default) or 'tidalpy'
+        # TidalPy provides per-layer tidal dissipation in addition to Love numbers
+        self.backend = 'pyalma'
+
         # Verbose settings of PyALMA - #TODO: Need to update PYALMA to use logger
         self.verbose = True
 
@@ -3522,6 +3534,12 @@ class ConstantsStruct:
         self.m_gmol['PureH2O'] = self.m_gmol['H2O']  # Add alias for H2O so that we can use the Ocean.comp string for dict entry
         self.mClathGas_gmol = self.m_gmol['CH4'] + 5.75 * self.m_gmol['H2O']  # Molecular mass of clathrate unit cell
         self.clathGasFrac_ppt = 1e3 * self.m_gmol['CH4'] / self.mClathGas_gmol  # Mass fraction of gases trapped in clathrates in ppt
+        self.parentMass_kg = {  # Parent body masses in kg (for TidalPy orbital calculations)
+            'Jupiter': 1.8982e27,
+            'Saturn': 5.6834e26,
+            'Uranus': 8.6810e25,
+            'Neptune': 1.02413e26
+        }
         self.QScore = 1e4  # Fixed QS value to use for core layers if not set in PPBody.py file
         self.alphaIce_pK = {'Ih': 1.6e-4, 'II': 1.6e-4, 'III': 1.6e-4, 'V': 1.6e-4, 'VI': 1.6e-4} # Thermal expansivity of ice phases Ih-VI in 1/K
         self.alphaWater_pK = 2.1e-4  # Thermal expansivity of water in 1/K

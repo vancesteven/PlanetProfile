@@ -436,7 +436,8 @@ class IceEOSStruct:
                  doConstantProps=False, constantProperties=None,
                  ARRHENIUS_VISCOSITY=False, etaMelt_Pas=None, Eact_Jmol=None, Tmelt_K=None):
 
-        self.EOSlabel = GetIceEOSLabel(phaseStr, porosType, phiTop_frac, Pclosure_MPa, phiMin_frac, EXTRAP, etaFixed_Pas, TviscTrans_K)
+        self.EOSlabel = GetIceEOSLabel(phaseStr, porosType, phiTop_frac, Pclosure_MPa, phiMin_frac, EXTRAP, etaFixed_Pas, TviscTrans_K,
+                                       ARRHENIUS_VISCOSITY=ARRHENIUS_VISCOSITY, etaMelt_Pas=etaMelt_Pas)
         if doConstantProps:
             self.EOSlabel += f'constantProperties{constantProperties}'
         self.ALREADY_LOADED, self.rangeLabel, P_MPa, T_K, self.deltaP, self.deltaT \
@@ -1531,13 +1532,22 @@ class ViscIceArrhenius_Pas:
             eta = np.clip(eta, 0, self.etaMax_Pas)
             return eta
 
+    def updateConvectionViscosity(self, etaConv_Pas, Tconv_K):
+        # No-op: Arrhenius viscosity is already temperature-dependent,
+        # so no piecewise update is needed for the convective region.
+        pass
+
 
 def GetOceanEOSLabel(compstr, wOcean_ppt, elecType, rhoType, scalingType, phaseType, EXTRAP, PORE, LOOKUP_HIRES, etaFixed_Pas, meltStr, propsStepReductionFactor):
     return f'meltStr{meltStr}Comp{compstr}wppt{wOcean_ppt}elec{elecType}rho{rhoType}' + \
                         f'scaling{scalingType}phase{phaseType}extrap{EXTRAP}pore{PORE}' + \
                         f'hires{LOOKUP_HIRES}etaFixed{etaFixed_Pas}propsStepReductionFactor{propsStepReductionFactor}'
 
-def GetIceEOSLabel(phaseStr, porosType, phiTop_frac, Pclosure_MPa, phiMin_frac, EXTRAP, etaFixed_Pas, TviscTrans_K):
-    return f'phase{phaseStr}poros{porosType}phi{phiTop_frac}Pclose{Pclosure_MPa}' + \
+def GetIceEOSLabel(phaseStr, porosType, phiTop_frac, Pclosure_MPa, phiMin_frac, EXTRAP, etaFixed_Pas, TviscTrans_K,
+                   ARRHENIUS_VISCOSITY=False, etaMelt_Pas=None):
+    label = f'phase{phaseStr}poros{porosType}phi{phiTop_frac}Pclose{Pclosure_MPa}' + \
                     f'phiMin{phiMin_frac}extrap{EXTRAP}etaFixed{etaFixed_Pas}' + \
                         f'TviscTrans{TviscTrans_K}'
+    if ARRHENIUS_VISCOSITY:
+        label += f'arrhenius{etaMelt_Pas}'
+    return label

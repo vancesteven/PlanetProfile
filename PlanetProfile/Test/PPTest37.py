@@ -1,14 +1,13 @@
 """
-PPTest35
-Titan no-ocean with Kalousova HP ice convection and ice tidal heating
-Based on Petricca et al. (2025): tidal dissipation in HP ice layer, no subsurface ocean
-Template: Titan/PPTitanPureWaterNoOcean.py with Kalousova convection enabled
+PPTest37
+Titan no-ocean with Kalousova HP ice convection and clathrate underplate
+Same as PPTest35 but with clathType='bottom' (clathrate at base of ice Ih)
 For testing purposes
 """
 import numpy as np
 from PlanetProfile.Utilities.defineStructs import PlanetStruct, Constants
 
-Planet = PlanetStruct('Test35')
+Planet = PlanetStruct('Test37')
 
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 2574.73e3  # Archinal et al. (2018)
@@ -30,11 +29,11 @@ Planet.Do.BOTTOM_ICEV = False
 Planet.Do.NO_ICE_CONVECTION = False
 Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES = True
 
-""" Clathrate cap per Kalousova & Sotin (2020) — insulating lid reduces
-    stagnant lid thickness from ~42 km to ~15 km """
+""" Clathrate underplate at base of ice Ih per Kalousova & Sotin (2020) """
 Planet.Do.CLATHRATE = True
-Planet.Bulk.clathType = 'top'
+Planet.Bulk.clathType = 'bottom'
 Planet.Bulk.clathMaxThick_m = 10e3
+Planet.Bulk.qSurf_Wm2 = 6e-3  # 6 mW/m^2 surface heat flux
 Planet.Steps.nClath = 30
 
 """ Enable Kalousova convection and Arrhenius viscosity for HP ices """
@@ -44,25 +43,11 @@ Planet.Do.DO_SELF_CONSISTENT_HTIDAL = True
 
 """ Melt-bearing ice viscosity overrides per Petricca et al. (2025).
     Two-phase (partial melt) convection from Kalousova dramatically lowers
-    the effective viscosity of all ice phases.  HP ice etaMelt controls the
-    viscosity seen by the gravity model (Arrhenius scaling from this reference
-    value).  eHP=1e13 gives peak dissipation in HP ices at Titan's orbital
-    frequency (omega*tau_M ~ 1 when combined with Andrade transient creep). """
-Planet.Ocean.etaMeltKalousova_Pas = {1: 1e12, 3: 1e13, 5: 1e13, 6: 1e13}
+    the effective viscosity of all ice phases to ~1e12 Pa·s average. """
+Planet.Ocean.etaMeltKalousova_Pas = {1: 1e12, 3: 5e12, 5: 5e12, 6: 5e12}
 
-""" Ice tidal heating — converged value from self-consistent k2 iteration.
-    Starting from 5e-9, iteration converges to ~1.15e-7 in 3 steps. """
-Planet.Ocean.HtidalIce_Wm3 = 1.15e-7
-
-""" Andrade rheology parameters for tidal dissipation (Petricca et al. 2025).
-    Per-phase zeta: HP ices (III/V/VI) get moderate zeta to optimize dissipation,
-    while Ih/Sil get small zeta for overall body compliance.
-    alpha=0.2 (Andrade exponent), zeta<1 amplifies transient creep. """
-Planet.Gravity.andradExponent = 0.2
-Planet.Gravity.andrade_zeta = {
-    'Ih': 0.005, 'III': 0.05, 'V': 0.05, 'VI': 0.05,
-    'Sil': 0.005, 'Fe': 1.0, 'Clath': 1.0, 'default': 1.0
-}
+""" Ice tidal heating from Petricca et al. (2025) mid-range estimate """
+Planet.Ocean.HtidalIce_Wm3 = 5e-9
 
 """ Layer step settings """
 Planet.Steps.nIceI = 200
@@ -82,7 +67,7 @@ Planet.Ocean.THydroMax_K = 350.0
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 1.5e-12
 Planet.Sil.Htidal_Wm3 = 1e-10
-Planet.Sil.etaRock_Pas = [1e19, 1e19]  # Moderate viscosity; Petricca range 1e18-1e22
+Planet.Sil.etaRock_Pas = [1e22, 1e22]  # Fixed viscosity per Petricca et al. (2025)
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
 Planet.Do.CONSTANT_INNER_DENSITY = True

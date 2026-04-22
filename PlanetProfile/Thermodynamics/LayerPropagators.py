@@ -1106,6 +1106,10 @@ def HPIceConvection(Planet, Params):
         log.warning('QfromMantle_W is not set or not finite. Skipping HP ice convection.')
         return Planet
 
+    # Store boundary heat fluxes for diagnostics
+    Planet.Ocean.Q_at_HP_bottom_W = Qthrough_W  # Heat entering bottom of HP ice stack
+    Planet.Ocean.Q_at_HP_top_W = Qthrough_W     # Will be updated after HP ice loop
+
     log.debug('Computing convection parameters for bottom-of-ocean HP ice layers.')
 
     for phaseID in phaseOrder:
@@ -1236,6 +1240,9 @@ def HPIceConvection(Planet, Params):
                   f'    Ra* = {Ra:.3e}, Ra*c = {RaCrit:.3e}\n'
                   f'    q = {q_mWm2:.2f} mW/m2, Q = {Qthrough_W/1e12:.3f} TW')
 
+    # Store heat flux exiting the top of the HP ice stack
+    Planet.Ocean.Q_at_HP_top_W = Qthrough_W
+
     return Planet
 
 
@@ -1264,9 +1271,18 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa, minPres_MPa=None, minTres_K=Non
     _arrheniusKwargs = {}
     if Planet.Do.ARRHENIUS_VISCOSITY:
         for _phID in (3, 5, 6):
+            # When Kalousova two-phase convection is active, partial melt in HP ices
+            # dramatically lowers the effective viscosity. Use melt-bearing values if set,
+            # otherwise fall back to lab-derived Constants.
+            if Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') \
+                    and Planet.Ocean.etaMeltKalousova_Pas is not None \
+                    and _phID in Planet.Ocean.etaMeltKalousova_Pas:
+                _etaMelt = Planet.Ocean.etaMeltKalousova_Pas[_phID]
+            else:
+                _etaMelt = Constants.etaMelt_Pas[_phID]
             _arrheniusKwargs[_phID] = dict(
                 ARRHENIUS_VISCOSITY=True,
-                etaMelt_Pas=Constants.etaMelt_Pas[_phID],
+                etaMelt_Pas=_etaMelt,
                 Eact_Jmol=Constants.Eact_kJmol[_phID] * 1e3,
                 Tmelt_K=_TmeltRef_K[_phID]
             )

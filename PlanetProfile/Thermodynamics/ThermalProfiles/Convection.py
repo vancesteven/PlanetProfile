@@ -21,6 +21,14 @@ def IceIConvectSolid(Planet, Params):
         Assigns Planet attributes:
             Tconv_K, etaConv_Pas, eLid_m, deltaTBL_m, QfromMantle_W, all physical layer arrays
     """
+    _arrheniusKwargs = {}
+    if Planet.Do.ARRHENIUS_VISCOSITY:
+        _arrheniusKwargs = dict(
+            ARRHENIUS_VISCOSITY=True,
+            etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
+            Eact_Jmol=Constants.Eact_kJmol[1] * 1e3,
+            Tmelt_K=Constants.T0
+        )
     if Planet.Do.NON_SELF_CONSISTENT:
         log.debug('Applying solid-state convection to surface ice I based on Petricca et al. (2024).')
         zbI_m = Planet.dzIceI_km * 1e3
@@ -66,10 +74,11 @@ def IceIConvectSolid(Planet, Params):
                                     'eta_Pas': [Constants.etaIce_Pas[0], Planet.etaConv_Pas],
                                     }
                 Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(Planet.P_MPa[:Planet.Steps.nIbottom+1], Planet.T_K[:Planet.Steps.nIbottom+1], 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'],
-                                                    ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK, 
+                                                    ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
                                                   mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant},
                                                   doConstantProps=True,
-                                                  constantProperties=Planet.Ocean.constantProperties['Ih'])
+                                                  constantProperties=Planet.Ocean.constantProperties['Ih'],
+                                                  **_arrheniusKwargs)
             # Set depth of conductive and convective layers
             Planet.z_m[:nConduct+1] = np.linspace(0, Planet.eLid_m, nConduct+1)
             Planet.z_m[nConduct:nConduct + nConvect+1] = np.linspace(Planet.eLid_m, zbI_m, nConvect+1)

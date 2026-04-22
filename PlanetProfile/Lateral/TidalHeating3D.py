@@ -84,44 +84,52 @@ def _MaxwellDissipation(omega, mu_Pa, eta_Pas):
     return omega**2 * eta_Pas * mu_Pa**2 / (mu_Pa**2 + omega**2 * eta_Pas**2)
 
 
-def _AndradeDissipation(omega, mu_Pa, eta_Pas, alpha=0.2):
+def _AndradeDissipation(omega, mu_Pa, eta_Pas, alpha=0.2, zeta_pa=1.0):
     """ Compute volumetric dissipation factor for Andrade rheology.
 
-        The Andrade complex compliance is:
+        The Andrade complex compliance is (PyALMA3 convention):
             J*(omega) = 1/mu - i/(omega*eta)
-                        + (i*omega*zeta)^(-alpha) * Gamma(1+alpha) / mu
+                        + [Gamma(1+alpha)/zeta_pa] * (1/mu) * (omega*tau_M)^(-alpha)
+                          * [cos(alpha*pi/2) - i*sin(alpha*pi/2)]
 
-        where zeta = eta/mu is the Andrade timescale. The result is
-        normalized consistently with _MaxwellDissipation: when the
-        Andrade transient term vanishes, this returns the same D as
-        Maxwell.
+        where tau_M = eta/mu is the Maxwell time and zeta_pa is the
+        dimensionless Andrade creep amplitude parameter (PyALMA3 convention).
+        Smaller zeta_pa means more Andrade creep; zeta_pa=1 recovers the
+        simplest Andrade model where transient and Maxwell timescales are
+        equal.  This is the same convention used in Gravity.py for Love
+        number calculations.
 
-        Specifically, we compute:
-            D_Andrade = D_Maxwell * Im(mu*_Andrade) / Im(mu*_Maxwell)
-
-        where Im(mu*) = -J_imag / |J*|^2 is the imaginary part of the
-        complex shear modulus.
+        The result is normalized consistently with _MaxwellDissipation:
+        when the Andrade transient term vanishes, this returns the same D
+        as Maxwell.
 
         Args:
             omega: Tidal angular frequency (rad/s).
             mu_Pa: Shear modulus array (Pa).
             eta_Pas: Viscosity array (Pa*s).
             alpha: Andrade exponent (dimensionless, typically 0.2-0.4).
+            zeta_pa: Andrade zeta in PyALMA3 convention (scalar or array
+                matching mu_Pa). Divides Gamma(1+alpha) linearly.
+                Default 1.0 (no amplification).
 
         Returns:
             D: Dissipation factor omega*Im(mu*_Andrade) in Pa/s, such that
                H [W/m^3] = D * eps0^2 * f(theta, phi).
     """
-    zeta = eta_Pas / mu_Pa  # Andrade timescale (s)
-    omega_zeta = omega * zeta
+    tau_M = eta_Pas / mu_Pa  # Maxwell time (s)
+    omega_tau = omega * tau_M
 
     Gamma_1a = gamma_func(1 + alpha)
-    ow_neg_alpha = omega_zeta**(-alpha)
+    ow_neg_alpha = omega_tau**(-alpha)
+
+    # Andrade creep coefficient: Gamma(1+alpha) / zeta_pa
+    # At zeta_pa=1 this equals Gamma(1+alpha); at zeta_pa=0.005 it is 200x larger.
+    beta = Gamma_1a / zeta_pa
 
     # Andrade compliance: J* = J_real + i*J_imag
-    # (i*omega*zeta)^(-alpha) = (omega*zeta)^(-alpha) * [cos(alpha*pi/2) - i*sin(alpha*pi/2)]
-    J_real_A = 1.0 / mu_Pa + ow_neg_alpha * np.cos(alpha * np.pi / 2) * Gamma_1a / mu_Pa
-    J_imag_A = -1.0 / (omega * eta_Pas) - ow_neg_alpha * np.sin(alpha * np.pi / 2) * Gamma_1a / mu_Pa
+    # (i*omega*tau_M)^(-alpha) = (omega*tau_M)^(-alpha) * [cos(alpha*pi/2) - i*sin(alpha*pi/2)]
+    J_real_A = 1.0 / mu_Pa + ow_neg_alpha * np.cos(alpha * np.pi / 2) * beta / mu_Pa
+    J_imag_A = -1.0 / (omega * eta_Pas) - ow_neg_alpha * np.sin(alpha * np.pi / 2) * beta / mu_Pa
     J_abs_sq_A = J_real_A**2 + J_imag_A**2
     Im_mu_star_A = -J_imag_A / J_abs_sq_A
 
@@ -172,9 +180,20 @@ def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
             rheology = 'maxwell'
 
     alpha = None
+    andrade_zeta = None
     if rheology == 'andrade':
         alpha = getattr(Planet.Gravity, 'andradExponent', 0.2) if hasattr(Planet, 'Gravity') else 0.2
-        log.info(f'Using Andrade rheology with alpha={alpha}')
+        # Retrieve per-phase Andrade zeta (PyALMA3 convention)
+        if hasattr(Planet.Gravity, 'andrade_zeta') and Planet.Gravity.andrade_zeta is not None:
+            andrade_zeta = Planet.Gravity.andrade_zeta
+            if isinstance(andrade_zeta, dict):
+                log.info(f'Using Andrade rheology with alpha={alpha}, '
+                         f'per-phase zeta (PyALMA3 convention): {andrade_zeta}')
+            else:
+                log.info(f'Using Andrade rheology with alpha={alpha}, zeta={andrade_zeta}')
+        else:
+            andrade_zeta = 1.0
+            log.info(f'Using Andrade rheology with alpha={alpha}, zeta=1.0 (default)')
     else:
         log.info('Using Maxwell rheology')
 
@@ -199,12 +218,26 @@ def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
     # Tidal strain pattern
     f_pattern = TidalStrainPattern(Lateral.theta_rad, Lateral.phi_rad, e=e)
 
+    # Map phase IDs to andrade_zeta dict keys
+    _phase_to_zeta_key = {1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
+
+    def _get_zeta_for_phases(phase_arr):
+        """ Look up per-point zeta_pa from phase array and andrade_zeta spec. """
+        if andrade_zeta is None or not isinstance(andrade_zeta, dict):
+            return andrade_zeta if andrade_zeta is not None else 1.0
+        zeta_out = np.ones(len(phase_arr))
+        for j, ph in enumerate(phase_arr):
+            key = _phase_to_zeta_key.get(int(ph), 'default')
+            zeta_out[j] = andrade_zeta.get(key, andrade_zeta.get('default', 1.0))
+        return zeta_out
+
     # Select dissipation function
     if rheology == 'andrade':
-        def _dissipation(omega, mu, eta):
-            return _AndradeDissipation(omega, mu, eta, alpha=alpha)
+        def _dissipation(omega, mu, eta, zeta_pa=1.0):
+            return _AndradeDissipation(omega, mu, eta, alpha=alpha, zeta_pa=zeta_pa)
     else:
-        _dissipation = _MaxwellDissipation
+        def _dissipation(omega, mu, eta, zeta_pa=1.0):
+            return _MaxwellDissipation(omega, mu, eta)
 
     if columnPlanets is not None:
         HtidalIce = np.zeros(Lateral.nPix)
@@ -240,8 +273,11 @@ def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
                     T_ice = colPlanet.T_K[:nSurf]
                     eta = _ArrheniusViscosity(T_ice)
 
+                # Per-point zeta for ice I (all same phase)
+                zeta_iceI = _get_zeta_for_phases(np.full(nSurf, 1))
+
                 # Local dissipation rate at each radial layer
-                D_local = _dissipation(omega, mu_Pa, eta)
+                D_local = _dissipation(omega, mu_Pa, eta, zeta_pa=zeta_iceI)
                 H_local = D_local * eps0**2 * f_pattern[i]
 
                 # Column-integrated heating (W/m^3 averaged over ice shell)
@@ -268,7 +304,8 @@ def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
                     else:
                         T_hp = colPlanet.T_K[hp_indices]
                         eta_hp = _ArrheniusViscosity(T_hp)
-                    D_hp = _dissipation(omega, mu_hp, eta_hp)
+                    zeta_hp = _get_zeta_for_phases(colPlanet.phase[hp_indices])
+                    D_hp = _dissipation(omega, mu_hp, eta_hp, zeta_pa=zeta_hp)
                     H_hp = D_hp * eps0**2 * f_pattern[i]
                     HtidalHP_top[i] = H_hp[0]
                     HtidalHP_bot[i] = H_hp[-1]
@@ -307,11 +344,12 @@ def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
                 eta_bot = _ArrheniusViscosity(np.array([Planet.T_K[nSurf - 1]]))[0]
                 eta_mean = _ArrheniusViscosity(np.array([T_mean]))[0]
 
-            D_ref = _dissipation(omega, np.array([mu_mean]), np.array([eta_mean]))[0]
+            zeta_Ih = _get_zeta_for_phases(np.array([1]))[0] if isinstance(andrade_zeta, dict) else (andrade_zeta if andrade_zeta is not None else 1.0)
+            D_ref = _dissipation(omega, np.array([mu_mean]), np.array([eta_mean]), zeta_pa=zeta_Ih)[0]
             Lateral.HtidalIce_Wm3 = D_ref * eps0**2 * f_pattern
 
-            D_top = _dissipation(omega, np.array([mu_top]), np.array([eta_top]))[0]
-            D_bot = _dissipation(omega, np.array([mu_bot]), np.array([eta_bot]))[0]
+            D_top = _dissipation(omega, np.array([mu_top]), np.array([eta_top]), zeta_pa=zeta_Ih)[0]
+            D_bot = _dissipation(omega, np.array([mu_bot]), np.array([eta_bot]), zeta_pa=zeta_Ih)[0]
             Lateral.HtidalIceI_top_Wm3 = D_top * eps0**2 * f_pattern
             Lateral.HtidalIceI_bot_Wm3 = D_bot * eps0**2 * f_pattern
 
