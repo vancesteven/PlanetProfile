@@ -13,7 +13,7 @@ The following is a non-comprehensive list of capabilities offered in PlanetProfi
 - Large scale model explorations that forward model across 2 different properties (ExploreOgrams) or many models via Monte Carlo explorations
 - Export model data via .txt files, .pkl files, and .mat files
 - Built-in plots to visualize models
-- PlanetProfileApp: a Streamlit-based graphical interface for interactive model configuration and visualization (included in the repository under `PlanetProfileApp/`)
+- PlanetProfileApp: a Streamlit-based graphical interface for interactive model configuration and visualization — see the [PlanetProfileApp README](PlanetProfileApp/README.md) for setup and usage
 
 For the latest updates being introduced to PlanetProfile, check out the [CHANGELOG.md](CHANGELOG.md) file
 
