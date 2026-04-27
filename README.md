@@ -8,9 +8,11 @@ The following is a non-comprehensive list of capabilities offered in PlanetProfi
   - Available laboratory-measured ocean compositions: Pure water and Sodium Chloride (Seafreeze), Seawater (GSW), Magnesium Sulfate (Vance)
   - Can now model arbitrary ocean compositions whose thermodynamics and transport properties are computationally simulated with the geochemical databases Frezchem and Supcrt adapted in the gibbs minimization modeling package Reaktoro
 - Self-consistent interior modeling: Coupling of silicate and core geophysics with thermodynamics dictated by material equation of states (i.e. CV, CM, etc.) defined by PerpleX
+- High-pressure ice convection modeling with partial melt prediction (Kalousova et al. 2018 parameterization for Ice III/V/VI) — see [KALOUSOVA_IMPLEMENTATION_GUIDE.md](KALOUSOVA_IMPLEMENTATION_GUIDE.md)
 - Forward model Tidal love numbers with PyALMA3 or TidalPy (Andrade, Maxwell, and other rheologies)
+- **Bayesian inference (MCMC) for rheology parameter constraints** using TidalPy and observed tidal Love numbers (Petricca et al. 2025) — see [MCMC_INFERENCE_GUIDE.md](MCMC_INFERENCE_GUIDE.md)
 - Forward model spherical harmonic and asymmetric magnetic induction responses (MoonMag is included in the repository)
-- Large scale model explorations that forward model across 2 different properties (ExploreOgrams) or many models via Monte Carlo explorations
+- Large scale model explorations that forward model across 2 different properties (ExploreOgrams) or via MCMC/Bayesian inference
 - Export model data via .txt files, .pkl files, and .mat files
 - Built-in plots to visualize models
 - PlanetProfileApp: a Streamlit-based graphical interface for interactive model configuration and visualization — see the [PlanetProfileApp README](PlanetProfileApp/README.md) for setup and usage
