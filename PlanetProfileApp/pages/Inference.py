@@ -116,6 +116,9 @@ def initialize_session_state():
     if 'inference_structure_cache_path' not in st.session_state:
         st.session_state.inference_structure_cache_path = ''
 
+    if 'inference_use_clathrate' not in st.session_state:
+        st.session_state.inference_use_clathrate = True
+
     # Results caching
     if 'inference_results' not in st.session_state:
         st.session_state.inference_results = None
@@ -170,6 +173,20 @@ def render_preset_selector(PARAMETER_PRESETS):
 
         # Load preset observables
         st.session_state.inference_observables = preset['observables']
+
+        # Auto-populate structure cache path based on preset
+        if preset_choice == 'andrade_titan' or preset_choice == 'maxwell_titan':
+            body_name = 'titan'
+        elif preset_choice == 'andrade_europa':
+            body_name = 'europa'
+        else:
+            body_name = None
+
+        if body_name:
+            clath_suffix = 'clath' if st.session_state.inference_use_clathrate else 'noclath'
+            st.session_state.inference_structure_cache_path = (
+                f"{body_name}_cache/{body_name}_structure_{clath_suffix}.pkl"
+            )
 
         # Show preset description
         st.info(f"**Description:** {preset['description']}")
@@ -442,32 +459,86 @@ def render_sampler_settings():
 
 
 def render_structure_cache_input():
-    """Render structure cache path input."""
+    """Render structure cache path input with clathrate toggle."""
     st.markdown("#### 💾 Structure Cache")
 
-    cache_path = st.text_input(
-        "Path to structure cache (relative to project root):",
-        value=st.session_state.inference_structure_cache_path,
-        placeholder="titan_cache/titan_structure_clath.pkl",
-        key='cache_path_input',
-        help="Pre-computed planetary structure cache (see MCMC_INFERENCE_GUIDE.md)"
+    # Determine body-specific checkbox label
+    preset = st.session_state.inference_preset
+    if preset in ['andrade_titan', 'maxwell_titan']:
+        clathrate_label = "Include clathrate cap (top layer)"
+    elif preset == 'andrade_europa':
+        clathrate_label = "Include clathrate underplate (bottom layer)"
+    else:
+        clathrate_label = "Include clathrate layer"
+
+    # Clathrate toggle checkbox
+    use_clathrate = st.checkbox(
+        clathrate_label,
+        value=st.session_state.inference_use_clathrate,
+        key='clathrate_checkbox',
+        help="Checked: *_clath.pkl | Unchecked: *_noclath.pkl"
     )
 
-    st.session_state.inference_structure_cache_path = cache_path
+    # Update session state and regenerate path if toggled
+    if use_clathrate != st.session_state.inference_use_clathrate:
+        st.session_state.inference_use_clathrate = use_clathrate
 
-    # Validate path exists
-    if cache_path:
-        full_path = Path(parent_directory) / cache_path
-        if full_path.exists():
-            st.success(f"✅ Cache file found ({full_path.stat().st_size / 1024:.1f} KB)")
-        else:
-            st.error(f"❌ Cache file not found: {full_path}")
-            st.markdown("""
-            **To generate structure cache:**
-            ```bash
-            python scripts/prepare_structure_cache.py --body Titan --cache-path titan_cache/
-            ```
-            """)
+        # Update cache path if it follows a known pattern
+        current_path = st.session_state.inference_structure_cache_path
+        if current_path:
+            # Replace clath ↔ noclath in path
+            if '_clath.pkl' in current_path:
+                st.session_state.inference_structure_cache_path = current_path.replace(
+                    '_clath.pkl', '_noclath.pkl'
+                )
+            elif '_noclath.pkl' in current_path:
+                st.session_state.inference_structure_cache_path = current_path.replace(
+                    '_noclath.pkl', '_clath.pkl'
+                )
+
+    # Show current path (read-only display for preset mode, editable for custom)
+    if not st.session_state.inference_custom_mode:
+        # Preset mode: show as info box (read-only)
+        st.info(f"**Auto-configured path:** `{st.session_state.inference_structure_cache_path}`")
+
+        # Validation
+        if st.session_state.inference_structure_cache_path:
+            full_path = Path(parent_directory) / st.session_state.inference_structure_cache_path
+            if full_path.exists():
+                st.success(f"✅ Cache file found ({full_path.stat().st_size / 1024:.1f} KB)")
+            else:
+                st.error(f"❌ Cache file not found: {full_path}")
+                st.markdown(f"""
+                **To generate structure cache:**
+                ```bash
+                python scripts/prepare_structure_cache.py --body <Body> --cache-path <cache_dir>/
+                ```
+                """)
+    else:
+        # Custom mode: allow manual path input
+        cache_path = st.text_input(
+            "Path to structure cache (relative to project root):",
+            value=st.session_state.inference_structure_cache_path,
+            placeholder="titan_cache/titan_structure_clath.pkl",
+            key='cache_path_input',
+            help="Pre-computed planetary structure cache (see MCMC_INFERENCE_GUIDE.md)"
+        )
+
+        st.session_state.inference_structure_cache_path = cache_path
+
+        # Validate path exists
+        if cache_path:
+            full_path = Path(parent_directory) / cache_path
+            if full_path.exists():
+                st.success(f"✅ Cache file found ({full_path.stat().st_size / 1024:.1f} KB)")
+            else:
+                st.error(f"❌ Cache file not found: {full_path}")
+                st.markdown("""
+                **To generate structure cache:**
+                ```bash
+                python scripts/prepare_structure_cache.py --body <Body> --cache-path <cache_dir>/
+                ```
+                """)
 
 
 def validate_inference_config():
