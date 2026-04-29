@@ -37,7 +37,6 @@ if parent_directory not in sys.path:
 # ============================================================
 from Utilities.get_planet import get_planet
 from Utilities.planet_sidebar import show_planet_status
-from Utilities.app_helpers import create_help_button
 
 # Lazy imports for PlanetProfile inference modules
 def lazy_import_inference():
