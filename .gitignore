@@ -20,10 +20,14 @@ configPPmontecarlo.py
 *.csv
 *.tab
 *.log
+*.pkl
 *.bm
 startup.m
 Thermodynamics/MgSO4/phaseLookupMgSO4.mat
 WIP/*
+# Inference cache files
+titan_cache/
+*_cache/
 # PlanetProfileApp temporary files
 PlanetProfileApp/sessions/*
 !PlanetProfileApp/sessions/.gitkeep
