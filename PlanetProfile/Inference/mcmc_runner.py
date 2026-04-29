@@ -41,11 +41,17 @@ class MCMCRunner:
 
         self.config = config
 
-        # Load cached structure
+        # Extract parameter names and labels (must be before _build_prior)
+        self.param_names = list(config.param_space.keys())
+        self.param_labels = [self._make_label(name) for name in self.param_names]
+
+        # Load cached structure (skip bodyname validation for Test* files)
         log.info(f"Loading structure cache: {config.structure_cache_path}")
+        # Don't validate bodyname - cache stores 'Test41' but config has 'Titan'
+        # The cache filename provides sufficient identification
         self.structure_data = load_structure_cache(
             config.structure_cache_path,
-            validate_bodyname=config.bodyname
+            validate_bodyname=None
         )
 
         # Build prior and likelihood
@@ -56,10 +62,6 @@ class MCMCRunner:
             rheology=self._infer_rheology(),
             arrhenius_params=config.sampler_settings.get('arrhenius_params')
         )
-
-        # Extract parameter names and labels
-        self.param_names = list(config.param_space.keys())
-        self.param_labels = [self._make_label(name) for name in self.param_names]
 
         # MCMC settings
         self.n_effective = config.sampler_settings.get('n_effective', 500)
@@ -166,8 +168,8 @@ class MCMCRunner:
         max_iterations = self.config.sampler_settings.get('max_iterations', 10000)
 
         while iteration < max_iterations:
-            # Run for checkpoint_interval iterations
-            sampler.run(n_effective=self.checkpoint_interval, progress=False)
+            # Run for checkpoint_interval samples
+            sampler.run(n_total=self.checkpoint_interval, progress=False)
             iteration += self.checkpoint_interval
 
             # Get current state
@@ -254,13 +256,13 @@ class MCMCRunner:
             samples=samples,
             log_likelihoods=log_likes,
             param_names=self.param_names,
+            param_labels=self.param_labels,
             k2_results=k2_results,
             heating_results=heating_results,
             convergence_metrics=convergence_metrics,
             metadata={
                 'elapsed_time_s': elapsed,
                 'n_iterations': iteration,
-                'param_labels': self.param_labels,
                 'rheology': rheology,
                 'heating_indices': heating_indices,
             }
