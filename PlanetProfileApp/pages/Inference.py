@@ -180,7 +180,7 @@ def render_preset_selector(PARAMETER_PRESETS):
         st.info("**Custom mode:** Select parameters manually below.")
 
 
-def render_parameter_config(PARAMETER_REGISTRY, CATEGORY_LABELS, CATEGORY_ORDER):
+def render_parameter_config(PARAMETER_REGISTRY, CATEGORY_LABELS, CATEGORY_ORDER, validate_parameter_combination):
     """Render dynamic parameter configuration UI."""
 
     if not st.session_state.inference_custom_mode:
@@ -703,7 +703,7 @@ def main():
         st.markdown("---")
 
         # Parameter configuration
-        render_parameter_config(PARAMETER_REGISTRY, CATEGORY_LABELS, CATEGORY_ORDER)
+        render_parameter_config(PARAMETER_REGISTRY, CATEGORY_LABELS, CATEGORY_ORDER, validate_parameter_combination)
 
         st.markdown("---")
 
