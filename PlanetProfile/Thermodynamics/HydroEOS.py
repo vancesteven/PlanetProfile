@@ -19,7 +19,7 @@ from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv, MixedPhaseSepa
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand,  \
     SpeciesParser, RktProps, RktSeismic, RktConduct, RktHydroSpecies, EOSLookupTableLoader
 from PlanetProfile.Thermodynamics.Seafreeze.SeafreezeProps import IceSeaFreezeProps
-from PlanetProfile.Thermodynamics.EOS import OceanEOSBase, validate_customEOS
+from PlanetProfile.Thermodynamics.EOS import OceanEOSBase
 # Assign logger 
 log = logging.getLogger('PlanetProfile')    
 
@@ -1203,7 +1203,7 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0.1, PUpper_MPa=300, PRes_MP
     return Pfreeze_MPa
 
 
-def GetTfreeze(oceanEOS, P_MPa, T_K, TfreezeRange_K=50, TRes_K=0.05):
+def GetTfreeze(oceanEOS, P_MPa, T_K, TUpper_K = 273, TRes_K=0.05):
     """ Returns the temperature at which a solid layer melts based on temperature, salinity, and composition
 
         Args:
@@ -1220,12 +1220,12 @@ def GetTfreeze(oceanEOS, P_MPa, T_K, TfreezeRange_K=50, TRes_K=0.05):
     phaseChange = lambda T: 0.5 - (1 - int(oceanEOS.fn_phase(P_MPa, T) > 0))
 
     try:
-        Tfreeze_K = GetZero(phaseChange, bracket=[T_K, T_K+TfreezeRange_K], xtol=abs(TRes_K)).root + TRes_K
+        Tfreeze_K = GetZero(phaseChange, bracket=[T_K, TUpper_K], xtol=abs(TRes_K)).root + TRes_K
     except ValueError:
         raise ValueError(f'No melting temperature was found above {T_K:.3f} K ' +
                          f'for ice {PhaseConv(topPhase)} at pressure {P_MPa:.3f} MPa. ' +
                           'Check to see if T_K is close to default Ocean.THydroMax_K value. ' +
-                          'If so, increase Ocean.THydroMax_K. Otherwise, increase TfreezeRange_K ' +
+                          'If so, increase Ocean.THydroMax_K. Otherwise, increase TUpper_K ' +
                           'until a melting temperature is found.')
 
     return Tfreeze_K

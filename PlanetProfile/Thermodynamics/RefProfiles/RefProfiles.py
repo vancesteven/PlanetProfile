@@ -50,7 +50,7 @@ def CalcRefProfiles(PlanetList, Params):
                         Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(Params.Pref_MPa[Planet.Ocean.comp][0], np.minimum(EOSref.propsPmax, EOSref.Pmax),
                                                                          Params.nRefPts[Planet.Ocean.comp])
                     try:
-                        Tfreeze_K = np.array([GetTfreeze(EOSref, P_MPa, Tref_K[0], TfreezeRange_K=230) for P_MPa in Params.Pref_MPa[Planet.Ocean.comp]])
+                        Tfreeze_K = np.array([GetTfreeze(EOSref, P_MPa, Tref_K[0], TUpper_K=Tref_K[0] + 230) for P_MPa in Params.Pref_MPa[Planet.Ocean.comp]])
                     except:
                         raise RuntimeError(f'Unable to calculate reference melting curve for {Planet.Ocean.comp} with ' +
                                            f'maximum Pref_MPa = {Params.Pref_MPa[Planet.Ocean.comp][-1]}. Try to recalculate ' +

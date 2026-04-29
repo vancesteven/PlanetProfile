@@ -156,7 +156,7 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
         Tupper_K = 274
         meltEOS = GetOceanEOS('PureH2O', 0.0, Pmelt_MPa,
                                np.arange(Tconv_K, 274.0, 0.05), None,  MELT=True)
-    Tmelt_K = GetTfreeze(meltEOS, Pmid_MPa, Tconv_K, TfreezeRange_K=Tupper_K-Tconv_K, TRes_K = 0.05)
+    Tmelt_K = GetTfreeze(meltEOS, Pmid_MPa, Tconv_K, TUpper_K=Tupper_K, TRes_K = 0.05)
     if phaseMid > Constants.phaseClath and phaseMid < Constants.phaseClath + 10:
         stringClath, stringIce = MixedPhaseSeparator(PhaseConv(phaseMid))
         phaseClath, phaseIce = PhaseInv(stringClath), PhaseInv(stringIce)

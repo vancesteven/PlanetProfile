@@ -68,7 +68,7 @@ def SelfConsistentIceLayer(Planet, Params):
                 Pmelt_MPa = np.arange(Planet.PbI_MPa - Planet.PfreezeRes_MPa*2, Planet.PbI_MPa + Planet.PfreezeRes_MPa*2, Planet.PfreezeRes_MPa)
                 Tmelt_K = np.arange(Planet.TfreezeLower_K, Planet.TfreezeUpper_K, Planet.TfreezeRes_K)
                 Planet.Ocean.meltEOS = GetPlanetOceanEOS(Planet, Params, Pmelt_MPa, Tmelt_K, DO_MELT = True)
-                Planet.Bulk.Tb_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.PbI_MPa, Planet.TfreezeLower_K, TRes_K=Planet.TfreezeRes_K)
+                Planet.Bulk.Tb_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.PbI_MPa, Planet.TfreezeLower_K, TUpper_K=Planet.TfreezeUpper_K, TRes_K=Planet.TfreezeRes_K)
             else:
                 Planet.PbI_MPa = GetPfreeze(Planet.Ocean.meltEOS, 1, Planet.Bulk.Tb_K,
                                             PLower_MPa=Planet.PfreezeLower_MPa, PUpper_MPa=Planet.PfreezeUpper_MPa,
@@ -569,8 +569,8 @@ def GetIceShellTFreeze(Planet, Params):
     try:
         # Find the lower and upper temperature limits given the loewr and upper P freeze we specify
         # Note we have to subtract the TfreezeRes_K from the upper limit to ensure we have a valid upper Tb_K (i.e. within the phase diagram we generate)
-        TupperLimit_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.PfreezeLower_MPa, Planet.TfreezeLower_K, TRes_K=-Planet.TfreezeRes_K)
-        TlowerLimit_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.PfreezeUpper_MPa, Planet.TfreezeLower_K, TRes_K=Planet.TfreezeRes_K)
+        TupperLimit_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.PfreezeLower_MPa, Planet.TfreezeLower_K, TUpper_K=Planet.TfreezeUpper_K,TRes_K=-Planet.TfreezeRes_K)
+        TlowerLimit_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.PfreezeUpper_MPa, Planet.TfreezeLower_K, TUpper_K=Planet.TfreezeUpper_K, TRes_K=Planet.TfreezeRes_K)
         log.debug(f"Established temperature bounds from phase diagram: [{TlowerLimit_K:.2f}, {TupperLimit_K:.2f}] K")
     except Exception as e:
         raise ValueError(f"Could not determine temperature bounds from phase diagram. Try lowering Planet.TfreezeLower_K, which represents the lower limit of the temperature search.")
@@ -667,19 +667,6 @@ def SelfConsistentOceanLayer(Planet, Params):
                 if thisPhase < 2:
                     # Depending on the root answer that fn_phase finds, thisPhase can be an ocean layer. So we must get the ice phase by incrementing P by deltaP so we are on the high pressure side of the phase diagram
                     thisPhase = Planet.Ocean.EOS.fn_phase(initialPOcean_MPa+Planet.Ocean.EOS.deltaP, TOcean_K[0]).astype(np.int_)
-                    # Past error debugging that is too complicated. We have simplified
-                    """log.warning(f'The first calculated phase is not a high pressure ice layer. \n' +
-                                    f'When Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES is True, the layers below the initial ice propogation should be high pressure ices.\n' +
-                                    f' T will be set to be lower than the melting temp temporarily and P will be set slightly higher than the melting pressure to construct the first high pressure ice layer.')
-                    # Increase P by deltaP temporarily so we can move into the next 'layer' of phase diagram
-                    initialPOcean_MPa += Planet.Ocean.deltaP
-                    # Get the freezing temperature and decrease by TfreezeOffset_K to ensure we stay within the high pressure phase diagram
-                    TOcean_K[0] = GetTfreeze(Planet.Ocean.EOS, initialPOcean_MPa, TOcean_K[0], TRes_K=Planet.Ocean.TfreezeOffset_K) - Planet.Ocean.TfreezeOffset_K
-                    thisPhase = Planet.Ocean.EOS.fn_phase(initialPOcean_MPa, TOcean_K[0]).astype(np.int_)
-                    if thisPhase == 0:
-                        raise ValueError('Even after slightly increasing P and slightly decreasing T, the first phase is still a liquid. \n' +
-                                        f'Generating an ocean is not desired when Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES is True. \n' +
-                                        f'Please check your Planet.Bulk.Tb_K is set correctly for high pressure ices to form. Namely, try decreasing it further.')"""
                 Planet.phase[Planet.Steps.nSurfIce] = thisPhase
                 log.debug(f'il: {Planet.Steps.nSurfIce:d}; P_MPa: {POcean_MPa[0]:.3f}; ' +
                 f'T_K: {TOcean_K[0]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce]:d}')
@@ -689,7 +676,7 @@ def SelfConsistentOceanLayer(Planet, Params):
                 alphaOcean_pK[0] = Planet.Ocean.iceEOS[thisPhaseName].fn_alpha_pK(POcean_MPa[0], TOcean_K[0])
                 kThermOcean_WmK[0] = Planet.Ocean.iceEOS[thisPhaseName].fn_kTherm_WmK(POcean_MPa[0], TOcean_K[0])
                 # We use GetTfreeze here to propagate the next high pressure ice layer temperature
-                TOcean_K[1] = np.mean([GetTfreeze(Planet.Ocean.EOS, initialPOcean_MPa, TOcean_K[0], TRes_K=Planet.Ocean.TfreezeOffset_K) - Planet.Ocean.TfreezeOffset_K, TOcean_K[0]])
+                TOcean_K[1] = np.mean([GetTfreeze(Planet.Ocean.EOS, initialPOcean_MPa, TOcean_K[0], TUpper_K = TOcean_K[0] + 50, TRes_K=Planet.Ocean.TfreezeOffset_K) - Planet.Ocean.TfreezeOffset_K, TOcean_K[0]])
                 iStart = 1
             else:
                 # Do initial ocean step separately in order to catch potential Melosh layer--
@@ -759,7 +746,7 @@ def SelfConsistentOceanLayer(Planet, Params):
                     log.debug(f'Top ocean layers (i={i}) are not liquid. This will cause indexing problems. ' +
                             'T will be set to exceed the melting temp temporarily to construct at least 4 ocean layers.')
                     Planet.THIN_OCEAN = True
-                    TOcean_K[i] = GetTfreeze(Planet.Ocean.EOS, POcean_MPa[i], TOcean_K[i], TRes_K = 0.00001)
+                    TOcean_K[i] = GetTfreeze(Planet.Ocean.EOS, POcean_MPa[i], TOcean_K[i], TUpper_K = TOcean_K[i] + 50, TRes_K = 0.00001)
                     Planet.phase[Planet.Steps.nSurfIce+i] = 0
                 log.debug(f'il: {Planet.Steps.nSurfIce+i:d}; P_MPa: {POcean_MPa[i]:.3f}; ' +
                         f'T_K: {TOcean_K[i]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce+i]:d}')
@@ -791,7 +778,7 @@ def SelfConsistentOceanLayer(Planet, Params):
                     CpOcean_JkgK[i] = Planet.Ocean.iceEOS[thisPhase].fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
                     alphaOcean_pK[i] = Planet.Ocean.iceEOS[thisPhase].fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
                     kThermOcean_WmK[i] = Planet.Ocean.iceEOS[thisPhase].fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i])
-                    TOcean_K[i+1] = np.mean([GetTfreeze(Planet.Ocean.EOS, POcean_MPa[i], TOcean_K[i], TRes_K=Planet.Ocean.EOS.deltaT) - Planet.Ocean.EOS.deltaT*2, TOcean_K[i]])
+                    TOcean_K[i+1] = np.mean([GetTfreeze(Planet.Ocean.EOS, POcean_MPa[i], TOcean_K[i], TUpper_K = TOcean_K[i] + 50, TRes_K=Planet.Ocean.EOS.deltaT) - Planet.Ocean.EOS.deltaT*2, TOcean_K[i]])
 
             # Assign ocean layer critical properties to Planet fields
             Planet.P_MPa[Planet.Steps.nSurfIce:Planet.Steps.nSurfIce + Planet.Steps.nOceanMax] = POcean_MPa

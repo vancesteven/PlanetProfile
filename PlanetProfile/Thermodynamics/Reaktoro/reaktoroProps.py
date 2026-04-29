@@ -283,7 +283,7 @@ class EOSLookupTableLoader():
                 supcrtAqueousLookupName=rktObjects['SupcrtAqueousLookupByName'],
             )
             # Get freezing temperatures for pressure range calculated by Frezchem
-            TFreezing_K = self.RktFreezingTemperatureFinder(Frezchem_System, PRkt_MPa, CustomSolutionParams.convergenceToleranceFrezchem, DO_OPTIMIZATION = CustomSolutionParams.DO_OPTIMIZED_MELTING_CURVE_CALCULATIONS)
+            TFreezing_K = self.RktFreezingTemperatureFinder(Frezchem_System, PRkt_MPa, DO_OPTIMIZATION = CustomSolutionParams.DO_OPTIMIZED_MELTING_CURVE_CALCULATIONS)
             # Get Seafreeze correction
             SeafreezePureWaterCorrectorFunctions = SeafreezePureWaterCorrector()
             # Correct data
