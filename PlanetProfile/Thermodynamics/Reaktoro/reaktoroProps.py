@@ -198,6 +198,12 @@ def checkSpeciesCompatibleWithFrezchem(aqueous_species_string, speciation_ratio_
             if species_name in phreeqc_names:
                 frezchem_aqueous_species_string = frezchem_aqueous_species_string + f'{species_name} '
                 frezchem_speciation_ratio_mol_per_kg[species_name] = speciation_ratio_mol_kg[species_name]
+            elif species_name in Constants.SupcrtToPhreeqcNames:
+                for species in Constants.SupcrtToPhreeqcNames[species_name]:
+                    if species not in frezchem_speciation_ratio_mol_per_kg:
+                        frezchem_speciation_ratio_mol_per_kg[species] = 0
+                    frezchem_speciation_ratio_mol_per_kg[species] += speciation_ratio_mol_kg[species_name]
+                    frezchem_aqueous_species_string = frezchem_aqueous_species_string + f'{species} '
             else:
                 log.debug(f'Removing {species_name} from consideration in frezchem database')
         return frezchem_aqueous_species_string, frezchem_speciation_ratio_mol_per_kg
@@ -256,11 +262,11 @@ class EOSLookupTableLoader():
                             f'This will remove self-consistency between ocean thermodynamics and Ih phase equilibria')
                 frezchem_aqueous_species_string, frezchem_speciation_ratio_mol_per_kg = checkSpeciesCompatibleWithFrezchem(aqueous_species_string, speciation_ratio_mol_per_kg, CustomSolutionParams.frezchemPath)
                 Frezchem_System = PhreeqcGeneratorForChemicalConstraint(frezchem_aqueous_species_string, frezchem_speciation_ratio_mol_per_kg,
-                                                                        "mol", CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations, rktDatabase = EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
+                                                                        "mol", CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations, CustomSolutionParams.convergenceToleranceFrezchem, rktDatabase = EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
             else:
                 Frezchem_System = PhreeqcGeneratorForChemicalConstraint(aqueous_species_string,
                                                                         speciation_ratio_mol_per_kg, "mol",
-                                                                        CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations, rktDatabase = EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
+                                                                        CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations, CustomSolutionParams.convergenceToleranceFrezchem, rktDatabase = EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
 
             rktObjects = EOSlist.loaded['ReaktoroDatabases']
             Supcrt_System = SupcrtGenerator(
@@ -271,12 +277,13 @@ class EOSLookupTableLoader():
                 ocean_solid_species,
                 Constants.PhreeqcToSupcrtNames,
                 CustomSolutionParams.maxIterations,
+                CustomSolutionParams.convergenceToleranceSupcrt,
                 rktDatabase=rktObjects['Supcrt'],
                 supcrtAqueousLookupFormula=rktObjects['SupcrtAqueousLookupByFormula'],
                 supcrtAqueousLookupName=rktObjects['SupcrtAqueousLookupByName'],
             )
             # Get freezing temperatures for pressure range calculated by Frezchem
-            TFreezing_K = self.RktFreezingTemperatureFinder(Frezchem_System, PRkt_MPa)
+            TFreezing_K = self.RktFreezingTemperatureFinder(Frezchem_System, PRkt_MPa, CustomSolutionParams.convergenceToleranceFrezchem, DO_OPTIMIZATION = CustomSolutionParams.DO_OPTIMIZED_MELTING_CURVE_CALCULATIONS)
             # Get Seafreeze correction
             SeafreezePureWaterCorrectorFunctions = SeafreezePureWaterCorrector()
             # Correct data
@@ -371,7 +378,7 @@ class EOSLookupTableLoader():
                 save_dict_to_pkl(self.phase_EOS, self.phase_fLookup)
 
 
-    def RktFreezingTemperatureFinder(self, Frezchem_System, P_MPa, TMin_K=230, TMax_K=275, significant_threshold=1.0):
+    def RktFreezingTemperatureFinder(self, Frezchem_System, P_MPa, TMin_K=230, TMax_K=275, significant_threshold=1.0, DO_OPTIMIZATION = False):
         """
         Calculates the temperature at which the prescribed aqueous solution freezes. Utilizes the reaktoro framework to
         constrain the equilibrium position at the prescribed pressure and the chemical potential difference between ice and liquid water at 0.1,
@@ -396,20 +403,38 @@ class EOSLookupTableLoader():
         # Create freezing temperatures list and indices of pressures to remove, if necessary
         freezing_temperatures = []
         # Create frezchem system
-        db, system, initial_state, conditions, solver, props = Frezchem_System
+        db, system, initial_state, conditions, options, solver, props = Frezchem_System
+        # For first iteration we will make tolerance low to ensure convergence
+        originalConvergenceTolerance = options.optima.convergence.tolerance
+        originalMaxIters = options.optima.maxiters
+        options.optima.convergence.tolerance = 1e-8
+        options.optima.maxiters = 500
+        solver.setOptions(options)
+        
+        # Optimization parameters used if DO_OPTIMIZATION is True
+        percentSuccessful = 0 # Percentage of successful iterations
+        consecutive_failures = 0 # Number of consecutive failures
+        min_success_threshold = 0.4  # Minimum success rate before allowing early exit
+
         # Set conditions
         conditions.set("IP", significant_threshold)
         conditions.setLowerBoundTemperature(TMin_K, "K")
         conditions.setUpperBoundTemperature(TMax_K, "K")
         state = initial_state.clone()
         for index, P in enumerate(P_MPa):
+            if index > 0:
+                if result.succeeded():
+                    options.optima.convergence.tolerance = originalConvergenceTolerance
+                    options.optima.maxiters = originalMaxIters
+                    solver.setOptions(options)
+                else:
+                    options.optima.convergence.tolerance = 1e-8
+                    options.optima.maxiters = 100
+                    solver.setOptions(options)
             P = float(P)
             conditions.pressure(P, "MPa")
             # Solve the equilibrium problem with warm start
             result = solver.solve(state, conditions)
-            if not result.succeeded():
-                state = initial_state.clone()
-                result = solver.solve(state, conditions)
             # Update the properties
             props.update(state)
             # Obtain the equilibrium temperature
@@ -417,22 +442,75 @@ class EOSLookupTableLoader():
             # Check if the result succeeded
             if result.succeeded():
                 freezing_temperatures.append(float(equilibrium_temperature))
+                percentSuccessful += 1 / len(P_MPa)
+                consecutive_failures = 0  # Reset consecutive failure counter
             # If the result failed, then do not include this in list of freezing temperatures and remove from pressure list to avoid its use in creating spline
             else:
                 log.debug(
                     f'Failed to find freezing temperature at pressure {P} MPa when generating phase data from Frezchem. Will extrapolate this value.')
                 freezing_temperatures.append(np.nan)
                 state = initial_state.clone()
+                consecutive_failures += 1
+                # If optimization is enabled, check if we should exit early: sufficient success rate and two consecutive failures
+                if percentSuccessful >= min_success_threshold and consecutive_failures >= 2 and DO_OPTIMIZATION:
+                    log.warning(
+                        f'Exiting freezing temperature calculation early after {index + 1}/{len(P_MPa)} points. '
+                        f'Success rate: {percentSuccessful:.1%}, consecutive failures: {consecutive_failures}. '
+                        f'Remaining values will be interpolated/extrapolated.')
+                    # Fill remaining temperatures with np.nan
+                    for _ in range(index + 1, len(P_MPa)):
+                        freezing_temperatures.append(np.nan)
+                    break
         freezing_temperatures = np.array(freezing_temperatures)
-        # Make interpolator for values that could converge
-        P_MPa_calculated = P_MPa[~np.isnan(freezing_temperatures)]
-        freezing_temperatures_calculated = freezing_temperatures[~np.isnan(freezing_temperatures)]
-        fn_frezchem_phaseRGI = RegularGridInterpolator((P_MPa_calculated,), freezing_temperatures_calculated,
-                                                       method='linear', bounds_error=False, fill_value=None)
-        # Interpolate the missing values
-        P_MPa_extrapolate = P_MPa[np.isnan(freezing_temperatures)]
-        freezing_temperatures_extrapolate = fn_frezchem_phaseRGI(P_MPa_extrapolate)
-        freezing_temperatures[np.isnan(freezing_temperatures)] = freezing_temperatures_extrapolate
+        # Identify valid (non-NaN) values
+        valid_mask = ~np.isnan(freezing_temperatures)
+        P_MPa_calculated = P_MPa[valid_mask]
+        freezing_temperatures_calculated = freezing_temperatures[valid_mask]
+        
+        # Find indices of missing values
+        nan_indices = np.where(~valid_mask)[0]
+        
+        if len(nan_indices) > 0 and len(P_MPa_calculated) > 1:
+            # Interpolate values between known values
+            fn_frezchem_phaseRGI = RegularGridInterpolator((P_MPa_calculated,), freezing_temperatures_calculated,
+                                                           method='linear', bounds_error=False, fill_value=None)
+            
+            # Separate interior NaNs from trailing NaNs
+            first_valid_idx = np.where(valid_mask)[0][0]
+            last_valid_idx = np.where(valid_mask)[0][-1]
+            
+            # Interpolate interior missing values
+            interior_nan_mask = (nan_indices > first_valid_idx) & (nan_indices < last_valid_idx)
+            if np.any(interior_nan_mask):
+                interior_nan_indices = nan_indices[interior_nan_mask]
+                P_MPa_interior = P_MPa[interior_nan_indices]
+                freezing_temperatures[interior_nan_indices] = fn_frezchem_phaseRGI(P_MPa_interior)
+            
+            # Handle trailing NaNs by extrapolating with average gradient
+            trailing_nan_mask = nan_indices > last_valid_idx
+            if np.any(trailing_nan_mask):
+                trailing_nan_indices = nan_indices[trailing_nan_mask]
+                # Calculate average temperature change per pressure step from valid data
+                deltaT_per_deltaP = np.mean(np.diff(freezing_temperatures_calculated) / np.diff(P_MPa_calculated))
+                # Extrapolate from last valid point
+                last_valid_T = freezing_temperatures_calculated[-1]
+                last_valid_P = P_MPa_calculated[-1]
+                for idx in trailing_nan_indices:
+                    deltaP = P_MPa[idx] - last_valid_P
+                    freezing_temperatures[idx] = last_valid_T + deltaT_per_deltaP * deltaP
+            
+            # Handle leading NaNs (if any) by extrapolating backwards
+            leading_nan_mask = nan_indices < first_valid_idx
+            if np.any(leading_nan_mask):
+                leading_nan_indices = nan_indices[leading_nan_mask]
+                deltaT_per_deltaP = np.mean(np.diff(freezing_temperatures_calculated) / np.diff(P_MPa_calculated))
+                first_valid_T = freezing_temperatures_calculated[0]
+                first_valid_P = P_MPa_calculated[0]
+                for idx in leading_nan_indices:
+                    deltaP = P_MPa[idx] - first_valid_P
+                    freezing_temperatures[idx] = first_valid_T + deltaT_per_deltaP * deltaP
+        elif len(P_MPa_calculated) <= 1:
+            raise ReaktoroConvergenceError("No freezing temperatures could be found for the given pressure range. This is due to a lack of convergence of Reaktoro solver with input species composition. Try simplifying the species composition.")
         # Return freezing temperatures
         return freezing_temperatures
 
@@ -665,50 +743,61 @@ class RktPropsLookup:
 
 class SeafreezePureWaterCorrector:
     def __init__(self):
-        # Obtain internal aqueous chemical potential correction spline (generating one if necessary)
-        spline_path = os.path.join(CustomSolutionParams.rktPath, 'Reaktoro_Saved_Files',
-                                   'seafreeze_pure_water_correction.mat')
-        if os.path.exists(spline_path):
-            correction_data = loadmat(spline_path)
-            supcrt_P_MPa = correction_data['Supcrt_P_MPa']
-            supcrt_T_K = correction_data['Supcrt_T_K']
-            delta_rho = correction_data['density_difference']
-            delta_Cp = correction_data['isobaric_heat_capacity_difference']
-            delta_alpha = correction_data['thermal_expansivity_difference']
-            delta_VP = correction_data['sound_speed_difference']
-            delta_KS = correction_data['bulk_modulus_difference']
-            delta_mu = correction_data['chemical_potential_difference']
-
-            frezchem_P_MPa = correction_data['frezchem_P_MPa']
-            delta_freezing_temp = correction_data['freezing_temperature_difference']
-        # This file will be uploaded to Github, so user should not need to generate this data
+        label = 'SeafreezePureWaterCorrector'
+        if label in EOSlist.loaded['ReaktoroDatabases']:
+            self.fn_rho_correction = EOSlist.loaded['ReaktoroDatabases'][label].fn_rho_correction
+            self.fn_Cp_correction = EOSlist.loaded['ReaktoroDatabases'][label].fn_Cp_correction
+            self.fn_alpha_correction = EOSlist.loaded['ReaktoroDatabases'][label].fn_alpha_correction
+            self.fn_VP_correction = EOSlist.loaded['ReaktoroDatabases'][label].fn_VP_correction
+            self.fn_KS_correction = EOSlist.loaded['ReaktoroDatabases'][label].fn_KS_correction
+            self.fn_mu_correction = EOSlist.loaded['ReaktoroDatabases'][label].fn_mu_correction
+            self.fn_freezing_temp_correction = EOSlist.loaded['ReaktoroDatabases'][label].fn_freezing_temp_correction
         else:
-            log.warning('The Seafreeze pure water correction data is not available on disk. We will generate this data and save to disk so it can be called in the future.')
-            frezchem_P_MPa, delta_freezing_temp = self.FrezchemCorrectionData()
-            supcrt_P_MPa, supcrt_T_K, delta_rho, delta_Cp, delta_alpha, delta_VP, delta_KS, delta_mu = self.SupcrtSeafreezeCorrectionData()
-            SupcrtSeafreezeCorrectionData = {'Supcrt_P_MPa': supcrt_P_MPa, 'Supcrt_T_K': supcrt_T_K,
-                                                                  'density_difference': delta_rho,
-                                             'isobaric_heat_capacity_difference': delta_Cp,
-                                             'thermal_expansivity_difference': delta_alpha,
-                                             'sound_speed_difference': delta_VP,
-                                             'bulk_modulus_difference': delta_KS,
-                                             'chemical_potential_difference': delta_mu,
-                                             'frezchem_P_MPa': frezchem_P_MPa,
-                                             'freezing_temperature_difference': delta_freezing_temp}
-            savemat(spline_path, SupcrtSeafreezeCorrectionData)
-        self.fn_rho_correction = RegularGridInterpolator((supcrt_P_MPa, supcrt_T_K), delta_rho, method = 'linear', bounds_error = False, fill_value = None)
-        self.fn_Cp_correction = RegularGridInterpolator((supcrt_P_MPa, supcrt_T_K), delta_Cp, method='linear', bounds_error=False,
-                                                        fill_value=None)
-        self.fn_alpha_correction = RegularGridInterpolator((supcrt_P_MPa, supcrt_T_K), delta_alpha, method='linear',
-                                                           bounds_error=False, fill_value=None)
-        self.fn_VP_correction = RegularGridInterpolator((supcrt_P_MPa, supcrt_T_K), delta_VP, method='linear', bounds_error=False,
-                                                        fill_value=None)
-        self.fn_KS_correction = RegularGridInterpolator((supcrt_P_MPa, supcrt_T_K), delta_KS, method='linear', bounds_error=False,
-                                                        fill_value=None)
-        self.fn_mu_correction = RegularGridInterpolator((supcrt_P_MPa, supcrt_T_K), delta_mu, method='linear', bounds_error=False,
-                                                        fill_value=None)
-        self.fn_freezing_temp_correction = RegularGridInterpolator((frezchem_P_MPa,), delta_freezing_temp,
-                                                           method='linear', bounds_error=False, fill_value=None)
+            # Obtain internal aqueous chemical potential correction spline (generating one if necessary)
+            spline_path = os.path.join(CustomSolutionParams.rktPath, 'Reaktoro_Saved_Files',
+                                    'seafreeze_pure_water_correction.mat')
+            if os.path.exists(spline_path):
+                correction_data = loadmat(spline_path)
+                supcrt_P_MPa = correction_data['Supcrt_P_MPa']
+                supcrt_T_K = correction_data['Supcrt_T_K']
+                delta_rho = correction_data['density_difference']
+                delta_Cp = correction_data['isobaric_heat_capacity_difference']
+                delta_alpha = correction_data['thermal_expansivity_difference']
+                delta_VP = correction_data['sound_speed_difference']
+                delta_KS = correction_data['bulk_modulus_difference']
+                delta_mu = correction_data['chemical_potential_difference']
+
+                frezchem_P_MPa = correction_data['frezchem_P_MPa']
+                delta_freezing_temp = correction_data['freezing_temperature_difference']
+            # This file will be uploaded to Github, so user should not need to generate this data
+            else:
+                log.warning('The Seafreeze pure water correction data is not available on disk. We will generate this data and save to disk so it can be called in the future.')
+                frezchem_P_MPa, delta_freezing_temp = self.FrezchemCorrectionData()
+                supcrt_P_MPa, supcrt_T_K, delta_rho, delta_Cp, delta_alpha, delta_VP, delta_KS, delta_mu = self.SupcrtSeafreezeCorrectionData()
+                SupcrtSeafreezeCorrectionData = {'Supcrt_P_MPa': supcrt_P_MPa, 'Supcrt_T_K': supcrt_T_K,
+                                                                    'density_difference': delta_rho,
+                                                'isobaric_heat_capacity_difference': delta_Cp,
+                                                'thermal_expansivity_difference': delta_alpha,
+                                                'sound_speed_difference': delta_VP,
+                                                'bulk_modulus_difference': delta_KS,
+                                                'chemical_potential_difference': delta_mu,
+                                                'frezchem_P_MPa': frezchem_P_MPa,
+                                                'freezing_temperature_difference': delta_freezing_temp}
+                savemat(spline_path, SupcrtSeafreezeCorrectionData)
+            self.fn_rho_correction = RegularGridInterpolator((supcrt_P_MPa, supcrt_T_K), delta_rho, method = 'linear', bounds_error = False, fill_value = None)
+            self.fn_Cp_correction = RegularGridInterpolator((supcrt_P_MPa, supcrt_T_K), delta_Cp, method='linear', bounds_error=False,
+                                                            fill_value=None)
+            self.fn_alpha_correction = RegularGridInterpolator((supcrt_P_MPa, supcrt_T_K), delta_alpha, method='linear',
+                                                            bounds_error=False, fill_value=None)
+            self.fn_VP_correction = RegularGridInterpolator((supcrt_P_MPa, supcrt_T_K), delta_VP, method='linear', bounds_error=False,
+                                                            fill_value=None)
+            self.fn_KS_correction = RegularGridInterpolator((supcrt_P_MPa, supcrt_T_K), delta_KS, method='linear', bounds_error=False,
+                                                            fill_value=None)
+            self.fn_mu_correction = RegularGridInterpolator((supcrt_P_MPa, supcrt_T_K), delta_mu, method='linear', bounds_error=False,
+                                                            fill_value=None)
+            self.fn_freezing_temp_correction = RegularGridInterpolator((frezchem_P_MPa,), delta_freezing_temp,
+                                                            method='linear', bounds_error=False, fill_value=None)
+            EOSlist.loaded['ReaktoroDatabases'][label] = self
     def FrezchemCorrectionData(self):
         def whichphaseChooser(P, T):
             PT = np.empty((1,), dtype='object')
@@ -730,8 +819,8 @@ class SeafreezePureWaterCorrector:
         frezchem_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Databases', 'frezchem.dat')
         frezchem = PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_mol_kg, "mol",
                                                          frezchem_file_path, CustomSolutionParams.maxIterations,
-                                                         rktDatabase=EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
-        db, system, initial_state, conditions, solver, props = frezchem
+                                                         CustomSolutionParams.convergenceToleranceFrezchem, rktDatabase=EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
+        db, system, initial_state, conditions, options, solver, props = frezchem
         state = initial_state.clone()
         # Create an iterator to go through P_MPa
         it = np.nditer([eos_P_MPa])
@@ -788,6 +877,7 @@ class SeafreezePureWaterCorrector:
             None,
             Constants.PhreeqcToSupcrtNames,
             CustomSolutionParams.maxIterations,
+            CustomSolutionParams.convergenceToleranceSupcrt,
             rktDatabase=rktObjects['Supcrt'],
             supcrtAqueousLookupFormula=rktObjects['SupcrtAqueousLookupByFormula'],
             supcrtAqueousLookupName=rktObjects['SupcrtAqueousLookupByName'],
@@ -1194,7 +1284,7 @@ class RktHydroSpecies():
         # Establish supcrt generator
         rktObjects = EOSlist.loaded['ReaktoroDatabases']
         db, system, initial_state, conditions, solver, props = SupcrtGenerator(self.aqueous_species_list, self.speciation_ratio_mol_kg,
-            "mol", CustomSolutionParams.SUPCRT_DATABASE, self.ocean_solid_phases, Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations, rktDatabase=rktObjects['Supcrt'],
+            "mol", CustomSolutionParams.SUPCRT_DATABASE, self.ocean_solid_phases, Constants.PhreeqcToSupcrtNames, CustomSolutionParams.maxIterations, CustomSolutionParams.convergenceToleranceSupcrt, rktDatabase=rktObjects['Supcrt'],
             supcrtAqueousLookupFormula=rktObjects['SupcrtAqueousLookupByFormula'], supcrtAqueousLookupName=rktObjects['SupcrtAqueousLookupByName'])
         state = initial_state.clone()
         # Prepare lists for pH and species amounts
@@ -1609,6 +1699,7 @@ class RktSeismicOnDemand():
             CustomSolutionParams.SOLID_PHASES_TO_CONSIDER,
             Constants.PhreeqcToSupcrtNames,
             CustomSolutionParams.maxIterations,
+            CustomSolutionParams.convergenceToleranceSupcrt,
             rktDatabase=rktObjects['Supcrt'],
             supcrtAqueousLookupFormula=rktObjects['SupcrtAqueousLookupByFormula'],
             supcrtAqueousLookupName=rktObjects['SupcrtAqueousLookupByName'],
@@ -1679,7 +1770,7 @@ class RktPhaseOnDemand:
         # Create both frezchem and core Reaktoro systems that can be utilized later on
         self.frezchem = PhreeqcGeneratorForChemicalConstraint(self.aqueous_species_list, self.speciation_ratio_mol_kg,
             "mol",
-                                                              CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations,
+                                                              CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations, CustomSolutionParams.convergenceToleranceFrezchem,
                                                               rktDatabase=EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
         # Obtain internal temperature correction spline
         # self.temperature_correction_spline = FrezchemFreezingTemperatureCorrectionSplineGenerator()
@@ -1723,7 +1814,7 @@ class RktPhaseOnDemand:
                 speciation_ratio_mol_kg,
                 "mol",
                                                                                              CustomSolutionParams.frezchemPath, CustomSolutionParams.maxIterations,
-                                                                                             rktDatabase=EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
+                                                                                             CustomSolutionParams.convergenceToleranceFrezchem, rktDatabase=EOSlist.loaded['ReaktoroDatabases']['Phreeqc'])
         # Create freezing temperatures list and indices of pressures to remove, if necessary
         freezing_temperatures = []
         indices_to_remove = []

@@ -19,27 +19,36 @@ from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv, MixedPhaseSepa
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand,  \
     SpeciesParser, RktProps, RktSeismic, RktConduct, RktHydroSpecies, EOSLookupTableLoader
 from PlanetProfile.Thermodynamics.Seafreeze.SeafreezeProps import IceSeaFreezeProps
+from PlanetProfile.Thermodynamics.EOS import OceanEOSBase, validate_customEOS
 # Assign logger 
-log = logging.getLogger('PlanetProfile')
+log = logging.getLogger('PlanetProfile')    
+
 
 def GetPlanetOceanEOS(Planet, Params, P_MPa, T_K, DO_POROUS = False, DO_MELT = False):
     """ Wrapper function to get a planet's ocean EOS. Reduces need to pass in many parameters each time we want to check if a Planet's EOS has been loaded, instead calling this function."""
     if DO_POROUS:
-        oceanEOSWrapper = GetOceanEOS(Planet.Sil.poreComp, Planet.Sil.wPore_ppt, P_MPa, T_K,
+        if Planet.Do.CustomEOS['Pore']:
+            oceanEOSWrapper = validate_customEOS(Planet.Sil.poreEOS, 'Pore')
+        else: 
+            oceanEOSWrapper = GetOceanEOS(Planet.Sil.poreComp, Planet.Sil.wPore_ppt, P_MPa, T_K,
                                                 Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
                                                 scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
                                                 phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN, PORE=True,
                                                 sigmaFixed_Sm=Planet.Sil.sigmaPoreFixed_Sm, LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, kThermConst_WmK=Planet.Ocean.kThermWater_WmK,
                                                 propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
     elif DO_MELT:
-        if Planet.Do.ConstantProps['Ocean']:
+        if Planet.Do.CustomEOS['OceanMelt']:
+            oceanEOSWrapper = validate_customEOS(Planet.Ocean.EOSmelt, 'OceanMelt')
+        elif Planet.Do.ConstantProps['Ocean']:
             oceanEOSWrapper = GetConstantEOS(Planet.Ocean.ConstantProps, EOStype='ocean', EOScomp = 'constant')
         else:
             oceanEOSWrapper = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, P_MPa, T_K, None,
                                             phaseType=Planet.Ocean.phaseType, FORCE_NEW=Params.FORCE_EOS_RECALC, MELT=True,
                                             LOOKUP_HIRES=Planet.Do.OCEAN_PHASE_HIRES, propsStepReductionFactor=1)
     else:
-        if Planet.Do.ConstantProps['Ocean']:
+        if Planet.Do.CustomEOS['Ocean']:
+            oceanEOSWrapper = validate_customEOS(Planet.Ocean.EOS, 'Ocean')
+        elif Planet.Do.ConstantProps['Ocean']:
             oceanEOSWrapper = GetConstantEOS(Planet.Ocean.ConstantProps, EOStype='ocean', EOScomp = 'constant')
         else:
             oceanEOSWrapper = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, P_MPa, T_K,
@@ -329,8 +338,6 @@ class OceanEOSStruct:
                 PropsP_MPa, PropsT_K, rho_kgm3, Cp_JkgK, alpha_pK, kTherm_WmK, self.EOSdeltaP, self.EOSdeltaT = (
                     RktProps(EOSLookupTable, PropsP_MPa, PropsT_K, self.EXTRAP))
                 Timing.logTime('RktProps()', time.time())
-                # Reassign P and T of phase to match new inputs from RktProps
-                _, _, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, PropsP_MPa[0], PropsP_MPa[-1], PropsT_K[0], PropsT_K[-1], MELT=MELT, propsStepReductionFactor=propsStepReductionFactor)
                 Timing.setTime(time.time())
                 self.ufn_Seismic = RktSeismic(EOSLookupTable, self.EXTRAP)  
                 Timing.logTime('RktSeismic()', time.time())
@@ -1223,6 +1230,42 @@ def GetTfreeze(oceanEOS, P_MPa, T_K, TfreezeRange_K=50, TRes_K=0.05):
 
     return Tfreeze_K
 
+def validate_customEOS(eos, slot_name):
+    """Validate a custom EOS object and register it in EOSlist, returning an EOSwrapper.
+
+    Args:
+        eos: The custom EOS object to validate. Must be an instance of OceanEOSBase.
+        slot_name (str): The slot being filled ('Ocean', 'OceanMelt', or 'Pore').
+
+    Returns:
+        EOSwrapper: Lightweight wrapper pointing to the registered EOS.
+
+    Raises:
+        ValueError: If eos is None.
+        TypeError: If eos is not an OceanEOSBase subclass instance.
+        AttributeError: If required scalar attributes are missing.
+    """
+    if not isinstance(eos, OceanEOSBase):
+        raise TypeError(
+            f'Custom EOS for "{slot_name}" must be a subclass of OceanEOSBase. '
+            f'Got {type(eos).__name__}. Subclass OceanEOSBase and implement all '
+            f'abstract methods.'
+        )
+    required_attrs = [
+        'EOSlabel', 'EOStype', 'comp', 'w_ppt',
+        'Pmin', 'Pmax', 'Tmin', 'Tmax',
+        'deltaP', 'deltaT', 'EOSdeltaP', 'EOSdeltaT',
+        'propsPmax', 'EXTRAP',
+    ]
+    missing = [a for a in required_attrs if not hasattr(eos, a)]
+    if missing:
+        raise AttributeError(
+            f'Custom EOS for "{slot_name}" is missing required scalar attributes: '
+            f'{missing}. Set these in your subclass __init__.'
+        )
+    EOSlist.loaded[eos.EOSlabel] = eos
+    EOSlist.ranges[eos.EOSlabel] = eos.rangeLabel
+    return EOSwrapper(eos.EOSlabel)
 
 def kThermIsobaricAnderssonInaba2005(T_K, phase):
     """ Calculate thermal conductivity of ice at a fixed pressure according to

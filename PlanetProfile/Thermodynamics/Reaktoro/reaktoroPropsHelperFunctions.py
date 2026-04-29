@@ -13,6 +13,9 @@ import uuid
 
 log = logging.getLogger('PlanetProfile')
 
+class ReaktoroConvergenceError(Exception):
+    """Exception raised when Reaktoro fails to converge on a solution."""
+    pass
 
 def supcrt_aqueous_species_generator(supcrtDb):
     """ Function to turn aqueous species formulas and names in supcrt database into a dictionary
@@ -114,7 +117,7 @@ def PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit
     return db, system, state, conditions, solver, props, ice_name, database_file
 
 
-def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file, iterations, rktDatabase = None):
+def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file, iterations, convergence_tolerance, rktDatabase = None):
     """ Create a Phreeqc Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
         Works for both core10.dat and frezchem.dat.
         THIS IS DIFFERENT IN THAT IT ASSUMES TEMPERATURE IS UNKNOWN AND SPECIFIES CHEMICAL CONSTRAINT AT EQUILIBIRUM.
@@ -154,20 +157,26 @@ def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio
     solver = rkt.EquilibriumSolver(specs)
     options = rkt.EquilibriumOptions()
     options.optima.maxiters = iterations
-    solver.setOptions(options)
+    options.optima.convergence.tolerance = convergence_tolerance
+
     # Create a chemical state and its associated properties
     state = rkt.ChemicalState(system)
     props = rkt.ChemicalProps(state)
+    # We need to increase the minimum mol treshold if we looking at small concentratiosn to prevent numerical errors since reaktoro,by default, increases all concentrations to 1e-16 even if they are below this number
+    if np.any([value < 1e-16 for value in speciation_ratio_per_kg.values()]):
+        state.setSpeciesAmounts(1e-40)
+        options.epsilon = 1e-30
+    solver.setOptions(options)
     # Populate the state with the prescribed species at the given ratios
     for ion, ratio in speciation_ratio_per_kg.items():
         state.add(ion, ratio, species_unit)
     # Create a conditions object
     conditions = rkt.EquilibriumConditions(specs)
     # Return the Reaktoro objects that user will need to interact with
-    return db, system, state, conditions, solver, props
+    return db, system, state, conditions, options, solver, props
 
 
-def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, databaseName, ocean_solid_species, PhreeqcToSupcrtNames, iterations = 200, rktDatabase = None, supcrtAqueousLookupFormula = None, supcrtAqueousLookupName = None):
+def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, databaseName, ocean_solid_species, PhreeqcToSupcrtNames, iterations = 200, convergence_tolerance = 1e-8, rktDatabase = None, supcrtAqueousLookupFormula = None, supcrtAqueousLookupName = None):
     """ Create a Supcrt Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
     Args:
         aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
@@ -178,6 +187,8 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
         ocean_solid_phases: whether or not to consider solid phases in calculations
         PhreeqcToSupcrtNames: Names that need to be converted in species list and speciation ratio per kg
         iterations: maximum number of iterations to allow for when solving for equilibrium before throwing error
+        convergence_tolerance: convergence tolerance for calculations - increasing this from reaktoro default of 1e-8 can speed upcalcualtions but lead to less accurate thermodynamic calculations
+        It is recommended not to change this unless doing large scale explorations 
         rktDatabase: Reaktoro database to use (passing in speeds up function). If None, then a new database is created.
         supcrtAqueousLookup: Optional precomputed dict from build_supcrt_aqueous_lookups; if None, built once inside species_convertor.
     Returns:
@@ -210,7 +221,7 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     # Set # of iterations to use
     options =rkt.EquilibriumOptions()
     options.optima.maxiters = iterations
-
+    options.optima.convergence.tolerance = convergence_tolerance
     # Create a chemical state and its associated properties
     state = rkt.ChemicalState(system)
     # We need to increase the minimum mol treshold if we looking at small concentratiosn to prevent numerical errors since reaktoro,by default, increases all concentrations to 1e-16 even if they are below this number

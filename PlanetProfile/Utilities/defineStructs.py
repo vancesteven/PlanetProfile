@@ -115,6 +115,7 @@ class DoSubstruct:
         self.VALID = True  # Whether this profile is physically possible
         self.Fe_CORE = False  # Whether to model an iron core for this body
         self.ConstantProps = {'Ocean': False, 'Ice': False, 'Inner': False}  # Whether to use constant thermodynamic properties for each layer type instead of geochemical EOS
+        self.CustomEOS = {'Ocean': False, 'OceanMelt': False, 'Pore': False}  # Whether to use a user-supplied OceanEOSBase instance for each EOS context. Set the corresponding slot (Ocean.EOS, Ocean.EOSmelt, Sil.poreEOS) before setting flag to True.
         self.CLATHRATE = False  # Whether to model clathrates
         self.MIXED_CLATHRATE_ICE = False # Whether to model mixed clathrate/ice phases. If False, assumes whole clathrate layers.
         self.NAGASHIMA_CLATH_DISSOC = False  # Whether to use extrapolation of Nagashima (2017) dissertation provided by S. Nozaki (private communication) for clathrate dissociation (alternative is Sloan (1998)). WIP.
@@ -153,6 +154,7 @@ class DoSubstruct:
         self.OCEAN_PHASE_HIRES = False  # Whether to use a high-resolution grid for phase equilibrium lookup table in ocean EOS. Currently only implemented for MgSO4. WARNING: Uses a lot of memory, potentially 20+ GB.
         self.USE_WOCEAN_PPT = True # Whether to use wOcean_ppt to match with ocean composition (in case of CustomSolution, we can set this to false if we do not want to specify w_ppt)
         self.STILL_CALCULATE_BROKEN_PROPERTIES = False # Progromatically set flag for still calculating properties even if the model is invalid - namely, is set to True only when ALLOW_BROKEN_MODELS is True and the reason it is invalid is mismatch mass or CMR2
+
 
 
 """ Layer step settings """
@@ -3339,7 +3341,13 @@ class ConstantsStruct:
             'H2O': 'H2O(aq)',
             'CO2': 'CO2(aq)'
         }
-        
+        self.SupcrtToPhreeqcNames = { # Dictionary of species names that must be converted from Supcrt to Phreeqc for compatibility
+            'NaCl': ['Na+', 'Cl-'],
+            'MgSO4': ['Mg+2', 'SO4-2'],
+            'CaCO3': ['Ca+2', 'CO3-2'],
+            'KCl': ['K+', 'Cl-'],
+            'Na2SO4': ['Na+', 'SO4-2'],
+        }
         self.seafreeze_ice_phases = {0: 'water1', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
 
 def ParentName(bodyname):

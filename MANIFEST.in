@@ -13,7 +13,7 @@ global-exclude Test*.mat
 # First exclude all .dat files
 recursive-exclude PlanetProfile *.dat
 # Then re-include only the ones you want
-recursive-include PlanetProfile/Reaktoro/Databases *.dat
+recursive-include PlanetProfile/Thermodynamics/Reaktoro/Databases *.dat
 # Exclude large Perple_X data files (downloaded automatically during install)
 global-exclude PlanetProfile/Thermodynamics/EOStables/Perple_X/*.tab
 global-exclude PlanetProfile/Thermodynamics/EOStables/Perple_X/*.mat

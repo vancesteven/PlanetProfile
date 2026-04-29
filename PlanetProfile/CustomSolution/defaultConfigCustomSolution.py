@@ -30,5 +30,13 @@ def customSolutionAssign():
     # Maximum number of iterations to allow when calculating equilibrium before throwing convergence error
     # For complicated systems, increase this number by an order of magnitude (i.e. 2000) - dramatically incresaes runtime though
     CustomSolutionParams.maxIterations = 200
+    
+    # Convergence tolerance for calculations - increasing this from reaktoro default of 1e-8 can speed upcalcualtions but lead to less accurate thermodynamic calculations
+    # It is recommended not to change this unless doing large scale explorations 
+    CustomSolutionParams.convergenceToleranceFrezchem = 1e-8
+    CustomSolutionParams.convergenceToleranceSupcrt = 1e-8
 
+    # Whether to optimize the freezing temperature calculation by exiting early if a sufficient success rate is reached - leads to faster calculations but may be less accurate
+    # Only recommended to enable for large scale explorations where computational time is a major factor over complete accuracy of melting curve calculations
+    CustomSolutionParams.DO_OPTIMIZED_MELTING_CURVE_CALCULATIONS = False
     return CustomSolutionParams
