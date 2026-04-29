@@ -1,0 +1,315 @@
+"""
+Parameter registry for Bayesian inference.
+
+Centralizes parameter definitions for the inference UI. Adding new parameters
+requires only:
+1. Adding entry to PARAMETER_REGISTRY below
+2. Implementing @parameter_hook in forward_models.py
+
+No UI code changes needed - the registry drives dynamic UI generation.
+
+Author: PlanetProfile Team
+Date: 2026-04-29
+"""
+from dataclasses import dataclass
+from typing import List, Optional, Dict, Any
+
+
+@dataclass
+class ParameterDef:
+    """
+    Definition of a single inference parameter.
+
+    Attributes:
+        id: Unique identifier (e.g., 'alpha', 'log10_eta_Ih')
+        label: Human-readable name for UI
+        latex_label: LaTeX string for plotting (e.g., r'$\alpha$')
+        description: Help text explaining the parameter
+        category: Grouping category ('rheology', 'structure', 'ocean', 'magnetic')
+        default_prior: Default prior type ('uniform', 'normal', 'log-uniform')
+        default_bounds: [min, max] for uniform/log-uniform priors
+        default_mean: Mean for normal prior (optional)
+        default_std: Standard deviation for normal prior (optional)
+        units: Physical units (e.g., 'Pa·s', 'K', 'S/m')
+        requires_structure_rebuild: If True, varying this parameter requires
+            regenerating structure cache (e.g., Tb_K, ocean salinity)
+        rheology_constraint: Required rheology ('andrade', 'maxwell', None=any)
+    """
+    id: str
+    label: str
+    latex_label: str
+    description: str
+    category: str
+    default_prior: str
+    default_bounds: List[float]
+    default_mean: Optional[float] = None
+    default_std: Optional[float] = None
+    units: Optional[str] = None
+    requires_structure_rebuild: bool = False
+    rheology_constraint: Optional[str] = None
+
+
+# ============================================================================
+# Parameter Registry
+# ============================================================================
+
+PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
+    # -------------------------------------------------------------------------
+    # Rheology Parameters (Andrade)
+    # -------------------------------------------------------------------------
+    'alpha': ParameterDef(
+        id='alpha',
+        label='Andrade Exponent',
+        latex_label=r'$\alpha$',
+        description='Andrade rheology frequency exponent (dimensionless). '
+                    'Controls viscoelastic dissipation spectrum width.',
+        category='rheology',
+        default_prior='uniform',
+        default_bounds=[0.2, 0.4],
+        units=None,
+        requires_structure_rebuild=False,
+        rheology_constraint='andrade'
+    ),
+
+    'log10_zeta': ParameterDef(
+        id='log10_zeta',
+        label='Log₁₀(Andrade Compliance ζ)',
+        latex_label=r'$\log_{10}(\zeta)$',
+        description='Andrade grain-boundary sliding parameter (dimensionless). '
+                    'Larger values = more dissipation.',
+        category='rheology',
+        default_prior='uniform',
+        default_bounds=[-2, 2],
+        units=None,
+        requires_structure_rebuild=False,
+        rheology_constraint='andrade'
+    ),
+
+    # -------------------------------------------------------------------------
+    # Rheology Parameters (Viscosities - both Andrade and Maxwell)
+    # -------------------------------------------------------------------------
+    'log10_eta_Ih': ParameterDef(
+        id='log10_eta_Ih',
+        label='Log₁₀(Ice Ih Viscosity)',
+        latex_label=r'$\log_{10}(\eta_{\rm Ih})$',
+        description='Ice Ih shell viscosity. Dominant control on k₂ response '
+                    'at Saturnian tidal periods.',
+        category='rheology',
+        default_prior='uniform',
+        default_bounds=[12, 16],
+        units='Pa·s',
+        requires_structure_rebuild=False,
+        rheology_constraint=None  # Available for both Andrade and Maxwell
+    ),
+
+    'log10_eta_HP': ParameterDef(
+        id='log10_eta_HP',
+        label='Log₁₀(HP Ice Viscosity)',
+        latex_label=r'$\log_{10}(\eta_{\rm HP})$',
+        description='High-pressure ice (III, V, VI) viscosity. Affects deep '
+                    'layer contribution to tidal Love number.',
+        category='rheology',
+        default_prior='uniform',
+        default_bounds=[10, 18],
+        units='Pa·s',
+        requires_structure_rebuild=False,
+        rheology_constraint=None
+    ),
+
+    'log10_eta_sil': ParameterDef(
+        id='log10_eta_sil',
+        label='Log₁₀(Silicate Viscosity)',
+        latex_label=r'$\log_{10}(\eta_{\rm sil})$',
+        description='Silicate mantle viscosity. Negligible for tidal response '
+                    'at satellite periods, but affects long-term evolution.',
+        category='rheology',
+        default_prior='uniform',
+        default_bounds=[18, 22],
+        units='Pa·s',
+        requires_structure_rebuild=False,
+        rheology_constraint=None
+    ),
+
+    # -------------------------------------------------------------------------
+    # Rheology Parameters (Maxwell only)
+    # -------------------------------------------------------------------------
+    'log10_mu_Ih': ParameterDef(
+        id='log10_mu_Ih',
+        label='Log₁₀(Ice Ih Shear Modulus)',
+        latex_label=r'$\log_{10}(\mu_{\rm Ih})$',
+        description='Ice Ih shear modulus for Maxwell rheology. Typically '
+                    '3-4 GPa at satellite temperatures.',
+        category='rheology',
+        default_prior='uniform',
+        default_bounds=[8, 10],
+        units='Pa',
+        requires_structure_rebuild=False,
+        rheology_constraint='maxwell'
+    ),
+
+    # -------------------------------------------------------------------------
+    # Structural Parameters (require structure rebuild)
+    # -------------------------------------------------------------------------
+    'Tb_K': ParameterDef(
+        id='Tb_K',
+        label='Bottom Temperature',
+        latex_label=r'$T_b$ (K)',
+        description='Ocean-ice interface temperature. Controls HP ice layer '
+                    'thicknesses and phase transitions. Requires pre-computed '
+                    'structure grid for inference.',
+        category='structure',
+        default_prior='uniform',
+        default_bounds=[250, 273.15],
+        units='K',
+        requires_structure_rebuild=True,
+        rheology_constraint=None
+    ),
+
+    # Note: Future structural parameters to add when grid caching is implemented:
+    # - 'ocean_salinity_ppt': Ocean salinity (affects ocean density, freezing point)
+    # - 'ice_shell_thickness_km': Direct ice shell thickness constraint
+    # - 'core_radius_km': Core size (for core-mantle decoupling scenarios)
+}
+
+
+# ============================================================================
+# Category Display Configuration
+# ============================================================================
+
+CATEGORY_LABELS = {
+    'rheology': '🔧 Rheology Parameters',
+    'structure': '🌍 Structural Parameters',
+    'ocean': '🌊 Ocean Properties',
+    'magnetic': '🧲 Magnetic Properties',
+}
+
+CATEGORY_ORDER = ['rheology', 'structure', 'ocean', 'magnetic']
+
+
+# ============================================================================
+# Presets
+# ============================================================================
+
+PARAMETER_PRESETS = {
+    'andrade_titan': {
+        'name': 'Andrade Rheology (Titan)',
+        'description': 'Petricca et al. 2025 parameter space for Titan no-ocean model (PPTest41)',
+        'parameters': ['alpha', 'log10_zeta', 'log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil'],
+        'observables': {
+            'Re_k2': (0.608, 0.048),
+            'Im_k2': (0.135, 0.035)
+        },
+        'test_module': 'PlanetProfile.Test.PPTest41',
+        'rheology': 'andrade'
+    },
+
+    'maxwell_titan': {
+        'name': 'Maxwell Rheology (Titan)',
+        'description': 'Maxwell viscoelastic model for Titan (PPTest42)',
+        'parameters': ['log10_mu_Ih', 'log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil'],
+        'observables': {
+            'Re_k2': (0.608, 0.048),
+            'Im_k2': (0.135, 0.035)
+        },
+        'test_module': 'PlanetProfile.Test.PPTest42',
+        'rheology': 'maxwell'
+    },
+
+    'andrade_europa': {
+        'name': 'Andrade Rheology (Europa)',
+        'description': 'Andrade rheology for Europa with clathrate underplate (PPTest3)',
+        'parameters': ['alpha', 'log10_zeta', 'log10_eta_Ih', 'log10_eta_sil'],
+        'observables': {
+            'Re_k2': (0.328, 0.015),  # Europa estimates (placeholder)
+            'Im_k2': (0.015, 0.005)
+        },
+        'test_module': 'PlanetProfile.Test.PPTest3',
+        'rheology': 'andrade'
+    },
+}
+
+
+# ============================================================================
+# Utility Functions
+# ============================================================================
+
+def get_parameters_by_category(category: str) -> List[ParameterDef]:
+    """Get all parameters in a given category."""
+    return [p for p in PARAMETER_REGISTRY.values() if p.category == category]
+
+
+def get_parameters_by_rheology(rheology: Optional[str] = None) -> List[ParameterDef]:
+    """
+    Get parameters compatible with a rheology type.
+
+    Args:
+        rheology: 'andrade', 'maxwell', or None (all parameters)
+
+    Returns:
+        List of ParameterDef objects
+    """
+    if rheology is None:
+        return list(PARAMETER_REGISTRY.values())
+
+    return [
+        p for p in PARAMETER_REGISTRY.values()
+        if p.rheology_constraint is None or p.rheology_constraint == rheology
+    ]
+
+
+def validate_parameter_combination(param_ids: List[str]) -> Dict[str, Any]:
+    """
+    Validate that a set of parameters is compatible.
+
+    Args:
+        param_ids: List of parameter IDs to check
+
+    Returns:
+        Dict with:
+            'valid': bool
+            'rheology': 'andrade', 'maxwell', or None (inferred)
+            'warnings': List[str] (validation messages)
+            'requires_rebuild': bool (any param needs structure rebuild)
+    """
+    warnings = []
+    requires_rebuild = False
+
+    # Check for parameters requiring structure rebuild
+    for param_id in param_ids:
+        param = PARAMETER_REGISTRY.get(param_id)
+        if param and param.requires_structure_rebuild:
+            requires_rebuild = True
+            warnings.append(
+                f"Parameter '{param.label}' requires pre-computed structure grid. "
+                f"Generate grid with prepare_structure_variants.py before inference."
+            )
+
+    # Infer rheology constraint
+    andrade_only = [p for p in param_ids if PARAMETER_REGISTRY[p].rheology_constraint == 'andrade']
+    maxwell_only = [p for p in param_ids if PARAMETER_REGISTRY[p].rheology_constraint == 'maxwell']
+
+    if andrade_only and maxwell_only:
+        warnings.append(
+            f"Parameter set mixes Andrade-only ({andrade_only}) and Maxwell-only ({maxwell_only}) parameters. "
+            f"Choose parameters compatible with one rheology."
+        )
+        return {'valid': False, 'rheology': None, 'warnings': warnings, 'requires_rebuild': requires_rebuild}
+
+    # Determine rheology
+    if andrade_only:
+        rheology = 'andrade'
+    elif maxwell_only:
+        rheology = 'maxwell'
+    else:
+        rheology = None  # All parameters are rheology-agnostic
+        warnings.append(
+            "No rheology-specific parameters selected. Add 'alpha' and 'log10_zeta' for Andrade, "
+            "or 'log10_mu_Ih' for Maxwell."
+        )
+
+    return {
+        'valid': len(warnings) == 0 or not any('mixes' in w for w in warnings),
+        'rheology': rheology,
+        'warnings': warnings,
+        'requires_rebuild': requires_rebuild
+    }
