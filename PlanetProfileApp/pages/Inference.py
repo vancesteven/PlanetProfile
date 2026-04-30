@@ -188,7 +188,7 @@ def render_preset_selector(PARAMETER_PRESETS):
         st.session_state.inference_observables = preset['observables']
 
         # Auto-populate structure cache path based on preset
-        if preset_choice == 'andrade_titan' or preset_choice == 'maxwell_titan':
+        if preset_choice in ('andrade_titan', 'maxwell_titan'):
             body_name = 'titan'
         elif preset_choice == 'andrade_europa':
             body_name = 'europa'
@@ -523,13 +523,43 @@ def render_structure_cache_input():
             if full_path.exists():
                 st.success(f"✅ Cache file found ({full_path.stat().st_size / 1024:.1f} KB)")
             else:
-                st.error(f"❌ Cache file not found: {full_path}")
-                st.markdown(f"""
-                **To generate structure cache:**
-                ```bash
-                python scripts/prepare_structure_cache.py --body <Body> --cache-path <cache_dir>/
-                ```
-                """)
+                _auto_gen_map = {
+                    'andrade_titan': ('PlanetProfile.Test.PPTest41', 'titan_cache/'),
+                    'maxwell_titan': ('PlanetProfile.Test.PPTest42', 'titan_cache/'),
+                    'andrade_europa': ('PlanetProfile.Test.PPTest3', 'europa_cache/'),
+                }
+                preset = st.session_state.inference_preset
+                gen_flag = f'_cache_gen_failed_{preset}'
+
+                if preset in _auto_gen_map and not st.session_state.get(gen_flag):
+                    test_module, output_dir = _auto_gen_map[preset]
+                    import subprocess
+                    cmd = [
+                        sys.executable, '-m',
+                        'PlanetProfile.Inference.prepare_structure_variants',
+                        '--test-module', test_module,
+                        '--output-dir', output_dir,
+                    ]
+                    with st.spinner(f"Generating structure cache for {preset} — this takes 1-3 minutes..."):
+                        proc = subprocess.run(
+                            cmd, capture_output=True, text=True,
+                            cwd=parent_directory
+                        )
+                    if proc.returncode == 0:
+                        st.rerun()
+                    else:
+                        st.session_state[gen_flag] = True
+                        st.error("❌ Cache generation failed.")
+                        st.code(proc.stderr or proc.stdout)
+                else:
+                    st.error(f"❌ Cache file not found: {full_path}")
+                    st.markdown("""
+                    **Generate structure cache manually:**
+                    ```bash
+                    python -m PlanetProfile.Inference.prepare_structure_variants \\
+                        --test-module <module> --output-dir <dir>/
+                    ```
+                    """)
     else:
         # Custom mode: allow manual path input
         cache_path = st.text_input(
@@ -692,13 +722,11 @@ def render_results():
     if st.session_state.inference_results is None:
         st.info("📊 **Results will appear here after running inference.**")
         st.markdown("""
-        **Coming Soon:**
+        Run inference above to see:
         - Corner plots (posterior marginals + covariances)
-        - Trace plots (chain evolution)
-        - Convergence diagnostics (R-hat, ESS)
-        - k₂ posterior scatter with observations
+        - k₂ posterior scatter with 1σ/2σ observation ellipses
         - Per-phase heating distributions
-        - Export to PKL/HDF5/PNG
+        - Export to PKL
         """)
         return
 
@@ -738,8 +766,160 @@ def render_results():
 
         st.table(summary_data)
 
-    # Placeholder for future plots
-    st.info("🎨 **Plots coming soon:** Corner plots, trace plots, k₂ scatter, heating distributions.")
+    # Corner plot
+    with st.expander("🔺 Corner Plot", expanded=True):
+        try:
+            import corner
+            import matplotlib.pyplot as plt
+            fig = plt.figure(figsize=(10, 10))
+            corner.corner(
+                result.samples,
+                labels=result.param_labels,
+                quantiles=[0.16, 0.5, 0.84],
+                show_titles=True,
+                title_fmt='.3f',
+                title_kwargs={'fontsize': 10},
+                color='steelblue',
+                fig=fig,
+            )
+            st.pyplot(fig)
+            plt.close(fig)
+        except ImportError:
+            st.info("Install the `corner` library to view corner plots: `pip install corner`")
+        except Exception as e:
+            st.warning(f"Corner plot unavailable: {e}")
+
+    # k2 scatter with error ellipse
+    with st.expander("📡 k₂ Posterior Scatter", expanded=True):
+        try:
+            import matplotlib.pyplot as plt
+            from matplotlib.patches import Ellipse
+
+            Re_arr = result.k2_results[:, 0]
+            Im_arr = np.abs(result.k2_results[:, 1])
+
+            Re_obs, Re_err = result.config.observables.get('Re_k2', (0.608, 0.048))
+            Im_obs, Im_err = result.config.observables.get('abs_Im_k2', (0.135, 0.035))
+
+            f_sil = []
+            for h in (result.heating_results or []):
+                total = sum(h.values()) if h else 1e-30
+                f_sil.append(h.get('Sil', 0) / total if total > 0 else 0)
+            f_sil = np.array(f_sil) if f_sil else None
+
+            # Scale point size by ocean thickness (Tb_K proxy) when available
+            pt_size = 8
+            if 'Tb_K' in result.param_names:
+                tb_idx = result.param_names.index('Tb_K')
+                tb_vals = result.samples[:, tb_idx]
+                tb_norm = (tb_vals - tb_vals.min()) / (tb_vals.ptp() + 1e-10)
+                pt_size = 4 + 20 * tb_norm  # 4–24 px, larger = warmer = more ocean
+
+            plt.rcParams['text.usetex'] = False
+            fig, ax = plt.subplots(figsize=(8, 6))
+            if f_sil is not None and len(f_sil) == len(Re_arr):
+                sc = ax.scatter(Re_arr, Im_arr, c=f_sil, cmap='RdYlBu_r',
+                                s=pt_size, alpha=0.6, vmin=0, vmax=1)
+                plt.colorbar(sc, ax=ax, label='Silicate heating fraction')
+            else:
+                ax.scatter(Re_arr, Im_arr, s=pt_size, alpha=0.6, color='steelblue')
+
+            ax.add_patch(Ellipse((Re_obs, Im_obs), 2*Re_err, 2*Im_err,
+                                 fill=False, color='red', linewidth=2,
+                                 linestyle='--', label=r'1$\sigma$'))
+            ax.add_patch(Ellipse((Re_obs, Im_obs), 4*Re_err, 4*Im_err,
+                                 fill=False, color='red', linewidth=1,
+                                 linestyle=':', label=r'2$\sigma$'))
+            ax.set_xlabel(r'Re$(k_2)$')
+            ax.set_ylabel(r'$|$Im$(k_2)|$')
+            ax.set_title(r'$k_2$ Posterior')
+            ax.legend()
+            st.pyplot(fig)
+            plt.close(fig)
+        except Exception as e:
+            st.warning(f"k₂ scatter unavailable: {e}")
+
+    # Heating distribution
+    with st.expander("🔥 Heating Distribution", expanded=False):
+        heating_results = result.heating_results or []
+        if not heating_results:
+            st.info("Heating data unavailable. Set **n_reeval > 0** in sampler settings to compute per-phase heating.")
+        else:
+            try:
+                import matplotlib.pyplot as plt
+
+                eval_idx = result.metadata.get('heating_indices',
+                                               list(range(len(heating_results))))
+                eval_samples = result.samples[eval_idx]
+                n_params = eval_samples.shape[1]
+
+                # Diagnostic: show actual phase keys from first entry
+                actual_keys = sorted(set(k for h in heating_results for k in h.keys()))
+                with st.expander("🔍 Heating phase keys (debug)", expanded=False):
+                    st.write("Keys found:", actual_keys)
+                    st.write("First 3 entries:", heating_results[:3])
+
+                phase_colors = {'Ih': 'C0', 'III': 'C1', 'V': 'C2', 'VI': 'C3',
+                                'Sil': 'C4', 'Clath': 'C5'}
+
+                # Use only phases actually present in the data
+                phases_to_show = [p for p in ['Ih', 'III', 'V', 'VI', 'Sil']
+                                  if p in actual_keys]
+
+                heating_fracs = {}
+                for phase in phases_to_show:
+                    fracs = []
+                    for h in heating_results:
+                        total = sum(h.values()) if h else 1e-30
+                        fracs.append(h.get(phase, 0) / total if total > 0 else 0)
+                    heating_fracs[phase] = np.array(fracs)
+
+                n_panels = n_params + 1
+                n_cols = 3
+                n_rows = (n_panels + n_cols - 1) // n_cols
+                fig, axes = plt.subplots(n_rows, n_cols,
+                                         figsize=(6 * n_cols, 5 * n_rows))
+                axes = axes.flatten()
+                for ax in axes[n_panels:]:
+                    ax.set_visible(False)
+
+                for ip, plabel in enumerate(result.param_labels):
+                    ax = axes[ip]
+                    x = eval_samples[:, ip]
+                    for phase in phases_to_show:
+                        ax.scatter(x, heating_fracs[phase], s=4, alpha=0.3,
+                                   color=phase_colors.get(phase, 'gray'),
+                                   label=phase)
+                    ax.set_xlabel(plabel)
+                    ax.set_ylabel('Heating fraction')
+                    ax.set_ylim(-0.05, 1.05)
+                    if ip == 0:
+                        ax.legend(fontsize=8, loc='best')
+
+                # Stacked bar sorted by silicate fraction
+                ax = axes[n_params]
+                f_sil_heat = heating_fracs.get('Sil', np.zeros(len(heating_results)))
+                sort_order = np.argsort(f_sil_heat)
+                bottom = np.zeros(len(heating_results))
+                for phase in ['Sil', 'V', 'VI', 'III', 'Ih']:
+                    if phase in heating_fracs:
+                        ax.bar(range(len(heating_results)),
+                               heating_fracs[phase][sort_order],
+                               bottom=bottom,
+                               color=phase_colors.get(phase, 'gray'),
+                               label=phase, width=1.0)
+                        bottom += heating_fracs[phase][sort_order]
+                ax.set_xlabel('Samples sorted by silicate fraction')
+                ax.set_ylabel('Heating fraction')
+                ax.legend(fontsize=8)
+                ax.set_title('Per-phase heating across posterior')
+
+                fig.suptitle('Heating Distribution', fontsize=14)
+                fig.tight_layout()
+                st.pyplot(fig)
+                plt.close(fig)
+            except Exception as e:
+                st.warning(f"Heating distribution unavailable: {e}")
 
     # Export button
     st.markdown("---")

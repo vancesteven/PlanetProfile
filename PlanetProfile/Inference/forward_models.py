@@ -379,7 +379,8 @@ def forward_model_k2(
                                      log10_eta_Ih, log10_eta_HP, log10_eta_sil]
             - 'andrade' (5-param, no HP ice): [alpha, log10_zeta_Ih, log10_zeta_sil,
                                                 log10_eta_Ih, log10_eta_sil]
-            - 'maxwell': [log10_eta_Ih, log10_eta_HP, log10_eta_sil]
+            - 'maxwell' (3-param): [log10_eta_Ih, log10_eta_HP, log10_eta_sil]
+            - 'maxwell' (4-param, with shear modulus): [log10_mu_Ih, log10_eta_Ih, log10_eta_HP, log10_eta_sil]
         structure_data: Cached structural arrays from load_structure_cache()
         rheology: 'andrade' or 'maxwell'
         return_heating: If True, compute per-phase tidal heating (slower)
@@ -415,14 +416,22 @@ def forward_model_k2(
             raise ValueError(f"Andrade rheology expects 5 or 7 parameters, got {len(theta)}")
 
     elif rheology == 'maxwell':
-        if len(theta) == 3:
+        if len(theta) == 4:
+            # With shear modulus override: [log10_mu_Ih, log10_eta_Ih, log10_eta_HP, log10_eta_sil]
+            theta_dict = {
+                'log10_mu_Ih': theta[0],
+                'log10_eta_Ih': theta[1],
+                'log10_eta_HP': theta[2],
+                'log10_eta_sil': theta[3]
+            }
+        elif len(theta) == 3:
             theta_dict = {
                 'log10_eta_Ih': theta[0],
                 'log10_eta_HP': theta[1],
                 'log10_eta_sil': theta[2]
             }
         else:
-            raise ValueError(f"Maxwell rheology expects 3 parameters, got {len(theta)}")
+            raise ValueError(f"Maxwell rheology expects 3 or 4 parameters, got {len(theta)}")
     else:
         raise ValueError(f"Unknown rheology '{rheology}'. Must be 'andrade' or 'maxwell'")
 

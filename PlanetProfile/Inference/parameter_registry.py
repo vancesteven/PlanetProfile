@@ -234,9 +234,9 @@ PARAMETER_PRESETS = {
     },
 
     'maxwell_titan': {
-        'name': 'Maxwell Rheology (Titan)',
-        'description': 'Maxwell viscoelastic model for Titan (PPTest42)',
-        'parameters': ['log10_mu_Ih', 'log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil'],
+        'name': 'Maxwell Rheology + Ocean (Titan)',
+        'description': 'Maxwell viscoelastic ocean model for Titan (PPTest42) — 4-param space matching Test42_mcmc_maxwell_ocean.py',
+        'parameters': ['log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil', 'Tb_K'],
         'observables': {
             'Re_k2': (0.608, 0.048),
             'abs_Im_k2': (0.135, 0.035)
