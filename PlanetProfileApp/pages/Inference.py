@@ -6,7 +6,6 @@ observed data (tidal Love numbers, magnetic induction, etc.).
 
 Supports:
 - MCMC (Markov Chain Monte Carlo) via pocoMC
-- SBI (Simulation-Based Inference) via neural posterior estimation [future]
 
 Author: PlanetProfile Team
 Date: 2026-04-29
@@ -84,7 +83,7 @@ def initialize_session_state():
 
     # Configuration
     if 'inference_mode' not in st.session_state:
-        st.session_state.inference_mode = 'mcmc'  # 'mcmc' or 'sbi'
+        st.session_state.inference_mode = 'mcmc'
 
     if 'inference_preset' not in st.session_state:
         st.session_state.inference_preset = 'andrade_titan'
@@ -101,7 +100,7 @@ def initialize_session_state():
     if 'inference_observables' not in st.session_state:
         st.session_state.inference_observables = {
             'Re_k2': (0.608, 0.048),  # Petricca et al. 2025 defaults
-            'Im_k2': (0.135, 0.035)
+            'abs_Im_k2': (0.135, 0.035)
         }
 
     if 'inference_sampler_settings' not in st.session_state:
@@ -170,6 +169,14 @@ def render_preset_selector(PARAMETER_PRESETS):
         # Load preset parameters
         preset = PARAMETER_PRESETS[preset_choice]
         st.session_state.inference_selected_params = preset['parameters']
+
+        # Filter param_space to only keep parameters in the preset
+        # (prevents stale parameters from previous configurations)
+        if st.session_state.inference_param_space:
+            st.session_state.inference_param_space = {
+                k: v for k, v in st.session_state.inference_param_space.items()
+                if k in preset['parameters']
+            }
 
         # Load preset observables
         st.session_state.inference_observables = preset['observables']
@@ -370,27 +377,30 @@ def render_observables_config():
             key='Re_k2_unc'
         )
 
-    # Im(k2) input
+    # Im(k2) input - handle both old 'Im_k2' and new 'abs_Im_k2' keys for backward compatibility
+    observables = st.session_state.inference_observables
+    im_k2_default = observables.get('abs_Im_k2', observables.get('Im_k2', (0.135, 0.035)))
+
     col1, col2 = st.columns(2)
     with col1:
         Im_k2_value = st.number_input(
             "Im(k₂) — Imaginary part:",
-            value=st.session_state.inference_observables['Im_k2'][0],
+            value=im_k2_default[0],
             format="%.4f",
             key='Im_k2_value'
         )
     with col2:
         Im_k2_uncertainty = st.number_input(
             "± Uncertainty:",
-            value=st.session_state.inference_observables['Im_k2'][1],
+            value=im_k2_default[1],
             format="%.4f",
             key='Im_k2_unc'
         )
 
-    # Update session state
+    # Update session state (use abs_Im_k2 as the canonical key)
     st.session_state.inference_observables = {
         'Re_k2': (Re_k2_value, Re_k2_uncertainty),
-        'Im_k2': (Im_k2_value, Im_k2_uncertainty)
+        'abs_Im_k2': (Im_k2_value, Im_k2_uncertainty)
     }
 
     # Show reference
@@ -604,10 +614,18 @@ def render_run_button(InferenceConfig, MCMCRunner):
 
         # Build InferenceConfig
         try:
-            planet = get_planet()
+            # Get body name from preset (not from session planet)
+            preset = st.session_state.inference_preset
+            if preset in ['andrade_titan', 'maxwell_titan']:
+                bodyname = 'Titan'
+            elif preset == 'andrade_europa':
+                bodyname = 'Europa'
+            else:
+                bodyname = 'Custom'
+
             config = InferenceConfig(
                 mode='mcmc',
-                bodyname=planet.name if planet else 'Unknown',
+                bodyname=bodyname,
                 param_space=st.session_state.inference_param_space,
                 observables=st.session_state.inference_observables,
                 sampler_settings=st.session_state.inference_sampler_settings,
@@ -743,11 +761,8 @@ def main():
     # Page title
     st.title("🧮 Bayesian Inference")
 
-    # Check for Planet selection
-    planet = get_planet()
-    if planet is None:
-        st.warning("⚠️ Please select a planet in the Main Settings page first.")
-        st.stop()
+    # Note: Planet selection is optional for inference - body name comes from preset
+    # (e.g., 'andrade_titan' preset uses Titan structure cache)
 
     # Lazy import inference modules
     imports = lazy_import_inference()
@@ -822,11 +837,6 @@ def main():
             - Samples from posterior via random walk
             - Robust, proven method for 5-10D spaces
             - Takes ~1-3 hours for typical convergence
-
-            **SBI (Simulation-Based Inference):**
-            - Trains neural network to approximate posterior
-            - Faster for repeated inference (amortization)
-            - Requires 10k-100k forward model calls upfront
 
             **Reference:** Petricca et al. (2025) *Nature* - Titan's tidal Love numbers
             challenge the ocean-world paradigm.

@@ -1,0 +1,19 @@
+---
+source_file: "PlanetProfile/Default/Ariel/PPAriel.py"
+type: "rationale"
+community: "Test Suite & Body Configs"
+location: "L1"
+tags:
+  - graphify/rationale
+  - graphify/EXTRACTED
+  - community/Test_Suite_&_Body_Configs
+---
+
+# PPAriel Contains all body-specific parameters and information for PlanetProfile
+
+## Connections
+- [[PPAriel.py]] - `rationale_for` [EXTRACTED]
+- [[PPAriel.py_1]] - `rationale_for` [EXTRACTED]
+- [[PlanetStruct]] - `uses` [INFERRED]
+
+#graphify/rationale #graphify/EXTRACTED #community/Test_Suite_&_Body_Configs

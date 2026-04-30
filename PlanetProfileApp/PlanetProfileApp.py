@@ -11,8 +11,9 @@ layer_step_settings = st.Page("pages/LayerStepSettings.py", title = "Layer Step 
 run_PlanetProfile = st.Page("pages/RunPlanetProfile.py", title = "Run PlanetProfile", icon = "🚀")
 PlanetProfile_outputs = st.Page("pages/PlanetProfileOutputs.py", title = "PlanetProfile Outputs", icon = "📈")
 exploreogram = st.Page("pages/Exploreogram.py", title = "Exploreogram", icon = "🔬")
+inference = st.Page("pages/Inference.py", title = "Inference", icon = "🧮")
 # Set up navigation
-pg = st.navigation([about, main_settings, bulk_planetary_settings, ocean_settings, core_settings, layer_step_settings, run_PlanetProfile, PlanetProfile_outputs, exploreogram])
+pg = st.navigation([about, main_settings, bulk_planetary_settings, ocean_settings, core_settings, layer_step_settings, run_PlanetProfile, PlanetProfile_outputs, exploreogram, inference])
 
 # Run the selected page
 pg.run()

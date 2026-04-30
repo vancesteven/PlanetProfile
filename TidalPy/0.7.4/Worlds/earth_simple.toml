@@ -1,0 +1,36 @@
+name = "Earth_Simple"
+type = "layered"
+radius = 6371000.0
+semi_major_axis = 1.0
+semi_major_axis_in_au = true
+eccentricity = 0.01671022
+spin_period = 1.0
+tides_on = true
+
+[tides]
+model = "global_approx"
+fixed_q = 100.0
+
+[layers.Inner_Core]
+type = "iron"
+is_tidal = false
+radius = 1220000.0
+density = 17000.0
+
+[layers.Outer_Core]
+type = "iron"
+is_tidal = false
+radius = 3480000.0
+density = 12000.0
+
+[layers.Lower_Mantle]
+type = "rock"
+is_tidal = false
+radius = 5711000.0
+density = 5000.0
+
+[layers.Upper_Mantle]
+type = "rock"
+is_tidal = true
+radius = 6371000.0
+density = 3300.0

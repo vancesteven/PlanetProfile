@@ -1,0 +1,27 @@
+name = "Charon"
+type = "burnman"
+radius = 606016.07
+orbital_period = 6.3872304
+eccentricity = 0.0002
+spin_period = 6.3872304
+albedo = 0.3
+force_spin_sync = false
+
+[layers.Core]
+type = "rock"
+is_tidal = true
+radius = 437374.8067
+material = "forsterite"
+material_source = "SLB_2011"
+temperature_mode = "adiabatic"
+temperature_top = 300.0
+
+[layers.Crust]
+type = "ice"
+is_tidal = false
+radius = 606000.0
+material = "IceIh_Fu2010"
+material_source = "TidalPy"
+temperature_mode = "user-defined"
+surface_temperature = 40.0
+temperature_fixed = 40.0

@@ -1,0 +1,263 @@
+---
+type: community
+cohesion: 0.02
+members: 225
+---
+
+# Ice Convection Models
+
+**Cohesion:** 0.02 - loosely connected
+**Members:** 225 nodes
+
+## Members
+- [[TODO Calculate actual melt fraction from two-phase convection model]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[TODO Calculate actual melt fraction from two-phase convection model_1]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[TODO Ice VI thermal profile propagation (stagnant lid + convective + lower TB]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[.__call__()_4]] - code - PlanetProfile/Thermodynamics/InnerEOS.py
+- [[.__call__()_25]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.__call__()_28]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__call__()_27]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__init__()_9]] - code - PlanetProfile/Thermodynamics/InnerEOS.py
+- [[.__init__()_99]] - code - PlanetProfile/Plotting/PTPlots.py
+- [[.__init__()_2]] - code - Thermodynamics/Perple_X/stackFeSPerplexTables.py
+- [[.comparisonFileGenerator()]] - code - PlanetProfile/Utilities/defineStructs.py
+- [[.fn_Cp_JkgK()_6]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_GS_GPa()_3]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_KS_GPa()_3]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_Seismic()_3]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_VP_kms()_3]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_VS_kms()_3]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_alpha_pK()_6]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_averageValuesAccordingtoRule()_1]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_eta_Pas()_6]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_kTherm_WmK()_6]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_phase()_5]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_phase()_4]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.fn_phi_frac()_5]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_porosCorrect()_4]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_rho_kgm3()_6]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_sigma_Sm()_3]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.printFunctionTimeDifference()]] - code - PlanetProfile/Utilities/defineStructs.py
+- [[.setFunctionTime()]] - code - PlanetProfile/Utilities/defineStructs.py
+- [[.updateConvectionViscosity()_3]] - code - PlanetProfile/Utilities/DataManip.py
+- [[Apply convection models from literature to determine thermal profile and_7]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[Apply convection models from literature to determine thermal profile and_8]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[Apply convection models from literature to determine thermal profile and]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[Apply convection models from literature to determine thermal profile and_1]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[Apply convection models from literature to determine thermal profile and_2]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[Apply convection models from literature to determine thermal profile and_3]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[Apply convection models from literature to determine thermal profile and_4]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[Apply convection models from literature to determine thermal profile and_5]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[Apply convection models from literature to determine thermal profile and_6]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[Apply convection models with porosity for ice VI layers         Currently not im]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[Assign EOS functions for possible high-pressure ices expected in the ocean]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[CalcElecPorIce()]] - code - PlanetProfile/Thermodynamics/Electrical.py
+- [[CalcElecPorRock()]] - code - PlanetProfile/Thermodynamics/Electrical.py
+- [[CalcElecSolidIce()]] - code - PlanetProfile/Thermodynamics/Electrical.py
+- [[CalcMoIConstantRho()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[CalcMoIWithEOS()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[CalcRefProfiles()]] - code - PlanetProfile/Thermodynamics/RefProfiles/RefProfiles.py
+- [[CalcSeisPorIce()]] - code - PlanetProfile/Thermodynamics/Seismic.py
+- [[CalcSeisPorRock()]] - code - PlanetProfile/Thermodynamics/Seismic.py
+- [[CalcViscCore()]] - code - PlanetProfile/Thermodynamics/Viscosity.py
+- [[CalcViscPorIce()]] - code - PlanetProfile/Thermodynamics/Viscosity.py
+- [[CalcViscPorRock()]] - code - PlanetProfile/Thermodynamics/Viscosity.py
+- [[CalcViscSolidIce()]] - code - PlanetProfile/Thermodynamics/Viscosity.py
+- [[CalcViscSolidRock()]] - code - PlanetProfile/Thermodynamics/Viscosity.py
+- [[Calculate conductive profile for ice III layers]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[Calculate conductive profile for ice III layers_1]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[Calculate conductive profile for ice V layers]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[Calculate conductive profile for ice V layers_1]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[Calculate conductive profile for ice VI layers.          Requires Planet.Steps.n]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[Calculate conductive profile for porous ice VI layers.          Requires the sam]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[Calculate conductive profile in ice Ih layers based on a linear pressure profile]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[Calculate conductive profile in ice Ih layers based on a linear pressure profile_1]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[Calculate conductive profile in ice Ih layers beneath a clathrate lid based]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[Calculate conductive profile in ice Ih layers beneath a clathrate lid based_1]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[Calculate conductive profiles in ice Ih and clathrate layers based on an assumed]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[Calculate conductive profiles in ice Ih and clathrate layers based on an assumed_1]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[Calculate electrical conductivities of porous rock layers. Pores are assumed to]] - rationale - PlanetProfile/Thermodynamics/Electrical.py
+- [[Calculateassign aqueous-specific properties for each layer          Assigns Pla]] - rationale - PlanetProfile/Thermodynamics/OceanProps.py
+- [[Calculateassign electrical conductivities for each layer          Assigns Plane]] - rationale - PlanetProfile/Thermodynamics/Electrical.py
+- [[Calculates the critical Rayleigh number, above which convection is permitted]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[Calculation of electrical conductivities for porous ice, which is assumed to con]] - rationale - PlanetProfile/Thermodynamics/Electrical.py
+- [[Calculation of electrical conductivities for solid (non-porous) ice. All porosit]] - rationale - PlanetProfile/Thermodynamics/Electrical.py
+- [[Calculation of seismic properties, including wave speeds          Assigns Planet]] - rationale - PlanetProfile/Thermodynamics/Seismic.py
+- [[ClathShellConvectPorous()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[ClathShellConvectSolid()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[Compute convection parameters for high-pressure ice phases (III, V, VI)]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Computes the difference between target and actual ice shell thickness for a give]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Conductive and convective profile calculations for ice III layers between]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Conductive and convective profile calculations for ice V layers between]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Conductive and convective profile calculations for ice VI layers         below t]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[ConductiveTemperature()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[ConductiveTemperatureActual()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[Convection.py]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[ConvectionDeschampsSotin2001()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[ConvectionKalousova2018()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[ConvectionPetricca2024()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[Convert phase integers into strings compatible with SeaFreeze          Arguments]] - rationale - PlanetProfile/Utilities/Indexing.py
+- [[Convert phase strings compatible with SeaFreeze into integers          Arguments]] - rationale - PlanetProfile/Utilities/Indexing.py
+- [[Correct ice layer properties retrieved with EvalLayerProperties according]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Correct layer properties retrieved with EvalLayerProperties according         to]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Determines properties of core layers based on input Perple_X table         and s]] - rationale - PlanetProfile/Thermodynamics/IronCore.py
+- [[Determines properties of silicate layers based on input Perple_X table         a]] - rationale - PlanetProfile/Thermodynamics/Silicates.py
+- [[Determines the temperature at which ice transitions to water for a given ice she]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[ElecConduct()]] - code - PlanetProfile/Thermodynamics/Electrical.py
+- [[Electrical.py]] - code - PlanetProfile/Thermodynamics/Electrical.py
+- [[EvalLayerProperties()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Evaluate EOS functions for a given pressure and temperature range.          Args]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Find the pressure associated with the bottom temperature of a conductive layer,]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[Find the relative sizes of silicate, core, and hydrosphere layers that are]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Find the relative sizes of silicate, core, and hydrosphere layers that are_1]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Generate comparison file names between two planet name inputs with the given fil]] - rationale - PlanetProfile/Utilities/defineStructs.py
+- [[Geophysical and thermodynamic calculations for ocean layer         Calculates st]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Geophysical and thermodynamic calculations for silicate and core layers]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Geophysical.py]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Get indices for each phase of iceliquid          Args             phase (int,]] - rationale - PlanetProfile/Utilities/Indexing.py
+- [[GetHtidalFunc]] - code - PlanetProfile/Thermodynamics/InnerEOS.py
+- [[GetIceEOS()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[GetIceShellTFreeze()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[GetOceanEOS()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[GetOceanHPIceEOS()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[GetPbConduct()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[GetPfreeze()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[GetPhaseIndices()]] - code - PlanetProfile/Utilities/Indexing.py
+- [[GetRaCrit()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[GetTfreeze()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[HPIceConvection()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[HydrosphereProp]] - code - PlanetProfile/Plotting/PTPlots.py
+- [[IceConduction.py]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceIConductClathLidPorous()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceIConductClathLidSolid()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceIConductClathUnderplatePorous()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceIConductClathUnderplateSolid()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceIConvectPorous()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[IceIConvectSolid()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[IceIIIConductPorous()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceIIIConductSolid()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceIIIConvectPorous()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[IceIIIConvectSolid()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[IceIIIUnderplate()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[IceIWholeConductPorous()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceIWholeConductSolid()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceLayers()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[IceVConductPorous()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceVConductSolid()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceVConvectPorous()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[IceVConvectSolid()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[IceVIConductPorous()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceVIConductSolid()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/IceConduction.py
+- [[IceVIConvectPorous()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[IceVIConvectSolid()]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/Convection.py
+- [[IceVIUnderplate()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[IceVUnderplate()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Indexing.py]] - code - PlanetProfile/Utilities/Indexing.py
+- [[Indexing Functions for converting between various means of indexing material ph]] - rationale - PlanetProfile/Utilities/Indexing.py
+- [[InitPorous()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[InitSil()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Initialize the layer propagation variables needed for porosity, which are mostly]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[InnerLayers()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[IronCore.py]] - code - PlanetProfile/Thermodynamics/IronCore.py
+- [[IronCoreLayers()]] - code - PlanetProfile/Thermodynamics/IronCore.py
+- [[Layer propagation from surface downward through the ice using geophysics.]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[LayerPropagators.py]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[LiquidOceanPropsCalcs()]] - code - PlanetProfile/Thermodynamics/OceanProps.py
+- [[MgSO4Props()]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[MixedPhaseSeparator()]] - code - PlanetProfile/Utilities/Indexing.py
+- [[Non-self-consistent ice layer modeling using specified mean properties         i]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Non-self-consistent inner layer modeling using specified mean properties]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Non-self-consistent ocean layer modeling using specified mean properties]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[NonSelfConsistentIceLayer()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[NonSelfConsistentInnerLayer()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[NonSelfConsistentOceanLayer()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[OceanLayers()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[OceanProps.py]] - code - PlanetProfile/Thermodynamics/OceanProps.py
+- [[PTPlots.py]] - code - PlanetProfile/Plotting/PTPlots.py
+- [[Parse a chemical reaction string into reactants, products, and optional disequil]] - rationale - PlanetProfile/Thermodynamics/OceanProps.py
+- [[PerplexEOS]] - code - Thermodynamics/Perple_X/stackFeSPerplexTables.py
+- [[PhaseConv()]] - code - PlanetProfile/Utilities/Indexing.py
+- [[PhaseInv()]] - code - PlanetProfile/Utilities/Indexing.py
+- [[Plot species in hydrosphere.]] - rationale - PlanetProfile/Plotting/PTPlots.py
+- [[PlotCustomSolutionProperties()]] - code - PlanetProfile/Plotting/PTPlots.py
+- [[PlotHydroPhase()]] - code - PlanetProfile/Plotting/PTPlots.py
+- [[PlotHydrosphereSpecies()]] - code - PlanetProfile/Plotting/PTPlots.py
+- [[PlotIsoThermalPvThydro()]] - code - PlanetProfile/Plotting/PTPlots.py
+- [[PlotPvTPerpleX()]] - code - PlanetProfile/Plotting/PTPlots.py
+- [[PlotPvThydro()]] - code - PlanetProfile/Plotting/PTPlots.py
+- [[PorosityCorrectionFilledIce()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[PorosityCorrectionVacIce()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Propagate a conductive profile down through all silicate profiles.         In th]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[PropagateAdiabaticPorousFilledIce()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[PropagateAdiabaticPorousVacIce()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[PropagateAdiabaticSolid()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[PropagateAdiabaticSolidFromDepth()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[PropagateConduction()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[PropagateConductionProfilesPorous()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[PropagateConductionProfilesSolid()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[PropagateLinearThermalProfile()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[PropogateConductionFromDepth()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[RktProps()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Same as PropagateConductionSolid, but for silicate layers, for which we calculat]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[See PropagateConductionProfilesSolid for variable definitions.         Note that]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[See PropagateConductionProfilesSolid for variable descriptions.         Generall]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Seismic.py]] - code - PlanetProfile/Thermodynamics/Seismic.py
+- [[SeismicCalcs()]] - code - PlanetProfile/Thermodynamics/Seismic.py
+- [[SelfConsistentIceLayer()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[SelfConsistentInnerLayer()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[SelfConsistentOceanLayer()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Separate mixed phase strings into different phases          Arguments]] - rationale - PlanetProfile/Utilities/Indexing.py
+- [[SilRecursionPorous()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[SilRecursionSolid()]] - code - PlanetProfile/Thermodynamics/Geophysical.py
+- [[SilicateLayers()]] - code - PlanetProfile/Thermodynamics/Silicates.py
+- [[Silicates.py]] - code - PlanetProfile/Thermodynamics/Silicates.py
+- [[Thermal profile for purely thermally conductive layers, based on Turcotte and Sc]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[Thermal profile for purely thermally conductive layers, based on Turcotte and Sc_1]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[ThermalProfiles.py]] - code - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[Thermodynamics calculations for convection in HP ice layers (III, V, VI)]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[Thermodynamics calculations for convection in an ice layer         based on Desc]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[Thermodynamics calculations for convection in an ice layer         based on Petr]] - rationale - PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py
+- [[This is a far-more-complicated version of SilRecursionSolid that accounts]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Use P, T, and layer properties as determined from conductive layer profile to ev]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Use P, T, and layer properties as determined from conductive layer profile to ev_1]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Use layer-top values and assumption of a linear temperature profile         to e]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Use layer-top values and assumption of an adiabatic thermal profile         to e]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Use layer-top values and assumption of an adiabatic thermal profile         to e_1]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Use layer-top values and assumption of an adiabatic thermal profile in ices]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Use layer-top values and assumption of an adiabatic thermal profile in ices_1]] - rationale - PlanetProfile/Thermodynamics/Geophysical.py
+- [[Viscosity.py]] - code - PlanetProfile/Thermodynamics/Viscosity.py
+- [[ViscosityCalcs()]] - code - PlanetProfile/Thermodynamics/Viscosity.py
+- [[Wrapper function for ice layer propogation. Decides between self consistent and]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Wrapper function for inner layer propogation. Decides between self consistent an]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[Wrapper function for ocean layer propogation. Decides between self consistent an]] - rationale - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[iceShellTFreeze()]] - code - PlanetProfile/Thermodynamics/LayerPropagators.py
+- [[reaction_parser()]] - code - PlanetProfile/Thermodynamics/OceanProps.py
+- [[setupReactionSubstruct()]] - code - PlanetProfile/Thermodynamics/OceanProps.py
+- [[stackFeSPerplexTables.py]] - code - Thermodynamics/Perple_X/stackFeSPerplexTables.py
+- [[supcr_versus_gsw()]] - code - PlanetProfile/Thermodynamics/Reaktoro/rkt_gsw_benchmark_thermal_properties.py
+
+## Live Query (requires Dataview plugin)
+
+```dataview
+TABLE source_file, type FROM #community/Ice_Convection_Models
+SORT file.name ASC
+```
+
+## Connections to other communities
+- 67 edges to [[_COMMUNITY_Clathrate & Custom EOS]]
+- 19 edges to [[_COMMUNITY_Test Suite & Body Configs]]
+- 19 edges to [[_COMMUNITY_Plotting & Visualization]]
+- 10 edges to [[_COMMUNITY_Clathrate Properties]]
+- 9 edges to [[_COMMUNITY_Constant EOS Framework]]
+- 3 edges to [[_COMMUNITY_Lateral Variation & Gravity]]
+- 3 edges to [[_COMMUNITY_Gravity & Induction Config]]
+- 3 edges to [[_COMMUNITY_Community 36]]
+- 2 edges to [[_COMMUNITY_Magnetic Induction Core]]
+- 1 edge to [[_COMMUNITY_Reaktoro Thermodynamics]]
+
+## Top bridge nodes
+- [[PhaseConv()]] - degree 23, connects to 3 communities
+- [[GetOceanEOS()]] - degree 20, connects to 3 communities
+- [[.printFunctionTimeDifference()]] - degree 10, connects to 3 communities
+- [[.setFunctionTime()]] - degree 9, connects to 3 communities
+- [[RktProps()]] - degree 9, connects to 3 communities

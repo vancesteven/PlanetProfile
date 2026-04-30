@@ -1,0 +1,39 @@
+name = "Europa"
+type = "burnman"
+radius = 1561000.0
+orbital_period = 3.551181
+eccentricity = 0.01
+spin_period = 3.551181
+albedo = 0.67
+force_spin_sync = true
+
+[layers.Core]
+type = "iron"
+is_tidal = false
+radius = 599000.0
+material = [ "Pyrite", "Fe_Dewaele",]
+material_source = [ "TidalPy", "other",]
+material_fractions = [ 0.5, 0.5,]
+temperature_mode = "user-defined"
+temperature_fixed = 1800.0
+
+[layers.Mantle]
+type = "rock"
+is_tidal = false
+radius = 1421000.0
+material = [ "forsterite", "mg_perovskite",]
+material_source = [ "SLB_2011", "SLB_2011",]
+material_fractions = [ 0.65, 0.35,]
+temperature_mode = "adiabatic"
+temperature_top = 1800.0
+surface_temperature = 273.15
+
+[layers.Crust]
+type = "ice"
+is_tidal = true
+radius = 1561000.0
+material = "LowPressureIceConst"
+material_source = "TidalPy"
+temperature_mode = "user-defined"
+surface_temperature = 100.0
+temperature_fixed = 100.0

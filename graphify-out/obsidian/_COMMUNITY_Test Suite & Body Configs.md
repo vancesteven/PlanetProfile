@@ -1,0 +1,326 @@
+---
+type: community
+cohesion: 0.01
+members: 286
+---
+
+# Test Suite & Body Configs
+
+**Cohesion:** 0.01 - loosely connected
+**Members:** 286 nodes
+
+## Members
+- [[.SetAxes()]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[.SetComps()]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[.__call__()_22]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.__init__()_89]] - code - PlanetProfile/Utilities/defineStructs.py
+- [[.__init__()_70]] - code - PlanetProfile/Utilities/defineStructs.py
+- [[.__init__()_92]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[.__init__()_97]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[.__init__()_94]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[.__init__()_98]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[.__init__()_93]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[.__init__()_96]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[.__init__()_95]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[@@@@@@         AxiSEM         @@@@@@]] - rationale - PlanetProfile/Thermodynamics/Seismic.py
+- [[Actions to take if opt is passed to run(). Params may be changed,         so we]] - rationale - PlanetProfile/Main.py
+- [[AssignPlanetVal()]] - code - PlanetProfile/Main.py
+- [[BaseResultsStruct]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[BuildTest.py]] - code - PlanetProfile/BuildTest.py
+- [[Calculate the absolute difference between 2d or 3d arrays for exploration result]] - rationale - PlanetProfile/Utilities/SummaryTables.py
+- [[Calculate the percent difference between 2d or 3d arrays for exploration results]] - rationale - PlanetProfile/Utilities/SummaryTables.py
+- [[Check if induction data exists for all results in the list.]] - rationale - PlanetProfile/Utilities/ResultsIO.py
+- [[Common data structure for all analysis types containing shared results.]] - rationale - PlanetProfile/Utilities/ResultsStructs.py
+- [[Construct a Latex table for collating comparisons between models.]] - rationale - PlanetProfile/Utilities/SummaryTables.py
+- [[Construct multiple latex tables for summarizing layer structures         for eac]] - rationale - PlanetProfile/Utilities/SummaryTables.py
+- [[Container for Exploration analysis results.          This combines base results]] - rationale - PlanetProfile/Utilities/ResultsStructs.py
+- [[Container for Inductogram analysis results.          This combines base results]] - rationale - PlanetProfile/Utilities/ResultsStructs.py
+- [[Container for Monte Carlo analysis results.          This combines base results]] - rationale - PlanetProfile/Utilities/ResultsStructs.py
+- [[Copies default body files from PlanetProfileDefaultBody directories to Body]] - rationale - PlanetProfile/reset.py
+- [[CopyCarefully()]] - code - PlanetProfile/__init__.py
+- [[Create MATLAB-safe variable name by truncating if necessary.          MATLAB var]] - rationale - PlanetProfile/Utilities/ResultsIO.py
+- [[EOSlistStruct]] - code - PlanetProfile/Utilities/defineStructs.py
+- [[ExecOpts()]] - code - PlanetProfile/Main.py
+- [[ExplorationResultsStruct]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[ExploreOgram()]] - code - PlanetProfile/Main.py
+- [[Extract common base data from Planet objects.     Always returns 2D arrays for c]] - rationale - PlanetProfile/Utilities/ResultsIO.py
+- [[Extract induction-specific data from Planet objects.     Always returns 2D array]] - rationale - PlanetProfile/Utilities/ResultsIO.py
+- [[Extract results from PlanetGrid.]] - rationale - PlanetProfile/Utilities/ResultsIO.py
+- [[ExtractBasePlanetData()]] - code - PlanetProfile/Utilities/ResultsIO.py
+- [[ExtractInductionData()]] - code - PlanetProfile/Utilities/ResultsIO.py
+- [[ExtractResults()]] - code - PlanetProfile/Utilities/ResultsIO.py
+- [[FigureFilesSubstruct]] - code - PlanetProfile/Utilities/defineStructs.py
+- [[File to reduce the plnaet profile based on parameters. Currently reduced based o]] - rationale - PlanetProfile/Utilities/reducedPlanetModel.py
+- [[Flatten an object's attributes into a MATLAB-compatible dictionary.          Thi]] - rationale - PlanetProfile/Utilities/ResultsIO.py
+- [[For calculating layer means we didn't need at any other point in our analysis,]] - rationale - PlanetProfile/Utilities/SummaryTables.py
+- [[Generate Monte Carlo parameter samples and create PlanetList with sampled parame]] - rationale - PlanetProfile/Main.py
+- [[Generate a reduced planet profile to be used in magnetic induction andor gravit]] - rationale - PlanetProfile/Utilities/reducedPlanetModel.py
+- [[Generate magnetic induction plots for a given list of results.]] - rationale - PlanetProfile/Plotting/MagPlots.py
+- [[GenerateExplorationMagPlots()]] - code - PlanetProfile/Plotting/MagPlots.py
+- [[Get comparisons between exploration results. To compare exploraitons, they must]] - rationale - PlanetProfile/Utilities/SummaryTables.py
+- [[Get the reduced layers based on magnetic calculations to reduce computational ov]] - rationale - PlanetProfile/Utilities/reducedPlanetModel.py
+- [[Get the reduced planet according to Params.reduceLayersAccordingTo]] - rationale - PlanetProfile/Utilities/reducedPlanetModel.py
+- [[GetExplorationComparisons()]] - code - PlanetProfile/Utilities/SummaryTables.py
+- [[GetLayerMeans()]] - code - PlanetProfile/Utilities/SummaryTables.py
+- [[GetMagneticReducedLayers()]] - code - PlanetProfile/Utilities/reducedPlanetModel.py
+- [[GetReducedLayers()]] - code - PlanetProfile/Utilities/reducedPlanetModel.py
+- [[GetReducedPlanet()]] - code - PlanetProfile/Utilities/reducedPlanetModel.py
+- [[GridPlanetProfileFunc()]] - code - PlanetProfile/Main.py
+- [[HydroOnly()]] - code - PlanetProfile/Main.py
+- [[Import a planet configuration module with improved error handling.      Args]] - rationale - PlanetProfile/Main.py
+- [[InductOgram()]] - code - PlanetProfile/Main.py
+- [[InductionCalced()]] - code - PlanetProfile/Utilities/ResultsIO.py
+- [[InductionData]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[InductionOnly()]] - code - PlanetProfile/Main.py
+- [[InductionResultsStruct]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[InitBayes()]] - code - PlanetProfile/Main.py
+- [[InteriorEtc()]] - code - PlanetProfile/Main.py
+- [[InversionData]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[Load in a specific profile to use as an initial prior in Bayesian analysis.]] - rationale - PlanetProfile/Main.py
+- [[LoadPPfiles()]] - code - PlanetProfile/Main.py
+- [[Loads the settings in bodynamefName.py to run or reload a specific model]] - rationale - PlanetProfile/Main.py
+- [[Main.py]] - code - PlanetProfile/Main.py
+- [[Monte Carlo specific statistical data.          This holds information specific]] - rationale - PlanetProfile/Utilities/ResultsStructs.py
+- [[MonteCarlo()]] - code - PlanetProfile/Main.py
+- [[MonteCarloResultsStruct]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[MonteCarloStatistics]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[PPAriel Contains all body-specific parameters and information for PlanetProfile]] - rationale - PlanetProfile/Default/Ariel/PPAriel.py
+- [[PPAriel.py]] - code - Ariel/PPAriel.py
+- [[PPAriel.py_1]] - code - PlanetProfile/Default/Ariel/PPAriel.py
+- [[PPCallisto Contains all body-specific parameters and information for PlanetProfi]] - rationale - Callisto/PPCallisto.py
+- [[PPCallisto Contains all body-specific parameters and information for PlanetProfi_1]] - rationale - Callisto/PPCallistoNaCl100ppt.py
+- [[PPCallisto.py_1]] - code - Callisto/PPCallisto.py
+- [[PPCallisto.py]] - code - PlanetProfile/Default/Callisto/PPCallisto.py
+- [[PPCallistoNaCl100ppt.py]] - code - Callisto/PPCallistoNaCl100ppt.py
+- [[PPDione Contains all body-specific parameters and information for PlanetProfile]] - rationale - Dione/PPDione.py
+- [[PPDione.py_1]] - code - Dione/PPDione.py
+- [[PPDione.py]] - code - PlanetProfile/Default/Dione/PPDione.py
+- [[PPEnceladus Contains all body-specific parameters and information for PlanetProf]] - rationale - PlanetProfile/Default/Enceladus/PPEnceladus.py
+- [[PPEnceladus.py]] - code - Enceladus/PPEnceladus.py
+- [[PPEnceladus.py_1]] - code - PlanetProfile/Default/Enceladus/PPEnceladus.py
+- [[PPEuropa Contains all body-specific parameters and information for PlanetProfile_1]] - rationale - PlanetProfile/Default/Europa/PPEuropa.py
+- [[PPEuropa Contains all body-specific parameters and information for PlanetProfile]] - rationale - Europa/PPSemiCustomEuropa.py
+- [[PPEuropa.py]] - code - Europa/PPEuropa.py
+- [[PPEuropa.py_1]] - code - PlanetProfile/Default/Europa/PPEuropa.py
+- [[PPEuropaInductOgram Contains all body-specific parameters and information for Pl]] - rationale - PlanetProfile/Default/Europa/PPEuropaInductOgram.py
+- [[PPEuropaInductOgram.py]] - code - Europa/PPEuropaInductOgram.py
+- [[PPEuropaInductOgram.py_1]] - code - PlanetProfile/Default/Europa/PPEuropaInductOgram.py
+- [[PPGanymede Contains all body-specific parameters and information for PlanetProfi_1]] - rationale - PlanetProfile/Default/Ganymede/PPGanymede.py
+- [[PPGanymede Contains all body-specific parameters and information for PlanetProfi]] - rationale - Ganymede/PPGanymedeNaCl100ppt.py
+- [[PPGanymede.py]] - code - Ganymede/PPGanymede.py
+- [[PPGanymede.py_1]] - code - PlanetProfile/Default/Ganymede/PPGanymede.py
+- [[PPGanymedeNaCl100ppt.py]] - code - Ganymede/PPGanymedeNaCl100ppt.py
+- [[PPIapetus Contains all body-specific parameters and information for PlanetProfil]] - rationale - PlanetProfile/Default/Iapetus/PPIapetus.py
+- [[PPIapetus.py]] - code - Iapetus/PPIapetus.py
+- [[PPIapetus.py_1]] - code - PlanetProfile/Default/Iapetus/PPIapetus.py
+- [[PPIo Contains all body-specific parameters and information for PlanetProfile mod_1]] - rationale - PlanetProfile/Default/Io/PPIo.py
+- [[PPIo Contains all body-specific parameters and information for PlanetProfile mod]] - rationale - PlanetProfile/Default/Luna/PPLuna.py
+- [[PPIo.py]] - code - Io/PPIo.py
+- [[PPIo.py_1]] - code - PlanetProfile/Default/Io/PPIo.py
+- [[PPLuna.py]] - code - Luna/PPLuna.py
+- [[PPLuna.py_1]] - code - PlanetProfile/Default/Luna/PPLuna.py
+- [[PPMimas Contains all body-specific parameters and information for PlanetProfile]] - rationale - Mimas/PPMimas.py
+- [[PPMimas.py_1]] - code - Mimas/PPMimas.py
+- [[PPMimas.py]] - code - PlanetProfile/Default/Mimas/PPMimas.py
+- [[PPMiranda Contains all body-specific parameters and information for PlanetProfil]] - rationale - PlanetProfile/Default/Miranda/PPMiranda.py
+- [[PPMiranda.py]] - code - Miranda/PPMiranda.py
+- [[PPMiranda.py_1]] - code - PlanetProfile/Default/Miranda/PPMiranda.py
+- [[PPOberon Contains all body-specific parameters and information for PlanetProfile]] - rationale - PlanetProfile/Default/Oberon/PPOberon.py
+- [[PPOberon.py]] - code - Oberon/PPOberon.py
+- [[PPOberon.py_1]] - code - PlanetProfile/Default/Oberon/PPOberon.py
+- [[PPPluto Contains all body-specific parameters and information for PlanetProfile]] - rationale - PlanetProfile/Default/Pluto/PPPluto.py
+- [[PPPluto.py_1]] - code - PlanetProfile/Default/Pluto/PPPluto.py
+- [[PPPluto.py]] - code - Pluto/PPPluto.py
+- [[PPRhea Contains all body-specific parameters and information for PlanetProfile m]] - rationale - Rhea/PPRhea.py
+- [[PPRhea.py]] - code - PlanetProfile/Default/Rhea/PPRhea.py
+- [[PPRhea.py_1]] - code - Rhea/PPRhea.py
+- [[PPSemiCustomEuropa.py]] - code - Europa/PPSemiCustomEuropa.py
+- [[PPTest1 Europa-like, Seawater model For testing purposes]] - rationale - PlanetProfile/Test/PPTest1.py
+- [[PPTest1.py]] - code - PlanetProfile/Test/PPTest1.py
+- [[PPTest10 Enceladus-like, 13 Seawater model including porosity, with no iron cor]] - rationale - PlanetProfile/Test/PPTest10.py
+- [[PPTest10.py]] - code - PlanetProfile/Test/PPTest10.py
+- [[PPTest11 Europa-like, Seawater model with porous ice at the surface and porous r_1]] - rationale - PlanetProfile/Test/PPTest11.py
+- [[PPTest11 Europa-like, Seawater model with porous ice at the surface and porous r]] - rationale - PlanetProfile/Test/PPTest11InductOgram.py
+- [[PPTest11.py]] - code - PlanetProfile/Test/PPTest11.py
+- [[PPTest11InductOgram.py]] - code - PlanetProfile/Test/PPTest11InductOgram.py
+- [[PPTest12 Europa-like, pure water model with clathrate lid and porous ice For tes]] - rationale - PlanetProfile/Test/PPTest12.py
+- [[PPTest12 Europa-like, pure water model with clathrate lid and porous ice For tes_1]] - rationale - PlanetProfile/Test/PPTest25.py
+- [[PPTest12.py]] - code - PlanetProfile/Test/PPTest12.py
+- [[PPTest13 Europa-like, pure water model with clathrate underplate layer and porou_1]] - rationale - PlanetProfile/Test/PPTest13.py
+- [[PPTest13 Europa-like, pure water model with clathrate underplate layer and porou]] - rationale - PlanetProfile/Test/PPTest26.py
+- [[PPTest13.py]] - code - PlanetProfile/Test/PPTest13.py
+- [[PPTest14 Europa-like, pure water model with whole-shell, porous clathrate ice Fo_1]] - rationale - PlanetProfile/Test/PPTest14.py
+- [[PPTest14 Europa-like, pure water model with whole-shell, porous clathrate ice Fo]] - rationale - PlanetProfile/Test/PPTest27.py
+- [[PPTest14.py]] - code - PlanetProfile/Test/PPTest14.py
+- [[PPTest15 Io-like, waterless world, with porosity For testing purposes]] - rationale - PlanetProfile/Test/PPTest15.py
+- [[PPTest15.py]] - code - PlanetProfile/Test/PPTest15.py
+- [[PPTest16 Ganymede-like, pure water model, with rock porosity, no explicit ice II]] - rationale - PlanetProfile/Test/PPTest16.py
+- [[PPTest16.py]] - code - PlanetProfile/Test/PPTest16.py
+- [[PPTest17 Miranda-like, undifferentiated body For testing purposes]] - rationale - PlanetProfile/Test/PPTest17.py
+- [[PPTest17.py]] - code - PlanetProfile/Test/PPTest17.py
+- [[PPTest18 Europa-like, Seawater (Millero, 2009) w 0.5 mols per kg NH4+ model usi]] - rationale - PlanetProfile/Test/PPTest18.py
+- [[PPTest18.py]] - code - PlanetProfile/Test/PPTest18.py
+- [[PPTest19 Enceladus-like,  13 Seawater model including porosity using CustomSolu]] - rationale - PlanetProfile/Test/PPTest19.py
+- [[PPTest19.py]] - code - PlanetProfile/Test/PPTest19.py
+- [[PPTest2 Europa-like, pure water model with clathrate lid For testing purposes]] - rationale - PlanetProfile/Test/PPTest2.py
+- [[PPTest2.py]] - code - PlanetProfile/Test/PPTest2.py
+- [[PPTest20 Ganymede-like, CustomSolution MgSO4 ocean, with ice III and V underplat]] - rationale - PlanetProfile/Test/PPTest20.py
+- [[PPTest20.py]] - code - PlanetProfile/Test/PPTest20.py
+- [[PPTest21 Titan-like, explicit specification of approximate hydrosphere thickness]] - rationale - PlanetProfile/Test/PPTest21.py
+- [[PPTest21.py]] - code - PlanetProfile/Test/PPTest21.py
+- [[PPTest22 Europa-like, pure water model with mixed clathrate-Ih lid (modeled afte]] - rationale - PlanetProfile/Test/PPTest22.py
+- [[PPTest22.py]] - code - PlanetProfile/Test/PPTest22.py
+- [[PPTest23 Europa-like, pure water model with mixed clathrate-Ih underplate layer]] - rationale - PlanetProfile/Test/PPTest23.py
+- [[PPTest23.py]] - code - PlanetProfile/Test/PPTest23.py
+- [[PPTest24 Europa-like, pure water model with whole-shell clathrate ice (modeled a]] - rationale - PlanetProfile/Test/PPTest24.py
+- [[PPTest24.py]] - code - PlanetProfile/Test/PPTest24.py
+- [[PPTest25.py]] - code - PlanetProfile/Test/PPTest25.py
+- [[PPTest26.py]] - code - PlanetProfile/Test/PPTest26.py
+- [[PPTest27.py]] - code - PlanetProfile/Test/PPTest27.py
+- [[PPTest28 Europa-like, test using constant thermal conductivty for ice layers and]] - rationale - PlanetProfile/Test/PPTest28.py
+- [[PPTest28.py]] - code - PlanetProfile/Test/PPTest28.py
+- [[PPTest29 Europa-like with 3D lateral structure SH ice thickness variation + mas]] - rationale - PlanetProfile/Test/PPTest29.py
+- [[PPTest29.py]] - code - PlanetProfile/Test/PPTest29.py
+- [[PPTest3 Europa-like, pure water model with clathrate underplate layer For testin]] - rationale - PlanetProfile/Test/PPTest3.py
+- [[PPTest3.py]] - code - PlanetProfile/Test/PPTest3.py
+- [[PPTest30 Ganymede-like with Kalousova et al. (2018) HP ice convection Tests KALO]] - rationale - PlanetProfile/Test/PPTest30.py
+- [[PPTest30.py]] - code - PlanetProfile/Test/PPTest30.py
+- [[PPTest4 Europa-like, pure water model with whole-shell clathrate ice For testing]] - rationale - PlanetProfile/Test/PPTest4.py
+- [[PPTest4.py]] - code - PlanetProfile/Test/PPTest4.py
+- [[PPTest5 Io-like, waterless world For testing purposes]] - rationale - PlanetProfile/Test/PPTest5.py
+- [[PPTest5 Io-like, waterless world For testing purposes_1]] - rationale - PlanetProfile/Test/PPTest5Explore.py
+- [[PPTest5.py]] - code - PlanetProfile/Test/PPTest5.py
+- [[PPTest5Explore.py]] - code - PlanetProfile/Test/PPTest5Explore.py
+- [[PPTest6 Europa-like, Seawater model but with no core For testing purposes]] - rationale - PlanetProfile/Test/PPTest6.py
+- [[PPTest6.py]] - code - PlanetProfile/Test/PPTest6.py
+- [[PPTest7 Europa-like, Seawater model with CONSTANT_INNER_DENSITY set to True For_2]] - rationale - PlanetProfile/Test/PPTest7.py
+- [[PPTest7 Europa-like, Seawater model with CONSTANT_INNER_DENSITY set to True For]] - rationale - PlanetProfile/Test/PPTest7Explore.py
+- [[PPTest7 Europa-like, Seawater model with CONSTANT_INNER_DENSITY set to True For_1]] - rationale - PlanetProfile/Test/PPTest7InductOgram.py
+- [[PPTest7.py]] - code - PlanetProfile/Test/PPTest7.py
+- [[PPTest7Explore.py]] - code - PlanetProfile/Test/PPTest7Explore.py
+- [[PPTest7InductOgram.py]] - code - PlanetProfile/Test/PPTest7InductOgram.py
+- [[PPTest8 Ganymede-like, pure water model, no explicit ice III or V underplate For]] - rationale - PlanetProfile/Test/PPTest8.py
+- [[PPTest8.py]] - code - PlanetProfile/Test/PPTest8.py
+- [[PPTest9 Ganymede-like, MgSO4 ocean, with ice III and V underplate For testing pu]] - rationale - PlanetProfile/Test/PPTest9.py
+- [[PPTest9.py]] - code - PlanetProfile/Test/PPTest9.py
+- [[PPTestBayes Europa model for use with TestBayes function.]] - rationale - PlanetProfile/Test/PPTestBayes.py
+- [[PPTestBayes.py]] - code - PlanetProfile/Test/PPTestBayes.py
+- [[PPTethys Contains all body-specific parameters and information for PlanetProfile]] - rationale - PlanetProfile/Default/Tethys/PPTethys.py
+- [[PPTethys.py_1]] - code - PlanetProfile/Default/Tethys/PPTethys.py
+- [[PPTethys.py]] - code - Tethys/PPTethys.py
+- [[PPTitan Contains all body-specific parameters and information for PlanetProfile]] - rationale - Titan/PPTitan.py
+- [[PPTitan Contains all body-specific parameters and information for PlanetProfile_1]] - rationale - Titan/PPTitanNaCl100ppt.py
+- [[PPTitan.py]] - code - PlanetProfile/Default/Titan/PPTitan.py
+- [[PPTitan.py_1]] - code - Titan/PPTitan.py
+- [[PPTitanNaCl100ppt.py]] - code - Titan/PPTitanNaCl100ppt.py
+- [[PPTitania Contains all body-specific parameters and information for PlanetProfil]] - rationale - PlanetProfile/Default/Titania/PPTitania.py
+- [[PPTitania.py_1]] - code - PlanetProfile/Default/Titania/PPTitania.py
+- [[PPTitania.py]] - code - Titania/PPTitania.py
+- [[PPTriton Contains all body-specific parameters and information for PlanetProfile]] - rationale - PlanetProfile/Default/Triton/PPTriton.py
+- [[PPTriton.py_1]] - code - PlanetProfile/Default/Triton/PPTriton.py
+- [[PPTriton.py]] - code - Triton/PPTriton.py
+- [[PPUmbriel Contains all body-specific parameters and information for PlanetProfil]] - rationale - Umbriel/PPUmbriel.py
+- [[PPUmbriel.py]] - code - PlanetProfile/Default/Umbriel/PPUmbriel.py
+- [[PPUmbriel.py_1]] - code - Umbriel/PPUmbriel.py
+- [[PPreset()]] - code - PlanetProfile/reset.py
+- [[ParPlanet()]] - code - PlanetProfile/Main.py
+- [[ParPlanetExplore()]] - code - PlanetProfile/Main.py
+- [[PercentDifference()]] - code - PlanetProfile/Utilities/SummaryTables.py
+- [[PlanetProfile()]] - code - PlanetProfile/Main.py
+- [[PlanetStruct]] - code - PlanetProfile/Utilities/defineStructs.py
+- [[Print a message at the end of each PlanetProfile run estimating completion time.]] - rationale - PlanetProfile/Main.py
+- [[Print out all of the bulk calculation outputs the user         is likely to want]] - rationale - PlanetProfile/Utilities/SummaryTables.py
+- [[PrintCompletion()]] - code - PlanetProfile/Main.py
+- [[PrintGeneralSummary()]] - code - PlanetProfile/Utilities/SummaryTables.py
+- [[PrintLayerSummaryLatex()]] - code - PlanetProfile/Utilities/SummaryTables.py
+- [[PrintLayerTableLatex()]] - code - PlanetProfile/Utilities/SummaryTables.py
+- [[PrintTrajecFit()]] - code - PlanetProfile/Utilities/SummaryTables.py
+- [[PrintTrajecTableLatex()]] - code - PlanetProfile/Utilities/SummaryTables.py
+- [[Reconfigure layer boundaries and conductivities into a format         usable by]] - rationale - PlanetProfile/MagneticInduction/MagneticInduction.py
+- [[Reload a previously run explore-o-gram from disk.]] - rationale - PlanetProfile/Main.py
+- [[Reload a previously run induct-o-gram from disk.]] - rationale - PlanetProfile/Main.py
+- [[Reload previously saved Monte Carlo results.]] - rationale - PlanetProfile/Main.py
+- [[Reload previously saved PlanetProfile run from disk]] - rationale - PlanetProfile/Main.py
+- [[Reload results from pickle file.          Args         fName (str) Path to pic]] - rationale - PlanetProfile/Utilities/ResultsIO.py
+- [[ReloadExploreOgram()]] - code - PlanetProfile/Main.py
+- [[ReloadInductOgram()]] - code - PlanetProfile/Main.py
+- [[ReloadMonteCarloResults()]] - code - PlanetProfile/Main.py
+- [[ReloadProfile()]] - code - PlanetProfile/Main.py
+- [[ReloadResultsFromPickle()]] - code - PlanetProfile/Utilities/ResultsIO.py
+- [[ResultsIO.py]] - code - PlanetProfile/Utilities/ResultsIO.py
+- [[ResultsIO InputOutput functions for PlanetProfile hierarchical results structu]] - rationale - PlanetProfile/Utilities/ResultsIO.py
+- [[ResultsStructs.py]] - code - PlanetProfile/Utilities/ResultsStructs.py
+- [[ResultsStructs New hierarchical data structures for PlanetProfile results  This]] - rationale - PlanetProfile/Utilities/ResultsStructs.py
+- [[Run PlanetProfile models over a variety of settings to get induction         res]] - rationale - PlanetProfile/Main.py
+- [[Run PlanetProfile models over a variety of settings to get interior         prop]] - rationale - PlanetProfile/Main.py
+- [[Run PlanetProfile models with Monte Carlo parameter sampling to explore]] - rationale - PlanetProfile/Main.py
+- [[Run a list of PlanetProfile models over arrays of run settings.          Args]] - rationale - PlanetProfile/Main.py
+- [[Run a parameter exploration over arrays of run settings, starting from a base Pl]] - rationale - PlanetProfile/Main.py
+- [[RunPPfile()]] - code - PlanetProfile/Main.py
+- [[SampleMonteCarloParameters()]] - code - PlanetProfile/Main.py
+- [[Save results to disk in pickle format (always) and optionally MATLAB format.]] - rationale - PlanetProfile/Utilities/ResultsIO.py
+- [[Set values in Planet object based on descriptive key. Variable descriptions]] - rationale - PlanetProfile/Main.py
+- [[Setup Color and Linestyle Settings. Namely, We must set iterate through Ocean co]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/CustomSolution.py
+- [[SetupCustomSolutionPlotSettings()]] - code - PlanetProfile/Thermodynamics/Reaktoro/CustomSolution.py
+- [[SetupFilenames()]] - code - PlanetProfile/Utilities/SetupInit.py
+- [[SetupInduction()]] - code - PlanetProfile/MagneticInduction/MagneticInduction.py
+- [[Standardized induction results structure.          This holds magnetic induction]] - rationale - PlanetProfile/Utilities/ResultsStructs.py
+- [[SummaryTables.py]] - code - PlanetProfile/Utilities/SummaryTables.py
+- [[TestAllExploreOgrams()]] - code - PlanetProfile/BuildTest.py
+- [[TestAllInductOgrams()]] - code - PlanetProfile/BuildTest.py
+- [[TestBayes()]] - code - PlanetProfile/Test/TestBayes.py
+- [[TestBayes.py]] - code - PlanetProfile/Test/TestBayes.py
+- [[TestExploreOgram()]] - code - PlanetProfile/BuildTest.py
+- [[TestInductOgram()]] - code - PlanetProfile/BuildTest.py
+- [[This is a test script meant to check that the current PlanetProfile     build ma]] - rationale - PlanetProfile/BuildTest.py
+- [[UpdateRun()]] - code - PlanetProfile/Main.py
+- [[Wrapper for (optionally) parallel run of multiple Planet objects through the]] - rationale - PlanetProfile/Main.py
+- [[Wrapper for MagneticInduction function similar to above that includes PrintCompl]] - rationale - PlanetProfile/Main.py
+- [[Wrapper for PlanetProfile function, minus hydrosphere calculations,         for]] - rationale - PlanetProfile/Main.py
+- [[Wrapper for PlanetProfile function, up through hydrosphere calculations,]] - rationale - PlanetProfile/Main.py
+- [[Wrapper for editing the settings of Planet using a dict naming the changes.]] - rationale - PlanetProfile/Main.py
+- [[Write out all profile calculations to disk]] - rationale - PlanetProfile/Main.py
+- [[Write out liquid ocean property calculations to disk]] - rationale - PlanetProfile/Thermodynamics/OceanProps.py
+- [[WriteLiquidOceanProps()]] - code - PlanetProfile/Thermodynamics/OceanProps.py
+- [[WriteProfile()]] - code - PlanetProfile/Main.py
+- [[WriteResults()]] - code - PlanetProfile/Utilities/ResultsIO.py
+- [[WriteSeismic()]] - code - PlanetProfile/Thermodynamics/Seismic.py
+- [[absoluteDifference()]] - code - PlanetProfile/Utilities/SummaryTables.py
+- [[flatten_dict_for_matlab()]] - code - PlanetProfile/Utilities/ResultsIO.py
+- [[full()]] - code - PlanetProfile/BuildTest.py
+- [[getDifference()]] - code - PlanetProfile/Utilities/SummaryTables.py
+- [[import_planet_config()]] - code - PlanetProfile/Main.py
+- [[matlab_safe_key()]] - code - PlanetProfile/Utilities/ResultsIO.py
+- [[reducedPlanetModel.py]] - code - PlanetProfile/Utilities/reducedPlanetModel.py
+- [[reset.py]] - code - PlanetProfile/reset.py
+- [[run()]] - code - PlanetProfile/Main.py
+- [[setFullSettings()]] - code - PlanetProfile/BuildTest.py
+- [[simple()]] - code - PlanetProfile/BuildTest.py
+
+## Live Query (requires Dataview plugin)
+
+```dataview
+TABLE source_file, type FROM #community/Test_Suite_&_Body_Configs
+SORT file.name ASC
+```
+
+## Connections to other communities
+- 19 edges to [[_COMMUNITY_Ice Convection Models]]
+- 14 edges to [[_COMMUNITY_Plotting & Visualization]]
+- 14 edges to [[_COMMUNITY_Clathrate Properties]]
+- 8 edges to [[_COMMUNITY_Lateral Variation & Gravity]]
+- 7 edges to [[_COMMUNITY_Clathrate & Custom EOS]]
+- 7 edges to [[_COMMUNITY_Gravity & Induction Config]]
+- 7 edges to [[_COMMUNITY_Magnetic Induction Core]]
+- 7 edges to [[_COMMUNITY_Alfven Wings & Mag Data]]
+- 2 edges to [[_COMMUNITY_Inversion Framework]]
+- 1 edge to [[_COMMUNITY_Community 35]]
+- 1 edge to [[_COMMUNITY_Community 37]]
+- 1 edge to [[_COMMUNITY_Config & Params Structs]]
+
+## Top bridge nodes
+- [[PlanetProfile()]] - degree 30, connects to 5 communities
+- [[FigureFilesSubstruct]] - degree 42, connects to 4 communities
+- [[full()]] - degree 16, connects to 3 communities
+- [[SetupFilenames()]] - degree 15, connects to 3 communities
+- [[InteriorEtc()]] - degree 14, connects to 3 communities

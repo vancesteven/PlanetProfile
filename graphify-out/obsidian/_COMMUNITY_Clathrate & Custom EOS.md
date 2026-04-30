@@ -1,0 +1,265 @@
+---
+type: community
+cohesion: 0.04
+members: 225
+---
+
+# Clathrate & Custom EOS
+
+**Cohesion:** 0.04 - loosely connected
+**Members:** 225 nodes
+
+## Members
+- [[.Frezchem_Spline_Generator()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.McClevskyIonParser()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.PTmTrips()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.PTpairs()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.PropsConstraintFinder()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.RktFreezingTemperatureFinder()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.RktProps()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__call__()_18]] - code - PlanetProfile/Thermodynamics/Clathrates/ClathrateProps.py
+- [[.__call__()_38]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.__call__()_36]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.__call__()_37]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.__call__()_35]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.__call__()_14]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__call__()_15]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__call__()_10]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__call__()_11]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__call__()_8]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__call__()_9]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__call__()_12]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__call__()_13]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__call__()_17]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__call__()_16]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__call__()_5]] - code - PlanetProfile/Thermodynamics/InnerEOS.py
+- [[.__call__()_26]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.__call__()_24]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.__call__()_23]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.__call__()_29]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__call__()_30]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__call__()_32]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__call__()_31]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__init__()_53]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.__init__()_52]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.__init__()_50]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.__init__()_51]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.__init__()_49]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.__init__()_16]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_23]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_14]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_24]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_15]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_13]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_19]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_20]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_17]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_18]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_21]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_22]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_26]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_25]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.__init__()_10]] - code - PlanetProfile/Thermodynamics/InnerEOS.py
+- [[.__init__()_32]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.__init__()_37]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.__init__()_35]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.__init__()_34]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.__init__()_33]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.__init__()_31]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.__init__()_36]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.__init__()_43]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__init__()_44]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__init__()_42]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__init__()_46]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__init__()_39]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__init__()_41]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__init__()_45]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.__init__()_30]] - code - PlanetProfile/Thermodynamics/Seawater/SwProps.py
+- [[.__init__()_28]] - code - PlanetProfile/Thermodynamics/Seawater/SwProps.py
+- [[.__init__()_29]] - code - PlanetProfile/Thermodynamics/Seawater/SwProps.py
+- [[._interpolate()]] - code - PlanetProfile/Utilities/DataManip.py
+- [[._interpolate_grid()]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.arrays()_1]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.arrays()]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.calculate_reaction_quotient()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.fn_evalPts()]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.fn_evalPts()_1]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.fn_evalPts()_2]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.fn_phase()_3]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.fn_porosCorrect()_3]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.fn_porosCorrect()_2]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.fn_species()_1]] - code - PlanetProfile/Utilities/DataManip.py
+- [[.fn_species()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.phaseLookupGridGenerator()]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[.phase_lookup_grid_generator()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.rkt_t_freeze()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.seismic_calculations()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.species_at_equilibrium()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[.update()]] - code - PlanetProfile/Thermodynamics/InnerEOS.py
+- [[.updateConvectionViscosity()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.updateConvectionViscosity()_1]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[.updateConvectionViscosity()_2]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[A function to integrate a Reimann sum, as scipy.integrate.quad seems         to]] - rationale - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[CG2010]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[Calculate phase of liquidice within the hydrosphere for an ocean with         d]] - rationale - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[Calculate phase of liquidice within the hydrosphere for an ocean with         d_1]] - rationale - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[Calculate seismic velocities in clathrates based on Helgerud et al. (2009) http]] - rationale - PlanetProfile/Thermodynamics/Clathrates/ClathrateProps.py
+- [[Calculate the total solute mass in grams of the species string and return. Assum]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Calculate thermal conductivity of ice Ih according to Hobbs (1974), as         r]] - rationale - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[Calculate thermal conductivity of ice Ih according to Melinder (2007).]] - rationale - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[Calculate thermal conductivity of ice Ih at a fixed pressure according to]] - rationale - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[Calculate thermal conductivity of ice at a fixed pressure according to         A]] - rationale - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[Calculate thermal conductivity of ice at a fixed temperature according to]] - rationale - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[Calculates speciation of composition at provided pressure and temperature using]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Calculates the sound speed and densities of the aqueous phase of the solution fo]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Calculates the temperature at which the prescribed aqueous solution freezes. Uti_2]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Calculates the temperature at which the prescribed aqueous solution freezes. Uti_1]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Call the ice_freezing function for the given input P_MPa and T_K coordinates.]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Check that the input species are available in Frezchem. If not, then remove the]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[CheckIfEOSLoaded()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[Class that can find the phase of a given speciation over a range of temperatures]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[ClathSeismic]] - code - PlanetProfile/Thermodynamics/Clathrates/ClathrateProps.py
+- [[Configure a Planet's ocean comp and wOcean_ppt based on settings specified in PP]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/CustomSolution.py
+- [[ConstantEOSStruct_1]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[Convert dissolved salt concentration from molality to ppt          Args]] - rationale - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[Convert dissolved salt concentration from ppt to molal          Args]] - rationale - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[Convert dissolved salt concentration from ppt to molar fraction         of water]] - rationale - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[Convert the ocean species string from gkg of H2O to molkg of H2O]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Converts provided String of species and ratios into formats necessary for Reakto]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Converts the provided String of species and their molal ratios into formats nece]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Creates a function call for returning seismic properties of depth profile for Se]] - rationale - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[CustomSolution.py]] - code - PlanetProfile/Thermodynamics/Reaktoro/CustomSolution.py
+- [[DataManip.py]] - code - PlanetProfile/Utilities/DataManip.py
+- [[DataManip Miscellaneous functions for adjusting data that don't belong in a mor]] - rationale - PlanetProfile/Utilities/DataManip.py
+- [[Determine density rho, heat capacity Cp, thermal expansivity alpha,]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Determine density rho, heat capacity Cp, thermal expansivity alpha,         and_1]] - rationale - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[Determine if we need to load a new EOS, or if we can reuse one that's already be]] - rationale - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[EOSLookupTableLoader]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[EOSwrapper]] - code - PlanetProfile/Utilities/DataManip.py
+- [[Fast grid interpolation without creating intermediate meshgrids]] - rationale - PlanetProfile/Utilities/DataManip.py
+- [[File for functions relevant to Custom Solution implementation into PlanetProfile]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/CustomSolution.py
+- [[Find the pressure constraint at which Reaktoro can find equilibrium for the give]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Find the pressure constraint at which Reaktoro can find equilibrium for the give_1]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Finds electrical conductivity for given ions. Currently does not adjust for pres]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Finds the constraints of pressure and temperature that are compatible with both]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Finds the sound speed in kms and bulk modulus in GPa for the input of P_MPa and]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[First, we will get the minimum chemical potentail of ice phases along PT grid in]] - rationale - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[For mixed phases, we call the phase function from both component EOS and add the]] - rationale - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[GenerateLoad a Planet's custom solution EOS. We generate and load here so when]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/CustomSolution.py
+- [[GenerateSeafreezeChemicalPotentials()]] - code - PlanetProfile/Thermodynamics/Seafreeze/SeafreezeProps.py
+- [[Get conductivity values for aqueous MgSO4 consistent with extrapolation of Lario]] - rationale - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[GetIceEOSLabel()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[GetOceanEOSLabel()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[GetphiCalc]] - code - PlanetProfile/Thermodynamics/InnerEOS.py
+- [[Go through P_MPa and T_K  and calculate equilibrium speciation of aqueous and so]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[H2Osigma_Sm]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[HydroEOS.py]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[IceEOSStruct]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[IceSeaFreezeProps()]] - code - PlanetProfile/Thermodynamics/Seafreeze/SeafreezeProps.py
+- [[IceSeismic]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[Initialize the RKtConduct() object and parse the aqueous species list into a for]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Initialize the RKtPhaseOnDemand object that will find the phase (liquid or Ice 1]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Initialize the RKtSeismic() object with the minimum and maximum T (in K) and P (]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Integral()]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[LarionovKryukov1984()]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[Lightweight wrapper for accessing EOS functions stored in the EOSlist dict.]] - rationale - PlanetProfile/Utilities/DataManip.py
+- [[Massppt2molFrac()]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[MgSO4Conduct]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[MgSO4PhaseLookup]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[MgSO4PhaseMargules]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[MgSO4PhaseMargulesOnDemand]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[MgSO4Props.py]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[MgSO4Seismic]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[MgSO4propsLookup]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[Mixed equation of state that combines properties from two component EOS phases]] - rationale - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[MixedEOSStruct]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[Molal2ppt()]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[MolalConverter()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Nearest2DInterpolator]] - code - PlanetProfile/Utilities/DataManip.py
+- [[Obtain the aqueous H2O thermodynamic differnce of pure water for Supcrt and Seaf]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[OceanEOSStruct]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[Parse through provided species list and convert to format compatible with McClev]] - rationale - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[Ppt2molal()]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[ReAssignPT()]] - code - PlanetProfile/Utilities/DataManip.py
+- [[ReturnConstantPTw]] - code - PlanetProfile/Utilities/DataManip.py
+- [[ReturnConstantSpecies]] - code - PlanetProfile/Utilities/DataManip.py
+- [[ReturnMultipleVal_1]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[ReturnMultipleValWithThreshold_1]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[ReturnZeros]] - code - PlanetProfile/Utilities/DataManip.py
+- [[Returns 3 arrays of constant values, for functions of         properties not mod]] - rationale - PlanetProfile/Utilities/DataManip.py
+- [[Returns an array or tuple of arrays of a constant value, for functions of]] - rationale - PlanetProfile/Utilities/DataManip.py
+- [[Returns an array or tuple of arrays of zeros, for functions of properties]] - rationale - PlanetProfile/Utilities/DataManip.py
+- [[Returns speciation at provided P_MPa and T_K]] - rationale - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[Returns the pressure at which ice changes phase based on temperature, salinity,]] - rationale - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[Returns the temperature at which a solid layer melts based on temperature, salin]] - rationale - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[RktConduct]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[RktHydroSpecies]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[RktPhaseLookup]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[RktPhaseOnDemand]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[RktPropsLookup]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[RktSeismic]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[RktSeismicOnDemand]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[SFSeismic]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[SFphase]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[SeafreezeProps.py]] - code - PlanetProfile/Thermodynamics/Seafreeze/SeafreezeProps.py
+- [[SetupCustomSolution()]] - code - PlanetProfile/Thermodynamics/Reaktoro/CustomSolution.py
+- [[SetupCustomSolutionEOS()]] - code - PlanetProfile/Thermodynamics/Reaktoro/CustomSolution.py
+- [[Simplified version that may be faster for many use cases.     We use our own 2D]] - rationale - PlanetProfile/Utilities/DataManip.py
+- [[SpeciesFormatter()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[SpeciesParser()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[SwConduct]] - code - PlanetProfile/Thermodynamics/Seawater/SwProps.py
+- [[SwPhase]] - code - PlanetProfile/Thermodynamics/Seawater/SwProps.py
+- [[SwSeismic]] - code - PlanetProfile/Thermodynamics/Seawater/SwProps.py
+- [[This function generates the minimum ice chemical potential and the most stable i]] - rationale - PlanetProfile/Thermodynamics/Seafreeze/SeafreezeProps.py
+- [[Use a lookup table to determine the phase of liquidice within the hydrosphere]] - rationale - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[ViscIceUniform_Pas]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[ViscOceanUniform_Pas]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[checkSpeciesCompatibleWithFrezchem()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[elecCondMcCleskey2012()]] - code - PlanetProfile/Thermodynamics/Reaktoro/sigmaElectricMcCleskey2012.py
+- [[ensureArray()]] - code - PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py
+- [[ensureArray()_1]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[kThermHobbs1974()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[kThermIceIhWolfenbarger2021()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[kThermIsobaricAnderssonInaba2005()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[kThermIsothermalAnderssonInaba2005()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[kThermMelinder2007()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[pressure_constraint()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[reaktoroProps.py]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[returnVal_1]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[returnValWithThreshold_1]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[sfPTgrid()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[sfPTmGrid()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[sfPTmTrips()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[sfPTpairs()]] - code - PlanetProfile/Thermodynamics/HydroEOS.py
+- [[sigmaElectricMcCleskey2012.py]] - code - PlanetProfile/Thermodynamics/Reaktoro/sigmaElectricMcCleskey2012.py
+- [[strip_latex_formatting_from_CustomSolutionLabel()]] - code - PlanetProfile/Thermodynamics/Reaktoro/CustomSolution.py
+- [[temperature_constraint()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+- [[wpptCalculator()]] - code - PlanetProfile/Thermodynamics/Reaktoro/reaktoroProps.py
+
+## Live Query (requires Dataview plugin)
+
+```dataview
+TABLE source_file, type FROM #community/Clathrate_&_Custom_EOS
+SORT file.name ASC
+```
+
+## Connections to other communities
+- 67 edges to [[_COMMUNITY_Constant EOS Framework]]
+- 67 edges to [[_COMMUNITY_Ice Convection Models]]
+- 20 edges to [[_COMMUNITY_Reaktoro Thermodynamics]]
+- 9 edges to [[_COMMUNITY_Clathrate Properties]]
+- 7 edges to [[_COMMUNITY_Test Suite & Body Configs]]
+- 7 edges to [[_COMMUNITY_Community 23]]
+- 3 edges to [[_COMMUNITY_MgSO4 EOS API]]
+- 2 edges to [[_COMMUNITY_Community 36]]
+- 2 edges to [[_COMMUNITY_Gravity & Induction Config]]
+- 1 edge to [[_COMMUNITY_Community 26]]
+- 1 edge to [[_COMMUNITY_Plotting & Visualization]]
+- 1 edge to [[_COMMUNITY_Community 21]]
+
+## Top bridge nodes
+- [[.update()]] - degree 16, connects to 5 communities
+- [[EOSwrapper]] - degree 61, connects to 3 communities
+- [[ConstantEOSStruct_1]] - degree 34, connects to 3 communities
+- [[.__init__()_13]] - degree 33, connects to 3 communities
+- [[.__init__()_14]] - degree 21, connects to 3 communities

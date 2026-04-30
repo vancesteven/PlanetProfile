@@ -1,0 +1,13 @@
+# From Delrez+2018 and Kane2018
+# Updated using Agol+2020, Mass from Mann+2019, Luminosity from Ducrot+2020
+
+name = "TRAPPIST-1"
+type = "star"
+radius = 82927000.0
+mass = 1.786e+29
+luminosity = 2.11799e+23
+tides_on = false
+
+[tides]
+model = "global_approx"
+fixed_q = 5000.0

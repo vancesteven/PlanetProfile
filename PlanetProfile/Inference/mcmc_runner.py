@@ -76,13 +76,15 @@ class MCMCRunner:
     def _infer_rheology(self) -> str:
         """Infer rheology type from parameter space."""
         params = self.config.param_space
-        if 'alpha' in params and 'log10_zeta' in params:
+        has_alpha = 'alpha' in params
+        has_zeta = any(k.startswith('log10_zeta_') for k in params)
+        if has_alpha and has_zeta:
             return 'andrade'
-        elif 'alpha' not in params and 'log10_zeta' not in params:
+        elif not has_alpha and not has_zeta:
             return 'maxwell'
         else:
             raise ValueError("Cannot infer rheology from parameter space. "
-                           "Andrade requires 'alpha' and 'log10_zeta'. "
+                           "Andrade requires 'alpha' and log10_zeta_* parameters. "
                            "Maxwell requires neither.")
 
     def _build_prior(self):
@@ -117,7 +119,9 @@ class MCMCRunner:
         """Convert parameter name to LaTeX label for plotting."""
         label_map = {
             'alpha': r'$\alpha$',
-            'log10_zeta': r'$\log_{10}(\zeta)$',
+            'log10_zeta_Ih': r'$\log_{10}(\zeta_{\rm Ih})$',
+            'log10_zeta_HP': r'$\log_{10}(\zeta_{\rm HP})$',
+            'log10_zeta_sil': r'$\log_{10}(\zeta_{\rm sil})$',
             'log10_eta_Ih': r'$\log_{10}(\eta_{\rm Ih})$',
             'log10_eta_HP': r'$\log_{10}(\eta_{\rm HP})$',
             'log10_eta_sil': r'$\log_{10}(\eta_{\rm sil})$',

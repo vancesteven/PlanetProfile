@@ -80,26 +80,50 @@ def apply_parameters(theta_dict: Dict[str, float], structure_data: Dict[str, Any
 # Parameter Hook Implementations
 # ============================================================================
 
-@parameter_hook('alpha', 'log10_zeta')
+@parameter_hook('alpha', 'log10_zeta_Ih', 'log10_zeta_HP', 'log10_zeta_sil')
 def apply_andrade_params(theta_dict: Dict[str, float], structure_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Apply Andrade rheology parameters (alpha, zeta).
+    Apply Andrade rheology parameters (alpha, per-phase zeta).
 
-    Stores Andrade parameters in structure_data for later use by forward model.
-    Both alpha and log10_zeta must be present in theta_dict.
+    PlanetProfile uses different zeta values per ice phase:
+    - Ice Ih: zeta=0.005 (default)
+    - HP ice (III, V, VI): zeta=0.05 (default, ~10x more compliant)
+    - Silicate: zeta=0.005 (default)
+
+    The per-phase zeta is critical for reproducing observed k2 ~ 0.6 for Titan.
     """
-    if 'alpha' not in theta_dict or 'log10_zeta' not in theta_dict:
-        raise ValueError("Andrade rheology requires both 'alpha' and 'log10_zeta' parameters")
+    if 'alpha' not in theta_dict:
+        raise ValueError("Andrade rheology requires 'alpha' parameter")
+
+    zeta_keys = [k for k in theta_dict if k.startswith('log10_zeta_')]
+    if not zeta_keys:
+        raise ValueError("Andrade rheology requires at least one log10_zeta_* parameter")
 
     alpha = theta_dict['alpha']
-    log10_zeta = theta_dict['log10_zeta']
-    zeta_pa = 10 ** log10_zeta
 
-    # Store for forward model
+    def _zeta_to_tp(log10_zeta, alpha):
+        zeta_pa = 10 ** log10_zeta
+        return zeta_pa ** (1.0 / alpha) if zeta_pa != 1.0 else 1.0
+
     structure_data['rheology_type'] = 'andrade'
     structure_data['andrade_alpha'] = alpha
-    structure_data['andrade_zeta_pa'] = zeta_pa
-    structure_data['andrade_zeta_tp'] = zeta_pa ** (1.0 / alpha) if zeta_pa != 1.0 else 1.0
+
+    # Per-phase zeta_tp values
+    zeta_tp = {}
+    if 'log10_zeta_Ih' in theta_dict:
+        zeta_tp['Ih'] = _zeta_to_tp(theta_dict['log10_zeta_Ih'], alpha)
+    if 'log10_zeta_HP' in theta_dict:
+        val = _zeta_to_tp(theta_dict['log10_zeta_HP'], alpha)
+        zeta_tp['III'] = val
+        zeta_tp['V'] = val
+        zeta_tp['VI'] = val
+    if 'log10_zeta_sil' in theta_dict:
+        zeta_tp['Sil'] = _zeta_to_tp(theta_dict['log10_zeta_sil'], alpha)
+
+    # Fallback for phases not explicitly set
+    zeta_tp.setdefault('Fe', 1.0)
+    zeta_tp.setdefault('Clath', 1.0)
+    structure_data['andrade_zeta_tp'] = zeta_tp
 
     return structure_data
 
@@ -251,14 +275,15 @@ def forward_model_k2_flexible(
 
     if rheology_type == 'andrade':
         alpha = modified_structure['andrade_alpha']
-        zeta_tp = modified_structure['andrade_zeta_tp']
+        zeta_tp_map = modified_structure['andrade_zeta_tp']
         shear_models = []
         for rp in modified_structure['region_phases']:
             base_phase = rp.replace('_conv', '')
-            if base_phase in ('0', 'Clath'):  # Liquid and clathrates: elastic
+            if base_phase in ('0', 'Clath'):
                 shear_models.append(Elastic())
             else:
-                shear_models.append(Andrade(args=(alpha, zeta_tp)))
+                phase_zeta = zeta_tp_map.get(base_phase, 1.0)
+                shear_models.append(Andrade(args=(alpha, phase_zeta)))
 
     elif rheology_type == 'maxwell':
         shear_models = []
@@ -350,9 +375,11 @@ def forward_model_k2(
 
     Args:
         theta: Parameter vector. Format depends on rheology:
-            - 'andrade': [alpha, log10_zeta, log10_eta_Ih, log10_eta_HP, log10_eta_sil]
+            - 'andrade' (7-param): [alpha, log10_zeta_Ih, log10_zeta_HP, log10_zeta_sil,
+                                     log10_eta_Ih, log10_eta_HP, log10_eta_sil]
+            - 'andrade' (5-param, no HP ice): [alpha, log10_zeta_Ih, log10_zeta_sil,
+                                                log10_eta_Ih, log10_eta_sil]
             - 'maxwell': [log10_eta_Ih, log10_eta_HP, log10_eta_sil]
-            - With Tb_K variation: append Tb_K as final parameter
         structure_data: Cached structural arrays from load_structure_cache()
         rheology: 'andrade' or 'maxwell'
         return_heating: If True, compute per-phase tidal heating (slower)
@@ -365,16 +392,27 @@ def forward_model_k2(
     """
     # Convert theta array to dict based on rheology
     if rheology == 'andrade':
-        if len(theta) == 5:
+        if len(theta) == 7:
             theta_dict = {
                 'alpha': theta[0],
-                'log10_zeta': theta[1],
-                'log10_eta_Ih': theta[2],
-                'log10_eta_HP': theta[3],
+                'log10_zeta_Ih': theta[1],
+                'log10_zeta_HP': theta[2],
+                'log10_zeta_sil': theta[3],
+                'log10_eta_Ih': theta[4],
+                'log10_eta_HP': theta[5],
+                'log10_eta_sil': theta[6]
+            }
+        elif len(theta) == 5:
+            # Europa-style: no HP ice layer (alpha, zeta_Ih, zeta_sil, eta_Ih, eta_sil)
+            theta_dict = {
+                'alpha': theta[0],
+                'log10_zeta_Ih': theta[1],
+                'log10_zeta_sil': theta[2],
+                'log10_eta_Ih': theta[3],
                 'log10_eta_sil': theta[4]
             }
         else:
-            raise ValueError(f"Andrade rheology expects 5 parameters, got {len(theta)}")
+            raise ValueError(f"Andrade rheology expects 5 or 7 parameters, got {len(theta)}")
 
     elif rheology == 'maxwell':
         if len(theta) == 3:
@@ -638,8 +676,9 @@ def create_log_likelihood(
             chi2 += ((Re_k2 - obs_val) / obs_err)**2
 
         if 'Im_k2' in observables:
+            # Note: TidalPy returns negative Im(k2), so use abs() to match positive observable
             obs_val, obs_err = observables['Im_k2']
-            chi2 += ((Im_k2 - obs_val) / obs_err)**2
+            chi2 += ((abs(Im_k2) - obs_val) / obs_err)**2
 
         if 'abs_Im_k2' in observables:
             obs_val, obs_err = observables['abs_Im_k2']

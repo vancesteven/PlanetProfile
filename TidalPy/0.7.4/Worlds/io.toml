@@ -1,0 +1,29 @@
+name = "Io"
+type = "burnman"
+radius = 1821490.0
+orbital_period = 1.769
+eccentricity = 0.0041
+spin_period = 1.769
+albedo = 0.63
+force_spin_sync = true
+
+[layers.Core]
+type = "iron"
+is_tidal = false
+radius = 810000.0
+material = [ "Pyrite", "Fe_Dewaele",]
+material_source = [ "TidalPy", "other",]
+material_fractions = [ 0.5, 0.5,]
+temperature_mode = "user-defined"
+temperature_fixed = 1800.0
+
+[layers.Mantle]
+type = "rock"
+is_tidal = true
+radius = 1821490.0
+material = [ "forsterite", "mg_perovskite",]
+material_source = [ "SLB_2011", "SLB_2011",]
+material_fractions = [ 0.65, 0.35,]
+temperature_mode = "adiabatic"
+temperature_top = 1800.0
+surface_temperature = 100.0

@@ -1,0 +1,232 @@
+{
+  "main": {
+    "id": "b20553f8d4946adb",
+    "type": "split",
+    "children": [
+      {
+        "id": "dc36db5eafeba2bd",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "ab646da1726db64a",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "221b8d32700f5295",
+    "type": "split",
+    "children": [
+      {
+        "id": "fd7f9ad25986fe07",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "f5522c7bc0a5b706",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "fdc281c895f3ad55",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "ed7a1c602bcbcbbe",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "a37c8847469d4a2d",
+    "type": "split",
+    "children": [
+      {
+        "id": "86840305b1f33eb5",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "a362649aa84235dd",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "CLAUDE.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for CLAUDE"
+            }
+          },
+          {
+            "id": "33fbf23f31de9b00",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "CLAUDE.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from CLAUDE"
+            }
+          },
+          {
+            "id": "f5a1421d5d56f75d",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "9f6ae42579a8b205",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "b548282af788e044",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "CLAUDE.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of CLAUDE"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "ab646da1726db64a",
+  "lastOpenFiles": [
+    "venvPP/lib/python3.11/site-packages/sbi-0.26.1.dist-info/licenses/LICENSE.txt",
+    "venvPP/lib/python3.11/site-packages/sbi-0.26.1.dist-info/top_level.txt",
+    "venvPP/lib/python3.11/site-packages/sbi-0.26.1.dist-info/licenses",
+    "venvPP/lib/python3.11/site-packages/sbi-0.26.1.dist-info/WHEEL",
+    "venvPP/lib/python3.11/site-packages/sbi-0.26.1.dist-info/REQUESTED",
+    "venvPP/lib/python3.11/site-packages/sbi-0.26.1.dist-info/RECORD",
+    "venvPP/lib/python3.11/site-packages/sbi-0.26.1.dist-info/METADATA",
+    "venvPP/lib/python3.11/site-packages/sbi-0.26.1.dist-info/INSTALLER",
+    "venvPP/lib/python3.11/site-packages/sbi-0.26.1.dist-info",
+    "venvPP/lib/python3.11/site-packages/sbi/inference/trainers/vfpe/__pycache__/npse.cpython-311.pyc",
+    "venvPP/lib/python3.11/site-packages/sbi/inference/trainers/vfpe/__pycache__/fmpe.cpython-311.pyc",
+    "venvPP/lib/python3.11/site-packages/sklearn/externals/array_api_compat/README.md",
+    "venvPP/lib/python3.11/site-packages/sklearn/externals/array_api_extra/README.md",
+    "venvPP/lib/python3.11/site-packages/sklearn/datasets/images/china.jpg",
+    "venvPP/lib/python3.11/site-packages/sklearn/datasets/images/flower.jpg",
+    "venvPP/lib/python3.11/site-packages/markdown-3.10.2.dist-info/licenses/LICENSE.md",
+    "venvPP/lib/python3.11/site-packages/werkzeug/debug/shared/less.png",
+    "venvPP/lib/python3.11/site-packages/werkzeug/debug/shared/more.png",
+    "venvPP/lib/python3.11/site-packages/werkzeug/debug/shared/console.png",
+    "venvPP/lib/python3.11/site-packages/werkzeug/debug/shared/ICON_LICENSE.md",
+    "PlanetProfile/Test/mcmc_results/maxwell_arrhenius_ocean_thickness_vs_heating.png",
+    "PlanetProfile/Test/mcmc_results/maxwell_arrhenius_ocean_structure_profile.png",
+    "PlanetProfile/Test/mcmc_results/maxwell_arrhenius_ocean_Tb_structure.png",
+    "PlanetProfile/Test/mcmc_results/maxwell_arrhenius_ocean_heating.png",
+    "PlanetProfile/Test/mcmc_results/maxwell_arrhenius_ocean_k2_scatter.png",
+    "venvPP/lib/python3.11/site-packages/seaborn-0.13.2.dist-info/LICENSE.md",
+    "venvPP/lib/python3.11/site-packages/torchgen/packaged/autograd/README.md",
+    "venvPP/lib/python3.11/site-packages/tidalpy-0.7.4.dist-info/licenses/LICENSE.md",
+    "venvPP/lib/python3.11/site-packages/cyrk-0.17.1.dist-info/licenses/LICENSE.md",
+    "venvPP/lib/python3.11/site-packages/soupsieve-2.8.3.dist-info/licenses/LICENSE.md",
+    "3D_MODELS_TAB_PLAN.md",
+    "SESSION_STATE.md",
+    "graphify-out/obsidian/graph.canvas",
+    "graphify-out/obsidian/_COMMUNITY_Community 499.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 498.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 496.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 495.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 494.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 493.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 492.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 491.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 490.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 489.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 488.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 486.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 485.md",
+    "graphify-out/obsidian/_COMMUNITY_Community 484.md"
+  ]
+}

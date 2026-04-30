@@ -1,0 +1,40 @@
+# Pulled from central results of Goossens+2021
+
+name = "Mercury"
+type = "burnman"
+radius = 2440000.0
+semi_major_axis = 0.38709893
+semi_major_axis_in_au = true
+eccentricity = 0.20563069
+spin_period = 58.6462
+force_spin_sync = false
+
+[layers.Inner_Core]
+type = "iron"
+is_tidal = false
+radius = 1277250.0
+material = [ "Pyrite", "Fe_Dewaele",]
+material_source = [ "TidalPy", "other",]
+material_fractions = [ 0.8, 0.2,]
+temperature_mode = "user-defined"
+temperature_fixed = 2100.0
+
+[layers.Outer_Core]
+type = "iron"
+is_tidal = false
+radius = 1965000.0
+material = [ "Pyrite", "Fe_Dewaele",]
+material_source = [ "TidalPy", "other",]
+material_fractions = [ 0.8, 0.2,]
+temperature_mode = "adiabatic"
+temperature_fixed = 2100.0
+
+[layers.Mantle]
+type = "rock"
+is_tidal = true
+radius = 2440000.0
+material = "forsterite"
+material_source = "SLB_2011"
+temperature_mode = "adiabatic"
+temperature_top = 1200.0
+surface_temperature = 452.0

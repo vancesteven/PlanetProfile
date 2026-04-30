@@ -1,0 +1,34 @@
+name = "Triton"
+type = "burnman"
+radius = 1353000.0
+semi_major_axis = 354760000.0
+semi_major_axis_in_au = false
+eccentricity = 1.6e-5
+spin_period = 5.876854
+albedo = 0.55
+force_spin_sync = false
+
+[layers.Core]
+type = "rock"
+is_tidal = true
+radius = 1064000.0
+material = "forsterite"
+material_source = "SLB_2011"
+temperature_mode = "adiabatic"
+temperature_top = 273.15
+
+[layers.Crust]
+type = "ice"
+is_tidal = true
+radius = 1353000.0
+material = "IceIh_Fu2010"
+material_source = "TidalPy"
+temperature_mode = "user-defined"
+surface_temperature = 35.0
+temperature_fixed = 35.0
+
+[layers.Core.rheology.complex_compliance]
+model = "sundberg"
+
+[layers.Crust.rheology.complex_compliance]
+model = "sundberg"

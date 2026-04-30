@@ -1,0 +1,17 @@
+name = "Triton_Simple"
+type = "simple_tidal"
+radius = 1353000.0
+mass = 2.139e+22
+semi_major_axis = 354760000.0
+semi_major_axis_in_au = false
+eccentricity = 1.6e-5
+spin_period = -5.876854
+albedo = 0.55
+force_spin_sync = false
+
+[tides]
+use_ctl = false
+ctl_calc_method = "linear_simple_with_q"
+fixed_q = 100.0
+static_k2 = 0.1
+fixed_dt = 507800.0

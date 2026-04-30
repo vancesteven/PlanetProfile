@@ -1,0 +1,36 @@
+name = "Luna"
+type = "burnman"
+radius = 1737400.0
+orbital_period = 27.322
+eccentricity = 0.0554
+spin_period = 27.322
+albedo = 0.12
+force_spin_sync = true
+
+[layers.Inner_Core]
+type = "iron"
+is_tidal = false
+radius = 160000.0
+material = "Fe_Dewaele"
+material_source = "other"
+temperature_mode = "user-defined"
+temperature_fixed = 300.0
+
+[layers.Outer_Core]
+type = "iron"
+is_tidal = false
+radius = 350000.0
+material = "Liquid_Fe_Anderson"
+material_source = "other"
+temperature_mode = "user-defined"
+temperature_fixed = 300.0
+
+[layers.Mantle]
+type = "rock"
+is_tidal = false
+radius = 1737400.0
+material = "forsterite"
+material_source = "SLB_2011"
+temperature_mode = "adiabatic"
+temperature_top = 350.0
+surface_temperature = 300.0

@@ -1,0 +1,10 @@
+name = "Sol"
+type = "star"
+radius = 695700000.0
+mass = 1.988435e+30
+luminosity = 3.848e+26
+tides_on = false
+
+[tides]
+model = "global_approx"
+fixed_q = 100.0

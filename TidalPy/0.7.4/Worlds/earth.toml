@@ -1,0 +1,43 @@
+name = "Earth"
+type = "burnman"
+radius = 6371000.0
+semi_major_axis = 1.0
+semi_major_axis_in_au = true
+eccentricity = 0.01671022
+spin_period = 1.0
+
+[layers.Inner_Core]
+type = "iron"
+is_tidal = false
+radius = 1220000.0
+material = "Fe_Dewaele"
+material_source = "other"
+temperature_mode = "user-defined"
+temperature_fixed = 300.0
+
+[layers.Outer_Core]
+type = "iron"
+is_tidal = false
+radius = 3480000.0
+material = "Liquid_Fe_Anderson"
+material_source = "other"
+temperature_mode = "user-defined"
+temperature_fixed = 300.0
+
+[layers.Lower_Mantle]
+type = "rock"
+is_tidal = false
+radius = 5711000.0
+material = "mg_bridgmanite"
+material_source = "SLB_2011"
+temperature_mode = "adiabatic"
+
+[layers.Upper_Mantle]
+type = "rock"
+is_tidal = true
+radius = 6371000.0
+material = "forsterite"
+material_source = "SLB_2011"
+temperature_mode = "adiabatic"
+temperature_top = 1200.0
+surface_temperature = 300.0

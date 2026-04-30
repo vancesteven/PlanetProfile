@@ -71,15 +71,44 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
         rheology_constraint='andrade'
     ),
 
-    'log10_zeta': ParameterDef(
-        id='log10_zeta',
-        label='Log₁₀(Andrade Compliance ζ)',
-        latex_label=r'$\log_{10}(\zeta)$',
-        description='Andrade grain-boundary sliding parameter (dimensionless). '
-                    'Larger values = more dissipation.',
+    'log10_zeta_Ih': ParameterDef(
+        id='log10_zeta_Ih',
+        label='Log₁₀(ζ Ice Ih)',
+        latex_label=r'$\log_{10}(\zeta_{\rm Ih})$',
+        description='Andrade compliance for Ice Ih. PP default: 0.005 (log₁₀ ≈ -2.3). '
+                    'Controls viscoelastic dissipation in the ice shell.',
         category='rheology',
         default_prior='uniform',
-        default_bounds=[-2, 2],
+        default_bounds=[-4, 0],
+        units=None,
+        requires_structure_rebuild=False,
+        rheology_constraint='andrade'
+    ),
+
+    'log10_zeta_HP': ParameterDef(
+        id='log10_zeta_HP',
+        label='Log₁₀(ζ HP Ice)',
+        latex_label=r'$\log_{10}(\zeta_{\rm HP})$',
+        description='Andrade compliance for high-pressure ice (III, V, VI). '
+                    'PP default: 0.05 (log₁₀ ≈ -1.3). HP ice is typically '
+                    '~10× more compliant than Ice Ih.',
+        category='rheology',
+        default_prior='uniform',
+        default_bounds=[-4, 2],
+        units=None,
+        requires_structure_rebuild=False,
+        rheology_constraint='andrade'
+    ),
+
+    'log10_zeta_sil': ParameterDef(
+        id='log10_zeta_sil',
+        label='Log₁₀(ζ Silicate)',
+        latex_label=r'$\log_{10}(\zeta_{\rm sil})$',
+        description='Andrade compliance for silicate mantle. PP default: 0.005 '
+                    '(log₁₀ ≈ -2.3). Typically similar to Ice Ih.',
+        category='rheology',
+        default_prior='uniform',
+        default_bounds=[-4, 0],
         units=None,
         requires_structure_rebuild=False,
         rheology_constraint='andrade'
@@ -194,10 +223,11 @@ PARAMETER_PRESETS = {
     'andrade_titan': {
         'name': 'Andrade Rheology (Titan)',
         'description': 'Petricca et al. 2025 parameter space for Titan no-ocean model (PPTest41)',
-        'parameters': ['alpha', 'log10_zeta', 'log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil'],
+        'parameters': ['alpha', 'log10_zeta_Ih', 'log10_zeta_HP', 'log10_zeta_sil',
+                        'log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil'],
         'observables': {
             'Re_k2': (0.608, 0.048),
-            'Im_k2': (0.135, 0.035)
+            'abs_Im_k2': (0.135, 0.035)
         },
         'test_module': 'PlanetProfile.Test.PPTest41',
         'rheology': 'andrade'
@@ -209,7 +239,7 @@ PARAMETER_PRESETS = {
         'parameters': ['log10_mu_Ih', 'log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil'],
         'observables': {
             'Re_k2': (0.608, 0.048),
-            'Im_k2': (0.135, 0.035)
+            'abs_Im_k2': (0.135, 0.035)
         },
         'test_module': 'PlanetProfile.Test.PPTest42',
         'rheology': 'maxwell'
@@ -218,10 +248,11 @@ PARAMETER_PRESETS = {
     'andrade_europa': {
         'name': 'Andrade Rheology (Europa)',
         'description': 'Andrade rheology for Europa with clathrate underplate (PPTest3)',
-        'parameters': ['alpha', 'log10_zeta', 'log10_eta_Ih', 'log10_eta_sil'],
+        'parameters': ['alpha', 'log10_zeta_Ih', 'log10_zeta_sil',
+                        'log10_eta_Ih', 'log10_eta_sil'],
         'observables': {
             'Re_k2': (0.328, 0.015),  # Europa estimates (placeholder)
-            'Im_k2': (0.015, 0.005)
+            'abs_Im_k2': (0.015, 0.005)
         },
         'test_module': 'PlanetProfile.Test.PPTest3',
         'rheology': 'andrade'

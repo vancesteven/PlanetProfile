@@ -7,6 +7,7 @@
 
 ### Current Objective
 All planned Arrhenius/tidal tasks are COMPLETE, including Ice V etaMelt correction.
+Ran out of tokens while planning inference tab addition to PlanetProfileApp. sbi is installed and the plan included starting with the recently developed mcmc test scripts to implement the sbi machinery and add a tab under "Exploreogram" in the gui. Exploreogram.py provides some of the starting material to build from for the inference tab.
 
 ### Progress This Session (Session 4)
 

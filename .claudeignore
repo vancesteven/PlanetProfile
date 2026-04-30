@@ -1,0 +1,7 @@
+**/*.pdf
+!papers/**/*.pdf
+!manuscript/**/*.pdf
+**/*.mat
+**/*.tab
+**/*.dat
+**/Perple_X/

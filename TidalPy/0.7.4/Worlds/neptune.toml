@@ -1,0 +1,11 @@
+name = "Neptune"
+type = "gas_giant"
+radius = 24622000.0
+mass = 1.02413e+26
+semi_major_axis = 30.07
+semi_major_axis_in_au = true
+eccentricity = 0.008678
+tides_on = true
+
+[tides]
+fixed_q = 9000.0

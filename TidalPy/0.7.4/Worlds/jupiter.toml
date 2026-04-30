@@ -1,0 +1,11 @@
+name = "Jupiter"
+type = "gas_giant"
+radius = 69911000.0
+mass = 1.898e+27
+semi_major_axis = 5.20336301
+semi_major_axis_in_au = true
+eccentricity = 0.04839266
+tides_on = false
+
+[tides]
+fixed_q = 8000.0
