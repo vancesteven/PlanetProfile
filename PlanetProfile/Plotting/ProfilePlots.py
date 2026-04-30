@@ -993,7 +993,7 @@ def PlotWedge(PlanetList, Params):
     # Get ionosBounds_km for all bodies without affecting what's in Planet.Magnetic
     if FigMisc.IONOSPHERE_IN_WEDGE:
         ionosUpper_km = np.array([np.max(Planet.Magnetic.ionosBounds_m) / 1e3 if Planet.Magnetic.ionosBounds_m is not None else 0 for Planet in PlanetList])
-        ionosLower_km = np.array([np.min(Planet.Magnetic.ionosBounds_m) / 1e3 if np.size(Planet.Magnetic.ionosBounds_m) > 1 else 0 for Planet in PlanetList], dtype=np.float_)
+        ionosLower_km = np.array([np.min(Planet.Magnetic.ionosBounds_m) / 1e3 if np.size(Planet.Magnetic.ionosBounds_m) > 1 else 0 for Planet in PlanetList], dtype=np.float64)
     else:
         ionosUpper_km, ionosLower_km = (np.zeros(nWedges) for _ in range(2))
 

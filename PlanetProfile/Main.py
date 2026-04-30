@@ -731,7 +731,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         = np.loadtxt(Params.DataFiles.saveFile, skiprows=Params.nHeadLines, unpack=True)
     Planet.r_m = np.concatenate((Planet.r_m, [0]))
     Planet.z_m = Planet.Bulk.R_m - Planet.r_m
-    Planet.phase = Planet.phase.astype(np.int_)
+    Planet.phase = Planet.phase.astype(np.int64)
     Planet.Steps.iConv = np.zeros(Planet.Steps.nSurfIce, dtype=bool)
     
     # Reconstruct convection indices from saved convection parameters

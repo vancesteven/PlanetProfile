@@ -638,6 +638,7 @@ def SelfConsistentOceanLayer(Planet, Params):
                 Planet.invalidReason = msg
             else:
                 raise ValueError(msg)
+            Planet.Steps.nOceanMax = 1
             nans = np.full(Planet.Steps.nOceanMax, np.nan)
             TOcean_K, rhoOcean_kgm3, CpOcean_JkgK, alphaOcean_pK, kThermOcean_WmK = (nans for _ in range(5))
         else:
@@ -662,11 +663,11 @@ def SelfConsistentOceanLayer(Planet, Params):
             # If we are not allowing liquid layers in the ocean, we need to make sure the first layer is a high pressure ice
             if Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES:
                 initialPOcean_MPa = POcean_MPa[0]
-                thisPhase = Planet.Ocean.EOS.fn_phase(initialPOcean_MPa, TOcean_K[0]).astype(np.int_)
+                thisPhase = Planet.Ocean.EOS.fn_phase(initialPOcean_MPa, TOcean_K[0]).astype(np.int64)
                 # Due to numerical approximation with GetZero function, thisPhase can be an ice Ih or ocean layer
                 if thisPhase < 2:
                     # Depending on the root answer that fn_phase finds, thisPhase can be an ocean layer. So we must get the ice phase by incrementing P by deltaP so we are on the high pressure side of the phase diagram
-                    thisPhase = Planet.Ocean.EOS.fn_phase(initialPOcean_MPa+Planet.Ocean.EOS.deltaP, TOcean_K[0]).astype(np.int_)
+                    thisPhase = Planet.Ocean.EOS.fn_phase(initialPOcean_MPa+Planet.Ocean.EOS.deltaP, TOcean_K[0]).astype(np.int64)
                 Planet.phase[Planet.Steps.nSurfIce] = thisPhase
                 log.debug(f'il: {Planet.Steps.nSurfIce:d}; P_MPa: {POcean_MPa[0]:.3f}; ' +
                 f'T_K: {TOcean_K[0]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce]:d}')
@@ -723,7 +724,7 @@ def SelfConsistentOceanLayer(Planet, Params):
                             CpOcean_JkgK[i] = Planet.Ocean.EOS.fn_Cp_JkgK(POcean_MPa[i], TOcean_K[i])
                             alphaOcean_pK[i] = Planet.Ocean.EOS.fn_alpha_pK(POcean_MPa[i], TOcean_K[i])
                             kThermOcean_WmK[i] = Planet.Ocean.EOS.fn_kTherm_WmK(POcean_MPa[i], TOcean_K[i])
-                            Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int_)
+                            Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int64)
                             log.debug(f'il: {Planet.Steps.nSurfIce+i:d}; P_MPa: {POcean_MPa[i]:.3f}; ' +
                                     f'T_K: {TOcean_K[i]:.3f}; phase: {Planet.phase[Planet.Steps.nSurfIce+i]:d}')
                     iStart = i
@@ -741,7 +742,7 @@ def SelfConsistentOceanLayer(Planet, Params):
                                     CpOcean_JkgK[0] / rhoOcean_kgm3[0] * Planet.Ocean.deltaP*1e6
                     iStart = 1
             for i in range(iStart, Planet.Steps.nOceanMax):
-                Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int_)
+                Planet.phase[Planet.Steps.nSurfIce+i] = Planet.Ocean.EOS.fn_phase(POcean_MPa[i], TOcean_K[i]).astype(np.int64)
                 if not Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES and i < 4 and Planet.phase[Planet.Steps.nSurfIce+i] != 0:
                     log.debug(f'Top ocean layers (i={i}) are not liquid. This will cause indexing problems. ' +
                             'T will be set to exceed the melting temp temporarily to construct at least 4 ocean layers.')
@@ -999,7 +1000,7 @@ def SelfConsistentInnerLayer(Planet, Params):
         Planet.P_MPa = np.concatenate((Planet.P_MPa[:Planet.Steps.nHydro], extend))
         Planet.T_K = np.concatenate((Planet.T_K[:Planet.Steps.nHydro], extend))
         Planet.r_m = np.concatenate((Planet.r_m[:Planet.Steps.nHydro], extend, [0.0]))
-        Planet.phase = np.concatenate((Planet.phase[:Planet.Steps.nHydro], extend.astype(np.int_)))
+        Planet.phase = np.concatenate((Planet.phase[:Planet.Steps.nHydro], extend.astype(np.int64)))
         Planet.rho_kgm3 = np.concatenate((Planet.rho_kgm3[:Planet.Steps.nHydro], extend))
         Planet.Cp_JkgK = np.concatenate((Planet.Cp_JkgK[:Planet.Steps.nHydro], extend))
         Planet.alpha_pK = np.concatenate((Planet.alpha_pK[:Planet.Steps.nHydro], extend))
@@ -1352,7 +1353,7 @@ def FindInnerWithMoIAndConstantRho(Planet, Params):
         Psil_MPa, Tsil_K, rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, kThermSil_WmK, Ppore_MPa, rhoSilMatrix_kgm3, \
             rhoPore_kgm3, HtidalSil_Wm3, MLayerSil_kg \
             = (np.zeros((1,Planet.Steps.nSil)) for _ in range(11))
-        phasePore = np.zeros((1, Planet.Steps.nSil), dtype=np.int_)
+        phasePore = np.zeros((1, Planet.Steps.nSil), dtype=np.int64)
         rSil_m = np.zeros((1, Planet.Steps.nSil+1))
         rSil_m[0,0] = Planet.Sil.Rmean_m
         coreProps = (np.zeros(Planet.Steps.nCore) for _ in range(9))
@@ -1424,7 +1425,7 @@ def FindInnerWithMoIAndEOS(Planet, Params):
         Ccore_kgm2 = np.array([np.sum(dCfromCore_kgm2[i,:]) for i in range(nProfiles - nSilTooBig)])
 
         # Get indices of valid silicate portions of the layer profile
-        iValid = np.array([Planet.Steps.iSilStart + i for i in indsSilValid]).astype(np.int_)
+        iValid = np.array([Planet.Steps.iSilStart + i for i in indsSilValid]).astype(np.int64)
         C_kgm2 = np.zeros(nProfiles + Planet.Steps.iSilStart)
     else:
         # Propagate the silicate EOS from each hydrosphere layer to the center of the body
@@ -1542,7 +1543,7 @@ def FindInnerWithMoIAndEOS(Planet, Params):
         # Now fill in values we're missing from not doing core calculations
         # We need copies of Steps.nSilMax for each possible result from the C/MR^2 search
         # to be compatible with the same infrastructure for when we have a core.
-        nSilFinal = Planet.Steps.nSilMax * np.ones_like(indsSilValid).astype(np.int_)
+        nSilFinal = Planet.Steps.nSilMax * np.ones_like(indsSilValid).astype(np.int64)
         Ccore_kgm2 = 0
 
         C_kgm2 = np.zeros(Planet.Steps.nHydroMax)
@@ -1616,7 +1617,7 @@ def FindInnerWithMoIAndEOS(Planet, Params):
         Psil_MPa, Tsil_K, rSil_m, rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, kThermSil_WmK, Ppore_MPa, PsilPore_MPa, \
         rhoSilMatrix_kgm3, rhoSil_kgm3, rhoSilPore_kgm3, HtidalSil_Wm3, MLayerSil_kg \
             = (np.zeros((1, Planet.Steps.nSil+1)) for _ in range(14))
-        phaseSilPore = np.zeros((1, Planet.Steps.nSil+1), dtype=np.int_)
+        phaseSilPore = np.zeros((1, Planet.Steps.nSil+1), dtype=np.int64)
         coreProps = (np.zeros(Planet.Steps.nCore) for _ in range(9))
         Planet.Sil.phiCalc_frac = np.nan
         Planet.Sil.rhoMean_kgm3 = np.nan
@@ -1925,7 +1926,7 @@ def CalcInnerAndMoIWithConstantRho(Planet, Params):
         Psil_MPa, Tsil_K, rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, kThermSil_WmK, Ppore_MPa, rhoSilMatrix_kgm3, \
             rhoPore_kgm3, HtidalSil_Wm3, MLayerSil_kg \
             = (np.zeros((1,Planet.Steps.nSil)) for _ in range(11))
-        phasePore = np.zeros((1, Planet.Steps.nSil), dtype=np.int_)
+        phasePore = np.zeros((1, Planet.Steps.nSil), dtype=np.int64)
         rSil_m = np.zeros((1, Planet.Steps.nSil+1))
         rSil_m[0,0] = Planet.Sil.Rmean_m
         coreProps = (np.zeros(Planet.Steps.nCore) for _ in range(9))
@@ -2141,7 +2142,7 @@ def CalcInnerandMoIWithSpecifiedCore(Planet, Params):
         Psil_MPa, Tsil_K, rhoSilEOS_kgm3, gSil_ms2, phiSil_frac, kThermSil_WmK, Ppore_MPa, rhoSilMatrix_kgm3, \
             rhoPore_kgm3, HtidalSil_Wm3, MLayerSil_kg \
             = (np.zeros((1, Planet.Steps.nSil)) for _ in range(11))
-        phasePore = np.zeros((1, Planet.Steps.nSil), dtype=np.int_)
+        phasePore = np.zeros((1, Planet.Steps.nSil), dtype=np.int64)
         rSil_m = np.zeros((1, Planet.Steps.nSil + 1))
         rSil_m[0, 0] = Planet.Sil.Rmean_m
         coreProps = (np.zeros(Planet.Steps.nCore) for _ in range(9))

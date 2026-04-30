@@ -249,12 +249,12 @@ def ExtractInductionData(InductionResults, bodyname, PlanetGrid, Params):
         # For 1D case, this will be nPeaks x 1 x N, then we'll flatten later
         Amp_3d = np.full((nPeaks, PlanetGrid.shape[0], PlanetGrid.shape[1]), np.nan)
         phase_3d = np.full((nPeaks, PlanetGrid.shape[0], PlanetGrid.shape[1]), np.nan)
-        Aen_3d = np.full((nPeaks, PlanetGrid.shape[0], PlanetGrid.shape[1]), np.nan, dtype=np.complex_)
+        Aen_3d = np.full((nPeaks, PlanetGrid.shape[0], PlanetGrid.shape[1]), np.nan, dtype=np.complex128)
         # Create 3D arrays for Bi1xyz_nT of nPeaks x 2 (since complex number) x rows x cols
-        Bi1x_nT_3D = np.full((nPeaks, PlanetGrid.shape[0], PlanetGrid.shape[1]), np.nan, dtype=np.complex_)
-        Bi1y_nT_3D = np.full((nPeaks, PlanetGrid.shape[0], PlanetGrid.shape[1]), np.nan, dtype=np.complex_)
-        Bi1z_nT_3D = np.full((nPeaks, PlanetGrid.shape[0], PlanetGrid.shape[1]), np.nan, dtype=np.complex_)
-        Bi1Tot_3D = np.full((nPeaks, PlanetGrid.shape[0], PlanetGrid.shape[1]), np.nan, dtype=np.complex_)
+        Bi1x_nT_3D = np.full((nPeaks, PlanetGrid.shape[0], PlanetGrid.shape[1]), np.nan, dtype=np.complex128)
+        Bi1y_nT_3D = np.full((nPeaks, PlanetGrid.shape[0], PlanetGrid.shape[1]), np.nan, dtype=np.complex128)
+        Bi1z_nT_3D = np.full((nPeaks, PlanetGrid.shape[0], PlanetGrid.shape[1]), np.nan, dtype=np.complex128)
+        Bi1Tot_3D = np.full((nPeaks, PlanetGrid.shape[0], PlanetGrid.shape[1]), np.nan, dtype=np.complex128)
         for i, line in enumerate(PlanetGrid):
             for j, Planet in enumerate(line):
                 if hasattr(Planet, 'Magnetic') and hasattr(Planet.Magnetic, 'Amp') and Planet.Magnetic.Amp is not None:

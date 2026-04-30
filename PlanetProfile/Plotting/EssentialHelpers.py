@@ -42,7 +42,7 @@ def get_excitation_indices_and_names(induction_obj, params_induct):
     # Get indices for the oscillations that we can and want to plot
     excSelectionCalc = {key: Texc for key, Texc in zip(induction_obj.calcedExc, induction_obj.Texc_hr)}
     whichTexc = excSelectionCalc and params_induct.excSelectionPlot
-    allTexc_hr = np.fromiter(excSelectionCalc.values(), dtype=np.float_)
+    allTexc_hr = np.fromiter(excSelectionCalc.values(), dtype=np.float64)
     allAvailableTexc_hr = allTexc_hr[np.isfinite(allTexc_hr)]
     iTexc = [np.where(allTexc_hr == Texc)[0][0] for key, Texc in excSelectionCalc.items() 
              if whichTexc[key] and np.size(np.where(allTexc_hr == Texc)[0]) > 0]
@@ -321,7 +321,7 @@ def extract_and_validate_plot_data(result_obj, x_field, y_field, c_field=None, c
     else:
         y = np.array([])
         for i in range(y_raw.shape[0]):
-            y = np.concatenate((y, np.arange(0, y_raw.shape[1], dtype=np.float_)))
+            y = np.concatenate((y, np.arange(0, y_raw.shape[1], dtype=np.float64)))
         y = y.reshape(-1)
     if custom_y_axis is not None:
         if len(custom_y_axis) == len(y):

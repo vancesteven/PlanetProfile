@@ -1064,7 +1064,7 @@ class RktPhaseLookup:
             P_MPa_below_200_MPa = P_MPa[0:P_MPa_below_200_MPa_index]
             freezing_temperatures = freezing_temperature_function_below_200_MPa(P_MPa_below_200_MPa)
             freezing_temperatures, T_K_pts = np.meshgrid(freezing_temperatures, T_K, indexing="ij")
-            phases[0:P_MPa_below_200_MPa_index, :] = (T_K_pts < freezing_temperatures).astype(np.int_)
+            phases[0:P_MPa_below_200_MPa_index, :] = (T_K_pts < freezing_temperatures).astype(np.int8)
         if P_MPa_below_200_MPa_index < P_MPa.size:
             P_MPa_above_200_MPa = P_MPa[P_MPa_below_200_MPa_index:]
             P_MPa_To_Query = P_MPa_above_200_MPa
@@ -1799,7 +1799,7 @@ class RktPhaseOnDemand:
                                                   self.temperature_correction_spline)
         if grid:
             freezing_temperatures, T_K = np.meshgrid(freezing_temperatures, T_K, indexing='ij')
-        return (T_K < freezing_temperatures).astype(np.int_)
+        return (T_K < freezing_temperatures).astype(np.int64)
 
     def Frezchem_Spline_Generator(self, aqueous_species_list, speciation_ratio_mol_kg, temperature_correction_spline,
         data_points=30,

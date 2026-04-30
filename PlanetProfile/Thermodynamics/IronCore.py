@@ -24,7 +24,7 @@ def IronCoreLayers(Planet, Params,
         (np.zeros((nProfiles-nSilTooBig, Planet.Steps.nCore)) for _ in range(8))
     rCore_m = np.zeros((nProfiles-nSilTooBig, Planet.Steps.nCore+1))
     # Initialize matching indices as -1 as a flag for unfilled values
-    iCoreMatch, nSilFinal = (-1 * np.ones(nProfiles).astype(np.int_) for _ in range(2))
+    iCoreMatch, nSilFinal = (-1 * np.ones(nProfiles).astype(np.int64) for _ in range(2))
 
     if Planet.Do.ConstantProps['Inner']:
         iCoreStart = [-1]

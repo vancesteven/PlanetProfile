@@ -15,6 +15,7 @@ configPPmontecarlo.py
 /*.dat
 /*.png
 /*.txt
+!/PlanetProfile/MagneticInduction/MoonMag/*.txt
 *pycache*
 *.mat
 *.csv

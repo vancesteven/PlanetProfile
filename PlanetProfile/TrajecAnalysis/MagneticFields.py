@@ -5,7 +5,7 @@ from PlanetProfile.TrajecAnalysis.Alfven import AlfvenWingField
 from PlanetProfile.Utilities.defineStructs import ModelDataStruct, Constants
 from PlanetProfile.GetConfig import FigMisc
 from PlanetProfile.MagneticInduction.MagneticInduction import GetBexc
-from MoonMag.field_xyz import eval_Bi as EvalBi
+from PlanetProfile.MagneticInduction.MoonMag.field_xyz import eval_Bi as EvalBi
 
 # Parallel processing
 import multiprocessing as mtp
@@ -71,7 +71,7 @@ def CalcModelInduced(Planet, Params, magData, modelData):
     if isinstance(Planet.Magnetic.Benm_nT, dict):
         for scName, Binm_nT in Planet.Magnetic.Binm_nT.items():
             for fbID, ets in modelData.ets[scName].items():
-                Bix_nT, Biy_nT, Biz_nT = (np.zeros(np.size(ets), dtype=np.complex_)
+                Bix_nT, Biy_nT, Biz_nT = (np.zeros(np.size(ets), dtype=np.complex128)
                                           for _ in range(3))
 
                 # Sum over all excitations and moments
@@ -98,7 +98,7 @@ def CalcModelInduced(Planet, Params, magData, modelData):
         else:
             scName = Params.Trajec.SCera
         for fbID, ets in modelData.ets[scName].items():
-            Bix_nT, Biy_nT, Biz_nT = (np.zeros(np.size(ets), dtype=np.complex_)
+            Bix_nT, Biy_nT, Biz_nT = (np.zeros(np.size(ets), dtype=np.complex128)
                                       for _ in range(3))
 
             # Sum over all excitations and moments
@@ -260,7 +260,7 @@ def BiTrajecSingle(Planet, Params, spiceSC, ets):
                            'evaluation.')
     nExc = np.size(Planet.Magnetic.omegaExc_radps)
     nPts = np.size(ets)
-    Bix_nT, Biy_nT, Biz_nT = (np.zeros((nExc, nPts), dtype=np.complex_) for _ in range(3))
+    Bix_nT, Biy_nT, Biz_nT = (np.zeros((nExc, nPts), dtype=np.complex128) for _ in range(3))
     if Planet.Magnetic.BinmLin_nT is not None:
         Nnm = np.size(Planet.Magnetic.nLin)
         x_Rp, y_Rp, z_Rp, r_Rp = (xyz_km * 1e3 / Planet.Bulk.R_m

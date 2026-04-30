@@ -171,7 +171,7 @@ class SwPhase:
         # 3. Compare to zero -- if we are below the freezing temp, it's ice I, above, liquid
         # 4. Cast the above comparison (True if less than Tfreeze, False if greater) to int,
         #       so that we get 1 if we are below the freezing temp and 0 if above.
-        return (((T_K - Constants.T0) - gswTfreeze(self.w_ppt, MPa2seaPressure(P_MPa), 0)) < 0).astype(np.int_)
+        return (((T_K - Constants.T0) - gswTfreeze(self.w_ppt, MPa2seaPressure(P_MPa), 0)) < 0).astype(np.int64)
 
 
 class SwSeismic:

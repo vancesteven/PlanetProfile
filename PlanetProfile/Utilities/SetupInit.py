@@ -701,7 +701,7 @@ def SetupLayers(Planet):
         Planet.Steps.nHydroMax = Planet.Steps.nClath + Planet.Steps.nIceI + Planet.Steps.nIceIIILitho + Planet.Steps.nIceVLitho + nOceanMax
     nStepsForArrays = Planet.Steps.nHydroMax
     
-    Planet.phase = np.zeros(nStepsForArrays, dtype=np.int_)
+    Planet.phase = np.zeros(nStepsForArrays, dtype=np.int64)
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
         Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \
         Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.VLayer_m3, Planet.kTherm_WmK, \

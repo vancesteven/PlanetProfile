@@ -99,7 +99,7 @@ def ReloadRefProfiles(PlanetList, Params):
                                    'was not found. Try running again with CALC_NEW_REF set to True in configPP.py.')
             with open(fNameRefReload) as f:
                 _ = f.readline()
-                Params.wRef_ppt[Planet.Ocean.comp] = np.array(f.readline().split('=')[-1].split(',')).astype(np.float_)
+                Params.wRef_ppt[Planet.Ocean.comp] = np.array(f.readline().split('=')[-1].split(',')).astype(np.float64)
             PrhoRef = np.loadtxt(fNameRefReload, skiprows=3, unpack=False)
             PrhoRef = PrhoRef.T
             Params.nRef[Planet.Ocean.comp] = np.size(Params.wRef_ppt[Planet.Ocean.comp])

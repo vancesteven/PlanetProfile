@@ -230,13 +230,13 @@ def ReloadGravityParameters(Planet, Params):
         Planet.Gravity.harmonic_degrees = ast.literal_eval(f.readline().split('=')[-1])
         if len(Planet.Gravity.time_log_kyrs) == 1 and len(Planet.Gravity.harmonic_degrees) == 1:
             # Make these variables floats
-            Planet.Gravity.h = np.complex_((f.readline().split('=')[-1]))
-            Planet.Gravity.l = np.complex_((f.readline().split('=')[-1]))
-            Planet.Gravity.k = np.complex_((f.readline().split('=')[-1]))
+            Planet.Gravity.h = np.complex128((f.readline().split('=')[-1]))
+            Planet.Gravity.l = np.complex128((f.readline().split('=')[-1]))
+            Planet.Gravity.k = np.complex128((f.readline().split('=')[-1]))
         else:
-            Planet.Gravity.h = np.array(ast.literal_eval(f.readline().split('=')[-1]), dtype=np.complex_)
-            Planet.Gravity.l = np.array(ast.literal_eval(f.readline().split('=')[-1]), dtype=np.complex_)
-            Planet.Gravity.k = np.array(ast.literal_eval(f.readline().split('=')[-1]), dtype=np.complex_)
+            Planet.Gravity.h = np.array(ast.literal_eval(f.readline().split('=')[-1]), dtype=np.complex128)
+            Planet.Gravity.l = np.array(ast.literal_eval(f.readline().split('=')[-1]), dtype=np.complex128)
+            Planet.Gravity.k = np.array(ast.literal_eval(f.readline().split('=')[-1]), dtype=np.complex128)
         Planet.Gravity.delta = 1 + Planet.Gravity.k - Planet.Gravity.h
         # Convert love numbers from complex to magnitude and phase delay
         Planet.Gravity.hAmp = np.abs(Planet.Gravity.h)
