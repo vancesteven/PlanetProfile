@@ -64,6 +64,12 @@ def lazy_import_inference():
 def initialize_session_state():
     """Initialize session state variables for inference tab."""
 
+    # Migrate stale session state: clear param_space if it contains old 'log10_zeta' key
+    if ('inference_param_space' in st.session_state and
+            'log10_zeta' in st.session_state.inference_param_space):
+        st.session_state.inference_param_space = {}
+        st.session_state.inference_selected_params = []
+
     # Control flags
     if 'inference_running' not in st.session_state:
         st.session_state.inference_running = False
@@ -132,7 +138,7 @@ def initialize_session_state():
             'n_total': 0,
             'n_samples': 0,
             'ess': 0,
-            'acceptance_rate': 0.0
+            'acceptance_rate': None
         }
 
 
@@ -654,11 +660,11 @@ def render_run_button(InferenceConfig, MCMCRunner):
                 **Current Status:**
                 - Samples: {progress_dict['n_samples']}
                 - ESS: {progress_dict['ess']:.0f} / {config.sampler_settings['n_effective']}
-                - Acceptance: {progress_dict['acceptance_rate']:.1%}
+                - Acceptance: {f"{progress_dict['acceptance_rate']:.1%}" if progress_dict['acceptance_rate'] is not None else "N/A"}
                 """)
 
             # Run inference
-            with st.spinner("Running MCMC inference... (this may take 10-60 minutes)"):
+            with st.spinner("Running MCMC inference... (typically 1-5 minutes for n_effective=500, longer for larger ESS targets)"):
                 result = runner.run(progress_callback=progress_callback)
 
             # Store result
@@ -707,7 +713,8 @@ def render_results():
 
         metrics = result.convergence_metrics
         col1.metric("ESS", f"{metrics['ess']:.0f}")
-        col2.metric("Acceptance Rate", f"{metrics['acceptance_rate']:.1%}")
+        acc = metrics['acceptance_rate']
+        col2.metric("Acceptance Rate", f"{acc:.1%}" if acc is not None else "N/A")
         col3.metric("R-hat", f"{metrics['r_hat']:.3f}")
 
         st.caption(f"**Samples:** {metrics['n_samples']} | **Runtime:** {result.metadata['elapsed_time_s']/60:.1f} min")
@@ -782,6 +789,15 @@ def main():
 
     with col_config:
         st.subheader("⚙️ Configuration")
+
+        if st.button("🔄 Reset Configuration", help="Clear all inference settings and reload defaults"):
+            for key in ['inference_param_space', 'inference_selected_params', 'inference_preset',
+                        'inference_custom_mode', 'inference_observables', 'inference_sampler_settings',
+                        'inference_structure_cache_path', 'inference_use_clathrate', 'inference_results',
+                        'inference_cache_key', 'inference_error', 'inference_error_traceback']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.rerun()
 
         # Preset selector
         render_preset_selector(PARAMETER_PRESETS)

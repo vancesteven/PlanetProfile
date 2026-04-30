@@ -334,7 +334,7 @@ def validate_parameter_combination(param_ids: List[str]) -> Dict[str, Any]:
     else:
         rheology = None  # All parameters are rheology-agnostic
         warnings.append(
-            "No rheology-specific parameters selected. Add 'alpha' and 'log10_zeta' for Andrade, "
+            "No rheology-specific parameters selected. Add 'alpha' and 'log10_zeta_Ih'/'log10_zeta_HP'/'log10_zeta_sil' for Andrade, "
             "or 'log10_mu_Ih' for Maxwell."
         )
 

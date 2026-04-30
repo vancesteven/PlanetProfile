@@ -167,46 +167,23 @@ class MCMCRunner:
             random_state=self.random_state,
         )
 
-        # Run with periodic progress updates
-        iteration = 0
-        max_iterations = self.config.sampler_settings.get('max_iterations', 10000)
+        # Run — pocoMC stops internally when ESS >= n_ess
+        sampler.run(n_total=4096, progress=True)
 
-        while iteration < max_iterations:
-            # Run for checkpoint_interval samples
-            sampler.run(n_total=self.checkpoint_interval, progress=False)
-            iteration += self.checkpoint_interval
-
-            # Get current state
+        # Single progress update on completion (for GUI)
+        if progress_callback is not None:
             try:
-                samples, log_likes, log_post, _ = sampler.posterior()
-                n_samples = len(samples)
-
-                # Compute ESS if available
-                try:
-                    ess = sampler.n_eff if hasattr(sampler, 'n_eff') else n_samples
-                except:
-                    ess = n_samples
-
-                # Progress callback
-                if progress_callback is not None:
-                    progress_callback({
-                        'iteration': iteration,
-                        'n_total': max_iterations,
-                        'n_samples': n_samples,
-                        'ess': ess,
-                        'acceptance_rate': getattr(sampler, 'acceptance_rate', 0.0),
-                    })
-
-                log.info(f"  Iteration {iteration}: {n_samples} samples, ESS={ess:.0f}")
-
-                # Check convergence (ESS > target)
-                if ess >= self.n_effective:
-                    log.info(f"Converged: ESS ({ess:.0f}) >= target ({self.n_effective})")
-                    break
-
-            except Exception as e:
-                log.warning(f"Could not extract samples at iteration {iteration}: {e}")
-                continue
+                _s, _ll, _, _ = sampler.posterior()
+                _ess = sampler.n_eff if hasattr(sampler, 'n_eff') else len(_s)
+                progress_callback({
+                    'iteration': 1,
+                    'n_total': 1,
+                    'n_samples': len(_s),
+                    'ess': _ess,
+                    'acceptance_rate': sampler.pbar.info.get('acc') if hasattr(sampler, 'pbar') and sampler.pbar is not None else None,
+                })
+            except Exception:
+                pass
 
         # Final posterior extraction
         samples, log_likes, log_post, _ = sampler.posterior()
@@ -266,7 +243,7 @@ class MCMCRunner:
             convergence_metrics=convergence_metrics,
             metadata={
                 'elapsed_time_s': elapsed,
-                'n_iterations': iteration,
+                'n_iterations': len(samples) if samples is not None else 0,
                 'rheology': rheology,
                 'heating_indices': heating_indices,
             }
@@ -285,11 +262,11 @@ class MCMCRunner:
         except:
             ess = n_samples
 
-        # Acceptance rate
+        # Acceptance rate — pocoMC stores this in pbar.info['acc'] after run
         try:
-            acceptance_rate = sampler.acceptance_rate if hasattr(sampler, 'acceptance_rate') else 0.0
-        except:
-            acceptance_rate = 0.0
+            acceptance_rate = sampler.pbar.info.get('acc')
+        except Exception:
+            acceptance_rate = None
 
         # R-hat (Gelman-Rubin) - requires multiple chains, skip if not available
         # pocoMC doesn't expose chains directly, so we approximate with single chain
@@ -297,12 +274,13 @@ class MCMCRunner:
 
         metrics = {
             'ess': float(ess),
-            'acceptance_rate': float(acceptance_rate),
+            'acceptance_rate': acceptance_rate,  # None if unavailable
             'r_hat': float(r_hat),
             'n_samples': int(n_samples),
         }
 
-        log.info(f"Convergence: ESS={ess:.0f}, accept={acceptance_rate:.2%}, R-hat={r_hat:.3f}")
+        acc_str = f"{acceptance_rate:.2%}" if acceptance_rate is not None else "N/A"
+        log.info(f"Convergence: ESS={ess:.0f}, accept={acc_str}, R-hat={r_hat:.3f}")
 
         return metrics
 
