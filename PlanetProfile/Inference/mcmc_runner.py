@@ -34,7 +34,6 @@ class MCMCRunner:
         """Initialize MCMC runner with configuration."""
         from .inference_core import InferenceConfig
         from .structure_cache import load_structure_cache
-        from .forward_models import create_log_likelihood
 
         if not isinstance(config, InferenceConfig):
             raise TypeError("config must be InferenceConfig instance")
@@ -45,7 +44,7 @@ class MCMCRunner:
         self.param_names = list(config.param_space.keys())
         self.param_labels = [self._make_label(name) for name in self.param_names]
 
-        # Route to flexible (dict-based) interface when Tb_K is a free parameter
+        # Route to grid cache when Tb_K is a free parameter
         self._use_flexible = 'Tb_K' in self.param_names
 
         # Load cached structure (skip bodyname validation for Test* files)
@@ -57,21 +56,14 @@ class MCMCRunner:
                 config.structure_cache_path, validate_bodyname=None
             )
 
-        # Build prior and likelihood
+        # Build prior and likelihood — always use dict-based interface so
+        # parameter order in param_space never affects forward model mapping.
         self.prior = self._build_prior()
-        if self._use_flexible:
-            self.log_likelihood_fn = self._make_flexible_log_likelihood(
-                config.observables,
-                self.structure_data,
-                arrhenius_params=config.sampler_settings.get('arrhenius_params')
-            )
-        else:
-            self.log_likelihood_fn = create_log_likelihood(
-                config.observables,
-                self.structure_data,
-                rheology=self._infer_rheology(),
-                arrhenius_params=config.sampler_settings.get('arrhenius_params')
-            )
+        self.log_likelihood_fn = self._make_flexible_log_likelihood(
+            config.observables,
+            self.structure_data,
+            arrhenius_params=config.sampler_settings.get('arrhenius_params')
+        )
 
         # MCMC settings
         self.n_effective = config.sampler_settings.get('n_effective', 500)
@@ -209,7 +201,6 @@ class MCMCRunner:
             InferenceResult object with samples, log-likelihoods, and convergence metrics
         """
         from .inference_core import InferenceResult
-        from .forward_models import evaluate_heating_on_posterior
 
         try:
             import pocomc as pc
@@ -261,64 +252,42 @@ class MCMCRunner:
         # Compute convergence metrics
         convergence_metrics = self._compute_convergence(samples, log_likes, sampler)
 
-        # Recompute k2 for posterior samples
+        # Recompute k2 for posterior samples — always dict-based so param order
+        # in param_space never causes wrong positional mapping.
         log.info(f"Recomputing k2 for {n_samples} posterior samples...")
         arrhenius_params = self.config.sampler_settings.get('arrhenius_params')
-        rheology = None if self._use_flexible else self._infer_rheology()
+        rheology = self._infer_rheology() if not self._use_flexible else None
 
+        from .forward_models import forward_model_k2_flexible
         k2_results = []
-        if self._use_flexible:
-            from .forward_models import forward_model_k2_flexible
-            for i, theta in enumerate(samples):
-                theta_dict = dict(zip(self.param_names, theta))
-                Re_k2, Im_k2, _ = forward_model_k2_flexible(
-                    theta_dict, self.structure_data,
-                    return_heating=False, arrhenius_params=arrhenius_params
-                )
-                k2_results.append((Re_k2, Im_k2))
-                if (i + 1) % 100 == 0:
-                    log.info(f"  {i+1}/{n_samples} samples recomputed")
-        else:
-            from .forward_models import forward_model_k2
-            for i, theta in enumerate(samples):
-                Re_k2, Im_k2, _ = forward_model_k2(
-                    theta, self.structure_data,
-                    rheology=rheology, return_heating=False,
-                    arrhenius_params=arrhenius_params
-                )
-                k2_results.append((Re_k2, Im_k2))
-                if (i + 1) % 100 == 0:
-                    log.info(f"  {i+1}/{n_samples} samples recomputed")
+        for i, theta in enumerate(samples):
+            theta_dict = dict(zip(self.param_names, theta))
+            Re_k2, Im_k2, _ = forward_model_k2_flexible(
+                theta_dict, self.structure_data,
+                return_heating=False, arrhenius_params=arrhenius_params
+            )
+            k2_results.append((Re_k2, Im_k2))
+            if (i + 1) % 100 == 0:
+                log.info(f"  {i+1}/{n_samples} samples recomputed")
 
         k2_results = np.array(k2_results)
 
-        # Recompute heating on subset
+        # Recompute heating on subset — same dict-based approach
         n_reeval = min(self.n_reeval, n_samples)
         log.info(f"Recomputing heating for {n_reeval} posterior samples...")
 
-        if self._use_flexible:
-            from .forward_models import forward_model_k2_flexible as _fmk2f
-            rng = np.random.RandomState(self.random_state)
-            idx_heat = rng.choice(n_samples, n_reeval, replace=False)
-            idx_heat.sort()
-            heating_results = []
-            for si in idx_heat:
-                theta_dict = dict(zip(self.param_names, samples[si]))
-                _, _, perPhase_W = _fmk2f(
-                    theta_dict, self.structure_data,
-                    return_heating=True, arrhenius_params=arrhenius_params
-                )
-                heating_results.append(perPhase_W if perPhase_W is not None else {})
-            heating_indices = idx_heat
-        else:
-            heating_indices, _, heating_results = evaluate_heating_on_posterior(
-                samples,
-                self.structure_data,
-                rheology=rheology,
-                n_eval=n_reeval,
-                random_state=self.random_state,
-                arrhenius_params=arrhenius_params
+        rng = np.random.RandomState(self.random_state)
+        idx_heat = rng.choice(n_samples, n_reeval, replace=False)
+        idx_heat.sort()
+        heating_results = []
+        for si in idx_heat:
+            theta_dict = dict(zip(self.param_names, samples[si]))
+            _, _, perPhase_W = forward_model_k2_flexible(
+                theta_dict, self.structure_data,
+                return_heating=True, arrhenius_params=arrhenius_params
             )
+            heating_results.append(perPhase_W if perPhase_W is not None else {})
+        heating_indices = idx_heat
 
         # Build result object
         result = InferenceResult(
