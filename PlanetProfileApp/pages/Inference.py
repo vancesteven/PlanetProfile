@@ -188,18 +188,14 @@ def render_preset_selector(PARAMETER_PRESETS):
         st.session_state.inference_observables = preset['observables']
 
         # Auto-populate structure cache path based on preset
-        if preset_choice in ('andrade_titan', 'maxwell_titan'):
-            body_name = 'titan'
-        elif preset_choice == 'andrade_europa':
-            body_name = 'europa'
-        else:
-            body_name = None
-
-        if body_name:
+        if preset_choice == 'andrade_titan':
             clath_suffix = 'clath' if st.session_state.inference_use_clathrate else 'noclath'
-            st.session_state.inference_structure_cache_path = (
-                f"{body_name}_cache/{body_name}_structure_{clath_suffix}.pkl"
-            )
+            st.session_state.inference_structure_cache_path = f"titan_cache/titan_structure_{clath_suffix}.pkl"
+        elif preset_choice == 'maxwell_titan':
+            st.session_state.inference_structure_cache_path = 'titan_cache/titan_maxwell_grid_cache.pkl'
+        elif preset_choice == 'andrade_europa':
+            clath_suffix = 'clath' if st.session_state.inference_use_clathrate else 'noclath'
+            st.session_state.inference_structure_cache_path = f"europa_cache/europa_structure_{clath_suffix}.pkl"
 
         # Show preset description
         st.info(f"**Description:** {preset['description']}")
@@ -524,15 +520,15 @@ def render_structure_cache_input():
                 st.success(f"✅ Cache file found ({full_path.stat().st_size / 1024:.1f} KB)")
             else:
                 _auto_gen_map = {
-                    'andrade_titan': ('PlanetProfile.Test.PPTest41', 'titan_cache/'),
-                    'maxwell_titan': ('PlanetProfile.Test.PPTest42', 'titan_cache/'),
-                    'andrade_europa': ('PlanetProfile.Test.PPTest3', 'europa_cache/'),
+                    'andrade_titan': ('PlanetProfile.Test.PPTest41', 'titan_cache/', False, '1-3 minutes'),
+                    'maxwell_titan': ('PlanetProfile.Test.PPTest42', 'titan_cache/', True, '15-30 minutes'),
+                    'andrade_europa': ('PlanetProfile.Test.PPTest3', 'europa_cache/', False, '1-3 minutes'),
                 }
                 preset = st.session_state.inference_preset
                 gen_flag = f'_cache_gen_failed_{preset}'
 
                 if preset in _auto_gen_map and not st.session_state.get(gen_flag):
-                    test_module, output_dir = _auto_gen_map[preset]
+                    test_module, output_dir, is_maxwell, est_time = _auto_gen_map[preset]
                     import subprocess
                     cmd = [
                         sys.executable, '-m',
@@ -540,7 +536,9 @@ def render_structure_cache_input():
                         '--test-module', test_module,
                         '--output-dir', output_dir,
                     ]
-                    with st.spinner(f"Generating structure cache for {preset} — this takes 1-3 minutes..."):
+                    if is_maxwell:
+                        cmd.append('--maxwell')
+                    with st.spinner(f"Generating structure cache for {preset} — this takes {est_time}..."):
                         proc = subprocess.run(
                             cmd, capture_output=True, text=True,
                             cwd=parent_directory
@@ -795,14 +793,24 @@ def render_results():
             import matplotlib.pyplot as plt
             from matplotlib.patches import Ellipse
 
-            Re_arr = result.k2_results[:, 0]
-            Im_arr = np.abs(result.k2_results[:, 1])
-
             Re_obs, Re_err = result.config.observables.get('Re_k2', (0.608, 0.048))
             Im_obs, Im_err = result.config.observables.get('abs_Im_k2', (0.135, 0.035))
 
+            heating_results = result.heating_results or []
+            eval_idx = result.metadata.get('heating_indices')
+
+            # Slice k2_results to the heating-evaluated subset so lengths match
+            if heating_results and eval_idx is not None and len(heating_results) == len(eval_idx):
+                Re_arr = result.k2_results[eval_idx, 0]
+                Im_arr = np.abs(result.k2_results[eval_idx, 1])
+                eval_samples = result.samples[eval_idx]
+            else:
+                Re_arr = result.k2_results[:, 0]
+                Im_arr = np.abs(result.k2_results[:, 1])
+                eval_samples = result.samples
+
             f_sil = []
-            for h in (result.heating_results or []):
+            for h in heating_results:
                 total = sum(h.values()) if h else 1e-30
                 f_sil.append(h.get('Sil', 0) / total if total > 0 else 0)
             f_sil = np.array(f_sil) if f_sil else None
@@ -811,7 +819,7 @@ def render_results():
             pt_size = 8
             if 'Tb_K' in result.param_names:
                 tb_idx = result.param_names.index('Tb_K')
-                tb_vals = result.samples[:, tb_idx]
+                tb_vals = eval_samples[:, tb_idx]
                 tb_norm = (tb_vals - tb_vals.min()) / (tb_vals.ptp() + 1e-10)
                 pt_size = 4 + 20 * tb_norm  # 4–24 px, larger = warmer = more ocean
 

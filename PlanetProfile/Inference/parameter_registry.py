@@ -153,7 +153,7 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
                     'at satellite periods, but affects long-term evolution.',
         category='rheology',
         default_prior='uniform',
-        default_bounds=[18, 22],
+        default_bounds=[12, 22],
         units='Pa·s',
         requires_structure_rebuild=False,
         rheology_constraint=None
@@ -188,7 +188,7 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
                     'structure grid for inference.',
         category='structure',
         default_prior='uniform',
-        default_bounds=[250, 273.15],
+        default_bounds=[251.2, 269.0],
         units='K',
         requires_structure_rebuild=True,
         rheology_constraint=None
@@ -222,7 +222,10 @@ CATEGORY_ORDER = ['rheology', 'structure', 'ocean', 'magnetic']
 PARAMETER_PRESETS = {
     'andrade_titan': {
         'name': 'Andrade Rheology (Titan)',
-        'description': 'Petricca et al. 2025 parameter space for Titan no-ocean model (PPTest41)',
+        'description': 'Extended 7-param Andrade model for Titan no-ocean (PPTest41). '
+                       'Uses per-phase zeta (Ih/HP/sil independent), unlike Test41 which uses '
+                       'a single log10_zeta across all solid layers (5-param). '
+                       'Petricca et al. 2025 observational constraints.',
         'parameters': ['alpha', 'log10_zeta_Ih', 'log10_zeta_HP', 'log10_zeta_sil',
                         'log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil'],
         'observables': {

@@ -50,6 +50,15 @@ Examples:
                        help='Force rebuild even if cache exists')
     parser.add_argument('--verbose', action='store_true',
                        help='Enable verbose logging')
+    parser.add_argument('--maxwell', action='store_true',
+                       help='Build Tb_K grid cache for Maxwell rheology instead of clathrate variants')
+    parser.add_argument('--tb-min', type=float, default=251.2,
+                       help='Minimum Tb_K for Maxwell grid (default: 251.2 K, above triple point)')
+    parser.add_argument('--tb-max', type=float, default=270.0,
+                       help='Maximum Tb_K for Maxwell grid (default: 270.0 K; '
+                            'Titan clathrate models fail above ~269 K)')
+    parser.add_argument('--tb-step', type=float, default=2.0,
+                       help='Tb_K step size in K (default: 2.0)')
 
     args = parser.parse_args()
 
@@ -88,8 +97,34 @@ Examples:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Output file paths
     bodyname_lower = bodyname.lower()
+
+    # Maxwell grid mode: build Tb_K-keyed structure dict for grid cache
+    if args.maxwell:
+        from .structure_cache import build_structure_grid
+        import numpy as np
+        tb_grid = list(np.arange(args.tb_min, args.tb_max + args.tb_step / 2, args.tb_step))
+        grid_cache_path = output_dir / f'{bodyname_lower}_maxwell_grid_cache.pkl'
+        log.info("=" * 70)
+        log.info(f"Building Maxwell Tb_K grid cache: {len(tb_grid)} points "
+                 f"[{tb_grid[0]:.1f} – {tb_grid[-1]:.1f} K]")
+        log.info(f"Test module: {test_module}")
+        log.info("=" * 70)
+        try:
+            build_structure_grid(
+                test_module, 'Tb_K', tb_grid, str(grid_cache_path),
+                rheology='maxwell', force_rebuild=args.force
+            )
+            log.info(f"✓ Maxwell grid cache saved: {grid_cache_path}")
+        except Exception as e:
+            log.error(f"✗ Failed to build Maxwell grid cache: {e}")
+            if args.verbose:
+                import traceback
+                traceback.print_exc()
+            sys.exit(1)
+        sys.exit(0)
+
+    # Output file paths (andrade / clathrate variants)
     cache_clath = output_dir / f'{bodyname_lower}_structure_clath.pkl'
     cache_noclath = output_dir / f'{bodyname_lower}_structure_noclath.pkl'
 

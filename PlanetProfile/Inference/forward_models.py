@@ -64,7 +64,9 @@ def apply_parameters(theta_dict: Dict[str, float], structure_data: Dict[str, Any
     modified_structure = structure_data.copy()
     called_functions = set()
 
-    for param_id in theta_dict.keys():
+    # Structure-swapping hooks (Tb_K) must run before viscosity/rheology hooks
+    ordered_params = sorted(theta_dict.keys(), key=lambda p: 0 if p == 'Tb_K' else 1)
+    for param_id in ordered_params:
         if param_id in _PARAMETER_HOOKS:
             hook_func = _PARAMETER_HOOKS[param_id]
 
@@ -200,18 +202,25 @@ def apply_shear_modulus(theta_dict: Dict[str, float], structure_data: Dict[str, 
 @parameter_hook('Tb_K')
 def apply_bottom_temperature(theta_dict: Dict[str, float], structure_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Apply bottom temperature parameter.
+    Apply bottom temperature by nearest-neighbor selection from grid cache.
 
-    NOTE: Varying Tb_K requires pre-computed structure grid, not yet implemented.
-    Future implementation will load from grid cache based on Tb_K value.
-
-    For now, this raises an error to prevent misuse.
+    Requires structure_data to contain 'grid_cache' and 'grid_Tb_values' keys,
+    which are populated by MCMCRunner when Tb_K is in the parameter set.
     """
-    raise ValueError(
-        "Parameter 'Tb_K' requires structure grid caching (not yet implemented). "
-        "To vary Tb_K, generate a grid of structure caches with prepare_structure_variants.py "
-        "using different Tb_K values, then implement grid interpolation in this hook."
-    )
+    if 'grid_cache' not in structure_data:
+        raise ValueError(
+            "Parameter 'Tb_K' requires structure grid cache. "
+            "Generate with: python -m PlanetProfile.Inference.prepare_structure_variants --maxwell"
+        )
+    Tb_K = theta_dict['Tb_K']
+    grid_cache = structure_data['grid_cache']
+    grid_Tb_values = structure_data['grid_Tb_values']
+    idx = np.argmin(np.abs(grid_Tb_values - Tb_K))
+    nearest_Tb = grid_Tb_values[idx]
+    selected = grid_cache[nearest_Tb].copy()
+    selected['grid_cache'] = grid_cache
+    selected['grid_Tb_values'] = grid_Tb_values
+    return selected
 
 
 # ============================================================================
@@ -306,7 +315,7 @@ def forward_model_k2_flexible(
             modified_structure['r_m'],
             modified_structure['rho'],
             modified_structure['K_Pa'],
-            modified_structure.get('mu_Pa', structure_data['mu_Pa']),
+            modified_structure['mu_Pa'],
             modified_structure['bulk_visc'],
             np.ascontiguousarray(eta_mod),
             modified_structure['layer_upper_radii'],

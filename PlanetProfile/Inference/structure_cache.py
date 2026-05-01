@@ -111,7 +111,12 @@ def build_structure_from_pptest(
     # Configure for structure calculation
     configParams.Gravity.backend = 'tidalpy'
     if rheology == 'maxwell':
-        configParams.Gravity.rheology_models = 'maxwell'
+        configParams.Gravity.rheology_models = {
+            '0': 'newton', 'Ih': 'maxwell', 'Ih_conv': 'maxwell',
+            'II': 'maxwell', 'III': 'maxwell', 'III_conv': 'maxwell',
+            'IV': 'maxwell', 'V': 'maxwell', 'V_conv': 'maxwell', 'VI': 'maxwell',
+            'Sil': 'maxwell', 'Fe': 'elastic', 'Clath': 'elastic', 'Clath_conv': 'maxwell'
+        }
     configParams.CALC_NEW = True
     configParams.CALC_NEW_GRAVITY = True
     configParams.NO_SAVEFILE = True
@@ -415,7 +420,12 @@ def build_structure_grid(
             # Configure and run
             configParams.Gravity.backend = 'tidalpy'
             if rheology == 'maxwell':
-                configParams.Gravity.rheology_models = 'maxwell'
+                configParams.Gravity.rheology_models = {
+                    '0': 'newton', 'Ih': 'maxwell', 'Ih_conv': 'maxwell',
+                    'II': 'maxwell', 'III': 'maxwell', 'III_conv': 'maxwell',
+                    'IV': 'maxwell', 'V': 'maxwell', 'V_conv': 'maxwell', 'VI': 'maxwell',
+                    'Sil': 'maxwell', 'Fe': 'elastic', 'Clath': 'elastic', 'Clath_conv': 'maxwell'
+                }
             configParams.CALC_NEW = True
             configParams.CALC_NEW_GRAVITY = True
             configParams.NO_SAVEFILE = True
