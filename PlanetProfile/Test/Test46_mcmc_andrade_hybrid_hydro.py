@@ -1,5 +1,5 @@
 """
-MCMC exploration: Maxwell rheology, hybrid hydrosphere-thickness Titan (PPTest45).
+MCMC exploration: Andrade rheology, hybrid hydrosphere-thickness Titan (PPTest46).
 
 Extends PPTest42 (Maxwell ocean) by treating total hydrosphere thickness D_hydro_km
 as a free parameter instead of letting PlanetProfile close on MoI.  The hydrosphere
@@ -9,13 +9,15 @@ R - D_hydro_km, so Mtot_kg and CMR2 become model outputs.
 This allows exploration of interior structure space without requiring PlanetProfile
 to satisfy the CMR2 closure condition at each MCMC step.
 
-Parameter space (6D):
-  log10(eta_Ih):   Ice Ih viscosity (Pa s)         [12, 16]
-  log10(eta_HP):   HP ice viscosity (Pa s)          [10, 18]
-  log10(eta_sil):  Silicate viscosity (Pa s)        [12, 22]
-  Tb_K:            Basal temperature (K)            [252, 270]
-  D_hydro_km:      Total hydrosphere thickness (km) [50, 800]
-  rho_sil:         Silicate density (kg/m³)         [2000, 6000]
+Parameter space (8D):
+  alpha:           Andrade alpha exponent                [0.2, 0.4]
+  log10(zeta):     Andrade zeta (Pa s^alpha)             [-2, 2]
+  log10(eta_Ih):   Ice Ih viscosity (Pa s)               [12, 16]
+  log10(eta_HP):   HP ice viscosity (Pa s)               [10, 18]
+  log10(eta_sil):  Silicate viscosity (Pa s)             [18, 22]
+  Tb_K:            Basal temperature (K)                 [252, 270]
+  D_hydro_km:      Total hydrosphere thickness (km)      [50, 800]
+  rho_sil:         Silicate density (kg/m³)              [2000, 6000]
 
 Observational constraints (Petricca et al. 2025 + Titan bulk properties):
   Re(k2)   = 0.608 +/- 0.048
@@ -31,13 +33,14 @@ Grid pre-computation:
   - Total:        181 × 16 = 2896 grid points (some no-ocean pts may be skipped)
   Estimated build time: ~10 hours (incremental saves; safe to interrupt/resume).
   The hybrid grid is generated via PlanetProfile/Inference/hybrid_structure_cache.py.
+  Grid cache is shared with PPTest45 (maxwell).
 
 Usage:
   conda activate ./venvPP
-  python PlanetProfile/Test/Test45_mcmc_maxwell_hybrid_hydro.py
+  python PlanetProfile/Test/Test46_mcmc_andrade_hybrid_hydro.py
 
   # To force grid rebuild:
-  python PlanetProfile/Test/Test45_mcmc_maxwell_hybrid_hydro.py --rebuild-grid
+  python PlanetProfile/Test/Test46_mcmc_andrade_hybrid_hydro.py --rebuild-grid
 """
 import argparse
 import logging
@@ -53,12 +56,12 @@ _pp_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 sys.path.insert(0, _pp_root)
 
 logging.basicConfig(level=logging.WARNING, format='%(name)s - %(message)s')
-log = logging.getLogger('PPTest45_MCMC')
+log = logging.getLogger('PPTest46_MCMC')
 log.setLevel(logging.INFO)
 
 # TidalPy imports
 from TidalPy.RadialSolver import build_rs_input_from_data, radial_solver
-from TidalPy.rheology import Elastic, Maxwell
+from TidalPy.rheology import Andrade, Elastic
 from TidalPy.tides.multilayer.heating import (
     calc_radial_volumetric_tidal_heating_from_rs_solution,
 )
@@ -82,7 +85,7 @@ TITAN_R_M          = TITAN_R_KM * 1e3
 MTOT_OBS = (4.0/3.0) * np.pi * TITAN_R_M**3 * (TITAN_RHO_GCM3 * 1e3)   # ≈ 1.34534e23 kg
 MTOT_ERR = MTOT_OBS * np.sqrt((TITAN_RHO_ERR_GCM3/TITAN_RHO_GCM3)**2
                                + (3*TITAN_R_ERR_KM/TITAN_R_KM)**2)        # ≈ 4.25e20 kg
-# Reference mass used in CMR2 denominator during grid build (Planet.Bulk.M_kg from PPTest45)
+# Reference mass used in CMR2 denominator during grid build (Planet.Bulk.M_kg from PPTest46)
 TITAN_M_REF_KG = 1.3452e23
 
 # Grid extents — 0.1 K Tb_K resolution covers D_iceIh ~157 km (252 K) to ~33 km (270 K)
@@ -94,8 +97,10 @@ N_EFF        = 500
 RANDOM_STATE = 42
 N_REEVAL     = 500
 
-PARAM_NAMES  = ['log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil', 'Tb_K', 'D_hydro_km', 'rho_sil']
+PARAM_NAMES  = ['alpha', 'log10_zeta', 'log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil', 'Tb_K', 'D_hydro_km', 'rho_sil']
 PARAM_LABELS = [
+    r'$\alpha$',
+    r'$\log_{10}\zeta$',
     r'$\log_{10}\eta_\mathrm{Ih}$',
     r'$\log_{10}\eta_\mathrm{HP}$',
     r'$\log_{10}\eta_\mathrm{sil}$',
@@ -103,7 +108,7 @@ PARAM_LABELS = [
     r'$D_\mathrm{hydro}$ (km)',
     r'$\rho_\mathrm{sil}$ (kg m$^{-3}$)',
 ]
-N_DIM = 6
+N_DIM = 8
 
 
 # ============================================================
@@ -132,7 +137,7 @@ def build_or_load_grid(force_rebuild: bool = False):
         if n_pts < n_expected and not build_complete:
             log.info(f'Grid incomplete ({n_pts}/{n_expected}). Resuming build for missing points...')
             cache_data = build_hybrid_hydrosphere_grid(
-                'PlanetProfile.Test.PPTest45',
+                'PlanetProfile.Test.PPTest46',
                 tb_grid,
                 d_grid,
                 GRID_CACHE_PATH,
@@ -143,7 +148,7 @@ def build_or_load_grid(force_rebuild: bool = False):
         log.info(f'Building {len(tb_grid)} × {len(d_grid)} hybrid hydrosphere grid '
                  f'({n_expected} points)...')
         cache_data = build_hybrid_hydrosphere_grid(
-            'PlanetProfile.Test.PPTest45',
+            'PlanetProfile.Test.PPTest46',
             tb_grid,
             d_grid,
             GRID_CACHE_PATH,
@@ -168,13 +173,14 @@ def forward_model(theta, grid_cache, tb_vals, d_vals, return_heating=False):
     """Compute k2 and optionally per-phase heating for hybrid structure.
 
     Args:
-        theta: [log10_eta_Ih, log10_eta_HP, log10_eta_sil, Tb_K, D_hydro_km]
+        theta: [alpha, log10_zeta, log10_eta_Ih, log10_eta_HP, log10_eta_sil,
+                Tb_K, D_hydro_km, rho_sil]
 
     Returns:
         (Re_k2, Im_k2, Mtot_kg, CMR2, perPhase_W)
         perPhase_W is {} when return_heating=False or eccentricity=0.
     """
-    log10_eta_Ih, log10_eta_HP, log10_eta_sil, Tb_K, D_hydro_km, rho_sil = theta
+    alpha, log10_zeta, log10_eta_Ih, log10_eta_HP, log10_eta_sil, Tb_K, D_hydro_km, rho_sil = theta
     eta_Ih  = 10 ** log10_eta_Ih
     eta_HP  = 10 ** log10_eta_HP
     eta_sil = 10 ** log10_eta_sil
@@ -212,11 +218,13 @@ def forward_model(theta, grid_cache, tb_vals, d_vals, return_heating=False):
         elif ph in (3, 5, 6):   eta_mod[s:e] = eta_HP
         elif 50 <= ph < 100:    eta_mod[s:e] = eta_sil
 
-    # Build Maxwell rheology models per layer
+    # Build Andrade rheology models per layer
+    zeta_pa = 10 ** log10_zeta
+    zeta_tp = zeta_pa ** (1.0 / alpha)
     shear = []
     for rp in data['region_phases']:
         base = rp.replace('_conv', '')
-        shear.append(Elastic() if base in ('0', 'Clath') else Maxwell())
+        shear.append(Elastic() if base in ('0', 'Clath') else Andrade(args=(alpha, zeta_tp)))
     bulk = [Elastic() for _ in shear]
 
     try:
@@ -322,11 +330,13 @@ def run_mcmc(grid_cache, tb_vals, d_vals):
     log.info(f'Starting pocoMC MCMC ({N_DIM}D, n_eff={N_EFF})')
 
     prior = pc.Prior([
-        uniform(loc=12.0, scale=4.0),                   # log10_eta_Ih: [12, 16]
-        uniform(loc=10.0, scale=8.0),                   # log10_eta_HP: [10, 18]
-        uniform(loc=12.0, scale=10.0),                  # log10_eta_sil: [12, 22]
-        uniform(loc=TB_MIN, scale=TB_MAX - TB_MIN),     # Tb_K: [252, 270] K
-        uniform(loc=D_MIN,  scale=D_MAX  - D_MIN),      # D_hydro_km: [50, 800] km
+        uniform(loc=0.2,   scale=0.2),                   # alpha: [0.2, 0.4]
+        uniform(loc=-2.0,  scale=4.0),                   # log10_zeta: [-2, 2]
+        uniform(loc=12.0,  scale=4.0),                   # log10_eta_Ih: [12, 16]
+        uniform(loc=10.0,  scale=8.0),                   # log10_eta_HP: [10, 18]
+        uniform(loc=18.0,  scale=4.0),                   # log10_eta_sil: [18, 22]
+        uniform(loc=TB_MIN, scale=TB_MAX - TB_MIN),      # Tb_K: [252, 270] K
+        uniform(loc=D_MIN,  scale=D_MAX  - D_MIN),       # D_hydro_km: [50, 800] km
         uniform(loc=2000.0, scale=4000.0),               # rho_sil: [2000, 6000] kg/m³
     ])
 
@@ -397,7 +407,7 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
     eval_samples = samples[eval_idx]
     Re_arr = k2_results[:, 0]
     Im_arr = np.abs(k2_results[:, 1])
-    D_arr  = eval_samples[:, 4]  # D_hydro_km
+    D_arr  = eval_samples[:, 6]  # D_hydro_km
 
     # Build Tb_K → D_iceIh_km lookup (use max across D_hydro values to get true ice thickness;
     # truncated no-ocean entries have D_iceIh_km = D_hydro_km < true thickness)
@@ -411,7 +421,7 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
         idx = int(np.argmin(np.abs(tb_vals - tb_k)))
         return tb_to_diceIh.get(float(tb_vals[idx]), np.nan)
 
-    d_iceIh_all  = np.array([_tb_to_diceIh(theta[3]) for theta in samples])
+    d_iceIh_all  = np.array([_tb_to_diceIh(theta[5]) for theta in samples])
     d_iceIh_eval = d_iceIh_all[eval_idx]
 
     # Silicate heating fraction per eval sample
@@ -422,11 +432,11 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
 
     # --- 1. Corner plot: D_iceIh in place of Tb_K ---
     corner_samples = np.column_stack([
-        samples[:, :3], d_iceIh_all, samples[:, 4], samples[:, 5],
+        samples[:, :5], d_iceIh_all, samples[:, 6], samples[:, 7],
     ])
-    corner_labels = (list(PARAM_LABELS[:3])
+    corner_labels = (list(PARAM_LABELS[:5])
                      + [r'$D_\mathrm{IceIh}$ (km)']
-                     + list(PARAM_LABELS[4:]))
+                     + list(PARAM_LABELS[6:]))
     # Compute per-column range; expand degenerate columns by ±1 to avoid corner crash
     cs_std = np.nanstd(corner_samples, axis=0)
     cs_med = np.nanmedian(corner_samples, axis=0)
@@ -443,8 +453,8 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
         quantiles=[0.16, 0.5, 0.84], show_titles=True,
         title_fmt='.3f', title_kwargs={'fontsize': 10},
     )
-    fig.suptitle('Hybrid Hydrosphere Titan: Posterior (Maxwell)', fontsize=14, y=1.02)
-    _save(fig, 'hybrid_hydro_maxwell_corner.png')
+    fig.suptitle('Hybrid Hydrosphere Titan: Posterior (Andrade)', fontsize=14, y=1.02)
+    _save(fig, 'hybrid_hydro_andrade_corner.png')
 
     # --- 2. k2 scatter coloured by D_hydro_km (1σ + 2σ ellipses) ---
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -458,7 +468,7 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
     ax.set_xlabel(r'$\mathrm{Re}(k_2)$');  ax.set_ylabel(r'$|\mathrm{Im}(k_2)|$')
     ax.set_title(r'Hybrid Hydrosphere: $k_2$ Posterior (by $D_\mathrm{hydro}$)')
     ax.legend()
-    _save(fig, 'hybrid_hydro_maxwell_k2_scatter.png')
+    _save(fig, 'hybrid_hydro_andrade_k2_scatter.png')
 
     # --- 3. k2 scatter coloured by silicate heating fraction (Test42-style) ---
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -471,9 +481,9 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
     ax.set_xlabel(r'$\mathrm{Re}(k_2)$');  ax.set_ylabel(r'$|\mathrm{Im}(k_2)|$')
     ax.set_title(r'Hybrid Hydrosphere: $k_2$ Posterior (silicate heating)')
     ax.legend()
-    _save(fig, 'hybrid_hydro_maxwell_k2_scatter_heating.png')
+    _save(fig, 'hybrid_hydro_andrade_k2_scatter_heating.png')
 
-    # --- 4. Heating distribution vs parameters (log10 power, 2×3 for 6 params) ---
+    # --- 4. Heating distribution vs parameters (log10 power, 2×4 for 8 params) ---
     # Heating fractions are bimodal (0 or 1) because the posterior favours thin ice shells
     # (Tb_K → 269 K → no HP phases) and high silicate viscosity (near-elastic silicate).
     # Log10 power reveals the actual heating magnitudes and their parameter dependence.
@@ -488,13 +498,12 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
                      if np.sum(heating_power[ph] > 1e6) > 5]
     W_FLOOR = 1e8   # plot floor: 1e8 W (below this → not shown)
 
-    plot_xvals   = [eval_samples[:, 0], eval_samples[:, 1], eval_samples[:, 2],
-                    d_iceIh_eval, eval_samples[:, 4], eval_samples[:, 5]]
-    plot_xlabels = (list(PARAM_LABELS[:3])
+    plot_xvals   = [eval_samples[:, i] for i in range(5)] + [d_iceIh_eval, eval_samples[:, 6], eval_samples[:, 7]]
+    plot_xlabels = (list(PARAM_LABELS[:5])
                     + [r'$D_\mathrm{IceIh}$ (km)']
-                    + list(PARAM_LABELS[4:]))
+                    + list(PARAM_LABELS[6:]))
 
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+    fig, axes = plt.subplots(2, 4, figsize=(20, 8))
     for ip, (xvals, xlabel) in enumerate(zip(plot_xvals, plot_xlabels)):
         ax = axes.flat[ip]
         for ph in active_phases:
@@ -509,7 +518,7 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
             ax.legend(fontsize=8, loc='best')
     fig.suptitle('Hybrid Hydrosphere: Tidal Heating Power', fontsize=14)
     fig.tight_layout()
-    _save(fig, 'hybrid_hydro_maxwell_heating.png')
+    _save(fig, 'hybrid_hydro_andrade_heating.png')
 
     # --- 5. Mtot and CMR2 vs D_hydro_km ---
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
@@ -528,7 +537,7 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
     ax.set_xlabel(r'$D_\mathrm{hydro}$ (km)');  ax.set_ylabel('C/MR²')
     ax.set_title('CMR2 vs Hydrosphere Thickness');  ax.legend()
     fig.tight_layout()
-    _save(fig, 'hybrid_hydro_maxwell_mass_cmr2.png')
+    _save(fig, 'hybrid_hydro_andrade_mass_cmr2.png')
 
     # --- 6. CMR2 surface over grid (Tb_K × D_hydro_km) ---
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -542,7 +551,7 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
     plt.colorbar(im, ax=ax, label='C/MR²')
     ax.set_xlabel(r'$T_b$ (K)');  ax.set_ylabel(r'$D_\mathrm{hydro}$ (km)')
     ax.set_title('CMR2 across the grid')
-    _save(fig, 'hybrid_hydro_maxwell_cmr2_surface.png')
+    _save(fig, 'hybrid_hydro_andrade_cmr2_surface.png')
 
     # --- 7. Ice shell thickness vs Tb_K from grid (Test42-style), posterior overlay ---
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -551,14 +560,14 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
     if any(np.isfinite(v) for v in diceIh_line):
         ax.plot(tb_sorted, diceIh_line, 'k-o', markersize=4)
         ax2 = ax.twinx()
-        ax2.hist(samples[:, 3], bins=30, alpha=0.3, color='blue',
+        ax2.hist(samples[:, 5], bins=30, alpha=0.3, color='blue',
                  density=True, label=r'Posterior $T_b$')
         ax2.set_ylabel('Posterior density', color='blue')
         ax.set_xlabel(r'$T_b$ (K)')
         ax.set_ylabel(r'Ice Ih shell thickness (km)')
         ax.set_title('Ice Shell Thickness vs Basal Temperature')
         fig.tight_layout()
-    _save(fig, 'hybrid_hydro_maxwell_Tb_structure.png')
+    _save(fig, 'hybrid_hydro_andrade_Tb_structure.png')
 
     plt.close('all')
 
@@ -575,7 +584,7 @@ def _save(fig, fname):
 # Main
 # ============================================================
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='PPTest45 hybrid MCMC')
+    parser = argparse.ArgumentParser(description='PPTest46 Andrade hybrid MCMC')
     parser.add_argument('--rebuild-grid', action='store_true',
                         help='Force rebuild of hybrid structure grid from scratch')
     parser.add_argument('--grid-only', action='store_true',
@@ -593,7 +602,7 @@ if __name__ == '__main__':
         log.info('--grid-only: grid complete, exiting.')
         sys.exit(0)
 
-    pkl_path = os.path.join(OUTPUT_DIR, 'hybrid_hydro_maxwell_mcmc.pkl')
+    pkl_path = os.path.join(OUTPUT_DIR, 'hybrid_hydro_andrade_mcmc.pkl')
 
     if args.replot:
         log.info(f'Replot mode: loading existing results from {pkl_path}')
@@ -612,7 +621,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     # Sanity check forward model
-    theta_test = [14.0, 13.0, 15.0, 260.0, 500.0, 3300.0]
+    theta_test = [0.3, -1.0, 14.0, 13.0, 20.0, 260.0, 500.0, 3300.0]
     Re, Im, Mtot, CMR2, _ = forward_model(theta_test, grid_cache, tb_vals, d_vals)
     log.info(f'Sanity check: Re(k2)={Re:.4f}, Im(k2)={Im:.4f}, '
              f'Mtot={Mtot:.4e} kg, CMR2={CMR2:.5f}')
@@ -648,7 +657,7 @@ if __name__ == '__main__':
             'Mtot_kg':   (MTOT_OBS,   MTOT_ERR),
         },
     }
-    pkl_path = os.path.join(OUTPUT_DIR, 'hybrid_hydro_maxwell_mcmc.pkl')
+    pkl_path = os.path.join(OUTPUT_DIR, 'hybrid_hydro_andrade_mcmc.pkl')
     with open(pkl_path, 'wb') as f:
         pickle.dump(results, f)
     log.info(f'Results saved to {pkl_path}')
@@ -659,7 +668,7 @@ if __name__ == '__main__':
 
     # Summary
     print('\n' + '=' * 65)
-    print('HYBRID HYDROSPHERE TITAN MCMC SUMMARY')
+    print('HYBRID HYDROSPHERE TITAN MCMC SUMMARY (ANDRADE)')
     print('=' * 65)
     for ip, name in enumerate(PARAM_NAMES):
         med = np.median(samples[:, ip])
