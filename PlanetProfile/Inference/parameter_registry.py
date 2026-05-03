@@ -230,7 +230,8 @@ PARAMETER_PRESETS = {
                         'log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil'],
         'observables': {
             'Re_k2': (0.608, 0.048),
-            'abs_Im_k2': (0.135, 0.035)
+            'abs_Im_k2': (0.135, 0.035),
+            'CMR2': (0.343, 0.001),  # Petricca et al. (2025)
         },
         'test_module': 'PlanetProfile.Test.PPTest41',
         'rheology': 'andrade'
@@ -242,22 +243,51 @@ PARAMETER_PRESETS = {
         'parameters': ['log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil', 'Tb_K'],
         'observables': {
             'Re_k2': (0.608, 0.048),
-            'abs_Im_k2': (0.135, 0.035)
+            'abs_Im_k2': (0.135, 0.035),
+            'CMR2': (0.343, 0.001),  # Petricca et al. (2025)
         },
         'test_module': 'PlanetProfile.Test.PPTest42',
         'rheology': 'maxwell'
     },
 
     'andrade_europa': {
-        'name': 'Andrade Rheology (Europa)',
-        'description': 'Andrade rheology for Europa with clathrate underplate (PPTest3)',
+        # Variant B reference structure: intermediate Fe-FeS core (xFeS=0.55, rhoCore≈5865 kg/m³).
+        # Thin Ice Ih shell only; no HP ice phases for Europa's ~25 km shell.
+        # k2 values are theoretical placeholders — Europa Clipper will constrain these.
+        # CMR2 from Gomez Casajus et al. (2021) via Petricca et al. (2025).
+        'name': 'Andrade Rheology (Europa, thin shell)',
+        'description': (
+            'Andrade rheology for Europa thin Ice Ih shell (PPTest45, Variant B). '
+            'Fe-FeS core with xFeS=0.55. MOI from Gomez Casajus 2021. '
+            'k2 values are theoretical placeholders pending Europa Clipper data.'
+        ),
         'parameters': ['alpha', 'log10_zeta_Ih', 'log10_zeta_sil',
-                        'log10_eta_Ih', 'log10_eta_sil'],
+                       'log10_eta_Ih', 'log10_eta_sil'],
         'observables': {
-            'Re_k2': (0.328, 0.015),  # Europa estimates (placeholder)
-            'abs_Im_k2': (0.015, 0.005)
+            'CMR2': (0.3547, 0.0024),        # Gomez Casajus et al. (2021)
+            'Re_k2': (0.328, 0.15),          # Theoretical estimate; large σ reflects ignorance
+            'abs_Im_k2': (0.015, 0.010),     # Theoretical estimate; placeholder
         },
-        'test_module': 'PlanetProfile.Test.PPTest3',
+        'test_module': 'PlanetProfile.Test.PPTest45',
+        'rheology': 'andrade'
+    },
+
+    'andrade_europa_nocore': {
+        # Variant A: partially undifferentiated Europa (no metallic core).
+        # Represents upper limit on partial differentiation per Petricca et al. (2025).
+        'name': 'Andrade Rheology (Europa, no core)',
+        'description': (
+            'Andrade rheology for undifferentiated Europa (PPTest45 Variant A, Fe_CORE=False). '
+            'Upper limit on partial differentiation per Petricca et al. (2025).'
+        ),
+        'parameters': ['alpha', 'log10_zeta_Ih', 'log10_zeta_sil',
+                       'log10_eta_Ih', 'log10_eta_sil'],
+        'observables': {
+            'CMR2': (0.3547, 0.0024),
+            'Re_k2': (0.328, 0.15),
+            'abs_Im_k2': (0.015, 0.010),
+        },
+        'test_module': 'PlanetProfile.Test.PPTest45',
         'rheology': 'andrade'
     },
 }

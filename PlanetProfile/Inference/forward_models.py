@@ -652,6 +652,78 @@ def evaluate_heating_on_posterior(
     return idx, np.array(k2_results), heating_results
 
 
+# ============================================================================
+# Induction Forward Model
+# ============================================================================
+
+def forward_model_induction(
+    structure_data: Dict[str, Any],
+    freq_dict: Dict[str, float],
+    nn: int = 1,
+    do_parallel: bool = False
+) -> Optional[Dict[str, complex]]:
+    """
+    Compute complex induction amplitude Ae for a set of excitation frequencies.
+
+    For Path A (discrete reference structures) the induction response depends
+    only on the interior conductivity profile, not on rheological MCMC
+    parameters.  Call this once per reference structure and cache the result.
+
+    Args:
+        structure_data: Cached structure dict from extract_structure_from_planet().
+            Must contain 'rSigChange_m', 'sigmaLayers_Sm', 'R_body_m'.
+        freq_dict: Excitation periods in hours, keyed by canonical PP label.
+            Matches PlanetProfile.MagneticInduction.Moments.ExcitationsList.
+            Priority order for Europa: synodic (11.23 hr), orbital (85.21 hr),
+            synodic 2nd (5.62 hr), true anomaly (84.64 hr).
+            Example: {'synodic': 11.23, 'orbital': 85.21, 'synodic 2nd': 5.62}
+        nn: Spherical harmonic degree (1 = dipole, the dominant term).
+        do_parallel: Use multiprocessing for multiple frequencies.  Default
+            False; set True for batch precomputation outside the MCMC sampler.
+
+    Returns:
+        Dict[str, complex] mapping label → complex Ae, or None if induction
+        data is not available in structure_data.
+    """
+    rSigChange_m = structure_data.get('rSigChange_m')
+    sigmaLayers_Sm = structure_data.get('sigmaLayers_Sm')
+    R_body_m = structure_data.get('R_body_m')
+
+    if rSigChange_m is None or sigmaLayers_Sm is None or R_body_m is None:
+        log.debug(
+            "Induction data not in structure_data. "
+            "Rebuild cache with CALC_CONDUCT=True."
+        )
+        return None
+
+    try:
+        from PlanetProfile.MagneticInduction.MoonMag.symmetry_funcs import (
+            InducedAeList,
+        )
+    except ImportError as e:
+        log.warning(f"MoonMag unavailable for induction calculation: {e}")
+        return None
+
+    labels = list(freq_dict.keys())
+    T_hr = np.array([freq_dict[k] for k in labels], dtype=np.float64)
+    omegas = 2.0 * np.pi / (T_hr * 3600.0)
+
+    # rscale_moments = 1/R_body (units: 1/m) — MoonMag convention for the
+    # dimensionless scaling factor applied to the outer boundary radius.
+    rscale_moments = 1.0 / R_body_m
+
+    try:
+        Aes, _, _ = InducedAeList(
+            rSigChange_m, sigmaLayers_Sm, omegas, rscale_moments,
+            nn=nn, writeout=False, do_parallel=do_parallel,
+        )
+    except Exception as e:
+        log.warning(f"InducedAeList failed: {e}")
+        return None
+
+    return {label: complex(ae) for label, ae in zip(labels, Aes)}
+
+
 def create_log_likelihood(
     observables: Dict[str, Tuple[float, float]],
     structure_data: Dict[str, Any],

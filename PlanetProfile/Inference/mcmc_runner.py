@@ -184,6 +184,16 @@ class MCMCRunner:
             if 'k2' in observables:
                 obs_val, obs_err = observables['k2']
                 chi2 += ((np.sqrt(Re_k2**2 + Im_k2**2) - obs_val) / obs_err) ** 2
+            if 'CMR2' in observables:
+                obs_val, obs_err = observables['CMR2']
+                if 'grid_cache' in structure_data and 'Tb_K' in theta_dict:
+                    grid_Tb_values = structure_data['grid_Tb_values']
+                    idx = np.argmin(np.abs(grid_Tb_values - theta_dict['Tb_K']))
+                    cmr2_val = structure_data['grid_cache'][grid_Tb_values[idx]].get('CMR2', np.nan)
+                else:
+                    cmr2_val = structure_data.get('CMR2', np.nan)
+                if np.isfinite(cmr2_val):
+                    chi2 += ((cmr2_val - obs_val) / obs_err) ** 2
             return -0.5 * chi2
 
         return log_likelihood
@@ -259,7 +269,19 @@ class MCMCRunner:
         rheology = self._infer_rheology() if not self._use_flexible else None
 
         from .forward_models import forward_model_k2_flexible
+
+        # Helpers: extract scalar quantities per sample from the (possibly grid) cache.
+        def _get_cache_scalar(theta_dict, key):
+            if 'grid_cache' in self.structure_data and 'Tb_K' in theta_dict:
+                grid_Tb = self.structure_data['grid_Tb_values']
+                idx = np.argmin(np.abs(grid_Tb - theta_dict['Tb_K']))
+                return self.structure_data['grid_cache'][grid_Tb[idx]].get(key, np.nan)
+            return self.structure_data.get(key, np.nan)
+
         k2_results = []
+        cmr2_results = []
+        D_ocean_results = []
+        D_iceIh_results = []
         for i, theta in enumerate(samples):
             theta_dict = dict(zip(self.param_names, theta))
             Re_k2, Im_k2, _ = forward_model_k2_flexible(
@@ -267,10 +289,16 @@ class MCMCRunner:
                 return_heating=False, arrhenius_params=arrhenius_params
             )
             k2_results.append((Re_k2, Im_k2))
+            cmr2_results.append(_get_cache_scalar(theta_dict, 'CMR2'))
+            D_ocean_results.append(_get_cache_scalar(theta_dict, 'D_ocean_km'))
+            D_iceIh_results.append(_get_cache_scalar(theta_dict, 'D_iceIh_km'))
             if (i + 1) % 100 == 0:
                 log.info(f"  {i+1}/{n_samples} samples recomputed")
 
         k2_results = np.array(k2_results)
+        cmr2_results = np.array(cmr2_results)
+        D_ocean_results = np.array(D_ocean_results)
+        D_iceIh_results = np.array(D_iceIh_results)
 
         # Recompute heating on subset — same dict-based approach
         n_reeval = min(self.n_reeval, n_samples)
@@ -297,6 +325,9 @@ class MCMCRunner:
             param_names=self.param_names,
             param_labels=self.param_labels,
             k2_results=k2_results,
+            cmr2_results=cmr2_results,
+            D_ocean_results=D_ocean_results,
+            D_iceIh_results=D_iceIh_results,
             heating_results=heating_results,
             convergence_metrics=convergence_metrics,
             metadata={

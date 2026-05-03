@@ -11,7 +11,7 @@ MCMC parameter space:
   log10(eta_Ih) (Ice Ih viscosity):  [12, 16]  Pa s
   log10(eta_HP) (HP ice viscosity):  [10, 18]  Pa s
   log10(eta_sil) (Silicate visc.):   [12, 22]  Pa s  (wider for Maxwell)
-  Tb_K (basal temperature):          [255, 275] K
+  Tb_K (basal temperature):          [255, 270] K
 
 Observational constraints (Petricca et al. 2025):
   Re(k2) = 0.608 +/- 0.048
@@ -52,7 +52,7 @@ Planet.Bulk.Psurf_MPa = 0.15
 Planet.Bulk.Cmeasured = 0.33
 Planet.Bulk.Cuncertainty = 0.01
 Planet.Do.NONHYDROSTATIC = False
-Planet.Bulk.Tb_K = 265.0  # Default midpoint; MCMC varies 255-275
+Planet.Bulk.Tb_K = 265.0  # Default midpoint; MCMC varies 255-270
 Planet.Bulk.eccentricity = 0.0288
 Planet.Bulk.meanMotion_radps = 4.56e-6
 
@@ -66,7 +66,7 @@ Planet.Do.NO_ICE_CONVECTION = False
 """ Clathrate cap """
 Planet.Do.CLATHRATE = True
 Planet.Bulk.clathType = 'top'
-Planet.Bulk.clathMaxThick_m = 10e3
+Planet.Bulk.clathMaxThick_m = 5e3
 Planet.Steps.nClath = 30
 
 """ Enable Kalousova convection and self-consistent tidal heating """
@@ -108,8 +108,8 @@ Planet.Ocean.THydroMax_K = 350.0
 Planet.Sil.Qrad_Wkg = 1.5e-12
 Planet.Sil.Htidal_Wm3 = 1e-10
 Planet.Sil.etaRock_Pas = [1e19, 1e19]
-Planet.Do.POROUS_ROCK = False
-Planet.Do.CONSTANT_INNER_DENSITY = True
+Planet.Do.POROUS_ROCK = True
+Planet.Do.CONSTANT_INNER_DENSITY = False
 Planet.Sil.porosType = 'Han2014'
 Planet.Sil.HtidalMin_Wm3 = 1e-10
 Planet.Sil.phiRockMax_frac = 0.90

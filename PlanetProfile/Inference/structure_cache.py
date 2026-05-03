@@ -23,6 +23,121 @@ log = logging.getLogger('PlanetProfile')
 # Phase constant (from PlanetProfile.Utilities.defineStructs.Constants)
 PHASE_CLATH = 30  # Clathrate phase ID
 
+# TidalPy requires at least this many radial points per layer
+_TIDALPY_MIN_PTS = 5
+
+
+def _expand_thin_reduced_layers(Planet):
+    """Expand any layers in Planet.Reduced that have fewer than _TIDALPY_MIN_PTS points.
+
+    Must be called after PlanetProfile() and before SetupGravity().  TidalPy
+    requires ≥5 radial slices per layer; layers with fewer points cause
+    "N slices when at least 5 are required" errors.  This can happen when a
+    porous-silicate phase transition creates a 1-point boundary segment in the
+    reduced model.
+
+    Operates on the surface-down (decreasing-r) convention used by Planet.Reduced.
+    """
+    if not hasattr(Planet, 'Reduced') or Planet.Reduced.changeIndices is None:
+        return Planet
+
+    ci = list(Planet.Reduced.changeIndices)
+    n_layers = len(ci) - 1
+    if n_layers == 0:
+        return Planet
+
+    min_pts = _TIDALPY_MIN_PTS
+
+    # Quick check: any thin layers?
+    if all(ci[k + 1] - ci[k] >= min_pts for k in range(n_layers)):
+        return Planet  # nothing to do
+
+    r_in = np.array(Planet.Reduced.r_m, dtype=float)
+    rho_in = np.array(Planet.Reduced.rho_kgm3, dtype=float)
+    phase_in = list(Planet.Reduced.phase)
+    iConv_in = list(Planet.Reduced.iConv)
+
+    has_seismic = (hasattr(Planet.Reduced, 'Seismic')
+                   and hasattr(Planet.Reduced.Seismic, 'VP_kms')
+                   and Planet.Reduced.Seismic.VP_kms is not None)
+    has_visc = (hasattr(Planet.Reduced, 'eta_Pas')
+                and Planet.Reduced.eta_Pas is not None)
+
+    if has_seismic:
+        vp_in = np.array(Planet.Reduced.Seismic.VP_kms, dtype=float)
+        vs_in = np.array(Planet.Reduced.Seismic.VS_kms, dtype=float)
+        gs_in = np.array(Planet.Reduced.Seismic.GS_GPa, dtype=float)
+    if has_visc:
+        eta_in = np.array(Planet.Reduced.eta_Pas, dtype=float)
+
+    new_r, new_rho, new_phase, new_iConv = [], [], [], []
+    new_ci = [0]
+    if has_seismic:
+        new_vp, new_vs, new_gs = [], [], []
+    if has_visc:
+        new_eta = []
+
+    for k in range(n_layers):
+        s, e = ci[k], ci[k + 1]
+        n_pts = e - s
+
+        if n_pts < min_pts:
+            # Surface-down: r decreases within [s, e).
+            r_outer = r_in[s]      # largest r of this layer (index s)
+            # Determine the inner radial boundary to expand toward.
+            if k < n_layers - 1:
+                # Non-innermost thin layer: expand down to just above the next
+                # layer's outer edge, leaving a small margin to avoid overlap.
+                r_lower = r_in[ci[k + 1]]
+                # Place min_pts points from r_outer to (min_pts steps above r_lower)
+                r_exp = np.linspace(r_outer, r_lower, min_pts + 1)[:-1]
+            else:
+                # Innermost layer: expand toward the planetary center (r → 0).
+                # Use r_outer/min_pts as the inner endpoint.
+                r_inner = max(r_outer / min_pts, 1.0)
+                r_exp = np.linspace(r_outer, r_inner, min_pts)
+
+            # Properties are constant (replicate the single point's values).
+            new_r.extend(r_exp.tolist())
+            new_rho.extend([rho_in[s]] * min_pts)
+            new_phase.extend([phase_in[s]] * min_pts)
+            new_iConv.extend([iConv_in[s]] * min_pts)
+            if has_seismic:
+                new_vp.extend([vp_in[s]] * min_pts)
+                new_vs.extend([vs_in[s]] * min_pts)
+                new_gs.extend([gs_in[s]] * min_pts)
+            if has_visc:
+                new_eta.extend([eta_in[s]] * min_pts)
+            new_ci.append(new_ci[-1] + min_pts)
+            log.info(f'TidalPy prep: expanded layer {k} from {n_pts} to {min_pts} points '
+                     f'(r = {r_exp[0]/1e3:.1f}-{r_exp[-1]/1e3:.1f} km)')
+        else:
+            new_r.extend(r_in[s:e].tolist())
+            new_rho.extend(rho_in[s:e].tolist())
+            new_phase.extend(phase_in[s:e])
+            new_iConv.extend(iConv_in[s:e])
+            if has_seismic:
+                new_vp.extend(vp_in[s:e].tolist())
+                new_vs.extend(vs_in[s:e].tolist())
+                new_gs.extend(gs_in[s:e].tolist())
+            if has_visc:
+                new_eta.extend(eta_in[s:e].tolist())
+            new_ci.append(new_ci[-1] + n_pts)
+
+    Planet.Reduced.r_m = new_r
+    Planet.Reduced.rho_kgm3 = new_rho
+    Planet.Reduced.phase = new_phase
+    Planet.Reduced.iConv = new_iConv
+    Planet.Reduced.changeIndices = new_ci
+    if has_seismic:
+        Planet.Reduced.Seismic.VP_kms = new_vp
+        Planet.Reduced.Seismic.VS_kms = new_vs
+        Planet.Reduced.Seismic.GS_GPa = new_gs
+    if has_visc:
+        Planet.Reduced.eta_Pas = new_eta
+
+    return Planet
+
 
 def load_structure_cache(
     filepath: str,
@@ -108,6 +223,12 @@ def build_structure_from_pptest(
     mod = sys.modules[test_module_name]
     Planet = mod.Planet
 
+    # Inference framework always treats viscosity as a free MCMC parameter;
+    # Arrhenius temperature-dependence (if any) is applied separately via
+    # arrhenius_params.  Force it off here so eta_Pa_base in the cache
+    # reflects plain reference viscosities, not temperature-corrected ones.
+    Planet.Do.ARRHENIUS_VISCOSITY = False
+
     # Configure for structure calculation
     configParams.Gravity.backend = 'tidalpy'
     if rheology == 'maxwell':
@@ -121,9 +242,18 @@ def build_structure_from_pptest(
     configParams.CALC_NEW_GRAVITY = True
     configParams.NO_SAVEFILE = True
     configParams.SKIP_PLOTS = True
+    configParams.CALC_CONDUCT = True  # Required for induction layer extraction
+
+    # Slightly loosen MoI validation so the cache includes structures at all
+    # Tb_K even if CMR² drifts a little from the target.  Do NOT use ±1.0:
+    # CalcMoIWithEOS zero-initialises C_kgm2 and a wide window captures those
+    # zero entries in CMR2inds, causing an IndexError at the iValid lookup.
+    Planet.Bulk.CuncertaintyLower = 0.05
+    Planet.Bulk.CuncertaintyUpper = 0.05
 
     # Run PlanetProfile
     Planet, Params = PlanetProfile(Planet, configParams)
+    Planet = _expand_thin_reduced_layers(Planet)
     Params.CALC_NEW_GRAVITY = True
     Planet, Params = SetupGravity(Planet, Params)
 
@@ -320,6 +450,73 @@ def extract_structure_from_planet(
         'bodyname': Planet.name,
     }
 
+    _cmr2 = getattr(Planet, 'CMR2mean', None)
+    data['CMR2'] = float(_cmr2) if (_cmr2 is not None and np.isfinite(_cmr2)) else np.nan
+
+    # Ocean and Ice Ih thicknesses derived from layer profile
+    D_ocean_m = 0.0
+    D_iceIh_m = 0.0
+    for i_layer in range(n_layers):
+        s, e = changeIndices[i_layer], changeIndices[i_layer + 1]
+        thick = r_m[e - 1] - r_m[s]
+        ph = region_phases[i_layer]
+        if ph == '0':
+            D_ocean_m += thick
+        elif ph.startswith('Ih'):
+            D_iceIh_m += thick
+    data['D_ocean_km'] = D_ocean_m / 1e3
+    data['D_iceIh_km'] = D_iceIh_m / 1e3
+
+    # -------------------------------------------------------------------------
+    # Induction layer data (composition-agnostic)
+    # PP's conductivity pipeline (SwConduct / RktConduct / by-ion) has already
+    # populated Planet.sigma_Sm.  SetupInduction converts that to the compact
+    # layer representation used by MoonMag's AeList.
+    # -------------------------------------------------------------------------
+    R_body_m = float(Planet.Bulk.R_m)
+    _rSigChange_m = None
+    _sigmaLayers_Sm = None
+    _sigma_ocean_mean_Sm = np.nan
+
+    try:
+        _mag = getattr(Planet, 'Magnetic', None)
+        _rsc = getattr(_mag, 'rSigChange_m', None)
+        _sig = getattr(_mag, 'sigmaLayers_Sm', None)
+
+        if _rsc is None or not hasattr(_rsc, '__len__') or len(_rsc) == 0:
+            from PlanetProfile.MagneticInduction.MagneticInduction import SetupInduction
+            _old_cc = getattr(Params, 'CALC_CONDUCT', False)
+            Params.CALC_CONDUCT = True
+            Planet, Params = SetupInduction(Planet, Params)
+            Params.CALC_CONDUCT = _old_cc
+            _rsc = getattr(getattr(Planet, 'Magnetic', None), 'rSigChange_m', None)
+            _sig = getattr(getattr(Planet, 'Magnetic', None), 'sigmaLayers_Sm', None)
+
+        if _rsc is not None and len(_rsc) > 0:
+            _rSigChange_m = np.ascontiguousarray(_rsc, dtype=np.float64)
+            _sigmaLayers_Sm = np.ascontiguousarray(_sig, dtype=np.float64)
+
+            # Mean ocean conductivity (diagnostic): ocean occupies the band
+            # from the ice-shelf base down to the seafloor.
+            if D_ocean_m > 0:
+                r_ocean_top = R_body_m - D_iceIh_m
+                r_ocean_bot = r_ocean_top - D_ocean_m
+                ocean_mask = (
+                    (_rSigChange_m >= r_ocean_bot - 1e3) &
+                    (_rSigChange_m <= r_ocean_top + 1e3)
+                )
+                if np.any(ocean_mask):
+                    _sigma_ocean_mean_Sm = float(np.mean(_sigmaLayers_Sm[ocean_mask]))
+
+    except Exception as e:
+        log.warning(f"Could not extract induction layers from Planet: {e}")
+
+    data['rSigChange_m'] = _rSigChange_m
+    data['sigmaLayers_Sm'] = _sigmaLayers_Sm
+    data['wOcean_ppt'] = float(getattr(Planet.Ocean, 'wOcean_ppt', np.nan))
+    data['sigma_ocean_mean_Sm'] = _sigma_ocean_mean_Sm
+    data['R_body_m'] = R_body_m
+
     return data
 
 
@@ -409,6 +606,10 @@ def build_structure_grid(
             mod = sys.modules[test_module_name]
             Planet = mod.Planet
 
+            # Inference framework treats viscosity as a free MCMC parameter;
+            # disable Arrhenius so eta_Pa_base in the cache is not pre-corrected.
+            Planet.Do.ARRHENIUS_VISCOSITY = False
+
             # Set parameter value
             if param_name == 'Tb_K':
                 Planet.Bulk.Tb_K = param_val
@@ -430,8 +631,33 @@ def build_structure_grid(
             configParams.CALC_NEW_GRAVITY = True
             configParams.NO_SAVEFILE = True
             configParams.SKIP_PLOTS = True
+            configParams.CALC_CONDUCT = True  # Required for induction layer extraction
 
-            Planet, Params = PlanetProfile(Planet, configParams)
+            # ±0.05 keeps the window away from zero (zero-init'd C_kgm2 entries
+            # inside CalcMoIWithEOS would otherwise land in CMR2inds and break the
+            # iValid lookup at the Fe_CORE=False branch with a wider window).
+            Planet.Bulk.CuncertaintyLower = 0.05
+            Planet.Bulk.CuncertaintyUpper = 0.05
+
+            try:
+                Planet, Params = PlanetProfile(Planet, configParams)
+            except Exception as e_pp:
+                # PlanetProfile's internal SetupGravity can fail with a TidalPy
+                # thin-layer error when a porous-silicate phase transition occupies
+                # only 1 radial point in Reduced.  Planet is mutated in-place so
+                # Planet.Reduced is fully populated at the point of failure.
+                _is_thin_layer = ('slices when at least' in str(e_pp)
+                                  or 'has 2 slices' in str(e_pp))
+                if not _is_thin_layer:
+                    raise
+                if not (hasattr(Planet, 'Reduced')
+                        and Planet.Reduced.changeIndices is not None):
+                    raise RuntimeError(
+                        f"PlanetProfile failed before Reduced model was built: {e_pp}"
+                    ) from e_pp
+                Params = configParams
+                log.info(f"    Internal thin-layer error; expanding layers and retrying gravity")
+            Planet = _expand_thin_reduced_layers(Planet)
             Params.CALC_NEW_GRAVITY = True
             Planet, Params = SetupGravity(Planet, Params)
 
@@ -442,6 +668,8 @@ def build_structure_grid(
             cache[param_val] = structure_data
 
             log.info(f"    {structure_data['n_layers']} layers, {len(structure_data['r_m'])} points")
+            # Save incrementally so a killed process doesn't lose all progress
+            save_structure_cache(cache, cache_path)
 
         except Exception as e:
             log.warning(f"    FAILED: {e}")
@@ -452,7 +680,7 @@ def build_structure_grid(
     log.info(f"Structure grid complete: {n_in_grid}/{len(param_values)} succeeded "
              f"(+{len(missing)} attempted in {elapsed/60:.1f} min)")
 
-    # Save updated cache
+    # Final save (already saved incrementally, but update the summary log entry)
     save_structure_cache(cache, cache_path)
 
     return cache

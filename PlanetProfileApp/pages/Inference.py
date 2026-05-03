@@ -106,7 +106,8 @@ def initialize_session_state():
     if 'inference_observables' not in st.session_state:
         st.session_state.inference_observables = {
             'Re_k2': (0.608, 0.048),  # Petricca et al. 2025 defaults
-            'abs_Im_k2': (0.135, 0.035)
+            'abs_Im_k2': (0.135, 0.035),
+            'CMR2': (0.343, 0.001),   # Petricca et al. 2025
         }
 
     if 'inference_sampler_settings' not in st.session_state:
@@ -399,14 +400,44 @@ def render_observables_config():
             key='Im_k2_unc'
         )
 
+    # C/MR² (optional, checkbox-gated)
+    cmr2_default = st.session_state.inference_observables.get('CMR2', (0.343, 0.001))
+    use_cmr2 = st.checkbox(
+        "Include C/MR² moment-of-inertia constraint",
+        value=cmr2_default is not None,
+        key='use_cmr2_obs',
+        help="Adds a Gaussian χ² term for the axial moment of inertia computed from the structure profile."
+    )
+    cmr2_obs = None
+    if use_cmr2:
+        col1, col2 = st.columns(2)
+        with col1:
+            cmr2_value = st.number_input(
+                "C/MR² — Moment of inertia:",
+                value=float(cmr2_default[0]) if cmr2_default else 0.343,
+                format="%.4f",
+                key='CMR2_value'
+            )
+        with col2:
+            cmr2_uncertainty = st.number_input(
+                "± Uncertainty:",
+                value=float(cmr2_default[1]) if cmr2_default else 0.001,
+                format="%.5f",
+                key='CMR2_unc'
+            )
+        cmr2_obs = (cmr2_value, cmr2_uncertainty)
+
     # Update session state (use abs_Im_k2 as the canonical key)
-    st.session_state.inference_observables = {
+    new_observables = {
         'Re_k2': (Re_k2_value, Re_k2_uncertainty),
-        'abs_Im_k2': (Im_k2_value, Im_k2_uncertainty)
+        'abs_Im_k2': (Im_k2_value, Im_k2_uncertainty),
     }
+    if cmr2_obs is not None:
+        new_observables['CMR2'] = cmr2_obs
+    st.session_state.inference_observables = new_observables
 
     # Show reference
-    st.caption("**Reference:** Petricca et al. (2025) *Nature* — Titan k₂ constraints")
+    st.caption("**Reference:** Petricca et al. (2025) *Nature* — Titan k₂ and C/MR² constraints")
 
 
 def render_sampler_settings():
@@ -723,6 +754,7 @@ def render_results():
         Run inference above to see:
         - Corner plots (posterior marginals + covariances)
         - k₂ posterior scatter with 1σ/2σ observation ellipses
+        - C/MR² moment-of-inertia posterior histogram
         - Per-phase heating distributions
         - Export to PKL
         """)
@@ -769,13 +801,33 @@ def render_results():
         try:
             import corner
             import matplotlib.pyplot as plt
-            fig = plt.figure(figsize=(10, 10))
+
+            # Augment posterior samples with derived structure quantities when available.
+            # D_ocean and D_iceIh are functions of Tb_K via the grid cache, so their
+            # off-diagonal panels reveal which ocean/ice thickness range the posterior
+            # prefers, and the diagonal panels give the marginal distributions.
+            corner_samples = result.samples
+            corner_labels = list(result.param_labels)
+
+            D_ocean = getattr(result, 'D_ocean_results', None)
+            D_iceIh = getattr(result, 'D_iceIh_results', None)
+
+            if D_ocean is not None and np.any(np.isfinite(D_ocean)):
+                corner_samples = np.column_stack([corner_samples, D_ocean])
+                corner_labels.append(r'$D_{\rm ocean}$ (km)')
+            if D_iceIh is not None and np.any(np.isfinite(D_iceIh)):
+                corner_samples = np.column_stack([corner_samples, D_iceIh])
+                corner_labels.append(r'$D_{\rm IceIh}$ (km)')
+
+            n_dim = corner_samples.shape[1]
+            fig_size = max(10, 2.5 * n_dim)
+            fig = plt.figure(figsize=(fig_size, fig_size))
             corner.corner(
-                result.samples,
-                labels=result.param_labels,
+                corner_samples,
+                labels=corner_labels,
                 quantiles=[0.16, 0.5, 0.84],
                 show_titles=True,
-                title_fmt='.3f',
+                title_fmt='.2f',
                 title_kwargs={'fontsize': 10},
                 color='steelblue',
                 fig=fig,
@@ -846,6 +898,123 @@ def render_results():
             plt.close(fig)
         except Exception as e:
             st.warning(f"k₂ scatter unavailable: {e}")
+
+    # C/MR² posterior
+    with st.expander("⚖️ C/MR² Moment-of-Inertia Posterior", expanded=True):
+        cmr2_obs = result.config.observables.get('CMR2')
+        cmr2_results = getattr(result, 'cmr2_results', None)
+
+        if cmr2_results is None or not np.any(np.isfinite(cmr2_results)):
+            if cmr2_obs is None:
+                st.info("C/MR² was not included as an observable in this run. "
+                        "Enable it in **Observables** to add a moment-of-inertia constraint.")
+            else:
+                st.warning("C/MR² observable was specified but no finite values were computed. "
+                           "Rebuild the structure cache so CMR2 is extracted from Planet.CMR2mean.")
+        else:
+            try:
+                import matplotlib.pyplot as plt
+
+                finite_mask = np.isfinite(cmr2_results)
+                cmr2_vals = cmr2_results[finite_mask]
+
+                # Detect fixed-structure case: all samples share the same CMR2
+                # (occurs when no structural parameters like Tb_K are free).
+                cmr2_range = cmr2_vals.max() - cmr2_vals.min()
+                is_fixed = cmr2_range < 1e-8
+
+                fig, ax = plt.subplots(figsize=(7, 4))
+
+                if cmr2_obs is not None:
+                    obs_val, obs_err = cmr2_obs
+                else:
+                    obs_val, obs_err = None, None
+
+                if is_fixed:
+                    # Single value — show as a vertical line against the
+                    # observed constraint bands so the tension is visible.
+                    model_cmr2 = cmr2_vals[0]
+                    if obs_val is not None:
+                        x_lo = min(model_cmr2, obs_val) - 6 * obs_err
+                        x_hi = max(model_cmr2, obs_val) + 6 * obs_err
+                        x_range = np.linspace(x_lo, x_hi, 400)
+                        gauss = np.exp(-0.5 * ((x_range - obs_val) / obs_err) ** 2)
+                        ax.plot(x_range, gauss, 'r-', linewidth=2,
+                                label=fr'Observed: {obs_val:.4f} ± {obs_err:.4f}')
+                        ax.axvspan(obs_val - obs_err, obs_val + obs_err,
+                                   alpha=0.15, color='red', label=r'1$\sigma$')
+                        ax.axvspan(obs_val - 2 * obs_err, obs_val + 2 * obs_err,
+                                   alpha=0.07, color='red', label=r'2$\sigma$')
+                    ax.axvline(model_cmr2, color='steelblue', linewidth=2.5,
+                               label=f'Model: {model_cmr2:.5f}')
+                    ax.set_xlabel(r'$C/MR^2$')
+                    ax.set_ylabel('Likelihood (observed)')
+                    ax.set_title(r'C/MR² — Fixed Structure')
+                    ax.legend(fontsize=9)
+
+                    st.info(
+                        "The structure is **fixed** for this model (no structural parameters "
+                        "such as Tb_K are free). C/MR² is constant across all posterior "
+                        "samples and acts as a uniform chi² offset — it constrains the "
+                        "structure but does not discriminate between rheological models."
+                    )
+                else:
+                    # Variable CMR2 — full histogram
+                    ax.hist(cmr2_vals, bins=40, density=True, alpha=0.7,
+                            color='steelblue', label='Posterior')
+
+                    if obs_val is not None:
+                        x_range = np.linspace(
+                            min(cmr2_vals.min(), obs_val - 4 * obs_err),
+                            max(cmr2_vals.max(), obs_val + 4 * obs_err),
+                            300,
+                        )
+                        gauss = np.exp(-0.5 * ((x_range - obs_val) / obs_err) ** 2)
+                        hist_counts, _ = np.histogram(cmr2_vals, bins=40, density=True)
+                        peak = hist_counts.max()
+                        ax.plot(x_range, gauss * peak, 'r-', linewidth=2,
+                                label=fr'Observed: {obs_val:.4f} ± {obs_err:.4f}')
+                        ax.axvline(obs_val, color='red', linestyle='--',
+                                   linewidth=1.5, alpha=0.7)
+                        ax.axvspan(obs_val - obs_err, obs_val + obs_err,
+                                   alpha=0.12, color='red', label=r'1$\sigma$')
+                        ax.axvspan(obs_val - 2 * obs_err, obs_val + 2 * obs_err,
+                                   alpha=0.06, color='red', label=r'2$\sigma$')
+
+                    ax.set_xlabel(r'$C/MR^2$')
+                    ax.set_ylabel('Probability density')
+                    ax.set_title(r'Moment-of-Inertia Posterior')
+                    ax.legend(fontsize=9)
+
+                fig.tight_layout()
+                st.pyplot(fig)
+                plt.close(fig)
+
+                # Summary metrics
+                model_val = cmr2_vals[0] if is_fixed else np.median(cmr2_vals)
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Model C/MR²" if is_fixed else "Median C/MR²",
+                            f"{model_val:.5f}")
+                if not is_fixed:
+                    q16, q84 = np.percentile(cmr2_vals, [16, 84])
+                    col2.metric("16th–84th %ile", f"{q16:.5f} – {q84:.5f}")
+                if obs_val is not None:
+                    tension = abs(model_val - obs_val) / obs_err
+                    delta = model_val - obs_val
+                    col3.metric("Tension (σ)", f"{tension:.1f}σ",
+                                delta=f"{delta:+.5f}",
+                                delta_color="inverse")
+
+                if not is_fixed and obs_val is not None:
+                    n_out = np.sum(np.abs(cmr2_vals - obs_val) > 2 * obs_err)
+                    if n_out > 0:
+                        st.caption(
+                            f"{n_out} / {len(cmr2_vals)} samples "
+                            f"({n_out/len(cmr2_vals):.1%}) fall outside the 2σ constraint."
+                        )
+
+            except Exception as e:
+                st.warning(f"C/MR² posterior plot unavailable: {e}")
 
     # Heating distribution
     with st.expander("🔥 Heating Distribution", expanded=False):

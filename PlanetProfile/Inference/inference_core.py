@@ -109,6 +109,9 @@ class InferenceResult:
         param_names: Parameter names in order (matches samples columns)
         param_labels: LaTeX-formatted labels for plotting
         k2_results: Re(k2) and Im(k2) for evaluated samples (n_eval, 2)
+        cmr2_results: C/MR² values for all posterior samples (n_samples,)
+        D_ocean_results: Ocean thickness (km) for all posterior samples (n_samples,)
+        D_iceIh_results: Ice Ih shell thickness (km) for all posterior samples (n_samples,)
         heating_results: Per-phase heating for evaluated samples
         convergence_metrics: R-hat, ESS, acceptance rate, etc.
         metadata: Runtime info, versions, timestamps, etc.
@@ -119,6 +122,9 @@ class InferenceResult:
     param_names: List[str]
     param_labels: List[str]
     k2_results: Optional[np.ndarray] = None
+    cmr2_results: Optional[np.ndarray] = None
+    D_ocean_results: Optional[np.ndarray] = None
+    D_iceIh_results: Optional[np.ndarray] = None
     heating_results: Optional[List[Dict[str, float]]] = None
     convergence_metrics: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
