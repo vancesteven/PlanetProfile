@@ -1318,7 +1318,7 @@ def GetTfreeze(oceanEOS, P_MPa, T_K, TfreezeRange_K=50, TRes_K=0.05):
     topPhase = oceanEOS.fn_phase(P_MPa, T_K)
     if topPhase == 0:
         log.warning('Attempting to get phase change from liquid to solid, not solid to liquid as expected.')
-    phaseChange = lambda T: 0.5 - (1 - int(oceanEOS.fn_phase(P_MPa, T) > 0))
+    phaseChange = lambda T: 0.5 - (1 - bool(oceanEOS.fn_phase(P_MPa, T) > 0))
 
     try:
         Tfreeze_K = GetZero(phaseChange, bracket=[T_K, T_K+TfreezeRange_K], xtol=abs(TRes_K)).root + TRes_K
