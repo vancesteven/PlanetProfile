@@ -109,9 +109,12 @@ Examples:
     elif 'PPTest45' in test_module:
         test_module_noclath = test_module
         bodyname = 'Titan'
+    elif 'PPTest46' in test_module:
+        test_module_noclath = test_module  # Europa has no clathrates
+        bodyname = 'Europa'
     else:
         log.error(f"Unknown test module: {test_module}")
-        log.error("Supported: PPTest3, PPTest41, PPTest42, PPTest43, PPTest44")
+        log.error("Supported: PPTest3, PPTest41, PPTest42, PPTest43, PPTest44, PPTest45, PPTest46")
         sys.exit(1)
 
     # Create output directory

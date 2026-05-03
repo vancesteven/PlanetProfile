@@ -24,6 +24,7 @@ configPPmontecarlo.py
 *.log
 *.pkl
 *.bm
+graphify-out/*
 startup.m
 Thermodynamics/MgSO4/phaseLookupMgSO4.mat
 WIP/*

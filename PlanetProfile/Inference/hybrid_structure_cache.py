@@ -74,22 +74,35 @@ def build_hybrid_hydrosphere_grid(
         return cache_data
 
     templates: Dict[float, Tuple[Any, Any]] = {}
+    failed_tb: set = set()
     t0 = time.time()
     for tb_k, d_hydro_km in missing:
+        if tb_k in failed_tb:
+            log.warning(f"Skipping D_hydro_km={d_hydro_km} — Tb_K={tb_k:.3f} template failed earlier")
+            continue
         if tb_k not in templates:
-            templates[tb_k] = _run_hydrosphere_template(
-                test_module_name,
-                tb_k,
+            try:
+                templates[tb_k] = _run_hydrosphere_template(
+                    test_module_name,
+                    tb_k,
+                    rheology=rheology,
+                )
+            except Exception as exc:
+                log.warning(f"Skipping Tb_K={tb_k:.3f}: template failed: {exc}")
+                failed_tb.add(tb_k)
+                continue
+        Planet, Params = templates[tb_k]
+        try:
+            structure = synthesize_hybrid_structure(
+                Planet,
+                Params,
+                d_hydro_km=d_hydro_km,
+                rho_sil_kgm3=rho_sil_kgm3,
                 rheology=rheology,
             )
-        Planet, Params = templates[tb_k]
-        structure = synthesize_hybrid_structure(
-            Planet,
-            Params,
-            d_hydro_km=d_hydro_km,
-            rho_sil_kgm3=rho_sil_kgm3,
-            rheology=rheology,
-        )
+        except Exception as exc:
+            log.warning(f"Skipping Tb_K={tb_k:.3f}, D_hydro_km={d_hydro_km}: synthesis failed: {exc}")
+            continue
         structure['grid_coordinates'] = {
             'Tb_K': float(tb_k),
             'D_hydro_km': float(d_hydro_km),
@@ -104,6 +117,7 @@ def build_hybrid_hydrosphere_grid(
     log.info(f"Hybrid hydrosphere grid complete: {len(grid_cache)}/{len(all_points)} "
              f"points in {elapsed/60:.1f} min")
     _log_hybrid_summary(grid_cache)
+    cache_data['grid_metadata']['build_complete'] = True
     save_structure_cache(cache_data, cache_path)
     return cache_data
 
@@ -193,7 +207,15 @@ def _run_hydrosphere_template(test_module_name: str, tb_k: float, rheology: str)
 
 def _hydrosphere_groups(Planet, d_hydro_m: float) -> List[Dict[str, float]]:
     z_bounds = np.asarray(Planet.z_m, dtype=float)
-    n_hydro_max = int(Planet.Steps.nSurfIce + Planet.Steps.nOceanMax)
+    n_surf_ice = int(Planet.Steps.nSurfIce or 0)
+    n_ocean_max = int(Planet.Steps.nOceanMax or 0)
+    n_hydro_max = n_surf_ice + n_ocean_max
+    if n_hydro_max == 0 or len(z_bounds) < 2:
+        raise ValueError(
+            f"Planet template for Tb_K={Planet.Bulk.Tb_K:.3f} has no hydrosphere layers "
+            f"(nSurfIce={n_surf_ice}, nOceanMax={n_ocean_max}). "
+            f"Check for PP convergence warnings."
+        )
     max_template_depth = float(z_bounds[min(n_hydro_max, len(z_bounds) - 1)])
     if d_hydro_m > max_template_depth:
         raise ValueError(
