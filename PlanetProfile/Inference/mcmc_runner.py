@@ -194,6 +194,11 @@ class MCMCRunner:
                     cmr2_val = structure_data.get('CMR2', np.nan)
                 if np.isfinite(cmr2_val):
                     chi2 += ((cmr2_val - obs_val) / obs_err) ** 2
+            if 'Mtot_kg' in observables:
+                obs_val, obs_err = observables['Mtot_kg']
+                mtot_val = structure_data.get('Mtot_kg', np.nan)
+                if np.isfinite(mtot_val):
+                    chi2 += ((mtot_val - obs_val) / obs_err) ** 2
             return -0.5 * chi2
 
         return log_likelihood

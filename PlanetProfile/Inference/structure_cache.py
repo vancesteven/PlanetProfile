@@ -15,7 +15,7 @@ import time
 import logging
 import importlib
 import numpy as np
-from typing import Dict, Optional, Any, List, Tuple
+from typing import Dict, Optional, Any, List, Tuple, Sequence
 from pathlib import Path
 
 log = logging.getLogger('PlanetProfile')
@@ -451,7 +451,12 @@ def extract_structure_from_planet(
     }
 
     _cmr2 = getattr(Planet, 'CMR2mean', None)
-    data['CMR2'] = float(_cmr2) if (_cmr2 is not None and np.isfinite(_cmr2)) else np.nan
+    _cmr2 = float(_cmr2) if (_cmr2 is not None and np.isfinite(_cmr2)) else np.nan
+    data['CMR2mean'] = _cmr2
+    data['CMR2'] = _cmr2  # Backward-compatible alias used by current inference likelihoods.
+    data['Mtot_kg'] = float(getattr(Planet, 'Mtot_kg', getattr(Planet.Bulk, 'M_kg', np.nan)))
+    data['rhoSilWithCore_kgm3'] = float(getattr(Planet.Sil, 'rhoSilWithCore_kgm3', np.nan))
+    data['rhoSil_kgm3'] = data['rhoSilWithCore_kgm3']
 
     # Ocean and Ice Ih thicknesses derived from layer profile
     D_ocean_m = 0.0
@@ -518,6 +523,24 @@ def extract_structure_from_planet(
     data['R_body_m'] = R_body_m
 
     return data
+
+
+def _apply_structure_grid_parameter(Planet, param_name: str, param_value: float) -> None:
+    """Apply a structure-grid control parameter to a Planet object before PP run."""
+    if param_name == 'Tb_K':
+        Planet.Bulk.Tb_K = float(param_value)
+    elif param_name == 'rhoSilInput_kgm3':
+        # Scott Chang Monte Carlo semantics: direct silicate-density control.
+        # This intentionally trades EOS self-consistency for a controlled mass/MoI axis.
+        Planet.Sil.rhoSilWithCore_kgm3 = float(param_value)
+        Planet.Do.CONSTANT_INNER_DENSITY = True
+    else:
+        raise ValueError(f"Unsupported structure-grid parameter: {param_name}")
+
+
+def _grid_key(values: Sequence[float]) -> Tuple[float, ...]:
+    """Normalize floating grid coordinates for stable pickle keys."""
+    return tuple(float(v) for v in values)
 
 
 def save_structure_cache(
@@ -684,6 +707,147 @@ def build_structure_grid(
     save_structure_cache(cache, cache_path)
 
     return cache
+
+
+def build_structure_nd_grid(
+    test_module_name: str,
+    grid_params: Dict[str, Sequence[float]],
+    cache_path: str,
+    rheology: str = 'andrade',
+    force_rebuild: bool = False
+) -> Dict[str, Any]:
+    """
+    Build an N-dimensional structure cache.
+
+    Cache schema:
+      {
+        'grid_metadata': {
+            'schema_version': 2,
+            'grid_parameters': ['Tb_K', 'rhoSilInput_kgm3'],
+            'grid_values': {'Tb_K': [...], 'rhoSilInput_kgm3': [...]},
+            'assumptions': [...]
+        },
+        'grid_cache': {
+            (Tb_K, rhoSilInput_kgm3): structure_data,
+            ...
+        }
+      }
+    """
+    from itertools import product
+    from PlanetProfile.Main import PlanetProfile
+    from PlanetProfile.Gravity.Gravity import SetupGravity
+    from PlanetProfile.Utilities.defineStructs import EOSlist
+    from PlanetProfile.GetConfig import Params as configParams
+
+    cache_path = Path(cache_path)
+    param_names = list(grid_params.keys())
+    param_values = {
+        name: [float(v) for v in values]
+        for name, values in grid_params.items()
+    }
+
+    if cache_path.exists() and not force_rebuild:
+        log.info(f"Loading ND structure grid from {cache_path}")
+        with open(cache_path, 'rb') as f:
+            cache_data = pickle.load(f)
+    else:
+        cache_data = {
+            'grid_metadata': {
+                'schema_version': 2,
+                'grid_parameters': param_names,
+                'grid_values': param_values,
+                'rheology': rheology,
+                'source_module': test_module_name,
+                'assumptions': [
+                    'rhoSilInput_kgm3 maps to Planet.Sil.rhoSilWithCore_kgm3.',
+                    'rhoSilInput_kgm3 forces Planet.Do.CONSTANT_INNER_DENSITY=True.',
+                    'This gives direct silicate-density control but is not fully EOS self-consistent.',
+                ],
+            },
+            'grid_cache': {},
+        }
+
+    grid_cache = cache_data.setdefault('grid_cache', {})
+    all_points = list(product(*(param_values[name] for name in param_names)))
+    missing = [point for point in all_points if _grid_key(point) not in grid_cache]
+
+    if not missing:
+        log.info(f"All {len(all_points)} ND grid points already cached")
+        return cache_data
+
+    log.info(f"Computing {len(missing)}/{len(all_points)} ND grid points for {param_names}")
+    t0 = time.time()
+
+    for i_point, point in enumerate(missing):
+        theta = dict(zip(param_names, point))
+        log.info(f"  [{i_point + 1}/{len(missing)}] {theta}")
+
+        try:
+            EOSlist.loaded.clear()
+
+            if test_module_name in sys.modules:
+                importlib.reload(sys.modules[test_module_name])
+            else:
+                importlib.import_module(test_module_name)
+
+            Planet = sys.modules[test_module_name].Planet
+            Planet.Do.ARRHENIUS_VISCOSITY = False
+            for name, value in theta.items():
+                _apply_structure_grid_parameter(Planet, name, value)
+
+            configParams.Gravity.backend = 'tidalpy'
+            if rheology == 'maxwell':
+                configParams.Gravity.rheology_models = {
+                    '0': 'newton', 'Ih': 'maxwell', 'Ih_conv': 'maxwell',
+                    'II': 'maxwell', 'III': 'maxwell', 'III_conv': 'maxwell',
+                    'IV': 'maxwell', 'V': 'maxwell', 'V_conv': 'maxwell', 'VI': 'maxwell',
+                    'Sil': 'maxwell', 'Fe': 'elastic', 'Clath': 'elastic', 'Clath_conv': 'maxwell'
+                }
+            configParams.CALC_NEW = True
+            configParams.CALC_NEW_GRAVITY = True
+            configParams.NO_SAVEFILE = True
+            configParams.SKIP_PLOTS = True
+            configParams.CALC_CONDUCT = True
+            Planet.Bulk.CuncertaintyLower = 0.05
+            Planet.Bulk.CuncertaintyUpper = 0.05
+
+            try:
+                Planet, Params = PlanetProfile(Planet, configParams)
+            except Exception as e_pp:
+                _is_thin_layer = ('slices when at least' in str(e_pp)
+                                  or 'has 2 slices' in str(e_pp))
+                if not _is_thin_layer:
+                    raise
+                if not (hasattr(Planet, 'Reduced')
+                        and Planet.Reduced.changeIndices is not None):
+                    raise RuntimeError(
+                        f"PlanetProfile failed before Reduced model was built: {e_pp}"
+                    ) from e_pp
+                Params = configParams
+                log.info("    Internal thin-layer error; expanding layers and retrying gravity")
+            Planet = _expand_thin_reduced_layers(Planet)
+            Params.CALC_NEW_GRAVITY = True
+            Planet, Params = SetupGravity(Planet, Params)
+
+            structure_data = extract_structure_from_planet(Planet, Params)
+            structure_data['grid_coordinates'] = theta
+            structure_data['param_name'] = ','.join(param_names)
+            structure_data['param_value'] = _grid_key(point)
+            grid_cache[_grid_key(point)] = structure_data
+
+            log.info(f"    {structure_data['n_layers']} layers, {len(structure_data['r_m'])} points")
+            save_structure_cache(cache_data, cache_path)
+
+        except Exception as e:
+            log.warning(f"    FAILED: {e}")
+            continue
+
+    elapsed = time.time() - t0
+    log.info(f"ND structure grid complete: {len(grid_cache)}/{len(all_points)} succeeded "
+             f"in {elapsed/60:.1f} min")
+    save_structure_cache(cache_data, cache_path)
+
+    return cache_data
 
 
 def validate_structure_cache(

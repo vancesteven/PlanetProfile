@@ -1,56 +1,45 @@
 # Session Handoff
 
-## 2026-04-20 (Session 4 of Arrhenius/Tidal work)
+## 2026-05-02 (PPTest45 hybrid-hydrosphere work)
 
 ### Branch
-`genai` -- Arrhenius HP ice viscosity, self-consistent tidal heating, and related bug fixes
+`genai`
 
 ### Current Objective
-All planned Arrhenius/tidal tasks are COMPLETE, including Ice V etaMelt correction.
-Ran out of tokens while planning inference tab addition to PlanetProfileApp. sbi is installed and the plan included starting with the recently developed mcmc test scripts to implement the sbi machinery and add a tab under "Exploreogram" in the gui. Exploreogram.py provides some of the starting material to build from for the inference tab.
+Add a PPTest45-only hybrid inference path that keeps PlanetProfile hydrosphere PT self-consistent, but treats total hydrosphere thickness as the control so `Mtot_kg` and `CMR2mean` become outputs. Keep PPTest41/42 MCMC paths intact and ignore PPTest43/44 for now.
 
-### Progress This Session (Session 4)
-
-**Completed:**
-1. Lowered Ice V `etaMelt_Pas` from 5e14 to 2.8e14 Pa·s in defineStructs.py, citing Durham & Stern (2001) flow law analysis. This pushes Ice V past the critical Rayleigh number threshold.
-2. Re-ran PPTest35: Ice V now convects (Dconv=134.1 km, eLid=17.8 km). All three HP ice phases are supercritical.
-
-### Progress Sessions 1-3
+### Progress This Session
 
 **Completed:**
-1. Wired Arrhenius viscosity through `GetOceanHPIceEOS` in LayerPropagators.py -- both MgSO4 and general code paths now pass `**_arrheniusKwargs[phaseID]` to `GetIceEOS()` for phases III, V, VI when `Planet.Do.ARRHENIUS_VISCOSITY = True`.
-2. Fixed ConvectionPlots.py tidal formulas: eps0 = (3/2)*e*n^2*R/g and Maxwell D = omega^2*eta*mu^2/(mu^2+omega^2*eta^2).
-3. Implemented self-consistent tidal heating switch in Gravity.py: when `DO_SELF_CONSISTENT_HTIDAL=True`, overrides `HtidalIce_Wm3` with k2-implied value.
-4. Updated PPTest35 with `ARRHENIUS_VISCOSITY = True` and `etaRock_Pas = [1e22, 1e22]` (Petricca 2025).
-5. Fixed subcritical convection eLid bug: eLid = zb_m (not 0) in subcritical case.
-6. Fixed spurious "temperate layer" message for subcritical ice layers (added `Dconv_m > 0` guard).
-7. Fixed waterless body `CalcMoIConstantRho` crash (empty dChydro guard).
-8. Fixed nan Pmid crash in `ConvectionDeschampsSotin2001` (early return when Pmid becomes nan).
-9. Fixed whole-shell clathrate `surfIceEOS['Ih']` KeyError (fall back to any loaded EOS).
-10. Ran full BuildTest: 78+ profiles, 0 errors.
+1. Added `PlanetProfile.Test.PPTest45` as a deep-copy of PPTest42 with documentation for the relaxed hydrosphere-thickness approach.
+2. Added an isolated hybrid cache builder in `PlanetProfile/Inference/hybrid_structure_cache.py` that synthesizes `Tb_K × D_hydro_km` structures and computes `Mtot_kg` / `CMR2mean` directly.
+3. Added `D_hydro_km` registry metadata and a PPTest45-specific Maxwell preset.
+4. Added optional `Mtot_kg` support to the inference likelihood.
+5. Added CLI support for PPTest45 hybrid grid generation in `prepare_structure_variants.py`.
+6. Confirmed the PPTest45 direct run succeeds and the 2x2 hybrid grid shows `D_hydro_km` changes both `Mtot_kg` and `CMR2mean` at fixed `Tb_K`.
+7. Copied the MoonMag induced `.mat` files into the repo so the next commit can include them.
 
-### PPTest35 Results (Titan no-ocean, Arrhenius HP ice)
-**After Ice V etaMelt correction (2.8e14 Pa·s):**
-- Ice III: RaCrit=7.86e7, eLid=7.6 km, Dconv=74.3 km -- SUPERCRITICAL
-- Ice V: RaCrit=1.12e8, eLid=17.8 km, Dconv=134.1 km -- SUPERCRITICAL (was subcritical at 5e14)
-- Ice VI: RaCrit=7.03e8, eLid=21.3 km, Dconv=513.4 km -- SUPERCRITICAL
+### Key Results
+- PPTest45 direct run succeeded with `Valid=True`.
+- Hybrid 2x2 proof grid:
+  - `Tb_K=251.2, D_hydro_km=400`: `Mtot_kg=1.835328e23`, `CMR2mean=0.454437666`
+  - `Tb_K=251.2, D_hydro_km=500`: `Mtot_kg=1.726965e23`, `CMR2mean=0.417807955`
+  - `Tb_K=251.7, D_hydro_km=400`: `Mtot_kg=1.836911e23`, `CMR2mean=0.454898425`
+  - `Tb_K=251.7, D_hydro_km=500`: `Mtot_kg=1.729016e23`, `CMR2mean=0.418451549`
 
-### Decision: Tmelt_K for Arrhenius
-Used fixed reference melting temperatures: Ice III=253K, Ice V=264K, Ice VI=290K.
+### Next Steps
+1. Write `Test45_mcmc_*.py` as the comparison harness for the new hybrid path.
+2. Use Titan mass `13455.3e19 kg` as a tight likelihood target, with radius/density uncertainty handled through the model geometry rather than mass uncertainty.
+3. Compare PPTest45 MCMC against the existing PPTest41 and PPTest42 MCMC scripts.
 
-### Remaining Opportunities
-- Verify Arrhenius viscosity is actually temperature-dependent in HP ice layers (check pkl output)
-- The surface heat flux (5.8 mW/m^2) is below Petricca's ~40 mW/m^2 -- may need higher tidal heating
-- Full self-consistent iteration (currently single-pass): re-run with updated HtidalIce_Wm3
-- Test 28 (the last standard test) was not reached during BuildTest timeout
-
-### Files Modified (All Sessions)
+### Files Modified in This Session
 
 | File | Changes |
 |------|---------|
-| `PlanetProfile/Utilities/defineStructs.py` | Ice V etaMelt_Pas: 5e14 → 2.8e14 (Durham & Stern 2001) |
-| `PlanetProfile/Thermodynamics/LayerPropagators.py` | +Arrhenius kwargs block in GetOceanHPIceEOS, +Dconv>0 guard for melt, +nan/thin layer guard, +CalcMoI empty dChydro fix, +surfIceEOS fallback |
-| `PlanetProfile/Plotting/ConvectionPlots.py` | Fixed eps0 and Maxwell D formulas |
-| `PlanetProfile/Gravity/Gravity.py` | Added DO_SELF_CONSISTENT_HTIDAL override branch |
-| `PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py` | Fixed subcritical eLid=zb_m, +nan Pmid early return |
-| `PlanetProfile/Test/PPTest35.py` | Added ARRHENIUS_VISCOSITY=True, etaRock_Pas=[1e22,1e22] |
+| `PlanetProfile/Test/PPTest45.py` | New PPTest45 deep-copy of Titan Maxwell setup |
+| `PlanetProfile/Inference/hybrid_structure_cache.py` | New hybrid structure cache builder for `Tb_K × D_hydro_km` |
+| `PlanetProfile/Inference/prepare_structure_variants.py` | Added PPTest45 hybrid-grid CLI path |
+| `PlanetProfile/Inference/parameter_registry.py` | Added `D_hydro_km` and PPTest45 preset metadata |
+| `PlanetProfile/Inference/mcmc_runner.py` | Added optional `Mtot_kg` likelihood term |
+| `PlanetProfile/Inference/structure_cache.py` | Added structure extraction fields used by the hybrid path |
+| `PlanetProfile/MagneticInduction/MoonMag/induced/*.mat` | Added MoonMag induced data files required for current runs |

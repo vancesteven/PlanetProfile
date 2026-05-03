@@ -194,6 +194,41 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
         rheology_constraint=None
     ),
 
+    'rhoSilInput_kgm3': ParameterDef(
+        id='rhoSilInput_kgm3',
+        label='Silicate Density',
+        latex_label=r'$\rho_{\rm sil}$ (kg m$^{-3}$)',
+        description=(
+            'Self-consistent-grid control parameter for Titan silicate density. '
+            'Maps to Planet.Sil.rhoSilWithCore_kgm3 and forces '
+            'Planet.Do.CONSTANT_INNER_DENSITY=True during structure-cache generation. '
+            'This gives direct density control but relaxes full EOS self-consistency.'
+        ),
+        category='structure',
+        default_prior='uniform',
+        default_bounds=[2400.0, 3500.0],
+        units='kg/m^3',
+        requires_structure_rebuild=True,
+        rheology_constraint=None
+    ),
+
+    'D_hydro_km': ParameterDef(
+        id='D_hydro_km',
+        label='Hydrosphere Thickness',
+        latex_label=r'$D_{\rm hydro}$ (km)',
+        description=(
+            'Hybrid PPTest45 structural control: total hydrosphere thickness '
+            'from surface to silicate top. Hydrosphere PT remains controlled by '
+            'Tb_K; Mtot_kg and CMR2mean are computed outputs.'
+        ),
+        category='structure',
+        default_prior='uniform',
+        default_bounds=[300.0, 700.0],
+        units='km',
+        requires_structure_rebuild=True,
+        rheology_constraint=None
+    ),
+
     # Note: Future structural parameters to add when grid caching is implemented:
     # - 'ocean_salinity_ppt': Ocean salinity (affects ocean density, freezing point)
     # - 'ice_shell_thickness_km': Direct ice shell thickness constraint
@@ -247,6 +282,24 @@ PARAMETER_PRESETS = {
             'CMR2': (0.343, 0.001),  # Petricca et al. (2025)
         },
         'test_module': 'PlanetProfile.Test.PPTest42',
+        'rheology': 'maxwell'
+    },
+
+    'maxwell_titan_hybrid_hydrosphere': {
+        'name': 'Maxwell Rheology + Hybrid Hydrosphere Thickness (Titan)',
+        'description': (
+            'PPTest45 prototype. Keeps PlanetProfile hydrosphere PT self-consistent '
+            'in Tb_K, but samples D_hydro_km instead of using MoI closure to set '
+            'the hydrosphere/silicate boundary.'
+        ),
+        'parameters': ['log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil', 'Tb_K', 'D_hydro_km'],
+        'observables': {
+            'Re_k2': (0.608, 0.048),
+            'abs_Im_k2': (0.135, 0.035),
+            'CMR2': (0.343, 0.001),
+            'Mtot_kg': (1.3452e23, 1.0e20),
+        },
+        'test_module': 'PlanetProfile.Test.PPTest45',
         'rheology': 'maxwell'
     },
 

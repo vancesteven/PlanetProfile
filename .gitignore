@@ -17,6 +17,8 @@ configPPmontecarlo.py
 /*.txt
 *pycache*
 *.mat
+!PlanetProfile/MagneticInduction/MoonMag/induced/
+!PlanetProfile/MagneticInduction/MoonMag/induced/*.mat
 *.csv
 *.tab
 *.log
@@ -48,3 +50,8 @@ CLAUDE.md
 *_IMPLEMENTATION*.md
 output/
 test_*.py
+.claude-flow/
+.swarm/
+ruvector.db
+Testing.py
+tests/
