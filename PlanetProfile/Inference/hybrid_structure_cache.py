@@ -34,9 +34,14 @@ def build_hybrid_hydrosphere_grid(
     cache_path: str,
     rho_sil_kgm3: Optional[float] = None,
     rheology: str = 'maxwell',
+    convection_model: str = 'ds2001',
     force_rebuild: bool = False,
 ) -> Dict[str, Any]:
-    """Build a PPTest45-only hybrid grid over Tb_K x D_hydro_km."""
+    """Build a hybrid grid over Tb_K x D_hydro_km.
+
+    Args:
+        convection_model: 'ds2001' (default) or 'yao2014' for Ice Ih convection.
+    """
     cache_path = Path(cache_path)
     tb_grid = [float(v) for v in tb_values]
     d_grid = [float(v) for v in d_hydro_values_km]
@@ -52,6 +57,7 @@ def build_hybrid_hydrosphere_grid(
                 'cache_type': 'hybrid_hydrosphere_thickness',
                 'source_module': test_module_name,
                 'rheology': rheology,
+                'convection_model': convection_model,
                 'grid_parameters': ['Tb_K', 'D_hydro_km'],
                 'grid_values': {'Tb_K': tb_grid, 'D_hydro_km': d_grid},
                 'rho_sil_kgm3': rho_sil_kgm3,
@@ -87,6 +93,7 @@ def build_hybrid_hydrosphere_grid(
                     test_module_name,
                     tb_k,
                     rheology=rheology,
+                    convection_model=convection_model,
                     max_d_hydro_km=max_d_hydro_km,
                 )
             except Exception as exc:
@@ -171,6 +178,7 @@ def synthesize_hybrid_structure(
 
 
 def _run_hydrosphere_template(test_module_name: str, tb_k: float, rheology: str,
+                              convection_model: str = 'ds2001',
                               max_d_hydro_km: float = 800.0):
     from PlanetProfile.GetConfig import Params as configParams
     from PlanetProfile.Main import PlanetProfile
@@ -184,7 +192,10 @@ def _run_hydrosphere_template(test_module_name: str, tb_k: float, rheology: str,
 
     Planet = sys.modules[test_module_name].Planet
     Planet.Bulk.Tb_K = float(tb_k)
-    Planet.Do.ARRHENIUS_VISCOSITY = False
+    if convection_model == 'yao2014':
+        Planet.Do.SPHERICAL_CONVECTION = True
+    else:
+        Planet.Do.ARRHENIUS_VISCOSITY = False
 
     # Use CONSTANT_INNER_DENSITY so PP sets nHydro = nOceanMax (no MoI
     # truncation).  The grid builder only needs the hydrosphere PT template;

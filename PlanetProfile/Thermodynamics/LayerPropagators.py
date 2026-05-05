@@ -1268,9 +1268,14 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa, minPres_MPa=None, minTres_K=Non
     #   Ice III ~253 K (at ~300 MPa), Ice V ~264 K (at ~500 MPa), Ice VI ~290 K (at ~1100 MPa)
     # These are approximate; the Arrhenius formula is mainly sensitive to (1/T - 1/Tmelt) ratios.
     _TmeltRef_K = {3: 253.0, 5: 264.0, 6: 290.0}
+    _phase_arrhenius = {
+        3: Planet.Do.ARRHENIUS_VISCOSITY_III or Planet.Do.ARRHENIUS_VISCOSITY,
+        5: Planet.Do.ARRHENIUS_VISCOSITY_V or Planet.Do.ARRHENIUS_VISCOSITY,
+        6: Planet.Do.ARRHENIUS_VISCOSITY_VI or Planet.Do.ARRHENIUS_VISCOSITY
+    }
     _arrheniusKwargs = {}
-    if Planet.Do.ARRHENIUS_VISCOSITY:
-        for _phID in (3, 5, 6):
+    for _phID in (3, 5, 6):
+        if _phase_arrhenius[_phID]:
             # When Kalousova two-phase convection is active, partial melt in HP ices
             # dramatically lowers the effective viscosity. Use melt-bearing values if set,
             # otherwise fall back to lab-derived Constants.
@@ -1286,8 +1291,7 @@ def GetOceanHPIceEOS(Planet, Params, POcean_MPa, minPres_MPa=None, minTres_K=Non
                 Eact_Jmol=Constants.Eact_kJmol[_phID] * 1e3,
                 Tmelt_K=_TmeltRef_K[_phID]
             )
-    else:
-        for _phID in (3, 5, 6):
+        else:
             _arrheniusKwargs[_phID] = {}
 
     # Stopgap measure to avoid MgSO4 calcs taking ages with the slow Margules formulation phase calcs

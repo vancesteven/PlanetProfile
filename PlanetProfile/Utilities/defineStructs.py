@@ -117,7 +117,13 @@ class DoSubstruct:
         self.NO_ICE_CONVECTION_V = False  # Whether to suppress convection specifically in ice V layer
         self.NO_ICE_CONVECTION_VI = False  # Whether to suppress convection specifically in ice VI layer
         self.KALOUSOVA_CONVECTION = False  # Whether to use Kalousova et al. (2018) parameterization for HP ice convection instead of Deschamps & Sotin (2001)
-        self.ARRHENIUS_VISCOSITY = False  # Whether to use Arrhenius temperature-dependent viscosity for ice phases (Ih, III, V, VI). Uses Constants.etaMelt_Pas and Eact_kJmol per phase.
+        self.SPHERICAL_CONVECTION = False  # Whether to use Yao et al. (2014) spherical shell scaling for Ice Ih convection instead of Deschamps & Sotin (2001). Forces Arrhenius viscosity for Ih.
+        self.ARRHENIUS_VISCOSITY = False  # Legacy flag: if True, enables Arrhenius for all ice phases (Ih, III, V, VI). Prefer per-phase flags below.
+        self.ARRHENIUS_VISCOSITY_Ih = False  # Whether to use Arrhenius temperature-dependent viscosity for ice Ih
+        self.ARRHENIUS_VISCOSITY_III = False  # Whether to use Arrhenius temperature-dependent viscosity for ice III
+        self.ARRHENIUS_VISCOSITY_V = False  # Whether to use Arrhenius temperature-dependent viscosity for ice V
+        self.ARRHENIUS_VISCOSITY_VI = False  # Whether to use Arrhenius temperature-dependent viscosity for ice VI
+        self.ARRHENIUS_VISCOSITY_sil = False  # Whether to use Arrhenius temperature-dependent viscosity for silicate mantle (placeholder, not yet implemented)
         self.DO_SELF_CONSISTENT_HTIDAL = False  # Whether to compute HtidalIce_Wm3 from Im(k2) after gravity calculation, overriding user-specified value
         self.NO_MELOSH_LAYER = False  # Whether to suppress a Melosh layer at the top of the ocean by arbitrarily setting expansivity to zero when one would appear (due to negative expansivity)
         self.EQUIL_Q = True  # Whether to set heat flux from interior to be consistent with heat released through convective profile

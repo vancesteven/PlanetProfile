@@ -384,6 +384,155 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
     return Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit
 
 
+def ConvectionYao2014(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa,
+                      oceanEOS, iceEOS, phaseBot, EQUIL_Q, Eact_kJmol, Htidal_Wm3=0):
+    """ Stagnant-lid convection in spherical ice shells based on Yao et al. (2014):
+        https://doi.org/10.1002/2014JE004653
+        Uses 3D spherical geometry scaling laws with curvature parameter f.
+        Inherently uses Arrhenius viscosity (Frank-Kamenetskii approximation).
+
+        Args:
+            Ttop_K (float): Temperature at top of ice layer in K
+            rTop_m (float): Radius of top of ice layer in m
+            kTop_WmK (float): Thermal conductivity at top of ice layer in W/(m K)
+            Tb_K (float): Bottom temperature (melting point) in K
+            zb_m (float): Thickness of the ice layer in m
+            gtop_ms2 (float): Gravitational acceleration at layer top in m/s^2
+            Pmid_MPa (float): Pressure at the middle of the convective region in MPa
+            oceanEOS: Ocean EOS interpolator
+            iceEOS: Ice EOS interpolator
+            phaseBot (int): Ice phase index at the bottom of the layer
+            EQUIL_Q (bool): Whether to use equilibrium heat flux formulation
+            Eact_kJmol (dict): Activation energies per phase in kJ/mol
+            Htidal_Wm3 (float): Volumetric tidal heating rate in W/m^3
+        Returns:
+            Tconv_K (float): Convective interior temperature in K
+            etaConv_Pas (float): Viscosity of convective region in Pa*s
+            eLid_m (float): Stagnant lid thickness in m
+            Dconv_m (float): Convecting layer thickness in m
+            deltaTBL_m (float): Bottom thermal boundary layer thickness in m
+            Qbot_W (float): Total heat flux at bottom of ice in W
+            Ra (float): Rayleigh number (viscous-temperature based)
+            RaCrit (float): Critical Rayleigh number
+    """
+    if Tb_K < Ttop_K:
+        raise ValueError('Tb_K is less than Ttop_K in ConvectionYao2014.')
+
+    phaseMid = iceEOS.phaseID
+    phaseMidString = PhaseConv(phaseMid)
+
+    # Curvature parameter: f = R_base / R_top (Eq. 4 of Yao et al. 2014)
+    rBot_m = rTop_m - zb_m
+    f = rBot_m / rTop_m
+
+    # Activation energy for the relevant phase
+    if not np.isnan(Eact_kJmol[phaseMidString]):
+        Eact_Jmol = Eact_kJmol[phaseMidString] * 1e3
+    else:
+        Eact_Jmol = Constants.Eact_kJmol[phaseMid] * 1e3
+
+    # Frank-Kamenetskii viscosity contrast parameter (Eq. 6)
+    gamma = Eact_Jmol / (Constants.R * Tb_K)
+
+    # Solve for convective interior temperature iteratively (Eqs. 22, 31, 32)
+    # Non-dimensional: theta_m = 1 - alpha_T / (gamma * f^beta)
+    # with alpha_T = 1.23, beta = 1.5
+    alpha_T = 1.23
+    beta = 1.5
+    DeltaT = Tb_K - Ttop_K
+    theta_m = 1.0 - alpha_T / (gamma * f**beta)
+    theta_m = np.clip(theta_m, 0.01, 0.99)
+    Tconv_K = Ttop_K + theta_m * DeltaT
+
+    if Tconv_K < Ttop_K:
+        Tconv_K = Ttop_K
+    if Tconv_K > Tb_K:
+        Tconv_K = Tb_K - 0.1
+
+    # Get melting temperature for Arrhenius viscosity reference
+    Pmelt_MPa = np.arange(Pmid_MPa - 0.05*3, Pmid_MPa + 0.05*3, 0.05)
+    Tupper_K = 274.0
+    meltEOS = GetOceanEOS('PureH2O', 0.0, Pmelt_MPa,
+                          np.arange(Tconv_K, 274.0, 0.05), None,
+                          phaseType='calc', MELT=True)
+    Tmelt_K = GetTfreeze(meltEOS, Pmid_MPa, Tconv_K, TfreezeRange_K=Tupper_K - Tconv_K)
+
+    # Arrhenius viscosity at convective temperature (Eq. 30)
+    etaMelt_Pas = Constants.etaMelt_Pas[phaseMid]
+    etaConv_Pas = etaMelt_Pas * np.exp(Eact_Jmol / Constants.R * (1.0/Tconv_K - 1.0/Tmelt_K))
+
+    # Material properties at mid-layer conditions
+    rhoMid_kgm3 = iceEOS.fn_rho_kgm3(Pmid_MPa, Tconv_K)
+    CpMid_JkgK = iceEOS.fn_Cp_JkgK(Pmid_MPa, Tconv_K)
+    alphaMid_pK = iceEOS.fn_alpha_pK(Pmid_MPa, Tconv_K)
+    kMid_WmK = iceEOS.fn_kTherm_WmK(Pmid_MPa, Tconv_K)
+    kappaMid_m2s = kMid_WmK / (rhoMid_kgm3 * CpMid_JkgK)
+
+    # Viscous temperature scale (Eq. 32)
+    DeltaT_v = Constants.R * Tconv_K**2 / Eact_Jmol
+
+    # Full-ΔT Rayleigh number for convection onset check (same definition as DS2001)
+    Ra = (alphaMid_pK * CpMid_JkgK * rhoMid_kgm3**2 * gtop_ms2 * DeltaT * zb_m**3
+          / (etaConv_Pas * kMid_WmK))
+
+    # Viscous-temperature Rayleigh number for heat flux scaling (Eq. 34)
+    Ra_m = (alphaMid_pK * rhoMid_kgm3 * gtop_ms2 * DeltaT_v * zb_m**3
+            / (etaConv_Pas * kappaMid_m2s))
+
+    # Bottom heat flux from scaling law (Eq. 35)
+    # Phi_bot = a_F * Ra_m^b / f^d * (DeltaT_v/DeltaT)^c * Phi_c
+    a_F = 1.46
+    b = 0.27
+    c = 1.21
+    d = 1.78
+    Phi_c = kMid_WmK * DeltaT / zb_m
+    qBot_Wm2 = a_F * Ra_m**b / f**d * (DeltaT_v / DeltaT)**c * Phi_c
+
+    # Add tidal heating contribution
+    if Htidal_Wm3 > 0:
+        qBot_Wm2 = qBot_Wm2 + Htidal_Wm3 * zb_m
+
+    # Nusselt number (Eq. 27)
+    Nu = qBot_Wm2 * zb_m / (kMid_WmK * DeltaT)
+
+    # Stagnant lid thickness
+    if Nu > 1.0:
+        eLid_m = zb_m / Nu
+    else:
+        eLid_m = zb_m
+
+    # Bottom thermal boundary layer thickness
+    if qBot_Wm2 > 0:
+        deltaTBL_m = kMid_WmK * (Tb_K - Tconv_K) / qBot_Wm2
+    else:
+        deltaTBL_m = 0.0
+
+    # Critical Rayleigh number check
+    phaseBotString = PhaseConv(phaseBot)
+    if not np.isnan(Eact_kJmol[phaseBotString]):
+        RaCrit = GetRaCrit(Eact_kJmol[phaseBotString], Tb_K, Ttop_K, Tconv_K)
+    else:
+        RaCrit = GetRaCrit(Constants.Eact_kJmol[phaseBot], Tb_K, Ttop_K, Tconv_K)
+
+    if Ra < RaCrit:
+        log.debug(f'Rayleigh number {Ra:.3e} < critical {RaCrit:.3e} in Yao2014 model. '
+                  'Only conduction will be modeled.')
+        eLid_m = zb_m
+        deltaTBL_m = 0.0
+        Tconv_K = Ttop_K
+
+    Dconv_m = zb_m - eLid_m - deltaTBL_m
+    if Dconv_m < 0:
+        Dconv_m = 0.0
+        eLid_m = zb_m
+        deltaTBL_m = 0.0
+
+    # Total heat flux through bottom spherical surface
+    Qbot_W = qBot_Wm2 * 4 * np.pi * rBot_m**2
+
+    return Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit
+
+
 def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2):
     """ Thermal profile for purely thermally conductive layers, based on Turcotte and Schubert (2002),
         equation 4.40: T = -rho*H/6/k * r^2 + c1/r + c2, where c1 and c2 are integration constants

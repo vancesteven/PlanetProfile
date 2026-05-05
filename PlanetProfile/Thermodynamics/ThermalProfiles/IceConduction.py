@@ -22,7 +22,7 @@ def IceIWholeConductSolid(Planet, Params):
     """
     icePhase = PhaseConv(Planet.phase[0])
     _arrheniusKwargs = {}
-    if Planet.Do.ARRHENIUS_VISCOSITY:
+    if Planet.Do.ARRHENIUS_VISCOSITY_Ih or Planet.Do.ARRHENIUS_VISCOSITY or Planet.Do.SPHERICAL_CONVECTION:
         _arrheniusKwargs = dict(
             ARRHENIUS_VISCOSITY=True,
             etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
@@ -99,7 +99,7 @@ def IceIWholeConductPorous(Planet, Params):
     """
     icePhase = PhaseConv(Planet.phase[0])
     _arrheniusKwargs = {}
-    if Planet.Do.ARRHENIUS_VISCOSITY:
+    if Planet.Do.ARRHENIUS_VISCOSITY_Ih or Planet.Do.ARRHENIUS_VISCOSITY or Planet.Do.SPHERICAL_CONVECTION:
         _arrheniusKwargs = dict(
             ARRHENIUS_VISCOSITY=True,
             etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
@@ -157,7 +157,7 @@ def IceIConductClathLidSolid(Planet, Params):
     # Assign phases for clathrates, as number of layers is fixed in this case
     Planet.phase[:Planet.Steps.nClath] = phaseIndex
     _arrheniusKwargs = {}
-    if Planet.Do.ARRHENIUS_VISCOSITY:
+    if Planet.Do.ARRHENIUS_VISCOSITY_Ih or Planet.Do.ARRHENIUS_VISCOSITY or Planet.Do.SPHERICAL_CONVECTION:
         _arrheniusKwargs = dict(
             ARRHENIUS_VISCOSITY=True,
             etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
@@ -258,7 +258,7 @@ def IceIConductClathLidPorous(Planet, Params):
     # Assign phases for clathrates, as number of layers is fixed in this case
     Planet.phase[:Planet.Steps.nClath] = phaseIndex
     _arrheniusKwargs = {}
-    if Planet.Do.ARRHENIUS_VISCOSITY:
+    if Planet.Do.ARRHENIUS_VISCOSITY_Ih or Planet.Do.ARRHENIUS_VISCOSITY or Planet.Do.SPHERICAL_CONVECTION:
         _arrheniusKwargs = dict(
             ARRHENIUS_VISCOSITY=True,
             etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
@@ -374,7 +374,7 @@ def IceIConductClathUnderplateSolid(Planet, Params):
         phaseIndex = Constants.phaseClath
         phaseStr = PhaseConv(phaseIndex)
     _arrheniusKwargs = {}
-    if Planet.Do.ARRHENIUS_VISCOSITY:
+    if Planet.Do.ARRHENIUS_VISCOSITY_Ih or Planet.Do.ARRHENIUS_VISCOSITY or Planet.Do.SPHERICAL_CONVECTION:
         _arrheniusKwargs = dict(
             ARRHENIUS_VISCOSITY=True,
             etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
@@ -494,7 +494,7 @@ def IceIConductClathUnderplatePorous(Planet, Params):
         phaseIndex = Constants.phaseClath
         phaseStr = PhaseConv(phaseIndex)
     _arrheniusKwargs = {}
-    if Planet.Do.ARRHENIUS_VISCOSITY:
+    if Planet.Do.ARRHENIUS_VISCOSITY_Ih or Planet.Do.ARRHENIUS_VISCOSITY or Planet.Do.SPHERICAL_CONVECTION:
         _arrheniusKwargs = dict(
             ARRHENIUS_VISCOSITY=True,
             etaMelt_Pas=(Planet.Ocean.etaMeltKalousova_Pas[1] if (Planet.Do.KALOUSOVA_CONVECTION and hasattr(Planet.Ocean, 'etaMeltKalousova_Pas') and Planet.Ocean.etaMeltKalousova_Pas is not None and 1 in Planet.Ocean.etaMeltKalousova_Pas) else Constants.etaMelt_Pas[1]),
