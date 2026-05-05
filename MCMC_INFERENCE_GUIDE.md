@@ -91,6 +91,36 @@ A liquid ocean tidally decouples HP ice below it (ocean transmits no shear stres
 - `hybrid_hydro_andrade_structure_profile.png` — Wedge diagram at posterior median
 - `hybrid_hydro_andrade_mcmc.pkl` — Full chain
 
+### Test 48: Andrade Yao2014 Spherical Convection (`Test48_mcmc_andrade_yao2014.py`)
+**Scenario:** Variable hydrosphere structure with Yao et al. (2014) spherical shell convection for Ice Ih  
+**Rheology:** Andrade with per-phase viscosity  
+**Convection model:** Yao et al. (2014) — 3D spherical shell stagnant-lid scaling (replaces DS2001 Cartesian)  
+**Parameter space (10D):** Same as Test46
+
+**Key differences from Test46:**
+- Grid cache built with `SPHERICAL_CONVECTION=True` → thicker stagnant lids, lower basal heat flux
+- Adds surface heat flux constraint: q_surface = 10 ± 5 mW/m² (Nimmo & Bills 2010)
+- Inline `yao_heat_flux_mWm2()` couples sampled η_Ih to convective physics via analytical scaling law
+- Uses Ra_fullDT for onset check, Ra_m (viscous-temperature) for heat flux scaling
+- Penalizes samples where η_Ih produces non-physical heat flux (too high or no convection onset)
+
+**Physical motivation:** DS2001 uses Cartesian scaling laws that underestimate heat flux for thick shells. Yao 2014 corrects with f-dependent 3D spherical geometry — most impactful for Titan (f≈0.96) where the Ice Ih shell fills most of the spherical gap.
+
+**Grid cache:** `titan_yao2014_hybrid_hydro_grid_cache.pkl` (separate from DS2001 cache)
+
+**Structure config:** `PPTest48.py` (deepcopy of PPTest46 with `SPHERICAL_CONVECTION=True`)
+
+**Expected results vs Test46:**
+- Thicker lids: ~33-45 km (Yao) vs ~6-10 km (DS2001) for same (Tb, D_hydro)
+- Lower convective heat flux (~7% reduction)
+- η_Ih posterior bounded below ~10¹³ Pa·s (Yao onset) and above ~10¹⁶ Pa·s (no convection)
+- Im(k₂) posterior slightly shifted due to different lid geometry
+
+**Outputs:**
+- `yao2014_andrade_corner.png` — 10D posterior
+- `yao2014_andrade_k2_scatter.png` — k2 constraint match
+- `yao2014_andrade_mcmc.pkl` — Full chain
+
 ### Test 46 All-Ice Variant (`Test46_mcmc_allice.py`)
 **Scenario:** No ocean, fixed structure (D_hsphere=493.7 km)  
 **Rheology:** Andrade with per-phase viscosity (5D: alpha, zeta, eta_Ih, eta_III, eta_V, eta_VI, eta_sil)  
@@ -112,6 +142,7 @@ python PlanetProfile/Test/Test41_mcmc_andrade_no_ocean.py   # ~2-4 hours
 python PlanetProfile/Test/Test42_mcmc_maxwell_ocean.py      # ~3-5 hours
 python PlanetProfile/Test/Test43_mcmc_andrade_arrhenius_no_ocean.py
 python PlanetProfile/Test/Test44_mcmc_maxwell_arrhenius_ocean.py
+python PlanetProfile/Test/Test48_mcmc_andrade_yao2014.py    # ~3-5 hours (requires Yao2014 grid)
 ```
 
 ### Re-plotting Saved Results
@@ -166,22 +197,27 @@ PlanetProfile/Test/
 ├── Test42_mcmc_maxwell_ocean.py             # Maxwell ocean MCMC (5D)
 ├── Test43_mcmc_andrade_arrhenius_no_ocean.py
 ├── Test44_mcmc_maxwell_arrhenius_ocean.py
-├── Test46_mcmc_andrade_hybrid_hydro.py      # Andrade hybrid-hydro (10D)
+├── Test46_mcmc_andrade_hybrid_hydro.py      # Andrade hybrid-hydro (10D, DS2001)
 ├── Test46_mcmc_allice.py                    # All-ice variant (no ocean, 5D)
+├── Test48_mcmc_andrade_yao2014.py           # Andrade hybrid-hydro (10D, Yao2014)
 ├── PPTest41.py ... PPTest44.py              # Structural configs
 ├── PPTest46_allice.py                       # All-ice structural config
+├── PPTest48.py                              # Titan Yao2014 config (SPHERICAL_CONVECTION)
 ├── Test40_maxwell_sweep.py                  # Parameter sweep (precursor)
 ├── replot_mcmc.py                           # Regenerate figures from .pkl
 └── mcmc_results/                            # Output directory
-    ├── titan_maxwell_hybrid_hydro_grid_cache.pkl  # 6789-point grid cache
+    ├── titan_maxwell_hybrid_hydro_grid_cache.pkl  # DS2001 grid cache
+    ├── titan_yao2014_hybrid_hydro_grid_cache.pkl  # Yao2014 grid cache
     ├── hybrid_hydro_andrade_mcmc.pkl
     ├── hybrid_hydro_andrade_*.png
+    ├── yao2014_andrade_mcmc.pkl
+    ├── yao2014_andrade_*.png
     ├── allice_andrade_mcmc_results.pkl
     ├── allice_andrade_*.png
     └── [andrade_no_ocean_*, maxwell_ocean_*, etc.]
 
 PlanetProfile/Inference/
-├── hybrid_structure_cache.py                # Grid cache builder for Test46
+├── hybrid_structure_cache.py                # Grid cache builder (DS2001 or Yao2014 via convection_model kwarg)
 ├── structure_cache.py                       # Fixed-structure cache for Test46_allice
 └── inference_core.py                        # Shared MCMC/SBI dispatch logic
 ```
@@ -224,13 +260,17 @@ After MCMC completes, 500 samples are re-evaluated with full structure + heating
 ## References
 
 - Petricca et al. (2025) *Nature* — Cassini gravity constraints, ocean-free Titan paradigm
+- Yao, C., Deschamps, F., Lowman, J. P., Sanchez-Valle, C., & Tackley, P. J. (2014) *JGR Planets* — Stagnant-lid convection in spherical shell geometry
 - Kalousova & Sotin (2018) *GRL* — HP ice convection with partial melt prediction
+- Nimmo & Bills (2010) *Icarus* — Titan tidal heating and heat flux estimates
 - Renaud & Henning (2018) *ApJ* — TidalPy framework for tidal heating calculations
 - Andrade (1910) — Power-law frequency-dependent rheology
 - Maxwell (1867) — Viscoelastic relaxation model
 
 ## Next Steps
 
+- **Build Yao2014 grid cache:** Run full (Tb × D_hydro) grid with `convection_model='yao2014'` (~400 points, several hours). Required before Test48 MCMC can execute.
+- **Run Test48 MCMC:** Compare Yao2014 vs DS2001 posteriors — expect shifted η_Ih distribution and different Im(k₂) sensitivity.
 - **SBI (Simulation-Based Inference):** Implement `sbi_runner.py` for continuous parameter sampling without grid discretization. Infrastructure in place (`sbi` installed, `inference_core.py` has dispatch).
 - **Thermal equilibrium prior:** Add steady-state heating constraint to penalize Ice Ih dissipation modes exceeding melting timescale.
 - **Petricca constraint comparison:** `--petricca` flag for Re(k2)=0.133 constraint set (Durante et al. 2019 phase-lag interpretation).
