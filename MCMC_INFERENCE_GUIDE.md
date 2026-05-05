@@ -1,18 +1,18 @@
 # MCMC Bayesian Inference for Titan's Rheology
 
-**Status:** Complete (April 2026)  
-**Purpose:** Constrain Titan's interior rheology parameters using observed tidal Love numbers
-**Reference:** Petricca et al. (2025) *Nature*
+**Purpose:** Constrain Titan's interior rheology parameters using observed tidal Love numbers  
+**References:** Petricca et al. (2025) *Nature*; Durante et al. (2019)
 
 ## Overview
 
-PlanetProfile integrates with **TidalPy** to perform Markov Chain Monte Carlo (MCMC) Bayesian inference of Titan's rheological parameters. Tests 41-44 explore Andrade and Maxwell rheologies with and without Arrhenius temperature-dependent viscosity, comparing ocean-present and ocean-free scenarios.
+PlanetProfile integrates with **TidalPy** to perform Markov Chain Monte Carlo (MCMC) Bayesian inference of Titan's rheological parameters. Tests 41-46 explore Andrade and Maxwell rheologies with fixed-structure and hybrid-hydro (variable structure) models, comparing ocean-present and ocean-free scenarios.
 
-### Observational Constraints (Petricca et al. 2025)
+### Observational Constraints (Cassini)
 - **Re(k₂):** 0.608 ± 0.048
 - **|Im(k₂)|:** 0.135 ± 0.035
 
-These constraints from Cassini gravity field measurements challenge the traditional ocean-world paradigm and suggest HP ice layers with reduced viscosities.
+### Key Physical Insight (Petricca et al. 2025)
+A liquid ocean tidally decouples HP ice below it (ocean transmits no shear stress). With ocean present, only Ice Ih dissipates — requiring unphysically low viscosity. HP ice (III, V, VI) has greater volume and CAN account for tidal heating, but only without an ocean layer.
 
 ## Test Suite
 
@@ -66,6 +66,37 @@ These constraints from Cassini gravity field measurements challenge the traditio
 **Parameter space (5D):** Same as Test42
 
 **Outputs:** Same as Test42 with `_arrhenius` suffix
+
+### Test 46: Andrade Hybrid-Hydro (`Test46_mcmc_andrade_hybrid_hydro.py`)
+**Scenario:** Variable hydrosphere structure (Tb and D_hydro sampled)  
+**Rheology:** Andrade with per-phase viscosity (Ih, III, V, VI, sil independent)  
+**Parameter space (10D):**
+- alpha (Andrade exponent): [0.2, 0.4]
+- log10(zeta) (compliance ratio): [-3, 2]
+- log10(eta_Ih): [12, 16]
+- log10(eta_III): [10, 16]
+- log10(eta_V): [10, 16]
+- Tb_K (ice-ocean boundary temp): [252, 270]
+- D_hydro_km (total hydrosphere): [50, 800]
+- log10(eta_VI): [10, 16]
+- log10(eta_sil): [18, 22]
+- f_core (core mass fraction): [0.15, 0.35]
+
+**Grid cache:** Pre-computed PlanetProfile structures on (Tb_K x D_hydro) grid (25 km spacing, 6789 points). Per-phase HP ice breakdown (III, V, VI) stored individually.
+
+**Outputs:**
+- `hybrid_hydro_andrade_corner.png` — 10D posterior
+- `hybrid_hydro_andrade_k2_scatter.png` — k2 constraint match
+- `hybrid_hydro_andrade_layers_vs_docean.png` — All posterior models sorted by D_ocean (stackplot + per-phase heating vs f_sil)
+- `hybrid_hydro_andrade_structure_profile.png` — Wedge diagram at posterior median
+- `hybrid_hydro_andrade_mcmc.pkl` — Full chain
+
+### Test 46 All-Ice Variant (`Test46_mcmc_allice.py`)
+**Scenario:** No ocean, fixed structure (D_hsphere=493.7 km)  
+**Rheology:** Andrade with per-phase viscosity (5D: alpha, zeta, eta_Ih, eta_III, eta_V, eta_VI, eta_sil)  
+**Key result:** Petricca-compatible model where HP ice can dissipate without ocean decoupling.
+
+**Outputs:** `allice_andrade_corner.png`, `allice_andrade_k2_heating.png`
 
 ## Running the Tests
 
@@ -131,29 +162,28 @@ All scenarios converge on log₁₀(η_sil) ~ 19-20 Pa·s, consistent with parti
 ## File Structure
 ```
 PlanetProfile/Test/
-├── Test41_mcmc_andrade_no_ocean.py          # Andrade no-ocean MCMC
-├── Test42_mcmc_maxwell_ocean.py             # Maxwell ocean MCMC
+├── Test41_mcmc_andrade_no_ocean.py          # Andrade no-ocean MCMC (5D)
+├── Test42_mcmc_maxwell_ocean.py             # Maxwell ocean MCMC (5D)
 ├── Test43_mcmc_andrade_arrhenius_no_ocean.py
 ├── Test44_mcmc_maxwell_arrhenius_ocean.py
-├── PPTest41.py                              # Structural config (no-ocean)
-├── PPTest42.py                              # Structural config (ocean)
-├── PPTest43.py                              # Structural config (Arrhenius no-ocean)
-├── PPTest44.py                              # Structural config (Arrhenius ocean)
-├── Test40_maxwell_sweep.py                  # Parameter sweep (precursor to MCMC)
-├── replot_mcmc.py                           # Regenerate all figures from .pkl
+├── Test46_mcmc_andrade_hybrid_hydro.py      # Andrade hybrid-hydro (10D)
+├── Test46_mcmc_allice.py                    # All-ice variant (no ocean, 5D)
+├── PPTest41.py ... PPTest44.py              # Structural configs
+├── PPTest46_allice.py                       # All-ice structural config
+├── Test40_maxwell_sweep.py                  # Parameter sweep (precursor)
+├── replot_mcmc.py                           # Regenerate figures from .pkl
 └── mcmc_results/                            # Output directory
-    ├── andrade_no_ocean_corner.png
-    ├── andrade_no_ocean_k2_scatter.png
-    ├── andrade_no_ocean_heating.png
-    ├── andrade_no_ocean_mcmc.pkl
-    ├── maxwell_ocean_corner.png
-    ├── maxwell_ocean_k2_scatter.png
-    ├── maxwell_ocean_heating.png
-    ├── maxwell_ocean_structure_profile.png
-    ├── maxwell_ocean_Tb_structure.png
-    ├── maxwell_ocean_thickness_vs_heating.png
-    ├── maxwell_ocean_mcmc.pkl
-    └── [andrade_arrhenius_no_ocean_*, maxwell_arrhenius_ocean_*]
+    ├── titan_maxwell_hybrid_hydro_grid_cache.pkl  # 6789-point grid cache
+    ├── hybrid_hydro_andrade_mcmc.pkl
+    ├── hybrid_hydro_andrade_*.png
+    ├── allice_andrade_mcmc_results.pkl
+    ├── allice_andrade_*.png
+    └── [andrade_no_ocean_*, maxwell_ocean_*, etc.]
+
+PlanetProfile/Inference/
+├── hybrid_structure_cache.py                # Grid cache builder for Test46
+├── structure_cache.py                       # Fixed-structure cache for Test46_allice
+└── inference_core.py                        # Shared MCMC/SBI dispatch logic
 ```
 
 ## Technical Details
@@ -177,16 +207,19 @@ After MCMC completes, 500 samples are re-evaluated with full structure + heating
 - Allows structure-parameter correlation analysis
 - Preserves computational efficiency (cached structures)
 
-## Manuscript Integration
+## Physics Notes
 
-Results documented in:
-- `TITAN_RESULTS_SECTION_FINAL.md` — Results section for HP ice convection paper
-- `~/Dropbox/planetprofile-genai-manuscript/PlanetProfile-genai/main.tex` — Draft manuscript
+### Tidal Decoupling (Petricca et al. 2025)
+- Ocean layer transmits no shear stress → HP ice below is tidally decoupled
+- With ocean: only Ice Ih dissipates → requires eta_Ih ~ 10^13 (possibly unphysical heating rates)
+- Without ocean: HP ice volume dominates dissipation → steady-state heating achievable
+- Two-phase convection models justify low ice viscosity (porous medium transport)
+- Thermal equilibrium constraint: Ice Ih alone can't sustain >10 TW without melting
 
-Key manuscript points:
-- MCMC posteriors validate Petricca et al. 2025 no-ocean model
-- Fluid-bearing HP ice viscosities (10¹²-10¹³ Pa·s) required for both scenarios
-- Clathrate cap reduces Ice Ih stagnant lid by 93%, enabling efficient tidal dissipation
+### TidalPy Heating vs Simple Formula
+- Simple: E_dot = (21/2)|Im(k2)| n^5 R^5 e^2 / G
+- TidalPy volumetric integration gives ~1.74x the simple formula (additional forcing modes)
+- Per-phase breakdown requires full radial solver evaluation
 
 ## References
 
@@ -196,9 +229,8 @@ Key manuscript points:
 - Andrade (1910) — Power-law frequency-dependent rheology
 - Maxwell (1867) — Viscoelastic relaxation model
 
-## Future Work
+## Next Steps
 
-- **3D tidal heating:** Extend to lateral heterogeneities (TidalPy 3D solver)
-- **Joint inversion:** Combine k₂, moment of inertia, and magnetic induction
-- **Time-dependent evolution:** Couple with thermal-orbital evolution models
-- **Exoplanet application:** Scale to super-Earths and mini-Neptunes with thick ice shells
+- **SBI (Simulation-Based Inference):** Implement `sbi_runner.py` for continuous parameter sampling without grid discretization. Infrastructure in place (`sbi` installed, `inference_core.py` has dispatch).
+- **Thermal equilibrium prior:** Add steady-state heating constraint to penalize Ice Ih dissipation modes exceeding melting timescale.
+- **Petricca constraint comparison:** `--petricca` flag for Re(k2)=0.133 constraint set (Durante et al. 2019 phase-lag interpretation).

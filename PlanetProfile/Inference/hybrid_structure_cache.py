@@ -75,6 +75,7 @@ def build_hybrid_hydrosphere_grid(
 
     templates: Dict[float, Tuple[Any, Any]] = {}
     failed_tb: set = set()
+    max_d_hydro_km = float(max(d_grid))
     t0 = time.time()
     for tb_k, d_hydro_km in missing:
         if tb_k in failed_tb:
@@ -86,6 +87,7 @@ def build_hybrid_hydrosphere_grid(
                     test_module_name,
                     tb_k,
                     rheology=rheology,
+                    max_d_hydro_km=max_d_hydro_km,
                 )
             except Exception as exc:
                 log.warning(f"Skipping Tb_K={tb_k:.3f}: template failed: {exc}")
@@ -159,13 +161,17 @@ def synthesize_hybrid_structure(
     structure['D_iceIh_km'] = _sum_group_thickness_km(hydro_groups, {1, Constants.phaseClath})
     structure['D_ocean_km'] = _sum_group_thickness_km(hydro_groups, {0})
     structure['D_hp_ice_km'] = _sum_group_thickness_km(hydro_groups, {2, 3, 5, 6})
+    structure['D_iceIII_km'] = _sum_group_thickness_km(hydro_groups, {3})
+    structure['D_iceV_km']   = _sum_group_thickness_km(hydro_groups, {5})
+    structure['D_iceVI_km']  = _sum_group_thickness_km(hydro_groups, {6})
     structure['sigma_ocean_mean_Sm'] = _mean_ocean_sigma(Planet, d_hydro_m)
     structure['wOcean_ppt'] = float(getattr(Planet.Ocean, 'wOcean_ppt', np.nan))
     structure['R_body_m'] = radius_m
     return structure
 
 
-def _run_hydrosphere_template(test_module_name: str, tb_k: float, rheology: str):
+def _run_hydrosphere_template(test_module_name: str, tb_k: float, rheology: str,
+                              max_d_hydro_km: float = 800.0):
     from PlanetProfile.GetConfig import Params as configParams
     from PlanetProfile.Main import PlanetProfile
     from PlanetProfile.Utilities.defineStructs import EOSlist
@@ -179,6 +185,17 @@ def _run_hydrosphere_template(test_module_name: str, tb_k: float, rheology: str)
     Planet = sys.modules[test_module_name].Planet
     Planet.Bulk.Tb_K = float(tb_k)
     Planet.Do.ARRHENIUS_VISCOSITY = False
+
+    # Use CONSTANT_INNER_DENSITY so PP sets nHydro = nOceanMax (no MoI
+    # truncation).  The grid builder only needs the hydrosphere PT template;
+    # it synthesizes its own constant-density silicate layer at runtime.
+    Planet.Do.CONSTANT_INNER_DENSITY = True
+    Planet.Do.POROUS_ROCK = False
+    Planet.Do.Fe_CORE = False
+
+    # Extend hydrosphere to cover the full D_hydro grid range so the template
+    # produces valid phases (including Ice VI) at all requested depths.
+    Planet.Bulk.Dhsphere_m = max_d_hydro_km * 1e3 + 50e3
 
     configParams.Gravity.backend = 'tidalpy'
     if rheology == 'maxwell':
@@ -200,7 +217,8 @@ def _run_hydrosphere_template(test_module_name: str, tb_k: float, rheology: str)
     Planet.Bulk.CuncertaintyLower = 0.05
     Planet.Bulk.CuncertaintyUpper = 0.05
 
-    log.info(f"Building hydrosphere PT template: {test_module_name}, Tb_K={tb_k:.3f}")
+    log.info(f"Building hydrosphere PT template: {test_module_name}, Tb_K={tb_k:.3f}, "
+             f"Dhsphere={Planet.Bulk.Dhsphere_m/1e3:.0f} km")
     Planet, Params = PlanetProfile(Planet, configParams)
     return Planet, Params
 

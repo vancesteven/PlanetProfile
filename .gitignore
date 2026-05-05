@@ -41,7 +41,7 @@ venvPP/
 # AI assistant instructions (keep local)
 CLAUDE.md
 .claude/
-# Progress tracking files
+# AI session artifacts (not permanent documentation)
 *_SUMMARY.md
 *_PROGRESS.md
 *_STATUS.md
@@ -49,6 +49,18 @@ CLAUDE.md
 *_FEATURE.md
 *_FIX*.md
 *_IMPLEMENTATION*.md
+*_PLAN.md
+*_COMPLETE.md
+*_CONFIRMED.md
+*_DRAFT*.md
+*_CHECKLIST.md
+*_ASSESSMENT.md
+*_VERIFICATION.md
+*_RESULTS.md
+SESSION_STATE.md
+TASKS.md
+nohup.out
+PPenv
 output/
 test_*.py
 .claude-flow/
@@ -56,3 +68,4 @@ test_*.py
 ruvector.db
 Testing.py
 tests/
+graphify-out/

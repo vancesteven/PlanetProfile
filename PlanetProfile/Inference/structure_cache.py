@@ -554,11 +554,19 @@ def save_structure_cache(
         data: Structure dict from build_structure_from_pptest() or extract_structure_from_planet()
         filepath: Output path (.pkl extension)
     """
+    import tempfile
     filepath = Path(filepath)
     filepath.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(filepath, 'wb') as f:
-        pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+    # Atomic write: dump to temp file, then rename — prevents corruption on kill
+    fd, tmp_path = tempfile.mkstemp(dir=filepath.parent, suffix='.pkl.tmp')
+    try:
+        with os.fdopen(fd, 'wb') as f:
+            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+        os.replace(tmp_path, filepath)
+    except BaseException:
+        os.unlink(tmp_path)
+        raise
 
     file_size_mb = filepath.stat().st_size / (1024 * 1024)
     log.info(f"Structure cache saved to {filepath} ({file_size_mb:.1f} MB)")
