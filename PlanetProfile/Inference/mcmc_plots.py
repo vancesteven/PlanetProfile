@@ -1,0 +1,1124 @@
+"""
+Body-agnostic MCMC visualisation helpers for PlanetProfile Bayesian inference.
+
+Extracted from Test48_mcmc_andrade_yao2014.py so the same plot code can be
+reused for any ocean world (Europa, Ganymede, Titan, ...) by passing
+body-specific scalars as explicit arguments rather than reading module-level
+constants.
+
+All functions:
+  - Accept all body-specific values as explicit arguments.
+  - Accept an ``output_path`` argument (absolute path to the output PNG).
+  - Save to ``output_path`` at dpi=150 (or as documented), log at INFO level,
+    and close the figure before returning.
+  - Import heavy libraries (matplotlib, corner, seaborn) inside the function
+    body to keep module-level import fast.
+
+Public functions
+----------------
+plot_corner
+    Corner plot of the full posterior sample matrix.
+
+plot_k2_scatter_by
+    k2 Re/Im scatter coloured by an arbitrary array (D_hydro, f_sil, etc.)
+    with Petricca-style 1-sigma / 2-sigma observation ellipses.
+
+plot_ice_comparison
+    Two-panel: (a) k2 scatter coloured by Ice Ih fraction of ice heating,
+    (b) log10 Ice Ih vs Ice V heating scatter coloured by D_ocean.
+
+plot_heating_vs_parameters
+    2x5 scatter grid of log10 tidal heating power vs each parameter, plus an
+    optional full-width cumulative heating-fraction bar below.
+
+plot_mass_cmr2_diagnostics
+    Two-panel: total mass vs D_hydro (left), CMR2 vs D_hydro (right) with
+    observation bands.
+
+plot_cmr2_surface
+    pcolormesh of CMR2 across the (Tb, D_hydro) grid.
+
+plot_tb_structure
+    Ice Ih shell thickness vs Tb from the grid with posterior Tb histogram
+    overlay.
+
+plot_layers_vs_docean
+    3-panel: (top) D_ocean posterior histogram, (middle) cumulative-thickness
+    stackplot sorted by (f_sil ASC, D_ocean ASC), (bottom) per-phase tidal
+    heating on the same x-ordering.
+
+plot_structure_wedge
+    Wedge diagram of the posterior interior structure with labels showing
+    median layer thicknesses and 5/95-percentile uncertainty arcs.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Dict, List, Optional, Sequence, Tuple
+
+import numpy as np
+
+log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Helper — shared colour / label dictionaries used by multiple functions
+# ---------------------------------------------------------------------------
+
+_PHASE_COLORS_STACK: Dict[str, str] = {
+    'Ih':  '#AEE1F8',
+    '0':   '#1E90FF',
+    'III': '#C97BAE',
+    'V':   '#9B59B6',
+    'VI':  '#6C3483',
+    'Sil': '#C8A96E',
+}
+
+_PHASE_LABELS_STACK: Dict[str, str] = {
+    'Ih':  'Ice Ih',
+    '0':   'Ocean',
+    'III': 'Ice III',
+    'V':   'Ice V',
+    'VI':  'Ice VI',
+    'Sil': 'Silicate',
+}
+
+_FULL_PHASE_COLORS: Dict[str, str] = {
+    'Clath': '#D4F1F9',
+    'Ih':    '#AEE1F8',
+    '0':     '#1E90FF',
+    'III':   '#C97BAE',
+    'V':     '#9B59B6',
+    'VI':    '#6C3483',
+    'Sil':   '#C8A96E',
+    'Core':  '#8B5A2B',
+}
+
+_FULL_PHASE_LABELS: Dict[str, str] = {
+    'Clath': 'Clathrate',
+    'Ih':    'Ice Ih',
+    '0':     'Ocean',
+    'III':   'Ice III',
+    'V':     'Ice V',
+    'VI':    'Ice VI',
+    'Sil':   'Silicate',
+    'Core':  'Core',
+}
+
+_WEDGE_COLORS: Dict[str, str] = {
+    'Ice Ih':     '#AEE1F8',
+    'Ocean':      '#1E90FF',
+    'Ice III':    '#C97BAE',
+    'Ice V':      '#9B59B6',
+    'Ice VI':     '#6C3483',
+    'Silicate':   '#C8A96E',
+    'Dense core': '#8B5A2B',
+}
+
+
+# ---------------------------------------------------------------------------
+# Default column-index mapping (Test48 / 10-D parameter layout)
+# ---------------------------------------------------------------------------
+
+_DEFAULT_PARAM_INDICES: Dict[str, int] = {
+    'Tb':      5,
+    'D_hydro': 6,
+    'f_core':  9,
+}
+
+
+# ===========================================================================
+# 1. Corner plot
+# ===========================================================================
+
+def plot_corner(
+    samples: np.ndarray,
+    labels: Sequence[str],
+    title: str,
+    output_path: str,
+    quantiles: Tuple[float, ...] = (0.16, 0.5, 0.84),
+) -> None:
+    """Corner plot of the full posterior sample matrix.
+
+    Handles degenerate columns (zero variance) by expanding the axis range by
+    ±1 in native units so the ``corner`` library does not crash.
+
+    Args:
+        samples:     Array of shape (N_samples, N_params).
+        labels:      Axis label for each column of ``samples``.
+        title:       Figure suptitle string.
+        output_path: Absolute path to the output PNG file.
+        quantiles:   Quantile values to show as vertical lines on 1-D histograms.
+    """
+    import corner
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    sns.set_theme(style='white', font_scale=0.9)
+
+    cs_std = np.nanstd(samples, axis=0)
+    cs_med = np.nanmedian(samples, axis=0)
+    corner_range = [
+        (
+            float(np.nanmin(samples[:, i])) - 0.1 * abs(cs_std[i]),
+            float(np.nanmax(samples[:, i])) + 0.1 * abs(cs_std[i]),
+        )
+        if cs_std[i] > 0
+        else (float(cs_med[i]) - 1.0, float(cs_med[i]) + 1.0)
+        for i in range(samples.shape[1])
+    ]
+
+    fig = corner.corner(
+        samples,
+        labels=list(labels),
+        color='steelblue',
+        range=corner_range,
+        quantiles=list(quantiles),
+        show_titles=True,
+        title_fmt='.3f',
+        title_kwargs={'fontsize': 10},
+    )
+    fig.suptitle(title, fontsize=14, y=1.02)
+
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    log.info(f'Saved {output_path}')
+    plt.close(fig)
+
+
+# ===========================================================================
+# 2. k2 scatter coloured by an arbitrary array
+# ===========================================================================
+
+def plot_k2_scatter_by(
+    k2_results: np.ndarray,
+    color_values: np.ndarray,
+    colorbar_label: str,
+    obs_re: float,
+    obs_im: float,
+    obs_re_err: float,
+    obs_im_err: float,
+    title: str,
+    output_path: str,
+    cmap: str = 'plasma_r',
+    vmin: Optional[float] = None,
+    vmax: Optional[float] = None,
+) -> None:
+    """k2 Re/Im scatter coloured by an arbitrary per-sample array.
+
+    Draws Petricca-style 1-sigma (dashed) and 2-sigma (dotted) observation
+    ellipses in red.
+
+    Args:
+        k2_results:      Array of shape (N, 2) with columns [Re(k2), Im(k2)].
+                         Im(k2) is taken as abs() internally so negative values
+                         are handled correctly.
+        color_values:    Per-sample colour array, shape (N,).
+        colorbar_label:  Label for the colour bar.
+        obs_re:          Observed Re(k2) central value.
+        obs_im:          Observed |Im(k2)| central value.
+        obs_re_err:      1-sigma uncertainty on obs_re.
+        obs_im_err:      1-sigma uncertainty on obs_im.
+        title:           Axes title string.
+        output_path:     Absolute path to the output PNG file.
+        cmap:            Matplotlib colour map name (default ``'plasma_r'``).
+        vmin:            Lower clamp for colour scale (None = data min).
+        vmax:            Upper clamp for colour scale (None = data max).
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    from matplotlib.patches import Ellipse
+
+    sns.set_theme(style='white', font_scale=0.9)
+
+    Re_arr = k2_results[:, 0]
+    Im_arr = np.abs(k2_results[:, 1])
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    sc = ax.scatter(Re_arr, Im_arr, c=color_values, cmap=cmap, s=8, alpha=0.6,
+                    vmin=vmin, vmax=vmax)
+    plt.colorbar(sc, ax=ax, label=colorbar_label)
+
+    for n_sigma, ls, lw, lbl in [
+        (1, '--', 2, r'obs 1$\sigma$'),
+        (2, ':',  1, r'obs 2$\sigma$'),
+    ]:
+        ax.add_patch(Ellipse(
+            (obs_re, obs_im),
+            2 * n_sigma * obs_re_err,
+            2 * n_sigma * obs_im_err,
+            fill=False, color='red', linewidth=lw, linestyle=ls, label=lbl,
+        ))
+
+    ax.set_xlabel(r'$\mathrm{Re}(k_2)$')
+    ax.set_ylabel(r'$|\mathrm{Im}(k_2)|$')
+    ax.set_title(title)
+    ax.legend()
+
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    log.info(f'Saved {output_path}')
+    plt.close(fig)
+
+
+# ===========================================================================
+# 3. Ice-phase comparison (two-panel)
+# ===========================================================================
+
+def plot_ice_comparison(
+    k2_results: np.ndarray,
+    heating_results: List[Dict[str, float]],
+    d_ocean_eval: np.ndarray,
+    obs_re: float,
+    obs_im: float,
+    obs_re_err: float,
+    obs_im_err: float,
+    output_path: str,
+    w_floor: float = 1e8,
+) -> None:
+    """Two-panel ice-phase comparison figure.
+
+    Panel (a): k2 scatter coloured by Ice Ih / (total ice heating) ratio.
+               Green = Ih dominated, red = HP ice (V/VI) dominated.
+    Panel (b): log10 Ice Ih vs log10 Ice V heating scatter, coloured by
+               D_ocean.  Includes a 1:1 equal-power reference line.
+
+    Args:
+        k2_results:      Array (N, 2) of [Re(k2), Im(k2)] for eval samples.
+        heating_results: List of per-sample dicts mapping phase name to watts.
+        d_ocean_eval:    Per-sample ocean thickness in km, shape (N,).
+        obs_re:          Observed Re(k2).
+        obs_im:          Observed |Im(k2)|.
+        obs_re_err:      1-sigma uncertainty on obs_re.
+        obs_im_err:      1-sigma uncertainty on obs_im.
+        output_path:     Absolute path to the output PNG file.
+        w_floor:         Heating-power floor in Watts (default 1e8 W).
+                         Samples below this threshold are excluded from panel (b).
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    from matplotlib.patches import Ellipse
+
+    sns.set_theme(style='white', font_scale=0.9)
+
+    Re_arr = k2_results[:, 0]
+    Im_arr = np.abs(k2_results[:, 1])
+
+    Ih_pw  = np.array([h.get('Ih',  0.0) for h in heating_results])
+    V_pw   = np.array([h.get('V',   0.0) for h in heating_results])
+    III_pw = np.array([h.get('III', 0.0) for h in heating_results])
+    VI_pw  = np.array([h.get('VI',  0.0) for h in heating_results])
+    ice_tot = Ih_pw + III_pw + V_pw + VI_pw
+    f_ih = np.where(ice_tot > w_floor, Ih_pw / (ice_tot + 1e-30), np.nan)
+    valid_ice = np.isfinite(f_ih) & (ice_tot > w_floor)
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+    # --- Panel (a) ---
+    ax = axes[0]
+    if np.any(valid_ice):
+        sc = ax.scatter(Re_arr[valid_ice], Im_arr[valid_ice],
+                        c=f_ih[valid_ice], cmap='RdYlGn', s=8, alpha=0.7,
+                        vmin=0, vmax=1)
+        plt.colorbar(sc, ax=ax, label='Ice Ih fraction of ice heating')
+    else:
+        ax.scatter(Re_arr, Im_arr, s=8, alpha=0.5, c='gray')
+
+    for n_sigma, ls, lw, lbl in [
+        (1, '--', 2, r'obs 1$\sigma$'),
+        (2, ':',  1, r'obs 2$\sigma$'),
+    ]:
+        ax.add_patch(Ellipse(
+            (obs_re, obs_im),
+            2 * n_sigma * obs_re_err,
+            2 * n_sigma * obs_im_err,
+            fill=False, color='red', linewidth=lw, linestyle=ls, label=lbl,
+        ))
+    ax.set_xlabel(r'$\mathrm{Re}(k_2)$')
+    ax.set_ylabel(r'$|\mathrm{Im}(k_2)|$')
+    ax.set_title(r'$k_2$ posterior: Ice Ih vs HP ice dominance (green=Ih, red=V/VI)')
+    ax.legend(fontsize=8)
+
+    # --- Panel (b) ---
+    ax = axes[1]
+    ih_mask = valid_ice & (Ih_pw > w_floor) & (V_pw > w_floor)
+    if np.any(ih_mask):
+        sc = ax.scatter(
+            np.log10(Ih_pw[ih_mask]),
+            np.log10(V_pw[ih_mask]),
+            c=d_ocean_eval[ih_mask],
+            cmap='plasma', s=8, alpha=0.7,
+        )
+        plt.colorbar(sc, ax=ax, label=r'$D_\mathrm{ocean}$ (km)')
+        mn = min(np.log10(Ih_pw[ih_mask]).min(), np.log10(V_pw[ih_mask]).min())
+        mx = max(np.log10(Ih_pw[ih_mask]).max(), np.log10(V_pw[ih_mask]).max())
+        ax.plot([mn, mx], [mn, mx], 'k--', lw=1, label='equal power')
+        ax.legend(fontsize=8)
+    else:
+        ax.text(0.5, 0.5,
+                'No samples with both\nIce Ih and Ice V heating',
+                ha='center', va='center', transform=ax.transAxes)
+    ax.set_xlabel(r'$\log_{10}$ Ice Ih heating (W)')
+    ax.set_ylabel(r'$\log_{10}$ Ice V heating (W)')
+    ax.set_title('Ice Ih vs Ice V heating power')
+
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    log.info(f'Saved {output_path}')
+    plt.close(fig)
+
+
+# ===========================================================================
+# 4. Heating scatter vs parameters (2x5 grid + optional cumulative bar)
+# ===========================================================================
+
+def plot_heating_vs_parameters(
+    eval_samples: np.ndarray,
+    heating_results: List[Dict[str, float]],
+    param_labels: Sequence[str],
+    extra_xvals: List[np.ndarray],
+    extra_xlabels: List[str],
+    output_path: str,
+    w_floor: float = 1e8,
+    cumulative_bar: bool = True,
+    eval_d_ocean: Optional[np.ndarray] = None,
+    title: Optional[str] = None,
+) -> None:
+    """2x5 scatter grid of log10 tidal heating power vs each parameter.
+
+    Optionally adds a full-width cumulative stacked-fraction bar below.
+
+    The scatter panels show one point per eval sample per active phase.
+    An "active" phase is one that carries > ``w_floor`` W in at least 5 samples.
+
+    The cumulative bar panel shows per-model heating fractions sorted by
+    (f_sil ASC, D_ocean ASC) so cross-panel ordering matches
+    ``plot_layers_vs_docean``.
+
+    Args:
+        eval_samples:   Array (N_eval, N_params) of parameter values for the
+                        evaluated subset.
+        heating_results: List (N_eval,) of dicts mapping phase name to watts.
+        param_labels:   Labels for the first N columns of eval_samples.
+                        Must have length >= 5 (columns 0..4 are first panel row).
+                        Column 6 onward are second row.  See ``extra_xvals`` for
+                        how to insert derived quantities (e.g. D_iceIh) into the
+                        layout.
+        extra_xvals:    List of additional x-value arrays to append after the
+                        first 5 columns of eval_samples.  Typical usage: pass
+                        ``[d_iceIh_eval]`` to insert the Ice Ih thickness
+                        derived from the grid lookup.
+        extra_xlabels:  Labels matching ``extra_xvals``.
+        output_path:    Absolute path to the output PNG file.
+        w_floor:        Heating floor in Watts; phases below this are omitted
+                        from scatter panels (default 1e8 W).
+        cumulative_bar: If True (default), add the full-width cumulative
+                        heating-fraction bar as a third row.
+        eval_d_ocean:   Per-eval-sample D_ocean (km) used for the secondary
+                        sort key in the cumulative bar.  If None and
+                        ``cumulative_bar`` is True, the sort uses only f_sil.
+        title:          Figure suptitle.  If None, no suptitle is added.
+    """
+    import matplotlib.gridspec as gridspec
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    sns.set_theme(style='white', font_scale=0.9)
+
+    ALL_PHASES = ['Ih', 'III', 'V', 'VI', 'Sil']
+    phase_colors = {'Ih': 'C0', 'III': 'C1', 'V': 'C2', 'VI': 'C3', 'Sil': 'C4'}
+
+    heating_power = {
+        ph: np.array([h.get(ph, 0.0) for h in heating_results])
+        for ph in ALL_PHASES
+    }
+    active_phases = [ph for ph in ALL_PHASES
+                     if np.sum(heating_power[ph] > 1e6) > 5]
+
+    # Build x-value / label sequence for the 2×5 scatter grid
+    # First 5 params come from eval_samples columns 0..4, then extra_xvals,
+    # then eval_samples columns 6..9 (columns beyond 5).
+    plot_xvals = (
+        [eval_samples[:, i] for i in range(5)]
+        + list(extra_xvals)
+        + [eval_samples[:, i] for i in range(6, eval_samples.shape[1])]
+    )
+    plot_xlabels = (
+        list(param_labels[:5])
+        + list(extra_xlabels)
+        + list(param_labels[6:])
+    )
+
+    n_scatter = 10  # always 2 rows × 5 cols
+    if len(plot_xvals) < n_scatter:
+        # Pad if fewer than 10 panels are available
+        plot_xvals   = plot_xvals   + [None] * (n_scatter - len(plot_xvals))
+        plot_xlabels = plot_xlabels + ['']   * (n_scatter - len(plot_xlabels))
+    else:
+        plot_xvals   = plot_xvals[:n_scatter]
+        plot_xlabels = plot_xlabels[:n_scatter]
+
+    # --- Layout ---
+    if cumulative_bar:
+        fig = plt.figure(figsize=(25, 13))
+        gs = gridspec.GridSpec(3, 5, height_ratios=[1, 1, 1.1],
+                               hspace=0.35, wspace=0.3)
+        scatter_axes = [fig.add_subplot(gs[r, c]) for r in range(2) for c in range(5)]
+        ax_cum = fig.add_subplot(gs[2, :])
+    else:
+        fig = plt.figure(figsize=(25, 9))
+        gs = gridspec.GridSpec(2, 5, hspace=0.35, wspace=0.3)
+        scatter_axes = [fig.add_subplot(gs[r, c]) for r in range(2) for c in range(5)]
+        ax_cum = None
+
+    # --- Scatter panels ---
+    for ip, (xvals, xlabel) in enumerate(zip(plot_xvals, plot_xlabels)):
+        ax = scatter_axes[ip]
+        if xvals is None:
+            ax.set_visible(False)
+            continue
+        for ph in active_phases:
+            pw = heating_power[ph]
+            mask = pw > w_floor
+            if np.any(mask):
+                ax.scatter(xvals[mask], np.log10(pw[mask]),
+                           s=4, alpha=0.4, color=phase_colors[ph], label=ph)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(r'$\log_{10}$ Heating (W)')
+        if ip == 0 and active_phases:
+            ax.legend(fontsize=8, loc='best')
+
+    # --- Cumulative heating-fraction bar ---
+    if cumulative_bar and ax_cum is not None:
+        stack_phases = ['Ih', 'III', 'V', 'VI', 'Sil']
+
+        total_W = np.array([sum(h.values()) for h in heating_results])
+        safe_tot = np.where(total_W > 1e-30, total_W, 1e-30)
+        fracs: Dict[str, np.ndarray] = {}
+        for ph in stack_phases:
+            fracs[ph] = np.array([h.get(ph, 0.0) for h in heating_results]) / safe_tot
+
+        f_sil_per = fracs['Sil'].copy()
+
+        if eval_d_ocean is not None:
+            d_ocean_per = eval_d_ocean
+        else:
+            d_ocean_per = np.zeros(len(heating_results))
+
+        order = np.lexsort((d_ocean_per, f_sil_per))
+        n_models = len(order)
+        x = np.arange(n_models)
+
+        bottom = np.zeros(n_models)
+        for ph in stack_phases:
+            h_vals = fracs[ph][order]
+            ax_cum.bar(x, h_vals, bottom=bottom, width=1.0,
+                       color=_PHASE_COLORS_STACK[ph], edgecolor='none',
+                       label=_PHASE_LABELS_STACK[ph])
+            bottom += h_vals
+
+        ax_cum.set_ylim(0, 1.0)
+        ax_cum.set_xlim(0, n_models - 1)
+        ax_cum.set_ylabel('Cumulative heating fraction', fontsize=11)
+        ax_cum.set_title(
+            r'Per-model heating fractions  (models sorted by $f_\mathrm{sil}$ ASC, '
+            r'then $D_\mathrm{ocean}$ ASC — matches layers_vs_docean ordering)',
+            fontsize=11,
+        )
+
+        n_ticks = 8
+        tick_positions = np.linspace(0, n_models - 1, n_ticks, dtype=int)
+        tick_labels = [
+            f'{f_sil_per[order][i]:.2f}\n({d_ocean_per[order][i]:.0f} km)'
+            for i in tick_positions
+        ]
+        ax_cum.set_xticks(tick_positions)
+        ax_cum.set_xticklabels(tick_labels, fontsize=8)
+        ax_cum.set_xlabel(
+            r'$f_\mathrm{sil}$  ($D_\mathrm{ocean}$)   [models sorted ascending]',
+            fontsize=11,
+        )
+        handles, labels = ax_cum.get_legend_handles_labels()
+        ax_cum.legend(handles[::-1], labels[::-1],
+                      loc='center left', bbox_to_anchor=(1.005, 0.5), fontsize=9)
+
+    if title is not None:
+        fig.suptitle(title, fontsize=14)
+
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    log.info(f'Saved {output_path}')
+    plt.close(fig)
+
+
+# ===========================================================================
+# 5. Mass and CMR2 diagnostics vs D_hydro
+# ===========================================================================
+
+def plot_mass_cmr2_diagnostics(
+    d_hydro_values: np.ndarray,
+    mtot_results: np.ndarray,
+    cmr2_results: np.ndarray,
+    obs_mtot: float,
+    obs_mtot_err: float,
+    obs_cmr2: float,
+    obs_cmr2_err: float,
+    output_path: str,
+) -> None:
+    """Two-panel mass and CMR2 diagnostics vs hydrosphere thickness.
+
+    Panel (left):  Total mass vs D_hydro with observed mass band.
+    Panel (right): CMR2 vs D_hydro with observed CMR2 band.
+
+    The mass axis is scaled to 1e23 kg; the legend for the mass panel
+    formats the uncertainty in units of 1e20 kg.
+
+    Args:
+        d_hydro_values: Per-sample D_hydro in km, shape (N,).
+        mtot_results:   Per-sample total mass in kg, shape (N,).
+        cmr2_results:   Per-sample CMR2 (dimensionless), shape (N,).
+        obs_mtot:       Observed total mass in kg.
+        obs_mtot_err:   1-sigma uncertainty on obs_mtot in kg.
+        obs_cmr2:       Observed CMR2.
+        obs_cmr2_err:   1-sigma uncertainty on obs_cmr2.
+        output_path:    Absolute path to the output PNG file.
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    sns.set_theme(style='white', font_scale=0.9)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    # Left: total mass
+    ax = axes[0]
+    ax.scatter(d_hydro_values, mtot_results / 1e23, s=6, alpha=0.5, c='steelblue')
+    ax.axhline(obs_mtot / 1e23, color='red', ls='--',
+               label=f'obs ± {obs_mtot_err / 1e20:.1f}×10²⁰ kg')
+    ax.axhspan(
+        (obs_mtot - obs_mtot_err) / 1e23,
+        (obs_mtot + obs_mtot_err) / 1e23,
+        alpha=0.15, color='red',
+    )
+    ax.set_xlabel(r'$D_\mathrm{hydro}$ (km)')
+    ax.set_ylabel(r'$M_\mathrm{tot}$ (×10²³ kg)')
+    ax.set_title('Total Mass vs Hydrosphere Thickness')
+    ax.legend()
+
+    # Right: CMR2
+    ax = axes[1]
+    ax.scatter(d_hydro_values, cmr2_results, s=6, alpha=0.5, c='darkorange')
+    ax.axhline(obs_cmr2, color='red', ls='--',
+               label=f'obs={obs_cmr2}+/-{obs_cmr2_err}')
+    ax.axhspan(obs_cmr2 - obs_cmr2_err, obs_cmr2 + obs_cmr2_err,
+               alpha=0.15, color='red')
+    ax.set_xlabel(r'$D_\mathrm{hydro}$ (km)')
+    ax.set_ylabel('C/MR²')
+    ax.set_title('CMR2 vs Hydrosphere Thickness')
+    ax.legend()
+
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    log.info(f'Saved {output_path}')
+    plt.close(fig)
+
+
+# ===========================================================================
+# 6. CMR2 surface over the (Tb, D_hydro) grid
+# ===========================================================================
+
+def plot_cmr2_surface(
+    tb_vals: np.ndarray,
+    d_vals: np.ndarray,
+    grid_cache: Dict[Tuple[float, float], Dict],
+    output_path: str,
+) -> None:
+    """pcolormesh of CMR2 across the (Tb, D_hydro) grid.
+
+    Args:
+        tb_vals:     1-D array of basal temperature grid values in K.
+        d_vals:      1-D array of D_hydro grid values in km.
+        grid_cache:  Dict keyed by (tb, d) tuples mapping to structure dicts.
+                     Each structure dict should contain a ``'CMR2'`` entry.
+        output_path: Absolute path to the output PNG file.
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    sns.set_theme(style='white', font_scale=0.9)
+
+    CMR2_grid = np.full((len(d_vals), len(tb_vals)), np.nan)
+    for j, d in enumerate(d_vals):
+        for i, tb in enumerate(tb_vals):
+            key = (float(tb), float(d))
+            if key in grid_cache:
+                CMR2_grid[j, i] = grid_cache[key].get('CMR2', np.nan)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.pcolormesh(tb_vals, d_vals, CMR2_grid, cmap='viridis', shading='nearest')
+    plt.colorbar(im, ax=ax, label='C/MR²')
+    ax.set_xlabel(r'$T_b$ (K)')
+    ax.set_ylabel(r'$D_\mathrm{hydro}$ (km)')
+    ax.set_title('CMR2 across the grid')
+
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    log.info(f'Saved {output_path}')
+    plt.close(fig)
+
+
+# ===========================================================================
+# 7. Ice Ih shell thickness vs Tb with posterior histogram overlay
+# ===========================================================================
+
+def plot_tb_structure(
+    tb_vals: np.ndarray,
+    d_vals: np.ndarray,
+    grid_cache: Dict[Tuple[float, float], Dict],
+    samples: np.ndarray,
+    output_path: str,
+) -> None:
+    """Ice Ih shell thickness vs Tb from the grid with posterior Tb overlay.
+
+    The main line shows the maximum D_iceIh_km value seen at each Tb across
+    all D_hydro entries (truncated no-ocean entries have D_iceIh < true ice
+    thickness; taking the max recovers the physical relationship).
+
+    The twin y-axis shows a normalised histogram of the posterior Tb samples.
+
+    Args:
+        tb_vals:     1-D array of basal temperature grid values in K.
+        d_vals:      1-D array of D_hydro grid values in km (used for the
+                     grid lookup; not plotted directly).
+        grid_cache:  Dict keyed by (tb, d) tuples.
+        samples:     Full posterior sample array (N_samples, N_params).
+                     Column 5 is assumed to be Tb_K (the default Test48 layout).
+        output_path: Absolute path to the output PNG file.
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    sns.set_theme(style='white', font_scale=0.9)
+
+    # Build Tb -> max D_iceIh lookup
+    tb_to_diceIh: Dict[float, float] = {}
+    for (tb, _d), struct in grid_cache.items():
+        val = struct.get('D_iceIh_km', np.nan)
+        if np.isfinite(val) and (tb not in tb_to_diceIh or val > tb_to_diceIh[tb]):
+            tb_to_diceIh[tb] = val
+
+    tb_sorted   = sorted(tb_to_diceIh)
+    diceIh_line = [tb_to_diceIh[tb] for tb in tb_sorted]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    if any(np.isfinite(v) for v in diceIh_line):
+        ax.plot(tb_sorted, diceIh_line, 'k-o', markersize=4)
+        ax2 = ax.twinx()
+        ax2.hist(samples[:, 5], bins=30, alpha=0.3, color='blue',
+                 density=True, label=r'Posterior $T_b$')
+        ax2.set_ylabel('Posterior density', color='blue')
+        ax.set_xlabel(r'$T_b$ (K)')
+        ax.set_ylabel('Ice Ih shell thickness (km)')
+        ax.set_title('Ice Shell Thickness vs Basal Temperature')
+        fig.tight_layout()
+
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    log.info(f'Saved {output_path}')
+    plt.close(fig)
+
+
+# ===========================================================================
+# 8. Layer structure vs D_ocean (3-panel)
+# ===========================================================================
+
+def plot_layers_vs_docean(
+    samples: np.ndarray,
+    eval_idx: np.ndarray,
+    grid_cache: Dict[Tuple[float, float], Dict],
+    tb_vals: np.ndarray,
+    d_vals: np.ndarray,
+    heating_results: List[Dict[str, float]],
+    output_path: str,
+    R_body_km: float,
+    body_name: str = 'Titan',
+    param_indices: Optional[Dict[str, int]] = None,
+    equil_heating_GW: Optional[float] = None,
+    equil_heating_label: Optional[str] = None,
+) -> None:
+    """3-panel interior-structure figure sorted by (f_sil ASC, D_ocean ASC).
+
+    Panel layout (shared x-axis for middle and bottom):
+      Top:    D_ocean posterior histogram (independent x-axis).
+      Middle: Cumulative-thickness stackplot — one column per eval model.
+      Bottom: Per-phase tidal heating power on the same x-ordering.
+
+    Args:
+        samples:         Full posterior array (N_samples, N_params).
+        eval_idx:        Integer indices into ``samples`` for the evaluated
+                         subset, shape (N_eval,).
+        grid_cache:      Dict keyed by (tb, d) tuples.
+        tb_vals:         1-D grid of Tb values in K.
+        d_vals:          1-D grid of D_hydro values in km.
+        heating_results: List (N_eval,) of per-phase heating dicts in W.
+        output_path:     Absolute path to the output PNG file.
+        R_body_km:       Body surface radius in km.
+        body_name:       Body name string used in the title (default ``'Titan'``).
+        param_indices:   Dict mapping semantic keys to column indices in
+                         ``samples``.  Required keys: ``'Tb'``, ``'D_hydro'``,
+                         ``'f_core'``.  If None, uses the Test48 defaults
+                         ``{'Tb': 5, 'D_hydro': 6, 'f_core': 9}``.
+    """
+    import matplotlib.gridspec as gridspec
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    sns.set_theme(style='white', font_scale=0.9)
+
+    if param_indices is None:
+        param_indices = _DEFAULT_PARAM_INDICES
+
+    i_Tb      = param_indices['Tb']
+    i_D_hydro = param_indices['D_hydro']
+    i_f_core  = param_indices['f_core']
+
+    PHASE_LIST = ['Ih', 'III', 'V', 'VI', 'Sil']
+
+    # Extract per-model structural data
+    model_data = []
+    for ii, si in enumerate(eval_idx):
+        tb       = samples[si, i_Tb]
+        d_hydro  = samples[si, i_D_hydro]
+        f_core_i = samples[si, i_f_core]
+
+        idx_tb = int(np.argmin(np.abs(tb_vals - tb)))
+        idx_d  = int(np.argmin(np.abs(d_vals  - d_hydro)))
+        pt = grid_cache.get((float(tb_vals[idx_tb]), float(d_vals[idx_d])))
+        if pt is None:
+            continue
+
+        d_ih  = pt.get('D_iceIh_km',  0.0)
+        d_oc  = pt.get('D_ocean_km',  0.0)
+        d_iii = pt.get('D_iceIII_km', 0.0)
+        d_v   = pt.get('D_iceV_km',   0.0)
+        d_vi  = pt.get('D_iceVI_km',  0.0)
+        d_hp  = pt.get('D_hp_ice_km', 0.0)
+        if d_iii == 0 and d_v == 0 and d_vi == 0 and d_hp > 0:
+            d_v = d_hp
+
+        d_hydro_actual = d_ih + d_oc + d_iii + d_v + d_vi
+        r_sil_km  = R_body_km - d_hydro_actual
+        r_core_km = f_core_i * r_sil_km
+        d_sil  = r_sil_km - r_core_km
+        d_core = r_core_km
+
+        h = heating_results[ii]
+        total = sum(h.values())
+        f_sil = h.get('Sil', 0.0) / max(total, 1e-30) if total > 1e-6 else 0.0
+        heat_by_phase = {ph: h.get(ph, 0.0) for ph in PHASE_LIST}
+
+        model_data.append({
+            'D_ocean': d_oc,
+            'Ih':  d_ih,
+            '0':   d_oc,
+            'III': d_iii,
+            'V':   d_v,
+            'VI':  d_vi,
+            'Sil': d_sil,
+            'Core': d_core,
+            'idx': ii,
+            'f_sil': f_sil,
+            'heat': heat_by_phase,
+            'total_heat': total,
+        })
+
+    if not model_data:
+        log.warning('plot_layers_vs_docean: no valid samples, skipping.')
+        return
+
+    model_data.sort(key=lambda r: (r['f_sil'], r['D_ocean']))
+    d_ocean_vals = np.array([r['D_ocean'] for r in model_data])
+    f_sil_vals   = np.array([r['f_sil']  for r in model_data])
+    no_ocean_frac = np.mean(d_ocean_vals < 0.5)
+
+    fig = plt.figure(figsize=(10, 12))
+    gs  = gridspec.GridSpec(3, 1, height_ratios=[1, 4, 3], hspace=0.15)
+    ax_dens   = fig.add_subplot(gs[0])
+    ax_struct = fig.add_subplot(gs[1])
+    ax_heat   = fig.add_subplot(gs[2], sharex=ax_struct)
+
+    # Top: D_ocean histogram
+    ax_dens.hist(d_ocean_vals, bins=40, alpha=0.5, color='steelblue',
+                 density=True, edgecolor='none')
+    ax_dens.axvline(0.5, color='red', ls=':', lw=1.5, label='no-ocean boundary')
+    ax_dens.set_xlabel(r'$D_\mathrm{ocean}$ (km)', fontsize=10)
+    ax_dens.set_ylabel('Density', fontsize=9)
+    ax_dens.set_title(
+        f'{body_name} Interior Structure — All Posterior Models'
+        f'  (no-ocean: {no_ocean_frac:.0%};  sorted by $f_\\mathrm{{sil}}$, '
+        f'then $D_\\mathrm{{ocean}}$)',
+        fontsize=12,
+    )
+    ax_dens.tick_params(labelsize=8)
+    ax_dens.legend(fontsize=8)
+
+    # Middle: stackplot
+    stack_phases = ['Core', 'Sil', 'VI', 'V', 'III', '0', 'Ih']
+    x      = np.arange(len(model_data))
+    stacks = [np.array([r.get(p, 0.0) for r in model_data]) for p in stack_phases]
+    colors = [_FULL_PHASE_COLORS.get(p, '#cccccc') for p in stack_phases]
+    labels = [_FULL_PHASE_LABELS.get(p, p) for p in stack_phases]
+
+    polys = ax_struct.stackplot(x, *stacks, colors=colors, labels=labels)
+    for poly in polys:
+        poly.set_linewidth(0)
+        poly.set_edgecolor('none')
+
+    ax_struct.axhline(R_body_km, color='k', ls='-', lw=0.5, alpha=0.3)
+    ax_struct.set_ylabel('Cumulative thickness (km)', fontsize=12)
+    ax_struct.set_ylim(0, R_body_km * 1.02)
+    ax_struct.set_xlim(0, len(model_data) - 1)
+    ax_struct.tick_params(labelsize=9)
+    import matplotlib.pyplot as _plt
+    _plt.setp(ax_struct.get_xticklabels(), visible=False)
+
+    handles, lbls = ax_struct.get_legend_handles_labels()
+    ax_struct.legend(handles[::-1], lbls[::-1],
+                     loc='center left', bbox_to_anchor=(1.02, 0.5),
+                     fontsize=9, frameon=True)
+
+    # Bottom: per-phase heating
+    for ph in PHASE_LIST:
+        vals = np.array([r['heat'][ph] / 1e9 for r in model_data])
+        mask = vals > 1e-3
+        if np.any(mask):
+            ax_heat.scatter(x[mask], vals[mask], s=8, alpha=0.5,
+                            color=_FULL_PHASE_COLORS.get(ph, '#C8A96E'),
+                            label=_FULL_PHASE_LABELS.get(ph, ph))
+
+    ax_heat.set_yscale('log')
+    ax_heat.set_ylabel('Phase heating power (GW)', fontsize=12)
+    if equil_heating_GW is not None:
+        lbl = equil_heating_label or f'equil. (~{equil_heating_GW:.0f} GW)'
+        ax_heat.axhline(equil_heating_GW, color='gray', ls='--', lw=1, alpha=0.6, label=lbl)
+    ax_heat.legend(fontsize=8, loc='lower left', ncol=2)
+    ax_heat.tick_params(labelsize=9)
+    ax_heat.set_title(
+        'Per-Phase Tidal Heating  (x-axis shared with structure panel)',
+        fontsize=11,
+    )
+
+    n_ticks = 8
+    tick_positions = np.linspace(0, len(model_data) - 1, n_ticks, dtype=int)
+    tick_labels = [
+        f'{f_sil_vals[i]:.2f}\n({d_ocean_vals[i]:.0f} km)'
+        for i in tick_positions
+    ]
+    ax_heat.set_xticks(tick_positions)
+    ax_heat.set_xticklabels(tick_labels, fontsize=8)
+    ax_heat.set_xlabel(
+        r'$f_\mathrm{sil}$  ($D_\mathrm{ocean}$)   '
+        '[models sorted ascending]',
+        fontsize=11,
+    )
+
+    fig.savefig(output_path, dpi=200, bbox_inches='tight')
+    log.info(f'Saved {output_path}')
+    _plt.close(fig)
+
+
+# ===========================================================================
+# 9. Wedge diagram of posterior interior structure
+# ===========================================================================
+
+def plot_structure_wedge(
+    samples: np.ndarray,
+    eval_idx: np.ndarray,
+    grid_cache: Dict[Tuple[float, float], Dict],
+    tb_vals: np.ndarray,
+    d_vals: np.ndarray,
+    output_path: str,
+    R_body_km: float,
+    body_name: str = 'Titan',
+    param_indices: Optional[Dict[str, int]] = None,
+) -> None:
+    """Wedge diagram of the posterior interior structure.
+
+    Shows median layer radii as filled wedge patches with 5th/95th-percentile
+    uncertainty arcs.  Matches PlanetProfile's ``PlotWedge()`` visual style.
+
+    Args:
+        samples:       Full posterior array (N_samples, N_params).
+        eval_idx:      Integer indices into ``samples`` for the evaluated subset.
+        grid_cache:    Dict keyed by (tb, d) tuples.
+        tb_vals:       1-D grid of Tb values in K.
+        d_vals:        1-D grid of D_hydro values in km.
+        output_path:   Absolute path to the output PNG file.
+        R_body_km:     Body surface radius in km.
+        body_name:     Body name string used in the title (default ``'Titan'``).
+        param_indices: Dict mapping semantic keys to column indices in
+                       ``samples``.  Required keys: ``'Tb'``, ``'D_hydro'``,
+                       ``'f_core'``.  If None, uses the Test48 defaults
+                       ``{'Tb': 5, 'D_hydro': 6, 'f_core': 9}``.
+    """
+    import matplotlib.patches as mpatches
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Wedge as MplWedge
+
+    if param_indices is None:
+        param_indices = _DEFAULT_PARAM_INDICES
+
+    i_Tb      = param_indices['Tb']
+    i_D_hydro = param_indices['D_hydro']
+    i_f_core  = param_indices['f_core']
+
+    ANG1, ANG2 = 55, 125  # wedge angular extent (degrees)
+
+    # Collect per-sample layer boundary radii
+    r_iceIh_bot:  List[float] = []
+    r_ocean_bot:  List[float] = []
+    r_iceIII_bot: List[float] = []
+    r_iceV_bot:   List[float] = []
+    r_iceVI_bot:  List[float] = []
+    r_sil_bot:    List[float] = []
+    r_core_bot:   List[float] = []
+
+    for i in eval_idx:
+        tb       = samples[i, i_Tb]
+        d_hydro  = samples[i, i_D_hydro]
+        f_core_i = samples[i, i_f_core]
+
+        idx_tb = int(np.argmin(np.abs(tb_vals - tb)))
+        idx_d  = int(np.argmin(np.abs(d_vals  - d_hydro)))
+        pt = grid_cache.get((float(tb_vals[idx_tb]), float(d_vals[idx_d])))
+        if pt is None:
+            continue
+
+        d_ih  = pt.get('D_iceIh_km',  0.0)
+        d_oc  = pt.get('D_ocean_km',  0.0)
+        d_iii = pt.get('D_iceIII_km', 0.0)
+        d_v   = pt.get('D_iceV_km',   0.0)
+        d_vi  = pt.get('D_iceVI_km',  0.0)
+        d_hp  = pt.get('D_hp_ice_km', 0.0)
+        if d_iii == 0 and d_v == 0 and d_vi == 0 and d_hp > 0:
+            d_v = d_hp
+
+        r_ih_b  = R_body_km - d_ih
+        r_oc_b  = r_ih_b - d_oc
+        r_iii_b = r_oc_b - d_iii
+        r_v_b   = r_iii_b - d_v
+        r_vi_b  = r_v_b - d_vi
+        r_sil_b = r_vi_b           # top of silicate = bottom of last ice
+        r_core_top = f_core_i * r_sil_b
+
+        r_iceIh_bot.append(r_ih_b)
+        r_ocean_bot.append(r_oc_b)
+        r_iceIII_bot.append(r_iii_b)
+        r_iceV_bot.append(r_v_b)
+        r_iceVI_bot.append(r_vi_b)
+        r_sil_bot.append(r_core_top)
+        r_core_bot.append(0.0)
+
+    if not r_iceIh_bot:
+        log.warning('plot_structure_wedge: no valid samples, skipping.')
+        return
+
+    def pct(arr: List[float]) -> np.ndarray:
+        return np.percentile(arr, [5, 50, 95])
+
+    p_ih  = pct(r_iceIh_bot)
+    p_oc  = pct(r_ocean_bot)
+    p_iii = pct(r_iceIII_bot)
+    p_v   = pct(r_iceV_bot)
+    p_vi  = pct(r_iceVI_bot)
+    p_sil = pct(r_sil_bot)
+
+    # Use median radii for the wedge patches
+    layers = [
+        ('Ice Ih',     R_body_km, p_ih[1]),
+        ('Ocean',      p_ih[1],   p_oc[1]),
+        ('Ice III',    p_oc[1],   p_iii[1]),
+        ('Ice V',      p_iii[1],  p_v[1]),
+        ('Ice VI',     p_v[1],    p_vi[1]),
+        ('Silicate',   p_vi[1],   p_sil[1]),
+        ('Dense core', p_sil[1],  0.0),
+    ]
+
+    fig, ax = plt.subplots(figsize=(6, 8))
+    ax.set_xlim(-0.1, 1.1)
+    ax.set_ylim(-0.05, 1.05)
+    ax.set_aspect('equal')
+    ax.axis('off')
+
+    cx, cy = 0.5, 0.0  # wedge centre at bottom
+
+    for name, r_top, r_bot in layers:
+        thickness_km = r_top - r_bot
+        if thickness_km < 0.5:
+            continue
+        r_outer_norm = r_top / R_body_km
+        width_norm   = thickness_km / R_body_km
+        wedge = MplWedge(
+            (cx, cy), r_outer_norm, ANG1, ANG2,
+            width=width_norm,
+            fc=_WEDGE_COLORS[name], ec='#333333', lw=0.8,
+        )
+        ax.add_patch(wedge)
+
+    # Labels on the left side with leader arrows
+    tick_angle_rad = np.radians(ANG1 - 3)
+    label_entries = []
+    for name, r_top, r_bot in layers:
+        if r_top - r_bot < 5:
+            continue
+        r_mid  = (r_top + r_bot) / 2
+        r_norm = r_mid / R_body_km
+        x = cx + r_norm * np.cos(tick_angle_rad)
+        y = cy + r_norm * np.sin(tick_angle_rad)
+        label_entries.append((x, y, name, r_top - r_bot))
+
+    # Space labels vertically (min 0.06 apart in normalised coords)
+    label_y_positions = [e[1] for e in label_entries]
+    spaced_y: List[float] = []
+    for i, y in enumerate(sorted(label_y_positions)):
+        if i > 0 and y - spaced_y[-1] < 0.06:
+            y = spaced_y[-1] + 0.06
+        spaced_y.append(y)
+    sorted_idx = sorted(range(len(label_y_positions)), key=lambda i: label_y_positions[i])
+    final_y = [0.0] * len(label_entries)
+    for rank, orig_i in enumerate(sorted_idx):
+        final_y[orig_i] = spaced_y[rank]
+
+    for i, (x, y, name, thick) in enumerate(label_entries):
+        label_x = -0.08
+        label_y = final_y[i]
+        ax.annotate(
+            f'{name} ({thick:.0f} km)',
+            xy=(x, y), xytext=(label_x, label_y),
+            fontsize=8, ha='right', va='center', color='#333333',
+            arrowprops=dict(arrowstyle='-', color='#666666', lw=0.6),
+        )
+
+    ax.text(
+        cx, R_body_km / R_body_km + 0.02 + cy,
+        f'R = {R_body_km:.0f} km',
+        ha='center', va='bottom', fontsize=9,
+    )
+
+    ocean_thick  = p_ih[1] - p_oc[1]
+    ice_ih_thick = R_body_km - p_ih[1]
+    hp_thick     = p_oc[1] - p_vi[1]
+    ax.set_title(
+        f'{body_name} Interior Structure (Posterior Median)\n'
+        f'Ice Ih: {ice_ih_thick:.0f} km | Ocean: {ocean_thick:.0f} km | '
+        f'HP ice: {hp_thick:.0f} km',
+        fontsize=11, pad=10,
+    )
+
+    handles = [
+        mpatches.Patch(color=c, label=l)
+        for l, c in _WEDGE_COLORS.items()
+        if any(l == name and r_top - r_bot > 0.5 for name, r_top, r_bot in layers)
+    ]
+    ax.legend(handles=handles, loc='lower left', fontsize=8, framealpha=0.9)
+
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    log.info(f'Saved {output_path}')
+    plt.close(fig)
