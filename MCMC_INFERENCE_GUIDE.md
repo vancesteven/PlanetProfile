@@ -123,10 +123,31 @@ A liquid ocean tidally decouples HP ice below it (ocean transmits no shear stres
 
 ### Test 46 All-Ice Variant (`Test46_mcmc_allice.py`)
 **Scenario:** No ocean, fixed structure (D_hsphere=493.7 km)  
-**Rheology:** Andrade with per-phase viscosity (5D: alpha, zeta, eta_Ih, eta_III, eta_V, eta_VI, eta_sil)  
+**Rheology:** Andrade with per-phase viscosity (7D: alpha, zeta, eta_Ih, eta_III, eta_V, eta_VI, eta_sil)  
+**Convection:** DS2001 for Ice Ih, Kalousova for HP, Arrhenius viscosity.  
 **Key result:** Petricca-compatible model where HP ice can dissipate without ocean decoupling.
 
 **Outputs:** `allice_andrade_corner.png`, `allice_andrade_k2_heating.png`
+
+### Test 50: Andrade No-Ocean Titan with Yao 2014 (`Test50_mcmc_andrade_noocean_yao2014.py`)
+**Scenario:** All-ice (no-ocean) Titan with Yao 2014 spherical-shell Ih convection.  
+**Rheology:** Andrade with per-phase viscosity (7D — same shape as Test46_allice).  
+**Convection:** Yao for Ice Ih (replaces DS2001), Kalousova for HP, Arrhenius.  
+**Clathrate cap:** 10 km insulating layer at surface (inherits from PPTest46_allice).
+
+**Motivation:** Tests Petricca's central claim that no-ocean structures are required for HP ice dissipation to drive the observed |Im(k₂)|. The Test48 hybrid chain couldn't sample no-ocean structures fairly (0/4434 samples at D_hydro < 200 km due to CMR2 + ρ_sil-floor degeneracy) — this test samples the no-ocean branch cleanly via a fixed structure, following Petricca's methodology.
+
+**Structure config:** `PPTest50.py` — `SPHERICAL_CONVECTION=True` added on top of `PPTest46_allice.py`.
+
+**Parameter priors:**
+- α ∈ [0.15, 0.45], log₁₀ζ ∈ [−3, 2]
+- log₁₀η_Ih ∈ [12, 16] (basal value; Arrhenius applied in forward model)
+- log₁₀η_{III,V,VI} ∈ [12, 16] (narrowed from Test46_allice's [10,16] to bracket HP Maxwell peaks)
+- log₁₀η_sil ∈ [18, 22]
+
+**Expected results:** Comparison against Test48 (ocean-bearing) posterior will reveal whether HP ices become dissipation-competitive when ocean decoupling is removed.
+
+**Outputs:** `allice_yao2014_andrade_*.png` (same plot suite as Test48 via the mcmc_plots toolkit).
 
 ## Running the Tests
 
@@ -143,6 +164,7 @@ python PlanetProfile/Test/Test42_mcmc_maxwell_ocean.py      # ~3-5 hours
 python PlanetProfile/Test/Test43_mcmc_andrade_arrhenius_no_ocean.py
 python PlanetProfile/Test/Test44_mcmc_maxwell_arrhenius_ocean.py
 python PlanetProfile/Test/Test48_mcmc_andrade_yao2014.py    # ~3-5 hours (requires Yao2014 grid)
+python PlanetProfile/Test/Test50_mcmc_andrade_noocean_yao2014.py   # ~30 min – 1 hr (single fixed structure, no grid build)
 ```
 
 ### Re-plotting Saved Results
@@ -198,11 +220,13 @@ PlanetProfile/Test/
 ├── Test43_mcmc_andrade_arrhenius_no_ocean.py
 ├── Test44_mcmc_maxwell_arrhenius_ocean.py
 ├── Test46_mcmc_andrade_hybrid_hydro.py      # Andrade hybrid-hydro (10D, DS2001)
-├── Test46_mcmc_allice.py                    # All-ice variant (no ocean, 5D)
-├── Test48_mcmc_andrade_yao2014.py           # Andrade hybrid-hydro (10D, Yao2014)
+├── Test46_mcmc_allice.py                    # All-ice variant (no ocean, 7D)
+├── Test48_mcmc_andrade_yao2014.py           # Andrade hybrid-hydro (10D, Yao2014) — uses mcmc_plots toolkit
+├── Test50_mcmc_andrade_noocean_yao2014.py   # Andrade no-ocean Yao+Kalousova (7D)
 ├── PPTest41.py ... PPTest44.py              # Structural configs
 ├── PPTest46_allice.py                       # All-ice structural config
 ├── PPTest48.py                              # Titan Yao2014 config (SPHERICAL_CONVECTION)
+├── PPTest50.py                              # Titan no-ocean Yao+Kalousova + 10 km clathrate
 ├── Test40_maxwell_sweep.py                  # Parameter sweep (precursor)
 ├── replot_mcmc.py                           # Regenerate figures from .pkl
 └── mcmc_results/                            # Output directory
@@ -219,7 +243,66 @@ PlanetProfile/Test/
 PlanetProfile/Inference/
 ├── hybrid_structure_cache.py                # Grid cache builder (DS2001 or Yao2014 via convection_model kwarg)
 ├── structure_cache.py                       # Fixed-structure cache for Test46_allice
-└── inference_core.py                        # Shared MCMC/SBI dispatch logic
+├── inference_core.py                        # Shared MCMC/SBI dispatch logic
+├── mcmc_common.py                           # Body-agnostic MCMC helpers (NEW)
+└── mcmc_plots.py                            # Body-agnostic plot library (NEW)
+```
+
+## Inference Toolkit (`mcmc_common.py`, `mcmc_plots.py`)
+
+Extracted from Test48 to allow reuse across bodies (Titan, Europa, Ganymede, ...) with consistent forward-model physics and plotting.
+
+### `mcmc_common.py` — body-agnostic helpers
+
+| Function | Purpose |
+|---|---|
+| `apply_arrhenius_ih(eta_mod, phases, ci, n_layers, T_K_profile, Tb_K, E_act_J_mol=60e3, R_gas=8.314462, ih_phase_id=1)` | Scale Ice Ih viscosity by Arrhenius law where sampled η is the *basal* value at Tb (Yao convention). |
+| `split_silicate_core(...)` | Insert inner-core boundary at f_core · r_sil_top, apply two-layer density + elastic moduli, extend layering. |
+| `build_andrade_shear_bulk(region_phases, alpha, log10_zeta)` | Per-layer Andrade shear + Elastic bulk (ocean/clathrate → Elastic). |
+| `build_maxwell_shear_bulk(region_phases)` | Maxwell variant. |
+| `compute_per_phase_heating(result, data)` | Integrate TidalPy volumetric dissipation by phase. Returns dict {phase name → W}. |
+| `run_pocomc_sampler(prior, log_like_fn, n_effective=500, random_state=42)` | pocoMC wrapper with timing + logging. |
+| `evaluate_posterior(samples, forward_fn, n_eval=500, random_state=42)` | Re-evaluate forward model on posterior subset for heating breakdowns. |
+| `gaussian_chi2_terms(observed, predicted)` | Sum ((pred - μ)/σ)² over matched keys. |
+
+### `mcmc_plots.py` — 9 body-agnostic plot functions
+
+| Function | Figure |
+|---|---|
+| `plot_corner(samples, labels, title, output_path, quantiles=(0.16,0.5,0.84))` | Posterior corner with quantile titles. |
+| `plot_k2_scatter_by(k2_results, color_values, colorbar_label, obs_re, obs_im, ...)` | k₂ Re/Im scatter, arbitrary per-sample colouring + Petricca 1σ/2σ ellipses. |
+| `plot_ice_comparison(k2_results, heating_results, d_ocean_eval, obs_re, obs_im, ...)` | Two-panel Ih-vs-HP dominance diagnostics. |
+| `plot_heating_vs_parameters(eval_samples, heating_results, param_labels, extra_xvals, ..., cumulative_bar=True, eval_d_ocean=...)` | 2×5 heating-vs-parameter scatter + optional full-width cumulative stacked-fraction bar (sorted by (f_sil, D_ocean)). |
+| `plot_mass_cmr2_diagnostics(d_hydro_values, mtot_results, cmr2_results, obs_*)` | Mass and CMR² vs D_hydro with observation bands. |
+| `plot_cmr2_surface(tb_vals, d_vals, grid_cache, output_path)` | pcolormesh of CMR² across (Tb, D_hydro). |
+| `plot_tb_structure(tb_vals, d_vals, grid_cache, samples, output_path)` | Ice Ih thickness vs Tb + posterior Tb histogram. |
+| `plot_layers_vs_docean(samples, eval_idx, grid_cache, ..., R_body_km, body_name='Titan', param_indices=None, equil_heating_GW=None)` | 3-panel: D_ocean density / cumulative-thickness stackplot / per-phase heating, sorted by (f_sil ASC, D_ocean ASC). |
+| `plot_structure_wedge(samples, eval_idx, grid_cache, ..., R_body_km, body_name='Titan', param_indices=None)` | Wedge diagram of posterior median interior with 5/95-percentile arcs. |
+
+`param_indices` defaults to Test48 layout `{'Tb': 5, 'D_hydro': 6, 'f_core': 9}` — override when adapting to a body with a different parameter ordering.
+
+### Usage pattern (new body)
+
+```python
+from PlanetProfile.Inference import mcmc_common as mc, mcmc_plots as mp
+
+# 1. Forward model uses helpers:
+mc.apply_arrhenius_ih(eta_mod, phases, ci, n_layers, data['T_K'], Tb_K)
+mc.split_silicate_core(r_m, rho_mod, K_Pa_mod, mu_Pa_mod, phases, ci, ...)
+shear, bulk = mc.build_andrade_shear_bulk(region_phases, alpha, log10_zeta)
+# ...TidalPy call...
+heating = mc.compute_per_phase_heating(result, data)
+
+# 2. MCMC run:
+samples, log_likes, sampler = mc.run_pocomc_sampler(prior, log_like_fn)
+eval_idx, eval_results = mc.evaluate_posterior(samples, forward_fn)
+
+# 3. Plots — body-agnostic:
+mp.plot_corner(samples, PARAM_LABELS, title, out_path)
+mp.plot_layers_vs_docean(samples, eval_idx, grid_cache, tb_vals, d_vals,
+                         heating_results, out_path,
+                         R_body_km=EUROPA_R_M / 1e3, body_name='Europa',
+                         param_indices={'Tb': 5, 'D_hydro': 6, 'f_core': 9})
 ```
 
 ## Technical Details
@@ -267,10 +350,35 @@ After MCMC completes, 500 samples are re-evaluated with full structure + heating
 - Andrade (1910) — Power-law frequency-dependent rheology
 - Maxwell (1867) — Viscoelastic relaxation model
 
+## Key Findings — Test48 Path B (Yao + Arrhenius + loose structure)
+
+Five progressive MCMC runs (2026-05-05 to 2026-05-07) converged on the B-path result:
+
+| Run | Change | Re(k₂) | \|Im(k₂)\| | χ to obs | f_Ih (median) | 1σ hit |
+|-----|--------|--------|-----------|----------|---------------|--------|
+| pre-fix (bug) | uniform η_Ih everywhere | 0.641 | 0.109 | 1.00σ | 100% | 26% |
+| A1 | Arrhenius Ice Ih (basal ref) | 0.650 | 0.096 | 1.42σ | 100% | 19% |
+| A1 + B2 | HP prior [10,18] → [12,16] | 0.666 | 0.086 | 1.86σ | 100% | 11% |
+| A1 + B2 + no-qs | q_surface constraint removed | 0.660 | 0.090 | 1.68σ | 100% | 11% |
+| **B (loose struct)** | **CMR2 err 0.001→0.005, ρ_sil floor 2000→1800** | **0.633** | **0.104** | **1.01σ** | **100%** | **28%** |
+
+**Interpretation:** Under physically correct Yao + Arrhenius + Andrade, Titan tidal heating is dominated by ~100 km of warm basal Ice Ih at the Maxwell dissipation peak (η ≈ 10¹⁵ Pa·s, μ ≈ 3.5 GPa, ωτ ≈ 1 at the tidal frequency). This result is robust to prior choice — a D4 forward-model sweep (2025 rheology combinations at fixed structure) found zero HP-dominated solutions. The observed |Im(k₂)| = 0.135 sits on the edge of the reachable (Re, Im) curve; best samples reach 0.06σ but the posterior median is broader.
+
+**Active ingredient:** CMR2 relaxation (0.001 → 0.005) was the key to improving fit — it opened the D_hydro × (ρ_sil, ρ_core, f_core) degeneracy that had pinned the chain at D_hydro ≈ 460 km.
+
 ## Next Steps
 
-- **Build Yao2014 grid cache:** Run full (Tb × D_hydro) grid with `convection_model='yao2014'` (~400 points, several hours). Required before Test48 MCMC can execute.
-- **Run Test48 MCMC:** Compare Yao2014 vs DS2001 posteriors — expect shifted η_Ih distribution and different Im(k₂) sensitivity.
-- **SBI (Simulation-Based Inference):** Implement `sbi_runner.py` for continuous parameter sampling without grid discretization. Infrastructure in place (`sbi` installed, `inference_core.py` has dispatch).
-- **Thermal equilibrium prior:** Add steady-state heating constraint to penalize Ice Ih dissipation modes exceeding melting timescale.
-- **Petricca constraint comparison:** `--petricca` flag for Re(k2)=0.133 constraint set (Durante et al. 2019 phase-lag interpretation).
+### Pending science
+- **Run Test50 MCMC** — no-ocean + Yao test of Petricca's central claim (HP-driven Im(k₂) requires ocean decoupling absent). Expect either (a) HP-dominated result confirming Petricca, or (b) Ice-Ih-dominated result challenging it.
+- **Test49: Yao + 4 km clathrate + ocean** — perturbation check of Path B result (plan documented; grid rebuild required).
+- **Test51: Europa MCMC** — apply toolkit to Europa with variable (ρ_sil, ρ_core, f_core) and Galileo/Juno k₂ constraints.
+
+### Toolkit continuation
+- **Port Test48 forward_model** to `mcmc_common.apply_arrhenius_ih`, `split_silicate_core`, `compute_per_phase_heating` — currently only `make_plots` uses the toolkit.
+- **Port Test50 plotting** to `mcmc_plots` — current Test50 has inline plots from initial port.
+- **BodyConfig abstraction** — centralize OBS, R/M, n, e constants per body so Test51+ are thin wrappers.
+- **PlanetProfileApp integration** — live progress, multi-run comparison, body selector.
+
+### Advanced inference options
+- **SBI (Simulation-Based Inference):** `sbi_runner.py` for continuous parameter sampling. Infrastructure in place (`inference_core.py` has dispatch).
+- **Petricca constraint comparison:** `--petricca` flag for Re(k₂)=0.133 constraint set (Durante et al. 2019 phase-lag interpretation).

@@ -39,7 +39,7 @@ PlanetProfileApp/sessions/*
 venvPP/
 .matplotlib/
 # AI assistant instructions (keep local)
-CLAUDE.md
+!CLAUDE.md
 .claude/
 # AI session artifacts (not permanent documentation)
 *_SUMMARY.md
