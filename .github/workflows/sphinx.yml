@@ -15,7 +15,7 @@ jobs:
         build-command: 'sphinx-build -b html . _build -v'
         docs-folder: docs/
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: html-docs
         path: docs/_build/
