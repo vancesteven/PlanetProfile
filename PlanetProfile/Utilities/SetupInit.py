@@ -8,7 +8,7 @@ import time
 from collections.abc import Iterable
 from PlanetProfile import _ROOT
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigMisc
-from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS, GetOceanEOSLabel, GetIceEOSLabel
+from PlanetProfile.Thermodynamics.HydroEOS import GetIceArrheniusViscosityKwargs, GetOceanEOS, GetIceEOS, GetOceanEOSLabel, GetIceEOSLabel
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolution, strip_latex_formatting_from_CustomSolutionLabel, SetupCustomSolutionEOS
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathDissoc
@@ -1175,7 +1175,8 @@ def PrecomputeEOS(PlanetList, Params):
                                                         mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant},
                                                         doConstantProps=Planet.Do.CONSTANTPROPSEOS,
                                                         constantProperties=Planet.Ocean.constantProperties[icePhase],
-                                                        minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)        
+                                                        minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                                        **GetIceArrheniusViscosityKwargs(Planet, icePhase))
                 log.profile(f'Surfice {icePhase} EOS pre-generated.')
         
         PHPIce_MPa = np.arange(minPOcean_MPa, maxPHPIce_MPa, deltaPIce)
@@ -1189,7 +1190,8 @@ def PrecomputeEOS(PlanetList, Params):
                                                       phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
                                                       Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
                                                       phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                      minPres_MPa=deltaPIce, minTres_K=deltaTIce, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+                                                      minPres_MPa=deltaPIce, minTres_K=deltaTIce, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
+                                                      **GetIceArrheniusViscosityKwargs(Planet, icePhase))
                 log.profile(f'HP {icePhase} EOS pre-generated.')
     if len(innerPlanets) > 0:
         log.profile(f'Pre-generating inner EOS for {len(innerPlanets)} inner planets.')
