@@ -3,7 +3,7 @@ import logging
 import scipy.interpolate as spi
 from PlanetProfile.Thermodynamics.Geophysical import PropagateConduction, EvalLayerProperties, \
     PorosityCorrectionVacIce, PorosityCorrectionFilledIce, PropogateConductionFromDepth
-from PlanetProfile.Thermodynamics.HydroEOS import GetIceEOS, GetOceanEOS
+from PlanetProfile.Thermodynamics.HydroEOS import GetIceArrheniusViscosityKwargs, GetIceEOS, GetOceanEOS
 from PlanetProfile.Utilities.Indexing import PhaseConv
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import GetPbConduct, GetTfreeze
 from PlanetProfile.Utilities.defineStructs import Constants
@@ -33,7 +33,8 @@ def IceIWholeConductSolid(Planet, Params):
                                                   mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant},
                                                   doConstantProps=Planet.Do.CONSTANTPROPSEOS,
                                                   constantProperties=Planet.Ocean.constantProperties[icePhase],
-                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                                  **GetIceArrheniusViscosityKwargs(Planet, icePhase))
         # Getfreezing temperature
         # Calculate the bottom ice temperature, otherwise use the bulk temperature
         if Planet.Ocean.comp == 'none':
@@ -64,7 +65,8 @@ def IceIWholeConductSolid(Planet, Params):
         Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIceI_MPa, TIceI_K, icePhase, EXTRAP=Params.EXTRAP_ICE[icePhase],
                                                     ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK, 
                                                   mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant},
-                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                                  **GetIceArrheniusViscosityKwargs(Planet, icePhase))
 
         # Evaluate thermodynamic properties of uppermost ice
         Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nIbottom,
@@ -105,7 +107,8 @@ def IceIWholeConductPorous(Planet, Params):
                                                   phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE[icePhase],
                                                   ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
                                                   mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant},
-                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                                  **GetIceArrheniusViscosityKwargs(Planet, icePhase))
 
     # Evaluate thermodynamic properties of uppermost ice
     Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nIbottom,
@@ -144,7 +147,8 @@ def IceIConductClathLidSolid(Planet, Params):
     # Get ice Ih EOS
     Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(Plin_MPa, Tlin_K, 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'],
                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                              minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                              minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                              **GetIceArrheniusViscosityKwargs(Planet, 'Ih'))
     # Get clathrate EOS
     Planet.Ocean.surfIceEOS[phaseStr] = GetIceEOS(Plin_MPa, Tlin_K, phaseStr, EXTRAP=Params.EXTRAP_ICE[phaseStr],
                                                  ClathDissoc=Planet.Ocean.ClathDissoc, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
@@ -240,7 +244,8 @@ def IceIConductClathLidPorous(Planet, Params):
                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Ih'],
                                               phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Ih'],
                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                              minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                              minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                              **GetIceArrheniusViscosityKwargs(Planet, 'Ih'))
     # Get clathrate EOS
     Planet.Ocean.surfIceEOS[phaseStr] = GetIceEOS(Plin_MPa, Tlin_K, phaseStr,
                                                  porosType=Planet.Ocean.porosType['Clath'],
@@ -364,7 +369,8 @@ def IceIConductClathUnderplateSolid(Planet, Params):
         # Get ice I EOS
         Planet.Ocean.surfIceEOS['Ih'] = GetIceEOS(PIceI_MPa, TIceFull_K, 'Ih', EXTRAP=Params.EXTRAP_ICE['Ih'],
                                                   ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                                  minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                                  **GetIceArrheniusViscosityKwargs(Planet, 'Ih'))
 
         # Get approximate temperature at top of clathrate layer based on assumed surface heat flux
         # Need approx. depth first for curvature change to heat flux
@@ -479,7 +485,8 @@ def IceIConductClathUnderplatePorous(Planet, Params):
                                               Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Ih'],
                                               phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['Ih'],
                                               ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                              minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                              minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                              **GetIceArrheniusViscosityKwargs(Planet, 'Ih'))
 
     # Get approximate temperature at top of clathrate layer based on assumed surface heat flux
     # Need approx. depth first for curvature change to heat flux
@@ -564,7 +571,8 @@ def IceIIIConductSolid(Planet, Params):
 
     # Get ice III EOS
     Planet.Ocean.surfIceEOS['III'] = GetIceEOS(PIceIII_MPa, TIceIII_K, 'III', EXTRAP=Params.EXTRAP_ICE['III'], kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                               minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                               minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                               **GetIceArrheniusViscosityKwargs(Planet, 'III'))
 
     # Evaluate thermodynamic properties of upper ice III
     Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nIbottom, Planet.Steps.nIIIbottom,
@@ -595,7 +603,8 @@ def IceIIIConductPorous(Planet, Params):
                                                phiTop_frac=Planet.Ocean.phiMax_frac['III'],
                                                Pclosure_MPa=Planet.Ocean.Pclosure_MPa['III'],
                                                phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['III'], kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                               minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                               minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                               **GetIceArrheniusViscosityKwargs(Planet, 'III'))
 
     # Evaluate thermodynamic properties of upper ice III
     Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nIbottom, Planet.Steps.nIIIbottom,
@@ -625,7 +634,8 @@ def IceVConductSolid(Planet, Params):
 
     # Get ice V EOS
     Planet.Ocean.surfIceEOS['V'] = GetIceEOS(PIceV_MPa, TIceV_K, 'V', EXTRAP=Params.EXTRAP_ICE['V'], kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                             minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                             minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                             **GetIceArrheniusViscosityKwargs(Planet, 'V'))
 
     # Evaluate thermodynamic properties of upper ice V
     Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nIIIbottom, Planet.Steps.nSurfIce,
@@ -656,7 +666,8 @@ def IceVConductPorous(Planet, Params):
                                              phiTop_frac=Planet.Ocean.phiMax_frac['V'],
                                              Pclosure_MPa=Planet.Ocean.Pclosure_MPa['V'],
                                              phiMin_frac=Planet.Ocean.phiMin_frac, EXTRAP=Params.EXTRAP_ICE['V'], kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                             minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K)
+                                             minPres_MPa=Params.minPres_MPa, minTres_K=Params.minTres_K,
+                                             **GetIceArrheniusViscosityKwargs(Planet, 'V'))
 
     # Evaluate thermodynamic properties of upper ice V
     Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nIIIbottom, Planet.Steps.nSurfIce,
