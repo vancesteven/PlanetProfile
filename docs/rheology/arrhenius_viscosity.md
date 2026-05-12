@@ -37,9 +37,20 @@ override one phase without changing the constants:
 Planet.Ocean.Eact_kJmol['Ih'] = 65.0  # kJ/mol
 ```
 
-EOS/profile reference viscosities come from `Constants.etaMelt_Pas`. Reference
-melting temperatures are currently approximate defaults for HP ices, with
-computed `Bulk.TbIII_K` and `Bulk.TbV_K` used when available.
+EOS/profile reference viscosities come from `Constants.etaMelt_Pas`. The
+`Tmelt_K` values used by the Arrhenius helper are fallback reference
+temperatures, not pressure-dependent melting curves:
+
+```text
+Ice Ih:  Constants.T0
+Ice III: 253 K
+Ice V:   264 K
+Ice VI:  290 K
+```
+
+Body-specific `Bulk.TbIII_K` and `Bulk.TbV_K` values override the Ice III and
+Ice V fallbacks when available. Ice VI currently remains a fixed fallback
+reference pending fuller Ice VI thermal/profile support.
 
 Arrhenius viscosity is kept separate from convection diagnostic viscosity. That
 separation is intentional: changing diagnostic rheology should not silently
@@ -71,3 +82,8 @@ Planet.Do.ARRHENIUS_VISCOSITY_VI = True
 Arrhenius viscosity is an EOS/profile viscosity law. It changes saved `eta_Pas`
 for enabled phases, but it does not overwrite the convection reference viscosity
 inside the Arrhenius EOS object.
+
+Ice VI is wired for high-pressure ice EOS construction, but the current surface
+thermal-profile code does not have a separate production Ice VI lithosphere
+conduction/convection path. Its Arrhenius `Tmelt_K` value is therefore a fixed
+fallback reference, not a pressure-dependent Ice VI melting curve.

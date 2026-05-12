@@ -410,13 +410,16 @@ def GetIceArrheniusViscosityKwargs(Planet, phaseStr):
     if not np.isfinite(Eact_kJmol):
         Eact_kJmol = Constants.Eact_kJmol[phaseID]
 
-    phaseTmeltDefaults_K = {
+    # Fallback Arrhenius reference temperatures for ice phases.
+    # These are approximate mid-range reference values, not pressure-dependent
+    # melting curves. Body-specific boundary temperatures are used when available.
+    phaseTmeltReferenceDefaults_K = {
         'Ih': Constants.T0,
         'III': 253.0,
-        'V': 263.0,
+        'V': 264.0,
         'VI': 290.0
     }
-    Tmelt_K = phaseTmeltDefaults_K[phaseStr]
+    Tmelt_K = phaseTmeltReferenceDefaults_K[phaseStr]
     if phaseStr == 'III':
         TmeltCandidate_K = getattr(Planet.Bulk, 'TbIII_K', None)
         if TmeltCandidate_K is not None and np.isfinite(TmeltCandidate_K):
