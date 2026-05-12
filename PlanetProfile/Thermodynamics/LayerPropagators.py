@@ -16,6 +16,7 @@ from PlanetProfile.Thermodynamics.ThermalProfiles.Convection import IceIConvectS
 from PlanetProfile.Thermodynamics.ThermalProfiles.IceConduction import IceIWholeConductSolid, IceIWholeConductPorous, \
     IceIConductClathLidSolid, IceIConductClathLidPorous, IceIConductClathUnderplateSolid, IceIConductClathUnderplatePorous, \
     IceIIIConductSolid, IceIIIConductPorous, IceVConductSolid, IceVConductPorous
+from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConvectionDeschampsSotin2001, GetRaCrit
 from PlanetProfile.Thermodynamics.Geophysical import PropogateConductionFromDepth
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 import time
@@ -1010,10 +1011,266 @@ def SelfConsistentOceanLayer(Planet, Params):
         else:
             zClathInfo = '.'
 
+
         log.info(f'Ocean layers complete. zMax: {Planet.z_m[Planet.Steps.nSurfIce + Planet.Steps.nOceanMax - 1]/1e3:.1f} km, ' +
                  f'upper ice thickness zb: {Planet.zb_km:.3f} km{zClathInfo}')
 
+        if Planet.Do.HP_ICE_CONVECTION_DIAGNOSTICS:
+            Planet = HPIceConvectionDiagnostics(Planet, Params)
+
     return Planet, Params
+
+
+def HPIceConvectionDiagnostics(Planet, Params):
+    """Compute opt-in diagnostics for in-ocean HP ice convection.
+
+    This uses Deschamps and Sotin (2001) scaling as a diagnostic calculator
+    only. It does not modify the thermal, phase, mass, gravity, or heat-flux
+    profile produced by the layer propagators.
+    """
+    if not Planet.Do.VALID or Planet.Do.NO_H2O:
+        return Planet
+    if Planet.Do.NO_OCEAN and not Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES:
+        return Planet
+    if Planet.Do.BOTTOM_ICEV or Planet.Do.BOTTOM_ICEIII:
+        log.info('HP ice convection diagnostics skipped for underplate HP ice configuration.')
+        return Planet
+    if Planet.Do.NO_ICE_CONVECTION:
+        log.info('HP ice convection diagnostics skipped because NO_ICE_CONVECTION is True.')
+        return Planet
+
+    phaseNames = {3: 'III', 5: 'V', 6: 'VI'}
+    # Match genai's bottom-to-top HP ice traversal. The diagnostic path is
+    # phase-local, so this only affects logging and output ordering.
+    phaseOrder = (6, 5, 3)
+    Planet.HPIceDiagnostics = {}
+    for phaseName in phaseNames.values():
+        _SetHPIceDiagnosticFields(Planet, phaseName, status='absent')
+
+    iOceanStart = Planet.Steps.nSurfIce
+    iOceanEnd = Planet.Steps.nSurfIce + Planet.Steps.nOceanMax
+    oceanPhases = Planet.phase[iOceanStart:iOceanEnd]
+    if not np.any(np.logical_and(oceanPhases > 1, oceanPhases < 10)):
+        log.info('HP ice convection diagnostics enabled, but no in-ocean HP ice phases were found.')
+        return Planet
+
+    log.info('Computing opt-in HP ice convection diagnostics using Deschamps and Sotin (2001).')
+
+    for phaseID in phaseOrder:
+        phaseName = phaseNames[phaseID]
+        phaseInds = np.where(oceanPhases == phaseID)[0] + iOceanStart
+        if len(phaseInds) == 0:
+            log.info(f'HP ice {phaseName} diagnostics: phase absent.')
+            continue
+
+        iTop = phaseInds[0]
+        iBot = phaseInds[-1]
+        Ttop_K = Planet.T_K[iTop]
+        Tb_K = Planet.T_K[iBot]
+        rTop_m = Planet.r_m[iTop]
+        kTop_WmK = Planet.kTherm_WmK[iTop]
+        gtop_ms2 = Planet.g_ms2[iTop]
+        zb_m = Planet.z_m[iBot] - Planet.z_m[iTop]
+        Pmid_MPa = (Planet.P_MPa[iTop] + Planet.P_MPa[iBot]) / 2
+
+        if zb_m < 1e3 or not np.all(np.isfinite([Ttop_K, Tb_K, rTop_m, kTop_WmK, gtop_ms2, Pmid_MPa])):
+            reason = 'too thin' if zb_m < 1e3 else 'invalid P/T/r/k/g'
+            _SetHPIceDiagnosticFields(Planet, phaseName, status=reason, thickness_m=zb_m)
+            log.info(f'HP ice {phaseName} diagnostics skipped: {reason}.')
+            continue
+
+        iceEOS = Planet.Ocean.iceEOS.get(phaseName)
+        if iceEOS is None:
+            _SetHPIceDiagnosticFields(Planet, phaseName, status='missing EOS', thickness_m=zb_m)
+            log.warning(f'HP ice {phaseName} diagnostics skipped: EOS was not loaded.')
+            continue
+
+        phaseEOS = _FixedPhaseEOS(Planet.Ocean.EOS, phaseID)
+        method = 'Deschamps and Sotin (2001)'
+        if phaseID == 6:
+            method = 'DS2001 phase-local diagnostic fallback'
+            log.info(
+                'HP ice VI diagnostics use the phase-local bottom-temperature fallback '
+                'because the production DS2001 melt lookup assumes a low-temperature '
+                'pure-water search range that is not valid for these Ice VI blocks.'
+            )
+            try:
+                Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit = \
+                    _ConvectionDeschampsSotinHPIceDiagnostic(
+                        Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
+                        Pmid_MPa, iceEOS, phaseID, Planet.Do.EQUIL_Q,
+                        Planet.Ocean.Eact_kJmol
+                    )
+            except Exception as fallbackExc:
+                _SetHPIceDiagnosticFields(Planet, phaseName, status=f'error: {fallbackExc}', thickness_m=zb_m)
+                log.warning(f'HP ice {phaseName} diagnostics failed: {fallbackExc}')
+                continue
+        else:
+            try:
+                Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit = \
+                    ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m,
+                                                 gtop_ms2, Pmid_MPa, phaseEOS,
+                                                 iceEOS, phaseID, Planet.Do.EQUIL_Q,
+                                                 Planet.Ocean.Eact_kJmol)
+            except Exception as exc:
+                log.info(
+                    f'HP ice {phaseName} DS2001 diagnostic lookup failed ({exc}); '
+                    'using phase-local bottom-temperature fallback for diagnostics only.'
+                )
+                method = 'DS2001 phase-local diagnostic fallback'
+                try:
+                    Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit = \
+                        _ConvectionDeschampsSotinHPIceDiagnostic(
+                            Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
+                            Pmid_MPa, iceEOS, phaseID, Planet.Do.EQUIL_Q,
+                            Planet.Ocean.Eact_kJmol
+                        )
+                except Exception as fallbackExc:
+                    _SetHPIceDiagnosticFields(Planet, phaseName, status=f'error: {fallbackExc}', thickness_m=zb_m)
+                    log.warning(f'HP ice {phaseName} diagnostics failed: {fallbackExc}')
+                    continue
+
+        etaMelt_Pas = Constants.etaMelt_Pas[phaseID]
+        _SetHPIceDiagnosticFields(
+            Planet, phaseName, status='computed', thickness_m=zb_m,
+            Tconv_K=Tconv_K, etaConv_Pas=etaConv_Pas,
+            etaMelt_Pas=etaMelt_Pas,
+            eLid_m=eLid_m, Dconv_m=Dconv_m,
+            deltaTBL_m=deltaTBL_m, Ra=Ra, RaCrit=RaCrit,
+            Qbot_W=Qbot_W, Pmid_MPa=Pmid_MPa, method=method,
+        )
+        log.info(
+            f'HP ice {phaseName} diagnostics ({method}): Tconv={Tconv_K:.3f} K, '
+            f'etaConv={etaConv_Pas:.3e} Pa s, eLid={eLid_m/1e3:.3f} km, '
+            f'Dconv={Dconv_m/1e3:.3f} km, deltaTBL={deltaTBL_m/1e3:.3f} km, '
+            f'Ra={Ra:.3e}, RaCrit={RaCrit:.3e}.'
+        )
+
+    return Planet
+
+
+def _ConvectionDeschampsSotinHPIceDiagnostic(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m,
+                                             gtop_ms2, Pmid_MPa, iceEOS, phaseID,
+                                             EQUIL_Q, Eact_kJmol):
+    """Phase-local DS2001-style calculator for HP ice diagnostics only.
+
+    This mirrors the existing DS2001 scaling but avoids the melt-curve lookup
+    used by the production helper. That lookup assumes a 274 K upper bound for
+    pure water melting and can be outside the valid range for Ice VI diagnostic
+    blocks. The fallback uses the block-bottom temperature as the local
+    reference temperature and does not alter the propagated profile.
+    """
+    if Tb_K <= Ttop_K:
+        raise ValueError('HP ice diagnostic bottom temperature is not warmer than the top temperature.')
+
+    phaseString = PhaseConv(phaseID)
+    if not np.isnan(Eact_kJmol[phaseString]):
+        Eact_kJmol_use = Eact_kJmol[phaseString]
+    else:
+        Eact_kJmol_use = Constants.Eact_kJmol[phaseID]
+
+    c1 = 1.43
+    c2 = -0.03
+    A = Eact_kJmol_use * 1e3 / Constants.R / Tb_K
+    B = Eact_kJmol_use * 1e3 / 2 / Constants.R / c1
+    C = c2 * (Tb_K - Ttop_K)
+    Tconv_K = B * (np.sqrt(1 + 2/B*(Tb_K - C)) - 1)
+    if Tconv_K < Ttop_K:
+        Tconv_K = Ttop_K
+
+    Tmelt_K = max(Tb_K, Tconv_K + 1e-6)
+    etaMelt_Pas = Constants.etaMelt_Pas[phaseID]
+    etaConv_Pas = etaMelt_Pas * np.exp(A * (Tmelt_K/Tconv_K - 1))
+
+    rhoMid_kgm3 = iceEOS.fn_rho_kgm3(Pmid_MPa, Tconv_K)
+    CpMid_JkgK = iceEOS.fn_Cp_JkgK(Pmid_MPa, Tconv_K)
+    alphaMid_pK = iceEOS.fn_alpha_pK(Pmid_MPa, Tconv_K)
+    kMid_WmK = iceEOS.fn_kTherm_WmK(Pmid_MPa, Tconv_K)
+    if iceEOS.POROUS:
+        log.warning('Porosity corrections are not applied in calculating HP ice diagnostic Rayleigh numbers.')
+
+    rayleighInputs = [rhoMid_kgm3, CpMid_JkgK, alphaMid_pK, kMid_WmK, etaConv_Pas]
+    if (not np.all(np.isfinite(rayleighInputs))) or alphaMid_pK <= 0 or kMid_WmK <= 0 or etaConv_Pas <= 0:
+        raise ValueError('invalid HP ice diagnostic material properties')
+
+    Ra = alphaMid_pK * CpMid_JkgK * rhoMid_kgm3**2 * gtop_ms2 * (Tb_K - Ttop_K) * zb_m**3 / etaConv_Pas / kMid_WmK
+    if not np.isfinite(Ra) or Ra <= 0:
+        raise ValueError('invalid HP ice diagnostic Rayleigh number')
+
+    Radelta = 0.28 * Ra**0.21
+    if Tb_K > Tconv_K:
+        deltaTBL_m = (etaConv_Pas * kMid_WmK * Radelta /
+                      alphaMid_pK / CpMid_JkgK / rhoMid_kgm3**2 /
+                      gtop_ms2 / (Tb_K - Tconv_K))**(1/3)
+        qBot_Wm2 = kMid_WmK * (Tb_K - Tconv_K) / deltaTBL_m
+        qTop_Wm2 = (rTop_m - zb_m)**2 / rTop_m**2 * qBot_Wm2
+        eLid_m = kTop_WmK * (Tconv_K - Ttop_K) / qTop_Wm2
+    else:
+        deltaTBL_m = 0.0
+        eLid_m = zb_m
+
+    RaCrit = GetRaCrit(Eact_kJmol_use, Tb_K, Ttop_K, Tconv_K)
+    if Ra < RaCrit:
+        eLid_m = zb_m
+        deltaTBL_m = 0.0
+        Tconv_K = Ttop_K
+
+    if not EQUIL_Q:
+        qBot_Wm2 = kMid_WmK * Tconv_K / eLid_m * np.log(Tb_K/Tconv_K)
+
+    Dconv_m = zb_m - eLid_m - deltaTBL_m
+    if Dconv_m < 0 and abs(Dconv_m) < 1e-6:
+        Dconv_m = 0.0
+    Qbot_W = qBot_Wm2 * 4*np.pi * (rTop_m - zb_m)**2
+
+    return Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit
+
+
+class _FixedPhaseEOS:
+    """Minimal EOS wrapper for phase-local diagnostics.
+
+    The diagnostics evaluate each already-present HP ice block as its identified
+    phase. This avoids modifying the model profile when a diagnostic convective
+    temperature would otherwise trigger the ocean phase-boundary adjustment path.
+    """
+
+    def __init__(self, oceanEOS, phaseID):
+        self.Tmin = getattr(oceanEOS, 'Tmin', -np.inf)
+        self.phaseID = phaseID
+
+    def fn_phase(self, P_MPa, T_K):
+        return np.zeros_like(np.asarray(T_K), dtype=int) + self.phaseID
+
+
+def _SetHPIceDiagnosticFields(Planet, phaseName, status, thickness_m=np.nan, Tconv_K=np.nan,
+                              etaConv_Pas=np.nan, etaMelt_Pas=np.nan, eLid_m=np.nan,
+                              Dconv_m=np.nan, deltaTBL_m=np.nan, Ra=np.nan,
+                              RaCrit=np.nan, Qbot_W=np.nan, Pmid_MPa=np.nan,
+                              method=None):
+    """Single writer for top-level HP diagnostic fields and HPIceDiagnostics."""
+    setattr(Planet, f'Tconv{phaseName}_K', Tconv_K)
+    setattr(Planet, f'etaConv{phaseName}_Pas', etaConv_Pas)
+    setattr(Planet, f'etaMelt{phaseName}_Pas', etaMelt_Pas)
+    setattr(Planet, f'eLid{phaseName}_m', eLid_m)
+    setattr(Planet, f'Dconv{phaseName}_m', Dconv_m)
+    setattr(Planet, f'deltaTBL{phaseName}_m', deltaTBL_m)
+    setattr(Planet, f'RaConvect{phaseName}', Ra)
+    setattr(Planet, f'RaCrit{phaseName}', RaCrit)
+    Planet.HPIceDiagnostics[phaseName] = {
+        'status': status,
+        'thickness_m': thickness_m,
+        'Tconv_K': Tconv_K,
+        'etaConv_Pas': etaConv_Pas,
+        'etaMelt_Pas': etaMelt_Pas,
+        'eLid_m': eLid_m,
+        'Dconv_m': Dconv_m,
+        'deltaTBL_m': deltaTBL_m,
+        'RaConvect': Ra,
+        'RaCrit': RaCrit,
+        'Qbot_W': Qbot_W,
+        'Pmid_MPa': Pmid_MPa,
+        'method': method,
+    }
 
 
 def GetOceanHPIceEOS(Planet, Params, POcean_MPa, minPres_MPa=None, minTres_K=None):
