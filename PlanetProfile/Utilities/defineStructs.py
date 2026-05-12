@@ -112,6 +112,7 @@ class DoSubstruct:
         self.FIXED_HPSMOOTH_WINDOW = False  # Whether to force a fixed number of window points for smoothing in HP ices
         self.NO_ICE_CONVECTION = False  # Whether to suppress convection in ice layers
         self.HP_ICE_CONVECTION_DIAGNOSTICS = False  # Whether to compute opt-in diagnostics for in-ocean HP ice convection without altering the model profile
+        self.KALOUSOVA_CONVECTION = False  # Kept for genai compatibility; currently selects diagnostic-only Kalousova HP ice calculations
         self.ARRHENIUS_VISCOSITY = False  # Whether to use temperature-dependent Arrhenius viscosity for all supported ice phases
         self.ARRHENIUS_VISCOSITY_Ih = False  # Whether to use temperature-dependent Arrhenius viscosity for ice Ih
         self.ARRHENIUS_VISCOSITY_III = False  # Whether to use temperature-dependent Arrhenius viscosity for ice III
@@ -196,6 +197,8 @@ class OceanSubstruct:
         self.smoothingPolyOrder = 2  # Polynomial order to use for smoothing of melting-curve-following HP ice adiabats
         self.smoothingWindowOverride = 7  # Number of points to use for smoothing window when Do.FIXED_HPSMOOTH_WINDOW is True. Must be odd.
         self.smoothingFactor = 3  # Number of points in lookup table to smooth over.
+        self.etaMeltKalousova_Pas = {'III': 5e12, 'V': 2.8e14, 'VI': 5e14}  # Explicit HP ice melt-viscosity parameters for Kalousova diagnostics; Ice V follows the genai Kalousova value without changing global EOS/profile viscosity
+        self.phiPercolationKalousova_frac = 0.05  # Diagnostic melt fraction assigned when a Kalousova temperate layer is supercritical
         self.Vtot_m3 = None  # Total volume of all ocean layers
         self.rhoMean_kgm3 = None  # Mean density for ocean layers
         self.Tmean_K = None  # Mean temperature of ocean layers based on total thermal energy
@@ -210,6 +213,7 @@ class OceanSubstruct:
         self.GScondMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for conducting ice layers
         self.GSconvMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for convecting ice layers
         self.Eact_kJmol = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath', 'MixedClathrateIh']} # Activation energy for diffusion of ice phases Ih-VI in kJ/mol (start at index 1) - Overrides Constants.Eact_kJmol if specified
+        self.HtidalIce_Wm3 = 0.0  # Volumetric tidal heating rate in ice layers in W/m^3
         self.rhoMeanIIwet_kgm3 = np.nan  # Mean density for in-ocean ice II layers
         self.rhoMeanIIIwet_kgm3 = np.nan  # Mean density for in-ocean ice III layers
         self.rhoMeanVwet_kgm3 = np.nan  # Mean density for in-ocean ice V layers
@@ -678,6 +682,10 @@ class PlanetStruct:
         self.RaCritIII = None  # Same as above but for ice III underplate layers.
         self.RaCritV = None  # Same as above but for ice V underplate layers.
         self.RaCritVI = None  # Same as above but for ice VI diagnostic layers.
+        self.DO_HP_MELT = False  # Whether Kalousova diagnostics found a supercritical temperate HP ice layer
+        self.meltFractionIII = np.nan  # Diagnostic melt fraction for Ice III when Kalousova convection is enabled
+        self.meltFractionV = np.nan  # Diagnostic melt fraction for Ice V when Kalousova convection is enabled
+        self.meltFractionVI = np.nan  # Diagnostic melt fraction for Ice VI when Kalousova convection is enabled
         self.HPIceDiagnostics = {}  # Optional in-ocean HP ice convection diagnostics keyed by phase name
         self.MH2O_kg = None  # Total mass of water molecules contained in ice, liquid, and pore spaces
         self.Mrock_kg = None  # Total mass contained in silicate rock (just the matrix, when layers are porous)

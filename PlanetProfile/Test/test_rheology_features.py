@@ -11,6 +11,10 @@ from PlanetProfile.Thermodynamics.LayerPropagators import (
     _FixedPhaseEOS,
     _SetHPIceDiagnosticFields,
 )
+from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import (
+    ConvectionKalousova2018,
+)
+from PlanetProfile.Utilities.defineStructs import Constants, OceanSubstruct
 
 
 class _Namespace:
@@ -172,6 +176,107 @@ class Test03HPIceConvectionDiagnostics(unittest.TestCase):
         self.assertGreaterEqual(deltaTBL_m, 0.0)
         self.assertGreater(Qbot_W, 0.0)
         self.assertGreater(Ra, RaCrit)
+
+
+class Test04KalousovaHPIceDiagnostics(unittest.TestCase):
+
+    def test_kalousova_subcritical_branch_has_no_melt_fraction(self):
+        (
+            Tconv_K,
+            etaConv_Pas,
+            eLid_m,
+            Dconv_m,
+            deltaTBL_m,
+            Qbot_W,
+            Ra,
+            RaCrit,
+        ) = ConvectionKalousova2018(
+            Ttop_K=250.0,
+            rTop_m=2.4e6,
+            kTop_WmK=3.0,
+            Tb_K=270.0,
+            zb_m=5.0e5,
+            gtop_ms2=1.0,
+            Pmid_MPa=1000.0,
+            oceanEOS=None,
+            iceEOS=_SimpleIceEOS(),
+            phaseBot=5,
+            EQUIL_Q=True,
+            Eact_kJmol={},
+            qBot_Wm2=0.1,
+            etaMelt_Pas=1.0e14,
+        )
+
+        self.assertEqual(Tconv_K, 250.0)
+        self.assertEqual(etaConv_Pas, 1.0e14)
+        self.assertEqual(eLid_m, 5.0e5)
+        self.assertEqual(Dconv_m, 0.0)
+        self.assertEqual(deltaTBL_m, 0.0)
+        self.assertGreater(Qbot_W, 0.0)
+        self.assertLess(Ra, RaCrit)
+
+    def test_kalousova_ice_v_viscosity_is_local_to_kalousova(self):
+        ocean = OceanSubstruct()
+        ice_v_phase_id = 5
+
+        self.assertEqual(ocean.etaMeltKalousova_Pas["V"], 2.8e14)
+        self.assertEqual(Constants.etaMelt_Pas[ice_v_phase_id], 5e14)
+
+    def test_kalousova_supercritical_branch_returns_finite_diagnostics(self):
+        diagnostics = ConvectionKalousova2018(
+            Ttop_K=250.0,
+            rTop_m=2.4e6,
+            kTop_WmK=3.0,
+            Tb_K=270.0,
+            zb_m=5.0e5,
+            gtop_ms2=1.0,
+            Pmid_MPa=1000.0,
+            oceanEOS=None,
+            iceEOS=_SimpleIceEOS(),
+            phaseBot=5,
+            EQUIL_Q=True,
+            Eact_kJmol={},
+            qBot_Wm2=1.0e-3,
+            etaMelt_Pas=1.0e14,
+        )
+
+        Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit = diagnostics
+        self.assertEqual(Tconv_K, 250.0)
+        self.assertEqual(etaConv_Pas, 1.0e14)
+        self.assertGreaterEqual(eLid_m, 0.0)
+        self.assertGreaterEqual(Dconv_m, 0.0)
+        self.assertGreaterEqual(deltaTBL_m, 0.0)
+        self.assertGreater(Qbot_W, 0.0)
+        self.assertGreater(Ra, RaCrit)
+        self.assertTrue(np.all(np.isfinite(diagnostics)))
+
+    def test_kalousova_scaling_formulas_match_genai_validation(self):
+        diagnostics = ConvectionKalousova2018(
+            Ttop_K=250.0,
+            rTop_m=2.4e6,
+            kTop_WmK=3.0,
+            Tb_K=270.0,
+            zb_m=5.0e5,
+            gtop_ms2=1.0,
+            Pmid_MPa=1000.0,
+            oceanEOS=None,
+            iceEOS=_SimpleIceEOS(),
+            phaseBot=5,
+            EQUIL_Q=True,
+            Eact_kJmol={},
+            qBot_Wm2=1.0e-3,
+            etaMelt_Pas=1.0e14,
+        )
+
+        _, _, eLid_m, _, deltaTBL_m, _, Ra, RaCrit = diagnostics
+        qs_mWm2 = 1.0
+        expected_RaCrit = 19.965e3 * qs_mWm2**3.690
+        expected_eLid_m = ((0.145e-3 * qs_mWm2 + 0.015) * (1.0e14**0.21)) * 1.0e3
+        expected_deltaTBL_m = (2.746 * Ra**(-0.271)) * 5.0e5
+
+        np.testing.assert_allclose(RaCrit, expected_RaCrit)
+        np.testing.assert_allclose(eLid_m, expected_eLid_m)
+        np.testing.assert_allclose(deltaTBL_m, expected_deltaTBL_m)
 
 
 if __name__ == "__main__":

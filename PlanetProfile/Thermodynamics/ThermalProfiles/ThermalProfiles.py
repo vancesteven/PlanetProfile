@@ -62,7 +62,104 @@ def ConvectionPetricca2024(Tmelt_K, Ttop_K, zb_m, Eact_kJmol, etaMelt_Pas, rhoMi
     Qbot_W = qBot_Wm2 * 4*np.pi * (rTop_m - zb_m)**2
     return Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit
         
-    
+
+
+def ConvectionKalousova2018(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa,
+                            oceanEOS, iceEOS, phaseBot, EQUIL_Q, Eact_kJmol,
+                            qBot_Wm2=None, Htidal_Wm3=0.0, etaMelt_Pas=None):
+    """Diagnostic HP ice convection from Kalousova and Sotin (2018).
+
+    This helper computes the two-phase HP ice scaling quantities while leaving
+    the propagated PlanetProfile thermal profile untouched. The reference
+    viscosity is an explicit input so this convection diagnostic stays separate
+    from EOS/profile viscosity values such as ``eta_Pas``. The returned
+    ``Tconv_K`` slot is kept for the existing PlanetProfile diagnostic field
+    names, but in this Kalousova path it stores the phase-top reference
+    temperature used for the scaling, not a DS2001-style solved convective
+    temperature.
+    """
+    if zb_m <= 0:
+        raise ValueError('zb_m must be positive in ConvectionKalousova2018.')
+
+    phaseMid = iceEOS.phaseID
+    phaseMidString = PhaseConv(phaseMid)
+
+    if etaMelt_Pas is None:
+        if phaseMid > Constants.phaseClath and phaseMid < Constants.phaseClath + 10:
+            stringClath, stringIce = MixedPhaseSeparator(PhaseConv(phaseMid))
+            phaseClath, phaseIce = PhaseInv(stringClath), PhaseInv(stringIce)
+            etaMelt_Pas = iceEOS.fn_averageValuesAccordingtoRule(
+                Constants.etaMelt_Pas[phaseClath],
+                Constants.etaMelt_Pas[phaseIce],
+                'Carahan2004Averaging'
+            )
+        else:
+            etaMelt_Pas = Constants.etaMelt_Pas[phaseMid]
+
+    if not np.isfinite(etaMelt_Pas) or etaMelt_Pas <= 0:
+        raise ValueError(f'invalid Kalousova reference viscosity for ice {phaseMidString}: {etaMelt_Pas}')
+
+    Tref_K = Ttop_K
+    rhoMid_kgm3 = iceEOS.fn_rho_kgm3(Pmid_MPa, Tref_K)
+    CpMid_JkgK = iceEOS.fn_Cp_JkgK(Pmid_MPa, Tref_K)
+    alphaMid_pK = iceEOS.fn_alpha_pK(Pmid_MPa, Tref_K)
+    kMid_WmK = iceEOS.fn_kTherm_WmK(Pmid_MPa, Tref_K)
+
+    materialInputs = [rhoMid_kgm3, CpMid_JkgK, alphaMid_pK, kMid_WmK]
+    if (not np.all(np.isfinite(materialInputs))) or alphaMid_pK <= 0 or kMid_WmK <= 0:
+        raise ValueError(f'invalid Kalousova material properties for ice {phaseMidString}')
+
+    DeltaTc_K = Tb_K - Tref_K
+    if DeltaTc_K <= 0:
+        log.debug(f'No positive thermal contrast for HP ice {phaseMidString} Kalousova diagnostics.')
+        qBot_Wm2 = 0.0 if qBot_Wm2 is None else qBot_Wm2
+        Qbot_W = qBot_Wm2 * 4*np.pi * (rTop_m - zb_m)**2
+        return Tref_K, etaMelt_Pas, 0.0, 0.0, 0.0, Qbot_W, 0.0, np.inf
+
+    Hc_m = zb_m
+    Ra_star = (alphaMid_pK * CpMid_JkgK * rhoMid_kgm3**2 * gtop_ms2 *
+               DeltaTc_K * Hc_m**3 / (etaMelt_Pas * kMid_WmK))
+
+    if qBot_Wm2 is None:
+        qBot_Wm2 = kMid_WmK * DeltaTc_K / Hc_m
+
+    if Htidal_Wm3 > 0:
+        qBot_Wm2 = qBot_Wm2 + Htidal_Wm3 * Hc_m
+
+    if not np.isfinite(qBot_Wm2):
+        raise ValueError(f'invalid Kalousova bottom heat flux for ice {phaseMidString}: {qBot_Wm2}')
+
+    qs_mWm2 = qBot_Wm2 * 1e3
+    if qs_mWm2 > 0:
+        RaCrit = 19.965e3 * qs_mWm2**3.690
+    else:
+        RaCrit = np.inf
+
+    if Ra_star > RaCrit:
+        Ht_km = (0.145e-3 * qs_mWm2 + 0.015) * etaMelt_Pas**0.21
+        eLid_m = Ht_km * 1e3
+        delta_i = 2.746 * Ra_star**(-0.271)
+        deltaTBL_m = delta_i * Hc_m
+        Dconv_m = zb_m - eLid_m - deltaTBL_m
+
+        if Dconv_m < 0:
+            log.warning(
+                f'HP ice {phaseMidString} Kalousova boundary layers '
+                f'({(eLid_m + deltaTBL_m)/1e3:.1f} km) exceed layer thickness '
+                f'({zb_m/1e3:.1f} km). Reporting a conductive diagnostic.'
+            )
+            eLid_m = 0.0
+            Dconv_m = 0.0
+            deltaTBL_m = 0.0
+    else:
+        eLid_m = zb_m
+        Dconv_m = 0.0
+        deltaTBL_m = 0.0
+
+    Qbot_W = qBot_Wm2 * 4*np.pi * (rTop_m - zb_m)**2
+
+    return Tref_K, etaMelt_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra_star, RaCrit
+
 
 def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2, Pmid_MPa,
                                  oceanEOS, iceEOS, phaseBot, EQUIL_Q, Eact_kJmol):

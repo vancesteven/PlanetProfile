@@ -16,7 +16,8 @@ from PlanetProfile.Thermodynamics.ThermalProfiles.Convection import IceIConvectS
 from PlanetProfile.Thermodynamics.ThermalProfiles.IceConduction import IceIWholeConductSolid, IceIWholeConductPorous, \
     IceIConductClathLidSolid, IceIConductClathLidPorous, IceIConductClathUnderplateSolid, IceIConductClathUnderplatePorous, \
     IceIIIConductSolid, IceIIIConductPorous, IceVConductSolid, IceVConductPorous
-from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConvectionDeschampsSotin2001, GetRaCrit
+from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConvectionDeschampsSotin2001, \
+    ConvectionKalousova2018, GetRaCrit
 from PlanetProfile.Thermodynamics.Geophysical import PropogateConductionFromDepth
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 import time
@@ -1011,11 +1012,12 @@ def SelfConsistentOceanLayer(Planet, Params):
         else:
             zClathInfo = '.'
 
-
         log.info(f'Ocean layers complete. zMax: {Planet.z_m[Planet.Steps.nSurfIce + Planet.Steps.nOceanMax - 1]/1e3:.1f} km, ' +
                  f'upper ice thickness zb: {Planet.zb_km:.3f} km{zClathInfo}')
 
-        if Planet.Do.HP_ICE_CONVECTION_DIAGNOSTICS:
+        # KALOUSOVA_CONVECTION is kept for genai compatibility, but currently
+        # selects diagnostic-only HP ice calculations.
+        if Planet.Do.HP_ICE_CONVECTION_DIAGNOSTICS or Planet.Do.KALOUSOVA_CONVECTION:
             Planet = HPIceConvectionDiagnostics(Planet, Params)
 
     return Planet, Params
@@ -1024,9 +1026,10 @@ def SelfConsistentOceanLayer(Planet, Params):
 def HPIceConvectionDiagnostics(Planet, Params):
     """Compute opt-in diagnostics for in-ocean HP ice convection.
 
-    This uses Deschamps and Sotin (2001) scaling as a diagnostic calculator
-    only. It does not modify the thermal, phase, mass, gravity, or heat-flux
-    profile produced by the layer propagators.
+    This uses either Deschamps and Sotin (2001) or the opt-in Kalousova and
+    Sotin (2018) scaling as a diagnostic calculator only. It does not modify
+    the thermal, phase, mass, gravity, or heat-flux profile produced by the
+    layer propagators.
     """
     if not Planet.Do.VALID or Planet.Do.NO_H2O:
         return Planet
@@ -1040,10 +1043,11 @@ def HPIceConvectionDiagnostics(Planet, Params):
         return Planet
 
     phaseNames = {3: 'III', 5: 'V', 6: 'VI'}
-    # Match genai's bottom-to-top HP ice traversal. The diagnostic path is
-    # phase-local, so this only affects logging and output ordering.
+    # Match genai's bottom-to-top HP ice traversal. The DS2001 diagnostic path
+    # is phase-local, so this only affects logging/order until Kalousova is enabled.
     phaseOrder = (6, 5, 3)
     Planet.HPIceDiagnostics = {}
+    Planet.DO_HP_MELT = False
     for phaseName in phaseNames.values():
         _SetHPIceDiagnosticFields(Planet, phaseName, status='absent')
 
@@ -1054,7 +1058,16 @@ def HPIceConvectionDiagnostics(Planet, Params):
         log.info('HP ice convection diagnostics enabled, but no in-ocean HP ice phases were found.')
         return Planet
 
-    log.info('Computing opt-in HP ice convection diagnostics using Deschamps and Sotin (2001).')
+    methodFamily = 'Kalousova and Sotin (2018)' if Planet.Do.KALOUSOVA_CONVECTION else 'Deschamps and Sotin (2001)'
+    log.info(f'Computing opt-in HP ice convection diagnostics using {methodFamily}.')
+
+    Qthrough_W = getattr(Planet.Ocean, 'QfromMantle_W', np.nan)
+    if Planet.Do.KALOUSOVA_CONVECTION and (Qthrough_W is None or not np.isfinite(Qthrough_W)):
+        log.warning(
+            'QfromMantle_W is not finite for Kalousova diagnostics. '
+            'Using the local conductive heat-flux estimate inside the scaling law.'
+        )
+        Qthrough_W = np.nan
 
     for phaseID in phaseOrder:
         phaseName = phaseNames[phaseID]
@@ -1085,39 +1098,49 @@ def HPIceConvectionDiagnostics(Planet, Params):
             log.warning(f'HP ice {phaseName} diagnostics skipped: EOS was not loaded.')
             continue
 
-        phaseEOS = _FixedPhaseEOS(Planet.Ocean.EOS, phaseID)
-        method = 'Deschamps and Sotin (2001)'
-        if phaseID == 6:
-            method = 'DS2001 phase-local diagnostic fallback'
-            log.info(
-                'HP ice VI diagnostics use the phase-local bottom-temperature fallback '
-                'because the production DS2001 melt lookup assumes a low-temperature '
-                'pure-water search range that is not valid for these Ice VI blocks.'
-            )
+        meltFraction = np.nan
+        if Planet.Do.KALOUSOVA_CONVECTION:
+            method = 'Kalousova and Sotin (2018)'
+            etaMelt_Pas = _GetKalousovaEtaMelt_Pas(Planet, phaseID, phaseName)
+            if np.isfinite(Qthrough_W):
+                rBot_m = Planet.r_m[iBot]
+                qBot_Wm2 = Qthrough_W / (4*np.pi*rBot_m**2) if rBot_m > 0 else None
+            else:
+                qBot_Wm2 = None
             try:
                 Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit = \
-                    _ConvectionDeschampsSotinHPIceDiagnostic(
+                    ConvectionKalousova2018(
                         Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
-                        Pmid_MPa, iceEOS, phaseID, Planet.Do.EQUIL_Q,
-                        Planet.Ocean.Eact_kJmol
+                        Pmid_MPa, Planet.Ocean.EOS, iceEOS, phaseID,
+                        Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol,
+                        qBot_Wm2=qBot_Wm2, Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3,
+                        etaMelt_Pas=etaMelt_Pas
                     )
-            except Exception as fallbackExc:
-                _SetHPIceDiagnosticFields(Planet, phaseName, status=f'error: {fallbackExc}', thickness_m=zb_m)
-                log.warning(f'HP ice {phaseName} diagnostics failed: {fallbackExc}')
-                continue
-        else:
-            try:
-                Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit = \
-                    ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m,
-                                                 gtop_ms2, Pmid_MPa, phaseEOS,
-                                                 iceEOS, phaseID, Planet.Do.EQUIL_Q,
-                                                 Planet.Ocean.Eact_kJmol)
             except Exception as exc:
-                log.info(
-                    f'HP ice {phaseName} DS2001 diagnostic lookup failed ({exc}); '
-                    'using phase-local bottom-temperature fallback for diagnostics only.'
-                )
+                _SetHPIceDiagnosticFields(Planet, phaseName, status=f'error: {exc}', thickness_m=zb_m)
+                log.warning(f'HP ice {phaseName} Kalousova diagnostics failed: {exc}')
+                continue
+
+            isTemperate = (
+                np.isfinite(Ra) and np.isfinite(RaCrit) and Ra > RaCrit and
+                np.isfinite(eLid_m) and eLid_m > 0 and
+                np.isfinite(Dconv_m) and Dconv_m > 0
+            )
+            meltFraction = Planet.Ocean.phiPercolationKalousova_frac if isTemperate else 0.0
+            if isTemperate:
+                Planet.DO_HP_MELT = True
+            if np.isfinite(Qbot_W):
+                Qthrough_W = Qbot_W
+        else:
+            phaseEOS = _FixedPhaseEOS(Planet.Ocean.EOS, phaseID)
+            method = 'Deschamps and Sotin (2001)'
+            if phaseID == 6:
                 method = 'DS2001 phase-local diagnostic fallback'
+                log.info(
+                    'HP ice VI diagnostics use the phase-local bottom-temperature fallback '
+                    'because the production DS2001 melt lookup assumes a low-temperature '
+                    'pure-water search range that is not valid for these Ice VI blocks.'
+                )
                 try:
                     Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit = \
                         _ConvectionDeschampsSotinHPIceDiagnostic(
@@ -1129,8 +1152,33 @@ def HPIceConvectionDiagnostics(Planet, Params):
                     _SetHPIceDiagnosticFields(Planet, phaseName, status=f'error: {fallbackExc}', thickness_m=zb_m)
                     log.warning(f'HP ice {phaseName} diagnostics failed: {fallbackExc}')
                     continue
+            else:
+                try:
+                    Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit = \
+                        ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m,
+                                                     gtop_ms2, Pmid_MPa, phaseEOS,
+                                                     iceEOS, phaseID, Planet.Do.EQUIL_Q,
+                                                     Planet.Ocean.Eact_kJmol)
+                except Exception as exc:
+                    log.info(
+                        f'HP ice {phaseName} DS2001 diagnostic lookup failed ({exc}); '
+                        'using phase-local bottom-temperature fallback for diagnostics only.'
+                    )
+                    method = 'DS2001 phase-local diagnostic fallback'
+                    try:
+                        Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit = \
+                            _ConvectionDeschampsSotinHPIceDiagnostic(
+                                Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
+                                Pmid_MPa, iceEOS, phaseID, Planet.Do.EQUIL_Q,
+                                Planet.Ocean.Eact_kJmol
+                            )
+                    except Exception as fallbackExc:
+                        _SetHPIceDiagnosticFields(Planet, phaseName, status=f'error: {fallbackExc}', thickness_m=zb_m)
+                        log.warning(f'HP ice {phaseName} diagnostics failed: {fallbackExc}')
+                        continue
 
-        etaMelt_Pas = Constants.etaMelt_Pas[phaseID]
+            etaMelt_Pas = Constants.etaMelt_Pas[phaseID]
+
         _SetHPIceDiagnosticFields(
             Planet, phaseName, status='computed', thickness_m=zb_m,
             Tconv_K=Tconv_K, etaConv_Pas=etaConv_Pas,
@@ -1138,15 +1186,42 @@ def HPIceConvectionDiagnostics(Planet, Params):
             eLid_m=eLid_m, Dconv_m=Dconv_m,
             deltaTBL_m=deltaTBL_m, Ra=Ra, RaCrit=RaCrit,
             Qbot_W=Qbot_W, Pmid_MPa=Pmid_MPa, method=method,
+            meltFraction=meltFraction,
         )
+        meltInfo = f', meltFraction={meltFraction:.3f}' if np.isfinite(meltFraction) else ''
         log.info(
             f'HP ice {phaseName} diagnostics ({method}): Tconv={Tconv_K:.3f} K, '
             f'etaConv={etaConv_Pas:.3e} Pa s, eLid={eLid_m/1e3:.3f} km, '
             f'Dconv={Dconv_m/1e3:.3f} km, deltaTBL={deltaTBL_m/1e3:.3f} km, '
-            f'Ra={Ra:.3e}, RaCrit={RaCrit:.3e}.'
+            f'Ra={Ra:.3e}, RaCrit={RaCrit:.3e}{meltInfo}.'
         )
 
     return Planet
+
+
+def _GetKalousovaEtaMelt_Pas(Planet, phaseID, phaseName):
+    """Resolve the explicit Kalousova melt-viscosity parameter for one phase."""
+    etaParams = getattr(Planet.Ocean, 'etaMeltKalousova_Pas', None)
+    etaMelt_Pas = None
+    if isinstance(etaParams, dict):
+        for key in (phaseName, phaseID, str(phaseID)):
+            if key in etaParams:
+                etaMelt_Pas = etaParams[key]
+                break
+    elif etaParams is not None:
+        etaMelt_Pas = etaParams
+
+    if etaMelt_Pas is None:
+        etaMelt_Pas = Constants.etaMelt_Pas[phaseID]
+
+    if not np.isfinite(etaMelt_Pas) or etaMelt_Pas <= 0:
+        log.warning(
+            f'Invalid etaMeltKalousova_Pas for ice {phaseName}: {etaMelt_Pas}. '
+            'Falling back to Constants.etaMelt_Pas.'
+        )
+        etaMelt_Pas = Constants.etaMelt_Pas[phaseID]
+
+    return etaMelt_Pas
 
 
 def _ConvectionDeschampsSotinHPIceDiagnostic(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m,
@@ -1246,7 +1321,7 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, thickness_m=np.nan, Tco
                               etaConv_Pas=np.nan, etaMelt_Pas=np.nan, eLid_m=np.nan,
                               Dconv_m=np.nan, deltaTBL_m=np.nan, Ra=np.nan,
                               RaCrit=np.nan, Qbot_W=np.nan, Pmid_MPa=np.nan,
-                              method=None):
+                              method=None, meltFraction=np.nan):
     """Single writer for top-level HP diagnostic fields and HPIceDiagnostics."""
     setattr(Planet, f'Tconv{phaseName}_K', Tconv_K)
     setattr(Planet, f'etaConv{phaseName}_Pas', etaConv_Pas)
@@ -1256,6 +1331,7 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, thickness_m=np.nan, Tco
     setattr(Planet, f'deltaTBL{phaseName}_m', deltaTBL_m)
     setattr(Planet, f'RaConvect{phaseName}', Ra)
     setattr(Planet, f'RaCrit{phaseName}', RaCrit)
+    setattr(Planet, f'meltFraction{phaseName}', meltFraction)
     Planet.HPIceDiagnostics[phaseName] = {
         'status': status,
         'thickness_m': thickness_m,
@@ -1270,6 +1346,7 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, thickness_m=np.nan, Tco
         'Qbot_W': Qbot_W,
         'Pmid_MPa': Pmid_MPa,
         'method': method,
+        'meltFraction': meltFraction,
     }
 
 
