@@ -43,10 +43,6 @@ log.setLevel(logging.INFO)
 
 # TidalPy imports
 from TidalPy.RadialSolver import build_rs_input_from_data, radial_solver
-from TidalPy.rheology import Andrade, Elastic
-from TidalPy.tides.multilayer.heating import (
-    calc_radial_volumetric_tidal_heating_from_rs_solution,
-)
 
 # ============================================================
 # Configuration
@@ -243,65 +239,14 @@ def forward_model(theta, grid_cache, tb_vals, d_vals, return_heating=False):
     n_layers  = data['n_layers']
     layer_upper_radii = list(data['layer_upper_radii'])
 
-    # Find silicate layer(s) and apply two-layer density
-    sil_layers = []
-    for i in range(n_layers):
-        s, e = ci[i], ci[i + 1]
-        if 50 <= int(phases[s]) < 100:
-            sil_layers.append(i)
-
-    if sil_layers and f_core > 0.001:
-        # Split the innermost silicate layer at R_core
-        i_sil = sil_layers[0]
-        s_sil, e_sil = ci[i_sil], ci[i_sil + 1]
-        r_sil_layer = r_m[s_sil:e_sil]
-
-        # Find split point closest to R_core
-        idx_split = int(np.searchsorted(r_sil_layer, R_core))
-        idx_split = max(2, min(idx_split, len(r_sil_layer) - 2))
-        abs_split = s_sil + idx_split
-
-        # Set densities and scale elastic moduli (K ∝ ρ, μ ∝ ρ at constant Vp, Vs)
-        rho_cached = rho_mod[s_sil:e_sil].copy()
-        rho_mod[s_sil:abs_split] = rho_core
-        rho_mod[abs_split:e_sil] = rho_sil
-        scale_core = np.where(rho_cached[: idx_split] > 0,
-                              rho_core / rho_cached[: idx_split], 1.0)
-        scale_mantle = np.where(rho_cached[idx_split:] > 0,
-                                rho_sil / rho_cached[idx_split:], 1.0)
-        K_Pa_mod[s_sil:abs_split] *= scale_core
-        mu_Pa_mod[s_sil:abs_split] *= scale_core
-        K_Pa_mod[abs_split:e_sil] *= scale_mantle
-        mu_Pa_mod[abs_split:e_sil] *= scale_mantle
-
-        # For any additional silicate layers above the first, use rho_sil
-        for i_extra in sil_layers[1:]:
-            s_e, e_e = ci[i_extra], ci[i_extra + 1]
-            rho_cached_e = rho_mod[s_e:e_e].copy()
-            rho_mod[s_e:e_e] = rho_sil
-            scale_e = np.where(rho_cached_e > 0, rho_sil / rho_cached_e, 1.0)
-            K_Pa_mod[s_e:e_e] *= scale_e
-            mu_Pa_mod[s_e:e_e] *= scale_e
-
-        # Insert a new layer boundary at the split point
-        R_core_actual = float(r_m[abs_split])
-        # Shift all layer indices after the split
-        new_ci = ci[:i_sil + 1] + [abs_split] + ci[i_sil + 1:]
-        # Insert layer metadata for the new inner core layer
-        layer_upper_radii.insert(i_sil, R_core_actual)
-        layer_types_use.insert(i_sil, 'solid')
-        region_phases_use.insert(i_sil, 'Sil')
-        n_layers += 1
-        ci = new_ci
-    else:
-        # f_core ~ 0: single uniform density throughout silicate
-        for i_s in sil_layers:
-            s_s, e_s = ci[i_s], ci[i_s + 1]
-            rho_cached_s = rho_mod[s_s:e_s].copy()
-            rho_mod[s_s:e_s] = rho_sil
-            scale_s = np.where(rho_cached_s > 0, rho_sil / rho_cached_s, 1.0)
-            K_Pa_mod[s_s:e_s] *= scale_s
-            mu_Pa_mod[s_s:e_s] *= scale_s
+    # Split innermost silicate layer at R_core; apply two-layer density + moduli
+    from PlanetProfile.Inference.mcmc_common import split_silicate_core
+    (rho_mod, K_Pa_mod, mu_Pa_mod,
+     ci, n_layers, layer_upper_radii, layer_types_use, region_phases_use) = split_silicate_core(
+        r_m, rho_mod, K_Pa_mod, mu_Pa_mod, phases, ci, n_layers,
+        layer_upper_radii, layer_types_use, region_phases_use,
+        rho_sil=rho_sil, rho_core=rho_core, f_core=f_core,
+    )
 
     # Apply viscosity overrides
     for i in range(n_layers):
@@ -314,26 +259,15 @@ def forward_model(theta, grid_cache, tb_vals, d_vals, return_heating=False):
     # Apply Arrhenius T-dependence to Ice Ih. The sampled eta_Ih is the BASAL
     # viscosity at T=Tb (matches the yao_heat_flux_mWm2 constraint convention);
     # the cold stagnant lid is much stiffer. η(T) = η_Ih * exp(E/R * (1/T - 1/Tb))
-    T_K_prof = data.get('T_K')
-    if T_K_prof is not None:
-        T_K_arr = np.asarray(T_K_prof)
-        if T_K_arr.shape == eta_mod.shape:
-            for i in range(n_layers):
-                s, e = ci[i], ci[i + 1]
-                if int(phases[min(s, len(phases) - 1)]) == 1:
-                    T_layer = T_K_arr[s:e]
-                    if np.all(np.isfinite(T_layer)) and np.all(T_layer > 0):
-                        exponent = (EACT_IH_JMOL / R_GAS) * (1.0 / T_layer - 1.0 / Tb_K)
-                        eta_mod[s:e] *= np.exp(exponent)
+    from PlanetProfile.Inference.mcmc_common import apply_arrhenius_ih
+    apply_arrhenius_ih(eta_mod, phases, ci, n_layers,
+                       T_K_profile=data.get('T_K'),
+                       Tb_K=Tb_K,
+                       E_act_J_mol=EACT_IH_JMOL, R_gas=R_GAS)
 
     # Build Andrade rheology models per layer
-    zeta_pa = 10 ** log10_zeta
-    zeta_tp = zeta_pa ** (1.0 / alpha)
-    shear = []
-    for rp in region_phases_use:
-        base = rp.replace('_conv', '')
-        shear.append(Elastic() if base in ('0', 'Clath') else Andrade(args=(alpha, zeta_tp)))
-    bulk = [Elastic() for _ in shear]
+    from PlanetProfile.Inference.mcmc_common import build_andrade_shear_bulk
+    shear, bulk = build_andrade_shear_bulk(region_phases_use, alpha, log10_zeta)
 
     try:
         bd = build_rs_input_from_data(
@@ -370,7 +304,8 @@ def forward_model(theta, grid_cache, tb_vals, d_vals, return_heating=False):
 
         perPhase_W = {}
         if return_heating and data['eccentricity'] > 0:
-            perPhase_W = _compute_heating(result, data)
+            from PlanetProfile.Inference.mcmc_common import compute_per_phase_heating
+            perPhase_W = compute_per_phase_heating(result, data)
 
         return Re_k2, Im_k2, Mtot_kg, CMR2, perPhase_W
 
@@ -378,31 +313,6 @@ def forward_model(theta, grid_cache, tb_vals, d_vals, return_heating=False):
         log.debug(f'TidalPy failed: {exc}')
         return np.nan, np.nan, Mtot_kg, CMR2, {}
 
-
-def _compute_heating(result, data):
-    from PlanetProfile.Utilities.Indexing import PhaseConv
-    hp = calc_radial_volumetric_tidal_heating_from_rs_solution(
-        data['eccentricity'], data['omega'], data['a_m'],
-        data['host_mass'], result, perform_checks=False,
-    )
-    rr    = np.asarray(result.radius_array)
-    r_m   = data['r_m']
-    ci    = data['changeIndices']
-    n     = data['n_layers']
-    pmap  = data.get('phase_map', {0: '0', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'})
-    out   = {}
-    for i in range(n):
-        s, e  = ci[i], ci[i + 1]
-        ph    = int(data['phases'][s])
-        pname = pmap.get(ph, PhaseConv(ph, liq='0'))
-        lo, hi = r_m[s], r_m[e - 1]
-        mask  = (rr >= lo - 1.0) & (rr <= hi + 1.0)
-        if np.any(mask):
-            lr, lh = rr[mask], hp[mask]
-            power  = (np.trapz(lh * 4 * np.pi * lr**2, lr)
-                      if len(lr) > 1 else lh[0] * (4/3) * np.pi * (hi**3 - lo**3))
-            out[pname] = out.get(pname, 0.0) + power
-    return out
 
 
 # ============================================================
@@ -494,8 +404,7 @@ def log_likelihood(theta, grid_cache, tb_vals, d_vals):
 def run_mcmc(grid_cache, tb_vals, d_vals):
     import pocomc as pc
     from scipy.stats import uniform
-
-    log.info(f'Starting pocoMC MCMC ({N_DIM}D, n_eff={N_EFF})')
+    from PlanetProfile.Inference.mcmc_common import run_pocomc_sampler
 
     prior = pc.Prior([
         uniform(loc=0.2,   scale=0.2),                   # alpha: [0.2, 0.4]
@@ -513,19 +422,9 @@ def run_mcmc(grid_cache, tb_vals, d_vals):
     def _log_like(theta):
         return log_likelihood(theta, grid_cache, tb_vals, d_vals)
 
-    t0 = time.time()
-    sampler = pc.Sampler(
-        prior=prior,
-        likelihood=_log_like,
-        n_effective=N_EFF,
-        random_state=RANDOM_STATE,
+    samples, log_likes, sampler = run_pocomc_sampler(
+        prior, _log_like, n_effective=N_EFF, random_state=RANDOM_STATE
     )
-    sampler.run()
-    elapsed = time.time() - t0
-
-    samples, log_likes, logp, logw = sampler.posterior()
-    log.info(f'MCMC done in {elapsed/60:.1f} min, {len(samples)} samples')
-    log.info(f'  Best log-like: {np.max(log_likes):.2f}')
     return samples, log_likes, sampler
 
 
@@ -534,31 +433,21 @@ def run_mcmc(grid_cache, tb_vals, d_vals):
 # ============================================================
 
 def evaluate_heating(samples, grid_cache, tb_vals, d_vals, n_eval=None):
+    from PlanetProfile.Inference.mcmc_common import evaluate_posterior
     if n_eval is None:
         n_eval = min(len(samples), N_REEVAL)
-    idx = np.random.choice(len(samples), n_eval, replace=False)
-    idx.sort()
 
-    k2_results      = []
-    mtot_results    = []
-    cmr2_results    = []
-    heating_results = []
+    def _fwd(theta):
+        return forward_model(theta, grid_cache, tb_vals, d_vals, return_heating=True)
 
-    log.info(f'Re-evaluating {n_eval} posterior samples...')
-    t0 = time.time()
-    for i, si in enumerate(idx):
-        Re, Im, Mtot, CMR2, phW = forward_model(
-            samples[si], grid_cache, tb_vals, d_vals, return_heating=True
-        )
-        k2_results.append((Re, Im))
-        mtot_results.append(Mtot)
-        cmr2_results.append(CMR2)
-        heating_results.append(phW)
-        if (i + 1) % 100 == 0:
-            log.info(f'  {i+1}/{n_eval} ({time.time()-t0:.0f}s)')
-
-    log.info(f'Done in {time.time()-t0:.0f}s')
-    return idx, np.array(k2_results), np.array(mtot_results), np.array(cmr2_results), heating_results
+    eval_idx, results = evaluate_posterior(
+        samples, _fwd, n_eval=n_eval, random_state=RANDOM_STATE
+    )
+    k2_results      = np.array([(r[0], r[1]) for r in results])
+    mtot_results    = np.array([r[2] for r in results])
+    cmr2_results    = np.array([r[3] for r in results])
+    heating_results = [r[4] for r in results]
+    return eval_idx, k2_results, mtot_results, cmr2_results, heating_results
 
 
 # ============================================================

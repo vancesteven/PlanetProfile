@@ -73,7 +73,7 @@ IM_K2_OBS = 0.135  # absolute value
 IM_K2_ERR = 0.035
 
 # Tb_K grid for structure pre-computation
-# Lower bound is Constants.triplePointT_K (251.165 K) — minimum for ocean existence.
+# Lower bound is Constants.TtripleIh_III_L_K (251.165 K) — minimum for ocean existence.
 # Upper bound limited by clathrate/ice shell constraints (~271 K).
 TB_MIN = 251.2  # just above triple point (251.165 K)
 TB_MAX = 275.0

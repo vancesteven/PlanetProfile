@@ -533,15 +533,15 @@ Always run at every session start (no exceptions):
 - Never use system python
 
 ## Cost discipline
-- Minimize subagent spawning — prefer sequential tool calls
-  over parallel agents unless tasks are truly independent
 - Summarize context before passing to subagents — never
   pass full conversation history
 - Avoid re-reading files already in context
 - Do not spin up a subagent for tasks completable in <5 tool calls
 - If requirements are ambiguous, ask one clarifying question
   before executing — do not assume and proceed
-
+- Biggest trap to watch: conflating "I need to understand this file" with "I need to read it myself." A haiku summary is usually sufficient input for opus-level reasoning — ask every time before    
+  opening a file.                                                                                                                                                                                     
+                                        
 ## Model usage
 - Default: Sonnet for all tasks and subagents
 - Haiku for: file reads, grep/search, simple pattern-following

@@ -26,7 +26,12 @@ Planet.Bulk.Psurf_MPa = 0.15
 Planet.Bulk.Cmeasured = 0.343
 Planet.Bulk.Cuncertainty = 0.001
 Planet.Do.NONHYDROSTATIC = False
-Planet.Bulk.Tb_K = Constants.triplePointT_K - 5  # default; overridden by MCMC
+# ε below Ih-III-L triple point (251.165 K). Size ε ≳ 2·|dTm/dP|·ΔP_cell to keep
+# conductive-profile cells below the Ih-L melt curve. For nIceI=200, ΔP≈1 MPa, and
+# |dTm/dP|_Ih≈0.068 K/MPa, floor = 0.138 K; use 0.2 K for safety margin.
+# Probe at this ε confirmed no Ih cell exceeds melt curve (margin ≥ 24 K at base).
+# Overridden by MCMC.
+Planet.Bulk.Tb_K = Constants.TtripleIh_III_L_K - 0.2
 Planet.Bulk.eccentricity = 0.0288
 Planet.Bulk.meanMotion_radps = 4.56e-6
 
@@ -43,7 +48,7 @@ Planet.Do.SPHERICAL_CONVECTION = True
 """ Clathrate cap """
 Planet.Do.CLATHRATE = True
 Planet.Bulk.clathType = 'top'
-Planet.Bulk.clathMaxThick_m = 10e3
+Planet.Bulk.clathMaxThick_m = 2e3
 Planet.Steps.nClath = 30
 
 """ Kalousova HP convection + Arrhenius viscosity """

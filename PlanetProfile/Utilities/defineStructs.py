@@ -3510,7 +3510,8 @@ class ConstantsStruct:
         self.PclosureUniform_MPa = 2e12  # Pore closure pressure value to use for uniform porosity
         self.stdSeawater_ppt = 35.16504  # Standard Seawater salinity in g/kg (ppt by mass)
         self.sigmaH2O_Sm = 1e-5  # Assumed conductivity of pure water (only used when wOcean_ppt == 0).
-        self.triplePointT_K = 251.165 # Triple point of water
+        self.TtripleIh_III_L_K = 251.165  # Ice Ih-III-L triple point temperature (NOT the Ih-L-vapor point at 273.16 K)
+        self.triplePointT_K = self.TtripleIh_III_L_K  # DEPRECATED alias; prefer TtripleIh_III_L_K
         # Triple points for HP ice convection (Kalousova et al. 2018, from Journaux et al. 2020)
         self.TtripleIII_V_L_K = 254.0  # Ice III-V-liquid triple point temperature in K
         self.PtripleIII_V_L_MPa = 350.0  # Ice III-V-liquid triple point pressure in MPa

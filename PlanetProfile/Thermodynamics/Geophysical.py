@@ -955,6 +955,21 @@ def SilRecursionSolid(Planet, Params,
 
     # Start propagation at index 1, because we already calculated the 0-index values to
     # get us started here.
+    # FIXME 2026-05: The silicate conduction call below uses `ConductiveTemperature`,
+    # which contains a known c1 factor-of-2 discrepancy relative to T&S 4.40.  The
+    # halved c1 dampens the T profile by 2x relative to the mathematically correct
+    # form, which happens to keep silicate T(r) within EOS validity for the test
+    # suite's standard bodies.  Replacing it with the correct form (see
+    # `ConductiveTemperatureCorrect` in ThermalProfiles.py) uncovers a deeper
+    # boundary-condition problem: for a solid sphere with prescribed qTop from the
+    # overlying ice shell, the c1/r term diverges as r -> 0 (if no inner core) or is
+    # very large near R_core (with core).  The physically correct BC for a solid body
+    # is "T finite at r=0 with Htot-integrated heat balance", i.e. qTop = Htot*rTop/3.
+    # That constraint is not imposed here.  TODO: rework to T_center-anchored inward
+    # propagation with closed-form T(r) = Tbot + Htot*(rBot^2 - r^2)/(6k), or impose
+    # q-balance at the ice/silicate interface.  Until that rework:
+    #   - ConductiveTemperature retains its legacy halved c1 so this path stays stable.
+    #   - `ConductiveTemperatureCorrect` is used only by GetPbConduct (clathrate-only).
     for j in range(1, Planet.Steps.nSilMax):
         # Increment overlying mass using initialization calculation
         MAboveSil_kg[:,j] = MAboveSil_kg[:,j-1] + MLayerSil_kg[:,j-1]
@@ -1000,6 +1015,8 @@ def SilRecursionPorous(Planet, Params,
         properties are calculated.
     """
 
+    # FIXME 2026-05: same legacy halved-c1 / silicate BC issue as in SilRecursionSolid;
+    # see the FIXME there for full context.  This porous path inherits the same behavior.
     # Start at index 1 because we already did index 0 to get started here.
     for j in range(1, Planet.Steps.nSilMax):
         # Increment overlying mass

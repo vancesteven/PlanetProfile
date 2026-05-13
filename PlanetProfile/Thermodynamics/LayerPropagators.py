@@ -73,6 +73,13 @@ def SelfConsistentIceLayer(Planet, Params):
                                             PLower_MPa=Planet.PfreezeLower_MPa, PUpper_MPa=Planet.PfreezeUpper_MPa,
                                             PRes_MPa=Planet.PfreezeRes_MPa, UNDERPLATE=(Planet.Do.BOTTOM_ICEIII or Planet.Do.BOTTOM_ICEV), HPNOOCEAN=Planet.Do.NO_OCEAN_EXCEPT_INNER_ICES,
                                             ALLOW_BROKEN_MODELS=Params.ALLOW_BROKEN_MODELS, DO_EXPLOREOGRAM=Params.DO_EXPLOREOGRAM)
+            # FIXME 2026-05: clathrate underplate (`clathType='bottom'`/`'whole'`) is a stub.
+            # The Sloan-1998 / Nagashima dissociation curves used by ClathDissoc max out at
+            # ~2.5 MPa for sub-273 K Tb, but clathrates ARE stable to high pressure. The
+            # check below also assumes clathrates contact a liquid ocean, which is invalid
+            # when Do.NO_OCEAN_EXCEPT_INNER_ICES = True. No PP test currently uses this
+            # path successfully; needs a high-P clathrate stability EOS and a no-ocean
+            # branch before it can be relied on.
             if(Planet.Do.CLATHRATE and
                     (Planet.Bulk.clathType == 'bottom' or
                     Planet.Bulk.clathType == 'whole')):

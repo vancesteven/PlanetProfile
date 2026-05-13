@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased] – genai branch
+
+### Bug Fixes (narrow scope)
+- **Corrected conduction profile added for clathrate depth calculation.** A new function `ConductiveTemperatureCorrect` in `PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py` implements the strict Turcotte & Schubert (2002) §4.9 eq. 4.40 form: `c1 = qTop·rTop²/k − Htot·rTop³/(3k)` with planar-limit ΔT = qTop·ΔR/k (Fourier's law). `GetPbConduct` now uses this function; the resulting clathrate layer thickness matches the user-specified `Bulk.clathMaxThick_m` (previously PP produced a clathrate 2× deeper than requested). Legacy `ConductiveTemperature` and `ConductiveTemperatureActual` retain their prior halved-c1 form to avoid disturbing silicate and ice-shell conductive profiles elsewhere in PP — see the module docstring and `FIXME 2026-05` markers in `Geophysical.py` for the known silicate boundary-condition issue scheduled for rework. The silicate-BC rework is non-trivial: for a solid sphere with prescribed qTop from the overlying ice shell, the c1/r term diverges near r=0 unless qTop = Htot·rTop/3 is enforced; PP does not impose this, and the legacy halved-c1 has been masking the divergence for years.
+
+### Renames / Clarifications
+- `Constants.triplePointT_K` → `Constants.TtripleIh_III_L_K` (with deprecation alias). Value unchanged at 251.165 K. The old name was misleading because the constant is the Ice Ih–III–liquid triple point, not the water Ih–liquid–vapour point at 273.16 K. Deprecation alias preserved in `defineStructs.py` for external scripts.
+
+### Inference / MCMC
+- **Test 50 upgraded to 8D MCMC with sampled basal temperature** (`Test50_mcmc_andrade_noocean_yao2014.py`). Adds `T_b ∈ [249.0, 250.965] K` as an 8th parameter; structure cache pre-built on a 9-point Tb grid; forward model linearly interpolates structures between bracketing grid points per sample. All ice-phase viscosity priors broadened to `[10, 16]` (log₁₀, Pa·s) to admit Petricca-style low-η regimes. Forward model adds a no-ocean safeguard rejecting any Ih cell whose interpolated T crosses the linearized melt curve. PPTest50 default clathrate cap reduced from 10 km to 2 km; PPTest50 default `Tb_K = TtripleIh_III_L_K − 0.2 K`.
+
 ## [3.1.0] – 2026-01-13
 **Author:** @Chang-Scott
 

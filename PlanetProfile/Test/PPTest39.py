@@ -71,7 +71,7 @@ Planet.Bulk.Psurf_MPa = 0.15
 Planet.Bulk.Cmeasured = 0.343
 Planet.Bulk.Cuncertainty = 0.001
 Planet.Do.NONHYDROSTATIC = False
-Planet.Bulk.Tb_K = Constants.triplePointT_K - 5
+Planet.Bulk.Tb_K = Constants.TtripleIh_III_L_K - 5
 Planet.Bulk.eccentricity = 0.0288
 Planet.Bulk.meanMotion_radps = 4.56e-6
 

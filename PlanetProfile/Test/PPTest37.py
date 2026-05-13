@@ -17,7 +17,7 @@ Planet.Bulk.Psurf_MPa = 0.15
 Planet.Bulk.Cmeasured = 0.343  # Petricca et al. (2025)
 Planet.Bulk.Cuncertainty = 0.001
 Planet.Do.NONHYDROSTATIC = False
-Planet.Bulk.Tb_K = Constants.triplePointT_K - 5  # Below triple point for no-ocean
+Planet.Bulk.Tb_K = Constants.TtripleIh_III_L_K - 5  # Below triple point for no-ocean
 Planet.Bulk.eccentricity = 0.0288  # Titan orbital eccentricity
 Planet.Bulk.meanMotion_radps = 4.56e-6  # Titan mean motion
 

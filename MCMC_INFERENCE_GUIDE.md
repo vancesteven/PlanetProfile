@@ -130,20 +130,24 @@ A liquid ocean tidally decouples HP ice below it (ocean transmits no shear stres
 **Outputs:** `allice_andrade_corner.png`, `allice_andrade_k2_heating.png`
 
 ### Test 50: Andrade No-Ocean Titan with Yao 2014 (`Test50_mcmc_andrade_noocean_yao2014.py`)
-**Scenario:** All-ice (no-ocean) Titan with Yao 2014 spherical-shell Ih convection.  
-**Rheology:** Andrade with per-phase viscosity (7D — same shape as Test46_allice).  
-**Convection:** Yao for Ice Ih (replaces DS2001), Kalousova for HP, Arrhenius.  
-**Clathrate cap:** 10 km insulating layer at surface (inherits from PPTest46_allice).
+**Scenario:** All-ice (no-ocean) Titan with Yao 2014 spherical-shell Ih convection.
+**Rheology:** Andrade with per-phase viscosity + basal temperature (8D).
+**Convection:** Yao for Ice Ih (replaces DS2001), Kalousova for HP, Arrhenius.
+**Clathrate cap:** 2 km insulating layer at surface (Fourier-matched to ~40 mW/m² interior heat flux when clathrate is the full stagnant lid; Yao self-consistently places a ~15 km eLid encompassing the clathrate plus an Ih conductive sub-layer).
 
 **Motivation:** Tests Petricca's central claim that no-ocean structures are required for HP ice dissipation to drive the observed |Im(k₂)|. The Test48 hybrid chain couldn't sample no-ocean structures fairly (0/4434 samples at D_hydro < 200 km due to CMR2 + ρ_sil-floor degeneracy) — this test samples the no-ocean branch cleanly via a fixed structure, following Petricca's methodology.
 
-**Structure config:** `PPTest50.py` — `SPHERICAL_CONVECTION=True` added on top of `PPTest46_allice.py`.
+**Structure config:** `PPTest50.py` — `SPHERICAL_CONVECTION=True` added on top of `PPTest46_allice.py`; clathrate cap set to 2 km.  Tb default = `TtripleIh_III_L_K − 0.2 K` (ε sized to grid resolution; see PPTest50 comment).
 
-**Parameter priors:**
+**Structure handling (Option 2 — grid + interpolate):** cache-build produces 9 structures over Tb ∈ [249.0, 250.965] K.  Forward model linearly interpolates arrays between bracketing grid points per MCMC sample, capturing eLid/TBL/PbI drift.  Consistency check at build time asserts identical `changeIndices` / `layer_types` / `region_phases` across grid.
+
+**Parameter priors (8D):**
 - α ∈ [0.15, 0.45], log₁₀ζ ∈ [−3, 2]
-- log₁₀η_Ih ∈ [12, 16] (basal value; Arrhenius applied in forward model)
-- log₁₀η_{III,V,VI} ∈ [12, 16] (narrowed from Test46_allice's [10,16] to bracket HP Maxwell peaks)
+- log₁₀η_{Ih, III, V, VI} ∈ [10, 16] — broadened to include Petricca low-η regime across all ice phases
 - log₁₀η_sil ∈ [18, 22]
+- T_b ∈ [249.0, 250.965] K — narrow band below the Ih–III–L triple point; physically equivalent to marginalizing over realistic solute-driven triple-point depressions (e.g. NaCl up to ~15 ppt).
+
+**No-ocean safeguard:** forward model rejects any Ih cell whose (interpolated) T meets or exceeds the linearized Ih–L melt curve Tm(P) = 273.16 − 0.068·P_MPa (with 0.1 K margin).  Keeps the no-ocean assumption internally consistent across the sampled Tb band.
 
 **Expected results:** Comparison against Test48 (ocean-bearing) posterior will reveal whether HP ices become dissipation-competitive when ocean decoupling is removed.
 
@@ -164,7 +168,7 @@ python PlanetProfile/Test/Test42_mcmc_maxwell_ocean.py      # ~3-5 hours
 python PlanetProfile/Test/Test43_mcmc_andrade_arrhenius_no_ocean.py
 python PlanetProfile/Test/Test44_mcmc_maxwell_arrhenius_ocean.py
 python PlanetProfile/Test/Test48_mcmc_andrade_yao2014.py    # ~3-5 hours (requires Yao2014 grid)
-python PlanetProfile/Test/Test50_mcmc_andrade_noocean_yao2014.py   # ~30 min – 1 hr (single fixed structure, no grid build)
+python PlanetProfile/Test/Test50_mcmc_andrade_noocean_yao2014.py   # ~30 min – 1 hr (9-point Tb grid build + MCMC)
 ```
 
 ### Re-plotting Saved Results
@@ -222,11 +226,11 @@ PlanetProfile/Test/
 ├── Test46_mcmc_andrade_hybrid_hydro.py      # Andrade hybrid-hydro (10D, DS2001)
 ├── Test46_mcmc_allice.py                    # All-ice variant (no ocean, 7D)
 ├── Test48_mcmc_andrade_yao2014.py           # Andrade hybrid-hydro (10D, Yao2014) — uses mcmc_plots toolkit
-├── Test50_mcmc_andrade_noocean_yao2014.py   # Andrade no-ocean Yao+Kalousova (7D)
+├── Test50_mcmc_andrade_noocean_yao2014.py   # Andrade no-ocean Yao+Kalousova (8D: +Tb)
 ├── PPTest41.py ... PPTest44.py              # Structural configs
 ├── PPTest46_allice.py                       # All-ice structural config
 ├── PPTest48.py                              # Titan Yao2014 config (SPHERICAL_CONVECTION)
-├── PPTest50.py                              # Titan no-ocean Yao+Kalousova + 10 km clathrate
+├── PPTest50.py                              # Titan no-ocean Yao+Kalousova + 2 km clathrate
 ├── Test40_maxwell_sweep.py                  # Parameter sweep (precursor)
 ├── replot_mcmc.py                           # Regenerate figures from .pkl
 └── mcmc_results/                            # Output directory
@@ -369,7 +373,7 @@ Five progressive MCMC runs (2026-05-05 to 2026-05-07) converged on the B-path re
 ## Next Steps
 
 ### Pending science
-- **Run Test50 MCMC** — no-ocean + Yao test of Petricca's central claim (HP-driven Im(k₂) requires ocean decoupling absent). Expect either (a) HP-dominated result confirming Petricca, or (b) Ice-Ih-dominated result challenging it.
+- **Test50 MCMC** — 8D MCMC script ready (rheology + Tb_K); launch pending. Comparison against Test48 posterior will reveal whether HP ices become dissipation-competitive when ocean decoupling is removed.
 - **Test49: Yao + 4 km clathrate + ocean** — perturbation check of Path B result (plan documented; grid rebuild required).
 - **Test51: Europa MCMC** — apply toolkit to Europa with variable (ρ_sil, ρ_core, f_core) and Galileo/Juno k₂ constraints.
 
