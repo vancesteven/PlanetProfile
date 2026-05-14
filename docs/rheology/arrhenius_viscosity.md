@@ -11,6 +11,22 @@ where `eta_melt` is the reference viscosity at the phase melting temperature,
 `Eact` is activation energy in J/mol, `R` is the gas constant, and `Tmelt` is the
 reference melting temperature.
 
+## Validation Status
+
+Arrhenius viscosity has passed integration-safety validation for the current
+extraction: default behavior remains off by default, enabled cases leave
+non-viscosity propagated arrays unchanged, and per-phase flags are phase-local.
+This is not yet a full validation of self-consistent Arrhenius convection.
+
+The current safety contract is:
+
+- enabling Ice Ih Arrhenius changes `eta_Pas` only in Ice Ih layers;
+- enabling high-pressure ice Arrhenius changes `eta_Pas` only in enabled HP ice
+  phases;
+- the legacy global flag changes all supported ice phases;
+- HP ice diagnostics and Kalousova diagnostics remain disabled/empty in
+  Arrhenius-only validation cases.
+
 ## Flags
 
 All flags default to `False`, so standard behavior is preserved unless a body
@@ -27,6 +43,9 @@ Planet.Do.ARRHENIUS_VISCOSITY_VI = False   # Ice VI
 The legacy `ARRHENIUS_VISCOSITY` flag enables every supported ice phase. For new
 work, prefer the per-phase flags so Ice Ih and high-pressure ice behavior can be
 reviewed independently.
+
+Per-phase flags are expected to be phase-local. A disabled phase should retain
+the default viscosity profile even if another phase has Arrhenius enabled.
 
 ## Parameters
 
@@ -83,7 +102,17 @@ Arrhenius viscosity is an EOS/profile viscosity law. It changes saved `eta_Pas`
 for enabled phases, but it does not overwrite the convection reference viscosity
 inside the Arrhenius EOS object.
 
+Ice Ih frequently reaches the current clipping ceiling
+`etaMax_Pas = 1e21 Pa s` in validation cases. That ceiling is a scientific
+sensitivity item and should be reviewed before interpreting cold-Ice Ih
+viscosity magnitudes.
+
 Ice VI is wired for high-pressure ice EOS construction, but the current surface
 thermal-profile code does not have a separate production Ice VI lithosphere
 conduction/convection path. Its Arrhenius `Tmelt_K` value is therefore a fixed
 fallback reference, not a pressure-dependent Ice VI melting curve.
+
+PlanetProfile now resets mutable ice-viscosity and run-local EOS cache state at
+independent `PlanetProfile()` run boundaries. This prevents one body run from
+contaminating the next while preserving legacy within-run viscosity handoff
+behavior.

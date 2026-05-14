@@ -32,7 +32,7 @@ from PlanetProfile.Thermodynamics.Electrical import ElecConduct
 from PlanetProfile.Thermodynamics.OceanProps import LiquidOceanPropsCalcs, WriteLiquidOceanProps
 from PlanetProfile.Thermodynamics.Seismic import SeismicCalcs, WriteSeismic
 from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
-from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, Timing
+from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, ResetMutableModelState, Timing
 from PlanetProfile.Utilities.ResultsStructs import ExplorationResultsStruct, MonteCarloResultsStruct, InductionResultsStruct
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings, PrecomputeEOS
 from PlanetProfile.Utilities.ResultsIO import WriteResults, ReloadResultsFromPickle, ExtractResults, InductionCalced
@@ -252,6 +252,7 @@ def run(bodyname=None, opt=None, fNames=None):
 def PlanetProfile(Planet, Params):
 
     if Params.CALC_NEW:
+        ResetMutableModelState(reset_eos=True)
         # Initialize
         Planet, Params = SetupInit(Planet, Params)
         if (not Planet.Do.NO_H2O) and (not Planet.Do.NO_DIFFERENTIATION):

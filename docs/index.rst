@@ -14,6 +14,8 @@ Please refer to the :doc:`README<readme>` for the overall package description an
 
    README <readme>
    pythonModules
+   rheology/arrhenius_viscosity
+   rheology/hp_ice_convection
 
 
 Indices and tables

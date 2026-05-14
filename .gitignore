@@ -24,3 +24,7 @@ configPPmontecarlo.py
 startup.m
 Thermodynamics/MgSO4/phaseLookupMgSO4.mat
 WIP/*
+
+# Local validation artifacts
+/local_validation/
+/LOCAL_*.md

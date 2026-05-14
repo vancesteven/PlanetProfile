@@ -3431,3 +3431,31 @@ def ParentName(bodyname):
 Constants = ConstantsStruct()
 EOSlist = EOSlistStruct()
 Timing = TimingStruct()
+
+
+_BASELINE_ETA_ICE_PAS = tuple(Constants.etaIce_Pas)
+_BASELINE_TVISC_ICE_K = tuple(Constants.TviscIce_K)
+_PERSISTENT_EOSLIST_KEYS = ("CustomSolutionEOS", "ReaktoroDatabases")
+
+
+def ResetMutableModelState(reset_eos=False):
+    """Reset mutable per-run model state before an independent profile run.
+
+    Ice convection updates the global uniform-ice viscosity lists during a run so
+    later EOS construction can preserve legacy behavior. Those updates must not
+    leak into the next independent body run.
+    """
+    if isinstance(Constants.etaIce_Pas, list):
+        Constants.etaIce_Pas[:] = _BASELINE_ETA_ICE_PAS
+    else:
+        Constants.etaIce_Pas = list(_BASELINE_ETA_ICE_PAS)
+
+    if isinstance(Constants.TviscIce_K, list):
+        Constants.TviscIce_K[:] = _BASELINE_TVISC_ICE_K
+    else:
+        Constants.TviscIce_K = list(_BASELINE_TVISC_ICE_K)
+
+    if reset_eos:
+        preserved = {key: EOSlist.loaded.get(key, {}) for key in _PERSISTENT_EOSLIST_KEYS}
+        EOSlist.loaded = preserved
+        EOSlist.ranges = {}

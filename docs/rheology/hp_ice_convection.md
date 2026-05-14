@@ -2,8 +2,12 @@
 
 PlanetProfile includes opt-in diagnostic calculations for in-ocean high-pressure
 ice convection. These diagnostics inspect Ice III, Ice V, and Ice VI behavior
-without changing the propagated thermal, phase, mass, gravity, or heat-flux
-solution.
+without changing propagated profiles or scalar model outputs.
+
+These are diagnostic calculators only. They do not modify propagated thermal,
+phase, mass, gravity, heat-flux, conductivity, or viscosity profiles, including
+`T_K`, `phase`, `MLayer_kg`, `g_ms2`, `qSurf_Wm2`, `qCon_Wm2`,
+`kTherm_WmK`, or `eta_Pas`.
 
 ## Flags
 
@@ -20,7 +24,9 @@ diagnostic-only.
 In this extraction, `KALOUSOVA_CONVECTION=True` enables Kalousova HP ice
 convection diagnostics only. It does not update the propagated HP ice thermal
 profile, heat flux, mass, gravity, or phase structure. The flag name is kept for
-traceability with `origin/genai`, where the same name is used.
+traceability with `origin/genai`, where the same name is used. In this branch,
+the flag selects diagnostic-only calculations and should not be interpreted as a
+production Kalousova convection model.
 
 ## Kalousova Rheology Parameters
 
@@ -59,6 +65,10 @@ stored diagnostic fields.
 `phiPercolationKalousova_frac = 0.05` is a configured diagnostic marker assigned
 when the diagnostic Kalousova scaling is supercritical. It is not an evolved
 porosity field and it is not computed melt transport.
+
+`DO_HP_MELT` and `meltFractionIII`, `meltFractionV`, and `meltFractionVI` are
+diagnostic markers only. They do not trigger melt transport, latent-heat
+feedback, layer remeshing, or profile mutation in this extraction.
 
 ## Diagnostic Outputs
 
@@ -118,4 +128,6 @@ transport.
 
 Kalousova and Sotin's published two-phase work focuses primarily on Ice VI. The
 Ice III and Ice V diagnostic calculations follow `genai` and should be treated
-as extrapolative inspection values until reviewed.
+as extrapolative inspection values until reviewed. They are useful for
+traceability and sensitivity inspection, but they should not be used as
+validated production predictions without a separate science review.

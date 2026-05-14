@@ -1569,7 +1569,10 @@ class ViscIceArrhenius_Pas:
         return np.clip(eta_Pas, 0, self.etaMax_Pas)
 
     def updateConvectionViscosity(self, etaConv_Pas, Tconv_K):
-        pass
+        # Preserve the legacy uniform-ice side effect used by later HP ice EOSs
+        # without altering this Arrhenius viscosity law itself.
+        Constants.etaIce_Pas[-1] = etaConv_Pas
+        Constants.TviscIce_K[-1] = Tconv_K
     
 
 def GetOceanEOSLabel(compstr, wOcean_ppt, elecType, rhoType, scalingType, phaseType, EXTRAP, PORE, LOOKUP_HIRES, etaFixed_Pas, meltStr, propsStepReductionFactor):

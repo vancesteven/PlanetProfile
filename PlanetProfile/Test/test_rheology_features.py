@@ -4,6 +4,7 @@ import numpy as np
 
 from PlanetProfile.Thermodynamics.HydroEOS import (
     GetIceArrheniusViscosityKwargs,
+    GetIceEOS,
     ViscIceArrhenius_Pas,
 )
 from PlanetProfile.Thermodynamics.LayerPropagators import (
@@ -14,7 +15,7 @@ from PlanetProfile.Thermodynamics.LayerPropagators import (
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import (
     ConvectionKalousova2018,
 )
-from PlanetProfile.Utilities.defineStructs import Constants, OceanSubstruct
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, OceanSubstruct, ResetMutableModelState
 
 
 class _Namespace:
@@ -40,6 +41,14 @@ def _planet_with_arrhenius_flags():
     planet.Bulk.TbIII_K = 253.0
     planet.Bulk.TbV_K = 263.0
     return planet
+
+
+def _reset_ice_eos_state(eta_ice=None, tvisc_ice=None):
+    ResetMutableModelState(reset_eos=True)
+    if eta_ice is not None:
+        Constants.etaIce_Pas[:] = list(eta_ice)
+    if tvisc_ice is not None:
+        Constants.TviscIce_K[:] = list(tvisc_ice)
 
 
 class _SimpleIceEOS:
@@ -98,7 +107,9 @@ class Test01ArrheniusViscosity(unittest.TestCase):
         self.assertGreater(eta_cold, eta_warm)
         np.testing.assert_allclose(eta_warm, 1.0e13)
 
-    def test_arrhenius_update_convection_viscosity_is_noop(self):
+    def test_arrhenius_update_convection_viscosity_preserves_arrhenius_curve(self):
+        eta_ice_original = list(Constants.etaIce_Pas)
+        tvisc_ice_original = list(Constants.TviscIce_K)
         viscosity = ViscIceArrhenius_Pas(
             etaMelt_Pas=1.0e13,
             Eact_Jmol=60.0e3,
@@ -106,10 +117,116 @@ class Test01ArrheniusViscosity(unittest.TestCase):
         )
         before = viscosity(0.0, np.array([250.0, 260.0, 270.0]))
 
-        viscosity.updateConvectionViscosity(1.0e99, 100.0)
-        after = viscosity(0.0, np.array([250.0, 260.0, 270.0]))
+        try:
+            viscosity.updateConvectionViscosity(1.0e16, 260.0)
+            after = viscosity(0.0, np.array([250.0, 260.0, 270.0]))
 
-        np.testing.assert_allclose(after, before)
+            np.testing.assert_allclose(after, before)
+            self.assertEqual(Constants.etaIce_Pas[-1], 1.0e16)
+            self.assertEqual(Constants.TviscIce_K[-1], 260.0)
+        finally:
+            _reset_ice_eos_state(eta_ice_original, tvisc_ice_original)
+
+    def test_ih_arrhenius_changes_only_ih_in_synthetic_hp_profile(self):
+        eta_ice_original = list(Constants.etaIce_Pas)
+        tvisc_ice_original = list(Constants.TviscIce_K)
+        phase = np.array([1, 1, 5, 6])
+        P_MPa = np.array([5.0, 50.0, 500.0, 1000.0])
+        T_K = np.array([220.0, 260.0, 270.0, 290.0])
+        eta_conv_Pas = 6.0e14
+        Tconv_K = 255.0
+
+        def synthetic_eta(ih_arrhenius):
+            _reset_ice_eos_state(eta_ice_original, tvisc_ice_original)
+            ih_kwargs = {}
+            if ih_arrhenius:
+                ih_kwargs = {
+                    "ARRHENIUS_VISCOSITY": True,
+                    "etaMelt_Pas": Constants.etaMelt_Pas[1],
+                    "Eact_Jmol": Constants.Eact_kJmol[1] * 1.0e3,
+                    "Tmelt_K": Constants.T0,
+                }
+
+            ih_eos = GetIceEOS(
+                np.linspace(0.1, 100.0, 5),
+                np.linspace(200.0, 270.0, 5),
+                "Ih",
+                **ih_kwargs,
+            )
+            ih_eos.updateConvectionViscosity(eta_conv_Pas, Tconv_K)
+            v_eos = GetIceEOS(
+                np.linspace(350.0, 700.0, 5),
+                np.linspace(260.0, 290.0, 5),
+                "V",
+            )
+            vi_eos = GetIceEOS(
+                np.linspace(700.0, 1500.0, 5),
+                np.linspace(270.0, 320.0, 5),
+                "VI",
+            )
+
+            eta_Pas = np.zeros_like(T_K, dtype=float)
+            eta_Pas[phase == 1] = ih_eos.fn_eta_Pas(P_MPa[phase == 1], T_K[phase == 1])
+            eta_Pas[phase == 5] = v_eos.fn_eta_Pas(P_MPa[phase == 5], T_K[phase == 5])
+            eta_Pas[phase == 6] = vi_eos.fn_eta_Pas(P_MPa[phase == 6], T_K[phase == 6])
+            return eta_Pas
+
+        try:
+            default_eta_Pas = synthetic_eta(ih_arrhenius=False)
+            ih_arrhenius_eta_Pas = synthetic_eta(ih_arrhenius=True)
+
+            self.assertTrue(np.any(default_eta_Pas[phase == 1] != ih_arrhenius_eta_Pas[phase == 1]))
+            np.testing.assert_allclose(
+                ih_arrhenius_eta_Pas[phase == 5],
+                default_eta_Pas[phase == 5],
+            )
+            np.testing.assert_allclose(
+                ih_arrhenius_eta_Pas[phase == 6],
+                default_eta_Pas[phase == 6],
+            )
+        finally:
+            _reset_ice_eos_state(eta_ice_original, tvisc_ice_original)
+
+    def test_reset_mutable_model_state_restores_viscosity_defaults_and_clears_eos_cache(self):
+        _reset_ice_eos_state()
+        ih_eos = GetIceEOS(
+            np.linspace(0.1, 100.0, 5),
+            np.linspace(200.0, 270.0, 5),
+            "Ih",
+        )
+        ih_eos.updateConvectionViscosity(2.0e16, 260.0)
+        EOSlist.loaded["synthetic_run_local_cache"] = object()
+        EOSlist.ranges["synthetic_run_local_cache"] = "changed"
+
+        ResetMutableModelState(reset_eos=True)
+
+        self.assertEqual(Constants.etaIce_Pas, [1.0e19, 1.0e15])
+        self.assertEqual(Constants.TviscIce_K, [241])
+        self.assertNotIn("synthetic_run_local_cache", EOSlist.loaded)
+        self.assertEqual(set(EOSlist.loaded), {"CustomSolutionEOS", "ReaktoroDatabases"})
+        self.assertEqual(EOSlist.ranges, {})
+
+    def test_reset_preserves_within_run_uniform_viscosity_handoff(self):
+        _reset_ice_eos_state()
+        ih_eos = GetIceEOS(
+            np.linspace(0.1, 100.0, 5),
+            np.linspace(200.0, 270.0, 5),
+            "Ih",
+        )
+        ih_eos.updateConvectionViscosity(4.0e16, 258.0)
+
+        v_eos = GetIceEOS(
+            np.linspace(350.0, 700.0, 5),
+            np.linspace(250.0, 290.0, 5),
+            "V",
+        )
+
+        self.assertEqual(Constants.etaIce_Pas[-1], 4.0e16)
+        self.assertEqual(Constants.TviscIce_K[-1], 258.0)
+        np.testing.assert_allclose(
+            v_eos.fn_eta_Pas(np.array([500.0]), np.array([270.0])),
+            np.array([4.0e16]),
+        )
 
 
 class Test03HPIceConvectionDiagnostics(unittest.TestCase):
