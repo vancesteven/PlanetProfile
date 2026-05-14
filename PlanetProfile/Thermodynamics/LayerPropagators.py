@@ -1213,9 +1213,15 @@ def HPIceConvection(Planet, Params):
 
         # Melt water outflow and mass flux (Kalousova & Sotin 2018, only when temperate layer present)
         if Planet.Do.KALOUSOVA_CONVECTION and eLid_m > 0 and Dconv_m > 0:
-            # Temperate layer present -- melt fraction is approximately the percolation threshold
+            # Temperate layer present.  Reported melt fraction:
+            #   - Ice III/V: percolation threshold (phi_c = Constants.phiPercolation = 0.05),
+            #     consistent with Kalousova & Sotin's steady-state-outflow framing.
+            #   - Ice VI: fixed-phi placeholder (0.5) pending the full two-phase solver.
+            # Constants.phiPercolation itself is NOT changed — Kalousova's Eq. 10 outflow
+            # velocity / mass flux equations below use phi_c = 0.05 regardless.
             Planet.DO_HP_MELT = True
-            setattr(Planet, f'meltFraction{suffix}', Constants.phiPercolation)
+            meltFracReport = 0.5 if suffix == 'VI' else Constants.phiPercolation
+            setattr(Planet, f'meltFraction{suffix}', meltFracReport)
             # Outflow water velocity (Kalousova & Sotin 2018, Eq. 10):
             #   v_w = q_s / (phi_c * rho_w * L)
             vOutflow_ms = qBot_Wm2 / (Constants.phiPercolation * Constants.rhoMeltHP_kgm3

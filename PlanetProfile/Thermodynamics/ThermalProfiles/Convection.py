@@ -1354,13 +1354,37 @@ def IceVIConvectSolid(Planet, Params):
                                      Planet.Ocean.surfIceEOS['VI'], 6, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol,
                                      Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
 
+    # Determine ice VI cell range in the surface-ice arrays.
+    iTopVI = Planet.Steps.nVbottom if hasattr(Planet.Steps, 'nVbottom') else Planet.Steps.nIIIbottom
+    iBotVI = Planet.Steps.nSurfIce  # exclusive
+
+    # Simplified ice VI profile (full lid + adiabat + TBL propagation deferred — see follow-up).
+    # The pre-Kalousova default for ice VI was a melting-curve T profile, since vigorous
+    # convection in HP ice keeps the interior near the solidus.  ConvectionKalousova2018
+    # returns Tconv_K already on the melting curve; we apply it uniformly across the ice VI
+    # range as a placeholder for the proper three-segment construction used for Ice III/V.
+    if Planet.Do.KALOUSOVA_CONVECTION and iBotVI > iTopVI:
+        Planet.T_K[iTopVI:iBotVI] = Planet.TconvVI_K
+        Planet = EvalLayerProperties(Planet, Params, iTopVI, iBotVI,
+                                     Planet.Ocean.surfIceEOS['VI'],
+                                     Planet.P_MPa[iTopVI:iBotVI],
+                                     Planet.T_K[iTopVI:iBotVI])
+
     # Store melt fraction if using Kalousova
     if Planet.Do.KALOUSOVA_CONVECTION:
-        # Temperate layer exists if eLidVI_m > 0 (Kalousova & Sotin 2018)
-        if Planet.eLidVI_m > 0:
+        # True temperate layer requires both eLid_m > 0 (Ra* > Ra*c yields a top
+        # conductive lid bounding a melt-bearing region) AND Dconv_m > 0 (a real
+        # convecting interior exists).  When subcritical, eLid = full layer and
+        # Dconv = 0, which is conductive, not temperate.
+        # Use a fixed representative melt fraction of 0.5 as a placeholder for the
+        # actual two-phase solver result.  Constants.phiPercolation (= 0.05) is the
+        # percolation threshold used inside Kalousova's outflow equations and is
+        # intentionally NOT changed here.
+        if Planet.eLidVI_m > 0 and Planet.DconvVI_m > 0:
             Planet.DO_HP_MELT = True
-            Planet.meltFractionVI = 0.01  # Nominal placeholder
-            log.info(f'Ice VI temperate layer detected: partial melting present in top {Planet.eLidVI_m/1e3:.3f} km')
+            Planet.meltFractionVI = 0.5  # Fixed-phi placeholder; full two-phase solver = TODO
+            log.info(f'Ice VI temperate layer detected: partial melting present in top {Planet.eLidVI_m/1e3:.3f} km '
+                     f'(meltFractionVI=0.5 placeholder; phi_perc unchanged at {Constants.phiPercolation})')
         else:
             Planet.meltFractionVI = 0.0
 
@@ -1378,16 +1402,11 @@ def IceVIConvectSolid(Planet, Params):
     log.info(f'Ice VI heat transport: q = {q_base_VI_mWm2:.2f} mW/m² ' +
              f'(Total: {Planet.Ocean.QfromMantle_W/1e12:.3f} TW) through layer')
 
-    # TODO: Ice VI thermal profile propagation (stagnant lid + convective + lower TBL)
-    # Requires:
-    #   1. Planet.Steps.nVbottom index (end of ice V / start of ice VI layers)
-    #   2. Planet.Steps.nIceVILitho (number of ice VI layers)
-    #   3. Layer allocation in IceLayers() to create ice VI layers
-    #   4. IceVIConductSolid/Porous in IceConduction.py
-    # Model after IceVConvectSolid profile propagation (lines ~764-839)
-    log.warning('Ice VI convection profile propagation not yet implemented. '
-                'Convection parameters computed but thermal profile not updated. '
-                'Requires nVbottom and nIceVILitho in StepsSubstruct.')
+    # Follow-up: full three-segment Ice VI profile (stagnant lid + adiabatic interior +
+    # lower TBL) modeled on IceVConvectSolid.  Requires Planet.Steps.nVbottom,
+    # nIceVILitho, layer allocation in IceLayers(), and IceVIConductSolid/Porous.
+    log.debug('Ice VI uses melting-curve T profile (uniform Tconv_K) as a simplified '
+              'placeholder; full lid+adiabat+TBL construction is scheduled.')
 
     return Planet
 
