@@ -549,15 +549,14 @@ def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_
         carries a compensating *2 prefactor in its spherical qBot term that cancels
         the /2 in c1 — so its qBot return is correct, even though Tbot is not.
 
-        This function is used by `PropagateConductionProfilesSolid` / `...Porous` to
-        propagate T through silicate (and in principle core) layers.  A proper fix to
-        the underlying silicate boundary-condition problem (1/r divergence as r -> 0
-        for a solid silicate body with prescribed qTop inconsistent with integrated
-        Htot) is pending — see FIXME in Geophysical.py around the silicate loops.
-        **Until that rework is done, keep this function as-is**: reverting the /2/6
-        to /1/3 produces corrected planar T steps but drives silicate T to diverge
-        catastrophically (test 15 mass-balance failure), because the real
-        boundary-condition issue has been masked for years by the compensating /2.
+        This function is now used by `SilRecursionSolid` / `SilRecursionPorous` only
+        for **shell** silicate bodies (Fe_CORE=True or CONSTANT_INNER_DENSITY=True).
+        For those cases the c1/r term is well-defined (rBot > 0) and the legacy
+        halved-c1 form is preserved to avoid disturbing existing test-suite behavior.
+        Solid-sphere silicate bodies (no Fe core, no CONSTANT_INNER_DENSITY) now use
+        `ConductiveTemperatureCorrect` with an overridden qTop = Htot*rTop/3 (which
+        forces c1 = 0 and yields the closed-form profile finite at r=0); see
+        `Geophysical.py` for that path.
 
         For the narrow use-case where we need the true T&S 4.40 behavior (namely,
         `GetPbConduct` which integrates downward from the top of the clathrate layer
@@ -635,11 +634,12 @@ def ConductiveTemperatureCorrect(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3
         makes the resulting clathrate layer thickness match `Bulk.clathMaxThick_m`.
 
         The older `ConductiveTemperature` / `ConductiveTemperatureActual` above use
-        halved c1; they are retained with that behavior for backward compatibility
-        with PP's silicate conduction path, whose boundary-condition problem is
-        improperly closed and diverges catastrophically if the correct c1 is used
-        there (see module FIXMEs in Geophysical.py).  When the silicate BC rework
-        is complete, those functions should be replaced by calls to this one.
+        halved c1; they are retained with that behavior for **shell** silicate bodies
+        (Fe core or CONSTANT_INNER_DENSITY) where the c1/r term is well-defined.
+        Solid-sphere silicate bodies were reworked in 2026-05 to use this function
+        with an overridden qTop = Htot*rTop/3 that forces c1 = 0 and yields the
+        closed-form profile finite at r=0 (see `SilRecursionSolid` /
+        `SilRecursionPorous` in Geophysical.py).
 
         Args:
             (same as ConductiveTemperature)
