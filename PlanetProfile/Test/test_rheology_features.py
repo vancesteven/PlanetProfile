@@ -15,7 +15,14 @@ from PlanetProfile.Thermodynamics.LayerPropagators import (
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import (
     ConvectionKalousova2018,
 )
-from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, OceanSubstruct, ResetMutableModelState
+from PlanetProfile.Utilities.defineStructs import (
+    Constants,
+    DoSubstruct,
+    EOSlist,
+    OceanSubstruct,
+    ResetMutableModelState,
+    ResolveHPIceConvectionModel,
+)
 
 
 class _Namespace:
@@ -394,6 +401,58 @@ class Test04KalousovaHPIceDiagnostics(unittest.TestCase):
         np.testing.assert_allclose(RaCrit, expected_RaCrit)
         np.testing.assert_allclose(eLid_m, expected_eLid_m)
         np.testing.assert_allclose(deltaTBL_m, expected_deltaTBL_m)
+
+
+class Test05HPIceConvectionModelSelector(unittest.TestCase):
+
+    def test_default_selector_is_none_and_diagnostics_disabled(self):
+        do = DoSubstruct()
+
+        self.assertEqual(do.HP_ICE_CONVECTION_MODEL, "none")
+        self.assertFalse(do.HP_ICE_CONVECTION_DIAGNOSTICS)
+        self.assertFalse(do.KALOUSOVA_CONVECTION)
+        self.assertEqual(ResolveHPIceConvectionModel(do), "none")
+
+    def test_legacy_hp_diagnostics_flag_maps_to_ds2001_diagnostic(self):
+        do = DoSubstruct()
+        do.HP_ICE_CONVECTION_DIAGNOSTICS = True
+
+        self.assertEqual(ResolveHPIceConvectionModel(do), "DS2001_diagnostic")
+
+    def test_legacy_kalousova_flag_maps_to_kalousova_diagnostic(self):
+        do = DoSubstruct()
+        do.KALOUSOVA_CONVECTION = True
+
+        self.assertEqual(ResolveHPIceConvectionModel(do), "Kalousova2018_diagnostic")
+
+    def test_explicit_selector_wins_over_legacy_flags(self):
+        do = DoSubstruct()
+        do.HP_ICE_CONVECTION_MODEL = "DS2001_diagnostic"
+        do.KALOUSOVA_CONVECTION = True
+
+        self.assertEqual(ResolveHPIceConvectionModel(do), "DS2001_diagnostic")
+
+    def test_invalid_selector_raises_clear_error(self):
+        do = DoSubstruct()
+        do.HP_ICE_CONVECTION_MODEL = "not_a_model"
+
+        with self.assertRaisesRegex(ValueError, "HP_ICE_CONVECTION_MODEL"):
+            ResolveHPIceConvectionModel(do)
+
+    def test_production_selector_requires_experimental_gate(self):
+        do = DoSubstruct()
+        do.HP_ICE_CONVECTION_MODEL = "Kalousova2018_production_experimental"
+
+        with self.assertRaisesRegex(ValueError, "ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION=True"):
+            ResolveHPIceConvectionModel(do)
+
+    def test_production_selector_with_gate_is_reserved_not_silent(self):
+        do = DoSubstruct()
+        do.HP_ICE_CONVECTION_MODEL = "Kalousova2018_production_experimental"
+        do.ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION = True
+
+        with self.assertRaisesRegex(NotImplementedError, "reserved for future"):
+            ResolveHPIceConvectionModel(do)
 
 
 if __name__ == "__main__":

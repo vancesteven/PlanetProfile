@@ -87,6 +87,47 @@ class BulkSubstruct():
         self.zbChangeTol_frac = 0.05  # Fractional change tolerance, which if exceeded, triggers IceConvect to run a second time for better self-consistency
 
 
+HP_ICE_CONVECTION_MODELS = (
+    "none",
+    "DS2001_diagnostic",
+    "Kalousova2018_diagnostic",
+    "Kalousova2018_production_experimental",
+)
+
+
+def ResolveHPIceConvectionModel(PlanetOrDo):
+    """Resolve the HP ice convection selector while preserving legacy flags."""
+    Do = getattr(PlanetOrDo, "Do", PlanetOrDo)
+    model = getattr(Do, "HP_ICE_CONVECTION_MODEL", "none")
+    if model is None:
+        model = "none"
+
+    if model not in HP_ICE_CONVECTION_MODELS:
+        allowed = ", ".join(HP_ICE_CONVECTION_MODELS)
+        raise ValueError(f'Do.HP_ICE_CONVECTION_MODEL "{model}" is not recognized. Allowed values: {allowed}.')
+
+    if model == "none":
+        if getattr(Do, "KALOUSOVA_CONVECTION", False):
+            model = "Kalousova2018_diagnostic"
+        elif getattr(Do, "HP_ICE_CONVECTION_DIAGNOSTICS", False):
+            model = "DS2001_diagnostic"
+
+    if model == "Kalousova2018_production_experimental":
+        if not getattr(Do, "ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION", False):
+            raise ValueError(
+                "Do.HP_ICE_CONVECTION_MODEL='Kalousova2018_production_experimental' "
+                "is experimental and requires explicit opt-in through "
+                "Do.ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION=True."
+            )
+        raise NotImplementedError(
+            "Do.HP_ICE_CONVECTION_MODEL='Kalousova2018_production_experimental' "
+            "is reserved for future HP/Kalousova production work; no active production "
+            "physics is implemented in this commit."
+        )
+
+    return model
+
+
 """ Runtime flags """
 class DoSubstruct:
 
@@ -111,6 +152,8 @@ class DoSubstruct:
         self.HP_MELT_SMOOTHING = False  # Whether to apply a smoothing filter to avoid bumpiness from discretized phase diagram, when lookup table is used for EOS calcs
         self.FIXED_HPSMOOTH_WINDOW = False  # Whether to force a fixed number of window points for smoothing in HP ices
         self.NO_ICE_CONVECTION = False  # Whether to suppress convection in ice layers
+        self.HP_ICE_CONVECTION_MODEL = "none"  # Selector for HP ice convection handling; legacy booleans below act as compatibility shims when this is "none"
+        self.ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION = False  # Explicit gate for reserved future HP/Kalousova production mode
         self.HP_ICE_CONVECTION_DIAGNOSTICS = False  # Whether to compute opt-in diagnostics for in-ocean HP ice convection without altering the model profile
         self.KALOUSOVA_CONVECTION = False  # Kept for genai compatibility; currently selects diagnostic-only Kalousova HP ice calculations
         self.ARRHENIUS_VISCOSITY = False  # Whether to use temperature-dependent Arrhenius viscosity for all supported ice phases

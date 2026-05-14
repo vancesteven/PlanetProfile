@@ -14,7 +14,7 @@ from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolu
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathDissoc
 from copy import deepcopy
 from PlanetProfile.Utilities.PPversion import ppVerNum, CheckCompat
-from PlanetProfile.Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants
+from PlanetProfile.Utilities.defineStructs import DataFilesSubstruct, FigureFilesSubstruct, Constants, ResolveHPIceConvectionModel
 from PlanetProfile.TrajecAnalysis import _MAGdir, _scList
 from PlanetProfile.TrajecAnalysis.FlybyEvents import scTargets
 from PlanetProfile.TrajecAnalysis.RefileMAGdata import RefileName, MAGtoHDF5, LoadMAG
@@ -49,6 +49,7 @@ def SetupInit(Planet, Params):
     if Planet.Do.TAUP_SEISMIC: CheckCompat('obspy')  # TauP (accessed as obspy.taup)
     if Params.CALC_NEW_INDUCT: CheckCompat('MoonMag')  # MoonMag
     if Params.CALC_NEW_GRAVITY: CheckCompat('pyalma3')
+    ResolveHPIceConvectionModel(Planet)
 
     # Check if Custom Reaktoro Solution is being used and if so then update Params with necessary parameters to plot
     if Planet.Ocean.comp is not None and 'CustomSolution' in Planet.Ocean.comp:

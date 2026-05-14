@@ -12,9 +12,50 @@ phase, mass, gravity, heat-flux, conductivity, or viscosity profiles, including
 ## Flags
 
 ```python
+Planet.Do.HP_ICE_CONVECTION_MODEL = "none"
+Planet.Do.ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION = False
 Planet.Do.HP_ICE_CONVECTION_DIAGNOSTICS = False
 Planet.Do.KALOUSOVA_CONVECTION = False
 ```
+
+## HP_ICE_CONVECTION_MODEL selector
+
+`HP_ICE_CONVECTION_MODEL` is the preferred future-facing selector for HP ice
+convection handling. Supported values are:
+
+```text
+"none"
+"DS2001_diagnostic"
+"Kalousova2018_diagnostic"
+"Kalousova2018_production_experimental"
+```
+
+The default is `"none"`, so existing default behavior is unchanged.
+
+The existing `HP_ICE_CONVECTION_DIAGNOSTICS` and `KALOUSOVA_CONVECTION` flags are
+still supported for backward compatibility. When
+`HP_ICE_CONVECTION_MODEL == "none"`, those flags act as shims:
+
+```text
+HP_ICE_CONVECTION_DIAGNOSTICS=False and KALOUSOVA_CONVECTION=False -> "none"
+HP_ICE_CONVECTION_DIAGNOSTICS=True  and KALOUSOVA_CONVECTION=False -> "DS2001_diagnostic"
+KALOUSOVA_CONVECTION=True -> "Kalousova2018_diagnostic"
+```
+
+If `HP_ICE_CONVECTION_MODEL` is explicitly set to a value other than `"none"`,
+the selector wins over the legacy flags.
+
+The only implemented selector values are diagnostic-only. The reserved
+`"Kalousova2018_production_experimental"` value requires:
+
+```python
+Planet.Do.ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION = True
+```
+
+Even with that gate enabled, active production HP/Kalousova physics is not
+implemented in this extraction. No production heat-stack coupling, latent-heat
+feedback, transported melt, or profile feedback is activated by this selector
+scaffold.
 
 `HP_ICE_CONVECTION_DIAGNOSTICS=True` enables diagnostic reporting. When
 `KALOUSOVA_CONVECTION=False`, diagnostics use a Deschamps and Sotin (2001)-style
@@ -98,18 +139,6 @@ top-level HP diagnostic fields (`TconvV_K`, `etaConvVI_Pas`,
 `meltFractionVI`, etc.) and the structured `Planet.HPIceDiagnostics` record.
 Future changes should keep those two representations synchronized through that
 helper.
-
-## Future API Note
-
-A future cleaner API could replace the two HP ice diagnostic booleans with a
-single model selector, for example:
-
-```python
-Planet.Do.HP_ICE_CONVECTION_MODEL = "none" | "DS2001_diagnostic" | "Kalousova2018_diagnostic"
-```
-
-That refactor is intentionally deferred so this extraction remains close to the
-`genai` flag names and minimal review scope.
 
 ## Limitations
 

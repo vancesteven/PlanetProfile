@@ -19,7 +19,7 @@ from PlanetProfile.Thermodynamics.ThermalProfiles.IceConduction import IceIWhole
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConvectionDeschampsSotin2001, \
     ConvectionKalousova2018, GetRaCrit
 from PlanetProfile.Thermodynamics.Geophysical import PropogateConductionFromDepth
-from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing, ResolveHPIceConvectionModel
 import time
 
 # Assign logger
@@ -1015,15 +1015,14 @@ def SelfConsistentOceanLayer(Planet, Params):
         log.info(f'Ocean layers complete. zMax: {Planet.z_m[Planet.Steps.nSurfIce + Planet.Steps.nOceanMax - 1]/1e3:.1f} km, ' +
                  f'upper ice thickness zb: {Planet.zb_km:.3f} km{zClathInfo}')
 
-        # KALOUSOVA_CONVECTION is kept for genai compatibility, but currently
-        # selects diagnostic-only HP ice calculations.
-        if Planet.Do.HP_ICE_CONVECTION_DIAGNOSTICS or Planet.Do.KALOUSOVA_CONVECTION:
-            Planet = HPIceConvectionDiagnostics(Planet, Params)
+        hpIceConvectionModel = ResolveHPIceConvectionModel(Planet)
+        if hpIceConvectionModel != 'none':
+            Planet = HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel)
 
     return Planet, Params
 
 
-def HPIceConvectionDiagnostics(Planet, Params):
+def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
     """Compute opt-in diagnostics for in-ocean HP ice convection.
 
     This uses either Deschamps and Sotin (2001) or the opt-in Kalousova and
@@ -1041,6 +1040,11 @@ def HPIceConvectionDiagnostics(Planet, Params):
     if Planet.Do.NO_ICE_CONVECTION:
         log.info('HP ice convection diagnostics skipped because NO_ICE_CONVECTION is True.')
         return Planet
+    if hpIceConvectionModel is None:
+        hpIceConvectionModel = ResolveHPIceConvectionModel(Planet)
+    useKalousova = hpIceConvectionModel == 'Kalousova2018_diagnostic'
+    if hpIceConvectionModel not in ('DS2001_diagnostic', 'Kalousova2018_diagnostic'):
+        raise ValueError(f'HP ice convection model "{hpIceConvectionModel}" is not a diagnostic model.')
 
     phaseNames = {3: 'III', 5: 'V', 6: 'VI'}
     # Match genai's bottom-to-top HP ice traversal. The DS2001 diagnostic path
@@ -1058,11 +1062,11 @@ def HPIceConvectionDiagnostics(Planet, Params):
         log.info('HP ice convection diagnostics enabled, but no in-ocean HP ice phases were found.')
         return Planet
 
-    methodFamily = 'Kalousova and Sotin (2018)' if Planet.Do.KALOUSOVA_CONVECTION else 'Deschamps and Sotin (2001)'
+    methodFamily = 'Kalousova and Sotin (2018)' if useKalousova else 'Deschamps and Sotin (2001)'
     log.info(f'Computing opt-in HP ice convection diagnostics using {methodFamily}.')
 
     Qthrough_W = getattr(Planet.Ocean, 'QfromMantle_W', np.nan)
-    if Planet.Do.KALOUSOVA_CONVECTION and (Qthrough_W is None or not np.isfinite(Qthrough_W)):
+    if useKalousova and (Qthrough_W is None or not np.isfinite(Qthrough_W)):
         log.warning(
             'QfromMantle_W is not finite for Kalousova diagnostics. '
             'Using the local conductive heat-flux estimate inside the scaling law.'
@@ -1099,7 +1103,7 @@ def HPIceConvectionDiagnostics(Planet, Params):
             continue
 
         meltFraction = np.nan
-        if Planet.Do.KALOUSOVA_CONVECTION:
+        if useKalousova:
             method = 'Kalousova and Sotin (2018)'
             etaMelt_Pas = _GetKalousovaEtaMelt_Pas(Planet, phaseID, phaseName)
             if np.isfinite(Qthrough_W):
