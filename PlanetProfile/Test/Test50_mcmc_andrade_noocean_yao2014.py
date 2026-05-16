@@ -9,37 +9,26 @@ self-consistently determined by PP and barely varies with Tb_K (< 1 km over the
 entire valid range 240–251 K). The all-ice hypothesis produces a UNIQUE
 structure: D_hsphere ≈ 494 km, rho_sil ≈ 2555 kg/m³, CMR2 ≈ 0.343.
 
-The MCMC samples rheology only (7D) at this fixed structure. Per-phase HP ice
-viscosities are sampled independently since each phase has distinct shear moduli
-and dissipation behaviour (Petricca et al. 2025 find ~1e12 Pa s for HP ices).
-
-Parameter space (7D):
-  alpha:           Andrade exponent                [0.15, 0.45]
-  log10(zeta):     Andrade zeta (Pa s^alpha)       [-3, 2]
-  log10(eta_Ih):   Ice Ih viscosity (Pa s)         [12, 16]
-  log10(eta_III):  Ice III viscosity (Pa s)        [10, 16]
-  log10(eta_V):    Ice V viscosity (Pa s)          [10, 16]
-  log10(eta_VI):   Ice VI viscosity (Pa s)         [10, 16]
-  log10(eta_sil):  Silicate viscosity (Pa s)       [18, 22]
-
-Fixed structure (Tb_K=250 K, computed by PP):
-  D_iceIh  ≈ 156 km
-  D_iceIII ≈ 83 km
-  D_iceV   ≈ 155 km
-  D_iceVI  ≈ 69 km
-  D_total  ≈ 494 km
-  rho_sil  ≈ 2555 kg/m³
-  CMR2     ≈ 0.343
-
-Observational constraints (Petricca et al. 2025, Cassini radio science):
-  Re(k2)   = 0.608 +/- 0.048
-  |Im(k2)| = 0.135 +/- 0.035
+Default config: PlanetProfile/Inference/configs/test50_titan_noocean_andrade_8D.json
+5D variant   : PlanetProfile/Inference/configs/test50_titan_noocean_andrade_5D.json
 
 Usage:
   mamba activate PPcl
-  python PlanetProfile/Test/Test46_mcmc_allice.py
-  python PlanetProfile/Test/Test46_mcmc_allice.py --build-structure
-  python PlanetProfile/Test/Test46_mcmc_allice.py --replot
+  # Run default 8D inference
+  python PlanetProfile/Test/Test50_mcmc_andrade_noocean_yao2014.py
+
+  # Run with a specific config (e.g. 5D variant)
+  python PlanetProfile/Test/Test50_mcmc_andrade_noocean_yao2014.py \\
+      --config PlanetProfile/Inference/configs/test50_titan_noocean_andrade_5D.json
+
+  # Rebuild structure cache and run
+  python PlanetProfile/Test/Test50_mcmc_andrade_noocean_yao2014.py --rebuild-structure
+
+  # Build structure only, no MCMC
+  python PlanetProfile/Test/Test50_mcmc_andrade_noocean_yao2014.py --build-structure
+
+  # Regenerate plots from saved results
+  python PlanetProfile/Test/Test50_mcmc_andrade_noocean_yao2014.py --replot
 """
 import argparse
 import logging
@@ -67,11 +56,6 @@ from PlanetProfile.Utilities.Indexing import PhaseConv
 from PlanetProfile.Main import PlanetProfile as RunPP
 from PlanetProfile.Gravity.Gravity import SetupGravity
 
-# TidalPy imports
-from TidalPy.RadialSolver import radial_solver, build_rs_input_from_data
-from TidalPy.tides.multilayer.heating import calc_radial_volumetric_tidal_heating_from_rs_solution
-from TidalPy.rheology import Andrade, Elastic
-
 # ============================================================
 # Configuration
 # ============================================================
@@ -79,6 +63,10 @@ OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 STRUCTURE_CACHE_PATH = os.path.join(OUTPUT_DIR, 'titan_allice_yao2014_structure_grid.pkl')
+
+# Default config path (8D)
+_CONFIGS_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Inference', 'configs')
+DEFAULT_CONFIG_JSON = os.path.join(_CONFIGS_DIR, 'test50_titan_noocean_andrade_8D.json')
 
 # Observational constraints (Petricca et al. 2025, Cassini radio science)
 OBS = {
@@ -89,34 +77,19 @@ OBS = {
 
 # Titan reference
 TITAN_R_M = 2574.73e3
-TITAN_M_KG = 1.3452e23
 
-# Tb_K grid for Option-2 structural interpolation.  Upper bound = Ih-III-L triple
-# point minus ε=0.2 K (grid-resolution-safe for nIceI=200).  Lower bound = ~2 K
-# depression simulating solute-driven triple-point lowering (e.g., NaCl ~15 ppt).
-# 9 points at 0.246 K spacing gives <0.1% linear-interp error.
-# Probe at upper edge: PbI=207.68 MPa, CMR2=0.343, no Ih cell overshoots Tm(P).
+# Tb_K grid for structural interpolation.  Upper bound = Ih-III-L triple
+# point minus epsilon (grid-resolution-safe for nIceI=200).  Lower bound
+# simulates solute-driven triple-point lowering.
 STRUCTURE_TB_GRID = np.linspace(249.0, 250.965, 9)
 STRUCTURE_TB_K = float(STRUCTURE_TB_GRID[-1])  # back-compat alias for logging
 
-# MCMC settings
-N_EFF = 500
+# MCMC / output settings
 RANDOM_STATE = 42
 N_REEVAL = 500
 
-PARAM_NAMES = ['alpha', 'log10_zeta', 'log10_eta_Ih', 'log10_eta_III',
-               'log10_eta_V', 'log10_eta_VI', 'log10_eta_sil', 'Tb_K']
-PARAM_LABELS = [
-    r'$\alpha$',
-    r'$\log_{10}\zeta$',
-    r'$\log_{10}\eta_\mathrm{Ih}$',
-    r'$\log_{10}\eta_\mathrm{III}$',
-    r'$\log_{10}\eta_\mathrm{V}$',
-    r'$\log_{10}\eta_\mathrm{VI}$',
-    r'$\log_{10}\eta_\mathrm{sil}$',
-    r'$T_b$ (K)',
-]
-N_DIM = 8
+# Canonical output pkl name (8D default)
+PKL_PATH = os.path.join(OUTPUT_DIR, 'allice_yao2014_andrade_mcmc_results.pkl')
 
 
 # ============================================================
@@ -139,12 +112,7 @@ def _save_cache(data, filepath):
 
 
 def _build_single_structure(Tb_K):
-    """Run PlanetProfile for one Tb_K point and extract arrays.
-
-    Tb_K controls the thermal boundary at the base of ice Ih, which determines
-    the entire HP ice structure below. With Fe_CORE=False, PP determines rho_sil
-    self-consistently from mass balance.
-    """
+    """Run PlanetProfile for one Tb_K point and extract arrays."""
     EOSlist.loaded.clear()
     from PlanetProfile.GetConfig import Params as configParams
 
@@ -157,16 +125,10 @@ def _build_single_structure(Tb_K):
     from copy import deepcopy
     Planet = deepcopy(mod.Planet)
 
-    # Set ice Ih base temperature (controls entire ice structure)
     Planet.Bulk.Tb_K = Tb_K
 
     configParams.Gravity.backend = 'tidalpy'
     configParams.CALC_NEW = True
-    # Disable gravity backend during RunPP: Yao2014 spherical convection produces
-    # a thick stagnant lid discretized into very few slices, which TidalPy rejects
-    # ("Layer N has 2 slices when at least 5 are required").  We skip the gravity
-    # call here and re-run SetupGravity manually after the thin-layer padding step
-    # below — identical to the strategy used in hybrid_structure_cache.py line 220.
     configParams.CALC_NEW_GRAVITY = False
     configParams.NO_SAVEFILE = True
     configParams.SKIP_PLOTS = True
@@ -175,7 +137,6 @@ def _build_single_structure(Tb_K):
     Params.CALC_NEW_GRAVITY = True
     Planet, Params = SetupGravity(Planet, Params)
 
-    # Extract structural arrays (same pattern as Test41)
     model = Planet.Gravity.ALMAModel['model']
     cols = Planet.Gravity.columns
     rIndex = cols.index('r')
@@ -192,10 +153,6 @@ def _build_single_structure(Tb_K):
     eta_Pa_base = model[:, etaIndex].astype(np.float64)
     phases = model[:, pIndex]
 
-    # T profile (needed for Arrhenius Ih viscosity).  Planet.T_K is the primary
-    # (outside-in) thermal profile populated by RunPP.  Planet.Reduced.T_K does
-    # NOT exist on this PlanetStruct, so we interpolate Planet.T_K onto the ALMA
-    # r_m grid via ascending-r sort — orientation-agnostic.
     try:
         T_K_primary = np.asarray(Planet.T_K, dtype=np.float64)
         r_m_primary = np.asarray(Planet.r_m[:T_K_primary.size], dtype=np.float64)
@@ -205,7 +162,6 @@ def _build_single_structure(Tb_K):
         T_K = np.full(r_m.size, np.nan)
         log.warning(f'Planet.T_K extraction failed ({_exc}) — Arrhenius Ih viscosity will be skipped.')
 
-    # P(r) profile (needed for no-ocean safeguard: compare Ih-cell T against Tm_Ih(P))
     try:
         P_MPa_primary = np.asarray(Planet.P_MPa[:T_K_primary.size], dtype=np.float64)
         P_MPa = np.interp(r_m, r_m_primary[sort_idx], P_MPa_primary[sort_idx])
@@ -227,11 +183,9 @@ def _build_single_structure(Tb_K):
             K_Pa[i] = 2.0 * mu_Pa[i] * (1.0 + nu) / (3.0 * (1.0 - 2.0 * nu))
     K_Pa = np.maximum(K_Pa, 1e6)
 
-    # Layer boundaries
     changeIndices = np.max(Planet.Reduced.changeIndices) - np.flipud(Planet.Reduced.changeIndices)
     n_layers = len(changeIndices) - 1
 
-    # Thin-layer padding
     MIN_POINTS = 5
     needs_padding = any(
         changeIndices[i+1] - changeIndices[i] < MIN_POINTS
@@ -273,11 +227,6 @@ def _build_single_structure(Tb_K):
                 new_T.append(np.interp(r_interp, r_layer, T_K[s:e]))
                 new_ci.append(new_ci[-1] + MIN_POINTS)
             elif n_pts == 1:
-                # Single-slice layer (Yao 2014 stagnant lid): span from the
-                # previous layer's top radius up to this slice's r and fill
-                # with constant layer-property values.  T_K is interpolated
-                # linearly between the previous slice and this one so the
-                # Arrhenius profile respects the real surface→basal gradient.
                 r_top = r_m[s]
                 r_bot = r_m[s - 1] if s > 0 else r_top - 1.0
                 if r_bot >= r_top:
@@ -327,11 +276,7 @@ def _build_single_structure(Tb_K):
     host_mass = Constants.parentMass_kg[Planet.parent]
     a_m = (Constants.G * host_mass / omega**2) ** (1.0 / 3.0)
 
-    # Layer thicknesses for diagnostics
-    D_iceIh_km = 0.0
-    D_iceIII_km = 0.0
-    D_iceV_km = 0.0
-    D_iceVI_km = 0.0
+    D_iceIh_km = D_iceIII_km = D_iceV_km = D_iceVI_km = 0.0
     for i_layer in range(n_layers):
         s = changeIndices[i_layer]
         e = changeIndices[i_layer + 1]
@@ -346,14 +291,12 @@ def _build_single_structure(Tb_K):
         elif ph == 6:
             D_iceVI_km += thick_km
 
-    # CMR2 from PP
     CMR2_pp = Planet.Bulk.Cmeasured if hasattr(Planet.Bulk, 'Cmeasured') else np.nan
     try:
         CMR2_pp = float(Planet.CMR2mean)
     except (AttributeError, TypeError):
         pass
 
-    # Total hydrosphere thickness (derived, not input)
     R_sil = getattr(Planet.Sil, 'Rmean_m', r_m[0])
     D_hsphere_km = (TITAN_R_M - R_sil) / 1e3
 
@@ -392,16 +335,8 @@ def _build_single_structure(Tb_K):
 def build_or_load_structure_grid(force_rebuild=False):
     """Build or load a grid of all-ice structures across STRUCTURE_TB_GRID.
 
-    Returns:
-        dict with keys:
-            'Tb_K_grid': 1D array of Tb values.
-            'structures': list of per-Tb structure dicts (from _build_single_structure).
-
-    All grid structures must share identical `changeIndices`, `layer_types`,
-    `n_layers`, `region_phases` — otherwise linear interpolation between
-    bracketing Tb grid points in `_interp_structure` is ill-defined.  PP's
-    fixed nClath/nIceI/nSilMax discretization should guarantee this; the
-    check is included for safety and produces a helpful error if it fails.
+    Returns dict with 'Tb_K_grid' and 'structures' keys, consumed by MCMCRunner
+    via the Tb_K parameter hook in forward_models.py.
     """
     if not force_rebuild and os.path.exists(STRUCTURE_CACHE_PATH):
         try:
@@ -439,10 +374,7 @@ def build_or_load_structure_grid(force_rebuild=False):
             if not np.array_equal(s['changeIndices'], ref_ci):
                 raise RuntimeError(
                     f'Grid build at Tb={Tb:.3f} produced different changeIndices '
-                    f'than the first grid point. Option-2 interpolation requires '
-                    f'identical cell layouts across all Tb samples.  Likely cause: '
-                    f'thin-layer padding logic produced different minimum-point '
-                    f'expansion at this Tb.  Narrow the Tb grid span or investigate.'
+                    f'than the first grid point.'
                 )
             if s['layer_types'] != ref_layer_types:
                 raise RuntimeError(f'layer_types changed at Tb={Tb:.3f}')
@@ -460,324 +392,18 @@ def build_or_load_structure_grid(force_rebuild=False):
     return grid
 
 
-# Keys whose values are 1D numpy arrays and are linearly interpolated between Tb grid points.
-_INTERP_ARRAY_KEYS = ('r_m', 'rho', 'K_Pa', 'mu_Pa', 'eta_Pa_base',
-                      'T_K', 'P_MPa', 'bulk_visc')
-# Keys whose values are scalars (float) and are linearly interpolated.
-_INTERP_SCALAR_KEYS = ('Tb_K', 'CMR2', 'rhoSil_kgm3', 'D_hsphere_km',
-                       'D_iceIh_km', 'D_iceIII_km', 'D_iceV_km', 'D_iceVI_km')
-
-
-def _interp_structure(Tb_sampled, grid):
-    """Linearly interpolate structure arrays between bracketing Tb grid points.
-
-    Non-interpolated keys (phases, changeIndices, layer_types, region_phases,
-    n_layers, omega, eccentricity, host_mass, a_m, R_body_m, Mtot_kg) are taken
-    unchanged from the lower bracket — they are assumed grid-invariant by design.
-    """
-    Tb_grid = grid['Tb_K_grid']
-    structs = grid['structures']
-    Tb_clamped = float(np.clip(Tb_sampled, Tb_grid[0], Tb_grid[-1]))
-    # Find bracketing indices
-    j = int(np.searchsorted(Tb_grid, Tb_clamped))
-    if j <= 0:
-        return {k: (v.copy() if isinstance(v, np.ndarray) else v)
-                for k, v in structs[0].items()}
-    if j >= len(Tb_grid):
-        return {k: (v.copy() if isinstance(v, np.ndarray) else v)
-                for k, v in structs[-1].items()}
-    t0, t1 = Tb_grid[j - 1], Tb_grid[j]
-    if t1 == t0:
-        w = 0.0
-    else:
-        w = (Tb_clamped - t0) / (t1 - t0)
-    s0, s1 = structs[j - 1], structs[j]
-    out = {}
-    for k in _INTERP_ARRAY_KEYS:
-        out[k] = (1.0 - w) * s0[k] + w * s1[k]
-    for k in _INTERP_SCALAR_KEYS:
-        out[k] = (1.0 - w) * s0[k] + w * s1[k]
-    # layer_upper_radii is a tuple of floats — interp elementwise
-    out['layer_upper_radii'] = tuple(
-        (1.0 - w) * float(a) + w * float(b)
-        for a, b in zip(s0['layer_upper_radii'], s1['layer_upper_radii'])
-    )
-    # Carry-through keys (identical across grid)
-    for k in ('phases', 'changeIndices', 'n_layers', 'layer_types', 'region_phases',
-              'omega', 'eccentricity', 'host_mass', 'a_m', 'R_body_m', 'Mtot_kg'):
-        out[k] = s0[k]
-    return out
-
-
 # ============================================================
-# Step 2: Forward model
+# Plotting (delegates to shared mcmc_plots toolkit)
 # ============================================================
 
-def forward_model(theta, structure_grid, return_heating=False):
-    """Compute k2 and per-phase heating for given rheology + Tb parameters.
-
-    Args:
-        theta: [alpha, log10_zeta, log10_eta_Ih, log10_eta_III,
-                log10_eta_V, log10_eta_VI, log10_eta_sil, Tb_K]
-        structure_grid: dict from build_or_load_structure_grid().
-                        Single-Tb dicts (legacy, no 'Tb_K_grid' key) still accepted
-                        — treated as frozen structure with Tb = data['Tb_K'].
-    Returns:
-        (Re_k2, Im_k2, perPhase_W)
-    """
-    alpha, log10_zeta, log10_eta_Ih, log10_eta_III, log10_eta_V, \
-        log10_eta_VI, log10_eta_sil, Tb_sampled = theta
-    eta_Ih = 10 ** log10_eta_Ih
-    eta_III = 10 ** log10_eta_III
-    eta_V = 10 ** log10_eta_V
-    eta_VI = 10 ** log10_eta_VI
-    eta_sil = 10 ** log10_eta_sil
-
-    # Interpolate structure at sampled Tb (Option-2 grid interp)
-    if isinstance(structure_grid, dict) and 'Tb_K_grid' in structure_grid:
-        data = _interp_structure(Tb_sampled, structure_grid)
-    else:
-        # Legacy single-structure input — no Tb variation captured
-        data = structure_grid
-
-    # --- No-ocean safeguard ---
-    # Reject sample if any Ih cell's T would exceed the Ih-L melting curve.
-    # Linearized Tm_Ih(P) = 273.16 - 0.068*P_MPa (accurate to <1 K over 0-210 MPa).
-    # 0.1 K safety margin under the melt line keeps us in the solid-Ih stability
-    # field at every grid cell, respecting the no-ocean model assumption.
-    phases = data['phases']
-    P_MPa_prof = data.get('P_MPa')
-    T_K_prof = data.get('T_K')
-    if P_MPa_prof is not None and T_K_prof is not None:
-        P_arr = np.asarray(P_MPa_prof)
-        T_arr = np.asarray(T_K_prof)
-        if P_arr.shape == T_arr.shape == phases.shape:
-            Ih_mask = (phases == 1)
-            if np.any(Ih_mask) and np.all(np.isfinite(P_arr[Ih_mask])):
-                Tm_Ih_lin = 273.16 - 0.068 * P_arr[Ih_mask]
-                if np.any(T_arr[Ih_mask] >= Tm_Ih_lin - 0.1):
-                    # Ocean would form — reject
-                    return np.nan, np.nan, {}
-
-    # Apply per-phase viscosity overrides
-    eta_mod = data['eta_Pa_base'].copy()
-    ci = data['changeIndices']
-    n_layers = data['n_layers']
-
-    for i in range(n_layers):
-        s, e = ci[i], ci[i + 1]
-        ph = int(phases[s])
-        if ph == 1:
-            eta_mod[s:e] = eta_Ih
-        elif ph == 3:
-            eta_mod[s:e] = eta_III
-        elif ph == 5:
-            eta_mod[s:e] = eta_V
-        elif ph == 6:
-            eta_mod[s:e] = eta_VI
-        elif 50 <= ph < 100:
-            eta_mod[s:e] = eta_sil
-
-    # Apply Arrhenius T-dependence to Ice Ih. Sampled eta_Ih is the BASAL
-    # viscosity at T=Tb; cold stagnant lid is much stiffer under Yao scaling.
-    # η(T) = η_Ih * exp(E/R * (1/T - 1/Tb))  with E = 60 kJ/mol (Yao Table 5).
-    # Uses SAMPLED Tb (not cached) so the Arrhenius reference moves consistently
-    # with the interpolated T(r) profile.
-    Tb_K_val = float(Tb_sampled)
-    T_K_prof = data.get('T_K')
-    EACT_IH_JMOL = 60e3
-    R_GAS = 8.314462
-    if T_K_prof is not None:
-        T_K_arr = np.asarray(T_K_prof)
-        if T_K_arr.shape == eta_mod.shape:
-            for i in range(n_layers):
-                s, e = ci[i], ci[i + 1]
-                if int(phases[min(s, len(phases) - 1)]) == 1:
-                    T_layer = T_K_arr[s:e]
-                    if np.all(np.isfinite(T_layer)) and np.all(T_layer > 0):
-                        exponent = (EACT_IH_JMOL / R_GAS) * (1.0 / T_layer - 1.0 / Tb_K_val)
-                        eta_mod[s:e] *= np.exp(exponent)
-
-    # Build Andrade rheology
-    zeta_pa = 10 ** log10_zeta
-    zeta_tp = zeta_pa ** (1.0 / alpha)
-    shear = []
-    for rp in data['region_phases']:
-        base = rp.replace('_conv', '')
-        shear.append(Elastic() if base in ('0', 'Clath') else Andrade(args=(alpha, zeta_tp)))
-    bulk = [Elastic() for _ in shear]
-
-    try:
-        bd = build_rs_input_from_data(
-            data['omega'],
-            data['r_m'],
-            data['rho'],
-            data['K_Pa'],
-            data['mu_Pa'],
-            data['bulk_visc'],
-            np.ascontiguousarray(eta_mod),
-            data['layer_upper_radii'],
-            data['layer_types'],
-            tuple([False] * n_layers),
-            tuple([False] * n_layers),
-            tuple(shear),
-            tuple(bulk),
-            perform_checks=False,
-            warnings=False,
-        )
-        result = radial_solver(
-            bd.radius_array, bd.density_array,
-            bd.complex_bulk_modulus_array, bd.complex_shear_modulus_array,
-            bd.frequency, bd.planet_bulk_density,
-            bd.layer_types, bd.is_static_bylayer, bd.is_incompressible_bylayer,
-            bd.upper_radius_bylayer_array,
-            degree_l=2, solve_for=('tidal',), verbose=False, raise_on_fail=False,
-        )
-        if not result.success:
-            return np.nan, np.nan, {}
-
-        k2 = complex(result.k)
-        Re_k2 = k2.real
-        Im_k2 = k2.imag
-
-        perPhase_W = {}
-        if return_heating and data['eccentricity'] > 0:
-            hp = calc_radial_volumetric_tidal_heating_from_rs_solution(
-                data['eccentricity'], data['omega'], data['a_m'],
-                data['host_mass'], result, perform_checks=False
-            )
-            rr = np.asarray(result.radius_array)
-            r_m_local = data['r_m']
-            for i_layer in range(n_layers):
-                s_idx, e_idx = ci[i_layer], ci[i_layer + 1]
-                ph = int(phases[s_idx])
-                phase_str = {0: '0', 1: 'Ih', 3: 'III', 5: 'V', 6: 'VI'}.get(
-                    ph, PhaseConv(ph, liq='0'))
-                r_lo, r_hi = r_m_local[s_idx], r_m_local[e_idx - 1]
-                mask = (rr >= r_lo - 1.0) & (rr <= r_hi + 1.0)
-                if np.any(mask):
-                    lr, lh = rr[mask], hp[mask]
-                    if len(lr) > 1:
-                        power = np.trapz(lh * 4.0 * np.pi * lr**2, lr)
-                    else:
-                        power = lh[0] * (4.0/3.0) * np.pi * (r_hi**3 - r_lo**3)
-                    perPhase_W[phase_str] = perPhase_W.get(phase_str, 0) + power
-
-        return Re_k2, Im_k2, perPhase_W
-
-    except Exception as exc:
-        log.debug(f'TidalPy failed: {exc}')
-        return np.nan, np.nan, {}
-
-
-# ============================================================
-# Step 3: Log-likelihood
-# ============================================================
-
-def log_likelihood(theta, structure):
-    """Gaussian log-likelihood on k2 (CMR2 is fixed at ~0.343, matching obs)."""
-    Re_k2, Im_k2, _ = forward_model(theta, structure)
-    if np.isnan(Re_k2):
-        return -1e30
-    chi2 = (
-        ((Re_k2 - OBS['Re_k2']) / OBS['Re_k2_err']) ** 2 +
-        ((abs(Im_k2) - OBS['Im_k2']) / OBS['Im_k2_err']) ** 2
-    )
-    return -0.5 * chi2
-
-
-# ============================================================
-# Step 4: MCMC
-# ============================================================
-
-def run_mcmc(structure):
-    import pocomc as pc
-    from scipy.stats import uniform
-
-    log.info(f'Starting pocoMC MCMC ({N_DIM}D, n_eff={N_EFF})')
-
-    prior = pc.Prior([
-        uniform(loc=0.15,  scale=0.30),                   # alpha: [0.15, 0.45]
-        uniform(loc=-3.0,  scale=5.0),                    # log10_zeta: [-3, 2]
-        uniform(loc=10.0,  scale=6.0),                    # log10_eta_Ih:  [10, 16]  (Petricca low-η admissible)
-        uniform(loc=10.0,  scale=6.0),                    # log10_eta_III: [10, 16]
-        uniform(loc=10.0,  scale=6.0),                    # log10_eta_V:   [10, 16]
-        uniform(loc=10.0,  scale=6.0),                    # log10_eta_VI:  [10, 16]
-        uniform(loc=18.0,  scale=4.0),                    # log10_eta_sil: [18, 22]
-        uniform(loc=float(STRUCTURE_TB_GRID[0]),
-                scale=float(STRUCTURE_TB_GRID[-1] - STRUCTURE_TB_GRID[0])),
-                                                          # Tb_K: [249, 250.965]  (triple-pt depression band)
-    ])
-
-    def _log_like(theta):
-        return log_likelihood(theta, structure)
-
-    t0 = time.time()
-    sampler = pc.Sampler(
-        prior=prior,
-        likelihood=_log_like,
-        n_effective=N_EFF,
-        random_state=RANDOM_STATE,
-    )
-    sampler.run()
-    elapsed = time.time() - t0
-    log.info(f'MCMC completed in {elapsed/60:.1f} min')
-
-    raw_x = sampler.results['x']
-    raw_logl = sampler.results['logl']
-    # pocoMC returns (n_iters, n_walkers, n_dim); flatten to 2D
-    if raw_x.ndim == 3:
-        samples = raw_x.reshape(-1, raw_x.shape[-1])
-        log_prob = raw_logl.reshape(-1)
-    else:
-        samples = raw_x
-        log_prob = raw_logl
-    return samples, log_prob
-
-
-# ============================================================
-# Step 5: Plotting
-# ============================================================
-
-def make_plots(samples, log_prob, structure_grid):
-    """Generate diagnostic plots via the shared mcmc_plots toolkit.
-
-    Data preparation (posterior subsample selection, per-sample forward-model
-    re-evaluation, heating arrays) stays here because it depends on Test50's
-    body-specific structure dict schema.  Body-agnostic plotting is delegated
-    to PlanetProfile.Inference.mcmc_plots.
-
-    N_DIM=8 note: plot_heating_vs_parameters builds its 2x5 scatter grid from
-    eval_samples cols 0..4 (5 panels), extra_xvals (0 panels — we pass []),
-    then cols 6+ of eval_samples (2 panels: col 6 = log10_eta_sil, col 7 = Tb_K).
-    That gives 7 active panels out of 10 slots; the remaining 3 are set invisible
-    by the function.  No padding is needed.
-    """
+def make_plots(result, structure_grid, output_tag='allice_yao2014_andrade'):
+    """Generate diagnostic plots from an InferenceResult."""
     import matplotlib
     matplotlib.use('Agg')
     from PlanetProfile.Inference import mcmc_plots as mp
 
-    # --- Re-evaluate subset for heating and k2 ---
-    n_eval = min(N_REEVAL, len(samples))
-    rng = np.random.default_rng(RANDOM_STATE)
-    eval_idx = rng.choice(len(samples), size=n_eval, replace=False)
-    eval_idx.sort()
-
-    heating_results = []
-    k2_results_list = []
-    for i in eval_idx:
-        Re_k2_i, Im_k2_i, heat_i = forward_model(
-            samples[i], structure_grid, return_heating=True)
-        heating_results.append(heat_i)
-        k2_results_list.append((Re_k2_i, abs(Im_k2_i)))
-
-    k2_results = np.array(k2_results_list)  # shape (n_eval, 2)
-
-    totals = np.array([sum(h.values()) if h else 1e-30 for h in heating_results])
-    safe_tot = np.where(totals > 1e-30, totals, 1e-30)
-    f_sil = np.array([h.get('Sil', 0.0) for h in heating_results]) / safe_tot
-
-    eval_samples = samples[eval_idx]
+    samples = result.samples
+    param_labels = result.param_labels
 
     # Representative mid-grid structure for headline diagnostic numbers
     if isinstance(structure_grid, dict) and 'structures' in structure_grid:
@@ -785,74 +411,76 @@ def make_plots(samples, log_prob, structure_grid):
     else:
         rep = structure_grid
 
-    out = lambda name: os.path.join(OUTPUT_DIR, f'allice_yao2014_andrade_{name}.png')
+    out = lambda name: os.path.join(OUTPUT_DIR, f'{output_tag}_{name}.png')
     title_prefix = (f'All-Ice Titan: D_hsphere={rep["D_hsphere_km"]:.0f} km, '
                     f'CMR2={rep["CMR2"]:.4f}')
 
-    # --- 1. Corner plot ---
+    # k2 results and heating from the InferenceResult
+    k2_arr = result.k2_results  # (n_samples, 2)
+    heating_list = result.heating_results or []
+
+    n_eval = len(heating_list)
+    heating_idx = result.metadata.get('heating_indices', np.arange(n_eval))
+    eval_samples = samples[heating_idx] if n_eval > 0 else samples[:0]
+
+    totals = np.array([sum(h.values()) if h else 1e-30 for h in heating_list])
+    safe_tot = np.where(totals > 1e-30, totals, 1e-30)
+    f_sil = np.array([h.get('Sil', 0.0) for h in heating_list]) / safe_tot
+
+    # k2 evaluated for heating subset
+    k2_eval = k2_arr[heating_idx] if n_eval > 0 and k2_arr is not None else k2_arr
+
+    # Corner plot
     mp.plot_corner(
-        samples, PARAM_LABELS,
+        samples, param_labels,
         title=title_prefix + ' — Posterior',
         output_path=out('corner'),
     )
 
-    # --- 2. k2 scatter coloured by silicate heating fraction ---
-    mp.plot_k2_scatter_by(
-        k2_results, color_values=f_sil,
-        colorbar_label='Silicate heating fraction',
-        obs_re=OBS['Re_k2'], obs_im=OBS['Im_k2'],
-        obs_re_err=OBS['Re_k2_err'], obs_im_err=OBS['Im_k2_err'],
-        title=title_prefix + r' — $k_2$ Posterior',
-        output_path=out('k2_scatter'),
-        cmap='RdYlBu_r', vmin=0, vmax=1,
-    )
+    # k2 scatter
+    if k2_eval is not None and len(k2_eval):
+        k2_plot = np.column_stack([k2_eval[:, 0], np.abs(k2_eval[:, 1])])
+        mp.plot_k2_scatter_by(
+            k2_plot, color_values=f_sil,
+            colorbar_label='Silicate heating fraction',
+            obs_re=OBS['Re_k2'], obs_im=OBS['Im_k2'],
+            obs_re_err=OBS['Re_k2_err'], obs_im_err=OBS['Im_k2_err'],
+            title=title_prefix + r' — $k_2$ Posterior',
+            output_path=out('k2_scatter'),
+            cmap='RdYlBu_r', vmin=0, vmax=1,
+        )
 
-    # --- 3. Heating vs parameters + cumulative bar ---
-    # extra_xvals=[] because Test50 has no D_ocean or D_iceIh derived from a
-    # grid lookup — the structure is fixed.  plot_heating_vs_parameters will
-    # use cols 0..4 and col 6 of eval_samples (6 of 10 scatter slots), hiding
-    # the remaining 4 slots.  eval_d_ocean is all-zeros (no ocean layer) which
-    # makes the secondary sort in the cumulative bar trivial; f_sil is the
-    # primary sort key.
-    mp.plot_heating_vs_parameters(
-        eval_samples, heating_results, PARAM_LABELS,
-        extra_xvals=[], extra_xlabels=[],
-        output_path=out('heating'),
-        cumulative_bar=True,
-        eval_d_ocean=np.zeros(n_eval),
-        title=(title_prefix + ' — Tidal Heating vs Parameters (top) '
-               'and Per-Model Fractions (bottom)'),
-    )
+    # Heating vs parameters
+    if n_eval > 0:
+        mp.plot_heating_vs_parameters(
+            eval_samples, heating_list, param_labels,
+            extra_xvals=[], extra_xlabels=[],
+            output_path=out('heating'),
+            cumulative_bar=True,
+            eval_d_ocean=np.zeros(n_eval),
+            title=(title_prefix + ' — Tidal Heating vs Parameters (top) '
+                   'and Per-Model Fractions (bottom)'),
+        )
 
-    # --- Summary statistics ---
-    log.info('=== Posterior Summary (All-Ice, 8D Rheology+Tb) ===')
-    log.info(f'  Representative mid-grid structure (Tb={rep["Tb_K"]:.3f} K): '
+    # Summary statistics
+    log.info(f'=== Posterior Summary ({output_tag}) ===')
+    log.info(f'  Representative structure (Tb={rep["Tb_K"]:.3f} K): '
              f'D_hsphere={rep["D_hsphere_km"]:.1f} km, '
              f'CMR2={rep["CMR2"]:.4f}, rho_sil={rep["rhoSil_kgm3"]:.0f} kg/m3')
-    log.info(f'  Layers: Ih={rep["D_iceIh_km"]:.1f}, '
-             f'III={rep["D_iceIII_km"]:.1f}, '
-             f'V={rep["D_iceV_km"]:.1f}, '
-             f'VI={rep["D_iceVI_km"]:.1f} km')
-    for i, name in enumerate(PARAM_NAMES):
-        med = np.median(samples[:, i])
-        lo, hi = np.percentile(samples[:, i], [16, 84])
-        log.info(f'  {name}: {med:.3f} [{lo:.3f}, {hi:.3f}]')
-    re_arr = k2_results[:, 0]
-    im_arr = k2_results[:, 1]
-    valid = np.isfinite(re_arr)
-    re_valid = re_arr[valid]
-    im_valid = im_arr[valid]
-    log.info(f'  Re(k2): {np.median(re_valid):.4f} '
-             f'[{np.percentile(re_valid, 16):.4f}, {np.percentile(re_valid, 84):.4f}]')
-    log.info(f'  |Im(k2)|: {np.median(im_valid):.4f} '
-             f'[{np.percentile(im_valid, 16):.4f}, {np.percentile(im_valid, 84):.4f}]')
+    stats = result.get_summary_stats()
+    for i, name in enumerate(result.param_names):
+        log.info(f'  {name}: {stats["median"][i]:.3f} '
+                 f'[{stats["q16"][i]:.3f}, {stats["q84"][i]:.3f}]')
 
 
 # ============================================================
 # Main
 # ============================================================
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='PPTest46 Andrade all-ice MCMC')
+    parser = argparse.ArgumentParser(
+        description='PPTest50 Andrade all-ice Titan MCMC (Yao 2014 convection)')
+    parser.add_argument('--config', type=str, default=DEFAULT_CONFIG_JSON,
+                        help='Path to InferenceConfig JSON (default: 8D config)')
     parser.add_argument('--rebuild-structure', action='store_true',
                         help='Force rebuild of structural cache')
     parser.add_argument('--build-structure', action='store_true',
@@ -860,42 +488,41 @@ if __name__ == '__main__':
     parser.add_argument('--no-plots', action='store_true',
                         help='Skip plot generation')
     parser.add_argument('--replot', action='store_true',
-                        help='Load existing pkl and regenerate plots')
+                        help='Load existing InferenceResult pkl and regenerate plots')
     args = parser.parse_args()
 
     # Build / load Tb grid of all-ice structures
-    structure_grid = build_or_load_structure_grid(
-        force_rebuild=args.rebuild_structure)
+    structure_grid = build_or_load_structure_grid(force_rebuild=args.rebuild_structure)
 
     if args.build_structure:
         log.info('--build-structure: exiting after structure build.')
         sys.exit(0)
 
-    pkl_path = os.path.join(OUTPUT_DIR, 'allice_yao2014_andrade_mcmc_results.pkl')
+    # Derive output pkl path from config filename
+    config_stem = os.path.splitext(os.path.basename(args.config))[0]
+    pkl_path = os.path.join(OUTPUT_DIR, f'{config_stem}_result.pkl')
+    output_tag = config_stem  # used for plot filenames
 
-    # Representative structure for diagnostic headline numbers (mid-grid Tb)
-    rep_structure = structure_grid['structures'][len(structure_grid['structures']) // 2]
+    # Load InferenceConfig from JSON
+    from PlanetProfile.Inference.inference_core import InferenceConfig
+    from PlanetProfile.Inference.mcmc_runner import MCMCRunner
+
+    config = InferenceConfig.from_json(args.config)
+    # Resolve structure_cache_path relative to repo root if not absolute
+    if not os.path.isabs(config.structure_cache_path):
+        config.structure_cache_path = os.path.join(_pp_root, config.structure_cache_path)
 
     if args.replot:
         log.info(f'Loading results from {pkl_path}')
-        with open(pkl_path, 'rb') as f:
-            results = pickle.load(f)
-        samples, log_prob = results['samples'], results['log_prob']
+        from PlanetProfile.Inference.inference_core import InferenceResult
+        result = InferenceResult.load(pkl_path)
     else:
-        samples, log_prob = run_mcmc(structure_grid)
-        results = {'samples': samples, 'log_prob': log_prob,
-                   'param_names': PARAM_NAMES, 'obs': OBS,
-                   'structure_info': {
-                       'Tb_K_grid': structure_grid['Tb_K_grid'],
-                       'Tb_K_mid': float(rep_structure['Tb_K']),
-                       'D_hsphere_km': rep_structure['D_hsphere_km'],
-                       'CMR2': rep_structure['CMR2'],
-                       'rhoSil_kgm3': rep_structure['rhoSil_kgm3'],
-                   }}
-        _save_cache(results, pkl_path)
+        runner = MCMCRunner(config)
+        result = runner.run()
+        result.save(pkl_path)
         log.info(f'MCMC results saved to {pkl_path}')
 
     if not args.no_plots:
-        make_plots(samples, log_prob, structure_grid)
+        make_plots(result, structure_grid, output_tag=output_tag)
 
     log.info('Done.')
