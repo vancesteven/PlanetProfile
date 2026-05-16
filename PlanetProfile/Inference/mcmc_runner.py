@@ -44,8 +44,13 @@ class MCMCRunner:
         self.param_names = list(config.param_space.keys())
         self.param_labels = [self._make_label(name) for name in self.param_names]
 
-        # Route to grid cache when Tb_K is a free parameter
-        self._use_flexible = 'Tb_K' in self.param_names
+        # param_groups: maps group key -> list of member names
+        self.param_groups = getattr(config, 'param_groups', {}) or {}
+        # fixed_params: constants injected into every forward call
+        self.fixed_params = getattr(config, 'fixed_params', {}) or {}
+
+        # Route to grid cache when Tb_K is a free parameter OR fixed via fixed_params
+        self._use_flexible = 'Tb_K' in self.param_names or 'Tb_K' in self.fixed_params
 
         # Load cached structure (skip bodyname validation for Test* files)
         log.info(f"Loading structure cache: {config.structure_cache_path}")
@@ -76,18 +81,25 @@ class MCMCRunner:
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     def _infer_rheology(self) -> str:
-        """Infer rheology type from parameter space."""
+        """Infer rheology type from parameter space or sampler_settings."""
+        # Explicit override in sampler_settings takes highest priority
+        explicit = self.config.sampler_settings.get('rheology')
+        if explicit in ('andrade', 'maxwell'):
+            return explicit
+
         params = self.config.param_space
         has_alpha = 'alpha' in params
-        has_zeta = any(k.startswith('log10_zeta_') for k in params)
+        # Accept both 'log10_zeta' (single) and 'log10_zeta_*' (per-phase)
+        has_zeta = ('log10_zeta' in params or
+                    any(k.startswith('log10_zeta_') for k in params))
         if has_alpha and has_zeta:
             return 'andrade'
         elif not has_alpha and not has_zeta:
             return 'maxwell'
         else:
             raise ValueError("Cannot infer rheology from parameter space. "
-                           "Andrade requires 'alpha' and log10_zeta_* parameters. "
-                           "Maxwell requires neither.")
+                           "Andrade requires 'alpha' and log10_zeta or log10_zeta_* parameters. "
+                           "Maxwell requires neither. Or set sampler_settings.rheology explicitly.")
 
     def _build_prior(self):
         """Build pocoMC Prior object from parameter space configuration."""
@@ -121,29 +133,52 @@ class MCMCRunner:
         """Convert parameter name to LaTeX label for plotting."""
         label_map = {
             'alpha': r'$\alpha$',
+            'log10_zeta': r'$\log_{10}\zeta$',
             'log10_zeta_Ih': r'$\log_{10}(\zeta_{\rm Ih})$',
             'log10_zeta_HP': r'$\log_{10}(\zeta_{\rm HP})$',
             'log10_zeta_sil': r'$\log_{10}(\zeta_{\rm sil})$',
-            'log10_eta_Ih': r'$\log_{10}(\eta_{\rm Ih})$',
+            'log10_eta_Ih': r'$\log_{10}\eta_\mathrm{Ih}$',
+            'log10_eta_III': r'$\log_{10}\eta_\mathrm{III}$',
+            'log10_eta_V': r'$\log_{10}\eta_\mathrm{V}$',
+            'log10_eta_VI': r'$\log_{10}\eta_\mathrm{VI}$',
             'log10_eta_HP': r'$\log_{10}(\eta_{\rm HP})$',
-            'log10_eta_sil': r'$\log_{10}(\eta_{\rm sil})$',
+            'log10_eta_sil': r'$\log_{10}\eta_\mathrm{sil}$',
             'log10_mu_Ih': r'$\log_{10}(\mu_{\rm Ih})$',
             'Tb_K': r'$T_b$ (K)',
         }
         return label_map.get(param_name, param_name)
 
     def _load_grid_cache(self, cache_path: str) -> Dict[str, Any]:
-        """Load grid cache dict and attach Tb lookup array for nearest-neighbor search."""
+        """Load grid cache; accepts two formats.
+
+        **Format A** (MCMCRunner native): ``dict[float -> structure_dict]``
+        keyed by Tb_K values.
+
+        **Format B** (Test50 list): ``{'Tb_K_grid': ndarray, 'structures': list}``
+        as produced by Test50's ``build_or_load_structure_grid()``.
+
+        Both formats are passed through transparently; ``apply_bottom_temperature``
+        in forward_models.py handles interpolation for both.
+        """
         with open(cache_path, 'rb') as f:
             grid_cache = pickle.load(f)
         if not isinstance(grid_cache, dict):
-            raise ValueError(f"Expected dict[float -> structure] at {cache_path}, got {type(grid_cache)}")
+            raise ValueError(f"Expected dict at {cache_path}, got {type(grid_cache)}")
         if not grid_cache:
             raise ValueError(
                 f"Grid cache at {cache_path} is empty. "
                 f"Regenerate with: python -m PlanetProfile.Inference.prepare_structure_variants "
                 f"--test-module PlanetProfile.Test.PPTest42 --output-dir titan_cache/ --maxwell --force"
             )
+
+        # Format B: Test50 list format
+        if 'Tb_K_grid' in grid_cache and 'structures' in grid_cache:
+            Tb_grid = np.asarray(grid_cache['Tb_K_grid'])
+            log.info(f"Grid cache loaded (list format): {len(grid_cache['structures'])} structures "
+                     f"[{Tb_grid[0]:.3f} – {Tb_grid[-1]:.3f} K]")
+            return grid_cache  # pass through; apply_bottom_temperature handles it
+
+        # Format A: float-keyed dict
         first_key = next(iter(grid_cache))
         if not isinstance(first_key, (int, float)):
             raise ValueError(
@@ -151,7 +186,7 @@ class MCMCRunner:
                 f"got key type {type(first_key).__name__}"
             )
         grid_Tb_values = np.array(sorted(grid_cache.keys()))
-        log.info(f"Grid cache loaded: {len(grid_Tb_values)} Tb_K values "
+        log.info(f"Grid cache loaded (dict format): {len(grid_Tb_values)} Tb_K values "
                  f"[{grid_Tb_values[0]:.1f} – {grid_Tb_values[-1]:.1f} K]")
         return {'grid_cache': grid_cache, 'grid_Tb_values': grid_Tb_values}
 
@@ -164,9 +199,61 @@ class MCMCRunner:
         """Build Gaussian log-likelihood using the dict-based flexible forward model."""
         from .forward_models import forward_model_k2_flexible
         param_names = self.param_names
+        param_groups = self.param_groups   # {group_key: [member_names]}
+        fixed_params = self.fixed_params   # {param_name: value}
+
+        # Build no-ocean guard from sampler_settings
+        phase_stability_cfg = self.config.sampler_settings.get('phase_stability', {})
+        no_ocean_guard = phase_stability_cfg.get('enforce') == 'no_ocean_Ih'
+        no_ocean_margin_K = float(phase_stability_cfg.get('margin_K', 0.1))
+
+        def _expand_theta(theta):
+            """Convert sampled array → full parameter dict with groups and fixed params."""
+            theta_dict = dict(zip(param_names, theta))
+            # Expand param_groups: each group key's value is broadcast to all members
+            for group_key, members in param_groups.items():
+                if group_key in theta_dict:
+                    for m in members:
+                        theta_dict[m] = theta_dict[group_key]
+            # Inject fixed params (constants not in the prior)
+            theta_dict.update(fixed_params)
+            return theta_dict
+
+        def _check_no_ocean(modified_structure) -> bool:
+            """Return True if sample should be rejected (ocean would form)."""
+            if not no_ocean_guard:
+                return False
+            phases = modified_structure.get('phases')
+            P_arr = modified_structure.get('P_MPa')
+            T_arr = modified_structure.get('T_K')
+            if phases is None or P_arr is None or T_arr is None:
+                return False
+            P_arr = np.asarray(P_arr)
+            T_arr = np.asarray(T_arr)
+            if P_arr.shape != T_arr.shape or P_arr.shape != np.asarray(phases).shape:
+                return False
+            Ih_mask = (np.asarray(phases) == 1)
+            if not np.any(Ih_mask):
+                return False
+            P_Ih = P_arr[Ih_mask]
+            T_Ih = T_arr[Ih_mask]
+            if not np.all(np.isfinite(P_Ih)):
+                return False
+            Tm_Ih_lin = 273.16 - 0.068 * P_Ih
+            return bool(np.any(T_Ih >= Tm_Ih_lin - no_ocean_margin_K))
 
         def log_likelihood(theta):
-            theta_dict = dict(zip(param_names, theta))
+            theta_dict = _expand_theta(theta)
+
+            # Run forward model — parameter hooks do the Tb interpolation so that
+            # _check_no_ocean sees the fully-interpolated T(r) and P(r) profiles.
+            from .forward_models import apply_parameters
+            modified = apply_parameters(theta_dict, structure_data)
+
+            # No-ocean safeguard (body-agnostic: assert solid-Ih stability everywhere)
+            if _check_no_ocean(modified):
+                return -1e30
+
             Re_k2, Im_k2, _ = forward_model_k2_flexible(
                 theta_dict, structure_data,
                 return_heating=False, arrhenius_params=arrhenius_params
@@ -273,22 +360,32 @@ class MCMCRunner:
         arrhenius_params = self.config.sampler_settings.get('arrhenius_params')
         rheology = self._infer_rheology() if not self._use_flexible else None
 
-        from .forward_models import forward_model_k2_flexible
+        from .forward_models import forward_model_k2_flexible, apply_parameters
+
+        def _expand_theta_run(theta):
+            """Expand sampled array with groups and fixed params."""
+            theta_dict = dict(zip(self.param_names, theta))
+            for group_key, members in self.param_groups.items():
+                if group_key in theta_dict:
+                    for m in members:
+                        theta_dict[m] = theta_dict[group_key]
+            theta_dict.update(self.fixed_params)
+            return theta_dict
 
         # Helpers: extract scalar quantities per sample from the (possibly grid) cache.
         def _get_cache_scalar(theta_dict, key):
-            if 'grid_cache' in self.structure_data and 'Tb_K' in theta_dict:
-                grid_Tb = self.structure_data['grid_Tb_values']
-                idx = np.argmin(np.abs(grid_Tb - theta_dict['Tb_K']))
-                return self.structure_data['grid_cache'][grid_Tb[idx]].get(key, np.nan)
-            return self.structure_data.get(key, np.nan)
+            """Extract scalar from interpolated structure for grid caches."""
+            from .forward_models import apply_parameters
+            modified = apply_parameters(theta_dict, self.structure_data)
+            val = modified.get(key, np.nan)
+            return float(val) if np.isfinite(float(val)) else np.nan
 
         k2_results = []
         cmr2_results = []
         D_ocean_results = []
         D_iceIh_results = []
         for i, theta in enumerate(samples):
-            theta_dict = dict(zip(self.param_names, theta))
+            theta_dict = _expand_theta_run(theta)
             Re_k2, Im_k2, _ = forward_model_k2_flexible(
                 theta_dict, self.structure_data,
                 return_heating=False, arrhenius_params=arrhenius_params
@@ -314,7 +411,7 @@ class MCMCRunner:
         idx_heat.sort()
         heating_results = []
         for si in idx_heat:
-            theta_dict = dict(zip(self.param_names, samples[si]))
+            theta_dict = _expand_theta_run(samples[si])
             _, _, perPhase_W = forward_model_k2_flexible(
                 theta_dict, self.structure_data,
                 return_heating=True, arrhenius_params=arrhenius_params

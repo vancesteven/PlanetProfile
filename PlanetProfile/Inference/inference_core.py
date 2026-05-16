@@ -39,6 +39,29 @@ class InferenceConfig:
     structure_cache_path: Optional[str] = None
     random_state: int = 42
     metadata: Dict[str, Any] = field(default_factory=dict)
+    param_groups: Dict[str, List[str]] = field(default_factory=dict)
+    """
+    param_groups: Maps a *group key* (sampled scalar) to a list of *member*
+    parameter names that all receive the same sampled value.
+
+    Example::
+
+        param_groups = {'log10_eta_HP': ['log10_eta_III', 'log10_eta_V', 'log10_eta_VI']}
+
+    The group key must appear in ``param_space`` and must NOT appear in
+    ``param_space`` for any of its members.  The forward model receives the
+    expanded dict (group key → sampled value AND each member → same value).
+    """
+    fixed_params: Dict[str, float] = field(default_factory=dict)
+    """
+    fixed_params: Parameters passed to the forward model as constants (not
+    sampled).  Must NOT appear in ``param_space`` or as group keys in
+    ``param_groups``.
+
+    Example::
+
+        fixed_params = {'Tb_K': 250.965}
+    """
 
     def __post_init__(self):
         """Validate configuration after initialization."""
@@ -50,11 +73,38 @@ class InferenceConfig:
         if not self.param_space:
             raise ValueError("param_space cannot be empty")
 
+        # param_groups validation: members must not also appear in param_space
+        all_members = []
+        for group_key, members in self.param_groups.items():
+            if group_key not in self.param_space:
+                raise ValueError(
+                    f"param_groups key '{group_key}' must appear in param_space"
+                )
+            for m in members:
+                if m in self.param_space:
+                    raise ValueError(
+                        f"param_groups member '{m}' (group '{group_key}') must NOT "
+                        f"also appear in param_space — it is expanded at runtime"
+                    )
+                all_members.append(m)
+
+        # fixed_params must not overlap with param_space or group keys
+        for fp_key in self.fixed_params:
+            if fp_key in self.param_space:
+                raise ValueError(
+                    f"fixed_params key '{fp_key}' must NOT appear in param_space"
+                )
+            if fp_key in self.param_groups:
+                raise ValueError(
+                    f"fixed_params key '{fp_key}' must NOT be a param_groups group key"
+                )
+
         # Observables validation
         if not self.observables:
             raise ValueError("observables cannot be empty")
 
-        for obs_name, (value, uncertainty) in self.observables.items():
+        for obs_name, obs_spec in self.observables.items():
+            value, uncertainty = obs_spec[0], obs_spec[1]
             if uncertainty <= 0:
                 raise ValueError(f"Observable '{obs_name}' uncertainty must be positive, got {uncertainty}")
 
@@ -316,7 +366,8 @@ def validate_config(config: InferenceConfig) -> Tuple[bool, List[str]]:
     if not config.observables:
         errors.append("Observables dictionary is empty.")
 
-    for obs, (value, uncertainty) in config.observables.items():
+    for obs, obs_spec in config.observables.items():
+        value, uncertainty = obs_spec[0], obs_spec[1]
         if uncertainty <= 0:
             errors.append(f"Observable '{obs}': uncertainty must be positive")
 

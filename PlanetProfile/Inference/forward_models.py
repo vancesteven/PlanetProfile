@@ -82,7 +82,7 @@ def apply_parameters(theta_dict: Dict[str, float], structure_data: Dict[str, Any
 # Parameter Hook Implementations
 # ============================================================================
 
-@parameter_hook('alpha', 'log10_zeta_Ih', 'log10_zeta_HP', 'log10_zeta_sil')
+@parameter_hook('alpha', 'log10_zeta', 'log10_zeta_Ih', 'log10_zeta_HP', 'log10_zeta_sil')
 def apply_andrade_params(theta_dict: Dict[str, float], structure_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Apply Andrade rheology parameters (alpha, per-phase zeta).
@@ -97,9 +97,10 @@ def apply_andrade_params(theta_dict: Dict[str, float], structure_data: Dict[str,
     if 'alpha' not in theta_dict:
         raise ValueError("Andrade rheology requires 'alpha' parameter")
 
-    zeta_keys = [k for k in theta_dict if k.startswith('log10_zeta_')]
-    if not zeta_keys:
-        raise ValueError("Andrade rheology requires at least one log10_zeta_* parameter")
+    has_single_zeta = 'log10_zeta' in theta_dict
+    has_phase_zeta = any(k.startswith('log10_zeta_') for k in theta_dict)
+    if not has_single_zeta and not has_phase_zeta:
+        raise ValueError("Andrade rheology requires 'log10_zeta' or at least one log10_zeta_* parameter")
 
     alpha = theta_dict['alpha']
 
@@ -112,6 +113,18 @@ def apply_andrade_params(theta_dict: Dict[str, float], structure_data: Dict[str,
 
     # Per-phase zeta_tp values
     zeta_tp = {}
+
+    # Single log10_zeta applies to all solid phases (backward-compatible with
+    # Test48/Test50 single-zeta parameterisation)
+    if has_single_zeta:
+        val = _zeta_to_tp(theta_dict['log10_zeta'], alpha)
+        zeta_tp['Ih'] = val
+        zeta_tp['III'] = val
+        zeta_tp['V'] = val
+        zeta_tp['VI'] = val
+        zeta_tp['Sil'] = val
+
+    # Per-phase overrides take precedence over single log10_zeta
     if 'log10_zeta_Ih' in theta_dict:
         zeta_tp['Ih'] = _zeta_to_tp(theta_dict['log10_zeta_Ih'], alpha)
     if 'log10_zeta_HP' in theta_dict:
@@ -130,12 +143,19 @@ def apply_andrade_params(theta_dict: Dict[str, float], structure_data: Dict[str,
     return structure_data
 
 
-@parameter_hook('log10_eta_Ih', 'log10_eta_HP', 'log10_eta_sil')
+@parameter_hook('log10_eta_Ih', 'log10_eta_III', 'log10_eta_V', 'log10_eta_VI',
+                'log10_eta_HP', 'log10_eta_sil')
 def apply_viscosity_params(theta_dict: Dict[str, float], structure_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Apply viscosity overrides for ice and silicate layers.
 
     Modifies eta_Pa_base array based on phase IDs.
+
+    Supports two modes:
+    - Lumped HP: ``log10_eta_HP`` applies to all HP ices (III, V, VI).
+    - Per-phase: ``log10_eta_III``, ``log10_eta_V``, ``log10_eta_VI`` applied
+      independently. Per-phase values override ``log10_eta_HP`` if both are
+      present for the same phase.
     """
     eta_mod = structure_data['eta_Pa_base'].copy()
     phases = structure_data['phases']
@@ -143,25 +163,24 @@ def apply_viscosity_params(theta_dict: Dict[str, float], structure_data: Dict[st
     n_layers = structure_data['n_layers']
 
     # Convert log viscosities
-    eta_values = {}
-    if 'log10_eta_Ih' in theta_dict:
-        eta_values['Ih'] = 10 ** theta_dict['log10_eta_Ih']
-    if 'log10_eta_HP' in theta_dict:
-        eta_values['HP'] = 10 ** theta_dict['log10_eta_HP']
-    if 'log10_eta_sil' in theta_dict:
-        eta_values['sil'] = 10 ** theta_dict['log10_eta_sil']
+    eta_Ih = 10 ** theta_dict['log10_eta_Ih'] if 'log10_eta_Ih' in theta_dict else None
+    eta_HP = 10 ** theta_dict['log10_eta_HP'] if 'log10_eta_HP' in theta_dict else None
+    eta_III = 10 ** theta_dict['log10_eta_III'] if 'log10_eta_III' in theta_dict else eta_HP
+    eta_V   = 10 ** theta_dict['log10_eta_V']   if 'log10_eta_V'   in theta_dict else eta_HP
+    eta_VI  = 10 ** theta_dict['log10_eta_VI']  if 'log10_eta_VI'  in theta_dict else eta_HP
+    eta_sil = 10 ** theta_dict['log10_eta_sil'] if 'log10_eta_sil' in theta_dict else None
+
+    _phase_eta = {1: eta_Ih, 3: eta_III, 5: eta_V, 6: eta_VI}
 
     # Apply per-phase
     for i_layer in range(n_layers):
         s, e = changeIndices[i_layer], changeIndices[i_layer + 1]
         ph = int(phases[s])
 
-        if ph == 1 and 'Ih' in eta_values:  # Ice Ih
-            eta_mod[s:e] = eta_values['Ih']
-        elif ph in (3, 5, 6) and 'HP' in eta_values:  # HP ices III, V, VI
-            eta_mod[s:e] = eta_values['HP']
-        elif ph >= 50 and ph < 100 and 'sil' in eta_values:  # Silicate
-            eta_mod[s:e] = eta_values['sil']
+        if ph in _phase_eta and _phase_eta[ph] is not None:
+            eta_mod[s:e] = _phase_eta[ph]
+        elif ph >= 50 and ph < 100 and eta_sil is not None:  # Silicate
+            eta_mod[s:e] = eta_sil
         # Fe core, clathrates, liquid: keep baseline
 
     structure_data['eta_Pa'] = eta_mod
@@ -202,17 +221,71 @@ def apply_shear_modulus(theta_dict: Dict[str, float], structure_data: Dict[str, 
 @parameter_hook('Tb_K')
 def apply_bottom_temperature(theta_dict: Dict[str, float], structure_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Apply bottom temperature by nearest-neighbor selection from grid cache.
+    Apply bottom temperature by selecting/interpolating from a grid cache.
 
-    Requires structure_data to contain 'grid_cache' and 'grid_Tb_values' keys,
-    which are populated by MCMCRunner when Tb_K is in the parameter set.
+    Supports two grid cache formats:
+
+    1. **Dict-keyed (MCMCRunner default)**: ``structure_data`` contains
+       ``'grid_cache'`` (dict[float -> structure_dict]) and
+       ``'grid_Tb_values'`` (sorted 1-D array). Nearest-neighbour selection.
+
+    2. **Test50 list format**: ``structure_data`` contains ``'Tb_K_grid'``
+       (1-D array) and ``'structures'`` (list of structure dicts). Linear
+       interpolation between bracketing grid points — identical to Test50's
+       ``_interp_structure`` logic.
     """
+    Tb_K = theta_dict['Tb_K']
+
+    # --- Format 2: Test50 list grid ---
+    if 'Tb_K_grid' in structure_data and 'structures' in structure_data:
+        Tb_grid = structure_data['Tb_K_grid']
+        structs = structure_data['structures']
+        Tb_clamped = float(np.clip(Tb_K, Tb_grid[0], Tb_grid[-1]))
+        j = int(np.searchsorted(Tb_grid, Tb_clamped))
+        if j <= 0:
+            out = {k: (v.copy() if isinstance(v, np.ndarray) else v)
+                   for k, v in structs[0].items()}
+        elif j >= len(Tb_grid):
+            out = {k: (v.copy() if isinstance(v, np.ndarray) else v)
+                   for k, v in structs[-1].items()}
+        else:
+            t0_v, t1_v = Tb_grid[j - 1], Tb_grid[j]
+            w = 0.0 if t1_v == t0_v else (Tb_clamped - t0_v) / (t1_v - t0_v)
+            s0, s1 = structs[j - 1], structs[j]
+            out = {}
+            _interp_array = ('r_m', 'rho', 'K_Pa', 'mu_Pa', 'eta_Pa_base',
+                              'T_K', 'P_MPa', 'bulk_visc')
+            _interp_scalar = ('Tb_K', 'CMR2', 'rhoSil_kgm3', 'D_hsphere_km',
+                              'D_iceIh_km', 'D_iceIII_km', 'D_iceV_km', 'D_iceVI_km')
+            for k in _interp_array:
+                if k in s0:
+                    out[k] = (1.0 - w) * s0[k] + w * s1[k]
+            for k in _interp_scalar:
+                if k in s0:
+                    out[k] = (1.0 - w) * float(s0[k]) + w * float(s1[k])
+            if 'layer_upper_radii' in s0:
+                out['layer_upper_radii'] = tuple(
+                    (1.0 - w) * float(a) + w * float(b)
+                    for a, b in zip(s0['layer_upper_radii'], s1['layer_upper_radii'])
+                )
+            for k in ('phases', 'changeIndices', 'n_layers', 'layer_types',
+                      'region_phases', 'omega', 'eccentricity', 'host_mass',
+                      'a_m', 'R_body_m', 'Mtot_kg'):
+                if k in s0:
+                    out[k] = s0[k]
+        # Carry grid reference so downstream hooks can still access it
+        out['Tb_K_grid'] = Tb_grid
+        out['structures'] = structs
+        # Store sampled Tb as reference for Arrhenius hook
+        out['Tb_K_sampled'] = Tb_K
+        return out
+
+    # --- Format 1: dict-keyed grid ---
     if 'grid_cache' not in structure_data:
         raise ValueError(
             "Parameter 'Tb_K' requires structure grid cache. "
-            "Generate with: python -m PlanetProfile.Inference.prepare_structure_variants --maxwell"
+            "Use MCMCRunner._load_grid_cache() or provide 'Tb_K_grid'+'structures' format."
         )
-    Tb_K = theta_dict['Tb_K']
     grid_cache = structure_data['grid_cache']
     grid_Tb_values = structure_data['grid_Tb_values']
     idx = np.argmin(np.abs(grid_Tb_values - Tb_K))
@@ -220,6 +293,7 @@ def apply_bottom_temperature(theta_dict: Dict[str, float], structure_data: Dict[
     selected = grid_cache[nearest_Tb].copy()
     selected['grid_cache'] = grid_cache
     selected['grid_Tb_values'] = grid_Tb_values
+    selected['Tb_K_sampled'] = Tb_K
     return selected
 
 
@@ -270,13 +344,21 @@ def forward_model_k2_flexible(
 
     # Apply Arrhenius temperature-dependence if requested
     if arrhenius_params is not None:
+        # When Tb_K is sampled, use it as the Arrhenius reference temperature so
+        # that the sampled eta_Ih is interpreted as the basal (bottom) viscosity —
+        # identical to Test50's inline Arrhenius logic.  The sampled Tb_K is
+        # stored in structure by the Tb_K parameter hook as 'Tb_K_sampled'.
+        arrhenius_params_effective = dict(arrhenius_params)
+        if 'Tb_K_sampled' in modified_structure and 'reference_temp_K' not in arrhenius_params:
+            arrhenius_params_effective['reference_temp_K'] = float(
+                modified_structure['Tb_K_sampled'])
         eta_mod = apply_arrhenius_viscosity(
             eta_mod,
             phases,
             changeIndices,
             n_layers,
             modified_structure.get('T_K'),
-            arrhenius_params
+            arrhenius_params_effective
         )
 
     # Build rheology models per layer based on applied parameters
