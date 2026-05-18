@@ -11,6 +11,7 @@ from PlanetProfile.Thermodynamics.LayerPropagators import (
     _ConvectionDeschampsSotinHPIceDiagnostic,
     _FixedPhaseEOS,
     _SetHPIceDiagnosticFields,
+    HPIceConvectionDiagnostics,
 )
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import (
     ConvectionKalousova2018,
@@ -60,8 +61,10 @@ def _reset_ice_eos_state(eta_ice=None, tvisc_ice=None):
 
 
 class _SimpleIceEOS:
-    phaseID = 5
     POROUS = False
+
+    def __init__(self, phaseID=5):
+        self.phaseID = phaseID
 
     def fn_rho_kgm3(self, P_MPa, T_K):
         return 1300.0
@@ -452,8 +455,7 @@ class Test05HPIceConvectionModelSelector(unittest.TestCase):
         do.HP_ICE_CONVECTION_MODEL = "Kalousova2018_production_experimental"
         do.ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION = True
 
-        with self.assertRaisesRegex(NotImplementedError, "reserved for future"):
-            ResolveHPIceConvectionModel(do)
+        self.assertEqual(ResolveHPIceConvectionModel(do), "Kalousova2018_production_experimental")
 
 
 class Test06HPIcePhaseState(unittest.TestCase):
@@ -730,6 +732,179 @@ class Test07HPIceHeatBookkeeping(unittest.TestCase):
         np.testing.assert_array_equal(planet.phase, before["phase"])
         np.testing.assert_array_equal(planet.rho_kgm3, before["rho_kgm3"])
         self.assertEqual(planet.HPIceDiagnostics["V"]["energyResidual_W"], 0.0)
+
+
+class Test08HPIceProductionDryRun(unittest.TestCase):
+
+    def _synthetic_hp_planet(self, qBot_Wm2=1.0e-3, vi_deltaT_K=20.0, vi_thickness_m=2.0e5):
+        planet = _Namespace()
+        planet.Do = DoSubstruct()
+        planet.Do.VALID = True
+        planet.Do.NO_H2O = False
+        planet.Do.NO_OCEAN = False
+        planet.Do.NO_OCEAN_EXCEPT_INNER_ICES = False
+        planet.Do.BOTTOM_ICEV = False
+        planet.Do.BOTTOM_ICEIII = False
+        planet.Do.NO_ICE_CONVECTION = False
+        planet.Do.EQUIL_Q = True
+        planet.Do.HP_ICE_CONVECTION_MODEL = "Kalousova2018_production_experimental"
+        planet.Do.ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION = True
+
+        planet.Steps = _Namespace()
+        planet.Steps.nSurfIce = 0
+        planet.Steps.nOceanMax = 6
+
+        z_m = np.array([0.0, 2.0e5, 2.5e5, 4.5e5, 5.0e5, 5.0e5 + vi_thickness_m])
+        r_m = 3.0e6 - z_m
+        vi_top_T_K = 280.0
+        planet.T_K = np.array([250.0, 270.0, 260.0, 280.0, vi_top_T_K, vi_top_T_K + vi_deltaT_K])
+        planet.P_MPa = np.array([100.0, 200.0, 300.0, 500.0, 800.0, 1100.0])
+        planet.phase = np.array([3, 3, 5, 5, 6, 6])
+        planet.r_m = r_m
+        planet.z_m = z_m
+        planet.kTherm_WmK = np.zeros(6) + 3.0
+        planet.g_ms2 = np.zeros(6) + 1.0
+        planet.rho_kgm3 = np.array([1200.0, 1210.0, 1220.0, 1230.0, 1300.0, 1310.0])
+        planet.qSurf_Wm2 = 0.02
+        planet.qCon_Wm2 = 0.02
+        planet.Mtot_kg = 1.0e23
+        planet.CMR2mean = 0.33
+        planet.eta_Pas = np.zeros(6) + 1.0e15
+
+        planet.Ocean = _Namespace()
+        planet.Ocean.QfromMantle_W = qBot_Wm2 * 4.0 * np.pi * r_m[-1]**2
+        planet.Ocean.iceEOS = {
+            "III": _SimpleIceEOS(3),
+            "V": _SimpleIceEOS(5),
+            "VI": _SimpleIceEOS(6),
+        }
+        planet.Ocean.EOS = _Namespace()
+        planet.Ocean.Eact_kJmol = {"III": np.nan, "V": np.nan, "VI": np.nan}
+        planet.Ocean.HtidalIce_Wm3 = 0.0
+        planet.Ocean.etaMeltKalousova_Pas = {"III": 5.0e12, "V": 2.8e14, "VI": 5.0e14}
+        planet.Ocean.phiPercolationKalousova_frac = 0.05
+        planet.HPIceDiagnostics = {}
+        return planet
+
+    def _profile_snapshot(self, planet):
+        return {
+            "T_K": planet.T_K.copy(),
+            "P_MPa": planet.P_MPa.copy(),
+            "phase": planet.phase.copy(),
+            "rho_kgm3": planet.rho_kgm3.copy(),
+            "qSurf_Wm2": planet.qSurf_Wm2,
+            "qCon_Wm2": planet.qCon_Wm2,
+            "Mtot_kg": planet.Mtot_kg,
+            "CMR2mean": planet.CMR2mean,
+            "eta_Pas": planet.eta_Pas.copy(),
+        }
+
+    def test_production_selector_without_gate_raises(self):
+        do = DoSubstruct()
+        do.HP_ICE_CONVECTION_MODEL = "Kalousova2018_production_experimental"
+
+        with self.assertRaisesRegex(ValueError, "ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION=True"):
+            ResolveHPIceConvectionModel(do)
+
+    def test_gated_dry_run_records_ice_vi_candidate_without_profile_mutation(self):
+        planet = self._synthetic_hp_planet(qBot_Wm2=1.0e-3)
+        before = self._profile_snapshot(planet)
+
+        HPIceConvectionDiagnostics(planet, _Namespace(), ResolveHPIceConvectionModel(planet))
+
+        state = planet.HPIceDiagnostics["VI"]
+        self.assertTrue(state["productionCandidate"])
+        self.assertEqual(state["productionMode"], "Kalousova2018_production_experimental")
+        self.assertEqual(state["candidateStatus"], "ice_vi_candidate")
+        self.assertFalse(state["updateAccepted"])
+        self.assertEqual(state["candidateReason"], "dry_run_only")
+        self.assertEqual(state["massResidual_kg"], 0.0)
+        self.assertEqual(state["massResidual_frac"], 0.0)
+        for key, value in before.items():
+            if isinstance(value, np.ndarray):
+                np.testing.assert_array_equal(getattr(planet, key), value)
+            else:
+                self.assertEqual(getattr(planet, key), value)
+
+    def test_ice_vi_subcritical_case_is_rejected(self):
+        state = HPIcePhaseState(
+            "VI",
+            phaseID=6,
+            present=True,
+            status="computed",
+            productionMode="Kalousova2018_production_experimental",
+            thickness_m=2.0e5,
+            Ttop_K=280.0,
+            Tbot_K=300.0,
+            Tconv_K=280.0,
+            etaConv_Pas=5.0e14,
+            eLid_m=2.0e5,
+            Dconv_m=0.0,
+            deltaTBL_m=0.0,
+            RaConvect=1.0e4,
+            RaCrit=1.0e6,
+            Q_in_W=1.0e12,
+        )
+
+        self.assertFalse(state.productionCandidate)
+        self.assertEqual(state.candidateStatus, "subcritical_rejected")
+        self.assertFalse(state.updateAccepted)
+
+    def test_ice_iii_and_v_remain_diagnostic_only(self):
+        planet = self._synthetic_hp_planet(qBot_Wm2=1.0e-3)
+
+        HPIceConvectionDiagnostics(planet, _Namespace(), ResolveHPIceConvectionModel(planet))
+
+        self.assertEqual(planet.HPIceDiagnostics["III"]["candidateStatus"], "diagnostic_only_extrapolative")
+        self.assertEqual(planet.HPIceDiagnostics["V"]["candidateStatus"], "diagnostic_only_extrapolative")
+        self.assertFalse(planet.HPIceDiagnostics["III"]["updateAccepted"])
+        self.assertFalse(planet.HPIceDiagnostics["V"]["updateAccepted"])
+
+    def test_zero_contrast_rejected_without_collapsing_heat_to_zero(self):
+        planet = self._synthetic_hp_planet(qBot_Wm2=1.0e-3, vi_deltaT_K=0.0)
+
+        HPIceConvectionDiagnostics(planet, _Namespace(), ResolveHPIceConvectionModel(planet))
+
+        state = planet.HPIceDiagnostics["VI"]
+        self.assertEqual(state["candidateStatus"], "zero_contrast_rejected")
+        self.assertGreater(state["Q_in_W"], 0.0)
+        self.assertGreater(state["Q_out_W"], 0.0)
+        self.assertEqual(state["energyResidual_W"], 0.0)
+        self.assertFalse(state["updateAccepted"])
+
+    def test_too_thin_ice_vi_case_is_rejected(self):
+        planet = self._synthetic_hp_planet(qBot_Wm2=1.0e-3, vi_thickness_m=500.0)
+
+        HPIceConvectionDiagnostics(planet, _Namespace(), ResolveHPIceConvectionModel(planet))
+
+        state = planet.HPIceDiagnostics["VI"]
+        self.assertEqual(state["candidateStatus"], "too_thin_rejected")
+        self.assertFalse(state["productionCandidate"])
+        self.assertFalse(state["updateAccepted"])
+
+    def test_no_mass_transport_fields_are_active_outputs(self):
+        state = HPIcePhaseState(
+            "VI",
+            phaseID=6,
+            present=True,
+            status="computed",
+            productionMode="Kalousova2018_production_experimental",
+            thickness_m=2.0e5,
+            Ttop_K=280.0,
+            Tbot_K=300.0,
+            Tconv_K=280.0,
+            etaConv_Pas=5.0e14,
+            eLid_m=1.0e4,
+            Dconv_m=1.8e5,
+            deltaTBL_m=1.0e4,
+            RaConvect=1.0e8,
+            RaCrit=1.0e4,
+            Q_in_W=1.0e12,
+        )
+
+        self.assertEqual(state.massResidual_kg, 0.0)
+        self.assertEqual(state.massResidual_frac, 0.0)
+        self.assertFalse(state.updateAccepted)
 
 
 if __name__ == "__main__":

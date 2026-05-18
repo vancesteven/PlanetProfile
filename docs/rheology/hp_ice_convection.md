@@ -52,10 +52,11 @@ The only implemented selector values are diagnostic-only. The reserved
 Planet.Do.ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION = True
 ```
 
-Even with that gate enabled, active production HP/Kalousova physics is not
-implemented in this extraction. No production heat-stack coupling, latent-heat
-feedback, transported melt, or profile feedback is activated by this selector
-scaffold.
+With that gate enabled, the selector enters an experimental dry-run path. The
+dry run records candidate production statuses and residuals, but it does not
+accept or apply profile updates. No active production heat-stack coupling,
+latent-heat feedback, transported melt, or profile feedback is activated by
+this selector scaffold.
 
 `HP_ICE_CONVECTION_DIAGNOSTICS=True` enables diagnostic reporting. When
 `KALOUSOVA_CONVECTION=False`, diagnostics use a Deschamps and Sotin (2001)-style
@@ -156,6 +157,10 @@ Q_in_W, Q_out_W, q_in_Wm2, q_out_Wm2
 Q_internal_W, Q_latent_W
 energyResidual_W, energyResidual_frac, heatFluxResidual_Wm2
 heatBookkeepingStatus
+productionCandidate, productionMode, updateAccepted
+candidateStatus, candidateReason
+massResidual_kg, massResidual_frac
+phaseBoundaryResidual_K
 Tconv_K, etaConv_Pas, etaMelt_Pas
 eLid_m, Dconv_m, deltaTBL_m
 RaConvect, RaCrit
@@ -213,6 +218,50 @@ than inventing heat values.
 These fields are inspection records only. They do not feed back into the
 propagated thermal profile, phase structure, mass, gravity, viscosity, or heat
 flux outputs.
+
+## Experimental production dry run
+
+`HP_ICE_CONVECTION_MODEL = "Kalousova2018_production_experimental"` activates a
+dry-run-only scaffold when
+`ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION = True`. The dry run reuses the
+Kalousova diagnostic calculations and records whether a future production update
+would be considered, rejected, or left as diagnostic-only.
+
+This path is fail-closed:
+
+```text
+updateAccepted = False
+```
+
+in every phase state. It does not modify propagated profiles, heat fluxes,
+viscosity, mass, gravity, or phase boundaries.
+
+Ice VI is the only phase that can be marked as a production candidate in this
+dry run. A supercritical, finite, positive-contrast Ice VI diagnostic is recorded
+with:
+
+```text
+candidateStatus = "ice_vi_candidate"
+candidateReason = "dry_run_only"
+productionCandidate = True
+updateAccepted = False
+```
+
+Rejected Ice VI cases use machine-readable statuses such as
+`"subcritical_rejected"`, `"zero_contrast_rejected"`, `"too_thin_rejected"`,
+`"invalid_geometry_rejected"`, and `"nonfinite_rejected"`.
+
+Ice III and Ice V remain diagnostic and extrapolative in this mode. When they
+are evaluated, their phase states are marked:
+
+```text
+candidateStatus = "diagnostic_only_extrapolative"
+```
+
+The dry run also records zero/no-op mass residuals for evaluated phase states.
+It does not add latent heat, melt density, mass transport, or active Ice VI
+profile propagation. The purpose is to make future production decisions
+auditable before any accepted profile update is introduced.
 
 ## Limitations
 

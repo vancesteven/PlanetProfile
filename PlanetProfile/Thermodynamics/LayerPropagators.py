@@ -1042,9 +1042,12 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
         return Planet
     if hpIceConvectionModel is None:
         hpIceConvectionModel = ResolveHPIceConvectionModel(Planet)
-    useKalousova = hpIceConvectionModel == 'Kalousova2018_diagnostic'
-    if hpIceConvectionModel not in ('DS2001_diagnostic', 'Kalousova2018_diagnostic'):
-        raise ValueError(f'HP ice convection model "{hpIceConvectionModel}" is not a diagnostic model.')
+    useProductionDryRun = hpIceConvectionModel == 'Kalousova2018_production_experimental'
+    useKalousova = hpIceConvectionModel in ('Kalousova2018_diagnostic', 'Kalousova2018_production_experimental')
+    if hpIceConvectionModel not in ('DS2001_diagnostic', 'Kalousova2018_diagnostic',
+                                    'Kalousova2018_production_experimental'):
+        raise ValueError(f'HP ice convection model "{hpIceConvectionModel}" is not a recognized HP ice model.')
+    productionMode = hpIceConvectionModel if useProductionDryRun else None
 
     phaseNames = {3: 'III', 5: 'V', 6: 'VI'}
     # Match genai's bottom-to-top HP ice traversal. The DS2001 diagnostic path
@@ -1053,7 +1056,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
     Planet.HPIceDiagnostics = {}
     Planet.DO_HP_MELT = False
     for phaseID, phaseName in phaseNames.items():
-        _SetHPIceDiagnosticFields(Planet, phaseName, status='absent', phaseID=phaseID)
+        _SetHPIceDiagnosticFields(Planet, phaseName, status='absent', phaseID=phaseID,
+                                  productionMode=productionMode)
 
     iOceanStart = Planet.Steps.nSurfIce
     iOceanEnd = Planet.Steps.nSurfIce + Planet.Steps.nOceanMax
@@ -1063,6 +1067,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
         return Planet
 
     methodFamily = 'Kalousova and Sotin (2018)' if useKalousova else 'Deschamps and Sotin (2001)'
+    if useProductionDryRun:
+        methodFamily = 'Kalousova and Sotin (2018) experimental dry run'
     log.info(f'Computing opt-in HP ice convection diagnostics using {methodFamily}.')
 
     Qthrough_W = getattr(Planet.Ocean, 'QfromMantle_W', np.nan)
@@ -1100,6 +1106,7 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                 iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                 zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
                 Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+                productionMode=productionMode,
             )
             log.info(f'HP ice {phaseName} diagnostics skipped: {reason}.')
             continue
@@ -1111,6 +1118,7 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                 iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                 zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
                 Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+                productionMode=productionMode,
             )
             log.warning(f'HP ice {phaseName} diagnostics skipped: EOS was not loaded.')
             continue
@@ -1143,6 +1151,7 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                     zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
                     Ttop_K=Ttop_K, Tbot_K=Tb_K, qBot_Wm2=qBot_Wm2,
                     Pmid_MPa=Pmid_MPa, method=method,
+                    productionMode=productionMode,
                 )
                 log.warning(f'HP ice {phaseName} Kalousova diagnostics failed: {exc}')
                 continue
@@ -1181,7 +1190,7 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                         iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                         zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
                         Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
-                        method=method,
+                        method=method, productionMode=productionMode,
                     )
                     log.warning(f'HP ice {phaseName} diagnostics failed: {fallbackExc}')
                     continue
@@ -1211,7 +1220,7 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                             iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                             zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
                             Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
-                            method=method,
+                            method=method, productionMode=productionMode,
                         )
                         log.warning(f'HP ice {phaseName} diagnostics failed: {fallbackExc}')
                         continue
@@ -1232,7 +1241,7 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
             eLid_m=eLid_m, Dconv_m=Dconv_m,
             deltaTBL_m=deltaTBL_m, Ra=Ra, RaCrit=RaCrit,
             Qbot_W=Qbot_W, Pmid_MPa=Pmid_MPa, method=method,
-            meltFraction=meltFraction,
+            meltFraction=meltFraction, productionMode=productionMode,
         )
         meltInfo = f', meltFraction={meltFraction:.3f}' if np.isfinite(meltFraction) else ''
         log.info(
@@ -1372,7 +1381,12 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None
                               etaConv_Pas=np.nan, etaMelt_Pas=np.nan, eLid_m=np.nan,
                               Dconv_m=np.nan, deltaTBL_m=np.nan, Ra=np.nan,
                               RaCrit=np.nan, Qbot_W=np.nan, Pmid_MPa=np.nan,
-                              method=None, meltFraction=np.nan):
+                              method=None, meltFraction=np.nan,
+                              productionMode=None, productionCandidate=False,
+                              updateAccepted=False, candidateStatus="not_evaluated",
+                              candidateReason=None, massResidual_kg=np.nan,
+                              massResidual_frac=np.nan,
+                              phaseBoundaryResidual_K=np.nan):
     """Single writer for top-level HP diagnostic fields and HPIceDiagnostics."""
     setattr(Planet, f'Tconv{phaseName}_K', Tconv_K)
     setattr(Planet, f'etaConv{phaseName}_Pas', etaConv_Pas)
@@ -1390,7 +1404,12 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None
         Ttop_K=Ttop_K, Tbot_K=Tbot_K, Ptop_MPa=Ptop_MPa, Pbot_MPa=Pbot_MPa,
         qBot_Wm2=qBot_Wm2, Qbot_W=Qbot_W, Q_in_W=Q_in_W, Q_out_W=Q_out_W,
         q_in_Wm2=q_in_Wm2, q_out_Wm2=q_out_Wm2,
-        Q_internal_W=Q_internal_W, Q_latent_W=Q_latent_W, Tconv_K=Tconv_K,
+        Q_internal_W=Q_internal_W, Q_latent_W=Q_latent_W,
+        productionMode=productionMode, productionCandidate=productionCandidate,
+        updateAccepted=updateAccepted, candidateStatus=candidateStatus,
+        candidateReason=candidateReason, massResidual_kg=massResidual_kg,
+        massResidual_frac=massResidual_frac,
+        phaseBoundaryResidual_K=phaseBoundaryResidual_K, Tconv_K=Tconv_K,
         etaConv_Pas=etaConv_Pas, etaMelt_Pas=etaMelt_Pas,
         eLid_m=eLid_m, Dconv_m=Dconv_m, deltaTBL_m=deltaTBL_m,
         RaConvect=Ra, RaCrit=RaCrit, Pmid_MPa=Pmid_MPa, method=method,

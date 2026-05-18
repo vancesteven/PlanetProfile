@@ -127,6 +127,14 @@ class HPIcePhaseState:
     energyResidual_frac: float = np.nan
     heatFluxResidual_Wm2: float = np.nan
     heatBookkeepingStatus: str = "not_evaluated"
+    productionCandidate: bool = False
+    productionMode: str = None
+    updateAccepted: bool = False
+    candidateStatus: str = "not_evaluated"
+    candidateReason: str = None
+    massResidual_kg: float = np.nan
+    massResidual_frac: float = np.nan
+    phaseBoundaryResidual_K: float = np.nan
     Tconv_K: float = np.nan
     etaConv_Pas: float = np.nan
     etaMelt_Pas: float = np.nan
@@ -145,6 +153,7 @@ class HPIcePhaseState:
     def __post_init__(self):
         self._resolve_heat_bookkeeping()
         self.validityStatus, self.skipReason = self._diagnostic_status()
+        self._resolve_production_dry_run()
 
     @staticmethod
     def _is_finite(value):
@@ -219,6 +228,57 @@ class HPIcePhaseState:
             return "subcritical", None
         return "ok", None
 
+    def _production_rejection_status(self):
+        if not self.present or self.status == "absent":
+            return "absent"
+        if self.validityStatus == "too_thin":
+            return "too_thin_rejected"
+        if self.validityStatus == "zero_contrast":
+            return "zero_contrast_rejected"
+        if self.validityStatus == "invalid_geometry":
+            return "invalid_geometry_rejected"
+        if self.validityStatus in ("nonfinite", "invalid_melt_fraction"):
+            return "nonfinite_rejected"
+        if self.validityStatus == "subcritical":
+            return "subcritical_rejected"
+        return "not_implemented"
+
+    def _resolve_production_dry_run(self):
+        if self.productionMode != "Kalousova2018_production_experimental":
+            return
+
+        self.updateAccepted = False
+        if self.present and self.status != "absent":
+            if not self._is_finite(self.massResidual_kg):
+                self.massResidual_kg = 0.0
+            if not self._is_finite(self.massResidual_frac):
+                self.massResidual_frac = 0.0
+
+        if not self.present or self.status == "absent":
+            self.productionCandidate = False
+            self.candidateStatus = "absent"
+            self.candidateReason = "absent"
+            return
+
+        if self.phaseID != 6:
+            self.productionCandidate = False
+            if self.status == "computed":
+                self.candidateStatus = "diagnostic_only_extrapolative"
+                self.candidateReason = "active_production_not_implemented_for_phase"
+            else:
+                self.candidateStatus = self._production_rejection_status()
+                self.candidateReason = self.skipReason or self.validityStatus
+            return
+
+        if self.validityStatus == "ok":
+            self.productionCandidate = True
+            self.candidateStatus = "ice_vi_candidate"
+            self.candidateReason = "dry_run_only"
+        else:
+            self.productionCandidate = False
+            self.candidateStatus = self._production_rejection_status()
+            self.candidateReason = self.skipReason or self.validityStatus
+
     def as_dict(self):
         return asdict(self)
 
@@ -247,11 +307,6 @@ def ResolveHPIceConvectionModel(PlanetOrDo):
                 "is experimental and requires explicit opt-in through "
                 "Do.ALLOW_EXPERIMENTAL_HP_KALOUSOVA_PRODUCTION=True."
             )
-        raise NotImplementedError(
-            "Do.HP_ICE_CONVECTION_MODEL='Kalousova2018_production_experimental' "
-            "is reserved for future HP/Kalousova production work; no active production "
-            "physics is implemented in this commit."
-        )
 
     return model
 
