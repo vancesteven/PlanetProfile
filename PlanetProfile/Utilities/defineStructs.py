@@ -117,6 +117,16 @@ class HPIcePhaseState:
     Pbot_MPa: float = np.nan
     qBot_Wm2: float = np.nan
     Qbot_W: float = np.nan
+    Q_in_W: float = np.nan
+    Q_out_W: float = np.nan
+    q_in_Wm2: float = np.nan
+    q_out_Wm2: float = np.nan
+    Q_internal_W: float = 0.0
+    Q_latent_W: float = 0.0
+    energyResidual_W: float = np.nan
+    energyResidual_frac: float = np.nan
+    heatFluxResidual_Wm2: float = np.nan
+    heatBookkeepingStatus: str = "not_evaluated"
     Tconv_K: float = np.nan
     etaConv_Pas: float = np.nan
     etaMelt_Pas: float = np.nan
@@ -133,6 +143,7 @@ class HPIcePhaseState:
     skipReason: str = None
 
     def __post_init__(self):
+        self._resolve_heat_bookkeeping()
         self.validityStatus, self.skipReason = self._diagnostic_status()
 
     @staticmethod
@@ -146,6 +157,38 @@ class HPIcePhaseState:
         text = str(status).strip().lower()
         reason = "".join(ch if ch.isalnum() else "_" for ch in text).strip("_")
         return reason or "not_evaluated"
+
+    def _resolve_heat_bookkeeping(self):
+        if not self.present or self.status == "absent":
+            self.heatBookkeepingStatus = "absent"
+            return
+
+        if not self._is_finite(self.Q_in_W) and self._is_finite(self.Qbot_W):
+            self.Q_in_W = self.Qbot_W
+        if not self._is_finite(self.Q_out_W) and self._is_finite(self.Q_in_W):
+            self.Q_out_W = self.Q_in_W
+
+        if not self._is_finite(self.q_in_Wm2) and self._is_finite(self.qBot_Wm2):
+            self.q_in_Wm2 = self.qBot_Wm2
+        if not self._is_finite(self.q_in_Wm2) and self._is_finite(self.Q_in_W) and self._is_finite(self.rBot_m) and self.rBot_m > 0:
+            self.q_in_Wm2 = self.Q_in_W / (4.0 * np.pi * self.rBot_m**2)
+        if not self._is_finite(self.q_out_Wm2) and self._is_finite(self.Q_out_W) and self._is_finite(self.rTop_m) and self.rTop_m > 0:
+            self.q_out_Wm2 = self.Q_out_W / (4.0 * np.pi * self.rTop_m**2)
+        if not self._is_finite(self.q_out_Wm2) and self._is_finite(self.q_in_Wm2):
+            self.q_out_Wm2 = self.q_in_Wm2
+
+        heatTerms = (self.Q_in_W, self.Q_out_W, self.Q_internal_W, self.Q_latent_W)
+        if all(self._is_finite(value) for value in heatTerms):
+            self.energyResidual_W = self.Q_out_W - self.Q_in_W - self.Q_internal_W + self.Q_latent_W
+            scale = max(abs(self.Q_in_W), abs(self.Q_out_W), 1.0)
+            self.energyResidual_frac = self.energyResidual_W / scale
+        if self._is_finite(self.q_in_Wm2) and self._is_finite(self.q_out_Wm2):
+            self.heatFluxResidual_Wm2 = self.q_out_Wm2 - self.q_in_Wm2
+
+        if self._is_finite(self.energyResidual_W):
+            self.heatBookkeepingStatus = "ok"
+        else:
+            self.heatBookkeepingStatus = "unavailable"
 
     def _diagnostic_status(self):
         reason = self._reason_from_status(self.status)

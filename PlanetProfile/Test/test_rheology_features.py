@@ -590,5 +590,147 @@ class Test06HPIcePhaseState(unittest.TestCase):
         self.assertEqual(ResolveHPIceConvectionModel(do), "DS2001_diagnostic")
 
 
+class Test07HPIceHeatBookkeeping(unittest.TestCase):
+
+    def test_valid_state_defaults_to_conserved_heat_when_no_sources_active(self):
+        state = HPIcePhaseState(
+            "VI",
+            phaseID=6,
+            present=True,
+            status="computed",
+            rTop_m=2.3e6,
+            rBot_m=2.1e6,
+            thickness_m=2.0e5,
+            Ttop_K=280.0,
+            Tbot_K=300.0,
+            Tconv_K=286.0,
+            etaConv_Pas=5.0e14,
+            eLid_m=1.0e4,
+            Dconv_m=1.8e5,
+            deltaTBL_m=1.0e4,
+            RaConvect=1.0e6,
+            RaCrit=1.0e4,
+            Q_in_W=1.0e12,
+        )
+
+        self.assertEqual(state.Q_out_W, 1.0e12)
+        self.assertEqual(state.Q_internal_W, 0.0)
+        self.assertEqual(state.Q_latent_W, 0.0)
+        self.assertEqual(state.energyResidual_W, 0.0)
+        self.assertEqual(state.energyResidual_frac, 0.0)
+        self.assertEqual(state.heatBookkeepingStatus, "ok")
+
+    def test_zero_contrast_preserves_through_heat_diagnostic(self):
+        state = HPIcePhaseState(
+            "V",
+            phaseID=5,
+            present=True,
+            status="computed",
+            rTop_m=2.3e6,
+            rBot_m=2.1e6,
+            thickness_m=2.0e5,
+            Ttop_K=270.0,
+            Tbot_K=270.0,
+            Tconv_K=270.0,
+            etaConv_Pas=5.0e14,
+            eLid_m=0.0,
+            Dconv_m=0.0,
+            deltaTBL_m=0.0,
+            RaConvect=0.0,
+            RaCrit=np.inf,
+            Q_in_W=2.0e12,
+        )
+
+        self.assertEqual(state.Q_out_W, 2.0e12)
+        self.assertEqual(state.energyResidual_W, 0.0)
+        self.assertEqual(state.validityStatus, "zero_contrast")
+
+    def test_absent_phase_heat_fields_are_unavailable(self):
+        state = HPIcePhaseState("III", phaseID=3, status="absent")
+
+        self.assertTrue(np.isnan(state.Q_in_W))
+        self.assertTrue(np.isnan(state.Q_out_W))
+        self.assertEqual(state.heatBookkeepingStatus, "absent")
+
+    def test_too_thin_phase_does_not_invent_heat_values(self):
+        state = HPIcePhaseState(
+            "III",
+            phaseID=3,
+            present=True,
+            status="too thin",
+            thickness_m=500.0,
+        )
+
+        self.assertTrue(np.isnan(state.Q_in_W))
+        self.assertTrue(np.isnan(state.Q_out_W))
+        self.assertEqual(state.validityStatus, "too_thin")
+        self.assertEqual(state.heatBookkeepingStatus, "unavailable")
+
+    def test_energy_residual_sign_convention(self):
+        state = HPIcePhaseState(
+            "VI",
+            phaseID=6,
+            present=True,
+            status="computed",
+            thickness_m=2.0e5,
+            Ttop_K=280.0,
+            Tbot_K=300.0,
+            Tconv_K=286.0,
+            etaConv_Pas=5.0e14,
+            eLid_m=1.0e4,
+            Dconv_m=1.8e5,
+            deltaTBL_m=1.0e4,
+            RaConvect=1.0e6,
+            RaCrit=1.0e4,
+            Q_in_W=100.0,
+            Q_out_W=110.0,
+            Q_internal_W=5.0,
+            Q_latent_W=2.0,
+        )
+
+        self.assertEqual(state.energyResidual_W, 7.0)
+        self.assertEqual(state.energyResidual_frac, 7.0 / 110.0)
+
+    def test_heat_bookkeeping_does_not_mutate_profile_arrays(self):
+        planet = _Namespace()
+        planet.HPIceDiagnostics = {}
+        planet.T_K = np.array([250.0, 260.0, 270.0])
+        planet.P_MPa = np.array([100.0, 200.0, 300.0])
+        planet.phase = np.array([0, 5, 5])
+        planet.rho_kgm3 = np.array([1000.0, 1200.0, 1300.0])
+        before = {
+            "T_K": planet.T_K.copy(),
+            "P_MPa": planet.P_MPa.copy(),
+            "phase": planet.phase.copy(),
+            "rho_kgm3": planet.rho_kgm3.copy(),
+        }
+
+        _SetHPIceDiagnosticFields(
+            planet,
+            "V",
+            status="computed",
+            phaseID=5,
+            thickness_m=2.0e5,
+            Ttop_K=260.0,
+            Tbot_K=270.0,
+            Tconv_K=264.0,
+            etaConv_Pas=1.0e15,
+            etaMelt_Pas=5.0e14,
+            eLid_m=1.0e4,
+            Dconv_m=1.8e5,
+            deltaTBL_m=1.0e4,
+            Ra=1.0e6,
+            RaCrit=1.0e4,
+            Q_in_W=1.0e12,
+            Q_out_W=1.0e12,
+        )
+
+        np.testing.assert_array_equal(planet.T_K, before["T_K"])
+        np.testing.assert_array_equal(planet.P_MPa, before["P_MPa"])
+        np.testing.assert_array_equal(planet.phase, before["phase"])
+        np.testing.assert_array_equal(planet.rho_kgm3, before["rho_kgm3"])
+        self.assertEqual(planet.HPIceDiagnostics["V"]["energyResidual_W"], 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()

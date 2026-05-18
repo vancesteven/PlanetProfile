@@ -1117,10 +1117,13 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
 
         meltFraction = np.nan
         qBot_Wm2 = np.nan
+        Q_in_W = np.nan
+        Q_out_W = np.nan
         if useKalousova:
             method = 'Kalousova and Sotin (2018)'
             etaMelt_Pas = _GetKalousovaEtaMelt_Pas(Planet, phaseID, phaseName)
             if np.isfinite(Qthrough_W):
+                Q_in_W = Qthrough_W
                 qBot_Wm2 = Qthrough_W / (4*np.pi*rBot_m**2) if rBot_m > 0 else None
             else:
                 qBot_Wm2 = None
@@ -1153,6 +1156,7 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
             if isTemperate:
                 Planet.DO_HP_MELT = True
             if np.isfinite(Qbot_W):
+                Q_out_W = Qbot_W
                 Qthrough_W = Qbot_W
         else:
             phaseEOS = _FixedPhaseEOS(Planet.Ocean.EOS, phaseID)
@@ -1213,12 +1217,16 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                         continue
 
             etaMelt_Pas = Constants.etaMelt_Pas[phaseID]
+            if np.isfinite(Qbot_W):
+                Q_in_W = Qbot_W
+                Q_out_W = Qbot_W
 
         _SetHPIceDiagnosticFields(
             Planet, phaseName, status='computed', phaseID=phaseID,
             iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
             zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
             Ttop_K=Ttop_K, Tbot_K=Tb_K, qBot_Wm2=qBot_Wm2,
+            Q_in_W=Q_in_W, Q_out_W=Q_out_W,
             Tconv_K=Tconv_K, etaConv_Pas=etaConv_Pas,
             etaMelt_Pas=etaMelt_Pas,
             eLid_m=eLid_m, Dconv_m=Dconv_m,
@@ -1358,7 +1366,9 @@ class _FixedPhaseEOS:
 def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None, iBot=None,
                               rTop_m=np.nan, rBot_m=np.nan, zTop_m=np.nan, zBot_m=np.nan,
                               thickness_m=np.nan, Ttop_K=np.nan, Tbot_K=np.nan,
-                              Ptop_MPa=np.nan, Pbot_MPa=np.nan, qBot_Wm2=np.nan, Tconv_K=np.nan,
+                              Ptop_MPa=np.nan, Pbot_MPa=np.nan, qBot_Wm2=np.nan,
+                              Q_in_W=np.nan, Q_out_W=np.nan, q_in_Wm2=np.nan, q_out_Wm2=np.nan,
+                              Q_internal_W=0.0, Q_latent_W=0.0, Tconv_K=np.nan,
                               etaConv_Pas=np.nan, etaMelt_Pas=np.nan, eLid_m=np.nan,
                               Dconv_m=np.nan, deltaTBL_m=np.nan, Ra=np.nan,
                               RaCrit=np.nan, Qbot_W=np.nan, Pmid_MPa=np.nan,
@@ -1378,7 +1388,9 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None
         status=status, iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
         zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=thickness_m,
         Ttop_K=Ttop_K, Tbot_K=Tbot_K, Ptop_MPa=Ptop_MPa, Pbot_MPa=Pbot_MPa,
-        qBot_Wm2=qBot_Wm2, Qbot_W=Qbot_W, Tconv_K=Tconv_K,
+        qBot_Wm2=qBot_Wm2, Qbot_W=Qbot_W, Q_in_W=Q_in_W, Q_out_W=Q_out_W,
+        q_in_Wm2=q_in_Wm2, q_out_Wm2=q_out_Wm2,
+        Q_internal_W=Q_internal_W, Q_latent_W=Q_latent_W, Tconv_K=Tconv_K,
         etaConv_Pas=etaConv_Pas, etaMelt_Pas=etaMelt_Pas,
         eLid_m=eLid_m, Dconv_m=Dconv_m, deltaTBL_m=deltaTBL_m,
         RaConvect=Ra, RaCrit=RaCrit, Pmid_MPa=Pmid_MPa, method=method,

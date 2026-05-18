@@ -152,6 +152,10 @@ iTop, iBot
 rTop_m, rBot_m, zTop_m, zBot_m, thickness_m
 Ttop_K, Tbot_K, Ptop_MPa, Pbot_MPa, Pmid_MPa
 qBot_Wm2, Qbot_W
+Q_in_W, Q_out_W, q_in_Wm2, q_out_Wm2
+Q_internal_W, Q_latent_W
+energyResidual_W, energyResidual_frac, heatFluxResidual_Wm2
+heatBookkeepingStatus
 Tconv_K, etaConv_Pas, etaMelt_Pas
 eLid_m, Dconv_m, deltaTBL_m
 RaConvect, RaCrit
@@ -168,6 +172,47 @@ The `validityStatus` and `skipReason` fields are status checks only. They can
 identify absent phases, too-thin layers, zero thermal contrast, nonfinite
 diagnostic values, invalid geometry, subcritical regimes, and valid computed
 diagnostics. These statuses do not alter model execution in this extraction.
+
+## Diagnostic heat bookkeeping
+
+The phase-local state includes diagnostic heat-through-stack bookkeeping fields
+for future HP ice model review:
+
+```text
+Q_in_W:
+  Total heat power entering the bottom of an HP ice phase block.
+
+Q_out_W:
+  Total heat power leaving the top of that phase block.
+
+q_in_Wm2:
+  Area-normalized heat flux at the bottom boundary.
+
+q_out_Wm2:
+  Area-normalized heat flux at the top boundary.
+```
+
+`Q_internal_W` and `Q_latent_W` are placeholders for future source/sink
+accounting and default to `0.0`. They do not activate internal heating or
+latent-heat physics.
+
+The diagnostic residual convention is:
+
+```text
+energyResidual_W = Q_out_W - Q_in_W - Q_internal_W + Q_latent_W
+energyResidual_frac = energyResidual_W / max(abs(Q_in_W), abs(Q_out_W), 1.0)
+heatFluxResidual_Wm2 = q_out_Wm2 - q_in_Wm2
+```
+
+When no source or sink term is active, the diagnostic bookkeeping preserves heat
+throughput by default: `Q_out_W = Q_in_W` when an incoming heat value is
+available. Zero-temperature-contrast diagnostics do not force finite incoming
+heat to zero. Absent or skipped phases leave heat bookkeeping unavailable rather
+than inventing heat values.
+
+These fields are inspection records only. They do not feed back into the
+propagated thermal profile, phase structure, mass, gravity, viscosity, or heat
+flux outputs.
 
 ## Limitations
 
