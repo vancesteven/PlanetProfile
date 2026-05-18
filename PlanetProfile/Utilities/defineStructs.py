@@ -14,6 +14,7 @@ Planet.Do.Fe_CORE = False
 
 import numpy as np
 import os, shutil
+from dataclasses import asdict, dataclass
 from copy import deepcopy
 import cmasher
 import logging
@@ -93,6 +94,90 @@ HP_ICE_CONVECTION_MODELS = (
     "Kalousova2018_diagnostic",
     "Kalousova2018_production_experimental",
 )
+
+
+@dataclass
+class HPIcePhaseState:
+    """Phase-local HP ice diagnostic state for one in-ocean ice phase."""
+
+    phaseName: str
+    phaseID: int = None
+    present: bool = False
+    status: str = "not_evaluated"
+    iTop: int = None
+    iBot: int = None
+    rTop_m: float = np.nan
+    rBot_m: float = np.nan
+    zTop_m: float = np.nan
+    zBot_m: float = np.nan
+    thickness_m: float = np.nan
+    Ttop_K: float = np.nan
+    Tbot_K: float = np.nan
+    Ptop_MPa: float = np.nan
+    Pbot_MPa: float = np.nan
+    qBot_Wm2: float = np.nan
+    Qbot_W: float = np.nan
+    Tconv_K: float = np.nan
+    etaConv_Pas: float = np.nan
+    etaMelt_Pas: float = np.nan
+    eLid_m: float = np.nan
+    Dconv_m: float = np.nan
+    deltaTBL_m: float = np.nan
+    RaConvect: float = np.nan
+    RaCrit: float = np.nan
+    Pmid_MPa: float = np.nan
+    method: str = None
+    meltFraction: float = np.nan
+    DO_HP_MELT: bool = False
+    validityStatus: str = "not_evaluated"
+    skipReason: str = None
+
+    def __post_init__(self):
+        self.validityStatus, self.skipReason = self._diagnostic_status()
+
+    @staticmethod
+    def _is_finite(value):
+        return value is not None and np.isfinite(value)
+
+    @staticmethod
+    def _reason_from_status(status):
+        if status is None:
+            return None
+        text = str(status).strip().lower()
+        reason = "".join(ch if ch.isalnum() else "_" for ch in text).strip("_")
+        return reason or "not_evaluated"
+
+    def _diagnostic_status(self):
+        reason = self._reason_from_status(self.status)
+        if not self.present or self.status == "absent":
+            return "absent", reason
+        if self.status != "computed":
+            if reason == "too_thin":
+                return "too_thin", reason
+            if reason and reason.startswith("invalid"):
+                return "nonfinite", reason
+            return "not_evaluated", reason
+        if any(
+            self._is_finite(value) and value < 0
+            for value in (self.thickness_m, self.eLid_m, self.Dconv_m, self.deltaTBL_m)
+        ):
+            return "invalid_geometry", "negative_thickness"
+        if self._is_finite(self.meltFraction) and not (0.0 <= self.meltFraction <= 1.0):
+            return "invalid_melt_fraction", "melt_fraction_out_of_bounds"
+        if self._is_finite(self.Ttop_K) and self._is_finite(self.Tbot_K) and self.Tbot_K <= self.Ttop_K:
+            return "zero_contrast", "zero_or_negative_temperature_contrast"
+        required = (
+            self.thickness_m, self.Tconv_K, self.etaConv_Pas, self.eLid_m,
+            self.Dconv_m, self.deltaTBL_m, self.RaConvect, self.RaCrit,
+        )
+        if any(not self._is_finite(value) for value in required):
+            return "nonfinite", "nonfinite_diagnostic_value"
+        if self.RaConvect <= self.RaCrit:
+            return "subcritical", None
+        return "ok", None
+
+    def as_dict(self):
+        return asdict(self)
 
 
 def ResolveHPIceConvectionModel(PlanetOrDo):

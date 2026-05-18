@@ -140,6 +140,35 @@ top-level HP diagnostic fields (`TconvV_K`, `etaConvVI_Pas`,
 Future changes should keep those two representations synchronized through that
 helper.
 
+## Phase-local diagnostic state
+
+Each HP ice phase diagnostic is also represented as a phase-local state record
+inside `Planet.HPIceDiagnostics`. The record mirrors the legacy top-level fields
+while adding bookkeeping fields such as:
+
+```text
+phaseName, phaseID, present
+iTop, iBot
+rTop_m, rBot_m, zTop_m, zBot_m, thickness_m
+Ttop_K, Tbot_K, Ptop_MPa, Pbot_MPa, Pmid_MPa
+qBot_Wm2, Qbot_W
+Tconv_K, etaConv_Pas, etaMelt_Pas
+eLid_m, Dconv_m, deltaTBL_m
+RaConvect, RaCrit
+meltFraction, DO_HP_MELT
+validityStatus, skipReason
+```
+
+This is a scaffold for future reviewable HP ice work. It does not change current
+diagnostic results and it does not activate any production feedback. The helper
+`_SetHPIceDiagnosticFields()` remains the synchronization point between the
+legacy top-level fields and the structured `Planet.HPIceDiagnostics` record.
+
+The `validityStatus` and `skipReason` fields are status checks only. They can
+identify absent phases, too-thin layers, zero thermal contrast, nonfinite
+diagnostic values, invalid geometry, subcritical regimes, and valid computed
+diagnostics. These statuses do not alter model execution in this extraction.
+
 ## Limitations
 
 These calculations are diagnostics. They do not implement production Ice VI

@@ -19,7 +19,7 @@ from PlanetProfile.Thermodynamics.ThermalProfiles.IceConduction import IceIWhole
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConvectionDeschampsSotin2001, \
     ConvectionKalousova2018, GetRaCrit
 from PlanetProfile.Thermodynamics.Geophysical import PropogateConductionFromDepth
-from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing, ResolveHPIceConvectionModel
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, HPIcePhaseState, Timing, ResolveHPIceConvectionModel
 import time
 
 # Assign logger
@@ -1052,8 +1052,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
     phaseOrder = (6, 5, 3)
     Planet.HPIceDiagnostics = {}
     Planet.DO_HP_MELT = False
-    for phaseName in phaseNames.values():
-        _SetHPIceDiagnosticFields(Planet, phaseName, status='absent')
+    for phaseID, phaseName in phaseNames.items():
+        _SetHPIceDiagnosticFields(Planet, phaseName, status='absent', phaseID=phaseID)
 
     iOceanStart = Planet.Steps.nSurfIce
     iOceanEnd = Planet.Steps.nSurfIce + Planet.Steps.nOceanMax
@@ -1085,29 +1085,42 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
         Ttop_K = Planet.T_K[iTop]
         Tb_K = Planet.T_K[iBot]
         rTop_m = Planet.r_m[iTop]
+        rBot_m = Planet.r_m[iBot]
+        zTop_m = Planet.z_m[iTop]
+        zBot_m = Planet.z_m[iBot]
         kTop_WmK = Planet.kTherm_WmK[iTop]
         gtop_ms2 = Planet.g_ms2[iTop]
-        zb_m = Planet.z_m[iBot] - Planet.z_m[iTop]
+        zb_m = zBot_m - zTop_m
         Pmid_MPa = (Planet.P_MPa[iTop] + Planet.P_MPa[iBot]) / 2
 
         if zb_m < 1e3 or not np.all(np.isfinite([Ttop_K, Tb_K, rTop_m, kTop_WmK, gtop_ms2, Pmid_MPa])):
             reason = 'too thin' if zb_m < 1e3 else 'invalid P/T/r/k/g'
-            _SetHPIceDiagnosticFields(Planet, phaseName, status=reason, thickness_m=zb_m)
+            _SetHPIceDiagnosticFields(
+                Planet, phaseName, status=reason, phaseID=phaseID,
+                iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
+                zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
+                Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+            )
             log.info(f'HP ice {phaseName} diagnostics skipped: {reason}.')
             continue
 
         iceEOS = Planet.Ocean.iceEOS.get(phaseName)
         if iceEOS is None:
-            _SetHPIceDiagnosticFields(Planet, phaseName, status='missing EOS', thickness_m=zb_m)
+            _SetHPIceDiagnosticFields(
+                Planet, phaseName, status='missing EOS', phaseID=phaseID,
+                iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
+                zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
+                Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+            )
             log.warning(f'HP ice {phaseName} diagnostics skipped: EOS was not loaded.')
             continue
 
         meltFraction = np.nan
+        qBot_Wm2 = np.nan
         if useKalousova:
             method = 'Kalousova and Sotin (2018)'
             etaMelt_Pas = _GetKalousovaEtaMelt_Pas(Planet, phaseID, phaseName)
             if np.isfinite(Qthrough_W):
-                rBot_m = Planet.r_m[iBot]
                 qBot_Wm2 = Qthrough_W / (4*np.pi*rBot_m**2) if rBot_m > 0 else None
             else:
                 qBot_Wm2 = None
@@ -1121,7 +1134,13 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                         etaMelt_Pas=etaMelt_Pas
                     )
             except Exception as exc:
-                _SetHPIceDiagnosticFields(Planet, phaseName, status=f'error: {exc}', thickness_m=zb_m)
+                _SetHPIceDiagnosticFields(
+                    Planet, phaseName, status=f'error: {exc}', phaseID=phaseID,
+                    iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
+                    zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
+                    Ttop_K=Ttop_K, Tbot_K=Tb_K, qBot_Wm2=qBot_Wm2,
+                    Pmid_MPa=Pmid_MPa, method=method,
+                )
                 log.warning(f'HP ice {phaseName} Kalousova diagnostics failed: {exc}')
                 continue
 
@@ -1153,7 +1172,13 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                             Planet.Ocean.Eact_kJmol
                         )
                 except Exception as fallbackExc:
-                    _SetHPIceDiagnosticFields(Planet, phaseName, status=f'error: {fallbackExc}', thickness_m=zb_m)
+                    _SetHPIceDiagnosticFields(
+                        Planet, phaseName, status=f'error: {fallbackExc}', phaseID=phaseID,
+                        iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
+                        zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
+                        Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+                        method=method,
+                    )
                     log.warning(f'HP ice {phaseName} diagnostics failed: {fallbackExc}')
                     continue
             else:
@@ -1177,14 +1202,23 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                                 Planet.Ocean.Eact_kJmol
                             )
                     except Exception as fallbackExc:
-                        _SetHPIceDiagnosticFields(Planet, phaseName, status=f'error: {fallbackExc}', thickness_m=zb_m)
+                        _SetHPIceDiagnosticFields(
+                            Planet, phaseName, status=f'error: {fallbackExc}', phaseID=phaseID,
+                            iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
+                            zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
+                            Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+                            method=method,
+                        )
                         log.warning(f'HP ice {phaseName} diagnostics failed: {fallbackExc}')
                         continue
 
             etaMelt_Pas = Constants.etaMelt_Pas[phaseID]
 
         _SetHPIceDiagnosticFields(
-            Planet, phaseName, status='computed', thickness_m=zb_m,
+            Planet, phaseName, status='computed', phaseID=phaseID,
+            iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
+            zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
+            Ttop_K=Ttop_K, Tbot_K=Tb_K, qBot_Wm2=qBot_Wm2,
             Tconv_K=Tconv_K, etaConv_Pas=etaConv_Pas,
             etaMelt_Pas=etaMelt_Pas,
             eLid_m=eLid_m, Dconv_m=Dconv_m,
@@ -1321,7 +1355,10 @@ class _FixedPhaseEOS:
         return np.zeros_like(np.asarray(T_K), dtype=int) + self.phaseID
 
 
-def _SetHPIceDiagnosticFields(Planet, phaseName, status, thickness_m=np.nan, Tconv_K=np.nan,
+def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None, iBot=None,
+                              rTop_m=np.nan, rBot_m=np.nan, zTop_m=np.nan, zBot_m=np.nan,
+                              thickness_m=np.nan, Ttop_K=np.nan, Tbot_K=np.nan,
+                              Ptop_MPa=np.nan, Pbot_MPa=np.nan, qBot_Wm2=np.nan, Tconv_K=np.nan,
                               etaConv_Pas=np.nan, etaMelt_Pas=np.nan, eLid_m=np.nan,
                               Dconv_m=np.nan, deltaTBL_m=np.nan, Ra=np.nan,
                               RaCrit=np.nan, Qbot_W=np.nan, Pmid_MPa=np.nan,
@@ -1336,22 +1373,19 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, thickness_m=np.nan, Tco
     setattr(Planet, f'RaConvect{phaseName}', Ra)
     setattr(Planet, f'RaCrit{phaseName}', RaCrit)
     setattr(Planet, f'meltFraction{phaseName}', meltFraction)
-    Planet.HPIceDiagnostics[phaseName] = {
-        'status': status,
-        'thickness_m': thickness_m,
-        'Tconv_K': Tconv_K,
-        'etaConv_Pas': etaConv_Pas,
-        'etaMelt_Pas': etaMelt_Pas,
-        'eLid_m': eLid_m,
-        'Dconv_m': Dconv_m,
-        'deltaTBL_m': deltaTBL_m,
-        'RaConvect': Ra,
-        'RaCrit': RaCrit,
-        'Qbot_W': Qbot_W,
-        'Pmid_MPa': Pmid_MPa,
-        'method': method,
-        'meltFraction': meltFraction,
-    }
+    phaseState = HPIcePhaseState(
+        phaseName=phaseName, phaseID=phaseID, present=status != 'absent',
+        status=status, iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
+        zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=thickness_m,
+        Ttop_K=Ttop_K, Tbot_K=Tbot_K, Ptop_MPa=Ptop_MPa, Pbot_MPa=Pbot_MPa,
+        qBot_Wm2=qBot_Wm2, Qbot_W=Qbot_W, Tconv_K=Tconv_K,
+        etaConv_Pas=etaConv_Pas, etaMelt_Pas=etaMelt_Pas,
+        eLid_m=eLid_m, Dconv_m=Dconv_m, deltaTBL_m=deltaTBL_m,
+        RaConvect=Ra, RaCrit=RaCrit, Pmid_MPa=Pmid_MPa, method=method,
+        meltFraction=meltFraction,
+        DO_HP_MELT=bool(np.isfinite(meltFraction) and meltFraction > 0),
+    )
+    Planet.HPIceDiagnostics[phaseName] = phaseState.as_dict()
 
 
 def GetOceanHPIceEOS(Planet, Params, POcean_MPa, minPres_MPa=None, minTres_K=None):

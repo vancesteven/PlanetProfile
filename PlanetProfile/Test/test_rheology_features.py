@@ -19,6 +19,7 @@ from PlanetProfile.Utilities.defineStructs import (
     Constants,
     DoSubstruct,
     EOSlist,
+    HPIcePhaseState,
     OceanSubstruct,
     ResetMutableModelState,
     ResolveHPIceConvectionModel,
@@ -453,6 +454,140 @@ class Test05HPIceConvectionModelSelector(unittest.TestCase):
 
         with self.assertRaisesRegex(NotImplementedError, "reserved for future"):
             ResolveHPIceConvectionModel(do)
+
+
+class Test06HPIcePhaseState(unittest.TestCase):
+
+    def test_absent_phase_state_is_consistent(self):
+        state = HPIcePhaseState("VI", phaseID=6, status="absent")
+
+        self.assertFalse(state.present)
+        self.assertEqual(state.validityStatus, "absent")
+        self.assertEqual(state.skipReason, "absent")
+
+    def test_valid_phase_state_stores_diagnostic_fields(self):
+        state = HPIcePhaseState(
+            "V",
+            phaseID=5,
+            present=True,
+            status="computed",
+            thickness_m=2.0e5,
+            Ttop_K=260.0,
+            Tbot_K=270.0,
+            Tconv_K=264.0,
+            etaConv_Pas=1.0e15,
+            etaMelt_Pas=5.0e14,
+            eLid_m=1.0e4,
+            Dconv_m=1.8e5,
+            deltaTBL_m=1.0e4,
+            RaConvect=1.0e6,
+            RaCrit=1.0e4,
+            meltFraction=0.05,
+            DO_HP_MELT=True,
+        )
+
+        self.assertEqual(state.validityStatus, "ok")
+        self.assertTrue(state.DO_HP_MELT)
+        self.assertEqual(state.as_dict()["etaConv_Pas"], 1.0e15)
+
+    def test_diagnostic_writer_keeps_phase_state_synchronized(self):
+        planet = _Namespace()
+        planet.HPIceDiagnostics = {}
+
+        _SetHPIceDiagnosticFields(
+            planet,
+            "V",
+            status="computed",
+            phaseID=5,
+            iTop=4,
+            iBot=8,
+            thickness_m=2.0e5,
+            Ttop_K=260.0,
+            Tbot_K=270.0,
+            Tconv_K=264.0,
+            etaConv_Pas=1.0e15,
+            etaMelt_Pas=5.0e14,
+            eLid_m=1.0e4,
+            Dconv_m=1.8e5,
+            deltaTBL_m=1.0e4,
+            Ra=1.0e6,
+            RaCrit=1.0e4,
+            Qbot_W=1.0e12,
+            Pmid_MPa=600.0,
+            method="Deschamps and Sotin (2001)",
+            meltFraction=0.05,
+        )
+
+        state = planet.HPIceDiagnostics["V"]
+        self.assertEqual(planet.TconvV_K, state["Tconv_K"])
+        self.assertEqual(planet.etaConvV_Pas, state["etaConv_Pas"])
+        self.assertEqual(planet.meltFractionV, state["meltFraction"])
+        self.assertEqual(state["phaseName"], "V")
+        self.assertEqual(state["phaseID"], 5)
+        self.assertTrue(state["present"])
+        self.assertEqual(state["validityStatus"], "ok")
+        self.assertTrue(state["DO_HP_MELT"])
+
+    def test_negative_thickness_is_flagged(self):
+        state = HPIcePhaseState(
+            "III",
+            phaseID=3,
+            present=True,
+            status="computed",
+            thickness_m=-1.0,
+            Tconv_K=250.0,
+            etaConv_Pas=1.0e14,
+            eLid_m=0.0,
+            Dconv_m=0.0,
+            deltaTBL_m=0.0,
+            RaConvect=1.0e6,
+            RaCrit=1.0e4,
+        )
+
+        self.assertEqual(state.validityStatus, "invalid_geometry")
+
+    def test_nonfinite_computed_state_is_flagged(self):
+        state = HPIcePhaseState(
+            "V",
+            phaseID=5,
+            present=True,
+            status="computed",
+            thickness_m=2.0e5,
+            Tconv_K=np.nan,
+            etaConv_Pas=1.0e15,
+            eLid_m=1.0e4,
+            Dconv_m=1.8e5,
+            deltaTBL_m=1.0e4,
+            RaConvect=1.0e6,
+            RaCrit=1.0e4,
+        )
+
+        self.assertEqual(state.validityStatus, "nonfinite")
+
+    def test_melt_fraction_outside_bounds_is_flagged(self):
+        state = HPIcePhaseState(
+            "VI",
+            phaseID=6,
+            present=True,
+            status="computed",
+            thickness_m=2.0e5,
+            Tconv_K=286.0,
+            etaConv_Pas=5.0e14,
+            eLid_m=1.0e4,
+            Dconv_m=1.8e5,
+            deltaTBL_m=1.0e4,
+            RaConvect=1.0e6,
+            RaCrit=1.0e4,
+            meltFraction=1.5,
+        )
+
+        self.assertEqual(state.validityStatus, "invalid_melt_fraction")
+
+    def test_selector_behavior_is_unchanged_by_phase_state_scaffold(self):
+        do = DoSubstruct()
+        do.HP_ICE_CONVECTION_DIAGNOSTICS = True
+
+        self.assertEqual(ResolveHPIceConvectionModel(do), "DS2001_diagnostic")
 
 
 if __name__ == "__main__":
