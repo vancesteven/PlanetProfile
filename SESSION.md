@@ -2,7 +2,115 @@
 
 ## Branch: `genai`
 
-## What Was Done (this session)
+## What Was Done (2026-05-18 session)
+
+### HPIceConvection early-return fix — layer_propagators
+
+`HPIceConvection` in `LayerPropagators.py` previously fell through to
+`ConvectionDeschampsSotin2001` for HP ices (III/V/VI) when
+`KALOUSOVA_CONVECTION=False`. D-S 2001 has a hardcoded `Tupper_K=274`
+bracket in `ThermalProfiles.py:311–315` that is appropriate for Ice Ih
+but fails at the pressures HP ices inhabit, raising a ValueError at low
+Tb. The fix inserts an early return that writes no-convection diagnostic
+defaults (eLid=zb, Dconv=0, Ra=0, RaCrit=∞, meltFraction=0) and leaves
+T_K on the melt curve as `SelfConsistentOceanLayer` set it — the correct
+original PP behaviour for HP ices. Pre-existing Titan and Ganymede caches
+were not corrupted because D-S 2001's phase-mismatch escape hatch
+(`ThermalProfiles.py:296–305`) returned a conductive-profile fallback
+without touching T_K, ρ, μ, K, or η (the fields MCMC consumes); only
+diagnostic fields were silently wrong. The regression was visible on
+Callisto: 6/9 Tb grid points crashed; the rebuilt cache hit all 9 in
+21 min compared to the 74 min partial run that aborted.
+
+### v2.1 transition-aware Tb grid — cache_builder
+
+`cache_builder.py` gained `_bisect_transition` and a post-grid refinement
+phase. After the regular Tb sweep, the builder walks adjacent grid-point
+pairs and detects layer-set changes (different `region_phases` or
+`n_layers`). Each detected transition is bisected to ε_T = 0.01 K, and
+the converged anchor pair flanks the discontinuity by less than that
+tolerance. The cache schema is bumped to `v2.1` with a `transitions`
+metadata list `[{Tb_lo, Tb_hi, regions_lo, regions_hi}, ...]`. Old v2.0
+caches load unchanged. Physical motivation: a Tb at which a new layer
+first stabilises — HP ice III appearing, ocean surface forming, Ih
+switching from convective to conductive — is a genuine discontinuity. The
+0.01 K window means nearest-neighbour fallback at MCMC time is below any
+posterior precision we could resolve.
+
+### B-layered structure blend — forward_models
+
+`forward_models.py::_blend_b_layered` replaces the legacy element-wise
+blend that produced unphysical mush cells (ρ not matching phase identity)
+when blending across a moving layer boundary. The new implementation
+blends boundary radii linearly in `w`, then resamples each continuous
+per-cell field (ρ, K, μ, η, T, P, bulk_visc) onto s0's intra-layer
+normalised grid via `np.interp`; phase and discrete metadata are copied
+from s0 (guaranteed identical to s1 across same-structure brackets). Per-
+Tb scalars (CMR², D_iceIh_km, …) are linearly blended. Dispatch logic in
+`apply_bottom_temperature`: matching `region_phases` → B-layered blend;
+mismatched (cross-transition bracket) → nearest-neighbour. A precondition
+check asserts every per-cell field has length equal to `len(r_m)` before
+blending, surfacing padding bugs by field name rather than inside
+`np.interp`. 12 unit tests in `tests/test_layered_blend.py` cover the
+key invariants (boundary linearity, variable cell counts, no-mush, w=0/1
+endpoints, transition dispatch, scalar/meta handling).
+
+### P_MPa padding bug — cache_builder
+
+The thin-layer padding pass in `build_single_structure` (lines 256–316)
+extended all per-cell arrays via `np.interp` except `P_MPa`, which was
+kept at its original length. Caches with any padded layer therefore had
+`len(P_MPa) < len(r_m)` by the number of single-cell layers padded
+(typically 4). The bug was latent — Test50's runner never blended P_MPa
+cell-by-cell. The B-layered blend exercises P_MPa per cell, so the mismatch
+surfaced immediately. Fixed by adding `P_MPa` to the padding interpolation,
+identical to T_K. Zero field-length mismatches confirmed across rebuilt
+Callisto, Europa, and Ganymede caches.
+
+### ocean_overrides — cache_builder
+
+A new optional `ocean_overrides` dict in the v2.1 BodyConfig JSON is
+applied to `Planet.Ocean.<key>` after deepcopy of the body template and
+before running PP. This enables composition switching and concentration
+sweeps without maintaining N separate Python template files. The immediate
+use case is Callisto: PP's MgSO₄ EOS tops out at P=800 MPa; Callisto's
+deep ocean exceeds 200 MPa and triggers extrapolation regeneration on every
+call, making MgSO₄ builds prohibitively slow. `callisto_nacl_andrade_8D.json`
+uses `ocean_overrides` to switch to SeaFreeze's NaCl EOS (valid to 5 GPa).
+The MgSO₄ config is kept as a deprecated reference; a future SeaFreeze
+MgSO₄ extension can revisit.
+
+### Inference toolkit README — docs
+
+`PlanetProfile/Inference/README.md` (723 lines) written as the canonical
+methodology reference for the Phase C1 workflow. Covers pocoMC algorithm
+internals (preconditioned normalising flows, SMC tempering, n_effective
+semantics, ESS termination), v2.1 cache schema and transition semantics,
+B-layered blend derivation, ocean_overrides usage, and the full Phase C1
+end-to-end sequence (config JSON → build cache → smoke test → production
+MCMC).
+
+### Phase C1 v2.1 caches — Callisto, Europa, Ganymede
+
+Three production structure caches built with the v2.1 schema, transition
+refinement, and P_MPa fix:
+
+- `callisto_nacl_structure_grid.pkl`: 17 points, 1 transition (ocean
+  appearance), ~40 min build time with NaCl 100 ppt.
+- `europa_seawater_structure_grid.pkl`: 16 points, 1 transition, 53 s.
+- `ganymede_pureh2o_structure_grid.pkl`: 23 points, 2 transitions, 55 s.
+
+Smoke MCMC against the Callisto NaCl cache completed cleanly:
+ESS=4096, acceptance=0.61, posterior appropriately prior-dominated for
+1 observable in 8D (CMR² alone). Open future work: Gao & Stevenson 2013
+argues that slow rotators may not be in hydrostatic equilibrium, placing
+Callisto's CMR² up to 10% below the Anderson 2001 value. Inference runs at
+CMR² nominal−5% and nominal−10% (same σ=0.0042) should be built; the
+structure cache is observable-independent and need not be rebuilt.
+
+---
+
+## What Was Done (2026-05-13 session)
 
 ### Clathrate-thickness bug — narrow-scope fix
 

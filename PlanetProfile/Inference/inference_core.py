@@ -62,6 +62,27 @@ class InferenceConfig:
 
         fixed_params = {'Tb_K': 250.965}
     """
+    derived_params: Dict[str, Any] = field(default_factory=dict)
+    """
+    derived_params: Parameters whose value is computed from other sampled
+    parameters via a physical constraint, then optionally bounds-checked.
+    Stored at parse time; the derivation itself is performed by the runner.
+
+    Schema (v2)::
+
+        derived_params = {
+            'rho_sil_kgm3': {
+                'derivation': 'mass_conservation',
+                'bounds': [2200.0, 3500.0],
+                'reject_if_outside_bounds': True,
+            },
+        }
+
+    Currently the only registered derivation is ``mass_conservation`` for
+    ``rho_sil_kgm3``, wired in ``MCMCRunner._make_flexible_log_likelihood``
+    (Phase C1 Stage 2).  Unknown derivations are tolerated at parse time
+    and ignored by the runner.
+    """
 
     def __post_init__(self):
         """Validate configuration after initialization."""

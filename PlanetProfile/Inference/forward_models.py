@@ -218,6 +218,159 @@ def apply_shear_modulus(theta_dict: Dict[str, float], structure_data: Dict[str, 
     return structure_data
 
 
+# ----------------------------------------------------------------------
+# B-layered blend (per-layer boundary interpolation + intra-layer resample).
+# Supersedes the legacy element-wise blend, which was unsafe whenever
+# (a) cell counts differed between adjacent grid points, or (b) layer
+# boundary radii moved between adjacent Tb (the universal case for any
+# body with an ocean — see the cache_builder transition-detection logic).
+# ----------------------------------------------------------------------
+
+_BLEND_CONT_FIELDS = ('rho', 'K_Pa', 'mu_Pa', 'eta_Pa_base',
+                      'T_K', 'P_MPa', 'bulk_visc')
+_BLEND_SCALAR_FIELDS = ('Tb_K', 'CMR2', 'rhoSil_kgm3', 'D_hsphere_km',
+                        'D_iceIh_km', 'D_iceIII_km', 'D_iceV_km', 'D_iceVI_km')
+_BLEND_META_FIELDS = ('omega', 'eccentricity', 'host_mass', 'a_m',
+                      'R_body_m', 'Mtot_kg', 'phases', 'changeIndices',
+                      'n_layers', 'layer_types', 'region_phases')
+
+
+def _regions_match(s0: Dict[str, Any], s1: Dict[str, Any]) -> bool:
+    """True if two structures share the same layer set."""
+    return (
+        s0.get('region_phases') == s1.get('region_phases')
+        and s0.get('n_layers') == s1.get('n_layers')
+    )
+
+
+def _blend_b_layered(s0: Dict[str, Any], s1: Dict[str, Any], w: float) -> Dict[str, Any]:
+    """B-layered blend — per-layer boundary motion + intra-layer resample.
+
+    Preconditions (caller's responsibility): ``_regions_match(s0, s1)`` is
+    True, both structures carry ``r_m``, ``changeIndices``, and at least
+    one of the continuous fields.
+
+    Algorithm: for each layer index k, blend the layer's boundary radii
+    (`r_lo`, `r_hi`) linearly in `w`. Build the target intra-layer cell
+    grid by taking s0's normalised cell positions and rescaling to the
+    blended boundaries. Resample s1's layer values onto that target grid
+    via `np.interp`, then linear-blend with s0's values cell-wise.
+
+    Phase identity, cell count, layer count, and layer types come from
+    s0 (identical to s1's by the matching-regions precondition). Scalar
+    body parameters (``omega``, ``R_body_m``, …) are Tb-invariant; copied
+    from s0. Layer boundary radii (``layer_upper_radii``) are blended.
+    Per-Tb scalars (``CMR2``, ``rhoSil_kgm3``, ``D_iceIh_km``, …) are
+    linear-blended.
+    """
+    n_layers = int(s0['n_layers'])
+    s0_ci = np.asarray(s0['changeIndices'], dtype=int)
+    s1_ci = np.asarray(s1['changeIndices'], dtype=int)
+    s0_r = np.asarray(s0['r_m'], dtype=float)
+    s1_r = np.asarray(s1['r_m'], dtype=float)
+
+    # Precondition: every per-cell field in either structure must have
+    # the same length as that structure's r_m. Catches cache-builder
+    # padding bugs surgically — without this, np.interp deep inside
+    # the loop raises "fp and xp are not of the same length" with no
+    # hint which field is at fault.
+    for label, struct, r_arr in (('s0', s0, s0_r), ('s1', s1, s1_r)):
+        n = len(r_arr)
+        if int(struct.get('changeIndices', [0])[-1]) != n:
+            raise ValueError(
+                f"_blend_b_layered: {label}.changeIndices[-1] "
+                f"({int(struct['changeIndices'][-1])}) != len(r_m) ({n}); "
+                "cache is internally inconsistent."
+            )
+        for field in _BLEND_CONT_FIELDS:
+            if field in struct:
+                m = len(np.asarray(struct[field]))
+                if m != n:
+                    raise ValueError(
+                        f"_blend_b_layered: {label}['{field}'] has length "
+                        f"{m} but len(r_m)={n}. Cache-builder padding likely "
+                        f"missed this field. Re-run cache build after fixing "
+                        f"build_single_structure's per-cell padding pass."
+                    )
+
+    n_cells = len(s0_r)
+    out_r = np.empty(n_cells, dtype=float)
+    out_cont: Dict[str, np.ndarray] = {}
+    for field in _BLEND_CONT_FIELDS:
+        if field in s0 and field in s1:
+            out_cont[field] = np.empty(n_cells, dtype=float)
+
+    for k in range(n_layers):
+        s0_lo, s0_hi = int(s0_ci[k]), int(s0_ci[k + 1])
+        s1_lo, s1_hi = int(s1_ci[k]), int(s1_ci[k + 1])
+        if s0_hi <= s0_lo or s1_hi <= s1_lo:
+            continue  # degenerate layer; skip (shouldn't happen post-MIN_POINTS pad)
+
+        # Layer boundary radii in s0 / s1
+        r0_lo_b = float(s0_r[s0_lo])
+        r0_hi_b = float(s0_r[s0_hi - 1])
+        r1_lo_b = float(s1_r[s1_lo])
+        r1_hi_b = float(s1_r[s1_hi - 1])
+        # Blended boundaries
+        r_lo = (1.0 - w) * r0_lo_b + w * r1_lo_b
+        r_hi = (1.0 - w) * r0_hi_b + w * r1_hi_b
+
+        # Target intra-layer cell grid: s0's normalised positions, rescaled.
+        if r0_hi_b > r0_lo_b:
+            t0 = (s0_r[s0_lo:s0_hi] - r0_lo_b) / (r0_hi_b - r0_lo_b)
+        else:
+            t0 = np.linspace(0.0, 1.0, s0_hi - s0_lo)
+        out_r[s0_lo:s0_hi] = r_lo + t0 * (r_hi - r_lo)
+
+        # s1's normalised positions for resampling.
+        if r1_hi_b > r1_lo_b:
+            t1_src = (s1_r[s1_lo:s1_hi] - r1_lo_b) / (r1_hi_b - r1_lo_b)
+        else:
+            t1_src = np.linspace(0.0, 1.0, s1_hi - s1_lo)
+        # np.interp wants xp ascending — both t arrays are ascending by
+        # construction (r_m is ascending within each layer).
+
+        for field, out_arr in out_cont.items():
+            s0_val = np.asarray(s0[field], dtype=float)[s0_lo:s0_hi]
+            s1_val = np.asarray(s1[field], dtype=float)[s1_lo:s1_hi]
+            s1_resampled = np.interp(t0, t1_src, s1_val)
+            out_arr[s0_lo:s0_hi] = (1.0 - w) * s0_val + w * s1_resampled
+
+    out: Dict[str, Any] = {'r_m': out_r}
+    out.update(out_cont)
+
+    # Layer-set / phase / metadata fields: take from s0 (identical to s1)
+    for k in _BLEND_META_FIELDS:
+        if k in s0:
+            v = s0[k]
+            out[k] = v.copy() if isinstance(v, np.ndarray) else v
+
+    # Per-Tb scalar fields: linear blend
+    for k in _BLEND_SCALAR_FIELDS:
+        if k in s0 and k in s1:
+            try:
+                out[k] = (1.0 - w) * float(s0[k]) + w * float(s1[k])
+            except (TypeError, ValueError):
+                out[k] = s0[k]
+
+    # layer_upper_radii: linear-blend the tuple element-wise
+    if 'layer_upper_radii' in s0 and 'layer_upper_radii' in s1:
+        a, b = s0['layer_upper_radii'], s1['layer_upper_radii']
+        if len(a) == len(b):
+            out['layer_upper_radii'] = tuple(
+                (1.0 - w) * float(av) + w * float(bv) for av, bv in zip(a, b)
+            )
+        else:
+            out['layer_upper_radii'] = a  # fallback, shouldn't happen post-precondition
+
+    return out
+
+
+def _copy_struct(s: Dict[str, Any]) -> Dict[str, Any]:
+    """Shallow copy with deep-copy of ndarray fields."""
+    return {k: (v.copy() if isinstance(v, np.ndarray) else v) for k, v in s.items()}
+
+
 @parameter_hook('Tb_K')
 def apply_bottom_temperature(theta_dict: Dict[str, float], structure_data: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -229,53 +382,46 @@ def apply_bottom_temperature(theta_dict: Dict[str, float], structure_data: Dict[
        ``'grid_cache'`` (dict[float -> structure_dict]) and
        ``'grid_Tb_values'`` (sorted 1-D array). Nearest-neighbour selection.
 
-    2. **Test50 list format**: ``structure_data`` contains ``'Tb_K_grid'``
-       (1-D array) and ``'structures'`` (list of structure dicts). Linear
-       interpolation between bracketing grid points — identical to Test50's
-       ``_interp_structure`` logic.
+    2. **List format (Test50 + v2.1 transition-aware)**: ``structure_data``
+       contains ``'Tb_K_grid'`` (1-D array) and ``'structures'`` (list of
+       structure dicts). Bracketing grid points are blended via the
+       B-layered scheme (per-layer boundary motion + intra-layer
+       resample) when their layer sets match. When the bracket straddles
+       a layer-set transition (different ``region_phases``), the runner
+       falls back to nearest-neighbour selection — these intervals are
+       narrow (cache_builder pins them to ε_T = 0.01 K) so the
+       discontinuity sits well below typical posterior width.
     """
     Tb_K = theta_dict['Tb_K']
 
-    # --- Format 2: Test50 list grid ---
+    # --- Format 2: Test50 list grid (now v2.1 transition-aware) ---
     if 'Tb_K_grid' in structure_data and 'structures' in structure_data:
         Tb_grid = structure_data['Tb_K_grid']
         structs = structure_data['structures']
         Tb_clamped = float(np.clip(Tb_K, Tb_grid[0], Tb_grid[-1]))
         j = int(np.searchsorted(Tb_grid, Tb_clamped))
         if j <= 0:
-            out = {k: (v.copy() if isinstance(v, np.ndarray) else v)
-                   for k, v in structs[0].items()}
+            out = _copy_struct(structs[0])
         elif j >= len(Tb_grid):
-            out = {k: (v.copy() if isinstance(v, np.ndarray) else v)
-                   for k, v in structs[-1].items()}
+            out = _copy_struct(structs[-1])
         else:
             t0_v, t1_v = Tb_grid[j - 1], Tb_grid[j]
             w = 0.0 if t1_v == t0_v else (Tb_clamped - t0_v) / (t1_v - t0_v)
             s0, s1 = structs[j - 1], structs[j]
-            out = {}
-            _interp_array = ('r_m', 'rho', 'K_Pa', 'mu_Pa', 'eta_Pa_base',
-                              'T_K', 'P_MPa', 'bulk_visc')
-            _interp_scalar = ('Tb_K', 'CMR2', 'rhoSil_kgm3', 'D_hsphere_km',
-                              'D_iceIh_km', 'D_iceIII_km', 'D_iceV_km', 'D_iceVI_km')
-            for k in _interp_array:
-                if k in s0:
-                    out[k] = (1.0 - w) * s0[k] + w * s1[k]
-            for k in _interp_scalar:
-                if k in s0:
-                    out[k] = (1.0 - w) * float(s0[k]) + w * float(s1[k])
-            if 'layer_upper_radii' in s0:
-                out['layer_upper_radii'] = tuple(
-                    (1.0 - w) * float(a) + w * float(b)
-                    for a, b in zip(s0['layer_upper_radii'], s1['layer_upper_radii'])
-                )
-            for k in ('phases', 'changeIndices', 'n_layers', 'layer_types',
-                      'region_phases', 'omega', 'eccentricity', 'host_mass',
-                      'a_m', 'R_body_m', 'Mtot_kg'):
-                if k in s0:
-                    out[k] = s0[k]
+            if _regions_match(s0, s1):
+                out = _blend_b_layered(s0, s1, w)
+            else:
+                # Across-transition bracket: pick the nearer grid point.
+                # cache_builder narrows transitions to ε_T = 0.01 K so the
+                # mid-bracket discontinuity is much smaller than typical
+                # Tb posterior widths.
+                nearer = s0 if (Tb_clamped - t0_v) <= (t1_v - Tb_clamped) else s1
+                out = _copy_struct(nearer)
         # Carry grid reference so downstream hooks can still access it
         out['Tb_K_grid'] = Tb_grid
         out['structures'] = structs
+        if 'transitions' in structure_data:
+            out['transitions'] = structure_data['transitions']
         # Store sampled Tb as reference for Arrhenius hook
         out['Tb_K_sampled'] = Tb_K
         return out

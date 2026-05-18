@@ -1,0 +1,640 @@
+"""
+Body-agnostic structure-cache builder for the MCMC inference toolkit.
+
+Phase C1 Stage 3 deliverable. Mirrors the structure-build logic in
+``PlanetProfile.Test.Test50_mcmc_andrade_noocean_yao2014._build_single_structure``
+with the two body-specific anchors (PP test-module name and surface radius)
+parameterised. Test50 is left unchanged in this commit; a future cleanup can
+delete its private copy and import from here.
+
+Two public entry points:
+
+    build_single_structure(planet_template_module, Tb_K)
+        Run PlanetProfile once at one ``Tb_K`` and return the per-cell
+        cache dict consumed by ``MCMCRunner._make_flexible_log_likelihood``.
+
+    build_tb_grid_cache(planet_template_module, Tb_grid, output_path)
+        Loop ``build_single_structure`` over a ``Tb_K`` grid, save as
+        ``{'Tb_K_grid': [...], 'structures': [{...}, ...]}`` pickle.
+
+The output dict shape matches ``Test50``'s exactly so the existing runner
+paths (single-structure cache, grid-interpolated cache, v1 cached-CMR² and
+v2 mass-conservation paths) all consume it without changes.
+"""
+from __future__ import annotations
+
+import importlib
+import logging
+import os
+import pickle
+import sys
+import tempfile
+from typing import Any, Dict, Iterable, List, Tuple
+
+import numpy as np
+
+# Heavy PP imports are deferred to call-time so importing this module does
+# not initialise EOS tables. Tests of the cache_builder API should avoid
+# triggering ``build_single_structure`` unless a real PP environment is
+# available.
+
+log = logging.getLogger("PlanetProfile.Inference.cache_builder")
+
+
+# Body orbital parameters used by the k2 forward model. PP's default body
+# configs do not set ``Bulk.meanMotion_radps`` or ``Bulk.eccentricity``;
+# Test50 injects them inline for Titan. We do the same here for Phase C1
+# bodies via a lookup keyed on ``Planet.bodyname`` so the cache build
+# works against the unmodified body defaults.
+#
+# Sources:
+#   - Orbital periods from JPL satellite ephemerides (sat427/sat441).
+#   - Eccentricities from Murray & Dermott (1999) Table A.1 / NASA fact sheets.
+# Recompute meanMotion_radps as 2*pi / (T_days * 86400) when updating.
+BODY_ORBITAL_PARAMS: Dict[str, Dict[str, float]] = {
+    "Europa":   {"meanMotion_radps": 2.0479e-5, "eccentricity": 0.0094},
+    "Ganymede": {"meanMotion_radps": 1.0163e-5, "eccentricity": 0.0013},
+    "Callisto": {"meanMotion_radps": 4.358e-6,  "eccentricity": 0.0074},
+    "Titan":    {"meanMotion_radps": 4.560e-6,  "eccentricity": 0.0288},
+}
+
+
+def _save_cache_atomic(data: Any, filepath: str) -> None:
+    """Atomic pickle write. Mirrors ``Test50._save_cache``."""
+    filepath = str(filepath)
+    parent = os.path.dirname(filepath) or "."
+    os.makedirs(parent, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=parent, suffix=".pkl.tmp")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+        os.replace(tmp_path, filepath)
+    except BaseException:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
+
+
+def build_single_structure(
+    planet_template_module: str,
+    Tb_K: float,
+    ocean_overrides: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    """Run PlanetProfile once and return the cache dict for one ``Tb_K``.
+
+    Parameters
+    ----------
+    planet_template_module
+        Dotted import path of a PP body config module that exposes a
+        ``Planet`` object at module top-level (e.g. ``PlanetProfile.Default.
+        Europa.PPEuropa``, ``PlanetProfile.Test.PPTest50``). The function
+        deep-copies ``Planet`` and overrides ``Planet.Bulk.Tb_K``; the source
+        module is not mutated.
+    Tb_K
+        Basal-temperature override applied to the deep-copied Planet.
+    ocean_overrides
+        Optional dict of ``Planet.Ocean.<key>`` overrides applied after
+        the deep-copy. Use to switch composition (``{'comp': 'NaCl',
+        'wOcean_ppt': 100.0}``) or sweep concentration without
+        modifying the body's default template module. Each key/value
+        is applied via ``setattr(Planet.Ocean, key, value)``.
+
+    Returns
+    -------
+    A dict with keys: ``r_m``, ``rho``, ``K_Pa``, ``mu_Pa``, ``eta_Pa_base``,
+    ``phases``, ``T_K``, ``P_MPa``, ``bulk_visc``, ``changeIndices``,
+    ``n_layers``, ``layer_upper_radii``, ``layer_types``, ``region_phases``,
+    ``omega``, ``eccentricity``, ``host_mass``, ``a_m``, ``R_body_m``,
+    ``Mtot_kg``, ``CMR2``, ``Tb_K``, ``rhoSil_kgm3``, ``D_hsphere_km``,
+    ``D_iceIh_km``, ``D_iceIII_km``, ``D_iceV_km``, ``D_iceVI_km``.
+    """
+    from copy import deepcopy
+
+    from PlanetProfile.GetConfig import Params as configParams
+    from PlanetProfile.Gravity.Gravity import SetupGravity
+    from PlanetProfile.Main import PlanetProfile as RunPP
+    from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+    from PlanetProfile.Utilities.Indexing import PhaseConv
+
+    EOSlist.loaded.clear()
+
+    # Re-import the template module to pick up any in-process edits, then
+    # deep-copy its Planet object so this call doesn't pollute the source.
+    if planet_template_module in sys.modules:
+        importlib.reload(sys.modules[planet_template_module])
+    else:
+        importlib.import_module(planet_template_module)
+    mod = sys.modules[planet_template_module]
+    Planet = deepcopy(mod.Planet)
+
+    Planet.Bulk.Tb_K = Tb_K
+
+    # Apply ocean overrides (e.g. composition switch, concentration sweep).
+    # Applied to the deep-copied Planet only — source module is unaffected.
+    if ocean_overrides:
+        for key, value in ocean_overrides.items():
+            if not hasattr(Planet.Ocean, key):
+                log.warning(
+                    f"ocean_overrides: Planet.Ocean has no attribute {key!r}; "
+                    "setting it anyway."
+                )
+            setattr(Planet.Ocean, key, value)
+        log.info(f"Applied ocean_overrides: {ocean_overrides}")
+
+    # Inject orbital params if the PP default config didn't set them.
+    # Required by the k2 forward model (rheology path); not used by the v2
+    # CMR² mass-conservation path itself.
+    if getattr(Planet.Bulk, "meanMotion_radps", None) is None:
+        body_orb = BODY_ORBITAL_PARAMS.get(getattr(Planet, "bodyname", ""))
+        if body_orb is not None:
+            Planet.Bulk.meanMotion_radps = body_orb["meanMotion_radps"]
+            if getattr(Planet.Bulk, "eccentricity", None) is None:
+                Planet.Bulk.eccentricity = body_orb["eccentricity"]
+        else:
+            log.warning(
+                f"Planet.Bulk.meanMotion_radps is None for body "
+                f"{getattr(Planet, 'bodyname', '?')!r} and not in "
+                "BODY_ORBITAL_PARAMS. The k2 forward model will fail "
+                "for this cache; CMR² inference still works."
+            )
+
+    configParams.Gravity.backend = "tidalpy"
+    configParams.CALC_NEW = True
+    configParams.CALC_NEW_GRAVITY = False
+    configParams.NO_SAVEFILE = True
+    configParams.SKIP_PLOTS = True
+
+    Planet, Params = RunPP(Planet, configParams)
+    Params.CALC_NEW_GRAVITY = True
+    Planet, Params = SetupGravity(Planet, Params)
+
+    # Surface radius — body-agnostic, pulled from the Planet object that PP
+    # populated from the template module.
+    R_body_m = float(Planet.Bulk.R_m)
+
+    # ------------------------------------------------------------------
+    # The remainder of this function is a verbatim copy of Test50's
+    # _build_single_structure body, with TITAN_R_M replaced by R_body_m.
+    # ------------------------------------------------------------------
+    model = Planet.Gravity.ALMAModel["model"]
+    cols = Planet.Gravity.columns
+    rIndex = cols.index("r")
+    rhoIndex = cols.index("rho")
+    VPIndex = cols.index("VP")
+    GSIndex = cols.index("GS")
+    etaIndex = cols.index("eta")
+    pIndex = cols.index("phase")
+
+    r_m = model[:, rIndex].astype(np.float64)
+    rho = model[:, rhoIndex].astype(np.float64)
+    mu_Pa = model[:, GSIndex].astype(np.float64)
+    VP_ms = model[:, VPIndex].astype(np.float64)
+    eta_Pa_base = model[:, etaIndex].astype(np.float64)
+    phases = model[:, pIndex]
+
+    try:
+        T_K_primary = np.asarray(Planet.T_K, dtype=np.float64)
+        r_m_primary = np.asarray(Planet.r_m[: T_K_primary.size], dtype=np.float64)
+        sort_idx = np.argsort(r_m_primary)
+        T_K = np.interp(r_m, r_m_primary[sort_idx], T_K_primary[sort_idx])
+    except (AttributeError, ValueError) as _exc:
+        T_K = np.full(r_m.size, np.nan)
+        log.warning(
+            f"Planet.T_K extraction failed ({_exc}) — Arrhenius Ih viscosity will be skipped."
+        )
+
+    try:
+        P_MPa_primary = np.asarray(Planet.P_MPa[: T_K_primary.size], dtype=np.float64)
+        P_MPa = np.interp(r_m, r_m_primary[sort_idx], P_MPa_primary[sort_idx])
+    except (AttributeError, ValueError, NameError) as _exc:
+        P_MPa = np.full(r_m.size, np.nan)
+        log.warning(
+            f"Planet.P_MPa extraction failed ({_exc}) — no-ocean safeguard will be disabled."
+        )
+
+    K_Pa = rho * VP_ms ** 2 - (4.0 / 3.0) * mu_Pa
+    nan_mask = ~np.isfinite(K_Pa) | (K_Pa <= 0)
+    if np.any(nan_mask):
+        for i in np.where(nan_mask)[0]:
+            ph = int(phases[i])
+            if 50 <= ph < 100:
+                nu = 0.25
+            elif ph >= 100:
+                nu = 0.29
+            else:
+                nu = 0.33
+            K_Pa[i] = 2.0 * mu_Pa[i] * (1.0 + nu) / (3.0 * (1.0 - 2.0 * nu))
+    K_Pa = np.maximum(K_Pa, 1e6)
+
+    changeIndices = np.max(Planet.Reduced.changeIndices) - np.flipud(
+        Planet.Reduced.changeIndices
+    )
+    n_layers = len(changeIndices) - 1
+
+    MIN_POINTS = 5
+    needs_padding = any(
+        changeIndices[i + 1] - changeIndices[i] < MIN_POINTS
+        for i in range(n_layers)
+    )
+
+    _orig_iConv = np.flipud(Planet.Reduced.iConv)
+    region_phases = []
+    for i_layer in range(n_layers):
+        start = changeIndices[i_layer]
+        phase = phases[start]
+        if phase >= Constants.phaseClath and phase < Constants.phaseClath + 10:
+            phase = Constants.phaseClath
+        convection = _orig_iConv[start]
+        phase_str = PhaseConv(phase, liq="0")
+        if convection:
+            phase_str += "_conv"
+        region_phases.append(phase_str)
+
+    bulk_visc = np.zeros_like(eta_Pa_base)
+
+    if needs_padding:
+        new_r, new_rho, new_K, new_mu, new_eta, new_phases, new_bv, new_T, new_P = (
+            [], [], [], [], [], [], [], [], []
+        )
+        new_ci = [0]
+        for i_layer in range(n_layers):
+            s, e = changeIndices[i_layer], changeIndices[i_layer + 1]
+            n_pts = e - s
+            if n_pts < MIN_POINTS and n_pts >= 2:
+                r_layer = r_m[s:e]
+                r_interp = np.linspace(r_layer[0], r_layer[-1], MIN_POINTS)
+                new_r.append(r_interp)
+                new_rho.append(np.interp(r_interp, r_layer, rho[s:e]))
+                new_K.append(np.interp(r_interp, r_layer, K_Pa[s:e]))
+                new_mu.append(np.interp(r_interp, r_layer, mu_Pa[s:e]))
+                new_eta.append(np.interp(r_interp, r_layer, eta_Pa_base[s:e]))
+                new_phases.append(np.full(MIN_POINTS, phases[s]))
+                new_bv.append(np.zeros(MIN_POINTS))
+                new_T.append(np.interp(r_interp, r_layer, T_K[s:e]))
+                new_P.append(np.interp(r_interp, r_layer, P_MPa[s:e]))
+                new_ci.append(new_ci[-1] + MIN_POINTS)
+            elif n_pts == 1:
+                r_top = r_m[s]
+                r_bot = r_m[s - 1] if s > 0 else r_top - 1.0
+                if r_bot >= r_top:
+                    r_bot = r_top - 1.0
+                r_interp = np.linspace(r_bot, r_top, MIN_POINTS)
+                new_r.append(r_interp)
+                new_rho.append(np.full(MIN_POINTS, rho[s]))
+                new_K.append(np.full(MIN_POINTS, K_Pa[s]))
+                new_mu.append(np.full(MIN_POINTS, mu_Pa[s]))
+                new_eta.append(np.full(MIN_POINTS, eta_Pa_base[s]))
+                new_phases.append(np.full(MIN_POINTS, phases[s]))
+                new_bv.append(np.zeros(MIN_POINTS))
+                T_lo = T_K[s - 1] if s > 0 and np.isfinite(T_K[s - 1]) else T_K[s]
+                T_hi = T_K[s] if np.isfinite(T_K[s]) else T_lo
+                new_T.append(np.linspace(T_lo, T_hi, MIN_POINTS))
+                P_lo = P_MPa[s - 1] if s > 0 and np.isfinite(P_MPa[s - 1]) else P_MPa[s]
+                P_hi = P_MPa[s] if np.isfinite(P_MPa[s]) else P_lo
+                new_P.append(np.linspace(P_lo, P_hi, MIN_POINTS))
+                new_ci.append(new_ci[-1] + MIN_POINTS)
+            else:
+                new_r.append(r_m[s:e])
+                new_rho.append(rho[s:e])
+                new_K.append(K_Pa[s:e])
+                new_mu.append(mu_Pa[s:e])
+                new_eta.append(eta_Pa_base[s:e])
+                new_phases.append(phases[s:e])
+                new_bv.append(bulk_visc[s:e])
+                new_T.append(T_K[s:e])
+                new_P.append(P_MPa[s:e])
+                new_ci.append(new_ci[-1] + (e - s))
+
+        r_m = np.concatenate(new_r)
+        rho = np.concatenate(new_rho)
+        K_Pa = np.concatenate(new_K)
+        mu_Pa = np.concatenate(new_mu)
+        eta_Pa_base = np.concatenate(new_eta)
+        phases = np.concatenate(new_phases)
+        bulk_visc = np.concatenate(new_bv)
+        P_MPa = np.concatenate(new_P)
+        T_K = np.concatenate(new_T)
+        changeIndices = np.array(new_ci)
+
+    layer_upper_radii: List[float] = []
+    layer_types: List[str] = []
+    for i_layer in range(n_layers):
+        end = changeIndices[i_layer + 1]
+        layer_upper_radii.append(r_m[end - 1])
+        layer_types.append(
+            "liquid" if phases[changeIndices[i_layer]] == 0 else "solid"
+        )
+
+    omega = Planet.Bulk.meanMotion_radps
+    ecc = Planet.Bulk.eccentricity
+    host_mass = Constants.parentMass_kg[Planet.parent]
+    a_m = (Constants.G * host_mass / omega ** 2) ** (1.0 / 3.0)
+
+    D_iceIh_km = D_iceIII_km = D_iceV_km = D_iceVI_km = 0.0
+    for i_layer in range(n_layers):
+        s = changeIndices[i_layer]
+        e = changeIndices[i_layer + 1]
+        ph = int(phases[s])
+        thick_km = (r_m[e - 1] - r_m[s]) / 1e3
+        if ph == 1:
+            D_iceIh_km += thick_km
+        elif ph == 3:
+            D_iceIII_km += thick_km
+        elif ph == 5:
+            D_iceV_km += thick_km
+        elif ph == 6:
+            D_iceVI_km += thick_km
+
+    CMR2_pp = Planet.Bulk.Cmeasured if hasattr(Planet.Bulk, "Cmeasured") else np.nan
+    try:
+        CMR2_pp = float(Planet.CMR2mean)
+    except (AttributeError, TypeError):
+        pass
+
+    R_sil = getattr(Planet.Sil, "Rmean_m", r_m[0])
+    D_hsphere_km = (R_body_m - R_sil) / 1e3
+
+    return {
+        "r_m": np.ascontiguousarray(r_m),
+        "rho": np.ascontiguousarray(rho),
+        "K_Pa": np.ascontiguousarray(K_Pa),
+        "mu_Pa": np.ascontiguousarray(mu_Pa),
+        "eta_Pa_base": eta_Pa_base,
+        "phases": phases,
+        "T_K": np.ascontiguousarray(T_K),
+        "P_MPa": np.ascontiguousarray(P_MPa),
+        "bulk_visc": np.ascontiguousarray(bulk_visc),
+        "changeIndices": changeIndices,
+        "n_layers": n_layers,
+        "layer_upper_radii": tuple(layer_upper_radii),
+        "layer_types": tuple(layer_types),
+        "region_phases": region_phases,
+        "omega": omega,
+        "eccentricity": ecc,
+        "host_mass": host_mass,
+        "a_m": a_m,
+        "R_body_m": R_body_m,
+        "Mtot_kg": Planet.Bulk.M_kg,
+        "CMR2": CMR2_pp,
+        "Tb_K": float(Tb_K),
+        "rhoSil_kgm3": getattr(Planet.Sil, "rhoMean_kgm3", np.nan),
+        "D_hsphere_km": D_hsphere_km,
+        "D_iceIh_km": D_iceIh_km,
+        "D_iceIII_km": D_iceIII_km,
+        "D_iceV_km": D_iceV_km,
+        "D_iceVI_km": D_iceVI_km,
+    }
+
+
+def _regions_match(s0: Dict[str, Any], s1: Dict[str, Any]) -> bool:
+    """True if two structures share the same layer set (region_phases + n_layers)."""
+    return (
+        s0.get("region_phases") == s1.get("region_phases")
+        and s0.get("n_layers") == s1.get("n_layers")
+    )
+
+
+def _bisect_transition(
+    planet_template_module: str,
+    Tb_lo: float,
+    Tb_hi: float,
+    regions_lo: Any,
+    regions_hi: Any,
+    eps_T: float = 0.01,
+    max_iter: int = 20,
+    ocean_overrides: Dict[str, Any] | None = None,
+) -> List[Tuple[float, Dict[str, Any]]]:
+    """Bisect ``[Tb_lo, Tb_hi]`` to localise a layer-set transition.
+
+    The interval is shrunk until ``Tb_hi - Tb_lo < eps_T``. Each bisection
+    midpoint runs PP (via :func:`build_single_structure`) and is appended
+    to the returned list of ``(Tb, struct)`` pairs — the caller inserts
+    these into the overall grid, rather than throwing them away. The
+    converged anchor pair (final Tb_lo, final Tb_hi) bracket the actual
+    transition by less than ``eps_T``.
+
+    If a third layer set is discovered at a midpoint (multiple transitions
+    in the original interval), the function recurses into both
+    sub-intervals; the third regime's structure is also added to the
+    returned list.
+
+    Failures of the underlying PP build at a midpoint terminate refinement
+    early — the partially-narrowed interval is returned (with whatever
+    midpoints succeeded), and the caller still has the original endpoints
+    so coverage is preserved.
+    """
+    discovered: List[Tuple[float, Dict[str, Any]]] = []
+    iters = 0
+
+    while (Tb_hi - Tb_lo) > eps_T and iters < max_iter:
+        Tb_mid = 0.5 * (Tb_lo + Tb_hi)
+        try:
+            s_mid = build_single_structure(
+                planet_template_module, float(Tb_mid),
+                ocean_overrides=ocean_overrides,
+            )
+        except Exception as exc:
+            log.warning(
+                f"    × bisection midpoint Tb_K={Tb_mid:.4f} failed "
+                f"({type(exc).__name__}: {exc}); stopping refinement of this interval."
+            )
+            break
+
+        regions_mid = s_mid.get("region_phases")
+        if regions_mid == regions_lo:
+            Tb_lo = Tb_mid
+            discovered.append((Tb_mid, s_mid))
+        elif regions_mid == regions_hi:
+            Tb_hi = Tb_mid
+            discovered.append((Tb_mid, s_mid))
+        else:
+            log.info(
+                f"    third regime at Tb_K={Tb_mid:.4f}: {regions_mid}; "
+                "splitting bisection."
+            )
+            below = _bisect_transition(
+                planet_template_module, Tb_lo, Tb_mid,
+                regions_lo, regions_mid, eps_T, max_iter,
+                ocean_overrides=ocean_overrides,
+            )
+            above = _bisect_transition(
+                planet_template_module, Tb_mid, Tb_hi,
+                regions_mid, regions_hi, eps_T, max_iter,
+                ocean_overrides=ocean_overrides,
+            )
+            discovered.append((Tb_mid, s_mid))
+            discovered.extend(below)
+            discovered.extend(above)
+            break
+        iters += 1
+
+    return discovered
+
+
+def build_tb_grid_cache(
+    planet_template_module: str,
+    Tb_grid: Iterable[float],
+    output_path: str,
+    progress: bool = True,
+    detect_transitions: bool = True,
+    eps_T: float = 0.01,
+    ocean_overrides: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    """Build a Tb-grid cache by repeatedly calling ``build_single_structure``.
+
+    Two-phase build:
+
+    1. **Regular grid.** Run PP at each ``Tb`` in ``Tb_grid`` (sorted).
+       Skip-on-failure preserves coverage.
+    2. **Transition refinement.** When ``detect_transitions`` is True
+       (default), walk adjacent grid pairs and detect changes in
+       ``region_phases``. For each transition, bisect to within
+       ``eps_T`` Kelvin (default 0.01). The bisection midpoints are
+       added to the grid as extra structures, and the converged
+       endpoints flank the transition by < ``eps_T``. The returned
+       cache also carries a ``transitions`` metadata list so the
+       MCMC runner can dispatch nearest-neighbour across them
+       instead of attempting a layered blend.
+
+    Parameters
+    ----------
+    planet_template_module
+        See :func:`build_single_structure`.
+    Tb_grid
+        Iterable of Tb_K values (K). Cast to a 1-D numpy float array
+        and sorted ascending.
+    output_path
+        Pickle path. Atomic write via tempfile + os.replace.
+    progress
+        Per-grid-point INFO log lines (default True).
+    detect_transitions
+        If True (default), refine the grid near layer-set transitions.
+        Set to False to reproduce the unrefined v2.0 cache shape.
+    eps_T
+        Bisection tolerance in Kelvin (default 0.01). The anchor pair
+        flanking each transition is separated by < ``eps_T``.
+
+    Returns
+    -------
+    The saved-to-disk dict::
+
+        {'Tb_K_grid': np.ndarray,
+         'structures': [structure_dict, ...],
+         'transitions': [{'Tb_lo': float, 'Tb_hi': float,
+                          'regions_lo': [...], 'regions_hi': [...]},
+                         ...],
+         'schema_version': 'v2.1'}
+
+    The ``structures`` list is parallel to ``Tb_K_grid``; index ``i`` of
+    one matches index ``i`` of the other. ``transitions`` is empty when
+    no transitions were detected (or when ``detect_transitions`` is
+    False).
+    """
+    Tb_arr = np.asarray(list(Tb_grid), dtype=np.float64)
+    if Tb_arr.ndim != 1 or Tb_arr.size < 2:
+        raise ValueError(
+            f"Tb_grid must be a 1-D iterable with >= 2 points, got {Tb_arr!r}"
+        )
+    order = np.argsort(Tb_arr)
+    Tb_arr = Tb_arr[order]
+
+    # ----- Phase 1: regular grid -----
+    structures: List[Dict[str, Any]] = []
+    accepted_Tb: List[float] = []
+    skipped: List[Tuple[float, str]] = []
+    for i, Tb_K in enumerate(Tb_arr):
+        if progress:
+            log.info(
+                f"[{i + 1}/{Tb_arr.size}] Building structure at Tb_K={Tb_K:.4f}"
+            )
+        try:
+            struct = build_single_structure(
+                planet_template_module, float(Tb_K),
+                ocean_overrides=ocean_overrides,
+            )
+        except Exception as exc:
+            log.warning(
+                f"    × Tb_K={Tb_K:.4f} skipped — {type(exc).__name__}: {exc}"
+            )
+            skipped.append((float(Tb_K), f"{type(exc).__name__}: {exc}"))
+            continue
+        structures.append(struct)
+        accepted_Tb.append(float(Tb_K))
+        if progress:
+            log.info(
+                f"    → CMR²={struct.get('CMR2', float('nan')):.4f}, "
+                f"D_iceIh={struct.get('D_iceIh_km', 0.0):.1f} km, "
+                f"D_hsphere={struct.get('D_hsphere_km', 0.0):.1f} km"
+            )
+
+    if not structures:
+        raise RuntimeError(
+            f"All {Tb_arr.size} Tb points failed; no cache to write. "
+            f"Skipped: {skipped!r}"
+        )
+    if skipped and progress:
+        log.warning(
+            f"Regular grid built with gaps: {len(skipped)}/{Tb_arr.size} "
+            f"Tb points skipped — {[f'{t:.2f}' for t, _ in skipped]}"
+        )
+
+    # ----- Phase 2: transition refinement -----
+    extra_Tb: List[float] = []
+    extra_structs: List[Dict[str, Any]] = []
+    if detect_transitions:
+        for i in range(len(structures) - 1):
+            s0, s1 = structures[i], structures[i + 1]
+            if _regions_match(s0, s1):
+                continue
+            Tb_a, Tb_b = accepted_Tb[i], accepted_Tb[i + 1]
+            if progress:
+                log.info(
+                    f"  Transition in [{Tb_a:.4f}, {Tb_b:.4f}]: "
+                    f"{s0.get('region_phases')} → {s1.get('region_phases')}; "
+                    f"refining to ε_T={eps_T:.4f} K"
+                )
+            new_points = _bisect_transition(
+                planet_template_module, Tb_a, Tb_b,
+                s0.get("region_phases"), s1.get("region_phases"),
+                eps_T=eps_T,
+                ocean_overrides=ocean_overrides,
+            )
+            for Tb_new, s_new in new_points:
+                extra_Tb.append(float(Tb_new))
+                extra_structs.append(s_new)
+
+    # ----- Merge + sort -----
+    all_Tb = accepted_Tb + extra_Tb
+    all_structs = structures + extra_structs
+    order2 = np.argsort(all_Tb)
+    final_Tb = np.asarray([all_Tb[i] for i in order2], dtype=np.float64)
+    final_structs = [all_structs[i] for i in order2]
+
+    # ----- Build transitions metadata from the final, refined grid -----
+    transitions: List[Dict[str, Any]] = []
+    for i in range(len(final_structs) - 1):
+        s0, s1 = final_structs[i], final_structs[i + 1]
+        if not _regions_match(s0, s1):
+            transitions.append({
+                "Tb_lo": float(final_Tb[i]),
+                "Tb_hi": float(final_Tb[i + 1]),
+                "regions_lo": list(s0.get("region_phases", [])),
+                "regions_hi": list(s1.get("region_phases", [])),
+            })
+
+    cache = {
+        "Tb_K_grid": final_Tb,
+        "structures": final_structs,
+        "transitions": transitions,
+        "schema_version": "v2.1",
+    }
+    _save_cache_atomic(cache, output_path)
+    if progress:
+        n_extra = len(extra_Tb)
+        log.info(
+            f"Cache written → {output_path} "
+            f"({len(final_structs)} grid points: "
+            f"{Tb_arr.size} regular + {n_extra} from transition refinement; "
+            f"{len(transitions)} transition(s))"
+        )
+    return cache

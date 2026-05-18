@@ -1085,12 +1085,6 @@ def HPIceConvection(Planet, Params):
     if Planet.Do.NO_ICE_CONVECTION:
         return Planet
 
-    # Select convection function
-    if Planet.Do.KALOUSOVA_CONVECTION:
-        convectionFunc = ConvectionKalousova2018
-    else:
-        convectionFunc = ConvectionDeschampsSotin2001
-
     # Ocean layer index range in Planet arrays
     iOceanStart = Planet.Steps.nSurfIce
     iOceanEnd = Planet.Steps.nSurfIce + Planet.Steps.nOceanMax
@@ -1100,6 +1094,50 @@ def HPIceConvection(Planet, Params):
     hasHP = np.any(np.logical_and(oceanPhases > 1, oceanPhases < 10))
     if not hasHP:
         return Planet
+
+    # Original PlanetProfile behaviour when KALOUSOVA_CONVECTION is disabled:
+    # HP ice T profile already follows the melting curve (set in
+    # SelfConsistentOceanLayer via GetTfreeze — see this function's docstring).
+    # Kalousova et al. (2018) is the only HP-ice-applicable convection
+    # diagnostic in PP — ConvectionDeschampsSotin2001 pertains to Ice Ih only,
+    # and its 274 K hardcoded melting bracket
+    # (ThermalProfiles.py::ConvectionDeschampsSotin2001 line 313) is invalid
+    # for HP melt curves (Ice VI alone runs from ~273 K at the Ih-III-L
+    # triple to ~355 K at the Ice VII triple). So we either compute Kalousova
+    # diagnostics, or initialise the diagnostic fields to "no-convection"
+    # defaults that are consistent with the melt-curve-following T profile
+    # SelfConsistentOceanLayer already produced (full layer is "lid", no
+    # convecting interior, no thermal boundary layer). Cell-level T_K is NOT
+    # touched here — only the scalar per-phase diagnostic fields read by
+    # downstream logging / plotting code.
+    if not Planet.Do.KALOUSOVA_CONVECTION:
+        log.debug(
+            'KALOUSOVA_CONVECTION=False: HP ice T profile follows the '
+            'melting curve (set in SelfConsistentOceanLayer). Skipping '
+            'convection diagnostic; setting "no convection" defaults.'
+        )
+        for _phaseID, _suffix in [(3, 'III'), (5, 'V'), (6, 'VI')]:
+            _phaseInds = np.where(oceanPhases == _phaseID)[0] + iOceanStart
+            if len(_phaseInds) == 0:
+                continue
+            _iTop = _phaseInds[0]
+            _iBot = _phaseInds[-1]
+            _zb_m = Planet.z_m[_iBot] - Planet.z_m[_iTop]
+            # Read existing midpoint cell T (already on the melt curve);
+            # use it as the scalar diagnostic. Does NOT modify any T_K cell.
+            _Tmid_K = Planet.T_K[(_iTop + _iBot) // 2]
+            setattr(Planet, f'Tconv{_suffix}_K', _Tmid_K)
+            setattr(Planet, f'etaConv{_suffix}_Pas', Constants.etaMelt_Pas[_phaseID])
+            setattr(Planet, f'eLid{_suffix}_m', _zb_m)
+            setattr(Planet, f'Dconv{_suffix}_m', 0.0)
+            setattr(Planet, f'deltaTBL{_suffix}_m', 0.0)
+            setattr(Planet, f'RaConvect{_suffix}', 0.0)
+            setattr(Planet, f'RaCrit{_suffix}', np.inf)
+            setattr(Planet, f'meltFraction{_suffix}', 0.0)
+        return Planet
+
+    # KALOUSOVA_CONVECTION=True path — Kalousova et al. (2018) HP ice convection
+    convectionFunc = ConvectionKalousova2018
 
     # Process phases bottom-to-top (heat flows up from silicates)
     phaseOrder = [6, 5, 3]
@@ -1172,21 +1210,14 @@ def HPIceConvection(Planet, Params):
         Abot_m2 = 4 * np.pi * rBot_m**2
         qBot_Wm2 = Qthrough_W / Abot_m2 if Abot_m2 > 0 else 0.0
 
-        # Call convection function
-        if Planet.Do.KALOUSOVA_CONVECTION:
-            Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit = \
-                convectionFunc(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m,
-                               gtop_ms2, Pmid_MPa, Planet.Ocean.EOS,
-                               iceEOS, phaseID, Planet.Do.EQUIL_Q,
-                               Planet.Ocean.Eact_kJmol, qBot_Wm2=qBot_Wm2,
-                               Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
-        else:
-            Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit = \
-                convectionFunc(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m,
-                               gtop_ms2, Pmid_MPa, Planet.Ocean.EOS,
-                               iceEOS, phaseID, Planet.Do.EQUIL_Q,
-                               Planet.Ocean.Eact_kJmol,
-                               Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
+        # Call Kalousova HP-ice convection (KALOUSOVA=False handled by early
+        # return at the top of this function — D-S 2001 is for Ice Ih only).
+        Tconv_K, etaConv_Pas, eLid_m, Dconv_m, deltaTBL_m, Qbot_W, Ra, RaCrit = \
+            convectionFunc(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m,
+                           gtop_ms2, Pmid_MPa, Planet.Ocean.EOS,
+                           iceEOS, phaseID, Planet.Do.EQUIL_Q,
+                           Planet.Ocean.Eact_kJmol, qBot_Wm2=qBot_Wm2,
+                           Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
 
         # Store results in existing Planet fields
         setattr(Planet, f'Tconv{suffix}_K', Tconv_K)

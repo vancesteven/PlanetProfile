@@ -207,6 +207,16 @@ class MCMCRunner:
         no_ocean_guard = phase_stability_cfg.get('enforce') == 'no_ocean_Ih'
         no_ocean_margin_K = float(phase_stability_cfg.get('margin_K', 0.1))
 
+        # v2 derived-params (Phase C1 Stage 2): mass-conservation solve for rho_sil
+        # and per-sample CMR² recomputation from sampled (R_core, rho_core) plus
+        # cached hydrosphere. Inactive for v1 configs (Titan Test50) — those
+        # leave derived_params empty and fall through to the cached-CMR² path.
+        derived_params_cfg = getattr(self.config, 'derived_params', {}) or {}
+        rho_sil_cfg = derived_params_cfg.get('rho_sil_kgm3', {}) or {}
+        use_derived_rho_sil = rho_sil_cfg.get('derivation') == 'mass_conservation'
+        rho_sil_bounds = tuple(rho_sil_cfg.get('bounds', (2200.0, 3500.0)))
+        rho_sil_reject = bool(rho_sil_cfg.get('reject_if_outside_bounds', True))
+
         def _expand_theta(theta):
             """Convert sampled array → full parameter dict with groups and fixed params."""
             theta_dict = dict(zip(param_names, theta))
@@ -273,12 +283,68 @@ class MCMCRunner:
                 chi2 += ((np.sqrt(Re_k2**2 + Im_k2**2) - obs_val) / obs_err) ** 2
             if 'CMR2' in observables:
                 obs_val, obs_err = observables['CMR2']
+
+                # Pick the per-sample structure dict (Tb-grid interp or single)
                 if 'grid_cache' in structure_data and 'Tb_K' in theta_dict:
                     grid_Tb_values = structure_data['grid_Tb_values']
                     idx = np.argmin(np.abs(grid_Tb_values - theta_dict['Tb_K']))
-                    cmr2_val = structure_data['grid_cache'][grid_Tb_values[idx]].get('CMR2', np.nan)
+                    struct_for_cmr2 = structure_data['grid_cache'][grid_Tb_values[idx]]
                 else:
-                    cmr2_val = structure_data.get('CMR2', np.nan)
+                    struct_for_cmr2 = structure_data
+
+                if use_derived_rho_sil:
+                    # v2 path: mass-conserve rho_sil, then recompute CMR² from
+                    # the assembled body (sampled core + derived silicate +
+                    # cached hydrosphere).
+                    from .structure_derivation import (
+                        compute_cmr2,
+                        derive_silicate_density,
+                        extract_hydrosphere_layers,
+                    )
+                    R_body_m = struct_for_cmr2.get('R_body_m', np.nan)
+                    M_total_kg = struct_for_cmr2.get('Mtot_kg', np.nan)
+                    R_core_km = theta_dict.get('R_core_km')
+                    rho_core_kgm3 = theta_dict.get('rho_core_kgm3')
+                    if not (np.isfinite(R_body_m) and np.isfinite(M_total_kg)
+                            and R_core_km is not None and rho_core_kgm3 is not None):
+                        return -1e30
+                    R_core_m = float(R_core_km) * 1000.0
+                    try:
+                        hydro_layers, R_oceanbot_m, M_hydro_kg = (
+                            extract_hydrosphere_layers(struct_for_cmr2)
+                        )
+                    except (KeyError, ValueError):
+                        return -1e30
+                    if not hydro_layers:
+                        return -1e30
+                    rho_sil, accepted = derive_silicate_density(
+                        M_total_kg=float(M_total_kg),
+                        M_hydrosphere_kg=M_hydro_kg,
+                        R_oceanbot_m=R_oceanbot_m,
+                        R_core_m=R_core_m,
+                        rho_core_kgm3=float(rho_core_kgm3),
+                        bounds=rho_sil_bounds,
+                    )
+                    if rho_sil_reject and not accepted:
+                        return -1e30
+                    # Assemble layers; skip zero-volume core shell at R_core = 0
+                    assembled = []
+                    if R_core_m > 0.0:
+                        assembled.append((0.0, R_core_m, float(rho_core_kgm3)))
+                    assembled.append((R_core_m, R_oceanbot_m, rho_sil))
+                    assembled.extend(hydro_layers)
+                    try:
+                        cmr2_val = compute_cmr2(
+                            assembled,
+                            R_body_m=float(R_body_m),
+                            M_body_kg=float(M_total_kg),
+                        )
+                    except ValueError:
+                        return -1e30
+                else:
+                    # v1 path: read precomputed CMR² from the cache as-is
+                    cmr2_val = struct_for_cmr2.get('CMR2', np.nan)
+
                 if np.isfinite(cmr2_val):
                     chi2 += ((cmr2_val - obs_val) / obs_err) ** 2
             if 'Mtot_kg' in observables:

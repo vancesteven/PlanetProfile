@@ -14,6 +14,114 @@
 - **`Planet.meltFractionVI` placeholder bumped from 0.01 to 0.5** when a temperate layer is detected, reflecting that an actively melting two-phase HP-ice layer is much more likely to sit near 50% melt than at the percolation threshold. `Constants.phiPercolation` (= 0.05) is intentionally *unchanged* — Kalousova & Sotin (2018) Eq. 10 outflow velocity / mass flux equations in `LayerPropagators.py` are conditioned on this value. Top-level `meltFractionIII` and `meltFractionV` placeholders remain at 0.01 pending the same two-phase solver. The in-ocean path (`LayerPropagators.py`) continues to set melt fraction = `phiPercolation` per Kalousova's outflow-balance assumption.
 - **CLAUDE.md HP-ice section rewritten** to reflect the actual implementation status: temperate-layer detection done for III/V/VI; profile propagation done for III/V, simplified for VI; melt fraction is a placeholder (not a solver output). The previous wording overstated the implementation.
 
+### Inference / MCMC — Phase C1 (cache v2.1, B-layered blend, Callisto)
+
+- **fix(layer_propagators): HPIceConvection early-return when
+  KALOUSOVA=False.** `HPIceConvection` in
+  `PlanetProfile/Thermodynamics/LayerPropagators.py` previously
+  dispatched HP ices (III/V/VI) to `ConvectionDeschampsSotin2001`
+  when `KALOUSOVA_CONVECTION=False`, but D-S 2001 has a hardcoded
+  `Tupper_K=274` melt-curve bracket
+  (`ThermalProfiles.py:311–315`) that fails for HP ices at deep
+  ocean pressures. The early-return now sets no-convection
+  diagnostic defaults (eLid=zb, Dconv=0, Ra=0, RaCrit=∞,
+  meltFraction=0) and leaves T on the melt curve as set by
+  `SelfConsistentOceanLayer`. Pre-fix Titan / Ganymede caches are
+  not corrupted — D-S 2001's phase-mismatch escape hatch
+  (`ThermalProfiles.py:296–305`) returned a conductive-profile
+  fallback, so T_K, phases, ρ, μ, K, η (the arrays MCMC
+  consumes) were unaffected; only diagnostic fields (eLid, Ra,
+  meltFraction) were silently wrong. Verified by Callisto MgSO₄
+  rebuild: 6/9 Tb points previously failed with D-S 2001
+  ValueError at low Tb; post-fix all 9 succeed (21 min vs 74 min
+  that crashed).
+
+- **feat(cache_builder): v2.1 transition-aware Tb grid.**
+  `PlanetProfile/Inference/cache_builder.py` extended with
+  `_bisect_transition` and a post-grid refinement phase. After the
+  regular Tb grid is built, `build_tb_grid_cache` walks adjacent
+  grid pairs and detects layer-set changes (different
+  `region_phases` or `n_layers`). Each transition is bisected to
+  ε_T = 0.01 K; the converged anchor pair flanks the transition by
+  < ε_T. Cache schema bumped to `v2.1` with a `transitions`
+  metadata list `[{Tb_lo, Tb_hi, regions_lo, regions_hi}, ...]`.
+  Backward-compatible — old v2.0 caches load unchanged. Rationale:
+  a Tb where a new layer first stabilises (HP ice III appearance,
+  ocean appearance, Ih conv/cond split) is a physical
+  discontinuity; bisecting it bounds the unblendable interval
+  narrowly enough that nearest-neighbour fallback at MCMC time
+  introduces no measurable bias.
+
+- **feat(forward_models): B-layered structure blend.**
+  `PlanetProfile/Inference/forward_models.py::_blend_b_layered`
+  replaces the legacy element-wise blend. For each layer index k,
+  boundary radii are blended linearly in `w`; per-cell continuous
+  fields (ρ, K, μ, η, T, P, bulk_visc) are resampled onto s0's
+  intra-layer normalised grid via `np.interp`; phases / discrete
+  metadata are copied from s0 (identical to s1 by precondition);
+  per-Tb scalars (CMR², D_iceIh_km, …) are linear-blended.
+  `apply_bottom_temperature` dispatches: matching `region_phases` →
+  B-layered blend; mismatched (across-transition bracket) →
+  nearest-neighbour. Transition windows are < 0.01 K wide so the
+  discontinuity is below any meaningful posterior precision. Why:
+  naive element-wise blending across a moving boundary produces
+  unphysical "mush" cells where ρ does not match phase identity.
+  Includes a precondition check asserting every per-cell field has
+  length equal to `len(r_m)`, surfacing cache-builder-padding bugs
+  surgically by field name rather than from inside `np.interp`.
+  12 unit tests in `tests/test_layered_blend.py` cover boundary
+  linearity, variable cell counts, no-mush invariant, transition
+  dispatch, scalar/meta handling, and w=0/w=1 endpoints.
+
+- **fix(cache_builder): P_MPa included in MIN_POINTS padding pass.**
+  `build_single_structure`'s thin-layer padding pass (lines 256–316)
+  was extending r, ρ, K, μ, η, phases, bulk_visc, T_K via
+  `np.interp` but not P_MPa. Caches with any padded layer therefore
+  had `len(P_MPa) < len(r_m)` (typically by 4, the number of
+  single-cell layers padded). The new B-layered blend accesses
+  P_MPa per cell, surfacing the discrepancy; fixed by extending the
+  padding pass to interpolate P_MPa identically to T_K. Verified
+  zero field-length mismatches in rebuilt Callisto / Europa /
+  Ganymede caches.
+
+- **feat(cache_builder): ocean_overrides for composition switching.**
+  New optional dict in v2.1 BodyConfig JSON: `ocean_overrides`.
+  Applied to `Planet.Ocean.<key>` after deepcopy of the body's
+  default template, before running PP. Enables composition switching
+  and concentration sweeps without spawning N template Python files.
+  Motivation: Callisto's MgSO₄ EOS only extends to P=800 MPa;
+  Callisto's deep ocean frequently triggers extrapolation
+  regeneration on every PP run, making MgSO₄ Callisto builds
+  prohibitively slow. SeaFreeze's NaCl EOS extends to P=5000 MPa
+  cleanly. New config `callisto_nacl_andrade_8D.json` switches to
+  NaCl 100 ppt; the MgSO₄ config is retained as deprecated for
+  record. Future SeaFreeze MgSO₄ release with wider P range can
+  revisit.
+
+- **chore(docs): inference toolkit methodology README.**
+  New `PlanetProfile/Inference/README.md` (723 lines) — canonical
+  methodology reference covering the pocoMC algorithm (preconditioned
+  normalising flows + SMC tempering, n_effective semantics, ESS
+  termination), v2.1 cache schema, B-layered blend mechanics,
+  ocean_overrides usage, and end-to-end Phase C1 workflow
+  (config → cache → smoke → production MCMC).
+
+- **chore(caches): Phase C1 v2.1 caches built for Callisto, Europa,
+  Ganymede.** Three structure caches with the v2.1 schema,
+  transition refinement, and P_MPa fix:
+  `callisto_nacl_structure_grid.pkl` (17 points, 1 transition, ~40 min
+  build), `europa_seawater_structure_grid.pkl` (16 points, 1
+  transition, 53 s build), and
+  `ganymede_pureh2o_structure_grid.pkl` (23 points, 2 transitions,
+  55 s build). Smoke MCMC against the Callisto cache completes
+  cleanly: ESS=4096, acceptance=0.61, posterior appropriately
+  prior-dominated for 1 observable in 8D. Note for future work:
+  Gao & Stevenson 2013 argues slow rotators may not be hydrostatic,
+  so Callisto's CMR² could be up to 10% lower than the Anderson 2001
+  value. Inference variants at CMR² 5% and 10% below nominal (same
+  σ=0.0042) should be built; the structure cache is independent of
+  the observable and need not be rebuilt.
+
 ### Inference / MCMC — Phase B refactor
 - **Test 50 refactored to thin wrapper** around `MCMCRunner(InferenceConfig.from_json(...))`. The 901-line monolithic script is now 528 lines (structure-building code unchanged; MCMC/forward/likelihood code replaced entirely by toolkit delegation). The 5D variant (`explore_test50_5D.py`) is now a 20-line shim that delegates to Test50 with `--config test50_titan_noocean_andrade_5D.json`.
 - **`InferenceConfig` extended with `param_groups` and `fixed_params`** (`inference_core.py`). `param_groups` maps a sampled scalar (e.g., `log10_eta_HP`) to a list of member parameters that all receive the same value at runtime — enabling the 5D HP-locked variant without code changes. `fixed_params` injects constants (e.g., `Tb_K=250.965`) into every forward model call without entering the prior.
