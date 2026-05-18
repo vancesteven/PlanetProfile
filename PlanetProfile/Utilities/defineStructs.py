@@ -151,6 +151,9 @@ class HPIcePhaseState:
     Tmelt_top_K: float = np.nan
     Tmelt_mid_K: float = np.nan
     Tmelt_bot_K: float = np.nan
+    TmeltSource: str = None
+    meltCurveStatus: str = "not_evaluated"
+    phaseBoundaryStatus: str = "not_evaluated"
     viscositySource: str = None
     layerClosureResidual_m: float = np.nan
     Tconv_K: float = np.nan
@@ -401,16 +404,61 @@ def _EvaluateIceVIProductionAcceptance(phaseState):
         _SetHPIceProductionRejection(phaseState, "energy_residual_rejected", "latent_heat_not_implemented")
         return phaseState
 
-    meltValues = (phaseState.Tmelt_top_K, phaseState.Tmelt_mid_K, phaseState.Tmelt_bot_K)
-    if any(not phaseState._is_finite(value) for value in meltValues):
-        _SetHPIceProductionRejection(phaseState, "missing_melt_curve_rejected", "missing_TmeltVI_P")
+    if phaseState.TmeltSource == "fixed_diagnostic_fallback":
+        phaseState.meltCurveStatus = "missing_melt_curve_rejected"
+        _SetHPIceProductionRejection(
+            phaseState,
+            "missing_melt_curve_rejected",
+            "fixed_diagnostic_fallback_not_allowed",
+        )
         return phaseState
 
+    if phaseState.meltCurveStatus in (
+        "missing_melt_curve_rejected",
+        "melt_curve_nonfinite_rejected",
+        "outside_eos_domain_rejected",
+    ):
+        reason = {
+            "missing_melt_curve_rejected": "missing_TmeltVI_P",
+            "melt_curve_nonfinite_rejected": "nonfinite_TmeltVI_P",
+            "outside_eos_domain_rejected": "outside_eos_domain",
+        }[phaseState.meltCurveStatus]
+        _SetHPIceProductionRejection(phaseState, phaseState.meltCurveStatus, reason)
+        return phaseState
+
+    meltValues = (phaseState.Tmelt_top_K, phaseState.Tmelt_mid_K, phaseState.Tmelt_bot_K)
+    if any(not phaseState._is_finite(value) for value in meltValues):
+        missingValues = all(value is None or (np.isscalar(value) and np.isnan(value)) for value in meltValues)
+        if missingValues:
+            phaseState.meltCurveStatus = "missing_melt_curve_rejected"
+            _SetHPIceProductionRejection(phaseState, "missing_melt_curve_rejected", "missing_TmeltVI_P")
+        else:
+            phaseState.meltCurveStatus = "melt_curve_nonfinite_rejected"
+            _SetHPIceProductionRejection(
+                phaseState,
+                "melt_curve_nonfinite_rejected",
+                "nonfinite_TmeltVI_P",
+            )
+        return phaseState
+    if phaseState.meltCurveStatus in (None, "not_evaluated"):
+        phaseState.meltCurveStatus = "melt_curve_ok"
+
     if not phaseState._is_finite(phaseState.phaseBoundaryResidual_K):
-        _SetHPIceProductionRejection(phaseState, "phase_boundary_rejected", "missing_phase_boundary_residual")
+        phaseState.phaseBoundaryStatus = "phase_boundary_unavailable_rejected"
+        _SetHPIceProductionRejection(
+            phaseState,
+            "phase_boundary_unavailable_rejected",
+            "missing_phase_boundary_residual",
+        )
         return phaseState
     if abs(phaseState.phaseBoundaryResidual_K) > HP_ICE_PRODUCTION_PHASE_BOUNDARY_TOL_K:
+        phaseState.phaseBoundaryStatus = "phase_boundary_rejected"
         _SetHPIceProductionRejection(phaseState, "phase_boundary_rejected", "phase_boundary_residual_exceeds_tolerance")
+        return phaseState
+    if phaseState.phaseBoundaryStatus in (None, "not_evaluated"):
+        phaseState.phaseBoundaryStatus = "phase_boundary_ok"
+    elif phaseState.phaseBoundaryStatus != "phase_boundary_ok":
+        _SetHPIceProductionRejection(phaseState, phaseState.phaseBoundaryStatus, phaseState.phaseBoundaryStatus)
         return phaseState
 
     phaseState.productionCandidate = True

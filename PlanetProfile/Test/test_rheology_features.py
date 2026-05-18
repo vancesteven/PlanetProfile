@@ -10,6 +10,7 @@ from PlanetProfile.Thermodynamics.HydroEOS import (
 from PlanetProfile.Thermodynamics.LayerPropagators import (
     _ConvectionDeschampsSotinHPIceDiagnostic,
     _FixedPhaseEOS,
+    _GetIceVIMeltCurveCandidateChecks,
     _SetHPIceDiagnosticFields,
     HPIceConvectionDiagnostics,
 )
@@ -78,6 +79,21 @@ class _SimpleIceEOS:
 
     def fn_kTherm_WmK(self, P_MPa, T_K):
         return 3.0
+
+
+class _SyntheticIceVIMeltEOS:
+    Pmin = 700.0
+    Pmax = 1300.0
+    Tmin = 250.0
+    Tmax = 340.0
+
+    @staticmethod
+    def tmelt_K(P_MPa):
+        return 292.0 + 0.01 * (P_MPa - 800.0)
+
+    def fn_phase(self, P_MPa, T_K):
+        phase = np.where(np.asarray(T_K) < self.tmelt_K(P_MPa), 6, 0)
+        return phase
 
 
 class Test01ArrheniusViscosity(unittest.TestCase):
@@ -1106,6 +1122,210 @@ class Test09IceVIProductionAcceptanceCriteria(unittest.TestCase):
         self.assertEqual(nonfinite_value.candidateStatus, "nonfinite_rejected")
         self.assertFalse(invalid_geometry.updateAccepted)
         self.assertFalse(nonfinite_value.updateAccepted)
+
+
+class Test10IceVIMeltCurveCandidateChecks(unittest.TestCase):
+
+    def _production_planet(self):
+        planet = _Namespace()
+        planet.Ocean = _Namespace()
+        planet.Ocean.EOS = _SyntheticIceVIMeltEOS()
+        planet.Ocean.THydroMax_K = 340.0
+        planet.TfreezeUpper_K = 340.0
+        planet.TfreezeRes_K = 0.01
+        return planet
+
+    def _ice_vi_state(self, **overrides):
+        kwargs = dict(
+            phaseName="VI",
+            phaseID=6,
+            present=True,
+            status="computed",
+            productionMode="Kalousova2018_production_experimental",
+            rTop_m=2.3e6,
+            rBot_m=2.1e6,
+            zTop_m=1.0e5,
+            zBot_m=3.0e5,
+            thickness_m=2.0e5,
+            Ttop_K=285.0,
+            Tbot_K=287.0,
+            Ptop_MPa=800.0,
+            Pmid_MPa=900.0,
+            Pbot_MPa=1000.0,
+            rho_kgm3=1300.0,
+            Cp_JkgK=2200.0,
+            alpha_pK=1.0e-4,
+            kTherm_WmK=3.0,
+            Q_in_W=1.0e12,
+            Q_out_W=1.0e12,
+            Tconv_K=286.0,
+            etaConv_Pas=5.0e14,
+            etaMelt_Pas=5.0e14,
+            eLid_m=1.0e4,
+            Dconv_m=1.8e5,
+            deltaTBL_m=1.0e4,
+            RaConvect=1.0e8,
+            RaCrit=1.0e4,
+            meltFraction=0.05,
+            phaseBoundaryResidual_K=0.0,
+            Tmelt_top_K=292.01,
+            Tmelt_mid_K=293.01,
+            Tmelt_bot_K=294.01,
+            TmeltSource="GetTfreeze",
+            meltCurveStatus="melt_curve_ok",
+            phaseBoundaryStatus="phase_boundary_ok",
+            viscositySource="fixed_reference",
+        )
+        kwargs.update(overrides)
+        return HPIcePhaseState(**kwargs)
+
+    def test_missing_melt_curve_keeps_ice_vi_rejected(self):
+        state = self._ice_vi_state(Tmelt_top_K=np.nan, Tmelt_mid_K=np.nan, Tmelt_bot_K=np.nan)
+
+        self.assertFalse(state.updateAccepted)
+        self.assertEqual(state.candidateStatus, "missing_melt_curve_rejected")
+        self.assertEqual(state.meltCurveStatus, "missing_melt_curve_rejected")
+
+    def test_nonfinite_melt_curve_values_reject(self):
+        state = self._ice_vi_state(Tmelt_mid_K=np.inf)
+
+        self.assertFalse(state.updateAccepted)
+        self.assertEqual(state.candidateStatus, "melt_curve_nonfinite_rejected")
+        self.assertEqual(state.meltCurveStatus, "melt_curve_nonfinite_rejected")
+
+    def test_valid_synthetic_melt_curve_records_three_temperatures(self):
+        planet = self._production_planet()
+
+        fields = _GetIceVIMeltCurveCandidateChecks(
+            planet,
+            phaseID=6,
+            Ptop_MPa=800.0,
+            Pmid_MPa=900.0,
+            Pbot_MPa=1000.0,
+            Ttop_K=285.0,
+            Tconv_K=286.0,
+            Tbot_K=287.0,
+            productionMode="Kalousova2018_production_experimental",
+        )
+
+        self.assertEqual(fields["TmeltSource"], "GetTfreeze")
+        self.assertEqual(fields["meltCurveStatus"], "melt_curve_ok")
+        self.assertEqual(fields["phaseBoundaryStatus"], "phase_boundary_ok")
+        np.testing.assert_allclose(
+            [fields["Tmelt_top_K"], fields["Tmelt_mid_K"], fields["Tmelt_bot_K"]],
+            [292.01, 293.01, 294.01],
+            atol=2.0e-2,
+        )
+
+    def test_phase_boundary_residual_can_pass_candidate_state_only(self):
+        planet = self._production_planet()
+        fields = _GetIceVIMeltCurveCandidateChecks(
+            planet, 6, 800.0, 900.0, 1000.0, 285.0, 286.0, 287.0,
+            "Kalousova2018_production_experimental",
+        )
+        state = self._ice_vi_state(**fields)
+
+        self.assertTrue(state.updateAccepted)
+        self.assertTrue(state.acceptanceCriteriaPassed)
+        self.assertEqual(state.candidateStatus, "accepted_candidate_state_only")
+
+    def test_phase_boundary_residual_above_threshold_rejects(self):
+        state = self._ice_vi_state(phaseBoundaryResidual_K=0.2, phaseBoundaryStatus="phase_boundary_rejected")
+
+        self.assertFalse(state.updateAccepted)
+        self.assertEqual(state.candidateStatus, "phase_boundary_rejected")
+
+    def test_real_body_like_state_without_verified_melt_curve_remains_rejected(self):
+        state = self._ice_vi_state(
+            Tmelt_top_K=np.nan,
+            Tmelt_mid_K=np.nan,
+            Tmelt_bot_K=np.nan,
+            TmeltSource=None,
+            meltCurveStatus="not_evaluated",
+            phaseBoundaryResidual_K=np.nan,
+            phaseBoundaryStatus="not_evaluated",
+        )
+
+        self.assertFalse(state.updateAccepted)
+        self.assertEqual(state.candidateStatus, "missing_melt_curve_rejected")
+
+    def test_fixed_diagnostic_fallback_is_not_allowed_for_acceptance(self):
+        state = self._ice_vi_state(
+            Tmelt_top_K=290.0,
+            Tmelt_mid_K=290.0,
+            Tmelt_bot_K=290.0,
+            TmeltSource="fixed_diagnostic_fallback",
+        )
+
+        self.assertFalse(state.updateAccepted)
+        self.assertEqual(state.candidateStatus, "missing_melt_curve_rejected")
+        self.assertEqual(state.candidateReason, "fixed_diagnostic_fallback_not_allowed")
+
+    def test_ice_iii_and_v_remain_diagnostic_only_extrapolative(self):
+        for phase_name, phase_id in (("III", 3), ("V", 5)):
+            with self.subTest(phase=phase_name):
+                state = self._ice_vi_state(phaseName=phase_name, phaseID=phase_id)
+
+                self.assertFalse(state.updateAccepted)
+                self.assertEqual(state.candidateStatus, "diagnostic_only_extrapolative")
+
+    def test_candidate_melt_curve_check_does_not_mutate_profile_arrays(self):
+        planet = self._production_planet()
+        planet.HPIceDiagnostics = {}
+        planet.T_K = np.array([285.0, 287.0])
+        planet.P_MPa = np.array([800.0, 1000.0])
+        planet.phase = np.array([6, 6])
+        planet.rho_kgm3 = np.array([1300.0, 1310.0])
+        planet.eta_Pas = np.array([5.0e14, 5.0e14])
+        before = {
+            "T_K": planet.T_K.copy(),
+            "P_MPa": planet.P_MPa.copy(),
+            "phase": planet.phase.copy(),
+            "rho_kgm3": planet.rho_kgm3.copy(),
+            "eta_Pas": planet.eta_Pas.copy(),
+        }
+        fields = _GetIceVIMeltCurveCandidateChecks(
+            planet, 6, 800.0, 900.0, 1000.0, 285.0, 286.0, 287.0,
+            "Kalousova2018_production_experimental",
+        )
+
+        _SetHPIceDiagnosticFields(
+            planet,
+            "VI",
+            status="computed",
+            phaseID=6,
+            rTop_m=2.3e6,
+            rBot_m=2.1e6,
+            zTop_m=1.0e5,
+            zBot_m=3.0e5,
+            thickness_m=2.0e5,
+            Ttop_K=285.0,
+            Tbot_K=287.0,
+            Ptop_MPa=800.0,
+            Pmid_MPa=900.0,
+            Pbot_MPa=1000.0,
+            rho_kgm3=1300.0,
+            Cp_JkgK=2200.0,
+            alpha_pK=1.0e-4,
+            kTherm_WmK=3.0,
+            Q_in_W=1.0e12,
+            Q_out_W=1.0e12,
+            Tconv_K=286.0,
+            etaConv_Pas=5.0e14,
+            etaMelt_Pas=5.0e14,
+            eLid_m=1.0e4,
+            Dconv_m=1.8e5,
+            deltaTBL_m=1.0e4,
+            Ra=1.0e8,
+            RaCrit=1.0e4,
+            meltFraction=0.05,
+            productionMode="Kalousova2018_production_experimental",
+            **fields,
+        )
+
+        self.assertTrue(planet.HPIceDiagnostics["VI"]["updateAccepted"])
+        for key, value in before.items():
+            np.testing.assert_array_equal(getattr(planet, key), value)
 
 
 if __name__ == "__main__":

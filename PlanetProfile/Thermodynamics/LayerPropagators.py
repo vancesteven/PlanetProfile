@@ -1097,6 +1097,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
         kTop_WmK = Planet.kTherm_WmK[iTop]
         gtop_ms2 = Planet.g_ms2[iTop]
         zb_m = zBot_m - zTop_m
+        Ptop_MPa = Planet.P_MPa[iTop]
+        Pbot_MPa = Planet.P_MPa[iBot]
         Pmid_MPa = (Planet.P_MPa[iTop] + Planet.P_MPa[iBot]) / 2
         rhoPhase_kgm3 = _HPIcePhaseMean(Planet, 'rho_kgm3', phaseInds)
         CpPhase_JkgK = _HPIcePhaseMean(Planet, 'Cp_JkgK', phaseInds)
@@ -1109,7 +1111,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                 Planet, phaseName, status=reason, phaseID=phaseID,
                 iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                 zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
-                Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+                Ttop_K=Ttop_K, Tbot_K=Tb_K, Ptop_MPa=Ptop_MPa,
+                Pmid_MPa=Pmid_MPa, Pbot_MPa=Pbot_MPa,
                 rho_kgm3=rhoPhase_kgm3, Cp_JkgK=CpPhase_JkgK,
                 alpha_pK=alphaPhase_pK, kTherm_WmK=kThermPhase_WmK,
                 productionMode=productionMode,
@@ -1123,7 +1126,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                 Planet, phaseName, status='missing EOS', phaseID=phaseID,
                 iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                 zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
-                Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+                Ttop_K=Ttop_K, Tbot_K=Tb_K, Ptop_MPa=Ptop_MPa,
+                Pmid_MPa=Pmid_MPa, Pbot_MPa=Pbot_MPa,
                 rho_kgm3=rhoPhase_kgm3, Cp_JkgK=CpPhase_JkgK,
                 alpha_pK=alphaPhase_pK, kTherm_WmK=kThermPhase_WmK,
                 productionMode=productionMode,
@@ -1158,7 +1162,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                     iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                     zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
                     Ttop_K=Ttop_K, Tbot_K=Tb_K, qBot_Wm2=qBot_Wm2,
-                    Pmid_MPa=Pmid_MPa, method=method,
+                    Ptop_MPa=Ptop_MPa, Pmid_MPa=Pmid_MPa,
+                    Pbot_MPa=Pbot_MPa, method=method,
                     rho_kgm3=rhoPhase_kgm3, Cp_JkgK=CpPhase_JkgK,
                     alpha_pK=alphaPhase_pK, kTherm_WmK=kThermPhase_WmK,
                     productionMode=productionMode,
@@ -1199,7 +1204,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                         Planet, phaseName, status=f'error: {fallbackExc}', phaseID=phaseID,
                         iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                         zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
-                        Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+                        Ttop_K=Ttop_K, Tbot_K=Tb_K, Ptop_MPa=Ptop_MPa,
+                        Pmid_MPa=Pmid_MPa, Pbot_MPa=Pbot_MPa,
                         rho_kgm3=rhoPhase_kgm3, Cp_JkgK=CpPhase_JkgK,
                         alpha_pK=alphaPhase_pK, kTherm_WmK=kThermPhase_WmK,
                         method=method, productionMode=productionMode,
@@ -1231,7 +1237,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                             Planet, phaseName, status=f'error: {fallbackExc}', phaseID=phaseID,
                             iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                             zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
-                            Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+                            Ttop_K=Ttop_K, Tbot_K=Tb_K, Ptop_MPa=Ptop_MPa,
+                            Pmid_MPa=Pmid_MPa, Pbot_MPa=Pbot_MPa,
                             rho_kgm3=rhoPhase_kgm3, Cp_JkgK=CpPhase_JkgK,
                             alpha_pK=alphaPhase_pK, kTherm_WmK=kThermPhase_WmK,
                             method=method, productionMode=productionMode,
@@ -1244,11 +1251,16 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                 Q_in_W = Qbot_W
                 Q_out_W = Qbot_W
 
+        meltCurveChecks = _GetIceVIMeltCurveCandidateChecks(
+            Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_MPa,
+            Ttop_K, Tconv_K, Tb_K, productionMode,
+        )
         _SetHPIceDiagnosticFields(
             Planet, phaseName, status='computed', phaseID=phaseID,
             iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
             zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
-            Ttop_K=Ttop_K, Tbot_K=Tb_K, qBot_Wm2=qBot_Wm2,
+            Ttop_K=Ttop_K, Tbot_K=Tb_K, Ptop_MPa=Ptop_MPa,
+            Pmid_MPa=Pmid_MPa, Pbot_MPa=Pbot_MPa, qBot_Wm2=qBot_Wm2,
             Q_in_W=Q_in_W, Q_out_W=Q_out_W,
             rho_kgm3=rhoPhase_kgm3, Cp_JkgK=CpPhase_JkgK,
             alpha_pK=alphaPhase_pK, kTherm_WmK=kThermPhase_WmK,
@@ -1256,8 +1268,9 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
             etaMelt_Pas=etaMelt_Pas,
             eLid_m=eLid_m, Dconv_m=Dconv_m,
             deltaTBL_m=deltaTBL_m, Ra=Ra, RaCrit=RaCrit,
-            Qbot_W=Qbot_W, Pmid_MPa=Pmid_MPa, method=method,
+            Qbot_W=Qbot_W, method=method,
             meltFraction=meltFraction, productionMode=productionMode,
+            **meltCurveChecks,
         )
         meltInfo = f', meltFraction={meltFraction:.3f}' if np.isfinite(meltFraction) else ''
         log.info(
@@ -1402,6 +1415,99 @@ def _HPIcePhaseMean(Planet, field, indices):
     return float(np.nanmean(phaseValues))
 
 
+def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_MPa,
+                                      Ttop_K, Tconv_K, Tbot_K, productionMode):
+    """Read-only Ice VI melt-curve candidate checks for production dry runs."""
+    checks = {
+        'Tmelt_top_K': np.nan,
+        'Tmelt_mid_K': np.nan,
+        'Tmelt_bot_K': np.nan,
+        'TmeltSource': None,
+        'meltCurveStatus': 'not_evaluated',
+        'phaseBoundaryResidual_K': np.nan,
+        'phaseBoundaryStatus': 'not_evaluated',
+    }
+    if productionMode != "Kalousova2018_production_experimental" or phaseID != 6:
+        return checks
+
+    oceanEOS = getattr(getattr(Planet, 'Ocean', None), 'EOS', None)
+    if oceanEOS is None or not hasattr(oceanEOS, 'fn_phase'):
+        checks['meltCurveStatus'] = 'missing_melt_curve_rejected'
+        checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+        return checks
+
+    pressures_MPa = (Ptop_MPa, Pmid_MPa, Pbot_MPa)
+    temperatures_K = (Ttop_K, Tconv_K, Tbot_K)
+    if any(not np.isfinite(value) for value in pressures_MPa + temperatures_K):
+        checks['meltCurveStatus'] = 'outside_eos_domain_rejected'
+        checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+        return checks
+
+    Pmin_MPa = getattr(oceanEOS, 'Pmin', -np.inf)
+    Pmax_MPa = getattr(oceanEOS, 'Pmax', np.inf)
+    Tmin_K = getattr(oceanEOS, 'Tmin', -np.inf)
+    Tmax_K = getattr(oceanEOS, 'Tmax', np.inf)
+    if (
+        min(pressures_MPa) < Pmin_MPa or max(pressures_MPa) > Pmax_MPa or
+        min(temperatures_K) < Tmin_K or max(temperatures_K) > Tmax_K
+    ):
+        checks['meltCurveStatus'] = 'outside_eos_domain_rejected'
+        checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+        return checks
+
+    TsearchMax_K = np.nanmax((
+        getattr(getattr(Planet, 'Ocean', None), 'THydroMax_K', np.nan),
+        getattr(Planet, 'TfreezeUpper_K', np.nan),
+        Tmax_K if np.isfinite(Tmax_K) else np.nan,
+        max(temperatures_K) + 50.0,
+    ))
+    if not np.isfinite(TsearchMax_K):
+        TsearchMax_K = max(temperatures_K) + 50.0
+    TRes_K = getattr(Planet, 'TfreezeRes_K', 0.05)
+
+    meltValues_K = []
+    for P_MPa, T_K in zip(pressures_MPa, temperatures_K):
+        try:
+            phaseAtCandidate = int(np.asarray(oceanEOS.fn_phase(P_MPa, T_K)).item())
+        except Exception:
+            checks['meltCurveStatus'] = 'outside_eos_domain_rejected'
+            checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+            return checks
+        if phaseAtCandidate != 6:
+            checks['meltCurveStatus'] = 'outside_eos_domain_rejected'
+            checks['phaseBoundaryStatus'] = 'outside_eos_domain_rejected'
+            return checks
+
+        searchRange_K = max(TsearchMax_K - T_K, 1.0)
+        try:
+            Tmelt_K = GetTfreeze(
+                oceanEOS, P_MPa, T_K,
+                TfreezeRange_K=searchRange_K, TRes_K=TRes_K,
+            )
+        except Exception:
+            checks['meltCurveStatus'] = 'missing_melt_curve_rejected'
+            checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+            return checks
+        meltValues_K.append(Tmelt_K)
+
+    if any(not np.isfinite(value) for value in meltValues_K):
+        checks['meltCurveStatus'] = 'melt_curve_nonfinite_rejected'
+        checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+        return checks
+
+    boundaryResidual_K = max(0.0, max(T_K - Tmelt_K for T_K, Tmelt_K in zip(temperatures_K, meltValues_K)))
+    checks.update({
+        'Tmelt_top_K': float(meltValues_K[0]),
+        'Tmelt_mid_K': float(meltValues_K[1]),
+        'Tmelt_bot_K': float(meltValues_K[2]),
+        'TmeltSource': 'GetTfreeze',
+        'meltCurveStatus': 'melt_curve_ok',
+        'phaseBoundaryResidual_K': float(boundaryResidual_K),
+        'phaseBoundaryStatus': 'phase_boundary_ok' if boundaryResidual_K <= 0.1 else 'phase_boundary_rejected',
+    })
+    return checks
+
+
 def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None, iBot=None,
                               rTop_m=np.nan, rBot_m=np.nan, zTop_m=np.nan, zBot_m=np.nan,
                               thickness_m=np.nan, Ttop_K=np.nan, Tbot_K=np.nan,
@@ -1420,6 +1526,8 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None
                               massResidual_frac=np.nan,
                               phaseBoundaryResidual_K=np.nan, Tmelt_top_K=np.nan,
                               Tmelt_mid_K=np.nan, Tmelt_bot_K=np.nan,
+                              TmeltSource=None, meltCurveStatus="not_evaluated",
+                              phaseBoundaryStatus="not_evaluated",
                               viscositySource=None):
     """Single writer for top-level HP diagnostic fields and HPIceDiagnostics."""
     setattr(Planet, f'Tconv{phaseName}_K', Tconv_K)
@@ -1447,7 +1555,10 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None
         massResidual_frac=massResidual_frac,
         phaseBoundaryResidual_K=phaseBoundaryResidual_K,
         Tmelt_top_K=Tmelt_top_K, Tmelt_mid_K=Tmelt_mid_K,
-        Tmelt_bot_K=Tmelt_bot_K, viscositySource=viscositySource,
+        Tmelt_bot_K=Tmelt_bot_K, TmeltSource=TmeltSource,
+        meltCurveStatus=meltCurveStatus,
+        phaseBoundaryStatus=phaseBoundaryStatus,
+        viscositySource=viscositySource,
         Tconv_K=Tconv_K,
         etaConv_Pas=etaConv_Pas, etaMelt_Pas=etaMelt_Pas,
         eLid_m=eLid_m, Dconv_m=Dconv_m, deltaTBL_m=deltaTBL_m,

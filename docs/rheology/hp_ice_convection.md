@@ -326,6 +326,51 @@ acceptance criteria do not add latent heat, melt density, mass transport, or
 active Ice VI profile propagation. Active profile mutation remains future work
 and requires separate validation.
 
+## Ice VI melt-curve candidate checks
+
+Future Ice VI production acceptance requires an EOS-backed pressure-dependent
+melting curve. The candidate dry-run now records the following phase-local
+fields when the experimental production selector is enabled:
+
+```text
+Tmelt_top_K
+Tmelt_mid_K
+Tmelt_bot_K
+TmeltSource
+meltCurveStatus
+phaseBoundaryResidual_K
+phaseBoundaryStatus
+```
+
+The candidate check uses `GetTfreeze()` with the existing ocean EOS phase
+convention when that lookup is available and finite. The diagnostic fixed
+Ice VI fallback temperature is not allowed for production acceptance. If the
+lookup is unavailable, outside the EOS domain, or nonfinite, Ice VI remains
+rejected with a machine-readable status such as:
+
+```text
+missing_melt_curve_rejected
+melt_curve_nonfinite_rejected
+outside_eos_domain_rejected
+```
+
+The phase-boundary residual is a candidate-state stability check: it records
+whether the current Ice VI candidate temperatures stay within the validated
+Ice VI side of the returned melting curve under the current convention. Missing
+or failed checks use statuses such as:
+
+```text
+phase_boundary_ok
+phase_boundary_rejected
+phase_boundary_unavailable_rejected
+```
+
+These checks only populate phase-local candidate state. They do not modify the
+propagated profile, heat fluxes, viscosity, mass, gravity, or phase structure.
+Ganymede/Titan-style real-body acceptance remains blocked unless the
+pressure-dependent melt curve and phase-boundary checks are available and pass.
+Ice III and Ice V remain diagnostic-only extrapolations.
+
 ## Limitations
 
 These calculations are diagnostics. They do not implement production Ice VI
