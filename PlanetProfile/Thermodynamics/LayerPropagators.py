@@ -1098,6 +1098,10 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
         gtop_ms2 = Planet.g_ms2[iTop]
         zb_m = zBot_m - zTop_m
         Pmid_MPa = (Planet.P_MPa[iTop] + Planet.P_MPa[iBot]) / 2
+        rhoPhase_kgm3 = _HPIcePhaseMean(Planet, 'rho_kgm3', phaseInds)
+        CpPhase_JkgK = _HPIcePhaseMean(Planet, 'Cp_JkgK', phaseInds)
+        alphaPhase_pK = _HPIcePhaseMean(Planet, 'alpha_pK', phaseInds)
+        kThermPhase_WmK = _HPIcePhaseMean(Planet, 'kTherm_WmK', phaseInds)
 
         if zb_m < 1e3 or not np.all(np.isfinite([Ttop_K, Tb_K, rTop_m, kTop_WmK, gtop_ms2, Pmid_MPa])):
             reason = 'too thin' if zb_m < 1e3 else 'invalid P/T/r/k/g'
@@ -1106,6 +1110,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                 iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                 zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
                 Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+                rho_kgm3=rhoPhase_kgm3, Cp_JkgK=CpPhase_JkgK,
+                alpha_pK=alphaPhase_pK, kTherm_WmK=kThermPhase_WmK,
                 productionMode=productionMode,
             )
             log.info(f'HP ice {phaseName} diagnostics skipped: {reason}.')
@@ -1118,6 +1124,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                 iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                 zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
                 Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+                rho_kgm3=rhoPhase_kgm3, Cp_JkgK=CpPhase_JkgK,
+                alpha_pK=alphaPhase_pK, kTherm_WmK=kThermPhase_WmK,
                 productionMode=productionMode,
             )
             log.warning(f'HP ice {phaseName} diagnostics skipped: EOS was not loaded.')
@@ -1151,6 +1159,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                     zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
                     Ttop_K=Ttop_K, Tbot_K=Tb_K, qBot_Wm2=qBot_Wm2,
                     Pmid_MPa=Pmid_MPa, method=method,
+                    rho_kgm3=rhoPhase_kgm3, Cp_JkgK=CpPhase_JkgK,
+                    alpha_pK=alphaPhase_pK, kTherm_WmK=kThermPhase_WmK,
                     productionMode=productionMode,
                 )
                 log.warning(f'HP ice {phaseName} Kalousova diagnostics failed: {exc}')
@@ -1190,6 +1200,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                         iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                         zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
                         Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+                        rho_kgm3=rhoPhase_kgm3, Cp_JkgK=CpPhase_JkgK,
+                        alpha_pK=alphaPhase_pK, kTherm_WmK=kThermPhase_WmK,
                         method=method, productionMode=productionMode,
                     )
                     log.warning(f'HP ice {phaseName} diagnostics failed: {fallbackExc}')
@@ -1220,6 +1232,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
                             iTop=iTop, iBot=iBot, rTop_m=rTop_m, rBot_m=rBot_m,
                             zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
                             Ttop_K=Ttop_K, Tbot_K=Tb_K, Pmid_MPa=Pmid_MPa,
+                            rho_kgm3=rhoPhase_kgm3, Cp_JkgK=CpPhase_JkgK,
+                            alpha_pK=alphaPhase_pK, kTherm_WmK=kThermPhase_WmK,
                             method=method, productionMode=productionMode,
                         )
                         log.warning(f'HP ice {phaseName} diagnostics failed: {fallbackExc}')
@@ -1236,6 +1250,8 @@ def HPIceConvectionDiagnostics(Planet, Params, hpIceConvectionModel=None):
             zTop_m=zTop_m, zBot_m=zBot_m, thickness_m=zb_m,
             Ttop_K=Ttop_K, Tbot_K=Tb_K, qBot_Wm2=qBot_Wm2,
             Q_in_W=Q_in_W, Q_out_W=Q_out_W,
+            rho_kgm3=rhoPhase_kgm3, Cp_JkgK=CpPhase_JkgK,
+            alpha_pK=alphaPhase_pK, kTherm_WmK=kThermPhase_WmK,
             Tconv_K=Tconv_K, etaConv_Pas=etaConv_Pas,
             etaMelt_Pas=etaMelt_Pas,
             eLid_m=eLid_m, Dconv_m=Dconv_m,
@@ -1372,6 +1388,20 @@ class _FixedPhaseEOS:
         return np.zeros_like(np.asarray(T_K), dtype=int) + self.phaseID
 
 
+def _HPIcePhaseMean(Planet, field, indices):
+    """Read one phase-local mean profile property without mutating the profile."""
+    values = getattr(Planet, field, None)
+    if values is None:
+        return np.nan
+    try:
+        phaseValues = np.asarray(values, dtype=float)[indices]
+    except (IndexError, TypeError, ValueError):
+        return np.nan
+    if phaseValues.size == 0 or np.all(~np.isfinite(phaseValues)):
+        return np.nan
+    return float(np.nanmean(phaseValues))
+
+
 def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None, iBot=None,
                               rTop_m=np.nan, rBot_m=np.nan, zTop_m=np.nan, zBot_m=np.nan,
                               thickness_m=np.nan, Ttop_K=np.nan, Tbot_K=np.nan,
@@ -1382,11 +1412,15 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None
                               Dconv_m=np.nan, deltaTBL_m=np.nan, Ra=np.nan,
                               RaCrit=np.nan, Qbot_W=np.nan, Pmid_MPa=np.nan,
                               method=None, meltFraction=np.nan,
+                              rho_kgm3=np.nan, Cp_JkgK=np.nan, alpha_pK=np.nan,
+                              kTherm_WmK=np.nan,
                               productionMode=None, productionCandidate=False,
                               updateAccepted=False, candidateStatus="not_evaluated",
                               candidateReason=None, massResidual_kg=np.nan,
                               massResidual_frac=np.nan,
-                              phaseBoundaryResidual_K=np.nan):
+                              phaseBoundaryResidual_K=np.nan, Tmelt_top_K=np.nan,
+                              Tmelt_mid_K=np.nan, Tmelt_bot_K=np.nan,
+                              viscositySource=None):
     """Single writer for top-level HP diagnostic fields and HPIceDiagnostics."""
     setattr(Planet, f'Tconv{phaseName}_K', Tconv_K)
     setattr(Planet, f'etaConv{phaseName}_Pas', etaConv_Pas)
@@ -1405,11 +1439,16 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None
         qBot_Wm2=qBot_Wm2, Qbot_W=Qbot_W, Q_in_W=Q_in_W, Q_out_W=Q_out_W,
         q_in_Wm2=q_in_Wm2, q_out_Wm2=q_out_Wm2,
         Q_internal_W=Q_internal_W, Q_latent_W=Q_latent_W,
+        rho_kgm3=rho_kgm3, Cp_JkgK=Cp_JkgK, alpha_pK=alpha_pK,
+        kTherm_WmK=kTherm_WmK,
         productionMode=productionMode, productionCandidate=productionCandidate,
         updateAccepted=updateAccepted, candidateStatus=candidateStatus,
         candidateReason=candidateReason, massResidual_kg=massResidual_kg,
         massResidual_frac=massResidual_frac,
-        phaseBoundaryResidual_K=phaseBoundaryResidual_K, Tconv_K=Tconv_K,
+        phaseBoundaryResidual_K=phaseBoundaryResidual_K,
+        Tmelt_top_K=Tmelt_top_K, Tmelt_mid_K=Tmelt_mid_K,
+        Tmelt_bot_K=Tmelt_bot_K, viscositySource=viscositySource,
+        Tconv_K=Tconv_K,
         etaConv_Pas=etaConv_Pas, etaMelt_Pas=etaMelt_Pas,
         eLid_m=eLid_m, Dconv_m=Dconv_m, deltaTBL_m=deltaTBL_m,
         RaConvect=Ra, RaCrit=RaCrit, Pmid_MPa=Pmid_MPa, method=method,

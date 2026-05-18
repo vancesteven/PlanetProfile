@@ -14,7 +14,7 @@ Planet.Do.Fe_CORE = False
 
 import numpy as np
 import os, shutil
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from copy import deepcopy
 import cmasher
 import logging
@@ -95,6 +95,13 @@ HP_ICE_CONVECTION_MODELS = (
     "Kalousova2018_production_experimental",
 )
 
+HP_ICE_PRODUCTION_ENERGY_FRAC_TOL = 1e-10
+HP_ICE_PRODUCTION_ENERGY_ABS_FLOOR_W = 1e-6
+HP_ICE_PRODUCTION_PHASE_BOUNDARY_TOL_K = 0.1
+HP_ICE_PRODUCTION_LAYER_CLOSURE_FRAC_TOL = 1e-8
+HP_ICE_PRODUCTION_LAYER_CLOSURE_ABS_TOL_M = 1e-3
+HP_ICE_PRODUCTION_MIN_THICKNESS_M = 1e3
+
 
 @dataclass
 class HPIcePhaseState:
@@ -127,14 +134,25 @@ class HPIcePhaseState:
     energyResidual_frac: float = np.nan
     heatFluxResidual_Wm2: float = np.nan
     heatBookkeepingStatus: str = "not_evaluated"
+    rho_kgm3: float = np.nan
+    Cp_JkgK: float = np.nan
+    alpha_pK: float = np.nan
+    kTherm_WmK: float = np.nan
     productionCandidate: bool = False
     productionMode: str = None
     updateAccepted: bool = False
     candidateStatus: str = "not_evaluated"
     candidateReason: str = None
+    acceptanceCriteriaPassed: bool = False
+    acceptanceBlockers: tuple = field(default_factory=tuple)
     massResidual_kg: float = np.nan
     massResidual_frac: float = np.nan
     phaseBoundaryResidual_K: float = np.nan
+    Tmelt_top_K: float = np.nan
+    Tmelt_mid_K: float = np.nan
+    Tmelt_bot_K: float = np.nan
+    viscositySource: str = None
+    layerClosureResidual_m: float = np.nan
     Tconv_K: float = np.nan
     etaConv_Pas: float = np.nan
     etaMelt_Pas: float = np.nan
@@ -153,7 +171,7 @@ class HPIcePhaseState:
     def __post_init__(self):
         self._resolve_heat_bookkeeping()
         self.validityStatus, self.skipReason = self._diagnostic_status()
-        self._resolve_production_dry_run()
+        _EvaluateIceVIProductionAcceptance(self)
 
     @staticmethod
     def _is_finite(value):
@@ -231,6 +249,8 @@ class HPIcePhaseState:
     def _production_rejection_status(self):
         if not self.present or self.status == "absent":
             return "absent"
+        if self.validityStatus == "not_evaluated":
+            return "not_implemented"
         if self.validityStatus == "too_thin":
             return "too_thin_rejected"
         if self.validityStatus == "zero_contrast":
@@ -243,44 +263,163 @@ class HPIcePhaseState:
             return "subcritical_rejected"
         return "not_implemented"
 
-    def _resolve_production_dry_run(self):
-        if self.productionMode != "Kalousova2018_production_experimental":
-            return
-
-        self.updateAccepted = False
-        if self.present and self.status != "absent":
-            if not self._is_finite(self.massResidual_kg):
-                self.massResidual_kg = 0.0
-            if not self._is_finite(self.massResidual_frac):
-                self.massResidual_frac = 0.0
-
-        if not self.present or self.status == "absent":
-            self.productionCandidate = False
-            self.candidateStatus = "absent"
-            self.candidateReason = "absent"
-            return
-
-        if self.phaseID != 6:
-            self.productionCandidate = False
-            if self.status == "computed":
-                self.candidateStatus = "diagnostic_only_extrapolative"
-                self.candidateReason = "active_production_not_implemented_for_phase"
-            else:
-                self.candidateStatus = self._production_rejection_status()
-                self.candidateReason = self.skipReason or self.validityStatus
-            return
-
-        if self.validityStatus == "ok":
-            self.productionCandidate = True
-            self.candidateStatus = "ice_vi_candidate"
-            self.candidateReason = "dry_run_only"
-        else:
-            self.productionCandidate = False
-            self.candidateStatus = self._production_rejection_status()
-            self.candidateReason = self.skipReason or self.validityStatus
-
     def as_dict(self):
         return asdict(self)
+
+
+def _SetHPIceProductionRejection(phaseState, status, reason=None, blockers=None):
+    phaseState.productionCandidate = False
+    phaseState.updateAccepted = False
+    phaseState.acceptanceCriteriaPassed = False
+    if blockers is None:
+        blockers = (status,)
+    phaseState.acceptanceBlockers = tuple(blockers)
+    phaseState.candidateStatus = status
+    phaseState.candidateReason = reason or status
+
+
+def _EvaluateIceVIProductionAcceptance(phaseState):
+    """Evaluate candidate-only Ice VI production acceptance criteria.
+
+    This mutates only the phase-local state object. It does not and must not
+    alter propagated PlanetProfile arrays or scalar model outputs.
+    """
+    if phaseState.productionMode != "Kalousova2018_production_experimental":
+        return phaseState
+
+    phaseState.updateAccepted = False
+    phaseState.acceptanceCriteriaPassed = False
+    if phaseState.viscositySource is None:
+        phaseState.viscositySource = "fixed_reference"
+
+    if phaseState.present and phaseState.status != "absent":
+        if not phaseState._is_finite(phaseState.massResidual_kg):
+            phaseState.massResidual_kg = 0.0
+        if not phaseState._is_finite(phaseState.massResidual_frac):
+            phaseState.massResidual_frac = 0.0
+
+    if not phaseState.present or phaseState.status == "absent":
+        _SetHPIceProductionRejection(phaseState, "absent", "absent")
+        return phaseState
+
+    if phaseState.phaseID != 6:
+        if phaseState.status == "computed":
+            _SetHPIceProductionRejection(
+                phaseState,
+                "diagnostic_only_extrapolative",
+                "active_production_not_implemented_for_phase",
+            )
+        else:
+            status = phaseState._production_rejection_status()
+            _SetHPIceProductionRejection(phaseState, status, phaseState.skipReason or phaseState.validityStatus)
+        return phaseState
+
+    if phaseState.status != "computed":
+        status = phaseState._production_rejection_status()
+        _SetHPIceProductionRejection(phaseState, status, phaseState.skipReason or phaseState.validityStatus)
+        return phaseState
+
+    if phaseState.validityStatus == "too_thin":
+        _SetHPIceProductionRejection(phaseState, "too_thin_rejected", phaseState.skipReason or "too_thin")
+        return phaseState
+    if phaseState.validityStatus == "zero_contrast":
+        _SetHPIceProductionRejection(phaseState, "zero_contrast_rejected", phaseState.skipReason or "zero_contrast")
+        return phaseState
+    if phaseState.validityStatus == "invalid_geometry":
+        _SetHPIceProductionRejection(phaseState, "invalid_geometry_rejected", phaseState.skipReason or "invalid_geometry")
+        return phaseState
+    if phaseState.validityStatus in ("nonfinite", "invalid_melt_fraction"):
+        _SetHPIceProductionRejection(phaseState, "nonfinite_rejected", phaseState.skipReason or phaseState.validityStatus)
+        return phaseState
+
+    finiteGeometry = (
+        phaseState._is_finite(phaseState.rTop_m) and
+        phaseState._is_finite(phaseState.rBot_m) and
+        phaseState._is_finite(phaseState.zTop_m) and
+        phaseState._is_finite(phaseState.zBot_m) and
+        phaseState._is_finite(phaseState.thickness_m)
+    )
+    if (
+        not finiteGeometry or phaseState.rTop_m <= phaseState.rBot_m or
+        phaseState.zBot_m <= phaseState.zTop_m or phaseState.thickness_m <= 0
+    ):
+        _SetHPIceProductionRejection(phaseState, "invalid_geometry_rejected", "invalid_geometry")
+        return phaseState
+
+    if phaseState.thickness_m < HP_ICE_PRODUCTION_MIN_THICKNESS_M:
+        _SetHPIceProductionRejection(phaseState, "too_thin_rejected", "too_thin")
+        return phaseState
+
+    materialValues = (
+        phaseState.rho_kgm3, phaseState.Cp_JkgK, phaseState.alpha_pK,
+        phaseState.kTherm_WmK, phaseState.etaConv_Pas, phaseState.etaMelt_Pas,
+    )
+    if any(not phaseState._is_finite(value) for value in materialValues):
+        _SetHPIceProductionRejection(phaseState, "nonfinite_rejected", "nonfinite_material_or_viscosity")
+        return phaseState
+    if any(value <= 0 for value in materialValues):
+        _SetHPIceProductionRejection(phaseState, "invalid_viscosity_rejected", "nonpositive_material_or_viscosity")
+        return phaseState
+
+    if phaseState.validityStatus == "subcritical" or phaseState.RaConvect <= phaseState.RaCrit:
+        _SetHPIceProductionRejection(phaseState, "subcritical_rejected", "subcritical")
+        return phaseState
+
+    layerTerms = (phaseState.eLid_m, phaseState.Dconv_m, phaseState.deltaTBL_m)
+    if any(not phaseState._is_finite(value) for value in layerTerms):
+        _SetHPIceProductionRejection(phaseState, "nonfinite_rejected", "nonfinite_layer_terms")
+        return phaseState
+    phaseState.layerClosureResidual_m = phaseState.thickness_m - sum(layerTerms)
+    closureTol_m = max(
+        HP_ICE_PRODUCTION_LAYER_CLOSURE_FRAC_TOL * phaseState.thickness_m,
+        HP_ICE_PRODUCTION_LAYER_CLOSURE_ABS_TOL_M,
+    )
+    if abs(phaseState.layerClosureResidual_m) > closureTol_m:
+        _SetHPIceProductionRejection(
+            phaseState,
+            "boundary_layer_exceeds_layer_rejected",
+            "layer_closure_residual_exceeds_tolerance",
+        )
+        return phaseState
+
+    qscale_W = max(abs(phaseState.Q_in_W), abs(phaseState.Q_out_W), 1.0)
+    energyAbsTol_W = max(HP_ICE_PRODUCTION_ENERGY_FRAC_TOL * qscale_W, HP_ICE_PRODUCTION_ENERGY_ABS_FLOOR_W)
+    if (
+        not phaseState._is_finite(phaseState.energyResidual_W) or
+        not phaseState._is_finite(phaseState.energyResidual_frac) or
+        abs(phaseState.energyResidual_W) > energyAbsTol_W or
+        abs(phaseState.energyResidual_frac) > HP_ICE_PRODUCTION_ENERGY_FRAC_TOL
+    ):
+        _SetHPIceProductionRejection(phaseState, "energy_residual_rejected", "energy_residual_exceeds_tolerance")
+        return phaseState
+
+    if phaseState.massResidual_kg != 0.0 or phaseState.massResidual_frac != 0.0:
+        _SetHPIceProductionRejection(phaseState, "mass_residual_rejected", "mass_residual_nonzero")
+        return phaseState
+
+    if phaseState.Q_latent_W != 0.0:
+        _SetHPIceProductionRejection(phaseState, "energy_residual_rejected", "latent_heat_not_implemented")
+        return phaseState
+
+    meltValues = (phaseState.Tmelt_top_K, phaseState.Tmelt_mid_K, phaseState.Tmelt_bot_K)
+    if any(not phaseState._is_finite(value) for value in meltValues):
+        _SetHPIceProductionRejection(phaseState, "missing_melt_curve_rejected", "missing_TmeltVI_P")
+        return phaseState
+
+    if not phaseState._is_finite(phaseState.phaseBoundaryResidual_K):
+        _SetHPIceProductionRejection(phaseState, "phase_boundary_rejected", "missing_phase_boundary_residual")
+        return phaseState
+    if abs(phaseState.phaseBoundaryResidual_K) > HP_ICE_PRODUCTION_PHASE_BOUNDARY_TOL_K:
+        _SetHPIceProductionRejection(phaseState, "phase_boundary_rejected", "phase_boundary_residual_exceeds_tolerance")
+        return phaseState
+
+    phaseState.productionCandidate = True
+    phaseState.updateAccepted = True
+    phaseState.acceptanceCriteriaPassed = True
+    phaseState.acceptanceBlockers = ()
+    phaseState.candidateStatus = "accepted_candidate_state_only"
+    phaseState.candidateReason = "all_acceptance_criteria_passed"
+    return phaseState
 
 
 def ResolveHPIceConvectionModel(PlanetOrDo):

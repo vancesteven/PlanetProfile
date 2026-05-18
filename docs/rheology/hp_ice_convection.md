@@ -230,26 +230,43 @@ would be considered, rejected, or left as diagnostic-only.
 This path is fail-closed:
 
 ```text
-updateAccepted = False
+updateAccepted = False unless all Ice VI acceptance criteria are explicitly met
 ```
 
-in every phase state. It does not modify propagated profiles, heat fluxes,
-viscosity, mass, gravity, or phase boundaries.
+Even when a synthetic candidate state can satisfy those criteria,
+`updateAccepted` is recorded only in the phase-local candidate state. It does
+not modify propagated profiles, heat fluxes, viscosity, mass, gravity, or phase
+boundaries.
 
-Ice VI is the only phase that can be marked as a production candidate in this
-dry run. A supercritical, finite, positive-contrast Ice VI diagnostic is recorded
-with:
+Ice VI is the only phase that can be evaluated for future production
+acceptance. A supercritical, finite, positive-contrast Ice VI diagnostic is not
+enough by itself: real-body acceptance remains blocked until pressure-dependent
+Ice VI melting and phase-boundary checks are available. In normal body runs
+without those checks, Ice VI is rejected with a machine-readable status such as:
 
 ```text
-candidateStatus = "ice_vi_candidate"
-candidateReason = "dry_run_only"
-productionCandidate = True
+candidateStatus = "missing_melt_curve_rejected"
 updateAccepted = False
 ```
+
+When a tightly controlled synthetic state supplies all required acceptance
+inputs, the candidate state may record:
+
+```text
+candidateStatus = "accepted_candidate_state_only"
+acceptanceCriteriaPassed = True
+updateAccepted = True
+```
+
+This accepted state is still candidate-only and does not alter propagated model
+outputs.
 
 Rejected Ice VI cases use machine-readable statuses such as
 `"subcritical_rejected"`, `"zero_contrast_rejected"`, `"too_thin_rejected"`,
-`"invalid_geometry_rejected"`, and `"nonfinite_rejected"`.
+`"invalid_geometry_rejected"`, `"invalid_viscosity_rejected"`,
+`"missing_melt_curve_rejected"`, `"phase_boundary_rejected"`,
+`"energy_residual_rejected"`, `"mass_residual_rejected"`,
+`"boundary_layer_exceeds_layer_rejected"`, and `"nonfinite_rejected"`.
 
 Ice III and Ice V remain diagnostic and extrapolative in this mode. When they
 are evaluated, their phase states are marked:
@@ -262,6 +279,52 @@ The dry run also records zero/no-op mass residuals for evaluated phase states.
 It does not add latent heat, melt density, mass transport, or active Ice VI
 profile propagation. The purpose is to make future production decisions
 auditable before any accepted profile update is introduced.
+
+## Ice VI production acceptance criteria
+
+The experimental production path evaluates candidate-state acceptance criteria
+for Ice VI only. The criteria are intentionally stricter than the diagnostic
+Kalousova formula checks. Before an Ice VI candidate can record
+`updateAccepted=True` in its phase-local state, all of the following must pass:
+
+```text
+phaseID == 6
+Ice VI is present
+finite geometry
+positive layer thickness
+layer thickness >= 1 km
+positive temperature contrast
+finite positive material properties
+finite positive viscosity
+RaConvect > RaCrit
+boundary layers close within the layer
+energy residual is within tolerance
+mass residual is exactly zero
+Q_latent_W == 0.0
+Tmelt_top_K, Tmelt_mid_K, and Tmelt_bot_K are finite
+phaseBoundaryResidual_K is finite and <= 0.1 K
+```
+
+The current real-body diagnostic path does not yet provide pressure-dependent
+`TmeltVI(P)` or a phase-boundary residual, so Ganymede/Titan-style body runs
+remain rejected even when their Ice VI Kalousova diagnostics are otherwise
+supercritical.
+
+The acceptance thresholds are:
+
+```text
+abs(energyResidual_frac) <= 1e-10
+abs(energyResidual_W) <= max(1e-10 * Qscale_W, 1e-6 W)
+massResidual_kg == 0.0
+massResidual_frac == 0.0
+abs(phaseBoundaryResidual_K) <= 0.1 K
+abs(layerClosureResidual_m) <= max(1e-8 * thickness_m, 1e-3 m)
+```
+
+Ice III and Ice V remain diagnostic-only extrapolations in this mode. The
+acceptance criteria do not add latent heat, melt density, mass transport, or
+active Ice VI profile propagation. Active profile mutation remains future work
+and requires separate validation.
 
 ## Limitations
 
