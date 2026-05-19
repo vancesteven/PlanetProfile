@@ -154,6 +154,11 @@ class HPIcePhaseState:
     TmeltSource: str = None
     meltCurveStatus: str = "not_evaluated"
     phaseBoundaryStatus: str = "not_evaluated"
+    eosBoundaryContext: str = "not_evaluated"
+    eosBoundaryStatus: str = "not_evaluated"
+    eosBoundaryReason: str = None
+    candidateBoundarySource: str = None
+    finalProfileCoverageStatus: str = "final_profile_not_evaluated"
     viscositySource: str = None
     layerClosureResidual_m: float = np.nan
     Tconv_K: float = np.nan
@@ -423,6 +428,11 @@ def _EvaluateIceVIProductionAcceptance(phaseState):
             "melt_curve_nonfinite_rejected": "nonfinite_TmeltVI_P",
             "outside_eos_domain_rejected": "outside_eos_domain",
         }[phaseState.meltCurveStatus]
+        if (
+            phaseState.meltCurveStatus == "outside_eos_domain_rejected" and
+            phaseState.eosBoundaryStatus not in (None, "not_evaluated")
+        ):
+            reason = phaseState.eosBoundaryStatus
         _SetHPIceProductionRejection(phaseState, phaseState.meltCurveStatus, reason)
         return phaseState
 

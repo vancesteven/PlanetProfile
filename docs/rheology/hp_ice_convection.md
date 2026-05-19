@@ -340,6 +340,11 @@ TmeltSource
 meltCurveStatus
 phaseBoundaryResidual_K
 phaseBoundaryStatus
+eosBoundaryContext
+eosBoundaryStatus
+eosBoundaryReason
+candidateBoundarySource
+finalProfileCoverageStatus
 ```
 
 The candidate check uses `GetTfreeze()` with the existing ocean EOS phase
@@ -353,6 +358,27 @@ missing_melt_curve_rejected
 melt_curve_nonfinite_rejected
 outside_eos_domain_rejected
 ```
+
+An `outside_eos_domain_rejected` status can refer specifically to the
+provisional in-run production-candidate bounds. For example, a candidate Ice VI
+bottom boundary may slightly exceed the declared EOS pressure domain even when
+the finalized propagated Ice VI nodes are later found to be inside the EOS
+domain. The phase-local diagnostic state records this distinction with
+machine-readable fields such as:
+
+```text
+candidateBoundarySource = in_run_candidate_bounds
+eosBoundaryContext = in_run_candidate
+eosBoundaryStatus = in_run_candidate_boundary_outside_eos_domain
+finalProfileCoverageStatus = final_profile_nodes_in_domain
+```
+
+This distinction is diagnostic only. It does not make the candidate acceptable,
+and it does not change the fail-closed behavior of the experimental production
+selector. Silent clamping to the EOS boundary is intentionally rejected. A
+post-hoc finalized-profile candidate check may be useful as a future diagnostic,
+but it is not active production modeling and does not feed back into the
+propagated profile.
 
 The phase-boundary residual is a candidate-state stability check: it records
 whether the current Ice VI candidate temperatures stay within the validated

@@ -1426,14 +1426,25 @@ def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_
         'meltCurveStatus': 'not_evaluated',
         'phaseBoundaryResidual_K': np.nan,
         'phaseBoundaryStatus': 'not_evaluated',
+        'eosBoundaryContext': 'not_evaluated',
+        'eosBoundaryStatus': 'not_evaluated',
+        'eosBoundaryReason': None,
+        'candidateBoundarySource': None,
+        'finalProfileCoverageStatus': 'final_profile_not_evaluated',
     }
     if productionMode != "Kalousova2018_production_experimental" or phaseID != 6:
         return checks
 
+    checks.update({
+        'eosBoundaryContext': 'in_run_candidate',
+        'candidateBoundarySource': 'in_run_candidate_bounds',
+    })
     oceanEOS = getattr(getattr(Planet, 'Ocean', None), 'EOS', None)
     if oceanEOS is None or not hasattr(oceanEOS, 'fn_phase'):
         checks['meltCurveStatus'] = 'missing_melt_curve_rejected'
         checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+        checks['eosBoundaryStatus'] = 'eos_boundary_unavailable'
+        checks['eosBoundaryReason'] = 'missing_ocean_eos'
         return checks
 
     pressures_MPa = (Ptop_MPa, Pmid_MPa, Pbot_MPa)
@@ -1441,6 +1452,8 @@ def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_
     if any(not np.isfinite(value) for value in pressures_MPa + temperatures_K):
         checks['meltCurveStatus'] = 'outside_eos_domain_rejected'
         checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+        checks['eosBoundaryStatus'] = 'in_run_candidate_boundary_nonfinite'
+        checks['eosBoundaryReason'] = 'nonfinite_candidate_boundary'
         return checks
 
     Pmin_MPa = getattr(oceanEOS, 'Pmin', -np.inf)
@@ -1453,6 +1466,8 @@ def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_
     ):
         checks['meltCurveStatus'] = 'outside_eos_domain_rejected'
         checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+        checks['eosBoundaryStatus'] = 'in_run_candidate_boundary_outside_eos_domain'
+        checks['eosBoundaryReason'] = 'candidate_boundary_outside_declared_eos_domain'
         return checks
 
     TsearchMax_K = np.nanmax((
@@ -1472,10 +1487,14 @@ def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_
         except Exception:
             checks['meltCurveStatus'] = 'outside_eos_domain_rejected'
             checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+            checks['eosBoundaryStatus'] = 'in_run_candidate_phase_lookup_failed'
+            checks['eosBoundaryReason'] = 'fn_phase_exception'
             return checks
         if phaseAtCandidate != 6:
             checks['meltCurveStatus'] = 'outside_eos_domain_rejected'
             checks['phaseBoundaryStatus'] = 'outside_eos_domain_rejected'
+            checks['eosBoundaryStatus'] = 'in_run_candidate_boundary_not_ice_vi'
+            checks['eosBoundaryReason'] = 'candidate_boundary_not_ice_vi'
             return checks
 
         searchRange_K = max(TsearchMax_K - T_K, 1.0)
@@ -1487,12 +1506,16 @@ def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_
         except Exception:
             checks['meltCurveStatus'] = 'missing_melt_curve_rejected'
             checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+            checks['eosBoundaryStatus'] = 'melt_curve_lookup_failed'
+            checks['eosBoundaryReason'] = 'GetTfreeze_exception'
             return checks
         meltValues_K.append(Tmelt_K)
 
     if any(not np.isfinite(value) for value in meltValues_K):
         checks['meltCurveStatus'] = 'melt_curve_nonfinite_rejected'
         checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+        checks['eosBoundaryStatus'] = 'melt_curve_lookup_nonfinite'
+        checks['eosBoundaryReason'] = 'nonfinite_GetTfreeze_result'
         return checks
 
     boundaryResidual_K = max(0.0, max(T_K - Tmelt_K for T_K, Tmelt_K in zip(temperatures_K, meltValues_K)))
@@ -1504,6 +1527,8 @@ def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_
         'meltCurveStatus': 'melt_curve_ok',
         'phaseBoundaryResidual_K': float(boundaryResidual_K),
         'phaseBoundaryStatus': 'phase_boundary_ok' if boundaryResidual_K <= 0.1 else 'phase_boundary_rejected',
+        'eosBoundaryStatus': 'in_run_candidate_boundary_in_domain',
+        'eosBoundaryReason': 'candidate_boundary_in_declared_eos_domain',
     })
     return checks
 
@@ -1528,6 +1553,11 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None
                               Tmelt_mid_K=np.nan, Tmelt_bot_K=np.nan,
                               TmeltSource=None, meltCurveStatus="not_evaluated",
                               phaseBoundaryStatus="not_evaluated",
+                              eosBoundaryContext="not_evaluated",
+                              eosBoundaryStatus="not_evaluated",
+                              eosBoundaryReason=None,
+                              candidateBoundarySource=None,
+                              finalProfileCoverageStatus="final_profile_not_evaluated",
                               viscositySource=None):
     """Single writer for top-level HP diagnostic fields and HPIceDiagnostics."""
     setattr(Planet, f'Tconv{phaseName}_K', Tconv_K)
@@ -1558,6 +1588,11 @@ def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None
         Tmelt_bot_K=Tmelt_bot_K, TmeltSource=TmeltSource,
         meltCurveStatus=meltCurveStatus,
         phaseBoundaryStatus=phaseBoundaryStatus,
+        eosBoundaryContext=eosBoundaryContext,
+        eosBoundaryStatus=eosBoundaryStatus,
+        eosBoundaryReason=eosBoundaryReason,
+        candidateBoundarySource=candidateBoundarySource,
+        finalProfileCoverageStatus=finalProfileCoverageStatus,
         viscositySource=viscositySource,
         Tconv_K=Tconv_K,
         etaConv_Pas=etaConv_Pas, etaMelt_Pas=etaMelt_Pas,

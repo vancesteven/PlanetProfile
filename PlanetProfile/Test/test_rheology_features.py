@@ -1211,11 +1211,60 @@ class Test10IceVIMeltCurveCandidateChecks(unittest.TestCase):
         self.assertEqual(fields["TmeltSource"], "GetTfreeze")
         self.assertEqual(fields["meltCurveStatus"], "melt_curve_ok")
         self.assertEqual(fields["phaseBoundaryStatus"], "phase_boundary_ok")
+        self.assertEqual(fields["eosBoundaryContext"], "in_run_candidate")
+        self.assertEqual(fields["eosBoundaryStatus"], "in_run_candidate_boundary_in_domain")
+        self.assertEqual(fields["candidateBoundarySource"], "in_run_candidate_bounds")
+        self.assertEqual(fields["finalProfileCoverageStatus"], "final_profile_not_evaluated")
         np.testing.assert_allclose(
             [fields["Tmelt_top_K"], fields["Tmelt_mid_K"], fields["Tmelt_bot_K"]],
             [292.01, 293.01, 294.01],
             atol=2.0e-2,
         )
+
+    def test_outside_eos_domain_records_in_run_boundary_context(self):
+        planet = self._production_planet()
+
+        fields = _GetIceVIMeltCurveCandidateChecks(
+            planet,
+            phaseID=6,
+            Ptop_MPa=800.0,
+            Pmid_MPa=900.0,
+            Pbot_MPa=1400.0,
+            Ttop_K=285.0,
+            Tconv_K=286.0,
+            Tbot_K=287.0,
+            productionMode="Kalousova2018_production_experimental",
+        )
+        state = self._ice_vi_state(**fields)
+
+        self.assertEqual(fields["meltCurveStatus"], "outside_eos_domain_rejected")
+        self.assertEqual(fields["eosBoundaryContext"], "in_run_candidate")
+        self.assertEqual(fields["eosBoundaryStatus"], "in_run_candidate_boundary_outside_eos_domain")
+        self.assertEqual(fields["eosBoundaryReason"], "candidate_boundary_outside_declared_eos_domain")
+        self.assertEqual(fields["candidateBoundarySource"], "in_run_candidate_bounds")
+        self.assertFalse(state.updateAccepted)
+        self.assertEqual(state.candidateStatus, "outside_eos_domain_rejected")
+        self.assertEqual(state.candidateReason, "in_run_candidate_boundary_outside_eos_domain")
+
+    def test_final_profile_coverage_status_does_not_change_acceptance(self):
+        state = self._ice_vi_state(
+            Tmelt_top_K=np.nan,
+            Tmelt_mid_K=np.nan,
+            Tmelt_bot_K=np.nan,
+            TmeltSource=None,
+            meltCurveStatus="outside_eos_domain_rejected",
+            phaseBoundaryStatus="phase_boundary_unavailable_rejected",
+            eosBoundaryContext="in_run_candidate",
+            eosBoundaryStatus="in_run_candidate_boundary_outside_eos_domain",
+            eosBoundaryReason="candidate_boundary_outside_declared_eos_domain",
+            candidateBoundarySource="in_run_candidate_bounds",
+            finalProfileCoverageStatus="final_profile_nodes_in_domain",
+        )
+
+        self.assertFalse(state.updateAccepted)
+        self.assertEqual(state.candidateStatus, "outside_eos_domain_rejected")
+        self.assertEqual(state.candidateReason, "in_run_candidate_boundary_outside_eos_domain")
+        self.assertEqual(state.finalProfileCoverageStatus, "final_profile_nodes_in_domain")
 
     def test_phase_boundary_residual_can_pass_candidate_state_only(self):
         planet = self._production_planet()
@@ -1324,6 +1373,10 @@ class Test10IceVIMeltCurveCandidateChecks(unittest.TestCase):
         )
 
         self.assertTrue(planet.HPIceDiagnostics["VI"]["updateAccepted"])
+        self.assertEqual(
+            planet.HPIceDiagnostics["VI"]["eosBoundaryStatus"],
+            "in_run_candidate_boundary_in_domain",
+        )
         for key, value in before.items():
             np.testing.assert_array_equal(getattr(planet, key), value)
 
