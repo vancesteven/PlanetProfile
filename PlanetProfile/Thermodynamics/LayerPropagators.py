@@ -20,11 +20,18 @@ from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import Convect
     ConvectionKalousova2018, GetRaCrit
 from PlanetProfile.Thermodynamics.Geophysical import PropogateConductionFromDepth
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, HPIcePhaseState, Timing, ResolveHPIceConvectionModel, \
-    HP_ICE_PRODUCTION_ENERGY_ABS_FLOOR_W, HP_ICE_PRODUCTION_ENERGY_FRAC_TOL
+    HP_ICE_PRODUCTION_ENERGY_ABS_FLOOR_W, HP_ICE_PRODUCTION_ENERGY_FRAC_TOL, \
+    HP_ICE_PRODUCTION_LAYER_CLOSURE_ABS_TOL_M, HP_ICE_PRODUCTION_LAYER_CLOSURE_FRAC_TOL, \
+    HP_ICE_PRODUCTION_MIN_THICKNESS_M
 import time
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
+
+POSTHOC_EOS_PRESSURE_MARGIN_WARN_MPA = 5.0
+POSTHOC_EOS_TEMPERATURE_MARGIN_WARN_K = 1.0
+POSTHOC_PHASE_BOUNDARY_MARGIN_WARN_K = 0.1
+POSTHOC_RAYLEIGH_NEAR_CRITICAL_RATIO = 1.1
 
 def IceLayers(Planet, Params):
     """ Wrapper function for ice layer propogation. Decides between self consistent and non-self consistent modeling.
@@ -1559,6 +1566,19 @@ def _PosthocIceVIResult(status, reason=None, blockers=None, **updates):
         'posthocPhaseBoundaryStatus': 'not_evaluated',
         'posthocUpdateAccepted': False,
         'posthocAcceptanceBlockers': tuple(blockers or (status,)),
+        'posthocAllNodesInEOSDomain': False,
+        'posthocAllNodesIceVI': False,
+        'posthocEOSPressureMargin_MPa': np.nan,
+        'posthocEOSTemperatureMargin_K': np.nan,
+        'posthocMinPhaseBoundaryMargin_K': np.nan,
+        'posthocAllNodeMeltCurveFailures': 0,
+        'posthocTemperatureContrastStatus': 'not_evaluated',
+        'posthocRayleighRegimeStatus': 'not_evaluated',
+        'posthocThicknessStatus': 'not_evaluated',
+        'posthocLayerClosureStatus': 'not_evaluated',
+        'posthocViscosityStatus': 'not_evaluated',
+        'posthocSensitivityRiskStatus': 'not_evaluated',
+        'posthocRiskReasons': tuple(),
     }
     result.update(updates)
     return result
@@ -1577,6 +1597,178 @@ def _StorePosthocIceVIProductionCandidate(Planet, result):
                 posthocCandidateEvaluated=False,
             ))
     return result
+
+
+def _PosthocFinitePositive(value):
+    return value is not None and np.isfinite(value) and value > 0
+
+
+def _PosthocMarginToBounds(values, lower, upper):
+    values = np.asarray(values, dtype=float)
+    margins = []
+    if np.isfinite(lower):
+        margins.append(values - lower)
+    if np.isfinite(upper):
+        margins.append(upper - values)
+    if not margins:
+        return np.inf
+    margin = np.concatenate([np.asarray(item, dtype=float).reshape(-1) for item in margins])
+    if margin.size == 0 or np.all(~np.isfinite(margin)):
+        return np.nan
+    return float(np.nanmin(margin))
+
+
+def _PosthocIceVIAllNodeDiagnostics(Planet, iceVI, P_MPa, T_K):
+    eos = getattr(getattr(Planet, 'Ocean', None), 'EOS', None)
+    Pnodes_MPa = np.asarray(P_MPa, dtype=float)[iceVI]
+    Tnodes_K = np.asarray(T_K, dtype=float)[iceVI]
+    Pmin_MPa = getattr(eos, 'Pmin', -np.inf)
+    Pmax_MPa = getattr(eos, 'Pmax', np.inf)
+    Tmin_K = getattr(eos, 'Tmin', -np.inf)
+    Tmax_K = getattr(eos, 'Tmax', np.inf)
+    pressureInDomain = (Pnodes_MPa >= Pmin_MPa) & (Pnodes_MPa <= Pmax_MPa)
+    temperatureInDomain = (Tnodes_K >= Tmin_K) & (Tnodes_K <= Tmax_K)
+    finiteNodes = np.isfinite(Pnodes_MPa) & np.isfinite(Tnodes_K)
+    phaseValues = []
+    meltMargins_K = []
+    meltCurveFailures = 0
+    TsearchMax_K = np.nanmax((
+        getattr(getattr(Planet, 'Ocean', None), 'THydroMax_K', np.nan),
+        getattr(Planet, 'TfreezeUpper_K', np.nan),
+        Tmax_K if np.isfinite(Tmax_K) else np.nan,
+        np.nanmax(Tnodes_K) + 50.0 if Tnodes_K.size else np.nan,
+    ))
+    if not np.isfinite(TsearchMax_K) and Tnodes_K.size:
+        TsearchMax_K = np.nanmax(Tnodes_K) + 50.0
+    TRes_K = getattr(Planet, 'TfreezeRes_K', 0.05)
+    for Pval_MPa, Tval_K, inDomain in zip(Pnodes_MPa, Tnodes_K, pressureInDomain & temperatureInDomain & finiteNodes):
+        try:
+            phaseAtNode = int(np.asarray(eos.fn_phase(float(Pval_MPa), float(Tval_K))).item())
+        except Exception:
+            phaseAtNode = None
+        phaseValues.append(phaseAtNode)
+        if not inDomain or phaseAtNode != 6:
+            continue
+        try:
+            Tmelt_K = GetTfreeze(
+                eos, float(Pval_MPa), float(Tval_K),
+                TfreezeRange_K=max(TsearchMax_K - float(Tval_K), 1.0),
+                TRes_K=TRes_K,
+            )
+        except Exception:
+            meltCurveFailures += 1
+            continue
+        if np.isfinite(Tmelt_K):
+            meltMargins_K.append(float(Tmelt_K - Tval_K))
+        else:
+            meltCurveFailures += 1
+    allInDomain = bool(np.all(pressureInDomain & temperatureInDomain & finiteNodes))
+    allIceVI = bool(all(value == 6 for value in phaseValues))
+    return {
+        'posthocAllNodesInEOSDomain': allInDomain,
+        'posthocAllNodesIceVI': allIceVI,
+        'posthocEOSPressureMargin_MPa': _PosthocMarginToBounds(Pnodes_MPa, Pmin_MPa, Pmax_MPa),
+        'posthocEOSTemperatureMargin_K': _PosthocMarginToBounds(Tnodes_K, Tmin_K, Tmax_K),
+        'posthocMinPhaseBoundaryMargin_K': float(np.nanmin(meltMargins_K)) if meltMargins_K else np.nan,
+        'posthocAllNodeMeltCurveFailures': int(meltCurveFailures),
+    }
+
+
+def _PosthocIceVIRiskDiagnostics(Planet, iceVI, Pvals_MPa, Tvals_K, phaseDiagnostics, base):
+    reasons = []
+    fatalReasons = []
+
+    if Tvals_K[2] <= Tvals_K[0]:
+        fatalReasons.append('invalid_contrast')
+    temperatureContrastStatus = 'invalid_contrast' if 'invalid_contrast' in fatalReasons else 'ok'
+
+    ra = phaseDiagnostics.get('RaConvect', np.nan)
+    raCrit = phaseDiagnostics.get('RaCrit', np.nan)
+    if _PosthocFinitePositive(ra) and _PosthocFinitePositive(raCrit):
+        raRatio = ra / raCrit
+        if raRatio <= 1.0:
+            fatalReasons.append('subcritical')
+            rayleighStatus = 'subcritical'
+        elif raRatio <= POSTHOC_RAYLEIGH_NEAR_CRITICAL_RATIO:
+            reasons.append('near_critical')
+            rayleighStatus = 'near_critical'
+        else:
+            rayleighStatus = 'supercritical'
+    else:
+        fatalReasons.append('subcritical')
+        rayleighStatus = 'subcritical'
+
+    thickness_m = np.nan
+    if hasattr(Planet, 'z_m'):
+        try:
+            zNodes_m = np.asarray(Planet.z_m, dtype=float)[iceVI]
+            thickness_m = float(np.nanmax(zNodes_m) - np.nanmin(zNodes_m))
+        except (IndexError, TypeError, ValueError):
+            thickness_m = np.nan
+    if not np.isfinite(thickness_m):
+        thickness_m = phaseDiagnostics.get('thickness_m', np.nan)
+    if not _PosthocFinitePositive(thickness_m):
+        fatalReasons.append('too_thin')
+        thicknessStatus = 'too_thin'
+    elif thickness_m < HP_ICE_PRODUCTION_MIN_THICKNESS_M:
+        fatalReasons.append('too_thin')
+        thicknessStatus = 'too_thin'
+    else:
+        thicknessStatus = 'ok'
+
+    layerClosureResidual_m = phaseDiagnostics.get('layerClosureResidual_m', np.nan)
+    if np.isfinite(layerClosureResidual_m) and np.isfinite(thickness_m) and thickness_m > 0:
+        closureTol_m = max(
+            HP_ICE_PRODUCTION_LAYER_CLOSURE_FRAC_TOL * thickness_m,
+            HP_ICE_PRODUCTION_LAYER_CLOSURE_ABS_TOL_M,
+        )
+        if abs(layerClosureResidual_m) > closureTol_m:
+            fatalReasons.append('boundary_layer_exceeds_layer')
+            layerClosureStatus = 'boundary_layer_exceeds_layer'
+        else:
+            layerClosureStatus = 'ok'
+    else:
+        layerClosureStatus = 'not_evaluated'
+
+    viscosityValues = (
+        phaseDiagnostics.get('etaConv_Pas', np.nan),
+        phaseDiagnostics.get('etaMelt_Pas', np.nan),
+    )
+    if any(value is not None and (not np.isfinite(value) or value <= 0) for value in viscosityValues):
+        fatalReasons.append('invalid_viscosity')
+        viscosityStatus = 'invalid_viscosity'
+    else:
+        viscosityStatus = 'ok'
+
+    if base.get('posthocEOSPressureMargin_MPa', np.inf) <= POSTHOC_EOS_PRESSURE_MARGIN_WARN_MPA:
+        reasons.append('near_eos_boundary')
+    if base.get('posthocEOSTemperatureMargin_K', np.inf) <= POSTHOC_EOS_TEMPERATURE_MARGIN_WARN_K:
+        reasons.append('near_eos_boundary')
+    if base.get('posthocMinPhaseBoundaryMargin_K', np.inf) <= POSTHOC_PHASE_BOUNDARY_MARGIN_WARN_K:
+        reasons.append('near_phase_boundary')
+
+    if fatalReasons:
+        sensitivityRiskStatus = 'high_risk_rejected'
+    elif 'near_phase_boundary' in reasons:
+        sensitivityRiskStatus = 'near_phase_boundary'
+    elif 'near_eos_boundary' in reasons:
+        sensitivityRiskStatus = 'near_eos_boundary'
+    elif 'near_critical' in reasons:
+        sensitivityRiskStatus = 'near_critical'
+    elif reasons:
+        sensitivityRiskStatus = 'requires_science_review'
+    else:
+        sensitivityRiskStatus = 'nominal'
+
+    return {
+        'posthocTemperatureContrastStatus': temperatureContrastStatus,
+        'posthocRayleighRegimeStatus': rayleighStatus,
+        'posthocThicknessStatus': thicknessStatus,
+        'posthocLayerClosureStatus': layerClosureStatus,
+        'posthocViscosityStatus': viscosityStatus,
+        'posthocSensitivityRiskStatus': sensitivityRiskStatus,
+        'posthocRiskReasons': tuple(fatalReasons + reasons),
+    }
 
 
 def EvaluatePosthocIceVIProductionCandidate(Planet, productionMode=None):
@@ -1633,6 +1825,32 @@ def EvaluatePosthocIceVIProductionCandidate(Planet, productionMode=None):
             _PosthocIceVIResult('posthoc_nonfinite_rejected', 'nonfinite_or_wrong_phase_finalized_nodes', **base),
         )
 
+    base.update(_PosthocIceVIAllNodeDiagnostics(Planet, iceVI, P_MPa, T_K))
+    if not base['posthocAllNodesInEOSDomain']:
+        base['posthocMeltCurveStatus'] = 'outside_eos_domain_rejected'
+        base['posthocPhaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_outside_eos_domain_rejected', 'posthoc_all_nodes_outside_eos_domain', **base),
+        )
+    if not base['posthocAllNodesIceVI']:
+        base['posthocMeltCurveStatus'] = 'outside_eos_domain_rejected'
+        base['posthocPhaseBoundaryStatus'] = 'outside_eos_domain_rejected'
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_outside_eos_domain_rejected', 'posthoc_all_nodes_not_ice_vi', **base),
+        )
+    if (
+        base.get('posthocAllNodeMeltCurveFailures', 0) > 0 or
+        not np.isfinite(base.get('posthocMinPhaseBoundaryMargin_K', np.nan))
+    ):
+        base['posthocMeltCurveStatus'] = 'melt_curve_nonfinite_rejected'
+        base['posthocPhaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_nonfinite_rejected', 'posthoc_all_node_melt_curve_nonfinite_or_unavailable', **base),
+        )
+
     meltChecks = _GetIceVIMeltCurveCandidateChecks(
         Planet, 6,
         Pvals_MPa[0], Pvals_MPa[1], Pvals_MPa[2],
@@ -1677,6 +1895,18 @@ def EvaluatePosthocIceVIProductionCandidate(Planet, productionMode=None):
         )
 
     phaseDiagnostics = getattr(Planet, 'HPIceDiagnostics', {}).get('VI', {})
+    base.update(_PosthocIceVIRiskDiagnostics(Planet, iceVI, Pvals_MPa, Tvals_K, phaseDiagnostics, base))
+    if base['posthocSensitivityRiskStatus'] == 'high_risk_rejected':
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult(
+                'posthoc_high_risk_rejected',
+                base['posthocRiskReasons'][0] if base['posthocRiskReasons'] else 'high_risk_rejected',
+                blockers=base['posthocRiskReasons'],
+                **base,
+            ),
+        )
+
     energyResidual_W = phaseDiagnostics.get('energyResidual_W', np.nan)
     energyResidual_frac = phaseDiagnostics.get('energyResidual_frac', np.nan)
     Q_in_W = phaseDiagnostics.get('Q_in_W', 1.0)

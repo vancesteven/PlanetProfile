@@ -422,6 +422,59 @@ Ganymede/Titan-style real-body acceptance remains blocked unless the
 pressure-dependent melt curve and phase-boundary checks are available and pass.
 Ice III and Ice V remain diagnostic-only extrapolations.
 
+## Post-hoc margin and risk diagnostics
+
+The post-hoc Ice VI evaluator also records margin and risk diagnostics before
+any future active production update is considered. These fields are stored only
+in the phase-local candidate record:
+
+```text
+posthocAllNodesInEOSDomain
+posthocAllNodesIceVI
+posthocEOSPressureMargin_MPa
+posthocEOSTemperatureMargin_K
+posthocMinPhaseBoundaryMargin_K
+posthocTemperatureContrastStatus
+posthocRayleighRegimeStatus
+posthocThicknessStatus
+posthocLayerClosureStatus
+posthocViscosityStatus
+posthocSensitivityRiskStatus
+posthocRiskReasons
+```
+
+Unlike the initial top/mid/bottom candidate check, these diagnostics inspect all
+finalized Ice VI nodes for EOS-domain coverage and Ice VI phase identity. They
+also record margins to the EOS pressure/temperature bounds and the minimum
+`Tfreeze(P) - T` phase-boundary margin where the EOS lookup is available.
+
+The `posthocSensitivityRiskStatus` field summarizes whether the candidate is
+nominal, close to an EOS or phase boundary, near critical Rayleigh conditions,
+or high-risk/rejected. Machine-readable reasons include:
+
+```text
+near_eos_boundary
+near_phase_boundary
+near_critical
+invalid_contrast
+subcritical
+too_thin
+boundary_layer_exceeds_layer
+invalid_viscosity
+```
+
+High-risk synthetic states such as zero or negative temperature contrast,
+subcritical Rayleigh number, too-thin Ice VI geometry, boundary layers that do
+not fit inside the layer, or nonfinite viscosity are rejected at the
+candidate-state level. Near-boundary states can still be recorded as candidate
+metadata, but they are explicitly marked for review before any future active
+profile mutation.
+
+A nominal post-hoc Ice VI candidate pass is still not active production. It does
+not modify propagated temperatures, pressures, phases, heat fluxes, viscosity,
+mass, gravity, or layer geometry. Ice III and Ice V remain diagnostic-only
+extrapolations.
+
 ## Limitations
 
 These calculations are diagnostics. They do not implement production Ice VI

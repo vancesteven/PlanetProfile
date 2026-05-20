@@ -1401,8 +1401,11 @@ class Test11PosthocIceVIProductionCandidate(unittest.TestCase):
         planet.phase = np.array([0, 6, 6, 6, 0] if phase is None else phase)
         planet.P_MPa = np.array([100.0, 800.0, 900.0, 1000.0, 1100.0] if P_MPa is None else P_MPa, dtype=float)
         planet.T_K = np.array([275.0, 285.0, 286.0, 287.0, 288.0] if T_K is None else T_K, dtype=float)
-        planet.rho_kgm3 = np.array([1000.0, 1300.0, 1310.0, 1320.0, 1000.0])
-        planet.eta_Pas = np.array([1.0e14, 5.0e14, 5.0e14, 5.0e14, 1.0e14])
+        n_nodes = planet.phase.size
+        planet.r_m = np.linspace(2.5e6, 2.1e6, n_nodes)
+        planet.z_m = 2.5e6 - planet.r_m
+        planet.rho_kgm3 = np.zeros(n_nodes) + 1300.0
+        planet.eta_Pas = np.zeros(n_nodes) + 5.0e14
         planet.qSurf_Wm2 = 0.02
         planet.qCon_Wm2 = 0.02
         planet.Mtot_kg = 1.0e23
@@ -1416,6 +1419,11 @@ class Test11PosthocIceVIProductionCandidate(unittest.TestCase):
                     "Q_out_W": 1.0e12,
                     "massResidual_kg": 0.0,
                     "massResidual_frac": 0.0,
+                    "etaConv_Pas": 5.0e14,
+                    "etaMelt_Pas": 5.0e14,
+                    "RaConvect": 1.0e8,
+                    "RaCrit": 1.0e4,
+                    "layerClosureResidual_m": 0.0,
                 },
                 "III": {"candidateStatus": "diagnostic_only_extrapolative"},
                 "V": {"candidateStatus": "diagnostic_only_extrapolative"},
@@ -1452,6 +1460,7 @@ class Test11PosthocIceVIProductionCandidate(unittest.TestCase):
         self.assertEqual(result["posthocMeltCurveStatus"], "melt_curve_ok")
         self.assertEqual(result["posthocPhaseBoundaryStatus"], "phase_boundary_ok")
         self.assertEqual(result["finalProfileCoverageStatus"], "final_profile_nodes_in_domain")
+        self.assertEqual(result["posthocSensitivityRiskStatus"], "nominal")
         self.assertEqual(
             planet.HPIceDiagnostics["VI"]["posthocProductionCandidate"],
             result,
@@ -1479,7 +1488,7 @@ class Test11PosthocIceVIProductionCandidate(unittest.TestCase):
 
         self.assertFalse(result["posthocUpdateAccepted"])
         self.assertEqual(result["posthocCandidateStatus"], "posthoc_outside_eos_domain_rejected")
-        self.assertEqual(result["posthocCandidateReason"], "posthoc_candidate_boundary_outside_eos_domain")
+        self.assertEqual(result["posthocCandidateReason"], "posthoc_all_nodes_outside_eos_domain")
 
     def test_wrong_eos_phase_rejects(self):
         planet = self._planet(eos=_SyntheticWrongPhaseEOS())
@@ -1490,7 +1499,7 @@ class Test11PosthocIceVIProductionCandidate(unittest.TestCase):
 
         self.assertFalse(result["posthocUpdateAccepted"])
         self.assertEqual(result["posthocCandidateStatus"], "posthoc_outside_eos_domain_rejected")
-        self.assertEqual(result["posthocCandidateReason"], "posthoc_candidate_boundary_not_ice_vi")
+        self.assertEqual(result["posthocCandidateReason"], "posthoc_all_nodes_not_ice_vi")
 
     def test_missing_ice_vi_rejects(self):
         planet = self._planet(phase=[0, 5, 5, 5, 0])
@@ -1548,6 +1557,146 @@ class Test11PosthocIceVIProductionCandidate(unittest.TestCase):
 
         self.assertFalse(result["posthocUpdateAccepted"])
         self.assertEqual(result["posthocCandidateStatus"], "posthoc_mass_residual_rejected")
+
+
+class Test12PosthocIceVIMarginRiskDiagnostics(unittest.TestCase):
+
+    def _planet(self, **kwargs):
+        return Test11PosthocIceVIProductionCandidate()._planet(**kwargs)
+
+    @staticmethod
+    def _evaluate(planet):
+        return EvaluatePosthocIceVIProductionCandidate(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+    def test_nominal_synthetic_ice_vi_records_margins_and_nominal_risk(self):
+        planet = self._planet()
+
+        result = self._evaluate(planet)
+
+        self.assertTrue(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocSensitivityRiskStatus"], "nominal")
+        self.assertEqual(result["posthocRiskReasons"], ())
+        self.assertTrue(result["posthocAllNodesInEOSDomain"])
+        self.assertTrue(result["posthocAllNodesIceVI"])
+        self.assertGreater(result["posthocEOSPressureMargin_MPa"], 0.0)
+        self.assertGreater(result["posthocEOSTemperatureMargin_K"], 0.0)
+        self.assertGreater(result["posthocMinPhaseBoundaryMargin_K"], 0.0)
+
+    def test_near_eos_boundary_records_risk(self):
+        planet = self._planet(P_MPa=[100.0, 800.0, 900.0, 1299.9, 1100.0])
+
+        result = self._evaluate(planet)
+
+        self.assertTrue(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocSensitivityRiskStatus"], "near_eos_boundary")
+        self.assertIn("near_eos_boundary", result["posthocRiskReasons"])
+        self.assertAlmostEqual(result["posthocEOSPressureMargin_MPa"], 0.1)
+
+    def test_near_phase_boundary_records_risk(self):
+        planet = self._planet(T_K=[275.0, 285.0, 286.0, 293.98, 288.0])
+
+        result = self._evaluate(planet)
+
+        self.assertTrue(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocSensitivityRiskStatus"], "near_phase_boundary")
+        self.assertIn("near_phase_boundary", result["posthocRiskReasons"])
+        self.assertGreaterEqual(result["posthocMinPhaseBoundaryMargin_K"], 0.0)
+        self.assertLessEqual(result["posthocMinPhaseBoundaryMargin_K"], 0.1)
+
+    def test_zero_contrast_is_high_risk_rejected(self):
+        planet = self._planet(T_K=[275.0, 285.0, 285.0, 285.0, 288.0])
+
+        result = self._evaluate(planet)
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_high_risk_rejected")
+        self.assertEqual(result["posthocTemperatureContrastStatus"], "invalid_contrast")
+        self.assertIn("invalid_contrast", result["posthocRiskReasons"])
+
+    def test_subcritical_rayleigh_is_high_risk_rejected(self):
+        planet = self._planet()
+        planet.HPIceDiagnostics["VI"]["RaConvect"] = 1.0e3
+        planet.HPIceDiagnostics["VI"]["RaCrit"] = 1.0e8
+
+        result = self._evaluate(planet)
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_high_risk_rejected")
+        self.assertEqual(result["posthocRayleighRegimeStatus"], "subcritical")
+        self.assertIn("subcritical", result["posthocRiskReasons"])
+
+    def test_too_thin_geometry_is_high_risk_rejected(self):
+        planet = self._planet()
+        planet.z_m[1:4] = np.array([100000.0, 100400.0, 100800.0])
+
+        result = self._evaluate(planet)
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_high_risk_rejected")
+        self.assertEqual(result["posthocThicknessStatus"], "too_thin")
+        self.assertIn("too_thin", result["posthocRiskReasons"])
+
+    def test_boundary_layer_exceeds_layer_is_high_risk_rejected(self):
+        planet = self._planet()
+        planet.HPIceDiagnostics["VI"]["layerClosureResidual_m"] = 1.0
+
+        result = self._evaluate(planet)
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_high_risk_rejected")
+        self.assertEqual(result["posthocLayerClosureStatus"], "boundary_layer_exceeds_layer")
+        self.assertIn("boundary_layer_exceeds_layer", result["posthocRiskReasons"])
+
+    def test_nonfinite_viscosity_is_high_risk_rejected(self):
+        planet = self._planet()
+        planet.HPIceDiagnostics["VI"]["etaConv_Pas"] = np.nan
+
+        result = self._evaluate(planet)
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_high_risk_rejected")
+        self.assertEqual(result["posthocViscosityStatus"], "invalid_viscosity")
+        self.assertIn("invalid_viscosity", result["posthocRiskReasons"])
+
+    def test_all_node_eos_and_phase_checks_are_recorded(self):
+        outside_domain = self._planet(
+            phase=[0, 6, 6, 6, 6, 6, 0],
+            P_MPa=[100.0, 800.0, 850.0, 900.0, 950.0, 1000.0, 1100.0],
+            T_K=[275.0, 285.0, 400.0, 286.0, 287.0, 287.0, 288.0],
+        )
+
+        result = self._evaluate(outside_domain)
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertFalse(result["posthocAllNodesInEOSDomain"])
+        self.assertEqual(result["posthocCandidateReason"], "posthoc_all_nodes_outside_eos_domain")
+
+        wrong_phase = self._planet(
+            phase=[0, 6, 6, 6, 6, 6, 0],
+            P_MPa=[100.0, 800.0, 850.0, 900.0, 950.0, 1000.0, 1100.0],
+            T_K=[275.0, 285.0, 295.0, 286.0, 287.0, 287.0, 288.0],
+        )
+
+        result = self._evaluate(wrong_phase)
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertTrue(result["posthocAllNodesInEOSDomain"])
+        self.assertFalse(result["posthocAllNodesIceVI"])
+        self.assertEqual(result["posthocCandidateReason"], "posthoc_all_nodes_not_ice_vi")
+
+    def test_no_profile_mutation_from_margin_checks(self):
+        planet = self._planet()
+        before = Test11PosthocIceVIProductionCandidate._snapshot(planet)
+
+        self._evaluate(planet)
+
+        for key, value in before.items():
+            if isinstance(value, np.ndarray):
+                np.testing.assert_array_equal(getattr(planet, key), value)
+            else:
+                self.assertEqual(getattr(planet, key), value)
 
 
 if __name__ == "__main__":
