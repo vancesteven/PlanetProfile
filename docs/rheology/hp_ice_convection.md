@@ -504,6 +504,50 @@ VI is the only phase with an active-production candidate copy; Ice III and Ice V
 remain diagnostic-only extrapolations. This scaffold prepares later conservation
 residual and rollback checks before any active profile update is considered.
 
+## Active Ice VI candidate residual evaluator
+
+The active Ice VI scaffold can also evaluate conservation and consistency
+residuals on the isolated candidate copy. The evaluator reads the candidate copy
+and phase-local diagnostics, then writes residual metadata back into:
+
+```text
+Planet.HPIceDiagnostics["VI"]["activeProductionCandidate"]
+```
+
+The recorded metadata includes:
+
+```text
+candidateEnergyResidual_W
+candidateEnergyResidual_frac
+candidateHeatFluxResidual_Wm2
+candidateMassResidual_kg
+candidateMassResidual_frac
+candidatePhaseBoundaryResidual_K
+candidateLayerClosureResidual_m
+candidateEOSPressureMargin_MPa
+candidateEOSTemperatureMargin_K
+candidateMinPhaseBoundaryMargin_K
+candidateRaOverRaCrit
+candidateResidualStatus
+candidateResidualReasons
+candidateResidualsPassed
+```
+
+Passing residual checks is metadata only. It does not accept or apply the
+candidate copy to the propagated profile, and the scaffold keeps:
+
+```text
+candidateAppliedToProfile = False
+candidateAccepted = False
+```
+
+The evaluator rejects missing required inputs, energy or heat-flux residuals
+outside tolerance, nonzero mass residuals, phase-boundary residual failures,
+layer-closure failures, nonpositive EOS or phase-boundary margins, subcritical
+Rayleigh state, invalid temperature contrast, and invalid viscosity. It does not
+compute a new thermal solution and does not add latent heat, melt-density,
+mass-transport, or active Ice III/V production behavior.
+
 ## Limitations
 
 These calculations are diagnostics. They do not implement production Ice VI

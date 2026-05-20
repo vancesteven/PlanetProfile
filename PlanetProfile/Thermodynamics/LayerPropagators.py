@@ -22,7 +22,7 @@ from PlanetProfile.Thermodynamics.Geophysical import PropogateConductionFromDept
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, HPIcePhaseState, Timing, ResolveHPIceConvectionModel, \
     HP_ICE_PRODUCTION_ENERGY_ABS_FLOOR_W, HP_ICE_PRODUCTION_ENERGY_FRAC_TOL, \
     HP_ICE_PRODUCTION_LAYER_CLOSURE_ABS_TOL_M, HP_ICE_PRODUCTION_LAYER_CLOSURE_FRAC_TOL, \
-    HP_ICE_PRODUCTION_MIN_THICKNESS_M
+    HP_ICE_PRODUCTION_MIN_THICKNESS_M, HP_ICE_PRODUCTION_PHASE_BOUNDARY_TOL_K
 import time
 
 # Assign logger
@@ -32,6 +32,8 @@ POSTHOC_EOS_PRESSURE_MARGIN_WARN_MPA = 5.0
 POSTHOC_EOS_TEMPERATURE_MARGIN_WARN_K = 1.0
 POSTHOC_PHASE_BOUNDARY_MARGIN_WARN_K = 0.1
 POSTHOC_RAYLEIGH_NEAR_CRITICAL_RATIO = 1.1
+ACTIVE_ICE_VI_HEAT_FLUX_FRAC_TOL = 1e-10
+ACTIVE_ICE_VI_HEAT_FLUX_ABS_FLOOR_WM2 = 1e-12
 
 def IceLayers(Planet, Params):
     """ Wrapper function for ice layer propogation. Decides between self consistent and non-self consistent modeling.
@@ -2011,6 +2013,20 @@ def _ActiveIceVIRejectedResult(status, reason, protectedFieldsUnchanged=True):
         'candidateq_out_Wm2': np.nan,
         'candidateAppliedToProfile': False,
         'candidateAccepted': False,
+        'candidateResidualsPassed': False,
+        'candidateEnergyResidual_W': np.nan,
+        'candidateEnergyResidual_frac': np.nan,
+        'candidateHeatFluxResidual_Wm2': np.nan,
+        'candidateMassResidual_kg': np.nan,
+        'candidateMassResidual_frac': np.nan,
+        'candidatePhaseBoundaryResidual_K': np.nan,
+        'candidateLayerClosureResidual_m': np.nan,
+        'candidateEOSPressureMargin_MPa': np.nan,
+        'candidateEOSTemperatureMargin_K': np.nan,
+        'candidateMinPhaseBoundaryMargin_K': np.nan,
+        'candidateRaOverRaCrit': np.nan,
+        'candidateResidualStatus': 'candidate_not_evaluated',
+        'candidateResidualReasons': tuple(),
         'candidateStatus': status,
         'candidateReason': reason,
         'rollbackRequired': False,
@@ -2174,6 +2190,235 @@ def BuildActiveIceVIProductionCandidateCopy(Planet, productionMode=None):
         'protectedFieldsUnchanged': _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
     }
     return _StoreActiveIceVIProductionCandidateCopy(Planet, result)
+
+
+def _ActiveIceVIFiniteScalar(value):
+    return value is not None and np.isfinite(value)
+
+
+def _ActiveIceVIFinitePositive(value):
+    return _ActiveIceVIFiniteScalar(value) and value > 0
+
+
+def _ActiveIceVIResidualStatus(candidate, passed, status, reasons):
+    candidate['candidateResidualsPassed'] = bool(passed)
+    candidate['candidateResidualStatus'] = status
+    candidate['candidateResidualReasons'] = tuple(reasons)
+    candidate['candidateAccepted'] = False
+    candidate['candidateAppliedToProfile'] = False
+    return candidate
+
+
+def EvaluateActiveIceVICandidateResiduals(Planet, productionMode=None):
+    """Evaluate conservation residuals on the isolated Ice VI candidate copy only."""
+    protectedBefore = _ActiveIceVIProtectedProfileSnapshot(Planet)
+    if productionMode is None:
+        productionMode = ResolveHPIceConvectionModel(Planet) if hasattr(Planet, 'Do') else "Kalousova2018_production_experimental"
+
+    diagnostics = getattr(Planet, 'HPIceDiagnostics', None)
+    if not isinstance(diagnostics, dict):
+        result = _ActiveIceVIRejectedResult(
+            'missing_diagnostics_rejected',
+            'missing_hp_ice_diagnostics',
+            _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+        )
+        _ActiveIceVIResidualStatus(
+            result, False, 'candidate_missing_required_field_rejected',
+            ('missing_hp_ice_diagnostics',),
+        )
+        return _StoreActiveIceVIProductionCandidateCopy(Planet, result)
+
+    iceVIDiagnostics = diagnostics.get('VI')
+    if not isinstance(iceVIDiagnostics, dict):
+        result = _ActiveIceVIRejectedResult(
+            'missing_ice_vi_rejected',
+            'missing_ice_vi_diagnostics',
+            _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+        )
+        _ActiveIceVIResidualStatus(
+            result, False, 'candidate_missing_required_field_rejected',
+            ('missing_ice_vi_diagnostics',),
+        )
+        return _StoreActiveIceVIProductionCandidateCopy(Planet, result)
+
+    candidate = iceVIDiagnostics.get('activeProductionCandidate')
+    if not isinstance(candidate, dict):
+        candidate = _ActiveIceVIRejectedResult(
+            'missing_candidate_copy_rejected',
+            'requires_active_candidate_copy',
+            _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+        )
+        _StoreActiveIceVIProductionCandidateCopy(Planet, candidate)
+
+    candidate['candidateAccepted'] = False
+    candidate['candidateAppliedToProfile'] = False
+    candidate['protectedFieldsUnchanged'] = _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore)
+
+    if productionMode != "Kalousova2018_production_experimental":
+        return _ActiveIceVIResidualStatus(
+            candidate, False, 'candidate_not_evaluated',
+            ('experimental_production_selector_not_enabled',),
+        )
+    if not candidate.get('candidateCopyCreated', False):
+        return _ActiveIceVIResidualStatus(
+            candidate, False, 'candidate_missing_required_field_rejected',
+            (candidate.get('candidateReason', 'requires_active_candidate_copy'),),
+        )
+
+    failures = []
+
+    def add_failure(status, reason):
+        failures.append((status, reason))
+
+    def candidate_array(field, dtype=float):
+        if field not in candidate:
+            add_failure('candidate_missing_required_field_rejected', f'missing_{field}')
+            return np.array([], dtype=dtype)
+        try:
+            values = np.asarray(candidate[field], dtype=dtype)
+        except (TypeError, ValueError):
+            add_failure('candidate_missing_required_field_rejected', f'invalid_{field}')
+            return np.array([], dtype=dtype)
+        if values.size == 0:
+            add_failure('candidate_missing_required_field_rejected', f'empty_{field}')
+        return values
+
+    Pvals_MPa = candidate_array('candidateP_MPa')
+    Tvals_K = candidate_array('candidateT_K')
+    phaseVals = candidate_array('candidatePhaseArray', dtype=int)
+    etaVals_Pas = candidate_array('candidateEta_Pas')
+
+    if Pvals_MPa.size and np.any(~np.isfinite(Pvals_MPa)):
+        add_failure('candidate_missing_required_field_rejected', 'nonfinite_candidateP_MPa')
+    if Tvals_K.size and np.any(~np.isfinite(Tvals_K)):
+        add_failure('candidate_missing_required_field_rejected', 'nonfinite_candidateT_K')
+    if phaseVals.size and np.any(phaseVals != 6):
+        add_failure('candidate_phase_boundary_rejected', 'candidate_contains_non_ice_vi_nodes')
+    if etaVals_Pas.size and (np.any(~np.isfinite(etaVals_Pas)) or np.any(etaVals_Pas <= 0)):
+        add_failure('candidate_invalid_viscosity_rejected', 'candidate_profile_viscosity_invalid')
+
+    temperatureContrast_K = np.nan
+    if Tvals_K.size >= 2 and np.all(np.isfinite(Tvals_K[[0, -1]])):
+        temperatureContrast_K = float(Tvals_K[-1] - Tvals_K[0])
+    if not _ActiveIceVIFinitePositive(temperatureContrast_K):
+        add_failure('candidate_invalid_contrast_rejected', 'candidate_temperature_contrast_not_positive')
+
+    energyResidual_W = iceVIDiagnostics.get('energyResidual_W', np.nan)
+    energyResidual_frac = iceVIDiagnostics.get('energyResidual_frac', np.nan)
+    Q_in_W = candidate.get('candidateQ_in_W', iceVIDiagnostics.get('Q_in_W', np.nan))
+    Q_out_W = candidate.get('candidateQ_out_W', iceVIDiagnostics.get('Q_out_W', np.nan))
+    if not (_ActiveIceVIFiniteScalar(energyResidual_W) and _ActiveIceVIFiniteScalar(energyResidual_frac)):
+        add_failure('candidate_missing_required_field_rejected', 'missing_energy_residual')
+    if not (_ActiveIceVIFiniteScalar(Q_in_W) and _ActiveIceVIFiniteScalar(Q_out_W)):
+        add_failure('candidate_missing_required_field_rejected', 'missing_heat_power_scale')
+        Qscale_W = 1.0
+    else:
+        Qscale_W = max(abs(Q_in_W), abs(Q_out_W), 1.0)
+    energyAbsTol_W = max(
+        HP_ICE_PRODUCTION_ENERGY_FRAC_TOL * Qscale_W,
+        HP_ICE_PRODUCTION_ENERGY_ABS_FLOOR_W,
+    )
+    if (
+        _ActiveIceVIFiniteScalar(energyResidual_W) and
+        _ActiveIceVIFiniteScalar(energyResidual_frac) and
+        (abs(energyResidual_W) > energyAbsTol_W or abs(energyResidual_frac) > HP_ICE_PRODUCTION_ENERGY_FRAC_TOL)
+    ):
+        add_failure('candidate_energy_residual_rejected', 'energy_residual_exceeds_tolerance')
+
+    q_in_Wm2 = candidate.get('candidateq_in_Wm2', np.nan)
+    q_out_Wm2 = candidate.get('candidateq_out_Wm2', np.nan)
+    if not (_ActiveIceVIFiniteScalar(q_in_Wm2) and _ActiveIceVIFiniteScalar(q_out_Wm2)):
+        heatFluxResidual_Wm2 = np.nan
+        add_failure('candidate_missing_required_field_rejected', 'missing_heat_flux_residual')
+    else:
+        heatFluxResidual_Wm2 = float(q_out_Wm2 - q_in_Wm2)
+        qscale_Wm2 = max(abs(q_in_Wm2), abs(q_out_Wm2), 1.0)
+        heatFluxTol_Wm2 = max(
+            ACTIVE_ICE_VI_HEAT_FLUX_FRAC_TOL * qscale_Wm2,
+            ACTIVE_ICE_VI_HEAT_FLUX_ABS_FLOOR_WM2,
+        )
+        if abs(heatFluxResidual_Wm2) > heatFluxTol_Wm2:
+            add_failure('candidate_heat_flux_residual_rejected', 'heat_flux_residual_exceeds_tolerance')
+
+    massResidual_kg = iceVIDiagnostics.get('massResidual_kg', np.nan)
+    massResidual_frac = iceVIDiagnostics.get('massResidual_frac', np.nan)
+    if not (_ActiveIceVIFiniteScalar(massResidual_kg) and _ActiveIceVIFiniteScalar(massResidual_frac)):
+        add_failure('candidate_missing_required_field_rejected', 'missing_mass_residual')
+    elif massResidual_kg != 0.0 or massResidual_frac != 0.0:
+        add_failure('candidate_mass_residual_rejected', 'mass_residual_nonzero')
+
+    posthoc = iceVIDiagnostics.get('posthocProductionCandidate', {})
+    phaseBoundaryResidual_K = posthoc.get(
+        'posthocPhaseBoundaryResidual_K',
+        iceVIDiagnostics.get('phaseBoundaryResidual_K', np.nan),
+    )
+    minPhaseBoundaryMargin_K = posthoc.get('posthocMinPhaseBoundaryMargin_K', np.nan)
+    eosPressureMargin_MPa = posthoc.get('posthocEOSPressureMargin_MPa', np.nan)
+    eosTemperatureMargin_K = posthoc.get('posthocEOSTemperatureMargin_K', np.nan)
+    if not _ActiveIceVIFiniteScalar(phaseBoundaryResidual_K):
+        add_failure('candidate_missing_required_field_rejected', 'missing_phase_boundary_residual')
+    elif abs(phaseBoundaryResidual_K) > HP_ICE_PRODUCTION_PHASE_BOUNDARY_TOL_K:
+        add_failure('candidate_phase_boundary_rejected', 'phase_boundary_residual_exceeds_tolerance')
+    if not _ActiveIceVIFinitePositive(minPhaseBoundaryMargin_K):
+        add_failure('candidate_phase_boundary_rejected', 'phase_boundary_margin_nonpositive')
+    if not (_ActiveIceVIFinitePositive(eosPressureMargin_MPa) and _ActiveIceVIFinitePositive(eosTemperatureMargin_K)):
+        add_failure('candidate_outside_eos_domain_rejected', 'eos_margin_nonpositive')
+
+    zVals_m = np.asarray(candidate.get('candidateZ_m', np.array([], dtype=float)), dtype=float)
+    if zVals_m.size >= 2 and np.all(np.isfinite(zVals_m)):
+        thickness_m = float(np.nanmax(zVals_m) - np.nanmin(zVals_m))
+    else:
+        thickness_m = iceVIDiagnostics.get('thickness_m', np.nan)
+    layerClosureResidual_m = iceVIDiagnostics.get('layerClosureResidual_m', np.nan)
+    if not _ActiveIceVIFinitePositive(thickness_m):
+        add_failure('candidate_missing_required_field_rejected', 'missing_candidate_thickness')
+        closureTol_m = HP_ICE_PRODUCTION_LAYER_CLOSURE_ABS_TOL_M
+    else:
+        closureTol_m = max(
+            HP_ICE_PRODUCTION_LAYER_CLOSURE_FRAC_TOL * thickness_m,
+            HP_ICE_PRODUCTION_LAYER_CLOSURE_ABS_TOL_M,
+        )
+    if not _ActiveIceVIFiniteScalar(layerClosureResidual_m):
+        add_failure('candidate_missing_required_field_rejected', 'missing_layer_closure_residual')
+    elif abs(layerClosureResidual_m) > closureTol_m:
+        add_failure('candidate_layer_closure_rejected', 'layer_closure_residual_exceeds_tolerance')
+
+    RaConvect = iceVIDiagnostics.get('RaConvect', np.nan)
+    RaCrit = iceVIDiagnostics.get('RaCrit', np.nan)
+    if _ActiveIceVIFinitePositive(RaConvect) and _ActiveIceVIFinitePositive(RaCrit):
+        raOverRaCrit = float(RaConvect / RaCrit)
+        if raOverRaCrit <= 1.0:
+            add_failure('candidate_subcritical_rejected', 'rayleigh_ratio_not_supercritical')
+    else:
+        raOverRaCrit = np.nan
+        add_failure('candidate_missing_required_field_rejected', 'missing_rayleigh_ratio')
+
+    etaConv_Pas = iceVIDiagnostics.get('etaConv_Pas', np.nan)
+    etaMelt_Pas = iceVIDiagnostics.get('etaMelt_Pas', np.nan)
+    if not (_ActiveIceVIFinitePositive(etaConv_Pas) and _ActiveIceVIFinitePositive(etaMelt_Pas)):
+        add_failure('candidate_invalid_viscosity_rejected', 'phase_viscosity_invalid')
+
+    candidate.update({
+        'candidateEnergyResidual_W': energyResidual_W,
+        'candidateEnergyResidual_frac': energyResidual_frac,
+        'candidateHeatFluxResidual_Wm2': heatFluxResidual_Wm2,
+        'candidateMassResidual_kg': massResidual_kg,
+        'candidateMassResidual_frac': massResidual_frac,
+        'candidatePhaseBoundaryResidual_K': phaseBoundaryResidual_K,
+        'candidateLayerClosureResidual_m': layerClosureResidual_m,
+        'candidateEOSPressureMargin_MPa': eosPressureMargin_MPa,
+        'candidateEOSTemperatureMargin_K': eosTemperatureMargin_K,
+        'candidateMinPhaseBoundaryMargin_K': minPhaseBoundaryMargin_K,
+        'candidateRaOverRaCrit': raOverRaCrit,
+        'candidateTemperatureContrast_K': temperatureContrast_K,
+        'protectedFieldsUnchanged': _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+    })
+
+    if failures:
+        status = failures[0][0]
+        reasons = tuple(reason for _, reason in failures)
+        return _ActiveIceVIResidualStatus(candidate, False, status, reasons)
+    return _ActiveIceVIResidualStatus(candidate, True, 'candidate_residuals_passed', tuple())
 
 
 def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None, iBot=None,
