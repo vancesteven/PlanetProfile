@@ -19,7 +19,8 @@ from PlanetProfile.Thermodynamics.ThermalProfiles.IceConduction import IceIWhole
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConvectionDeschampsSotin2001, \
     ConvectionKalousova2018, GetRaCrit
 from PlanetProfile.Thermodynamics.Geophysical import PropogateConductionFromDepth
-from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, HPIcePhaseState, Timing, ResolveHPIceConvectionModel
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, HPIcePhaseState, Timing, ResolveHPIceConvectionModel, \
+    HP_ICE_PRODUCTION_ENERGY_ABS_FLOOR_W, HP_ICE_PRODUCTION_ENERGY_FRAC_TOL
 import time
 
 # Assign logger
@@ -1416,7 +1417,10 @@ def _HPIcePhaseMean(Planet, field, indices):
 
 
 def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_MPa,
-                                      Ttop_K, Tconv_K, Tbot_K, productionMode):
+                                      Ttop_K, Tconv_K, Tbot_K, productionMode,
+                                      boundaryContext='in_run_candidate',
+                                      candidateBoundarySource='in_run_candidate_bounds',
+                                      finalProfileCoverageStatus='final_profile_not_evaluated'):
     """Read-only Ice VI melt-curve candidate checks for production dry runs."""
     checks = {
         'Tmelt_top_K': np.nan,
@@ -1430,14 +1434,15 @@ def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_
         'eosBoundaryStatus': 'not_evaluated',
         'eosBoundaryReason': None,
         'candidateBoundarySource': None,
-        'finalProfileCoverageStatus': 'final_profile_not_evaluated',
+        'finalProfileCoverageStatus': finalProfileCoverageStatus,
     }
     if productionMode != "Kalousova2018_production_experimental" or phaseID != 6:
         return checks
 
+    statusPrefix = 'posthoc_candidate' if boundaryContext == 'posthoc_final_profile' else 'in_run_candidate'
     checks.update({
-        'eosBoundaryContext': 'in_run_candidate',
-        'candidateBoundarySource': 'in_run_candidate_bounds',
+        'eosBoundaryContext': boundaryContext,
+        'candidateBoundarySource': candidateBoundarySource,
     })
     oceanEOS = getattr(getattr(Planet, 'Ocean', None), 'EOS', None)
     if oceanEOS is None or not hasattr(oceanEOS, 'fn_phase'):
@@ -1452,7 +1457,7 @@ def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_
     if any(not np.isfinite(value) for value in pressures_MPa + temperatures_K):
         checks['meltCurveStatus'] = 'outside_eos_domain_rejected'
         checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
-        checks['eosBoundaryStatus'] = 'in_run_candidate_boundary_nonfinite'
+        checks['eosBoundaryStatus'] = f'{statusPrefix}_boundary_nonfinite'
         checks['eosBoundaryReason'] = 'nonfinite_candidate_boundary'
         return checks
 
@@ -1466,7 +1471,7 @@ def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_
     ):
         checks['meltCurveStatus'] = 'outside_eos_domain_rejected'
         checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
-        checks['eosBoundaryStatus'] = 'in_run_candidate_boundary_outside_eos_domain'
+        checks['eosBoundaryStatus'] = f'{statusPrefix}_boundary_outside_eos_domain'
         checks['eosBoundaryReason'] = 'candidate_boundary_outside_declared_eos_domain'
         return checks
 
@@ -1487,13 +1492,13 @@ def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_
         except Exception:
             checks['meltCurveStatus'] = 'outside_eos_domain_rejected'
             checks['phaseBoundaryStatus'] = 'phase_boundary_unavailable_rejected'
-            checks['eosBoundaryStatus'] = 'in_run_candidate_phase_lookup_failed'
+            checks['eosBoundaryStatus'] = f'{statusPrefix}_phase_lookup_failed'
             checks['eosBoundaryReason'] = 'fn_phase_exception'
             return checks
         if phaseAtCandidate != 6:
             checks['meltCurveStatus'] = 'outside_eos_domain_rejected'
             checks['phaseBoundaryStatus'] = 'outside_eos_domain_rejected'
-            checks['eosBoundaryStatus'] = 'in_run_candidate_boundary_not_ice_vi'
+            checks['eosBoundaryStatus'] = f'{statusPrefix}_boundary_not_ice_vi'
             checks['eosBoundaryReason'] = 'candidate_boundary_not_ice_vi'
             return checks
 
@@ -1527,10 +1532,201 @@ def _GetIceVIMeltCurveCandidateChecks(Planet, phaseID, Ptop_MPa, Pmid_MPa, Pbot_
         'meltCurveStatus': 'melt_curve_ok',
         'phaseBoundaryResidual_K': float(boundaryResidual_K),
         'phaseBoundaryStatus': 'phase_boundary_ok' if boundaryResidual_K <= 0.1 else 'phase_boundary_rejected',
-        'eosBoundaryStatus': 'in_run_candidate_boundary_in_domain',
+        'eosBoundaryStatus': 'posthoc_candidate_in_domain' if boundaryContext == 'posthoc_final_profile' else 'in_run_candidate_boundary_in_domain',
         'eosBoundaryReason': 'candidate_boundary_in_declared_eos_domain',
+        'finalProfileCoverageStatus': 'final_profile_nodes_in_domain' if boundaryContext == 'posthoc_final_profile' else finalProfileCoverageStatus,
     })
     return checks
+
+
+def _PosthocIceVIResult(status, reason=None, blockers=None, **updates):
+    result = {
+        'posthocCandidateEvaluated': True,
+        'posthocCandidateStatus': status,
+        'posthocCandidateReason': reason or status,
+        'posthocBoundarySource': 'finalized_profile_nodes',
+        'posthocPtop_MPa': np.nan,
+        'posthocPmid_MPa': np.nan,
+        'posthocPbot_MPa': np.nan,
+        'posthocTtop_K': np.nan,
+        'posthocTmid_K': np.nan,
+        'posthocTbot_K': np.nan,
+        'posthocTmelt_top_K': np.nan,
+        'posthocTmelt_mid_K': np.nan,
+        'posthocTmelt_bot_K': np.nan,
+        'posthocPhaseBoundaryResidual_K': np.nan,
+        'posthocMeltCurveStatus': 'not_evaluated',
+        'posthocPhaseBoundaryStatus': 'not_evaluated',
+        'posthocUpdateAccepted': False,
+        'posthocAcceptanceBlockers': tuple(blockers or (status,)),
+    }
+    result.update(updates)
+    return result
+
+
+def _StorePosthocIceVIProductionCandidate(Planet, result):
+    if not hasattr(Planet, 'HPIceDiagnostics') or Planet.HPIceDiagnostics is None:
+        Planet.HPIceDiagnostics = {}
+    Planet.HPIceDiagnostics.setdefault('VI', {})['posthocProductionCandidate'] = result
+    for phaseName in ('III', 'V'):
+        if phaseName in Planet.HPIceDiagnostics:
+            Planet.HPIceDiagnostics[phaseName].setdefault('posthocProductionCandidate', _PosthocIceVIResult(
+                'diagnostic_only_extrapolative',
+                'posthoc_production_not_implemented_for_phase',
+                blockers=('diagnostic_only_extrapolative',),
+                posthocCandidateEvaluated=False,
+            ))
+    return result
+
+
+def EvaluatePosthocIceVIProductionCandidate(Planet, productionMode=None):
+    """Evaluate finalized-profile Ice VI production candidacy without mutation."""
+    if productionMode is None:
+        productionMode = ResolveHPIceConvectionModel(Planet) if hasattr(Planet, 'Do') else "Kalousova2018_production_experimental"
+    if productionMode != "Kalousova2018_production_experimental":
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_not_enabled', 'experimental_production_selector_not_enabled'),
+        )
+
+    try:
+        phase = np.asarray(getattr(Planet, 'phase'))
+        P_MPa = np.asarray(getattr(Planet, 'P_MPa'), dtype=float)
+        T_K = np.asarray(getattr(Planet, 'T_K'), dtype=float)
+    except (AttributeError, TypeError, ValueError):
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_nonfinite_rejected', 'missing_profile_arrays'),
+        )
+
+    iceVI = np.where(phase == 6)[0]
+    if iceVI.size < 2:
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_missing_ice_vi', 'requires_at_least_two_finalized_ice_vi_nodes'),
+        )
+    try:
+        selected = np.array([iceVI[0], iceVI[iceVI.size // 2], iceVI[-1]], dtype=int)
+        Pvals_MPa = P_MPa[selected]
+        Tvals_K = T_K[selected]
+        phaseVals = phase[selected]
+    except (IndexError, TypeError, ValueError):
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_nonfinite_rejected', 'invalid_profile_array_shape'),
+        )
+
+    base = {
+        'posthocPtop_MPa': float(Pvals_MPa[0]) if np.isfinite(Pvals_MPa[0]) else np.nan,
+        'posthocPmid_MPa': float(Pvals_MPa[1]) if np.isfinite(Pvals_MPa[1]) else np.nan,
+        'posthocPbot_MPa': float(Pvals_MPa[2]) if np.isfinite(Pvals_MPa[2]) else np.nan,
+        'posthocTtop_K': float(Tvals_K[0]) if np.isfinite(Tvals_K[0]) else np.nan,
+        'posthocTmid_K': float(Tvals_K[1]) if np.isfinite(Tvals_K[1]) else np.nan,
+        'posthocTbot_K': float(Tvals_K[2]) if np.isfinite(Tvals_K[2]) else np.nan,
+    }
+    if (
+        np.any(~np.isfinite(Pvals_MPa)) or np.any(~np.isfinite(Tvals_K)) or
+        np.any(phaseVals != 6)
+    ):
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_nonfinite_rejected', 'nonfinite_or_wrong_phase_finalized_nodes', **base),
+        )
+
+    meltChecks = _GetIceVIMeltCurveCandidateChecks(
+        Planet, 6,
+        Pvals_MPa[0], Pvals_MPa[1], Pvals_MPa[2],
+        Tvals_K[0], Tvals_K[1], Tvals_K[2],
+        productionMode,
+        boundaryContext='posthoc_final_profile',
+        candidateBoundarySource='finalized_profile_nodes',
+        finalProfileCoverageStatus='final_profile_not_evaluated',
+    )
+    base.update({
+        'posthocTmelt_top_K': meltChecks['Tmelt_top_K'],
+        'posthocTmelt_mid_K': meltChecks['Tmelt_mid_K'],
+        'posthocTmelt_bot_K': meltChecks['Tmelt_bot_K'],
+        'posthocPhaseBoundaryResidual_K': meltChecks['phaseBoundaryResidual_K'],
+        'posthocMeltCurveStatus': meltChecks['meltCurveStatus'],
+        'posthocPhaseBoundaryStatus': meltChecks['phaseBoundaryStatus'],
+        'eosBoundaryContext': meltChecks['eosBoundaryContext'],
+        'eosBoundaryStatus': meltChecks['eosBoundaryStatus'],
+        'eosBoundaryReason': meltChecks['eosBoundaryReason'],
+        'candidateBoundarySource': meltChecks['candidateBoundarySource'],
+        'finalProfileCoverageStatus': meltChecks['finalProfileCoverageStatus'],
+    })
+    if meltChecks['meltCurveStatus'] == 'outside_eos_domain_rejected':
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_outside_eos_domain_rejected', meltChecks['eosBoundaryStatus'], **base),
+        )
+    if meltChecks['meltCurveStatus'] == 'missing_melt_curve_rejected':
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_missing_melt_curve_rejected', meltChecks['eosBoundaryReason'], **base),
+        )
+    if meltChecks['meltCurveStatus'] == 'melt_curve_nonfinite_rejected':
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_nonfinite_rejected', meltChecks['eosBoundaryReason'], **base),
+        )
+    if meltChecks['phaseBoundaryStatus'] != 'phase_boundary_ok':
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_phase_boundary_rejected', meltChecks['phaseBoundaryStatus'], **base),
+        )
+
+    phaseDiagnostics = getattr(Planet, 'HPIceDiagnostics', {}).get('VI', {})
+    energyResidual_W = phaseDiagnostics.get('energyResidual_W', np.nan)
+    energyResidual_frac = phaseDiagnostics.get('energyResidual_frac', np.nan)
+    Q_in_W = phaseDiagnostics.get('Q_in_W', 1.0)
+    Q_out_W = phaseDiagnostics.get('Q_out_W', 1.0)
+    if Q_in_W is None or not np.isfinite(Q_in_W):
+        Q_in_W = 1.0
+    if Q_out_W is None or not np.isfinite(Q_out_W):
+        Q_out_W = 1.0
+    Qscale_W = max(abs(Q_in_W), abs(Q_out_W), 1.0)
+    energyAbsTol_W = max(HP_ICE_PRODUCTION_ENERGY_FRAC_TOL * Qscale_W, HP_ICE_PRODUCTION_ENERGY_ABS_FLOOR_W)
+    base.update({
+        'posthocEnergyResidual_W': energyResidual_W,
+        'posthocEnergyResidual_frac': energyResidual_frac,
+    })
+    if (
+        not np.isfinite(energyResidual_W) or not np.isfinite(energyResidual_frac) or
+        abs(energyResidual_W) > energyAbsTol_W or abs(energyResidual_frac) > HP_ICE_PRODUCTION_ENERGY_FRAC_TOL
+    ):
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_energy_residual_rejected', 'energy_residual_exceeds_tolerance', **base),
+        )
+
+    massResidual_kg = phaseDiagnostics.get('massResidual_kg', 0.0)
+    massResidual_frac = phaseDiagnostics.get('massResidual_frac', 0.0)
+    if massResidual_kg is None or not np.isfinite(massResidual_kg):
+        massResidual_kg = 0.0
+    if massResidual_frac is None or not np.isfinite(massResidual_frac):
+        massResidual_frac = 0.0
+    base.update({
+        'posthocMassResidual_kg': massResidual_kg,
+        'posthocMassResidual_frac': massResidual_frac,
+    })
+    if massResidual_kg != 0.0 or massResidual_frac != 0.0:
+        return _StorePosthocIceVIProductionCandidate(
+            Planet,
+            _PosthocIceVIResult('posthoc_mass_residual_rejected', 'mass_residual_nonzero', **base),
+        )
+
+    return _StorePosthocIceVIProductionCandidate(
+        Planet,
+        _PosthocIceVIResult(
+            'posthoc_candidate_passed',
+            'posthoc_candidate_state_only',
+            blockers=(),
+            posthocUpdateAccepted=True,
+            posthocAcceptanceBlockers=(),
+            **base,
+        ),
+    )
 
 
 def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None, iBot=None,

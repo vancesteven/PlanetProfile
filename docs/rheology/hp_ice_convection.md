@@ -380,6 +380,31 @@ post-hoc finalized-profile candidate check may be useful as a future diagnostic,
 but it is not active production modeling and does not feed back into the
 propagated profile.
 
+## Post-hoc Ice VI production candidate evaluation
+
+Post-hoc candidate evaluation is a finalized-profile diagnostic path for Ice VI.
+It is separate from the provisional in-run dry-run candidate checks. The
+post-hoc path reads finalized Ice VI nodes from the propagated profile, selects
+top/mid/bottom Ice VI points, and evaluates `GetTfreeze()` through the existing
+EOS only for those finalized points.
+
+Results are recorded under the phase-local diagnostics, for example:
+
+```text
+Planet.HPIceDiagnostics["VI"]["posthocProductionCandidate"]
+```
+
+The post-hoc record may report `posthoc_candidate_passed` and
+`posthocUpdateAccepted = True` as candidate-state metadata when finalized Ice VI
+nodes are in-domain and the residual checks pass. This is not an accepted model
+update. It does not modify temperature, phase, pressure, heat flux, viscosity,
+mass, gravity, or layer geometry. Active profile mutation remains future work.
+
+The post-hoc path rejects silent EOS-domain clamping. If finalized Ice VI points
+fall outside the declared EOS domain, the record remains fail-closed with a
+status such as `posthoc_outside_eos_domain_rejected`. Ice III and Ice V remain
+diagnostic-only extrapolations.
+
 The phase-boundary residual is a candidate-state stability check: it records
 whether the current Ice VI candidate temperatures stay within the validated
 Ice VI side of the returned melting curve under the current convention. Missing

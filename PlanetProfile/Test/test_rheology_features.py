@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 import numpy as np
 
@@ -8,6 +9,7 @@ from PlanetProfile.Thermodynamics.HydroEOS import (
     ViscIceArrhenius_Pas,
 )
 from PlanetProfile.Thermodynamics.LayerPropagators import (
+    EvaluatePosthocIceVIProductionCandidate,
     _ConvectionDeschampsSotinHPIceDiagnostic,
     _FixedPhaseEOS,
     _GetIceVIMeltCurveCandidateChecks,
@@ -94,6 +96,12 @@ class _SyntheticIceVIMeltEOS:
     def fn_phase(self, P_MPa, T_K):
         phase = np.where(np.asarray(T_K) < self.tmelt_K(P_MPa), 6, 0)
         return phase
+
+
+class _SyntheticWrongPhaseEOS(_SyntheticIceVIMeltEOS):
+
+    def fn_phase(self, P_MPa, T_K):
+        return np.zeros_like(np.asarray(T_K), dtype=int)
 
 
 class Test01ArrheniusViscosity(unittest.TestCase):
@@ -1379,6 +1387,167 @@ class Test10IceVIMeltCurveCandidateChecks(unittest.TestCase):
         )
         for key, value in before.items():
             np.testing.assert_array_equal(getattr(planet, key), value)
+
+
+class Test11PosthocIceVIProductionCandidate(unittest.TestCase):
+
+    def _planet(self, phase=None, P_MPa=None, T_K=None, eos=None, diagnostics=None):
+        planet = _Namespace()
+        planet.Ocean = _Namespace()
+        planet.Ocean.EOS = eos or _SyntheticIceVIMeltEOS()
+        planet.Ocean.THydroMax_K = 340.0
+        planet.TfreezeUpper_K = 340.0
+        planet.TfreezeRes_K = 0.01
+        planet.phase = np.array([0, 6, 6, 6, 0] if phase is None else phase)
+        planet.P_MPa = np.array([100.0, 800.0, 900.0, 1000.0, 1100.0] if P_MPa is None else P_MPa, dtype=float)
+        planet.T_K = np.array([275.0, 285.0, 286.0, 287.0, 288.0] if T_K is None else T_K, dtype=float)
+        planet.rho_kgm3 = np.array([1000.0, 1300.0, 1310.0, 1320.0, 1000.0])
+        planet.eta_Pas = np.array([1.0e14, 5.0e14, 5.0e14, 5.0e14, 1.0e14])
+        planet.qSurf_Wm2 = 0.02
+        planet.qCon_Wm2 = 0.02
+        planet.Mtot_kg = 1.0e23
+        planet.CMR2mean = 0.33
+        if diagnostics is None:
+            diagnostics = {
+                "VI": {
+                    "energyResidual_W": 0.0,
+                    "energyResidual_frac": 0.0,
+                    "Q_in_W": 1.0e12,
+                    "Q_out_W": 1.0e12,
+                    "massResidual_kg": 0.0,
+                    "massResidual_frac": 0.0,
+                },
+                "III": {"candidateStatus": "diagnostic_only_extrapolative"},
+                "V": {"candidateStatus": "diagnostic_only_extrapolative"},
+            }
+        planet.HPIceDiagnostics = diagnostics
+        return planet
+
+    @staticmethod
+    def _snapshot(planet):
+        return {
+            "phase": planet.phase.copy(),
+            "P_MPa": planet.P_MPa.copy(),
+            "T_K": planet.T_K.copy(),
+            "rho_kgm3": planet.rho_kgm3.copy(),
+            "eta_Pas": planet.eta_Pas.copy(),
+            "qSurf_Wm2": planet.qSurf_Wm2,
+            "qCon_Wm2": planet.qCon_Wm2,
+            "Mtot_kg": planet.Mtot_kg,
+            "CMR2mean": planet.CMR2mean,
+        }
+
+    def test_finalized_in_domain_ice_vi_can_pass_posthoc_candidate_state(self):
+        planet = self._planet()
+        before = self._snapshot(planet)
+
+        result = EvaluatePosthocIceVIProductionCandidate(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+        self.assertTrue(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_candidate_passed")
+        self.assertEqual(result["posthocCandidateReason"], "posthoc_candidate_state_only")
+        self.assertEqual(result["posthocBoundarySource"], "finalized_profile_nodes")
+        self.assertEqual(result["posthocMeltCurveStatus"], "melt_curve_ok")
+        self.assertEqual(result["posthocPhaseBoundaryStatus"], "phase_boundary_ok")
+        self.assertEqual(result["finalProfileCoverageStatus"], "final_profile_nodes_in_domain")
+        self.assertEqual(
+            planet.HPIceDiagnostics["VI"]["posthocProductionCandidate"],
+            result,
+        )
+        self.assertEqual(
+            planet.HPIceDiagnostics["III"]["posthocProductionCandidate"]["posthocCandidateStatus"],
+            "diagnostic_only_extrapolative",
+        )
+        self.assertEqual(
+            planet.HPIceDiagnostics["V"]["posthocProductionCandidate"]["posthocCandidateStatus"],
+            "diagnostic_only_extrapolative",
+        )
+        for key, value in before.items():
+            if isinstance(value, np.ndarray):
+                np.testing.assert_array_equal(getattr(planet, key), value)
+            else:
+                self.assertEqual(getattr(planet, key), value)
+
+    def test_outside_eos_finalized_bounds_reject(self):
+        planet = self._planet(P_MPa=[100.0, 800.0, 900.0, 1400.0, 1500.0])
+
+        result = EvaluatePosthocIceVIProductionCandidate(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_outside_eos_domain_rejected")
+        self.assertEqual(result["posthocCandidateReason"], "posthoc_candidate_boundary_outside_eos_domain")
+
+    def test_wrong_eos_phase_rejects(self):
+        planet = self._planet(eos=_SyntheticWrongPhaseEOS())
+
+        result = EvaluatePosthocIceVIProductionCandidate(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_outside_eos_domain_rejected")
+        self.assertEqual(result["posthocCandidateReason"], "posthoc_candidate_boundary_not_ice_vi")
+
+    def test_missing_ice_vi_rejects(self):
+        planet = self._planet(phase=[0, 5, 5, 5, 0])
+
+        result = EvaluatePosthocIceVIProductionCandidate(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_missing_ice_vi")
+
+    def test_nonfinite_melt_curve_rejects(self):
+        planet = self._planet()
+
+        with mock.patch("PlanetProfile.Thermodynamics.LayerPropagators.GetTfreeze", return_value=np.nan):
+            result = EvaluatePosthocIceVIProductionCandidate(
+                planet, productionMode="Kalousova2018_production_experimental",
+            )
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_nonfinite_rejected")
+        self.assertEqual(result["posthocMeltCurveStatus"], "melt_curve_nonfinite_rejected")
+
+    def test_phase_boundary_residual_failure_rejects(self):
+        planet = self._planet()
+
+        with mock.patch("PlanetProfile.Thermodynamics.LayerPropagators.GetTfreeze", return_value=280.0):
+            result = EvaluatePosthocIceVIProductionCandidate(
+                planet, productionMode="Kalousova2018_production_experimental",
+            )
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_phase_boundary_rejected")
+        self.assertEqual(result["posthocPhaseBoundaryStatus"], "phase_boundary_rejected")
+
+    def test_energy_residual_failure_rejects(self):
+        planet = self._planet()
+        planet.HPIceDiagnostics["VI"]["energyResidual_W"] = 1.0e9
+        planet.HPIceDiagnostics["VI"]["energyResidual_frac"] = 1.0e-3
+
+        result = EvaluatePosthocIceVIProductionCandidate(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_energy_residual_rejected")
+
+    def test_mass_residual_failure_rejects(self):
+        planet = self._planet()
+        planet.HPIceDiagnostics["VI"]["massResidual_kg"] = 1.0
+
+        result = EvaluatePosthocIceVIProductionCandidate(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+        self.assertFalse(result["posthocUpdateAccepted"])
+        self.assertEqual(result["posthocCandidateStatus"], "posthoc_mass_residual_rejected")
 
 
 if __name__ == "__main__":
