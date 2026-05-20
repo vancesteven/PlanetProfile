@@ -475,6 +475,35 @@ not modify propagated temperatures, pressures, phases, heat fluxes, viscosity,
 mass, gravity, or layer geometry. Ice III and Ice V remain diagnostic-only
 extrapolations.
 
+## Active Ice VI candidate profile copy
+
+The active Ice VI scaffold can now create an isolated candidate profile copy from
+finalized post-hoc Ice VI nodes. The copy is stored only in the phase-local
+candidate metadata record:
+
+```text
+Planet.HPIceDiagnostics["VI"]["activeProductionCandidate"]
+```
+
+The candidate record includes independent copies of the finalized Ice VI
+pressure, temperature, phase, radius/depth, and viscosity arrays where those
+fields are available. It also records the source node range, node count, heat
+bookkeeping summaries, rollback placeholders, and protected-field checks.
+
+This is still not active production. The candidate copy is not written back into
+the propagated profile, and the metadata keeps:
+
+```text
+candidateAppliedToProfile = False
+candidateAccepted = False
+```
+
+Creating or editing the candidate copy does not modify propagated temperatures,
+pressures, phases, heat fluxes, viscosity, mass, gravity, or layer geometry. Ice
+VI is the only phase with an active-production candidate copy; Ice III and Ice V
+remain diagnostic-only extrapolations. This scaffold prepares later conservation
+residual and rollback checks before any active profile update is considered.
+
 ## Limitations
 
 These calculations are diagnostics. They do not implement production Ice VI

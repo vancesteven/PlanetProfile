@@ -1959,6 +1959,223 @@ def EvaluatePosthocIceVIProductionCandidate(Planet, productionMode=None):
     )
 
 
+def _ActiveIceVIProtectedProfileSnapshot(Planet):
+    snapshot = {}
+    for field in (
+        'P_MPa', 'T_K', 'rho_kgm3', 'phase', 'eta_Pas',
+        'qSurf_Wm2', 'qCon_Wm2', 'Mtot_kg', 'CMR2mean',
+    ):
+        if not hasattr(Planet, field):
+            snapshot[field] = None
+            continue
+        value = getattr(Planet, field)
+        snapshot[field] = value.copy() if isinstance(value, np.ndarray) else value
+    return snapshot
+
+
+def _ActiveIceVIProtectedProfileUnchanged(Planet, snapshot):
+    for field, before in snapshot.items():
+        if before is None:
+            if hasattr(Planet, field):
+                return False
+            continue
+        if not hasattr(Planet, field):
+            return False
+        after = getattr(Planet, field)
+        if isinstance(before, np.ndarray):
+            if not np.array_equal(after, before):
+                return False
+        elif after != before:
+            return False
+    return True
+
+
+def _ActiveIceVIRejectedResult(status, reason, protectedFieldsUnchanged=True):
+    return {
+        'candidateCopyCreated': False,
+        'candidateCopySource': 'finalized_posthoc_ice_vi_nodes',
+        'candidatePhase': 'VI',
+        'candidateNodeCount': 0,
+        'candidateIndexStart': None,
+        'candidateIndexEnd': None,
+        'candidateP_MPa': np.array([], dtype=float),
+        'candidateT_K': np.array([], dtype=float),
+        'candidatePhaseArray': np.array([], dtype=int),
+        'candidateR_m': np.array([], dtype=float),
+        'candidateZ_m': np.array([], dtype=float),
+        'candidateEta_Pas': np.array([], dtype=float),
+        'candidateQ_in_W': np.nan,
+        'candidateQ_out_W': np.nan,
+        'candidateQbot_W': np.nan,
+        'candidateq_in_Wm2': np.nan,
+        'candidateq_out_Wm2': np.nan,
+        'candidateAppliedToProfile': False,
+        'candidateAccepted': False,
+        'candidateStatus': status,
+        'candidateReason': reason,
+        'rollbackRequired': False,
+        'rollbackApplied': False,
+        'rollbackReason': None,
+        'protectedFieldsUnchanged': protectedFieldsUnchanged,
+    }
+
+
+def _StoreActiveIceVIProductionCandidateCopy(Planet, result):
+    if not hasattr(Planet, 'HPIceDiagnostics') or Planet.HPIceDiagnostics is None:
+        Planet.HPIceDiagnostics = {}
+    Planet.HPIceDiagnostics.setdefault('VI', {})['activeProductionCandidate'] = result
+    for phaseName in ('III', 'V'):
+        if phaseName in Planet.HPIceDiagnostics:
+            Planet.HPIceDiagnostics[phaseName].setdefault('activeProductionCandidate', {
+                'candidateCopyCreated': False,
+                'candidateCopySource': 'not_applicable',
+                'candidatePhase': phaseName,
+                'candidateNodeCount': 0,
+                'candidateAppliedToProfile': False,
+                'candidateAccepted': False,
+                'candidateStatus': 'diagnostic_only_extrapolative',
+                'candidateReason': 'active_production_not_implemented_for_phase',
+                'protectedFieldsUnchanged': True,
+            })
+    return result
+
+
+def BuildActiveIceVIProductionCandidateCopy(Planet, productionMode=None):
+    """Build an isolated Ice VI active-production candidate copy without mutation."""
+    protectedBefore = _ActiveIceVIProtectedProfileSnapshot(Planet)
+    if productionMode is None:
+        productionMode = ResolveHPIceConvectionModel(Planet) if hasattr(Planet, 'Do') else "Kalousova2018_production_experimental"
+    if productionMode != "Kalousova2018_production_experimental":
+        return _StoreActiveIceVIProductionCandidateCopy(
+            Planet,
+            _ActiveIceVIRejectedResult(
+                'candidate_copy_not_enabled',
+                'experimental_production_selector_not_enabled',
+                _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+            ),
+        )
+
+    diagnostics = getattr(Planet, 'HPIceDiagnostics', None)
+    if not isinstance(diagnostics, dict):
+        return _StoreActiveIceVIProductionCandidateCopy(
+            Planet,
+            _ActiveIceVIRejectedResult(
+                'missing_diagnostics_rejected',
+                'missing_hp_ice_diagnostics',
+                _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+            ),
+        )
+    iceVIDiagnostics = diagnostics.get('VI')
+    if not isinstance(iceVIDiagnostics, dict):
+        return _StoreActiveIceVIProductionCandidateCopy(
+            Planet,
+            _ActiveIceVIRejectedResult(
+                'missing_ice_vi_rejected',
+                'missing_ice_vi_diagnostics',
+                _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+            ),
+        )
+    posthoc = iceVIDiagnostics.get('posthocProductionCandidate')
+    if not isinstance(posthoc, dict) or not posthoc.get('posthocCandidateEvaluated', False):
+        return _StoreActiveIceVIProductionCandidateCopy(
+            Planet,
+            _ActiveIceVIRejectedResult(
+                'missing_posthoc_candidate_rejected',
+                'requires_finalized_posthoc_ice_vi_candidate',
+                _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+            ),
+        )
+    if posthoc.get('posthocSensitivityRiskStatus') == 'high_risk_rejected':
+        return _StoreActiveIceVIProductionCandidateCopy(
+            Planet,
+            _ActiveIceVIRejectedResult(
+                'high_risk_posthoc_rejected',
+                'posthoc_candidate_is_high_risk',
+                _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+            ),
+        )
+    if posthoc.get('posthocCandidateStatus') != 'posthoc_candidate_passed':
+        return _StoreActiveIceVIProductionCandidateCopy(
+            Planet,
+            _ActiveIceVIRejectedResult(
+                'posthoc_candidate_not_passed_rejected',
+                posthoc.get('posthocCandidateReason', 'posthoc_candidate_not_passed'),
+                _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+            ),
+        )
+
+    try:
+        phase = np.asarray(getattr(Planet, 'phase'))
+        P_MPa = np.asarray(getattr(Planet, 'P_MPa'), dtype=float)
+        T_K = np.asarray(getattr(Planet, 'T_K'), dtype=float)
+    except (AttributeError, TypeError, ValueError):
+        return _StoreActiveIceVIProductionCandidateCopy(
+            Planet,
+            _ActiveIceVIRejectedResult(
+                'missing_profile_arrays_rejected',
+                'requires_finalized_profile_arrays',
+                _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+            ),
+        )
+
+    iceVI = np.where(phase == 6)[0]
+    if iceVI.size < 2:
+        return _StoreActiveIceVIProductionCandidateCopy(
+            Planet,
+            _ActiveIceVIRejectedResult(
+                'missing_ice_vi_rejected',
+                'requires_at_least_two_finalized_ice_vi_nodes',
+                _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+            ),
+        )
+    if np.any(phase[iceVI] != 6):
+        return _StoreActiveIceVIProductionCandidateCopy(
+            Planet,
+            _ActiveIceVIRejectedResult(
+                'non_ice_vi_nodes_rejected',
+                'candidate_copy_requires_phase_6_nodes',
+                _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+            ),
+        )
+
+    def copy_optional_array(field, dtype=float):
+        if not hasattr(Planet, field):
+            return np.array([], dtype=dtype)
+        try:
+            return np.asarray(getattr(Planet, field), dtype=dtype)[iceVI].copy()
+        except (IndexError, TypeError, ValueError):
+            return np.array([], dtype=dtype)
+
+    result = {
+        'candidateCopyCreated': True,
+        'candidateCopySource': 'finalized_posthoc_ice_vi_nodes',
+        'candidatePhase': 'VI',
+        'candidateNodeCount': int(iceVI.size),
+        'candidateIndexStart': int(iceVI[0]),
+        'candidateIndexEnd': int(iceVI[-1]),
+        'candidateP_MPa': P_MPa[iceVI].copy(),
+        'candidateT_K': T_K[iceVI].copy(),
+        'candidatePhaseArray': phase[iceVI].copy(),
+        'candidateR_m': copy_optional_array('r_m'),
+        'candidateZ_m': copy_optional_array('z_m'),
+        'candidateEta_Pas': copy_optional_array('eta_Pas'),
+        'candidateQ_in_W': iceVIDiagnostics.get('Q_in_W', np.nan),
+        'candidateQ_out_W': iceVIDiagnostics.get('Q_out_W', np.nan),
+        'candidateQbot_W': iceVIDiagnostics.get('Qbot_W', np.nan),
+        'candidateq_in_Wm2': iceVIDiagnostics.get('q_in_Wm2', np.nan),
+        'candidateq_out_Wm2': iceVIDiagnostics.get('q_out_Wm2', np.nan),
+        'candidateAppliedToProfile': False,
+        'candidateAccepted': False,
+        'candidateStatus': 'candidate_copy_created',
+        'candidateReason': 'candidate_copy_state_only',
+        'rollbackRequired': False,
+        'rollbackApplied': False,
+        'rollbackReason': None,
+        'protectedFieldsUnchanged': _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+    }
+    return _StoreActiveIceVIProductionCandidateCopy(Planet, result)
+
+
 def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None, iBot=None,
                               rTop_m=np.nan, rBot_m=np.nan, zTop_m=np.nan, zBot_m=np.nan,
                               thickness_m=np.nan, Ttop_K=np.nan, Tbot_K=np.nan,

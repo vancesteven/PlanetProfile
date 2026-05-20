@@ -9,6 +9,7 @@ from PlanetProfile.Thermodynamics.HydroEOS import (
     ViscIceArrhenius_Pas,
 )
 from PlanetProfile.Thermodynamics.LayerPropagators import (
+    BuildActiveIceVIProductionCandidateCopy,
     EvaluatePosthocIceVIProductionCandidate,
     _ConvectionDeschampsSotinHPIceDiagnostic,
     _FixedPhaseEOS,
@@ -1697,6 +1698,124 @@ class Test12PosthocIceVIMarginRiskDiagnostics(unittest.TestCase):
                 np.testing.assert_array_equal(getattr(planet, key), value)
             else:
                 self.assertEqual(getattr(planet, key), value)
+
+
+class Test13ActiveIceVICandidateProfileCopy(unittest.TestCase):
+
+    def _planet(self, **kwargs):
+        planet = Test11PosthocIceVIProductionCandidate()._planet(**kwargs)
+        EvaluatePosthocIceVIProductionCandidate(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+        return planet
+
+    @staticmethod
+    def _copy(planet):
+        return BuildActiveIceVIProductionCandidateCopy(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+    def test_candidate_copy_created_for_valid_finalized_posthoc_state(self):
+        planet = self._planet()
+
+        result = self._copy(planet)
+
+        self.assertTrue(result["candidateCopyCreated"])
+        self.assertEqual(result["candidateCopySource"], "finalized_posthoc_ice_vi_nodes")
+        self.assertEqual(result["candidatePhase"], "VI")
+        self.assertEqual(result["candidateNodeCount"], 3)
+        self.assertEqual(result["candidateIndexStart"], 1)
+        self.assertEqual(result["candidateIndexEnd"], 3)
+        self.assertEqual(result["candidateStatus"], "candidate_copy_created")
+        self.assertEqual(result["candidateReason"], "candidate_copy_state_only")
+        self.assertFalse(result["candidateAppliedToProfile"])
+        self.assertFalse(result["candidateAccepted"])
+        self.assertTrue(result["protectedFieldsUnchanged"])
+        self.assertIs(
+            planet.HPIceDiagnostics["VI"]["activeProductionCandidate"],
+            result,
+        )
+
+    def test_candidate_copy_contains_only_phase_6_nodes(self):
+        planet = self._planet()
+
+        result = self._copy(planet)
+
+        np.testing.assert_array_equal(result["candidatePhaseArray"], np.array([6, 6, 6]))
+        np.testing.assert_allclose(result["candidateP_MPa"], planet.P_MPa[1:4])
+        np.testing.assert_allclose(result["candidateT_K"], planet.T_K[1:4])
+
+    def test_candidate_arrays_are_independent_copies(self):
+        planet = self._planet()
+
+        result = self._copy(planet)
+
+        self.assertFalse(np.shares_memory(result["candidateP_MPa"], planet.P_MPa))
+        self.assertFalse(np.shares_memory(result["candidateT_K"], planet.T_K))
+        self.assertFalse(np.shares_memory(result["candidatePhaseArray"], planet.phase))
+        self.assertFalse(np.shares_memory(result["candidateR_m"], planet.r_m))
+        self.assertFalse(np.shares_memory(result["candidateZ_m"], planet.z_m))
+        self.assertFalse(np.shares_memory(result["candidateEta_Pas"], planet.eta_Pas))
+
+    def test_modifying_candidate_copy_does_not_modify_planet_fields(self):
+        planet = self._planet()
+        before = Test11PosthocIceVIProductionCandidate._snapshot(planet)
+
+        result = self._copy(planet)
+        result["candidateP_MPa"][0] += 10.0
+        result["candidateT_K"][0] += 10.0
+        result["candidatePhaseArray"][0] = 0
+        result["candidateEta_Pas"][0] *= 2.0
+
+        for key, value in before.items():
+            if isinstance(value, np.ndarray):
+                np.testing.assert_array_equal(getattr(planet, key), value)
+            else:
+                self.assertEqual(getattr(planet, key), value)
+
+    def test_missing_ice_vi_rejects(self):
+        planet = self._planet(phase=[0, 5, 5, 5, 0])
+
+        result = self._copy(planet)
+
+        self.assertFalse(result["candidateCopyCreated"])
+        self.assertFalse(result["candidateAccepted"])
+        self.assertEqual(result["candidateStatus"], "posthoc_candidate_not_passed_rejected")
+        self.assertEqual(result["candidateReason"], "requires_at_least_two_finalized_ice_vi_nodes")
+
+    def test_high_risk_posthoc_candidate_rejects(self):
+        planet = self._planet(T_K=[275.0, 285.0, 285.0, 285.0, 288.0])
+
+        result = self._copy(planet)
+
+        self.assertFalse(result["candidateCopyCreated"])
+        self.assertFalse(result["candidateAccepted"])
+        self.assertEqual(result["candidateStatus"], "high_risk_posthoc_rejected")
+        self.assertEqual(result["candidateReason"], "posthoc_candidate_is_high_risk")
+
+    def test_ice_iii_and_v_remain_diagnostic_only_extrapolative(self):
+        planet = self._planet()
+
+        self._copy(planet)
+
+        self.assertEqual(
+            planet.HPIceDiagnostics["III"]["activeProductionCandidate"]["candidateStatus"],
+            "diagnostic_only_extrapolative",
+        )
+        self.assertEqual(
+            planet.HPIceDiagnostics["V"]["activeProductionCandidate"]["candidateStatus"],
+            "diagnostic_only_extrapolative",
+        )
+
+    def test_candidate_applied_and_accepted_remain_false(self):
+        planet = self._planet()
+
+        result = self._copy(planet)
+
+        self.assertFalse(result["candidateAppliedToProfile"])
+        self.assertFalse(result["candidateAccepted"])
+        self.assertFalse(result["rollbackRequired"])
+        self.assertFalse(result["rollbackApplied"])
 
 
 if __name__ == "__main__":
