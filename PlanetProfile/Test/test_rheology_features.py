@@ -1410,6 +1410,7 @@ class Test11PosthocIceVIProductionCandidate(unittest.TestCase):
         planet.z_m = 2.5e6 - planet.r_m
         planet.rho_kgm3 = np.zeros(n_nodes) + 1300.0
         planet.eta_Pas = np.zeros(n_nodes) + 5.0e14
+        planet.kTherm_WmK = np.zeros(n_nodes) + 3.0
         planet.qSurf_Wm2 = 0.02
         planet.qCon_Wm2 = 0.02
         planet.Mtot_kg = 1.0e23
@@ -1432,6 +1433,7 @@ class Test11PosthocIceVIProductionCandidate(unittest.TestCase):
                     "RaConvect": 1.0e8,
                     "RaCrit": 1.0e4,
                     "layerClosureResidual_m": 0.0,
+                    "kTherm_WmK": 3.0,
                 },
                 "III": {"candidateStatus": "diagnostic_only_extrapolative"},
                 "V": {"candidateStatus": "diagnostic_only_extrapolative"},
@@ -2468,6 +2470,308 @@ class Test16ActiveIceVIThermalUpdateCandidate(unittest.TestCase):
         self.assertFalse(candidate["candidateAppliedToProfile"])
 
     def test_thermal_update_does_not_modify_planet_fields(self):
+        planet = self._planet_with_residuals()
+        before = Test11PosthocIceVIProductionCandidate._snapshot(planet)
+
+        self._build(planet)
+
+        for key, value in before.items():
+            if isinstance(value, np.ndarray):
+                np.testing.assert_array_equal(getattr(planet, key), value)
+            else:
+                self.assertEqual(getattr(planet, key), value)
+
+
+class Test17ActiveIceVILinearThermalUpdateCandidate(unittest.TestCase):
+
+    LINEAR_STRATEGY = "linear_conservative_reconstruction"
+
+    def _planet_with_residuals(self):
+        return Test16ActiveIceVIThermalUpdateCandidate()._planet_with_residuals()
+
+    @staticmethod
+    def _build(planet):
+        return BuildActiveIceVIThermalUpdateCandidate(
+            planet,
+            productionMode="Kalousova2018_production_experimental",
+            strategy=Test17ActiveIceVILinearThermalUpdateCandidate.LINEAR_STRATEGY,
+        )
+
+    @staticmethod
+    def _candidate(planet):
+        return planet.HPIceDiagnostics["VI"]["activeProductionCandidate"]
+
+    def _safe_linear_candidate(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+        candidate["candidateQ_in_W"] = 1.0e7
+        candidate["candidateQ_out_W"] = 1.0e7
+        return planet
+
+    def test_no_op_strategy_still_works(self):
+        planet = self._planet_with_residuals()
+
+        result = BuildActiveIceVIThermalUpdateCandidate(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+        self.assertEqual(result["candidateThermalUpdateStrategy"], "no_op_reconstruction")
+        self.assertEqual(result["candidateThermalUpdateStatus"], "candidate_thermal_update_no_op_reconstruction")
+        self.assertTrue(result["candidateThermalUpdateAppliedToCopy"])
+
+    def test_linear_conservative_strategy_reconstructs_copy_only_profile(self):
+        planet = self._safe_linear_candidate()
+        candidate = self._candidate(planet)
+
+        result = self._build(planet)
+
+        self.assertEqual(result["candidateThermalUpdateStrategy"], self.LINEAR_STRATEGY)
+        self.assertEqual(
+            result["candidateThermalUpdateStatus"],
+            "candidate_thermal_update_linear_conservative_reconstruction",
+        )
+        self.assertTrue(result["candidateThermalUpdateAppliedToCopy"])
+        self.assertFalse(result["candidateThermalUpdateAppliedToPlanet"])
+        self.assertFalse(result["candidateThermalUpdateAccepted"])
+        self.assertFalse(candidate["candidateAccepted"])
+        self.assertFalse(candidate["candidateAppliedToProfile"])
+        self.assertFalse(np.shares_memory(result["candidateUpdatedT_K"], candidate["candidateT_K"]))
+        self.assertFalse(np.shares_memory(result["candidateUpdatedT_K"], planet.T_K))
+        self.assertTrue(np.all(np.isfinite(result["candidateUpdatedT_K"])))
+        np.testing.assert_array_equal(result["candidateUpdatedPhaseArray"], np.array([6, 6, 6]))
+
+    def test_linear_strategy_conserves_heat_power_and_uses_spherical_flux(self):
+        planet = self._safe_linear_candidate()
+        candidate = self._candidate(planet)
+
+        result = self._build(planet)
+
+        expected_Q_W = np.full(candidate["candidateT_K"].shape, 1.0e7)
+        expected_q_Wm2 = expected_Q_W / (4.0 * np.pi * candidate["candidateR_m"]**2)
+        np.testing.assert_allclose(result["candidateUpdatedQ_W"], expected_Q_W)
+        np.testing.assert_allclose(result["candidateUpdatedq_Wm2"], expected_q_Wm2)
+        self.assertEqual(result["candidateThermalHeatPowerResidual_W"], 0.0)
+
+    def test_linear_strategy_rejects_missing_conductivity(self):
+        planet = self._safe_linear_candidate()
+        candidate = self._candidate(planet)
+        candidate["candidatekTherm_WmK"] = np.array([], dtype=float)
+
+        result = self._build(planet)
+
+        self.assertEqual(
+            result["candidateThermalUpdateStatus"],
+            "candidate_thermal_update_missing_conductivity_rejected",
+        )
+        self.assertFalse(result["candidateThermalUpdateAppliedToCopy"])
+        self.assertIn(
+            "candidate_thermal_conductivity_and_geometry_required_for_linear_reconstruction",
+            result["candidateThermalUpdateReasons"],
+        )
+
+    def test_linear_strategy_rejects_phase_boundary_crossing(self):
+        planet = self._planet_with_residuals()
+
+        result = self._build(planet)
+
+        self.assertEqual(
+            result["candidateThermalUpdateStatus"],
+            "candidate_thermal_update_phase_boundary_rejected",
+        )
+        self.assertFalse(result["candidateThermalUpdateAppliedToCopy"])
+        self.assertFalse(result["candidateThermalUpdateAppliedToPlanet"])
+        self.assertFalse(result["candidateThermalUpdateAccepted"])
+
+    def test_discarded_candidate_rejects_linear_strategy(self):
+        planet = self._safe_linear_candidate()
+        candidate = self._candidate(planet)
+        candidate["candidateResidualsPassed"] = False
+        candidate["candidateResidualStatus"] = "candidate_mass_residual_rejected"
+        candidate["candidateResidualReasons"] = ("mass_residual_nonzero",)
+        ApplyActiveIceVIRollbackPolicy(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+        result = self._build(planet)
+
+        self.assertEqual(
+            result["candidateThermalUpdateStatus"],
+            "candidate_thermal_update_discarded_candidate_rejected",
+        )
+        self.assertFalse(result["candidateThermalUpdateAppliedToCopy"])
+        self.assertFalse(result["candidateThermalUpdateAppliedToPlanet"])
+
+    def test_linear_strategy_does_not_modify_planet_fields(self):
+        planet = self._safe_linear_candidate()
+        before = Test11PosthocIceVIProductionCandidate._snapshot(planet)
+
+        self._build(planet)
+
+        for key, value in before.items():
+            if isinstance(value, np.ndarray):
+                np.testing.assert_array_equal(getattr(planet, key), value)
+            else:
+                self.assertEqual(getattr(planet, key), value)
+
+
+class Test18ActiveIceVIOriginalBoundaryThermalReconstruction(unittest.TestCase):
+
+    ORIGINAL_BOUNDARY_STRATEGY = "original_boundary_reconstruction"
+
+    def _planet_with_residuals(self):
+        return Test16ActiveIceVIThermalUpdateCandidate()._planet_with_residuals()
+
+    @staticmethod
+    def _build(planet):
+        return BuildActiveIceVIThermalUpdateCandidate(
+            planet,
+            productionMode="Kalousova2018_production_experimental",
+            strategy=Test18ActiveIceVIOriginalBoundaryThermalReconstruction.ORIGINAL_BOUNDARY_STRATEGY,
+        )
+
+    @staticmethod
+    def _candidate(planet):
+        return planet.HPIceDiagnostics["VI"]["activeProductionCandidate"]
+
+    def test_no_op_strategy_still_works(self):
+        planet = self._planet_with_residuals()
+
+        result = BuildActiveIceVIThermalUpdateCandidate(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+        self.assertEqual(result["candidateThermalUpdateStatus"], "candidate_thermal_update_no_op_reconstruction")
+        self.assertTrue(result["candidateThermalUpdateAppliedToCopy"])
+
+    def test_linear_strategy_remains_available_and_fail_closed(self):
+        planet = self._planet_with_residuals()
+
+        result = BuildActiveIceVIThermalUpdateCandidate(
+            planet,
+            productionMode="Kalousova2018_production_experimental",
+            strategy="linear_conservative_reconstruction",
+        )
+
+        self.assertEqual(result["candidateThermalUpdateStatus"], "candidate_thermal_update_phase_boundary_rejected")
+        self.assertFalse(result["candidateThermalUpdateAppliedToCopy"])
+        self.assertFalse(result["candidateThermalUpdateAppliedToPlanet"])
+
+    def test_original_boundary_preserves_top_and_bottom_temperatures(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+
+        result = self._build(planet)
+
+        self.assertEqual(
+            result["candidateThermalUpdateStatus"],
+            "candidate_thermal_update_original_boundary_reconstruction",
+        )
+        self.assertTrue(result["candidateThermalUpdateAppliedToCopy"])
+        self.assertEqual(result["candidateThermalBoundaryCondition"], "preserve_finalized_top_bottom_temperature")
+        self.assertEqual(result["candidateThermalInterpolationCoordinate"], "candidateZ_m")
+        self.assertAlmostEqual(result["candidateUpdatedT_K"][0], candidate["candidateT_K"][0])
+        self.assertAlmostEqual(result["candidateUpdatedT_K"][-1], candidate["candidateT_K"][-1])
+
+    def test_original_boundary_updated_temperature_is_independent_copy(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+
+        result = self._build(planet)
+
+        self.assertFalse(np.shares_memory(result["candidateUpdatedT_K"], candidate["candidateT_K"]))
+        self.assertFalse(np.shares_memory(result["candidateUpdatedT_K"], planet.T_K))
+        result["candidateUpdatedT_K"][0] += 1.0
+        self.assertNotEqual(result["candidateUpdatedT_K"][0], candidate["candidateT_K"][0])
+        self.assertNotEqual(result["candidateUpdatedT_K"][0], planet.T_K[1])
+
+    def test_original_boundary_interpolates_with_depth_grid(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+        candidate["candidateT_K"] = np.array([285.0, 285.5, 287.0])
+        expected = np.interp(
+            candidate["candidateZ_m"],
+            (candidate["candidateZ_m"][0], candidate["candidateZ_m"][-1]),
+            (candidate["candidateT_K"][0], candidate["candidateT_K"][-1]),
+        )
+
+        result = self._build(planet)
+
+        np.testing.assert_allclose(result["candidateUpdatedT_K"], expected)
+        self.assertEqual(result["candidateThermalInterpolationCoordinate"], "candidateZ_m")
+
+    def test_original_boundary_missing_or_invalid_depth_rejects(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+        candidate["candidateZ_m"] = np.array([1.0, 2.0, 1.5])
+
+        result = self._build(planet)
+
+        self.assertEqual(
+            result["candidateThermalUpdateStatus"],
+            "candidate_thermal_update_original_boundary_missing_depth_rejected",
+        )
+        self.assertFalse(result["candidateThermalUpdateAppliedToCopy"])
+        self.assertIn("candidate_depth_grid_must_increase_downward", result["candidateThermalUpdateReasons"])
+
+    def test_original_boundary_q_metadata_uses_spherical_scaling(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+
+        result = self._build(planet)
+
+        expected_Q_W = np.full(candidate["candidateT_K"].shape, candidate["candidateQ_in_W"])
+        expected_q_Wm2 = expected_Q_W / (4.0 * np.pi * candidate["candidateR_m"]**2)
+        np.testing.assert_allclose(result["candidateUpdatedQ_W"], expected_Q_W)
+        np.testing.assert_allclose(result["candidateUpdatedq_Wm2"], expected_q_Wm2)
+        self.assertEqual(result["candidateThermalHeatPowerResidual_W"], 0.0)
+
+    def test_original_boundary_eos_and_phase_boundary_checks_pass_for_valid_candidate(self):
+        planet = self._planet_with_residuals()
+
+        result = self._build(planet)
+
+        self.assertEqual(result["candidateThermalMeltCurveStatus"], "melt_curve_ok")
+        self.assertEqual(result["candidateThermalPhaseBoundaryStatus"], "phase_boundary_ok")
+        self.assertGreater(result["candidateThermalMinPhaseBoundaryMargin_K"], 0.0)
+
+    def test_original_boundary_phase_crossing_rejects(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+        candidate["candidateT_K"] = np.array([285.0, 286.0, 300.0])
+
+        result = self._build(planet)
+
+        self.assertEqual(
+            result["candidateThermalUpdateStatus"],
+            "candidate_thermal_update_original_boundary_wrong_phase_rejected",
+        )
+        self.assertFalse(result["candidateThermalUpdateAppliedToCopy"])
+        self.assertFalse(result["candidateThermalUpdateAppliedToPlanet"])
+
+    def test_original_boundary_missing_radius_rejects(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+        candidate["candidateR_m"] = np.array([], dtype=float)
+
+        result = self._build(planet)
+
+        self.assertEqual(result["candidateThermalUpdateStatus"], "candidate_thermal_update_missing_radius_rejected")
+        self.assertFalse(result["candidateThermalUpdateAppliedToCopy"])
+
+    def test_original_boundary_booleans_remain_false(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+        candidate["candidateAccepted"] = True
+        candidate["candidateAppliedToProfile"] = True
+
+        result = self._build(planet)
+
+        self.assertFalse(result["candidateThermalUpdateAppliedToPlanet"])
+        self.assertFalse(result["candidateThermalUpdateAccepted"])
+        self.assertFalse(candidate["candidateAccepted"])
+        self.assertFalse(candidate["candidateAppliedToProfile"])
+
+    def test_original_boundary_does_not_modify_planet_fields(self):
         planet = self._planet_with_residuals()
         before = Test11PosthocIceVIProductionCandidate._snapshot(planet)
 

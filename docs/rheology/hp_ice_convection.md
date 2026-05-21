@@ -668,6 +668,56 @@ validate the thermal-update namespace, independent-array behavior, Q/q metadata,
 and future residual/rollback hooks before any science-bearing Ice VI thermal
 proposal is added.
 
+The same namespace also supports an explicitly requested
+`linear_conservative_reconstruction` strategy. This is still a copied-array
+candidate calculation, not a propagated model update. It requires copied Ice VI
+radius, depth, pressure, temperature, phase, and thermal-conductivity metadata,
+then reconstructs a trial copied temperature profile with the existing local
+conductive sign convention:
+
+```text
+dT/dz = q/k
+q(r) = Q / (4*pi*r**2)
+```
+
+Here `z` increases downward through the copied Ice VI nodes and `Q` is the
+through-going total heat power already accepted by the candidate residual
+checks. The strategy rejects missing or nonfinite conductivity, invalid copied
+geometry, nonfinite updated temperatures, EOS-domain failures, non-Ice-VI
+phase results, or updated temperatures that cross the pressure-dependent
+freezing curve. Passing the linear reconstruction only means:
+
+```text
+candidateThermalUpdateAppliedToCopy = True
+candidateThermalUpdateAppliedToPlanet = False
+candidateThermalUpdateAccepted = False
+```
+
+The linear reconstruction is intended to test copied-array plumbing,
+conservation metadata, and fail-closed phase-boundary checks before a future
+reviewed Ice VI thermal proposal is considered.
+
+An explicitly requested `original_boundary_reconstruction` strategy provides a
+more bounded copied-profile diagnostic. It preserves the finalized copied Ice VI
+top and bottom temperatures, interpolates interior copied temperatures against
+`candidateZ_m`, and records Q/q metadata with the same spherical area scaling.
+It is not a conduction solve and does not claim to redistribute heat. It is a
+diagnostic reconstruction that asks whether a bounded copied profile tied to
+the finalized Ice VI boundary temperatures remains compatible with the EOS and
+pressure-dependent freezing curve.
+
+The original-boundary strategy rejects missing or nonmonotonic copied depth
+metadata instead of silently switching coordinates. A successful reconstruction
+still means only:
+
+```text
+candidateThermalUpdateAppliedToCopy = True
+candidateThermalUpdateAppliedToPlanet = False
+candidateThermalUpdateAccepted = False
+candidateAppliedToProfile = False
+candidateAccepted = False
+```
+
 ## Limitations
 
 These calculations are diagnostics. They do not implement production Ice VI

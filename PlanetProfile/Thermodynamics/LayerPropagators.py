@@ -36,6 +36,8 @@ ACTIVE_ICE_VI_HEAT_FLUX_FRAC_TOL = 1e-10
 ACTIVE_ICE_VI_HEAT_FLUX_ABS_FLOOR_WM2 = 1e-12
 ACTIVE_ICE_VI_ROLLBACK_POLICY_VERSION = "active_ice_vi_candidate_rollback_v1"
 ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_NO_OP = "no_op_reconstruction"
+ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_LINEAR = "linear_conservative_reconstruction"
+ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_ORIGINAL_BOUNDARY = "original_boundary_reconstruction"
 
 def IceLayers(Planet, Params):
     """ Wrapper function for ice layer propogation. Decides between self consistent and non-self consistent modeling.
@@ -2019,6 +2021,7 @@ def _ActiveIceVIRejectedResult(status, reason, protectedFieldsUnchanged=True):
         'candidateR_m': np.array([], dtype=float),
         'candidateZ_m': np.array([], dtype=float),
         'candidateEta_Pas': np.array([], dtype=float),
+        'candidatekTherm_WmK': np.array([], dtype=float),
         'candidateQ_in_W': np.nan,
         'candidateQ_out_W': np.nan,
         'candidateQbot_W': np.nan,
@@ -2209,6 +2212,7 @@ def BuildActiveIceVIProductionCandidateCopy(Planet, productionMode=None):
         'candidateR_m': copy_optional_array('r_m'),
         'candidateZ_m': copy_optional_array('z_m'),
         'candidateEta_Pas': copy_optional_array('eta_Pas'),
+        'candidatekTherm_WmK': copy_optional_array('kTherm_WmK'),
         'candidateQ_in_W': iceVIDiagnostics.get('Q_in_W', np.nan),
         'candidateQ_out_W': iceVIDiagnostics.get('Q_out_W', np.nan),
         'candidateQbot_W': iceVIDiagnostics.get('Qbot_W', np.nan),
@@ -2223,6 +2227,10 @@ def BuildActiveIceVIProductionCandidateCopy(Planet, productionMode=None):
         'rollbackReason': None,
         'protectedFieldsUnchanged': _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
     }
+    if result['candidatekTherm_WmK'].size == 0:
+        kThermPhase_WmK = iceVIDiagnostics.get('kTherm_WmK', np.nan)
+        if _ActiveIceVIFinitePositive(kThermPhase_WmK):
+            result['candidatekTherm_WmK'] = np.full(iceVI.size, float(kThermPhase_WmK), dtype=float)
     return _StoreActiveIceVIProductionCandidateCopy(Planet, result)
 
 
@@ -2701,10 +2709,11 @@ def ApplyActiveIceVIRollbackPolicy(Planet, productionMode=None):
     )
 
 
-def _ActiveIceVIThermalUpdateStatus(candidate, *, status, reasons=(),
+def _ActiveIceVIThermalUpdateStatus(candidate, *, status, strategy=ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_NO_OP,
+                                    reasons=(),
                                     appliedToCopy=False, extra=None):
     thermalUpdate = {
-        'candidateThermalUpdateStrategy': ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_NO_OP,
+        'candidateThermalUpdateStrategy': strategy,
         'candidateThermalUpdateStatus': status,
         'candidateThermalUpdateReasons': tuple(reasons),
         'candidateThermalUpdateAppliedToCopy': bool(appliedToCopy),
@@ -2720,6 +2729,11 @@ def _ActiveIceVIThermalUpdateStatus(candidate, *, status, reasons=(),
         'candidateThermalPhaseBoundaryResidual_K': np.nan,
         'candidateThermalEOSPressureMargin_MPa': np.nan,
         'candidateThermalEOSTemperatureMargin_K': np.nan,
+        'candidateThermalMinPhaseBoundaryMargin_K': np.nan,
+        'candidateThermalMeltCurveStatus': 'not_evaluated',
+        'candidateThermalPhaseBoundaryStatus': 'not_evaluated',
+        'candidateThermalBoundaryCondition': 'not_evaluated',
+        'candidateThermalInterpolationCoordinate': 'not_evaluated',
         'candidateThermalRiskStatus': 'not_evaluated',
         'candidateThermalRiskReasons': tuple(reasons),
     }
@@ -2731,11 +2745,130 @@ def _ActiveIceVIThermalUpdateStatus(candidate, *, status, reasons=(),
     return thermalUpdate
 
 
-def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
-    """Build a no-op thermal-update reconstruction on the isolated Ice VI copy."""
+def _ActiveIceVIThermalBoundaryChecks(Planet, Pvals_MPa, Tvals_K):
+    eos = getattr(getattr(Planet, 'Ocean', None), 'EOS', None)
+    checks = {
+        'candidateThermalMeltCurveStatus': 'not_evaluated',
+        'candidateThermalPhaseBoundaryStatus': 'not_evaluated',
+        'candidateThermalPhaseBoundaryResidual_K': np.nan,
+        'candidateThermalMinPhaseBoundaryMargin_K': np.nan,
+        'candidateThermalEOSPressureMargin_MPa': np.nan,
+        'candidateThermalEOSTemperatureMargin_K': np.nan,
+        'reason': None,
+    }
+    if eos is None or not hasattr(eos, 'fn_phase'):
+        checks.update({
+            'candidateThermalMeltCurveStatus': 'missing_melt_curve_rejected',
+            'candidateThermalPhaseBoundaryStatus': 'phase_boundary_unavailable_rejected',
+            'reason': 'missing_ocean_eos',
+        })
+        return checks
+
+    Pvals_MPa = np.asarray(Pvals_MPa, dtype=float)
+    Tvals_K = np.asarray(Tvals_K, dtype=float)
+    if (
+        Pvals_MPa.size == 0 or Tvals_K.size == 0 or Pvals_MPa.size != Tvals_K.size or
+        np.any(~np.isfinite(Pvals_MPa)) or np.any(~np.isfinite(Tvals_K))
+    ):
+        checks.update({
+            'candidateThermalMeltCurveStatus': 'melt_curve_nonfinite_rejected',
+            'candidateThermalPhaseBoundaryStatus': 'phase_boundary_unavailable_rejected',
+            'reason': 'nonfinite_updated_candidate_boundary',
+        })
+        return checks
+
+    Pmin_MPa = getattr(eos, 'Pmin', -np.inf)
+    Pmax_MPa = getattr(eos, 'Pmax', np.inf)
+    Tmin_K = getattr(eos, 'Tmin', -np.inf)
+    Tmax_K = getattr(eos, 'Tmax', np.inf)
+    checks['candidateThermalEOSPressureMargin_MPa'] = _PosthocMarginToBounds(Pvals_MPa, Pmin_MPa, Pmax_MPa)
+    checks['candidateThermalEOSTemperatureMargin_K'] = _PosthocMarginToBounds(Tvals_K, Tmin_K, Tmax_K)
+    if (
+        np.nanmin(Pvals_MPa) < Pmin_MPa or np.nanmax(Pvals_MPa) > Pmax_MPa or
+        np.nanmin(Tvals_K) < Tmin_K or np.nanmax(Tvals_K) > Tmax_K
+    ):
+        checks.update({
+            'candidateThermalMeltCurveStatus': 'outside_eos_domain_rejected',
+            'candidateThermalPhaseBoundaryStatus': 'phase_boundary_unavailable_rejected',
+            'reason': 'updated_candidate_outside_declared_eos_domain',
+        })
+        return checks
+
+    TsearchMax_K = np.nanmax((
+        getattr(getattr(Planet, 'Ocean', None), 'THydroMax_K', np.nan),
+        getattr(Planet, 'TfreezeUpper_K', np.nan),
+        Tmax_K if np.isfinite(Tmax_K) else np.nan,
+        np.nanmax(Tvals_K) + 50.0,
+    ))
+    if not np.isfinite(TsearchMax_K):
+        TsearchMax_K = np.nanmax(Tvals_K) + 50.0
+    TRes_K = getattr(Planet, 'TfreezeRes_K', 0.05)
+    margins_K = []
+    for Pval_MPa, Tval_K in zip(Pvals_MPa, Tvals_K):
+        try:
+            phaseAtNode = int(np.asarray(eos.fn_phase(float(Pval_MPa), float(Tval_K))).item())
+        except Exception:
+            checks.update({
+                'candidateThermalMeltCurveStatus': 'outside_eos_domain_rejected',
+                'candidateThermalPhaseBoundaryStatus': 'phase_boundary_unavailable_rejected',
+                'reason': 'updated_candidate_phase_lookup_failed',
+            })
+            return checks
+        if phaseAtNode != 6:
+            checks.update({
+                'candidateThermalMeltCurveStatus': 'outside_eos_domain_rejected',
+                'candidateThermalPhaseBoundaryStatus': 'phase_boundary_rejected',
+                'reason': 'updated_candidate_not_ice_vi',
+            })
+            return checks
+        try:
+            Tmelt_K = GetTfreeze(
+                eos, float(Pval_MPa), float(Tval_K),
+                TfreezeRange_K=max(TsearchMax_K - float(Tval_K), 1.0),
+                TRes_K=TRes_K,
+            )
+        except Exception:
+            checks.update({
+                'candidateThermalMeltCurveStatus': 'missing_melt_curve_rejected',
+                'candidateThermalPhaseBoundaryStatus': 'phase_boundary_unavailable_rejected',
+                'reason': 'updated_candidate_GetTfreeze_exception',
+            })
+            return checks
+        if not np.isfinite(Tmelt_K):
+            checks.update({
+                'candidateThermalMeltCurveStatus': 'melt_curve_nonfinite_rejected',
+                'candidateThermalPhaseBoundaryStatus': 'phase_boundary_unavailable_rejected',
+                'reason': 'updated_candidate_nonfinite_GetTfreeze_result',
+            })
+            return checks
+        margins_K.append(float(Tmelt_K - Tval_K))
+
+    minMargin_K = float(np.nanmin(margins_K)) if margins_K else np.nan
+    phaseBoundaryResidual_K = max(0.0, -minMargin_K) if np.isfinite(minMargin_K) else np.nan
+    checks.update({
+        'candidateThermalMeltCurveStatus': 'melt_curve_ok',
+        'candidateThermalPhaseBoundaryStatus': (
+            'phase_boundary_ok' if np.isfinite(minMargin_K) and minMargin_K > 0.0 else 'phase_boundary_rejected'
+        ),
+        'candidateThermalPhaseBoundaryResidual_K': float(phaseBoundaryResidual_K),
+        'candidateThermalMinPhaseBoundaryMargin_K': minMargin_K,
+        'reason': None if np.isfinite(minMargin_K) and minMargin_K > 0.0 else 'updated_candidate_phase_boundary_margin_nonpositive',
+    })
+    return checks
+
+
+def BuildActiveIceVIThermalUpdateCandidate(
+        Planet, productionMode=None, strategy=ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_NO_OP):
+    """Build a copy-only thermal-update reconstruction on the isolated Ice VI copy."""
     protectedBefore = _ActiveIceVIProtectedProfileSnapshot(Planet)
     if productionMode is None:
         productionMode = ResolveHPIceConvectionModel(Planet) if hasattr(Planet, 'Do') else "Kalousova2018_production_experimental"
+    if strategy not in (
+        ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_NO_OP,
+        ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_LINEAR,
+        ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_ORIGINAL_BOUNDARY,
+    ):
+        strategy = ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_NO_OP
 
     diagnostics = getattr(Planet, 'HPIceDiagnostics', None)
     if not isinstance(diagnostics, dict):
@@ -2748,6 +2881,7 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_missing_candidate_rejected',
+            strategy=strategy,
             reasons=('missing_hp_ice_diagnostics',),
         )
 
@@ -2762,6 +2896,7 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_missing_candidate_rejected',
+            strategy=strategy,
             reasons=('missing_ice_vi_diagnostics',),
         )
 
@@ -2776,6 +2911,7 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_missing_candidate_rejected',
+            strategy=strategy,
             reasons=('requires_active_candidate_copy',),
         )
 
@@ -2787,6 +2923,7 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_not_evaluated',
+            strategy=strategy,
             reasons=('experimental_production_selector_not_enabled',),
         )
 
@@ -2795,6 +2932,7 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_discarded_candidate_rejected',
+            strategy=strategy,
             reasons=(candidate.get('candidateDiscardReason') or 'candidate_discarded',),
         )
 
@@ -2802,6 +2940,7 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_missing_candidate_rejected',
+            strategy=strategy,
             reasons=(candidate.get('candidateReason', 'requires_active_candidate_copy'),),
         )
 
@@ -2812,6 +2951,7 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_residuals_not_passed_rejected',
+            strategy=strategy,
             reasons=tuple(candidate.get('candidateResidualReasons', ())) or
                     (candidate.get('candidateResidualStatus', 'candidate_residuals_not_passed'),),
         )
@@ -2824,6 +2964,7 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_missing_candidate_rejected',
+            strategy=strategy,
             reasons=('missing_candidate_thermal_arrays',),
         )
 
@@ -2831,24 +2972,28 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_missing_candidate_rejected',
+            strategy=strategy,
             reasons=('empty_candidate_thermal_arrays',),
         )
     if Tvals_K.size != phaseVals.size:
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_missing_candidate_rejected',
+            strategy=strategy,
             reasons=('candidate_thermal_array_size_mismatch',),
         )
     if np.any(~np.isfinite(Tvals_K)) or np.any(phaseVals != 6):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_nonfinite_rejected',
+            strategy=strategy,
             reasons=('nonfinite_candidate_temperature_or_non_ice_vi_phase',),
         )
     if rVals_m.size != Tvals_K.size or np.any(~np.isfinite(rVals_m)) or np.any(rVals_m <= 0):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_missing_radius_rejected',
+            strategy=strategy,
             reasons=('candidate_radius_required_for_spherical_flux_reconstruction',),
         )
 
@@ -2858,6 +3003,7 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_missing_candidate_rejected',
+            strategy=strategy,
             reasons=('missing_candidate_heat_power',),
         )
 
@@ -2871,6 +3017,7 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
         return _ActiveIceVIThermalUpdateStatus(
             candidate,
             status='candidate_thermal_update_residuals_not_passed_rejected',
+            strategy=strategy,
             reasons=('candidate_heat_power_residual_exceeds_tolerance',),
         )
 
@@ -2879,11 +3026,115 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
     Qthrough_W = float(0.5 * (Q_in_W + Q_out_W))
     updatedQ_W = np.full(updatedT_K.shape, Qthrough_W, dtype=float)
     updatedq_Wm2 = updatedQ_W / (4.0 * np.pi * rVals_m**2)
+    boundaryChecks = None
+    interpolationCoordinate = 'not_evaluated'
+    boundaryCondition = 'not_evaluated'
+    if strategy == ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_NO_OP:
+        pass
+    else:
+        try:
+            zVals_m = np.asarray(candidate['candidateZ_m'], dtype=float)
+            Pvals_MPa = np.asarray(candidate['candidateP_MPa'], dtype=float)
+        except (KeyError, TypeError, ValueError):
+            return _ActiveIceVIThermalUpdateStatus(
+                candidate,
+                status='candidate_thermal_update_original_boundary_missing_depth_rejected'
+                if strategy == ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_ORIGINAL_BOUNDARY
+                else 'candidate_thermal_update_missing_conductivity_rejected',
+                strategy=strategy,
+                reasons=('candidate_depth_and_pressure_required_for_original_boundary_reconstruction',)
+                if strategy == ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_ORIGINAL_BOUNDARY
+                else ('candidate_thermal_conductivity_and_geometry_required_for_linear_reconstruction',),
+            )
+        if zVals_m.size != Tvals_K.size or Pvals_MPa.size != Tvals_K.size or np.any(~np.isfinite(zVals_m)) or np.any(~np.isfinite(Pvals_MPa)):
+            return _ActiveIceVIThermalUpdateStatus(
+                candidate,
+                status='candidate_thermal_update_original_boundary_missing_depth_rejected'
+                if strategy == ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_ORIGINAL_BOUNDARY
+                else 'candidate_thermal_update_missing_conductivity_rejected',
+                strategy=strategy,
+                reasons=('candidate_depth_and_pressure_required_for_original_boundary_reconstruction',)
+                if strategy == ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_ORIGINAL_BOUNDARY
+                else ('candidate_thermal_conductivity_and_geometry_required_for_linear_reconstruction',),
+            )
+        dzVals_m = np.diff(zVals_m)
+        if Tvals_K.size < 2 or np.any(dzVals_m <= 0):
+            return _ActiveIceVIThermalUpdateStatus(
+                candidate,
+                status='candidate_thermal_update_original_boundary_missing_depth_rejected'
+                if strategy == ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_ORIGINAL_BOUNDARY
+                else 'candidate_thermal_update_missing_radius_rejected',
+                strategy=strategy,
+                reasons=('candidate_depth_grid_must_increase_downward',),
+            )
+        if strategy == ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_ORIGINAL_BOUNDARY:
+            updatedT_K = np.interp(zVals_m, (zVals_m[0], zVals_m[-1]), (Tvals_K[0], Tvals_K[-1]))
+            boundaryCondition = 'preserve_finalized_top_bottom_temperature'
+            interpolationCoordinate = 'candidateZ_m'
+        else:
+            try:
+                kVals_WmK = np.asarray(candidate['candidatekTherm_WmK'], dtype=float)
+            except (KeyError, TypeError, ValueError):
+                return _ActiveIceVIThermalUpdateStatus(
+                    candidate,
+                    status='candidate_thermal_update_missing_conductivity_rejected',
+                    strategy=strategy,
+                    reasons=('candidate_thermal_conductivity_and_geometry_required_for_linear_reconstruction',),
+                )
+            if kVals_WmK.size != Tvals_K.size or np.any(~np.isfinite(kVals_WmK)) or np.any(kVals_WmK <= 0):
+                return _ActiveIceVIThermalUpdateStatus(
+                    candidate,
+                    status='candidate_thermal_update_missing_conductivity_rejected',
+                    strategy=strategy,
+                    reasons=('candidate_thermal_conductivity_and_geometry_required_for_linear_reconstruction',),
+                )
+            for iNode in range(1, updatedT_K.size):
+                qSeg_Wm2 = 0.5 * (updatedq_Wm2[iNode - 1] + updatedq_Wm2[iNode])
+                kSeg_WmK = 0.5 * (kVals_WmK[iNode - 1] + kVals_WmK[iNode])
+                updatedT_K[iNode] = updatedT_K[iNode - 1] + qSeg_Wm2 / kSeg_WmK * dzVals_m[iNode - 1]
+            boundaryCondition = 'top_temperature_with_conserved_heat_power'
+            interpolationCoordinate = 'candidateZ_m'
+        if np.any(~np.isfinite(updatedT_K)):
+            return _ActiveIceVIThermalUpdateStatus(
+                candidate,
+                status='candidate_thermal_update_original_boundary_nonfinite_rejected'
+                if strategy == ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_ORIGINAL_BOUNDARY
+                else 'candidate_thermal_update_nonfinite_rejected',
+                strategy=strategy,
+                reasons=('nonfinite_candidate_updated_temperature',),
+            )
+        boundaryChecks = _ActiveIceVIThermalBoundaryChecks(Planet, Pvals_MPa, updatedT_K)
+        if (
+            boundaryChecks['candidateThermalMeltCurveStatus'] != 'melt_curve_ok' or
+            boundaryChecks['candidateThermalPhaseBoundaryStatus'] != 'phase_boundary_ok'
+        ):
+            if strategy == ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_ORIGINAL_BOUNDARY:
+                if boundaryChecks.get('reason') == 'updated_candidate_not_ice_vi':
+                    boundaryStatus = 'candidate_thermal_update_original_boundary_wrong_phase_rejected'
+                elif boundaryChecks['candidateThermalMeltCurveStatus'] == 'outside_eos_domain_rejected':
+                    boundaryStatus = 'candidate_thermal_update_original_boundary_eos_rejected'
+                elif boundaryChecks['candidateThermalMeltCurveStatus'] == 'melt_curve_nonfinite_rejected':
+                    boundaryStatus = 'candidate_thermal_update_original_boundary_nonfinite_rejected'
+                else:
+                    boundaryStatus = 'candidate_thermal_update_original_boundary_phase_boundary_rejected'
+            else:
+                boundaryStatus = 'candidate_thermal_update_phase_boundary_rejected'
+            return _ActiveIceVIThermalUpdateStatus(
+                candidate,
+                status=boundaryStatus,
+                strategy=strategy,
+                reasons=(boundaryChecks.get('reason') or 'candidate_thermal_phase_boundary_rejected',),
+                extra=boundaryChecks,
+            )
+        phaseBoundaryResidual_K = boundaryChecks['candidateThermalPhaseBoundaryResidual_K']
+        eosPressureMargin_MPa = boundaryChecks['candidateThermalEOSPressureMargin_MPa']
+        eosTemperatureMargin_K = boundaryChecks['candidateThermalEOSTemperatureMargin_K']
     energyResidual_W = candidate.get('candidateEnergyResidual_W', np.nan)
     energyResidual_frac = candidate.get('candidateEnergyResidual_frac', np.nan)
-    phaseBoundaryResidual_K = candidate.get('candidatePhaseBoundaryResidual_K', np.nan)
-    eosPressureMargin_MPa = candidate.get('candidateEOSPressureMargin_MPa', np.nan)
-    eosTemperatureMargin_K = candidate.get('candidateEOSTemperatureMargin_K', np.nan)
+    if strategy == ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_NO_OP:
+        phaseBoundaryResidual_K = candidate.get('candidatePhaseBoundaryResidual_K', np.nan)
+        eosPressureMargin_MPa = candidate.get('candidateEOSPressureMargin_MPa', np.nan)
+        eosTemperatureMargin_K = candidate.get('candidateEOSTemperatureMargin_K', np.nan)
     riskReasons = tuple()
     if candidate.get('candidateSphericalFluxScalingStatus') not in (
         'spherical_area_scaled',
@@ -2903,13 +3154,31 @@ def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
         'candidateThermalPhaseBoundaryResidual_K': phaseBoundaryResidual_K,
         'candidateThermalEOSPressureMargin_MPa': eosPressureMargin_MPa,
         'candidateThermalEOSTemperatureMargin_K': eosTemperatureMargin_K,
+        'candidateThermalBoundaryCondition': boundaryCondition,
+        'candidateThermalInterpolationCoordinate': interpolationCoordinate,
         'candidateThermalRiskStatus': riskStatus,
         'candidateThermalRiskReasons': riskReasons,
         'candidateThermalProtectedFieldsUnchanged': _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
     }
+    if strategy in (
+        ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_LINEAR,
+        ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_ORIGINAL_BOUNDARY,
+    ):
+        extra.update({
+            'candidateThermalMeltCurveStatus': 'melt_curve_ok',
+            'candidateThermalPhaseBoundaryStatus': 'phase_boundary_ok',
+            'candidateThermalMinPhaseBoundaryMargin_K': boundaryChecks['candidateThermalMinPhaseBoundaryMargin_K'],
+        })
+    if strategy == ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_NO_OP:
+        status = 'candidate_thermal_update_no_op_reconstruction'
+    elif strategy == ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_ORIGINAL_BOUNDARY:
+        status = 'candidate_thermal_update_original_boundary_reconstruction'
+    else:
+        status = 'candidate_thermal_update_linear_conservative_reconstruction'
     return _ActiveIceVIThermalUpdateStatus(
         candidate,
-        status='candidate_thermal_update_no_op_reconstruction',
+        status=status,
+        strategy=strategy,
         reasons=tuple(),
         appliedToCopy=True,
         extra=extra,
