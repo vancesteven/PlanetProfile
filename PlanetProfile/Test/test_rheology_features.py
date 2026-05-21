@@ -11,6 +11,7 @@ from PlanetProfile.Thermodynamics.HydroEOS import (
 from PlanetProfile.Thermodynamics.LayerPropagators import (
     ApplyActiveIceVIRollbackPolicy,
     BuildActiveIceVIProductionCandidateCopy,
+    BuildActiveIceVIThermalUpdateCandidate,
     EvaluateActiveIceVICandidateResiduals,
     EvaluatePosthocIceVIProductionCandidate,
     _ConvectionDeschampsSotinHPIceDiagnostic,
@@ -2340,6 +2341,137 @@ class Test15ActiveIceVICandidateRollbackPolicy(unittest.TestCase):
         before = Test11PosthocIceVIProductionCandidate._snapshot(planet)
 
         self._apply(planet)
+
+        for key, value in before.items():
+            if isinstance(value, np.ndarray):
+                np.testing.assert_array_equal(getattr(planet, key), value)
+            else:
+                self.assertEqual(getattr(planet, key), value)
+
+
+class Test16ActiveIceVIThermalUpdateCandidate(unittest.TestCase):
+
+    def _planet_with_residuals(self):
+        planet = Test14ActiveIceVICandidateResidualEvaluator()._planet_with_copy()
+        EvaluateActiveIceVICandidateResiduals(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+        return planet
+
+    @staticmethod
+    def _build(planet):
+        return BuildActiveIceVIThermalUpdateCandidate(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+    @staticmethod
+    def _candidate(planet):
+        return planet.HPIceDiagnostics["VI"]["activeProductionCandidate"]
+
+    def test_nominal_candidate_creates_independent_temperature_copy(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+
+        result = self._build(planet)
+
+        self.assertEqual(result["candidateThermalUpdateStatus"], "candidate_thermal_update_no_op_reconstruction")
+        self.assertTrue(result["candidateThermalUpdateAppliedToCopy"])
+        self.assertFalse(result["candidateThermalUpdateAppliedToPlanet"])
+        self.assertFalse(result["candidateThermalUpdateAccepted"])
+        np.testing.assert_allclose(result["candidateUpdatedT_K"], candidate["candidateT_K"])
+        self.assertFalse(np.shares_memory(result["candidateUpdatedT_K"], candidate["candidateT_K"]))
+        self.assertFalse(np.shares_memory(result["candidateUpdatedT_K"], planet.T_K))
+
+    def test_updated_heat_power_and_flux_are_spherical_copy_metadata(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+
+        result = self._build(planet)
+
+        expected_Q_W = np.full(candidate["candidateT_K"].shape, candidate["candidateQ_in_W"])
+        expected_q_Wm2 = expected_Q_W / (4.0 * np.pi * candidate["candidateR_m"]**2)
+        np.testing.assert_allclose(result["candidateUpdatedQ_W"], expected_Q_W)
+        np.testing.assert_allclose(result["candidateUpdatedq_Wm2"], expected_q_Wm2)
+        self.assertEqual(result["candidateThermalHeatPowerResidual_W"], 0.0)
+
+    def test_missing_candidate_rejects(self):
+        planet = Test13ActiveIceVICandidateProfileCopy()._planet()
+
+        result = self._build(planet)
+
+        self.assertEqual(result["candidateThermalUpdateStatus"], "candidate_thermal_update_missing_candidate_rejected")
+        self.assertFalse(result["candidateThermalUpdateAppliedToCopy"])
+        self.assertFalse(result["candidateThermalUpdateAppliedToPlanet"])
+        self.assertFalse(result["candidateThermalUpdateAccepted"])
+
+    def test_discarded_candidate_rejects(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+        candidate["candidateResidualsPassed"] = False
+        candidate["candidateResidualStatus"] = "candidate_mass_residual_rejected"
+        candidate["candidateResidualReasons"] = ("mass_residual_nonzero",)
+        ApplyActiveIceVIRollbackPolicy(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+        result = self._build(planet)
+
+        self.assertEqual(result["candidateThermalUpdateStatus"], "candidate_thermal_update_discarded_candidate_rejected")
+        self.assertFalse(result["candidateThermalUpdateAppliedToCopy"])
+        self.assertFalse(result["candidateThermalUpdateAppliedToPlanet"])
+        self.assertFalse(result["candidateThermalUpdateAccepted"])
+        self.assertEqual(candidate["rollbackStatus"], "rollback_candidate_discarded")
+
+    def test_residuals_not_passed_candidate_rejects(self):
+        planet = Test14ActiveIceVICandidateResidualEvaluator()._planet_with_copy()
+
+        result = self._build(planet)
+
+        self.assertEqual(result["candidateThermalUpdateStatus"], "candidate_thermal_update_residuals_not_passed_rejected")
+        self.assertFalse(result["candidateThermalUpdateAppliedToCopy"])
+
+    def test_missing_radius_rejects(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+        candidate["candidateR_m"] = np.array([], dtype=float)
+
+        result = self._build(planet)
+
+        self.assertEqual(result["candidateThermalUpdateStatus"], "candidate_thermal_update_missing_radius_rejected")
+        self.assertFalse(result["candidateThermalUpdateAppliedToCopy"])
+        self.assertIn(
+            "candidate_radius_required_for_spherical_flux_reconstruction",
+            result["candidateThermalUpdateReasons"],
+        )
+
+    def test_nonfinite_candidate_temperature_rejects(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+        candidate["candidateT_K"][0] = np.nan
+
+        result = self._build(planet)
+
+        self.assertEqual(result["candidateThermalUpdateStatus"], "candidate_thermal_update_nonfinite_rejected")
+        self.assertFalse(result["candidateThermalUpdateAppliedToCopy"])
+
+    def test_update_and_candidate_booleans_remain_false(self):
+        planet = self._planet_with_residuals()
+        candidate = self._candidate(planet)
+        candidate["candidateAccepted"] = True
+        candidate["candidateAppliedToProfile"] = True
+
+        result = self._build(planet)
+
+        self.assertFalse(result["candidateThermalUpdateAppliedToPlanet"])
+        self.assertFalse(result["candidateThermalUpdateAccepted"])
+        self.assertFalse(candidate["candidateAccepted"])
+        self.assertFalse(candidate["candidateAppliedToProfile"])
+
+    def test_thermal_update_does_not_modify_planet_fields(self):
+        planet = self._planet_with_residuals()
+        before = Test11PosthocIceVIProductionCandidate._snapshot(planet)
+
+        self._build(planet)
 
         for key, value in before.items():
             if isinstance(value, np.ndarray):

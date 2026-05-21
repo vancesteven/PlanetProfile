@@ -35,6 +35,7 @@ POSTHOC_RAYLEIGH_NEAR_CRITICAL_RATIO = 1.1
 ACTIVE_ICE_VI_HEAT_FLUX_FRAC_TOL = 1e-10
 ACTIVE_ICE_VI_HEAT_FLUX_ABS_FLOOR_WM2 = 1e-12
 ACTIVE_ICE_VI_ROLLBACK_POLICY_VERSION = "active_ice_vi_candidate_rollback_v1"
+ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_NO_OP = "no_op_reconstruction"
 
 def IceLayers(Planet, Params):
     """ Wrapper function for ice layer propogation. Decides between self consistent and non-self consistent modeling.
@@ -2053,6 +2054,14 @@ def _ActiveIceVIRejectedResult(status, reason, protectedFieldsUnchanged=True):
         'rollbackReasons': tuple(),
         'rollbackStatus': 'rollback_not_evaluated',
         'rollbackPolicyVersion': ACTIVE_ICE_VI_ROLLBACK_POLICY_VERSION,
+        'thermalUpdate': {
+            'candidateThermalUpdateStrategy': ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_NO_OP,
+            'candidateThermalUpdateStatus': 'candidate_thermal_update_not_evaluated',
+            'candidateThermalUpdateReasons': tuple(),
+            'candidateThermalUpdateAppliedToCopy': False,
+            'candidateThermalUpdateAppliedToPlanet': False,
+            'candidateThermalUpdateAccepted': False,
+        },
         'protectedFieldsUnchanged': protectedFieldsUnchanged,
     }
 
@@ -2689,6 +2698,221 @@ def ApplyActiveIceVIRollbackPolicy(Planet, productionMode=None):
         applied=True,
         reason=reason,
         reasons=reasons,
+    )
+
+
+def _ActiveIceVIThermalUpdateStatus(candidate, *, status, reasons=(),
+                                    appliedToCopy=False, extra=None):
+    thermalUpdate = {
+        'candidateThermalUpdateStrategy': ACTIVE_ICE_VI_THERMAL_UPDATE_STRATEGY_NO_OP,
+        'candidateThermalUpdateStatus': status,
+        'candidateThermalUpdateReasons': tuple(reasons),
+        'candidateThermalUpdateAppliedToCopy': bool(appliedToCopy),
+        'candidateThermalUpdateAppliedToPlanet': False,
+        'candidateThermalUpdateAccepted': False,
+        'candidateUpdatedT_K': np.array([], dtype=float),
+        'candidateUpdatedQ_W': np.array([], dtype=float),
+        'candidateUpdatedq_Wm2': np.array([], dtype=float),
+        'candidateUpdatedPhaseArray': np.array([], dtype=int),
+        'candidateThermalEnergyResidual_W': np.nan,
+        'candidateThermalEnergyResidual_frac': np.nan,
+        'candidateThermalHeatPowerResidual_W': np.nan,
+        'candidateThermalPhaseBoundaryResidual_K': np.nan,
+        'candidateThermalEOSPressureMargin_MPa': np.nan,
+        'candidateThermalEOSTemperatureMargin_K': np.nan,
+        'candidateThermalRiskStatus': 'not_evaluated',
+        'candidateThermalRiskReasons': tuple(reasons),
+    }
+    if extra:
+        thermalUpdate.update(extra)
+    candidate['thermalUpdate'] = thermalUpdate
+    candidate['candidateAccepted'] = False
+    candidate['candidateAppliedToProfile'] = False
+    return thermalUpdate
+
+
+def BuildActiveIceVIThermalUpdateCandidate(Planet, productionMode=None):
+    """Build a no-op thermal-update reconstruction on the isolated Ice VI copy."""
+    protectedBefore = _ActiveIceVIProtectedProfileSnapshot(Planet)
+    if productionMode is None:
+        productionMode = ResolveHPIceConvectionModel(Planet) if hasattr(Planet, 'Do') else "Kalousova2018_production_experimental"
+
+    diagnostics = getattr(Planet, 'HPIceDiagnostics', None)
+    if not isinstance(diagnostics, dict):
+        candidate = _ActiveIceVIRejectedResult(
+            'missing_diagnostics_rejected',
+            'missing_hp_ice_diagnostics',
+            _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+        )
+        _StoreActiveIceVIProductionCandidateCopy(Planet, candidate)
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_missing_candidate_rejected',
+            reasons=('missing_hp_ice_diagnostics',),
+        )
+
+    iceVIDiagnostics = diagnostics.get('VI')
+    if not isinstance(iceVIDiagnostics, dict):
+        candidate = _ActiveIceVIRejectedResult(
+            'missing_ice_vi_rejected',
+            'missing_ice_vi_diagnostics',
+            _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+        )
+        _StoreActiveIceVIProductionCandidateCopy(Planet, candidate)
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_missing_candidate_rejected',
+            reasons=('missing_ice_vi_diagnostics',),
+        )
+
+    candidate = iceVIDiagnostics.get('activeProductionCandidate')
+    if not isinstance(candidate, dict):
+        candidate = _ActiveIceVIRejectedResult(
+            'missing_candidate_copy_rejected',
+            'requires_active_candidate_copy',
+            _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+        )
+        _StoreActiveIceVIProductionCandidateCopy(Planet, candidate)
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_missing_candidate_rejected',
+            reasons=('requires_active_candidate_copy',),
+        )
+
+    candidate['candidateAccepted'] = False
+    candidate['candidateAppliedToProfile'] = False
+    candidate['protectedFieldsUnchanged'] = _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore)
+
+    if productionMode != "Kalousova2018_production_experimental":
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_not_evaluated',
+            reasons=('experimental_production_selector_not_enabled',),
+        )
+
+    if candidate.get('candidateDiscarded', False):
+        _ActiveIceVIPreserveTerminalDiscard(candidate)
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_discarded_candidate_rejected',
+            reasons=(candidate.get('candidateDiscardReason') or 'candidate_discarded',),
+        )
+
+    if not candidate.get('candidateCopyCreated', False):
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_missing_candidate_rejected',
+            reasons=(candidate.get('candidateReason', 'requires_active_candidate_copy'),),
+        )
+
+    if not (
+        candidate.get('candidateResidualsPassed', False) and
+        candidate.get('candidateResidualStatus') == 'candidate_residuals_passed'
+    ):
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_residuals_not_passed_rejected',
+            reasons=tuple(candidate.get('candidateResidualReasons', ())) or
+                    (candidate.get('candidateResidualStatus', 'candidate_residuals_not_passed'),),
+        )
+
+    try:
+        Tvals_K = np.asarray(candidate['candidateT_K'], dtype=float)
+        phaseVals = np.asarray(candidate['candidatePhaseArray'], dtype=int)
+        rVals_m = np.asarray(candidate['candidateR_m'], dtype=float)
+    except (KeyError, TypeError, ValueError):
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_missing_candidate_rejected',
+            reasons=('missing_candidate_thermal_arrays',),
+        )
+
+    if Tvals_K.size == 0 or phaseVals.size == 0:
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_missing_candidate_rejected',
+            reasons=('empty_candidate_thermal_arrays',),
+        )
+    if Tvals_K.size != phaseVals.size:
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_missing_candidate_rejected',
+            reasons=('candidate_thermal_array_size_mismatch',),
+        )
+    if np.any(~np.isfinite(Tvals_K)) or np.any(phaseVals != 6):
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_nonfinite_rejected',
+            reasons=('nonfinite_candidate_temperature_or_non_ice_vi_phase',),
+        )
+    if rVals_m.size != Tvals_K.size or np.any(~np.isfinite(rVals_m)) or np.any(rVals_m <= 0):
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_missing_radius_rejected',
+            reasons=('candidate_radius_required_for_spherical_flux_reconstruction',),
+        )
+
+    Q_in_W = candidate.get('candidateQ_in_W', iceVIDiagnostics.get('Q_in_W', np.nan))
+    Q_out_W = candidate.get('candidateQ_out_W', iceVIDiagnostics.get('Q_out_W', np.nan))
+    if not (_ActiveIceVIFiniteScalar(Q_in_W) and _ActiveIceVIFiniteScalar(Q_out_W)):
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_missing_candidate_rejected',
+            reasons=('missing_candidate_heat_power',),
+        )
+
+    Qscale_W = max(abs(Q_in_W), abs(Q_out_W), 1.0)
+    heatPowerResidual_W = float(Q_out_W - Q_in_W)
+    energyAbsTol_W = max(
+        HP_ICE_PRODUCTION_ENERGY_FRAC_TOL * Qscale_W,
+        HP_ICE_PRODUCTION_ENERGY_ABS_FLOOR_W,
+    )
+    if abs(heatPowerResidual_W) > energyAbsTol_W:
+        return _ActiveIceVIThermalUpdateStatus(
+            candidate,
+            status='candidate_thermal_update_residuals_not_passed_rejected',
+            reasons=('candidate_heat_power_residual_exceeds_tolerance',),
+        )
+
+    updatedT_K = np.array(Tvals_K, dtype=float, copy=True)
+    updatedPhase = np.array(phaseVals, dtype=int, copy=True)
+    Qthrough_W = float(0.5 * (Q_in_W + Q_out_W))
+    updatedQ_W = np.full(updatedT_K.shape, Qthrough_W, dtype=float)
+    updatedq_Wm2 = updatedQ_W / (4.0 * np.pi * rVals_m**2)
+    energyResidual_W = candidate.get('candidateEnergyResidual_W', np.nan)
+    energyResidual_frac = candidate.get('candidateEnergyResidual_frac', np.nan)
+    phaseBoundaryResidual_K = candidate.get('candidatePhaseBoundaryResidual_K', np.nan)
+    eosPressureMargin_MPa = candidate.get('candidateEOSPressureMargin_MPa', np.nan)
+    eosTemperatureMargin_K = candidate.get('candidateEOSTemperatureMargin_K', np.nan)
+    riskReasons = tuple()
+    if candidate.get('candidateSphericalFluxScalingStatus') not in (
+        'spherical_area_scaled',
+        'spherical_area_scaled_input_boundary_mismatch',
+    ):
+        riskReasons = (candidate.get('candidateSphericalFluxScalingStatus', 'spherical_flux_scaling_not_evaluated'),)
+    riskStatus = 'nominal' if not riskReasons else 'requires_review'
+
+    extra = {
+        'candidateUpdatedT_K': updatedT_K,
+        'candidateUpdatedQ_W': updatedQ_W,
+        'candidateUpdatedq_Wm2': updatedq_Wm2,
+        'candidateUpdatedPhaseArray': updatedPhase,
+        'candidateThermalEnergyResidual_W': energyResidual_W,
+        'candidateThermalEnergyResidual_frac': energyResidual_frac,
+        'candidateThermalHeatPowerResidual_W': heatPowerResidual_W,
+        'candidateThermalPhaseBoundaryResidual_K': phaseBoundaryResidual_K,
+        'candidateThermalEOSPressureMargin_MPa': eosPressureMargin_MPa,
+        'candidateThermalEOSTemperatureMargin_K': eosTemperatureMargin_K,
+        'candidateThermalRiskStatus': riskStatus,
+        'candidateThermalRiskReasons': riskReasons,
+        'candidateThermalProtectedFieldsUnchanged': _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
+    }
+    return _ActiveIceVIThermalUpdateStatus(
+        candidate,
+        status='candidate_thermal_update_no_op_reconstruction',
+        reasons=tuple(),
+        appliedToCopy=True,
+        extra=extra,
     )
 
 

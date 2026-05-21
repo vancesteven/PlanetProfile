@@ -612,6 +612,62 @@ Thus rollback/discard still does not apply an Ice VI thermal update, does not
 change phase structure, and does not alter heat flux, viscosity, mass, gravity,
 or layer geometry.
 
+## Active Ice VI thermal-update candidate reconstruction
+
+The active Ice VI scaffold now has a no-op thermal-update reconstruction step
+for the isolated candidate copy. This step creates a thermal-update namespace
+inside:
+
+```text
+Planet.HPIceDiagnostics["VI"]["activeProductionCandidate"]["thermalUpdate"]
+```
+
+The reconstruction requires an existing Ice VI candidate copy with residuals
+already passed. It rejects missing, discarded, or residual-failed candidates and
+does not attempt to rebuild them implicitly. For a clean candidate it writes
+copy-only metadata such as:
+
+```text
+candidateThermalUpdateStrategy = "no_op_reconstruction"
+candidateThermalUpdateStatus
+candidateThermalUpdateReasons
+candidateThermalUpdateAppliedToCopy
+candidateThermalUpdateAppliedToPlanet
+candidateThermalUpdateAccepted
+candidateUpdatedT_K
+candidateUpdatedQ_W
+candidateUpdatedq_Wm2
+candidateUpdatedPhaseArray
+candidateThermalHeatPowerResidual_W
+candidateThermalRiskStatus
+candidateThermalRiskReasons
+```
+
+`candidateUpdatedT_K` is an independent copy of `candidateT_K`; it is not a
+view of `Planet.T_K` or the candidate source array. The no-op reconstruction
+does not compute a new thermal solution. It preserves Ice VI phases, carries
+total heat power through the copied nodes, and reconstructs area-normalized
+candidate flux metadata with:
+
+```text
+q = Q / (4*pi*r**2)
+```
+
+This is still candidate-state only:
+
+```text
+candidateThermalUpdateAppliedToPlanet = False
+candidateThermalUpdateAccepted = False
+candidateAppliedToProfile = False
+candidateAccepted = False
+```
+
+No propagated temperatures, pressures, phases, heat fluxes, viscosity, mass,
+gravity, or layer geometry are modified. The purpose of this no-op step is to
+validate the thermal-update namespace, independent-array behavior, Q/q metadata,
+and future residual/rollback hooks before any science-bearing Ice VI thermal
+proposal is added.
+
 ## Limitations
 
 These calculations are diagnostics. They do not implement production Ice VI
