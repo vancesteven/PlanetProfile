@@ -519,7 +519,11 @@ The recorded metadata includes:
 ```text
 candidateEnergyResidual_W
 candidateEnergyResidual_frac
+candidateHeatPowerResidual_W
 candidateHeatFluxResidual_Wm2
+candidateExpected_q_in_Wm2
+candidateExpected_q_out_Wm2
+candidateSphericalFluxScalingStatus
 candidateMassResidual_kg
 candidateMassResidual_frac
 candidatePhaseBoundaryResidual_K
@@ -541,12 +545,72 @@ candidateAppliedToProfile = False
 candidateAccepted = False
 ```
 
-The evaluator rejects missing required inputs, energy or heat-flux residuals
-outside tolerance, nonzero mass residuals, phase-boundary residual failures,
-layer-closure failures, nonpositive EOS or phase-boundary margins, subcritical
-Rayleigh state, invalid temperature contrast, and invalid viscosity. It does not
-compute a new thermal solution and does not add latent heat, melt-density,
-mass-transport, or active Ice III/V production behavior.
+The hard heat-conservation check is based on total heat power through the Ice VI
+candidate (`Q_in_W` and `Q_out_W`). The raw area-normalized flux difference
+`q_out_Wm2 - q_in_Wm2` is still recorded as `candidateHeatFluxResidual_Wm2`,
+but spherical shells need not have equal area-normalized flux at their bottom
+and top boundaries when total power is conserved. When radius data are
+available, the evaluator records the expected spherical area-scaled fluxes and
+sets `candidateSphericalFluxScalingStatus`; a direct `q` difference is not a
+blocker if the finalized candidate's top flux is explained by `Q/(4*pi*r^2)`
+geometry. The incoming bottom flux may come from a deeper in-run or provisional
+HP boundary, so a mismatch against the finalized candidate-copy bottom radius is
+recorded as metadata rather than treated as heat-power loss.
+
+The evaluator rejects missing required inputs, nonconserved total heat power,
+unexplained heat-flux geometry mismatches, nonzero mass residuals,
+phase-boundary residual failures, layer-closure failures, nonpositive EOS or
+phase-boundary margins, subcritical Rayleigh state, invalid temperature
+contrast, and invalid viscosity. It does not compute a new thermal solution and
+does not add latent heat, melt-density, mass-transport, or active Ice III/V
+production behavior.
+
+## Active Ice VI rollback and discard metadata
+
+The active Ice VI chain records rollback/discard metadata after candidate-copy
+residual evaluation. This policy is metadata-only. It does not restore a changed
+Planet profile, because the active candidate chain has not modified the
+propagated profile.
+
+Rollback metadata is stored in the same phase-local record:
+
+```text
+Planet.HPIceDiagnostics["VI"]["activeProductionCandidate"]
+```
+
+The policy records:
+
+```text
+candidateDiscarded
+candidateDiscardReason
+rollbackStatus
+rollbackReasons
+rollbackPolicyVersion
+rollbackRequired
+rollbackApplied
+rollbackReason
+```
+
+If residuals pass, the candidate remains available for later metadata-only
+inspection and the policy records `rollback_not_required`. If residuals fail, the
+candidate is marked discarded and cannot be used for a future active step without
+an explicit future reset/rebuild helper. Re-running the rollback policy on an
+already-discarded candidate preserves the original residual status and rollback
+reason so failed candidates are terminal and idempotent. If protected-field
+checks indicate that propagated fields changed,
+the policy records `rollback_protected_fields_changed` and does not mark rollback
+as applied, because that case requires investigation rather than metadata cleanup.
+
+In all paths, the scaffold keeps:
+
+```text
+candidateAppliedToProfile = False
+candidateAccepted = False
+```
+
+Thus rollback/discard still does not apply an Ice VI thermal update, does not
+change phase structure, and does not alter heat flux, viscosity, mass, gravity,
+or layer geometry.
 
 ## Limitations
 

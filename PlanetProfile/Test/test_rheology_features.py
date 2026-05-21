@@ -9,6 +9,7 @@ from PlanetProfile.Thermodynamics.HydroEOS import (
     ViscIceArrhenius_Pas,
 )
 from PlanetProfile.Thermodynamics.LayerPropagators import (
+    ApplyActiveIceVIRollbackPolicy,
     BuildActiveIceVIProductionCandidateCopy,
     EvaluateActiveIceVICandidateResiduals,
     EvaluatePosthocIceVIProductionCandidate,
@@ -1413,14 +1414,16 @@ class Test11PosthocIceVIProductionCandidate(unittest.TestCase):
         planet.Mtot_kg = 1.0e23
         planet.CMR2mean = 0.33
         if diagnostics is None:
+            q_in_Wm2 = 1.0e12 / (4.0 * np.pi * planet.r_m[3]**2)
+            q_out_Wm2 = 1.0e12 / (4.0 * np.pi * planet.r_m[1]**2)
             diagnostics = {
                 "VI": {
                     "energyResidual_W": 0.0,
                     "energyResidual_frac": 0.0,
                     "Q_in_W": 1.0e12,
                     "Q_out_W": 1.0e12,
-                    "q_in_Wm2": 0.02,
-                    "q_out_Wm2": 0.02,
+                    "q_in_Wm2": q_in_Wm2,
+                    "q_out_Wm2": q_out_Wm2,
                     "massResidual_kg": 0.0,
                     "massResidual_frac": 0.0,
                     "etaConv_Pas": 5.0e14,
@@ -1861,7 +1864,12 @@ class Test14ActiveIceVICandidateResidualEvaluator(unittest.TestCase):
         self.assertEqual(result["candidateResidualReasons"], ())
         self.assertEqual(result["candidateEnergyResidual_W"], 0.0)
         self.assertEqual(result["candidateEnergyResidual_frac"], 0.0)
-        self.assertEqual(result["candidateHeatFluxResidual_Wm2"], 0.0)
+        self.assertEqual(result["candidateHeatPowerResidual_W"], 0.0)
+        self.assertEqual(result["candidateSphericalFluxScalingStatus"], "spherical_area_scaled")
+        self.assertAlmostEqual(
+            result["candidateHeatFluxResidual_Wm2"],
+            result["candidateExpected_q_out_Wm2"] - result["candidateExpected_q_in_Wm2"],
+        )
         self.assertEqual(result["candidateMassResidual_kg"], 0.0)
         self.assertEqual(result["candidateMassResidual_frac"], 0.0)
         self.assertGreater(result["candidateRaOverRaCrit"], 1.0)
@@ -1888,7 +1896,7 @@ class Test14ActiveIceVICandidateResidualEvaluator(unittest.TestCase):
 
         self.assertFalse(result["candidateResidualsPassed"])
         self.assertEqual(result["candidateResidualStatus"], "candidate_heat_flux_residual_rejected")
-        self.assertIn("heat_flux_residual_exceeds_tolerance", result["candidateResidualReasons"])
+        self.assertIn("spherical_flux_scaling_mismatch", result["candidateResidualReasons"])
 
     def test_nonzero_mass_residual_rejects(self):
         planet = self._planet_with_copy()
@@ -1990,6 +1998,348 @@ class Test14ActiveIceVICandidateResidualEvaluator(unittest.TestCase):
         before = Test11PosthocIceVIProductionCandidate._snapshot(planet)
 
         self._evaluate(planet)
+
+        for key, value in before.items():
+            if isinstance(value, np.ndarray):
+                np.testing.assert_array_equal(getattr(planet, key), value)
+            else:
+                self.assertEqual(getattr(planet, key), value)
+
+
+class Test15ActiveIceVICandidateRollbackPolicy(unittest.TestCase):
+
+    def _planet_with_copy(self):
+        return Test14ActiveIceVICandidateResidualEvaluator()._planet_with_copy()
+
+    @staticmethod
+    def _evaluate_residuals(planet):
+        return EvaluateActiveIceVICandidateResiduals(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+    @staticmethod
+    def _apply(planet):
+        return ApplyActiveIceVIRollbackPolicy(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+
+    @staticmethod
+    def _candidate(planet):
+        return planet.HPIceDiagnostics["VI"]["activeProductionCandidate"]
+
+    def _planet_with_failed_residuals(self, modifier):
+        planet = self._planet_with_copy()
+        modifier(planet)
+        self._evaluate_residuals(planet)
+        return planet
+
+    def _full_chain(self, planet, modifier=None, skip_copy=False, skip_residuals=False):
+        EvaluatePosthocIceVIProductionCandidate(
+            planet, productionMode="Kalousova2018_production_experimental",
+        )
+        if not skip_copy:
+            BuildActiveIceVIProductionCandidateCopy(
+                planet, productionMode="Kalousova2018_production_experimental",
+            )
+        if modifier is not None:
+            modifier(planet)
+        if not skip_residuals:
+            self._evaluate_residuals(planet)
+        return self._apply(planet)
+
+    def _assert_discarded(self, result, residual_status, reason):
+        self.assertTrue(result["rollbackRequired"])
+        self.assertTrue(result["candidateDiscarded"])
+        self.assertTrue(result["rollbackApplied"])
+        self.assertEqual(result["rollbackStatus"], "rollback_candidate_discarded")
+        self.assertEqual(result["rollbackReason"], residual_status)
+        self.assertIn(reason, result["rollbackReasons"])
+        self.assertFalse(result["candidateAccepted"])
+        self.assertFalse(result["candidateAppliedToProfile"])
+
+    def test_rollback_helper_handles_missing_candidate_copy(self):
+        planet = Test13ActiveIceVICandidateProfileCopy()._planet()
+
+        result = self._apply(planet)
+
+        self.assertEqual(result["rollbackStatus"], "rollback_missing_candidate")
+        self.assertTrue(result["rollbackRequired"])
+        self.assertTrue(result["candidateDiscarded"])
+        self.assertFalse(result["rollbackApplied"])
+        self.assertEqual(result["rollbackReason"], "missing_candidate_copy")
+        self.assertIn("missing_candidate_copy", result["rollbackReasons"])
+        self.assertFalse(result["candidateAccepted"])
+        self.assertFalse(result["candidateAppliedToProfile"])
+
+    def test_clean_residuals_do_not_require_rollback(self):
+        planet = self._planet_with_copy()
+        self._evaluate_residuals(planet)
+
+        result = self._apply(planet)
+
+        self.assertEqual(result["rollbackStatus"], "rollback_not_required")
+        self.assertFalse(result["rollbackRequired"])
+        self.assertFalse(result["candidateDiscarded"])
+        self.assertFalse(result["rollbackApplied"])
+        self.assertIsNone(result["rollbackReason"])
+        self.assertEqual(result["rollbackReasons"], ())
+        self.assertFalse(result["candidateAccepted"])
+        self.assertFalse(result["candidateAppliedToProfile"])
+
+    def test_energy_residual_failure_discards_candidate(self):
+        planet = self._planet_with_failed_residuals(
+            lambda p: p.HPIceDiagnostics["VI"].update({
+                "energyResidual_W": 1.0e9,
+                "energyResidual_frac": 1.0e-3,
+            })
+        )
+
+        result = self._apply(planet)
+
+        self._assert_discarded(
+            result, "candidate_energy_residual_rejected",
+            "energy_residual_exceeds_tolerance",
+        )
+
+    def test_heat_flux_residual_failure_discards_candidate(self):
+        def modifier(planet):
+            self._candidate(planet)["candidateq_out_Wm2"] = 0.021
+
+        planet = self._planet_with_failed_residuals(modifier)
+
+        result = self._apply(planet)
+
+        self._assert_discarded(
+            result, "candidate_heat_flux_residual_rejected",
+            "spherical_flux_scaling_mismatch",
+        )
+
+    def test_mass_residual_failure_discards_candidate(self):
+        planet = self._planet_with_failed_residuals(
+            lambda p: p.HPIceDiagnostics["VI"].update({"massResidual_kg": 1.0})
+        )
+
+        result = self._apply(planet)
+
+        self._assert_discarded(
+            result, "candidate_mass_residual_rejected",
+            "mass_residual_nonzero",
+        )
+
+    def test_phase_boundary_failure_discards_candidate(self):
+        def modifier(planet):
+            planet.HPIceDiagnostics["VI"]["posthocProductionCandidate"]["posthocPhaseBoundaryResidual_K"] = 0.2
+
+        planet = self._planet_with_failed_residuals(modifier)
+
+        result = self._apply(planet)
+
+        self._assert_discarded(
+            result, "candidate_phase_boundary_rejected",
+            "phase_boundary_residual_exceeds_tolerance",
+        )
+
+    def test_layer_closure_failure_discards_candidate(self):
+        planet = self._planet_with_failed_residuals(
+            lambda p: p.HPIceDiagnostics["VI"].update({"layerClosureResidual_m": 1.0})
+        )
+
+        result = self._apply(planet)
+
+        self._assert_discarded(
+            result, "candidate_layer_closure_rejected",
+            "layer_closure_residual_exceeds_tolerance",
+        )
+
+    def test_eos_domain_failure_discards_candidate(self):
+        def modifier(planet):
+            planet.HPIceDiagnostics["VI"]["posthocProductionCandidate"]["posthocEOSPressureMargin_MPa"] = 0.0
+
+        planet = self._planet_with_failed_residuals(modifier)
+
+        result = self._apply(planet)
+
+        self._assert_discarded(
+            result, "candidate_outside_eos_domain_rejected",
+            "eos_margin_nonpositive",
+        )
+
+    def test_invalid_contrast_discards_candidate(self):
+        def modifier(planet):
+            self._candidate(planet)["candidateT_K"] = np.array([285.0, 285.0, 285.0])
+
+        planet = self._planet_with_failed_residuals(modifier)
+
+        result = self._apply(planet)
+
+        self._assert_discarded(
+            result, "candidate_invalid_contrast_rejected",
+            "candidate_temperature_contrast_not_positive",
+        )
+
+    def test_subcritical_rayleigh_discards_candidate(self):
+        planet = self._planet_with_failed_residuals(
+            lambda p: p.HPIceDiagnostics["VI"].update({"RaConvect": 1.0e3, "RaCrit": 1.0e8})
+        )
+
+        result = self._apply(planet)
+
+        self._assert_discarded(
+            result, "candidate_subcritical_rejected",
+            "rayleigh_ratio_not_supercritical",
+        )
+
+    def test_invalid_viscosity_discards_candidate(self):
+        def modifier(planet):
+            self._candidate(planet)["candidateEta_Pas"][0] = np.nan
+
+        planet = self._planet_with_failed_residuals(modifier)
+
+        result = self._apply(planet)
+
+        self._assert_discarded(
+            result, "candidate_invalid_viscosity_rejected",
+            "candidate_profile_viscosity_invalid",
+        )
+
+    def test_missing_required_field_discards_candidate(self):
+        def modifier(planet):
+            del self._candidate(planet)["candidateP_MPa"]
+
+        planet = self._planet_with_failed_residuals(modifier)
+
+        result = self._apply(planet)
+
+        self._assert_discarded(
+            result, "candidate_missing_required_field_rejected",
+            "missing_candidateP_MPa",
+        )
+
+    def test_protected_fields_changed_blocks_rollback_application(self):
+        planet = self._planet_with_copy()
+        self._evaluate_residuals(planet)
+        self._candidate(planet)["protectedFieldsUnchanged"] = False
+
+        result = self._apply(planet)
+
+        self.assertEqual(result["rollbackStatus"], "rollback_protected_fields_changed")
+        self.assertTrue(result["rollbackRequired"])
+        self.assertTrue(result["candidateDiscarded"])
+        self.assertFalse(result["rollbackApplied"])
+        self.assertEqual(result["rollbackReason"], "protected_fields_changed")
+        self.assertIn("protected_fields_changed", result["rollbackReasons"])
+        self.assertFalse(result["candidateAccepted"])
+        self.assertFalse(result["candidateAppliedToProfile"])
+
+    def test_repeated_rollback_evaluation_is_idempotent(self):
+        planet = self._planet_with_failed_residuals(
+            lambda p: p.HPIceDiagnostics["VI"].update({"massResidual_kg": 1.0})
+        )
+
+        first = self._apply(planet).copy()
+        second = self._apply(planet)
+
+        for key in (
+            "candidateDiscarded",
+            "candidateDiscardReason",
+            "rollbackStatus",
+            "rollbackRequired",
+            "rollbackApplied",
+            "rollbackReason",
+            "rollbackReasons",
+            "candidateAccepted",
+            "candidateAppliedToProfile",
+        ):
+            self.assertEqual(second[key], first[key])
+
+    def test_discarded_residual_failures_are_terminal_on_full_chain_rerun(self):
+        cases = (
+            (
+                "energy",
+                lambda p: p.HPIceDiagnostics["VI"].update({
+                    "energyResidual_W": 1.0e9,
+                    "energyResidual_frac": 1.0e-3,
+                }),
+                "candidate_energy_residual_rejected",
+                "energy_residual_exceeds_tolerance",
+            ),
+            (
+                "mass",
+                lambda p: p.HPIceDiagnostics["VI"].update({"massResidual_kg": 1.0}),
+                "candidate_mass_residual_rejected",
+                "mass_residual_nonzero",
+            ),
+            (
+                "layer_closure",
+                lambda p: p.HPIceDiagnostics["VI"].update({"layerClosureResidual_m": 1.0}),
+                "candidate_layer_closure_rejected",
+                "layer_closure_residual_exceeds_tolerance",
+            ),
+            (
+                "subcritical",
+                lambda p: p.HPIceDiagnostics["VI"].update({"RaConvect": 1.0e3, "RaCrit": 1.0e8}),
+                "candidate_subcritical_rejected",
+                "rayleigh_ratio_not_supercritical",
+            ),
+        )
+        for label, modifier, residual_status, reason in cases:
+            with self.subTest(label=label):
+                planet = Test13ActiveIceVICandidateProfileCopy()._planet()
+                before = Test11PosthocIceVIProductionCandidate._snapshot(planet)
+
+                first = self._full_chain(planet, modifier)
+                second = self._full_chain(planet, modifier)
+
+                self.assertEqual(first["candidateResidualStatus"], residual_status)
+                self.assertEqual(second["candidateResidualStatus"], residual_status)
+                self.assertEqual(second["rollbackStatus"], "rollback_candidate_discarded")
+                self.assertEqual(second["rollbackReasons"], first["rollbackReasons"])
+                self.assertIn(reason, second["rollbackReasons"])
+                self.assertFalse(second["candidateAccepted"])
+                self.assertFalse(second["candidateAppliedToProfile"])
+                for key, value in before.items():
+                    if isinstance(value, np.ndarray):
+                        np.testing.assert_array_equal(getattr(planet, key), value)
+                    else:
+                        self.assertEqual(getattr(planet, key), value)
+
+    def test_missing_candidate_copy_is_terminal_on_full_chain_rerun(self):
+        planet = Test13ActiveIceVICandidateProfileCopy()._planet()
+        before = Test11PosthocIceVIProductionCandidate._snapshot(planet)
+
+        first = self._full_chain(planet, skip_copy=True, skip_residuals=True)
+        second = self._full_chain(planet, skip_copy=True, skip_residuals=True)
+
+        self.assertEqual(first["rollbackStatus"], "rollback_missing_candidate")
+        self.assertEqual(second["rollbackStatus"], "rollback_missing_candidate")
+        self.assertEqual(second["rollbackReasons"], first["rollbackReasons"])
+        self.assertFalse(second["candidateAccepted"])
+        self.assertFalse(second["candidateAppliedToProfile"])
+        for key, value in before.items():
+            if isinstance(value, np.ndarray):
+                np.testing.assert_array_equal(getattr(planet, key), value)
+            else:
+                self.assertEqual(getattr(planet, key), value)
+
+    def test_candidate_booleans_remain_false(self):
+        planet = self._planet_with_copy()
+        self._evaluate_residuals(planet)
+        candidate = self._candidate(planet)
+        candidate["candidateAccepted"] = True
+        candidate["candidateAppliedToProfile"] = True
+
+        result = self._apply(planet)
+
+        self.assertFalse(result["candidateAccepted"])
+        self.assertFalse(result["candidateAppliedToProfile"])
+
+    def test_rollback_policy_does_not_modify_planet_fields(self):
+        planet = self._planet_with_failed_residuals(
+            lambda p: p.HPIceDiagnostics["VI"].update({"massResidual_kg": 1.0})
+        )
+        before = Test11PosthocIceVIProductionCandidate._snapshot(planet)
+
+        self._apply(planet)
 
         for key, value in before.items():
             if isinstance(value, np.ndarray):

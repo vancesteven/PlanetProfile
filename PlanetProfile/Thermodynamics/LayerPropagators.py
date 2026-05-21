@@ -34,6 +34,7 @@ POSTHOC_PHASE_BOUNDARY_MARGIN_WARN_K = 0.1
 POSTHOC_RAYLEIGH_NEAR_CRITICAL_RATIO = 1.1
 ACTIVE_ICE_VI_HEAT_FLUX_FRAC_TOL = 1e-10
 ACTIVE_ICE_VI_HEAT_FLUX_ABS_FLOOR_WM2 = 1e-12
+ACTIVE_ICE_VI_ROLLBACK_POLICY_VERSION = "active_ice_vi_candidate_rollback_v1"
 
 def IceLayers(Planet, Params):
     """ Wrapper function for ice layer propogation. Decides between self consistent and non-self consistent modeling.
@@ -1782,6 +1783,17 @@ def EvaluatePosthocIceVIProductionCandidate(Planet, productionMode=None):
             Planet,
             _PosthocIceVIResult('posthoc_not_enabled', 'experimental_production_selector_not_enabled'),
         )
+    diagnostics = getattr(Planet, 'HPIceDiagnostics', None)
+    if isinstance(diagnostics, dict):
+        iceVIDiagnostics = diagnostics.get('VI')
+        if isinstance(iceVIDiagnostics, dict):
+            candidate = iceVIDiagnostics.get('activeProductionCandidate')
+            posthoc = iceVIDiagnostics.get('posthocProductionCandidate')
+            if (
+                isinstance(candidate, dict) and candidate.get('candidateDiscarded', False) and
+                isinstance(posthoc, dict)
+            ):
+                return posthoc
 
     try:
         phase = np.asarray(getattr(Planet, 'phase'))
@@ -2013,10 +2025,16 @@ def _ActiveIceVIRejectedResult(status, reason, protectedFieldsUnchanged=True):
         'candidateq_out_Wm2': np.nan,
         'candidateAppliedToProfile': False,
         'candidateAccepted': False,
+        'candidateDiscarded': False,
+        'candidateDiscardReason': None,
         'candidateResidualsPassed': False,
+        'candidateHeatPowerResidual_W': np.nan,
         'candidateEnergyResidual_W': np.nan,
         'candidateEnergyResidual_frac': np.nan,
         'candidateHeatFluxResidual_Wm2': np.nan,
+        'candidateExpected_q_in_Wm2': np.nan,
+        'candidateExpected_q_out_Wm2': np.nan,
+        'candidateSphericalFluxScalingStatus': 'not_evaluated',
         'candidateMassResidual_kg': np.nan,
         'candidateMassResidual_frac': np.nan,
         'candidatePhaseBoundaryResidual_K': np.nan,
@@ -2032,6 +2050,9 @@ def _ActiveIceVIRejectedResult(status, reason, protectedFieldsUnchanged=True):
         'rollbackRequired': False,
         'rollbackApplied': False,
         'rollbackReason': None,
+        'rollbackReasons': tuple(),
+        'rollbackStatus': 'rollback_not_evaluated',
+        'rollbackPolicyVersion': ACTIVE_ICE_VI_ROLLBACK_POLICY_VERSION,
         'protectedFieldsUnchanged': protectedFieldsUnchanged,
     }
 
@@ -2091,6 +2112,10 @@ def BuildActiveIceVIProductionCandidateCopy(Planet, productionMode=None):
                 _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
             ),
         )
+    candidate = iceVIDiagnostics.get('activeProductionCandidate')
+    if isinstance(candidate, dict) and candidate.get('candidateDiscarded', False):
+        return _ActiveIceVIPreserveTerminalDiscard(candidate)
+
     posthoc = iceVIDiagnostics.get('posthocProductionCandidate')
     if not isinstance(posthoc, dict) or not posthoc.get('posthocCandidateEvaluated', False):
         return _StoreActiveIceVIProductionCandidateCopy(
@@ -2209,6 +2234,79 @@ def _ActiveIceVIResidualStatus(candidate, passed, status, reasons):
     return candidate
 
 
+def _ActiveIceVIReasonTuple(*values):
+    reasons = []
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, (tuple, list)):
+            items = value
+        else:
+            items = (value,)
+        for item in items:
+            if item is None or item == '':
+                continue
+            if item not in reasons:
+                reasons.append(item)
+    return tuple(reasons)
+
+
+def _ActiveIceVIRollbackStatus(candidate, *, status, required, discarded, applied,
+                               reason=None, reasons=()):
+    candidate['candidateAccepted'] = False
+    candidate['candidateAppliedToProfile'] = False
+    candidate['candidateDiscarded'] = bool(discarded)
+    candidate['candidateDiscardReason'] = reason if discarded else None
+    candidate['rollbackStatus'] = status
+    candidate['rollbackRequired'] = bool(required)
+    candidate['rollbackApplied'] = bool(applied)
+    candidate['rollbackReason'] = reason
+    candidate['rollbackReasons'] = tuple(reasons)
+    candidate['rollbackPolicyVersion'] = ACTIVE_ICE_VI_ROLLBACK_POLICY_VERSION
+    return candidate
+
+
+def _ActiveIceVIPreserveTerminalDiscard(candidate):
+    """Keep an already-discarded candidate terminal until an explicit reset exists."""
+    residualStatus = candidate.get('candidateResidualStatus', 'candidate_not_evaluated')
+    residualReasons = tuple(candidate.get('candidateResidualReasons', ()))
+    existingStatus = candidate.get('rollbackStatus')
+    existingReason = candidate.get('rollbackReason')
+    existingReasons = tuple(candidate.get('rollbackReasons', ()))
+    discardReason = candidate.get('candidateDiscardReason')
+
+    if existingStatus in (None, '', 'rollback_not_evaluated'):
+        if candidate.get('candidateCopyCreated', False):
+            rollbackStatus = 'rollback_candidate_discarded'
+            rollbackApplied = True
+            reason = discardReason or existingReason or residualStatus or 'candidate_discarded'
+            reasons = _ActiveIceVIReasonTuple(existingReasons, residualReasons, reason)
+        else:
+            rollbackStatus = 'rollback_missing_candidate'
+            rollbackApplied = False
+            reason = discardReason or existingReason or 'missing_candidate_copy'
+            reasons = _ActiveIceVIReasonTuple(existingReasons, 'missing_candidate_copy', residualReasons, reason)
+    else:
+        rollbackStatus = existingStatus
+        rollbackApplied = bool(candidate.get('rollbackApplied', rollbackStatus == 'rollback_candidate_discarded'))
+        reason = existingReason or discardReason or residualStatus or candidate.get('candidateReason')
+        reasons = _ActiveIceVIReasonTuple(existingReasons) if existingReasons else _ActiveIceVIReasonTuple(residualReasons, reason)
+
+    if not reasons and reason is not None:
+        reasons = (reason,)
+    candidate['candidateAccepted'] = False
+    candidate['candidateAppliedToProfile'] = False
+    candidate['candidateDiscarded'] = True
+    candidate['candidateDiscardReason'] = discardReason or reason
+    candidate['rollbackStatus'] = rollbackStatus
+    candidate['rollbackRequired'] = True
+    candidate['rollbackApplied'] = rollbackApplied
+    candidate['rollbackReason'] = reason
+    candidate['rollbackReasons'] = reasons
+    candidate['rollbackPolicyVersion'] = ACTIVE_ICE_VI_ROLLBACK_POLICY_VERSION
+    return candidate
+
+
 def EvaluateActiveIceVICandidateResiduals(Planet, productionMode=None):
     """Evaluate conservation residuals on the isolated Ice VI candidate copy only."""
     protectedBefore = _ActiveIceVIProtectedProfileSnapshot(Planet)
@@ -2249,6 +2347,8 @@ def EvaluateActiveIceVICandidateResiduals(Planet, productionMode=None):
             _ActiveIceVIProtectedProfileUnchanged(Planet, protectedBefore),
         )
         _StoreActiveIceVIProductionCandidateCopy(Planet, candidate)
+    elif candidate.get('candidateDiscarded', False):
+        return _ActiveIceVIPreserveTerminalDiscard(candidate)
 
     candidate['candidateAccepted'] = False
     candidate['candidateAppliedToProfile'] = False
@@ -2324,21 +2424,56 @@ def EvaluateActiveIceVICandidateResiduals(Planet, productionMode=None):
         (abs(energyResidual_W) > energyAbsTol_W or abs(energyResidual_frac) > HP_ICE_PRODUCTION_ENERGY_FRAC_TOL)
     ):
         add_failure('candidate_energy_residual_rejected', 'energy_residual_exceeds_tolerance')
+    if _ActiveIceVIFiniteScalar(Q_in_W) and _ActiveIceVIFiniteScalar(Q_out_W):
+        heatPowerResidual_W = float(Q_out_W - Q_in_W)
+        if abs(heatPowerResidual_W) > energyAbsTol_W:
+            add_failure('candidate_heat_flux_residual_rejected', 'heat_power_residual_exceeds_tolerance')
+    else:
+        heatPowerResidual_W = np.nan
 
     q_in_Wm2 = candidate.get('candidateq_in_Wm2', np.nan)
     q_out_Wm2 = candidate.get('candidateq_out_Wm2', np.nan)
+    expected_q_in_Wm2 = np.nan
+    expected_q_out_Wm2 = np.nan
+    sphericalFluxScalingStatus = 'not_evaluated'
     if not (_ActiveIceVIFiniteScalar(q_in_Wm2) and _ActiveIceVIFiniteScalar(q_out_Wm2)):
         heatFluxResidual_Wm2 = np.nan
         add_failure('candidate_missing_required_field_rejected', 'missing_heat_flux_residual')
     else:
         heatFluxResidual_Wm2 = float(q_out_Wm2 - q_in_Wm2)
-        qscale_Wm2 = max(abs(q_in_Wm2), abs(q_out_Wm2), 1.0)
+        rVals_m = np.asarray(candidate.get('candidateR_m', np.array([], dtype=float)), dtype=float)
+        finiteRadii = rVals_m.size >= 2 and np.all(np.isfinite(rVals_m)) and np.all(rVals_m > 0)
+        if finiteRadii and _ActiveIceVIFiniteScalar(Q_in_W) and _ActiveIceVIFiniteScalar(Q_out_W):
+            rTop_m = float(rVals_m[0])
+            rBot_m = float(rVals_m[-1])
+            expected_q_in_Wm2 = float(Q_in_W / (4.0 * np.pi * rBot_m**2))
+            expected_q_out_Wm2 = float(Q_out_W / (4.0 * np.pi * rTop_m**2))
+            qscale_Wm2 = max(
+                abs(q_in_Wm2), abs(q_out_Wm2),
+                abs(expected_q_in_Wm2), abs(expected_q_out_Wm2), 1.0,
+            )
+            heatFluxTol_Wm2 = max(
+                ACTIVE_ICE_VI_HEAT_FLUX_FRAC_TOL * qscale_Wm2,
+                ACTIVE_ICE_VI_HEAT_FLUX_ABS_FLOOR_WM2,
+            )
+            qInMatchesArea = abs(q_in_Wm2 - expected_q_in_Wm2) <= heatFluxTol_Wm2
+            qOutMatchesArea = abs(q_out_Wm2 - expected_q_out_Wm2) <= heatFluxTol_Wm2
+            if qOutMatchesArea:
+                if qInMatchesArea:
+                    sphericalFluxScalingStatus = 'spherical_area_scaled'
+                else:
+                    sphericalFluxScalingStatus = 'spherical_area_scaled_input_boundary_mismatch'
+            else:
+                sphericalFluxScalingStatus = 'spherical_flux_scaling_mismatch'
+                add_failure('candidate_heat_flux_residual_rejected', 'spherical_flux_scaling_mismatch')
+        else:
+            qscale_Wm2 = max(abs(q_in_Wm2), abs(q_out_Wm2), 1.0)
+            sphericalFluxScalingStatus = 'spherical_flux_scaling_unavailable'
+            add_failure('candidate_heat_flux_residual_rejected', 'spherical_flux_scaling_unavailable')
         heatFluxTol_Wm2 = max(
             ACTIVE_ICE_VI_HEAT_FLUX_FRAC_TOL * qscale_Wm2,
             ACTIVE_ICE_VI_HEAT_FLUX_ABS_FLOOR_WM2,
         )
-        if abs(heatFluxResidual_Wm2) > heatFluxTol_Wm2:
-            add_failure('candidate_heat_flux_residual_rejected', 'heat_flux_residual_exceeds_tolerance')
 
     massResidual_kg = iceVIDiagnostics.get('massResidual_kg', np.nan)
     massResidual_frac = iceVIDiagnostics.get('massResidual_frac', np.nan)
@@ -2399,9 +2534,13 @@ def EvaluateActiveIceVICandidateResiduals(Planet, productionMode=None):
         add_failure('candidate_invalid_viscosity_rejected', 'phase_viscosity_invalid')
 
     candidate.update({
+        'candidateHeatPowerResidual_W': heatPowerResidual_W,
         'candidateEnergyResidual_W': energyResidual_W,
         'candidateEnergyResidual_frac': energyResidual_frac,
         'candidateHeatFluxResidual_Wm2': heatFluxResidual_Wm2,
+        'candidateExpected_q_in_Wm2': expected_q_in_Wm2,
+        'candidateExpected_q_out_Wm2': expected_q_out_Wm2,
+        'candidateSphericalFluxScalingStatus': sphericalFluxScalingStatus,
         'candidateMassResidual_kg': massResidual_kg,
         'candidateMassResidual_frac': massResidual_frac,
         'candidatePhaseBoundaryResidual_K': phaseBoundaryResidual_K,
@@ -2419,6 +2558,138 @@ def EvaluateActiveIceVICandidateResiduals(Planet, productionMode=None):
         reasons = tuple(reason for _, reason in failures)
         return _ActiveIceVIResidualStatus(candidate, False, status, reasons)
     return _ActiveIceVIResidualStatus(candidate, True, 'candidate_residuals_passed', tuple())
+
+
+def ApplyActiveIceVIRollbackPolicy(Planet, productionMode=None):
+    """Map active Ice VI candidate residual state into metadata-only discard status."""
+    if productionMode is None:
+        productionMode = ResolveHPIceConvectionModel(Planet) if hasattr(Planet, 'Do') else "Kalousova2018_production_experimental"
+
+    diagnostics = getattr(Planet, 'HPIceDiagnostics', None)
+    if not isinstance(diagnostics, dict):
+        result = _ActiveIceVIRejectedResult(
+            'missing_diagnostics_rejected',
+            'missing_hp_ice_diagnostics',
+            False,
+        )
+        _ActiveIceVIRollbackStatus(
+            result,
+            status='rollback_missing_candidate',
+            required=True,
+            discarded=True,
+            applied=False,
+            reason='missing_candidate_copy',
+            reasons=('missing_candidate_copy',),
+        )
+        return _StoreActiveIceVIProductionCandidateCopy(Planet, result)
+
+    iceVIDiagnostics = diagnostics.get('VI')
+    if not isinstance(iceVIDiagnostics, dict):
+        result = _ActiveIceVIRejectedResult(
+            'missing_ice_vi_rejected',
+            'missing_ice_vi_diagnostics',
+            False,
+        )
+        _ActiveIceVIRollbackStatus(
+            result,
+            status='rollback_missing_candidate',
+            required=True,
+            discarded=True,
+            applied=False,
+            reason='missing_candidate_copy',
+            reasons=('missing_candidate_copy',),
+        )
+        return _StoreActiveIceVIProductionCandidateCopy(Planet, result)
+
+    candidate = iceVIDiagnostics.get('activeProductionCandidate')
+    if not isinstance(candidate, dict):
+        candidate = _ActiveIceVIRejectedResult(
+            'missing_candidate_copy_rejected',
+            'requires_active_candidate_copy',
+            False,
+        )
+        _StoreActiveIceVIProductionCandidateCopy(Planet, candidate)
+        return _ActiveIceVIRollbackStatus(
+            candidate,
+            status='rollback_missing_candidate',
+            required=True,
+            discarded=True,
+            applied=False,
+            reason='missing_candidate_copy',
+            reasons=('missing_candidate_copy',),
+        )
+
+    if candidate.get('candidateDiscarded', False):
+        return _ActiveIceVIPreserveTerminalDiscard(candidate)
+
+    if productionMode != "Kalousova2018_production_experimental":
+        return _ActiveIceVIRollbackStatus(
+            candidate,
+            status='rollback_not_evaluated',
+            required=False,
+            discarded=False,
+            applied=False,
+            reason='experimental_production_selector_not_enabled',
+            reasons=('experimental_production_selector_not_enabled',),
+        )
+
+    if not candidate.get('protectedFieldsUnchanged', True):
+        return _ActiveIceVIRollbackStatus(
+            candidate,
+            status='rollback_protected_fields_changed',
+            required=True,
+            discarded=True,
+            applied=False,
+            reason='protected_fields_changed',
+            reasons=('protected_fields_changed',),
+        )
+
+    if not candidate.get('candidateCopyCreated', False):
+        reason = candidate.get('candidateReason', 'missing_candidate_copy')
+        if candidate.get('candidateStatus') == 'high_risk_posthoc_rejected':
+            return _ActiveIceVIRollbackStatus(
+                candidate,
+                status='rollback_candidate_discarded',
+                required=True,
+                discarded=True,
+                applied=True,
+                reason='high_risk_posthoc_candidate',
+                reasons=('high_risk_posthoc_candidate', reason),
+            )
+        return _ActiveIceVIRollbackStatus(
+            candidate,
+            status='rollback_missing_candidate',
+            required=True,
+            discarded=True,
+            applied=False,
+            reason='missing_candidate_copy',
+            reasons=('missing_candidate_copy', reason),
+        )
+
+    residualStatus = candidate.get('candidateResidualStatus', 'candidate_not_evaluated')
+    residualReasons = tuple(candidate.get('candidateResidualReasons', ()))
+    if candidate.get('candidateResidualsPassed', False) and residualStatus == 'candidate_residuals_passed':
+        return _ActiveIceVIRollbackStatus(
+            candidate,
+            status='rollback_not_required',
+            required=False,
+            discarded=False,
+            applied=False,
+            reason=None,
+            reasons=(),
+        )
+
+    reason = residualStatus or 'candidate_residuals_not_passed'
+    reasons = residualReasons or (reason,)
+    return _ActiveIceVIRollbackStatus(
+        candidate,
+        status='rollback_candidate_discarded',
+        required=True,
+        discarded=True,
+        applied=True,
+        reason=reason,
+        reasons=reasons,
+    )
 
 
 def _SetHPIceDiagnosticFields(Planet, phaseName, status, phaseID=None, iTop=None, iBot=None,
