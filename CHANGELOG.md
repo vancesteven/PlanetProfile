@@ -122,6 +122,191 @@
   σ=0.0042) should be built; the structure cache is independent of
   the observable and need not be rebuilt.
 
+### Inference / MCMC — k₂/h₂ observables and three-body validation
+
+Six bug fixes and three framework additions, all confined to
+`PlanetProfile/Inference/`. End-to-end smoke MCMCs (`n_eff=100`)
+against the v2.1 caches now produce **real Bayesian posteriors for
+Europa, Ganymede, and Callisto** (4166 / 4232 / 4313 samples, 100 %
+non-rejected, all observables finite), with `R_core_km` and
+`log10_eta_Ih` showing genuine constraint by the data. The framework
+generalizes the existing Titan deployment to ocean worlds with
+ice + ocean + (HP ice) + silicate + Fe core layouts.
+
+#### Bug fixes
+
+- **`forward_models.py` — per-layer rheology mapping.** The Andrade
+  branch in `forward_model_k2_flexible` previously assigned `Andrade`
+  to every layer except `('0', 'Clath')` and `Elastic` to those two.
+  PP's own `Params.Gravity.rheology_models` (defined in
+  `Gravity/defaultConfigGravity.py:26`) maps `'Fe' → 'elastic'`,
+  `'0' → 'newton'`, `'Clath' → 'elastic'`, ices and silicate to
+  `'andrade'`. Treating the Fe core as Andrade with finite viscosity
+  produced a near-singular complex shear modulus that TidalPy's
+  `radial_solver` could not traverse, surfacing as
+  `RadialSolver.ShootingMethod:: Integration problem at layer 0;
+  solution 0: Required step size is less than spacing between
+  numbers` and 100 % NaN k₂ for Europa during smoke MCMC. The fix
+  routes Fe + Clath through `Elastic`, ocean (`'0'`) through
+  `Newton`, ices/silicate through `Andrade` — matching PP's
+  reference path. Confirmed against PP's direct
+  `_run_tidalpy_backend` on default Europa: `k₂ = 0.2657 − 0.0008j`,
+  `h₂ = 1.1896 − 0.0029j`, matching Mazarico+ 2023 within bounds.
+
+- **`forward_models.py` — eager TidalPy import.** `forward_model_k2_flexible`
+  used to lazy-import `TidalPy.rheology` and `TidalPy.RadialSolver`
+  inside the function body. In sandboxed runtime environments where
+  the default numba cache path is unwritable, the lazy import
+  triggered `numba.core.caching.RuntimeError: cannot cache function
+  'off': no locator available for file ...partial_melt/melting_models.py`
+  on the first sample of the MCMC. Imports are now at module top so
+  numba cache state is established once before any sampling. Combined
+  with `run_inference_cli.py` setting `NUMBA_CACHE_DIR` (below) this
+  is fully resolved.
+
+- **`mcmc_runner.py:513` — pocoMC `posterior()` unpack swap.**
+  Previous code: `samples, log_likes, log_post, _ = sampler.posterior()`.
+  pocoMC's actual return is `(samples, weights, logl, logp)`, so
+  `log_likes` was storing **importance weights** (≈ 1/N after pocoMC's
+  trim) and `log_post` was storing the actual log-likelihoods. The
+  `samples` array was always correct (the MCMC drew from the right
+  posterior) — only the `r.log_likelihoods` field on `InferenceResult`
+  was mislabeled. **Existing pre-fix Titan-era result pickles are
+  scientifically unaffected**: corner plots, posterior medians, IQRs,
+  and predicted-observable summaries all derive from `r.samples` or
+  from the post-MCMC recomputation pass, neither of which touched the
+  buggy unpack. Anything that read `r.log_likelihoods` directly
+  (logl histograms, importance-weighted reweighting, BIC/DIC) would
+  have been wrong.
+
+- **`mcmc_runner.py` — v2.1 list-format cache in CMR² dispatcher.**
+  The CMR² mass-conservation re-derivation block only handled the
+  legacy dict-format cache (top-level `'grid_cache'` + `'grid_Tb_values'`)
+  for picking the per-sample structure. The v2.1 list format produced
+  by `cache_builder.build_phase_c1_cache` (top-level `'Tb_K_grid'` +
+  `'structures'` + `'transitions'`) silently fell through to
+  `struct_for_cmr2 = structure_data`, where the top-level dict has
+  no `Mtot_kg` / `R_body_m` keys. `np.isfinite(np.nan)` → False → every
+  sample rejected at `-1e30`. Posteriors against v2.1 caches were
+  the prior, "shape-decorated by random rejection." The dispatcher
+  now handles both layouts. Pre-Phase-C1 analyses (Test48, Test50,
+  Titan) are unaffected because they used the dict format that the
+  legacy branch already handled correctly.
+
+- **`structure_derivation.py` — skip zero-thickness hydrosphere shells
+  in `extract_hydrosphere_layers`.** PP caches legitimately duplicate
+  radii at layer interfaces (TidalPy's `radial_solver` requires the
+  boundary radius to appear twice — once for the layer below, once
+  for the layer above). Those duplicates surface in the per-cell
+  hydrosphere extraction as cells with `r_in == r_out`, which
+  `compute_cmr2` then rejects with `Bad layer geometry`. A
+  zero-thickness shell contributes zero mass and zero inertia, so
+  dropping it is correct for the mass-conservation derivation.
+  Surfaced as Callisto's smoke MCMC at 0/4096 non-rejected even
+  after the v2.1-dispatcher fix, traced via direct
+  `MCMCRunner.log_likelihood_fn` invocation.
+
+- **`inference_core.py` — `ocean_overrides` field on `InferenceConfig`.**
+  Added `ocean_overrides: Dict[str, Any] = field(default_factory=dict)`.
+  This is a cache-build-only knob (consumed by
+  `cache_builder.build_phase_c1_cache` to swap `Planet.Ocean.comp` /
+  `Planet.Ocean.wOcean_ppt`, e.g. NaCl 100 ppt for Callisto). The
+  MCMC runner ignores it. Required so a single body config file can
+  drive both stages without `InferenceConfig.from_json` rejecting
+  the unknown key.
+
+- **`run_inference_cli.py` — set `NUMBA_CACHE_DIR` before TidalPy
+  import.** Defaults to `${TMPDIR}/pp_numba_cache` if the env var is
+  unset. Avoids the numba "no locator available" failure under
+  sandboxed runtimes (see eager-import fix above).
+
+- **`cache_builder.py` — `Texc_hr` label-zip via `ExcitationsList`.**
+  `Planet.Magnetic.Texc_hr` is a numpy array of periods (canonical
+  labels live in the body-keyed lookup table in
+  `MagneticInduction.Moments.ExcitationsList`). The cache_builder
+  was treating it as a dict (`dict(mag.Texc_hr).items()`), raising
+  TypeError silently caught by the surrounding `except` clause and
+  storing `Texc_hr = None`. Now matches each cached period to its
+  closest labelled period via `ExcitationsList()` and builds the
+  `{label: period_hr}` dict the induction forward model consumes.
+  PureH2O bodies (e.g. the default-config Ganymede) skip
+  `MagneticInduction` entirely (PP `Main.py:352` short-circuits when
+  `Ocean.comp == 'PureH2O'`); for those, `Texc_hr` legitimately
+  remains `None` — documented as expected, not a bug.
+
+#### Framework additions
+
+- **`probe_tb_prior.py` (new module)** — generalizable diagnostic
+  for surfacing integrator-failing prior regions. Given an
+  `InferenceConfig`, evaluates `forward_model_k2_flexible` at each
+  Tb_K grid point with `n_fiducials` theta draws (default 5: prior
+  median + four random draws), reports per-Tb success rate, and
+  recommends a tightened `[Tb_min, Tb_max]` bound covering only
+  grid points whose success rate meets the threshold. Use
+  pre-flight on any new body cache before launching production MCMC
+  to avoid silent posterior truncation. Headless CLI:
+  `python -m PlanetProfile.Inference.probe_tb_prior --config
+  <cfg.json>`.
+
+- **k₂/h₂ observables (Re/Im k₂, Re/Im h₂) wired through the
+  forward model and dispatcher.** `forward_model_k2_flexible` returns
+  a 5-tuple `(Re_k2, Im_k2, Re_h2, Im_h2, perPhase_W)` from a single
+  TidalPy `radial_solver` call — h₂ is read from `result.h` on the
+  same RadialSolver result, not a separate solve. Dispatcher in
+  `mcmc_runner.py` handles `Re_k2`/`Im_k2`/`abs_Im_k2`/`k2`/`Re_h2`/
+  `Im_h2`/`abs_Im_h2`/`h2` keys. Default observable values for the
+  three production configs use Mazarico+ 2023 Europa values
+  (`k₂ ≈ 0.20 ± 0.05`, `h₂ ≈ +1.12 ± 0.10`, `Im k₂ = Im h₂ = 0 ±
+  0.05`/`0.1`); these are **placeholders** for Ganymede and
+  Callisto (Mazarico+ 2023 publishes only Europa values).
+  Body-specific updates pending Clipper / JUICE measurements and
+  any other relevant Ganymede / Callisto literature.
+
+- **Magnetic induction observables wired (forward path only).** Cache builder
+  extracts `sigma_Sm` (per-cell), `rSigChange_m` and
+  `sigmaLayers_Sm` (compact-layer representation), and `Texc_hr`
+  (labelled period dict) from `Planet.Magnetic`. Dispatcher in
+  `mcmc_runner.py` accepts `Ae_<label>_real`/`Ae_<label>_imag`
+  (Re/Im default) or `BiAmp_<label>`/`BiPhase_<label>_deg`
+  (amp/phase legacy) observables; both pull from the same
+  `forward_model_induction` call. **No production config currently
+  enables induction observables** — the wiring is in place but
+  awaiting body-specific Ae values.
+
+- **J₂ / C₂₂ deferred.** Initial wiring assumed PP exposed J₂
+  and C₂₂ as forward-model outputs; in fact `Planet.Bulk.J₂` and
+  `Planet.Bulk.C₂₂` are observation *inputs* set in body config /
+  test files, not predicted quantities. The cache_builder
+  silently NaN'd these via `getattr(Planet, "J2", None)`. Dropped
+  from all three production configs pending a generalized
+  gravity-coefficient forward model (J\_n, C\_nm, S\_nm to
+  arbitrary degree/order) for bodies with high-resolution gravity
+  (Mars MRO 165×165, Moon GRAIL ~900×900, Enceladus, …). Tracked
+  in user memory as future work.
+
+- **Callisto `rho_sil_kgm3` lower bound 2200 → 1800.** Callisto's
+  silicate is porous (φ\_vac ≈ 0.91 from PP MoI matching), giving
+  cached `rho_sil ≈ 2025 kg/m³`. The Europa-tuned bound `[2200,
+  3500]` rejected every MCMC sample at the mass-conservation gate,
+  producing a degenerate prior-shaped posterior. Widened lower
+  bound to 1800 for Callisto only; Europa and Ganymede continue
+  to use `[2200, 3500]`. Documented inline in
+  `callisto_nacl_andrade_8D.json::core_bounds_rationale`.
+
+#### Validation summary
+
+| Body | samples | non-rejected | Re(k₂) median (target ≈ 0.20 †) | CMR² median (target) | R_core_km IQR / prior bounds |
+|---|---|---|---|---|---|
+| Europa | 4166 | 100 % | 0.26 | 0.346 / 0.355 | [489, 587] / [0, 780] |
+| Ganymede | 4232 | 100 % | 0.46 | 0.312 / 0.312 | [454, 759] / [0, 1316] |
+| Callisto | 4313 | 100 % | 0.50 | 0.341 / 0.355 | [685, 776] / [0, 1205] |
+
+† Re(k₂) target uses the Mazarico+ 2023 Europa value as a
+placeholder for Ganymede and Callisto. The 5–7σ tension on those
+two reflects priors-vs-data, not a code defect; revisit at
+production `n_eff` after replacing placeholders with body-specific
+Re/Im k₂ priors.
+
 ### Inference / MCMC — Phase B refactor
 - **Test 50 refactored to thin wrapper** around `MCMCRunner(InferenceConfig.from_json(...))`. The 901-line monolithic script is now 528 lines (structure-building code unchanged; MCMC/forward/likelihood code replaced entirely by toolkit delegation). The 5D variant (`explore_test50_5D.py`) is now a 20-line shim that delegates to Test50 with `--config test50_titan_noocean_andrade_5D.json`.
 - **`InferenceConfig` extended with `param_groups` and `fixed_params`** (`inference_core.py`). `param_groups` maps a sampled scalar (e.g., `log10_eta_HP`) to a list of member parameters that all receive the same value at runtime — enabling the 5D HP-locked variant without code changes. `fixed_params` injects constants (e.g., `Tb_K=250.965`) into every forward model call without entering the prior.

@@ -1,6 +1,131 @@
-# Session State — 2026-05-13
+# Session State — 2026-05-23
 
 ## Branch: `genai`
+
+## What Was Done (2026-05-21 to 2026-05-23 session — k₂/h₂ observables and three-body validation)
+
+Took the existing toolbox from "Titan-only deployment with v2.1
+caches" to **three-body validation against the Europa, Ganymede, and
+Callisto v2.1 caches**. Six bug fixes in `PlanetProfile/Inference/`,
+plus a generalizable Tb-prior probe and three production configs.
+
+### Three-body validation outcome
+
+End-to-end smoke MCMC at `n_eff=100` per body:
+
+- **Europa** (Seawater, 7D): 4166 samples, 100% non-rejected, log_likelihoods [-5.4, -0.4]. R_core_km IQR [489, 587] / prior bounds [0, 780] — strong constraint.
+- **Ganymede** (PureH2O, 8D, HP ices): 4232 samples, 100% non-rejected, log_likelihoods [-21.0, -13.2]. Tb_K IQR [252.7, 254.4] — strong constraint.
+- **Callisto** (NaCl 100 ppt, 8D, HP ices): 4313 samples, 100% non-rejected, log_likelihoods [-26.9, -18.1]. R_core_km IQR [685, 776] / prior bounds [0, 1205] — strong constraint.
+
+The high Re(k₂) values on Ganymede / Callisto (~0.5) vs the prior
+target ~0.20 reflect a 5-7σ model-data tension driven by the
+**placeholder priors**: Mazarico+ 2023 publishes k₂ values for Europa
+only, and the Ganymede/Callisto configs were initialized with the
+Europa values pending body-specific replacements. This is a
+configuration matter to revisit at production `n_eff`, not a code
+defect.
+
+### Six bugs surfaced and fixed (all in `PlanetProfile/Inference/`)
+
+1. **Per-layer rheology dispatch in `forward_models.py`** — was
+   feeding Andrade rheology into the Fe core (and Elastic into the
+   ocean instead of Newton), causing TidalPy `radial_solver` to fail
+   at "layer 0" with step-size-floor errors on Europa-shaped
+   structures. Now mirrors PP's
+   `Params.Gravity.rheology_models` defaults (Fe→Elastic,
+   ocean→Newton, ices/silicate→Andrade). Cross-validated against
+   PP's `_run_tidalpy_backend` direct call: matches `k₂ = 0.27,
+   h₂ = 1.19` for default Europa.
+
+2. **Eager TidalPy import in `forward_models.py` + `NUMBA_CACHE_DIR`
+   setup in `run_inference_cli.py`** — fixes a numba "no locator
+   available" failure under sandboxed runtime environments. Imports
+   are now resolved at module load time, before any sampling, with
+   a writable cache directory established.
+
+3. **pocoMC `posterior()` unpack swap in `mcmc_runner.py`** —
+   pocoMC returns `(samples, weights, logl, logp)`; the runner was
+   reading `(samples, logl, logp, _)`, so the
+   `InferenceResult.log_likelihoods` field was storing importance
+   weights and the actual log-likelihoods were dropped. **The
+   `samples` array was always correct** — pre-fix Titan-era
+   posteriors are unaffected for any analysis that uses `r.samples`
+   or the post-MCMC recomputation pass. Anything that read
+   `r.log_likelihoods` directly (logl histograms, BIC/DIC,
+   importance-weighted reweighting) was wrong.
+
+4. **v2.1 list-format cache support in CMR² dispatcher
+   (`mcmc_runner.py`)** — the dispatcher only handled the legacy
+   dict-format cache (`'grid_cache'` + `'grid_Tb_values'`). The v2.1
+   list format produced by `cache_builder.build_phase_c1_cache`
+   (`'Tb_K_grid'` + `'structures'` + `'transitions'`) silently fell
+   through to the top-level dict, which has no `Mtot_kg` /
+   `R_body_m` keys → NaN → -1e30 rejection of every sample.
+   Posteriors against v2.1 caches were degenerate (prior-shaped).
+   Pre-Phase-C1 caches in dict format were unaffected.
+
+5. **Zero-thickness hydrosphere shells in `structure_derivation.py`**
+   — PP caches duplicate radii at layer interfaces by design (TidalPy
+   requires the boundary to appear twice). Those duplicates surfaced
+   as `r_in == r_out` shells in `extract_hydrosphere_layers`, which
+   `compute_cmr2` rejected with "Bad layer geometry". The
+   extraction now skips zero-thickness shells (zero mass, zero
+   inertia — correct for mass conservation). Surfaced as Callisto's
+   posterior remaining 0/4096 non-rejected even after fix #4.
+
+6. **`ocean_overrides` field in `inference_core.py` +
+   `Texc_hr` label-zip in `cache_builder.py`** — schema-coverage
+   fixes for the unified body-config / cache + Texc_hr extraction
+   from `Planet.Magnetic` (was treating numpy-array-of-periods as a
+   dict, raising TypeError silently caught and storing `None`).
+
+### Framework additions
+
+- **`probe_tb_prior.py` (new module)** — generalizable diagnostic
+  for any future body cache. Surfaces integrator-failing prior
+  regions before launching production MCMC.
+- **k₂/h₂ wiring**: Re/Im k₂ + Re/Im h₂ as MCMC observables. Single
+  TidalPy `radial_solver` call returns both k₂ and h₂.
+- **Magnetic induction wiring** (forward path only): induction observables
+  (`Ae_<label>_real`/`_imag` or `BiAmp_<label>`/`BiPhase_<label>_deg`).
+  No config enables them yet — awaiting body-specific Ae values.
+- **Three production configs updated** (J₂/C₂₂ dropped pending
+  generalized gravity-coefficient forward model; Callisto
+  `rho_sil_kgm3` lower bound widened 2200 → 1800 for porous
+  interior; metadata descriptions updated inline).
+
+### Deferred (tracked in user memory)
+
+- **Generalized gravity-coefficient forward model** — produce J\_n,
+  C\_nm, S\_nm to arbitrary degree/order from interior structure.
+  Targets bodies with high-resolution gravity: Mars MRO 165×165,
+  Moon GRAIL ~900×900, Enceladus, etc. PP currently treats J₂ /
+  C₂₂ as observation inputs, not predictions.
+
+- **Callisto CMR² Gao & Stevenson 2013 nonhydrostatic-rotator
+  variants** — MCMC variants at 5 % and 10 % lower CMR² priors,
+  reflecting nonhydrostatic correction. Cache is independent of
+  the observable and need not be rebuilt.
+
+- **Ganymede / Callisto body-specific Re/Im k₂ priors** —
+  placeholder values from Mazarico+ 2023 (Europa) currently used.
+  Replace with body-specific literature values when available;
+  Clipper / JUICE will narrow these substantially.
+
+- **Ice VI full lid+adiabat+TBL profile propagation** under
+  `KALOUSOVA_CONVECTION` (Ice III and V already done; Ice VI
+  currently uses uniform-T placeholder). Pending `Steps.nVbottom`,
+  `nIceVILitho`, layer allocation in `IceLayers()`, and
+  `IceVIConductSolid/Porous`.
+
+### Validation hygiene
+
+- **Source-tree edits this session**: 7 files in
+  `PlanetProfile/Inference/` plus 3 production configs. Diagnostic
+  scripts (`/tmp/claude-503/`) are not staged.
+- **No tests broken** — the existing layered-blend / CMR² /
+  per-phase-zeta / no-ocean-safeguard test suites continue to
+  pass.
 
 ## What Was Done (2026-05-18 session)
 
