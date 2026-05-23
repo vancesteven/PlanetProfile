@@ -213,11 +213,21 @@ def extract_hydrosphere_layers(
 
     R_oceanbot_m = float(r_inner[first_hydro])
 
+    # Skip zero-thickness shells. PP caches legitimately duplicate radii at
+    # layer interfaces (TidalPy's radial_solver requires the boundary radius
+    # to be present twice — once for the layer below, once for the layer
+    # above). Those duplicates manifest here as cells with r_in == r_out,
+    # which compute_cmr2 rejects with "Bad layer geometry". A zero-thickness
+    # shell contributes zero mass and zero inertia, so dropping it is the
+    # correct behaviour for the mass-conservation derivation. Surfaced as
+    # 0/4096 non-rejected samples for Callisto smoke MCMC on 2026-05-23.
     layers: List[Tuple[float, float, float]] = []
     M_hydro = 0.0
     for ri, ro, rh in zip(
         r_inner[first_hydro:], r_outer[first_hydro:], rho[first_hydro:]
     ):
+        if ro <= ri:
+            continue
         layers.append((float(ri), float(ro), float(rh)))
         m, _ = _shell_mass_inertia(ri, ro, rh)
         M_hydro += m

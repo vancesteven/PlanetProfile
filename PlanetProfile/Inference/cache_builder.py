@@ -354,6 +354,94 @@ def build_single_structure(
     R_sil = getattr(Planet.Sil, "Rmean_m", r_m[0])
     D_hsphere_km = (R_body_m - R_sil) / 1e3
 
+    # C2-A: gravity-coefficient observables. Planet.J2 / Planet.C22 are set
+    # by SetupGravity (or the layer-build) and may be None if the body
+    # config didn't request a gravity calc. NaN-default keeps the cache
+    # writeable; the runner rejects samples with non-finite predictions.
+    J2_pred = getattr(Planet, "J2", None)
+    if J2_pred is None or not np.isfinite(J2_pred):
+        J2_pred = np.nan
+    C22_pred = getattr(Planet, "C22", None)
+    if C22_pred is None or not np.isfinite(C22_pred):
+        C22_pred = np.nan
+
+    # C2-B: electrical-conductivity profile for magnetic induction.
+    # Planet.sigma_Sm (S/m) is per-cell on the original Reduced.r grid.
+    # Resample it onto the cache's r_m grid (which has the layer-padding
+    # applied) by linear interpolation. NaN cells in input are left as NaN
+    # in output — induction code skips them.
+    try:
+        sigma_full = np.asarray(Planet.sigma_Sm, dtype=np.float64)
+        if sigma_full.ndim != 1:
+            raise ValueError("Planet.sigma_Sm is not 1-D")
+        # Reduced.r is the same grid Reduced.changeIndices indexes into;
+        # pre-padding it matches r_m_primary (which we built earlier from
+        # Planet.r_m).  We interpolate against r_m_primary if it's available
+        # in scope; otherwise use a uniform fallback.
+        try:
+            sigma_primary = sigma_full[: T_K_primary.size]
+            sigma_Sm = np.interp(r_m, r_m_primary[sort_idx], sigma_primary[sort_idx])
+        except (NameError, ValueError):
+            sigma_Sm = np.full(r_m.size, np.nan)
+    except (AttributeError, ValueError, TypeError) as _exc:
+        log.debug(f"sigma_Sm unavailable ({_exc}); cache field set to NaN.")
+        sigma_Sm = np.full(r_m.size, np.nan)
+
+    # C2-B: layered representation for the induction forward model.
+    # Planet.Magnetic.{rSigChange_m, sigmaLayers_Sm} are short arrays
+    # (~5–10 entries, one per σ region). Planet.Magnetic.Texc_hr is a
+    # numpy array of *periods only* — the canonical labels live in the
+    # body-keyed lookup table in MagneticInduction.Moments.ExcitationsList.
+    # We zip the two together below so the cache exposes a label→period
+    # dict that the induction forward model can consume directly.
+    # Note: PP skips MagneticInduction entirely when Ocean.comp == 'PureH2O'
+    # (see PlanetProfile/Main.py:352), so for pure-water bodies these
+    # fields will all be None — that is expected, not a bug.
+    rSigChange_m = None
+    sigmaLayers_Sm = None
+    Texc_hr = None
+    try:
+        mag = Planet.Magnetic
+        if mag.rSigChange_m is not None:
+            rSigChange_m = np.asarray(mag.rSigChange_m, dtype=np.float64)
+        if mag.sigmaLayers_Sm is not None:
+            sigmaLayers_Sm = np.asarray(mag.sigmaLayers_Sm, dtype=np.float64)
+        if mag.Texc_hr is not None:
+            periods = np.asarray(mag.Texc_hr, dtype=np.float64).ravel()
+            try:
+                from PlanetProfile.MagneticInduction.Moments import (
+                    ExcitationsList,
+                )
+                body_table = ExcitationsList().Texc_hr.get(
+                    getattr(Planet, "bodyname", None), {}
+                )
+                # Match each cached period to its closest labelled period.
+                Texc_hr = {}
+                for p in periods:
+                    if not np.isfinite(p):
+                        continue
+                    best_label = None
+                    best_diff = np.inf
+                    for label, ref_p in body_table.items():
+                        if ref_p is None:
+                            continue
+                        d = abs(float(ref_p) - float(p))
+                        if d < best_diff:
+                            best_diff = d
+                            best_label = label
+                    key = best_label if best_label is not None else f"period_{p:.4f}hr"
+                    Texc_hr[str(key)] = float(p)
+            except (ImportError, AttributeError, TypeError) as _label_exc:
+                log.debug(
+                    f"Could not label Texc_hr periods ({_label_exc}); "
+                    "falling back to numeric keys."
+                )
+                Texc_hr = {f"period_{p:.4f}hr": float(p)
+                           for p in periods if np.isfinite(p)}
+    except (AttributeError, TypeError) as _exc:
+        log.debug(f"Magnetic substruct unavailable ({_exc}); induction "
+                  "fields set to None.")
+
     return {
         "r_m": np.ascontiguousarray(r_m),
         "rho": np.ascontiguousarray(rho),
@@ -364,6 +452,7 @@ def build_single_structure(
         "T_K": np.ascontiguousarray(T_K),
         "P_MPa": np.ascontiguousarray(P_MPa),
         "bulk_visc": np.ascontiguousarray(bulk_visc),
+        "sigma_Sm": np.ascontiguousarray(sigma_Sm),
         "changeIndices": changeIndices,
         "n_layers": n_layers,
         "layer_upper_radii": tuple(layer_upper_radii),
@@ -376,6 +465,8 @@ def build_single_structure(
         "R_body_m": R_body_m,
         "Mtot_kg": Planet.Bulk.M_kg,
         "CMR2": CMR2_pp,
+        "J2": float(J2_pred),
+        "C22": float(C22_pred),
         "Tb_K": float(Tb_K),
         "rhoSil_kgm3": getattr(Planet.Sil, "rhoMean_kgm3", np.nan),
         "D_hsphere_km": D_hsphere_km,
@@ -383,6 +474,10 @@ def build_single_structure(
         "D_iceIII_km": D_iceIII_km,
         "D_iceV_km": D_iceV_km,
         "D_iceVI_km": D_iceVI_km,
+        # C2-B induction layered representation
+        "rSigChange_m": rSigChange_m,
+        "sigmaLayers_Sm": sigmaLayers_Sm,
+        "Texc_hr": Texc_hr,
     }
 
 

@@ -16,6 +16,29 @@ import logging
 
 log = logging.getLogger('PlanetProfile')
 
+# Eager TidalPy import (was lazy inside forward_model_k2_flexible — that
+# triggered a numba "no locator available" RuntimeError when pocoMC's eval
+# loop hit the first sample, because partial_melt.melting_models's
+# @njit(cacheable=True) decoration could not resolve __file__ from inside
+# the sampler's invocation context. Importing at module load time keeps
+# numba's caching state clean.)
+try:
+    from TidalPy.rheology import Andrade as _TPAndrade  # noqa: F401
+    from TidalPy.rheology import Maxwell as _TPMaxwell  # noqa: F401
+    from TidalPy.rheology import Elastic as _TPElastic  # noqa: F401
+    from TidalPy.rheology import Newton as _TPNewton  # noqa: F401
+    from TidalPy.RadialSolver import radial_solver as _TPradial_solver  # noqa: F401
+    from TidalPy.RadialSolver import build_rs_input_from_data as _TPbuild_rs_input  # noqa: F401
+    from TidalPy.tides.multilayer.heating import (
+        calc_radial_volumetric_tidal_heating_from_rs_solution as _TPheating,  # noqa: F401
+    )
+    _TIDALPY_OK = True
+    _TIDALPY_ERR = None
+except ImportError as _exc:
+    _TIDALPY_OK = False
+    _TIDALPY_ERR = _exc
+    log.error(f"TidalPy not available: {_exc}")
+
 
 # ============================================================================
 # Parameter Hook System for Extensibility
@@ -227,12 +250,20 @@ def apply_shear_modulus(theta_dict: Dict[str, float], structure_data: Dict[str, 
 # ----------------------------------------------------------------------
 
 _BLEND_CONT_FIELDS = ('rho', 'K_Pa', 'mu_Pa', 'eta_Pa_base',
-                      'T_K', 'P_MPa', 'bulk_visc')
-_BLEND_SCALAR_FIELDS = ('Tb_K', 'CMR2', 'rhoSil_kgm3', 'D_hsphere_km',
+                      'T_K', 'P_MPa', 'bulk_visc', 'sigma_Sm')
+_BLEND_SCALAR_FIELDS = ('Tb_K', 'CMR2', 'J2', 'C22',
+                        'rhoSil_kgm3', 'D_hsphere_km',
                         'D_iceIh_km', 'D_iceIII_km', 'D_iceV_km', 'D_iceVI_km')
 _BLEND_META_FIELDS = ('omega', 'eccentricity', 'host_mass', 'a_m',
                       'R_body_m', 'Mtot_kg', 'phases', 'changeIndices',
-                      'n_layers', 'layer_types', 'region_phases')
+                      'n_layers', 'layer_types', 'region_phases',
+                      # Induction body-fixed props copied from s0
+                      'Texc_hr')
+# Per-region arrays from PP's induction setup. Element-wise blend if
+# s0 and s1 have matching lengths (same number of conducting regions —
+# guaranteed by the matching-region_phases precondition); copy from s0
+# otherwise.
+_BLEND_PER_REGION_ARRAY_FIELDS = ('rSigChange_m', 'sigmaLayers_Sm')
 
 
 def _regions_match(s0: Dict[str, Any], s1: Dict[str, Any]) -> bool:
@@ -363,6 +394,23 @@ def _blend_b_layered(s0: Dict[str, Any], s1: Dict[str, Any], w: float) -> Dict[s
         else:
             out['layer_upper_radii'] = a  # fallback, shouldn't happen post-precondition
 
+    # Per-region induction arrays (rSigChange_m, sigmaLayers_Sm): same-region
+    # bracket → element-wise linear blend; mismatched length → copy from s0.
+    for field in _BLEND_PER_REGION_ARRAY_FIELDS:
+        a = s0.get(field)
+        b = s1.get(field)
+        if a is None and b is None:
+            continue
+        if a is None or b is None:
+            out[field] = a if a is not None else b
+            continue
+        a_arr = np.asarray(a, dtype=float)
+        b_arr = np.asarray(b, dtype=float)
+        if a_arr.shape == b_arr.shape:
+            out[field] = (1.0 - w) * a_arr + w * b_arr
+        else:
+            out[field] = a_arr  # length mismatch — use s0 (defensive)
+
     return out
 
 
@@ -452,7 +500,7 @@ def forward_model_k2_flexible(
     structure_data: Dict[str, Any],
     return_heating: bool = False,
     arrhenius_params: Optional[Dict[str, Any]] = None
-) -> Tuple[float, float, Optional[Dict[str, float]]]:
+) -> Tuple[float, float, float, float, Optional[Dict[str, float]]]:
     """
     Flexible forward model using dict-based parameters.
 
@@ -466,18 +514,20 @@ def forward_model_k2_flexible(
         arrhenius_params: Optional Arrhenius temperature-dependent viscosity params
 
     Returns:
-        (Re_k2, Im_k2, perPhase_W) where perPhase_W is None if return_heating=False
-        Returns (np.nan, np.nan, None) if TidalPy solver fails
+        ``(Re_k2, Im_k2, Re_h2, Im_h2, perPhase_W)`` where ``perPhase_W`` is
+        ``None`` if ``return_heating=False``. Returns ``(nan, nan, nan, nan,
+        None)`` if the TidalPy solver fails. Both Love numbers are extracted
+        from the same ``radial_solver`` result; the h₂ extraction is
+        essentially free.
     """
-    # Import TidalPy components (lazy to avoid import overhead)
-    try:
-        from TidalPy.rheology import Andrade, Maxwell, Elastic
-        from TidalPy.RadialSolver import radial_solver
-        from TidalPy.RadialSolver import build_rs_input_from_data
-        from TidalPy.tides.multilayer.heating import calc_radial_volumetric_tidal_heating_from_rs_solution
-    except ImportError as e:
-        log.error(f"TidalPy not available: {e}")
-        return np.nan, np.nan, None
+    # TidalPy is imported at module top (eager) — see header comment.
+    if not _TIDALPY_OK:
+        log.error(f"TidalPy not available: {_TIDALPY_ERR}")
+        return np.nan, np.nan, np.nan, np.nan, None
+    Andrade, Maxwell, Elastic, Newton = _TPAndrade, _TPMaxwell, _TPElastic, _TPNewton
+    radial_solver = _TPradial_solver
+    build_rs_input_from_data = _TPbuild_rs_input
+    calc_radial_volumetric_tidal_heating_from_rs_solution = _TPheating
 
     # Apply parameter hooks
     modified_structure = apply_parameters(theta_dict, structure_data)
@@ -510,14 +560,28 @@ def forward_model_k2_flexible(
     # Build rheology models per layer based on applied parameters
     rheology_type = modified_structure.get('rheology_type', 'maxwell')
 
+    # Per-layer rheology assignment must mirror PP's Params.Gravity.rheology_models
+    # (defined in PlanetProfile/Gravity/defaultConfigGravity.py:26): Fe core is
+    # ELASTIC, ocean is NEWTON (viscous fluid), clathrate is ELASTIC, ices/silicate
+    # are ANDRADE/MAXWELL. Treating Fe as Andrade (the previous behaviour) caused
+    # TidalPy radial_solver to fail at "layer 0" with "step size less than spacing
+    # between numbers" because Andrade applied to a metal core produces a near-
+    # singular complex shear modulus the integrator can't traverse. This bug was
+    # hidden by Ganymede/Callisto's higher tolerance and surfaced as 100% k2-NaN
+    # for Europa during C2 smoke MCMC (2026-05-22).
+    _ELASTIC_PHASES = frozenset({'Fe', 'Clath'})
+    _NEWTON_PHASES = frozenset({'0'})  # liquid ocean
+
     if rheology_type == 'andrade':
         alpha = modified_structure['andrade_alpha']
         zeta_tp_map = modified_structure['andrade_zeta_tp']
         shear_models = []
         for rp in modified_structure['region_phases']:
             base_phase = rp.replace('_conv', '')
-            if base_phase in ('0', 'Clath'):
+            if base_phase in _ELASTIC_PHASES:
                 shear_models.append(Elastic())
+            elif base_phase in _NEWTON_PHASES:
+                shear_models.append(Newton())
             else:
                 phase_zeta = zeta_tp_map.get(base_phase, 1.0)
                 shear_models.append(Andrade(args=(alpha, phase_zeta)))
@@ -526,8 +590,10 @@ def forward_model_k2_flexible(
         shear_models = []
         for rp in modified_structure['region_phases']:
             base_phase = rp.replace('_conv', '')
-            if base_phase in ('0', 'Clath'):
+            if base_phase in _ELASTIC_PHASES:
                 shear_models.append(Elastic())
+            elif base_phase in _NEWTON_PHASES:
+                shear_models.append(Newton())
             else:
                 shear_models.append(Maxwell())
     else:
@@ -574,23 +640,31 @@ def forward_model_k2_flexible(
         )
 
         if not result.success:
-            return np.nan, np.nan, None
+            return np.nan, np.nan, np.nan, np.nan, None
 
-        # Extract k2
+        # Extract k2 and h2 from the same RadialSolver result.
         k2 = complex(result.k)
         Re_k2 = k2.real
         Im_k2 = k2.imag
+        try:
+            h2 = complex(result.h)
+            Re_h2 = h2.real
+            Im_h2 = h2.imag
+        except AttributeError:
+            log.debug("RadialSolver result has no .h attribute; h2 unavailable.")
+            Re_h2 = np.nan
+            Im_h2 = np.nan
 
         # Compute per-phase heating if requested
         perPhase_W = None
         if return_heating and modified_structure['eccentricity'] > 0:
             perPhase_W = compute_heating(result, modified_structure)
 
-        return Re_k2, Im_k2, perPhase_W
+        return Re_k2, Im_k2, Re_h2, Im_h2, perPhase_W
 
     except Exception as e:
         log.debug(f"Forward model failed: {e}")
-        return np.nan, np.nan, None
+        return np.nan, np.nan, np.nan, np.nan, None
 
 
 # ============================================================================

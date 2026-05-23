@@ -264,7 +264,7 @@ class MCMCRunner:
             if _check_no_ocean(modified):
                 return -1e30
 
-            Re_k2, Im_k2, _ = forward_model_k2_flexible(
+            Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
                 theta_dict, structure_data,
                 return_heating=False, arrhenius_params=arrhenius_params
             )
@@ -281,13 +281,55 @@ class MCMCRunner:
             if 'k2' in observables:
                 obs_val, obs_err = observables['k2']
                 chi2 += ((np.sqrt(Re_k2**2 + Im_k2**2) - obs_val) / obs_err) ** 2
+            # h2 observables (Mazarico et al. 2023 convention).
+            if 'Re_h2' in observables:
+                obs_val, obs_err = observables['Re_h2']
+                chi2 += ((Re_h2 - obs_val) / obs_err) ** 2
+            if 'Im_h2' in observables or 'abs_Im_h2' in observables:
+                key = 'Im_h2' if 'Im_h2' in observables else 'abs_Im_h2'
+                obs_val, obs_err = observables[key]
+                chi2 += ((abs(Im_h2) - obs_val) / obs_err) ** 2
+            if 'h2' in observables:
+                obs_val, obs_err = observables['h2']
+                chi2 += ((np.sqrt(Re_h2**2 + Im_h2**2) - obs_val) / obs_err) ** 2
+            # Gravity coefficients J2 and C22 — cached per Tb point as scalars
+            # in the structure dict; blended via _BLEND_SCALAR_FIELDS.
+            if 'J2' in observables:
+                obs_val, obs_err = observables['J2']
+                pred = float(modified.get('J2', np.nan))
+                if not np.isfinite(pred):
+                    return -1e30
+                chi2 += ((pred - obs_val) / obs_err) ** 2
+            if 'C22' in observables:
+                obs_val, obs_err = observables['C22']
+                pred = float(modified.get('C22', np.nan))
+                if not np.isfinite(pred):
+                    return -1e30
+                chi2 += ((pred - obs_val) / obs_err) ** 2
             if 'CMR2' in observables:
                 obs_val, obs_err = observables['CMR2']
 
-                # Pick the per-sample structure dict (Tb-grid interp or single)
-                if 'grid_cache' in structure_data and 'Tb_K' in theta_dict:
+                # Pick the per-sample structure dict for CMR² re-derivation.
+                # Three cache layouts are supported:
+                #   (a) v2.1 list format: {'Tb_K_grid': arr, 'structures': [..]}
+                #       — what cache_builder.build_phase_c1_cache produces.
+                #   (b) legacy dict format: {'grid_cache': {Tb: struct}, 'grid_Tb_values': arr}
+                #       — what _load_grid_cache wraps Format-A caches into.
+                #   (c) single struct (no Tb grid).
+                # The earlier code only handled (b) and silently fell through to
+                # struct_for_cmr2 = structure_data for (a), which lacks
+                # Mtot_kg/R_body_m at top level → NaN → -1e30 rejection of every
+                # sample. Verified 2026-05-23 against europa_seawater cache.
+                Tb_sample = theta_dict.get('Tb_K')
+                if (Tb_sample is not None
+                        and 'Tb_K_grid' in structure_data
+                        and 'structures' in structure_data):
+                    grid_Tb_values = np.asarray(structure_data['Tb_K_grid'])
+                    idx = int(np.argmin(np.abs(grid_Tb_values - Tb_sample)))
+                    struct_for_cmr2 = structure_data['structures'][idx]
+                elif 'grid_cache' in structure_data and Tb_sample is not None:
                     grid_Tb_values = structure_data['grid_Tb_values']
-                    idx = np.argmin(np.abs(grid_Tb_values - theta_dict['Tb_K']))
+                    idx = int(np.argmin(np.abs(grid_Tb_values - Tb_sample)))
                     struct_for_cmr2 = structure_data['grid_cache'][grid_Tb_values[idx]]
                 else:
                     struct_for_cmr2 = structure_data
@@ -352,6 +394,80 @@ class MCMCRunner:
                 mtot_val = structure_data.get('Mtot_kg', np.nan)
                 if np.isfinite(mtot_val):
                     chi2 += ((mtot_val - obs_val) / obs_err) ** 2
+
+            # Magnetic induction observables (C2-B). The runner accepts
+            # observables in two equivalent forms:
+            #   1. Re/Im (default, Europa-Clipper convention):
+            #          Ae_<label>_real, Ae_<label>_imag
+            #   2. Amplitude/phase (legacy, paper convention):
+            #          BiAmp_<label>, BiPhase_<label>_deg
+            # Both pull from the same forward_model_induction call; <label>
+            # is one of the canonical PP excitation names ('synodic',
+            # 'orbital', 'synodic 2nd', 'true anomaly') matching keys in
+            # the cached Texc_hr dict. The runner only invokes the
+            # induction forward model if at least one such observable is
+            # present, so existing CMR²/k₂ configs are unaffected.
+            induction_keys_real = [k for k in observables
+                                   if k.startswith('Ae_') and k.endswith('_real')]
+            induction_keys_imag = [k for k in observables
+                                   if k.startswith('Ae_') and k.endswith('_imag')]
+            induction_keys_amp = [k for k in observables
+                                  if k.startswith('BiAmp_')]
+            induction_keys_phase = [k for k in observables
+                                    if k.startswith('BiPhase_')
+                                    and k.endswith('_deg')]
+            need_induction = bool(induction_keys_real or induction_keys_imag
+                                  or induction_keys_amp or induction_keys_phase)
+            if need_induction:
+                from .forward_models import forward_model_induction
+                Texc_hr_full = modified.get('Texc_hr')
+                if not Texc_hr_full:
+                    return -1e30
+                # Build the freq dict from labels referenced in the observables.
+                requested_labels = set()
+                for k in induction_keys_real:
+                    requested_labels.add(k[len('Ae_'):-len('_real')])
+                for k in induction_keys_imag:
+                    requested_labels.add(k[len('Ae_'):-len('_imag')])
+                for k in induction_keys_amp:
+                    requested_labels.add(k[len('BiAmp_'):])
+                for k in induction_keys_phase:
+                    requested_labels.add(k[len('BiPhase_'):-len('_deg')])
+                freq_dict = {label: Texc_hr_full[label]
+                             for label in requested_labels
+                             if label in Texc_hr_full}
+                if not freq_dict:
+                    return -1e30
+                # forward_model_induction reads rSigChange_m / sigmaLayers_Sm
+                # / R_body_m from `modified`.
+                Ae_dict = forward_model_induction(modified, freq_dict)
+                if Ae_dict is None:
+                    return -1e30
+                for label in requested_labels:
+                    Ae = Ae_dict.get(label)
+                    if Ae is None or not np.isfinite(complex(Ae).real):
+                        return -1e30
+                    Ae = complex(Ae)
+                    re_key = f'Ae_{label}_real'
+                    im_key = f'Ae_{label}_imag'
+                    amp_key = f'BiAmp_{label}'
+                    ph_key = f'BiPhase_{label}_deg'
+                    if re_key in observables:
+                        v, s = observables[re_key]
+                        chi2 += ((Ae.real - v) / s) ** 2
+                    if im_key in observables:
+                        v, s = observables[im_key]
+                        chi2 += ((Ae.imag - v) / s) ** 2
+                    if amp_key in observables:
+                        v, s = observables[amp_key]
+                        chi2 += ((abs(Ae) - v) / s) ** 2
+                    if ph_key in observables:
+                        v, s = observables[ph_key]
+                        # Phase wrap into (-180, 180] before residualizing.
+                        pred = float(np.degrees(np.angle(Ae)))
+                        delta = ((pred - v + 180.0) % 360.0) - 180.0
+                        chi2 += (delta / s) ** 2
+
             return -0.5 * chi2
 
         return log_likelihood
@@ -410,8 +526,13 @@ class MCMCRunner:
             except Exception:
                 pass
 
-        # Final posterior extraction
-        samples, log_likes, log_post, _ = sampler.posterior()
+        # Final posterior extraction. pocoMC's posterior() returns
+        #   (samples, weights, logl, logp)
+        # NOT (samples, logl, logp, weights). The earlier unpack stored
+        # importance weights into the log_likelihoods field (=~1/N after
+        # trimming) and log-likelihoods into log_posteriors — verified by
+        # reading pocomc/sampler.py::posterior.
+        samples, _weights, log_likes, _log_prior = sampler.posterior()
         n_samples = len(samples)
 
         elapsed = time.time() - t0
@@ -452,7 +573,7 @@ class MCMCRunner:
         D_iceIh_results = []
         for i, theta in enumerate(samples):
             theta_dict = _expand_theta_run(theta)
-            Re_k2, Im_k2, _ = forward_model_k2_flexible(
+            Re_k2, Im_k2, _, _, _ = forward_model_k2_flexible(
                 theta_dict, self.structure_data,
                 return_heating=False, arrhenius_params=arrhenius_params
             )
@@ -478,7 +599,7 @@ class MCMCRunner:
         heating_results = []
         for si in idx_heat:
             theta_dict = _expand_theta_run(samples[si])
-            _, _, perPhase_W = forward_model_k2_flexible(
+            _, _, _, _, perPhase_W = forward_model_k2_flexible(
                 theta_dict, self.structure_data,
                 return_heating=True, arrhenius_params=arrhenius_params
             )

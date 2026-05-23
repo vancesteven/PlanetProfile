@@ -38,10 +38,27 @@ Date: 2026-04-29
 import argparse
 import json
 import logging
+import os
 import sys
 import time
+import tempfile
 from pathlib import Path
 from typing import Dict, Optional
+
+# Ensure numba has a writable cache dir BEFORE TidalPy gets imported
+# anywhere downstream. TidalPy.rheology.partial_melt.melting_models uses
+# @njit(cacheable=True), which raises "no locator available" when numba
+# can't establish a cache location — seen under sandboxed runtimes where
+# the default cache path is unwritable. Set this only if not already set.
+if not os.environ.get('NUMBA_CACHE_DIR'):
+    _default_numba_cache = os.path.join(tempfile.gettempdir(), 'pp_numba_cache')
+    try:
+        os.makedirs(_default_numba_cache, exist_ok=True)
+        os.environ['NUMBA_CACHE_DIR'] = _default_numba_cache
+    except OSError:
+        # If creation fails, leave NUMBA_CACHE_DIR unset so numba uses its
+        # own default and surfaces any error itself.
+        pass
 
 # Configure logging
 logging.basicConfig(

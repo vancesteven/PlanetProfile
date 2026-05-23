@@ -84,6 +84,20 @@ class InferenceConfig:
     and ignored by the runner.
     """
 
+    ocean_overrides: Dict[str, Any] = field(default_factory=dict)
+    """
+    ocean_overrides: Cache-builder-only knob carried through the unified
+    config schema. Consumed by ``cache_builder.build_phase_c1_cache`` to
+    swap ``Planet.Ocean.comp`` / ``Planet.Ocean.wOcean_ppt`` (e.g. NaCl
+    100 ppt for Callisto). The MCMC runner ignores this field — it lives
+    here only so a single body config file can drive both the cache build
+    and the inference run without schema-skew between the two stages.
+
+    Example::
+
+        ocean_overrides = {'comp': 'NaCl', 'wOcean_ppt': 100.0}
+    """
+
     def __post_init__(self):
         """Validate configuration after initialization."""
         # Mode validation
