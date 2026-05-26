@@ -681,6 +681,14 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None, mo
     Planet.saveLabel = saveLabel
     Planet.tradeLabel = f'{label}, $C/MR^2\,{Planet.CMR2str}$'
     Planet.label = label
+
+    # Strip LaTeX commands that matplotlib's mathtext cannot handle when LaTeX is not installed
+    if not FigMisc.TEX_INSTALLED:
+        if hasattr(Planet, 'compStr') and Planet.compStr is not None:
+            Planet.compStr = FigLbl.StripLatexFromString(Planet.compStr)
+        Planet.label = FigLbl.StripLatexFromString(Planet.label)
+        Planet.tradeLabel = FigLbl.StripLatexFromString(Planet.tradeLabel)
+
     if Params.DO_INDUCTOGRAM:
         inductBase = f'{Planet.name}_{Params.Induct.inductOtype}'
         Params.Induct.SetFlabel(Planet.bodyname)

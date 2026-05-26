@@ -171,7 +171,7 @@ def PropagateConduction(Planet, Params, iStart, iEnd):
             thisMAbove_kg += Planet.MLayer_kg[i-1]
             thisMBelow_kg = Planet.Bulk.M_kg - thisMAbove_kg
             Planet.g_ms2[i] += VAR_GRAV * Constants.G * thisMBelow_kg / Planet.r_m[i]**2
-            log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+            # log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     return Planet
 
@@ -190,7 +190,7 @@ def PropogateConductionFromDepth(Planet, Params, iStart, iEnd, Tbot_K, EOS, prop
     # Add a catch in case we call with invalid indices, which is convenient
     # after convection calculations when no convection is happening
     if iStart < iEnd:
-        log.debug(f'il: {iStart:d}; P_MPa: {Planet.P_MPa[iStart]:.3f}; T_K: {Planet.T_K[iStart]:.3f}; phase: {Planet.phase[iStart]:d}')
+        # log.debug(f'il: {iStart:d}; P_MPa: {Planet.P_MPa[iStart]:.3f}; T_K: {Planet.T_K[iStart]:.3f}; phase: {Planet.phase[iStart]:d}')
         # Get initial layer properties
         Planet.rhoMatrix_kgm3[iStart] = EOS.fn_rho_kgm3(  Planet.P_MPa[iStart], Planet.T_K[iStart])
         Planet.Cp_JkgK[iStart] =        EOS.fn_Cp_JkgK(   Planet.P_MPa[iStart], Planet.T_K[iStart])
@@ -231,9 +231,10 @@ def PropogateConductionFromDepth(Planet, Params, iStart, iEnd, Tbot_K, EOS, prop
                 
             if i == iEnd:
                 log.debug(f'Propogating starting point for next layer...')
-                log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}')
+                # log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}')
             else:
-                log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+                pass
+                # log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
     
     Planet.rho_kgm3[iStart:iEnd+1] = Planet.rhoMatrix_kgm3[iStart:iEnd+1] + 0.0
     return Planet
@@ -287,7 +288,7 @@ def PropagateAdiabaticSolid(Planet, Params, iStart, iEnd, EOS):
         Planet.alpha_pK[i] =       EOS.fn_alpha_pK(  Planet.P_MPa[i], Planet.T_K[i])
         Planet.kTherm_WmK[i] =     EOS.fn_kTherm_WmK(Planet.P_MPa[i], Planet.T_K[i])
 
-        log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+        # log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     Planet.rho_kgm3[iStart:iEnd] = Planet.rhoMatrix_kgm3[iStart:iEnd] + 0.0
 
@@ -348,9 +349,10 @@ def PropagateAdiabaticSolidFromDepth(Planet, Params, iStart, iEnd, EOS):
             
         if i == iEnd:
             log.debug(f'Propogating starting point for next layer...')
-            log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}')
+            # log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}')
         else:
-            log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+            pass
+            # log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     Planet.rho_kgm3[iStart:iEnd] = Planet.rhoMatrix_kgm3[iStart:iEnd] + 0.0
 
@@ -423,7 +425,7 @@ def PropagateAdiabaticPorousVacIce(Planet, Params, iStart, iEnd, EOS):
             Planet.phi_frac[i] = 0.0
             Planet.rho_kgm3[i] = Planet.rhoMatrix_kgm3[i] + 0.0
 
-        log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+        # log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     return Planet
 
@@ -541,7 +543,7 @@ def PropagateAdiabaticPorousFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore
             Planet.Ppore_MPa[i] = Planet.P_MPa[i] + 0.0
             DeltaPpore_MPa = Planet.P_MPa[i] - Planet.P_MPa[i-1]
 
-        log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
+        # log.debug(f'il: {i:d}; P_MPa: {Planet.P_MPa[i]:.3f}; T_K: {Planet.T_K[i]:.3f}; phase: {Planet.phase[i]:d}')
 
     return Planet, phasePore
 

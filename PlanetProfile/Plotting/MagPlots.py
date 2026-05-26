@@ -765,7 +765,7 @@ def PlotMagSurface(PlanetList, Params):
             raise ValueError('Lists of tMagEval and rMagEval must have the same length or one must be length 1.')
 
     for iPlanet, Planet in enumerate(PlanetListSubset):
-        phaseNow = np.zeros((nts, np.size(Planet.Magnetic.omegaExc_radps)), dtype=np.complex_)
+        phaseNow = np.zeros((nts, np.size(Planet.Magnetic.omegaExc_radps)), dtype=np.complex128)
 
         # Get plot text and axis labels
         if Planet.lonMap_deg is None:

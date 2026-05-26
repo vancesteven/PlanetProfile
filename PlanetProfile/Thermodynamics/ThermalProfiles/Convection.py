@@ -89,7 +89,7 @@ def IceIConvectSolid(Planet, Params):
             if nConduct == 1:
                 Planet.T_K[nConduct] = Planet.Tconv_K
                 log.debug(f'Only modeled 1 conductive layer, which can lead to a temperature discontinuity at the convective layer. Setting temperature at start of convective layer to Planet.Tconv_K: {Planet.Tconv_K:.3f} K.')
-                log.debug(f'il: {nConduct:d}; P_MPa: {Planet.P_MPa[nConduct]:.3f}; T_K: {Planet.T_K[nConduct]:.3f}; phase: {Planet.phase[nConduct]:d}')
+                # log.debug(f'il: {nConduct:d}; P_MPa: {Planet.P_MPa[nConduct]:.3f}; T_K: {Planet.T_K[nConduct]:.3f}; phase: {Planet.phase[nConduct]:d}')
             log.debug('Ice I convecting layer complete. Propagating starting point for next layer...')
             
             # Now we have the bottom pressure
@@ -106,7 +106,7 @@ def IceIConvectSolid(Planet, Params):
                 Planet.Bulk.Tb_K = GetTfreeze(Planet.Ocean.meltEOS, Planet.Pb_MPa, Planet.TfreezeLower_K, TRes_K=Planet.TfreezeRes_K)
             # Lastly, we set the bottom temperature to the beginning layer of the convective layer
             Planet.T_K[Planet.Steps.nIbottom] = Planet.Bulk.Tb_K
-            log.debug(f'il: {Planet.Steps.nIbottom:d}; P_MPa: {Planet.P_MPa[Planet.Steps.nIbottom]:.3f}; T_K: {Planet.T_K[Planet.Steps.nIbottom]:.3f}')
+            # log.debug(f'il: {Planet.Steps.nIbottom:d}; P_MPa: {Planet.P_MPa[Planet.Steps.nIbottom]:.3f}; T_K: {Planet.T_K[Planet.Steps.nIbottom]:.3f}')
             log.debug('Ice I convection calculations complete.')
             
     else:

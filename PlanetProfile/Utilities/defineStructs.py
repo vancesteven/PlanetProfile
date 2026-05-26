@@ -2529,9 +2529,9 @@ class FigLblStruct:
 
 
     def StripLatexFromString(self, str2strip):
-        str2strip = str2strip.replace('\si{', '\mathrm{')
-        str2strip = str2strip.replace('\SI{', '{')
-        str2strip = str2strip.replace('\ce{', '{')
+        str2strip = str2strip.replace(r'\si{', r'\mathrm{')
+        str2strip = str2strip.replace(r'\SI{', '{')
+        str2strip = str2strip.replace(r'\ce{', '{')
         str2strip = str2strip.replace(r'\textbf{', '{')
         return str2strip
 
