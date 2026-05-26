@@ -643,7 +643,7 @@ def PlotIsoThermalPvThydro(PlanetList, Params):
             else:
                 ymin = np.nanmin(prop_data_to_plot)
                 ymax = np.nanmax(prop_data_to_plot)
-            if np.isnan(ymin) and np.isnan(ymin):
+            if np.isnan(ymin) or np.isnan(ymax):
                 ax.set_title(prop.prop_label)
                 ax.text(0.5, 0.5, "No valid values\nfor this property.",
                         transform=ax.transAxes, ha='center', va='center')

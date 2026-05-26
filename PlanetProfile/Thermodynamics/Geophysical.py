@@ -457,7 +457,7 @@ def PropagateAdiabaticPorousFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore
     # Assign phasePore all zeros. Since we assume pores contain liquid, we won't
     # change any of these values. This is for forward compatibility, in case the
     # assumption of pores containing ocean fluid is relaxed.
-    phasePore = np.zeros(iEnd - iStart, dtype=np.int_)
+    phasePore = np.zeros(iEnd - iStart, dtype=np.intp)
     # Initialize DeltaPpore at 0 so we can use it to set the top pore pressure
     # equal to the pressure of the overlying material. In this, we're assuming
     # iStart corresponds to a layer for which there is communication between
@@ -656,7 +656,7 @@ def InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m):
     Psil_MPa, Tsil_K, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
     phiSil_frac, HtidalSil_Wm3, Ppore_MPa, rhoPore_kgm3, KSsil_GPa, GSsil_GPa \
         = (np.zeros((nProfiles, Planet.Steps.nSilMax)) for _ in range(13))
-    phasePore = np.zeros((nProfiles, Planet.Steps.nSilMax), dtype=np.int_)
+    phasePore = np.zeros((nProfiles, Planet.Steps.nSilMax), dtype=np.intp)
 
     # Assign ocean-bottom options as silicate-top values
     rSil_m = np.array([np.linspace(Planet.r_m[i+Planet.Steps.iSilStart], rSilEnd_m, Planet.Steps.nSilMax+1) for i in profRange])
