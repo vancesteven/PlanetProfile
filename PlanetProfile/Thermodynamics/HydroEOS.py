@@ -1307,9 +1307,11 @@ def GetTfreeze(oceanEOS, P_MPa, T_K, TfreezeRange_K=50, TRes_K=0.05):
                 at this pressure
     """
     topPhase = oceanEOS.fn_phase(P_MPa, T_K)
-    if topPhase == 0:
+    # Handle case where fn_phase returns an array instead of scalar
+    topPhase_scalar = np.asarray(topPhase).item() if np.asarray(topPhase).size == 1 else topPhase
+    if topPhase_scalar == 0:
         log.warning('Attempting to get phase change from liquid to solid, not solid to liquid as expected.')
-    phaseChange = lambda T: 0.5 - (1 - int(oceanEOS.fn_phase(P_MPa, T) > 0))
+    phaseChange = lambda T: 0.5 - (1 - int(bool(oceanEOS.fn_phase(P_MPa, T) > 0)))
 
     try:
         Tfreeze_K = GetZero(phaseChange, bracket=[T_K, T_K+TfreezeRange_K], xtol=abs(TRes_K)).root + TRes_K
