@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Bug Fixes
+- **Corrected conduction profile for clathrate depth calculation.** Added `ConductiveTemperatureCorrect()` function in `PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py` implementing the strict Turcotte & Schubert (2002) §4.9 eq. 4.40 form: `c1 = qTop·rTop²/k − Htot·rTop³/(3k)` with planar-limit ΔT = qTop·ΔR/k (Fourier's law). `GetPbConduct()` now uses this function; the resulting clathrate layer thickness matches the user-specified `Bulk.clathMaxThick_m` (previously PP produced a clathrate 2× deeper than requested).
+
 ## [3.1.0] – 2026-01-13
 **Author:** @Chang-Scott
 

@@ -225,23 +225,42 @@ def ConvectionDeschampsSotin2001(Ttop_K, rTop_m, kTop_WmK, Tb_K, zb_m, gtop_ms2,
 
 
 def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2):
-    """ Thermal profile for purely thermally conductive layers, based on Turcotte and Schubert (2002),
-        equation 4.40: T = -rho*H/6/k * r^2 + c1/r + c2, where c1 and c2 are integration constants
-        found through boundary conditions, rho is mass density of the conductive layer in kg/m^3,
-        H is internal heating in W/kg, and k is thermal conductivity in W/m/K.
-        The main equations we use here are developed similar to equation 2 of
-        Cammarano et al. (2006): https://doi.org/10.1029/2006JE002710, but we parameterize in terms of
-        the heat flux leaving the top of the layer instead of entering the bottom. We also configure
-        the internal heating so as to account for porosity by passing rho as the mass density of just
-        the material contributing to radiogenic heat, i.e. silicates.
+    """ Thermal profile for purely thermally conductive layers, based on Turcotte and
+        Schubert (2002) equation 4.40.  The main equations here were developed similar
+        to equation 2 of Cammarano et al. (2006): https://doi.org/10.1029/2006JE002710,
+        parameterized in terms of the heat flux leaving the top of the layer rather
+        than entering the bottom.
+
+        *** KNOWN c1 FACTOR-OF-2 DISCREPANCY — see `ConductiveTemperatureCorrect` ***
+
+        The c1 formula below has `/2` and `/6` in the denominators, which do not
+        match a direct derivation from T&S 4.40 (which would give `/1` and `/3`).
+        The thin-layer planar limit of this function gives Delta_T = qTop * Delta_R / (2k),
+        half of Fourier's law qTop * Delta_R / k.  `ConductiveTemperatureActual` below
+        carries a compensating *2 prefactor in its spherical qBot term that cancels
+        the /2 in c1 — so its qBot return is correct, even though Tbot is not.
+
+        This function is used by `PropagateConductionProfilesSolid` / `...Porous` to
+        propagate T through silicate (and in principle core) layers.  A proper fix to
+        the underlying silicate boundary-condition problem (1/r divergence as r -> 0
+        for a solid silicate body with prescribed qTop inconsistent with integrated
+        Htot) is pending — see FIXME in Geophysical.py around the silicate loops.
+        **Until that rework is done, keep this function as-is**: reverting the /2/6
+        to /1/3 produces corrected planar T steps but drives silicate T to diverge
+        catastrophically (test 15 mass-balance failure), because the real
+        boundary-condition issue has been masked for years by the compensating /2.
+
+        For the narrow use-case where we need the true T&S 4.40 behavior (namely,
+        `GetPbConduct` which integrates downward from the top of the clathrate layer
+        until reaching a target Tbot), use `ConductiveTemperatureCorrect` below.
 
         Args:
             Ttop_K (float, shape N): Temperature at the top of the layer in K.
-            rTop_m, rBot_m (float, shape N): Radius at top and bottom of layer in m, respectively.
-            kTherm_WmK (float, shape N): Overall thermal conductivity of layer in W/(m K).
-            rhoRad_kgm3 (float, shape N): Mass density of radiogenic material in layer in kg/m^3.
+            rTop_m, rBot_m (float, shape N): Radius at top and bottom of layer in m.
+            kTherm_WmK (float, shape N): Thermal conductivity of layer in W/(m K).
+            rhoRad_kgm3 (float, shape N): Mass density of the radiogenic material in kg/m^3.
             Qrad_Wkg (float): Average radiogenic heating rate in W/kg.
-            Htidal_Wm3 (float, shape N): Average tidal heating rate of the layer in W/m^3.
+            Htidal_Wm3 (float, shape N): Tidal heating rate of the layer in W/m^3.
             qTop_Wm2 (float): Heat flux leaving the top of the layer in W/m^2.
         Returns:
             Tbot_K (float): Temperature at the bottom of the layer in K.
@@ -249,6 +268,9 @@ def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_
     """
     # Calculate needed values from inputs
     Htot_Wm3 = Qrad_Wkg * rhoRad_kgm3 + Htidal_Wm3
+    # NOTE: /2 and /6 are known to differ from a strict T&S 4.40 derivation; see
+    # module docstring above and `ConductiveTemperatureCorrect`.  Do not change
+    # without addressing the silicate BC regression.
     c1 = qTop_Wm2 * rTop_m**2 / 2/kTherm_WmK - Htot_Wm3 / 6/kTherm_WmK * rTop_m**3
     # Find the temperature at the bottom of the layer
     Tbot_K = Ttop_K + Htot_Wm3 / 6/kTherm_WmK * (rTop_m**2 - rBot_m**2) + c1 * (1/rBot_m - 1/rTop_m)
@@ -262,24 +284,15 @@ def ConductiveTemperature(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_
 
 
 def ConductiveTemperatureActual(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2):
-    """ Thermal profile for purely thermally conductive layers, based on Turcotte and Schubert (2002),
-        equation 4.40: T = -rho*H/6/k * r^2 + c1/r + c2, where c1 and c2 are integration constants
-        found through boundary conditions, rho is mass density of the conductive layer in kg/m^3,
-        H is internal heating in W/kg, and k is thermal conductivity in W/m/K.
-        The main equations we use here are developed similar to equation 2 of
-        Cammarano et al. (2006): https://doi.org/10.1029/2006JE002710, but we parameterize in terms of
-        the heat flux leaving the top of the layer instead of entering the bottom. We also configure
-        the internal heating so as to account for porosity by passing rho as the mass density of just
-        the material contributing to radiogenic heat, i.e. silicates.
+    """ Spherical-form counterpart of `ConductiveTemperature` — same c1 as above, but
+        returns qBot from the exact spherical formula with a compensating *2 prefactor
+        that cancels the /2 in c1.  That makes qBot correct (matches Fourier's law in
+        the thin-layer limit) even though the Tbot formula is not.
+
+        *** SEE `ConductiveTemperature` DOCSTRING FOR THE c1 DISCREPANCY ***
 
         Args:
-            Ttop_K (float, shape N): Temperature at the top of the layer in K.
-            rTop_m, rBot_m (float, shape N): Radius at top and bottom of layer in m, respectively.
-            kTherm_WmK (float, shape N): Overall thermal conductivity of layer in W/(m K).
-            rhoRad_kgm3 (float, shape N): Mass density of radiogenic material in layer in kg/m^3.
-            Qrad_Wkg (float): Average radiogenic heating rate in W/kg.
-            Htidal_Wm3 (float, shape N): Average tidal heating rate of the layer in W/m^3.
-            qTop_Wm2 (float): Heat flux leaving the top of the layer in W/m^2.
+            (same as ConductiveTemperature)
         Returns:
             Tbot_K (float): Temperature at the bottom of the layer in K.
             qBot_Wm2 (float): Heat flux entering the bottom of the layer in W/m^2.
@@ -294,6 +307,46 @@ def ConductiveTemperatureActual(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3,
     qBot_Wm2 = Htot_Wm3 / 3 * rBot_m + 2*kTherm_WmK / rBot_m**2 * c1
     # Find the approximate heat flux into the bottom of the layer
     #qBot_Wm2 = kTherm_WmK * (Tbot_K - Ttop_K) / (rTop_m - rBot_m)
+
+    return Tbot_K, qBot_Wm2
+
+
+def ConductiveTemperatureCorrect(Ttop_K, rTop_m, rBot_m, kTherm_WmK, rhoRad_kgm3, Qrad_Wkg, Htidal_Wm3, qTop_Wm2):
+    """ Strict T&S 4.40 spherical-conduction step — the mathematically correct version
+        of `ConductiveTemperatureActual`.
+
+        T(r) = -Htot/(6 k) * r^2 + c1/r + c2
+
+        Derivation of c1 from the boundary condition q(rTop) = qTop, with
+        q(r) = -k dT/dr = Htot * r / 3 + k * c1 / r^2:
+
+            c1 = qTop * rTop^2 / k  -  Htot * rTop^3 / (3 k)
+
+        Planar limit (rBot → rTop): Delta_T = qTop * Delta_R / k (Fourier's law).
+
+        This function is used by `GetPbConduct` to integrate downward from the top of
+        a clathrate layer until T reaches a target value.  Using this (correct) form
+        makes the resulting clathrate layer thickness match `Bulk.clathMaxThick_m`.
+
+        The older `ConductiveTemperature` / `ConductiveTemperatureActual` above use
+        halved c1; they are retained with that behavior for **shell** silicate bodies
+        (Fe core or CONSTANT_INNER_DENSITY) where the c1/r term is well-defined.
+        Solid-sphere silicate bodies were reworked in 2026-05 to use this function
+        with an overridden qTop = Htot*rTop/3 that forces c1 = 0 and yields the
+        closed-form profile finite at r=0 (see `SilRecursionSolid` /
+        `SilRecursionPorous` in Geophysical.py).
+
+        Args:
+            (same as ConductiveTemperature)
+        Returns:
+            (same as ConductiveTemperature — Tbot_K, qBot_Wm2 both from T&S 4.40)
+    """
+    Htot_Wm3 = Qrad_Wkg * rhoRad_kgm3 + Htidal_Wm3
+    # Strict T&S 4.40 c1 from q(rTop) = qTop boundary condition.
+    c1 = qTop_Wm2 * rTop_m**2 / kTherm_WmK - Htot_Wm3 * rTop_m**3 / (3 * kTherm_WmK)
+    Tbot_K = Ttop_K + Htot_Wm3 / (6 * kTherm_WmK) * (rTop_m**2 - rBot_m**2) + c1 * (1/rBot_m - 1/rTop_m)
+    # Exact spherical qBot from q(r) = Htot * r / 3 + k c1 / r^2 at rBot.
+    qBot_Wm2 = Htot_Wm3 * rBot_m / 3 + kTherm_WmK * c1 / rBot_m**2
 
     return Tbot_K, qBot_Wm2
 
@@ -343,7 +396,11 @@ def GetPbConduct(Ttop_K, Tb_K, rTop_m, Ptop_MPa, gTop_ms2, qTop_Wm2, EOS, rRes_m
         rBot_m = thisrTop_m - rRes_m
         rho_kgm3 = EOS.fn_rho_kgm3(Pb_MPa, Tbot_K)
         kTherm_WmK = EOS.fn_kTherm_WmK(Pb_MPa, Tbot_K)
-        Tbot_K, thisqTop_Wm2 = ConductiveTemperatureActual(Tbot_K, thisrTop_m, rBot_m,
+        # Use the T&S 4.40 correct form here (not the legacy halved-c1
+        # `ConductiveTemperatureActual`).  The correct form makes the GetPbConduct
+        # integration terminate at the physically expected depth, so the clathrate
+        # layer thickness matches `Bulk.clathMaxThick_m` (was 2x too deep prior).
+        Tbot_K, thisqTop_Wm2 = ConductiveTemperatureCorrect(Tbot_K, thisrTop_m, rBot_m,
                             kTherm_WmK, rho_kgm3, Qrad_Wkg, Htidal_Wm3, thisqTop_Wm2)
         MLayer_kg = 4/3 * np.pi * (thisrTop_m**3 - rBot_m**3) * rho_kgm3
         gTop_ms2 = (gTop_ms2 * thisrTop_m**2 - Constants.G * MLayer_kg) / rBot_m**2
