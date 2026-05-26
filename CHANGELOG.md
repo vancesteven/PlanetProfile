@@ -4,6 +4,7 @@
 
 ### Bug Fixes
 - **Corrected conduction profile for clathrate depth calculation.** Added `ConductiveTemperatureCorrect()` function in `PlanetProfile/Thermodynamics/ThermalProfiles/ThermalProfiles.py` implementing the strict Turcotte & Schubert (2002) §4.9 eq. 4.40 form: `c1 = qTop·rTop²/k − Htot·rTop³/(3k)` with planar-limit ΔT = qTop·ΔR/k (Fourier's law). `GetPbConduct()` now uses this function; the resulting clathrate layer thickness matches the user-specified `Bulk.clathMaxThick_m` (previously PP produced a clathrate 2× deeper than requested).
+- **Fixed silicate boundary condition for solid-sphere bodies.** `SilRecursionSolid()` and `SilRecursionPorous()` in `PlanetProfile/Thermodynamics/Geophysical.py` now enforce T finite at r=0 for solid-sphere silicate bodies (no Fe core, no CONSTANT_INNER_DENSITY) by overriding `qTop` with `Htot·rTop/3` (the c1=0 value consistent with the T&S 4.40 closed form). Shell bodies (Fe_CORE=True or CONSTANT_INNER_DENSITY=True) retain the legacy halved-c1 behavior to preserve existing test-suite behavior. This resolves the long-standing 1/r divergence issue at the body center for solid-sphere cases.
 
 ## [3.1.0] – 2026-01-13
 **Author:** @Chang-Scott

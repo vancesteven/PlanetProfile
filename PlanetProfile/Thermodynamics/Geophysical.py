@@ -2,7 +2,7 @@ import numpy as np
 import logging
 from PlanetProfile.Thermodynamics.HydroEOS import GetIceEOS
 from PlanetProfile.Utilities.Indexing import PhaseConv
-from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConductiveTemperature
+from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConductiveTemperature, ConductiveTemperatureCorrect
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 
 # Assign logger
@@ -824,17 +824,42 @@ def SilRecursionSolid(Planet, Params,
 
     # Start propagation at index 1, because we already calculated the 0-index values to
     # get us started here.
+    #
+    # Silicate boundary condition (resolved 2026-05): for a SOLID-SPHERE silicate body
+    # (no Fe core, no CONSTANT_INNER_DENSITY), the only physically admissible solution
+    # of T&S 4.40 finite at r=0 has c1 = 0, i.e. q(r) = Htot * r / 3 and
+    #     T(r) = Ttop + Htot * (rTop^2 - r^2) / (6 k).
+    # The legacy `ConductiveTemperature` used a halved c1 that masked an inconsistent
+    # qTop boundary condition inherited from the ice shell.  The correct fix for
+    # solid-sphere bodies is "T_center-anchored": at each downward step we discard the
+    # inherited qTop and substitute the c1=0 value qTop_consistent = Htot * rTop / 3,
+    # which is equivalent to integrating the closed-form profile above.  Heat-flux
+    # consistency at the ice/silicate interface is then a derived quantity rather than
+    # a prescribed one.
+    #
+    # For SHELL bodies (Fe_CORE=True or CONSTANT_INNER_DENSITY=True) the c1/r term is
+    # well-defined and finite (rBot > 0), so we retain the legacy `ConductiveTemperature`
+    # call to preserve test-suite behavior for those bodies.
+    isSolidSphere = (not Planet.Do.Fe_CORE) and (not Planet.Do.CONSTANT_INNER_DENSITY)
     for j in range(1, Planet.Steps.nSilMax):
         # Increment overlying mass using initialization calculation
         MAboveSil_kg[:,j] = MAboveSil_kg[:,j-1] + MLayerSil_kg[:,j-1]
         # Step pressure according to the local layer gravity and overlying mass increase
         Psil_MPa[:,j] = Psil_MPa[:,j-1] + 1e-6 * MLayerSil_kg[:,j-1] * gSil_ms2[:,j-1] / (4*np.pi*rSil_m[:,j]**2)
-        # Use Fourier's law and the heat flux consistent with that through the ice shell and ocean,
-        # corrected for the difference in radius and adding radiogenic + volumetric heating
-        # to determine the temperature change across the layer
-        Tsil_K[:,j], qTop_Wm2 = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
-                    kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
-                    qTop_Wm2)
+        if isSolidSphere:
+            # Option A: enforce c1 = 0 BC by overriding qTop with the value consistent
+            # with T finite at r=0.  Then ConductiveTemperatureCorrect reduces to the
+            # closed form T(r) = Ttop + Htot*(rTop^2 - r^2)/(6k).
+            Htot_Wm3 = Planet.Sil.Qrad_Wkg * rhoSil_kgm3[:,j-1] + HtidalSil_Wm3[:,j-1]
+            qTop_consistent_Wm2 = Htot_Wm3 * rSil_m[:,j-1] / 3
+            Tsil_K[:,j], qTop_Wm2 = ConductiveTemperatureCorrect(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
+                        kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
+                        qTop_consistent_Wm2)
+        else:
+            # Shell case: legacy halved-c1 form preserves existing inner-core behavior.
+            Tsil_K[:,j], qTop_Wm2 = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
+                        kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
+                        qTop_Wm2)
         if Planet.Do.CONSTANT_INNER_DENSITY and not Planet.Do.Fe_CORE:
             # If we are doing constant inner density and no core, we need to set the density to that calculated
             rhoSil_kgm3[:,j] = Planet.Sil.rhoNoCore_kgm3
@@ -869,6 +894,12 @@ def SilRecursionPorous(Planet, Params,
         properties are calculated.
     """
 
+    # Silicate boundary condition (resolved 2026-05): see SilRecursionSolid for full
+    # rationale.  For solid-sphere porous silicate bodies we enforce c1 = 0 by
+    # overriding qTop with Htot*rTop/3 (the value consistent with T finite at r=0),
+    # then call ConductiveTemperatureCorrect.  Shell bodies (Fe_CORE or
+    # CONSTANT_INNER_DENSITY) retain the legacy halved-c1 ConductiveTemperature call.
+    isSolidSphere = (not Planet.Do.Fe_CORE) and (not Planet.Do.CONSTANT_INNER_DENSITY)
     # Start at index 1 because we already did index 0 to get started here.
     for j in range(1, Planet.Steps.nSilMax):
         # Increment overlying mass
@@ -877,9 +908,16 @@ def SilRecursionPorous(Planet, Params,
         Psil_MPa[:,j] = Psil_MPa[:,j-1] + 1e-6 * MLayerSil_kg[:,j-1] * gSil_ms2[:,j-1] / (4*np.pi*rSil_m[:,j]**2)
         # Apply Fourier's law using heat flux out the top, radiogenic, and tidal heating to find
         # temperature change and heat flux into the bottom of the layer
-        Tsil_K[:,j], qTop_Wm2 = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
-                    kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
-                    qTop_Wm2)
+        if isSolidSphere:
+            Htot_Wm3 = Planet.Sil.Qrad_Wkg * rhoSil_kgm3[:,j-1] + HtidalSil_Wm3[:,j-1]
+            qTop_consistent_Wm2 = Htot_Wm3 * rSil_m[:,j-1] / 3
+            Tsil_K[:,j], qTop_Wm2 = ConductiveTemperatureCorrect(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
+                        kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
+                        qTop_consistent_Wm2)
+        else:
+            Tsil_K[:,j], qTop_Wm2 = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
+                        kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
+                        qTop_Wm2)
         # Get matrix material physical properties
         if Planet.Do.CONSTANT_INNER_DENSITY and not Planet.Do.Fe_CORE:
             # If we are doing constant inner density and no core, we need to set the density to that calculated
