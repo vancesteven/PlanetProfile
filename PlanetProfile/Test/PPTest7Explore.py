@@ -59,3 +59,6 @@ Planet.Core.xH2O = 0.0035
 
 """ Seismic properties of solids """
 Planet.Seismic.lowQDiv = 1.0
+
+""" Magnetic induction """
+Planet.Magnetic.pMax = 0  # Spherically symmetric (required for inductograms)

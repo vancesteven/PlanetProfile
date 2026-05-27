@@ -639,6 +639,15 @@ def WriteProfile(Planet, Params):
             f.write(line)
 
     log.info(f'Profile saved to file: {Params.DataFiles.saveFile}')
+
+    # Write CSV version of profile data
+    try:
+        from PlanetProfile.Utilities.HumanReadableOutput import WriteProfileCSV
+        csv_path = WriteProfileCSV(Planet, Params)
+        log.info(f'Profile CSV saved to: {csv_path}')
+    except Exception as e:
+        log.warning(f'Failed to write CSV profile: {e}')
+
     return
 
 
