@@ -5,6 +5,9 @@ configGravityVersion = 4 # Integer number for config file version. Increment whe
 
 def gravityAssign():
     GravityParams = GravityParamsStruct()
+    # Backend: 'pyalma' (default, uses PyALMA3) or 'tidalpy' (per-layer tidal heating dissipation)
+    GravityParams.backend = 'pyalma'
+
     # Verbose settings of PyALMA - #TODO: Need to update PYALMA to use logger
     GravityParams.verbose = True
 
@@ -12,9 +15,12 @@ def gravityAssign():
     GravityParams.parallel = False  # Use Parallel computing for PyALMA calculations. #TODO: Need to implement way to do this if Parallel already being used in Exploreogram
 
     # Rheology model for each layer
-    GravityParams.rheology_models = {'0': 'newton', 'Ih': 'elastic', 'Ih_conv': 'andrade','II': 'maxwell', 'III': 'maxwell', 'III_conv': 'andrade',
-                                     'IV': 'maxwell', 'V': 'maxwell','V_conv': 'andrade', 'VI': 'maxwell',
-                                     'Sil': 'elastic', 'Sil_conv': 'elastic','Fe': 'elastic', 'Clath': 'newton', 'Clath_conv': 'andrade'}  # Rheology structure model, where each model corresponds to a layer
+    # Options: 'andrade', 'maxwell', 'elastic', 'newton'
+    # TidalPy backend supports all four; PyALMA3 backend supports andrade, maxwell, elastic, newton
+    GravityParams.rheology_models = {'0': 'newton', 'Ih': 'andrade', 'Ih_conv': 'andrade',
+                                     'II': 'andrade', 'III': 'andrade', 'III_conv': 'andrade',
+                                     'IV': 'andrade', 'V': 'andrade', 'V_conv': 'andrade', 'VI': 'andrade',
+                                     'Sil': 'andrade', 'Fe': 'elastic', 'Clath': 'elastic', 'Clath_conv': 'andrade'}  # Rheology structure model, where each model corresponds to a layer
 
     # General parameters
     GravityParams.num_digits = 128  # Set precision

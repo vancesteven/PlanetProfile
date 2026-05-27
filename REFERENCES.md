@@ -139,9 +139,40 @@ DOI: [10.1007/s11214-023-01025-2](https://doi.org/10.1007/s11214-023-01025-2)
 
 ---
 
+## Tidal Heating and Viscoelastic Theory
+
+**[11]** Tobie, G., Mocquet, A., & Sotin, C. (2003).
+*Tidal dissipation within large icy satellites: Applications to Europa and Titan.*
+Icarus, 177(2), 534–549. DOI: [10.1016/j.icarus.2005.04.006](https://doi.org/10.1016/j.icarus.2005.04.006)
+> Foundational paper for viscoelastic tidal theory in icy satellites. Derives Love
+> numbers for Maxwell and Andrade rheologies, and volumetric tidal heating H(r)
+> from Im(k₂). Used by TidalPy backend for self-consistent tidal-thermal coupling.
+
+**[12]** Tobie, G., Grasset, O., Lunine, J. I., Mocquet, A., & Sotin, C. (2005).
+*Titan's internal structure inferred from a coupled thermal-orbital model.*
+Icarus, 175(2), 496-502. DOI: [10.1016/j.icarus.2004.12.007](https://doi.org/10.1016/j.icarus.2004.12.007)
+> Application of viscoelastic tidal theory to Titan. Demonstrates self-consistent
+> coupling between interior structure, tidal heating, and orbital evolution. 
+> Benchmark calculations for TidalPy backend validation.
+
+**[13]** Renaud, J. P., & Henning, W. G. (2018).
+*Increased tidal dissipation using advanced rheological models: Implications for Io and tidally active exoplanets.*
+The Astrophysical Journal, 857(2), 98. DOI: [10.3847/1538-4357/aab784](https://doi.org/10.3847/1538-4357/aab784)
+> Demonstrates superiority of Andrade rheology over Maxwell for ice deformation.
+> Shows frequency-dependent tidal quality factor Q(ω) matches laboratory data.
+> Justifies Andrade model use in TidalPy backend.
+
+**[14]** Roberts, J. H., & Nimmo, F. (2008).
+*Tidal heating and the long-term stability of a subsurface ocean on Enceladus.*
+Icarus, 194(2), 675-689. DOI: [10.1016/j.icarus.2007.11.010](https://doi.org/10.1016/j.icarus.2007.11.010)
+> Calculation of tidal heating distribution H(r) in Enceladus using viscoelastic
+> propagator-matrix method. Validation reference for TidalPy per-phase heating rates.
+
+---
+
 ## Geophysics textbook
 
-**[10]** Turcotte, D. L., & Schubert, G. (2014).
+**[15]** Turcotte, D. L., & Schubert, G. (2014).
 *Geodynamics.* 3rd ed. Cambridge University Press.
 ISBN: 978-1-107-00653-9 (hardback), 978-0-521-18623-0 (paperback).
 > Key textbook reference for heat transfer, gravity, stress/strain, fluid

@@ -55,6 +55,9 @@ Repository = "https://github.com/vancesteven/PlanetProfile"
 Publication = "https://doi.org/10.1029/2022EA002748"
 Changelog = "https://github.com/vancesteven/PlanetProfile/blob/main/CHANGELOG.md"
 
+[project.optional-dependencies]
+tidal = ["TidalPy>=0.7.4"]
+
 [tool.setuptools]
 include-package-data = true
 
