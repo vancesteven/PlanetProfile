@@ -697,7 +697,7 @@ def _run_tidalpy_backend(Planet, Params):
 
                     # Proper integral: total_power = integral H(r) * 4*pi*r^2 dr
                     if len(layer_radii) > 1:
-                        total_power = np.trapz(layer_heating * 4.0 * np.pi * layer_radii**2, layer_radii)
+                        total_power = np.trapezoid(layer_heating * 4.0 * np.pi * layer_radii**2, layer_radii)
                     else:
                         # Single point — fall back to mean*V
                         V_layer = (4.0 / 3.0) * np.pi * (r_hi**3 - r_lo**3)
