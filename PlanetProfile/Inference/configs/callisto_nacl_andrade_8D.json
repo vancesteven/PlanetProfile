@@ -40,8 +40,8 @@
     "Tb_K": {
       "prior_type": "uniform",
       "bounds": [
-        252.2,
-        263.0
+        250.0,
+        254.9
       ]
     },
     "R_core_km": {
@@ -121,7 +121,7 @@
     "ocean_composition": "NaCl 100 ppt (switched from MgSO4 100 ppt \u2014 SeaFreeze NaCl EOS extends to P=5000 MPa, T=501 K; the MgSO4 EOS only covers P<800 MPa and forces slow extrapolation regeneration when Callisto's ocean conditions exceed it)",
     "primary_constraint": "CMR2 from Anderson et al. (2001)",
     "k2_status": "NOT INCLUDED - no published k2 measurement. Add when available.",
-    "Tb_bounds_rationale": "Lower bound 252.2 K = TtripleIh_III_L_K + 1 K (approaches but does not cross the no-ocean limit). Upper bound 263.0 K is preliminary, targeting ~50 km Ih shell at the thin end. Refine in Stage 3 by running PP at the boundary Tb values. Default PP Tb=262.0 K sits inside the range.",
+    "Tb_bounds_rationale": "Tb_K=[250.0, 254.9] K targets the geological-likely range D_iceIh=[~102, ~140] km with D_ocean spanning [10, ~67] km. Cold bound 250.0 K corresponds to D_ocean=10.2 km — within the user's 'within 10 km of frozen' spec. NOTE: 250.0 K is BELOW the pure-water Ih-III-L triple point (251.165 K), but PP converges and produces physical structures because NaCl 100 ppt depresses the freezing point. The relevant ice-fluid coexistence at this composition may be Ih-II-L rather than Ih-III-L; PP-via-SeaFreeze handles the brine equilibria correctly. Probed via PlanetProfile.Inference.find_tb_bounds at Tb={249.0, 249.5, 250.0, 250.5, 251.0} K (D_ocean = {0, 6.8, 10.2, 13.7, 17.1} km respectively); composition-aware triple-point lookup is tracked as future PP work. Warm bound 254.9 K gives D_iceIh=102 km. Default PP Tb=262.0 K is now ABOVE the prior range — this config tightens the upper bound to enforce D_iceIh ≥ 100 km per the geological-minimum spec.",
     "no_ocean_variant_note": "Callisto may have no ocean at all; that case will be modeled as a separate config (analogous to Test50 for Titan), not via this ocean-bearing config.",
     "core_bounds_rationale": "R_core in [0, 0.5 R_body] permits the no-core limit; rho_core in [5000, 8000] kg/m^3 brackets metallic Fe / Fe-S compositions. rho_sil is derived from M_total mass conservation given the cached ice+ocean profile and sampled core; samples with rho_sil outside [1800, 3500] kg/m^3 are rejected by the likelihood. Lower bound is 1800 (not the 2200 used for Europa/Ganymede) because Callisto's silicate is porous (phi_vac approximately 0.91 from PP MoI matching), giving cached rho_sil approximately 2025 kg/m^3. Tightening to 2200 rejected every MCMC sample at the mass-conservation gate.",
     "next_step_after_C1": "Per-composition runs by sweeping NaCl wOcean_ppt in 0.1 molal increments (~5.84 ppt steps) using the SeaFreeze NaCl representation. The ocean_overrides block in this config is the knob.",

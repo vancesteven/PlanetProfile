@@ -442,6 +442,14 @@ def build_single_structure(
         log.debug(f"Magnetic substruct unavailable ({_exc}); induction "
                   "fields set to None.")
 
+    # Phase-code → label mapping required by compute_heating (forward_models.py).
+    # Same hardcoded mapping as PlanetProfileApp's extract_structure_from_planet
+    # (structure_cache.py). PP phase codes: 0=ocean, 1=Ih, 2=II, 3=III, 5=V,
+    # 6=VI; PhaseConv() in Electrical.py is the source of truth, but we keep
+    # this dict here because compute_heating accesses it positionally and a
+    # round-trip through PhaseConv would slow the per-sample heating loop.
+    phase_map = {0: '0', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
+
     return {
         "r_m": np.ascontiguousarray(r_m),
         "rho": np.ascontiguousarray(rho),
@@ -458,6 +466,7 @@ def build_single_structure(
         "layer_upper_radii": tuple(layer_upper_radii),
         "layer_types": tuple(layer_types),
         "region_phases": region_phases,
+        "phase_map": phase_map,
         "omega": omega,
         "eccentricity": ecc,
         "host_mass": host_mass,
@@ -474,6 +483,15 @@ def build_single_structure(
         "D_iceIII_km": D_iceIII_km,
         "D_iceV_km": D_iceV_km,
         "D_iceVI_km": D_iceVI_km,
+        # Ocean thickness = total hydrosphere − all ice phases. Required by
+        # mcmc_plots.plot_layers_vs_docean and the per-sample D_ocean_km
+        # extracted in the runner's recomputation pass. Without this key, the
+        # plotter falls through to its `pt.get('D_ocean_km', 0.0)` default and
+        # renders the (incorrect) "no-ocean: 100%" panel for Europa.
+        "D_ocean_km": max(
+            0.0,
+            D_hsphere_km - D_iceIh_km - D_iceIII_km - D_iceV_km - D_iceVI_km,
+        ),
         # C2-B induction layered representation
         "rSigChange_m": rSigChange_m,
         "sigmaLayers_Sm": sigmaLayers_Sm,

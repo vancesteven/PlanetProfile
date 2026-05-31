@@ -33,8 +33,8 @@
     "Tb_K": {
       "prior_type": "uniform",
       "bounds": [
-        260.5,
-        270.0
+        259.5,
+        271.0
       ]
     },
     "R_core_km": {
@@ -103,7 +103,7 @@
     "ocean_composition": "Seawater (Constants.stdSeawater_ppt)",
     "primary_constraint": "CMR2 from Gomez Casajus et al. (2021)",
     "k2_status": "PLACEHOLDER - Re(k2) and Im(k2) values are theoretical with wide error bars pending Europa Clipper / JUICE measurements. Update when published.",
-    "Tb_bounds_rationale": "Preliminary estimate targeting Ih shell thickness 3-100 km. Refine in Stage 3 by running PP at the boundary Tb values to confirm the actual thickness target. Default PP Tb=268.305 K sits inside the range.",
+    "Tb_bounds_rationale": "Tb_K=[259.5, 271.0] K targets the geological-likely range D_iceIh=[~3, ~100] km. Lower bound: 259.5 K is the coldest Tb at which PP's MoI iteration converges with the default Europa template's R_core/rho_sil bounds (gives D_iceIh=98.3 km, D_ocean=0 km — the no-ocean limit). Going colder requires widening the template's silicate-density search. Upper bound: 271.0 K gives D_iceIh=2.65 km; above ~271.25 K PP raises 'No valid phase transition' (ice shell extinct). Probed via PlanetProfile.Inference.find_tb_bounds, 2026-05-23.",
     "core_bounds_rationale": "R_core in [0, 0.5 R_body] permits the no-core limit; rho_core in [5000, 8000] kg/m^3 brackets metallic Fe / Fe-S compositions. rho_sil is derived from M_total mass conservation given the cached ice+ocean profile and sampled core; samples with rho_sil outside [2200, 3500] kg/m^3 are rejected by the likelihood.",
     "stage2_dependencies": "Toolkit must (a) parse the derived_params block, (b) implement the rho_sil mass-conservation solver and rejection, (c) extend the structure cache to include M_ice_kg / M_ocean_kg / R_oceanbot_m / M_total_kg per Tb point, (d) recompute CMR2 from the sampled core + derived rho_sil + cached ice/ocean profile.",
     "stage3_dependencies": "Build Tb-grid structure cache for Europa with seawater ocean across the sampled Tb range."

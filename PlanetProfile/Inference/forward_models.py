@@ -253,10 +253,18 @@ _BLEND_CONT_FIELDS = ('rho', 'K_Pa', 'mu_Pa', 'eta_Pa_base',
                       'T_K', 'P_MPa', 'bulk_visc', 'sigma_Sm')
 _BLEND_SCALAR_FIELDS = ('Tb_K', 'CMR2', 'J2', 'C22',
                         'rhoSil_kgm3', 'D_hsphere_km',
-                        'D_iceIh_km', 'D_iceIII_km', 'D_iceV_km', 'D_iceVI_km')
+                        'D_iceIh_km', 'D_iceIII_km', 'D_iceV_km', 'D_iceVI_km',
+                        # Ocean thickness (cache_builder writes this as
+                        # D_hsphere − sum(D_ice_phases); needed by the runner's
+                        # per-sample D_ocean_results recomputation and by the
+                        # corner / layers_vs_docean plotters)
+                        'D_ocean_km')
 _BLEND_META_FIELDS = ('omega', 'eccentricity', 'host_mass', 'a_m',
                       'R_body_m', 'Mtot_kg', 'phases', 'changeIndices',
                       'n_layers', 'layer_types', 'region_phases',
+                      # Phase-code → label dict required by compute_heating;
+                      # identical across all per-Tb structures, so copy from s0.
+                      'phase_map',
                       # Induction body-fixed props copied from s0
                       'Texc_hr')
 # Per-region arrays from PP's induction setup. Element-wise blend if

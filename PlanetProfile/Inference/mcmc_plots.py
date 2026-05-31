@@ -832,7 +832,14 @@ def plot_layers_vs_docean(
         log.warning('plot_layers_vs_docean: no valid samples, skipping.')
         return
 
-    model_data.sort(key=lambda r: (r['f_sil'], r['D_ocean']))
+    # Sort by ascending Ice Ih thickness — the most informative ordering for
+    # ocean-world posteriors (warm-Tb thin-shell models on the left, cold-Tb
+    # thick-shell models on the right). Test48's original f_sil ordering made
+    # sense for the no-ocean Titan case where silicate dissipation dominated;
+    # for Europa/Ganymede/Callisto with active oceans, ice-shell thickness
+    # is the more interpretable abscissa.
+    model_data.sort(key=lambda r: r.get('Ih', 0.0))
+    d_ih_vals    = np.array([r.get('Ih', 0.0) for r in model_data])
     d_ocean_vals = np.array([r['D_ocean'] for r in model_data])
     f_sil_vals   = np.array([r['f_sil']  for r in model_data])
     no_ocean_frac = np.mean(d_ocean_vals < 0.5)
@@ -851,15 +858,20 @@ def plot_layers_vs_docean(
     ax_dens.set_ylabel('Density', fontsize=9)
     ax_dens.set_title(
         f'{body_name} Interior Structure — All Posterior Models'
-        f'  (no-ocean: {no_ocean_frac:.0%};  sorted by $f_\\mathrm{{sil}}$, '
-        f'then $D_\\mathrm{{ocean}}$)',
+        f'  (no-ocean: {no_ocean_frac:.0%};  sorted by ascending $D_\\mathrm{{Ih}}$)',
         fontsize=12,
     )
     ax_dens.tick_params(labelsize=8)
     ax_dens.legend(fontsize=8)
 
-    # Middle: stackplot
-    stack_phases = ['Core', 'Sil', 'VI', 'V', 'III', '0', 'Ih']
+    # Middle: stackplot. Drop phases that contribute zero across all models
+    # so the legend only lists phases physically present (e.g., Europa under
+    # Seawater has no HP ices; Callisto with NaCl 100 ppt has no HP ices and
+    # may have no Fe core depending on the prior). Threshold 0.1 km handles
+    # numerical noise without dropping genuinely-thin layers.
+    _all_stack_phases = ['Core', 'Sil', 'VI', 'V', 'III', '0', 'Ih']
+    stack_phases = [p for p in _all_stack_phases
+                    if max(r.get(p, 0.0) for r in model_data) > 0.1]
     x      = np.arange(len(model_data))
     stacks = [np.array([r.get(p, 0.0) for r in model_data]) for p in stack_phases]
     colors = [_FULL_PHASE_COLORS.get(p, '#cccccc') for p in stack_phases]
@@ -907,14 +919,14 @@ def plot_layers_vs_docean(
     n_ticks = 8
     tick_positions = np.linspace(0, len(model_data) - 1, n_ticks, dtype=int)
     tick_labels = [
-        f'{f_sil_vals[i]:.2f}\n({d_ocean_vals[i]:.0f} km)'
+        f'{d_ih_vals[i]:.0f}\n({d_ocean_vals[i]:.0f} km)'
         for i in tick_positions
     ]
     ax_heat.set_xticks(tick_positions)
     ax_heat.set_xticklabels(tick_labels, fontsize=8)
     ax_heat.set_xlabel(
-        r'$f_\mathrm{sil}$  ($D_\mathrm{ocean}$)   '
-        '[models sorted ascending]',
+        r'$D_\mathrm{Ih}$ (km)   ($D_\mathrm{ocean}$)   '
+        '[models sorted ascending in $D_\mathrm{Ih}$]',
         fontsize=11,
     )
 

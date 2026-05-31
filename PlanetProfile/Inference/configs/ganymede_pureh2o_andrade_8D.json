@@ -40,8 +40,8 @@
     "Tb_K": {
       "prior_type": "uniform",
       "bounds": [
-        252.2,
-        261.0
+        251.5,
+        267.5
       ]
     },
     "R_core_km": {
@@ -117,7 +117,7 @@
     "ocean_composition": "PureH2O",
     "primary_constraint": "CMR2 from Schubert et al. (2004), Jupiter system chapter",
     "k2_status": "NOT INCLUDED - no published k2 measurement for Ganymede. JUICE will provide constraints (~2034). Add to observables once available.",
-    "Tb_bounds_rationale": "Lower bound 252.2 K = TtripleIh_III_L_K + 1 K (approaches but does not cross the no-ocean limit). Upper bound 261.0 K is preliminary, targeting ~50 km Ih shell at the thin end. Refine in Stage 3 by running PP at the boundary Tb values. Default PP Tb=258.86 K sits inside the range.",
+    "Tb_bounds_rationale": "Tb_K=[251.5, 267.5] K targets the geological-likely range D_iceIh=[~50, ~149] km with D_ocean spanning [12.3, ~412] km. Lower bound: 251.5 K is just above TtripleIh_III_L_K=251.165 K and gives D_ocean=12.3 km — within the user's 'within 10 km of frozen' spec for Ganymede. Upper bound: 267.5 K gives D_iceIh~50 km (probed: Tb=267 → D_iceIh=53 km, Tb=268 → 46 km). Probed via PlanetProfile.Inference.find_tb_bounds, 2026-05-23.",
     "core_bounds_rationale": "R_core in [0, 0.5 R_body] permits the no-core limit; rho_core in [5000, 8000] kg/m^3 brackets metallic Fe / Fe-S compositions. rho_sil is derived from M_total mass conservation given the cached ice+ocean profile and sampled core; samples with rho_sil outside [2200, 3500] kg/m^3 are rejected by the likelihood.",
     "next_step_after_C1": "Per-composition runs by adding 0.1 molal increments of NaCl to the ocean using the SeaFreeze NaCl representation (deferred - not part of Phase C1).",
     "stage2_dependencies": "Toolkit must (a) parse the derived_params block, (b) implement the rho_sil mass-conservation solver and rejection, (c) extend the structure cache to include M_ice_kg / M_ocean_kg / R_oceanbot_m / M_total_kg per Tb point, (d) recompute CMR2 from the sampled core + derived rho_sil + cached ice/ocean profile.",
