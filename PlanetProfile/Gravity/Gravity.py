@@ -42,6 +42,8 @@ def GravityParameters(Planet, Params):
                 if not _TIDALPY_AVAILABLE:
                     raise ImportError('TidalPy backend selected but not installed. Install: pip install TidalPy')
                 Planet = _run_tidalpy_backend(Planet, Params)
+                # Transfer TidalPy heating profile to Planet.Htidal_Wm3 for output
+                Planet = TransferTidalPyHeatingToProfile(Planet)
             else:
                 # --- PyALMA3 backend ---
                 # Apply per-point Andrade zeta by monkeypatching get_rheology.
@@ -652,7 +654,11 @@ def _run_tidalpy_backend(Planet, Params):
 
     # Per-layer tidal heating
     if Planet.Bulk.eccentricity is not None and Planet.Bulk.eccentricity > 0:
-        parent = Planet.parent
+        # Get parent body name - check explicit setting first, then infer from body name
+        parent = getattr(Planet.Bulk, 'parentName', None)
+        if parent is None:
+            from PlanetProfile.Utilities.defineStructs import ParentName
+            parent = ParentName(Planet.name)
         if parent in Constants.parentMass_kg:
             host_mass = Constants.parentMass_kg[parent]
             # Semi-major axis from Kepler III: a = (G*M_host / n^2)^(1/3)
@@ -727,6 +733,38 @@ def _run_tidalpy_backend(Planet, Params):
                 log.info(f'  {ps:6s}: {power/1e9:8.2f} GW  ({perPhase_Wm3[ps]:.3e} W/m^3)')
         else:
             log.warning(f'Cannot compute per-layer heating: no parent mass for "{parent}"')
+
+    return Planet
+
+
+def TransferTidalPyHeatingToProfile(Planet):
+    """Transfer TidalPy radial heating profile to Planet.Htidal_Wm3 for output.
+
+    This must be called AFTER SetupGravity but BEFORE WriteProfile to ensure
+    the self-consistent heating profile is included in the CSV output.
+    """
+    if not hasattr(Planet.Gravity, 'tidalpy_Htidal_Wm3'):
+        return Planet
+
+    if not hasattr(Planet, 'Htidal_Wm3'):
+        log.warning('Planet.Htidal_Wm3 does not exist yet - cannot transfer TidalPy profile')
+        return Planet
+
+    tidalpy_profile = Planet.Gravity.tidalpy_Htidal_Wm3
+
+    # TidalPy profile uses the reduced model grid (core to surface)
+    # Planet.Htidal_Wm3 uses the full model grid (surface to core)
+    # They may have different lengths, so we need to interpolate
+
+    if len(tidalpy_profile) == len(Planet.Htidal_Wm3):
+        # Same length - direct assignment
+        Planet.Htidal_Wm3 = tidalpy_profile
+        log.info(f'Applied TidalPy self-consistent heating profile to Planet.Htidal_Wm3 ({len(tidalpy_profile)} points)')
+    else:
+        # Different lengths - need to map from reduced to full grid
+        # For now, log a warning
+        log.warning(f'TidalPy heating profile length ({len(tidalpy_profile)}) != Planet.Htidal_Wm3 length ({len(Planet.Htidal_Wm3)})')
+        log.warning(f'Profile transfer not yet implemented for mismatched lengths - using per-phase averages instead')
 
     return Planet
 

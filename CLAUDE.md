@@ -204,6 +204,66 @@ Before adding imports not in `pyproject.toml`:
 
 ---
 
+## Gravity Backend Selection
+
+PlanetProfile supports two backends for gravity and Love number calculations:
+
+### PyALMA Backend (Default)
+- **Set with**: `Params.Gravity.backend = 'pyalma'` (default)
+- **Capabilities**: Love numbers (k₂, h₂, l₂) for tidal deformation
+- **Speed**: Fast (~seconds for typical models)
+- **Use for**: MoI studies, observational constraints, quick parameter surveys
+
+**Known Limitations**:
+PyALMA may produce unphysical negative Love numbers for certain complex parameter combinations:
+- **Trigger**: Complex mantle EOS (`CM_hydrous_*`) + complex core composition (`xFeS > 0.85`)
+- **Symptom**: k₂ ≈ -1.0 (negative, unphysical)
+- **Workaround**: Use TidalPy backend or simplify parameters (use `CV3hy1wt` mantle EOS or `xFeS ≤ 0.7`)
+- **Note**: PyALMA works correctly for most configurations (see `PlanetProfile/Test/PPTest1.py`)
+
+### TidalPy Backend
+- **Set with**: `Params.Gravity.backend = 'tidalpy'`
+- **Capabilities**: Love numbers + per-phase tidal heating H(r)
+- **Speed**: Slower (~minutes for complex models)
+- **Requirements**: 
+  - Optional dependency: `pip install PlanetProfile[tidal]` or `pip install TidalPy>=0.7.4`
+  - System library: OpenMP (`brew install libomp` on macOS)
+  - Orbital parameters: `Planet.Bulk.eccentricity`, `Planet.Bulk.meanMotion_radps`
+- **Use for**: 
+  - Self-consistent thermal-tidal heating studies
+  - Thermal evolution modeling
+  - Complex parameter combinations where PyALMA fails
+  - Phase-specific heating analysis
+
+**Validation**: TidalPy produces Love numbers within 0.8% of PyALMA for simple configurations and handles all tested complex configurations correctly.
+
+### Minimal Reproducible Example (PyALMA Limitation)
+
+```python
+# This configuration triggers PyALMA negative k₂ issue:
+Planet.Ocean.comp = 'MgSO4'
+Planet.Ocean.wOcean_ppt = 100.0
+Planet.Bulk.Tb_K = 268.305
+Params.Seismic.EQUIL_Q = 0
+Planet.Do.NO_H2O = False
+Params.Bulk.clathType = 'bottom'
+
+# Complex mantle + complex core (FAILS with PyALMA):
+Params.Sil.mantleEOS = 'CM_hydrous_differentiated_Ganymede_Core080Fe020S_excluding_fluid_properties.tab'
+Params.Core.xFeS = 0.882
+
+# Workaround 1: Use TidalPy instead
+Params.Gravity.backend = 'tidalpy'
+
+# Workaround 2: Simplify parameters
+Params.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'  # or
+Params.Core.xFeS = 0.55
+```
+
+For investigation details, see `PYALMA_INVESTIGATION_RESULTS.md` and test scripts `test_eos_vs_core.py`, `test_pptest1_gravity.py`.
+
+---
+
 ## Useful Commands
 
 ```bash

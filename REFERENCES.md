@@ -141,32 +141,47 @@ DOI: [10.1007/s11214-023-01025-2](https://doi.org/10.1007/s11214-023-01025-2)
 
 ## Tidal Heating and Viscoelastic Theory
 
-**[11]** Tobie, G., Mocquet, A., & Sotin, C. (2003).
+**[16]** Tobie, G., Choblet, G., & Sotin, C. (2003).
+*Tidally heated convection: Constraints on Europa's ice shell thickness.*
+Journal of Geophysical Research, 108(E11), 5124.
+DOI: [10.1029/2003JE002099](https://doi.org/10.1029/2003JE002099)
+> Key reference for Europa ice-shell convection coupled to heterogeneous tidal
+> heating. Uses 2D stagnant-lid convection with temperature-dependent
+> Newtonian viscosity, Maxwell viscoelastic tidal dissipation, and partial
+> melting to constrain convective ice-shell thickness and heat flux.
+
+**[17]** Tobie, G., Mocquet, A., & Sotin, C. (2005).
 *Tidal dissipation within large icy satellites: Applications to Europa and Titan.*
-Icarus, 177(2), 534–549. DOI: [10.1016/j.icarus.2005.04.006](https://doi.org/10.1016/j.icarus.2005.04.006)
-> Foundational paper for viscoelastic tidal theory in icy satellites. Derives Love
-> numbers for Maxwell and Andrade rheologies, and volumetric tidal heating H(r)
-> from Im(k₂). Used by TidalPy backend for self-consistent tidal-thermal coupling.
+Icarus, 177(2), 534-549.
+DOI: [10.1016/j.icarus.2005.04.006](https://doi.org/10.1016/j.icarus.2005.04.006)
+> Foundational reference for calculating radial and lateral tidal dissipation
+> in large icy satellites. Develops a variational-principle approach tied to
+> viscoelastic parameters and applies it to Europa- and Titan-like interiors,
+> including the influence of subsurface oceans on dissipation patterns.
 
-**[12]** Tobie, G., Grasset, O., Lunine, J. I., Mocquet, A., & Sotin, C. (2005).
+**[18]** Tobie, G., Grasset, O., Lunine, J. I., Mocquet, A., & Sotin, C. (2005).
 *Titan's internal structure inferred from a coupled thermal-orbital model.*
-Icarus, 175(2), 496-502. DOI: [10.1016/j.icarus.2004.12.007](https://doi.org/10.1016/j.icarus.2004.12.007)
-> Application of viscoelastic tidal theory to Titan. Demonstrates self-consistent
-> coupling between interior structure, tidal heating, and orbital evolution. 
-> Benchmark calculations for TidalPy backend validation.
+Icarus, 175(2), 496-502.
+DOI: [10.1016/j.icarus.2004.12.007](https://doi.org/10.1016/j.icarus.2004.12.007)
+> Application of viscoelastic tidal theory to Titan. Demonstrates
+> self-consistent coupling between interior structure, tidal heating, and
+> orbital evolution. Benchmark calculations for TidalPy backend validation.
 
-**[13]** Renaud, J. P., & Henning, W. G. (2018).
+**[19]** Renaud, J. P., & Henning, W. G. (2018).
 *Increased tidal dissipation using advanced rheological models: Implications for Io and tidally active exoplanets.*
-The Astrophysical Journal, 857(2), 98. DOI: [10.3847/1538-4357/aab784](https://doi.org/10.3847/1538-4357/aab784)
-> Demonstrates superiority of Andrade rheology over Maxwell for ice deformation.
-> Shows frequency-dependent tidal quality factor Q(ω) matches laboratory data.
-> Justifies Andrade model use in TidalPy backend.
+The Astrophysical Journal, 857(2), 98.
+DOI: [10.3847/1538-4357/aab784](https://doi.org/10.3847/1538-4357/aab784)
+> Demonstrates superiority of Andrade rheology over Maxwell for ice
+> deformation. Shows frequency-dependent tidal quality factor Q(ω) matches
+> laboratory data. Justifies Andrade model use in TidalPy backend.
 
-**[14]** Roberts, J. H., & Nimmo, F. (2008).
+**[20]** Roberts, J. H., & Nimmo, F. (2008).
 *Tidal heating and the long-term stability of a subsurface ocean on Enceladus.*
-Icarus, 194(2), 675-689. DOI: [10.1016/j.icarus.2007.11.010](https://doi.org/10.1016/j.icarus.2007.11.010)
-> Calculation of tidal heating distribution H(r) in Enceladus using viscoelastic
-> propagator-matrix method. Validation reference for TidalPy per-phase heating rates.
+Icarus, 194(2), 675-689.
+DOI: [10.1016/j.icarus.2007.11.010](https://doi.org/10.1016/j.icarus.2007.11.010)
+> Calculation of tidal heating distribution H(r) in Enceladus using
+> viscoelastic propagator-matrix method. Validation reference for TidalPy
+> per-phase heating rates.
 
 ---
 
