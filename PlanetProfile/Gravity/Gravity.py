@@ -673,14 +673,16 @@ def _run_tidalpy_backend(Planet, Params):
                 perform_checks=True
             )
 
+            # Store heating profile and corresponding radii for interpolation to full grid
+            result_radii = np.asarray(result.radius_array)
             Planet.Gravity.tidalpy_Htidal_Wm3 = heating_profile
+            Planet.Gravity.tidalpy_Htidal_r_m = result_radii
 
             # Aggregate per-phase heating using proper radial integral:
             # Total power = integral of H(r) * 4*pi*r^2 dr (not mean(H) * V)
             # The mean(H)*V approximation overestimates when H varies within
             # a layer because it weights all radial points equally instead of
             # by their shell volume element 4*pi*r^2*dr.
-            result_radii = np.asarray(result.radius_array)
             phase_map = {0: '0', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
             perPhase_Wm3 = {}
             perPhase_W = {}
@@ -742,6 +744,11 @@ def TransferTidalPyHeatingToProfile(Planet):
 
     This must be called AFTER SetupGravity but BEFORE WriteProfile to ensure
     the self-consistent heating profile is included in the CSV output.
+
+    TidalPy computes heating on its own grid (result.radius_array), which may
+    differ from both the reduced gravity grid and the full profile grid due to
+    boundary point insertion. This function interpolates from the TidalPy grid
+    to the full profile grid for CSV export.
     """
     if not hasattr(Planet.Gravity, 'tidalpy_Htidal_Wm3'):
         return Planet
@@ -752,19 +759,38 @@ def TransferTidalPyHeatingToProfile(Planet):
 
     tidalpy_profile = Planet.Gravity.tidalpy_Htidal_Wm3
 
-    # TidalPy profile uses the reduced model grid (core to surface)
-    # Planet.Htidal_Wm3 uses the full model grid (surface to core)
-    # They may have different lengths, so we need to interpolate
+    # Get the radii corresponding to the TidalPy heating profile
+    if not hasattr(Planet.Gravity, 'tidalpy_Htidal_r_m'):
+        log.warning('Planet.Gravity.tidalpy_Htidal_r_m not found - cannot interpolate heating profile')
+        return Planet
 
-    if len(tidalpy_profile) == len(Planet.Htidal_Wm3):
-        # Same length - direct assignment
-        Planet.Htidal_Wm3 = tidalpy_profile
-        log.info(f'Applied TidalPy self-consistent heating profile to Planet.Htidal_Wm3 ({len(tidalpy_profile)} points)')
+    r_tidalpy = Planet.Gravity.tidalpy_Htidal_r_m
+    r_full = Planet.r_m[:Planet.Steps.nTotal]
+
+    # Check if grids match
+    if len(tidalpy_profile) == len(r_full) and np.allclose(r_tidalpy, r_full):
+        # Same grid - direct assignment
+        Planet.Htidal_Wm3[:Planet.Steps.nTotal] = tidalpy_profile
+        log.info(f'Applied TidalPy heating profile to Planet.Htidal_Wm3 ({len(tidalpy_profile)} points, direct assignment)')
     else:
-        # Different lengths - need to map from reduced to full grid
-        # For now, log a warning
-        log.warning(f'TidalPy heating profile length ({len(tidalpy_profile)}) != Planet.Htidal_Wm3 length ({len(Planet.Htidal_Wm3)})')
-        log.warning(f'Profile transfer not yet implemented for mismatched lengths - using per-phase averages instead')
+        # Different grids - interpolate from TidalPy grid to full grid
+        # Use linear interpolation, extrapolate with boundary values
+        Planet.Htidal_Wm3[:Planet.Steps.nTotal] = np.interp(
+            r_full,
+            r_tidalpy,
+            tidalpy_profile,
+            left=tidalpy_profile[0],   # Use boundary value for extrapolation
+            right=tidalpy_profile[-1]  # Use boundary value for extrapolation
+        )
+
+        log.info(f'Interpolated TidalPy heating profile: {len(tidalpy_profile)} points (TidalPy grid) → {len(r_full)} points (full grid)')
+
+    # Verify non-zero heating was transferred
+    max_heating = np.max(Planet.Htidal_Wm3[:Planet.Steps.nTotal])
+    if max_heating > 0:
+        log.info(f'Heating profile applied: max H = {max_heating:.3e} W/m³')
+    else:
+        log.warning('Heating profile is all zeros after interpolation')
 
     return Planet
 

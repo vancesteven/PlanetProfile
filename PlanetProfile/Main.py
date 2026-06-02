@@ -302,18 +302,16 @@ def PlanetProfile(Planet, Params):
             GenerateMagPlots([Planet], Params)
     # Gravity calcuations and plots
     if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY) and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and not Params.SKIP_GRAVITY:
-        # Calculate gravity parameters
+        # Calculate gravity parameters (includes TidalPy heating profile transfer if applicable)
         Planet, Params = GravityParameters(Planet, Params)
-        # Transfer TidalPy heating profile to Planet.Htidal_Wm3 if available
-        if hasattr(Planet.Gravity, 'tidalpy_Htidal_Wm3') and Planet.Do.DO_SELF_CONSISTENT_HTIDAL:
-            tidalpy_profile = Planet.Gravity.tidalpy_Htidal_Wm3
-            if tidalpy_profile is not None and len(tidalpy_profile) == len(Planet.Htidal_Wm3):
-                Planet.Htidal_Wm3 = tidalpy_profile
-                log.info(f'Applied TidalPy self-consistent heating profile to Planet.Htidal_Wm3')
-            elif tidalpy_profile is not None:
-                log.warning(f'TidalPy heating profile length ({len(tidalpy_profile)}) != Planet.Htidal_Wm3 length ({len(Planet.Htidal_Wm3)}). Skipping transfer.')
-            else:
-                log.debug('TidalPy heating profile not yet available (still None)')
+        # Re-write CSV if TidalPy heating was added to profile
+        if hasattr(Planet.Gravity, 'tidalpy_Htidal_Wm3') and np.max(Planet.Htidal_Wm3[:Planet.Steps.nTotal]) > 0:
+            try:
+                from PlanetProfile.Utilities.HumanReadableOutput import WriteProfileCSV
+                csv_path = WriteProfileCSV(Planet, Params)
+                log.info(f'Re-wrote CSV with TidalPy heating profile: {csv_path}')
+            except Exception as e:
+                log.warning(f'Failed to re-write CSV with heating profile: {e}')
     if Params.PRINT_COMPLETION:
         PrintCompletion(Planet, Params)
     return Planet, Params
@@ -361,18 +359,16 @@ def InteriorEtc(Planet, Params):
         Planet, Params = MagneticInduction(Planet, Params)
         # Gravity calcuations and plots
     if (Params.CALC_SEISMIC and Params.CALC_VISCOSITY) and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)) and not Params.SKIP_GRAVITY:
-        # Calculate gravity parameters
+        # Calculate gravity parameters (includes TidalPy heating profile transfer if applicable)
         Planet, Params = GravityParameters(Planet, Params)
-        # Transfer TidalPy heating profile to Planet.Htidal_Wm3 if available
-        if hasattr(Planet.Gravity, 'tidalpy_Htidal_Wm3') and Planet.Do.DO_SELF_CONSISTENT_HTIDAL:
-            tidalpy_profile = Planet.Gravity.tidalpy_Htidal_Wm3
-            if tidalpy_profile is not None and len(tidalpy_profile) == len(Planet.Htidal_Wm3):
-                Planet.Htidal_Wm3 = tidalpy_profile
-                log.info(f'Applied TidalPy self-consistent heating profile to Planet.Htidal_Wm3')
-            elif tidalpy_profile is not None:
-                log.warning(f'TidalPy heating profile length ({len(tidalpy_profile)}) != Planet.Htidal_Wm3 length ({len(Planet.Htidal_Wm3)}). Skipping transfer.')
-            else:
-                log.debug('TidalPy heating profile not yet available (still None)')
+        # Re-write CSV if TidalPy heating was added to profile
+        if hasattr(Planet.Gravity, 'tidalpy_Htidal_Wm3') and np.max(Planet.Htidal_Wm3[:Planet.Steps.nTotal]) > 0:
+            try:
+                from PlanetProfile.Utilities.HumanReadableOutput import WriteProfileCSV
+                csv_path = WriteProfileCSV(Planet, Params)
+                log.info(f'Re-wrote CSV with TidalPy heating profile: {csv_path}')
+            except Exception as e:
+                log.warning(f'Failed to re-write CSV with heating profile: {e}')
     PrintCompletion(Planet, Params)
     return Planet, Params
 
