@@ -572,6 +572,65 @@ class GravitySubstruct:
         self.tidalpy_Htidal_perPhase_W = None  # Dict: phase_str -> total power W
 
 
+""" Lateral (3D) structure """
+class LateralSubstruct:
+    def __init__(self):
+        # Flags
+        self.DO_3D = False  # Whether to compute 3D laterally-varying structure
+        self.DO_CLATH_LATERAL = False  # Whether to include lateral clathrate variation
+        self.DO_TIDAL_3D = False  # Whether to compute 3D tidal heating
+        self.DO_MASS_CONSERVE = True  # Whether to enforce mass conservation
+
+        # Grid configuration
+        self.gridType = 'healpix'  # Grid type: 'healpix' or 'latlon'
+        self.nSide = 8  # HEALPix NSIDE parameter (nPix = 12*nSide^2)
+        self.nLat = None  # Number of latitude points (latlon grid)
+        self.nLon = None  # Number of longitude points (latlon grid)
+        self.theta_rad = None  # Colatitude of each grid point in radians
+        self.phi_rad = None  # Longitude of each grid point in radians
+        self.nPix = None  # Total number of grid points
+        self.pixArea_sr = None  # Area of each pixel in steradians
+
+        # Ice thickness field
+        self.dIce_m = None  # Ice thickness at each grid point in m (nPix,)
+        self.dIce_Cpq_km = None  # Cosine SH coefficients for ice thickness in km
+        self.dIce_Spq_km = None  # Sine SH coefficients for ice thickness in km
+        self.dIce_pMax = None  # Maximum SH degree for ice thickness
+        self.dIce_func = None  # Optional callable f(theta) returning ice thickness in m
+
+        # Clathrate fraction field
+        self.fClath = None  # Clathrate volume fraction at each grid point (nPix,)
+        self.fClath_Cpq = None  # Cosine SH coefficients for clathrate fraction
+        self.fClath_Spq = None  # Sine SH coefficients for clathrate fraction
+        self.fClath_pMax = None  # Maximum SH degree for clathrate fraction
+
+        # Tidal heating
+        self.Htidal_Wm3 = None  # Volumetric tidal heating rate (nPix, nRadial)
+        self.HtidalIce_Wm3 = None  # Column-integrated ice tidal heating (nPix,)
+        # Per-layer-type tidal heating at top and bottom (nPix,)
+        self.HtidalIceI_top_Wm3 = None  # Dissipation at top of ice I layer
+        self.HtidalIceI_bot_Wm3 = None  # Dissipation at bottom of ice I layer
+        self.HtidalHP_top_Wm3 = None  # Dissipation at top of HP ice (below ocean)
+        self.HtidalHP_bot_Wm3 = None  # Dissipation at bottom of HP ice (below ocean)
+        # Full radial dissipation profiles per column (lists of arrays, one per pixel)
+        self.HtidalIceI_profile_Wm3 = None  # H(r) in surface ice for each column
+        self.HtidalHP_profile_Wm3 = None    # H(r) in HP ice for each column
+        self.rIceI_profile_m = None          # Radii corresponding to ice I profiles
+        self.rHP_profile_m = None            # Radii corresponding to HP ice profiles
+
+        # Column summary fields (nPix,)
+        self.Tb_K = None  # Basal ice temperature at each grid point
+        self.qSurf_Wm2 = None  # Surface heat flux at each grid point
+        self.qBase_Wm2 = None  # Basal heat flux at each grid point
+        self.kThermEff_WmK = None  # Effective thermal conductivity at each grid point
+        self.sigma_mean_Sm = None  # Mean ocean conductivity at each grid point
+
+        # Mass conservation
+        self.Mtarget_kg = None  # Target total mass in kg
+        self.Mactual_kg = None  # Actual total mass from 3D model in kg
+        self.massResidual_frac = None  # Fractional mass residual
+
+
 """ Main body profile info--settings and variables """
 class PlanetStruct:
 
@@ -594,6 +653,7 @@ class PlanetStruct:
         self.Reduced = ReducedPlanetStruct()
         self.Magnetic = MagneticSubstruct()
         self.Gravity = GravitySubstruct()
+        self.Lateral = LateralSubstruct()
 
         self.fname = None  # Relative path used for .py file import
         self.saveLabel = None  # Label for savefile
