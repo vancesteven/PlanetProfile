@@ -1,15 +1,16 @@
 # PlanetProfile Session Handoff
 
-**Last Updated**: 2026-06-03, 17:00  
+**Last Updated**: 2026-06-04, 10:20  
 **Current Branch**: `genai-clean-port`  
-**Status**: 3D Lateral Port Phase 1 COMPLETE ✅ - Ready for Phase 2
+**Status**: 3D Lateral Port Phase 2 COMPLETE ✅ - Ready for Phase 3
 
 ---
 
 ## Summary: 3D Lateral Tidal Heating Port - IN PROGRESS
 
 **Phase 1 (Structure Definitions) COMPLETE** ✅  
-Successfully ported LateralSubstruct and default configuration. Test suite passes. Ready for Phase 2 (Spatial Grid).
+**Phase 2 (Spatial Grid & Spherical Harmonics) COMPLETE** ✅  
+Successfully ported grid management and SH transforms. All 7 tests passing including HEALPix. Ready for Phase 3 (Tidal Heating 3D).
 
 **Goal**: Reproduce Tobie et al. (2005) Figure 10 showing geographic distribution of tidal heating in Titan
 
@@ -75,8 +76,8 @@ Successfully ported LateralSubstruct and default configuration. Test suite passe
 ### Porting Plan (2 weeks)
 
 **Phase 1 (Day 1)**: ✅ Structure definitions (LateralSubstruct) - COMPLETE  
-**Phase 2 (Day 2)**: ⬅️ Spatial grids (SpatialGrid.py) - NEXT  
-**Phase 3 (Day 3-4)**: Tidal heating 3D (TidalHeating3D.py)  
+**Phase 2 (Day 2)**: ✅ Spatial grids (SpatialGrid.py) - COMPLETE  
+**Phase 3 (Day 3-4)**: ⬅️ Tidal heating 3D (TidalHeating3D.py) - NEXT  
 **Phase 4 (Day 5-6)**: Lateral structure (LateralStructure.py)  
 **Phase 5 (Day 7)**: Mass conservation  
 **Phase 6 (Day 8)**: Clathrate lateral (optional)  
@@ -87,7 +88,7 @@ Successfully ported LateralSubstruct and default configuration. Test suite passe
 
 **See**: `Tobie2005_Reproduction/3D_LATERAL_PORT_PLAN.md` for full details
 
-### Phase 1 Complete - What Was Done ✅
+### Phase 1 Complete ✅
 
 **Commit**: b9ef6346 `[port] Add 3D lateral structure definitions (Phase 1)`
 
@@ -118,9 +119,42 @@ Successfully ported LateralSubstruct and default configuration. Test suite passe
 - Mass conservation: ∫ρdV must match target M_kg
 - 4π normalization convention (consistent with MoonMag)
 
+### Phase 2 Complete ✅
+
+**Commit**: 0137e6f6 `[port] Add spatial grid and spherical harmonics (Phase 2)`
+
+**Files added** (491 lines):
+- `PlanetProfile/Lateral/SpatialGrid.py`: Grid management and SH transforms (177 lines)
+  - InitGrid(Lateral): Initialize HEALPix or lat-lon grid
+  - SHtoGrid, GridToSH: Spherical harmonic transforms
+  - IntegrateOverSphere: Area-weighted spherical integration
+  - _assoc_legendre_4pi: 4π-normalized Legendre functions
+  - Graceful healpy fallback
+- `PlanetProfile/Test/PPTestLateralPhase2.py`: Comprehensive test suite (314 lines)
+
+**Tests passing** (7 of 7):
+- ✅ HEALPix grid: 768 pixels, area = 4π exactly
+- ✅ Lat-lon grid: 2664 pixels, area = 4π within 0.03%
+- ✅ SH round-trip: <0.4% error
+- ✅ 4π normalization: 0.00% error
+- ✅ Sphere integration: accurate
+- ✅ Scientific understanding: documented
+- ✅ PPTest1: no breaking changes
+
+**Dependencies installed**:
+- healpy 1.19.0 (conda-forge) ✅
+
+**Scientific understanding documented**:
+- HEALPix: Equal-area, better for SH, no pole singularities
+- Lat-lon: Simpler, non-equal-area (equator ~24× larger than poles)
+- 4π normalization: C₀₀ = mean value, consistent with MoonMag/NASA
+- Pixel areas for integration: uniform (HEALPix) vs sin(θ)-weighted (lat-lon)
+- Spherical harmonics: degree p = wavelength, order q = longitudinal variation
+- Mass conservation formula: M = ρR² Σ dIce(θ,φ) × pixArea_sr
+
 ### Current Task Status
 
-**Task #1**: Port 3D lateral tidal heating from genai (in_progress - Phase 2 next)
+**Task #1**: Port 3D lateral tidal heating from genai (in_progress - Phase 3 next)
 
 ### Dependencies
 
@@ -164,9 +198,10 @@ Successfully ported LateralSubstruct and default configuration. Test suite passe
 
 **Git status**:
 - Phase 1 committed (b9ef6346): LateralSubstruct, defaultConfigLateral, test
+- Phase 2 committed (0137e6f6): SpatialGrid, spherical harmonics, test
 - Modified: `LOCAL_SESSION_HANDOFF.md`, `PlanetProfile/Gravity/Gravity.py`
 - Untracked: Archive/, Tobie2005_Reproduction/, various output files
-- Clean working tree for Phase 2 porting
+- Clean working tree for Phase 3 porting
 
 ---
 
@@ -186,39 +221,45 @@ Successfully ported LateralSubstruct and default configuration. Test suite passe
 
 ---
 
-## Ready for Phase 2: Spatial Grid 🚀
+## Ready for Phase 3: Tidal Heating 3D 🚀
 
 **Next session first message**:
 
 ```
-Continue 3D lateral tidal heating port - Phase 2 (Spatial Grid).
+Continue 3D lateral tidal heating port - Phase 3 (Tidal Heating 3D).
 
-According to 3D_LATERAL_PORT_PLAN.md, Phase 2 means:
-1. Port SpatialGrid.py (177 lines) from genai branch
+According to 3D_LATERAL_PORT_PLAN.md, Phase 3 means:
+1. Port TidalHeating3D.py (437 lines) from genai branch
 2. Port functions:
-   - InitGrid(Lateral) - sets up θ, φ, pixArea
-   - SHtoGrid(Cpq, Spq, pMax, θ, φ) - evaluate spherical harmonics on grid
-   - GridToSH(field, θ, φ, pixArea, pMax) - decompose to spherical harmonics
-   - _assoc_legendre_4pi(p, q, cos_θ) - 4π-normalized Legendre functions
-3. Create PPTestLateralPhase2.py test
-4. Test: Create grids, check nPix, verify areas sum to 4π
+   - TidalStrainPattern(θ, φ, e, obliq) - Ojakangas & Stevenson 1989 pattern
+   - _MaxwellDissipation(ω, μ, η) - Maxwell rheology
+   - _AndradeDissipation(ω, μ, η, α, ζ) - Andrade rheology (NEW!)
+   - ComputeTidalHeating3D(Planet, Params) - main orchestrator
+3. Create PPTestLateralPhase3.py test
+4. Test: Calculate f(θ,φ), verify mean=1, plot pattern
 
 Scientific understanding to document:
-- HEALPix vs lat-lon trade-offs
-- Spherical harmonic normalization (4π convention)
-- Why use associated Legendre functions?
-- When to use each grid type?
+- Why does tidal strain vary with location?
+- How do eccentricity and obliquity contribute?
+- Maxwell vs Andrade: when to use each?
+- What is the thin-shell approximation?
 
 Work in conda environment planetprofile. Follow CLAUDE.md guidelines.
 ```
 
-**Timeline**: Day 2 of 13 (Phase 2 today)  
+**Timeline**: Day 3-4 of 13 (Phase 3 next)  
 **End goal**: Reproduce Tobie Figure 10 with geographic tidal heating maps
 
-### Phase 1 Recap
+### Phases 1 & 2 Recap
 
+**Phase 1**:
 - ✅ Commit b9ef6346 on genai-clean-port
 - ✅ 243 lines added across 4 files
-- ✅ All tests passing
+- ✅ LateralSubstruct, defaultConfigLateral, test
+
+**Phase 2**:
+- ✅ Commit 0137e6f6 on genai-clean-port
+- ✅ 491 lines added across 2 files
+- ✅ SpatialGrid.py, spherical harmonics, healpy 1.19.0 installed
+- ✅ All 7 tests passing (including HEALPix)
 - ✅ No breaking changes
-- ✅ Scientific understanding documented
