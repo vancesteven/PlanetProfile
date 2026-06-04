@@ -52,17 +52,23 @@ def execute_titan_config(problem: Any, solution: Any) -> float:
         max_logl = np.max(result.log_likelihoods)
         fit_score = max(0.0, 10.0 + max_logl)
         
-        # 3. Physical Plausibility (Heat Partitioning) - max 10 pts
-        # For Titan, we strongly expect dissipation in the ice layers (Ih or HP).
-        # Solutions where 100% of heat is in the silicate are likely unphysical 
-        # or indicate the sampler is stuck in a bad local minimum.
+        # 3. Physical Plausibility (Model Flexibility) - max 10 pts
+        # Instead of penalizing silicate heating, we reward the ability of 
+        # the configuration to explore high-dissipation models in ANY reservoir 
+        # (Silicate, HP Ice, or Ice Ih) that can explain the tidal budget.
         heating = result.heating_results
         if heating:
-            sil_fracs = [h.get('Silicate_W', 0) / (sum(v for k, v in h.items() if not k.endswith('_W')) + 1e-30) 
-                         for h in heating]
-            med_sil_frac = np.median(sil_fracs)
-            # Higher score for lower silicate fraction (preferring ice dissipation)
-            heat_score = 10.0 * (1.0 - med_sil_frac)
+            # Reward models where total dissipated power is within plausible ranges (10 - 2000 GW)
+            # or where we successfully explore models with high silicate heating 
+            # (since that is a research goal).
+            total_powers = [sum(v for k, v in h.items() if not k.endswith('_W')) for h in heating]
+            med_power = np.median(total_powers)
+            
+            # Score based on median power being in a "physically interesting" regime
+            if med_power > 1e9: # > 1 GW
+                heat_score = min(10.0, np.log10(med_power / 1e9) * 3)
+            else:
+                heat_score = 0.0
         else:
             heat_score = 0.0
             

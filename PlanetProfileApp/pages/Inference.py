@@ -844,21 +844,36 @@ def render_results():
                 corner_samples = np.column_stack([corner_samples, D_iceIh])
                 corner_labels.append(r'$D_{\rm IceIh}$ (km)')
 
-            n_dim = corner_samples.shape[1]
-            fig_size = max(10, 2.5 * n_dim)
-            fig = plt.figure(figsize=(fig_size, fig_size))
-            corner.corner(
-                corner_samples,
-                labels=corner_labels,
-                quantiles=[0.16, 0.5, 0.84],
-                show_titles=True,
-                title_fmt='.2f',
-                title_kwargs={'fontsize': 10},
-                color='steelblue',
-                fig=fig,
-            )
-            st.pyplot(fig)
-            plt.close(fig)
+            # Filter out columns with no dynamic range (zero variance)
+            # corner.corner fails if any column is constant.
+            valid_cols = []
+            for i in range(corner_samples.shape[1]):
+                col_data = corner_samples[:, i]
+                col_data = col_data[np.isfinite(col_data)]
+                if len(col_data) > 0 and np.ptp(col_data) > 1e-12:
+                    valid_cols.append(i)
+            
+            if not valid_cols:
+                st.warning("No parameters with dynamic range found for corner plot.")
+            else:
+                corner_samples_plot = corner_samples[:, valid_cols]
+                corner_labels_plot = [corner_labels[i] for i in valid_cols]
+
+                n_dim = len(valid_cols)
+                fig_size = max(10, 2.5 * n_dim)
+                fig = plt.figure(figsize=(fig_size, fig_size))
+                corner.corner(
+                    corner_samples_plot,
+                    labels=corner_labels_plot,
+                    quantiles=[0.16, 0.5, 0.84],
+                    show_titles=True,
+                    title_fmt='.2f',
+                    title_kwargs={'fontsize': 10},
+                    color='steelblue',
+                    fig=fig,
+                )
+                st.pyplot(fig)
+                plt.close(fig)
         except ImportError:
             st.info("Install the `corner` library to view corner plots: `pip install corner`")
         except Exception as e:
