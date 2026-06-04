@@ -95,6 +95,9 @@ A simple list with install commands for Python is in the next section.
 * TauP/ObsPy (optional) -- see <https://www.seis.sc.edu/taup/>
   * Python: Installed with conda via conda-forge: `conda install -c conda-forge obspy`
   * Matlab: Download mMatTauP contents into Utilities/ and add-with-subfolders to the Matlab path.
+* healpy (optional) -- see <https://healpy.readthedocs.io/>
+  * Python: Installed with conda via conda-forge: `conda install -c conda-forge healpy`
+  * Required for HEALPix equal-area grids in 3D lateral structure calculations. Falls back to lat-lon grids if unavailable.
 * A working TeX/LaTeX distribution (such as TeXlive) is recommended for optimum plot labels. TeXlive is available at: <https://tug.org/texlive/acquire-netinstall.html>
     It can also be installed using pip.
 * Reaktoro -- see <https://reaktoro.org>

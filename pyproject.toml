@@ -57,6 +57,7 @@ Changelog = "https://github.com/vancesteven/PlanetProfile/blob/main/CHANGELOG.md
 
 [project.optional-dependencies]
 tidal = ["TidalPy>=0.7.4"]
+lateral = ["healpy>=1.16.0"]
 
 [tool.setuptools]
 include-package-data = true
