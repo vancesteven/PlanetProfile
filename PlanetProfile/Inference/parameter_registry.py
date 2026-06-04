@@ -71,6 +71,20 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
         rheology_constraint='andrade'
     ),
 
+    'log10_zeta': ParameterDef(
+        id='log10_zeta',
+        label='Log₁₀(ζ Andrade Compliance)',
+        latex_label=r'$\log_{10}(\zeta)$',
+        description='Universal Andrade compliance applied to all solid layers. '
+                    'Controls the strength of the viscoelastic dissipation.',
+        category='rheology',
+        default_prior='uniform',
+        default_bounds=[-4, 2],
+        units=None,
+        requires_structure_rebuild=False,
+        rheology_constraint='andrade'
+    ),
+
     'log10_zeta_Ih': ParameterDef(
         id='log10_zeta_Ih',
         label='Log₁₀(ζ Ice Ih)',
@@ -137,6 +151,45 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
         latex_label=r'$\log_{10}(\eta_{\rm HP})$',
         description='High-pressure ice (III, V, VI) viscosity. Affects deep '
                     'layer contribution to tidal Love number.',
+        category='rheology',
+        default_prior='uniform',
+        default_bounds=[10, 18],
+        units='Pa·s',
+        requires_structure_rebuild=False,
+        rheology_constraint=None
+    ),
+
+    'log10_eta_III': ParameterDef(
+        id='log10_eta_III',
+        label='Log₁₀(Ice III Viscosity)',
+        latex_label=r'$\log_{10}(\eta_{\rm III})$',
+        description='Ice III viscosity.',
+        category='rheology',
+        default_prior='uniform',
+        default_bounds=[10, 18],
+        units='Pa·s',
+        requires_structure_rebuild=False,
+        rheology_constraint=None
+    ),
+
+    'log10_eta_V': ParameterDef(
+        id='log10_eta_V',
+        label='Log₁₀(Ice V Viscosity)',
+        latex_label=r'$\log_{10}(\eta_{\rm V})$',
+        description='Ice V viscosity.',
+        category='rheology',
+        default_prior='uniform',
+        default_bounds=[10, 18],
+        units='Pa·s',
+        requires_structure_rebuild=False,
+        rheology_constraint=None
+    ),
+
+    'log10_eta_VI': ParameterDef(
+        id='log10_eta_VI',
+        label='Log₁₀(Ice VI Viscosity)',
+        latex_label=r'$\log_{10}(\eta_{\rm VI})$',
+        description='Ice VI viscosity.',
         category='rheology',
         default_prior='uniform',
         default_bounds=[10, 18],
@@ -269,6 +322,20 @@ PARAMETER_PRESETS = {
             'CMR2': (0.343, 0.001),  # Petricca et al. (2025)
         },
         'test_module': 'PlanetProfile.Test.PPTest41',
+        'rheology': 'andrade'
+    },
+
+    'andrade_titan_noocean_8D': {
+        'name': 'Andrade Rheology (Titan No-Ocean 8D)',
+        'description': 'Test50 8D no-ocean Titan, Andrade rheology, Yao 2014 spherical convection, Tb sampled across triple-pt depression band.',
+        'parameters': ['alpha', 'log10_zeta', 'log10_eta_Ih', 'log10_eta_III', 
+                       'log10_eta_V', 'log10_eta_VI', 'log10_eta_sil', 'Tb_K'],
+        'observables': {
+            'Re_k2': (0.608, 0.048),
+            'abs_Im_k2': (0.135, 0.035),
+            'CMR2': (0.343, 0.001),
+        },
+        'test_module': 'PlanetProfile.Test.Test50_mcmc_andrade_noocean_yao2014',
         'rheology': 'andrade'
     },
 

@@ -491,7 +491,11 @@ def plot_heating_vs_parameters(
     if cumulative_bar and ax_cum is not None:
         stack_phases = ['Ih', 'III', 'V', 'VI', 'Sil']
 
-        total_W = np.array([sum(h.values()) for h in heating_results])
+        # Only sum individual phases, excluding the new aggregate '_W' keys 
+        # (Silicate_W, HP_Ice_W, Ice_Ih_W) to avoid double-counting.
+        agg_keys = {'Silicate_W', 'HP_Ice_W', 'Ice_Ih_W'}
+        total_W = np.array([sum(v for k, v in h.items() if k not in agg_keys) 
+                            for h in heating_results])
         safe_tot = np.where(total_W > 1e-30, total_W, 1e-30)
         fracs: Dict[str, np.ndarray] = {}
         for ph in stack_phases:

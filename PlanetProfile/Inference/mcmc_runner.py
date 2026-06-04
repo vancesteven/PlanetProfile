@@ -472,6 +472,23 @@ class MCMCRunner:
 
         return log_likelihood
 
+    def _expand_theta(self, theta: np.ndarray) -> Dict[str, float]:
+        """Expand sampled array with groups and fixed params into a dict."""
+        theta_dict = dict(zip(self.param_names, theta))
+        for group_key, members in self.param_groups.items():
+            if group_key in theta_dict:
+                for m in members:
+                    theta_dict[m] = theta_dict[group_key]
+        theta_dict.update(self.fixed_params)
+        return theta_dict
+
+    def _get_cache_scalar(self, theta_dict: Dict[str, float], key: str) -> float:
+        """Extract scalar from interpolated structure for grid caches."""
+        from .forward_models import apply_parameters
+        modified = apply_parameters(theta_dict, self.structure_data)
+        val = modified.get(key, np.nan)
+        return float(val) if np.isfinite(float(val)) else np.nan
+
     def run(self, progress_callback: Optional[Callable] = None):
         """
         Run MCMC sampling with pocoMC.
@@ -547,40 +564,22 @@ class MCMCRunner:
         arrhenius_params = self.config.sampler_settings.get('arrhenius_params')
         rheology = self._infer_rheology() if not self._use_flexible else None
 
-        from .forward_models import forward_model_k2_flexible, apply_parameters
-
-        def _expand_theta_run(theta):
-            """Expand sampled array with groups and fixed params."""
-            theta_dict = dict(zip(self.param_names, theta))
-            for group_key, members in self.param_groups.items():
-                if group_key in theta_dict:
-                    for m in members:
-                        theta_dict[m] = theta_dict[group_key]
-            theta_dict.update(self.fixed_params)
-            return theta_dict
-
-        # Helpers: extract scalar quantities per sample from the (possibly grid) cache.
-        def _get_cache_scalar(theta_dict, key):
-            """Extract scalar from interpolated structure for grid caches."""
-            from .forward_models import apply_parameters
-            modified = apply_parameters(theta_dict, self.structure_data)
-            val = modified.get(key, np.nan)
-            return float(val) if np.isfinite(float(val)) else np.nan
+        from .forward_models import forward_model_k2_flexible
 
         k2_results = []
         cmr2_results = []
         D_ocean_results = []
         D_iceIh_results = []
         for i, theta in enumerate(samples):
-            theta_dict = _expand_theta_run(theta)
+            theta_dict = self._expand_theta(theta)
             Re_k2, Im_k2, _, _, _ = forward_model_k2_flexible(
                 theta_dict, self.structure_data,
                 return_heating=False, arrhenius_params=arrhenius_params
             )
             k2_results.append((Re_k2, Im_k2))
-            cmr2_results.append(_get_cache_scalar(theta_dict, 'CMR2'))
-            D_ocean_results.append(_get_cache_scalar(theta_dict, 'D_ocean_km'))
-            D_iceIh_results.append(_get_cache_scalar(theta_dict, 'D_iceIh_km'))
+            cmr2_results.append(self._get_cache_scalar(theta_dict, 'CMR2'))
+            D_ocean_results.append(self._get_cache_scalar(theta_dict, 'D_ocean_km'))
+            D_iceIh_results.append(self._get_cache_scalar(theta_dict, 'D_iceIh_km'))
             if (i + 1) % 100 == 0:
                 log.info(f"  {i+1}/{n_samples} samples recomputed")
 
@@ -598,7 +597,7 @@ class MCMCRunner:
         idx_heat.sort()
         heating_results = []
         for si in idx_heat:
-            theta_dict = _expand_theta_run(samples[si])
+            theta_dict = self._expand_theta(samples[si])
             _, _, _, _, perPhase_W = forward_model_k2_flexible(
                 theta_dict, self.structure_data,
                 return_heating=True, arrhenius_params=arrhenius_params
@@ -713,3 +712,64 @@ class MCMCRunner:
         log.info(f"Checkpoint loaded from iteration {iteration}")
 
         return sampler, iteration
+
+    def generate_sbi_dataset(self, n_samples: int = 10000, output_path: Optional[str] = None):
+        """
+        Generate (theta, x) dataset by sampling from the prior.
+
+        Args:
+            n_samples: Number of simulations to run
+            output_path: Optional path to save .npz file
+
+        Returns:
+            (theta, x) tuple
+        """
+        log.info(f"Generating SBI dataset with {n_samples} samples...")
+
+        # Sample from prior
+        theta = self.prior.sample(n_samples)
+
+        x = []
+        obs_names = list(self.config.observables.keys())
+
+        arrhenius_params = self.config.sampler_settings.get('arrhenius_params')
+
+        from .forward_models import forward_model_k2_flexible
+
+        t0 = time.time()
+        for i in range(n_samples):
+            theta_dict = self._expand_theta(theta[i])
+
+            # Compute k2
+            Re_k2, Im_k2, _, _, _ = forward_model_k2_flexible(
+                theta_dict, self.structure_data,
+                return_heating=False, arrhenius_params=arrhenius_params
+            )
+
+            xi = []
+            for name in obs_names:
+                if name == 'Re_k2':
+                    xi.append(Re_k2)
+                elif name == 'Im_k2':
+                    xi.append(Im_k2)
+                elif name == 'CMR2':
+                    xi.append(self._get_cache_scalar(theta_dict, 'CMR2'))
+                elif name == 'Mtot_kg':
+                    xi.append(self._get_cache_scalar(theta_dict, 'Mtot_kg'))
+                else:
+                    xi.append(np.nan)
+            x.append(xi)
+
+            if (i + 1) % 100 == 0:
+                elapsed = time.time() - t0
+                eta = (elapsed / (i + 1)) * (n_samples - (i + 1))
+                log.info(f"  {i+1}/{n_samples} simulations complete (ETA: {eta/60:.1f} min)")
+
+        theta = np.array(theta)
+        x = np.array(x)
+
+        if output_path:
+            np.savez(output_path, theta=theta, x=x, param_names=self.param_names, obs_names=obs_names)
+            log.info(f"SBI dataset saved to {output_path}")
+
+        return theta, x

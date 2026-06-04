@@ -153,6 +153,7 @@ def render_preset_selector(PARAMETER_PRESETS):
 
     preset_options = {
         'andrade_titan': f"🪐 {PARAMETER_PRESETS['andrade_titan']['name']}",
+        'andrade_titan_noocean_8D': f"🪐 {PARAMETER_PRESETS['andrade_titan_noocean_8D']['name']}",
         'maxwell_titan': f"🪐 {PARAMETER_PRESETS['maxwell_titan']['name']}",
         'andrade_europa': f"🌊 {PARAMETER_PRESETS['andrade_europa']['name']}",
         'custom': "⚙️ Custom Parameter Selection"
@@ -163,8 +164,9 @@ def render_preset_selector(PARAMETER_PRESETS):
         options=list(preset_options.keys()),
         format_func=lambda x: preset_options[x],
         index=0 if st.session_state.inference_preset == 'andrade_titan' else
-              (1 if st.session_state.inference_preset == 'maxwell_titan' else
-               (2 if st.session_state.inference_preset == 'andrade_europa' else 3)),
+              (1 if st.session_state.inference_preset == 'andrade_titan_noocean_8D' else
+               (2 if st.session_state.inference_preset == 'maxwell_titan' else
+                (3 if st.session_state.inference_preset == 'andrade_europa' else 4))),
         key='preset_radio'
     )
 
@@ -192,6 +194,8 @@ def render_preset_selector(PARAMETER_PRESETS):
         if preset_choice == 'andrade_titan':
             clath_suffix = 'clath' if st.session_state.inference_use_clathrate else 'noclath'
             st.session_state.inference_structure_cache_path = f"titan_cache/titan_structure_{clath_suffix}.pkl"
+        elif preset_choice == 'andrade_titan_noocean_8D':
+            st.session_state.inference_structure_cache_path = 'PlanetProfile/Test/mcmc_results/titan_allice_yao2014_structure_grid.pkl'
         elif preset_choice == 'maxwell_titan':
             st.session_state.inference_structure_cache_path = 'titan_cache/titan_maxwell_grid_cache.pkl'
         elif preset_choice == 'andrade_europa':
@@ -285,6 +289,23 @@ def render_prior_config(PARAMETER_REGISTRY):
 
     st.markdown("#### 📊 Prior Configuration")
 
+    # Body-specific recommendations
+    BODY_PRIOR_HINTS = {
+        "Titan": {
+            "log10_eta_Ih": "For Titan, Ice Ih viscosity is typically expected between $10^{13}$ and $10^{15}$ Pa·s.",
+            "log10_eta_sil": "Titan's silicate mantle is likely partially hydrated, implying $10^{18}$ to $10^{20}$ Pa·s.",
+            "alpha": "Andrade $\\alpha$ for ices is often taken as $1/3$ (0.33)."
+        },
+        "Europa": {
+            "log10_eta_Ih": "Europa's shell is likely warmer/thinner, $10^{13}$ to $10^{14}$ Pa·s is common.",
+            "log10_mu_Ih": "Maxwell shear modulus for Ice Ih is ~3.5 GPa ($\\log_{10}\\mu \\approx 9.5$)."
+        }
+    }
+
+    # Infer current body from preset
+    current_body = "Titan" if "titan" in st.session_state.inference_preset else \
+                   ("Europa" if "europa" in st.session_state.inference_preset else None)
+
     # Initialize param_space if empty
     if not st.session_state.inference_param_space:
         st.session_state.inference_param_space = {}
@@ -295,6 +316,10 @@ def render_prior_config(PARAMETER_REGISTRY):
 
         with st.expander(f"{param_def.label} ({param_def.latex_label})", expanded=False):
             st.markdown(f"*{param_def.description}*")
+
+            # Show hint if available for this body/parameter
+            if current_body and param_id in BODY_PRIOR_HINTS[current_body]:
+                st.caption(f"💡 **Recommendation:** {BODY_PRIOR_HINTS[current_body][param_id]}")
 
             # Prior type selector
             prior_type = st.selectbox(
@@ -1030,11 +1055,106 @@ def render_results():
                 eval_samples = result.samples[eval_idx]
                 n_params = eval_samples.shape[1]
 
-                # Diagnostic: show actual phase keys from first entry
-                actual_keys = sorted(set(k for h in heating_results for k in h.keys()))
-                with st.expander("🔍 Heating phase keys (debug)", expanded=False):
-                    st.write("Keys found:", actual_keys)
-                    st.write("First 3 entries:", heating_results[:3])
+                # Get heating for each reservoir/phase
+                silicate_vals = []
+                ice_ih_vals = []
+                ice_iii_vals = []
+                ice_v_vals = []
+                ice_vi_vals = []
+
+                for h in heating_results:
+                    silicate_vals.append(h.get('Silicate_W', h.get('Sil', 0.0) + h.get('Fe', 0.0)))
+                    ice_ih_vals.append(h.get('Ice_Ih_W', h.get('Ih', 0.0) + h.get('Clath', 0.0)))
+                    ice_iii_vals.append(h.get('III', 0.0))
+                    ice_v_vals.append(h.get('V', 0.0))
+                    ice_vi_vals.append(h.get('VI', 0.0))
+
+                # Per-model reservoir/phase fractions (Stacked Bar)
+                st.markdown("#### 📉 Per-Model Partitioning")
+
+                n_models = len(heating_results)
+                sil_arr = np.array(silicate_vals)
+                ih_arr = np.array(ice_ih_vals)
+                iii_arr = np.array(ice_iii_vals)
+                v_arr = np.array(ice_v_vals)
+                vi_arr = np.array(ice_vi_vals)
+                
+                tot_arr = sil_arr + ih_arr + iii_arr + v_arr + vi_arr + 1e-30
+
+                # Sort models by silicate fraction
+                f_sil_arr = sil_arr / tot_arr
+                sort_order = np.argsort(f_sil_arr)
+
+                fig_stack, ax_stack = plt.subplots(figsize=(10, 4))
+                x = np.arange(n_models)
+                bottom = np.zeros(n_models)
+
+                # Colors matching PlanetProfile conventions
+                plot_colors = {
+                    'Silicate': '#9c755f', 
+                    'Ice VI': '#d62728', # Red
+                    'Ice V': '#2ca02c',  # Green
+                    'Ice III': '#ff7f0e', # Orange
+                    'Ice Ih': '#4e79a7'   # Blue
+                }
+
+                # Silicate
+                ax_stack.bar(x, sil_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Silicate'], label='Silicate', width=1.0)
+                bottom += sil_arr[sort_order]/tot_arr[sort_order]
+                
+                # HP Ices (Individual)
+                ax_stack.bar(x, vi_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Ice VI'], label='Ice VI', width=1.0)
+                bottom += vi_arr[sort_order]/tot_arr[sort_order]
+                
+                ax_stack.bar(x, v_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Ice V'], label='Ice V', width=1.0)
+                bottom += v_arr[sort_order]/tot_arr[sort_order]
+                
+                ax_stack.bar(x, iii_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Ice III'], label='Ice III', width=1.0)
+                bottom += iii_arr[sort_order]/tot_arr[sort_order]
+                
+                # Ice Ih
+                ax_stack.bar(x, ih_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Ice Ih'], label='Ice Ih', width=1.0)
+
+                ax_stack.set_xlim(0, n_models-1)
+                ax_stack.set_ylim(0, 1)
+                ax_stack.set_ylabel("Fraction")
+                ax_stack.set_xlabel("Samples (sorted by silicate fraction)")
+                ax_stack.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=8)
+
+                st.pyplot(fig_stack)
+                plt.close(fig_stack)
+
+                # Aggregate Reservoir Visualization
+                st.markdown("#### 🧊 Reservoir Partitioning (Median)")
+                col_pie, col_stats = st.columns([1, 1])
+
+                sil_med = np.median(silicate_vals)
+                ih_med = np.median(ice_ih_vals)
+                hp_med = np.median(iii_arr + v_arr + vi_arr)
+                tot_med = sil_med + ih_med + hp_med
+
+                with col_pie:
+                    if tot_med > 0:
+                        fig_pie, ax_pie = plt.subplots(figsize=(5, 5))
+                        ax_pie.pie([sil_med, hp_med, ih_med],
+                                   labels=['Silicate', 'HP Ice', 'Ice Ih'],
+                                   autopct='%1.1f%%',
+                                   colors=['#9c755f', '#76b7b2', '#4e79a7'],
+                                   startangle=90)
+                        ax_pie.axis('equal')
+                        st.pyplot(fig_pie)
+                        plt.close(fig_pie)
+
+                with col_stats:
+                    st.metric("Total Power (Median)", f"{tot_med/1e9:.2f} GW")
+                    st.write(f"- **Silicate:** {sil_med/1e9:.2f} GW")
+                    st.write(f"- **HP Ices:** {hp_med/1e9:.2f} GW")
+                    st.write(f"- **Ice Ih Shell:** {ih_med/1e9:.2f} GW")
+
+                    if tot_med > 0:
+                        st.info(f"Titan's heat budget is dominated by the **{['Silicate', 'HP Ice', 'Ice Ih'][np.argmax([sil_med, hp_med, ih_med])]}** reservoir.")
+
+                st.markdown("---")
 
                 phase_colors = {'Ih': 'C0', 'III': 'C1', 'V': 'C2', 'VI': 'C3',
                                 'Sil': 'C4', 'Clath': 'C5'}

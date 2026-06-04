@@ -796,7 +796,7 @@ def compute_heating(
     phases = structure_data['phases']
     changeIndices = structure_data['changeIndices']
     n_layers = structure_data['n_layers']
-    phase_map = structure_data['phase_map']
+    phase_map = structure_data.get('phase_map', {})
 
     # Integrate heating over each layer
     perPhase_W = {}
@@ -827,6 +827,18 @@ def compute_heating(
 
             # Accumulate (same phase may appear in multiple layers)
             perPhase_W[phase_str] = perPhase_W.get(phase_str, 0) + total_power
+
+    # Aggregate into Titan reservoirs for heat partitioning tracking
+    # Groupings follow standard ocean world definitions:
+    # - Silicate: Silicate matrix + Fe core (typically negligible in tides, but included)
+    # - HP Ices: Ice III, V, VI and their mixed clathrate variants
+    # - Ice Ih: Ice Ih shell and its clathrate/mixed variants
+    hp_phases = {'III', 'V', 'VI', 'MixedClathrateIII', 'MixedClathrateV', 'MixedClathrateVI'}
+    ih_phases = {'Ih', 'Clath', 'MixedClathrateIh'}
+
+    perPhase_W['Silicate_W'] = perPhase_W.get('Sil', 0.0) + perPhase_W.get('Fe', 0.0)
+    perPhase_W['HP_Ice_W'] = sum(perPhase_W.get(p, 0.0) for p in hp_phases)
+    perPhase_W['Ice_Ih_W'] = sum(perPhase_W.get(p, 0.0) for p in ih_phases)
 
     return perPhase_W
 
@@ -1057,11 +1069,15 @@ def create_log_likelihood(
     """
     def log_likelihood(theta):
         """Gaussian log-likelihood on tidal observables."""
-        Re_k2, Im_k2, _ = forward_model_k2(
+        # Only compute heating if specifically requested as an observable
+        # (it is ~5-10x slower than k2-only)
+        needs_heating = 'total_heating_W' in observables
+
+        Re_k2, Im_k2, perPhase_W = forward_model_k2(
             theta,
             structure_data,
             rheology=rheology,
-            return_heating=False,
+            return_heating=needs_heating,
             arrhenius_params=arrhenius_params
         )
 
@@ -1089,6 +1105,14 @@ def create_log_likelihood(
             obs_val, obs_err = observables['k2']
             k2_mag = np.sqrt(Re_k2**2 + Im_k2**2)
             chi2 += ((k2_mag - obs_val) / obs_err)**2
+
+        if 'total_heating_W' in observables and perPhase_W is not None:
+            obs_val, obs_err = observables['total_heating_W']
+            # Total is the sum of all individual phase contributions
+            # (ignoring the aggregate _W keys)
+            agg_keys = {'Silicate_W', 'HP_Ice_W', 'Ice_Ih_W'}
+            total_W = sum(v for k, v in perPhase_W.items() if k not in agg_keys)
+            chi2 += ((total_W - obs_val) / obs_err)**2
 
         return -0.5 * chi2
 
