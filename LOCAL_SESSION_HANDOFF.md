@@ -1,8 +1,8 @@
 # PlanetProfile Session Handoff
 
-**Last Updated**: 2026-06-05, 02:30  
+**Last Updated**: 2026-06-05, 12:00  
 **Current Branch**: `genai-clean-port`  
-**Status**: 3D Lateral Port Phase 7 COMPLETE ✅ - Ready for Phase 8
+**Status**: 3D Lateral Port Phase 8 COMPLETE ✅ - Ready for Phase 9
 
 ---
 
@@ -15,7 +15,8 @@
 **Phase 5 (Mass Conservation) COMPLETE** ✅  
 **Phase 6 (Clathrate Lateral) COMPLETE** ✅  
 **Phase 7 (I/O and MoonMag Integration) COMPLETE** ✅  
-Successfully ported 3,055 lines across 7 phases. All 40 tests passing. Days 1-9 of 13 complete. Ready for Phase 8 (Plotting).
+**Phase 8 (Lateral Plotting) COMPLETE** ✅  
+Successfully ported 3,584 lines across 8 phases. All 54 tests passing. Days 1-10 of 13 complete. Ready for Phase 9 (Main.py integration).
 
 **Goal**: Port complete 3D lateral structure capability from genai branch to main via genai-clean-port. This enables geographic tidal heating distributions H(r,θ,φ), mass conservation, and asymmetric induction for MoonMag. Tobie et al. (2005) Figure 10 reproduction is the validation target.
 
@@ -330,15 +331,68 @@ Successfully ported 3,055 lines across 7 phases. All 40 tests passing. Days 1-9 
 - **Spherical harmonic decomposition**: p = degree (angular scale), q = order (longitudinal variation). Y20: pole-equator variation, Y22: sectoral pattern. Typical ice variation: pMax = 4-8 sufficient.
 - **Literature**: Styczinski et al. (2021) for MoonMag asymmetry method (DOI: 10.1016/j.icarus.2021.114840).
 
+### Phase 8 Complete ✅
+
+**Commit**: 7aa074b1 `[port] Add lateral plotting capabilities (Phase 8)`
+
+**Files added** (981 lines):
+- `PlanetProfile/Plotting/LateralPlots.py`: Geographic visualization (508 lines)
+  - `_InterpolateToLatLon()`: Interpolate from pixel grid to regular lat/lon (scipy.interpolate.griddata)
+  - `_SetMap()`: Configure lat/lon tick formatting on map axis
+  - `_PlotSurfaceMap()`: Generic lat/lon surface map with pcolormesh and contours
+  - `PlotIceThickness()`: Ice shell thickness variation map (viridis colormap, 8 contour levels)
+  - `PlotTidalHeating()`: Tidal surface heat flux map (magma colormap, integrated H*dIce)
+  - `PlotBasalTemperature()`: Basal ice temperature deviation map (seismic diverging colormap)
+  - `PlotOceanConductivity()`: Mean ocean electrical conductivity map (cividis)
+  - `PlotClathrateFraction()`: Clathrate volume fraction map (YlOrBr, 6 contours)
+  - `PlotEffectiveConductivity()`: Effective thermal conductivity map (coolwarm)
+  - `PlotLateralSummary()`: Multi-panel figure (up to 5 fields: ice, heating, Tb, σ, fClath)
+  - `PlotTidalHeatingByLayer()`: By-layer dissipation (cf. Tobie 2005 Fig 10, % deviation from mean)
+  - `PlotTidalHeatingVsDepth()`: H(r) profiles at 4 key locations (sub/anti-planetary, poles, equator)
+  - `GenerateLateralPlots()`: Main orchestrator (calls all plot functions, respects PLOT_LATERAL flag)
+- `PlanetProfile/Test/PPTestLateralPhase8.py`: Comprehensive test suite (473 lines, 14 tests)
+
+**Files modified**:
+- `PlanetProfile/Utilities/defineStructs.py`: Added `Params.PLOT_LATERAL` flag (default True)
+- `CHANGELOG.md`: Updated Phase 1-8 summary
+
+**Tests passing** (14 of 14):
+- ✅ `test_interpolate_to_latlon()`: Interpolation shape/accuracy/mean correctness
+- ✅ `test_plot_surface_map()`: Generic plotting function, file creation (32KB PNG)
+- ✅ `test_plot_ice_thickness()`: Ice thickness map file created
+- ✅ `test_plot_tidal_heating()`: Tidal heating map file created
+- ✅ `test_plot_basal_temperature()`: Basal temperature deviation map file created
+- ✅ `test_plot_ocean_conductivity()`: Ocean conductivity map file created
+- ✅ `test_plot_clathrate_fraction()`: Clathrate fraction map file created (when DO_CLATH_LATERAL=True)
+- ✅ `test_plot_effective_conductivity()`: Effective thermal conductivity map file created
+- ✅ `test_plot_lateral_summary()`: Multi-panel summary file created (5 panels)
+- ✅ `test_plot_tidal_heating_by_layer()`: By-layer heating maps file created (2×2 panels)
+- ✅ `test_plot_tidal_heating_vs_depth()`: Depth profiles file created (4 locations, 2 panels)
+- ✅ `test_generate_lateral_plots()`: Orchestrator creates 9 files
+- ✅ `test_graceful_missing_data()`: All plot functions return early without error when data missing
+- ✅ `test_plot_lateral_disabled()`: GenerateLateralPlots respects PLOT_LATERAL=False
+
+**Scientific understanding documented**:
+- **Geographic interpolation**: Pixel-based grids (HEALPix or lat-lon) interpolated to regular lat/lon output grids via scipy.interpolate.griddata (linear interpolation, fill_value=mean). Handles longitude wrapping (0-360 vs -180-180). Produces smooth 2D arrays for pcolormesh.
+- **Map projections**: Equirectangular projection (lat/lon axes), aspect ratio 1:1. Tick formatters: 0° (not 0N), ±90° (poles). Longitude wrapping handled automatically.
+- **Colormap selection**: Sequential (viridis, magma, cividis) for intensity fields (thickness, heating, conductivity). Diverging (seismic, RdBu_r) for deviation fields (ΔTb, % deviation). YlOrBr for clathrate fraction (0-1 range).
+- **Contour overlays**: Optional black contour lines with clabel for quantitative reading. Levels: integer (8) or array. Try/except handles cases where contours fail (uniform field).
+- **Multi-panel layouts**: nCols = min(nPanels, 3), nRows = ceil(nPanels/nCols). Hide unused axes. Shared colorbar per panel (shrink=0.8). suptitle for figure.
+- **By-layer heating**: Following Tobie et al. (2005) Figure 10 format. Shows % deviation from mean at each position. Panels: (bottom ice I, top ice I), (bottom HP ice, top HP ice). RdBu_r diverging colormap centered at zero. Mean value in title (e.g., "mean = 3.8×10⁻⁹ W/m³").
+- **Depth profiles**: Select 4 representative columns (sub-planetary 0N 0E, anti-planetary 0N 180E, north pole 90N, equator flank 0N 90E) via nearest-neighbor search. Plot H(r) vs depth (km below surface, inverted y-axis). Separate panels for ice I and HP ice. Color-coded by location (tab10 colormap).
+- **File formats**: PDF (vector, lossless) for publication. PNG (raster, 300 DPI) for presentations. Format controlled by FigMisc.figFormat. Metadata (FigLbl.meta) embedded.
+- **Graceful degradation**: All plot functions check for missing data (None or all-NaN) and return early without error. No files created when data missing. Allows partial plotting when some fields unavailable (e.g., no clathrate → skip clathrate plots).
+- **Integration points**: GenerateLateralPlots() called from RunLateral3D() after SaveLateralResults(). Requires Planet.Lateral.DO_3D=True and Params.PLOT_LATERAL=True. Creates 9 files by default (or fewer if data missing).
+
 ### Current Task Status
 
-**Task #1**: Port 3D lateral tidal heating from genai (in_progress - Phase 8 next)
+**Task #1**: Port 3D lateral tidal heating from genai (in_progress - Phase 9 next)
 
-**Progress**: Days 1-9 of 13 complete  
-**Lines ported**: 3,055 across 14 files  
-**Tests passing**: 40 (4 Phase 1 + 6 Phase 2 + 7 Phase 3 + 5 Phase 4 + 4 Phase 5 + 7 Phase 6 + 7 Phase 7)  
-**Commits**: 7 (b9ef6346, 0137e6f6, cd79f5c7, 48ce253b, d4452a14, deeb23a8, 2ff2b75d)  
-**Note**: Every commit includes comprehensive tests (PPTestLateralPhase1-7.py)
+**Progress**: Days 1-10 of 13 complete  
+**Lines ported**: 3,584 across 16 files  
+**Tests passing**: 54 (4 Phase 1 + 6 Phase 2 + 7 Phase 3 + 5 Phase 4 + 4 Phase 5 + 7 Phase 6 + 7 Phase 7 + 14 Phase 8)  
+**Commits**: 8 (b9ef6346, 0137e6f6, cd79f5c7, 48ce253b, d4452a14, deeb23a8, 2ff2b75d, 7aa074b1)  
+**Note**: Every commit includes comprehensive tests (PPTestLateralPhase1-8.py)
 
 ### Dependencies
 
@@ -364,31 +418,34 @@ Successfully ported 3,055 lines across 7 phases. All 40 tests passing. Days 1-9 
 - ✅ genai branch code identified and analyzed
 - ✅ Phases 1-6 complete (2,887 lines, 33 tests)
 
-### Next Steps: Phase 7 (MoonMag Integration)
+### Next Steps: Phase 9 (Main.py Integration)
 
-**Goal**: Integrate 3D asymmetric induction with MoonMag for spatially-varying conductivity fields.
+**Goal**: Integrate lateral structure calculations into Main.py orchestration for seamless 3D workflows.
 
-**From genai branch** (~200-300 lines estimated):
-- Update `MagneticInduction/MagneticInduction.py` to read σ(r,θ,φ) from Lateral structure
-- Convert 3D conductivity field to SH coefficients for MoonMag input
-- Test asymmetric induction vs spherically-symmetric case
+**From genai branch** (~100-200 lines estimated):
+- Update `Main.py` to call `RunLateral3D()` when `Planet.Lateral.DO_3D = True`
+- Add conditional logic: 1D (default) vs 3D (if DO_3D) execution paths
+- Ensure proper sequencing: 1D reference → 3D columns → mass conservation → plotting
+- Add command-line flag `--do-3d` or read from Planet config
 
-**Key capabilities**:
-- Geographic conductivity variation: σ(r,θ,φ) from column-dependent ocean salinity/temperature
-- Asymmetric induced dipole response to Jupiter's tilted field
-- Validation: asymmetric σ should produce asymmetric Bx, By, Bz components
+**Key integration points**:
+- After `SetupInit()`: Check `Planet.Lateral.DO_3D` flag
+- If False: Run existing 1D workflow (IceLayers, OceanLayers, InnerLayers)
+- If True: Run 1D reference first, then call `RunLateral3D()` from LateralStructure module
+- `RunLateral3D()` orchestrates: InitLateralStructure → RunLateralColumns → MassConservation → SaveLateralResults → GenerateLateralPlots
+- Ensure Planet.Lateral.DO_3D defaults to False (backward compatibility)
 
 **Tests needed**:
-- Uniform σ → spherically symmetric response (should match existing)
-- Y20 σ pattern → asymmetric Bx, By, Bz
-- Conservation: ∫σ dV should match reference
-- MoonMag SH conversion accuracy
+- Test 1D workflow still works (DO_3D=False, existing PPTest1)
+- Test 3D workflow activates correctly (DO_3D=True, small grid like nSide=2)
+- Test that 3D results include all expected fields (dIce_m, Tb_K, sigma_mean_Sm, etc.)
+- Test plotting is called and files created
 
 **Scientific understanding to document**:
-- Why asymmetric σ matters for induction (Europa's non-uniform ocean)
-- SH coefficient truncation effects (pMax selection)
-- Relationship between ice thickness variation and σ variation
-- Observable signatures in surface magnetic field
+- When to use 3D vs 1D (geographic variation matters for asymmetric observables)
+- Computational cost scaling: 1D = seconds, 3D = minutes-hours (depends on grid resolution)
+- Validation: 3D spherical mean should approximately match 1D reference
+- Use cases: Tobie 2005 Figure 10 reproduction, asymmetric MoonMag, spatial habitability maps
 
 ---
 
@@ -433,33 +490,36 @@ Successfully ported 3,055 lines across 7 phases. All 40 tests passing. Days 1-9 
 
 ---
 
-## Ready for Phase 6: Clathrate Lateral 🚀
+## Ready for Phase 9: Main.py Integration 🚀
 
 **Next session first message**:
 
 ```
-Continue 3D lateral tidal heating port - Phase 6 (Clathrate Lateral).
+Continue 3D lateral tidal heating port - Phase 9 (Main.py Integration).
 
-According to 3D_LATERAL_PORT_PLAN.md, Phase 6 means:
-1. Port ClathrateLateral.py (132 lines) from genai branch
-2. Port functions:
-   - InitClathrateLateral(Planet) - Initialize clathrate fraction field
-   - EstimateIceThicknessFromClathrate(Planet) - Compute self-consistent ice thickness
-   - _ClathrateConductivityModification(fClath, T_K) - Conductivity vs clathrate fraction
-3. Create PPTestLateralPhase6.py test
-4. Test: Uniform clathrate, SH clathrate, conductivity modification
+According to LOCAL_SESSION_HANDOFF.md, Phase 9 means:
+1. Update Main.py to call RunLateral3D() when Planet.Lateral.DO_3D = True
+2. Add conditional logic: 1D (default) vs 3D execution paths
+3. Ensure proper sequencing: 1D reference → 3D columns → mass conservation → plotting
+4. Test: 1D workflow still works (DO_3D=False), 3D workflow activates (DO_3D=True)
+
+Integration points:
+- After SetupInit(): Check Planet.Lateral.DO_3D flag
+- If False: Run existing 1D workflow (backward compatible)
+- If True: Run 1D reference first, then RunLateral3D()
+- RunLateral3D() orchestrates all Phase 1-8 components
 
 Scientific understanding to document:
-- How does clathrate fraction vary with geography?
-- How does fClath affect thermal conductivity?
-- Why does clathrate require self-consistent ice thickness?
-- What is the physical mechanism (clathrate → k_thermal → qSurf → ice thickness)?
+- When to use 3D vs 1D (geographic variation, asymmetric observables)
+- Computational cost scaling (1D=seconds, 3D=minutes-hours)
+- Validation: 3D spherical mean ≈ 1D reference
+- Use cases: Tobie 2005 Figure 10, asymmetric MoonMag, spatial habitability
 
 Work in conda environment planetprofile. Follow CLAUDE.md guidelines.
 ```
 
-**Timeline**: Day 8 of 13 (Phase 6 next)  
-**End goal**: Complete 3D lateral structure port from genai → main (H(r,θ,φ), mass conservation, MoonMag integration). Validate with Tobie Figure 10 reproduction.
+**Timeline**: Day 11 of 13 (Phase 9 next)  
+**End goal**: Complete 3D lateral structure port from genai → main (H(r,θ,φ), mass conservation, MoonMag integration, plotting, Main.py integration). Validate with Tobie Figure 10 reproduction.
 
 ### Phases 1-5 Recap
 
@@ -498,4 +558,29 @@ Work in conda environment planetprofile. Follow CLAUDE.md guidelines.
 - ✅ All 4 tests passing (mass computation, perturbation sensitivity)
 - ✅ Scientific understanding: why mass differs, computation formula, adjustment strategy
 - ✅ NumPy 2.0 compatible (np.trapezoid)
+- ✅ No breaking changes
+
+**Phase 6 (Day 8)**:
+- ✅ Commit deeb23a8 on genai-clean-port
+- ✅ 493 lines added across 3 files
+- ✅ ClathrateLateral.py, InitClathrateLateral, ComputeEffectiveConductivity, EstimateIceThicknessFromClathrate
+- ✅ All 7 tests passing
+- ✅ Scientific understanding: clathrate thermal conductivity, geographic variation, self-consistent thickness
+- ✅ No breaking changes
+
+**Phase 7 (Day 9)**:
+- ✅ Commit 2ff2b75d on genai-clean-port
+- ✅ 529 lines added across 3 files
+- ✅ LateralIO.py (SaveLateralResults, ReloadLateralResults), bug fixes in LateralStructure.py
+- ✅ All 7 tests passing
+- ✅ Scientific understanding: I/O formats, MoonMag integration, ice-ocean boundary asymmetry
+- ✅ NumPy 2.0 compatible, import fallback for MoonMag
+- ✅ No breaking changes
+
+**Phase 8 (Day 10)**:
+- ✅ Commit 7aa074b1 on genai-clean-port
+- ✅ 981 lines added across 4 files
+- ✅ LateralPlots.py (13 functions), PPTestLateralPhase8.py (14 tests), Params.PLOT_LATERAL flag
+- ✅ All 14 tests passing
+- ✅ Scientific understanding: geographic interpolation, colormaps, multi-panel layouts, by-layer heating, depth profiles
 - ✅ No breaking changes
