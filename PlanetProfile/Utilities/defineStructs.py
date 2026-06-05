@@ -2893,6 +2893,8 @@ class FigMiscStruct:
         self.PLOT_INDUCT_SURF = False  # Plot surfaces or the default, contours
         self.MARK_INDUCT_BOUNDS = True  # Whether to draw a border around the models on sigma/D plot when combined
         self.PLOT_V2021 = False  # Whether to mark the selected ocean/conductivity combos used in Vance et al. 2021
+        # Lateral structure plots
+        self.PLOT_LATERAL = True  # Whether to generate lateral structure plots (3D geographic maps)
         # Excitation spectra
         self.MAG_SPECTRA_PERIODS = True  # Plot against periods for magnetic spectra plots (or frequencies)
         self.MARK_TEXC = True  # Add lines marking the main excitation periods/frequencies on Ae1 plot
