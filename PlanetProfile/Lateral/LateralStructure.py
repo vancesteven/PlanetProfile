@@ -267,7 +267,10 @@ def UpdateAsymShapeFrom3D(Planet, columnPlanets):
             Planet: Updated with asymShape_m for MoonMag.
     """
     from PlanetProfile.Lateral.SpatialGrid import GridToSH
-    from PlanetProfile.MagneticInduction.MoonMag.asymmetry_funcs import get_chipq_from_CSpq_single
+    try:
+        from PlanetProfile.MagneticInduction.MoonMag.asymmetry_funcs import get_chipq_from_CSpq_single
+    except ModuleNotFoundError:
+        from MoonMag.asymmetry_funcs import get_chipq_from_CSpq_single
 
     Lateral = Planet.Lateral
 
@@ -292,17 +295,19 @@ def UpdateAsymShapeFrom3D(Planet, columnPlanets):
 
     nBds = Planet.Magnetic.nBds if hasattr(Planet.Magnetic, 'nBds') and Planet.Magnetic.nBds is not None else 1
     Planet.Magnetic.pMax = pMax
-    Planet.Magnetic.asymShape_m = np.zeros((nBds, 2, pMax + 1, pMax + 1), dtype=np.complex_)
+    Planet.Magnetic.asymShape_m = np.zeros((nBds, 2, pMax + 1, pMax + 1), dtype=np.complex128)
 
     for p in range(1, pMax + 1):
+        # get_chipq_from_CSpq_single expects arrays of length p+1
+        chipq_p = get_chipq_from_CSpq_single(p, Cpq_m[p, :p+1], Spq_m[p, :p+1])
         for q in range(p + 1):
-            chipq = get_chipq_from_CSpq_single(p, Cpq_m[p, q], Spq_m[p, q])
             for iLayer in range(nBds):
                 if hasattr(Planet.Magnetic, 'rSigChange_m') and Planet.Magnetic.rSigChange_m is not None:
                     rScale = Planet.Magnetic.rSigChange_m[iLayer] / r_mean
                 else:
                     rScale = 1.0
-                Planet.Magnetic.asymShape_m[iLayer, :, p, q] = chipq * rScale
+                # chipq_p shape is (2, p+1): [pos/neg q, q index]
+                Planet.Magnetic.asymShape_m[iLayer, :, p, q] = chipq_p[:, q] * rScale
 
     log.info(f'Asymmetric shape updated from 3D model: pMax={pMax}, nBds={nBds}')
     return Planet
@@ -362,6 +367,9 @@ def RunLateral3D(Planet, Params):
         from PlanetProfile.Gravity.Gravity import GravityParameters
         Planet, Params = GravityParameters(Planet, Params)
         log.info(f'Love numbers computed for degrees: {Params.Gravity.harmonic_degrees}')
+
+    from PlanetProfile.Lateral.LateralIO import SaveLateralResults
+    SaveLateralResults(Planet, Params)
 
     log.info('3D lateral structure calculation complete')
     return Planet, Params
