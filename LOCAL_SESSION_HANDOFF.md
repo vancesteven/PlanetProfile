@@ -1,8 +1,8 @@
 # PlanetProfile Session Handoff
 
-**Last Updated**: 2026-06-04, 17:45  
+**Last Updated**: 2026-06-05, 02:30  
 **Current Branch**: `genai-clean-port`  
-**Status**: 3D Lateral Port Phase 6 COMPLETE ✅ - Ready for Phase 7
+**Status**: 3D Lateral Port Phase 7 COMPLETE ✅ - Ready for Phase 8
 
 ---
 
@@ -14,7 +14,8 @@
 **Phase 4 (Lateral Structure Orchestration) COMPLETE** ✅  
 **Phase 5 (Mass Conservation) COMPLETE** ✅  
 **Phase 6 (Clathrate Lateral) COMPLETE** ✅  
-Successfully ported 2,887 lines across 6 phases. All 33 tests passing. Days 1-8 of 13 complete. Ready for Phase 7 (MoonMag Integration).
+**Phase 7 (I/O and MoonMag Integration) COMPLETE** ✅  
+Successfully ported 3,055 lines across 7 phases. All 40 tests passing. Days 1-9 of 13 complete. Ready for Phase 8 (Plotting).
 
 **Goal**: Port complete 3D lateral structure capability from genai branch to main via genai-clean-port. This enables geographic tidal heating distributions H(r,θ,φ), mass conservation, and asymmetric induction for MoonMag. Tobie et al. (2005) Figure 10 reproduction is the validation target.
 
@@ -85,8 +86,8 @@ Successfully ported 2,887 lines across 6 phases. All 33 tests passing. Days 1-8 
 **Phase 4 (Day 5-6)**: ✅ Lateral structure (LateralStructure.py) - COMPLETE  
 **Phase 5 (Day 7)**: ✅ Mass conservation (MassConservation.py) - COMPLETE  
 **Phase 6 (Day 8)**: ✅ Clathrate lateral (ClathrateLateral.py) - COMPLETE  
-**Phase 7 (Day 9)**: ⬅️ MoonMag integration (asymmetric induction) - NEXT  
-**Phase 8 (Day 10)**: Plotting (LateralPlots.py)  
+**Phase 7 (Day 9)**: ✅ I/O and MoonMag integration (LateralIO.py) - COMPLETE  
+**Phase 8 (Day 10)**: ⬅️ Plotting (LateralPlots.py) - NEXT  
 **Phase 9 (Day 11)**: Main.py integration  
 **Phase 10 (Day 12-13)**: Testing, validation, and documentation
 
@@ -298,15 +299,46 @@ Successfully ported 2,887 lines across 6 phases. All 33 tests passing. Days 1-8 
 - **Integration with 3D model**: Clathrate pattern set via SH coefficients (like ice thickness, heating). Each column gets unique f_clath value. Affects thermal profile calculation in each column. Coupled to tidal heating (clathrate has different Q than ice).
 - **Literature**: Hobbs (1974) for ice Ih thermal conductivity: k_ice ≈ 651/T K.
 
+### Phase 7 Complete ✅
+
+**Commit**: 2ff2b75d `[port] Add I/O and MoonMag integration (Phase 7)`
+
+**Files added** (529 lines):
+- `PlanetProfile/Lateral/LateralIO.py`: I/O module (99 lines)
+  - SaveLateralResults(): Save 3D fields to pickle
+  - ReloadLateralResults(): Restore lateral state from pickle
+- `PlanetProfile/Lateral/LateralStructure.py`: Bug fixes (+11 lines)
+  - NumPy 2.0 compatibility: np.complex_ → np.complex128
+  - Import compatibility: try vendored MoonMag, fall back to external
+  - Fixed get_chipq_from_CSpq_single: pass arrays not scalars
+- `PlanetProfile/Test/PPTestLateralPhase7.py`: Test suite (417 lines)
+- `CHANGELOG.md`: Updated Phase 1-7 summary
+
+**Tests passing** (7 of 7):
+- ✅ test_save_lateral_results(): Creates pickle file
+- ✅ test_reload_lateral_results(): Roundtrip preserves data
+- ✅ test_save_reload_roundtrip(): File size stable
+- ✅ test_update_asym_shape_from_3d(): asymShape_m structure correct
+- ✅ test_asym_shape_pole_equator_pattern(): Asymmetry detected
+- ✅ test_asym_shape_with_multiple_boundaries(): Concentric scaling works
+- ✅ test_save_no_lateral_data(): Graceful skip when no data
+
+**Scientific understanding documented**:
+- **I/O module**: Pickle format stores all 3D fields (dIce_m, fClath, Tb_K, qSurf_Wm2, sigma_mean_Sm, kThermEff_WmK, HtidalIce_Wm3, SH coefficients). Enables reloading for plotting, sensitivity studies, comparison. Typical size: ~10-100 KB for 192 pixels, ~1 MB for 3072 pixels.
+- **MoonMag integration**: UpdateAsymShapeFrom3D (ported in Phase 4) converts ice-ocean boundary topography r(θ,φ) → SH χpq coefficients. Output: Planet.Magnetic.asymShape_m[nBds, 2, pMax+1, pMax+1] complex values in meters (4π normalization). Concentric scaling: deeper boundaries proportional to radius. No changes needed in MagneticInduction.py (reads asymShape_m automatically).
+- **Why ice-ocean boundary asymmetry matters**: Ice thickness varies geographically (tidal heating, clathrate, heat flux). Thinner ice → ocean closer to surface → stronger induced field. Geographic variation → asymmetric induced dipole. Observable in Bx, By, Bz asymmetry (~10-50 nT for Europa).
+- **Spherical harmonic decomposition**: p = degree (angular scale), q = order (longitudinal variation). Y20: pole-equator variation, Y22: sectoral pattern. Typical ice variation: pMax = 4-8 sufficient.
+- **Literature**: Styczinski et al. (2021) for MoonMag asymmetry method (DOI: 10.1016/j.icarus.2021.114840).
+
 ### Current Task Status
 
-**Task #1**: Port 3D lateral tidal heating from genai (in_progress - Phase 7 next)
+**Task #1**: Port 3D lateral tidal heating from genai (in_progress - Phase 8 next)
 
-**Progress**: Days 1-8 of 13 complete  
-**Lines ported**: 2,887 across 13 files  
-**Tests passing**: 33 (4 Phase 1 + 6 Phase 2 + 7 Phase 3 + 5 Phase 4 + 4 Phase 5 + 7 Phase 6)  
-**Commits**: 6 (b9ef6346, 0137e6f6, cd79f5c7, 48ce253b, d4452a14, deeb23a8)  
-**Note**: Every commit includes comprehensive tests (PPTestLateralPhase1-6.py)
+**Progress**: Days 1-9 of 13 complete  
+**Lines ported**: 3,055 across 14 files  
+**Tests passing**: 40 (4 Phase 1 + 6 Phase 2 + 7 Phase 3 + 5 Phase 4 + 4 Phase 5 + 7 Phase 6 + 7 Phase 7)  
+**Commits**: 7 (b9ef6346, 0137e6f6, cd79f5c7, 48ce253b, d4452a14, deeb23a8, 2ff2b75d)  
+**Note**: Every commit includes comprehensive tests (PPTestLateralPhase1-7.py)
 
 ### Dependencies
 
