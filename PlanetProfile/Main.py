@@ -312,6 +312,12 @@ def PlanetProfile(Planet, Params):
                 log.info(f'Re-wrote CSV with TidalPy heating profile: {csv_path}')
             except Exception as e:
                 log.warning(f'Failed to re-write CSV with heating profile: {e}')
+    # 3D lateral structure calculations (if configured)
+    if Planet.Lateral.DO_3D and Planet.Do.VALID:
+        log.info('Running 3D lateral structure calculations...')
+        from PlanetProfile.Lateral.LateralStructure import RunLateral3D
+        Planet, Params = RunLateral3D(Planet, Params)
+        log.info('3D lateral structure calculations complete.')
     if Params.PRINT_COMPLETION:
         PrintCompletion(Planet, Params)
     return Planet, Params
