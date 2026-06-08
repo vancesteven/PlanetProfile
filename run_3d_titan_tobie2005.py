@@ -25,9 +25,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from PlanetProfile import PlanetProfile
+from PlanetProfile.Main import PlanetProfile
 from PlanetProfile.Utilities.defineStructs import PlanetStruct
-from PlanetProfile.GetConfig import Params
+from PlanetProfile import GetConfig
 
 def create_titan_model_2(nSide=8):
     """
@@ -95,7 +95,7 @@ def create_titan_model_2(nSide=8):
     Planet.Lateral.DO_MASS_CONSERVE = True
 
     # Parameters
-    Params = Params()
+    Params = GetConfig.Params
     Params.CALC_NEW = True
     Params.DO_PARALLEL = True
     Params.PLOT_LATERAL = True

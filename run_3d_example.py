@@ -23,9 +23,9 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from PlanetProfile import PlanetProfile
+from PlanetProfile.Main import PlanetProfile
 from PlanetProfile.Utilities.defineStructs import PlanetStruct, Constants
-from PlanetProfile.GetConfig import Params
+from PlanetProfile import GetConfig
 
 def create_3d_example(nSide=2, do_tidal=True, do_plot=True):
     """
@@ -107,7 +107,7 @@ def create_3d_example(nSide=2, do_tidal=True, do_plot=True):
     Planet.Lateral.DO_MASS_CONSERVE = True
 
     # Configure parameters
-    Params = Params()
+    Params = GetConfig.Params
     Params.CALC_NEW = True
     Params.DO_PARALLEL = True  # Enable parallel processing
     Params.PLOT_LATERAL = do_plot
