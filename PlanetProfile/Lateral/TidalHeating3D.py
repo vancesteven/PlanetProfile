@@ -39,7 +39,10 @@ def TidalStrainPattern(theta_rad, phi_rad, e=0.0, obliq_rad=0.0):
     """
     cos2t = np.cos(2 * theta_rad)
     cos2p = np.cos(2 * phi_rad)
-    sin2t = np.sin(theta_rad)**2  # 1 - cos^2(theta)
+    # Avoid singularities at poles by adding small epsilon
+    # This prevents numerical issues when theta_rad is exactly 0 or pi
+    eps_pole = 1e-12
+    sin2t = np.maximum(np.sin(theta_rad)**2, eps_pole)
 
     # Eccentricity tide pattern (Ojakangas & Stevenson 1989)
     # Two terms: radial (e0) and librational (e2)
@@ -81,7 +84,10 @@ def _MaxwellDissipation(omega, mu_Pa, eta_Pas):
             D: Dissipation factor omega*Im(mu*) in Pa/s, such that
                H [W/m^3] = D * eps0^2 * f(theta, phi).
     """
-    return omega**2 * eta_Pas * mu_Pa**2 / (mu_Pa**2 + omega**2 * eta_Pas**2)
+    # Add small epsilon to prevent division by zero
+    eps = 1e-20
+    denominator = mu_Pa**2 + omega**2 * eta_Pas**2 + eps
+    return omega**2 * eta_Pas * mu_Pa**2 / denominator
 
 
 def _AndradeDissipation(omega, mu_Pa, eta_Pas, alpha=0.2, zeta_pa=1.0):
@@ -116,7 +122,10 @@ def _AndradeDissipation(omega, mu_Pa, eta_Pas, alpha=0.2, zeta_pa=1.0):
             D: Dissipation factor omega*Im(mu*_Andrade) in Pa/s, such that
                H [W/m^3] = D * eps0^2 * f(theta, phi).
     """
-    tau_M = eta_Pas / mu_Pa  # Maxwell time (s)
+    # Add small epsilon to prevent division by zero
+    eps = 1e-20
+
+    tau_M = eta_Pas / (mu_Pa + eps)  # Maxwell time (s)
     omega_tau = omega * tau_M
 
     Gamma_1a = gamma_func(1 + alpha)
@@ -124,24 +133,24 @@ def _AndradeDissipation(omega, mu_Pa, eta_Pas, alpha=0.2, zeta_pa=1.0):
 
     # Andrade creep coefficient: Gamma(1+alpha) / zeta_pa
     # At zeta_pa=1 this equals Gamma(1+alpha); at zeta_pa=0.005 it is 200x larger.
-    beta = Gamma_1a / zeta_pa
+    beta = Gamma_1a / (zeta_pa + eps)
 
     # Andrade compliance: J* = J_real + i*J_imag
     # (i*omega*tau_M)^(-alpha) = (omega*tau_M)^(-alpha) * [cos(alpha*pi/2) - i*sin(alpha*pi/2)]
-    J_real_A = 1.0 / mu_Pa + ow_neg_alpha * np.cos(alpha * np.pi / 2) * beta / mu_Pa
-    J_imag_A = -1.0 / (omega * eta_Pas) - ow_neg_alpha * np.sin(alpha * np.pi / 2) * beta / mu_Pa
-    J_abs_sq_A = J_real_A**2 + J_imag_A**2
+    J_real_A = 1.0 / (mu_Pa + eps) + ow_neg_alpha * np.cos(alpha * np.pi / 2) * beta / (mu_Pa + eps)
+    J_imag_A = -1.0 / (omega * eta_Pas + eps) - ow_neg_alpha * np.sin(alpha * np.pi / 2) * beta / (mu_Pa + eps)
+    J_abs_sq_A = J_real_A**2 + J_imag_A**2 + eps
     Im_mu_star_A = -J_imag_A / J_abs_sq_A
 
     # Maxwell compliance (for normalization): J* = 1/mu - i/(omega*eta)
-    J_real_M = 1.0 / mu_Pa
-    J_imag_M = -1.0 / (omega * eta_Pas)
-    J_abs_sq_M = J_real_M**2 + J_imag_M**2
+    J_real_M = 1.0 / (mu_Pa + eps)
+    J_imag_M = -1.0 / (omega * eta_Pas + eps)
+    J_abs_sq_M = J_real_M**2 + J_imag_M**2 + eps
     Im_mu_star_M = -J_imag_M / J_abs_sq_M
 
     # Scale Maxwell dissipation by the Andrade/Maxwell Im(mu*) ratio
     D_Maxwell = _MaxwellDissipation(omega, mu_Pa, eta_Pas)
-    ratio = Im_mu_star_A / Im_mu_star_M
+    ratio = Im_mu_star_A / (Im_mu_star_M + eps)
 
     return D_Maxwell * ratio
 

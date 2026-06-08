@@ -57,30 +57,62 @@ def create_titan_model_2(nSide=8):
     Planet.Bulk.M_kg = 1.3452e23
     Planet.Bulk.Tsurf_K = 94.0
     Planet.Bulk.Psurf_MPa = 0.14554
-    Planet.Bulk.Tb_K = 255.0  # Ice-ocean boundary temperature
+    Planet.Bulk.Tb_K = 265.0  # Balanced Tb for moderate ice I shell
+    Planet.Bulk.Cmeasured = 0.33  # Relaxed for tidal heating example
+    Planet.Bulk.Cuncertainty = 0.05  # Wide tolerance
 
     # Orbital parameters (Titan)
     Planet.Bulk.eccentricity = 0.0288
     Planet.Bulk.meanMotion_radps = 2 * np.pi / (15.945 * 86400)  # 15.945 day period
 
+    # Layer step settings
+    Planet.Steps.nIceI = 100
+    Planet.Steps.nSilMax = 60
+    Planet.Steps.nCore = 10
+    Planet.Steps.iSilStart = Planet.Steps.nIceI
+    Planet.PfreezeUpper_MPa = 300
+
     # Ocean (concentrated MgSO4 for ice I above ocean scenario)
     Planet.Ocean.comp = 'MgSO4'
     Planet.Ocean.wOcean_ppt = 100.0  # Concentrated ocean
-    Planet.Ocean.deltaP = 1.0
-    Planet.Ocean.PHydroMax_MPa = 500.0
+    Planet.Ocean.deltaP = 8.0
+    Planet.Ocean.deltaT = 0.5
+    Planet.Ocean.phaseType = 'lookup'
+    Planet.Ocean.PHydroMax_MPa = 1800.0
+    Planet.Ocean.THydroMax_K = 350.0
 
     # Silicate mantle
-    Planet.Sil.Qrad_Wkg = 5.33e-12
-    Planet.Sil.Htidal_Wm3 = 0.0  # Focus on ice shell heating
+    Planet.Sil.Qrad_Wkg = 1.5e-12
+    Planet.Sil.Htidal_Wm3 = 1e-10
     Planet.Do.POROUS_ROCK = True
-    Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
+    Planet.Sil.porosType = 'Han2014'
+    Planet.Sil.HtidalMin_Wm3 = 1e-10
+    Planet.Sil.phiRockMax_frac = 0.90
+    Planet.Sil.Pclosure_MPa = 2000
+    Planet.Sil.mantleEOS = 'Comet_67P_CG_v7_excluding_fluid_properties.tab'
+    Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
 
-    # Core
-    Planet.Do.Fe_CORE = True
+    # Seismic properties
+    Planet.Seismic.lowQDiv = 1.0
+
+    # Core (Titan likely has no metallic core)
+    Planet.Do.Fe_CORE = False
+    Planet.Core.rhoFe_kgm3 = 8000.0
+    Planet.Core.rhoFeS_kgm3 = 5150.0
+    Planet.Core.rhoPoFeFCC = 5455.0
+    Planet.Core.QScore = 1e4
+    Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
+    Planet.Core.wFe_ppt = 700
+    Planet.Core.xFeSmeteoritic = 0.0405
+    Planet.Core.xFeS = 0.55
+    Planet.Core.xFeCore = 0.0279
+    Planet.Core.xH2O = 0.0035
 
     # Disable slow calculations
     Planet.Do.SEISMIC = False
     Planet.Do.EQUIL_Q = False  # Disable equilibrium for faster testing
+    Planet.Do.GRAVITY = True  # Need this for 3D lateral
+    Planet.Do.MAGNETIC = False
 
     # 3D Lateral Structure
     Planet.Lateral.DO_3D = True
@@ -89,6 +121,21 @@ def create_titan_model_2(nSide=8):
 
     # 3D tidal heating (key for Tobie 2005 reproduction)
     Planet.Lateral.DO_TIDAL_3D = True
+
+    # Andrade rheology parameters (tuned to match Tobie et al. 2005)
+    # Try: Keep standard alpha=0.2, use larger zeta for MORE dissipation
+    # (PyALMA3 convention may be inverse of expected)
+    from PlanetProfile.Utilities.defineStructs import GravitySubstruct
+    if not hasattr(Planet, 'Gravity'):
+        Planet.Gravity = GravitySubstruct()
+    Planet.Gravity.andradExponent = 0.2  # Standard Andrade exponent
+    Planet.Gravity.andrade_zeta = {
+        'Ih': 10.0,      # Try LARGER zeta (may increase dissipation)
+        'III': 1.0,      # HP ice: standard
+        'V': 1.0,
+        'VI': 1.0,
+        'default': 1.0   # Fallback
+    }
 
     # Uniform ice thickness (use 1D reference)
     # Tobie 2005 uses ~100 km ice I layer
