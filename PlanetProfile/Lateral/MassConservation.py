@@ -32,7 +32,11 @@ def CheckMassConservation(Planet, columnPlanets):
         r = colPlanet.r_m[:nHydro]
         rho = colPlanet.rho_kgm3[:nHydro]
 
-        M_hydro = np.abs(np.trapezoid(rho * r**2, r))
+        # Use trapz for NumPy < 2.0 compatibility
+        try:
+            M_hydro = np.abs(np.trapezoid(rho * r**2, r))
+        except AttributeError:
+            M_hydro = np.abs(np.trapz(rho * r**2, r))
         M_columns[i] = M_hydro
 
     M_hydro_3d = np.sum(M_columns * Lateral.pixArea_sr) / (4 * np.pi)
@@ -40,7 +44,11 @@ def CheckMassConservation(Planet, columnPlanets):
     nHydro_ref = Planet.Steps.nHydro
     r_ref = Planet.r_m[:nHydro_ref]
     rho_ref = Planet.rho_kgm3[:nHydro_ref]
-    M_hydro_ref = 4 * np.pi * np.abs(np.trapezoid(rho_ref * r_ref**2, r_ref))
+    # Use trapz for NumPy < 2.0 compatibility
+    try:
+        M_hydro_ref = 4 * np.pi * np.abs(np.trapezoid(rho_ref * r_ref**2, r_ref))
+    except AttributeError:
+        M_hydro_ref = 4 * np.pi * np.abs(np.trapz(rho_ref * r_ref**2, r_ref))
 
     M_interior = M_target - M_hydro_ref
 

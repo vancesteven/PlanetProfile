@@ -51,6 +51,8 @@ def create_3d_example(nSide=2, do_tidal=True, do_plot=True):
     # Create Planet structure
     Planet = PlanetStruct('Europa_3D_Example')
 
+    Planet.PfreezeUpper_MPa = 150
+
     # Bulk properties (Europa-like)
     Planet.Bulk.R_m = 1561.0e3
     Planet.Bulk.M_kg = 4.7991e22
@@ -63,6 +65,12 @@ def create_3d_example(nSide=2, do_tidal=True, do_plot=True):
     # Orbital parameters (Europa)
     Planet.Bulk.eccentricity = 0.0094
     Planet.Bulk.meanMotion_radps = 2 * np.pi / (3.55 * 86400)
+
+    # Layer step settings
+    Planet.Steps.nIceI = 50
+    Planet.Steps.nSilMax = 50
+    Planet.Steps.nCore = 10
+    Planet.Steps.iSilStart = Planet.Steps.nIceI
 
     # Ocean (Seawater)
     Planet.Ocean.comp = 'Seawater'
@@ -77,9 +85,21 @@ def create_3d_example(nSide=2, do_tidal=True, do_plot=True):
     Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
     Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
 
+    # Seismic properties
+    Planet.Seismic.lowQDiv = 1.0
+
     # Core
     Planet.Do.Fe_CORE = True
+    Planet.Core.rhoFe_kgm3 = 8000.0
+    Planet.Core.rhoFeS_kgm3 = 5150.0
+    Planet.Core.rhoPoFeFCC = 5455.0
+    Planet.Core.QScore = 1e4
+    Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
+    Planet.Core.wFe_ppt = 850
+    Planet.Core.xFeSmeteoritic = 0.0405
     Planet.Core.xFeS = 0.55  # Moderate value to avoid PyALMA negative k2
+    Planet.Core.xFeCore = 0.0279
+    Planet.Core.xH2O = 0.0035
 
     # Disable slow calculations for faster demo
     Planet.Do.SEISMIC = False
@@ -198,7 +218,9 @@ def main():
             print(f"Results saved to: {Planet.saveFile}")
 
         if do_plot:
-            print(f"Plots saved to: {Planet.saveFile.parent}/figures/")
+            from pathlib import Path
+            saveDir = Path(Planet.saveFile).parent if isinstance(Planet.saveFile, str) else Planet.saveFile.parent
+            print(f"Plots saved to: {saveDir}/figures/")
 
         print("\n✓ 3D lateral structure example completed successfully!")
         return 0

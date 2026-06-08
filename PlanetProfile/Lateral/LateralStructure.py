@@ -371,5 +371,10 @@ def RunLateral3D(Planet, Params):
     from PlanetProfile.Lateral.LateralIO import SaveLateralResults
     SaveLateralResults(Planet, Params)
 
+    # Generate lateral plots if requested
+    if Params.PLOT_LATERAL:
+        from PlanetProfile.Plotting.LateralPlots import GenerateLateralPlots
+        GenerateLateralPlots(Planet, Params)
+
     log.info('3D lateral structure calculation complete')
     return Planet, Params
