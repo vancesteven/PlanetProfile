@@ -736,6 +736,10 @@ def _run_tidalpy_backend(Planet, Params):
         else:
             log.warning(f'Cannot compute per-layer heating: no parent mass for "{parent}"')
 
+    # Store TidalPy result object for access to radial functions (y1-y6)
+    # Used for calculating sensitivity parameter H_μ (Tobie et al. 2005 Eq. 33)
+    Planet.Gravity.tidalpy_result = result
+
     return Planet
 
 

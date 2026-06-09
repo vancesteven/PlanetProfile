@@ -148,8 +148,8 @@ def create_titan_model_2(nSide=8):
     Params.PLOT_LATERAL = True
 
     # Use TidalPy backend for self-consistent heating (optional)
-    # Params.Gravity.backend = 'tidalpy'
-    # Planet.Do.DO_SELF_CONSISTENT_HTIDAL = True
+    Params.Gravity.backend = 'tidalpy'
+    Planet.Do.DO_SELF_CONSISTENT_HTIDAL = True
 
     return Planet, Params
 
