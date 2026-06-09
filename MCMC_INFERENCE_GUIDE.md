@@ -280,8 +280,8 @@ Extracted from Test48 to allow reuse across bodies (Titan, Europa, Ganymede, ...
 | `plot_mass_cmr2_diagnostics(d_hydro_values, mtot_results, cmr2_results, obs_*)` | Mass and CMR² vs D_hydro with observation bands. |
 | `plot_cmr2_surface(tb_vals, d_vals, grid_cache, output_path)` | pcolormesh of CMR² across (Tb, D_hydro). |
 | `plot_tb_structure(tb_vals, d_vals, grid_cache, samples, output_path)` | Ice Ih thickness vs Tb + posterior Tb histogram. |
-| `plot_layers_vs_docean(samples, eval_idx, grid_cache, ..., R_body_km, body_name='Titan', param_indices=None, equil_heating_GW=None)` | 3-panel: D_ocean density / cumulative-thickness stackplot / per-phase heating, sorted by (f_sil ASC, D_ocean ASC). |
-| `plot_structure_wedge(samples, eval_idx, grid_cache, ..., R_body_km, body_name='Titan', param_indices=None)` | Wedge diagram of posterior median interior with 5/95-percentile arcs. |
+| `plot_layers_vs_docean(samples, eval_idx, grid_cache, heating_results, output_path, R_body_km, body_name='Titan', param_indices=None, equil_heating_GW=None)` | 3-panel: D_ocean density / cumulative-thickness stackplot / per-phase heating, sorted by (f_sil ASC, D_ocean ASC). |
+| `plot_structure_wedge(samples, eval_idx, grid_cache, output_path, R_body_km, body_name='Titan', param_indices=None)` | Wedge diagram of posterior median interior with 5/95-percentile arcs. |
 
 `param_indices` defaults to Test48 layout `{'Tb': 5, 'D_hydro': 6, 'f_core': 9}` — override when adapting to a body with a different parameter ordering.
 
@@ -303,9 +303,9 @@ eval_idx, eval_results = mc.evaluate_posterior(samples, forward_fn)
 
 # 3. Plots — body-agnostic:
 mp.plot_corner(samples, PARAM_LABELS, title, out_path)
-mp.plot_layers_vs_docean(samples, eval_idx, grid_cache, tb_vals, d_vals,
-                         heating_results, out_path,
-                         R_body_km=EUROPA_R_M / 1e3, body_name='Europa',
+mp.plot_layers_vs_docean(samples, eval_idx, grid_cache, heating_results,
+                         out_path, R_body_km=EUROPA_R_M / 1e3,
+                         body_name='Europa',
                          param_indices={'Tb': 5, 'D_hydro': 6, 'f_core': 9})
 ```
 

@@ -573,7 +573,7 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
 
     # --- 8. Interior structure wedge ------------------------------------
     mp.plot_structure_wedge(
-        samples, eval_idx, grid_cache, tb_vals, d_vals,
+        samples, eval_idx, grid_cache,
         output_path=out('structure_profile'),
         R_body_km=TITAN_R_M / 1e3,
         body_name='Titan',
@@ -581,7 +581,7 @@ def make_plots(samples, log_likes, k2_results, mtot_results, cmr2_results,
 
     # --- 9. Layer structure vs D_ocean (3-panel) ------------------------
     mp.plot_layers_vs_docean(
-        samples, eval_idx, grid_cache, tb_vals, d_vals, heating_results,
+        samples, eval_idx, grid_cache, heating_results,
         output_path=out('layers_vs_docean'),
         R_body_km=TITAN_R_M / 1e3,
         body_name='Titan',

@@ -1154,7 +1154,7 @@ def render_results():
                         ax_pie.pie([sil_med, hp_med, ih_med],
                                    labels=['Silicate', 'HP Ice', 'Ice Ih'],
                                    autopct='%1.1f%%',
-                                   colors=['#9c755f', '#76b7b2', '#4e79a7'],
+                                   colors=['#C8A96E', '#9B59B6', '#AEE1F8'],
                                    startangle=90)
                         ax_pie.axis('equal')
                         st.pyplot(fig_pie)
@@ -1171,11 +1171,22 @@ def render_results():
 
                 st.markdown("---")
 
-                phase_colors = {'Ih': 'C0', 'III': 'C1', 'V': 'C2', 'VI': 'C3',
-                                'Sil': 'C4', 'Clath': 'C5'}
+                # Consistent phase color scheme used across all plots
+                phase_colors = {
+                    'Clath': '#D4F1F9',
+                    'Ih':    '#AEE1F8',
+                    '0':     '#1E90FF',
+                    'III':   '#C97BAE',
+                    'II':    '#B0E0E6',
+                    'V':     '#9B59B6',
+                    'VI':    '#6C3483',
+                    'Sil':   '#C8A96E',
+                    'Rock':  '#C8A96E',
+                    'Core':  '#8B5A2B',
+                }
 
                 # Use only phases actually present in the data
-                phases_to_show = [p for p in ['Ih', 'III', 'V', 'VI', 'Sil']
+                phases_to_show = [p for p in ['Ih', 'III', 'II', 'V', 'VI', 'Sil', 'Core', 'Clath']
                                   if p in actual_keys]
 
                 heating_fracs = {}
@@ -1213,7 +1224,7 @@ def render_results():
                 f_sil_heat = heating_fracs.get('Sil', np.zeros(len(heating_results)))
                 sort_order = np.argsort(f_sil_heat)
                 bottom = np.zeros(len(heating_results))
-                for phase in ['Sil', 'V', 'VI', 'III', 'Ih']:
+                for phase in ['Core', 'Sil', 'VI', 'V', 'III', 'II', 'Ih', 'Clath']:
                     if phase in heating_fracs:
                         ax.bar(range(len(heating_results)),
                                heating_fracs[phase][sort_order],

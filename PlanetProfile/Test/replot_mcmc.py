@@ -33,23 +33,35 @@ OUTPUT_DIR = os.path.join(_THIS_DIR, 'mcmc_results')
 RE_K2_OBS, RE_K2_ERR = 0.608, 0.048
 IM_K2_OBS, IM_K2_ERR = 0.135, 0.035
 
-# Consistent phase color scheme used across all plots
+# Consistent phase color scheme used across all plots (matches mcmc_plots.py)
 PHASE_COLORS = {
-    'Fe': '#8c8c8c',      # gray
-    'Sil': '#8B4513',     # brown
-    'VI': '#d62728',      # red
-    'V': '#2ca02c',       # green
-    'III': '#ff7f0e',     # orange
-    '0': '#1a5276',       # dark blue
-    'Ih': '#1f77b4',      # blue
-    'Clath': '#FFB347',   # light orange
+    'Clath': '#D4F1F9',
+    'Ih':    '#AEE1F8',
+    '0':     '#1E90FF',
+    'III':   '#C97BAE',
+    'II':    '#B0E0E6',
+    'V':     '#9B59B6',
+    'VI':    '#6C3483',
+    'Sil':   '#C8A96E',
+    'Rock':  '#C8A96E',
+    'Core':  '#8B5A2B',
+    'Fe':    '#8B5A2B',  # Alias for Core
 }
 PHASE_LABELS = {
-    'Fe': 'Iron core', 'Sil': 'Silicate', 'VI': 'Ice VI', 'V': 'Ice V',
-    'III': 'Ice III', '0': 'Ocean', 'Ih': 'Ice Ih', 'Clath': 'Clathrate',
+    'Clath': 'Clathrate',
+    'Ih':    'Ice Ih',
+    '0':     'Ocean',
+    'III':   'Ice III',
+    'II':    'Ice II',
+    'V':     'Ice V',
+    'VI':    'Ice VI',
+    'Sil':   'Silicate',
+    'Rock':  'Rock',
+    'Core':  'Core',
+    'Fe':    'Iron Core',
 }
 # Canonical radial order (center to surface)
-PHASE_ORDER_CANONICAL = ['Fe', 'Sil', 'VI', 'V', 'III', '0', 'Ih', 'Clath']
+PHASE_ORDER_CANONICAL = ['Core', 'Fe', 'Sil', 'Rock', 'VI', 'V', 'III', 'II', '0', 'Ih', 'Clath']
 
 
 # ============================================================

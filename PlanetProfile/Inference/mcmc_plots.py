@@ -67,21 +67,29 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _PHASE_COLORS_STACK: Dict[str, str] = {
-    'Ih':  '#AEE1F8',
-    '0':   '#1E90FF',
-    'III': '#C97BAE',
-    'V':   '#9B59B6',
-    'VI':  '#6C3483',
-    'Sil': '#C8A96E',
+    'Clath': '#D4F1F9',
+    'Ih':    '#AEE1F8',
+    '0':     '#1E90FF',
+    'III':   '#C97BAE',
+    'II':    '#B0E0E6',
+    'V':     '#9B59B6',
+    'VI':    '#6C3483',
+    'Sil':   '#C8A96E',
+    'Rock':  '#C8A96E',  # Alias for Silicate
+    'Core':  '#8B5A2B',
 }
 
 _PHASE_LABELS_STACK: Dict[str, str] = {
-    'Ih':  'Ice Ih',
-    '0':   'Ocean',
-    'III': 'Ice III',
-    'V':   'Ice V',
-    'VI':  'Ice VI',
-    'Sil': 'Silicate',
+    'Clath': 'Clathrate',
+    'Ih':    'Ice Ih',
+    '0':     'Ocean',
+    'III':   'Ice III',
+    'II':    'Ice II',
+    'V':     'Ice V',
+    'VI':    'Ice VI',
+    'Sil':   'Silicate',
+    'Rock':  'Rock',
+    'Core':  'Core',
 }
 
 _FULL_PHASE_COLORS: Dict[str, str] = {
@@ -89,9 +97,11 @@ _FULL_PHASE_COLORS: Dict[str, str] = {
     'Ih':    '#AEE1F8',
     '0':     '#1E90FF',
     'III':   '#C97BAE',
+    'II':    '#B0E0E6',
     'V':     '#9B59B6',
     'VI':    '#6C3483',
     'Sil':   '#C8A96E',
+    'Rock':  '#C8A96E',
     'Core':  '#8B5A2B',
 }
 
@@ -100,9 +110,11 @@ _FULL_PHASE_LABELS: Dict[str, str] = {
     'Ih':    'Ice Ih',
     '0':     'Ocean',
     'III':   'Ice III',
+    'II':    'Ice II',
     'V':     'Ice V',
     'VI':    'Ice VI',
     'Sil':   'Silicate',
+    'Rock':  'Rock',
     'Core':  'Core',
 }
 
@@ -110,10 +122,13 @@ _WEDGE_COLORS: Dict[str, str] = {
     'Ice Ih':     '#AEE1F8',
     'Ocean':      '#1E90FF',
     'Ice III':    '#C97BAE',
+    'Ice II':     '#B0E0E6',
     'Ice V':      '#9B59B6',
     'Ice VI':     '#6C3483',
     'Silicate':   '#C8A96E',
+    'Rock':       '#C8A96E',
     'Dense core': '#8B5A2B',
+    'Core':       '#8B5A2B',
 }
 
 
@@ -424,8 +439,8 @@ def plot_heating_vs_parameters(
 
     sns.set_theme(style='white', font_scale=0.9)
 
-    ALL_PHASES = ['Ih', 'III', 'V', 'VI', 'Sil']
-    phase_colors = {'Ih': 'C0', 'III': 'C1', 'V': 'C2', 'VI': 'C3', 'Sil': 'C4'}
+    ALL_PHASES = ['Ih', 'III', 'V', 'VI', 'Sil', 'Core', 'Clath']
+    phase_colors = {ph: _FULL_PHASE_COLORS.get(ph, '#cccccc') for ph in ALL_PHASES}
 
     heating_power = {
         ph: np.array([h.get(ph, 0.0) for h in heating_results])
@@ -489,7 +504,7 @@ def plot_heating_vs_parameters(
 
     # --- Cumulative heating-fraction bar ---
     if cumulative_bar and ax_cum is not None:
-        stack_phases = ['Ih', 'III', 'V', 'VI', 'Sil']
+        stack_phases = ['Core', 'Sil', 'VI', 'V', 'III', '0', 'Ih', 'Clath']
 
         # Only sum individual phases, excluding the new aggregate '_W' keys 
         # (Silicate_W, HP_Ice_W, Ice_Ih_W) to avoid double-counting.
@@ -736,8 +751,6 @@ def plot_layers_vs_docean(
     samples: np.ndarray,
     eval_idx: np.ndarray,
     grid_cache: Dict[Tuple[float, float], Dict],
-    tb_vals: np.ndarray,
-    d_vals: np.ndarray,
     heating_results: List[Dict[str, float]],
     output_path: str,
     R_body_km: float,
@@ -758,8 +771,6 @@ def plot_layers_vs_docean(
         eval_idx:        Integer indices into ``samples`` for the evaluated
                          subset, shape (N_eval,).
         grid_cache:      Dict keyed by (tb, d) tuples.
-        tb_vals:         1-D grid of Tb values in K.
-        d_vals:          1-D grid of D_hydro values in km.
         heating_results: List (N_eval,) of per-phase heating dicts in W.
         output_path:     Absolute path to the output PNG file.
         R_body_km:       Body surface radius in km.
@@ -782,7 +793,7 @@ def plot_layers_vs_docean(
     i_D_hydro = param_indices['D_hydro']
     i_f_core  = param_indices['f_core']
 
-    PHASE_LIST = ['Ih', 'III', 'V', 'VI', 'Sil']
+    PHASE_LIST = ['Core', 'Sil', 'VI', 'V', 'III', '0', 'Ih', 'Clath']
 
     # Extract per-model structural data
     model_data = []
@@ -791,9 +802,16 @@ def plot_layers_vs_docean(
         d_hydro  = samples[si, i_D_hydro]
         f_core_i = samples[si, i_f_core]
 
-        idx_tb = int(np.argmin(np.abs(tb_vals - tb)))
-        idx_d  = int(np.argmin(np.abs(d_vals  - d_hydro)))
-        pt = grid_cache.get((float(tb_vals[idx_tb]), float(d_vals[idx_d])))
+        # Find closest structure in grid (robust to correlated grids)
+        best_pt = None
+        min_dist = float('inf')
+        for (ktb, kd) in grid_cache.keys():
+            dist = ((ktb - tb)/5.0)**2 + ((kd - d_hydro)/50.0)**2
+            if dist < min_dist:
+                min_dist = dist
+                best_pt = (ktb, kd)
+        
+        pt = grid_cache.get(best_pt)
         if pt is None:
             continue
 
@@ -873,7 +891,7 @@ def plot_layers_vs_docean(
     # Seawater has no HP ices; Callisto with NaCl 100 ppt has no HP ices and
     # may have no Fe core depending on the prior). Threshold 0.1 km handles
     # numerical noise without dropping genuinely-thin layers.
-    _all_stack_phases = ['Core', 'Sil', 'VI', 'V', 'III', '0', 'Ih']
+    _all_stack_phases = ['Core', 'Sil', 'VI', 'V', 'III', '0', 'Ih', 'Clath']
     stack_phases = [p for p in _all_stack_phases
                     if max(r.get(p, 0.0) for r in model_data) > 0.1]
     x      = np.arange(len(model_data))
@@ -947,8 +965,6 @@ def plot_structure_wedge(
     samples: np.ndarray,
     eval_idx: np.ndarray,
     grid_cache: Dict[Tuple[float, float], Dict],
-    tb_vals: np.ndarray,
-    d_vals: np.ndarray,
     output_path: str,
     R_body_km: float,
     body_name: str = 'Titan',
@@ -963,8 +979,6 @@ def plot_structure_wedge(
         samples:       Full posterior array (N_samples, N_params).
         eval_idx:      Integer indices into ``samples`` for the evaluated subset.
         grid_cache:    Dict keyed by (tb, d) tuples.
-        tb_vals:       1-D grid of Tb values in K.
-        d_vals:        1-D grid of D_hydro values in km.
         output_path:   Absolute path to the output PNG file.
         R_body_km:     Body surface radius in km.
         body_name:     Body name string used in the title (default ``'Titan'``).
@@ -989,6 +1003,7 @@ def plot_structure_wedge(
     # Collect per-sample layer boundary radii
     r_iceIh_bot:  List[float] = []
     r_ocean_bot:  List[float] = []
+    r_iceII_bot:  List[float] = []
     r_iceIII_bot: List[float] = []
     r_iceV_bot:   List[float] = []
     r_iceVI_bot:  List[float] = []
@@ -1000,24 +1015,34 @@ def plot_structure_wedge(
         d_hydro  = samples[i, i_D_hydro]
         f_core_i = samples[i, i_f_core]
 
-        idx_tb = int(np.argmin(np.abs(tb_vals - tb)))
-        idx_d  = int(np.argmin(np.abs(d_vals  - d_hydro)))
-        pt = grid_cache.get((float(tb_vals[idx_tb]), float(d_vals[idx_d])))
+        # Find closest structure in grid (robust to correlated grids)
+        best_pt = None
+        min_dist = float('inf')
+        for (ktb, kd) in grid_cache.keys():
+            # Normalized distance (Tb ~ 10K range, D ~ 100km range)
+            dist = ((ktb - tb)/5.0)**2 + ((kd - d_hydro)/50.0)**2
+            if dist < min_dist:
+                min_dist = dist
+                best_pt = (ktb, kd)
+        
+        pt = grid_cache.get(best_pt)
         if pt is None:
             continue
 
         d_ih  = pt.get('D_iceIh_km',  0.0)
         d_oc  = pt.get('D_ocean_km',  0.0)
+        d_ii  = pt.get('D_iceII_km',  0.0)
         d_iii = pt.get('D_iceIII_km', 0.0)
         d_v   = pt.get('D_iceV_km',   0.0)
         d_vi  = pt.get('D_iceVI_km',  0.0)
         d_hp  = pt.get('D_hp_ice_km', 0.0)
-        if d_iii == 0 and d_v == 0 and d_vi == 0 and d_hp > 0:
+        if d_ii == 0 and d_iii == 0 and d_v == 0 and d_vi == 0 and d_hp > 0:
             d_v = d_hp
 
         r_ih_b  = R_body_km - d_ih
         r_oc_b  = r_ih_b - d_oc
-        r_iii_b = r_oc_b - d_iii
+        r_ii_b  = r_oc_b - d_ii
+        r_iii_b = r_ii_b - d_iii
         r_v_b   = r_iii_b - d_v
         r_vi_b  = r_v_b - d_vi
         r_sil_b = r_vi_b           # top of silicate = bottom of last ice
@@ -1025,6 +1050,7 @@ def plot_structure_wedge(
 
         r_iceIh_bot.append(r_ih_b)
         r_ocean_bot.append(r_oc_b)
+        r_iceII_bot.append(r_ii_b)
         r_iceIII_bot.append(r_iii_b)
         r_iceV_bot.append(r_v_b)
         r_iceVI_bot.append(r_vi_b)
@@ -1040,6 +1066,7 @@ def plot_structure_wedge(
 
     p_ih  = pct(r_iceIh_bot)
     p_oc  = pct(r_ocean_bot)
+    p_ii  = pct(r_iceII_bot)
     p_iii = pct(r_iceIII_bot)
     p_v   = pct(r_iceV_bot)
     p_vi  = pct(r_iceVI_bot)
@@ -1049,7 +1076,8 @@ def plot_structure_wedge(
     layers = [
         ('Ice Ih',     R_body_km, p_ih[1]),
         ('Ocean',      p_ih[1],   p_oc[1]),
-        ('Ice III',    p_oc[1],   p_iii[1]),
+        ('Ice II',     p_oc[1],   p_ii[1]),
+        ('Ice III',    p_ii[1],   p_iii[1]),
         ('Ice V',      p_iii[1],  p_v[1]),
         ('Ice VI',     p_v[1],    p_vi[1]),
         ('Silicate',   p_vi[1],   p_sil[1]),
@@ -1119,11 +1147,11 @@ def plot_structure_wedge(
 
     ocean_thick  = p_ih[1] - p_oc[1]
     ice_ih_thick = R_body_km - p_ih[1]
-    hp_thick     = p_oc[1] - p_vi[1]
+    hp_thick     = p_oc[1] - p_vi[1]  # All HP ices (II, III, V, VI)
     ax.set_title(
         f'{body_name} Interior Structure (Posterior Median)\n'
         f'Ice Ih: {ice_ih_thick:.0f} km | Ocean: {ocean_thick:.0f} km | '
-        f'HP ice: {hp_thick:.0f} km',
+        f'HP ices: {hp_thick:.0f} km',
         fontsize=11, pad=10,
     )
 
