@@ -58,7 +58,8 @@ If tests pass but the result is physically suspicious, stop and surface the conc
 
 Autonomy and checkpoints
 
-Claude runs autonomously only between two human checkpoints: planning and review.
+Claude runs autonomously with guidance from a opus or better orchestration agent. 
+The main sonnet run and any associated agents need to check with the more capable orchestrator
 
 A change is nontrivial if it:
 
@@ -74,7 +75,7 @@ changes defaults,
 changes saved outputs,
 affects manuscript-facing figures or claims.
 
-For nontrivial changes, produce a plan before editing and wait for approval.
+For nontrivial changes, produce a plan before editing.
 
 The plan must include:
 
@@ -86,7 +87,7 @@ tests or benchmarks to run,
 success criteria,
 known risks.
 
-After approval:
+After you check and  approve the plan:
 
 implement only the approved plan,
 run targeted tests,
@@ -94,7 +95,7 @@ self-debug within the approved scope,
 avoid unrelated cleanup,
 re-plan and ask before expanding scope.
 
-Stop and ask before continuing if the work requires:
+Stop and ask for approval from the human running claude before continuing if the work requires:
 
 touching new modules,
 adding dependencies,
@@ -115,7 +116,7 @@ Remaining risks or follow-ups.
 
 Then stop. Do not commit or push.
 
-Test and benchmark discipline
+##Test and benchmark discipline
 
 Do not modify tests merely to make failures disappear.
 
@@ -128,7 +129,7 @@ do not loosen tolerances without numerical justification,
 do not replace meaningful checks with weaker smoke tests,
 do not delete failing tests without approval.
 
-For stochastic methods:
+##For stochastic methods:
 
 fix random seeds where practical,
 report sampling settings,
@@ -136,27 +137,24 @@ separate stochastic variability from code-induced changes,
 do not claim posterior convergence without diagnostics.
 Module-specific rules
 
-PlanetProfile/Inference/*
+##PlanetProfile/Inference/*
 
 Implement approved designs and bug fixes autonomously within scope.
 Always plan first for changes to priors, likelihoods, samplers, parameter transforms, forward-model coupling, saved outputs, posterior interpretation, or numerical results.
+Ensure individual models in the datasets can easily be referenced back to full planetprofile models. A philosophy of the Gui for Inference is that one should be able to inspect the outputs in a dedicate tab for that.
 
-PPTest*
-
-Do not modify numbered PPTest* files unless explicitly approved.
-Never add new scientific logic to PPTest* files without plan and approval.
-
--Core PlanetProfile modules
+##Core PlanetProfile modules
 
 Always plan first before editing core modules, including Thermodynamics/, Main.py, Plotting/, MagneticInduction/, Gravity/, hydrosphere/interior-structure code, EOS interfaces, and forward-model code.
+When plotting new science, use existing plotting infrastructure if possible. For example, do not create new wedge plotting functionality when you can use the existing wedge plot functions.
 
-PlanetProfileApp/
+##PlanetProfileApp/
 
 Plan first for new pages, session-state changes, model execution changes, file I/O changes, or changes affecting scientific output.
 Autonomous edits are acceptable for cosmetic changes, help text, typo fixes, and UI wording that does not alter behavior.
 Repository navigation
 
-For substantial PlanetProfile work, orient before editing.
+##For substantial PlanetProfile work, orient before editing.
 
 Use graphify for architectural questions:
 

@@ -59,7 +59,7 @@ from PlanetProfile.Gravity.Gravity import SetupGravity
 # ============================================================
 # Configuration
 # ============================================================
-OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results')
+OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results', 'Titan', 'Test50_andrade_noocean_yao2014')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 STRUCTURE_CACHE_PATH = os.path.join(OUTPUT_DIR, 'titan_allice_yao2014_structure_grid.pkl')

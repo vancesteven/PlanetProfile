@@ -48,6 +48,11 @@ from .structure_cache import (
     validate_structure_cache
 )
 
+from .mcmc_analysis import (
+    reanalyze_k2_from_pickle,
+    plot_k2_posteriors,
+)
+
 # Lazy import runners to avoid dependency chains
 def _get_mcmc_runner():
     from .mcmc_runner import MCMCRunner
@@ -78,6 +83,10 @@ __all__ = [
     'save_structure_cache',
     'build_structure_grid',
     'validate_structure_cache',
+
+    # Post-hoc analysis
+    'reanalyze_k2_from_pickle',
+    'plot_k2_posteriors',
 
     # Runners (lazy imports)
     '_get_mcmc_runner',

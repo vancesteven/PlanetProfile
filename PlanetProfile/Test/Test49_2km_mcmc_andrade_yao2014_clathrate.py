@@ -32,7 +32,7 @@ from TidalPy.RadialSolver import build_rs_input_from_data, radial_solver
 # ============================================================
 # Configuration
 # ============================================================
-OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results')
+OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results', 'Titan', 'Test49_clathrate2km')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Unique cache for the 2km clathrate case

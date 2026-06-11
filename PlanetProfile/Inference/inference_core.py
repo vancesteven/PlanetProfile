@@ -97,6 +97,10 @@ class InferenceConfig:
 
         ocean_overrides = {'comp': 'NaCl', 'wOcean_ppt': 100.0}
     """
+    # Arrhenius viscosity params (e.g. {'E_Ih_J_per_mol': 60000}); empty = no Arrhenius correction.
+    arrhenius_params: Dict[str, Any] = field(default_factory=dict)
+    # Importable module path for the PP body template (e.g. 'PlanetProfile.Test.PPTest48'); used by plot_structure_wedge_pp.
+    planet_template_module: Optional[str] = None
 
     def __post_init__(self):
         """Validate configuration after initialization."""
@@ -176,7 +180,8 @@ class InferenceConfig:
             'param_space': sorted(self.param_space.items()),
             'observables': sorted(self.observables.items()),
             'sampler_settings': sorted(self.sampler_settings.items()),
-            'random_state': self.random_state
+            'random_state': self.random_state,
+            'arrhenius_params': sorted((self.arrhenius_params or {}).items()),
         }
         hash_str = json.dumps(hash_data, sort_keys=True)
         return hashlib.md5(hash_str.encode()).hexdigest()[:16]

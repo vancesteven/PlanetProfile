@@ -61,7 +61,7 @@ from TidalPy.rheology import Maxwell, Elastic
 # ============================================================
 # Configuration
 # ============================================================
-OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results')
+OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results', 'Titan', 'Test42_maxwell_ocean')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 CACHE_PATH = os.path.join(OUTPUT_DIR, 'maxwell_ocean_structure_cache.pkl')

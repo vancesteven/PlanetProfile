@@ -66,7 +66,7 @@ from TidalPy.tides.multilayer.heating import (
 # ============================================================
 # Configuration
 # ============================================================
-OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results')
+OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results', 'Titan', 'Test45_maxwell_hybrid_hydro')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 GRID_CACHE_PATH = os.path.join(OUTPUT_DIR, 'titan_maxwell_hybrid_hydro_grid_cache.pkl')

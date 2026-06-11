@@ -47,7 +47,7 @@ from TidalPy.RadialSolver import build_rs_input_from_data, radial_solver
 # ============================================================
 # Configuration
 # ============================================================
-OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results')
+OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results', 'Titan', 'Test48_andrade_yao2014')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 GRID_CACHE_PATH = os.path.join(OUTPUT_DIR, 'titan_yao2014_hybrid_hydro_grid_cache.pkl')
