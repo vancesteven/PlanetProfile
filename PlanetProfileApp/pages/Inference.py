@@ -52,7 +52,6 @@ def lazy_import_inference():
         from PlanetProfile.Inference.inference_core import InferenceConfig
         from PlanetProfile.Inference.mcmc_runner import MCMCRunner
         from PlanetProfile.Inference.mcmc_plots import (
-            PARAMETER_COLORS,
             plot_structure_wedge_pp
         )
         return (PARAMETER_REGISTRY, PARAMETER_PRESETS, CATEGORY_LABELS,
