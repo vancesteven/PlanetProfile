@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="pp-inference-readme" content="true">
+<title>Titan Test 43 — Andrade + Arrhenius no-ocean MCMC</title>
+<style>
+  body { font-family: Georgia, "Times New Roman", serif; max-width: 920px; margin: 2em auto; padding: 0 1.5em; color: #222; background: #fff; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
+  h2 { color: #2a3b6e; border-bottom: 1px solid #ccc; padding-bottom: .15em; margin-top: 2em; }
+  h3 { color: #3a3a3a; }
+  code, pre { font-family: "SF Mono", Menlo, Consolas, monospace; background: #f4f4f4; }
+  pre { padding: .8em 1em; border-left: 3px solid #2a3b6e; overflow-x: auto; }
+  code { padding: 1px 4px; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; }
+  th, td { border: 1px solid #aaa; padding: .35em .7em; text-align: left; }
+  th { background: #eef0f5; }
+  .meta { color: #555; font-style: italic; }
+  ul li { margin: .2em 0; }
+  .obs { background: #fffbe6; padding: .6em 1em; border-left: 3px solid #c8a200; }
+</style>
+</head>
+<body>
+
+<h1>Titan — Test 43: Andrade + Arrhenius viscosity, no-ocean</h1>
+<p class="meta">Body template: <code>PPTest43.py</code>. Driver: <code>Test43_mcmc_andrade_arrhenius_no_ocean.py</code>.</p>
+
+<h2>Body / template</h2>
+<ul>
+  <li>Same Titan analog as Test 41 (no-ocean, ice all-the-way-down).</li>
+  <li>R = 2574.73 km, M = 1.3452 × 10<sup>23</sup> kg.</li>
+</ul>
+
+<h2>Model assumptions</h2>
+<ul>
+  <li>Andrade rheology with <strong>temperature-dependent</strong> ice viscosity:
+    <pre>eta(T) = etaMelt · exp(Eact/R · (1/T − 1/Tmelt))</pre>
+    evaluated at each radial point using cached T(r).</li>
+  <li>MCMC samples melting-point viscosity etaMelt per phase; activation energies and melting temperatures held fixed.</li>
+  <li>Eta cap = 10<sup>25</sup> Pa·s to prevent overflow in cold regions.</li>
+</ul>
+
+<h3>Arrhenius constants (fixed)</h3>
+<table>
+  <thead><tr><th>Phase</th><th>E<sub>act</sub> (kJ/mol)</th><th>T<sub>melt</sub> (K)</th></tr></thead>
+  <tbody>
+    <tr><td>Ih</td><td>59.4</td><td>273.15</td></tr>
+    <tr><td>III</td><td>127</td><td>253.0</td></tr>
+    <tr><td>V</td><td>136</td><td>264.0</td></tr>
+    <tr><td>VI</td><td>110</td><td>290.0</td></tr>
+  </tbody>
+</table>
+<p>R = 8.314 J/(mol·K).</p>
+
+<h2>Parameter space (5D, uniform priors)</h2>
+<table>
+  <thead><tr><th>Parameter</th><th>Description</th><th>Lower</th><th>Upper</th><th>Units</th></tr></thead>
+  <tbody>
+    <tr><td>alpha</td><td>Andrade exponent</td><td>0.2</td><td>0.4</td><td>—</td></tr>
+    <tr><td>log10(zeta)</td><td>Andrade compliance</td><td>-2</td><td>2</td><td>log10(Pa·s<sup>α</sup>)</td></tr>
+    <tr><td>log10(etaMelt_Ih)</td><td>Ih viscosity at melt point</td><td>10</td><td>16</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(etaMelt_HP)</td><td>HP ice viscosity at melt point</td><td>10</td><td>16</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(etaMelt_sil)</td><td>Silicate viscosity (flat)</td><td>18</td><td>22</td><td>log10(Pa·s)</td></tr>
+  </tbody>
+</table>
+
+<h2>Observational constraints</h2>
+<div class="obs">
+  <ul>
+    <li>Re(k<sub>2</sub>) = 0.608 ± 0.048 (Petricca et al. 2025)</li>
+    <li>|Im(k<sub>2</sub>)| = 0.135 ± 0.035 (Petricca et al. 2025)</li>
+  </ul>
+</div>
+
+<h2>Inference settings</h2>
+<ul>
+  <li>Sampler: pocoMC; n_eff target = 500; seed = 42; n_reeval = 500.</li>
+</ul>
+
+<h2>Output files</h2>
+<ul>
+  <li><code>andrade_arrhenius_no_ocean_mcmc.pkl</code></li>
+  <li><code>andrade_arrhenius_no_ocean_corner.png</code></li>
+  <li><code>andrade_arrhenius_no_ocean_k2_scatter.png</code></li>
+  <li><code>andrade_arrhenius_no_ocean_heating.png</code></li>
+</ul>
+
+<h2>Run command</h2>
+<pre>mamba activate PPcl
+python PlanetProfile/Test/Test43_mcmc_andrade_arrhenius_no_ocean.py</pre>
+
+<h2>References</h2>
+<ul>
+  <li>Petricca, F. et al. (2025). <em>Nature</em>.</li>
+  <li>Goldsby &amp; Kohlstedt (2001). Superplastic deformation of ice. <em>JGR</em>.</li>
+  <li>Durham, W. B. et al. (1997). Creep of high-pressure ice phases.</li>
+</ul>
+
+</body>
+</html>

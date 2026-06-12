@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="pp-inference-readme" content="true">
+<title>Titan Test 45 — Maxwell hybrid hydrosphere MCMC</title>
+<style>
+  body { font-family: Georgia, "Times New Roman", serif; max-width: 920px; margin: 2em auto; padding: 0 1.5em; color: #222; background: #fff; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
+  h2 { color: #2a3b6e; border-bottom: 1px solid #ccc; padding-bottom: .15em; margin-top: 2em; }
+  code, pre { font-family: "SF Mono", Menlo, Consolas, monospace; background: #f4f4f4; }
+  pre { padding: .8em 1em; border-left: 3px solid #2a3b6e; overflow-x: auto; }
+  code { padding: 1px 4px; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; }
+  th, td { border: 1px solid #aaa; padding: .35em .7em; text-align: left; }
+  th { background: #eef0f5; }
+  .meta { color: #555; font-style: italic; }
+  ul li { margin: .2em 0; }
+  .obs { background: #fffbe6; padding: .6em 1em; border-left: 3px solid #c8a200; }
+</style>
+</head>
+<body>
+
+<h1>Titan — Test 45: Maxwell hybrid hydrosphere</h1>
+<p class="meta">Body template: <code>PPTest45.py</code>. Driver: <code>Test45_mcmc_maxwell_hybrid_hydro.py</code>.</p>
+
+<h2>Body / template</h2>
+<ul>
+  <li>Titan analog. R = 2575.5 km, ρ = 1.880 ± 0.004 g/cm³ → M ≈ 1.34534 × 10<sup>23</sup> kg.</li>
+  <li>Total hydrosphere thickness D<sub>hydro</sub> treated as <strong>free parameter</strong>; PP CMR² closure relaxed.</li>
+</ul>
+
+<h2>Model assumptions</h2>
+<ul>
+  <li>Maxwell rheology applied to ices and silicate.</li>
+  <li>Hydrosphere PT remains self-consistent (driven by T<sub>b</sub>); silicate top placed at R − D<sub>hydro</sub>.</li>
+  <li>M<sub>tot</sub> and CMR² are model outputs (not enforced); compared to observations in likelihood.</li>
+  <li>Pre-computed Tb × D<sub>hydro</sub> grid (Tb = 252–270 K at 0.1 K, D = 50–800 km at 50 km) → ~2896 grid points.</li>
+</ul>
+
+<h2>Parameter space (6D, uniform priors)</h2>
+<table>
+  <thead><tr><th>Parameter</th><th>Description</th><th>Lower</th><th>Upper</th><th>Units</th></tr></thead>
+  <tbody>
+    <tr><td>log10(eta_Ih)</td><td>Ice Ih viscosity</td><td>12</td><td>16</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_HP)</td><td>HP ice viscosity</td><td>10</td><td>18</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_sil)</td><td>Silicate viscosity</td><td>12</td><td>22</td><td>log10(Pa·s)</td></tr>
+    <tr><td>Tb_K</td><td>Basal temperature</td><td>252</td><td>270</td><td>K</td></tr>
+    <tr><td>D_hydro_km</td><td>Total hydrosphere thickness</td><td>50</td><td>800</td><td>km</td></tr>
+    <tr><td>rho_sil</td><td>Silicate density</td><td>2000</td><td>6000</td><td>kg/m³</td></tr>
+  </tbody>
+</table>
+
+<h2>Observational constraints</h2>
+<div class="obs">
+  <ul>
+    <li>Re(k<sub>2</sub>) = 0.608 ± 0.048 (Petricca et al. 2025)</li>
+    <li>|Im(k<sub>2</sub>)| = 0.135 ± 0.035</li>
+    <li>CMR² = 0.343 ± 0.001 (Petricca et al. 2025)</li>
+    <li>M<sub>tot</sub> ≈ 1.34534 × 10<sup>23</sup> kg ± 4.25 × 10<sup>20</sup> kg</li>
+  </ul>
+</div>
+
+<h2>Forward model</h2>
+<p>Hybrid grid via <code>PlanetProfile.Inference.hybrid_structure_cache.build_hybrid_hydrosphere_grid</code>. Estimated build time ≈ 10 hours (incremental saves; resume-safe).</p>
+
+<h2>Inference settings</h2>
+<ul>
+  <li>Sampler: pocoMC; n_eff = 500; seed = 42; n_reeval = 500.</li>
+  <li>Maxwell-only run (limited output set; Andrade version in Test46_andrade_hybrid_hydro/).</li>
+</ul>
+
+<h2>Output files</h2>
+<ul>
+  <li><code>hybrid_hydro_mcmc.pkl</code> — Maxwell-only posterior</li>
+</ul>
+
+<h2>Run command</h2>
+<pre>mamba activate PPcl
+python PlanetProfile/Test/Test45_mcmc_maxwell_hybrid_hydro.py</pre>
+
+<h2>References</h2>
+<ul>
+  <li>Petricca, F. et al. (2025). <em>Nature</em>.</li>
+</ul>
+
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="pp-inference-readme" content="true">
+<title>Titan Test 49 — Andrade + Yao + 4 km clathrate</title>
+<style>
+  body { font-family: Georgia, "Times New Roman", serif; max-width: 920px; margin: 2em auto; padding: 0 1.5em; color: #222; background: #fff; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
+  h2 { color: #2a3b6e; border-bottom: 1px solid #ccc; padding-bottom: .15em; margin-top: 2em; }
+  code, pre { font-family: "SF Mono", Menlo, Consolas, monospace; background: #f4f4f4; }
+  pre { padding: .8em 1em; border-left: 3px solid #2a3b6e; overflow-x: auto; }
+  code { padding: 1px 4px; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; }
+  th, td { border: 1px solid #aaa; padding: .35em .7em; text-align: left; }
+  th { background: #eef0f5; }
+  .meta { color: #555; font-style: italic; }
+  ul li { margin: .2em 0; }
+  .obs { background: #fffbe6; padding: .6em 1em; border-left: 3px solid #c8a200; }
+</style>
+</head>
+<body>
+
+<h1>Titan — Test 49: Andrade + Yao 2014, 4 km clathrate cap</h1>
+<p class="meta">Body template: <code>PPTest49.py</code> (PPTest48 with clathMaxThick_m = 4 km, nClath = 30). Driver: <code>Test49_mcmc_andrade_yao2014_clathrate.py</code>.</p>
+
+<h2>Purpose</h2>
+<p>Perturbation check of Test 48 (Path B). Tests sensitivity of the Path B result (~100% Ih heating) to clathrate cap thickness. PPTest48 inherits a 5 km clathrate cap; here it is reduced to 4 km.</p>
+
+<h2>Body / template</h2>
+<ul>
+  <li>Titan analog. Same parameters as PPTest48 except clathrate cap = 4 km (was 5 km).</li>
+  <li>Yao 2014 spherical Ih convection.</li>
+</ul>
+
+<h2>Parameter space (10D, uniform priors)</h2>
+<table>
+  <thead><tr><th>Parameter</th><th>Lower</th><th>Upper</th><th>Units</th></tr></thead>
+  <tbody>
+    <tr><td>alpha</td><td>0.2</td><td>0.4</td><td>—</td></tr>
+    <tr><td>log10(zeta)</td><td>-2</td><td>2</td><td>log10(Pa·s<sup>α</sup>)</td></tr>
+    <tr><td>log10(eta_Ih)</td><td>12</td><td>16</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_HP)</td><td>10</td><td>18</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_sil)</td><td>18</td><td>22</td><td>log10(Pa·s)</td></tr>
+    <tr><td>Tb_K</td><td>252</td><td>270</td><td>K</td></tr>
+    <tr><td>D_hydro_km</td><td>50</td><td>800</td><td>km</td></tr>
+    <tr><td>rho_sil</td><td>2000</td><td>5000</td><td>kg/m³</td></tr>
+    <tr><td>rho_core</td><td>2000</td><td>5000</td><td>kg/m³</td></tr>
+    <tr><td>f_core</td><td>0</td><td>0.8</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<h2>Observational constraints</h2>
+<div class="obs">
+  <ul>
+    <li>Re(k<sub>2</sub>) = 0.608 ± 0.048</li>
+    <li>|Im(k<sub>2</sub>)| = 0.135 ± 0.035</li>
+    <li>CMR² = 0.343 ± 0.005</li>
+    <li>q<sub>surface</sub> = 10 ± 5 mW/m²</li>
+  </ul>
+</div>
+
+<h2>Inference settings</h2>
+<ul>
+  <li>pocoMC; n_eff = 500; seed = 42; n_reeval = 500.</li>
+  <li>Dedicated grid cache: <code>titan_yao2014_clathrate4km_hybrid_hydro_grid_cache.pkl</code>.</li>
+</ul>
+
+<h2>Output files</h2>
+<ul>
+  <li><code>test49_clathrate4km_mcmc_results.pkl</code></li>
+  <li><code>titan_test49_clathrate4km_corner.png</code></li>
+  <li><code>titan_test49_clathrate4km_k2_scatter.png</code></li>
+  <li><code>titan_yao2014_clathrate4km_hybrid_hydro_grid_cache.pkl</code></li>
+</ul>
+
+<h2>Run command</h2>
+<pre>mamba activate PPcl
+python PlanetProfile/Test/Test49_mcmc_andrade_yao2014_clathrate.py</pre>
+
+<h2>References</h2>
+<ul>
+  <li>Yao, C. et al. (2014). <em>JGR Planets</em>.</li>
+  <li>Petricca, F. et al. (2025). <em>Nature</em>.</li>
+</ul>
+
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="pp-inference-readme" content="true">
+<title>Titan Test 46 — Andrade hybrid hydrosphere MCMC</title>
+<style>
+  body { font-family: Georgia, "Times New Roman", serif; max-width: 920px; margin: 2em auto; padding: 0 1.5em; color: #222; background: #fff; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
+  h2 { color: #2a3b6e; border-bottom: 1px solid #ccc; padding-bottom: .15em; margin-top: 2em; }
+  code, pre { font-family: "SF Mono", Menlo, Consolas, monospace; background: #f4f4f4; }
+  pre { padding: .8em 1em; border-left: 3px solid #2a3b6e; overflow-x: auto; }
+  code { padding: 1px 4px; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; }
+  th, td { border: 1px solid #aaa; padding: .35em .7em; text-align: left; }
+  th { background: #eef0f5; }
+  .meta { color: #555; font-style: italic; }
+  ul li { margin: .2em 0; }
+  .obs { background: #fffbe6; padding: .6em 1em; border-left: 3px solid #c8a200; }
+</style>
+</head>
+<body>
+
+<h1>Titan — Test 46: Andrade hybrid hydrosphere</h1>
+<p class="meta">Body template: <code>PPTest46.py</code>. Driver: <code>Test46_mcmc_andrade_hybrid_hydro.py</code>.</p>
+
+<h2>Body / template</h2>
+<ul>
+  <li>Titan analog. R = 2575.5 km, ρ = 1.880 ± 0.004 g/cm³.</li>
+  <li>Hybrid hydrosphere: D<sub>hydro</sub> is a free parameter; PP CMR² closure relaxed (CMR² becomes a model output).</li>
+  <li>Cores: rho_core ≥ rho_sil constraint (stable stratification).</li>
+</ul>
+
+<h2>Model assumptions</h2>
+<ul>
+  <li>Andrade rheology with HP ices sharing one viscosity.</li>
+  <li>Hydrosphere PT self-consistent (driven by T<sub>b</sub>); silicate top at R − D<sub>hydro</sub>.</li>
+  <li>Tb × D<sub>hydro</sub> grid: Tb = 252–253 K at 0.02 K (fine, 50 pts) + 253–270 K at 0.1 K (171 pts) = 221 Tb pts; D = 50–800 km at 25 km (31 pts). Total ≈ 6851 grid points.</li>
+</ul>
+
+<h2>Parameter space (10D, uniform priors)</h2>
+<table>
+  <thead><tr><th>Parameter</th><th>Description</th><th>Lower</th><th>Upper</th><th>Units</th></tr></thead>
+  <tbody>
+    <tr><td>alpha</td><td>Andrade exponent</td><td>0.2</td><td>0.4</td><td>—</td></tr>
+    <tr><td>log10(zeta)</td><td>Andrade compliance</td><td>-2</td><td>2</td><td>log10(Pa·s<sup>α</sup>)</td></tr>
+    <tr><td>log10(eta_Ih)</td><td>Ice Ih viscosity</td><td>12</td><td>16</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_HP)</td><td>HP ice viscosity</td><td>10</td><td>18</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_sil)</td><td>Silicate viscosity</td><td>18</td><td>22</td><td>log10(Pa·s)</td></tr>
+    <tr><td>Tb_K</td><td>Basal temperature</td><td>252</td><td>270</td><td>K</td></tr>
+    <tr><td>D_hydro_km</td><td>Hydrosphere thickness</td><td>50</td><td>800</td><td>km</td></tr>
+    <tr><td>rho_sil</td><td>Outer silicate density</td><td>2000</td><td>5000</td><td>kg/m³</td></tr>
+    <tr><td>rho_core</td><td>Inner silicate/rock density</td><td>2000</td><td>5000</td><td>kg/m³</td></tr>
+    <tr><td>f_core</td><td>R_core / r_sil_top</td><td>0</td><td>0.8</td><td>—</td></tr>
+  </tbody>
+</table>
+<p>Constraint: rho_core ≥ rho_sil (stable stratification; equality = single layer).</p>
+
+<h2>Observational constraints</h2>
+<div class="obs">
+  <ul>
+    <li>Re(k<sub>2</sub>) = 0.608 ± 0.048</li>
+    <li>|Im(k<sub>2</sub>)| = 0.135 ± 0.035</li>
+    <li>CMR² = 0.343 ± 0.001</li>
+    <li>M<sub>tot</sub> derived from ρ = 1.880 ± 0.004 g/cm³ and R = 2575.5 ± 2.0 km</li>
+  </ul>
+</div>
+
+<h2>Inference settings</h2>
+<ul>
+  <li>Sampler: pocoMC; n_eff = 500; seed = 42; n_reeval = 500.</li>
+  <li>Grid cache shared with PPTest45: <code>titan_maxwell_hybrid_hydro_grid_cache.pkl</code>.</li>
+</ul>
+
+<h2>Output files</h2>
+<ul>
+  <li><code>hybrid_hydro_andrade_mcmc.pkl</code></li>
+  <li><code>hybrid_hydro_andrade_corner.png</code>, <code>hybrid_hydro_andrade_k2_scatter.png</code>, <code>hybrid_hydro_andrade_k2_scatter_heating.png</code>, <code>hybrid_hydro_andrade_heating.png</code></li>
+  <li><code>hybrid_hydro_andrade_ice_comparison.png</code>, <code>hybrid_hydro_andrade_mass_cmr2.png</code>, <code>hybrid_hydro_andrade_cmr2_surface.png</code></li>
+  <li><code>hybrid_hydro_andrade_Tb_structure.png</code>, <code>hybrid_hydro_andrade_structure_profile.png</code>, <code>hybrid_hydro_andrade_layers_vs_docean.png</code></li>
+  <li><code>titan_maxwell_hybrid_hydro_grid_cache.pkl</code> (shared with Test45)</li>
+</ul>
+
+<h2>Run command</h2>
+<pre>mamba activate PPcl
+python PlanetProfile/Test/Test46_mcmc_andrade_hybrid_hydro.py
+# To force grid rebuild:
+python PlanetProfile/Test/Test46_mcmc_andrade_hybrid_hydro.py --rebuild-grid</pre>
+
+<h2>References</h2>
+<ul>
+  <li>Petricca, F. et al. (2025). <em>Nature</em>.</li>
+</ul>
+
+</body>
+</html>

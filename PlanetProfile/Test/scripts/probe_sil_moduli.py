@@ -17,6 +17,7 @@ import numpy as np
 
 _pp_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 cache_path = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results',
+                          'Titan', 'Test50_andrade_noocean_yao2014',
                           'titan_allice_yao2014_structure_grid.pkl')
 with open(cache_path, 'rb') as f:
     grid = pickle.load(f)

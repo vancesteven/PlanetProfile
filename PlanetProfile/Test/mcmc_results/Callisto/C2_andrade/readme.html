@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="pp-inference-readme" content="true">
+<title>Callisto C2 — Andrade MCMC</title>
+<style>
+  body { font-family: Georgia, "Times New Roman", serif; max-width: 920px; margin: 2em auto; padding: 0 1.5em; color: #222; background: #fff; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
+  h2 { color: #2a3b6e; border-bottom: 1px solid #ccc; padding-bottom: .15em; margin-top: 2em; }
+  code, pre { font-family: "SF Mono", Menlo, Consolas, monospace; background: #f4f4f4; }
+  pre { padding: .8em 1em; border-left: 3px solid #2a3b6e; overflow-x: auto; }
+  code { padding: 1px 4px; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; }
+  th, td { border: 1px solid #aaa; padding: .35em .7em; text-align: left; }
+  th { background: #eef0f5; }
+  .meta { color: #555; font-style: italic; }
+  ul li { margin: .2em 0; }
+  .obs { background: #fffbe6; padding: .6em 1em; border-left: 3px solid #c8a200; }
+  .note { background: #f0f7ff; padding: .6em 1em; border-left: 3px solid #4477aa; }
+</style>
+</head>
+<body>
+
+<h1>Callisto — Phase C2 Andrade MCMC</h1>
+<p class="meta">Active config: <code>callisto_nacl_andrade_8D.json</code>. Deprecated config: <code>callisto_mgso4_andrade_8D.json</code>. Driver: <code>run_inference_cli.py</code>.</p>
+
+<h2>Body / template</h2>
+<ul>
+  <li>Callisto with NaCl 100 ppt ocean (active config).</li>
+  <li>HP ice shell present (Ice III/V/VI locked together via <code>param_groups</code>).</li>
+  <li>R ≈ 2410 km; R_core upper bound = 1205.15 km = 0.5 R.</li>
+</ul>
+
+<h2>Model assumptions</h2>
+<ul>
+  <li>Andrade rheology; HP ice viscosities locked (single log10_eta_HP applied to phases III, V, VI).</li>
+  <li>Mass conservation derives rho_sil ∈ [1800, 3500] kg/m³ (lower floor than Europa because Callisto silicate is porous; φ_vac ≈ 0.91 → ρ_sil ≈ 2025 kg/m³).</li>
+  <li>Ocean composition: NaCl 100 ppt — switched from MgSO4 because SeaFreeze NaCl extends to P = 5000 MPa (vs MgSO4 P &lt; 800 MPa), avoiding slow extrapolation regeneration.</li>
+  <li>Arrhenius Ih: E<sub>act</sub> = 60 kJ/mol; R = 8.314462 J/(mol·K).</li>
+</ul>
+
+<h2>Parameter space (8D, uniform priors)</h2>
+<table>
+  <thead><tr><th>Parameter</th><th>Lower</th><th>Upper</th><th>Units</th></tr></thead>
+  <tbody>
+    <tr><td>alpha</td><td>0.15</td><td>0.45</td><td>—</td></tr>
+    <tr><td>log10(zeta)</td><td>-3</td><td>2</td><td>log10(Pa·s<sup>α</sup>)</td></tr>
+    <tr><td>log10(eta_Ih)</td><td>10</td><td>16</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_HP)</td><td>10</td><td>16</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_sil)</td><td>18</td><td>22</td><td>log10(Pa·s)</td></tr>
+    <tr><td>Tb_K</td><td>250.0</td><td>254.9</td><td>K</td></tr>
+    <tr><td>R_core_km</td><td>0.0</td><td>1205.15</td><td>km</td></tr>
+    <tr><td>rho_core_kgm3</td><td>5000</td><td>8000</td><td>kg/m³</td></tr>
+  </tbody>
+</table>
+<p><strong>Param groups:</strong> log10_eta_HP applied to log10_eta_III, log10_eta_V, log10_eta_VI.<br>
+<strong>Derived:</strong> rho_sil ∈ [1800, 3500] kg/m³ (mass conservation; rejection sampled).<br>
+<strong>Ocean overrides:</strong> comp = NaCl, wOcean_ppt = 100.0.</p>
+
+<h2>Tb bounds rationale</h2>
+<p>Tb_K = [250.0, 254.9] K targets D<sub>iceIh</sub> ∈ [102, 140] km with D<sub>ocean</sub> ∈ [10, 67] km. Cold bound 250.0 K is below pure-water Ih-III-L triple (251.165 K) but PP converges with NaCl 100 ppt (freezing-point depression). Warm bound 254.9 K → D<sub>iceIh</sub> ≈ 102 km. Probed via <code>PlanetProfile.Inference.find_tb_bounds</code>.</p>
+
+<h2>Observational constraints</h2>
+<div class="obs">
+  <ul>
+    <li>CMR² = 0.3549 ± 0.0042 (Anderson et al. 2001)</li>
+    <li>Re(k<sub>2</sub>) = 0.20 ± 0.05 (placeholder)</li>
+    <li>Im(k<sub>2</sub>) = 0.0 ± 0.05</li>
+    <li>Re(h<sub>2</sub>) = 1.12 ± 0.10</li>
+    <li>Im(h<sub>2</sub>) = 0.0 ± 0.10</li>
+  </ul>
+</div>
+<div class="note">No published k<sub>2</sub> for Callisto — observable values are placeholders.</div>
+
+<h2>Inference settings</h2>
+<ul>
+  <li>pocoMC; n_eff = 500; n_reeval = 500; seed = 42.</li>
+  <li>Structure caches: <code>callisto_nacl_structure_grid.pkl</code> (active), <code>callisto_mgso4_structure_grid.pkl</code> (deprecated).</li>
+</ul>
+
+<h2>Output files</h2>
+<ul>
+  <li><code>callisto_C2_corner.png</code></li>
+  <li><code>callisto_C2_layers_vs_docean.png</code></li>
+  <li><code>callisto_C2_structure_wedge.png</code></li>
+  <li><code>callisto_nacl_structure_grid.pkl</code></li>
+  <li><code>callisto_mgso4_structure_grid.pkl</code> (deprecated; MgSO4 run)</li>
+</ul>
+
+<h2>Run command</h2>
+<pre>mamba activate PPcl
+python -m PlanetProfile.Inference.run_inference_cli \
+    --config PlanetProfile/Inference/configs/callisto_nacl_andrade_8D.json \
+    --output PlanetProfile/Test/mcmc_results/Callisto/C2_andrade/callisto_C2_result.pkl</pre>
+
+<h2>References</h2>
+<ul>
+  <li>Anderson, J. D. et al. (2001). Shape, mean radius, gravity field, and interior structure of Callisto. <em>Icarus</em>.</li>
+  <li>Journaux, B. et al. (2020). Holistic approach to icy moons' interiors via compression experiments. <em>JGR Planets</em>. (SeaFreeze EOS)</li>
+</ul>
+
+</body>
+</html>

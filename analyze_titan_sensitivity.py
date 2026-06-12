@@ -12,15 +12,15 @@ from PlanetProfile.Test.Test49_mcmc_andrade_yao2014_clathrate import forward_mod
 
 def analyze_titan_sensitivity():
     # Load Test 49 (4km Clath)
-    with open('PlanetProfile/Test/mcmc_results/test49_clathrate4km_mcmc_results.pkl', 'rb') as f:
+    with open('PlanetProfile/Test/mcmc_results/Titan/Test49_clathrate4km/test49_clathrate4km_mcmc_results.pkl', 'rb') as f:
         res49 = pickle.load(f)
-    
+
     # Load Test 48 (5km Clath / Path B)
-    with open('PlanetProfile/Test/mcmc_results/hybrid_hydro_andrade_yao2014_mcmc.pkl', 'rb') as f:
+    with open('PlanetProfile/Test/mcmc_results/Titan/Test48_andrade_yao2014/hybrid_hydro_andrade_yao2014_mcmc.pkl', 'rb') as f:
         res48 = pickle.load(f)
 
     # Load Cache 49
-    with open('PlanetProfile/Test/mcmc_results/titan_yao2014_clathrate4km_hybrid_hydro_grid_cache.pkl', 'rb') as f:
+    with open('PlanetProfile/Test/mcmc_results/Titan/Test49_clathrate4km/titan_yao2014_clathrate4km_hybrid_hydro_grid_cache.pkl', 'rb') as f:
         cache49_data = pickle.load(f)
     grid_cache49 = cache49_data['grid_cache']
     tb_vals49 = np.array(sorted(set(k[0] for k in grid_cache49)))

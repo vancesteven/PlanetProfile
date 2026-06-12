@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="pp-inference-readme" content="true">
+<title>Ganymede C2 — Andrade MCMC</title>
+<style>
+  body { font-family: Georgia, "Times New Roman", serif; max-width: 920px; margin: 2em auto; padding: 0 1.5em; color: #222; background: #fff; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
+  h2 { color: #2a3b6e; border-bottom: 1px solid #ccc; padding-bottom: .15em; margin-top: 2em; }
+  code, pre { font-family: "SF Mono", Menlo, Consolas, monospace; background: #f4f4f4; }
+  pre { padding: .8em 1em; border-left: 3px solid #2a3b6e; overflow-x: auto; }
+  code { padding: 1px 4px; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; }
+  th, td { border: 1px solid #aaa; padding: .35em .7em; text-align: left; }
+  th { background: #eef0f5; }
+  .meta { color: #555; font-style: italic; }
+  ul li { margin: .2em 0; }
+  .obs { background: #fffbe6; padding: .6em 1em; border-left: 3px solid #c8a200; }
+  .note { background: #f0f7ff; padding: .6em 1em; border-left: 3px solid #4477aa; }
+</style>
+</head>
+<body>
+
+<h1>Ganymede — Phase C2 Andrade MCMC</h1>
+<p class="meta">Config: <code>ganymede_pureh2o_andrade_8D.json</code>. Driver: <code>run_inference_cli.py</code>.</p>
+
+<h2>Body / template</h2>
+<ul>
+  <li>Ganymede with pure H<sub>2</sub>O ocean.</li>
+  <li>HP ice shell present (Ice III/V/VI locked together via <code>param_groups</code>).</li>
+  <li>R ≈ 2631 km; R_core upper bound = 1315.6 km = 0.5 R.</li>
+</ul>
+
+<h2>Model assumptions</h2>
+<ul>
+  <li>Andrade rheology; HP ice viscosities locked (single log10_eta_HP for phases III, V, VI).</li>
+  <li>Mass conservation derives rho_sil ∈ [2200, 3500] kg/m³ (rejection sampled).</li>
+  <li>Arrhenius Ih: E<sub>act</sub> = 60 kJ/mol; R = 8.314462 J/(mol·K).</li>
+  <li>Pure H<sub>2</sub>O ocean (no dissolved solutes).</li>
+</ul>
+
+<h2>Parameter space (8D, uniform priors)</h2>
+<table>
+  <thead><tr><th>Parameter</th><th>Lower</th><th>Upper</th><th>Units</th></tr></thead>
+  <tbody>
+    <tr><td>alpha</td><td>0.15</td><td>0.45</td><td>—</td></tr>
+    <tr><td>log10(zeta)</td><td>-3</td><td>2</td><td>log10(Pa·s<sup>α</sup>)</td></tr>
+    <tr><td>log10(eta_Ih)</td><td>10</td><td>16</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_HP)</td><td>10</td><td>16</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_sil)</td><td>18</td><td>22</td><td>log10(Pa·s)</td></tr>
+    <tr><td>Tb_K</td><td>251.5</td><td>267.5</td><td>K</td></tr>
+    <tr><td>R_core_km</td><td>0.0</td><td>1315.6</td><td>km</td></tr>
+    <tr><td>rho_core_kgm3</td><td>5000</td><td>8000</td><td>kg/m³</td></tr>
+  </tbody>
+</table>
+<p><strong>Param groups:</strong> log10_eta_HP applied to log10_eta_III, log10_eta_V, log10_eta_VI.<br>
+<strong>Derived:</strong> rho_sil ∈ [2200, 3500] kg/m³ (mass conservation; rejection sampled).</p>
+
+<h2>Tb bounds rationale</h2>
+<p>Tb_K = [251.5, 267.5] K targets D<sub>iceIh</sub> ∈ [50, 149] km with D<sub>ocean</sub> ∈ [12.3, 412] km. Lower 251.5 K just above T<sub>tripleIh-III-L</sub> = 251.165 K → D<sub>ocean</sub> = 12.3 km. Upper 267.5 K → D<sub>iceIh</sub> ≈ 50 km. Probed via <code>PlanetProfile.Inference.find_tb_bounds</code>, 2026-05-23.</p>
+
+<h2>Observational constraints</h2>
+<div class="obs">
+  <ul>
+    <li>CMR² = 0.3115 ± 0.0028 (Schubert et al. 2004)</li>
+    <li>Re(k<sub>2</sub>) = 0.20 ± 0.05 (placeholder)</li>
+    <li>Im(k<sub>2</sub>) = 0.0 ± 0.05</li>
+    <li>Re(h<sub>2</sub>) = 1.12 ± 0.10</li>
+    <li>Im(h<sub>2</sub>) = 0.0 ± 0.10</li>
+  </ul>
+</div>
+<div class="note">No published k<sub>2</sub> for Ganymede — JUICE mission will provide constraints (~2034). Update when published.</div>
+
+<h2>Inference settings</h2>
+<ul>
+  <li>pocoMC; n_eff = 500; n_reeval = 500; seed = 42.</li>
+  <li>Structure cache: <code>ganymede_pureh2o_structure_grid.pkl</code>.</li>
+</ul>
+
+<h2>Output files</h2>
+<ul>
+  <li><code>ganymede_C2_corner.png</code></li>
+  <li><code>ganymede_C2_layers_vs_docean.png</code></li>
+  <li><code>ganymede_C2_structure_wedge.png</code></li>
+  <li><code>ganymede_C2_wedge_pp.pdf</code></li>
+  <li><code>ganymede_pureh2o_structure_grid.pkl</code></li>
+</ul>
+
+<h2>Run command</h2>
+<pre>mamba activate PPcl
+python -m PlanetProfile.Inference.run_inference_cli \
+    --config PlanetProfile/Inference/configs/ganymede_pureh2o_andrade_8D.json \
+    --output PlanetProfile/Test/mcmc_results/Ganymede/C2_andrade/ganymede_C2_result.pkl</pre>
+
+<h2>References</h2>
+<ul>
+  <li>Schubert, G. et al. (2004). Interior composition, structure and dynamics of the Galilean satellites. In <em>Jupiter</em>, Cambridge University Press.</li>
+  <li>Journaux, B. et al. (2020). <em>JGR Planets</em>. (SeaFreeze pure H<sub>2</sub>O EOS)</li>
+</ul>
+
+</body>
+</html>
