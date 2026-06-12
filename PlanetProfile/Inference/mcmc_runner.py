@@ -61,13 +61,20 @@ class MCMCRunner:
                 config.structure_cache_path, validate_bodyname=None
             )
 
+        # Resolve arrhenius_params: prefer config.arrhenius_params, fallback to
+        # sampler_settings, and mirror back to config for self-describing pickles.
+        ap = getattr(config, 'arrhenius_params', None) or config.sampler_settings.get('arrhenius_params')
+        if ap and not getattr(config, 'arrhenius_params', None):
+            config.arrhenius_params = dict(ap)
+        self.arrhenius_params = ap or {}
+
         # Build prior and likelihood — always use dict-based interface so
         # parameter order in param_space never affects forward model mapping.
         self.prior = self._build_prior()
         self.log_likelihood_fn = self._make_flexible_log_likelihood(
             config.observables,
             self.structure_data,
-            arrhenius_params=config.sampler_settings.get('arrhenius_params')
+            arrhenius_params=self.arrhenius_params
         )
 
         # MCMC settings
@@ -561,7 +568,6 @@ class MCMCRunner:
         # Recompute k2 for posterior samples — always dict-based so param order
         # in param_space never causes wrong positional mapping.
         log.info(f"Recomputing k2 for {n_samples} posterior samples...")
-        arrhenius_params = self.config.sampler_settings.get('arrhenius_params')
         rheology = self._infer_rheology() if not self._use_flexible else None
 
         from .forward_models import forward_model_k2_flexible
@@ -574,7 +580,7 @@ class MCMCRunner:
             theta_dict = self._expand_theta(theta)
             Re_k2, Im_k2, _, _, _ = forward_model_k2_flexible(
                 theta_dict, self.structure_data,
-                return_heating=False, arrhenius_params=arrhenius_params
+                return_heating=False, arrhenius_params=self.arrhenius_params
             )
             k2_results.append((Re_k2, Im_k2))
             cmr2_results.append(self._get_cache_scalar(theta_dict, 'CMR2'))
@@ -600,7 +606,7 @@ class MCMCRunner:
             theta_dict = self._expand_theta(samples[si])
             _, _, _, _, perPhase_W = forward_model_k2_flexible(
                 theta_dict, self.structure_data,
-                return_heating=True, arrhenius_params=arrhenius_params
+                return_heating=True, arrhenius_params=self.arrhenius_params
             )
             heating_results.append(perPhase_W if perPhase_W is not None else {})
         heating_indices = idx_heat
@@ -732,8 +738,6 @@ class MCMCRunner:
         x = []
         obs_names = list(self.config.observables.keys())
 
-        arrhenius_params = self.config.sampler_settings.get('arrhenius_params')
-
         from .forward_models import forward_model_k2_flexible
 
         t0 = time.time()
@@ -743,7 +747,7 @@ class MCMCRunner:
             # Compute k2
             Re_k2, Im_k2, _, _, _ = forward_model_k2_flexible(
                 theta_dict, self.structure_data,
-                return_heating=False, arrhenius_params=arrhenius_params
+                return_heating=False, arrhenius_params=self.arrhenius_params
             )
 
             xi = []

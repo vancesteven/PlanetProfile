@@ -54,8 +54,11 @@ plot_structure_wedge
 
 from __future__ import annotations
 
+import importlib
 import logging
-from typing import Dict, List, Optional, Sequence, Tuple
+import os
+from copy import deepcopy
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -130,6 +133,39 @@ _WEDGE_COLORS: Dict[str, str] = {
     'Dense core': '#8B5A2B',
     'Core':       '#8B5A2B',
 }
+
+
+def _wedge_color_map() -> Dict[str, str]:
+    """Return a color dict keyed by layer name using PP's canonical Color config.
+
+    Falls back to _WEDGE_COLORS hex values if Color is unavailable or uninitialized.
+    The ocean and silicate entries are sampled at the colormap midpoint (0.5).
+    """
+    try:
+        from PlanetProfile.GetConfig import Color
+        def _get(attr, fallback, cmap=False):
+            val = getattr(Color, attr, None)
+            if val is None:
+                return fallback
+            if cmap:
+                return val(0.5) if callable(val) else fallback
+            return val
+        sil = _get('silCondCmap', _WEDGE_COLORS['Silicate'], cmap=True)
+        core = _get('Fe', _WEDGE_COLORS['Dense core'])
+        return {
+            'Ice Ih':     _get('iceIcond', _WEDGE_COLORS['Ice Ih']),
+            'Ocean':      _get('oceanCmap', _WEDGE_COLORS['Ocean'], cmap=True),
+            'Ice II':     _get('iceII',  _WEDGE_COLORS['Ice II']),
+            'Ice III':    _get('iceIII', _WEDGE_COLORS['Ice III']),
+            'Ice V':      _get('iceV',   _WEDGE_COLORS['Ice V']),
+            'Ice VI':     _get('iceVI',  _WEDGE_COLORS['Ice VI']),
+            'Silicate':   sil,
+            'Rock':       sil,
+            'Dense core': core,
+            'Core':       core,
+        }
+    except Exception:
+        return dict(_WEDGE_COLORS)
 
 
 # ---------------------------------------------------------------------------
@@ -1084,6 +1120,8 @@ def plot_structure_wedge(
         ('Dense core', p_sil[1],  0.0),
     ]
 
+    wedge_colors = _wedge_color_map()
+
     fig, ax = plt.subplots(figsize=(6, 8))
     ax.set_xlim(-0.1, 1.1)
     ax.set_ylim(-0.05, 1.05)
@@ -1101,7 +1139,7 @@ def plot_structure_wedge(
         wedge = MplWedge(
             (cx, cy), r_outer_norm, ANG1, ANG2,
             width=width_norm,
-            fc=_WEDGE_COLORS[name], ec='#333333', lw=0.8,
+            fc=wedge_colors[name], ec='#333333', lw=0.8,
         )
         ax.add_patch(wedge)
 
@@ -1157,7 +1195,7 @@ def plot_structure_wedge(
 
     handles = [
         mpatches.Patch(color=c, label=l)
-        for l, c in _WEDGE_COLORS.items()
+        for l, c in wedge_colors.items()
         if any(l == name and r_top - r_bot > 0.5 for name, r_top, r_bot in layers)
     ]
     ax.legend(handles=handles, loc='lower left', fontsize=8, framealpha=0.9)
@@ -1166,3 +1204,711 @@ def plot_structure_wedge(
     fig.savefig(output_path, dpi=150, bbox_inches='tight')
     log.info(f'Saved {output_path}')
     plt.close(fig)
+
+
+# ===========================================================================
+# 10. PP-canonical wedge helpers
+# ===========================================================================
+
+def _run_pp_with_overrides(
+    planet_template_module: str,
+    overrides: Dict[str, Any],
+    ocean_overrides: Optional[Dict[str, Any]] = None,
+) -> Tuple[Any, Any]:
+    """Deep-copy Planet from planet_template_module, apply scalar overrides,
+    run PlanetProfile with CALC_NEW=True/NO_SAVEFILE=True/SKIP_PLOTS=True.
+    Returns (Planet, Params).
+
+    Parameters
+    ----------
+    planet_template_module
+        Importable dotted module path that exposes a ``Planet`` object at
+        module top-level (e.g. ``'PlanetProfile.Test.PPTest48'``).
+    overrides
+        Dict mapping dotted attribute paths (relative to ``Planet``) to values.
+        E.g. ``{'Bulk.Tb_K': 250.5, 'Ocean.wOcean_ppt': 10.0}``.
+    ocean_overrides
+        Dict mapping ``Planet.Ocean.<key>`` attribute names to values.
+        Applied after ``overrides``.  Use for composition switches:
+        ``{'comp': 'NaCl', 'wOcean_ppt': 100.0}``.
+    """
+    import sys as _sys
+
+    from PlanetProfile.GetConfig import Params as configParams
+    from PlanetProfile.Main import PlanetProfile as RunPP
+
+    # Reload module to pick up any in-process edits, then deep-copy Planet.
+    if planet_template_module in _sys.modules:
+        importlib.reload(_sys.modules[planet_template_module])
+    else:
+        importlib.import_module(planet_template_module)
+    mod = _sys.modules[planet_template_module]
+    Planet = deepcopy(mod.Planet)
+
+    # Apply dotted-path overrides (e.g. 'Bulk.Tb_K' -> Planet.Bulk.Tb_K)
+    for dotted_key, value in overrides.items():
+        parts = dotted_key.split('.')
+        obj = Planet
+        for part in parts[:-1]:
+            obj = getattr(obj, part)
+        setattr(obj, parts[-1], value)
+
+    # Apply ocean_overrides to Planet.Ocean
+    if ocean_overrides:
+        for key, value in ocean_overrides.items():
+            if not hasattr(Planet.Ocean, key):
+                log.warning(
+                    f'_run_pp_with_overrides: Planet.Ocean has no attribute {key!r}; '
+                    'setting it anyway.'
+                )
+            setattr(Planet.Ocean, key, value)
+
+    tb_val = overrides.get('Bulk.Tb_K', getattr(getattr(Planet, 'Bulk', None), 'Tb_K', None))
+    log.info(
+        f'_run_pp_with_overrides: template={planet_template_module!r}  Tb_K={tb_val}'
+    )
+
+    configParams.CALC_NEW = True
+    configParams.NO_SAVEFILE = True
+    configParams.SKIP_PLOTS = True
+
+    Planet, Params = RunPP(Planet, configParams)
+    return Planet, Params
+
+
+def _validate_planet_against_cache(
+    Planet: Any,
+    cache_pt: Dict[str, Any],
+    strict: bool = False,
+) -> Dict[str, float]:
+    """Compare key structural arrays between a freshly-run Planet and a cached grid point.
+
+    Both the fresh Planet and the cache point expose the following arrays
+    (same keys used in ``cache_builder.build_single_structure``):
+
+    * ``r_m``   — radius grid (m)
+    * ``rho``   — density (kg/m^3)
+    * ``T_K``   — temperature (K)
+    * ``P_MPa`` — pressure (MPa)
+    * ``mu_Pa`` — shear modulus (Pa)
+    * ``K_Pa``  — bulk modulus (Pa)
+
+    The fresh Planet arrays are extracted from
+    ``Planet.Gravity.ALMAModel['model']`` using the same column-index
+    logic as ``cache_builder.build_single_structure``.  If the ALMA model
+    is unavailable, the function falls back to ``Planet.r_m`` / ``Planet.T_K``
+    / ``Planet.P_MPa`` for the scalar profiles and skips elastic moduli.
+
+    Arrays of different lengths are reconciled by interpolating both onto
+    a common radius grid before comparison.
+
+    Parameters
+    ----------
+    Planet
+        A ``Planet`` object returned by ``PlanetProfile.Main.PlanetProfile``.
+    cache_pt
+        A single structure dict from the grid cache (v2.0 or v2.1 format).
+    strict
+        If ``True``, raise ``ValueError`` on the first tolerance violation.
+
+    Returns
+    -------
+    Dict mapping field name to its maximum relative (or absolute) error.
+    """
+    # Tolerances: (rtol, atol).  None means "not used for that mode".
+    _TOLERANCES: Dict[str, Tuple[Optional[float], Optional[float]]] = {
+        'r_m':   (1e-4, 1.0),
+        'rho':   (1e-3, None),
+        'T_K':   (None, 0.5),
+        'P_MPa': (1e-2, None),
+        'mu_Pa': (5e-2, None),
+        'K_Pa':  (5e-2, None),
+    }
+
+    # --- Extract fresh arrays from Planet ---
+    fresh: Dict[str, Optional[np.ndarray]] = {k: None for k in _TOLERANCES}
+    r_m_fresh: Optional[np.ndarray] = None
+    r_m_primary: Optional[np.ndarray] = None
+    sort_idx: Optional[np.ndarray] = None
+
+    try:
+        model = Planet.Gravity.ALMAModel['model']
+        cols = Planet.Gravity.columns
+        r_col   = cols.index('r')
+        rho_col = cols.index('rho')
+        VP_col  = cols.index('VP')
+        GS_col  = cols.index('GS')
+
+        r_m_fresh   = model[:, r_col].astype(np.float64)
+        rho_fresh   = model[:, rho_col].astype(np.float64)
+        mu_fresh    = model[:, GS_col].astype(np.float64)
+        VP_fresh    = model[:, VP_col].astype(np.float64)
+        K_fresh_raw = rho_fresh * VP_fresh ** 2 - (4.0 / 3.0) * mu_fresh
+        K_fresh     = np.maximum(K_fresh_raw, 1e6)
+
+        fresh['r_m']   = r_m_fresh
+        fresh['rho']   = rho_fresh
+        fresh['mu_Pa'] = mu_fresh
+        fresh['K_Pa']  = K_fresh
+    except Exception as exc:
+        log.warning(
+            f'_validate_planet_against_cache: ALMA model extraction failed '
+            f'({exc}); will skip elastic-moduli comparison.'
+        )
+
+    # Temperature and pressure from the primary PP profile
+    try:
+        T_K_arr = np.asarray(Planet.T_K, dtype=np.float64)
+        r_m_primary = np.asarray(Planet.r_m[: T_K_arr.size], dtype=np.float64)
+        sort_idx    = np.argsort(r_m_primary)
+        r_ref       = r_m_fresh if r_m_fresh is not None else r_m_primary[sort_idx]
+        fresh['T_K'] = np.interp(r_ref, r_m_primary[sort_idx], T_K_arr[sort_idx])
+        if fresh['r_m'] is None:
+            fresh['r_m'] = r_ref
+    except Exception as exc:
+        log.warning(f'_validate_planet_against_cache: T_K extraction failed ({exc}).')
+
+    try:
+        P_arr   = np.asarray(Planet.P_MPa, dtype=np.float64)
+        r_ref2  = r_m_fresh if r_m_fresh is not None else (
+            r_m_primary[sort_idx] if r_m_primary is not None and sort_idx is not None
+            else None
+        )
+        if r_ref2 is not None and r_m_primary is not None and sort_idx is not None:
+            P_trimmed = P_arr[: r_m_primary.size]
+            fresh['P_MPa'] = np.interp(r_ref2, r_m_primary[sort_idx], P_trimmed[sort_idx])
+    except Exception as exc:
+        log.warning(f'_validate_planet_against_cache: P_MPa extraction failed ({exc}).')
+
+    # --- Compare field by field ---
+    errors: Dict[str, float] = {}
+    violations: List[str] = []
+
+    for field_name, (rtol, atol) in _TOLERANCES.items():
+        arr_fresh = fresh.get(field_name)
+        arr_cache = cache_pt.get(field_name)
+
+        if arr_fresh is None or arr_cache is None:
+            log.debug(f'_validate_planet_against_cache: skipping {field_name} (unavailable).')
+            continue
+
+        arr_fresh = np.asarray(arr_fresh, dtype=np.float64)
+        arr_cache = np.asarray(arr_cache, dtype=np.float64)
+
+        # Interpolate to a common radius grid if lengths differ
+        if arr_fresh.size != arr_cache.size:
+            r_fresh_ref = fresh.get('r_m')
+            r_cache_ref = cache_pt.get('r_m')
+            if r_fresh_ref is not None and r_cache_ref is not None and field_name != 'r_m':
+                r_f = np.asarray(r_fresh_ref, dtype=np.float64)
+                r_c = np.asarray(r_cache_ref, dtype=np.float64)
+                r_common = np.linspace(
+                    max(float(r_f[0]), float(r_c[0])),
+                    min(float(r_f[-1]), float(r_c[-1])),
+                    min(arr_fresh.size, arr_cache.size),
+                )
+                arr_fresh = np.interp(r_common, r_f, arr_fresh)
+                arr_cache = np.interp(r_common, r_c, arr_cache)
+            else:
+                # Last resort: trim to shorter length
+                n = min(arr_fresh.size, arr_cache.size)
+                arr_fresh = arr_fresh[:n]
+                arr_cache = arr_cache[:n]
+
+        diff = np.abs(arr_fresh - arr_cache)
+
+        if rtol is not None:
+            scale = np.maximum(np.abs(arr_cache), 1e-30)
+            err_val = float(np.nanmax(diff / scale))
+            exceeded = err_val > rtol
+            tol_desc = f'rtol={rtol}'
+        else:
+            err_val = float(np.nanmax(diff))
+            exceeded = err_val > (atol if atol is not None else 0.0)
+            tol_desc = f'atol={atol}'
+
+        errors[field_name] = err_val
+        if exceeded:
+            msg = (
+                f'_validate_planet_against_cache: {field_name} exceeds tolerance '
+                f'({tol_desc}): max_err={err_val:.4g}'
+            )
+            log.warning(msg)
+            violations.append(msg)
+
+    if strict and violations:
+        raise ValueError(
+            'Cache validation failed (strict=True). Violations:\n'
+            + '\n'.join(violations)
+        )
+
+    return errors
+
+
+def plot_structure_wedge_pp(
+    result: Any,
+    grid_cache: Dict[str, Any],
+    output_path: str,
+    *,
+    planet_template_module: Optional[str] = None,
+    param_overrides: Optional[Dict[str, str]] = None,
+    use: str = 'median',
+    sample_index: Optional[int] = None,
+    strict_validate: bool = False,
+    fig_format: Optional[str] = None,
+) -> None:
+    """Re-run PlanetProfile at the posterior point and produce the canonical PP wedge.
+
+    Parameters
+    ----------
+    result
+        An ``InferenceResult`` object with attributes ``samples``,
+        ``param_names``, ``log_likelihoods``, and ``config``.
+    grid_cache
+        Structure cache dict.  Supports both v2.1 list format
+        (``{'Tb_K_grid': [...], 'structures': [...]}`` ) and v2.0 dict
+        format (``{'grid_cache': {(Tb, D): {...}}, 'grid_Tb_values': [...]}``).
+    output_path
+        Absolute path for the output figure (including extension).
+    planet_template_module
+        Importable module path (e.g. ``'PlanetProfile.Test.PPTest48'``).
+        Defaults to ``result.config.planet_template_module``.
+        Raises ``ValueError`` if still ``None`` after resolution.
+    param_overrides
+        Extra mappings from MCMC param name to PP dotted-attribute path,
+        extending the built-in defaults
+        ``{'Tb_K': 'Bulk.Tb_K', 'wOcean_ppt': 'Ocean.wOcean_ppt'}``.
+    use
+        Which posterior point to use: ``'median'`` (default),
+        ``'best_fit'`` (highest log-likelihood), or ``'sample'``
+        (requires ``sample_index``).
+    sample_index
+        Row index into ``result.samples`` used when ``use='sample'``.
+    strict_validate
+        If ``True``, raise on any cache-vs-fresh-Planet tolerance violation.
+    fig_format
+        Output figure format (one of ``'png'``, ``'pdf'``, ``'eps'``, ``'svg'``,
+        ``'jpg'``, ``'jpeg'``, ``'tif'``, ``'tiff'``).  When ``None`` (default)
+        the function honors whatever ``FigMisc.figFormat`` is currently set to
+        on the PP-wide config.  When given, the function temporarily sets
+        ``FigMisc.figFormat`` (and ``FigMisc.xtn``) to this value for the
+        duration of the call and restores the prior values in a ``finally``
+        block.  Either way, the extension on ``output_path`` is rewritten to
+        match the resolved format so the on-disk filename always agrees with
+        the byte stream PP writes.
+    """
+    from PlanetProfile.Plotting.ProfilePlots import PlotWedge
+
+    # 1. Resolve planet_template_module
+    if planet_template_module is None:
+        planet_template_module = getattr(result.config, 'planet_template_module', None)
+    if planet_template_module is None:
+        raise ValueError(
+            'plot_structure_wedge_pp: planet_template_module was not provided and '
+            'result.config.planet_template_module is None. '
+            'Pass it explicitly or set it on result.config.'
+        )
+
+    # 2. Choose posterior point
+    samples = np.asarray(result.samples)
+    param_names = list(result.param_names)
+
+    if use == 'median':
+        theta = np.median(samples, axis=0)
+    elif use == 'best_fit':
+        lls = np.asarray(result.log_likelihoods, dtype=float)
+        if np.all(~np.isfinite(lls)):
+            log.warning(
+                'plot_structure_wedge_pp: all log_likelihoods are non-finite; '
+                'falling back to median.'
+            )
+            theta = np.median(samples, axis=0)
+        else:
+            theta = samples[int(np.nanargmax(lls))]
+    elif use == 'sample':
+        if sample_index is None:
+            raise ValueError("use='sample' requires sample_index to be set.")
+        theta = samples[sample_index]
+    else:
+        raise ValueError(f"use must be 'median', 'best_fit', or 'sample'; got {use!r}.")
+
+    theta_dict: Dict[str, float] = dict(zip(param_names, theta.tolist()))
+
+    # 3. Build PP override dict
+    _DEFAULT_PARAM_MAP: Dict[str, str] = {
+        'Tb_K':       'Bulk.Tb_K',
+        'wOcean_ppt': 'Ocean.wOcean_ppt',
+    }
+    param_map = dict(_DEFAULT_PARAM_MAP)
+    if param_overrides:
+        param_map.update(param_overrides)
+
+    pp_overrides: Dict[str, Any] = {}
+
+    # From sampled params
+    for mcmc_key, pp_path in param_map.items():
+        if mcmc_key in theta_dict:
+            pp_overrides[pp_path] = theta_dict[mcmc_key]
+
+    # From fixed_params (e.g. Tb_K fixed in no-ocean runs)
+    fixed: Dict[str, Any] = getattr(result.config, 'fixed_params', {}) or {}
+    for mcmc_key, pp_path in param_map.items():
+        if mcmc_key in fixed and pp_path not in pp_overrides:
+            pp_overrides[pp_path] = fixed[mcmc_key]
+
+    log.info(f'plot_structure_wedge_pp: PP overrides = {pp_overrides}  (use={use!r})')
+
+    # 4. Get ocean_overrides from config
+    ocean_overrides: Dict[str, Any] = getattr(result.config, 'ocean_overrides', {}) or {}
+
+    # 5. Run PlanetProfile
+    Planet, Params = _run_pp_with_overrides(
+        planet_template_module, pp_overrides, ocean_overrides
+    )
+
+    # 5b. Sanitize wedge-rendering inputs that PP may leave as NaN/None.
+    #
+    # ProfilePlots.PlotWedge (core PP, not modified here) uses the following on
+    # the silicate shell:
+    #   silOuter radius = Planet.Sil.Rmean_m / 1e3 / rMax_km
+    #   silOuter width  = (Planet.Sil.Rmean_m - Planet.Core.Rmean_m) / rMax_km
+    #   dzSilCond_km    = (Planet.Sil.Rmean_m - Planet.Core.Rmean_m) / 1e3
+    #                     - Planet.dzSilPorous_km
+    #   if dzSilCond_km > 0: draw conductive gradient patches
+    #
+    # When inference re-runs PP via _run_pp_with_overrides at a posterior
+    # median (especially with CONSTANT_INNER_DENSITY=True or POROUS_ROCK=True
+    # variants), Planet.dzSilPorous_km can be NaN and Planet.Core.Rmean_m can
+    # be None. NaN propagates through dzSilCond_km, making the conductive-
+    # gradient guard fail (NaN > 0 is False) so no silicate patches are drawn.
+    # Per-patch widths in the porous block also become NaN, silently rendering
+    # nothing. This patch leaves PP physics untouched and only repairs the
+    # plotting attributes; nothing scientific is altered.
+    def _is_missing(v):
+        """True if v is None, NaN, or non-finite; False otherwise."""
+        if v is None:
+            return True
+        try:
+            return not np.isfinite(v)
+        except (TypeError, ValueError):
+            return True
+
+    try:
+        if getattr(Planet.Core, 'Rmean_m', None) is None or not np.isfinite(
+            Planet.Core.Rmean_m
+        ):
+            Planet.Core.Rmean_m = 0.0
+        if getattr(Planet.Sil, 'Rmean_m', None) is None or not np.isfinite(
+            Planet.Sil.Rmean_m
+        ) or Planet.Sil.Rmean_m == 0:
+            sil_mask = np.asarray(Planet.phase) == 50  # 50 = silicate in PP
+            if sil_mask.any():
+                Planet.Sil.Rmean_m = float(np.max(np.asarray(Planet.r_m)[sil_mask]))
+
+        # Ice / clathrate layer geometry: PlotWedge guards each HP-ice patch
+        # with ``if Planet.dzIce*_km > 0`` and then computes the wedge radius
+        # from ``Planet.zIce*_m`` (or ``zClath_km``).  When PP runs at a
+        # posterior median via _run_pp_with_overrides, those scalar layer
+        # summaries are sometimes left as NaN even though Planet.r_m and
+        # Planet.phase fully describe the radial structure.  NaN > 0 is False,
+        # so the layer is silently suppressed and the wedge ends up empty
+        # outside the silicate shell.  Reconstruct any missing dz/z values
+        # from (r_m, phase) so that the layers render.  PP's own values are
+        # left untouched whenever they are finite.
+        #
+        # PP phase codes (PlanetProfile.Utilities.defineStructs.Constants):
+        #   1=IceIh, 2=IceII, 3=IceIII, 5=IceV, 6=IceVI,
+        #   30=clathrate (phaseClath), 50=silicate, 100=Fe.
+        _phase_to_attrs = {
+            1:  ('dzIceI_km',   'zIceI_m'),
+            2:  ('dzIceII_km',  'zIceII_m'),
+            3:  ('dzIceIII_km', 'zIceIII_m'),
+            5:  ('dzIceV_km',   'zIceV_m'),
+            6:  ('dzIceVI_km',  'zIceVI_m'),
+            30: ('dzClath_km',  'zClath_km'),  # zClath stored in km, not m
+        }
+
+        r_m_arr = np.asarray(getattr(Planet, 'r_m', []), dtype=float)
+        phase_arr_raw = getattr(Planet, 'phase', None)
+        phase_arr = (
+            np.asarray(phase_arr_raw, dtype=int)
+            if phase_arr_raw is not None else np.array([], dtype=int)
+        )
+        bulk_R_m = getattr(Planet.Bulk, 'R_m', None)
+        if bulk_R_m is not None and np.isfinite(bulk_R_m):
+            surface_r_m = float(bulk_R_m)
+        elif r_m_arr.size:
+            surface_r_m = float(r_m_arr[0])
+        else:
+            surface_r_m = 0.0
+
+        # PP uses a cell-centered radial grid: ``Planet.r_m`` holds N+1
+        # boundary radii (descending from surface to centre) and
+        # ``Planet.phase`` holds N cell phases.  Cell ``i`` spans the radii
+        # ``r_m[i]`` (top) to ``r_m[i+1]`` (bottom) and carries phase
+        # ``phase[i]``.  Some PP runs return r_m with the same length as
+        # phase (boundaries-only convention); handle both.
+        n_phase = phase_arr.size
+        n_r = r_m_arr.size
+        if n_phase and n_r and n_r in (n_phase, n_phase + 1):
+            for ph_code, (dz_attr, z_attr) in _phase_to_attrs.items():
+                mask = phase_arr == ph_code
+                dz_curr = getattr(Planet, dz_attr, None)
+                z_curr  = getattr(Planet, z_attr,  None)
+                if mask.any():
+                    idx = np.where(mask)[0]
+                    first = int(idx[0])
+                    last = int(idx[-1])
+                    # Top of this phase is the upper boundary of the first
+                    # cell of this phase = r_m[first].
+                    r_top = float(r_m_arr[first])
+                    # Bottom is the lower boundary of the last cell of this
+                    # phase = r_m[last + 1] when boundaries-array is N+1
+                    # long, else r_m[last].
+                    if n_r == n_phase + 1:
+                        r_bot = float(r_m_arr[last + 1])
+                    elif last + 1 < n_r:
+                        r_bot = float(r_m_arr[last + 1])
+                    else:
+                        r_bot = float(r_m_arr[last])
+                    z_top_m = surface_r_m - r_top
+                    dz_km = max(r_top - r_bot, 0.0) / 1e3
+                    if _is_missing(dz_curr):
+                        setattr(Planet, dz_attr, dz_km)
+                    if _is_missing(z_curr):
+                        if z_attr.endswith('_km'):
+                            setattr(Planet, z_attr, z_top_m / 1e3)
+                        else:
+                            setattr(Planet, z_attr, z_top_m)
+                else:
+                    # Phase absent from the radial structure: 0 is the
+                    # PlotWedge "draw nothing" value (guards use ``> 0``).
+                    if _is_missing(dz_curr):
+                        setattr(Planet, dz_attr, 0.0)
+                    if _is_missing(z_curr):
+                        setattr(Planet, z_attr, 0.0)
+
+        # Layer attributes that PlotWedge guards with ``> 0``.  When PP did
+        # not exercise the corresponding mode (POROUS_ROCK, FeS layer, surface
+        # HP undifferentiated ices, wet HP ices), the attribute is left NaN.
+        # Coerce to 0 so the guard correctly suppresses that wedge patch
+        # instead of corrupting the figure with NaN geometry.
+        for _dz_attr in (
+            'dzSilPorous_km', 'dzFeS_km',
+            'dzIceIIIund_km', 'dzIceVund_km',
+            'dzWetHPs_km',
+        ):
+            _v = getattr(Planet, _dz_attr, None)
+            if _is_missing(_v):
+                setattr(Planet, _dz_attr, 0.0)
+        for _z_attr in ('zIceIIIund_m', 'zIceVund_m'):
+            _v = getattr(Planet, _z_attr, None)
+            if _is_missing(_v):
+                setattr(Planet, _z_attr, 0.0)
+
+        # Convective-thermal attributes used by ice Ih shell rendering
+        # (lines 1199-1206 of ProfilePlots.PlotWedge).  NaN here causes the
+        # surface ice shell to render with NaN width and become invisible.
+        # 0 is safe: no convective layer is drawn, the conductive lid covers
+        # the full ice I thickness via dzIceI_km.
+        for _conv_attr in ('eLid_m', 'Dconv_m', 'deltaTBL_m'):
+            _v = getattr(Planet, _conv_attr, None)
+            if _is_missing(_v):
+                setattr(Planet, _conv_attr, 0.0)
+
+        # If eLid_m is set but Dconv_m + deltaTBL_m was zeroed from NaN,
+        # and the total ice I thickness exceeds the conductive lid, there
+        # is a convective zone that PlotWedge would leave unrendered
+        # (the guard at ProfilePlots line 1203 / 1171 is
+        # ``(Planet.Dconv_m + Planet.deltaTBL_m) > 0``).  Reconstruct the
+        # missing convective thickness from the difference between the
+        # full ice I shell (dzIceI_km, already reconstructed from r_m /
+        # phase above) and the conductive stagnant lid.
+        #
+        # Safety:
+        #   - If PP itself populated Dconv_m > 0, this branch is skipped
+        #     (guard ``_dconv + _dtbl <= 0``) and PP's value is preserved.
+        #   - If the run is fully conductive (no convection in PP),
+        #     eLid_m == dzIceI_km*1e3 so _conv_thickness_m == 0 and
+        #     nothing changes.
+        #   - deltaTBL_m is intentionally left at 0; PlotWedge only uses
+        #     the sum (Dconv_m + deltaTBL_m) for the convective patch
+        #     width, so attributing the recovered thickness to Dconv_m
+        #     alone yields the same wedge geometry without inventing a
+        #     thermal-boundary-layer thickness PP did not compute.
+        _eLid_m = float(getattr(Planet, 'eLid_m', 0.0) or 0.0)
+        _dzIceI_m = float(getattr(Planet, 'dzIceI_km', 0.0) or 0.0) * 1e3
+        _dconv = float(getattr(Planet, 'Dconv_m', 0.0) or 0.0)
+        _dtbl = float(getattr(Planet, 'deltaTBL_m', 0.0) or 0.0)
+        if _dzIceI_m > 0 and (_dconv + _dtbl) <= 0:
+            _conv_thickness_m = max(0.0, _dzIceI_m - _eLid_m)
+            if _conv_thickness_m > 0:
+                Planet.Dconv_m = _conv_thickness_m
+                # deltaTBL_m stays 0; PlotWedge uses the sum
+                # Dconv_m + deltaTBL_m, so this yields a single
+                # iceIconv-colored convective wedge of the correct
+                # thickness without inventing a TBL value.
+
+        # Ocean attributes.  In no-ocean runs PP may leave D_km / zb_km as
+        # NaN; PlotWedge guards ocean rendering with ``Planet.D_km > 0``.
+        for _ocean_attr in ('D_km', 'zb_km'):
+            _v = getattr(Planet, _ocean_attr, None)
+            if _is_missing(_v):
+                setattr(Planet, _ocean_attr, 0.0)
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            f'plot_structure_wedge_pp: wedge attribute sanitization failed: {exc!r}'
+        )
+
+    # 6. Find nearest cache point for the resolved Tb_K
+    resolved_Tb: Optional[float] = None
+    if 'Bulk.Tb_K' in pp_overrides:
+        resolved_Tb = float(pp_overrides['Bulk.Tb_K'])
+    elif 'Tb_K' in fixed:
+        resolved_Tb = float(fixed['Tb_K'])
+
+    cache_pt: Optional[Dict[str, Any]] = None
+
+    # v2.1 list format: {'Tb_K_grid': [...], 'structures': [...]}
+    if 'Tb_K_grid' in grid_cache and 'structures' in grid_cache:
+        tb_grid = np.asarray(grid_cache['Tb_K_grid'], dtype=np.float64)
+        if resolved_Tb is not None:
+            idx = int(np.argmin(np.abs(tb_grid - resolved_Tb)))
+        else:
+            idx = 0
+        structs = grid_cache['structures']
+        if 0 <= idx < len(structs):
+            cache_pt = structs[idx]
+
+    # v2.0 dict format: {'grid_cache': {(Tb, D): {...}}, 'grid_Tb_values': [...]}
+    elif 'grid_cache' in grid_cache:
+        inner: Dict[Any, Dict[str, Any]] = grid_cache['grid_cache']
+        if resolved_Tb is not None and inner:
+            tb_arr = np.asarray([k[0] for k in inner.keys()], dtype=np.float64)
+            nearest_tb = float(tb_arr[np.argmin(np.abs(tb_arr - resolved_Tb))])
+            for key, val in inner.items():
+                if abs(key[0] - nearest_tb) < 0.01:
+                    cache_pt = val
+                    break
+        elif inner:
+            cache_pt = next(iter(inner.values()))
+
+    if cache_pt is None:
+        log.warning(
+            'plot_structure_wedge_pp: could not locate a cache point for '
+            f'Tb_K={resolved_Tb}; skipping validation.'
+        )
+    else:
+        # 7. Validate fresh Planet against the cache point
+        _validate_planet_against_cache(Planet, cache_pt, strict=strict_validate)
+
+    # 8. Resolve fig_format and rewrite output_path extension to match.
+    #
+    # PlanetProfile's PlotWedge delegates to
+    # ``fig.savefig(path, format=FigMisc.figFormat, ...)``, so the byte stream
+    # is governed by ``FigMisc.figFormat`` regardless of the extension on the
+    # filename.  Resolve the format first, then force the on-disk filename to
+    # agree with it — the extension on the caller-supplied ``output_path`` is
+    # never authoritative.
+    from PlanetProfile.GetConfig import FigMisc as _FigMisc
+    _supported = {'png', 'pdf', 'eps', 'svg', 'jpg', 'jpeg', 'tif', 'tiff'}
+    _prev_figFormat = getattr(_FigMisc, 'figFormat', None)
+    _prev_xtn = getattr(_FigMisc, 'xtn', None)
+
+    if fig_format is None:
+        _resolved_format = (_prev_figFormat or 'pdf').lower()
+    else:
+        _resolved_format = str(fig_format).lower().lstrip('.')
+
+    if _resolved_format not in _supported:
+        raise ValueError(
+            f"plot_structure_wedge_pp: fig_format={_resolved_format!r} is not "
+            f"supported.  Choose one of {sorted(_supported)}."
+        )
+
+    # Temporarily set the PP-wide format so PlotWedge writes the right bytes.
+    _FigMisc.figFormat = _resolved_format
+    _FigMisc.xtn = '.' + _resolved_format
+
+    # Rewrite output_path's extension to match the resolved format so the
+    # filename always agrees with the byte stream PlotWedge produces.
+    _path_root, _ = os.path.splitext(output_path)
+    output_path = _path_root + '.' + _resolved_format
+
+    # 8b. Configure output path and flags on the Params object.
+    Params.FigureFiles.vwedg = output_path
+    Params.ALL_ONE_BODY = True
+    # PlotWedge does not gate on SKIP_PLOTS, but make intent explicit for any
+    # future call sites that might.
+    Params.SKIP_PLOTS = False
+
+    # 8c. Self-contained guards around PlotWedge so callers do not need to
+    # monkey-patch matplotlib at the driver level:
+    #   - ``Figure.tight_layout`` raises
+    #     ``ValueError("need at least one array to concatenate")`` when any
+    #     ``Wedge`` patch has zero radial extent (e.g. ocean depth = 0,
+    #     no HP ice).  Catch that specific ValueError and continue; the
+    #     figure is still valid.
+    #   - When ``tight_layout`` is skipped (or simply produces tight axes
+    #     against the figure bbox), labels at the figure edge are clipped on
+    #     save.  Inject ``bbox_inches='tight'`` and ``pad_inches`` into the
+    #     ``savefig`` call so labels are never clipped, regardless of which
+    #     path tight_layout took.
+    import matplotlib.figure as _mpl_fig
+    _orig_tight_layout = _mpl_fig.Figure.tight_layout
+    _orig_savefig = _mpl_fig.Figure.savefig
+
+    def _safe_tight_layout(self, *args, **kwargs):
+        try:
+            return _orig_tight_layout(self, *args, **kwargs)
+        except ValueError as e:
+            if 'concatenate' in str(e):
+                log.warning(
+                    'plot_structure_wedge_pp: tight_layout skipped due to '
+                    f'empty Wedge patch ({e}); relying on bbox_inches="tight".'
+                )
+                return None
+            raise
+
+    def _safe_savefig(self, fname, *args, **kwargs):
+        # Try with bbox_inches='tight' first so labels at the figure edge
+        # are never clipped.  If matplotlib's tight-bbox computation raises
+        # the empty-Wedge ``concatenate`` ValueError (same root cause as
+        # the tight_layout crash), strip the tight bbox kwargs, widen the
+        # figure margins instead, and retry so we still keep labels visible
+        # on figures that contain a zero-extent ``Wedge`` patch.
+        kwargs.setdefault('bbox_inches', 'tight')
+        kwargs.setdefault('pad_inches', 0.1)
+        try:
+            return _orig_savefig(self, fname, *args, **kwargs)
+        except ValueError as e:
+            if 'concatenate' not in str(e):
+                raise
+            log.warning(
+                'plot_structure_wedge_pp: bbox_inches="tight" failed due to '
+                f'empty Wedge patch ({e}); retrying with subplots_adjust '
+                'margins so labels stay visible.'
+            )
+            kwargs.pop('bbox_inches', None)
+            kwargs.pop('pad_inches', None)
+            try:
+                self.subplots_adjust(left=0.12, right=0.95, top=0.93, bottom=0.10)
+            except Exception:  # pragma: no cover - defensive
+                pass
+            return _orig_savefig(self, fname, *args, **kwargs)
+
+    _mpl_fig.Figure.tight_layout = _safe_tight_layout
+    _mpl_fig.Figure.savefig = _safe_savefig
+
+    try:
+        # 9. Produce the PP wedge figure
+        PlotWedge([Planet], Params)
+        log.info(f'plot_structure_wedge_pp: saved PP wedge to {output_path}')
+    finally:
+        # Restore matplotlib and FigMisc state regardless of plot outcome.
+        _mpl_fig.Figure.tight_layout = _orig_tight_layout
+        _mpl_fig.Figure.savefig = _orig_savefig
+        if _prev_figFormat is not None:
+            _FigMisc.figFormat = _prev_figFormat
+        if _prev_xtn is not None:
+            _FigMisc.xtn = _prev_xtn

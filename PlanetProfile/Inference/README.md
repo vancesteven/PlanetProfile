@@ -249,6 +249,14 @@ from a JSON file via `InferenceConfig.from_json(path)`.
   "observables": { ... },        // Observed values and uncertainties
   "sampler_settings": { ... },   // n_effective, n_reeval, rheology, arrhenius_params
   "structure_cache_path": "...", // Path to pre-built cache pickle
+  "arrhenius_params": { ... },   // Optional (top-level): Arrhenius viscosity params, e.g. {"E_Ih_J_per_mol": 60000}.
+                                 // Preferred over sampler_settings["arrhenius_params"]; stored on the
+                                 // saved InferenceResult pickle so post-hoc reanalyze_k2_from_pickle
+                                 // calls are self-describing without the caller re-supplying this dict.
+  "planet_template_module": "PlanetProfile.Test.PPTest48",  // Optional: importable PPTest module used
+                                 // by plot_structure_wedge_pp to re-run PlanetProfile at the posterior
+                                 // median and produce a canonical PP wedge plot. Must be set here (or
+                                 // passed explicitly) for plot_structure_wedge_pp to work.
   "random_state": 42,
   "metadata": { ... }
 }
@@ -721,3 +729,61 @@ wrap `pickle.dump` / `pickle.load` with atomic writes and directory creation.
 - `MCMC_INFERENCE_GUIDE.md` (repo root) — narrative walkthrough of the
   Titan-specific Test41–50 sequence; context for the no-ocean vs. ocean-bearing
   model comparison and the progression from fixed-Tb to sampled-Tb configs.
+
+## Wedge plot (PP canonical)
+
+```python
+plot_structure_wedge_pp(
+    result, grid_cache, output_path,
+    *,
+    planet_template_module=None,
+    param_overrides=None,
+    use='median',
+    sample_index=None,
+    strict_validate=False,
+    fig_format=None,
+)
+```
+
+`mcmc_plots.plot_structure_wedge_pp(...)` re-runs PlanetProfile's full forward
+model at a chosen posterior point (`use='median'`, `'best_fit'`, or
+`'sample'`) and saves the canonical `PlotWedge` figure to `output_path`.
+This bypasses the cached-structure interpolation used during sampling and
+produces a manuscript-quality wedge that exactly reflects what PP itself
+would draw for the inferred parameters.
+
+Three reproducibility-relevant pitfalls are handled internally:
+
+1. **`FigMisc.figFormat` controls the saved byte stream.**  PP's `PlotWedge`
+   calls `fig.savefig(path, format=FigMisc.figFormat, ...)`, so the format
+   on disk is governed by the PP-wide config (default `'pdf'`), not by the
+   extension on the filename.  By default (`fig_format=None`)
+   `plot_structure_wedge_pp` honors whatever `FigMisc.figFormat` is currently
+   set to and rewrites `output_path`'s extension to match — so the filename
+   always agrees with the bytes.  Pass `fig_format='png'` (or `'pdf'`,
+   `'svg'`, `'eps'`, `'jpg'`, `'tif'`) to request a specific format
+   regardless of the PP-wide setting; the wrapper temporarily sets
+   `FigMisc.figFormat` and `FigMisc.xtn` for the duration of the call and
+   restores them in a `finally` block.
+2. **`Params.SKIP_PLOTS` leaks from the forward run.**  `_run_pp_with_overrides`
+   sets `SKIP_PLOTS=True` so the forward call is silent; the wrapper resets it
+   to `False` before invoking `PlotWedge`.
+3. **`tight_layout` chokes on zero-width Wedge patches.**  Both `tight_layout`
+   and `savefig` are locally monkey-patched to inject `bbox_inches='tight'`
+   and to swallow the `ValueError` matplotlib raises on degenerate patches.
+   Original methods are restored in a `finally` block.
+
+Wedge fill colors come from PP's `Color` config via the `_wedge_color_map()`
+helper rather than hardcoded fallbacks, so the inferred-structure wedge
+matches the style of any other PP wedge for the same body.
+
+Example:
+
+```python
+plot_structure_wedge_pp(
+    result, grid_cache,
+    "mcmc_results/Titan/Test48_andrade_yao2014/wedge_pp.png",
+    use='median',
+    fig_format='png',
+)
+```

@@ -73,7 +73,7 @@ from TidalPy.tides.multilayer.heating import (
 # ============================================================
 # Configuration
 # ============================================================
-OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results')
+OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results', 'Titan', 'Test46_andrade_hybrid_hydro')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 GRID_CACHE_PATH = os.path.join(OUTPUT_DIR, 'titan_maxwell_hybrid_hydro_grid_cache.pkl')
@@ -901,16 +901,9 @@ def _plot_structure_profile(samples, grid_cache, tb_vals, d_vals, eval_idx, outp
     import matplotlib.pyplot as plt
     from matplotlib.patches import Wedge as MplWedge, FancyArrowPatch
     import matplotlib.patches as mpatches
+    from PlanetProfile.Inference.mcmc_plots import _wedge_color_map
 
-    COLORS = {
-        'Ice Ih':     '#AEE1F8',
-        'Ocean':      '#1E90FF',
-        'Ice III':    '#C97BAE',
-        'Ice V':      '#9B59B6',
-        'Ice VI':     '#6C3483',
-        'Silicate':   '#C8A96E',
-        'Dense core': '#8B5A2B',
-    }
+    COLORS = _wedge_color_map()
     R_T_km = TITAN_R_M / 1e3
     ANG1, ANG2 = 55, 125  # wedge angular extent
 

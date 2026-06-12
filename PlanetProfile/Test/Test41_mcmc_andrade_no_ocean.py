@@ -56,7 +56,7 @@ from TidalPy.rheology import Andrade, Maxwell, Elastic, Newton
 # ============================================================
 # Configuration
 # ============================================================
-OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results')
+OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results', 'Titan', 'Test41_andrade_no_ocean')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Observational constraints (Petricca et al. 2025)

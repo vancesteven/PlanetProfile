@@ -195,7 +195,7 @@ def render_preset_selector(PARAMETER_PRESETS):
             clath_suffix = 'clath' if st.session_state.inference_use_clathrate else 'noclath'
             st.session_state.inference_structure_cache_path = f"titan_cache/titan_structure_{clath_suffix}.pkl"
         elif preset_choice == 'andrade_titan_noocean_8D':
-            st.session_state.inference_structure_cache_path = 'PlanetProfile/Test/mcmc_results/titan_allice_yao2014_structure_grid.pkl'
+            st.session_state.inference_structure_cache_path = 'PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/titan_allice_yao2014_structure_grid.pkl'
         elif preset_choice == 'maxwell_titan':
             st.session_state.inference_structure_cache_path = 'titan_cache/titan_maxwell_grid_cache.pkl'
         elif preset_choice == 'andrade_europa':

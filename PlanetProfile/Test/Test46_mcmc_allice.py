@@ -75,7 +75,7 @@ from TidalPy.rheology import Andrade, Elastic
 # ============================================================
 # Configuration
 # ============================================================
-OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results')
+OUTPUT_DIR = os.path.join(_pp_root, 'PlanetProfile', 'Test', 'mcmc_results', 'Titan', 'Test46_allice')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 STRUCTURE_CACHE_PATH = os.path.join(OUTPUT_DIR, 'titan_allice_structure_cache.pkl')

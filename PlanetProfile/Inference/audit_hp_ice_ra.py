@@ -245,7 +245,7 @@ def audit_directory(cache_dir: Path) -> Tuple[List[Dict], int, int, int, int]:
     exclude_pattern = re.compile(r'_results\.pkl$|_mcmc\.pkl$|_corner\.png$')
 
     cache_files = sorted([
-        f for f in cache_dir.glob('*.pkl')
+        f for f in cache_dir.rglob('*.pkl')
         if pattern.match(f.name) and not exclude_pattern.search(f.name)
     ])
 

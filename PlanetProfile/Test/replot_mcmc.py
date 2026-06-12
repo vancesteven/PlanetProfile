@@ -27,7 +27,11 @@ from matplotlib.patches import Ellipse
 import seaborn as sns
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_DIR = os.path.join(_THIS_DIR, 'mcmc_results')
+_BASE = os.path.join(_THIS_DIR, 'mcmc_results')
+DIR41 = os.path.join(_BASE, 'Titan', 'Test41_andrade_no_ocean')
+DIR42 = os.path.join(_BASE, 'Titan', 'Test42_maxwell_ocean')
+DIR43 = os.path.join(_BASE, 'Titan', 'Test43_andrade_arrhenius_no_ocean')
+DIR44 = os.path.join(_BASE, 'Titan', 'Test44_maxwell_arrhenius_ocean')
 
 # Observational constraints
 RE_K2_OBS, RE_K2_ERR = 0.608, 0.048
@@ -550,7 +554,7 @@ def plot_thickness_vs_heating(cache, samples, eval_idx, heating_results,
 # ============================================================
 if __name__ == '__main__':
     # ---- Andrade no-ocean ----
-    andrade_pkl = os.path.join(OUTPUT_DIR, 'andrade_no_ocean_mcmc.pkl')
+    andrade_pkl = os.path.join(DIR41, 'andrade_no_ocean_mcmc.pkl')
     if os.path.exists(andrade_pkl):
         log.info('Loading Andrade no-ocean results...')
         with open(andrade_pkl, 'rb') as f:
@@ -565,22 +569,22 @@ if __name__ == '__main__':
 
         kde_corner(samples, param_labels,
                    'Andrade No-Ocean Titan: Posterior',
-                   os.path.join(OUTPUT_DIR, 'andrade_no_ocean_corner.png'))
+                   os.path.join(DIR41, 'andrade_no_ocean_corner.png'))
 
         plot_k2_scatter(r['k2_results'], r['heating_results'],
                         r'Andrade No-Ocean: k$_2$ Posterior',
-                        os.path.join(OUTPUT_DIR, 'andrade_no_ocean_k2_scatter.png'))
+                        os.path.join(DIR41, 'andrade_no_ocean_k2_scatter.png'))
 
         plot_heating(samples, r['eval_idx'], r['heating_results'],
                      param_names, param_labels,
                      'Andrade No-Ocean',
-                     os.path.join(OUTPUT_DIR, 'andrade_no_ocean_heating.png'))
+                     os.path.join(DIR41, 'andrade_no_ocean_heating.png'))
     else:
         log.warning(f'Not found: {andrade_pkl}')
 
     # ---- Maxwell ocean ----
-    maxwell_pkl = os.path.join(OUTPUT_DIR, 'maxwell_ocean_mcmc.pkl')
-    cache_pkl = os.path.join(OUTPUT_DIR, 'maxwell_ocean_structure_cache.pkl')
+    maxwell_pkl = os.path.join(DIR42, 'maxwell_ocean_mcmc.pkl')
+    cache_pkl = os.path.join(DIR42, 'maxwell_ocean_structure_cache.pkl')
     if os.path.exists(maxwell_pkl) and os.path.exists(cache_pkl):
         log.info('Loading Maxwell ocean results...')
         with open(maxwell_pkl, 'rb') as f:
@@ -607,30 +611,30 @@ if __name__ == '__main__':
 
         kde_corner(samples_plot, param_labels_ocean,
                    'Maxwell Ocean Titan: Posterior',
-                   os.path.join(OUTPUT_DIR, 'maxwell_ocean_corner.png'))
+                   os.path.join(DIR42, 'maxwell_ocean_corner.png'))
 
         plot_k2_scatter(r['k2_results'], r['heating_results'],
                         r'Maxwell Ocean: k$_2$ Posterior',
-                        os.path.join(OUTPUT_DIR, 'maxwell_ocean_k2_scatter.png'))
+                        os.path.join(DIR42, 'maxwell_ocean_k2_scatter.png'))
 
         plot_heating(samples_plot, r['eval_idx'], r['heating_results'],
                      param_names_ocean, param_labels_ocean,
                      'Maxwell Ocean',
-                     os.path.join(OUTPUT_DIR, 'maxwell_ocean_heating.png'))
+                     os.path.join(DIR42, 'maxwell_ocean_heating.png'))
 
         plot_ocean_structure(cache, samples,
-                            os.path.join(OUTPUT_DIR, 'maxwell_ocean_Tb_structure.png'))
+                            os.path.join(DIR42, 'maxwell_ocean_Tb_structure.png'))
 
         plot_structure_profile(cache, samples, r['eval_idx'], r['heating_results'],
-                               os.path.join(OUTPUT_DIR, 'maxwell_ocean_structure_profile.png'))
+                               os.path.join(DIR42, 'maxwell_ocean_structure_profile.png'))
 
         plot_thickness_vs_heating(cache, samples, r['eval_idx'], r['heating_results'],
-                                  os.path.join(OUTPUT_DIR, 'maxwell_ocean_thickness_vs_heating.png'))
+                                  os.path.join(DIR42, 'maxwell_ocean_thickness_vs_heating.png'))
     else:
         log.warning(f'Not found: {maxwell_pkl} or {cache_pkl}')
 
     # ---- Andrade Arrhenius no-ocean (PPTest43) ----
-    arr_andrade_pkl = os.path.join(OUTPUT_DIR, 'andrade_arrhenius_no_ocean_mcmc.pkl')
+    arr_andrade_pkl = os.path.join(DIR43, 'andrade_arrhenius_no_ocean_mcmc.pkl')
     if os.path.exists(arr_andrade_pkl):
         log.info('Loading Andrade Arrhenius no-ocean results...')
         with open(arr_andrade_pkl, 'rb') as f:
@@ -645,22 +649,22 @@ if __name__ == '__main__':
 
         kde_corner(samples, param_labels,
                    'Andrade Arrhenius No-Ocean Titan: Posterior',
-                   os.path.join(OUTPUT_DIR, 'andrade_arrhenius_no_ocean_corner.png'))
+                   os.path.join(DIR43, 'andrade_arrhenius_no_ocean_corner.png'))
 
         plot_k2_scatter(r['k2_results'], r['heating_results'],
                         r'Andrade Arrhenius No-Ocean: k$_2$ Posterior',
-                        os.path.join(OUTPUT_DIR, 'andrade_arrhenius_no_ocean_k2_scatter.png'))
+                        os.path.join(DIR43, 'andrade_arrhenius_no_ocean_k2_scatter.png'))
 
         plot_heating(samples, r['eval_idx'], r['heating_results'],
                      param_names, param_labels,
                      'Andrade Arrhenius No-Ocean',
-                     os.path.join(OUTPUT_DIR, 'andrade_arrhenius_no_ocean_heating.png'))
+                     os.path.join(DIR43, 'andrade_arrhenius_no_ocean_heating.png'))
     else:
         log.warning(f'Not found: {arr_andrade_pkl}')
 
     # ---- Maxwell Arrhenius ocean (PPTest44) ----
-    arr_maxwell_pkl = os.path.join(OUTPUT_DIR, 'maxwell_arrhenius_ocean_mcmc.pkl')
-    arr_cache_pkl = os.path.join(OUTPUT_DIR, 'maxwell_arrhenius_ocean_structure_cache.pkl')
+    arr_maxwell_pkl = os.path.join(DIR44, 'maxwell_arrhenius_ocean_mcmc.pkl')
+    arr_cache_pkl = os.path.join(DIR44, 'maxwell_arrhenius_ocean_structure_cache.pkl')
     if os.path.exists(arr_maxwell_pkl) and os.path.exists(arr_cache_pkl):
         log.info('Loading Maxwell Arrhenius ocean results...')
         with open(arr_maxwell_pkl, 'rb') as f:
@@ -687,25 +691,25 @@ if __name__ == '__main__':
 
         kde_corner(samples_plot, param_labels_ocean,
                    'Maxwell Arrhenius Ocean Titan: Posterior',
-                   os.path.join(OUTPUT_DIR, 'maxwell_arrhenius_ocean_corner.png'))
+                   os.path.join(DIR44, 'maxwell_arrhenius_ocean_corner.png'))
 
         plot_k2_scatter(r['k2_results'], r['heating_results'],
                         r'Maxwell Arrhenius Ocean: k$_2$ Posterior',
-                        os.path.join(OUTPUT_DIR, 'maxwell_arrhenius_ocean_k2_scatter.png'))
+                        os.path.join(DIR44, 'maxwell_arrhenius_ocean_k2_scatter.png'))
 
         plot_heating(samples_plot, r['eval_idx'], r['heating_results'],
                      param_names_ocean, param_labels_ocean,
                      'Maxwell Arrhenius Ocean',
-                     os.path.join(OUTPUT_DIR, 'maxwell_arrhenius_ocean_heating.png'))
+                     os.path.join(DIR44, 'maxwell_arrhenius_ocean_heating.png'))
 
         plot_ocean_structure(cache, samples,
-                            os.path.join(OUTPUT_DIR, 'maxwell_arrhenius_ocean_Tb_structure.png'))
+                            os.path.join(DIR44, 'maxwell_arrhenius_ocean_Tb_structure.png'))
 
         plot_structure_profile(cache, samples, r['eval_idx'], r['heating_results'],
-                               os.path.join(OUTPUT_DIR, 'maxwell_arrhenius_ocean_structure_profile.png'))
+                               os.path.join(DIR44, 'maxwell_arrhenius_ocean_structure_profile.png'))
 
         plot_thickness_vs_heating(cache, samples, r['eval_idx'], r['heating_results'],
-                                  os.path.join(OUTPUT_DIR, 'maxwell_arrhenius_ocean_thickness_vs_heating.png'))
+                                  os.path.join(DIR44, 'maxwell_arrhenius_ocean_thickness_vs_heating.png'))
     else:
         log.warning(f'Not found: {arr_maxwell_pkl} or {arr_cache_pkl}')
 

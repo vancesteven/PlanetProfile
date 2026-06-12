@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="pp-inference-readme" content="true">
+<title>Europa C2 — Andrade MCMC</title>
+<style>
+  body { font-family: Georgia, "Times New Roman", serif; max-width: 920px; margin: 2em auto; padding: 0 1.5em; color: #222; background: #fff; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
+  h2 { color: #2a3b6e; border-bottom: 1px solid #ccc; padding-bottom: .15em; margin-top: 2em; }
+  code, pre { font-family: "SF Mono", Menlo, Consolas, monospace; background: #f4f4f4; }
+  pre { padding: .8em 1em; border-left: 3px solid #2a3b6e; overflow-x: auto; }
+  code { padding: 1px 4px; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; }
+  th, td { border: 1px solid #aaa; padding: .35em .7em; text-align: left; }
+  th { background: #eef0f5; }
+  .meta { color: #555; font-style: italic; }
+  ul li { margin: .2em 0; }
+  .obs { background: #fffbe6; padding: .6em 1em; border-left: 3px solid #c8a200; }
+  .note { background: #f0f7ff; padding: .6em 1em; border-left: 3px solid #4477aa; }
+</style>
+</head>
+<body>
+
+<h1>Europa — Phase C2 Andrade MCMC</h1>
+<p class="meta">Config: <code>europa_seawater_andrade_7D.json</code>. Driver: <code>run_inference_cli.py</code>. Phase C2 = Phase C1 observables expanded to include Re/Im(h<sub>2</sub>).</p>
+
+<h2>Body / template</h2>
+<ul>
+  <li>Europa with seawater ocean (Constants.stdSeawater_ppt).</li>
+  <li>R = 1561 km. Ice shell is purely Ih (HP ices absent at this body size).</li>
+  <li>Phase C2 — observable expansion adds Re/Im(k<sub>2</sub>) and Re/Im(h<sub>2</sub>) (placeholders pending mission data).</li>
+</ul>
+
+<h2>Model assumptions</h2>
+<ul>
+  <li>Andrade rheology; mass-conservation-derived rho_sil with rejection sampling.</li>
+  <li>Sampled core: R_core, rho_core; rho_sil derived to satisfy total mass with cached ice+ocean profile.</li>
+  <li>7D problem (Ih only; no HP ice viscosity term).</li>
+</ul>
+
+<h2>Parameter space (7D, uniform priors)</h2>
+<table>
+  <thead><tr><th>Parameter</th><th>Lower</th><th>Upper</th><th>Units</th></tr></thead>
+  <tbody>
+    <tr><td>alpha</td><td>0.15</td><td>0.45</td><td>—</td></tr>
+    <tr><td>log10(zeta)</td><td>-3</td><td>2</td><td>log10(Pa·s<sup>α</sup>)</td></tr>
+    <tr><td>log10(eta_Ih)</td><td>10</td><td>16</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_sil)</td><td>18</td><td>22</td><td>log10(Pa·s)</td></tr>
+    <tr><td>Tb_K</td><td>259.5</td><td>271.0</td><td>K</td></tr>
+    <tr><td>R_core_km</td><td>0.0</td><td>780.5</td><td>km</td></tr>
+    <tr><td>rho_core_kgm3</td><td>5000</td><td>8000</td><td>kg/m³</td></tr>
+  </tbody>
+</table>
+<p><strong>Derived:</strong> rho_sil ∈ [2200, 3500] kg/m³ (mass conservation; rejection sampled).</p>
+
+<h2>Observational constraints</h2>
+<div class="obs">
+  <ul>
+    <li>CMR² = 0.3547 ± 0.0024 (Gomez Casajus et al. 2021)</li>
+    <li>Re(k<sub>2</sub>) = 0.20 ± 0.05 (placeholder; Mazarico 2023)</li>
+    <li>Im(k<sub>2</sub>) = 0.0 ± 0.05</li>
+    <li>Re(h<sub>2</sub>) = 1.12 ± 0.10</li>
+    <li>Im(h<sub>2</sub>) = 0.0 ± 0.10</li>
+  </ul>
+</div>
+<div class="note">k<sub>2</sub>/h<sub>2</sub> are placeholders. Update with Europa Clipper measurements when published. J<sub>2</sub>/C<sub>22</sub> not used (no PP forward model for static gravity coefficients).</div>
+
+<h2>Inference settings</h2>
+<ul>
+  <li>pocoMC; n_eff = 500; n_reeval = 500; seed = 42.</li>
+  <li>Structure cache: <code>europa_seawater_structure_grid.pkl</code> (shared with Test51_seawater/).</li>
+</ul>
+
+<h2>Output files</h2>
+<ul>
+  <li><code>europa_C2_corner.png</code> — corner plot of posterior parameters</li>
+  <li><code>europa_C2_layers_vs_docean.png</code> — layer thicknesses vs ocean depth</li>
+  <li><code>europa_C2_structure_wedge.png</code> — interior structure wedge diagram</li>
+  <li><code>europa_C2_wedge_pp.pdf</code> — publication-quality wedge diagram</li>
+</ul>
+
+<h2>Run command</h2>
+<pre>mamba activate PPcl
+python -m PlanetProfile.Inference.run_inference_cli \
+    --config PlanetProfile/Inference/configs/europa_seawater_andrade_7D.json \
+    --output PlanetProfile/Test/mcmc_results/Europa/C2_andrade/europa_C2_result.pkl</pre>
+
+<h2>References</h2>
+<ul>
+  <li>Gomez Casajus, L. et al. (2021). Europa CMR² from Galileo radio science.</li>
+  <li>Mazarico, E. et al. (2023). Tidal Love numbers from Europa Clipper expectations.</li>
+</ul>
+
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="pp-inference-readme" content="true">
+<title>Titan Test 41 — Andrade no-ocean MCMC</title>
+<style>
+  body { font-family: Georgia, "Times New Roman", serif; max-width: 920px; margin: 2em auto; padding: 0 1.5em; color: #222; background: #fff; line-height: 1.55; }
+  h1 { border-bottom: 2px solid #444; padding-bottom: .25em; }
+  h2 { color: #2a3b6e; border-bottom: 1px solid #ccc; padding-bottom: .15em; margin-top: 2em; }
+  h3 { color: #3a3a3a; }
+  code, pre { font-family: "SF Mono", Menlo, Consolas, monospace; background: #f4f4f4; }
+  pre { padding: .8em 1em; border-left: 3px solid #2a3b6e; overflow-x: auto; }
+  code { padding: 1px 4px; }
+  table { border-collapse: collapse; margin: .8em 0; width: 100%; }
+  th, td { border: 1px solid #aaa; padding: .35em .7em; text-align: left; }
+  th { background: #eef0f5; }
+  .meta { color: #555; font-style: italic; }
+  ul li { margin: .2em 0; }
+  .obs { background: #fffbe6; padding: .6em 1em; border-left: 3px solid #c8a200; }
+</style>
+</head>
+<body>
+
+<h1>Titan — Test 41: Andrade rheology, no-ocean</h1>
+<p class="meta">PlanetProfile MCMC inference using pocoMC. Body template: <code>PPTest41.py</code>. Driver: <code>Test41_mcmc_andrade_no_ocean.py</code>.</p>
+
+<h2>Body / template</h2>
+<ul>
+  <li>Body: Titan analog (parent: Saturn)</li>
+  <li>R = 2574.73 km, M = 1.3452 × 10<sup>23</sup> kg, T<sub>surf</sub> = 94 K, P<sub>surf</sub> = 0.15 MPa</li>
+  <li>C/MR² = 0.343 ± 0.001 (closure target for PP)</li>
+  <li>Eccentricity = 0.0288, n = 4.56 × 10<sup>-6</sup> rad/s</li>
+  <li>NO_OCEAN_EXCEPT_INNER_ICES = True (ice all the way down)</li>
+</ul>
+
+<h2>Model assumptions</h2>
+<ul>
+  <li>Self-consistent PP interior held fixed during MCMC; only rheology parameters vary.</li>
+  <li>Andrade rheology applied to ices Ih, III, V, VI; silicate sampled separately.</li>
+  <li>HP ices share a single sampled viscosity (eta_HP).</li>
+  <li>Tidal Love numbers from TidalPy <code>radial_solver</code>; per-phase tidal heating from <code>calc_radial_volumetric_tidal_heating_from_rs_solution</code>.</li>
+</ul>
+
+<h2>Parameter space (5D, uniform priors)</h2>
+<table>
+  <thead><tr><th>Parameter</th><th>Description</th><th>Lower</th><th>Upper</th><th>Units</th></tr></thead>
+  <tbody>
+    <tr><td>alpha</td><td>Andrade exponent</td><td>0.2</td><td>0.4</td><td>—</td></tr>
+    <tr><td>log10(zeta)</td><td>Andrade compliance</td><td>-2</td><td>2</td><td>log10(Pa·s<sup>α</sup>)</td></tr>
+    <tr><td>log10(eta_Ih)</td><td>Ice Ih viscosity</td><td>12</td><td>16</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_HP)</td><td>HP ice viscosity (III/V/VI shared)</td><td>10</td><td>18</td><td>log10(Pa·s)</td></tr>
+    <tr><td>log10(eta_sil)</td><td>Silicate viscosity</td><td>18</td><td>22</td><td>log10(Pa·s)</td></tr>
+  </tbody>
+</table>
+<p>Bounds follow Petricca et al. (2025) Extended Data Table 2.</p>
+
+<h2>Observational constraints</h2>
+<div class="obs">
+  <ul>
+    <li>Re(k<sub>2</sub>) = 0.608 ± 0.048 (Petricca et al. 2025, Cassini radio science)</li>
+    <li>|Im(k<sub>2</sub>)| = 0.135 ± 0.035 (Petricca et al. 2025)</li>
+  </ul>
+</div>
+<p>Gaussian likelihood on Re(k<sub>2</sub>) and |Im(k<sub>2</sub>)|.</p>
+
+<h2>Forward model</h2>
+<ol>
+  <li>PlanetProfile is run once at PPTest41 settings to extract a self-consistent radial profile (r, ρ, V<sub>P</sub>, G<sub>S</sub>, η, phase) on the ALMA grid.</li>
+  <li>Per MCMC sample, complex shear modulus is computed via TidalPy's Andrade rheology with sampled (alpha, zeta) and per-phase viscosities.</li>
+  <li><code>radial_solver</code> integrates the elastic-viscoelastic equations to give k<sub>2</sub>; tidal heating is integrated radially per phase.</li>
+</ol>
+
+<h2>Inference settings</h2>
+<ul>
+  <li>Sampler: pocoMC (preconditioned Monte Carlo)</li>
+  <li>Effective sample size target: 500</li>
+  <li>Random seed: 42</li>
+  <li>Posterior re-evaluations for heating/k<sub>2</sub> plots: 500</li>
+</ul>
+
+<h2>Output files</h2>
+<ul>
+  <li><code>andrade_no_ocean_mcmc.pkl</code> — posterior chain, log-prob, per-phase heating arrays</li>
+  <li><code>andrade_no_ocean_corner.png</code> — corner plot of posterior parameters</li>
+  <li><code>andrade_no_ocean_k2_scatter.png</code> — Re(k<sub>2</sub>) vs Im(k<sub>2</sub>) with observation ellipse</li>
+  <li><code>andrade_no_ocean_heating.png</code> — per-phase tidal heating distribution</li>
+</ul>
+
+<h2>Run command</h2>
+<pre>mamba activate PPcl
+python PlanetProfile/Test/Test41_mcmc_andrade_no_ocean.py</pre>
+
+<h2>References</h2>
+<ul>
+  <li>Petricca, F. et al. (2025). Tidal dissipation in Titan from Cassini radio science. <em>Nature</em>.</li>
+  <li>Andrade, E. N. da C. (1910). On the viscous flow in metals.</li>
+  <li>TidalPy: <a href="https://github.com/jrenaud90/TidalPy">github.com/jrenaud90/TidalPy</a></li>
+</ul>
+
+</body>
+</html>

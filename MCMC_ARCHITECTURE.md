@@ -202,7 +202,37 @@ Three interfaces are needed for the 3D direction:
 - Posterior-comparison page lets users tag/compare/diff runs across sessions.
 - Streamlit-cloud-friendly: the registry is a flat directory of pkls + a JSON index.
 
+Two `InferenceConfig` fields make saved result pkls self-describing for post-hoc analysis:
+- `arrhenius_params` — Arrhenius viscosity parameters (e.g. `{"E_Ih_J_per_mol": 60000}`). Stored on the config so `reanalyze_k2_from_pickle` auto-loads them without the caller re-supplying them. Set this as a **top-level JSON key** in new body configs (preferred over `sampler_settings["arrhenius_params"]`).
+- `planet_template_module` — importable PPTest module (e.g. `"PlanetProfile.Test.PPTest48"`) used by `plot_structure_wedge_pp` to re-run PlanetProfile at the posterior median and call `PlotWedge`. Must be set in the config JSON for wedge plots to work without passing the module explicitly.
+
 These are not built yet. Phase D (below) introduces them.
+
+### Posterior-point wedge plot
+
+`mcmc_plots.plot_structure_wedge_pp(result, grid_cache, output_path, ...)`
+re-runs PlanetProfile's full forward model at a chosen posterior point
+(`use='median' | 'best_fit' | 'sample'`) and invokes the canonical
+`PlotWedge` to produce a manuscript-quality figure of the inferred interior.
+This bypasses the cached-structure interpolation that is used during
+likelihood evaluation, so the wedge reflects exactly what PP itself would
+draw for the inferred parameters.
+
+A subtle but important pitfall: PP defaults `FigMisc.figFormat='pdf'`, so a
+file written to `*.png` can otherwise be a PDF byte stream in a `.png`
+wrapper. The wrapper temporarily overrides `FigMisc.figFormat` to match the
+actual extension on `output_path` (and restores it in a `finally` block).
+It also resets `Params.SKIP_PLOTS=False` (cleared by the silent forward
+run) and patches `tight_layout`/`savefig` to handle zero-width Wedge
+patches without crashing. See `PlanetProfile/Inference/README.md` §"Wedge
+plot (PP canonical)" for full details.
+
+Typical call:
+
+```python
+plot_structure_wedge_pp(result, grid_cache,
+    f"mcmc_results/{body}/{run_label}/wedge_pp.png", use='median')
+```
 
 ---
 
@@ -294,7 +324,52 @@ Goal: the fast inference tab (ships as separate workflow) + extensibility hooks.
 
 ---
 
-## 9. References
+## 9. Wedge-plot sanitization in `plot_structure_wedge_pp`
+
+`mcmc_plots.py::plot_structure_wedge_pp` re-runs PlanetProfile internally via
+`_run_pp_with_overrides` (CALC_NEW, NO_SAVEFILE, SKIP_PLOTS=True) to render a
+posterior-median wedge diagram. Because `SKIP_PLOTS=True` bypasses `GetLayerMeans`
+(called in `Main.PlanetProfile` only when plotting), the scalar layer-summary
+attributes that `PlotWedge` needs are not set. The sanitization block (lines
+~1584–1750) repairs them in-place before calling `PlotWedge`.
+
+### Attributes set by `GetLayerMeans` but missing after re-run
+
+| Attribute | PP meaning | How sanitized |
+|---|---|---|
+| `dzIceI_km`, `zIceI_m` | Ice Ih total thickness / depth to top | Reconstructed from `(r_m, phase==1)` |
+| `dzClath_km`, `zClath_km` | Clathrate thickness / depth to top | Reconstructed from `(r_m, phase==30)` |
+| `dzIceII_km`, `zIceII_m` | Analogues for HP ices II/III/V/VI | Same reconstruction |
+| `dzSilPorous_km`, `dzFeS_km`, etc. | Modes PP may not have exercised | NaN → 0 (PlotWedge guards with `> 0`) |
+| `Dconv_m`, `deltaTBL_m`, `eLid_m` | Convective zone / conductive lid | Finite when PP ran; NaN → reconstruct from `dzIceI - eLid` |
+| `D_km`, `zb_km` | Ocean thickness / depth | NaN → 0 for no-ocean models |
+| `Core.Rmean_m`, `Sil.Rmean_m` | Mean radii for silicate/core boundaries | Reconstructed from phase masks |
+
+### Grid convention
+
+PP uses a cell-centred grid: `r_m` has N+1 boundary radii (descending from surface
+to centre); `phase` has N cell values. Reconstruction accepts both `n_r == n_phase`
+and `n_r == n_phase + 1`, using `r_m[last+1]` as the cell bottom when the N+1
+boundary array is available.
+
+### What `PlotWedge` expects vs what PP sets for `clathType='top'`
+
+`eLid_m` in PP's thermal model is the **ice Ih conductive lid**, not the clathrate
+layer thickness. `PlotWedge` (line 1157) uses it as the clathrate-lid width for
+`clathType='top'` — this is intentional PP convention, not a bug. For strongly
+convective parameter sets (e.g. Titan Test46 all-ice), `Dconv_m + deltaTBL_m ≈
+dzIceI_km * 1e3`, leaving essentially no conductive ice Ih band; `iceIcond` pixels
+will be absent from the rendered image. This is physically correct.
+
+The clathrate lid (`clathCond` color) renders with width `eLid_m / rMax_km`. For
+Titan (R≈2575 km) with a ~3–5 km clathrate lid this is <0.2% of the wedge radius —
+sub-pixel at standard figure size. For Europa (R≈1561 km) the same lid is ~0.3% and
+is marginally visible. No minimum-width floor is applied; the rendering is an
+accurate representation of the physical layer proportions.
+
+---
+
+## 10. References
 
 - Karamanis et al. 2022, *Accelerating astronomical and cosmological inference with preconditioned Monte Carlo*, MNRAS 516, 1644.
 - Petricca et al. 2025, *Constraints on Titan's interior from Cassini gravity and rotation*, JGR Planets.
@@ -303,7 +378,7 @@ Goal: the fast inference tab (ships as separate workflow) + extensibility hooks.
 - Tejfel et al. (sbi package): https://www.mackelab.org/sbi/
 - pocoMC: https://github.com/minaskar/pocomc
 
-## 10. See also
+## 11. See also
 
 - `MCMC_INFERENCE_GUIDE.md` — tutorial-style walkthrough of running Test48 / Test50.
 - `KALOUSOVA_IMPLEMENTATION_GUIDE.md` — HP-ice convection physics.
