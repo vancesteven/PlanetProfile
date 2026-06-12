@@ -487,6 +487,15 @@ class MCMCRunner:
                 for m in members:
                     theta_dict[m] = theta_dict[group_key]
         theta_dict.update(self.fixed_params)
+
+        # Handle self-consistency: remove sampled viscosities if requested.
+        # This prevents rheology hooks from overriding the PlanetProfile-calculated
+        # viscosities stored in the structure cache.
+        if self.config.sampler_settings.get('force_self_consistent_viscosity'):
+            for k in list(theta_dict.keys()):
+                if 'eta' in k:
+                    del theta_dict[k]
+
         return theta_dict
 
     def _get_cache_scalar(self, theta_dict: Dict[str, float], key: str) -> float:

@@ -51,9 +51,14 @@ def lazy_import_inference():
         )
         from PlanetProfile.Inference.inference_core import InferenceConfig
         from PlanetProfile.Inference.mcmc_runner import MCMCRunner
+        from PlanetProfile.Inference.mcmc_plots import (
+            PARAMETER_COLORS,
+            plot_structure_wedge_pp
+        )
         return (PARAMETER_REGISTRY, PARAMETER_PRESETS, CATEGORY_LABELS,
                 CATEGORY_ORDER, validate_parameter_combination,
-                get_parameters_by_rheology, InferenceConfig, MCMCRunner)
+                get_parameters_by_rheology, InferenceConfig, MCMCRunner,
+                plot_structure_wedge_pp)
     except ImportError as e:
         st.error(f"Failed to import PlanetProfile inference modules: {e}")
         return None
@@ -96,6 +101,9 @@ def initialize_session_state():
 
     if 'inference_custom_mode' not in st.session_state:
         st.session_state.inference_custom_mode = False
+
+    if 'inference_consistency_mode' not in st.session_state:
+        st.session_state.inference_consistency_mode = 'empirical'
 
     if 'inference_selected_params' not in st.session_state:
         st.session_state.inference_selected_params = []
@@ -240,16 +248,35 @@ def render_parameter_config(PARAMETER_REGISTRY, CATEGORY_LABELS, CATEGORY_ORDER,
     param_options = {pid: f"{p.label} ({p.latex_label})"
                      for pid, p in PARAMETER_REGISTRY.items()}
 
+    # Filter out viscosities if in self-consistent mode
+    if st.session_state.inference_consistency_mode == 'consistent':
+        param_options = {pid: label for pid, label in param_options.items() if 'eta' not in pid}
+        st.info("ℹ️ **Self-Consistent Mode:** Viscosity parameters are hidden as they are re-computed from the thermal model.")
+
     selected = st.multiselect(
         "Select parameters to infer:",
         options=list(param_options.keys()),
-        default=st.session_state.inference_selected_params,
+        default=[p for p in st.session_state.inference_selected_params if p in param_options],
         format_func=lambda x: param_options[x],
         key='param_multiselect'
     )
 
     # Update session state
     st.session_state.inference_selected_params = selected
+
+    # Inference Mode: Self-Consistent vs Empirical
+    st.markdown("#### 🔬 Modeling Approach")
+    mode_options = {
+        'empirical': "Empirical (Flexible Rheology)",
+        'consistent': "Self-Consistent (Locked Physics)"
+    }
+    st.radio(
+        "Select approach:",
+        options=list(mode_options.keys()),
+        format_func=lambda x: mode_options[x],
+        key='inference_consistency_mode',
+        help="**Empirical:** Sample viscosities as free parameters. **Self-Consistent:** Use viscosities re-computed from thermal model (requires structure rebuild if Tb varies)."
+    )
 
     # Validate parameter combination
     if selected:
@@ -678,7 +705,7 @@ def validate_inference_config():
     return {'valid': len(errors) == 0, 'errors': errors, 'warnings': warnings}
 
 
-def render_run_button(InferenceConfig, MCMCRunner):
+def render_run_button(InferenceConfig, MCMCRunner, PARAMETER_PRESETS):
     """Render run button and execution logic."""
     st.markdown("---")
 
@@ -713,14 +740,23 @@ def render_run_button(InferenceConfig, MCMCRunner):
             else:
                 bodyname = 'Custom'
 
+            # Get planet template module from preset
+            template_module = PARAMETER_PRESETS.get(preset, {}).get('test_module')
+            
+            # Handle consistency mode in sampler settings
+            sampler_settings = dict(st.session_state.inference_sampler_settings)
+            if st.session_state.inference_consistency_mode == 'consistent':
+                sampler_settings['force_self_consistent_viscosity'] = True
+
             config = InferenceConfig(
                 mode='mcmc',
                 bodyname=bodyname,
                 param_space=st.session_state.inference_param_space,
                 observables=st.session_state.inference_observables,
-                sampler_settings=st.session_state.inference_sampler_settings,
+                sampler_settings=sampler_settings,
                 structure_cache_path=st.session_state.inference_structure_cache_path,
-                random_state=st.session_state.inference_sampler_settings['random_state']
+                random_state=st.session_state.inference_sampler_settings['random_state'],
+                planet_template_module=template_module
             )
 
             # Initialize runner
@@ -770,7 +806,7 @@ def render_run_button(InferenceConfig, MCMCRunner):
                 st.code(st.session_state.inference_error_traceback)
 
 
-def render_results():
+def render_results(plot_structure_wedge_pp):
     """Render inference results (corner plots, traces, etc.)."""
 
     if st.session_state.inference_results is None:
@@ -781,6 +817,7 @@ def render_results():
         - k₂ posterior scatter with 1σ/2σ observation ellipses
         - C/MR² moment-of-inertia posterior histogram
         - Per-phase heating distributions
+        - Posterior median structure wedge (canonical PP)
         - Export to PKL
         """)
         return
@@ -820,6 +857,39 @@ def render_results():
             })
 
         st.table(summary_data)
+
+    # Structure Wedge
+    with st.expander("🍰 Posterior Structure Wedge", expanded=True):
+        try:
+            import pickle
+            import tempfile
+            import os
+            
+            # Load grid cache
+            cache_path = st.session_state.inference_structure_cache_path
+            if not cache_path or not os.path.exists(cache_path):
+                st.info("Structure cache unavailable. Wedge plot requires a valid .pkl cache.")
+            else:
+                with open(cache_path, 'rb') as f:
+                    grid_cache = pickle.load(f)
+                
+                # Create temporary file for the plot
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                    tmp_path = tmp.name
+                
+                try:
+                    # Render the wedge at the posterior median
+                    plot_structure_wedge_pp(
+                        result, grid_cache, tmp_path, use='median', fig_format='png'
+                    )
+                    
+                    # Display the image
+                    st.image(tmp_path, caption="Posterior Median Structure Wedge", use_column_width=True)
+                finally:
+                    if os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+        except Exception as e:
+            st.warning(f"Structure wedge unavailable: {e}")
 
     # Corner plot
     with st.expander("🔺 Corner Plot", expanded=True):
@@ -1186,6 +1256,7 @@ def render_results():
                 }
 
                 # Use only phases actually present in the data
+                actual_keys = set().union(*(h.keys() for h in heating_results))
                 phases_to_show = [p for p in ['Ih', 'III', 'II', 'V', 'VI', 'Sil', 'Core', 'Clath']
                                   if p in actual_keys]
 
@@ -1282,7 +1353,8 @@ def main():
 
     (PARAMETER_REGISTRY, PARAMETER_PRESETS, CATEGORY_LABELS,
      CATEGORY_ORDER, validate_parameter_combination,
-     get_parameters_by_rheology, InferenceConfig, MCMCRunner) = imports
+     get_parameters_by_rheology, InferenceConfig, MCMCRunner,
+     plot_structure_wedge_pp) = imports
 
     # Divider
     st.markdown("---")
@@ -1331,7 +1403,7 @@ def main():
         render_structure_cache_input()
 
         # Run button
-        render_run_button(InferenceConfig, MCMCRunner)
+        render_run_button(InferenceConfig, MCMCRunner, PARAMETER_PRESETS)
 
         # Help button
         with st.expander("📚 About Bayesian Inference"):
@@ -1365,7 +1437,7 @@ def main():
         st.subheader("📊 Results")
 
         # Render results (or placeholder)
-        render_results()
+        render_results(plot_structure_wedge_pp)
 
 
 # ============================================================

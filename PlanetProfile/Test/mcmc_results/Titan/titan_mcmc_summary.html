@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Titan MCMC Model Summary</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 1000px; margin: 0 auto; padding: 20px; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; }
+        .model-card { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; background-color: #f9f9f9; }
+        .model-card h3 { margin-top: 0; color: #2980b9; }
+        .tags { margin-bottom: 10px; }
+        .tag { display: inline-block; background: #e0e0e0; border-radius: 4px; padding: 2px 8px; font-size: 0.85em; margin-right: 5px; }
+        .tag.ocean { background: #d1ecf1; color: #0c5460; }
+        .tag.no-ocean { background: #f8d7da; color: #721c24; }
+        .tag.convection { background: #d4edda; color: #155724; }
+        .results { background: #fff; border-left: 4px solid #2980b9; padding: 10px 15px; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>Titan Interior MCMC Models: Summary & Results</h1>
+    <p>This page summarizes the various MCMC modeling efforts for Titan's interior, focusing on the trade-offs between ocean-bearing and ocean-free structures and their ability to match Cassini tidal observations.</p>
+
+    <div class="model-card">
+        <h3>Test 41: Andrade No-Ocean</h3>
+        <div class="tags">
+            <span class="tag no-ocean">No Ocean</span>
+            <span class="tag">Andrade Rheology</span>
+        </div>
+        <p>A 5D MCMC exploration of a fully solid Titan (450 km hydrosphere). Investigates if Ice Ih dissipation alone can match observations without the decoupling effect of an ocean.</p>
+        <div class="results">
+            <strong>Key Finding:</strong> Matches Re(k₂) ≈ 0.61. Heating is concentrated in Ice Ih (60-70%) due to the thin stagnant lid provided by a 4 km clathrate cap.
+        </div>
+    </div>
+
+    <div class="model-card">
+        <h3>Test 42: Maxwell Ocean</h3>
+        <div class="tags">
+            <span class="tag ocean">Ocean</span>
+            <span class="tag">Maxwell Rheology</span>
+        </div>
+        <p>A 5D exploration with a 28 km subsurface ocean. Uses the classical Maxwell viscoelastic model.</p>
+        <div class="results">
+            <strong>Key Finding:</strong> Matches Re(k₂) but underpredicts Im(k₂) by 10-20%. Heating is dominated by HP ice dissipation (~70-80% Ice VI).
+        </div>
+    </div>
+
+    <div class="model-card">
+        <h3>Test 46: Andrade Hybrid-Hydro</h3>
+        <div class="tags">
+            <span class="tag ocean">Ocean</span>
+            <span class="tag">Variable Structure</span>
+            <span class="tag">DS2001 Convection</span>
+        </div>
+        <p>A 10D MCMC allowing both rheology and structure (D_hydro, Tb) to vary. Uses the Deschamps & Sotin (2001) Cartesian convection scaling.</p>
+        <div class="results">
+            <strong>Key Finding:</strong> Found that DS2001 scaling law underestimates heat flux for thick shells, leading to very thin stagnant lids (~6-10 km).
+        </div>
+    </div>
+
+    <div class="model-card">
+        <h3>Test 48: Andrade Yao2014 (Path B)</h3>
+        <div class="tags">
+            <span class="tag ocean">Ocean</span>
+            <span class="tag convection">Yao 2014 Spherical</span>
+        </div>
+        <p>Refines Test 46 by using <strong>spherical-shell convection scaling</strong> (Yao et al. 2014). This produces thicker, more realistic stagnant lids (~33-45 km).</p>
+        <div class="results">
+            <strong>Key Finding:</strong> Titan tidal heating is dominated by warm basal Ice Ih. The observed |Im(k₂)| ≈ 0.135 is at the edge of reachable values for ocean-bearing models due to HP ice decoupling.
+        </div>
+    </div>
+
+    <div class="model-card">
+        <h3>Test 50: Andrade No-Ocean + Yao 2014</h3>
+        <div class="tags">
+            <span class="tag no-ocean">No Ocean</span>
+            <span class="tag convection">Yao 2014</span>
+            <span class="tag">8D MCMC</span>
+        </div>
+        <p>Specifically tests Petricca et al. (2025) hypothesis: a no-ocean Titan where HP ices can dissipate efficiently. Samples the no-ocean branch cleanly by marginalizing over basal temperature.</p>
+        <div class="results">
+            <strong>Key Finding:</strong> Successfully explains high Im(k₂) via HP ice dissipation (Ice VI), provided η_HP is low (~10¹² Pa·s). Silicate viscosity constrained to ~10¹⁹·⁶ Pa·s.
+        </div>
+    </div>
+
+    <h2>Summary Comparison</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>Re(k₂)</th>
+                <th>|Im(k₂)|</th>
+                <th>Primary Dissipator</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Cassini (Observed)</td>
+                <td>0.608 ± 0.048</td>
+                <td>0.135 ± 0.035</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td>Test 48 (Ocean)</td>
+                <td>~0.63</td>
+                <td>~0.10</td>
+                <td>Ice Ih Shell</td>
+            </tr>
+            <tr>
+                <td>Test 50 (No Ocean)</td>
+                <td>~0.56</td>
+                <td>~0.10</td>
+                <td>HP Ice Layer</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>
