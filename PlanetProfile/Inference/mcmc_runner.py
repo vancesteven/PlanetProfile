@@ -76,6 +76,14 @@ class MCMCRunner:
         # Build prior and likelihood — always use dict-based interface so
         # parameter order in param_space never affects forward model mapping.
         self.prior = self._build_prior()
+
+        # Pre-compute induction Ae for every grid point at init time so the
+        # likelihood can look up by index instead of calling AeResponse
+        # (mpmath, ~1.5 s/call) on every sample.  Only done when induction
+        # observables are present and a grid cache is loaded.
+        self._ae_grid_cache: Dict[int, Optional[Dict[str, complex]]] = {}
+        self._precompute_ae_grid(config.observables)
+
         self.log_likelihood_fn = self._make_flexible_log_likelihood(
             config.observables,
             self.structure_data,
@@ -91,6 +99,59 @@ class MCMCRunner:
         self.checkpoint_interval = config.sampler_settings.get('checkpoint_interval', 100)
         self.checkpoint_dir = Path(config.sampler_settings.get('checkpoint_dir', '/tmp'))
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+    def _precompute_ae_grid(self, observables: Dict[str, Any]) -> None:
+        """Pre-compute InducedAeList for every grid point at init time.
+
+        AeResponse uses mpmath arbitrary-precision arithmetic (~1.5 s/call).
+        Since the conductivity profile depends only on the discrete Tb grid
+        (not on rheological parameters), we compute once and cache by index.
+        The per-likelihood call then does a dict lookup instead of recomputing.
+        """
+        induction_obs = [k for k in observables
+                         if k.startswith('Ae_') or k.startswith('BiAmp_')
+                         or k.startswith('BiPhase_')]
+        if not induction_obs:
+            return
+
+        # Only applies to v2.1 grid format {'Tb_K_grid': ..., 'structures': [...]}
+        sd = self.structure_data
+        if not (isinstance(sd, dict) and 'Tb_K_grid' in sd and 'structures' in sd):
+            return
+
+        from .forward_models import forward_model_induction
+
+        structures = sd['structures']
+        n = len(structures)
+        log.info(f"Pre-computing induction Ae for {n} grid points ...")
+
+        # Collect all requested frequency labels from observables.
+        requested_labels: set = set()
+        for k in observables:
+            if k.startswith('Ae_') and k.endswith('_real'):
+                requested_labels.add(k[len('Ae_'):-len('_real')])
+            elif k.startswith('Ae_') and k.endswith('_imag'):
+                requested_labels.add(k[len('Ae_'):-len('_imag')])
+            elif k.startswith('BiAmp_'):
+                requested_labels.add(k[len('BiAmp_'):])
+            elif k.startswith('BiPhase_') and k.endswith('_deg'):
+                requested_labels.add(k[len('BiPhase_'):-len('_deg')])
+
+        for i, struct in enumerate(structures):
+            Texc_hr_full = struct.get('Texc_hr') if isinstance(struct, dict) else None
+            if not Texc_hr_full:
+                self._ae_grid_cache[i] = None
+                continue
+            freq_dict = {lbl: Texc_hr_full[lbl]
+                         for lbl in requested_labels if lbl in Texc_hr_full}
+            if not freq_dict:
+                self._ae_grid_cache[i] = None
+                continue
+            result = forward_model_induction(struct, freq_dict, nn=1, do_parallel=False)
+            self._ae_grid_cache[i] = result
+            log.debug(f"  Grid point {i+1}/{n}: Ae computed")
+
+        log.info("Induction Ae pre-computation complete.")
 
     def _infer_rheology(self) -> str:
         """Infer rheology type from parameter space or sampler_settings."""
@@ -431,11 +492,7 @@ class MCMCRunner:
             need_induction = bool(induction_keys_real or induction_keys_imag
                                   or induction_keys_amp or induction_keys_phase)
             if need_induction:
-                from .forward_models import forward_model_induction
-                Texc_hr_full = modified.get('Texc_hr')
-                if not Texc_hr_full:
-                    return -1e30
-                # Build the freq dict from labels referenced in the observables.
+                # Collect all requested frequency labels.
                 requested_labels = set()
                 for k in induction_keys_real:
                     requested_labels.add(k[len('Ae_'):-len('_real')])
@@ -445,14 +502,30 @@ class MCMCRunner:
                     requested_labels.add(k[len('BiAmp_'):])
                 for k in induction_keys_phase:
                     requested_labels.add(k[len('BiPhase_'):-len('_deg')])
-                freq_dict = {label: Texc_hr_full[label]
-                             for label in requested_labels
-                             if label in Texc_hr_full}
-                if not freq_dict:
-                    return -1e30
-                # forward_model_induction reads rSigChange_m / sigmaLayers_Sm
-                # / R_body_m from `modified`.
-                Ae_dict = forward_model_induction(modified, freq_dict)
+
+                # Fast path: look up pre-computed Ae from the grid cache
+                # (avoids ~1.5 s/call mpmath cost on every likelihood eval).
+                Tb_sample = theta_dict.get('Tb_K')
+                if (self._ae_grid_cache
+                        and Tb_sample is not None
+                        and 'Tb_K_grid' in structure_data
+                        and 'structures' in structure_data):
+                    grid_Tb = np.asarray(structure_data['Tb_K_grid'])
+                    grid_idx = int(np.argmin(np.abs(grid_Tb - Tb_sample)))
+                    Ae_dict = self._ae_grid_cache.get(grid_idx)
+                else:
+                    # Fallback: compute on-the-fly (single-struct or no-grid configs).
+                    from .forward_models import forward_model_induction
+                    Texc_hr_full = modified.get('Texc_hr')
+                    if not Texc_hr_full:
+                        return -1e30
+                    freq_dict = {label: Texc_hr_full[label]
+                                 for label in requested_labels
+                                 if label in Texc_hr_full}
+                    if not freq_dict:
+                        return -1e30
+                    Ae_dict = forward_model_induction(modified, freq_dict)
+
                 if Ae_dict is None:
                     return -1e30
                 for label in requested_labels:
