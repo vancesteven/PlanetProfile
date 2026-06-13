@@ -264,8 +264,8 @@ def run_calcs(bname, comp, recalc, plot_field, plot_asym, synodic_only=False,
                 mprmvals = [mprm for nprm in range(1, nprm_max_main + 1) for mprm in range(0, nprm + 1)]
                 nvals = [n for n in range(1, n_max_main + 1) for _ in range(0, n + 1)]
                 mvals = [m for n in range(1, n_max_main + 1) for m in range(0, n + 1)]
-                gnm, hnm = ( np.zeros((n_peaks,n_max_main+1,n_max_main+1), dtype=np.complex_) for _ in range(2) )
-                gnm_sph, hnm_sph = ( np.zeros((n_peaks,nprm_max_main+1,nprm_max_main+1), dtype=np.complex_) for _ in range(2) )
+                gnm, hnm = ( np.zeros((n_peaks,n_max_main+1,n_max_main+1), dtype=np.complex128) for _ in range(2) )
+                gnm_sph, hnm_sph = ( np.zeros((n_peaks,nprm_max_main+1,nprm_max_main+1), dtype=np.complex128) for _ in range(2) )
                 for i in range(n_peaks):
                     gnm[i,...], hnm[i,...] = asym.get_gh_from_Binm(n_max_main,Binm[i,...])
                     gnm_sph[i,...], hnm_sph[i,...] = asym.get_gh_from_Binm(nprm_max_main,Binm_sph[i,...])

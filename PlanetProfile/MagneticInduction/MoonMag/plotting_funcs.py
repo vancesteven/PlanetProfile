@@ -781,14 +781,14 @@ def plotTimeSeries(loc, Binm, Benm, t_start, T_hrs, nprm_max, n_max, nvals, mval
     else:
         lin_Binm = Binm
 
-    Bnet_x, Bnet_y, Bnet_z = (np.zeros(n_pts, dtype=np.complex_) for _ in range(3))
+    Bnet_x, Bnet_y, Bnet_z = (np.zeros(n_pts, dtype=np.complex128) for _ in range(3))
     # Linearize Binm_sph values
     if Binm_sph is not None:
         if np.size(np.shape(Binm_sph)) > 2:
             lin_Binm_sph = np.array([Binm_sph[int(mvals[iN] < 0), nvals[iN], abs(mvals[iN])] for iN in range(Nnmprm)])
         else:
             lin_Binm_sph = Binm_sph
-        Bnet_x_sph, Bnet_y_sph, Bnet_z_sph = (np.zeros(n_pts, dtype=np.complex_) for _ in range(3))
+        Bnet_x_sph, Bnet_y_sph, Bnet_z_sph = (np.zeros(n_pts, dtype=np.complex128) for _ in range(3))
 
     for iN in range(Nnm):
         n = nvals[iN]
@@ -1000,21 +1000,21 @@ def calcAndPlotTrajec(x,y,z,r,t, Binm, Benm, peak_omegas, nprm_max, n_max, nvals
 
     # Linearize Binm values
     if np.size(np.shape(Binm)) > 2:
-        lin_Binm = np.zeros((n_peaks,Nnm), dtype=np.complex_)
+        lin_Binm = np.zeros((n_peaks,Nnm), dtype=np.complex128)
         for i_om in range(n_peaks):
             lin_Binm[i_om,:] = np.array([ Binm[i_om,int(mvals[iN]<0),nvals[iN],abs(mvals[iN])] for iN in range(Nnm) ])
     else:
         lin_Binm = Binm
 
-    Bnet_x, Bnet_y, Bnet_z = (np.zeros(n_pts, dtype=np.complex_) for _ in range(3))
+    Bnet_x, Bnet_y, Bnet_z = (np.zeros(n_pts, dtype=np.complex128) for _ in range(3))
     if Binm_sph is not None:
         if np.size(np.shape(Binm_sph)) > 2:
-            lin_Binm_sph = np.zeros((n_peaks,Nnmprm), dtype=np.complex_)
+            lin_Binm_sph = np.zeros((n_peaks,Nnmprm), dtype=np.complex128)
             for i_om in range(n_peaks):
                 lin_Binm_sph[i_om,:] = np.array([ Binm_sph[i_om,int(mvals[iN]<0),nvals[iN],abs(mvals[iN])] for iN in range(Nnmprm) ])
         else:
             lin_Binm_sph = Binm_sph
-        Bnet_x_sph, Bnet_y_sph, Bnet_z_sph = (np.zeros(n_pts, dtype=np.complex_) for _ in range(3))
+        Bnet_x_sph, Bnet_y_sph, Bnet_z_sph = (np.zeros(n_pts, dtype=np.complex128) for _ in range(3))
 
     for i_om in range(n_peaks):
         for iN in range(Nnm):
@@ -1024,7 +1024,7 @@ def calcAndPlotTrajec(x,y,z,r,t, Binm, Benm, peak_omegas, nprm_max, n_max, nvals
                 if net_field and not difference:
                     Be_x, Be_y, Be_z = field.eval_Be(n, m, Benm[i_om,int(m<0),n,abs(m)], x, y, z, r, omega=peak_omegas[i_om], t=t)
                 else:
-                    Be_x, Be_y, Be_z = ( np.zeros(n_pts, dtype=np.complex_) for _ in range(3) )
+                    Be_x, Be_y, Be_z = ( np.zeros(n_pts, dtype=np.complex128) for _ in range(3) )
                 Bnet_x += Be_x
                 Bnet_y += Be_y
                 Bnet_z += Be_z

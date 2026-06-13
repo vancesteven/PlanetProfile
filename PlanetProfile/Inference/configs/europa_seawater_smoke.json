@@ -95,7 +95,7 @@
       "R_J_mol_K": 8.314462
     }
   },
-  "structure_cache_path": "PlanetProfile/Test/mcmc_results/europa_seawater_structure_grid.pkl",
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Europa/Test51_seawater/europa_seawater_structure_grid.pkl",
   "random_state": 42,
   "metadata": {
     "schema_version": "v2 (sampled Tb + sampled core + derived rho_sil)",

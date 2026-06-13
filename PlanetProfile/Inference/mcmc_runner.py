@@ -7,10 +7,15 @@ Supports Andrade and Maxwell rheologies with optional Arrhenius viscosity.
 Author: PlanetProfile Team
 Date: 2026-04-29
 """
+import json
 import numpy as np
 import logging
+import os
+import subprocess
+import threading
 import time
 import pickle
+from datetime import datetime, timezone
 from typing import Dict, Optional, Any, Callable
 from pathlib import Path
 
@@ -496,7 +501,8 @@ class MCMCRunner:
         val = modified.get(key, np.nan)
         return float(val) if np.isfinite(float(val)) else np.nan
 
-    def run(self, progress_callback: Optional[Callable] = None):
+    def run(self, progress_callback: Optional[Callable] = None,
+            progress_jsonl_path: Optional[str] = None):
         """
         Run MCMC sampling with pocoMC.
 
@@ -504,6 +510,12 @@ class MCMCRunner:
             progress_callback: Optional function called with progress dict:
                 {'iteration': int, 'n_total': int, 'acceptance_rate': float,
                  'n_samples': int, 'ess': float}
+            progress_jsonl_path: Optional path to a JSONL file.  When set,
+                one JSON line is appended after each sampler iteration with
+                fields: iteration, log_Z, log_Z_err, ESS, n_accepted,
+                n_total, elapsed_s, timestamp.  Fields unavailable for the
+                current sampler state are written as null.  When None (the
+                default) no file is written and behaviour is unchanged.
 
         Returns:
             InferenceResult object with samples, log-likelihoods, and convergence metrics
@@ -532,8 +544,112 @@ class MCMCRunner:
             random_state=self.random_state,
         )
 
-        # Run — pocoMC stops internally when ESS >= n_ess
-        sampler.run(n_total=4096, progress=True)
+        # --- JSONL progress streaming ----------------------------------------
+        # pocoMC's run() is a blocking call with no native per-iteration
+        # callback.  We launch a background thread that polls sampler.t (the
+        # iteration counter) at a fixed interval and writes one JSONL record
+        # whenever the counter advances.  The thread stops cleanly once the
+        # main run() returns.
+        _jsonl_stop_event = threading.Event()
+
+        def _jsonl_writer_thread(path: str, stop: threading.Event,
+                                  run_t0: float) -> None:
+            """Background thread: poll sampler state and append JSONL lines."""
+            jsonl_path = Path(path)
+            jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+            last_iter = -1
+            try:
+                with open(jsonl_path, 'a', buffering=1) as fh:
+                    while not stop.is_set():
+                        try:
+                            current_t = getattr(sampler, 't', None)
+                            if current_t is not None and current_t != last_iter:
+                                # Read particle stats; particles.get returns
+                                # scalar when the key exists, -1 sentinel otherwise.
+                                def _safe(key, sentinel=-1):
+                                    try:
+                                        v = sampler.particles.get(key, sentinel)
+                                        v = float(v)
+                                        return None if v == sentinel else v
+                                    except Exception:
+                                        return None
+
+                                ess_val = _safe('ess')
+                                logz_val = _safe('logz')
+                                n_calls = getattr(sampler, 'calls', None)
+                                accept_val = _safe('accept')
+                                # n_accepted: accept rate * n_active particles
+                                n_active = getattr(sampler, 'n_active', None)
+                                if accept_val is not None and n_active is not None:
+                                    n_accepted = int(round(accept_val * n_active))
+                                else:
+                                    n_accepted = None
+
+                                record = {
+                                    'iteration': current_t,
+                                    'log_Z': logz_val,
+                                    'log_Z_err': None,  # pocoMC sets this only at end
+                                    'ESS': int(ess_val) if ess_val is not None else None,
+                                    'n_accepted': n_accepted,
+                                    'n_total': int(n_calls) if n_calls is not None else None,
+                                    'elapsed_s': round(time.time() - run_t0, 2),
+                                    'timestamp': datetime.now(timezone.utc).strftime(
+                                        '%Y-%m-%dT%H:%M:%SZ'),
+                                }
+                                fh.write(json.dumps(record) + '\n')
+                                last_iter = current_t
+                        except Exception:
+                            pass  # Never crash the monitor thread
+                        stop.wait(timeout=2.0)
+            except Exception as exc:
+                log.warning(f"JSONL progress writer failed: {exc}")
+
+        if progress_jsonl_path is not None:
+            _jsonl_thread = threading.Thread(
+                target=_jsonl_writer_thread,
+                args=(progress_jsonl_path, _jsonl_stop_event, t0),
+                daemon=True,
+                name='mcmc-jsonl-progress',
+            )
+            _jsonl_thread.start()
+        else:
+            _jsonl_thread = None
+        # ---------------------------------------------------------------------
+
+        try:
+            # Run — pocoMC stops internally when ESS >= n_ess
+            sampler.run(n_total=4096, progress=True)
+        finally:
+            # Signal the writer thread to stop and wait briefly for it to flush
+            _jsonl_stop_event.set()
+            if _jsonl_thread is not None:
+                _jsonl_thread.join(timeout=5.0)
+                # Write a final record with end-of-run logz / logz_err
+                if progress_jsonl_path is not None:
+                    try:
+                        jsonl_path = Path(progress_jsonl_path)
+                        final_logz = getattr(sampler, 'logz', None)
+                        final_logz_err = getattr(sampler, 'logz_err', None)
+                        n_calls_final = getattr(sampler, 'calls', None)
+                        try:
+                            _s_final, _, _, _ = sampler.posterior()
+                            ess_final = len(_s_final)
+                        except Exception:
+                            ess_final = None
+                        final_record = {
+                            'iteration': getattr(sampler, 't', None),
+                            'log_Z': float(final_logz) if final_logz is not None else None,
+                            'log_Z_err': float(final_logz_err) if final_logz_err is not None else None,
+                            'ESS': ess_final,
+                            'n_accepted': None,
+                            'n_total': int(n_calls_final) if n_calls_final is not None else None,
+                            'elapsed_s': round(time.time() - t0, 2),
+                            'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                        }
+                        with open(jsonl_path, 'a', buffering=1) as fh:
+                            fh.write(json.dumps(final_record) + '\n')
+                    except Exception as exc:
+                        log.warning(f"JSONL final record write failed: {exc}")
 
         # Single progress update on completion (for GUI)
         if progress_callback is not None:
@@ -562,8 +678,38 @@ class MCMCRunner:
         elapsed = time.time() - t0
         log.info(f"MCMC complete: {n_samples} samples in {elapsed/60:.1f} min")
 
+        # --- Capture run-level metadata from pocoMC ----------------------------
+
+        # git SHA for audit / pre-bugfix flag
+        try:
+            _git_sha = subprocess.check_output(
+                ['git', 'rev-parse', '--short', 'HEAD'],
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+                stderr=subprocess.DEVNULL,
+            ).decode().strip()
+        except Exception:
+            _git_sha = None
+
+        # log-evidence and its MC error (set by pocoMC at end of run)
+        _log_Z = getattr(sampler, 'logz', None)
+        _log_Z_err = getattr(sampler, 'logz_err', None)
+        _log_Z = float(_log_Z) if _log_Z is not None else None
+        _log_Z_err = float(_log_Z_err) if _log_Z_err is not None else None
+
+        # True ESS from importance weights:  (sum w)^2 / sum(w^2)
+        # _weights from posterior() are already normalised (sum ≈ 1).
+        # Avoid division by zero for uniform (resampled) case.
+        try:
+            _w = np.asarray(_weights, dtype=float)
+            _w_sum2 = float(np.sum(_w) ** 2)
+            _w2_sum = float(np.sum(_w ** 2))
+            _true_ess = _w_sum2 / _w2_sum if _w2_sum > 0 else float(n_samples)
+        except Exception:
+            _true_ess = float(n_samples)
+
         # Compute convergence metrics
-        convergence_metrics = self._compute_convergence(samples, log_likes, sampler)
+        convergence_metrics = self._compute_convergence(samples, log_likes, sampler,
+                                                        true_ess=_true_ess)
 
         # Recompute k2 for posterior samples — always dict-based so param order
         # in param_space never causes wrong positional mapping.
@@ -629,21 +775,39 @@ class MCMCRunner:
                 'n_iterations': len(samples) if samples is not None else 0,
                 'rheology': rheology,
                 'heating_indices': heating_indices,
-            }
+                # Audit / reproducibility fields
+                'git_sha': _git_sha,
+                'log_Z': _log_Z,
+                'log_Z_err': _log_Z_err,
+            },
+            weights=_weights,
         )
 
         log.info("MCMC inference complete")
         return result
 
-    def _compute_convergence(self, samples, log_likes, sampler) -> Dict[str, float]:
-        """Compute convergence diagnostics (ESS, R-hat, acceptance rate)."""
+    def _compute_convergence(self, samples, log_likes, sampler,
+                             true_ess: Optional[float] = None) -> Dict[str, float]:
+        """Compute convergence diagnostics (ESS, R-hat, acceptance rate).
+
+        Args:
+            true_ess: Pre-computed ESS from importance weights,
+                ``(sum w)^2 / sum(w^2)``.  When provided this is used
+                directly; otherwise falls back to ``sampler.n_eff`` or
+                ``n_samples`` (the old behaviour).
+        """
         n_samples = len(samples)
 
         # ESS (effective sample size)
-        try:
-            ess = sampler.n_eff if hasattr(sampler, 'n_eff') else n_samples
-        except:
-            ess = n_samples
+        # Prefer the true weight-based ESS passed in from run(); fall back to
+        # sampler.n_eff (pocoMC's internal target count), then n_samples.
+        if true_ess is not None:
+            ess = true_ess
+        else:
+            try:
+                ess = sampler.n_eff if hasattr(sampler, 'n_eff') else n_samples
+            except Exception:
+                ess = n_samples
 
         # Acceptance rate — pocoMC stores this in pbar.info['acc'] after run
         try:

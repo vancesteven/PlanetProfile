@@ -144,6 +144,187 @@ def initialize_session_state():
 
 
 # ============================================================
+# Config-file selector helpers
+# ============================================================
+
+def _load_available_configs():
+    """Scan PlanetProfile/Inference/configs/*.json and return a dict.
+
+    Returns
+    -------
+    dict
+        ``{body_name: [(display_name, filepath), ...]}``
+        sorted alphabetically by body and then by display name.
+    """
+    import json as _json
+    import glob as _glob
+
+    configs_dir = Path(parent_directory) / "PlanetProfile" / "Inference" / "configs"
+    pattern = str(configs_dir / "*.json")
+    files = sorted(_glob.glob(pattern))
+
+    result = {}
+    for fp in files:
+        try:
+            with open(fp) as fh:
+                data = _json.load(fh)
+        except Exception:
+            continue
+
+        body = data.get("bodyname") or data.get("body") or data.get("planet_name") or data.get("Body") or "Unknown"
+        display = Path(fp).stem  # filename without .json
+        result.setdefault(body, []).append((display, fp))
+
+    # Sort bodies alphabetically; entries within each body already sorted by filename
+    return dict(sorted(result.items()))
+
+
+def render_config_file_selector():
+    """Render a two-level body/config-variant selector above the run-config form.
+
+    When the user picks a config the following session-state keys are populated
+    from the JSON file so the existing form widgets pre-fill:
+      - ``inference_preset``           (set to 'custom' so the form doesn't override)
+      - ``inference_custom_mode``      (True — unlocks all form widgets)
+      - ``inference_selected_params``  (keys of param_space in the config)
+      - ``inference_param_space``      (full prior dicts)
+      - ``inference_observables``      (from config 'observables', keys normalised)
+      - ``inference_sampler_settings`` (merged with defaults)
+      - ``inference_structure_cache_path``
+
+    NOTE: the existing ``render_preset_selector`` / ``render_observables_config`` /
+    ``render_sampler_settings`` / ``render_structure_cache_input`` functions read
+    these same keys, so they will pre-fill after a config is loaded.  The
+    ``render_prior_config`` widget reads ``inference_param_space`` for bounds, so
+    that pre-fills too.  Fields that the form does *not* read from session-state
+    (e.g. the body name used inside ``render_run_button`` which is derived from
+    ``inference_preset``) are handled by setting ``inference_preset`` to a
+    matching preset key when one exists, or to ``'custom'`` otherwise.
+    """
+    import json as _json
+
+    configs_by_body = _load_available_configs()
+    if not configs_by_body:
+        st.info("No config files found in PlanetProfile/Inference/configs/.")
+        return
+
+    st.markdown("#### 📂 Load Config File")
+
+    body_names = list(configs_by_body.keys())
+    selected_body = st.selectbox(
+        "Body:",
+        options=body_names,
+        key="cfg_selector_body",
+    )
+
+    variants = configs_by_body[selected_body]  # list of (display_name, filepath)
+    variant_labels = [v[0] for v in variants]
+    selected_variant_label = st.selectbox(
+        "Config variant:",
+        options=variant_labels,
+        key="cfg_selector_variant",
+    )
+
+    # Resolve filepath
+    selected_filepath = next(fp for (lbl, fp) in variants if lbl == selected_variant_label)
+
+    # Load JSON for preview and button action
+    try:
+        with open(selected_filepath) as fh:
+            cfg_data = _json.load(fh)
+    except Exception as exc:
+        st.error(f"Could not read config: {exc}")
+        return
+
+    # Config preview expander
+    with st.expander("Config preview"):
+        st.code(_json.dumps(cfg_data, indent=2), language="json")
+
+    # Apply button
+    if st.button("Apply config to form", key="cfg_selector_apply"):
+        _apply_config_to_session_state(cfg_data)
+        st.success(f"Loaded: {selected_variant_label}")
+        st.rerun()
+
+
+def _apply_config_to_session_state(cfg):
+    """Populate inference session-state keys from a loaded config dict.
+
+    Parameters
+    ----------
+    cfg : dict
+        Parsed JSON config from PlanetProfile/Inference/configs/*.json
+    """
+    # --- param_space and selected_params ---
+    param_space = cfg.get("param_space", {})
+    if param_space:
+        st.session_state.inference_param_space = dict(param_space)
+        st.session_state.inference_selected_params = list(param_space.keys())
+
+    # --- observables (normalise key names) ---
+    raw_obs = cfg.get("observables", {})
+    if raw_obs:
+        normalised = {}
+        for key, val in raw_obs.items():
+            # Ensure value is a list/tuple of two floats
+            if isinstance(val, (list, tuple)) and len(val) == 2:
+                pair = (float(val[0]), float(val[1]))
+            else:
+                continue
+
+            # Normalise Im_k2 -> abs_Im_k2
+            if key == "Im_k2":
+                normalised["abs_Im_k2"] = pair
+            else:
+                normalised[key] = pair
+        if normalised:
+            st.session_state.inference_observables = normalised
+
+    # --- sampler settings (merge with existing defaults) ---
+    raw_sampler = cfg.get("sampler_settings", {})
+    if raw_sampler:
+        current = dict(st.session_state.inference_sampler_settings)
+        for field in ("n_effective", "n_reeval", "random_state",
+                      "checkpoint_interval", "max_iterations"):
+            if field in raw_sampler:
+                current[field] = raw_sampler[field]
+        st.session_state.inference_sampler_settings = current
+
+    # Also honour top-level random_state
+    if "random_state" in cfg and "random_state" not in cfg.get("sampler_settings", {}):
+        s = dict(st.session_state.inference_sampler_settings)
+        s["random_state"] = cfg["random_state"]
+        st.session_state.inference_sampler_settings = s
+
+    # --- structure cache path ---
+    cache_path = cfg.get("structure_cache_path", "")
+    if cache_path:
+        st.session_state.inference_structure_cache_path = cache_path
+
+    # --- preset / custom mode ---
+    # Try to match config bodyname to a known preset so the run button can
+    # resolve bodyname correctly.  Fall back to 'custom' if no match.
+    bodyname = cfg.get("bodyname", "").lower()
+    if "titan" in bodyname:
+        # Pick the 8D noocean preset when the cache path suggests it, else andrade_titan
+        cache = cfg.get("structure_cache_path", "")
+        if "noocean" in cache or "allice" in cache:
+            st.session_state.inference_preset = "andrade_titan_noocean_8D"
+        else:
+            st.session_state.inference_preset = "andrade_titan"
+    elif "europa" in bodyname:
+        st.session_state.inference_preset = "andrade_europa"
+    else:
+        # No matching preset — use custom mode so the form stays editable
+        # and inference_preset is not silently wrong.
+        st.session_state.inference_preset = "custom"
+
+    # Always switch to custom mode so the full form is editable and no preset
+    # silently overwrites the values we just loaded.
+    st.session_state.inference_custom_mode = True
+
+
+# ============================================================
 # UI Render Functions
 # ============================================================
 
@@ -1273,6 +1454,11 @@ def main():
 
     # Note: Planet selection is optional for inference - body name comes from preset
     # (e.g., 'andrade_titan' preset uses Titan structure cache)
+
+    # Config-file selector (body + variant) — sits above the run-configuration form.
+    # Populates the same session-state keys that the form widgets read so fields
+    # pre-fill after a config is applied.
+    render_config_file_selector()
 
     # Lazy import inference modules
     imports = lazy_import_inference()

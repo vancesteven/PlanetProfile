@@ -1594,6 +1594,42 @@ def plot_structure_wedge_pp(
             return True
 
     try:
+        # mantleEOS sanitization: PlotWedge (ProfilePlots.py) does
+        #   ``if 'Comet' in Planet.Sil.mantleEOS:``
+        # which raises TypeError when mantleEOS is None, and produces a
+        # misleading label ('no chondrite') when PP has overwritten it with
+        # the sentinel value 'none' (set by SetupInit when
+        # CONSTANT_INNER_DENSITY=True).  Restore the original template value
+        # from the already-imported module so the legend shows the real EOS
+        # name (e.g. 'CV3hy1wt_678_1.tab' → 'CV chondrite').
+        _cur_meos = getattr(getattr(Planet, 'Sil', None), 'mantleEOS', None)
+        if not _cur_meos or _cur_meos == 'none':
+            import sys as _sys_meos
+            _tmpl_mod = _sys_meos.modules.get(planet_template_module)
+            _tmpl_meos = (
+                getattr(getattr(getattr(_tmpl_mod, 'Planet', None), 'Sil', None),
+                        'mantleEOS', None)
+                if _tmpl_mod is not None else None
+            )
+            if _tmpl_meos and _tmpl_meos != 'none':
+                Planet.Sil.mantleEOS = _tmpl_meos
+                log.debug(
+                    f'plot_structure_wedge_pp: restored mantleEOS={_tmpl_meos!r} '
+                    'from template module (PP had overwritten it with '
+                    f'{_cur_meos!r}).'
+                )
+            else:
+                # Last resort: keep 'none' if we truly have no better value,
+                # but replace None with the sentinel so PlotWedge does not crash.
+                if _cur_meos is None:
+                    Planet.Sil.mantleEOS = 'none'
+                    log.warning(
+                        'plot_structure_wedge_pp: mantleEOS is None and could not '
+                        'be recovered from template module; set to "none". '
+                        'The wedge legend will show "no chondrite" — check '
+                        f'planet_template_module={planet_template_module!r}.'
+                    )
+
         if getattr(Planet.Core, 'Rmean_m', None) is None or not np.isfinite(
             Planet.Core.Rmean_m
         ):

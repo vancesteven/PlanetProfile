@@ -254,7 +254,7 @@ def InducedAeList(r_bds, sigmas, omegas, rscale_moments, nn=1, writeout=False, p
         log.debug(f"Calculating A_e for {np.size(omegas)} omega values.")
 
     n_omegas = np.size(omegas)
-    Aes = np.zeros(n_omegas, dtype=np.complex_)
+    Aes = np.zeros(n_omegas, dtype=np.complex128)
 
     if rscale_moments == 1.0:
         rscaling = rscale_moments
@@ -270,7 +270,10 @@ def InducedAeList(r_bds, sigmas, omegas, rscale_moments, nn=1, writeout=False, p
         Aes = [par_result[i_om].get() for i_om in range(n_omegas)]
     else:
         for i_om in range(n_omegas):
-            Aes[i_om] = AeResponse(r_bds,sigmas,omegas[i_om],rscaling,nn=nn)
+            ae_val = AeResponse(r_bds,sigmas,omegas[i_om],rscaling,nn=nn)
+            # AeResponse returns a numpy array of mpmath mpc objects (from cpx_div).
+            # Extract the scalar element so numpy 2.x can assign it to complex128.
+            Aes[i_om] = ae_val[0] if hasattr(ae_val, '__len__') else ae_val
             if (i_om*4) % n_omegas < 4: log.debug(f"{i_om + 1} of {n_omegas} complete.")
 
     Aes = np.array([ complex(val) for val in Aes ])
@@ -333,7 +336,7 @@ def BiList(r_bds, sigmas, peak_omegas, Benm, nprmvals, mprmvals, rscale_moments,
 
     n_omegas = np.size(peak_omegas)
     Nnm = np.size(nprmvals)
-    Binms = np.zeros((n_omegas,2,n_max+1,n_max+1), dtype=np.complex_)
+    Binms = np.zeros((n_omegas,2,n_max+1,n_max+1), dtype=np.complex128)
 
     # For each degree n, evaluate all Ae:
     for ni in range(1,n_max+1):
@@ -395,7 +398,7 @@ get_gh_from_Binm()
         Binm: complex, shape(2,n_max+1,n_max+1). Complex induced magnetic moments calculated using fully normalized spherical harmonic coefficients.
     """
 def get_gh_from_Binm(n_max, Binm):
-    gnm, hnm = ( np.zeros((n_max+1,n_max+1),dtype=np.complex_) for _ in range(2) )
+    gnm, hnm = ( np.zeros((n_max+1,n_max+1),dtype=np.complex128) for _ in range(2) )
 
     for n in range(1,n_max+1):
         norm = np.sqrt(2*n+1) / sqrt2 / sqrt4pi

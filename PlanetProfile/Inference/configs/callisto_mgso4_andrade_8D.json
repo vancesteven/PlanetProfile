@@ -33,7 +33,7 @@
       "R_J_mol_K": 8.314462
     }
   },
-  "structure_cache_path": "PlanetProfile/Test/mcmc_results/callisto_mgso4_structure_grid.pkl",
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Callisto/C2_andrade/callisto_mgso4_structure_grid.pkl",
   "random_state": 42,
   "metadata": {
     "schema_version": "v2 (sampled Tb + sampled core + derived rho_sil) — DEPRECATED",

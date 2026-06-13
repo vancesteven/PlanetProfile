@@ -94,7 +94,7 @@ def read_shape(n_bds, p_max, rscale, bodyname=None, relative=False, eps_scaled=N
 
     # Initialize asymmetric shape array. The latter 3 indices are
     # for q positive (0) or negative (1), p, and |q|.
-    asym_shape, grav_shape = ( np.zeros((n_bds,2,p_max+1,p_max+1),dtype=np.complex_) for _ in range(2) )
+    asym_shape, grav_shape = ( np.zeros((n_bds,2,p_max+1,p_max+1),dtype=np.complex128) for _ in range(2) )
 
     if single_asym is not None:
         asym_model = os.path.join(fpath, f"depth_chi_pq_shape{bfname}{append}.txt")
@@ -123,11 +123,11 @@ def read_shape(n_bds, p_max, rscale, bodyname=None, relative=False, eps_scaled=N
         for p in range(1,p_max+1):
             try:
                 asym_model = f"{asym_model1}{p}_shapes{bfname}{append}.txt"
-                shape_p = np.loadtxt(asym_model, skiprows=1, unpack=False, delimiter=',', dtype=np.complex_)
+                shape_p = np.loadtxt(asym_model, skiprows=1, unpack=False, delimiter=',', dtype=np.complex128)
                 log.debug(f"Using asymmetry model: {asym_model}")
             except:
                 asym_model = f"{asym_model1}{p}_shapes.txt"
-                shape_p = np.loadtxt(asym_model, skiprows=1, unpack=False, delimiter=',', dtype=np.complex_)
+                shape_p = np.loadtxt(asym_model, skiprows=1, unpack=False, delimiter=',', dtype=np.complex128)
                 log.debug(f"Using asymmetry model: {asym_model}")
 
             qcount = 0
@@ -263,7 +263,7 @@ get_chipq_from_CSpq_single()
             that contain the CS phase.
     """
 def get_chipq_from_CSpq_single(p, Cpq, Spq, CSchange=True):
-    chipq = np.zeros((2,p+1),dtype=np.complex_)
+    chipq = np.zeros((2,p+1),dtype=np.complex128)
 
     norm = sqrt4pi / sqrt2
 
@@ -298,7 +298,7 @@ get_chipq_from_CSpq()
             that contain the CS phase.
     """
 def get_chipq_from_CSpq(pmax, Cpq, Spq, CSchange=True):
-    chipq = np.zeros((2,pmax+1,pmax+1),dtype=np.complex_)
+    chipq = np.zeros((2,pmax+1,pmax+1),dtype=np.complex128)
 
     norm = sqrt4pi / sqrt2
 
@@ -401,7 +401,7 @@ get_chipq_from_apq()
 def get_chipq_from_apq(pvals, qvals, apq):
     # Reconstruct all complex coefficients as needed to result in real-valued outputs
     pmax = np.max(pvals)
-    chipq = np.zeros((2,pmax+1,pmax+1), dtype=np.complex_)
+    chipq = np.zeros((2,pmax+1,pmax+1), dtype=np.complex128)
     for a,p,q in zip(apq, pvals, qvals):
         chipq[0,p,q] = a
         chipq[1,p,q] = np.conj(a) * (-1)**q
@@ -426,7 +426,7 @@ get_gh_from_Binm()
         Binm: complex, shape(2,n_max+1,n_max+1). Complex induced magnetic moments calculated using fully normalized spherical harmonic coefficients.
     """
 def get_gh_from_Binm(n_max, Binm):
-    gnm, hnm = ( np.zeros((n_max+1,n_max+1), dtype=np.complex_) for _ in range(2) )
+    gnm, hnm = ( np.zeros((n_max+1,n_max+1), dtype=np.complex128) for _ in range(2) )
 
     for n in range(1,n_max+1):
         norm = np.sqrt(2*n+1) / sqrt2 / sqrt4pi
@@ -457,7 +457,7 @@ def get_Binm_from_gh(n_max, gnm, hnm):
     Returns:
         Binm: complex, shape(2,n_max+1,n_max+1). Complex induced magnetic moments for fully normalized spherical harmonics.
     """
-    Binm = np.zeros((2,n_max+1,n_max+1), dtype=np.complex_)
+    Binm = np.zeros((2,n_max+1,n_max+1), dtype=np.complex128)
 
     for n in range(1, n_max+1):
         norm = sqrt4pi / np.sqrt(2*n+1) / sqrt2
@@ -646,7 +646,7 @@ def read_Benm(nprm_max, p_max, bodyname=None, fpath=None, synodic=False, orbital
         
     n_peaks1 = np.size(peak_per1)
 
-    Benm1 = np.zeros((n_peaks1,2,nprm_max+p_max+1,nprm_max+p_max+1), dtype=np.complex_)
+    Benm1 = np.zeros((n_peaks1,2,nprm_max+p_max+1,nprm_max+p_max+1), dtype=np.complex128)
 
     A1 = sqrt(2*np.pi/3)
 
@@ -673,7 +673,7 @@ def read_Benm(nprm_max, p_max, bodyname=None, fpath=None, synodic=False, orbital
                     data = csv.reader(f_Benm2)
                     exc2_names = np.array([f'Be2{row[0]}' for row in data])
 
-                Benm2 = np.zeros((n_peaks2,2,nprm_max+p_max+1,nprm_max+p_max+1), dtype=np.complex_)
+                Benm2 = np.zeros((n_peaks2,2,nprm_max+p_max+1,nprm_max+p_max+1), dtype=np.complex128)
 
                 xBex = xBex_Re + 1j*xBex_Im
                 xBey = xBey_Re + 1j*xBey_Im
@@ -690,7 +690,7 @@ def read_Benm(nprm_max, p_max, bodyname=None, fpath=None, synodic=False, orbital
                 Benm2[:,0,2,1] = -A2 * (xBez + 1j*yBez)
                 Benm2[:,0,2,2] =  A2 * (xBex - 1j*xBey + ort8*xBez)
 
-                Benm = np.zeros((n_peaks1+n_peaks2,2,nprm_max+p_max+1,nprm_max+p_max+1),dtype=np.complex_)
+                Benm = np.zeros((n_peaks1+n_peaks2,2,nprm_max+p_max+1,nprm_max+p_max+1),dtype=np.complex128)
 
                 Benm[:n_peaks1,:,:,:] = Benm1
                 Benm[n_peaks1:,:,:,:] = Benm2
@@ -755,7 +755,7 @@ def BiList(r_bds, sigmas, peak_omegas, asym_shape_layers, grav_shape, Benm, rsca
     n_peaks = np.size(peak_omegas)
     Nnm = np.size(nvals)
     n_max = nprm_max + p_max
-    Binms = np.zeros((n_peaks, 2, n_max+1, n_max+1), dtype=np.complex_)
+    Binms = np.zeros((n_peaks, 2, n_max+1, n_max+1), dtype=np.complex128)
     log.debug(f"Calculating asymmetric B_inm for {np.size(peak_omegas)} periods.")
     if writeout:
         if bodyname is None:
@@ -787,8 +787,8 @@ def BiList(r_bds, sigmas, peak_omegas, asym_shape_layers, grav_shape, Benm, rsca
             Binms[i_om, ...] = par_result[i_om].get()
     else:
         if debug:
-            Aes, Ats, Ads = [ np.zeros((n_peaks, nprm_max+p_max), dtype=np.complex_) for _ in range(3) ]
-            krvals = np.zeros(n_peaks, dtype=np.complex_)
+            Aes, Ats, Ads = [ np.zeros((n_peaks, nprm_max+p_max), dtype=np.complex128) for _ in range(3) ]
+            krvals = np.zeros(n_peaks, dtype=np.complex128)
             for i_om in range(n_peaks):
                 Binms[0, ...], Aes[i_om, :], Ats[i_om, :], Ads[i_om, :], krvals[i_om] = BinmResponse(r_bds, sigmas, peak_omegas[i_om], asym_shape, Benm[0, ...], Xid, p_max, rscaling, nprm_max=nprm_max, verbose=verbose, debug=debug)
                 if (i_om+1) % 10 == 0: log.debug(f"{i_om + 1} of {n_peaks} complete.")
@@ -863,7 +863,7 @@ BinmResponse()
     """
 def BinmResponse(r_bds, sigmas, omega, asym_shape, Benm, Xid, p_max, rscaling, nprm_max=1, verbose=True, debug=False):
     n_max = nprm_max + p_max
-    Binm = np.zeros((2, n_max+1, n_max+1), dtype=np.complex_)
+    Binm = np.zeros((2, n_max+1, n_max+1), dtype=np.complex128)
     n_bds = np.size(r_bds)
     n_inner = n_bds - 1
 
@@ -1611,7 +1611,7 @@ def getMagSurf(nvals,mvals,Binm, r_th_ph,ltht,lphi, nmax_plot=10, Schmidt=False,
 
     lleny = np.size(ltht)
     llenx = np.size(lphi)
-    Bx, By, Bz = ( np.zeros((1,lleny*llenx), dtype=np.complex_) for _ in range(3) )
+    Bx, By, Bz = ( np.zeros((1,lleny*llenx), dtype=np.complex128) for _ in range(3) )
 
     # If we pass a single value for r(theta, phi) = R, evaluate over a sphere with that radius.
     # Otherwise, evaluate *at* the asymmetric 3D surface.

@@ -289,13 +289,13 @@ def calc_trajec(x,y,z,r,t, Binm, Benm, B0, peak_omegas, nvals, mvals, nprm_max=1
 
     # Linearize Binm values
     if np.size(np.shape(Binm)) > 2:
-        lin_Binm = np.zeros((n_peaks,Nnm), dtype=np.complex_)
+        lin_Binm = np.zeros((n_peaks,Nnm), dtype=np.complex128)
         for i_om in range(n_peaks):
             lin_Binm[i_om,:] = np.array([ Binm[i_om,int(mvals[iN]<0),nvals[iN],abs(mvals[iN])] for iN in range(Nnm) ])
     else:
         lin_Binm = Binm
 
-    Bnet_x, Bnet_y, Bnet_z = (np.zeros(n_pts, dtype=np.complex_) for _ in range(3))
+    Bnet_x, Bnet_y, Bnet_z = (np.zeros(n_pts, dtype=np.complex128) for _ in range(3))
 
     for i_om in range(n_peaks):
         for iN in range(Nnm):

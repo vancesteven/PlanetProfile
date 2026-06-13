@@ -218,6 +218,10 @@ class InferenceResult:
     heating_results: Optional[List[Dict[str, float]]] = None
     convergence_metrics: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    # Importance weights from pocoMC for each posterior sample.
+    # Shape: (n_samples,) with values normalised so sum ≈ 1.
+    # None for older pkls loaded without this field.
+    weights: Optional[np.ndarray] = None
 
     def __post_init__(self):
         """Validate result structure after initialization."""
