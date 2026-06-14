@@ -1237,7 +1237,7 @@ def get_all_Xid(n_max, p_max, nprm_max, nprmvals, mprmvals, do_parallel=True,
                             else:
                                 Xid[msign, n, mabs, qsign, p, qabs, mpsign, nprm, mpabs] = calc_Xid(n,m,p,q,nprmvals[iN],mprmvals[iN],nprm_max)
         if writeout:
-            savemat(fullFile, {'Xid': Xid.astype(np.float_)})
+            savemat(fullFile, {'Xid': Xid.astype(np.float64)})
             log.debug(f'Saved Xid values to file: {fullFile}')
 
     return Xid
@@ -1508,7 +1508,7 @@ eval_dev()
     """
 def eval_dev(p, q, chi_pq, ltht, lphi, outShape):
     if chi_pq == 0:
-        this_devs = np.zeros(outShape, dtype=np.float_)
+        this_devs = np.zeros(outShape, dtype=np.float64)
     else:
         this_devs = np.real(chi_pq * sph_harm(q, p, lphi, ltht))
     log.debug(f"p,q = {p}{q} completed")

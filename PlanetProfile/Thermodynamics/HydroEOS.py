@@ -1175,13 +1175,13 @@ class SFphase:
                 PT = sfPTgrid(P_MPa, T_K)
             else:
                 PT = self.PTpairs(P_MPa, T_K)
-            return WhichPhase(PT).astype(np.int_)
+            return WhichPhase(PT).astype(int)
         else:
             if grid:
                 PTm = sfPTmGrid(P_MPa, T_K, self.m_molal)
             else:
                 PTm = self.PTmTrips(P_MPa, T_K)
-            return WhichPhase(PTm, solute=self.comp).astype(np.int_)
+            return WhichPhase(PTm, solute=self.comp).astype(int)
         
 
 class SFSeismic:

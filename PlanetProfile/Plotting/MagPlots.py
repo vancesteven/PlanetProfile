@@ -771,7 +771,7 @@ def PlotMagSurface(PlanetList, Params):
             raise ValueError('Lists of tMagEval and rMagEval must have the same length or one must be length 1.')
 
     for iPlanet, Planet in enumerate(PlanetListSubset):
-        phaseNow = np.zeros((nts, np.size(Planet.Magnetic.omegaExc_radps)), dtype=np.complex_)
+        phaseNow = np.zeros((nts, np.size(Planet.Magnetic.omegaExc_radps)), dtype=np.complex128)
 
         # Get plot text and axis labels
         if Planet.lonMap_deg is None:
@@ -1322,7 +1322,7 @@ def PlotMagSpectrumInduced(PlanetList, Params):
     else:
         Tmin_hr = FigMisc.Tmin_hr
     Tmax_hr = np.minimum(np.max(mainPlanet.Magnetic.TexcFT_hr), mainPlanet.Magnetic.TmaxFT_hr)
-    Texc_hr = np.array(list(Excitations.Texc_hr[mainPlanet.bodyname].values()), dtype=np.float_)
+    Texc_hr = np.array(list(Excitations.Texc_hr[mainPlanet.bodyname].values()), dtype=np.float64)
     Texc_hr = Texc_hr[np.isfinite(Texc_hr)]
     if FigMisc.MAG_SPECTRA_PERIODS:
         freqLabel = FigLbl.TexcLabel
@@ -1407,7 +1407,7 @@ def PlotMagSpectrum(PlanetList, Params):
     else:
         Tmin_hr = FigMisc.Tmin_hr
     Tmax_hr = np.minimum(np.max(mainPlanet.Magnetic.TexcFT_hr), mainPlanet.Magnetic.TmaxFT_hr)
-    Texc_hr = np.array(list(Excitations.Texc_hr[mainPlanet.bodyname].values()), dtype=np.float_)
+    Texc_hr = np.array(list(Excitations.Texc_hr[mainPlanet.bodyname].values()), dtype=np.float64)
     Texc_hr = Texc_hr[np.isfinite(Texc_hr)]
     if FigMisc.MAG_SPECTRA_PERIODS:
         freqLabel = FigLbl.TexcLabel

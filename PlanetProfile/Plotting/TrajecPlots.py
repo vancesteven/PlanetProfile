@@ -351,13 +351,13 @@ def PlotMagCA(PlanetList, Params, scName):
 
     FlybyCA = GetFlybyCA()
     for Planet in PlanetList:
-        Bx, By, Bz = BiTrajecSingle(Planet, Params, scName, np.fromiter(FlybyCA[scName].etCA[Planet.bodyname].values(), dtype=np.float_))
+        Bx, By, Bz = BiTrajecSingle(Planet, Params, scName, np.fromiter(FlybyCA[scName].etCA[Planet.bodyname].values(), dtype=np.float64))
         # Sum over all excitation periods
         Bx = np.sum(Bx, axis=0)
         By = np.sum(By, axis=0)
         Bz = np.sum(Bz, axis=0)
         Bmag_nT = np.sqrt(Bx**2 + By**2 + Bz**2)
-        hCA_km = np.fromiter(FlybyCA[scName].rCA_km[Planet.bodyname].values(), dtype=np.float_) - Planet.Bulk.R_m / 1e3
+        hCA_km = np.fromiter(FlybyCA[scName].rCA_km[Planet.bodyname].values(), dtype=np.float64) - Planet.Bulk.R_m / 1e3
         CAlbls = list(FlybyCA[scName].rCA_km[Planet.bodyname].keys())
 
         fig = plt.figure(figsize=FigSize.MagCA)

@@ -253,8 +253,8 @@ def _compute_interpolated_uncertainty_regions(Exploration, Params, x_data, y_dat
     
     # Induction component regions
     nExc, nExcNames = count_plottable_excitations(Exploration.induction.calcedExc, Params.Induct)
-    inductionData = np.zeros((nExc, x_data.shape[0], x_data.shape[1]), dtype=np.complex_)
-    bestInductionData = np.zeros((nExc), dtype=np.complex_)
+    inductionData = np.zeros((nExc, x_data.shape[0], x_data.shape[1]), dtype=np.complex128)
+    bestInductionData = np.zeros((nExc), dtype=np.complex128)
     for iExc, nExcName in enumerate(nExcNames):
         Exploration.excName = nExcName
         data = extract_magnetic_field_data(Exploration, 'Bi1x_nT')

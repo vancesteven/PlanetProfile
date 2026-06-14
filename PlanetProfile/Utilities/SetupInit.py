@@ -728,7 +728,7 @@ def SetupLayers(Planet):
         """ For non-self-consistent modeling, we use nTotal rather than hydromax, since we are setting layers for non-self consistent modeling"""
         nStepsForArrays = Planet.Steps.nTotal
     
-    Planet.phase = np.zeros(nStepsForArrays, dtype=np.int_)
+    Planet.phase = np.zeros(nStepsForArrays, dtype=int)
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
         Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \
         Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.VLayer_m3, Planet.kTherm_WmK, \

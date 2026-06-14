@@ -887,7 +887,7 @@ def PrintLayerTableLatex(PlanetList, Params):
     nModels = np.size(PlanetList)
     boolDclath_km, boolDIIwet_km, boolDIIIund_km, boolDIIIwet_km, boolDVund_km, boolDVwet_km, boolDVI_km, boolRcore_km, \
     boolTop, boolBottom, boolWhole, boolphiIceMax_frac, boolphiRockMax_frac \
-        = (np.zeros(nModels, dtype=np.bool_) for _ in range(13))
+        = (np.zeros(nModels, dtype=bool) for _ in range(13))
 
     strMmeas_kg, strMcalc_kg, strCmeas, strCcalc, strRsurf_km, strrhoRock_kgm3, strTb_K, \
     strqSurf_Wm2, strqCon_Wm2, stretaI_Pas, strDIh_km, strDclath_km, strDIIwet_km, strDIIIund_km, strDIIIwet_km, \

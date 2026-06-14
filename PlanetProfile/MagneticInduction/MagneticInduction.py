@@ -102,12 +102,12 @@ def CalcInducedMoments(Planet, Params):
 
     if isinstance(Planet.Magnetic.nExc, dict):
         Planet.Magnetic.Aen = {SCera: np.zeros((nExc, Planet.Magnetic.nprmMax + 1),
-            dtype=np.complex_) for SCera, nExc in Planet.Magnetic.nExc.items()}
-        Planet.Magnetic.BinmLin_nT = {SCera: np.zeros((nExc, Nnm), dtype=np.complex_)
+            dtype=np.complex128) for SCera, nExc in Planet.Magnetic.nExc.items()}
+        Planet.Magnetic.BinmLin_nT = {SCera: np.zeros((nExc, Nnm), dtype=np.complex128)
                                       for SCera, nExc in Planet.Magnetic.nExc.items()}
     else:
-        Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex_)
-        Planet.Magnetic.BinmLin_nT = np.zeros((Planet.Magnetic.nExc, Nnm), dtype=np.complex_)
+        Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex128)
+        Planet.Magnetic.BinmLin_nT = np.zeros((Planet.Magnetic.nExc, Nnm), dtype=np.complex128)
         
     if Planet.Magnetic.inductMethod == 'Eckhardt1963' or Planet.Magnetic.inductMethod == 'numeric':
         if Params.CALC_ASYM:
@@ -688,7 +688,7 @@ def GetBexc(bodyname, era, model, excSelection, MPmodel=None, nprmMax=1, pMax=0)
             eachT = np.logical_and([excSelection[key] for key in BeList.keys()], [BeList[key] is not None for key in BeList.keys()])
             nPeaks = sum(eachT)
             Texc_hr = np.zeros(nPeaks)
-            Benm_nT = np.zeros((nPeaks, 2, nprmMax+pMax+1, nprmMax+pMax+1), dtype=np.complex_)
+            Benm_nT = np.zeros((nPeaks, 2, nprmMax+pMax+1, nprmMax+pMax+1), dtype=np.complex128)
             # Include in the excitation spectrum only the periods specified in configPPinduct.py
             iPeak = 0
             for oscillation, included in excSelection.items():
@@ -844,7 +844,7 @@ def SetAsymShape(Planet, Params):
                 Planet.Magnetic.pMax = int(np.max(Planet.Magnetic.pLin))
             # Initialize the asymShape array
             Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, Planet.Magnetic.pMax+1, Planet.Magnetic.pMax+1),
-                                                 dtype=np.complex_)
+                                                 dtype=np.complex128)
 
             # Convert 4pi-normalized depth coefficients in km to fully normalized radial and in m
             for p in range(1, Planet.Magnetic.pMax+1):
@@ -891,7 +891,7 @@ def SetAsymShape(Planet, Params):
             Planet.Magnetic.pMax = pMaxNonzero
         # Initialize the shape array
         Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, Planet.Magnetic.pMax+1, Planet.Magnetic.pMax+1),
-                                                 dtype=np.complex_)
+                                                 dtype=np.complex128)
 
         for i, fName in enumerate(shapeFiles):
             pMaxNonzero = np.max(pLin[i][np.logical_or(Cpq_km[i] != 0, Spq_km[i] != 0)])
@@ -921,7 +921,7 @@ def SetAsymShape(Planet, Params):
         log.warning(reason + ' Asymmetry will be modeled only for the gravity coefficients, if they are nonzero.')
         Planet.Magnetic.pMax = 2
         Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, Planet.Magnetic.pMax+1, Planet.Magnetic.pMax+1),
-                                             dtype=np.complex_)
+                                             dtype=np.complex128)
     else:
         Planet.Magnetic.zMeanAsym_km = np.unique(Planet.Magnetic.zMeanAsym_km)
         Planet.Magnetic.iAsymBds = np.unique(Planet.Magnetic.iAsymBds)

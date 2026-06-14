@@ -326,7 +326,7 @@ def UpdateAsymShapeFrom3D(Planet, columnPlanets):
     # asymShape_m[nBds, 2, pMax+1, pMax+1] — complex chi_{p,q} coefficients
     nBds = Planet.Magnetic.nBds if hasattr(Planet.Magnetic, 'nBds') and Planet.Magnetic.nBds is not None else 1
     Planet.Magnetic.pMax = pMax
-    Planet.Magnetic.asymShape_m = np.zeros((nBds, 2, pMax + 1, pMax + 1), dtype=np.complex_)
+    Planet.Magnetic.asymShape_m = np.zeros((nBds, 2, pMax + 1, pMax + 1), dtype=np.complex128)
 
     # Convert geodesy-normalized Cpq/Spq to complex chi_pq for each degree
     for p in range(1, pMax + 1):

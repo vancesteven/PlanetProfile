@@ -53,7 +53,7 @@ def get_latlon(do_large):
         n_latticks = 7
         n_lonticks = 9
         lg_end = ""
-    latticks = np.linspace(lat_min, lat_max, n_latticks, endpoint=True, dtype=np.int_)
+    latticks = np.linspace(lat_min, lat_max, n_latticks, endpoint=True, dtype=int)
 
     # Generate lat/lon formatters
     if do_360:
@@ -63,12 +63,12 @@ def get_latlon(do_large):
         lon_formatter = tick.FuncFormatter(lambda v, pos: east_formatted(v, EAST=True))
         lon_min = 0
         lon_max = 360
-        lonticks = np.linspace(lon_min, lon_max, n_lonticks, dtype=np.int_)
+        lonticks = np.linspace(lon_min, lon_max, n_lonticks, dtype=int)
     else:
         lon_formatter = tick.FuncFormatter(lambda v, pos: east_formatted(v, EAST=False))
         lon_min = -180
         lon_max = 180
-        lonticks = np.linspace(lon_min, lon_max, n_lonticks, dtype=np.int_)
+        lonticks = np.linspace(lon_min, lon_max, n_lonticks, dtype=int)
 
     return lon, lat, lon_min, lon_max, tht, phi, lenx, leny, lonticks, latticks, n_lonticks, n_latticks, lon_formatter, lg_end
 
@@ -216,8 +216,8 @@ def plotAsym(recalc, do_large, index=-2, cmp_index=-1, r_bds=None, asym_shape=No
     if do_cbar:
         cbar_ax = fig.add_axes(cbar_pos)
     else:
-        lonticks = np.linspace(lon_min, lon_max, 5, dtype=np.int_)
-        latticks = np.linspace(lat_min, lat_max, 5, dtype=np.int_)
+        lonticks = np.linspace(lon_min, lon_max, 5, dtype=int)
+        latticks = np.linspace(lat_min, lat_max, 5, dtype=int)
 
     themap = plt.axes()
     fig.subplots_adjust(left=0.07, right=0.88, wspace=0.15, hspace=0.05, top=0.90, bottom=0.07)

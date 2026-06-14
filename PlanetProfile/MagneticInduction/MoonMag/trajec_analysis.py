@@ -192,8 +192,8 @@ def fitData(bname, recalcMoments=True, recalcData=True, recalcFlybys=True, do_pa
             _, nvals[j], mvals[j], lin_Binm_Re, lin_Binm_Im = np.loadtxt(BinmFiles[j], skiprows=1, unpack=True,
                                                                          delimiter=',')
             Binm[j] = np.reshape(lin_Binm_Re + 1j * lin_Binm_Im, (np.size(peak_omegas), -1))
-            nvals[j] = nvals[j].astype(np.int_)
-            mvals[j] = mvals[j].astype(np.int_)
+            nvals[j] = nvals[j].astype(int)
+            mvals[j] = mvals[j].astype(int)
 
         for i, thisFlyby in np.ndenumerate(fbList):
             print(f"Getting square differences for {thisFlyby.upper()}, #{i[0]+1} of {nFlybys}.")
