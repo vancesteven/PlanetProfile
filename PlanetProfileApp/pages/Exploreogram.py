@@ -82,6 +82,8 @@ DERIVED_PARAMS = {
              'default_driver': 'Tb_K'},
     'rhoSilMean_kgm3': {'label': 'Mean Silicate Density (kg/m³)', 'default_range': [2500, 3600], 'desc': 'Model-computed mean rock density (derived — requires a driver parameter)',
                          'default_driver': 'rhoSilInput_kgm3'},
+    'sigmaMean_Sm': {'label': 'Mean Ocean Conductivity (S/m)', 'default_range': [0.1, 10], 'desc': 'Model-computed mean ocean electrical conductivity (derived — requires a driver parameter)',
+                     'default_driver': 'wOcean_ppt'},
 }
 
 # Input parameters that can actually be varied during exploration

@@ -35,6 +35,7 @@
   },
   "structure_cache_path": "PlanetProfile/Test/mcmc_results/Callisto/C2_andrade/callisto_mgso4_structure_grid.pkl",
   "random_state": 42,
+  "planet_template_module": "PlanetProfile.Default.Callisto.PPCallisto",
   "metadata": {
     "schema_version": "v2 (sampled Tb + sampled core + derived rho_sil) — DEPRECATED",
     "deprecation_note": "Replaced by callisto_nacl_andrade_8D.json (2026-05-18). The MgSO4 EOS in PP's HydroEOS table only extends to P=800 MPa, which Callisto's ocean exceeds at all sampled Tb values, forcing slow extrapolation regeneration on every PP run. SeaFreeze NaCl extends to 5000 MPa and runs cleanly. A faster MgSO4 EOS in SeaFreeze is still under development; revisit this config when it lands.",

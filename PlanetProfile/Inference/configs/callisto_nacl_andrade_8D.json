@@ -121,6 +121,7 @@
   },
   "structure_cache_path": "PlanetProfile/Test/mcmc_results/Callisto/C2_andrade/callisto_nacl_structure_grid.pkl",
   "random_state": 42,
+  "planet_template_module": "PlanetProfile.Default.Callisto.PPCallisto",
   "metadata": {
     "schema_version": "v2.1 (sampled Tb + sampled core + derived rho_sil + transition-aware grid)",
     "description": "Phase C1 BodyConfig: Callisto with NaCl 100 ppt ocean and Andrade rheology. HP ice shell present (Ice III/V/VI locked together). 8D problem. Observable expansion (C2-A): added Re_k2/Im_k2 (Mazarico 2023, k2\u22480.2\u00b10.05; Im_k2 default 0\u00b10.05), Re_h2/Im_h2 (Mazarico 2023, h2\u2248+1.12\u00b10.10; Im_h2 default 0\u00b10.10). Same values for all three bodies as placeholders pending body-specific updates. J2/C22 were specified earlier but DROPPED from this config: PP currently has no forward model for the static gravity coefficients \u2014 Planet.J2/C22 are observation inputs, not predictions. Future work: build a generalized gravity-coefficient forward model that produces J_n and C_nm/S_nm to arbitrary degree/order for bodies with high-resolution gravity (Mars, Moon, Enceladus). Magnetic induction wired (C2-B) but observable values not yet specified; add Ae_<label>_real / Ae_<label>_imag (or BiAmp_<label> / BiPhase_<label>_deg) keys to enable induction in the likelihood.",
