@@ -290,7 +290,8 @@ def _build_secondary_axis_layout(x_var, y_var, x1d, y1d):
     return extra
 
 
-def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False, smooth_factor=2, use_contours=True):
+def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False, smooth_factor=2, use_contours=True,
+                               x_log=False, y_log=False):
     """
     Create Plotly version of exploreogram that matches matplotlib styling.
 
@@ -496,12 +497,14 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
         ),
         xaxis=dict(
             title=xLabel,
+            type='log' if x_log else 'linear',
             showgrid=True,
             gridcolor='rgba(128, 128, 128, 0.2)',
             zeroline=False,
         ),
         yaxis=dict(
             title=yLabel,
+            type='log' if y_log else 'linear',
             showgrid=True,
             gridcolor='rgba(128, 128, 128, 0.2)',
             zeroline=False,

@@ -344,6 +344,20 @@ with col1:
         help="Draw contour lines on the colormap. Uncheck for colormap only."
     )
 
+    # Per-axis log-scale toggles (interactive/Plotly mode only)
+    x_log = st.checkbox(
+        "Log x-axis",
+        value=False,
+        key="exploreogram_x_log",
+        help="Use logarithmic scale on the x-axis (interactive Plotly mode only)."
+    )
+    y_log = st.checkbox(
+        "Log y-axis",
+        value=False,
+        key="exploreogram_y_log",
+        help="Use logarithmic scale on the y-axis (interactive Plotly mode only)."
+    )
+
     st.markdown("---")
 
     # Show warning if parameters are the same
@@ -1167,6 +1181,8 @@ with col2:
                             Exploration, Params, FigLbl=FigLbl,
                             smoothing=False, smooth_factor=2,
                             use_contours=use_contours,
+                            x_log=x_log,
+                            y_log=y_log,
                         )
                         st.plotly_chart(fig, use_container_width=True)
 
