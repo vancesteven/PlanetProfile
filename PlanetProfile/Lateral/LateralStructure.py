@@ -64,7 +64,116 @@ def InitLateralStructure(Planet, Params):
     return Planet
 
 
-def RunLateralColumns(Planet, Params):
+def _PrepareColumn(Planet, Params, Lateral, lateralMeltEOS, z_ref_m, P_ref_MPa, i):
+    """ Prepare a single column Planet struct with column-specific ice thickness.
+
+        Computes Tb_K from ice thickness and sets clathrate/tidal flags.
+
+        Args:
+            Planet: Reference PlanetStruct.
+            Params: ParamsStruct.
+            Lateral: Lateral substruct.
+            lateralMeltEOS: Ocean EOS for Tb_K lookup.
+            z_ref_m: Reference depth array.
+            P_ref_MPa: Reference pressure array.
+            i: Column index.
+
+        Returns:
+            colPlanet: Prepared PlanetStruct (or with invalidReason set on failure).
+    """
+    from PlanetProfile.Thermodynamics.HydroEOS import GetTfreeze
+
+    # TODO: Memory optimization — deepcopy is expensive (~50 MB per column).
+    # Future improvement: Use shared memory for read-only reference data
+    # (silicate/core profiles, EOS tables) and only copy mutable hydrosphere fields.
+    # Requires refactoring HydroOnly to separate read-only from mutable state.
+    colPlanet = deepcopy(Planet)
+
+    d_ice_km = Lateral.dIce_m[i] / 1e3
+    d_ice_m = d_ice_km * 1e3
+    if d_ice_m <= z_ref_m[-1] and d_ice_m >= z_ref_m[0]:
+        Pb_col_MPa = np.interp(d_ice_m, z_ref_m, P_ref_MPa)
+    else:
+        dPdz = (P_ref_MPa[-1] - P_ref_MPa[0]) / (z_ref_m[-1] - z_ref_m[0])
+        Pb_col_MPa = P_ref_MPa[0] + dPdz * d_ice_m
+
+    try:
+        Tb_col_K = GetTfreeze(lateralMeltEOS, Pb_col_MPa,
+                              Planet.TfreezeLower_K, TRes_K=Planet.TfreezeRes_K)
+        colPlanet.Bulk.Tb_K = Tb_col_K
+    except Exception as e:
+        import traceback
+        log.warning(
+            f'Column {i} preparation failed:\n'
+            f'  Ice thickness: {d_ice_km:.2f} km\n'
+            f'  Basal pressure: {Pb_col_MPa:.2f} MPa\n'
+            f'  Ocean comp: {Planet.Ocean.comp}\n'
+            f'  Ocean salinity: {Planet.Ocean.wOcean_ppt:.1f} ppt\n'
+            f'  Error: {type(e).__name__}: {e}\n'
+            f'  Traceback: {traceback.format_exc()}'
+        )
+        colPlanet.invalidReason = f'Tb_K computation failed: {type(e).__name__}: {str(e)}'
+        return colPlanet
+
+    if Lateral.DO_CLATH_LATERAL and Lateral.fClath is not None:
+        colPlanet.Bulk.clathType = 'bottom'
+        colPlanet.Bulk.clathMaxDepth_m = d_ice_m
+        colPlanet.Bulk.volumeFractionClathrate = Lateral.fClath[i]
+
+    if Lateral.DO_TIDAL_3D and Lateral.HtidalIce_Wm3 is not None:
+        colPlanet.Bulk.Htidal_Wm3 = Lateral.HtidalIce_Wm3[i]
+
+    colPlanet.index = i
+    return colPlanet
+
+
+def _RunSingleColumn(args):
+    """ Run HydroOnly on a single column Planet struct.
+
+        Wraps HydroOnly in try/except and stores exception in invalidReason.
+
+        Args:
+            args: Tuple of (colPlanet, Params).
+
+        Returns:
+            colPlanet: Updated with hydrosphere results or invalidReason set.
+    """
+    from PlanetProfile.Main import HydroOnly
+
+    colPlanet, Params = args
+
+    # Skip if already marked as failed during preparation
+    if hasattr(colPlanet, 'invalidReason') and colPlanet.invalidReason is not None and colPlanet.invalidReason != 'Valid':
+        return colPlanet
+
+    try:
+        colPlanet, _ = HydroOnly(colPlanet, Params)
+    except Exception as e:
+        import traceback
+        # Build diagnostic context
+        idx = colPlanet.index if hasattr(colPlanet, 'index') else '?'
+        d_ice_km = getattr(colPlanet.Lateral, 'dIce_m', [None])[colPlanet.index] / 1e3 if hasattr(colPlanet, 'index') and hasattr(colPlanet, 'Lateral') else '?'
+        Tb_K = getattr(colPlanet.Bulk, 'Tb_K', '?')
+
+        # Full traceback for logging
+        tb_str = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+
+        # Log detailed error with context
+        log.warning(
+            f'Column {idx} failed:\n'
+            f'  Ice thickness: {d_ice_km} km\n'
+            f'  Tb_K: {Tb_K} K\n'
+            f'  Error: {e}\n'
+            f'  Traceback:\n{tb_str}'
+        )
+
+        # Store concise error in invalidReason
+        colPlanet.invalidReason = f'{type(e).__name__}: {str(e)}'
+
+    return colPlanet
+
+
+def RunLateralColumns(Planet, Params, checkpoint_interval=100, resume_from_checkpoint=False):
     """ Run hydrosphere calculations for each grid column.
 
         Each column gets the reference Planet's interior (silicate/core)
@@ -79,12 +188,16 @@ def RunLateralColumns(Planet, Params):
         Args:
             Planet: Reference PlanetStruct (must have completed full 1D model).
             Params: ParamsStruct.
+            checkpoint_interval: Save checkpoint every N columns (0 to disable).
+            resume_from_checkpoint: If True, resume from last checkpoint if it exists.
 
         Returns:
             columnPlanets: Array of PlanetStruct, one per pixel (nPix,).
     """
-    from PlanetProfile.Main import HydroOnly
-    from PlanetProfile.Thermodynamics.HydroEOS import GetTfreeze, GetOceanEOS
+    from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
+    import multiprocessing as mtp
+    import os
+    import pickle
 
     Lateral = Planet.Lateral
     nPix = Lateral.nPix
@@ -106,53 +219,150 @@ def RunLateralColumns(Planet, Params):
     log.info(f'Lateral meltEOS: P=[{Pmelt_wide[0]:.1f}, {Pmelt_wide[-1]:.1f}] MPa, '
              f'T=[{Tmelt_wide[0]:.1f}, {Tmelt_wide[-1]:.1f}] K')
 
-    columnPlanets = np.empty(nPix, dtype=object)
-    nFailed = 0
-    for i in range(nPix):
-        colPlanet = deepcopy(Planet)
+    # Checkpoint file path
+    checkpoint_dir = os.path.join(os.getcwd(), Planet.name, 'checkpoints')
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    checkpoint_path = os.path.join(checkpoint_dir, f'lateral_columns_checkpoint.pkl')
 
-        d_ice_km = Lateral.dIce_m[i] / 1e3
-        d_ice_m = d_ice_km * 1e3
-        if d_ice_m <= z_ref_m[-1] and d_ice_m >= z_ref_m[0]:
-            Pb_col_MPa = np.interp(d_ice_m, z_ref_m, P_ref_MPa)
-        else:
-            dPdz = (P_ref_MPa[-1] - P_ref_MPa[0]) / (z_ref_m[-1] - z_ref_m[0])
-            Pb_col_MPa = P_ref_MPa[0] + dPdz * d_ice_m
-
+    # Try to resume from checkpoint
+    start_idx = 0
+    columnPlanets = []
+    if resume_from_checkpoint and os.path.exists(checkpoint_path):
         try:
-            Tb_col_K = GetTfreeze(lateralMeltEOS, Pb_col_MPa,
-                                  Planet.TfreezeLower_K, TRes_K=Planet.TfreezeRes_K)
-            colPlanet.Bulk.Tb_K = Tb_col_K
+            with open(checkpoint_path, 'rb') as f:
+                checkpoint_data = pickle.load(f)
+            columnPlanets = checkpoint_data['columnPlanets']
+            start_idx = checkpoint_data['next_idx']
+            log.info(f'Resuming from checkpoint: {start_idx}/{nPix} columns already completed')
         except Exception as e:
-            log.warning(f'Column {i}: could not compute Tb_K for d_ice={d_ice_km:.1f} km, '
-                       f'Pb={Pb_col_MPa:.1f} MPa: {e}')
-            colPlanet.invalidReason = str(e)
-            nFailed += 1
-            columnPlanets[i] = colPlanet
-            continue
+            log.warning(f'Failed to load checkpoint: {e}. Starting from scratch.')
+            columnPlanets = []
+            start_idx = 0
 
-        if Lateral.DO_CLATH_LATERAL and Lateral.fClath is not None:
-            colPlanet.Bulk.clathType = 'bottom'
-            colPlanet.Bulk.clathMaxDepth_m = d_ice_m
-            colPlanet.Bulk.volumeFractionClathrate = Lateral.fClath[i]
+    # Prepare columns (either all or remaining)
+    if start_idx == 0:
+        columnPlanets = []
+        nFailed = 0
+        for i in range(nPix):
+            colPlanet = _PrepareColumn(Planet, Params, Lateral, lateralMeltEOS, z_ref_m, P_ref_MPa, i)
+            if hasattr(colPlanet, 'invalidReason') and colPlanet.invalidReason is not None and colPlanet.invalidReason != 'Valid':
+                nFailed += 1
+            columnPlanets.append(colPlanet)
 
-        if Lateral.DO_TIDAL_3D and Lateral.HtidalIce_Wm3 is not None:
-            colPlanet.Bulk.Htidal_Wm3 = Lateral.HtidalIce_Wm3[i]
+        if nFailed > 0:
+            log.warning(f'{nFailed}/{nPix} columns failed Tb_K computation')
+    else:
+        # Extend with remaining columns to prepare
+        nFailed = 0
+        for i in range(start_idx, nPix):
+            colPlanet = _PrepareColumn(Planet, Params, Lateral, lateralMeltEOS, z_ref_m, P_ref_MPa, i)
+            if hasattr(colPlanet, 'invalidReason') and colPlanet.invalidReason is not None and colPlanet.invalidReason != 'Valid':
+                nFailed += 1
+            columnPlanets.append(colPlanet)
 
-        colPlanet.index = i
-        columnPlanets[i] = colPlanet
+        if nFailed > 0:
+            log.warning(f'{nFailed}/{nPix - start_idx} new columns failed Tb_K computation')
 
-    if nFailed > 0:
-        log.warning(f'{nFailed}/{nPix} columns failed Tb_K computation')
+    # Build args list for parallel/serial dispatch (only for remaining columns)
+    if start_idx == 0:
+        args_list = [(colPlanet, Params) for colPlanet in columnPlanets]
+    else:
+        args_list = [(colPlanet, Params) for colPlanet in columnPlanets[start_idx:]]
 
+    # Set Params fields needed by HydroOnly
     import time
     Params.nModels = nPix
     Params.tStart_s = time.time()
 
-    if Params.DO_PARALLEL:
-        columnPlanets = _RunColumnsParallel(columnPlanets, Params)
+    # Parallel or serial execution with progress reporting
+    nCores = min(getattr(Params, 'maxCores', mtp.cpu_count()), nPix)
+    if getattr(Params, 'DO_PARALLEL', False) and nCores > 1:
+        log.info(f'Running {nPix} columns on {nCores} cores in parallel...')
+        import platform
+        # Use fork on Unix (preserves imports), spawn on Windows (required)
+        if platform.system() == 'Windows':
+            mtpContext = mtp.get_context('spawn')
+        else:
+            mtpContext = mtp.get_context('fork')
+
+        # Use imap for progress tracking and checkpointing
+        with mtpContext.Pool(nCores) as pool:
+            results = []
+            actual_start = start_idx
+            for i, result in enumerate(pool.imap(_RunSingleColumn, args_list), 1):
+                results.append(result)
+                actual_idx = actual_start + i
+
+                # Save checkpoint periodically
+                if checkpoint_interval > 0 and actual_idx % checkpoint_interval == 0:
+                    # Update columnPlanets with completed results
+                    if actual_start == 0:
+                        temp_columns = results
+                    else:
+                        temp_columns = columnPlanets[:actual_start] + results
+                    checkpoint_data = {
+                        'columnPlanets': temp_columns,
+                        'next_idx': actual_idx
+                    }
+                    with open(checkpoint_path, 'wb') as f:
+                        pickle.dump(checkpoint_data, f)
+                    log.info(f'  Checkpoint saved at column {actual_idx}')
+
+                # Log progress every 10% or every 50 columns, whichever is less frequent
+                progress_interval = max(1, min(50, nPix // 10))
+                if i % progress_interval == 0 or actual_idx == nPix:
+                    elapsed = time.time() - Params.tStart_s
+                    rate = i / elapsed if elapsed > 0 else 0
+                    remaining = (nPix - actual_idx) / rate if rate > 0 else 0
+                    log.info(f'  Progress: {actual_idx}/{nPix} columns ({100*actual_idx/nPix:.1f}%) | '
+                            f'{elapsed:.1f}s elapsed, ~{remaining:.1f}s remaining')
     else:
-        columnPlanets = _RunColumnsSerial(columnPlanets, Params)
+        log.info(f'Running {nPix} columns serially...')
+        results = []
+        actual_start = start_idx
+        for i, args in enumerate(args_list, 1):
+            results.append(_RunSingleColumn(args))
+            actual_idx = actual_start + i
+
+            # Save checkpoint periodically
+            if checkpoint_interval > 0 and actual_idx % checkpoint_interval == 0:
+                # Update columnPlanets with completed results
+                if actual_start == 0:
+                    temp_columns = results
+                else:
+                    temp_columns = columnPlanets[:actual_start] + results
+                checkpoint_data = {
+                    'columnPlanets': temp_columns,
+                    'next_idx': actual_idx
+                }
+                with open(checkpoint_path, 'wb') as f:
+                    pickle.dump(checkpoint_data, f)
+                log.info(f'  Checkpoint saved at column {actual_idx}')
+
+            # Log progress every 10% or every 20 columns, whichever is less frequent
+            progress_interval = max(1, min(20, nPix // 10))
+            if i % progress_interval == 0 or actual_idx == nPix:
+                elapsed = time.time() - Params.tStart_s
+                rate = i / elapsed if elapsed > 0 else 0
+                remaining = (nPix - actual_idx) / rate if rate > 0 else 0
+                log.info(f'  Progress: {actual_idx}/{nPix} columns ({100*actual_idx/nPix:.1f}%) | '
+                        f'{elapsed:.1f}s elapsed, ~{remaining:.1f}s remaining')
+
+    # Merge results with any previously completed columns
+    if start_idx == 0:
+        columnPlanets = np.array(results, dtype=object)
+    else:
+        columnPlanets = np.array(columnPlanets[:start_idx] + results, dtype=object)
+
+    # Clean up checkpoint file on successful completion
+    if os.path.exists(checkpoint_path):
+        os.remove(checkpoint_path)
+        log.info('Checkpoint file removed after successful completion')
+
+    # Count failures after execution
+    nFailed = sum(1 for p in columnPlanets if hasattr(p, 'invalidReason') and p.invalidReason is not None and p.invalidReason != 'Valid')
+    if nFailed > 0:
+        log.warning(f'{nFailed}/{nPix} columns failed HydroOnly execution')
 
     _ExtractColumnSummaries(Lateral, columnPlanets)
 
@@ -163,66 +373,15 @@ def RunLateralColumns(Planet, Params):
 
 
 def _ColumnFailed(colPlanet):
-    """ Check if a column was marked as failed during Tb_K computation.
-        invalidReason is None (not yet run) or 'Valid' (successful) for good columns,
-        and a descriptive error string for failed columns.
+    """ Check if a column was marked as failed during Tb_K computation or HydroOnly.
+        A column is considered failed if it has invalidReason set to a non-empty error string.
+        Success cases: invalidReason is None, 'Valid', or attribute doesn't exist.
     """
-    return (hasattr(colPlanet, 'invalidReason')
-            and colPlanet.invalidReason is not None
-            and colPlanet.invalidReason != 'Valid')
-
-
-def _RunColumnsSerial(columnPlanets, Params):
-    """ Run column models in serial. """
-    from PlanetProfile.Main import HydroOnly
-
-    for i, colPlanet in enumerate(columnPlanets):
-        if _ColumnFailed(colPlanet):
-            continue
-        try:
-            columnPlanets[i], _ = HydroOnly(colPlanet, Params)
-        except Exception as e:
-            log.warning(f'Column {i} failed: {e}')
-            columnPlanets[i].invalidReason = str(e)
-            continue
-
-        if (i + 1) % 100 == 0:
-            log.info(f'  Completed {i + 1}/{len(columnPlanets)} columns')
-
-    return columnPlanets
-
-
-def _RunColumnsParallel(columnPlanets, Params):
-    """ Run column models in parallel using multiprocessing. """
-    import multiprocessing as mp
-    import platform
-
-    from PlanetProfile.Main import HydroOnly
-
-    nPix = len(columnPlanets)
-    nCores = min(Params.maxCores, nPix)
-
-    if platform.system() == 'Windows':
-        mtpContext = mp.get_context('spawn')
-    else:
-        mtpContext = mp.get_context('fork')
-
-    log.info(f'Running {nPix} columns on {nCores} cores...')
-
-    pool = mtpContext.Pool(nCores)
-    results = [pool.apply_async(HydroOnly, (deepcopy(col), deepcopy(Params)))
-               for col in columnPlanets]
-    pool.close()
-    pool.join()
-
-    for i, result in enumerate(results):
-        try:
-            columnPlanets[i] = result.get()[0]
-        except Exception as e:
-            log.warning(f'Column {i} failed: {e}')
-            columnPlanets[i].invalidReason = str(e)
-
-    return columnPlanets
+    if not hasattr(colPlanet, 'invalidReason'):
+        return False
+    reason = colPlanet.invalidReason
+    # Failed if reason is a non-empty string that isn't 'Valid'
+    return reason is not None and reason != '' and reason != 'Valid'
 
 
 def _ExtractColumnSummaries(Lateral, columnPlanets):
@@ -232,13 +391,17 @@ def _ExtractColumnSummaries(Lateral, columnPlanets):
     Lateral.qSurf_Wm2 = np.full(nPix, np.nan)
     Lateral.sigma_mean_Sm = np.full(nPix, np.nan)
 
+    nExtracted = 0
+    nFailed = 0
     for i, colPlanet in enumerate(columnPlanets):
         if _ColumnFailed(colPlanet):
+            nFailed += 1
             continue
 
         nSurf = colPlanet.Steps.nSurfIce
-        if nSurf > 0 and nSurf < len(colPlanet.T_K):
+        if nSurf > 0 and nSurf <= len(colPlanet.T_K):
             Lateral.Tb_K[i] = colPlanet.T_K[nSurf - 1]
+            nExtracted += 1
 
         if hasattr(colPlanet, 'qSurf_Wm2') and colPlanet.qSurf_Wm2 is not None:
             Lateral.qSurf_Wm2[i] = colPlanet.qSurf_Wm2
@@ -253,6 +416,8 @@ def _ExtractColumnSummaries(Lateral, columnPlanets):
                 Lateral.sigma_mean_Sm[i] = np.mean(sigma_ocean)
             except Exception:
                 pass
+
+    log.info(f'Extracted {nExtracted} columns, {nFailed} failed, {nPix - nExtracted - nFailed} skipped')
 
 
 def UpdateAsymShapeFrom3D(Planet, columnPlanets):
@@ -342,7 +507,12 @@ def RunLateral3D(Planet, Params):
         Planet = InitClathrateLateral(Planet)
         Planet.Lateral.dIce_m = EstimateIceThicknessFromClathrate(Planet)
 
-    columnPlanets = RunLateralColumns(Planet, Params)
+    # Checkpoint settings from Params or Lateral config
+    checkpoint_interval = getattr(Params, 'checkpointInterval', 100)
+    resume_from_checkpoint = getattr(Params, 'resumeFromCheckpoint', False)
+    columnPlanets = RunLateralColumns(Planet, Params,
+                                       checkpoint_interval=checkpoint_interval,
+                                       resume_from_checkpoint=resume_from_checkpoint)
 
     if Planet.Lateral.DO_TIDAL_3D:
         from PlanetProfile.Lateral.TidalHeating3D import ComputeTidalHeating3D, ConvergeTidalFeedback

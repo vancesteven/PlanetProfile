@@ -24,9 +24,9 @@ log = logging.getLogger('PlanetProfile.Lateral.TidalHeating3D')
 def TidalStrainPattern(theta_rad, phi_rad, e=0.0, obliq_rad=0.0):
     """ Compute the degree-2 tidal strain heating pattern f(theta, phi).
 
-        For eccentricity tides in a synchronous rotator
-        (Ojakangas & Stevenson 1989, Eq. 7-8). The result is normalized
-        so that the spherical average is 1.
+        Combines eccentricity and obliquity tides for a synchronous rotator
+        following Ojakangas & Stevenson (1989, Eq. 7-10). The result is
+        normalized so that the spherical average is 1.
 
         Args:
             theta_rad: Colatitude array in radians (nPix,).
@@ -36,28 +36,56 @@ def TidalStrainPattern(theta_rad, phi_rad, e=0.0, obliq_rad=0.0):
 
         Returns:
             f: Tidal strain pattern (nPix,), normalized to mean = 1.
+
+        References:
+            Ojakangas & Stevenson (1989), Icarus 81, 220-241
+            Beuthe (2013), Icarus 223, 308-329
     """
+    cost = np.cos(theta_rad)
+    sint = np.sin(theta_rad)
     cos2t = np.cos(2 * theta_rad)
+    sin2t = np.sin(2 * theta_rad)
     cos2p = np.cos(2 * phi_rad)
-    # Avoid singularities at poles by adding small epsilon
-    # This prevents numerical issues when theta_rad is exactly 0 or pi
+    sin2p = np.sin(2 * phi_rad)
+
+    # Avoid singularities at poles
     eps_pole = 1e-12
-    sin2t = np.maximum(np.sin(theta_rad)**2, eps_pole)
+    sint_safe = np.maximum(np.abs(sint), eps_pole) * np.sign(sint + eps_pole)
 
-    # Eccentricity tide pattern (Ojakangas & Stevenson 1989)
-    # Two terms: radial (e0) and librational (e2)
-    f_e0 = (5 + 3 * cos2t)  # Radial tide component
-    f_e2_cos = (5 + cos2p)  # Azimuthal component (cos)
-    f_e2_sin = (5 * cos2p - 1)  # Azimuthal component (sin)
+    # Initialize total pattern
+    f = np.zeros_like(theta_rad)
 
-    # Combined (OS89 Eq. 7): averaged over orbit
-    f = (f_e0 * f_e2_cos + sin2t * f_e2_sin) / 64
+    # Eccentricity tide pattern (OS89 Eq. 7-8)
+    if abs(e) > 1e-10:
+        # Radial (e0) and librational (e2) terms
+        f_e0 = (5 + 3 * cos2t)  # Radial tide component
+        f_e2_cos = (5 + cos2p)  # Azimuthal component (cos)
+        f_e2_sin = (5 * cos2p - 1)  # Azimuthal component (sin)
+
+        # Combined, orbit-averaged, proportional to e²
+        f_ecc = (f_e0 * f_e2_cos + sint**2 * f_e2_sin) / 64
+        f += e**2 * f_ecc
+
+    # Obliquity tide pattern (OS89 Eq. 9-10)
+    if abs(obliq_rad) > 1e-10:
+        # Diurnal libration pattern from obliquity
+        # Three components: radial, librational cos(φ), librational sin(φ)
+        f_o0 = (3 + cost**2)  # Radial component
+        f_o1_cos = sint_safe**2  # Librational cos component
+        f_o1_sin = -2 * sint_safe * cost  # Librational sin component
+
+        # Combined, orbit-averaged, proportional to obliq²
+        # The sin2p term comes from the φ-dependence of obliquity forcing
+        f_obliq = (f_o0 + f_o1_cos * cos2p + f_o1_sin * sin2p) / 16
+        f += obliq_rad**2 * f_obliq
 
     # Normalize to spherical mean = 1
-    # The mean is computed analytically for the OS89 pattern
     f_mean = np.mean(f)
-    if f_mean > 0:
+    if f_mean > 1e-15:
         f = f / f_mean
+    else:
+        # If both e and obliq are tiny, return uniform pattern
+        f = np.ones_like(theta_rad)
 
     return f
 
