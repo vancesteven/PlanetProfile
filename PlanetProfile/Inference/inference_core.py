@@ -159,6 +159,13 @@ class InferenceConfig:
     @classmethod
     def from_dict(cls, data: Dict) -> 'InferenceConfig':
         """Load configuration from dictionary."""
+        # Legacy configs nest arrhenius_params inside sampler_settings.
+        # Hoist it to the top-level field so the hash and dataclass field agree.
+        data = dict(data)
+        ss = data.get('sampler_settings')
+        if isinstance(ss, dict) and 'arrhenius_params' in ss and not data.get('arrhenius_params'):
+            data['sampler_settings'] = dict(ss)
+            data['arrhenius_params'] = data['sampler_settings'].pop('arrhenius_params')
         return cls(**data)
 
     @classmethod
