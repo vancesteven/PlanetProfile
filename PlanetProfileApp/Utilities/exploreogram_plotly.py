@@ -142,6 +142,154 @@ def get_matplotlib_colormap_colors(cmap_name='viridis', n_colors=256):
         return None
 
 
+def salinity_to_conductivity_axis(salinity_ticks):
+    """
+    Map salinity tick values (ppt) to conductivity labels (S/m) for a secondary axis.
+
+    Uses the linear approximation sigma ≈ 0.18 * w (S/m per ppt), which is a
+    display hint only — not a scientific claim.  Values are rounded to 2
+    significant figures so the secondary-axis labels stay compact.
+
+    Args:
+        salinity_ticks: array-like of salinity values in ppt
+
+    Returns:
+        List of conductivity label strings, or None if the mapping is
+        trivial (all-zero salinity) or the input is empty/invalid.
+    """
+    try:
+        ticks = np.asarray(salinity_ticks, dtype=float)
+    except (TypeError, ValueError):
+        return None
+
+    if ticks.size == 0:
+        return None
+
+    # Drop NaN ticks before any arithmetic to avoid ValueError in int(rounded)
+    ticks = ticks[~np.isnan(ticks)]
+    if ticks.size == 0:
+        return None
+
+    sigma_vals = 0.18 * ticks
+
+    # If all values are effectively zero there is nothing useful to show
+    if np.all(sigma_vals == 0.0):
+        return None
+
+    labels = []
+    for v in sigma_vals:
+        if v == 0.0:
+            labels.append('0')
+        else:
+            # Round to 2 significant figures
+            magnitude = 10 ** np.floor(np.log10(abs(v)))
+            rounded = round(v / magnitude, 1) * magnitude
+            # Format: drop trailing zeros after decimal
+            if rounded == int(rounded):
+                labels.append(str(int(rounded)))
+            else:
+                labels.append(f'{rounded:.2g}')
+    return labels
+
+
+def _build_secondary_axis_layout(x_var, y_var, x1d, y1d):
+    """
+    Return a dict of extra layout kwargs to attach a secondary axis when one of
+    the plot axes is ``wOcean_ppt`` or ``sigmaMean_Sm``.
+
+    The secondary axis is purely cosmetic (tick labels only); it overlays the
+    primary axis so zoom/pan keep both axes in sync.
+
+    Args:
+        x_var: string name of the x-axis exploration variable
+        y_var: string name of the y-axis exploration variable
+        x1d:   1-D array of unique x values (used to compute secondary ticks)
+        y1d:   1-D array of unique y values (used to compute secondary ticks)
+
+    Returns:
+        dict of Plotly layout kwargs (may be empty if no secondary axis applies)
+    """
+    extra = {}
+
+    # Choose at most ~6 evenly-spaced tick positions from the primary array
+    def _sparse_ticks(arr, n_max=6):
+        arr = np.asarray(arr, dtype=float)
+        if arr.size <= n_max:
+            return arr
+        idx = np.round(np.linspace(0, arr.size - 1, n_max)).astype(int)
+        return arr[idx]
+
+    SALINITY_VAR = 'wOcean_ppt'
+    CONDUCTIVITY_VAR = 'sigmaMean_Sm'
+
+    if x_var == SALINITY_VAR:
+        ticks = _sparse_ticks(x1d)
+        labels = salinity_to_conductivity_axis(ticks)
+        if labels is not None:
+            extra['xaxis2'] = dict(
+                title=dict(text='Mean Conductivity (S/m)', standoff=4),
+                overlaying='x',
+                side='top',
+                matches='x',
+                tickmode='array',
+                tickvals=list(ticks),
+                ticktext=labels,
+                showgrid=False,
+                zeroline=False,
+            )
+
+    elif x_var == CONDUCTIVITY_VAR:
+        ticks = _sparse_ticks(x1d)
+        # Inverse: w = sigma / 0.18; guard against divide-by-zero
+        w_vals = np.where(ticks > 0, ticks / 0.18, 0.0)
+        labels = [f'{v:.2g}' if v > 0 else '0' for v in w_vals]
+        extra['xaxis2'] = dict(
+            title=dict(text='Salinity (ppt)', standoff=4),
+            overlaying='x',
+            side='top',
+            matches='x',
+            tickmode='array',
+            tickvals=list(ticks),
+            ticktext=labels,
+            showgrid=False,
+            zeroline=False,
+        )
+
+    if y_var == SALINITY_VAR:
+        ticks = _sparse_ticks(y1d)
+        labels = salinity_to_conductivity_axis(ticks)
+        if labels is not None:
+            extra['yaxis2'] = dict(
+                title=dict(text='Mean Conductivity (S/m)', standoff=4),
+                overlaying='y',
+                side='right',
+                matches='y',
+                tickmode='array',
+                tickvals=list(ticks),
+                ticktext=labels,
+                showgrid=False,
+                zeroline=False,
+            )
+
+    elif y_var == CONDUCTIVITY_VAR:
+        ticks = _sparse_ticks(y1d)
+        w_vals = np.where(ticks > 0, ticks / 0.18, 0.0)
+        labels = [f'{v:.2g}' if v > 0 else '0' for v in w_vals]
+        extra['yaxis2'] = dict(
+            title=dict(text='Salinity (ppt)', standoff=4),
+            overlaying='y',
+            side='right',
+            matches='y',
+            tickmode='array',
+            tickvals=list(ticks),
+            ticktext=labels,
+            showgrid=False,
+            zeroline=False,
+        )
+
+    return extra
+
+
 def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False, smooth_factor=2, use_contours=True):
     """
     Create Plotly version of exploreogram that matches matplotlib styling.
@@ -384,6 +532,13 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
                 line=dict(color='black', width=1),
                 hoverinfo='skip'
             ))
+
+    # Attach secondary axis when one axis is wOcean_ppt or sigmaMean_Sm
+    secondary_axis_kwargs = _build_secondary_axis_layout(
+        Exploration.xName, Exploration.yName, x1d, y1d
+    )
+    if secondary_axis_kwargs:
+        fig.update_layout(**secondary_axis_kwargs)
 
     return fig
 
