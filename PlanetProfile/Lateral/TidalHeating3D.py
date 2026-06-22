@@ -472,3 +472,172 @@ def _ArrheniusViscosity(T_K, eta0=1e14, Q_J=60e3, T_ref=263.0):
     """
     R_gas = 8.314  # J/(mol*K)
     return eta0 * np.exp(Q_J / R_gas * (1.0 / T_K - 1.0 / T_ref))
+
+
+def CalcEquilibriumIceThickness(Planet, Params, columnPlanets):
+    """ Compute self-consistent equilibrium ice shell thickness per pixel.
+
+        Solves the steady-state heat balance equation for each HEALPix pixel:
+            k * (T_bot - T_surf) / d_ice = q_basal + H_tidal(pixel) * d_ice
+
+        where tidal heating H_tidal depends on the ice viscosity profile, which
+        depends on d_ice. Iterates until ice thickness converges.
+
+        Physical model from Tobie et al. (2003, JGR doi:10.1029/2003JE002099):
+        - Conductive heat transport through ice shell
+        - Volumetric tidal dissipation in ice (computed via TidalPy or thin-shell)
+        - Basal heat flux from silicate mantle
+        - Self-consistent coupling between thickness, temperature, and heating
+
+        Expected result: Reproduces Tobie et al. (2003) Figure 12a behavior:
+        - Thicker ice at sub/anti-Jovian points (low tidal dissipation)
+        - Thinner ice at poles and mid-latitudes (high dissipation)
+        - ~5 km peak-to-peak variation for ~20-25 km mean shell
+        - Nearly uniform surface heat flux (~35-40 mW/m² for Europa)
+
+        Args:
+            Planet: PlanetStruct with Lateral.HtidalIce_Wm3 already computed.
+            Params: ParamsStruct.
+            columnPlanets: Array of PlanetStruct from RunLateralColumns.
+
+        Returns:
+            Planet: Updated with Lateral.dIce_m set to equilibrium values.
+                    Also sets Lateral.qSurf_Wm2, equilibriumIterations, equilibriumResidual_m.
+
+        References:
+            Tobie et al. (2003), JGR 108(E11), 5124, doi:10.1029/2003JE002099
+    """
+    from PlanetProfile.Lateral.LateralStructure import RunLateralColumns
+
+    Lateral = Planet.Lateral
+
+    # Check prerequisites
+    if Lateral.HtidalIce_Wm3 is None:
+        raise ValueError('CalcEquilibriumIceThickness requires Lateral.HtidalIce_Wm3 to be computed first')
+
+    if not hasattr(Planet.Bulk, 'Tb_K') or not hasattr(Planet.Bulk, 'Tsurf_K'):
+        raise ValueError('CalcEquilibriumIceThickness requires Planet.Bulk.Tb_K and Tsurf_K')
+
+    # Parameters
+    k_ice = Lateral.kThermIce_WmK  # Ice thermal conductivity (W/m/K)
+    T_surf = Planet.Bulk.Tsurf_K  # Surface temperature (K)
+    T_bot = Planet.Bulk.Tb_K  # Basal temperature (K)
+    max_iter = Lateral.equilibriumMaxIter
+    tol_m = Lateral.equilibriumTol_m
+    nPix = Lateral.nPix
+
+    # Compute basal heat flux from silicate mantle (uniform across pixels)
+    # Use override if provided, otherwise compute from silicate properties
+    if Lateral.qBasal_Wm2 is not None:
+        q_basal = Lateral.qBasal_Wm2
+        log.info(f'Using prescribed q_basal = {q_basal*1e3:.2f} mW/m² (from Lateral.qBasal_Wm2)')
+    elif hasattr(Planet.Sil, 'Qrad_Wkg') and hasattr(Planet.Sil, 'Htidal_Wm3'):
+        # Estimate mantle mass and volume from reference Planet
+        R_planet = Planet.Bulk.R_m
+        R_mantle = getattr(Planet.Sil, 'Rmean_m', 0.9 * R_planet)  # Approximate
+        rho_sil = getattr(Planet.Sil, 'rhoSilWithCore_kgm3', 3000.0)
+        V_mantle = (4.0/3.0) * np.pi * R_mantle**3
+        M_mantle = rho_sil * V_mantle
+
+        Q_rad_total = Planet.Sil.Qrad_Wkg * M_mantle  # Total radiogenic power (W)
+        Q_tidal_total = Planet.Sil.Htidal_Wm3 * V_mantle  # Total silicate tidal power (W)
+        Q_mantle_total = Q_rad_total + Q_tidal_total
+
+        # Divide by surface area to get heat flux
+        A_surface = 4.0 * np.pi * R_planet**2
+        q_basal = Q_mantle_total / A_surface  # W/m²
+        log.info(f'Computed q_basal = {q_basal*1e3:.2f} mW/m² from silicate heating')
+    else:
+        # Default fallback for Europa: ~5-10 mW/m² from silicates
+        q_basal = 0.007  # W/m² (7 mW/m²)
+        log.warning(f'Using default q_basal = {q_basal*1e3:.1f} mW/m² (silicate heat flux not found)')
+
+    log.info(f'Equilibrium ice thickness solver starting:')
+    log.info(f'  T_surf = {T_surf:.1f} K, T_bot = {T_bot:.3f} K')
+    log.info(f'  k_ice = {k_ice:.2f} W/m/K, q_basal = {q_basal*1e3:.2f} mW/m²')
+    log.info(f'  Tolerance = {tol_m:.1f} m, Max iterations = {max_iter}')
+
+    # Initialize ice thickness to reference 1D mean
+    d_ice_m = np.full(nPix, Planet.zb_km * 1e3)  # Convert km to m
+    d_ice_old = d_ice_m.copy()
+
+    # Self-consistent iteration loop
+    for iteration in range(max_iter):
+        # Update Lateral.dIce_m with current guess
+        Lateral.dIce_m = d_ice_m.copy()
+
+        # Re-run lateral columns with updated ice thickness
+        # This recomputes thermal profiles and viscosity
+        columnPlanets = RunLateralColumns(Planet, Params,
+                                          checkpoint_interval=9999,  # No checkpointing during iteration
+                                          resume_from_checkpoint=False)
+
+        # Recompute tidal heating with updated thermal structure
+        Planet = ComputeTidalHeating3D(Planet, Params, columnPlanets)
+        H_tidal = Lateral.HtidalIce_Wm3  # Updated tidal heating per pixel (W/m³)
+
+        # Solve quadratic heat balance per pixel:
+        # H_tidal * d² + q_basal * d - k * (T_bot - T_surf) = 0
+        # Positive root: d = (-q_basal + sqrt(q_basal² + 4*H_tidal*k*ΔT)) / (2*H_tidal)
+        deltaT = T_bot - T_surf
+        k_deltaT = k_ice * deltaT
+
+        d_ice_new = np.zeros(nPix)
+        for i in range(nPix):
+            H_i = H_tidal[i]
+            if H_i > 1e-15:  # Nonzero tidal heating
+                # Quadratic formula
+                discriminant = q_basal**2 + 4.0 * H_i * k_deltaT
+                if discriminant >= 0:
+                    d_ice_new[i] = (-q_basal + np.sqrt(discriminant)) / (2.0 * H_i)
+                else:
+                    # Negative discriminant (should not happen physically)
+                    # Fall back to pure conduction
+                    d_ice_new[i] = k_deltaT / q_basal
+                    log.warning(f'Pixel {i}: negative discriminant, using pure conduction')
+            else:
+                # Zero tidal heating: pure conduction
+                # q_basal * d = k * ΔT → d = k * ΔT / q_basal
+                d_ice_new[i] = k_deltaT / q_basal
+
+        # Check convergence
+        residual = np.abs(d_ice_new - d_ice_old)
+        max_residual = np.max(residual)
+
+        log.info(f'  Iteration {iteration+1}/{max_iter}: max residual = {max_residual:.1f} m')
+
+        if max_residual < tol_m:
+            log.info(f'Equilibrium ice thickness converged after {iteration+1} iterations')
+            Lateral.equilibriumIterations = iteration + 1
+            Lateral.equilibriumResidual_m = max_residual
+            d_ice_m = d_ice_new
+            break
+
+        # Update for next iteration with damping to improve stability
+        damping = 0.5  # Mix 50% old, 50% new
+        d_ice_m = damping * d_ice_old + (1.0 - damping) * d_ice_new
+        d_ice_old = d_ice_m.copy()
+
+    else:
+        # Max iterations reached without convergence
+        log.warning(f'Equilibrium ice thickness did not converge after {max_iter} iterations '
+                    f'(max residual = {max_residual:.1f} m)')
+        Lateral.equilibriumIterations = max_iter
+        Lateral.equilibriumResidual_m = max_residual
+        d_ice_m = d_ice_new  # Use final iteration result
+
+    # Store final equilibrium ice thickness
+    Lateral.dIce_m = d_ice_m
+
+    # Compute equilibrium surface heat flux per pixel
+    Lateral.qSurf_Wm2 = k_ice * deltaT / d_ice_m
+
+    # Print summary
+    log.info(f'Equilibrium ice thickness:')
+    log.info(f'  Mean: {np.mean(d_ice_m)/1e3:.2f} km')
+    log.info(f'  Range: [{np.min(d_ice_m)/1e3:.2f}, {np.max(d_ice_m)/1e3:.2f}] km')
+    log.info(f'  Variation: {(np.max(d_ice_m) - np.min(d_ice_m))/1e3:.2f} km peak-to-peak')
+    log.info(f'  Surface heat flux: mean = {np.mean(Lateral.qSurf_Wm2)*1e3:.2f} mW/m², '
+             f'range = [{np.min(Lateral.qSurf_Wm2)*1e3:.2f}, {np.max(Lateral.qSurf_Wm2)*1e3:.2f}] mW/m²')
+
+    return Planet, columnPlanets

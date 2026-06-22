@@ -21,17 +21,25 @@ log = logging.getLogger('PlanetProfile.Lateral.LateralStructure')
 def InitLateralStructure(Planet, Params):
     """ Initialize 3D lateral structure from configuration.
 
-        Reads ice thickness as SH coefficients or evaluates a callable,
-        sets up the spatial grid, and prepares for column model runs.
+        Ice thickness modes (in priority order):
+        1. Equilibrium (DO_EQUILIBRIUM_ICE=True): Physics-based steady-state
+           thickness from heat balance. RECOMMENDED for scientific studies.
+           Initialized to uniform; equilibrium solver runs later in RunLateral3D.
+        2. Prescribed SH (dIce_Cpq_km set): User-specified spherical harmonic
+           pattern. Use for exploratory studies or comparison to observations.
+        3. Prescribed function (dIce_func set): Callable f(theta) returning
+           thickness in meters. Use for simple parametric patterns.
+        4. Uniform (default): Constant thickness from reference 1D model.
 
         Args:
             Planet: PlanetStruct with Lateral substruct configured.
-                Required: Either dIce_Cpq_km/dIce_Spq_km/dIce_pMax (SH mode)
-                or dIce_func (callable mode) must be set.
             Params: ParamsStruct.
 
         Returns:
             Planet: Updated PlanetStruct with grid and ice thickness field.
+
+        Raises:
+            ValueError: If equilibrium mode requirements not met.
     """
     from PlanetProfile.Lateral.SpatialGrid import InitGrid, SHtoGrid
 
@@ -40,7 +48,21 @@ def InitLateralStructure(Planet, Params):
     InitGrid(Lateral)
     log.info(f'Lateral grid initialized: {Lateral.gridType} with {Lateral.nPix} pixels')
 
-    if Lateral.dIce_Cpq_km is not None:
+    # Determine and log ice thickness mode
+    if Lateral.DO_EQUILIBRIUM_ICE:
+        # Mode 1: Equilibrium (physics-based)
+        # Validate requirements
+        _ValidateEquilibriumMode(Planet)
+
+        # Initialize with uniform thickness from reference 1D model
+        # The equilibrium solver will compute the final thickness
+        Lateral.dIce_m = np.full(Lateral.nPix, Planet.zb_km * 1e3)
+        log.info(f'Ice thickness mode: EQUILIBRIUM (recommended for science)')
+        log.info(f'  Initializing with uniform {Planet.zb_km:.1f} km from reference model')
+        log.info(f'  Equilibrium solver will compute self-consistent thickness after tidal heating')
+
+    elif Lateral.dIce_Cpq_km is not None:
+        # Mode 2: Prescribed via spherical harmonics
         Lateral.dIce_m = SHtoGrid(
             Lateral.dIce_Cpq_km * 1e3,
             Lateral.dIce_Spq_km * 1e3,
@@ -48,20 +70,78 @@ def InitLateralStructure(Planet, Params):
             Lateral.theta_rad,
             Lateral.phi_rad
         )
-        log.info(f'Ice thickness from SH (pMax={Lateral.dIce_pMax}): '
-                 f'mean={np.mean(Lateral.dIce_m)/1e3:.1f} km, '
-                 f'range=[{np.min(Lateral.dIce_m)/1e3:.1f}, {np.max(Lateral.dIce_m)/1e3:.1f}] km')
+        log.info(f'Ice thickness mode: PRESCRIBED (spherical harmonics)')
+        log.info(f'  SH degree pMax={Lateral.dIce_pMax}')
+        log.info(f'  Mean: {np.mean(Lateral.dIce_m)/1e3:.1f} km, '
+                 f'range: [{np.min(Lateral.dIce_m)/1e3:.1f}, {np.max(Lateral.dIce_m)/1e3:.1f}] km')
 
     elif Lateral.dIce_func is not None:
+        # Mode 3: Prescribed via callable function
         Lateral.dIce_m = np.array([Lateral.dIce_func(theta) for theta in Lateral.theta_rad])
-        log.info(f'Ice thickness from function: '
-                 f'mean={np.mean(Lateral.dIce_m)/1e3:.1f} km, '
-                 f'range=[{np.min(Lateral.dIce_m)/1e3:.1f}, {np.max(Lateral.dIce_m)/1e3:.1f}] km')
+        log.info(f'Ice thickness mode: PRESCRIBED (callable function)')
+        log.info(f'  Mean: {np.mean(Lateral.dIce_m)/1e3:.1f} km, '
+                 f'range: [{np.min(Lateral.dIce_m)/1e3:.1f}, {np.max(Lateral.dIce_m)/1e3:.1f}] km')
     else:
+        # Mode 4: Uniform (fallback)
         Lateral.dIce_m = np.full(Lateral.nPix, Planet.zb_km * 1e3)
-        log.info(f'Uniform ice thickness from reference: {Planet.zb_km:.1f} km')
+        log.info(f'Ice thickness mode: UNIFORM (default)')
+        log.info(f'  Thickness: {Planet.zb_km:.1f} km from reference model')
 
     return Planet
+
+
+def _ValidateEquilibriumMode(Planet):
+    """ Validate that required parameters are set for equilibrium ice thickness mode.
+
+        Args:
+            Planet: PlanetStruct to validate.
+
+        Raises:
+            ValueError: If required parameters are missing or invalid.
+    """
+    Lateral = Planet.Lateral
+
+    # Check tidal heating is enabled
+    if not Lateral.DO_TIDAL_3D:
+        raise ValueError(
+            'Equilibrium ice thickness mode (DO_EQUILIBRIUM_ICE=True) requires '
+            '3D tidal heating (DO_TIDAL_3D=True). Set Planet.Lateral.DO_TIDAL_3D = True.'
+        )
+
+    # Check orbital parameters
+    if not hasattr(Planet.Bulk, 'eccentricity') or Planet.Bulk.eccentricity is None:
+        raise ValueError(
+            'Equilibrium ice thickness mode requires orbital eccentricity. '
+            'Set Planet.Bulk.eccentricity (e.g., 0.0094 for Europa).'
+        )
+
+    if not hasattr(Planet.Bulk, 'meanMotion_radps') or Planet.Bulk.meanMotion_radps is None:
+        raise ValueError(
+            'Equilibrium ice thickness mode requires mean motion. '
+            'Set Planet.Bulk.meanMotion_radps = 2*pi/orbital_period_seconds '
+            '(e.g., 2*pi/(3.551181*86400) for Europa).'
+        )
+
+    # Check thermal parameters
+    if not hasattr(Planet.Bulk, 'Tsurf_K') or Planet.Bulk.Tsurf_K is None:
+        raise ValueError(
+            'Equilibrium ice thickness mode requires surface temperature. '
+            'Set Planet.Bulk.Tsurf_K.'
+        )
+
+    if not hasattr(Planet.Bulk, 'Tb_K') or Planet.Bulk.Tb_K is None:
+        raise ValueError(
+            'Equilibrium ice thickness mode requires basal temperature. '
+            'Set Planet.Bulk.Tb_K (used as initial guess; solver will adjust).'
+        )
+
+    # Warn if prescribed SH coefficients are also set (they will be ignored)
+    if Lateral.dIce_Cpq_km is not None:
+        log.warning(
+            'Equilibrium mode (DO_EQUILIBRIUM_ICE=True) is active. '
+            'Prescribed ice thickness (dIce_Cpq_km) will be IGNORED. '
+            'To use prescribed thickness, set DO_EQUILIBRIUM_ICE=False.'
+        )
 
 
 def _PrepareColumn(Planet, Params, Lateral, lateralMeltEOS, z_ref_m, P_ref_MPa, i):
@@ -518,6 +598,11 @@ def RunLateral3D(Planet, Params):
         from PlanetProfile.Lateral.TidalHeating3D import ComputeTidalHeating3D, ConvergeTidalFeedback
         Planet = ComputeTidalHeating3D(Planet, Params, columnPlanets)
         Planet, columnPlanets = ConvergeTidalFeedback(Planet, Params, columnPlanets)
+
+    # Compute self-consistent equilibrium ice thickness (Tobie et al. 2003)
+    if Planet.Lateral.DO_EQUILIBRIUM_ICE:
+        from PlanetProfile.Lateral.TidalHeating3D import CalcEquilibriumIceThickness
+        Planet, columnPlanets = CalcEquilibriumIceThickness(Planet, Params, columnPlanets)
 
     if Planet.Lateral.DO_MASS_CONSERVE:
         from PlanetProfile.Lateral.MassConservation import CheckMassConservation, AdjustForMassConservation

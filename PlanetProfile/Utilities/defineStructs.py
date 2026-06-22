@@ -580,6 +580,11 @@ class LateralSubstruct:
         self.DO_CLATH_LATERAL = False  # Whether to include lateral clathrate variation
         self.DO_TIDAL_3D = False  # Whether to compute 3D tidal heating
         self.DO_MASS_CONSERVE = True  # Whether to enforce mass conservation
+        # Ice thickness mode: Set DO_EQUILIBRIUM_ICE=True for physics-based steady-state
+        # thickness from heat balance (Tobie et al. 2003). This is the RECOMMENDED mode
+        # for scientific studies. If False, thickness is either prescribed via SH coefficients
+        # (dIce_Cpq_km, dIce_Spq_km) or uniform. See CLAUDE.md for mode descriptions.
+        self.DO_EQUILIBRIUM_ICE = False
 
         # Grid configuration
         self.gridType = 'healpix'  # Grid type: 'healpix' or 'latlon'
@@ -629,6 +634,14 @@ class LateralSubstruct:
         self.Mtarget_kg = None  # Target total mass in kg
         self.Mactual_kg = None  # Actual total mass from 3D model in kg
         self.massResidual_frac = None  # Fractional mass residual
+
+        # Equilibrium ice thickness solver (Tobie et al. 2003)
+        self.equilibriumTol_m = 100.0  # Convergence tolerance in meters
+        self.equilibriumMaxIter = 20  # Maximum number of self-consistent iterations
+        self.equilibriumIterations = None  # Actual number of iterations performed
+        self.equilibriumResidual_m = None  # Final max residual in meters
+        self.kThermIce_WmK = 2.3  # Ice thermal conductivity (W/m/K) for equilibrium solver
+        self.qBasal_Wm2 = None  # Optional override for basal heat flux (W/m²). If set, overrides computation from Sil properties
 
 
 """ Main body profile info--settings and variables """

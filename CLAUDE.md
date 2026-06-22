@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 For detailed architecture and module structure, see [.claude/ARCHITECTURE.md](.claude/ARCHITECTURE.md).
 
+For 3D ice thickness modes (equilibrium vs prescribed), see [docs/3D_ICE_THICKNESS_MODES.md](docs/3D_ICE_THICKNESS_MODES.md).
+
 ---
 
 ## Current Mission: `genai-clean-port` Branch

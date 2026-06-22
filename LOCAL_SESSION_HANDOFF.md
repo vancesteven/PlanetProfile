@@ -1,4 +1,5 @@
 # Local Session Handoff
+# Local Session Handoff
 
 **Last Updated:** June 16, 2026  
 **Branch:** `genai-clean-port`  
@@ -78,6 +79,45 @@
 
 **File:** `compare_europa_3d.py` (lines 387-418)
 
+**Result:** ✅ Complete quantitative data now in `europa_comparison_quantitative.json`
+
+#### 3. Configuration Iteration & PyALMA Safety Analysis
+**Tested 3 configurations:**
+1. **Initial:** CV3hy1wt + xFeS=0.55 (fast, PyALMA-safe)
+2. **User test:** CM_hydrous + xFeS=0.882 (matches PPEuropa.py exactly, **triggers PyALMA negative k₂**)
+3. **Final:** CV3hy1wt + xFeS=0.55 + high resolution 200/300 layers (PyALMA-safe, high-fidelity) ✅
+
+**Key Scientific Finding - Core Composition Uncertainty:**
+
+Ocean thickness is **more sensitive to core xFeS than to 3D lateral effects**:
+
+| xFeS | Ice (1D) | Ocean (1D) | Core Radius | PyALMA Safe? |
+|------|----------|------------|-------------|--------------|
+| 0.55 | 30.01 km | **113.53 km** | 481.9 km | ✅ Yes |
+| 0.882 | 30.01 km | **70.91 km** | 603.4 km | ⚠️ No |
+| Δ | 0% | **-38%** (42 km!) | +25% | |
+
+**Implication:** Constraining Europa's ocean requires constraining core composition!
+
+**Documented in:** `EUROPA_CONFIG_RATIONALE.md`
+
+#### 4. Clarified Wedge Diagram Confusion
+**Issue:** User correctly noted that wedge diagrams look the same for 1D and 3D
+
+**Explanation:**
+- Wedge diagrams show **spherically averaged** radial structure (by design)
+- Both 1D and 3D wedges are similar → **validates mass conservation** ✓
+- The 3D **geographic variations** (19.4–35.5 km ice) appear in **lateral maps**, not wedges!
+
+**Where 3D structure appears:**
+- `Europa_Comparison_3D_dIce.pdf` → Ice thickness map
+- `Europa_Comparison_3D_Htidal.pdf` → Tidal heating map  
+- `Europa_Comparison_3D_Tb.pdf` → Basal temperature map
+- `Europa_Comparison_3D_lateralSummary.pdf` → 4-panel overview
+
+**Documented in:** `EUROPA_FIGURE_GUIDE.md`
+
+**LaTeX updated** to clarify this in figure captions and results section.
 **Result:** ✅ Complete quantitative data now in `europa_comparison_quantitative.json`
 
 #### 3. Configuration Iteration & PyALMA Safety Analysis
