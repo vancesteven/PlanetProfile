@@ -277,9 +277,14 @@ def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
             return _MaxwellDissipation(omega, mu, eta)
 
     if columnPlanets is not None:
-        HtidalIce = np.zeros(Lateral.nPix)
-        HtidalIceI_top = np.zeros(Lateral.nPix)
-        HtidalIceI_bot = np.zeros(Lateral.nPix)
+        from PlanetProfile.Lateral.LateralStructure import ColumnFailureMask, RepairLateralField
+
+        failedMask = ColumnFailureMask(columnPlanets)
+        Lateral.failedColumnMask = failedMask
+
+        HtidalIce = np.full(Lateral.nPix, np.nan)
+        HtidalIceI_top = np.full(Lateral.nPix, np.nan)
+        HtidalIceI_bot = np.full(Lateral.nPix, np.nan)
         HtidalHP_top = np.zeros(Lateral.nPix)
         HtidalHP_bot = np.zeros(Lateral.nPix)
         # Full radial profiles (variable length per column)
@@ -289,9 +294,7 @@ def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
         hp_radii = [None] * Lateral.nPix
 
         for i, colPlanet in enumerate(columnPlanets):
-            if (hasattr(colPlanet, 'invalidReason')
-                    and colPlanet.invalidReason is not None
-                    and colPlanet.invalidReason != 'Valid'):
+            if failedMask[i]:
                 continue
 
             nSurf = colPlanet.Steps.nSurfIce
@@ -350,6 +353,30 @@ def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
                     if hasattr(colPlanet, 'r_m') and colPlanet.r_m is not None:
                         hp_radii[i] = colPlanet.r_m[hp_indices].copy()
 
+        repairMask = failedMask | ~np.isfinite(HtidalIce)
+        if np.any(repairMask):
+            HtidalIce = RepairLateralField(Lateral, HtidalIce, 'HtidalIce_Wm3', repairMask)
+            HtidalIceI_top = RepairLateralField(
+                Lateral, HtidalIceI_top, 'HtidalIceI_top_Wm3', repairMask
+            )
+            HtidalIceI_bot = RepairLateralField(
+                Lateral, HtidalIceI_bot, 'HtidalIceI_bot_Wm3', repairMask
+            )
+            HtidalHP_top[repairMask] = np.nan
+            HtidalHP_bot[repairMask] = np.nan
+            if np.any(HtidalHP_top[~repairMask] > 0):
+                HtidalHP_top = RepairLateralField(
+                    Lateral, HtidalHP_top, 'HtidalHP_top_Wm3', repairMask
+                )
+            else:
+                HtidalHP_top[repairMask] = 0.0
+            if np.any(HtidalHP_bot[~repairMask] > 0):
+                HtidalHP_bot = RepairLateralField(
+                    Lateral, HtidalHP_bot, 'HtidalHP_bot_Wm3', repairMask
+                )
+            else:
+                HtidalHP_bot[repairMask] = 0.0
+
         Lateral.HtidalIce_Wm3 = HtidalIce
         Lateral.HtidalIceI_top_Wm3 = HtidalIceI_top
         Lateral.HtidalIceI_bot_Wm3 = HtidalIceI_bot
@@ -390,14 +417,14 @@ def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
             Lateral.HtidalIceI_top_Wm3 = D_top * eps0**2 * f_pattern
             Lateral.HtidalIceI_bot_Wm3 = D_bot * eps0**2 * f_pattern
 
-    log.info(f'3D tidal heating ({rheology}): mean={np.mean(Lateral.HtidalIce_Wm3):.2e} W/m^3, '
-             f'max={np.max(Lateral.HtidalIce_Wm3):.2e} W/m^3')
+    log.info(f'3D tidal heating ({rheology}): mean={np.nanmean(Lateral.HtidalIce_Wm3):.2e} W/m^3, '
+             f'max={np.nanmax(Lateral.HtidalIce_Wm3):.2e} W/m^3')
     if Lateral.HtidalIceI_top_Wm3 is not None and np.any(Lateral.HtidalIceI_top_Wm3 > 0):
-        log.info(f'  Ice I top: mean={np.mean(Lateral.HtidalIceI_top_Wm3):.2e}, '
-                 f'bot: mean={np.mean(Lateral.HtidalIceI_bot_Wm3):.2e} W/m^3')
+        log.info(f'  Ice I top: mean={np.nanmean(Lateral.HtidalIceI_top_Wm3):.2e}, '
+                 f'bot: mean={np.nanmean(Lateral.HtidalIceI_bot_Wm3):.2e} W/m^3')
     if Lateral.HtidalHP_top_Wm3 is not None and np.any(Lateral.HtidalHP_top_Wm3 > 0):
-        log.info(f'  HP ice top: mean={np.mean(Lateral.HtidalHP_top_Wm3):.2e}, '
-                 f'bot: mean={np.mean(Lateral.HtidalHP_bot_Wm3):.2e} W/m^3')
+        log.info(f'  HP ice top: mean={np.nanmean(Lateral.HtidalHP_top_Wm3):.2e}, '
+                 f'bot: mean={np.nanmean(Lateral.HtidalHP_bot_Wm3):.2e} W/m^3')
 
     return Planet
 
@@ -575,6 +602,12 @@ def CalcEquilibriumIceThickness(Planet, Params, columnPlanets):
         # Recompute tidal heating with updated thermal structure
         Planet = ComputeTidalHeating3D(Planet, Params, columnPlanets)
         H_tidal = Lateral.HtidalIce_Wm3  # Updated tidal heating per pixel (W/m³)
+        if np.any(~np.isfinite(H_tidal)):
+            badIdx = np.where(~np.isfinite(H_tidal))[0]
+            raise ValueError(
+                'Equilibrium ice thickness cannot proceed with invalid tidal '
+                f'heating at pixels {badIdx.astype(int).tolist()}'
+            )
 
         # Solve quadratic heat balance per pixel:
         # H_tidal * d² + q_basal * d - k * (T_bot - T_surf) = 0

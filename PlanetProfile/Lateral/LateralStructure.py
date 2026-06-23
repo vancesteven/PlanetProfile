@@ -464,6 +464,92 @@ def _ColumnFailed(colPlanet):
     return reason is not None and reason != '' and reason != 'Valid'
 
 
+def ColumnFailureMask(columnPlanets):
+    """ Return a boolean mask identifying failed lateral column solves. """
+    return np.array([_ColumnFailed(colPlanet) for colPlanet in columnPlanets], dtype=bool)
+
+
+def RepairLateralField(Lateral, values, fieldName, invalidMask=None,
+                       maxRepairFrac=None, kNearest=4):
+    """ Fill isolated invalid pixel values from neighboring valid pixels.
+
+        This is a numerical QA repair, not a physics model. It is intended for
+        smooth lateral scalar fields after a small number of column solves fail.
+        If failures are too numerous, the run is stopped so bad data cannot
+        silently become scientific structure.
+    """
+    arr = np.asarray(values, dtype=float).copy()
+    bad = ~np.isfinite(arr)
+    if invalidMask is not None:
+        bad |= np.asarray(invalidMask, dtype=bool)
+
+    if not np.any(bad):
+        return arr
+
+    if arr.ndim != 1:
+        raise ValueError(f'Cannot repair {fieldName}: expected 1D field, got shape {arr.shape}')
+
+    nPix = arr.size
+    nBad = int(np.sum(bad))
+    if nBad == nPix:
+        raise ValueError(f'Cannot repair {fieldName}: all {nPix} pixels are invalid')
+
+    if maxRepairFrac is None:
+        maxRepairFrac = getattr(Lateral, 'maxRepairFrac', 0.05)
+    repairFrac = nBad / nPix
+    if repairFrac > maxRepairFrac:
+        raise ValueError(
+            f'Cannot automatically repair {fieldName}: {nBad}/{nPix} pixels '
+            f'({100*repairFrac:.1f}%) are invalid, exceeding maxRepairFrac={maxRepairFrac:.3f}'
+        )
+
+    theta = np.asarray(Lateral.theta_rad)
+    phi = np.asarray(Lateral.phi_rad)
+    if theta.size != nPix or phi.size != nPix:
+        raise ValueError(
+            f'Cannot repair {fieldName}: coordinate length mismatch '
+            f'(theta={theta.size}, phi={phi.size}, field={nPix})'
+        )
+
+    validIdx = np.where(~bad)[0]
+    repairedIdx = np.where(bad)[0]
+    kUse = min(kNearest, validIdx.size)
+
+    sinTheta = np.sin(theta)
+    cosTheta = np.cos(theta)
+
+    for i in repairedIdx:
+        cosAng = (cosTheta[i] * cosTheta[validIdx] +
+                  sinTheta[i] * sinTheta[validIdx] * np.cos(phi[i] - phi[validIdx]))
+        nearestOrder = np.argsort(-cosAng)[:kUse]
+        neighbors = validIdx[nearestOrder]
+
+        angles = np.arccos(np.clip(cosAng[nearestOrder], -1.0, 1.0))
+        weights = 1.0 / np.maximum(angles, 1e-6)**2
+        arr[i] = np.sum(weights * arr[neighbors]) / np.sum(weights)
+
+    if getattr(Lateral, 'repairedColumnMask', None) is None or len(Lateral.repairedColumnMask) != nPix:
+        Lateral.repairedColumnMask = np.zeros(nPix, dtype=bool)
+    Lateral.repairedColumnMask[repairedIdx] = True
+
+    if getattr(Lateral, 'repairLog', None) is None:
+        Lateral.repairLog = {}
+    Lateral.repairLog[fieldName] = {
+        'method': f'inverse_distance_{kUse}_nearest_spherical_neighbors',
+        'nRepaired': nBad,
+        'indices': repairedIdx.astype(int).tolist(),
+        'maxRepairFrac': float(maxRepairFrac),
+    }
+
+    log.warning(
+        f'Repaired {nBad}/{nPix} invalid pixels in {fieldName} '
+        f'({100*repairFrac:.2f}%) using spherical nearest-neighbor interpolation: '
+        f'indices={repairedIdx.astype(int).tolist()}'
+    )
+
+    return arr
+
+
 def _ExtractColumnSummaries(Lateral, columnPlanets):
     """ Extract summary fields from column models into Lateral arrays. """
     nPix = len(columnPlanets)
@@ -498,6 +584,17 @@ def _ExtractColumnSummaries(Lateral, columnPlanets):
                 pass
 
     log.info(f'Extracted {nExtracted} columns, {nFailed} failed, {nPix - nExtracted - nFailed} skipped')
+
+    failedMask = ColumnFailureMask(columnPlanets)
+    Lateral.failedColumnMask = failedMask
+    if np.any(failedMask):
+        for fieldName in ['Tb_K', 'qSurf_Wm2', 'sigma_mean_Sm']:
+            field = getattr(Lateral, fieldName)
+            if np.any(np.isfinite(field[~failedMask])):
+                setattr(Lateral, fieldName,
+                        RepairLateralField(Lateral, field, fieldName, failedMask))
+            else:
+                log.debug(f'Skipping repair for {fieldName}; no valid column values are available')
 
 
 def UpdateAsymShapeFrom3D(Planet, columnPlanets):

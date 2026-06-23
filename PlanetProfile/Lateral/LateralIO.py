@@ -46,6 +46,8 @@ def SaveLateralResults(Planet, Params):
         'Mtarget_kg': Lateral.Mtarget_kg,
         'Mactual_kg': Lateral.Mactual_kg,
         'massResidual_frac': Lateral.massResidual_frac,
+        'repairLog': getattr(Lateral, 'repairLog', None),
+        'maxRepairFrac': getattr(Lateral, 'maxRepairFrac', None),
     }
     if Lateral.dIce_Cpq_km is not None and hasattr(Lateral, 'dIce_pMax'):
         meta_dict['dIce_pMax'] = Lateral.dIce_pMax
@@ -54,7 +56,8 @@ def SaveLateralResults(Planet, Params):
     # Store numpy arrays (skip None values)
     array_fields = ['theta_rad', 'phi_rad', 'pixArea_sr', 'dIce_m', 'Tb_K',
                     'qSurf_Wm2', 'sigma_mean_Sm', 'kThermEff_WmK',
-                    'HtidalIce_Wm3', 'fClath', 'dIce_Cpq_km', 'dIce_Spq_km']
+                    'HtidalIce_Wm3', 'fClath', 'dIce_Cpq_km', 'dIce_Spq_km',
+                    'failedColumnMask', 'repairedColumnMask']
     for field in array_fields:
         if hasattr(Lateral, field):
             val = getattr(Lateral, field)
@@ -89,7 +92,8 @@ def ReloadLateralResults(Planet, fPath):
         for key in ['gridType', 'nPix', 'theta_rad', 'phi_rad', 'pixArea_sr',
                     'dIce_m', 'fClath', 'Tb_K', 'qSurf_Wm2', 'sigma_mean_Sm',
                     'kThermEff_WmK', 'HtidalIce_Wm3', 'Mtarget_kg', 'Mactual_kg',
-                    'massResidual_frac']:
+                    'massResidual_frac', 'failedColumnMask', 'repairedColumnMask',
+                    'repairLog', 'maxRepairFrac']:
             if key in results:
                 setattr(Lateral, key, results[key])
 
@@ -106,7 +110,8 @@ def ReloadLateralResults(Planet, fPath):
         if '_meta' in results:
             meta_dict = results['_meta'].item()
             for key in ['gridType', 'nPix', 'Mtarget_kg', 'Mactual_kg',
-                        'massResidual_frac', 'dIce_pMax']:
+                        'massResidual_frac', 'dIce_pMax', 'repairLog',
+                        'maxRepairFrac']:
                 if key in meta_dict:
                     setattr(Lateral, key, meta_dict[key])
 

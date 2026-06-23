@@ -643,6 +643,14 @@ class LateralSubstruct:
         self.kThermIce_WmK = 2.3  # Ice thermal conductivity (W/m/K) for equilibrium solver
         self.qBasal_Wm2 = None  # Optional override for basal heat flux (W/m²). If set, overrides computation from Sil properties
 
+        # Numerical QA for lateral column failures. Isolated failed columns can
+        # be neighbor-repaired for smooth scalar fields; clustered failures
+        # should stop the run instead of masquerading as physical structure.
+        self.failedColumnMask = None  # Boolean mask of failed column solves
+        self.repairedColumnMask = None  # Boolean mask of values repaired from neighbors
+        self.repairLog = None  # Dict of repaired fields and pixel indices
+        self.maxRepairFrac = 0.05  # Maximum failed fraction allowed for automatic repair
+
 
 """ Main body profile info--settings and variables """
 class PlanetStruct:
