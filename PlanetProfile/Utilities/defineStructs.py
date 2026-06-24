@@ -544,6 +544,7 @@ class GravitySubstruct:
         self.rheology = None # Rheology for PyALMA3
         self.pyAlmaParams = None # List of parameters for andrade and Burgers layers that we set
         self.andradExponent = 0.2 # Andrade exponent for andrade layers
+        self.andradGamma = None # Optional Andrade gamma override. If None, PyALMA uses gamma(alpha + 1).
         self.BurgerFirstParameter = 0 # First parameter for Burgers layers
         self.BurgerSecondParameter = 0 # Second parameter for Burgers layers
         

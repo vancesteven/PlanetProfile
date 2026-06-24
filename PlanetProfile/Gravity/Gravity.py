@@ -180,6 +180,8 @@ def ComputeLoveNumbers(Planet, Params):
                             Planet.Gravity.ALMAModel['mu'],
                             Planet.Gravity.ALMAModel['vis'],
                             Planet.Gravity.rheology, Planet.Gravity.pyAlmaParams, ndigits=Params.Gravity.num_digits, verbose=(not Params.QUIET_ALMA and Params.Gravity.verbose), parallel=False) # False parallel for now since it is throwing a bad file desciptor
+    if Planet.Gravity.andradGamma is not None:
+        model_params = ApplyAndradeGammaOverride(model_params, Planet.Gravity.andradGamma)
     # Compute love numbers
     Planet.Gravity.h, Planet.Gravity.l, Planet.Gravity.k = love_numbers(Params.Gravity.harmonic_degrees, Params.Gravity.time_log_kyrs,
                                                             Params.Gravity.loading_type, Params.Gravity.time_history_function, Params.Gravity.tau, model_params,
@@ -205,6 +207,19 @@ def ComputeLoveNumbers(Planet, Params):
     Planet.Gravity.deltaPhase = -np.degrees(np.angle(Planet.Gravity.delta))
     
     return Planet, Params
+
+
+def ApplyAndradeGammaOverride(model_params, gamma_override):
+    """Override Andrade gamma in rpar when explicitly provided."""
+    if gamma_override is None:
+        return model_params
+
+    for i, rheol in enumerate(model_params['rheol']):
+        if rheol == 6:
+            model_params['rpar'][i, 1] = gamma_override
+
+    return model_params
+
 
 def WriteGravityParameters(Planet, Params):
     """Write the gravity parameters to disk"""
