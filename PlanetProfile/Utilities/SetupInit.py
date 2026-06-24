@@ -326,6 +326,9 @@ def SetupInit(Planet, Params):
         for phase in Planet.Ocean.Eact_kJmol.keys():
             if Planet.Ocean.Eact_kJmol[phase] is np.nan:
                 Planet.Ocean.Eact_kJmol[phase] = Constants.Eact_kJmol[PhaseInv(phase)]
+        for phase in Planet.Ocean.etaMelt_Pas.keys():
+            if Planet.Ocean.etaMelt_Pas[phase] is np.nan:
+                Planet.Ocean.etaMelt_Pas[phase] = Constants.etaMelt_Pas[PhaseInv(phase)]
 
     # Make sure convection checking outputs are set if we won't be modeling them
     if Planet.Do.NO_ICE_CONVECTION:
@@ -840,8 +843,8 @@ def ValidateConstantProps(Planet):
                 msg += "Since Do.ConstantProps['Ice'] is True, temperature will be set to 273 K."
                 Planet.Bulk.Tb_K = 273
                 log.warning(msg)
-        constantProps._phase_Pb_MPa = Planet.Bulk.PbISet_MPa
-        constantProps._phase_Tb_K = Planet.Bulk.Tb_K
+        constantProps._phase_Pb_MPa = Planet.Bulk.PbISet_MPa + 0.01 # Add a small buffer to the phase boundary to avoid issues with the phase boundary function
+        constantProps._phase_Tb_K = Planet.Bulk.Tb_K + 0.01 # Add a small buffer to the phase boundary to avoid issues with the phase boundary function
     if Planet.Do.ConstantProps['Inner']:
         # Check siliate properties are properly set
         constantSilProps = Planet.Sil.ConstantProps

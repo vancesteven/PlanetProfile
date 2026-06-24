@@ -434,13 +434,18 @@ class EOSLookupTableLoader():
             P = float(P)
             conditions.pressure(P, "MPa")
             # Solve the equilibrium problem with warm start
-            result = solver.solve(state, conditions)
-            # Update the properties
-            props.update(state)
-            # Obtain the equilibrium temperature
-            equilibrium_temperature = props.temperature()
+            try:
+                result = solver.solve(state, conditions)
+                SOLVE_ERROR = False
+            except Exception as e:
+                log.debug(f'Reaktoro through error {e} when finding freezing temperature at pressure {P} MPa when generating phase data from Frezchem. Will treat this calculation as failed.')
+                SOLVE_ERROR = True
             # Check if the result succeeded
-            if result.succeeded():
+            if not SOLVE_ERROR and result.succeeded():
+                # Update the properties
+                props.update(state)
+                # Obtain the equilibrium temperature
+                equilibrium_temperature = props.temperature()
                 freezing_temperatures.append(float(equilibrium_temperature))
                 percentSuccessful += 1 / len(P_MPa)
                 consecutive_failures = 0  # Reset consecutive failure counter

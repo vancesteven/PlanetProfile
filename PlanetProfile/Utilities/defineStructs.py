@@ -216,6 +216,7 @@ class OceanSubstruct:
         self.GScondMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for conducting ice layers
         self.GSconvMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for convecting ice layers
         self.Eact_kJmol = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath', 'MixedClathrateIh']} # Activation energy for diffusion of ice phases Ih-VI in kJ/mol (start at index 1) - Overrides Constants.Eact_kJmol if specified
+        self.etaMelt_Pas = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath', 'MixedClathrateIh']} # Viscosity at melting temperature for convection calculations - Overrides Constants.etaMelt_Pas if specified
         self.rhoMeanIIwet_kgm3 = np.nan  # Mean density for in-ocean ice II layers
         self.rhoMeanIIIwet_kgm3 = np.nan  # Mean density for in-ocean ice III layers
         self.rhoMeanVwet_kgm3 = np.nan  # Mean density for in-ocean ice V layers
@@ -3298,9 +3299,9 @@ class ConstantsStruct:
         self.etaFeSolid_Pas = 1e14  # Assumed viscosity of solid iron core material, generic value
         self.etaFeLiquid_Pas = 5e-3  # Assumed viscosity of liquid iron core material, based on Kono et al., (2015): https://doi.org/10.1016/j.pepi.2015.02.006
         self.TviscFe_K = [1100]  # Transition temperatures for iron to go from one viscosity value to another. If only one value, this is considered to be the melting temp.
-        self.etaMelt_Pas = np.empty(self.phaseFeSolid+1) * np.nan
         self.etaMelt_Pas[1:7] = np.array([1e14, 1e18, 5e12, np.nan, 5e14, 5e14])  # Viscosity at the melting temperature of ice phases Ih-VI in Pa*s. Ice Ih range of 5e13-1e16 is from Tobie et al. (2003), others unknown
         self.etaMelt_Pas[self.phaseClath] = self.etaMelt_Pas[1] * 20  # Estimate of clathrate viscosity 20x that of ice Ih at comparable conditions from Durham et al. (2003): https://doi.org/10.1029/2002JB001872
+        self.etaMelt_Pas[self.phaseClath + 1:self.phaseClath + 7] = (self.etaMelt_Pas[self.phaseClath] + self.etaMelt_Pas[1:7]) / 2  # Average of clathrate and ice melting viscosities
         self.etaMelt_Pas[self.phaseFe] = 5e-3  # Assumed viscosity of liquid iron core material, based on Kono et al., (2015): https://doi.org/10.1016/j.pepi.2015.02.006
         self.etaMelt_Pas[self.phaseFeSolid] = 1e14  # Assumed viscosity of solid iron core material, generic value
         self.PminHPices_MPa = 200.0  # Min plausible pressure of high-pressure ices for any ocean composition in MPa

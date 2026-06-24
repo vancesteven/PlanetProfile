@@ -62,6 +62,7 @@ def configAssign():
     Params.PLOT_MELTING_CURVES = False  # Whether to plot melting curves in P-T space for all ocean compositions modeled
     Params.PLOT_SPECIES_HYDROSPHERE = True # Whether to plot aqueous species concentration as a function of ocean depth
     Params.PLOT_REF =         True  # Whether to plot reference melting curve densities on hydrosphere plot
+    Params.PLOT_HYDRO_TEMP = True  # Whether to plot temperature vs depth on hydrosphere plot
     Params.PLOT_SIGS =        True  # Whether to plot conductivities as a function of radius on hydrosphere plot if they have been calculated
     Params.PLOT_SOUNDS =      True  # Whether to plot sound speeds as a function of radius on hydrosphere plot if they have been calculated
     Params.PLOT_TRADEOFF =    True  # Whether to plot mantle properties tradeoff
