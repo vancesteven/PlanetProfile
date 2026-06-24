@@ -125,7 +125,7 @@ def scan_mcmc_results(results_root: str) -> list[dict]:
     return records
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_resource(show_spinner=False)
 def load_mcmc_result(path: str, mtime: float):  # -> Optional[InferenceResult]
     """
     Load an ``InferenceResult`` from *path* with Streamlit result caching.

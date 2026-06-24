@@ -2,6 +2,24 @@
 
 ## [Unreleased] – genai branch
 
+### Exploreogram GUI — secondary axis fixes + per-axis log-scale toggles (2026-06-24)
+
+#### Plotly interactive mode
+- **Conductivity (σ) as x-axis now uses correct coordinate space.** When the user picks `sigmaMean_Sm` as the x-variable, the heatmap x-coordinates now span the conductivity range (derived from PP's `sigmaMean_Sm` output) rather than the salinity driver range. `_near_monotone` helper detects the derived-axis case and substitutes `x_derived` values as heatmap tick coordinates. Explicit `range=[min, max]` passed to `xaxis_update` to prevent Plotly auto-ranging to the wrong domain.
+- **Secondary salinity axis now renders.** A dummy `go.Scatter` trace on `xaxis='x2'` was added to force Plotly to draw the linked top axis; without it the axis was hidden. Tick positions and labels are interpolated from PP-computed (salinity, conductivity) pairs via `_interp_secondary_labels`.
+- **`INDUCTION_Z_VARS` moved to `exploreogram_plotly.py`.** Authoritative list of magnetic induction z-variable names is now defined once in `exploreogram_plotly.py` and imported by `Exploreogram.py`; duplicate list removed.
+- **`\overline{}` / `\bar{}` LaTeX → Unicode** handled in `_latex_math_to_unicode`: applies Unicode combining overline (U+0305) so `$\overline{\sigma}$` renders as σ̄ in Plotly labels.
+- **Bx/By/Bz induction component radio button** added to Plotly panel; user can select which induction component (`Amp`, `Bix`, `Biy`, `Biz`, `phase`, real/imag variants) to display without re-running the sweep.
+
+#### Matplotlib static mode (PDF output)
+- **Rectilinear pcolormesh grid for σ x-axis.** Replaced raw 2D `sigmaMean_Sm` (which varies with both salinity and D, producing jagged column edges) with a column-uniform grid: `np.tile(nanmean(σ, axis=1)[:, None], (1, ny))`. Before calling `GenerateExplorationPlots`, `Exploration.xData` is substituted with this rectilinear array and restored in a `finally` block; `xName` is also swapped so `extract_and_validate_plot_data` reads the substituted array.
+- **Sparse secondary salinity axis with readable labels.** Secondary x-axis on matplotlib PDFs now uses a fixed set of "nice" salinity values (`[0.001, 0.01, 0.1, 1, 3, 10, 30, 100]` ppt), mapped to conductivity positions via `np.interp(w_nice, ws, ss)`, so labels like `0.01  0.1  1  10` appear instead of dense concatenated strings.
+- **x-axis range derived from conductivity, not salinity.** `_xdata_arr` pre-computation reads `Exploration.base.sigmaMean_Sm` (not `wOcean_ppt`) so `xlim` spans the true conductivity range.
+- **Log-scale checkboxes per axis.** Separate checkboxes for x-log and y-log; guard prevents applying log scale to axes with non-positive data. Both Plotly and matplotlib paths respect the toggles.
+
+#### `mcmc_run_loader.py`
+- Minor fix to run-loader path resolution (2-line change).
+
 ### Inference / MCMC — Phase C2 continuation + T25 magnetic induction observables (2026-06-12)
 
 #### T25 — Complex magnetic induction observables added to Galilean-moon MCMC configs

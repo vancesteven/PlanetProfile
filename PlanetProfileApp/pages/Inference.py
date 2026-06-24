@@ -36,6 +36,12 @@ if parent_directory not in sys.path:
 # ============================================================
 from Utilities.get_planet import get_planet
 from Utilities.planet_sidebar import show_planet_status
+from utils.mcmc_run_loader import (
+    DEFAULT_RESULTS_ROOTS,
+    scan_mcmc_results,
+    load_mcmc_result,
+    get_run_display_label,
+)
 
 # Lazy imports for PlanetProfile inference modules
 def lazy_import_inference():
@@ -1438,6 +1444,105 @@ def render_results():
 
 
 # ============================================================
+# Browse-runs mode (T07b) — load saved *_result.pkl files and reuse render_results
+# ============================================================
+def render_browse_runs():
+    """Browse and load previously saved MCMC result PKLs.
+
+    Scans ``PlanetProfile/Test/mcmc_results`` (and any extra roots in
+    DEFAULT_RESULTS_ROOTS) for ``*_result.pkl`` files, lets the user pick one
+    via a selectbox, loads it into ``st.session_state.inference_results``, and
+    surfaces summary metrics (log_Z, ESS, acceptance, n_samples).  After
+    loading, the existing ``render_results()`` panel renders posterior plots.
+    """
+    st.markdown("### 📂 Browse Saved MCMC Runs")
+    st.caption(
+        "Loads serialized ``InferenceResult`` objects from disk and reuses the "
+        "results-rendering panel to show summary metrics, corner plot, k₂ scatter, "
+        "and C/MR² posterior."
+    )
+
+    # Scan all default roots and accumulate records
+    all_records: list[dict] = []
+    for root in DEFAULT_RESULTS_ROOTS:
+        # Resolve relative to repo root (parent_directory)
+        abs_root = root if os.path.isabs(root) else os.path.join(parent_directory, root)
+        all_records.extend(scan_mcmc_results(abs_root))
+
+    if not all_records:
+        st.info(
+            "No saved MCMC runs found. Run `Run new MCMC` mode (or copy "
+            "``*_result.pkl`` files into ``PlanetProfile/Test/mcmc_results/``)."
+        )
+        return
+
+    # Selectbox over all runs
+    labels = [get_run_display_label(r) for r in all_records]
+    chosen_idx = st.selectbox(
+        "Select a run to load:",
+        options=list(range(len(all_records))),
+        format_func=lambda i: labels[i],
+        key="browse_runs_selectbox",
+    )
+    record = all_records[chosen_idx]
+
+    # Load button — loading is cached on (path, mtime)
+    col_load, col_clear = st.columns([1, 1])
+    with col_load:
+        if st.button("Load run", key="browse_runs_load_btn", type="primary"):
+            with st.spinner(f"Loading {record['name']}..."):
+                result = load_mcmc_result(record["path"], record["mtime"])
+            if result is None:
+                st.error(f"Failed to load: {record['path']}")
+            else:
+                st.session_state.inference_results = result
+                st.success(f"Loaded: {record['name']}")
+    with col_clear:
+        if st.button("Clear loaded run", key="browse_runs_clear_btn"):
+            st.session_state.inference_results = None
+            st.rerun()
+
+    # Show summary metrics for the *currently loaded* result (if any)
+    res = st.session_state.inference_results
+    if res is not None:
+        with st.expander("📈 Run summary metrics", expanded=True):
+            metrics = getattr(res, "convergence_metrics", {}) or {}
+            metadata = getattr(res, "metadata", {}) or {}
+
+            col1, col2, col3 = st.columns(3)
+            log_z = metadata.get("log_Z")
+            log_z_err = metadata.get("log_Z_err")
+            if log_z is not None:
+                err_str = f" ± {log_z_err:.3f}" if log_z_err is not None else ""
+                col1.metric("log Z", f"{log_z:.3f}{err_str}")
+            else:
+                col1.metric("log Z", "N/A")
+
+            ess = metrics.get("ess")
+            col2.metric("ESS", f"{ess:.0f}" if ess is not None else "N/A")
+
+            acc = metrics.get("acceptance_rate")
+            col3.metric("Acceptance",
+                        f"{acc:.1%}" if acc is not None else "N/A")
+
+            col4, col5, col6 = st.columns(3)
+            n_samples = metrics.get("n_samples")
+            col4.metric("Samples", f"{n_samples}" if n_samples is not None else "N/A")
+            r_hat = metrics.get("r_hat")
+            col5.metric("R-hat", f"{r_hat:.3f}" if r_hat is not None else "N/A")
+            elapsed = metadata.get("elapsed_time_s")
+            col6.metric("Runtime",
+                        f"{elapsed/60:.1f} min" if elapsed is not None else "N/A")
+
+            samples = getattr(res, "samples", None)
+            param_names = getattr(res, "param_names", None)
+            if samples is not None:
+                st.caption(f"Posterior shape: {samples.shape}")
+            if param_names:
+                st.caption(f"Parameters: {', '.join(param_names)}")
+
+
+# ============================================================
 # Main Page
 # ============================================================
 def main():
@@ -1455,6 +1560,39 @@ def main():
     # Note: Planet selection is optional for inference - body name comes from preset
     # (e.g., 'andrade_titan' preset uses Titan structure cache)
 
+    # Mode toggle: run new MCMC vs browse saved runs (T07b).
+    # Browse mode reuses the existing render_results() panel after loading a PKL
+    # via PlanetProfileApp/utils/mcmc_run_loader.py.
+    # Track previous mode so we can clear ghost-state when switching modes.
+    _prev_mode = st.session_state.get("inference_page_mode_prev")
+    inference_page_mode = st.radio(
+        "Mode",
+        options=["run", "browse"],
+        format_func=lambda m: ("🚀 Run new MCMC" if m == "run"
+                               else "📂 Browse saved runs"),
+        index=0,
+        horizontal=True,
+        key="inference_page_mode",
+        help="`Run new MCMC` configures and launches a fresh run.  "
+             "`Browse saved runs` loads a previously saved *_result.pkl and "
+             "renders its posterior summary, corner plot, and metrics."
+    )
+    # When switching browse → run, drop the loaded PKL so the run-mode results
+    # column doesn't ghost-display the previously loaded posterior.
+    if (_prev_mode == "browse" and inference_page_mode == "run"
+            and st.session_state.get("inference_results") is not None):
+        st.session_state.inference_results = None
+    st.session_state["inference_page_mode_prev"] = inference_page_mode
+
+    if inference_page_mode == "browse":
+        # Browse-runs mode — load a saved PKL and reuse render_results
+        render_browse_runs()
+        st.markdown("---")
+        st.subheader("📊 Results")
+        render_results()
+        return
+
+    # --- Run-new-MCMC mode (default) ---
     # Config-file selector (body + variant) — sits above the run-configuration form.
     # Populates the same session-state keys that the form widgets read so fields
     # pre-fill after a config is applied.

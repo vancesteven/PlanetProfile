@@ -9,6 +9,16 @@ from plotly.subplots import make_subplots
 import sys
 import os
 
+# Authoritative list of magnetic induction z-variable names used in the
+# explore-o-gram GUI.  Import INDUCTION_Z_VARS from this module; do not
+# maintain a separate copy in Exploreogram.py.
+INDUCTION_Z_VARS = [
+    'Amp_nT', 'Bix_nT', 'Biy_nT', 'Biz_nT', 'phase_deg',
+    'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT', 'Bi1Tot_nT',
+    'rBi1x_nT', 'rBi1y_nT', 'rBi1z_nT', 'rBi1Tot_nT',
+    'iBi1x_nT', 'iBi1y_nT', 'iBi1z_nT', 'iBi1Tot_nT',
+]
+
 
 def latex_to_plotly(text):
     """
@@ -70,6 +80,12 @@ def _latex_math_to_unicode(math_content):
     }
     for cmd, char in _greek.items():
         s = s.replace(cmd, char)
+    # \overline{x} and \bar{x}: Greek was already substituted above, so
+    # m.group(1) may contain Unicode (e.g. 'σ'). Apply one combining overline.
+    def _with_overline(inner):
+        return ''.join(c + '\u0305' for c in inner)
+    s = re.sub(r'\\overline\{([^}]*)\}', lambda m: _with_overline(m.group(1)), s)
+    s = re.sub(r'\\bar\{([^}]*)\}', lambda m: _with_overline(m.group(1)), s)
     # ^{\circ} or ^\circ -> degree symbol (must come before generic \circ)
     s = s.replace('^{\\circ}', '°')
     s = s.replace('^\\circ', '°')
@@ -142,156 +158,171 @@ def get_matplotlib_colormap_colors(cmap_name='viridis', n_colors=256):
         return None
 
 
-def salinity_to_conductivity_axis(salinity_ticks):
-    """
-    Map salinity tick values (ppt) to conductivity labels (S/m) for a secondary axis.
+def _interp_secondary_labels(primary_ticks, primary_data, secondary_data):
+    """Interpolate secondary-axis tick labels from PP-computed (primary, secondary) pairs.
 
-    Uses the linear approximation sigma ≈ 0.18 * w (S/m per ppt), which is a
-    display hint only — not a scientific claim.  Values are rounded to 2
-    significant figures so the secondary-axis labels stay compact.
+    Used to attach a salinity↔conductivity secondary axis: when the primary
+    x-axis is wOcean_ppt, ``primary_data`` is the 1-D salinity values and
+    ``secondary_data`` is the corresponding mean ocean conductivities (averaged
+    across the orthogonal grid axis to produce a 1-D curve).
+
+    Returns None (disabling the secondary axis) when:
+      - either array is empty after NaN removal,
+      - the two arrays differ in length,
+      - primary_data is non-monotone (e.g. MgSO4 σ↔w near eutectic — np.interp
+        would produce wrong labels in that case).
 
     Args:
-        salinity_ticks: array-like of salinity values in ppt
+        primary_ticks:  array-like of primary-axis tick positions to label.
+        primary_data:   1-D array of PP-computed primary-axis values.
+        secondary_data: 1-D array of PP-computed secondary-axis values,
+                        same length as primary_data.
 
     Returns:
-        List of conductivity label strings, or None if the mapping is
-        trivial (all-zero salinity) or the input is empty/invalid.
+        list[str] of formatted tick labels, or None to omit the secondary axis.
     """
     try:
-        ticks = np.asarray(salinity_ticks, dtype=float)
+        p_ticks = np.asarray(primary_ticks, dtype=float).ravel()
+        p_data  = np.asarray(primary_data,  dtype=float).ravel()
+        s_data  = np.asarray(secondary_data, dtype=float).ravel()
     except (TypeError, ValueError):
         return None
 
-    if ticks.size == 0:
+    if p_data.size == 0 or s_data.size == 0 or p_data.size != s_data.size:
         return None
 
-    # Drop NaN ticks before any arithmetic to avoid ValueError in int(rounded)
-    ticks = ticks[~np.isnan(ticks)]
-    if ticks.size == 0:
+    finite = np.isfinite(p_data) & np.isfinite(s_data)
+    p_data = p_data[finite]
+    s_data = s_data[finite]
+    if p_data.size < 2:
         return None
 
-    sigma_vals = 0.18 * ticks
+    order = np.argsort(p_data)
+    p_sorted = p_data[order]
+    s_sorted = s_data[order]
 
-    # If all values are effectively zero there is nothing useful to show
-    if np.all(sigma_vals == 0.0):
+    if not np.all(np.diff(p_sorted) > 0):
         return None
+
+    diffs = np.diff(s_sorted)
+    if not (np.all(diffs > 0) or np.all(diffs < 0)):
+        return None  # non-monotone σ↔w (e.g. MgSO4 near eutectic) — disable
+
+    p_ticks_clean = p_ticks[np.isfinite(p_ticks)]
+    if p_ticks_clean.size == 0:
+        return None
+
+    s_at_ticks = np.interp(p_ticks_clean, p_sorted, s_sorted)
 
     labels = []
-    for v in sigma_vals:
+    for v in s_at_ticks:
         if v == 0.0:
             labels.append('0')
+        elif abs(v) < 0.01 or abs(v) >= 1000:
+            labels.append(f'{v:.2g}')
         else:
-            # Round to 2 significant figures
-            magnitude = 10 ** np.floor(np.log10(abs(v)))
-            rounded = round(v / magnitude, 1) * magnitude
-            # Format: drop trailing zeros after decimal
-            if rounded == int(rounded):
-                labels.append(str(int(rounded)))
-            else:
-                labels.append(f'{rounded:.2g}')
+            labels.append(f'{v:.3g}')
     return labels
 
 
-def _build_secondary_axis_layout(x_var, y_var, x1d, y1d):
-    """
-    Return a dict of extra layout kwargs to attach a secondary axis when one of
-    the plot axes is ``wOcean_ppt`` or ``sigmaMean_Sm``.
+def _attach_secondary_axis(fig, Exploration, x1d, y1d):
+    """Attach a synchronized salinity↔conductivity secondary axis to a single-panel figure.
 
-    The secondary axis is purely cosmetic (tick labels only); it overlays the
-    primary axis so zoom/pan keep both axes in sync.
+    Activates when Exploration.xName or Exploration.yName is 'wOcean_ppt' or
+    'sigmaMean_Sm'.  Secondary labels are derived from PP-computed
+    (w, σ) pairs via np.nanmean across the orthogonal grid axis — this
+    gives a physically defensible 1-D σ-vs-w curve without a hard-coded
+    approximation.  Silently skips when the σ↔w relation is non-monotone
+    (see _interp_secondary_labels).
 
     Args:
-        x_var: string name of the x-axis exploration variable
-        y_var: string name of the y-axis exploration variable
-        x1d:   1-D array of unique x values (used to compute secondary ticks)
-        y1d:   1-D array of unique y values (used to compute secondary ticks)
-
-    Returns:
-        dict of Plotly layout kwargs (may be empty if no secondary axis applies)
+        fig:         Plotly Figure (single-panel exploreogram).
+        Exploration: ExplorationResultsStruct (.xName, .yName, .base).
+        x1d:         1-D primary x-axis values used in the heatmap.
+        y1d:         1-D primary y-axis values used in the heatmap.
     """
-    extra = {}
+    SAL = 'wOcean_ppt'
+    SIG = 'sigmaMean_Sm'
 
-    # Choose at most ~6 evenly-spaced tick positions from the primary array
-    def _sparse_ticks(arr, n_max=6):
+    base = getattr(Exploration, 'base', None)
+    if base is None:
+        return
+    sigma_2d = getattr(base, 'sigmaMean_Sm', None)
+    w_2d     = getattr(base, 'wOcean_ppt',  None)
+    if sigma_2d is None or w_2d is None:
+        return
+
+    sigma_2d = np.asarray(sigma_2d, dtype=float)
+    w_2d     = np.asarray(w_2d,     dtype=float)
+
+    def _sparse(arr, n_max=6):
         arr = np.asarray(arr, dtype=float)
-        if arr.size <= n_max:
-            return arr
-        idx = np.round(np.linspace(0, arr.size - 1, n_max)).astype(int)
-        return arr[idx]
+        finite = arr[np.isfinite(arr)]
+        if finite.size <= n_max:
+            return finite
+        idx = np.round(np.linspace(0, finite.size - 1, n_max)).astype(int)
+        return finite[idx]
 
-    SALINITY_VAR = 'wOcean_ppt'
-    CONDUCTIVITY_VAR = 'sigmaMean_Sm'
+    x_var = getattr(Exploration, 'xName', None)
+    y_var = getattr(Exploration, 'yName', None)
 
-    if x_var == SALINITY_VAR:
-        ticks = _sparse_ticks(x1d)
-        labels = salinity_to_conductivity_axis(ticks)
+    layout_updates = {}
+
+    if x_var in (SAL, SIG):
+        # Mean across y (axis=1) → 1-D of length nx, matching x1d
+        with np.errstate(invalid='ignore'):
+            sigma_x = np.nanmean(sigma_2d, axis=1)
+            w_x     = np.nanmean(w_2d,     axis=1)
+        if x_var == SAL:
+            primary_data, secondary_data = w_x, sigma_x
+            sec_title = 'Mean Conductivity (S/m)'
+        else:
+            primary_data, secondary_data = sigma_x, w_x
+            sec_title = 'Salinity (ppt)'
+        ticks = _sparse(x1d)
+        labels = _interp_secondary_labels(ticks, primary_data, secondary_data)
         if labels is not None:
-            extra['xaxis2'] = dict(
-                title=dict(text='Mean Conductivity (S/m)', standoff=4),
-                overlaying='x',
-                side='top',
-                matches='x',
+            layout_updates['xaxis2'] = dict(
+                title=dict(text=sec_title, standoff=4),
+                overlaying='x', side='top', matches='x',
                 tickmode='array',
                 tickvals=list(ticks),
                 ticktext=labels,
-                showgrid=False,
-                zeroline=False,
+                showgrid=False, zeroline=False,
             )
 
-    elif x_var == CONDUCTIVITY_VAR:
-        ticks = _sparse_ticks(x1d)
-        # Inverse: w = sigma / 0.18; guard against divide-by-zero
-        w_vals = np.where(ticks > 0, ticks / 0.18, 0.0)
-        labels = [f'{v:.2g}' if v > 0 else '0' for v in w_vals]
-        extra['xaxis2'] = dict(
-            title=dict(text='Salinity (ppt)', standoff=4),
-            overlaying='x',
-            side='top',
-            matches='x',
-            tickmode='array',
-            tickvals=list(ticks),
-            ticktext=labels,
-            showgrid=False,
-            zeroline=False,
-        )
-
-    if y_var == SALINITY_VAR:
-        ticks = _sparse_ticks(y1d)
-        labels = salinity_to_conductivity_axis(ticks)
+    if y_var in (SAL, SIG):
+        # Mean across x (axis=0) → 1-D of length ny, matching y1d
+        with np.errstate(invalid='ignore'):
+            sigma_y = np.nanmean(sigma_2d, axis=0)
+            w_y     = np.nanmean(w_2d,     axis=0)
+        if y_var == SAL:
+            primary_data, secondary_data = w_y, sigma_y
+            sec_title = 'Mean Conductivity (S/m)'
+        else:
+            primary_data, secondary_data = sigma_y, w_y
+            sec_title = 'Salinity (ppt)'
+        ticks = _sparse(y1d)
+        labels = _interp_secondary_labels(ticks, primary_data, secondary_data)
         if labels is not None:
-            extra['yaxis2'] = dict(
-                title=dict(text='Mean Conductivity (S/m)', standoff=4),
-                overlaying='y',
-                side='right',
-                matches='y',
+            layout_updates['yaxis2'] = dict(
+                title=dict(text=sec_title, standoff=4),
+                overlaying='y', side='right', matches='y',
                 tickmode='array',
                 tickvals=list(ticks),
                 ticktext=labels,
-                showgrid=False,
-                zeroline=False,
+                showgrid=False, zeroline=False,
             )
 
-    elif y_var == CONDUCTIVITY_VAR:
-        ticks = _sparse_ticks(y1d)
-        w_vals = np.where(ticks > 0, ticks / 0.18, 0.0)
-        labels = [f'{v:.2g}' if v > 0 else '0' for v in w_vals]
-        extra['yaxis2'] = dict(
-            title=dict(text='Salinity (ppt)', standoff=4),
-            overlaying='y',
-            side='right',
-            matches='y',
-            tickmode='array',
-            tickvals=list(ticks),
-            ticktext=labels,
-            showgrid=False,
-            zeroline=False,
-        )
-
-    return extra
+    if layout_updates:
+        fig.update_layout(**layout_updates)
 
 
 def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False, smooth_factor=2, use_contours=True,
-                               x_log=False, y_log=False):
+                               x_log=False, y_log=False, use_nT_amplitudes=True,
+                               show_salinity_axis=True, induct_component='Total',
+                               x_derived=None, y_derived=None,
+                               x_derived_label=None, y_derived_label=None):
     """
     Create Plotly version of exploreogram that matches matplotlib styling.
 
@@ -301,6 +332,12 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
         FigLbl: Figure labels struct (optional, for advanced styling)
         smoothing: Whether to apply smoothing
         smooth_factor: Smoothing factor if smoothing enabled
+        use_nT_amplitudes: If True (default), show induced-field amplitudes in nT
+            using induction.Bi1Tot_nT (modulus); if False, use the dimensionless
+            Ae stored in induction.Amp.
+        induct_component: Which induced-field component to display when
+            zName == 'Amp_nT' and use_nT_amplitudes is True.  One of
+            'Total', 'Bx', 'By', 'Bz'.  Defaults to 'Total'.
 
     Returns:
         Plotly figure object
@@ -323,12 +360,7 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
         raise ValueError("Exploration.base is None or missing")
 
     # Check if this is a magnetic induction variable
-    induction_vars = ['Amp_nT', 'Bix_nT', 'Biy_nT', 'Biz_nT', 'phase_deg',
-                      'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT', 'Bi1Tot_nT',
-                      'rBi1x_nT', 'rBi1y_nT', 'rBi1z_nT', 'rBi1Tot_nT',
-                      'iBi1x_nT', 'iBi1y_nT', 'iBi1z_nT', 'iBi1Tot_nT']
-
-    if zName in induction_vars:
+    if zName in INDUCTION_Z_VARS:
         # Extract from induction substructure
         if not hasattr(Exploration, 'induction') or Exploration.induction is None:
             raise ValueError(f"Magnetic induction data not found for variable '{zName}'. Induction calculations may not have been enabled.")
@@ -356,18 +388,42 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
 
         induction_attr_name = induction_var_map.get(zName, zName)
 
-        if not hasattr(Exploration.induction, induction_attr_name):
-            raise ValueError(f"Could not find '{induction_attr_name}' in induction results")
+        # Amplitude special case: when use_nT_amplitudes is True (default), show
+        # the chosen per-component amplitude in nT rather than the dimensionless
+        # modulus stored in induction.Amp.  The user can select the component
+        # (Total, Bx, By, Bz) via induct_component; 'Total' uses Bi1Tot_nT,
+        # the others use the corresponding per-axis array.
+        if zName == 'Amp_nT' and use_nT_amplitudes:
+            _component_map = {
+                'Total': 'Bi1Tot_nT',
+                'Bx':    'Bi1x_nT',
+                'By':    'Bi1y_nT',
+                'Bz':    'Bi1z_nT',
+            }
+            _attr = _component_map.get(induct_component, 'Bi1Tot_nT')
+            _arr = getattr(Exploration.induction, _attr, None)
+            if _arr is None:
+                raise ValueError(f"{_attr} not available; cannot render nT amplitude for component '{induct_component}'")
+            induction_data = np.abs(_arr)
+            induction_attr_name = f'|{_attr}| (nT)'  # informational only
+        else:
+            if not hasattr(Exploration.induction, induction_attr_name):
+                raise ValueError(f"Could not find '{induction_attr_name}' in induction results")
 
-        induction_data = getattr(Exploration.induction, induction_attr_name)
+            induction_data = getattr(Exploration.induction, induction_attr_name)
 
-        if induction_data is None:
-            raise ValueError(f"Induction data '{induction_attr_name}' is None")
+            if induction_data is None:
+                raise ValueError(f"Induction data '{induction_attr_name}' is None")
 
-        # Induction data is 3D: (nPeaks, ny, nx)
+        # Induction data is 3D: (nPeaks, nx, ny)
         # Use the first frequency peak
         if len(induction_data.shape) == 3:
-            zData = induction_data[0, :, :]  # First frequency peak
+            _nPeaks, _nx, _ny = induction_data.shape
+            assert _nx == len(xData) and _ny == len(yData), (
+                f"Induction data shape {induction_data.shape} inconsistent with "
+                f"xData len={len(xData)}, yData len={len(yData)}"
+            )
+            zData = induction_data[0, :, :]  # First frequency peak, shape (nx, ny)
         elif len(induction_data.shape) == 2:
             zData = induction_data  # Already 2D
         else:
@@ -382,7 +438,13 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
 
     # Ensure 2D shape
     if len(xData.shape) == 1:
+        # defensive fallback for 1D input; production path uses 2D (nx, ny) arrays from ResultsIO
+        x1d_pre = xData.copy()
+        y1d_pre = yData.copy()
         xData, yData = np.meshgrid(xData, yData)
+        # meshgrid convention: shape (ny, nx) — row=y, col=x
+        assert xData.shape[0] == len(y1d_pre) and xData.shape[1] == len(x1d_pre), \
+            f"meshgrid shape {xData.shape} inconsistent with x1d={len(x1d_pre)}, y1d={len(y1d_pre)}"
 
     # Get validity mask
     VALID = Exploration.base.VALID
@@ -439,15 +501,93 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
         zLabel = zName
         title = f'{zName} vs {Exploration.xName} and {Exploration.yName}'
 
+    # Override colorbar label when amplitude is shown — match the actual data unit
+    if zName == 'Amp_nT':
+        if use_nT_amplitudes:
+            _comp_label_map = {
+                'Total': '|Bi| (nT)',
+                'Bx':    'Bi_x (nT)',
+                'By':    'Bi_y (nT)',
+                'Bz':    'Bi_z (nT)',
+            }
+            zLabel = _comp_label_map.get(induct_component, '|Bi| (nT)')
+        else:
+            zLabel = 'Amplitude Ae'  # Ae (dimensionless)
+
     # Create heatmap
     fig = go.Figure()
 
+    # xData/yData shape (nx, ny): col 0 has all unique x; row 0 has all unique y
     x1d = xData[:, 0] if len(xData.shape) == 2 else xData
     y1d = yData[0, :] if len(yData.shape) == 2 else yData
 
+    # Derived-axis tick-label substitution.
+    # If a derived 2D array is provided (e.g. sigmaMean_Sm mapped from wOcean_ppt),
+    # collapse it to a 1D mean and use it for axis tick labels while keeping the
+    # rectilinear driver grid geometry intact.
+    x_tickvals  = None
+    x_ticklabels = None
+    y_tickvals  = None
+    y_ticklabels = None
+
+    # 1D derived curves stored for secondary-axis mapping below.
+    _x_derived_1d = None  # conductivity values at each x grid point (length nx)
+    _y_derived_1d = None  # conductivity values at each y grid point (length ny)
+
+    def _near_monotone(arr):
+        """True if arr is monotone or has ≤5% violations (handles low-salinity plateaus)."""
+        diffs = np.diff(arr)
+        finite = diffs[np.isfinite(diffs)]
+        if len(finite) == 0:
+            return False
+        n = len(diffs)
+        return (
+            np.all(diffs >= 0) or np.all(diffs <= 0) or
+            (np.sum(diffs < 0) / n < 0.05) or
+            (np.sum(diffs > 0) / n < 0.05)
+        )
+
+    if x_derived is not None:
+        # mean across y dimension (axis=1) → length nx, matching x1d
+        _x_ticks = np.nanmean(x_derived, axis=1)
+        if len(_x_ticks) == len(x1d):
+            if _near_monotone(_x_ticks):
+                # Use DERIVED coordinates as axis positions so the axis extent matches
+                # the derived quantity range (e.g. 0–100 S/m), not the driver range.
+                x_tickvals    = _x_ticks
+                x_ticklabels  = [f'{v:.3g}' for v in _x_ticks]
+                _x_derived_1d = _x_ticks  # save for secondary-axis mapping
+            else:
+                import warnings
+                warnings.warn(
+                    f"Derived x-axis '{x_derived_label}' is non-monotone after averaging; "
+                    "using driver tick values instead."
+                )
+
+    if y_derived is not None:
+        # mean across x dimension (axis=0) → length ny, matching y1d
+        _y_ticks = np.nanmean(y_derived, axis=0)
+        if len(_y_ticks) == len(y1d):
+            if _near_monotone(_y_ticks):
+                # Use DERIVED coordinates as axis positions.
+                y_tickvals    = _y_ticks
+                y_ticklabels  = [f'{v:.3g}' for v in _y_ticks]
+                _y_derived_1d = _y_ticks  # save for secondary-axis mapping
+            else:
+                import warnings
+                warnings.warn(
+                    f"Derived y-axis '{y_derived_label}' is non-monotone after averaging; "
+                    "using driver tick values instead."
+                )
+
+    # When a derived 1D axis is available, position heatmap cells at derived coordinates
+    # so the visual extent matches the derived quantity range (e.g. conductivity 0–100 S/m).
+    _hmap_x = _x_derived_1d if _x_derived_1d is not None else x1d
+    _hmap_y = _y_derived_1d if _y_derived_1d is not None else y1d
+
     heatmap = go.Heatmap(
-        x=x1d,
-        y=y1d,
+        x=_hmap_x,
+        y=_hmap_y,
         z=zData.T,
         colorscale=colorscale,
         zmin=zmin,
@@ -474,7 +614,7 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
     if use_contours and zmax != zmin:
         n_contours = 8
         fig.add_trace(go.Contour(
-            x=x1d, y=y1d, z=zData.T,
+            x=_hmap_x, y=_hmap_y, z=zData.T,
             showscale=False,
             contours=dict(
                 start=zmin, end=zmax,
@@ -522,6 +662,7 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
             contour_data = getattr(Exploration.base, contour_name)
 
             # Add contour lines
+            # xData/yData shape (nx, ny): col 0 → unique x; row 0 → unique y
             fig.add_trace(go.Contour(
                 x=xData[:, 0] if len(xData.shape) == 2 else xData,
                 y=yData[0, :] if len(yData.shape) == 2 else yData,
@@ -536,12 +677,111 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
                 hoverinfo='skip'
             ))
 
-    # Attach secondary axis when one axis is wOcean_ppt or sigmaMean_Sm
-    secondary_axis_kwargs = _build_secondary_axis_layout(
-        Exploration.xName, Exploration.yName, x1d, y1d
-    )
-    if secondary_axis_kwargs:
-        fig.update_layout(**secondary_axis_kwargs)
+    # Apply derived-axis tick overrides and title substitution.
+    # These replace driver tick values with derived quantity values (e.g. σ in S/m
+    # instead of salinity in ppt) while keeping the rectilinear grid geometry.
+    _DERIVED_TITLES = {
+        'sigmaMean_Sm':    'Mean Conductivity (S/m)',
+        'D_km':            'Ocean Thickness (km)',
+        'rhoSilMean_kgm3': 'Mean Silicate Density (kg/m³)',
+    }
+
+    xaxis_update = {}
+    if x_tickvals is not None:
+        xaxis_update.update(dict(
+            tickmode='array',
+            tickvals=list(x_tickvals),
+            ticktext=x_ticklabels,
+            type='linear',
+            range=[float(np.nanmin(x_tickvals)), float(np.nanmax(x_tickvals))],
+        ))
+    if x_derived_label is not None:
+        xaxis_update['title'] = _DERIVED_TITLES.get(x_derived_label, x_derived_label)
+
+    yaxis_update = {}
+    if y_tickvals is not None:
+        yaxis_update.update(dict(
+            tickmode='array',
+            tickvals=list(y_tickvals),
+            ticktext=y_ticklabels,
+            type='linear',
+            range=[float(np.nanmin(y_tickvals)), float(np.nanmax(y_tickvals))],
+        ))
+    if y_derived_label is not None:
+        yaxis_update['title'] = _DERIVED_TITLES.get(y_derived_label, y_derived_label)
+
+    if xaxis_update:
+        fig.update_layout(xaxis=xaxis_update)
+    if yaxis_update:
+        fig.update_layout(yaxis=yaxis_update)
+
+    # Secondary salinity↔conductivity axis.
+    # When the primary axis already shows conductivity (sigmaMean_Sm via derived-tick
+    # labels), and show_salinity_axis is checked, the secondary axis should show the
+    # corresponding salinity values — which are exactly the driver tick positions in
+    # x1d/y1d (those ARE the wOcean_ppt grid values since xData is never overwritten).
+    # For the reverse direction (primary=wOcean_ppt), _attach_secondary_axis handles it.
+    _SIG = 'sigmaMean_Sm'
+
+    def _sparse_idx(n, n_max=6):
+        return np.round(np.linspace(0, n - 1, min(n_max, n))).astype(int)
+
+    if show_salinity_axis:
+        if x_derived_label == _SIG and _x_derived_1d is not None:
+            # Primary axis is now in conductivity space (_x_derived_1d).
+            # Secondary axis shows salinity (x1d) at the matching conductivity positions.
+            _idx = _sparse_idx(len(_x_derived_1d))
+            _sig_ticks = [float(_x_derived_1d[i]) for i in _idx]
+            _sal_at_sig = list(np.interp(_sig_ticks, _x_derived_1d, x1d))
+            fig.update_layout(xaxis2=dict(
+                title=dict(text='Salinity (ppt)', standoff=4),
+                overlaying='x', side='top', matches='x',
+                type='linear',
+                anchor='y',
+                tickmode='array',
+                tickvals=_sig_ticks,
+                ticktext=[f'{v:.3g}' for v in _sal_at_sig],
+                showgrid=False, zeroline=False,
+            ))
+            # Plotly only renders axes that have at least one assigned trace.
+            fig.add_trace(go.Scatter(
+                x=[_sig_ticks[0], _sig_ticks[-1]],
+                y=[None, None],
+                mode='markers',
+                marker=dict(opacity=0, size=1),
+                showlegend=False,
+                xaxis='x2',
+                yaxis='y',
+                hoverinfo='skip',
+            ))
+        if y_derived_label == _SIG and _y_derived_1d is not None:
+            _idx = _sparse_idx(len(_y_derived_1d))
+            _sig_ticks = [float(_y_derived_1d[i]) for i in _idx]
+            _sal_at_sig = list(np.interp(_sig_ticks, _y_derived_1d, y1d))
+            fig.update_layout(yaxis2=dict(
+                title=dict(text='Salinity (ppt)', standoff=4),
+                overlaying='y', side='right', matches='y',
+                type='linear',
+                anchor='x',
+                tickmode='array',
+                tickvals=_sig_ticks,
+                ticktext=[f'{v:.3g}' for v in _sal_at_sig],
+                showgrid=False, zeroline=False,
+            ))
+            fig.add_trace(go.Scatter(
+                x=[None, None],
+                y=[_sig_ticks[0], _sig_ticks[-1]],
+                mode='markers',
+                marker=dict(opacity=0, size=1),
+                showlegend=False,
+                xaxis='x',
+                yaxis='y2',
+                hoverinfo='skip',
+            ))
+        # Only call _attach_secondary_axis when no derived label is present on either side.
+        # The derived-axis secondary (xaxis2/yaxis2 above) handles those sides directly.
+        if x_derived_label is None and y_derived_label is None:
+            _attach_secondary_axis(fig, Exploration, x1d, y1d)
 
     return fig
 
@@ -590,7 +830,12 @@ def create_multi_exploreogram_plotly(Exploration, Params, zNames, FigLbl=None):
 
     # Ensure 2D shape
     if len(xData.shape) == 1:
+        x1d_pre = xData.copy()
+        y1d_pre = yData.copy()
         xData, yData = np.meshgrid(xData, yData)
+        # meshgrid convention: shape (ny, nx) — row=y, col=x
+        assert xData.shape[0] == len(y1d_pre) and xData.shape[1] == len(x1d_pre), \
+            f"meshgrid shape {xData.shape} inconsistent with x1d={len(x1d_pre)}, y1d={len(y1d_pre)}"
 
     # Add each z-variable as a subplot
     for idx, zName in enumerate(zNames):
@@ -612,6 +857,7 @@ def create_multi_exploreogram_plotly(Exploration, Params, zNames, FigLbl=None):
         data_max = np.nanmax(zData)
 
         # Add heatmap
+        # xData/yData shape (nx, ny): col 0 → unique x; row 0 → unique y
         fig.add_trace(
             go.Heatmap(
                 x=xData[:, 0],
@@ -658,7 +904,10 @@ def create_multi_exploreogram_plotly(Exploration, Params, zNames, FigLbl=None):
 
 
 def create_inductogram_plotly(Exploration, Params, FigLbl=None,
-                              display_mode='real_imaginary', use_contours=True):
+                              display_mode='real_imaginary', use_contours=True,
+                              use_nT_amplitudes=True,
+                              x_log=False, y_log=False,
+                              show_salinity_axis=True):
     """
     Create multi-frequency inductogram with contour lines following
     published literature conventions.
@@ -674,6 +923,16 @@ def create_inductogram_plotly(Exploration, Params, FigLbl=None,
         display_mode: 'real_imaginary' or 'amplitude_phase'
         use_contours: If True, use contour lines (paper convention).
                       If False, use heatmap coloring.
+        use_nT_amplitudes: If True (default), amplitudes / Re / Im are shown in
+            nT (using rBi1Tot_nT, iBi1Tot_nT, |Bi1Tot_nT|).  If False, the
+            dimensionless Ae representation is used (Amp + phase, or scaled
+            Re/Im built from Ae·exp(iφ)).
+        x_log: If True, use logarithmic x-axis on each subplot.
+        y_log: If True, use logarithmic y-axis on each subplot.
+        show_salinity_axis: Accepted for signature parity with
+            create_exploreogram_plotly. Secondary axis attachment is not yet
+            implemented for multi-panel inductogram subplots; this parameter
+            is currently ignored.
 
     Returns:
         Plotly figure object
@@ -703,8 +962,15 @@ def create_inductogram_plotly(Exploration, Params, FigLbl=None,
     VALID = Exploration.base.VALID
 
     if len(xData.shape) == 1:
+        # defensive fallback for 1D input; production path uses 2D (nx, ny) arrays from ResultsIO
+        x1d_pre = xData.copy()
+        y1d_pre = yData.copy()
         xData, yData = np.meshgrid(xData, yData)
+        # meshgrid convention: shape (ny, nx) — row=y, col=x
+        assert xData.shape[0] == len(y1d_pre) and xData.shape[1] == len(x1d_pre), \
+            f"meshgrid shape {xData.shape} inconsistent with x1d={len(x1d_pre)}, y1d={len(y1d_pre)}"
 
+    # xData/yData shape (nx, ny): col 0 → unique x; row 0 → unique y
     x1d = xData[:, 0]
     y1d = yData[0, :]
 
@@ -761,14 +1027,43 @@ def create_inductogram_plotly(Exploration, Params, FigLbl=None,
             im_data = _get_induction_slice(induction, 'iBi1Tot_nT', iPeak, VALID)
             left_label = 'Re{B\u2071} (nT)'
             right_label = 'Im{B\u2071} (nT)'
+            if not use_nT_amplitudes:
+                # Override: dimensionless A_e * exp(i*phi)
+                amp_data = _get_induction_slice(induction, 'Amp', iPeak, VALID)
+                phase_data = _get_induction_slice(induction, 'Phase', iPeak, VALID)
+                if amp_data is not None and phase_data is not None:
+                    phase_rad = np.deg2rad(phase_data)
+                    re_data = amp_data * np.cos(phase_rad)
+                    im_data = amp_data * np.sin(phase_rad)
+                else:
+                    re_data, im_data = None, None
+                left_label = 'Re{A\u2091}'
+                right_label = 'Im{A\u2091}'
             left_data, right_data = re_data, im_data
             left_cscale = colorscale_div
             right_cscale = colorscale_div
         else:
             # Amplitude + Phase
-            amp_data = _get_induction_slice(induction, 'Amp', iPeak, VALID)
+            if use_nT_amplitudes:
+                # |Bi1Tot| in nT \u2014 modulus of complex induced field
+                bi1tot = getattr(induction, 'Bi1Tot_nT', None)
+                if bi1tot is not None:
+                    abs_bi = np.abs(bi1tot)
+                    if len(abs_bi.shape) == 3:
+                        amp_data = abs_bi[iPeak, :, :].copy()
+                    elif len(abs_bi.shape) == 2:
+                        amp_data = abs_bi.copy()
+                    else:
+                        amp_data = None
+                    if amp_data is not None and VALID is not None:
+                        amp_data[~VALID] = np.nan
+                else:
+                    amp_data = None
+                left_label = '|B\u2071| (nT)'
+            else:
+                amp_data = _get_induction_slice(induction, 'Amp', iPeak, VALID)
+                left_label = 'Amplitude A\u2091'
             phase_data = _get_induction_slice(induction, 'Phase', iPeak, VALID)
-            left_label = 'Amplitude (nT)'
             right_label = 'Phase (\u00b0)'
             left_data, right_data = amp_data, phase_data
             left_cscale = colorscale_pos
@@ -827,18 +1122,40 @@ def create_inductogram_plotly(Exploration, Params, FigLbl=None,
         margin=dict(l=60, r=100, t=top_margin, b=40),
     )
 
+    # Apply per-axis log scaling to every subplot
+    if x_log:
+        fig.update_xaxes(type='log')
+    if y_log:
+        fig.update_yaxes(type='log')
+
     return fig
 
 
 def _get_induction_slice(induction, attr_name, iPeak, VALID):
-    """Extract a 2D slice from a 3D induction array for a given peak index."""
+    """Extract a 2D slice from a 3D induction array for a given peak index.
+
+    Stored attributes on InductionData (see ResultsStructs.py and
+    ResultsIO.py:ExtractInductionData):
+      - real-valued (np.iscomplexobj returns False): Amp, Phase,
+        Bix_nT, Biy_nT, Biz_nT, rBi1Tot_nT, iBi1Tot_nT,
+        rBi1{x,y,z}_nT, iBi1{x,y,z}_nT
+      - complex-valued: Bi1x_nT, Bi1y_nT, Bi1z_nT, Bi1Tot_nT
+
+    For the complex-stored attributes the only meaningful scalar reduction
+    here is the modulus (amplitude).  Sign-bearing real/imaginary panels
+    must be requested by their explicit r*/i* attribute names so they keep
+    their sign — callers must NOT pass Bi1Tot_nT when they want Re or Im.
+    """
     data = getattr(induction, attr_name, None)
     if data is None:
         return None
 
-    # Handle complex arrays — take real part if complex
     if np.iscomplexobj(data):
-        data = np.real(data)
+        # Only Bi1{x,y,z,Tot}_nT are complex. Return modulus for those.
+        # Real-stored attributes (rBi1Tot_nT, iBi1Tot_nT, Phase, Amp, etc.)
+        # fall through unchanged — do NOT apply np.abs to them as that would
+        # discard the sign of real/imaginary-component panels.
+        data = np.abs(data)
 
     if len(data.shape) == 3:
         sliced = data[iPeak, :, :].copy()
