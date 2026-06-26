@@ -83,6 +83,8 @@ class BulkSubstruct():
         self.rho_kgm3 = None  # Bulk density in kg/m^3 -- note that this is intended to be derived and not set.
         self.R_m = None  # Mean body outer radius in m
         self.M_kg = None  # Total body mass in kg
+        self.Torb_s = None  # Orbital period in s. If unset, gravity/libration calculations are skipped.
+        self.eccentricity = None  # Orbital eccentricity. If unset, gravity/libration calculations are skipped.
         self.Tsurf_K = None  # Surface temperature in K
         self.Psurf_MPa = None  # Surface pressure in MPa
         self.Cmeasured = None  # Axial moment of inertia C/MR^2, dimensionless
@@ -528,12 +530,12 @@ class GravitySubstruct:
     def __init__(self):
         self.columns = ['r', 'phase', 'rho', 'VP', 'VS', 'GS', 'eta']
         self.units_PyALMA3 = ['m', '', 'kg m-3', 'm s-1', 'm s-1', 'GPa', 'kg/m*s']
-        self.parameters_to_convert = {'VP': 1e3, 'VS': 1e3, 'GS': 1e9} # Parameters that need to be converted to units of PyALMA3 and conversion factor
+        self.parameters_to_convert = {'VP': 1e3, 'VS': 1e3, 'GS': 1e9} # Parameters that need to be converted to ALMA units and conversion factor
         self.model = None # Compatible form of Planet data
         self.ALMAModel = None # Dictionary of data necessary for ALMA functions
 
 
-        # Properties needed for PyALMA3
+        # Properties needed for ALMA
         self.LAMBDA_Pa = None # 1st Lame parameter in Pascals
         self.MU_Pa = None # Shear modulus in Pascals
         self.SIGMA = None # Poisson's ratio
@@ -542,14 +544,14 @@ class GravitySubstruct:
         self.VISCOSITY_kg_ms = None # Viscosity in kg/m*s
         self.time_log_kyrs = None # Time scale of calculations
         self.harmonic_degrees = None # Harmonic degrees to calculate
-        self.rheology = None # Rheology for PyALMA3
+        self.rheology = None # Rheology for ALMA backend
         self.pyAlmaParams = None # List of parameters for andrade and Burgers layers that we set
-        self.andradExponent = 0.2 # Andrade exponent for andrade layers
-        self.andradGamma = None # Optional Andrade gamma override. If None, PyALMA uses gamma(alpha + 1).
+        self.andradAlpha = 0.2 # Andrade alpha for andrade layers
+        self.andradGamma = None # Optional Andrade gamma. If None, ALMA uses gamma(alpha + 1).
         self.BurgerFirstParameter = 0 # First parameter for Burgers layers
         self.BurgerSecondParameter = 0 # Second parameter for Burgers layers
         
-        # Calculated complex love numbers - 2d array of shape len(harmonic_degrees)xlen(time_log_kyrs) [see configPPgravity]
+        # Calculated scalar degree-2 complex Love numbers at the orbital period
         self.h = np.nan # h love number
         self.l = np.nan # l love number
         self.k = np.nan # k love number
@@ -562,6 +564,11 @@ class GravitySubstruct:
         self.lPhase = np.nan # Phase of l love number
         self.kPhase = np.nan # Phase of k love number
         self.deltaPhase = np.nan # Phase of delta relationship between love numbers (1+k-h)
+        self.libration_m = np.nan # Surface libration amplitude in m
+        self.y = None # Internal ALMA solution vectors used for libration calculations
+        self.y1 = None # Radial displacement function used for libration calculations
+        self.Torb_s = None # Orbital period in s used for gravity/libration calculations
+        self.eccentricity = None # Orbital eccentricity used for gravity/libration calculations
 
 
 """ Main body profile info--settings and variables """

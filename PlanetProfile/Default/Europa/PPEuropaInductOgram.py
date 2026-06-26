@@ -15,6 +15,8 @@ Planet.PfreezeUpper_MPa = 150
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 1560.8e3
 Planet.Bulk.M_kg = 4.800e22
+Planet.Bulk.Torb_s = 3.551181 * 24 * 3600
+Planet.Bulk.eccentricity = 0.0094
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346

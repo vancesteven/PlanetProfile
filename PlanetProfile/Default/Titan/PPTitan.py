@@ -12,6 +12,8 @@ Planet = PlanetStruct('Titan')
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 2574.73e3  # Value from mean radius in Archinal et al. (2018): https://doi.org/10.1007/s10569-017-9805-5
 Planet.Bulk.M_kg = 1.3452e23  # Value from Jacobson et al. (2006): https://doi.org/10.1086/508812
+Planet.Bulk.Torb_s = 15.945 * 24 * 3600
+Planet.Bulk.eccentricity = 0.0288
 Planet.Bulk.Tsurf_K = 94
 Planet.Bulk.Psurf_MPa = 0.15
 Planet.Bulk.Cmeasured = 0.341  # Value from Durante et al. (2019): https://doi.org/10.1016/j.icarus.2019.03.003
