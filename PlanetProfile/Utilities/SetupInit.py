@@ -324,10 +324,10 @@ def SetupInit(Planet, Params):
     
         # Setup parameters
         for phase in Planet.Ocean.Eact_kJmol.keys():
-            if Planet.Ocean.Eact_kJmol[phase] is np.nan:
+            if np.isnan(Planet.Ocean.Eact_kJmol[phase]):
                 Planet.Ocean.Eact_kJmol[phase] = Constants.Eact_kJmol[PhaseInv(phase)]
         for phase in Planet.Ocean.etaMelt_Pas.keys():
-            if Planet.Ocean.etaMelt_Pas[phase] is np.nan:
+            if np.isnan(Planet.Ocean.etaMelt_Pas[phase]):
                 Planet.Ocean.etaMelt_Pas[phase] = Constants.etaMelt_Pas[PhaseInv(phase)]
 
     # Make sure convection checking outputs are set if we won't be modeling them
@@ -677,13 +677,10 @@ def SetupFilenames(Planet, Params, exploreAppend=None, figExploreAppend=None, mo
                 monteCarloBase = f'{Planet.name}MonteCarlo_{monteCarloAppend}_{saveLabel}'
             else:
                 monteCarloBase = None
-    if not Params.NO_SAVEFILE: # If not saving data files, we don't need to create data files
-        DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, comp, inductBase=inductBase,
-                                   exploreAppend=exploreAppend, EXPLORE=(Params.DO_INDUCTOGRAM or
-                                       Params.DO_EXPLOREOGRAM or Params.DO_MONTECARLO or Params.INDUCTOGRAM_IN_PROGRESS),
-                                   inductAppend=inductAppend, monteCarloAppend=monteCarloAppend)
-    else:
-        DataFiles = DataFilesSubstruct('', '', '')
+    DataFiles = DataFilesSubstruct(datPath, saveBase + saveLabel, comp, inductBase=inductBase,
+                               exploreAppend=exploreAppend, EXPLORE=(Params.DO_INDUCTOGRAM or
+                                   Params.DO_EXPLOREOGRAM or Params.DO_MONTECARLO or Params.INDUCTOGRAM_IN_PROGRESS),
+                               inductAppend=inductAppend, monteCarloAppend=monteCarloAppend)
     if not Params.SKIP_PLOTS: # If skipping plots, we don't need to create figure files
         FigureFiles = FigureFilesSubstruct(figPath, saveBase + saveLabel, FigMisc.xtn,
                                        comp=comp, exploreBase=exploreBase, inductBase=inductBase, monteCarloBase=monteCarloBase,

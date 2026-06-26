@@ -1488,7 +1488,13 @@ def FindInnerWithMoIAndEOS(Planet, Params):
             kThermSil_WmK, PsilPore_MPa, rhoSilMatrix_kgm3, rhoSilPore_kgm3, phaseSilPore, phiTop_frac \
             = (np.empty((0, Planet.Steps.nSilMax)) for _ in range(14))
         rSil_m = np.empty((0, Planet.Steps.nSilMax+1))
-        iValid = [indsSilValidTemp + Planet.Steps.iSilStart]
+        # SilicateLayers returns range(0) when no mantle size fits below the body mass.
+        # Use a placeholder index in that case (it is popped off below) so the arithmetic
+        # and iValid bookkeeping below do not fail on an empty range.
+        if np.size(indsSilValidTemp) == 0:
+            iValid = [Planet.Steps.iSilStart]
+        else:
+            iValid = [indsSilValidTemp + Planet.Steps.iSilStart]
 
         while np.size(indsSilValidTemp) != 0 and (thisHtidal_Wm3 <= Planet.Sil.HtidalMax_Wm3 and thisphiTop_frac >= phiMin_frac):
             nProfiles += 1
@@ -1532,7 +1538,14 @@ def FindInnerWithMoIAndEOS(Planet, Params):
                 phiSilTemp_frac, HtidalSilTemp_Wm3, kThermSilTemp_WmK, PporeTemp_MPa, rhoSilMatrixTemp_kgm3, rhoPoreTemp_kgm3, phaseSilPoreTemp \
                     = SilicateLayers(Planet, Params)
                 # Record hydrosphere indices to include along with each profile
-            iValid = np.append(iValid, indsSilValidTemp + Planet.Steps.iSilStart)
+
+            # When the sweep reaches a mantle size whose mass exceeds the body mass,
+            # SilicateLayers returns range(0). Append a placeholder index (popped off
+            # below) so the loop terminates cleanly instead of failing on range + int.
+            if np.size(indsSilValidTemp) == 0:
+                iValid = np.append(iValid, Planet.Steps.iSilStart)
+            else:
+                iValid = np.append(iValid, indsSilValidTemp + Planet.Steps.iSilStart)
 
         # Mark all mass-matching profiles as valid
         indsSilValid = range(nProfiles)

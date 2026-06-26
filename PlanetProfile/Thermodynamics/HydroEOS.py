@@ -1139,7 +1139,7 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0.1, PUpper_MPa=300, PRes_MP
         Returns:
             Pfreeze_MPa (float): Pressure at the phase change interface consistent with Tb_K
     """
-    phaseChangeUnderplateOrHPNoOcean = lambda P: 0.5 + (phaseTop - oceanEOS.fn_phase(P, Tb_K))
+    phaseChangeUnderplateOrHPNoOcean = lambda P: 0.5 + (phaseTop - np.float64(oceanEOS.fn_phase(P, Tb_K))) # Cast to float64 to avoid underflow from int8 phase IDs
     if (UNDERPLATE or HPNOOCEAN) is None:
         raise ValueError('UNDERPLATE or HPNOOCEAN is not set. Please set one of these to True or False.')
     else:
@@ -1148,7 +1148,7 @@ def GetPfreeze(oceanEOS, phaseTop, Tb_K, PLower_MPa=0.1, PUpper_MPa=300, PRes_MP
     if UNDERPLATEOrHPNOOCEAN:
         phaseChange = phaseChangeUnderplateOrHPNoOcean
     else:
-        phaseChange = lambda P: 0.5 - (phaseTop - oceanEOS.fn_phase(P, Tb_K))
+        phaseChange = lambda P: 0.5 - (phaseTop - np.float64(oceanEOS.fn_phase(P, Tb_K))) # Cast to float64 to avoid underflow from int8 phase IDs
 
     Pfreeze_MPa = None
     if phaseChange(PLower_MPa) * phaseChange(PUpper_MPa) > 0:

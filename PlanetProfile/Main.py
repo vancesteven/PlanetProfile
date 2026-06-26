@@ -34,7 +34,7 @@ from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, Timing
 from PlanetProfile.Utilities.ResultsStructs import ExplorationResultsStruct, MonteCarloResultsStruct, InductionResultsStruct
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings, PrecomputeEOS
-from PlanetProfile.Utilities.ResultsIO import WriteResults, ReloadResultsFromPickle, ExtractResults, InductionCalced
+from PlanetProfile.Utilities.ResultsIO import WriteResults, ReloadResultsFromPickle, ExtractResults, InductionCalced, ensure_parent_dir
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 from PlanetProfile.Utilities.PPversion import ppVerNum
 from PlanetProfile.Gravity.Gravity import GravityParameters
@@ -48,7 +48,7 @@ plat = platform.system()
 if plat == 'Windows':
     mtpType = 'spawn'
 else:
-    mtpType = 'fork'
+    mtpType = 'spawn'
 mtpContext = mtp.get_context(mtpType)
 
 # Assign logger
@@ -600,6 +600,7 @@ def WriteProfile(Planet, Params):
     # Print number of header lines early so we can skip the rest on read-in if we want to
     Params.nHeadLines = np.size(headerLines) + 3
     headerLines = np.insert(headerLines, 0, f'  nHeadLines = {Params.nHeadLines:d}')
+    ensure_parent_dir(Params.DataFiles.saveFile)
     with open(Params.DataFiles.saveFile,'w') as f:
         f.write(Planet.label + '\n')
         f.write('\n  '.join(headerLines) + '\n')
@@ -632,6 +633,7 @@ def WriteProfile(Planet, Params):
                 f'{Planet.eta_Pas[i]:24.17e}']) + '\n')
 
     # Write out data from core/mantle trade
+    ensure_parent_dir(Params.DataFiles.mantCoreFile)
     with open(Params.DataFiles.mantCoreFile, 'w') as f:
         f.write(' '.join(['RsilTrade (m)'.ljust(24),
                           'RcoreTrade (m)'.ljust(24),
@@ -1810,6 +1812,8 @@ def AssignPlanetVal(Planet, name, val):
             GS_ice_GPa: Ice shear modulus in GPa in Planet.Ocean.GScondMean_GPa['Ih']
             GS_sil_GPa: Silicate shear modulus in GPa in Planet.Sil.GSmean_GPa
             GS_core_GPa: Core shear modulus in GPa in Planet.Core.GSmean_GPa
+            AndradeAlpha: Andrade alpha in Planet.Gravity.andradAlpha
+            AndradeGamma: Andrade gamma in Planet.Gravity.andradGamma
     """
     if name == 'R_m':
         Planet.Bulk.R_m = val
@@ -1874,6 +1878,10 @@ def AssignPlanetVal(Planet, name, val):
         Planet.Core.wFe_ppt = val
         Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
         Planet.Do.ConstantProps['Inner'] = False
+    elif name == 'AndradeAlpha':
+        Planet.Gravity.andradAlpha = val
+    elif name == 'AndradeGamma':
+        Planet.Gravity.andradGamma = val
     # Do some final checks to ensure we have set all variables correctly
     if Planet.Do.POROUS_ROCK:
         if Planet.Sil.poreComp is None:

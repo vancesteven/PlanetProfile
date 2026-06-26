@@ -5,6 +5,7 @@ from PlanetProfile.Utilities.Indexing import GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import TsolidusHirschmann2000
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 from PlanetProfile.Utilities.PPversion import ppVerNum
+from PlanetProfile.Utilities.ResultsIO import ensure_parent_dir
 import logging
 import time
 
@@ -519,6 +520,7 @@ def WriteSeismic(Planet, Params):
             'qmu'
         ])
     ]
+    ensure_parent_dir(Params.DataFiles.AxiSEMfile)
     with open(Params.DataFiles.AxiSEMfile,'w') as f:
         f.write('\n'.join(headerLines) + '\n')
         for i in range(np.size(rAxi_m)):
@@ -621,6 +623,7 @@ def WriteSeismic(Planet, Params):
     QmuminEOS[np.logical_or(QmuminEOS > 99999, QmuminEOS < 0)] = 99999.0
 
     leadWSminEOS = 1
+    ensure_parent_dir(Params.DataFiles.minEOSvelFile)
     with open(Params.DataFiles.minEOSvelFile,'w') as f:
         # Header
         f.write(f'velmodel\n' +
@@ -692,6 +695,7 @@ def WriteSeismic(Planet, Params):
                 '# l_startlevel\n' + \
                 '000'
 
+    ensure_parent_dir(Params.DataFiles.minEOSyanFile)
     with open(Params.DataFiles.minEOSyanFile,'w') as f:
         f.write(yannosCfg)
 

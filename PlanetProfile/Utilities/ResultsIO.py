@@ -10,11 +10,18 @@ import logging
 import pickle
 from scipy.io import savemat
 from PlanetProfile.MagneticInduction.Moments import Excitations
-from PlanetProfile.MagneticInduction.MagneticInduction import Benm2absBexyz
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
+
+
+def ensure_parent_dir(filepath):
+    """Create parent directory for filepath if needed."""
+    parent = os.path.dirname(filepath)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
 
 def WriteResults(Results, pklFilePath, saveMatlab = False, matlabFilePath=None):
     """
@@ -25,12 +32,14 @@ def WriteResults(Results, pklFilePath, saveMatlab = False, matlabFilePath=None):
         filepath (str): Base filepath (without extension)
         save_matlab (bool): Whether to also save as .mat file
     """
+    ensure_parent_dir(pklFilePath)
     with open(pklFilePath, 'wb') as f:
         pickle.dump(Results, f)
     log.info(f"Results saved to pickle file: {pklFilePath}")
     
     # Optionally save as MATLAB format for compatibility
     if saveMatlab:
+        ensure_parent_dir(matlabFilePath)
         flat_dict = flatten_dict_for_matlab(Results)
         savemat(matlabFilePath, flat_dict)
         log.info(f"Results saved to MATLAB file: {matlabFilePath}")
@@ -284,6 +293,7 @@ def ExtractInductionData(InductionResults, bodyname, PlanetGrid, Params):
         # Extract magnetic induction results from the PlanetGrid
         Benm_nT = PlanetGrid[0, 0].Magnetic.Benm_nT
         # Organize data into a format that can be plotted/saved for plotting
+        from PlanetProfile.MagneticInduction.MagneticInduction import Benm2absBexyz
         Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(Benm_nT)
         induction_data['Bix_nT'] = np.array([Amp_3d[i, ...] * Bex_nT[i] for i in range(nPeaks)])
         induction_data['Biy_nT'] = np.array([Amp_3d[i, ...] * Bey_nT[i] for i in range(nPeaks)])

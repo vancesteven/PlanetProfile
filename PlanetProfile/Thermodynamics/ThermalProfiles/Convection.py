@@ -70,15 +70,14 @@ def IceIConvectSolid(Planet, Params):
             # nConduct is the first index where depth (z_m) is greater than the conductive lid thickness
             nConduct = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.eLid_m)
         except StopIteration:
-            # If no depths are found, the resolution is too low
-            raise RuntimeError('Failed to find any depth indices for upper TBL of ice III. Try increasing Steps.nIceVLitho.')
+            raise RuntimeError('Failed to find any depth indices for upper TBL of ice I. Try increasing Steps.nIceI.')
 
         # Find number of points in convective layer by getting index where depth is greater than 
         # bottom of ice shell minus thermal boundary layer thickness, and subtracting conductive index
         try:
             nConvect = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > zbI_m - Planet.deltaTBL_m) - nConduct
         except StopIteration:
-            raise RuntimeError('Failed to find any depth indices for lower TBL of ice III. Try increasing Steps.nIceVLitho.')
+            raise RuntimeError('Failed to find any depth indices for lower TBL of ice I. Try increasing Steps.nIceI.')
 
         # Get indices for thermal boundary layer - from end of convective layer to bottom of ice shell
         indsTBL = range(nConduct + nConvect, Planet.Steps.nIbottom+1)
@@ -236,11 +235,11 @@ def IceIConvectPorous(Planet, Params):
         try:
             nConduct = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.eLid_m)
         except StopIteration:
-            raise RuntimeError('Failed to find any depth indices for upper TBL of ice III. Try increasing Steps.nIceVLitho.')
+            raise RuntimeError('Failed to find any depth indices for upper TBL of ice I. Try increasing Steps.nIceI.')
         try:
             nConvect = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > zbI_m - Planet.deltaTBL_m) - nConduct
         except StopIteration:
-            raise RuntimeError('Failed to find any depth indices for lower TBL of ice III. Try increasing Steps.nIceVLitho.')
+            raise RuntimeError('Failed to find any depth indices for lower TBL of ice I. Try increasing Steps.nIceI.')
         indsTBL = range(nConduct + nConvect, Planet.Steps.nIbottom+1)
         # Get pressure at the convecting transition
         PconvTop_MPa = Planet.P_MPa[nConduct]

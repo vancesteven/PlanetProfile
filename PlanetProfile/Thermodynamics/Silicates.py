@@ -116,8 +116,14 @@ def SilicateLayers(Planet, Params):
             # this is *the* match for this Htidal coupling
             if np.size(indsSilValid) != 0:
                 indsSilValid = indsSilValid[0]
-            # Mark this model as invalid if it has negative temps
-            if Tsil_K[indsSilValid, -1] < 0:
+                # Mark this model as invalid if it has negative temps
+                if Tsil_K[indsSilValid, -1] < 0:
+                    indsSilValid = range(0)
+            else:
+                # No silicate size had a total mass below the bulk mass. Return an empty
+                # selection so callers (e.g. the porosity/Htidal sweep in
+                # FindInnerWithMoIAndEOS) can terminate gracefully instead of crashing
+                # on an empty-array truth check below.
                 indsSilValid = range(0)
 
         if np.any(Tsil_K[indsSilValid,:] < 0):

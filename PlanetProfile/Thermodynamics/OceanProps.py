@@ -4,6 +4,7 @@ import scipy.interpolate as spi
 from PlanetProfile.Thermodynamics.HydroEOS import GetPlanetOceanEOS
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
+from PlanetProfile.Utilities.ResultsIO import ensure_parent_dir
 import time
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -80,6 +81,7 @@ def WriteLiquidOceanProps(Planet, Params):
     Params.nHeadLines = np.size(headerLines) + 2
     headerLines = np.insert(headerLines, 0, f'nHeadLines = {Params.nHeadLines:d}')
     # Write out data from core/mantle trade
+    ensure_parent_dir(Params.DataFiles.oceanPropsFile)
     with open(Params.DataFiles.oceanPropsFile, 'w') as f:
         f.write('\n  '.join(headerLines) + '\n')
         f.write(' '.join(colHeaders) + '\n')

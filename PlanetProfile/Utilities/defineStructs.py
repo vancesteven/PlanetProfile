@@ -767,13 +767,6 @@ class DataFilesSubstruct:
         self.fNameGravity = os.path.join(self.gravityPath, saveBase)
         self.montecarloPath = os.path.join(self.path, 'montecarloData')
         self.fNameMonteCarlo = os.path.join(self.montecarloPath, saveBase)
-        if not self.path == '':
-            os.makedirs(self.path, exist_ok=True)
-            os.makedirs(self.inductPath, exist_ok=True)
-            os.makedirs(self.seisPath, exist_ok=True)
-            os.makedirs(self.fNameSeis, exist_ok=True)
-            os.makedirs(self.gravityPath, exist_ok=True)
-            os.makedirs(self.montecarloPath, exist_ok=True)
         self.fName = os.path.join(self.path, saveBase)
         self.saveFile = self.fName + '.txt'
         self.mantCoreFile = self.fName + '_mantleCore.txt'
