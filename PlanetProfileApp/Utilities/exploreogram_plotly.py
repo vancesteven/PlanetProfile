@@ -778,9 +778,12 @@ def create_exploreogram_plotly(Exploration, Params, FigLbl=None, smoothing=False
                 yaxis='y2',
                 hoverinfo='skip',
             ))
-        # Only call _attach_secondary_axis when no derived label is present on either side.
-        # The derived-axis secondary (xaxis2/yaxis2 above) handles those sides directly.
-        if x_derived_label is None and y_derived_label is None:
+        # _attach_secondary_axis handles salinity↔conductivity when neither side
+        # is a derived-axis variable.  When a derived label IS present the
+        # xaxis2/yaxis2 dummy-scatter path above already drew that secondary.
+        # But if only ONE side is derived, the other side may still need a
+        # salinity↔conductivity secondary — so only skip when BOTH are derived.
+        if not (x_derived_label is not None and y_derived_label is not None):
             _attach_secondary_axis(fig, Exploration, x1d, y1d)
 
     return fig
@@ -907,7 +910,8 @@ def create_inductogram_plotly(Exploration, Params, FigLbl=None,
                               display_mode='real_imaginary', use_contours=True,
                               use_nT_amplitudes=True,
                               x_log=False, y_log=False,
-                              show_salinity_axis=True):
+                              show_salinity_axis=True,
+                              induct_component='Total'):
     """
     Create multi-frequency inductogram with contour lines following
     published literature conventions.
@@ -1021,12 +1025,15 @@ def create_inductogram_plotly(Exploration, Params, FigLbl=None,
     for iPeak in range(nPeaks):
         row = iPeak + 1
 
+        # Map induct_component selector to field suffixes
+        _comp_suffix = {'Total': 'Tot', 'Bx': 'x', 'By': 'y', 'Bz': 'z'}.get(induct_component, 'Tot')
+        _comp_label  = '' if induct_component == 'Total' else f'_{induct_component}'
+
         if display_mode == 'real_imaginary':
-            # Real component — use rBi1Tot_nT (total induced field, real part)
-            re_data = _get_induction_slice(induction, 'rBi1Tot_nT', iPeak, VALID)
-            im_data = _get_induction_slice(induction, 'iBi1Tot_nT', iPeak, VALID)
-            left_label = 'Re{B\u2071} (nT)'
-            right_label = 'Im{B\u2071} (nT)'
+            re_data = _get_induction_slice(induction, f'rBi1{_comp_suffix}_nT', iPeak, VALID)
+            im_data = _get_induction_slice(induction, f'iBi1{_comp_suffix}_nT', iPeak, VALID)
+            left_label  = f'Re{{B\u2071{_comp_label}}} (nT)'
+            right_label = f'Im{{B\u2071{_comp_label}}} (nT)'
             if not use_nT_amplitudes:
                 # Override: dimensionless A_e * exp(i*phi)
                 amp_data = _get_induction_slice(induction, 'Amp', iPeak, VALID)
@@ -1037,7 +1044,7 @@ def create_inductogram_plotly(Exploration, Params, FigLbl=None,
                     im_data = amp_data * np.sin(phase_rad)
                 else:
                     re_data, im_data = None, None
-                left_label = 'Re{A\u2091}'
+                left_label  = 'Re{A\u2091}'
                 right_label = 'Im{A\u2091}'
             left_data, right_data = re_data, im_data
             left_cscale = colorscale_div
@@ -1045,10 +1052,9 @@ def create_inductogram_plotly(Exploration, Params, FigLbl=None,
         else:
             # Amplitude + Phase
             if use_nT_amplitudes:
-                # |Bi1Tot| in nT \u2014 modulus of complex induced field
-                bi1tot = getattr(induction, 'Bi1Tot_nT', None)
-                if bi1tot is not None:
-                    abs_bi = np.abs(bi1tot)
+                bi1_arr = getattr(induction, f'Bi1{_comp_suffix}_nT', None)
+                if bi1_arr is not None:
+                    abs_bi = np.abs(bi1_arr)
                     if len(abs_bi.shape) == 3:
                         amp_data = abs_bi[iPeak, :, :].copy()
                     elif len(abs_bi.shape) == 2:
@@ -1059,7 +1065,7 @@ def create_inductogram_plotly(Exploration, Params, FigLbl=None,
                         amp_data[~VALID] = np.nan
                 else:
                     amp_data = None
-                left_label = '|B\u2071| (nT)'
+                left_label = f'|B\u2071{_comp_label}| (nT)'
             else:
                 amp_data = _get_induction_slice(induction, 'Amp', iPeak, VALID)
                 left_label = 'Amplitude A\u2091'

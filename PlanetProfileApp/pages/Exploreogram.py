@@ -1332,6 +1332,7 @@ with col2:
                         st.info(f"Showing inductogram for {nPeaks} frequency peak(s): {', '.join(freq_names) if freq_names else 'unknown'}")
 
                         show_sal = st.session_state.get('exploreogram_show_salinity_axis', True)
+                        _ic_ind = st.session_state.get('exploreogram_induct_component', 'Total')
                         fig = create_inductogram_plotly(
                             Exploration, Params, FigLbl=FigLbl,
                             display_mode=display_mode,
@@ -1340,8 +1341,10 @@ with col2:
                             x_log=x_log,
                             y_log=y_log,
                             show_salinity_axis=show_sal,
+                            induct_component=_ic_ind,
                         )
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True,
+                            key=f"inductogram_{zName}_{display_mode}_{_ic_ind}_nT{use_nT}_contours{use_contours}_xlog{x_log}_ylog{y_log}")
                     else:
                         # Non-induction variable — standard exploreogram heatmap
                         if zName in induction_z_vars:
@@ -1365,7 +1368,8 @@ with col2:
                             x_derived_label=x_derived_label,
                             y_derived_label=y_derived_label,
                         )
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True,
+                            key=f"exploreogram_{zName}_{_ic}_nT{use_nT}_contours{use_contours}_xlog{x_log}_ylog{y_log}")
 
                 except Exception as e:
                     st.error(f"Error creating interactive plot: {e}")
@@ -1405,7 +1409,8 @@ with col2:
                         height=600,
                     )
 
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True,
+                        key=f"exploreogram_fallback_{zName}")
 
             else:
                 # Use matplotlib plots via GenerateExplorationPlots
@@ -1430,11 +1435,13 @@ with col2:
                     os.makedirs(output_dir, exist_ok=True)
 
                     fig_basename = f"{results['Planet'].name}_explore_{results['xName']}_vs_{results['yName']}"
+                    _ic_mpl = st.session_state.get('exploreogram_induct_component', 'Total')
+                    _pdf_append = results['zName'] if _ic_mpl == 'Total' else f"{results['zName']}_{_ic_mpl}"
                     FigureFiles = FigureFilesSubstruct(
                         figPath=output_dir,
                         figBase=fig_basename,
                         xtn='.pdf',
-                        exploreAppend=results['zName']
+                        exploreAppend=_pdf_append
                     )
 
                     FigureFilesList = [FigureFiles]
@@ -1560,8 +1567,10 @@ with col2:
                     # so we only override what is consumed.  Params.Explore.zName has
                     # already been resolved to the correct list for this display mode.
                     _plotted_z = list(Params.Explore.zName) if isinstance(Params.Explore.zName, (list, tuple)) else [Params.Explore.zName]
-                    _will_plot_amp     = 'Amp_nT' in _plotted_z
-                    _will_plot_ri      = any(z in _plotted_z for z in ('Bi1Tot_nT', 'rBi1Tot_nT', 'iBi1Tot_nT'))
+                    _will_plot_amp     = any(z in _plotted_z for z in ('Amp_nT', 'Bi1Tot_nT', 'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT'))
+                    _will_plot_ri      = any(z in _plotted_z for z in ('Bi1Tot_nT', 'rBi1Tot_nT', 'iBi1Tot_nT',
+                                                                        'rBi1x_nT', 'iBi1x_nT', 'rBi1y_nT', 'iBi1y_nT',
+                                                                        'rBi1z_nT', 'iBi1z_nT'))
 
                     _ind = getattr(Exploration, 'induction', None)
                     if _ind is not None and getattr(_ind, 'Bi1Tot_nT', None) is not None:
@@ -1758,8 +1767,8 @@ with col2:
                                                 # 1-D σ(w): mean across y (axis=1) → length nx
                                                 _sig1d = np.nanmean(np.asarray(_sig2d, dtype=float), axis=1)
                                                 _w1d   = np.nanmean(np.asarray(_w2d,   dtype=float), axis=1)
-                                                _sort  = np.argsort(_sig1d)
-                                                _ss = _sig1d[_sort]; _ws = _w1d[_sort]  # σ ascending
+                                                _sort  = np.argsort(_w1d)
+                                                _ss = _sig1d[_sort]; _ws = _w1d[_sort]  # w ascending → σ monotone
                                                 _sig_min = float(np.nanmin(_ss))
                                                 _sig_max = float(np.nanmax(_ss))
                                                 if np.isfinite(_sig_min) and np.isfinite(_sig_max) and _sig_max > _sig_min:
