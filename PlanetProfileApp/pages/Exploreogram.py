@@ -1415,7 +1415,9 @@ with col2:
             else:
                 # Use matplotlib plots via GenerateExplorationPlots
                 if zName == 'Amp_nT' and st.session_state.get('exploreogram_induct_component', 'Total') != 'Total':
-                    st.info("Component selection (Bx/By/Bz) is only supported in the interactive Plotly view. The matplotlib plot shows the total amplitude.")
+                    _disp = st.session_state.get('induct_display_mode', 'real_imaginary')
+                    if _disp == 'amplitude_phase':
+                        st.info("Component selection (Bx/By/Bz) is only supported in the interactive Plotly view for amplitude/phase mode. The matplotlib plot shows the total amplitude.")
                 st.info("📊 Generating matplotlib plots... This may take a moment.")
 
                 try:
@@ -1436,7 +1438,8 @@ with col2:
 
                     fig_basename = f"{results['Planet'].name}_explore_{results['xName']}_vs_{results['yName']}"
                     _ic_mpl = st.session_state.get('exploreogram_induct_component', 'Total')
-                    _pdf_append = results['zName'] if _ic_mpl == 'Total' else f"{results['zName']}_{_ic_mpl}"
+                    _COMP_TO_ZNAME = {'Bx': 'Bi1x_nT', 'By': 'Bi1y_nT', 'Bz': 'Bi1z_nT', 'Total': 'Bi1Tot_nT'}
+                    _pdf_append = results['zName']
                     FigureFiles = FigureFilesSubstruct(
                         figPath=output_dir,
                         figBase=fig_basename,
@@ -1472,7 +1475,8 @@ with col2:
                         elif display_mode == 'real_imaginary':
                             # If user selected Amp or phase, substitute Bi1Tot for real+imag expansion
                             if zName in ('Amp_nT', 'phase_deg'):
-                                Params.Explore.zName = ['Bi1Tot_nT']
+                                _comp_zname = _COMP_TO_ZNAME.get(_ic_mpl, 'Bi1Tot_nT')
+                                Params.Explore.zName = [_comp_zname]
                             else:
                                 # zName should be in zNamePlotRealImag for automatic expansion
                                 Params.Explore.zName = [zName]
@@ -1568,7 +1572,8 @@ with col2:
                     # already been resolved to the correct list for this display mode.
                     _plotted_z = list(Params.Explore.zName) if isinstance(Params.Explore.zName, (list, tuple)) else [Params.Explore.zName]
                     _will_plot_amp     = any(z in _plotted_z for z in ('Amp_nT', 'Bi1Tot_nT', 'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT'))
-                    _will_plot_ri      = any(z in _plotted_z for z in ('Bi1Tot_nT', 'rBi1Tot_nT', 'iBi1Tot_nT',
+                    _will_plot_ri      = any(z in _plotted_z for z in ('Bi1Tot_nT', 'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT',
+                                                                        'rBi1Tot_nT', 'iBi1Tot_nT',
                                                                         'rBi1x_nT', 'iBi1x_nT', 'rBi1y_nT', 'iBi1y_nT',
                                                                         'rBi1z_nT', 'iBi1z_nT'))
 
