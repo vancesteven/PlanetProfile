@@ -39,14 +39,14 @@ Luna, Io, Pluto, Triton.
 
 ## Development environment
 
-- **Python:** 3.8–3.11 (3.11 recommended).
+- **Python:** 3.10–3.12 (3.11 recommended).
 - **Required env:** `mamba activate PPcl` — never use system Python.
   See `CLAUDE.md` for the operational rule.
 
 ### Installation
 
 ```bash
-conda install numpy=1.26.4 scipy matplotlib mpmath pandas
+conda install "numpy>=2.0" scipy matplotlib mpmath pandas
 conda install -c conda-forge gsw obspy spiceypy cmasher reaktoro
 pip install SeaFreeze hdf5storage PyALMA3 TidalPy
 python -m PlanetProfile.install PPinstall
