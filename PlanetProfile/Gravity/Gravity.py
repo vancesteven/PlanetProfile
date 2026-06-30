@@ -658,7 +658,8 @@ def _run_tidalpy_backend(Planet, Params):
         parent = getattr(Planet.Bulk, 'parentName', None)
         if parent is None:
             from PlanetProfile.Utilities.defineStructs import ParentName
-            parent = ParentName(Planet.name)
+            body_name = getattr(Planet, 'bodyname', Planet.name)
+            parent = ParentName(body_name)
         if parent in Constants.parentMass_kg:
             host_mass = Constants.parentMass_kg[parent]
             # Semi-major axis from Kepler III: a = (G*M_host / n^2)^(1/3)
@@ -705,7 +706,11 @@ def _run_tidalpy_backend(Planet, Params):
 
                     # Proper integral: total_power = integral H(r) * 4*pi*r^2 dr
                     if len(layer_radii) > 1:
-                        total_power = np.trapezoid(layer_heating * 4.0 * np.pi * layer_radii**2, layer_radii)
+                        integrand = layer_heating * 4.0 * np.pi * layer_radii**2
+                        try:
+                            total_power = np.trapezoid(integrand, layer_radii)
+                        except AttributeError:
+                            total_power = np.trapz(integrand, layer_radii)
                     else:
                         # Single point — fall back to mean*V
                         V_layer = (4.0 / 3.0) * np.pi * (r_hi**3 - r_lo**3)

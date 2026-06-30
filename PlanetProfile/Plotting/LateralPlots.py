@@ -16,7 +16,8 @@ from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 log = logging.getLogger('PlanetProfile')
 
 
-def _InterpolateToLatLon(field, theta_rad, phi_rad, latMap_deg, lonMap_deg):
+def _InterpolateToLatLon(field, theta_rad, phi_rad, latMap_deg, lonMap_deg,
+                         gridType=None, nSide=None):
     """ Interpolate a field from pixel grid to regular lat/lon grid.
 
         Args:
@@ -29,6 +30,29 @@ def _InterpolateToLatLon(field, theta_rad, phi_rad, latMap_deg, lonMap_deg):
         Returns:
             data2D: 2D array (nLat, nLon) on the output grid.
     """
+    field = np.asarray(field, dtype=float)
+    if np.any(~np.isfinite(field)):
+        field = np.where(np.isfinite(field), field, np.nanmean(field))
+
+    # HEALPix interpolation is spherical, periodic in longitude, and defined
+    # at the poles. Planar griddata leaves the polar caps outside its convex
+    # hull and produces rectangular artifacts at very low nSide.
+    if gridType == 'healpix':
+        import healpy as hp
+
+        if nSide is None:
+            nSide = hp.npix2nside(field.size)
+        if hp.nside2npix(nSide) != field.size:
+            raise ValueError(
+                f'HEALPix nSide={nSide} expects {hp.nside2npix(nSide)} values, '
+                f'got {field.size}'
+            )
+
+        lonGrid, latGrid = np.meshgrid(lonMap_deg, latMap_deg)
+        thetaGrid = np.radians(90.0 - latGrid)
+        phiGrid = np.radians(np.mod(lonGrid, 360.0))
+        return hp.get_interp_val(field, thetaGrid, phiGrid, nest=False)
+
     from scipy.interpolate import griddata
 
     # Convert pixel coordinates to lat/lon in degrees
@@ -125,13 +149,14 @@ def PlotIceThickness(Planet, Params):
     data2D = _InterpolateToLatLon(
         Lateral.dIce_m / 1e3,
         Lateral.theta_rad, Lateral.phi_rad,
-        FigMisc.latMap_deg, FigMisc.lonMap_deg
+        FigMisc.latMap_deg, FigMisc.lonMap_deg,
+        gridType=Lateral.gridType, nSide=Lateral.nSide,
     )
 
     fName = os.path.join(Params.FigureFiles.path,
                          f'{Planet.name}_dIce{FigMisc.xtn}')
 
-    nLevels = 8
+    nLevels = 8 if Lateral.gridType != 'healpix' or Lateral.nSide >= 2 else None
     _PlotSurfaceMap(
         data2D, FigMisc.latMap_deg, FigMisc.lonMap_deg,
         cmap='viridis', cbarLabel='Ice thickness (km)',
@@ -152,7 +177,8 @@ def PlotTidalHeating(Planet, Params):
     data2D = _InterpolateToLatLon(
         qTidal_mWm2,
         Lateral.theta_rad, Lateral.phi_rad,
-        FigMisc.latMap_deg, FigMisc.lonMap_deg
+        FigMisc.latMap_deg, FigMisc.lonMap_deg,
+        gridType=Lateral.gridType, nSide=Lateral.nSide,
     )
 
     fName = os.path.join(Params.FigureFiles.path,
@@ -176,7 +202,8 @@ def PlotBasalTemperature(Planet, Params):
 
     data2D = _InterpolateToLatLon(
         dTb, Lateral.theta_rad, Lateral.phi_rad,
-        FigMisc.latMap_deg, FigMisc.lonMap_deg
+        FigMisc.latMap_deg, FigMisc.lonMap_deg,
+        gridType=Lateral.gridType, nSide=Lateral.nSide,
     )
 
     fName = os.path.join(Params.FigureFiles.path,
@@ -199,7 +226,8 @@ def PlotOceanConductivity(Planet, Params):
     data2D = _InterpolateToLatLon(
         Lateral.sigma_mean_Sm,
         Lateral.theta_rad, Lateral.phi_rad,
-        FigMisc.latMap_deg, FigMisc.lonMap_deg
+        FigMisc.latMap_deg, FigMisc.lonMap_deg,
+        gridType=Lateral.gridType, nSide=Lateral.nSide,
     )
 
     fName = os.path.join(Params.FigureFiles.path,
@@ -222,7 +250,8 @@ def PlotClathrateFraction(Planet, Params):
     data2D = _InterpolateToLatLon(
         Lateral.fClath,
         Lateral.theta_rad, Lateral.phi_rad,
-        FigMisc.latMap_deg, FigMisc.lonMap_deg
+        FigMisc.latMap_deg, FigMisc.lonMap_deg,
+        gridType=Lateral.gridType, nSide=Lateral.nSide,
     )
 
     fName = os.path.join(Params.FigureFiles.path,
@@ -245,7 +274,8 @@ def PlotEffectiveConductivity(Planet, Params):
     data2D = _InterpolateToLatLon(
         Lateral.kThermEff_WmK,
         Lateral.theta_rad, Lateral.phi_rad,
-        FigMisc.latMap_deg, FigMisc.lonMap_deg
+        FigMisc.latMap_deg, FigMisc.lonMap_deg,
+        gridType=Lateral.gridType, nSide=Lateral.nSide,
     )
 
     fName = os.path.join(Params.FigureFiles.path,
@@ -298,7 +328,8 @@ def PlotLateralSummary(Planet, Params):
     for i, (label, field, cmap, diverging) in enumerate(panels):
         ax = axes[i]
         data2D = _InterpolateToLatLon(
-            field, Lateral.theta_rad, Lateral.phi_rad, latMap, lonMap
+            field, Lateral.theta_rad, Lateral.phi_rad, latMap, lonMap,
+            gridType=Lateral.gridType, nSide=Lateral.nSide,
         )
 
         vmin, vmax = np.nanmin(data2D), np.nanmax(data2D)
@@ -375,7 +406,8 @@ def PlotTidalHeatingByLayer(Planet, Params):
         pct_dev = np.where(field > 0, 100.0 * (field - mean_val) / mean_val, 0.0)
 
         data2D = _InterpolateToLatLon(
-            pct_dev, Lateral.theta_rad, Lateral.phi_rad, latMap, lonMap
+            pct_dev, Lateral.theta_rad, Lateral.phi_rad, latMap, lonMap,
+            gridType=Lateral.gridType, nSide=Lateral.nSide,
         )
 
         vlim = max(abs(np.nanmin(data2D)), abs(np.nanmax(data2D)))
@@ -492,6 +524,13 @@ def GenerateLateralPlots(Planet, Params):
     if not Params.PLOT_LATERAL:
         log.debug('Lateral plotting disabled (Params.PLOT_LATERAL = False)')
         return
+
+    if (Planet.Lateral.gridType == 'healpix' and
+            Planet.Lateral.nSide < 4):
+        log.warning(
+            f'Generating diagnostic-only HEALPix maps at nSide={Planet.Lateral.nSide} '
+            f'({Planet.Lateral.nPix} pixels). Use nSide>=4 for scientific maps.'
+        )
 
     log.info('Generating lateral structure plots...')
 

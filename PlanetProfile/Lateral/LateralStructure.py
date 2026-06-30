@@ -167,7 +167,23 @@ def _PrepareColumn(Planet, Params, Lateral, lateralMeltEOS, z_ref_m, P_ref_MPa, 
     # Future improvement: Use shared memory for read-only reference data
     # (silicate/core profiles, EOS tables) and only copy mutable hydrosphere fields.
     # Requires refactoring HydroOnly to separate read-only from mutable state.
+
+    # TidalPy result objects contain C-level pointers and cannot be pickled.
+    # Temporarily remove before deepcopy (not needed for lateral columns anyway).
+    tidalpy_result_backup = None
+    if hasattr(Planet.Gravity, 'tidalpy_result'):
+        tidalpy_result_backup = Planet.Gravity.tidalpy_result
+        delattr(Planet.Gravity, 'tidalpy_result')
+
     colPlanet = deepcopy(Planet)
+
+    # Restore tidalpy_result to original Planet (for any subsequent uses)
+    if tidalpy_result_backup is not None:
+        Planet.Gravity.tidalpy_result = tidalpy_result_backup
+
+    referenceBottom_MPa = None
+    if getattr(Lateral, 'lockOceanFloorToReference', True):
+        referenceBottom_MPa = getattr(Lateral, 'referenceHydroBottom_MPa', None)
 
     d_ice_km = Lateral.dIce_m[i] / 1e3
     d_ice_m = d_ice_km * 1e3
@@ -177,9 +193,36 @@ def _PrepareColumn(Planet, Params, Lateral, lateralMeltEOS, z_ref_m, P_ref_MPa, 
         dPdz = (P_ref_MPa[-1] - P_ref_MPa[0]) / (z_ref_m[-1] - z_ref_m[0])
         Pb_col_MPa = P_ref_MPa[0] + dPdz * d_ice_m
 
+    if referenceBottom_MPa is not None:
+        if referenceBottom_MPa <= Pb_col_MPa:
+            colPlanet.invalidReason = (
+                f'Ice-base pressure {Pb_col_MPa:.3f} MPa reaches the configured '
+                f'hydrosphere bottom {referenceBottom_MPa:.3f} MPa'
+            )
+            return colPlanet
+
+        # Fit an integer number of intervals exactly between the local ice
+        # base and the shared seafloor pressure. This keeps the requested
+        # maximum pressure resolution while avoiding a 0.1 MPa quantization
+        # of global mass when local Pb differs between columns.
+        nominalDeltaP_MPa = float(colPlanet.Ocean.deltaP)
+        nOceanIntervals = max(
+            2, int(np.ceil((referenceBottom_MPa - Pb_col_MPa) / nominalDeltaP_MPa))
+        )
+        colPlanet.Ocean.deltaP = (
+            referenceBottom_MPa - Pb_col_MPa
+        ) / nOceanIntervals
+        colPlanet.Ocean.PHydroMax_MPa = (
+            referenceBottom_MPa + 0.5 * colPlanet.Ocean.deltaP
+        )
+
     try:
+        columnTfreezeRes_K = min(
+            Planet.TfreezeRes_K,
+            getattr(Lateral, 'columnTfreezeRes_K', Planet.TfreezeRes_K),
+        )
         Tb_col_K = GetTfreeze(lateralMeltEOS, Pb_col_MPa,
-                              Planet.TfreezeLower_K, TRes_K=Planet.TfreezeRes_K)
+                              Planet.TfreezeLower_K, TRes_K=columnTfreezeRes_K)
         colPlanet.Bulk.Tb_K = Tb_col_K
     except Exception as e:
         import traceback
@@ -203,7 +246,10 @@ def _PrepareColumn(Planet, Params, Lateral, lateralMeltEOS, z_ref_m, P_ref_MPa, 
     if Lateral.DO_TIDAL_3D and Lateral.HtidalIce_Wm3 is not None:
         colPlanet.Bulk.Htidal_Wm3 = Lateral.HtidalIce_Wm3[i]
 
-    colPlanet.index = i
+    # PrintCompletion expects a one-based model index. Keep the zero-based
+    # lateral index separately for array access and diagnostics.
+    colPlanet.lateralIndex = i
+    colPlanet.index = i + 1
     return colPlanet
 
 
@@ -231,8 +277,9 @@ def _RunSingleColumn(args):
     except Exception as e:
         import traceback
         # Build diagnostic context
-        idx = colPlanet.index if hasattr(colPlanet, 'index') else '?'
-        d_ice_km = getattr(colPlanet.Lateral, 'dIce_m', [None])[colPlanet.index] / 1e3 if hasattr(colPlanet, 'index') and hasattr(colPlanet, 'Lateral') else '?'
+        idx = colPlanet.lateralIndex if hasattr(colPlanet, 'lateralIndex') else '?'
+        d_ice_km = (getattr(colPlanet.Lateral, 'dIce_m', [None])[idx] / 1e3
+                    if isinstance(idx, (int, np.integer)) and hasattr(colPlanet, 'Lateral') else '?')
         Tb_K = getattr(colPlanet.Bulk, 'Tb_K', '?')
 
         # Full traceback for logging
@@ -287,6 +334,21 @@ def RunLateralColumns(Planet, Params, checkpoint_interval=100, resume_from_check
     nSurf = Planet.Steps.nSurfIce
     z_ref_m = Planet.z_m[:nSurf+1]
     P_ref_MPa = Planet.P_MPa[:nSurf+1]
+
+    if getattr(Lateral, 'lockOceanFloorToReference', True):
+        referenceBottom_MPa = getattr(Lateral, 'referenceHydroBottom_MPa', None)
+        if referenceBottom_MPa is None:
+            referenceBottom_MPa = getattr(Planet, 'Pseafloor_MPa', None)
+            if referenceBottom_MPa is None or not np.isfinite(referenceBottom_MPa):
+                iHydroBottom = min(max(int(Planet.Steps.nHydro), 0), len(Planet.P_MPa) - 1)
+                referenceBottom_MPa = float(Planet.P_MPa[iHydroBottom])
+        if not np.isfinite(referenceBottom_MPa):
+            raise ValueError('Reference hydrosphere-bottom pressure is not finite')
+        Lateral.referenceHydroBottom_MPa = referenceBottom_MPa
+        log.info(
+            f'Locking lateral ocean floor to reference hydrosphere boundary: '
+            f'P={referenceBottom_MPa:.3f} MPa'
+        )
 
     Pb_min = np.interp(np.min(Lateral.dIce_m), z_ref_m, P_ref_MPa)
     Pb_max = np.interp(np.max(Lateral.dIce_m), z_ref_m, P_ref_MPa)
@@ -565,8 +627,15 @@ def _ExtractColumnSummaries(Lateral, columnPlanets):
             continue
 
         nSurf = colPlanet.Steps.nSurfIce
-        if nSurf > 0 and nSurf <= len(colPlanet.T_K):
-            Lateral.Tb_K[i] = colPlanet.T_K[nSurf - 1]
+        if (hasattr(colPlanet, 'Bulk') and
+                np.isfinite(getattr(colPlanet.Bulk, 'Tb_K', np.nan))):
+            # Bulk.Tb_K is the ice-ocean phase-boundary temperature. The
+            # final ice cell center (T_K[nSurf-1]) can be several kelvin
+            # colder and must not be used in the equilibrium boundary term.
+            Lateral.Tb_K[i] = colPlanet.Bulk.Tb_K
+            nExtracted += 1
+        elif nSurf > 0 and nSurf < len(colPlanet.T_K):
+            Lateral.Tb_K[i] = colPlanet.T_K[nSurf]
             nExtracted += 1
 
         if hasattr(colPlanet, 'qSurf_Wm2') and colPlanet.qSurf_Wm2 is not None:
@@ -705,7 +774,24 @@ def RunLateral3D(Planet, Params):
         from PlanetProfile.Lateral.MassConservation import CheckMassConservation, AdjustForMassConservation
         residual, _ = CheckMassConservation(Planet, columnPlanets)
         if abs(residual) > 1e-4:
-            AdjustForMassConservation(Planet, columnPlanets)
+            AdjustForMassConservation(Planet, columnPlanets, Params=Params)
+
+    # Ocean-depth adjustment reruns HydroOnly and refreshes its diagnostic
+    # flux. Restore the equilibrium conductive flux that corresponds to the
+    # final ice thickness and phase-boundary temperatures.
+    # FIXME: ConductiveTemperatureIntegral function not available in current TidalHeating3D.py
+    # This recalculation is skipped for now - qSurf_Wm2 retains value from equilibrium iteration
+    # if Planet.Lateral.DO_EQUILIBRIUM_ICE:
+    #     from PlanetProfile.Lateral.TidalHeating3D import ConductiveTemperatureIntegral
+    #     conductiveIntegral = ConductiveTemperatureIntegral(
+    #         Planet.Lateral,
+    #         np.asarray(Planet.Lateral.Tb_K, dtype=float),
+    #         Planet.Bulk.Tsurf_K,
+    #     )
+    #     Planet.Lateral.qSurf_Wm2 = (
+    #         conductiveIntegral / Planet.Lateral.dIce_m
+    #         - conductiveIntegral / Planet.Bulk.R_m
+    #     )
 
     if Params.CALC_NEW_INDUCT and hasattr(Planet.Magnetic, 'CALC_ASYM') and Planet.Magnetic.CALC_ASYM:
         Planet = UpdateAsymShapeFrom3D(Planet, columnPlanets)

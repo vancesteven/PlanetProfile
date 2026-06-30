@@ -27,6 +27,7 @@ Date: 2026-06-09
 import sys
 import numpy as np
 import time
+from copy import deepcopy
 from pathlib import Path
 import json
 
@@ -145,7 +146,7 @@ def configure_traditional_run(Planet):
     return Planet
 
 
-def configure_3d_run(Planet, nSide=4, mode='equilibrium'):
+def configure_3d_run(Planet, nSide=4, mode='equilibrium', ice_rheology='andrade'):
     """
     Configure Planet for 3D lateral structure calculation.
 
@@ -172,7 +173,13 @@ def configure_3d_run(Planet, nSide=4, mode='equilibrium'):
         Planet.Lateral.DO_EQUILIBRIUM_ICE = True
         Planet.Lateral.equilibriumTol_m = 100.0  # 100 m convergence tolerance
         Planet.Lateral.equilibriumMaxIter = 10   # Max iterations
-        Planet.Lateral.kThermIce_WmK = 2.3       # Ice thermal conductivity
+        Planet.Lateral.equilibriumConductivityMode = 'inverse_temperature'
+        Planet.Lateral.kThermIceConst_Wm = 651.0
+        Planet.Lateral.columnTfreezeRes_K = 1e-3
+        Planet.Lateral.iceRheology = ice_rheology
+        Planet.Lateral.targetIceTidalPower_W = None
+        Planet.Lateral.useLoveNumberTidalPower = True
+        Planet.Lateral.qBasal_Wm2 = None
 
         # Do NOT set dIce_Cpq_km - equilibrium solver computes thickness
         # Initial guess is uniform from reference 1D model (Planet.zb_km)
@@ -213,7 +220,8 @@ def configure_3d_run(Planet, nSide=4, mode='equilibrium'):
     return Planet
 
 
-def run_comparison(nSide=4, save_dir=None, mode='equilibrium'):
+def run_comparison(nSide=4, save_dir=None, mode='equilibrium',
+                   ice_rheology='andrade'):
     """
     Run both traditional and 3D calculations with identical parameters.
 
@@ -231,6 +239,8 @@ def run_comparison(nSide=4, save_dir=None, mode='equilibrium'):
     print(f"Configuration:")
     print(f"  3D grid resolution: nSide={nSide} ({12*nSide**2} pixels)")
     print(f"  3D ice thickness mode: {mode.upper()}")
+    print(f"  Ice rheology hypothesis: {ice_rheology}")
+    print("  Tidal amplitude: predicted from reference-model Im(k2)")
     if mode == 'equilibrium':
         print(f"    (physics-based steady-state from heat balance)")
     elif mode == 'prescribed':
@@ -246,14 +256,18 @@ def run_comparison(nSide=4, save_dir=None, mode='equilibrium'):
             'nSide': nSide,
             'nPix': 12 * nSide**2,
             'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
+            'ice_rheology': ice_rheology,
+            'calibrated_power_target_W': None,
         }
     }
 
-    # Configure parameters (shared between runs)
-    Params = GetConfig.Params
-    Params.CALC_NEW = True
-    Params.DO_PARALLEL = True
-    Params.PLOT_LATERAL = True  # Enable lateral plots for 3D run
+    # PlanetProfile mutates Params during setup, so the two calculations must
+    # not share configuration state.
+    Params_1D = deepcopy(GetConfig.Params)
+    Params_1D.CALC_NEW = True
+    Params_1D.DO_PARALLEL = True
+    Params_1D.PLOT_LATERAL = False
+    Params_1D.SKIP_PLOTS = True
 
     # Traditional 1D calculation
     print("\n" + "-"*70)
@@ -267,7 +281,7 @@ def run_comparison(nSide=4, save_dir=None, mode='equilibrium'):
     t0_1d = time.time()
 
     try:
-        Planet_1D, Params = PlanetProfile(Planet_1D, Params)
+        Planet_1D, Params_1D = PlanetProfile(Planet_1D, Params_1D)
         t_1d = time.time() - t0_1d
         results['traditional'] = {
             'Planet': Planet_1D,
@@ -290,19 +304,30 @@ def run_comparison(nSide=4, save_dir=None, mode='equilibrium'):
     print("-"*70)
 
     Planet_3D = create_baseline_europa('_3D')
-    Planet_3D = configure_3d_run(Planet_3D, nSide=nSide, mode=mode)
+    Planet_3D = configure_3d_run(
+        Planet_3D, nSide=nSide, mode=mode, ice_rheology=ice_rheology
+    )
 
     print(f"Running 3D lateral calculation (nSide={nSide}, {12*nSide**2} pixels, mode={mode})...")
     t0_3d = time.time()
 
     try:
-        # Need fresh Params object for 3D run
-        Params = GetConfig.Params
-        Params.CALC_NEW = True
-        Params.DO_PARALLEL = True
-        Params.PLOT_LATERAL = True
+        Params_3D = deepcopy(GetConfig.Params)
+        Params_3D.CALC_NEW = True
+        Params_3D.PLOT_LATERAL = True
+        Params_3D.SKIP_PLOTS = True
+        Params_3D.Gravity.rheology_models['Ih'] = ice_rheology
+        Params_3D.Gravity.rheology_models['Ih_conv'] = ice_rheology
 
-        Planet_3D, Params = PlanetProfile(Planet_3D, Params)
+        # Use TidalPy backend for viscoelastic Love numbers (non-zero Im(k2))
+        # PyALMA gives Im(k2) ≈ 0 for Europa (elastic limit)
+        Params_3D.Gravity.backend = 'tidalpy'
+
+        # TidalPy solution objects cannot be pickled (contain C-level pointers)
+        # so parallel processing must be disabled when using TidalPy backend
+        Params_3D.DO_PARALLEL = False
+
+        Planet_3D, Params_3D = PlanetProfile(Planet_3D, Params_3D)
         t_3d = time.time() - t0_3d
         results['3d'] = {
             'Planet': Planet_3D,
@@ -379,7 +404,14 @@ def print_3d_summary(Planet):
             Htot_max = np.max(Planet.Lateral.HtidalIce_Wm3)
             print(f"  Mean: {Htot_mean:.2e} W/m³")
             print(f"  Range: {Htot_min:.2e} - {Htot_max:.2e} W/m³")
-            print(f"  Pole/Equator ratio: {Htot_max/Htot_min:.2f}")
+            if Htot_min > 0:
+                print(f"  Pole/Equator ratio: {Htot_max/Htot_min:.2f}")
+            if hasattr(Planet.Lateral, 'iceTidalPower_W') and Planet.Lateral.iceTidalPower_W is not None:
+                print(f"  Integrated power: {Planet.Lateral.iceTidalPower_W/1e9:.3f} GW")
+            if hasattr(Planet.Lateral, 'tidalPowerMode') and Planet.Lateral.tidalPowerMode is not None:
+                print(f"  Power mode: {Planet.Lateral.tidalPowerMode}")
+            if hasattr(Planet.Lateral, 'tidalPowerSource') and Planet.Lateral.tidalPowerSource is not None:
+                print(f"  Power source: {Planet.Lateral.tidalPowerSource}")
 
         if Planet.Lateral.DO_MASS_CONSERVE:
             print(f"\nMass Conservation:")
@@ -408,6 +440,10 @@ def export_quantitative_comparison(results, output_path):
         },
         '3d': {
             'grid_pixels': int(Planet_3D.Lateral.nPix),
+            'tidal_power_mode': Planet_3D.Lateral.tidalPowerMode if hasattr(Planet_3D.Lateral, 'tidalPowerMode') else None,
+            'tidal_power_source': Planet_3D.Lateral.tidalPowerSource if hasattr(Planet_3D.Lateral, 'tidalPowerSource') else None,
+            'ice_tidal_power_GW': float(Planet_3D.Lateral.iceTidalPower_W / 1e9) if hasattr(Planet_3D.Lateral, 'iceTidalPower_W') and Planet_3D.Lateral.iceTidalPower_W is not None else None,
+            'basal_power_source': Planet_3D.Lateral.qBasalSource if hasattr(Planet_3D.Lateral, 'qBasalSource') else None,
             'ice_thickness_km': {
                 'mean': float(np.mean(Planet_3D.Lateral.dIce_m)/1e3),
                 'min': float(np.min(Planet_3D.Lateral.dIce_m)/1e3),
@@ -482,11 +518,13 @@ def main():
     nSide = 4  # Default: 192 pixels (moderate resolution)
     save_dir = None
     mode = 'equilibrium'  # Default: equilibrium mode (recommended for science)
+    ice_rheology = 'andrade'
 
     if '--help' in sys.argv or '-h' in sys.argv:
         print(__doc__)
         print("\nAdditional options:")
         print("  --mode MODE          Ice thickness mode: 'equilibrium' (default) or 'prescribed'")
+        print("  --ice-rheology NAME  Ice rheology: andrade (default), maxwell, or elastic")
         return 0
 
     if '--grid-size' in sys.argv:
@@ -505,9 +543,20 @@ def main():
             print(f"Error: Invalid mode '{mode}'. Use 'equilibrium' or 'prescribed'.")
             return 1
 
+    if '--ice-rheology' in sys.argv:
+        idx = sys.argv.index('--ice-rheology')
+        ice_rheology = sys.argv[idx + 1].lower()
+        if ice_rheology not in ['andrade', 'maxwell', 'elastic']:
+            print(f"Error: Invalid ice rheology '{ice_rheology}'.")
+            return 1
+
     # Run comparison
-    print(f"\nStarting Europa comparison (nSide={nSide}, mode={mode})...")
-    results = run_comparison(nSide=nSide, save_dir=save_dir, mode=mode)
+    print(f"\nStarting Europa comparison (nSide={nSide}, mode={mode}, "
+          f"ice_rheology={ice_rheology})...")
+    results = run_comparison(
+        nSide=nSide, save_dir=save_dir, mode=mode,
+        ice_rheology=ice_rheology,
+    )
 
     # Check both runs succeeded
     if not results.get('traditional', {}).get('success', False):

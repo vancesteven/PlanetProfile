@@ -47,10 +47,16 @@ def make_struct(**kwargs):
 def make_lateral(n_pix=4):
     theta_rad = np.deg2rad([20.0, 35.0, 50.0, 65.0])[:n_pix]
     phi_rad = np.deg2rad([0.0, 90.0, 180.0, 270.0])[:n_pix]
+    # Equal-area pixels for test (4π steradians / nPix)
+    pixel_area = 4.0 * np.pi / n_pix
+    # Uniform ice thickness for test (25 km)
+    dIce_m = np.full(n_pix, 25.0e3)
     return make_struct(
         nPix=n_pix,
         theta_rad=theta_rad,
         phi_rad=phi_rad,
+        pixArea_sr=pixel_area,
+        dIce_m=dIce_m,
         repairedColumnMask=None,
         failedColumnMask=None,
         repairLog=None,

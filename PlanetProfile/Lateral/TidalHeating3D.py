@@ -183,6 +183,115 @@ def _AndradeDissipation(omega, mu_Pa, eta_Pas, alpha=0.2, zeta_pa=1.0):
     return D_Maxwell * ratio
 
 
+def _NormalizeTidalPowerToLoveNumber(Planet, Lateral):
+    """ Scale 3D tidal heating pattern to match Love number prediction.
+
+        If useLoveNumberTidalPower is True and Im(k2) is available,
+        compute the global tidal power from:
+            E_dot = (21/2) * n^5 * R^5 * e^2 * Im(k2) / G
+
+        Then scale the 3D pattern so its volume-integrated power matches E_dot.
+
+        This preserves the geographic pattern (which comes from material properties)
+        while constraining the absolute magnitude to the Love number prediction.
+
+        Args:
+            Planet: PlanetStruct with Gravity.k (Love number) and Bulk parameters.
+            Lateral: LateralStruct with computed HtidalIce_Wm3 pattern.
+
+        Returns:
+            Planet: Updated with normalized heating and metadata.
+    """
+    if not getattr(Lateral, 'useLoveNumberTidalPower', False):
+        Lateral.tidalPowerMode = 'predicted'
+        Lateral.tidalPowerSource = 'local_rheology'
+        return Planet
+
+    # Check if Love number is available
+    if not hasattr(Planet.Gravity, 'k') or Planet.Gravity.k is None:
+        log.warning('useLoveNumberTidalPower=True but k2 not available; using unconstrained prediction')
+        Lateral.tidalPowerMode = 'predicted'
+        Lateral.tidalPowerSource = 'local_rheology'
+        return Planet
+
+    from PlanetProfile.Utilities.defineStructs import Constants
+
+    k2 = Planet.Gravity.k
+    Im_k2 = np.imag(k2) if np.iscomplex(k2) else 0.0
+
+    if Im_k2 <= 0:
+        log.warning(f'useLoveNumberTidalPower=True but Im(k2) = {Im_k2:.6f} ≤ 0; using unconstrained prediction')
+        Lateral.tidalPowerMode = 'predicted'
+        Lateral.tidalPowerSource = 'local_rheology'
+        return Planet
+
+    # Check for required orbital parameters
+    if not hasattr(Planet.Bulk, 'meanMotion_radps') or Planet.Bulk.meanMotion_radps is None:
+        log.warning('useLoveNumberTidalPower=True but meanMotion_radps not available')
+        Lateral.tidalPowerMode = 'predicted'
+        Lateral.tidalPowerSource = 'local_rheology'
+        return Planet
+
+    if not hasattr(Planet.Bulk, 'eccentricity') or Planet.Bulk.eccentricity is None:
+        log.warning('useLoveNumberTidalPower=True but eccentricity not available')
+        Lateral.tidalPowerMode = 'predicted'
+        Lateral.tidalPowerSource = 'local_rheology'
+        return Planet
+
+    # Calculate Love-number-derived total power (Petricca et al. 2025)
+    n = Planet.Bulk.meanMotion_radps
+    R = Planet.Bulk.R_m
+    e = Planet.Bulk.eccentricity
+    G = Constants.G
+
+    E_dot_Love_W = (21.0 / 2.0) * n**5 * R**5 * e**2 * abs(Im_k2) / G
+
+    # Calculate current integrated power from 3D pattern
+    # Power = Sum over pixels of (H_i * Volume_i)
+    # Volume_i = ice_thickness_i * pixel_area_i * R^2
+    if Lateral.dIce_m is None or len(Lateral.dIce_m) == 0:
+        log.warning('Cannot normalize: dIce_m not available')
+        Lateral.tidalPowerMode = 'predicted'
+        Lateral.tidalPowerSource = 'local_rheology'
+        return Planet
+
+    pixel_volumes = Lateral.dIce_m * Lateral.pixArea_sr * R**2
+    E_dot_current_W = np.nansum(Lateral.HtidalIce_Wm3 * pixel_volumes)
+
+    # Calculate normalization factor
+    if E_dot_current_W > 0:
+        scale_factor = E_dot_Love_W / E_dot_current_W
+
+        # Apply normalization to all heating fields
+        Lateral.HtidalIce_Wm3 = Lateral.HtidalIce_Wm3 * scale_factor
+        if Lateral.HtidalIceI_top_Wm3 is not None:
+            Lateral.HtidalIceI_top_Wm3 = Lateral.HtidalIceI_top_Wm3 * scale_factor
+        if Lateral.HtidalIceI_bot_Wm3 is not None:
+            Lateral.HtidalIceI_bot_Wm3 = Lateral.HtidalIceI_bot_Wm3 * scale_factor
+        if Lateral.HtidalHP_top_Wm3 is not None:
+            Lateral.HtidalHP_top_Wm3 = Lateral.HtidalHP_top_Wm3 * scale_factor
+        if Lateral.HtidalHP_bot_Wm3 is not None:
+            Lateral.HtidalHP_bot_Wm3 = Lateral.HtidalHP_bot_Wm3 * scale_factor
+
+        # Store normalization metadata
+        Lateral.iceTidalPower_W = E_dot_Love_W
+        Lateral.iceTidalScaleFactor = scale_factor
+        Lateral.tidalPowerMode = 'love_number_scaled'
+        Lateral.tidalPowerSource = f'Im(k2)={Im_k2:.6f}'
+
+        log.info(f'Normalized tidal heating to Love number prediction:')
+        log.info(f'  Im(k2) = {Im_k2:.6f}')
+        log.info(f'  Love-derived power: {E_dot_Love_W/1e9:.3f} GW')
+        log.info(f'  Local-rheology power: {E_dot_current_W/1e9:.3f} GW')
+        log.info(f'  Scale factor: {scale_factor:.4f}')
+    else:
+        log.warning('Cannot normalize: current integrated power is zero or negative')
+        Lateral.tidalPowerMode = 'predicted'
+        Lateral.tidalPowerSource = 'local_rheology'
+
+    return Planet
+
+
 def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
     """ Compute 3D tidal heating from local viscoelastic properties.
 
@@ -234,12 +343,17 @@ def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
     else:
         log.info('Using Maxwell rheology')
 
-    # Tidal frequency (from excitation periods)
+    # Tidal frequency (from excitation periods or orbital mean motion)
     if Planet.Magnetic.Texc_hr is not None and len(Planet.Magnetic.Texc_hr) > 0:
         T_hr = Planet.Magnetic.Texc_hr[0]
+        log.debug(f'Using excitation period: T = {T_hr:.2f} hr')
+    elif hasattr(Planet.Bulk, 'meanMotion_radps') and Planet.Bulk.meanMotion_radps is not None:
+        omega_temp = Planet.Bulk.meanMotion_radps
+        T_hr = 2 * np.pi / omega_temp / 3600
+        log.info(f'Using orbital mean motion: T = {T_hr:.2f} hr')
     else:
         T_hr = 85.2
-        log.warning(f'No excitation periods found; using default T = {T_hr} hr')
+        log.warning(f'No excitation periods or mean motion found; using default T = {T_hr} hr')
 
     omega = 2 * np.pi / (T_hr * 3600)  # rad/s
 
@@ -425,6 +539,9 @@ def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
     if Lateral.HtidalHP_top_Wm3 is not None and np.any(Lateral.HtidalHP_top_Wm3 > 0):
         log.info(f'  HP ice top: mean={np.nanmean(Lateral.HtidalHP_top_Wm3):.2e}, '
                  f'bot: mean={np.nanmean(Lateral.HtidalHP_bot_Wm3):.2e} W/m^3')
+
+    # Apply Love number normalization if requested
+    Planet = _NormalizeTidalPowerToLoveNumber(Planet, Lateral)
 
     return Planet
 

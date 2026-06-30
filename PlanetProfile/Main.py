@@ -333,6 +333,16 @@ def HydroOnly(Planet, Params):
     if not Planet.Do.NO_H2O:
         Planet = IceLayers(Planet, Params)
         Planet = OceanLayers(Planet, Params)
+        if (not Planet.Do.NON_SELF_CONSISTENT and
+                getattr(Planet.Steps, 'nOceanMax', None) is not None):
+            # OceanLayers samples pressure at layer boundaries. Its final
+            # sample is the hydrosphere bottom, so the number of material
+            # layers is one less than the number of sampled boundaries.
+            # HydroOnly does not call InnerLayers, which normally finalizes
+            # this index for a complete PlanetProfile run.
+            Planet.Steps.nHydro = (
+                Planet.Steps.nSurfIce + Planet.Steps.nOceanMax - 1
+            )
     PrintCompletion(Planet, Params)
     return Planet, Params
 

@@ -24,7 +24,74 @@ configPPmontecarlo.py
 startup.m
 Thermodynamics/MgSO4/phaseLookupMgSO4.mat
 WIP/*
+UserConfigs/
 
 Archive/*
 Tobie2005_Reproduction/*
 TidalPy/*
+
+# Test result directories
+Europa_*_Test/
+Europa_*_Example/
+Europa_*_Demo/
+Europa_ShellHeatingDemo/
+Europa_Comparison_*/
+Enceladus_Comparison_*/
+Enceladus/figures/*.npz
+Titan_*/
+
+# Temporary session documentation
+HANDOFF_*.md
+SESSION_*.md
+TASK*.md
+COMMIT_*.md
+DIAGNOSIS_*.md
+ANALYSIS_*.md
+INVESTIGATION_*.md
+COMPLETION_*.md
+FIX*.md
+INTERPOLATION_*.md
+PHASE*.md
+POLE_*.md
+NORTHERN_*.md
+NORTHWEST_*.md
+ARCHIVE_*.md
+CLEANUP_*.md
+CRITICAL_*.md
+EQUILIBRIUM_*.md
+TIDAL_*.md
+UNCOMM*.md
+HEATING_*.md
+NEXT_SESSION_*.md
+BODY_*.md
+ENCELADUS_*.md
+EUROPA_*.md
+
+# Comparison/analysis files
+*_COMPARISON*.md
+*_COMPARISON*.tex
+*_RESULTS*.md
+*_SUMMARY*.md
+*_README.md
+*_RATIONALE.md
+*_GUIDE.md
+*_FINAL*.md
+europa_comparison_quantitative.json
+
+# Test and debug scripts
+debug_*.py
+diagnose_*.py
+test_interpolation_*.py
+test_ojakangas_*.py
+test_pole_*.py
+test_enceladus_*.py
+fix_*.py
+run_europa_shell_heating_demo.py
+run_titan_*.py
+verify_*.py
+compare_enceladus_3d.py
+PlanetProfile/Test/PPTest3DHeatingComparison.py
+
+# Temporary analysis files
+diagnose_*.md
+docs/FIGURE_INVENTORY.md

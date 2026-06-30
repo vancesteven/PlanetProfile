@@ -227,7 +227,7 @@ def test_scientific_understanding():
     print("\nScientific understanding (Phase 3):")
     print("  Tidal strain pattern (Ojakangas & Stevenson 1989):")
     print("    - Synchronous rotation + eccentricity → geographic variation")
-    print("    - Peak heating at sub-/anti-Saturn points and poles")
+    print("    - Poles heat most; sub-/anti-Saturn equatorial regions heat least")
     print("    - Normalized to spherical mean = 1")
     print("  ")
     print("  Maxwell rheology:")

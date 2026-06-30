@@ -622,10 +622,23 @@ class LateralSubstruct:
         self.HtidalHP_profile_Wm3 = None    # H(r) in HP ice for each column
         self.rIceI_profile_m = None          # Radii corresponding to ice I profiles
         self.rHP_profile_m = None            # Radii corresponding to HP ice profiles
+        self.targetIceTidalPower_W = None  # Optional global normalization target for surface-ice dissipation
+        self.iceTidalPowerRaw_W = None  # Integrated power before optional target normalization
+        self.predictedIceTidalPower_W = None  # Independent global-solver prediction when available
+        self.iceTidalPower_W = None  # Integrated surface-ice tidal power after optional normalization
+        self.iceTidalScaleFactor = None  # Multiplicative factor used to reach targetIceTidalPower_W
+        self.tidalFrequency_radps = None  # Orbital forcing frequency used by the lateral rheology
+        self.tidalStrainAmplitude = None  # Unscaled eccentricity-tide strain amplitude
+        self.tidalPowerMode = 'predicted'  # 'predicted' or 'calibrated'
+        self.tidalPowerSource = None  # Provenance for the global shell-power amplitude
+        self.useLoveNumberTidalPower = False  # Scale the lateral pattern to reference-model Im(k2)
+        self.iceRheology = None  # Optional lateral override; None uses Params.Gravity.rheology_models['Ih']
+        self.iceRheologyUsed = None  # Effective rheology used for surface ice dissipation
 
         # Column summary fields (nPix,)
         self.Tb_K = None  # Basal ice temperature at each grid point
         self.qSurf_Wm2 = None  # Surface heat flux at each grid point
+        self.qTidal_Wm2 = None  # Tidal power per unit surface area at each grid point
         self.qBase_Wm2 = None  # Basal heat flux at each grid point
         self.kThermEff_WmK = None  # Effective thermal conductivity at each grid point
         self.sigma_mean_Sm = None  # Mean ocean conductivity at each grid point
@@ -640,8 +653,21 @@ class LateralSubstruct:
         self.equilibriumMaxIter = 20  # Maximum number of self-consistent iterations
         self.equilibriumIterations = None  # Actual number of iterations performed
         self.equilibriumResidual_m = None  # Final max residual in meters
+        self.equilibriumFluxResidual_Wm2 = None  # Final local heat-balance residual
         self.kThermIce_WmK = 2.3  # Ice thermal conductivity (W/m/K) for equilibrium solver
+        self.equilibriumConductivityMode = 'constant'  # 'constant' or 'inverse_temperature'
+        self.kThermIceConst_Wm = 651.0  # c in k(T)=c/T for inverse-temperature conduction
         self.qBasal_Wm2 = None  # Optional override for basal heat flux (W/m²). If set, overrides computation from Sil properties
+        self.qBasalSource = None  # 'prescribed', 'solved_mantle', or 'estimated_mantle'
+
+        # Lateral column construction. A finer melt-curve tolerance is needed
+        # for low-gravity bodies, where a 0.05 K error can shift the ice base
+        # by several kilometers.
+        self.columnTfreezeRes_K = 1e-3
+        self.lockOceanFloorToReference = True
+        self.referenceHydroBottom_MPa = None
+        self.massConservationDamping = 0.8
+        self.massConservationIterations = 0
 
         # Numerical QA for lateral column failures. Isolated failed columns can
         # be neighbor-repaired for smooth scalar fields; clustered failures
@@ -850,18 +876,14 @@ class DataFilesSubstruct:
         self.montecarloPath = os.path.join(self.path, 'montecarloData')
         self.fNameMonteCarlo = os.path.join(self.montecarloPath, saveBase)
         if not self.path == '':
-            if not os.path.isdir(self.path):
-                os.makedirs(self.path)
-            if not os.path.isdir(self.inductPath):
-                os.makedirs(self.inductPath)
-            if not os.path.isdir(self.seisPath):
-                os.makedirs(self.seisPath)
-            if not os.path.isdir(self.fNameSeis):
-                os.makedirs(self.fNameSeis)
-            if not os.path.isdir(self.gravityPath):
-                os.makedirs(self.gravityPath)
-            if not os.path.isdir(self.montecarloPath):
-                os.makedirs(self.montecarloPath)
+            # Multiple lateral columns may initialize the same output paths
+            # concurrently. exist_ok removes the check/create race.
+            os.makedirs(self.path, exist_ok=True)
+            os.makedirs(self.inductPath, exist_ok=True)
+            os.makedirs(self.seisPath, exist_ok=True)
+            os.makedirs(self.fNameSeis, exist_ok=True)
+            os.makedirs(self.gravityPath, exist_ok=True)
+            os.makedirs(self.montecarloPath, exist_ok=True)
 
         self.fName = os.path.join(self.path, saveBase)
         self.saveFile = self.fName + '.txt'
