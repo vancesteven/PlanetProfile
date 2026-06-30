@@ -366,8 +366,12 @@ def ComputeTidalHeating3D(Planet, Params, columnPlanets=None, rheology=None):
     g_surf = Constants.G * Planet.Bulk.M_kg / Planet.Bulk.R_m**2
     eps0 = 1.5 * e * n**2 * Planet.Bulk.R_m / g_surf
 
-    # Tidal strain pattern
-    f_pattern = TidalStrainPattern(Lateral.theta_rad, Lateral.phi_rad, e=e)
+    # Get obliquity in radians
+    obliq_deg = Planet.Bulk.obliquity_deg if hasattr(Planet.Bulk, 'obliquity_deg') and Planet.Bulk.obliquity_deg is not None else 0.0
+    obliq_rad = np.radians(obliq_deg)
+
+    # Tidal strain pattern (includes both eccentricity and obliquity contributions)
+    f_pattern = TidalStrainPattern(Lateral.theta_rad, Lateral.phi_rad, e=e, obliq_rad=obliq_rad)
 
     # Map phase IDs to andrade_zeta dict keys
     _phase_to_zeta_key = {1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
