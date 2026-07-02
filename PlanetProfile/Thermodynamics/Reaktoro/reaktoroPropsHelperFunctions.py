@@ -2,7 +2,6 @@ import copy
 import reaktoro as rkt
 import numpy as np
 import logging
-import pandas as pd
 import os
 import pickle as pickle
 from seafreeze import seafreeze as sfz
@@ -13,6 +12,40 @@ import gzip
 import uuid
 
 log = logging.getLogger('PlanetProfile')
+
+class ReaktoroConvergenceError(Exception):
+    """Exception raised when Reaktoro fails to converge on a solution."""
+    pass
+
+def supcrt_aqueous_species_generator(supcrtDb):
+    """ Function to turn aqueous species formulas and names in supcrt database into a dictionary
+    to allow quick lookup of species by formula or name in future functions (reduces runtime).
+    """
+    formulaDictionary = {}
+    nameDictionary = {}
+    aqueousSpecies = supcrtDb.species().withAggregateState(rkt.AggregateState.Aqueous)
+    for species in aqueousSpecies:
+        name = species.name()
+        nameDictionary[name] = name
+        formula = str(species.formula())
+        if formula not in formulaDictionary:
+            formulaDictionary[formula] = name
+    return formulaDictionary, nameDictionary
+
+def supcrt_solid_species_generator(supcrtDb):
+    """ Function to turn solid species names in supcrt database into a dictionary
+    to allow quick lookup of species by name in future functions (reduces runtime).
+    """
+    solidSpeciesLookup = {}
+    solidSpecies = supcrtDb.species().withAggregateState(rkt.AggregateState.Solid)
+    for species in solidSpecies:
+        name = species.name()
+        solidSpeciesLookup[name] = name
+    return solidSpeciesLookup
+
+def phreeqc_species_names_generator(phreeqcDb):
+    """ Function to turn all species names in the Phreeqc database into a set to allow quick lookup of species by name in future functions (reduces runtime). """
+    return {species.name() for species in phreeqcDb.species()}
 
 
 def save_dict_to_pkl(dictionary, filepath):
@@ -84,7 +117,7 @@ def PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit
     return db, system, state, conditions, solver, props, ice_name, database_file
 
 
-def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file, iterations, rktDatabase = None):
+def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file, iterations, convergence_tolerance, rktDatabase = None):
     """ Create a Phreeqc Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
         Works for both core10.dat and frezchem.dat.
         THIS IS DIFFERENT IN THAT IT ASSUMES TEMPERATURE IS UNKNOWN AND SPECIFIES CHEMICAL CONSTRAINT AT EQUILIBIRUM.
@@ -124,31 +157,40 @@ def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio
     solver = rkt.EquilibriumSolver(specs)
     options = rkt.EquilibriumOptions()
     options.optima.maxiters = iterations
-    solver.setOptions(options)
+    options.optima.convergence.tolerance = convergence_tolerance
+
     # Create a chemical state and its associated properties
     state = rkt.ChemicalState(system)
     props = rkt.ChemicalProps(state)
+    # We need to increase the minimum mol treshold if we looking at small concentratiosn to prevent numerical errors since reaktoro,by default, increases all concentrations to 1e-16 even if they are below this number
+    if np.any([value < 1e-16 for value in speciation_ratio_per_kg.values()]):
+        state.setSpeciesAmounts(1e-40)
+        options.epsilon = 1e-30
+    solver.setOptions(options)
     # Populate the state with the prescribed species at the given ratios
     for ion, ratio in speciation_ratio_per_kg.items():
         state.add(ion, ratio, species_unit)
     # Create a conditions object
     conditions = rkt.EquilibriumConditions(specs)
     # Return the Reaktoro objects that user will need to interact with
-    return db, system, state, conditions, solver, props
+    return db, system, state, conditions, options, solver, props
 
 
-def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, databaseName, ocean_solid_species, PhreeqcToSupcrtNames, iterations = 200, rktDatabase = None):
+def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, databaseName, ocean_solid_species, PhreeqcToSupcrtNames, iterations = 200, convergence_tolerance = 1e-8, rktDatabase = None, supcrtAqueousLookupFormula = None, supcrtAqueousLookupName = None):
     """ Create a Supcrt Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
     Args:
-    aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
-    speciation_ratio_per_kg: the ratio of species in the aqueous solution per kg of water. Should be a dictionary
-        with the species as the key and its ratio as its value.
-    species_unit: "mol" or "g" that species ratio is in
-    databaseName: Supcrt database to use
-    ocean_solid_phases: whether or not to consider solid phases in calculations
-    PhreeqcToSupcrtNames: Names that need to be converted in species list and speciation ratio per kg
-    iterations: maximum number of iterations to allow for when solving for equilibrium before throwing error
-    rktDatabase: Reaktoro database to use (passing in speeds up function). If None, then a new database is created.
+        aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
+        speciation_ratio_per_kg: the ratio of species in the aqueous solution per kg of water. Should be a dictionary
+            with the species as the key and its ratio as its value.
+        species_unit: "mol" or "g" that species ratio is in
+        databaseName: Supcrt database to use
+        ocean_solid_phases: whether or not to consider solid phases in calculations
+        PhreeqcToSupcrtNames: Names that need to be converted in species list and speciation ratio per kg
+        iterations: maximum number of iterations to allow for when solving for equilibrium before throwing error
+        convergence_tolerance: convergence tolerance for calculations - increasing this from reaktoro default of 1e-8 can speed upcalcualtions but lead to less accurate thermodynamic calculations
+        It is recommended not to change this unless doing large scale explorations 
+        rktDatabase: Reaktoro database to use (passing in speeds up function). If None, then a new database is created.
+        supcrtAqueousLookup: Optional precomputed dict from build_supcrt_aqueous_lookups; if None, built once inside species_convertor.
     Returns:
         db, system, state, conditions, solver, props, ice_name: Relevant reaktoro objects
     """
@@ -157,7 +199,9 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
         db = rkt.SupcrtDatabase(databaseName)
     else:
         db = rktDatabase
-    aqueous_species_list, speciation_ratio_per_kg = species_convertor_compatible_with_supcrt(db, aqueous_species_list, speciation_ratio_per_kg, PhreeqcToSupcrtNames)
+    aqueous_species_list, speciation_ratio_per_kg = species_convertor_compatible_with_supcrt(
+        db, aqueous_species_list, speciation_ratio_per_kg, PhreeqcToSupcrtNames, supcrtAqueousLookupFormula=supcrtAqueousLookupFormula, supcrtAqueousLookupName=supcrtAqueousLookupName
+    )
     # Prescribe the solution
     solution = rkt.AqueousPhase(aqueous_species_list)
     solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
@@ -177,7 +221,7 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     # Set # of iterations to use
     options =rkt.EquilibriumOptions()
     options.optima.maxiters = iterations
-
+    options.optima.convergence.tolerance = convergence_tolerance
     # Create a chemical state and its associated properties
     state = rkt.ChemicalState(system)
     # We need to increase the minimum mol treshold if we looking at small concentratiosn to prevent numerical errors since reaktoro,by default, increases all concentrations to 1e-16 even if they are below this number
@@ -194,29 +238,22 @@ def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit,
     # Return the Reaktoro objects that user will need to interact with
     return db, system, state, conditions, solver, props
 
-def RelevantSolidSpecies(db, aqueous_species_list, solid_phases_to_consider, solid_phases_to_suppress):
+def RelevantSolidSpecies(db, aqueous_species_list, solid_phases_to_suppress):
     """
     Finds the relevant solid species to consider from a list of solid phases, or if solid phases is None, then return all solids
     """
-    solid_phases = ''
-    # Prescribe the solution
+    # Get all solid species in supcrt database
+    # Get all solid species that could form given the elements in aqueous species list
     solution = rkt.AqueousPhase(aqueous_species_list)
-    # If we are specifying what phases to consider, note that we should only consider the phases that are relevant to the species in the solution
-    # I.e. don't consider all clathrates if they aren't possible to form (greatly decreases runtime if we consider only relevant phases)
-    solids_tester = rkt.MineralPhases()
-    system_tester = rkt.ChemicalSystem(db, solution, solids_tester)
-    relevant_solid_phases = system_tester.species().withAggregateState(rkt.AggregateState.Solid)
-    if solid_phases_to_consider == 'All':
-        solid_phases_to_consider = []
-        for solid_phase in relevant_solid_phases:
-            if solid_phase.name() not in solid_phases_to_suppress:
-                solid_phases_to_consider.append(solid_phase.name())
-            else:
-                log.debug(f"Solid phase {solid_phase.name()} is suppressed and will not be considered in the equilibrium calculations.")
-    for solid in solid_phases_to_consider:
-        if relevant_solid_phases.findWithName(solid) < relevant_solid_phases.size():
-            solid_phases += f' {solid}'
-    return solid_phases
+    minerals = rkt.MineralPhases()
+    system = rkt.ChemicalSystem(db, solution, minerals)
+    relevantSolidSpecies = system.species().withAggregateState(rkt.AggregateState.Solid)
+    relevantSolidSpeciesNamesList = [sp.name() for sp in relevantSolidSpecies]
+    solid_phases_to_suppress_set = set(solid_phases_to_suppress)
+    filteredSolidSpeciesNamesList = [
+        sp_name for sp_name in relevantSolidSpeciesNamesList if sp_name not in solid_phases_to_suppress_set
+    ]
+    return ' '.join(filteredSolidSpeciesNamesList)
 
 
 def ices_phases_amount_mol(props: rkt.ChemicalProps):
@@ -239,7 +276,8 @@ def ices_phases_amount_mol(props: rkt.ChemicalProps):
     return ice_chem_potential - water_chem_potential
 
 
-def species_convertor_compatible_with_supcrt(supcrt_db, aqueous_species_string, speciation_ratio_per_kg, Phreeqc_to_Supcrt_names):
+def species_convertor_compatible_with_supcrt(
+    supcrt_db, aqueous_species_string, speciation_ratio_per_kg, Phreeqc_to_Supcrt_names, supcrtAqueousLookupFormula=None, supcrtAqueousLookupName=None):
     """
     Converts aqueous species string and speciation ratio dictionary into formats compatible with supcrt. Namely, in phreeqc the liquid phase of H2O
     is labeled "H2O", whereas in supcrt it requires "H2O(aq)". Thus, converts "H2O" in the string and speciation ratio dictionary to "H2O(aq)".
@@ -250,160 +288,143 @@ def species_convertor_compatible_with_supcrt(supcrt_db, aqueous_species_string, 
         aqueous_species_string: String that has all species names that should be considered in aqueous phase
         speciation_ratio_per_kg: Dictionary of active species and the values of their molar ratio (mol/kg of water)
         Phreeqc_to_Supcrt_names: Dictionary of Phreeqc names that must be converted to Supcrt for compatibility
+        supcrtAqueousLookupFormula: Optional dict with keys by_formula from build_supcrt_aqueous_lookups; if None, built once from supcrt_db.
+        supcrtAqueousLookupName: Optional dict with keys by_name from build_supcrt_aqueous_lookups; if None, built once from supcrt_db.
     Returns:
         aqueous_species_string: Adapted string that has all species names in format compatible with supcrt
         supcrt_speciation_ratio_per_kg: Deep copy of dictionary that has species names in format compatible with supcrt
     """
     # Since python passes dictionary by reference, need to make deep copy to preserve original dictionary
     supcrt_speciation_ratio_per_kg = copy.deepcopy(speciation_ratio_per_kg)
-    supcrt_aqueous_species = supcrt_db.species().withAggregateState(rkt.AggregateState.Aqueous)
-    for phreeqc_formula in speciation_ratio_per_kg:
-        # First, let's check if we can find the matching compound by formula, since Phreeqc uses formula whereas supcrt uses compound names
-        try:
-            if supcrt_aqueous_species.findWithFormula(phreeqc_formula) < supcrt_aqueous_species.size():
-                supcrt_name = supcrt_aqueous_species.getWithFormula(phreeqc_formula).name()
-                # Now change the phreeqc key in the dictionary to supcrt key
-                supcrt_speciation_ratio_per_kg[supcrt_name] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
-                # Otherwise, let's check if we can find matching compound in Phreeqc_to_supcrt_names
-            elif phreeqc_formula in Phreeqc_to_Supcrt_names:
-                # Now change the phreeqc key in the dictionary to supcrt key
-                supcrt_speciation_ratio_per_kg[Phreeqc_to_Supcrt_names[phreeqc_formula]] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
-        except:
-            # Secoond, let's check if we can find the matching compound by name
-            try:
-                if supcrt_aqueous_species.findWithName(phreeqc_formula) < supcrt_aqueous_species.size():
-                    supcrt_name = supcrt_aqueous_species.getWithName(phreeqc_formula).name()
-                    # Now change the phreeqc key in the dictionary to supcrt key
-                    supcrt_speciation_ratio_per_kg[supcrt_name] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
-                elif phreeqc_formula in Phreeqc_to_Supcrt_names:
-                    # Now change the phreeqc key in the dictionary to supcrt key
-                    supcrt_speciation_ratio_per_kg[Phreeqc_to_Supcrt_names[phreeqc_formula]] = supcrt_speciation_ratio_per_kg.pop(phreeqc_formula)
-            except:
-                pass
-            
+    if supcrtAqueousLookupFormula is None or supcrtAqueousLookupName is None:
+        supcrtAqueousLookupFormula, supcrtAqueousLookupName = supcrt_aqueous_species_generator(supcrt_db)
+
+    for phreeqcName in speciation_ratio_per_kg:
+        supcrtName = None
+        if phreeqcName in supcrtAqueousLookupFormula:
+            supcrtName = supcrtAqueousLookupFormula[phreeqcName]
+        elif phreeqcName in Phreeqc_to_Supcrt_names:
+            supcrt_speciation_ratio_per_kg[Phreeqc_to_Supcrt_names[phreeqcName]] = supcrt_speciation_ratio_per_kg.pop(
+                phreeqcName
+            )
+            continue
+        elif phreeqcName in supcrtAqueousLookupName:
+            supcrtName = supcrtAqueousLookupName[phreeqcName]
+
+        if supcrtName is not None:
+            supcrt_speciation_ratio_per_kg[supcrtName] = supcrt_speciation_ratio_per_kg.pop(phreeqcName)
+        else:
+            raise ValueError(f"Species {phreeqcName} in Custom Solution is not found in Supcrt database. Please check that you are using the correct supcrt database in configPPCustomSolution.py.")
+
     # Return the string and adapted dictionary
     return " ".join(supcrt_speciation_ratio_per_kg.keys()), supcrt_speciation_ratio_per_kg
 
-
 def interpolation_2d(P_MPa, arrays):
-    """ Utilized as a helper function for thermodynamic properties calculation. Performs a 2d interpolation on any values that are NaN in the
-        provided arrays, allowing the zero values to be interpolated."""
+    """Utilized as a helper function for thermodynamic properties calculation.
+    Performs column-wise interpolation on any values that are NaN or inf in the
+    provided 2D arrays by calling interpolation_1d on each affected column.
+    """
     interpolated_arrays = []
+    P_MPa = np.asarray(P_MPa)
+
     for array in arrays:
         interpolated_array = np.copy(array)
+
         for col in range(array.shape[1]):
-            column_data = array[:, col]
-            # Create mask for both NaN and inf values - these are considered invalid data points
+            column_data = np.asarray(interpolated_array[:, col]).copy()
+
+            # Treat both NaN and inf as invalid
             invalid_mask = np.isnan(column_data) | np.isinf(column_data)
+
             if np.isinf(column_data).any():
-                log.warning("Inf values detected in column " + str(col) + " of array " + str(array))
-            
+                log.warning(
+                    "Inf values detected in column " + str(col) + " of array " + str(array)
+                )
+
             if np.any(invalid_mask):
-                # Step 1: Handle edge case filling - extend valid edge values to cover all invalid edge regions
-                # This prevents spline extrapolation which can cause numerical instability and -inf values
-                valid_indices = np.where(~invalid_mask)[0]
-                if len(valid_indices) > 0:
-                    # Fill ALL invalid values at the beginning (not just first position) with the first valid value
-                    # Example: [NaN, NaN, NaN, valid, ...] becomes [valid, valid, valid, valid, ...]
-                    first_valid_idx = valid_indices[0]
-                    if first_valid_idx > 0:
-                        column_data[:first_valid_idx] = column_data[first_valid_idx]
-                    
-                    # Fill ALL invalid values at the end (not just last position) with the last valid value
-                    # Example: [..., valid, NaN, NaN, NaN] becomes [..., valid, valid, valid, valid]
-                    last_valid_idx = valid_indices[-1]
-                    if last_valid_idx < len(column_data) - 1:
-                        column_data[last_valid_idx+1:] = column_data[last_valid_idx]
-                    
-                    # Step 2: Update invalid_mask after edge filling to identify remaining interior gaps
-                    invalid_mask = np.isnan(column_data) | np.isinf(column_data)
-                    
-                    # Step 3: Handle any remaining interior invalid values with spline interpolation
-                    # Now we have guaranteed valid edge values, so interpolation will be stable
-                    if np.any(invalid_mask):
-                        # Get updated valid points for interpolation
-                        valid_mask = ~invalid_mask
-                        x_known = P_MPa[valid_mask]  # Pressure values at valid data points
-                        y_known = column_data[valid_mask]  # Valid property values
-                        
-                        # Only interpolate if we have sufficient valid points for spline creation
-                        if len(x_known) >= 2:
-                            # Use linear interpolation (k=1) for robustness - more stable than cubic splines
-                            # Linear splines are less prone to oscillations and numerical instability
-                            spline_degree = min(1, len(x_known) - 1)
-                            spline = interpolate.make_interp_spline(x_known, y_known, k=spline_degree)
-                            # Only interpolate for the remaining invalid interior points
-                            invalid_indices = np.where(invalid_mask)[0]
-                            column_data[invalid_indices] = spline(P_MPa[invalid_indices])
-                    
-                    # Update the interpolated array with the processed column data
-                    interpolated_array[:, col] = column_data
-                else:
-                    # Fallback: If no valid data exists in this column, fill with zeros
-                    # This prevents propagation of invalid values through the calculation
-                    interpolated_array[:, col] = 0.0
+                # Convert inf to NaN so interpolation_1d can handle them
+                column_data[invalid_mask] = np.nan
+
+                # Use interpolation_1d on this single column
+                repaired_column = interpolation_1d(P_MPa, (column_data,))[0]
+
+                # Write repaired column back
+                interpolated_array[:, col] = repaired_column
             else:
                 # No invalid values in this column - use original data as-is
                 interpolated_array[:, col] = column_data
+
         interpolated_arrays.append(interpolated_array)
+
     return tuple(interpolated_arrays)
 
 
 def interpolation_1d(P_MPa, arrays):
     interpolated_arrays = []
+    P_MPa = np.asarray(P_MPa)
+
     for array in arrays:
         # Create a copy to avoid modifying the original array
-        array_copy = array.copy()
-        
+        array_copy = np.asarray(array).copy()
+
         # Create mask for known values (not NaN)
         nan_mask = np.isnan(array_copy)
-        
+
         # Step 1: Handle edge case filling - extend valid edge values to cover all invalid edge regions
-        # This prevents spline extrapolation which can cause numerical instability
+        # This prevents extrapolation at the ends and avoids numerical instability
         valid_indices = np.where(~nan_mask)[0]
         if len(valid_indices) > 0:
             # Fill ALL invalid values at the beginning with the first valid value
             first_valid_idx = valid_indices[0]
             if first_valid_idx > 0:
                 array_copy[:first_valid_idx] = array_copy[first_valid_idx]
-            
+
             # Fill ALL invalid values at the end with the last valid value
             last_valid_idx = valid_indices[-1]
             if last_valid_idx < len(array_copy) - 1:
-                array_copy[last_valid_idx+1:] = array_copy[last_valid_idx]
-            
+                array_copy[last_valid_idx + 1:] = array_copy[last_valid_idx]
+
             # Step 2: Update nan_mask after edge filling to identify remaining interior gaps
             nan_mask = np.isnan(array_copy)
-            
+
             # Step 3: Handle any remaining interior invalid values
             if np.any(nan_mask):
                 # Extract known points and values for interpolation
-                x_known = P_MPa[~nan_mask]
-                y_known = array_copy[~nan_mask]
-                
-                # Check if we have sufficient points for spline interpolation
+                x_known = np.asarray(P_MPa[~nan_mask])
+                y_known = np.asarray(array_copy[~nan_mask])
+
+                # Remove duplicate x values caused by clipping to Pmin/Pmax
+                x_known, unique_idx = np.unique(x_known, return_index=True)
+                y_known = y_known[unique_idx]
+
+                # Only interpolate for the remaining invalid interior points
+                invalid_indices = np.where(nan_mask)[0]
+
+                # Check if we have sufficient points for interpolation
                 if len(x_known) >= 2:
-                    # Use linear interpolation (k=1) for robustness
-                    spline = interpolate.make_interp_spline(x_known, y_known, k=1)
-                    # Only interpolate for the remaining invalid interior points
-                    invalid_indices = np.where(nan_mask)[0]
-                    array_copy[invalid_indices] = spline(P_MPa[invalid_indices])
+                    array_copy[invalid_indices] = np.interp(
+                        P_MPa[invalid_indices], x_known, y_known
+                    )
                 else:
                     # Fallback to nearest neighbor if insufficient points for interpolation
-                    for i in np.where(nan_mask)[0]:
-                        # Find distances to all valid points
-                        valid_indices = np.where(~nan_mask)[0]
+                    # Recompute valid indices from the current array_copy
+                    valid_indices = np.where(~np.isnan(array_copy))[0]
+
+                    for i in invalid_indices:
+                        # Find distances to all valid points in index space
                         distances = np.abs(valid_indices - i)
+
                         # Find the index of the nearest valid point
                         nearest_valid_idx = valid_indices[np.argmin(distances)]
+
                         # Fill with nearest neighbor value
                         array_copy[i] = array_copy[nearest_valid_idx]
-            
+
             interpolated_arrays.append(array_copy)
         else:
             # Fallback: If no valid data exists in this array, fill with zeros
             interpolated_arrays.append(np.zeros_like(array_copy))
-    
+
     return tuple(interpolated_arrays)
 
 def extract_species_from_reaction(species_dict, reaction_dict):

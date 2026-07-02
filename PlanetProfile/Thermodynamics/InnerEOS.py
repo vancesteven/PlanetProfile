@@ -4,28 +4,46 @@ import logging
 from scipy.io import loadmat
 from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator, interp1d as Interp1D, griddata as GridData
 from PlanetProfile import _ROOT, _PERPLEXCACHE
-from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, ConstantPropsStruct
 from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper
-from PlanetProfile.Thermodynamics.ConstantEOS import ConstantEOSStruct
+from PlanetProfile.Thermodynamics.ConstantEOS import GetConstantEOS
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
+def GetPlanetInnerEOS(Planet, Params, Fe_EOS = False):
+    if Fe_EOS:
+        if Planet.Do.ConstantProps['Inner']:
+            innerEOSWrapper = GetConstantEOS(Planet.Core.ConstantProps, EOStype='inner', EOScomp='Fe')
+        else:
+            innerEOSWrapper = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
+                                      kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
+                                      wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                                      TviscTrans_K=Planet.Core.TviscTrans_K)
+    else:
+        if Planet.Do.ConstantProps['Inner']:
+            innerEOSWrapper = GetConstantEOS(Planet.Sil.ConstantProps, EOStype='inner', EOScomp='Sil')
+        else:
+            innerEOSWrapper = GetInnerEOS(Planet.Sil.mantleEOS, EOSinterpMethod=Params.lookupInterpMethod,
+                        kThermConst_WmK=Planet.Sil.kTherm_WmK, HtidalConst_Wm3=Planet.Sil.Htidal_Wm3,
+                        porosType=Planet.Sil.porosType, phiTop_frac=Planet.Sil.phiRockMax_frac,
+                        Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
+                        EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas,
+                        etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
+                        TviscTrans_K=Planet.Sil.TviscTrans_K)
+    return innerEOSWrapper
+
+
 def GetInnerEOS(EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
                 HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None,
-                EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaSilFixed_Pas=None, etaCoreFixed_Pas=None, TviscTrans_K=None, 
-                doConstantProps=False, constantProperties=None):
-    if not doConstantProps:
-        innerEOS = PerplexEOSStruct(EOSfname, EOSinterpMethod=EOSinterpMethod, nHeaders=nHeaders,
-                                    Fe_EOS=Fe_EOS, kThermConst_WmK=kThermConst_WmK,
-                                    HtidalConst_Wm3=HtidalConst_Wm3, porosType=porosType,
-                                    phiTop_frac=phiTop_frac, Pclosure_MPa=Pclosure_MPa,
-                                    phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
-                                    wFeCore_ppt=wFeCore_ppt, wScore_ppt=wScore_ppt,
-                                    etaSilFixed_Pas=etaSilFixed_Pas, etaCoreFixed_Pas=etaCoreFixed_Pas, TviscTrans_K=TviscTrans_K)
-    else:
-        comp = 'core' if Fe_EOS else 'sil'
-        innerEOS = ConstantEOSStruct(constantProperties, TviscTrans_K=TviscTrans_K, EOStype = 'inner', innerComp = comp)
+                EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaSilFixed_Pas=None, etaCoreFixed_Pas=None, TviscTrans_K=None):
+    innerEOS = PerplexEOSStruct(EOSfname, EOSinterpMethod=EOSinterpMethod, nHeaders=nHeaders,
+                                Fe_EOS=Fe_EOS, kThermConst_WmK=kThermConst_WmK,
+                                HtidalConst_Wm3=HtidalConst_Wm3, porosType=porosType,
+                                phiTop_frac=phiTop_frac, Pclosure_MPa=Pclosure_MPa,
+                                phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
+                                wFeCore_ppt=wFeCore_ppt, wScore_ppt=wScore_ppt,
+                                etaSilFixed_Pas=etaSilFixed_Pas, etaCoreFixed_Pas=etaCoreFixed_Pas, TviscTrans_K=TviscTrans_K)
     if innerEOS.ALREADY_LOADED:
         log.debug(f'{innerEOS.comp} EOS already loaded. Reusing existing EOS.')
         innerEOS = EOSlist.loaded[innerEOS.EOSlabel]
@@ -343,22 +361,13 @@ class PerplexEOSStruct:
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
         return self.ufn_kTherm_WmK(P_MPa, T_K, grid=grid)
-    def fn_VP_kms(self, P_MPa, T_K, grid=False):
+    def fn_Seismic(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
-        return self.ufn_VP_kms(P_MPa, T_K, grid=grid)
-    def fn_VS_kms(self, P_MPa, T_K, grid=False):
-        if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
-        return self.ufn_VS_kms(P_MPa, T_K, grid=grid)
-    def fn_KS_GPa(self, P_MPa, T_K, grid=False):
-        if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
-        return self.ufn_KS_GPa(P_MPa, T_K, grid=grid)
-    def fn_GS_GPa(self, P_MPa, T_K, grid=False):
-        if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
-        return self.ufn_GS_GPa(P_MPa, T_K, grid=grid)
+        return (self.ufn_VP_kms(P_MPa, T_K, grid=grid),
+                self.ufn_VS_kms(P_MPa, T_K, grid=grid),
+                self.ufn_KS_GPa(P_MPa, T_K, grid=grid),
+                self.ufn_GS_GPa(P_MPa, T_K, grid=grid))
     def fn_phi_frac(self, P_MPa, T_K, grid=False):
         if not self.EXTRAP:
             P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)

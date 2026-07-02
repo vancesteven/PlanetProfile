@@ -16,7 +16,7 @@ def CalcRefProfiles(PlanetList, Params):
     maxPmax = np.max([Planet.P_MPa[Planet.Steps.nHydro-1] for Planet in PlanetList])
 
     for Planet in PlanetList:
-        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
+        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and Planet.Ocean.comp != 'constant':
             wList = Params.wRef_ppt[Planet.Ocean.comp]
             thisRefLabel = f'{Planet.Ocean.comp}' + ','.join([f'{w_ppt}' for w_ppt in wList])
             thisRefRange = maxPmax
@@ -44,13 +44,13 @@ def CalcRefProfiles(PlanetList, Params):
                 for i, w_ppt in enumerate(wList):
                     EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType,
                             rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType, phaseType='lookup',
-                            EXTRAP=Params.EXTRAP_REF, FORCE_NEW=Params.FORCE_EOS_RECALC, MELT=True, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+                            EXTRAP=Params.EXTRAP_REF, FORCE_NEW=Params.FORCE_EOS_RECALC, MELT=False, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
 
                     if EOSref.propsPmax < Pmax or EOSref.Pmax < Pmax:
                         Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(Params.Pref_MPa[Planet.Ocean.comp][0], np.minimum(EOSref.propsPmax, EOSref.Pmax),
                                                                          Params.nRefPts[Planet.Ocean.comp])
                     try:
-                        Tfreeze_K = np.array([GetTfreeze(EOSref, P_MPa, Tref_K[0], TfreezeRange_K=230) for P_MPa in Params.Pref_MPa[Planet.Ocean.comp]])
+                        Tfreeze_K = np.array([GetTfreeze(EOSref, P_MPa, Tref_K[0], TUpper_K=Tref_K[0] + 230) for P_MPa in Params.Pref_MPa[Planet.Ocean.comp]])
                     except:
                         raise RuntimeError(f'Unable to calculate reference melting curve for {Planet.Ocean.comp} with ' +
                                            f'maximum Pref_MPa = {Params.Pref_MPa[Planet.Ocean.comp][-1]}. Try to recalculate ' +
@@ -90,7 +90,7 @@ def ReloadRefProfiles(PlanetList, Params):
     newRef = {comp: True for comp in comps}
 
     for Planet in PlanetList:
-        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
+        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and Planet.Ocean.comp != 'constant':
             # Get name to load - check cache directory first, then package directory
             fNameRef = hashlib.md5(Planet.Ocean.comp.split('=')[-1].encode()).hexdigest()
             fNameRefReload = os.path.join(_REFPROFILESCACHE, fNameRef)
@@ -99,7 +99,7 @@ def ReloadRefProfiles(PlanetList, Params):
                                    'was not found. Try running again with CALC_NEW_REF set to True in configPP.py.')
             with open(fNameRefReload) as f:
                 _ = f.readline()
-                Params.wRef_ppt[Planet.Ocean.comp] = np.array(f.readline().split('=')[-1].split(',')).astype(np.float_)
+                Params.wRef_ppt[Planet.Ocean.comp] = np.array(f.readline().split('=')[-1].split(',')).astype(np.float64)
             PrhoRef = np.loadtxt(fNameRefReload, skiprows=3, unpack=False)
             PrhoRef = PrhoRef.T
             Params.nRef[Planet.Ocean.comp] = np.size(Params.wRef_ppt[Planet.Ocean.comp])

@@ -1,6 +1,6 @@
 import numpy as np
 import logging
-from PlanetProfile.Thermodynamics.HydroEOS import GetIceEOS
+from PlanetProfile.Thermodynamics.HydroEOS import GetPlanetIceEOS
 from PlanetProfile.Utilities.Indexing import PhaseConv
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConductiveTemperature
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
@@ -455,7 +455,7 @@ def PropagateAdiabaticPorousFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore
     # Assign phasePore all zeros. Since we assume pores contain liquid, we won't
     # change any of these values. This is for forward compatibility, in case the
     # assumption of pores containing ocean fluid is relaxed.
-    phasePore = np.zeros(iEnd - iStart, dtype=np.int_)
+    phasePore = np.zeros(iEnd - iStart, dtype=np.int64)
     # Initialize DeltaPpore at 0 so we can use it to set the top pore pressure
     # equal to the pressure of the overlying material. In this, we're assuming
     # iStart corresponds to a layer for which there is communication between
@@ -559,7 +559,7 @@ def PropagateConductionProfilesSolid(Planet, Params, nProfiles, profRange, rSilE
                 compatibility with waterless bodies using the same calculations.
             rSilEnd_m (float): Inner radius of silicates, if known. Usually 0, but nonzero
                 if we already found the core radius, i.e. by assuming constant silicate and
-                core densities using Do.CONSTANT_INNER_DENSITY = True.
+                core densities using Planet.Do.ConstantProps['Inner'] = True.
         Returns:
             Psil_MPa (float, shape (nProfiles, Planet.Steps.nSilMax)): Pressures in silicate layers in MPa.
                 Test-case 2D array to evaluate -- we pick the closest mass match along one dimension
@@ -654,21 +654,20 @@ def InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m):
     Psil_MPa, Tsil_K, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
     phiSil_frac, HtidalSil_Wm3, Ppore_MPa, rhoPore_kgm3, KSsil_GPa, GSsil_GPa \
         = (np.zeros((nProfiles, Planet.Steps.nSilMax)) for _ in range(13))
-    phasePore = np.zeros((nProfiles, Planet.Steps.nSilMax), dtype=np.int_)
+    phasePore = np.zeros((nProfiles, Planet.Steps.nSilMax), dtype=np.int64)
 
     # Assign ocean-bottom options as silicate-top values
     rSil_m = np.array([np.linspace(Planet.r_m[i+Planet.Steps.iSilStart], rSilEnd_m, Planet.Steps.nSilMax+1) for i in profRange])
     Psil_MPa[:,0] = [Planet.P_MPa[i+Planet.Steps.iSilStart] for i in profRange]
     Tsil_K[:,0] = [Planet.T_K[i+Planet.Steps.iSilStart] for i in profRange]
-    if Planet.Do.CONSTANT_INNER_DENSITY and not Planet.Do.Fe_CORE:
+    if Planet.Do.ConstantProps['Inner'] and not Planet.Do.Fe_CORE:
         # If we are doing constant inner density and no core, we need to set the density to that calculated
         rhoSil_kgm3[:,0] = Planet.Sil.rhoNoCore_kgm3
     else:
         # If we are doing constant inner density w/ core or EOS-based sil, then sil density is specified by user/EOS and we set it up in EOS already
         rhoSil_kgm3[:,0] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,0], Tsil_K[:,0])
     kThermSil_WmK[:,0] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,0], Tsil_K[:,0])
-    KSsil_GPa[:,0] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,0], Tsil_K[:,0])
-    GSsil_GPa[:,0] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,0], Tsil_K[:,0])
+    _, _, KSsil_GPa[:,0], GSsil_GPa[:,0] = Planet.Sil.EOS.fn_Seismic(Psil_MPa[:,0], Tsil_K[:,0])
     gSil_ms2[:,0] = [Planet.g_ms2[i+Planet.Steps.iSilStart] for i in profRange]
 
     MHydro_kg = np.array([np.sum(Planet.MLayer_kg[:i]) for i in range(Planet.Steps.iSilStart, Planet.Steps.iSilStart + nProfiles)])
@@ -740,7 +739,7 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
     if np.all(liqP):
         rhoPore_kgm30 = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa0, Tsil_K0)
         kThermPore_WmK[:,0] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa0, Tsil_K0)
-        _, KSpore_GPa[:,0] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa0, Tsil_K0)
+        _, _, KSpore_GPa[:,0], _ = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa0, Tsil_K0)
         GSpore_GPa[:,0] = np.zeros_like(KSpore_GPa[:,0])
         DeltaPpore_MPa[:,0] = 1e-6 * rhoPore_kgm30 * gSil_ms20 * (rSil_m0 - rSil_m1)
     else:
@@ -748,7 +747,7 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
         # For the pores filled with liquid, use ocean liquid EOS
         rhoPore_kgm30[liqP] = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa0[liqP], Tsil_K0[liqP])
         kThermPore_WmK[liqP,0] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa0[liqP], Tsil_K0[liqP])
-        _, KSpore_GPa[liqP,0] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa0[liqP], Tsil_K0[liqP])
+        _, _, KSpore_GPa[liqP,0], _ = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa0[liqP], Tsil_K0[liqP])
         GSpore_GPa[liqP,0] = np.zeros_like(KSpore_GPa[liqP,0])
         DeltaPpore_MPa[liqP,0] = 1e-6 * rhoPore_kgm30[liqP] * gSil_ms20[liqP] * (rSil_m0[liqP] - rSil_m1[liqP])
         phases = np.unique(phasePore0)
@@ -761,13 +760,7 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
                 if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
                     PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
                     TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
-                    Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                                  porosType=Planet.Ocean.porosType[icePhase],
-                                                                  phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                                  phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                                  ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+                    Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
                 thisIceEOS = Planet.Ocean.surfIceEOS['Ih']
             else:
                 # Get ice EOS if not currently loaded
@@ -775,19 +768,13 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
                 if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
                     PIce_MPa = np.linspace(Planet.Pb_MPa, Planet.Ocean.PHydroMax_MPa, 10)
                     TIce_K = np.linspace(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, 10)
-                    Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                                  porosType=Planet.Ocean.porosType[icePhase],
-                                                                  phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                                  Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                                  phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                  EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                                                      mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
+                    Planet.Ocean.iceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
                 thisIceEOS = Planet.Ocean.iceEOS[icePhase]
 
             iP = np.where(phasePore0 == phase)[0]
             rhoPore_kgm30[iP] = thisIceEOS.fn_rho_kgm3(Ppore_MPa0[iP], Tsil_K0[iP])
             kThermPore_WmK[iP,0] = thisIceEOS.fn_kTherm_WmK(Ppore_MPa0[iP], Tsil_K0[iP])
-            GSpore_GPa[iP,0], KSpore_GPa[iP,0], _, _ = thisIceEOS.fn_Seismic(Ppore_MPa0[iP], Tsil_K0[iP])
+            _, _, KSpore_GPa[iP,0], GSpore_GPa[iP,0] = thisIceEOS.fn_Seismic(Ppore_MPa0[iP], Tsil_K0[iP])
             # Keep DeltaPpore calculation separate for liquid and ice in case of future updates to adjust matrix coupling/pressure scaling
             DeltaPpore_MPa[iP,0] = 1e-6 * rhoPore_kgm30[iP] * gSil_ms20[iP] * (rSil_m0[iP] - rSil_m1[iP])
     # Combine properties using rules defined in EOS functions for porosity
@@ -835,7 +822,7 @@ def SilRecursionSolid(Planet, Params,
         Tsil_K[:,j], qTop_Wm2 = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
                     kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
                     qTop_Wm2)
-        if Planet.Do.CONSTANT_INNER_DENSITY and not Planet.Do.Fe_CORE:
+        if Planet.Do.ConstantProps['Inner'] and not Planet.Do.Fe_CORE:
             # If we are doing constant inner density and no core, we need to set the density to that calculated
             rhoSil_kgm3[:,j] = Planet.Sil.rhoNoCore_kgm3
         else:
@@ -844,8 +831,7 @@ def SilRecursionSolid(Planet, Params,
         kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j])
         # Get KS and GS now as they are needed for Htidal calculation;
         # we will calculate them again later along with other seismic calcs
-        KSsil_GPa[:,j] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,j], Tsil_K[:,j])
-        GSsil_GPa[:,j] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,j], Tsil_K[:,j])
+        _, _, KSsil_GPa[:,j], GSsil_GPa[:,j] = Planet.Sil.EOS.fn_Seismic(Psil_MPa[:,j], Tsil_K[:,j])
         # Calculate gravity using absolute values, as we will use MAboveSil to check for exceeding body mass later.
         gSil_ms2[:,j] = fn_g_ms2(MAboveSil_kg[:,j], rSil_m[:,j])
 
@@ -881,7 +867,7 @@ def SilRecursionPorous(Planet, Params,
                     kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
                     qTop_Wm2)
         # Get matrix material physical properties
-        if Planet.Do.CONSTANT_INNER_DENSITY and not Planet.Do.Fe_CORE:
+        if Planet.Do.ConstantProps['Inner'] and not Planet.Do.Fe_CORE:
             # If we are doing constant inner density and no core, we need to set the density to that calculated
             rhoSil_kgm3[:,j] = Planet.Sil.rhoNoCore_kgm3
         else:
@@ -890,8 +876,7 @@ def SilRecursionPorous(Planet, Params,
         kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j])
         # Get KS and GS now as they are needed for Htidal calculation;
         # we will calculate them again later along with other seismic calcs
-        KSsil_GPa[:,j] = Planet.Sil.EOS.fn_KS_GPa(Psil_MPa[:,j], Tsil_K[:,j])
-        GSsil_GPa[:,j] = Planet.Sil.EOS.fn_GS_GPa(Psil_MPa[:,j], Tsil_K[:,j])
+        _, _, KSsil_GPa[:,j], GSsil_GPa[:,j] = Planet.Sil.EOS.fn_Seismic(Psil_MPa[:,j], Tsil_K[:,j])
         # Calculate gravity using absolute values, as we will use MAboveSil to check for exceeding body mass later.
         gSil_ms2[:,j] = fn_g_ms2(MAboveSil_kg[:,j], rSil_m[:,j])
 
@@ -915,14 +900,14 @@ def SilRecursionPorous(Planet, Params,
         if np.all(liqP):
             rhoPore_kgm3[:,j] = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa[:,j], Tsil_K[:,j])
             kThermPore_WmK[:,j] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa[:,j], Tsil_K[:,j])
-            _, KSpore_GPa[:,j] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa[:,j], Tsil_K[:,j])
+            _, _, KSpore_GPa[:,j], _ = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa[:,j], Tsil_K[:,j])
             GSpore_GPa[:,j] = np.zeros_like(KSpore_GPa[:,j])
             DeltaPpore_MPa[:,j] = 1e-6 * rhoPore_kgm3[:,j] * gSil_ms2[:,j] * (rSil_m[:,j] - rSil_m[:,j+1])
         else:
             # For the pores filled with liquid, use ocean liquid EOS
             rhoPore_kgm3[liqP,j] = Planet.Sil.poreEOS.fn_rho_kgm3(Ppore_MPa[liqP,j], Tsil_K[liqP,j])
             kThermPore_WmK[liqP,j] = Planet.Sil.poreEOS.fn_kTherm_WmK(Ppore_MPa[liqP,j], Tsil_K[liqP,j])
-            _, KSpore_GPa[liqP,j] = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa[liqP,j], Tsil_K[liqP,j])
+            _, _, KSpore_GPa[liqP,j], _ = Planet.Sil.poreEOS.fn_Seismic(Ppore_MPa[liqP,j], Tsil_K[liqP,j])
             GSpore_GPa[liqP,j] = np.zeros_like(KSpore_GPa[liqP,j])
             DeltaPpore_MPa[liqP,j] = 1e-6 * rhoPore_kgm3[liqP,j] * gSil_ms2[liqP,j] * (rSil_m[liqP,j] - rSil_m[liqP,j+1])
             phases = np.unique(phasePore[:,j])
@@ -937,13 +922,7 @@ def SilRecursionPorous(Planet, Params,
                     if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
                         PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
                         TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
-                        Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                                      porosType=Planet.Ocean.porosType[icePhase],
-                                                                      phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                                      Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                                      phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                      EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                                      ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+                        Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
                     thisIceEOS = Planet.Ocean.surfIceEOS['Ih']
                 else:
                     # Get ice EOS if not currently loaded
@@ -951,13 +930,7 @@ def SilRecursionPorous(Planet, Params,
                     if Planet.Ocean.iceEOS[icePhase].key not in EOSlist.loaded.keys():
                         PIce_MPa = np.linspace(Planet.Pb_MPa, Planet.Ocean.PHydroMax_MPa, 10)
                         TIce_K = np.linspace(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, 10)
-                        Planet.Ocean.iceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                                      porosType=Planet.Ocean.porosType[icePhase],
-                                                                      phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                                      Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                                      phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                                      EXTRAP=Params.EXTRAP_ICE[icePhase], kThermConst_WmK=Planet.Ocean.kThermIce_WmK,
-                                                                      mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
+                        Planet.Ocean.iceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
                     thisIceEOS = Planet.Ocean.iceEOS[icePhase]
 
                 # Get indices where this ice phase is present
@@ -965,7 +938,7 @@ def SilRecursionPorous(Planet, Params,
                 # Evaluate pore material properties for this phase
                 rhoPore_kgm3[iP,j] = thisIceEOS.fn_rho_kgm3(Ppore_MPa[iP,j], Tsil_K[iP,j])
                 kThermPore_WmK[iP,j] = thisIceEOS.fn_kTherm_WmK(Ppore_MPa[iP,j], Tsil_K[iP,j])
-                GSpore_GPa[iP,j], KSpore_GPa[iP,j], _, _ = thisIceEOS.fn_Seismic(Ppore_MPa[iP,j], Tsil_K[iP,j])
+                _, _, KSpore_GPa[iP,j], GSpore_GPa[iP,j] = thisIceEOS.fn_Seismic(Ppore_MPa[iP,j], Tsil_K[iP,j])
                 # Keep DeltaPpore calculation separate for liquid and ice in case of future updates to adjust matrix coupling/pressure scaling
                 DeltaPpore_MPa[iP,j] = 1e-6 * rhoPore_kgm3[iP,j] * gSil_ms2[iP,j] * (rSil_m[iP,j] - rSil_m[iP,j+1])
         # Combine properties using rule defined in EOS function for porosity as in

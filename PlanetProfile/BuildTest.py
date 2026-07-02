@@ -63,8 +63,6 @@ def full(iTestStart=2, skipType=None):
             testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
             log.info(f'Test case body: {testBase}{i}')
             try:
-                if i ==18:
-                    print("HERE")
                 TestPlanets = np.append(TestPlanets, PlanetProfile(testPlanetN, Params)[0])
                 tMarks = np.append(tMarks, time.time())
             except Exception as e:
@@ -199,6 +197,8 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
     Params.DO_EXPLOREOGRAM = True
     Params.CALC_NEW = True
     Params.NO_SAVEFILE = True
+    Params.minPres_MPa = 1.0
+    Params.minTres_K = 1.0
     Params.Explore.zName = 'CMR2mean'
     Params.Explore.oceanCompRangeList = ['Seawater', 'MgSO4', 'NaCl', 'PureH2O']
     allZNames = ["CMR2mean", "D_km", "Dconv_m", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km",
@@ -400,6 +400,8 @@ def setFullSettings(Params):
     Params.ALLOW_BROKEN_MODELS = False
     Params.DEPRECATED = False
     Params.TIME_AND_DATE_LABEL = False
+    # Set customsolution settings
+    Params.CustomSolution.SOLID_PHASES = True
     # Set plotting options
     Params.SKIP_PLOTS = False
     Params.PLOT_GRAVITY = True

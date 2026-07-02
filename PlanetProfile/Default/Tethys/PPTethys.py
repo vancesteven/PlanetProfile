@@ -15,6 +15,8 @@ Planet.PfreezeUpper_MPa = 75
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 531.0e3  # Value from mean radius in Archinal et al. (2018): https://doi.org/10.1007/s10569-017-9805-5
 Planet.Bulk.M_kg = 6.17449e20  # From Jacobson et al. (2006): https://adsabs.harvard.edu/pdf/1992AJ....103.2068J
+Planet.Bulk.Torb_s = 1.887802 * 24 * 3600
+Planet.Bulk.eccentricity = 0.0001
 Planet.Bulk.Tsurf_K = 68.25  # From Gyalay and Nimmo (2023): https://doi.org/10.1029/2022JE007550
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.34  # From Gyalay and Nimmo (2023): https://doi.org/10.1029/2022JE007550

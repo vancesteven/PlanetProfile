@@ -51,16 +51,40 @@ _tableau10_v10colors = [
 ]
 
 # We have to define subclasses first in order to make them instanced to each Planet object
+
+""" Constant-property EOS container """
+class ConstantPropsStruct:
+    def __init__(self):
+        self.rho_kgm3     = None  # Bulk density [kg/m³]
+        self.Cp_JkgK      = None  # Isobaric heat capacity [J/kg/K]
+        self.alpha_pK     = None  # Thermal expansivity [1/K]
+        self.kTherm_WmK   = None  # Thermal conductivity [W/m/K] (optional)
+        self.VP_kms       = None  # P-wave velocity [km/s] (optional; np.nan if not set)
+        self.VS_kms       = None  # S-wave velocity [km/s] (optional)
+        self.KS_GPa       = None  # Bulk modulus [GPa] (optional)
+        self.GS_GPa       = None  # Shear modulus [GPa] (optional)
+        self.sigma_Sm     = None  # Electrical conductivity [S/m] (optional)
+        self.eta_Pas      = None  # Dynamic viscosity [Pa·s] (optional)
+        self.TviscTrans_K = None  # Viscosity transition temperature [K] (optional)
+        
+        # Framework-managed phase boundary (ocean only, set by SetupInit from Bulk.*)
+        self._phase_Pb_MPa = None
+        self._phase_Tb_K   = None
+
+
 """ Run settings """
 class BulkSubstruct():
 
     def __init__(self):
         self.Tb_K = None  # Temperature at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers). Ranges from 238.5 to 261.165 K for ice III transition and 251.165 to 273.16 for melting temp. This must remain set to None here as a default. Exactly two out of three of Bulk.Tb_K, Bulk.zb_km, and Ocean.wOcean_ppt must be set for every model with surface H2O.
+        self.PbISet_MPa = None  # (Optional - used when Planet.Do.SPECIFY_ICE_BOTTOM_PRESSURE is True) Specify pressure at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers).
         self.zb_approximate_km = None  # Desired thickness of ice I layer (entire ice interface when no ice III or V underplate layers) that is used to find bottom temperature. This bottom temperature is then used to propogate ice layer, ensuring self-consistency (but means model zb_km might not be exactly the same as zb_approximate_km)
         self.Dhsphere_m = None # Desired hydrosphere thickness. Instead of matching CMR2 to input CMR2, we match CMR2 to that which optimizes hydrosphere thickness.
         self.rho_kgm3 = None  # Bulk density in kg/m^3 -- note that this is intended to be derived and not set.
         self.R_m = None  # Mean body outer radius in m
         self.M_kg = None  # Total body mass in kg
+        self.Torb_s = None  # Orbital period in s. If unset, gravity/libration calculations are skipped.
+        self.eccentricity = None  # Orbital eccentricity. If unset, gravity/libration calculations are skipped.
         self.Tsurf_K = None  # Surface temperature in K
         self.Psurf_MPa = None  # Surface pressure in MPa
         self.Cmeasured = None  # Axial moment of inertia C/MR^2, dimensionless
@@ -89,11 +113,11 @@ class BulkSubstruct():
 
 """ Runtime flags """
 class DoSubstruct:
-
     def __init__(self):
         self.VALID = True  # Whether this profile is physically possible
         self.Fe_CORE = False  # Whether to model an iron core for this body
-        self.CONSTANT_INNER_DENSITY = False  # Whether to use a fixed density in silicates and core instead of using Perple_X EOS for each
+        self.ConstantProps = {'Ocean': False, 'Ice': False, 'Inner': False}  # Whether to use constant thermodynamic properties for each layer type instead of geochemical EOS
+        self.CustomEOS = {'Ocean': False, 'OceanMelt': False, 'Pore': False}  # Whether to use a user-supplied OceanEOSBase instance for each EOS context. Set the corresponding slot (Ocean.EOS, Ocean.EOSmelt, Sil.poreEOS) before setting flag to True.
         self.CLATHRATE = False  # Whether to model clathrates
         self.MIXED_CLATHRATE_ICE = False # Whether to model mixed clathrate/ice phases. If False, assumes whole clathrate layers.
         self.NAGASHIMA_CLATH_DISSOC = False  # Whether to use extrapolation of Nagashima (2017) dissertation provided by S. Nozaki (private communication) for clathrate dissociation (alternative is Sloan (1998)). WIP.
@@ -103,7 +127,13 @@ class DoSubstruct:
         self.DIFFERENTIATE_VOLATILES = False  # Whether to include an ice layer atop a partially differentiated body, with rock+ice mantle
         self.NO_OCEAN = False  # Tracks whether no ocean is present---this flag is set programmatically.
         self.NO_OCEAN_EXCEPT_INNER_ICES = False # Whether to model oceanless worlds but calculate potential inner HP ices (if they exist) - relevant for large worlds
+       
+        self.SPECIFY_CORE_DENSITY_AND_RADIUS = False # Specify core density and radius, rather than core and silicate density. Removes self-consistency with input CMR2 by instead calculating CMR2 based on input bulk mass, radius, and core density and radius.
+        
         self.ICEIh_THICKNESS = False  # Use the Ice Ih shell thickness parameter setting of a planet, calculating the associated bottom pressure and temperature
+        self.SPECIFY_ICEI_BOTTOM_PRESSURE = False # Specify pressure at the bottom of the ice I layer (ice-ocean interface when there are no ice III or V underplate layers).
+
+        self.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE = False # Specify hydrosphere pressure at seafloor. Removes self-consistency with input CMR2 by instead calculating CMR2 based on input bulk mass, radius, and hydrosphere seafloor pressure.
         self.HYDROSPHERE_THICKNESS = False # Specify hydrosphere thickness. Removes self-consistency with input CMR2 by instead matching CMR2 with best fit for input hydrosphere thickness.
         self.BOTTOM_ICEIII = False  # Whether to allow Ice III between ocean and ice I layer, when ocean temp is set very low- default is that this is off, can turn on as an error condition
         self.BOTTOM_ICEV = False  # Same as above but also including ice V. Takes precedence (forces both ice III and V to be present).
@@ -123,11 +153,10 @@ class DoSubstruct:
         self.NONHYDROSTATIC = False  # Whether to use different lower bound for C/MR^2 matching commensurate with nonhydrostaticity resulting in an artificially high MoI value
         self.SKIP_POROUS_PHASE = False  # Whether to assume pores are only filled with liquid, and skip phase calculations there.
         self.CONSTANT_GRAVITY = False  # Whether to force gravity to be constant throughout each material layer, instead of recalculating self-consistently with each progressive layer.
-        self.CONSTANTPROPSEOS = False  # Whether to use constant properties for EOS. Used for non-self-consistent modeling.
         self.OCEAN_PHASE_HIRES = False  # Whether to use a high-resolution grid for phase equilibrium lookup table in ocean EOS. Currently only implemented for MgSO4. WARNING: Uses a lot of memory, potentially 20+ GB.
         self.USE_WOCEAN_PPT = True # Whether to use wOcean_ppt to match with ocean composition (in case of CustomSolution, we can set this to false if we do not want to specify w_ppt)
-        self.NON_SELF_CONSISTENT = False  # Whether to use non-self-consistent modeling (using mean values for layer properties instead of detailed EOS calculations)
         self.STILL_CALCULATE_BROKEN_PROPERTIES = False # Progromatically set flag for still calculating properties even if the model is invalid - namely, is set to True only when ALLOW_BROKEN_MODELS is True and the reason it is invalid is mismatch mass or CMR2
+
 
 
 """ Layer step settings """
@@ -157,25 +186,10 @@ class StepsSubstruct:
         self.iCond = []  # Logical array to select indices corresponding to surface conducting ice
         self.iConv = []  # Logical array to select indices corresponding to surface convecting ice
 
-""" Reaction structure """
-class ReactionSubstruct:
-    def __init__(self):
-        self.reaction = None
-        self.disequilibriumConcentrations = {}
-        self.useReferenceSpecies = False
-        self.useH2ORatio = False
-        self.referenceSpecies = None
-        self.mixingRatioToH2O = {}
-        self.relativeRatioToReferenceSpecies = {}
-        """For explorations"""
-        self.speciesRatioToChange = None
-        self.speciesToChangeMixingRatio = np.nan
-
 """ Hydrosphere assumptions """
 class OceanSubstruct:
 
     def __init__(self):
-        self.Reaction = ReactionSubstruct() # Reaction object for calculating affinities related to reactions
         self.comp = None  # Type of dominant dissolved salt in ocean. Options: 'Seawater', 'MgSO4', 'PureH2O', 'NH3', 'NaCl', 'none'
         self.wOcean_ppt = None  # (Absolute) salinity: Mass concentration of above composition in parts per thousand (ppt)
         self.pH = None # pH of ocean (Only customizable for CustomSolution - pH for other compositions are overridden
@@ -193,8 +207,8 @@ class OceanSubstruct:
         self.Vtot_m3 = None  # Total volume of all ocean layers
         self.rhoMean_kgm3 = None  # Mean density for ocean layers
         self.Tmean_K = None  # Mean temperature of ocean layers based on total thermal energy
-        self.oceanConstantProperties = None  # Constant properties for ocean layers if specified with Planet
-        self.constantProperties = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Constant properties for conducting ice layers if specified with Planet
+        self.ConstantProps = ConstantPropsStruct()  # Constant thermodynamic properties for the ocean. Used when Do.ConstantProps['Ocean'] is True.
+        self.IceConstantProps = {phase: ConstantPropsStruct() for phase in ['Ih', 'II', 'III', 'V', 'VI']}  # Constant thermodynamic properties for each ice phase. Only used when the corresponding IceConstantProps[phase].rho_kgm3 is not None.
         self.rhoCondMean_kgm3 = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean density for conducting ice layers
         self.rhoConvMean_kgm3 = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean density for convecting ice layers
         self.sigmaCondMean_Sm = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean conductivity for conducting ice layers
@@ -204,6 +218,7 @@ class OceanSubstruct:
         self.GScondMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for conducting ice layers
         self.GSconvMean_GPa = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']}  # Mean shear modulus for convecting ice layers
         self.Eact_kJmol = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath', 'MixedClathrateIh']} # Activation energy for diffusion of ice phases Ih-VI in kJ/mol (start at index 1) - Overrides Constants.Eact_kJmol if specified
+        self.etaMelt_Pas = {phase: np.nan for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath', 'MixedClathrateIh']} # Viscosity at melting temperature for convection calculations - Overrides Constants.etaMelt_Pas if specified
         self.rhoMeanIIwet_kgm3 = np.nan  # Mean density for in-ocean ice II layers
         self.rhoMeanIIIwet_kgm3 = np.nan  # Mean density for in-ocean ice III layers
         self.rhoMeanVwet_kgm3 = np.nan  # Mean density for in-ocean ice V layers
@@ -217,6 +232,7 @@ class OceanSubstruct:
         self.GSmeanVwet_GPa = np.nan  # Mean shear modulus for in-ocean ice V layers
         self.GSmeanVI_GPa = np.nan  # Mean shear modulus for in-ocean ice VI layers
         self.TfreezeOffset_K = 0.01  # Offset from the freezing temperature to avoid overshooting in HP ices
+        self.reactionEquation = None # Reaction equation to use for calculating equilibrium reaction constant
         # self.koThermI_WmK = 2.21  # Thermal conductivity of ice I at melting temp. Default is from Eq. 6.4 of Melinder (2007), ISBN: 978-91-7178-707-1
         self.kThermWater_WmK = None # Thermal conductivity for water layers  - Overrides kThermWater_WmK in Constants
         self.kThermIce_WmK = {phase: None for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']} # Constant thermal conductivity for each ice layer in non-self-consistent models
@@ -224,6 +240,7 @@ class OceanSubstruct:
         self.sigmaIce_Sm = {'Ih':1e-8, 'II':1e-8, 'III':1e-8, 'V':1e-8, 'VI':1e-8, 'Clath':5e-5, 'MixedClathrateIh': 5e-5}  # Assumed conductivity of solid ice phases (see Constants.sigmaClath_Sm below)
         self.THydroMax_K = 320  # Assumed maximum ocean temperature for generating ocean EOS functions. For large bodies like Ganymede, Callisto, and Titan, larger values are required.
         self.PHydroMax_MPa = 200  # Guessed maximum pressure of the hydrosphere in MPa. Must be greater than the actual pressure, but ideally not by much. Sets initial length of hydrosphere arrays, which get truncated after layer calculations are finished.
+        self.PHydroSeafloorSet_MPa = None # Hydrosphere pressure at the seafloor in MPa, to be used in conjunction with Do.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE
         self.MgSO4elecType = 'Vance2018'  # Type of electrical conductivity model to use for MgSO4. Options: 'Vance2018', 'Pan2020'
         self.MgSO4scalingType = 'Vance2018'  # Type of scaling to apply to Larionov and Kryukov model. Options: 'Vance2018', 'LK1984'
         self.MgSO4rhoType = 'Millero'  # Type of water density model to use in Larionov and Kryukov model. Options: 'Millero', 'SeaFreeze'
@@ -258,11 +275,7 @@ class OceanSubstruct:
         self.aqueousSpecies = None  # All species considered in each liquid ocean layer (i.e. the species considered in
         self.aqueousSpeciesAmount_mol = None # Species amount at each liquid ocean layer (nested 2D array of dimensions
             # np.size(aqueousSpecies) x len(total layers that are liquid))
-        self.affinity_kJ = None # Affinity of Planet.Ocean.Reaction.reaction (if specified) across ocean depth
-        self.affinityMean_kJ = None # Mean affinity of Planet.Ocean.Reaction.reaction (if specified) across ocean depth
-        self.affinitySeafloor_kJ = None # Affinity of Planet.Ocean.Reaction.reaction (if specified) at seafloor
-        self.mixingRatioToH2O = None # Mixing ratio of H2 to CO2 in the ocean
-        self.speciesOfRatio = None # Species of the ratio in the ocean
+        self.equilibriumReactionConstant = None # Equilibrium reaction constant of Planet.Ocean.reactionEquation of each liquid layer
 
 
 
@@ -324,14 +337,9 @@ class SilSubstruct:
         self.mantleEOSName = None  # Same as above but containing keywords like clathrates in filenames
         self.mantleEOSDry = None  # Name of mantle EOS to use assuming non-hydrated silicates
         self.EOS = None  # Interpolator functions for evaluating Perple_X EOS model
-        """ Constant properties when using CONSTANT_INNER_DENSITY = True """
+        """ Constant properties when using Planet.Do.ConstantProps['Inner'] = True """
         self.rhoSilWithCore_kgm3 = 3300  # Assumed density of rocks when a core is present in kg/m^3
-        self.GSset_GPa = None  # Assumed shear modulus in GPa for the silicate layers (overrides Constants.GS_GPa[Constants.phaseSil])
-        self.VPset_kms = None  # Assumed bulk modulus in km/s for the silicate layers (overrides Constants.VP_kms[Constants.phaseSil])
-        self.VSset_kms = None  # Assumed shear modulus in km/s for the silicate layers (overrides Constants.VS_kms[Constants.phaseSil])
-        self.KSset_GPa = None  # Assumed bulk modulus in GPa for the silicate layers (overrides Constants.KS_GPa[Constants.phaseSil])
-        self.GSset_GPa = None  # Assumed shear modulus in GPa for the silicate layers (overrides Constants.GS_GPa[Constants.phaseSil])
-        self.sigmaSet_Sm = None  # Assumed conductivity in S/m for the silicate layers (overrides Constants.sigma_Sm[Constants.phaseSil])
+        self.ConstantProps = ConstantPropsStruct()  # Constant thermodynamic properties for silicate layers. Used when Do.ConstantProps['Inner'] is True.
         
         
         # Derived quantities
@@ -365,12 +373,8 @@ class CoreSubstruct:
         self.etaFeSolid_Pas = None # Assumed viscosity of solid iron in Pa*s - Overrides Constants.etaFeSolid_Pas if specified
         self.etaFeLiquid_Pas = None # Assumed viscosity of liquid iron in Pa*s - Overrides Constants.etaFeLiquid_Pas if specified
         self.TviscTrans_K = None # Transition temperatures for iron to go from one viscosity value to another - Overrides Constants.TviscFe_K if specified
-        """ Constant properties when using CONSTANT_INNER_DENSITY = True """
-        self.GSset_GPa = None  # Assumed shear modulus in GPa for the silicate layers (overrides Constants.GS_GPa[Constants.phaseSil])
-        self.VPset_kms = None  # Assumed bulk modulus in km/s for the silicate layers (overrides Constants.VP_kms[Constants.phaseSil])
-        self.VSset_kms = None  # Assumed shear modulus in km/s for the silicate layers (overrides Constants.VS_kms[Constants.phaseSil])
-        self.KSset_GPa = None  # Assumed bulk modulus in GPa for the silicate layers (overrides Constants.KS_GPa[Constants.phaseSil])
-        self.sigmaSet_Sm = None  # Assumed conductivity in S/m for the silicate layers (overrides Constants.sigma_Sm[Constants.phaseSil])
+        """ Constant properties when using Planet.Do.ConstantProps['Inner'] = True """
+        self.ConstantProps = ConstantPropsStruct()  # Constant thermodynamic properties for core layers. Used when Do.ConstantProps['Inner'] is True.
         # Derived quantities
         self.rhoMean_kgm3 = None  # Core bulk density calculated from final MoI match using EOS properties
         self.rhoMeanFe_kgm3 = np.nan  # Pure iron layer bulk density calculated from final MoI match using EOS properties
@@ -382,7 +386,7 @@ class CoreSubstruct:
         self.Rmean_m = None  # Core radius for mean compatible moment of inertia (MoI)
         self.Rrange_m = None  # Core radius range for compatible MoI
         self.Rtrade_m = None  # Array of core radii for compatible MoIs
-        self.Rset_m = None  # Value to set the core outer radius to, when we have already found it via e.g. using CONSTANT_INNER_DENSITY = True. Used to recycle SilicateLayers when we don't want to do an MoI search with the EOS functions.
+        self.Rset_m = None  # Value to set the core outer radius to, when we have already found it via e.g. using Planet.Do.ConstantProps['Inner'] = True. Used to recycle SilicateLayers when we don't want to do an MoI search with the EOS functions.
         self.wS_ppt = None  # Mass fraction of sulfur in the core in ppt
         self.wFe_ppt = None  # Mass fraction of iron in the core in ppt
         # 2021-12-30: Judging by usage of various different fractional variables in the literature and in
@@ -505,7 +509,7 @@ class MagneticSubstruct:
         self.Bi1xyzFT_nT = {'x': None, 'y': None, 'z': None}  # Complex induced dipole moments in Fourier spectrum
         # Asymmetric boundary plot calculations
         self.nAsymBds = None  # Number of boundaries for which to model asymmetry, including gravity shape
-        self.iAsymBds = np.empty(0, dtype=np.int_)  # Index of asymShape_m to which the above z values correspond
+        self.iAsymBds = np.empty(0, dtype=np.int64)  # Index of asymShape_m to which the above z values correspond
         self.zMeanAsym_km = np.empty(0)  # List of mean depths for asymmetric boundaries in km
         self.asymDevs_km = None  # Deviations from spherical symmetry in m for each lat/lon point
         self.asymDescrip = None  # List of strings to use for describing contour plots in titles
@@ -526,12 +530,12 @@ class GravitySubstruct:
     def __init__(self):
         self.columns = ['r', 'phase', 'rho', 'VP', 'VS', 'GS', 'eta']
         self.units_PyALMA3 = ['m', '', 'kg m-3', 'm s-1', 'm s-1', 'GPa', 'kg/m*s']
-        self.parameters_to_convert = {'VP': 1e3, 'VS': 1e3, 'GS': 1e9} # Parameters that need to be converted to units of PyALMA3 and conversion factor
+        self.parameters_to_convert = {'VP': 1e3, 'VS': 1e3, 'GS': 1e9} # Parameters that need to be converted to ALMA units and conversion factor
         self.model = None # Compatible form of Planet data
         self.ALMAModel = None # Dictionary of data necessary for ALMA functions
 
 
-        # Properties needed for PyALMA3
+        # Properties needed for ALMA
         self.LAMBDA_Pa = None # 1st Lame parameter in Pascals
         self.MU_Pa = None # Shear modulus in Pascals
         self.SIGMA = None # Poisson's ratio
@@ -540,13 +544,14 @@ class GravitySubstruct:
         self.VISCOSITY_kg_ms = None # Viscosity in kg/m*s
         self.time_log_kyrs = None # Time scale of calculations
         self.harmonic_degrees = None # Harmonic degrees to calculate
-        self.rheology = None # Rheology for PyALMA3
+        self.rheology = None # Rheology for ALMA backend
         self.pyAlmaParams = None # List of parameters for andrade and Burgers layers that we set
-        self.andradExponent = 0.2 # Andrade exponent for andrade layers
+        self.andradAlpha = 0.2 # Andrade alpha for andrade layers
+        self.andradGamma = None # Optional Andrade gamma. If None, ALMA uses gamma(alpha + 1).
         self.BurgerFirstParameter = 0 # First parameter for Burgers layers
         self.BurgerSecondParameter = 0 # Second parameter for Burgers layers
         
-        # Calculated complex love numbers - 2d array of shape len(harmonic_degrees)xlen(time_log_kyrs) [see configPPgravity]
+        # Calculated scalar degree-2 complex Love numbers at the orbital period
         self.h = np.nan # h love number
         self.l = np.nan # l love number
         self.k = np.nan # k love number
@@ -559,6 +564,11 @@ class GravitySubstruct:
         self.lPhase = np.nan # Phase of l love number
         self.kPhase = np.nan # Phase of k love number
         self.deltaPhase = np.nan # Phase of delta relationship between love numbers (1+k-h)
+        self.libration_m = np.nan # Surface libration amplitude in m
+        self.y = None # Internal ALMA solution vectors used for libration calculations
+        self.y1 = None # Radial displacement function used for libration calculations
+        self.Torb_s = None # Orbital period in s used for gravity/libration calculations
+        self.eccentricity = None # Orbital eccentricity used for gravity/libration calculations
 
 
 """ Main body profile info--settings and variables """
@@ -757,20 +767,6 @@ class DataFilesSubstruct:
         self.fNameGravity = os.path.join(self.gravityPath, saveBase)
         self.montecarloPath = os.path.join(self.path, 'montecarloData')
         self.fNameMonteCarlo = os.path.join(self.montecarloPath, saveBase)
-        if not self.path == '':
-            if not os.path.isdir(self.path):
-                os.makedirs(self.path)
-            if not os.path.isdir(self.inductPath):
-                os.makedirs(self.inductPath)
-            if not os.path.isdir(self.seisPath):
-                os.makedirs(self.seisPath)
-            if not os.path.isdir(self.fNameSeis):
-                os.makedirs(self.fNameSeis)
-            if not os.path.isdir(self.gravityPath):
-                os.makedirs(self.gravityPath)
-            if not os.path.isdir(self.montecarloPath):
-                os.makedirs(self.montecarloPath)
-
         self.fName = os.path.join(self.path, saveBase)
         self.saveFile = self.fName + '.txt'
         self.mantCoreFile = self.fName + '_mantleCore.txt'
@@ -849,12 +845,10 @@ class FigureFilesSubstruct:
         self.path = figPath
         self.inductPath = os.path.join(self.path, 'induction')
         self.montecarloPath = os.path.join(self.path, 'montecarlo')
-        if not self.path == '' and not os.path.isdir(self.path):
-            os.makedirs(self.path)
-        if not self.path == '' and not os.path.isdir(self.inductPath):
-            os.makedirs(self.inductPath)
-        if not self.path == '' and not os.path.isdir(self.montecarloPath):
-            os.makedirs(self.montecarloPath)
+        if not self.path == '':
+            os.makedirs(self.path, exist_ok=True)
+            os.makedirs(self.inductPath, exist_ok=True)
+            os.makedirs(self.montecarloPath, exist_ok=True)
         self.fName = os.path.join(self.path, figBase)
         self.fNameInduct = os.path.join(self.inductPath, self.inductBase + self.comp + self.inductAppend)
         self.fNameExplore = os.path.join(self.path, self.exploreBase)
@@ -989,6 +983,7 @@ class ParamsStruct:
         self.cFmt = None  # Format of contour labels
         self.OverrideFigureBase = None  # Override the base figure name for the figure files
         self.compareDir = 'Comparison'
+        self.SPEC_FILE = False # Whether a specific PP file has been specified
         self.INVERSION_IN_PROGRESS = False  # Flag for running inversion studies
         self.INDUCTOGRAM_IN_PROGRESS  = False
         self.MONTECARLO_IN_PROGRESS =  False
@@ -1211,9 +1206,8 @@ class ExploreParamsStruct:
             'qSurf_Wm2': 'inner',
             'oceanComp': 'hydro',
             'zb_approximate_km': 'hydro',
-            'mixingRatioToH2O': 'hydro'
         }
-        self.exploreLogScale = ['mixingRatioToH2O']
+        self.exploreLogScale = []
         self.provideExploreRange = {'oceanComp': 'oceanCompRangeList'} # Dict of explore options where user must provide the array to explore over. Key is the explore option, value is the attribute name to get the array from.
         self.contourName = None  # Name of variable to use for contours (if None, uses z variable). Allows plotting contours of one variable while coloring by another.
 
@@ -1633,9 +1627,6 @@ class FigLblStruct:
         self.KSlabel = r'Bulk modulus $K_S$ ($\si{GPa}$)'
         self.GSlabel = r'Shear modulus $G_S$ ($\si{GPa}$)'
         self.CMR2label = r'Calculated axial moment of inertia $C/MR^2$'
-        self.affinitySeafloorLabel = r'Chemical reaction affinity at seafloor $A_\mathrm{sea}$ ($\si{kJ/mol}$)'
-        self.affinityTopLabel = r'Chemical reaction affinity at top of ocean $A_\mathrm{top}$ ($\si{kJ/mol}$)'
-        self.affinityMeanLabel = r'Mean chemical reaction affinity $A_\mathrm{mean}$ ($\si{kJ/mol}$)'
         self.rLabel = r'Radius $r$ ($\si{km}$)'
         self.zLabel = r'Depth $z$ ($\si{km}$)'
         self.etaLabel = r'Viscosity $\eta$ ($\si{Pa\,s}$)'
@@ -1667,7 +1658,7 @@ class FigLblStruct:
         self.PvTtitleCore = r' silicate and core interior properties with geotherm'
         self.hydroPhaseTitle = r' phase diagram'
         self.meltingCurvesTitle = r' melting curves'
-        self.hydroSpeciesTitle = r' ocean precipitation, aqueous speciation, pH, and reaction affinity'
+        self.hydroSpeciesTitle = r' ocean precipitation, aqueous speciation, and pH'
 
         # Wedge diagram labels
         self.wedgeTitle = 'interior structure'
@@ -1848,7 +1839,6 @@ class FigLblStruct:
         self.CpUnits = None
         self.kThermUnits = None
         self.alphaUnits = None
-        self.affinityUnits = None
         self.hydrosphereSpeciesUnits = None
         self.hydrosphereSolidSpeciesVolUnits = None
         self.wMult = None
@@ -1871,7 +1861,6 @@ class FigLblStruct:
         self.QseisLabel = None
         self.rhoSilLabel = None
         self.rhoHydroLabel = None
-        self.rxnAffinityLabel = None
         self.allOceanSpeciesLabel = None
         self.aqueousSpeciesLabel = None
         self.phiLabel = None
@@ -1906,11 +1895,8 @@ class FigLblStruct:
             'Htidal_Wm3',
             'Qrad_Wkg',
             'qSurf_Wm2',
-            'mixingRatioToH2O'
         ]
         self.fineContoursExplore = [
-            'affinitySeafloor_kJ',
-            'affinityMean_kJ',
             'CMR2mean',
             'phiSeafloor_frac',
             'sigmaMean_Sm',
@@ -1924,14 +1910,11 @@ class FigLblStruct:
             'lLovePhase',
             'hLovePhase',
             'deltaLovePhase',
-            'affinityTop_kJ',
             'pHTop'
         ]
         # Contour format strings for exploreograms
         self.cfmtExplore = {
             'Rcore_km': '%.0f',
-            'affinitySeafloor_kJ': '%.0f',
-            'affinityMean_kJ': '%.0f',
             'CMR2mean': '%.3f',
             'phiSeafloor_frac': '%.2f',
             'sigmaMean_Sm': None,
@@ -1946,7 +1929,6 @@ class FigLblStruct:
             'hLovePhase': '%.2f',
             'deltaLovePhase': '%.2f',
             'pHSeafloor': '%.0f',
-            'affinityTop_kJ': '%.0f',
             'pHTop': '%.0f',
             'InductionBi1Tot_nT': '%.0f',
             'InductionrBi1Tot_nT': '%.0f',
@@ -1960,9 +1942,6 @@ class FigLblStruct:
         }
         self.cbarfmtExplore = {
             'Rcore_km': '%.0f',
-            'affinitySeafloor_kJ': '%.0f',
-            'affinityTop_kJ': '%.0f',
-            'affinityMean_kJ': '%.0f',
             'CMR2mean': '%.4f',
             'phiSeafloor_frac': '%.2f',
             'sigmaMean_Sm': None,
@@ -2004,8 +1983,6 @@ class FigLblStruct:
         }
         self.cTicksSpacingsExplore = {
             'Rcore_km': 10,
-            'affinitySeafloor_kJ': 40,
-            'affinityTop_kJ': 40,
             'kLoveAmp': 0.036,
             'hLoveAmp': 0.2,
             'InductionrBi1Tot_nT': 3,
@@ -2019,8 +1996,6 @@ class FigLblStruct:
         }
         # Variables for which to pin colormap center to zero (useful for variables that can be positive/negative)
         self.cMapZero = {
-            'affinitySeafloor_kJ',
-            'affinityTop_kJ'
         } 
         self.exploreDescrip = {
             'xFeS': 'core FeS mixing ratio',
@@ -2067,14 +2042,10 @@ class FigLblStruct:
             'Qrad_Wkg': 'rock radiogenic heating',
             'qSurf_Wm2': 'surface heat flux',
             'CMR2mean': 'axial moment of inertia',
-            'affinitySeafloor_kJ': 'seafloor affinity for chemical reaction',
-            'affinityTop_kJ': 'top of ocean affinity for chemical reaction',
-            'affinityMean_kJ': 'average affinity for chemical reaction',
             'pHSeafloor': 'seafloor pH',
             'pHTop': 'top of ocean pH',
             'zb_approximate_km': 'approximate ice shell thickness',
             'oceanComp': 'ocean composition',
-            'mixingRatioToH2O': 'mixing ratio in the ocean',
             'InductionAmp': 'induction amplitude',
             'InductionPhase': 'induction phase',
             'InductionrBi1Tot_nT': 'induction real total',
@@ -2117,7 +2088,6 @@ class FigLblStruct:
             self.CpUnits = r'J\,kg^{-1}\,K^{-1}'
             self.kThermUnits = r'W\,m^{-1}\,K^{-1}'
             self.alphaUnits = r'K^{-1}'
-            self.affinityUnits = r'kJ\,mol^{-1}'
             self.hydrosphereSpeciesUnits = r'mol\,kg^{-1}'
             self.hydrosphereSolidSpeciesVolUnits = r'cm^3'
         else:
@@ -2133,7 +2103,6 @@ class FigLblStruct:
             self.CpUnits = r'J/kg/K'
             self.kThermUnits = r'W/m/K'
             self.alphaUnits = '1/K'
-            self.affinityUnits = r'kJ/mol'
             self.hydrosphereSpeciesUnits = r'mol/kg'
             self.hydrosphereSolidSpeciesVolUnits = r'cm^3'
         self.distanceUnits = r'$\si{km}$'
@@ -2229,8 +2198,6 @@ class FigLblStruct:
         self.silPhiSeaLabel = r'Seafloor porosity $\phi_\mathrm{rock}$' + self.phiUnitsParen
         self.phiLabel = r'Porosity $\phi$' + self.phiUnitsParen
         self.zbApproximateLabel = r'Ice shell thickness ($\si{km}$)'
-        self.mixingRatioToH2OLabel = r'Mixing ratio in the ocean'
-        self.rxnAffinityLabel = r'Affinity ($\si{' + self.affinityUnits + '}$)'
         self.allOceanSpeciesLabel = r'All species ($\si{' + self.hydrosphereSpeciesUnits + '}$)'
         self.solidSpeciesLabel = r'Solid species ($\si{' + self.hydrosphereSolidSpeciesVolUnits + '}$)'
         self.aqueousSpeciesLabel = r'Aqueous species ($\si{' + self.hydrosphereSpeciesUnits + '}$)'
@@ -2326,13 +2293,9 @@ class FigLblStruct:
             'deltaLovePhase': self.deltaLovePhaseLabel,
             'qSurf_Wm2': self.qSurfLabel,
             'CMR2mean': self.CMR2label,
-            'affinitySeafloor_kJ': self.affinitySeafloorLabel,
-            'affinityTop_kJ': self.affinityTopLabel,
-            'affinityMean_kJ': self.affinityMeanLabel,
             'pHSeafloor': self.pHLabel,
             'pHTop': self.pHLabel,
             'zb_approximate_km': self.zbApproximateLabel,
-            'mixingRatioToH2O': self.mixingRatioToH2OLabel,
             'InductionAmp': self.plotTitles[0],
             'InductionPhase': self.phaseTitle,
             'InductionrBi1Tot_nT': self.BdipReTotLabel,
@@ -2600,7 +2563,6 @@ class CustomSolutionParamsStruct:
         self.EOS_deltaP = None
         self.EOS_deltaT = None
         self.SOLID_PHASES = None
-        self.SOLID_PHASES_TO_CONSIDER = None
         self.REMOVE_SPECIES_NA_IN_FREZCHEM = None
 
         self.rktPath = ''
@@ -2971,8 +2933,8 @@ class FigMiscStruct:
 
         self.lonMap_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonMap)
         self.phiMap_rad = np.radians(self.lonMap_deg)
-        self.lonMapTicks_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonTicks, dtype=np.int_)
-        self.latMapTicks_deg = np.linspace(-90, 90, self.nLatTicks, dtype=np.int_)
+        self.lonMapTicks_deg = np.linspace(self.lonMin_deg, self.lonMax_deg, self.nLonTicks, dtype=np.int64)
+        self.latMapTicks_deg = np.linspace(-90, 90, self.nLatTicks, dtype=np.int64)
 
     def LatMapFormatter(self, lat, pos):
         # Tick formatter function to use for latitude labels
@@ -3219,7 +3181,7 @@ class EOSlistStruct:
         pass
     loaded = {}  # Dict listing the loaded EOSs. Since we define this attribute outside of __init__, it will be common to all EOSlist structs when set.
     loaded['CustomSolutionEOS'] = {} # Dict listing the loaded EOSs for CustomSolution. We separate these EOS to save them all to disk at end
-    loaded['ReaktoroDatabases'] = {} # Dict listing the loaded Reaktoro databases (speeds up SetupInit since loading Reaktoro databases is slow)
+    loaded['ReaktoroDatabases'] = {'Supcrt': None, 'Phreeqc': None, 'SupcrtAqueousLookupFormula': None, 'SupcrtAqueousLookupName': None, 'PhreeqcSpeciesNames': None} # Dict listing the loaded Reaktoro databases (speeds up SetupInit since loading Reaktoro databases is slow)
     ranges = {}  # Dict listing the P, T ranges of the loaded EOSs.
 
 """ Global timing object"""
@@ -3320,9 +3282,9 @@ class ConstantsStruct:
         self.sigmaCO2Clath_Sm = 6.5e-4  # Also from Stern et al. (2021), at 273 K and 25% gas-filled porosity
         self.EactCO2Clath_kJmol = 46.5  # Also from Stern et al. (2021)
         # Initialize activation energies and melting point viscosities, for use in convection calculations
-        self.Eact_kJmol, self.etaMelt_Pas, self.EYoung_GPa, self.VP_GPa, self.VS_GPa, self.KS_GPa, self.GS_GPa = (np.ones(self.phaseFeSolid+7) * np.nan for _ in range(7))
+        self.Eact_kJmol, self.etaMelt_Pas, self.EYoung_GPa, self.KS_GPa, self.VS_GPa, self.KS_GPa, self.GS_GPa = (np.ones(self.phaseFeSolid+7) * np.nan for _ in range(7))
         self.GS_GPa[1:7] = np.array([2, 2, 2, np.nan, 2, 2])  # Mean shear modulus of ice phases Ih-VI in GPa
-        self.VP_GPa[1:7] = np.array([1.4, 1.4, 1.4, np.nan, 1.4, 1.4])  # Mean bulk modulus of ice phases Ih-VI in GPa
+        self.KS_GPa[1:7] = np.array([1.4, 1.4, 1.4, np.nan, 1.4, 1.4])  # Mean bulk modulus of ice phases Ih-VI in GPa
         self.GS_GPa[self.phaseSil] = 50  # Shear modulus of silicates in GPa
         self.GS_GPa[self.phaseFe] = 50  # Shear modulus of iron core material in GPa
         self.Eact_kJmol[1:7] = np.array([59.4, 76.5, 127, np.nan, 136, 110])  # Activation energy for diffusion of ice phases Ih-VI in kJ/mol
@@ -3337,9 +3299,9 @@ class ConstantsStruct:
         self.etaFeSolid_Pas = 1e14  # Assumed viscosity of solid iron core material, generic value
         self.etaFeLiquid_Pas = 5e-3  # Assumed viscosity of liquid iron core material, based on Kono et al., (2015): https://doi.org/10.1016/j.pepi.2015.02.006
         self.TviscFe_K = [1100]  # Transition temperatures for iron to go from one viscosity value to another. If only one value, this is considered to be the melting temp.
-        self.etaMelt_Pas = np.empty(self.phaseFeSolid+1) * np.nan
         self.etaMelt_Pas[1:7] = np.array([1e14, 1e18, 5e12, np.nan, 5e14, 5e14])  # Viscosity at the melting temperature of ice phases Ih-VI in Pa*s. Ice Ih range of 5e13-1e16 is from Tobie et al. (2003), others unknown
         self.etaMelt_Pas[self.phaseClath] = self.etaMelt_Pas[1] * 20  # Estimate of clathrate viscosity 20x that of ice Ih at comparable conditions from Durham et al. (2003): https://doi.org/10.1029/2002JB001872
+        self.etaMelt_Pas[self.phaseClath + 1:self.phaseClath + 7] = (self.etaMelt_Pas[self.phaseClath] + self.etaMelt_Pas[1:7]) / 2  # Average of clathrate and ice melting viscosities
         self.etaMelt_Pas[self.phaseFe] = 5e-3  # Assumed viscosity of liquid iron core material, based on Kono et al., (2015): https://doi.org/10.1016/j.pepi.2015.02.006
         self.etaMelt_Pas[self.phaseFeSolid] = 1e14  # Assumed viscosity of solid iron core material, generic value
         self.PminHPices_MPa = 200.0  # Min plausible pressure of high-pressure ices for any ocean composition in MPa
@@ -3381,13 +3343,13 @@ class ConstantsStruct:
             'H2O': 'H2O(aq)',
             'CO2': 'CO2(aq)'
         }
-
-        self.SolidPhases = { # Dictionary of keyword solid phases to the corresponding solid phases that exist in Supcrt
-            # 'Carbonates': ["Aragonite", "Artinite", "Azurite", "Calcite", "Cerussite", "Dolomite", "Dolomite,disordered", "Dolomite,ordered", "Huntite", "Hydromagnesite", "Magnesite", "Malachite", "Nesquehonite", "Rhodochrosite", "Siderite", "Smithsonite", "Strontianite"],  # Solids with CO3 in formula
-            'Carbonates': ["Aragonite", "Artinite", "Azurite", "Calcite", "Cerussite", "Huntite", "Hydromagnesite", "Magnesite", "Malachite", "Nesquehonite", "Rhodochrosite", "Siderite", "Smithsonite", "Strontianite"],  # Solids with CO3 in formula
-            'Sulfates': ["Alunite", "Anglesite", "Anhydrite", "Barite", "Celestite"] # Solids with SO4 in formula
+        self.SupcrtToPhreeqcNames = { # Dictionary of species names that must be converted from Supcrt to Phreeqc for compatibility
+            'NaCl': ['Na+', 'Cl-'],
+            'MgSO4': ['Mg+2', 'SO4-2'],
+            'CaCO3': ['Ca+2', 'CO3-2'],
+            'KCl': ['K+', 'Cl-'],
+            'Na2SO4': ['Na+', 'SO4-2'],
         }
-
         self.seafreeze_ice_phases = {0: 'water1', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
 
 def ParentName(bodyname):

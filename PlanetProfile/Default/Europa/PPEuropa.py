@@ -15,6 +15,8 @@ Planet.PfreezeUpper_MPa = 150
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 1560.8e3  # Value from mean radius in Archinal et al. (2018): https://doi.org/10.1007/s10569-017-9805-5
 Planet.Bulk.M_kg = 4.800e22  # Value from Hussmann et al. (2006): http://dx.doi.org/10.1016/j.icarus.2006.06.005
+Planet.Bulk.Torb_s = 3.551181 * 24 * 3600
+Planet.Bulk.eccentricity = 0.0094
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346  # Value from Anderson et al. (1998): https://doi.org/10.1126/science.281.5385.2019
@@ -41,7 +43,7 @@ Planet.Sil.Htidal_Wm3 = 1e-10  # Approximate max. tidal heating in silicates as 
 Planet.Do.POROUS_ROCK = False
 # Mantle equation of state model
 #Planet.Sil.rhoSilWithCore_kgm3 = 3539.0  # This is the 1-bar, 275 K value from CV3hy1wt_678_1.tab
-#Planet.Do.CONSTANT_INNER_DENSITY = True
+#Planet.Do.ConstantProps['Inner'] = True
 #Planet.Sil.rhoSilWithCore_kgm3 = 3300.0
 # Planet.Sil.mantleEOS = 'Simple_CI_HS_green_PP.tab'  # CI chondrite material minus Fe core, computed with Green et al. 2016 (JMG) solution model and Lodders and Fegley 1998
 # Planet.Sil.rhoSilWithCore_kgm3 = 2975

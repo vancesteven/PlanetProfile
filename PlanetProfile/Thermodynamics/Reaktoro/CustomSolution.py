@@ -24,18 +24,17 @@ def SetupCustomSolution(Planet, Params):
             Planet.Do.USE_WOCEAN_PPT = False
             Planet.Ocean.wOcean_ppt = wpptCalculator(Planet.Ocean.comp.split('=')[1].strip())
         # Setup reaktoro databases
-        if 'Supcrt' not in EOSlist.loaded['ReaktoroDatabases'] or 'Phreeqc' not in EOSlist.loaded['ReaktoroDatabases']:
+        if not EOSlist.loaded['ReaktoroDatabases'] or EOSlist.loaded['ReaktoroDatabases']['Supcrt'] is None or EOSlist.loaded['ReaktoroDatabases']['Phreeqc'] is None:
             EOSlist.loaded['ReaktoroDatabases'] = SetupReaktoroDatabases()
         if not Params.PRELOAD_EOS_IN_PROGRESS:
             if not Params.SKIP_PLOTS:
                 Params = SetupCustomSolutionPlotSettings(np.array(Planet.Ocean.comp), Params)
-            SetupCustomSolutionEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt)
     return Planet, Params
 
 
 def SetupCustomSolutionEOS(CustomSolutionComp, wOcean_ppt):
     """
-    Generate/Load a Planet's custom solution EOS. We generate and load here so when GetOceanEOS is called, the file is already loaded.
+    Generate/Load a Planet's custom solution EOS. 
     """
     # Parse out the species list and ratio into a format compatible with Reaktoro and create a CustomSolution EOS label
     aqueous_species_string, speciation_ratio_mol_kg, ocean_solid_phases, EOS_lookup_label = SpeciesParser(

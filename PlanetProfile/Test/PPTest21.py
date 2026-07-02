@@ -50,7 +50,7 @@ Planet.Sil.Qrad_Wkg = 1.5e-12
 Planet.Sil.Htidal_Wm3 = 1e-10
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
-Planet.Do.CONSTANT_INNER_DENSITY = True
+Planet.Do.ConstantProps['Inner'] = True
 Planet.Sil.porosType = 'Han2014'
 Planet.Sil.HtidalMin_Wm3 = 1e-10  # Only needed for non-Han 2014 porosTypes
 Planet.Sil.phiRockMax_frac = 0.90

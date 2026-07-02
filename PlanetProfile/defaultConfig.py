@@ -12,7 +12,7 @@ def configAssign():
     ExploreParams = ExploreParamsStruct()
 
     Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
-    Params.QUIET =         False  # Hides all log messages except warnings and errors
+    Params.QUIET =         False  # Hides all log messages except errors
     Params.TIMING =        False  # Whether to print timing messages to analyze performance
     Params.PRINT_COMPLETION = True # Print completion message
     Params.QUIET_MOONMAG = True  # If True, sets MoonMag logging level to WARNING, otherwise uses the same as PlanetProfile.
@@ -50,7 +50,7 @@ def configAssign():
     Params.NO_SAVEFILE =      False  # Whether to prevent printing run outputs to disk. Saves time and disk space for large induction studies.
     Params.DISP_LAYERS =      True  # Whether to display layer depths and heat fluxes for user
     Params.DISP_TABLE =       True  # Whether to print latex-formatted table
-    Params.ALLOW_BROKEN_MODELS = False  # Whether to continue running models that don't match physical constraints (i.e. MoI), with many values set to nan. Currently only implemented for CONSTANT_INNER_DENSITY = True and only allows broken MoI matching. Broken Tb_K matching is also intended.
+    Params.ALLOW_BROKEN_MODELS = False  # Whether to continue running models that don't match physical constraints (i.e. MoI), with many values set to nan. Currently only implemented for Planet.Do.ConstantProps['Inner'] = True and only allows broken MoI matching. Broken Tb_K matching is also intended.
     Params.DEPRECATED =       False  # Whether to allow deprecated code to run. Will often cause errors.
     Params.TIME_AND_DATE_LABEL = False # Whether to add a time and date stamp to the end of saved file names
 
@@ -62,6 +62,7 @@ def configAssign():
     Params.PLOT_MELTING_CURVES = False  # Whether to plot melting curves in P-T space for all ocean compositions modeled
     Params.PLOT_SPECIES_HYDROSPHERE = True # Whether to plot aqueous species concentration as a function of ocean depth
     Params.PLOT_REF =         True  # Whether to plot reference melting curve densities on hydrosphere plot
+    Params.PLOT_HYDRO_TEMP = True  # Whether to plot temperature vs depth on hydrosphere plot
     Params.PLOT_SIGS =        True  # Whether to plot conductivities as a function of radius on hydrosphere plot if they have been calculated
     Params.PLOT_SOUNDS =      True  # Whether to plot sound speeds as a function of radius on hydrosphere plot if they have been calculated
     Params.PLOT_TRADEOFF =    True  # Whether to plot mantle properties tradeoff

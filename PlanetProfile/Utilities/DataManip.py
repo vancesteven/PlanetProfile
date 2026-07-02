@@ -117,7 +117,7 @@ class ReturnZeros:
             nPs = np.size(P)
             nTs = np.size(T)
             if self.nVar > 1:
-                out = (np.zeros(np.maximum(nPs, nTs)) for _ in range(self.nVar))
+                out = tuple(np.zeros(np.maximum(nPs, nTs)) for _ in range(self.nVar))
             else:
                 out = np.zeros(np.maximum(nPs, nTs))
         return out
@@ -180,7 +180,7 @@ class ReturnConstantSpecies:
         self.species_names = np.append(self.species_names,'H2O(aq)')
         self.speciation = np.append(self.speciation, 1/Constants.m_gmol['H2O']*1000)
 
-    def __call__(self, P, T, grid = False, reactionSubstruct = None):
+    def __call__(self, P, T, grid = False, reactionEquation = None):
         nPs = np.size(P)
         nTs = np.size(T)
         pH = (np.zeros(nPs)) + self.pH
@@ -299,14 +299,6 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].fn_alpha_pK(P_MPa, T_K, grid=grid)
     def fn_kTherm_WmK(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_kTherm_WmK(P_MPa, T_K, grid=grid)
-    def fn_VP_kms(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_VP_kms(P_MPa, T_K, grid=grid)
-    def fn_VS_kms(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_VS_kms(P_MPa, T_K, grid=grid)
-    def fn_KS_GPa(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_KS_GPa(P_MPa, T_K, grid=grid)
-    def fn_GS_GPa(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_GS_GPa(P_MPa, T_K, grid=grid)
     def fn_phi_frac(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_phi_frac(P_MPa, T_K, grid=grid)
     def fn_porosCorrect(self, propBulk, propPore, phi, J):
@@ -319,7 +311,7 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].updateConvectionViscosity(etaConv_Pas, Tconv_K)
     def fn_Seismic(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K, grid=grid)
-    def fn_species(self, P_MPa, T_K, grid = False, reactionSubstruct=None):
-        return EOSlist.loaded[self.key].fn_species(P_MPa, T_K, grid=grid, reactionSubstruct=reactionSubstruct)
+    def fn_species(self, P_MPa, T_K, grid = False, reactionEquation=None):
+        return EOSlist.loaded[self.key].fn_species(P_MPa, T_K, grid=grid, reactionEquation=reactionEquation)
     def fn_averageValuesAccordingtoRule(self, prop1, prop2, rule):
         return EOSlist.loaded[self.key].fn_averageValuesAccordingtoRule(prop1, prop2, rule)

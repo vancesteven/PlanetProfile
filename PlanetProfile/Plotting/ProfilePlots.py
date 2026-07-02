@@ -63,7 +63,7 @@ def GeneratePlots(PlanetList, Params):
         PlotPvThydro(PlanetList, Params)
     if Params.PLOT_PVT_ISOTHERMAL_HYDRO and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
         PlotIsoThermalPvThydro(PlanetList, Params)
-    if Params.PLOT_PVT_INNER and not Params.SKIP_INNER and not np.any([Planet.Do.CONSTANT_INNER_DENSITY for Planet in PlanetList]):
+    if Params.PLOT_PVT_INNER and not Params.SKIP_INNER and not np.any([Planet.Do.ConstantProps['Inner'] for Planet in PlanetList]):
         PlotPvTPerpleX(PlanetList, Params)
     if Params.PLOT_MELTING_CURVES and np.any([not Planet.Do.NO_H2O for Planet in PlanetList]):
         PlotMeltingCurves(PlanetList, Params)
@@ -155,17 +155,8 @@ def PlotHydrosphereProps(PlanetList, Params):
 
     # Check if we should plot pressure vs depth
     DO_PRESSURE = Params.PLOT_PRESSURE_DEPTH
+    DO_TEMP = Params.PLOT_HYDRO_TEMP
 
-    # Generate canvas and add labels - Always 6×7 grid
-    fig = plt.figure(figsize=FigSize.vhydro)
-    grid = GridSpec(6, 7)
-
-    # Fixed layout: 
-    # - Density: top 4 rows (0-3), left 4 columns (0-3)
-    # - Thermal: bottom 2 rows (4-5), positioning depends on pressure plot
-    # - Pressure: bottom 2 rows (4-5), next 2 columns (2-3) - if enabled
-    # - Properties: right 3 columns (4-6), distributed vertically
-    
     # Count property plots to determine right column layout
     right_plots = []
     if DO_SOUNDS:
@@ -177,27 +168,55 @@ def PlotHydrosphereProps(PlanetList, Params):
     elif DO_VISCOSITY:
         # Add viscosity as separate plot if conductivity is not being plotted
         right_plots.append('viscosity')
-    
+
     num_right_plots = len(right_plots)
-    
-    if num_right_plots == 0:
-        # No property plots - density spans top, thermal and pressure span bottom
-        axPrho = fig.add_subplot(grid[0:4, :])      # Top 4 rows, all columns
-        if DO_PRESSURE:
-            axTz = fig.add_subplot(grid[4:6, :4])   # Bottom 2 rows, left 4 columns
-            axPz = fig.add_subplot(grid[4:6, 4:])   # Bottom 2 rows, right 3 columns
+    SIDE_BY_SIDE = (not DO_TEMP and DO_SIGS and not DO_VISCOSITY and not DO_PRESSURE
+                    and num_right_plots == 1 and right_plots == ['sigs'])
+    right_plots_for_loop = [] if SIDE_BY_SIDE else right_plots
+
+    # Generate canvas and add labels - Always 6×7 grid
+    fig = plt.figure(figsize=FigSize.vhydro)
+    grid = GridSpec(6, 7)
+
+    zMax = np.max([Planet.z_m[Planet.Steps.nHydro-1]/1e3 for Planet in PlanetList if not Planet.Do.NO_H2O], initial=0) * 1.05
+
+    axTz = None
+    axPz = None
+    axviscz = None
+
+    if SIDE_BY_SIDE:
+        # Case A: full-height density and conductivity side by side
+        axPrho = fig.add_subplot(grid[0:6, 0:3])
+        axsigz = fig.add_subplot(grid[0:6, 4:7])
+    elif DO_TEMP:
+        # Case C: default layout with temperature panel
+        if num_right_plots == 0:
+            axPrho = fig.add_subplot(grid[0:4, :])
+            if DO_PRESSURE:
+                axTz = fig.add_subplot(grid[4:6, :4])
+                axPz = fig.add_subplot(grid[4:6, 4:])
+            else:
+                axTz = fig.add_subplot(grid[4:6, :])
         else:
-            axTz = fig.add_subplot(grid[4:6, :])    # Bottom 2 rows, all columns
-            axPz = None
+            axPrho = fig.add_subplot(grid[0:4, 0:4])
+            if DO_PRESSURE:
+                axTz = fig.add_subplot(grid[4:6, 0:2])
+                axPz = fig.add_subplot(grid[4:6, 2:4])
+            else:
+                axTz = fig.add_subplot(grid[4:6, 0:4])
     else:
-        # Property plots present - left 4 columns for density/thermal/pressure, right 3 for properties
-        axPrho = fig.add_subplot(grid[0:4, 0:4])    # Top 4 rows, left 4 columns
-        if DO_PRESSURE:
-            axTz = fig.add_subplot(grid[4:6, 0:2])  # Bottom 2 rows, first 2 columns
-            axPz = fig.add_subplot(grid[4:6, 2:4])  # Bottom 2 rows, next 2 columns
+        # Case B: no temperature; density expands into former temperature slot
+        if num_right_plots == 0:
+            if DO_PRESSURE:
+                axPrho = fig.add_subplot(grid[0:4, :])
+                axPz = fig.add_subplot(grid[4:6, :])
+            else:
+                axPrho = fig.add_subplot(grid[:, :])
+        elif DO_PRESSURE:
+            axPrho = fig.add_subplot(grid[0:4, 0:4])
+            axPz = fig.add_subplot(grid[4:6, 0:4])
         else:
-            axTz = fig.add_subplot(grid[4:6, 0:4])  # Bottom 2 rows, all left 4 columns
-            axPz = None
+            axPrho = fig.add_subplot(grid[0:6, 0:4])
 
     axPrho.set_xlabel(FigLbl.rhoLabel)
     if FigMisc.PLOT_DENSITY_VERSUS_DEPTH:
@@ -206,17 +225,19 @@ def PlotHydrosphereProps(PlanetList, Params):
         axPrho.set_ylabel(FigLbl.PlabelHydro)
     axPrho.invert_yaxis()
     axPrho.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
-    
-    axTz.set_xlabel(FigLbl.Tlabel)
-    axTz.set_ylabel(FigLbl.zLabel)
-    axTz.invert_yaxis()
-    axTz.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
-    
-    zMax = np.max([Planet.z_m[Planet.Steps.nHydro-1]/1e3 for Planet in PlanetList if not Planet.Do.NO_H2O], initial=0) * 1.05
-    axTz.set_ylim([zMax, 0])
-    
-    axes = [axPrho, axTz]
-    
+    if SIDE_BY_SIDE and FigMisc.PLOT_DENSITY_VERSUS_DEPTH:
+        axPrho.set_ylim([zMax, 0])
+
+    axes = [axPrho]
+
+    if DO_TEMP:
+        axTz.set_xlabel(FigLbl.Tlabel)
+        axTz.set_ylabel(FigLbl.zLabel)
+        axTz.invert_yaxis()
+        axTz.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
+        axTz.set_ylim([zMax, 0])
+        axes.append(axTz)
+
     if DO_PRESSURE:
         axPz.set_xlabel(FigLbl.PlabelHydro)
         axPz.invert_yaxis()
@@ -224,22 +245,28 @@ def PlotHydrosphereProps(PlanetList, Params):
         axPz.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
         axes.append(axPz)
 
+    if SIDE_BY_SIDE:
+        axsigz.set_xlabel(FigLbl.sigLabel)
+        axsigz.invert_yaxis()
+        if FigMisc.LOG_SIG:
+            axsigz.set_xscale('log')
+        axsigz.set_ylim([zMax, 0])
+        axsigz.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
+        axes.append(axsigz)
+
     # Add property plots to right 3 columns (4-6)
-    if num_right_plots > 0:
-        # Determine row distribution for property plots
-        if num_right_plots == 1:
-            # 1 property: spans all 6 rows
+    num_right_plots_for_loop = len(right_plots_for_loop)
+    if num_right_plots_for_loop > 0:
+        if num_right_plots_for_loop == 1:
             row_ranges = [(0, 6)]
-        elif num_right_plots == 2:
-            # 2 properties: each gets 3 rows
+        elif num_right_plots_for_loop == 2:
             row_ranges = [(0, 2), (2, 6)]
-        elif num_right_plots == 3:
-            # 3 properties: each gets 2 rows
+        elif num_right_plots_for_loop == 3:
             row_ranges = [(0, 2), (2, 4), (4, 6)]
-        
-        for i, plot_type in enumerate(right_plots):
+
+        for i, plot_type in enumerate(right_plots_for_loop):
             start_row, end_row = row_ranges[i]
-            
+
             if plot_type == 'sounds':
                 axv = [fig.add_subplot(grid[start_row:end_row, j]) for j in range(4, 7)]
                 axv[0].set_xlabel(FigLbl.vPoceanLabel)
@@ -249,9 +276,8 @@ def PlotHydrosphereProps(PlanetList, Params):
                 [ax.set_ylim([zMax, 0]) for ax in axv]
                 [ax.tick_params(axis='both', which='major', labelsize=Style.TS_ticks) for ax in axv]
                 axes = axes + axv
-                
+
             elif plot_type == 'seismic':
-                # Split seismic into 3 plots: Ocean KS, Ice KS, Ice GS
                 axseismic = [fig.add_subplot(grid[start_row:end_row, j]) for j in range(4, 7)]
                 axseismic[0].set_xlabel(FigLbl.KSoceanLabel)
                 axseismic[1].set_xlabel(FigLbl.KSiceLabel)
@@ -260,11 +286,9 @@ def PlotHydrosphereProps(PlanetList, Params):
                 [ax.set_ylim([zMax, 0]) for ax in axseismic]
                 [ax.tick_params(axis='both', which='major', labelsize=Style.TS_ticks) for ax in axseismic]
                 axes = axes + axseismic
-                
+
             elif plot_type == 'sigs':
-                # Conductivity plot - check if viscosity should be added
                 if DO_VISCOSITY:
-                    # Split conductivity row: columns 4-5 for sigma, column 6 for viscosity
                     axsigz = fig.add_subplot(grid[start_row:end_row, 4:6])
                     axviscz = fig.add_subplot(grid[start_row:end_row, 6:7])
                     axviscz.set_xlabel(FigLbl.etaLabel)
@@ -274,7 +298,6 @@ def PlotHydrosphereProps(PlanetList, Params):
                     axviscz.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
                     axes.append(axviscz)
                 else:
-                    # Standard conductivity plot spanning all 3 right columns
                     axsigz = fig.add_subplot(grid[start_row:end_row, 4:])
                 axsigz.set_xlabel(FigLbl.sigLabel)
                 axsigz.invert_yaxis()
@@ -283,9 +306,8 @@ def PlotHydrosphereProps(PlanetList, Params):
                 axsigz.set_ylim([zMax, 0])
                 axsigz.tick_params(axis='both', which='major', labelsize=Style.TS_ticks)
                 axes.append(axsigz)
-                
+
             elif plot_type == 'viscosity':
-                # Standalone viscosity plot
                 axviscz = fig.add_subplot(grid[start_row:end_row, 4:])
                 axviscz.set_xlabel(FigLbl.etaLabel)
                 axviscz.invert_yaxis()
@@ -324,7 +346,7 @@ def PlotHydrosphereProps(PlanetList, Params):
         Pmax_MPa = np.max(Plist)
 
         for Planet in PlanetList:
-            if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
+            if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and Planet.Ocean.comp != 'constant':
                 # Get strings for referencing and labeling
                 # If using CustomSolution, then adjust label so compatible with Latex formating
                 if "CustomSolution" in Planet.Ocean.comp:
@@ -351,7 +373,8 @@ def PlotHydrosphereProps(PlanetList, Params):
     TminMax_K = {}
     rhodots_kgm3 = np.empty(np.size(PlanetList))
     conddots_Sm = np.empty(np.size(PlanetList))
-    Tdots_K = np.empty(np.size(PlanetList))
+    if DO_TEMP:
+        Tdots_K = np.empty(np.size(PlanetList))
     if FigMisc.SCALE_HYDRO_LW or FigMisc.MANUAL_HYDRO_COLORS:
         # Get min and max salinities and temps for each comp for scaling
         for comp in comps:
@@ -400,17 +423,17 @@ def PlotHydrosphereProps(PlanetList, Params):
                             Planet.P_MPa[:Planet.Steps.nHydro] * FigLbl.PmultHydro, label=legLbl, color=thisColor,
                             linewidth=thisLW, linestyle=Style.LS[Planet.Ocean.comp])
             # Plot thermal profile vs. depth in hydrosphere
-            therm = axTz.plot(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub,
-                              Planet.z_m[:Planet.Steps.nHydro]/1e3,
-                              color=thisColor, linewidth=thisLW,
-                              linestyle=Style.LS[Planet.Ocean.comp])
-            # Make a dot at the end of the thermal profile, if there's an ocean
-            if Planet.Steps.nHydro > 0:
-                Tdots_K[i] = np.max(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub)
-                axTz.scatter(Tdots_K[i],
-                             np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
-                             color=therm[-1].get_color(), edgecolors=therm[-1].get_color(),
-                             marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
+            if DO_TEMP:
+                therm = axTz.plot(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub,
+                                  Planet.z_m[:Planet.Steps.nHydro]/1e3,
+                                  color=thisColor, linewidth=thisLW,
+                                  linestyle=Style.LS[Planet.Ocean.comp])
+                if Planet.Steps.nHydro > 0:
+                    Tdots_K[i] = np.max(Planet.T_K[:Planet.Steps.nHydro] - FigLbl.Tsub)
+                    axTz.scatter(Tdots_K[i],
+                                 np.max(Planet.z_m[:Planet.Steps.nHydro]/1e3),
+                                 color=therm[-1].get_color(), edgecolors=therm[-1].get_color(),
+                                 marker=Style.MS_hydro, s=Style.MW_hydro**2*thisLW)
 
             # Plot pressure profile vs. depth in hydrosphere
             if DO_PRESSURE:
@@ -558,9 +581,10 @@ def PlotHydrosphereProps(PlanetList, Params):
             axPz.set_ylim(top=0)
 
     # Limit Tmin so the relevant plot can better show what's going on in the ocean
-    Tmax = np.max(Tdots_K)
-    Tlims = [FigMisc.TminHydro, FigMisc.TminHydro + 1.05*(Tmax - FigMisc.TminHydro)]
-    axTz.set_xlim([np.min(Tlims), np.max(Tlims)])
+    if DO_TEMP:
+        Tmax = np.max(Tdots_K)
+        Tlims = [FigMisc.TminHydro, FigMisc.TminHydro + 1.05*(Tmax - FigMisc.TminHydro)]
+        axTz.set_xlim([np.min(Tlims), np.max(Tlims)])
 
     if FigMisc.PHASE_LABELS:
         # Label the phases found in the hydrosphere
@@ -616,7 +640,7 @@ def PlotHydrosphereProps(PlanetList, Params):
         [ax.set_ylim(top=0) for ax in axseismic]
         [ax.set_ylim(bottom=zMax) for ax in axseismic]
 
-    if DO_VISCOSITY and 'axviscz' in locals():
+    if DO_VISCOSITY and axviscz is not None:
         axviscz.set_ylim(top=0)
         axviscz.set_ylim(bottom=zMax)
 
@@ -993,7 +1017,7 @@ def PlotWedge(PlanetList, Params):
     # Get ionosBounds_km for all bodies without affecting what's in Planet.Magnetic
     if FigMisc.IONOSPHERE_IN_WEDGE:
         ionosUpper_km = np.array([np.max(Planet.Magnetic.ionosBounds_m) / 1e3 if Planet.Magnetic.ionosBounds_m is not None else 0 for Planet in PlanetList])
-        ionosLower_km = np.array([np.min(Planet.Magnetic.ionosBounds_m) / 1e3 if np.size(Planet.Magnetic.ionosBounds_m) > 1 else 0 for Planet in PlanetList], dtype=np.float_)
+        ionosLower_km = np.array([np.min(Planet.Magnetic.ionosBounds_m) / 1e3 if np.size(Planet.Magnetic.ionosBounds_m) > 1 else 0 for Planet in PlanetList], dtype=np.float64)
     else:
         ionosUpper_km, ionosLower_km = (np.zeros(nWedges) for _ in range(2))
 
@@ -1423,7 +1447,7 @@ def PlotHydrosphereThermodynamics(PlanetList, Params):
         Pmax_MPa = np.max(Plist)
 
         for Planet in PlanetList:
-            if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
+            if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and Planet.Ocean.comp != 'constant':
                 # Get strings for referencing and labeling
                 # If using CustomSolution, then adjust label so compatible with Latex formating
                 if "CustomSolution" in Planet.Ocean.comp:

@@ -111,11 +111,8 @@ class BaseResultsStruct:
         # Seafloor and geochemistry
         self.Pseafloor_MPa = None  # Pressure at seafloor in MPa
         self.phiSeafloor_frac = None  # Rock porosity at seafloor
-        self.affinitySeafloor_kJ = None  # Available chemical energy at seafloor
-        self.affinityMean_kJ = None  # Mean available chemical energy
         self.pHSeafloor = None  # pH at the seafloor
         self.pHTop = None  # pH at the top of the ocean
-        self.affinityTop_kJ = None  # Available chemical energy at top of ocean
         
         # Porosity and rock properties
         self.silPhiCalc_frac = None  # Calculated rock porosity (best-match P=0 value)

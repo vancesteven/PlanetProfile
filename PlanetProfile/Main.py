@@ -16,7 +16,6 @@ from distutils.util import strtobool
 from collections.abc import Iterable
 from os.path import isfile
 from glob import glob as FilesMatchingPattern
-import pandas as pd
 import ast
 
 # Import all function definitions for this file
@@ -35,7 +34,7 @@ from PlanetProfile.Thermodynamics.Viscosity import ViscosityCalcs
 from PlanetProfile.Utilities.defineStructs import Constants, FigureFilesSubstruct, PlanetStruct, Timing
 from PlanetProfile.Utilities.ResultsStructs import ExplorationResultsStruct, MonteCarloResultsStruct, InductionResultsStruct
 from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2strings, PrecomputeEOS
-from PlanetProfile.Utilities.ResultsIO import WriteResults, ReloadResultsFromPickle, ExtractResults, InductionCalced
+from PlanetProfile.Utilities.ResultsIO import WriteResults, ReloadResultsFromPickle, ExtractResults, InductionCalced, ensure_parent_dir
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 from PlanetProfile.Utilities.PPversion import ppVerNum
 from PlanetProfile.Gravity.Gravity import GravityParameters
@@ -49,7 +48,7 @@ plat = platform.system()
 if plat == 'Windows':
     mtpType = 'spawn'
 else:
-    mtpType = 'fork'
+    mtpType = 'spawn'
 mtpContext = mtp.get_context(mtpType)
 
 # Assign logger
@@ -263,6 +262,8 @@ def PlanetProfile(Planet, Params):
         Planet = SeismicCalcs(Planet, Params)
         Planet = ViscosityCalcs(Planet, Params)
 
+        # Set any other necessary data for post-processing of Planet Profile
+        Planet = PostProcessingProfile(Planet, Params)
         # Save data after modeling
         if (not Params.NO_SAVEFILE) and Planet.Do.VALID and (not Params.INVERSION_IN_PROGRESS):
             WriteProfile(Planet, Params)
@@ -273,7 +274,6 @@ def PlanetProfile(Planet, Params):
     else:
         # Reload previous run
         Planet, Params = ReloadProfile(Planet, Params)
-
     # Main plotting functions
     if ((not Params.SKIP_PLOTS) and not (
             Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.DO_MONTECARLO)) \
@@ -335,6 +335,8 @@ def InteriorEtc(Planet, Params):
     Planet = ViscosityCalcs(Planet, Params)
     Planet = LiquidOceanPropsCalcs(Planet, Params)
     
+    # Set any other necessary data for post-processing of Planet Profile
+    Planet = PostProcessingProfile(Planet, Params)
     # Save data after modeling
     if (not Params.NO_SAVEFILE) and Planet.Do.VALID and (not Params.INVERSION_IN_PROGRESS):
         WriteProfile(Planet, Params)
@@ -485,6 +487,10 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
 
     return Params, fNames
 
+def PostProcessingProfile(Planet, Params):
+    """ Post-processing of the planet profile """
+    Planet = SetCMR2strings(Planet)
+    return Planet
 
 def WriteProfile(Planet, Params):
     """ Write out all profile calculations to disk """
@@ -594,6 +600,7 @@ def WriteProfile(Planet, Params):
     # Print number of header lines early so we can skip the rest on read-in if we want to
     Params.nHeadLines = np.size(headerLines) + 3
     headerLines = np.insert(headerLines, 0, f'  nHeadLines = {Params.nHeadLines:d}')
+    ensure_parent_dir(Params.DataFiles.saveFile)
     with open(Params.DataFiles.saveFile,'w') as f:
         f.write(Planet.label + '\n')
         f.write('\n  '.join(headerLines) + '\n')
@@ -626,6 +633,7 @@ def WriteProfile(Planet, Params):
                 f'{Planet.eta_Pas[i]:24.17e}']) + '\n')
 
     # Write out data from core/mantle trade
+    ensure_parent_dir(Params.DataFiles.mantCoreFile)
     with open(Params.DataFiles.mantCoreFile, 'w') as f:
         f.write(' '.join(['RsilTrade (m)'.ljust(24),
                           'RcoreTrade (m)'.ljust(24),
@@ -725,7 +733,7 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
         = np.loadtxt(Params.DataFiles.saveFile, skiprows=Params.nHeadLines, unpack=True)
     Planet.r_m = np.concatenate((Planet.r_m, [0]))
     Planet.z_m = Planet.Bulk.R_m - Planet.r_m
-    Planet.phase = Planet.phase.astype(np.int_)
+    Planet.phase = Planet.phase.astype(np.int64)
     Planet.Steps.iConv = np.zeros(Planet.Steps.nSurfIce, dtype=bool)
     
     # Reconstruct convection indices from saved convection parameters
@@ -755,24 +763,19 @@ def ReloadProfile(Planet, Params, fnameOverride=None):
             with open(Params.DataFiles.oceanPropsFile) as f:
                 nHeadLines = int(f.readline().split('=')[-1])
                 Planet.Ocean.aqueousSpecies = np.array(f.readline().split('=')[-1].strip().replace(';', '').split())
-                Planet.Ocean.Reaction.reaction = f.readline().split('=')[-1].strip()
-                Planet.Ocean.Reaction.useReferenceSpecies = bool(strtobool(f.readline().split('=')[-1].strip()))
-                Planet.Ocean.Reaction.referenceSpecies = f.readline().split('=')[-1].strip()    
-                Planet.Ocean.Reaction.disequilibriumConcentrations = ast.literal_eval(f.readline().split('=')[-1].strip())
+                Planet.Ocean.reactionEquation = f.readline().split('=')[-1].strip()
             OceanSpecificProps = np.loadtxt(Params.DataFiles.oceanPropsFile, skiprows=nHeadLines, unpack=True)
             Planet.Ocean.Bulk_pHs = OceanSpecificProps[2]
-            Planet.Ocean.affinity_kJ = OceanSpecificProps[3]
+            Planet.Ocean.equilibriumReactionConstant = OceanSpecificProps[3]
             Planet.Ocean.aqueousSpeciesAmount_mol = OceanSpecificProps[4: ]
             Planet.Ocean.pHSeafloor = Planet.Ocean.Bulk_pHs[-1]
             Planet.Ocean.Mean_pH = np.mean(Planet.Ocean.Bulk_pHs)
-            Planet.Ocean.affinitySeafloor_kJ = Planet.Ocean.affinity_kJ[-1]
-            Planet.Ocean.affinityMean_kJ = np.mean(Planet.Ocean.affinity_kJ)
         else:
-            Planet.Ocean.Reaction.reaction, Planet.Ocean.Reaction.disequilibriumConcentrations = 'NaN', 'NaN'
-            Planet.Ocean.Bulk_pHs, Planet.Ocean.affinity_kJ, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
+            Planet.Ocean.reactionEquation = None
+            Planet.Ocean.Bulk_pHs, Planet.Ocean.equilibriumReactionConstant, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
     else:
-        Planet.Ocean.Reaction.reaction, Planet.Ocean.Reaction.disequilibriumConcentrations = 'NaN', 'NaN'
-        Planet.Ocean.Bulk_pHs, Planet.Ocean.affinity_kJ, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
+        Planet.Ocean.reactionEquation = None
+        Planet.Ocean.Bulk_pHs, Planet.Ocean.equilibriumReactionConstant, Planet.Ocean.Reacton_pHs, Planet.Ocean.aqueousSpeciesAmount_mol, Planet.Ocean.aqueousSpecies = np.nan, np.nan, np.nan, np.nan, np.nan
 
     # Setup CustomSolution settings
     if 'CustomSolution' in Planet.Ocean.comp:
@@ -1497,10 +1500,7 @@ def MonteCarlo(bodyname, Params, fNameOverride=None):
             np.random.seed(Params.MonteCarlo.seed)
         
         # Determine which parameters to search over
-        if Planet.Do.NON_SELF_CONSISTENT:
-            MCResults.statistics.paramsToSearch = Params.MonteCarlo.paramsToSearchNonSelfConsistent
-        else:
-            MCResults.statistics.paramsToSearch = Params.MonteCarlo.paramsToSearchSelfConsistent
+        MCResults.statistics.paramsToSearch = Params.MonteCarlo.paramsToSearchSelfConsistent
         
         MCResults.statistics.paramsUsed = MCResults.statistics.paramsToSearch.copy()
         MCResults.statistics.paramsRanges = {param: Params.MonteCarlo.paramsRanges[param] for param in MCResults.statistics.paramsToSearch}
@@ -1789,7 +1789,7 @@ def AssignPlanetVal(Planet, name, val):
             wOcean_ppt: Salinity in Planet.Ocean.wOcean_ppt
             Tb_K: Ocean bottom temperature in K in Planet.Bulk.Tb_K
             xFeS: Core FeS / Fe mixing ratio in Planet.Core.xFeS
-            rhoSilInput_kgm3: Fixed density in silicate layers in Planet.Sil.rhoSilWithCore_kgm3 (for use with Planet.Do.CONSTANT_INNER_DENSITY)
+            rhoSilInput_kgm3: Fixed density in silicate layers in Planet.Sil.rhoSilWithCore_kgm3 (for use with Planet.Do.ConstantProps['Inner'] = True)
             silPhi_frac: Vacuum-extrapolated porosity in silicates in Planet.Sil.phiRockMax_frac
             silPclosure_MPa: Pore closure pressure in silicates in Planet.Sil.Pclosure_MPa
             icePhi_frac: Vacuum porosity in ices in Planet.Ocean.phiMax_frac
@@ -1812,122 +1812,76 @@ def AssignPlanetVal(Planet, name, val):
             GS_ice_GPa: Ice shear modulus in GPa in Planet.Ocean.GScondMean_GPa['Ih']
             GS_sil_GPa: Silicate shear modulus in GPa in Planet.Sil.GSmean_GPa
             GS_core_GPa: Core shear modulus in GPa in Planet.Core.GSmean_GPa
+            AndradeAlpha: Andrade alpha in Planet.Gravity.andradAlpha
+            AndradeGamma: Andrade gamma in Planet.Gravity.andradGamma
     """
-    
     if name == 'R_m':
         Planet.Bulk.R_m = val
-    elif not Planet.Do.NON_SELF_CONSISTENT:
-        if name == 'xFeS':
-            Planet.Core.xFeS = val
-            Planet.Do.CONSTANT_INNER_DENSITY = True
-        elif name == 'rhoSilInput_kgm3':
-            Planet.Sil.rhoSilWithCore_kgm3 = val
-            Planet.Do.CONSTANT_INNER_DENSITY = True
-        elif name == 'wOcean_ppt':
-            Planet.Ocean.wOcean_ppt = val
-        elif name == 'Tb_K':
-            Planet.Bulk.Tb_K = val
-        elif name == 'zb_approximate_km':
-            Planet.Bulk.zb_approximate_km = val
-            Planet.Do.ICEIh_THICKNESS = True
-        elif name == 'ionosTop_km' or name == 'sigmaIonos_Sm':
-            # Make sure ionosphere top altitude and conductivity are both set and valid
-            if Planet.Magnetic.ionosBounds_m is None or np.any(np.isnan(Planet.Magnetic.ionosBounds_m)):
-                Planet.Magnetic.ionosBounds_m = [Constants.ionosTopDefault_km*1e3]
-            elif not isinstance(Planet.Magnetic.ionosBounds_m, Iterable):
-                Planet.Magnetic.ionosBounds_m = [Planet.Magnetic.ionosBounds_m]
+    elif name == 'xFeS':
+        Planet.Core.xFeS = val
+        Planet.Do.ConstantProps['Inner'] = True
+    elif name == 'rhoSilInput_kgm3':
+        Planet.Sil.rhoSilWithCore_kgm3 = val
+        Planet.Do.ConstantProps['Inner'] = True
+    elif name == 'wOcean_ppt':
+        Planet.Ocean.wOcean_ppt = val
+    elif name == 'Tb_K':
+        Planet.Bulk.Tb_K = val
+    elif name == 'zb_approximate_km':
+        Planet.Bulk.zb_approximate_km = val
+        Planet.Do.ICEIh_THICKNESS = True
+    elif name == 'ionosTop_km' or name == 'sigmaIonos_Sm':
+        # Make sure ionosphere top altitude and conductivity are both set and valid
+        if Planet.Magnetic.ionosBounds_m is None or np.any(np.isnan(Planet.Magnetic.ionosBounds_m)):
+            Planet.Magnetic.ionosBounds_m = [Constants.ionosTopDefault_km*1e3]
+        elif not isinstance(Planet.Magnetic.ionosBounds_m, Iterable):
+            Planet.Magnetic.ionosBounds_m = [Planet.Magnetic.ionosBounds_m]
 
-            if Planet.Magnetic.sigmaIonosPedersen_Sm is None or np.any(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
-                Planet.Magnetic.sigmaIonosPedersen_Sm = [Constants.sigmaIonosPedersenDefault_Sm]
-            elif not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
-                Planet.Magnetic.sigmaIonosPedersen_Sm = [Planet.Magnetic.sigmaIonosPedersen_Sm]
+        if Planet.Magnetic.sigmaIonosPedersen_Sm is None or np.any(np.isnan(Planet.Magnetic.sigmaIonosPedersen_Sm)):
+            Planet.Magnetic.sigmaIonosPedersen_Sm = [Constants.sigmaIonosPedersenDefault_Sm]
+        elif not isinstance(Planet.Magnetic.sigmaIonosPedersen_Sm, Iterable):
+            Planet.Magnetic.sigmaIonosPedersen_Sm = [Planet.Magnetic.sigmaIonosPedersen_Sm]
 
-            if name == 'ionosTop_km':
-                Planet.Magnetic.ionosBounds_m[-1] = val*1e3
-            else:
-                Planet.Magnetic.sigmaIonosPedersen_Sm[-1] = val
-        elif name == 'silPhi_frac':
-            Planet.Sil.phiRockMax_frac = val
-            Planet.Do.POROUS_ROCK = True
-            Planet.Do.CONSTANT_INNER_DENSITY = False
-        elif name == 'silPclosure_MPa':
-            Planet.Sil.Pclosure_MPa = val
-            Planet.Do.POROUS_ROCK = True
-            Planet.Do.CONSTANT_INNER_DENSITY = False
-        elif name == 'icePhi_frac':
-            Planet.Ocean.phiMax_frac = {key: val for key in Planet.Ocean.phiMax_frac.keys()}
-            Planet.Do.POROUS_ICE = True
-        elif name == 'icePclosure_MPa':
-            Planet.Ocean.Pclosure_MPa = {key: val for key in Planet.Ocean.Pclosure_MPa.keys()}
-            Planet.Do.POROUS_ICE = True
-        elif name == 'Htidal_Wm3':
-            Planet.Sil.Htidal_Wm3 = val
-        elif name == 'Qrad_Wkg':
-            Planet.Sil.Qrad_Wkg = val
-        elif name == 'qSurf_Wm2':
-            Planet.Bulk.qSurf_Wm2 = val
-        elif name == 'oceanComp':
-            Planet.Ocean.comp = val
-        elif name == 'compSil':
-            Planet.Sil.mantleEOS = val
-            Planet.Do.CONSTANT_INNER_DENSITY = False
-        elif name == 'compFe':
-            Planet.Core.coreEOS = val
-            Planet.Do.CONSTANT_INNER_DENSITY = False
-        elif name == 'wFeCore_ppt':
-            Planet.Core.wFe_ppt = val
-            Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
-            Planet.Do.CONSTANT_INNER_DENSITY = False
-        elif name == 'mixingRatioToH2O':
-            if Planet.Ocean.Reaction.speciesRatioToChange is None:
-                raise ValueError(f'Planet.Ocean.Reaction.speciesRatioToChange is not set but you are trying to explore over mixingRatioToH2O. Please set it to the species you want to change the ratio of.')
-            Planet.Ocean.Reaction.speciesToChangeMixingRatio = val
-            Planet.Ocean.Reaction.mixingRatioToH2O[Planet.Ocean.Reaction.speciesRatioToChange] = Planet.Ocean.Reaction.speciesToChangeMixingRatio
-    else:
-        # Monte Carlo non-self-consistent parameters
-        if name == 'dzIceI_km':
-            Planet.dzIceI_km = val
-        elif name == 'D_km':
-            Planet.D_km = val
-        elif name == 'Core_R_km':
-            Planet.Core.Rmean_m = val * 1e3  # Convert km to m
-        elif name == 'rho_iceIhCond_kgm3':
-            Planet.Ocean.rhoCondMean_kgm3['Ih'] = val
-        elif name == 'rho_iceIhConv_kgm3':
-            Planet.Ocean.rhoConvMean_kgm3['Ih'] = val
-        elif name == 'rho_ocean_kgm3':
-            Planet.Ocean.rhoMean_kgm3 = val
-        elif name == 'rho_sil_kgm3':
-            Planet.Sil.rhoMean_kgm3 = val
-        elif name == 'rho_core_kgm3':
-            Planet.Core.rhoMean_kgm3 = val
-        elif name == 'GS_condIh_GPa':
-            Planet.Ocean.GScondMean_GPa['Ih'] = val
-        elif name == 'GS_convIh_GPa':
-            Planet.Ocean.GSconvMean_GPa['Ih'] = val
-        elif name == 'GS_sil_GPa':
-            Planet.Sil.GSmean_GPa = val
-        elif name == 'GS_core_GPa':
-            Planet.Core.GSmean_GPa = val
-        elif name == 'kThermWater_WmK':
-            Planet.Ocean.kThermWater_WmK = val
-        elif name == 'kThermIceIh_WmK':
-            Planet.Ocean.kThermIce_WmK['Ih'] = val
-        elif name == 'kThermCore_WmK':
-            Planet.Core.kTherm_WmK = val
-        elif name == 'etaSil_Pas':
-            Planet.Sil.etaRock_Pas = val
-        elif name == 'etaMelt_Pas':
-            Planet.etaMelt_Pas = val
-        elif name == 'TSurf_K':
-            Planet.Bulk.TSurf_K = val
-        elif name == 'EactIceIh_kJmol':
-            Planet.Ocean.Eact_kJmol['Ih'] = val
-        elif name == 'AndradeExponent':
-            Planet.Gravity.andradExponent = val
+        if name == 'ionosTop_km':
+            Planet.Magnetic.ionosBounds_m[-1] = val*1e3
         else:
-            log.warning(f'No defined behavior for Planet setting named "{name}". Returning unchanged.')
-
+            Planet.Magnetic.sigmaIonosPedersen_Sm[-1] = val
+    elif name == 'silPhi_frac':
+        Planet.Sil.phiRockMax_frac = val
+        Planet.Do.POROUS_ROCK = True
+        Planet.Do.ConstantProps['Inner'] = False
+    elif name == 'silPclosure_MPa':
+        Planet.Sil.Pclosure_MPa = val
+        Planet.Do.POROUS_ROCK = True
+        Planet.Do.ConstantProps['Inner'] = False
+    elif name == 'icePhi_frac':
+        Planet.Ocean.phiMax_frac = {key: val for key in Planet.Ocean.phiMax_frac.keys()}
+        Planet.Do.POROUS_ICE = True
+    elif name == 'icePclosure_MPa':
+        Planet.Ocean.Pclosure_MPa = {key: val for key in Planet.Ocean.Pclosure_MPa.keys()}
+        Planet.Do.POROUS_ICE = True
+    elif name == 'Htidal_Wm3':
+        Planet.Sil.Htidal_Wm3 = val
+    elif name == 'Qrad_Wkg':
+        Planet.Sil.Qrad_Wkg = val
+    elif name == 'qSurf_Wm2':
+        Planet.Bulk.qSurf_Wm2 = val
+    elif name == 'oceanComp':
+        Planet.Ocean.comp = val
+    elif name == 'compSil':
+        Planet.Sil.mantleEOS = val
+        Planet.Do.ConstantProps['Inner'] = False
+    elif name == 'compFe':
+        Planet.Core.coreEOS = val
+        Planet.Do.ConstantProps['Inner'] = False
+    elif name == 'wFeCore_ppt':
+        Planet.Core.wFe_ppt = val
+        Planet.Core.coreEOS = 'Fe-S_3D_EOS.mat'
+        Planet.Do.ConstantProps['Inner'] = False
+    elif name == 'AndradeAlpha':
+        Planet.Gravity.andradAlpha = val
+    elif name == 'AndradeGamma':
+        Planet.Gravity.andradGamma = val
     # Do some final checks to ensure we have set all variables correctly
     if Planet.Do.POROUS_ROCK:
         if Planet.Sil.poreComp is None:
@@ -1936,7 +1890,6 @@ def AssignPlanetVal(Planet, name, val):
             Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
         if Planet.Sil.porosType is None or Planet.Sil.porosType == 'none':
             Planet.Sil.porosType = 'Han2014'
-            
     return Planet
 
 

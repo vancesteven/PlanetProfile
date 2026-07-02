@@ -12,7 +12,7 @@ from scipy.interpolate import interp1d
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Utilities.defineStructs import xyzComps, vecComps
 from PlanetProfile.MagneticInduction.Moments import Excitations as Mag
-from MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
+from PlanetProfile.MagneticInduction.MoonMag.asymmetry_funcs import getMagSurf as GetMagSurf
 
 log = logging.getLogger('PlanetProfile')
 

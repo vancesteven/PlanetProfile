@@ -10,9 +10,10 @@ from PlanetProfile import _Test, _Defaults
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from PlanetProfile.GetConfig import FigMisc, SigParams
-from MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq_single as GeodesyNorm2chipq, \
+from PlanetProfile.MagneticInduction.MoonMag.asymmetry_funcs import read_Benm as GetBenm, BiList as BiAsym, get_chipq_from_CSpq_single as GeodesyNorm2chipq, \
     get_all_Xid as LoadXid, get_rsurf as GetrSurf, norm4pi as normFactor_4pi
-from MoonMag.symmetry_funcs import InducedAeList as AeList
+from PlanetProfile.MagneticInduction.MoonMag.symmetry_funcs import InducedAeList as AeList
+from PlanetProfile.Utilities.ResultsIO import ensure_parent_dir
 import time
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -102,12 +103,12 @@ def CalcInducedMoments(Planet, Params):
 
     if isinstance(Planet.Magnetic.nExc, dict):
         Planet.Magnetic.Aen = {SCera: np.zeros((nExc, Planet.Magnetic.nprmMax + 1),
-            dtype=np.complex_) for SCera, nExc in Planet.Magnetic.nExc.items()}
-        Planet.Magnetic.BinmLin_nT = {SCera: np.zeros((nExc, Nnm), dtype=np.complex_)
+            dtype=np.complex128) for SCera, nExc in Planet.Magnetic.nExc.items()}
+        Planet.Magnetic.BinmLin_nT = {SCera: np.zeros((nExc, Nnm), dtype=np.complex128)
                                       for SCera, nExc in Planet.Magnetic.nExc.items()}
     else:
-        Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex_)
-        Planet.Magnetic.BinmLin_nT = np.zeros((Planet.Magnetic.nExc, Nnm), dtype=np.complex_)
+        Planet.Magnetic.Aen = np.zeros((Planet.Magnetic.nExc, Planet.Magnetic.nprmMax+1), dtype=np.complex128)
+        Planet.Magnetic.BinmLin_nT = np.zeros((Planet.Magnetic.nExc, Nnm), dtype=np.complex128)
         
     if Planet.Magnetic.inductMethod == 'Eckhardt1963' or Planet.Magnetic.inductMethod == 'numeric':
         if Params.CALC_ASYM:
@@ -272,6 +273,7 @@ def CalcInducedMoments(Planet, Params):
             'ionosBounds_m': Planet.Magnetic.ionosBounds_m,
             'calcedExc': Planet.Magnetic.calcedExc
         }
+        ensure_parent_dir(Params.DataFiles.inducedMomentsFile)
         savemat(Params.DataFiles.inducedMomentsFile, saveDict)
         log.debug(f'Saved induced moments to file: {Params.DataFiles.inducedMomentsFile}')
 
@@ -373,6 +375,7 @@ def CalcAsymContours(Planet, Params):
                 'lonMap_deg': FigMisc.lonMap_deg,
                 'asymPlotType': Planet.Magnetic.asymPlotType
             }
+            ensure_parent_dir(Params.DataFiles.asymFile)
             savemat(Params.DataFiles.asymFile, saveDict)
             log.debug(f'Saved asymmetric boundary deviations to file: {Params.DataFiles.asymFile}')
 
@@ -474,14 +477,21 @@ def SetupInduction(Planet, Params):
         Sets Planet attributes:
             Magnetic.rSigChange_m, Magnetic.sigmaLayers_Sm, Magnetic.asymShape_m
     """
-    # Exploration, inversion, and inductograms do not need to set up all these settings at the start
+    # SKIP_LAYER_SETUP: defer per-model induction setup while building an inductogram/exploreogram/
+    # Monte Carlo grid (before the *_IN_PROGRESS flag is set). Still False during grid execution,
+    # when each model needs nBds, asymmetry arrays, etc.
     SKIP_LAYER_SETUP = (Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.DO_MONTECARLO) and not (Params.INDUCTOGRAM_IN_PROGRESS or Params.INVERSION_IN_PROGRESS or Params.MONTECARLO_IN_PROGRESS or Params.EXPLOREOGRAM_IN_PROGRESS)
-    if not SKIP_LAYER_SETUP:
-        # If we are recalculating the induction from a previously run inductogram, we can skip this step since Planet.phase will not be initialized
-        # Lots of errors can happen if we haven't calculated the electrical conductivity,
-        # so we make this contingent on having it.
-        indsLiq = np.where(np.flip(Planet.phase) == 0)[0]
-        if np.size(indsLiq) == 0 and not Params.Induct.inductOtype == 'sigma':
+    # USE_INTERIOR_PROFILE_FOR_LAYERS: build Magnetic.rSigChange_m and Magnetic.sigmaLayers_Sm from
+    # PlanetProfile layer arrays. False for sigma inductograms and reloads that preset those arrays,
+    # and whenever Planet.phase was never calculated.
+    USE_INTERIOR_PROFILE_FOR_LAYERS = (
+        not SKIP_LAYER_SETUP
+        and Planet.phase is not None
+        and (Planet.Magnetic.sigmaLayers_Sm is None or Planet.Magnetic.rSigChange_m is None)
+    )
+    if USE_INTERIOR_PROFILE_FOR_LAYERS:
+        indsLiq = np.where(np.atleast_1d(np.flip(Planet.phase)) == 0)[0]
+        if np.size(indsLiq) == 0:
             if Params.DO_INDUCTOGRAM:
                 log.info('Ocean is completely frozen for this body. Profile will be marked invalid for inductogram.')
                 Planet.Do.VALID = False
@@ -490,9 +500,7 @@ def SetupInduction(Planet, Params):
                 log.debug('Ocean is completely frozen for this body. This will cause errors in conducting layer reductions, ' +
                         'so those calculations will be skipped for this model.')
     if Params.CALC_CONDUCT and Planet.Do.VALID:
-        # Reconfigure layer conducting boundaries as needed.
-        # For inductOtype == 'sigma', we have already set these arrays.
-        if not Params.Induct.inductOtype == 'sigma' and not SKIP_LAYER_SETUP:
+        if USE_INTERIOR_PROFILE_FOR_LAYERS:
             # Append optional ionosphere
             # We first check if these are unset here, then assign them to what they should be if unset
             if Planet.Magnetic.ionosBounds_m is None or Planet.Magnetic.sigmaIonosPedersen_Sm is None:
@@ -688,7 +696,7 @@ def GetBexc(bodyname, era, model, excSelection, MPmodel=None, nprmMax=1, pMax=0)
             eachT = np.logical_and([excSelection[key] for key in BeList.keys()], [BeList[key] is not None for key in BeList.keys()])
             nPeaks = sum(eachT)
             Texc_hr = np.zeros(nPeaks)
-            Benm_nT = np.zeros((nPeaks, 2, nprmMax+pMax+1, nprmMax+pMax+1), dtype=np.complex_)
+            Benm_nT = np.zeros((nPeaks, 2, nprmMax+pMax+1, nprmMax+pMax+1), dtype=np.complex128)
             # Include in the excitation spectrum only the periods specified in configPPinduct.py
             iPeak = 0
             for oscillation, included in excSelection.items():
@@ -778,7 +786,7 @@ def SetGravShape(Planet, Params):
 
     # These are the UNNORMALIZED deformation terms. They are incorrectly labeled as Schmidt semi-
     # normalized coefficients in Styczinski et al. (2021). To get the 4pi-normalized terms we need to use
-    # calculations from MoonMag from the unnormalized ones, we need to divide by the 4pi-normalization factor:
+    # calculations from np.complex128 from the unnormalized ones, we need to divide by the 4pi-normalization factor:
     H2c_4pi_m = [H2c_m[q] / normFactor_4pi(p, q) for q in range(p+1)]
     H2s_4pi_m = [H2s_m[q] / normFactor_4pi(p, q) for q in range(p+1)]
     # Convert to fully normalized, complex coefficients with Condon-Shortley phase
@@ -844,7 +852,7 @@ def SetAsymShape(Planet, Params):
                 Planet.Magnetic.pMax = int(np.max(Planet.Magnetic.pLin))
             # Initialize the asymShape array
             Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, Planet.Magnetic.pMax+1, Planet.Magnetic.pMax+1),
-                                                 dtype=np.complex_)
+                                                 dtype=np.complex128)
 
             # Convert 4pi-normalized depth coefficients in km to fully normalized radial and in m
             for p in range(1, Planet.Magnetic.pMax+1):
@@ -891,7 +899,7 @@ def SetAsymShape(Planet, Params):
             Planet.Magnetic.pMax = pMaxNonzero
         # Initialize the shape array
         Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, Planet.Magnetic.pMax+1, Planet.Magnetic.pMax+1),
-                                                 dtype=np.complex_)
+                                                 dtype=np.complex128)
 
         for i, fName in enumerate(shapeFiles):
             pMaxNonzero = np.max(pLin[i][np.logical_or(Cpq_km[i] != 0, Spq_km[i] != 0)])
@@ -921,7 +929,7 @@ def SetAsymShape(Planet, Params):
         log.warning(reason + ' Asymmetry will be modeled only for the gravity coefficients, if they are nonzero.')
         Planet.Magnetic.pMax = 2
         Planet.Magnetic.asymShape_m = np.zeros((Planet.Magnetic.nBds, 2, Planet.Magnetic.pMax+1, Planet.Magnetic.pMax+1),
-                                             dtype=np.complex_)
+                                             dtype=np.complex128)
     else:
         Planet.Magnetic.zMeanAsym_km = np.unique(Planet.Magnetic.zMeanAsym_km)
         Planet.Magnetic.iAsymBds = np.unique(Planet.Magnetic.iAsymBds)
@@ -978,6 +986,7 @@ def FourierSpectrum(Planet, Params):
                     'Bi1y_nT': Planet.Magnetic.Bi1xyzFT_nT['y'],
                     'Bi1z_nT': Planet.Magnetic.Bi1xyzFT_nT['z']
                 }
+                ensure_parent_dir(Params.DataFiles.FTdata)
                 savemat(Params.DataFiles.FTdata, saveDict)
                 log.debug(f'Saved magnetic Fourier spectrum to file: {Params.DataFiles.FTdata}')
         else:
