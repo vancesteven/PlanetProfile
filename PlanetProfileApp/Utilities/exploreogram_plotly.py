@@ -143,10 +143,10 @@ def get_matplotlib_colormap_colors(cmap_name='viridis', n_colors=256):
     """
     try:
         import matplotlib.pyplot as plt
-        import matplotlib.cm as cm
+        import matplotlib as mpl
         from matplotlib.colors import LinearSegmentedColormap
 
-        cmap = cm.get_cmap(cmap_name)
+        cmap = mpl.colormaps[cmap_name]
         colors = [cmap(i / (n_colors - 1)) for i in range(n_colors)]
         # Convert RGBA to hex
         hex_colors = ['#{:02x}{:02x}{:02x}'.format(

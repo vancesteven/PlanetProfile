@@ -3,7 +3,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.colors import Normalize
-from matplotlib.cm import get_cmap
 from matplotlib.lines import Line2D
 import matplotlib.ticker as ticker
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
@@ -902,7 +901,7 @@ def PlotExploreOgramLoveComparison(results_list, FigureFilesList, Params):
             norm = Normalize(vmin=norm_thickness.min(), vmax=norm_thickness.max())
 
             # 3. Apply the colormap to normalized data to get RGBA values
-            colors = get_cmap(FigMisc.LOVE_ICE_THICKNESS_CMAP)(norm(norm_thickness)) 
+            colors = mpl.colormaps[FigMisc.LOVE_ICE_THICKNESS_CMAP](norm(norm_thickness)) 
             
         
             # Plot convection points

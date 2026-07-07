@@ -2,11 +2,10 @@
 
 **Authoritative reference** for the `genai` branch — supersedes the prior `MCMC_ARCHITECTURE.md` (now deleted). When this file conflicts with any other tracked doc, this file wins.
 
-- **Branch:** `genai` (1 commit ahead of `origin/genai`, not pushed)
-- **Latest commit:** `b7da7807 fix(gui): route matplotlib induction component (Bx/By/Bz) through zName`
+- **Branch:** `genai`
 - **Env:** `mamba activate PPcl` → `/Users/svance/mamba/envs/PPcl/bin/python`
 - **Repo:** `/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai`
-- **Last updated:** 2026-06-29
+- **Last updated:** 2026-07-07
 
 ---
 
@@ -104,6 +103,8 @@ Future hooks already designed: `OneDStructureBackend` / `ThreeDStructureBackend`
 - **pocoMC `posterior()` returns `(samples, weights, logl, logp)`** — not `(samples, logl, logp, weights)`. Fixed in Phase C1 bug #3. The `samples` array was always correct; pre-fix log_likelihoods were importance weights.
 - **v2.1 cache list format** — new caches use `'Tb_K_grid'` + `'structures'` + `'transitions'`. Old v2.0 used `'grid_cache'` + `'grid_Tb_values'`. `mcmc_runner.py` CMR² dispatcher handles both. Any new cache-reading code must too.
 - **NumPy 2.x migration done** (commit `a9f24584`) — `np.complex_` → `np.complex128` etc. across MoonMag and core modules. Do not reintroduce deprecated aliases.
+- **matplotlib 3.9+ removed `matplotlib.cm.get_cmap`** — use `matplotlib.colormaps[name]` (or `mpl.colormaps[name]`). Fixed 2026-07-07 in `PlanetProfile/Plotting/ExplorationPlots.py` and `PlanetProfileApp/Utilities/exploreogram_plotly.py`. Env has matplotlib 3.11.0; do not reintroduce `get_cmap`.
+- **numpy ABI split in PPcl env (2026-07-07)** — conda had clobbered numpy 2.4.6 files with numpy 1.26.4 while scipy/matplotlib/etc. were built against numpy 2.x, producing `numpy._core.multiarray failed to import` on any scientific import (surfaced as "Error loading planet module" in the GUI). Fix: `pip install --force-reinstall --no-deps numpy==2.4.6`. Leftover `numpy-1.26.4.dist-info/` can be deleted. If it recurs, look for a `mamba/conda install` that pins numpy <2.
 
 ---
 
