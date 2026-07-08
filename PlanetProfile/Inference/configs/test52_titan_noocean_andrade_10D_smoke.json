@@ -1,0 +1,52 @@
+{
+  "mode": "mcmc",
+  "bodyname": "Titan",
+  "param_space": {
+    "alpha":          {"prior_type": "uniform", "bounds": [0.15, 0.45]},
+    "log10_zeta":     {"prior_type": "uniform", "bounds": [-3.0, 2.0]},
+    "log10_eta_Ih":   {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_III":  {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_V":    {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_VI":   {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_sil":  {"prior_type": "uniform", "bounds": [18.0, 22.0]},
+    "Tb_K":           {"prior_type": "uniform", "bounds": [249.0, 250.965]},
+    "R_core_km":      {"prior_type": "uniform", "bounds": [0.0, 2000.0]},
+    "rho_core_kgm3":  {"prior_type": "uniform", "bounds": [2591.0, 3600.0]}
+  },
+  "derived_params": {
+    "rho_sil_kgm3": {
+      "derivation": "mass_conservation",
+      "bounds": [1800.0, 3500.0],
+      "reject_if_outside_bounds": true,
+      "density_inversion_guard": true
+    }
+  },
+  "observables": {
+    "Re_k2": [0.608, 0.048],
+    "Im_k2": [0.135, 0.035],
+    "CMR2": [0.343, 0.001]
+  },
+  "sampler_settings": {
+    "n_effective": 50,
+    "n_reeval": 50,
+    "rheology": "andrade",
+    "arrhenius_params": {
+      "activation_energy_kJ_mol": {"Ih": 60.0},
+      "R_J_mol_K": 8.314462
+    },
+    "phase_stability": {"enforce": "no_ocean_Ih", "margin_K": 0.1}
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test52_andrade_noocean_diff/titan_diff_noocean_structure_grid.pkl",
+  "random_state": 42,
+  "planet_template_module": "PlanetProfile.Test.PPTest50",
+  "metadata": {
+    "schema_version": "v2.1 (Test50 8D rheology/thermal + sampled differentiated core + derived rho_sil)",
+    "description": "SMOKE COPY of test52_titan_noocean_andrade_10D.json (Phase 3, plans/test52-differentiated-titan-plan.md) for fast sanity-check MCMC only. Only sampler_settings.n_effective and n_reeval are reduced (500 -> 50, matching the europa_seawater_smoke.json convention: T25_smoke_seawater used n_effective=n_reeval=50). All parameter bounds, derived_params, observables, structure_cache_path, and random_state are byte-identical to the production config. Not for scientific claims -- n_effective=50 is not a converged posterior.",
+    "reference": "Petricca et al. (2025), Nature 648:558",
+    "observables_rationale": "Re_k2 = 0.608 +/- 0.048, Im_k2 = 0.135 +/- 0.035, and CMR2 = 0.343 +/- 0.001 (Radau-Darwin) are all taken directly from Petricca et al. (2025), Nature 648:558.",
+    "core_bounds_rationale": "R_core_km in [0, 2000] spans the no-core limit up to a core radius below the full-body radius (R=2574.73 km, PPTest50.py), covering the differentiation range probed by the Phase 1 physical sanity anchors (no-core, 600 km, and 900 km cores at rock and metallic core densities). rho_core_kgm3 in [2591, 3600]: lower bound 2591 kg/m^3 is the Petricca et al. (2025) bulk-rock density for a differentiated silicate core; upper bound 3600 kg/m^3 is a user-adopted anhydrous-silicate bound (NOT paper-sourced) blessed 2026-07-08 pending a literature citation. rho_sil_kgm3 is not sampled directly; it is derived from mass conservation given the sampled core and the cached (core-independent) hydrosphere, then rejected (support rejection, like other guards) if outside [1800, 3500] kg/m^3.",
+    "density_inversion_guard_note": "density_inversion_guard=true: samples with derived rho_sil_kgm3 > sampled rho_core_kgm3 (gravitationally unstable) are hard-rejected as an additional support constraint (Phase 2, consumed by mcmc_runner.py's _derive_cmr2_via_mass_conservation).",
+    "cmr2_offset_anchor_note": "Phase 2 anchor correction is active: _derive_cmr2_via_mass_conservation adds the per-grid-point CMR2_offset (~+0.00095) recorded in the sidecar titan_diff_noocean_structure_grid_offsets.json before returning CMR2, so posterior-predictive CMR2 should sit near the PP-native 0.343 anchor, not the uncorrected ~0.342 reduced-stack value.",
+    "phase_stability_rationale": "phase_stability.enforce='no_ocean_Ih' with margin_K=0.1 copied verbatim from test50_titan_noocean_andrade_8D.json sampler_settings; Tb_K bounds [249.0, 250.965] copied verbatim from the same config (triple-point-depression band for the no-ocean Ih-clathrate structure)."
+  }
+}

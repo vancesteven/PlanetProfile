@@ -282,10 +282,50 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
         rheology_constraint=None
     ),
 
+    'R_core_km': ParameterDef(
+        id='R_core_km',
+        label='Core Radius',
+        latex_label=r'$R_{\rm core}$ (km)',
+        description=(
+            'Radius of a differentiated metallic/rock core. Sampled jointly with '
+            'rho_core_kgm3; silicate mantle density (rho_sil_kgm3) is then derived '
+            'from mass conservation against the cached (core-independent) '
+            'hydrosphere and rejected if outside its configured bounds. Does not '
+            'require regenerating the Tb-grid structure cache -- the core is '
+            'assembled at MCMC runtime from the cached hydrosphere layers.'
+        ),
+        category='structure',
+        default_prior='uniform',
+        default_bounds=[0.0, 2000.0],
+        units='km',
+        requires_structure_rebuild=False,
+        rheology_constraint=None
+    ),
+
+    'rho_core_kgm3': ParameterDef(
+        id='rho_core_kgm3',
+        label='Core Density',
+        latex_label=r'$\rho_{\rm core}$ (kg m$^{-3}$)',
+        description=(
+            'Bulk density of a differentiated core, sampled jointly with '
+            'R_core_km. Used with the derived silicate density (mass '
+            'conservation, rho_sil_kgm3) to reconstruct CMR2 for the core + '
+            'silicate + cached-hydrosphere shell stack. Bounds are '
+            'body/scenario-specific (e.g. rock-differentiation core: '
+            '[2591, 3600] kg/m^3 per Petricca et al. 2025 for Titan; metallic '
+            'Fe/Fe-S core: much higher, e.g. Callisto [5000, 8000] kg/m^3).'
+        ),
+        category='structure',
+        default_prior='uniform',
+        default_bounds=[2591.0, 3600.0],
+        units='kg/m^3',
+        requires_structure_rebuild=False,
+        rheology_constraint=None
+    ),
+
     # Note: Future structural parameters to add when grid caching is implemented:
     # - 'ocean_salinity_ppt': Ocean salinity (affects ocean density, freezing point)
     # - 'ice_shell_thickness_km': Direct ice shell thickness constraint
-    # - 'core_radius_km': Core size (for core-mantle decoupling scenarios)
 }
 
 
@@ -336,6 +376,32 @@ PARAMETER_PRESETS = {
             'CMR2': (0.343, 0.001),
         },
         'test_module': 'PlanetProfile.Test.Test50_mcmc_andrade_noocean_yao2014',
+        'rheology': 'andrade'
+    },
+
+    'andrade_titan_noocean_diff_10D': {
+        'name': 'Andrade Rheology (Titan No-Ocean, Differentiated Core, 10D)',
+        'description': (
+            'Test52 10D no-ocean Titan: Test50 8D rheology/thermal parameter '
+            'space (alpha, log10_zeta, log10_eta_{Ih,III,V,VI,sil}, Tb_K) plus a '
+            'sampled differentiated core (R_core_km, rho_core_kgm3) with rho_sil '
+            'derived from mass conservation against the cached hydrosphere. '
+            'Petricca et al. (2025) Re_k2/Im_k2/CMR2 constraints.'
+        ),
+        'parameters': ['alpha', 'log10_zeta', 'log10_eta_Ih', 'log10_eta_III',
+                       'log10_eta_V', 'log10_eta_VI', 'log10_eta_sil', 'Tb_K',
+                       'R_core_km', 'rho_core_kgm3'],
+        # NOTE: keys here byte-match test52_titan_noocean_andrade_10D.json's
+        # "observables" block -- 'Im_k2' (NOT 'abs_Im_k2', unlike the other
+        # presets below). mcmc_runner.py accepts both spellings as aliases,
+        # but this preset must match the config file verbatim per the Test52
+        # Phase 1 plan (plans/test52-differentiated-titan-plan.md).
+        'observables': {
+            'Re_k2': (0.608, 0.048),
+            'Im_k2': (0.135, 0.035),
+            'CMR2': (0.343, 0.001),  # Petricca et al. (2025)
+        },
+        'test_module': 'PlanetProfile.Test.PPTest50',
         'rheology': 'andrade'
     },
 

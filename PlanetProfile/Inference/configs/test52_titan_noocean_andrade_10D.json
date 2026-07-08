@@ -1,0 +1,52 @@
+{
+  "mode": "mcmc",
+  "bodyname": "Titan",
+  "param_space": {
+    "alpha":          {"prior_type": "uniform", "bounds": [0.15, 0.45]},
+    "log10_zeta":     {"prior_type": "uniform", "bounds": [-3.0, 2.0]},
+    "log10_eta_Ih":   {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_III":  {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_V":    {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_VI":   {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_sil":  {"prior_type": "uniform", "bounds": [18.0, 22.0]},
+    "Tb_K":           {"prior_type": "uniform", "bounds": [249.0, 250.965]},
+    "R_core_km":      {"prior_type": "uniform", "bounds": [0.0, 2000.0]},
+    "rho_core_kgm3":  {"prior_type": "uniform", "bounds": [2591.0, 3600.0]}
+  },
+  "derived_params": {
+    "rho_sil_kgm3": {
+      "derivation": "mass_conservation",
+      "bounds": [1800.0, 3500.0],
+      "reject_if_outside_bounds": true,
+      "density_inversion_guard": true
+    }
+  },
+  "observables": {
+    "Re_k2": [0.608, 0.048],
+    "Im_k2": [0.135, 0.035],
+    "CMR2": [0.343, 0.001]
+  },
+  "sampler_settings": {
+    "n_effective": 500,
+    "n_reeval": 500,
+    "rheology": "andrade",
+    "arrhenius_params": {
+      "activation_energy_kJ_mol": {"Ih": 60.0},
+      "R_J_mol_K": 8.314462
+    },
+    "phase_stability": {"enforce": "no_ocean_Ih", "margin_K": 0.1}
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test52_andrade_noocean_diff/titan_diff_noocean_structure_grid.pkl",
+  "random_state": 42,
+  "planet_template_module": "PlanetProfile.Test.PPTest50",
+  "metadata": {
+    "schema_version": "v2.1 (Test50 8D rheology/thermal + sampled differentiated core + derived rho_sil)",
+    "description": "Test52 10D: Test50 8D no-ocean Titan Andrade/Yao2014 parameter space (alpha, log10_zeta, log10_eta_{Ih,III,V,VI,sil}, Tb_K; bounds copied verbatim from test50_titan_noocean_andrade_8D.json) plus a sampled differentiated core (R_core_km, rho_core_kgm3) with rho_sil derived from mass conservation against the cached no-core hydrosphere. Uses the PPTest50 template (Planet.bodyname='Test50', Yao 2014 spherical Ih convection, clathrate cap, Kalousova HP convection, Arrhenius viscosity).",
+    "reference": "Petricca et al. (2025), Nature 648:558",
+    "observables_rationale": "Re_k2 = 0.608 +/- 0.048, Im_k2 = 0.135 +/- 0.035, and CMR2 = 0.343 +/- 0.001 (Radau-Darwin) are all taken directly from Petricca et al. (2025), Nature 648:558.",
+    "core_bounds_rationale": "R_core_km in [0, 2000] spans the no-core limit up to a core radius below the full-body radius (R=2574.73 km, PPTest50.py), covering the differentiation range probed by the Phase 1 physical sanity anchors (no-core, 600 km, and 900 km cores at rock and metallic core densities). rho_core_kgm3 in [2591, 3600]: lower bound 2591 kg/m^3 is the Petricca et al. (2025) bulk-rock density for a differentiated silicate core; upper bound 3600 kg/m^3 is a user-adopted anhydrous-silicate bound (NOT paper-sourced) blessed 2026-07-08 pending a literature citation. rho_sil_kgm3 is not sampled directly; it is derived from mass conservation given the sampled core and the cached (core-independent) hydrosphere, then rejected (support rejection, like other guards) if outside [1800, 3500] kg/m^3.",
+    "density_inversion_guard_note": "density_inversion_guard=true (new key, Phase 1) flags that samples with derived rho_sil_kgm3 > sampled rho_core_kgm3 (gravitationally unstable: mantle denser than core) must be rejected as an additional support constraint, analogous to reject_if_outside_bounds. This key is stored here at Phase 1 but is NOT YET CONSUMED by mcmc_runner.py's _derive_cmr2_via_mass_conservation -- InferenceConfig.from_json/derived_params tolerate and preserve unknown keys (verified against inference_core.py), so parsing this config is safe, but the actual rejection logic is Phase 2 scope only.",
+    "cmr2_offset_anchor_note": "structure_derivation.compute_cmr2 evaluated on the reduced (core + derived-silicate + cached-hydrosphere) shell stack under-reports CMR2 by a stable +0.00095 relative to the PP-native CMR2mean for this template (pure hydrosphere radial-discretization error, verified core-independent and constant across the Tb grid and across sampled (R_core_km, rho_core_kgm3)). This Phase 1 cache build records the per-grid-point offset in the sidecar file titan_diff_noocean_structure_grid_offsets.json for Phase 2 to consume; the anchor correction (adding the recorded offset inside _derive_cmr2_via_mass_conservation before return) is NOT applied in Phase 1 -- _compute_model_cmr2 calls in this phase return the UNCORRECTED (reduced-stack) CMR2. Applying the correction is explicit Phase 2 scope (plans/test52-differentiated-titan-plan.md, decision 1).",
+    "phase_stability_rationale": "phase_stability.enforce='no_ocean_Ih' with margin_K=0.1 copied verbatim from test50_titan_noocean_andrade_8D.json sampler_settings; Tb_K bounds [249.0, 250.965] copied verbatim from the same config (triple-point-depression band for the no-ocean Ih-clathrate structure)."
+  }
+}
