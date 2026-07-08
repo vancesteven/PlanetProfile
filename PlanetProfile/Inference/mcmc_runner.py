@@ -54,6 +54,24 @@ class MCMCRunner:
         # fixed_params: constants injected into every forward call
         self.fixed_params = getattr(config, 'fixed_params', {}) or {}
 
+        # Lazily-loaded CMR2 discretization-offset anchor sidecar (Test52
+        # Phase 2, plan decision 1). None until _load_cmr2_offset_sidecar()
+        # is first called; _cmr2_offset_sidecar_checked distinguishes "not
+        # yet checked" from "checked, no sidecar file exists" so the lookup
+        # (and its one-time log line) only ever happens once per runner
+        # instance.
+        self._cmr2_offset_sidecar = None
+        self._cmr2_offset_sidecar_checked = False
+        # Diagnostic side-channel set by _derive_cmr2_via_mass_conservation
+        # on every call: None on success, else a short reason string
+        # ('missing_inputs', 'hydrosphere_error', 'hydrosphere_empty',
+        # 'rho_sil_bounds', 'density_inversion', 'cmr2_valueerror'). Lets
+        # generate_sbi_dataset's support-guard counting distinguish a
+        # density-inversion rejection from other reject-causes without
+        # duplicating the derivation logic or changing this method's
+        # public None/float return contract.
+        self._last_cmr2_reject_reason: Optional[str] = None
+
         # Route to grid cache when Tb_K is a free parameter OR fixed via fixed_params
         self._use_flexible = 'Tb_K' in self.param_names or 'Tb_K' in self.fixed_params
 
@@ -382,82 +400,46 @@ class MCMCRunner:
             if 'CMR2' in observables:
                 obs_val, obs_err = observables['CMR2']
 
-                # Pick the per-sample structure dict for CMR² re-derivation.
-                # Three cache layouts are supported:
-                #   (a) v2.1 list format: {'Tb_K_grid': arr, 'structures': [..]}
-                #       — what cache_builder.build_phase_c1_cache produces.
-                #   (b) legacy dict format: {'grid_cache': {Tb: struct}, 'grid_Tb_values': arr}
-                #       — what _load_grid_cache wraps Format-A caches into.
-                #   (c) single struct (no Tb grid).
-                # The earlier code only handled (b) and silently fell through to
-                # struct_for_cmr2 = structure_data for (a), which lacks
-                # Mtot_kg/R_body_m at top level → NaN → -1e30 rejection of every
-                # sample. Verified 2026-05-23 against europa_seawater cache.
-                Tb_sample = theta_dict.get('Tb_K')
-                if (Tb_sample is not None
-                        and 'Tb_K_grid' in structure_data
-                        and 'structures' in structure_data):
-                    grid_Tb_values = np.asarray(structure_data['Tb_K_grid'])
-                    idx = int(np.argmin(np.abs(grid_Tb_values - Tb_sample)))
-                    struct_for_cmr2 = structure_data['structures'][idx]
-                elif 'grid_cache' in structure_data and Tb_sample is not None:
-                    grid_Tb_values = structure_data['grid_Tb_values']
-                    idx = int(np.argmin(np.abs(grid_Tb_values - Tb_sample)))
-                    struct_for_cmr2 = structure_data['grid_cache'][grid_Tb_values[idx]]
-                else:
-                    struct_for_cmr2 = structure_data
-
                 if use_derived_rho_sil:
-                    # v2 path: mass-conserve rho_sil, then recompute CMR² from
-                    # the assembled body (sampled core + derived silicate +
-                    # cached hydrosphere).
-                    from .structure_derivation import (
-                        compute_cmr2,
-                        derive_silicate_density,
-                        extract_hydrosphere_layers,
-                    )
-                    R_body_m = struct_for_cmr2.get('R_body_m', np.nan)
-                    M_total_kg = struct_for_cmr2.get('Mtot_kg', np.nan)
-                    R_core_km = theta_dict.get('R_core_km')
-                    rho_core_kgm3 = theta_dict.get('rho_core_kgm3')
-                    if not (np.isfinite(R_body_m) and np.isfinite(M_total_kg)
-                            and R_core_km is not None and rho_core_kgm3 is not None):
+                    # v2 path: mass-conserve rho_sil from the sampled core,
+                    # then recompute CMR² from the assembled body (sampled
+                    # core + derived silicate + cached hydrosphere). Factored
+                    # into _derive_cmr2_via_mass_conservation (restructure
+                    # only, 2026-07 CMR2-reporting-path fix — logic below is
+                    # unchanged, just moved into a method so run()'s
+                    # cmr2_results and generate_sbi_dataset's CMR2 column can
+                    # share the identical derivation instead of silently
+                    # falling back to the no-core cache placeholder).
+                    derived = self._derive_cmr2_via_mass_conservation(theta_dict)
+                    if derived is None:
                         return -1e30
-                    R_core_m = float(R_core_km) * 1000.0
-                    try:
-                        hydro_layers, R_oceanbot_m, M_hydro_kg = (
-                            extract_hydrosphere_layers(struct_for_cmr2)
-                        )
-                    except (KeyError, ValueError):
-                        return -1e30
-                    if not hydro_layers:
-                        return -1e30
-                    rho_sil, accepted = derive_silicate_density(
-                        M_total_kg=float(M_total_kg),
-                        M_hydrosphere_kg=M_hydro_kg,
-                        R_oceanbot_m=R_oceanbot_m,
-                        R_core_m=R_core_m,
-                        rho_core_kgm3=float(rho_core_kgm3),
-                        bounds=rho_sil_bounds,
-                    )
-                    if rho_sil_reject and not accepted:
-                        return -1e30
-                    # Assemble layers; skip zero-volume core shell at R_core = 0
-                    assembled = []
-                    if R_core_m > 0.0:
-                        assembled.append((0.0, R_core_m, float(rho_core_kgm3)))
-                    assembled.append((R_core_m, R_oceanbot_m, rho_sil))
-                    assembled.extend(hydro_layers)
-                    try:
-                        cmr2_val = compute_cmr2(
-                            assembled,
-                            R_body_m=float(R_body_m),
-                            M_body_kg=float(M_total_kg),
-                        )
-                    except ValueError:
-                        return -1e30
+                    cmr2_val = derived
                 else:
-                    # v1 path: read precomputed CMR² from the cache as-is
+                    # v1 path: read precomputed CMR² from the cache as-is.
+                    # Pick the per-sample structure dict for CMR² lookup.
+                    # Three cache layouts are supported:
+                    #   (a) v2.1 list format: {'Tb_K_grid': arr, 'structures': [..]}
+                    #       — what cache_builder.build_phase_c1_cache produces.
+                    #   (b) legacy dict format: {'grid_cache': {Tb: struct}, 'grid_Tb_values': arr}
+                    #       — what _load_grid_cache wraps Format-A caches into.
+                    #   (c) single struct (no Tb grid).
+                    # The earlier code only handled (b) and silently fell through to
+                    # struct_for_cmr2 = structure_data for (a), which lacks
+                    # Mtot_kg/R_body_m at top level → NaN → -1e30 rejection of every
+                    # sample. Verified 2026-05-23 against europa_seawater cache.
+                    Tb_sample = theta_dict.get('Tb_K')
+                    if (Tb_sample is not None
+                            and 'Tb_K_grid' in structure_data
+                            and 'structures' in structure_data):
+                        grid_Tb_values = np.asarray(structure_data['Tb_K_grid'])
+                        idx = int(np.argmin(np.abs(grid_Tb_values - Tb_sample)))
+                        struct_for_cmr2 = structure_data['structures'][idx]
+                    elif 'grid_cache' in structure_data and Tb_sample is not None:
+                        grid_Tb_values = structure_data['grid_Tb_values']
+                        idx = int(np.argmin(np.abs(grid_Tb_values - Tb_sample)))
+                        struct_for_cmr2 = structure_data['grid_cache'][grid_Tb_values[idx]]
+                    else:
+                        struct_for_cmr2 = structure_data
                     cmr2_val = struct_for_cmr2.get('CMR2', np.nan)
 
                 if np.isfinite(cmr2_val):
@@ -573,6 +555,289 @@ class MCMCRunner:
         modified = apply_parameters(theta_dict, self.structure_data)
         val = modified.get(key, np.nan)
         return float(val) if np.isfinite(float(val)) else np.nan
+
+    def _load_cmr2_offset_sidecar(self) -> Optional[Dict[str, np.ndarray]]:
+        """Lazily load the per-Tb CMR2 discretization-offset sidecar, once.
+
+        Test52 Phase 2 (plans/test52-differentiated-titan-plan.md, decision
+        1). ``structure_derivation.compute_cmr2`` evaluated on the reduced
+        (core + derived-silicate + cached-hydrosphere) shell stack
+        under-reports CMR2 by a small, stable, core-independent offset
+        relative to the PP-native CMR2mean for the cached template (pure
+        hydrosphere radial-discretization error). ``cache_builder`` records
+        this offset per Tb grid point in a sidecar JSON next to the
+        structure cache pickle, named ``<cache_stem>_offsets.json`` (e.g.
+        ``titan_diff_noocean_structure_grid.pkl`` ->
+        ``titan_diff_noocean_structure_grid_offsets.json``).
+
+        Looked up exactly once per ``MCMCRunner`` instance and cached on
+        ``self._cmr2_offset_sidecar``/``self._cmr2_offset_sidecar_checked``
+        (loop callers hit this every likelihood evaluation, so re-reading
+        the file per-call would be wasteful and is unnecessary — the
+        sidecar is immutable for the lifetime of a run).
+
+        Returns
+        -------
+        None
+            if ``config.structure_cache_path`` is unset or no sidecar file
+            exists next to it. This is the case for every config that
+            predates Test52 (including all Callisto configs) — by design,
+            those configs get NO offset applied and their CMR2 numerics are
+            therefore byte-identical to before this change. Only configs
+            whose cache has been (re)built with a sidecar (currently just
+            Test52) are affected. This is an explicit, documented decision,
+            not an oversight: Callisto's own +0.00095-scale offset is not
+            yet applied because its cache has not been regenerated with a
+            sidecar (tracked separately; see plan decision 1 disclosure
+            note re: "+0.23sigma shift" upon Callisto regeneration).
+        dict
+            ``{'Tb_K_grid': ndarray, 'offsets': ndarray}`` otherwise, sorted
+            to match the sidecar's own grid ordering (verified ascending at
+            build time; not re-sorted here).
+        """
+        if self._cmr2_offset_sidecar_checked:
+            return self._cmr2_offset_sidecar
+
+        self._cmr2_offset_sidecar_checked = True
+        cache_path_str = getattr(self.config, 'structure_cache_path', None)
+        if not cache_path_str:
+            return None
+
+        cache_path = Path(cache_path_str)
+        sidecar_path = cache_path.with_name(cache_path.stem + '_offsets.json')
+        if not sidecar_path.exists():
+            log.debug(
+                f"No CMR2 offset sidecar at {sidecar_path} — proceeding "
+                f"without an anchor correction (unchanged pre-Test52 "
+                f"behavior for this config)."
+            )
+            return None
+
+        with open(sidecar_path, 'r') as f:
+            data = json.load(f)
+        Tb_grid = np.asarray(data['Tb_K_grid'], dtype=float)
+        offsets = np.asarray(data['CMR2_offset_per_point'], dtype=float)
+        sidecar = {'Tb_K_grid': Tb_grid, 'offsets': offsets}
+        self._cmr2_offset_sidecar = sidecar
+        log.info(
+            f"CMR2 offset anchor sidecar found and will be applied: "
+            f"{sidecar_path} (n={len(offsets)} Tb points, "
+            f"mean={float(np.mean(offsets)):.6f}, "
+            f"std={float(np.std(offsets)):.2e})"
+        )
+        return sidecar
+
+    def _derive_cmr2_via_mass_conservation(
+        self, theta_dict: Dict[str, float]
+    ) -> Optional[float]:
+        """Re-derive CMR² for v2 (mass-conservation) configs.
+
+        Verbatim factoring (2026-07 CMR2-reporting-path fix; pure
+        restructure, no numerical change) of the CMR² branch that used to
+        live inline in ``_make_flexible_log_likelihood``'s ``'CMR2'``
+        observable handling, reached only when
+        ``config.derived_params.rho_sil_kgm3.derivation ==
+        'mass_conservation'``. Given the sampled core (``R_core_km``,
+        ``rho_core_kgm3``), re-derives silicate density via mass
+        conservation (``structure_derivation.derive_silicate_density``)
+        against the cached hydrosphere
+        (``structure_derivation.extract_hydrosphere_layers``), then
+        assembles core + silicate + hydrosphere shells and recomputes CMR²
+        (``structure_derivation.compute_cmr2``).
+
+        This is now the ONLY place this derivation sequence is
+        implemented: both the likelihood (``_make_flexible_log_
+        likelihood``, via this same method) and the reporting paths
+        (``_compute_model_cmr2``, used by ``run()``'s ``cmr2_results`` and
+        ``generate_sbi_dataset``'s ``CMR2`` column) call it, so they can
+        never again diverge. (Bug: reporting previously called
+        ``_get_cache_scalar('CMR2')`` unconditionally, which ignores
+        sampled core parameters and reports the cache-builder's no-core
+        placeholder for v2 configs.)
+
+        Test52 Phase 2 additions (plans/test52-differentiated-titan-plan.md):
+
+        1. **CMR2 discretization-offset anchor.** If a sidecar offset file
+           exists next to ``config.structure_cache_path`` (see
+           ``_load_cmr2_offset_sidecar``), the per-Tb offset — linearly
+           interpolated in ``Tb_K`` — is ADDED to the reconstructed CMR2
+           before it is returned, correcting the reduced-stack
+           radial-discretization under-report identified for Test52. When
+           no sidecar exists (every pre-Test52 config, including all
+           current Callisto configs), NO offset is added and this method's
+           numerics are byte-identical to before this change — an explicit
+           decision, not an oversight (see plan decision 1).
+        2. **Density-inversion guard.** If
+           ``derived_params.rho_sil_kgm3.density_inversion_guard`` is
+           truthy in the config, a sample whose derived ``rho_sil`` exceeds
+           the sampled ``rho_core_kgm3`` (gravitationally unstable: mantle
+           denser than core) is hard-rejected (``None``) exactly like the
+           existing ``reject_if_outside_bounds`` check. Absent or false for
+           every config that predates this key (including Callisto), so
+           this is a no-op there.
+
+        Both additions set ``self._last_cmr2_reject_reason`` (see
+        ``__init__``) to a short string identifying which check produced a
+        ``None`` return, so ``generate_sbi_dataset`` can distinguish a
+        density-inversion rejection from other reject-causes for its
+        support-guard bookkeeping without duplicating this derivation.
+
+        Returns
+        -------
+        None
+            if the sample must be hard-rejected: missing/non-finite
+            ``R_body_m``/``Mtot_kg`` on the selected structure or missing
+            core params in ``theta_dict``; non-contiguous or empty
+            hydrosphere; derived ``rho_sil`` outside ``bounds`` when
+            ``reject_if_outside_bounds`` is True; derived ``rho_sil >
+            rho_core_kgm3`` when ``density_inversion_guard`` is True; or a
+            degenerate mass/radius in ``compute_cmr2``. Likelihood callers
+            must treat ``None`` exactly like the original inline
+            early-returns (return ``-1e30`` immediately, short-circuiting
+            the rest of the likelihood). Reporting callers should map
+            ``None`` to ``NaN``.
+        float
+            the derived CMR² otherwise (offset-corrected when a sidecar is
+            present). May be non-finite in the (pathological, not hit by
+            any current config) case where ``reject_if_outside_bounds`` is
+            False and an upstream input is non-finite despite passing the
+            earlier explicit checks — the original code guarded this with
+            ``if np.isfinite(cmr2_val)`` before adding the chi² term rather
+            than rejecting; callers must preserve that same guard rather
+            than treating a non-finite return here as a hard reject.
+        """
+        from .structure_derivation import (
+            compute_cmr2,
+            derive_silicate_density,
+            extract_hydrosphere_layers,
+        )
+
+        self._last_cmr2_reject_reason = None
+
+        derived_params_cfg = getattr(self.config, 'derived_params', {}) or {}
+        rho_sil_cfg = derived_params_cfg.get('rho_sil_kgm3', {}) or {}
+        rho_sil_bounds = tuple(rho_sil_cfg.get('bounds', (2200.0, 3500.0)))
+        rho_sil_reject = bool(rho_sil_cfg.get('reject_if_outside_bounds', True))
+        density_inversion_guard = bool(rho_sil_cfg.get('density_inversion_guard', False))
+
+        structure_data = self.structure_data
+        Tb_sample = theta_dict.get('Tb_K')
+        if (Tb_sample is not None
+                and 'Tb_K_grid' in structure_data
+                and 'structures' in structure_data):
+            grid_Tb_values = np.asarray(structure_data['Tb_K_grid'])
+            idx = int(np.argmin(np.abs(grid_Tb_values - Tb_sample)))
+            struct_for_cmr2 = structure_data['structures'][idx]
+        elif 'grid_cache' in structure_data and Tb_sample is not None:
+            grid_Tb_values = structure_data['grid_Tb_values']
+            idx = int(np.argmin(np.abs(grid_Tb_values - Tb_sample)))
+            struct_for_cmr2 = structure_data['grid_cache'][grid_Tb_values[idx]]
+        else:
+            struct_for_cmr2 = structure_data
+
+        R_body_m = struct_for_cmr2.get('R_body_m', np.nan)
+        M_total_kg = struct_for_cmr2.get('Mtot_kg', np.nan)
+        R_core_km = theta_dict.get('R_core_km')
+        rho_core_kgm3 = theta_dict.get('rho_core_kgm3')
+        if not (np.isfinite(R_body_m) and np.isfinite(M_total_kg)
+                and R_core_km is not None and rho_core_kgm3 is not None):
+            self._last_cmr2_reject_reason = 'missing_inputs'
+            return None
+        R_core_m = float(R_core_km) * 1000.0
+        try:
+            hydro_layers, R_oceanbot_m, M_hydro_kg = (
+                extract_hydrosphere_layers(struct_for_cmr2)
+            )
+        except (KeyError, ValueError):
+            self._last_cmr2_reject_reason = 'hydrosphere_error'
+            return None
+        if not hydro_layers:
+            self._last_cmr2_reject_reason = 'hydrosphere_empty'
+            return None
+        rho_sil, accepted = derive_silicate_density(
+            M_total_kg=float(M_total_kg),
+            M_hydrosphere_kg=M_hydro_kg,
+            R_oceanbot_m=R_oceanbot_m,
+            R_core_m=R_core_m,
+            rho_core_kgm3=float(rho_core_kgm3),
+            bounds=rho_sil_bounds,
+        )
+        if rho_sil_reject and not accepted:
+            self._last_cmr2_reject_reason = 'rho_sil_bounds'
+            return None
+        # Density-inversion guard (Test52 Phase 2, plan decision 3): reject
+        # gravitationally unstable configurations where the derived
+        # silicate mantle is denser than the sampled core. Only active when
+        # the config explicitly sets density_inversion_guard=True (absent
+        # for every pre-Test52 config, including Callisto, so this is a
+        # no-op there).
+        if (density_inversion_guard and np.isfinite(rho_sil)
+                and rho_sil > float(rho_core_kgm3)):
+            self._last_cmr2_reject_reason = 'density_inversion'
+            return None
+        # Assemble layers; skip zero-volume core shell at R_core = 0
+        assembled = []
+        if R_core_m > 0.0:
+            assembled.append((0.0, R_core_m, float(rho_core_kgm3)))
+        assembled.append((R_core_m, R_oceanbot_m, rho_sil))
+        assembled.extend(hydro_layers)
+        try:
+            cmr2_val = compute_cmr2(
+                assembled,
+                R_body_m=float(R_body_m),
+                M_body_kg=float(M_total_kg),
+            )
+        except ValueError:
+            self._last_cmr2_reject_reason = 'cmr2_valueerror'
+            return None
+
+        # CMR2 discretization-offset anchor (Test52 Phase 2, plan decision
+        # 1): add the per-Tb offset recorded in the cache's sidecar file,
+        # if one exists. No sidecar (every pre-Test52 config) -> no offset,
+        # numerics unchanged.
+        offset_sidecar = self._load_cmr2_offset_sidecar()
+        if offset_sidecar is not None and Tb_sample is not None:
+            offset = float(np.interp(
+                Tb_sample, offset_sidecar['Tb_K_grid'], offset_sidecar['offsets']
+            ))
+            cmr2_val = cmr2_val + offset
+
+        return cmr2_val
+
+    def _compute_model_cmr2(self, theta_dict: Dict[str, float]) -> float:
+        """Reporting-path CMR²: the single call site for ``run()``'s
+        ``cmr2_results`` and ``generate_sbi_dataset``'s ``CMR2`` column.
+
+        Dispatches on the same ``derived_params.rho_sil_kgm3.derivation ==
+        'mass_conservation'`` flag the likelihood uses:
+
+        - v2 (mass-conservation) configs (e.g. ``callisto_nacl_andrade_8D``):
+          calls ``_derive_cmr2_via_mass_conservation`` — the identical
+          core-sensitive derivation the likelihood evaluates for its
+          ``'CMR2'`` observable term. A hard-reject (``None``) is mapped to
+          ``NaN`` since there is no log-likelihood to reject on a reporting
+          path.
+        - v1 configs with no ``derived_params`` (e.g. Titan Test50): falls
+          back to ``_get_cache_scalar(theta_dict, 'CMR2')`` — the
+          cache-builder's precomputed, core-independent CMR², unchanged
+          from before this fix.
+
+        Fixes a reporting-path bug (2026-07): ``InferenceResult.cmr2_results``
+        and the SBI dataset's ``CMR2`` column used to call
+        ``_get_cache_scalar`` unconditionally for every config, silently
+        ignoring sampled ``R_core_km``/``rho_core_kgm3`` for v2 configs and
+        reporting a CMR² that could disagree with the likelihood's own CMR²
+        by several sigma (verified: Callisto reported ~0.3412 vs. the true
+        likelihood value ~0.3558). The likelihood itself was never affected
+        by this bug — only these two reporting paths.
+        """
+        derived_params_cfg = getattr(self.config, 'derived_params', {}) or {}
+        rho_sil_cfg = derived_params_cfg.get('rho_sil_kgm3', {}) or {}
+        use_derived_rho_sil = rho_sil_cfg.get('derivation') == 'mass_conservation'
+        if use_derived_rho_sil:
+            derived = self._derive_cmr2_via_mass_conservation(theta_dict)
+            return derived if derived is not None else np.nan
+        return self._get_cache_scalar(theta_dict, 'CMR2')
 
     def run(self, progress_callback: Optional[Callable] = None,
             progress_jsonl_path: Optional[str] = None):
@@ -802,7 +1067,7 @@ class MCMCRunner:
                 return_heating=False, arrhenius_params=self.arrhenius_params
             )
             k2_results.append((Re_k2, Im_k2))
-            cmr2_results.append(self._get_cache_scalar(theta_dict, 'CMR2'))
+            cmr2_results.append(self._compute_model_cmr2(theta_dict))
             D_ocean_results.append(self._get_cache_scalar(theta_dict, 'D_ocean_km'))
             D_iceIh_results.append(self._get_cache_scalar(theta_dict, 'D_iceIh_km'))
             if (i + 1) % 100 == 0:
@@ -956,30 +1221,160 @@ class MCMCRunner:
 
         return sampler, iteration
 
-    def generate_sbi_dataset(self, n_samples: int = 10000, output_path: Optional[str] = None):
+    def generate_sbi_dataset(self, n_samples: int = 10000, output_path: Optional[str] = None,
+                             apply_support_guard: bool = False, imag_convention: str = 'signed',
+                             drop_nonfinite: bool = False, seed: Optional[int] = None,
+                             provenance: Optional[dict] = None):
         """
         Generate (theta, x) dataset by sampling from the prior.
 
         Args:
             n_samples: Number of simulations to run
             output_path: Optional path to save .npz file
+            apply_support_guard: If True, apply the same no-ocean phase-stability
+                guard used by ``_make_flexible_log_likelihood`` (see
+                ``sampler_settings['phase_stability']``) and drop any sampled
+                row for which it would trigger, so the SBI training-set support
+                matches the MCMC posterior support. Rejected rows are excluded
+                from the returned/saved arrays and counted in
+                ``n_rejected_support``. Default False preserves current
+                behavior byte-identically (no rows dropped).
+            imag_convention: 'signed' (default, unchanged behavior) stores the
+                signed Im(k2) for observable name 'Im_k2' and silently NaN-fills
+                any unrecognized observable name (including 'abs_Im_k2'), exactly
+                as before. 'abs' stores |Im(k2)| for both the 'Im_k2' and
+                'abs_Im_k2' observable names (matching the MCMC likelihood's and
+                GUI's |Im k2| convention). Any other value raises ValueError.
+            drop_nonfinite: If True, drop any row whose x vector contains a
+                non-finite value (e.g. TidalPy forward-model failures), counted
+                in ``n_rejected_nonfinite``. Default False preserves current
+                behavior byte-identically (NaN rows kept). If the combined
+                rejection rate (support guard + non-finite) exceeds 20%, a loud
+                warning is logged (not raised).
+            seed: Optional int to seed prior sampling reproducibly. pocoMC's
+                installed ``Prior`` class (checked at
+                site-packages/pocomc/prior.py, pocomc 1.2.6) exposes only
+                ``.rvs(size)`` — there is no ``.sample()`` method and ``.rvs``
+                accepts no ``random_state``/seed argument of its own (it calls
+                each underlying scipy-frozen distribution's ``.rvs(size=size)``
+                with no random_state, so draws depend on the global numpy RNG
+                state). Reproducible seeding is therefore done via
+                ``np.random.seed(seed)`` immediately before sampling. Default
+                None leaves the global RNG state untouched, preserving current
+                behavior.
+            provenance: Optional dict merged (additively) into the saved .npz
+                metadata when any of the above opt-in options are used. Ignored
+                when all new kwargs are left at their defaults.
 
         Returns:
-            (theta, x) tuple
+            (theta, x) tuple. When ``apply_support_guard`` or
+            ``drop_nonfinite`` is used, ``theta``/``x`` contain fewer than
+            ``n_samples`` rows (rejected rows excluded). Rejection statistics
+            are never returned inline (to keep this return signature stable);
+            they are attached to ``self.last_sbi_dataset_stats`` (dict) and,
+            when ``output_path`` is given, saved into the .npz as additive
+            keys. The default call (no new kwargs) saves exactly the original
+            4 .npz keys (theta, x, param_names, obs_names) unchanged.
         """
+        if imag_convention not in ('signed', 'abs'):
+            raise ValueError(
+                f"imag_convention must be 'signed' or 'abs', got '{imag_convention}'"
+            )
+
         log.info(f"Generating SBI dataset with {n_samples} samples...")
 
+        # Reproducible seeding: pocoMC's Prior.rvs() has no seed/random_state
+        # argument of its own (verified against installed pocomc/prior.py),
+        # so we seed the global numpy RNG that the underlying scipy frozen
+        # distributions draw from.
+        if seed is not None:
+            np.random.seed(seed)
+
         # Sample from prior
-        theta = self.prior.sample(n_samples)
+        theta = self.prior.rvs(n_samples)
 
         x = []
+        theta_kept = []
         obs_names = list(self.config.observables.keys())
 
-        from .forward_models import forward_model_k2_flexible
+        from .forward_models import apply_parameters, forward_model_k2_flexible
+
+        # Support guard: identical logic to
+        # MCMCRunner._make_flexible_log_likelihood's nested _check_no_ocean
+        # (kept in sync manually — that guard is a closure local to the
+        # likelihood builder and is not otherwise importable without
+        # refactoring the likelihood, which is out of scope here).
+        phase_stability_cfg = self.config.sampler_settings.get('phase_stability', {})
+        no_ocean_guard = apply_support_guard and phase_stability_cfg.get('enforce') == 'no_ocean_Ih'
+        no_ocean_margin_K = float(phase_stability_cfg.get('margin_K', 0.1))
+
+        # Density-inversion guard (Test52 Phase 2, plan decision 3): wired
+        # into the support-guard counting exactly like the no-ocean guard
+        # above, but only takes effect when BOTH apply_support_guard=True
+        # AND the config's derived_params.rho_sil_kgm3.density_inversion_
+        # guard is truthy (absent for every pre-Test52 config, including
+        # Callisto). With apply_support_guard's default of False, or for
+        # any config without this key, density_inversion_guard_active is
+        # False and the block below never executes — behavior for every
+        # existing config/call site is therefore unchanged.
+        _derived_params_cfg = getattr(self.config, 'derived_params', {}) or {}
+        _rho_sil_cfg = _derived_params_cfg.get('rho_sil_kgm3', {}) or {}
+        density_inversion_guard_active = (
+            apply_support_guard
+            and _rho_sil_cfg.get('derivation') == 'mass_conservation'
+            and bool(_rho_sil_cfg.get('density_inversion_guard', False))
+        )
+
+        def _check_no_ocean(modified_structure) -> bool:
+            """Return True if sample should be rejected (ocean would form)."""
+            if not no_ocean_guard:
+                return False
+            phases = modified_structure.get('phases')
+            P_arr = modified_structure.get('P_MPa')
+            T_arr = modified_structure.get('T_K')
+            if phases is None or P_arr is None or T_arr is None:
+                return False
+            P_arr = np.asarray(P_arr)
+            T_arr = np.asarray(T_arr)
+            if P_arr.shape != T_arr.shape or P_arr.shape != np.asarray(phases).shape:
+                return False
+            Ih_mask = (np.asarray(phases) == 1)
+            if not np.any(Ih_mask):
+                return False
+            P_Ih = P_arr[Ih_mask]
+            T_Ih = T_arr[Ih_mask]
+            if not np.all(np.isfinite(P_Ih)):
+                return False
+            Tm_Ih_lin = 273.16 - 0.068 * P_Ih
+            return bool(np.any(T_Ih >= Tm_Ih_lin - no_ocean_margin_K))
+
+        n_rejected_support = 0
+        n_rejected_nonfinite = 0
 
         t0 = time.time()
         for i in range(n_samples):
             theta_dict = self._expand_theta(theta[i])
+
+            if apply_support_guard:
+                modified = apply_parameters(theta_dict, self.structure_data)
+                if _check_no_ocean(modified):
+                    n_rejected_support += 1
+                    continue
+
+            cmr2_precomputed = None
+            if density_inversion_guard_active:
+                # Evaluate the CMR2 derivation now (it internally applies
+                # the density-inversion guard and records the cause in
+                # self._last_cmr2_reject_reason). Only an inversion-caused
+                # rejection is counted/dropped as a support rejection here;
+                # any other None-cause (e.g. rho_sil bounds) keeps its
+                # existing behavior of flowing through as NaN in the CMR2
+                # column below, unchanged from before this fix.
+                cmr2_precomputed = self._compute_model_cmr2(theta_dict)
+                if (not np.isfinite(cmr2_precomputed)
+                        and self._last_cmr2_reject_reason == 'density_inversion'):
+                    n_rejected_support += 1
+                    continue
 
             # Compute k2
             Re_k2, Im_k2, _, _, _ = forward_model_k2_flexible(
@@ -992,25 +1387,106 @@ class MCMCRunner:
                 if name == 'Re_k2':
                     xi.append(Re_k2)
                 elif name == 'Im_k2':
-                    xi.append(Im_k2)
+                    xi.append(abs(Im_k2) if imag_convention == 'abs' else Im_k2)
+                elif name == 'abs_Im_k2' and imag_convention == 'abs':
+                    xi.append(abs(Im_k2))
                 elif name == 'CMR2':
-                    xi.append(self._get_cache_scalar(theta_dict, 'CMR2'))
+                    xi.append(cmr2_precomputed if cmr2_precomputed is not None
+                               else self._compute_model_cmr2(theta_dict))
                 elif name == 'Mtot_kg':
                     xi.append(self._get_cache_scalar(theta_dict, 'Mtot_kg'))
                 else:
                     xi.append(np.nan)
+
+            if drop_nonfinite and not np.all(np.isfinite(xi)):
+                n_rejected_nonfinite += 1
+                continue
+
             x.append(xi)
+            theta_kept.append(theta[i])
 
             if (i + 1) % 100 == 0:
                 elapsed = time.time() - t0
                 eta = (elapsed / (i + 1)) * (n_samples - (i + 1))
                 log.info(f"  {i+1}/{n_samples} simulations complete (ETA: {eta/60:.1f} min)")
 
-        theta = np.array(theta)
+        theta = np.array(theta_kept) if (apply_support_guard or drop_nonfinite) else np.array(theta)
         x = np.array(x)
 
+        n_rejected_total = n_rejected_support + n_rejected_nonfinite
+        rejection_rate = (n_rejected_total / n_samples) if n_samples else 0.0
+        if (apply_support_guard or drop_nonfinite) and rejection_rate > 0.20:
+            log.warning(
+                f"generate_sbi_dataset: rejection_rate={rejection_rate:.1%} exceeds 20% "
+                f"(n_rejected_support={n_rejected_support}, "
+                f"n_rejected_nonfinite={n_rejected_nonfinite}, n_requested={n_samples}). "
+                f"Training-set support may be significantly reduced — inspect before proceeding."
+            )
+
+        stats = {
+            'n_requested': n_samples,
+            'n_rejected_support': n_rejected_support,
+            'n_rejected_nonfinite': n_rejected_nonfinite,
+            'rejection_rate': rejection_rate,
+            'imag_convention': imag_convention,
+            'seed': seed,
+        }
+        self.last_sbi_dataset_stats = stats
+
+        using_new_options = (apply_support_guard or imag_convention != 'signed'
+                             or drop_nonfinite or seed is not None or provenance is not None)
+
         if output_path:
-            np.savez(output_path, theta=theta, x=x, param_names=self.param_names, obs_names=obs_names)
+            if not using_new_options:
+                # Exact original save path — untouched.
+                np.savez(output_path, theta=theta, x=x, param_names=self.param_names, obs_names=obs_names)
+            else:
+                # Additive keys only; old readers of the 4 original keys are unaffected.
+                from .parameter_registry import PARAMETER_REGISTRY
+
+                param_bounds = []
+                for name in self.param_names:
+                    cfg = self.config.param_space[name]
+                    bounds = cfg.get('bounds')
+                    if bounds is not None:
+                        param_bounds.append([float(bounds[0]), float(bounds[1])])
+                    else:
+                        # No natural hard bound for this prior_type (e.g. 'normal').
+                        param_bounds.append([np.nan, np.nan])
+                param_bounds = np.array(param_bounds)
+
+                param_units = [
+                    (PARAMETER_REGISTRY[name].units or '') if name in PARAMETER_REGISTRY else ''
+                    for name in self.param_names
+                ]
+
+                try:
+                    config_hash = self.config.generate_hash()
+                except Exception:
+                    config_hash = ''
+
+                try:
+                    git_sha = subprocess.check_output(
+                        ['git', 'rev-parse', '--short', 'HEAD'],
+                        cwd=os.path.dirname(os.path.abspath(__file__)),
+                        stderr=subprocess.DEVNULL,
+                    ).decode().strip()
+                except Exception:
+                    git_sha = ''
+
+                save_kwargs = dict(
+                    theta=theta, x=x, param_names=self.param_names, obs_names=obs_names,
+                    param_bounds=param_bounds, param_units=param_units,
+                    config_hash=config_hash, git_sha=git_sha,
+                    seed=(seed if seed is not None else -1),
+                    n_requested=n_samples,
+                    n_rejected_nonfinite=n_rejected_nonfinite,
+                    n_rejected_support=n_rejected_support,
+                    imag_convention=imag_convention,
+                )
+                if provenance:
+                    save_kwargs['provenance'] = json.dumps(provenance)
+                np.savez(output_path, **save_kwargs)
             log.info(f"SBI dataset saved to {output_path}")
 
         return theta, x

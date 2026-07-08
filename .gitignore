@@ -67,5 +67,6 @@ test_*.py
 .swarm/
 ruvector.db
 Testing.py
-tests/
+tests/__pycache__/
 graphify-out/
+sbi-logs/
