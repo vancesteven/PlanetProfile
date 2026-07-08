@@ -13,7 +13,7 @@ from scipy.io import savemat, loadmat
 from collections.abc import Iterable
 from numpy import sqrt
 from math import floor
-from scipy.special import factorial as ft, lpmv as legenp, sph_harm
+from scipy.special import factorial as ft, lpmv as legenp, sph_harm_y
 
 import mpmath as mp
 # mpmath is needed for enhanced precision to avoid
@@ -1510,7 +1510,9 @@ def eval_dev(p, q, chi_pq, ltht, lphi, outShape):
     if chi_pq == 0:
         this_devs = np.zeros(outShape, dtype=np.float64)
     else:
-        this_devs = np.real(chi_pq * sph_harm(q, p, lphi, ltht))
+        # scipy >=1.17 removed sph_harm; sph_harm_y takes (n, m, theta_polar, phi_azimuth)
+        # vs old sph_harm (m, n, theta_azimuth, phi_polar) — verified equivalent to 1e-15.
+        this_devs = np.real(chi_pq * sph_harm_y(p, q, ltht, lphi))
     log.debug(f"p,q = {p}{q} completed")
     return this_devs
 
