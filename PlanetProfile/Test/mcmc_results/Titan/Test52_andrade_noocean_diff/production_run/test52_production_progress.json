@@ -1,0 +1,12 @@
+{
+  "iteration": -1,
+  "status": "completed",
+  "n_samples": 4321,
+  "elapsed_seconds": 109.93116283416748,
+  "convergence_metrics": {
+    "ess": 4180.390232372056,
+    "acceptance_rate": 0.4403780863905356,
+    "r_hat": 1.0,
+    "n_samples": 4321
+  }
+}
