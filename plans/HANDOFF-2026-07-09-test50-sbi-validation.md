@@ -254,6 +254,50 @@ Hand these to Machine A to plan + implement; training returns to Machine B.
    work: non-spherically-symmetric gravity, magnetic induction, plasma effects as such
    modules.
 
+## RATIFICATION PROPOSAL (Machine A, 2026-07-10, after 1M) — open items 1 + 2
+
+Groundwork numbers (scratch ks_d_scaling.py; ESS=4198, 200 bootstrap):
+
+| param | selfD p99 (split-half, raw) | matched-n floor (~raw/sqrt2) | D 200k | D 500k | D 1M (Machine B) |
+|---|---|---|---|---|---|
+| alpha | .056 | .039 | .030 | .031 | .038 |
+| log10_zeta | .050 | .035 | .030 | .030 | (pass) |
+| log10_eta_Ih | .051 | .036 | .065 | .040 | .045 |
+| log10_eta_III | .047 | .033 | .032 | .036 | (pass) |
+| log10_eta_V | .052 | .037 | .065 | .060 | .040 |
+| log10_eta_VI | .046 | .033 | .038 | .043 | .042 |
+| log10_eta_sil | .051 | .036 | .037 | .038 | (pass) |
+| Tb_K | .051 | .036 | .047 | .042 | .041 |
+
+D MC error at this ESS is ~±0.01 (500k vs 1M differences are resample noise). All 1M
+D values sit within ~1.0–1.3x the matched-n floor; every mean gate passes with
+|dmean| ≤ 0.19 dex (materiality currency: 0.3 dex for order-of-magnitude viscosities);
+all sigma-ratios in [0.97, 1.07].
+
+**Proposed gate amendments (pre-registered form, thresholds from floor + materiality,
+not from which params pass):**
+
+1. **Crosscheck KS component → detection + materiality.** Keep mean/sigma gates
+   unchanged (hard). Replace per-param "KS p >= 0.01" with:
+   PASS iff (D <= 1.5 x matched-n selfD_p99) AND (|dmedian| <= 0.3 dex or 0.3*sigma_MCMC
+   for non-log params) — i.e. shape residuals up to 1.5x the reference's own sampling
+   floor are acceptable ONLY when location is scientifically indistinguishable. Report
+   D, floor, and the margin in the JSON either way. At the 1M values this passes all 8
+   (max D 0.045 vs 1.5x floor ~0.054; max |dmean| 0.19 dex), but the SAME rule would
+   have failed the noiseless artifact (D up to ~0.5) and the 200k artifacts (eta_Ih/
+   eta_V D=0.065 > 0.054) — it is a real gate, not a rubber stamp.
+2. **Anchor-limits statistic → distribution-level.** Replace the per-anchor median
+   comparison with the 1D Wasserstein-1 distance between flow samples and anchor
+   samples: PASS iff W1 <= 0.25 x sigma_anchor per anchor (same fraction and currency
+   as the ratified crosscheck mean gate). W1 is well-defined and stable under
+   bimodality (no mid-valley fragility), reduces to ~|dmedian| for unimodal shifts,
+   and penalizes a flow that smooths across modes in proportion to the misplaced mass.
+   Keep prior-box containment unchanged.
+
+On ratification: implement in validate_sbi (keeping current behavior under a flag or
+as the new default per user's choice), rerun all three gates on the 1M artifact
+(Machine B), and if all-green deploy the 1M artifact to the GUI slot per open item 4.
+
 ## Open ratification items (after 1M)
 
 1. eta_Ih/eta_V KS materiality margin if 1M still fails (opus framework: bootstrap
