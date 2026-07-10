@@ -123,13 +123,32 @@ pass on data alone (bimodal median valley) — needs open item 2 below.
     (reusable producer; reproduces the committed Test52 sidecar exactly; validity
     guard REFUSES non-uniform-silicate caches / |offset|>0.005, exit 3) and
     `tests/cmr2_offset_sidecar_test.py` (3/3, incl. Callisto refusal).
-  - DECISION NEEDED (user + scientific reviewer): regenerate Callisto grids from a
-    uniform-silicate template (as Test52 was built) so the definition isolates
-    discretization error; then sidecar + chi RECOMPUTE from stored samples is valid
-    (no MCMC rerun needed — offset ~constant in Tb, ESS retention >90%). Until then
-    NO Callisto sidecar exists and `test_no_sidecar_found_for_callisto` remains
-    correct as written. When sidecars land, tests/test52_phase2_test.py's
-    CallistoUnchangedTests class must be re-scoped (three tests assume no offset).
+  - User ratified the uniform-silicate measurement approach 2026-07-10; opus
+    recommended path (B): metrology-only uniform grid, sidecar applied to the
+    production cache, contingent on a per-Tb hydrosphere-match assertion.
+  - **2026-07-10 RESULT: path (B) FAILED its own verification — transferability
+    empirically falsified.** Built the uniform-silicate metrology grid
+    (PlanetProfile/Test/PPCallistoUniformSil.py + measurement-mode producer with
+    hydrosphere-match guard). The guard REFUSED: CONSTANT_INNER_DENSITY does not
+    merely flatten the silicate, it moves the entire MoI-matched solution — the
+    hydrosphere bottom shifts ~200 km (R_ob 2056 vs 2257 km) and M_hydro grows 2.4x
+    vs the production grid. The measured offset would describe a different planet.
+  - **Conceptual reframe surfaced by this failure:** Test52's offset anchors a
+    SYNTHETIC CMR2 observable that was defined on the PP-native scale, so
+    native-vs-reconstruction consistency is required there. Callisto's CMR2 is a
+    REAL measurement (Anderson et al. 2001, +/-0.0042); the mass-conservation
+    reconstruction IS the forward model, and there is no PP-native truth to anchor
+    to. The right treatment is likely a discretization-ERROR ESTIMATE for the
+    reconstruction (e.g. radial-resolution refinement / Richardson on the production
+    structures) folded into the error budget as a systematic, NOT a chi shift.
+    Expected magnitude ~1e-3 CMR2 ~ 0.2 sigma_obs — small vs the minus5pct 2.45σ /
+    minus10pct 6.38σ conclusions.
+  - STATUS: no Callisto sidecar exists (guards refused, correctly);
+    `test_no_sidecar_found_for_callisto` remains correct as written; committed
+    Callisto χ values stand unchanged. NEXT DECISION (user + scientific reviewer):
+    adopt the error-budget treatment (resolution-refinement estimate) vs drop the
+    correction entirely; the "+0.23σ shift" expectation from the 07-08 handoff
+    should be retired either way.
 
 ## Open ratification items (after 1M)
 

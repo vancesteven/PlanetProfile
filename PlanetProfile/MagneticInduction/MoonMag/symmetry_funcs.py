@@ -276,7 +276,13 @@ def InducedAeList(r_bds, sigmas, omegas, rscale_moments, nn=1, writeout=False, p
             Aes[i_om] = ae_val[0] if hasattr(ae_val, '__len__') else ae_val
             if (i_om*4) % n_omegas < 4: log.debug(f"{i_om + 1} of {n_omegas} complete.")
 
-    Aes = np.array([ complex(val) for val in Aes ])
+    # Unwrap length-1 array returns from AeResponse before complex():
+    # numpy 2.x raises TypeError on complex(<1-element ndarray>). The serial
+    # branch above already unwraps; the parallel branch (pool.apply_async
+    # results) does not, so normalize here for both.
+    Aes = np.array([
+        complex(val[0] if hasattr(val, '__len__') else val) for val in Aes
+    ])
     AeM = np.abs(Aes)
     AeA = np.angle(Aes)
 
