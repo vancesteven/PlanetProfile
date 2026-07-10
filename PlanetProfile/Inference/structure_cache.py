@@ -139,6 +139,27 @@ def _expand_thin_reduced_layers(Planet):
     return Planet
 
 
+def resolve_cache_path(filepath) -> Path:
+    """Resolve a structure-cache path that may be repo-relative.
+
+    Config JSONs store repo-relative paths (e.g.
+    'PlanetProfile/Test/mcmc_results/...') so result pickles stay portable
+    across machines. Those resolve fine when the CWD is the repo root (CLI
+    convention) but not when a caller runs from elsewhere (e.g. the Streamlit
+    app runs from PlanetProfileApp/). If the path as given doesn't exist and
+    isn't absolute, fall back to resolving against the repo root inferred
+    from this package's location.
+    """
+    p = Path(filepath)
+    if p.exists() or p.is_absolute():
+        return p
+    repo_root = Path(__file__).resolve().parents[2]
+    candidate = repo_root / p
+    if candidate.exists():
+        return candidate
+    return p
+
+
 def load_structure_cache(
     filepath: str,
     validate_bodyname: Optional[str] = None
@@ -157,7 +178,7 @@ def load_structure_cache(
         FileNotFoundError: If cache file doesn't exist
         ValueError: If validation fails
     """
-    filepath = Path(filepath)
+    filepath = resolve_cache_path(filepath)
     if not filepath.exists():
         raise FileNotFoundError(f"Structure cache not found: {filepath}")
 

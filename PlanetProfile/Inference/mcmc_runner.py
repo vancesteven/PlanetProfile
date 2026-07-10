@@ -75,13 +75,17 @@ class MCMCRunner:
         # Route to grid cache when Tb_K is a free parameter OR fixed via fixed_params
         self._use_flexible = 'Tb_K' in self.param_names or 'Tb_K' in self.fixed_params
 
-        # Load cached structure (skip bodyname validation for Test* files)
-        log.info(f"Loading structure cache: {config.structure_cache_path}")
+        # Load cached structure (skip bodyname validation for Test* files).
+        # Paths in configs are repo-relative; resolve against the repo root
+        # when the CWD is elsewhere (e.g. the Streamlit app).
+        from .structure_cache import resolve_cache_path
+        self._resolved_cache_path = resolve_cache_path(config.structure_cache_path)
+        log.info(f"Loading structure cache: {self._resolved_cache_path}")
         if self._use_flexible:
-            self.structure_data = self._load_grid_cache(config.structure_cache_path)
+            self.structure_data = self._load_grid_cache(str(self._resolved_cache_path))
         else:
             self.structure_data = load_structure_cache(
-                config.structure_cache_path, validate_bodyname=None
+                str(self._resolved_cache_path), validate_bodyname=None
             )
 
         # Resolve arrhenius_params: prefer config.arrhenius_params, fallback to
@@ -603,7 +607,7 @@ class MCMCRunner:
         if not cache_path_str:
             return None
 
-        cache_path = Path(cache_path_str)
+        cache_path = getattr(self, '_resolved_cache_path', None) or Path(cache_path_str)
         sidecar_path = cache_path.with_name(cache_path.stem + '_offsets.json')
         if not sidecar_path.exists():
             log.debug(
