@@ -421,7 +421,7 @@ def forward_model(theta, cache, Tb_values):
                     lr = result_radii[mask]
                     lh = heating_profile[mask]
                     if len(lr) > 1:
-                        total_power = np.trapz(lh * 4.0 * np.pi * lr**2, lr)
+                        total_power = np.trapezoid(lh * 4.0 * np.pi * lr**2, lr)
                     else:
                         V = (4.0/3.0) * np.pi * (r_hi**3 - r_lo**3)
                         total_power = lh[0] * V

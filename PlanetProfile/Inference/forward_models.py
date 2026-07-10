@@ -819,7 +819,7 @@ def compute_heating(
 
             # Integrate heating: ∫ heating * 4πr² dr
             if len(lr) > 1:
-                total_power = np.trapz(lh * 4.0 * np.pi * lr**2, lr)
+                total_power = np.trapezoid(lh * 4.0 * np.pi * lr**2, lr)
             else:
                 # Single point: use layer volume
                 V = (4.0/3.0) * np.pi * (r_hi**3 - r_lo**3)

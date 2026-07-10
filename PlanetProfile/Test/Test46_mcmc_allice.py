@@ -460,7 +460,7 @@ def forward_model(theta, structure, return_heating=False):
                 if np.any(mask):
                     lr, lh = rr[mask], hp[mask]
                     if len(lr) > 1:
-                        power = np.trapz(lh * 4.0 * np.pi * lr**2, lr)
+                        power = np.trapezoid(lh * 4.0 * np.pi * lr**2, lr)
                     else:
                         power = lh[0] * (4.0/3.0) * np.pi * (r_hi**3 - r_lo**3)
                     perPhase_W[phase_str] = perPhase_W.get(phase_str, 0) + power

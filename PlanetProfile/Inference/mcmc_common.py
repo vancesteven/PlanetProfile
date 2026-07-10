@@ -299,7 +299,7 @@ def compute_per_phase_heating(
         if np.any(mask):
             lr, lh = rr[mask], hp[mask]
             if len(lr) > 1:
-                power = float(np.trapz(lh * 4 * np.pi * lr**2, lr))
+                power = float(np.trapezoid(lh * 4 * np.pi * lr**2, lr))
             else:
                 power = float(lh[0] * (4.0 / 3.0) * np.pi * (hi**3 - lo**3))
             out[pname] = out.get(pname, 0.0) + power

@@ -283,7 +283,7 @@ def _compute_heating(result, data):
         mask  = (rr >= lo - 1.0) & (rr <= hi + 1.0)
         if np.any(mask):
             lr, lh = rr[mask], hp[mask]
-            power  = (np.trapz(lh * 4 * np.pi * lr**2, lr)
+            power  = (np.trapezoid(lh * 4 * np.pi * lr**2, lr)
                       if len(lr) > 1 else lh[0] * (4/3) * np.pi * (hi**3 - lo**3))
             out[pname] = out.get(pname, 0.0) + power
     return out
