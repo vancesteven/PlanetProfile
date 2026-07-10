@@ -30,8 +30,6 @@ fastReruns = true
 [client]
 # Show error details for debugging
 showErrorDetails = true
-
-[ui]
-# Hide hamburger menu for cleaner interface (optional)
-hideTopBar = false
-hideSidebarNav = false
+# Sidebar page navigation (replaces the pre-1.31 [ui] hideSidebarNav option,
+# which newer streamlit rejects as invalid)
+showSidebarNavigation = true
