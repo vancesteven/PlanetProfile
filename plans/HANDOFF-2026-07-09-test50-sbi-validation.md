@@ -55,6 +55,14 @@ App runs: `cd PlanetProfileApp && conda run -n PP streamlit run PlanetProfileApp
 
 ## NEXT: 1M training on Machine B (M2 96GB, mamba env PPcl) — STUBBED HERE
 
+**SCOPE FOR MACHINE B: TRAININGS AND THEIR GATE RUNS ONLY (user directive 2026-07-10).**
+Machine B runs the numbered steps below (dataset gen, nsf training, held-out set,
+anchor MCMCs, three gates) and reports results back via a short addendum to this file
+(commit + push to origin genai). Do NOT pick up other development items — GUI work,
+ratification-item implementation, Test52 manuscript plots, Callisto sidecars, and all
+other backlog items are being handled on Machine A in parallel. Pull latest genai
+before starting; Machine A pushes frequently.
+
 Machine A generated the 1M dataset but training was stopped (machine too small).
 All datasets regenerate deterministically from seeds — nothing binary needs to transfer.
 
