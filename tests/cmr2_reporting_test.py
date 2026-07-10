@@ -145,6 +145,11 @@ class CMR2ReportingMassConservationTests(unittest.TestCase):
 
     def test_reported_cmr2_varies_with_core_params(self):
         runner = self.runner
+        # Seeded draws (user-approved 2026-07-10): pocomc's Prior.rvs has no
+        # seed argument; it draws from the global numpy RNG. Unseeded, ~1/3
+        # of fresh runs drew a theta set whose accepted subset was too
+        # small/degenerate and the correlation assertion flaked.
+        np.random.seed(20260710)
         rng_theta = runner.prior.rvs(100)
         r_core_idx = runner.param_names.index('R_core_km')
 
