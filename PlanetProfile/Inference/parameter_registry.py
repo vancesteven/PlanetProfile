@@ -368,12 +368,19 @@ PARAMETER_PRESETS = {
     'andrade_titan_noocean_8D': {
         'name': 'Andrade Rheology (Titan No-Ocean 8D)',
         'description': 'Test50 8D no-ocean Titan, Andrade rheology, Yao 2014 spherical convection, Tb sampled across triple-pt depression band.',
-        'parameters': ['alpha', 'log10_zeta', 'log10_eta_Ih', 'log10_eta_III', 
+        'parameters': ['alpha', 'log10_zeta', 'log10_eta_Ih', 'log10_eta_III',
                        'log10_eta_V', 'log10_eta_VI', 'log10_eta_sil', 'Tb_K'],
+        # NOTE: keys here byte-match test50_titan_noocean_andrade_8D.json's
+        # "observables" block -- 'Im_k2' (NOT 'abs_Im_k2') and NO CMR2, matching
+        # the committed Test50 production MCMC result used as the SBI crosscheck
+        # reference. Test50 samples no core parameters, so model CMR2 varies only
+        # through the 9-pt Tb cache lookup (peak-to-peak 2.5e-5 = 0.025 sigma_obs)
+        # -- a CMR2 term adds no posterior information and would make GUI-launched
+        # runs diverge from the CLI reference. mcmc_runner.py accepts 'Im_k2' /
+        # 'abs_Im_k2' as aliases.
         'observables': {
             'Re_k2': (0.608, 0.048),
-            'abs_Im_k2': (0.135, 0.035),
-            'CMR2': (0.343, 0.001),
+            'Im_k2': (0.135, 0.035),
         },
         'test_module': 'PlanetProfile.Test.Test50_mcmc_andrade_noocean_yao2014',
         'rheology': 'andrade'

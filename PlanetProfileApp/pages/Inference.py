@@ -612,8 +612,10 @@ def render_observables_config():
             key='Im_k2_unc'
         )
 
-    # C/MR² (optional, checkbox-gated)
-    cmr2_default = st.session_state.inference_observables.get('CMR2', (0.343, 0.001))
+    # C/MR² (optional, checkbox-gated). No fallback tuple here: absence of the
+    # key must leave the checkbox unchecked, so presets without a CMR2 term
+    # (e.g. andrade_titan_noocean_8D) launch runs matching their config JSON.
+    cmr2_default = st.session_state.inference_observables.get('CMR2')
     use_cmr2 = st.checkbox(
         "Include C/MR² moment-of-inertia constraint",
         value=cmr2_default is not None,

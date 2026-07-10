@@ -1,63 +1,66 @@
 # SBI Artifact Index
 
-Last audited: 2026-06-12
+Last audited: 2026-07-08
 
-## Status
+## Naming convention
 
-No pre-trained SBI artifacts found in repository.
+GUI slot filenames (hardcoded in `PlanetProfileApp/pages/AmortizedInference.py::_ARTIFACTS`):
 
-The `sbi_artifacts/` directory was created (commit history shows it was added 2026-06-12 at 13:39)
-but contains no files. No `.pt`, `.pth`, `.pkl`, or `.npz` SBI training datasets exist anywhere
-in the repository tree under this directory or elsewhere under a SBI-specific naming convention.
-
-## Expected artifacts (for AmortizedInference page)
-
-The `PlanetProfileApp/pages/AmortizedInference.py` page is scaffolded but currently **disabled**
-(the "Generate Instant Posterior" button is `disabled=True` and a status banner reads
-"This tab is currently under development").
-
-The page UI offers three model slots that imply three eventual artifact files:
-
-| UI Label | Implied artifact |
-|---|---|
-| Titan (Andrade, No-Ocean) | Normalizing-flow posterior estimator trained on Titan no-ocean simulations with Andrade rheology |
-| Titan (Maxwell, Ocean) | Normalizing-flow posterior estimator trained on Titan ocean-bearing simulations with Maxwell rheology |
-| Europa (Andrade, Thin Shell) | Normalizing-flow posterior estimator trained on Europa thin-shell simulations with Andrade rheology |
-
-The page accepts two observables as inputs: `Re(k2)` and `Im(k2)`.
-
-No explicit file-load call exists in `AmortizedInference.py` yet — artifact paths and a
-`torch.load` / `sbi` posterior call have not been wired in.
-
-## SBI training pipeline (not yet run)
-
-- `PlanetProfile/Inference/mcmc_runner.py` exposes `MCMCRunner.generate_sbi_dataset(n_samples, output_path)`
-  which produces `(theta, x)` NumPy arrays and saves them as `.npz` when `output_path` is supplied.
-- `inference_core.py` references `from .sbi_runner import SBIRunner` (mode `'sbi'`) but
-  `sbi_runner.py` does not exist in the `Inference/` directory — the SBI training runner is
-  not yet implemented.
-- The `sbi` Python package (and `torch`) must be installed separately (`pip install sbi torch`)
-  before any training can occur.
-
-## Related files
-
-- `plans/titan-mcmc-sbi-plan.md` — roadmap; Phase 2 (SBI pre-training) is marked complete for
-  dataset-export scaffolding but no training run has been executed.
-- `PlanetProfile/Inference/mcmc_runner.py` — `generate_sbi_dataset` method (line 722)
-- `PlanetProfileApp/pages/AmortizedInference.py` — GUI scaffold (no artifact load yet)
-
-## Notes
-
-Training is deferred. The current priority is MCMC validation on Titan and Europa (see
-`plans/titan-mcmc-sbi-plan.md` and the MCMC task list in memory). Once MCMC posteriors are
-stable, the `generate_sbi_dataset` pipeline can be used to produce training data, and
-`sbi_runner.py` can be implemented to train and serialize the normalizing-flow estimators
-into this directory.
-
-Suggested artifact naming convention (not yet enforced):
 ```
 sbi_artifacts/
-  titan_andrade_noocean_posterior.pt
-  titan_maxwell_ocean_posterior.pt
-  europa_andrade_thinshell_posterior.pt
+  titan_andrade_noocean_posterior.pt     # Titan (Andrade, No-Ocean)  — Test50 8D
+  titan_maxwell_ocean_posterior.pt       # Titan (Maxwell, Ocean)
+  europa_andrade_thinshell_posterior.pt  # Europa (Andrade, Thin Shell)
 ```
+
+`SBIRunner.save_artifact` defaults to `<bodyname>_<config_hash>_posterior.pt`; deploying a
+validated artifact to a GUI slot means copying it to the slot filename above. Artifacts
+embed no path — renames are safe. Artifacts are self-describing `.pt` files (schema_version
+1): posterior, prior_spec, param_names/units/bounds, obs_names, imag_convention,
+normalization constants, config_hash, git_sha, seed, n_train_effective, rejection_stats,
+sbi/torch versions, created_utc.
+
+## Deployment gate
+
+An artifact may occupy a GUI slot ONLY after passing all three ratified validation gates
+(`PlanetProfile/Inference/validate_sbi.py`; thresholds in
+`plans/monte-carlo-sbi-implementation-plan.md` §Validation):
+
+1. `sbc` — per-parameter rank-uniformity KS p ≥ 0.05
+2. `crosscheck` — vs the matching production MCMC pickle: |Δmean| ≤ max(0.25σ, σ/√ESS),
+   σ-ratio ∈ [0.7, 1.4], marginal KS α = 0.01
+3. `limits` — monotone log10_eta_Ih vs |Im k2|, samples inside prior box
+
+Pre-deploy assertions: `obs_names` matches the training config's observables,
+`imag_convention == 'abs'` (the only convention the GUI accepts), `param_names` matches
+the config's sampled parameters.
+
+## Deployed artifacts
+
+| Slot file | Source config | config_hash | git SHA | seed | n_train | Gate reports | Deployed |
+|---|---|---|---|---|---|---|---|
+| titan_andrade_noocean_posterior.pt (**PROVISIONAL**) | test50_titan_noocean_andrade_8D.json | 629afbd55a4f0ce5 | 278c3bea | train 42 / data 43 / noise 4343 | 499,915 (nsf) | see below | 2026-07-09 |
+
+**PROVISIONAL status (user-approved for GUI preview, 2026-07-09):** SBC PASSES
+decisively (1000 held-out pairs, min KS p=0.252). Crosscheck mean+sigma gates all pass
+(worst dmean 0.18 of tol 0.40); KS residual on 4 params (p 6e-6..3e-3) pending the 1M
+retrain + materiality ratification. Anchor-limits passes at |Im k2| = 0.05/0.10/0.15/0.30,
+fails 0.20/0.25 (0.25 is the bimodal-median regime — see
+plans/HANDOFF-2026-07-09-test50-sbi-validation.md). Posteriors conditioned near the
+observed point (Re k2 0.608, |Im k2| 0.135) are well-validated; treat conditioning at
+|Im k2| >= 0.20 as unvalidated extrapolation until the anchor gate passes.
+
+## Pipeline pointers
+
+- Training runner: `PlanetProfile/Inference/sbi_runner.py` (`SBIRunner`; single-round NPE,
+  MAF). Dataset generation delegates to `MCMCRunner.generate_sbi_dataset`
+  (`mcmc_runner.py`) with opt-in kwargs `apply_support_guard`, `imag_convention='abs'`,
+  `drop_nonfinite`, `seed`, provenance.
+- libomp hazard: do NOT run dataset generation (PlanetProfile) and torch training in the
+  same process. Generate `(theta, x)` to `.npz` in a PlanetProfile-only process, then
+  train/save in a torch-only process. Avoid `SBIRunner.run()` end-to-end on macOS conda
+  environments.
+- Validation driver: `PlanetProfile/Inference/validate_sbi.py`
+  (sbc / crosscheck / limits / selftest; exit 0 pass, 2 gate failure).
+- GUI: `PlanetProfileApp/pages/AmortizedInference.py` — slot button enables automatically
+  when the slot file exists; loud failure on non-`'abs'` artifacts.

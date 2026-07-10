@@ -250,7 +250,8 @@ class SBIRunner:
     # ------------------------------------------------------------------
 
     def generate_training_set(
-        self, n_simulations: int, seed: Optional[int] = None
+        self, n_simulations: int, seed: Optional[int] = None,
+        obs_noise: bool = True, noise_seed: Optional[int] = None,
     ) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
         """Generate the (theta, x) training set from the prior.
 
@@ -262,7 +263,13 @@ class SBIRunner:
           training-set support matches the MCMC posterior support;
         - ``imag_convention='abs'``: x stores |Im k2|;
         - ``drop_nonfinite=True``: TidalPy-failure NaN rows are rejected;
-        - ``seed``: reproducible prior draws.
+        - ``seed``: reproducible prior draws;
+        - ``obs_noise=True`` (default): Gaussian observation noise with the
+          config's per-observable sigma is added to x (data = |Im_model| +
+          noise, no re-fold — the committed likelihood's generative model).
+          Ratified 2026-07-09: REQUIRED for the trained flow to target the
+          MCMC posterior; without it NPE learns the singular noiseless
+          conditional and fails SBC/crosscheck. Only disable for diagnostics.
 
         Args:
             n_simulations: Number of prior draws requested. Rows lost to
@@ -270,6 +277,9 @@ class SBIRunner:
                 the returned arrays may have fewer rows.
             seed: Seed for the prior draws (None leaves the global RNG
                 state untouched — pass a seed for reproducible datasets).
+            obs_noise: Add observation noise to x (see above).
+            noise_seed: Dedicated seed for the noise Generator (independent
+                of the prior-draw seed).
 
         Returns:
             (theta, x, stats): theta (n_kept, D), x (n_kept, K) with
@@ -285,6 +295,8 @@ class SBIRunner:
             imag_convention=self.imag_convention,
             drop_nonfinite=True,
             seed=seed,
+            obs_noise=obs_noise,
+            noise_seed=noise_seed,
         )
         stats = dict(getattr(runner, 'last_sbi_dataset_stats', {}) or {})
         stats.setdefault('n_requested', n_simulations)

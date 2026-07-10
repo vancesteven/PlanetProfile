@@ -136,6 +136,12 @@ CROSSCHECK_SIGMA_RATIO_HI = 1.40
 CROSSCHECK_KS_ALPHA = 0.01   # two-sample KS p must be >= this
 LIMITS_MAX_TIES = 1          # monotone median: at most one tie allowed
 LIMITS_CONTAINMENT = 1.0     # 100% of samples must lie inside the prior box
+# Anchor mode (ratified 2026-07-09, replacing the monotonicity premise that
+# ground-truth MCMC falsified below |Im k2| ~ 0.15): per sweep point, the flow's
+# monotone-param median must lie within 0.25*sigma of the matching ground-truth
+# MCMC anchor posterior (same fraction the crosscheck mean gate uses). Fixed
+# BEFORE inspecting results; do not tune.
+LIMITS_ANCHOR_SIGMA_FRAC = 0.25
 
 # Default |Im k2| sweep grid for the limits check (plan doc: 0.05..0.30).
 DEFAULT_IMK2_GRID = (0.05, 0.10, 0.15, 0.20, 0.25, 0.30)
@@ -205,6 +211,15 @@ def _json_default(o):
     if isinstance(o, (np.bool_,)):
         return bool(o)
     return str(o)
+
+
+def _safe_config_hash(config) -> str:
+    """config.generate_hash(), tolerant of legacy pickled InferenceConfigs."""
+    try:
+        return config.generate_hash()
+    except AttributeError as e:
+        log.warning(f"Config hash unavailable for legacy pickle: {e}")
+        return f'unavailable-legacy-pickle ({e})'
 
 
 def _write_report(output_dir: Path, name: str, report: Dict[str, Any]) -> Path:
@@ -663,7 +678,10 @@ def cmd_crosscheck(args) -> int:
         'artifact': str(args.artifact),
         'artifact_meta': _artifact_meta_for_report(runner),
         'mcmc_result': str(args.mcmc),
-        'mcmc_config_hash': mcmc.config.generate_hash(),
+        # Legacy result pickles may predate newer InferenceConfig attributes
+        # (e.g. arrhenius_params); the hash is report metadata only, so degrade
+        # gracefully instead of aborting the gate run.
+        'mcmc_config_hash': _safe_config_hash(mcmc.config),
         'mcmc_weighted': bool(mcmc_weights is not None),
         'overlay_plot': plot_path,
         'provenance': _provenance_block(int(args.seed)),
@@ -819,16 +837,129 @@ def _run_limits_check(
     }
 
 
+def _weighted_quantile(values: np.ndarray, weights: np.ndarray, q: float) -> float:
+    """Quantile of a weighted sample (CDF inversion on sorted values)."""
+    order = np.argsort(values)
+    cw = np.cumsum(weights[order])
+    cw = cw / cw[-1]
+    return float(values[order][np.searchsorted(cw, q)])
+
+
+def _run_limits_anchor_check(
+    runner,
+    sweep_obs: str,
+    anchor_results: Dict[float, str],
+    fixed_obs: Dict[str, float],
+    monotone_param: str,
+    n_samples: int,
+    seed: int,
+) -> Dict[str, Any]:
+    """Anchor mode: compare the flow's monotone-param median against
+    ground-truth MCMC anchor posteriors at each sweep value.
+
+    Gate per anchor: |median_flow - median_MCMC| <= LIMITS_ANCHOR_SIGMA_FRAC *
+    sigma_MCMC (weighted). Prior-box containment identical to the legacy mode.
+    """
+    from .inference_core import InferenceResult
+
+    if monotone_param not in runner.param_names:
+        raise ValueError(
+            f"monotone-param '{monotone_param}' not in artifact parameters "
+            f"{list(runner.param_names)}."
+        )
+    pidx = list(runner.param_names).index(monotone_param)
+    bounds = np.asarray(runner.artifact_meta['param_bounds'], dtype=np.float64)
+
+    grid_rows = []
+    n_total = 0
+    n_inside = 0
+    all_anchor_pass = True
+    for k, (val, pkl_path) in enumerate(sorted(anchor_results.items())):
+        mcmc = InferenceResult.load(pkl_path)
+        if monotone_param not in mcmc.param_names:
+            raise ValueError(
+                f"Anchor {pkl_path} lacks parameter '{monotone_param}'."
+            )
+        aidx = list(mcmc.param_names).index(monotone_param)
+        a_samples = np.asarray(mcmc.samples, dtype=np.float64)[:, aidx]
+        a_w = _normalize_weights(
+            None if mcmc.weights is None else np.asarray(mcmc.weights, dtype=np.float64),
+            len(a_samples),
+        )
+        a_median = _weighted_quantile(a_samples, a_w, 0.5)
+        a_mean, a_std = _weighted_mean_std(a_samples[:, None], a_w)
+        a_std = float(a_std[0])
+
+        x_obs = dict(fixed_obs)
+        x_obs[sweep_obs] = float(val)
+        samples = runner.sample_posterior(x_obs, n_samples=int(n_samples), seed=int(seed) + k)
+        f_median = float(np.median(samples[:, pidx]))
+
+        inside = np.all(
+            (samples >= bounds[:, 0] - 1e-6) & (samples <= bounds[:, 1] + 1e-6), axis=1
+        )
+        n_total += samples.shape[0]
+        n_inside += int(np.sum(inside))
+
+        tol = LIMITS_ANCHOR_SIGMA_FRAC * a_std
+        diff = abs(f_median - a_median)
+        anchor_pass = bool(diff <= tol)
+        all_anchor_pass = all_anchor_pass and anchor_pass
+        grid_rows.append({
+            'sweep_value': float(val),
+            'anchor_pkl': str(pkl_path),
+            'anchor_median': a_median,
+            'anchor_sigma': a_std,
+            'anchor_ess': float((np.sum(a_w) ** 2) / np.sum(a_w ** 2)),
+            'flow_median': f_median,
+            'median_diff': float(diff),
+            'median_tol': float(tol),
+            'anchor_pass': anchor_pass,
+            'n_inside_box': int(np.sum(inside)),
+            'n_samples': int(samples.shape[0]),
+        })
+
+    containment = (n_inside / n_total) if n_total > 0 else 0.0
+    containment_pass = bool(containment >= LIMITS_CONTAINMENT - 1e-12)
+
+    return {
+        'mode': 'anchor',
+        'sweep_obs': sweep_obs,
+        'sweep_values': [r['sweep_value'] for r in grid_rows],
+        'fixed_obs': fixed_obs,
+        'monotone_param': monotone_param,
+        'anchor_sigma_frac': LIMITS_ANCHOR_SIGMA_FRAC,
+        'grid': grid_rows,
+        'medians': [r['flow_median'] for r in grid_rows],
+        'anchor_medians': [r['anchor_median'] for r in grid_rows],
+        'anchors_all_pass': bool(all_anchor_pass),
+        'containment_fraction': float(containment),
+        'containment_required': LIMITS_CONTAINMENT,
+        'containment_pass': containment_pass,
+        'all_pass': bool(all_anchor_pass and containment_pass),
+    }
+
+
 def _save_limits_plot(results, output_dir: Path):
     try:
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(figsize=(4.5, 3.2))
-        ax.plot(results['sweep_values'], results['medians'], 'o-', color='C2')
+        ax.plot(results['sweep_values'], results['medians'], 'o-', color='C2',
+                label='flow median')
+        if results.get('mode') == 'anchor':
+            ax.errorbar(
+                results['sweep_values'], results['anchor_medians'],
+                yerr=[r['median_tol'] for r in results['grid']],
+                fmt='s', color='C0', capsize=3, label='MCMC anchor ± tol')
+            ax.legend(fontsize=7)
+            title = 'Limiting behavior (MCMC-anchor comparison)'
+        else:
+            title = f"Limiting behavior ({results['monotonicity']['direction']})"
         ax.set_xlabel(results['sweep_obs'])
         ax.set_ylabel(f"{results['monotone_param']} posterior median")
-        ax.set_title(f"Limiting behavior ({results['monotonicity']['direction']})", fontsize=9)
+        ax.set_title(title, fontsize=9)
         fig.tight_layout()
         out = output_dir / 'limits_median_trend.png'
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -883,20 +1014,35 @@ def cmd_limits(args) -> int:
             f"pass --re-k2 or --fixed-obs."
         )
 
-    results = _run_limits_check(
-        runner, sweep_obs, sweep_values, fixed_obs,
-        monotone_param=args.monotone_param, direction=args.direction,
-        n_samples=int(args.n_samples), seed=int(args.seed),
-    )
+    if getattr(args, 'anchor_results', None):
+        anchor_map = {float(k): str(v)
+                      for k, v in json.loads(args.anchor_results).items()}
+        results = _run_limits_anchor_check(
+            runner, sweep_obs, anchor_map, fixed_obs,
+            monotone_param=args.monotone_param,
+            n_samples=int(args.n_samples), seed=int(args.seed),
+        )
+        gate_desc = (
+            f"{args.monotone_param}: |flow median - MCMC anchor median| <= "
+            f"{LIMITS_ANCHOR_SIGMA_FRAC}*sigma_anchor at every sweep point; "
+            f"prior-box containment == {LIMITS_CONTAINMENT}"
+        )
+    else:
+        results = _run_limits_check(
+            runner, sweep_obs, sweep_values, fixed_obs,
+            monotone_param=args.monotone_param, direction=args.direction,
+            n_samples=int(args.n_samples), seed=int(args.seed),
+        )
+        gate_desc = (
+            f"{args.monotone_param} posterior median monotone {args.direction} "
+            f"vs {sweep_obs} (<= {LIMITS_MAX_TIES} tie); "
+            f"prior-box containment == {LIMITS_CONTAINMENT}"
+        )
     plot_path = _save_limits_plot(results, output_dir)
 
     report = {
         'check': 'limits',
-        'gate': (
-            f"{args.monotone_param} posterior median monotone {args.direction} "
-            f"vs {sweep_obs} (<= {LIMITS_MAX_TIES} tie); "
-            f"prior-box containment == {LIMITS_CONTAINMENT}"
-        ),
+        'gate': gate_desc,
         'verdict': 'PASS' if results['all_pass'] else 'FAIL',
         'results': results,
         'artifact': str(args.artifact),
@@ -907,19 +1053,33 @@ def cmd_limits(args) -> int:
     _write_report(output_dir, 'limits_report.json', report)
 
     if results['all_pass']:
+        detail = (
+            f"{args.monotone_param} within {LIMITS_ANCHOR_SIGMA_FRAC}*sigma of "
+            f"{len(results['grid'])} MCMC anchors"
+            if results.get('mode') == 'anchor'
+            else f"{args.monotone_param} median monotone {args.direction} vs {sweep_obs}"
+        )
         _loud([
             "LIMITS GATE: PASS",
-            f"{args.monotone_param} median monotone {args.direction} vs {sweep_obs}; "
-            f"containment {results['containment_fraction']:.3f}",
+            f"{detail}; containment {results['containment_fraction']:.3f}",
         ])
         return EXIT_PASS
     lines = ["LIMITS GATE: FAIL"]
-    mono = results['monotonicity']
-    if not mono['monotone_pass']:
-        lines.append(
-            f"non-monotone: {mono['n_strict_violations']} strict violations, "
-            f"{mono['n_ties']} ties (max {LIMITS_MAX_TIES}); medians={results['medians']}"
-        )
+    if results.get('mode') == 'anchor':
+        for r in results['grid']:
+            if not r['anchor_pass']:
+                lines.append(
+                    f"{sweep_obs}={r['sweep_value']}: |{r['flow_median']:.3f} - "
+                    f"{r['anchor_median']:.3f}| = {r['median_diff']:.3f} > "
+                    f"tol {r['median_tol']:.3f}"
+                )
+    else:
+        mono = results['monotonicity']
+        if not mono['monotone_pass']:
+            lines.append(
+                f"non-monotone: {mono['n_strict_violations']} strict violations, "
+                f"{mono['n_ties']} ties (max {LIMITS_MAX_TIES}); medians={results['medians']}"
+            )
     if not results['containment_pass']:
         lines.append(f"containment {results['containment_fraction']:.4f} < {LIMITS_CONTAINMENT}")
     lines.append("Do NOT tune this gate — investigate the trained flow.")
@@ -1135,6 +1295,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_lim.add_argument('--sweep-values', default=None,
                        help='Comma-separated sweep grid (default: 0.05,0.10,...,0.30).')
     p_lim.add_argument('--fixed-obs', default=None, help='JSON dict of fixed observable values.')
+    p_lim.add_argument('--anchor-results', default=None,
+                       help='JSON dict {sweep_value: mcmc_result.pkl} of ground-truth MCMC '
+                            'anchors. When given, replaces the monotonicity check with '
+                            'per-anchor median comparison (ratified 2026-07-09: the '
+                            'monotone-decreasing premise is falsified below |Im k2|~0.15 '
+                            'by the folded-noise regime).')
     p_lim.add_argument('--re-k2', type=float, default=None, help='Fixed Re(k2) for non-swept channels.')
     p_lim.add_argument('--monotone-param', default=DEFAULT_MONOTONE_PARAM,
                        help=f'Parameter whose median must respond (default: {DEFAULT_MONOTONE_PARAM}).')
@@ -1158,6 +1324,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    # Plot helpers save into output_dir before _write_report creates it;
+    # ensure it exists up front so PNGs are not silently skipped.
+    if getattr(args, 'output_dir', None):
+        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     try:
         return args.func(args)
     except FileNotFoundError as e:

@@ -1224,7 +1224,8 @@ class MCMCRunner:
     def generate_sbi_dataset(self, n_samples: int = 10000, output_path: Optional[str] = None,
                              apply_support_guard: bool = False, imag_convention: str = 'signed',
                              drop_nonfinite: bool = False, seed: Optional[int] = None,
-                             provenance: Optional[dict] = None):
+                             provenance: Optional[dict] = None,
+                             obs_noise: bool = False, noise_seed: Optional[int] = None):
         """
         Generate (theta, x) dataset by sampling from the prior.
 
@@ -1265,6 +1266,22 @@ class MCMCRunner:
             provenance: Optional dict merged (additively) into the saved .npz
                 metadata when any of the above opt-in options are used. Ignored
                 when all new kwargs are left at their defaults.
+            obs_noise: If True (requires imag_convention='abs'), add Gaussian
+                observation noise to every x column after the forward model:
+                x_k += N(0, sigma_k) with sigma_k taken from
+                ``config.observables[name][1]``. The noise is added AFTER the
+                |Im k2| fold and the result is NOT re-folded, matching the
+                committed diagonal-Gaussian likelihood's implied generative
+                model (data = |Im_model| + noise, may be negative near zero).
+                Required for NPE training to target the same posterior the
+                MCMC likelihood defines (ratified 2026-07-09; without it the
+                flow targets the singular noiseless conditional and fails
+                SBC/crosscheck). Default False preserves existing behavior
+                byte-identically.
+            noise_seed: Seed for a dedicated numpy Generator used only for
+                observation noise (independent of the prior-draw ``seed`` so
+                the same theta set can be re-noised reproducibly). None draws
+                from a fresh nondeterministic Generator.
 
         Returns:
             (theta, x) tuple. When ``apply_support_guard`` or
@@ -1279,6 +1296,12 @@ class MCMCRunner:
         if imag_convention not in ('signed', 'abs'):
             raise ValueError(
                 f"imag_convention must be 'signed' or 'abs', got '{imag_convention}'"
+            )
+        if obs_noise and imag_convention != 'abs':
+            raise ValueError(
+                "obs_noise=True requires imag_convention='abs': the noise model "
+                "is data = |Im_model| + noise, matching the likelihood's |Im k2| "
+                "convention; with signed Im the generative model is ambiguous."
             )
 
         log.info(f"Generating SBI dataset with {n_samples} samples...")
@@ -1413,6 +1436,21 @@ class MCMCRunner:
         theta = np.array(theta_kept) if (apply_support_guard or drop_nonfinite) else np.array(theta)
         x = np.array(x)
 
+        obs_noise_meta = None
+        if obs_noise and len(x):
+            # Diagonal Gaussian observation noise, sigma per observable from the
+            # config. Added after the |Im| fold, NOT re-folded (see docstring).
+            sigmas = np.array([float(self.config.observables[name][1])
+                               for name in obs_names])
+            noise_rng = np.random.default_rng(noise_seed)
+            x = x + noise_rng.normal(0.0, 1.0, size=x.shape) * sigmas
+            obs_noise_meta = {
+                'type': 'gaussian_diagonal',
+                'sigma': {name: float(s) for name, s in zip(obs_names, sigmas)},
+                'noise_seed': noise_seed,
+                'refold_im': False,
+            }
+
         n_rejected_total = n_rejected_support + n_rejected_nonfinite
         rejection_rate = (n_rejected_total / n_samples) if n_samples else 0.0
         if (apply_support_guard or drop_nonfinite) and rejection_rate > 0.20:
@@ -1431,10 +1469,13 @@ class MCMCRunner:
             'imag_convention': imag_convention,
             'seed': seed,
         }
+        if obs_noise_meta is not None:
+            stats['obs_noise'] = obs_noise_meta
         self.last_sbi_dataset_stats = stats
 
         using_new_options = (apply_support_guard or imag_convention != 'signed'
-                             or drop_nonfinite or seed is not None or provenance is not None)
+                             or drop_nonfinite or seed is not None or provenance is not None
+                             or obs_noise)
 
         if output_path:
             if not using_new_options:
@@ -1486,6 +1527,8 @@ class MCMCRunner:
                 )
                 if provenance:
                     save_kwargs['provenance'] = json.dumps(provenance)
+                if obs_noise_meta is not None:
+                    save_kwargs['obs_noise'] = json.dumps(obs_noise_meta)
                 np.savez(output_path, **save_kwargs)
             log.info(f"SBI dataset saved to {output_path}")
 

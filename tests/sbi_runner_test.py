@@ -369,6 +369,46 @@ class SBIDatasetGenerationTests(unittest.TestCase):
             np.testing.assert_array_equal(x_a, x_b)
             self.assertFalse(np.array_equal(theta_a, theta_c))
 
+    def test_obs_noise_injection(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp_path = Path(td)
+            runner = _build_mcmc_runner(tmp_path)
+            obs_names = list(runner.config.observables.keys())
+            sigmas = np.array([float(runner.config.observables[n][1])
+                               for n in obs_names])
+
+            with mock.patch(_FORWARD_MODEL_TARGET, side_effect=_stub_forward_model_basic):
+                theta_c, x_clean = runner.generate_sbi_dataset(
+                    n_samples=200, seed=7, imag_convention='abs')
+                theta_n, x_noisy = runner.generate_sbi_dataset(
+                    n_samples=200, seed=7, imag_convention='abs',
+                    obs_noise=True, noise_seed=11)
+                theta_n2, x_noisy2 = runner.generate_sbi_dataset(
+                    n_samples=200, seed=7, imag_convention='abs',
+                    obs_noise=True, noise_seed=11)
+
+            # Prior draws unaffected by the noise Generator; noise reproducible.
+            np.testing.assert_array_equal(theta_c, theta_n)
+            np.testing.assert_array_equal(x_noisy, x_noisy2)
+
+            # Residuals are Gaussian with the config sigmas (loose n=200 band).
+            resid = x_noisy - x_clean
+            self.assertFalse(np.allclose(resid, 0.0))
+            for s_emp, s_true in zip(resid.std(axis=0), sigmas):
+                self.assertGreater(s_emp, 0.6 * s_true)
+                self.assertLess(s_emp, 1.4 * s_true)
+
+            # Provenance recorded; likelihood convention (no re-fold).
+            noise_meta = runner.last_sbi_dataset_stats['obs_noise']
+            self.assertEqual(noise_meta['noise_seed'], 11)
+            self.assertFalse(noise_meta['refold_im'])
+            self.assertEqual(noise_meta['sigma'],
+                             {n: float(s) for n, s in zip(obs_names, sigmas)})
+
+            # Signed-Im convention is ambiguous under the noise model: rejected.
+            with self.assertRaises(ValueError):
+                runner.generate_sbi_dataset(n_samples=5, obs_noise=True)
+
 
 @unittest.skipUnless(_HAVE_SBI, 'sbi/torch not installed')
 class SBIArtifactAndTrainingTests(unittest.TestCase):
