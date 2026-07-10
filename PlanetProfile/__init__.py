@@ -1,4 +1,4 @@
-import os, shutil
+import os, shutil, sys
 import matplotlib.pyplot as plt
 
 def CopyCarefully(source, destination):
@@ -65,8 +65,18 @@ _userConfigMonteCarlo = os.path.join('UserConfigs', 'configPPmontecarlo.py')
 configTemplates = [_defaultConfig, _defaultConfigPlots, _defaultConfigInduct, _defaultConfigTrajec, _defaultConfigCustomSolution, _defaultConfigGravity, _defaultConfigInversion, _defaultConfigMonteCarlo]
 configLocals = [_userConfig, _userConfigPlots, _userConfigInduct, _userConfigTrajec, _userConfigCustomSolution, _userConfigGravity, _userConfigInversion, _userConfigMonteCarlo]
 if any([not os.path.isfile(cfg) for cfg in configLocals]):
-    if input(f'configPP files not found in pwd: {os.path.join(os.getcwd(), "UserConfigs")}. Copy from defaults to local dir? ' +
-             f'y/n ') in ['', 'y', 'Y', 'yes', 'Yes', '[y]']:
+    # Non-interactive contexts (Streamlit, pytest, cron, subprocess pipelines)
+    # have no stdin; input() would raise EOFError there. The prompt's default
+    # (empty answer) is yes, so apply the same default without asking.
+    if sys.stdin is None or not sys.stdin.isatty():
+        _copyConfigs = True
+        print(f'configPP files not found in pwd: {os.path.join(os.getcwd(), "UserConfigs")}. '
+              f'Non-interactive session — copying from defaults.')
+    else:
+        _copyConfigs = input(
+            f'configPP files not found in pwd: {os.path.join(os.getcwd(), "UserConfigs")}. '
+            f'Copy from defaults to local dir? y/n ') in ['', 'y', 'Y', 'yes', 'Yes', '[y]']
+    if _copyConfigs:
         for template, local in zip(configTemplates, configLocals):
             CopyOnlyIfNeeded(template, local)
 
