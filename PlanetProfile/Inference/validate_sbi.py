@@ -131,16 +131,31 @@ EXIT_GATE_FAIL = 2    # a scientific gate failed
 # ---- RATIFIED gate thresholds (plan doc, decision 4). Do not tune. -------
 SBC_KS_ALPHA = 0.05          # per-parameter rank-uniformity KS p must be >= this
 CROSSCHECK_MEAN_SIGMA_FRAC = 0.25   # mean tolerance = max(0.25*sigma, MC-error)
+# Ratified 2026-07-10 (replacing per-param KS p >= alpha): the KS statistic D
+# becomes a DETECTION metric judged against the reference posterior's own
+# finite-sampling floor, paired with a scientific-materiality location check.
+# PASS iff D <= 1.5 x matched-n self-D p99 AND |dmedian| <= 0.3 dex (log10_*
+# params) or 0.3 x sigma_MCMC (linear params). Thresholds derive from the
+# bootstrap floor + materiality currency, not from any artifact's values; the
+# same rule fails the noiseless and 200k-era artifacts. p is still reported.
+CROSSCHECK_SHAPE_FLOOR_FACTOR = 1.5
+CROSSCHECK_MATERIALITY_DEX = 0.3
+CROSSCHECK_SELF_D_BOOT = 200
 CROSSCHECK_SIGMA_RATIO_LO = 0.70
 CROSSCHECK_SIGMA_RATIO_HI = 1.40
 CROSSCHECK_KS_ALPHA = 0.01   # two-sample KS p must be >= this
 LIMITS_MAX_TIES = 1          # monotone median: at most one tie allowed
 LIMITS_CONTAINMENT = 1.0     # 100% of samples must lie inside the prior box
 # Anchor mode (ratified 2026-07-09, replacing the monotonicity premise that
-# ground-truth MCMC falsified below |Im k2| ~ 0.15): per sweep point, the flow's
-# monotone-param median must lie within 0.25*sigma of the matching ground-truth
-# MCMC anchor posterior (same fraction the crosscheck mean gate uses). Fixed
-# BEFORE inspecting results; do not tune.
+# ground-truth MCMC falsified below |Im k2| ~ 0.15). Statistic amended
+# 2026-07-10 (user-ratified): per sweep point, the 1-D Wasserstein-1 distance
+# between flow samples and the anchor posterior must satisfy
+# W1 <= 0.25 * sigma_anchor (same fraction/currency as the crosscheck mean
+# gate). W1 replaces the median comparison because the Im=0.25 anchor is
+# BIMODAL: a median lands mid-valley and is fragile there, while W1 is
+# stable under bimodality, reduces to ~|dmedian| for unimodal shifts, and
+# penalizes mode-smoothing in proportion to misplaced mass. Medians are
+# still reported. Fixed from principles; do not tune.
 LIMITS_ANCHOR_SIGMA_FRAC = 0.25
 
 # Default |Im k2| sweep grid for the limits check (plan doc: 0.05..0.30).
@@ -295,6 +310,45 @@ def _resample_by_weights(
     n = samples.shape[0]
     idx = rng.choice(n, size=int(n_draws), replace=True, p=weights_norm)
     return samples[idx]
+
+
+def _ks_stat_1d(a: np.ndarray, b: np.ndarray) -> float:
+    """Two-sample KS statistic D (no p-value) via CDF scan."""
+    a, b = np.sort(a), np.sort(b)
+    grid = np.concatenate([a, b])
+    ca = np.searchsorted(a, grid, side='right') / len(a)
+    cb = np.searchsorted(b, grid, side='right') / len(b)
+    return float(np.max(np.abs(ca - cb)))
+
+
+def _self_d_floor(
+    mcmc_samples: np.ndarray, weights_norm: np.ndarray, ess: float,
+    rng: np.random.RandomState, n_boot: int = CROSSCHECK_SELF_D_BOOT,
+) -> np.ndarray:
+    """Per-parameter matched-n self-D p99 floor of the reference posterior.
+
+    Bootstraps split-half KS D between two half-ESS resamples of the SAME
+    posterior (the D a perfect flow would show from finite sampling alone),
+    then scales by 1/sqrt(2) to the crosscheck's full-ESS-vs-full-ESS
+    comparison (two-sample KS critical D scales as sqrt((n+m)/(n m))).
+    """
+    n_ess = max(int(ess), 4)
+    half = n_ess // 2
+    n_params = mcmc_samples.shape[1]
+    d = np.empty((n_boot, n_params))
+    for b in range(n_boot):
+        r = _resample_by_weights(mcmc_samples, weights_norm, n_ess, rng)
+        h1, h2 = r[:half], r[half:]
+        for j in range(n_params):
+            d[b, j] = _ks_stat_1d(h1[:, j], h2[:, j])
+    return np.percentile(d, 99, axis=0) / np.sqrt(2.0)
+
+
+def _weighted_median_1d(values: np.ndarray, weights_norm: np.ndarray) -> float:
+    order = np.argsort(values)
+    cw = np.cumsum(weights_norm[order])
+    cw = cw / cw[-1]
+    return float(values[order][np.searchsorted(cw, 0.5)])
 
 
 # ==========================================================================
@@ -585,6 +639,10 @@ def _run_crosscheck(
     mc_error = mcmc_std / np.sqrt(max(ess, 1.0))
 
     rng = np.random.RandomState(int(seed))
+    # Reference's own finite-sampling floor (ratified 2026-07-10): the shape
+    # gate judges D against this, not against an n-dependent p-value.
+    d_floor_p99 = _self_d_floor(mcmc_samples, w, ess, rng)
+
     per_param = []
     all_pass = True
     for j, name in enumerate(param_names):
@@ -598,9 +656,21 @@ def _run_crosscheck(
         ks_stat, ks_pval, n_ks = _two_sample_ks(
             mcmc_samples[:, j], w, sbi_samples[:, j], ess, rng
         )
-        ks_pass = bool(ks_pval >= CROSSCHECK_KS_ALPHA)
+        # Detection + materiality shape gate (ratified 2026-07-10; replaces
+        # ks_pval >= alpha, which convolves effect size with n). p remains
+        # reported for reference.
+        d_tol = CROSSCHECK_SHAPE_FLOOR_FACTOR * float(d_floor_p99[j])
+        d_pass = bool(ks_stat <= d_tol)
+        median_diff = abs(_weighted_median_1d(mcmc_samples[:, j], w)
+                          - float(np.median(sbi_samples[:, j])))
+        if str(name).startswith('log10_'):
+            median_tol = CROSSCHECK_MATERIALITY_DEX
+        else:
+            median_tol = CROSSCHECK_MATERIALITY_DEX * float(mcmc_std[j])
+        median_pass = bool(median_diff <= median_tol)
+        shape_pass = d_pass and median_pass
 
-        param_pass = mean_pass and sigma_pass and ks_pass
+        param_pass = mean_pass and sigma_pass and shape_pass
         all_pass = all_pass and param_pass
         per_param.append({
             'param': str(name),
@@ -611,7 +681,11 @@ def _run_crosscheck(
             'sigma_ratio': sigma_ratio, 'sigma_ratio_bounds': [CROSSCHECK_SIGMA_RATIO_LO, CROSSCHECK_SIGMA_RATIO_HI],
             'sigma_pass': sigma_pass,
             'ks_stat': ks_stat, 'ks_pval': ks_pval, 'ks_n': n_ks,
-            'ks_alpha': CROSSCHECK_KS_ALPHA, 'ks_pass': ks_pass,
+            'ks_alpha_informational': CROSSCHECK_KS_ALPHA,
+            'd_floor_p99': float(d_floor_p99[j]), 'd_tol': float(d_tol),
+            'd_pass': d_pass,
+            'median_diff': float(median_diff), 'median_tol': float(median_tol),
+            'median_pass': median_pass, 'shape_pass': bool(shape_pass),
             'param_pass': bool(param_pass),
         })
     return {
@@ -670,7 +744,10 @@ def cmd_crosscheck(args) -> int:
         'gate': (
             f"per-param: |dmean| <= max({CROSSCHECK_MEAN_SIGMA_FRAC}*sigma_MCMC, MC-error); "
             f"sigma_SBI/sigma_MCMC in [{CROSSCHECK_SIGMA_RATIO_LO},{CROSSCHECK_SIGMA_RATIO_HI}]; "
-            f"two-sample KS p >= {CROSSCHECK_KS_ALPHA}"
+            f"shape (ratified 2026-07-10): D <= {CROSSCHECK_SHAPE_FLOOR_FACTOR}x "
+            f"matched-n self-D p99 AND |dmedian| <= {CROSSCHECK_MATERIALITY_DEX} dex "
+            f"(log params) / {CROSSCHECK_MATERIALITY_DEX}*sigma_MCMC (linear); "
+            f"KS p reported informationally"
         ),
         'verdict': 'PASS' if results['all_pass'] else 'FAIL',
         'x_obs': x_obs,
@@ -704,8 +781,12 @@ def cmd_crosscheck(args) -> int:
             if not p['sigma_pass']:
                 reasons.append(f"sigma_ratio {p['sigma_ratio']:.3g} outside "
                                f"[{CROSSCHECK_SIGMA_RATIO_LO},{CROSSCHECK_SIGMA_RATIO_HI}]")
-            if not p['ks_pass']:
-                reasons.append(f"KS p {p['ks_pval']:.3g} < {CROSSCHECK_KS_ALPHA}")
+            if not p.get('d_pass', True):
+                reasons.append(f"D {p['ks_stat']:.3g} > tol {p['d_tol']:.3g} "
+                               f"(1.5x self-D floor {p['d_floor_p99']:.3g})")
+            if not p.get('median_pass', True):
+                reasons.append(f"|dmedian| {p['median_diff']:.3g} > "
+                               f"materiality tol {p['median_tol']:.3g}")
             lines.append(f"  {p['param']}: " + "; ".join(reasons))
     lines.append("Do NOT tune this gate — investigate SBI vs MCMC discrepancy.")
     _loud(lines)
@@ -837,12 +918,27 @@ def _run_limits_check(
     }
 
 
-def _weighted_quantile(values: np.ndarray, weights: np.ndarray, q: float) -> float:
-    """Quantile of a weighted sample (CDF inversion on sorted values)."""
+def _weighted_quantile(values: np.ndarray, weights: np.ndarray, q) -> np.ndarray:
+    """Quantile(s) of a weighted sample (CDF inversion on sorted values)."""
     order = np.argsort(values)
     cw = np.cumsum(weights[order])
     cw = cw / cw[-1]
-    return float(values[order][np.searchsorted(cw, q)])
+    idx = np.searchsorted(cw, q)
+    return values[order][np.clip(idx, 0, len(values) - 1)]
+
+
+def _wasserstein1_weighted(
+    a_values: np.ndarray, a_weights: np.ndarray, b_values: np.ndarray,
+    n_q: int = 512,
+) -> float:
+    """1-D Wasserstein-1 distance between a weighted sample (a) and an
+    unweighted sample (b), via quantile-function integration on a uniform
+    q grid: W1 = integral_0^1 |Fa^-1(q) - Fb^-1(q)| dq."""
+    q = (np.arange(n_q) + 0.5) / n_q
+    qa = _weighted_quantile(np.asarray(a_values, float),
+                            np.asarray(a_weights, float), q)
+    qb = np.quantile(np.asarray(b_values, float), q)
+    return float(np.mean(np.abs(qa - qb)))
 
 
 def _run_limits_anchor_check(
@@ -886,7 +982,7 @@ def _run_limits_anchor_check(
             None if mcmc.weights is None else np.asarray(mcmc.weights, dtype=np.float64),
             len(a_samples),
         )
-        a_median = _weighted_quantile(a_samples, a_w, 0.5)
+        a_median = float(_weighted_quantile(a_samples, a_w, 0.5))
         a_mean, a_std = _weighted_mean_std(a_samples[:, None], a_w)
         a_std = float(a_std[0])
 
@@ -901,9 +997,11 @@ def _run_limits_anchor_check(
         n_total += samples.shape[0]
         n_inside += int(np.sum(inside))
 
+        # W1 statistic (ratified 2026-07-10; see LIMITS_ANCHOR_SIGMA_FRAC
+        # comment). Medians remain reported for reference.
         tol = LIMITS_ANCHOR_SIGMA_FRAC * a_std
-        diff = abs(f_median - a_median)
-        anchor_pass = bool(diff <= tol)
+        w1 = _wasserstein1_weighted(a_samples, a_w, samples[:, pidx])
+        anchor_pass = bool(w1 <= tol)
         all_anchor_pass = all_anchor_pass and anchor_pass
         grid_rows.append({
             'sweep_value': float(val),
@@ -912,8 +1010,9 @@ def _run_limits_anchor_check(
             'anchor_sigma': a_std,
             'anchor_ess': float((np.sum(a_w) ** 2) / np.sum(a_w ** 2)),
             'flow_median': f_median,
-            'median_diff': float(diff),
-            'median_tol': float(tol),
+            'median_diff': float(abs(f_median - a_median)),
+            'w1': float(w1),
+            'w1_tol': float(tol),
             'anchor_pass': anchor_pass,
             'n_inside_box': int(np.sum(inside)),
             'n_samples': int(samples.shape[0]),
@@ -951,8 +1050,8 @@ def _save_limits_plot(results, output_dir: Path):
         if results.get('mode') == 'anchor':
             ax.errorbar(
                 results['sweep_values'], results['anchor_medians'],
-                yerr=[r['median_tol'] for r in results['grid']],
-                fmt='s', color='C0', capsize=3, label='MCMC anchor ± tol')
+                yerr=[r['w1_tol'] for r in results['grid']],
+                fmt='s', color='C0', capsize=3, label='MCMC anchor ± W1 tol')
             ax.legend(fontsize=7)
             title = 'Limiting behavior (MCMC-anchor comparison)'
         else:
@@ -1023,8 +1122,9 @@ def cmd_limits(args) -> int:
             n_samples=int(args.n_samples), seed=int(args.seed),
         )
         gate_desc = (
-            f"{args.monotone_param}: |flow median - MCMC anchor median| <= "
-            f"{LIMITS_ANCHOR_SIGMA_FRAC}*sigma_anchor at every sweep point; "
+            f"{args.monotone_param}: Wasserstein-1(flow, MCMC anchor) <= "
+            f"{LIMITS_ANCHOR_SIGMA_FRAC}*sigma_anchor at every sweep point "
+            f"(ratified 2026-07-10, bimodality-stable); "
             f"prior-box containment == {LIMITS_CONTAINMENT}"
         )
     else:
@@ -1069,9 +1169,9 @@ def cmd_limits(args) -> int:
         for r in results['grid']:
             if not r['anchor_pass']:
                 lines.append(
-                    f"{sweep_obs}={r['sweep_value']}: |{r['flow_median']:.3f} - "
-                    f"{r['anchor_median']:.3f}| = {r['median_diff']:.3f} > "
-                    f"tol {r['median_tol']:.3f}"
+                    f"{sweep_obs}={r['sweep_value']}: W1 = {r['w1']:.3f} > "
+                    f"tol {r['w1_tol']:.3f} (flow median {r['flow_median']:.3f}, "
+                    f"anchor median {r['anchor_median']:.3f})"
                 )
     else:
         mono = results['monotonicity']

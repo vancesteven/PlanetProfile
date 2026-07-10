@@ -294,9 +294,24 @@ not from which params pass):**
    and penalizes a flow that smooths across modes in proportion to the misplaced mass.
    Keep prior-box containment unchanged.
 
-On ratification: implement in validate_sbi (keeping current behavior under a flag or
-as the new default per user's choice), rerun all three gates on the 1M artifact
-(Machine B), and if all-green deploy the 1M artifact to the GUI slot per open item 4.
+**RATIFIED by user 2026-07-10 (both amendments). IMPLEMENTED in validate_sbi as the
+new default** (KS p now informational; medians still reported in anchor mode):
+- crosscheck: shape gate = D <= 1.5x matched-n self-D p99 (bootstrapped in-run,
+  CROSSCHECK_SELF_D_BOOT=200) AND |dmedian| <= 0.3 dex (log params) / 0.3 sigma
+  (linear). selftest PASS incl. gate-bite negative control.
+- limits anchor mode: per-anchor Wasserstein-1 <= 0.25 sigma_anchor
+  (_wasserstein1_weighted, quantile-grid integration).
+Verified against local artifacts: 200k FAILS (eta_Ih D .070 > .052); 500k fails only
+eta_V (D .060 vs .055, marginal); W1 anchors: 0.20 PASSES (0.32/0.39 — old failure
+was median fragility), 0.25 fails honestly (W1=0.671: the flow genuinely smooths the
+bimodal modes — real deficiency in the extrapolation tail), 0.30 passes.
+
+**MACHINE B NEXT: pull genai, rerun the three gates on the 1M artifact with the
+amended validate_sbi.** Expected: crosscheck all-pass (1M max D .045 vs tols
+.047-.058); SBC already passes; anchor 0.25 likely still fails on W1 (flow
+mode-smoothing is real). If 0.25 is the sole red gate, the deployment decision is
+domain-scoping (validate |Im k2| <= 0.20 + document) vs mixture-capable flow work —
+user decision, surface it.
 
 ## Open ratification items (after 1M)
 
