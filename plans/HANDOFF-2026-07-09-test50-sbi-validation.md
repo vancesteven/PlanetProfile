@@ -104,6 +104,33 @@ Expected from 1M: KS residuals (eta_Ih p 5.8e-4 at 500k, improving ~10x per doub
 may cross alpha=0.01; anchor 0.20 (0.51 vs tol 0.39) may pass. Anchor 0.25 will NOT
 pass on data alone (bimodal median valley) — needs open item 2 below.
 
+## Machine A parallel development (2026-07-10)
+
+- **Test52 manuscript disclosure plots DONE (items a, c, d):** committed in
+  production_run/ — prior-predictive CMR2 (posterior truncated at the no-core anchor;
+  sigma_post/sigma_obs = 0.46 is prior-envelope-limited: verified visually), k2 vs
+  (log10_zeta, log10_eta_V) conditionals (compliant-corner bias visible), modes+HPD
+  table (mode(zeta)=-2.30, mode(eta_V)=10.65). Item (b) — nothing pending there;
+  item (e) Tb prior-uniformity is a text disclosure, no plot needed.
+- **Callisto offset sidecars: SCIENTIFIC NO-GO on existing caches (opus-verified).**
+  The Test52 sidecar definition (native - no-core reconstruction) applied to the
+  existing Callisto C2_andrade cache yields -0.035 = -8.4 sigma_obs — the PHYSICAL
+  structured-vs-uniform-silicate difference (cache rho_sil spans 1326-3202 kg/m3),
+  NOT a discretization offset. The handoff 07-08 estimate of "+0.23 sigma" assumed a
+  Titan-like uniform-silicate cache. Applying the naive sidecar would corrupt every
+  Callisto tension conclusion.
+  - IMPLEMENTED + verified: `PlanetProfile/Inference/build_cmr2_offset_sidecar.py`
+    (reusable producer; reproduces the committed Test52 sidecar exactly; validity
+    guard REFUSES non-uniform-silicate caches / |offset|>0.005, exit 3) and
+    `tests/cmr2_offset_sidecar_test.py` (3/3, incl. Callisto refusal).
+  - DECISION NEEDED (user + scientific reviewer): regenerate Callisto grids from a
+    uniform-silicate template (as Test52 was built) so the definition isolates
+    discretization error; then sidecar + chi RECOMPUTE from stored samples is valid
+    (no MCMC rerun needed — offset ~constant in Tb, ESS retention >90%). Until then
+    NO Callisto sidecar exists and `test_no_sidecar_found_for_callisto` remains
+    correct as written. When sidecars land, tests/test52_phase2_test.py's
+    CallistoUnchangedTests class must be re-scoped (three tests assume no offset).
+
 ## Open ratification items (after 1M)
 
 1. eta_Ih/eta_V KS materiality margin if 1M still fails (opus framework: bootstrap
