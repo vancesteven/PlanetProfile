@@ -329,6 +329,23 @@ def _apply_config_to_session_state(cfg):
     # silently overwrites the values we just loaded.
     st.session_state.inference_custom_mode = True
 
+    # Sync the preset radio WIDGET to 'custom'. The radio has key=
+    # 'preset_radio', and Streamlit keyed-widget state wins over index= on
+    # every rerun — without this, the radio keeps its old selection and its
+    # non-custom branch immediately overwrites the config we just loaded
+    # (params, observables, cache path). 'custom' is the one branch that
+    # writes nothing back. inference_preset (set above) still carries the
+    # matched preset for bodyname resolution in the run button.
+    st.session_state.preset_radio = 'custom'
+
+    # Same widget-state-wins rule applies to the keyed form inputs: drop
+    # their stored widget state so each re-initializes from the values we
+    # just loaded (value= is only honored when the key is absent).
+    for wkey in ('Re_k2_value', 'Re_k2_unc', 'Im_k2_value', 'Im_k2_unc',
+                 'CMR2_value', 'CMR2_unc', 'use_cmr2_obs', 'use_k2_obs',
+                 'cache_path_input'):
+        st.session_state.pop(wkey, None)
+
 
 # ============================================================
 # UI Render Functions
@@ -575,42 +592,58 @@ def render_observables_config():
     that the inference will try to match.
     """)
 
-    # Re(k2) input
-    col1, col2 = st.columns(2)
-    with col1:
-        Re_k2_value = st.number_input(
-            "Re(k₂) — Real part:",
-            value=st.session_state.inference_observables['Re_k2'][0],
-            format="%.4f",
-            key='Re_k2_value'
-        )
-    with col2:
-        Re_k2_uncertainty = st.number_input(
-            "± Uncertainty:",
-            value=st.session_state.inference_observables['Re_k2'][1],
-            format="%.4f",
-            key='Re_k2_unc'
-        )
+    # k2 inputs, checkbox-gated like CMR2. Not every loaded config carries a
+    # k2 observable (e.g. callisto_mgso4 is CMR2-only); force-adding the
+    # Titan display defaults to such a run would silently change its
+    # likelihood, so absence of any k2 channel unchecks the box.
+    _obs_now = st.session_state.inference_observables
+    use_k2 = st.checkbox(
+        "Include k₂ tidal-Love-number constraints",
+        value=('Re_k2' in _obs_now or 'abs_Im_k2' in _obs_now
+               or 'Im_k2' in _obs_now),
+        key='use_k2_obs',
+        help="Gaussian χ² terms for Re(k₂) and |Im(k₂)|."
+    )
+    Re_k2_value = Re_k2_uncertainty = None
+    re_k2_default = _obs_now.get('Re_k2', (0.608, 0.048))
+    if use_k2:
+        col1, col2 = st.columns(2)
+        with col1:
+            Re_k2_value = st.number_input(
+                "Re(k₂) — Real part:",
+                value=re_k2_default[0],
+                format="%.4f",
+                key='Re_k2_value'
+            )
+        with col2:
+            Re_k2_uncertainty = st.number_input(
+                "± Uncertainty:",
+                value=re_k2_default[1],
+                format="%.4f",
+                key='Re_k2_unc'
+            )
 
     # Im(k2) input - handle both old 'Im_k2' and new 'abs_Im_k2' keys for backward compatibility
     observables = st.session_state.inference_observables
     im_k2_default = observables.get('abs_Im_k2', observables.get('Im_k2', (0.135, 0.035)))
 
-    col1, col2 = st.columns(2)
-    with col1:
-        Im_k2_value = st.number_input(
-            "Im(k₂) — Imaginary part:",
-            value=im_k2_default[0],
-            format="%.4f",
-            key='Im_k2_value'
-        )
-    with col2:
-        Im_k2_uncertainty = st.number_input(
-            "± Uncertainty:",
-            value=im_k2_default[1],
-            format="%.4f",
-            key='Im_k2_unc'
-        )
+    Im_k2_value = Im_k2_uncertainty = None
+    if use_k2:
+        col1, col2 = st.columns(2)
+        with col1:
+            Im_k2_value = st.number_input(
+                "Im(k₂) — Imaginary part:",
+                value=im_k2_default[0],
+                format="%.4f",
+                key='Im_k2_value'
+            )
+        with col2:
+            Im_k2_uncertainty = st.number_input(
+                "± Uncertainty:",
+                value=im_k2_default[1],
+                format="%.4f",
+                key='Im_k2_unc'
+            )
 
     # C/MR² (optional, checkbox-gated). No fallback tuple here: absence of the
     # key must leave the checkbox unchecked, so presets without a CMR2 term
@@ -641,14 +674,29 @@ def render_observables_config():
             )
         cmr2_obs = (cmr2_value, cmr2_uncertainty)
 
-    # Update session state (use abs_Im_k2 as the canonical key)
-    new_observables = {
-        'Re_k2': (Re_k2_value, Re_k2_uncertainty),
-        'abs_Im_k2': (Im_k2_value, Im_k2_uncertainty),
-    }
+    # Update session state (use abs_Im_k2 as the canonical key). Start from
+    # the existing dict so observables this form does not render (e.g. a
+    # loaded config's Re_h2/Im_h2/Ae_* channels) survive the rerun instead
+    # of being silently dropped from the run.
+    new_observables = dict(st.session_state.inference_observables)
+    new_observables.pop('Im_k2', None)  # superseded by canonical abs_Im_k2
+    if use_k2:
+        new_observables['Re_k2'] = (Re_k2_value, Re_k2_uncertainty)
+        new_observables['abs_Im_k2'] = (Im_k2_value, Im_k2_uncertainty)
+    else:
+        new_observables.pop('Re_k2', None)
+        new_observables.pop('abs_Im_k2', None)
     if cmr2_obs is not None:
         new_observables['CMR2'] = cmr2_obs
+    else:
+        new_observables.pop('CMR2', None)
     st.session_state.inference_observables = new_observables
+
+    extra = [k for k in new_observables
+             if k not in ('Re_k2', 'abs_Im_k2', 'CMR2')]
+    if extra:
+        st.caption(f"Additional observables from loaded config (kept in the "
+                   f"run, edit via config JSON): {', '.join(extra)}")
 
     # Show reference
     st.caption("**Reference:** Petricca et al. (2025) *Nature* — Titan k₂ and C/MR² constraints")
