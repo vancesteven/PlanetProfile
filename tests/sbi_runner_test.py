@@ -409,6 +409,56 @@ class SBIDatasetGenerationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 runner.generate_sbi_dataset(n_samples=5, obs_noise=True)
 
+    def test_induction_channels_computed_from_ae_grid_cache(self):
+        """Induction observables mirror the likelihood's grid-cache lookup
+        (2026-07-10 fix; previously silently NaN-filled in SBI datasets)."""
+        obs = {
+            'Re_k2': [0.608, 0.048],
+            'Im_k2': [0.135, 0.035],
+            'Ae_synodic_real': [0.9, 0.05],
+            'Ae_synodic_imag': [-0.2, 0.05],
+            'BiAmp_synodic': [0.92, 0.05],
+            'BiPhase_synodic_deg': [-12.5, 5.0],
+        }
+        with tempfile.TemporaryDirectory() as td:
+            runner = _build_mcmc_runner(Path(td), observables=obs)
+            # Fixture structures carry no Texc_hr, so inject the Ae cache the
+            # likelihood would have precomputed (one complex Ae per Tb point).
+            ae_low, ae_high = 0.90 - 0.20j, 0.80 - 0.30j
+            runner._ae_grid_cache = {0: {'synodic': ae_low},
+                                     1: {'synodic': ae_high}}
+
+            with mock.patch(_FORWARD_MODEL_TARGET, side_effect=_stub_forward_model_basic):
+                theta, x = runner.generate_sbi_dataset(
+                    n_samples=40, seed=13, imag_convention='abs',
+                    drop_nonfinite=True)
+
+            self.assertEqual(x.shape[1], len(obs))
+            names = list(obs.keys())
+            tb = theta[:, runner.param_names.index('Tb_K')]
+            grid = np.array([TB_LOW, TB_HIGH])
+            expected_ae = np.where(
+                np.abs(tb - TB_LOW) <= np.abs(tb - TB_HIGH), ae_low, ae_high)
+            np.testing.assert_allclose(
+                x[:, names.index('Ae_synodic_real')], expected_ae.real, atol=1e-12)
+            np.testing.assert_allclose(
+                x[:, names.index('Ae_synodic_imag')], expected_ae.imag, atol=1e-12)
+            np.testing.assert_allclose(
+                x[:, names.index('BiAmp_synodic')], np.abs(expected_ae), atol=1e-12)
+            np.testing.assert_allclose(
+                x[:, names.index('BiPhase_synodic_deg')],
+                np.degrees(np.angle(expected_ae)), atol=1e-12)
+
+            # Unavailable cache -> NaN -> rows rejected under drop_nonfinite.
+            runner._ae_grid_cache = {}
+            with mock.patch(_FORWARD_MODEL_TARGET, side_effect=_stub_forward_model_basic):
+                theta2, x2 = runner.generate_sbi_dataset(
+                    n_samples=10, seed=13, imag_convention='abs',
+                    drop_nonfinite=True)
+            self.assertEqual(len(theta2), 0)
+            self.assertEqual(
+                runner.last_sbi_dataset_stats['n_rejected_nonfinite'], 10)
+
 
 @unittest.skipUnless(_HAVE_SBI, 'sbi/torch not installed')
 class SBIArtifactAndTrainingTests(unittest.TestCase):

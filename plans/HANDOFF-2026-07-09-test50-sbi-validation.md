@@ -150,6 +150,25 @@ pass on data alone (bimodal median valley) — needs open item 2 below.
     correction entirely; the "+0.23σ shift" expectation from the 07-08 handoff
     should be retired either way.
 
+- **SBI induction + h2 observables (roadmap item) IMPLEMENTED, verified:**
+  `generate_sbi_dataset` now computes `Ae_<label>_real/_imag`, `BiAmp_<label>`,
+  `BiPhase_<label>_deg` from the same precomputed Tb-grid Ae cache the likelihood
+  uses, and `Re_h2/Im_h2/abs_Im_h2/h2/k2` from the existing forward call (all were
+  silently NaN-filled before — the documented landmine). Mirrors likelihood
+  conventions exactly (abs-fold under imag_convention='abs'; BiPhase in degrees,
+  obs_noise unwrapped — matters only near ±180°). Tests: sbi_runner 10/10 (new
+  induction-channel test); real-path check on callisto_nacl config: dataset columns
+  match `_ae_grid_cache` lookups to 1e-12. Note Callisto Ae is nearly Tb-constant
+  across the grid (weakly informative for SBI there by construction).
+  (Directly serves Machine B's surfaced item 2 below — the x-channel plumbing for
+  induction observables now exists end-to-end in dataset generation.)
+- **GUI MCMC tab config-loader fixes (user-reported):** preset radio now syncs on
+  config load (widget-state-wins bug was silently overwriting loaded configs);
+  k2 checkbox-gated like CMR2 (CMR2-only configs no longer crash with KeyError
+  'Re_k2' or silently gain Titan-default k2); form preserves non-rendered
+  observables (h2/Ae channels were dropped from runs). Status: implemented,
+  unverified pending user click-through.
+
 ## 1M RESULTS — Machine B (2026-07-10)
 
 Ran the full campaign on Machine B (M2, 96 GB, mamba PPcl), gates + seeds unchanged.

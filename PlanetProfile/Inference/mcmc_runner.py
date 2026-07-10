@@ -1250,6 +1250,15 @@ class MCMCRunner:
                 as before. 'abs' stores |Im(k2)| for both the 'Im_k2' and
                 'abs_Im_k2' observable names (matching the MCMC likelihood's and
                 GUI's |Im k2| convention). Any other value raises ValueError.
+                Induction channels (``Ae_<label>_real/_imag``,
+                ``BiAmp_<label>``, ``BiPhase_<label>_deg``) are computed from
+                the same precomputed Tb-grid Ae cache the likelihood uses
+                (2026-07-10; previously these were silently NaN-filled).
+                NaN when the cache/label is unavailable — pair with
+                ``drop_nonfinite=True`` for SBI datasets. Note the BiPhase
+                channel is in degrees; ``obs_noise`` adds unwrapped Gaussian
+                noise there (the likelihood wraps residuals, which only
+                matters near +/-180 deg).
             drop_nonfinite: If True, drop any row whose x vector contains a
                 non-finite value (e.g. TidalPy forward-model failures), counted
                 in ``n_rejected_nonfinite``. Default False preserves current
@@ -1375,6 +1384,45 @@ class MCMCRunner:
             Tm_Ih_lin = 273.16 - 0.068 * P_Ih
             return bool(np.any(T_Ih >= Tm_Ih_lin - no_ocean_margin_K))
 
+        def _induction_channel_value(name, theta_dict):
+            """Model value for an induction observable channel, mirroring the
+            likelihood's grid-cache lookup (nearest Tb index into the Ae grid
+            precomputed at __init__). Returns NaN when the cache/label is
+            unavailable — with drop_nonfinite=True such rows are rejected and
+            counted, closing the old landmine where these channels were
+            silently NaN-filled in SBI datasets.
+            """
+            Tb_sample = theta_dict.get('Tb_K')
+            if (not self._ae_grid_cache or Tb_sample is None
+                    or 'Tb_K_grid' not in self.structure_data):
+                return np.nan
+            grid_Tb = np.asarray(self.structure_data['Tb_K_grid'])
+            Ae_dict = self._ae_grid_cache.get(
+                int(np.argmin(np.abs(grid_Tb - Tb_sample))))
+            if Ae_dict is None:
+                return np.nan
+            if name.startswith('Ae_') and name.endswith('_real'):
+                label, part = name[len('Ae_'):-len('_real')], 'real'
+            elif name.startswith('Ae_') and name.endswith('_imag'):
+                label, part = name[len('Ae_'):-len('_imag')], 'imag'
+            elif name.startswith('BiAmp_'):
+                label, part = name[len('BiAmp_'):], 'amp'
+            elif name.startswith('BiPhase_') and name.endswith('_deg'):
+                label, part = name[len('BiPhase_'):-len('_deg')], 'phase'
+            else:
+                return np.nan
+            Ae = Ae_dict.get(label)
+            if Ae is None:
+                return np.nan
+            Ae = complex(Ae)
+            if part == 'real':
+                return Ae.real
+            if part == 'imag':
+                return Ae.imag
+            if part == 'amp':
+                return abs(Ae)
+            return float(np.degrees(np.angle(Ae)))
+
         n_rejected_support = 0
         n_rejected_nonfinite = 0
 
@@ -1403,8 +1451,8 @@ class MCMCRunner:
                     n_rejected_support += 1
                     continue
 
-            # Compute k2
-            Re_k2, Im_k2, _, _, _ = forward_model_k2_flexible(
+            # Compute k2 (and h2 — same forward call returns both)
+            Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
                 theta_dict, self.structure_data,
                 return_heating=False, arrhenius_params=self.arrhenius_params
             )
@@ -1417,11 +1465,28 @@ class MCMCRunner:
                     xi.append(abs(Im_k2) if imag_convention == 'abs' else Im_k2)
                 elif name == 'abs_Im_k2' and imag_convention == 'abs':
                     xi.append(abs(Im_k2))
+                elif name == 'k2':
+                    xi.append(np.sqrt(Re_k2 ** 2 + Im_k2 ** 2))
+                # h2 channels (2026-07-10; previously silently NaN-filled).
+                # Mirrors the likelihood: Re_h2 signed; the Im channel is
+                # |Im h2| under 'abs' (both spellings), signed 'Im_h2' under
+                # 'signed'; 'h2' is the modulus.
+                elif name == 'Re_h2':
+                    xi.append(Re_h2)
+                elif name == 'Im_h2':
+                    xi.append(abs(Im_h2) if imag_convention == 'abs' else Im_h2)
+                elif name == 'abs_Im_h2' and imag_convention == 'abs':
+                    xi.append(abs(Im_h2))
+                elif name == 'h2':
+                    xi.append(np.sqrt(Re_h2 ** 2 + Im_h2 ** 2))
                 elif name == 'CMR2':
                     xi.append(cmr2_precomputed if cmr2_precomputed is not None
                                else self._compute_model_cmr2(theta_dict))
                 elif name == 'Mtot_kg':
                     xi.append(self._get_cache_scalar(theta_dict, 'Mtot_kg'))
+                elif (name.startswith('Ae_') or name.startswith('BiAmp_')
+                        or name.startswith('BiPhase_')):
+                    xi.append(_induction_channel_value(name, theta_dict))
                 else:
                     xi.append(np.nan)
 
