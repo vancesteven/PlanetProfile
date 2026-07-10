@@ -150,10 +150,97 @@ pass on data alone (bimodal median valley) — needs open item 2 below.
     correction entirely; the "+0.23σ shift" expectation from the 07-08 handoff
     should be retired either way.
 
+## 1M RESULTS — Machine B (2026-07-10)
+
+Ran the full campaign on Machine B (M2, 96 GB, mamba PPcl), gates + seeds unchanged.
+Artifact `/tmp/titan_andrade_noocean_posterior_1m.pt` (NOT committed — see below):
+config_hash 629afbd55a4f0ce5, git bf7c938e, train_seed 42, data seed 44 / noise 4444,
+n_train_effective 999,816 (rejection_rate 1.8e-4), nsf, sbi 0.26.1 / torch 2.11.0.
+Dataset gen ~19 min; **nsf training 6628 s (~110 min)** — see COMPUTE note.
+
+| Gate | Verdict | Detail |
+|---|---|---|
+| SBC (1000 pairs, seed 777/noise 7777) | **PASS** | all 8 params; min KS p=0.057 (eta_sil), Tb p=0.093; C2ST 0.56-0.62 |
+| Crosscheck (vs test50_..._8D_result.pkl, n=4198) | **FAIL** | all mean+sigma PASS; KS fails 5/8 (D, p @ alpha=0.01): alpha (D=0.038, 4.8e-3), eta_Ih (D=0.045, 4.0e-4), eta_V (D=0.040, 2.4e-3), eta_VI (D=0.042, 1.4e-3), Tb (D=0.041, 1.6e-3) |
+| Anchor limits (6 anchors, ess ~4100) | **FAIL** | pass .05/.10/.15/.30; **fail .20 (0.565 vs tol 0.397), .25 (1.137, bimodal)**; containment 1.0 |
+
+**Headline: eta_Ih residual has CONVERGED toward the self-D floor; remaining failures are
+gate-definition questions, not data volume (opus-reviewed 2026-07-10).**
+- Track effect size D, NOT the KS p-value (p convolves D with n and is not a discrepancy
+  metric at fixed alpha). eta_Ih crosscheck KS **D = 0.045 at 1M vs D = 0.068 recorded for
+  the noised retrains earlier this campaign (line ~297)** — a 34% reduction, now only
+  ~1.25x the split-half self-D 99th-pct floor (~0.036) vs ~1.9x before. That is
+  decelerating convergence toward the irreducible floor, not a stalled model. (The 500k
+  crosscheck logged only p=5.8e-4, not its D; the 1M p=4.0e-4 barely moved BECAUSE n grew,
+  so p is not the scaling metric — track D. ACTION: to make the scaling curve rigorous,
+  recompute crosscheck D for eta_Ih at 200k/500k/1M against the bootstrap self-D floor;
+  open item 1.) All five failing params have D in 0.038-0.045; means and
+  sigma-ratios all pass. Residual is distributional-only and sub-material for an
+  order-of-magnitude viscosity, but note eta_Ih carries a PERSISTENT single-sign LOW bias
+  (~0.12 dex low, ~0.25 dex low vs the Im=0.15 GT anchor, across every retrain) — bound it
+  as a systematic under open item 1, do NOT dismiss it as pure KS oversensitivity.
+- Crosscheck failing count rose 4/8 (500k) → 5/8 (1M, adds eta_VI). This is INCREASED KS
+  POWER at larger n resolving sub-0.05-D residuals, NOT a model regression — direct
+  corroboration that the p-value is the wrong scaling metric.
+- Anchor 0.20 did NOT pass (0.565 dex). Do NOT compare to 500k's 0.51: those anchors were
+  n_eff=300 (MC error on the median ~0.115 dex) vs ess~4100 here (~0.031 dex) — a
+  0.055-dex change is within combined anchor MC error, so the direction is not meaningful.
+  The real reason 0.20/0.25 fail is the independently-established bimodal median-valley
+  mechanism (modes ~11 and ~13.5 at 0.25; median lands mid-valley), which is a
+  statistic-definition problem, not data volume. Anchor 0.25 remains unpassable on data
+  alone, as predicted.
+
+**Implication:** the two failing gates require the ratification-framework work (open items
+1 and 2), NOT more training. Recommend STOP scaling data on Titan Test50 and resolve the
+gate definitions (KS materiality margin anchored to the self-D floor + distribution-level
+bimodal-anchor statistic) before any further artifact. SBC clean at 1M (C2ST 0.56-0.62,
+near-random) confirms average calibration; the crosscheck/limits "failures" test a
+different null (pointwise agreement vs one MCMC posterior at one x, alpha=0.01) and land
+in the bimodal / folded-noise tail flagged as unvalidated extrapolation — no contradiction
+with SBC PASS.
+
+**COMPUTE note (relevant to user's cluster question 2026-07-10):** 1M nsf training took
+~110 min CPU-bound on the M2 (vs the handoff's ~12 min estimate at 200k) — super-linear
+in dataset size with convergence-based early stopping. Artifact is 409 KB (size is
+architecture-bound, not data-bound; well under the 50 MB repo limit). Larger runs, wider
+observable vectors (induction/gravity), or artifact families should move to the cluster.
+`train_sbi_artifact.py` (committed this session) takes a pre-built .npz so dataset-gen
+and training are already separable cluster jobs.
+
+**Artifact NOT deployed:** two gates fail; per handoff open item 4, deployment is blocked
+on all-green + user re-verify. The provisional 500k committed artifact stands unchanged.
+1M .pt + dataset live in /tmp (regenerable from seeds; not committed). New reusable
+entry point committed: `PlanetProfile/Inference/train_sbi_artifact.py`.
+
+## SURFACED FOR MACHINE A (planning + implementation; user directive 2026-07-10)
+
+Hand these to Machine A to plan + implement; training returns to Machine B.
+
+1. **SBI conditioning flexibility.** User expected the GUI to vary priors and constraints
+   (observable sigma, CMR2, viscosities, Andrade params), but the amortized Titan artifact
+   only exposes the Re/Im k2 VALUES — correct behavior, because an NPE artifact conditions
+   only on its observable vector; sigma/priors are frozen at training time and CMR2 was
+   dropped from Test50. Options: (a) point users to the MCMC tab for free prior/sigma
+   variation; (b) train with sigma as CONDITIONING INPUTS (x = [Re, Im, sigma_Re, sigma_Im])
+   so a sigma slider is meaningful — pipeline + GUI change; (c) core-sensitive config +
+   artifact to expose CMR2; (d) artifact FAMILY across settings, GUI-selected.
+2. **Magnetic induction observables.** For Jupiter's moons (Europa, Ganymede, Callisto)
+   AND Enceladus, Miranda, Ariel, Triton, inference should also use magnetic-induction
+   observables (complex induction response) as an x-channel, distinct from tidal k2.
+3. **Modular forward-model observables (design constraint).** Independently-trained flows
+   CANNOT be merged into a joint posterior — cross-observable correlations only come from
+   training on the combined x. What IS modular is dataset generation: gravity /
+   non-spherical (J_n/C_nm/S_nm) / induction / plasma-effects modules each emit columns of
+   x, composed at build time; one flow per observable-set (or an artifact family). Future
+   work: non-spherically-symmetric gravity, magnetic induction, plasma effects as such
+   modules.
+
 ## Open ratification items (after 1M)
 
 1. eta_Ih/eta_V KS materiality margin if 1M still fails (opus framework: bootstrap
    self-D floor + per-param margin, e.g. |dmedian| < 0.3 dex with sigma-ratio in band).
+   **1M CONFIRMS THIS IS NEEDED: eta_Ih KS plateaued at 4.0e-4, plus alpha/eta_V/eta_VI/Tb
+   fail; all means+sigmas pass. This is now the primary blocker, not data volume.**
 2. Anchor gate statistic in bimodal regime (Im=0.25): median → distribution-level
    (1D Wasserstein or KS vs anchor samples), or scope the amortization domain to
    |Im k2| <= ~0.15-0.20 and document. Median mid-valley instability makes the current
