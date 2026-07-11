@@ -447,24 +447,38 @@ def _run_sbc_check(
     Uses sbi 0.26.1: run_sbc(...reduce_fns='marginals') then check_sbc(...).
     """
     import torch
-    from sbi.diagnostics import run_sbc, check_sbc
+    from sbi.diagnostics import check_sbc
 
     torch.manual_seed(int(seed))
     thetas_t = torch.as_tensor(np.asarray(thetas, dtype=np.float64), dtype=torch.float32)
     xs_t = torch.as_tensor(np.asarray(xs, dtype=np.float64), dtype=torch.float32)
 
-    ranks, dap_samples = run_sbc(
-        thetas_t, xs_t, posterior,
-        num_posterior_samples=int(num_posterior_samples),
-        reduce_fns='marginals',
-        show_progress_bar=False,
-    )
-    # Prior samples for check_sbc's prior-vs-DAP diagnostic: reuse the
-    # ground-truth thetas (drawn from the prior by construction).
+    # Sample manually with reject_outside_prior=False to avoid 0%-acceptance
+    # hangs on flows with heavy-tailed x distributions (e.g. extreme tidal k2).
+    # This replaces the run_sbc() call, which passes through the sbi batched
+    # sampler that does not expose reject_outside_prior.
+    n_sbc = thetas_t.shape[0]
+    n_p = thetas_t.shape[1]
+    N = int(num_posterior_samples)
+    ranks_list = []
+    dap_list = []
+    for i in range(n_sbc):
+        post_samples = posterior.sample(
+            (N,), x=xs_t[i],
+            show_progress_bars=False,
+            reject_outside_prior=False,
+        )  # shape (N, n_p)
+        # marginal rank: fraction of posterior samples < ground truth
+        ranks_i = (post_samples < thetas_t[i].unsqueeze(0)).float().sum(dim=0)  # (n_p,)
+        ranks_list.append(ranks_i)
+        # DAP: one random draw from posterior per SBC pair
+        dap_list.append(post_samples[0])
+    ranks = torch.stack(ranks_list).detach()           # (n_sbc, n_p)
+    dap_samples = torch.stack(dap_list).detach()       # (n_sbc, n_p)
     prior_samples = thetas_t
     checks = check_sbc(
         ranks, prior_samples, dap_samples,
-        num_posterior_samples=int(num_posterior_samples),
+        num_posterior_samples=N,
     )
     ks_pvals = np.asarray(checks['ks_pvals'].detach().cpu().numpy(), dtype=np.float64)
     c2st_ranks = np.asarray(checks['c2st_ranks'].detach().cpu().numpy(), dtype=np.float64)
