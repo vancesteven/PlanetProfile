@@ -4,14 +4,26 @@ interior structure models.
 """
 
 import os
+import sys
 
 import numpy as np
 
 dirName = 'SpacecraftMAGdata'
 _MAGdir = os.path.join(os.getcwd(), dirName)
 if not os.path.exists(_MAGdir):
-    yn = input(f'{dirName} directory not found in pwd. Create it? [y]/n ')
-    if yn in ['', 'y', 'Y', 'yes', 'Yes']:
+    # Non-interactive contexts (Streamlit, pytest, subprocess pipelines) have
+    # no stdin; input() raises EOFError there, which silently broke every
+    # consumer that transitively imports this package (e.g. the per-phase
+    # tidal-heating recompute in Inference). The prompt's default (empty
+    # answer) is yes, so apply the same default without asking.
+    if sys.stdin is None or not sys.stdin.isatty():
+        print(f'{dirName} directory not found in pwd: {_MAGdir}. '
+              f'Non-interactive session — creating it.')
+        _create = True
+    else:
+        _create = input(f'{dirName} directory not found in pwd. Create it? '
+                        f'[y]/n ') in ['', 'y', 'Y', 'yes', 'Yes']
+    if _create:
         os.mkdir(_MAGdir)
         _scList = next(os.walk(_MAGdir))[1]
     else:

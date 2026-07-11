@@ -21,11 +21,31 @@ from PlanetProfile.Gravity.defaultConfigGravity import gravityAssign, configGrav
 from PlanetProfile.MonteCarlo.defaultConfigMonteCarlo import montecarloAssign, configMonteCarloVersion
 from PlanetProfile.Inversion.defaultConfigInversion import inversionAssign, configInversionVersion
 Params, ExploreParams = configAssign()
-defLSK = os.path.join(Params.spiceDir, Params.spiceTLS)
-if not os.path.isfile(defLSK):
-    raise FileNotFoundError(f'Leapseconds kernel was not found at {defLSK}. This likely means PlanetProfile ' +
-                            f'has not been fully installed. Run the install script with the following command:\n' +
-                            f'python -m PlanetProfile.install')
+
+
+def _resolveLSK(spiceDir, spiceTLS):
+    """Resolve the leapseconds-kernel path CWD-independently.
+
+    A relative spiceDir (default 'SPICE') only resolves when the CWD is the
+    install/repo root. Consumers importing PlanetProfile from elsewhere
+    (e.g. the Streamlit app, whose CWD is PlanetProfileApp/) otherwise fail
+    here — which silently disabled the per-phase tidal-heating recompute
+    through compute_heating's import chain. Fall back to the repo root
+    (parent of the PlanetProfile package) before raising.
+    """
+    lsk = os.path.join(spiceDir, spiceTLS)
+    if not os.path.isfile(lsk) and not os.path.isabs(spiceDir):
+        rootLSK = os.path.join(os.path.dirname(_ROOT), spiceDir, spiceTLS)
+        if os.path.isfile(rootLSK):
+            return rootLSK
+    if not os.path.isfile(lsk):
+        raise FileNotFoundError(f'Leapseconds kernel was not found at {lsk}. This likely means PlanetProfile ' +
+                                f'has not been fully installed. Run the install script with the following command:\n' +
+                                f'python -m PlanetProfile.install')
+    return lsk
+
+
+defLSK = _resolveLSK(Params.spiceDir, Params.spiceTLS)
 spice.furnsh(defLSK)
 SigParams, ExcSpecParams, InductParams, _ = inductAssign()
 TrajecParams = trajecAssign()
@@ -110,18 +130,10 @@ def loadUserSettings(configModule: str = ''):
                         'To align the file version, delete configPP.py and run again, or execute reset.py ' +
                         'with python -m PlanetProfile.reset')
     if hasattr(userParams, 'spiceTLS') and hasattr(userParams, 'spiceDir'):
-        userLSK = os.path.join(userParams.spiceDir, userParams.spiceTLS)
-        if not os.path.isfile(userLSK):
-            raise FileNotFoundError(f'Leapseconds kernel was not found at {userLSK}. This likely means PlanetProfile ' +
-                                    f'has not been fully installed. Run the install script with the following command:\n' +
-                                    f'python -m PlanetProfile.install')
+        userLSK = _resolveLSK(userParams.spiceDir, userParams.spiceTLS)
         spice.furnsh(userLSK)
     else:
-        defLSK = os.path.join(Params.spiceDir, Params.spiceTLS)
-        if not os.path.isfile(defLSK):
-            raise FileNotFoundError(f'Leapseconds kernel was not found at {defLSK}. This likely means PlanetProfile ' +
-                                    f'has not been fully installed. Run the install script with the following command:\n' +
-                                    f'python -m PlanetProfile.install')
+        defLSK = _resolveLSK(Params.spiceDir, Params.spiceTLS)
         spice.furnsh(defLSK)
     configInduct = importlib.import_module(configModule + '.configPPinduct')
     userConfigInductVersion = configInduct.configInductVersion

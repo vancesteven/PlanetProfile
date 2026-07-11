@@ -663,10 +663,18 @@ def forward_model_k2_flexible(
             Re_h2 = np.nan
             Im_h2 = np.nan
 
-        # Compute per-phase heating if requested
+        # Compute per-phase heating if requested. Guard separately from the
+        # outer except so a heating-only failure (a) does not silently nuke
+        # the k2/h2 result and (b) is LOUD — a broken heating import chain
+        # previously vanished into the outer log.debug and returned empty
+        # heating for every sample with no visible symptom.
         perPhase_W = None
         if return_heating and modified_structure['eccentricity'] > 0:
-            perPhase_W = compute_heating(result, modified_structure)
+            try:
+                perPhase_W = compute_heating(result, modified_structure)
+            except Exception as heat_exc:
+                log.warning(f"Per-phase heating computation failed "
+                            f"(k2/h2 unaffected): {heat_exc}")
 
         return Re_k2, Im_k2, Re_h2, Im_h2, perPhase_W
 
