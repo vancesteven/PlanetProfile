@@ -313,6 +313,67 @@ mode-smoothing is real). If 0.25 is the sole red gate, the deployment decision i
 domain-scoping (validate |Im k2| <= 0.20 + document) vs mixture-capable flow work —
 user decision, surface it.
 
+## MACHINE B QUEUE (user directive 2026-07-11): further inference caches + artifacts
+
+Pull latest genai first — REQUIRED: the SBI dataset generator only gained induction
+(Ae_*/BiAmp_*/BiPhase_*) and h2/k2-modulus channel support in commit 0b01c02a, and the
+ratified gate amendments (shape-D crosscheck, W1 anchors) in 905f067c.
+
+Target artifact family (user): **Titan with AND without ocean, CMR2 in the posterior;
+Jupiter's moons (Europa, Ganymede, Callisto) with k2, h2, and magnetic induction.**
+
+### Phase 1 — ready to run now (configs committed)
+
+1. **[FIRST] Rerun the three amended gates on the 1M Test50 artifact** (expected:
+   crosscheck all-pass, SBC pass, anchor Im=0.25 likely sole red via W1). Report via
+   handoff addendum; if 0.25 is the only red the user decides domain-scoping vs
+   mixture-flow work.
+2. **Titan no-ocean WITH CMR2 = Test52 10D artifact** (config
+   test52_titan_noocean_andrade_10D.json, observables Re_k2/Im_k2/CMR2):
+   - rebuild grid cache if missing (build_phase_c1_cache --template
+     PlanetProfile.Test.PPTest50 --n-grid 9; offsets sidecar is committed and applies
+     automatically);
+   - dataset: SBIRunner(config mode='sbi').generate_training_set(1_000_000, seed=45,
+     obs_noise=True, noise_seed=4545) — CMR2 column now carries the core-sensitive
+     derivation + sidecar anchor;
+   - train nsf seed 42 (train_sbi_artifact.py); held-out 1500 seed 778/noise 7778;
+   - gates: sbc --n-sbc 1000; crosscheck vs the committed
+     Test52 production pickle (production_run/test52_production_result.pkl);
+     limits: build 6 GT anchors by cloning the Test52 config with Im_k2 swept
+     0.05..0.30 (sigma 0.035), n_effective=300 (pattern:
+     configs/test50_limits_anchors/, adapted to the 10D config).
+3. **Callisto NaCl k2+h2+induction artifact** (config callisto_nacl_andrade_8D.json —
+   already carries CMR2, Re/Im k2, Re/Im h2, and 6 Ae_* channels):
+   - cache callisto_nacl_structure_grid.pkl is gitignored: rebuild via
+     build_phase_c1_cache --config ... --template
+     PlanetProfile.Default.Callisto.PPCallisto --n-grid 11 if absent;
+   - NOTE the MCMCRunner init precomputes the Ae grid (~1.5 s/label/point) — expected
+     ~1-2 min startup; dataset gen itself is cache-lookup fast;
+   - dataset 1M seed 46/noise 4646; nsf seed 42; held-out 1500 seed 779/7779;
+   - gates: sbc + crosscheck vs T25_production_nacl/T25_callisto_nacl_result.pkl
+     (verify that pickle's observables match the config's first — legacy pickle);
+     limits anchors: sweep the DOMINANT observable (CMR2 +/- its sigma is nearly
+     degenerate; sweep Re_k2 0.10..0.30 instead, monotone-param log10_eta_Ih, W1 gate).
+     If anchor design is ambiguous, run sbc+crosscheck and surface anchors for
+     Machine A design.
+
+### Phase 2 — blocked on Machine A config authoring (in progress)
+
+4. **Titan WITH ocean** — no v2 config exists yet (Test42 maxwell-ocean predates the
+   v2 grid pipeline). Machine A will author titan_ocean config (andrade, NaCl-or-
+   seawater comp TBD with user, Tb range from find_tb_bounds, CMR2 + k2 + h2 [+
+   induction — Titan induction weak but computable]) and push; then same recipe:
+   cache -> reference MCMC (n_eff 500) -> 1M dataset -> nsf -> gates.
+5. **Europa seawater + Ganymede**: europa_seawater_andrade_7D.json needs h2+induction
+   observable extension (Machine A will push). **Ganymede caution:** PP skips
+   MagneticInduction entirely for Ocean.comp == 'PureH2O' (Main.py:352) — the
+   ganymede_pureh2o config CANNOT produce induction channels; a salted-ocean Ganymede
+   config is required (user decision on composition pending).
+
+Seeds registry (all new): Test52 data 45/4545; Callisto 46/4646; Europa 47/4747;
+Ganymede 48/4848; Titan-ocean 49/4949. Held-out seeds: 778/7778, 779/7779, 780/7780,
+781/7781, 782/7782 respectively. Train seed always 42.
+
 ## Open ratification items (after 1M)
 
 1. eta_Ih/eta_V KS materiality margin if 1M still fails (opus framework: bootstrap
