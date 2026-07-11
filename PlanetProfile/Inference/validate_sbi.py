@@ -1115,10 +1115,18 @@ def cmd_limits(args) -> int:
     fixed_obs: Dict[str, float] = {}
     if args.fixed_obs:
         fixed_obs.update({k: float(v) for k, v in json.loads(args.fixed_obs).items()})
+    _RE_K2_ALIASES = ('Re_k2', 're_k2', 'abs_Re_k2')
     if args.re_k2 is not None:
-        for name in runner.obs_names:
-            if name not in _IM_K2_ALIASES and name not in fixed_obs:
+        matched = [n for n in runner.obs_names if n in _RE_K2_ALIASES and n not in fixed_obs]
+        if matched:
+            for name in matched:
                 fixed_obs[name] = float(args.re_k2)
+        else:
+            # Fallback: apply to all non-Im_k2 non-fixed channels (original behaviour,
+            # preserved for configs with no standard Re_k2 name).
+            for name in runner.obs_names:
+                if name not in _IM_K2_ALIASES and name not in fixed_obs:
+                    fixed_obs[name] = float(args.re_k2)
     # Any remaining non-swept observable without a value is an error.
     missing = [n for n in runner.obs_names if n != sweep_obs and n not in fixed_obs]
     if missing:

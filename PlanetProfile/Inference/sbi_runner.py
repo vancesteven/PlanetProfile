@@ -576,6 +576,7 @@ class SBIRunner:
         x_obs: Dict[str, float],
         n_samples: int = 10000,
         seed: Optional[int] = None,
+        reject_outside_prior: bool = False,
     ) -> np.ndarray:
         """Draw posterior samples conditioned on observed data.
 
@@ -587,11 +588,13 @@ class SBIRunner:
             n_samples: Number of posterior draws.
             seed: torch.manual_seed value for reproducible draws
                 (None = do not reseed).
+            reject_outside_prior: If True, sbi's DirectPosterior rejects
+                proposals outside the prior box (default False to avoid
+                acceptance-rate collapse on heavy-tailed x distributions).
 
         Returns:
             (n_samples, D) numpy array in raw theta space,
-            columns in ``param_names`` order. Draws outside the prior box
-            are rejected by sbi's DirectPosterior (reject_outside_prior).
+            columns in ``param_names`` order.
         """
         torch, _ = _import_torch_sbi()
 
@@ -605,7 +608,8 @@ class SBIRunner:
         x_vec = self._x_obs_vector(x_obs)
         x_t = torch.as_tensor(x_vec, dtype=torch.float32)
         samples = self._posterior.sample(
-            (int(n_samples),), x=x_t, show_progress_bars=False
+            (int(n_samples),), x=x_t, show_progress_bars=False,
+            reject_outside_prior=reject_outside_prior,
         )
         return samples.detach().cpu().numpy().astype(np.float64)
 
