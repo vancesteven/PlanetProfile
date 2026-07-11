@@ -1159,6 +1159,20 @@ def render_amortized_config():
     }
 
 
+def _amortized_spec_fingerprint(spec):
+    """Stable fingerprint of everything that changes the posterior, used to
+    flag stale results when controls move after a run."""
+    import json as _json
+    return _json.dumps({
+        'artifact': spec['artifact_path'],
+        'x_obs': spec['x_obs'],
+        'truncate': spec['truncate_bounds'],
+        'n_post': spec['n_posterior_samples'],
+        'n_reeval': spec['n_reeval'],
+        'seed': spec['seed'],
+    }, sort_keys=True)
+
+
 def render_amortized_run_button(spec, InferenceConfig):
     """Run button for amortized mode: instant conditioning + recompute."""
     st.markdown("---")
@@ -1205,6 +1219,7 @@ def render_amortized_run_button(spec, InferenceConfig):
             )
 
         st.session_state.inference_results = result
+        st.session_state.amort_last_run_fp = _amortized_spec_fingerprint(spec)
         kept = result.metadata.get('kept_fraction')
         msg = "✅ Amortized posterior ready."
         if kept is not None:
@@ -1239,18 +1254,36 @@ def render_results():
 
     st.markdown("### 📊 Inference Results")
 
-    # Convergence metrics
-    with st.expander("📈 Convergence Metrics", expanded=True):
-        col1, col2, col3 = st.columns(3)
-
+    # Convergence metrics (mode-aware: MCMC diagnostics don't apply to an
+    # amortized flow — its calibration is established by the SBC/crosscheck
+    # validation gates at training time, not per-run statistics).
+    is_amortized = (result.metadata or {}).get('sampler') == 'sbi'
+    with st.expander("📈 Sampling Diagnostics", expanded=True):
         metrics = result.convergence_metrics
-        col1.metric("ESS", f"{metrics['ess']:.0f}")
-        acc = metrics['acceptance_rate']
-        col2.metric("Acceptance Rate", f"{acc:.1%}" if acc is not None else "N/A")
-        rhat = metrics.get('r_hat')
-        col3.metric("R-hat", f"{rhat:.3f}" if rhat is not None else "N/A")
-
-        st.caption(f"**Samples:** {metrics['n_samples']} | **Runtime:** {result.metadata['elapsed_time_s']/60:.1f} min")
+        if is_amortized:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Posterior draws", f"{metrics['n_samples']}")
+            kept = (result.metadata or {}).get('kept_fraction')
+            col2.metric("Truncation kept",
+                        f"{kept:.1%}" if kept is not None else "no truncation")
+            col3.metric("Sampler", "Amortized NPE")
+            st.caption(
+                f"**Runtime:** {result.metadata['elapsed_time_s']/60:.1f} min · "
+                f"artifact: `{Path(str(result.metadata.get('artifact_path', ''))).name}` "
+                f"(trained on {result.metadata.get('n_train_effective', '?'):,} sims). "
+                f"Acceptance rate and R-hat are MCMC convergence diagnostics and "
+                f"do not apply here; this artifact's calibration was validated "
+                f"via the SBC / cross-check / anchor gates (see "
+                f"`sbi_artifacts/INDEX.md`)."
+            )
+        else:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("ESS", f"{metrics['ess']:.0f}")
+            acc = metrics['acceptance_rate']
+            col2.metric("Acceptance Rate", f"{acc:.1%}" if acc is not None else "N/A")
+            rhat = metrics.get('r_hat')
+            col3.metric("R-hat", f"{rhat:.3f}" if rhat is not None else "N/A")
+            st.caption(f"**Samples:** {metrics['n_samples']} | **Runtime:** {result.metadata['elapsed_time_s']/60:.1f} min")
 
     # Summary statistics
     with st.expander("📋 Parameter Summary", expanded=True):
@@ -1362,7 +1395,7 @@ def render_results():
             if 'Tb_K' in result.param_names:
                 tb_idx = result.param_names.index('Tb_K')
                 tb_vals = eval_samples[:, tb_idx]
-                tb_norm = (tb_vals - tb_vals.min()) / (tb_vals.ptp() + 1e-10)
+                tb_norm = (tb_vals - tb_vals.min()) / (np.ptp(tb_vals) + 1e-10)
                 pt_size = 4 + 20 * tb_norm  # 4–24 px, larger = warmer = more ocean
 
             plt.rcParams['text.usetex'] = False
@@ -1508,10 +1541,15 @@ def render_results():
 
     # Heating distribution
     with st.expander("🔥 Heating Distribution", expanded=False):
-        heating_results = result.heating_results or []
-        if not heating_results:
-            st.info("Heating data unavailable. Set **n_reeval > 0** in sampler settings to compute per-phase heating.")
+        heating_results = list(result.heating_results) if result.heating_results is not None else []
+        n_nonempty = sum(1 for h in heating_results if h)
+        if not heating_results or n_nonempty == 0:
+            st.info("Heating data unavailable. Set **n_reeval > 0** in sampler "
+                    "settings (or the heating re-evaluation subset in amortized "
+                    "mode) to compute per-phase heating.")
         else:
+            st.caption(f"{n_nonempty} forward-model heating evaluations "
+                       f"(seeded subset of the posterior).")
             try:
                 import matplotlib.pyplot as plt
 
@@ -1906,6 +1944,17 @@ def main():
             render_amortized_run_button(spec, InferenceConfig)
         with col_results:
             st.subheader("📊 Results")
+            # Controls (sliders, observables, seed, ...) do NOT auto-rerun
+            # the inference — flag when the displayed posterior no longer
+            # matches the form so the required button click is obvious.
+            if (spec is not None
+                    and st.session_state.get('inference_results') is not None
+                    and st.session_state.get('amort_last_run_fp') is not None
+                    and _amortized_spec_fingerprint(spec)
+                        != st.session_state.amort_last_run_fp):
+                st.warning("⚠️ **Controls changed since this posterior was "
+                           "generated** — the plots below show the *previous* "
+                           "settings. Click **⚡ Generate Posterior** to update.")
             render_results()
         return
 
