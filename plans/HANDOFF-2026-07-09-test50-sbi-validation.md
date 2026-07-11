@@ -410,18 +410,50 @@ Dataset generated: `/tmp/train_test52_1m.npz` (seed 45/noise 4545).
   even though those rows are physically valid (rare forward-model extremes at corner
   prior combinations). SBI's z-scoring uses mean/std which are sensitive to outliers.
 
-**v2 artifact: retraining on outlier-filtered dataset (IN PROGRESS)**
+**v2 artifact: retraining on outlier-filtered dataset — COMPLETE**
 - Dataset `/tmp/train_test52_clean.npz`: 877,883 rows (532 outlier rows removed via
   per-dimension 10xIQR filter: Re_k2 to [-3.76,4.43], Im_k2 to [-0.95,1.16]).
-- v2 nsf training launched (seed 42, ~97 min expected); output:
-  `/tmp/titan_diff_noocean_andrade_test52_1m_v2.pt`.
-- Gates (SBC/crosscheck/limits) will run after v2 training completes.
-- 6 limits anchors already computed: `/tmp/test52_anchors_im{0.05..0.30}.pkl`.
+- Artifact: `/tmp/titan_diff_noocean_andrade_test52_1m_v2.pt` (438 KB, 83 epochs,
+  79.5 min, seed 42, nsf, git sha 5d7c27df).
+- Status: **implemented, unverified** — gates run but contain failures (details below).
 
-**NOTE for Machine A:** The sbi z-scoring is sensitive to outlier x values. For any
-config where the forward model can produce rare extreme observables (tidal k2 at corner
-prior values), dataset-gen should include an outlier filter or `train_sbi_artifact.py`
-should apply it before training. Consider adding a `--clip-x-iqr` option.
+**v2 gate results (2026-07-11, Machine B, git e07a92aa)**
+
+Two infrastructure fixes required before final limits run:
+1. `sbi_runner.sample_posterior`: added `reject_outside_prior=False` param to prevent
+   NSF spline assertion crash at heavy-tailed x values (same class of fix as SBC).
+2. `validate_sbi cmd_limits`: `--re-k2` now only sets Re_k2 channel, not ALL non-Im_k2
+   channels. Without this fix, CMR2 was being set to 0.608 (vs correct 0.343), causing
+   the flow to be conditioned on the wrong observable → catastrophic W1=1.4–3.8.
+
+| Gate | Verdict | Key metric |
+|---|---|---|
+| SBC (n=1000, seed 42) | **FAIL** | min KS p = 0.0159 (log10_eta_V); 9/10 PASS |
+| Crosscheck (Re=0.608, Im=0.135, CMR2=0.343) | **FAIL** | shape: log10_zeta D=0.059>tol 0.049, log10_eta_III D=0.052>tol 0.050, Tb_K D=0.052>tol 0.047; all mean/sigma/median PASS |
+| Limits (W1, anchor) | **FAIL** | Im≤0.25 PASS; Im=0.30 FAIL W1=0.405>tol=0.296 |
+| Containment | 97.7% | Systematic ~2-3% leak from reject_outside_prior=False (expected) |
+
+**Scientific reviewer assessment (opus, 2026-07-11):**
+- SBC failure: plausibly Type I (multiple testing; p=0.0159 for 1 of 10 params; also may
+  be sampler artifact — support leakage below prior box inflates log10_eta_V ranks).
+- Crosscheck shape failures: REAL but small-magnitude (<6% max-CDF displacement).
+  All location tests (mean/sigma/median) pass. Failures isolated to distribution shape
+  in lower-edge tail regions, which are prior-dominated and scientifically immaterial
+  for HPD/mode summaries.
+- Limits Im=0.30 FAIL: genuine flow approximation error at high Im (same character as
+  Test50 Im=0.25 failure, shifted 1 grid point).
+- Overall verdict: **deployable with domain restriction |Im k2| ≤ 0.25** and documented
+  caveats on log10_zeta/log10_eta_III/Tb_K lower-tail shape fidelity.
+
+**Machine A required actions before deployment:**
+1. Hard runtime guard in artifact/GUI refusing |Im_k2| > 0.25 for Test52 artifact.
+2. INDEX.md scope note: "shape-gate caveats on log10_zeta, log10_eta_III, Tb_K lower tails."
+3. (Optional) 2M-simulation rerun if tail/shape fidelity is manuscript-critical.
+
+**NOTE for Machine A (infrastructure):** The sbi z-scoring is sensitive to outlier x
+values. For any config where the forward model can produce rare extreme observables
+(tidal k2 at corner prior values), dataset-gen should include an outlier filter or
+`train_sbi_artifact.py` should apply it before training. Consider adding `--clip-x-iqr`.
 
 ### Phase 1 item 3 — Callisto NaCl k2+h2+induction — BLOCKED (config issue)
 
