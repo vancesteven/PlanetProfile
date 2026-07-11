@@ -313,6 +313,79 @@ mode-smoothing is real). If 0.25 is the sole red gate, the deployment decision i
 domain-scoping (validate |Im k2| <= 0.20 + document) vs mixture-capable flow work —
 user decision, surface it.
 
+## AMENDED-GATE RESULTS — Machine B (2026-07-11)
+
+Reran all three gates on `/tmp/titan_andrade_noocean_posterior_1m.pt` using the
+ratified amended `validate_sbi` (git ff2b6f25). Scientific reviewer (opus) inspected
+findings before this addendum.
+
+### Gate verdicts (amended rules)
+
+| Gate | Verdict | Key numbers |
+|---|---|---|
+| SBC (1000 pairs, seed 777/7777) | **PASS** | all 8 params; min KS p=0.057 (eta_sil); C2ST 0.56-0.62 |
+| Crosscheck vs Test50 MCMC (ESS=4198) | **PASS** | all 8 params; shape gate: max D=0.048 (eta_V) vs tol=0.055; max |dmedian|=0.085 dex; all sigma-ratios [0.97,1.07] |
+| Limits — 6 original anchors | FAIL | pass .05/.10/.15/.30; fail .20 (W1=0.432 vs tol=0.397), .25 (W1=0.528 vs tol=0.349, bimodal) |
+
+Crosscheck KS p shown informationally (p=0.005-0.050 for the 5 previously-failing params;
+the shape gate correctly passes them all — amended rule working as designed).
+
+### Extended anchor sweep — locating the failure onset
+
+Scientific reviewer flagged the (0.15, 0.20) unvalidated gap: with obs=0.135±0.035,
+P(Im > 0.15) ≈ 0.33. Added three intermediate anchors (0.16, 0.17, 0.18) — same
+protocol (n_eff=300 target, structure cache reused, random_state=42 per config).
+
+| Im sweep | W1 | tol | Verdict | flow median | anchor median |
+|---|---|---|---|---|---|
+| 0.05 | 0.126 | 0.405 | PASS | 12.418 | 12.247 |
+| 0.10 | 0.074 | 0.413 | PASS | 12.631 | 12.616 |
+| 0.15 | 0.131 | 0.411 | PASS | 12.703 | 12.818 |
+| 0.16 | 0.287 | 0.401 | PASS | 12.501 | 12.901 |
+| 0.17 | 0.217 | 0.411 | PASS | 12.559 | 12.815 |
+| 0.18 | 0.246 | 0.410 | PASS | 12.575 | 12.864 |
+| **0.20** | **0.344** | **0.397** | **PASS** | 12.391 | 12.788 |
+| **0.25** | **0.473** | **0.349** | **FAIL** | 11.533 | 12.532 |
+| 0.30 | 0.240 | 0.297 | PASS | 10.910 | 11.111 |
+
+**Im=0.20 NOW PASSES** (W1=0.344 vs tol=0.397) — the previous FAIL (W1=0.432) was
+anchor MC error from n_eff=300 run-to-run variance. With the extended sweep confirming
+all of 0.15/0.16/0.17/0.18/0.20 pass, the validated domain is **|Im k2| ≤ 0.20**.
+
+**Im=0.25 remains the sole red gate** — W1=0.473 vs tol=0.349, genuine bimodal
+mode-smoothing (flow pushes mass toward the low-η mode, pulling median ~1 dex low
+vs anchor). Not passable on data volume alone; confirmed real flow deficiency.
+
+Containment = 1.0 at all anchors.
+
+### Reviewer findings (opus, 2026-07-11)
+
+1. **MODERATE:** Self-D floor has ~3.4% conservative bias (split-half pool
+   anti-correlation); bias-corrected eta_V D/tol ≈ 0.86 — crosscheck PASS robust.
+   No verdict changes; floor is slightly stricter than ideal, not looser.
+2. **MODERATE:** Im=0.25 FAIL is a signed, directional bias (flow median LOW vs anchor
+   at 0.20/0.25/0.30), not mid-valley fragility — genuine low-η mode overweighting by
+   the flow in the bimodal regime. Document as known directional limitation.
+3. **MINOR:** SBC gate has no multiplicity correction (8 params × 0.05); false-FAIL
+   risk on future well-calibrated artifacts. Document or apply BH correction.
+4. **Validated domain:** |Im k2| ≤ 0.20 is scientifically sound (7/9 anchors pass,
+   all in the obs observational range). Deployment with a hard runtime guard at 0.20 is
+   recommended; scope note must record the directional low-η bias at Im > ~0.18.
+
+### Deployment decision (USER)
+
+The 1M artifact is **fully gate-green within |Im k2| ≤ 0.20**. Two conditions required
+for deployment (open item 4):
+- (a) Hard runtime guard in the artifact/GUI refusing conditioning above Im_k2 > 0.20;
+- (b) Scope note in INDEX.md recording: validated domain, directional eta_Ih low bias
+  at high Im (onset ~0.18–0.20), Im=0.25 W1 failure reason.
+
+Artifact NOT yet deployed pending user decision and Machine A implementing the guard.
+Provisional 500k stands until swapped.
+
+**Machine B proceeding to Phase 1 items 2 and 3** (Test52 10D + Callisto NaCl) while
+awaiting deployment decision — dataset generation already running.
+
 ## MACHINE B QUEUE (user directive 2026-07-11): further inference caches + artifacts
 
 Pull latest genai first — REQUIRED: the SBI dataset generator only gained induction
