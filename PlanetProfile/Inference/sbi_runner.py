@@ -741,15 +741,97 @@ class SBIRunner:
             self.save_artifact(artifact_path)
         _progress(1)
 
-        # --- Step 2: condition on observed central values -------------------
-        # config.observables holds (value, uncertainty); condition the flow
-        # on the central values with the |Im k2| convention.
+        # --- Steps 2-4: condition, recompute, package ------------------------
         x_obs = {name: spec[0] for name, spec in self.config.observables.items()}
-        samples = self.sample_posterior(
-            x_obs, n_samples=n_posterior_samples, seed=seed
+        return self._condition_and_package(
+            x_obs=x_obs,
+            n_posterior_samples=n_posterior_samples,
+            seed=seed,
+            n_reeval=int(settings.get('n_reeval', 500)),
+            artifact_path=artifact_path,
+            reused=reused,
+            rejection_stats=rejection_stats,
+            config_hash=config_hash,
+            t0=t0,
+            progress_cb=_progress,
         )
+
+    def _condition_and_package(
+        self,
+        x_obs: Dict[str, float],
+        n_posterior_samples: int,
+        seed: int,
+        n_reeval: int,
+        artifact_path,
+        reused: bool,
+        rejection_stats: Optional[Dict[str, Any]],
+        config_hash: str,
+        t0: float,
+        progress_cb: Optional[Callable] = None,
+        truncate_bounds: Optional[Dict[str, Tuple[float, float]]] = None,
+    ):
+        """Steps 2-4 of the SBI pipeline: condition the (already loaded or
+        trained) flow on ``x_obs``, recompute derived quantities with the
+        MCMC forward model, and package an InferenceResult.
+
+        ``truncate_bounds`` ({param: (lo, hi)} strictly inside the trained
+        prior box) applies EXACT uniform-prior truncation by rejection
+        filtering of the drawn samples: for uniform priors, restricting the
+        prior support and renormalizing is identical to conditioning the
+        posterior on the sub-box, so filtering draws is exact (no
+        reweighting needed). Oversamples in batches until
+        ``n_posterior_samples`` survive (cap 10x); raises if the kept
+        fraction falls below 1%.
+        """
+        from .inference_core import InferenceResult
+
+        torch, sbi_pkg = _import_torch_sbi()
+
+        def _progress(phase: int, n_samples_now: int = 0):
+            if progress_cb is not None:
+                try:
+                    progress_cb(phase, n_samples_now)
+                except TypeError:
+                    pass
+
+        # --- Step 2: condition on x_obs --------------------------------------
+        kept_fraction = None
+        if truncate_bounds:
+            self._validate_truncation(truncate_bounds)
+            idx_map = {name: self.param_names.index(name)
+                       for name in truncate_bounds}
+            kept = []
+            n_drawn = 0
+            batch = int(n_posterior_samples)
+            max_draws = 10 * int(n_posterior_samples)
+            batch_seed = seed
+            while sum(len(k) for k in kept) < n_posterior_samples and n_drawn < max_draws:
+                draw = self.sample_posterior(x_obs, n_samples=batch, seed=batch_seed)
+                n_drawn += len(draw)
+                mask = np.ones(len(draw), dtype=bool)
+                for name, (lo, hi) in truncate_bounds.items():
+                    col = draw[:, idx_map[name]]
+                    mask &= (col >= lo) & (col <= hi)
+                kept.append(draw[mask])
+                batch_seed = (batch_seed or 0) + 1
+            samples = np.concatenate(kept, axis=0)
+            kept_fraction = float(len(samples) / max(n_drawn, 1))
+            if kept_fraction < 0.01:
+                raise RuntimeError(
+                    f"Prior truncation keeps only {kept_fraction:.2%} of "
+                    f"posterior draws ({truncate_bounds}) — the truncated "
+                    f"region carries almost no posterior mass. Widen the "
+                    f"truncation or use MCMC mode."
+                )
+            samples = samples[:n_posterior_samples]
+        else:
+            samples = self.sample_posterior(
+                x_obs, n_samples=n_posterior_samples, seed=seed
+            )
         n_samples = len(samples)
-        log.info(f"Drew {n_samples} posterior samples from the trained flow")
+        log.info(f"Drew {n_samples} posterior samples from the trained flow"
+                 + (f" (truncated, kept_fraction={kept_fraction:.3f})"
+                    if kept_fraction is not None else ""))
         _progress(2, n_samples)
 
         # Flow log density at the drawn samples (posterior density estimate,
@@ -794,7 +876,7 @@ class SBIRunner:
         _progress(3, n_samples)
 
         # Heating on a seeded subset (same pattern/settings as MCMCRunner.run).
-        n_reeval = min(int(settings.get('n_reeval', 500)), n_samples)
+        n_reeval = min(int(n_reeval), n_samples)
         log.info(f"Recomputing heating for {n_reeval} posterior samples...")
         rng = np.random.RandomState(seed)
         idx_heat = rng.choice(n_samples, n_reeval, replace=False)
@@ -862,7 +944,138 @@ class SBIRunner:
                 'flow_log_prob': flow_log_prob,
                 'sbi_version': sbi_pkg.__version__,
                 'torch_version': torch.__version__,
+                'truncate_bounds': ({k: [float(lo), float(hi)]
+                                     for k, (lo, hi) in truncate_bounds.items()}
+                                    if truncate_bounds else None),
+                'kept_fraction': kept_fraction,
+                'training_obs_noise': (rejection_stats or {}).get('obs_noise'),
             },
             weights=None,
         )
+        return result
+
+    def _validate_truncation(
+        self, truncate_bounds: Dict[str, Tuple[float, float]]
+    ) -> None:
+        """Truncation sub-box must name known params and lie inside the
+        trained prior box (widening cannot be done post hoc)."""
+        lows, highs = self._param_bounds()
+        box = dict(zip(self.param_names, zip(lows, highs)))
+        for name, (lo, hi) in truncate_bounds.items():
+            if name not in box:
+                raise ValueError(f"truncate_bounds: unknown parameter '{name}'")
+            blo, bhi = box[name]
+            if not (blo <= lo < hi <= bhi):
+                raise ValueError(
+                    f"truncate_bounds for '{name}' = ({lo}, {hi}) must lie "
+                    f"strictly inside the trained prior box ({blo}, {bhi}); "
+                    f"widening requires retraining."
+                )
+
+    def infer_from_artifact(
+        self,
+        artifact_path,
+        x_obs: Optional[Dict[str, float]] = None,
+        n_posterior_samples: int = 10000,
+        seed: int = 42,
+        n_reeval: int = 500,
+        truncate_bounds: Optional[Dict[str, Tuple[float, float]]] = None,
+        progress_callback: Optional[Callable] = None,
+    ):
+        """Amortized inference from a pretrained artifact — NEVER trains.
+
+        Loads the artifact into this runner, validates compatibility with
+        ``self.config`` (parameter set, observable set, |Im k2| convention,
+        and the trained prior box — priors and observation noise are frozen
+        at training time; only observable VALUES are free), conditions the
+        flow, and packages the same InferenceResult the MCMC path produces
+        (forward-model recompute of k2/CMR2/thicknesses/heating + Gaussian
+        log-likelihoods).
+
+        Args:
+            artifact_path: Trained .pt artifact.
+            x_obs: Observable values to condition on (defaults to
+                ``config.observables`` central values). Aliased 'Im_k2' /
+                'abs_Im_k2' accepted.
+            n_posterior_samples / seed / n_reeval: as in run().
+            truncate_bounds: Optional exact uniform-prior truncation, a
+                {param: (lo, hi)} sub-box of the trained prior
+                (see ``_condition_and_package``).
+            progress_callback: Same contract as run().
+
+        Returns:
+            InferenceResult (metadata['mode'] = 'amortized').
+        """
+        artifact = self._load_artifact_dict(artifact_path)
+
+        # Compatibility: the artifact must describe the same inference
+        # problem the config poses. Values of observables are free; names,
+        # parameter set, convention, and prior box are not.
+        art_params = list(artifact['param_names'])
+        if art_params != self.param_names:
+            raise ValueError(
+                f"Artifact parameters {art_params} != config parameters "
+                f"{self.param_names}"
+            )
+        art_obs = list(artifact['obs_names'])
+        if art_obs != self.obs_names:
+            raise ValueError(
+                f"Artifact observables {art_obs} != config observables "
+                f"{self.obs_names}"
+            )
+        if artifact.get('imag_convention') != self.imag_convention:
+            raise ValueError(
+                f"Artifact imag_convention '{artifact.get('imag_convention')}'"
+                f" != '{self.imag_convention}'"
+            )
+        art_bounds = [tuple(map(float, b)) for b in artifact['param_bounds']]
+        lows, highs = self._param_bounds()
+        cfg_bounds = list(zip(lows, highs))
+        if not np.allclose(np.asarray(art_bounds), np.asarray(cfg_bounds)):
+            raise ValueError(
+                f"Artifact prior box {art_bounds} != config prior box "
+                f"{cfg_bounds}. Priors are frozen at training time; build "
+                f"the config from the artifact's metadata (narrow the "
+                f"posterior with truncate_bounds instead)."
+            )
+
+        self._posterior = artifact['posterior']
+        self._train_info = {
+            'density_estimator': artifact.get('density_estimator'),
+            'seed': artifact.get('seed'),
+            'n_train_effective': artifact.get('n_train_effective'),
+            'rejection_stats': artifact.get('rejection_stats'),
+            'theta_norm': artifact.get('theta_norm'),
+            'x_norm': artifact.get('x_norm'),
+        }
+
+        if x_obs is None:
+            x_obs = {name: spec[0]
+                     for name, spec in self.config.observables.items()}
+
+        def _progress(phase: int, n_samples_now: int = 0):
+            if progress_callback is not None:
+                try:
+                    progress_callback({
+                        'iteration': phase, 'n_total': 4,
+                        'n_samples': n_samples_now,
+                    })
+                except Exception:
+                    pass
+
+        result = self._condition_and_package(
+            x_obs={k: float(v) for k, v in x_obs.items()},
+            n_posterior_samples=int(n_posterior_samples),
+            seed=int(seed),
+            n_reeval=int(n_reeval),
+            artifact_path=artifact_path,
+            reused=True,
+            rejection_stats=artifact.get('rejection_stats'),
+            config_hash=artifact.get('config_hash', ''),
+            t0=time.time(),
+            progress_cb=_progress,
+            truncate_bounds=truncate_bounds,
+        )
+        result.metadata['mode'] = 'amortized'
+        result.metadata['artifact_created_utc'] = artifact.get('created_utc')
         return result

@@ -11,10 +11,12 @@ layer_step_settings = st.Page("pages/LayerStepSettings.py", title = "Layer Step 
 run_PlanetProfile = st.Page("pages/RunPlanetProfile.py", title = "Run PlanetProfile", icon = "🚀")
 PlanetProfile_outputs = st.Page("pages/PlanetProfileOutputs.py", title = "PlanetProfile Outputs", icon = "📈")
 exploreogram = st.Page("pages/Exploreogram.py", title = "Exploreogram", icon = "🔬")
-inference = st.Page("pages/Inference.py", title = "MCMC", icon = "🧮")
-amortized_inference = st.Page("pages/AmortizedInference.py", title = "Amortized Inference (SBI)", icon = "⚡")
+# Bayesian inference: MCMC and amortized (pretrained SBI) execution modes
+# share this page; the standalone AmortizedInference page was merged here
+# (2026-07-11).
+inference = st.Page("pages/Inference.py", title = "Bayesian Inference", icon = "🧮")
 # Set up navigation
-pg = st.navigation([about, main_settings, bulk_planetary_settings, ocean_settings, core_settings, layer_step_settings, run_PlanetProfile, PlanetProfile_outputs, exploreogram, inference, amortized_inference])
+pg = st.navigation([about, main_settings, bulk_planetary_settings, ocean_settings, core_settings, layer_step_settings, run_PlanetProfile, PlanetProfile_outputs, exploreogram, inference])
 
 # Run the selected page
 pg.run()

@@ -943,7 +943,8 @@ def render_run_button(InferenceConfig, MCMCRunner):
         try:
             # Get body name from preset (not from session planet)
             preset = st.session_state.inference_preset
-            if preset in ['andrade_titan', 'maxwell_titan']:
+            if preset in ['andrade_titan', 'maxwell_titan', 'andrade_titan_noocean_8D',
+                          'andrade_titan_noocean_diff_10D']:
                 bodyname = 'Titan'
             elif preset == 'andrade_europa':
                 bodyname = 'Europa'
@@ -977,11 +978,13 @@ def render_run_button(InferenceConfig, MCMCRunner):
                     text=f"Iteration {progress_dict['iteration']} / {progress_dict['n_total']}"
                 )
 
+                ess = progress_dict.get('ess')
+                acc = progress_dict.get('acceptance_rate')
                 status_placeholder.markdown(f"""
                 **Current Status:**
                 - Samples: {progress_dict['n_samples']}
-                - ESS: {progress_dict['ess']:.0f} / {config.sampler_settings['n_effective']}
-                - Acceptance: {f"{progress_dict['acceptance_rate']:.1%}" if progress_dict['acceptance_rate'] is not None else "N/A"}
+                - ESS: {f"{ess:.0f} / {config.sampler_settings.get('n_effective', '—')}" if ess is not None else "N/A"}
+                - Acceptance: {f"{acc:.1%}" if acc is not None else "N/A"}
                 """)
 
             # Run inference
@@ -1005,6 +1008,215 @@ def render_run_button(InferenceConfig, MCMCRunner):
             st.error(f"❌ **Inference failed:** {e}")
             with st.expander("🔍 Full traceback"):
                 st.code(st.session_state.inference_error_traceback)
+
+
+# ============================================================
+# Amortized (pretrained SBI) execution mode
+# ============================================================
+#
+# The MCMC form's priors/sigmas are meaningful inputs to a sampler; for a
+# pretrained NPE artifact they are FROZEN at training time. This mode
+# therefore renders them read-only from the artifact's own metadata, keeps
+# the observable VALUES live (that is what amortization buys), offers exact
+# prior TRUNCATION (narrowing within the trained box = exact posterior
+# conditioning for uniform priors), and routes through
+# SBIRunner.infer_from_artifact — which never trains and reuses the MCMC
+# forward model for k2/CMR2/thickness/heating recompute so every results
+# panel below works identically.
+
+# Slot registry: artifact file -> display + the structure cache its
+# recompute needs (same cache the training config used).
+_SBI_ARTIFACT_SLOTS = {
+    'titan_andrade_noocean_posterior.pt': {
+        'label': 'Titan (Andrade, no ocean) — Test50 8D [PROVISIONAL]',
+        'bodyname': 'Titan',
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Titan/'
+                       'Test50_andrade_noocean_yao2014/'
+                       'titan_allice_yao2014_structure_grid.pkl'),
+        'default_obs': {'Re_k2': 0.608, 'Im_k2': 0.135},
+    },
+}
+
+
+def _sbi_artifacts_dir():
+    return Path(parent_directory) / 'PlanetProfile' / 'Inference' / 'sbi_artifacts'
+
+
+@st.cache_resource(show_spinner="Loading SBI artifact...")
+def _load_sbi_runner(artifact_path: str, _mtime: float):
+    """Load a pretrained artifact into a sampling-only SBIRunner, cached per
+    (path, mtime) so a redeployed artifact invalidates the cache."""
+    from PlanetProfile.Inference.sbi_runner import SBIRunner
+    return SBIRunner.load_artifact(artifact_path)
+
+
+def render_amortized_config():
+    """Amortized-mode configuration form. Returns a run-spec dict or None."""
+    available = []
+    for fname, slot in _SBI_ARTIFACT_SLOTS.items():
+        p = _sbi_artifacts_dir() / fname
+        if p.exists():
+            available.append((slot['label'], fname))
+    if not available:
+        st.warning("No pretrained SBI artifacts found in "
+                   "`PlanetProfile/Inference/sbi_artifacts/`. Train and "
+                   "validate one via the SBI pipeline (see sbi_artifacts/"
+                   "INDEX.md), then reload.")
+        return None
+
+    labels = [lbl for lbl, _ in available]
+    choice = st.selectbox("Pretrained model:", labels, key='amort_artifact_choice')
+    fname = dict(available)[choice]
+    slot = _SBI_ARTIFACT_SLOTS[fname]
+    artifact_path = _sbi_artifacts_dir() / fname
+
+    runner = _load_sbi_runner(str(artifact_path), artifact_path.stat().st_mtime)
+    meta = runner.artifact_meta
+    bounds = {n: (float(lo), float(hi)) for n, (lo, hi)
+              in zip(runner.param_names, meta['param_bounds'])}
+    noise_meta = (meta.get('rejection_stats') or {}).get('obs_noise') or {}
+    train_sigma = noise_meta.get('sigma', {})
+
+    st.caption(
+        f"nsf/{meta.get('density_estimator')} · trained on "
+        f"{meta.get('n_train_effective'):,} sims · config {meta.get('config_hash')} "
+        f"· git {meta.get('git_sha')} · {meta.get('created_utc')}"
+    )
+    st.info("**Amortized mode:** priors and observation uncertainties are "
+            "frozen at training time (shown read-only below). Observable "
+            "*values* are free — conditioning is instant. Use MCMC mode to "
+            "vary priors or σ freely. See `sbi_artifacts/INDEX.md` for the "
+            "validated conditioning domain.")
+
+    # --- Priors (read-only) + exact truncation ---
+    st.markdown("#### 🔒 Trained priors")
+    st.table({
+        'parameter': list(bounds.keys()),
+        'prior': [f"uniform [{lo:g}, {hi:g}]" for lo, hi in bounds.values()],
+    })
+    truncate_bounds = {}
+    with st.expander("✂️ Prior truncation (exact, within trained bounds)"):
+        st.caption("Narrowing a uniform prior post hoc is exact (sample "
+                   "filtering). Widening requires retraining.")
+        for name, (lo, hi) in bounds.items():
+            sel = st.slider(name, min_value=lo, max_value=hi,
+                            value=(lo, hi), key=f'amort_trunc_{name}')
+            if sel != (lo, hi):
+                truncate_bounds[name] = (float(sel[0]), float(sel[1]))
+
+    # --- Observables: values live, sigmas locked ---
+    st.markdown("#### 🔭 Observables (condition the posterior)")
+    x_obs = {}
+    obs_sigma = {}
+    for name in runner.obs_names:
+        c1, c2 = st.columns(2)
+        default = slot.get('default_obs', {}).get(name, 0.0)
+        with c1:
+            x_obs[name] = st.number_input(
+                f"{name}:", value=float(default), format="%.4f",
+                key=f'amort_obs_{name}')
+        sig = float(train_sigma.get(name, float('nan')))
+        obs_sigma[name] = sig
+        with c2:
+            st.number_input(
+                "± σ (frozen at training):", value=sig, format="%.4f",
+                key=f'amort_sigma_{name}', disabled=True,
+                help="The flow was trained with this observation noise; "
+                     "changing σ requires retraining (or MCMC mode).")
+
+    # --- Sampler settings ---
+    st.markdown("#### ⚙️ Sampling")
+    n_post = st.select_slider("Posterior samples:",
+                              options=[1000, 2000, 5000, 10000, 20000, 50000],
+                              value=10000, key='amort_n_post')
+    n_reeval = st.select_slider("Heating re-evaluation subset:",
+                                options=[100, 250, 500, 1000, 2000],
+                                value=500, key='amort_n_reeval')
+    seed = st.number_input("Seed:", value=42, step=1, key='amort_seed')
+
+    # --- Structure cache (needed for the forward-model recompute) ---
+    cache_path = slot['cache_path']
+    full_cache = Path(parent_directory) / cache_path
+    if full_cache.exists():
+        st.success(f"✅ Structure cache found ({full_cache.stat().st_size/1024:.0f} KB)")
+    else:
+        st.error(f"❌ Structure cache not found: {full_cache} — rebuild it "
+                 f"(see sbi_artifacts/INDEX.md) before running.")
+        return None
+
+    return {
+        'artifact_path': str(artifact_path),
+        'runner': runner,
+        'bodyname': slot['bodyname'],
+        'param_bounds': bounds,
+        'x_obs': x_obs,
+        'obs_sigma': obs_sigma,
+        'truncate_bounds': truncate_bounds or None,
+        'n_posterior_samples': int(n_post),
+        'n_reeval': int(n_reeval),
+        'seed': int(seed),
+        'cache_path': cache_path,
+    }
+
+
+def render_amortized_run_button(spec, InferenceConfig):
+    """Run button for amortized mode: instant conditioning + recompute."""
+    st.markdown("---")
+    if spec is None:
+        st.button("⚡ Generate Posterior", disabled=True)
+        return
+    if not st.button("⚡ Generate Posterior", type="primary",
+                     help="Conditions the pretrained flow (instant) and "
+                          "recomputes k2/C-MR2/heating for the plots (~seconds)."):
+        return
+
+    try:
+        from PlanetProfile.Inference.sbi_runner import SBIRunner
+
+        config = InferenceConfig(
+            mode='sbi',
+            bodyname=spec['bodyname'],
+            param_space={n: {'prior_type': 'uniform', 'bounds': [lo, hi]}
+                         for n, (lo, hi) in spec['param_bounds'].items()},
+            observables={n: [spec['x_obs'][n], spec['obs_sigma'][n]]
+                         for n in spec['x_obs']},
+            sampler_settings={'n_reeval': spec['n_reeval']},
+            structure_cache_path=spec['cache_path'],
+            random_state=spec['seed'],
+        )
+        runner = SBIRunner(config)
+
+        progress_placeholder = st.empty()
+
+        def progress_callback(d):
+            progress_placeholder.progress(
+                d['iteration'] / d['n_total'],
+                text=f"Stage {d['iteration']} / {d['n_total']}")
+
+        with st.spinner("Conditioning pretrained flow + recomputing observables..."):
+            result = runner.infer_from_artifact(
+                spec['artifact_path'],
+                x_obs=spec['x_obs'],
+                n_posterior_samples=spec['n_posterior_samples'],
+                seed=spec['seed'],
+                n_reeval=spec['n_reeval'],
+                truncate_bounds=spec['truncate_bounds'],
+                progress_callback=progress_callback,
+            )
+
+        st.session_state.inference_results = result
+        kept = result.metadata.get('kept_fraction')
+        msg = "✅ Amortized posterior ready."
+        if kept is not None:
+            msg += f" Truncation kept {kept:.1%} of draws."
+        st.success(msg)
+
+    except Exception as e:
+        st.session_state.inference_error = str(e)
+        st.session_state.inference_error_traceback = traceback.format_exc()
+        st.error(f"❌ **Amortized inference failed:** {e}")
+        with st.expander("🔍 Full traceback"):
+            st.code(st.session_state.inference_error_traceback)
 
 
 def render_results():
@@ -1035,7 +1247,8 @@ def render_results():
         col1.metric("ESS", f"{metrics['ess']:.0f}")
         acc = metrics['acceptance_rate']
         col2.metric("Acceptance Rate", f"{acc:.1%}" if acc is not None else "N/A")
-        col3.metric("R-hat", f"{metrics['r_hat']:.3f}")
+        rhat = metrics.get('r_hat')
+        col3.metric("R-hat", f"{rhat:.3f}" if rhat is not None else "N/A")
 
         st.caption(f"**Samples:** {metrics['n_samples']} | **Runtime:** {result.metadata['elapsed_time_s']/60:.1f} min")
 
@@ -1422,7 +1635,11 @@ def render_results():
                     'Core':  '#8B5A2B',
                 }
 
-                # Use only phases actually present in the data
+                # Use only phases actually present in the data.
+                # (actual_keys was previously undefined here — a NameError
+                # silently disabled this whole sub-panel via the outer except.)
+                actual_keys = (set().union(*(h.keys() for h in heating_results if h))
+                               if any(heating_results) else set())
                 phases_to_show = [p for p in ['Ih', 'III', 'II', 'V', 'VI', 'Sil', 'Core', 'Clath']
                                   if p in actual_keys]
 
@@ -1642,11 +1859,29 @@ def main():
         render_results()
         return
 
-    # --- Run-new-MCMC mode (default) ---
+    # --- Run mode (default) ---
+    # Execution method: full MCMC sampling vs instant conditioning of a
+    # pretrained (amortized) SBI artifact. The results pipeline is shared.
+    exec_mode = st.radio(
+        "Inference method",
+        options=['mcmc', 'amortized'],
+        format_func=lambda m: ("🧮 MCMC (pocomc — full sampling, free priors/σ)"
+                               if m == 'mcmc'
+                               else "⚡ Amortized (pretrained SBI — instant, frozen priors/σ)"),
+        horizontal=True,
+        key='inference_exec_mode',
+        help="Amortized mode conditions a pretrained neural posterior "
+             "estimator: instant, but priors and observation σ are fixed at "
+             "training time. MCMC samples the full likelihood with whatever "
+             "priors/σ you configure."
+    )
+
     # Config-file selector (body + variant) — sits above the run-configuration form.
     # Populates the same session-state keys that the form widgets read so fields
-    # pre-fill after a config is applied.
-    render_config_file_selector()
+    # pre-fill after a config is applied. (MCMC mode only — amortized configs
+    # come from the artifact itself.)
+    if exec_mode == 'mcmc':
+        render_config_file_selector()
 
     # Lazy import inference modules
     imports = lazy_import_inference()
@@ -1663,6 +1898,16 @@ def main():
 
     # Two-column layout: Config (left) + Results (right)
     col_config, col_results = st.columns([1, 2])
+
+    if exec_mode == 'amortized':
+        with col_config:
+            st.subheader("⚡ Amortized Configuration")
+            spec = render_amortized_config()
+            render_amortized_run_button(spec, InferenceConfig)
+        with col_results:
+            st.subheader("📊 Results")
+            render_results()
+        return
 
     with col_config:
         st.subheader("⚙️ Configuration")

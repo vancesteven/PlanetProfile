@@ -461,6 +461,62 @@ class SBIDatasetGenerationTests(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAVE_SBI, 'sbi/torch not installed')
+class InferFromArtifactTests(unittest.TestCase):
+    """infer_from_artifact: compatibility validation + truncation bounds
+    (packaging path is covered by the real-artifact smoke below and the GUI
+    verification; these tests need no forward model)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.config = _make_toy_sbi_config()
+        runner = SBIRunner(cls.config)
+        theta, x = _toy_train_pair(runner, n=300, seed=0)
+        runner.train(theta, x, seed=0, density_estimator='maf', max_num_epochs=40)
+        cls.td = tempfile.TemporaryDirectory()
+        cls.artifact_path = Path(cls.td.name) / 'toy_artifact.pt'
+        runner.save_artifact(cls.artifact_path)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.td.cleanup()
+
+    def test_rejects_mismatched_prior_box(self):
+        cfg = _make_toy_sbi_config(bounds=((-1.0, 1.0), (-1.0, 3.0)))
+        runner = SBIRunner(cfg)
+        with self.assertRaisesRegex(ValueError, 'prior box'):
+            runner.infer_from_artifact(self.artifact_path)
+
+    def test_rejects_mismatched_params(self):
+        cfg = _make_toy_sbi_config()
+        d = cfg.to_dict()
+        d['param_space'] = {'other1': d['param_space']['theta1'],
+                            'other2': d['param_space']['theta2']}
+        from PlanetProfile.Inference.inference_core import InferenceConfig
+        runner = SBIRunner(InferenceConfig.from_dict(d))
+        with self.assertRaisesRegex(ValueError, 'parameters'):
+            runner.infer_from_artifact(self.artifact_path)
+
+    def test_truncation_bounds_validated(self):
+        runner = SBIRunner(self.config)
+        artifact = runner._load_artifact_dict(self.artifact_path)
+        runner._posterior = artifact['posterior']
+        with self.assertRaisesRegex(ValueError, 'inside the trained prior box'):
+            runner._validate_truncation({'theta1': (-5.0, 0.0)})
+        with self.assertRaisesRegex(ValueError, 'unknown parameter'):
+            runner._validate_truncation({'nope': (0.0, 1.0)})
+        # In-box truncation validates cleanly.
+        runner._validate_truncation({'theta1': (-1.0, 1.0)})
+
+
+def _toy_train_pair(runner, n, seed):
+    prior = runner.build_prior()
+    torch.manual_seed(seed)
+    theta_t = prior.sample((n,))
+    x_t = theta_t + 0.05 * torch.randn_like(theta_t)
+    return theta_t.numpy().astype(np.float64), x_t.numpy().astype(np.float64)
+
+
+@unittest.skipUnless(_HAVE_SBI, 'sbi/torch not installed')
 class SBIArtifactAndTrainingTests(unittest.TestCase):
     """Tasks 7-8: sbi_runner.py train/save/load/sample plumbing against a
     cheap synthetic BoxUniform + linear-Gaussian toy simulator."""
