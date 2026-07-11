@@ -1441,10 +1441,20 @@ def render_results():
                 finite_mask = np.isfinite(cmr2_results)
                 cmr2_vals = cmr2_results[finite_mask]
 
-                # Detect fixed-structure case: all samples share the same CMR2
-                # (occurs when no structural parameters like Tb_K are free).
+                # Detect effectively-fixed CMR2: either truly constant (no
+                # structural parameters free) or varying only at the cache-
+                # discretization level (core-blind models like Test50: the
+                # 9-point Tb grid moves CMR2 by ~2.5e-5). Rendering that
+                # numerical noise as a full histogram produces a misleading
+                # offset-notation axis (ticks in 1e-5 above the mean), so
+                # treat anything far below the observation's sigma (or an
+                # absolute floor) as fixed and show the constraint-band view.
                 cmr2_range = cmr2_vals.max() - cmr2_vals.min()
-                is_fixed = cmr2_range < 1e-8
+                _obs_err_for_scale = (cmr2_obs[1] if cmr2_obs is not None
+                                      else None)
+                fixed_tol = (0.1 * _obs_err_for_scale
+                             if _obs_err_for_scale else 1e-4)
+                is_fixed = cmr2_range < max(fixed_tol, 1e-8)
 
                 fig, ax = plt.subplots(figsize=(7, 4))
 
@@ -1476,10 +1486,13 @@ def render_results():
                     ax.legend(fontsize=9)
 
                     st.info(
-                        "The structure is **fixed** for this model (no structural parameters "
-                        "such as Tb_K are free). C/MR² is constant across all posterior "
-                        "samples and acts as a uniform chi² offset — it constrains the "
-                        "structure but does not discriminate between rheological models."
+                        f"C/MR² is **effectively constant** across the posterior for this "
+                        f"model (range {cmr2_range:.2g} — cache-discretization level). "
+                        f"This happens when no core/structural parameters are sampled "
+                        f"(core-blind models like Test50): C/MR² acts as a uniform χ² "
+                        f"offset and does not discriminate between rheological models. "
+                        f"For a C/MR²-constrained posterior use a differentiated-core "
+                        f"model (Test52-family)."
                     )
                 else:
                     # Variable CMR2 — full histogram
@@ -1547,6 +1560,14 @@ def render_results():
             st.info("Heating data unavailable. Set **n_reeval > 0** in sampler "
                     "settings (or the heating re-evaluation subset in amortized "
                     "mode) to compute per-phase heating.")
+            st.caption(
+                f"Diagnostic: result carries {len(heating_results)} heating "
+                f"entries ({n_nonempty} non-empty); sampler = "
+                f"{(result.metadata or {}).get('sampler')}, generated "
+                f"{(result.metadata or {}).get('elapsed_time_s', 0):.0f}s run. "
+                f"If this run was made with a re-evaluation subset > 0, the "
+                f"app server is likely running stale code — restart it."
+            )
         else:
             st.caption(f"{n_nonempty} forward-model heating evaluations "
                        f"(seeded subset of the posterior).")
