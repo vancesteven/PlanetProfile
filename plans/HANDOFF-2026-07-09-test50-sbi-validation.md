@@ -391,22 +391,37 @@ awaiting deployment decision — dataset generation already running.
 ### Phase 1 item 2 — Test52 10D (Titan no-ocean + CMR2)
 
 Dataset generated: `/tmp/train_test52_1m.npz` (seed 45/noise 4545).
-- n_kept=878,415 / n_requested=1,000,000 (rejection_rate=12.2% — all nonfinite)
-- n_rejected_support=0; rejection is entirely forward-model nonfinite outputs (NaN at
-  extreme 10D prior combinations, principally rho_sil mass-conservation failures at the
-  (R_core, rho_core) boundary). Scientific reviewer (opus) confirmed: this is expected
-  physics filtering; NPE handles non-uniform prior coverage; 878k is adequate.
-- Held-out: `/tmp/heldout_test52_1500.npz` (1316 kept, seed 778/7778, ~12% rejection
-  consistent with training set).
-- nsf training underway: `train_sbi_artifact.py --dataset /tmp/train_test52_1m.npz
-  --config test52_titan_noocean_andrade_10D.json --seed 42 --density-estimator nsf
-  --output /tmp/titan_diff_noocean_andrade_test52_1m.pt` (~110 min expected, running).
-- Test52 limits anchor configs generated at `/tmp/test52_limits_anchors/sweep_im{0.05..0.30}.json`
-  (10D, n_effective=300, Im_k2 swept with sigma=0.035).
-- Test52 reference MCMC for crosscheck: `PlanetProfile/Test/mcmc_results/Titan/
-  Test52_andrade_noocean_diff/production_run/test52_production_result.pkl` (confirmed
-  present; same observable set Re_k2/Im_k2/CMR2 as training config).
-- Status: training in progress; gates will run when training completes.
+- n_kept=878,415 (12.2% rejection, all nonfinite — rho_sil mass-conservation, expected).
+- Held-out: 1316 rows seed 778/7778.
+- Test52 limits anchor configs at `/tmp/test52_limits_anchors/sweep_im{0.05..0.30}.json`.
+- Reference MCMC for crosscheck: `PlanetProfile/Test/mcmc_results/Titan/
+  Test52_andrade_noocean_diff/production_run/test52_production_result.pkl` (present).
+
+**v1 artifact: training quality failure from extreme x outliers**
+- Trained on full dataset (878k rows, ~0.06% extreme k2 outliers up to Re=18, Im=16).
+- sbi's z-scoring failed: x z-score distorted by outliers → posterior sampling stuck at
+  0% acceptance when using sbi's batched sampler (0/1000 proposals accepted in SBC).
+- Fix applied: `validate_sbi._run_sbc_check` now uses manual loop with
+  `reject_outside_prior=False`; committed git 2f7cac00.
+- v1 SBC with fix: FAIL (log10_zeta p=0.048, eta_V p=0.023); 7.6% samples outside
+  prior support (sign of z-scoring distortion). Crosscheck FAIL (alpha D=0.056, zeta
+  D=0.051, Tb D=0.070 vs tols 0.048/0.049/0.047).
+- Root cause: the 0.06% (532 rows) of extreme-k2 outliers distorted z-score normalization
+  even though those rows are physically valid (rare forward-model extremes at corner
+  prior combinations). SBI's z-scoring uses mean/std which are sensitive to outliers.
+
+**v2 artifact: retraining on outlier-filtered dataset (IN PROGRESS)**
+- Dataset `/tmp/train_test52_clean.npz`: 877,883 rows (532 outlier rows removed via
+  per-dimension 10xIQR filter: Re_k2 to [-3.76,4.43], Im_k2 to [-0.95,1.16]).
+- v2 nsf training launched (seed 42, ~97 min expected); output:
+  `/tmp/titan_diff_noocean_andrade_test52_1m_v2.pt`.
+- Gates (SBC/crosscheck/limits) will run after v2 training completes.
+- 6 limits anchors already computed: `/tmp/test52_anchors_im{0.05..0.30}.pkl`.
+
+**NOTE for Machine A:** The sbi z-scoring is sensitive to outlier x values. For any
+config where the forward model can produce rare extreme observables (tidal k2 at corner
+prior values), dataset-gen should include an outlier filter or `train_sbi_artifact.py`
+should apply it before training. Consider adding a `--clip-x-iqr` option.
 
 ### Phase 1 item 3 — Callisto NaCl k2+h2+induction — BLOCKED (config issue)
 
