@@ -386,6 +386,72 @@ Provisional 500k stands until swapped.
 **Machine B proceeding to Phase 1 items 2 and 3** (Test52 10D + Callisto NaCl) while
 awaiting deployment decision — dataset generation already running.
 
+## PHASE 1 CAMPAIGN PROGRESS — Machine B (2026-07-11)
+
+### Phase 1 item 2 — Test52 10D (Titan no-ocean + CMR2)
+
+Dataset generated: `/tmp/train_test52_1m.npz` (seed 45/noise 4545).
+- n_kept=878,415 / n_requested=1,000,000 (rejection_rate=12.2% — all nonfinite)
+- n_rejected_support=0; rejection is entirely forward-model nonfinite outputs (NaN at
+  extreme 10D prior combinations, principally rho_sil mass-conservation failures at the
+  (R_core, rho_core) boundary). Scientific reviewer (opus) confirmed: this is expected
+  physics filtering; NPE handles non-uniform prior coverage; 878k is adequate.
+- Held-out: `/tmp/heldout_test52_1500.npz` (1316 kept, seed 778/7778, ~12% rejection
+  consistent with training set).
+- nsf training underway: `train_sbi_artifact.py --dataset /tmp/train_test52_1m.npz
+  --config test52_titan_noocean_andrade_10D.json --seed 42 --density-estimator nsf
+  --output /tmp/titan_diff_noocean_andrade_test52_1m.pt` (~110 min expected, running).
+- Test52 limits anchor configs generated at `/tmp/test52_limits_anchors/sweep_im{0.05..0.30}.json`
+  (10D, n_effective=300, Im_k2 swept with sigma=0.035).
+- Test52 reference MCMC for crosscheck: `PlanetProfile/Test/mcmc_results/Titan/
+  Test52_andrade_noocean_diff/production_run/test52_production_result.pkl` (confirmed
+  present; same observable set Re_k2/Im_k2/CMR2 as training config).
+- Status: training in progress; gates will run when training completes.
+
+### Phase 1 item 3 — Callisto NaCl k2+h2+induction — BLOCKED (config issue)
+
+**SURFACE TO MACHINE A BEFORE MACHINE B CAN TRAIN:**
+
+Dataset attempted (seed 46/noise 4646). Diagnostic run revealed:
+1. **31% rejection rate** (685k kept / 1M requested) — all nonfinite. Scientific
+   reviewer confirmed: dominated by rho_sil mass-conservation bounds (intended physics
+   filter), not numerical failure. 685k is adequate IF the config is fixed (see below).
+2. **x_obs lies OUTSIDE the training manifold** — critical blocker:
+   | Observable | x_obs (config target) | simulated range [min, max] |
+   |---|---|---|
+   | CMR2 | 0.3549 | [0.346, 0.376] ← x_obs within range (pct=11.6%) |
+   | Re_k2 | 0.200 | **[0.486, 0.960]** ← x_obs BELOW minimum |
+   | Im_k2 | 0.000 | **[0.0001, 0.119]** ← x_obs at boundary |
+   | Re_h2 | 1.120 | **[1.297, 2.353]** ← x_obs BELOW minimum |
+   | Im_h2 | 0.000 | **[0.0004, 0.364]** ← x_obs at boundary |
+   | Ae_synodic_real | 0.0205 | [0.0205, 0.0205] ← degenerate (Ae nearly Tb-constant) |
+   | Ae_synodic_imag | -0.1479 | [-0.1479, -0.1478] ← degenerate |
+   | Ae_synodic 2nd_real | 0.0777 | [0.0776, 0.0777] ← degenerate |
+   | Ae_synodic 2nd_imag | -0.2799 | [-0.2800, -0.2798] ← degenerate |
+   | Ae_orbital_real | ~0 | ~0 ← degenerate |
+   | Ae_orbital_imag | -0.0038 | [-0.0038, -0.0038] ← degenerate |
+
+   Conditioning an NPE artifact on x_obs values outside the training x-cloud is
+   **extrapolation** — the posterior would be unreliable. The config's observable
+   target values (Re_k2=0.2, Re_h2=1.12) appear to be placeholder values (see config
+   metadata: "Same values for all three bodies as placeholders pending body-specific
+   updates").
+
+3. **Ae channels are degenerate** (~10⁻⁴ variation): the handoff notes "Callisto Ae is
+   nearly Tb-constant across the grid (weakly informative for SBI)". These channels
+   contribute essentially zero information and will dominate the x-vector with
+   near-constant noise. Recommend dropping them from this config's SBI x-vector, OR
+   confirming that their variation is meaningful at the inference level.
+
+**Required Machine A actions before training:**
+- (a) Update the config's observable target values to match the actual Callisto
+  measurements: real Re_k2 ≈ 0.58 (Mazarico 2023), Re_h2 ≈ 1.3–1.5, Im values
+  near 0 are within range but boundary — confirm with literature.
+- (b) Decide whether to retain the Ae channels (degenerate, weakly informative) or
+  drop them from the SBI x-vector for this config.
+- (c) Once config is updated, re-check that x_obs falls within the simulated x-cloud.
+  Machine B will regenerate the dataset after config update is pushed.
+
 ## MACHINE B QUEUE (user directive 2026-07-11): further inference caches + artifacts
 
 Pull latest genai first — REQUIRED: the SBI dataset generator only gained induction
