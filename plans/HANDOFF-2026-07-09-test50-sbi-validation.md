@@ -679,3 +679,38 @@ D. **Limits gate:** replace falsified monotonicity check with direct flow-vs-MCM
   tail residual).
 - GUI Titan slot NOT deployed. Step 5 (deploy + visual verify incl. CMR2 checkbox fix)
   blocked on ratification.
+
+## EUROPA READINESS — Machine B (2026-07-12)
+
+Machine A is planning Europa work; Machine B ran a pipeline readiness check (does NOT
+touch config/observables — those are Machine A's authoring task).
+
+**Pipeline verified working end-to-end.** Smoke test (200 requested, seed 99/noise 999)
+on `configs/europa_seawater_andrade_7D.json` (mode forced 'sbi'):
+- 194 kept, **rejection_rate 3%** (far healthier than Callisto 31% / Test52 12%).
+- theta (194, 7), x (194, 13): 7D params [alpha, log10_zeta, log10_eta_Ih, log10_eta_sil,
+  Tb_K, R_core_km, rho_core_kgm3] + 13 observables (CMR2, Re/Im k2, Re/Im h2, 7 Ae channels).
+- Structure grid present: `Test/mcmc_results/Europa/Test51_seawater/europa_seawater_structure_grid.pkl`.
+- Reference MCMC pickles load cleanly with matching 7D param set:
+  `T25_production_seawater/T25_europa_seawater_result.pkl` (4374 samples) and
+  `Test51_seawater/test51_europa_seawater_results.pkl` (4227 samples).
+
+**Observable-target status (for Machine A's Europa direction):**
+| Observable | current target | smoke manifold range | note |
+|---|---|---|---|
+| CMR2 | 0.3547 | [0.321, 0.372] | in range; looks body-specific |
+| Re_k2 | 0.2 | [-0.06, 0.76] | **PLACEHOLDER** — needs real Europa value |
+| Im_k2 | 0.0 | [-0.14, 0.18] | **PLACEHOLDER** |
+| Re_h2 | 1.12 | [-0.03, 1.78] | **PLACEHOLDER** |
+| Im_h2 | 0.0 | [-0.27, 0.38] | **PLACEHOLDER** |
+| Ae_* (7 induction) | body-specific | all targets in range | ready (unlike Callisto's degenerate Ae) |
+
+UNLIKE Callisto, Europa's k2/h2 placeholders happen to fall INSIDE the manifold, so a run
+would technically complete — but they are still generic placeholders, not real values.
+**Machine A action for Europa deployment: replace Re_k2/Im_k2/Re_h2/Im_h2 with literature
+values (Galileo/Clipper tidal constraints).** Induction (Ae) channels already ready.
+
+**Once Machine A pushes corrected k2/h2 targets, Machine B can immediately:** generate 1M
+dataset (same pipeline as Test50/Test52) → train nsf seed 42 → held-out set → anchor MCMCs
+→ three gates. No new infrastructure needed. Crosscheck reference:
+T25_europa_seawater_result.pkl (production) or test51 (whichever Machine A designates).
