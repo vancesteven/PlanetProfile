@@ -187,7 +187,18 @@ class OceanEOSStruct:
                             self.w_ppt = wMax[self.comp]
                         if self.comp == 'NaCl':
                             SFcomp = 'NaClaq'
-                            self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
+                            if sigmaFixed_Sm is not None:
+                                # Explicit fixed-conductivity escape hatch.
+                                self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
+                            else:
+                                # Pan et al. (2021) NaCl(aq) conductivity —
+                                # default as of 2026-07-12 (previously the
+                                # insulating pure-water placeholder 1e-5 S/m,
+                                # which made NaCl-ocean induction responses
+                                # degenerate, e.g. Callisto).
+                                from PlanetProfile.Thermodynamics.NaCl.NaClProps import \
+                                    NaClConductPan2021
+                                self.ufn_sigma_Sm = NaClConductPan2021(self.w_ppt)
                         else:
                             SFcomp = self.comp
                             self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)  # Placeholder until lab data can be implemented

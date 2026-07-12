@@ -576,6 +576,44 @@ Seeds registry (all new): Test52 data 45/4545; Callisto 46/4646; Europa 47/4747;
 Ganymede 48/4848; Titan-ocean 49/4949. Held-out seeds: 778/7778, 779/7779, 780/7780,
 781/7781, 782/7782 respectively. Train seed always 42.
 
+## CALLISTO CONDUCTIVITY + MACHINE B QUEUE (2026-07-12, user-approved plan)
+
+Machine A DONE (commit this push):
+- **Pan et al. (2021) NaCl(aq) conductivity implemented** —
+  `PlanetProfile/Thermodynamics/NaCl/NaClProps.py` (`NaClConductPan2021`), now the
+  DEFAULT for comp='NaCl' (HydroEOS dispatch; sigmaFixed_Sm escape hatch kept).
+  Model reproduced from the AUTHORS' regression spreadsheet (Mendeley
+  10.17632/g43xkvm3gx.6) — the published Eq. 3 typography is unrecoverable from the
+  PDF; the spreadsheet formula matches published sigma_calc to machine precision.
+  Validation dataset committed (tests/data/pan2021_validation.csv, 69 rows);
+  tests/nacl_conductivity_test.py 5/5 (exactness vs authors' sigma_calc; scatter vs
+  measured == paper's R^2=0.993 fit quality; physical trends; SeaFreeze-rho path;
+  ocean magnitude ~4.5 S/m at 300 MPa/255 K vs the old 1e-5 placeholder).
+
+MACHINE B QUEUE (order):
+1. **Rebuild Callisto NaCl grid** with the new conductivity (build_phase_c1_cache,
+   callisto_nacl_andrade_8D.json, --template PlanetProfile.Default.Callisto.PPCallisto,
+   --n-grid 11 --force). KNOWN ISSUE on Machine A: the PPCallisto porous-silicate
+   build crashes with `PhaseConv does not have a definition for phase ID 7` (ice VII
+   pore fluid, Geophysical.py:1119 SilRecursionPorous) — pre-existing env-dependent
+   issue, NOT the conductivity change (crash precedes ElecConduct). If Machine B
+   hits it too: add an ice-VII ('VII') entry to Utilities/Indexing.PhaseConv or
+   surface for a joint fix before rebuilding.
+2. **Ae reevaluation diagnostic** (pre-registered rule, user directive): with the new
+   cache, compute the synodic |Ae| span across the 11-pt Tb grid. KEEP the Ae
+   channels iff span > 3x the channel sigma (induction then discriminates Tb); else
+   drop. Report numbers in an addendum either way. (Europa-pattern diagnostic; the
+   old 'degenerate Ae' verdict was an artifact of the 1e-5 placeholder conductivity.)
+3. **MgSO4 Pan et al. (2020) conductivity option — IMPLEMENT (opus 4.8)**: the
+   elecType='Pan2020' switch calls `Panetal2020()` which is NEVER DEFINED
+   (MgSO4Props.py:531 — latent NameError; default Vance2018 masks it). Paper now at
+   papers/pan2020*.pdf. Same self-validating pattern as NaCl: prefer the paper's
+   public dataset/SI over PDF equation extraction; validate implementation against
+   the authors' own calculated values; commit the validation rows; unit tests;
+   KEEP Vance2018 as the default elecType (this adds the option only).
+4. Callisto config + reference MCMC + SBI wait for Machine A's C-B phase (CMR2
+   plateau likelihood + observable targets — next Machine A session).
+
 ## Open ratification items (after 1M)
 
 1. eta_Ih/eta_V KS materiality margin if 1M still fails (opus framework: bootstrap
