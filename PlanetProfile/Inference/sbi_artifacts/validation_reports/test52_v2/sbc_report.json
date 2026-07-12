@@ -1,0 +1,185 @@
+{
+  "check": "sbc",
+  "gate": "per-parameter rank-uniformity KS p >= 0.05",
+  "verdict": "FAIL",
+  "results": {
+    "n_sbc_pairs": 1000,
+    "num_posterior_samples": 1000,
+    "ks_alpha": 0.05,
+    "per_parameter": [
+      {
+        "param": "$\\alpha$",
+        "ks_pval": 0.8962942957878113,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.6014999999999999
+      },
+      {
+        "param": "$\\log_{10}\\zeta$",
+        "ks_pval": 0.4057478904724121,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.606
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{Ih}$",
+        "ks_pval": 0.5002636909484863,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.598
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{III}$",
+        "ks_pval": 0.5002636909484863,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.568
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{V}$",
+        "ks_pval": 0.015874560922384262,
+        "ks_pass": false,
+        "c2st_rank_accuracy": 0.5740000000000001
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{VI}$",
+        "ks_pval": 0.19349417090415955,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.558
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{sil}$",
+        "ks_pval": 0.656639814376831,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5934999999999999
+      },
+      {
+        "param": "$T_b$ (K)",
+        "ks_pval": 0.16848479211330414,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5945
+      },
+      {
+        "param": "R_core_km",
+        "ks_pval": 0.28580600023269653,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5824999999999999
+      },
+      {
+        "param": "rho_core_kgm3",
+        "ks_pval": 0.9755797386169434,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5710000000000001
+      }
+    ],
+    "all_pass": false,
+    "min_ks_pval": 0.015874560922384262
+  },
+  "source": {
+    "mode": "dataset",
+    "dataset": "/tmp/heldout_test52_1500.npz"
+  },
+  "artifact": "/tmp/titan_diff_noocean_andrade_test52_1m_v2.pt",
+  "artifact_meta": {
+    "schema_version": 1,
+    "config_hash": "2bf1f7b2d1708e28",
+    "bodyname": "Titan",
+    "git_sha": "5d7c27df",
+    "seed": 42,
+    "n_train_effective": 877883,
+    "sbi_version": "0.26.1",
+    "torch_version": "2.11.0",
+    "created_utc": "2026-07-11T22:44:21Z",
+    "density_estimator": "nsf",
+    "imag_convention": "abs",
+    "param_names": [
+      "alpha",
+      "log10_zeta",
+      "log10_eta_Ih",
+      "log10_eta_III",
+      "log10_eta_V",
+      "log10_eta_VI",
+      "log10_eta_sil",
+      "Tb_K",
+      "R_core_km",
+      "rho_core_kgm3"
+    ],
+    "param_bounds": [
+      [
+        0.15,
+        0.45
+      ],
+      [
+        -3.0,
+        2.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        18.0,
+        22.0
+      ],
+      [
+        249.0,
+        250.965
+      ],
+      [
+        0.0,
+        2000.0
+      ],
+      [
+        2591.0,
+        3600.0
+      ]
+    ],
+    "obs_names": [
+      "Re_k2",
+      "Im_k2",
+      "CMR2"
+    ],
+    "rejection_stats": {
+      "n_requested": 1000000,
+      "n_rejected_support": 0,
+      "n_rejected_nonfinite": 121585,
+      "rejection_rate": 0.121585,
+      "imag_convention": "abs",
+      "seed": 45,
+      "obs_noise": {
+        "type": "gaussian_diagonal",
+        "sigma": {
+          "Re_k2": 0.048,
+          "Im_k2": 0.035,
+          "CMR2": 0.001
+        },
+        "noise_seed": 4545,
+        "refold_im": false
+      },
+      "apply_support_guard": true,
+      "n_kept": 878415,
+      "note": "10xIQR_per_dim_filter",
+      "n_filtered": 532
+    }
+  },
+  "rank_plot": "/tmp/gate_sbc_test52_v2/sbc_rank_cdf.png",
+  "provenance": {
+    "seed": 42,
+    "timestamp_utc": "2026-07-11T22:46:59Z",
+    "git_sha": "5d7c27df",
+    "versions": {
+      "torch": "2.11.0",
+      "sbi": "0.26.1",
+      "scipy": "1.16.3",
+      "numpy": "2.4.6"
+    }
+  }
+}
