@@ -37,18 +37,22 @@ the config's sampled parameters.
 
 ## Deployed artifacts
 
-| Slot file | Source config | config_hash | git SHA | seed | n_train | Gate reports | Deployed |
+| Slot file | Source config | config_hash | git SHA | seed | n_train | Gates | Deployed |
 |---|---|---|---|---|---|---|---|
-| titan_andrade_noocean_posterior.pt (**PROVISIONAL**) | test50_titan_noocean_andrade_8D.json | 629afbd55a4f0ce5 | 278c3bea | train 42 / data 43 / noise 4343 | 499,915 (nsf) | see below | 2026-07-09 |
+| titan_andrade_noocean_posterior.pt | test50_titan_noocean_andrade_8D.json | 629afbd55a4f0ce5 | bf7c938e | train 42 / data 44 / noise 4444 | 999,816 (nsf) | ALL GREEN within domain (amended rules, 2026-07-11) | 2026-07-12 (user-ratified; pending Machine B artifact push) |
 
-**PROVISIONAL status (user-approved for GUI preview, 2026-07-09):** SBC PASSES
-decisively (1000 held-out pairs, min KS p=0.252). Crosscheck mean+sigma gates all pass
-(worst dmean 0.18 of tol 0.40); KS residual on 4 params (p 6e-6..3e-3) pending the 1M
-retrain + materiality ratification. Anchor-limits passes at |Im k2| = 0.05/0.10/0.15/0.30,
-fails 0.20/0.25 (0.25 is the bimodal-median regime — see
-plans/HANDOFF-2026-07-09-test50-sbi-validation.md). Posteriors conditioned near the
-observed point (Re k2 0.608, |Im k2| 0.135) are well-validated; treat conditioning at
-|Im k2| >= 0.20 as unvalidated extrapolation until the anchor gate passes.
+**Scope note (deployment condition, user-ratified 2026-07-11):**
+- **Validated conditioning domain: |Im k2| <= 0.20.** SBC (1000 pairs) PASS; crosscheck
+  vs the Test50 production MCMC PASS on all 8 parameters under the ratified shape gate
+  (max D 0.048 vs tol 0.055, max |dmedian| 0.085 dex); W1 anchor gate PASS at
+  Im = 0.05/0.10/0.15/0.16/0.17/0.18/0.20/0.30.
+- **Known limitation:** directional low-viscosity (eta_Ih) bias in the bimodal posterior
+  regime above Im k2 ~ 0.18; the Im = 0.25 anchor fails (W1 = 0.473 vs tol 0.349) —
+  the flow overweights the low-eta mode there. The GUI enforces a HARD guard refusing
+  conditioning at Im k2 > 0.20 (`x_obs_limits` in the Inference-page slot registry);
+  use MCMC mode beyond the domain.
+- Previous provisional 500k artifact (git 278c3bea, data seed 43/4343) superseded;
+  retrievable from git history.
 
 ## Pipeline pointers
 

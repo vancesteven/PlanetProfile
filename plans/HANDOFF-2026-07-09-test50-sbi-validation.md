@@ -383,6 +383,22 @@ for deployment (open item 4):
 Artifact NOT yet deployed pending user decision and Machine A implementing the guard.
 Provisional 500k stands until swapped.
 
+### DEPLOYMENT RATIFIED (user, 2026-07-12) — Machine A guard DONE, Machine B action
+
+User approved deploying the 1M artifact with the guard. Machine A has implemented:
+- Hard runtime guard in the GUI slot registry (`x_obs_limits: Im_k2 <= 0.20` in
+  Inference.py `_SBI_ARTIFACT_SLOTS`): conditioning outside the validated domain is
+  REFUSED with a clear message directing to MCMC mode.
+- INDEX.md provenance row + scope note updated for the 1M artifact (validated domain,
+  directional low-eta bias onset ~0.18, Im=0.25 W1 failure).
+
+**MACHINE B — final deployment step:** copy
+`/tmp/titan_andrade_noocean_posterior_1m.pt` over
+`PlanetProfile/Inference/sbi_artifacts/titan_andrade_noocean_posterior.pt`, run the
+pre-deploy assertions (obs_names == ['Re_k2','Im_k2'], imag_convention 'abs',
+param_names == the 8D set, config_hash 629afbd55a4f0ce5), commit + push. The GUI slot
+picks it up automatically (loader cache keys on file mtime).
+
 **Machine B proceeding to Phase 1 items 2 and 3** (Test52 10D + Callisto NaCl) while
 awaiting deployment decision — dataset generation already running.
 

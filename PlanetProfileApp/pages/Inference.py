@@ -1028,12 +1028,22 @@ def render_run_button(InferenceConfig, MCMCRunner):
 # recompute needs (same cache the training config used).
 _SBI_ARTIFACT_SLOTS = {
     'titan_andrade_noocean_posterior.pt': {
-        'label': 'Titan (Andrade, no ocean) — Test50 8D [PROVISIONAL]',
+        'label': 'Titan (Andrade, no ocean) — Test50 8D',
         'bodyname': 'Titan',
         'cache_path': ('PlanetProfile/Test/mcmc_results/Titan/'
                        'Test50_andrade_noocean_yao2014/'
                        'titan_allice_yao2014_structure_grid.pkl'),
         'default_obs': {'Re_k2': 0.608, 'Im_k2': 0.135},
+        # Hard validated-domain guard (user-ratified deployment condition,
+        # 2026-07-11): the anchor gates validate conditioning only for
+        # |Im k2| <= 0.20; above that the flow shows a directional low-eta
+        # bias (onset ~0.18, W1 gate failure at 0.25). Runs outside these
+        # limits are refused, not warned.
+        'x_obs_limits': {'Im_k2': (0.0, 0.20)},
+        'scope_note': ('Validated domain: |Im k2| <= 0.20 (SBC + crosscheck '
+                       '+ 8/9 W1 anchors green). Known limitation: '
+                       'directional low-viscosity bias in the bimodal '
+                       'regime above Im k2 ~ 0.18; see sbi_artifacts/INDEX.md.'),
     },
 }
 
@@ -1133,6 +1143,22 @@ def render_amortized_config():
                                 options=[100, 250, 500, 1000, 2000],
                                 value=500, key='amort_n_reeval')
     seed = st.number_input("Seed:", value=42, step=1, key='amort_seed')
+
+    # --- Validated-domain guard (hard refusal, per deployment conditions) ---
+    if slot.get('scope_note'):
+        st.caption(f"ℹ️ {slot['scope_note']}")
+    domain_violations = []
+    for name, (lo, hi) in (slot.get('x_obs_limits') or {}).items():
+        val = x_obs.get(name)
+        if val is not None and not (lo <= abs(val) <= hi):
+            domain_violations.append(
+                f"{name} = {val:g} outside validated domain [{lo:g}, {hi:g}]")
+    if domain_violations:
+        st.error("🚫 **Outside validated conditioning domain** — this "
+                 "artifact's gates only validate posteriors within its "
+                 "domain; conditioning beyond it is refused (use MCMC mode "
+                 "instead): " + "; ".join(domain_violations))
+        return None
 
     # --- Structure cache (needed for the forward-model recompute) ---
     cache_path = slot['cache_path']
