@@ -1185,6 +1185,67 @@ def render_amortized_config():
     }
 
 
+def render_model_assumptions(exec_mode: str):
+    """Model build-up + assumptions text, shared by both execution modes."""
+    with st.expander("📖 Model build-up & assumptions"):
+        st.markdown("""
+**Forward model chain** (identical physics for MCMC and amortized modes):
+
+1. **Interior structure** — a precomputed PlanetProfile thermodynamic profile
+   grid over the ice-shell basal temperature `T_b`: radial density, bulk and
+   shear moduli, and phase assignments from the equation-of-state stack
+   (SeaFreeze et al.), built once per body configuration and cached
+   (the *structure cache*). Each posterior sample selects the nearest-`T_b`
+   grid structure.
+2. **Rheology** — sampled parameters modify the viscoelastic properties per
+   ice/rock phase: Andrade (`α`, `ζ`, per-phase viscosities `η`) or Maxwell
+   (viscosities only). Viscosities are sampled as log₁₀ quantities.
+3. **Tidal response** — the TidalPy multilayer radial solver computes the
+   complex Love numbers k₂ (and h₂) for the modified structure at the
+   body's tidal forcing frequency; per-phase tidal heating comes from the
+   same solution (volumetric heating integrated over each phase layer).
+4. **Moment of inertia** — configurations that sample a core
+   (`R_core`, `ρ_core`) derive the silicate density by mass conservation
+   against the cached hydrosphere and integrate C/MR² analytically
+   (plus a per-`T_b` discretization-offset anchor where a sidecar file
+   exists). Core-blind configurations read the cached C/MR², which is then
+   effectively constant.
+5. **Magnetic induction** (when configured) — the cached conductivity
+   profile yields the complex induction response `Ae` per excitation
+   frequency.
+6. **Likelihood** — a diagonal Gaussian χ² over the configured observables
+   (|Im k₂| convention for the imaginary channel). No-ocean configurations
+   apply a phase-stability guard that rejects samples whose ice-Ih shell
+   would melt.
+7. **Priors** — uniform boxes over the sampled parameters.
+
+**Key assumptions:** spherical symmetry; linear viscoelastic response at
+the tidal frequency; the chosen rheological law; hydrostatic interior
+structure from the PlanetProfile profile; fixed ocean/rock composition per
+configuration; independent Gaussian observational errors.
+""")
+        if exec_mode == 'amortized':
+            st.markdown("""
+**Amortized specifics:** a neural posterior estimator (normalizing flow,
+NPE) was trained once on prior-predictive simulations of this forward
+model, with observation noise injected to match the Gaussian likelihood.
+Priors and observation σ are therefore **frozen at training time**;
+conditioning on new observable values is instant. The artifact was
+validated against the MCMC posterior via simulation-based calibration
+(SBC), a full cross-check, and ground-truth anchor comparisons — see
+`sbi_artifacts/INDEX.md` for the validated conditioning domain. The
+plotted k₂ / C-MR² / heating values are recomputed with the *same forward
+model* used by MCMC, not by the flow.
+""")
+        else:
+            st.markdown("""
+**MCMC specifics:** the posterior is sampled with pocoMC (preconditioned
+Monte Carlo) against the full likelihood, so priors, observables, and
+uncertainties are all freely configurable. Convergence is tracked via
+effective sample size, acceptance rate, and R-hat.
+""")
+
+
 def _amortized_spec_fingerprint(spec):
     """Stable fingerprint of everything that changes the posterior, used to
     flag stale results when controls move after a run."""
@@ -1445,6 +1506,18 @@ def render_results():
             ax.legend()
             st.pyplot(fig)
             plt.close(fig)
+            caption_bits = ["Red ellipses: 1σ / 2σ observational constraint."]
+            if isinstance(pt_size, np.ndarray):
+                caption_bits.append(
+                    "**Point size** scales with the sampled basal temperature "
+                    "T_b (larger = warmer ice shell base; the structural "
+                    "dimension of the model).")
+            if f_sil is not None and len(f_sil) == len(Re_arr):
+                caption_bits.append(
+                    "**Color** is the fraction of tidal heating dissipated "
+                    "in the silicate interior (blue = ice-dominated, red = "
+                    "rock-dominated dissipation).")
+            st.caption(" ".join(caption_bits))
         except Exception as e:
             st.warning(f"k₂ scatter unavailable: {e}")
 
@@ -1987,6 +2060,7 @@ def main():
     if exec_mode == 'amortized':
         with col_config:
             st.subheader("⚡ Amortized Configuration")
+            render_model_assumptions('amortized')
             spec = render_amortized_config()
             render_amortized_run_button(spec, InferenceConfig)
         with col_results:
@@ -2007,6 +2081,8 @@ def main():
 
     with col_config:
         st.subheader("⚙️ Configuration")
+
+        render_model_assumptions('mcmc')
 
         if st.button("🔄 Reset Configuration", help="Clear all inference settings and reload defaults"):
             for key in ['inference_param_space', 'inference_selected_params', 'inference_preset',
